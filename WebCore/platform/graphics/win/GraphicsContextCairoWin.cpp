@@ -59,32 +59,6 @@ static cairo_t* createCairoContextWithHDC(HDC hdc, bool hasAlpha)
     return context;
 }
 
-static BITMAPINFO bitmapInfoForSize(const IntSize& size)
-{
-    BITMAPINFO bitmapInfo;
-    bitmapInfo.bmiHeader.biSize          = sizeof(BITMAPINFOHEADER);
-    bitmapInfo.bmiHeader.biWidth         = size.width(); 
-    bitmapInfo.bmiHeader.biHeight        = size.height();
-    bitmapInfo.bmiHeader.biPlanes        = 1;
-    bitmapInfo.bmiHeader.biBitCount      = 32;
-    bitmapInfo.bmiHeader.biCompression   = BI_RGB;
-    bitmapInfo.bmiHeader.biSizeImage     = 0;
-    bitmapInfo.bmiHeader.biXPelsPerMeter = 0;
-    bitmapInfo.bmiHeader.biYPelsPerMeter = 0;
-    bitmapInfo.bmiHeader.biClrUsed       = 0;
-    bitmapInfo.bmiHeader.biClrImportant  = 0;
-
-    return bitmapInfo;
-}
-
-static void fillWithClearColor(HBITMAP bitmap)
-{
-    BITMAP bmpInfo;
-    GetObject(bitmap, sizeof(bmpInfo), &bmpInfo);
-    int bufferSize = bmpInfo.bmWidthBytes * bmpInfo.bmHeight;
-    memset(bmpInfo.bmBits, 0, bufferSize);
-}
-
 GraphicsContext::GraphicsContext(HDC dc, bool hasAlpha)
     : m_common(createGraphicsContextPrivate())
     , m_data(new GraphicsContextPlatformPrivate)
@@ -103,53 +77,6 @@ GraphicsContext::GraphicsContext(HDC dc, bool hasAlpha)
         setPlatformFillColor(fillColor());
         setPlatformStrokeColor(strokeColor());
     }
-}
-
-HDC GraphicsContext::getWindowsContext(const IntRect& dstRect, bool supportAlphaBlend, bool mayCreateBitmap)
-{
-    // FIXME: Should a bitmap be created also when a shadow is set?
-    if (mayCreateBitmap && inTransparencyLayer()) {
-        if (dstRect.isEmpty())
-            return 0;
-
-        // Create a bitmap DC in which to draw.
-        BITMAPINFO bitmapInfo = bitmapInfoForSize(dstRect.size());
-
-        void* pixels = 0;
-        HBITMAP bitmap = ::CreateDIBSection(NULL, &bitmapInfo, DIB_RGB_COLORS, &pixels, 0, 0);
-        if (!bitmap)
-            return 0;
-
-        HDC bitmapDC = ::CreateCompatibleDC(m_data->m_hdc);
-        ::SelectObject(bitmapDC, bitmap);
-
-        // Fill our buffer with clear if we're going to alpha blend.
-        if (supportAlphaBlend)
-           fillWithClearColor(bitmap);
-
-        // Make sure we can do world transforms.
-        SetGraphicsMode(bitmapDC, GM_ADVANCED);
-
-        // Apply a translation to our context so that the drawing done will be at (0,0) of the bitmap.
-        XFORM xform;
-        xform.eM11 = 1.0f;
-        xform.eM12 = 0.0f;
-        xform.eM21 = 0.0f;
-        xform.eM22 = 1.0f;
-        xform.eDx = -dstRect.x();
-        xform.eDy = -dstRect.y();
-        ::SetWorldTransform(bitmapDC, &xform);
-
-        return bitmapDC;
-    }
-
-    cairo_surface_t* surface = cairo_win32_surface_create(m_data->m_hdc);
-    cairo_surface_flush(surface);
-    cairo_surface_destroy(surface);
-
-    m_data->save();
-
-    return m_data->m_hdc;
 }
 
 void GraphicsContext::releaseWindowsContext(HDC hdc, const IntRect& dstRect, bool supportAlphaBlend, bool mayCreateBitmap)
@@ -194,27 +121,22 @@ void GraphicsContext::releaseWindowsContext(HDC hdc, const IntRect& dstRect, boo
     ::DeleteObject(bitmap);
 }
 
-void GraphicsContextPlatformPrivate::concatCTM(const TransformationMatrix& transform)
-{
-    const cairo_matrix_t* matrix = reinterpret_cast<const cairo_matrix_t*>(&transform);
-
-    XFORM xform;
-    xform.eM11 = matrix->xx;
-    xform.eM12 = matrix->xy;
-    xform.eM21 = matrix->yx;
-    xform.eM22 = matrix->yy;
-    xform.eDx = matrix->x0;
-    xform.eDy = matrix->y0;
-
-    ModifyWorldTransform(m_hdc, &xform, MWT_LEFTMULTIPLY);
-}
-
 void GraphicsContextPlatformPrivate::syncContext(PlatformGraphicsContext* cr)
 {
+    if (!cr)
+       return;
+
     cairo_surface_t* surface = cairo_get_target(cr);
     m_hdc = cairo_win32_surface_get_dc(surface);   
 
     SetGraphicsMode(m_hdc, GM_ADVANCED); // We need this call for themes to honor world transforms.
+}
+
+void GraphicsContextPlatformPrivate::flush()
+{
+    cairo_surface_t* surface = cairo_win32_surface_create(m_hdc);
+    cairo_surface_flush(surface);
+    cairo_surface_destroy(surface);
 }
 
 }

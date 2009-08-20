@@ -31,7 +31,6 @@
 #include "WorkQueue.h"
 
 #include "WorkQueueItem.h"
-#include <wtf/Assertions.h>
 
 static const unsigned queueLength = 1024;
 
@@ -52,8 +51,8 @@ WorkQueue::WorkQueue()
 
 void WorkQueue::queue(WorkQueueItem* item)
 {
-    ASSERT(endOfQueue < queueLength);
-    ASSERT(endOfQueue >= startOfQueue);
+    Q_ASSERT(endOfQueue < queueLength);
+    Q_ASSERT(endOfQueue >= startOfQueue);
 
     if (m_frozen) {
         delete item;
@@ -65,7 +64,7 @@ void WorkQueue::queue(WorkQueueItem* item)
 
 WorkQueueItem* WorkQueue::dequeue()
 {
-    ASSERT(endOfQueue >= startOfQueue);
+    Q_ASSERT(endOfQueue >= startOfQueue);
 
     if (startOfQueue == endOfQueue)
         return 0;
@@ -87,4 +86,19 @@ void WorkQueue::clear()
 
     startOfQueue = 0;
     endOfQueue = 0;
+}
+
+bool WorkQueue::processWork()
+{
+    bool startedLoad = false;
+
+    while (!startedLoad && count()) {
+        WorkQueueItem* item = dequeue();
+        Q_ASSERT(item);
+        startedLoad = item->invoke();
+        delete item;
+    }
+
+    // If we're done and we didn't start a load, then we're really done, so return true.
+    return !startedLoad;
 }

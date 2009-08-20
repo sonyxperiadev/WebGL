@@ -35,6 +35,9 @@
 #include <qdir.h>
 #include <qdebug.h>
 #include <qfont.h>
+#include <qwebsettings.h>
+#include <qwebdatabase.h>
+#include <qdesktopservices.h>
 
 #ifdef Q_WS_X11
 #include <qx11info_x11.h>
@@ -94,28 +97,10 @@ int main(int argc, char* argv[])
 {
 #ifdef Q_WS_X11
     FcInit();
-    FcConfig *config = FcConfigCreate();
-    QByteArray fontDir = getenv("WEBKIT_TESTFONTS");
-    if (fontDir.isEmpty() || !QDir(fontDir).exists()) {
-        fprintf(stderr,
-                "\n\n"
-                "--------------------------------------------------------------------\n"
-                "WEBKIT_TESTFONTS environment variable is not set correctly.\n"
-                "This variable has to point to the directory containing the fonts\n"
-                "you can checkout from svn://labs.trolltech.com/svn/webkit/testfonts\n"
-                "--------------------------------------------------------------------\n"
-);
-        exit(1);
-    }
-    char currentPath[PATH_MAX+1];
-    getcwd(currentPath, PATH_MAX);
-    QByteArray configFile = currentPath;
-    configFile += "/WebKitTools/DumpRenderTree/qt/fonts.conf";
-    if (!FcConfigParseAndLoad (config, (FcChar8*) configFile.data(), true))
-        qFatal("Couldn't load font configuration file");
-    if (!FcConfigAppFontAddDir (config, (FcChar8*) fontDir.data()))
-        qFatal("Couldn't add font dir!");
-    FcConfigSetCurrent(config);
+    WebCore::DumpRenderTree::initializeFonts();
+#if QT_VERSION >= 0x040500
+    QApplication::setGraphicsSystem("raster");
+#endif
 #endif
     QApplication app(argc, argv);
 #ifdef Q_WS_X11
@@ -152,6 +137,13 @@ int main(int argc, char* argv[])
         qInstallMsgHandler(messageHandler);
 
     WebCore::DumpRenderTree dumper;
+
+    if (args.contains("--pixel-tests"))
+        dumper.setDumpPixels(true);
+
+    QString dbDir = QDesktopServices::storageLocation(QDesktopServices::DataLocation) + QDir::separator() + "qtwebkitdrt";
+    QWebSettings::setOfflineStoragePath(dbDir);
+    QWebDatabase::removeAllDatabases();
 
     if (args.last() == QLatin1String("-")) {
         dumper.open();

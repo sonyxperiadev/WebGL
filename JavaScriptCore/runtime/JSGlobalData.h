@@ -33,6 +33,7 @@
 #include "ExecutableAllocator.h"
 #include "JITStubs.h"
 #include "JSValue.h"
+#include "MarkStack.h"
 #include "SmallStrings.h"
 #include "TimeoutChecker.h"
 #include <wtf/Forward.h>
@@ -47,16 +48,18 @@ namespace JSC {
     class CommonIdentifiers;
     class FunctionBodyNode;
     class IdentifierTable;
-    class Instruction;
     class Interpreter;
     class JSGlobalObject;
     class JSObject;
     class Lexer;
     class Parser;
     class ScopeNode;
+    class Stringifier;
     class Structure;
     class UString;
+
     struct HashTable;
+    struct Instruction;    
     struct VPtrSet;
 
     class JSGlobalData : public RefCounted<JSGlobalData> {
@@ -82,6 +85,7 @@ namespace JSC {
 
         const HashTable* arrayTable;
         const HashTable* dateTable;
+        const HashTable* jsonTable;
         const HashTable* mathTable;
         const HashTable* numberTable;
         const HashTable* regExpTable;
@@ -94,7 +98,11 @@ namespace JSC {
         RefPtr<Structure> stringStructure;
         RefPtr<Structure> notAnObjectErrorStubStructure;
         RefPtr<Structure> notAnObjectStructure;
-#if !USE(ALTERNATE_JSIMMEDIATE)
+        RefPtr<Structure> propertyNameIteratorStructure;
+        RefPtr<Structure> getterSetterStructure;
+        RefPtr<Structure> apiWrapperStructure;
+
+#if USE(JSVALUE32)
         RefPtr<Structure> numberStructure;
 #endif
 
@@ -117,20 +125,13 @@ namespace JSC {
         Interpreter* interpreter;
 #if ENABLE(JIT)
         JITThunks jitStubs;
-        FunctionBodyNode* nativeFunctionThunk()
-        {
-            if (!lazyNativeFunctionThunk)
-                createNativeThunk();
-            return lazyNativeFunctionThunk.get();
-        }
-        RefPtr<FunctionBodyNode> lazyNativeFunctionThunk;
 #endif
         TimeoutChecker timeoutChecker;
         Heap heap;
 
         JSValue exception;
 #if ENABLE(JIT)
-        void* exceptionLocation;
+        ReturnAddressPtr exceptionLocation;
 #endif
 
         const Vector<Instruction>& numericCompareFunction(ExecState*);
@@ -145,7 +146,9 @@ namespace JSC {
         HashSet<JSObject*> arrayVisitedElements;
 
         ScopeNode* scopeNodeBeingReparsed;
+        Stringifier* firstStringifierToMark;
 
+        MarkStack markStack;
     private:
         JSGlobalData(bool isShared, const VPtrSet&);
         static JSGlobalData*& sharedInstanceInternal();

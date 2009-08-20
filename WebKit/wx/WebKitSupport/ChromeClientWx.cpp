@@ -27,6 +27,7 @@
 
 #include "config.h"
 #include "ChromeClientWx.h"
+#include "Console.h"
 #include "FileChooser.h"
 #include "FloatRect.h"
 #include "FrameLoadRequest.h"
@@ -199,7 +200,10 @@ void ChromeClientWx::setResizable(bool)
     notImplemented();
 }
 
-void ChromeClientWx::addMessageToConsole(const String& message,
+void ChromeClientWx::addMessageToConsole(MessageSource source,
+                                          MessageType type,
+                                          MessageLevel level,
+                                          const String& message,
                                           unsigned int lineNumber,
                                           const String& sourceID)
 {
@@ -239,25 +243,50 @@ void ChromeClientWx::closeWindowSoon()
 
 void ChromeClientWx::runJavaScriptAlert(Frame* frame, const String& string)
 {
-    wxMessageBox(string, wxT("JavaScript Alert"), wxOK);
+    if (m_webView) {
+        wxWebViewAlertEvent wkEvent(m_webView);
+        wkEvent.SetMessage(string);
+        if (!m_webView->GetEventHandler()->ProcessEvent(wkEvent))
+            wxMessageBox(string, wxT("JavaScript Alert"), wxOK);
+    }
 }
 
 bool ChromeClientWx::runJavaScriptConfirm(Frame* frame, const String& string)
 {
-    wxMessageDialog dialog(NULL, string, wxT("JavaScript Confirm"), wxYES_NO);
-    dialog.Centre();
-    return (dialog.ShowModal() == wxID_YES);
+    bool result = false;
+    if (m_webView) {
+        wxWebViewConfirmEvent wkEvent(m_webView);
+        wkEvent.SetMessage(string);
+        if (m_webView->GetEventHandler()->ProcessEvent(wkEvent))
+            result = wkEvent.GetReturnCode() == wxID_YES;
+        else {
+            wxMessageDialog dialog(NULL, string, wxT("JavaScript Confirm"), wxYES_NO);
+            dialog.Centre();
+            result = (dialog.ShowModal() == wxID_YES);
+        }
+    }
+    return result;
 }
 
 bool ChromeClientWx::runJavaScriptPrompt(Frame* frame, const String& message, const String& defaultValue, String& result)
 {
-    wxTextEntryDialog dialog(NULL, message, wxT("JavaScript Prompt"), wxEmptyString, wxOK | wxCANCEL);
-    dialog.Centre();
-    if (dialog.ShowModal() == wxID_OK) {
-        result = dialog.GetValue();
-        return true;
+    if (m_webView) {
+        wxWebViewPromptEvent wkEvent(m_webView);
+        wkEvent.SetMessage(message);
+        wkEvent.SetResponse(defaultValue);
+        if (m_webView->GetEventHandler()->ProcessEvent(wkEvent)) {
+            result = wkEvent.GetResponse();
+            return true;
+        }
+        else {
+            wxTextEntryDialog dialog(NULL, message, wxT("JavaScript Prompt"), wxEmptyString, wxOK | wxCANCEL);
+            dialog.Centre();
+            if (dialog.ShowModal() == wxID_OK) {
+                result = dialog.GetValue();
+                return true;
+            }
+        }
     }
-    
     return false;
 }
 
@@ -336,7 +365,7 @@ void ChromeClientWx::mouseDidMoveOverElement(const HitTestResult&, unsigned modi
     notImplemented();
 }
 
-void ChromeClientWx::setToolTip(const String& tip)
+void ChromeClientWx::setToolTip(const String& tip, TextDirection)
 {
     wxToolTip* tooltip = m_webView->GetToolTip();
     if (!tooltip || tooltip->GetTip() != wxString(tip))
@@ -369,6 +398,18 @@ void ChromeClientWx::scroll(const IntSize&, const IntRect&, const IntRect&)
 
 void ChromeClientWx::runOpenPanel(Frame*, PassRefPtr<FileChooser>)
 {
+    notImplemented();
+}
+
+bool ChromeClientWx::setCursor(PlatformCursorHandle)
+{
+    notImplemented();
+    return false;
+}
+
+void ChromeClientWx::requestGeolocationPermissionForFrame(Frame*, Geolocation*)
+{
+    // See the comment in WebCore/page/ChromeClient.h
     notImplemented();
 }
 

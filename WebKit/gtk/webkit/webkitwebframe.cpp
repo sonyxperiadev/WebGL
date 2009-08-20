@@ -6,6 +6,7 @@
  * Copyright (C) 2008 Collabora Ltd.
  * Copyright (C) 2008 Nuanti Ltd.
  * Copyright (C) 2009 Jan Alonzo <jmalonzo@gmail.com>
+ * Copyright (C) 2009 Gustavo Noronha Silva <gns@gnome.org>
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -25,21 +26,27 @@
 
 #include "config.h"
 
+#include "webkitenumtypes.h"
 #include "webkitwebframe.h"
 #include "webkitwebview.h"
 #include "webkitmarshal.h"
 #include "webkitprivate.h"
 
+#include "AccessibilityObjectWrapperAtk.h"
 #include "AnimationController.h"
+#include "AXObjectCache.h"
 #include "CString.h"
 #include "DocumentLoader.h"
 #include "FrameLoader.h"
 #include "FrameLoaderClientGtk.h"
 #include "FrameTree.h"
 #include "FrameView.h"
+#include <glib/gi18n-lib.h>
+#include "GCController.h"
 #include "GraphicsContext.h"
 #include "HTMLFrameOwnerElement.h"
 #include "JSDOMWindow.h"
+#include "JSLock.h"
 #include "PrintContext.h"
 #include "RenderView.h"
 #include "RenderTreeAsText.h"
@@ -47,6 +54,7 @@
 #include "ScriptController.h"
 #include "SubstituteData.h"
 
+#include <atk/atk.h>
 #include <JavaScriptCore/APICast.h>
 
 /**
@@ -71,8 +79,6 @@ using namespace WebKit;
 using namespace WebCore;
 using namespace std;
 
-extern "C" {
-
 enum {
     CLEARED,
     LOAD_COMMITTED,
@@ -87,7 +93,8 @@ enum {
 
     PROP_NAME,
     PROP_TITLE,
-    PROP_URI
+    PROP_URI,
+    PROP_LOAD_STATUS
 };
 
 static guint webkit_web_frame_signals[LAST_SIGNAL] = { 0, };
@@ -107,6 +114,9 @@ static void webkit_web_frame_get_property(GObject* object, guint prop_id, GValue
         break;
     case PROP_URI:
         g_value_set_string(value, webkit_web_frame_get_uri(frame));
+        break;
+    case PROP_LOAD_STATUS:
+        g_value_set_enum(value, webkit_web_frame_get_load_status(frame));
         break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -149,7 +159,7 @@ static void webkit_web_frame_class_init(WebKitWebFrameClass* frameClass)
      */
     webkit_web_frame_signals[CLEARED] = g_signal_new("cleared",
             G_TYPE_FROM_CLASS(frameClass),
-            (GSignalFlags)(G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION),
+            (GSignalFlags)G_SIGNAL_RUN_LAST,
             0,
             NULL,
             NULL,
@@ -158,16 +168,25 @@ static void webkit_web_frame_class_init(WebKitWebFrameClass* frameClass)
 
     webkit_web_frame_signals[LOAD_COMMITTED] = g_signal_new("load-committed",
             G_TYPE_FROM_CLASS(frameClass),
-            (GSignalFlags)(G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION),
+            (GSignalFlags)G_SIGNAL_RUN_LAST,
             0,
             NULL,
             NULL,
             g_cclosure_marshal_VOID__VOID,
             G_TYPE_NONE, 0);
 
+    /**
+     * WebKitWebFrame::load-done
+     * @web_frame: the object on which the signal is emitted
+     *
+     * Emitted when frame loading is done.
+     *
+     * Deprecated: Use WebKitWebView::load-finished instead, and/or
+     * WebKitWebView::load-error to be notified of load errors
+     */
     webkit_web_frame_signals[LOAD_DONE] = g_signal_new("load-done",
             G_TYPE_FROM_CLASS(frameClass),
-            (GSignalFlags)(G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION),
+            (GSignalFlags)G_SIGNAL_RUN_LAST,
             0,
             NULL,
             NULL,
@@ -177,7 +196,7 @@ static void webkit_web_frame_class_init(WebKitWebFrameClass* frameClass)
 
     webkit_web_frame_signals[TITLE_CHANGED] = g_signal_new("title-changed",
             G_TYPE_FROM_CLASS(frameClass),
-            (GSignalFlags)(G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION),
+            (GSignalFlags)G_SIGNAL_RUN_LAST,
             0,
             NULL,
             NULL,
@@ -187,7 +206,7 @@ static void webkit_web_frame_class_init(WebKitWebFrameClass* frameClass)
 
     webkit_web_frame_signals[HOVERING_OVER_LINK] = g_signal_new("hovering-over-link",
             G_TYPE_FROM_CLASS(frameClass),
-            (GSignalFlags)(G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION),
+            (GSignalFlags)G_SIGNAL_RUN_LAST,
             0,
             NULL,
             NULL,
@@ -207,24 +226,39 @@ static void webkit_web_frame_class_init(WebKitWebFrameClass* frameClass)
      */
     g_object_class_install_property(objectClass, PROP_NAME,
                                     g_param_spec_string("name",
-                                                        "Name",
-                                                        "The name of the frame",
+                                                        _("Name"),
+                                                        _("The name of the frame"),
                                                         NULL,
                                                         WEBKIT_PARAM_READABLE));
 
     g_object_class_install_property(objectClass, PROP_TITLE,
                                     g_param_spec_string("title",
-                                                        "Title",
-                                                        "The document title of the frame",
+                                                        _("Title"),
+                                                        _("The document title of the frame"),
                                                         NULL,
                                                         WEBKIT_PARAM_READABLE));
 
     g_object_class_install_property(objectClass, PROP_URI,
                                     g_param_spec_string("uri",
-                                                        "URI",
-                                                        "The current URI of the contents displayed by the frame",
+                                                        _("URI"),
+                                                        _("The current URI of the contents displayed by the frame"),
                                                         NULL,
                                                         WEBKIT_PARAM_READABLE));
+
+    /**
+    * WebKitWebFrame:load-status:
+    *
+    * Determines the current status of the load.
+    *
+    * Since: 1.1.7
+    */
+    g_object_class_install_property(objectClass, PROP_LOAD_STATUS,
+                                    g_param_spec_enum("load-status",
+                                                      "Load Status",
+                                                      "Determines the current status of the load",
+                                                      WEBKIT_TYPE_LOAD_STATUS,
+                                                      WEBKIT_LOAD_FINISHED,
+                                                      WEBKIT_PARAM_READABLE));
 
     g_type_class_add_private(frameClass, sizeof(WebKitWebFramePrivate));
 }
@@ -396,6 +430,25 @@ void webkit_web_frame_load_uri(WebKitWebFrame* frame, const gchar* uri)
     coreFrame->loader()->load(ResourceRequest(KURL(KURL(), String::fromUTF8(uri))), false);
 }
 
+static void webkit_web_frame_load_data(WebKitWebFrame* frame, const gchar* content, const gchar* mimeType, const gchar* encoding, const gchar* baseURL, const gchar* unreachableURL)
+{
+    Frame* coreFrame = core(frame);
+    ASSERT(coreFrame);
+
+    KURL baseKURL = baseURL ? KURL(KURL(), String::fromUTF8(baseURL)) : blankURL();
+
+    ResourceRequest request(baseKURL);
+
+    RefPtr<SharedBuffer> sharedBuffer = SharedBuffer::create(content, strlen(content));
+    SubstituteData substituteData(sharedBuffer.release(),
+                                  mimeType ? String::fromUTF8(mimeType) : String::fromUTF8("text/html"),
+                                  encoding ? String::fromUTF8(encoding) : String::fromUTF8("UTF-8"),
+                                  baseKURL,
+                                  KURL(KURL(), String::fromUTF8(unreachableURL)));
+
+    coreFrame->loader()->load(request, substituteData, false);
+}
+
 /**
  * webkit_web_frame_load_string:
  * @frame: a #WebKitWebFrame
@@ -418,15 +471,28 @@ void webkit_web_frame_load_string(WebKitWebFrame* frame, const gchar* content, c
     g_return_if_fail(WEBKIT_IS_WEB_FRAME(frame));
     g_return_if_fail(content);
 
-    Frame* coreFrame = core(frame);
-    if (!coreFrame)
-        return;
+    webkit_web_frame_load_data(frame, content, contentMimeType, contentEncoding, baseUri, NULL);
+}
 
-    KURL url(KURL(), baseUri ? String::fromUTF8(baseUri) : "");
-    RefPtr<SharedBuffer> sharedBuffer = SharedBuffer::create(content, strlen(content));
-    SubstituteData substituteData(sharedBuffer.release(), contentMimeType ? String(contentMimeType) : "text/html", contentEncoding ? String(contentEncoding) : "UTF-8", blankURL(), url);
+/**
+ * webkit_web_frame_load_alternate_string:
+ * @frame: a #WebKitWebFrame
+ * @content: the alternate content to display as the main page of the @frame
+ * @base_url: the base URI for relative locations
+ * @unreachable_url: the URL for the alternate page content
+ *
+ * Request loading of an alternate content for a URL that is unreachable.
+ * Using this method will preserve the back-forward list. The URI passed in
+ * @base_url has to be an absolute URI.
+ *
+ * Since: 1.1.6
+ */
+void webkit_web_frame_load_alternate_string(WebKitWebFrame* frame, const gchar* content, const gchar* baseURL, const gchar* unreachableURL)
+{
+    g_return_if_fail(WEBKIT_IS_WEB_FRAME(frame));
+    g_return_if_fail(content);
 
-    coreFrame->loader()->load(ResourceRequest(url), substituteData, false);
+    webkit_web_frame_load_data(frame, content, NULL, NULL, baseURL, unreachableURL);
 }
 
 /**
@@ -449,9 +515,7 @@ void webkit_web_frame_load_request(WebKitWebFrame* frame, WebKitNetworkRequest* 
     if (!coreFrame)
         return;
 
-    // TODO: Use the ResourceRequest carried by WebKitNetworkRequest when it is implemented.
-    String string = String::fromUTF8(webkit_network_request_get_uri(request));
-    coreFrame->loader()->load(ResourceRequest(KURL(KURL(), string)), false);
+    coreFrame->loader()->load(core(request), false);
 }
 
 /**
@@ -610,9 +674,7 @@ gchar* webkit_web_frame_dump_render_tree(WebKitWebFrame* frame)
     return g_strdup(string.utf8().data());
 }
 
-#if GTK_CHECK_VERSION(2,10,0)
-
-static void begin_print(GtkPrintOperation* op, GtkPrintContext* context, gpointer user_data)
+static void begin_print_callback(GtkPrintOperation* op, GtkPrintContext* context, gpointer user_data)
 {
     PrintContext* printContext = reinterpret_cast<PrintContext*>(user_data);
 
@@ -630,7 +692,7 @@ static void begin_print(GtkPrintOperation* op, GtkPrintContext* context, gpointe
     gtk_print_operation_set_n_pages(op, printContext->pageCount());
 }
 
-static void draw_page(GtkPrintOperation* op, GtkPrintContext* context, gint page_nr, gpointer user_data)
+static void draw_page_callback(GtkPrintOperation* op, GtkPrintContext* context, gint page_nr, gpointer user_data)
 {
     PrintContext* printContext = reinterpret_cast<PrintContext*>(user_data);
 
@@ -640,34 +702,72 @@ static void draw_page(GtkPrintOperation* op, GtkPrintContext* context, gint page
     printContext->spoolPage(ctx, page_nr, width);
 }
 
-static void end_print(GtkPrintOperation* op, GtkPrintContext* context, gpointer user_data)
+static void end_print_callback(GtkPrintOperation* op, GtkPrintContext* context, gpointer user_data)
 {
     PrintContext* printContext = reinterpret_cast<PrintContext*>(user_data);
     printContext->end();
 }
 
-void webkit_web_frame_print(WebKitWebFrame* frame)
+/**
+ * webkit_web_frame_print_full:
+ * @frame: a #WebKitWebFrame to be printed
+ * @operation: the #GtkPrintOperation to be carried
+ * @action: the #GtkPrintOperationAction to be performed
+ * @error: #GError for error return
+ *
+ * Prints the given #WebKitFrame, using the given #GtkPrintOperation
+ * and #GtkPrintOperationAction. This function wraps a call to
+ * gtk_print_operation_run() for printing the contents of the
+ * #WebKitWebFrame.
+ *
+ * Since: 1.1.5
+ */
+GtkPrintOperationResult webkit_web_frame_print_full(WebKitWebFrame* frame, GtkPrintOperation* operation, GtkPrintOperationAction action, GError** error)
 {
+    g_return_val_if_fail(WEBKIT_IS_WEB_FRAME(frame), GTK_PRINT_OPERATION_RESULT_ERROR);
+    g_return_val_if_fail(GTK_IS_PRINT_OPERATION(operation), GTK_PRINT_OPERATION_RESULT_ERROR);
+
     GtkWidget* topLevel = gtk_widget_get_toplevel(GTK_WIDGET(webkit_web_frame_get_web_view(frame)));
     if (!GTK_WIDGET_TOPLEVEL(topLevel))
         topLevel = NULL;
 
     Frame* coreFrame = core(frame);
     if (!coreFrame)
-        return;
+        return GTK_PRINT_OPERATION_RESULT_ERROR;
 
     PrintContext printContext(coreFrame);
 
-    GtkPrintOperation* op = gtk_print_operation_new();
-    g_signal_connect(op, "begin-print", G_CALLBACK(begin_print), &printContext);
-    g_signal_connect(op, "draw-page", G_CALLBACK(draw_page), &printContext);
-    g_signal_connect(op, "end-print", G_CALLBACK(end_print), &printContext);
-    GError *error = NULL;
-    gtk_print_operation_run(op, GTK_PRINT_OPERATION_ACTION_PRINT_DIALOG, GTK_WINDOW(topLevel), &error);
-    g_object_unref(op);
+    g_signal_connect(operation, "begin-print", G_CALLBACK(begin_print_callback), &printContext);
+    g_signal_connect(operation, "draw-page", G_CALLBACK(draw_page_callback), &printContext);
+    g_signal_connect(operation, "end-print", G_CALLBACK(end_print_callback), &printContext);
+
+    return gtk_print_operation_run(operation, action, GTK_WINDOW(topLevel), error);
+}
+
+/**
+ * webkit_web_frame_print:
+ * @frame: a #WebKitWebFrame
+ *
+ * Prints the given #WebKitFrame, by presenting a print dialog to the
+ * user. If you need more control over the printing process, see
+ * webkit_web_frame_print_full().
+ *
+ * Since: 1.1.5
+ */
+void webkit_web_frame_print(WebKitWebFrame* frame)
+{
+    g_return_if_fail(WEBKIT_IS_WEB_FRAME(frame));
+
+    WebKitWebFramePrivate* priv = frame->priv;
+    GtkPrintOperation* operation = gtk_print_operation_new();
+    GError* error = 0;
+
+    webkit_web_frame_print_full(frame, operation, GTK_PRINT_OPERATION_ACTION_PRINT_DIALOG, &error);
+    g_object_unref(operation);
 
     if (error) {
-        GtkWidget* dialog = gtk_message_dialog_new(GTK_WINDOW(topLevel),
+        GtkWidget* window = gtk_widget_get_toplevel(GTK_WIDGET(priv->webView));
+        GtkWidget* dialog = gtk_message_dialog_new(GTK_WIDGET_TOPLEVEL(window) ? GTK_WINDOW(window) : 0,
                                                    GTK_DIALOG_DESTROY_WITH_PARENT,
                                                    GTK_MESSAGE_ERROR,
                                                    GTK_BUTTONS_CLOSE,
@@ -678,15 +778,6 @@ void webkit_web_frame_print(WebKitWebFrame* frame)
         gtk_widget_show(dialog);
     }
 }
-
-#else
-
-void webkit_web_frame_print(WebKitWebFrame*)
-{
-    g_warning("Printing support is not available in older versions of GTK+");
-}
-
-#endif
 
 bool webkit_web_frame_pause_animation(WebKitWebFrame* frame, const gchar* name, double time, const gchar* element)
 {
@@ -727,4 +818,68 @@ gchar* webkit_web_frame_get_response_mime_type(WebKitWebFrame* frame)
     return g_strdup(mimeType.utf8().data());
 }
 
+/**
+ * webkit_web_frame_get_load_status:
+ * @frame: a #WebKitWebView
+ *
+ * Determines the current status of the load.
+ *
+ * Since: 1.1.7
+ */
+WebKitLoadStatus webkit_web_frame_get_load_status(WebKitWebFrame* frame)
+{
+    g_return_val_if_fail(WEBKIT_IS_WEB_FRAME(frame), WEBKIT_LOAD_FINISHED);
+
+    WebKitWebFramePrivate* priv = frame->priv;
+    return priv->loadStatus;
+}
+
+void webkit_web_frame_clear_main_frame_name(WebKitWebFrame* frame)
+{
+    g_return_if_fail(WEBKIT_IS_WEB_FRAME(frame));
+
+    core(frame)->tree()->clearName();
+}
+
+void webkit_gc_collect_javascript_objects()
+{
+    gcController().garbageCollectNow();
+}
+
+void webkit_gc_collect_javascript_objects_on_alternate_thread(gboolean waitUntilDone)
+{
+    gcController().garbageCollectOnAlternateThreadForDebugging(waitUntilDone);
+}
+
+gsize webkit_gc_count_javascript_objects()
+{
+    JSC::JSLock lock(JSC::SilenceAssertionsOnly);
+    return JSDOMWindow::commonJSGlobalData()->heap.objectCount();
+
+}
+
+AtkObject* webkit_web_frame_get_focused_accessible_element(WebKitWebFrame* frame)
+{
+    g_return_val_if_fail(WEBKIT_IS_WEB_FRAME(frame), NULL);
+
+#if HAVE(ACCESSIBILITY)
+    if (!AXObjectCache::accessibilityEnabled())
+        AXObjectCache::enableAccessibility();
+
+    WebKitWebFramePrivate* priv = frame->priv;
+    if (!priv->coreFrame || !priv->coreFrame->document())
+        return NULL;
+
+    RenderView* root = toRenderView(priv->coreFrame->document()->renderer());
+    if (!root)
+        return NULL;
+
+    AtkObject* wrapper =  priv->coreFrame->document()->axObjectCache()->getOrCreate(root)->wrapper();
+    if (!wrapper)
+        return NULL;
+
+    return webkit_accessible_get_focused_element(WEBKIT_ACCESSIBLE(wrapper));
+#else
+    return NULL;
+#endif
 }

@@ -251,7 +251,7 @@ public:
 
     virtual void paintObject(PaintInfo&, int /*tx*/, int /*ty*/) { ASSERT_NOT_REACHED(); }
     virtual void paintBoxDecorations(PaintInfo&, int tx, int ty);
-    virtual void paintMask(PaintInfo& paintInfo, int tx, int ty);
+    virtual void paintMask(PaintInfo&, int tx, int ty);
     virtual void imageChanged(WrappedImagePtr, const IntRect* = 0);
 
     // Called when a positioned object moves but doesn't change size.  A simplified layout is done
@@ -288,10 +288,10 @@ protected:
     virtual void styleDidChange(StyleDifference, const RenderStyle* oldStyle);
     virtual void updateBoxModelInfoFromStyle();
 
-    void paintFillLayer(const PaintInfo&, const Color&, const FillLayer*, int clipY, int clipHeight, int tx, int ty, int width, int height, CompositeOperator = CompositeSourceOver);
-    void paintFillLayers(const PaintInfo&, const Color&, const FillLayer*, int clipY, int clipHeight, int tx, int ty, int width, int height, CompositeOperator = CompositeSourceOver);
+    void paintFillLayer(const PaintInfo&, const Color&, const FillLayer*, int tx, int ty, int width, int height, CompositeOperator = CompositeSourceOver);
+    void paintFillLayers(const PaintInfo&, const Color&, const FillLayer*, int tx, int ty, int width, int height, CompositeOperator = CompositeSourceOver);
 
-    void paintMaskImages(const PaintInfo&, int clipY, int clipHeight, int tx, int ty, int width, int height);
+    void paintMaskImages(const PaintInfo&, int tx, int ty, int width, int height);
 
 #if PLATFORM(MAC)
     void paintCustomHighlight(int tx, int ty, const AtomicString& type, bool behindText);
@@ -365,16 +365,16 @@ private:
     static bool s_hadOverflowClip;
 };
 
-inline RenderBox* toRenderBox(RenderObject* o)
+inline RenderBox* toRenderBox(RenderObject* object)
 { 
-    ASSERT(!o || o->isBox());
-    return static_cast<RenderBox*>(o);
+    ASSERT(!object || object->isBox());
+    return static_cast<RenderBox*>(object);
 }
 
-inline const RenderBox* toRenderBox(const RenderObject* o)
+inline const RenderBox* toRenderBox(const RenderObject* object)
 { 
-    ASSERT(!o || o->isBox());
-    return static_cast<const RenderBox*>(o);
+    ASSERT(!object || object->isBox());
+    return static_cast<const RenderBox*>(object);
 }
 
 // This will catch anyone doing an unnecessary cast.

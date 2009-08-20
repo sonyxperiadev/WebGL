@@ -73,7 +73,7 @@ void MockGeolocationService::setError(PassRefPtr<PositionError> error)
     makeGeolocationCallbackFromAllInstances();
 }
 
-bool MockGeolocationService::startUpdating(PositionOptions* options)
+bool MockGeolocationService::startUpdating(PositionOptions*)
 {
     m_timer.startOneShot(0);
     return true;
@@ -81,7 +81,7 @@ bool MockGeolocationService::startUpdating(PositionOptions* options)
 
 void MockGeolocationService::timerFired(Timer<MockGeolocationService>* timer)
 {
-    ASSERT(timer == m_timer);
+    ASSERT(timer == &m_timer);
     makeGeolocationCallback();
 }
 

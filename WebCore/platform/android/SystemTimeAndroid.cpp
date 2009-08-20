@@ -31,7 +31,7 @@ namespace WebCore {
 float userIdleTime()
 {
     // Needed for PageCache, which we currently have disabled.
-    return 0.0f;
+    return 0.0F;
 }
 
 }  // namespace WebCore

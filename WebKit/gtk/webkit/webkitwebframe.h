@@ -22,6 +22,8 @@
 #define WEBKIT_WEB_FRAME_H
 
 #include <glib-object.h>
+#include <gtk/gtk.h>
+
 #include <JavaScriptCore/JSBase.h>
 
 #include <webkit/webkitdefines.h>
@@ -56,6 +58,30 @@ struct _WebKitWebFrameClass {
     void (*_webkit_reserved5) (void);
     void (*_webkit_reserved6) (void);
 };
+
+/**
+ * WebKitLoadStatus
+ * @WEBKIT_LOAD_PROVISIONAL: No data has been received yet, empty
+ * structures have been allocated to perform the load; the load may
+ * still fail for transport issues such as not being able to resolve a
+ * name, or connect to a port.
+ * @WEBKIT_LOAD_COMMITTED: The first data chunk has arrived, meaning
+ * that the necessary transport requirements are stabilished, and the
+ * load is being performed.
+ * @WEBKIT_LOAD_FIRST_VISUALLY_NON_EMPTY_LAYOUT: The first layout with
+ * actual visible content happened; one or more layouts may have
+ * happened before that caused nothing to be visible on the screen,
+ * because the data available at the time was not significant enough.
+ * @WEBKIT_LOAD_FINISHED: This state means either that everything that
+ * was required to display the page has been loaded, or that an error
+ * has happened.
+ */
+typedef enum {
+    WEBKIT_LOAD_PROVISIONAL,
+    WEBKIT_LOAD_COMMITTED,
+    WEBKIT_LOAD_FINISHED,
+    WEBKIT_LOAD_FIRST_VISUALLY_NON_EMPTY_LAYOUT
+} WebKitLoadStatus;
 
 WEBKIT_API GType
 webkit_web_frame_get_type           (void);
@@ -92,6 +118,12 @@ webkit_web_frame_load_string        (WebKitWebFrame       *frame,
                                      const gchar          *base_uri);
 
 WEBKIT_API void
+webkit_web_frame_load_alternate_string (WebKitWebFrame    *frame,
+                                        const gchar       *content,
+                                        const gchar       *base_url,
+                                        const gchar       *unreachable_url);
+
+WEBKIT_API void
 webkit_web_frame_load_request       (WebKitWebFrame       *frame,
                                      WebKitNetworkRequest *request);
 
@@ -107,6 +139,18 @@ webkit_web_frame_find_frame         (WebKitWebFrame       *frame,
 
 WEBKIT_API JSGlobalContextRef
 webkit_web_frame_get_global_context (WebKitWebFrame       *frame);
+
+WEBKIT_API GtkPrintOperationResult
+webkit_web_frame_print_full         (WebKitWebFrame       *frame,
+                                     GtkPrintOperation    *operation,
+                                     GtkPrintOperationAction action,
+                                     GError              **error);
+
+WEBKIT_API void
+webkit_web_frame_print              (WebKitWebFrame       *frame);
+
+WEBKIT_API WebKitLoadStatus
+webkit_web_frame_get_load_status    (WebKitWebFrame       *frame);
 
 G_END_DECLS
 

@@ -45,7 +45,7 @@ static void weakObjectEventListenerCallback(v8::Persistent<v8::Value>, void* par
     if (frame) {
         V8Proxy* proxy = V8Proxy::retrieve(frame);
         if (proxy)
-            proxy->RemoveObjectEventListener(listener);
+            proxy->objectListeners()->remove(listener);
 
         // Because the listener is no longer in the list, it must be disconnected from the frame to avoid dangling frame pointer
         // in the destructor.
@@ -53,6 +53,23 @@ static void weakObjectEventListenerCallback(v8::Persistent<v8::Value>, void* par
     }
     listener->disposeListenerObject();
 }
+
+// An object event listener wrapper only holds a weak reference to the
+// JS function. A strong reference can create a cycle.
+//
+// The lifetime of these objects is bounded by the life time of the JS
+// wrapper of XHR or Node. So we can create a hidden reference from
+// the JS wrapper to to its JS function.
+//
+//                          (map)
+//          XHR or Node  <----------  JS_wrapper
+//               |             (hidden) :  ^
+//               V                      V  : (may be reachable by closure)
+//           V8_listener  --------> JS_function
+//                         (weak)  <-- may create a cycle if it is strong
+//
+// The persistent reference is made weak in the constructor of
+// V8ObjectEventListener.
 
 V8ObjectEventListener::V8ObjectEventListener(Frame* frame, v8::Local<v8::Object> listener, bool isInline)
     : V8EventListener(frame, listener, isInline)
@@ -66,7 +83,7 @@ V8ObjectEventListener::~V8ObjectEventListener()
         ASSERT(!m_listener.IsEmpty());
         V8Proxy* proxy = V8Proxy::retrieve(m_frame);
         if (proxy)
-            proxy->RemoveObjectEventListener(this);
+            proxy->objectListeners()->remove(this);
     }
 
     disposeListenerObject();

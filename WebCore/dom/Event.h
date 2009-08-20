@@ -122,6 +122,9 @@ namespace WebCore {
 #if ENABLE(TOUCH_EVENTS) // Android
         virtual bool isTouchEvent() const;
 #endif
+#if ENABLE(WORKERS)
+        virtual bool isErrorEvent() const;
+#endif
 
         bool propagationStopped() const { return m_propagationStopped; }
 

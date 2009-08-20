@@ -55,6 +55,7 @@
 #include "LocalizedStrings.h"
 #include "NodeList.h"
 #include "Page.h"
+#include "RenderButton.h"
 #include "RenderFieldset.h"
 #include "RenderFileUploadControl.h"
 #include "RenderHTMLCanvas.h"
@@ -82,10 +83,11 @@ namespace WebCore {
 using namespace HTMLNames;
 
 AccessibilityRenderObject::AccessibilityRenderObject(RenderObject* renderer)
-    : m_renderer(renderer)
+    : AccessibilityObject()
+    , m_renderer(renderer)
     , m_ariaRole(UnknownRole)
 {
-    setAriaRole();
+    updateAccessibilityRole();
 #ifndef NDEBUG
     m_renderer->setHasAXObject(true);
 #endif
@@ -292,7 +294,7 @@ bool AccessibilityRenderObject::isSlider() const
 {
     return roleValue() == SliderRole;
 }
-    
+
 bool AccessibilityRenderObject::isMenuRelated() const
 {
     AccessibilityRole role = roleValue();
@@ -415,23 +417,23 @@ bool AccessibilityRenderObject::isOffScreen() const
     return viewRect.isEmpty();
 }
 
-int AccessibilityRenderObject::headingLevel(Node* node)
+int AccessibilityRenderObject::headingLevel() const
 {
     // headings can be in block flow and non-block flow
+    if (!m_renderer)
+        return 0;
+    
+    Node* node = m_renderer->node();
     if (!node)
         return 0;
 
-    if (RenderObject* renderer = node->renderer()) {
-        AccessibilityObject* axObjectForNode = node->document()->axObjectCache()->getOrCreate(renderer);
-        if (axObjectForNode->ariaRoleAttribute() == HeadingRole) {
-            if (!node->isElementNode())
-                return 0;
-            Element* element = static_cast<Element*>(node);
-            return element->getAttribute(aria_levelAttr).toInt();
-        }
+    if (ariaRoleAttribute() == HeadingRole)  {
+        if (!node->isElementNode())
+            return 0;
+        Element* element = static_cast<Element*>(node);
+        return element->getAttribute(aria_levelAttr).toInt();
     }
-            
-    
+
     if (node->hasTagName(h1Tag))
         return 1;
     
@@ -484,6 +486,21 @@ bool AccessibilityRenderObject::isFieldset() const
 bool AccessibilityRenderObject::isGroup() const
 {
     return roleValue() == GroupRole;
+}
+    
+AccessibilityObject* AccessibilityRenderObject::selectedRadioButton()
+{
+    if (!isRadioGroup())
+        return 0;
+    
+    // Find the child radio button that is selected (ie. the intValue == 1).
+    int count = m_children.size();
+    for (int i = 0; i < count; ++i) {
+        AccessibilityObject* object = m_children[i].get();
+        if (object->roleValue() == RadioButtonRole && object->intValue() == 1)
+            return object;
+    }
+    return 0;
 }
     
 const AtomicString& AccessibilityRenderObject::getAttribute(const QualifiedName& attribute) const
@@ -656,16 +673,33 @@ String AccessibilityRenderObject::helpText() const
     
     return String();
 }
+    
+String AccessibilityRenderObject::language() const
+{
+    if (!m_renderer)
+        return String();
+    
+    // Defer to parent if this element doesn't have a language set
+    Node* node = m_renderer->node();
+    if (!node)
+        return AccessibilityObject::language();
+    
+    if (!node->isElementNode())
+        return AccessibilityObject::language();
+    
+    String language = static_cast<Element*>(node)->getAttribute(langAttr);
+    if (language.isEmpty())
+        return AccessibilityObject::language();
+    return language;
+}
 
 String AccessibilityRenderObject::textUnderElement() const
 {
     if (!m_renderer)
         return String();
     
-    if (isFileUploadButton()) {
-        RenderFileUploadControl* uploadControl = static_cast<RenderFileUploadControl*>(m_renderer);
-        return uploadControl->buttonValue();
-    }
+    if (isFileUploadButton())
+        return toRenderFileUploadControl(m_renderer)->buttonValue();
     
     Node* node = m_renderer->node();
     if (node) {
@@ -699,7 +733,7 @@ int AccessibilityRenderObject::intValue() const
         return 0;
     
     if (isHeading())
-        return headingLevel(m_renderer->node());
+        return headingLevel();
     
     Node* node = m_renderer->node();
     if (!node || !isCheckboxOrRadio())
@@ -716,6 +750,15 @@ int AccessibilityRenderObject::intValue() const
     return static_cast<HTMLInputElement*>(node)->checked();
 }
 
+String AccessibilityRenderObject::valueDescription() const
+{
+    // Only sliders and progress bars support value descriptions currently.
+    if (!isProgressIndicator() && !isSlider())
+        return String();
+    
+    return getAttribute(aria_valuetextAttr).string();
+}
+    
 float AccessibilityRenderObject::valueForRange() const
 {
     if (!isProgressIndicator() && !isSlider())
@@ -749,11 +792,14 @@ String AccessibilityRenderObject::stringValue() const
         return textUnderElement();
     
     if (m_renderer->isMenuList())
-        return static_cast<RenderMenuList*>(m_renderer)->text();
+        return toRenderMenuList(m_renderer)->text();
     
     if (m_renderer->isListMarker())
-        return static_cast<RenderListMarker*>(m_renderer)->text();
+        return toRenderListMarker(m_renderer)->text();
     
+    if (m_renderer->isRenderButton())
+        return toRenderButton(m_renderer)->text();
+
     if (isWebArea()) {
         if (m_renderer->document()->frame())
             return String();
@@ -770,10 +816,8 @@ String AccessibilityRenderObject::stringValue() const
     if (isTextControl())
         return text();
     
-    if (isFileUploadButton()) {
-        RenderFileUploadControl* uploadControl = static_cast<RenderFileUploadControl*>(m_renderer);
-        return uploadControl->fileTextValue();
-    }
+    if (isFileUploadButton())
+        return toRenderFileUploadControl(m_renderer)->fileTextValue();
     
     // FIXME: We might need to implement a value here for more types
     // FIXME: It would be better not to advertise a value at all for the types for which we don't implement one;
@@ -801,7 +845,7 @@ static String accessibleNameForNode(Node* node)
     return String();
 }
 
-String AccessibilityRenderObject::ariaAccessiblityName(const String& s) const
+String AccessibilityRenderObject::ariaAccessibilityName(const String& s) const
 {
     Document* document = m_renderer->document();
     if (!document)
@@ -824,7 +868,9 @@ String AccessibilityRenderObject::ariaAccessiblityName(const String& s) const
                 nameFragment = accessibleNameForNode(n);
                 ariaLabel.append(nameFragment.characters(), nameFragment.length());
             }
-            ariaLabel.append(' ');
+            
+            if (i != size - 1)
+                ariaLabel.append(' ');
         }
     }
     return String::adopt(ariaLabel);
@@ -848,7 +894,7 @@ String AccessibilityRenderObject::ariaLabeledByAttribute() const
             return String();
     }
 
-    return ariaAccessiblityName(idList);
+    return ariaAccessibilityName(idList);
 }
 
 static HTMLLabelElement* labelForElement(Element* element)
@@ -924,6 +970,7 @@ String AccessibilityRenderObject::title() const
         || ariaRole == ListBoxOptionRole
         || ariaRole == MenuItemRole
         || ariaRole == MenuButtonRole
+        || ariaRole == RadioButtonRole
         || isHeading())
         return textUnderElement();
     
@@ -939,7 +986,7 @@ String AccessibilityRenderObject::ariaDescribedByAttribute() const
     if (idList.isEmpty())
         return String();
     
-    return ariaAccessiblityName(idList);
+    return ariaAccessibilityName(idList);
 }
 
 String AccessibilityRenderObject::accessibilityDescription() const
@@ -947,6 +994,10 @@ String AccessibilityRenderObject::accessibilityDescription() const
     if (!m_renderer)
         return String();
 
+    String ariaLabel = getAttribute(aria_labelAttr).string();
+    if (!ariaLabel.isEmpty())
+        return ariaLabel;
+    
     String ariaDescription = ariaDescribedByAttribute();
     if (!ariaDescription.isEmpty())
         return ariaDescription;
@@ -1008,7 +1059,7 @@ IntRect AccessibilityRenderObject::boundingBoxRect() const
         IntRect r = quads[i].enclosingBoundingBox();
         if (!r.isEmpty()) {
             if (obj->style()->hasAppearance())
-                theme()->adjustRepaintRect(obj, r);
+                obj->theme()->adjustRepaintRect(obj, r);
             result.unite(r);
         }
     }
@@ -1044,6 +1095,21 @@ IntSize AccessibilityRenderObject::size() const
     return rect.size();
 }
 
+IntPoint AccessibilityRenderObject::clickPoint() const
+{
+    // use the default position unless this is an editable web area, in which case we use the selection bounds.
+    if (!isWebArea() || isReadOnly())
+        return AccessibilityObject::clickPoint();
+    
+    VisibleSelection visSelection = selection();
+    VisiblePositionRange range = VisiblePositionRange(visSelection.visibleStart(), visSelection.visibleEnd());
+    IntRect bounds = boundsForVisiblePositionRange(range);
+#if PLATFORM(MAC)
+    bounds.setLocation(m_renderer->document()->view()->screenToContents(bounds.location()));
+#endif        
+    return IntPoint(bounds.x() + (bounds.width() / 2), bounds.y() - (bounds.height() / 2));
+}
+    
 AccessibilityObject* AccessibilityRenderObject::internalLinkElement() const
 {
     Element* element = anchorElement();
@@ -1056,16 +1122,16 @@ AccessibilityObject* AccessibilityRenderObject::internalLinkElement() const
     HTMLAnchorElement* anchor = static_cast<HTMLAnchorElement*>(element);
     
     KURL linkURL = anchor->href();
-    String ref = linkURL.ref();
-    if (ref.isEmpty())
+    String fragmentIdentifier = linkURL.fragmentIdentifier();
+    if (fragmentIdentifier.isEmpty())
         return 0;
     
     // check if URL is the same as current URL
-    linkURL.removeRef();
+    linkURL.removeFragmentIdentifier();
     if (m_renderer->document()->url() != linkURL)
         return 0;
     
-    Node* linkedNode = m_renderer->document()->findAnchor(ref);
+    Node* linkedNode = m_renderer->document()->findAnchor(fragmentIdentifier);
     if (!linkedNode)
         return 0;
     
@@ -1154,7 +1220,7 @@ AccessibilityObject* AccessibilityRenderObject::titleUIElement() const
     
     // if isFieldset is true, the renderer is guaranteed to be a RenderFieldset
     if (isFieldset())
-        return axObjectCache()->getOrCreate(static_cast<RenderFieldset*>(m_renderer)->findLegend());
+        return axObjectCache()->getOrCreate(toRenderFieldset(m_renderer)->findLegend());
     
     if (!exposesTitleUIElement())
         return 0;
@@ -1167,12 +1233,31 @@ AccessibilityObject* AccessibilityRenderObject::titleUIElement() const
     return 0;   
 }
     
+bool AccessibilityRenderObject::ariaIsHidden() const
+{
+    if (equalIgnoringCase(getAttribute(aria_hiddenAttr).string(), "true"))
+        return true;
+    
+    // aria-hidden hides this object and any children
+    AccessibilityObject* object = parentObject();
+    while (object) {
+        if (object->isAccessibilityRenderObject() && equalIgnoringCase(static_cast<AccessibilityRenderObject*>(object)->getAttribute(aria_hiddenAttr).string(), "true"))
+            return true;
+        object = object->parentObject();
+    }
+
+    return false;
+}
+
 bool AccessibilityRenderObject::accessibilityIsIgnored() const
 {
     // ignore invisible element
     if (!m_renderer || m_renderer->style()->visibility() != VISIBLE)
         return true;
 
+    if (ariaIsHidden())
+        return true;
+    
     if (isPresentationalChildOfAriaRole())
         return true;
         
@@ -1246,19 +1331,19 @@ bool AccessibilityRenderObject::accessibilityIsIgnored() const
         }
         
         if (node && node->hasTagName(canvasTag)) {
-            RenderHTMLCanvas* canvas = static_cast<RenderHTMLCanvas*>(m_renderer);
+            RenderHTMLCanvas* canvas = toRenderHTMLCanvas(m_renderer);
             if (canvas->height() <= 1 || canvas->width() <= 1)
                 return true;
             return false;
         }
         
-        // check for one-dimensional image
-        RenderImage* image = toRenderImage(m_renderer);
-        if (image->height() <= 1 || image->width() <= 1)
-            return true;
-        
-        // check whether rendered image was stretched from one-dimensional file image
         if (isNativeImage()) {
+            // check for one-dimensional image
+            RenderImage* image = toRenderImage(m_renderer);
+            if (image->height() <= 1 || image->width() <= 1)
+                return true;
+            
+            // check whether rendered image was stretched from one-dimensional file image
             if (image->cachedImage()) {
                 IntSize imageSize = image->cachedImage()->imageSize(image->view()->zoomFactor());
                 return imageSize.height() <= 1 || imageSize.width() <= 1;
@@ -1447,6 +1532,14 @@ bool AccessibilityRenderObject::isVisited() const
 {
     return m_renderer->style()->pseudoState() == PseudoVisited;
 }
+    
+bool AccessibilityRenderObject::isRequired() const
+{
+    if (equalIgnoringCase(getAttribute(aria_requiredAttr).string(), "true"))
+        return true;
+    
+    return false;
+}
 
 bool AccessibilityRenderObject::isSelected() const
 {
@@ -1512,6 +1605,10 @@ void AccessibilityRenderObject::setValue(const String& string)
 bool AccessibilityRenderObject::isEnabled() const
 {
     ASSERT(m_renderer);
+    
+    if (equalIgnoringCase(getAttribute(aria_disabledAttr).string(), "true"))
+        return false;
+    
     Node* node = m_renderer->node();
     if (!node || !node->isElementNode())
         return true;
@@ -1538,8 +1635,7 @@ Widget* AccessibilityRenderObject::widget() const
 {
     if (!m_renderer->isWidget())
         return 0;
-    
-    return static_cast<RenderWidget*>(m_renderer)->widget();
+    return toRenderWidget(m_renderer)->widget();
 }
 
 AXObjectCache* AccessibilityRenderObject::axObjectCache() const
@@ -1610,7 +1706,7 @@ Widget* AccessibilityRenderObject::widgetForAttachmentView() const
 {
     if (!isAttachment())
         return 0;
-    return static_cast<RenderWidget*>(m_renderer)->widget();
+    return toRenderWidget(m_renderer)->widget();
 }
 
 FrameView* AccessibilityRenderObject::frameViewIfRenderView() const
@@ -1815,7 +1911,7 @@ VisiblePosition AccessibilityRenderObject::visiblePositionForPoint(const IntPoin
             break;
         
         // descend into widget (FRAME, IFRAME, OBJECT...)
-        Widget* widget = static_cast<RenderWidget*>(renderer)->widget();
+        Widget* widget = toRenderWidget(renderer)->widget();
         if (!widget || !widget->isFrameView())
             break;
         Frame* frame = static_cast<FrameView*>(widget)->frame();
@@ -1993,7 +2089,7 @@ AccessibilityObject* AccessibilityRenderObject::doAccessibilityHitTest(const Int
     if (!obj)
         return 0;
     
-    AccessibilityObject *result = obj->document()->axObjectCache()->getOrCreate(obj);
+    AccessibilityObject* result = obj->document()->axObjectCache()->getOrCreate(obj);
 
     if (obj->isListBox())
         return static_cast<AccessibilityListBox*>(result)->doAccessibilityHitTest(point);
@@ -2139,11 +2235,13 @@ static const ARIARoleMap& createARIARoleMap()
         { "menuitemradio", MenuItemRole },
         { "progressbar", ProgressIndicatorRole },
         { "radio", RadioButtonRole },
+        { "radiogroup", RadioGroupRole },
         { "row", RowRole },
         { "range", SliderRole },
         { "slider", SliderRole },
         { "spinbutton", ProgressIndicatorRole },
-        { "textbox", TextAreaRole }
+        { "textbox", TextAreaRole },
+        { "toolbar", ToolbarRole }
     };
     ARIARoleMap& roleMap = *new ARIARoleMap;
         
@@ -2187,20 +2285,22 @@ AccessibilityRole AccessibilityRenderObject::determineAriaRoleAttribute() const
     return UnknownRole;
 }
 
-void AccessibilityRenderObject::setAriaRole()
-{
-    m_ariaRole = determineAriaRoleAttribute();
-}
-
 AccessibilityRole AccessibilityRenderObject::ariaRoleAttribute() const
 {
     return m_ariaRole;
 }
-
-AccessibilityRole AccessibilityRenderObject::roleValue() const
+    
+void AccessibilityRenderObject::updateAccessibilityRole()
+{
+    m_role = determineAccessibilityRole();
+}
+    
+AccessibilityRole AccessibilityRenderObject::determineAccessibilityRole()
 {
     if (!m_renderer)
         return UnknownRole;
+
+    m_ariaRole = determineAriaRoleAttribute();
     
     Node* node = m_renderer->node();
     AccessibilityRole ariaRole = ariaRoleAttribute();
@@ -2254,7 +2354,7 @@ AccessibilityRole AccessibilityRenderObject::roleValue() const
     if (m_renderer->isMenuList())
         return PopUpButtonRole;
     
-    if (headingLevel(m_renderer->node()) != 0)
+    if (headingLevel() != 0)
         return HeadingRole;
     
     if (node && node->hasTagName(ddTag))
@@ -2263,6 +2363,9 @@ AccessibilityRole AccessibilityRenderObject::roleValue() const
     if (node && node->hasTagName(dtTag))
         return DefinitionListTermRole;
 
+    if (node && (node->hasTagName(rpTag) || node->hasTagName(rtTag)))
+        return AnnotationRole;
+    
     if (m_renderer->isBlockFlow() || (node && node->hasTagName(labelTag)))
         return GroupRole;
     
@@ -2298,7 +2401,7 @@ bool AccessibilityRenderObject::canSetFocusAttribute() const
     Node* node = m_renderer->node();
 
     // NOTE: It would be more accurate to ask the document whether setFocusedNode() would
-    // do anything.  For example, it setFocusedNode() will do nothing if the current focused
+    // do anything.  For example, setFocusedNode() will do nothing if the current focused
     // node will not relinquish the focus.
     if (!node || !node->isElementNode())
         return false;
@@ -2323,6 +2426,9 @@ bool AccessibilityRenderObject::canSetFocusAttribute() const
 
 bool AccessibilityRenderObject::canSetValueAttribute() const
 {
+    if (equalIgnoringCase(getAttribute(aria_readonlyAttr).string(), "true"))
+        return false;
+
     if (isWebArea()) 
         return !isReadOnly();
 

@@ -52,6 +52,7 @@ LOCAL_SRC_FILES := \
 	API/JSCallbackObject.cpp \
 	API/OpaqueJSString.cpp \
 	\
+	assembler/ARMAssembler.cpp \
 	bytecode/CodeBlock.cpp \
 	bytecode/JumpTable.cpp \
 	bytecode/Opcode.cpp \
@@ -114,6 +115,7 @@ LOCAL_SRC_FILES := \
 	runtime/Identifier.cpp \
 	runtime/InitializeThreading.cpp \
 	runtime/InternalFunction.cpp \
+	runtime/JSAPIValueWrapper.cpp \
 	runtime/JSActivation.cpp \
 	runtime/JSArray.cpp \
 	runtime/JSByteArray.cpp \
@@ -126,6 +128,7 @@ LOCAL_SRC_FILES := \
 	runtime/JSLock.cpp \
 	runtime/JSNotAnObject.cpp \
 	runtime/JSNumberCell.cpp \
+	runtime/JSONObject.cpp \
 	runtime/JSObject.cpp \
 	runtime/JSPropertyNameIterator.cpp \
 	runtime/JSStaticScopeObject.cpp \
@@ -135,6 +138,8 @@ LOCAL_SRC_FILES := \
 	runtime/JSWrapperObject.cpp \
 	runtime/LiteralParser.cpp \
 	runtime/Lookup.cpp \
+	runtime/MarkStack.cpp \
+	runtime/MarkStackPosix.cpp \
 	runtime/MathObject.cpp \
 	runtime/NativeErrorConstructor.cpp \
 	runtime/NativeErrorPrototype.cpp \
@@ -179,6 +184,7 @@ LOCAL_SRC_FILES := \
 	wtf/RefCountedLeakCounter.cpp \
 	wtf/TCSystemAlloc.cpp \
 	wtf/Threading.cpp \
+	wtf/ThreadingNone.cpp \
 	wtf/ThreadingPthreads.cpp \
 	\
 	wtf/TypeTraits.cpp \
@@ -203,6 +209,7 @@ LOCAL_GENERATED_SOURCES += $(GEN)
 JSC_OBJECTS := $(addprefix $(intermediates)/runtime/, \
 				ArrayPrototype.lut.h \
 				DatePrototype.lut.h \
+				JSONObject.lut.h \
 				MathObject.lut.h \
 				NumberConstructor.lut.h \
 				RegExpConstructor.lut.h \

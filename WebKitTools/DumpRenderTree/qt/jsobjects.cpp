@@ -30,6 +30,8 @@
 #include <qwebpage.h>
 #include <qwebhistory.h>
 #include <qwebframe.h>
+#include <qwebsecurityorigin.h>
+#include <qwebdatabase.h>
 #include <qevent.h>
 #include <qapplication.h>
 #include <qevent.h>
@@ -57,7 +59,7 @@ QWebFrame *findFrameNamed(const QString &frameName, QWebFrame *frame)
     return 0;
 }
 
-void LoadItem::invoke() const
+bool LoadItem::invoke() const
 {
     //qDebug() << ">>>LoadItem::invoke";
     Q_ASSERT(m_webPage);
@@ -70,29 +72,35 @@ void LoadItem::invoke() const
         frame = findFrameNamed(t, m_webPage->mainFrame());
 
     if (!frame)
-        return;
+        return false;
 
     frame->load(url());
+    return true;
 }
 
-void ReloadItem::invoke() const
+bool ReloadItem::invoke() const
 {
     //qDebug() << ">>>ReloadItem::invoke";
     Q_ASSERT(m_webPage);
     m_webPage->triggerAction(QWebPage::Reload);
+    return true;
 }
 
-void ScriptItem::invoke() const
+bool ScriptItem::invoke() const
 {
     //qDebug() << ">>>ScriptItem::invoke";
     Q_ASSERT(m_webPage);
     m_webPage->mainFrame()->evaluateJavaScript(script());
+    return true;
 }
 
-void BackForwardItem::invoke() const
+bool BackForwardItem::invoke() const
 {
     //qDebug() << ">>>BackForwardItem::invoke";
     Q_ASSERT(m_webPage);
+    if (!m_howFar)
+        return false;
+
     if (m_howFar > 0) {
         for (int i = 0; i != m_howFar; ++i)
             m_webPage->triggerAction(QWebPage::Forward);
@@ -100,13 +108,13 @@ void BackForwardItem::invoke() const
         for (int i = 0; i != m_howFar; --i)
             m_webPage->triggerAction(QWebPage::Back);
     }
+    return true;
 }
 
 LayoutTestController::LayoutTestController(WebCore::DumpRenderTree *drt)
     : QObject()
     , m_drt(drt)
 {
-    m_timeoutTimer = 0;
     reset();
 }
 
@@ -119,36 +127,30 @@ void LayoutTestController::reset()
     m_canOpenWindows = false;
     m_waitForDone = false;
     m_dumpTitleChanges = false;
-    if (m_timeoutTimer) {
-        killTimer(m_timeoutTimer);
-        m_timeoutTimer = 0;
-    }
+    m_dumpDatabaseCallbacks = false;
+    m_timeoutTimer.stop();
     m_topLoadingFrame = 0;
     qt_dump_editing_callbacks(false);
     qt_dump_resource_load_callbacks(false);
+    QWebSettings::globalSettings()->setAttribute(QWebSettings::PrivateBrowsingEnabled, false);
 }
 
 void LayoutTestController::processWork()
 {
     qDebug() << ">>>processWork";
 
-    // quit doing work once a load is in progress
-    while (WorkQueue::shared()->count() > 0 && !m_topLoadingFrame) {
-        WorkQueueItem* item = WorkQueue::shared()->dequeue();
-        Q_ASSERT(item);
-        item->invoke();
-        delete item;
-    }
-
     // if we didn't start a new load, then we finished all the commands, so we're ready to dump state
-    if (!m_topLoadingFrame && !shouldWaitUntilDone()) {
+    if (!WorkQueue::shared()->processWork() && !shouldWaitUntilDone()) {
         emit done();
         m_isLoading = false;
     }
 }
 
-void LayoutTestController::maybeDump(bool)
+// Called on loadFinished on mainFrame.
+void LayoutTestController::maybeDump(bool success)
 {
+    Q_ASSERT(sender() == m_topLoadingFrame);
+
     m_topLoadingFrame = 0;
     WorkQueue::shared()->setFrozen(true); // first complete load freezes the queue for the rest of this test
 
@@ -156,7 +158,8 @@ void LayoutTestController::maybeDump(bool)
         if (WorkQueue::shared()->count())
             QTimer::singleShot(0, this, SLOT(processWork()));
         else {
-            emit done();
+            if (success)
+                emit done();
             m_isLoading = false;
         }
     }
@@ -166,16 +169,15 @@ void LayoutTestController::waitUntilDone()
 {
     //qDebug() << ">>>>waitForDone";
     m_waitForDone = true;
-    m_timeoutTimer = startTimer(11000);
+    m_timeoutTimer.start(11000, this);
 }
 
 void LayoutTestController::notifyDone()
 {
     //qDebug() << ">>>>notifyDone";
-    if (!m_timeoutTimer)
+    if (!m_timeoutTimer.isActive())
         return;
-    killTimer(m_timeoutTimer);
-    m_timeoutTimer = 0;
+    m_timeoutTimer.stop();
     emit done();
     m_isLoading = false;
 }
@@ -240,10 +242,14 @@ void LayoutTestController::provisionalLoad()
         m_topLoadingFrame = frame;
 }
 
-void LayoutTestController::timerEvent(QTimerEvent *)
+void LayoutTestController::timerEvent(QTimerEvent *ev)
 {
-    qDebug() << ">>>>>>>>>>>>> timeout";
-    notifyDone();
+    if (ev->timerId() == m_timeoutTimer.timerId()) {
+        qDebug() << ">>>>>>>>>>>>> timeout";
+        notifyDone();
+    } else {
+        QObject::timerEvent(ev);
+    }
 }
 
 QString LayoutTestController::encodeHostName(const QString &host)
@@ -266,15 +272,14 @@ void LayoutTestController::setJavaScriptProfilingEnabled(bool enable)
     qt_drt_setJavaScriptProfilingEnabled(m_topLoadingFrame, enable);
 }
 
-void LayoutTestController::setFixedLayoutSize(int width, int height)
+void LayoutTestController::setFixedContentsSize(int width, int height)
 {
-    m_topLoadingFrame->page()->setFixedLayoutSize(QSize(width, height));
+    m_topLoadingFrame->page()->setFixedContentsSize(QSize(width, height));
 }
 
-
-void LayoutTestController::setUseFixedLayout(bool enable)
+void LayoutTestController::setPrivateBrowsingEnabled(bool enable)
 {
-    m_topLoadingFrame->page()->setUseFixedLayout(enable);
+    QWebSettings::globalSettings()->setAttribute(QWebSettings::PrivateBrowsingEnabled, enable);
 }
 
 bool LayoutTestController::pauseAnimationAtTimeOnElementWithId(const QString &animationName,
@@ -300,6 +305,29 @@ unsigned LayoutTestController::numberOfActiveAnimations() const
     QWebFrame *frame = m_drt->webPage()->mainFrame();
     Q_ASSERT(frame);
     return qt_drt_numberOfActiveAnimations(frame);
+}
+
+void LayoutTestController::disableImageLoading()
+{
+    // FIXME: Implement for testing fix for https://bugs.webkit.org/show_bug.cgi?id=27896
+    // Also need to make sure image loading is re-enabled for each new test.
+}
+
+void LayoutTestController::dispatchPendingLoadRequests()
+{
+    // FIXME: Implement for testing fix for 6727495
+}
+
+void LayoutTestController::setDatabaseQuota(int size)
+{
+    if (!m_topLoadingFrame)
+        return;
+    m_topLoadingFrame->securityOrigin().setDatabaseQuota(size);
+}
+
+void LayoutTestController::clearAllDatabases()
+{
+    QWebDatabase::removeAllDatabases();
 }
 
 EventSender::EventSender(QWebPage *parent)
@@ -392,6 +420,20 @@ void EventSender::keyDown(const QString &string, const QStringList &modifiers)
             code = Qt::Key_Right;
             if (modifs & Qt::MetaModifier) {
                 code = Qt::Key_End;
+                modifs &= ~Qt::MetaModifier;
+            }
+        } else if (code == 0xf700) {
+            s = QString();
+            code = Qt::Key_Up;
+            if (modifs & Qt::MetaModifier) {
+                code = Qt::Key_PageUp;
+                modifs &= ~Qt::MetaModifier;
+            }
+        } else if (code == 0xf701) {
+            s = QString();
+            code = Qt::Key_Down;
+            if (modifs & Qt::MetaModifier) {
+                code = Qt::Key_PageDown;
                 modifs &= ~Qt::MetaModifier;
             }
         } else if (code == 'a' && modifs == Qt::ControlModifier) {
@@ -517,4 +559,29 @@ void TextInputController::doCommand(const QString &command)
     QApplication::sendEvent(parent(), &event);
     QKeyEvent event2(QEvent::KeyRelease, keycode, modifiers);
     QApplication::sendEvent(parent(), &event2);
+}
+
+GCController::GCController(QWebPage* parent)
+    : QObject(parent)
+{
+}
+
+extern int qt_drt_javaScriptObjectsCount();
+extern void qt_drt_garbageCollector_collect();
+
+extern void qt_drt_garbageCollector_collectOnAlternateThread(bool waitUntilDone);
+
+void GCController::collect() const
+{
+    qt_drt_garbageCollector_collect();
+}
+
+void GCController::collectOnAlternateThread(bool waitUntilDone) const
+{
+    qt_drt_garbageCollector_collectOnAlternateThread(waitUntilDone);
+}
+
+size_t GCController::getJSObjectCount() const
+{
+    return qt_drt_javaScriptObjectsCount();
 }

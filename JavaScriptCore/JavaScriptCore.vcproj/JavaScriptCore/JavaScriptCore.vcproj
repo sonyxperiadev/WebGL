@@ -588,19 +588,19 @@
 				>
 			</File>
 			<File
-				RelativePath="..\..\runtime\DateInstance.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\..\runtime\DateInstance.h"
-				>
-			</File>
-			<File
 				RelativePath="..\..\runtime\DateConversion.cpp"
 				>
 			</File>
 			<File
 				RelativePath="..\..\runtime\DateConversion.h"
+				>
+			</File>
+			<File
+				RelativePath="..\..\runtime\DateInstance.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\..\runtime\DateInstance.h"
 				>
 			</File>
 			<File
@@ -708,6 +708,14 @@
 				>
 			</File>
 			<File
+				RelativePath="..\..\runtime\JSAPIValueWrapper.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\..\runtime\JSAPIValueWrapper.h"
+				>
+			</File>
+			<File
 				RelativePath="..\..\runtime\JSArray.cpp"
 				>
 			</File>
@@ -804,6 +812,14 @@
 				>
 			</File>
 			<File
+				RelativePath="..\..\runtime\JSONObject.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\..\runtime\JSONObject.h"
+				>
+			</File>
+			<File
 				RelativePath="..\..\runtime\JSStaticScopeObject.cpp"
 				>
 			</File>
@@ -865,6 +881,18 @@
 			</File>
 			<File
 				RelativePath="..\..\runtime\Lookup.h"
+				>
+			</File>
+			<File
+				RelativePath="..\..\runtime\MarkStack.h"
+				>
+			</File>
+			<File
+				RelativePath="..\..\runtime\MarkStack.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\..\runtime\MarkStackWin.cpp"
 				>
 			</File>
 			<File
@@ -1463,10 +1491,6 @@
 				RelativePath="..\..\bytecompiler\RegisterID.h"
 				>
 			</File>
-			<File
-				RelativePath="..\..\bytecompiler\SegmentedVector.h"
-				>
-			</File>
 		</Filter>
 		<Filter
 			Name="bytecode"
@@ -1605,6 +1629,14 @@
 			>
 			<File
 				RelativePath="..\..\assembler\AbstractMacroAssembler.h"
+				>
+			</File>
+			<File
+				RelativePath="..\..\assembler\LinkBuffer.h"
+				>
+			</File>
+			<File
+				RelativePath="..\..\assembler\RepatchBuffer.h"
 				>
 			</File>
 			<File

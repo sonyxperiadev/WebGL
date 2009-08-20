@@ -36,11 +36,15 @@
 #include "MediaList.h"
 #include "WebKitCSSKeyframeRule.h"
 #include "WebKitCSSKeyframesRule.h"
+#include <wtf/FastMalloc.h>
 #include <stdlib.h>
 #include <string.h>
 
 using namespace WebCore;
 using namespace HTMLNames;
+
+#define YYMALLOC fastMalloc
+#define YYFREE fastFree
 
 #define YYENABLE_NLS 0
 #define YYLTYPE_IS_TRIVIAL 1
@@ -93,7 +97,7 @@ static int cssyylex(YYSTYPE* yylval, void* parser)
 
 %}
 
-%expect 49
+%expect 50
 
 %nonassoc LOWEST_PREC
 
@@ -145,6 +149,7 @@ static int cssyylex(YYSTYPE* yylval, void* parser)
 %token MEDIA_NOT
 %token MEDIA_AND
 
+%token <number> REMS
 %token <number> QEMS
 %token <number> EMS
 %token <number> EXS
@@ -735,9 +740,9 @@ key:
     | IDENT {
         $$.id = 0; $$.isInt = false; $$.unit = CSSPrimitiveValue::CSS_NUMBER;
         CSSParserString& str = $1;
-        if (equalIgnoringCase(static_cast<const String&>(str), "from"))
+        if (equalIgnoringCase("from", str.characters, str.length))
             $$.fValue = 0;
-        else if (equalIgnoringCase(static_cast<const String&>(str), "to"))
+        else if (equalIgnoringCase("to", str.characters, str.length))
             $$.fValue = 100;
         else
             YYERROR;
@@ -1407,7 +1412,15 @@ unary_term:
   | EMS maybe_space { $$.id = 0; $$.fValue = $1; $$.unit = CSSPrimitiveValue::CSS_EMS; }
   | QEMS maybe_space { $$.id = 0; $$.fValue = $1; $$.unit = CSSParserValue::Q_EMS; }
   | EXS maybe_space { $$.id = 0; $$.fValue = $1; $$.unit = CSSPrimitiveValue::CSS_EXS; }
-    ;
+  | REMS maybe_space {
+      $$.id = 0;
+      $$.fValue = $1;
+      $$.unit = CSSPrimitiveValue::CSS_REMS;
+      CSSParser* p = static_cast<CSSParser*>(parser);
+      if (Document* doc = p->document())
+          doc->setUsesRemUnits(true);
+  }
+  ;
 
 variable_reference:
   VARCALL {

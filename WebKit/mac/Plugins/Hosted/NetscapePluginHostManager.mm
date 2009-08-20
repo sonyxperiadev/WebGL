@@ -29,6 +29,7 @@
 
 #import "NetscapePluginHostProxy.h"
 #import "NetscapePluginInstanceProxy.h"
+#import "WebLocalizableStrings.h"
 #import "WebKitSystemInterface.h"
 #import "WebNetscapePluginPackage.h"
 #import <mach/mach_port.h>
@@ -74,17 +75,24 @@ NetscapePluginHostProxy* NetscapePluginHostManager::hostForPackage(WebNetscapePl
         return result.first->second;
         
     mach_port_t clientPort;
-    if (mach_port_allocate(mach_task_self(), MACH_PORT_RIGHT_RECEIVE, &clientPort) != KERN_SUCCESS)
+    if (mach_port_allocate(mach_task_self(), MACH_PORT_RIGHT_RECEIVE, &clientPort) != KERN_SUCCESS) {
+        m_pluginHosts.remove(result.first);
         return 0;
+    }
     
     mach_port_t pluginHostPort;
     ProcessSerialNumber pluginHostPSN;
     if (!spawnPluginHost(package, clientPort, pluginHostPort, pluginHostPSN)) {
         mach_port_destroy(mach_task_self(), clientPort);
+        m_pluginHosts.remove(result.first);
         return 0;
     }
     
-    NetscapePluginHostProxy* hostProxy = new NetscapePluginHostProxy(clientPort, pluginHostPort, pluginHostPSN);
+    // Since Flash NPObjects add methods dynamically, we don't want to cache when a property/method doesn't exist
+    // on an object because it could be added later.
+    bool shouldCacheMissingPropertiesAndMethods = ![[[package bundle] bundleIdentifier] isEqualToString:@"com.macromedia.Flash Player.plugin"];
+    
+    NetscapePluginHostProxy* hostProxy = new NetscapePluginHostProxy(clientPort, pluginHostPort, pluginHostPSN, shouldCacheMissingPropertiesAndMethods);
     
     CFRetain(package);
     result.first->second = hostProxy;
@@ -106,9 +114,12 @@ bool NetscapePluginHostManager::spawnPluginHost(WebNetscapePluginPackage *packag
     NSString *pluginHostAppPath = [[NSBundle bundleWithIdentifier:@"com.apple.WebKit"] pathForAuxiliaryExecutable:pluginHostAppName];
     NSString *pluginHostAppExecutablePath = [[NSBundle bundleWithPath:pluginHostAppPath] executablePath];
 
+    RetainPtr<CFStringRef> localization(AdoptCF, WKCopyCFLocalizationPreferredName(NULL));
+    
     NSDictionary *launchProperties = [[NSDictionary alloc] initWithObjectsAndKeys:
                                       pluginHostAppExecutablePath, @"pluginHostPath",
                                       [NSNumber numberWithInt:[package pluginHostArchitecture]], @"cpuType",
+                                      localization.get(), @"localization",
                                       nil];
 
     NSData *data = [NSPropertyListSerialization dataFromPropertyList:launchProperties format:NSPropertyListBinaryFormat_v1_0 errorDescription:0];
@@ -134,7 +145,10 @@ bool NetscapePluginHostManager::spawnPluginHost(WebNetscapePluginPackage *packag
         return false;
     }
     
-    NSString *visibleName = [NSString stringWithFormat:@"%@ Plug-in Host - %@", [[NSProcessInfo processInfo] processName], [package filename]];
+    NSString *visibleName = [NSString stringWithFormat:UI_STRING("%@ (%@ Internet plug-in)",
+                                                                 "visible name of the plug-in host process. The first argument is the plug-in name "
+                                                                 "and the second argument is the application name."),
+                             [[package filename] stringByDeletingPathExtension], [[NSProcessInfo processInfo] processName]];
     
     NSDictionary *hostProperties = [[NSDictionary alloc] initWithObjectsAndKeys:
                                     visibleName, @"visibleName",
@@ -197,7 +211,7 @@ void NetscapePluginHostManager::pluginHostDied(NetscapePluginHostProxy* pluginHo
     }
 }
 
-PassRefPtr<NetscapePluginInstanceProxy> NetscapePluginHostManager::instantiatePlugin(WebNetscapePluginPackage *pluginPackage, WebHostedNetscapePluginView *pluginView, NSString *mimeType, NSArray *attributeKeys, NSArray *attributeValues, NSString *userAgent, NSURL *sourceURL)
+PassRefPtr<NetscapePluginInstanceProxy> NetscapePluginHostManager::instantiatePlugin(WebNetscapePluginPackage *pluginPackage, WebHostedNetscapePluginView *pluginView, NSString *mimeType, NSArray *attributeKeys, NSArray *attributeValues, NSString *userAgent, NSURL *sourceURL, bool fullFrame)
 {
     NetscapePluginHostProxy* hostProxy = hostForPackage(pluginPackage);
     if (!hostProxy)
@@ -220,13 +234,18 @@ PassRefPtr<NetscapePluginInstanceProxy> NetscapePluginHostManager::instantiatePl
     if (sourceURL)
         [properties.get() setObject:[sourceURL absoluteString] forKey:@"sourceURL"];
     
+    [properties.get() setObject:[NSNumber numberWithBool:fullFrame] forKey:@"fullFrame"];
+    
     NSData *data = [NSPropertyListSerialization dataFromPropertyList:properties.get() format:NSPropertyListBinaryFormat_v1_0 errorDescription:nil];
     ASSERT(data);
     
-    RefPtr<NetscapePluginInstanceProxy> instance = NetscapePluginInstanceProxy::create(hostProxy, pluginView);
+    RefPtr<NetscapePluginInstanceProxy> instance = NetscapePluginInstanceProxy::create(hostProxy, pluginView, fullFrame);
     uint32_t requestID = instance->nextRequestID();
     kern_return_t kr = _WKPHInstantiatePlugin(hostProxy->port(), requestID, (uint8_t*)[data bytes], [data length], instance->pluginID());
     if (kr == MACH_SEND_INVALID_DEST) {
+        // Invalidate the instance.
+        instance->invalidate();
+        
         // The plug-in host must have died, but we haven't received the death notification yet.
         pluginHostDied(hostProxy);
 
@@ -234,14 +253,14 @@ PassRefPtr<NetscapePluginInstanceProxy> NetscapePluginHostManager::instantiatePl
         hostProxy = hostForPackage(pluginPackage);
         
         // Create a new instance.
-        instance = NetscapePluginInstanceProxy::create(hostProxy, pluginView);
+        instance = NetscapePluginInstanceProxy::create(hostProxy, pluginView, fullFrame);
         requestID = instance->nextRequestID();
         kr = _WKPHInstantiatePlugin(hostProxy->port(), requestID, (uint8_t*)[data bytes], [data length], instance->pluginID());
     }
 
     auto_ptr<NetscapePluginInstanceProxy::InstantiatePluginReply> reply = instance->waitForReply<NetscapePluginInstanceProxy::InstantiatePluginReply>(requestID);
     if (!reply.get() || reply->m_resultCode != KERN_SUCCESS) {
-        instance->invalidate();
+        instance->cleanup();
         return 0;
     }
     
@@ -278,6 +297,22 @@ void NetscapePluginHostManager::createPropertyListFile(WebNetscapePluginPackage 
     }
 }
     
+void NetscapePluginHostManager::didCreateWindow()
+{
+    // See if any of our hosts are in full-screen mode.
+    PluginHostMap::iterator end = m_pluginHosts.end();
+    for (PluginHostMap::iterator it = m_pluginHosts.begin(); it != end; ++it) {
+        NetscapePluginHostProxy* hostProxy = it->second;
+        
+        if (!hostProxy->isMenuBarVisible()) {
+            // Make ourselves the front process.
+            ProcessSerialNumber psn;
+            GetCurrentProcess(&psn);
+            SetFrontProcess(&psn);
+            return;
+        }
+    }
+}
 
 } // namespace WebKit
 

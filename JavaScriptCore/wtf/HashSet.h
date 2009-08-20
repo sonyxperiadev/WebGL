@@ -21,6 +21,7 @@
 #ifndef WTF_HashSet_h
 #define WTF_HashSet_h
 
+#include "FastAllocBase.h"
 #include "HashTable.h"
 
 namespace WTF {
@@ -32,7 +33,7 @@ namespace WTF {
     template<typename T> struct IdentityExtractor;
 
     template<typename ValueArg, typename HashArg = typename DefaultHash<ValueArg>::Hash,
-        typename TraitsArg = HashTraits<ValueArg> > class HashSet {
+        typename TraitsArg = HashTraits<ValueArg> > class HashSet : public FastAllocBase {
     private:
         typedef HashArg HashFunctions;
         typedef TraitsArg ValueTraits;
@@ -175,28 +176,28 @@ namespace WTF {
     }
 
     template<typename Value, typename HashFunctions, typename Traits>
-    template<typename T, typename Translator> 
+    template<typename T, typename HashTranslator>
     typename HashSet<Value, HashFunctions, Traits>::iterator
     inline HashSet<Value, HashFunctions, Traits>::find(const T& value)
     {
-        typedef HashSetTranslatorAdapter<ValueType, ValueTraits, T, Translator> Adapter;
+        typedef HashSetTranslatorAdapter<ValueType, ValueTraits, T, HashTranslator> Adapter;
         return m_impl.template find<T, Adapter>(value);
     }
 
     template<typename Value, typename HashFunctions, typename Traits>
-    template<typename T, typename Translator> 
+    template<typename T, typename HashTranslator>
     typename HashSet<Value, HashFunctions, Traits>::const_iterator
     inline HashSet<Value, HashFunctions, Traits>::find(const T& value) const
     {
-        typedef HashSetTranslatorAdapter<ValueType, ValueTraits, T, Translator> Adapter;
+        typedef HashSetTranslatorAdapter<ValueType, ValueTraits, T, HashTranslator> Adapter;
         return m_impl.template find<T, Adapter>(value);
     }
 
     template<typename Value, typename HashFunctions, typename Traits>
-    template<typename T, typename Translator> 
+    template<typename T, typename HashTranslator>
     inline bool HashSet<Value, HashFunctions, Traits>::contains(const T& value) const
     {
-        typedef HashSetTranslatorAdapter<ValueType, ValueTraits, T, Translator> Adapter;
+        typedef HashSetTranslatorAdapter<ValueType, ValueTraits, T, HashTranslator> Adapter;
         return m_impl.template contains<T, Adapter>(value);
     }
 
@@ -207,11 +208,11 @@ namespace WTF {
     }
 
     template<typename Value, typename HashFunctions, typename Traits>
-    template<typename T, typename Translator> 
+    template<typename T, typename HashTranslator>
     pair<typename HashSet<Value, HashFunctions, Traits>::iterator, bool>
     HashSet<Value, HashFunctions, Traits>::add(const T& value)
     {
-        typedef HashSetTranslatorAdapter<ValueType, ValueTraits, T, Translator> Adapter;
+        typedef HashSetTranslatorAdapter<ValueType, ValueTraits, T, HashTranslator> Adapter;
         return m_impl.template addPassingHashCode<T, T, Adapter>(value, value);
     }
 

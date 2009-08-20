@@ -105,7 +105,7 @@ public:
     static PassRefPtr<ResourceHandle> create(const ResourceRequest&, ResourceHandleClient*, Frame*, bool defersLoading, bool shouldContentSniff, bool mightDownloadFromHandle = false);
 
     static void loadResourceSynchronously(const ResourceRequest&, StoredCredentials, ResourceError&, ResourceResponse&, Vector<char>& data, Frame* frame);
-    static bool willLoadFromCache(ResourceRequest&);
+    static bool willLoadFromCache(ResourceRequest&, Frame*);
 #if PLATFORM(MAC)
     static bool didSendBodyDataDelegateExists();
 #endif
@@ -191,12 +191,6 @@ public:
     void fireFailure(Timer<ResourceHandle>*);
 
 private:
-#if USE(SOUP)
-    bool startData(String urlString);
-    bool startHttp(String urlString);
-    bool startGio(KURL url);
-#endif
-
     void scheduleFailure(FailureType);
 
     bool start(Frame*);

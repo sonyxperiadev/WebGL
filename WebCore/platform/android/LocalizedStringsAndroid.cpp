@@ -27,8 +27,6 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#define LOG_TAG "WebCore"
-
 #include "config.h"
 #include "LocalizedStrings.h"
 
@@ -36,8 +34,6 @@
 #include "PlatformString.h"
 
 namespace WebCore {
-
-// *** The following strings should be localized *** //
 
 String contextMenuItemTagInspectElement()
 {
@@ -49,259 +45,259 @@ String unknownFileSizeText()
     return String("Unknown");
 }
 
+String contextMenuItemTagOpenLinkInNewWindow()
+{
+    notImplemented();
+    return String();
+}
+
+String contextMenuItemTagDownloadLinkToDisk()
+{
+    notImplemented();
+    return String();
+}
+
+String contextMenuItemTagCopyLinkToClipboard()
+{
+    notImplemented();
+    return String();
+}
+
+String contextMenuItemTagOpenImageInNewWindow()
+{
+    notImplemented();
+    return String();
+}
+
+String contextMenuItemTagDownloadImageToDisk()
+{
+    notImplemented();
+    return String();
+}
+
+String contextMenuItemTagCopyImageToClipboard()
+{
+    notImplemented();
+    return String();
+}
+
+String contextMenuItemTagOpenFrameInNewWindow()
+{
+    notImplemented();
+    return String();
+}
+
+String contextMenuItemTagCopy()
+{
+    notImplemented();
+    return String();
+}
+
+String contextMenuItemTagGoBack()
+{
+    notImplemented();
+    return String();
+}
+
+String contextMenuItemTagGoForward()
+{
+    notImplemented();
+    return String();
+}
+
+String contextMenuItemTagStop()
+{
+    notImplemented();
+    return String();
+}
+
+String contextMenuItemTagReload()
+{
+    notImplemented();
+    return String();
+}
+
+String contextMenuItemTagCut()
+{
+    notImplemented();
+    return String();
+}
+
+String contextMenuItemTagPaste()
+{
+    notImplemented();
+    return String();
+}
+
+String contextMenuItemTagNoGuessesFound()
+{
+    notImplemented();
+    return String();
+}
+
+String contextMenuItemTagIgnoreSpelling()
+{
+    notImplemented();
+    return String();
+}
+
+String contextMenuItemTagLearnSpelling()
+{
+    notImplemented();
+    return String();
+}
+
+String contextMenuItemTagSearchWeb()
+{
+    notImplemented();
+    return String();
+}
+
+String contextMenuItemTagLookUpInDictionary()
+{
+    notImplemented();
+    return String();
+}
+
+String contextMenuItemTagOpenLink()
+{
+    notImplemented();
+    return String();
+}
+
+String contextMenuItemTagIgnoreGrammar()
+{
+    notImplemented();
+    return String();
+}
+
+String contextMenuItemTagSpellingMenu()
+{
+    notImplemented();
+    return String();
+}
+
+String contextMenuItemTagShowSpellingPanel(bool show)
+{
+    notImplemented();
+    return String();
+}
+
+String contextMenuItemTagCheckSpelling()
+{
+    notImplemented();
+    return String();
+}
+
+String contextMenuItemTagCheckSpellingWhileTyping()
+{
+    notImplemented();
+    return String();
+}
+
+String contextMenuItemTagCheckGrammarWithSpelling()
+{
+    notImplemented();
+    return String();
+}
+
+String contextMenuItemTagFontMenu()
+{
+    notImplemented();
+    return String();
+}
+
+String contextMenuItemTagBold()
+{
+    notImplemented();
+    return String();
+}
+
+String contextMenuItemTagItalic()
+{
+    notImplemented();
+    return String();
+}
+
+String contextMenuItemTagUnderline()
+{
+    notImplemented();
+    return String();
+}
+
+String contextMenuItemTagOutline()
+{
+    notImplemented();
+    return String();
+}
+
+String contextMenuItemTagWritingDirectionMenu()
+{
+    notImplemented();
+    return String();
+}
+
+String contextMenuItemTagTextDirectionMenu()
+{
+    notImplemented();
+    return String();
+}
+
+String contextMenuItemTagDefaultDirection()
+{
+    notImplemented();
+    return String();
+}
+
+String contextMenuItemTagLeftToRight()
+{
+    notImplemented();
+    return String();
+}
+
+String contextMenuItemTagRightToLeft()
+{
+    notImplemented();
+    return String();
+}
+
 String imageTitle(const String& filename, const IntSize& size)
 {
     notImplemented();
     return String();
 }
 
-// The following functions are used to fetch localized text for HTML form
-// elements submit and reset. These strings are used when the page author
-// has not specified any text for these buttons.
-String submitButtonDefaultLabel()
-{
-    verifiedOk();
-    return String("Submit");
-}
-
-String resetButtonDefaultLabel()
-{
-    verifiedOk();
-    return String("Reset");
-}
-
-// The alt text for an input element is not used visually, but rather is
-// used for accessability - eg reading the web page. See
-// HTMLInputElement::altText() for more information.
-String inputElementAltText()
+String mediaElementLoadingStateText()
 {
     notImplemented();
     return String();
 }
 
-// This is the string that appears before an input box when the HTML element
-// <ISINDEX> is used. The returned string is used if no PROMPT attribute is
-// provided.
-// note: Safari and FireFox use (too long for us imho) "This is a searchable index. Enter search keywords:"
+String mediaElementLiveBroadcastStateText()
+{
+    notImplemented();
+    return String();
+}
+
 String searchableIndexIntroduction()
 {
-    verifiedOk();
-    return String("Enter search:");
-}
-
-String contextMenuItemTagOpenLinkInNewWindow()
-{
-    ASSERT_NOT_REACHED();
+    notImplemented();
     return String();
 }
 
-String contextMenuItemTagDownloadLinkToDisk()
+String resetButtonDefaultLabel()
 {
-    ASSERT_NOT_REACHED();
-    return String();
+    return String("Reset");
 }
 
-String contextMenuItemTagCopyLinkToClipboard()
+String submitButtonDefaultLabel()
 {
-    ASSERT_NOT_REACHED();
-    return String();
+    return String("Submit");
 }
 
-String contextMenuItemTagOpenImageInNewWindow()
+String inputElementAltText()
 {
-    ASSERT_NOT_REACHED();
-    return String();
-}
-
-String contextMenuItemTagDownloadImageToDisk()
-{
-    ASSERT_NOT_REACHED();
-    return String();
-}
-
-String contextMenuItemTagCopyImageToClipboard()
-{
-    ASSERT_NOT_REACHED();
-    return String();
-}
-
-String contextMenuItemTagOpenFrameInNewWindow()
-{
-    ASSERT_NOT_REACHED();
-    return String();
-}
-
-String contextMenuItemTagCopy()
-{
-    ASSERT_NOT_REACHED();
-    return String();
-}
-
-String contextMenuItemTagGoBack()
-{
-    ASSERT_NOT_REACHED();
-    return String();
-}
-
-String contextMenuItemTagGoForward()
-{
-    ASSERT_NOT_REACHED();
-    return String();
-}
-
-String contextMenuItemTagStop()
-{
-    ASSERT_NOT_REACHED();
-    return String();
-}
-
-String contextMenuItemTagReload()
-{
-    ASSERT_NOT_REACHED();
-    return String();
-}
-
-String contextMenuItemTagCut()
-{
-    ASSERT_NOT_REACHED();
-    return String();
-}
-
-String contextMenuItemTagPaste()
-{
-    ASSERT_NOT_REACHED();
-    return String();
-}
-
-String contextMenuItemTagNoGuessesFound()
-{
-    ASSERT_NOT_REACHED();
-    return String();
-}
-
-String contextMenuItemTagIgnoreSpelling()
-{
-    ASSERT_NOT_REACHED();
-    return String();
-}
-
-String contextMenuItemTagLearnSpelling()
-{
-    ASSERT_NOT_REACHED();
-    return String();
-}
-
-String contextMenuItemTagSearchWeb()
-{
-    ASSERT_NOT_REACHED();
-    return String();
-}
-
-String contextMenuItemTagLookUpInDictionary()
-{
-    ASSERT_NOT_REACHED();
-    return String();
-}
-
-String contextMenuItemTagOpenLink()
-{
-    ASSERT_NOT_REACHED();
-    return String();
-}
-
-String contextMenuItemTagIgnoreGrammar()
-{
-    ASSERT_NOT_REACHED();
-    return String();
-}
-
-String contextMenuItemTagSpellingMenu()
-{
-    ASSERT_NOT_REACHED();
-    return String();
-}
-
-String contextMenuItemTagShowSpellingPanel(bool)
-{
-    ASSERT_NOT_REACHED();
-    return String();
-}
-
-String contextMenuItemTagCheckSpelling()
-{
-    ASSERT_NOT_REACHED();
-    return String();
-}
-
-String contextMenuItemTagCheckSpellingWhileTyping()
-{
-    ASSERT_NOT_REACHED();
-    return String();
-}
-
-String contextMenuItemTagCheckGrammarWithSpelling()
-{
-    ASSERT_NOT_REACHED();
-    return String();
-}
-
-String contextMenuItemTagFontMenu()
-{
-    ASSERT_NOT_REACHED();
-    return String();
-}
-
-String contextMenuItemTagBold()
-{
-    ASSERT_NOT_REACHED();
-    return String();
-}
-
-String contextMenuItemTagItalic()
-{
-    ASSERT_NOT_REACHED();
-    return String();
-}
-
-String contextMenuItemTagUnderline()
-{
-    ASSERT_NOT_REACHED();
-    return String();
-}
-
-String contextMenuItemTagOutline()
-{
-    ASSERT_NOT_REACHED();
-    return String();
-}
-
-String contextMenuItemTagWritingDirectionMenu()
-{
-    ASSERT_NOT_REACHED();
-    return String();
-}
-
-String contextMenuItemTagDefaultDirection()
-{
-    ASSERT_NOT_REACHED();
-    return String();
-}
-
-String contextMenuItemTagLeftToRight()
-{
-    ASSERT_NOT_REACHED();
-    return String();
-}
-
-String contextMenuItemTagRightToLeft()
-{
-    ASSERT_NOT_REACHED();
-    return String();
-}
-
-String contextMenuItemTagTextDirectionMenu()
-{
-    ASSERT_NOT_REACHED();
+    notImplemented();
     return String();
 }
 

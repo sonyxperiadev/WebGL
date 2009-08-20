@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
- * Copyright (C) 2008 Torch Mobile Inc. All rights reserved. (http://www.torchmobile.com/)
+ * Copyright (C) 2008, 2009 Torch Mobile Inc. All rights reserved. (http://www.torchmobile.com/)
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -113,7 +113,7 @@ namespace WebCore {
         void* m_argument;
     };
 
-    class FrameLoader : Noncopyable {
+    class FrameLoader : public Noncopyable {
     public:
         FrameLoader(Frame*, FrameLoaderClient*);
         ~FrameLoader();
@@ -241,10 +241,6 @@ namespace WebCore {
 
         void didFirstVisuallyNonEmptyLayout();
 
-#if ENABLE(WML)
-        void setForceReloadWmlDeck(bool);
-#endif
-
         void loadedResourceFromMemoryCache(const CachedResource*);
         void tellClientAboutPastMemoryCacheLoads();
 
@@ -266,7 +262,7 @@ namespace WebCore {
 
         void submitForm(const char* action, const String& url,
             PassRefPtr<FormData>, const String& target, const String& contentType, const String& boundary,
-            bool lockHistory, bool lockBackForwardList, PassRefPtr<Event>, PassRefPtr<FormState>);
+            bool lockHistory, PassRefPtr<Event>, PassRefPtr<FormState>);
 
         void stop();
         void stopLoading(bool sendUnload, DatabasePolicy = DatabasePolicyStop);
@@ -310,7 +306,7 @@ namespace WebCore {
         void handledOnloadEvents();
         String userAgent(const KURL&) const;
 
-        Widget* createJavaAppletWidget(const IntSize&, HTMLAppletElement*, const HashMap<String, String>& args);
+        PassRefPtr<Widget> createJavaAppletWidget(const IntSize&, HTMLAppletElement*, const HashMap<String, String>& args);
 
         void dispatchWindowObjectAvailable();
         void dispatchDocumentElementAvailable();
@@ -321,7 +317,7 @@ namespace WebCore {
         bool openedByDOM() const;
         void setOpenedByDOM();
 
-        bool userGestureHint();
+        bool isProcessingUserGesture();
 
         void resetMultipleFormSubmissionProtection();
 
@@ -369,13 +365,6 @@ namespace WebCore {
         static void setLocalLoadPolicy(LocalLoadPolicy);
         static bool restrictAccessToLocal();
         static bool allowSubstituteDataAccessToLocal();
-
-        static void registerURLSchemeAsLocal(const String&);
-        static bool shouldTreatURLAsLocal(const String&);
-        static bool shouldTreatURLSchemeAsLocal(const String&);
-
-        static void registerURLSchemeAsNoAccess(const String&);
-        static bool shouldTreatURLSchemeAsNoAccess(const String&);
 
         bool committingFirstRealLoad() const { return !m_creatingInitialEmptyDocument && !m_committedFirstRealDocumentLoad; }
 
@@ -504,7 +493,7 @@ namespace WebCore {
         void dispatchDidFinishLoading(DocumentLoader*, unsigned long identifier);
 
         static bool isLocationChange(const ScheduledRedirection&);
-        void scheduleFormSubmission(const FrameLoadRequest&, bool lockHistory, bool lockBackForwardList, PassRefPtr<Event>, PassRefPtr<FormState>);
+        void scheduleFormSubmission(const FrameLoadRequest&, bool lockHistory, PassRefPtr<Event>, PassRefPtr<FormState>);
 
         void loadWithDocumentLoader(DocumentLoader*, FrameLoadType, PassRefPtr<FormState>); // Calls continueLoadAfterNavigationPolicy
         void load(DocumentLoader*);                                                         // Calls loadWithDocumentLoader   
@@ -636,10 +625,6 @@ namespace WebCore {
         
 #ifndef NDEBUG
         bool m_didDispatchDidCommitLoad;
-#endif
-
-#if ENABLE(WML)
-        bool m_forceReloadWmlDeck;
 #endif
     };
 

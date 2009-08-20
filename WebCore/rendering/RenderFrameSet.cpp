@@ -68,7 +68,7 @@ inline HTMLFrameSetElement* RenderFrameSet::frameSet() const
 
 static Color borderStartEdgeColor()
 {
-    return Color(170,170,170);
+    return Color(170, 170, 170);
 }
 
 static Color borderEndEdgeColor()
@@ -419,9 +419,9 @@ void RenderFrameSet::computeEdgeInfo()
         for (int c = 0; c < cols; ++c) {
             FrameEdgeInfo edgeInfo;
             if (child->isFrameSet())
-                edgeInfo = static_cast<RenderFrameSet*>(child)->edgeInfo();
+                edgeInfo = toRenderFrameSet(child)->edgeInfo();
             else
-                edgeInfo = static_cast<RenderFrame*>(child)->edgeInfo();
+                edgeInfo = toRenderFrame(child)->edgeInfo();
             fillFromEdgeInfo(edgeInfo, r, c);
             child = child->nextSibling();
             if (!child)
@@ -693,9 +693,10 @@ bool RenderFrameSet::userResize(MouseEvent* evt)
 void RenderFrameSet::setIsResizing(bool isResizing)
 {
     m_isResizing = isResizing;
-    for (RenderObject* p = parent(); p; p = p->parent())
-        if (p->isFrameSet())
-            static_cast<RenderFrameSet*>(p)->m_isChildResizing = isResizing;
+    for (RenderObject* ancestor = parent(); ancestor; ancestor = ancestor->parent()) {
+        if (ancestor->isFrameSet())
+            toRenderFrameSet(ancestor)->m_isChildResizing = isResizing;
+    }
     if (Frame* frame = document()->frame())
         frame->eventHandler()->setResizingFrameSet(isResizing ? frameSet() : 0);
 }

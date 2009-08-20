@@ -36,11 +36,14 @@
 #include <QMetaEnum>
 #include <QUrl>
 #include <QEvent>
-#include <phonon>
+
+#include <Phonon/AudioOutput>
+#include <Phonon/MediaObject>
+#include <Phonon/VideoWidget>
 
 using namespace Phonon;
 
-#define LOG_MEDIAOBJECT() (LOG(Media,"%s", debugMediaObject(this, *m_mediaObject).constData()))
+#define LOG_MEDIAOBJECT() (LOG(Media, "%s", debugMediaObject(this, *m_mediaObject).constData()))
 
 static QByteArray debugMediaObject(WebCore::MediaPlayerPrivate* mediaPlayer, const MediaObject& mediaObject)
 {
@@ -94,9 +97,8 @@ MediaPlayerPrivate::MediaPlayerPrivate(MediaPlayer* player)
 
     // Make sure we get updates for each frame
     m_videoWidget->installEventFilter(this);
-    foreach(QWidget* widget, qFindChildren<QWidget*>(m_videoWidget)) {
+    foreach (QWidget* widget, qFindChildren<QWidget*>(m_videoWidget))
         widget->installEventFilter(this);
-    }
 
     connect(m_mediaObject, SIGNAL(stateChanged(Phonon::State, Phonon::State)),
             this, SLOT(stateChanged(Phonon::State, Phonon::State)));
@@ -111,8 +113,8 @@ MediaPlayerPrivate::MediaPlayerPrivate(MediaPlayer* player)
     connect(m_mediaObject, SIGNAL(totalTimeChanged(qint64)), this, SLOT(totalTimeChanged(qint64)));
 }
 
-MediaPlayerPrivateInterface* MediaPlayerPrivate::create(MediaPlayer* player) 
-{ 
+MediaPlayerPrivateInterface* MediaPlayerPrivate::create(MediaPlayer* player)
+{
     return new MediaPlayerPrivate(player);
 }
 
@@ -263,7 +265,7 @@ float MediaPlayerPrivate::maxTimeSeekable() const
 }
 
 unsigned MediaPlayerPrivate::bytesLoaded() const
-{ 
+{
     notImplemented();
     return 0;
 }
@@ -343,9 +345,8 @@ void MediaPlayerPrivate::updateStates()
              m_networkState = MediaPlayer::NetworkError;
              m_readyState = MediaPlayer::HaveNothing;
              cancelLoad();
-         } else {
+         } else
              m_mediaObject->pause();
-         }
     }
 
     if (seeking())

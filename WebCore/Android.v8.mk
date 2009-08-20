@@ -30,7 +30,6 @@
 #	editing/SmartReplace*.cpp \
 #	history/BackForwardListChromium.cpp \
 #	html/FileList.cpp \
-#	html/HTMLElementsAllInOne.cpp \
 #	loader/CachedXBLDocument.cpp \
 #	loader/CachedXSLStyleSheet.cpp \
 #	loader/FTP*.cpp \
@@ -139,11 +138,13 @@ LOCAL_SRC_FILES := \
 	css/CSSVariablesRule.cpp \
 	css/FontFamilyValue.cpp \
 	css/FontValue.cpp \
+	css/Media.cpp \
 	css/MediaFeatureNames.cpp \
 	css/MediaList.cpp \
 	css/MediaQuery.cpp \
 	css/MediaQueryEvaluator.cpp \
 	css/MediaQueryExp.cpp \
+	css/RGBColor.cpp \
     
 ifeq ($(ENABLE_SVG), true)
 LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
@@ -182,7 +183,6 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	dom/Comment.cpp \
 	dom/ContainerNode.cpp \
 	dom/DOMImplementation.cpp \
-	dom/DOMStringList.cpp \
 	dom/Document.cpp \
 	dom/DocumentFragment.cpp \
 	dom/DocumentType.cpp \
@@ -191,6 +191,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	dom/Element.cpp \
 	dom/Entity.cpp \
 	dom/EntityReference.cpp \
+	dom/ErrorEvent.cpp \
 	dom/Event.cpp \
 	dom/EventNames.cpp \
 	dom/EventTarget.cpp \
@@ -202,6 +203,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	dom/MessageChannel.cpp \
 	dom/MessageEvent.cpp \
 	dom/MessagePort.cpp \
+	dom/MessagePortChannel.cpp \
 	dom/MouseEvent.cpp \
 	dom/MouseRelatedEvent.cpp \
 	dom/MutationEvent.cpp \
@@ -228,7 +230,6 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	dom/SelectElement.cpp \
 	dom/SelectorNodeList.cpp \
 	dom/StaticNodeList.cpp \
-	dom/StaticStringList.cpp \
 	dom/StyleElement.cpp \
 	dom/StyledElement.cpp \
 	dom/TagNodeList.cpp \
@@ -247,6 +248,8 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	dom/XMLTokenizer.cpp \
 	dom/XMLTokenizerLibxml2.cpp \
 	dom/XMLTokenizerScope.cpp \
+	\
+	dom/default/PlatformMessagePortChannel.cpp \
 	\
 	editing/AppendNodeCommand.cpp \
 	editing/ApplyStyleCommand.cpp \
@@ -302,97 +305,31 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	history/HistoryItem.cpp \
 	history/PageCache.cpp \
 	\
-	html/CanvasGradient.cpp \
-	html/CanvasPattern.cpp \
-	html/CanvasPixelArray.cpp \
-	html/CanvasRenderingContext2D.cpp \
-	html/CanvasStyle.cpp \
 	html/CollectionCache.cpp \
 	html/File.cpp \
 	html/FormDataList.cpp \
-	html/HTMLAnchorElement.cpp \
-	html/HTMLAppletElement.cpp \
-	html/HTMLAreaElement.cpp \
-	html/HTMLAudioElement.cpp \
-	html/HTMLBRElement.cpp \
-	html/HTMLBaseElement.cpp \
-	html/HTMLBaseFontElement.cpp \
-	html/HTMLBlockquoteElement.cpp \
-	html/HTMLBodyElement.cpp \
-	html/HTMLButtonElement.cpp \
-	html/HTMLCanvasElement.cpp \
 	html/HTMLCollection.cpp \
-	html/HTMLDListElement.cpp \
-	html/HTMLDirectoryElement.cpp \
-	html/HTMLDivElement.cpp \
 	html/HTMLDocument.cpp \
-	html/HTMLElement.cpp \
-	html/HTMLEmbedElement.cpp \
-	html/HTMLFieldSetElement.cpp \
-	html/HTMLFontElement.cpp \
+        html/HTMLElementsAllInOne.cpp \
 	html/HTMLFormCollection.cpp \
-	html/HTMLFormControlElement.cpp \
-	html/HTMLFormElement.cpp \
-	html/HTMLFrameElement.cpp \
-	html/HTMLFrameElementBase.cpp \
-	html/HTMLFrameOwnerElement.cpp \
-	html/HTMLFrameSetElement.cpp \
-	html/HTMLHRElement.cpp \
-	html/HTMLHeadElement.cpp \
-	html/HTMLHeadingElement.cpp \
-	html/HTMLHtmlElement.cpp \
-	html/HTMLIFrameElement.cpp \
-	html/HTMLImageElement.cpp \
 	html/HTMLImageLoader.cpp \
-	html/HTMLInputElement.cpp \
-	html/HTMLIsIndexElement.cpp \
-	html/HTMLKeygenElement.cpp \
-	html/HTMLLIElement.cpp \
-	html/HTMLLabelElement.cpp \
-	html/HTMLLegendElement.cpp \
-	html/HTMLLinkElement.cpp \
-	html/HTMLMapElement.cpp \
-	html/HTMLMarqueeElement.cpp \
-	html/HTMLMediaElement.cpp \
-	html/HTMLMenuElement.cpp \
-	html/HTMLMetaElement.cpp \
-	html/HTMLModElement.cpp \
 	html/HTMLNameCollection.cpp \
-	html/HTMLNoScriptElement.cpp \
-	html/HTMLOListElement.cpp \
-	html/HTMLObjectElement.cpp \
-	html/HTMLOptGroupElement.cpp \
-	html/HTMLOptionElement.cpp \
 	html/HTMLOptionsCollection.cpp \
-	html/HTMLParagraphElement.cpp \
-	html/HTMLParamElement.cpp \
 	html/HTMLParser.cpp \
 	html/HTMLParserErrorCodes.cpp \
-	html/HTMLPlugInElement.cpp \
-	html/HTMLPlugInImageElement.cpp \
-	html/HTMLPreElement.cpp \
-	html/HTMLQuoteElement.cpp \
-	html/HTMLScriptElement.cpp \
-	html/HTMLSelectElement.cpp \
-	html/HTMLSourceElement.cpp \
-	html/HTMLStyleElement.cpp \
-	html/HTMLTableCaptionElement.cpp \
-	html/HTMLTableCellElement.cpp \
-	html/HTMLTableColElement.cpp \
-	html/HTMLTableElement.cpp \
-	html/HTMLTablePartElement.cpp \
-	html/HTMLTableRowElement.cpp \
 	html/HTMLTableRowsCollection.cpp \
-	html/HTMLTableSectionElement.cpp \
-	html/HTMLTextAreaElement.cpp \
-	html/HTMLTitleElement.cpp \
 	html/HTMLTokenizer.cpp \
-	html/HTMLUListElement.cpp \
-	html/HTMLVideoElement.cpp \
 	html/HTMLViewSourceDocument.cpp \
 	html/ImageData.cpp \
 	html/PreloadScanner.cpp \
 	html/TimeRanges.cpp \
+	html/ValidityState.cpp \
+	\
+	html/canvas/CanvasGradient.cpp \
+	html/canvas/CanvasPattern.cpp \
+	html/canvas/CanvasPixelArray.cpp \
+	html/canvas/CanvasRenderingContext2D.cpp \
+	html/canvas/CanvasStyle.cpp \
 	\
 	loader/Cache.cpp \
 	loader/CachedCSSStyleSheet.cpp \
@@ -416,6 +353,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	loader/MediaDocument.cpp \
 	loader/NavigationAction.cpp \
 	loader/NetscapePlugInStreamLoader.cpp \
+	loader/PlaceholderDocument.cpp \
 	loader/PluginDocument.cpp \
 	loader/ProgressTracker.cpp \
 	loader/Request.cpp \
@@ -426,6 +364,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	loader/ThreadableLoader.cpp \
 	loader/appcache/ApplicationCache.cpp \
 	loader/appcache/ApplicationCacheGroup.cpp \
+	loader/appcache/ApplicationCacheHost.cpp \
 	loader/appcache/ApplicationCacheResource.cpp \
 	loader/appcache/ApplicationCacheStorage.cpp \
 	loader/appcache/DOMApplicationCache.cpp \
@@ -469,6 +408,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	page/Settings.cpp \
 	page/WindowFeatures.cpp \
 	page/WorkerNavigator.cpp \
+	page/XSSAuditor.cpp \
 	\
 	page/android/DragControllerAndroid.cpp \
 	page/android/EventHandlerAndroid.cpp \
@@ -610,8 +550,9 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/graphics/transforms/TransformationMatrix.cpp \
 	platform/graphics/transforms/TranslateTransformOperation.cpp \
 	\
-	platform/image-decoders/skia/GIFImageDecoder.cpp \
-	platform/image-decoders/skia/GIFImageReader.cpp \
+	platform/image-decoders/gif/GIFImageDecoder.cpp \
+	platform/image-decoders/gif/GIFImageReader.cpp \
+	platform/image-decoders/skia/ImageDecoderSkia.cpp \
 	\
 	platform/network/AuthenticationChallengeBase.cpp \
 	platform/network/Credential.cpp \
@@ -635,6 +576,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/sql/SQLValue.cpp \
 	platform/sql/SQLiteAuthorizer.cpp \
 	platform/sql/SQLiteDatabase.cpp \
+	platform/sql/SQLiteFileSystem.cpp \
 	platform/sql/SQLiteStatement.cpp \
 	platform/sql/SQLiteTransaction.cpp \
 	\
@@ -692,6 +634,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	rendering/RenderArena.cpp \
 	rendering/RenderBR.cpp \
 	rendering/RenderBlock.cpp \
+	rendering/RenderBlockLineLayout.cpp \
 	rendering/RenderBox.cpp \
 	rendering/RenderBoxModelObject.cpp \
 	rendering/RenderButton.cpp \
@@ -778,7 +721,6 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	rendering/ScrollBehavior.cpp \
 	rendering/TextControlInnerElements.cpp \
 	rendering/TransformState.cpp \
-	rendering/bidi.cpp \
 	rendering/break_lines.cpp \
 	\
 	rendering/style/BindingURI.cpp \
@@ -817,22 +759,22 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	storage/DatabaseTask.cpp \
 	storage/DatabaseThread.cpp \
 	storage/DatabaseTracker.cpp \
-	storage/LocalStorage.cpp \
-	storage/LocalStorageArea.cpp \
 	storage/LocalStorageTask.cpp \
 	storage/LocalStorageThread.cpp \
 	storage/OriginQuotaManager.cpp \
 	storage/OriginUsageRecord.cpp \
-	storage/SessionStorage.cpp \
-	storage/SessionStorageArea.cpp \
 	storage/SQLResultSet.cpp \
 	storage/SQLResultSetRowList.cpp \
 	storage/SQLStatement.cpp \
 	storage/SQLTransaction.cpp \
 	storage/Storage.cpp \
-	storage/StorageArea.cpp \
+	storage/StorageAreaImpl.cpp \
+	storage/StorageAreaSync.cpp \
 	storage/StorageEvent.cpp \
 	storage/StorageMap.cpp \
+	storage/StorageNamespace.cpp \
+	storage/StorageNamespaceImpl.cpp \
+	storage/StorageSyncManager.cpp \
     
 ifeq ($(ENABLE_SVG), true)
 LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
@@ -1006,13 +948,21 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 endif
 
 LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
+	workers/AbstractWorker.cpp \
+	workers/DedicatedWorkerContext.cpp \
+	workers/DedicatedWorkerThread.cpp \
+	workers/DefaultSharedWorkerRepository.cpp \
+	workers/SharedWorker.cpp \
+	workers/SharedWorkerContext.cpp \
+	workers/SharedWorkerThread.cpp \
 	workers/Worker.cpp \
 	workers/WorkerContext.cpp \
-	workers/WorkerImportScriptsClient.cpp \
 	workers/WorkerLocation.cpp \
 	workers/WorkerMessagingProxy.cpp \
 	workers/WorkerRunLoop.cpp \
+	workers/WorkerScriptLoader.cpp \
 	workers/WorkerThread.cpp \
+	\
 	xml/DOMParser.cpp \
 	xml/XMLHttpRequest.cpp \
 	xml/XMLHttpRequestUpload.cpp \

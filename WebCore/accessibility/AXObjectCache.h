@@ -95,6 +95,10 @@ namespace WebCore {
         void removeAXID(AccessibilityObject*);
         bool isIDinUse(AXID id) const { return m_idsInUse.contains(id); }
 
+        // Text marker utilities.
+        static void textMarkerDataForVisiblePosition(TextMarkerData&, const VisiblePosition&);
+        static VisiblePosition visiblePositionForTextMarkerData(TextMarkerData&);
+                
     private:
         HashMap<AXID, RefPtr<AccessibilityObject> > m_objects;
         HashMap<RenderObject*, AXID> m_renderObjectMapping;
@@ -104,7 +108,7 @@ namespace WebCore {
         HashSet<AXID> m_idsInUse;
         
         Timer<AXObjectCache> m_notificationPostTimer;
-        Vector<pair<AccessibilityObject*, const String> > m_notificationsToPost;
+        Vector<pair<RefPtr<AccessibilityObject>, const String> > m_notificationsToPost;
         void notificationPostTimerFired(Timer<AXObjectCache>*);
         
         AXID getAXID(AccessibilityObject*);

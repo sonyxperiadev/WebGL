@@ -67,8 +67,9 @@ namespace WebKit {
 
         virtual void setResizable(bool);
 
-        virtual void addMessageToConsole(const WebCore::String& message, unsigned int lineNumber,
-                                         const WebCore::String& sourceID);
+        virtual void addMessageToConsole(WebCore::MessageSource source, WebCore::MessageType type,
+                                         WebCore::MessageLevel level, const WebCore::String& message,
+                                         unsigned int lineNumber, const WebCore::String& sourceID);
 
         virtual bool canRunBeforeUnloadConfirmPanel();
         virtual bool runBeforeUnloadConfirmPanel(const WebCore::String& message, WebCore::Frame* frame);
@@ -93,7 +94,7 @@ namespace WebKit {
 
         virtual void mouseDidMoveOverElement(const WebCore::HitTestResult&, unsigned modifierFlags);
 
-        virtual void setToolTip(const WebCore::String&);
+        virtual void setToolTip(const WebCore::String&, WebCore::TextDirection);
 
         virtual void print(WebCore::Frame*);
 #if ENABLE(DATABASE)
@@ -105,6 +106,13 @@ namespace WebKit {
         virtual void runOpenPanel(WebCore::Frame*, PassRefPtr<WebCore::FileChooser>);
 
         virtual void formStateDidChange(const WebCore::Node*) { }
+
+        virtual PassOwnPtr<WebCore::HTMLParserQuirks> createHTMLParserQuirks() { return 0; }
+
+        virtual bool setCursor(WebCore::PlatformCursorHandle);
+
+        virtual void scrollRectIntoView(const WebCore::IntRect&, const WebCore::ScrollView*) const {}
+        virtual void requestGeolocationPermissionForFrame(WebCore::Frame*, WebCore::Geolocation*);
 
     private:
         WebKitWebView* m_webView;

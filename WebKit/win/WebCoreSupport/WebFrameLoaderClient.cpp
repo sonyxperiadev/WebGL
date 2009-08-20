@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -44,7 +44,6 @@
 #include "WebHistoryItem.h"
 #include "WebMutableURLRequest.h"
 #include "WebNotificationCenter.h"
-#include "WebScriptDebugServer.h"
 #include "WebURLAuthenticationChallenge.h"
 #include "WebURLResponse.h"
 #include "WebView.h"
@@ -65,6 +64,7 @@
 #include <WebCore/PluginView.h>
 #include <WebCore/RenderPart.h>
 #include <WebCore/ResourceHandle.h>
+#include <WebCore/ScriptString.h>
 #pragma warning(pop)
 
 using namespace WebCore;
@@ -94,9 +94,19 @@ bool WebFrameLoaderClient::hasWebView() const
 
 void WebFrameLoaderClient::forceLayout()
 {
-    FrameView* view = core(m_webFrame)->view();
-    if (view)
-        view->forceLayout(true);
+    Frame* frame = core(m_webFrame);
+    if (!frame)
+        return;
+
+    if (frame->document() && frame->document()->inPageCache())
+        return;
+
+    FrameView* view = frame->view();
+    if (!view)
+        return;
+
+    view->setNeedsLayout();
+    view->forceLayout(true);
 }
 
 void WebFrameLoaderClient::assignIdentifierToInitialRequest(unsigned long identifier, DocumentLoader* loader, const ResourceRequest& request)
@@ -117,8 +127,8 @@ bool WebFrameLoaderClient::shouldUseCredentialStorage(DocumentLoader* loader, un
     if (FAILED(webView->resourceLoadDelegate(&resourceLoadDelegate)))
         return true;
 
-    COMPtr<IWebResourceLoadDelegatePrivate2> resourceLoadDelegatePrivate;
-    if (FAILED(resourceLoadDelegate->QueryInterface(IID_IWebResourceLoadDelegatePrivate2, reinterpret_cast<void**>(&resourceLoadDelegatePrivate))))
+    COMPtr<IWebResourceLoadDelegatePrivate> resourceLoadDelegatePrivate;
+    if (FAILED(resourceLoadDelegate->QueryInterface(IID_IWebResourceLoadDelegatePrivate, reinterpret_cast<void**>(&resourceLoadDelegatePrivate))))
         return true;
 
     BOOL shouldUse;
@@ -177,6 +187,11 @@ void WebFrameLoaderClient::dispatchWillSendRequest(DocumentLoader* loader, unsig
     if (webURLRequest == newWebURLRequest)
         return;
 
+    if (!newWebURLRequest) {
+        request = ResourceRequest();
+        return;
+    }
+
     COMPtr<WebMutableURLRequest> newWebURLRequestImpl(Query, newWebURLRequest);
     if (!newWebURLRequestImpl)
         return;
@@ -226,6 +241,10 @@ void WebFrameLoaderClient::dispatchDidFailLoading(DocumentLoader* loader, unsign
     resourceLoadDelegate->didFailLoadingWithError(webView, identifier, webError.get(), getWebDataSource(loader));
 }
 
+void WebFrameLoaderClient::dispatchDidLoadResourceByXMLHttpRequest(unsigned long, const ScriptString&)
+{
+}
+
 bool WebFrameLoaderClient::shouldCacheResponse(DocumentLoader* loader, unsigned long identifier, const ResourceResponse& response, const unsigned char* data, const unsigned long long length)
 {
     WebView* webView = m_webFrame->webView();
@@ -233,11 +252,11 @@ bool WebFrameLoaderClient::shouldCacheResponse(DocumentLoader* loader, unsigned 
     if (FAILED(webView->resourceLoadDelegate(&resourceLoadDelegate)))
         return true;
 
-    COMPtr<IWebResourceLoadDelegatePrivate3> resourceLoadDelegatePrivate(Query, resourceLoadDelegate);
+    COMPtr<IWebResourceLoadDelegatePrivate> resourceLoadDelegatePrivate(Query, resourceLoadDelegate);
     if (!resourceLoadDelegatePrivate)
         return true;
 
-    COMPtr<IWebURLResponse> urlResponse(WebURLResponse::createInstance(response));
+    COMPtr<IWebURLResponse> urlResponse(AdoptCOM, WebURLResponse::createInstance(response));
     BOOL shouldCache;
     if (SUCCEEDED(resourceLoadDelegatePrivate->shouldCacheResponse(webView, identifier, urlResponse.get(), data, length, getWebDataSource(loader), &shouldCache)))
         return shouldCache;
@@ -350,11 +369,8 @@ void WebFrameLoaderClient::dispatchDidFirstVisuallyNonEmptyLayout()
 {
     WebView* webView = m_webFrame->webView();
     COMPtr<IWebFrameLoadDelegatePrivate> frameLoadDelegatePrivate;
-    if (SUCCEEDED(webView->frameLoadDelegatePrivate(&frameLoadDelegatePrivate)) && frameLoadDelegatePrivate) {
-        COMPtr<IWebFrameLoadDelegatePrivate2> frameLoadDelegatePrivate2(Query, frameLoadDelegatePrivate);
-        if (frameLoadDelegatePrivate2)
-            frameLoadDelegatePrivate2->didFirstVisuallyNonEmptyLayoutInFrame(webView, m_webFrame);
-    }
+    if (SUCCEEDED(webView->frameLoadDelegatePrivate(&frameLoadDelegatePrivate)) && frameLoadDelegatePrivate)
+        frameLoadDelegatePrivate->didFirstVisuallyNonEmptyLayoutInFrame(webView, m_webFrame);
 }
 
 Frame* WebFrameLoaderClient::dispatchCreatePage()
@@ -481,8 +497,7 @@ void WebFrameLoaderClient::updateGlobalHistory()
         return;
 
     DocumentLoader* loader = core(m_webFrame)->loader()->documentLoader();
-    history->visitedURL(loader->urlForHistory(), loader->title(), loader->originalRequestCopy().httpMethod(), loader->urlForHistoryReflectsFailure());
-    updateGlobalHistoryRedirectLinks();
+    history->visitedURL(loader->urlForHistory(), loader->title(), loader->originalRequestCopy().httpMethod(), loader->urlForHistoryReflectsFailure(), !loader->clientRedirectSourceForHistory());
 }
 
 void WebFrameLoaderClient::updateGlobalHistoryRedirectLinks()
@@ -492,6 +507,7 @@ void WebFrameLoaderClient::updateGlobalHistoryRedirectLinks()
         return;
 
     DocumentLoader* loader = core(m_webFrame)->loader()->documentLoader();
+    ASSERT(loader->unreachableURL().isEmpty());
 
     if (!loader->clientRedirectSourceForHistory().isNull()) {
         if (COMPtr<IWebHistoryItem> iWebHistoryItem = history->itemForURLString(loader->clientRedirectSourceForHistory())) {
@@ -606,7 +622,7 @@ PassRefPtr<Frame> WebFrameLoaderClient::createFrame(const KURL& URL, const Strin
     childFrame->tree()->setName(name);
     childFrame->init();
 
-    loadURLIntoChild(URL, referrer, webFrame.get());
+    coreFrame->loader()->loadURLIntoChildFrame(URL, referrer, childFrame.get());
 
     // The frame's onload handler may have removed it from the document.
     if (!childFrame->tree()->parent())
@@ -615,53 +631,72 @@ PassRefPtr<Frame> WebFrameLoaderClient::createFrame(const KURL& URL, const Strin
     return childFrame.release();
 }
 
-void WebFrameLoaderClient::loadURLIntoChild(const KURL& originalURL, const String& referrer, WebFrame* childFrame)
+void WebFrameLoaderClient::dispatchDidFailToStartPlugin(const PluginView* pluginView) const
 {
-    ASSERT(childFrame);
-    ASSERT(core(childFrame));
+    WebView* webView = m_webFrame->webView();
 
-    Frame* coreFrame = core(m_webFrame);
-    ASSERT(coreFrame);
+    COMPtr<IWebResourceLoadDelegate> resourceLoadDelegate;
+    if (FAILED(webView->resourceLoadDelegate(&resourceLoadDelegate)))
+        return;
 
-    HistoryItem* parentItem = coreFrame->loader()->currentHistoryItem();
-    FrameLoadType loadType = coreFrame->loader()->loadType();
-    FrameLoadType childLoadType = FrameLoadTypeRedirectWithLockedBackForwardList;
+    RetainPtr<CFMutableDictionaryRef> userInfo(AdoptCF, CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks));
 
-    KURL url = originalURL;
+    Frame* frame = core(m_webFrame);
+    ASSERT(frame == pluginView->parentFrame());
 
-    // If we're moving in the backforward list, we might want to replace the content
-    // of this child frame with whatever was there at that point.
-    // Reload will maintain the frame contents, LoadSame will not.
-    if (parentItem && parentItem->children().size() && isBackForwardLoadType(loadType)) {
-        if (HistoryItem* childItem = parentItem->childItemWithName(core(childFrame)->tree()->name())) {
-            // Use the original URL to ensure we get all the side-effects, such as
-            // onLoad handlers, of any redirects that happened. An example of where
-            // this is needed is Radar 3213556.
-            url = childItem->originalURL();
-            // These behaviors implied by these loadTypes should apply to the child frames
-            childLoadType = loadType;
-
-            if (isBackForwardLoadType(loadType))
-                // For back/forward, remember this item so we can traverse any child items as child frames load
-                core(childFrame)->loader()->setProvisionalHistoryItem(childItem);
-            else
-                // For reload, just reinstall the current item, since a new child frame was created but we won't be creating a new BF item
-                core(childFrame)->loader()->setCurrentHistoryItem(childItem);
+    if (!pluginView->pluginsPage().isNull()) {
+        KURL pluginPageURL = frame->document()->completeURL(deprecatedParseURL(pluginView->pluginsPage()));
+        if (pluginPageURL.protocolInHTTPFamily()) {
+            static CFStringRef key = MarshallingHelpers::LPCOLESTRToCFStringRef(WebKitErrorPlugInPageURLStringKey);
+            RetainPtr<CFStringRef> str(AdoptCF, pluginPageURL.string().createCFString());
+            CFDictionarySetValue(userInfo.get(), key, str.get());
         }
     }
 
-    // FIXME: Handle loading WebArchives here
-    String frameName = core(childFrame)->tree()->name();
-    core(childFrame)->loader()->loadURL(url, referrer, frameName, false, childLoadType, 0, 0);
+    if (!pluginView->mimeType().isNull()) {
+        static CFStringRef key = MarshallingHelpers::LPCOLESTRToCFStringRef(WebKitErrorMIMETypeKey);
+
+        RetainPtr<CFStringRef> str(AdoptCF, pluginView->mimeType().createCFString());
+        CFDictionarySetValue(userInfo.get(), key, str.get());
+    }
+
+    if (pluginView->plugin()) {
+        String pluginName = pluginView->plugin()->name();
+        if (!pluginName.isNull()) {
+            static CFStringRef key = MarshallingHelpers::LPCOLESTRToCFStringRef(WebKitErrorPlugInNameKey);
+            RetainPtr<CFStringRef> str(AdoptCF, pluginName.createCFString());
+            CFDictionarySetValue(userInfo.get(), key, str.get());
+        }
+    }
+
+    COMPtr<CFDictionaryPropertyBag> userInfoBag(AdoptCOM, CFDictionaryPropertyBag::createInstance());
+    userInfoBag->setDictionary(userInfo.get());
+ 
+    int errorCode = 0;
+    switch (pluginView->status()) {
+        case PluginStatusCanNotFindPlugin:
+            errorCode = WebKitErrorCannotFindPlugIn;
+            break;
+        case PluginStatusCanNotLoadPlugin:
+            errorCode = WebKitErrorCannotLoadPlugIn;
+            break;
+        default:
+            ASSERT_NOT_REACHED();
+    }
+
+    ResourceError resourceError(String(WebKitErrorDomain), errorCode, pluginView->url().string(), String());
+    COMPtr<IWebError> error(AdoptCOM, WebError::createInstance(resourceError, userInfoBag.get()));
+     
+    resourceLoadDelegate->plugInFailedWithError(webView, error.get(), getWebDataSource(frame->loader()->documentLoader()));
 }
 
-Widget* WebFrameLoaderClient::createPlugin(const IntSize& pluginSize, HTMLPlugInElement* element, const KURL& url, const Vector<String>& paramNames, const Vector<String>& paramValues, const String& mimeType, bool loadManually)
+PassRefPtr<Widget> WebFrameLoaderClient::createPlugin(const IntSize& pluginSize, HTMLPlugInElement* element, const KURL& url, const Vector<String>& paramNames, const Vector<String>& paramValues, const String& mimeType, bool loadManually)
 {
     WebView* webView = m_webFrame->webView();
 
     COMPtr<IWebUIDelegate> ui;
     if (SUCCEEDED(webView->uiDelegate(&ui)) && ui) {
-        COMPtr<IWebUIDelegatePrivate4> uiPrivate(Query, ui);
+        COMPtr<IWebUIDelegatePrivate> uiPrivate(Query, ui);
 
         if (uiPrivate) {
             // Assemble the view arguments in a property bag.
@@ -693,63 +728,12 @@ Widget* WebFrameLoaderClient::createPlugin(const IntSize& pluginSize, HTMLPlugIn
     }
 
     Frame* frame = core(m_webFrame);
-    PluginView* pluginView = PluginView::create(frame, pluginSize, element, url, paramNames, paramValues, mimeType, loadManually);
+    RefPtr<PluginView> pluginView = PluginView::create(frame, pluginSize, element, url, paramNames, paramValues, mimeType, loadManually);
 
     if (pluginView->status() == PluginStatusLoadedSuccessfully)
         return pluginView;
 
-    COMPtr<IWebResourceLoadDelegate> resourceLoadDelegate;
-
-    if (FAILED(webView->resourceLoadDelegate(&resourceLoadDelegate)))
-        return pluginView;
-
-    RetainPtr<CFMutableDictionaryRef> userInfo(AdoptCF, CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks));
-
-    unsigned count = (unsigned)paramNames.size();
-    for (unsigned i = 0; i < count; i++) {
-        if (paramNames[i] == "pluginspage") {
-            static CFStringRef key = MarshallingHelpers::LPCOLESTRToCFStringRef(WebKitErrorPlugInPageURLStringKey);
-            RetainPtr<CFStringRef> str(AdoptCF, paramValues[i].createCFString());
-            CFDictionarySetValue(userInfo.get(), key, str.get());
-            break;
-        }
-    }
-
-    if (!mimeType.isNull()) {
-        static CFStringRef key = MarshallingHelpers::LPCOLESTRToCFStringRef(WebKitErrorMIMETypeKey);
-
-        RetainPtr<CFStringRef> str(AdoptCF, mimeType.createCFString());
-        CFDictionarySetValue(userInfo.get(), key, str.get());
-    }
-
-    String pluginName;
-    if (pluginView->plugin())
-        pluginName = pluginView->plugin()->name();
-    if (!pluginName.isNull()) {
-        static CFStringRef key = MarshallingHelpers::LPCOLESTRToCFStringRef(WebKitErrorPlugInNameKey);
-        RetainPtr<CFStringRef> str(AdoptCF, pluginName.createCFString());
-        CFDictionarySetValue(userInfo.get(), key, str.get());
-    }
-
-    COMPtr<CFDictionaryPropertyBag> userInfoBag(AdoptCOM, CFDictionaryPropertyBag::createInstance());
-    userInfoBag->setDictionary(userInfo.get());
- 
-    int errorCode = 0;
-    switch (pluginView->status()) {
-        case PluginStatusCanNotFindPlugin:
-            errorCode = WebKitErrorCannotFindPlugIn;
-            break;
-        case PluginStatusCanNotLoadPlugin:
-            errorCode = WebKitErrorCannotLoadPlugIn;
-            break;
-        default:
-            ASSERT_NOT_REACHED();
-    }
-
-    ResourceError resourceError(String(WebKitErrorDomain), errorCode, url.string(), String());
-    COMPtr<IWebError> error(AdoptCOM, WebError::createInstance(resourceError, userInfoBag.get()));
-     
-    resourceLoadDelegate->plugInFailedWithError(webView, error.get(), getWebDataSource(frame->loader()->documentLoader()));
+    dispatchDidFailToStartPlugin(pluginView.get());
 
     return pluginView;
 }

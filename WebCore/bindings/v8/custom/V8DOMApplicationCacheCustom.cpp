@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, 2009 Google Inc. All rights reserved.
+ * Copyright (C) 2009 Google Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -33,9 +33,10 @@
 
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
 
+#include "ApplicationCacheHost.h"
 #include "V8Binding.h"
-#include "V8Document.h"
 #include "V8CustomBinding.h"
+#include "V8Document.h"
 #include "V8ObjectEventListener.h"
 #include "V8Proxy.h"
 #include "V8Utilities.h"
@@ -48,17 +49,10 @@ static const bool kFindOrCreate = false;
 
 static PassRefPtr<EventListener> argumentToEventListener(DOMApplicationCache* appcache, v8::Local<v8::Value> value, bool findOnly)
 {
-#if 0 && ENABLE(WORKERS)
-    // FIXME: this is not tested yet
-    WorkerContextExecutionProxy* workerContextProxy = WorkerContextExecutionProxy::retrieve();
-    if (workerContextProxy)
-        return workerContextProxy->findOrCreateObjectEventListener(value, false, findOnly);
-#endif
-
     V8Proxy* proxy = V8Proxy::retrieve(appcache->scriptExecutionContext());
     if (proxy)
-        return findOnly ? proxy->FindObjectEventListener(value, false)
-                        : proxy->FindOrCreateObjectEventListener(value, false);
+        return findOnly ? proxy->objectListeners()->findWrapper(value, false)
+                        : proxy->objectListeners()->findOrCreateWrapper<V8ObjectEventListener>(proxy->frame(), value, false);
     return 0;
 }
 
@@ -67,30 +61,28 @@ static v8::Local<v8::Object> eventListenerToV8Object(EventListener* listener)
     return (static_cast<V8ObjectEventListener*>(listener))->getListenerObject();
 }
 
-static inline String toEventType(v8::Local<v8::String> value)
+static inline ApplicationCacheHost::EventID toEventID(v8::Local<v8::String> value)
 {
     String key = toWebCoreString(value);
     ASSERT(key.startsWith("on"));
-    return key.substring(2);
+    return DOMApplicationCache::toEventID(key.substring(2));
 }
 
 // Handles appcache.onfooevent attribute getting
 ACCESSOR_GETTER(DOMApplicationCacheEventHandler)
 {
     INC_STATS("DOMApplicationCache.onevent_getter");
-    DOMApplicationCache* appcache = V8Proxy::ToNativeObject<DOMApplicationCache>(V8ClassIndex::DOMAPPLICATIONCACHE, info.Holder());
-    if (EventListener* listener = appcache->getAttributeEventListener(toEventType(name))) {
-      return eventListenerToV8Object(listener);
-    }
-    return v8::Null();
+    DOMApplicationCache* appcache = V8DOMWrapper::convertToNativeObject<DOMApplicationCache>(V8ClassIndex::DOMAPPLICATIONCACHE, info.Holder());
+    EventListener* listener = appcache->getAttributeEventListener(toEventID(name));
+    return eventListenerToV8Object(listener);
 }
 
 // Handles appcache.onfooevent attribute setting
 ACCESSOR_SETTER(DOMApplicationCacheEventHandler)
 {
     INC_STATS("DOMApplicationCache.onevent_setter");
-    DOMApplicationCache* appcache = V8Proxy::ToNativeObject<DOMApplicationCache>(V8ClassIndex::DOMAPPLICATIONCACHE, info.Holder());
-    String eventType = toEventType(name);
+    DOMApplicationCache* appcache = V8DOMWrapper::convertToNativeObject<DOMApplicationCache>(V8ClassIndex::DOMAPPLICATIONCACHE, info.Holder());
+    ApplicationCacheHost::EventID eventType = toEventID(name);
 
     if (EventListener* oldListener = appcache->getAttributeEventListener(eventType)) {
         v8::Local<v8::Object> object = eventListenerToV8Object(oldListener);
@@ -111,7 +103,7 @@ ACCESSOR_SETTER(DOMApplicationCacheEventHandler)
 CALLBACK_FUNC_DECL(DOMApplicationCacheAddEventListener)
 {
     INC_STATS("DOMApplicationCache.addEventListener()");
-    DOMApplicationCache* appcache = V8Proxy::ToNativeObject<DOMApplicationCache>(V8ClassIndex::DOMAPPLICATIONCACHE, args.Holder());
+    DOMApplicationCache* appcache = V8DOMWrapper::convertToNativeObject<DOMApplicationCache>(V8ClassIndex::DOMAPPLICATIONCACHE, args.Holder());
 
     RefPtr<EventListener> listener = argumentToEventListener(appcache, args[1], kFindOrCreate);
     if (listener) {
@@ -127,7 +119,7 @@ CALLBACK_FUNC_DECL(DOMApplicationCacheAddEventListener)
 CALLBACK_FUNC_DECL(DOMApplicationCacheRemoveEventListener)
 {
     INC_STATS("DOMApplicationCache.removeEventListener()");
-    DOMApplicationCache* appcache = V8Proxy::ToNativeObject<DOMApplicationCache>(V8ClassIndex::DOMAPPLICATIONCACHE, args.Holder());
+    DOMApplicationCache* appcache = V8DOMWrapper::convertToNativeObject<DOMApplicationCache>(V8ClassIndex::DOMAPPLICATIONCACHE, args.Holder());
 
     RefPtr<EventListener> listener = argumentToEventListener(appcache, args[1], kFindOnly);
     if (listener) {

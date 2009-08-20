@@ -156,7 +156,7 @@ LOCAL_GENERATED_SOURCES += $(GEN)
 	                         
 # user agent style sheets
 
-style_sheets := $(LOCAL_PATH)/css/html4.css $(LOCAL_PATH)/css/quirks.css $(LOCAL_PATH)/css/view-source.css $(LOCAL_PATH)/css/mediaControls.css
+style_sheets := $(LOCAL_PATH)/css/html.css $(LOCAL_PATH)/css/quirks.css $(LOCAL_PATH)/css/view-source.css $(LOCAL_PATH)/css/mediaControls.css
 ifeq ($(ENABLE_SVG), true)
 style_sheets := $(style_sheets) $(LOCAL_PATH)/css/svg.css
 endif
@@ -188,7 +188,6 @@ create_hash_table := $(LOCAL_PATH)/../JavaScriptCore/create_hash_table
 
 GEN := $(addprefix $(intermediates)/, \
 			bindings/js/JSDOMWindowBase.lut.h \
-    		bindings/js/JSRGBColor.lut.h \
 		)
 $(GEN): PRIVATE_CUSTOM_TOOL = perl $(create_hash_table) $< > $@
 $(GEN): $(intermediates)/bindings/js/%.lut.h: $(LOCAL_PATH)/bindings/js/%.cpp $(create_hash_table)
@@ -230,7 +229,9 @@ GEN := \
     $(intermediates)/css/JSCSSVariablesDeclaration.h \
     $(intermediates)/css/JSCSSVariablesRule.h \
     $(intermediates)/css/JSCounter.h \
+    $(intermediates)/css/JSMedia.h \
     $(intermediates)/css/JSMediaList.h \
+    $(intermediates)/css/JSRGBColor.h \
     $(intermediates)/css/JSRect.h \
     $(intermediates)/css/JSStyleSheet.h \
     $(intermediates)/css/JSStyleSheetList.h \
@@ -266,13 +267,13 @@ GEN := \
     $(intermediates)/dom/JSComment.h \
     $(intermediates)/dom/JSDOMCoreException.h \
     $(intermediates)/dom/JSDOMImplementation.h \
-    $(intermediates)/dom/JSDOMStringList.h \
     $(intermediates)/dom/JSDocument.h \
     $(intermediates)/dom/JSDocumentFragment.h \
     $(intermediates)/dom/JSDocumentType.h \
     $(intermediates)/dom/JSElement.h \
     $(intermediates)/dom/JSEntity.h \
     $(intermediates)/dom/JSEntityReference.h \
+    $(intermediates)/dom/JSErrorEvent.h \
     $(intermediates)/dom/JSEvent.h \
     $(intermediates)/dom/JSEventException.h \
     $(intermediates)/dom/JSKeyboardEvent.h \
@@ -314,9 +315,8 @@ $(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/dom/%.cpp : $(intermediates)/dom/
 
 
 GEN := \
-    $(intermediates)/html/JSCanvasGradient.h \
-    $(intermediates)/html/JSCanvasPattern.h \
-    $(intermediates)/html/JSCanvasRenderingContext2D.h \
+    $(intermediates)/html/JSDataGridColumn.h \
+    $(intermediates)/html/JSDataGridColumnList.h \
     $(intermediates)/html/JSFile.h \
     $(intermediates)/html/JSFileList.h \
     $(intermediates)/html/JSHTMLAnchorElement.h \
@@ -331,6 +331,10 @@ GEN := \
     $(intermediates)/html/JSHTMLButtonElement.h \
     $(intermediates)/html/JSHTMLCanvasElement.h \
 	$(intermediates)/html/JSHTMLCollection.h \
+    $(intermediates)/html/JSHTMLDataGridElement.h \
+    $(intermediates)/html/JSHTMLDataGridCellElement.h \
+    $(intermediates)/html/JSHTMLDataGridColElement.h \
+    $(intermediates)/html/JSHTMLDataGridRowElement.h \
     $(intermediates)/html/JSHTMLDListElement.h \
     $(intermediates)/html/JSHTMLDirectoryElement.h \
     $(intermediates)/html/JSHTMLDivElement.h \
@@ -387,6 +391,7 @@ GEN := \
     $(intermediates)/html/JSMediaError.h \
     $(intermediates)/html/JSTextMetrics.h \
     $(intermediates)/html/JSTimeRanges.h \
+    $(intermediates)/html/JSValidityState.h \
     $(intermediates)/html/JSVoidCallback.h 
 
 $(GEN): PRIVATE_PATH := $(LOCAL_PATH)
@@ -400,6 +405,22 @@ LOCAL_GENERATED_SOURCES += $(GEN) $(GEN:%.h=%.cpp)
 $(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/html/%.cpp : $(intermediates)/html/%.h
 
 GEN := \
+	$(intermediates)/html/canvas/JSCanvasGradient.h \
+	$(intermediates)/html/canvas/JSCanvasPattern.h \
+    $(intermediates)/html/canvas/JSCanvasRenderingContext2D.h
+
+$(GEN): PRIVATE_PATH := $(LOCAL_PATH)
+$(GEN): PRIVATE_CUSTOM_TOOL = perl -I$(PRIVATE_PATH)/bindings/scripts $(PRIVATE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator JS --include dom --include html --outputdir $(dir $@) $<
+$(GEN): $(intermediates)/html/canvas/JS%.h : $(LOCAL_PATH)/html/canvas/%.idl $(js_binding_scripts)
+	$(transform-generated-source)
+LOCAL_GENERATED_SOURCES += $(GEN) $(GEN:%.h=%.cpp)
+
+# We also need the .cpp files, which are generated as side effects of the
+# above rules.  Specifying this explicitly makes -j2 work.
+$(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/html/canvas/%.cpp : $(intermediates)/html/canvas/%.h
+
+GEN := \
+	$(intermediates)/inspector/JSInspectorBackend.h  \
     $(intermediates)/inspector/JSJavaScriptCallFrame.h 
     
 $(GEN): PRIVATE_PATH := $(LOCAL_PATH)
@@ -654,7 +675,11 @@ endif
 
 # new section for Workers
 GEN := \
-    $(intermediates)/workers/JSWorker.h \
+    $(intermediates)/workers/JSAbstractWorker.h \
+    $(intermediates)/workers/JSDedicatedWorkerContext.h \
+    $(intermediates)/workers/JSSharedWorker.h \
+    $(intermediates)/workers/JSSharedWorkerContext.h \
+	$(intermediates)/workers/JSWorker.h \
     $(intermediates)/workers/JSWorkerContext.h \
     $(intermediates)/workers/JSWorkerLocation.h
 

@@ -51,7 +51,7 @@ IntRect Widget::frameRect() const
 {
     // FIXME: use m_frame instead?
     if (!platformWidget())
-        return IntRect();
+        return IntRect(0, 0, 0, 0);
     return platformWidget()->getBounds();
 }
 

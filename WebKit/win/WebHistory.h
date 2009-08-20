@@ -30,6 +30,7 @@
 
 #include "COMPtr.h"
 #include <CoreFoundation/CoreFoundation.h>
+#include <wtf/OwnArrayPtr.h>
 #include <wtf/RetainPtr.h>
 
 namespace WebCore {
@@ -113,14 +114,20 @@ public:
         /* [out][in] */ int* count,
         /* [retval][out] */ IWebHistoryItem** items);
 
+    virtual HRESULT STDMETHODCALLTYPE data(IStream**);
+
     // WebHistory
     static WebHistory* sharedHistory();
-    void visitedURL(const WebCore::KURL&, const WebCore::String& title, const WebCore::String& httpMethod, bool wasFailure);
+    void visitedURL(const WebCore::KURL&, const WebCore::String& title, const WebCore::String& httpMethod, bool wasFailure, bool increaseVisitCount);
     void addVisitedLinksToPageGroup(WebCore::PageGroup&);
 
     COMPtr<IWebHistoryItem> itemForURLString(const WebCore::String&) const;
 
+    typedef int64_t DateKey;
+    typedef HashMap<DateKey, RetainPtr<CFMutableArrayRef> > DateToEntriesMap;
+
 private:
+
     enum NotificationType
     {
         kWebHistoryItemsAddedNotification = 0,
@@ -139,18 +146,18 @@ private:
     HRESULT removeItemForURLString(CFStringRef urlString);
     HRESULT addItemToDateCaches(IWebHistoryItem* entry);
     HRESULT removeItemFromDateCaches(IWebHistoryItem* entry);
-    HRESULT insertItem(IWebHistoryItem* entry, int dateIndex);
+    HRESULT insertItem(IWebHistoryItem* entry, DateKey);
     HRESULT ageLimitDate(CFAbsoluteTime* time);
-    HRESULT datesArray(CFMutableArrayRef* datesArray);
-    bool findIndex(int* index, CFAbsoluteTime forDay);
+    bool findKey(DateKey*, CFAbsoluteTime forDay);
     static CFAbsoluteTime timeToDate(CFAbsoluteTime time);
     BSTR getNotificationString(NotificationType notifyType);
     HRESULT itemForURLString(CFStringRef urlString, IWebHistoryItem** item) const;
+    RetainPtr<CFDataRef> data() const;
 
     ULONG m_refCount;
     RetainPtr<CFMutableDictionaryRef> m_entriesByURL;
-    RetainPtr<CFMutableArrayRef> m_datesWithEntries;
-    RetainPtr<CFMutableArrayRef> m_entriesByDate;
+    DateToEntriesMap m_entriesByDate;
+    OwnArrayPtr<DATE> m_orderedLastVisitedDays;
     COMPtr<WebPreferences> m_preferences;
 };
 

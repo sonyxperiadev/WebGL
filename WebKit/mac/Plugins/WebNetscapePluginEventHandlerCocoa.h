@@ -35,7 +35,7 @@ class WebNetscapePluginEventHandlerCocoa : public WebNetscapePluginEventHandler 
 public:
     WebNetscapePluginEventHandlerCocoa(WebNetscapePluginView*); 
 
-    virtual void drawRect(const NSRect&);
+    virtual void drawRect(CGContextRef, const NSRect&);
 
     virtual void mouseDown(NSEvent*);
     virtual void mouseDragged(NSEvent*);
@@ -48,7 +48,8 @@ public:
     virtual void keyDown(NSEvent*);
     virtual void keyUp(NSEvent*);
     virtual void flagsChanged(NSEvent*);
-    
+    virtual void syntheticKeyDownWithCommandModifier(int keyCode, char character);
+
     virtual void windowFocusChanged(bool hasFocus);    
     virtual void focusChanged(bool hasFocus);
 

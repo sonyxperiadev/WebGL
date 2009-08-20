@@ -42,7 +42,9 @@ typedef enum {
     WebFrameLoadTypeReloadAllowingStaleData,
     WebFrameLoadTypeSame,               // user loads same URL again (but not reload button)
     WebFrameLoadTypeRedirectWithLockedBackForwardList,
-    WebFrameLoadTypeReplace
+    WebFrameLoadTypeReplace,
+    WebFrameLoadTypeReloadFromOrigin,
+    WebFrameLoadTypeBackWMLDeckNotAccessible
 } WebFrameLoadType;
 
 [

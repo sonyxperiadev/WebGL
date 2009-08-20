@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 2006, 2007 Apple Inc. All rights reserved.
  * Copyright (C) 2008 Zan Dobersek <zandobersek@gmail.com>
+ * Copyright (C) 2009 Holger Hans Peter Freyther
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,6 +32,7 @@
 #include "npruntime.h"
 #include "npfunctions.h"
 
+#include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -67,6 +69,13 @@ webkit_test_plugin_new_instance(NPMIMEType mimetype,
                 obj->returnErrorFromNewStream = TRUE;
             else if (strcasecmp(argn[i], "logfirstsetwindow") == 0)
                 obj->logSetWindow = TRUE;
+            else if (strcasecmp(argn[i], "testnpruntime") == 0)
+                testNPRuntime(instance);
+            else if (strcasecmp(argn[i], "logSrc") == 0) {
+                for (int i = 0; i < argc; i++)
+                    if (strcasecmp(argn[i], "src") == 0)
+                        pluginLog(instance, "src: %s", argv[i]);
+            }
         }
 
         instance->pdata = obj;
@@ -90,7 +99,7 @@ webkit_test_plugin_destroy_instance(NPP instance, NPSavedData **save)
             free(obj->onURLNotify);
 
         if (obj->logDestroy)
-            printf("PLUGIN: NPP_Destroy\n");
+            pluginLog(instance, "NPP_Destroy");
 
         browser->releaseobject(&obj->header);
     }
@@ -105,7 +114,7 @@ webkit_test_plugin_set_window(NPP instance, NPWindow *window)
 
     if (obj) {
         if (obj->logSetWindow) {
-            printf("PLUGIN: NPP_SetWindow: %d %d\n", (int)window->width, (int)window->height);
+            pluginLog(instance, "NPP_SetWindow: %d %d", (int)window->width, (int)window->height);
             obj->logSetWindow = false;
         }
     }
@@ -195,7 +204,7 @@ webkit_test_plugin_handle_event(NPP instance, void* event)
         return 0;
 
     XEvent* evt = static_cast<XEvent*>(event);
-    fprintf(stderr, "PLUGIN: event %d\n", evt->type);
+    pluginLog(instance, "event %d", evt->type);
 
     return 0;
 }
@@ -218,10 +227,10 @@ webkit_test_plugin_get_value(NPP instance, NPPVariable variable, void *value)
 
     switch (variable) {
         case NPPVpluginNameString:
-            *((char **)value) = "WebKit Test PlugIn";
+            *((char **)value) = const_cast<char*>("WebKit Test PlugIn");
             break;
         case NPPVpluginDescriptionString:
-            *((char **)value) = "Simple Netscape plug-in that handles test content for WebKit";
+            *((char **)value) = const_cast<char*>("Simple Netscape plug-in that handles test content for WebKit");
             break;
         case NPPVpluginNeedsXEmbed:
             *((NPBool *)value) = TRUE;
@@ -257,7 +266,7 @@ webkit_test_plugin_set_value(NPP instance, NPNVariable variable, void *value)
 char *
 NP_GetMIMEDescription(void)
 {
-    return "application/x-webkit-test-netscape:testnetscape:test netscape content";
+    return const_cast<char*>("application/x-webkit-test-netscape:testnetscape:test netscape content");
 }
 
 NPError
@@ -269,8 +278,6 @@ NP_Initialize (NPNetscapeFuncs *aMozillaVTable, NPPluginFuncs *aPluginVTable)
     if ((aMozillaVTable->version >> 8) > NP_VERSION_MAJOR)
         return NPERR_INCOMPATIBLE_VERSION_ERROR;
 
-    if (aMozillaVTable->size < sizeof (NPNetscapeFuncs))
-        return NPERR_INVALID_FUNCTABLE_ERROR;
     if (aPluginVTable->size < sizeof (NPPluginFuncs))
         return NPERR_INVALID_FUNCTABLE_ERROR;
 

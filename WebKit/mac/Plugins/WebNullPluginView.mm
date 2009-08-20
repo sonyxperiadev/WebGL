@@ -28,9 +28,12 @@
 
 #import "WebNullPluginView.h"
 
+#import "DOMElementInternal.h"
+#import "WebDelegateImplementationCaching.h"
 #import "WebFrameInternal.h"
 #import "WebViewInternal.h"
 #import <WebCore/Document.h>
+#import <WebCore/Element.h>
 
 @implementation WebNullPluginView
 

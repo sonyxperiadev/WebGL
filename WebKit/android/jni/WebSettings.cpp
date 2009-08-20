@@ -318,15 +318,6 @@ public:
         WebCore::cacheStorage().setMaximumSize(maxsize);
 #endif
 
-#if ENABLE(WORKERS)
-#if USE(V8)
-        // This flag is only needed if we use V8. JSC doesn't yet have
-        // a setting for enabling workers.
-        flag = env->GetBooleanField(obj, gFieldIds->mWorkersEnabled);
-        WebCore::WorkerContextExecutionProxy::setIsWebWorkersEnabled(flag);
-#endif
-#endif
-
         flag = env->GetBooleanField(obj, gFieldIds->mJavaScriptCanOpenWindowsAutomatically);
         s->setJavaScriptCanOpenWindowsAutomatically(flag);
 

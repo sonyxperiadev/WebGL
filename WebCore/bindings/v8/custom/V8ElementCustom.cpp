@@ -34,7 +34,6 @@
 #include "Attr.h"
 #include "CSSHelper.h"
 #include "Document.h"
-#include "EventListener.h"
 #include "ExceptionCode.h"
 #include "HTMLFrameElementBase.h"
 #include "HTMLNames.h"
@@ -43,7 +42,6 @@
 #include "V8Attr.h"
 #include "V8Binding.h"
 #include "V8CustomBinding.h"
-#include "V8CustomEventListener.h"
 #include "V8Proxy.h"
 
 #include <wtf/RefPtr.h>
@@ -53,7 +51,7 @@ namespace WebCore {
 CALLBACK_FUNC_DECL(ElementSetAttribute)
 {
     INC_STATS("DOM.Element.setAttribute()");
-    Element* element = V8Proxy::DOMWrapperToNode<Element>(args.Holder());
+    Element* element = V8DOMWrapper::convertDOMWrapperToNode<Element>(args.Holder());
     String name = toWebCoreString(args[0]);
     String value = toWebCoreString(args[1]);
 
@@ -74,8 +72,8 @@ CALLBACK_FUNC_DECL(ElementSetAttributeNode)
     if (!V8Attr::HasInstance(args[0]))
         return throwError(TYPE_MISMATCH_ERR);
 
-    Attr* newAttr = V8Proxy::DOMWrapperToNode<Attr>(args[0]);
-    Element* element = V8Proxy::DOMWrapperToNode<Element>(args.Holder());
+    Attr* newAttr = V8DOMWrapper::convertDOMWrapperToNode<Attr>(v8::Handle<v8::Object>::Cast(args[0]));
+    Element* element = V8DOMWrapper::convertDOMWrapperToNode<Element>(args.Holder());
 
     if (!allowSettingSrcToJavascriptURL(element, newAttr->name(), newAttr->value()))
         return v8::Undefined();
@@ -85,13 +83,13 @@ CALLBACK_FUNC_DECL(ElementSetAttributeNode)
     if (ec)
         throwError(ec);
 
-    return V8Proxy::NodeToV8Object(result.get());
+    return V8DOMWrapper::convertNodeToV8Object(result.release());
 }
 
 CALLBACK_FUNC_DECL(ElementSetAttributeNS)
 {
     INC_STATS("DOM.Element.setAttributeNS()");
-    Element* element = V8Proxy::DOMWrapperToNode<Element>(args.Holder());
+    Element* element = V8DOMWrapper::convertDOMWrapperToNode<Element>(args.Holder());
     String namespaceURI = toWebCoreStringWithNullCheck(args[0]);
     String qualifiedName = toWebCoreString(args[1]);
     String value = toWebCoreString(args[2]);
@@ -113,8 +111,8 @@ CALLBACK_FUNC_DECL(ElementSetAttributeNodeNS)
     if (!V8Attr::HasInstance(args[0]))
         return throwError(TYPE_MISMATCH_ERR);
 
-    Attr* newAttr = V8Proxy::DOMWrapperToNode<Attr>(args[0]);
-    Element* element = V8Proxy::DOMWrapperToNode<Element>(args.Holder());
+    Attr* newAttr = V8DOMWrapper::convertDOMWrapperToNode<Attr>(v8::Handle<v8::Object>::Cast(args[0]));
+    Element* element = V8DOMWrapper::convertDOMWrapperToNode<Element>(args.Holder());
 
     if (!allowSettingSrcToJavascriptURL(element, newAttr->name(), newAttr->value()))
         return v8::Undefined();
@@ -124,45 +122,7 @@ CALLBACK_FUNC_DECL(ElementSetAttributeNodeNS)
     if (ec)
         throwError(ec);
 
-    return V8Proxy::NodeToV8Object(result.get());
-}
-
-static inline String toEventType(v8::Local<v8::String> value)
-{
-    String key = toWebCoreString(value);
-    ASSERT(key.startsWith("on"));
-    return key.substring(2);
-}
-
-ACCESSOR_SETTER(ElementEventHandler)
-{
-    Node* node = V8Proxy::DOMWrapperToNode<Node>(info.Holder());
-
-    String eventType = toEventType(name);
-
-    // Set handler if the value is a function.  Otherwise, clear the
-    // event handler.
-    if (value->IsFunction()) {
-        V8Proxy* proxy = V8Proxy::retrieve(node->document()->frame());
-        // the document might be created using createDocument,
-        // which does not have a frame, use the active frame
-        if (!proxy)
-            proxy = V8Proxy::retrieve(V8Proxy::retrieveFrameForEnteredContext());
-        if (!proxy)
-            return;
-
-        if (RefPtr<EventListener> listener = proxy->FindOrCreateV8EventListener(value, true))
-            node->setAttributeEventListener(eventType, listener);
-    } else
-        node->clearAttributeEventListener(eventType);
-}
-
-ACCESSOR_GETTER(ElementEventHandler)
-{
-    Node* node = V8Proxy::DOMWrapperToNode<Node>(info.Holder());
-
-    EventListener* listener = node->getAttributeEventListener(toEventType(name));
-    return V8Proxy::EventListenerToV8Object(listener);
+    return V8DOMWrapper::convertNodeToV8Object(result.release());
 }
 
 } // namespace WebCore

@@ -38,7 +38,14 @@
 namespace WebCore {
 
 static const CFStringRef kCGImageSourceShouldPreferRGB32 = CFSTR("kCGImageSourceShouldPreferRGB32");
-static const CFStringRef kCGImageSourceDoNotCacheImageBlocks = CFSTR("kCGImageSourceDoNotCacheImageBlocks");
+
+#if !PLATFORM(MAC)
+static void sharedBufferDerefCallback(void*, void* info)
+{
+    SharedBuffer* sharedBuffer = static_cast<SharedBuffer*>(info);
+    sharedBuffer->deref();
+}
+#endif
 
 ImageSource::ImageSource()
     : m_decoder(0)
@@ -79,11 +86,12 @@ void ImageSource::clear(bool destroyAllFrames, size_t, SharedBuffer* data, bool 
 static CFDictionaryRef imageSourceOptions()
 {
     static CFDictionaryRef options;
-    
+
     if (!options) {
-        const void* keys[3] = { kCGImageSourceShouldCache, kCGImageSourceShouldPreferRGB32, kCGImageSourceDoNotCacheImageBlocks };
-        const void* values[3] = { kCFBooleanTrue, kCFBooleanTrue, kCFBooleanTrue };
-        options = CFDictionaryCreate(NULL, keys, values, 3, 
+        const unsigned numOptions = 2;
+        const void* keys[numOptions] = { kCGImageSourceShouldCache, kCGImageSourceShouldPreferRGB32 };
+        const void* values[numOptions] = { kCFBooleanTrue, kCFBooleanTrue };
+        options = CFDictionaryCreate(NULL, keys, values, numOptions, 
             &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
     }
     return options;
@@ -104,8 +112,12 @@ void ImageSource::setData(SharedBuffer* data, bool allDataReceived)
     CFDataRef cfData = data->createCFData();
 #else
     // If no NSData is available, then we know SharedBuffer will always just be a vector.  That means no secret changes can occur to it behind the
-    // scenes.  We use CFDataCreateWithBytesNoCopy in that case.
-    CFDataRef cfData = CFDataCreateWithBytesNoCopy(0, reinterpret_cast<const UInt8*>(data->data()), data->size(), kCFAllocatorNull);
+    // scenes.  We use CFDataCreateWithBytesNoCopy in that case. Ensure that the SharedBuffer lives as long as the CFDataRef.
+    data->ref();
+    CFAllocatorContext context = {0, data, 0, 0, 0, 0, 0, &sharedBufferDerefCallback, 0};
+    CFAllocatorRef derefAllocator = CFAllocatorCreate(kCFAllocatorDefault, &context);
+    CFDataRef cfData = CFDataCreateWithBytesNoCopy(0, reinterpret_cast<const UInt8*>(data->data()), data->size(), derefAllocator);
+    CFRelease(derefAllocator);
 #endif
     CGImageSourceUpdateData(m_decoder, cfData, allDataReceived);
     CFRelease(cfData);

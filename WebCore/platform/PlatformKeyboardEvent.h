@@ -141,7 +141,7 @@ namespace WebCore {
 
 #if PLATFORM(ANDROID)
         PlatformKeyboardEvent(int keyCode, UChar32 unichar, int repeatCount,
-            bool down, bool cap, bool alt, bool sym);
+                    bool down, bool cap, bool alt, bool sym);
         UChar32 unichar() const { return m_unichar; }
         int repeatCount() const { return m_repeatCount; }
 #endif

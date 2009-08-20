@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2006, 2007, 2008, 2009 Apple Inc.  All rights reserved.
+ * Copyright (C) 2007-2009 Torch Mobile, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,11 +28,11 @@
 #define WTF_Platform_h
 
 /* PLATFORM handles OS, operating environment, graphics API, and CPU */
-#define PLATFORM(WTF_FEATURE) (defined( WTF_PLATFORM_##WTF_FEATURE ) && WTF_PLATFORM_##WTF_FEATURE)
-#define COMPILER(WTF_FEATURE) (defined( WTF_COMPILER_##WTF_FEATURE ) && WTF_COMPILER_##WTF_FEATURE)
-#define HAVE(WTF_FEATURE) (defined( HAVE_##WTF_FEATURE ) && HAVE_##WTF_FEATURE)
-#define USE(WTF_FEATURE) (defined( WTF_USE_##WTF_FEATURE ) && WTF_USE_##WTF_FEATURE)
-#define ENABLE(WTF_FEATURE) (defined( ENABLE_##WTF_FEATURE ) && ENABLE_##WTF_FEATURE)
+#define PLATFORM(WTF_FEATURE) (defined WTF_PLATFORM_##WTF_FEATURE  && WTF_PLATFORM_##WTF_FEATURE)
+#define COMPILER(WTF_FEATURE) (defined WTF_COMPILER_##WTF_FEATURE  && WTF_COMPILER_##WTF_FEATURE)
+#define HAVE(WTF_FEATURE) (defined HAVE_##WTF_FEATURE  && HAVE_##WTF_FEATURE)
+#define USE(WTF_FEATURE) (defined WTF_USE_##WTF_FEATURE  && WTF_USE_##WTF_FEATURE)
+#define ENABLE(WTF_FEATURE) (defined ENABLE_##WTF_FEATURE  && ENABLE_##WTF_FEATURE)
 
 /* Operating systems - low-level dependencies */
 
@@ -56,12 +57,12 @@
 #define WTF_PLATFORM_WIN_OS 1
 #endif
 
-/* PLATFORM(WIN_CE) */
+/* PLATFORM(WINCE) */
 /* Operating system level dependencies for Windows CE that should be used */
 /* regardless of operating environment */
 /* Note that for this platform PLATFORM(WIN_OS) is also defined. */
 #if defined(_WIN32_WCE)
-#define WTF_PLATFORM_WIN_CE 1
+#define WTF_PLATFORM_WINCE 1
 #endif
 
 /* PLATFORM(LINUX) */
@@ -92,12 +93,10 @@
 #define WTF_PLATFORM_SOLARIS 1
 #endif
 
-#if defined (__S60__) || defined (__SYMBIAN32__)
+#if defined (__SYMBIAN32__)
 /* we are cross-compiling, it is not really windows */
 #undef WTF_PLATFORM_WIN_OS
 #undef WTF_PLATFORM_WIN
-#undef WTF_PLATFORM_CAIRO
-#define WTF_PLATFORM_S60 1
 #define WTF_PLATFORM_SYMBIAN 1
 #endif
 
@@ -114,7 +113,7 @@
 /* should be used regardless of operating environment */
 #if   PLATFORM(DARWIN)     \
    || PLATFORM(FREEBSD)    \
-   || PLATFORM(S60)        \
+   || PLATFORM(SYMBIAN)    \
    || PLATFORM(NETBSD)     \
    || defined(unix)        \
    || defined(__unix)      \
@@ -190,7 +189,7 @@
 
 /* Makes PLATFORM(WIN) default to PLATFORM(CAIRO) */
 /* FIXME: This should be changed from a blacklist to a whitelist */
-#if !PLATFORM(MAC) && !PLATFORM(QT) && !PLATFORM(WX) && !PLATFORM(CHROMIUM)
+#if !PLATFORM(MAC) && !PLATFORM(QT) && !PLATFORM(WX) && !PLATFORM(CHROMIUM) && !PLATFORM(WINCE)
 #define WTF_PLATFORM_CAIRO 1
 #endif
 
@@ -246,18 +245,37 @@
 #define WTF_PLATFORM_ARM 1
 #if defined(__ARMEB__)
 #define WTF_PLATFORM_BIG_ENDIAN 1
-#elif !defined(__ARM_EABI__) && !defined(__ARMEB__) && !defined(__VFP_FP__)
+#elif !defined(__ARM_EABI__) && !defined(__EABI__) && !defined(__VFP_FP__)
 #if !defined(ANDROID)
 #define WTF_PLATFORM_MIDDLE_ENDIAN 1
 #endif
 #endif
-#if !defined(__ARM_EABI__)
+#if !defined(__ARM_EABI__) && !defined(__EABI__)
 #define WTF_PLATFORM_FORCE_PACK 1
 #endif
+#define ARM_ARCH_VERSION 3
+#if defined(__ARM_ARCH_4__) || defined(__ARM_ARCH_4T__)
+#undef ARM_ARCH_VERSION
+#define ARM_ARCH_VERSION 4
+#endif
+#if defined(__ARM_ARCH_5__) || defined(__ARM_ARCH_5T__) \
+        || defined(__ARM_ARCH_5E__) || defined(__ARM_ARCH_5TE__) \
+        || defined(__ARM_ARCH_5TEJ__)
+#undef ARM_ARCH_VERSION
+#define ARM_ARCH_VERSION 5
+#endif
+#if defined(__ARM_ARCH_6__) || defined(__ARM_ARCH_6J__) \
+     || defined(__ARM_ARCH_6K__) || defined(__ARM_ARCH_6Z__) \
+     || defined(__ARM_ARCH_6ZK__)
+#undef ARM_ARCH_VERSION
+#define ARM_ARCH_VERSION 6
 #endif
 #if defined(__ARM_ARCH_7A__)
-#define WTF_PLATFORM_ARM_V7 1
+#undef ARM_ARCH_VERSION
+#define ARM_ARCH_VERSION 7
 #endif
+#endif /* ARM */
+#define PLATFORM_ARM_ARCH(N) (PLATFORM(ARM) && ARM_ARCH_VERSION >= N)
 
 /* PLATFORM(X86) */
 #if   defined(__i386__) \
@@ -285,12 +303,12 @@
 #define WTF_PLATFORM_BIG_ENDIAN 1
 #endif
 
-/* PLATFORM(WIN_CE) && PLATFORM(QT)
+/* PLATFORM(WINCE) && PLATFORM(QT)
    We can not determine the endianess at compile time. For
    Qt for Windows CE the endianess is specified in the
    device specific makespec
 */
-#if PLATFORM(WIN_CE) && PLATFORM(QT)
+#if PLATFORM(WINCE) && PLATFORM(QT)
 #   include <QtGlobal>
 #   undef WTF_PLATFORM_BIG_ENDIAN
 #   undef WTF_PLATFORM_MIDDLE_ENDIAN
@@ -318,6 +336,7 @@
 /* --gnu option of the RVCT compiler also defines __GNUC__ */
 #if defined(__GNUC__) && !COMPILER(RVCT)
 #define WTF_COMPILER_GCC 1
+#define GCC_VERSION (__GNUC__ * 10000 + __GNUC_MINOR__ * 100 + __GNUC_PATCHLEVEL__)
 #endif
 
 /* COMPILER(MINGW) */
@@ -346,11 +365,43 @@
 #define ENABLE_JSC_MULTIPLE_THREADS 1
 #endif
 
+/* On Windows, use QueryPerformanceCounter by default */
+#if PLATFORM(WIN_OS)
+#define WTF_USE_QUERY_PERFORMANCE_COUNTER  1
+#endif
+
+#if PLATFORM(WINCE) && !PLATFORM(QT)
+#undef ENABLE_JSC_MULTIPLE_THREADS
+#define ENABLE_JSC_MULTIPLE_THREADS        0
+#define USE_SYSTEM_MALLOC                  0
+#define ENABLE_ICONDATABASE                0
+#define ENABLE_JAVASCRIPT_DEBUGGER         0
+#define ENABLE_FTPDIR                      0
+#define ENABLE_PAN_SCROLLING               0
+#define ENABLE_WML                         1
+#define HAVE_ACCESSIBILITY                 0
+
+#define NOMINMAX       // Windows min and max conflict with standard macros
+#define NOSHLWAPI      // shlwapi.h not available on WinCe
+
+// MSDN documentation says these functions are provided with uspce.lib.  But we cannot find this file.
+#define __usp10__      // disable "usp10.h"
+
+#define _INC_ASSERT    // disable "assert.h"
+#define assert(x)
+
+// _countof is only included in CE6; for CE5 we need to define it ourself
+#ifndef _countof
+#define _countof(x) (sizeof(x) / sizeof((x)[0]))
+#endif
+
+#endif  /* PLATFORM(WINCE) && !PLATFORM(QT) */
+
 /* for Unicode, KDE uses Qt */
 #if PLATFORM(KDE) || PLATFORM(QT)
 #define WTF_USE_QT4_UNICODE 1
-#elif PLATFORM(SYMBIAN)
-#define WTF_USE_SYMBIAN_UNICODE 1
+#elif PLATFORM(WINCE)
+#define WTF_USE_WINCE_UNICODE 1
 #elif PLATFORM(GTK)
 /* The GTK+ Unicode backend is configurable */
 #else
@@ -368,6 +419,7 @@
 #endif
 #define HAVE_READLINE 1
 #define HAVE_RUNLOOP_TIMER 1
+#define HAVE_PTHREAD_RWLOCK 1
 #endif
 
 #if PLATFORM(CHROMIUM) && PLATFORM(DARWIN)
@@ -409,6 +461,16 @@
 #endif
 #endif /* !defined(HAVE_ACCESSIBILITY) */
 
+#if PLATFORM(UNIX) && !PLATFORM(SYMBIAN)
+#define HAVE_SIGNAL_H 1
+#endif
+
+#if !PLATFORM(WIN_OS) && !PLATFORM(SOLARIS) && !PLATFORM(SYMBIAN) && !COMPILER(RVCT) && !PLATFORM(ANDROID)
+#define HAVE_TM_GMTOFF 1
+#define HAVE_TM_ZONE 1
+#define HAVE_TIMEGM 1
+#endif     
+
 #if PLATFORM(DARWIN)
 
 #define HAVE_ERRNO_H 1
@@ -433,7 +495,7 @@
 #elif PLATFORM(WIN_OS)
 
 #define HAVE_FLOAT_H 1
-#if PLATFORM(WIN_CE)
+#if PLATFORM(WINCE)
 #define HAVE_ERRNO_H 0
 #else
 #define HAVE_SYS_TIMEB_H 1
@@ -545,15 +607,22 @@
 #define ENABLE_ON_FIRST_TEXTAREA_FOCUS_SELECT_ALL 0
 #endif
 
-#if !defined(WTF_USE_ALTERNATE_JSIMMEDIATE) && PLATFORM(X86_64) && PLATFORM(MAC)
-#define WTF_USE_ALTERNATE_JSIMMEDIATE 1
+#if !defined(WTF_USE_JSVALUE64) && !defined(WTF_USE_JSVALUE32) && !defined(WTF_USE_JSVALUE32_64)
+#if PLATFORM(X86_64) && (PLATFORM(MAC) || (PLATFORM(LINUX) && !PLATFORM(QT)))
+#define WTF_USE_JSVALUE64 1
+#elif PLATFORM(PPC64) || PLATFORM(QT) /* All Qt layout tests crash in JSVALUE32_64 mode. */
+#define WTF_USE_JSVALUE32 1
+#else
+#define WTF_USE_JSVALUE32_64 1
 #endif
+#endif /* !defined(WTF_USE_JSVALUE64) && !defined(WTF_USE_JSVALUE32) && !defined(WTF_USE_JSVALUE32_64) */
 
 #if !defined(ENABLE_REPAINT_THROTTLING)
 #define ENABLE_REPAINT_THROTTLING 0
 #endif
 
 #if !defined(ENABLE_JIT)
+
 /* The JIT is tested & working on x86_64 Mac */
 #if PLATFORM(X86_64) && PLATFORM(MAC)
     #define ENABLE_JIT 1
@@ -561,7 +630,7 @@
 #elif PLATFORM(X86) && PLATFORM(MAC)
     #define ENABLE_JIT 1
     #define WTF_USE_JIT_STUB_ARGUMENT_VA_LIST 1
-#elif PLATFORM(ARM_V7) && PLATFORM(IPHONE) 
+#elif PLATFORM_ARM_ARCH(7) && PLATFORM(IPHONE)
     /* Under development, temporarily disabled until 16Mb link range limit in assembler is fixed. */
     #define ENABLE_JIT 0
     #define ENABLE_JIT_OPTIMIZE_NATIVE_CALL 0
@@ -569,8 +638,23 @@
 #elif PLATFORM(X86) && PLATFORM(WIN)
     #define ENABLE_JIT 1
 #endif
-#endif
 
+#if PLATFORM(X86) && PLATFORM(QT)
+#if PLATFORM(WIN_OS) && COMPILER(MINGW) && GCC_VERSION >= 40100
+    #define ENABLE_JIT 1
+    #define WTF_USE_JIT_STUB_ARGUMENT_VA_LIST 1
+#elif PLATFORM(WIN_OS) && COMPILER(MSVC)
+    #define ENABLE_JIT 1
+    #define WTF_USE_JIT_STUB_ARGUMENT_REGISTER 1
+#elif PLATFORM(LINUX) && GCC_VERSION >= 40100
+    #define ENABLE_JIT 1
+    #define WTF_USE_JIT_STUB_ARGUMENT_VA_LIST 1
+#endif
+#endif /* PLATFORM(QT) && PLATFORM(X86) */
+
+#endif /* !defined(ENABLE_JIT) */
+
+#if ENABLE(JIT)
 #ifndef ENABLE_JIT_OPTIMIZE_CALL
 #define ENABLE_JIT_OPTIMIZE_CALL 1
 #endif
@@ -580,11 +664,9 @@
 #ifndef ENABLE_JIT_OPTIMIZE_PROPERTY_ACCESS
 #define ENABLE_JIT_OPTIMIZE_PROPERTY_ACCESS 1
 #endif
-#ifndef ENABLE_JIT_OPTIMIZE_ARITHMETIC
-#define ENABLE_JIT_OPTIMIZE_ARITHMETIC 1
-#endif
 #ifndef ENABLE_JIT_OPTIMIZE_METHOD_CALLS
 #define ENABLE_JIT_OPTIMIZE_METHOD_CALLS 1
+#endif
 #endif
 
 #if PLATFORM(X86) && COMPILER(MSVC)
@@ -606,15 +688,29 @@
 #endif
 
 /* Yet Another Regex Runtime. */
+#if !defined(ENABLE_YARR_JIT)
+
 /* YARR supports x86 & x86-64, and has been tested on Mac and Windows. */
-#if (!defined(ENABLE_YARR_JIT) && PLATFORM(X86) && PLATFORM(MAC)) \
- || (!defined(ENABLE_YARR_JIT) && PLATFORM(X86_64) && PLATFORM(MAC)) \
+#if (PLATFORM(X86) && PLATFORM(MAC)) \
+ || (PLATFORM(X86_64) && PLATFORM(MAC)) \
  /* Under development, temporarily disabled until 16Mb link range limit in assembler is fixed. */ \
- || (!defined(ENABLE_YARR_JIT) && PLATFORM(ARM_V7) && PLATFORM(IPHONE) && 0) \
- || (!defined(ENABLE_YARR_JIT) && PLATFORM(X86) && PLATFORM(WIN))
+ || (PLATFORM_ARM_ARCH(7) && PLATFORM(IPHONE) && 0) \
+ || (PLATFORM(X86) && PLATFORM(WIN))
 #define ENABLE_YARR 1
 #define ENABLE_YARR_JIT 1
 #endif
+
+#if PLATFORM(X86) && PLATFORM(QT)
+#if (PLATFORM(WIN_OS) && COMPILER(MINGW) && GCC_VERSION >= 40100) \
+ || (PLATFORM(WIN_OS) && COMPILER(MSVC)) \
+ || (PLATFORM(LINUX) && GCC_VERSION >= 40100)
+#define ENABLE_YARR 1
+#define ENABLE_YARR_JIT 1
+#endif
+#endif
+
+#endif /* !defined(ENABLE_YARR_JIT) */
+
 /* Sanity Check */
 #if ENABLE(YARR_JIT) && !ENABLE(YARR)
 #error "YARR_JIT requires YARR"
@@ -625,7 +721,7 @@
 #endif
 /* Setting this flag prevents the assembler from using RWX memory; this may improve
    security but currectly comes at a significant performance cost. */
-#if PLATFORM(ARM_V7) && PLATFORM(IPHONE)
+#if PLATFORM(IPHONE)
 #define ENABLE_ASSEMBLER_WX_EXCLUSIVE 1
 #else
 #define ENABLE_ASSEMBLER_WX_EXCLUSIVE 0
@@ -648,6 +744,17 @@
 
 #if !PLATFORM(QT)
 #define WTF_USE_FONT_FAST_PATH 1
+#endif
+
+/* Accelerated compositing */
+#if PLATFORM(MAC)
+#if !defined(BUILDING_ON_TIGER)
+#define WTF_USE_ACCELERATED_COMPOSITING 1
+#endif
+#endif
+
+#if PLATFORM(IPHONE)
+#define WTF_USE_ACCELERATED_COMPOSITING 1
 #endif
 
 #endif /* WTF_Platform_h */

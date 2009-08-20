@@ -3,6 +3,7 @@
  * Copyright (C) 2008 Nuanti Ltd.
  * Copyright (C) 2008 Collabora Ltd.
  * Copyright (C) 2008 Holger Hans Peter Freyther
+ * Copyright (C) 2009 Jan Michael Alonzo
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -21,12 +22,21 @@
  */
 
 #include "config.h"
-
 #include "webkitwebsettings.h"
-#include "webkitprivate.h"
 
+#include "webkitprivate.h"
+#include "webkitversion.h"
+
+#include "CString.h"
 #include "FileSystem.h"
 #include "PluginDatabase.h"
+#include "Language.h"
+#include "PlatformString.h"
+
+#include <glib/gi18n-lib.h>
+#if PLATFORM(UNIX)
+#include <sys/utsname.h>
+#endif
 
 /**
  * SECTION:webkitwebsettings
@@ -47,8 +57,6 @@
  */
 
 using namespace WebCore;
-
-extern "C" {
 
 G_DEFINE_TYPE(WebKitWebSettings, webkit_web_settings, G_TYPE_OBJECT)
 
@@ -75,6 +83,16 @@ struct _WebKitWebSettingsPrivate {
     gfloat zoom_step;
     gboolean enable_developer_extras;
     gboolean enable_private_browsing;
+    gboolean enable_spell_checking;
+    gchar* spell_checking_languages;
+    GSList* spell_checking_languages_list;
+    gboolean enable_caret_browsing;
+    gboolean enable_html5_database;
+    gboolean enable_html5_local_storage;
+    gboolean enable_xss_auditor;
+    gchar* user_agent;
+    gboolean javascript_can_open_windows_automatically;
+    gboolean enable_offline_web_application_cache;
 };
 
 #define WEBKIT_WEB_SETTINGS_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), WEBKIT_TYPE_WEB_SETTINGS, WebKitWebSettingsPrivate))
@@ -103,8 +121,74 @@ enum {
     PROP_USER_STYLESHEET_URI,
     PROP_ZOOM_STEP,
     PROP_ENABLE_DEVELOPER_EXTRAS,
-    PROP_ENABLE_PRIVATE_BROWSING
+    PROP_ENABLE_PRIVATE_BROWSING,
+    PROP_ENABLE_SPELL_CHECKING,
+    PROP_SPELL_CHECKING_LANGUAGES,
+    PROP_ENABLE_CARET_BROWSING,
+    PROP_ENABLE_HTML5_DATABASE,
+    PROP_ENABLE_HTML5_LOCAL_STORAGE,
+    PROP_ENABLE_XSS_AUDITOR,
+    PROP_USER_AGENT,
+    PROP_JAVASCRIPT_CAN_OPEN_WINDOWS_AUTOMATICALLY,
+    PROP_ENABLE_OFFLINE_WEB_APPLICATION_CACHE
 };
+
+// Create a default user agent string
+// This is a liberal interpretation of http://www.mozilla.org/build/revised-user-agent-strings.html
+// See also http://developer.apple.com/internet/safari/faq.html#anchor2
+static String webkit_get_user_agent()
+{
+    gchar* platform;
+    gchar* osVersion;
+
+#if PLATFORM(X11)
+    platform = g_strdup("X11");
+#elif PLATFORM(WIN_OS)
+    platform = g_strdup("Windows");
+#elif PLATFORM(MAC)
+    platform = g_strdup("Macintosh");
+#elif defined(GDK_WINDOWING_DIRECTFB)
+    platform = g_strdup("DirectFB");
+#else
+    platform = g_strdup("Unknown");
+#endif
+
+   // FIXME: platform/version detection can be shared.
+#if PLATFORM(DARWIN)
+
+#if PLATFORM(X86)
+    osVersion = g_strdup("Intel Mac OS X");
+#else
+    osVersion = g_strdup("PPC Mac OS X");
+#endif
+
+#elif PLATFORM(UNIX)
+    struct utsname name;
+    if (uname(&name) != -1)
+        osVersion = g_strdup_printf("%s %s", name.sysname, name.machine);
+    else
+        osVersion = g_strdup("Unknown");
+
+#elif PLATFORM(WIN_OS)
+    // FIXME: Compute the Windows version
+    osVersion = g_strdup("Windows");
+
+#else
+    osVersion = g_strdup("Unknown");
+#endif
+
+    // We mention Safari since many broken sites check for it (OmniWeb does this too)
+    // We re-use the WebKit version, though it doesn't seem to matter much in practice
+
+    DEFINE_STATIC_LOCAL(const String, uaVersion, (String::format("%d.%d+", WEBKIT_USER_AGENT_MAJOR_VERSION, WEBKIT_USER_AGENT_MINOR_VERSION)));
+    DEFINE_STATIC_LOCAL(const String, staticUA, (String::format("Mozilla/5.0 (%s; U; %s; %s) AppleWebKit/%s (KHTML, like Gecko) Safari/%s",
+                                                                platform, osVersion, defaultLanguage().utf8().data(), uaVersion.utf8().data(), uaVersion.utf8().data())));
+
+    g_free(osVersion);
+    g_free(platform);
+
+    return staticUA;
+}
 
 static void webkit_web_settings_finalize(GObject* object);
 
@@ -119,14 +203,16 @@ static void webkit_web_settings_class_init(WebKitWebSettingsClass* klass)
     gobject_class->set_property = webkit_web_settings_set_property;
     gobject_class->get_property = webkit_web_settings_get_property;
 
+    webkit_init();
+
     GParamFlags flags = (GParamFlags)(WEBKIT_PARAM_READWRITE | G_PARAM_CONSTRUCT);
 
     g_object_class_install_property(gobject_class,
                                     PROP_DEFAULT_ENCODING,
                                     g_param_spec_string(
                                     "default-encoding",
-                                    "Default Encoding",
-                                    "The default encoding used to display text.",
+                                    _("Default Encoding"),
+                                    _("The default encoding used to display text."),
                                     "iso-8859-1",
                                     flags));
 
@@ -134,8 +220,8 @@ static void webkit_web_settings_class_init(WebKitWebSettingsClass* klass)
                                     PROP_CURSIVE_FONT_FAMILY,
                                     g_param_spec_string(
                                     "cursive-font-family",
-                                    "Cursive Font Family",
-                                    "The default Cursive font family used to display text.",
+                                    _("Cursive Font Family"),
+                                    _("The default Cursive font family used to display text."),
                                     "serif",
                                     flags));
 
@@ -143,8 +229,8 @@ static void webkit_web_settings_class_init(WebKitWebSettingsClass* klass)
                                     PROP_DEFAULT_FONT_FAMILY,
                                     g_param_spec_string(
                                     "default-font-family",
-                                    "Default Font Family",
-                                    "The default font family used to display text.",
+                                    _("Default Font Family"),
+                                    _("The default font family used to display text."),
                                     "sans-serif",
                                     flags));
 
@@ -152,8 +238,8 @@ static void webkit_web_settings_class_init(WebKitWebSettingsClass* klass)
                                     PROP_FANTASY_FONT_FAMILY,
                                     g_param_spec_string(
                                     "fantasy-font-family",
-                                    "Fantasy Font Family",
-                                    "The default Fantasy font family used to display text.",
+                                    _("Fantasy Font Family"),
+                                    _("The default Fantasy font family used to display text."),
                                     "serif",
                                     flags));
 
@@ -161,8 +247,8 @@ static void webkit_web_settings_class_init(WebKitWebSettingsClass* klass)
                                     PROP_MONOSPACE_FONT_FAMILY,
                                     g_param_spec_string(
                                     "monospace-font-family",
-                                    "Monospace Font Family",
-                                    "The default font family used to display monospace text.",
+                                    _("Monospace Font Family"),
+                                    _("The default font family used to display monospace text."),
                                     "monospace",
                                     flags));
 
@@ -170,8 +256,8 @@ static void webkit_web_settings_class_init(WebKitWebSettingsClass* klass)
                                     PROP_SANS_SERIF_FONT_FAMILY,
                                     g_param_spec_string(
                                     "sans-serif-font-family",
-                                    "Sans Serif Font Family",
-                                    "The default Sans Serif font family used to display text.",
+                                    _("Sans Serif Font Family"),
+                                    _("The default Sans Serif font family used to display text."),
                                     "sans-serif",
                                     flags));
 
@@ -179,8 +265,8 @@ static void webkit_web_settings_class_init(WebKitWebSettingsClass* klass)
                                     PROP_SERIF_FONT_FAMILY,
                                     g_param_spec_string(
                                     "serif-font-family",
-                                    "Serif Font Family",
-                                    "The default Serif font family used to display text.",
+                                    _("Serif Font Family"),
+                                    _("The default Serif font family used to display text."),
                                     "serif",
                                     flags));
 
@@ -188,8 +274,8 @@ static void webkit_web_settings_class_init(WebKitWebSettingsClass* klass)
                                     PROP_DEFAULT_FONT_SIZE,
                                     g_param_spec_int(
                                     "default-font-size",
-                                    "Default Font Size",
-                                    "The default font size used to display text.",
+                                    _("Default Font Size"),
+                                    _("The default font size used to display text."),
                                     5, G_MAXINT, 12,
                                     flags));
 
@@ -197,8 +283,8 @@ static void webkit_web_settings_class_init(WebKitWebSettingsClass* klass)
                                     PROP_DEFAULT_MONOSPACE_FONT_SIZE,
                                     g_param_spec_int(
                                     "default-monospace-font-size",
-                                    "Default Monospace Font Size",
-                                    "The default font size used to display monospace text.",
+                                    _("Default Monospace Font Size"),
+                                    _("The default font size used to display monospace text."),
                                     5, G_MAXINT, 10,
                                     flags));
 
@@ -206,8 +292,8 @@ static void webkit_web_settings_class_init(WebKitWebSettingsClass* klass)
                                     PROP_MINIMUM_FONT_SIZE,
                                     g_param_spec_int(
                                     "minimum-font-size",
-                                    "Minimum Font Size",
-                                    "The minimum font size used to display text.",
+                                    _("Minimum Font Size"),
+                                    _("The minimum font size used to display text."),
                                     1, G_MAXINT, 5,
                                     flags));
 
@@ -215,8 +301,8 @@ static void webkit_web_settings_class_init(WebKitWebSettingsClass* klass)
                                     PROP_MINIMUM_LOGICAL_FONT_SIZE,
                                     g_param_spec_int(
                                     "minimum-logical-font-size",
-                                    "Minimum Logical Font Size",
-                                    "The minimum logical font size used to display text.",
+                                    _("Minimum Logical Font Size"),
+                                    _("The minimum logical font size used to display text."),
                                     1, G_MAXINT, 5,
                                     flags));
 
@@ -235,8 +321,8 @@ static void webkit_web_settings_class_init(WebKitWebSettingsClass* klass)
                                     PROP_ENFORCE_96_DPI,
                                     g_param_spec_boolean(
                                     "enforce-96-dpi",
-                                    "Enforce 96 DPI",
-                                    "Enforce a resolution of 96 DPI",
+                                    _("Enforce 96 DPI"),
+                                    _("Enforce a resolution of 96 DPI"),
                                     FALSE,
                                     flags));
 
@@ -244,8 +330,8 @@ static void webkit_web_settings_class_init(WebKitWebSettingsClass* klass)
                                     PROP_AUTO_LOAD_IMAGES,
                                     g_param_spec_boolean(
                                     "auto-load-images",
-                                    "Auto Load Images",
-                                    "Load images automatically.",
+                                    _("Auto Load Images"),
+                                    _("Load images automatically."),
                                     TRUE,
                                     flags));
 
@@ -253,8 +339,8 @@ static void webkit_web_settings_class_init(WebKitWebSettingsClass* klass)
                                     PROP_AUTO_SHRINK_IMAGES,
                                     g_param_spec_boolean(
                                     "auto-shrink-images",
-                                    "Auto Shrink Images",
-                                    "Automatically shrink standalone images to fit.",
+                                    _("Auto Shrink Images"),
+                                    _("Automatically shrink standalone images to fit."),
                                     TRUE,
                                     flags));
 
@@ -262,8 +348,8 @@ static void webkit_web_settings_class_init(WebKitWebSettingsClass* klass)
                                     PROP_PRINT_BACKGROUNDS,
                                     g_param_spec_boolean(
                                     "print-backgrounds",
-                                    "Print Backgrounds",
-                                    "Whether background images should be printed.",
+                                    _("Print Backgrounds"),
+                                    _("Whether background images should be printed."),
                                     TRUE,
                                     flags));
 
@@ -271,8 +357,8 @@ static void webkit_web_settings_class_init(WebKitWebSettingsClass* klass)
                                     PROP_ENABLE_SCRIPTS,
                                     g_param_spec_boolean(
                                     "enable-scripts",
-                                    "Enable Scripts",
-                                    "Enable embedded scripting languages.",
+                                    _("Enable Scripts"),
+                                    _("Enable embedded scripting languages."),
                                     TRUE,
                                     flags));
 
@@ -280,8 +366,8 @@ static void webkit_web_settings_class_init(WebKitWebSettingsClass* klass)
                                     PROP_ENABLE_PLUGINS,
                                     g_param_spec_boolean(
                                     "enable-plugins",
-                                    "Enable Plugins",
-                                    "Enable embedded plugin objects.",
+                                    _("Enable Plugins"),
+                                    _("Enable embedded plugin objects."),
                                     TRUE,
                                     flags));
 
@@ -289,16 +375,16 @@ static void webkit_web_settings_class_init(WebKitWebSettingsClass* klass)
                                     PROP_RESIZABLE_TEXT_AREAS,
                                     g_param_spec_boolean(
                                     "resizable-text-areas",
-                                    "Resizable Text Areas",
-                                    "Whether text areas are resizable.",
+                                    _("Resizable Text Areas"),
+                                    _("Whether text areas are resizable."),
                                     TRUE,
                                     flags));
 
     g_object_class_install_property(gobject_class,
                                     PROP_USER_STYLESHEET_URI,
                                     g_param_spec_string("user-stylesheet-uri",
-                                    "User Stylesheet URI",
-                                    "The URI of a stylesheet that is applied to every page.",
+                                    _("User Stylesheet URI"),
+                                    _("The URI of a stylesheet that is applied to every page."),
                                     0,
                                     flags));
 
@@ -313,8 +399,8 @@ static void webkit_web_settings_class_init(WebKitWebSettingsClass* klass)
                                     PROP_ZOOM_STEP,
                                     g_param_spec_float(
                                     "zoom-step",
-                                    "Zoom Stepping Value",
-                                    "The value by which the zoom level is changed when zooming in or out.",
+                                    _("Zoom Stepping Value"),
+                                    _("The value by which the zoom level is changed when zooming in or out."),
                                     0.0f, G_MAXFLOAT, 0.1f,
                                     flags));
 
@@ -332,15 +418,20 @@ static void webkit_web_settings_class_init(WebKitWebSettingsClass* klass)
                                     PROP_ENABLE_DEVELOPER_EXTRAS,
                                     g_param_spec_boolean(
                                     "enable-developer-extras",
-                                    "Enable Developer Extras",
-                                    "Enables special extensions that help developers",
+                                    _("Enable Developer Extras"),
+                                    _("Enables special extensions that help developers"),
                                     FALSE,
                                     flags));
 
     /**
     * WebKitWebSettings:enable-private-browsing:
     *
-    * Whether to enable private browsing mode.
+    * Whether to enable private browsing mode. Private browsing mode prevents
+    * WebKit from updating the global history and storing any session
+    * information e.g., on-disk cache, as well as suppressing any messages
+    * from being printed into the (javascript) console.
+    *
+    * This is currently experimental for WebKitGtk.
     *
     * Since 1.1.2
     */
@@ -348,10 +439,165 @@ static void webkit_web_settings_class_init(WebKitWebSettingsClass* klass)
                                     PROP_ENABLE_PRIVATE_BROWSING,
                                     g_param_spec_boolean(
                                     "enable-private-browsing",
-                                    "Enable Private Browsing",
-                                    "Enables private browsing mode",
+                                    _("Enable Private Browsing"),
+                                    _("Enables private browsing mode"),
                                     FALSE,
                                     flags));
+
+    /**
+    * WebKitWebSettings:enable-spell-checking:
+    *
+    * Whether to enable spell checking while typing.
+    *
+    * Since 1.1.6
+    */
+    g_object_class_install_property(gobject_class,
+                                    PROP_ENABLE_SPELL_CHECKING,
+                                    g_param_spec_boolean(
+                                    "enable-spell-checking",
+                                    _("Enable Spell Checking"),
+                                    _("Enables spell checking while typing"),
+                                    FALSE,
+                                    flags));
+
+    /**
+    * WebKitWebSettings:spell-checking-languages:
+    *
+    * The languages to be used for spell checking, separated by commas.
+    *
+    * The locale string typically is in the form lang_COUNTRY, where lang
+    * is an ISO-639 language code, and COUNTRY is an ISO-3166 country code.
+    * For instance, sv_FI for Swedish as written in Finland or pt_BR
+    * for Portuguese as written in Brazil.
+    *
+    * If no value is specified then the value returned by
+    * gtk_get_default_language will be used.
+    *
+    * Since 1.1.6
+    */
+    g_object_class_install_property(gobject_class,
+                                    PROP_SPELL_CHECKING_LANGUAGES,
+                                    g_param_spec_string(
+                                    "spell-checking-languages",
+                                    _("Languages to use for spell checking"),
+                                    _("Comma separated list of languages to use for spell checking"),
+                                    0,
+                                    flags));
+
+    /**
+    * WebKitWebSettings:enable-caret-browsing:
+    *
+    * Whether to enable caret browsing mode.
+    *
+    * Since 1.1.6
+    */
+    g_object_class_install_property(gobject_class,
+                                    PROP_ENABLE_CARET_BROWSING,
+                                    g_param_spec_boolean("enable-caret-browsing",
+                                                         _("Enable Caret Browsing"),
+                                                         _("Whether to enable accesibility enhanced keyboard navigation"),
+                                                         FALSE,
+                                                         flags));
+    /**
+    * WebKitWebSettings:enable-html5-database:
+    *
+    * Whether to enable HTML5 client-side SQL database support. Client-side
+    * SQL database allows web pages to store structured data and be able to
+    * use SQL to manipulate that data asynchronously.
+    *
+    * Since 1.1.8
+    */
+    g_object_class_install_property(gobject_class,
+                                    PROP_ENABLE_HTML5_DATABASE,
+                                    g_param_spec_boolean("enable-html5-database",
+                                                         _("Enable HTML5 Database"),
+                                                         _("Whether to enable HTML5 database support"),
+                                                         TRUE,
+                                                         flags));
+
+    /**
+    * WebKitWebSettings:enable-html5-local-storage:
+    *
+    * Whether to enable HTML5 localStorage support. localStorage provides
+    * simple synchronous storage access.
+    *
+    * Since 1.1.8
+    */
+    g_object_class_install_property(gobject_class,
+                                    PROP_ENABLE_HTML5_LOCAL_STORAGE,
+                                    g_param_spec_boolean("enable-html5-local-storage",
+                                                         _("Enable HTML5 Local Storage"),
+                                                         _("Whether to enable HTML5 Local Storage support"),
+                                                         TRUE,
+                                                         flags));
+    /**
+    * WebKitWebSettings:enable-xss-auditor
+    *
+    * Whether to enable the XSS Auditor. This feature filters some kinds of
+    * reflective XSS attacks on vulnerable web sites.
+    *
+    * Since 1.1.11
+    */
+    g_object_class_install_property(gobject_class,
+                                    PROP_ENABLE_XSS_AUDITOR,
+                                    g_param_spec_boolean("enable-xss-auditor",
+                                                         _("Enable XSS Auditor"),
+                                                         _("Whether to enable teh XSS auditor"),
+                                                         TRUE,
+                                                         flags));
+
+    /**
+     * WebKitWebSettings:user-agent:
+     *
+     * The User-Agent string used by WebKitGtk.
+     *
+     * This will return a default User-Agent string if a custom string wasn't
+     * provided by the application. Setting this property to a NULL value or
+     * an empty string will result in the User-Agent string being reset to the
+     * default value.
+     *
+     * Since: 1.1.11
+     */
+    g_object_class_install_property(gobject_class, PROP_USER_AGENT,
+                                    g_param_spec_string("user-agent",
+                                                        _("User Agent"),
+                                                        _("The User-Agent string used by WebKitGtk"),
+                                                        webkit_get_user_agent().utf8().data(),
+                                                        flags));
+
+    /**
+    * WebKitWebSettings:javascript-can-open-windows-automatically
+    *
+    * Whether JavaScript can open popup windows automatically without user
+    * intervention.
+    *
+    * Since 1.1.11
+    */
+    g_object_class_install_property(gobject_class,
+                                    PROP_JAVASCRIPT_CAN_OPEN_WINDOWS_AUTOMATICALLY,
+                                    g_param_spec_boolean("javascript-can-open-windows-automatically",
+                                                         _("JavaScript can open windows automatically"),
+                                                         _("Whether JavaScript can open windows automatically"),
+                                                         FALSE,
+                                                         flags));
+    /**
+    * WebKitWebSettings:enable-offline-web-application-cache
+    *
+    * Whether to enable HTML5 offline web application cache support. Offline
+    * Web Application Cache ensures web applications are available even when
+    * the user is not connected to the network.
+    *
+    * Since 1.1.13
+    */
+    g_object_class_install_property(gobject_class,
+                                    PROP_ENABLE_OFFLINE_WEB_APPLICATION_CACHE,
+                                    g_param_spec_boolean("enable-offline-web-application-cache",
+                                                         _("Enable offline web application cache"),
+                                                         _("Whether to enable offline web application cache"),
+                                                         TRUE,
+                                                         flags));
+
+
 
     g_type_class_add_private(klass, sizeof(WebKitWebSettingsPrivate));
 }
@@ -359,6 +605,18 @@ static void webkit_web_settings_class_init(WebKitWebSettingsClass* klass)
 static void webkit_web_settings_init(WebKitWebSettings* web_settings)
 {
     web_settings->priv = WEBKIT_WEB_SETTINGS_GET_PRIVATE(web_settings);
+}
+
+static void free_spell_checking_language(gpointer data, gpointer user_data)
+{
+    SpellLanguage* language = static_cast<SpellLanguage*>(data);
+    if (language->config) {
+        if (language->speller)
+            enchant_broker_free_dict(language->config, language->speller);
+
+        enchant_broker_free(language->config);
+    }
+    g_slice_free(SpellLanguage, language);
 }
 
 static void webkit_web_settings_finalize(GObject* object)
@@ -374,6 +632,12 @@ static void webkit_web_settings_finalize(GObject* object)
     g_free(priv->sans_serif_font_family);
     g_free(priv->serif_font_family);
     g_free(priv->user_stylesheet_uri);
+    g_free(priv->spell_checking_languages);
+
+    g_slist_foreach(priv->spell_checking_languages_list, free_spell_checking_language, NULL);
+    g_slist_free(priv->spell_checking_languages_list);
+
+    g_free(priv->user_agent);
 
     G_OBJECT_CLASS(webkit_web_settings_parent_class)->finalize(object);
 }
@@ -382,6 +646,8 @@ static void webkit_web_settings_set_property(GObject* object, guint prop_id, con
 {
     WebKitWebSettings* web_settings = WEBKIT_WEB_SETTINGS(object);
     WebKitWebSettingsPrivate* priv = web_settings->priv;
+    SpellLanguage* lang;
+    GSList* spellLanguages = NULL;
 
     switch(prop_id) {
     case PROP_DEFAULT_ENCODING:
@@ -457,6 +723,61 @@ static void webkit_web_settings_set_property(GObject* object, guint prop_id, con
         break;
     case PROP_ENABLE_PRIVATE_BROWSING:
         priv->enable_private_browsing = g_value_get_boolean(value);
+        break;
+    case PROP_ENABLE_CARET_BROWSING:
+        priv->enable_caret_browsing = g_value_get_boolean(value);
+        break;
+    case PROP_ENABLE_HTML5_DATABASE:
+        priv->enable_html5_database = g_value_get_boolean(value);
+        break;
+    case PROP_ENABLE_HTML5_LOCAL_STORAGE:
+        priv->enable_html5_local_storage = g_value_get_boolean(value);
+        break;
+    case PROP_ENABLE_SPELL_CHECKING:
+        priv->enable_spell_checking = g_value_get_boolean(value);
+        break;
+    case PROP_SPELL_CHECKING_LANGUAGES:
+        priv->spell_checking_languages = g_strdup(g_value_get_string(value));
+
+        if (priv->spell_checking_languages) {
+            char** langs = g_strsplit(priv->spell_checking_languages, ",", -1);
+            for (int i = 0; langs[i]; i++) {
+                lang = g_slice_new0(SpellLanguage);
+                lang->config = enchant_broker_init();
+                lang->speller = enchant_broker_request_dict(lang->config, langs[i]);
+
+                spellLanguages = g_slist_append(spellLanguages, lang);
+            }
+
+            g_strfreev(langs);
+        } else {
+            const char* language = pango_language_to_string(gtk_get_default_language());
+
+            lang = g_slice_new0(SpellLanguage);
+            lang->config = enchant_broker_init();
+            lang->speller = enchant_broker_request_dict(lang->config, language);
+
+            spellLanguages = g_slist_append(spellLanguages, lang);
+        }
+        g_slist_foreach(priv->spell_checking_languages_list, free_spell_checking_language, NULL);
+        g_slist_free(priv->spell_checking_languages_list);
+        priv->spell_checking_languages_list = spellLanguages;
+        break;
+    case PROP_ENABLE_XSS_AUDITOR:
+        priv->enable_xss_auditor = g_value_get_boolean(value);
+        break;
+    case PROP_USER_AGENT:
+        g_free(priv->user_agent);
+        if (!g_value_get_string(value) || !strlen(g_value_get_string(value)))
+            priv->user_agent = g_strdup(webkit_get_user_agent().utf8().data());
+        else
+            priv->user_agent = g_strdup(g_value_get_string(value));
+        break;
+    case PROP_JAVASCRIPT_CAN_OPEN_WINDOWS_AUTOMATICALLY:
+        priv->javascript_can_open_windows_automatically = g_value_get_boolean(value);
+        break;
+    case PROP_ENABLE_OFFLINE_WEB_APPLICATION_CACHE:
+        priv->enable_offline_web_application_cache = g_value_get_boolean(value);
         break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -536,6 +857,33 @@ static void webkit_web_settings_get_property(GObject* object, guint prop_id, GVa
     case PROP_ENABLE_PRIVATE_BROWSING:
         g_value_set_boolean(value, priv->enable_private_browsing);
         break;
+    case PROP_ENABLE_CARET_BROWSING:
+        g_value_set_boolean(value, priv->enable_caret_browsing);
+        break;
+    case PROP_ENABLE_HTML5_DATABASE:
+        g_value_set_boolean(value, priv->enable_html5_database);
+        break;
+    case PROP_ENABLE_HTML5_LOCAL_STORAGE:
+        g_value_set_boolean(value, priv->enable_html5_local_storage);
+        break;
+    case PROP_ENABLE_SPELL_CHECKING:
+        g_value_set_boolean(value, priv->enable_spell_checking);
+        break;
+    case PROP_SPELL_CHECKING_LANGUAGES:
+        g_value_set_string(value, priv->spell_checking_languages);
+        break;
+    case PROP_ENABLE_XSS_AUDITOR:
+        g_value_set_boolean(value, priv->enable_xss_auditor);
+        break;
+    case PROP_USER_AGENT:
+        g_value_set_string(value, priv->user_agent);
+        break;
+    case PROP_JAVASCRIPT_CAN_OPEN_WINDOWS_AUTOMATICALLY:
+        g_value_set_boolean(value, priv->javascript_can_open_windows_automatically);
+        break;
+   case PROP_ENABLE_OFFLINE_WEB_APPLICATION_CACHE:
+        g_value_set_boolean(value, priv->enable_offline_web_application_cache);
+        break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
         break;
@@ -588,6 +936,16 @@ WebKitWebSettings* webkit_web_settings_copy(WebKitWebSettings* web_settings)
                  "zoom-step", priv->zoom_step,
                  "enable-developer-extras", priv->enable_developer_extras,
                  "enable-private-browsing", priv->enable_private_browsing,
+                 "enable-spell-checking", priv->enable_spell_checking,
+                 "spell-checking-languages", priv->spell_checking_languages,
+                 "spell-checking-languages-list", priv->spell_checking_languages_list,
+                 "enable-caret-browsing", priv->enable_caret_browsing,
+                 "enable-html5-database", priv->enable_html5_database,
+                 "enable-html5-local-storage", priv->enable_html5_local_storage,
+                 "enable-xss-auditor", priv->enable_xss_auditor,
+                 "user-agent", webkit_web_settings_get_user_agent(web_settings),
+                 "javascript-can-open-windows-automatically", priv->javascript_can_open_windows_automatically,
+                 "enable-offline-web-application-cache", priv->enable_offline_web_application_cache,
                  NULL));
 
     return copy;
@@ -609,4 +967,40 @@ void webkit_web_settings_add_extra_plugin_directory(WebKitWebView* webView, cons
     PluginDatabase::installedPlugins()->addExtraPluginDirectory(filenameToString(directory));
 }
 
+/**
+ * webkit_web_settings_get_spell_languages:
+ * @web_view: a #WebKitWebView
+ *
+ * Internal use only. Retrieves a GSList of SpellLanguages from the
+ * #WebKitWebSettings of @web_view.
+ *
+ * Since: 1.1.6
+ */
+GSList* webkit_web_settings_get_spell_languages(WebKitWebView *web_view)
+{
+    g_return_val_if_fail(WEBKIT_IS_WEB_VIEW(web_view), 0);
+
+    WebKitWebSettings* settings = webkit_web_view_get_settings(web_view);
+    WebKitWebSettingsPrivate* priv = settings->priv;
+    GSList* list = priv->spell_checking_languages_list;
+
+    return list;
+}
+
+/**
+ * webkit_web_settings_get_user_agent:
+ * @web_settings: a #WebKitWebSettings
+ *
+ * Returns the User-Agent string currently used by the web view(s) associated
+ * with the @web_settings.
+ *
+ * Since: 1.1.11
+ */
+G_CONST_RETURN gchar* webkit_web_settings_get_user_agent(WebKitWebSettings* webSettings)
+{
+    g_return_val_if_fail(WEBKIT_IS_WEB_SETTINGS(webSettings), NULL);
+
+    WebKitWebSettingsPrivate* priv = webSettings->priv;
+
+    return priv->user_agent;
 }

@@ -2,7 +2,7 @@
     Copyright (C) 2006 Alexander Kellett <lypanov@kde.org>
     Copyright (C) 2006 Apple Computer, Inc.
     Copyright (C) 2007 Nikolas Zimmermann <zimmermann@kde.org>
-    Copyright (C) 2007, 2008 Rob Buis <buis@kde.org>
+    Copyright (C) 2007, 2008, 2009 Rob Buis <buis@kde.org>
     Copyright (C) 2009, Google, Inc.
 
     This library is free software; you can redistribute it and/or
@@ -47,10 +47,6 @@ RenderSVGImage::RenderSVGImage(SVGImageElement* impl)
 {
 }
 
-RenderSVGImage::~RenderSVGImage()
-{
-}
-
 void RenderSVGImage::adjustRectsForAspectRatio(FloatRect& destRect, FloatRect& srcRect, SVGPreserveAspectRatio* aspectRatio)
 {
     float origDestWidth = destRect.width();
@@ -59,7 +55,7 @@ void RenderSVGImage::adjustRectsForAspectRatio(FloatRect& destRect, FloatRect& s
         float widthToHeightMultiplier = srcRect.height() / srcRect.width();
         if (origDestHeight > (origDestWidth * widthToHeightMultiplier)) {
             destRect.setHeight(origDestWidth * widthToHeightMultiplier);
-            switch(aspectRatio->align()) {
+            switch (aspectRatio->align()) {
                 case SVGPreserveAspectRatio::SVG_PRESERVEASPECTRATIO_XMINYMID:
                 case SVGPreserveAspectRatio::SVG_PRESERVEASPECTRATIO_XMIDYMID:
                 case SVGPreserveAspectRatio::SVG_PRESERVEASPECTRATIO_XMAXYMID:
@@ -74,7 +70,7 @@ void RenderSVGImage::adjustRectsForAspectRatio(FloatRect& destRect, FloatRect& s
         }
         if (origDestWidth > (origDestHeight / widthToHeightMultiplier)) {
             destRect.setWidth(origDestHeight / widthToHeightMultiplier);
-            switch(aspectRatio->align()) {
+            switch (aspectRatio->align()) {
                 case SVGPreserveAspectRatio::SVG_PRESERVEASPECTRATIO_XMIDYMIN:
                 case SVGPreserveAspectRatio::SVG_PRESERVEASPECTRATIO_XMIDYMID:
                 case SVGPreserveAspectRatio::SVG_PRESERVEASPECTRATIO_XMIDYMAX:
@@ -93,7 +89,7 @@ void RenderSVGImage::adjustRectsForAspectRatio(FloatRect& destRect, FloatRect& s
         if (origDestHeight < (origDestWidth * widthToHeightMultiplier)) {
             float destToSrcMultiplier = srcRect.width() / destRect.width();
             srcRect.setHeight(destRect.height() * destToSrcMultiplier);
-            switch(aspectRatio->align()) {
+            switch (aspectRatio->align()) {
                 case SVGPreserveAspectRatio::SVG_PRESERVEASPECTRATIO_XMINYMID:
                 case SVGPreserveAspectRatio::SVG_PRESERVEASPECTRATIO_XMIDYMID:
                 case SVGPreserveAspectRatio::SVG_PRESERVEASPECTRATIO_XMAXYMID:
@@ -110,7 +106,7 @@ void RenderSVGImage::adjustRectsForAspectRatio(FloatRect& destRect, FloatRect& s
         if (origDestWidth < (origDestHeight / widthToHeightMultiplier)) {
             float destToSrcMultiplier = srcRect.height() / destRect.height();
             srcRect.setWidth(destRect.width() * destToSrcMultiplier);
-            switch(aspectRatio->align()) {
+            switch (aspectRatio->align()) {
                 case SVGPreserveAspectRatio::SVG_PRESERVEASPECTRATIO_XMIDYMIN:
                 case SVGPreserveAspectRatio::SVG_PRESERVEASPECTRATIO_XMIDYMID:
                 case SVGPreserveAspectRatio::SVG_PRESERVEASPECTRATIO_XMIDYMAX:
@@ -227,9 +223,7 @@ FloatRect RenderSVGImage::repaintRectInLocalCoordinates() const
 void RenderSVGImage::imageChanged(WrappedImagePtr image, const IntRect* rect)
 {
     RenderImage::imageChanged(image, rect);
-
-    // We override to invalidate a larger rect, since SVG images can draw outside their "bounds"
-    repaintRectangle(absoluteClippedOverflowRect());    // FIXME: Isn't this just repaint()?
+    repaint();
 }
 
 IntRect RenderSVGImage::clippedOverflowRectForRepaint(RenderBoxModelObject* repaintContainer)

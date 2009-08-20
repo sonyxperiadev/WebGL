@@ -97,31 +97,6 @@ FloatRect screenRect(Widget* page)
     return FloatRect(0.0, 0.0, info.w, info.h);
 }
 
-/* 
-Scale functions don't seem to be needed. There is no code that
-call them, and they seem to only exist in ports and not in the core
-WebKit code - davidc
-FloatRect usableScreenRect(Widget* page)
-{
-    return FloatRect();;
-}
-
-FloatRect scaleScreenRectToPageCoordinates(const FloatRect&, Widget*)
-{
-    return FloatRect();;
-}
-
-FloatRect scalePageRectToScreenCoordinates(const FloatRect&, Widget*)
-{
-    return FloatRect();;
-}
-
-float scaleFactor(Widget*)
-{
-    return 1.0f;
-}
-*/
-
 // Similar screenRect, this function is commonly used by javascripts
 // to position and resize windows (usually to full screen). 
 FloatRect screenAvailableRect(Widget*)
@@ -131,4 +106,4 @@ FloatRect screenAvailableRect(Widget*)
     return FloatRect(0.0, 0.0, info.w, info.h);
 }
 
-}
+} // namespace WebCore

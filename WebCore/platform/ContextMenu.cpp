@@ -28,6 +28,7 @@
 #include "ContextMenu.h"
 
 #include "ContextMenuController.h"
+#include "ContextMenuClient.h"
 #include "CSSComputedStyleDeclaration.h"
 #include "CSSProperty.h"
 #include "CSSPropertyNames.h"
@@ -345,6 +346,12 @@ void ContextMenu::populate()
 #endif
                 }
                 appendItem(CopyItem);
+#if PLATFORM(MAC)
+                appendItem(*separatorItem());
+                ContextMenuItem SpeechMenuItem(SubmenuType, ContextMenuItemTagSpeechMenu, contextMenuItemTagSpeechMenu());
+                createAndAppendSpeechSubMenu(m_hitTestResult, SpeechMenuItem);
+                appendItem(SpeechMenuItem);
+#endif                
             } else {
 #if PLATFORM(GTK)
                 appendItem(BackItem);
@@ -481,8 +488,7 @@ void ContextMenu::populate()
             createAndAppendFontSubMenu(m_hitTestResult, FontMenuItem);
             appendItem(FontMenuItem);
 #if PLATFORM(MAC)
-            ContextMenuItem SpeechMenuItem(SubmenuType, ContextMenuItemTagSpeechMenu, 
-                contextMenuItemTagSpeechMenu());
+            ContextMenuItem SpeechMenuItem(SubmenuType, ContextMenuItemTagSpeechMenu, contextMenuItemTagSpeechMenu());
             createAndAppendSpeechSubMenu(m_hitTestResult, SpeechMenuItem);
             appendItem(SpeechMenuItem);
 #endif
@@ -702,6 +708,12 @@ void ContextMenu::checkOrEnableIfNeeded(ContextMenuItem& item) const
             shouldCheck = frame->editor()->isAutomaticTextReplacementEnabled();
 #endif
             break;
+        case ContextMenuItemTagStopSpeaking:
+            shouldEnable = controller() && controller()->client() && controller()->client()->isSpeaking();
+            break;
+#else // PLATFORM(MAC) ends here
+        case ContextMenuItemTagStopSpeaking:
+            break;
 #endif
 #if PLATFORM(GTK)
         case ContextMenuItemTagGoBack:
@@ -756,7 +768,6 @@ void ContextMenu::checkOrEnableIfNeeded(ContextMenuItem& item) const
         case ContextMenuItemTagShowColors:
         case ContextMenuItemTagSpeechMenu:
         case ContextMenuItemTagStartSpeaking:
-        case ContextMenuItemTagStopSpeaking:
         case ContextMenuItemTagWritingDirectionMenu:
         case ContextMenuItemTagTextDirectionMenu:
         case ContextMenuItemTagPDFSinglePageScrolling:

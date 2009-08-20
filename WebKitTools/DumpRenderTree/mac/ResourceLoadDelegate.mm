@@ -26,6 +26,7 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#import "config.h"
 #import "ResourceLoadDelegate.h"
 
 #import "DumpRenderTree.h"
@@ -88,7 +89,10 @@
 
 - (NSString *)_drt_descriptionSuitableForTestResult
 {
-    return [NSString stringWithFormat:@"<NSURLResponse %@>", [[self URL] _drt_descriptionSuitableForTestResult]];
+    int statusCode = 0;
+    if ([self isKindOfClass:[NSHTTPURLResponse class]])
+        statusCode = [(NSHTTPURLResponse *)self statusCode];
+    return [NSString stringWithFormat:@"<NSURLResponse %@, http status code %i>", [[self URL] _drt_descriptionSuitableForTestResult], statusCode];
 }
 
 @end
@@ -97,7 +101,10 @@
 
 - (NSString *)_drt_descriptionSuitableForTestResult
 {
-    return [NSString stringWithFormat:@"<NSURLRequest URL %@, main document URL %@>", [[self URL] _drt_descriptionSuitableForTestResult], [[self mainDocumentURL] _drt_descriptionSuitableForTestResult]];
+    NSString *httpMethod = [self HTTPMethod];
+    if (!httpMethod)
+        httpMethod = @"(none)";
+    return [NSString stringWithFormat:@"<NSURLRequest URL %@, main document URL %@, http method %@>", [[self URL] _drt_descriptionSuitableForTestResult], [[self mainDocumentURL] _drt_descriptionSuitableForTestResult], httpMethod];
 }
 
 @end
@@ -120,6 +127,11 @@
         NSString *string = [NSString stringWithFormat:@"%@ - willSendRequest %@ redirectResponse %@", identifier, [newRequest _drt_descriptionSuitableForTestResult],
             [redirectResponse _drt_descriptionSuitableForTestResult]];
         printf("%s\n", [string UTF8String]);
+    }
+
+    if (!done && gLayoutTestController->willSendRequestReturnsNullOnRedirect() && redirectResponse) {
+        printf("Returning null for this redirect\n");
+        return nil;
     }
 
     NSURL *url = [newRequest URL];
@@ -153,6 +165,8 @@
         NSString *string = [NSString stringWithFormat:@"%@ - didReceiveResponse %@", identifier, [response _drt_descriptionSuitableForTestResult]];
         printf("%s\n", [string UTF8String]);
     }
+    if (!done && gLayoutTestController->dumpResourceResponseMIMETypes())
+        printf("%s has MIME type %s\n", [[[[response URL] relativePath] lastPathComponent] UTF8String], [[response MIMEType] UTF8String]);
 }
 
 -(void)webView: (WebView *)wv resource:identifier didReceiveContentLength: (NSInteger)length fromDataSource:(WebDataSource *)dataSource
@@ -184,7 +198,7 @@
 
 -(NSCachedURLResponse *) webView: (WebView *)wv resource:(id)identifier willCacheResponse:(NSCachedURLResponse *)response fromDataSource:(WebDataSource *)dataSource
 {
-    if (!done && gLayoutTestController->dumpResourceLoadCallbacks()) {
+    if (!done && gLayoutTestController->dumpWillCacheResponse()) {
         NSString *string = [NSString stringWithFormat:@"%@ - willCacheResponse: called", identifier];
         printf("%s\n", [string UTF8String]);
     }

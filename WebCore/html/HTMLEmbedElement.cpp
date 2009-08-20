@@ -61,7 +61,7 @@ static inline RenderWidget* findWidgetRenderer(const Node* n)
         while (n && !n->hasTagName(objectTag));
 
     if (n && n->renderer() && n->renderer()->isWidget())
-        return static_cast<RenderWidget*>(n->renderer());
+        return toRenderWidget(n->renderer());
 
     return 0;
 }
@@ -98,9 +98,9 @@ void HTMLEmbedElement::parseMappedAttribute(MappedAttribute* attr)
         if (!isImageType() && m_imageLoader)
             m_imageLoader.clear();
     } else if (attr->name() == codeAttr)
-        m_url = parseURL(value.string());
+        m_url = deprecatedParseURL(value.string());
     else if (attr->name() == srcAttr) {
-        m_url = parseURL(value.string());
+        m_url = deprecatedParseURL(value.string());
         if (renderer() && isImageType()) {
             if (!m_imageLoader)
                 m_imageLoader.set(new HTMLImageLoader(this));
@@ -182,7 +182,7 @@ void HTMLEmbedElement::updateWidget()
 {
     document()->updateStyleIfNeeded();
     if (m_needWidgetUpdate && renderer() && !isImageType())
-        static_cast<RenderPartObject*>(renderer())->updateWidget(true);
+        toRenderPartObject(renderer())->updateWidget(true);
 }
 
 void HTMLEmbedElement::insertedIntoDocument()

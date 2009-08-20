@@ -39,7 +39,8 @@ public:
     HTMLSelectElement(const QualifiedName&, Document*, HTMLFormElement* = 0);
 
     virtual int selectedIndex() const;
-    virtual void setSelectedIndex(int index, bool deselect = true, bool fireOnChange = false);
+    virtual void setSelectedIndex(int index, bool deselect = true);
+    virtual void setSelectedIndexByUser(int index, bool deselect = true, bool fireOnChangeNow = false);
 
     unsigned length() const;
 
@@ -128,6 +129,8 @@ private:
     void saveLastSelection();
 
     virtual void insertedIntoTree(bool);
+
+    virtual bool isOptionalFormControl() const { return true; }
 
     SelectElementData m_data;
     CollectionCache m_collectionInfo;

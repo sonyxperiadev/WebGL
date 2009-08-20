@@ -71,6 +71,9 @@ void Pasteboard::clear()
 void Pasteboard::writeSelection(Range* selectedRange, bool canSmartCopyOrDelete, Frame* frame)
 {
     String html = createMarkup(selectedRange, 0, AnnotateForInterchange);
+#if PLATFORM(DARWIN)
+    html = String("<meta charset='utf-8'>") + html;
+#endif
     ExceptionCode ec = 0;
     KURL url = selectedRange->startContainer(ec)->document()->url();
     String plainText = frame->selectedText();
@@ -101,8 +104,8 @@ void Pasteboard::writeImage(Node* node, const KURL&, const String& title)
     ASSERT(node);
     ASSERT(node->renderer());
     ASSERT(node->renderer()->isImage());
-    RenderImage* renderer = static_cast<RenderImage*>(node->renderer());
-    CachedImage* cachedImage = static_cast<CachedImage*>(renderer->cachedImage());
+    RenderImage* renderer = toRenderImage(node->renderer());
+    CachedImage* cachedImage = renderer->cachedImage();
     ASSERT(cachedImage);
     Image* image = cachedImage->image();
     ASSERT(image);
@@ -120,7 +123,7 @@ void Pasteboard::writeImage(Node* node, const KURL&, const String& title)
         Element* element = static_cast<Element*>(node);
         urlString = element->getAttribute(element->imageSourceAttributeName());
     }
-    KURL url = urlString.isEmpty() ? KURL() : node->document()->completeURL(parseURL(urlString));
+    KURL url = urlString.isEmpty() ? KURL() : node->document()->completeURL(deprecatedParseURL(urlString));
 
     NativeImageSkia* bitmap = 0;
 #if !PLATFORM(CG)

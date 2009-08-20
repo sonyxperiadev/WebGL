@@ -31,6 +31,8 @@
 #include "config.h"
 #include "DumpRenderTree.h"
 
+#include "AccessibilityController.h"
+#include "GCController.h"
 #include "LayoutTestController.h"
 #include "WorkQueue.h"
 #include "WorkQueueItem.h"
@@ -58,6 +60,8 @@ extern gchar* webkit_web_frame_get_inner_text(WebKitWebFrame* frame);
 extern gchar* webkit_web_frame_dump_render_tree(WebKitWebFrame* frame);
 extern void webkit_web_settings_add_extra_plugin_directory(WebKitWebView* view, const gchar* directory);
 extern gchar* webkit_web_frame_get_response_mime_type(WebKitWebFrame* frame);
+extern void webkit_web_frame_clear_main_frame_name(WebKitWebFrame* frame);
+extern void webkit_web_view_set_group_name(WebKitWebView* view, const gchar* groupName);
 }
 
 volatile bool done;
@@ -65,11 +69,18 @@ static bool printSeparators;
 static int dumpPixels;
 static int dumpTree = 1;
 
+AccessibilityController* axController = 0;
 LayoutTestController* gLayoutTestController = 0;
+static GCController* gcController = 0;
 static WebKitWebView* webView;
+static GtkWidget* container;
 WebKitWebFrame* mainFrame = 0;
 WebKitWebFrame* topLoadingFrame = 0;
 guint waitToDumpWatchdog = 0;
+bool waitForPolicy = false;
+
+// This is a list of opened webviews
+GSList* webViewList = 0;
 
 // current b/f item at the end of the previous test
 static WebKitWebHistoryItem* prevTestBFItem = NULL;
@@ -130,7 +141,7 @@ static gchar* dumpFramesAsText(WebKitWebFrame* frame)
     if (gLayoutTestController->dumpChildFramesAsText()) {
         GSList* children = webkit_web_frame_get_children(frame);
         for (GSList* child = children; child; child = g_slist_next(child))
-           appendString(result, dumpFramesAsText((WebKitWebFrame*)children->data));
+            appendString(result, dumpFramesAsText(static_cast<WebKitWebFrame* >(child->data)));
         g_slist_free(children);
     }
 
@@ -154,9 +165,27 @@ static void dumpHistoryItem(WebKitWebHistoryItem* item, int indent, bool current
     }
     for (int i = start; i < indent; i++)
         putchar(' ');
-    printf("%s", webkit_web_history_item_get_uri(item));
+
+    // normalize file URLs.
+    const gchar* uri = webkit_web_history_item_get_uri(item);
+    gchar* uriScheme = g_uri_parse_scheme(uri);
+    if (g_strcmp0(uriScheme, "file") == 0) {
+        gchar* pos = g_strstr_len(uri, -1, "/LayoutTests/");
+        if (!pos)
+            return;
+
+        GString* result = g_string_sized_new(strlen(uri));
+        result = g_string_append(result, "(file test):");
+        result = g_string_append(result, pos + strlen("/LayoutTests/"));
+        printf("%s", result->str);
+        g_string_free(result, TRUE);
+    } else
+        printf("%s", uri);
+
+    g_free(uriScheme);
+
     const gchar* target = webkit_web_history_item_get_target(item);
-    if (target && g_utf8_strlen(target, 0) > 0)
+    if (target && strlen(target) > 0)
         printf(" (in frame \"%s\")", target);
     if (webkit_web_history_item_is_target_item(item))
         printf("  **nav target**");
@@ -212,12 +241,25 @@ static void dumpBackForwardListForWebView(WebKitWebView* view)
     printf("===============================================\n");
 }
 
+static void dumpBackForwardListForAllWebViews()
+{
+    // Dump the back forward list of the main WebView first
+    dumpBackForwardListForWebView(webView);
+
+    // The view list is prepended. Reverse the list so we get the order right.
+    GSList* viewList = g_slist_reverse(webViewList);
+    for (unsigned i = 0; i < g_slist_length(viewList); ++i)
+        dumpBackForwardListForWebView(WEBKIT_WEB_VIEW(g_slist_nth_data(viewList, i)));
+}
+
 static void invalidateAnyPreviousWaitToDumpWatchdog()
 {
     if (waitToDumpWatchdog) {
         g_source_remove(waitToDumpWatchdog);
         waitToDumpWatchdog = 0;
     }
+
+    waitForPolicy = false;
 }
 
 static void resetWebViewToConsistentStateBeforeTesting()
@@ -226,7 +268,15 @@ static void resetWebViewToConsistentStateBeforeTesting()
     g_object_set(G_OBJECT(settings),
                  "enable-private-browsing", FALSE,
                  "enable-developer-extras", FALSE,
+                 "enable-spell-checking", TRUE,
+                 "enable-html5-database", TRUE,
+                 "enable-html5-local-storage", TRUE,
+                 "enable-xss-auditor", FALSE,
+                 "javascript-can-open-windows-automatically", TRUE,
+                 "enable-offline-web-application-cache", TRUE,
                  NULL);
+
+    webkit_web_frame_clear_main_frame_name(mainFrame);
 
     WebKitWebInspector* inspector = webkit_web_view_get_inspector(webView);
     g_object_set(G_OBJECT(inspector), "javascript-profiling-enabled", FALSE, NULL);
@@ -241,10 +291,15 @@ void dump()
         char* result = 0;
         gchar* responseMimeType = webkit_web_frame_get_response_mime_type(mainFrame);
 
-        dumpAsText = g_ascii_strcasecmp(responseMimeType, "text/plain");
+        dumpAsText = g_str_equal(responseMimeType, "text/plain");
         g_free(responseMimeType);
 
-        gLayoutTestController->setDumpAsText(dumpAsText);
+        // Test can request controller to be dumped as text even
+        // while test's response mime type is not text/plain.
+        // Overriding this behavior with dumpAsText being false is a bad idea.
+        if (dumpAsText)
+            gLayoutTestController->setDumpAsText(dumpAsText);
+
         if (gLayoutTestController->dumpAsText())
             result = dumpFramesAsText(mainFrame);
         else
@@ -267,11 +322,8 @@ void dump()
             if (!gLayoutTestController->dumpAsText() && !gLayoutTestController->dumpDOMAsWebArchive() && !gLayoutTestController->dumpSourceAsWebArchive())
                 dumpFrameScrollPosition(mainFrame);
 
-            if (gLayoutTestController->dumpBackForwardList()) {
-                // FIXME: multiple windows support
-                dumpBackForwardListForWebView(webView);
-
-            }
+            if (gLayoutTestController->dumpBackForwardList())
+                dumpBackForwardListForAllWebViews();
         }
 
         if (printSeparators) {
@@ -312,6 +364,11 @@ static void setDefaultsToConsistentStateValuesForTesting()
                  "default-monospace-font-size", 13,
                  "minimum-font-size", 1,
                  NULL);
+
+    /* Disable the default auth dialog for testing */
+    SoupSession* session = webkit_get_default_session();
+    soup_session_remove_feature_by_type(session, WEBKIT_TYPE_SOUP_AUTH_DIALOG);
+
 #if PLATFORM(X11)
     webkit_web_settings_add_extra_plugin_directory(webView, TEST_PLUGIN_DIR);
 #endif
@@ -352,7 +409,7 @@ static void runTest(const string& testPathOrURL)
     GtkAllocation size;
     size.width = isSVGW3CTest ? 480 : maxViewWidth;
     size.height = isSVGW3CTest ? 360 : maxViewHeight;
-    gtk_widget_size_allocate(GTK_WIDGET(webView), &size);
+    gtk_widget_size_allocate(container, &size);
 
     if (prevTestBFItem)
         g_object_unref(prevTestBFItem);
@@ -369,6 +426,17 @@ static void runTest(const string& testPathOrURL)
 
     while (!done)
         g_main_context_iteration(NULL, TRUE);
+
+
+    // Also check if we still have opened webViews and free them.
+    if (gLayoutTestController->closeRemainingWindowsWhenComplete() || webViewList) {
+        while (webViewList) {
+            g_object_unref(WEBKIT_WEB_VIEW(webViewList->data));
+            webViewList = g_slist_next(webViewList);
+        }
+        g_slist_free(webViewList);
+        webViewList = 0;
+    }
 
     // A blank load seems to be necessary to reset state after certain tests.
     webkit_web_view_open(webView, "about:blank");
@@ -387,16 +455,8 @@ void webViewLoadStarted(WebKitWebView* view, WebKitWebFrame* frame, void*)
 
 static gboolean processWork(void* data)
 {
-    // quit doing work once a load is in progress
-    while (WorkQueue::shared()->count() > 0 && !topLoadingFrame) {
-        WorkQueueItem* item = WorkQueue::shared()->dequeue();
-        ASSERT(item);
-        item->invoke();
-        delete item;
-    }
-
-    // if we didn't start a new load, then we finished all the commands, so we're ready to dump state
-    if (!topLoadingFrame && !gLayoutTestController->waitToDump())
+    // if we finish all the commands, we're ready to dump state
+    if (WorkQueue::shared()->processWork() && !gLayoutTestController->waitToDump())
         dump();
 
     return FALSE;
@@ -421,10 +481,17 @@ static void webViewLoadFinished(WebKitWebView* view, WebKitWebFrame* frame, void
 static void webViewWindowObjectCleared(WebKitWebView* view, WebKitWebFrame* frame, JSGlobalContextRef context, JSObjectRef windowObject, gpointer data)
 {
     JSValueRef exception = 0;
-    assert(gLayoutTestController);
+    ASSERT(gLayoutTestController);
 
     gLayoutTestController->makeWindowObject(context, windowObject, &exception);
-    assert(!exception);
+    ASSERT(!exception);
+
+    gcController->makeWindowObject(context, windowObject, &exception);
+    ASSERT(!exception);
+
+    axController->makeWindowObject(context, windowObject, &exception);
+    ASSERT(!exception);
+
 }
 
 static gboolean webViewConsoleMessage(WebKitWebView* view, const gchar* message, unsigned int line, const gchar* sourceId, gpointer data)
@@ -460,6 +527,115 @@ static void webViewTitleChanged(WebKitWebView* view, WebKitWebFrame* frame, cons
         printf("TITLE CHANGED: %s\n", title ? title : "");
 }
 
+static bool webViewNavigationPolicyDecisionRequested(WebKitWebView* view, WebKitWebFrame* frame,
+                                                     WebKitNetworkRequest* request,
+                                                     WebKitWebNavigationAction* navAction,
+                                                     WebKitWebPolicyDecision* policyDecision)
+{
+    // Use the default handler if we're not waiting for policy,
+    // i.e., LayoutTestController::waitForPolicyDelegate
+    if (!waitForPolicy)
+        return FALSE;
+
+    gchar* typeDescription;
+    WebKitWebNavigationReason reason;
+    g_object_get(G_OBJECT(navAction), "reason", &reason, NULL);
+
+    switch(reason) {
+        case WEBKIT_WEB_NAVIGATION_REASON_LINK_CLICKED:
+            typeDescription = g_strdup("link clicked");
+            break;
+        case WEBKIT_WEB_NAVIGATION_REASON_FORM_SUBMITTED:
+            typeDescription = g_strdup("form submitted");
+            break;
+        case WEBKIT_WEB_NAVIGATION_REASON_BACK_FORWARD:
+            typeDescription = g_strdup("back/forward");
+            break;
+        case WEBKIT_WEB_NAVIGATION_REASON_RELOAD:
+            typeDescription = g_strdup("reload");
+            break;
+        case WEBKIT_WEB_NAVIGATION_REASON_FORM_RESUBMITTED:
+            typeDescription = g_strdup("form resubmitted");
+            break;
+        case WEBKIT_WEB_NAVIGATION_REASON_OTHER:
+            typeDescription = g_strdup("other");
+            break;
+        default:
+            typeDescription = g_strdup("illegal value");
+    }
+
+    printf("Policy delegate: attempt to load %s with navigation type '%s'\n", webkit_network_request_get_uri(request), typeDescription);
+    g_free(typeDescription);
+
+    webkit_web_policy_decision_ignore(policyDecision);
+    gLayoutTestController->notifyDone();
+
+    return TRUE;
+}
+
+static void webViewStatusBarTextChanged(WebKitWebView* view, const gchar* message, gpointer data)
+{
+    // Are we doing anything wrong? One test that does not call
+    // dumpStatusCallbacks gets true here
+    if (gLayoutTestController->dumpStatusCallbacks()) {
+        if (message && strcmp(message, ""))
+            printf("UI DELEGATE STATUS CALLBACK: setStatusText:%s\n", message);
+    }
+}
+
+static gboolean webViewClose(WebKitWebView* view)
+{
+    ASSERT(view);
+
+    webViewList = g_slist_remove(webViewList, view);
+    g_object_unref(view);
+
+    return TRUE;
+}
+
+
+static WebKitWebView* webViewCreate(WebKitWebView*, WebKitWebFrame*);
+
+static WebKitWebView* createWebView()
+{
+    WebKitWebView* view = WEBKIT_WEB_VIEW(webkit_web_view_new());
+
+    // From bug 11756: Use a frame group name for all WebViews created by
+    // DumpRenderTree to allow testing of cross-page frame lookup.
+    webkit_web_view_set_group_name(view, "org.webkit.gtk.DumpRenderTree");
+
+    g_object_connect(G_OBJECT(view),
+                     "signal::load-started", webViewLoadStarted, 0,
+                     "signal::load-finished", webViewLoadFinished, 0,
+                     "signal::window-object-cleared", webViewWindowObjectCleared, 0,
+                     "signal::console-message", webViewConsoleMessage, 0,
+                     "signal::script-alert", webViewScriptAlert, 0,
+                     "signal::script-prompt", webViewScriptPrompt, 0,
+                     "signal::script-confirm", webViewScriptConfirm, 0,
+                     "signal::title-changed", webViewTitleChanged, 0,
+                     "signal::navigation-policy-decision-requested", webViewNavigationPolicyDecisionRequested, 0,
+                     "signal::status-bar-text-changed", webViewStatusBarTextChanged, 0,
+                     "signal::create-web-view", webViewCreate, 0,
+                     "signal::close-web-view", webViewClose, 0,
+                     NULL);
+
+    return view;
+}
+
+static WebKitWebView* webViewCreate(WebKitWebView* view, WebKitWebFrame* frame)
+{
+    if (!gLayoutTestController->canOpenWindows())
+        return 0;
+
+    // Make sure that waitUntilDone has been called.
+    ASSERT(gLayoutTestController->waitToDump());
+
+    WebKitWebView* newWebView = createWebView();
+    g_object_ref_sink(G_OBJECT(newWebView));
+    webViewList = g_slist_prepend(webViewList, newWebView);
+    return newWebView;
+}
+
 int main(int argc, char* argv[])
 {
     g_thread_init(NULL);
@@ -482,25 +658,21 @@ int main(int argc, char* argv[])
         }
 
     GtkWidget* window = gtk_window_new(GTK_WINDOW_POPUP);
-    GtkContainer* container = GTK_CONTAINER(gtk_fixed_new());
-    gtk_container_add(GTK_CONTAINER(window), GTK_WIDGET(container));
+    container = GTK_WIDGET(gtk_scrolled_window_new(NULL, NULL));
+    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(container), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
+    gtk_container_add(GTK_CONTAINER(window), container);
     gtk_widget_realize(window);
 
-    webView = WEBKIT_WEB_VIEW(webkit_web_view_new());
-    gtk_container_add(container, GTK_WIDGET(webView));
+    webView = createWebView();
+    gtk_container_add(GTK_CONTAINER(container), GTK_WIDGET(webView));
     gtk_widget_realize(GTK_WIDGET(webView));
+    gtk_widget_show_all(container);
     mainFrame = webkit_web_view_get_main_frame(webView);
 
-    g_signal_connect(G_OBJECT(webView), "load-started", G_CALLBACK(webViewLoadStarted), 0);
-    g_signal_connect(G_OBJECT(webView), "load-finished", G_CALLBACK(webViewLoadFinished), 0);
-    g_signal_connect(G_OBJECT(webView), "window-object-cleared", G_CALLBACK(webViewWindowObjectCleared), 0);
-    g_signal_connect(G_OBJECT(webView), "console-message", G_CALLBACK(webViewConsoleMessage), 0);
-    g_signal_connect(G_OBJECT(webView), "script-alert", G_CALLBACK(webViewScriptAlert), 0);
-    g_signal_connect(G_OBJECT(webView), "script-prompt", G_CALLBACK(webViewScriptPrompt), 0);
-    g_signal_connect(G_OBJECT(webView), "script-confirm", G_CALLBACK(webViewScriptConfirm), 0);
-    g_signal_connect(G_OBJECT(webView), "title-changed", G_CALLBACK(webViewTitleChanged), 0);
-
     setDefaultsToConsistentStateValuesForTesting();
+
+    gcController = new GCController();
+    axController = new AccessibilityController();
 
     if (argc == optind+1 && strcmp(argv[optind], "-") == 0) {
         char filenameBuffer[2048];
@@ -520,6 +692,14 @@ int main(int argc, char* argv[])
         for (int i = optind; i != argc; ++i)
             runTest(argv[i]);
     }
+
+    delete gcController;
+    gcController = 0;
+
+    delete axController;
+    axController = 0;
+
+    g_object_unref(webView);
 
     return 0;
 }

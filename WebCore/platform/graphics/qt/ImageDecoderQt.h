@@ -45,8 +45,8 @@ public:
     typedef Vector<char> IncomingData;
 
     virtual void setData(const IncomingData& data, bool allDataReceived);
-    virtual bool isSizeAvailable() const;
-    virtual int frameCount() const;
+    virtual bool isSizeAvailable();
+    virtual size_t frameCount() const;
     virtual int repetitionCount() const;
     virtual RGBA32Buffer* frameBufferAtIndex(size_t index);
 

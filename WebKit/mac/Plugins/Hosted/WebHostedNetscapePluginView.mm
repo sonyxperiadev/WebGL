@@ -26,15 +26,19 @@
 
 #import "WebHostedNetscapePluginView.h"
 
+#import "HostedNetscapePluginStream.h"
 #import "NetscapePluginInstanceProxy.h"
 #import "NetscapePluginHostManager.h"
 #import "NetscapePluginHostProxy.h"
 #import "WebTextInputWindowController.h"
+#import "WebFrameInternal.h"
 #import "WebView.h"
 #import "WebViewInternal.h"
 #import "WebUIDelegate.h"
 
 #import <CoreFoundation/CoreFoundation.h>
+#import <WebCore/Frame.h>
+#import <WebCore/FrameLoaderTypes.h>
 #import <WebCore/HTMLPlugInElement.h>
 #import <WebCore/runtime.h>
 #import <WebCore/runtime_root.h>
@@ -42,6 +46,7 @@
 #import <runtime/InitializeThreading.h>
 #import <wtf/Assertions.h>
 
+using namespace WebCore;
 using namespace WebKit;
 
 extern "C" {
@@ -97,7 +102,7 @@ extern "C" {
 
     NSString *userAgent = [[self webView] userAgentForURL:_baseURL.get()];
 
-    _proxy = NetscapePluginHostManager::shared().instantiatePlugin(_pluginPackage.get(), self, _MIMEType.get(), _attributeKeys.get(), _attributeValues.get(), userAgent, _sourceURL.get());
+    _proxy = NetscapePluginHostManager::shared().instantiatePlugin(_pluginPackage.get(), self, _MIMEType.get(), _attributeKeys.get(), _attributeValues.get(), userAgent, _sourceURL.get(), _mode == NP_FULL);
     if (!_proxy) 
         return NO;
 
@@ -116,6 +121,7 @@ extern "C" {
 
 - (void)setLayer:(CALayer *)newLayer
 {
+    // FIXME: This should use the same implementation as WebNetscapePluginView (and move to the base class).
     [super setLayer:newLayer];
     
     if (_pluginLayer)
@@ -140,7 +146,10 @@ extern "C" {
     boundsInWindow.origin.y = borderViewHeight - NSMaxY(boundsInWindow);
     visibleRectInWindow.origin.y = borderViewHeight - NSMaxY(visibleRectInWindow);
 
-    _proxy->resize(boundsInWindow, visibleRectInWindow);
+    BOOL sizeChanged = !NSEqualSizes(_previousSize, boundsInWindow.size);
+    _previousSize = boundsInWindow.size;
+    
+    _proxy->resize(boundsInWindow, visibleRectInWindow, sizeChanged);
 }
 
 - (void)windowFocusChanged:(BOOL)hasFocus
@@ -254,6 +263,17 @@ extern "C" {
         _proxy->mouseEvent(self, event, NPCocoaEventMouseExited);
 }
 
+- (void)scrollWheel:(NSEvent *)event
+{
+    bool processedEvent = false;
+    
+    if (_isStarted && _proxy)
+        processedEvent = _proxy->wheelEvent(self, event);
+    
+    if (!processedEvent)
+        [super scrollWheel:event];
+}
+
 - (NSTextInputContext *)inputContext
 {
     return [[WebTextInputWindowController sharedTextInputWindowController] inputContext];
@@ -280,6 +300,18 @@ extern "C" {
         _proxy->keyEvent(self, event, NPCocoaEventKeyUp);
 }
 
+- (void)flagsChanged:(NSEvent *)event
+{
+    if (_isStarted && _proxy)
+        _proxy->flagsChanged(event);
+}
+
+- (void)sendModifierEventWithKeyCode:(int)keyCode character:(char)character
+{
+    if (_isStarted && _proxy)
+        _proxy->syntheticKeyDownWithCommandModifier(keyCode, character);
+}
+
 - (void)pluginHostDied
 {
     _pluginHostDied = YES;
@@ -290,7 +322,7 @@ extern "C" {
     // No need for us to be layer backed anymore
     self.wantsLayer = NO;
     
-    [self setNeedsDisplay:YES];
+    [self invalidatePluginContentRect:[self bounds]];
 }
 
 
@@ -332,6 +364,72 @@ extern "C" {
         return 0;
     
     return _proxy->createBindingsInstance(rootObject);
+}
+
+- (void)pluginView:(NSView *)pluginView receivedResponse:(NSURLResponse *)response
+{
+    ASSERT(_loadManually);
+    if (!_proxy)
+        return;
+    
+    ASSERT(!_proxy->manualStream());
+
+    _proxy->setManualStream(HostedNetscapePluginStream::create(_proxy.get(), core([self webFrame])->loader()));
+    _proxy->manualStream()->startStreamWithResponse(response);
+}
+
+- (void)pluginView:(NSView *)pluginView receivedData:(NSData *)data
+{
+    ASSERT(_loadManually);
+    if (!_proxy)
+        return;
+    
+    if (HostedNetscapePluginStream* manualStream = _proxy->manualStream())
+        manualStream->didReceiveData(0, static_cast<const char*>([data bytes]), [data length]);
+}
+
+- (void)pluginView:(NSView *)pluginView receivedError:(NSError *)error
+{
+    ASSERT(_loadManually);
+    if (!_proxy)
+        return;
+    
+    if (HostedNetscapePluginStream* manualStream = _proxy->manualStream())
+        manualStream->didFail(0, error);
+}
+
+- (void)pluginViewFinishedLoading:(NSView *)pluginView
+{
+    ASSERT(_loadManually);
+    if (!_proxy)
+        return;
+    
+    if (HostedNetscapePluginStream* manualStream = _proxy->manualStream())
+        manualStream->didFinishLoading(0);
+}
+
+- (void)_webPluginContainerCancelCheckIfAllowedToLoadRequest:(id)webPluginContainerCheck
+{
+    ASSERT([webPluginContainerCheck isKindOfClass:[WebPluginContainerCheck class]]);
+    
+    id contextInfo = [webPluginContainerCheck contextInfo];
+    ASSERT(contextInfo && [contextInfo isKindOfClass:[NSNumber class]]);
+
+    if (!_proxy)
+        return;
+
+    uint32_t checkID = [(NSNumber *)contextInfo unsignedIntValue];
+    _proxy->cancelCheckIfAllowedToLoadURL(checkID);
+}
+
+- (void)_containerCheckResult:(PolicyAction)policy contextInfo:(id)contextInfo
+{
+    ASSERT([contextInfo isKindOfClass:[NSNumber class]]);
+    if (!_proxy)
+        return;
+
+    uint32_t checkID = [(NSNumber *)contextInfo unsignedIntValue];
+    _proxy->checkIfAllowedToLoadURLResult(checkID, (policy == PolicyUse));
 }
 
 @end

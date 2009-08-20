@@ -47,6 +47,7 @@
 #include "ScriptController.h"
 #include "ScriptSourceCode.h"
 #include "ScriptValue.h"
+#include "XSSAuditor.h"
 #include <wtf/ASCIICType.h>
 #include <wtf/CurrentTime.h>
 
@@ -319,11 +320,11 @@ HTMLTokenizer::State HTMLTokenizer::processListing(SegmentedString list, State s
     return state;
 }
 
-HTMLTokenizer::State HTMLTokenizer::parseSpecial(SegmentedString& src, State state)
+HTMLTokenizer::State HTMLTokenizer::parseNonHTMLText(SegmentedString& src, State state)
 {
     ASSERT(state.inTextArea() || state.inTitle() || state.inIFrame() || !state.hasEntityState());
     ASSERT(!state.hasTagState());
-    ASSERT(state.inXmp() + state.inTextArea() + state.inTitle() + state.inStyle() + state.inScript() + state.inIFrame() == 1 );
+    ASSERT(state.inXmp() + state.inTextArea() + state.inTitle() + state.inStyle() + state.inScript() + state.inIFrame() == 1);
     if (state.inScript() && !m_currentScriptTagStartLineNumber)
         m_currentScriptTagStartLineNumber = m_lineNumber;
 
@@ -741,9 +742,9 @@ HTMLTokenizer::State HTMLTokenizer::parseEntity(SegmentedString& src, UChar*& de
         EntityUnicodeValue = 0;
     }
 
-    while(!src.isEmpty()) {
+    while (!src.isEmpty()) {
         UChar cc = *src;
-        switch(state.entityState()) {
+        switch (state.entityState()) {
         case NoEntity:
             ASSERT(state.entityState() != NoEntity);
             return state;
@@ -792,7 +793,7 @@ HTMLTokenizer::State HTMLTokenizer::parseEntity(SegmentedString& src, UChar*& de
         case Decimal:
         {
             int ll = min(src.length(), 9-cBufferPos);
-            while(ll--) {
+            while (ll--) {
                 cc = *src;
 
                 if (!(cc >= '0' && cc <= '9')) {
@@ -811,7 +812,7 @@ HTMLTokenizer::State HTMLTokenizer::parseEntity(SegmentedString& src, UChar*& de
         case EntityName:
         {
             int ll = min(src.length(), 9-cBufferPos);
-            while(ll--) {
+            while (ll--) {
                 cc = *src;
 
                 if (!((cc >= 'a' && cc <= 'z') || (cc >= '0' && cc <= '9') || (cc >= 'A' && cc <= 'Z'))) {
@@ -825,7 +826,7 @@ HTMLTokenizer::State HTMLTokenizer::parseEntity(SegmentedString& src, UChar*& de
             if (cBufferPos == 9) 
                 state.setEntityState(SearchSemicolon);
             if (state.entityState() == SearchSemicolon) {
-                if(cBufferPos > 1) {
+                if (cBufferPos > 1) {
                     // Since the maximum length of entity name is 9,
                     // so a single char array which is allocated on
                     // the stack, its length is 10, should be OK.
@@ -848,11 +849,11 @@ HTMLTokenizer::State HTMLTokenizer::parseEntity(SegmentedString& src, UChar*& de
                     else
                         e = 0;
 
-                    if(e)
+                    if (e)
                         EntityUnicodeValue = e->code;
 
                     // be IE compatible
-                    if(parsingTag && EntityUnicodeValue > 255 && *src != ';')
+                    if (parsingTag && EntityUnicodeValue > 255 && *src != ';')
                         EntityUnicodeValue = 0;
                 }
             }
@@ -1133,7 +1134,7 @@ HTMLTokenizer::State HTMLTokenizer::parseTag(SegmentedString& src, State state)
 
     while (!src.isEmpty()) {
         checkBuffer();
-        switch(state.tagState()) {
+        switch (state.tagState()) {
         case NoTag:
         {
             m_cBufferPos = cBufferPos;
@@ -1248,7 +1249,7 @@ HTMLTokenizer::State HTMLTokenizer::parseTag(SegmentedString& src, State state)
             break;
         }
         case SearchAttribute:
-            while(!src.isEmpty()) {
+            while (!src.isEmpty()) {
                 UChar curchar = *src;
                 // In this mode just ignore any quotes we encounter and treat them like spaces.
                 if (!isASCIISpace(curchar) && curchar != '\'' && curchar != '"') {
@@ -1267,6 +1268,7 @@ HTMLTokenizer::State HTMLTokenizer::parseTag(SegmentedString& src, State state)
             break;
         case AttributeName:
         {
+            m_rawAttributeBeforeValue.clear();
             int ll = min(src.length(), CBUFLEN - cBufferPos);
             while (ll--) {
                 UChar curchar = *src;
@@ -1289,6 +1291,7 @@ HTMLTokenizer::State HTMLTokenizer::parseTag(SegmentedString& src, State state)
                 else
                     m_cBuffer[cBufferPos++] = curchar;
                     
+                m_rawAttributeBeforeValue.append(curchar);
                 src.advance(m_lineNumber);
             }
             if (cBufferPos == CBUFLEN) {
@@ -1320,6 +1323,7 @@ HTMLTokenizer::State HTMLTokenizer::parseTag(SegmentedString& src, State state)
                         state.setTagState(SearchValue);
                         if (inViewSourceMode())
                             m_currentToken.addViewSourceChar(curchar);
+                        m_rawAttributeBeforeValue.append(curchar);
                         src.advancePastNonNewline();
                     } else {
                         m_currentToken.addAttribute(m_attrName, emptyAtom, inViewSourceMode());
@@ -1329,11 +1333,12 @@ HTMLTokenizer::State HTMLTokenizer::parseTag(SegmentedString& src, State state)
                     }
                     break;
                 }
-                if (inViewSourceMode())
-                    m_currentToken.addViewSourceChar(curchar);
-                    
+
                 lastIsSlash = curchar == '/';
 
+                if (inViewSourceMode())
+                    m_currentToken.addViewSourceChar(curchar);
+                m_rawAttributeBeforeValue.append(curchar);
                 src.advance(m_lineNumber);
             }
             break;
@@ -1346,6 +1351,7 @@ HTMLTokenizer::State HTMLTokenizer::parseTag(SegmentedString& src, State state)
                         state.setTagState(QuotedValue);
                         if (inViewSourceMode())
                             m_currentToken.addViewSourceChar(curchar);
+                        m_rawAttributeBeforeValue.append(curchar);
                         src.advancePastNonNewline();
                     } else
                         state.setTagState(Value);
@@ -1354,6 +1360,7 @@ HTMLTokenizer::State HTMLTokenizer::parseTag(SegmentedString& src, State state)
                 }
                 if (inViewSourceMode())
                     m_currentToken.addViewSourceChar(curchar);
+                m_rawAttributeBeforeValue.append(curchar);
                 src.advance(m_lineNumber);
             }
             break;
@@ -1402,6 +1409,13 @@ HTMLTokenizer::State HTMLTokenizer::parseTag(SegmentedString& src, State state)
                                 m_currentToken.addViewSourceChar('x');
                         } else if (inViewSourceMode())
                             m_currentToken.addViewSourceChar('v');
+
+                        if (m_currentToken.beginTag && m_currentToken.tagName == scriptTag && !inViewSourceMode() && !m_parser->skipMode() && m_attrName == srcAttr) {
+                            String context(m_rawAttributeBeforeValue.data(), m_rawAttributeBeforeValue.size());
+                            if (m_XSSAuditor && !m_XSSAuditor->canLoadExternalScriptFromSrc(context, attributeValue))
+                                attributeValue = blankURL().string();
+                        }
+
                         m_currentToken.addAttribute(m_attrName, attributeValue, inViewSourceMode());
                         m_dest = m_buffer;
                         state.setTagState(SearchAttribute);
@@ -1418,7 +1432,7 @@ HTMLTokenizer::State HTMLTokenizer::parseTag(SegmentedString& src, State state)
             }
             break;
         case Value:
-            while(!src.isEmpty()) {
+            while (!src.isEmpty()) {
                 checkBuffer();
                 UChar curchar = *src;
                 if (curchar <= '>' && !src.escaped()) {
@@ -1432,6 +1446,13 @@ HTMLTokenizer::State HTMLTokenizer::parseTag(SegmentedString& src, State state)
                     // '/' does not delimit in IE!
                     if (isASCIISpace(curchar) || curchar == '>') {
                         AtomicString attributeValue(m_buffer + 1, m_dest - m_buffer - 1);
+
+                        if (m_currentToken.beginTag && m_currentToken.tagName == scriptTag && !inViewSourceMode() && !m_parser->skipMode() && m_attrName == srcAttr) {
+                            String context(m_rawAttributeBeforeValue.data(), m_rawAttributeBeforeValue.size());
+                            if (m_XSSAuditor && !m_XSSAuditor->canLoadExternalScriptFromSrc(context, attributeValue))
+                                attributeValue = blankURL().string();
+                        }
+
                         m_currentToken.addAttribute(m_attrName, attributeValue, inViewSourceMode());
                         if (inViewSourceMode())
                             m_currentToken.addViewSourceChar('v');
@@ -1485,7 +1506,7 @@ HTMLTokenizer::State HTMLTokenizer::parseTag(SegmentedString& src, State state)
                 if (m_currentToken.attrs && !m_fragment) {
                     if (m_doc->frame() && m_doc->frame()->script()->isEnabled()) {
                         if ((a = m_currentToken.attrs->getAttributeItem(srcAttr)))
-                            m_scriptTagSrcAttrValue = m_doc->completeURL(parseURL(a->value())).string();
+                            m_scriptTagSrcAttrValue = m_doc->completeURL(deprecatedParseURL(a->value())).string();
                     }
                 }
             }
@@ -1493,6 +1514,9 @@ HTMLTokenizer::State HTMLTokenizer::parseTag(SegmentedString& src, State state)
             RefPtr<Node> n = processToken();
             m_cBufferPos = cBufferPos;
             if (n || inViewSourceMode()) {
+                State savedState = state;
+                SegmentedString savedSrc = src;
+                long savedLineno = m_lineNumber;
                 if ((tagName == preTag || tagName == listingTag) && !inViewSourceMode()) {
                     if (beginTag)
                         state.setDiscardLF(true); // Discard the first LF after we open a pre.
@@ -1505,7 +1529,7 @@ HTMLTokenizer::State HTMLTokenizer::parseTag(SegmentedString& src, State state)
                         m_searchStopper = scriptEnd;
                         m_searchStopperLength = 8;
                         state.setInScript(true);
-                        state = parseSpecial(src, state);
+                        state = parseNonHTMLText(src, state);
                     } else if (isSelfClosingScript) { // Handle <script src="foo"/>
                         state.setInScript(true);
                         state = scriptHandler(state);
@@ -1515,52 +1539,49 @@ HTMLTokenizer::State HTMLTokenizer::parseTag(SegmentedString& src, State state)
                         m_searchStopper = styleEnd;
                         m_searchStopperLength = 7;
                         state.setInStyle(true);
-                        state = parseSpecial(src, state);
+                        state = parseNonHTMLText(src, state);
                     }
                 } else if (tagName == textareaTag) {
                     if (beginTag) {
                         m_searchStopper = textareaEnd;
                         m_searchStopperLength = 10;
                         state.setInTextArea(true);
-                        state = parseSpecial(src, state);
+                        state = parseNonHTMLText(src, state);
                     }
                 } else if (tagName == titleTag) {
                     if (beginTag) {
                         m_searchStopper = titleEnd;
                         m_searchStopperLength = 7;
-                        State savedState = state;
-                        SegmentedString savedSrc = src;
-                        long savedLineno = m_lineNumber;
                         state.setInTitle(true);
-                        state = parseSpecial(src, state);
-                        if (state.inTitle() && src.isEmpty()) {
-                            // We just ate the rest of the document as the title #text node!
-                            // Reset the state then retokenize without special title handling.
-                            // Let the parser clean up the missing </title> tag.
-                            // FIXME: This is incorrect, because src.isEmpty() doesn't mean we're
-                            // at the end of the document unless m_noMoreData is also true. We need
-                            // to detect this case elsewhere, and save the state somewhere other
-                            // than a local variable.
-                            state = savedState;
-                            src = savedSrc;
-                            m_lineNumber = savedLineno;
-                            m_scriptCodeSize = 0;
-                        }
+                        state = parseNonHTMLText(src, state);
                     }
                 } else if (tagName == xmpTag) {
                     if (beginTag) {
                         m_searchStopper = xmpEnd;
                         m_searchStopperLength = 5;
                         state.setInXmp(true);
-                        state = parseSpecial(src, state);
+                        state = parseNonHTMLText(src, state);
                     }
                 } else if (tagName == iframeTag) {
                     if (beginTag) {
                         m_searchStopper = iframeEnd;
                         m_searchStopperLength = 8;
                         state.setInIFrame(true);
-                        state = parseSpecial(src, state);
+                        state = parseNonHTMLText(src, state);
                     }
+                }
+                if (src.isEmpty() && (state.inTitle() || inViewSourceMode()) && !state.inComment() && !(state.inScript() && m_currentScriptTagStartLineNumber)) {
+                    // We just ate the rest of the document as the #text node under the special tag!
+                    // Reset the state then retokenize without special handling.
+                    // Let the parser clean up the missing close tag.
+                    // FIXME: This is incorrect, because src.isEmpty() doesn't mean we're
+                    // at the end of the document unless m_noMoreData is also true. We need
+                    // to detect this case elsewhere, and save the state somewhere other
+                    // than a local variable.
+                    state = savedState;
+                    src = savedSrc;
+                    m_lineNumber = savedLineno;
+                    m_scriptCodeSize = 0;
                 }
             }
             if (tagName == plaintextTag)
@@ -1681,8 +1702,8 @@ void HTMLTokenizer::write(const SegmentedString& str, bool appendData)
                 state = parseEntity(m_src, m_dest, state, m_cBufferPos, false, state.hasTagState());
             else if (state.inPlainText())
                 state = parseText(m_src, state);
-            else if (state.inAnySpecial())
-                state = parseSpecial(m_src, state);
+            else if (state.inAnyNonHTMLText())
+                state = parseNonHTMLText(m_src, state);
             else if (state.inComment())
                 state = parseComment(m_src, state);
             else if (state.inDoctype())
@@ -1696,7 +1717,7 @@ void HTMLTokenizer::write(const SegmentedString& str, bool appendData)
             else if (state.startTag()) {
                 state.setStartTag(false);
                 
-                switch(cc) {
+                switch (cc) {
                 case '/':
                     break;
                 case '!': {
@@ -1724,7 +1745,7 @@ void HTMLTokenizer::write(const SegmentedString& str, bool appendData)
                     }
                     // else fall through
                 default: {
-                    if( ((cc >= 'a') && (cc <= 'z')) || ((cc >= 'A') && (cc <= 'Z'))) {
+                    if ( ((cc >= 'a') && (cc <= 'z')) || ((cc >= 'A') && (cc <= 'Z'))) {
                         // Start of a Start-Tag
                     } else {
                         // Invalid tag

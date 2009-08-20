@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007 Apple Inc.  All rights reserved.
+ * Copyright (C) 2007, 2009 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,15 +33,35 @@
 namespace WebCore {
     
 class HTMLMediaElement;
+#if USE(ACCELERATED_COMPOSITING)
+class GraphicsLayer;
+#endif
 
 class RenderVideo : public RenderMedia {
 public:
     RenderVideo(HTMLMediaElement*);
     virtual ~RenderVideo();
 
+    void videoSizeChanged();
+    IntRect videoBox() const;
+    
+#if USE(ACCELERATED_COMPOSITING)
+    bool supportsAcceleratedRendering() const;
+    void acceleratedRenderingStateChanged();
+    GraphicsLayer* videoGraphicsLayer() const;
+#endif
+
+private:
+    virtual void updateFromElement();
+
+    virtual void intrinsicSizeChanged() { videoSizeChanged(); }
+
     virtual const char* renderName() const { return "RenderVideo"; }
 
-    virtual void paintReplaced(PaintInfo& paintInfo, int tx, int ty);
+    virtual bool requiresLayer() const { return true; }
+    virtual bool isVideo() const { return true; }
+
+    virtual void paintReplaced(PaintInfo&, int tx, int ty);
 
     virtual void layout();
 
@@ -50,24 +70,23 @@ public:
 
     virtual void calcPrefWidths();
     
-    void videoSizeChanged();
-    
-    void updateFromElement();
-
-protected:
-    virtual void intrinsicSizeChanged() { videoSizeChanged(); }
-
-private:
     int calcAspectRatioWidth() const;
     int calcAspectRatioHeight() const;
 
     bool isWidthSpecified() const;
     bool isHeightSpecified() const;
     
-    IntRect videoBox() const;
-
     void updatePlayer();
 };
+
+inline RenderVideo* toRenderVideo(RenderObject* object)
+{
+    ASSERT(!object || object->isVideo());
+    return static_cast<RenderVideo*>(object);
+}
+
+// This will catch anyone doing an unnecessary cast.
+void toRenderVideo(const RenderVideo*);
 
 } // namespace WebCore
 

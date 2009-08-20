@@ -1671,7 +1671,7 @@ public:
         // listToOptionIndex is public.
         SelectElement* selectElement = m_select;
         int optionIndex = selectElement->listToOptionIndex(index);
-        m_select->setSelectedIndex(optionIndex, true, false);
+        m_select->setSelectedIndex(optionIndex, true);
         m_select->dispatchFormControlChangeEvent();
         m_viewImpl->contentInvalidate(m_select->getRect());
     }
@@ -2629,7 +2629,7 @@ static void RegisterURLSchemeAsLocal(JNIEnv* env, jobject obj, jstring scheme) {
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
 #endif
-    WebCore::FrameLoader::registerURLSchemeAsLocal(to_string(env, scheme));
+    WebCore::SecurityOrigin::registerURLSchemeAsLocal(to_string(env, scheme));
 }
 
 static void ClearContent(JNIEnv *env, jobject obj)

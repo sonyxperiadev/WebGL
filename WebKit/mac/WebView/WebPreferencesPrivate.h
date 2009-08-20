@@ -83,6 +83,9 @@ extern NSString *WebPreferencesRemovedNotification;
 - (BOOL)webArchiveDebugModeEnabled;
 - (void)setWebArchiveDebugModeEnabled:(BOOL)webArchiveDebugModeEnabled;
 
+- (BOOL)localFileContentSniffingEnabled;
+- (void)setLocalFileContentSniffingEnabled:(BOOL)localFileContentSniffingEnabled;
+
 - (BOOL)offlineWebApplicationCacheEnabled;
 - (void)setOfflineWebApplicationCacheEnabled:(BOOL)offlineWebApplicationCacheEnabled;
 
@@ -100,6 +103,9 @@ extern NSString *WebPreferencesRemovedNotification;
 
 - (BOOL)zoomsTextOnly;
 - (void)setZoomsTextOnly:(BOOL)zoomsTextOnly;
+
+- (BOOL)isXSSAuditorEnabled;
+- (void)setXSSAuditorEnabled:(BOOL)flag;
 
 // zero means do AutoScale
 - (float)PDFScaleFactor;
@@ -123,10 +129,15 @@ extern NSString *WebPreferencesRemovedNotification;
 
 - (NSString *)_ftpDirectoryTemplatePath;
 - (void)_setFTPDirectoryTemplatePath:(NSString *)path;
+
 - (void)_setForceFTPDirectoryListings:(BOOL)force;
 - (BOOL)_forceFTPDirectoryListings;
+
 - (NSString *)_localStorageDatabasePath;
 - (void)_setLocalStorageDatabasePath:(NSString *)path;
+
+- (BOOL)acceleratedCompositingEnabled;
+- (void)setAcceleratedCompositingEnabled:(BOOL)enabled;
 
 // Other private methods
 - (void)_postPreferencesChangesNotification;
@@ -141,8 +152,4 @@ extern NSString *WebPreferencesRemovedNotification;
 // For WebView's use only.
 - (void)willAddToWebView;
 - (void)didRemoveFromWebView;
-
-// Force document tear down at application quit
-- (void)setFullDocumentTeardownEnabled:(BOOL)fullDocumentTeardownEnabled;
-- (BOOL)fullDocumentTeardownEnabled;
 @end

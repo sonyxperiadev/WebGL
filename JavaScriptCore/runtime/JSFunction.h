@@ -39,7 +39,7 @@ namespace JSC {
 
     class JSFunction : public InternalFunction {
         friend class JIT;
-        friend class VPtrSet;
+        friend struct VPtrSet;
 
         typedef InternalFunction Base;
 
@@ -68,7 +68,7 @@ namespace JSC {
         void setBody(PassRefPtr<FunctionBodyNode> body) { m_body = body; }
         FunctionBodyNode* body() const { return m_body.get(); }
 
-        virtual void mark();
+        virtual void markChildren(MarkStack&);
 
         static JS_EXPORTDATA const ClassInfo info;
 

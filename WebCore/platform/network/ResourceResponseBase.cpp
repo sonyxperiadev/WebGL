@@ -42,12 +42,21 @@ static void parseCacheHeader(const String& header, Vector<pair<String, String> >
 ResourceResponseBase::ResourceResponseBase()  
     : m_expectedContentLength(0)
     , m_httpStatusCode(0)
+    , m_lastModifiedDate(0)
     , m_isNull(true)
     , m_haveParsedCacheControlHeader(false)
     , m_haveParsedAgeHeader(false)
     , m_haveParsedDateHeader(false)
     , m_haveParsedExpiresHeader(false)
     , m_haveParsedLastModifiedHeader(false)
+    , m_cacheControlContainsNoCache(false)
+    , m_cacheControlContainsNoStore(false)
+    , m_cacheControlContainsMustRevalidate(false)
+    , m_cacheControlMaxAge(0.0)
+    , m_age(0.0)
+    , m_date(0.0)
+    , m_expires(0.0)
+    , m_lastModified(0.0)
 {
 }
 
@@ -58,12 +67,21 @@ ResourceResponseBase::ResourceResponseBase(const KURL& url, const String& mimeTy
     , m_textEncodingName(textEncodingName)
     , m_suggestedFilename(filename)
     , m_httpStatusCode(0)
+    , m_lastModifiedDate(0)
     , m_isNull(false)
     , m_haveParsedCacheControlHeader(false)
     , m_haveParsedAgeHeader(false)
     , m_haveParsedDateHeader(false)
     , m_haveParsedExpiresHeader(false)
     , m_haveParsedLastModifiedHeader(false)
+    , m_cacheControlContainsNoCache(false)
+    , m_cacheControlContainsNoStore(false)
+    , m_cacheControlContainsMustRevalidate(false)
+    , m_cacheControlMaxAge(0.0)
+    , m_age(0.0)
+    , m_date(0.0)
+    , m_expires(0.0)
+    , m_lastModified(0.0)
 {
 }
 
@@ -266,6 +284,7 @@ void ResourceResponseBase::parseCacheControlDirectives() const
 
     DEFINE_STATIC_LOCAL(const AtomicString, cacheControlString, ("cache-control"));
     DEFINE_STATIC_LOCAL(const AtomicString, noCacheDirective, ("no-cache"));
+    DEFINE_STATIC_LOCAL(const AtomicString, noStoreDirective, ("no-store"));
     DEFINE_STATIC_LOCAL(const AtomicString, mustRevalidateDirective, ("must-revalidate"));
     DEFINE_STATIC_LOCAL(const AtomicString, maxAgeDirective, ("max-age"));
 
@@ -280,6 +299,8 @@ void ResourceResponseBase::parseCacheControlDirectives() const
             // It should be ignored by a browser level cache.
             if (equalIgnoringCase(directives[i].first, noCacheDirective) && directives[i].second.isEmpty())
                 m_cacheControlContainsNoCache = true;
+            else if (equalIgnoringCase(directives[i].first, noStoreDirective))
+                m_cacheControlContainsNoStore = true;
             else if (equalIgnoringCase(directives[i].first, mustRevalidateDirective))
                 m_cacheControlContainsMustRevalidate = true;
             else if (equalIgnoringCase(directives[i].first, maxAgeDirective)) {
@@ -306,6 +327,13 @@ bool ResourceResponseBase::cacheControlContainsNoCache() const
     if (!m_haveParsedCacheControlHeader)
         parseCacheControlDirectives();
     return m_cacheControlContainsNoCache;
+}
+
+bool ResourceResponseBase::cacheControlContainsNoStore() const
+{
+    if (!m_haveParsedCacheControlHeader)
+        parseCacheControlDirectives();
+    return m_cacheControlContainsNoStore;
 }
 
 bool ResourceResponseBase::cacheControlContainsMustRevalidate() const

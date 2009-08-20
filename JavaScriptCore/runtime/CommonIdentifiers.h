@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2003,2007 Apple Computer, Inc
+ *  Copyright (C) 2003, 2007, 2009 Apple Inc. All rights reserved.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Library General Public
@@ -42,6 +42,7 @@
     macro(exec) \
     macro(fromCharCode) \
     macro(global) \
+    macro(getPrototypeOf) \
     macro(hasOwnProperty) \
     macro(ignoreCase) \
     macro(index) \
@@ -59,6 +60,8 @@
     macro(test) \
     macro(toExponential) \
     macro(toFixed) \
+    macro(toISOString) \
+    macro(toJSON) \
     macro(toLocaleString) \
     macro(toPrecision) \
     macro(toString) \
@@ -68,13 +71,14 @@
 
 namespace JSC {
 
-    class CommonIdentifiers : Noncopyable {
+    class CommonIdentifiers : public Noncopyable {
     private:
         CommonIdentifiers(JSGlobalData*);
         friend class JSGlobalData;
 
     public:
         const Identifier nullIdentifier;
+        const Identifier emptyIdentifier;
         const Identifier underscoreProto;
         const Identifier thisIdentifier;
 

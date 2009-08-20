@@ -48,11 +48,11 @@
 #include <sys/time.h>
 #endif
 
-#if PLATFORM(UNIX)
+#if HAVE(SIGNAL_H)
 #include <signal.h>
 #endif
 
-#if COMPILER(MSVC) && !PLATFORM(WIN_CE)
+#if COMPILER(MSVC) && !PLATFORM(WINCE)
 #include <crtdbg.h>
 #include <windows.h>
 #include <mmsystem.h>
@@ -75,6 +75,7 @@ static JSValue JSC_HOST_CALL functionGC(ExecState*, JSObject*, JSValue, const Ar
 static JSValue JSC_HOST_CALL functionVersion(ExecState*, JSObject*, JSValue, const ArgList&);
 static JSValue JSC_HOST_CALL functionRun(ExecState*, JSObject*, JSValue, const ArgList&);
 static JSValue JSC_HOST_CALL functionLoad(ExecState*, JSObject*, JSValue, const ArgList&);
+static JSValue JSC_HOST_CALL functionCheckSyntax(ExecState*, JSObject*, JSValue, const ArgList&);
 static JSValue JSC_HOST_CALL functionReadline(ExecState*, JSObject*, JSValue, const ArgList&);
 static NO_RETURN JSValue JSC_HOST_CALL functionQuit(ExecState*, JSObject*, JSValue, const ArgList&);
 
@@ -184,6 +185,7 @@ GlobalObject::GlobalObject(const Vector<UString>& arguments)
     putDirectFunction(globalExec(), new (globalExec()) NativeFunctionWrapper(globalExec(), prototypeFunctionStructure(), 1, Identifier(globalExec(), "version"), functionVersion));
     putDirectFunction(globalExec(), new (globalExec()) NativeFunctionWrapper(globalExec(), prototypeFunctionStructure(), 1, Identifier(globalExec(), "run"), functionRun));
     putDirectFunction(globalExec(), new (globalExec()) NativeFunctionWrapper(globalExec(), prototypeFunctionStructure(), 1, Identifier(globalExec(), "load"), functionLoad));
+    putDirectFunction(globalExec(), new (globalExec()) NativeFunctionWrapper(globalExec(), prototypeFunctionStructure(), 1, Identifier(globalExec(), "checkSyntax"), functionCheckSyntax));
     putDirectFunction(globalExec(), new (globalExec()) NativeFunctionWrapper(globalExec(), prototypeFunctionStructure(), 0, Identifier(globalExec(), "readline"), functionReadline));
 
 #if ENABLE(SAMPLING_FLAGS)
@@ -219,7 +221,7 @@ JSValue JSC_HOST_CALL functionDebug(ExecState* exec, JSObject*, JSValue, const A
 
 JSValue JSC_HOST_CALL functionGC(ExecState* exec, JSObject*, JSValue, const ArgList&)
 {
-    JSLock lock(false);
+    JSLock lock(SilenceAssertionsOnly);
     exec->heap()->collect();
     return jsUndefined();
 }
@@ -259,6 +261,22 @@ JSValue JSC_HOST_CALL functionLoad(ExecState* exec, JSObject* o, JSValue v, cons
 
     JSGlobalObject* globalObject = exec->lexicalGlobalObject();
     Completion result = evaluate(globalObject->globalExec(), globalObject->globalScopeChain(), makeSource(script.data(), fileName));
+    if (result.complType() == Throw)
+        exec->setException(result.value());
+    return result.value();
+}
+
+JSValue JSC_HOST_CALL functionCheckSyntax(ExecState* exec, JSObject* o, JSValue v, const ArgList& args)
+{
+    UNUSED_PARAM(o);
+    UNUSED_PARAM(v);
+    UString fileName = args.at(0).toString(exec);
+    Vector<char> script;
+    if (!fillBufferWithContentsOfFile(fileName, script))
+        return throwError(exec, GeneralError, "Could not open file.");
+
+    JSGlobalObject* globalObject = exec->lexicalGlobalObject();
+    Completion result = checkSyntax(globalObject->globalExec(), makeSource(script.data(), fileName));
     if (result.complType() == Throw)
         exec->setException(result.value());
     return result.value();
@@ -332,7 +350,7 @@ int main(int argc, char** argv)
     _CrtSetReportMode(_CRT_ASSERT, _CRTDBG_MODE_FILE);
 #endif
 
-#if COMPILER(MSVC) && !PLATFORM(WIN_CE)
+#if COMPILER(MSVC) && !PLATFORM(WINCE)
     timeBeginPeriod(1);
 #endif
 
@@ -357,7 +375,7 @@ int main(int argc, char** argv)
 
 static void cleanupGlobalData(JSGlobalData* globalData)
 {
-    JSLock lock(false);
+    JSLock lock(SilenceAssertionsOnly);
     globalData->heap.destroy();
     globalData->deref();
 }
@@ -425,14 +443,12 @@ static bool runWithScripts(GlobalObject* globalObject, const Vector<Script>& scr
     return success;
 }
 
-static
-#if !HAVE(READLINE)
-NO_RETURN
-#endif
-void runInteractive(GlobalObject* globalObject)
+#define RUNNING_FROM_XCODE 0
+
+static void runInteractive(GlobalObject* globalObject)
 {
     while (true) {
-#if HAVE(READLINE)
+#if HAVE(READLINE) && !RUNNING_FROM_XCODE
         char* line = readline(interactivePrompt);
         if (!line)
             break;
@@ -441,7 +457,7 @@ void runInteractive(GlobalObject* globalObject)
         Completion completion = evaluate(globalObject->globalExec(), globalObject->globalScopeChain(), makeSource(line, interpreterName));
         free(line);
 #else
-        puts(interactivePrompt);
+        printf("%s", interactivePrompt);
         Vector<char, 256> line;
         int c;
         while ((c = getchar()) != EOF) {
@@ -450,6 +466,8 @@ void runInteractive(GlobalObject* globalObject)
                 break;
             line.append(c);
         }
+        if (line.isEmpty())
+            break;
         line.append('\0');
         Completion completion = evaluate(globalObject->globalExec(), globalObject->globalScopeChain(), makeSource(line.data(), interpreterName));
 #endif
@@ -471,7 +489,9 @@ static NO_RETURN void printUsageStatement(JSGlobalData* globalData, bool help = 
     fprintf(stderr, "  -f         Specifies a source file (deprecated)\n");
     fprintf(stderr, "  -h|--help  Prints this help message\n");
     fprintf(stderr, "  -i         Enables interactive mode (default if no files are specified)\n");
+#if HAVE(SIGNAL_H)
     fprintf(stderr, "  -s         Installs signal handlers that exit on a crash (Unix platforms only)\n");
+#endif
 
     cleanupGlobalData(globalData);
     exit(help ? EXIT_SUCCESS : EXIT_FAILURE);
@@ -506,7 +526,7 @@ static void parseArguments(int argc, char** argv, Options& options, JSGlobalData
             continue;
         }
         if (strcmp(arg, "-s") == 0) {
-#if PLATFORM(UNIX)
+#if HAVE(SIGNAL_H)
             signal(SIGILL, _exit);
             signal(SIGFPE, _exit);
             signal(SIGBUS, _exit);
@@ -530,7 +550,7 @@ static void parseArguments(int argc, char** argv, Options& options, JSGlobalData
 
 int jscmain(int argc, char** argv, JSGlobalData* globalData)
 {
-    JSLock lock(false);
+    JSLock lock(SilenceAssertionsOnly);
 
     Options options;
     parseArguments(argc, argv, options, globalData);

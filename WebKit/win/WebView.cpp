@@ -30,8 +30,10 @@
 #include "CFDictionaryPropertyBag.h"
 #include "DOMCoreClasses.h"
 #include "MarshallingHelpers.h"
+#include "SoftLinking.h"
 #include "WebDatabaseManager.h"
 #include "WebDocumentLoader.h"
+#include "WebDownload.h"
 #include "WebEditorClient.h"
 #include "WebElementPropertyBag.h"
 #include "WebFrame.h"
@@ -49,9 +51,11 @@
 #include "WebMutableURLRequest.h"
 #include "WebNotificationCenter.h"
 #include "WebPreferences.h"
+#include "WindowsTouch.h"
 #pragma warning( push, 0 )
 #include <WebCore/ApplicationCacheStorage.h>
 #include <WebCore/AXObjectCache.h>
+#include <WebCore/BitmapInfo.h>
 #include <WebCore/BString.h>
 #include <WebCore/Cache.h>
 #include <WebCore/ContextMenu.h>
@@ -75,12 +79,13 @@
 #include <WebCore/GDIObjectCounter.h>
 #include <WebCore/GraphicsContext.h>
 #include <WebCore/HistoryItem.h>
+#include <WebCore/HitTestRequest.h>
 #include <WebCore/HitTestResult.h>
 #include <WebCore/IntRect.h>
 #include <WebCore/KeyboardEvent.h>
 #include <WebCore/Language.h>
+#include <WebCore/Logging.h>
 #include <WebCore/MIMETypeRegistry.h>
-#include <WebCore/NotImplemented.h>
 #include <WebCore/Page.h>
 #include <WebCore/PageCache.h>
 #include <WebCore/PlatformKeyboardEvent.h>
@@ -91,10 +96,13 @@
 #include <WebCore/PluginView.h>
 #include <WebCore/ProgressTracker.h>
 #include <WebCore/RenderTheme.h>
+#include <WebCore/RenderView.h>
 #include <WebCore/ResourceHandle.h>
 #include <WebCore/ResourceHandleClient.h>
 #include <WebCore/ScriptValue.h>
+#include <WebCore/Scrollbar.h>
 #include <WebCore/ScrollbarTheme.h>
+#include <WebCore/SecurityOrigin.h>
 #include <WebCore/SelectionController.h>
 #include <WebCore/Settings.h>
 #include <WebCore/SimpleFontData.h>
@@ -125,6 +133,16 @@
 #include <ShlObj.h>
 #include <tchar.h>
 #include <windowsx.h>
+
+// Soft link functions for gestures and panning feedback
+SOFT_LINK_LIBRARY(USER32);
+SOFT_LINK_OPTIONAL(USER32, GetGestureInfo, BOOL, WINAPI, (HGESTUREINFO, PGESTUREINFO));
+SOFT_LINK_OPTIONAL(USER32, SetGestureConfig, BOOL, WINAPI, (HWND, DWORD, UINT, PGESTURECONFIG, UINT));
+SOFT_LINK_OPTIONAL(USER32, CloseGestureInfoHandle, BOOL, WINAPI, (HGESTUREINFO));
+SOFT_LINK_LIBRARY(Uxtheme);
+SOFT_LINK_OPTIONAL(Uxtheme, BeginPanningFeedback, BOOL, WINAPI, (HWND));
+SOFT_LINK_OPTIONAL(Uxtheme, EndPanningFeedback, BOOL, WINAPI, (HWND, BOOL));
+SOFT_LINK_OPTIONAL(Uxtheme, UpdatePanningFeedback, BOOL, WINAPI, (HWND, LONG, LONG, BOOL));
 
 using namespace WebCore;
 using JSC::JSLock;
@@ -296,6 +314,10 @@ WebView::WebView()
 , m_deleteBackingStoreTimerActive(false)
 , m_transparent(false)
 , m_selectTrailingWhitespaceEnabled(false)
+, m_lastPanX(0)
+, m_lastPanY(0)
+, m_xOverpan(0)
+, m_yOverpan(0)
 {
     JSC::initializeThreading();
 
@@ -591,11 +613,8 @@ HRESULT STDMETHODCALLTYPE WebView::close()
 
     m_didClose = true;
 
-    if (m_uiDelegatePrivate) {
-        COMPtr<IWebUIDelegatePrivate5> uiDelegatePrivate5(Query, m_uiDelegatePrivate);
-        if (uiDelegatePrivate5)
-            uiDelegatePrivate5->webViewClosing(this);
-    }
+    if (m_uiDelegatePrivate)
+        m_uiDelegatePrivate->webViewClosing(this);
 
     removeFromAllWebViewsSet();
 
@@ -688,18 +707,7 @@ bool WebView::ensureBackingStore()
 
         m_backingStoreSize.cx = width;
         m_backingStoreSize.cy = height;
-        BITMAPINFO bitmapInfo;
-        bitmapInfo.bmiHeader.biSize          = sizeof(BITMAPINFOHEADER);
-        bitmapInfo.bmiHeader.biWidth         = width; 
-        bitmapInfo.bmiHeader.biHeight        = -height;
-        bitmapInfo.bmiHeader.biPlanes        = 1;
-        bitmapInfo.bmiHeader.biBitCount      = 32;
-        bitmapInfo.bmiHeader.biCompression   = BI_RGB;
-        bitmapInfo.bmiHeader.biSizeImage     = 0;
-        bitmapInfo.bmiHeader.biXPelsPerMeter = 0;
-        bitmapInfo.bmiHeader.biYPelsPerMeter = 0;
-        bitmapInfo.bmiHeader.biClrUsed       = 0;
-        bitmapInfo.bmiHeader.biClrImportant  = 0;
+        BitmapInfo bitmapInfo = BitmapInfo::createBottomUp(IntSize(m_backingStoreSize));
 
         void* pixels = NULL;
         m_backingStoreBitmap.set(::CreateDIBSection(NULL, &bitmapInfo, DIB_RGB_COLORS, &pixels, NULL, 0));
@@ -727,6 +735,9 @@ void WebView::addToDirtyRegion(HRGN newRegion)
         m_backingStoreDirtyRegion.set(combinedRegion);
     } else
         m_backingStoreDirtyRegion.set(newRegion);
+
+    if (m_uiDelegatePrivate)
+        m_uiDelegatePrivate->webViewDidInvalidate(this);
 }
 
 void WebView::scrollBackingStore(FrameView* frameView, int dx, int dy, const IntRect& scrollViewRect, const IntRect& clipRect)
@@ -848,11 +859,8 @@ void WebView::updateBackingStore(FrameView* frameView, HDC dc, bool backingStore
         for (unsigned i = 0; i < paintRects.size(); ++i)
             paintIntoBackingStore(frameView, bitmapDC, paintRects[i], windowsToPaint);
 
-        if (m_uiDelegatePrivate) {
-            COMPtr<IWebUIDelegatePrivate2> uiDelegatePrivate2(Query, m_uiDelegatePrivate);
-            if (uiDelegatePrivate2)
-                uiDelegatePrivate2->webViewPainted(this);
-        }
+        if (m_uiDelegatePrivate)
+            m_uiDelegatePrivate->webViewPainted(this);
 
         m_backingStoreDirtyRegion.clear();
     }
@@ -1263,12 +1271,8 @@ bool WebView::handleMouseEvent(UINT message, WPARAM wParam, LPARAM lParam)
     LONG messageTime = ::GetMessageTime();
 
     if (inResizer(position)) {
-        if (m_uiDelegate) {
-            COMPtr<IWebUIDelegatePrivate4> uiPrivate(Query, m_uiDelegate);
-
-            if (uiPrivate)
-                uiPrivate->webViewSendResizeMessage(message, wParam, position);
-        }
+        if (m_uiDelegatePrivate)
+            m_uiDelegatePrivate->webViewSendResizeMessage(message, wParam, position);
         return true;
     }
 
@@ -1330,6 +1334,132 @@ bool WebView::handleMouseEvent(UINT message, WPARAM wParam, LPARAM lParam)
     return handled;
 }
 
+bool WebView::gestureNotify(WPARAM wParam, LPARAM lParam)
+{
+    GESTURENOTIFYSTRUCT* gn = reinterpret_cast<GESTURENOTIFYSTRUCT*>(lParam);
+
+    Frame* coreFrame = core(m_mainFrame);
+    if (!coreFrame)
+        return false;
+
+    ScrollView* view = coreFrame->view();
+    if (!view)
+        return false;
+
+    // If we don't have this function, we shouldn't be receiving this message
+    ASSERT(SetGestureConfigPtr());
+
+    DWORD dwPanWant;
+    DWORD dwPanBlock;
+
+    // Translate gesture location to client to hit test on scrollbars
+    POINT gestureBeginPoint = {gn->ptsLocation.x, gn->ptsLocation.y};
+    IntPoint eventHandlerPoint = m_page->mainFrame()->view()->screenToContents(gestureBeginPoint);
+
+    HitTestResult scrollbarTest = m_page->mainFrame()->eventHandler()->hitTestResultAtPoint(eventHandlerPoint, true, false, ShouldHitTestScrollbars);
+
+    if (eventHandlerPoint.x() > view->visibleWidth() || scrollbarTest.scrollbar()) {
+        // We are in the scrollbar, turn off panning, need to be able to drag the scrollbar
+        dwPanWant = GC_PAN  | GC_PAN_WITH_INERTIA | GC_PAN_WITH_GUTTER;
+        dwPanBlock = GC_PAN_WITH_SINGLE_FINGER_HORIZONTALLY | GC_PAN_WITH_SINGLE_FINGER_VERTICALLY;
+    } else {
+        dwPanWant = GC_PAN  | GC_PAN_WITH_SINGLE_FINGER_VERTICALLY | GC_PAN_WITH_INERTIA | GC_PAN_WITH_GUTTER;
+        dwPanBlock = GC_PAN_WITH_SINGLE_FINGER_HORIZONTALLY;
+    }
+
+    GESTURECONFIG gc = { GID_PAN, dwPanWant , dwPanBlock } ;
+    return SetGestureConfigPtr()(m_viewWindow, 0, 1, &gc, sizeof(GESTURECONFIG));
+}
+
+bool WebView::gesture(WPARAM wParam, LPARAM lParam) 
+{
+    // We want to bail out if we don't have either of these functions
+    if (!GetGestureInfoPtr() || !CloseGestureInfoHandlePtr())
+        return false;
+
+    HGESTUREINFO gestureHandle = reinterpret_cast<HGESTUREINFO>(lParam);
+    
+    GESTUREINFO gi = {0};
+    gi.cbSize = sizeof(GESTUREINFO);
+
+    if (!GetGestureInfoPtr()(gestureHandle, reinterpret_cast<PGESTUREINFO>(&gi)))
+        return false;
+
+    switch (gi.dwID) {
+    case GID_BEGIN:
+        m_lastPanX = gi.ptsLocation.x;
+        m_lastPanY = gi.ptsLocation.y;
+
+        CloseGestureInfoHandlePtr()(gestureHandle);
+        break;
+    case GID_PAN: {
+        // Where are the fingers currently?
+        long currentX = gi.ptsLocation.x;
+        long currentY = gi.ptsLocation.y;
+        
+        // How far did we pan in each direction?
+        long deltaX = currentX - m_lastPanX;
+        long deltaY = currentY - m_lastPanY;
+
+        // Calculate the overpan for window bounce
+        m_yOverpan -= m_lastPanY - currentY;
+        m_xOverpan -= m_lastPanX - currentX;
+        
+        // Update our class variables with updated values
+        m_lastPanX = currentX;
+        m_lastPanY = currentY;
+
+        Frame* coreFrame = core(m_mainFrame);
+        if (!coreFrame) {
+            CloseGestureInfoHandlePtr()(gestureHandle);
+            return false;
+        }
+        // Represent the pan gesture as a mouse wheel event
+        PlatformWheelEvent wheelEvent(m_viewWindow, FloatSize(deltaX, deltaY), FloatPoint(currentX, currentY));
+        coreFrame->eventHandler()->handleWheelEvent(wheelEvent);
+
+        if (!(UpdatePanningFeedbackPtr() && BeginPanningFeedbackPtr() && EndPanningFeedbackPtr())) {
+            CloseGestureInfoHandlePtr()(gestureHandle);
+            return true;
+        }
+
+        if (gi.dwFlags & GF_BEGIN) {
+            BeginPanningFeedbackPtr()(m_viewWindow);
+            m_yOverpan = 0;
+        } else if (gi.dwFlags & GF_END) {
+            EndPanningFeedbackPtr()(m_viewWindow, true);
+            m_yOverpan = 0;
+        }
+
+        ScrollView* view = coreFrame->view();
+        if (!view) {
+            CloseGestureInfoHandlePtr()(gestureHandle);
+            return false;
+        }
+        Scrollbar* vertScrollbar = view->verticalScrollbar();
+        if (!vertScrollbar) {
+            CloseGestureInfoHandlePtr()(gestureHandle);
+            return true;
+        }
+
+        // FIXME: Support Horizontal Window Bounce
+        if (vertScrollbar->currentPos() == 0)
+            UpdatePanningFeedbackPtr()(m_viewWindow, 0, m_yOverpan, gi.dwFlags & GF_INERTIA);
+        else if (vertScrollbar->currentPos() >= vertScrollbar->maximum())
+            UpdatePanningFeedbackPtr()(m_viewWindow, 0, m_yOverpan, gi.dwFlags & GF_INERTIA);
+
+        CloseGestureInfoHandlePtr()(gestureHandle);
+        break;
+    }
+    default:
+        // We have encountered an unknown gesture - return false to pass it to DefWindowProc
+        CloseGestureInfoHandlePtr()(gestureHandle);
+        break;
+    }
+
+    return true;
+}
+
 bool WebView::mouseWheel(WPARAM wParam, LPARAM lParam, bool isMouseHWheel)
 {
     // Ctrl+Mouse wheel doesn't ever go into WebCore.  It is used to
@@ -1338,9 +1468,9 @@ bool WebView::mouseWheel(WPARAM wParam, LPARAM lParam, bool isMouseHWheel)
     if (wParam & MK_CONTROL) {
         short delta = short(HIWORD(wParam));
         if (delta < 0)
-            makeTextLarger(0);
-        else
             makeTextSmaller(0);
+        else
+            makeTextLarger(0);
         return true;
     }
 
@@ -1436,6 +1566,7 @@ static const KeyDownEntry keyDownEntries[] = {
     { VK_RETURN, 0,                  "InsertNewline"                               },
     { VK_RETURN, CtrlKey,            "InsertNewline"                               },
     { VK_RETURN, AltKey,             "InsertNewline"                               },
+    { VK_RETURN, ShiftKey,           "InsertNewline"                               },
     { VK_RETURN, AltKey | ShiftKey,  "InsertNewline"                               },
 
     // It's not quite clear whether clipboard shortcuts and Undo/Redo should be handled
@@ -1457,6 +1588,7 @@ static const KeyPressEntry keyPressEntries[] = {
     { '\r',   0,                  "InsertNewline"                               },
     { '\r',   CtrlKey,            "InsertNewline"                               },
     { '\r',   AltKey,             "InsertNewline"                               },
+    { '\r',   ShiftKey,           "InsertNewline"                               },
     { '\r',   AltKey | ShiftKey,  "InsertNewline"                               },
 };
 
@@ -1594,15 +1726,7 @@ bool WebView::keyDown(WPARAM virtualKeyCode, LPARAM keyData, bool systemKeyDown)
             return false;
     }
 
-    if (!frame->eventHandler()->scrollOverflow(direction, granularity)) {
-        handled = frame->view()->scroll(direction, granularity);
-        Frame* parent = frame->tree()->parent();
-        while(!handled && parent) {
-            handled = parent->view()->scroll(direction, granularity);
-            parent = parent->tree()->parent();
-        }
-    }
-    return handled;
+    return frame->eventHandler()->scrollRecursively(direction, granularity);
 }
 
 bool WebView::keyPress(WPARAM charCode, LPARAM keyData, bool systemKeyDown)
@@ -1714,6 +1838,12 @@ static LRESULT CALLBACK WebViewWndProc(HWND hWnd, UINT message, WPARAM wParam, L
             webView->setIsBeingDestroyed();
             webView->revokeDragDrop();
             break;
+        case WM_GESTURENOTIFY:
+            handled = webView->gestureNotify(wParam, lParam);
+            break;
+        case WM_GESTURE:
+            handled = webView->gesture(wParam, lParam);
+            break;
         case WM_MOUSEMOVE:
         case WM_LBUTTONDOWN:
         case WM_MBUTTONDOWN:
@@ -1768,7 +1898,7 @@ static LRESULT CALLBACK WebViewWndProc(HWND hWnd, UINT message, WPARAM wParam, L
         case WM_SHOWWINDOW:
             lResult = DefWindowProc(hWnd, message, wParam, lParam);
             if (wParam == 0)
-                // The window is being hidden (e.g., because we switched tabs.
+                // The window is being hidden (e.g., because we switched tabs).
                 // Null out our backing store.
                 webView->deleteBackingStore();
             break;
@@ -1784,9 +1914,11 @@ static LRESULT CALLBACK WebViewWndProc(HWND hWnd, UINT message, WPARAM wParam, L
                 // Send focus events unless the previously focused window is a
                 // child of ours (for example a plugin).
                 if (!IsChild(hWnd, reinterpret_cast<HWND>(wParam)))
-                    frame->selection()->setFocused(true);
-            } else
+                    focusController->setFocused(true);
+            } else {
+                focusController->setFocused(true);
                 focusController->setFocusedFrame(webView->page()->mainFrame());
+            }
             break;
         }
         case WM_KILLFOCUS: {
@@ -1802,7 +1934,7 @@ static LRESULT CALLBACK WebViewWndProc(HWND hWnd, UINT message, WPARAM wParam, L
             webView->resetIME(frame);
             // Send blur events unless we're losing focus to a child of ours.
             if (!IsChild(hWnd, newFocusWnd))
-                frame->selection()->setFocused(false);
+                focusController->setFocused(false);
             break;
         }
         case WM_WINDOWPOSCHANGED:
@@ -1849,7 +1981,7 @@ static LRESULT CALLBACK WebViewWndProc(HWND hWnd, UINT message, WPARAM wParam, L
         case WM_XP_THEMECHANGED:
             if (Frame* coreFrame = core(mainFrameImpl)) {
                 webView->deleteBackingStore();
-                theme()->themeChanged();
+                coreFrame->page()->theme()->themeChanged();
                 ScrollbarTheme::nativeTheme()->themeChanged();
                 RECT windowRect;
                 ::GetClientRect(hWnd, &windowRect);
@@ -1915,10 +2047,9 @@ static LRESULT CALLBACK WebViewWndProc(HWND hWnd, UINT message, WPARAM wParam, L
             }
             break;
         case WM_SETCURSOR:
-            if (lastSetCursor) {
-                SetCursor(lastSetCursor);
+            if (handled = webView->page()->chrome()->setCursor(lastSetCursor))
                 break;
-            }
+
             __fallthrough;
         default:
             handled = false;
@@ -2173,6 +2304,12 @@ HRESULT STDMETHODCALLTYPE WebView::initWithFrame(
 #endif
     WebKitSetApplicationCachePathIfNecessary();
     
+#if USE(SAFARI_THEME)
+    BOOL shouldPaintNativeControls;
+    if (SUCCEEDED(m_preferences->shouldPaintNativeControls(&shouldPaintNativeControls)))
+        Settings::setShouldPaintNativeControls(shouldPaintNativeControls);
+#endif
+
     m_page = new Page(new WebChromeClient(this), new WebContextMenuClient(this), new WebEditorClient(this), new WebDragClient(this), new WebInspectorClient(this));
 
     BSTR localStoragePath;
@@ -2182,13 +2319,10 @@ HRESULT STDMETHODCALLTYPE WebView::initWithFrame(
     }
 
     if (m_uiDelegate) {
-        COMPtr<IWebUIDelegate2> uiDelegate2;
-        if (SUCCEEDED(m_uiDelegate->QueryInterface(IID_IWebUIDelegate2, (void**)&uiDelegate2))) {
-            BSTR path;
-            if (SUCCEEDED(uiDelegate2->ftpDirectoryTemplatePath(this, &path))) {
-                m_page->settings()->setFTPDirectoryTemplatePath(String(path, SysStringLen(path)));
-                SysFreeString(path);
-            }
+        BSTR path;
+        if (SUCCEEDED(m_uiDelegate->ftpDirectoryTemplatePath(this, &path))) {
+            m_page->settings()->setFTPDirectoryTemplatePath(String(path, SysStringLen(path)));
+            SysFreeString(path);
         }
     }
 
@@ -2684,11 +2818,11 @@ HRESULT STDMETHODCALLTYPE WebView::stringByEvaluatingJavaScriptFromString(
     if (!coreFrame)
         return E_FAIL;
 
-    JSC::JSValuePtr scriptExecutionResult = coreFrame->loader()->executeScript(WebCore::String(script), true).jsValue();
+    JSC::JSValue scriptExecutionResult = coreFrame->loader()->executeScript(WebCore::String(script), true).jsValue();
     if (!scriptExecutionResult)
         return E_FAIL;
     else if (scriptExecutionResult.isString()) {
-        JSLock lock(false);
+        JSLock lock(JSC::SilenceAssertionsOnly);
         *result = BString(String(scriptExecutionResult.getString()));
     }
 
@@ -3206,7 +3340,7 @@ HRESULT STDMETHODCALLTYPE WebView::registerURLSchemeAsLocal(
     if (!scheme)
         return E_POINTER;
 
-    FrameLoader::registerURLSchemeAsLocal(String(scheme, ::SysStringLen(scheme)));
+    SecurityOrigin::registerURLSchemeAsLocal(String(scheme, ::SysStringLen(scheme)));
 
     return S_OK;
 }
@@ -4215,6 +4349,11 @@ HRESULT WebView::notifyPreferencesChanged(IWebNotification* notification)
         return hr;
     settings->setAllowUniversalAccessFromFileURLs(!!enabled);
 
+    hr = prefsPrivate->isXSSAuditorEnabled(&enabled);
+    if (FAILED(hr))
+        return hr;
+    settings->setXSSAuditorEnabled(!!enabled);
+
 #if USE(SAFARI_THEME)
     hr = prefsPrivate->shouldPaintNativeControls(&enabled);
     if (FAILED(hr))
@@ -5179,6 +5318,20 @@ HRESULT WebView::setJavaScriptURLsAreAllowed(BOOL areAllowed)
     return S_OK;
 }
 
+HRESULT WebView::setCanStartPlugins(BOOL canStartPlugins)
+{
+    m_page->setCanStartPlugins(canStartPlugins);
+    return S_OK;
+}
+
+void WebView::downloadURL(const KURL& url)
+{
+    // It's the delegate's job to ref the WebDownload to keep it alive - otherwise it will be
+    // destroyed when this function returns.
+    COMPtr<WebDownload> download(AdoptCOM, WebDownload::createInstance(url, m_downloadDelegate.get()));
+    download->start();
+}
+
 class EnumTextMatches : public IEnumTextMatches
 {
     long m_ref;
@@ -5192,7 +5345,7 @@ public:
 
     virtual HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void** ppv)
     {
-        if (riid == IID_IUnknown || riid == IID_IEnumTextMatches) {
+        if (IsEqualGUID(riid, IID_IUnknown) || IsEqualGUID(riid, IID_IEnumTextMatches)) {
             *ppv = this;
             AddRef();
         }

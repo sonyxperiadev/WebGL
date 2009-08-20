@@ -43,7 +43,7 @@ fi
 
 WKWINLIBS=WebKitLibraries/win
 WINDEPS="         $WKWINLIBS/lib/pthreadVC2.dll"
-WINDEPS="$WINDEPS $WKWINLIBS/bin/icuuc34.dll $WKWINLIBS/bin/icudt34.dll $WKWINLIBS/bin/icuin34.dll"
+WINDEPS="$WINDEPS $WKWINLIBS/bin/icuuc40.dll $WKWINLIBS/bin/icudt40.dll $WKWINLIBS/bin/icuin40.dll"
 WINDEPS="$WINDEPS $WKWINLIBS/bin/libcurl.dll $WKWINLIBS/bin/libeay32.dll $WKWINLIBS/bin/ssleay32.dll $WKWINLIBS/bin/zlib1.dll"
 WINDEPS="$WINDEPS $WKWINLIBS/lib/sqlite3.dll"
 WINDEPS="$WINDEPS $WKWINLIBS/bin/libxml2.dll $WKWINLIBS/bin/libxslt.dll" 
@@ -179,7 +179,7 @@ function do_make {
         cd $olddir
     else
         if [ -f $dir/GNUmakefile ]; then
-            make -C $dir -f GNUmakefile $MAKE_ARGS CXXFLAGS="$cxxflags" $@
+            make -C $dir -f GNUmakefile $MAKE_ARGS CXXFLAGS="$cxxflags -fvisibility=hidden -fvisibility-inlines-hidden" $@
         fi
     fi
     if [ $? != 0 ]; then
@@ -216,10 +216,13 @@ if [ $do_clean != 1 ]; then
         # we need to do this because Bakefile doesn't know which
         # platform it's running on with GNU format, and so it defaults
         # to the standard Unix file endings and linker args.
-        if [ "${OSTYPE:0:6}" = "darwin" ]; then
-            sed "s/libwebcore-wx.so/libwebcore-wx.dylib/" < $WK_ROOT/WebCore/GNUmakefile > temp
-            mv temp $WK_ROOT/WebCore/GNUmakefile
-    
+        if [ "${OSTYPE:0:6}" = "darwin" ]; then    
+            sed "s/libjscore.so/libjscore.dylib/" < $WK_ROOT/JavaScriptCore/GNUmakefile > temp
+            mv temp $WK_ROOT/JavaScriptCore/GNUmakefile
+            
+            sed "s/\-shared/\-dynamiclib/" < $WK_ROOT/JavaScriptCore/GNUmakefile > temp
+            mv temp $WK_ROOT/JavaScriptCore/GNUmakefile
+            
             sed "s/\-shared/\-dynamiclib/" < $WK_ROOT/WebCore/GNUmakefile > temp
             mv temp $WK_ROOT/WebCore/GNUmakefile
             
@@ -240,24 +243,43 @@ if [ $do_clean != 1 ]; then
             $WK_ROOT/WebKitTools/wx/install-unix-extras
         fi
         
+        
+        export CREATE_HASH_TABLE="$WK_ROOT/JavaScriptCore/create_hash_table"
         cd $WK_ROOT/JavaScriptCore
-        ./make-generated-sources.sh
+        mkdir -p DerivedSources/JavaScriptCore
+        cd DerivedSources/JavaScriptCore
+        
+        make -f ../../DerivedSources.make JavaScriptCore=../.. BUILT_PRODUCTS_DIR=../.. all FEATURE_DEFINES="ENABLE_DATABASE ENABLE_XSLT ENABLE_JAVASCRIPT_DEBUGGER"
         if [ $? != 0 ]; then
-            exit $? 
+            exit 1
         fi
     
         cd $WK_ROOT/WebCore
-        ./make-generated-sources.sh FEATURE_DEFINES="ENABLE_DATABASE"
+        mkdir -p DerivedSources/WebCore
+        cd DerivedSources/WebCore
+        make -f ../../DerivedSources.make all WebCore=../.. SOURCE_ROOT=../.. FEATURE_DEFINES="ENABLE_DATABASE ENABLE_XSLT ENABLE_JAVASCRIPT_DEBUGGER"
         if [ $? != 0 ]; then
-            exit $? 
+            exit 1
         fi
     fi
 fi
 
 
-if [ $do_build == 1 -o $do_clean == 1 ]; then
-    # Build steps
+if [ $do_build == 1 -o $do_clean == 1 ]; then   
     WXGC_DEFINE=""
+    EXTRA_CPPFLAGS=""
+    
+    if [ "${OSTYPE:0:6}" == "cygwin" ]; then
+        PLATFORM_OS="win"
+    elif [ "${OSTYPE:0:6}" == "darwin" ]; then
+        PLATFORM_OS="mac"
+        EXTRA_CPPFLAGS="-DMAC_OS_X_VERSION_MIN_REQUIRED=1040"
+        use_wxgc=1
+    else
+        PLATFORM_OS="linux"
+        use_wxgc=1
+    fi
+
     if [ $use_wxgc == 1 ]; then
         WXGC_DEFINE="-DWTF_USE_WXGC=1"
     fi
@@ -265,31 +287,23 @@ if [ $do_build == 1 -o $do_clean == 1 ]; then
     if [ "${OSTYPE:0:6}" == "cygwin" -a $wxdebug == 1 ]; then
         WX_EXT=d
     fi
-    if [ "${OSTYPE:0:6}" == "cygwin" -a $wxpython == 1 ]; then
+    if [ $wxpython == 1 ]; then
         other_args=WX_PYTHON=1
         WX_EXT=h
         wxdebug=1
     fi
-    
-    if [ "${OSTYPE:0:6}" == "cygwin" ]; then
-        PLATFORM_OS="win"
-    elif [ "${OSTYPE:0:6}" == "darwin" ]; then
-        PLATFORM_OS="mac"
-    else
-        PLATFORM_OS="linux"
-        use_wxgc=1 # Linux requires us to use wxgc to get proper drawing.
-    fi
 
     WINDEPS="$WINDEPS $WXWIN/lib/vc_dll/wxmsw28u${WX_EXT}_core_vc.dll $WXWIN/lib/vc_dll/wxbase28u${WX_EXT}_vc.dll"
     
-    do_make $WK_ROOT/JavaScriptCore      "-DBUILDING_WX__=1 $WXGC_DEFINE" WX_DEBUG=$wxdebug DEBUG=$debug WEBKIT_ROOT=$WK_ROOTDIR PLATFORM_OS=$PLATFORM_OS $other_args 
+    do_make $WK_ROOT/JavaScriptCore      "-DBUILDING_WX__=1 $WXGC_DEFINE $EXTRA_CPPFLAGS" WX_DEBUG=$wxdebug DEBUG=$debug WEBKIT_ROOT=$WK_ROOTDIR PLATFORM_OS=$PLATFORM_OS $other_args 
 
     mkdir -p $WEBKITOUTPUTDIR/JavaScriptCore
     cp -p $WK_ROOT/JavaScriptCore/API/*.h $WEBKITOUTPUTDIR/JavaScriptCore/
 
-    do_make $WK_ROOT/WebCore "-DBUILDING_WX__=1 $WXGC_DEFINE" WX_DEBUG=$wxdebug WEBKIT_ROOT=$WK_ROOTDIR DEBUG=$debug PLATFORM_OS=$PLATFORM_OS $other_args
-    do_make $WK_ROOT/WebKit/wx "-DBUILDING_WX__=1 -DWXMAKINGDLL_WEBKIT=1 $WXGC_DEFINE" WX_DEBUG=$wxdebug DEBUG=$debug WEBKIT_ROOT=$WK_ROOTDIR PLATFORM_OS=$PLATFORM_OS $other_args 
-    do_make $WK_ROOT/WebKitTools/wx/browser  "-DBUILDING_WX__=1 -DWXUSINGDLL_WEBKIT=1 $WXGC_DEFINE" WX_DEBUG=$wxdebug DEBUG=$debug WEBKIT_ROOT=$WK_ROOTDIR PLATFORM_OS=$PLATFORM_OS $other_args 
+    do_make $WK_ROOT/WebCore "-DBUILDING_WX__=1 $WXGC_DEFINE $EXTRA_CPPFLAGS" WX_DEBUG=$wxdebug WEBKIT_ROOT=$WK_ROOTDIR DEBUG=$debug PLATFORM_OS=$PLATFORM_OS $other_args
+    do_make $WK_ROOT/WebKit/wx "-DBUILDING_WX__=1 -DWXMAKINGDLL_WEBKIT=1 $WXGC_DEFINE $EXTRA_CPPFLAGS" WX_DEBUG=$wxdebug DEBUG=$debug WEBKIT_ROOT=$WK_ROOTDIR PLATFORM_OS=$PLATFORM_OS $other_args 
+    do_make $WK_ROOT/WebKitTools/wx/browser  "-DBUILDING_WX__=1 -DWXUSINGDLL_WEBKIT=1 $WXGC_DEFINE $EXTRA_CPPFLAGS" WX_DEBUG=$wxdebug DEBUG=$debug WEBKIT_ROOT=$WK_ROOTDIR PLATFORM_OS=$PLATFORM_OS $other_args 
+    do_make $WK_ROOT/WebKitTools/DumpRenderTree/wx  "-DBUILDING_WX__=1 -DWXUSINGDLL_WEBKIT=1 $WXGC_DEFINE $EXTRA_CPPFLAGS" WX_DEBUG=$wxdebug DEBUG=$debug WEBKIT_ROOT=$WK_ROOTDIR PLATFORM_OS=$PLATFORM_OS $other_args
 
     if [ $do_clean == 1 ]; then
         rm -rf $WK_ROOT/JavaScriptCore/DerivedSources
@@ -349,17 +363,19 @@ if [ $do_build == 1 -o $do_clean == 1 ]; then
             cp webview.py $WEBKITOUTPUTDIR/webview.py
                                    
             PY_INCLUDE=`python -c "import sys,distutils.sysconfig; sys.stdout.write(distutils.sysconfig.get_python_inc())"`
-            PY_VERSION=`python -c "import sys;  sys.stdout.write(str(sys.version_info[0]) + str(sys.version_info[1]))"`
-            PY_LIBDIR=`python -c "import distutils.sysconfig; import sys; sys.stdout.write(distutils.sysconfig.PREFIX)"`
             
             if [ "${OSTYPE:0:6}" == "cygwin" ]; then
+                PY_LIBDIR=`python -c "import distutils.sysconfig; import sys; sys.stdout.write(distutils.sysconfig.PREFIX)"`
                 PY_LIBDIR="$PY_LIBDIR\\Libs"
+                PY_LIB=`python -c "import sys; sys.stdout.write('python' + sys.version[:3])"`
+                PY_LIB=`python -c "sys.stdout.write('$PY_LIB'.replace('.', ''))"`
             else
-                PY_LIBDIR="$PY_LIBDIR/lib"
+                PY_LIB=`python-config --libs`
+                PY_LIBDIR=`python-config --ldflags`
             fi
             
-            do_make $WK_ROOT/WebKit/wx/bindings/python "-DBUILDING_WX__=1 -DWXUSINGDLL=1 -DWXUSINGDLL_WEBKIT=1 -I$PY_INCLUDE -I$WX_PREFIX/wxPython/include -I$WX_PREFIX/../wxPython/include $WXGC_DEFINE" \
-                WX_DEBUG=$wxdebug DEBUG=$debug WEBKIT_ROOT=$WK_ROOTDIR PLATFORM_OS=$PLATFORM_OS PYTHON_VERSION=$PY_VERSION PYTHON_LIBDIR=$PY_LIBDIR $other_args
+            do_make $WK_ROOT/WebKit/wx/bindings/python "-DBUILDING_WX__=1 -DWXUSINGDLL=1 -DWXUSINGDLL_WEBKIT=1 -I$PY_INCLUDE -I$WX_PREFIX/wxPython/include -I$WX_PREFIX/../wxPython/include $WXGC_DEFINE $EXTRA_CPPFLAGS" \
+                WX_DEBUG=$wxdebug DEBUG=$debug WEBKIT_ROOT=$WK_ROOTDIR PLATFORM_OS=$PLATFORM_OS PYTHON_LIB=$PY_LIB PYTHON_LIBDIR=$PY_LIBDIR $other_args
             if [ "${OSTYPE:0:6}" == "cygwin" ]; then
                 if [ -f $WEBKITOUTPUTDIR/_webview.pyd -a -f $WEBKITOUTPUTDIR/_webview.dll ]; then
                     rm $WEBKITOUTPUTDIR/_webview.pyd

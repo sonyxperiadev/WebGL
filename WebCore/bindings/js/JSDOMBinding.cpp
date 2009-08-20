@@ -18,11 +18,6 @@
  *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-// gcc 3.x can't handle including the HashMap pointer specialization in this file
-#if defined __GNUC__ && !defined __GLIBCXX__ // less than gcc 3.4
-#define HASH_MAP_PTR_SPEC_WORKAROUND 1
-#endif
-
 #include "config.h"
 #include "JSDOMBinding.h"
 
@@ -32,6 +27,7 @@
 #include "EventException.h"
 #include "ExceptionCode.h"
 #include "Frame.h"
+#include "HTMLAudioElement.h"
 #include "HTMLImageElement.h"
 #include "HTMLScriptElement.h"
 #include "HTMLNames.h"
@@ -288,23 +284,27 @@ static inline bool isObservableThroughDOM(JSNode* jsNode)
             return true;
         if (node->hasTagName(scriptTag) && !static_cast<HTMLScriptElement*>(node)->haveFiredLoadEvent())
             return true;
+#if ENABLE(VIDEO)
+        if (node->hasTagName(audioTag) && !static_cast<HTMLAudioElement*>(node)->paused())
+            return true;
+#endif
     }
 
     return false;
 }
 
-void markDOMNodesForDocument(Document* doc)
+void markDOMNodesForDocument(MarkStack& markStack, Document* doc)
 {
     JSWrapperCache& nodeDict = doc->wrapperCache();
     JSWrapperCache::iterator nodeEnd = nodeDict.end();
     for (JSWrapperCache::iterator nodeIt = nodeDict.begin(); nodeIt != nodeEnd; ++nodeIt) {
         JSNode* jsNode = nodeIt->second;
-        if (!jsNode->marked() && isObservableThroughDOM(jsNode))
-            jsNode->mark();
+        if (isObservableThroughDOM(jsNode))
+            markStack.append(jsNode);
     }
 }
 
-void markActiveObjectsForContext(JSGlobalData& globalData, ScriptExecutionContext* scriptExecutionContext)
+void markActiveObjectsForContext(MarkStack& markStack, JSGlobalData& globalData, ScriptExecutionContext* scriptExecutionContext)
 {
     // If an element has pending activity that may result in event listeners being called
     // (e.g. an XMLHttpRequest), we need to keep JS wrappers alive.
@@ -317,19 +317,19 @@ void markActiveObjectsForContext(JSGlobalData& globalData, ScriptExecutionContex
             // Generally, an active object with pending activity must have a wrapper to mark its listeners.
             // However, some ActiveDOMObjects don't have JS wrappers (timers created by setTimeout is one example).
             // FIXME: perhaps need to make sure even timers have a markable 'wrapper'.
-            if (wrapper && !wrapper->marked())
-                wrapper->mark();
+            if (wrapper)
+                markStack.append(wrapper);
         }
     }
 
     const HashSet<MessagePort*>& messagePorts = scriptExecutionContext->messagePorts();
     HashSet<MessagePort*>::const_iterator portsEnd = messagePorts.end();
     for (HashSet<MessagePort*>::const_iterator iter = messagePorts.begin(); iter != portsEnd; ++iter) {
-        if ((*iter)->hasPendingActivity()) {
+        // If the message port is remotely entangled, then always mark it as in-use because we can't determine reachability across threads.
+        if (!(*iter)->locallyEntangledPort() || (*iter)->hasPendingActivity()) {
             DOMObject* wrapper = getCachedDOMObjectWrapper(globalData, *iter);
-            // A port with pending activity must have a wrapper to mark its listeners, so no null check.
-            if (!wrapper->marked())
-                wrapper->mark();
+            if (wrapper)
+                markStack.append(wrapper);
         }
     }
 }
@@ -346,14 +346,14 @@ void updateDOMNodeDocument(Node* node, Document* oldDocument, Document* newDocum
     addWrapper(wrapper);
 }
 
-void markDOMObjectWrapper(JSGlobalData& globalData, void* object)
+void markDOMObjectWrapper(MarkStack& markStack, JSGlobalData& globalData, void* object)
 {
     if (!object)
         return;
     DOMObject* wrapper = getCachedDOMObjectWrapper(globalData, object);
-    if (!wrapper || wrapper->marked())
+    if (!wrapper)
         return;
-    wrapper->mark();
+    markStack.append(wrapper);
 }
 
 JSValue jsStringOrNull(ExecState* exec, const String& s)
@@ -450,31 +450,36 @@ void setDOMException(ExecState* exec, ExceptionCode ec)
     if (!ec || exec->hadException())
         return;
 
+    // FIXME: All callers to setDOMException need to pass in the right global object
+    // for now, we're going to assume the lexicalGlobalObject.  Which is wrong in cases like this:
+    // frames[0].document.createElement(null, null); // throws an exception which should have the subframes prototypes.
+    JSDOMGlobalObject* globalObject = deprecatedGlobalObjectForPrototype(exec);
+
     ExceptionCodeDescription description;
     getExceptionCodeDescription(ec, description);
 
     JSValue errorObject;
     switch (description.type) {
         case DOMExceptionType:
-            errorObject = toJS(exec, DOMCoreException::create(description));
+            errorObject = toJS(exec, globalObject, DOMCoreException::create(description));
             break;
         case RangeExceptionType:
-            errorObject = toJS(exec, RangeException::create(description));
+            errorObject = toJS(exec, globalObject, RangeException::create(description));
             break;
         case EventExceptionType:
-            errorObject = toJS(exec, EventException::create(description));
+            errorObject = toJS(exec, globalObject, EventException::create(description));
             break;
         case XMLHttpRequestExceptionType:
-            errorObject = toJS(exec, XMLHttpRequestException::create(description));
+            errorObject = toJS(exec, globalObject, XMLHttpRequestException::create(description));
             break;
 #if ENABLE(SVG)
         case SVGExceptionType:
-            errorObject = toJS(exec, SVGException::create(description).get(), 0);
+            errorObject = toJS(exec, globalObject, SVGException::create(description).get(), 0);
             break;
 #endif
 #if ENABLE(XPATH)
         case XPathExceptionType:
-            errorObject = toJS(exec, XPathException::create(description));
+            errorObject = toJS(exec, globalObject, XPathException::create(description));
             break;
 #endif
     }
@@ -545,7 +550,7 @@ KURL completeURL(ExecState* exec, const String& relativeURL)
 
 JSValue objectToStringFunctionGetter(ExecState* exec, const Identifier& propertyName, const PropertySlot&)
 {
-    return new (exec) PrototypeFunction(exec, 0, propertyName, objectProtoFuncToString);
+    return new (exec) NativeFunctionWrapper(exec, exec->lexicalGlobalObject()->prototypeFunctionStructure(), 0, propertyName, objectProtoFuncToString);
 }
 
 Structure* getCachedDOMStructure(JSDOMGlobalObject* globalObject, const ClassInfo* classInfo)

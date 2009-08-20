@@ -62,6 +62,13 @@ _WebElementLinkLabelKey
 _WebElementLinkTargetFrameKey
 _WebElementLinkTitleKey
 _WebElementLinkURLKey
+_WebFrameCanSuspendActiveDOMObjects
+_WebFrameHasPlugins
+_WebFrameHasUnloadListener
+_WebFrameMainDocumentError
+_WebFrameUsesApplicationCache
+_WebFrameUsesDatabases
+_WebFrameUsesGeolocation
 _WebHistoryAllItemsRemovedNotification
 _WebHistoryItemChangedNotification
 _WebHistoryItemsAddedNotification
@@ -83,6 +90,7 @@ _WebKitErrorDomain
 _WebKitErrorMIMETypeKey
 _WebKitErrorPlugInNameKey
 _WebKitErrorPlugInPageURLStringKey
+_WebKitLocalCacheDefaultsKey
 _WebLocalizedString
 _WebPlugInAttributesKey
 _WebPlugInBaseURLKey

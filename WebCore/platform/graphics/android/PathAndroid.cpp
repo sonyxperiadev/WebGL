@@ -66,6 +66,11 @@ bool Path::isEmpty() const
     return m_path->isEmpty();
 }
 
+bool Path::hasCurrentPoint() const
+{
+    return !isEmpty();
+}
+
 bool Path::contains(const FloatPoint& point, WindRule rule) const
 {
     SkRegion    rgn, clip;
@@ -342,8 +347,9 @@ static FloatRect boundingBoxForCurrentStroke(GraphicsContext* context)
 static GraphicsContext* scratchContext()
 {
     static ImageBuffer* scratch = 0;
+    // TODO(benm): Confirm with reed that it's correct to use the (default) DeviceRGB ColorSpace parameter in the call to create below.
     if (!scratch)
-        scratch = ImageBuffer::create(IntSize(1, 1), false).release();
+        scratch = ImageBuffer::create(IntSize(1, 1)).release();
     // We don't bother checking for failure creating the ImageBuffer, since our
     // ImageBuffer initializer won't fail.
     return scratch->context();

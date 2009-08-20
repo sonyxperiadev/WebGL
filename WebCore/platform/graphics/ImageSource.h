@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2004, 2005, 2006 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2007-2008 Torch Mobile, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -44,12 +45,14 @@ QT_END_NAMESPACE
 #elif PLATFORM(CAIRO)
 struct _cairo_surface;
 typedef struct _cairo_surface cairo_surface_t;
-#elif PLATFORM(SGL)
+#elif PLATFORM(ANDROID) && PLATFORM(SGL)
 #include "SkString.h"
 class SkBitmapRef;
 class PrivateAndroidImageSourceRec;
 #elif PLATFORM(SKIA)
 class NativeImageSkia;
+#elif PLATFORM(WINCE)
+#include "SharedBitmap.h"
 #endif
 
 namespace WebCore {
@@ -74,7 +77,8 @@ typedef CGImageRef NativeImagePtr;
 class ImageDecoderQt;
 typedef ImageDecoderQt* NativeImageSourcePtr;
 typedef QPixmap* NativeImagePtr;
-#elif PLATFORM(SGL)
+#elif PLATFORM(ANDROID)
+#if PLATFORM(SGL)
 class String;
 #ifdef ANDROID_ANIMATED_GIF
 class ImageDecoder;
@@ -88,6 +92,11 @@ struct NativeImageSourcePtr {
 };
 typedef const Vector<char>* NativeBytePtr;
 typedef SkBitmapRef* NativeImagePtr;
+#elif PLATFORM(SKIA) // ANDROID
+class ImageDecoder;
+typedef ImageDecoder* NativeImageSourcePtr;
+typedef NativeImageSkia* NativeImagePtr;
+#endif
 #elif PLATFORM(CAIRO)
 class ImageDecoder;
 typedef ImageDecoder* NativeImageSourcePtr;
@@ -96,12 +105,16 @@ typedef cairo_surface_t* NativeImagePtr;
 class ImageDecoder;
 typedef ImageDecoder* NativeImageSourcePtr;
 typedef NativeImageSkia* NativeImagePtr;
+#elif PLATFORM(WINCE)
+class ImageDecoder;
+typedef ImageDecoder* NativeImageSourcePtr;
+typedef RefPtr<SharedBitmap> NativeImagePtr;
 #endif
 
 const int cAnimationLoopOnce = -1;
 const int cAnimationNone = -2;
 
-class ImageSource : Noncopyable {
+class ImageSource : public Noncopyable {
 public:
     ImageSource();
     ~ImageSource();
@@ -153,14 +166,18 @@ public:
     bool frameHasAlphaAtIndex(size_t); // Whether or not the frame actually used any alpha.
     bool frameIsCompleteAtIndex(size_t); // Whether or not the frame is completely decoded.
 
+#if PLATFORM(ANDROID)
 #if PLATFORM(SGL)
     void clearURL();
     void setURL(const String& url);
 #endif
+#endif
 private:
+#if PLATFORM(ANDROID)
     // FIXME: This is protected only to allow ImageSourceSkia to set ICO decoder
     // with a preferred size. See ImageSourceSkia.h for discussion.
 protected:
+#endif
     NativeImageSourcePtr m_decoder;
 };
 

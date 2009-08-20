@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2007, 2009 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -110,7 +110,7 @@ JSValue JSNode::appendChild(ExecState* exec, const ArgList& args)
 
 JSValue JSNode::addEventListener(ExecState* exec, const ArgList& args)
 {
-    JSDOMGlobalObject* globalObject = toJSDOMGlobalObject(impl()->scriptExecutionContext());
+    JSDOMGlobalObject* globalObject = toJSDOMGlobalObject(impl()->document());
     if (!globalObject)
         return jsUndefined();
 
@@ -122,7 +122,7 @@ JSValue JSNode::addEventListener(ExecState* exec, const ArgList& args)
 
 JSValue JSNode::removeEventListener(ExecState* exec, const ArgList& args)
 {
-    JSDOMGlobalObject* globalObject = toJSDOMGlobalObject(impl()->scriptExecutionContext());
+    JSDOMGlobalObject* globalObject = toJSDOMGlobalObject(impl()->document());
     if (!globalObject)
         return jsUndefined();
 
@@ -136,22 +136,21 @@ void JSNode::pushEventHandlerScope(ExecState*, ScopeChain&) const
 {
 }
 
-void JSNode::mark()
+void JSNode::markChildren(MarkStack& markStack)
 {
-    ASSERT(!marked());
-
     Node* node = m_impl.get();
+
+    Base::markChildren(markStack);
+    markEventListeners(markStack, node->eventListeners());
 
     // Nodes in the document are kept alive by JSDocument::mark, so, if we're in
     // the document, we need to mark the document, but we don't need to explicitly
     // mark any other nodes.
     if (node->inDocument()) {
-        DOMObject::mark();
-        markEventListeners(node->eventListeners());
-        if (Document* doc = node->ownerDocument())
+        if (Document* doc = node->ownerDocument()) {
             if (DOMObject* docWrapper = getCachedDOMObjectWrapper(*Heap::heap(this)->globalData(), doc))
-                if (!docWrapper->marked())
-                    docWrapper->mark();
+                markStack.append(docWrapper);
+        }
         return;
     }
 
@@ -163,36 +162,20 @@ void JSNode::mark()
 
     // Nodes in a subtree are marked by the tree's root, so, if the root is already
     // marking the tree, we don't need to explicitly mark any other nodes.
-    if (root->inSubtreeMark()) {
-        DOMObject::mark();
-        markEventListeners(node->eventListeners());
+    if (root->inSubtreeMark())
         return;
-    }
 
     // Mark the whole tree subtree.
     root->setInSubtreeMark(true);
     for (Node* nodeToMark = root; nodeToMark; nodeToMark = nodeToMark->traverseNextNode()) {
         JSNode* wrapper = getCachedDOMNodeWrapper(m_impl->document(), nodeToMark);
-        if (wrapper) {
-            if (!wrapper->marked())
-                wrapper->mark();
-        } else if (nodeToMark == node) {
-            // This is the case where the map from the document to wrappers has
-            // been cleared out, but a wrapper is being marked. For now, we'll
-            // let the rest of the tree of wrappers get collected, because we have
-            // no good way of finding them. Later we should test behavior of other
-            // browsers and see if we need to preserve other wrappers in this case.
-            if (!marked())
-                mark();
-        }
+        if (wrapper)
+            markStack.append(wrapper);
     }
     root->setInSubtreeMark(false);
-
-    // Double check that we actually ended up marked. This assert caught problems in the past.
-    ASSERT(marked());
 }
 
-static ALWAYS_INLINE JSValue createWrapper(ExecState* exec, Node* node)
+static ALWAYS_INLINE JSValue createWrapper(ExecState* exec, JSDOMGlobalObject* globalObject, Node* node)
 {
     ASSERT(node);
     ASSERT(!getCachedDOMNodeWrapper(node->document(), node));
@@ -201,63 +184,63 @@ static ALWAYS_INLINE JSValue createWrapper(ExecState* exec, Node* node)
     switch (node->nodeType()) {
         case Node::ELEMENT_NODE:
             if (node->isHTMLElement())
-                wrapper = createJSHTMLWrapper(exec, static_cast<HTMLElement*>(node));
+                wrapper = createJSHTMLWrapper(exec, globalObject, static_cast<HTMLElement*>(node));
 #if ENABLE(SVG)
             else if (node->isSVGElement())
-                wrapper = createJSSVGWrapper(exec, static_cast<SVGElement*>(node));
+                wrapper = createJSSVGWrapper(exec, globalObject, static_cast<SVGElement*>(node));
 #endif
             else
-                wrapper = CREATE_DOM_NODE_WRAPPER(exec, Element, node);
+                wrapper = CREATE_DOM_NODE_WRAPPER(exec, globalObject, Element, node);
             break;
         case Node::ATTRIBUTE_NODE:
-            wrapper = CREATE_DOM_NODE_WRAPPER(exec, Attr, node);
+            wrapper = CREATE_DOM_NODE_WRAPPER(exec, globalObject, Attr, node);
             break;
         case Node::TEXT_NODE:
-            wrapper = CREATE_DOM_NODE_WRAPPER(exec, Text, node);
+            wrapper = CREATE_DOM_NODE_WRAPPER(exec, globalObject, Text, node);
             break;
         case Node::CDATA_SECTION_NODE:
-            wrapper = CREATE_DOM_NODE_WRAPPER(exec, CDATASection, node);
+            wrapper = CREATE_DOM_NODE_WRAPPER(exec, globalObject, CDATASection, node);
             break;
         case Node::ENTITY_NODE:
-            wrapper = CREATE_DOM_NODE_WRAPPER(exec, Entity, node);
+            wrapper = CREATE_DOM_NODE_WRAPPER(exec, globalObject, Entity, node);
             break;
         case Node::PROCESSING_INSTRUCTION_NODE:
-            wrapper = CREATE_DOM_NODE_WRAPPER(exec, ProcessingInstruction, node);
+            wrapper = CREATE_DOM_NODE_WRAPPER(exec, globalObject, ProcessingInstruction, node);
             break;
         case Node::COMMENT_NODE:
-            wrapper = CREATE_DOM_NODE_WRAPPER(exec, Comment, node);
+            wrapper = CREATE_DOM_NODE_WRAPPER(exec, globalObject, Comment, node);
             break;
         case Node::DOCUMENT_NODE:
             // we don't want to cache the document itself in the per-document dictionary
-            return toJS(exec, static_cast<Document*>(node));
+            return toJS(exec, globalObject, static_cast<Document*>(node));
         case Node::DOCUMENT_TYPE_NODE:
-            wrapper = CREATE_DOM_NODE_WRAPPER(exec, DocumentType, node);
+            wrapper = CREATE_DOM_NODE_WRAPPER(exec, globalObject, DocumentType, node);
             break;
         case Node::NOTATION_NODE:
-            wrapper = CREATE_DOM_NODE_WRAPPER(exec, Notation, node);
+            wrapper = CREATE_DOM_NODE_WRAPPER(exec, globalObject, Notation, node);
             break;
         case Node::DOCUMENT_FRAGMENT_NODE:
-            wrapper = CREATE_DOM_NODE_WRAPPER(exec, DocumentFragment, node);
+            wrapper = CREATE_DOM_NODE_WRAPPER(exec, globalObject, DocumentFragment, node);
             break;
         case Node::ENTITY_REFERENCE_NODE:
-            wrapper = CREATE_DOM_NODE_WRAPPER(exec, EntityReference, node);
+            wrapper = CREATE_DOM_NODE_WRAPPER(exec, globalObject, EntityReference, node);
             break;
         default:
-            wrapper = CREATE_DOM_NODE_WRAPPER(exec, Node, node);
+            wrapper = CREATE_DOM_NODE_WRAPPER(exec, globalObject, Node, node);
     }
 
     return wrapper;    
 }
     
-JSValue toJSNewlyCreated(ExecState* exec, Node* node)
+JSValue toJSNewlyCreated(ExecState* exec, JSDOMGlobalObject* globalObject, Node* node)
 {
     if (!node)
         return jsNull();
     
-    return createWrapper(exec, node);
+    return createWrapper(exec, globalObject, node);
 }
     
-JSValue toJS(ExecState* exec, Node* node)
+JSValue toJS(ExecState* exec, JSDOMGlobalObject* globalObject, Node* node)
 {
     if (!node)
         return jsNull();
@@ -266,7 +249,7 @@ JSValue toJS(ExecState* exec, Node* node)
     if (wrapper)
         return wrapper;
 
-    return createWrapper(exec, node);
+    return createWrapper(exec, globalObject, node);
 }
 
 } // namespace WebCore

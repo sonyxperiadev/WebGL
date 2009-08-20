@@ -31,21 +31,20 @@
 
 #include "ArgList.h"
 #include "FastAllocBase.h"
-#include "HashMap.h"
 #include "JSCell.h"
 #include "JSValue.h"
 #include "JSObject.h"
 #include "Opcode.h"
 #include "RegisterFile.h"
 
+#include <wtf/HashMap.h>
+
 namespace JSC {
 
     class CodeBlock;
     class EvalNode;
     class FunctionBodyNode;
-    class Instruction;
     class InternalFunction;
-    class AssemblerBuffer;
     class JSFunction;
     class JSGlobalObject;
     class ProgramNode;
@@ -54,7 +53,8 @@ namespace JSC {
     class SamplingTool;
     struct CallFrameClosure;
     struct HandlerInfo;
-
+    struct Instruction;
+    
     enum DebugHookID {
         WillExecuteProgram,
         DidExecuteProgram,
@@ -66,7 +66,7 @@ namespace JSC {
 
     enum { MaxMainThreadReentryDepth = 256, MaxSecondaryThreadReentryDepth = 32 };
 
-    class Interpreter : public WTF::FastAllocBase {
+    class Interpreter : public FastAllocBase {
         friend class JIT;
         friend class CachedCall;
     public:

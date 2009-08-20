@@ -31,6 +31,7 @@
 
 #import "WebKitLogging.h"
 #import "WebKitNSStringExtras.h"
+#import "WebNSFileManagerExtras.h"
 #import "WebNSObjectExtras.h"
 #import "WebNetscapeDeprecatedFunctions.h"
 #import <WebCore/npruntime_impl.h>
@@ -216,7 +217,8 @@ static TransitionVector tVectorForFunctionPointer(FunctionPointer);
     } else {
 #ifdef SUPPORT_CFM
         // Single-file plug-in with resource fork
-        type = [[[NSFileManager defaultManager] fileAttributesAtPath:path traverseLink:YES] fileHFSTypeCode];
+        NSString *destinationPath = [[NSFileManager defaultManager] destinationOfSymbolicLinkAtPath:path error:0];
+        type = [[[NSFileManager defaultManager] attributesOfItemAtPath:destinationPath error:0] fileHFSTypeCode];
         isBundle = NO;
         isCFM = YES;
 #else
@@ -455,9 +457,13 @@ static TransitionVector tVectorForFunctionPointer(FunctionPointer);
         browserFuncs.pushpopupsenabledstate = (NPN_PushPopupsEnabledStateProcPtr)tVectorForFunctionPointer((FunctionPointer)NPN_PushPopupsEnabledState);
         browserFuncs.poppopupsenabledstate = (NPN_PopPopupsEnabledStateProcPtr)tVectorForFunctionPointer((FunctionPointer)NPN_PopPopupsEnabledState);
         browserFuncs.pluginthreadasynccall = (NPN_PluginThreadAsyncCallProcPtr)tVectorForFunctionPointer((FunctionPointer)NPN_PluginThreadAsyncCall);
+        browserFuncs.getvalueforurl = (NPN_GetValueForURLProcPtr)tVectorForFunctionPointer((FunctionPointer)NPN_GetValueForURL);
+        browserFuncs.setvalueforurl = (NPN_SetValueForURLProcPtr)tVectorForFunctionPointer((FunctionPointer)NPN_SetValueForURL);
+        browserFuncs.getauthenticationinfo = (NPN_GetAuthenticationInfoProcPtr)tVectorForFunctionPointer((FunctionPointer)NPN_GetAuthenticationInfo);
         browserFuncs.scheduletimer = (NPN_ScheduleTimerProcPtr)tVectorForFunctionPointer((FunctionPointer)NPN_ScheduleTimer);
         browserFuncs.unscheduletimer = (NPN_UnscheduleTimerProcPtr)tVectorForFunctionPointer((FunctionPointer)NPN_UnscheduleTimer);
         browserFuncs.popupcontextmenu = (NPN_PopUpContextMenuProcPtr)tVectorForFunctionPointer((FunctionPointer)NPN_PopUpContextMenu);
+        browserFuncs.convertpoint = (NPN_ConvertPointProcPtr)tVectorForFunctionPointer((FunctionPointer)NPN_ConvertPoint);
         
         browserFuncs.releasevariantvalue = (NPN_ReleaseVariantValueProcPtr)tVectorForFunctionPointer((FunctionPointer)_NPN_ReleaseVariantValue);
         browserFuncs.getstringidentifier = (NPN_GetStringIdentifierProcPtr)tVectorForFunctionPointer((FunctionPointer)_NPN_GetStringIdentifier);
@@ -564,10 +570,14 @@ static TransitionVector tVectorForFunctionPointer(FunctionPointer);
         browserFuncs.pushpopupsenabledstate = NPN_PushPopupsEnabledState;
         browserFuncs.poppopupsenabledstate = NPN_PopPopupsEnabledState;
         browserFuncs.pluginthreadasynccall = NPN_PluginThreadAsyncCall;
+        browserFuncs.getvalueforurl = NPN_GetValueForURL;
+        browserFuncs.setvalueforurl = NPN_SetValueForURL;
+        browserFuncs.getauthenticationinfo = NPN_GetAuthenticationInfo;
         browserFuncs.scheduletimer = NPN_ScheduleTimer;
         browserFuncs.unscheduletimer = NPN_UnscheduleTimer;
         browserFuncs.popupcontextmenu = NPN_PopUpContextMenu;
-        
+        browserFuncs.convertpoint = NPN_ConvertPoint;
+
         browserFuncs.releasevariantvalue = _NPN_ReleaseVariantValue;
         browserFuncs.getstringidentifier = _NPN_GetStringIdentifier;
         browserFuncs.getstringidentifiers = _NPN_GetStringIdentifiers;

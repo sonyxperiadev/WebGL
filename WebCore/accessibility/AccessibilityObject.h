@@ -30,14 +30,17 @@
 #ifndef AccessibilityObject_h
 #define AccessibilityObject_h
 
+#include "IntRect.h"
+#include "Range.h"
 #include "VisiblePosition.h"
+#include "VisibleSelection.h"
 #include <wtf/Platform.h>
 #include <wtf/RefPtr.h>
 #include <wtf/Vector.h>
 
 #if PLATFORM(MAC)
 #include <wtf/RetainPtr.h>
-#elif PLATFORM(WIN)
+#elif PLATFORM(WIN) && !PLATFORM(WINCE)
 #include "AccessibilityObjectWrapperWin.h"
 #include "COMPtr.h"
 #elif PLATFORM(CHROMIUM)
@@ -151,9 +154,16 @@ enum AccessibilityRole {
     ListBoxOptionRole,
     TableHeaderContainerRole,
     DefinitionListTermRole,
-    DefinitionListDefinitionRole
+    DefinitionListDefinitionRole,
+    AnnotationRole,
+    SliderThumbRole
 };
 
+enum AccessibilityOrientation {
+    AccessibilityOrientationVertical,
+    AccessibilityOrientationHorizontal,
+};
+    
 struct VisiblePositionRange {
 
     VisiblePosition start;
@@ -192,6 +202,7 @@ protected:
     AccessibilityObject();
 public:
     virtual ~AccessibilityObject();
+    virtual void detach();
         
     typedef Vector<RefPtr<AccessibilityObject> > AccessibilityChildrenVector;
     
@@ -226,6 +237,7 @@ public:
     virtual bool isTableCell() const { return false; };
     virtual bool isFieldset() const { return false; };
     virtual bool isGroup() const { return false; };
+    bool isRadioGroup() const { return roleValue() == RadioGroupRole; }
     
     virtual bool isChecked() const { return false; };
     virtual bool isEnabled() const { return false; };
@@ -239,6 +251,7 @@ public:
     virtual bool isPressed() const { return false; };
     virtual bool isReadOnly() const { return false; };
     virtual bool isVisited() const { return false; };
+    virtual bool isRequired() const { return false; };
 
     virtual bool canSetFocusAttribute() const { return false; };
     virtual bool canSetTextRangeAttributes() const { return false; };
@@ -251,92 +264,106 @@ public:
     bool accessibilityShouldUseUniqueId() const { return true; };
     virtual bool accessibilityIsIgnored() const  { return true; };
 
-    virtual int intValue() const;
+    virtual int headingLevel() const { return 0; }
+    virtual int intValue() const { return 0; }
+    virtual String valueDescription() const { return String(); }
     virtual float valueForRange() const { return 0.0f; }
     virtual float maxValueForRange() const { return 0.0f; }
     virtual float minValueForRange() const { return 0.0f; }
-    virtual int layoutCount() const;
+    virtual AccessibilityObject* selectedRadioButton() { return 0; }
+    virtual int layoutCount() const { return 0; }
     static bool isARIAControl(AccessibilityRole);
     static bool isARIAInput(AccessibilityRole);
-    unsigned axObjectID() const;
     
-    virtual AccessibilityObject* doAccessibilityHitTest(const IntPoint&) const;
-    virtual AccessibilityObject* focusedUIElement() const;
-    virtual AccessibilityObject* firstChild() const;
-    virtual AccessibilityObject* lastChild() const;
-    virtual AccessibilityObject* previousSibling() const;
-    virtual AccessibilityObject* nextSibling() const;
-    virtual AccessibilityObject* parentObject() const;
-    virtual AccessibilityObject* parentObjectUnignored() const;
-    virtual AccessibilityObject* parentObjectIfExists() const;
-    virtual AccessibilityObject* observableObject() const;
-    virtual void linkedUIElements(AccessibilityChildrenVector&) const;
-    virtual AccessibilityObject* titleUIElement() const;
-    virtual bool exposesTitleUIElement() const { return true; }
-    virtual AccessibilityRole ariaRoleAttribute() const;
-    virtual bool isPresentationalChildOfAriaRole() const;
-    virtual bool ariaRoleHasPresentationalChildren() const;
+    virtual AccessibilityObject* doAccessibilityHitTest(const IntPoint&) const { return 0; }
+    virtual AccessibilityObject* focusedUIElement() const { return 0; }
 
-    virtual AccessibilityRole roleValue() const;
-    virtual AXObjectCache* axObjectCache() const;
+    virtual AccessibilityObject* firstChild() const { return 0; }
+    virtual AccessibilityObject* lastChild() const { return 0; }
+    virtual AccessibilityObject* previousSibling() const { return 0; }
+    virtual AccessibilityObject* nextSibling() const { return 0; }
+    virtual AccessibilityObject* parentObject() const = 0;
+    virtual AccessibilityObject* parentObjectUnignored() const;
+    virtual AccessibilityObject* parentObjectIfExists() const { return 0; }
+
+    virtual AccessibilityObject* observableObject() const { return 0; }
+    virtual void linkedUIElements(AccessibilityChildrenVector&) const { }
+    virtual AccessibilityObject* titleUIElement() const { return 0; }
+    virtual bool exposesTitleUIElement() const { return true; }
+
+    virtual AccessibilityRole ariaRoleAttribute() const { return UnknownRole; }
+    virtual bool isPresentationalChildOfAriaRole() const { return false; }
+    virtual bool ariaRoleHasPresentationalChildren() const { return false; }
+
+    void setRoleValue(AccessibilityRole role) { m_role = role; }
+    virtual AccessibilityRole roleValue() const { return m_role; }
+    virtual String ariaAccessibilityName(const String&) const { return String(); }
+    virtual String ariaLabeledByAttribute() const { return String(); }
+    virtual String ariaDescribedByAttribute() const { return String(); }
+    virtual String accessibilityDescription() const { return String(); }
+    virtual PassRefPtr<Range> ariaSelectedTextDOMRange() const { return 0; }
+
+    virtual AXObjectCache* axObjectCache() const { return 0; }
+    unsigned axObjectID() const { return m_id; }
+    void setAXObjectID(unsigned axObjectID) { m_id = axObjectID; }
     
-    virtual Element* anchorElement() const;
-    virtual Element* actionElement() const;
-    virtual IntRect boundingBoxRect() const;
-    virtual IntRect elementRect() const;
-    virtual IntSize size() const;
-    IntPoint clickPoint() const;
+    static AccessibilityObject* anchorElementForNode(Node*);
+    virtual Element* anchorElement() const { return 0; }
+    virtual Element* actionElement() const { return 0; }
+    virtual IntRect boundingBoxRect() const { return IntRect(); }
+    virtual IntRect elementRect() const = 0;
+    virtual IntSize size() const = 0;
+    virtual IntPoint clickPoint() const;
+
+    virtual PlainTextRange selectedTextRange() const { return PlainTextRange(); }
+    unsigned selectionStart() const { return selectedTextRange().start; }
+    unsigned selectionEnd() const { return selectedTextRange().length; }
     
-    virtual KURL url() const;
-    virtual PlainTextRange selectedTextRange() const;
-    virtual VisibleSelection selection() const;
-    unsigned selectionStart() const;
-    unsigned selectionEnd() const;
-    virtual String stringValue() const;
-    virtual String ariaAccessiblityName(const String&) const;
-    virtual String ariaLabeledByAttribute() const;
-    virtual String title() const;
-    virtual String ariaDescribedByAttribute() const;
-    virtual String accessibilityDescription() const;
-    virtual String helpText() const;
-    virtual String textUnderElement() const;
-    virtual String text() const;
-    virtual int textLength() const;
-    virtual PassRefPtr<Range> ariaSelectedTextDOMRange() const;
-    virtual String selectedText() const;
-    virtual const AtomicString& accessKey() const;
+    virtual KURL url() const { return KURL(); }
+    virtual VisibleSelection selection() const { return VisibleSelection(); }
+    virtual String stringValue() const { return String(); }
+    virtual String title() const { return String(); }
+    virtual String helpText() const { return String(); }
+    virtual String textUnderElement() const { return String(); }
+    virtual String text() const { return String(); }
+    virtual int textLength() const { return 0; }
+    virtual String selectedText() const { return String(); }
+    virtual const AtomicString& accessKey() const { return nullAtom; }
     const String& actionVerb() const;
-    virtual Widget* widget() const;
-    virtual Widget* widgetForAttachmentView() const;
+    virtual Widget* widget() const { return 0; }
+    virtual Widget* widgetForAttachmentView() const { return 0; }
     virtual Document* document() const { return 0; }
     virtual FrameView* topDocumentFrameView() const { return 0; }
     virtual FrameView* documentFrameView() const;
+    virtual String language() const;
 
-    void setAXObjectID(unsigned);
-    virtual void setFocused(bool);
-    virtual void setSelectedText(const String&);
-    virtual void setSelectedTextRange(const PlainTextRange&);
-    virtual void setValue(const String&);
-    virtual void setSelected(bool);
-    
-    virtual void detach();
-    virtual void makeRangeVisible(const PlainTextRange&);
+    virtual void setFocused(bool) { }
+    virtual void setSelectedText(const String&) { }
+    virtual void setSelectedTextRange(const PlainTextRange&) { }
+    virtual void setValue(const String&) { }
+    virtual void setSelected(bool) { }
+
+    virtual void makeRangeVisible(const PlainTextRange&) { }
     virtual bool press() const;
     bool performDefaultAction() const { return press(); }
-    
-    virtual void childrenChanged();
+
+    virtual AccessibilityOrientation orientation() const;
+    virtual void increment() { };
+    virtual void decrement() { };
+
+    virtual void childrenChanged() { }
     virtual const AccessibilityChildrenVector& children() { return m_children; }
-    virtual void addChildren();
+    virtual void addChildren() { }
     virtual bool canHaveChildren() const { return true; }
-    virtual bool hasChildren() const { return m_haveChildren; };
-    virtual void selectedChildren(AccessibilityChildrenVector&);
-    virtual void visibleChildren(AccessibilityChildrenVector&);
+    virtual bool hasChildren() const { return m_haveChildren; }
+    virtual void selectedChildren(AccessibilityChildrenVector&) { }
+    virtual void visibleChildren(AccessibilityChildrenVector&) { }
     virtual bool shouldFocusActiveDescendant() const { return false; }
     virtual AccessibilityObject* activeDescendant() const { return 0; }    
     virtual void handleActiveDescendantChanged() { }
 
-    virtual VisiblePositionRange visiblePositionRange() const;
-    virtual VisiblePositionRange visiblePositionRangeForLine(unsigned) const;
+    virtual VisiblePositionRange visiblePositionRange() const { return VisiblePositionRange(); }
+    virtual VisiblePositionRange visiblePositionRangeForLine(unsigned) const { return VisiblePositionRange(); }
     
     VisiblePositionRange visiblePositionRangeForUnorderedPositions(const VisiblePosition&, const VisiblePosition&) const;
     VisiblePositionRange positionOfLeftWord(const VisiblePosition&) const;
@@ -349,13 +376,13 @@ public:
     VisiblePositionRange visiblePositionRangeForRange(const PlainTextRange&) const;
 
     String stringForVisiblePositionRange(const VisiblePositionRange&) const;
-    virtual IntRect boundsForVisiblePositionRange(const VisiblePositionRange&) const;    
+    virtual IntRect boundsForVisiblePositionRange(const VisiblePositionRange&) const { return IntRect(); }
     int lengthForVisiblePositionRange(const VisiblePositionRange&) const;
-    virtual void setSelectedVisiblePositionRange(const VisiblePositionRange&) const;
+    virtual void setSelectedVisiblePositionRange(const VisiblePositionRange&) const { }
 
-    virtual VisiblePosition visiblePositionForPoint(const IntPoint&) const;
-    VisiblePosition nextVisiblePosition(const VisiblePosition&) const;
-    VisiblePosition previousVisiblePosition(const VisiblePosition&) const;
+    virtual VisiblePosition visiblePositionForPoint(const IntPoint&) const { return VisiblePosition(); }
+    VisiblePosition nextVisiblePosition(const VisiblePosition& visiblePos) const { return visiblePos.next(); }
+    VisiblePosition previousVisiblePosition(const VisiblePosition& visiblePos) const { return visiblePos.previous(); }
     VisiblePosition nextWordEnd(const VisiblePosition&) const;
     VisiblePosition previousWordStart(const VisiblePosition&) const;
     VisiblePosition nextLineEndPosition(const VisiblePosition&) const;
@@ -364,23 +391,23 @@ public:
     VisiblePosition previousSentenceStartPosition(const VisiblePosition&) const;
     VisiblePosition nextParagraphEndPosition(const VisiblePosition&) const;
     VisiblePosition previousParagraphStartPosition(const VisiblePosition&) const;
-    virtual VisiblePosition visiblePositionForIndex(unsigned indexValue, bool lastIndexOK) const;
+    virtual VisiblePosition visiblePositionForIndex(unsigned, bool /*lastIndexOK */) const { return VisiblePosition(); }
     
-    virtual VisiblePosition visiblePositionForIndex(int) const;
-    virtual int indexForVisiblePosition(const VisiblePosition&) const;
+    virtual VisiblePosition visiblePositionForIndex(int) const { return VisiblePosition(); }
+    virtual int indexForVisiblePosition(const VisiblePosition&) const { return 0; }
 
     AccessibilityObject* accessibilityObjectForPosition(const VisiblePosition&) const;
     int lineForPosition(const VisiblePosition&) const;
     PlainTextRange plainTextRangeForVisiblePositionRange(const VisiblePositionRange&) const;
-    virtual int index(const VisiblePosition&) const;
+    virtual int index(const VisiblePosition&) const { return -1; }
 
-    virtual PlainTextRange doAXRangeForLine(unsigned) const;
+    virtual PlainTextRange doAXRangeForLine(unsigned) const { return PlainTextRange(); }
     PlainTextRange doAXRangeForPosition(const IntPoint&) const;
-    virtual PlainTextRange doAXRangeForIndex(unsigned) const;
+    virtual PlainTextRange doAXRangeForIndex(unsigned) const { return PlainTextRange(); }
     PlainTextRange doAXStyleRangeForIndex(unsigned) const;
 
-    virtual String doAXStringForRange(const PlainTextRange&) const;
-    virtual IntRect doAXBoundsForRange(const PlainTextRange&) const;
+    virtual String doAXStringForRange(const PlainTextRange&) const { return String(); }
+    virtual IntRect doAXBoundsForRange(const PlainTextRange&) const { return IntRect(); }
 
     unsigned doAXLineForIndex(unsigned);
 
@@ -406,19 +433,20 @@ public:
 
     // allows for an AccessibilityObject to update its render tree or perform
     // other operations update type operations
-    virtual void updateBackingStore();
+    virtual void updateBackingStore() { }
     
 protected:
     unsigned m_id;
     AccessibilityChildrenVector m_children;
     mutable bool m_haveChildren;
+    AccessibilityRole m_role;
     
     virtual void clearChildren();
     virtual bool isDetached() const { return true; }
 
 #if PLATFORM(MAC)
     RetainPtr<AccessibilityObjectWrapper> m_wrapper;
-#elif PLATFORM(WIN)
+#elif PLATFORM(WIN) && !PLATFORM(WINCE)
     COMPtr<AccessibilityObjectWrapper> m_wrapper;
 #elif PLATFORM(GTK)
     AtkObject* m_wrapper;

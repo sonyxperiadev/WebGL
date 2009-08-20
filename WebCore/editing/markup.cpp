@@ -58,6 +58,7 @@
 #include "htmlediting.h"
 #include "visible_units.h"
 #include <wtf/StdLibExtras.h>
+#include "ApplyStyleCommand.h"
 
 using namespace std;
 
@@ -291,20 +292,16 @@ static void removeEnclosingMailBlockquoteStyle(CSSMutableStyleDeclaration* style
     Node* blockquote = nearestMailBlockquote(node);
     if (!blockquote || !blockquote->parentNode())
         return;
-            
-    RefPtr<CSSMutableStyleDeclaration> parentStyle = Position(blockquote->parentNode(), 0).computedStyle()->copyInheritableProperties();
-    RefPtr<CSSMutableStyleDeclaration> blockquoteStyle = Position(blockquote, 0).computedStyle()->copyInheritableProperties();
-    parentStyle->diff(blockquoteStyle.get());
-    blockquoteStyle->diff(style);
+
+    removeStylesAddedByNode(style, blockquote);
 }
 
 static void removeDefaultStyles(CSSMutableStyleDeclaration* style, Document* document)
 {
     if (!document || !document->documentElement())
         return;
-            
-    RefPtr<CSSMutableStyleDeclaration> documentStyle = computedStyle(document->documentElement())->copyInheritableProperties();
-    documentStyle->diff(style);
+
+    prepareEditingStyleToApplyAt(style, Position(document->documentElement(), 0));
 }
 
 static bool shouldAddNamespaceElem(const Element* elem)
@@ -692,7 +689,7 @@ static PassRefPtr<CSSMutableStyleDeclaration> styleFromMatchedRulesAndInlineDecl
     return style.release();
 }
 
-static bool propertyMissingOrEqualToNone(CSSMutableStyleDeclaration* style, int propertyID)
+static bool propertyMissingOrEqualToNone(CSSStyleDeclaration* style, int propertyID)
 {
     if (!style)
         return false;
@@ -704,8 +701,11 @@ static bool propertyMissingOrEqualToNone(CSSMutableStyleDeclaration* style, int 
     return static_cast<CSSPrimitiveValue*>(value.get())->getIdent() == CSSValueNone;
 }
 
-static bool elementHasTextDecorationProperty(const Node* node)
+static bool isElementPresentational(const Node* node)
 {
+    if (node->hasTagName(uTag) || node->hasTagName(sTag) || node->hasTagName(strikeTag) ||
+        node->hasTagName(iTag) || node->hasTagName(emTag) || node->hasTagName(bTag) || node->hasTagName(strongTag))
+        return true;
     RefPtr<CSSMutableStyleDeclaration> style = styleFromMatchedRulesAndInlineDecl(node);
     if (!style)
         return false;
@@ -763,6 +763,25 @@ static bool shouldIncludeWrapperForFullySelectedRoot(Node* fullySelectedRoot, CS
            style->getPropertyCSSValue(CSSPropertyBackgroundColor);
 }
 
+static void addStyleMarkup(Vector<String>& preMarkups, Vector<String>& postMarkups, CSSStyleDeclaration* style, Document* document, bool isBlock = false)
+{
+    // All text-decoration-related elements should have been treated as special ancestors
+    // If we ever hit this ASSERT, we should export StyleChange in ApplyStyleCommand and use it here
+    ASSERT(propertyMissingOrEqualToNone(style, CSSPropertyTextDecoration) && propertyMissingOrEqualToNone(style, CSSPropertyWebkitTextDecorationsInEffect));
+    DEFINE_STATIC_LOCAL(const String, divStyle, ("<div style=\""));
+    DEFINE_STATIC_LOCAL(const String, divClose, ("</div>"));
+    DEFINE_STATIC_LOCAL(const String, styleSpanOpen, ("<span class=\"" AppleStyleSpanClass "\" style=\""));
+    DEFINE_STATIC_LOCAL(const String, styleSpanClose, ("</span>"));
+    Vector<UChar> openTag;
+    append(openTag, isBlock ? divStyle : styleSpanOpen);
+    appendAttributeValue(openTag, style->cssText(), document->isHTMLDocument());
+    openTag.append('\"');
+    openTag.append('>');
+    preMarkups.append(String::adopt(openTag));
+
+    postMarkups.append(isBlock ? divClose : styleSpanClose);
+}
+
 // FIXME: Shouldn't we omit style info when annotate == DoNotAnnotateForInterchange? 
 // FIXME: At least, annotation and style info should probably not be included in range.markupString()
 String createMarkup(const Range* range, Vector<Node*>* nodes, EAnnotateForInterchange annotate, bool convertBlocksToInlines)
@@ -775,8 +794,6 @@ String createMarkup(const Range* range, Vector<Node*>* nodes, EAnnotateForInterc
     Document* document = range->ownerDocument();
     if (!document)
         return "";
-
-    bool documentIsHTML = document->isHTMLDocument();
 
     // Disable the delete button so it's elements are not serialized into the markup,
     // but make sure neither endpoint is inside the delete user interface.
@@ -927,12 +944,12 @@ String createMarkup(const Range* range, Vector<Node*>* nodes, EAnnotateForInterc
             if (isMailBlockquote(ancestor))
                 specialCommonAncestor = ancestor;
     }
-    
+
     Node* checkAncestor = specialCommonAncestor ? specialCommonAncestor : commonAncestor;
     if (checkAncestor->renderer()) {
-        RefPtr<CSSMutableStyleDeclaration> checkAncestorStyle = computedStyle(checkAncestor)->copyInheritableProperties();
-        if (!propertyMissingOrEqualToNone(checkAncestorStyle.get(), CSSPropertyWebkitTextDecorationsInEffect))
-            specialCommonAncestor = enclosingNodeOfType(Position(checkAncestor, 0), &elementHasTextDecorationProperty);
+        Node* newSpecialCommonAncestor = highestEnclosingNodeOfType(Position(checkAncestor, 0), &isElementPresentational);
+        if (newSpecialCommonAncestor)
+            specialCommonAncestor = newSpecialCommonAncestor;
     }
     
     // If a single tab is selected, commonAncestor will be a text node inside a tab span.
@@ -966,18 +983,8 @@ String createMarkup(const Range* range, Vector<Node*>* nodes, EAnnotateForInterc
                 if (!fullySelectedRootStyle->getPropertyCSSValue(CSSPropertyBackgroundImage) && static_cast<Element*>(fullySelectedRoot)->hasAttribute(backgroundAttr))
                     fullySelectedRootStyle->setProperty(CSSPropertyBackgroundImage, "url('" + static_cast<Element*>(fullySelectedRoot)->getAttribute(backgroundAttr) + "')");
                 
-                if (fullySelectedRootStyle->length()) {
-                    Vector<UChar> openTag;
-                    DEFINE_STATIC_LOCAL(const String, divStyle, ("<div style=\""));
-                    append(openTag, divStyle);
-                    appendAttributeValue(openTag, fullySelectedRootStyle->cssText(), documentIsHTML);
-                    openTag.append('\"');
-                    openTag.append('>');
-                    preMarkups.append(String::adopt(openTag));
-
-                    DEFINE_STATIC_LOCAL(const String, divCloseTag, ("</div>"));
-                    markups.append(divCloseTag);
-                }
+                if (fullySelectedRootStyle->length())
+                    addStyleMarkup(preMarkups, markups, fullySelectedRootStyle.get(), document, true);
             } else {
                 // Since this node and all the other ancestors are not in the selection we want to set RangeFullySelectsNode to DoesNotFullySelectNode
                 // so that styles that affect the exterior of the node are not included.
@@ -993,14 +1000,11 @@ String createMarkup(const Range* range, Vector<Node*>* nodes, EAnnotateForInterc
                 break;
         }
     }
-    
-    DEFINE_STATIC_LOCAL(const String, styleSpanOpen, ("<span class=\"" AppleStyleSpanClass "\" style=\""));
-    DEFINE_STATIC_LOCAL(const String, styleSpanClose, ("</span>"));
-    
+
     // Add a wrapper span with the styles that all of the nodes in the markup inherit.
     Node* parentOfLastClosed = lastClosed ? lastClosed->parentNode() : 0;
     if (parentOfLastClosed && parentOfLastClosed->renderer()) {
-        RefPtr<CSSMutableStyleDeclaration> style = computedStyle(parentOfLastClosed)->copyInheritableProperties();
+        RefPtr<CSSMutableStyleDeclaration> style = editingStyleAtPosition(Position(parentOfLastClosed, 0));
 
         // Styles that Mail blockquotes contribute should only be placed on the Mail blockquote, to help
         // us differentiate those styles from ones that the user has applied.  This helps us
@@ -1016,33 +1020,18 @@ String createMarkup(const Range* range, Vector<Node*>* nodes, EAnnotateForInterc
         if (convertBlocksToInlines)
             style->removeBlockProperties();
 
-        if (style->length() > 0) {
-            Vector<UChar> openTag;
-            append(openTag, styleSpanOpen);
-            appendAttributeValue(openTag, style->cssText(), documentIsHTML);
-            openTag.append('\"');
-            openTag.append('>');
-            preMarkups.append(String::adopt(openTag));
-            
-            markups.append(styleSpanClose);
-        }
+        if (style->length() > 0)
+            addStyleMarkup(preMarkups, markups, style.get(), document);
     }
     
     if (lastClosed && lastClosed != document->documentElement()) {
         // Add a style span with the document's default styles.  We add these in a separate
         // span so that at paste time we can differentiate between document defaults and user
         // applied styles.
-        RefPtr<CSSMutableStyleDeclaration> defaultStyle = computedStyle(document->documentElement())->copyInheritableProperties();
-        
-        if (defaultStyle->length() > 0) {
-            Vector<UChar> openTag;
-            append(openTag, styleSpanOpen);
-            appendAttributeValue(openTag, defaultStyle->cssText(), documentIsHTML);
-            openTag.append('\"');
-            openTag.append('>');
-            preMarkups.append(String::adopt(openTag));
-            markups.append(styleSpanClose);
-        }
+        RefPtr<CSSMutableStyleDeclaration> defaultStyle = editingStyleAtPosition(Position(document->documentElement(), 0));
+
+        if (defaultStyle->length() > 0)
+            addStyleMarkup(preMarkups, markups, defaultStyle.get(), document);
     }
 
     // FIXME: The interchange newline should be placed in the block that it's in, not after all of the content, unconditionally.

@@ -52,6 +52,7 @@ namespace WebCore {
     class Frame;
     class History;
     class Location;
+    class Media;
     class MessagePort;
     class Navigator;
     class Node;
@@ -61,7 +62,6 @@ namespace WebCore {
     class WebKitPoint;
 
 #if ENABLE(DOM_STORAGE)
-    class SessionStorage;
     class Storage;
 #endif
 
@@ -175,6 +175,8 @@ namespace WebCore {
 
         // DOM Level 2 AbstractView Interface
         Document* document() const;
+        // CSSOM View Module
+        PassRefPtr<Media> media() const;
 
         // DOM Level 2 Style Interface
         PassRefPtr<CSSStyleDeclaration> getComputedStyle(Element*, const String& pseudoElt) const;
@@ -383,7 +385,7 @@ namespace WebCore {
         void captureEvents();
         void releaseEvents();
 
-        // These methods are used for GC marking. See JSDOMWindow::mark() in
+        // These methods are used for GC marking. See JSDOMWindow::markChildren(MarkStack&) in
         // JSDOMWindowCustom.cpp.
         Screen* optionalScreen() const { return m_screen.get(); }
         DOMSelection* optionalSelection() const { return m_selection.get(); }

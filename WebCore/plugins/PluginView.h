@@ -122,7 +122,7 @@ namespace WebCore {
 
     class PluginView : public Widget, private PluginStreamClient, public PluginManualLoader {
     public:
-        static PluginView* create(Frame* parentFrame, const IntSize&, Element*, const KURL&, const Vector<String>& paramNames, const Vector<String>& paramValues, const String& mimeType, bool loadManually);
+        static PassRefPtr<PluginView> create(Frame* parentFrame, const IntSize&, Element*, const KURL&, const Vector<String>& paramNames, const Vector<String>& paramValues, const String& mimeType, bool loadManually);
         virtual ~PluginView();
 
         PluginPackage* plugin() const { return m_plugin.get(); }
@@ -200,6 +200,10 @@ namespace WebCore {
 
         void focusPluginElement();
 
+        const String& pluginsPage() const { return m_pluginsPage; }
+        const String& mimeType() const { return m_mimeType; }
+        const KURL& url() const { return m_url; }
+
 #if PLATFORM(WIN_OS) && !PLATFORM(WX) && ENABLE(NETSCAPE_PLUGIN_API)
         static LRESULT CALLBACK PluginViewWndProc(HWND, UINT, WPARAM, LPARAM);
         LRESULT wndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
@@ -219,12 +223,16 @@ namespace WebCore {
         Element* getElement() const { return m_element; }
 #endif
 
+        bool start();
+
     private:
         PluginView(Frame* parentFrame, const IntSize&, PluginPackage*, Element*, const KURL&, const Vector<String>& paramNames, const Vector<String>& paramValues, const String& mimeType, bool loadManually);
 
         void setParameters(const Vector<String>& paramNames, const Vector<String>& paramValues);
+        bool startOrAddToUnstartedList();
+        void removeFromUnstartedListIfNecessary();
         void init();
-        bool start();
+        void platformStart();
         void stop();
         static void setCurrentPluginView(PluginView*);
         NPError load(const FrameLoadRequest&, bool sendNotification, void* notifyData);
@@ -283,8 +291,9 @@ namespace WebCore {
         int m_paramCount;
         char** m_paramNames;
         char** m_paramValues;
+        String m_pluginsPage;
 
-        CString m_mimeType;
+        String m_mimeType;
         CString m_userAgent;
 
         NPP m_instance;
@@ -299,6 +308,7 @@ namespace WebCore {
         bool m_isWindowed;
         bool m_isTransparent;
         bool m_haveInitialized;
+        bool m_isWaitingToStart;
 
 #if PLATFORM(GTK) || defined(Q_WS_X11)
         bool m_needsXEmbed;
@@ -310,6 +320,7 @@ namespace WebCore {
         unsigned m_lastMessage;
         bool m_isCallingPluginWndProc;
         HDC m_wmPrintHDC;
+        bool m_haveUpdatedPluginWidget;
 #endif
 
 #ifdef PLUGIN_SCHEDULE_TIMER
@@ -339,6 +350,8 @@ private:
 #elif defined(XP_MACOSX)
         NP_CGContext m_npCgContext;
         OwnPtr<Timer<PluginView> > m_nullEventTimer;
+        NPDrawingModel m_drawingModel;
+        NPEventModel m_eventModel;
 
         void setNPWindowIfNeeded();
         void nullEventTimerFired(Timer<PluginView>*);

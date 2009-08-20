@@ -79,7 +79,7 @@ const AtomicString& HTMLOptionElement::formControlType() const
 
 String HTMLOptionElement::text() const
 {
-    return OptionElement::collectOptionText(m_data, this);
+    return OptionElement::collectOptionLabelOrText(m_data, this);
 }
 
 void HTMLOptionElement::setText(const String &text, ExceptionCode& ec)
@@ -152,10 +152,10 @@ void HTMLOptionElement::setSelectedState(bool selected)
 
 void HTMLOptionElement::childrenChanged(bool changedByParser, Node* beforeChange, Node* afterChange, int childCountDelta)
 {
-   HTMLSelectElement* select = ownerSelectElement();
-   if (select)
-       select->childrenChanged(changedByParser);
-   HTMLFormControlElement::childrenChanged(changedByParser, beforeChange, afterChange, childCountDelta);
+    HTMLSelectElement* select = ownerSelectElement();
+    if (select)
+        select->childrenChanged(changedByParser);
+    HTMLFormControlElement::childrenChanged(changedByParser, beforeChange, afterChange, childCountDelta);
 }
 
 HTMLSelectElement* HTMLOptionElement::ownerSelectElement() const

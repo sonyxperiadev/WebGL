@@ -82,8 +82,8 @@ namespace android {
         virtual bool menubarVisible();
         
         virtual void setResizable(bool);
-        
-        virtual void addMessageToConsole(MessageSource, MessageLevel, const String& message, unsigned int lineNumber, const String& sourceID);
+
+        virtual void addMessageToConsole(MessageSource, MessageType, MessageLevel, const String& message, unsigned int lineNumber, const String& sourceID);
         
         virtual bool canRunBeforeUnloadConfirmPanel();
         virtual bool runBeforeUnloadConfirmPanel(const String& message, Frame* frame);
@@ -110,8 +110,8 @@ namespace android {
         // End methods used by HostWindow.
 
         virtual void mouseDidMoveOverElement(const HitTestResult&, unsigned int);
-        
-        virtual void setToolTip(const String&);
+
+        virtual void setToolTip(const String&, TextDirection);
         
         virtual void print(Frame*);
 #if ENABLE(DATABASE)

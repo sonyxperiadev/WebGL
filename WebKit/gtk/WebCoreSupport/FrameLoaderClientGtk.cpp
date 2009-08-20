@@ -1,6 +1,6 @@
 /*
  *  Copyright (C) 2007, 2008 Alp Toker <alp@atoker.com>
- *  Copyright (C) 2007, 2008 Holger Hans Peter Freyther
+ *  Copyright (C) 2007, 2008, 2009 Holger Hans Peter Freyther
  *  Copyright (C) 2007 Christian Dywan <christian@twotoasts.de>
  *  Copyright (C) 2008 Collabora Ltd.  All rights reserved.
  *  Copyright (C) 2009 Gustavo Noronha Silva <gns@gnome.org>
@@ -29,6 +29,8 @@
 #include "FrameLoader.h"
 #include "FrameView.h"
 #include "FrameTree.h"
+#include "GOwnPtr.h"
+#include "GtkPluginWidget.h"
 #include "HTMLAppletElement.h"
 #include "HTMLFormElement.h"
 #include "HTMLFrameElement.h"
@@ -49,18 +51,19 @@
 #include "ProgressTracker.h"
 #include "JSDOMBinding.h"
 #include "ScriptController.h"
-#include "webkitwebview.h"
+#include "webkiterror.h"
 #include "webkitnetworkrequest.h"
+#include "webkitprivate.h"
 #include "webkitwebframe.h"
 #include "webkitwebnavigationaction.h"
 #include "webkitwebpolicydecision.h"
-#include "webkitprivate.h"
+#include "webkitwebview.h"
 
 #include <JavaScriptCore/APICast.h>
+#include <gio/gio.h>
+#include <glib.h>
+#include <glib/gi18n-lib.h>
 #include <stdio.h>
-#if PLATFORM(UNIX)
-#include <sys/utsname.h>
-#endif
 
 using namespace WebCore;
 
@@ -68,7 +71,6 @@ namespace WebKit {
 
 FrameLoaderClient::FrameLoaderClient(WebKitWebFrame* frame)
     : m_frame(frame)
-    , m_userAgent("")
     , m_policyDecision(0)
     , m_pluginView(0)
     , m_hasSentResponseToPlugin(false)
@@ -82,86 +84,29 @@ FrameLoaderClient::~FrameLoaderClient()
         g_object_unref(m_policyDecision);
 }
 
-static String agentPlatform()
-{
-#ifdef GDK_WINDOWING_X11
-    return "X11";
-#elif defined(GDK_WINDOWING_WIN32)
-    return "Windows";
-#elif defined(GDK_WINDOWING_QUARTZ)
-    return "Macintosh";
-#elif defined(GDK_WINDOWING_DIRECTFB)
-    return "DirectFB";
-#else
-    notImplemented();
-    return "Unknown";
-#endif
-}
-
-static String agentOS()
-{
-#if PLATFORM(DARWIN)
-#if PLATFORM(X86)
-    return "Intel Mac OS X";
-#else
-    return "PPC Mac OS X";
-#endif
-#elif PLATFORM(UNIX)
-    struct utsname name;
-    if (uname(&name) != -1)
-        return String::format("%s %s", name.sysname, name.machine);
-    else
-        return "Unknown";
-#elif PLATFORM(WIN_OS)
-    // FIXME: Compute the Windows version
-    return "Windows";
-#else
-    notImplemented();
-    return "Unknown";
-#endif
-}
-
-static String composeUserAgent()
-{
-    // This is a liberal interpretation of http://www.mozilla.org/build/revised-user-agent-strings.html
-    // See also http://developer.apple.com/internet/safari/faq.html#anchor2
-
-    String ua;
-
-    // Product
-    ua += "Mozilla/5.0";
-
-    // Comment
-    ua += " (";
-    ua += agentPlatform(); // Platform
-    ua += "; U; "; // Security
-    ua += agentOS(); // OS-or-CPU
-    ua += "; ";
-    ua += defaultLanguage(); // Localization information
-    ua += ") ";
-
-    // WebKit Product
-    // FIXME: The WebKit version is hardcoded
-    static const String webKitVersion = "528.5+";
-    ua += "AppleWebKit/" + webKitVersion;
-    ua += " (KHTML, like Gecko, ";
-    // We mention Safari since many broken sites check for it (OmniWeb does this too)
-    // We re-use the WebKit version, though it doesn't seem to matter much in practice
-    ua += "Safari/" + webKitVersion;
-    ua += ") ";
-
-    // Vendor Product
-    ua += g_get_prgname();
-
-    return ua;
-}
-
 String FrameLoaderClient::userAgent(const KURL&)
 {
-    if (m_userAgent.isEmpty())
-        m_userAgent = composeUserAgent();
+    WebKitWebSettings* settings = webkit_web_view_get_settings(getViewFromFrame(m_frame));
+    return String::fromUTF8(webkit_web_settings_get_user_agent(settings));
+}
 
-    return m_userAgent;
+static void notifyStatus(WebKitWebFrame* frame, WebKitLoadStatus loadStatus)
+{
+    frame->priv->loadStatus = loadStatus;
+    g_object_notify(G_OBJECT(frame), "load-status");
+
+    WebKitWebView* webView = getViewFromFrame(frame);
+    if (frame == webkit_web_view_get_main_frame(webView)) {
+        webView->priv->loadStatus = loadStatus;
+        g_object_notify(G_OBJECT(webView), "load-status");
+    }
+}
+
+static void loadDone(WebKitWebFrame* frame, bool didSucceed)
+{
+    // FIXME: load-done is deprecated. Please remove when signal's been removed.
+    g_signal_emit_by_name(frame, "load-done", didSucceed);
+    notifyStatus(frame, WEBKIT_LOAD_FINISHED);
 }
 
 WTF::PassRefPtr<WebCore::DocumentLoader> FrameLoaderClient::createDocumentLoader(const WebCore::ResourceRequest& request, const SubstituteData& substituteData)
@@ -201,6 +146,13 @@ void FrameLoaderClient::committedLoad(DocumentLoader* loader, const char* data, 
             m_pluginView->didReceiveResponse(loader->response());
             m_hasSentResponseToPlugin = true;
         }
+
+        // FIXME: We may want to investigate refactoring our plugin loading
+        // code to be similar to mac's.
+        // Also, see http://trac.webkit.org/changeset/24118.
+        if (!m_pluginView)
+            return;
+
         m_pluginView->didReceiveData(data, length);
     }
 }
@@ -236,6 +188,8 @@ void FrameLoaderClient::postProgressStartedNotification()
 {
     WebKitWebView* webView = getViewFromFrame(m_frame);
     g_signal_emit_by_name(webView, "load-started", m_frame);
+
+    g_object_notify(G_OBJECT(webView), "progress");
 }
 
 void FrameLoaderClient::postProgressEstimateChangedNotification()
@@ -244,6 +198,8 @@ void FrameLoaderClient::postProgressEstimateChangedNotification()
     Page* corePage = core(webView);
 
     g_signal_emit_by_name(webView, "load-progress-changed", lround(corePage->progress()->estimatedProgress()*100));
+
+    g_object_notify(G_OBJECT(webView), "progress");
 }
 
 void FrameLoaderClient::postProgressFinishedNotification()
@@ -282,7 +238,7 @@ void FrameLoaderClient::dispatchDecidePolicyForMIMEType(FramePolicyFunction poli
     }
 
     WebKitWebView* page = getViewFromFrame(m_frame);
-    WebKitNetworkRequest* request = webkit_network_request_new(resourceRequest.url().string().utf8().data());
+    WebKitNetworkRequest* request = webkit_network_request_new_with_core_request(resourceRequest);
 
     WebKitWebPolicyDecision* policyDecision = webkit_web_policy_decision_new(m_frame, policyFunction);
     if (m_policyDecision)
@@ -303,7 +259,7 @@ void FrameLoaderClient::dispatchDecidePolicyForMIMEType(FramePolicyFunction poli
         webkit_web_policy_decision_ignore (policyDecision);
 }
 
-static WebKitWebNavigationAction* getNavigationAction(const NavigationAction& action)
+static WebKitWebNavigationAction* getNavigationAction(const NavigationAction& action, const char* targetFrame)
 {
     gint button = -1;
 
@@ -333,10 +289,11 @@ static WebKitWebNavigationAction* getNavigationAction(const NavigationAction& ac
                                                      "original-uri", action.url().string().utf8().data(),
                                                      "button", button,
                                                      "modifier-state", modifierFlags,
+                                                     "target-frame", targetFrame,
                                                      NULL));
 }
 
-void FrameLoaderClient::dispatchDecidePolicyForNewWindowAction(FramePolicyFunction policyFunction, const NavigationAction& action, const ResourceRequest& resourceRequest, PassRefPtr<FormState>, const String& s)
+void FrameLoaderClient::dispatchDecidePolicyForNewWindowAction(FramePolicyFunction policyFunction, const NavigationAction& action, const ResourceRequest& resourceRequest, PassRefPtr<FormState>, const String& frameName)
 {
     ASSERT(policyFunction);
     if (!policyFunction)
@@ -355,7 +312,7 @@ void FrameLoaderClient::dispatchDecidePolicyForNewWindowAction(FramePolicyFuncti
 
     WebKitWebView* webView = getViewFromFrame(m_frame);
     WebKitNetworkRequest* request = webkit_network_request_new(resourceRequest.url().string().utf8().data());
-    WebKitWebNavigationAction* navigationAction = getNavigationAction(action);
+    WebKitWebNavigationAction* navigationAction = getNavigationAction(action, frameName.utf8().data());
     gboolean isHandled = false;
 
     g_signal_emit_by_name(webView, "new-window-policy-decision-requested", m_frame, request, navigationAction, policyDecision, &isHandled);
@@ -381,7 +338,7 @@ void FrameLoaderClient::dispatchDecidePolicyForNavigationAction(FramePolicyFunct
     }
 
     WebKitWebView* webView = getViewFromFrame(m_frame);
-    WebKitNetworkRequest* request = webkit_network_request_new(resourceRequest.url().string().utf8().data());
+    WebKitNetworkRequest* request = webkit_network_request_new_with_core_request(resourceRequest);
     WebKitNavigationResponse response;
     /*
      * We still support the deprecated navigation-requested signal, if the
@@ -403,7 +360,7 @@ void FrameLoaderClient::dispatchDecidePolicyForNavigationAction(FramePolicyFunct
         g_object_unref(m_policyDecision);
     m_policyDecision = policyDecision;
 
-    WebKitWebNavigationAction* navigationAction = getNavigationAction(action);
+    WebKitWebNavigationAction* navigationAction = getNavigationAction(action, NULL);
     gboolean isHandled = false;
     g_signal_emit_by_name(webView, "navigation-policy-decision-requested", m_frame, request, navigationAction, policyDecision, &isHandled);
 
@@ -415,9 +372,27 @@ void FrameLoaderClient::dispatchDecidePolicyForNavigationAction(FramePolicyFunct
         webkit_web_policy_decision_use(m_policyDecision);
 }
 
-Widget* FrameLoaderClient::createPlugin(const IntSize& pluginSize, HTMLPlugInElement* element, const KURL& url, const Vector<String>& paramNames, const Vector<String>& paramValues, const String& mimeType, bool loadManually)
+PassRefPtr<Widget> FrameLoaderClient::createPlugin(const IntSize& pluginSize, HTMLPlugInElement* element, const KURL& url, const Vector<String>& paramNames, const Vector<String>& paramValues, const String& mimeType, bool loadManually)
 {
-    PluginView* pluginView = PluginView::create(core(m_frame), pluginSize, element, url, paramNames, paramValues, mimeType, loadManually);
+    /* Check if we want to embed a GtkWidget, fallback to plugins later */
+    CString urlString = url.string().utf8();
+    CString mimeTypeString = mimeType.utf8();
+
+    ASSERT(paramNames.size() == paramValues.size());
+    GOwnPtr<GHashTable> hash(g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free));
+    for (unsigned i = 0; i < paramNames.size(); ++i) {
+        g_hash_table_insert(hash.get(),
+                            g_strdup(paramNames[i].utf8().data()),
+                            g_strdup(paramValues[i].utf8().data()));
+    }
+
+    GtkWidget* gtkWidget = 0;
+    g_signal_emit_by_name(getViewFromFrame(m_frame), "create-plugin-widget",
+                          mimeTypeString.data(), urlString.data(), hash.get(), &gtkWidget);
+    if (gtkWidget)
+        return adoptRef(new GtkPluginWidget(gtkWidget));
+
+    RefPtr<PluginView> pluginView = PluginView::create(core(m_frame), pluginSize, element, url, paramNames, paramValues, mimeType, loadManually);
 
     if (pluginView->status() == PluginStatusLoadedSuccessfully)
         return pluginView;
@@ -438,7 +413,12 @@ PassRefPtr<Frame> FrameLoaderClient::createFrame(const KURL& url, const String& 
 
     childFrame->tree()->setName(name);
     childFrame->init();
-    childFrame->loader()->loadURL(url, referrer, String(), false, FrameLoadTypeRedirectWithLockedBackForwardList, 0, 0);
+
+    // The creation of the frame may have run arbitrary JavaScript that removed it from the page already.
+    if (!childFrame->page())
+        return 0;
+
+    childFrame->loader()->loadURLIntoChildFrame(url, referrer, childFrame.get());
 
     // The frame's onload handler may have removed it from the document.
     if (!childFrame->tree()->parent())
@@ -454,7 +434,7 @@ void FrameLoaderClient::redirectDataToPlugin(Widget* pluginWidget)
     m_hasSentResponseToPlugin = false;
 }
 
-Widget* FrameLoaderClient::createJavaAppletWidget(const IntSize&, HTMLAppletElement*, const KURL& baseURL,
+PassRefPtr<Widget> FrameLoaderClient::createJavaAppletWidget(const IntSize&, HTMLAppletElement*, const KURL& baseURL,
                                                   const Vector<String>& paramNames, const Vector<String>& paramValues)
 {
     notImplemented();
@@ -540,7 +520,7 @@ bool FrameLoaderClient::hasWebView() const
 
 void FrameLoaderClient::dispatchDidFinishLoad()
 {
-    g_signal_emit_by_name(m_frame, "load-done", true);
+    loadDone(m_frame, true);
 }
 
 void FrameLoaderClient::frameLoadCompleted()
@@ -624,6 +604,9 @@ void FrameLoaderClient::dispatchDidChangeLocationWithinPage()
     g_free(priv->uri);
     priv->uri = g_strdup(core(m_frame)->loader()->url().prettyURL().utf8().data());
     g_object_notify(G_OBJECT(m_frame), "uri");
+    WebKitWebView* webView = getViewFromFrame(m_frame);
+    if (m_frame == webkit_web_view_get_main_frame(webView))
+        g_object_notify(G_OBJECT(webView), "uri");
 }
 
 void FrameLoaderClient::dispatchWillClose()
@@ -640,6 +623,7 @@ void FrameLoaderClient::dispatchDidReceiveIcon()
 
 void FrameLoaderClient::dispatchDidStartProvisionalLoad()
 {
+    notifyStatus(m_frame, WEBKIT_LOAD_PROVISIONAL);
 }
 
 void FrameLoaderClient::dispatchDidReceiveTitle(const String& title)
@@ -674,6 +658,7 @@ void FrameLoaderClient::dispatchDidCommitLoad()
     g_object_notify(G_OBJECT(m_frame), "title");
 
     g_signal_emit_by_name(m_frame, "load-committed");
+    notifyStatus(m_frame, WEBKIT_LOAD_COMMITTED);
 
     WebKitWebView* webView = getViewFromFrame(m_frame);
     if (m_frame == webkit_web_view_get_main_frame(webView)) {
@@ -699,7 +684,7 @@ void FrameLoaderClient::dispatchDidFirstLayout()
 
 void FrameLoaderClient::dispatchDidFirstVisuallyNonEmptyLayout()
 {
-    notImplemented();
+    notifyStatus(m_frame, WEBKIT_LOAD_FIRST_VISUALLY_NON_EMPTY_LAYOUT);
 }
 
 void FrameLoaderClient::dispatchShow()
@@ -799,7 +784,13 @@ void FrameLoaderClient::dispatchDidFinishLoading(DocumentLoader*, unsigned long 
     notImplemented();
 }
 
-void FrameLoaderClient::dispatchDidFailLoading(DocumentLoader*, unsigned long identifier, const ResourceError&)
+void FrameLoaderClient::dispatchDidFailLoading(DocumentLoader*, unsigned long identifier, const ResourceError& error)
+{
+    // FIXME: when does this occur and what should happen?
+    notImplemented();
+}
+
+void FrameLoaderClient::dispatchDidLoadResourceByXMLHttpRequest(unsigned long, const ScriptString&)
 {
     notImplemented();
 }
@@ -810,73 +801,122 @@ bool FrameLoaderClient::dispatchDidLoadResourceFromMemoryCache(DocumentLoader*, 
     return false;
 }
 
-void FrameLoaderClient::dispatchDidFailProvisionalLoad(const ResourceError&)
+void FrameLoaderClient::dispatchDidFailProvisionalLoad(const ResourceError& error)
 {
-    g_signal_emit_by_name(m_frame, "load-done", false);
+    dispatchDidFailLoad(error);
+
+    loadDone(m_frame, false);
 }
 
-void FrameLoaderClient::dispatchDidFailLoad(const ResourceError&)
+void FrameLoaderClient::dispatchDidFailLoad(const ResourceError& error)
 {
-    g_signal_emit_by_name(m_frame, "load-done", false);
+    WebKitWebView* webView = getViewFromFrame(m_frame);
+    GError* webError = g_error_new_literal(g_quark_from_string(error.domain().utf8().data()),
+                                           error.errorCode(),
+                                           error.localizedDescription().utf8().data());
+    gboolean isHandled = false;
+    g_signal_emit_by_name(webView, "load-error", m_frame, error.failingURL().utf8().data(), webError, &isHandled);
+
+    if (isHandled) {
+        g_error_free(webError);
+        return;
+    }
+
+    if (!shouldFallBack(error)) {
+        g_error_free(webError);
+        loadDone(m_frame, false);
+        return;
+    }
+
+    String content;
+    gchar* fileContent = 0;
+    gchar* errorURI = g_filename_to_uri(DATA_DIR"/webkit-1.0/resources/error.html", NULL, NULL);
+    GFile* errorFile = g_file_new_for_uri(errorURI);
+    g_free(errorURI);
+
+    if (!errorFile)
+        content = String::format("<html><body>%s</body></html>", webError->message);
+    else {
+        gboolean loaded = g_file_load_contents(errorFile, 0, &fileContent, 0, 0, 0);
+        if (!loaded)
+            content = String::format("<html><body>%s</body></html>", webError->message);
+        else
+            content = String::format(fileContent, error.failingURL().utf8().data(), webError->message);
+    }
+
+    webkit_web_frame_load_alternate_string(m_frame, content.utf8().data(), 0, error.failingURL().utf8().data());
+
+    g_free(fileContent);
+
+    if (errorFile)
+        g_object_unref(errorFile);
+
+    g_error_free(webError);
+
+    loadDone(m_frame, false);
 }
 
-void FrameLoaderClient::download(ResourceHandle* handle, const ResourceRequest& request, const ResourceRequest&, const ResourceResponse&)
+void FrameLoaderClient::download(ResourceHandle* handle, const ResourceRequest& request, const ResourceRequest&, const ResourceResponse& response)
 {
     // FIXME: We could reuse the same handle here, but when I tried
     // implementing that the main load would fail and stop, so I have
     // simplified this case for now.
     handle->cancel();
-    startDownload(request);
+
+    WebKitNetworkRequest* networkRequest = webkit_network_request_new(request.url().string().utf8().data());
+    WebKitWebView* view = getViewFromFrame(m_frame);
+
+    webkit_web_view_request_download(view, networkRequest, response);
+    g_object_unref(networkRequest);
 }
 
-ResourceError FrameLoaderClient::cancelledError(const ResourceRequest&)
+ResourceError FrameLoaderClient::cancelledError(const ResourceRequest& request)
 {
-    notImplemented();
-    ResourceError error("", 0, "", "");
-    error.setIsCancellation(true);
-    return error;
+    return ResourceError(g_quark_to_string(WEBKIT_NETWORK_ERROR), WEBKIT_NETWORK_ERROR_CANCELLED,
+                         request.url().string(), _("Load request cancelled"));
 }
 
-ResourceError FrameLoaderClient::blockedError(const ResourceRequest&)
+ResourceError FrameLoaderClient::blockedError(const ResourceRequest& request)
 {
-    notImplemented();
-    return ResourceError("", 0, "", "");
+    return ResourceError(g_quark_to_string(WEBKIT_POLICY_ERROR), WEBKIT_POLICY_ERROR_CANNOT_USE_RESTRICTED_PORT,
+                         request.url().string(), _("Not allowed to use restricted network port"));
 }
 
-ResourceError FrameLoaderClient::cannotShowURLError(const ResourceRequest&)
+ResourceError FrameLoaderClient::cannotShowURLError(const ResourceRequest& request)
 {
-    notImplemented();
-    return ResourceError("", 0, "", "");
+    return ResourceError(g_quark_to_string(WEBKIT_POLICY_ERROR), WEBKIT_POLICY_ERROR_CANNOT_SHOW_URL,
+                         request.url().string(), _("URL cannot be shown"));
 }
 
-ResourceError FrameLoaderClient::interruptForPolicyChangeError(const ResourceRequest&)
+ResourceError FrameLoaderClient::interruptForPolicyChangeError(const ResourceRequest& request)
 {
-    notImplemented();
-    return ResourceError("", 0, "", "");
+    return ResourceError(g_quark_to_string(WEBKIT_POLICY_ERROR), WEBKIT_POLICY_ERROR_FRAME_LOAD_INTERRUPTED_BY_POLICY_CHANGE,
+                         request.url().string(), _("Frame load was interrupted"));
 }
 
-ResourceError FrameLoaderClient::cannotShowMIMETypeError(const ResourceResponse&)
+ResourceError FrameLoaderClient::cannotShowMIMETypeError(const ResourceResponse& response)
 {
-    notImplemented();
-    return ResourceError("", 0, "", "");
+    return ResourceError(g_quark_to_string(WEBKIT_POLICY_ERROR), WEBKIT_POLICY_ERROR_CANNOT_SHOW_MIME_TYPE,
+                         response.url().string(), _("Content with the specified MIME type cannot be shown"));
 }
 
-ResourceError FrameLoaderClient::fileDoesNotExistError(const ResourceResponse&)
+ResourceError FrameLoaderClient::fileDoesNotExistError(const ResourceResponse& response)
 {
-    notImplemented();
-    return ResourceError("", 0, "", "");
+    return ResourceError(g_quark_to_string(WEBKIT_NETWORK_ERROR), WEBKIT_NETWORK_ERROR_FILE_DOES_NOT_EXIST,
+                         response.url().string(), _("File does not exist"));
 }
 
-ResourceError FrameLoaderClient::pluginWillHandleLoadError(const ResourceResponse&)
+ResourceError FrameLoaderClient::pluginWillHandleLoadError(const ResourceResponse& response)
 {
-    notImplemented();
-    return ResourceError("", 0, "", "");
+    return ResourceError(g_quark_to_string(WEBKIT_PLUGIN_ERROR), WEBKIT_PLUGIN_ERROR_WILL_HANDLE_LOAD,
+                         response.url().string(), _("Plugin will handle load"));
 }
 
-bool FrameLoaderClient::shouldFallBack(const ResourceError&)
+bool FrameLoaderClient::shouldFallBack(const ResourceError& error)
 {
-    notImplemented();
-    return false;
+    // FIXME: Mac checks for WebKitErrorPlugInWillHandleLoad here to avoid
+    // loading plugin content twice. Do we need it?
+    return !(error.isCancellation() || error.errorCode() == WEBKIT_POLICY_ERROR_FRAME_LOAD_INTERRUPTED_BY_POLICY_CHANGE);
 }
 
 bool FrameLoaderClient::canCachePage() const
@@ -914,21 +954,11 @@ void FrameLoaderClient::setMainDocumentError(DocumentLoader*, const ResourceErro
 
 void FrameLoaderClient::startDownload(const ResourceRequest& request)
 {
-    WebKitNetworkRequest* networkRequest = webkit_network_request_new(request.url().string().utf8().data());
-    WebKitDownload* download = webkit_download_new(networkRequest);
-    g_object_unref(networkRequest);
-
+    WebKitNetworkRequest* networkRequest = webkit_network_request_new_with_core_request(request);
     WebKitWebView* view = getViewFromFrame(m_frame);
-    gboolean handled;
-    g_signal_emit_by_name(view, "download-requested", download, &handled);
 
-    if (!handled) {
-        webkit_download_cancel(download);
-        g_object_unref(download);
-        return;
-    }
-
-    webkit_download_start(download);
+    webkit_web_view_request_download(view, networkRequest);
+    g_object_unref(networkRequest);
 }
 
 void FrameLoaderClient::updateGlobalHistory()

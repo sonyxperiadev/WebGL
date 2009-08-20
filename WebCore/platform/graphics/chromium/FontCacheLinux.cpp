@@ -31,9 +31,8 @@
 #include "config.h"
 #include "FontCache.h"
 
-#include <fontconfig/fontconfig.h>
-
 #include "AtomicString.h"
+#include "ChromiumBridge.h"
 #include "CString.h"
 #include "Font.h"
 #include "FontDescription.h"
@@ -46,6 +45,7 @@
 #include "SkTypeface.h"
 #include "SkUtils.h"
 
+#include <unicode/utf16.h>
 #include <wtf/Assertions.h>
 
 namespace WebCore {
@@ -58,38 +58,12 @@ const SimpleFontData* FontCache::getFontDataForCharacters(const Font& font,
                                                           const UChar* characters,
                                                           int length)
 {
-    FcCharSet* cset = FcCharSetCreate();
-    for (int i = 0; i < length; ++i)
-        FcCharSetAddChar(cset, characters[i]);
+    String family = ChromiumBridge::getFontFamilyForCharacters(characters, length);
+    if (family.isEmpty())
+        return 0;
 
-    FcPattern* pattern = FcPatternCreate();
-
-    FcValue fcvalue;
-    fcvalue.type = FcTypeCharSet;
-    fcvalue.u.c = cset;
-    FcPatternAdd(pattern, FC_CHARSET, fcvalue, 0);
-
-    FcConfigSubstitute(0, pattern, FcMatchPattern);
-    FcDefaultSubstitute(pattern);
-
-    FcResult result;
-    FcPattern* match = FcFontMatch(0, pattern, &result);
-    FcPatternDestroy(pattern);
-
-    SimpleFontData* ret = 0;
-
-    if (match) {
-        FcChar8* family;
-        if (FcPatternGetString(match, FC_FAMILY, 0, &family) == FcResultMatch) {
-            AtomicString fontFamily(reinterpret_cast<char*>(family));
-            ret = getCachedFontData(getCachedFontPlatformData(font.fontDescription(), fontFamily, false));
-        }
-        FcPatternDestroy(match);
-    }
-
-    FcCharSetDestroy(cset);
-
-    return ret;
+    AtomicString atomicFamily(family);
+    return getCachedFontData(getCachedFontPlatformData(font.fontDescription(), atomicFamily, false));
 }
 
 FontPlatformData* FontCache::getSimilarFontPlatformData(const Font& font)
@@ -165,13 +139,7 @@ FontPlatformData* FontCache::createFontPlatformData(const FontDescription& fontD
     if (fontDescription.italic())
         style |= SkTypeface::kItalic;
 
-    // FIXME:  This #ifdef can go away once we're firmly using the new Skia.
-    // During the transition, this makes the code compatible with both versions.
-#ifdef SK_USE_OLD_255_TO_256
     SkTypeface* tf = SkTypeface::CreateFromName(name, static_cast<SkTypeface::Style>(style));
-#else
-    SkTypeface* tf = SkTypeface::Create(name, static_cast<SkTypeface::Style>(style));
-#endif
     if (!tf)
         return 0;
 

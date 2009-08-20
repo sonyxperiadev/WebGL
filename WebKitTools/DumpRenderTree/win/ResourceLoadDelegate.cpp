@@ -87,8 +87,15 @@ static wstring descriptionSuitableForTestResult(IWebURLRequest* request)
     
     wstring mainDocumentURL = urlSuitableForTestResult(wstringFromBSTR(mainDocumentURLBSTR));
     ::SysFreeString(mainDocumentURLBSTR);
+    
+    BSTR httpMethodBSTR;
+    if (FAILED(request->HTTPMethod(&httpMethodBSTR)))
+        return wstring();
+    
+    wstring httpMethod = wstringFromBSTR(httpMethodBSTR);
+    ::SysFreeString(httpMethodBSTR);
 
-    return L"<NSURLRequest URL " + url + L", main document URL " + mainDocumentURL + L">";
+    return L"<NSURLRequest URL " + url + L", main document URL " + mainDocumentURL + L", http method " + httpMethod + L">";
 }
 
 static wstring descriptionSuitableForTestResult(IWebURLResponse* response)
@@ -103,7 +110,12 @@ static wstring descriptionSuitableForTestResult(IWebURLResponse* response)
     wstring url = urlSuitableForTestResult(wstringFromBSTR(urlBSTR));
     ::SysFreeString(urlBSTR);
 
-    return L"<NSURLResponse " + url + L">";
+    int statusCode = 0;
+    COMPtr<IWebHTTPURLResponse> httpResponse;
+    if (response && SUCCEEDED(response->QueryInterface(&httpResponse)))
+        httpResponse->statusCode(&statusCode);
+    
+    return L"<NSURLResponse " + url + L", http status code " + wstringFromInt(statusCode) + L">";
 }
 
 static wstring descriptionSuitableForTestResult(IWebError* error, unsigned long identifier)
@@ -228,10 +240,49 @@ HRESULT STDMETHODCALLTYPE ResourceLoadDelegate::willSendRequest(
             descriptionSuitableForTestResult(redirectResponse).c_str());
     }
 
+    if (!done && gLayoutTestController->willSendRequestReturnsNullOnRedirect() && redirectResponse) {
+        printf("Returning null for this redirect\n");
+        *newRequest = 0;
+        return S_OK;
+    }
+
     request->AddRef();
     *newRequest = request;
     return S_OK;
 }
+
+HRESULT STDMETHODCALLTYPE ResourceLoadDelegate::didReceiveResponse(
+    /* [in] */ IWebView* webView, 
+    /* [in] */ unsigned long identifier, 
+    /* [in] */ IWebURLResponse* response, 
+    /* [in] */ IWebDataSource* dataSource)
+{
+    if (!done && gLayoutTestController->dumpResourceLoadCallbacks()) {
+        printf("%S - didReceiveResponse %S\n",
+            descriptionSuitableForTestResult(identifier).c_str(),
+            descriptionSuitableForTestResult(response).c_str());
+    }
+    if (!done && gLayoutTestController->dumpResourceResponseMIMETypes()) {
+        BSTR mimeTypeBSTR;
+        if (FAILED(response->MIMEType(&mimeTypeBSTR)))
+            E_FAIL;
+    
+        wstring mimeType = wstringFromBSTR(mimeTypeBSTR);
+        ::SysFreeString(mimeTypeBSTR);
+
+        BSTR urlBSTR;
+        if (FAILED(response->URL(&urlBSTR)))
+            E_FAIL;
+    
+        wstring url = urlSuitableForTestResult(wstringFromBSTR(urlBSTR));
+        ::SysFreeString(urlBSTR);
+
+        printf("%S has MIME type %S\n", url.c_str(), mimeType.c_str());
+    }
+
+    return S_OK;
+}
+
 
 HRESULT STDMETHODCALLTYPE ResourceLoadDelegate::didFinishLoadingFromDataSource( 
     /* [in] */ IWebView* webView,

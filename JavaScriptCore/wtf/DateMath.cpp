@@ -2,6 +2,7 @@
  * Copyright (C) 1999-2000 Harri Porten (porten@kde.org)
  * Copyright (C) 2006, 2007 Apple Inc. All rights reserved.
  * Copyright (C) 2009 Google Inc. All rights reserved.
+ * Copyright (C) 2007-2009 Torch Mobile, Inc.
  *
  * The Original Code is Mozilla Communicator client code, released
  * March 31, 1998.
@@ -62,6 +63,11 @@
 
 #if PLATFORM(DARWIN)
 #include <notify.h>
+#endif
+
+#if PLATFORM(WINCE) && !PLATFORM(QT)
+extern "C" size_t strftime(char * const s, const size_t maxsize, const char * const format, const struct tm * const t);
+extern "C" struct tm * localtime(const time_t *timer);
 #endif
 
 #if HAVE(SYS_TIME_H)
@@ -300,7 +306,7 @@ double getCurrentUTCTimeWithMicroseconds()
 
 void getLocalTime(const time_t* localTime, struct tm* localTM)
 {
-#if COMPILER(MSVC7) || COMPILER(MINGW) || PLATFORM(WIN_CE)
+#if COMPILER(MSVC7) || COMPILER(MINGW) || PLATFORM(WINCE)
     *localTM = *localtime(localTime);
 #elif COMPILER(MSVC)
     localtime_s(localTM, localTime);
@@ -361,13 +367,34 @@ int equivalentYearForDST(int year)
 
 static int32_t calculateUTCOffset()
 {
+    time_t localTime = time(0);
     tm localt;
-    memset(&localt, 0, sizeof(localt));
- 
-    // get the difference between this time zone and UTC on Jan 01, 2000 12:00:00 AM
+    getLocalTime(&localTime, &localt);
+
+    // Get the difference between this time zone and UTC on the 1st of January of this year.
+    localt.tm_sec = 0;
+    localt.tm_min = 0;
+    localt.tm_hour = 0;
     localt.tm_mday = 1;
-    localt.tm_year = 100;
-    time_t utcOffset = 946684800 - mktime(&localt);
+    localt.tm_mon = 0;
+    // Not setting localt.tm_year!
+    localt.tm_wday = 0;
+    localt.tm_yday = 0;
+    localt.tm_isdst = 0;
+#if HAVE(TM_GMTOFF)
+    localt.tm_gmtoff = 0;
+#endif
+#if HAVE(TM_ZONE)
+    localt.tm_zone = 0;
+#endif
+    
+#if HAVE(TIMEGM)
+    time_t utcOffset = timegm(&localt) - mktime(&localt);
+#else
+    // Using a canned date of 01/01/2009 on platforms with weaker date-handling foo.
+    localt.tm_year = 109;
+    time_t utcOffset = 1230768000 - mktime(&localt);
+#endif
 
     return static_cast<int32_t>(utcOffset * 1000);
 }
@@ -496,7 +523,7 @@ void msToGregorianDateTime(double ms, bool outputIsUTC, GregorianDateTime& tm)
     tm.year     =  year - 1900;
     tm.isDST    =  dstOff != 0.0;
 
-    tm.utcOffset = static_cast<long>((dstOff + utcOff) / msPerSecond);
+    tm.utcOffset = outputIsUTC ? 0 : static_cast<long>((dstOff + utcOff) / msPerSecond);
     tm.timeZone = NULL;
 }
 
@@ -819,7 +846,7 @@ double parseDateFromNullTerminatedCharacters(const char* dateString)
                 return NaN;
 
             int sgn = (o < 0) ? -1 : 1;
-            o = abs(o);
+            o = labs(o);
             if (*dateString != ':') {
                 offset = ((o / 100) * 60 + (o % 100)) * sgn;
             } else { // GMT+05:00

@@ -109,9 +109,11 @@ namespace JSC {
         // Objects created with this version of new are not deleted when the arena is deleted.
         // Other arrangements must be made.
         void* operator new(size_t);
+
+        void operator delete(void*);
     };
 
-    class ParserArenaRefCounted : public RefCounted<ParserArenaRefCounted> {
+    class ParserArenaRefCounted : public RefCountedCustomAllocated<ParserArenaRefCounted> {
     protected:
         ParserArenaRefCounted(JSGlobalData*);
 
@@ -169,7 +171,8 @@ namespace JSC {
         virtual bool isResolveNode() const { return false; }
         virtual bool isBracketAccessorNode() const { return false; }
         virtual bool isDotAccessorNode() const { return false; }
-        virtual bool isFuncExprNode() const { return false; } 
+        virtual bool isFuncExprNode() const { return false; }
+        virtual bool isCommaNode() const { return false; }
         virtual bool isSimpleArray() const { return false; }
         virtual bool isAdd() const { return false; }
 
@@ -1087,16 +1090,20 @@ namespace JSC {
         Operator m_operator;
         ExpressionNode* m_right;
     };
+    
+    typedef Vector<ExpressionNode*, 8> ExpressionVector;
 
     class CommaNode : public ExpressionNode {
     public:
         CommaNode(JSGlobalData*, ExpressionNode* expr1, ExpressionNode* expr2);
 
+        void append(ExpressionNode* expr) { m_expressions.append(expr); }
+
     private:
+        virtual bool isCommaNode() const { return true; }
         virtual RegisterID* emitBytecode(BytecodeGenerator&, RegisterID* = 0);
 
-        ExpressionNode* m_expr1;
-        ExpressionNode* m_expr2;
+        ExpressionVector m_expressions;
     };
     
     class ConstDeclNode : public ExpressionNode {
@@ -1371,7 +1378,7 @@ namespace JSC {
         ParameterNode* m_next;
     };
 
-    struct ScopeNodeData {
+    struct ScopeNodeData : FastAllocBase {
         typedef DeclarationStacks::VarStack VarStack;
         typedef DeclarationStacks::FunctionStack FunctionStack;
 
@@ -1383,7 +1390,7 @@ namespace JSC {
         int m_numConstants;
         StatementVector m_children;
 
-        void mark();
+        void markAggregate(MarkStack&);
     };
 
     class ScopeNode : public StatementNode, public ParserArenaRefCounted {
@@ -1429,7 +1436,7 @@ namespace JSC {
             return m_data->m_numConstants + 2;
         }
 
-        virtual void mark() { }
+        virtual void markAggregate(MarkStack&) { }
 
 #if ENABLE(JIT)
         JITCode& generatedJITCode()
@@ -1508,7 +1515,7 @@ namespace JSC {
 
         EvalCodeBlock& bytecodeForExceptionInfoReparse(ScopeChainNode*, CodeBlock*);
 
-        virtual void mark();
+        virtual void markAggregate(MarkStack&);
 
 #if ENABLE(JIT)
         JITCode& jitCode(ScopeChainNode* scopeChain)
@@ -1554,16 +1561,9 @@ namespace JSC {
             return m_code;
         }
 
-        bool isHostFunction() const
-        {
-#if ENABLE(JIT)
-            return !!m_jitCode && !m_code;
-#else
-            return true;
-#endif
-        }
+        bool isHostFunction() const;
 
-        virtual void mark();
+        virtual void markAggregate(MarkStack&);
 
         void finishParsing(const SourceCode&, ParameterNode*);
         void finishParsing(Identifier* parameters, size_t parameterCount);

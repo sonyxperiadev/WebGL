@@ -40,19 +40,22 @@ use Getopt::Long;
 use POSIX;
 use VCSUtils;
 
+sub canonicalRelativePath($);
 sub conflictFiles($);
 sub findChangeLog($);
 sub findUnmergedChangeLogs();
 sub fixChangeLogPatch($);
 sub fixMergedChangeLogs($;@);
 sub fixOneMergedChangeLog($);
+sub hasGitUnmergedFiles();
 sub mergeChanges($$$);
 sub parseFixMerged($$;$);
-sub removeChangeLogArguments();
+sub removeChangeLogArguments($);
 sub resolveChangeLog($);
 sub resolveConflict($);
 sub showStatus($;$);
 sub usageAndExit();
+sub normalizePath($);
 
 my $isGit = isGit();
 my $isSVN = isSVN();
@@ -60,17 +63,23 @@ my $isSVN = isSVN();
 my $SVN = "svn";
 my $GIT = "git";
 
+my $svnVersion = `svn --version --quiet` if $isSVN;
+
 my $fixMerged;
+my $gitRebaseContinue = 0;
 my $printWarnings = 1;
 my $showHelp;
 
 my $getOptionsResult = GetOptions(
+    'c|continue!'    => \$gitRebaseContinue,
     'f|fix-merged:s' => \&parseFixMerged,
     'h|help'         => \$showHelp,
     'w|warnings!'    => \$printWarnings,
 );
 
-my @changeLogFiles = removeChangeLogArguments();
+my $relativePath = chdirReturningRelativePath(determineVCSRoot());
+
+my @changeLogFiles = removeChangeLogArguments($relativePath);
 
 if (!defined $fixMerged && scalar(@changeLogFiles) == 0) {
     @changeLogFiles = findUnmergedChangeLogs();
@@ -82,6 +91,9 @@ if (scalar(@ARGV) > 0) {
 } elsif (!defined $fixMerged && scalar(@changeLogFiles) == 0) {
     print STDERR "ERROR: No ChangeLog files listed on command-line or found unmerged.\n";
     undef $getOptionsResult;
+} elsif ($gitRebaseContinue && !$isGit) {
+    print STDERR "ERROR: --continue may only be used with a git repository\n";
+    undef $getOptionsResult;
 } elsif (defined $fixMerged && !$isGit) {
     print STDERR "ERROR: --fix-merged may only be used with a git repository\n";
     undef $getOptionsResult;
@@ -91,6 +103,8 @@ sub usageAndExit()
 {
     print STDERR <<__END__;
 Usage: @{[ basename($0) ]} [options] [path/to/ChangeLog] [path/to/another/ChangeLog ...]
+  -c|--[no-]continue               run "git rebase --continue" after fixing ChangeLog
+                                   entries (default: --no-continue)
   -f|--fix-merged [revision-range] fix git-merged ChangeLog entries; if a revision-range
                                    is specified, run git filter-branch on the range
   -h|--help                        show this help message
@@ -120,7 +134,23 @@ if (defined $fixMerged && length($fixMerged) > 0) {
     usageAndExit();
 }
 
+if ($gitRebaseContinue) {
+    if (hasGitUnmergedFiles()) {
+        print "Unmerged files; skipping '$GIT rebase --continue'.\n";
+    } else {
+        print "Running '$GIT rebase --continue'...\n";
+        print `$GIT rebase --continue`;
+    }
+}
+
 exit 0;
+
+sub canonicalRelativePath($)
+{
+    my ($originalPath) = @_;
+    my $absolutePath = Cwd::abs_path($originalPath);
+    return File::Spec->abs2rel($absolutePath, Cwd::getcwd());
+}
 
 sub conflictFiles($)
 {
@@ -134,7 +164,7 @@ sub conflictFiles($)
     }
 
     if ($isSVN) {
-        open STAT, "-|", $SVN, "status", $file || die;
+        open STAT, "-|", $SVN, "status", $file or die $!;
         my $status = <STAT>;
         close STAT;
         if (!$status || $status !~ m/^C\s+/) {
@@ -145,9 +175,12 @@ sub conflictFiles($)
         $fileMine = "${file}.mine" if -e "${file}.mine";
 
         my $currentRevision;
-        open INFO, "-|", $SVN, "info", $file || die;
+        open INFO, "-|", $SVN, "info", $file or die $!;
         while (my $line = <INFO>) {
-            $currentRevision = $1 if $line =~ m/^Revision: ([0-9]+)/;
+            if ($line =~ m/^Revision: ([0-9]+)/) {
+                $currentRevision = $1;
+                { local $/ = undef; <INFO>; }  # Consume rest of input.
+            }
         }
         close INFO;
         $fileNewer = "${file}.r${currentRevision}" if -e "${file}.r${currentRevision}";
@@ -161,7 +194,7 @@ sub conflictFiles($)
     } elsif ($isGit) {
         my $gitPrefix = `$GIT rev-parse --show-prefix`;
         chomp $gitPrefix;
-        open GIT, "-|", $GIT, "ls-files", "--unmerged", $file || die;
+        open GIT, "-|", $GIT, "ls-files", "--unmerged", $file or die $!;
         while (my $line = <GIT>) {
             my ($mode, $hash, $stage, $fileName) = split(' ', $line);
             my $outputFile;
@@ -178,8 +211,9 @@ sub conflictFiles($)
                 die "Unknown file stage: $stage";
             }
             system("$GIT cat-file blob :${stage}:${gitPrefix}${file} > $outputFile");
+            die $! if WEXITSTATUS($?);
         }
-        close GIT;
+        close GIT or die $!;
     } else {
         die "Unknown version control system";
     }
@@ -219,15 +253,24 @@ sub findUnmergedChangeLogs()
     open STAT, "-|", $statCommand or die "The status failed: $!.\n";
     while (<STAT>) {
         if ($isSVN) {
-            if (/^([C]).{5} (.+)$/) {
-                my $file = findChangeLog($2);
+            my $matches;
+            my $file;
+            if (eval "v$svnVersion" ge v1.6) {
+                $matches = /^([C]).{6} (.*\S+)\s*$/;
+                $file = $2;
+            } else {
+                $matches = /^([C]).{5} (.*\S+)\s*$/;
+                $file = $2;
+            }
+            if ($matches) {
+                $file = findChangeLog(normalizePath($file));
                 push @results, $file if $file;
             } else {
                 print;  # error output from svn stat
             }
         } elsif ($isGit) {
             if (/^([U])\t(.+)$/) {
-                my $file = findChangeLog($2);
+                my $file = findChangeLog(normalizePath($2));
                 push @results, $file if $file;
             } else {
                 print;  # error output from git diff
@@ -297,9 +340,9 @@ sub fixMergedChangeLogs($;@)
 
     if (scalar(@changedFiles) < 1) {
         # Read in list of files changed in $revisionRange
-        open GIT, "-|", $GIT, "diff", "--name-only", $revisionRange || die;
+        open GIT, "-|", $GIT, "diff", "--name-only", $revisionRange or die $!;
         push @changedFiles, <GIT>;
-        close GIT || die;
+        close GIT or die $!;
         die "No changed files in $revisionRange" if scalar(@changedFiles) < 1;
         chomp @changedFiles;
     }
@@ -307,7 +350,7 @@ sub fixMergedChangeLogs($;@)
     my @changeLogs = grep { defined $_ } map { findChangeLog($_) } @changedFiles;
     die "No changed ChangeLog files in $revisionRange" if scalar(@changeLogs) < 1;
 
-    system("$GIT filter-branch --tree-filter 'PREVIOUS_COMMIT=\`$GIT rev-parse \$GIT_COMMIT^\` && MAPPED_PREVIOUS_COMMIT=\`map \$PREVIOUS_COMMIT\` $0 -f \"" . join('" "', @changeLogs) . "\"' $revisionRange");
+    system("$GIT filter-branch --tree-filter 'PREVIOUS_COMMIT=\`$GIT rev-parse \$GIT_COMMIT^\` && MAPPED_PREVIOUS_COMMIT=\`map \$PREVIOUS_COMMIT\` \"$0\" -f \"" . join('" "', @changeLogs) . "\"' $revisionRange");
 
     # On success, remove the backup refs directory
     if (WEXITSTATUS($?) == 0) {
@@ -323,13 +366,14 @@ sub fixOneMergedChangeLog($)
     # Read in patch for incorrectly merged ChangeLog entry
     {
         local $/ = undef;
-        open GIT, "-|", $GIT, "diff", ($ENV{GIT_COMMIT} || "HEAD") . "^", $file || die;
+        open GIT, "-|", $GIT, "diff", ($ENV{GIT_COMMIT} || "HEAD") . "^", $file or die $!;
         $patch = <GIT>;
-        close GIT || die;
+        close GIT or die $!;
     }
 
     # Always checkout the previous commit's copy of the ChangeLog
     system($GIT, "checkout", $ENV{MAPPED_PREVIOUS_COMMIT} || "HEAD^", $file);
+    die $! if WEXITSTATUS($?);
 
     # The patch must have 0 or more lines of context, then 1 or more lines
     # of additions, and then 1 or more lines of context.  If not, we skip it.
@@ -358,26 +402,34 @@ sub fixOneMergedChangeLog($)
         $newPatch .= join("", @patchLines);
 
         # Add 3 lines of context to the end
-        open FILE, "<", $file || die;
+        open FILE, "<", $file or die $!;
         for (my $i = 0; $i < 3; $i++) {
             $newPatch .= " " . <FILE>;
         }
         close FILE;
 
         # Apply the new patch
-        open(PATCH, "| patch -p1 $file > /dev/null") || die;
+        open(PATCH, "| patch -p1 $file > /dev/null") or die $!;
         print PATCH $newPatch;
-        close(PATCH) || die;
+        close(PATCH) or die $!;
 
         # Run "git add" on the fixed ChangeLog file
         system($GIT, "add", $file);
+        die $! if WEXITSTATUS($?);
 
         showStatus($file, 1);
     } elsif ($patch) {
         # Restore the current copy of the ChangeLog file since we can't repatch it
         system($GIT, "checkout", $ENV{GIT_COMMIT} || "HEAD", $file);
+        die $! if WEXITSTATUS($?);
         print STDERR "WARNING: Last change to ${file} could not be fixed and re-merged.\n" if $printWarnings;
     }
+}
+
+sub hasGitUnmergedFiles()
+{
+    my $output = `$GIT ls-files --unmerged`;
+    return $output ne "";
 }
 
 sub mergeChanges($$$)
@@ -390,13 +442,13 @@ sub mergeChanges($$$)
 
     my $patch;
     if ($traditionalReject) {
-        open(DIFF, "<", $fileMine);
+        open(DIFF, "<", $fileMine) or die $!;
         $patch = <DIFF>;
         close(DIFF);
         rename($fileMine, "$fileMine.save");
         rename($fileOlder, "$fileOlder.save");
     } else {
-        open(DIFF, "-|", qw(diff -u), $fileOlder, $fileMine) || die;
+        open(DIFF, "-|", qw(diff -u -a --binary), $fileOlder, $fileMine) or die $!;
         $patch = <DIFF>;
         close(DIFF);
     }
@@ -404,7 +456,7 @@ sub mergeChanges($$$)
     unlink("${fileNewer}.orig");
     unlink("${fileNewer}.rej");
 
-    open(PATCH, "| patch --fuzz=3 $fileNewer > /dev/null") || die;
+    open(PATCH, "| patch --fuzz=3 --binary $fileNewer > /dev/null") or die $!;
     print PATCH fixChangeLogPatch($patch);
     close(PATCH);
 
@@ -444,12 +496,13 @@ sub parseFixMerged($$;$)
     }
 }
 
-sub removeChangeLogArguments()
+sub removeChangeLogArguments($)
 {
+    my ($baseDir) = @_;
     my @results = ();
 
     for (my $i = 0; $i < scalar(@ARGV); ) {
-        my $file = findChangeLog($ARGV[$i]);
+        my $file = findChangeLog(canonicalRelativePath(File::Spec->catfile($baseDir, $ARGV[$i])));
         if (defined $file) {
             splice(@ARGV, $i, 1);
             push @results, $file;
@@ -472,7 +525,7 @@ sub resolveChangeLog($)
     if (mergeChanges($fileMine, $fileOlder, $fileNewer)) {
         if ($file ne $fileNewer) {
             unlink($file);
-            rename($fileNewer, $file) || die;
+            rename($fileNewer, $file) or die $!;
         }
         unlink($fileMine, $fileOlder);
         resolveConflict($file);
@@ -490,8 +543,10 @@ sub resolveConflict($)
 
     if ($isSVN) {
         system($SVN, "resolved", $file);
+        die $! if WEXITSTATUS($?);
     } elsif ($isGit) {
         system($GIT, "add", $file);
+        die $! if WEXITSTATUS($?);
     } else {
         die "Unknown version control system";
     }
@@ -510,4 +565,11 @@ sub showStatus($;$)
     } else {
         die "Unknown version control system";
     }
+}
+
+sub normalizePath($)
+{
+    my ($path) = @_;
+    $path =~ s/\\/\//g;
+    return $path;
 }

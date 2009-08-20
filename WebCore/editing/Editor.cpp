@@ -340,9 +340,10 @@ bool Editor::tryDHTMLCopy()
     if (m_frame->selection()->isInPasswordField())
         return false;
 
-    // Must be done before oncopy adds types and data to the pboard,
-    // also done for security, as it erases data from the last copy/paste.
-    Pasteboard::generalPasteboard()->clear();
+    if (canCopy())
+        // Must be done before oncopy adds types and data to the pboard,
+        // also done for security, as it erases data from the last copy/paste.
+        Pasteboard::generalPasteboard()->clear();
 
     return !dispatchCPPEvent(eventNames().copyEvent, ClipboardWritable);
 }
@@ -351,10 +352,11 @@ bool Editor::tryDHTMLCut()
 {
     if (m_frame->selection()->isInPasswordField())
         return false;
-
-    // Must be done before oncut adds types and data to the pboard,
-    // also done for security, as it erases data from the last copy/paste.
-    Pasteboard::generalPasteboard()->clear();
+    
+    if (canCut())
+        // Must be done before oncut adds types and data to the pboard,
+        // also done for security, as it erases data from the last copy/paste.
+        Pasteboard::generalPasteboard()->clear();
 
     return !dispatchCPPEvent(eventNames().cutEvent, ClipboardWritable);
 }
@@ -653,9 +655,9 @@ PassRefPtr<Node> Editor::increaseSelectionListLevelOrdered()
     if (!canEditRichly() || m_frame->selection()->isNone())
         return 0;
     
-    PassRefPtr<Node> newList = IncreaseSelectionListLevelCommand::increaseSelectionListLevelOrdered(m_frame->document());
+    RefPtr<Node> newList = IncreaseSelectionListLevelCommand::increaseSelectionListLevelOrdered(m_frame->document());
     revealSelectionAfterEditingOperation();
-    return newList;
+    return newList.release();
 }
 
 PassRefPtr<Node> Editor::increaseSelectionListLevelUnordered()
@@ -663,9 +665,9 @@ PassRefPtr<Node> Editor::increaseSelectionListLevelUnordered()
     if (!canEditRichly() || m_frame->selection()->isNone())
         return 0;
     
-    PassRefPtr<Node> newList = IncreaseSelectionListLevelCommand::increaseSelectionListLevelUnordered(m_frame->document());
+    RefPtr<Node> newList = IncreaseSelectionListLevelCommand::increaseSelectionListLevelUnordered(m_frame->document());
     revealSelectionAfterEditingOperation();
-    return newList;
+    return newList.release();
 }
 
 void Editor::decreaseSelectionListLevel()
@@ -769,66 +771,54 @@ bool Editor::clientIsEditable() const
     return client() && client()->isEditable();
 }
 
+// CSS properties that only has a visual difference when applied to text.
+static const int textOnlyProperties[] = {
+    CSSPropertyTextDecoration,
+    CSSPropertyWebkitTextDecorationsInEffect,
+    CSSPropertyFontStyle,
+    CSSPropertyFontWeight,
+    CSSPropertyColor,
+};
+
+static TriState triStateOfStyleInComputedStyle(CSSStyleDeclaration* desiredStyle, CSSComputedStyleDeclaration* computedStyle, bool ignoreTextOnlyProperties = false)
+{
+    RefPtr<CSSMutableStyleDeclaration> diff = getPropertiesNotInComputedStyle(desiredStyle, computedStyle);
+
+    if (ignoreTextOnlyProperties)
+        diff->removePropertiesInSet(textOnlyProperties, sizeof(textOnlyProperties)/sizeof(textOnlyProperties[0]));
+
+    if (!diff->length())
+        return TrueTriState;
+    else if (diff->length() == desiredStyle->length())
+        return FalseTriState;
+    return MixedTriState;
+}
+
 bool Editor::selectionStartHasStyle(CSSStyleDeclaration* style) const
 {
     Node* nodeToRemove;
     RefPtr<CSSComputedStyleDeclaration> selectionStyle = m_frame->selectionComputedStyle(nodeToRemove);
     if (!selectionStyle)
         return false;
-    
-    RefPtr<CSSMutableStyleDeclaration> mutableStyle = style->makeMutable();
-    
-    bool match = true;
-    CSSMutableStyleDeclaration::const_iterator end = mutableStyle->end();
-    for (CSSMutableStyleDeclaration::const_iterator it = mutableStyle->begin(); it != end; ++it) {
-        int propertyID = (*it).id();
-        if (!equalIgnoringCase(mutableStyle->getPropertyValue(propertyID), selectionStyle->getPropertyValue(propertyID))) {
-            match = false;
-            break;
-        }
-    }
-    
+    TriState state = triStateOfStyleInComputedStyle(style, selectionStyle.get());
     if (nodeToRemove) {
         ExceptionCode ec = 0;
         nodeToRemove->remove(ec);
         ASSERT(ec == 0);
     }
-    
-    return match;
-}
-
-static void updateState(CSSMutableStyleDeclaration* desiredStyle, CSSComputedStyleDeclaration* computedStyle, bool& atStart, TriState& state)
-{
-    CSSMutableStyleDeclaration::const_iterator end = desiredStyle->end();
-    for (CSSMutableStyleDeclaration::const_iterator it = desiredStyle->begin(); it != end; ++it) {
-        int propertyID = (*it).id();
-        String desiredProperty = desiredStyle->getPropertyValue(propertyID);
-        String computedProperty = computedStyle->getPropertyValue(propertyID);
-        TriState propertyState = equalIgnoringCase(desiredProperty, computedProperty)
-            ? TrueTriState : FalseTriState;
-        if (atStart) {
-            state = propertyState;
-            atStart = false;
-        } else if (state != propertyState) {
-            state = MixedTriState;
-            break;
-        }
-    }
+    return state == TrueTriState;
 }
 
 TriState Editor::selectionHasStyle(CSSStyleDeclaration* style) const
 {
-    bool atStart = true;
     TriState state = FalseTriState;
-
-    RefPtr<CSSMutableStyleDeclaration> mutableStyle = style->makeMutable();
 
     if (!m_frame->selection()->isRange()) {
         Node* nodeToRemove;
         RefPtr<CSSComputedStyleDeclaration> selectionStyle = m_frame->selectionComputedStyle(nodeToRemove);
         if (!selectionStyle)
             return FalseTriState;
-        updateState(mutableStyle.get(), selectionStyle.get(), atStart, state);
+        state = triStateOfStyleInComputedStyle(style, selectionStyle.get());
         if (nodeToRemove) {
             ExceptionCode ec = 0;
             nodeToRemove->remove(ec);
@@ -837,10 +827,15 @@ TriState Editor::selectionHasStyle(CSSStyleDeclaration* style) const
     } else {
         for (Node* node = m_frame->selection()->start().node(); node; node = node->traverseNextNode()) {
             RefPtr<CSSComputedStyleDeclaration> nodeStyle = computedStyle(node);
-            if (nodeStyle)
-                updateState(mutableStyle.get(), nodeStyle.get(), atStart, state);
-            if (state == MixedTriState)
-                break;
+            if (nodeStyle) {
+                TriState nodeState = triStateOfStyleInComputedStyle(style, nodeStyle.get(), !node->isTextNode());
+                if (node == m_frame->selection()->start().node())
+                    state = nodeState;
+                else if (state != nodeState) {
+                    state = MixedTriState;
+                    break;
+                }
+            }
             if (node == m_frame->selection()->end().node())
                 break;
         }
@@ -1064,9 +1059,9 @@ void Editor::paste()
 
 void Editor::pasteAsPlainText()
 {
-   if (!canPaste())
+    if (!canPaste())
         return;
-   pasteAsPlainTextWithPasteboard(Pasteboard::generalPasteboard());
+    pasteAsPlainTextWithPasteboard(Pasteboard::generalPasteboard());
 }
 
 void Editor::performDelete()
@@ -2204,7 +2199,7 @@ void Editor::markMisspellingsAfterTypingToPosition(const VisiblePosition &p)
 
         if (!frame()->editor()->shouldInsertText(autocorrectedString, misspellingRange.get(), EditorInsertActionTyped))
             return;
-        frame()->editor()->replaceSelectionWithText(autocorrectedString, false, true);
+        frame()->editor()->replaceSelectionWithText(autocorrectedString, false, false);
 
         // Reset the charet one character further.
         frame()->selection()->moveTo(frame()->selection()->end());
@@ -2256,20 +2251,9 @@ static void markMisspellingsOrBadGrammar(Editor* editor, const VisibleSelection&
     Node* editableNode = searchRange->startContainer();
     if (!editableNode || !editableNode->isContentEditable())
         return;
-    
-    // Ascend the DOM tree to find a "spellcheck" attribute.
-    // When we find a "spellcheck" attribute, retrieve its value and exit if its value is "false".
-    const Node* node = editor->frame()->document()->focusedNode();
-    while (node) {
-        if (node->isElementNode()) {
-            const WebCore::AtomicString& value = static_cast<const Element*>(node)->getAttribute(spellcheckAttr);
-            if (equalIgnoringCase(value, "true"))
-                break;
-            if (equalIgnoringCase(value, "false"))
-                return;
-        }
-        node = node->parent();
-    }
+
+    if (!editor->spellCheckingEnabledInFocusedNode())
+        return;
 
     // Get the spell checker if it is available
     if (!editor->client())
@@ -2285,6 +2269,24 @@ static void markMisspellingsOrBadGrammar(Editor* editor, const VisibleSelection&
             markAllBadGrammarInRange(editor->client(), searchRange.get());
 #endif
     }    
+}
+
+bool Editor::spellCheckingEnabledInFocusedNode() const
+{
+    // Ascend the DOM tree to find a "spellcheck" attribute.
+    // When we find a "spellcheck" attribute, retrieve its value and return false if its value is "false".
+    const Node* node = frame()->document()->focusedNode();
+    while (node) {
+        if (node->isElementNode()) {
+            const WebCore::AtomicString& value = static_cast<const Element*>(node)->getAttribute(spellcheckAttr);
+            if (equalIgnoringCase(value, "true"))
+                return true;
+            if (equalIgnoringCase(value, "false"))
+                return false;
+        }
+        node = node->parent();
+    }
+    return true;
 }
 
 void Editor::markMisspellings(const VisibleSelection& selection, RefPtr<Range>& firstMisspellingRange)
@@ -2323,7 +2325,10 @@ void Editor::markAllMisspellingsAndBadGrammarInRanges(bool markSpelling, Range* 
     Node* editableNode = spellingRange->startContainer();
     if (!editableNode || !editableNode->isContentEditable())
         return;
-    
+
+    if (!spellCheckingEnabledInFocusedNode())
+        return;
+
     // Expand the range to encompass entire paragraphs, since text checking needs that much context.
     int spellingRangeStartOffset = 0;
     int spellingRangeEndOffset = 0;

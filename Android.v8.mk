@@ -73,12 +73,6 @@ LOCAL_CFLAGS += -fno-strict-aliasing
 LOCAL_CFLAGS += -include "WebCorePrefixAndroid.h"
 LOCAL_CFLAGS += -fvisibility=hidden
 
-ifeq ($(ENABLE_VIDEO),true)
-LOCAL_CFLAGS += -DENABLE_VIDEO=1
-else
-LOCAL_CFLAGS += -DENABLE_VIDEO=0
-endif
-
 ifeq ($(TARGET_ARCH),arm)
 LOCAL_CFLAGS += -Darm
 endif
@@ -128,6 +122,7 @@ LOCAL_C_INCLUDES := \
 	$(LOCAL_PATH)/WebCore/editing \
 	$(LOCAL_PATH)/WebCore/history \
 	$(LOCAL_PATH)/WebCore/html \
+	$(LOCAL_PATH)/WebCore/html/canvas \
 	$(LOCAL_PATH)/WebCore/inspector \
 	$(LOCAL_PATH)/WebCore/loader \
 	$(LOCAL_PATH)/WebCore/loader/appcache \
@@ -166,17 +161,10 @@ LOCAL_C_INCLUDES := \
 	$(LOCAL_PATH)/JavaScriptCore/wtf/unicode/icu \
 	$(BINDING_C_INCLUDES) \
 	$(base_intermediates)/WebCore/ \
+	$(base_intermediates)/WebCore/bindings \
 	$(base_intermediates)/WebCore/css \
-	$(base_intermediates)/WebCore/dom \
 	$(base_intermediates)/WebCore/html \
-	$(base_intermediates)/WebCore/inspector \
-	$(base_intermediates)/WebCore/loader/appcache \
-	$(base_intermediates)/WebCore/page \
 	$(base_intermediates)/WebCore/platform \
-	$(base_intermediates)/WebCore/plugins \
-	$(base_intermediates)/WebCore/storage \
-	$(base_intermediates)/WebCore/workers \
-	$(base_intermediates)/WebCore/xml \
 	$(base_intermediates)/JavaScriptCore
 
 ifeq ($(ENABLE_SVG), true)

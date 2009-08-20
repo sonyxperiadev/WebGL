@@ -31,10 +31,11 @@
 #import <wtf/RefPtr.h>
 
 namespace WebKit {
+    class HostedNetscapePluginStream;
     class NetscapePluginInstanceProxy;
 }
 
-@interface WebHostedNetscapePluginView : WebBaseNetscapePluginView
+@interface WebHostedNetscapePluginView : WebBaseNetscapePluginView<WebPluginManualLoader, WebPluginContainerCheckController>
 {
     RetainPtr<NSArray> _attributeKeys;
     RetainPtr<NSArray> _attributeValues;
@@ -42,6 +43,7 @@ namespace WebKit {
     RetainPtr<CALayer> _pluginLayer;
     WKSoftwareCARendererRef _softwareRenderer;
     
+    NSSize _previousSize;
     RefPtr<WebKit::NetscapePluginInstanceProxy> _proxy;
     BOOL _pluginHostDied;
 }

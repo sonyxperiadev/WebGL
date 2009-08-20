@@ -43,6 +43,7 @@
 #include <JavaScriptCore/JSRetainPtr.h>
 #include <JavaScriptCore/JSStringRefBSTR.h>
 #include <WebKit/WebKit.h>
+#include <WebKit/WebKitCOMAPI.h>
 #include <string>
 #include <CoreFoundation/CoreFoundation.h>
 #include <shlwapi.h>
@@ -120,6 +121,24 @@ JSStringRef LayoutTestController::copyEncodedHostName(JSStringRef name)
     return 0;
 }
 
+void LayoutTestController::disableImageLoading()
+{
+    COMPtr<IWebView> webView;
+    if (FAILED(frame->webView(&webView)))
+        return;
+    
+    COMPtr<IWebPreferences> preferences;
+    if (FAILED(webView->preferences(&preferences)))
+        return;
+    
+    preferences->setLoadsImagesAutomatically(FALSE);
+}
+
+void LayoutTestController::dispatchPendingLoadRequests()
+{
+    // FIXME: Implement for testing fix for 6727495
+}
+
 void LayoutTestController::display()
 {
     displayWebView();
@@ -127,21 +146,26 @@ void LayoutTestController::display()
 
 void LayoutTestController::keepWebHistory()
 {
-    COMPtr<IWebHistory> history(Create, CLSID_WebHistory);
-    if (!history)
+    COMPtr<IWebHistory> history;
+    if (FAILED(WebKitCreateInstance(CLSID_WebHistory, 0, __uuidof(history), reinterpret_cast<void**>(&history))))
         return;
 
-    COMPtr<IWebHistory> sharedHistory(Create, CLSID_WebHistory);
-    if (!sharedHistory)
+    COMPtr<IWebHistory> sharedHistory;
+    if (FAILED(WebKitCreateInstance(CLSID_WebHistory, 0, __uuidof(sharedHistory), reinterpret_cast<void**>(&sharedHistory))))
         return;
 
     history->setOptionalSharedHistory(sharedHistory.get());
 }
 
+void LayoutTestController::waitForPolicyDelegate()
+{
+    // FIXME: Implement this.
+}
+
 size_t LayoutTestController::webHistoryItemCount()
 {
-    COMPtr<IWebHistory> history(Create, CLSID_WebHistory);
-    if (!history)
+    COMPtr<IWebHistory> history;
+    if (FAILED(WebKitCreateInstance(CLSID_WebHistory, 0, __uuidof(history), reinterpret_cast<void**>(&history))))
         return 0;
 
     COMPtr<IWebHistory> sharedHistory;
@@ -180,18 +204,6 @@ JSStringRef LayoutTestController::pathToLocalResource(JSContextRef context, JSSt
     return JSStringCreateWithCharacters(localPath.c_str(), localPath.length());
 }
 
-void LayoutTestController::queueBackNavigation(int howFarBack)
-{
-    // Same as on mac.  This can be shared.
-    WorkQueue::shared()->queue(new BackItem(howFarBack));
-}
-
-void LayoutTestController::queueForwardNavigation(int howFarForward)
-{
-    // Same as on mac.  This can be shared.
-    WorkQueue::shared()->queue(new ForwardItem(howFarForward));
-}
-
 static wstring jsStringRefToWString(JSStringRef jsStr)
 {
     size_t length = JSStringGetLength(jsStr);
@@ -228,16 +240,6 @@ void LayoutTestController::queueLoad(JSStringRef url, JSStringRef target)
     JSRetainPtr<JSStringRef> jsAbsoluteURL(Adopt, JSStringCreateWithCharacters(wAbsoluteURL.data(), wAbsoluteURL.length()));
 
     WorkQueue::shared()->queue(new LoadItem(jsAbsoluteURL.get(), target));
-}
-
-void LayoutTestController::queueReload()
-{
-    WorkQueue::shared()->queue(new ReloadItem);
-}
-
-void LayoutTestController::queueScript(JSStringRef script)
-{
-    WorkQueue::shared()->queue(new ScriptItem(script));
 }
 
 void LayoutTestController::setAcceptsEditing(bool acceptsEditing)
@@ -285,7 +287,7 @@ void LayoutTestController::setCustomPolicyDelegate(bool setDelegate, bool permis
         policyDelegate->setPermissive(permissive);
         webView->setPolicyDelegate(policyDelegate);
     } else
-        webView->setPolicyDelegate(NULL);
+        webView->setPolicyDelegate(0);
 }
 
 void LayoutTestController::setIconDatabaseEnabled(bool iconDatabaseEnabled)
@@ -293,7 +295,7 @@ void LayoutTestController::setIconDatabaseEnabled(bool iconDatabaseEnabled)
     // See also <rdar://problem/6480108>
     COMPtr<IWebIconDatabase> iconDatabase;
     COMPtr<IWebIconDatabase> tmpIconDatabase;
-    if (FAILED(CoCreateInstance(CLSID_WebIconDatabase, 0, CLSCTX_ALL, IID_IWebIconDatabase, (void**)&tmpIconDatabase)))
+    if (FAILED(WebKitCreateInstance(CLSID_WebIconDatabase, 0, IID_IWebIconDatabase, (void**)&tmpIconDatabase)))
         return;
     if (FAILED(tmpIconDatabase->sharedIconDatabase(&iconDatabase)))
         return;
@@ -319,7 +321,7 @@ void LayoutTestController::setPrivateBrowsingEnabled(bool privateBrowsingEnabled
     preferences->setPrivateBrowsingEnabled(privateBrowsingEnabled);
 }
 
-void LayoutTestController::setPopupBlockingEnabled(bool privateBrowsingEnabled)
+void LayoutTestController::setXSSAuditorEnabled(bool enabled)
 {
     COMPtr<IWebView> webView;
     if (FAILED(frame->webView(&webView)))
@@ -329,7 +331,24 @@ void LayoutTestController::setPopupBlockingEnabled(bool privateBrowsingEnabled)
     if (FAILED(webView->preferences(&preferences)))
         return;
 
-    preferences->setJavaScriptCanOpenWindowsAutomatically(!privateBrowsingEnabled);
+    COMPtr<IWebPreferencesPrivate> prefsPrivate(Query, preferences);
+    if (!prefsPrivate)
+        return;
+
+    prefsPrivate->setXSSAuditorEnabled(enabled);
+}
+
+void LayoutTestController::setPopupBlockingEnabled(bool enabled)
+{
+    COMPtr<IWebView> webView;
+    if (FAILED(frame->webView(&webView)))
+        return;
+
+    COMPtr<IWebPreferences> preferences;
+    if (FAILED(webView->preferences(&preferences)))
+        return;
+
+    preferences->setJavaScriptCanOpenWindowsAutomatically(!enabled);
 }
 
 void LayoutTestController::setTabKeyCyclesThroughElements(bool shouldCycle)
@@ -665,6 +684,11 @@ void LayoutTestController::execCommand(JSStringRef name, JSStringRef value)
     SysFreeString(valueBSTR);
 }
 
+void LayoutTestController::setCacheModel(int)
+{
+    // FIXME: Implement
+}
+
 bool LayoutTestController::isCommandEnabled(JSStringRef /*name*/)
 {
     printf("ERROR: LayoutTestController::isCommandEnabled() not implemented\n");
@@ -673,7 +697,14 @@ bool LayoutTestController::isCommandEnabled(JSStringRef /*name*/)
 
 void LayoutTestController::clearAllDatabases()
 {
-    printf("ERROR: LayoutTestController::clearAllDatabases() not implemented\n");
+    COMPtr<IWebDatabaseManager> databaseManager;
+    COMPtr<IWebDatabaseManager> tmpDatabaseManager;
+    if (FAILED(WebKitCreateInstance(CLSID_WebDatabaseManager, 0, IID_IWebDatabaseManager, (void**)&tmpDatabaseManager)))
+        return;
+    if (FAILED(tmpDatabaseManager->sharedWebDatabaseManager(&databaseManager)))
+        return;
+
+    databaseManager->deleteAllDatabases();
 }
 
 void LayoutTestController::setDatabaseQuota(unsigned long long quota)

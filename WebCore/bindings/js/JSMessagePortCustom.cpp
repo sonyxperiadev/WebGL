@@ -38,17 +38,17 @@ using namespace JSC;
 
 namespace WebCore {
 
-void JSMessagePort::mark()
+void JSMessagePort::markChildren(MarkStack& markStack)
 {
-    DOMObject::mark();
+    Base::markChildren(markStack);
 
-    markIfNotNull(m_impl->onmessage());
-    markIfNotNull(m_impl->onclose());
+    markIfNotNull(markStack, m_impl->onmessage());
 
-    if (MessagePortProxy* entangledPort = m_impl->entangledPort()) {
+    // If we have a locally entangled port, we can directly mark it as reachable. Ports that are remotely entangled are marked in-use by markActiveObjectsForContext().
+    if (MessagePort* entangledPort = m_impl->locallyEntangledPort()) {
         DOMObject* wrapper = getCachedDOMObjectWrapper(*Heap::heap(this)->globalData(), entangledPort);
-        if (wrapper && !wrapper->marked())
-            wrapper->mark();
+        if (wrapper)
+            markStack.append(wrapper);
     }
 
     typedef MessagePort::EventListenersMap EventListenersMap;
@@ -56,16 +56,8 @@ void JSMessagePort::mark()
     EventListenersMap& eventListeners = m_impl->eventListeners();
     for (EventListenersMap::iterator mapIter = eventListeners.begin(); mapIter != eventListeners.end(); ++mapIter) {
         for (ListenerVector::iterator vecIter = mapIter->second.begin(); vecIter != mapIter->second.end(); ++vecIter) 
-            (*vecIter)->markJSFunction();
+            (*vecIter)->markJSFunction(markStack);
     }
-}
-
-JSValue JSMessagePort::startConversation(ExecState* exec, const ArgList& args)
-{
-    JSDOMGlobalObject* globalObject = static_cast<JSDOMGlobalObject*>(exec->lexicalGlobalObject());
-    const UString& message = args.at(0).toString(exec);
-
-    return toJS(exec, impl()->startConversation(globalObject->scriptExecutionContext(), message).get());
 }
 
 JSValue JSMessagePort::addEventListener(ExecState* exec, const ArgList& args)

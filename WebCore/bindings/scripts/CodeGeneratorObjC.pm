@@ -515,15 +515,17 @@ sub AddIncludesForType
 {
     my $type = $codeGenerator->StripModule(shift);
 
-    return if $codeGenerator->IsNonPointerType($type) or IsNativeObjCType($type);
+    return if $codeGenerator->IsNonPointerType($type);
 
-    if ($codeGenerator->IsStringType($type)) {
-        $implIncludes{"KURL.h"} = 1;
+    if (IsNativeObjCType($type)) {
+        if ($type eq "Color") {
+            $implIncludes{"ColorMac.h"} = 1;
+        }
         return;
     }
 
-    if ($type eq "RGBColor") {
-        $implIncludes{"DOMRGBColorInternal.h"} = 1;
+    if ($codeGenerator->IsStringType($type)) {
+        $implIncludes{"KURL.h"} = 1;
         return;
     }
 
@@ -924,8 +926,6 @@ sub GenerateHeader
 
         if ($codeGenerator->IsSVGAnimatedType($interfaceName)) {
             push(@internalHeaderContent, "#import <WebCore/SVGAnimatedTemplate.h>\n\n");
-        } elsif ($interfaceName eq "RGBColor") {
-            push(@internalHeaderContent, "#import <WebCore/Color.h>\n\n");
         } else {
             push(@internalHeaderContent, "namespace WebCore {\n");
             $startedNamespace = 1;
@@ -1059,9 +1059,12 @@ sub GenerateImplementation
 
     # Only generate 'dealloc' and 'finalize' methods for direct subclasses of DOMObject.
     if ($parentImplClassName eq "Object") {
+        $implIncludes{"WebCoreObjCExtras.h"} = 1;
         push(@implContent, "- (void)dealloc\n");
         push(@implContent, "{\n");
-        push(@implContent, "    $assertMainThread\n");
+        push(@implContent, "    if (WebCoreObjCScheduleDeallocateOnMainThread([$className class], self))\n");
+        push(@implContent, "        return;\n");
+        push(@implContent, "\n");
         if ($interfaceName eq "NodeIterator") {
             push(@implContent, "    if (_internal) {\n");
             push(@implContent, "        [self detach];\n");
@@ -1129,7 +1132,17 @@ sub GenerateImplementation
             # - GETTER
             my $getterSig = "- ($attributeType)$attributeInterfaceName\n";
             my $hasGetterException = @{$attribute->getterExceptions};
-            my $getterContentHead = "IMPL->" . $codeGenerator->WK_lcfirst($attributeName) . "(";
+            my $getterContentHead;
+            my $reflect = $attribute->signature->extendedAttributes->{"Reflect"};
+            my $reflectURL = $attribute->signature->extendedAttributes->{"ReflectURL"};
+            if ($reflect || $reflectURL) {
+                $implIncludes{"HTMLNames.h"} = 1;
+                my $contentAttributeName = (($reflect || $reflectURL) eq "1") ? $attributeName : ($reflect || $reflectURL);
+                my $getAttributeFunctionName = $reflectURL ? "getURLAttribute" : "getAttribute";
+                $getterContentHead = "IMPL->${getAttributeFunctionName}(WebCore::HTMLNames::${contentAttributeName}Attr";
+            } else {
+                $getterContentHead = "IMPL->" . $codeGenerator->WK_lcfirst($attributeName) . "(";
+            }
             my $getterContentTail = ")";
 
             # Special case for DOMSVGNumber
@@ -1188,6 +1201,9 @@ sub GenerateImplementation
             } elsif (IsProtocolType($idlType) and $idlType ne "EventTarget") {
                 $getterContentHead = "kit($getterContentHead";
                 $getterContentTail .= ")";
+            } elsif ($idlType eq "Color") {
+                $getterContentHead = "WebCore::nsColor($getterContentHead";
+                $getterContentTail .= ")";
             } elsif (ConversionNeeded($attribute->signature->type)) {
                 $getterContentHead = "kit(WTF::getPtr($getterContentHead";
                 $getterContentTail .= "))";
@@ -1226,7 +1242,7 @@ sub GenerateImplementation
                 # Exception handling
                 my $hasSetterException = @{$attribute->setterExceptions};
 
-                $attributeName = "set" . $codeGenerator->WK_ucfirst($attributeName);
+                my $coreSetterName = "set" . $codeGenerator->WK_ucfirst($attributeName);
                 my $setterName = "set" . ucfirst($attributeInterfaceName);
                 my $argName = "new" . ucfirst($attributeInterfaceName);
                 my $arg = GetObjCTypeGetter($argName, $idlType);
@@ -1252,14 +1268,22 @@ sub GenerateImplementation
                     if ($podType eq "float") {
                         push(@implContent, "    *IMPL = $arg;\n");
                     } else {
-                        push(@implContent, "    IMPL->$attributeName($arg);\n");
+                        push(@implContent, "    IMPL->$coreSetterName($arg);\n");
                     }
                 } elsif ($hasSetterException) {
                     push(@implContent, "    $exceptionInit\n");
-                    push(@implContent, "    IMPL->$attributeName($arg, ec);\n");
+                    push(@implContent, "    IMPL->$coreSetterName($arg, ec);\n");
                     push(@implContent, "    $exceptionRaiseOnError\n");
                 } else {
-                    push(@implContent, "    IMPL->$attributeName($arg);\n");
+                    my $reflect = $attribute->signature->extendedAttributes->{"Reflect"};
+                    my $reflectURL = $attribute->signature->extendedAttributes->{"ReflectURL"};
+                    if ($reflect || $reflectURL) {
+                        $implIncludes{"HTMLNames.h"} = 1;
+                        my $contentAttributeName = (($reflect || $reflectURL) eq "1") ? $attributeName : ($reflect || $reflectURL);
+                        push(@implContent, "    IMPL->setAttribute(WebCore::HTMLNames::${contentAttributeName}Attr, $arg);\n");
+                    } else {
+                        push(@implContent, "    IMPL->$coreSetterName($arg);\n");
+                    }
                 }
 
                 push(@implContent, "}\n\n");

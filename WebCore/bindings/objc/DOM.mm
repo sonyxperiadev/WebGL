@@ -468,7 +468,7 @@ id <DOMEventTarget> kit(WebCore::EventTarget* eventTarget)
     ASSERT(name);
     WebCore::Element* element = core(self);
     ASSERT(element);
-    return element->document()->completeURL(parseURL(element->getAttribute(name)));
+    return element->document()->completeURL(deprecatedParseURL(element->getAttribute(name)));
 }
 
 - (BOOL)isFocused
@@ -501,6 +501,21 @@ id <DOMEventTarget> kit(WebCore::EventTarget* eventTarget)
 }
 
 @end
+
+//------------------------------------------------------------------------------------------
+// DOMRGBColor
+
+@implementation DOMRGBColor (WebPrivate)
+
+// FIXME: This should be removed as soon as all internal Apple uses of it have been replaced with
+// calls to the public method - (NSColor *)color.
+- (NSColor *)_color
+{
+    return [self color];
+}
+
+@end
+
 
 //------------------------------------------------------------------------------------------
 // DOMNodeFilter

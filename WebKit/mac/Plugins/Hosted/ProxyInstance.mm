@@ -77,18 +77,18 @@ public:
     uint64_t serverIdentifier() const { return m_serverIdentifier; }
 
 private:
-    virtual JSValuePtr valueFromInstance(ExecState*, const Instance*) const;
-    virtual void setValueToInstance(ExecState*, const Instance*, JSValuePtr) const;
+    virtual JSValue valueFromInstance(ExecState*, const Instance*) const;
+    virtual void setValueToInstance(ExecState*, const Instance*, JSValue) const;
     
     uint64_t m_serverIdentifier;
 };
 
-JSValuePtr ProxyField::valueFromInstance(ExecState* exec, const Instance* instance) const
+JSValue ProxyField::valueFromInstance(ExecState* exec, const Instance* instance) const
 {
     return static_cast<const ProxyInstance*>(instance)->fieldValue(exec, this);
 }
     
-void ProxyField::setValueToInstance(ExecState* exec, const Instance* instance, JSValuePtr value) const
+void ProxyField::setValueToInstance(ExecState* exec, const Instance* instance, JSValue value) const
 {
     static_cast<const ProxyInstance*>(instance)->setFieldValue(exec, this, value);
 }
@@ -134,7 +134,7 @@ JSC::Bindings::Class *ProxyInstance::getClass() const
     return proxyClass();
 }
 
-JSValuePtr ProxyInstance::invoke(JSC::ExecState* exec, InvokeType type, uint64_t identifier, const JSC::ArgList& args)
+JSValue ProxyInstance::invoke(JSC::ExecState* exec, InvokeType type, uint64_t identifier, const JSC::ArgList& args)
 {
     RetainPtr<NSData*> arguments(m_instanceProxy->marshalValues(exec, args));
 
@@ -151,7 +151,7 @@ JSValuePtr ProxyInstance::invoke(JSC::ExecState* exec, InvokeType type, uint64_t
     return m_instanceProxy->demarshalValue(exec, (char*)CFDataGetBytePtr(reply->m_result.get()), CFDataGetLength(reply->m_result.get()));
 }
 
-JSValuePtr ProxyInstance::invokeMethod(ExecState* exec, const MethodList& methodList, const ArgList& args)
+JSValue ProxyInstance::invokeMethod(ExecState* exec, const MethodList& methodList, const ArgList& args)
 {
     ASSERT(methodList.size() == 1);
 
@@ -176,7 +176,7 @@ bool ProxyInstance::supportsInvokeDefaultMethod() const
     return false;
 }
     
-JSValuePtr ProxyInstance::invokeDefaultMethod(ExecState* exec, const ArgList& args)
+JSValue ProxyInstance::invokeDefaultMethod(ExecState* exec, const ArgList& args)
 {
     return invoke(exec, InvokeDefault, 0, args);
 }
@@ -197,12 +197,12 @@ bool ProxyInstance::supportsConstruct() const
     return false;
 }
     
-JSValuePtr ProxyInstance::invokeConstruct(ExecState* exec, const ArgList& args)
+JSValue ProxyInstance::invokeConstruct(ExecState* exec, const ArgList& args)
 {
     return invoke(exec, Construct, 0, args);
 }
 
-JSValuePtr ProxyInstance::defaultValue(ExecState* exec, PreferredPrimitiveType hint) const
+JSValue ProxyInstance::defaultValue(ExecState* exec, PreferredPrimitiveType hint) const
 {
     if (hint == PreferString)
         return stringValue(exec);
@@ -211,25 +211,25 @@ JSValuePtr ProxyInstance::defaultValue(ExecState* exec, PreferredPrimitiveType h
     return valueOf(exec);
 }
 
-JSValuePtr ProxyInstance::stringValue(ExecState* exec) const
+JSValue ProxyInstance::stringValue(ExecState* exec) const
 {
     // FIXME: Implement something sensible.
     return jsString(exec, "");
 }
 
-JSValuePtr ProxyInstance::numberValue(ExecState* exec) const
+JSValue ProxyInstance::numberValue(ExecState* exec) const
 {
     // FIXME: Implement something sensible.
     return jsNumber(exec, 0);
 }
 
-JSValuePtr ProxyInstance::booleanValue() const
+JSValue ProxyInstance::booleanValue() const
 {
     // FIXME: Implement something sensible.
     return jsBoolean(false);
 }
 
-JSValuePtr ProxyInstance::valueOf(ExecState* exec) const
+JSValue ProxyInstance::valueOf(ExecState* exec) const
 {
     return stringValue(exec);
 }
@@ -266,12 +266,15 @@ void ProxyInstance::getPropertyNames(ExecState* exec, PropertyNameArray& nameArr
 
 MethodList ProxyInstance::methodsNamed(const Identifier& identifier)
 {
-    if (Method* method = m_methods.get(identifier.ustring().rep())) {
+    // If we already have an entry in the map, use it.
+    MethodMap::iterator existingMapEntry = m_methods.find(identifier.ustring().rep());
+    if (existingMapEntry != m_methods.end()) {
         MethodList methodList;
-        methodList.append(method);
+        if (existingMapEntry->second)
+            methodList.append(existingMapEntry->second);
         return methodList;
     }
-
+    
     uint64_t methodName = reinterpret_cast<uint64_t>(_NPN_GetStringIdentifier(identifier.ascii()));
     uint32_t requestID = m_instanceProxy->nextRequestID();
     
@@ -281,23 +284,29 @@ MethodList ProxyInstance::methodsNamed(const Identifier& identifier)
         return MethodList();
     
     auto_ptr<NetscapePluginInstanceProxy::BooleanReply> reply = m_instanceProxy->waitForReply<NetscapePluginInstanceProxy::BooleanReply>(requestID);
-    if (reply.get() && reply->m_result) {
-        Method* method = new ProxyMethod(methodName);
-        
-        m_methods.set(identifier.ustring().rep(), method);
-    
-        MethodList methodList;
-        methodList.append(method);
-        return methodList;
-    }
+    if (!reply.get())
+        return MethodList();
 
-    return MethodList();
+    if (!reply->m_result && !m_instanceProxy->hostProxy()->shouldCacheMissingPropertiesAndMethods())
+        return MethodList();
+
+    // Add a new entry to the map unless an entry was added while we were in waitForReply.
+    pair<MethodMap::iterator, bool> mapAddResult = m_methods.add(identifier.ustring().rep(), 0);
+    if (mapAddResult.second && reply->m_result)
+        mapAddResult.first->second = new ProxyMethod(methodName);
+
+    MethodList methodList;
+    if (mapAddResult.first->second)
+        methodList.append(mapAddResult.first->second);
+    return methodList;
 }
 
 Field* ProxyInstance::fieldNamed(const Identifier& identifier)
 {
-    if (Field* field = m_fields.get(identifier.ustring().rep()))
-        return field;
+    // If we already have an entry in the map, use it.
+    FieldMap::iterator existingMapEntry = m_fields.find(identifier.ustring().rep());
+    if (existingMapEntry != m_fields.end())
+        return existingMapEntry->second;
     
     uint64_t propertyName = reinterpret_cast<uint64_t>(_NPN_GetStringIdentifier(identifier.ascii()));
     uint32_t requestID = m_instanceProxy->nextRequestID();
@@ -306,20 +315,22 @@ Field* ProxyInstance::fieldNamed(const Identifier& identifier)
                                  m_instanceProxy->pluginID(), requestID,
                                  m_objectID, propertyName) != KERN_SUCCESS)
         return 0;
-        
+    
     auto_ptr<NetscapePluginInstanceProxy::BooleanReply> reply = m_instanceProxy->waitForReply<NetscapePluginInstanceProxy::BooleanReply>(requestID);
-    if (reply.get() && reply->m_result) {
-        Field* field = new ProxyField(propertyName);
-        
-        m_fields.set(identifier.ustring().rep(), field);
+    if (!reply.get())
+        return 0;
     
-        return field;
-    }
+    if (!reply->m_result && !m_instanceProxy->hostProxy()->shouldCacheMissingPropertiesAndMethods())
+        return 0;
     
-    return 0;
+    // Add a new entry to the map unless an entry was added while we were in waitForReply.
+    pair<FieldMap::iterator, bool> mapAddResult = m_fields.add(identifier.ustring().rep(), 0);
+    if (mapAddResult.second && reply->m_result)
+        mapAddResult.first->second = new ProxyField(propertyName);
+    return mapAddResult.first->second;
 }
 
-JSC::JSValuePtr ProxyInstance::fieldValue(ExecState* exec, const Field* field) const
+JSC::JSValue ProxyInstance::fieldValue(ExecState* exec, const Field* field) const
 {
     uint64_t serverIdentifier = static_cast<const ProxyField*>(field)->serverIdentifier();
     uint32_t requestID = m_instanceProxy->nextRequestID();
@@ -336,7 +347,7 @@ JSC::JSValuePtr ProxyInstance::fieldValue(ExecState* exec, const Field* field) c
     return m_instanceProxy->demarshalValue(exec, (char*)CFDataGetBytePtr(reply->m_result.get()), CFDataGetLength(reply->m_result.get()));
 }
     
-void ProxyInstance::setFieldValue(ExecState* exec, const Field* field, JSValuePtr value) const
+void ProxyInstance::setFieldValue(ExecState* exec, const Field* field, JSValue value) const
 {
     uint64_t serverIdentifier = static_cast<const ProxyField*>(field)->serverIdentifier();
     uint32_t requestID = m_instanceProxy->nextRequestID();

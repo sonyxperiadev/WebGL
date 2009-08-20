@@ -26,6 +26,7 @@
 #include "config.h"
 #include "HTMLInputElement.h"
 
+#include "AXObjectCache.h"
 #include "CSSPropertyNames.h"
 #include "ChromeClient.h"
 #include "Document.h"
@@ -47,6 +48,7 @@
 #include "MappedAttribute.h"
 #include "MouseEvent.h"
 #include "Page.h"
+#include "RegularExpression.h"
 #include "RenderButton.h"
 #include "RenderFileUploadControl.h"
 #include "RenderImage.h"
@@ -115,6 +117,79 @@ bool HTMLInputElement::autoComplete() const
     
     // The default is true
     return true;
+}
+
+bool HTMLInputElement::valueMissing() const
+{
+    if (!isRequiredFormControl() || readOnly() || disabled())
+        return false;
+
+    switch (inputType()) {
+        case TEXT:
+        case SEARCH:
+        case URL:
+        case TELEPHONE:
+        case EMAIL:
+        case PASSWORD:
+        case NUMBER:
+        case FILE:
+            return value().isEmpty();
+        case CHECKBOX:
+            return !checked();
+        case RADIO:
+            return !document()->checkedRadioButtons().checkedButtonForGroup(name());
+        case HIDDEN:
+        case RANGE:
+        case SUBMIT:
+        case IMAGE:
+        case RESET:
+        case BUTTON:
+        case ISINDEX:
+            break;
+    }
+
+    ASSERT_NOT_REACHED();
+    return false;
+}
+
+bool HTMLInputElement::patternMismatch() const
+{
+    switch (inputType()) {
+        case ISINDEX:
+        case CHECKBOX:
+        case RADIO:
+        case SUBMIT:
+        case RESET:
+        case FILE:
+        case HIDDEN:
+        case IMAGE:
+        case BUTTON:
+        case RANGE:
+        case NUMBER:
+            return false;
+        case TEXT:
+        case SEARCH:
+        case URL:
+        case TELEPHONE:
+        case EMAIL:
+        case PASSWORD:
+            const AtomicString& pattern = getAttribute(patternAttr);
+            String value = this->value();
+
+            // Empty values can't be mismatched
+            if (pattern.isEmpty() || value.isEmpty())
+                return false;
+
+            RegularExpression patternRegExp(pattern, TextCaseSensitive);
+            int matchLength = 0;
+            int valueLength = value.length();
+            int matchOffset = patternRegExp.match(value, 0, &matchLength);
+
+            return matchOffset != 0 || matchLength != valueLength;
+    }
+
+    ASSERT_NOT_REACHED();
+    return false;
 }
 
 static inline CheckedRadioButtons& checkedRadioButtons(const HTMLInputElement *element)
@@ -491,31 +566,34 @@ int HTMLInputElement::selectionEnd() const
     return toRenderTextControl(renderer())->selectionEnd();
 }
 
+static bool isTextFieldWithRenderer(HTMLInputElement* element)
+{
+    if (!element->isTextField())
+        return false;
+
+    element->document()->updateLayoutIgnorePendingStylesheets();
+    if (!element->renderer())
+        return false;
+
+    return true;
+}
+
 void HTMLInputElement::setSelectionStart(int start)
 {
-    if (!isTextField())
-        return;
-    if (!renderer())
-        return;
-    toRenderTextControl(renderer())->setSelectionStart(start);
+    if (isTextFieldWithRenderer(this))
+        toRenderTextControl(renderer())->setSelectionStart(start);
 }
 
 void HTMLInputElement::setSelectionEnd(int end)
 {
-    if (!isTextField())
-        return;
-    if (!renderer())
-        return;
-    toRenderTextControl(renderer())->setSelectionEnd(end);
+    if (isTextFieldWithRenderer(this))
+        toRenderTextControl(renderer())->setSelectionEnd(end);
 }
 
 void HTMLInputElement::select()
 {
-    if (!isTextField())
-        return;
-    if (!renderer())
-        return;
-    toRenderTextControl(renderer())->select();
+    if (isTextFieldWithRenderer(this))
+        toRenderTextControl(renderer())->select();
 }
 
 void HTMLInputElement::setSelectionRange(int start, int end)
@@ -645,8 +723,6 @@ void HTMLInputElement::parseMappedAttribute(MappedAttribute *attr)
         setAttributeEventListener(eventNames().selectEvent, createAttributeEventListener(this, attr));
     } else if (attr->name() == onchangeAttr) {
         setAttributeEventListener(eventNames().changeEvent, createAttributeEventListener(this, attr));
-    } else if (attr->name() == oninputAttr) {
-        setAttributeEventListener(eventNames().inputEvent, createAttributeEventListener(this, attr));
     }
     // Search field and slider attributes all just cause updateFromElement to be called through style
     // recalcing.
@@ -853,13 +929,25 @@ bool HTMLInputElement::appendFormData(FormDataList& encoding, bool multipart)
             break;
 
         case FILE: {
-            // Can't submit file on GET.
-            if (!multipart)
-                return false;
+            unsigned numFiles = m_fileList->length();
+            if (!multipart) {
+                // Send only the basenames.
+                // 4.10.16.4 and 4.10.16.6 sections in HTML5.
+
+                // Unlike the multipart case, we have no special
+                // handling for the empty fileList because Netscape
+                // doesn't support for non-multipart submission of
+                // file inputs, and Firefox doesn't add "name=" query
+                // parameter.
+
+                for (unsigned i = 0; i < numFiles; ++i) {
+                    encoding.appendData(name(), m_fileList->item(i)->fileName());
+                }
+                return true;
+            }
 
             // If no filename at all is entered, return successful but empty.
             // Null would be more logical, but Netscape posts an empty file. Argh.
-            unsigned numFiles = m_fileList->length();
             if (!numFiles) {
                 encoding.appendFile(name(), File::create(""));
                 return true;
@@ -894,9 +982,15 @@ void HTMLInputElement::setChecked(bool nowChecked, bool sendChangeEvent)
     setNeedsStyleRecalc();
 
     checkedRadioButtons(this).addButton(this);
-    
+
     if (renderer() && renderer()->style()->hasAppearance())
-        theme()->stateChanged(renderer(), CheckedState);
+        renderer()->theme()->stateChanged(renderer(), CheckedState);
+
+    // Ideally we'd do this from the render tree (matching
+    // RenderTextView), but it's not possible to do it at the moment
+    // because of the way the code is structured.
+    if (renderer() && AXObjectCache::accessibilityEnabled())
+        renderer()->document()->axObjectCache()->postNotification(renderer(), "AXCheckedStateChanged", true);
 
     // Only send a change event for items in the document (avoid firing during
     // parsing) and don't send a change event for a radio button that's getting
@@ -918,7 +1012,7 @@ void HTMLInputElement::setIndeterminate(bool _indeterminate)
     setNeedsStyleRecalc();
 
     if (renderer() && renderer()->style()->hasAppearance())
-        theme()->stateChanged(renderer(), CheckedState);
+        renderer()->theme()->stateChanged(renderer(), CheckedState);
 }
 
 int HTMLInputElement::size() const
@@ -1241,7 +1335,7 @@ void HTMLInputElement::defaultEventHandler(Event* evt)
                 m_activeSubmit = false;
             }
         } else if (inputType() == FILE && renderer())
-            static_cast<RenderFileUploadControl*>(renderer())->click();
+            toRenderFileUploadControl(renderer())->click();
     }
 
     // Use key press event here since sending simulated mouse events
@@ -1429,10 +1523,10 @@ void HTMLInputElement::defaultEventHandler(Event* evt)
         InputElement::handleBeforeTextInsertedEvent(m_data, this, document(), evt);
 
     if (isTextField() && renderer() && (evt->isMouseEvent() || evt->isDragEvent() || evt->isWheelEvent() || evt->type() == eventNames().blurEvent || evt->type() == eventNames().focusEvent))
-        static_cast<RenderTextControlSingleLine*>(renderer())->forwardEvent(evt);
+        toRenderTextControlSingleLine(renderer())->forwardEvent(evt);
 
     if (inputType() == RANGE && renderer() && (evt->isMouseEvent() || evt->isDragEvent() || evt->isWheelEvent()))
-        static_cast<RenderSlider*>(renderer())->forwardEvent(evt);
+        toRenderSlider(renderer())->forwardEvent(evt);
 
     if (!callBaseClassEarly && !evt->defaultHandled())
         HTMLFormControlElementWithState::defaultEventHandler(evt);
@@ -1591,6 +1685,37 @@ void HTMLInputElement::unregisterForActivationCallbackIfNeeded()
         document()->unregisterForDocumentActivationCallbacks(this);
 }
 
+bool HTMLInputElement::isRequiredFormControl() const
+{
+    if (!required())
+        return false;
+
+    switch (inputType()) {
+        case TEXT:
+        case SEARCH:
+        case URL:
+        case TELEPHONE:
+        case EMAIL:
+        case PASSWORD:
+        case NUMBER:
+        case CHECKBOX:
+        case RADIO:
+        case FILE:
+            return true;
+        case HIDDEN:
+        case RANGE:
+        case SUBMIT:
+        case IMAGE:
+        case RESET:
+        case BUTTON:
+        case ISINDEX:
+            return false;
+    }
+
+    ASSERT_NOT_REACHED();
+    return false;
+}
+
 void HTMLInputElement::cacheSelection(int start, int end)
 {
     m_data.setCachedSelectionStart(start);
@@ -1601,22 +1726,22 @@ void HTMLInputElement::addSearchResult()
 {
     ASSERT(isSearchField());
     if (renderer())
-        static_cast<RenderTextControlSingleLine*>(renderer())->addSearchResult();
+        toRenderTextControlSingleLine(renderer())->addSearchResult();
 }
 
 void HTMLInputElement::onSearch()
 {
     ASSERT(isSearchField());
     if (renderer())
-        static_cast<RenderTextControlSingleLine*>(renderer())->stopSearchEventTimer();
+        toRenderTextControlSingleLine(renderer())->stopSearchEventTimer();
     dispatchEvent(eventNames().searchEvent, true, false);
 }
 
 VisibleSelection HTMLInputElement::selection() const
 {
-   if (!renderer() || !isTextField() || m_data.cachedSelectionStart() == -1 || m_data.cachedSelectionEnd() == -1)
+    if (!renderer() || !isTextField() || m_data.cachedSelectionStart() == -1 || m_data.cachedSelectionEnd() == -1)
         return VisibleSelection();
-   return toRenderTextControl(renderer())->selection(m_data.cachedSelectionStart(), m_data.cachedSelectionEnd());
+    return toRenderTextControl(renderer())->selection(m_data.cachedSelectionStart(), m_data.cachedSelectionEnd());
 }
 
 void HTMLInputElement::documentDidBecomeActive()

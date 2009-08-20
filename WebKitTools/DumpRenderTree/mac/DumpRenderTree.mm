@@ -26,11 +26,13 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
- 
+
+#import "config.h"
 #import "DumpRenderTree.h"
 
 #import "AccessibilityController.h"
 #import "CheckedMalloc.h"
+#import "DumpRenderTreeDraggingInfo.h"
 #import "DumpRenderTreePasteboard.h"
 #import "DumpRenderTreeWindow.h"
 #import "EditingDelegate.h"
@@ -49,7 +51,7 @@
 #import "WorkQueueItem.h"
 #import <Carbon/Carbon.h>
 #import <CoreFoundation/CoreFoundation.h>
-#import <WebKit/DOMElementPrivate.h>
+#import <WebKit/DOMElement.h>
 #import <WebKit/DOMExtensions.h>
 #import <WebKit/DOMRange.h>
 #import <WebKit/WebBackForwardList.h>
@@ -64,9 +66,11 @@
 #import <WebKit/WebHistory.h>
 #import <WebKit/WebHistoryItemPrivate.h>
 #import <WebKit/WebInspector.h>
+#import <WebKit/WebKitNSStringExtras.h>
 #import <WebKit/WebPluginDatabase.h>
 #import <WebKit/WebPreferences.h>
 #import <WebKit/WebPreferencesPrivate.h>
+#import <WebKit/WebPreferenceKeysPrivate.h>
 #import <WebKit/WebResourceLoadDelegate.h>
 #import <WebKit/WebTypesInternal.h>
 #import <WebKit/WebViewPrivate.h>
@@ -254,7 +258,7 @@ static void activateFonts()
     NSURL *resourcesDirectory = [NSURL URLWithString:@"DumpRenderTree.resources" relativeToURL:[[NSBundle mainBundle] executableURL]];
     for (unsigned i = 0; fontFileNames[i]; ++i) {
         NSURL *fontURL = [resourcesDirectory URLByAppendingPathComponent:[NSString stringWithUTF8String:fontFileNames[i]]];
-        [fontURLs addObject:fontURL];
+        [fontURLs addObject:[fontURL absoluteURL]];
     }
 
     CFArrayRef errors = 0;
@@ -287,6 +291,11 @@ WebView *createWebViewAndOffscreenWindow()
     // Put it at -10000, -10000 in "flipped coordinates", since WebCore and the DOM use flipped coordinates.
     NSRect windowRect = NSOffsetRect(rect, -10000, [[[NSScreen screens] objectAtIndex:0] frame].size.height - rect.size.height + 10000);
     DumpRenderTreeWindow *window = [[DumpRenderTreeWindow alloc] initWithContentRect:windowRect styleMask:NSBorderlessWindowMask backing:NSBackingStoreBuffered defer:YES];
+
+#if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
+    [window setColorSpace:[[NSScreen mainScreen] colorSpace]];
+#endif
+
     [[window contentView] addSubview:webView];
     [window orderBack:nil];
     [window setAutodisplay:NO];
@@ -340,6 +349,11 @@ void testStringByEvaluatingJavaScriptFromString()
     [pool release];
 }
 
+static NSString *libraryPathForDumpRenderTree()
+{
+    return [@"~/Library/Application Support/DumpRenderTree" stringByExpandingTildeInPath];
+}
+
 static void setDefaultsToConsistentValuesForTesting()
 {
     // Give some clear to undocumented defaults values
@@ -353,6 +367,7 @@ static void setDefaultsToConsistentValuesForTesting()
     [defaults setObject:@"0.709800 0.835300 1.000000" forKey:@"AppleHighlightColor"];
     [defaults setObject:@"0.500000 0.500000 0.500000" forKey:@"AppleOtherHighlightColor"];
     [defaults setObject:[NSArray arrayWithObject:@"en"] forKey:@"AppleLanguages"];
+    [defaults setBool:YES forKey:WebKitEnableFullDocumentTeardownPreferenceKey];
 
     // Scrollbars are drawn either using AppKit (which uses NSUserDefaults) or using HIToolbox (which uses CFPreferences / kCFPreferencesAnyApplication / kCFPreferencesCurrentUser / kCFPreferencesAnyHost)
     [defaults setObject:@"DoubleMax" forKey:@"AppleScrollBarVariant"];
@@ -366,9 +381,16 @@ static void setDefaultsToConsistentValuesForTesting()
     if (initialValue)
         CFPreferencesSetValue(CFSTR("AppleScrollBarVariant"), initialValue.get(), kCFPreferencesAnyApplication, kCFPreferencesCurrentUser, kCFPreferencesAnyHost);
 
-    NSString *libraryPath = [@"~/Library/Application Support/DumpRenderTree" stringByExpandingTildeInPath];
-    [defaults setObject:[libraryPath stringByAppendingPathComponent:@"Databases"] forKey:WebDatabaseDirectoryDefaultsKey];
-    
+    NSString *path = libraryPathForDumpRenderTree();
+    [defaults setObject:[path stringByAppendingPathComponent:@"Databases"] forKey:WebDatabaseDirectoryDefaultsKey];
+    [defaults setObject:[path stringByAppendingPathComponent:@"LocalCache"] forKey:WebKitLocalCacheDefaultsKey];
+    NSURLCache *sharedCache =
+        [[NSURLCache alloc] initWithMemoryCapacity:1024 * 1024
+                                      diskCapacity:0
+                                          diskPath:[path stringByAppendingPathComponent:@"URLCache"]];
+    [NSURLCache setSharedURLCache:sharedCache];
+    [sharedCache release];
+
     WebPreferences *preferences = [WebPreferences standardPreferences];
 
     [preferences setStandardFontFamily:@"Times"];
@@ -385,8 +407,9 @@ static void setDefaultsToConsistentValuesForTesting()
     [preferences setEditableLinkBehavior:WebKitEditableLinkOnlyLiveWithShiftKey];
     [preferences setTabsToLinks:NO];
     [preferences setDOMPasteAllowed:YES];
-    [preferences setFullDocumentTeardownEnabled:YES];
     [preferences setShouldPrintBackgrounds:YES];
+    [preferences setCacheModel:WebCacheModelDocumentBrowser];
+    [preferences setXSSAuditorEnabled:NO];
 
     // The back/forward cache is causing problems due to layouts during transition from one page to another.
     // So, turn it off for now, but we might want to turn it back on some day.
@@ -599,7 +622,14 @@ static void dumpHistoryItem(WebHistoryItem *item, int indent, BOOL current)
     }
     for (int i = start; i < indent; i++)
         putchar(' ');
-    printf("%s", [[item URLString] UTF8String]);
+    
+    NSString *urlString = [item URLString];
+    if ([[NSURL URLWithString:urlString] isFileURL]) {
+        NSRange range = [urlString rangeOfString:@"/LayoutTests/"];
+        urlString = [@"(file test):" stringByAppendingString:[urlString substringFromIndex:(range.length + range.location)]];
+    }
+    
+    printf("%s", [urlString UTF8String]);
     NSString *target = [item target];
     if (target && [target length] > 0)
         printf(" (in frame \"%s\")", [target UTF8String]);
@@ -669,7 +699,7 @@ static NSData *dumpFrameAsPDF(WebFrame *frame)
     // likewise +[NSView dataWithPDFInsideRect:] also prints to a single continuous page
     // The goal of this function is to test "real" printing across multiple pages.
     // FIXME: It's possible there might be printing SPI to let us print a multi-page PDF to an NSData object
-    NSString *path = @"/tmp/test.pdf";
+    NSString *path = [libraryPathForDumpRenderTree() stringByAppendingPathComponent:@"test.pdf"];
 
     NSMutableDictionary *printInfoDict = [NSMutableDictionary dictionaryWithDictionary:[[NSPrintInfo sharedPrintInfo] dictionary]];
     [printInfoDict setObject:NSPrintSaveJob forKey:NSPrintJobDisposition];
@@ -1016,6 +1046,8 @@ static void resetWebViewToConsistentStateBeforeTesting()
     [webView resetPageZoom:nil];
     [webView setTabKeyCyclesThroughElements:YES];
     [webView setPolicyDelegate:nil];
+    [policyDelegate setPermissive:NO];
+    [policyDelegate setControllerToNotifyDone:0];
     [webView _setDashboardBehavior:WebDashboardBehaviorUseBackwardCompatibilityMode to:NO];
     [webView _clearMainFrameName];
     [[webView undoManager] removeAllActions];
@@ -1025,8 +1057,9 @@ static void resetWebViewToConsistentStateBeforeTesting()
     [preferences setAuthorAndUserStylesEnabled:YES];
     [preferences setJavaScriptCanOpenWindowsAutomatically:YES];
     [preferences setOfflineWebApplicationCacheEnabled:YES];
-    [preferences setFullDocumentTeardownEnabled:YES];
     [preferences setDeveloperExtrasEnabled:NO];
+    [preferences setXSSAuditorEnabled:NO];
+    [preferences setLoadsImagesAutomatically:YES];
 
     if (persistentUserStyleSheetLocation) {
         [preferences setUserStyleSheetLocation:[NSURL URLWithString:(NSString *)(persistentUserStyleSheetLocation.get())]];
@@ -1076,6 +1109,8 @@ static void runTest(const string& testPathOrURL)
 
     gLayoutTestController = new LayoutTestController(testURL, expectedPixelHash);
     topLoadingFrame = nil;
+    ASSERT(!draggingInfo); // the previous test should have called eventSender.mouseUp to drop!
+    releaseAndZero(&draggingInfo);
     done = NO;
 
     gLayoutTestController->setIconDatabaseEnabled(false);
@@ -1131,7 +1166,9 @@ static void runTest(const string& testPathOrURL)
             [window close];
         }
     }
-    
+
+    resetWebViewToConsistentStateBeforeTesting();
+
     [mainFrame loadHTMLString:@"<html></html>" baseURL:[NSURL URLWithString:@"about:blank"]];
     [mainFrame stopLoading];
     

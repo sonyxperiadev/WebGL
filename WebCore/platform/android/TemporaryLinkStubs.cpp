@@ -59,7 +59,6 @@
 #include "Icon.h"
 #include "IconDatabase.h"
 #include "IconLoader.h"
-#include "InspectorFrontend.h"
 #include "IntPoint.h"
 
 #if USE(JSC)
@@ -162,15 +161,6 @@ void CheckCacheObjectStatus(DocLoader*, CachedResource*)
 // web page. The icon for the file is encapsulated within this class.
 Icon::~Icon() { }
 void Icon::paint(GraphicsContext*, const IntRect&) { }
-
-// This function provides the default value for the CSS property:
-// -webkit-focus-ring-color
-// It is also related to the CSS property outline-color:
-Color focusRingColor()
-{
-    verifiedOk();
-    return 0xFF0000FF;
-}
 
 }  // namespace WebCore
 
@@ -373,7 +363,7 @@ namespace WebCore {
 
 IntSize dragImageSize(void*)
 {
-    return IntSize();
+    return IntSize(0, 0);
 }
 
 void deleteDragImage(void*) {}
@@ -428,6 +418,12 @@ String searchMenuClearRecentSearchesText()
     return String();
 }
 
+Vector<String> supportedKeySizes()
+{
+    notImplemented();
+    return Vector<String>();
+}
+
 } // namespace WebCore
 
 namespace WebCore {
@@ -459,7 +455,7 @@ PassRefPtr<SharedBuffer> SharedBuffer::createWithContentsOfFile(const String&)
 
 #if USE(JSC)
 namespace JSC { namespace Bindings {
-bool dispatchJNICall(ExecState*, const void* targetAppletView, jobject obj, bool isStatic, JNIType returnType, 
+bool dispatchJNICall(ExecState*, const void* targetAppletView, jobject obj, bool isStatic, JNIType returnType,
         jmethodID methodID, jvalue* args, jvalue& result, const char* callingURL, JSValue& exceptionDescription)
 {
     notImplemented();
@@ -540,11 +536,6 @@ void AXObjectCache::remove(RenderObject*)
     notImplemented();
 }
 
-InspectorFrontend::~InspectorFrontend()
-{
-    notImplemented();
-}
-
 #if USE(JSC)
 using namespace JSC;
 
@@ -559,109 +550,4 @@ OpaqueJSClassContextData::~OpaqueJSClassContextData()
     notImplemented();
 }
 
-// as we don't use inspector/*.cpp, add stub here.
-
-/*
-namespace WebCore {
-JSValue JavaScriptCallFrame::evaluate(const UString& script, JSValue& exception) const
-{
-    notImplemented();
-    return jsNull();
-}
-
-const ScopeChainNode* JavaScriptCallFrame::scopeChain() const
-{
-    notImplemented();
-    return 0;
-}
-
-JSObject* JavaScriptCallFrame::thisObject() const
-{
-    notImplemented();
-    return 0;
-}
-
-DebuggerCallFrame::Type JavaScriptCallFrame::type() const
-{
-    notImplemented();
-    return (DebuggerCallFrame::Type) 0;
-}
-
-JavaScriptCallFrame* JavaScriptCallFrame::caller()
-{
-    notImplemented();
-    return 0;
-}
-
-String JavaScriptCallFrame::functionName() const
-{
-    notImplemented();
-    return String();
-}
-
-}
-
-JavaScriptDebugServer::JavaScriptDebugServer() :
-    m_recompileTimer(this, 0)
-{
-    notImplemented();
-}
-
-JavaScriptDebugServer::~JavaScriptDebugServer()
-{
-    notImplemented();
-}
-
-JavaScriptDebugServer& JavaScriptDebugServer::shared()
-{
-    static JavaScriptDebugServer server;
-    notImplemented();
-    return server;
-}
-
-void JavaScriptDebugServer::atStatement(const DebuggerCallFrame&, int, int)
-{
-    notImplemented();
-}
-
-void JavaScriptDebugServer::callEvent(const DebuggerCallFrame&, int, int)
-{
-    notImplemented();
-}
-
-void JavaScriptDebugServer::didExecuteProgram(const DebuggerCallFrame&, int, int)
-{
-    notImplemented();
-}
-
-void JavaScriptDebugServer::didReachBreakpoint(const DebuggerCallFrame&, int, int)
-{
-    notImplemented();
-}
-
-void JavaScriptDebugServer::exception(const DebuggerCallFrame&, int, int)
-{
-    notImplemented();
-}
-
-void JavaScriptDebugServer::sourceParsed(ExecState*, const SourceCode&, int, const UString&)
-{
-    notImplemented();
-}
-
-void JavaScriptDebugServer::pageCreated(Page*)
-{
-    notImplemented();
-}
-
-void JavaScriptDebugServer::returnEvent(const DebuggerCallFrame&, int, int)
-{
-    notImplemented();
-}
-
-void JavaScriptDebugServer::willExecuteProgram(const DebuggerCallFrame&, int, int)
-{
-    notImplemented();
-}
-*/
 #endif

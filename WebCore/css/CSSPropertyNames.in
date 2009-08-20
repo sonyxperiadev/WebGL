@@ -10,8 +10,10 @@
 
 background
 background-attachment
+background-clip
 background-color
 background-image
+background-origin
 background-position
 background-position-x
 background-position-y
@@ -19,6 +21,8 @@ background-repeat
 border
 border-bottom
 border-bottom-color
+border-bottom-left-radius
+border-bottom-right-radius
 border-bottom-style
 border-bottom-width
 border-collapse
@@ -27,6 +31,7 @@ border-left
 border-left-color
 border-left-style
 border-left-width
+border-radius
 border-right
 border-right-color
 border-right-style
@@ -35,10 +40,13 @@ border-spacing
 border-style
 border-top
 border-top-color
+border-top-left-radius
+border-top-right-radius
 border-top-style
 border-top-width
 border-width
 bottom
+box-shadow
 caption-side
 clear
 clip
@@ -142,6 +150,7 @@ zoom
 -webkit-animation-duration
 -webkit-animation-iteration-count
 -webkit-animation-name
+-webkit-animation-play-state
 -webkit-animation-timing-function
 -webkit-appearance
 -webkit-backface-visibility
@@ -150,14 +159,14 @@ zoom
 -webkit-background-origin
 -webkit-background-size
 -webkit-binding
--webkit-border-bottom-left-radius
--webkit-border-bottom-right-radius
 -webkit-border-fit
 -webkit-border-horizontal-spacing
 -webkit-border-image
+
+# -webkit-border-radius differs from border-radius only in the interpretation of
+# a value consisting of two lengths: "-webkit-border-radius: l1 l2;" is equivalent
+# to "border-radius: l1 / l2;"
 -webkit-border-radius
--webkit-border-top-left-radius
--webkit-border-top-right-radius
 -webkit-border-vertical-spacing
 -webkit-box-align
 -webkit-box-direction
@@ -168,7 +177,6 @@ zoom
 -webkit-box-orient
 -webkit-box-pack
 -webkit-box-reflect
--webkit-box-shadow
 -webkit-box-sizing
 -webkit-column-break-after
 -webkit-column-break-before

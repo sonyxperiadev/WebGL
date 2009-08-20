@@ -40,7 +40,6 @@
 #include "DatabaseTracker.h"
 #include "Document.h"
 #include "ExceptionCode.h"
-#include "FileSystem.h"
 #include "Frame.h"
 #include "InspectorController.h"
 #include "Logging.h"
@@ -48,6 +47,7 @@
 #include "Page.h"
 #include "OriginQuotaManager.h"
 #include "SQLiteDatabase.h"
+#include "SQLiteFileSystem.h"
 #include "SQLiteStatement.h"
 #include "SQLResultSet.h"
 #include <wtf/MainThread.h>
@@ -56,6 +56,8 @@
 #if USE(JSC)
 #include "JSDOMWindow.h"
 #include <runtime/InitializeThreading.h>
+#elif USE(V8)
+#include "InitializeThreading.h"
 #endif
 
 namespace WebCore {
@@ -147,6 +149,9 @@ Database::Database(Document* document, const String& name, const String& expecte
     JSC::initializeThreading();
     // Database code violates the normal JSCore contract by calling jsUnprotect from a secondary thread, and thus needs additional locking.
     JSDOMWindow::commonJSGlobalData()->heap.setGCProtectNeedsLocking();
+#elif USE(V8)
+    // TODO(benm): do we need the extra locking in V8 too? (See JSC comment above)
+    V8::initializeThreading();
 #endif
 
     m_guid = guidForOriginAndName(m_securityOrigin->toString(), name);
@@ -348,10 +353,7 @@ void Database::stop()
 
 unsigned long long Database::databaseSize() const
 {
-    long long size;
-    if (!getFileSize(m_filename, size))
-        size = 0;
-    return size;
+    return SQLiteFileSystem::getDatabaseFileSize(m_filename);
 }
 
 unsigned long long Database::maximumSize() const

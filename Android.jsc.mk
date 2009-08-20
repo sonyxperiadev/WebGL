@@ -116,6 +116,7 @@ LOCAL_C_INCLUDES := \
 	$(LOCAL_PATH)/WebCore/editing \
 	$(LOCAL_PATH)/WebCore/history \
 	$(LOCAL_PATH)/WebCore/html \
+	$(LOCAL_PATH)/WebCore/html/canvas \
 	$(LOCAL_PATH)/WebCore/inspector \
 	$(LOCAL_PATH)/WebCore/loader \
 	$(LOCAL_PATH)/WebCore/loader/appcache \
@@ -174,6 +175,7 @@ LOCAL_C_INCLUDES := \
 	$(base_intermediates)/WebCore/css \
 	$(base_intermediates)/WebCore/dom \
 	$(base_intermediates)/WebCore/html \
+	$(base_intermediates)/WebCore/html/canvas \
 	$(base_intermediates)/WebCore/inspector \
 	$(base_intermediates)/WebCore/loader/appcache \
 	$(base_intermediates)/WebCore/page \

@@ -34,6 +34,7 @@
 #include "FocusController.h"
 #include "Frame.h"
 #include "FrameLoader.h"
+#include "FrameLoaderClient.h"
 #include "FrameTree.h"
 #include "FrameView.h"
 #include "HTMLElement.h"
@@ -46,6 +47,7 @@
 #include "PluginData.h"
 #include "ProgressTracker.h"
 #include "RenderWidget.h"
+#include "RenderTheme.h"
 #include "ScriptController.h"
 #include "SelectionController.h"
 #include "Settings.h"
@@ -57,9 +59,8 @@
 #include <wtf/StdLibExtras.h>
 
 #if ENABLE(DOM_STORAGE)
-#include "LocalStorage.h"
-#include "SessionStorage.h"
 #include "StorageArea.h"
+#include "StorageNamespace.h"
 #endif
 
 #if ENABLE(JAVASCRIPT_DEBUGGER)
@@ -100,10 +101,11 @@ Page::Page(ChromeClient* chromeClient, ContextMenuClient* contextMenuClient, Edi
     , m_dragController(new DragController(this, dragClient))
     , m_focusController(new FocusController(this))
     , m_contextMenuController(new ContextMenuController(this, contextMenuClient))
-    , m_inspectorController(InspectorController::create(this, inspectorClient))
+    , m_inspectorController(new InspectorController(this, inspectorClient))
     , m_settings(new Settings(this))
     , m_progress(new ProgressTracker)
     , m_backForwardList(BackForwardList::create(this))
+    , m_theme(RenderTheme::themeForPage(this))
     , m_editorClient(editorClient)
     , m_frameCount(0)
     , m_tabKeyCyclesThroughElements(true)
@@ -120,6 +122,7 @@ Page::Page(ChromeClient* chromeClient, ContextMenuClient* contextMenuClient, Edi
     , m_debugger(0)
     , m_customHTMLTokenizerTimeDelay(-1)
     , m_customHTMLTokenizerChunkSize(-1)
+    , m_canStartPlugins(true)
 {
     if (!allPages) {
         allPages = new HashSet<Page*>;
@@ -210,7 +213,7 @@ void Page::goToItem(HistoryItem* item, FrameLoadType type)
     const KURL& currentURL = m_mainFrame->loader()->url();
     const KURL& newURL = item->url();
 
-    if (newURL.hasRef() && equalIgnoringRef(currentURL, newURL))
+    if (newURL.hasFragmentIdentifier() && equalIgnoringFragmentIdentifier(currentURL, newURL))
         databasePolicy = DatabasePolicyContinue;
 #endif
     m_mainFrame->loader()->stopAllLoaders(databasePolicy);
@@ -295,6 +298,19 @@ PluginData* Page::pluginData() const
     if (!m_pluginData)
         m_pluginData = PluginData::create(this);
     return m_pluginData.get();
+}
+
+void Page::addUnstartedPlugin(PluginView* view)
+{
+    ASSERT(!m_canStartPlugins);
+    m_unstartedPlugins.add(view);
+}
+
+void Page::removeUnstartedPlugin(PluginView* view)
+{
+    ASSERT(!m_canStartPlugins);
+    ASSERT(m_unstartedPlugins.contains(view));
+    m_unstartedPlugins.remove(view);
 }
 
 static Frame* incrementFrame(Frame* curr, bool forward, bool wrapFlag)
@@ -498,7 +514,9 @@ void Page::removeAllVisitedLinks()
 void Page::allVisitedStateChanged(PageGroup* group)
 {
     ASSERT(group);
-    ASSERT(allPages);
+    if (!allPages)
+        return;
+
     HashSet<Page*>::iterator pagesEnd = allPages->end();
     for (HashSet<Page*>::iterator it = allPages->begin(); it != pagesEnd; ++it) {
         Page* page = *it;
@@ -514,7 +532,9 @@ void Page::allVisitedStateChanged(PageGroup* group)
 void Page::visitedStateChanged(PageGroup* group, LinkHash visitedLinkHash)
 {
     ASSERT(group);
-    ASSERT(allPages);
+    if (!allPages)
+        return;
+
     HashSet<Page*>::iterator pagesEnd = allPages->end();
     for (HashSet<Page*>::iterator it = allPages->begin(); it != pagesEnd; ++it) {
         Page* page = *it;
@@ -548,17 +568,16 @@ void Page::setDebugger(JSC::Debugger* debugger)
 }
 
 #if ENABLE(DOM_STORAGE)
-SessionStorage* Page::sessionStorage(bool optionalCreate)
+StorageNamespace* Page::sessionStorage(bool optionalCreate)
 {
     if (!m_sessionStorage && optionalCreate)
-        m_sessionStorage = SessionStorage::create(this);
+        m_sessionStorage = StorageNamespace::sessionStorageNamespace();
 
     return m_sessionStorage.get();
 }
 
-void Page::setSessionStorage(PassRefPtr<SessionStorage> newStorage)
+void Page::setSessionStorage(PassRefPtr<StorageNamespace> newStorage)
 {
-    ASSERT(newStorage->page() == this);
     m_sessionStorage = newStorage;
 }
 #endif

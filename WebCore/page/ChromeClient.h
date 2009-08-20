@@ -103,7 +103,7 @@ namespace WebCore {
 
         virtual void setResizable(bool) = 0;
         
-        virtual void addMessageToConsole(MessageSource, MessageLevel, const String& message, unsigned int lineNumber, const String& sourceID) = 0;
+        virtual void addMessageToConsole(MessageSource, MessageType, MessageLevel, const String& message, unsigned int lineNumber, const String& sourceID) = 0;
 
         virtual bool canRunBeforeUnloadConfirmPanel() = 0;
         virtual bool runBeforeUnloadConfirmPanel(const String& message, Frame* frame) = 0;
@@ -131,7 +131,7 @@ namespace WebCore {
 
         virtual void mouseDidMoveOverElement(const HitTestResult&, unsigned modifierFlags) = 0;
 
-        virtual void setToolTip(const String&) = 0;
+        virtual void setToolTip(const String&, TextDirection) = 0;
 
         virtual void print(Frame*) = 0;
 
@@ -177,6 +177,9 @@ namespace WebCore {
         // Notification that the given form element has changed. This function
         // will be called frequently, so handling should be very fast.
         virtual void formStateDidChange(const Node*) = 0;
+        
+        virtual void formDidFocus(const Node*) { };
+        virtual void formDidBlur(const Node*) { };
 
         virtual PassOwnPtr<HTMLParserQuirks> createHTMLParserQuirks() = 0;
 
@@ -188,7 +191,7 @@ namespace WebCore {
         virtual void setNeedsOneShotDrawingSynchronization() = 0;
         // Sets a flag to specify that the view needs to be updated, so we need
         // to do an eager layout before the drawing.
-        virtual void scheduleViewUpdate() = 0;
+        virtual void scheduleCompositingLayerSync() = 0;
 #endif
 
 #if PLATFORM(MAC)

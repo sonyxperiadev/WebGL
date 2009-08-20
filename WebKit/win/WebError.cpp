@@ -136,6 +136,14 @@ HRESULT STDMETHODCALLTYPE WebError::localizedDescription(
         return E_POINTER;
 
     *result = BString(m_error.localizedDescription()).release();
+
+#if PLATFORM(CFNETWORK)
+    if (!*result) {
+        if (int code = m_error.errorCode())
+            *result = BString(wkCFNetworkErrorGetLocalizedDescription(code)).release();
+    }
+#endif
+
     return S_OK;
 }
 

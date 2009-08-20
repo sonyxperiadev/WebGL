@@ -802,7 +802,7 @@ void CompositeEditCommand::moveParagraphs(const VisiblePosition& startOfParagrap
     // too, <div><b><br></b></div> for example.  Save it so that we can preserve it later.
     RefPtr<CSSMutableStyleDeclaration> styleInEmptyParagraph;
     if (startOfParagraphToMove == endOfParagraphToMove && preserveStyle) {
-        styleInEmptyParagraph = styleAtPosition(startOfParagraphToMove.deepEquivalent());
+        styleInEmptyParagraph = editingStyleAtPosition(startOfParagraphToMove.deepEquivalent(), IncludeTypingStyle);
         // The moved paragraph should assume the block style of the destination.
         styleInEmptyParagraph->removeBlockProperties();
     }
@@ -891,7 +891,7 @@ bool CompositeEditCommand::breakOutOfEmptyListItem()
     if (!emptyListItem)
         return false;
         
-    RefPtr<CSSMutableStyleDeclaration> style = styleAtPosition(endingSelection().start());
+    RefPtr<CSSMutableStyleDeclaration> style = editingStyleAtPosition(endingSelection().start(), IncludeTypingStyle);
 
     Node* listNode = emptyListItem->parentNode();
     
@@ -988,6 +988,10 @@ Position CompositeEditCommand::positionAvoidingSpecialElementBoundary(const Posi
     VisiblePosition visiblePos(original);
     Node* enclosingAnchor = enclosingAnchorElement(original);
     Position result = original;
+
+    if (!enclosingAnchor)
+        return result;
+
     // Don't avoid block level anchors, because that would insert content into the wrong paragraph.
     if (enclosingAnchor && !isBlock(enclosingAnchor)) {
         VisiblePosition firstInAnchor(firstDeepEditingPositionForNode(enclosingAnchor));
@@ -1020,6 +1024,9 @@ Position CompositeEditCommand::positionAvoidingSpecialElementBoundary(const Posi
                 pushAnchorElementDown(enclosingAnchor);
                 enclosingAnchor = enclosingAnchorElement(original);
             }
+            if (!enclosingAnchor)
+                return original;
+
             result = positionBeforeNode(enclosingAnchor);
         }
     }
@@ -1034,6 +1041,8 @@ Position CompositeEditCommand::positionAvoidingSpecialElementBoundary(const Posi
 // to determine if the split is necessary. Returns the last split node.
 PassRefPtr<Node> CompositeEditCommand::splitTreeToNode(Node* start, Node* end, bool splitAncestor)
 {
+    ASSERT(start != end);
+
     RefPtr<Node> node;
     for (node = start; node && node->parent() != end; node = node->parent()) {
         VisiblePosition positionInParent(Position(node->parent(), 0), DOWNSTREAM);

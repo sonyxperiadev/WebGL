@@ -55,9 +55,8 @@ public:
     PassRefPtr<CSSValue> getSVGPropertyCSSValue(int propertyID, EUpdateLayout) const;
 #endif
 
-    PassRefPtr<CSSMutableStyleDeclaration> copyInheritableProperties() const;
-
-    static void removeComputedInheritablePropertiesFrom(CSSMutableStyleDeclaration*);
+protected:
+    virtual bool cssPropertyMatches(const CSSProperty*) const;
 
 private:
     CSSComputedStyleDeclaration(PassRefPtr<Node>);

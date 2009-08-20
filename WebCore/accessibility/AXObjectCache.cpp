@@ -37,11 +37,13 @@
 #include "AccessibilityListBoxOption.h"
 #include "AccessibilityImageMapLink.h"
 #include "AccessibilityRenderObject.h"
+#include "AccessibilitySlider.h"
 #include "AccessibilityTable.h"
 #include "AccessibilityTableCell.h"
 #include "AccessibilityTableColumn.h"
 #include "AccessibilityTableHeaderContainer.h"
 #include "AccessibilityTableRow.h"
+#include "InputElement.h"
 #include "HTMLNames.h"
 #include "RenderObject.h"
 #include "RenderView.h"
@@ -125,6 +127,10 @@ AccessibilityObject* AXObjectCache::getOrCreate(RenderObject* renderer)
         else if (renderer->isTableCell())
             newObj = AccessibilityTableCell::create(renderer);
 
+        // input type=range
+        else if (renderer->isSlider())
+            newObj = AccessibilitySlider::create(renderer);
+
         else
             newObj = AccessibilityRenderObject::create(renderer);
         
@@ -157,7 +163,10 @@ AccessibilityObject* AXObjectCache::getOrCreate(AccessibilityRole role)
             break;            
         case TableHeaderContainerRole:
             obj = AccessibilityTableHeaderContainer::create();
-            break;            
+            break;   
+        case SliderThumbRole:
+            obj = AccessibilitySliderThumb::create();
+            break;
         default:
             obj = 0;
     }
@@ -260,7 +269,7 @@ void AXObjectCache::notificationPostTimerFired(Timer<AXObjectCache>*)
 
     unsigned i = 0, count = m_notificationsToPost.size();
     for (i = 0; i < count; ++i) {
-        AccessibilityObject* obj = m_notificationsToPost[i].first;
+        AccessibilityObject* obj = m_notificationsToPost[i].first.get();
 #ifndef NDEBUG
         // Make sure none of the render views are in the process of being layed out.
         // Notifications should only be sent after the renderer has finished
@@ -307,7 +316,7 @@ void AXObjectCache::postNotification(RenderObject* renderer, const String& messa
     if (!obj)
         return;
 
-    m_notificationsToPost.append(make_pair(obj.get(), message));
+    m_notificationsToPost.append(make_pair(obj, message));
     if (!m_notificationPostTimer.isActive())
         m_notificationPostTimer.startOneShot(0);
 }
@@ -334,8 +343,64 @@ void AXObjectCache::handleAriaRoleChanged(RenderObject* renderer)
         return;
     AccessibilityObject* obj = getOrCreate(renderer);
     if (obj && obj->isAccessibilityRenderObject())
-        static_cast<AccessibilityRenderObject*>(obj)->setAriaRole();
+        static_cast<AccessibilityRenderObject*>(obj)->updateAccessibilityRole();
 }
 #endif
+    
+VisiblePosition AXObjectCache::visiblePositionForTextMarkerData(TextMarkerData& textMarkerData)
+{
+    VisiblePosition visiblePos = VisiblePosition(textMarkerData.node, textMarkerData.offset, textMarkerData.affinity);
+    Position deepPos = visiblePos.deepEquivalent();
+    if (deepPos.isNull())
+        return VisiblePosition();
+    
+    RenderObject* renderer = deepPos.node()->renderer();
+    if (!renderer)
+        return VisiblePosition();
+    
+    AXObjectCache* cache = renderer->document()->axObjectCache();
+    if (!cache->isIDinUse(textMarkerData.axID))
+        return VisiblePosition();
+    
+    if (deepPos.node() != textMarkerData.node || deepPos.deprecatedEditingOffset() != textMarkerData.offset)
+        return VisiblePosition();
+    
+    return visiblePos;
+}
 
+void AXObjectCache::textMarkerDataForVisiblePosition(TextMarkerData& textMarkerData, const VisiblePosition& visiblePos)
+{
+    // This memory must be bzero'd so instances of TextMarkerData can be tested for byte-equivalence.
+    // This also allows callers to check for failure by looking at textMarkerData upon return.
+    memset(&textMarkerData, 0, sizeof(TextMarkerData));
+    
+    if (visiblePos.isNull())
+        return;
+    
+    Position deepPos = visiblePos.deepEquivalent();
+    Node* domNode = deepPos.node();
+    ASSERT(domNode);
+    if (!domNode)
+        return;
+    
+    if (domNode->isHTMLElement()) {
+        InputElement* inputElement = toInputElement(static_cast<Element*>(domNode));
+        if (inputElement && inputElement->isPasswordField())
+            return;
+    }
+    
+    // locate the renderer, which must exist for a visible dom node
+    RenderObject* renderer = domNode->renderer();
+    ASSERT(renderer);
+    
+    // find or create an accessibility object for this renderer
+    AXObjectCache* cache = renderer->document()->axObjectCache();
+    RefPtr<AccessibilityObject> obj = cache->getOrCreate(renderer);
+    
+    textMarkerData.axID = obj.get()->axObjectID();
+    textMarkerData.node = domNode;
+    textMarkerData.offset = deepPos.deprecatedEditingOffset();
+    textMarkerData.affinity = visiblePos.affinity();    
+}
+    
 } // namespace WebCore

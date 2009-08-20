@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2007, 2008, 2009 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -45,6 +45,8 @@
 #include "MatrixTransformOperation.h"
 #include "Matrix3DTransformOperation.h"
 #include "RenderBox.h"
+#include "RenderLayer.h"
+#include "RenderLayerBacking.h"
 #include "RenderStyle.h"
 #include "UnitBezier.h"
 
@@ -113,11 +115,23 @@ static inline IntSize blendFunc(const AnimationBase* anim, const IntSize& from, 
                    blendFunc(anim, from.height(), to.height(), progress));
 }
 
+static inline ShadowStyle blendFunc(const AnimationBase* anim, ShadowStyle from, ShadowStyle to, double progress)
+{
+    if (from == to)
+        return to;
+
+    double fromVal = from == Normal ? 1 : 0;
+    double toVal = to == Normal ? 1 : 0;
+    double result = blendFunc(anim, fromVal, toVal, progress);
+    return result > 0 ? Normal : Inset;
+}
+
 static inline ShadowData* blendFunc(const AnimationBase* anim, const ShadowData* from, const ShadowData* to, double progress)
 {  
     ASSERT(from && to);
     return new ShadowData(blendFunc(anim, from->x, to->x, progress), blendFunc(anim, from->y, to->y, progress), 
-                          blendFunc(anim, from->blur, to->blur, progress), blendFunc(anim, from->color, to->color, progress));
+                          blendFunc(anim, from->blur, to->blur, progress), blendFunc(anim, from->spread, to->spread, progress),
+                          blendFunc(anim, from->style, to->style, progress), blendFunc(anim, from->color, to->color, progress));
 }
 
 static inline TransformOperations blendFunc(const AnimationBase* anim, const TransformOperations& from, const TransformOperations& to, double progress)
@@ -300,7 +314,7 @@ public:
     {
         ShadowData* shadowA = (a->*m_getter)();
         ShadowData* shadowB = (b->*m_getter)();
-        ShadowData defaultShadowData(0, 0, 0, Color::transparent);
+        ShadowData defaultShadowData(0, 0, 0, 0, Normal, Color::transparent);
 
         if (!shadowA)
             shadowA = &defaultShadowData;
@@ -404,8 +418,15 @@ static void ensurePropertyMap()
         gPropertyWrappers->append(new PropertyWrapper<Length>(CSSPropertyRight, &RenderStyle::right, &RenderStyle::setRight));
         gPropertyWrappers->append(new PropertyWrapper<Length>(CSSPropertyTop, &RenderStyle::top, &RenderStyle::setTop));
         gPropertyWrappers->append(new PropertyWrapper<Length>(CSSPropertyBottom, &RenderStyle::bottom, &RenderStyle::setBottom));
+
         gPropertyWrappers->append(new PropertyWrapper<Length>(CSSPropertyWidth, &RenderStyle::width, &RenderStyle::setWidth));
+        gPropertyWrappers->append(new PropertyWrapper<Length>(CSSPropertyMinWidth, &RenderStyle::minWidth, &RenderStyle::setMinWidth));
+        gPropertyWrappers->append(new PropertyWrapper<Length>(CSSPropertyMaxWidth, &RenderStyle::maxWidth, &RenderStyle::setMaxWidth));
+
         gPropertyWrappers->append(new PropertyWrapper<Length>(CSSPropertyHeight, &RenderStyle::height, &RenderStyle::setHeight));
+        gPropertyWrappers->append(new PropertyWrapper<Length>(CSSPropertyMinHeight, &RenderStyle::minHeight, &RenderStyle::setMinHeight));
+        gPropertyWrappers->append(new PropertyWrapper<Length>(CSSPropertyMaxHeight, &RenderStyle::maxHeight, &RenderStyle::setMaxHeight));
+
         gPropertyWrappers->append(new PropertyWrapper<unsigned short>(CSSPropertyBorderLeftWidth, &RenderStyle::borderLeftWidth, &RenderStyle::setBorderLeftWidth));
         gPropertyWrappers->append(new PropertyWrapper<unsigned short>(CSSPropertyBorderRightWidth, &RenderStyle::borderRightWidth, &RenderStyle::setBorderRightWidth));
         gPropertyWrappers->append(new PropertyWrapper<unsigned short>(CSSPropertyBorderTopWidth, &RenderStyle::borderTopWidth, &RenderStyle::setBorderTopWidth));
@@ -442,16 +463,18 @@ static void ensurePropertyMap()
         gPropertyWrappers->append(new PropertyWrapper<unsigned short>(CSSPropertyOutlineWidth, &RenderStyle::outlineWidth, &RenderStyle::setOutlineWidth));
         gPropertyWrappers->append(new PropertyWrapper<int>(CSSPropertyLetterSpacing, &RenderStyle::letterSpacing, &RenderStyle::setLetterSpacing));
         gPropertyWrappers->append(new PropertyWrapper<int>(CSSPropertyWordSpacing, &RenderStyle::wordSpacing, &RenderStyle::setWordSpacing));
+        gPropertyWrappers->append(new PropertyWrapper<Length>(CSSPropertyTextIndent, &RenderStyle::textIndent, &RenderStyle::setTextIndent));
+
         gPropertyWrappers->append(new PropertyWrapper<float>(CSSPropertyWebkitPerspective, &RenderStyle::perspective, &RenderStyle::setPerspective));
         gPropertyWrappers->append(new PropertyWrapper<Length>(CSSPropertyWebkitPerspectiveOriginX, &RenderStyle::perspectiveOriginX, &RenderStyle::setPerspectiveOriginX));
         gPropertyWrappers->append(new PropertyWrapper<Length>(CSSPropertyWebkitPerspectiveOriginY, &RenderStyle::perspectiveOriginY, &RenderStyle::setPerspectiveOriginY));
         gPropertyWrappers->append(new PropertyWrapper<Length>(CSSPropertyWebkitTransformOriginX, &RenderStyle::transformOriginX, &RenderStyle::setTransformOriginX));
         gPropertyWrappers->append(new PropertyWrapper<Length>(CSSPropertyWebkitTransformOriginY, &RenderStyle::transformOriginY, &RenderStyle::setTransformOriginY));
         gPropertyWrappers->append(new PropertyWrapper<float>(CSSPropertyWebkitTransformOriginZ, &RenderStyle::transformOriginZ, &RenderStyle::setTransformOriginZ));
-        gPropertyWrappers->append(new PropertyWrapper<const IntSize&>(CSSPropertyWebkitBorderTopLeftRadius, &RenderStyle::borderTopLeftRadius, &RenderStyle::setBorderTopLeftRadius));
-        gPropertyWrappers->append(new PropertyWrapper<const IntSize&>(CSSPropertyWebkitBorderTopRightRadius, &RenderStyle::borderTopRightRadius, &RenderStyle::setBorderTopRightRadius));
-        gPropertyWrappers->append(new PropertyWrapper<const IntSize&>(CSSPropertyWebkitBorderBottomLeftRadius, &RenderStyle::borderBottomLeftRadius, &RenderStyle::setBorderBottomLeftRadius));
-        gPropertyWrappers->append(new PropertyWrapper<const IntSize&>(CSSPropertyWebkitBorderBottomRightRadius, &RenderStyle::borderBottomRightRadius, &RenderStyle::setBorderBottomRightRadius));
+        gPropertyWrappers->append(new PropertyWrapper<const IntSize&>(CSSPropertyBorderTopLeftRadius, &RenderStyle::borderTopLeftRadius, &RenderStyle::setBorderTopLeftRadius));
+        gPropertyWrappers->append(new PropertyWrapper<const IntSize&>(CSSPropertyBorderTopRightRadius, &RenderStyle::borderTopRightRadius, &RenderStyle::setBorderTopRightRadius));
+        gPropertyWrappers->append(new PropertyWrapper<const IntSize&>(CSSPropertyBorderBottomLeftRadius, &RenderStyle::borderBottomLeftRadius, &RenderStyle::setBorderBottomLeftRadius));
+        gPropertyWrappers->append(new PropertyWrapper<const IntSize&>(CSSPropertyBorderBottomRightRadius, &RenderStyle::borderBottomRightRadius, &RenderStyle::setBorderBottomRightRadius));
         gPropertyWrappers->append(new PropertyWrapper<EVisibility>(CSSPropertyVisibility, &RenderStyle::visibility, &RenderStyle::setVisibility));
         gPropertyWrappers->append(new PropertyWrapper<float>(CSSPropertyZoom, &RenderStyle::zoom, &RenderStyle::setZoom));
         
@@ -473,7 +496,7 @@ static void ensurePropertyMap()
         gPropertyWrappers->append(new PropertyWrapperMaybeInvalidColor(CSSPropertyOutlineColor, &RenderStyle::outlineColor, &RenderStyle::setOutlineColor));
 
         // These are for shadows
-        gPropertyWrappers->append(new PropertyWrapperShadow(CSSPropertyWebkitBoxShadow, &RenderStyle::boxShadow, &RenderStyle::setBoxShadow));
+        gPropertyWrappers->append(new PropertyWrapperShadow(CSSPropertyBoxShadow, &RenderStyle::boxShadow, &RenderStyle::setBoxShadow));
         gPropertyWrappers->append(new PropertyWrapperShadow(CSSPropertyTextShadow, &RenderStyle::textShadow, &RenderStyle::setTextShadow));
 
 #if ENABLE(SVG)
@@ -484,8 +507,6 @@ static void ensurePropertyMap()
 
         // TODO:
         // 
-        //  CSSPropertyMinWidth, CSSPropertyMaxWidth, CSSPropertyMinHeight, CSSPropertyMaxHeight
-        //  CSSPropertyTextIndent
         //  CSSPropertyVerticalAlign
         // 
         // Compound properties that have components that should be animatable:
@@ -1041,7 +1062,7 @@ void AnimationBase::getTimeToNextEvent(double& time, bool& isLooping) const
     double nextIterationTime = m_totalDuration;
 
     if (m_totalDuration < 0 || elapsedDuration < m_totalDuration) {
-        durationLeft = m_animation->duration() - fmod(elapsedDuration, m_animation->duration());
+        durationLeft = m_animation->duration() > 0 ? (m_animation->duration() - fmod(elapsedDuration, m_animation->duration())) : 0;
         nextIterationTime = elapsedDuration + durationLeft;
     }
     
@@ -1065,10 +1086,18 @@ void AnimationBase::goIntoEndingOrLoopingState()
     m_animState = isLooping ? AnimationStateLooping : AnimationStateEnding;
 }
   
-void AnimationBase::pauseAtTime(double t)
+void AnimationBase::freezeAtTime(double t)
 {
-    updatePlayState(false);
+    ASSERT(m_startTime);        // if m_startTime is zero, we haven't started yet, so we'll get a bad pause time.
     m_pauseTime = m_startTime + t - m_animation->delay();
+
+#if USE(ACCELERATED_COMPOSITING)
+    if (m_object && m_object->hasLayer()) {
+        RenderLayer* layer = toRenderBoxModelObject(m_object)->layer();
+        if (layer->isComposited())
+            layer->backing()->suspendAnimations(m_pauseTime);
+    }
+#endif
 }
 
 double AnimationBase::beginAnimationUpdateTime() const

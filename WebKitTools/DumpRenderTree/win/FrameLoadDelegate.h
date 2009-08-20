@@ -35,7 +35,7 @@
 class AccessibilityController;
 class GCController;
 
-class FrameLoadDelegate : public IWebFrameLoadDelegate2, public IWebFrameLoadDelegatePrivate {
+class FrameLoadDelegate : public IWebFrameLoadDelegate, public IWebFrameLoadDelegatePrivate {
 public:
     FrameLoadDelegate();
     virtual ~FrameLoadDelegate();
@@ -54,7 +54,7 @@ public:
 
     virtual HRESULT STDMETHODCALLTYPE didReceiveServerRedirectForProvisionalLoadForFrame( 
         /* [in] */ IWebView *webView,
-        /* [in] */ IWebFrame *frame) { return E_NOTIMPL; } 
+        /* [in] */ IWebFrame *frame);
 
     virtual HRESULT STDMETHODCALLTYPE didFailProvisionalLoadWithError( 
         /* [in] */ IWebView *webView,
@@ -93,11 +93,11 @@ public:
         /* [in] */ BSTR url,
         /* [in] */ double delaySeconds,
         /* [in] */ DATE fireDate,
-        /* [in] */ IWebFrame *frame) { return E_NOTIMPL; } 
+        /* [in] */ IWebFrame *frame);
 
     virtual HRESULT STDMETHODCALLTYPE didCancelClientRedirectForFrame( 
         /* [in] */ IWebView *webView,
-        /* [in] */ IWebFrame *frame) { return E_NOTIMPL; } 
+        /* [in] */ IWebFrame *frame);
 
     virtual HRESULT STDMETHODCALLTYPE willCloseFrame( 
         /* [in] */ IWebView *webView,
@@ -107,6 +107,12 @@ public:
         /* [in] */ IWebView *sender,
         /* [in] */ JSContextRef context,
         /* [in] */ JSObjectRef windowObject) { return E_NOTIMPL; }
+
+    virtual /* [local] */ HRESULT STDMETHODCALLTYPE didClearWindowObject( 
+        /* [in] */ IWebView* webView,
+        /* [in] */ JSContextRef context,
+        /* [in] */ JSObjectRef windowObject,
+        /* [in] */ IWebFrame* frame);
 
     // IWebFrameLoadDelegatePrivate
     virtual HRESULT STDMETHODCALLTYPE didFinishDocumentLoadForFrame( 
@@ -121,12 +127,9 @@ public:
         /* [in] */ IWebView *sender,
         /* [in] */ IWebFrame *frame);
 
-    // IWebFrameLoadDelegate2
-    virtual /* [local] */ HRESULT STDMETHODCALLTYPE didClearWindowObject( 
-        /* [in] */ IWebView* webView,
-        /* [in] */ JSContextRef context,
-        /* [in] */ JSObjectRef windowObject,
-        /* [in] */ IWebFrame* frame);
+    virtual HRESULT STDMETHODCALLTYPE didFirstVisuallyNonEmptyLayoutInFrame( 
+        /* [in] */ IWebView *sender,
+        /* [in] */ IWebFrame *frame);
 
 protected:
     void locationChangeDone(IWebError*, IWebFrame*);

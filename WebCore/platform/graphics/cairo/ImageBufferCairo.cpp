@@ -39,8 +39,28 @@
 
 #include <cairo.h>
 #include <wtf/Vector.h>
+#include <math.h>
 
 using namespace std;
+
+// Cairo doesn't provide a way to copy a cairo_surface_t.
+// See http://lists.cairographics.org/archives/cairo/2007-June/010877.html
+// Once cairo provides the way, use the function instead of this.
+static inline cairo_surface_t* copySurface(cairo_surface_t* surface)
+{
+    cairo_format_t format = cairo_image_surface_get_format(surface);
+    int width = cairo_image_surface_get_width(surface);
+    int height = cairo_image_surface_get_height(surface);
+    cairo_surface_t* newsurface = cairo_image_surface_create(format, width, height);
+
+    cairo_t* cr = cairo_create(newsurface);
+    cairo_set_source_surface(cr, surface, 0, 0);
+    cairo_set_operator(cr, CAIRO_OPERATOR_SOURCE);
+    cairo_paint(cr);
+    cairo_destroy(cr);
+
+    return newsurface;
+}
 
 namespace WebCore {
 
@@ -49,7 +69,7 @@ ImageBufferData::ImageBufferData(const IntSize& size)
 {
 }
 
-ImageBuffer::ImageBuffer(const IntSize& size, bool grayScale, bool& success)
+ImageBuffer::ImageBuffer(const IntSize& size, ImageColorSpace imageColorSpace, bool& success)
     : m_data(size)
     , m_size(size)
 {
@@ -82,10 +102,40 @@ Image* ImageBuffer::image() const
         // It's assumed that if image() is called, the actual rendering to the
         // GraphicsContext must be done.
         ASSERT(context());
+
+        // This creates a COPY of the image and will cache that copy. This means
+        // that if subsequent operations take place on the context, neither the
+        // currently-returned image, nor the results of future image() calls,
+        // will contain that operation.
+        //
+        // This seems silly, but is the way the CG port works: image() is
+        // intended to be used only when rendering is "complete."
+        cairo_surface_t* newsurface = copySurface(m_data.m_surface);
+
         // BitmapImage will release the passed in surface on destruction
-        m_image = BitmapImage::create(cairo_surface_reference(m_data.m_surface));
+        m_image = BitmapImage::create(newsurface);
     }
     return m_image.get();
+}
+
+void ImageBuffer::platformTransformColorSpace(const Vector<int>& lookUpTable)
+{
+    ASSERT(cairo_surface_get_type(m_data.m_surface) == CAIRO_SURFACE_TYPE_IMAGE);
+
+    unsigned char* dataSrc = cairo_image_surface_get_data(m_data.m_surface);
+    int stride = cairo_image_surface_get_stride(m_data.m_surface);
+    for (int y = 0; y < m_size.height(); ++y) {
+        unsigned* row = reinterpret_cast<unsigned*>(dataSrc + stride * y);
+        for (int x = 0; x < m_size.width(); x++) {
+            unsigned* pixel = row + x;
+            Color pixelColor = colorFromPremultipliedARGB(*pixel);
+            pixelColor = Color(lookUpTable[pixelColor.red()],
+                               lookUpTable[pixelColor.green()],
+                               lookUpTable[pixelColor.blue()],
+                               lookUpTable[pixelColor.alpha()]);
+            *pixel = premultipliedARGBFromColor(pixelColor);
+        }
+    }
 }
 
 PassRefPtr<ImageData> ImageBuffer::getImageData(const IntRect& rect) const

@@ -47,7 +47,6 @@
 #pragma warning(push, 0)
 #include <WebCore/AuthenticationCF.h>
 #include <WebCore/BString.h>
-#include <WebCore/NotImplemented.h>
 #include <WebCore/ResourceError.h>
 #include <WebCore/ResourceHandle.h>
 #include <WebCore/ResourceRequest.h>
@@ -380,6 +379,15 @@ CFURLRequestRef WebDownload::willSendRequest(CFURLRequestRef request, CFURLRespo
 
 void WebDownload::didReceiveAuthenticationChallenge(CFURLAuthChallengeRef challenge)
 {
+    // Try previously stored credential first.
+    if (!CFURLAuthChallengeGetPreviousFailureCount(challenge)) {
+        CFURLCredentialRef credential = WebCoreCredentialStorage::get(CFURLAuthChallengeGetProtectionSpace(challenge));
+        if (credential) {
+            CFURLDownloadUseCredential(m_download.get(), credential, challenge);
+            return;
+        }
+    }
+
     COMPtr<IWebURLAuthenticationChallenge> webChallenge(AdoptCOM,
         WebURLAuthenticationChallenge::createInstance(AuthenticationChallenge(challenge, 0), this));
 

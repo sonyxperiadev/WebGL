@@ -97,12 +97,12 @@ void HTMLTableCellElement::parseMappedAttribute(MappedAttribute *attr)
         rSpan = !attr->isNull() ? attr->value().toInt() : 1;
         rSpan = max(1, min(rSpan, maxRowspan));
         if (renderer() && renderer()->isTableCell())
-            static_cast<RenderTableCell*>(renderer())->updateFromElement();
+            toRenderTableCell(renderer())->updateFromElement();
     } else if (attr->name() == colspanAttr) {
         cSpan = !attr->isNull() ? attr->value().toInt() : 1;
         cSpan = max(1, cSpan);
         if (renderer() && renderer()->isTableCell())
-            static_cast<RenderTableCell*>(renderer())->updateFromElement();
+            toRenderTableCell(renderer())->updateFromElement();
     } else if (attr->name() == nowrapAttr) {
 #ifdef ANDROID_LAYOUT
         if (!(document()->frame()) || document()->frame()->settings()->layoutAlgorithm() != Settings::kLayoutSSR)

@@ -37,12 +37,12 @@
 
 using namespace WebCore;
 
-EmbeddedWidget* EmbeddedWidget::create(IWebEmbeddedView* view, Element* element, HWND parentWindow, const IntSize& size)
+PassRefPtr<EmbeddedWidget> EmbeddedWidget::create(IWebEmbeddedView* view, Element* element, HWND parentWindow, const IntSize& size)
 {
-    EmbeddedWidget* widget = new EmbeddedWidget(view, element);
+    RefPtr<EmbeddedWidget> widget = adoptRef(new EmbeddedWidget(view, element));
 
     widget->createWindow(parentWindow, size);
-    return widget;
+    return widget.release();
 }
 
 EmbeddedWidget::~EmbeddedWidget()
@@ -222,9 +222,7 @@ void EmbeddedWidget::didReceiveResponse(const ResourceResponse& response)
 
 void EmbeddedWidget::didReceiveData(const char* data, int length)
 {
-    RefPtr<SharedBuffer> buffer(SharedBuffer::create(data, length));
-
-    COMPtr<IStream> stream(AdoptCOM, MemoryStream::createInstance(buffer.release()));
+    COMPtr<MemoryStream> stream = MemoryStream::createInstance(SharedBuffer::create(data, length));
     m_view->didReceiveData(stream.get());
 }
 

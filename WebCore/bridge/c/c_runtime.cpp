@@ -86,7 +86,7 @@ JSValue CField::valueFromInstance(ExecState* exec, const Instance* inst) const
 #endif  // ANDROID_NPN_SETEXCEPTION
         bool result;
         {
-            JSLock::DropAllLocks dropAllLocks(false);
+            JSLock::DropAllLocks dropAllLocks(SilenceAssertionsOnly);
             result = obj->_class->getProperty(obj, _fieldIdentifier, &property);
         }
 #ifdef ANDROID_NPN_SETEXCEPTION
@@ -113,7 +113,7 @@ void CField::setValueToInstance(ExecState *exec, const Instance *inst, JSValue a
         SetGlobalException(0);
 #endif  // ANDROID_NPN_SETEXCEPTION
         {
-            JSLock::DropAllLocks dropAllLocks(false);
+            JSLock::DropAllLocks dropAllLocks(SilenceAssertionsOnly);
             obj->_class->setProperty(obj, _fieldIdentifier, &variant);
         }
 

@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2006, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2007-2009 Torch Mobile Inc.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -21,6 +22,7 @@
 #include "config.h"
 #include "PopupMenu.h"
 
+#include "BitmapInfo.h"
 #include "Document.h"
 #include "FloatRect.h"
 #include "FontSelector.h"
@@ -38,6 +40,10 @@
 #include "SimpleFontData.h"
 #include <tchar.h>
 #include <windows.h>
+#if PLATFORM(WINCE)
+#include <ResDefCE.h>
+#define MAKEPOINTS(l) (*((POINTS FAR *)&(l)))
+#endif
 
 using std::min;
 
@@ -83,7 +89,7 @@ PopupMenu::~PopupMenu()
     if (m_bmp)
         ::DeleteObject(m_bmp);
     if (m_DC)
-        ::DeleteObject(m_DC);
+        ::DeleteDC(m_DC);
     if (m_popup)
         ::DestroyWindow(m_popup);
 }
@@ -109,7 +115,11 @@ void PopupMenu::show(const IntRect& r, FrameView* v, int index)
         if (!m_popup)
             return;
 
+#if PLATFORM(WINCE)
+        ::SetWindowLong(m_popup, 0, (LONG)this);
+#else
         ::SetWindowLongPtr(m_popup, 0, (LONG_PTR)this);
+#endif
     }
 
     if (!m_scrollbar)
@@ -123,6 +133,7 @@ void PopupMenu::show(const IntRect& r, FrameView* v, int index)
     // Determine whether we should animate our popups
     // Note: Must use 'BOOL' and 'FALSE' instead of 'bool' and 'false' to avoid stack corruption with SystemParametersInfo
     BOOL shouldAnimate = FALSE;
+#if !PLATFORM(WINCE)
     ::SystemParametersInfo(SPI_GETCOMBOBOXANIMATION, 0, &shouldAnimate, 0);
 
     if (shouldAnimate) {
@@ -137,6 +148,7 @@ void PopupMenu::show(const IntRect& r, FrameView* v, int index)
             ::AnimateWindow(m_popup, defaultAnimationDuration, AW_SLIDE | slideDirection | AW_ACTIVATE);
         }
     } else
+#endif
         ::ShowWindow(m_popup, SW_SHOWNORMAL);
     ::SetCapture(m_popup);
 
@@ -451,19 +463,11 @@ void PopupMenu::paint(const IntRect& damageRect, HDC hdc)
         }
     }
     if (!m_bmp) {
-        BITMAPINFO bitmapInfo;
-        bitmapInfo.bmiHeader.biSize          = sizeof(BITMAPINFOHEADER);
-        bitmapInfo.bmiHeader.biWidth         = clientRect().width(); 
-        bitmapInfo.bmiHeader.biHeight        = -clientRect().height();
-        bitmapInfo.bmiHeader.biPlanes        = 1;
-        bitmapInfo.bmiHeader.biBitCount      = 32;
-        bitmapInfo.bmiHeader.biCompression   = BI_RGB;
-        bitmapInfo.bmiHeader.biSizeImage     = 0;
-        bitmapInfo.bmiHeader.biXPelsPerMeter = 0;
-        bitmapInfo.bmiHeader.biYPelsPerMeter = 0;
-        bitmapInfo.bmiHeader.biClrUsed       = 0;
-        bitmapInfo.bmiHeader.biClrImportant  = 0;
-
+#if PLATFORM(WINCE)
+        BitmapInfo bitmapInfo(true, clientRect().width(), clientRect().height());
+#else
+        BitmapInfo bitmapInfo = BitmapInfo::createBottomUp(clientRect().size());
+#endif
         void* pixels = 0;
         m_bmp = ::CreateDIBSection(m_DC, &bitmapInfo, DIB_RGB_COLORS, &pixels, 0, 0);
         if (!m_bmp)
@@ -486,8 +490,8 @@ void PopupMenu::paint(const IntRect& damageRect, HDC hdc)
         Color optionBackgroundColor, optionTextColor;
         PopupMenuStyle itemStyle = client()->itemStyle(index);
         if (index == focusedIndex()) {
-            optionBackgroundColor = theme()->activeListBoxSelectionBackgroundColor();
-            optionTextColor = theme()->activeListBoxSelectionForegroundColor();
+            optionBackgroundColor = RenderTheme::defaultTheme()->activeListBoxSelectionBackgroundColor();
+            optionTextColor = RenderTheme::defaultTheme()->activeListBoxSelectionForegroundColor();
         } else {
             optionBackgroundColor = itemStyle.backgroundColor();
             optionTextColor = itemStyle.foregroundColor();
@@ -525,7 +529,7 @@ void PopupMenu::paint(const IntRect& damageRect, HDC hdc)
         // Draw the item text
         if (itemStyle.isVisible()) {
             int textX = max(0, client()->clientPaddingLeft() - client()->clientInsetLeft());
-            if (theme()->popupOptionSupportsTextIndent() && itemStyle.textDirection() == LTR)
+            if (RenderTheme::defaultTheme()->popupOptionSupportsTextIndent() && itemStyle.textDirection() == LTR)
                 textX += itemStyle.textIndent().calcMinValue(itemRect.width());
             int textY = itemRect.y() + itemFont.ascent() + (itemRect.height() - itemFont.height()) / 2;
             context.drawBidiText(itemFont, textRun, IntPoint(textX, textY));
@@ -535,10 +539,12 @@ void PopupMenu::paint(const IntRect& damageRect, HDC hdc)
     if (m_scrollbar)
         m_scrollbar->paint(&context, damageRect);
 
-    if (!hdc)
-        hdc = ::GetDC(m_popup);
+    HDC localDC = hdc ? hdc : ::GetDC(m_popup);
 
-    ::BitBlt(hdc, damageRect.x(), damageRect.y(), damageRect.width(), damageRect.height(), m_DC, damageRect.x(), damageRect.y(), SRCCOPY);
+    ::BitBlt(localDC, damageRect.x(), damageRect.y(), damageRect.width(), damageRect.height(), m_DC, damageRect.x(), damageRect.y(), SRCCOPY);
+
+    if (!hdc)
+        ::ReleaseDC(m_popup, localDC);
 }
 
 void PopupMenu::valueChanged(Scrollbar* scrollBar)
@@ -592,11 +598,15 @@ static ATOM registerPopup()
     if (haveRegisteredWindowClass)
         return true;
 
+#if PLATFORM(WINCE)
+    WNDCLASS wcex;
+#else
     WNDCLASSEX wcex;
-
     wcex.cbSize = sizeof(WNDCLASSEX);
-
+    wcex.hIconSm        = 0;
     wcex.style          = CS_DROPSHADOW;
+#endif
+
     wcex.lpfnWndProc    = PopupWndProc;
     wcex.cbClsExtra     = 0;
     wcex.cbWndExtra     = sizeof(PopupMenu*); // For the PopupMenu pointer
@@ -606,18 +616,25 @@ static ATOM registerPopup()
     wcex.hbrBackground  = 0;
     wcex.lpszMenuName   = 0;
     wcex.lpszClassName  = kPopupWindowClassName;
-    wcex.hIconSm        = 0;
 
     haveRegisteredWindowClass = true;
 
+#if PLATFORM(WINCE)
+    return ::RegisterClass(&wcex);
+#else
     return ::RegisterClassEx(&wcex);
+#endif
 }
 
 const int smoothScrollAnimationDuration = 5000;
 static LRESULT CALLBACK PopupWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
     LRESULT lResult = 0;
+#if PLATFORM(WINCE)
+    LONG longPtr = GetWindowLong(hWnd, 0);
+#else
     LONG_PTR longPtr = GetWindowLongPtr(hWnd, 0);
+#endif
     PopupMenu* popup = reinterpret_cast<PopupMenu*>(longPtr);
 
     switch (message) {
@@ -734,7 +751,9 @@ static LRESULT CALLBACK PopupWndProc(HWND hWnd, UINT message, WPARAM wParam, LPA
                 }
 
                 BOOL shouldHotTrack = FALSE;
+#if !PLATFORM(WINCE)
                 ::SystemParametersInfo(SPI_GETHOTTRACKING, 0, &shouldHotTrack, 0);
+#endif
 
                 RECT bounds;
                 GetClientRect(popup->popupHandle(), &bounds);
@@ -819,10 +838,12 @@ static LRESULT CALLBACK PopupWndProc(HWND hWnd, UINT message, WPARAM wParam, LPA
                 lResult = 0;
             }
             break;
+#if !PLATFORM(WINCE)
         case WM_PRINTCLIENT:
             if (popup)
                 popup->paint(popup->clientRect(), (HDC)wParam);
             break;
+#endif
         default:
             lResult = DefWindowProc(hWnd, message, wParam, lParam);
     }

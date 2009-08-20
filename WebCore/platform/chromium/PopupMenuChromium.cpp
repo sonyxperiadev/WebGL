@@ -80,7 +80,7 @@ static const PopupContainerSettings dropDownSettings = {
 
 // This class uses WebCore code to paint and handle events for a drop-down list
 // box ("combobox" on Windows).
-class PopupListBox : public FramelessScrollView, public RefCounted<PopupListBox> {
+class PopupListBox : public FramelessScrollView {
 public:
     static PassRefPtr<PopupListBox> create(PopupMenuClient* client, const PopupContainerSettings& settings)
     {
@@ -139,10 +139,6 @@ public:
     // Gets the height of a row.
     int getRowHeight(int index);
 
-    // Returns true if the selection can be changed to index.
-    // Disabled items, or labels cannot be selected.
-    bool isSelectableItem(int index);
-
     const Vector<PopupItem*>& items() const { return m_items; }
 
 private:
@@ -172,8 +168,14 @@ private:
 
     // Closes the popup
     void abandon();
+
+    // Returns true if the selection can be changed to index.
+    // Disabled items, or labels cannot be selected.
+    bool isSelectableItem(int index);
+
     // Select an index in the list, scrolling if necessary.
     void selectIndex(int index);
+
     // Accepts the selected index as the value to be displayed in the <select> widget on
     // the web page, and closes the popup.
     void acceptIndex(int index);
@@ -512,7 +514,7 @@ const WTF::Vector<PopupItem*>& PopupContainer:: popupData() const
 
 bool PopupListBox::handleMouseDownEvent(const PlatformMouseEvent& event)
 {
-    Scrollbar* scrollbar = scrollbarUnderMouse(event);
+    Scrollbar* scrollbar = scrollbarAtPoint(event.pos());
     if (scrollbar) {
         m_capturingScrollbar = scrollbar;
         m_capturingScrollbar->mouseDown(event);
@@ -532,7 +534,7 @@ bool PopupListBox::handleMouseMoveEvent(const PlatformMouseEvent& event)
         return true;
     }
 
-    Scrollbar* scrollbar = scrollbarUnderMouse(event);
+    Scrollbar* scrollbar = scrollbarAtPoint(event.pos());
     if (m_lastScrollbarUnderMouse != scrollbar) {
         // Send mouse exited to the old scrollbar.
         if (m_lastScrollbarUnderMouse)
@@ -688,13 +690,32 @@ static String stripLeadingWhiteSpace(const String& string)
     return string.substring(i, length - i);
 }
 
+static bool isCharacterTypeEvent(const PlatformKeyboardEvent& event) {
+    // Check whether the event is a character-typed event or not. 
+    // In Windows, PlatformKeyboardEvent::Char (not RawKeyDown) type event
+    // is considered as character type event. In Mac OS, KeyDown (not 
+    // KeyUp) is considered as character type event.
+#if PLATFORM(WIN_OS)
+    if (event.type() == PlatformKeyboardEvent::Char)
+        return true;
+#else
+    if (event.type() == PlatformKeyboardEvent::KeyDown)
+        return true;
+#endif
+    return false;
+}
+
 // From HTMLSelectElement.cpp, with modifications
 void PopupListBox::typeAheadFind(const PlatformKeyboardEvent& event)
 {
     TimeStamp now = static_cast<TimeStamp>(currentTime() * 1000.0f);
     TimeStamp delta = now - m_lastCharTime;
 
-    m_lastCharTime = now;
+    // Reset the time when user types in a character. The time gap between
+    // last character and the current character is used to indicate whether
+    // user typed in a string or just a character as the search prefix.
+    if (isCharacterTypeEvent(event))
+        m_lastCharTime = now;
 
     UChar c = event.windowsVirtualKeyCode();
 
@@ -773,8 +794,8 @@ void PopupListBox::paintRow(GraphicsContext* gc, const IntRect& rect, int rowInd
     // Paint background
     Color backColor, textColor;
     if (rowIndex == m_selectedIndex) {
-        backColor = theme()->activeListBoxSelectionBackgroundColor();
-        textColor = theme()->activeListBoxSelectionForegroundColor();
+        backColor = RenderTheme::defaultTheme()->activeListBoxSelectionBackgroundColor();
+        textColor = RenderTheme::defaultTheme()->activeListBoxSelectionForegroundColor();
     } else {
         backColor = style.backgroundColor();
         textColor = style.foregroundColor();
@@ -865,11 +886,15 @@ int PopupListBox::pointToRowIndex(const IntPoint& point)
 
 void PopupListBox::acceptIndex(int index)
 {
-    ASSERT(index >= -1 && index < numItems());
-    if (index == -1 && m_popupClient) {
-      // Enter pressed with no selection, just close the popup.
-      m_popupClient->hidePopup();
-      return;
+    if (index >= numItems())
+        return;
+
+    if (index < 0) {
+        if (m_popupClient) {
+            // Enter pressed with no selection, just close the popup.
+            m_popupClient->hidePopup();
+        }
+        return;
     }
 
     if (isSelectableItem(index)) {
@@ -885,7 +910,8 @@ void PopupListBox::acceptIndex(int index)
 
 void PopupListBox::selectIndex(int index)
 {
-    ASSERT(index >= 0 && index < numItems());
+    if (index < 0 || index >= numItems())
+        return;
 
     if (index != m_selectedIndex && isSelectableItem(index)) {
         invalidateRow(m_selectedIndex);
@@ -906,7 +932,7 @@ int PopupListBox::getRowHeight(int index)
     if (index < 0)
         return 0;
 
-    return m_popupClient->itemStyle(index).font().height();
+    return getRowFont(index).height();
 }
 
 IntRect PopupListBox::getRowBounds(int index)
@@ -945,6 +971,7 @@ void PopupListBox::scrollToRevealRow(int index)
 
 bool PopupListBox::isSelectableItem(int index)
 {
+    ASSERT(index >= 0 && index < numItems());
     return m_items[index]->type == PopupItem::TypeOption && m_popupClient->itemIsEnabled(index);
 }
 
@@ -980,7 +1007,7 @@ void PopupListBox::selectPreviousRow()
         return;
     }
 
-    // No row are selected, jump to the last item.
+    // No row is selected, jump to the last item.
     selectIndex(numItems() - 1);
     scrollToRevealSelection();
 }

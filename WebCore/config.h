@@ -103,10 +103,12 @@
 #define ENABLE_FTPDIR 0
 #ifndef ENABLE_SVG
 #define ENABLE_SVG 0
-#undef ENABLE_WORKERS
-#define ENABLE_WORKERS 1
 #undef ENABLE_V8_LOCKERS
 #define ENABLE_V8_LOCKERS 1
+#undef ENABLE_VIDEO
+#define ENABLE_VIDEO 1
+#undef ENABLE_WORKERS
+#define ENABLE_WORKERS 1
 #endif
 #if ENABLE_SVG
 #if !defined(ENABLE_SVG_ANIMATION)
@@ -124,10 +126,6 @@
 #define ENABLE_XBL 0
 #define ENABLE_XPATH 0
 #define ENABLE_XSLT 0
-
-#ifndef ENABLE_VIDEO
-#define ENABLE_VIDEO 1
-#endif
 
 #undef ENABLE_ARCHIVE
 #define ENABLE_ARCHIVE 0 // ANDROID addition: allow web archive to be disabled
@@ -161,9 +159,20 @@
 #endif
 
 #if PLATFORM(WIN)
+#if defined(WIN_CAIRO)
+#undef WTF_PLATFORM_CG
+#define WTF_PLATFORM_CAIRO 1
+#undef WTF_USE_CFNETWORK
+#define WTF_USE_CURL 1
+#ifndef _WINSOCKAPI_
+#define _WINSOCKAPI_ // Prevent inclusion of winsock.h in windows.h
+#endif
+#else
 #define WTF_PLATFORM_CG 1
 #undef WTF_PLATFORM_CAIRO
 #define WTF_USE_CFNETWORK 1
+#undef WTF_USE_CURL
+#endif
 #undef WTF_USE_WININET
 #define WTF_PLATFORM_CF 1
 #define WTF_USE_PTHREADS 0
@@ -181,11 +190,6 @@
 
 // New theme
 #define WTF_USE_NEW_THEME 1
-
-// Accelerated compositing
-#if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
-#define WTF_USE_ACCELERATED_COMPOSITING 0
-#endif
 #endif // PLATFORM(MAC)
 
 #if PLATFORM(SYMBIAN)

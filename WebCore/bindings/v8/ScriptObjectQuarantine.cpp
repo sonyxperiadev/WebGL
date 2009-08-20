@@ -66,9 +66,18 @@ bool getQuarantinedScriptObject(Frame* frame, Storage* storage, ScriptObject& qu
     ASSERT(frame);
     ASSERT(storage);
 
-    // FIXME: Implement when DOM Storage V8 bindings are enabled
+#if ENABLE(DOM_STORAGE)
+    v8::HandleScope handleScope;
+    v8::Local<v8::Context> context = V8Proxy::context(frame);
+    // FIXME: What if context.IsEmpty()?
+    v8::Context::Scope scope(context);
+
+    v8::Handle<v8::Value> v8Storage = V8DOMWrapper::convertToV8Object(V8ClassIndex::STORAGE, storage);
+    quarantinedObject = ScriptObject(frame->script()->state(), v8::Local<v8::Object>(v8::Object::Cast(*v8Storage)));
+#else
     ASSERT_NOT_REACHED();
     quarantinedObject = ScriptObject();
+#endif
     return true;
 }
 
@@ -77,11 +86,15 @@ bool getQuarantinedScriptObject(Node* node, ScriptObject& quarantinedObject)
     ASSERT(node);
 
     v8::HandleScope handleScope;
-    v8::Local<v8::Context> context = V8Proxy::GetContext(node->document()->page()->mainFrame());
+    // FIXME: What if document() is null?
+    // FIXME: Why are we grabbing the mainFrame?
+    Frame* frame = node->document()->page()->mainFrame();
+    v8::Local<v8::Context> context = V8Proxy::context(frame);
+    // FIXME: What if context.IsEmpty()?
     v8::Context::Scope scope(context);
 
-    v8::Handle<v8::Value> v8Node = V8Proxy::NodeToV8Object(node);
-    quarantinedObject = ScriptObject(v8::Local<v8::Object>(v8::Object::Cast(*v8Node)));
+    v8::Handle<v8::Value> v8Node = V8DOMWrapper::convertNodeToV8Object(node);
+    quarantinedObject = ScriptObject(frame->script()->state(), v8::Local<v8::Object>(v8::Object::Cast(*v8Node)));
 
     return true;
 }
@@ -91,11 +104,14 @@ bool getQuarantinedScriptObject(DOMWindow* domWindow, ScriptObject& quarantinedO
     ASSERT(domWindow);
 
     v8::HandleScope handleScope;
-    v8::Local<v8::Context> context = V8Proxy::GetContext(domWindow->frame());
+    Frame* frame = domWindow->frame();
+    // FIXME: What if frame is null?
+    v8::Local<v8::Context> context = V8Proxy::context(frame);
+    // FIXME: What if context.IsEmpty()?
     v8::Context::Scope scope(context);
 
-    v8::Handle<v8::Value> v8DomWindow = V8Proxy::ToV8Object(V8ClassIndex::DOMWINDOW, domWindow);
-    quarantinedObject = ScriptObject(v8::Local<v8::Object>(v8::Object::Cast(*v8DomWindow)));
+    v8::Handle<v8::Value> v8DomWindow = V8DOMWrapper::convertToV8Object(V8ClassIndex::DOMWINDOW, domWindow);
+    quarantinedObject = ScriptObject(frame->script()->state(), v8::Local<v8::Object>(v8::Object::Cast(*v8DomWindow)));
 
     return true;
 }

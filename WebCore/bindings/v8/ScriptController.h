@@ -49,6 +49,7 @@ namespace WebCore {
     class ScriptState;
     class String;
     class Widget;
+    class XSSAuditor;
 
     class ScriptController {
     public:
@@ -64,11 +65,17 @@ namespace WebCore {
         // as a string.
         ScriptValue evaluate(const ScriptSourceCode&);
 
+        // Executes JavaScript in a new world associated with the web frame. The
+        // script gets its own global scope, its own prototypes for intrinsic
+        // JavaScript objects (String, Array, and so-on), and its own wrappers for
+        // all DOM nodes and DOM constructors.
+        void evaluateInNewWorld(const Vector<ScriptSourceCode>&, int extensionGroup);
+
         // Executes JavaScript in a new context associated with the web frame. The
         // script gets its own global scope and its own prototypes for intrinsic
         // JavaScript objects (String, Array, and so-on). It shares the wrappers for
         // all DOM nodes and DOM constructors.
-        void evaluateInNewContext(const Vector<ScriptSourceCode>&);
+        void evaluateInNewContext(const Vector<ScriptSourceCode>&, int extensionGroup);
 
         // JSC has a WindowShell object, but for V8, the ScriptController
         // is the WindowShell.
@@ -80,6 +87,8 @@ namespace WebCore {
         ScriptController* windowShell() { return this; }
 
         ScriptState* state() const { return m_scriptState.get(); }
+
+        XSSAuditor* xssAuditor() { return m_XSSAuditor.get(); }
 
         void collectGarbage();
 
@@ -160,6 +169,8 @@ namespace WebCore {
 #if ENABLE(NETSCAPE_PLUGIN_API)
         NPObject* m_windowScriptNPObject;
 #endif
+        // The XSSAuditor associated with this ScriptController.
+        OwnPtr<XSSAuditor> m_XSSAuditor;
     };
 
 } // namespace WebCore

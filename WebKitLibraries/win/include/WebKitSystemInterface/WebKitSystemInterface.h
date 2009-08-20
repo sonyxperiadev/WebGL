@@ -74,4 +74,8 @@ void wkSetClientCertificateInSSLProperties(CFMutableDictionaryRef, CFDataRef);
 CFArrayRef wkCFURLRequestCopyHTTPRequestBodyParts(CFURLRequestRef);
 void wkCFURLRequestSetHTTPRequestBodyParts(CFMutableURLRequestRef, CFArrayRef bodyParts);
 
+unsigned wkInitializeMaximumHTTPConnectionCountPerHost(unsigned preferredConnectionCount);
+
+CFStringRef wkCFNetworkErrorGetLocalizedDescription(CFIndex errorCode);
+
 #endif // WebKitSystemInterface_h

@@ -331,7 +331,7 @@ void GraphicsContext::clearRect(const FloatRect& rect)
 
     SkPaint paint;
     platformContext()->setupPaintForFilling(&paint);
-    paint.setPorterDuffXfermode(SkPorterDuff::kClear_Mode);
+    paint.setXfermodeMode(SkXfermode::kClear_Mode);
     platformContext()->canvas()->drawRect(r, paint);
 }
 
@@ -503,7 +503,7 @@ void GraphicsContext::drawFocusRing(const Color& color)
     paint.setAntiAlias(true);
     paint.setStyle(SkPaint::kStroke_Style);
 
-    paint.setColor(focusRingColor().rgb());
+    paint.setColor(color.rgb());
     paint.setStrokeWidth(focusRingOutset * 2);
     paint.setPathEffect(new SkCornerPathEffect(focusRingOutset * 2))->unref();
     focusRingRegion.getBoundaryPath(&path);
@@ -530,16 +530,48 @@ void GraphicsContext::drawLine(const IntPoint& point1, const IntPoint& point2)
     // probably worth the speed up of no square root, which also won't be exact.
     SkPoint disp = pts[1] - pts[0];
     int length = SkScalarRound(disp.fX + disp.fY);
-    int width = roundf(
-        platformContext()->setupPaintForStroking(&paint, 0, length));
+    platformContext()->setupPaintForStroking(&paint, 0, length);
+    int width = roundf(strokeThickness());
+    bool isVerticalLine = pts[0].fX == pts[1].fX;
+
+    if (strokeStyle() == DottedStroke || strokeStyle() == DashedStroke) {
+        // Do a rect fill of our endpoints.  This ensures we always have the
+        // appearance of being a border.  We then draw the actual dotted/dashed line.
+
+        SkRect r1, r2;
+        r1.set(pts[0].fX, pts[0].fY, pts[0].fX + width, pts[0].fY + width);
+        r2.set(pts[1].fX, pts[1].fY, pts[1].fX + width, pts[1].fY + width);
+
+        if (isVerticalLine) {
+            r1.offset(-width / 2, 0);
+            r2.offset(-width / 2, -width);
+        } else {
+            r1.offset(0, -width / 2);
+            r2.offset(-width, -width / 2);
+        }
+        SkPaint fillPaint;
+        fillPaint.setColor(paint.getColor());
+        platformContext()->canvas()->drawRect(r1, fillPaint);
+        platformContext()->canvas()->drawRect(r2, fillPaint);
+
+        // Since we've already rendered the endcaps, adjust the endpoints to
+        // exclude them from the line itself.
+        if (isVerticalLine) {
+            pts[0].fY += width;
+            pts[1].fY -= width;
+        } else {
+            pts[0].fX += width;
+            pts[1].fX -= width;
+        }
+    }
 
     // "Borrowed" this comment and idea from GraphicsContextCG.cpp
+    //
     // For odd widths, we add in 0.5 to the appropriate x/y so that the float
     // arithmetic works out.  For example, with a border width of 3, KHTML will
     // pass us (y1+y2)/2, e.g., (50+53)/2 = 103/2 = 51 when we want 51.5.  It is
     // always true that an even width gave us a perfect position, but an odd
     // width gave us a position that is off by exactly 0.5.
-    bool isVerticalLine = pts[0].fX == pts[1].fX;
 
     if (width & 1) {  // Odd.
         if (isVerticalLine) {
@@ -687,13 +719,6 @@ void GraphicsContext::fillPath()
     SkPaint paint;
     platformContext()->setupPaintForFilling(&paint);
 
-    if (colorSpace == PatternColorSpace) {
-        SkShader* pat = state.fillPattern->createPlatformPattern(getCTM());
-        paint.setShader(pat);
-        pat->unref();
-    } else if (colorSpace == GradientColorSpace)
-        paint.setShader(state.fillGradient->platformGradient());
-
     platformContext()->canvas()->drawPath(path, paint);
 }
 
@@ -713,14 +738,6 @@ void GraphicsContext::fillRect(const FloatRect& rect)
 
     SkPaint paint;
     platformContext()->setupPaintForFilling(&paint);
-
-    if (colorSpace == PatternColorSpace) {
-        SkShader* pat = state.fillPattern->createPlatformPattern(getCTM());
-        paint.setShader(pat);
-        pat->unref();
-    } else if (colorSpace == GradientColorSpace)
-        paint.setShader(state.fillGradient->platformGradient());
-
     platformContext()->canvas()->drawRect(r, paint);
 }
 
@@ -858,7 +875,7 @@ void GraphicsContext::setCompositeOperation(CompositeOperator op)
 {
     if (paintingDisabled())
         return;
-    platformContext()->setPorterDuffMode(WebCoreCompositeToSkiaComposite(op));
+    platformContext()->setXfermodeMode(WebCoreCompositeToSkiaComposite(op));
 }
 
 void GraphicsContext::setImageInterpolationQuality(InterpolationQuality)
@@ -947,6 +964,24 @@ void GraphicsContext::setPlatformFillColor(const Color& color)
     platformContext()->setFillColor(color.rgb());
 }
 
+void GraphicsContext::setPlatformFillGradient(Gradient* gradient)
+{
+    if (paintingDisabled())
+        return;
+
+    platformContext()->setFillShader(gradient->platformGradient());
+}
+
+void GraphicsContext::setPlatformFillPattern(Pattern* pattern)
+{
+    if (paintingDisabled())
+        return;
+
+    SkShader* pat = pattern->createPlatformPattern(getCTM());
+    platformContext()->setFillShader(pat);
+    pat->safeUnref();
+}
+
 void GraphicsContext::setPlatformShadow(const IntSize& size,
                                         int blurInt,
                                         const Color& color)
@@ -1015,6 +1050,24 @@ void GraphicsContext::setPlatformStrokeThickness(float thickness)
     platformContext()->setStrokeThickness(thickness);
 }
 
+void GraphicsContext::setPlatformStrokeGradient(Gradient* gradient)
+{
+    if (paintingDisabled())
+        return;
+
+    platformContext()->setStrokeShader(gradient->platformGradient());
+}
+
+void GraphicsContext::setPlatformStrokePattern(Pattern* pattern)
+{
+    if (paintingDisabled())
+        return;
+
+    SkShader* pat = pattern->createPlatformPattern(getCTM());
+    platformContext()->setStrokeShader(pat);
+    pat->safeUnref();
+}
+
 void GraphicsContext::setPlatformTextDrawingMode(int mode)
 {
     if (paintingDisabled())
@@ -1077,13 +1130,6 @@ void GraphicsContext::strokePath()
     SkPaint paint;
     platformContext()->setupPaintForStroking(&paint, 0, 0);
 
-    if (colorSpace == PatternColorSpace) {
-        SkShader* pat = state.strokePattern->createPlatformPattern(getCTM());
-        paint.setShader(pat);
-        pat->unref();
-    } else if (colorSpace == GradientColorSpace)
-        paint.setShader(state.strokeGradient->platformGradient());
-
     platformContext()->canvas()->drawPath(path, paint);
 }
 
@@ -1101,13 +1147,6 @@ void GraphicsContext::strokeRect(const FloatRect& rect, float lineWidth)
     SkPaint paint;
     platformContext()->setupPaintForStroking(&paint, 0, 0);
     paint.setStrokeWidth(WebCoreFloatToSkScalar(lineWidth));
-
-    if (colorSpace == PatternColorSpace) {
-        SkShader* pat = state.strokePattern->createPlatformPattern(getCTM());
-        paint.setShader(pat);
-        pat->unref();
-    } else if (colorSpace == GradientColorSpace)
-        paint.setShader(state.strokeGradient->platformGradient());
 
     platformContext()->canvas()->drawRect(rect, paint);
 }

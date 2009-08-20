@@ -66,6 +66,7 @@ WebInspector.TextPrompt.prototype = {
                 this._tabKeyPressed(event);
                 break;
             case "Right":
+            case "End":
                 if (!this.acceptAutoComplete())
                     this.autoCompleteSoon();
                 break;
@@ -140,7 +141,6 @@ WebInspector.TextPrompt.prototype = {
     complete: function(auto)
     {
         this.clearAutoComplete(true);
-
         var selection = window.getSelection();
         if (!selection.rangeCount)
             return;
@@ -150,16 +150,23 @@ WebInspector.TextPrompt.prototype = {
             return;
         if (auto && !this.isCaretAtEndOfPrompt())
             return;
-
         var wordPrefixRange = selectionRange.startContainer.rangeOfWord(selectionRange.startOffset, this.completionStopCharacters, this.element, "backward");
-        var completions = this.completions(wordPrefixRange, auto);
+        this.completions(wordPrefixRange, auto, this._completionsReady.bind(this, selection, auto, wordPrefixRange));
+    },
 
+    _completionsReady: function(selection, auto, originalWordPrefixRange, completions)
+    {
         if (!completions || !completions.length)
             return;
 
+        var selectionRange = selection.getRangeAt(0);
+
         var fullWordRange = document.createRange();
-        fullWordRange.setStart(wordPrefixRange.startContainer, wordPrefixRange.startOffset);
+        fullWordRange.setStart(originalWordPrefixRange.startContainer, originalWordPrefixRange.startOffset);
         fullWordRange.setEnd(selectionRange.endContainer, selectionRange.endOffset);
+
+        if (originalWordPrefixRange.toString() + selectionRange.toString() != fullWordRange.toString())
+            return;
 
         if (completions.length === 1 || selection.isCollapsed || auto) {
             var completionText = completions[0];
@@ -178,7 +185,7 @@ WebInspector.TextPrompt.prototype = {
                 var completionText = completions[foundIndex + 1];
         }
 
-        var wordPrefixLength = wordPrefixRange.toString().length;
+        var wordPrefixLength = originalWordPrefixRange.toString().length;
 
         this._userEnteredRange = fullWordRange;
         this._userEnteredText = fullWordRange.toString();

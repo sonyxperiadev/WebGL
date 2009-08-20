@@ -43,16 +43,11 @@ WMLSetvarElement::~WMLSetvarElement()
 void WMLSetvarElement::parseMappedAttribute(MappedAttribute* attr)
 {
     if (attr->name() == HTMLNames::nameAttr) {
-        String name = parseValueSubstitutingVariableReferences(attr->value(), WMLErrorInvalidVariableName);
-        if (!isValidVariableName(name)) {
+        if (!isValidVariableName(parseValueSubstitutingVariableReferences(attr->value(), WMLErrorInvalidVariableName))) {
             reportWMLError(document(), WMLErrorInvalidVariableName);
             return;
         }
-
-        m_name = name;
-    } else if (attr->name() == HTMLNames::valueAttr)
-        m_value = parseValueSubstitutingVariableReferences(attr->value());
-    else
+    } else
         WMLElement::parseMappedAttribute(attr);
 }
 
@@ -61,13 +56,32 @@ void WMLSetvarElement::insertedIntoDocument()
     WMLElement::insertedIntoDocument();
  
     Node* parent = parentNode();
-    ASSERT(parent);
-
     if (!parent || !parent->isWMLElement())
         return;
 
     if (static_cast<WMLElement*>(parent)->isWMLTaskElement())
         static_cast<WMLTaskElement*>(parent)->registerVariableSetter(this);
+}
+
+void WMLSetvarElement::removedFromDocument()
+{
+    Node* parent = parentNode();
+    if (parent && parent->isWMLElement()) {
+        if (static_cast<WMLElement*>(parent)->isWMLTaskElement())
+            static_cast<WMLTaskElement*>(parent)->deregisterVariableSetter(this);
+    }
+
+    WMLElement::removedFromDocument(); 
+}
+
+String WMLSetvarElement::name() const
+{
+    return parseValueSubstitutingVariableReferences(getAttribute(HTMLNames::nameAttr), WMLErrorInvalidVariableName);
+}
+
+String WMLSetvarElement::value() const
+{
+    return parseValueSubstitutingVariableReferences(getAttribute(HTMLNames::valueAttr));
 }
 
 }

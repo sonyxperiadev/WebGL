@@ -61,7 +61,7 @@ public:
     void setAttribute(const AtomicString& name, const AtomicString& value, ExceptionCode&);
     void setAttributeNS(const AtomicString& namespaceURI, const AtomicString& qualifiedName, const AtomicString& value, ExceptionCode&);
 
-    void scrollIntoView (bool alignToTop = true);
+    void scrollIntoView(bool alignToTop = true);
     void scrollIntoViewIfNeeded(bool centerIfNeeded = true);
 
     void scrollByUnits(int units, ScrollGranularity);
@@ -136,6 +136,11 @@ public:
     // This method is called whenever an attribute is added, changed or removed.
     virtual void attributeChanged(Attribute*, bool preserveDecls = false);
 
+    // The implementation of Element::attributeChanged() calls the following two functions.
+    // They are separated to allow a different flow of control in StyledElement::attributeChanged().
+    void recalcStyleIfNeededAfterAttributeChanged(Attribute*);
+    void updateAfterAttributeChanged(Attribute*);
+
     // not part of the DOM
     void setAttributeMap(PassRefPtr<NamedNodeMap>);
 
@@ -158,6 +163,7 @@ public:
     virtual void accessKeyAction(bool /*sendToAnyEvent*/) { }
 
     virtual bool isURLAttribute(Attribute*) const;
+    KURL getURLAttribute(const QualifiedName&) const;
     virtual const QualifiedName& imageSourceAttributeName() const;
     virtual String target() const { return String(); }
     virtual void focus(bool restorePreviousSelection = true);
@@ -167,6 +173,8 @@ public:
 #ifndef NDEBUG
     virtual void formatForDebugger(char* buffer, unsigned length) const;
 #endif
+
+    bool pseudoStyleCacheIsInvalid(const RenderStyle* currentStyle, RenderStyle* newStyle);
 
     String innerText() const;
     String outerText() const;
@@ -203,6 +211,8 @@ public:
     virtual bool isEnabledFormControl() const { return true; }
     virtual bool isReadOnlyFormControl() const { return false; }
     virtual bool isTextFormControl() const { return false; }
+    virtual bool isOptionalFormControl() const { return false; }
+    virtual bool isRequiredFormControl() const { return false; }
 
     virtual bool formControlValueMatchesRenderer() const { return false; }
     virtual void setFormControlValueMatchesRenderer(bool) { }

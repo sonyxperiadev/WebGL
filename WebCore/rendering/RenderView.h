@@ -208,16 +208,16 @@ private:
 #endif
 };
 
-inline RenderView* toRenderView(RenderObject* o)
+inline RenderView* toRenderView(RenderObject* object)
 {
-    ASSERT(!o || o->isRenderView());
-    return static_cast<RenderView*>(o);
+    ASSERT(!object || object->isRenderView());
+    return static_cast<RenderView*>(object);
 }
 
-inline const RenderView* toRenderView(const RenderObject* o)
+inline const RenderView* toRenderView(const RenderObject* object)
 {
-    ASSERT(!o || o->isRenderView());
-    return static_cast<const RenderView*>(o);
+    ASSERT(!object || object->isRenderView());
+    return static_cast<const RenderView*>(object);
 }
 
 // This will catch anyone doing an unnecessary cast.
@@ -225,7 +225,7 @@ void toRenderView(const RenderView*);
 
 
 // Stack-based class to assist with LayoutState push/pop
-class LayoutStateMaintainer : Noncopyable {
+class LayoutStateMaintainer : public Noncopyable {
 public:
     // ctor to push now
     LayoutStateMaintainer(RenderView* view, RenderBox* root, IntSize offset, bool disableState = false)

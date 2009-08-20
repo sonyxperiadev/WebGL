@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 2006, 2007, 2008 Apple Inc. All rights reserved.
  * Copyright (C) 2007 Alp Toker <alp@atoker.com>
+ * Copyright (C) 2008 Torch Mobile, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -45,7 +46,7 @@ typedef QGradient* PlatformGradient;
 #elif PLATFORM(CAIRO)
 typedef struct _cairo_pattern cairo_pattern_t;
 typedef cairo_pattern_t* PlatformGradient;
-#elif PLATFORM(SGL)
+#elif PLATFORM(ANDROID) && PLATFORM(SGL)
 #include "SkShader.h"
 typedef class PlatformGradientRec* PlatformGradient;
 #elif PLATFORM(SKIA)
@@ -76,9 +77,19 @@ namespace WebCore {
 
         void getColor(float value, float* r, float* g, float* b, float* a) const;
 
-#if PLATFORM(SGL)
-        SkShader* getShader(SkShader::TileMode);
+#if PLATFORM(WINCE) && !PLATFORM(QT)
+        const FloatPoint& p0() const { return m_p0; }
+        const FloatPoint& p1() const { return m_p1; }
+        float r0() const { return m_r0; }
+        float r1() const { return m_r1; }
+        bool isRadial() const { return m_radial; }
+        struct ColorStop;
+        const Vector<ColorStop>& getStops() const;
 #else
+
+#if PLATFORM(ANDROID) && PLATFORM(SGL)
+        SkShader* getShader(SkShader::TileMode);
+#endif
         PlatformGradient platformGradient();
 #endif
 
@@ -97,11 +108,12 @@ namespace WebCore {
 
         void setSpreadMethod(GradientSpreadMethod);
         GradientSpreadMethod spreadMethod() { return m_spreadMethod; }
-        void setGradientSpaceTransform(const TransformationMatrix& gradientSpaceTransformation) { m_gradientSpaceTransformation = gradientSpaceTransformation; }
+        void setGradientSpaceTransform(const TransformationMatrix& gradientSpaceTransformation);
         // Qt and CG transform the gradient at draw time
         TransformationMatrix gradientSpaceTransform() { return m_gradientSpaceTransformation; }
 
         virtual void fill(GraphicsContext*, const FloatRect&);
+        void setPlatformGradientSpaceTransform(const TransformationMatrix& gradientSpaceTransformation);
 
     private:
         Gradient(const FloatPoint& p0, const FloatPoint& p1);

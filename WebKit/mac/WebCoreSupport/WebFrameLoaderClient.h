@@ -122,6 +122,7 @@ private:
     virtual void revertToProvisionalState(WebCore::DocumentLoader*);
     virtual void setMainDocumentError(WebCore::DocumentLoader*, const WebCore::ResourceError&);
     virtual bool dispatchDidLoadResourceFromMemoryCache(WebCore::DocumentLoader*, const WebCore::ResourceRequest&, const WebCore::ResourceResponse&, int length);
+    virtual void dispatchDidLoadResourceByXMLHttpRequest(unsigned long identifier, const WebCore::ScriptString&);
 
     virtual void willChangeEstimatedProgress();
     virtual void didChangeEstimatedProgress();
@@ -177,11 +178,11 @@ private:
 
     virtual PassRefPtr<WebCore::Frame> createFrame(const WebCore::KURL& url, const WebCore::String& name, WebCore::HTMLFrameOwnerElement*,
                                         const WebCore::String& referrer, bool allowsScrolling, int marginWidth, int marginHeight);
-    virtual WebCore::Widget* createPlugin(const WebCore::IntSize&, WebCore::HTMLPlugInElement*, const WebCore::KURL&, const Vector<WebCore::String>&,
+    virtual PassRefPtr<WebCore::Widget> createPlugin(const WebCore::IntSize&, WebCore::HTMLPlugInElement*, const WebCore::KURL&, const Vector<WebCore::String>&,
                                           const Vector<WebCore::String>&, const WebCore::String&, bool);
     virtual void redirectDataToPlugin(WebCore::Widget* pluginWidget);
     
-    virtual WebCore::Widget* createJavaAppletWidget(const WebCore::IntSize&, WebCore::HTMLAppletElement*, const WebCore::KURL& baseURL,
+    virtual PassRefPtr<WebCore::Widget> createJavaAppletWidget(const WebCore::IntSize&, WebCore::HTMLAppletElement*, const WebCore::KURL& baseURL,
                                                     const Vector<WebCore::String>& paramNames, const Vector<WebCore::String>& paramValues);
     
     virtual WebCore::ObjectContentType objectContentType(const WebCore::KURL& url, const WebCore::String& mimeType);

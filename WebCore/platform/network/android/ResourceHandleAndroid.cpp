@@ -93,7 +93,7 @@ void ResourceHandle::setDefersLoading(bool defers)
 * side may be slow, but is only used during a navigation to
 * a POST response.
 */
-bool ResourceHandle::willLoadFromCache(ResourceRequest& request) 
+bool ResourceHandle::willLoadFromCache(ResourceRequest& request, Frame*)
 {
     // set the cache policy correctly, copied from
     // network/mac/ResourceHandleMac.mm

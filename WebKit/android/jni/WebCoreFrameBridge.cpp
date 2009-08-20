@@ -26,6 +26,7 @@
 #define LOG_TAG "webcoreglue"
 
 #include <config.h>
+
 #include <wtf/Platform.h>
 
 #include "android_graphics.h"
@@ -65,7 +66,7 @@
 #include <runtime/InitializeThreading.h>
 #include <runtime/JSLock.h>
 #elif USE(V8)
-#include "V8InitializeThreading.h"
+#include "InitializeThreading.h"
 #include "jni_npobject.h"
 #include "jni_instance.h"
 #endif  // USE(JSC)
@@ -1091,7 +1092,7 @@ static void AddJavascriptInterface(JNIEnv *env, jobject obj, jint nativeFramePoi
         // the ref count when the object is not reachable from JavaScript
         // side. Code here must release the reference count increased by
         // JavaInstanceToNPObject.
-        NPN_ReleaseObject(obj);
+        _NPN_ReleaseObject(obj);
         JSC::Bindings::releaseCharactersForJString(interfaceName, name);
     }
 #endif

@@ -6,6 +6,7 @@
  * Copyright (C) 2009 Gustavo Noronha Silva <gns@gnome.org>
  * Copyright (C) 2009 Christian Dywan <christian@imendio.com>
  * Copyright (C) 2009 Igalia S.L.
+ * Copyright (C) 2009 John Kjellberg <john.kjellberg@power.alstom.com>
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -55,7 +56,7 @@
 
 namespace WebCore {
 
-class WebCoreSynchronousLoader : public ResourceHandleClient, Noncopyable {
+class WebCoreSynchronousLoader : public ResourceHandleClient, public Noncopyable {
 public:
     WebCoreSynchronousLoader(ResourceError&, ResourceResponse &, Vector<char>&);
     ~WebCoreSynchronousLoader();
@@ -118,6 +119,8 @@ void WebCoreSynchronousLoader::run()
 }
 
 static void cleanupGioOperation(ResourceHandleInternal* handle);
+static bool startData(ResourceHandle* handle, String urlString);
+static bool startGio(ResourceHandle* handle, KURL url);
 
 ResourceHandleInternal::~ResourceHandleInternal()
 {
@@ -150,39 +153,7 @@ static void fillResponseFromMessage(SoupMessage* msg, ResourceResponse* response
     while (soup_message_headers_iter_next(&iter, &name, &value))
         response->setHTTPHeaderField(name, value);
 
-    GHashTable* contentTypeParameters = 0;
-    String contentType = soup_message_headers_get_content_type(msg->response_headers, &contentTypeParameters);
-
-    // When the server sends multiple Content-Type headers, soup will
-    // give us their values concatenated with commas as a separator;
-    // we need to handle this and use only one value. We use the first
-    // value, and add all the parameters, afterwards, if any.
-    Vector<String> contentTypes;
-    contentType.split(',', true, contentTypes);
-    contentType = contentTypes[0];
-
-    if (contentTypeParameters) {
-        GString* parametersString = g_string_new(0);
-        GHashTableIter hashTableIter;
-        const char* hashKey;
-        const char* hashValue;
-
-        g_hash_table_iter_init(&hashTableIter, contentTypeParameters);
-        while (g_hash_table_iter_next(&hashTableIter, reinterpret_cast<void**>(const_cast<char**>(&hashKey)), reinterpret_cast<void**>(const_cast<char**>(&hashValue)))) {
-            // Work-around bug in soup which causes a crash;
-            // See http://bugzilla.gnome.org/show_bug.cgi?id=577728
-            if (!hashValue)
-                hashValue = "";
-
-            g_string_append(parametersString, "; ");
-            soup_header_g_string_append_param(parametersString, hashKey, hashValue);
-        }
-        contentType += String(parametersString->str);
-
-        g_string_free(parametersString, true);
-        g_hash_table_destroy(contentTypeParameters);
-    }
-
+    String contentType = soup_message_headers_get_one(msg->response_headers, "Content-Type");
     response->setMimeType(extractMIMETypeFromMediaType(contentType));
 
     char* uri = soup_uri_to_string(soup_message_get_uri(msg), false);
@@ -211,15 +182,6 @@ static void restartedCallback(SoupMessage* msg, gpointer data)
     g_free(uri);
     KURL newURL = KURL(handle->request().url(), location);
 
-    // FIXME: This is needed because some servers use broken URIs in
-    // their Location header, when redirecting, such as URIs with
-    // white spaces instead of %20; this should be fixed in soup, in
-    // the future, and this work-around removed.
-    // See http://bugzilla.gnome.org/show_bug.cgi?id=575378.
-    SoupURI* soup_uri = soup_uri_new(newURL.string().utf8().data());
-    soup_message_set_uri(msg, soup_uri);
-    soup_uri_free(soup_uri);
-
     ResourceRequest request = handle->request();
     ResourceResponse response;
     request.setURL(newURL);
@@ -242,21 +204,38 @@ static void gotHeadersCallback(SoupMessage* msg, gpointer data)
     // we got, when we finish downloading.
     soup_message_body_set_accumulate(msg->response_body, FALSE);
 
+    if (msg->status_code == SOUP_STATUS_NOT_MODIFIED) {
+        RefPtr<ResourceHandle> handle = static_cast<ResourceHandle*>(data);
+        if (!handle)
+            return;
+        ResourceHandleInternal* d = handle->getInternal();
+        if (d->m_cancelled)
+            return;
+        ResourceHandleClient* client = handle->client();
+        if (!client)
+            return;
+
+        fillResponseFromMessage(msg, &d->m_response);
+        client->didReceiveResponse(handle.get(), d->m_response);
+    }
+}
+
+static void contentSniffedCallback(SoupMessage* msg, const char* sniffedType, GHashTable *params, gpointer data)
+{
+    if (sniffedType) {
+        const char* officialType = soup_message_headers_get_one(msg->response_headers, "Content-Type");
+
+        if (!officialType || strcmp(officialType, sniffedType))
+            soup_message_headers_set_content_type(msg->response_headers, sniffedType, params);
+    }
+
     // The 304 status code (SOUP_STATUS_NOT_MODIFIED) needs to be fed
     // into WebCore, as opposed to other kinds of redirections, which
     // are handled by soup directly, so we special-case it here and in
     // gotChunk.
     if (SOUP_STATUS_IS_TRANSPORT_ERROR(msg->status_code)
-        || (SOUP_STATUS_IS_REDIRECTION(msg->status_code) && (msg->status_code != SOUP_STATUS_NOT_MODIFIED)))
-        return;
-
-    // We still don't know anything about Content-Type, so we will try
-    // sniffing the contents of the file, and then report that we got
-    // headers; we will not do content sniffing for 304 responses,
-    // though, since they do not have a body.
-    const char* contentType = soup_message_headers_get_content_type(msg->response_headers, NULL);
-    if ((msg->status_code != SOUP_STATUS_NOT_MODIFIED)
-        && (!contentType || !g_ascii_strcasecmp(contentType, "text/plain")))
+        || (SOUP_STATUS_IS_REDIRECTION(msg->status_code) && (msg->status_code != SOUP_STATUS_NOT_MODIFIED))
+        || (msg->status_code == SOUP_STATUS_UNAUTHORIZED))
         return;
 
     RefPtr<ResourceHandle> handle = static_cast<ResourceHandle*>(data);
@@ -270,7 +249,6 @@ static void gotHeadersCallback(SoupMessage* msg, gpointer data)
         return;
 
     fillResponseFromMessage(msg, &d->m_response);
-    d->m_reportedHeaders = true;
     client->didReceiveResponse(handle.get(), d->m_response);
 }
 
@@ -290,21 +268,6 @@ static void gotChunkCallback(SoupMessage* msg, SoupBuffer* chunk, gpointer data)
     ResourceHandleClient* client = handle->client();
     if (!client)
         return;
-
-    if (!d->m_reportedHeaders) {
-        gboolean uncertain;
-        char* contentType = g_content_type_guess(d->m_request.url().lastPathComponent().utf8().data(), reinterpret_cast<const guchar*>(chunk->data), chunk->length, &uncertain);
-        soup_message_headers_set_content_type(msg->response_headers, contentType, NULL);
-        g_free(contentType);
-
-        fillResponseFromMessage(msg, &d->m_response);
-        client->didReceiveResponse(handle.get(), d->m_response);
-        d->m_reportedHeaders = true;
-
-        // the didReceiveResponse call above may have cancelled the request
-        if (d->m_cancelled)
-            return;
-    }
 
     client->didReceiveData(handle.get(), chunk->data, chunk->length, false);
 }
@@ -328,10 +291,12 @@ static void finishedCallback(SoupSession *session, SoupMessage* msg, gpointer da
         return;
 
     if (SOUP_STATUS_IS_TRANSPORT_ERROR(msg->status_code)) {
+        char* uri = soup_uri_to_string(soup_message_get_uri(msg), false);
         ResourceError error(g_quark_to_string(SOUP_HTTP_ERROR),
                             msg->status_code,
-                            soup_uri_to_string(soup_message_get_uri(msg), false),
+                            uri,
                             String::fromUTF8(msg->reason_phrase));
+        g_free(uri);
         client->didFail(handle.get(), error);
         return;
     }
@@ -428,13 +393,15 @@ static gboolean parseDataUrl(gpointer callback_data)
     return false;
 }
 
-bool ResourceHandle::startData(String urlString)
+static bool startData(ResourceHandle* handle, String urlString)
 {
-    ResourceHandleInternal* d = this->getInternal();
+    ASSERT(handle);
+
+    ResourceHandleInternal* d = handle->getInternal();
 
     // If parseDataUrl is called synchronously the job is not yet effectively started
     // and webkit won't never know that the data has been parsed even didFinishLoading is called.
-    d->m_idleHandler = g_idle_add(parseDataUrl, this);
+    d->m_idleHandler = g_idle_add(parseDataUrl, handle);
     return true;
 }
 
@@ -463,17 +430,31 @@ static void ensureSessionIsInitialized(SoupSession* session)
     g_object_set_data(G_OBJECT(session), "webkit-init", reinterpret_cast<void*>(0xdeadbeef));
 }
 
-bool ResourceHandle::startHttp(String urlString)
+static bool startHttp(ResourceHandle* handle, String urlString)
 {
-    SoupSession* session = defaultSession();
+    ASSERT(handle);
+ 
+    SoupSession* session = handle->defaultSession();
     ensureSessionIsInitialized(session);
 
-    d->m_msg = request().toSoupMessage();
-    g_signal_connect(d->m_msg, "restarted", G_CALLBACK(restartedCallback), this);
-    g_signal_connect(d->m_msg, "got-headers", G_CALLBACK(gotHeadersCallback), this);
-    g_signal_connect(d->m_msg, "got-chunk", G_CALLBACK(gotChunkCallback), this);
+    ResourceHandleInternal* d = handle->getInternal();
 
-    g_object_set_data(G_OBJECT(d->m_msg), "resourceHandle", reinterpret_cast<void*>(this));
+    d->m_msg = handle->request().toSoupMessage();
+    if (!d->m_msg) {
+        ResourceError resourceError(g_quark_to_string(SOUP_HTTP_ERROR),
+                                    SOUP_STATUS_MALFORMED,
+                                    urlString,
+                                    handle->request().httpMethod());
+        d->client()->didFail(handle, resourceError);
+        return false;
+    }
+
+    g_signal_connect(d->m_msg, "restarted", G_CALLBACK(restartedCallback), handle);
+    g_signal_connect(d->m_msg, "got-headers", G_CALLBACK(gotHeadersCallback), handle);
+    g_signal_connect(d->m_msg, "content-sniffed", G_CALLBACK(contentSniffedCallback), handle);
+    g_signal_connect(d->m_msg, "got-chunk", G_CALLBACK(gotChunkCallback), handle);
+
+    g_object_set_data(G_OBJECT(d->m_msg), "resourceHandle", reinterpret_cast<void*>(handle));
 
     FormData* httpBody = d->m_request.httpBody();
     if (httpBody && !httpBody->isEmpty()) {
@@ -516,10 +497,10 @@ bool ResourceHandle::startHttp(String urlString)
                                                     String::fromUTF8(error->message));
                         g_error_free(error);
 
-                        d->client()->didFail(this, resourceError);
+                        d->client()->didFail(handle, resourceError);
 
                         g_signal_handlers_disconnect_matched(d->m_msg, G_SIGNAL_MATCH_DATA,
-                                                             0, 0, 0, 0, this);
+                                                             0, 0, 0, 0, handle);
                         g_object_unref(d->m_msg);
                         d->m_msg = 0;
 
@@ -528,7 +509,12 @@ bool ResourceHandle::startHttp(String urlString)
 
                     SoupBuffer* soupBuffer = soup_buffer_new_with_owner(g_mapped_file_get_contents(fileMapping),
                                                                         g_mapped_file_get_length(fileMapping),
-                                                                        fileMapping, reinterpret_cast<GDestroyNotify>(g_mapped_file_free));
+                                                                        fileMapping,
+#if GLIB_CHECK_VERSION(2, 21, 3)
+                                                                        reinterpret_cast<GDestroyNotify>(g_mapped_file_unref));
+#else
+                                                                        reinterpret_cast<GDestroyNotify>(g_mapped_file_free));
+#endif
                     soup_message_body_append_buffer(d->m_msg->request_body, soupBuffer);
                     soup_buffer_free(soupBuffer);
                 }
@@ -537,7 +523,7 @@ bool ResourceHandle::startHttp(String urlString)
     }
 
     // balanced by a deref() in finishedCallback, which should always run
-    ref();
+    handle->ref();
 
     // FIXME: For now, we cannot accept content encoded in anything
     // other than identity, so force servers to do it our way. When
@@ -549,7 +535,7 @@ bool ResourceHandle::startHttp(String urlString)
     // keep our own ref, because after queueing the message, the
     // session owns the initial reference.
     g_object_ref(d->m_msg);
-    soup_session_queue_message(session, d->m_msg, finishedCallback, this);
+    soup_session_queue_message(session, d->m_msg, finishedCallback, handle);
 
     return true;
 }
@@ -574,14 +560,14 @@ bool ResourceHandle::start(Frame* frame)
     d->m_frame = frame;
 
     if (equalIgnoringCase(protocol, "data"))
-        return startData(urlString);
+        return startData(this, urlString);
 
-    if ((equalIgnoringCase(protocol, "http") || equalIgnoringCase(protocol, "https")) && SOUP_URI_VALID_FOR_HTTP(soup_uri_new(urlString.utf8().data())))
-        return startHttp(urlString);
+    if (equalIgnoringCase(protocol, "http") || equalIgnoringCase(protocol, "https"))
+        return startHttp(this, urlString);
 
     if (equalIgnoringCase(protocol, "file") || equalIgnoringCase(protocol, "ftp") || equalIgnoringCase(protocol, "ftps"))
         // FIXME: should we be doing any other protocols here?
-        return startGio(url);
+        return startGio(this, url);
 
     // Error must not be reported immediately
     this->scheduleFailure(InvalidURLFailure);
@@ -620,7 +606,7 @@ bool ResourceHandle::loadsBlocked()
     return false;
 }
 
-bool ResourceHandle::willLoadFromCache(ResourceRequest&)
+bool ResourceHandle::willLoadFromCache(ResourceRequest&, Frame*)
 {
     // Not having this function means that we'll ask the user about re-posting a form
     // even when we go back to a page that's still in the cache.
@@ -697,10 +683,12 @@ static void readCallback(GObject* source, GAsyncResult* res, gpointer)
 
     gssize bytesRead = g_input_stream_read_finish(d->m_inputStream, res, &error);
     if (error) {
+        char* uri = g_file_get_uri(d->m_gfile);
         ResourceError resourceError(g_quark_to_string(G_IO_ERROR),
                                     error->code,
-                                    g_file_get_uri(d->m_gfile),
+                                    uri,
                                     error ? String::fromUTF8(error->message) : String());
+        g_free(uri);
         g_error_free(error);
         cleanupGioOperation(d);
         client->didFail(handle.get(), resourceError);
@@ -743,11 +731,12 @@ static void openCallback(GObject* source, GAsyncResult* res, gpointer)
     GError *error = 0;
     GFileInputStream* in = g_file_read_finish(G_FILE(source), res, &error);
     if (error) {
+        char* uri = g_file_get_uri(d->m_gfile);
         ResourceError resourceError(g_quark_to_string(G_IO_ERROR),
                                     error->code,
-                                    g_file_get_uri(d->m_gfile),
+                                    uri,
                                     error ? String::fromUTF8(error->message) : String());
-
+        g_free(uri);
         g_error_free(error);
         cleanupGioOperation(d);
         client->didFail(handle, resourceError);
@@ -794,10 +783,12 @@ static void queryInfoCallback(GObject* source, GAsyncResult* res, gpointer)
         // server (and then keep track of the fact that we mounted it,
         // and set a timeout to unmount it later after it's been idle
         // for a while).
+        char* uri = g_file_get_uri(d->m_gfile);
         ResourceError resourceError(g_quark_to_string(G_IO_ERROR),
                                     error->code,
-                                    g_file_get_uri(d->m_gfile),
+                                    uri,
                                     error ? String::fromUTF8(error->message) : String());
+        g_free(uri);
         g_error_free(error);
         cleanupGioOperation(d);
         client->didFail(handle, resourceError);
@@ -807,10 +798,12 @@ static void queryInfoCallback(GObject* source, GAsyncResult* res, gpointer)
     if (g_file_info_get_file_type(info) != G_FILE_TYPE_REGULAR) {
         // FIXME: what if the URI points to a directory? Should we
         // generate a listing? How? What do other backends do here?
+        char* uri = g_file_get_uri(d->m_gfile);
         ResourceError resourceError(g_quark_to_string(G_IO_ERROR),
                                     G_IO_ERROR_FAILED,
-                                    g_file_get_uri(d->m_gfile),
+                                    uri,
                                     String());
+        g_free(uri);
         cleanupGioOperation(d);
         client->didFail(handle, resourceError);
         return;
@@ -828,21 +821,24 @@ static void queryInfoCallback(GObject* source, GAsyncResult* res, gpointer)
     g_file_read_async(d->m_gfile, G_PRIORITY_DEFAULT, d->m_cancellable,
                       openCallback, 0);
 }
-
-bool ResourceHandle::startGio(KURL url)
+static bool startGio(ResourceHandle* handle, KURL url)
 {
-    if (request().httpMethod() != "GET" && request().httpMethod() != "POST") {
+    ASSERT(handle);
+
+    ResourceHandleInternal* d = handle->getInternal();
+
+    if (handle->request().httpMethod() != "GET" && handle->request().httpMethod() != "POST") {
         ResourceError error(g_quark_to_string(SOUP_HTTP_ERROR),
                             SOUP_STATUS_METHOD_NOT_ALLOWED,
-                            url.string(), request().httpMethod());
-        d->client()->didFail(this, error);
+                            url.string(), handle->request().httpMethod());
+        d->client()->didFail(handle, error);
         return false;
     }
 
     // GIO doesn't know how to handle refs and queries, so remove them
     // TODO: use KURL.fileSystemPath after KURLGtk and FileSystemGtk are
     // using GIO internally, and providing URIs instead of file paths
-    url.removeRef();
+    url.removeFragmentIdentifier();
     url.setQuery(String());
     url.setPort(0);
 
@@ -855,7 +851,7 @@ bool ResourceHandle::startGio(KURL url)
     else
 #endif
         d->m_gfile = g_file_new_for_uri(url.string().utf8().data());
-    g_object_set_data(G_OBJECT(d->m_gfile), "webkit-resource", this);
+    g_object_set_data(G_OBJECT(d->m_gfile), "webkit-resource", handle);
     d->m_cancellable = g_cancellable_new();
     g_file_query_info_async(d->m_gfile,
                             G_FILE_ATTRIBUTE_STANDARD_TYPE ","

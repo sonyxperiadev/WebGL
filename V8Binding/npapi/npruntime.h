@@ -221,7 +221,7 @@ bool NPN_IdentifierIsString(NPIdentifier identifier);
 /*
     The NPUTF8 returned from NPN_UTF8FromIdentifier SHOULD be freed.
 */
-NPUTF8 *NPN_UTF8FromIdentifier(NPIdentifier identifier);
+NPUTF8 *_NPN_UTF8FromIdentifier(NPIdentifier identifier);
 
 /*
     Get the integer represented by identifier. If identifier is not an
@@ -308,7 +308,7 @@ struct NPObject {
     function it is the responsibility of that implementation to set the initial retain
     count to 1.
 */
-NPObject *NPN_CreateObject(NPP npp, NPClass *aClass);
+NPObject *_NPN_CreateObject(NPP npp, NPClass *aClass);
 
 /*
     Increment the NPObject's reference count.
@@ -320,7 +320,7 @@ NPObject *NPN_RetainObject (NPObject *obj);
     count goes to zero, the class's destroy function is invoke if
     specified, otherwise the object is freed directly.
 */
-void NPN_ReleaseObject (NPObject *obj);
+void _NPN_ReleaseObject (NPObject *obj);
 
 /*
     Functions to access script objects represented by NPObject.

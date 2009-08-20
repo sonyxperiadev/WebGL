@@ -37,7 +37,7 @@ public:
 
     bool enableHighAccuracy() const { return m_highAccuracy; }
     void setEnableHighAccuracy(bool enable) { m_highAccuracy = enable; }
-    bool hasTimeout() { return m_hasTimeout; }
+    bool hasTimeout() const { return m_hasTimeout; }
     int timeout() const
     {
         ASSERT(hasTimeout());

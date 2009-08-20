@@ -5,7 +5,7 @@
  *           (C) 2006 Alexey Proskuryakov (ap@webkit.org)
  * Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
  * Copyright (C) 2008, 2009 Torch Mobile Inc. All rights reserved. (http://www.torchmobile.com/)
- * Copyright (C) 2008 David Levin (levin@chromium.org)
+ * Copyright (C) 2008, 2009 Google Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -286,7 +286,7 @@ static Widget* widgetForNode(Node* focusedNode)
     RenderObject* renderer = focusedNode->renderer();
     if (!renderer || !renderer->isWidget())
         return 0;
-    return static_cast<RenderWidget*>(renderer)->widget();
+    return toRenderWidget(renderer)->widget();
 }
 
 static bool acceptsEditingFocus(Node *node)
@@ -357,6 +357,9 @@ Document::Document(Frame* frame, bool isXHTML)
 #ifdef ANDROID_MOBILE
     , mExtraLayoutDelay(0)
 #endif
+#if ENABLE(WML)
+    , m_containsWMLContent(false)
+#endif
 {
     m_document.resetSkippingRef(this);
 
@@ -383,11 +386,14 @@ Document::Document(Frame* frame, bool isXHTML)
     m_inDocument = true;
     m_inStyleRecalc = false;
     m_closeAfterStyleRecalc = false;
+
     m_usesDescendantRules = false;
     m_usesSiblingRules = false;
     m_usesFirstLineRules = false;
     m_usesFirstLetterRules = false;
     m_usesBeforeAfterRules = false;
+    m_usesRemUnits = false;
+
     m_gotoAnchorNeededAfterStylesheetsLoad = false;
  
     m_styleSelector = 0;
@@ -1154,6 +1160,11 @@ void Document::styleRecalcTimerFired(Timer<Document>*)
     updateStyleIfNeeded();
 }
 
+bool Document::childNeedsAndNotInStyleRecalc()
+{
+    return childNeedsStyleRecalc() && !m_inStyleRecalc;
+}
+
 void Document::recalcStyle(StyleChange change)
 {
     // we should not enter style recalc while painting
@@ -1369,6 +1380,12 @@ void Document::detach()
     // in order to stop media elements
     documentWillBecomeInactive();
     
+    if (m_frame) {
+        FrameView* view = m_frame->view();
+        if (view)
+            view->detachCustomScrollbars();
+    }
+
     // indicate destruction mode,  i.e. attached() but renderer == 0
     setRenderer(0);
 
@@ -1516,7 +1533,7 @@ void Document::open(Document* ownerDocument)
         if (m_frame->loader()->state() == FrameStateProvisional)
             m_frame->loader()->stopAllLoaders();
     }
-    
+
     implicitOpen();
 
     if (m_frame)
@@ -1543,6 +1560,9 @@ void Document::implicitOpen()
     clear();
     m_tokenizer = createTokenizer();
     setParsing(true);
+
+    if (m_frame)
+        m_tokenizer->setXSSAuditor(m_frame->script()->xssAuditor());
 
     // If we reload, the animation controller sticks around and has
     // a stale animation time. We need to update it here.
@@ -1693,7 +1713,8 @@ void Document::implicitClose()
     }
 
     frame()->loader()->checkCallImplicitClose();
-
+    RenderObject* renderObject = renderer();
+    
     // We used to force a synchronous display and flush here.  This really isn't
     // necessary and can in fact be actively harmful if pages are loading at a rate of > 60fps
     // (if your platform is syncing flushes and limiting them to 60fps).
@@ -1702,13 +1723,19 @@ void Document::implicitClose()
         updateStyleIfNeeded();
         
         // Always do a layout after loading if needed.
-        if (view() && renderer() && (!renderer()->firstChild() || renderer()->needsLayout()))
+        if (view() && renderObject && (!renderObject->firstChild() || renderObject->needsLayout()))
             view()->layout();
     }
 
 #if PLATFORM(MAC)
-    if (f && renderer() && this == topDocument() && AXObjectCache::accessibilityEnabled())
-        axObjectCache()->postNotification(renderer(), "AXLoadComplete", true);
+    if (f && renderObject && this == topDocument() && AXObjectCache::accessibilityEnabled()) {
+        // The AX cache may have been cleared at this point, but we need to make sure it contains an
+        // AX object to send the notification to. getOrCreate will make sure that an valid AX object
+        // exists in the cache (we ignore the return value because we don't need it here). This is 
+        // only safe to call when a layout is not in progress, so it can not be used in postNotification.    
+        axObjectCache()->getOrCreate(renderObject);
+        axObjectCache()->postNotification(renderObject, "AXLoadComplete", true);
+    }
 #endif
 
 #if ENABLE(SVG)
@@ -2611,13 +2638,12 @@ bool Document::setFocusedNode(PassRefPtr<Node> newFocusedNode)
         oldFocusedNode->setFocus(false);
                 
         // Dispatch a change event for text fields or textareas that have been edited
-        RenderObject* r = static_cast<RenderObject*>(oldFocusedNode.get()->renderer());
+        RenderObject* r = oldFocusedNode->renderer();
         if (r && r->isTextControl() && toRenderTextControl(r)->isEdited()) {
             oldFocusedNode->dispatchEvent(eventNames().changeEvent, true, false);
-            if ((r = static_cast<RenderObject*>(oldFocusedNode.get()->renderer()))) {
-                if (r->isTextControl())
-                    toRenderTextControl(r)->setEdited(false);
-            }
+            r = oldFocusedNode->renderer();
+            if (r && r->isTextControl())
+                toRenderTextControl(r)->setEdited(false);
         }
 
         // Dispatch the blur event and let the node do any other blur related activities (important for text fields)
@@ -2628,7 +2654,7 @@ bool Document::setFocusedNode(PassRefPtr<Node> newFocusedNode)
             focusChangeBlocked = true;
             newFocusedNode = 0;
         }
-        oldFocusedNode->dispatchUIEvent(eventNames().DOMFocusOutEvent);
+        oldFocusedNode->dispatchUIEvent(eventNames().DOMFocusOutEvent, 0, 0);
         if (m_focusedNode) {
             // handler shifted focus
             focusChangeBlocked = true;
@@ -2658,7 +2684,7 @@ bool Document::setFocusedNode(PassRefPtr<Node> newFocusedNode)
             focusChangeBlocked = true;
             goto SetFocusedNodeDone;
         }
-        m_focusedNode->dispatchUIEvent(eventNames().DOMFocusInEvent);
+        m_focusedNode->dispatchUIEvent(eventNames().DOMFocusInEvent, 0, 0);
         if (m_focusedNode != newFocusedNode) { 
             // handler shifted focus
             focusChangeBlocked = true;
@@ -2686,7 +2712,7 @@ bool Document::setFocusedNode(PassRefPtr<Node> newFocusedNode)
             else
                 view()->setFocus();
         }
-   }
+    }
 
 #if PLATFORM(MAC) && !PLATFORM(CHROMIUM)
     if (!focusChangeBlocked && m_focusedNode && AXObjectCache::accessibilityEnabled())
@@ -2834,6 +2860,14 @@ void Document::setWindowAttributeEventListener(const AtomicString& eventType, Pa
     if (!domWindow)
         return;
     domWindow->setAttributeEventListener(eventType, listener);
+}
+
+EventListener* Document::getWindowAttributeEventListener(const AtomicString& eventType)
+{
+    DOMWindow* domWindow = this->domWindow();
+    if (!domWindow)
+        return 0;
+    return domWindow->getAttributeEventListener(eventType);
 }
 
 void Document::dispatchWindowEvent(PassRefPtr<Event> event)
@@ -4388,7 +4422,8 @@ void Document::attachRange(Range* range)
 
 void Document::detachRange(Range* range)
 {
-    ASSERT(m_ranges.contains(range));
+    // We don't ASSERT m_ranges.contains(range) to allow us to call this
+    // unconditionally to fix: https://bugs.webkit.org/show_bug.cgi?id=26044
     m_ranges.remove(range);
 }
 
@@ -4469,19 +4504,19 @@ void Document::removeTouchEventListener(Node* node)
 void Document::reportException(const String& errorMessage, int lineNumber, const String& sourceURL)
 {
     if (DOMWindow* window = domWindow())
-        window->console()->addMessage(JSMessageSource, ErrorMessageLevel, errorMessage, lineNumber, sourceURL);
+        window->console()->addMessage(JSMessageSource, LogMessageType, ErrorMessageLevel, errorMessage, lineNumber, sourceURL);
 }
 
-void Document::addMessage(MessageDestination destination, MessageSource source, MessageLevel level, const String& message, unsigned lineNumber, const String& sourceURL)
+void Document::addMessage(MessageDestination destination, MessageSource source, MessageType type, MessageLevel level, const String& message, unsigned lineNumber, const String& sourceURL)
 {
     switch (destination) {
     case InspectorControllerDestination:
         if (page())
-            page()->inspectorController()->addMessageToConsole(source, level, message, lineNumber, sourceURL);
+            page()->inspectorController()->addMessageToConsole(source, type, level, message, lineNumber, sourceURL);
         return;
     case ConsoleDestination:
         if (DOMWindow* window = domWindow())
-            window->console()->addMessage(source, level, message, lineNumber, sourceURL);
+            window->console()->addMessage(source, type, level, message, lineNumber, sourceURL);
         return;
     }
     ASSERT_NOT_REACHED();

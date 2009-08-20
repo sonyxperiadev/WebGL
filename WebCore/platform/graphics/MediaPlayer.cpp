@@ -38,6 +38,8 @@
 
 #if PLATFORM(MAC)
 #include "MediaPlayerPrivateQTKit.h"
+#elif PLATFORM(WINCE)
+#include "MediaPlayerPrivateWince.h"
 #elif PLATFORM(WIN)
 #include "MediaPlayerPrivateQuickTimeWin.h"
 #elif PLATFORM(GTK)
@@ -64,6 +66,8 @@ public:
     virtual void play() { }
     virtual void pause() { }    
 
+    virtual bool supportsFullscreen() const { return false; }
+
     virtual IntSize naturalSize() const { return IntSize(0, 0); }
 
     virtual bool hasVideo() const { return false; }
@@ -79,6 +83,7 @@ public:
     virtual void setEndTime(float) { }
 
     virtual void setRate(float) { }
+    virtual void setPreservesPitch(bool) { }
     virtual bool paused() const { return false; }
 
     virtual void setVolume(float) { }
@@ -104,6 +109,8 @@ public:
     virtual void deliverNotification(MediaPlayerProxyNotificationType) { }
     virtual void setMediaPlayerProxy(WebMediaPlayerProxy*) { }
 #endif
+
+    virtual bool hasSingleSecurityOrigin() const { return true; }
 };
 
 static MediaPlayerPrivateInterface* createNullMediaPlayer(MediaPlayer* player) 
@@ -185,6 +192,7 @@ MediaPlayer::MediaPlayer(MediaPlayerClient* client)
     , m_visible(false)
     , m_rate(1.0f)
     , m_volume(1.0f)
+    , m_preservesPitch(true)
     , m_autobuffer(false)
 #if ENABLE(PLUGIN_PROXY_FOR_VIDEO)
     , m_playerProxy(0)
@@ -225,7 +233,7 @@ void MediaPlayer::load(const String& url, const ContentType& contentType)
         engine = chooseBestEngineForTypeAndCodecs(type, codecs);
 
     // if we didn't find an engine that claims the MIME type, just use the first engine
-    if (!engine)
+    if (!engine && !installedMediaEngines().isEmpty())
         engine = installedMediaEngines()[0];
     
     // don't delete and recreate the player unless it comes from a different engine
@@ -297,6 +305,16 @@ bool MediaPlayer::seeking() const
     return m_private->seeking();
 }
 
+bool MediaPlayer::supportsFullscreen() const
+{
+    return m_private->supportsFullscreen();
+}
+
+bool MediaPlayer::supportsSave() const
+{
+    return m_private->supportsSave();
+}
+
 IntSize MediaPlayer::naturalSize()
 {
     return m_private->naturalSize();
@@ -345,6 +363,17 @@ void MediaPlayer::setRate(float rate)
 {
     m_rate = rate;
     m_private->setRate(rate);   
+}
+
+bool MediaPlayer::preservesPitch() const
+{
+    return m_preservesPitch;
+}
+
+void MediaPlayer::setPreservesPitch(bool preservesPitch)
+{
+    m_preservesPitch = preservesPitch;
+    m_private->setPreservesPitch(preservesPitch);
 }
 
 int MediaPlayer::dataRate() const
@@ -417,6 +446,11 @@ void MediaPlayer::paint(GraphicsContext* p, const IntRect& r)
     m_private->paint(p, r);
 }
 
+void MediaPlayer::paintCurrentFrameInContext(GraphicsContext* p, const IntRect& r)
+{
+    m_private->paintCurrentFrameInContext(p, r);
+}
+
 MediaPlayer::SupportsType MediaPlayer::supportsType(ContentType contentType)
 {
     String type = contentType.type();
@@ -458,6 +492,29 @@ void MediaPlayer::setMediaPlayerProxy(WebMediaPlayerProxy* proxy)
 }
 #endif
 
+#if USE(ACCELERATED_COMPOSITING)
+void MediaPlayer::acceleratedRenderingStateChanged()
+{
+    m_private->acceleratedRenderingStateChanged();
+}
+
+bool MediaPlayer::supportsAcceleratedRendering() const
+{
+    return m_private->supportsAcceleratedRendering();
+}
+#endif // USE(ACCELERATED_COMPOSITING)
+
+bool MediaPlayer::hasSingleSecurityOrigin() const
+{
+    return m_private->hasSingleSecurityOrigin();
+}
+
+MediaPlayer::MovieLoadType MediaPlayer::movieLoadType() const
+{
+    return m_private->movieLoadType();
+}
+
+// Client callbacks.
 void MediaPlayer::networkStateChanged()
 {
     if (m_mediaPlayerClient)
@@ -507,4 +564,5 @@ void MediaPlayer::rateChanged()
 }
 
 }
+
 #endif

@@ -93,7 +93,7 @@ void InputElement::updatePlaceholderVisibility(InputElementData& data, InputElem
                                        && !inputElement->placeholder().isEmpty());
 
     if ((oldPlaceholderShouldBeVisible != data.placeholderShouldBeVisible() || placeholderValueChanged) && element->renderer())
-        static_cast<RenderTextControlSingleLine*>(element->renderer())->updatePlaceholderVisibility();
+        toRenderTextControlSingleLine(element->renderer())->updatePlaceholderVisibility();
 }
 
 void InputElement::updateFocusAppearance(InputElementData& data, InputElement* inputElement, Element* element, bool restorePreviousSelection)
@@ -115,6 +115,8 @@ void InputElement::updateSelectionRange(InputElement* inputElement, Element* ele
 {
     if (!inputElement->isTextField())
         return;
+
+    element->document()->updateLayoutIgnorePendingStylesheets();
 
     if (RenderTextControl* renderer = toRenderTextControl(element->renderer()))
         renderer->setSelectionRange(start, end);

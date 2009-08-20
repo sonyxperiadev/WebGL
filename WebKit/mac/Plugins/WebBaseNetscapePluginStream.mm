@@ -348,7 +348,7 @@ void WebNetscapePluginStream::didReceiveResponse(NetscapePlugInStreamLoader*, co
         // startStreamResponseURL:... will null-terminate.
     }
     
-    startStream([r URL], expectedContentLength, WKGetNSURLResponseLastModifiedDate(r), [r _webcore_MIMEType], theHeaders);
+    startStream([r URL], expectedContentLength, WKGetNSURLResponseLastModifiedDate(r), [r MIMEType], theHeaders);
 }
 
 void WebNetscapePluginStream::startStreamWithResponse(NSURLResponse *response)
@@ -365,7 +365,7 @@ bool WebNetscapePluginStream::wantsAllStreams() const
     NPError error;
     {
         PluginStopDeferrer deferrer(m_pluginView.get());
-        JSC::JSLock::DropAllLocks dropAllLocks(false);
+        JSC::JSLock::DropAllLocks dropAllLocks(JSC::SilenceAssertionsOnly);
         error = m_pluginFuncs->getvalue(m_plugin, NPPVpluginWantsAllNetworkStreams, &value);
     }
     if (error != NPERR_NO_ERROR)

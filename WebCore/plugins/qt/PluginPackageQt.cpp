@@ -44,19 +44,19 @@ bool PluginPackage::fetchInfo()
     typedef char *(*NPP_GetMIMEDescriptionProcPtr)();
     NPP_GetMIMEDescriptionProcPtr gm =
         (NPP_GetMIMEDescriptionProcPtr)m_module->resolve("NP_GetMIMEDescription");
-    if (!gm || !gv) {
+    if (!gm || !gv)
         return false;
-    }
+
     char *buf = 0;
-    NPError err = gv(0, NPPVpluginNameString, (void *)&buf);
-    if (err != NPERR_NO_ERROR) {
+    NPError err = gv(0, NPPVpluginNameString, (void*) &buf);
+    if (err != NPERR_NO_ERROR)
         return false;
-    }
+
     m_name = buf;
-    err = gv(0, NPPVpluginDescriptionString, (void *)&buf);
-    if (err != NPERR_NO_ERROR) {
+    err = gv(0, NPPVpluginDescriptionString, (void*) &buf);
+    if (err != NPERR_NO_ERROR)
         return false;
-    }
+
     m_description = buf;
     determineModuleVersionFromDescription();
 
@@ -65,7 +65,7 @@ bool PluginPackage::fetchInfo()
     s.split(UChar(';'), false, types);
     for (int i = 0; i < types.size(); ++i) {
         Vector<String> mime;
-        types[i].split(UChar(':'), true, mime); 
+        types[i].split(UChar(':'), true, mime);
         if (mime.size() > 0) {
             Vector<String> exts;
             if (mime.size() > 1)
@@ -90,7 +90,7 @@ bool PluginPackage::load()
     m_module = new QLibrary((QString)m_path);
     m_module->setLoadHints(QLibrary::ResolveAllSymbolsHint);
     if (!m_module->load()) {
-        LOG(Plugin, "%s not loaded (%s)", m_path.utf8().data(),
+        LOG(Plugins, "%s not loaded (%s)", m_path.utf8().data(),
                 m_module->errorString().toLatin1().constData());
         return false;
     }

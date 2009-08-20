@@ -302,7 +302,7 @@ void WebHistoryItem::updateHistoryItem(WebCore::HistoryItem* item) {
     // item, try to get the icon using the url without the ref.
     jobject favicon = NULL;
     WebCore::String url = item->urlString();
-    if (item->url().hasRef()) {
+    if (item->url().hasFragmentIdentifier()) {
         int refIndex = url.reverseFind('#');
         url = url.substring(0, refIndex);
     }

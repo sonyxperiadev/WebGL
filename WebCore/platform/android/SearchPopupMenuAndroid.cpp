@@ -31,22 +31,22 @@ namespace WebCore {
 // Save the past searches stored in 'searchItems' to a database associated with 'name'
 void SearchPopupMenu::saveRecentSearches(const AtomicString& name, const Vector<String>& searchItems) 
 { 
-    //ASSERT(0); //notImplemented(); 
 }
 
 // Load past searches associated with 'name' from the database to 'searchItems'
 void SearchPopupMenu::loadRecentSearches(const AtomicString& name, Vector<String>& searchItems) 
 { 
-    //ASSERT(0); //notImplemented(); 
 }
 
 // Create a search popup menu - not sure what else we have to do here
-SearchPopupMenu::SearchPopupMenu(PopupMenuClient* client) : PopupMenu(client) 
+SearchPopupMenu::SearchPopupMenu(PopupMenuClient* client)
+    : PopupMenu(client) 
 { 
-    //ASSERT(0); //notImplemented(); 
 }
         
-// functions new to Jun-07 tip of tree merge:
-bool SearchPopupMenu::enabled() { return false; }
+bool SearchPopupMenu::enabled()
+{
+    return false;
+}
 
 }  // namespace WebCore

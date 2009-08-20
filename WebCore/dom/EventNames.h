@@ -40,6 +40,7 @@ namespace WebCore {
     macro(checking) \
     macro(click) \
     macro(close) \
+    macro(connect) \
     macro(contextmenu) \
     macro(copy) \
     macro(cut) \
@@ -54,6 +55,7 @@ namespace WebCore {
     macro(drop) \
     macro(error) \
     macro(focus) \
+    macro(hashchange) \
     macro(input) \
     macro(keydown) \
     macro(keypress) \

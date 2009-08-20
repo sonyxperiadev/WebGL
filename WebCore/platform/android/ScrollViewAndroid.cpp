@@ -28,7 +28,6 @@
 #include "ScrollView.h"
 
 #include "FloatRect.h"
-#include "Frame.h"
 #include "FrameView.h"
 #include "IntRect.h"
 #include "WebCoreFrameBridge.h"
@@ -68,13 +67,9 @@ IntSize ScrollView::platformContentsSize() const
 
 void ScrollView::platformSetScrollPosition(const WebCore::IntPoint& pt)
 {
-    android::WebViewCore* webviewCore = android::WebViewCore::getWebViewCore(this);
-    // don't attempt to scroll subframes; they're fully visible.
-    // as this can be called before the view is added to the parent in iframe
-    // creation, we can't depend on parent() checking.
-    if (webviewCore->mainFrame()->view() != this)
+    if (parent()) // don't attempt to scroll subframes; they're fully visible
         return;
-    webviewCore->scrollTo(pt.x(), pt.y());
+    android::WebViewCore::getWebViewCore(this)->scrollTo(pt.x(), pt.y());
 }
 
 void ScrollView::platformScrollbarModes(ScrollbarMode& h, ScrollbarMode& v) const
@@ -103,11 +98,8 @@ void ScrollView::platformRepaintContentRectangle(const IntRect &rect, bool now)
 #ifdef ANDROID_CAPTURE_OFFSCREEN_PAINTS
 void ScrollView::platformOffscreenContentRectangle(const IntRect& rect)
 {
-    android::WebViewCore* core = android::WebViewCore::getWebViewCore(this);
-    if (!core)
-        return;
-    core->offInvalidate(rect);
+    android::WebViewCore::getWebViewCore(this)->offInvalidate(rect);
 }
 #endif
 
-}
+} // namespace WebCore

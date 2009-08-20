@@ -29,6 +29,7 @@
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
 
 #include "ApplicationCache.h"
+#include "ApplicationCacheHost.h"
 #include "ApplicationCacheGroup.h"
 #include "ApplicationCacheResource.h"
 #include "CString.h"
@@ -127,11 +128,12 @@ ApplicationCacheGroup* ApplicationCacheStorage::loadCacheGroup(const KURL& manif
 
 ApplicationCacheGroup* ApplicationCacheStorage::findOrCreateCacheGroup(const KURL& manifestURL)
 {
+    ASSERT(!manifestURL.hasFragmentIdentifier());
+
     std::pair<CacheGroupMap::iterator, bool> result = m_cachesInMemory.add(manifestURL, 0);
     
     if (!result.second) {
         ASSERT(result.first->second);
-        
         return result.first->second;
     }
 
@@ -176,6 +178,8 @@ void ApplicationCacheStorage::loadManifestHostHashes()
 
 ApplicationCacheGroup* ApplicationCacheStorage::cacheGroupForURL(const KURL& url)
 {
+    ASSERT(!url.hasFragmentIdentifier());
+    
     loadManifestHostHashes();
     
     // Hash the host name and see if there's a manifest with the same host.
@@ -251,6 +255,8 @@ ApplicationCacheGroup* ApplicationCacheStorage::cacheGroupForURL(const KURL& url
 
 ApplicationCacheGroup* ApplicationCacheStorage::fallbackCacheGroupForURL(const KURL& url)
 {
+    ASSERT(!url.hasFragmentIdentifier());
+
     // Check if an appropriate cache already exists in memory.
     CacheGroupMap::const_iterator end = m_cachesInMemory.end();
     for (CacheGroupMap::const_iterator it = m_cachesInMemory.begin(); it != end; ++it) {
@@ -374,9 +380,11 @@ bool ApplicationCacheStorage::isMaximumSizeReached() const
 int64_t ApplicationCacheStorage::spaceNeeded(int64_t cacheToSave)
 {
     int64_t spaceNeeded = 0;
-    int64_t currentSize = 0;
-    if (!getFileSize(m_cacheFile, currentSize))
+    long long fileSize = 0;
+    if (!getFileSize(m_cacheFile, fileSize))
         return 0;
+
+    int64_t currentSize = fileSize;
 
     // Determine the amount of free space we have available.
     int64_t totalAvailableSize = 0;
@@ -674,9 +682,6 @@ bool ApplicationCacheStorage::storeUpdatedType(ApplicationCacheResource* resourc
     ASSERT_UNUSED(cache, cache->storageID());
     ASSERT(resource->storageID());
 
-    // FIXME: If the resource gained a Dynamic bit, it should be re-inserted at the end for correct order.
-    ASSERT(!(resource->type() & ApplicationCacheResource::Dynamic));
-    
     // First, insert the data
     SQLiteStatement entryStatement(m_database, "UPDATE CacheEntries SET type=? WHERE resource=?");
     if (entryStatement.prepare() != SQLResultOk)
@@ -933,8 +938,12 @@ void ApplicationCacheStorage::empty()
         it->second->clearStorageID();
 }    
 
-bool ApplicationCacheStorage::storeCopyOfCache(const String& cacheDirectory, ApplicationCache* cache)
+bool ApplicationCacheStorage::storeCopyOfCache(const String& cacheDirectory, ApplicationCacheHost* cacheHost)
 {
+    ApplicationCache* cache = cacheHost->applicationCache();
+    if (!cache)
+        return true;
+
     // Create a new cache.
     RefPtr<ApplicationCache> cacheCopy = ApplicationCache::create();
 
@@ -1059,6 +1068,10 @@ bool ApplicationCacheStorage::deleteCacheGroup(const String& manifestURL)
 
 void ApplicationCacheStorage::vacuumDatabaseFile()
 {
+    openDatabase(false);
+    if (!m_database.isOpen())
+        return;
+
     m_database.runVacuumCommand();
 }
 

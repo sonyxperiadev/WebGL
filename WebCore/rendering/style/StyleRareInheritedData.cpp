@@ -89,6 +89,7 @@ bool StyleRareInheritedData::operator==(const StyleRareInheritedData& o) const
 #ifdef ANDROID_CSS_TAP_HIGHLIGHT_COLOR
         && tapHighlightColor == o.tapHighlightColor
 #endif
+        && resize == o.resize
         && userSelect == o.userSelect;
 }
 

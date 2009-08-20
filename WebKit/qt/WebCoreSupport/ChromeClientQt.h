@@ -83,8 +83,8 @@ namespace WebCore {
 
         virtual void setResizable(bool);
 
-        virtual void addMessageToConsole(const String& message, unsigned int lineNumber,
-                                         const String& sourceID);
+        virtual void addMessageToConsole(MessageSource, MessageType, MessageLevel, const String& message,
+                                         unsigned int lineNumber, const String& sourceID);
 
         virtual bool canRunBeforeUnloadConfirmPanel();
         virtual bool runBeforeUnloadConfirmPanel(const String& message, Frame* frame);
@@ -110,7 +110,7 @@ namespace WebCore {
 
         virtual void mouseDidMoveOverElement(const HitTestResult&, unsigned modifierFlags);
 
-        virtual void setToolTip(const String&);
+        virtual void setToolTip(const String&, TextDirection);
 
         virtual void print(Frame*);
 #if ENABLE(DATABASE)
@@ -122,6 +122,14 @@ namespace WebCore {
         virtual void runOpenPanel(Frame*, PassRefPtr<FileChooser>);
 
         virtual void formStateDidChange(const Node*) { }
+
+        virtual PassOwnPtr<HTMLParserQuirks> createHTMLParserQuirks() { return 0; }
+
+        virtual bool setCursor(PlatformCursorHandle);
+
+        virtual void scrollRectIntoView(const IntRect&, const ScrollView*) const {}
+
+        virtual void requestGeolocationPermissionForFrame(Frame*, Geolocation*);
 
         QWebPage* m_webPage;
         WebCore::KURL lastHoverURL;

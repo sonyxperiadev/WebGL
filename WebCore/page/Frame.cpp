@@ -41,21 +41,20 @@
 #include "EditingText.h"
 #include "EditorClient.h"
 #include "EventNames.h"
-#include "FocusController.h"
 #include "FloatQuad.h"
+#include "FocusController.h"
 #include "FrameLoader.h"
 #include "FrameLoaderClient.h"
 #include "FrameView.h"
 #include "GraphicsContext.h"
 #include "HTMLDocument.h"
+#include "HTMLFormControlElement.h"
 #include "HTMLFormElement.h"
 #include "HTMLFrameElementBase.h"
-#include "HTMLFormControlElement.h"
 #include "HTMLNames.h"
 #include "HTMLTableCellElement.h"
 #include "HitTestResult.h"
 #include "Logging.h"
-#include "markup.h"
 #include "MediaFeatureNames.h"
 #include "Navigator.h"
 #include "NodeList.h"
@@ -66,12 +65,13 @@
 #include "RenderTextControl.h"
 #include "RenderTheme.h"
 #include "RenderView.h"
+#include "ScriptController.h"
 #include "Settings.h"
 #include "TextIterator.h"
 #include "TextResourceDecoder.h"
 #include "XMLNames.h"
-#include "ScriptController.h"
 #include "htmlediting.h"
+#include "markup.h"
 #include "npruntime_impl.h"
 #include "visible_units.h"
 #include <wtf/RefCountedLeakCounter.h>
@@ -107,7 +107,7 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
-#ifndef NDEBUG    
+#ifndef NDEBUG
 static WTF::RefCountedLeakCounter frameCounter("Frame");
 #endif
 
@@ -118,7 +118,7 @@ static inline Frame* parentFromOwnerElement(HTMLFrameOwnerElement* ownerElement)
     return ownerElement->document()->frame();
 }
 
-Frame::Frame(Page* page, HTMLFrameOwnerElement* ownerElement, FrameLoaderClient* frameLoaderClient) 
+Frame::Frame(Page* page, HTMLFrameOwnerElement* ownerElement, FrameLoaderClient* frameLoaderClient)
     : m_page(page)
     , m_treeNode(this, parentFromOwnerElement(ownerElement))
     , m_loader(this, frameLoaderClient)
@@ -166,7 +166,7 @@ Frame::Frame(Page* page, HTMLFrameOwnerElement* ownerElement, FrameLoaderClient*
     else {
         page->incrementFrameCount();
         // Make sure we will not end up with two frames referencing the same owner element.
-        ASSERT((!(ownerElement->m_contentFrame)) || (ownerElement->m_contentFrame->ownerElement() != ownerElement));        
+        ASSERT((!(ownerElement->m_contentFrame)) || (ownerElement->m_contentFrame->ownerElement() != ownerElement));
         ownerElement->m_contentFrame = this;
     }
 
@@ -179,7 +179,7 @@ Frame::~Frame()
 {
     setView(0);
     loader()->cancelAndClear();
-    
+
     // FIXME: We should not be doing all this work inside the destructor
 
     ASSERT(!m_lifeSupportTimer.isActive());
@@ -189,14 +189,14 @@ Frame::~Frame()
 #endif
 
     disconnectOwnerElement();
-    
+
     if (m_domWindow)
         m_domWindow->disconnectFrame();
 
     HashSet<DOMWindow*>::iterator end = m_liveFormerWindows.end();
     for (HashSet<DOMWindow*>::iterator it = m_liveFormerWindows.begin(); it != end; ++it)
         (*it)->disconnectFrame();
-            
+
     if (m_view) {
         m_view->hide();
         m_view->clearFrame();
@@ -265,7 +265,7 @@ void Frame::setDocument(PassRefPtr<Document> newDoc)
     m_doc = newDoc;
     if (m_doc && selection()->isFocusedAndActive())
         setUseSecureKeyboardEntry(m_doc->useSecureKeyboardEntryWhenActive());
-        
+
     if (m_doc && !m_doc->attached())
         m_doc->attach();
 
@@ -310,14 +310,14 @@ IntRect Frame::firstRectForRange(Range* range) const
 
     if (startCaretRect.y() == endCaretRect.y()) {
         // start and end are on the same line
-        return IntRect(min(startCaretRect.x(), endCaretRect.x()), 
-                       startCaretRect.y(), 
+        return IntRect(min(startCaretRect.x(), endCaretRect.x()),
+                       startCaretRect.y(),
                        abs(endCaretRect.x() - startCaretRect.x()),
                        max(startCaretRect.height(), endCaretRect.height()));
     }
-    
+
     // start and end aren't on the same line, so go from start to the end of its line
-    return IntRect(startCaretRect.x(), 
+    return IntRect(startCaretRect.x(),
                    startCaretRect.y(),
                    startCaretRect.width() + extraWidthToEndOfLine,
                    startCaretRect.height());
@@ -368,23 +368,21 @@ static RegularExpression* createRegExpForLabels(const Vector<String>& labels)
 
         bool startsWithWordChar = false;
         bool endsWithWordChar = false;
-        if (label.length() != 0) {
+        if (label.length()) {
             startsWithWordChar = wordRegExp.match(label.substring(0, 1)) >= 0;
             endsWithWordChar = wordRegExp.match(label.substring(label.length() - 1, 1)) >= 0;
         }
-        
-        if (i != 0)
+
+        if (i)
             pattern.append("|");
         // Search for word boundaries only if label starts/ends with "word characters".
         // If we always searched for word boundaries, this wouldn't work for languages
         // such as Japanese.
-        if (startsWithWordChar) {
+        if (startsWithWordChar)
             pattern.append("\\b");
-        }
         pattern.append(label);
-        if (endsWithWordChar) {
+        if (endsWithWordChar)
             pattern.append("\\b");
-        }
     }
     pattern.append(")");
     return new RegularExpression(pattern, TextCaseInsensitive);
@@ -392,10 +390,11 @@ static RegularExpression* createRegExpForLabels(const Vector<String>& labels)
 
 String Frame::searchForLabelsAboveCell(RegularExpression* regExp, HTMLTableCellElement* cell)
 {
-    RenderTableCell* cellRenderer = static_cast<RenderTableCell*>(cell->renderer());
+    RenderObject* cellRenderer = cell->renderer();
 
     if (cellRenderer && cellRenderer->isTableCell()) {
-        RenderTableCell* cellAboveRenderer = cellRenderer->table()->cellAbove(cellRenderer);
+        RenderTableCell* tableCellRenderer = toRenderTableCell(cellRenderer);
+        RenderTableCell* cellAboveRenderer = tableCellRenderer->table()->cellAbove(tableCellRenderer);
 
         if (cellAboveRenderer) {
             HTMLTableCellElement* aboveCell =
@@ -465,9 +464,8 @@ String Frame::searchForLabelsBeforeElement(const Vector<String>& labels, Element
 
     // If we started in a cell, but bailed because we found the start of the form or the
     // previous element, we still might need to search the row above us for a label.
-    if (startingTableCell && !searchedCellAbove) {
+    if (startingTableCell && !searchedCellAbove)
          return searchForLabelsAboveCell(regExp.get(), startingTableCell);
-    }
     return String();
 }
 
@@ -480,7 +478,7 @@ String Frame::matchLabelsAgainstElement(const Vector<String>& labels, Element* e
     // Make numbers and _'s in field names behave like word boundaries, e.g., "address2"
     replace(name, RegularExpression("\\d", TextCaseSensitive), " ");
     name.replace('_', ' ');
-    
+
     OwnPtr<RegularExpression> regExp(createRegExpForLabels(labels));
     // Use the largest match we can find in the whole name string
     int pos;
@@ -565,7 +563,7 @@ static bool isFrameElement(const Node *n)
     RenderObject *renderer = n->renderer();
     if (!renderer || !renderer->isWidget())
         return false;
-    Widget* widget = static_cast<RenderWidget*>(renderer)->widget();
+    Widget* widget = toRenderWidget(renderer)->widget();
     return widget && widget->isFrameView();
 }
 
@@ -625,7 +623,7 @@ void Frame::selectionLayoutChanged()
     // Start blinking with a black caret. Be sure not to restart if we're
     // already blinking in the right location.
     if (shouldBlink && !m_caretBlinkTimer.isActive()) {
-        if (double blinkInterval = theme()->caretBlinkInterval())
+        if (double blinkInterval = page()->theme()->caretBlinkInterval())
             m_caretBlinkTimer.startRepeating(blinkInterval);
 
         if (!m_caretPaint) {
@@ -643,7 +641,7 @@ void Frame::selectionLayoutChanged()
         return;
 
     VisibleSelection selection = this->selection()->selection();
-        
+
     if (!selection.isRange())
         view->clearSelection();
     else {
@@ -657,7 +655,7 @@ void Frame::selectionLayoutChanged()
         Position endPos = selection.end();
         if (endPos.upstream().isCandidate())
             endPos = endPos.upstream();
-        
+
         // We can get into a state where the selection endpoints map to the same VisiblePosition when a selection is deleted
         // because we don't yet notify the SelectionController of text removal.
         if (startPos.isNotNull() && endPos.isNotNull() && selection.visibleStart() != selection.visibleEnd()) {
@@ -732,12 +730,12 @@ bool Frame::shouldApplyPageZoom() const
 }
 
 void Frame::setZoomFactor(float percent, bool isTextOnly)
-{  
+{
     if (m_zoomFactor == percent && isZoomFactorTextOnly() == isTextOnly)
         return;
 
 #if ENABLE(SVG)
-    // SVG doesn't care if the zoom factor is text only.  It will always apply a 
+    // SVG doesn't care if the zoom factor is text only.  It will always apply a
     // zoom to the whole SVG.
     if (m_doc->isSVGDocument()) {
         if (!static_cast<SVGDocument*>(m_doc.get())->zoomAndPanEnabled())
@@ -796,7 +794,7 @@ String Frame::jsStatusBarText() const
 
 String Frame::jsDefaultStatusBarText() const
 {
-   return m_kjsDefaultStatusBarText;
+    return m_kjsDefaultStatusBarText;
 }
 
 void Frame::setNeedsReapplyStyles()
@@ -830,7 +828,7 @@ void Frame::reapplyStyles()
     // FIXME: This call doesn't really make sense in a function called reapplyStyles.
     // We should probably eventually move it into its own function.
     m_doc->docLoader()->setAutoLoadImages(m_page && m_page->settings()->loadsImagesAutomatically());
-        
+
 #if FRAME_LOADS_USER_STYLESHEET
     const KURL userStyleSheetLocation = m_page ? m_page->settings()->userStyleSheetLocation() : KURL();
     if (!userStyleSheetLocation.isEmpty())
@@ -862,7 +860,7 @@ bool Frame::shouldDeleteSelection(const VisibleSelection& selection) const
     return editor()->client()->shouldDeleteRange(selection.toNormalizedRange().get());
 }
 
-bool Frame::isContentEditable() const 
+bool Frame::isContentEditable() const
 {
     if (m_editor.clientIsEditable())
         return true;
@@ -900,7 +898,7 @@ void Frame::clearTypingStyle()
 
 void Frame::computeAndSetTypingStyle(CSSStyleDeclaration *style, EditAction editingAction)
 {
-    if (!style || style->length() == 0) {
+    if (!style || !style->length()) {
         clearTypingStyle();
         return;
     }
@@ -936,7 +934,7 @@ void Frame::computeAndSetTypingStyle(CSSStyleDeclaration *style, EditAction edit
     blockStyle->diff(mutableStyle.get());
     if (blockStyle->length() > 0)
         applyCommand(ApplyStyleCommand::create(document(), blockStyle.get(), editingAction));
-    
+
     // Set the remaining style as the typing style.
     m_typingStyle = mutableStyle.release();
 }
@@ -953,7 +951,7 @@ String Frame::selectionStartStylePropertyValue(int stylePropertyID) const
     if (nodeToRemove) {
         ExceptionCode ec = 0;
         nodeToRemove->remove(ec);
-        ASSERT(ec == 0);
+        ASSERT(!ec);
     }
 
     return value;
@@ -972,7 +970,7 @@ PassRefPtr<CSSComputedStyleDeclaration> Frame::selectionComputedStyle(Node*& nod
     Element *elem = pos.element();
     if (!elem)
         return 0;
-    
+
     RefPtr<Element> styleElement = elem;
     ExceptionCode ec = 0;
 
@@ -980,10 +978,10 @@ PassRefPtr<CSSComputedStyleDeclaration> Frame::selectionComputedStyle(Node*& nod
         styleElement = document()->createElement(spanTag, false);
 
         styleElement->setAttribute(styleAttr, m_typingStyle->cssText().impl(), ec);
-        ASSERT(ec == 0);
-        
+        ASSERT(!ec);
+
         styleElement->appendChild(document()->createEditingTextNode(""), ec);
-        ASSERT(ec == 0);
+        ASSERT(!ec);
 
         if (elem->renderer() && elem->renderer()->canHaveChildren()) {
             elem->appendChild(styleElement, ec);
@@ -991,13 +989,12 @@ PassRefPtr<CSSComputedStyleDeclaration> Frame::selectionComputedStyle(Node*& nod
             Node *parent = elem->parent();
             Node *next = elem->nextSibling();
 
-            if (next) {
+            if (next)
                 parent->insertBefore(styleElement, next, ec);
-            } else {
+            else
                 parent->appendChild(styleElement, ec);
-            }
         }
-        ASSERT(ec == 0);
+        ASSERT(!ec);
 
         nodeToRemove = styleElement.get();
     }
@@ -1047,18 +1044,16 @@ void Frame::applyEditingStyleToBodyElement() const
 {
     RefPtr<NodeList> list = m_doc->getElementsByTagName("body");
     unsigned len = list->length();
-    for (unsigned i = 0; i < len; i++) {
-        applyEditingStyleToElement(static_cast<Element*>(list->item(i)));    
-    }
+    for (unsigned i = 0; i < len; i++)
+        applyEditingStyleToElement(static_cast<Element*>(list->item(i)));
 }
 
 void Frame::removeEditingStyleFromBodyElement() const
 {
     RefPtr<NodeList> list = m_doc->getElementsByTagName("body");
     unsigned len = list->length();
-    for (unsigned i = 0; i < len; i++) {
-        removeEditingStyleFromElement(static_cast<Element*>(list->item(i)));    
-    }
+    for (unsigned i = 0; i < len; i++)
+        removeEditingStyleFromElement(static_cast<Element*>(list->item(i)));
 }
 
 void Frame::applyEditingStyleToElement(Element* element) const
@@ -1071,11 +1066,11 @@ void Frame::applyEditingStyleToElement(Element* element) const
 
     ExceptionCode ec = 0;
     style->setProperty(CSSPropertyWordWrap, "break-word", false, ec);
-    ASSERT(ec == 0);
+    ASSERT(!ec);
     style->setProperty(CSSPropertyWebkitNbspMode, "space", false, ec);
-    ASSERT(ec == 0);
+    ASSERT(!ec);
     style->setProperty(CSSPropertyWebkitLineBreak, "after-white-space", false, ec);
-    ASSERT(ec == 0);
+    ASSERT(!ec);
 }
 
 void Frame::removeEditingStyleFromElement(Element*) const
@@ -1162,7 +1157,7 @@ RenderPart* Frame::ownerRenderer() const
     // https://bugs.webkit.org/show_bug.cgi?id=18585
     if (!object->isRenderPart())
         return 0;
-    return static_cast<RenderPart*>(object);
+    return toRenderPart(object);
 }
 
 bool Frame::isDisconnected() const
@@ -1192,7 +1187,7 @@ FloatRect Frame::selectionBounds(bool clipToVisibleContent) const
     FrameView* view = m_view.get();
     if (!root || !view)
         return IntRect();
-    
+
     IntRect selectionRect = root->selectionBounds(clipToVisibleContent);
     return clipToVisibleContent ? intersection(selectionRect, view->visibleContentRect()) : selectionRect;
 }
@@ -1243,7 +1238,7 @@ HTMLFormElement *Frame::currentForm() const
     Node *start = m_doc ? m_doc->focusedNode() : 0;
     if (!start)
         start = selection()->start().node();
-    
+
     // try walking up the node tree to find a form element
     Node *n;
     for (n = start; n; n = n->parentNode()) {
@@ -1252,7 +1247,7 @@ HTMLFormElement *Frame::currentForm() const
         else if (n->isHTMLElement() && static_cast<Element*>(n)->isFormControlElement())
             return static_cast<HTMLFormControlElement*>(n)->form();
     }
-    
+
     // try walking forward in the node tree to find a form element
     return start ? scanForForm(start) : 0;
 }
@@ -1262,21 +1257,21 @@ void Frame::revealSelection(const ScrollAlignment& alignment, bool revealExtent)
     IntRect rect;
 
     switch (selection()->selectionType()) {
-        case VisibleSelection::NoSelection:
-            return;
-        case VisibleSelection::CaretSelection:
-            rect = selection()->absoluteCaretBounds();
-            break;
-        case VisibleSelection::RangeSelection:
-            rect = revealExtent ? VisiblePosition(selection()->extent()).absoluteCaretBounds() : enclosingIntRect(selectionBounds(false));
-            break;
+    case VisibleSelection::NoSelection:
+        return;
+    case VisibleSelection::CaretSelection:
+        rect = selection()->absoluteCaretBounds();
+        break;
+    case VisibleSelection::RangeSelection:
+        rect = revealExtent ? VisiblePosition(selection()->extent()).absoluteCaretBounds() : enclosingIntRect(selectionBounds(false));
+        break;
     }
 
     Position start = selection()->start();
     ASSERT(start.node());
     if (start.node() && start.node()->renderer()) {
         // FIXME: This code only handles scrolling the startContainer's layer, but
-        // the selection rect could intersect more than just that. 
+        // the selection rect could intersect more than just that.
         // See <rdar://problem/4799899>.
         if (RenderLayer* layer = start.node()->renderer()->enclosingLayer())
             layer->scrollRectToVisible(rect, false, alignment, alignment);
@@ -1316,46 +1311,46 @@ void Frame::clearTimers()
 RenderStyle *Frame::styleForSelectionStart(Node *&nodeToRemove) const
 {
     nodeToRemove = 0;
-    
+
     if (selection()->isNone())
         return 0;
-    
+
     Position pos = selection()->selection().visibleStart().deepEquivalent();
     if (!pos.isCandidate())
         return 0;
     Node *node = pos.node();
     if (!node)
         return 0;
-    
+
     if (!m_typingStyle)
         return node->renderer()->style();
-    
+
     RefPtr<Element> styleElement = document()->createElement(spanTag, false);
-    
+
     ExceptionCode ec = 0;
     String styleText = m_typingStyle->cssText() + " display: inline";
     styleElement->setAttribute(styleAttr, styleText.impl(), ec);
-    ASSERT(ec == 0);
-    
+    ASSERT(!ec);
+
     styleElement->appendChild(document()->createEditingTextNode(""), ec);
-    ASSERT(ec == 0);
-    
+    ASSERT(!ec);
+
     node->parentNode()->appendChild(styleElement, ec);
-    ASSERT(ec == 0);
-    
-    nodeToRemove = styleElement.get();    
+    ASSERT(!ec);
+
+    nodeToRemove = styleElement.get();
     return styleElement->renderer() ? styleElement->renderer()->style() : 0;
 }
 
 void Frame::setSelectionFromNone()
 {
-    // Put a caret inside the body if the entire frame is editable (either the 
+    // Put a caret inside the body if the entire frame is editable (either the
     // entire WebView is editable or designMode is on for this document).
     Document *doc = document();
     bool caretBrowsing = settings() && settings()->caretBrowsingEnabled();
     if (!selection()->isNone() || !(isContentEditable() || caretBrowsing))
         return;
-        
+
     Node* node = doc->documentElement();
     while (node && !node->hasTagName(bodyTag))
         node = node->traverseNextNode();
@@ -1378,10 +1373,10 @@ bool Frame::findString(const String& target, bool forward, bool caseFlag, bool w
 {
     if (target.isEmpty())
         return false;
-    
+
     if (excludeFromTextSearch())
         return false;
-    
+
     // Start from an edge of the selection, if there's a selection that's not in shadow content. Which edge
     // is used depends on whether we're searching forward or backward, and whether startInSelection is set.
     RefPtr<Range> searchRange(rangeOfContents(document()));
@@ -1422,7 +1417,7 @@ bool Frame::findString(const String& target, bool forward, bool caseFlag, bool w
 
         resultRange = findPlainText(searchRange.get(), target, forward, caseFlag);
     }
-    
+
     ExceptionCode exception = 0;
 
     // If nothing was found in the shadow tree, search in main content following the shadow tree.
@@ -1435,7 +1430,7 @@ bool Frame::findString(const String& target, bool forward, bool caseFlag, bool w
 
         resultRange = findPlainText(searchRange.get(), target, forward, caseFlag);
     }
-    
+
     if (!editor()->insideVisibleArea(resultRange.get())) {
         resultRange = editor()->nextVisibleRange(resultRange.get(), target, forward, caseFlag, wrapFlag);
         if (!resultRange)
@@ -1464,9 +1459,9 @@ unsigned Frame::markAllMatchesForText(const String& target, bool caseFlag, unsig
 {
     if (target.isEmpty())
         return 0;
-    
+
     RefPtr<Range> searchRange(rangeOfContents(document()));
-    
+
     ExceptionCode exception = 0;
     unsigned matchCount = 0;
     do {
@@ -1479,7 +1474,7 @@ unsigned Frame::markAllMatchesForText(const String& target, bool caseFlag, unsig
             searchRange->setStartAfter(resultRange->startContainer()->shadowAncestorNode(), exception);
             continue;
         }
-        
+
         // A non-collapsed result range can in some funky whitespace cases still not
         // advance the range's start position (4509328). Break to avoid infinite loop.
         VisiblePosition newStart = endVisiblePosition(resultRange.get(), DOWNSTREAM);
@@ -1491,18 +1486,18 @@ unsigned Frame::markAllMatchesForText(const String& target, bool caseFlag, unsig
             ++matchCount;
             document()->addMarker(resultRange.get(), DocumentMarker::TextMatch);
         }
-        
+
         // Stop looking if we hit the specified limit. A limit of 0 means no limit.
         if (limit > 0 && matchCount >= limit)
             break;
-        
+
         setStart(searchRange.get(), newStart);
         Node* shadowTreeRoot = searchRange->shadowTreeRootNode();
         if (searchRange->collapsed(exception) && shadowTreeRoot)
             searchRange->setEnd(shadowTreeRoot, shadowTreeRoot->childNodeCount(), exception);
     } while (true);
-    
-    // Do a "fake" paint in order to execute the code that computes the rendered rect for 
+
+    // Do a "fake" paint in order to execute the code that computes the rendered rect for
     // each text match.
     Document* doc = document();
     if (m_view && contentRenderer()) {
@@ -1514,7 +1509,7 @@ unsigned Frame::markAllMatchesForText(const String& target, bool caseFlag, unsig
             m_view->paintContents(&context, visibleRect);
         }
     }
-    
+
     return matchCount;
 }
 
@@ -1527,7 +1522,7 @@ void Frame::setMarkedTextMatchesAreHighlighted(bool flag)
 {
     if (flag == m_highlightTextMatches)
         return;
-    
+
     m_highlightTextMatches = flag;
     document()->repaintMarkers(DocumentMarker::TextMatch);
 }
@@ -1556,7 +1551,7 @@ DOMWindow* Frame::domWindow() const
 
 void Frame::clearFormerDOMWindow(DOMWindow* window)
 {
-    m_liveFormerWindows.remove(window);    
+    m_liveFormerWindows.remove(window);
 }
 
 Page* Frame::page() const
@@ -1623,7 +1618,7 @@ void Frame::unfocusWindow()
 {
     if (!page())
         return;
-    
+
     // If we're a top level window, deactivate the window.
     if (!tree()->parent())
         page()->chrome()->unfocus();
@@ -1685,14 +1680,13 @@ void Frame::respondToChangedSelection(const VisibleSelection& oldSelection, bool
         // oldSelection may no longer be in the document.
         if (closeTyping && oldSelection.isContentEditable() && oldSelection.start().node() && oldSelection.start().node()->inDocument()) {
             VisiblePosition oldStart(oldSelection.visibleStart());
-            VisibleSelection oldAdjacentWords = VisibleSelection(startOfWord(oldStart, LeftWordIfOnBoundary), endOfWord(oldStart, RightWordIfOnBoundary));   
+            VisibleSelection oldAdjacentWords = VisibleSelection(startOfWord(oldStart, LeftWordIfOnBoundary), endOfWord(oldStart, RightWordIfOnBoundary));
             if (oldAdjacentWords != newAdjacentWords) {
                 if (isContinuousGrammarCheckingEnabled) {
                     VisibleSelection oldSelectedSentence = VisibleSelection(startOfSentence(oldStart), endOfSentence(oldStart));
                     editor()->markMisspellingsAndBadGrammar(oldAdjacentWords, oldSelectedSentence != newSelectedSentence, oldSelectedSentence);
-                } else {
+                } else
                     editor()->markMisspellingsAndBadGrammar(oldAdjacentWords, false, oldAdjacentWords);
-                }
             }
         }
 
@@ -1727,15 +1721,15 @@ VisiblePosition Frame::visiblePositionForPoint(const IntPoint& framePoint)
         visiblePos = VisiblePosition(Position(node, 0));
     return visiblePos;
 }
-    
+
 Document* Frame::documentAtPoint(const IntPoint& point)
-{  
-    if (!view()) 
+{
+    if (!view())
         return 0;
-    
+
     IntPoint pt = view()->windowToContents(point);
     HitTestResult result = HitTestResult(pt);
-    
+
     if (contentRenderer())
         result = eventHandler()->hitTestResultAtPoint(pt, false);
     return result.innerNode() ? result.innerNode()->document() : 0;
@@ -1776,7 +1770,7 @@ void Frame::createView(const IntSize& viewportSize,
         frameView->setParentVisible(true);
 
     if (ownerRenderer())
-        ownerRenderer()->setWidget(frameView.get());
+        ownerRenderer()->setWidget(frameView);
 
     if (HTMLFrameOwnerElement* owner = ownerElement())
         view()->setCanHaveScrollbars(owner->scrollingMode() != ScrollbarAlwaysOff);

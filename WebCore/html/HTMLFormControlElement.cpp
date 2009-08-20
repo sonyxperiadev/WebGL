@@ -25,6 +25,7 @@
 #include "config.h"
 #include "HTMLFormControlElement.h"
 
+#include "ChromeClient.h"
 #include "Document.h"
 #include "EventHandler.h"
 #include "EventNames.h"
@@ -35,8 +36,10 @@
 #include "HTMLParser.h"
 #include "HTMLTokenizer.h"
 #include "MappedAttribute.h"
+#include "Page.h"
 #include "RenderBox.h"
 #include "RenderTheme.h"
+#include "ValidityState.h"
 
 namespace WebCore {
 
@@ -61,6 +64,14 @@ HTMLFormControlElement::~HTMLFormControlElement()
         m_form->removeFormElement(this);
 }
 
+ValidityState* HTMLFormControlElement::validity()
+{
+    if (!m_validityState)
+        m_validityState = ValidityState::create(this);
+
+    return m_validityState.get();
+}
+
 void HTMLFormControlElement::parseMappedAttribute(MappedAttribute *attr)
 {
     if (attr->name() == nameAttr) {
@@ -71,7 +82,7 @@ void HTMLFormControlElement::parseMappedAttribute(MappedAttribute *attr)
         if (oldDisabled != m_disabled) {
             setNeedsStyleRecalc();
             if (renderer() && renderer()->style()->hasAppearance())
-                theme()->stateChanged(renderer(), EnabledState);
+                renderer()->theme()->stateChanged(renderer(), EnabledState);
         }
     } else if (attr->name() == readonlyAttr) {
         bool oldReadOnly = m_readOnly;
@@ -79,7 +90,7 @@ void HTMLFormControlElement::parseMappedAttribute(MappedAttribute *attr)
         if (oldReadOnly != m_readOnly) {
             setNeedsStyleRecalc();
             if (renderer() && renderer()->style()->hasAppearance())
-                theme()->stateChanged(renderer(), ReadOnlyState);
+                renderer()->theme()->stateChanged(renderer(), ReadOnlyState);
         }
     } else
         HTMLElement::parseMappedAttribute(attr);
@@ -193,6 +204,16 @@ void HTMLFormControlElement::setAutofocus(bool b)
     setAttribute(autofocusAttr, b ? "autofocus" : 0);
 }
 
+bool HTMLFormControlElement::required() const
+{
+    return hasAttribute(requiredAttr);
+}
+
+void HTMLFormControlElement::setRequired(bool b)
+{
+    setAttribute(requiredAttr, b ? "required" : 0);
+}
+
 void HTMLFormControlElement::recalcStyle(StyleChange change)
 {
     HTMLElement::recalcStyle(change);
@@ -241,7 +262,28 @@ bool HTMLFormControlElement::willValidate() const
     //      The control is not an output element.
     return form() && name().length() && !disabled() && !isReadOnlyFormControl();
 }
+
+void HTMLFormControlElement::setCustomValidity(const String& error)
+{
+    validity()->setCustomErrorMessage(error);
+}
     
+void HTMLFormControlElement::dispatchFocusEvent()
+{
+    if (document()->frame() && document()->frame()->page())
+        document()->frame()->page()->chrome()->client()->formDidFocus(this);
+
+    HTMLElement::dispatchFocusEvent();
+}
+
+void HTMLFormControlElement::dispatchBlurEvent()
+{
+    if (document()->frame() && document()->frame()->page())
+        document()->frame()->page()->chrome()->client()->formDidBlur(this);
+
+    HTMLElement::dispatchBlurEvent();
+}
+
 bool HTMLFormControlElement::supportsFocus() const
 {
     return isFocusable() || (!disabled() && !document()->haveStylesheetsLoaded());

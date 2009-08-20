@@ -31,10 +31,9 @@
 #ifndef V8Utilities_h
 #define V8Utilities_h
 
-// FIXME: Remove once chromium dependencies on v8_utility.h are removed.
-#define V8UTILITIES_DEFINED 1
 #if ENABLE(V8_LOCKERS)
-#define LOCK_V8 v8::Locker lock
+// TODO(benm): Need to re-add in locking for V8. We lost some of the lock points during the merge. Define it to void here so we don't lock some of the time.
+#define LOCK_V8 ((void) 0)
 #else
 #define LOCK_V8 ((void) 0)
 #endif
@@ -80,11 +79,6 @@ namespace WebCore {
       static inline v8::Local<v8::Object> newInstance(v8::Handle<v8::Function>);
       static inline v8::Local<v8::Object> newInstance(v8::Handle<v8::ObjectTemplate>);
       static inline v8::Local<v8::Object> newInstance(v8::Handle<v8::Function>, int argc, v8::Handle<v8::Value> argv[]);
-
-      // FIXME: These NewInstance functions are here to ease upstreaming. Remove along with V8UTILITIES_DEFINED once chromium dependencies on v8_utility.h are removed.
-      static inline v8::Local<v8::Object> NewInstance(v8::Handle<v8::Function>);
-      static inline v8::Local<v8::Object> NewInstance(v8::Handle<v8::ObjectTemplate>);
-      static inline v8::Local<v8::Object> NewInstance(v8::Handle<v8::Function>, int argc, v8::Handle<v8::Value> argv[]);
     };
 
     v8::Local<v8::Object> SafeAllocation::newInstance(v8::Handle<v8::Function> function)
@@ -109,22 +103,6 @@ namespace WebCore {
             return v8::Local<v8::Object>();
         AllowAllocation allow;
         return function->NewInstance(argc, argv);
-    }
-
-    // FIXME: These NewInstance functions are here to ease upstreaming. Remove along with V8UTILITIES_DEFINED once chromium dependencies on v8_utility.h are removed.
-    v8::Local<v8::Object> SafeAllocation::NewInstance(v8::Handle<v8::Function> function)
-    {
-        return newInstance(function);
-    }
-
-    v8::Local<v8::Object> SafeAllocation::NewInstance(v8::Handle<v8::ObjectTemplate> objectTemplate)
-    {
-        return newInstance(objectTemplate);
-    }
-
-    v8::Local<v8::Object> SafeAllocation::NewInstance(v8::Handle<v8::Function> function, int argc, v8::Handle<v8::Value> argv[])
-    {
-        return newInstance(function, argc, argv);
     }
 
 } // namespace WebCore

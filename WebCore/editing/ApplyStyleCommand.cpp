@@ -98,13 +98,12 @@ void StyleChange::init(PassRefPtr<CSSStyleDeclaration> style, const Position& po
     Document* document = position.node() ? position.node()->document() : 0;
     if (!document || !document->frame())
         return;
-        
-    bool useHTMLFormattingTags = !document->frame()->editor()->shouldStyleWithCSS();
-            
-    RefPtr<CSSMutableStyleDeclaration> mutableStyle = style->makeMutable();
-    
-    String styleText("");
 
+    bool useHTMLFormattingTags = !document->frame()->editor()->shouldStyleWithCSS();
+    RefPtr<CSSMutableStyleDeclaration> mutableStyle = style->makeMutable();
+    // We shouldn't have both text-decoration and -webkit-text-decorations-in-effect because that wouldn't make sense.
+    ASSERT(!mutableStyle->getPropertyCSSValue(CSSPropertyTextDecoration) || !mutableStyle->getPropertyCSSValue(CSSPropertyWebkitTextDecorationsInEffect));
+    String styleText("");
     bool addedDirection = false;
     CSSMutableStyleDeclaration::const_iterator end = mutableStyle->end();
     for (CSSMutableStyleDeclaration::const_iterator it = mutableStyle->begin(); it != end; ++it) {
@@ -130,12 +129,12 @@ void StyleChange::init(PassRefPtr<CSSStyleDeclaration> style, const Position& po
         }
 
         // Add this property
-
-        if (property->id() == CSSPropertyWebkitTextDecorationsInEffect) {
-            // we have to special-case text decorations
-            // FIXME: Why?
+        if (property->id() == CSSPropertyTextDecoration || property->id() == CSSPropertyWebkitTextDecorationsInEffect) {
+            // Always use text-decoration because -webkit-text-decoration-in-effect is internal.
             CSSProperty alteredProperty(CSSPropertyTextDecoration, property->value(), property->isImportant());
-            styleText += alteredProperty.cssText();
+            // We don't add "text-decoration: none" because it doesn't override the existing text decorations; i.e. redundant
+            if (!equalIgnoringCase(alteredProperty.value()->cssText(), "none"))
+                styleText += alteredProperty.cssText();
         } else
             styleText += property->cssText();
 
@@ -232,8 +231,11 @@ bool StyleChange::currentlyHasStyle(const Position &pos, const CSSProperty *prop
     RefPtr<CSSValue> value;
     if (property->id() == CSSPropertyFontSize)
         value = style->getFontSizeCSSValuePreferringKeyword();
+    // We need to use -webkit-text-decorations-in-effect to take care of text decorations set by u, s, and strike
+    else if (property->id() == CSSPropertyTextDecoration)
+        value = style->getPropertyCSSValue(CSSPropertyWebkitTextDecorationsInEffect);
     else
-        value = style->getPropertyCSSValue(property->id(), DoNotUpdateLayout);
+        value = style->getPropertyCSSValue(property->id());
     if (!value)
         return false;
     return equalIgnoringCase(value->cssText(), property->value()->cssText());
@@ -300,7 +302,129 @@ PassRefPtr<HTMLElement> createStyleSpanElement(Document* document)
     styleElement->setAttribute(classAttr, styleSpanClassString());
     return styleElement.release();
 }
+    
+RefPtr<CSSMutableStyleDeclaration> getPropertiesNotInComputedStyle(CSSStyleDeclaration* style, CSSComputedStyleDeclaration* computedStyle)
+{
+    ASSERT(style);
+    ASSERT(computedStyle);
+    RefPtr<CSSMutableStyleDeclaration> result = style->copy();
+    computedStyle->diff(result.get());
 
+    // If text decorations in effect is not present in the computed style, then there is nothing to remove from result
+    RefPtr<CSSValue> computedValue = computedStyle->getPropertyCSSValue(CSSPropertyWebkitTextDecorationsInEffect);
+    if (!computedValue || !computedValue->isValueList())
+        return result;
+
+    // Take care of both text-decoration and -webkit-text-decorations-in-effect
+    static const int textDecorationProperties[]={CSSPropertyTextDecoration, CSSPropertyWebkitTextDecorationsInEffect};
+    for (size_t n = 0; n < sizeof(textDecorationProperties)/sizeof(textDecorationProperties[1]); n++) {
+        RefPtr<CSSValue> styleValue = style->getPropertyCSSValue(textDecorationProperties[n]);
+        if (!styleValue || !styleValue->isValueList())
+            continue;
+
+        CSSValueList* desiredValueList = static_cast<CSSValueList*>(styleValue.get());
+        CSSValueList* computedValueList = static_cast<CSSValueList*>(computedValue.get());
+        for (size_t i = 0; i < desiredValueList->length(); i++) {
+            if (!computedValueList->hasValue(desiredValueList->item(i))) {
+                result->removeProperty(textDecorationProperties[n]);
+                break;
+            }
+        }
+    }
+
+    return result;
+}
+
+// Editing style properties must be preserved during editing operation.
+// e.g. when a user inserts a new paragraph, all properties listed here must be copied to the new paragraph.
+// FIXME: The current editingStyleProperties contains all inheritableProperties but we may not need to preserve all inheritable properties
+static const int editingStyleProperties[] = {
+    CSSPropertyBackgroundColor,
+    // CSS inheritable properties
+    CSSPropertyBorderCollapse,
+    CSSPropertyColor,
+    CSSPropertyFontFamily,
+    CSSPropertyFontSize,
+    CSSPropertyFontStyle,
+    CSSPropertyFontVariant,
+    CSSPropertyFontWeight,
+    CSSPropertyLetterSpacing,
+    CSSPropertyLineHeight,
+    CSSPropertyOrphans,
+    CSSPropertyTextAlign,
+    CSSPropertyTextIndent,
+    CSSPropertyTextTransform,
+    CSSPropertyWhiteSpace,
+    CSSPropertyWidows,
+    CSSPropertyWordSpacing,
+    CSSPropertyWebkitBorderHorizontalSpacing,
+    CSSPropertyWebkitBorderVerticalSpacing,
+    CSSPropertyWebkitTextDecorationsInEffect,
+    CSSPropertyWebkitTextFillColor,
+    CSSPropertyWebkitTextSizeAdjust,
+    CSSPropertyWebkitTextStrokeColor,
+    CSSPropertyWebkitTextStrokeWidth,
+};
+size_t numEditingStyleProperties = sizeof(editingStyleProperties)/sizeof(editingStyleProperties[0]);
+
+PassRefPtr<CSSMutableStyleDeclaration> editingStyleAtPosition(Position pos, ShouldIncludeTypingStyle shouldIncludeTypingStyle)
+{
+    RefPtr<CSSComputedStyleDeclaration> computedStyleAtPosition = pos.computedStyle();
+    RefPtr<CSSMutableStyleDeclaration> style = computedStyleAtPosition->copyPropertiesInSet(editingStyleProperties, numEditingStyleProperties);
+
+    if (style && pos.node() && pos.node()->computedStyle()) {
+        RenderStyle* renderStyle = pos.node()->computedStyle();
+        // If a node's text fill color is invalid, then its children use 
+        // their font-color as their text fill color (they don't
+        // inherit it).  Likewise for stroke color.
+        ExceptionCode ec = 0;
+        if (!renderStyle->textFillColor().isValid())
+            style->removeProperty(CSSPropertyWebkitTextFillColor, ec);
+        if (!renderStyle->textStrokeColor().isValid())
+            style->removeProperty(CSSPropertyWebkitTextStrokeColor, ec);
+        ASSERT(ec == 0);
+        if (renderStyle->fontDescription().keywordSize())
+            style->setProperty(CSSPropertyFontSize, computedStyleAtPosition->getFontSizeCSSValuePreferringKeyword()->cssText());
+    }
+
+    if (shouldIncludeTypingStyle == IncludeTypingStyle) {
+        CSSMutableStyleDeclaration* typingStyle = pos.node()->document()->frame()->typingStyle();
+        if (typingStyle)
+            style->merge(typingStyle);
+    }
+
+    return style.release();
+}
+
+void prepareEditingStyleToApplyAt(CSSMutableStyleDeclaration* editingStyle, Position pos)
+{
+    // ReplaceSelectionCommand::handleStyleSpans() requiers that this function only removes the editing style.
+    // If this function was modified in the futureto delete all redundant properties, then add a boolean value to indicate
+    // which one of editingStyleAtPosition or computedStyle is called.
+    RefPtr<CSSMutableStyleDeclaration> style = editingStyleAtPosition(pos);
+    style->diff(editingStyle);
+
+    // if alpha value is zero, we don't add the background color.
+    RefPtr<CSSValue> backgroundColor = editingStyle->getPropertyCSSValue(CSSPropertyBackgroundColor);
+    if (backgroundColor && backgroundColor->isPrimitiveValue()) {
+        CSSPrimitiveValue* primitiveValue = static_cast<CSSPrimitiveValue*>(backgroundColor.get());
+        Color color = Color(primitiveValue->getRGBA32Value());
+        ExceptionCode ec;
+        if (color.alpha() == 0)
+            editingStyle->removeProperty(CSSPropertyBackgroundColor, ec);
+    }
+}
+
+void removeStylesAddedByNode(CSSMutableStyleDeclaration* editingStyle, Node* node)
+{
+    ASSERT(node);
+    ASSERT(node->parentNode());
+    RefPtr<CSSMutableStyleDeclaration> parentStyle = editingStyleAtPosition(Position(node->parentNode(), 0));
+    RefPtr<CSSMutableStyleDeclaration> style = editingStyleAtPosition(Position(node, 0));
+    parentStyle->diff(style.get());
+    style->diff(editingStyle);
+}
+    
 ApplyStyleCommand::ApplyStyleCommand(Document* document, CSSStyleDeclaration* style, EditAction editingAction, EPropertyLevel propertyLevel)
     : CompositeEditCommand(document)
     , m_style(style->makeMutable())
@@ -787,7 +911,7 @@ void ApplyStyleCommand::applyInlineStyle(CSSMutableStyleDeclaration *style)
         styleWithoutEmbedding->removeProperty(CSSPropertyUnicodeBidi);
         styleWithoutEmbedding->removeProperty(CSSPropertyDirection);
         removeInlineStyle(styleWithoutEmbedding, removeStart, end);
-   } else
+    } else
         removeInlineStyle(style, removeStart, end);
 
     start = startPosition();
@@ -857,7 +981,7 @@ void ApplyStyleCommand::applyInlineStyle(CSSMutableStyleDeclaration *style)
         styleWithoutEmbedding->removeProperty(CSSPropertyUnicodeBidi);
         styleWithoutEmbedding->removeProperty(CSSPropertyDirection);
         applyInlineStyleToRange(styleWithoutEmbedding.get(), start, end);
-   } else
+    } else
         applyInlineStyleToRange(style, start, end);
 
     // Remove dummy style spans created by splitting text elements.
@@ -962,6 +1086,25 @@ bool ApplyStyleCommand::implicitlyStyledElementShouldBeRemovedWhenApplyingStyle(
             if (elem->hasLocalName(iTag) || elem->hasLocalName(emTag))
                 return true;
             break;
+        case CSSPropertyTextDecoration:
+        case CSSPropertyWebkitTextDecorationsInEffect:
+                ASSERT(property.value());
+                if (property.value()->isValueList()) {
+                    CSSValueList* valueList = static_cast<CSSValueList*>(property.value());
+                    DEFINE_STATIC_LOCAL(RefPtr<CSSPrimitiveValue>, underline, (CSSPrimitiveValue::createIdentifier(CSSValueUnderline)));
+                    DEFINE_STATIC_LOCAL(RefPtr<CSSPrimitiveValue>, lineThrough, (CSSPrimitiveValue::createIdentifier(CSSValueLineThrough)));
+                    // Because style is new style to be applied, we delete element only if the element is not used in style.
+                    if (!valueList->hasValue(underline.get()) && elem->hasLocalName(uTag))
+                        return true;
+                    if (!valueList->hasValue(lineThrough.get()) && (elem->hasLocalName(strikeTag) || elem->hasLocalName(sTag)))
+                        return true;
+                } else {
+                    // If the value is NOT a list, then it must be "none", in which case we should remove all text decorations.
+                    ASSERT(property.value()->cssText() == "none");
+                    if (elem->hasLocalName(uTag) || elem->hasLocalName(strikeTag) || elem->hasLocalName(sTag))
+                        return true;
+                }
+                break;
         }
     }
     return false;
@@ -1075,11 +1218,17 @@ static bool hasTextDecorationProperty(Node *node)
 
 static Node* highestAncestorWithTextDecoration(Node *node)
 {
-    Node *result = NULL;
+    ASSERT(node);
+    Node* result = 0;
+    Node* unsplittableElement = unsplittableElementForPosition(Position(node, 0));
 
     for (Node *n = node; n; n = n->parentNode()) {
         if (hasTextDecorationProperty(n))
             result = n;
+        // Should stop at the editable root (cannot cross editing boundary) and
+        // also stop at the unsplittable element to be consistent with other UAs
+        if (n == unsplittableElement)
+            break;
     }
 
     return result;
@@ -1162,32 +1311,35 @@ void ApplyStyleCommand::applyTextDecorationStyle(Node *node, CSSMutableStyleDecl
     }
 }
 
-void ApplyStyleCommand::pushDownTextDecorationStyleAroundNode(Node* node, bool force)
+void ApplyStyleCommand::pushDownTextDecorationStyleAroundNode(Node* targetNode, bool forceNegate)
 {
-    Node *highestAncestor = highestAncestorWithTextDecoration(node);
-    
-    if (highestAncestor) {
-        Node *nextCurrent;
-        Node *nextChild;
-        for (Node *current = highestAncestor; current != node; current = nextCurrent) {
-            ASSERT(current);
-            
-            nextCurrent = NULL;
-            
-            RefPtr<CSSMutableStyleDeclaration> decoration = force ? extractAndNegateTextDecorationStyle(current) : extractTextDecorationStyle(current);
+    ASSERT(targetNode);
+    Node* highestAncestor = highestAncestorWithTextDecoration(targetNode);
+    if (!highestAncestor)
+        return;
 
-            for (Node *child = current->firstChild(); child; child = nextChild) {
-                nextChild = child->nextSibling();
+    // The outer loop is traversing the tree vertically from highestAncestor to targetNode
+    Node* current = highestAncestor;
+    while (current != targetNode) {
+        ASSERT(current);
+        ASSERT(current->contains(targetNode));
+        RefPtr<CSSMutableStyleDeclaration> decoration = forceNegate ? extractAndNegateTextDecorationStyle(current) : extractTextDecorationStyle(current);
 
-                if (node == child) {
-                    nextCurrent = child;
-                } else if (node->isDescendantOf(child)) {
-                    applyTextDecorationStyle(child, decoration.get());
-                    nextCurrent = child;
-                } else {
-                    applyTextDecorationStyle(child, decoration.get());
-                }
-            }
+        // The inner loop will go through children on each level
+        Node* child = current->firstChild();
+        while (child) {
+            Node* nextChild = child->nextSibling();
+
+            // Apply text decoration to all nodes containing targetNode and their siblings but NOT to targetNode
+            if (child != targetNode)
+                applyTextDecorationStyle(child, decoration.get());
+            
+            // We found the next node for the outer loop (contains targetNode)
+            // When reached targetNode, stop the outer loop upon the completion of the current inner loop
+            if (child == targetNode || child->contains(targetNode))
+                current = child;
+
+            child = nextChild;
         }
     }
 }

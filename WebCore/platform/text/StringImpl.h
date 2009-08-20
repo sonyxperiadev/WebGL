@@ -135,11 +135,13 @@ public:
     unsigned toUIntStrict(bool* ok = 0, int base = 10);
     int64_t toInt64Strict(bool* ok = 0, int base = 10);
     uint64_t toUInt64Strict(bool* ok = 0, int base = 10);
+    intptr_t toIntPtrStrict(bool* ok = 0, int base = 10);
 
     int toInt(bool* ok = 0); // ignores trailing garbage
     unsigned toUInt(bool* ok = 0); // ignores trailing garbage
     int64_t toInt64(bool* ok = 0); // ignores trailing garbage
     uint64_t toUInt64(bool* ok = 0); // ignores trailing garbage
+    intptr_t toIntPtr(bool* ok = 0); // ignores trailing garbage
 
     double toDouble(bool* ok = 0);
     float toFloat(bool* ok = 0);
@@ -218,6 +220,10 @@ inline bool equal(const char* a, StringImpl* b) { return equal(b, a); }
 bool equalIgnoringCase(StringImpl*, StringImpl*);
 bool equalIgnoringCase(StringImpl*, const char*);
 inline bool equalIgnoringCase(const char* a, StringImpl* b) { return equalIgnoringCase(b, a); }
+bool equalIgnoringCase(const UChar* a, const char* b, unsigned length);
+inline bool equalIgnoringCase(const char* a, const UChar* b, unsigned length) { return equalIgnoringCase(b, a, length); }
+
+bool equalIgnoringNullity(StringImpl*, StringImpl*);
 
 // Golden ratio - arbitrary start value to avoid mapping all 0's to all 0's
 // or anything like that.

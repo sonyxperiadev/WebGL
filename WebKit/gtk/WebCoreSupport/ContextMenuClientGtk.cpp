@@ -26,8 +26,8 @@
 #include "KURL.h"
 #include "NotImplemented.h"
 
+#include <glib/gi18n-lib.h>
 #include <glib-object.h>
-#include <glib/gi18n.h>
 #include <gtk/gtk.h>
 #include "webkitprivate.h"
 
@@ -165,20 +165,10 @@ void ContextMenuClient::contextMenuItemSelected(ContextMenuItem*, const ContextM
 
 void ContextMenuClient::downloadURL(const KURL& url)
 {
-    WebKitNetworkRequest* network_request = webkit_network_request_new(url.string().utf8().data());
-    WebKitDownload* download = webkit_download_new(network_request);
-    g_object_unref(network_request);
+    WebKitNetworkRequest* networkRequest = webkit_network_request_new(url.string().utf8().data());
 
-    gboolean handled;
-    g_signal_emit_by_name(m_webView, "download-requested", download, &handled);
-
-    if (!handled) {
-        webkit_download_cancel(download);
-        g_object_unref(download);
-        return;
-    }
-
-    webkit_download_start(download);
+    webkit_web_view_request_download(m_webView, networkRequest);
+    g_object_unref(networkRequest);
 }
 
 void ContextMenuClient::copyImageToClipboard(const HitTestResult&)
@@ -204,6 +194,12 @@ void ContextMenuClient::speak(const String&)
 void ContextMenuClient::stopSpeaking()
 {
     notImplemented();
+}
+
+bool ContextMenuClient::isSpeaking()
+{
+    notImplemented();
+    return false;
 }
 
 }

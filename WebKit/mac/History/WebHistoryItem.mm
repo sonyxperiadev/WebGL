@@ -218,7 +218,8 @@ void WKNotifyHistoryItemChanged()
     HistoryItem* coreItem = core(_private);
     NSMutableString *result = [NSMutableString stringWithFormat:@"%@ %@", [super description], (NSString*)coreItem->urlString()];
     if (coreItem->target()) {
-        [result appendFormat:@" in \"%@\"", (NSString*)coreItem->target()];
+        NSString *target = coreItem->target();
+        [result appendFormat:@" in \"%@\"", target];
     }
     if (coreItem->isTargetItem()) {
         [result appendString:@" *target*"];
@@ -256,6 +257,9 @@ HistoryItem* core(WebHistoryItem *item)
 {
     if (!item)
         return 0;
+    
+    ASSERT(historyItemWrappers().get(core(item->_private)) == item);
+
     return core(item->_private);
 }
 
@@ -378,10 +382,10 @@ static WebWindowWatcher *_windowWatcher = nil;
 
     if (NSArray *redirectURLs = [dict _webkit_arrayForKey:redirectURLsKey]) {
         NSUInteger size = [redirectURLs count];
-        std::auto_ptr<Vector<String> > redirectURLsVector(new Vector<String>(size));
+        OwnPtr<Vector<String> > redirectURLsVector(new Vector<String>(size));
         for (NSUInteger i = 0; i < size; ++i)
             (*redirectURLsVector)[i] = String([redirectURLs _webkit_stringAtIndex:i]);
-        core(_private)->setRedirectURLs(redirectURLsVector);
+        core(_private)->setRedirectURLs(redirectURLsVector.release());
     }
 
     NSArray *dailyCounts = [dict _webkit_arrayForKey:dailyVisitCountKey];
@@ -417,9 +421,9 @@ static WebWindowWatcher *_windowWatcher = nil;
     return core(_private)->scrollPoint();
 }
 
-- (void)_visitedWithTitle:(NSString *)title
+- (void)_visitedWithTitle:(NSString *)title increaseVisitCount:(BOOL)increaseVisitCount
 {
-    core(_private)->visited(title, [NSDate timeIntervalSinceReferenceDate]);
+    core(_private)->visited(title, [NSDate timeIntervalSinceReferenceDate], increaseVisitCount ? IncreaseVisitCount : DoNotIncreaseVisitCount);
 }
 
 - (void)_recordInitialVisit
@@ -577,10 +581,7 @@ static WebWindowWatcher *_windowWatcher = nil;
 - (WebHistoryItem *)targetItem
 {    
     ASSERT_MAIN_THREAD();
-    HistoryItem* coreItem = core(_private);
-    if (coreItem->isTargetItem() || !coreItem->hasChildren())
-        return self;
-    return kit(coreItem->recurseToFindTargetItem());
+    return kit(core(_private)->targetItem());
 }
 
 + (void)_releaseAllPendingPageCaches
@@ -644,11 +645,19 @@ static WebWindowWatcher *_windowWatcher = nil;
 @end
 
 
-// FIXME: <rdar://problem/4886761>
-// This is a bizarre policy - we flush the page caches ANY time ANY window is closed?  
+// FIXME: <rdar://problem/4886761>.
+// This is a bizarre policy. We flush the page caches ANY time ANY window is closed?
+
 @implementation WebWindowWatcher
--(void)windowWillClose:(NSNotification *)notification
+
+- (void)windowWillClose:(NSNotification *)notification
 {
+    if (!pthread_main_np()) {
+        [self performSelectorOnMainThread:_cmd withObject:notification waitUntilDone:NO];
+        return;
+    }
+
     pageCache()->releaseAutoreleasedPagesNow();
 }
+
 @end

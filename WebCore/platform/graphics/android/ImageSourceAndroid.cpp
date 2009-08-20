@@ -39,7 +39,7 @@
 
 #ifdef ANDROID_ANIMATED_GIF
     #include "EmojiFont.h"
-    #include "skia/GIFImageDecoder.h"
+    #include "gif/GIFImageDecoder.h"
 
     using namespace android;
 #endif

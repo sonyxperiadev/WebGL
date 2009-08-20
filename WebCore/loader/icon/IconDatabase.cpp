@@ -27,6 +27,8 @@
 #include "config.h"
 #include "IconDatabase.h"
 
+#if ENABLE(ICONDATABASE)
+
 #include "AutodrainedPool.h"
 #include "DocumentLoader.h"
 #include "FileSystem.h"
@@ -37,14 +39,15 @@
 #include "SQLiteStatement.h"
 #include "SQLiteTransaction.h"
 #include "SuddenTermination.h"
-#if USE(JSC)
-#include <runtime/InitializeThreading.h>
-#elif USE(V8)
-#include "V8InitializeThreading.h"
-#endif
 #include <wtf/CurrentTime.h>
 #include <wtf/MainThread.h>
 #include <wtf/StdLibExtras.h>
+
+#if USE(JSC)
+#include <runtime/InitializeThreading.h>
+#elif USE(V8)
+#include "InitializeThreading.h"
+#endif
 
 // For methods that are meant to support API from the main thread - should not be called internally
 #define ASSERT_NOT_SYNC_THREAD() ASSERT(!m_syncThreadRunning || !IS_ICON_SYNC_THREAD())
@@ -2080,3 +2083,5 @@ void IconDatabase::writeIconSnapshotToSQLDatabase(const IconSnapshot& snapshot)
 }
 
 } // namespace WebCore
+
+#endif // ENABLE(ICONDATABASE)

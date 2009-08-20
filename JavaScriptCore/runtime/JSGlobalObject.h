@@ -1,6 +1,6 @@
 /*
  *  Copyright (C) 2007 Eric Seidel <eric@webkit.org>
- *  Copyright (C) 2007, 2008 Apple Inc. All rights reserved.
+ *  Copyright (C) 2007, 2008, 2009 Apple Inc. All rights reserved.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Library General Public
@@ -166,10 +166,10 @@ namespace JSC {
     public:
         virtual ~JSGlobalObject();
 
-        virtual void mark();
+        virtual void markChildren(MarkStack&);
 
         virtual bool getOwnPropertySlot(ExecState*, const Identifier&, PropertySlot&);
-        virtual bool getOwnPropertySlot(ExecState*, const Identifier&, PropertySlot&, bool& slotIsWriteable);
+        virtual bool hasOwnPropertyForWrite(ExecState*, const Identifier&);
         virtual void put(ExecState*, const Identifier&, JSValue, PutPropertySlot&);
         virtual void putWithAttributes(ExecState*, const Identifier& propertyName, JSValue value, unsigned attributes);
 
@@ -325,10 +325,12 @@ namespace JSC {
         return symbolTableGet(propertyName, slot);
     }
 
-    inline bool JSGlobalObject::getOwnPropertySlot(ExecState* exec, const Identifier& propertyName, PropertySlot& slot, bool& slotIsWriteable)
+    inline bool JSGlobalObject::hasOwnPropertyForWrite(ExecState* exec, const Identifier& propertyName)
     {
-        if (JSVariableObject::getOwnPropertySlotForWrite(exec, propertyName, slot, slotIsWriteable))
+        PropertySlot slot;
+        if (JSVariableObject::getOwnPropertySlot(exec, propertyName, slot))
             return true;
+        bool slotIsWriteable;
         return symbolTableGet(propertyName, slot, slotIsWriteable);
     }
 
@@ -345,11 +347,16 @@ namespace JSC {
         if (typeInfo().type() == ObjectType)
             return m_prototype;
 
+#if USE(JSVALUE32)
         if (typeInfo().type() == StringType)
             return exec->lexicalGlobalObject()->stringPrototype();
 
         ASSERT(typeInfo().type() == NumberType);
         return exec->lexicalGlobalObject()->numberPrototype();
+#else
+        ASSERT(typeInfo().type() == StringType);
+        return exec->lexicalGlobalObject()->stringPrototype();
+#endif
     }
 
     inline StructureChain* Structure::prototypeChain(ExecState* exec) const
@@ -389,7 +396,7 @@ namespace JSC {
         return globalData().dynamicGlobalObject;
     }
 
-    class DynamicGlobalObjectScope : Noncopyable {
+    class DynamicGlobalObjectScope : public Noncopyable {
     public:
         DynamicGlobalObjectScope(CallFrame* callFrame, JSGlobalObject* dynamicGlobalObject) 
             : m_dynamicGlobalObjectSlot(callFrame->globalData().dynamicGlobalObject)

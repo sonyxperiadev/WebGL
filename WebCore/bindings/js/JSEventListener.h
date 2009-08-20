@@ -43,8 +43,9 @@ namespace WebCore {
         virtual JSC::JSObject* jsFunction() const;
 
     private:
-        virtual void markJSFunction();
+        virtual void markJSFunction(JSC::MarkStack&);
         virtual void handleEvent(Event*, bool isWindowEvent);
+        virtual bool reportError(const String& message, const String& url, int lineNumber);
         virtual bool virtualisAttribute() const;
         void clearJSFunctionInline();
 

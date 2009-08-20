@@ -25,6 +25,7 @@
 #include "RenderMenuList.h"
 
 #include "CSSStyleSelector.h"
+#include "Frame.h"
 #include "FrameView.h"
 #include "HTMLNames.h"
 #include "NodeRenderStyle.h"
@@ -296,8 +297,14 @@ void RenderMenuList::hidePopup()
 
 void RenderMenuList::valueChanged(unsigned listIndex, bool fireOnChange)
 {
+    // Check to ensure a page navigation has not occurred while
+    // the popup was up.
+    Document* doc = static_cast<Element*>(node())->document();
+    if (!doc || doc != doc->frame()->document())
+        return;
+    
     SelectElement* select = toSelectElement(static_cast<Element*>(node()));
-    select->setSelectedIndex(select->listToOptionIndex(listIndex), true, fireOnChange);
+    select->setSelectedIndexByUser(select->listToOptionIndex(listIndex), true, fireOnChange);
 }
 
 String RenderMenuList::itemText(unsigned listIndex) const
@@ -309,6 +316,13 @@ String RenderMenuList::itemText(unsigned listIndex) const
     else if (OptionElement* optionElement = toOptionElement(element))
         return optionElement->textIndentedToRespectGroupLabel();
     return String();
+}
+
+String RenderMenuList::itemToolTip(unsigned listIndex) const
+{
+    SelectElement* select = toSelectElement(static_cast<Element*>(node()));
+    Element* element = select->listItems()[listIndex];
+    return element->title();
 }
 
 bool RenderMenuList::itemIsEnabled(unsigned listIndex) const

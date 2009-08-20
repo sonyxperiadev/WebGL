@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2005, 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,6 +29,7 @@
 #import "WebPDFView.h"
 
 #import "WebDataSourceInternal.h"
+#import "WebDelegateImplementationCaching.h"
 #import "WebDocumentInternal.h"
 #import "WebDocumentPrivate.h"
 #import "WebFrame.h"
@@ -47,13 +48,16 @@
 #import "WebViewInternal.h"
 #import <PDFKit/PDFKit.h>
 #import <WebCore/EventNames.h>
+#import <WebCore/FormState.h>
 #import <WebCore/Frame.h>
-#import <WebCore/FrameLoader.h>
 #import <WebCore/FrameLoadRequest.h>
+#import <WebCore/FrameLoader.h>
+#import <WebCore/HTMLFormElement.h>
 #import <WebCore/KURL.h>
 #import <WebCore/KeyboardEvent.h>
 #import <WebCore/MouseEvent.h>
 #import <WebCore/PlatformKeyboardEvent.h>
+#import <WebCore/RuntimeApplicationChecks.h>
 #import <wtf/Assertions.h>
 
 using namespace WebCore;
@@ -182,7 +186,6 @@ static BOOL _PDFSelectionsAreEqual(PDFSelection *selectionA, PDFSelection *selec
 
 - (void)dealloc
 {
-    ASSERT(!trackedFirstResponder);
     [dataSource release];
     [previewView release];
     [PDFSubview release];
@@ -373,7 +376,7 @@ static BOOL _PDFSelectionsAreEqual(PDFSelection *selectionA, PDFSelection *selec
     // (1) the symptom is fairly minor, and (2) we suspect that non-Safari clients are probably using the entire
     // set of default items, rather than manually choosing from them. We can remove this code entirely when we
     // ship a version of Safari that includes the fix for radar 3796579.
-    if (![self _anyPDFTagsFoundInMenu:menu] && [[[NSBundle mainBundle] bundleIdentifier] isEqualToString:@"com.apple.Safari"]) {
+    if (![self _anyPDFTagsFoundInMenu:menu] && applicationIsSafari()) {
         [menu addItem:[NSMenuItem separatorItem]];
         NSEnumerator *e = [items objectEnumerator];
         NSMenuItem *menuItem;
@@ -468,8 +471,7 @@ static BOOL _PDFSelectionsAreEqual(PDFSelection *selectionA, PDFSelection *selec
                                   name:NSViewBoundsDidChangeNotification 
                                 object:[self _clipViewForPDFDocumentView]];
     
-    [trackedFirstResponder release];
-    trackedFirstResponder = nil;
+    firstResponderIsPDFDocumentView = NO;
 }
 
 #pragma mark NSUserInterfaceValidations PROTOCOL IMPLEMENTATION
@@ -941,16 +943,17 @@ static BOOL _PDFSelectionsAreEqual(PDFSelection *selectionA, PDFSelection *selec
         default:
             break;
     }
-    if (button != noButton)
+    if (button != noButton) {
         event = MouseEvent::create(eventNames().clickEvent, true, true, 0, [nsEvent clickCount], 0, 0, 0, 0,
             [nsEvent modifierFlags] & NSControlKeyMask,
             [nsEvent modifierFlags] & NSAlternateKeyMask,
             [nsEvent modifierFlags] & NSShiftKeyMask,
             [nsEvent modifierFlags] & NSCommandKeyMask,
             button, 0, 0, true);
+    }
 
     // Call to the frame loader because this is where our security checks are made.
-    core([dataSource webFrame])->loader()->loadFrameRequestWithFormAndValues(ResourceRequest(URL), false, false, event.get(), 0, HashMap<String, String>());
+    core([dataSource webFrame])->loader()->loadFrameRequest(ResourceRequest(URL), false, false, event.get(), 0);
 }
 
 - (void)PDFViewOpenPDFInNativeApplication:(PDFView *)sender
@@ -1385,20 +1388,17 @@ static BOOL _PDFSelectionsAreEqual(PDFSelection *selectionA, PDFSelection *selec
 - (void)_trackFirstResponder
 {
     ASSERT([self window]);
-    
-    id newFirstResponder = [[self window] firstResponder];
-    if (newFirstResponder == trackedFirstResponder)
+    BOOL newFirstResponderIsPDFDocumentView = [[self window] firstResponder] == [PDFSubview documentView];
+    if (newFirstResponderIsPDFDocumentView == firstResponderIsPDFDocumentView)
         return;
     
     // This next clause is the entire purpose of _trackFirstResponder. In other WebDocument
     // view classes this is done in a resignFirstResponder override, but in this case the
     // first responder view is a PDFKit class that we can't subclass.
-    if (trackedFirstResponder == [PDFSubview documentView] && ![[dataSource _webView] maintainsInactiveSelection])
+    if (newFirstResponderIsPDFDocumentView && ![[dataSource _webView] maintainsInactiveSelection])
         [self deselectAll];
     
-    
-    [trackedFirstResponder release];
-    trackedFirstResponder = [newFirstResponder retain];
+    firstResponderIsPDFDocumentView = newFirstResponderIsPDFDocumentView;
 }
 
 - (void)_updatePreferences:(WebPreferences *)prefs

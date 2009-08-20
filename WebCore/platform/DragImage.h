@@ -46,6 +46,8 @@ typedef struct HBITMAP__* HBITMAP;
 class wxDragImage;
 #elif PLATFORM(CHROMIUM)
 #include "DragImageRef.h"
+#elif PLATFORM(GTK)
+typedef struct _GdkPixbuf GdkPixbuf;
 #endif
 
 //We need to #define YOffset as it needs to be shared with WebKit
@@ -69,8 +71,8 @@ namespace WebCore {
 #elif PLATFORM(WX)
     typedef wxDragImage* DragImageRef;
 #elif PLATFORM(GTK)
-    typedef void* DragImageRef;
-#elif defined ANDROID
+    typedef GdkPixBuf* DragImageRef;
+#elif PLATFORM(ANDROID)
     typedef void* DragImageRef;
 #endif
     

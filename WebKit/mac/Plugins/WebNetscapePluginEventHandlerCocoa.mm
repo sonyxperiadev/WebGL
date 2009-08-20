@@ -46,15 +46,18 @@ static inline void initializeEvent(NPCocoaEvent* event, NPCocoaEventType type)
     event->version = 0;
 }
 
-void WebNetscapePluginEventHandlerCocoa::drawRect(const NSRect& rect)
+void WebNetscapePluginEventHandlerCocoa::drawRect(CGContextRef context, const NSRect& rect)
 {
     NPCocoaEvent event;
     
     initializeEvent(&event, NPCocoaEventDrawRect);
+    event.data.draw.context = context;
     event.data.draw.x = rect.origin.x;
     event.data.draw.y = rect.origin.y;
     event.data.draw.width = rect.size.width;
     event.data.draw.height = rect.size.height;
+    
+    RetainPtr<CGContextRef> protect(context);
     
     sendEvent(&event);
 }
@@ -148,6 +151,23 @@ void WebNetscapePluginEventHandlerCocoa::flagsChanged(NSEvent *nsEvent)
     event.data.key.characters = 0;
     event.data.key.charactersIgnoringModifiers = 0;
     
+    sendEvent(&event);
+}
+
+void WebNetscapePluginEventHandlerCocoa::syntheticKeyDownWithCommandModifier(int keyCode, char character)
+{
+    char nullTerminatedString[] = { character, '\0' };
+    
+    RetainPtr<NSString> characters(AdoptNS, [[NSString alloc] initWithUTF8String:nullTerminatedString]);
+    
+    NPCocoaEvent event;
+    initializeEvent(&event, NPCocoaEventKeyDown);
+    event.data.key.modifierFlags = NSCommandKeyMask;
+    event.data.key.keyCode = keyCode;
+    event.data.key.isARepeat = false;
+    event.data.key.characters = (NPNSString *)characters.get();
+    event.data.key.charactersIgnoringModifiers = (NPNSString *)characters.get();
+
     sendEvent(&event);
 }
 
