@@ -51,8 +51,8 @@ class MockGeolocationService : public GeolocationService {
     static void setPosition(PassRefPtr<Geoposition> position);
     static void setError(PassRefPtr<PositionError> position);
 
-    virtual Geoposition* lastPosition() const { return s_lastPosition.get(); }
-    virtual PositionError* lastError() const { return s_lastError.get(); }
+    virtual Geoposition* lastPosition() const { return s_lastPosition->get(); }
+    virtual PositionError* lastError() const { return s_lastError->get(); }
 
   private:
     static void makeGeolocationCallbackFromAllInstances();
@@ -60,11 +60,14 @@ class MockGeolocationService : public GeolocationService {
 
     void timerFired(Timer<MockGeolocationService>*);
 
-    static RefPtr<Geoposition> s_lastPosition;
-    static RefPtr<PositionError> s_lastError;
+    static void initStatics();
+    static void cleanUpStatics();
+
+    static RefPtr<Geoposition>* s_lastPosition;
+    static RefPtr<PositionError>* s_lastError;
 
     typedef HashSet<MockGeolocationService*> MockGeolocationServiceSet;
-    static MockGeolocationServiceSet s_instances;
+    static MockGeolocationServiceSet* s_instances;
 
     Timer<MockGeolocationService> m_timer;
 };

@@ -32,12 +32,13 @@
 
 namespace WebCore {
 
-MockGeolocationService::MockGeolocationServiceSet MockGeolocationService::s_instances;
-RefPtr<Geoposition> MockGeolocationService::s_lastPosition = 0;
-RefPtr<PositionError> MockGeolocationService::s_lastError = 0;
+MockGeolocationService::MockGeolocationServiceSet* MockGeolocationService::s_instances = 0;
+RefPtr<Geoposition>* MockGeolocationService::s_lastPosition;
+RefPtr<PositionError>* MockGeolocationService::s_lastError;
 
 GeolocationService* MockGeolocationService::create(GeolocationServiceClient* client)
 {
+    initStatics();
     return new MockGeolocationService(client);
 }
 
@@ -45,27 +46,30 @@ MockGeolocationService::MockGeolocationService(GeolocationServiceClient* client)
     : GeolocationService(client)
     , m_timer(this, &MockGeolocationService::timerFired)
 {
-    s_instances.add(this);
+    s_instances->add(this);
 }
 
 MockGeolocationService::~MockGeolocationService()
 {
-    MockGeolocationServiceSet::iterator iter = s_instances.find(this);
-    ASSERT(iter != s_instances.end());
-    s_instances.remove(iter);
+    MockGeolocationServiceSet::iterator iter = s_instances->find(this);
+    ASSERT(iter != s_instances->end());
+    s_instances->remove(iter);
+    cleanUpStatics();
 }
 
 void MockGeolocationService::setPosition(PassRefPtr<Geoposition> position)
 {
-    s_lastPosition = position;
-    s_lastError = 0;
+    initStatics();
+    *s_lastPosition = position;
+    *s_lastError = 0;
     makeGeolocationCallbackFromAllInstances();
 }
 
 void MockGeolocationService::setError(PassRefPtr<PositionError> error)
 {
-    s_lastError = error;
-    s_lastPosition = 0;
+    initStatics();
+    *s_lastError = error;
+    *s_lastPosition = 0;
     makeGeolocationCallbackFromAllInstances();
 }
 
@@ -83,8 +87,8 @@ void MockGeolocationService::timerFired(Timer<MockGeolocationService>* timer)
 
 void MockGeolocationService::makeGeolocationCallbackFromAllInstances()
 {
-    MockGeolocationServiceSet::const_iterator end = s_instances.end();
-    for (MockGeolocationServiceSet::const_iterator iter = s_instances.begin();
+    MockGeolocationServiceSet::const_iterator end = s_instances->end();
+    for (MockGeolocationServiceSet::const_iterator iter = s_instances->begin();
          iter != end;
          ++iter) {
         (*iter)->makeGeolocationCallback();
@@ -93,10 +97,29 @@ void MockGeolocationService::makeGeolocationCallbackFromAllInstances()
 
 void MockGeolocationService::makeGeolocationCallback()
 {
-    if (s_lastPosition) {
+    if (*s_lastPosition) {
         positionChanged();
-    } else if (s_lastError) {
+    } else if (*s_lastError) {
         errorOccurred();
+    }
+}
+
+void MockGeolocationService::initStatics()
+{
+    if (s_instances == 0) {
+        s_instances = new MockGeolocationServiceSet;
+        s_lastPosition = new RefPtr<Geoposition>;
+        s_lastError = new RefPtr<PositionError>;
+    }
+}
+
+void MockGeolocationService::cleanUpStatics()
+{
+    if (s_instances->size() == 0) {
+        delete s_instances;
+        s_instances = 0;
+        delete s_lastPosition;
+        delete s_lastError;
     }
 }
 
