@@ -1088,6 +1088,11 @@ v8::Handle<v8::Value> V8DOMWrapper::convertEventToV8Object(Event* event)
             type = V8ClassIndex::MOUSEEVENT;
         else if (event->isWheelEvent())
             type = V8ClassIndex::WHEELEVENT;
+#if ENABLE(TOUCH_EVENTS)
+        // TODO(andreip): upstream touch related changes to WebKit
+        else if (event->isTouchEvent())
+            type = V8ClassIndex::TOUCHEVENT;
+#endif
 #if ENABLE(SVG)
         else if (event->isSVGZoomEvent())
             type = V8ClassIndex::SVGZOOMEVENT;
