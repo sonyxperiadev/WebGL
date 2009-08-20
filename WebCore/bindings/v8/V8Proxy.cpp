@@ -396,12 +396,12 @@ v8::Local<v8::Value> V8Proxy::runScript(v8::Handle<v8::Script> script, bool isIn
 #ifdef ANDROID_INSTRUMENT
 {
     android::TimeCounter::start(android::TimeCounter::JavaScriptExecuteTimeCounter);
-    v8::Local<v8::Value> result = runScriptInternal(script, inline_code);
+    v8::Local<v8::Value> result = runScriptInternal(script, isInlineCode);
     android::TimeCounter::record(android::TimeCounter::JavaScriptExecuteTimeCounter, __FUNCTION__);
     return result;
 }
 
-v8::Local<v8::Value> V8Proxy::runScriptInternal(v8::Handle<v8::Script> script, bool inline_code)
+v8::Local<v8::Value> V8Proxy::runScriptInternal(v8::Handle<v8::Script> script, bool isInlineCode)
 #endif
 {
     if (script.IsEmpty())

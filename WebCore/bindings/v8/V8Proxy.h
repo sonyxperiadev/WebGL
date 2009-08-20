@@ -227,7 +227,7 @@ namespace WebCore {
         v8::Local<v8::Value> runScript(v8::Handle<v8::Script>, bool isInlineCode);
 
 #ifdef ANDROID_INSTRUMENT
-        v8::Local<v8::Value> RunScriptInternal(v8::Handle<v8::Script> script, bool inline_code);
+        v8::Local<v8::Value> runScriptInternal(v8::Handle<v8::Script> script, bool inline_code);
 #endif
 
         // Call the function with the given receiver and arguments.
@@ -309,7 +309,7 @@ namespace WebCore {
         static v8::Handle<v8::Script> compileScript(v8::Handle<v8::String> code, const String& fileName, int baseLine);
 
 #ifdef ANDROID_INSTRUMENT
-        static v8::Handle<v8::Script> CompileScriptInternal(v8::Handle<v8::String> code, const String& fileName, int baseLine);
+        static v8::Handle<v8::Script> compileScriptInternal(v8::Handle<v8::String> code, const String& fileName, int baseLine);
 #endif
 
         // If the exception code is different from zero, a DOM exception is
