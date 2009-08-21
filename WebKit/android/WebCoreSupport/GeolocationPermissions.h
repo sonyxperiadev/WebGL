@@ -88,6 +88,8 @@ namespace android {
         static void clearAll();
         static void setAlwaysDeny(bool deny);
 
+        static void setDatabasePath(WebCore::String path);
+
       private:
         // Records the permission state for the specified origin.
         void recordPermissionState(WebCore::String origin, bool allow, bool remember);
@@ -107,6 +109,9 @@ namespace android {
         // specifies permission to be remembered.
         static void cancelPendingRequestsInOtherTabs(WebCore::String origin);
         void cancelPendingRequests(WebCore::String origin);
+
+        static void maybeLoadPermanentPermissions();
+        static void maybeStorePermanentPermissions();
 
         WebViewCore* m_webViewCore;
         WebCore::Frame* m_mainFrame;
@@ -130,6 +135,9 @@ namespace android {
         CallbackData m_callbackData;
 
         static bool s_alwaysDeny;
+
+        static bool s_permanentPermissionsLoaded;
+        static WebCore::String s_databasePath;
     };
 
 }  // namespace android

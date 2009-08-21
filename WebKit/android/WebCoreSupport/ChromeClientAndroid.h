@@ -144,7 +144,7 @@ namespace android {
         WTF::Mutex m_quotaThreadLock;
         long m_newQuota;
         // The Geolocation permissions manager.
-        RefPtr<GeolocationPermissions> m_geolocationPermissions;
+        OwnPtr<GeolocationPermissions> m_geolocationPermissions;
     };
 
 }
