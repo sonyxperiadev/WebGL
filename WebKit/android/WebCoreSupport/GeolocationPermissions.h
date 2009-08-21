@@ -80,11 +80,13 @@ namespace android {
         void resetTemporaryPermissionStates();
 
         // Static methods for use from Java. These are used to interact with the
-        // browser settings menu.
+        // browser settings menu and to update the permanent permissions when
+        // system settings are changed.
         typedef HashSet<WebCore::String> OriginSet;
         static OriginSet getOrigins();
         static bool getAllowed(WebCore::String origin);
         static void clear(WebCore::String origin);
+        static void allow(WebCore::String origin);
         static void clearAll();
         static void setAlwaysDeny(bool deny);
 

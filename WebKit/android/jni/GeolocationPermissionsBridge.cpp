@@ -69,6 +69,12 @@ static void clear(JNIEnv* env, jobject obj, jstring origin)
     GeolocationPermissions::clear(originString);
 }
 
+static void allow(JNIEnv* env, jobject obj, jstring origin)
+{
+    WebCore::String originString = to_string(env, origin);
+    GeolocationPermissions::allow(originString);
+}
+
 static void clearAll(JNIEnv* env, jobject obj)
 {
     GeolocationPermissions::clearAll();
@@ -84,6 +90,8 @@ static JNINativeMethod gGeolocationPermissionsMethods[] = {
         (void*) getAllowed },
     { "nativeClear", "(Ljava/lang/String;)V",
         (void*) clear },
+    { "nativeAllow", "(Ljava/lang/String;)V",
+        (void*) allow },
     { "nativeClearAll", "()V",
         (void*) clearAll }
 };
