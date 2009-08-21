@@ -86,6 +86,7 @@ namespace android {
         static bool getAllowed(WebCore::String origin);
         static void clear(WebCore::String origin);
         static void clearAll();
+        static void setAlwaysDeny(bool deny);
 
       private:
         // Records the permission state for the specified origin.
@@ -128,6 +129,7 @@ namespace android {
         };
         CallbackData m_callbackData;
 
+        static bool s_alwaysDeny;
     };
 
 }  // namespace android

@@ -43,6 +43,7 @@ namespace android {
 // the browser closes and read them on startup.
 GeolocationPermissions::PermissionsMap GeolocationPermissions::s_permanentPermissions;
 GeolocationPermissions::GeolocationPermissionsVector GeolocationPermissions::s_instances;
+bool GeolocationPermissions::s_alwaysDeny = false;
 
 GeolocationPermissions::GeolocationPermissions(WebViewCore* webViewCore, Frame* mainFrame)
     : m_webViewCore(webViewCore)
@@ -65,6 +66,12 @@ void GeolocationPermissions::queryPermissionState(Frame* frame)
     // We use SecurityOrigin::toString to key the map. Note that testing
     // the SecurityOrigin pointer for equality is insufficient.
     String originString = frame->document()->securityOrigin()->toString();
+
+    // If we've been told to always deny requests, do so.
+    if (s_alwaysDeny) {
+        makeAsynchronousCallbackToGeolocation(originString, false);
+        return;
+    }
 
     // See if we have a record for this origin in the temporary permissions for
     // this tab. These take precedence over permanent permissions.
@@ -241,6 +248,11 @@ void GeolocationPermissions::clear(String origin)
 void GeolocationPermissions::clearAll()
 {
     s_permanentPermissions.clear();
+}
+
+void GeolocationPermissions::setAlwaysDeny(bool deny)
+{
+    s_alwaysDeny = deny;
 }
 
 }  // namespace android
