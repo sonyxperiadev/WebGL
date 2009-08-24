@@ -27,23 +27,25 @@
 #include "GeolocationPermissions.h"
 
 #include "DOMWindow.h"
-#include "Navigator.h"
 #include "Frame.h"
 #include "Geolocation.h"
 #include "Navigator.h"
+#include "SQLiteDatabase.h"
+#include "SQLiteStatement.h"
+#include "SQLiteTransaction.h"
 #include "WebViewCore.h"
 
-using WebCore::Frame;
-using WebCore::String;
-using WebCore::Timer;
+using namespace WebCore;
 
 namespace android {
 
-// TODO(steveblock): Write the permanent permissions to stable storage when
-// the browser closes and read them on startup.
 GeolocationPermissions::PermissionsMap GeolocationPermissions::s_permanentPermissions;
 GeolocationPermissions::GeolocationPermissionsVector GeolocationPermissions::s_instances;
 bool GeolocationPermissions::s_alwaysDeny = false;
+String GeolocationPermissions::s_databasePath;
+bool GeolocationPermissions::s_permanentPermissionsLoaded = false;
+
+static const char* databaseName = "/GeolocationPermissions.db";
 
 GeolocationPermissions::GeolocationPermissions(WebViewCore* webViewCore, Frame* mainFrame)
     : m_webViewCore(webViewCore)
@@ -51,18 +53,22 @@ GeolocationPermissions::GeolocationPermissions(WebViewCore* webViewCore, Frame* 
     , m_timer(this, &GeolocationPermissions::timerFired)
 
 {
-    s_instances.append(this);
     ASSERT(m_webViewCore);
+    maybeLoadPermanentPermissions();
+    s_instances.append(this);
 }
 
 GeolocationPermissions::~GeolocationPermissions()
 {
     size_t index = s_instances.find(this);
     s_instances.remove(index);
+    maybeStorePermanentPermissions();
 }
 
 void GeolocationPermissions::queryPermissionState(Frame* frame)
 {
+    ASSERT(s_permanentPermissionsLoaded);
+
     // We use SecurityOrigin::toString to key the map. Note that testing
     // the SecurityOrigin pointer for equality is insufficient.
     String originString = frame->document()->securityOrigin()->toString();
@@ -119,6 +125,8 @@ void GeolocationPermissions::makeAsynchronousCallbackToGeolocation(String origin
 
 void GeolocationPermissions::providePermissionState(String origin, bool allow, bool remember)
 {
+    ASSERT(s_permanentPermissionsLoaded);
+
     // It's possible that this method is called with an origin that doesn't
     // match m_originInProgress. This can occur if this object is reset
     // while a permission result is in the process of being marshalled back to
@@ -186,12 +194,13 @@ void GeolocationPermissions::cancelPendingRequests(String origin)
 
 void GeolocationPermissions::timerFired(Timer<GeolocationPermissions>* timer)
 {
-    ASSERT(timer == m_timer);
+    ASSERT_UNUSED(timer, timer == &m_timer);
     maybeCallbackFrames(m_callbackData.origin, m_callbackData.allow);
 }
 
 void GeolocationPermissions::resetTemporaryPermissionStates()
 {
+    ASSERT(s_permanentPermissionsLoaded);
     m_originInProgress = "";
     m_queuedOrigins.clear();
     m_temporaryPermissions.clear();
@@ -221,6 +230,7 @@ void GeolocationPermissions::maybeCallbackFrames(String origin, bool allow)
 
 GeolocationPermissions::OriginSet GeolocationPermissions::getOrigins()
 {
+    maybeLoadPermanentPermissions();
     OriginSet origins;
     PermissionsMap::const_iterator end = s_permanentPermissions.end();
     for (PermissionsMap::const_iterator iter = s_permanentPermissions.begin(); iter != end; ++iter)
@@ -230,6 +240,7 @@ GeolocationPermissions::OriginSet GeolocationPermissions::getOrigins()
 
 bool GeolocationPermissions::getAllowed(String origin)
 {
+    maybeLoadPermanentPermissions();
     bool allowed = false;
     PermissionsMap::const_iterator iter = s_permanentPermissions.find(origin);
     PermissionsMap::const_iterator end = s_permanentPermissions.end();
@@ -240,14 +251,90 @@ bool GeolocationPermissions::getAllowed(String origin)
 
 void GeolocationPermissions::clear(String origin)
 {
+    maybeLoadPermanentPermissions();
     PermissionsMap::iterator iter = s_permanentPermissions.find(origin);
     if (iter != s_permanentPermissions.end())
         s_permanentPermissions.remove(iter);
+    maybeStorePermanentPermissions();
 }
 
 void GeolocationPermissions::clearAll()
 {
+    maybeLoadPermanentPermissions();
     s_permanentPermissions.clear();
+    maybeStorePermanentPermissions();
+}
+
+void GeolocationPermissions::maybeLoadPermanentPermissions()
+{
+    if (s_permanentPermissionsLoaded)
+        return;
+    s_permanentPermissionsLoaded = true;
+
+    SQLiteDatabase database;
+    if (!database.open(s_databasePath + databaseName))
+        return;
+
+    // Create the table here, such that even if we've just created the DB, the
+    // commands below should succeed.
+    if (!database.executeCommand("CREATE TABLE IF NOT EXISTS Permissions (origin TEXT UNIQUE NOT NULL, allow INTEGER NOT NULL)")) {
+        database.close();
+        return;
+    }
+
+    SQLiteStatement statement(database, "SELECT * FROM Permissions");
+    if (statement.prepare() != SQLResultOk) {
+        database.close();
+        return;
+    }
+
+    ASSERT(s_permanentPermissions.size() == 0);
+    while (statement.step() == SQLResultRow)
+        s_permanentPermissions.set(statement.getColumnText(0), statement.getColumnInt64(1));
+    }
+
+    database.close();
+}
+
+void GeolocationPermissions::maybeStorePermanentPermissions()
+{
+    // If no instances remain, we need to store the permanent permissions.
+    if (s_instances.size() > 0)
+        return;
+
+    SQLiteDatabase database;
+    if (!database.open(s_databasePath + databaseName))
+        return;
+
+    SQLiteTransaction transaction(database);
+
+    // The number of entries should be small enough that it's not worth trying
+    // to perform a diff. Simply clear the table and repopulate it.
+    if (!database.executeCommand("DELETE FROM Permissions")) {
+        database.close();
+        return;
+    }
+
+    PermissionsMap::const_iterator end = s_permanentPermissions.end();
+    for (PermissionsMap::const_iterator iter = s_permanentPermissions.begin(); iter != end; ++iter) {
+         SQLiteStatement statement(database, "INSERT INTO Permissions (origin, allow) VALUES (?, ?)");
+         if (statement.prepare() != SQLResultOk)
+             continue;
+         statement.bindText(1, iter->first);
+         statement.bindInt64(2, iter->second);
+         statement.executeCommand();
+    }
+
+    transaction.commit();
+    database.close();
+}
+
+void GeolocationPermissions::setDatabasePath(String path)
+{
+    // Take the first non-empty value.
+    if (s_databasePath.length() > 0)
+        return;
+    s_databasePath = path;
 }
 
 void GeolocationPermissions::setAlwaysDeny(bool deny)

@@ -102,6 +102,7 @@ struct FieldIds {
         mWorkersEnabled = env->GetFieldID(clazz, "mWorkersEnabled", "Z");
 #endif
         mGeolocationEnabled = env->GetFieldID(clazz, "mGeolocationEnabled", "Z");
+        mGeolocationDatabasePath = env->GetFieldID(clazz, "mGeolocationDatabasePath", "Ljava/lang/String;");
         mJavaScriptCanOpenWindowsAutomatically = env->GetFieldID(clazz,
                 "mJavaScriptCanOpenWindowsAutomatically", "Z");
         mUseWideViewport = env->GetFieldID(clazz, "mUseWideViewport", "Z");
@@ -198,6 +199,7 @@ struct FieldIds {
     jfieldID mDomStorageEnabled;
 #endif
     jfieldID mGeolocationEnabled;
+    jfieldID mGeolocationDatabasePath;
 #if ENABLE(DATABASE) || ENABLE(DOM_STORAGE)
     jfieldID mDatabasePath;
 #endif
@@ -355,6 +357,9 @@ public:
 
         flag = env->GetBooleanField(obj, gFieldIds->mGeolocationEnabled);
         GeolocationPermissions::setAlwaysDeny(!flag);
+        str = (jstring)env->GetObjectField(obj, gFieldIds->mGeolocationDatabasePath);
+        if (str)
+            GeolocationPermissions::setDatabasePath(to_string(env,str));
     }
 };
 
