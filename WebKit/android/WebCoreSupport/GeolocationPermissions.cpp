@@ -291,7 +291,6 @@ void GeolocationPermissions::maybeLoadPermanentPermissions()
     ASSERT(s_permanentPermissions.size() == 0);
     while (statement.step() == SQLResultRow)
         s_permanentPermissions.set(statement.getColumnText(0), statement.getColumnInt64(1));
-    }
 
     database.close();
 }
