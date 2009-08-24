@@ -34,6 +34,13 @@
 #include <wtf/RefCountedLeakCounter.h>
 #include <wtf/StdLibExtras.h>
 #include <wtf/Vector.h>
+#ifdef ANDROID_LAYOUT
+#include "Frame.h"
+#include "FrameTree.h"
+#include "Settings.h"
+#include "Text.h"
+#include "HTMLNames.h"
+#endif // ANDROID_LAYOUT
 
 using namespace std;
 using namespace WTF;
@@ -847,6 +854,32 @@ void RenderBlock::layoutInlineChildren(bool relayoutChildren, int& repaintTop, i
          deleteEllipsisLineBoxes();
 
     if (firstChild()) {
+#ifdef ANDROID_LAYOUT
+        // if we are in fitColumnToScreen mode and viewport width is not device-width,
+        // and the current object is not float:right in LTR or not float:left in RTL,
+        // and text align is auto, or justify or left in LTR, or right in RTL, we
+        // will wrap text around screen width so that it doesn't need to scroll
+        // horizontally when reading a paragraph.
+        const Settings* settings = document()->settings();
+        bool doTextWrap = settings && settings->viewportWidth() != 0 &&
+                settings->layoutAlgorithm() == Settings::kLayoutFitColumnToScreen;
+        if (doTextWrap) {
+            int ta = style()->textAlign();
+            int dir = style()->direction();
+            bool autowrap = style()->autoWrap();
+            // if the RenderBlock is positioned, don't wrap text around screen
+            // width as it may cause text to overlap.
+            bool positioned = isPositioned();
+            EFloat cssfloat = style()->floating();
+            doTextWrap = autowrap && !positioned &&
+                    (((dir == LTR && cssfloat != FRIGHT) ||
+                    (dir == RTL && cssfloat != FLEFT)) && 
+                    ((ta == TAAUTO) || (ta == JUSTIFY) ||
+                    ((ta == LEFT || ta == WEBKIT_LEFT) && (dir == LTR)) ||
+                    ((ta == RIGHT || ta == WEBKIT_RIGHT) && (dir == RTL))));
+        }
+        bool hasTextToWrap = false;
+#endif
         // layout replaced elements
         bool endOfInline = false;
         RenderObject* o = bidiFirst(this, 0, false);
@@ -865,6 +898,11 @@ void RenderBlock::layoutInlineChildren(bool relayoutChildren, int& repaintTop, i
                 if (o->isPositioned())
                     o->containingBlock()->insertPositionedObject(box);
                 else {
+#ifdef ANDROID_LAYOUT
+                    // ignore text wrap for textField or menuList
+                        if (doTextWrap && (o->isTextField() || o->isMenuList()))
+                            doTextWrap = false;
+#endif
                     if (o->isFloating())
                         floats.append(FloatWithRect(box));
                     else if (fullLayout || o->needsLayout()) // Replaced elements
@@ -876,12 +914,75 @@ void RenderBlock::layoutInlineChildren(bool relayoutChildren, int& repaintTop, i
                 if (fullLayout || o->selfNeedsLayout())
                     dirtyLineBoxesForRenderer(o, fullLayout);
                 o->setNeedsLayout(false);
+#ifdef ANDROID_LAYOUT
+                if (doTextWrap && !hasTextToWrap && o->isText()) {
+                    Node* node = o->node();
+                    // as it is very common for sites to use a serial of <a> or
+                    // <li> as tabs, we don't force text to wrap if all the text
+                    // are short and within an <a> or <li> tag, and only separated
+                    // by short word like "|" or ";".
+                    if (node && node->isTextNode() &&
+                            !static_cast<Text*>(node)->containsOnlyWhitespace()) {
+                        int length = static_cast<Text*>(node)->length();
+                        // FIXME, need a magic number to decide it is too long to
+                        // be a tab. Pick 25 for now as it covers around 160px
+                        // (half of 320px) with the default font.
+                        if (length > 25 || (length > 3 &&
+                                (!node->parent()->hasTagName(HTMLNames::aTag) &&
+                                !node->parent()->hasTagName(HTMLNames::liTag))))
+                            hasTextToWrap = true;
+                    }
+                }
+#endif
                 if (!o->isText())
                     toRenderInline(o)->invalidateVerticalPosition(); // FIXME: Should do better here and not always invalidate everything.
             }
             o = bidiNext(this, o, 0, false, &endOfInline);
         }
 
+#ifdef ANDROID_LAYOUT
+        // try to make sure that inline text will not span wider than the
+        // screen size unless the container has a fixed height,
+        if (doTextWrap && hasTextToWrap) {
+            // check all the nested containing blocks, unless it is table or
+            // table-cell, to make sure there is no fixed height as it implies
+            // fixed layout. If we constrain the text to fit screen, we may
+            // cause text overlap with the block after.
+            bool isConstrained = false;
+            RenderObject* obj = this;
+            while (obj) {
+                if (obj->style()->height().isFixed() && (!obj->isTable() && !obj->isTableCell())) {
+                    isConstrained = true;
+                    break;
+                }
+                if (obj->isFloating() || obj->isPositioned()) {
+                    // floating and absolute or fixed positioning are done out 
+                    // of normal flow. Don't need to worry about height any more.
+                    break;
+                }
+                obj = obj->container();
+            }
+            if (!isConstrained) {
+                int screenWidth = view()->frameView()->screenWidth();
+                if (screenWidth > 0 && width() > screenWidth) {
+                    // if the current padding is smaller, add an extra to make
+                    // it 2 * ANDROID_FCTS_MARGIN_PADDING so that the text won't
+                    // overlap with the screen edge. If the current padding is
+                    // negative, leave it alone.
+                    int padding = paddingLeft() + paddingRight();
+                    if (padding < 0 || padding >= 2 * ANDROID_FCTS_MARGIN_PADDING)
+                        padding = 0;
+                    else
+                        padding = 2 * ANDROID_FCTS_MARGIN_PADDING - padding;
+                    int maxWidth = screenWidth - padding;
+                    setWidth(min(width(), maxWidth));
+                    m_minPrefWidth = min(m_minPrefWidth, maxWidth);
+                    m_maxPrefWidth = min(m_maxPrefWidth, maxWidth);
+                    m_overflowWidth = min(m_overflowWidth, maxWidth);
+                }
+            }
+        }
+#endif
         // We want to skip ahead to the first dirty line
         InlineBidiResolver resolver;
         unsigned floatIndex;
