@@ -35,6 +35,7 @@
 #include "Frame.h"
 #include "FrameLoader.h"
 #include "FrameView.h"
+#include "GeolocationPermissions.h"
 #include "Page.h"
 #include "RenderTable.h"
 #include "Settings.h"
