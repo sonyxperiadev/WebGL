@@ -27,6 +27,7 @@
 #define Geolocation_h
 
 #include "GeolocationService.h"
+#include "Geoposition.h"
 #include "PositionCallback.h"
 #include "PositionError.h"
 #include "PositionErrorCallback.h"
@@ -44,7 +45,8 @@
 namespace WebCore {
 
 class Frame;
-class Geoposition;
+class CachedPositionManager;
+
 
 class Geolocation : public RefCounted<Geolocation>, public GeolocationServiceClient {
 public:
@@ -78,6 +80,7 @@ private:
         static PassRefPtr<GeoNotifier> create(Geolocation* geolocation, PassRefPtr<PositionCallback> positionCallback, PassRefPtr<PositionErrorCallback> positionErrorCallback, PassRefPtr<PositionOptions> options) { return adoptRef(new GeoNotifier(geolocation, positionCallback, positionErrorCallback, options)); }
         
         void setFatalError(PassRefPtr<PositionError> error);
+        void setCachedPosition(Geoposition* cachedPosition);
         void startTimerIfNeeded();
         void timerFired(Timer<GeoNotifier>*);
         
@@ -87,6 +90,7 @@ private:
         RefPtr<PositionOptions> m_options;
         Timer<GeoNotifier> m_timer;
         RefPtr<PositionError> m_fatalError;
+        RefPtr<Geoposition> m_cachedPosition;
 
     private:
         GeoNotifier(Geolocation* geolocation, PassRefPtr<PositionCallback>, PassRefPtr<PositionErrorCallback>, PassRefPtr<PositionOptions>);
@@ -114,6 +118,8 @@ private:
 
     void fatalErrorOccurred(GeoNotifier* notifier);
     void requestTimedOut(GeoNotifier* notifier);
+    void requestReturnedCachedPosition(GeoNotifier* notifier);
+    bool haveSuitableCachedPosition(PositionOptions*);
 
     typedef HashSet<RefPtr<GeoNotifier> > GeoNotifierSet;
     typedef HashMap<int, RefPtr<GeoNotifier> > GeoNotifierMap;
@@ -130,6 +136,9 @@ private:
         No
     } m_allowGeolocation;
     bool m_shouldClearCache;
+
+    CachedPositionManager* m_cachedPositionManager;
+    GeoNotifierSet m_requestsAwaitingCachedPosition;
 };
     
 } // namespace WebCore
