@@ -106,8 +106,7 @@ void Geolocation::disconnectFrame()
 void Geolocation::getCurrentPosition(PassRefPtr<PositionCallback> successCallback, PassRefPtr<PositionErrorCallback> errorCallback, PassRefPtr<PositionOptions> options)
 {
     RefPtr<GeoNotifier> notifier = makeRequest(successCallback, errorCallback, options);
-    if (!notifier)
-        return;
+    ASSERT(notifier);
 
     m_oneShots.add(notifier);
 }
@@ -115,8 +114,7 @@ void Geolocation::getCurrentPosition(PassRefPtr<PositionCallback> successCallbac
 int Geolocation::watchPosition(PassRefPtr<PositionCallback> successCallback, PassRefPtr<PositionErrorCallback> errorCallback, PassRefPtr<PositionOptions> options)
 {
     RefPtr<GeoNotifier> notifier = makeRequest(successCallback, errorCallback, options);
-    if (!notifier)
-        return 0;
+    ASSERT(notifier);
 
     static int sIdentifier = 0;
     m_watchers.set(++sIdentifier, notifier);
@@ -136,11 +134,7 @@ PassRefPtr<Geolocation::GeoNotifier> Geolocation::makeRequest(PassRefPtr<Positio
         if (m_service->startUpdating(notifier->m_options.get()))
             notifier->startTimerIfNeeded();
         else {
-            if (notifier->m_errorCallback) {
-                RefPtr<PositionError> error = PositionError::create(PositionError::PERMISSION_DENIED, "Unable to Start");
-                notifier->m_errorCallback->handleEvent(error.get());
-            }
-            return 0;
+            notifier->setFatalError(PositionError::create(PositionError::UNKNOWN_ERROR, "Failed to start Geolocation service"));
         }
     }
 
