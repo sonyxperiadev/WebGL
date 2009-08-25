@@ -966,7 +966,7 @@ void WebViewCore::setSizeScreenWidthAndScale(int width, int height,
     int oh = window->height();
     window->setSize(width, height);
     int osw = m_screenWidth;
-    DBG_NAV_LOGD("old:(w=%d,h=%d,sw=%d,scale=%d) new:(w=%d,h=%d,sw=%d,scale=%g)",
+    DBG_NAV_LOGD("old:(w=%d,h=%d,sw=%d,scale=%g) new:(w=%d,h=%d,sw=%d,scale=%g)",
         ow, oh, osw, m_scale, width, height, screenWidth, scale);
     m_screenWidth = screenWidth;
     m_screenHeight = screenHeight;
