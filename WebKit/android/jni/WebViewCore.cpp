@@ -253,7 +253,7 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     m_javaGlue->m_restoreScreenWidthScale = GetJMethod(env, clazz, "restoreScreenWidthScale", "(I)V");
     m_javaGlue->m_needTouchEvents = GetJMethod(env, clazz, "needTouchEvents", "(Z)V");
     m_javaGlue->m_requestKeyboard = GetJMethod(env, clazz, "requestKeyboard", "(Z)V");
-    m_javaGlue->m_exceededDatabaseQuota = GetJMethod(env, clazz, "exceededDatabaseQuota", "(Ljava/lang/String;Ljava/lang/String;J)V");
+    m_javaGlue->m_exceededDatabaseQuota = GetJMethod(env, clazz, "exceededDatabaseQuota", "(Ljava/lang/String;Ljava/lang/String;JJ)V");
     m_javaGlue->m_reachedMaxAppCacheSize = GetJMethod(env, clazz, "reachedMaxAppCacheSize", "(J)V");
     m_javaGlue->m_geolocationPermissionsShowPrompt = GetJMethod(env, clazz, "geolocationPermissionsShowPrompt", "(Ljava/lang/String;)V");
     m_javaGlue->m_geolocationPermissionsHidePrompt = GetJMethod(env, clazz, "geolocationPermissionsHidePrompt", "()V");
@@ -2031,13 +2031,13 @@ void WebViewCore::jsAlert(const WebCore::String& url, const WebCore::String& tex
     checkException(env);
 }
 
-void WebViewCore::exceededDatabaseQuota(const WebCore::String& url, const WebCore::String& databaseIdentifier, const unsigned long long currentQuota)
+void WebViewCore::exceededDatabaseQuota(const WebCore::String& url, const WebCore::String& databaseIdentifier, const unsigned long long currentQuota, unsigned long long estimatedSize)
 {
 #if ENABLE(DATABASE)
     JNIEnv* env = JSC::Bindings::getJNIEnv();
     jstring jDatabaseIdentifierStr = env->NewString((unsigned short *)databaseIdentifier.characters(), databaseIdentifier.length());
     jstring jUrlStr = env->NewString((unsigned short *)url.characters(), url.length());
-    env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_exceededDatabaseQuota, jUrlStr, jDatabaseIdentifierStr, currentQuota);
+    env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_exceededDatabaseQuota, jUrlStr, jDatabaseIdentifierStr, currentQuota, estimatedSize);
     env->DeleteLocalRef(jDatabaseIdentifierStr);
     env->DeleteLocalRef(jUrlStr);
     checkException(env);

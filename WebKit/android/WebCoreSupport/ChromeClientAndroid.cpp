@@ -291,7 +291,10 @@ void ChromeClientAndroid::exceededDatabaseQuota(Frame* frame, const String& name
     if (WebCore::DatabaseTracker::tracker().hasEntryForOrigin(origin)) {
         currentQuota = WebCore::DatabaseTracker::tracker().quotaForOrigin(origin);
     }
-    android::WebViewCore::getWebViewCore(frame->view())->exceededDatabaseQuota(frame->document()->documentURI(), name, currentQuota);
+
+    unsigned long long estimatedSize = WebCore::DatabaseTracker::tracker().detailsForNameAndOrigin(name, origin).expectedUsage();
+
+    android::WebViewCore::getWebViewCore(frame->view())->exceededDatabaseQuota(frame->document()->documentURI(), name, currentQuota, estimatedSize);
 
     // We've sent notification to the browser so now wait for it to come back.
     m_quotaThreadLock.lock();

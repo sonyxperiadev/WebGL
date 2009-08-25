@@ -201,11 +201,13 @@ namespace android {
          * @param url The URL of the page that caused the quota overflow
          * @param databaseIdentifier the id of the database that caused the
          *     quota overflow.
-         * @param currentQuota The current quota for the origin.
+         * @param currentQuota The current quota for the origin
+         * @param estimatedSize The estimated size of the database
          */
         void exceededDatabaseQuota(const WebCore::String& url,
                                    const WebCore::String& databaseIdentifier,
-                                   const unsigned long long currentQuota);
+                                   const unsigned long long currentQuota,
+                                   const unsigned long long estimatedSize);
 
         /**
          * Tell the Java side that the appcache has exceeded its max size.
