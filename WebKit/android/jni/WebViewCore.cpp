@@ -899,12 +899,6 @@ void WebViewCore::notifyProgressFinished()
     m_check_domtree_version = true;
     updateFrameCache();
     sendNotifyProgressFinished();
-
-    // trigger an event notifying the plugins that the page has loaded
-    ANPEvent event;
-    SkANP::InitEvent(&event, kLifecycle_ANPEventType);
-    event.data.lifecycle.action = kOnLoad_ANPLifecycleAction;
-    sendPluginEvent(event);
 }
 
 void WebViewCore::doMaxScroll(CacheBuilder::Direction dir)
@@ -1223,6 +1217,36 @@ void WebViewCore::drawPlugins()
         WebCore::IntRect r(bounds.fLeft, bounds.fTop,
                            bounds.width(), bounds.height());
         this->viewInvalidate(r);
+    }
+}
+
+void WebViewCore::notifyPluginsOnFrameLoad(const Frame* frame) {
+    // if frame is the parent then notify all plugins
+    if (!frame->tree()->parent()) {
+        // trigger an event notifying the plugins that the page has loaded
+        ANPEvent event;
+        SkANP::InitEvent(&event, kLifecycle_ANPEventType);
+        event.data.lifecycle.action = kOnLoad_ANPLifecycleAction;
+        sendPluginEvent(event);
+    }
+    // else if frame's parent has completed
+    else if (!frame->tree()->parent()->loader()->isLoading()) {
+        // send to all plugins who have this frame in their heirarchy
+        PluginWidgetAndroid** iter = m_plugins.begin();
+        PluginWidgetAndroid** stop = m_plugins.end();
+        for (; iter < stop; ++iter) {
+            Frame* currentFrame = (*iter)->pluginView()->parentFrame();
+            while (currentFrame) {
+                if (frame == currentFrame) {
+                    ANPEvent event;
+                    SkANP::InitEvent(&event, kLifecycle_ANPEventType);
+                    event.data.lifecycle.action = kOnLoad_ANPLifecycleAction;
+                    (*iter)->sendEvent(event);
+                    break;
+                }
+                currentFrame = currentFrame->tree()->parent();
+            }
+        }
     }
 }
 

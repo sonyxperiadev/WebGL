@@ -295,7 +295,7 @@ void FrameLoaderClientAndroid::dispatchDidFailProvisionalLoad(const ResourceErro
     }
 
     AssetManager* am = globalAssetManager();
-    
+
     // Check to see if the error code was not generated internally
     WebFrame::RAW_RES_ID id = WebFrame::NODOMAIN;
     if ((error.errorCode() == ErrorFile ||
@@ -335,7 +335,7 @@ void FrameLoaderClientAndroid::dispatchDidFailProvisionalLoad(const ResourceErro
     // Replace all occurances of %s with the failing url.
     String s = UTF8Encoding().decode((const char*)a->getBuffer(false), a->getLength());
     s = s.replace("%s", String(url.data(), url.size()));
-    
+
     // Replace all occurances of %e with the error text
     s = s.replace("%e", error.localizedDescription());
 
@@ -563,10 +563,13 @@ void FrameLoaderClientAndroid::postProgressEstimateChangedNotification() {
 // This is just a notification that the progress has finished. Don't call
 // setProgress(1) because postProgressEstimateChangedNotification will do so.
 void FrameLoaderClientAndroid::postProgressFinishedNotification() {
+    WebViewCore* core =  WebViewCore::getWebViewCore(m_frame->view());
     if (!m_frame->tree()->parent()) {
         // only need to notify Java for the top frame
-        WebViewCore::getWebViewCore(m_frame->view())->notifyProgressFinished();
+        core->notifyProgressFinished();
     }
+    // notify plugins that the frame has loaded
+    core->notifyPluginsOnFrameLoad(m_frame);
 }
 
 void FrameLoaderClientAndroid::setMainFrameDocumentReady(bool) {
@@ -666,7 +669,7 @@ bool FrameLoaderClientAndroid::shouldFallBack(const ResourceError&) {
 bool FrameLoaderClientAndroid::canHandleRequest(const ResourceRequest& request) const {
     ASSERT(m_frame);
     // Don't allow hijacking of intrapage navigation
-    if (WebCore::equalIgnoringFragmentIdentifier(request.url(), m_frame->loader()->url())) 
+    if (WebCore::equalIgnoringFragmentIdentifier(request.url(), m_frame->loader()->url()))
         return true;
 
     // Don't allow hijacking of iframe urls that are http or https
@@ -865,7 +868,7 @@ WTF::PassRefPtr<WebCore::Frame> FrameLoaderClientAndroid::createFrame(const KURL
     newFrame->tree()->setName(name);
     // Create a new FrameView and WebFrameView for the child frame to draw into.
     RefPtr<FrameView> frameView = FrameView::create(newFrame);
-    WebFrameView* webFrameView = new WebFrameView(frameView.get(), 
+    WebFrameView* webFrameView = new WebFrameView(frameView.get(),
             WebViewCore::getWebViewCore(parent->view()));
     // frameView Retains webFrameView, so call Release for webFrameView
     Release(webFrameView);
@@ -878,7 +881,7 @@ WTF::PassRefPtr<WebCore::Frame> FrameLoaderClientAndroid::createFrame(const KURL
     // The creation of the frame may have run arbitrary JavaScript that removed it from the page already.
     if (!pFrame->page())
         return 0;
- 
+
     parent->loader()->loadURLIntoChildFrame(url, referrer, pFrame.get());
 
     // onLoad may cuase the frame to be removed from the document. Allow the RefPtr to delete the child frame.
@@ -1037,7 +1040,7 @@ String FrameLoaderClientAndroid::overrideMediaType() const {
 // This function is used to re-attach Javascript<->native code classes.
 void FrameLoaderClientAndroid::windowObjectCleared() {
     ASSERT(m_frame);
-    LOGV("::WebCore:: windowObjectCleared called on frame %p for %s\n", 
+    LOGV("::WebCore:: windowObjectCleared called on frame %p for %s\n",
     		m_frame, m_frame->loader()->url().string().ascii().data());
     m_webFrame->windowObjectCleared(m_frame);
 }
@@ -1052,11 +1055,11 @@ ResourceError FrameLoaderClientAndroid::blockedError(ResourceRequest const& requ
 
 // functions new to Nov-07 tip of tree merge:
 void FrameLoaderClientAndroid::didPerformFirstNavigation() const {
-    // This seems to be just a notification that the UI can listen to, to 
-    // know if the user has performed first navigation action. 
-    // It is called from 
+    // This seems to be just a notification that the UI can listen to, to
+    // know if the user has performed first navigation action.
+    // It is called from
     // void FrameLoader::addBackForwardItemClippedAtTarget(bool doClip)
-    // "Navigation" here means a transition from one page to another that 
+    // "Navigation" here means a transition from one page to another that
     // ends up in the back/forward list.
 }
 
