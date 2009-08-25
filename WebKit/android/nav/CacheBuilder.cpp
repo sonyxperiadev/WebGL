@@ -1590,6 +1590,7 @@ CacheBuilder::FoundState CacheBuilder::FindPartialAddress(const UChar* baseChars
     s->mCurrentStart = chars;
     s->mEnd = chars + length;
     int candIndex = 0;
+    bool retryState;
     bool mustBeAllUpper = false;
     bool secondHalf = false;
     chars -= 1;
@@ -1914,6 +1915,15 @@ CacheBuilder::FoundState CacheBuilder::FindPartialAddress(const UChar* baseChars
                         s->mZipDelimiter = true;
                 } else if (WTF::isASCIIAlpha(ch) == false)
                     s->mZipDelimiter = true;
+                else {
+                    if (s->mLetterCount == 0) {
+                        s->mBases[s->mWordCount] = baseChars;
+                        s->mWords[s->mWordCount] = chars;
+                        s->mStarts[s->mWordCount] = s->mCurrentStart;
+                        s->mUnparsed = true;
+                    }
+                    ++s->mLetterCount;
+                }
                 if (s->mNumberCount == 5 || s->mNumberCount == 9) {
                     if (validZip(s->mZipHint, s->mZipStart) == false)
                         goto noZipMatch;
@@ -1945,8 +1955,9 @@ CacheBuilder::FoundState CacheBuilder::FindPartialAddress(const UChar* baseChars
                     break;
                 s->mProgress = FIND_STREET;
             case FIND_STREET:
-            findStreet: // minus two below skips city before state
-                for (int wordsIndex = s->mStateWord - 2; wordsIndex >= 0; --wordsIndex) {
+            findStreet:
+                retryState = false;
+                for (int wordsIndex = s->mStateWord - 1; wordsIndex >= 0; --wordsIndex) {
                     const UChar* test = s->mWords[wordsIndex];
                     UChar letter = test[0];
                     letter -= 'A';
@@ -1992,16 +2003,26 @@ CacheBuilder::FoundState CacheBuilder::FindPartialAddress(const UChar* baseChars
                                     wordReduction = shift;
                                 } while (s->mNumberWords >> ++shift != 0);
                                 if (wordReduction >= 0) {
-                                    if (s->mContinuationNode)
+                                    if (s->mContinuationNode) {
+                                        if (retryState)
+                                            break;
                                         return FOUND_NONE;
+                                    }
                                     s->mStartResult = s->mWords[wordReduction] - s->mStarts[wordReduction];
                                 }
                             }
-                            return FOUND_COMPLETE;
+                            if (wordsIndex != s->mStateWord - 1)
+                                return FOUND_COMPLETE;
+                            retryState = true;
                         }
                     nextTest:
                         names += offset;
                     }
+                }
+                if (retryState) {
+                    s->mProgress = ADDRESS_LINE;
+                    s->mStates = NULL;
+                    continue;
                 }
                 if (s->mNumberWords != 0) {
                     unsigned shift = 0;
