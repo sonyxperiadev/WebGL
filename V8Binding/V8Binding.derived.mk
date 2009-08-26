@@ -87,6 +87,8 @@ WEBCORE_SRC_FILES := \
 	bindings/v8/custom/V8ClipboardCustom.cpp \
 	bindings/v8/custom/V8CustomBinding.cpp \
 	bindings/v8/custom/V8CustomEventListener.cpp \
+	bindings/v8/custom/V8CustomPositionCallback.cpp \
+	bindings/v8/custom/V8CustomPositionErrorCallback.cpp \
 	bindings/v8/custom/V8CustomSQLStatementCallback.cpp \
 	bindings/v8/custom/V8CustomSQLStatementErrorCallback.cpp \
 	bindings/v8/custom/V8CustomSQLTransactionCallback.cpp \
@@ -103,6 +105,7 @@ WEBCORE_SRC_FILES := \
 	bindings/v8/custom/V8DocumentLocationCustom.cpp \
 	bindings/v8/custom/V8ElementCustom.cpp \
 	bindings/v8/custom/V8EventCustom.cpp \
+	bindings/v8/custom/V8GeolocationCustom.cpp \
 	bindings/v8/custom/V8HTMLAudioElementConstructor.cpp \
 	bindings/v8/custom/V8HTMLCanvasElementCustom.cpp \
 	bindings/v8/custom/V8HTMLCollectionCustom.cpp \
