@@ -862,8 +862,6 @@ bool NewSpace::Setup(Address start, int size) {
 
   ASSERT(initial_semispace_capacity <= maximum_semispace_capacity);
   ASSERT(IsPowerOf2(maximum_semispace_capacity));
-  maximum_capacity_ = maximum_semispace_capacity;
-  capacity_ = initial_semispace_capacity;
 
   // Allocate and setup the histogram arrays if necessary.
 #if defined(DEBUG) || defined(ENABLE_LOGGING_AND_PROFILING)
@@ -876,15 +874,17 @@ bool NewSpace::Setup(Address start, int size) {
 #undef SET_NAME
 #endif
 
-  ASSERT(size == 2 * maximum_capacity_);
+  ASSERT(size == 2 * maximum_semispace_capacity);
   ASSERT(IsAddressAligned(start, size, 0));
 
-  if (!to_space_.Setup(start, capacity_, maximum_capacity_)) {
+  if (!to_space_.Setup(start,
+                       initial_semispace_capacity,
+                       maximum_semispace_capacity)) {
     return false;
   }
-  if (!from_space_.Setup(start + maximum_capacity_,
-                         capacity_,
-                         maximum_capacity_)) {
+  if (!from_space_.Setup(start + maximum_semispace_capacity,
+                         initial_semispace_capacity,
+                         maximum_semispace_capacity)) {
     return false;
   }
 
@@ -916,7 +916,6 @@ void NewSpace::TearDown() {
 #endif
 
   start_ = NULL;
-  capacity_ = 0;
   allocation_info_.top = NULL;
   allocation_info_.limit = NULL;
   mc_forwarding_info_.top = NULL;
@@ -953,12 +952,11 @@ void NewSpace::Flip() {
 
 
 bool NewSpace::Grow() {
-  ASSERT(capacity_ < maximum_capacity_);
+  ASSERT(Capacity() < MaximumCapacity());
   // TODO(1240712): Failure to double the from space can result in
   // semispaces of different sizes.  In the event of that failure, the
   // to space doubling should be rolled back before returning false.
   if (!to_space_.Grow() || !from_space_.Grow()) return false;
-  capacity_ = to_space_.Capacity() + from_space_.Capacity();
   allocation_info_.limit = to_space_.high();
   ASSERT_SEMISPACE_ALLOCATION_INFO(allocation_info_, to_space_);
   return true;
@@ -1082,10 +1080,9 @@ void SemiSpace::TearDown() {
 
 bool SemiSpace::Grow() {
   // Commit 50% extra space but only up to maximum capacity.
-  int extra = RoundUp(capacity_ / 2, OS::AllocateAlignment());
-  if (capacity_ + extra > maximum_capacity_) {
-    extra = maximum_capacity_ - capacity_;
-  }
+  int maximum_extra = maximum_capacity_ - capacity_;
+  int extra = Min(RoundUp(capacity_ / 2, OS::AllocateAlignment()),
+                  maximum_extra);
   if (!MemoryAllocator::CommitBlock(high(), extra, executable())) {
     return false;
   }
