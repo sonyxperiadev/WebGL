@@ -271,11 +271,12 @@ void ScriptController::collectGarbage()
         return;
 
     v8::Context::Scope scope(v8Context);
-#if PLATFORM(ANDROID)
-    v8::V8::CollectAllGarbage();
-#else
     m_proxy->evaluate(ScriptSourceCode("if (window.gc) void(gc());"), 0);
-#endif
+}
+
+void ScriptController::lowMemoryNotification()
+{
+    v8::V8::LowMemoryNotification();
 }
 
 bool ScriptController::haveInterpreter() const

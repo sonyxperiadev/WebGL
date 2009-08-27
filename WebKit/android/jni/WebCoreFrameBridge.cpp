@@ -1139,7 +1139,7 @@ static void ClearCache(JNIEnv *env, jobject obj)
     WebCore::gcController().garbageCollectSoon();
 #elif USE(V8)
     WebCore::Frame* pFrame = GET_NATIVE_FRAME(env, obj);
-    pFrame->script()->collectGarbage(); 
+    pFrame->script()->lowMemoryNotification(); 
 #endif  // USE(JSC)
 }
 
