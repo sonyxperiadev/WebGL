@@ -79,19 +79,20 @@ void GeolocationPermissions::queryPermissionState(Frame* frame)
         return;
     }
 
-    // See if we have a record for this origin in the temporary permissions for
-    // this tab. These take precedence over permanent permissions.
-    PermissionsMap::const_iterator iter = m_temporaryPermissions.find(originString);
-    PermissionsMap::const_iterator end = m_temporaryPermissions.end();
+    // See if we have a record for this origin in the permanent permissions.
+    // These take precedence over temporary permissions so that changes made
+    // from the browser settings work as intended.
+    PermissionsMap::const_iterator iter = s_permanentPermissions.find(originString);
+    PermissionsMap::const_iterator end = s_permanentPermissions.end();
     if (iter != end) {
         bool allow = iter->second;
         makeAsynchronousCallbackToGeolocation(originString, allow);
         return;
     }
 
-    // Check the permanent permisions.
-    iter = s_permanentPermissions.find(originString);
-    end = s_permanentPermissions.end();
+    // Check the temporary permisions.
+    iter = m_temporaryPermissions.find(originString);
+    end = m_temporaryPermissions.end();
     if (iter != end) {
         bool allow = iter->second;
         makeAsynchronousCallbackToGeolocation(originString, allow);
@@ -158,9 +159,6 @@ void GeolocationPermissions::recordPermissionState(String origin, bool allow, bo
 {
     if (remember) {
         s_permanentPermissions.set(m_originInProgress, allow);
-        // If we already have a temporary permission for this origin, remove it,
-        // so that later clearing the permanent permission works as expected.
-        m_temporaryPermissions.remove(origin);
     } else {
         // It's possible that another tab recorded a permanent permission for
         // this origin while our request was in progress, but we record it
@@ -255,6 +253,14 @@ void GeolocationPermissions::clear(String origin)
     PermissionsMap::iterator iter = s_permanentPermissions.find(origin);
     if (iter != s_permanentPermissions.end())
         s_permanentPermissions.remove(iter);
+    maybeStorePermanentPermissions();
+}
+
+void GeolocationPermissions::allow(String origin)
+{
+    maybeLoadPermanentPermissions();
+    // We replace any existing permanent permission.
+    s_permanentPermissions.set(origin, true);
     maybeStorePermanentPermissions();
 }
 
