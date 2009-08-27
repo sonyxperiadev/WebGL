@@ -254,7 +254,8 @@ namespace android {
         void setGlobalBounds(int x, int y, int h, int v);
 
         void setSizeScreenWidthAndScale(int width, int height, int screenWidth,
-            float scale, int realScreenWidth, int screenHeight);
+            float scale, int realScreenWidth, int screenHeight,
+            bool ignoreHeight);
 
         /**
          * Handle key events from Java.

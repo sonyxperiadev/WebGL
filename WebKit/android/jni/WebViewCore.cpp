@@ -959,7 +959,8 @@ void WebViewCore::setGlobalBounds(int x, int y, int h, int v)
 }
 
 void WebViewCore::setSizeScreenWidthAndScale(int width, int height,
-    int screenWidth, float scale, int realScreenWidth, int screenHeight)
+    int screenWidth, float scale, int realScreenWidth, int screenHeight,
+    bool ignoreHeight)
 {
     WebCoreViewBridge* window = m_mainFrame->view()->platformWidget();
     int ow = window->width();
@@ -979,7 +980,7 @@ void WebViewCore::setSizeScreenWidthAndScale(int width, int height,
     }
     m_maxXScroll = screenWidth >> 2;
     m_maxYScroll = (screenWidth * height / width) >> 2;
-    if (ow != width || oh != height || osw != screenWidth) {
+    if (ow != width || (!ignoreHeight && oh != height) || osw != screenWidth) {
         WebCore::RenderObject *r = m_mainFrame->contentRenderer();
         DBG_NAV_LOGD("renderer=%p view=(w=%d,h=%d)", r,
             realScreenWidth, screenHeight);
@@ -2236,7 +2237,8 @@ static void UpdateFrameCacheIfLoading(JNIEnv *env, jobject obj)
 }
 
 static void SetSize(JNIEnv *env, jobject obj, jint width, jint height,
-        jint screenWidth, jfloat scale, jint realScreenWidth, jint screenHeight)
+        jint screenWidth, jfloat scale, jint realScreenWidth, jint screenHeight,
+        jboolean ignoreHeight)
 {
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
@@ -2245,7 +2247,7 @@ static void SetSize(JNIEnv *env, jobject obj, jint width, jint height,
     LOGV("webviewcore::nativeSetSize(%u %u)\n viewImpl: %p", (unsigned)width, (unsigned)height, viewImpl);
     LOG_ASSERT(viewImpl, "viewImpl not set in nativeSetSize");
     viewImpl->setSizeScreenWidthAndScale(width, height, screenWidth, scale,
-        realScreenWidth, screenHeight);
+        realScreenWidth, screenHeight, ignoreHeight);
 }
 
 static void SetScrollOffset(JNIEnv *env, jobject obj, jint gen, jint x, jint y)
@@ -2769,7 +2771,7 @@ static JNINativeMethod gJavaWebViewCoreMethods[] = {
         (void*) SendListBoxChoices },
     { "nativeSendListBoxChoice", "(I)V",
         (void*) SendListBoxChoice },
-    { "nativeSetSize", "(IIIFII)V",
+    { "nativeSetSize", "(IIIFIIZ)V",
         (void*) SetSize },
     { "nativeSetScrollOffset", "(III)V",
         (void*) SetScrollOffset },
