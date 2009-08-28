@@ -905,7 +905,7 @@ class Smi: public Object {
   static inline Smi* FromIntptr(intptr_t value);
 
   // Returns whether value can be represented in a Smi.
-  static inline bool IsValid(int value);
+  static inline bool IsValid(intptr_t value);
 
   static inline bool IsIntptrValid(intptr_t);
 
@@ -1233,6 +1233,8 @@ class HeapObject: public Object {
   // First field in a heap object is map.
   static const int kMapOffset = Object::kHeaderSize;
   static const int kHeaderSize = kMapOffset + kPointerSize;
+
+  STATIC_CHECK(kMapOffset == Internals::kHeapObjectMapOffset);
 
  protected:
   // helpers for calling an ObjectVisitor to iterate over pointers in the
@@ -1663,6 +1665,8 @@ class JSObject: public HeapObject {
   static const int kPropertiesOffset = HeapObject::kHeaderSize;
   static const int kElementsOffset = kPropertiesOffset + kPointerSize;
   static const int kHeaderSize = kElementsOffset + kPointerSize;
+
+  STATIC_CHECK(kHeaderSize == Internals::kJSObjectHeaderSize);
 
   Object* GetElementWithInterceptor(JSObject* receiver, uint32_t index);
 
@@ -2897,6 +2901,8 @@ class Map: public HeapObject {
   static const int kBitFieldOffset = kInstanceAttributesOffset + 2;
   static const int kBitField2Offset = kInstanceAttributesOffset + 3;
 
+  STATIC_CHECK(kInstanceTypeOffset == Internals::kMapInstanceTypeOffset);
+
   // Bit positions for bit field.
   static const int kUnused = 0;  // To be used for marking recently used maps.
   static const int kHasNonInstancePrototype = 1;
@@ -3108,6 +3114,9 @@ class SharedFunctionInfo: public HeapObject {
       bool has_only_simple_this_property_assignments,
       FixedArray* this_property_assignments);
 
+  // Clear information on assignments of the form this.x = ...;
+  void ClearThisPropertyAssignmentsInfo();
+
   // Indicate that this function only consists of assignments of the form
   // this.x = ...;.
   inline bool has_only_this_property_assignments();
@@ -3122,6 +3131,9 @@ class SharedFunctionInfo: public HeapObject {
   inline int this_property_assignments_count();
   inline void set_this_property_assignments_count(int value);
   String* GetThisPropertyAssignmentName(int index);
+  bool IsThisPropertyAssignmentArgument(int index);
+  int GetThisPropertyAssignmentArgument(int index);
+  Object* GetThisPropertyAssignmentConstant(int index);
 
   // [source code]: Source code for the function.
   bool HasSourceCode();
@@ -4128,6 +4140,8 @@ class ExternalString: public String {
   static const int kResourceOffset = POINTER_SIZE_ALIGN(String::kSize);
   static const int kSize = kResourceOffset + kPointerSize;
 
+  STATIC_CHECK(kResourceOffset == Internals::kStringResourceOffset);
+
  private:
   DISALLOW_IMPLICIT_CONSTRUCTORS(ExternalString);
 };
@@ -4340,6 +4354,8 @@ class Proxy: public HeapObject {
 
   static const int kProxyOffset = HeapObject::kHeaderSize;
   static const int kSize = kProxyOffset + kPointerSize;
+
+  STATIC_CHECK(kProxyOffset == Internals::kProxyProxyOffset);
 
  private:
   DISALLOW_IMPLICIT_CONSTRUCTORS(Proxy);

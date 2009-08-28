@@ -98,6 +98,10 @@ bool V8::Initialize(Deserializer *des) {
     StubCache::Clear();
   }
 
+  // Deserializing may put strange things in the root array's copy of the
+  // stack guard.
+  Heap::SetStackLimit(StackGuard::jslimit());
+
   // Setup the CPU support. Must be done after heap setup and after
   // any deserialization because we have to have the initial heap
   // objects in place for creating the code object used for probing.
@@ -156,13 +160,14 @@ uint32_t V8::Random() {
   return (hi << 16) + (lo & 0xFFFF);
 }
 
-void V8::IdleNotification(bool is_high_priority) {
-  if (!FLAG_use_idle_notification) return;
-  // Ignore high priority instances of V8.
-  if (is_high_priority) return;
 
-  // Uncommit unused memory in new space.
-  Heap::UncommitFromSpace();
+bool V8::IdleNotification(bool is_high_priority) {
+  if (!FLAG_use_idle_notification) return false;
+  // Ignore high priority instances of V8.
+  if (is_high_priority) return false;
+
+  // Tell the heap that it may want to adjust.
+  return Heap::IdleNotification();
 }
 
 

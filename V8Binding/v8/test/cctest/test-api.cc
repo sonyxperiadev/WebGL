@@ -462,11 +462,11 @@ THREADED_TEST(ScriptUsingStringResource) {
     CHECK(source->IsExternal());
     CHECK_EQ(resource,
              static_cast<TestResource*>(source->GetExternalStringResource()));
-    v8::internal::Heap::CollectAllGarbage();
+    v8::internal::Heap::CollectAllGarbage(false);
     CHECK_EQ(0, TestResource::dispose_count);
   }
   v8::internal::CompilationCache::Clear();
-  v8::internal::Heap::CollectAllGarbage();
+  v8::internal::Heap::CollectAllGarbage(false);
   CHECK_EQ(1, TestResource::dispose_count);
 }
 
@@ -483,11 +483,11 @@ THREADED_TEST(ScriptUsingAsciiStringResource) {
     Local<Value> value = script->Run();
     CHECK(value->IsNumber());
     CHECK_EQ(7, value->Int32Value());
-    v8::internal::Heap::CollectAllGarbage();
+    v8::internal::Heap::CollectAllGarbage(false);
     CHECK_EQ(0, TestAsciiResource::dispose_count);
   }
   v8::internal::CompilationCache::Clear();
-  v8::internal::Heap::CollectAllGarbage();
+  v8::internal::Heap::CollectAllGarbage(false);
   CHECK_EQ(1, TestAsciiResource::dispose_count);
 }
 
@@ -505,11 +505,11 @@ THREADED_TEST(ScriptMakingExternalString) {
     Local<Value> value = script->Run();
     CHECK(value->IsNumber());
     CHECK_EQ(7, value->Int32Value());
-    v8::internal::Heap::CollectAllGarbage();
+    v8::internal::Heap::CollectAllGarbage(false);
     CHECK_EQ(0, TestResource::dispose_count);
   }
   v8::internal::CompilationCache::Clear();
-  v8::internal::Heap::CollectAllGarbage();
+  v8::internal::Heap::CollectAllGarbage(false);
   CHECK_EQ(1, TestResource::dispose_count);
 }
 
@@ -528,11 +528,11 @@ THREADED_TEST(ScriptMakingExternalAsciiString) {
     Local<Value> value = script->Run();
     CHECK(value->IsNumber());
     CHECK_EQ(7, value->Int32Value());
-    v8::internal::Heap::CollectAllGarbage();
+    v8::internal::Heap::CollectAllGarbage(false);
     CHECK_EQ(0, TestAsciiResource::dispose_count);
   }
   v8::internal::CompilationCache::Clear();
-  v8::internal::Heap::CollectAllGarbage();
+  v8::internal::Heap::CollectAllGarbage(false);
   CHECK_EQ(1, TestAsciiResource::dispose_count);
 }
 
@@ -550,8 +550,8 @@ THREADED_TEST(UsingExternalString) {
     i::Handle<i::String> isymbol = i::Factory::SymbolFromString(istring);
     CHECK(isymbol->IsSymbol());
   }
-  i::Heap::CollectAllGarbage();
-  i::Heap::CollectAllGarbage();
+  i::Heap::CollectAllGarbage(false);
+  i::Heap::CollectAllGarbage(false);
 }
 
 
@@ -568,8 +568,8 @@ THREADED_TEST(UsingExternalAsciiString) {
     i::Handle<i::String> isymbol = i::Factory::SymbolFromString(istring);
     CHECK(isymbol->IsSymbol());
   }
-  i::Heap::CollectAllGarbage();
-  i::Heap::CollectAllGarbage();
+  i::Heap::CollectAllGarbage(false);
+  i::Heap::CollectAllGarbage(false);
 }
 
 
@@ -1333,12 +1333,12 @@ THREADED_TEST(InternalFieldsNativePointers) {
 
   // Check reading and writing aligned pointers.
   obj->SetPointerInInternalField(0, aligned);
-  i::Heap::CollectAllGarbage();
+  i::Heap::CollectAllGarbage(false);
   CHECK_EQ(aligned, obj->GetPointerFromInternalField(0));
 
   // Check reading and writing unaligned pointers.
   obj->SetPointerInInternalField(0, unaligned);
-  i::Heap::CollectAllGarbage();
+  i::Heap::CollectAllGarbage(false);
   CHECK_EQ(unaligned, obj->GetPointerFromInternalField(0));
 
   delete[] data;
@@ -1351,7 +1351,7 @@ THREADED_TEST(IdentityHash) {
 
   // Ensure that the test starts with an fresh heap to test whether the hash
   // code is based on the address.
-  i::Heap::CollectAllGarbage();
+  i::Heap::CollectAllGarbage(false);
   Local<v8::Object> obj = v8::Object::New();
   int hash = obj->GetIdentityHash();
   int hash1 = obj->GetIdentityHash();
@@ -1361,7 +1361,7 @@ THREADED_TEST(IdentityHash) {
   // objects should not be assigned the same hash code. If the test below fails
   // the random number generator should be evaluated.
   CHECK_NE(hash, hash2);
-  i::Heap::CollectAllGarbage();
+  i::Heap::CollectAllGarbage(false);
   int hash3 = v8::Object::New()->GetIdentityHash();
   // Make sure that the identity hash is not based on the initial address of
   // the object alone. If the test below fails the random number generator
@@ -1381,7 +1381,7 @@ THREADED_TEST(HiddenProperties) {
   v8::Local<v8::String> empty = v8_str("");
   v8::Local<v8::String> prop_name = v8_str("prop_name");
 
-  i::Heap::CollectAllGarbage();
+  i::Heap::CollectAllGarbage(false);
 
   // Make sure delete of a non-existent hidden value works
   CHECK(obj->DeleteHiddenValue(key));
@@ -1391,7 +1391,7 @@ THREADED_TEST(HiddenProperties) {
   CHECK(obj->SetHiddenValue(key, v8::Integer::New(2002)));
   CHECK_EQ(2002, obj->GetHiddenValue(key)->Int32Value());
 
-  i::Heap::CollectAllGarbage();
+  i::Heap::CollectAllGarbage(false);
 
   // Make sure we do not find the hidden property.
   CHECK(!obj->Has(empty));
@@ -1402,7 +1402,7 @@ THREADED_TEST(HiddenProperties) {
   CHECK_EQ(2002, obj->GetHiddenValue(key)->Int32Value());
   CHECK_EQ(2003, obj->Get(empty)->Int32Value());
 
-  i::Heap::CollectAllGarbage();
+  i::Heap::CollectAllGarbage(false);
 
   // Add another property and delete it afterwards to force the object in
   // slow case.
@@ -1413,7 +1413,7 @@ THREADED_TEST(HiddenProperties) {
   CHECK(obj->Delete(prop_name));
   CHECK_EQ(2002, obj->GetHiddenValue(key)->Int32Value());
 
-  i::Heap::CollectAllGarbage();
+  i::Heap::CollectAllGarbage(false);
 
   CHECK(obj->DeleteHiddenValue(key));
   CHECK(obj->GetHiddenValue(key).IsEmpty());
@@ -1429,7 +1429,7 @@ static v8::Handle<Value> InterceptorForHiddenProperties(
   }
   // The whole goal of this interceptor is to cause a GC during local property
   // lookup.
-  i::Heap::CollectAllGarbage();
+  i::Heap::CollectAllGarbage(false);
   i::FLAG_always_compact = saved_always_compact;
   return v8::Handle<Value>();
 }
@@ -2843,7 +2843,7 @@ TEST(ErrorReporting) {
 
 static const char* js_code_causing_huge_string_flattening =
     "var str = 'X';"
-    "for (var i = 0; i < 29; i++) {"
+    "for (var i = 0; i < 30; i++) {"
     "  str = str + str;"
     "}"
     "str.match(/X/);";
@@ -2982,7 +2982,7 @@ static v8::Handle<Value> ArgumentsTestCallback(const v8::Arguments& args) {
   CHECK_EQ(v8::Integer::New(3), args[2]);
   CHECK_EQ(v8::Undefined(), args[3]);
   v8::HandleScope scope;
-  i::Heap::CollectAllGarbage();
+  i::Heap::CollectAllGarbage(false);
   return v8::Undefined();
 }
 
@@ -4960,7 +4960,7 @@ static v8::Handle<Value> InterceptorHasOwnPropertyGetterGC(
     Local<String> name,
     const AccessorInfo& info) {
   ApiTestFuzzer::Fuzz();
-  i::Heap::CollectAllGarbage();
+  i::Heap::CollectAllGarbage(false);
   return v8::Handle<Value>();
 }
 
@@ -6165,8 +6165,8 @@ static int GetSurvivingGlobalObjectsCount() {
   // the first garbage collection but some of the maps have already
   // been marked at that point.  Therefore some of the maps are not
   // collected until the second garbage collection.
-  v8::internal::Heap::CollectAllGarbage();
-  v8::internal::Heap::CollectAllGarbage();
+  v8::internal::Heap::CollectAllGarbage(false);
+  v8::internal::Heap::CollectAllGarbage(false);
   v8::internal::HeapIterator it;
   while (it.has_next()) {
     v8::internal::HeapObject* object = it.next();
@@ -6242,7 +6242,30 @@ THREADED_TEST(NewPersistentHandleFromWeakCallback) {
   // weak callback of the first handle would be able to 'reallocate' it.
   handle1.MakeWeak(NULL, NewPersistentHandleCallback);
   handle2.Dispose();
-  i::Heap::CollectAllGarbage();
+  i::Heap::CollectAllGarbage(false);
+}
+
+
+v8::Persistent<v8::Object> to_be_disposed;
+
+void DisposeAndForceGcCallback(v8::Persistent<v8::Value> handle, void*) {
+  to_be_disposed.Dispose();
+  i::Heap::CollectAllGarbage(false);
+}
+
+
+THREADED_TEST(DoNotUseDeletedNodesInSecondLevelGc) {
+  LocalContext context;
+
+  v8::Persistent<v8::Object> handle1, handle2;
+  {
+    v8::HandleScope scope;
+    handle1 = v8::Persistent<v8::Object>::New(v8::Object::New());
+    handle2 = v8::Persistent<v8::Object>::New(v8::Object::New());
+  }
+  handle1.MakeWeak(NULL, DisposeAndForceGcCallback);
+  to_be_disposed = handle2;
+  i::Heap::CollectAllGarbage(false);
 }
 
 
@@ -6819,7 +6842,7 @@ class RegExpInterruptTest {
       {
         v8::Locker lock;
         // TODO(lrn): Perhaps create some garbage before collecting.
-        i::Heap::CollectAllGarbage();
+        i::Heap::CollectAllGarbage(false);
         gc_count_++;
       }
       i::OS::Sleep(1);
@@ -6940,7 +6963,7 @@ class ApplyInterruptTest {
     while (gc_during_apply_ < kRequiredGCs) {
       {
         v8::Locker lock;
-        i::Heap::CollectAllGarbage();
+        i::Heap::CollectAllGarbage(false);
         gc_count_++;
       }
       i::OS::Sleep(1);
@@ -7146,6 +7169,30 @@ THREADED_TEST(MorphCompositeStringTest) {
              env->Global()->Get(v8_str("slice")));
     CHECK_EQ(String::New(expected_slice_on_cons),
              env->Global()->Get(v8_str("slice_on_cons")));
+  }
+}
+
+
+TEST(CompileExternalTwoByteSource) {
+  v8::HandleScope scope;
+  LocalContext context;
+
+  // This is a very short list of sources, which currently is to check for a
+  // regression caused by r2703.
+  const char* ascii_sources[] = {
+    "0.5",
+    "-0.5",   // This mainly testes PushBack in the Scanner.
+    "--0.5",  // This mainly testes PushBack in the Scanner.
+    NULL
+  };
+
+  // Compile the sources as external two byte strings.
+  for (int i = 0; ascii_sources[i] != NULL; i++) {
+    uint16_t* two_byte_string = AsciiToTwoByteString(ascii_sources[i]);
+    UC16VectorResource uc16_resource(
+        i::Vector<const uint16_t>(two_byte_string, strlen(ascii_sources[i])));
+    v8::Local<v8::String> source = v8::String::NewExternal(&uc16_resource);
+    v8::Script::Compile(source);
   }
 }
 
@@ -7633,11 +7680,11 @@ THREADED_TEST(PixelArray) {
   uint8_t* pixel_data = reinterpret_cast<uint8_t*>(malloc(kElementCount));
   i::Handle<i::PixelArray> pixels = i::Factory::NewPixelArray(kElementCount,
                                                               pixel_data);
-  i::Heap::CollectAllGarbage();  // Force GC to trigger verification.
+  i::Heap::CollectAllGarbage(false);  // Force GC to trigger verification.
   for (int i = 0; i < kElementCount; i++) {
     pixels->set(i, i);
   }
-  i::Heap::CollectAllGarbage();  // Force GC to trigger verification.
+  i::Heap::CollectAllGarbage(false);  // Force GC to trigger verification.
   for (int i = 0; i < kElementCount; i++) {
     CHECK_EQ(i, pixels->get(i));
     CHECK_EQ(i, pixel_data[i]);
@@ -7768,6 +7815,7 @@ THREADED_TEST(PixelArray) {
   free(pixel_data);
 }
 
+
 THREADED_TEST(ScriptContextDependence) {
   v8::HandleScope scope;
   LocalContext c1;
@@ -7783,6 +7831,7 @@ THREADED_TEST(ScriptContextDependence) {
   CHECK_EQ(indep->Run()->Int32Value(), 101);
 }
 
+
 THREADED_TEST(StackTrace) {
   v8::HandleScope scope;
   LocalContext context;
@@ -7794,4 +7843,12 @@ THREADED_TEST(StackTrace) {
   CHECK(try_catch.HasCaught());
   v8::String::Utf8Value stack(try_catch.StackTrace());
   CHECK(strstr(*stack, "at foo (stack-trace-test") != NULL);
+}
+
+
+// Test that idle notification can be handled when V8 has not yet been
+// set up.
+THREADED_TEST(IdleNotification) {
+  for (int i = 0; i < 100; i++) v8::V8::IdleNotification(true);
+  for (int i = 0; i < 100; i++) v8::V8::IdleNotification(false);
 }

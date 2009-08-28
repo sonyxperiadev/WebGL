@@ -66,6 +66,7 @@
           'DEBUG',
           '_DEBUG',
           'ENABLE_DISASSEMBLER',
+          'V8_ENABLE_CHECKS'
         ],
         'msvs_settings': {
           'VCCLCompilerTool': {
@@ -97,9 +98,15 @@
                 ],
               }],
             ],
-            'cflags_cc': [
-              '-fno-rtti',
-            ],
+          }],
+          ['OS=="mac"', {
+            'xcode_settings': {
+              'GCC_OPTIMIZATION_LEVEL': '3',  # -O3
+              'GCC_STRICT_ALIASING': 'YES',   # -fstrict-aliasing.  Mainline gcc
+                                              # enables this at -O2 and above,
+                                              # but Apple gcc does not unless it
+                                              # is specified explicitly.
+            },
           }],
           ['OS=="win"', {
             'msvs_configuration_attributes': {
@@ -127,10 +134,6 @@
           }],
         ],
       },
-    },
-    'xcode_settings': {
-      'GCC_ENABLE_CPP_EXCEPTIONS': 'NO',
-      'GCC_ENABLE_CPP_RTTI': 'NO',
     },
   },
   'targets': [
@@ -387,7 +390,7 @@
             '../../src/arm/assembler-arm.cc',
             '../../src/arm/assembler-arm.h',
             '../../src/arm/builtins-arm.cc',
-	    '../../src/arm/cfg-arm.cc',
+            '../../src/arm/cfg-arm.cc',
             '../../src/arm/codegen-arm.cc',
             '../../src/arm/codegen-arm.h',
             '../../src/arm/constants-arm.h',
@@ -418,7 +421,7 @@
             '../../src/ia32/assembler-ia32.cc',
             '../../src/ia32/assembler-ia32.h',
             '../../src/ia32/builtins-ia32.cc',
-	    '../../src/ia32/cfg-ia32.cc',
+            '../../src/ia32/cfg-ia32.cc',
             '../../src/ia32/codegen-ia32.cc',
             '../../src/ia32/codegen-ia32.h',
             '../../src/ia32/cpu-ia32.cc',
@@ -451,7 +454,7 @@
             '../../src/x64/assembler-x64.cc',
             '../../src/x64/assembler-x64.h',
             '../../src/x64/builtins-x64.cc',
-	    '../../src/x64/cfg-x64.cc',
+            '../../src/x64/cfg-x64.cc',
             '../../src/x64/codegen-x64.cc',
             '../../src/x64/codegen-x64.h',
             '../../src/x64/cpu-x64.cc',
