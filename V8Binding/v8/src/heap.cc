@@ -332,7 +332,7 @@ void Heap::CollectAllGarbageIfContextDisposed() {
   // informed decisions about when to force a collection.
   if (!FLAG_expose_gc && context_disposed_pending_) {
     HistogramTimerScope scope(&Counters::gc_context);
-    CollectAllGarbage();
+    CollectAllGarbage(false);
   }
   context_disposed_pending_ = false;
 }
@@ -467,6 +467,7 @@ void Heap::PerformGarbageCollection(AllocationSpace space,
     old_gen_exhausted_ = false;
   }
   Scavenge();
+
   Counters::objs_since_last_young.Set(0);
 
   PostGarbageCollectionProcessing();
@@ -487,7 +488,10 @@ void Heap::PerformGarbageCollection(AllocationSpace space,
 
 void Heap::PostGarbageCollectionProcessing() {
   // Process weak handles post gc.
-  GlobalHandles::PostGarbageCollectionProcessing();
+  {
+    DisableAssertNoAllocation allow_allocation;
+    GlobalHandles::PostGarbageCollectionProcessing();
+  }
   // Update flat string readers.
   FlatStringReader::PostGarbageCollectionProcessing();
 }
@@ -665,8 +669,6 @@ void Heap::Scavenge() {
       survived_since_last_expansion_ > new_space_.Capacity()) {
     // Grow the size of new space if there is room to grow and enough
     // data has survived scavenge since the last expansion.
-    // TODO(1240712): NewSpace::Grow has a return value which is
-    // ignored here.
     new_space_.Grow();
     survived_since_last_expansion_ = 0;
   }
@@ -2089,8 +2091,9 @@ Object* Heap::AllocateInitialMap(JSFunction* fun) {
     if (count > in_object_properties) {
       count = in_object_properties;
     }
-    DescriptorArray* descriptors = *Factory::NewDescriptorArray(count);
-    if (descriptors->IsFailure()) return descriptors;
+    Object* descriptors_obj = DescriptorArray::Allocate(count);
+    if (descriptors_obj->IsFailure()) return descriptors_obj;
+    DescriptorArray* descriptors = DescriptorArray::cast(descriptors_obj);
     for (int i = 0; i < count; i++) {
       String* name = fun->shared()->GetThisPropertyAssignmentName(i);
       ASSERT(name->IsSymbol());
@@ -2776,6 +2779,41 @@ STRUCT_LIST(MAKE_CASE)
 }
 
 
+bool Heap::IdleNotification() {
+  static const int kIdlesBeforeCollection = 7;
+  static int number_idle_notifications = 0;
+  static int last_gc_count = gc_count_;
+
+  bool finished = false;
+
+  if (last_gc_count == gc_count_) {
+    number_idle_notifications++;
+  } else {
+    number_idle_notifications = 0;
+    last_gc_count = gc_count_;
+  }
+
+  if (number_idle_notifications >= kIdlesBeforeCollection) {
+    // The first time through we collect without forcing compaction.
+    // The second time through we force compaction and quit.
+    bool force_compaction =
+        number_idle_notifications > kIdlesBeforeCollection;
+    CollectAllGarbage(force_compaction);
+    last_gc_count = gc_count_;
+    if (force_compaction) {
+      // Shrink new space.
+      new_space_.Shrink();
+      number_idle_notifications = 0;
+      finished = true;
+    }
+  }
+
+  // Uncommit unused memory in new space.
+  Heap::UncommitFromSpace();
+  return finished;
+}
+
+
 #ifdef DEBUG
 
 void Heap::Print() {
@@ -2941,7 +2979,7 @@ bool Heap::LookupSymbolIfExists(String* string, String** symbol) {
 
 #ifdef DEBUG
 void Heap::ZapFromSpace() {
-  ASSERT(HAS_HEAP_OBJECT_TAG(kFromSpaceZapValue));
+  ASSERT(reinterpret_cast<Object*>(kFromSpaceZapValue)->IsHeapObject());
   for (Address a = new_space_.FromSpaceLow();
        a < new_space_.FromSpaceHigh();
        a += kPointerSize) {
@@ -3211,6 +3249,19 @@ bool Heap::Setup(bool create_heap_objects) {
   LOG(IntEvent("heap-available", Available()));
 
   return true;
+}
+
+
+void Heap::SetStackLimit(intptr_t limit) {
+  // We don't use the stack limit in the roots array on x86-64 yet, but since
+  // pointers are generally out of range of Smis we should set the value either.
+#if !V8_HOST_ARCH_64_BIT
+  // Set up the special root array entry containing the stack guard.
+  // This is actually an address, but the tag makes the GC ignore it.
+  set_stack_limit(Smi::FromInt(limit >> kSmiTagSize));
+#else
+  set_stack_limit(Smi::FromInt(0));
+#endif
 }
 
 

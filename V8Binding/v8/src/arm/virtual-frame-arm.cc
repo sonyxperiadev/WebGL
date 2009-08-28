@@ -102,7 +102,8 @@ void VirtualFrame::Enter() {
 #ifdef DEBUG
   // Verify that r1 contains a JS function.  The following code relies
   // on r2 being available for use.
-  { Label map_check, done;
+  if (FLAG_debug_code) {
+    Label map_check, done;
     __ tst(r1, Operand(kSmiTagMask));
     __ b(ne, &map_check);
     __ stop("VirtualFrame::Enter - r1 is not a function (smi check).");
@@ -139,7 +140,7 @@ void VirtualFrame::AllocateStackSlots() {
     Comment cmnt(masm(), "[ Allocate space for locals");
     Adjust(count);
       // Initialize stack slots with 'undefined' value.
-    __ mov(ip, Operand(Factory::undefined_value()));
+    __ LoadRoot(ip, Heap::kUndefinedValueRootIndex);
     for (int i = 0; i < count; i++) {
       __ push(ip);
     }

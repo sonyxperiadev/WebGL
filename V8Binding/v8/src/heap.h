@@ -132,7 +132,8 @@ namespace internal {
   V(FixedArray, number_string_cache, NumberStringCache)                        \
   V(FixedArray, single_character_string_cache, SingleCharacterStringCache)     \
   V(FixedArray, natives_source_cache, NativesSourceCache)                      \
-  V(Object, last_script_id, LastScriptId)
+  V(Object, last_script_id, LastScriptId)                                      \
+  V(Smi, stack_limit, StackLimit)
 
 
 #define ROOT_LIST(V)                                  \
@@ -226,6 +227,11 @@ class Heap : public AllStatic {
 
   // Destroys all memory allocated by the heap.
   static void TearDown();
+
+  // Sets the stack limit in the roots_ array.  Some architectures generate code
+  // that looks here, because it is faster than loading from the static jslimit_
+  // variable.
+  static void SetStackLimit(intptr_t limit);
 
   // Returns whether Setup has been called.
   static bool HasBeenSetup();
@@ -629,7 +635,7 @@ class Heap : public AllStatic {
 
   // Performs a full garbage collection. Force compaction if the
   // parameter is true.
-  static void CollectAllGarbage(bool force_compaction = false);
+  static void CollectAllGarbage(bool force_compaction);
 
   // Performs a full garbage collection if a context has been disposed
   // since the last time the check was performed.
@@ -732,6 +738,9 @@ class Heap : public AllStatic {
 
   // Update the next script id.
   static inline void SetLastScriptId(Object* last_script_id);
+
+  // Generated code can embed this address to get access to the roots.
+  static Object** roots_address() { return roots_; }
 
 #ifdef DEBUG
   static void Print();
@@ -839,6 +848,29 @@ class Heap : public AllStatic {
            > old_gen_allocation_limit_;
   }
 
+  // Can be called when the embedding application is idle.
+  static bool IdleNotification();
+
+  // Declare all the root indices.
+  enum RootListIndex {
+#define ROOT_INDEX_DECLARATION(type, name, camel_name) k##camel_name##RootIndex,
+    STRONG_ROOT_LIST(ROOT_INDEX_DECLARATION)
+#undef ROOT_INDEX_DECLARATION
+
+// Utility type maps
+#define DECLARE_STRUCT_MAP(NAME, Name, name) k##Name##MapRootIndex,
+  STRUCT_LIST(DECLARE_STRUCT_MAP)
+#undef DECLARE_STRUCT_MAP
+
+#define SYMBOL_INDEX_DECLARATION(name, str) k##name##RootIndex,
+    SYMBOL_LIST(SYMBOL_INDEX_DECLARATION)
+#undef SYMBOL_DECLARATION
+
+    kSymbolTableRootIndex,
+    kStrongRootListLength = kSymbolTableRootIndex,
+    kRootListLength
+  };
+
  private:
   static int semispace_size_;
   static int initial_semispace_size_;
@@ -922,26 +954,6 @@ class Heap : public AllStatic {
   // Indicates that an allocation has failed in the old generation since the
   // last GC.
   static int old_gen_exhausted_;
-
-  // Declare all the root indices.
-  enum RootListIndex {
-#define ROOT_INDEX_DECLARATION(type, name, camel_name) k##camel_name##RootIndex,
-    STRONG_ROOT_LIST(ROOT_INDEX_DECLARATION)
-#undef ROOT_INDEX_DECLARATION
-
-// Utility type maps
-#define DECLARE_STRUCT_MAP(NAME, Name, name) k##Name##MapRootIndex,
-  STRUCT_LIST(DECLARE_STRUCT_MAP)
-#undef DECLARE_STRUCT_MAP
-
-#define SYMBOL_INDEX_DECLARATION(name, str) k##name##RootIndex,
-    SYMBOL_LIST(SYMBOL_INDEX_DECLARATION)
-#undef SYMBOL_DECLARATION
-
-    kSymbolTableRootIndex,
-    kStrongRootListLength = kSymbolTableRootIndex,
-    kRootListLength
-  };
 
   static Object* roots_[kRootListLength];
 
@@ -1388,12 +1400,32 @@ class AssertNoAllocation {
   bool old_state_;
 };
 
+class DisableAssertNoAllocation {
+ public:
+  DisableAssertNoAllocation() {
+    old_state_ = Heap::allow_allocation(true);
+  }
+
+  ~DisableAssertNoAllocation() {
+    Heap::allow_allocation(old_state_);
+  }
+
+ private:
+  bool old_state_;
+};
+
 #else  // ndef DEBUG
 
 class AssertNoAllocation {
  public:
   AssertNoAllocation() { }
   ~AssertNoAllocation() { }
+};
+
+class DisableAssertNoAllocation {
+ public:
+  DisableAssertNoAllocation() { }
+  ~DisableAssertNoAllocation() { }
 };
 
 #endif

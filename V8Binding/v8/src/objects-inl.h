@@ -131,7 +131,7 @@ bool Object::IsSmi() {
 
 
 bool Object::IsHeapObject() {
-  return HAS_HEAP_OBJECT_TAG(this);
+  return Internals::HasHeapObjectTag(this);
 }
 
 
@@ -300,6 +300,10 @@ uint32_t StringShape::full_representation_tag() {
 }
 
 
+STATIC_CHECK((kStringRepresentationMask | kStringEncodingMask) ==
+             Internals::kFullStringRepresentationMask);
+
+
 uint32_t StringShape::size_tag() {
   return (type_ & kStringSizeMask);
 }
@@ -323,6 +327,10 @@ bool StringShape::IsExternalAscii() {
 bool StringShape::IsExternalTwoByte() {
   return full_representation_tag() == (kExternalStringTag | kTwoByteStringTag);
 }
+
+
+STATIC_CHECK((kExternalStringTag | kTwoByteStringTag) ==
+             Internals::kExternalTwoByteRepresentationTag);
 
 
 uc32 FlatStringReader::Get(int index) {
@@ -730,7 +738,7 @@ Object** HeapObject::RawField(HeapObject* obj, int byte_offset) {
 
 
 int Smi::value() {
-  return static_cast<int>(reinterpret_cast<intptr_t>(this)) >> kSmiTagSize;
+  return Internals::SmiValue(this);
 }
 
 
@@ -814,15 +822,13 @@ Failure* Failure::RetryAfterGC(int requested_bytes) {
 
 Failure* Failure::Construct(Type type, int value) {
   int info = (value << kFailureTypeTagSize) | type;
-  // TODO(X64): Stop using Smi validation for non-smi checks, even if they
-  // happen to be identical at the moment.
-  ASSERT(Smi::IsValid(info));  // Same validation check as in Smi
+  ASSERT(((info << kFailureTagSize) >> kFailureTagSize) == info);
   return reinterpret_cast<Failure*>(
       (static_cast<intptr_t>(info) << kFailureTagSize) | kFailureTag);
 }
 
 
-bool Smi::IsValid(int value) {
+bool Smi::IsValid(intptr_t value) {
 #ifdef DEBUG
   bool in_range = (value >= kMinValue) && (value <= kMaxValue);
 #endif
@@ -937,12 +943,13 @@ MapWord MapWord::EncodeAddress(Address map_address, int offset) {
 
 
 Address MapWord::DecodeMapAddress(MapSpace* map_space) {
-  int map_page_index = (value_ & kMapPageIndexMask) >> kMapPageIndexShift;
+  int map_page_index =
+      static_cast<int>((value_ & kMapPageIndexMask) >> kMapPageIndexShift);
   ASSERT_MAP_PAGE_INDEX(map_page_index);
 
-  int map_page_offset =
+  int map_page_offset = static_cast<int>(
       ((value_ & kMapPageOffsetMask) >> kMapPageOffsetShift)
-      << kObjectAlignmentBits;
+      << kObjectAlignmentBits);
 
   return (map_space->PageAddress(map_page_index) + map_page_offset);
 }
