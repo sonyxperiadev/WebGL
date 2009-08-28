@@ -961,7 +961,7 @@ WTF::PassRefPtr<Widget> FrameLoaderClientAndroid::createPlugin(
             loadDataIntoFrame(frame.get(),
                     KURL("file:///android_asset/webkit/"), String(), s);
             // Transfer ownership to a local refptr.
-            WTF::RefPtr<Widget> widget = adoptRef(frame->view());
+            WTF::RefPtr<Widget> widget(frame->view());
             return widget.release();
         }
         return NULL;
