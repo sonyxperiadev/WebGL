@@ -81,7 +81,7 @@ bool MockGeolocationService::startUpdating(PositionOptions*)
 
 void MockGeolocationService::timerFired(Timer<MockGeolocationService>* timer)
 {
-    ASSERT(timer == &m_timer);
+    if (timer != &m_timer) ASSERT(0);
     makeGeolocationCallback();
 }
 
