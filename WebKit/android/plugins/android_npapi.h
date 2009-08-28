@@ -429,6 +429,10 @@ struct ANPTypefaceInterfaceV0 : ANPInterface {
         requested name and style. Pass null as the name to return
         the default font for the requested style. Will never return null
 
+        The 5 generic font names "serif", "sans-serif", "monospace", "cursive",
+        "fantasy" are recognized, and will be mapped to their logical font
+        automatically by this call.
+
         @param name     May be NULL. The name of the font family.
         @param style    The style (normal, bold, italic) of the typeface.
         @return reference to the closest-matching typeface. Caller must call
@@ -497,7 +501,9 @@ struct ANPTypefaceInterfaceV0 : ANPInterface {
     int32_t (*getFontPath)(const ANPTypeface*, char path[], int32_t length,
                            int32_t* index);
 
-    /** Return the path name for the font directory, or NULL if not supported
+    /** Return a UTF8 encoded path name for the font directory, or NULL if not
+        supported. If returned, this string address will be valid for the life
+        of the plugin instance. It will always end with a '/' character. 
      */
     const char* (*getFontDirectoryPath)();
 };
