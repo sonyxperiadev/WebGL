@@ -395,7 +395,8 @@ Register StubCompiler::CheckPrototypes(JSObject* object,
       __ mov(scratch, Operand(Handle<Object>(cell)));
       __ ldr(scratch,
              FieldMemOperand(scratch, JSGlobalPropertyCell::kValueOffset));
-      __ cmp(scratch, Operand(Factory::the_hole_value()));
+      __ LoadRoot(ip, Heap::kTheHoleValueRootIndex);
+      __ cmp(scratch, ip);
       __ b(ne, miss);
     }
     object = JSObject::cast(object->GetPrototype());
@@ -667,9 +668,11 @@ Object* CallStubCompiler::CompileCallConstant(Object* object,
     case BOOLEAN_CHECK: {
       Label fast;
       // Check that the object is a boolean.
-      __ cmp(r1, Operand(Factory::true_value()));
+      __ LoadRoot(ip, Heap::kTrueValueRootIndex);
+      __ cmp(r1, ip);
       __ b(eq, &fast);
-      __ cmp(r1, Operand(Factory::false_value()));
+      __ LoadRoot(ip, Heap::kFalseValueRootIndex);
+      __ cmp(r1, ip);
       __ b(ne, &miss);
       __ bind(&fast);
       // Check that the maps starting from the prototype haven't changed.
@@ -688,7 +691,8 @@ Object* CallStubCompiler::CompileCallConstant(Object* object,
       __ ldr(r3, FieldMemOperand(r1, JSObject::kElementsOffset));
       // Check that the object is in fast mode (not dictionary).
       __ ldr(r2, FieldMemOperand(r3, HeapObject::kMapOffset));
-      __ cmp(r2, Operand(Factory::fixed_array_map()));
+      __ LoadRoot(ip, Heap::kFixedArrayMapRootIndex);
+      __ cmp(r2, ip);
       __ b(ne, &miss);
       break;
 
@@ -1108,7 +1112,8 @@ Object* LoadStubCompiler::CompileLoadGlobal(JSObject* object,
 
   // Check for deleted property if property can actually be deleted.
   if (!is_dont_delete) {
-    __ cmp(r0, Operand(Factory::the_hole_value()));
+    __ LoadRoot(ip, Heap::kTheHoleValueRootIndex);
+    __ cmp(r0, ip);
     __ b(eq, &miss);
   }
 
@@ -1334,6 +1339,18 @@ Object* KeyedStoreStubCompiler::CompileStoreField(JSObject* object,
 
   // Return the generated code.
   return GetCode(transition == NULL ? FIELD : MAP_TRANSITION, name);
+}
+
+
+Object* ConstructStubCompiler::CompileConstructStub(
+    SharedFunctionInfo* shared) {
+  // Not implemented yet - just jump to generic stub.
+  Code* code = Builtins::builtin(Builtins::JSConstructStubGeneric);
+  Handle<Code> generic_construct_stub(code);
+  __ Jump(generic_construct_stub, RelocInfo::CODE_TARGET);
+
+  // Return the generated code.
+  return GetCode();
 }
 
 
