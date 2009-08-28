@@ -29,6 +29,7 @@
  */
 
 #include "config.h"
+#include "V8Binding.h"
 #include "V8CustomVoidCallback.h"
 
 #include "Frame.h"
@@ -66,7 +67,6 @@ void V8CustomVoidCallback::handleEvent()
 
 bool invokeCallback(v8::Persistent<v8::Object> callback, int argc, v8::Handle<v8::Value> argv[], bool& callbackReturnValue)
 {
-    // FIXME: If an exception was thrown by the callback, we should report it
     v8::TryCatch exceptionCatcher;
 
     v8::Local<v8::Function> callbackFunction;
@@ -92,7 +92,13 @@ bool invokeCallback(v8::Persistent<v8::Object> callback, int argc, v8::Handle<v8
 
     callbackReturnValue = !result.IsEmpty() && result->IsBoolean() && result->BooleanValue();
 
-    return exceptionCatcher.HasCaught();
+    if (exceptionCatcher.HasCaught()) {
+        v8::Local<v8::Message> message = exceptionCatcher.Message();
+        proxy->frame()->document()->reportException(toWebCoreString(message->Get()), message->GetLineNumber(), toWebCoreString(message->GetScriptResourceName()));
+        return true;
+    }
+
+    return false;
 }
 
 } // namespace WebCore
