@@ -37,9 +37,12 @@
 #include "SkCanvas.h"
 #include "SkRect.h"
 
-static const char* checks[] = { "res/drawable/checkbox_off_background.png", "res/drawable/checkbox_on_background.png",
-                                "res/drawable/radiobutton_off_background.png", "res/drawable/radiobutton_on_background.png"};
-static const SkScalar SIZE = SkIntToScalar(19); // Default height and width - corresponds with the bitmap - perhaps we should query the bitmap.
+static const char* checks[] = { "res/drawable-mdpi/btn_check_off.png",
+                                "res/drawable-mdpi/btn_check_on.png",
+                                "res/drawable-mdpi/btn_radio_off.png",
+                                "res/drawable-mdpi/btn_radio_on.png"};
+// Matches the width of the bitmap
+static SkScalar SIZE;
 
 namespace WebCore {
 
@@ -54,6 +57,7 @@ void RenderSkinRadio::Init(android::AssetManager* am)
     s_decoded = RenderSkinAndroid::DecodeBitmap(am, checks[1], &s_bitmap[1]) && s_decoded;
     s_decoded = RenderSkinAndroid::DecodeBitmap(am, checks[2], &s_bitmap[2]) && s_decoded;
     s_decoded = RenderSkinAndroid::DecodeBitmap(am, checks[3], &s_bitmap[3]) && s_decoded;
+    SIZE = SkIntToScalar(s_bitmap[0].width());
 }
 
 void RenderSkinRadio::Draw(SkCanvas* canvas, Node* element, const IntRect& ir,
@@ -63,6 +67,9 @@ void RenderSkinRadio::Draw(SkCanvas* canvas, Node* element, const IntRect& ir,
         return;
     }
     SkRect r(ir);
+    // Set up a paint to with filtering to look better.
+    SkPaint paint;
+    paint.setFlags(SkPaint::kFilterBitmap_Flag);
     int saveLayerCount = 0;
     int saveScaleCount = 0;
 
@@ -71,23 +78,23 @@ void RenderSkinRadio::Draw(SkCanvas* canvas, Node* element, const IntRect& ir,
         saveLayerCount = canvas->saveLayerAlpha(&r, 0x80);
     }
     SkScalar width = r.width();
-    if (SIZE != width) {
-        SkScalar scale = SkScalarDiv(width, SIZE);
-        saveScaleCount =  canvas->scale(scale, scale);
-    }
+    SkScalar scale = SkScalarDiv(width, SIZE);
+    saveScaleCount = canvas->save();
+    canvas->translate(r.fLeft, r.fTop);
+    canvas->scale(scale, scale);
+
     bool checked = false;
     if (InputElement* inputElement = toInputElement(static_cast<Element*>(element))) {
         checked = inputElement->isChecked();
     }
 
     canvas->drawBitmap(s_bitmap[checked + 2*(!isCheckBox)],
-            r.fLeft, r.fTop, NULL);
+            0, 0, &paint);
     if (saveLayerCount != 0) {
         canvas->restoreToCount(saveLayerCount);
-    } else if (saveScaleCount != 0) {
+    } else {
         canvas->restoreToCount(saveScaleCount);
     }
-    return;
 }
 
 } //WebCore
