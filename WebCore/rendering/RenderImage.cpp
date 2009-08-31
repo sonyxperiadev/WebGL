@@ -367,10 +367,16 @@ void RenderImage::paintReplaced(PaintInfo& paintInfo, int tx, int ty)
 
         if (cWidth > 2 && cHeight > 2) {
             // Draw an outline rect where the image should be.
+#ifdef ANDROID_FIX // see http://b/issue?id=2052757
+            context->save();
+#endif
             context->setStrokeStyle(SolidStroke);
             context->setStrokeColor(Color::lightGray);
             context->setFillColor(Color::transparent);
             context->drawRect(IntRect(tx + leftBorder + leftPad, ty + topBorder + topPad, cWidth, cHeight));
+#ifdef ANDROID_FIX // see http://b/issue?id=2052757
+            context->restore();
+#endif
 
             bool errorPictureDrawn = false;
             int imageX = 0;
