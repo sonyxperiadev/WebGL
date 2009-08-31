@@ -68,7 +68,11 @@ bool Path::isEmpty() const
 
 bool Path::hasCurrentPoint() const
 {
-    return !isEmpty();
+    // webkit wants to know if we have any points, including any moveTos.
+    // Skia's empty() will return true if it has just a moveTo, so we need to
+    // call getPoints(NULL), which returns the number of points,
+    // including moveTo.
+    return m_path->getPoints(0, 0) > 0;
 }
 
 bool Path::contains(const FloatPoint& point, WindRule rule) const
