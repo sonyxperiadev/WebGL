@@ -79,6 +79,7 @@
 #include "bindings/V8File.cpp"
 #include "bindings/V8FileList.cpp"
 #include "bindings/V8History.cpp"
+#include "bindings/V8Geolocation.cpp"
 #include "bindings/V8HTMLAllCollection.cpp"
 #include "bindings/V8HTMLAnchorElement.cpp"
 #include "bindings/V8HTMLAppletElement.cpp"
