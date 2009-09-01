@@ -125,7 +125,7 @@ int RenderThemeAndroid::baselinePosition(const RenderObject* obj) const
     // controls that need to do this.
     //
     // Our checkboxes and radio buttons need to be offset to line up properly.
-    return RenderTheme::baselinePosition(obj) - 5;
+    return RenderTheme::baselinePosition(obj) - 2;
 }
 
 void RenderThemeAndroid::addIntrinsicMargins(RenderStyle* style) const
