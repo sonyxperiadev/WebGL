@@ -521,6 +521,9 @@ namespace WebCore {
         DECLARE_CALLBACK(SharedWorkerConstructor);
 #endif
 
+        DECLARE_CALLBACK(GeolocationGetCurrentPosition);
+        DECLARE_CALLBACK(GeolocationWatchPosition);
+
 #undef DECLARE_INDEXED_ACCESS_CHECK
 #undef DECLARE_NAMED_ACCESS_CHECK
 
