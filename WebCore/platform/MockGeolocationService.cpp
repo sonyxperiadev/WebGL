@@ -45,6 +45,7 @@ GeolocationService* MockGeolocationService::create(GeolocationServiceClient* cli
 MockGeolocationService::MockGeolocationService(GeolocationServiceClient* client)
     : GeolocationService(client)
     , m_timer(this, &MockGeolocationService::timerFired)
+    , m_isActive(false)
 {
     s_instances->add(this);
 }
@@ -77,8 +78,14 @@ void MockGeolocationService::setError(PassRefPtr<PositionError> error)
 
 bool MockGeolocationService::startUpdating(PositionOptions*)
 {
+    m_isActive = true;
     m_timer.startOneShot(0);
     return true;
+}
+
+void MockGeolocationService::stopUpdating()
+{
+    m_isActive = false;
 }
 
 void MockGeolocationService::timerFired(Timer<MockGeolocationService>* timer)
@@ -99,6 +106,9 @@ void MockGeolocationService::makeGeolocationCallbackFromAllInstances()
 
 void MockGeolocationService::makeGeolocationCallback()
 {
+    if (!m_isActive)
+        return;
+
     if (*s_lastPosition) {
         positionChanged();
     } else if (*s_lastError) {
