@@ -60,8 +60,7 @@ public:
     void positionChanged();
     void errorOccurred();
 
-    static void setMockPosition(PassRefPtr<Geoposition>);
-    static void setMockError(PassRefPtr<PositionError>);
+    static void useMock();
 
 protected:
     GeolocationService(GeolocationServiceClient*);

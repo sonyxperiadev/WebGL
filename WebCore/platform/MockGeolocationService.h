@@ -63,11 +63,11 @@ class MockGeolocationService : public GeolocationService {
     static void initStatics();
     static void cleanUpStatics();
 
-    static RefPtr<Geoposition>* s_lastPosition;
-    static RefPtr<PositionError>* s_lastError;
-
     typedef HashSet<MockGeolocationService*> MockGeolocationServiceSet;
     static MockGeolocationServiceSet* s_instances;
+
+    static RefPtr<Geoposition>* s_lastPosition;
+    static RefPtr<PositionError>* s_lastError;
 
     Timer<MockGeolocationService> m_timer;
 };
