@@ -25,6 +25,7 @@
 #define LOG_TAG "WebCore"
 
 #include "config.h"
+#include "CString.h"
 #include "android_graphics.h"
 #include "Document.h"
 #include "IntRect.h"
@@ -43,10 +44,10 @@ struct PatchData {
 
 static const PatchData gFiles[] =
     {
-        { "res/drawable-mdpi/btn_default_normal_disable.9.png", 2, 7 },
-        { "res/drawable-mdpi/btn_default_normal.9.png", 2, 7 },
-        { "res/drawable-mdpi/btn_default_selected.9.png", 2, 7 },
-        { "res/drawable-mdpi/btn_default_pressed.9.png", 2, 7 }
+        { "btn_default_normal_disable.9.png", 2, 7 },
+        { "btn_default_normal.9.png", 2, 7 },
+        { "btn_default_selected.9.png", 2, 7 },
+        { "btn_default_pressed.9.png", 2, 7 }
     };
 
 static SkBitmap gButton[sizeof(gFiles)/sizeof(gFiles[0])];
@@ -54,7 +55,7 @@ static bool     gDecoded;
 
 namespace WebCore {
 
-void RenderSkinButton::Init(android::AssetManager* am)
+void RenderSkinButton::Init(android::AssetManager* am, String drawableDirectory)
 {
     static bool gInited;
     if (gInited)
@@ -63,7 +64,8 @@ void RenderSkinButton::Init(android::AssetManager* am)
     gInited = true;
     gDecoded = true;
     for (size_t i = 0; i < sizeof(gFiles)/sizeof(gFiles[0]); i++) {
-        if (!RenderSkinAndroid::DecodeBitmap(am, gFiles[i].name, &gButton[i])) {
+        String path = drawableDirectory + gFiles[i].name;
+        if (!RenderSkinAndroid::DecodeBitmap(am, path.utf8().data(), &gButton[i])) {
             gDecoded = false;
             LOGD("RenderSkinButton::Init: button assets failed to decode\n\tBrowser buttons will not draw");
             break;
