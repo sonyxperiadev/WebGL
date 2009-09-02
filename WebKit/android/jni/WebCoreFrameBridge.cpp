@@ -788,10 +788,15 @@ static void CreateFrame(JNIEnv* env, jobject obj, jobject javaview, jobject jAss
     // Set the mNativeFrame field in Frame
     SET_NATIVE_FRAME(env, obj, (int)frame);
 
-    // Setup the asset manager.
-    AssetManager* am = assetManagerForJavaObject(env, jAssetManager);
-    // Initialize our skinning classes
-    WebCore::RenderSkinAndroid::Init(am);
+    String directory = webFrame->getRawResourceFilename(WebFrame::DRAWABLEDIR);
+    if (directory.isEmpty())
+        LOGE("Can't find the drawable directory");
+    else {
+        // Setup the asset manager.
+        AssetManager* am = assetManagerForJavaObject(env, jAssetManager);
+        // Initialize our skinning classes
+        WebCore::RenderSkinAndroid::Init(am, directory);
+    }
 }
 
 static void DestroyFrame(JNIEnv* env, jobject obj)

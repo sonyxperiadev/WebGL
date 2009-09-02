@@ -26,6 +26,7 @@
 #include "config.h"
 #include "RenderSkinRadio.h"
 
+#include "CString.h"
 #include "android_graphics.h"
 #include "Document.h"
 #include "Element.h"
@@ -37,10 +38,10 @@
 #include "SkCanvas.h"
 #include "SkRect.h"
 
-static const char* checks[] = { "res/drawable-mdpi/btn_check_off.png",
-                                "res/drawable-mdpi/btn_check_on.png",
-                                "res/drawable-mdpi/btn_radio_off.png",
-                                "res/drawable-mdpi/btn_radio_on.png"};
+static const char* checks[] = { "btn_check_off.png",
+                                "btn_check_on.png",
+                                "btn_radio_off.png",
+                                "btn_radio_on.png"};
 // Matches the width of the bitmap
 static SkScalar SIZE;
 
@@ -49,14 +50,18 @@ namespace WebCore {
 static SkBitmap s_bitmap[4];
 static bool     s_decoded;
 
-void RenderSkinRadio::Init(android::AssetManager* am)
+void RenderSkinRadio::Init(android::AssetManager* am, String drawableDirectory)
 {
     if (s_decoded)
         return;
-    s_decoded = RenderSkinAndroid::DecodeBitmap(am, checks[0], &s_bitmap[0]);
-    s_decoded = RenderSkinAndroid::DecodeBitmap(am, checks[1], &s_bitmap[1]) && s_decoded;
-    s_decoded = RenderSkinAndroid::DecodeBitmap(am, checks[2], &s_bitmap[2]) && s_decoded;
-    s_decoded = RenderSkinAndroid::DecodeBitmap(am, checks[3], &s_bitmap[3]) && s_decoded;
+    String path = drawableDirectory + checks[0];
+    s_decoded = RenderSkinAndroid::DecodeBitmap(am, path.utf8().data(), &s_bitmap[0]);
+    path = drawableDirectory + checks[1];
+    s_decoded = RenderSkinAndroid::DecodeBitmap(am, path.utf8().data(), &s_bitmap[1]) && s_decoded;
+    path = drawableDirectory + checks[2];
+    s_decoded = RenderSkinAndroid::DecodeBitmap(am, path.utf8().data(), &s_bitmap[2]) && s_decoded;
+    path = drawableDirectory + checks[3];
+    s_decoded = RenderSkinAndroid::DecodeBitmap(am, path.utf8().data(), &s_bitmap[3]) && s_decoded;
     SIZE = SkIntToScalar(s_bitmap[0].width());
 }
 

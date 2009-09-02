@@ -26,6 +26,8 @@
 #ifndef RenderSkinAndroid_h
 #define RenderSkinAndroid_h
 
+#include "PlatformString.h"
+
 namespace android {
     class AssetManager;
 }
@@ -58,7 +60,7 @@ public:
      * Initialize the Android skinning system. The AssetManager may be used to find resources used
      * in rendering.
      */
-    static void Init(android::AssetManager*);
+    static void Init(android::AssetManager*, String drawableDirectory);
     
     /* DecodeBitmap determines which file to use, with the given fileName of the form 
      * "images/bitmap.png", and uses the asset manager to select the exact one.  It

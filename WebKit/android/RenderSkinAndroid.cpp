@@ -41,11 +41,11 @@ RenderSkinAndroid::RenderSkinAndroid()
     , m_width(0)
 {}
 
-void RenderSkinAndroid::Init(android::AssetManager* am)
+void RenderSkinAndroid::Init(android::AssetManager* am, String drawableDirectory)
 {
-    RenderSkinButton::Init(am);
+    RenderSkinButton::Init(am, drawableDirectory);
     RenderSkinCombo::Init(am);
-    RenderSkinRadio::Init(am);
+    RenderSkinRadio::Init(am, drawableDirectory);
 }
 
 bool RenderSkinAndroid::DecodeBitmap(android::AssetManager* am, const char* fileName, SkBitmap* bitmap)

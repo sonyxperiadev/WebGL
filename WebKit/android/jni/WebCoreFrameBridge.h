@@ -54,6 +54,7 @@ class WebFrame : public WebCoreRefObject {
     enum RAW_RES_ID {
         NODOMAIN = 1,
         LOADERROR,
+        DRAWABLEDIR,
     };
     WebFrame(JNIEnv* env, jobject obj, jobject historyList, WebCore::Page* page);
     ~WebFrame();
