@@ -60,6 +60,7 @@ MockGeolocationService::~MockGeolocationService()
 void MockGeolocationService::setPosition(PassRefPtr<Geoposition> position)
 {
     initStatics();
+    GeolocationService::useMock();
     *s_lastPosition = position;
     *s_lastError = 0;
     makeGeolocationCallbackFromAllInstances();
@@ -68,6 +69,7 @@ void MockGeolocationService::setPosition(PassRefPtr<Geoposition> position)
 void MockGeolocationService::setError(PassRefPtr<PositionError> error)
 {
     initStatics();
+    GeolocationService::useMock();
     *s_lastError = error;
     *s_lastPosition = 0;
     makeGeolocationCallbackFromAllInstances();
@@ -81,7 +83,7 @@ bool MockGeolocationService::startUpdating(PositionOptions*)
 
 void MockGeolocationService::timerFired(Timer<MockGeolocationService>* timer)
 {
-    if (timer != &m_timer) ASSERT(0);
+    ASSERT_UNUSED(timer, timer == &m_timer);
     makeGeolocationCallback();
 }
 

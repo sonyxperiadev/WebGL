@@ -30,10 +30,10 @@
 
 #include <JNIHelp.h>
 #include "Coordinates.h"
-#include "GeolocationService.h"
 #include "Geoposition.h"
 #include "JavaSharedClient.h"
 #include "jni_utility.h"
+#include "MockGeolocationService.h"
 #include "PositionError.h"
 #include "WebCoreJni.h"
 #include <wtf/CurrentTime.h>
@@ -54,31 +54,15 @@ static void setPosition(JNIEnv* env, jobject, double latitude, double longitude,
                                                           false, 0.0,  // heading
                                                           false, 0.0);  // speed
     RefPtr<Geoposition> position = Geoposition::create(coordinates.release(), WTF::currentTime());
-    GeolocationService::setMockPosition(position.release());
+    MockGeolocationService::setPosition(position.release());
 }
 
 static void setError(JNIEnv* env, jobject, int code, jstring message)
 {
-    PositionError::ErrorCode codeEnum;
-    switch (code) {
-        case PositionError::UNKNOWN_ERROR:
-            codeEnum = PositionError::UNKNOWN_ERROR;
-            break;
-        case PositionError::PERMISSION_DENIED:
-            codeEnum = PositionError::PERMISSION_DENIED;
-            break;
-        case PositionError::POSITION_UNAVAILABLE:
-            codeEnum = PositionError::POSITION_UNAVAILABLE;
-            break;
-        case PositionError::TIMEOUT:
-            codeEnum = PositionError::TIMEOUT;
-            break;
-        default:
-            ASSERT(false);
-    }
+    PositionError::ErrorCode codeEnum = static_cast<PositionError::ErrorCode>(code);
     String messageString = to_string(env, message);
     RefPtr<PositionError> error = PositionError::create(codeEnum, messageString);
-    GeolocationService::setMockError(error.release());
+    MockGeolocationService::setError(error.release());
 }
 
 static JNINativeMethod gMockGeolocationMethods[] = {

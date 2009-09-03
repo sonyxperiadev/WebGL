@@ -48,16 +48,9 @@ GeolocationService* GeolocationService::create(GeolocationServiceClient* client)
     return (*s_factoryFunction)(client);
 }
 
-void GeolocationService::setMockPosition(PassRefPtr<Geoposition> position)
+void GeolocationService::useMock()
 {
     s_factoryFunction = &MockGeolocationService::create;
-    MockGeolocationService::setPosition(position);
-}
-
-void GeolocationService::setMockError(PassRefPtr<PositionError> error)
-{
-    s_factoryFunction = &MockGeolocationService::create;
-    MockGeolocationService::setError(error);
 }
 
 GeolocationService::GeolocationService(GeolocationServiceClient* client)
