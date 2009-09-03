@@ -30,9 +30,13 @@ namespace WebCore {
 
 String Coordinates::toString() const
 {
-    return String::format("coordinate(%.6lg, %.6lg, %.6lg, %.6lg, %.6lg, %.6lg, %.6lg)",
-                          m_latitude, m_longitude, m_altitude, m_accuracy,
-                          m_altitudeAccuracy, m_heading, m_speed);
+    return String::format("coordinates(latitude: %.6lg, longitude: %.6lg", m_latitude, m_longitude)
+        + (m_canProvideAltitude ? String::format(", altitude: %.6lg", m_altitude) : "")
+        + String::format(", accuracy: %.6lg", m_accuracy)
+        + (m_canProvideAltitudeAccuracy ? String::format(", altitudeAccuracy: %.6lg", m_altitudeAccuracy) : "")
+        + (m_canProvideHeading ? String::format(", heading: %.6lg", m_heading) : "")
+        + (m_canProvideSpeed ? String::format(", speed: %.6lg", m_speed) : "")
+        + ")";
 }
 
 } // namespace WebCore
