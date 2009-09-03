@@ -1056,7 +1056,11 @@ static void AddJavascriptInterface(JNIEnv *env, jobject obj, jint nativeFramePoi
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::NativeCallbackTimeCounter);
 #endif
-    WebCore::Frame* pFrame = (WebCore::Frame*)nativeFramePointer;
+    WebCore::Frame* pFrame = 0;
+    if (nativeFramePointer == 0)
+        pFrame = GET_NATIVE_FRAME(env, obj);
+    else
+        pFrame = (WebCore::Frame*)nativeFramePointer;
     LOG_ASSERT(pFrame, "nativeAddJavascriptInterface must take a valid frame pointer!");
 
     JavaVM* vm;
