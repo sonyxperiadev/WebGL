@@ -770,7 +770,7 @@ CachedRoot::ImeAction CachedRoot::cursorTextFieldAction() const
         return FAILURE;
     }
     // Now find the next textfield/area starting with the cursor
-    if (nextTextField(cursor, 0, true)) {
+    if (cursorFrame->nextTextField(cursor, 0, true)) {
         // There is a textfield/area after the cursor, so the textfield under
         // the cursor should have the NEXT action
         return NEXT;
