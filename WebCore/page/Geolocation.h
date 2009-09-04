@@ -111,6 +111,7 @@ private:
     void handleError(PositionError*);
 
     void requestPermission();
+    PassRefPtr<GeoNotifier> makeRequest(PassRefPtr<PositionCallback>, PassRefPtr<PositionErrorCallback>, PassRefPtr<PositionOptions>);
 
     // GeolocationServiceClient
     virtual void geolocationServicePositionChanged(GeolocationService*);
