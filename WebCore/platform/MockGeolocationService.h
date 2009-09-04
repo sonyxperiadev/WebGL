@@ -47,6 +47,7 @@ class MockGeolocationService : public GeolocationService {
     virtual ~MockGeolocationService();
 
     virtual bool startUpdating(PositionOptions*);
+    virtual void stopUpdating();
 
     static void setPosition(PassRefPtr<Geoposition> position);
     static void setError(PassRefPtr<PositionError> position);
@@ -70,6 +71,8 @@ class MockGeolocationService : public GeolocationService {
     static RefPtr<PositionError>* s_lastError;
 
     Timer<MockGeolocationService> m_timer;
+
+    bool m_isActive;
 };
 
 } // namespace WebCore
