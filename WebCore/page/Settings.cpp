@@ -424,11 +424,11 @@ void Settings::setMetadataSettings(const String& key, const String& value)
             m_viewport_width = 0;
         } else {
             int width = value.toInt();
-            if (width >= 200 && width <= 10000) {
-                if (width == 320) {
+            if (width <= 10000) {
+                if (width <= 320) {
                     // This is a hack to accommodate the pages designed for the 
                     // original iPhone. The new version, since 10/2007, is to 
-                    // use device-width which works for both prtrait and 
+                    // use device-width which works for both portrait and 
                     // landscape modes.
                     m_viewport_width = 0;
                 } else {
