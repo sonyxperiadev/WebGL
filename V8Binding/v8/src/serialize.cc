@@ -734,6 +734,20 @@ void ExternalReferenceTable::PopulateTable() {
       UNCLASSIFIED,
       17,
       "compare_doubles");
+#ifdef V8_NATIVE_REGEXP
+  Add(ExternalReference::re_case_insensitive_compare_uc16().address(),
+      UNCLASSIFIED,
+      18,
+      "NativeRegExpMacroAssembler::CaseInsensitiveCompareUC16()");
+  Add(ExternalReference::re_check_stack_guard_state().address(),
+      UNCLASSIFIED,
+      19,
+      "RegExpMacroAssembler*::CheckStackGuardState()");
+  Add(ExternalReference::re_grow_stack().address(),
+      UNCLASSIFIED,
+      20,
+      "NativeRegExpMacroAssembler::GrowStack()");
+#endif
 }
 
 
@@ -1119,6 +1133,11 @@ void Serializer::PutHeader() {
 #else
   writer_->PutC('0');
 #endif
+#ifdef V8_NATIVE_REGEXP
+  writer_->PutC('N');
+#else  // Interpreted regexp
+  writer_->PutC('I');
+#endif
   // Write sizes of paged memory spaces. Allocate extra space for the old
   // and code spaces, because objects in new space will be promoted to them.
   writer_->PutC('S');
@@ -1182,18 +1201,24 @@ void Serializer::PutGlobalHandleStack(const List<Handle<Object> >& stack) {
 
 
 void Serializer::PutContextStack() {
-  List<Handle<Object> > contexts(2);
+  List<Context*> contexts(2);
   while (HandleScopeImplementer::instance()->HasSavedContexts()) {
-    Handle<Object> context =
+    Context* context =
       HandleScopeImplementer::instance()->RestoreContext();
     contexts.Add(context);
   }
   for (int i = contexts.length() - 1; i >= 0; i--) {
     HandleScopeImplementer::instance()->SaveContext(contexts[i]);
   }
-  PutGlobalHandleStack(contexts);
+  writer_->PutC('C');
+  writer_->PutC('[');
+  writer_->PutInt(contexts.length());
+  if (!contexts.is_empty()) {
+    Object** start = reinterpret_cast<Object**>(&contexts.first());
+    VisitPointers(start, start + contexts.length());
+  }
+  writer_->PutC(']');
 }
-
 
 void Serializer::PutEncodedAddress(Address addr) {
   writer_->PutC('P');
@@ -1238,7 +1263,7 @@ Address Serializer::PutObject(HeapObject* obj) {
 
   // Write out the object prologue: type, size, and simulated address of obj.
   writer_->PutC('[');
-  CHECK_EQ(0, size & kObjectAlignmentMask);
+  CHECK_EQ(0, static_cast<int>(size & kObjectAlignmentMask));
   writer_->PutInt(type);
   writer_->PutInt(size >> kObjectAlignmentBits);
   PutEncodedAddress(addr);  // encodes AllocationSpace
@@ -1475,6 +1500,11 @@ void Deserializer::GetHeader() {
   // synchronization tags.
   if (reader_.GetC() != '0') FATAL("Snapshot contains synchronization tags.");
 #endif
+#ifdef V8_NATIVE_REGEXP
+  reader_.ExpectC('N');
+#else  // Interpreted regexp.
+  reader_.ExpectC('I');
+#endif
   // Ensure sufficient capacity in paged memory spaces to avoid growth
   // during deserialization.
   reader_.ExpectC('S');
@@ -1517,9 +1547,16 @@ void Deserializer::GetGlobalHandleStack(List<Handle<Object> >* stack) {
 
 
 void Deserializer::GetContextStack() {
-  List<Handle<Object> > entered_contexts(2);
-  GetGlobalHandleStack(&entered_contexts);
-  for (int i = 0; i < entered_contexts.length(); i++) {
+  reader_.ExpectC('C');
+  CHECK_EQ(reader_.GetC(), '[');
+  int count = reader_.GetInt();
+  List<Context*> entered_contexts(count);
+  if (count > 0) {
+    Object** start = reinterpret_cast<Object**>(&entered_contexts.first());
+    VisitPointers(start, start + count);
+  }
+  reader_.ExpectC(']');
+  for (int i = 0; i < count; i++) {
     HandleScopeImplementer::instance()->SaveContext(entered_contexts[i]);
   }
 }
