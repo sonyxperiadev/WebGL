@@ -184,7 +184,6 @@ LOCAL_SRC_FILES := \
 	wtf/RefCountedLeakCounter.cpp \
 	wtf/TCSystemAlloc.cpp \
 	wtf/Threading.cpp \
-	wtf/ThreadingNone.cpp \
 	wtf/ThreadingPthreads.cpp \
 	\
 	wtf/TypeTraits.cpp \
