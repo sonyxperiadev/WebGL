@@ -72,6 +72,8 @@ public:
     void setShouldClearCache(bool shouldClearCache) { m_shouldClearCache = shouldClearCache; }
     bool shouldClearCache() const { return m_shouldClearCache; }
 
+    static void setDatabasePath(String);
+
 private:
     Geolocation(Frame*);
 
