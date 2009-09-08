@@ -35,6 +35,7 @@
 #include "Frame.h"
 #include "FrameLoader.h"
 #include "FrameView.h"
+#include "Geolocation.h"
 #include "GeolocationPermissions.h"
 #include "Page.h"
 #include "RenderTable.h"
@@ -358,8 +359,10 @@ public:
         flag = env->GetBooleanField(obj, gFieldIds->mGeolocationEnabled);
         GeolocationPermissions::setAlwaysDeny(!flag);
         str = (jstring)env->GetObjectField(obj, gFieldIds->mGeolocationDatabasePath);
-        if (str)
+        if (str) {
             GeolocationPermissions::setDatabasePath(to_string(env,str));
+            WebCore::Geolocation::setDatabasePath(to_string(env,str));
+        }
     }
 };
 
