@@ -38,6 +38,7 @@
 #include "V8Proxy.h"
 
 
+using namespace std;
 using namespace WTF;
 
 namespace WebCore {
@@ -123,13 +124,28 @@ static PassRefPtr<PositionOptions> createPositionOptions(v8::Local<v8::Value> va
         return 0;
     }
     if (!timeoutValue->IsUndefined()) {
-        v8::Local<v8::Int32> timeoutInt32 = timeoutValue->ToInt32();
-        if (timeoutInt32.IsEmpty()) {
+        v8::Local<v8::Number> timeoutNumber = timeoutValue->ToNumber();
+        if (timeoutNumber.IsEmpty()) {
             succeeded = false;
             return 0;
         }
-        // Wrap to int32 and force non-negative to match behavior of window.setTimeout.
-        options->setTimeout(max(0, timeoutInt32->Value()));
+        double timeoutDouble = timeoutNumber->Value();
+        // V8 does not export a public symbol for infinity, so we must use a
+        // platform type. On Android, it seems that V8 uses 0xf70f000000000000,
+        // which is the standard way to represent infinity in a double. However,
+        // numeric_limits<double>::infinity uses the system HUGE_VAL, which is
+        // different. Therefore we test using isinf() and check that the value
+        // is positive, which seems to handle things correctly.
+        // If the value is infinity, there's nothing to do.
+        if (!(isinf(timeoutDouble) && timeoutDouble > 0)) {
+            v8::Local<v8::Int32> timeoutInt32 = timeoutValue->ToInt32();
+            if (timeoutInt32.IsEmpty()) {
+                succeeded = false;
+                return 0;
+            }
+            // Wrap to int32 and force non-negative to match behavior of window.setTimeout.
+            options->setTimeout(max(0, timeoutInt32->Value()));
+        }
     }
 
     v8::Local<v8::Value> maximumAgeValue = object->Get(v8::String::New("maximumAge"));
@@ -138,13 +154,24 @@ static PassRefPtr<PositionOptions> createPositionOptions(v8::Local<v8::Value> va
         return 0;
     }
     if (!maximumAgeValue->IsUndefined()) {
-        v8::Local<v8::Int32> maximumAgeInt32 = maximumAgeValue->ToInt32();
-        if (maximumAgeInt32.IsEmpty()) {
+        v8::Local<v8::Number> maximumAgeNumber = maximumAgeValue->ToNumber();
+        if (maximumAgeNumber.IsEmpty()) {
             succeeded = false;
             return 0;
         }
-        // Wrap to int32 and force non-negative to match behavior of window.setTimeout.
-        options->setMaximumAge(max(0, maximumAgeInt32->Value()));
+        double maximumAgeDouble = maximumAgeNumber->Value();
+        if (isinf(maximumAgeDouble) && maximumAgeDouble > 0) {
+            // If the value is infinity, clear maximumAge.
+            options->clearMaximumAge();
+        } else {
+            v8::Local<v8::Int32> maximumAgeInt32 = maximumAgeValue->ToInt32();
+            if (maximumAgeInt32.IsEmpty()) {
+                succeeded = false;
+                return 0;
+            }
+            // Wrap to int32 and force non-negative to match behavior of window.setTimeout.
+            options->setMaximumAge(max(0, maximumAgeInt32->Value()));
+        }
     }
 
     return options.release();
