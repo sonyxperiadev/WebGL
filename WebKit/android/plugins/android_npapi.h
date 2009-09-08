@@ -87,10 +87,6 @@ struct ANPMatrix;
 struct ANPPaint;
 struct ANPPath;
 struct ANPRegion;
-/** The ANPSurface acts as a handle between the plugin and the native libraries
-    that render the surface to the screen.
- */
-struct ANPSurface;
 struct ANPTypeface;
 
 enum ANPMatrixFlags {
@@ -134,11 +130,20 @@ typedef uint32_t ANPMatrixFlag;
 ///////////////////////////////////////////////////////////////////////////////
 // NPN_SetValue
 
-/** Request to set the drawing model.
+/** Request to set the drawing model. SetValue will return false if the drawing
+    model is not supported or has insufficient information for configuration.
 
-    NPN_SetValue(inst, ANPRequestDrawingModel_EnumValue, (void*)foo_ANPDrawingModel)
+    NPN_SetValue(inst, kRequestDrawingModel_ANPSetValue, (void*)foo_ANPDrawingModel)
  */
 #define kRequestDrawingModel_ANPSetValue    ((NPPVariable)1000)
+
+/** Set the name of the Java class found in the plugin's apk that implements the
+    PluginStub interface.  The value provided must be a null terminated char*
+    that contains the fully qualified class name (e.g., your.package.className)
+
+    NPN_SetValue(inst, kSetJavaClassName_ANPSetValue, (void*)nullTerminatedChar*)
+ */
+#define kSetJavaClassName_ANPSetValue       ((NPPVariable)1001)
 
 /** These are used as bitfields in ANPSupportedDrawingModels_EnumValue,
     and as-is in ANPRequestDrawingModel_EnumValue. The drawing model determines
@@ -156,7 +161,9 @@ enum ANPDrawingModels {
         surface model should be chosen over the bitmap model as it will have faster
         performance. An example surface is the raster surface where the service
         interface is used to lock/unlock and draw into bitmap without waiting for
-        draw events.
+        draw events. Prior to requesting this drawing model the plugin must provide
+        the name of the Java class that implements the PluginStub interface via
+        kSetJavaClassName_ANPSetValue.
      */
     kSurface_ANPDrawingModel = 1,
 };
@@ -168,7 +175,7 @@ typedef int32_t ANPDrawingModel;
 
     NPN_SetValue(inst, ANPAcceptEvents, (void*)EventFlags)
  */
-#define kAcceptEvents_ANPSetValue           ((NPPVariable)1001)
+#define kAcceptEvents_ANPSetValue           ((NPPVariable)1002)
 
 /** The EventFlags are a set of bits used to determine which types of events the
     plugin wishes to receive. For example, if the value is 0x03 then both key
@@ -211,34 +218,6 @@ struct ANPBitmapInterfaceV0 : ANPInterface {
         is non-null, sets it to the packing info for that format.
      */
     bool (*getPixelPacking)(ANPBitmapFormat, ANPPixelPacking* packing);
-};
-
-struct ANPSurfaceInterfaceV0 : ANPInterface {
-    /** Creates a new raster surface handle based on the given bitmap format. If
-        raster surfaces or the bitmap format is not supported then NULL is
-        returned.  Setting the fixedSize parameter to true notifies the browser
-        that it is responsible for scaling the bitmap when zoomed.  Setting the
-        fixedSize to false will cause a kChanged_ANPSurfaceAction to be fired
-        each time the user changes the zoom level.
-     */
-    ANPSurface* (*newRasterSurface)(NPP instance, ANPBitmapFormat, bool fixedSize);
-    /** Given a valid surface handle (i.e. one created by calling newSurface)
-        the underlying surface is removed and the pointer is set to NULL.
-     */
-    void (*deleteSurface)(ANPSurface* surface);
-    /** Locks the surface from manipulation by other threads and provides a bitmap
-        to be written to.  The dirtyRect param specifies which portion of the
-        bitmap will be written to.  If the dirtyRect is NULL then the entire
-        surface will be considered dirty.  If the lock was successful the function
-        will return true and the bitmap will be set to point to a valid bitmap.
-        If not the function will return false and the bitmap will be set to NULL.
-     */
-    bool (*lock)(ANPSurface* surface, ANPBitmap* bitmap, ANPRectI* dirtyRect);
-    /** Given a locked surface handle (i.e. result of a successful call to lock)
-        the surface is unlocked and the contents of the bitmap, specifically
-        those inside the dirtyRect are written to the screen.
-     */
-    void (*unlock)(ANPSurface* surface);
 };
 
 struct ANPMatrixInterfaceV0 : ANPInterface {
@@ -503,7 +482,7 @@ struct ANPTypefaceInterfaceV0 : ANPInterface {
 
     /** Return a UTF8 encoded path name for the font directory, or NULL if not
         supported. If returned, this string address will be valid for the life
-        of the plugin instance. It will always end with a '/' character. 
+        of the plugin instance. It will always end with a '/' character.
      */
     const char* (*getFontDirectoryPath)();
 };

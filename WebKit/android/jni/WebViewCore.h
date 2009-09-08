@@ -366,13 +366,11 @@ namespace android {
         void requestKeyboard(bool);
 
         // Creates a SurfaceView for a plugin
-        jobject createSurface(SurfaceCallback* cb, PixelFormat format, bool isFixedSize);
+        jobject createSurface(const char* packageName, const char* className,
+                              NPP npp, int x, int y, int width, int height);
 
-        // Destroys the SurfaceView after removing from the view system.
-        void destroySurface(jobject surface);
-
-        // Positions the SurfaceView at x,y with dimensions width x height
-        void attachSurface(jobject surface, int x, int y, int width, int height);
+        // Destroys a SurfaceView for a plugin
+        void destroySurface(jobject childView);
 
         // other public functions
     public:

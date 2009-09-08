@@ -73,6 +73,7 @@
 #include "PluginWidgetAndroid.h"
 
 #include "android_npapi.h"
+#include "ANPSurface_npapi.h"
 #include "SkANP.h"
 #include "SkFlipPixelRef.h"
 
@@ -481,6 +482,12 @@ NPError PluginView::platformSetValue(NPPVariable variable, void* value)
     NPError error = NPERR_GENERIC_ERROR;
 
     switch (variable) {
+        case kSetJavaClassName_ANPSetValue: {
+            char* className = reinterpret_cast<char*>(value);
+            if (m_window->setJavaClassName(className))
+                error = NPERR_NO_ERROR;
+            break;
+        }
         case kRequestDrawingModel_ANPSetValue: {
             ANPDrawingModel model = reinterpret_cast<ANPDrawingModel>(value);
             if (m_window->setDrawingModel(model))
