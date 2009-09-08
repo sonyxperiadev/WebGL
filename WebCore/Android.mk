@@ -609,7 +609,6 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/LinkHash.cpp \
 	platform/Logging.cpp \
 	platform/MIMETypeRegistry.cpp \
-	platform/MockGeolocationService.cpp \
 	platform/ScrollView.cpp \
 	platform/Scrollbar.cpp \
 	platform/ScrollbarThemeComposite.cpp \
@@ -726,6 +725,8 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/image-decoders/skia/ImageDecoderSkia.cpp \
 	platform/image-decoders/gif/GIFImageDecoder.cpp \
 	platform/image-decoders/gif/GIFImageReader.cpp \
+	\
+	platform/mock/GeolocationServiceMock.cpp \
 	\
 	platform/network/AuthenticationChallengeBase.cpp \
 	platform/network/Credential.cpp \

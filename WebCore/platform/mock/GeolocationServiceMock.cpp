@@ -24,41 +24,43 @@
  */
 
 #include "config.h"
-#include "MockGeolocationService.h"
+#include "GeolocationServiceMock.h"
 
+#include "Logging.h"
+#include "Geolocation.h"
 #include "Geoposition.h"
 #include "PositionError.h"
 #include "PositionOptions.h"
 
 namespace WebCore {
 
-MockGeolocationService::MockGeolocationServiceSet* MockGeolocationService::s_instances = 0;
-RefPtr<Geoposition>* MockGeolocationService::s_lastPosition;
-RefPtr<PositionError>* MockGeolocationService::s_lastError;
+GeolocationServiceMock::GeolocationServiceSet* GeolocationServiceMock::s_instances = 0;
+RefPtr<Geoposition>* GeolocationServiceMock::s_lastPosition;
+RefPtr<PositionError>* GeolocationServiceMock::s_lastError;
 
-GeolocationService* MockGeolocationService::create(GeolocationServiceClient* client)
+GeolocationService* GeolocationServiceMock::create(GeolocationServiceClient* client)
 {
     initStatics();
-    return new MockGeolocationService(client);
+    return new GeolocationServiceMock(client);
 }
 
-MockGeolocationService::MockGeolocationService(GeolocationServiceClient* client)
+GeolocationServiceMock::GeolocationServiceMock(GeolocationServiceClient* client)
     : GeolocationService(client)
-    , m_timer(this, &MockGeolocationService::timerFired)
+    , m_timer(this, &GeolocationServiceMock::timerFired)
     , m_isActive(false)
 {
     s_instances->add(this);
 }
 
-MockGeolocationService::~MockGeolocationService()
+GeolocationServiceMock::~GeolocationServiceMock()
 {
-    MockGeolocationServiceSet::iterator iter = s_instances->find(this);
+    GeolocationServiceSet::iterator iter = s_instances->find(this);
     ASSERT(iter != s_instances->end());
     s_instances->remove(iter);
     cleanUpStatics();
 }
 
-void MockGeolocationService::setPosition(PassRefPtr<Geoposition> position)
+void GeolocationServiceMock::setPosition(PassRefPtr<Geoposition> position)
 {
     initStatics();
     GeolocationService::useMock();
@@ -67,7 +69,7 @@ void MockGeolocationService::setPosition(PassRefPtr<Geoposition> position)
     makeGeolocationCallbackFromAllInstances();
 }
 
-void MockGeolocationService::setError(PassRefPtr<PositionError> error)
+void GeolocationServiceMock::setError(PassRefPtr<PositionError> error)
 {
     initStatics();
     GeolocationService::useMock();
@@ -76,56 +78,52 @@ void MockGeolocationService::setError(PassRefPtr<PositionError> error)
     makeGeolocationCallbackFromAllInstances();
 }
 
-bool MockGeolocationService::startUpdating(PositionOptions*)
+bool GeolocationServiceMock::startUpdating(PositionOptions*)
 {
     m_isActive = true;
     m_timer.startOneShot(0);
     return true;
 }
 
-void MockGeolocationService::stopUpdating()
+void GeolocationServiceMock::stopUpdating()
 {
     m_isActive = false;
 }
 
-void MockGeolocationService::timerFired(Timer<MockGeolocationService>* timer)
+void GeolocationServiceMock::timerFired(Timer<GeolocationServiceMock>* timer)
 {
     ASSERT_UNUSED(timer, timer == &m_timer);
     makeGeolocationCallback();
 }
 
-void MockGeolocationService::makeGeolocationCallbackFromAllInstances()
+void GeolocationServiceMock::makeGeolocationCallbackFromAllInstances()
 {
-    MockGeolocationServiceSet::const_iterator end = s_instances->end();
-    for (MockGeolocationServiceSet::const_iterator iter = s_instances->begin();
-         iter != end;
-         ++iter) {
+    GeolocationServiceSet::const_iterator end = s_instances->end();
+    for (GeolocationServiceSet::const_iterator iter = s_instances->begin(); iter != end; ++iter)
         (*iter)->makeGeolocationCallback();
-    }
 }
 
-void MockGeolocationService::makeGeolocationCallback()
+void GeolocationServiceMock::makeGeolocationCallback()
 {
     if (!m_isActive)
         return;
 
-    if (*s_lastPosition) {
+    if (*s_lastPosition)
         positionChanged();
-    } else if (*s_lastError) {
+    else if (*s_lastError)
         errorOccurred();
-    }
 }
 
-void MockGeolocationService::initStatics()
+void GeolocationServiceMock::initStatics()
 {
-    if (s_instances == 0) {
-        s_instances = new MockGeolocationServiceSet;
+    if (s_instances == 0) { 
+        s_instances = new GeolocationServiceSet;
         s_lastPosition = new RefPtr<Geoposition>;
         s_lastError = new RefPtr<PositionError>;
     }
 }
 
-void MockGeolocationService::cleanUpStatics()
+void GeolocationServiceMock::cleanUpStatics()
 {
     if (s_instances->size() == 0) {
         delete s_instances;

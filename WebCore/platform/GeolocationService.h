@@ -27,7 +27,6 @@
 #define GeolocationService_h
 
 #include <wtf/Noncopyable.h>
-#include <wtf/PassRefPtr.h>
 
 namespace WebCore {
 

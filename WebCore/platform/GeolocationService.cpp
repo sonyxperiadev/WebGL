@@ -26,7 +26,7 @@
 #include "config.h"
 #include "GeolocationService.h"
 #include "Geoposition.h"
-#include "MockGeolocationService.h"
+#include "GeolocationServiceMock.h"
 #include "PositionError.h"
 
 #include <wtf/CurrentTime.h>
@@ -35,12 +35,12 @@
 namespace WebCore {
 
 #if !ENABLE(GEOLOCATION)
-GeolocationService* createNullGeolocationService(GeolocationServiceClient*)
+static GeolocationService* createGeolocationServiceNull(GeolocationServiceClient*)
 {
     return 0;
 }
 
-GeolocationService::FactoryFunction* GeolocationService::s_factoryFunction = &createNullGeolocationService;
+GeolocationService::FactoryFunction* GeolocationService::s_factoryFunction = &createGeolocationServiceNull;
 #endif
 
 GeolocationService* GeolocationService::create(GeolocationServiceClient* client)
@@ -50,7 +50,7 @@ GeolocationService* GeolocationService::create(GeolocationServiceClient* client)
 
 void GeolocationService::useMock()
 {
-    s_factoryFunction = &MockGeolocationService::create;
+    s_factoryFunction = &GeolocationServiceMock::create;
 }
 
 GeolocationService::GeolocationService(GeolocationServiceClient* client)
