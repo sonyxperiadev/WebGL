@@ -139,6 +139,7 @@ LOCAL_C_INCLUDES := \
 	$(LOCAL_PATH)/WebCore/platform/graphics/skia \
 	$(LOCAL_PATH)/WebCore/platform/graphics/transforms \
 	$(LOCAL_PATH)/WebCore/platform/image-decoders \
+	$(LOCAL_PATH)/WebCore/platform/mock \
 	$(LOCAL_PATH)/WebCore/platform/network \
 	$(LOCAL_PATH)/WebCore/platform/network/android \
 	$(LOCAL_PATH)/WebCore/platform/sql \

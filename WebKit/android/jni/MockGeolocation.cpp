@@ -30,10 +30,10 @@
 
 #include <JNIHelp.h>
 #include "Coordinates.h"
+#include "GeolocationServiceMock.h"
 #include "Geoposition.h"
 #include "JavaSharedClient.h"
 #include "jni_utility.h"
-#include "MockGeolocationService.h"
 #include "PositionError.h"
 #include "WebCoreJni.h"
 #include <wtf/CurrentTime.h>
@@ -54,7 +54,7 @@ static void setPosition(JNIEnv* env, jobject, double latitude, double longitude,
                                                           false, 0.0,  // heading
                                                           false, 0.0);  // speed
     RefPtr<Geoposition> position = Geoposition::create(coordinates.release(), WTF::currentTime());
-    MockGeolocationService::setPosition(position.release());
+    GeolocationServiceMock::setPosition(position.release());
 }
 
 static void setError(JNIEnv* env, jobject, int code, jstring message)
@@ -62,7 +62,7 @@ static void setError(JNIEnv* env, jobject, int code, jstring message)
     PositionError::ErrorCode codeEnum = static_cast<PositionError::ErrorCode>(code);
     String messageString = to_string(env, message);
     RefPtr<PositionError> error = PositionError::create(codeEnum, messageString);
-    MockGeolocationService::setError(error.release());
+    GeolocationServiceMock::setError(error.release());
 }
 
 static JNINativeMethod gMockGeolocationMethods[] = {

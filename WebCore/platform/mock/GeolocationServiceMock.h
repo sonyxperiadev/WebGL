@@ -23,8 +23,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef MockGeolocationService_h
-#define MockGeolocationService_h
+#ifndef GeolocationServiceMock_h
+#define GeolocationServiceMock_h
 
 #include "GeolocationService.h"
 #include "Timer.h"
@@ -39,12 +39,12 @@ namespace WebCore {
 // to be set manually using the setPosition and setError methods. Objects of
 // this class call back to their respective GeolocationServiceClient with the
 // position or error every time either of these is updated.
-class MockGeolocationService : public GeolocationService {
+class GeolocationServiceMock : public GeolocationService {
   public:
     static GeolocationService* create(GeolocationServiceClient*);
 
-    MockGeolocationService(GeolocationServiceClient*);
-    virtual ~MockGeolocationService();
+    GeolocationServiceMock(GeolocationServiceClient*);
+    virtual ~GeolocationServiceMock();
 
     virtual bool startUpdating(PositionOptions*);
     virtual void stopUpdating();
@@ -59,22 +59,22 @@ class MockGeolocationService : public GeolocationService {
     static void makeGeolocationCallbackFromAllInstances();
     void makeGeolocationCallback();
 
-    void timerFired(Timer<MockGeolocationService>*);
+    void timerFired(Timer<GeolocationServiceMock>*);
 
     static void initStatics();
     static void cleanUpStatics();
 
-    typedef HashSet<MockGeolocationService*> MockGeolocationServiceSet;
-    static MockGeolocationServiceSet* s_instances;
+    typedef HashSet<GeolocationServiceMock*> GeolocationServiceSet;
+    static GeolocationServiceSet* s_instances;
 
     static RefPtr<Geoposition>* s_lastPosition;
     static RefPtr<PositionError>* s_lastError;
 
-    Timer<MockGeolocationService> m_timer;
+    Timer<GeolocationServiceMock> m_timer;
 
     bool m_isActive;
 };
 
 } // namespace WebCore
 
-#endif // MockGeolocationService_h
+#endif // GeolocationServiceMock_h
