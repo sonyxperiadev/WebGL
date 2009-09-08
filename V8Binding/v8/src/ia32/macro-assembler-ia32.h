@@ -1,4 +1,4 @@
-// Copyright 2006-2008 the V8 project authors. All rights reserved.
+// Copyright 2006-2009 the V8 project authors. All rights reserved.
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
 // met:
@@ -35,25 +35,6 @@ namespace internal {
 
 // Forward declaration.
 class JumpTarget;
-
-
-// Helper types to make flags easier to read at call sites.
-enum InvokeFlag {
-  CALL_FUNCTION,
-  JUMP_FUNCTION
-};
-
-enum CodeLocation {
-  IN_JAVASCRIPT,
-  IN_JS_ENTRY,
-  IN_C_ENTRY
-};
-
-enum HandlerType {
-  TRY_CATCH_HANDLER,
-  TRY_FINALLY_HANDLER,
-  JS_ENTRY_HANDLER
-};
 
 
 // MacroAssembler implements a collection of frequently used macros.
@@ -201,7 +182,7 @@ class MacroAssembler: public Assembler {
                                 Register result_end,
                                 Register scratch,
                                 Label* gc_required,
-                                bool result_contains_top_on_entry);
+                                AllocationFlags flags);
 
   void AllocateObjectInNewSpace(int header_size,
                                 ScaleFactor element_size,
@@ -210,14 +191,14 @@ class MacroAssembler: public Assembler {
                                 Register result_end,
                                 Register scratch,
                                 Label* gc_required,
-                                bool result_contains_top_on_entry);
+                                AllocationFlags flags);
 
   void AllocateObjectInNewSpace(Register object_size,
                                 Register result,
                                 Register result_end,
                                 Register scratch,
                                 Label* gc_required,
-                                bool result_contains_top_on_entry);
+                                AllocationFlags flags);
 
   // Undo allocation in new space. The object passed and objects allocated after
   // it will no longer be allocated. Make sure that no pointers are left to the
@@ -350,7 +331,7 @@ class MacroAssembler: public Assembler {
   void LoadAllocationTopHelper(Register result,
                                Register result_end,
                                Register scratch,
-                               bool result_contains_top_on_entry);
+                               AllocationFlags flags);
   void UpdateAllocationTopHelper(Register result_end, Register scratch);
 };
 

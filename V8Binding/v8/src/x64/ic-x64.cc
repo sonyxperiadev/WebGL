@@ -339,7 +339,7 @@ void KeyedLoadIC::GenerateGeneric(MacroAssembler* masm) {
   __ bind(&fast);
   __ movq(rax, Operand(rcx, rax, times_pointer_size,
                       FixedArray::kHeaderSize - kHeapObjectTag));
-  __ Cmp(rax, Factory::the_hole_value());
+  __ CompareRoot(rax, Heap::kTheHoleValueRootIndex);
   // In case the loaded value is the_hole we have to consult GetProperty
   // to ensure the prototype chain is searched.
   __ j(equal, &slow);
@@ -613,9 +613,9 @@ void CallIC::GenerateMegamorphic(MacroAssembler* masm, int argc) {
 
   // Check for boolean.
   __ bind(&non_string);
-  __ Cmp(rdx, Factory::true_value());
+  __ CompareRoot(rdx, Heap::kTrueValueRootIndex);
   __ j(equal, &boolean);
-  __ Cmp(rdx, Factory::false_value());
+  __ CompareRoot(rdx, Heap::kFalseValueRootIndex);
   __ j(not_equal, &miss);
   __ bind(&boolean);
   StubCompiler::GenerateLoadGlobalFunctionPrototype(
@@ -849,7 +849,7 @@ void LoadIC::GenerateNormal(MacroAssembler* masm) {
 
   // Check that the receiver is a valid JS object.
   __ CmpObjectType(rax, FIRST_JS_OBJECT_TYPE, rbx);
-  __ j(less, &miss);
+  __ j(below, &miss);
 
   // If this assert fails, we have to check upper bound too.
   ASSERT(LAST_TYPE == JS_FUNCTION_TYPE);

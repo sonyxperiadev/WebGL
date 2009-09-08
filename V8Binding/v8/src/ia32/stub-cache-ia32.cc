@@ -1783,29 +1783,29 @@ Object* ConstructStubCompiler::CompileConstructStub(
   // ebx: initial map
   __ movzx_b(ecx, FieldOperand(ebx, Map::kInstanceSizeOffset));
   __ shl(ecx, kPointerSizeLog2);
-  // Make sure that the maximum heap object size will never cause us
-  // problems here.
-  ASSERT(Heap::MaxObjectSizeInPagedSpace() >= JSObject::kMaxInstanceSize);
-  __ AllocateObjectInNewSpace(ecx, edx, ecx, no_reg, &generic_stub_call, false);
+  __ AllocateObjectInNewSpace(ecx,
+                              edx,
+                              ecx,
+                              no_reg,
+                              &generic_stub_call,
+                              NO_ALLOCATION_FLAGS);
 
   // Allocated the JSObject, now initialize the fields and add the heap tag.
   // ebx: initial map
-  // edx: JSObject
+  // edx: JSObject (untagged)
   __ mov(Operand(edx, JSObject::kMapOffset), ebx);
   __ mov(ebx, Factory::empty_fixed_array());
   __ mov(Operand(edx, JSObject::kPropertiesOffset), ebx);
   __ mov(Operand(edx, JSObject::kElementsOffset), ebx);
-  __ or_(Operand(edx), Immediate(kHeapObjectTag));
 
   // Push the allocated object to the stack. This is the object that will be
-  // returned.
+  // returned (after it is tagged).
   __ push(edx);
 
   // eax: argc
-  // edx: JSObject
+  // edx: JSObject (untagged)
   // Load the address of the first in-object property into edx.
   __ lea(edx, Operand(edx, JSObject::kHeaderSize));
-  __ xor_(Operand(edx), Immediate(kHeapObjectTag));  // Clear heap object tag.
   // Calculate the location of the first argument. The stack contains the
   // allocated object and the return address on top of the argc arguments.
   __ lea(ecx, Operand(esp, eax, times_4, 1 * kPointerSize));
@@ -1846,9 +1846,10 @@ Object* ConstructStubCompiler::CompileConstructStub(
     __ mov(Operand(edx, i * kPointerSize), edi);
   }
 
-  // Move argc to ebx and retreive the JSObject to return.
+  // Move argc to ebx and retrieve and tag the JSObject to return.
   __ mov(ebx, eax);
   __ pop(eax);
+  __ or_(Operand(eax), Immediate(kHeapObjectTag));
 
   // Remove caller arguments and receiver from the stack and return.
   __ pop(ecx);

@@ -2634,7 +2634,7 @@ class Code: public HeapObject {
   // the layout of the code object into account.
   int ExecutableSize() {
     // Check that the assumptions about the layout of the code object holds.
-    ASSERT_EQ(instruction_start() - address(),
+    ASSERT_EQ(static_cast<int>(instruction_start() - address()),
               Code::kHeaderSize);
     return instruction_size() + Code::kHeaderSize;
   }
@@ -2891,8 +2891,12 @@ class Map: public HeapObject {
 
   // Byte offsets within kInstanceSizesOffset.
   static const int kInstanceSizeOffset = kInstanceSizesOffset + 0;
-  static const int kInObjectPropertiesOffset = kInstanceSizesOffset + 1;
-  static const int kPreAllocatedPropertyFieldsOffset = kInstanceSizesOffset + 2;
+  static const int kInObjectPropertiesByte = 1;
+  static const int kInObjectPropertiesOffset =
+      kInstanceSizesOffset + kInObjectPropertiesByte;
+  static const int kPreAllocatedPropertyFieldsByte = 2;
+  static const int kPreAllocatedPropertyFieldsOffset =
+      kInstanceSizesOffset + kPreAllocatedPropertyFieldsByte;
   // The byte at position 3 is not in use at the moment.
 
   // Byte offsets within kInstanceAttributesOffset attributes.
@@ -3528,9 +3532,13 @@ class JSRegExp: public JSObject {
 
   static const int kAtomDataSize = kAtomPatternIndex + 1;
 
-  // Irregexp compiled code or bytecode for ASCII.
+  // Irregexp compiled code or bytecode for ASCII. If compilation
+  // fails, this fields hold an exception object that should be
+  // thrown if the regexp is used again.
   static const int kIrregexpASCIICodeIndex = kDataIndex;
-  // Irregexp compiled code or bytecode for UC16.
+  // Irregexp compiled code or bytecode for UC16.  If compilation
+  // fails, this fields hold an exception object that should be
+  // thrown if the regexp is used again.
   static const int kIrregexpUC16CodeIndex = kDataIndex + 1;
   // Maximal number of registers used by either ASCII or UC16.
   // Only used to check that there is enough stack space

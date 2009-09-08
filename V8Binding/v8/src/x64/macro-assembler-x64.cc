@@ -46,6 +46,22 @@ MacroAssembler::MacroAssembler(void* buffer, int size)
 }
 
 
+void MacroAssembler::LoadRoot(Register destination,
+                              Heap::RootListIndex index) {
+  movq(destination, Operand(r13, index << kPointerSizeLog2));
+}
+
+
+void MacroAssembler::PushRoot(Heap::RootListIndex index) {
+  push(Operand(r13, index << kPointerSizeLog2));
+}
+
+
+void MacroAssembler::CompareRoot(Register with,
+                                 Heap::RootListIndex index) {
+  cmpq(with, Operand(r13, index << kPointerSizeLog2));
+}
+
 
 static void RecordWriteHelper(MacroAssembler* masm,
                               Register object,
@@ -276,7 +292,7 @@ void MacroAssembler::IllegalOperation(int num_arguments) {
   if (num_arguments > 0) {
     addq(rsp, Immediate(num_arguments * kPointerSize));
   }
-  movq(rax, Factory::undefined_value(), RelocInfo::EMBEDDED_OBJECT);
+  LoadRoot(rax, Heap::kUndefinedValueRootIndex);
 }
 
 
@@ -584,8 +600,14 @@ void MacroAssembler::FCmp() {
   fcompp();
   push(rax);
   fnstsw_ax();
-  // TODO(X64): Check that sahf is safe to use, using CPUProbe.
-  sahf();
+  if (CpuFeatures::IsSupported(CpuFeatures::SAHF)) {
+    sahf();
+  } else {
+    shrl(rax, Immediate(8));
+    and_(rax, Immediate(0xFF));
+    push(rax);
+    popfq();
+  }
   pop(rax);
 }
 
@@ -628,7 +650,7 @@ void MacroAssembler::TryGetFunctionPrototype(Register function,
   // If the prototype or initial map is the hole, don't return it and
   // simply miss the cache instead. This will allow us to allocate a
   // prototype object on-demand in the runtime system.
-  Cmp(result, Factory::the_hole_value());
+  CompareRoot(result, Heap::kTheHoleValueRootIndex);
   j(equal, miss);
 
   // If the function does not have an initial map, we're done.
@@ -994,12 +1016,6 @@ void MacroAssembler::EnterExitFrame(StackFrame::Type type) {
   }
 #endif
 
-  // Reserve space for the Arguments object.  The Windows 64-bit ABI
-  // requires us to pass this structure as a pointer to its location on
-  // the stack.  We also need backing space for the pointer, even though
-  // it is passed in a register.
-  subq(rsp, Immediate(3 * kPointerSize));
-
   // Get the required frame alignment for the OS.
   static const int kFrameAlignment = OS::ActivationFrameAlignment();
   if (kFrameAlignment > 0) {
@@ -1007,6 +1023,17 @@ void MacroAssembler::EnterExitFrame(StackFrame::Type type) {
     movq(kScratchRegister, Immediate(-kFrameAlignment));
     and_(rsp, kScratchRegister);
   }
+
+#ifdef _WIN64
+  // Reserve space for the Arguments object.  The Windows 64-bit ABI
+  // requires us to pass this structure as a pointer to its location on
+  // the stack.  The structure contains 2 pointers.
+  // The structure on the stack must be 16-byte aligned.
+  // We also need backing space for 4 parameters, even though
+  // we only pass one parameter, and it is in a register.
+  subq(rsp, Immediate(6 * kPointerSize));
+  ASSERT(kFrameAlignment == 2 * kPointerSize);  // Change the padding if needed.
+#endif
 
   // Patch the saved entry sp.
   movq(Operand(rbp, ExitFrameConstants::kSPOffset), rsp);
@@ -1182,12 +1209,12 @@ void MacroAssembler::CheckAccessGlobalProxy(Register holder_reg,
     // Preserve original value of holder_reg.
     push(holder_reg);
     movq(holder_reg, FieldOperand(holder_reg, JSGlobalProxy::kContextOffset));
-    Cmp(holder_reg, Factory::null_value());
+    CompareRoot(holder_reg, Heap::kNullValueRootIndex);
     Check(not_equal, "JSGlobalProxy::context() should not be null.");
 
     // Read the first word and compare to global_context_map(),
     movq(holder_reg, FieldOperand(holder_reg, HeapObject::kMapOffset));
-    Cmp(holder_reg, Factory::global_context_map());
+    CompareRoot(holder_reg, Heap::kGlobalContextMapRootIndex);
     Check(equal, "JSGlobalObject::global_context should be a global context.");
     pop(holder_reg);
   }
@@ -1204,18 +1231,23 @@ void MacroAssembler::CheckAccessGlobalProxy(Register holder_reg,
 }
 
 
-void MacroAssembler::LoadAllocationTopHelper(
-    Register result,
-    Register result_end,
-    Register scratch,
-    bool result_contains_top_on_entry) {
+void MacroAssembler::LoadAllocationTopHelper(Register result,
+                                             Register result_end,
+                                             Register scratch,
+                                             AllocationFlags flags) {
   ExternalReference new_space_allocation_top =
       ExternalReference::new_space_allocation_top_address();
 
   // Just return if allocation top is already known.
-  if (result_contains_top_on_entry) {
+  if ((flags & RESULT_CONTAINS_TOP) != 0) {
     // No use of scratch if allocation top is provided.
     ASSERT(scratch.is(no_reg));
+#ifdef DEBUG
+    // Assert that result actually contains top on entry.
+    movq(kScratchRegister, new_space_allocation_top);
+    cmpq(result, Operand(kScratchRegister, 0));
+    Check(equal, "Unexpected allocation top");
+#endif
     return;
   }
 
@@ -1252,20 +1284,16 @@ void MacroAssembler::UpdateAllocationTopHelper(Register result_end,
 }
 
 
-void MacroAssembler::AllocateObjectInNewSpace(
-    int object_size,
-    Register result,
-    Register result_end,
-    Register scratch,
-    Label* gc_required,
-    bool result_contains_top_on_entry) {
+void MacroAssembler::AllocateObjectInNewSpace(int object_size,
+                                              Register result,
+                                              Register result_end,
+                                              Register scratch,
+                                              Label* gc_required,
+                                              AllocationFlags flags) {
   ASSERT(!result.is(result_end));
 
   // Load address of new object into result.
-  LoadAllocationTopHelper(result,
-                          result_end,
-                          scratch,
-                          result_contains_top_on_entry);
+  LoadAllocationTopHelper(result, result_end, scratch, flags);
 
   // Calculate new top and bail out if new space is exhausted.
   ExternalReference new_space_allocation_limit =
@@ -1277,25 +1305,26 @@ void MacroAssembler::AllocateObjectInNewSpace(
 
   // Update allocation top.
   UpdateAllocationTopHelper(result_end, scratch);
+
+  // Tag the result if requested.
+  if ((flags & TAG_OBJECT) != 0) {
+    addq(result, Immediate(kHeapObjectTag));
+  }
 }
 
 
-void MacroAssembler::AllocateObjectInNewSpace(
-    int header_size,
-    ScaleFactor element_size,
-    Register element_count,
-    Register result,
-    Register result_end,
-    Register scratch,
-    Label* gc_required,
-    bool result_contains_top_on_entry) {
+void MacroAssembler::AllocateObjectInNewSpace(int header_size,
+                                              ScaleFactor element_size,
+                                              Register element_count,
+                                              Register result,
+                                              Register result_end,
+                                              Register scratch,
+                                              Label* gc_required,
+                                              AllocationFlags flags) {
   ASSERT(!result.is(result_end));
 
   // Load address of new object into result.
-  LoadAllocationTopHelper(result,
-                          result_end,
-                          scratch,
-                          result_contains_top_on_entry);
+  LoadAllocationTopHelper(result, result_end, scratch, flags);
 
   // Calculate new top and bail out if new space is exhausted.
   ExternalReference new_space_allocation_limit =
@@ -1307,23 +1336,22 @@ void MacroAssembler::AllocateObjectInNewSpace(
 
   // Update allocation top.
   UpdateAllocationTopHelper(result_end, scratch);
+
+  // Tag the result if requested.
+  if ((flags & TAG_OBJECT) != 0) {
+    addq(result, Immediate(kHeapObjectTag));
+  }
 }
 
 
-void MacroAssembler::AllocateObjectInNewSpace(
-    Register object_size,
-    Register result,
-    Register result_end,
-    Register scratch,
-    Label* gc_required,
-    bool result_contains_top_on_entry) {
-
+void MacroAssembler::AllocateObjectInNewSpace(Register object_size,
+                                              Register result,
+                                              Register result_end,
+                                              Register scratch,
+                                              Label* gc_required,
+                                              AllocationFlags flags) {
   // Load address of new object into result.
-  LoadAllocationTopHelper(result,
-                          result_end,
-                          scratch,
-                          result_contains_top_on_entry);
-
+  LoadAllocationTopHelper(result, result_end, scratch, flags);
 
   // Calculate new top and bail out if new space is exhausted.
   ExternalReference new_space_allocation_limit =
@@ -1338,6 +1366,11 @@ void MacroAssembler::AllocateObjectInNewSpace(
 
   // Update allocation top.
   UpdateAllocationTopHelper(result_end, scratch);
+
+  // Tag the result if requested.
+  if ((flags & TAG_OBJECT) != 0) {
+    addq(result, Immediate(kHeapObjectTag));
+  }
 }
 
 
