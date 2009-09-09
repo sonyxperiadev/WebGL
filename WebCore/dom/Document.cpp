@@ -547,6 +547,15 @@ void Document::setDocType(PassRefPtr<DocumentType> docType)
     m_docType = docType;
     if (m_docType)
         m_docType->setDocument(this);
+#ifdef ANDROID_META_SUPPORT
+    if (!ownerElement() && m_docType->publicId().startsWith("-//wapforum//dtd xhtml mobile 1.", false)) {
+        // fit mobile sites directly in the screen
+        frame()->settings()->setMetadataSettings("width", "device-width");
+        FrameView* frameView = view();
+        if (frameView)
+            android::WebViewCore::getWebViewCore(frameView)->updateViewport();
+    }
+#endif
     determineParseMode();
 }
 
