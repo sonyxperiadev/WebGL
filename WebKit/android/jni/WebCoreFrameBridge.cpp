@@ -1071,8 +1071,8 @@ static void AddJavascriptInterface(JNIEnv *env, jobject obj, jint nativeFramePoi
     // Copied from qwebframe.cpp
     JSC::JSLock lock(false);
     WebCore::JSDOMWindow *window = WebCore::toJSDOMWindow(pFrame);
-    JSC::Bindings::RootObject *root = pFrame->script()->bindingRootObject();
     if (window) {
+        JSC::Bindings::RootObject *root = pFrame->script()->bindingRootObject();
         JSC::Bindings::setJavaVM(vm);
         // Add the binding to JS environment
         JSC::ExecState* exec = window->globalExec();
