@@ -75,12 +75,6 @@
 
 #include "DocTypeStrings.cpp"
 
-#ifdef ANDROID_META_SUPPORT
-#include "FrameTree.h"
-#include "Settings.h"
-#include "WebViewCore.h"
-#endif
-
 namespace WebCore {
 
 using namespace HTMLNames;
@@ -381,16 +375,6 @@ void HTMLDocument::determineParseMode()
         String lowerPubID = docType->publicId().lower();
         CString pubIDStr = lowerPubID.latin1();
        
-#ifdef ANDROID_META_SUPPORT
-        if ((!frame()->tree() || !frame()->tree()->parent()) &&
-                strstr(pubIDStr.data(), "-//wapforum//dtd xhtml mobile 1.") == pubIDStr.data()) {
-            // fit mobile sites directly in the screen
-            frame()->settings()->setMetadataSettings("width", "device-width");
-            FrameView* frameView = view();
-            if (frameView)
-                android::WebViewCore::getWebViewCore(frameView)->updateViewport();
-        }
-#endif
         // Look up the entry in our gperf-generated table.
         const PubIDInfo* doctypeEntry = findDoctypeEntry(pubIDStr.data(), pubIDStr.length());
         if (!doctypeEntry)
