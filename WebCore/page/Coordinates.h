@@ -50,8 +50,6 @@ public:
     bool canProvideAltitudeAccuracy() const { return m_canProvideAltitudeAccuracy; }
     bool canProvideHeading() const { return m_canProvideHeading; }
     bool canProvideSpeed() const { return m_canProvideSpeed; }
-    
-    String toString() const;
 
 private:
     Coordinates(double latitude, double longitude, bool providesAltitude, double altitude, double accuracy, bool providesAltitudeAccuracy, double altitudeAccuracy, bool providesHeading, double heading, bool providesSpeed, double speed)

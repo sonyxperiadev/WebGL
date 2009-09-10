@@ -382,7 +382,6 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	page/Chrome.cpp \
 	page/Console.cpp \
 	page/ContextMenuController.cpp \
-	page/Coordinates.cpp \
 	page/DOMSelection.cpp \
 	page/DOMTimer.cpp \
 	page/DOMWindow.cpp \
@@ -393,7 +392,6 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	page/FrameTree.cpp \
 	page/FrameView.cpp \
 	page/Geolocation.cpp \
-	page/Geoposition.cpp \
 	page/History.cpp \
 	page/Location.cpp \
 	page/MouseEventWithHitTestResults.cpp \
