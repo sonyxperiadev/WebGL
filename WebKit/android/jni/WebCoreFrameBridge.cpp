@@ -280,13 +280,26 @@ WebFrame::startLoadingResource(WebCore::ResourceHandle* loader,
     TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
 #endif
     LOGV("::WebCore:: startLoadingResource(%p, %s)",
-            loader, request.url().string().ascii().data());
+            loader, request.url().string().latin1().data());
 
     WebCore::String method = request.httpMethod();
     WebCore::HTTPHeaderMap headers = request.httpHeaderFields();
 
     JNIEnv* env = JSC::Bindings::getJNIEnv();
     WebCore::String urlStr = request.url().string();
+    int colon = urlStr.find(':');
+    bool allLower = true;
+    for (int index = 0; index < colon; index++) {
+        UChar ch = urlStr[index];
+        if (!WTF::isASCIIAlpha(ch))
+            break;
+        allLower &= WTF::isASCIILower(ch);
+        if (index == colon - 1 && !allLower) {
+            urlStr = urlStr.substring(0, colon).lower()
+                    + urlStr.substring(colon);
+        }
+    }
+    LOGV("%s lower=%s", __FUNCTION__, urlStr.latin1().data());
     jstring jUrlStr = env->NewString(urlStr.characters(), urlStr.length());
     jstring jMethodStr = NULL;
     if (!method.isEmpty())
