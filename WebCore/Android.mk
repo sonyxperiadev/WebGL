@@ -48,8 +48,12 @@
 #	page/Accessibility*.cpp \
 #	page/InspectorController.cpp \
 #	page/JavaScript*.cpp \
+#	platform/text/TextEncodingDetectorNone.cpp \
 #	platform/ThreadingNone.cpp \
 #	platform/graphics/FloatPoint3D.cpp \
+#	plugins/PluginDataNone.cpp \
+#	plugins/PluginPackageNone.cpp \
+#	plugins/PluginViewNone.cpp \
 #	rendering/RenderThemeChromium*.cpp \
 #	rendering/RenderThemeSafari.cpp \
 #	rendering/RenderThemeWin.cpp \
@@ -544,7 +548,6 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	loader/appcache/ManifestParser.cpp \
 	\
 	loader/icon/IconDatabase.cpp \
-	loader/icon/IconDatabaseNone.cpp \
 	loader/icon/IconFetcher.cpp \
 	loader/icon/IconLoader.cpp \
 	loader/icon/IconRecord.cpp \
@@ -770,7 +773,6 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/text/TextCodecUserDefined.cpp \
 	platform/text/TextEncoding.cpp \
 	platform/text/TextEncodingDetectorICU.cpp \
-	platform/text/TextEncodingDetectorNone.cpp \
 	platform/text/TextEncodingRegistry.cpp \
 	platform/text/TextStream.cpp \
 	platform/text/UnicodeRange.cpp \
@@ -782,16 +784,13 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	plugins/Plugin.cpp \
 	plugins/PluginArray.cpp \
 	plugins/PluginData.cpp \
-	plugins/PluginDataNone.cpp \
 	plugins/PluginDatabase.cpp \
 	plugins/PluginDebug.cpp \
 	plugins/PluginInfoStore.cpp \
 	plugins/PluginMainThreadScheduler.cpp \
 	plugins/PluginPackage.cpp \
-	plugins/PluginPackageNone.cpp \
 	plugins/PluginStream.cpp \
 	plugins/PluginView.cpp \
-	plugins/PluginViewNone.cpp \
 	plugins/npapi.cpp \
 	\
 	plugins/android/PluginDataAndroid.cpp \
