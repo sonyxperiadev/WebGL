@@ -184,6 +184,11 @@ public:
 
     MediaPlayerClient* mediaPlayerClient() const { return m_mediaPlayerClient; }
 
+#if PLATFORM(ANDROID)
+    bool canLoadPoster() const;
+    void setPoster(const String&);
+#endif
+
 #if ENABLE(PLUGIN_PROXY_FOR_VIDEO)
     void setPoster(const String& url);
     void deliverNotification(MediaPlayerProxyNotificationType notification);
