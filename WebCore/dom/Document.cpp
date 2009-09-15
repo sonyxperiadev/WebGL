@@ -548,11 +548,12 @@ void Document::setDocType(PassRefPtr<DocumentType> docType)
     if (m_docType)
         m_docType->setDocument(this);
 #ifdef ANDROID_META_SUPPORT
-    if (!ownerElement() && m_docType->publicId().startsWith("-//wapforum//dtd xhtml mobile 1.", false)) {
+    if (m_docType && !ownerElement()
+            && m_docType->publicId().startsWith("-//wapforum//dtd xhtml mobile 1.", false)) {
         // fit mobile sites directly in the screen
-        frame()->settings()->setMetadataSettings("width", "device-width");
-        FrameView* frameView = view();
-        if (frameView)
+        if (Frame *f = frame())
+            f->settings()->setMetadataSettings("width", "device-width");
+        if (FrameView* frameView = view())
             android::WebViewCore::getWebViewCore(frameView)->updateViewport();
     }
 #endif
