@@ -2529,6 +2529,8 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& e)
 
     RefPtr<TouchList> touchList = TouchList::create();
     touchList->append(m_touch);
+    // For TouchEventEnd, touches and targetTouches are empty list
+    RefPtr<TouchList> emptyList = TouchList::create();
     RefPtr<TouchEvent> te;
     switch(type) {
         case TouchEventStart:
@@ -2538,7 +2540,7 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& e)
             break;
 
         case TouchEventEnd:
-            te = TouchEvent::create(touchList.get(), touchList.get(), touchList.get(),
+            te = TouchEvent::create(emptyList.get(), emptyList.get(), touchList.get(),
                     eventNames().touchendEvent, m_touch->frame()->document()->defaultView(),
                     m_touch->screenX(), m_touch->screenY(), m_touch->pageX(), m_touch->pageY());
             break;
