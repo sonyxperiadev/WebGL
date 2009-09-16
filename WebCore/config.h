@@ -95,6 +95,8 @@
 #define LOG_DISABLED 1
 #include <wtf/Assertions.h>
 // center place to handle which option feature ANDROID will enable
+#undef ENABLE_CHANNEL_MESSAGING
+#define ENABLE_CHANNEL_MESSAGING 1
 #undef ENABLE_DATABASE
 #define ENABLE_DATABASE 1
 #undef ENABLE_DOM_STORAGE
