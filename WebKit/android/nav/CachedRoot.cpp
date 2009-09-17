@@ -1247,7 +1247,7 @@ void CachedRoot::setCachedFocus(CachedFrame* frame, CachedNode* node)
         frame = parent;
     }
 #if DEBUG_NAV_UI && !defined BROWSER_DEBUG
-    const CachedNode* focus = currentFocus();
+    const CachedNode* focus = frame->currentFocus();
     WebCore::IntRect bounds = WebCore::IntRect(0, 0, 0, 0);
     if (focus)
         bounds = focus->bounds();

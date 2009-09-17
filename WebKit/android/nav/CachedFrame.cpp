@@ -578,6 +578,9 @@ void CachedFrame::finishInit()
         child->finishInit();
         child++;
     }
+    CachedFrame* frameParent;
+    if (mFocusIndex >= 0 && (frameParent = parent()))
+        frameParent->setFocusIndex(indexInParent());
 }
 
 const CachedNode* CachedFrame::frameDown(const CachedNode* test, const CachedNode* limit, BestData* bestData,
