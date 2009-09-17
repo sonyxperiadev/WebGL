@@ -29,7 +29,6 @@
 #include "Element.h"
 #include "Frame.h"
 #include "PluginPackage.h"
-#include "PluginSurface.h"
 #include "PluginView.h"
 #include "PluginWidgetAndroid.h"
 #include "ScrollView.h"
@@ -49,11 +48,19 @@ PluginWidgetAndroid::PluginWidgetAndroid(WebCore::PluginView* view)
     m_visibleDocRect.setEmpty();
     m_hasFocus = false;
     m_zoomLevel = 0;
+    m_javaClassName = NULL;
+    m_childView = NULL;
 }
 
 PluginWidgetAndroid::~PluginWidgetAndroid() {
     if (m_core) {
         m_core->removePlugin(this);
+        if (m_childView) {
+            m_core->destroySurface(m_childView);
+        }
+    }
+    if (m_javaClassName) {
+        free(m_javaClassName);
     }
     m_flipPixelRef->safeUnref();
 }
@@ -68,13 +75,48 @@ static SkBitmap::Config computeConfig(bool isTransparent) {
                          : SkBitmap::kRGB_565_Config;
 }
 
+/*
+ * Returns the name of the apk that contains this plugin. The caller is
+ * responsible for calling free(...) on the char* that is returned.
+ */
+static char* getPackageName(PluginPackage* pluginPackage) {
+
+    // get the directory where the plugin library is stored. The structure of
+    // the path looks like /data/app/plugin.package.name/lib.
+    const char* pluginDir = pluginPackage->parentDirectory().latin1().data();
+
+    // trim "/lib" off the directory name and store in tempString
+    int length = strlen(pluginDir) - 4; // -4 for "/lib"
+    char* tempString = (char*) malloc(length + 1); // +1 for null termination
+    strncpy(tempString, pluginDir, length);
+    tempString[length] = '\0';
+
+    // find the final '/' in tempString
+    char* result = strrchr(tempString, '/');
+
+    char* packageName = NULL;
+    if (result) {
+        // duplicate the tempString without the leading '/'
+        packageName = strdup(result+1);
+    }
+
+    // free extra memory and return the package name
+    free(tempString);
+    return packageName;
+}
+
 void PluginWidgetAndroid::setWindow(NPWindow* window, bool isTransparent) {
     m_pluginWindow = window;
 
     if (m_drawingModel == kSurface_ANPDrawingModel) {
-        if (m_surface) {
+        if (!m_childView) {
             IntPoint docPoint = frameToDocumentCoords(window->x, window->y);
-            m_surface->attach(docPoint.x(), docPoint.y(), window->width, window->height);
+            char* packageName = getPackageName(m_pluginView->plugin());
+            m_childView = m_core->createSurface(packageName, m_javaClassName,
+                                                m_pluginView->instance(),
+                                                docPoint.x(), docPoint.y(),
+                                                window->width, window->height);
+            free(packageName);
         }
     } else {
         m_flipPixelRef->safeUnref();
@@ -83,7 +125,18 @@ void PluginWidgetAndroid::setWindow(NPWindow* window, bool isTransparent) {
     }
 }
 
+bool PluginWidgetAndroid::setJavaClassName(const char* className) {
+    m_javaClassName = strdup(className);
+    return (m_javaClassName != NULL);
+}
+
 bool PluginWidgetAndroid::setDrawingModel(ANPDrawingModel model) {
+
+    // disallow the surface drawing model if no java class name has been given
+    if (model == kSurface_ANPDrawingModel && m_javaClassName == NULL) {
+        return false;
+    }
+
     m_drawingModel = model;
     return true;
 }
@@ -208,18 +261,6 @@ void PluginWidgetAndroid::updateEventFlags(ANPEventFlags flags) {
 
 bool PluginWidgetAndroid::isAcceptingEvent(ANPEventFlag flag) {
     return m_eventFlags & flag;
-}
-
-ANPSurface* PluginWidgetAndroid::createRasterSurface(ANPBitmapFormat format,
-                                                     bool fixedSize) {
-    if (m_drawingModel != kSurface_ANPDrawingModel) {
-        return NULL;
-    }
-    m_surface.set(new android::PluginSurface(this, format, fixedSize));
-    ANPSurface* surface = new ANPSurface;
-    surface->data = m_surface.get();
-    surface->type = kRaster_ANPSurfaceType;
-    return surface;
 }
 
 void PluginWidgetAndroid::setVisibleScreen(const ANPRectI& visibleDocRect, float zoom) {

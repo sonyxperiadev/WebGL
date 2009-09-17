@@ -29,8 +29,7 @@
 #include "android_npapi.h"
 #include "IntPoint.h"
 #include "SkRect.h"
-
-#include <wtf/OwnPtr.h>
+#include <jni.h>
 
 namespace WebCore {
     class PluginView;
@@ -67,6 +66,11 @@ struct PluginWidgetAndroid {
     /*  Called each time the PluginView gets a new size or position.
      */
     void setWindow(NPWindow* window, bool isTransparent);
+
+    /* Called to notify us of the plugin's java class that implements the
+     * PluginStub interface.
+     */
+    bool setJavaClassName(const char* className);
 
     /*  Called whenever the plugin itself requests a new drawing model. If the
         hardware does not support the requested model then false is returned,
@@ -110,15 +114,6 @@ struct PluginWidgetAndroid {
      */
     bool isAcceptingEvent(ANPEventFlag);
 
-    /*  Create an ANPSurface that the plugin may draw in to. The drawing model
-        must be kSurface_ANPDrawingModel for this call to succeed. The format
-        specifies what kind of pixel access will be available. If true the
-        fixedSize param signals that the browser will auto-scale the surface for
-        the plugin (e.g. in the case of zooming). If false the surface will be
-        resized when zoomed and the plugin must manually scale to the new size.
-     */
-    ANPSurface* createRasterSurface(ANPBitmapFormat format, bool fixedSize);
-
     /*  Notify the plugin of the currently visible screen coordinates (document
         space) and the current zoom level.
      */
@@ -148,9 +143,10 @@ private:
     NPWindow*               m_pluginWindow;
     SkIRect                 m_visibleDocRect;
     SkIRect                 m_requestedFrameRect;
-    OwnPtr<android::PluginSurface> m_surface;
     bool                    m_hasFocus;
     float                   m_zoomLevel;
+    char*                   m_javaClassName;
+    jobject                 m_childView;
 
     /* We limit the number of rectangles to minimize storage and ensure adequate
        speed.

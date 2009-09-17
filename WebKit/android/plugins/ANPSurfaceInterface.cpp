@@ -26,50 +26,102 @@
 // must include config.h first for webkit to fiddle with new/delete
 #include "config.h"
 
-#include "PluginSurface.h"
 #include "PluginView.h"
 #include "PluginWidgetAndroid.h"
 #include "SkANP.h"
+#include <ui/Surface.h>
+#include <ui/Rect.h>
+#include <ui/Region.h>
+#include "jni_utility.h"
+#include <utils/RefBase.h>
+#include "android_graphics.h"
+#include "ANPSurface_npapi.h"
 
-using namespace WebCore;
+using namespace android;
 
-static ANPSurface* anp_newRasterSurface(NPP instance, ANPBitmapFormat format,
-                                        bool fixedSize) {
-    if (instance && instance->ndata) {
-        PluginView* view = static_cast<PluginView*>(instance->ndata);
-        PluginWidgetAndroid* widget = view->platformPluginWidget();
-        return widget->createRasterSurface(format, fixedSize);
+static inline sp<Surface> getSurface(JNIEnv* env, jobject view) {
+    if (!env || !view) {
+        return NULL;
     }
-    return NULL;
+
+    jclass clazz = env->FindClass("android/view/Surface");
+    jfieldID surfaceField = env->GetFieldID(clazz, "mSurface", "I");
+
+    clazz = env->FindClass("android/view/SurfaceView");
+    jmethodID getHolder = env->GetMethodID(clazz, "getHolder", "()Landroid/view/SurfaceHolder;");
+
+    clazz = env->FindClass("android/view/SurfaceHolder");
+    jmethodID getSurface = env->GetMethodID(clazz, "getSurface", "()Landroid/view/Surface;");
+
+    jobject holder = env->CallObjectMethod(view, getHolder);
+    jobject surface = env->CallObjectMethod(holder, getSurface);
+    return sp<Surface>((Surface*) env->GetIntField(surface, surfaceField));
 }
 
-static void anp_deleteSurface(ANPSurface* surface) {
-    if (surface) {
-        if (surface->data) {
-            android::PluginSurface* s =
-                    static_cast<android::PluginSurface*>(surface->data);
-            s->destroy();
+static inline ANPBitmapFormat convertPixelFormat(PixelFormat format) {
+    switch (format) {
+        case PIXEL_FORMAT_RGBA_8888:    return kRGBA_8888_ANPBitmapFormat;
+        case PIXEL_FORMAT_RGB_565:      return kRGB_565_ANPBitmapFormat;
+        default:                        return kUnknown_ANPBitmapFormat;
+    }
+}
+
+static bool anp_lock(JNIEnv* env, jobject surfaceView, ANPBitmap* bitmap, ANPRectI* dirtyRect) {
+    if (!bitmap || !surfaceView) {
+        return false;
+    }
+
+    sp<Surface> surface = getSurface(env, surfaceView);
+
+    if (!bitmap || !Surface::isValid(surface)) {
+            return false;
+    }
+
+    Region dirtyRegion;
+    if (dirtyRect) {
+        Rect rect(dirtyRect->left, dirtyRect->top, dirtyRect->right, dirtyRect->bottom);
+        if (!rect.isEmpty()) {
+            dirtyRegion.set(rect);
         }
-        delete surface;
+    } else {
+        dirtyRegion.set(Rect(0x3FFF, 0x3FFF));
     }
+
+    Surface::SurfaceInfo info;
+    status_t err = surface->lock(&info, &dirtyRegion);
+    if (err < 0) {
+        return false;
+    }
+
+    ssize_t bpr = info.s * bytesPerPixel(info.format);
+
+    bitmap->format = convertPixelFormat(info.format);
+    bitmap->width = info.w;
+    bitmap->height = info.h;
+    bitmap->rowBytes = bpr;
+
+    if (info.w > 0 && info.h > 0) {
+        bitmap->baseAddr = info.bits;
+    } else {
+        bitmap->baseAddr = NULL;
+        return false;
+    }
+
+    return true;
 }
 
-static bool anp_lock(ANPSurface* surface, ANPBitmap* bitmap, ANPRectI* dirtyRect) {
-    if (bitmap && surface && surface->data) {
-        android::PluginSurface* s =
-                static_cast<android::PluginSurface*>(surface->data);
-
-        return s->lock(dirtyRect, bitmap);
+static void anp_unlock(JNIEnv* env, jobject surfaceView) {
+    if (!surfaceView) {
+        return;
     }
-    return false;
-}
 
-static void anp_unlock(ANPSurface* surface) {
-    if (surface && surface->data) {
-        android::PluginSurface* s =
-                static_cast<android::PluginSurface*>(surface->data);
-        s->unlock();
+    sp<Surface> surface = getSurface(env, surfaceView);
+
+    if (!Surface::isValid(surface)) {
+        return;
     }
+
+    surface->unlockAndPost();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -79,8 +131,6 @@ static void anp_unlock(ANPSurface* surface) {
 void ANPSurfaceInterfaceV0_Init(ANPInterface* value) {
     ANPSurfaceInterfaceV0* i = reinterpret_cast<ANPSurfaceInterfaceV0*>(value);
 
-    ASSIGN(i, newRasterSurface);
-    ASSIGN(i, deleteSurface);
     ASSIGN(i, lock);
     ASSIGN(i, unlock);
 }
