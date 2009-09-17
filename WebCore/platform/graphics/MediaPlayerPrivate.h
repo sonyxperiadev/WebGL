@@ -92,6 +92,11 @@ public:
 
     virtual void setAutobuffer(bool) { };
 
+#if PLATFORM(ANDROID)
+    virtual bool canLoadPoster() const { return false; }
+    virtual void setPoster(const String&) { }
+#endif
+
 #if ENABLE(PLUGIN_PROXY_FOR_VIDEO)
     virtual void setPoster(const String& url) = 0;
     virtual void deliverNotification(MediaPlayerProxyNotificationType) = 0;

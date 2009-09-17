@@ -77,6 +77,9 @@ public:
 
     virtual void setSize(const IntSize&);
 
+    virtual bool canLoadPoster() const { return true; }
+    virtual void setPoster(const String&);
+
     virtual void paint(GraphicsContext*, const IntRect&);
 private:
     // Android-specific methods and fields.

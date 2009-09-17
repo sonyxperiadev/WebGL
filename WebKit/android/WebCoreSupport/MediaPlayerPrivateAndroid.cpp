@@ -47,6 +47,7 @@ struct MediaPlayerPrivate::JavaGlue
     jmethodID m_createView;
     jmethodID m_attachView;
     jmethodID m_removeView;
+    jmethodID m_setPoster;
 };
 
 MediaPlayerPrivate::~MediaPlayerPrivate()
@@ -99,8 +100,6 @@ void MediaPlayerPrivate::play()
     if (!frameView)
         return;
 
-    WebViewCore* webViewCore =  WebViewCore::getWebViewCore(frameView);
-    ASSERT(webViewCore);
     jstring jUrl = env->NewString((unsigned short *)m_url.characters(), m_url.length());
     env->CallVoidMethod(m_glue->m_javaProxy, m_glue->m_play, jUrl);
     env->DeleteLocalRef(jUrl);
@@ -200,6 +199,17 @@ void MediaPlayerPrivate::setSize(const IntSize&)
 {
 }
 
+void MediaPlayerPrivate::setPoster(const String& url)
+{
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
+     if (!env)
+         return;
+     jstring jUrl = env->NewString((unsigned short *)url.characters(), url.length());
+     env->CallVoidMethod(m_glue->m_javaProxy, m_glue->m_setPoster, jUrl);
+     env->DeleteLocalRef(jUrl);
+     checkException(env);
+}
+
 void MediaPlayerPrivate::paint(GraphicsContext*, const IntRect& r)
 {
     createJavaPlayerIfNeeded();
@@ -242,6 +252,7 @@ MediaPlayerPrivate::MediaPlayerPrivate(MediaPlayer* player) : m_player(player), 
     m_glue->m_createView = env->GetMethodID(clazz, "createView", "()V");
     m_glue->m_attachView = env->GetMethodID(clazz, "attachView", "(IIII)V");
     m_glue->m_removeView = env->GetMethodID(clazz, "removeView", "()V");
+    m_glue->m_setPoster = env->GetMethodID(clazz, "loadPoster", "(Ljava/lang/String;)V");
     m_glue->m_javaProxy = NULL;
     env->DeleteLocalRef(clazz);
     // An exception is raised if any of the above fails.
