@@ -48,6 +48,8 @@ struct MediaPlayerPrivate::JavaGlue
     jmethodID m_attachView;
     jmethodID m_removeView;
     jmethodID m_setPoster;
+    jmethodID m_seek;
+    jmethodID m_pause;
 };
 
 MediaPlayerPrivate::~MediaPlayerPrivate()
@@ -96,10 +98,7 @@ void MediaPlayerPrivate::play()
     if (!env || !m_glue->m_javaProxy || !m_url.length())
         return;
 
-    FrameView* frameView = m_player->frameView();
-    if (!frameView)
-        return;
-
+    m_paused = false;
     jstring jUrl = env->NewString((unsigned short *)m_url.characters(), m_url.length());
     env->CallVoidMethod(m_glue->m_javaProxy, m_glue->m_play, jUrl);
     env->DeleteLocalRef(jUrl);
@@ -108,11 +107,18 @@ void MediaPlayerPrivate::play()
 
 void MediaPlayerPrivate::pause()
 {
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    if (!env || !m_glue->m_javaProxy || !m_url.length())
+        return;
+
+    m_paused = true;
+    env->CallVoidMethod(m_glue->m_javaProxy, m_glue->m_pause);
+    checkException(env);
 }
 
 IntSize MediaPlayerPrivate::naturalSize() const
 {
-    return IntSize(300, 150);
+    return m_size;
 }
 
 bool MediaPlayerPrivate::hasVideo() const
@@ -126,16 +132,23 @@ void MediaPlayerPrivate::setVisible(bool)
 
 float MediaPlayerPrivate::duration() const
 {
-    return 100;
+    return m_duration;
 }
 
 float MediaPlayerPrivate::currentTime() const
 {
-    return 0;
+    return m_currentTime;
 }
 
 void MediaPlayerPrivate::seek(float time)
 {
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    if (!env || !m_glue->m_javaProxy || !m_url.length())
+        return;
+
+    m_currentTime = time;
+    env->CallVoidMethod(m_glue->m_javaProxy, m_glue->m_seek, static_cast<jint>(time * 1000.0f));
+    checkException(env);
 }
 
 bool MediaPlayerPrivate::seeking() const
@@ -153,7 +166,7 @@ void MediaPlayerPrivate::setRate(float)
 
 bool MediaPlayerPrivate::paused() const
 {
-    return true;
+    return m_paused;
 }
 
 void MediaPlayerPrivate::setVolume(float)
@@ -236,7 +249,8 @@ MediaPlayer::SupportsType MediaPlayerPrivate::supportsType(const String& type, c
     return MediaPlayer::IsNotSupported;
 }
 
-MediaPlayerPrivate::MediaPlayerPrivate(MediaPlayer* player) : m_player(player), m_glue(NULL)
+MediaPlayerPrivate::MediaPlayerPrivate(MediaPlayer* player)
+    : m_player(player), m_glue(NULL), m_duration(6000), m_size(100, 100), m_currentTime(0), m_paused(true)
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
     if (!env)
@@ -247,12 +261,14 @@ MediaPlayerPrivate::MediaPlayerPrivate(MediaPlayer* player) : m_player(player), 
         return;
 
     m_glue = new JavaGlue;
-    m_glue->m_getInstance = env->GetStaticMethodID(clazz, "getInstance", "(Landroid/webkit/WebViewCore;)Landroid/webkit/HTML5VideoViewProxy;");
+    m_glue->m_getInstance = env->GetStaticMethodID(clazz, "getInstance", "(Landroid/webkit/WebViewCore;I)Landroid/webkit/HTML5VideoViewProxy;");
     m_glue->m_play = env->GetMethodID(clazz, "play", "(Ljava/lang/String;)V");
     m_glue->m_createView = env->GetMethodID(clazz, "createView", "()V");
     m_glue->m_attachView = env->GetMethodID(clazz, "attachView", "(IIII)V");
     m_glue->m_removeView = env->GetMethodID(clazz, "removeView", "()V");
     m_glue->m_setPoster = env->GetMethodID(clazz, "loadPoster", "(Ljava/lang/String;)V");
+    m_glue->m_seek = env->GetMethodID(clazz, "seek", "(I)V");
+    m_glue->m_pause = env->GetMethodID(clazz, "pause", "()V");
     m_glue->m_javaProxy = NULL;
     env->DeleteLocalRef(clazz);
     // An exception is raised if any of the above fails.
@@ -281,7 +297,7 @@ void MediaPlayerPrivate::createJavaPlayerIfNeeded()
     ASSERT(webViewCore);
 
     // Get the HTML5VideoViewProxy instance
-    jobject obj = env->CallStaticObjectMethod(clazz, m_glue->m_getInstance, webViewCore->getJavaObject().get());
+    jobject obj = env->CallStaticObjectMethod(clazz, m_glue->m_getInstance, webViewCore->getJavaObject().get(), this);
     m_glue->m_javaProxy = env->NewGlobalRef(obj);
     // Create our VideoView object.
     env->CallVoidMethod(obj, m_glue->m_createView);
@@ -291,6 +307,54 @@ void MediaPlayerPrivate::createJavaPlayerIfNeeded()
     checkException(env);
 }
 
+void MediaPlayerPrivate::onPrepared(int duration, int width, int height) {
+    m_duration = duration / 1000.0f;
+    m_size = IntSize(width, height);
+    m_player->durationChanged();
+    m_player->sizeChanged();
 }
 
+void MediaPlayerPrivate::onEnded() {
+    m_paused = true;
+    m_currentTime = m_duration;
+    m_player->timeChanged();
+    // Reset to 0.
+    m_currentTime = 0;
+}
+
+}
+
+namespace android {
+
+static void OnPrepared(JNIEnv* env, jobject obj, int duration, int width, int height, int pointer) {
+    if (pointer) {
+        WebCore::MediaPlayerPrivate* player = reinterpret_cast<WebCore::MediaPlayerPrivate*>(pointer);
+        player->onPrepared(duration, width, height);
+    }
+}
+
+static void OnEnded(JNIEnv* env, jobject obj, int pointer) {
+    if (pointer) {
+        WebCore::MediaPlayerPrivate* player = reinterpret_cast<WebCore::MediaPlayerPrivate*>(pointer);
+        player->onEnded();
+    }
+}
+
+/*
+ * JNI registration
+ */
+static JNINativeMethod g_MediaPlayerMethods[] = {
+    { "nativeOnPrepared", "(IIII)V",
+        (void*) OnPrepared },
+    { "nativeOnEnded", "(I)V",
+        (void*) OnEnded },
+};
+
+int register_mediaplayer(JNIEnv* env)
+{
+    return jniRegisterNativeMethods(env, g_ProxyJavaClass,
+            g_MediaPlayerMethods, NELEM(g_MediaPlayerMethods));
+}
+
+}
 #endif // VIDEO

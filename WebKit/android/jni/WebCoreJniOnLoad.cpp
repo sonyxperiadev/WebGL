@@ -46,6 +46,9 @@ extern int register_webstorage(JNIEnv*);
 #endif
 extern int register_geolocation_permissions(JNIEnv*);
 extern int register_mock_geolocation(JNIEnv*);
+#if ENABLE(VIDEO)
+extern int register_mediaplayer(JNIEnv*);
+#endif
 
 }
 
@@ -68,7 +71,10 @@ static RegistrationMethod gWebCoreRegMethods[] = {
 #endif
     { "WebView", android::register_webview },
     { "GeolocationPermissions", android::register_geolocation_permissions },
-    { "MockGeolocation", android::register_mock_geolocation }
+    { "MockGeolocation", android::register_mock_geolocation },
+#if ENABLE(VIDEO)
+    { "HTML5VideoViewProxy", android::register_mediaplayer },
+#endif
 };
 
 EXPORT jint JNI_OnLoad(JavaVM* vm, void* reserved)

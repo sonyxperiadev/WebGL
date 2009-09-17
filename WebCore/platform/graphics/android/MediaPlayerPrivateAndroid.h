@@ -81,6 +81,9 @@ public:
     virtual void setPoster(const String&);
 
     virtual void paint(GraphicsContext*, const IntRect&);
+
+    void onPrepared(int duration, int width, int height);
+    void onEnded();
 private:
     // Android-specific methods and fields.
     static MediaPlayerPrivateInterface* create(MediaPlayer* player);
@@ -94,6 +97,10 @@ private:
     String m_url;
     struct JavaGlue;
     JavaGlue* m_glue;
+    float m_duration;
+    IntSize m_size;
+    float m_currentTime;
+    bool m_paused;
 };
 
 }  // namespace WebCore
