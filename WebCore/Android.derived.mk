@@ -209,7 +209,7 @@ js_binding_scripts := $(addprefix $(LOCAL_PATH)/,\
 			bindings/scripts/generate-bindings.pl \
 		)
 
-FEATURE_DEFINES := ANDROID_ORIENTATION_SUPPORT ENABLE_TOUCH_EVENTS=1 ENABLE_DATABASE=1 ENABLE_OFFLINE_WEB_APPLICATIONS=1 ENABLE_DOM_STORAGE=1 ENABLE_VIDEO=1 ENABLE_WORKERS=1 ENABLE_GEOLOCATION=1
+FEATURE_DEFINES := ANDROID_ORIENTATION_SUPPORT ENABLE_TOUCH_EVENTS=1 ENABLE_DATABASE=1 ENABLE_OFFLINE_WEB_APPLICATIONS=1 ENABLE_DOM_STORAGE=1 ENABLE_VIDEO=1 ENABLE_WORKERS=1 ENABLE_GEOLOCATION=1 ENABLE_CHANNEL_MESSAGING=1
 
 GEN := \
     $(intermediates)/css/JSCSSCharsetRule.h \
@@ -261,8 +261,8 @@ GEN := \
     $(intermediates)/dom/JSAttr.h \
     $(intermediates)/dom/JSCDATASection.h \
     $(intermediates)/dom/JSCharacterData.h \
-	$(intermediates)/dom/JSClientRect.h \
-	$(intermediates)/dom/JSClientRectList.h \
+    $(intermediates)/dom/JSClientRect.h \
+    $(intermediates)/dom/JSClientRectList.h \
     $(intermediates)/dom/JSClipboard.h \
     $(intermediates)/dom/JSComment.h \
     $(intermediates)/dom/JSDOMCoreException.h \
@@ -288,7 +288,7 @@ GEN := \
     $(intermediates)/dom/JSNodeIterator.h \
     $(intermediates)/dom/JSNodeList.h \
     $(intermediates)/dom/JSNotation.h \
-	$(intermediates)/dom/JSOverflowEvent.h \
+    $(intermediates)/dom/JSOverflowEvent.h \
     $(intermediates)/dom/JSProcessingInstruction.h \
     $(intermediates)/dom/JSProgressEvent.h \
     $(intermediates)/dom/JSRange.h \
