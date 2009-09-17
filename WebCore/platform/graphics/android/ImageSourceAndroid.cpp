@@ -52,7 +52,7 @@ SkPixelRef* SkCreateRLEPixelRef(const SkBitmap& src);
 
 // don't use RLE for images smaller than this, since they incur a drawing cost
 // (and don't work as patterns yet) we only want to use RLE when we must
-#define MIN_RLE_ALLOC_SIZE      (512*1024)
+#define MIN_RLE_ALLOC_SIZE      (2*1024*1024)
 
 /*  Images larger than this should be subsampled. Using ashmem, the decoded
     pixels will be purged as needed, so this value can be pretty large. Making
