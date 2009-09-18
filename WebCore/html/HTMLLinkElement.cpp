@@ -54,6 +54,7 @@ HTMLLinkElement::HTMLLinkElement(const QualifiedName& qName, Document *doc, bool
     , m_isIcon(false)
 #ifdef ANDROID_APPLE_TOUCH_ICON
     , m_isTouchIcon(false)
+    , m_isPrecomposedTouchIcon(false)
 #endif
     , m_isDNSPrefetch(false)
     , m_createdByParser(createdByParser)
@@ -117,7 +118,7 @@ void HTMLLinkElement::parseMappedAttribute(MappedAttribute *attr)
 {
     if (attr->name() == relAttr) {
 #ifdef ANDROID_APPLE_TOUCH_ICON
-        tokenizeRelAttribute(attr->value(), m_isStyleSheet, m_alternate, m_isIcon, m_isTouchIcon, m_isDNSPrefetch);
+        tokenizeRelAttribute(attr->value(), m_isStyleSheet, m_alternate, m_isIcon, m_isTouchIcon, m_isPrecomposedTouchIcon, m_isDNSPrefetch);
 #else
         tokenizeRelAttribute(attr->value(), m_isStyleSheet, m_alternate, m_isIcon, m_isDNSPrefetch);
 #endif
@@ -141,7 +142,7 @@ void HTMLLinkElement::parseMappedAttribute(MappedAttribute *attr)
 }
 
 #ifdef ANDROID_APPLE_TOUCH_ICON
-void HTMLLinkElement::tokenizeRelAttribute(const AtomicString& rel, bool& styleSheet, bool& alternate, bool& icon, bool& touchIcon, bool& dnsPrefetch)
+void HTMLLinkElement::tokenizeRelAttribute(const AtomicString& rel, bool& styleSheet, bool& alternate, bool& icon, bool& touchIcon, bool& precomposedTouchIcon, bool& dnsPrefetch)
 #else
 void HTMLLinkElement::tokenizeRelAttribute(const AtomicString& rel, bool& styleSheet, bool& alternate, bool& icon, bool& dnsPrefetch)
 #endif
@@ -150,6 +151,10 @@ void HTMLLinkElement::tokenizeRelAttribute(const AtomicString& rel, bool& styleS
     icon = false; 
     alternate = false;
     dnsPrefetch = false;
+#ifdef ANDROID_APPLE_TOUCH_ICON
+    touchIcon = false;
+    precomposedTouchIcon = false;
+#endif
     if (equalIgnoringCase(rel, "stylesheet"))
         styleSheet = true;
     else if (equalIgnoringCase(rel, "icon") || equalIgnoringCase(rel, "shortcut icon"))
@@ -157,6 +162,8 @@ void HTMLLinkElement::tokenizeRelAttribute(const AtomicString& rel, bool& styleS
 #ifdef ANDROID_APPLE_TOUCH_ICON
     else if (equalIgnoringCase(rel, "apple-touch-icon"))
         touchIcon = true;
+    else if (equalIgnoringCase(rel, "apple-touch-icon-precomposed"))
+        precomposedTouchIcon = true;
 #endif
     else if (equalIgnoringCase(rel, "dns-prefetch"))
         dnsPrefetch = true;
@@ -194,9 +201,11 @@ void HTMLLinkElement::process()
         document()->setIconURL(m_url.string(), type);
 
 #ifdef ANDROID_APPLE_TOUCH_ICON
-    if (m_isTouchIcon && m_url.isValid() && !m_url.isEmpty())
+    if ((m_isTouchIcon || m_isPrecomposedTouchIcon) && m_url.isValid()
+            && !m_url.isEmpty())
         document()->frame()->loader()->client()
-                ->dispatchDidReceiveTouchIconURL(m_url.string());
+                ->dispatchDidReceiveTouchIconURL(m_url.string(),
+                        m_isPrecomposedTouchIcon);
 #endif
 
     if (m_isDNSPrefetch && m_url.isValid() && !m_url.isEmpty())

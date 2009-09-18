@@ -232,7 +232,7 @@ namespace WebCore {
 
         virtual void registerForIconNotification(bool listen = true) = 0;
 #ifdef ANDROID_APPLE_TOUCH_ICON
-        virtual void dispatchDidReceiveTouchIconURL(const String& url) = 0;
+        virtual void dispatchDidReceiveTouchIconURL(const String& url, bool precomposed) = 0;
 #endif
         
 #if PLATFORM(MAC)

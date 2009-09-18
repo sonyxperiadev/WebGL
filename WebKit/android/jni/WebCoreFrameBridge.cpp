@@ -186,7 +186,7 @@ WebFrame::WebFrame(JNIEnv* env, jobject obj, jobject historyList, WebCore::Page*
     mJavaFrame->mDidReceiveIcon = env->GetMethodID(clazz, "didReceiveIcon",
             "(Landroid/graphics/Bitmap;)V");
     mJavaFrame->mDidReceiveTouchIconUrl = env->GetMethodID(clazz, "didReceiveTouchIconUrl",
-            "(Ljava/lang/String;)V");
+            "(Ljava/lang/String;Z)V");
     mJavaFrame->mUpdateVisitedHistory = env->GetMethodID(clazz, "updateVisitedHistory",
             "(Ljava/lang/String;Z)V");
     mJavaFrame->mHandleUrl = env->GetMethodID(clazz, "handleUrl",
@@ -596,7 +596,7 @@ WebFrame::didReceiveIcon(WebCore::Image* icon)
 }
 
 void
-WebFrame::didReceiveTouchIconURL(const WebCore::String& url)
+WebFrame::didReceiveTouchIconURL(const WebCore::String& url, bool precomposed)
 {
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
@@ -606,7 +606,7 @@ WebFrame::didReceiveTouchIconURL(const WebCore::String& url)
             url.length());
 
     env->CallVoidMethod(mJavaFrame->frame(env).get(),
-            mJavaFrame->mDidReceiveTouchIconUrl, jUrlStr);
+            mJavaFrame->mDidReceiveTouchIconUrl, jUrlStr, precomposed);
     checkException(env);
 }
 
