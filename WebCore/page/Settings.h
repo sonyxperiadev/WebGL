@@ -223,12 +223,13 @@ namespace WebCore {
         void resetMetadataSettings();
         void setMetadataSettings(const String& key, const String& value);
 
-        int viewportWidth() const { return m_viewport_width; }        
+        int viewportWidth() const { return m_viewport_width; }
         int viewportHeight() const { return m_viewport_height; }
         int viewportInitialScale() const { return m_viewport_initial_scale; }
         int viewportMinimumScale() const { return m_viewport_minimum_scale; }
         int viewportMaximumScale() const { return m_viewport_maximum_scale; }
         bool viewportUserScalable() const { return m_viewport_user_scalable; }
+        int viewportTargetDensityDpi() const { return m_viewport_target_densitydpi; }
         bool formatDetectionAddress() const { return m_format_detection_address; }
         bool formatDetectionEmail() const { return m_format_detection_email; }
         bool formatDetectionTelephone() const { return m_format_detection_telephone; }
@@ -331,6 +332,9 @@ namespace WebCore {
         int m_viewport_maximum_scale;
         // default is yes
         bool m_viewport_user_scalable : 1;
+        // range is from 70 to 400. 0 is a special value means device-dpi
+        // default is -1, which means undefined.
+        int m_viewport_target_densitydpi;
         // default is yes
         bool m_format_detection_telephone : 1;
         // default is yes

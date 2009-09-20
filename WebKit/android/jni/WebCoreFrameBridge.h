@@ -109,6 +109,8 @@ class WebFrame : public WebCoreRefObject {
 
     WebCore::String getRawResourceFilename(RAW_RES_ID) const;
 
+    float density() const;
+
     /**
      * When the user initiates a click (via trackball, enter-press, or touch),
      * we set mUserInitiatedClick to true.  If a load happens due to this click,

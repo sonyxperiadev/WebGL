@@ -148,6 +148,7 @@ struct WebViewCoreFields {
     jfieldID    m_viewportMinimumScale;
     jfieldID    m_viewportMaximumScale;
     jfieldID    m_viewportUserScalable;
+    jfieldID    m_viewportDensityDpi;
     jfieldID    m_webView;
 } gWebViewCoreFields;
 
@@ -2557,6 +2558,7 @@ static void SetViewportSettingsFromNative(JNIEnv *env, jobject obj)
     env->SetIntField(obj, gWebViewCoreFields.m_viewportMinimumScale, s->viewportMinimumScale());
     env->SetIntField(obj, gWebViewCoreFields.m_viewportMaximumScale, s->viewportMaximumScale());
     env->SetBooleanField(obj, gWebViewCoreFields.m_viewportUserScalable, s->viewportUserScalable());
+    env->SetIntField(obj, gWebViewCoreFields.m_viewportDensityDpi, s->viewportTargetDensityDpi());
 #endif
 }
 
@@ -2841,6 +2843,10 @@ int register_webviewcore(JNIEnv* env)
             "mViewportUserScalable", "Z");
     LOG_ASSERT(gWebViewCoreFields.m_viewportUserScalable,
             "Unable to find android/webkit/WebViewCore.mViewportUserScalable");
+    gWebViewCoreFields.m_viewportDensityDpi = env->GetFieldID(widget,
+            "mViewportDensityDpi", "I");
+    LOG_ASSERT(gWebViewCoreFields.m_viewportDensityDpi,
+            "Unable to find android/webkit/WebViewCore.mViewportDensityDpi");
     gWebViewCoreFields.m_webView = env->GetFieldID(widget,
             "mWebView", "Landroid/webkit/WebView;");
     LOG_ASSERT(gWebViewCoreFields.m_webView,

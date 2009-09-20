@@ -145,6 +145,7 @@ struct WebFrame::JavaBrowserFrame
     jmethodID   mDecidePolicyForFormResubmission;
     jmethodID   mRequestFocus;
     jmethodID   mGetRawResFilename;
+    jmethodID   mDensity;
     AutoJObject frame(JNIEnv* env) {
         return getRealObject(env, mObj);
     }
@@ -200,6 +201,7 @@ WebFrame::WebFrame(JNIEnv* env, jobject obj, jobject historyList, WebCore::Page*
             "()V");
     mJavaFrame->mGetRawResFilename = env->GetMethodID(clazz, "getRawResFilename",
             "(I)Ljava/lang/String;");
+    mJavaFrame->mDensity = env->GetMethodID(clazz, "density","()F");
 
     LOG_ASSERT(mJavaFrame->mStartLoadingResource, "Could not find method startLoadingResource");
     LOG_ASSERT(mJavaFrame->mLoadStarted, "Could not find method loadStarted");
@@ -218,6 +220,7 @@ WebFrame::WebFrame(JNIEnv* env, jobject obj, jobject historyList, WebCore::Page*
     LOG_ASSERT(mJavaFrame->mDecidePolicyForFormResubmission, "Could not find method decidePolicyForFormResubmission");
     LOG_ASSERT(mJavaFrame->mRequestFocus, "Could not find method requestFocus");
     LOG_ASSERT(mJavaFrame->mGetRawResFilename, "Could not find method getRawResFilename");
+    LOG_ASSERT(mJavaFrame->mDensity, "Could not find method density");
 
     mUserAgent = WebCore::String();
     mUserInitiatedClick = false;
@@ -713,6 +716,15 @@ WebFrame::getRawResourceFilename(RAW_RES_ID id) const
             mJavaFrame->mGetRawResFilename, (int)id);
 
     return to_string(env, ret);
+}
+
+float
+WebFrame::density() const
+{
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    jfloat dpi = env->CallFloatMethod(mJavaFrame->frame(env).get(), mJavaFrame->mDensity);
+    checkException(env);
+    return dpi;
 }
 
 // ----------------------------------------------------------------------------

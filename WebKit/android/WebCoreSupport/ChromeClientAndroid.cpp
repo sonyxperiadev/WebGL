@@ -81,8 +81,8 @@ FloatRect ChromeClientAndroid::pageRect() { notImplemented(); return FloatRect()
 
 float ChromeClientAndroid::scaleFactor()
 {
-    // only seems to be used for dashboard regions, so just return 1
-    return 1;
+    ASSERT(m_webFrame);
+    return m_webFrame->density();
 }
 
 void ChromeClientAndroid::focus() {
