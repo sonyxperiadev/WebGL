@@ -761,7 +761,6 @@ enum ANPEventTypes {
      */
     kDraw_ANPEventType          = 4,
     kLifecycle_ANPEventType     = 5,
-    kSurface_ANPEventType       = 6,
 };
 typedef int32_t ANPEventType;
 
@@ -829,26 +828,6 @@ enum ANPLifecycleActions {
 };
 typedef uint32_t ANPLifecycleAction;
 
-enum ANPSurfaceActions {
-    /** The surface has been created and is ready to be used. Any calls to
-        lock/unlock before this action will fail.
-     */
-    kCreated_ANPSurfaceAction    = 0,
-    /** The surface's dimension has changed.  If the surface is responsible for
-        manually scaling then this action will be generated each time the zoom
-        level of browser is changed.  This event is also triggered when the
-        plugin's dimensions in the DOM are changed (e.g. css or javascript).
-     */
-    kChanged_ANPSurfaceAction    = 1,
-    /** The surface has been destroyed. This happens when the view system has
-        remove the surface (possibly due to the plugin being offscreen). Calls
-        to lock/unlock will fail after this action and before
-        kCreate_ANPSurfaceAction.
-     */
-    kDestroyed_ANPSurfaceAction  = 2,
-};
-typedef uint32_t ANPSurfaceAction;
-
 /* This is what is passed to NPP_HandleEvent() */
 struct ANPEvent {
     uint32_t        inSize;  // size of this struct in bytes
@@ -886,22 +865,6 @@ struct ANPEvent {
                 ANPBitmap   bitmap;
             } data;
         } draw;
-        struct {
-            ANPSurfaceAction action;
-            /** This union is based on the value of action and contains data
-                specific to the given action.
-             */
-            union {
-                /** This struct is filled in only during the
-                    kChanged_ANPSurfaceAction action. For all other actions,
-                    this struct is undefined.
-                  */
-                struct {
-                    int32_t width;
-                    int32_t height;
-                } changed;
-            } data;
-        } surface;
         int32_t     other[8];
     } data;
 };
