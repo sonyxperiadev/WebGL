@@ -139,11 +139,17 @@ typedef uint32_t ANPMatrixFlag;
 
 /** Set the name of the Java class found in the plugin's apk that implements the
     PluginStub interface.  The value provided must be a null terminated char*
-    that contains the fully qualified class name (e.g., your.package.className)
+    that contains the fully qualified class name (e.g., your.package.className).
+    A local copy is made of the char* so the caller can safely free the memory
+    as soon as the function returns.
 
-    NPN_SetValue(inst, kSetJavaClassName_ANPSetValue, (void*)nullTerminatedChar*)
+    This value must be set prior to selecting the Surface_ANPDrawingModel or
+    requesting to enter full-screen mode.
+
+    NPN_SetValue(inst, kSetPluginStubJavaClassName_ANPSetValue,
+                (void*)nullTerminatedChar*)
  */
-#define kSetJavaClassName_ANPSetValue       ((NPPVariable)1001)
+#define kSetPluginStubJavaClassName_ANPSetValue ((NPPVariable)1001)
 
 /** These are used as bitfields in ANPSupportedDrawingModels_EnumValue,
     and as-is in ANPRequestDrawingModel_EnumValue. The drawing model determines

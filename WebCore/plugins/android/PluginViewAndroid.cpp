@@ -482,9 +482,9 @@ NPError PluginView::platformSetValue(NPPVariable variable, void* value)
     NPError error = NPERR_GENERIC_ERROR;
 
     switch (variable) {
-        case kSetJavaClassName_ANPSetValue: {
+        case kSetPluginStubJavaClassName_ANPSetValue: {
             char* className = reinterpret_cast<char*>(value);
-            if (m_window->setJavaClassName(className))
+            if (m_window->setPluginStubJavaClassName(className))
                 error = NPERR_NO_ERROR;
             break;
         }

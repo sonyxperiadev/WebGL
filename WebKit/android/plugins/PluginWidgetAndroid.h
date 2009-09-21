@@ -68,9 +68,10 @@ struct PluginWidgetAndroid {
     void setWindow(NPWindow* window, bool isTransparent);
 
     /* Called to notify us of the plugin's java class that implements the
-     * PluginStub interface.
+     * PluginStub interface. A local copy is made of the className so the caller
+     * can safely free the memory as soon as the function returns.
      */
-    bool setJavaClassName(const char* className);
+    bool setPluginStubJavaClassName(const char* className);
 
     /*  Called whenever the plugin itself requests a new drawing model. If the
         hardware does not support the requested model then false is returned,

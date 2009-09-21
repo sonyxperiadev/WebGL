@@ -125,7 +125,19 @@ void PluginWidgetAndroid::setWindow(NPWindow* window, bool isTransparent) {
     }
 }
 
-bool PluginWidgetAndroid::setJavaClassName(const char* className) {
+bool PluginWidgetAndroid::setPluginStubJavaClassName(const char* className) {
+
+    if (m_javaClassName) {
+        free(m_javaClassName);
+    }
+
+    // don't call strdup() if the className is to be set to NULL
+    if (!className) {
+        m_javaClassName = NULL;
+        return true;
+    }
+
+    // make a local copy of the className
     m_javaClassName = strdup(className);
     return (m_javaClassName != NULL);
 }
