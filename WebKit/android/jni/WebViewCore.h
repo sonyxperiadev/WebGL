@@ -365,8 +365,12 @@ namespace android {
         // Notify the Java side that webkit is requesting a keyboard
         void requestKeyboard(bool);
 
-        // Creates a SurfaceView for a plugin
-        jobject createSurface(const char* packageName, const char* className,
+        // Creates a full screen surface (i.e. View on an Activity) for a plugin
+        void startFullScreenPluginActivity(const char* libName,
+                                           const char* className, NPP npp);
+
+        // Creates a Surface (i.e. View) for a plugin
+        jobject createSurface(const char* libName, const char* className,
                               NPP npp, int x, int y, int width, int height);
 
         // Destroys a SurfaceView for a plugin
