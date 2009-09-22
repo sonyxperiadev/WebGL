@@ -412,9 +412,10 @@ void Settings::resetMetadataSettings()
     m_viewport_minimum_scale = 0;
     m_viewport_maximum_scale = 0;
     m_viewport_user_scalable = true;
-    m_format_detection_telephone = true;    
-    m_format_detection_address = true;    
-    m_format_detection_email = true;    
+    m_viewport_target_densitydpi = -1;
+    m_format_detection_telephone = true;
+    m_format_detection_address = true;
+    m_format_detection_email = true;
 }
 
 void Settings::setMetadataSettings(const String& key, const String& value)
@@ -465,7 +466,22 @@ void Settings::setMetadataSettings(const String& key, const String& value)
         // some sites, e.g. gomoviesapp.com, use "false".
         if (value == "no" || value == "0" || value == "false") {
             m_viewport_user_scalable = false;
-        }        
+        }
+    } else if (key == "target-densitydpi") {
+        if (value == "device-dpi") {
+            m_viewport_target_densitydpi = 0;
+        } else if (value == "low-dpi") {
+            m_viewport_target_densitydpi = 120;
+        } else if (value == "medium-dpi") {
+            m_viewport_target_densitydpi = 160;
+        } else if (value == "high-dpi") {
+            m_viewport_target_densitydpi = 240;
+        } else {
+            int dpi = value.toInt();
+            if (dpi >= 70 && dpi <= 400) {
+                m_viewport_target_densitydpi = dpi;
+            }
+        }
     } else if (key == "telephone") {
         if (value == "no") {
             m_format_detection_telephone = false;
