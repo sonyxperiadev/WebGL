@@ -91,7 +91,7 @@ class WebFrame : public WebCoreRefObject {
 
     void didReceiveIcon(WebCore::Image* icon);
 
-    void didReceiveTouchIconURL(const WebCore::String& url);
+    void didReceiveTouchIconURL(const WebCore::String& url, bool precomposed);
     
     void updateVisitedHistory(const WebCore::KURL& url, bool reload);
 

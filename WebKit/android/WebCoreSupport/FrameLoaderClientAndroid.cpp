@@ -243,12 +243,12 @@ void FrameLoaderClientAndroid::dispatchDidReceiveIcon() {
     }
 }
 
-void FrameLoaderClientAndroid::dispatchDidReceiveTouchIconURL(const String& url) {
+void FrameLoaderClientAndroid::dispatchDidReceiveTouchIconURL(const String& url, bool precomposed) {
     ASSERT(m_frame);
     // Do not report sub frame touch icons
     if (m_frame->tree() && m_frame->tree()->parent())
         return;
-    m_webFrame->didReceiveTouchIconURL(url);
+    m_webFrame->didReceiveTouchIconURL(url, precomposed);
 }
 
 void FrameLoaderClientAndroid::dispatchDidStartProvisionalLoad() {

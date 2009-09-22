@@ -192,7 +192,7 @@ namespace android {
         
         virtual void registerForIconNotification(bool listen = true);
 
-        virtual void dispatchDidReceiveTouchIconURL(const String& url);
+        virtual void dispatchDidReceiveTouchIconURL(const String& url, bool precomposed);
 
         // WebIconDatabaseClient api
         virtual void didAddIconForPageUrl(const String& pageUrl);
