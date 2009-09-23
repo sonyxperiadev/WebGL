@@ -51,7 +51,8 @@ static const PatchData gFiles[] =
     };
 
 static SkBitmap gButton[sizeof(gFiles)/sizeof(gFiles[0])];
-static bool     gDecoded;
+static bool gDecoded;
+static bool gHighRes;
 
 namespace WebCore {
 
@@ -63,6 +64,7 @@ void RenderSkinButton::Init(android::AssetManager* am, String drawableDirectory)
 
     gInited = true;
     gDecoded = true;
+    gHighRes = drawableDirectory[drawableDirectory.length() - 5] == 'h';
     for (size_t i = 0; i < sizeof(gFiles)/sizeof(gFiles[0]); i++) {
         String path = drawableDirectory + gFiles[i].name;
         if (!RenderSkinAndroid::DecodeBitmap(am, path.utf8().data(), &gButton[i])) {
@@ -99,7 +101,16 @@ void RenderSkinButton::Draw(SkCanvas* canvas, const IntRect& r, RenderSkinAndroi
     SkIRect margin;
 
     margin.set(marginValue, marginValue, marginValue, marginValue);
-    
+    if (gHighRes) {
+    /* FIXME: it shoudn't be necessary to offset the button here,
+       but gives the right results. */
+        bounds.offset(0, SK_Scalar1 * 2);
+    /* FIXME: This temporarily gets around the fact that the margin values and
+       positioning were created for a low res asset, which was used on
+       g1-like devices. A better fix would be to read the offset information
+       out of the png. */
+        margin.set(10, 9, 10, 14);
+    }
     // Draw to the canvas.
     SkNinePatch::DrawNine(canvas, bounds, gButton[newState], margin);
 }
