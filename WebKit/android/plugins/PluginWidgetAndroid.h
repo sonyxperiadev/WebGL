@@ -131,6 +131,12 @@ struct PluginWidgetAndroid {
      */
     void setVisibleRects(const ANPRectI rects[], int32_t count);
 
+    /** Called when a plugin wishes to enter into full screen mode. The plugin's
+        Java class (set using setPluginStubJavaClassName(...)) will be called
+        asynchronously to provide a View to be displayed in full screen.
+     */
+    void requestFullScreenMode();
+
 private:
     WebCore::IntPoint frameToDocumentCoords(int frameX, int frameY) const;
     void computeVisibleFrameRect();

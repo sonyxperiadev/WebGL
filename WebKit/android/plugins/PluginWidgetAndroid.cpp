@@ -34,6 +34,7 @@
 #include "ScrollView.h"
 #include "SkANP.h"
 #include "SkFlipPixelRef.h"
+#include "SkString.h"
 #include "WebViewCore.h"
 
 PluginWidgetAndroid::PluginWidgetAndroid(WebCore::PluginView* view)
@@ -75,48 +76,21 @@ static SkBitmap::Config computeConfig(bool isTransparent) {
                          : SkBitmap::kRGB_565_Config;
 }
 
-/*
- * Returns the name of the apk that contains this plugin. The caller is
- * responsible for calling free(...) on the char* that is returned.
- */
-static char* getPackageName(PluginPackage* pluginPackage) {
-
-    // get the directory where the plugin library is stored. The structure of
-    // the path looks like /data/app/plugin.package.name/lib.
-    const char* pluginDir = pluginPackage->parentDirectory().latin1().data();
-
-    // trim "/lib" off the directory name and store in tempString
-    int length = strlen(pluginDir) - 4; // -4 for "/lib"
-    char* tempString = (char*) malloc(length + 1); // +1 for null termination
-    strncpy(tempString, pluginDir, length);
-    tempString[length] = '\0';
-
-    // find the final '/' in tempString
-    char* result = strrchr(tempString, '/');
-
-    char* packageName = NULL;
-    if (result) {
-        // duplicate the tempString without the leading '/'
-        packageName = strdup(result+1);
-    }
-
-    // free extra memory and return the package name
-    free(tempString);
-    return packageName;
-}
-
 void PluginWidgetAndroid::setWindow(NPWindow* window, bool isTransparent) {
     m_pluginWindow = window;
 
     if (m_drawingModel == kSurface_ANPDrawingModel) {
         if (!m_childView) {
             IntPoint docPoint = frameToDocumentCoords(window->x, window->y);
-            char* packageName = getPackageName(m_pluginView->plugin());
-            m_childView = m_core->createSurface(packageName, m_javaClassName,
+
+            const String& libName = m_pluginView->plugin()->path();
+            SkString skLibName;
+            skLibName.setUTF16(libName.characters(), libName.length());
+
+            m_childView = m_core->createSurface(skLibName.c_str(), m_javaClassName,
                                                 m_pluginView->instance(),
                                                 docPoint.x(), docPoint.y(),
                                                 window->width, window->height);
-            free(packageName);
         }
     } else {
         m_flipPixelRef->safeUnref();
@@ -140,6 +114,20 @@ bool PluginWidgetAndroid::setPluginStubJavaClassName(const char* className) {
     // make a local copy of the className
     m_javaClassName = strdup(className);
     return (m_javaClassName != NULL);
+}
+
+void PluginWidgetAndroid::requestFullScreenMode() {
+
+    if (!m_javaClassName) {
+        return;
+    }
+
+    const String& libName = m_pluginView->plugin()->path();
+    SkString skLibName;
+    skLibName.setUTF16(libName.characters(), libName.length());
+
+    m_core->startFullScreenPluginActivity(skLibName.c_str(), m_javaClassName,
+                                          m_pluginView->instance());
 }
 
 bool PluginWidgetAndroid::setDrawingModel(ANPDrawingModel model) {

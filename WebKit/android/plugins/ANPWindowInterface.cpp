@@ -73,6 +73,11 @@ static void anp_showKeyboard(NPP instance, bool value) {
     core->requestKeyboard(value);
 }
 
+static void anp_requestFullScreen(NPP instance) {
+    PluginView* pluginView = pluginViewForInstance(instance);
+    pluginView->platformPluginWidget()->requestFullScreenMode();
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 
 #define ASSIGN(obj, name)   (obj)->name = anp_##name
@@ -86,5 +91,6 @@ void ANPWindowInterfaceV0_Init(ANPInterface* value) {
     ASSIGN(i, clearVisibleRects);
     ASSIGN(i, showKeyboard);
     ASSIGN(i, unlock);
+    ASSIGN(i, requestFullScreen);
 }
 

@@ -659,6 +659,11 @@ struct ANPWindowInterfaceV0 : ANPInterface {
         physical keyboard is active.
      */
     void    (*showKeyboard)(NPP instance, bool value);
+    /** Called when a plugin wishes to enter into full screen mode. The plugin's
+        Java class (set using kSetPluginStubJavaClassName_ANPSetValue) will be
+        called asynchronously to provide a View object to be displayed full screen.
+     */
+    void    (*requestFullScreen)(NPP instance);
 };
 
 ///////////////////////////////////////////////////////////////////////////////

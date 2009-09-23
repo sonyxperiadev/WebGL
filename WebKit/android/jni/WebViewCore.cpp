@@ -183,6 +183,7 @@ struct WebViewCore::JavaGlue {
     jmethodID   m_geolocationPermissionsShowPrompt;
     jmethodID   m_geolocationPermissionsHidePrompt;
     jmethodID   m_addMessageToConsole;
+    jmethodID   m_startFullScreenPluginActivity;
     jmethodID   m_createSurface;
     jmethodID   m_destroySurface;
     AutoJObject object(JNIEnv* env) {
@@ -257,6 +258,7 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     m_javaGlue->m_geolocationPermissionsShowPrompt = GetJMethod(env, clazz, "geolocationPermissionsShowPrompt", "(Ljava/lang/String;)V");
     m_javaGlue->m_geolocationPermissionsHidePrompt = GetJMethod(env, clazz, "geolocationPermissionsHidePrompt", "()V");
     m_javaGlue->m_addMessageToConsole = GetJMethod(env, clazz, "addMessageToConsole", "(Ljava/lang/String;ILjava/lang/String;)V");
+    m_javaGlue->m_startFullScreenPluginActivity = GetJMethod(env, clazz, "startFullScreenPluginActivity", "(Ljava/lang/String;Ljava/lang/String;I)V");
     m_javaGlue->m_createSurface = GetJMethod(env, clazz, "createSurface", "(Ljava/lang/String;Ljava/lang/String;IIIII)Landroid/webkit/ViewManager$ChildView;");
     m_javaGlue->m_destroySurface = GetJMethod(env, clazz, "destroySurface", "(Landroid/webkit/ViewManager$ChildView;)V");
 
@@ -2189,15 +2191,28 @@ void WebViewCore::setBackgroundColor(SkColor c)
     view->setBaseBackgroundColor(bcolor);
 }
 
-jobject WebViewCore::createSurface(const char* packageName, const char* className,
+void WebViewCore::startFullScreenPluginActivity(const char* libName,
+                                                const char* className, NPP npp)
+{
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
+
+    jstring libString = env->NewStringUTF(libName);
+    jstring classString = env->NewStringUTF(className);
+    env->CallVoidMethod(m_javaGlue->object(env).get(),
+                        m_javaGlue->m_startFullScreenPluginActivity,
+                        libString, classString, (int) npp);
+    checkException(env);
+}
+
+jobject WebViewCore::createSurface(const char* libName, const char* className,
                                    NPP npp, int x, int y, int width, int height)
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
 
-    jstring packageString = env->NewStringUTF(packageName);
+    jstring libString = env->NewStringUTF(libName);
     jstring classString = env->NewStringUTF(className);
     jobject result = env->CallObjectMethod(m_javaGlue->object(env).get(),
-                                           m_javaGlue->m_createSurface, packageString,
+                                           m_javaGlue->m_createSurface, libString,
                                            classString,(int) npp, x, y, width, height);
     checkException(env);
     return result;
