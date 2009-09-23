@@ -776,9 +776,8 @@ CachedRoot::ImeAction CachedRoot::cursorTextFieldAction() const
         return NEXT;
     }
     // If this line is reached, we know that the textfield under the cursor is
-    // the last one.  If it is also the first, then it is the only one, so make
-    // the action GO.  Otherwise, the action is DONE.
-    return (firstTextfield == cursor) ? GO : DONE;
+    // the last one.  Make it GO to allow a submit
+    return GO;
 }
 
 const CachedNode* CachedRoot::findAt(const WebCore::IntRect& rect,
