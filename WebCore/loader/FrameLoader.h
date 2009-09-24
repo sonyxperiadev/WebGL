@@ -501,10 +501,17 @@ namespace WebCore {
         void loadWithNavigationAction(const ResourceRequest&, const NavigationAction&,      // Calls loadWithDocumentLoader
             bool lockHistory, FrameLoadType, PassRefPtr<FormState>);
 
+#ifdef ANDROID_USER_GESTURE
+        void loadPostRequest(const ResourceRequest&, const String& referrer,                // Called by loadFrameRequest, calls loadWithNavigationAction
+            const String& frameName, bool lockHistory, FrameLoadType, PassRefPtr<Event>, PassRefPtr<FormState>, bool);
+        void loadURL(const KURL&, const String& referrer, const String& frameName,          // Called by loadFrameRequest, calls loadWithNavigationAction or dispatches to navigation policy delegate
+            bool lockHistory, FrameLoadType, PassRefPtr<Event>, PassRefPtr<FormState>, bool);
+#else
         void loadPostRequest(const ResourceRequest&, const String& referrer,                // Called by loadFrameRequest, calls loadWithNavigationAction
             const String& frameName, bool lockHistory, FrameLoadType, PassRefPtr<Event>, PassRefPtr<FormState>);
         void loadURL(const KURL&, const String& referrer, const String& frameName,          // Called by loadFrameRequest, calls loadWithNavigationAction or dispatches to navigation policy delegate
             bool lockHistory, FrameLoadType, PassRefPtr<Event>, PassRefPtr<FormState>);                                                         
+#endif
 
         void clientRedirectCancelledOrFinished(bool cancelWithLoadInProgress);
         void clientRedirected(const KURL&, double delay, double fireDate, bool lockBackForwardList);

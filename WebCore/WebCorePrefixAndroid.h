@@ -150,3 +150,8 @@ typedef unsigned char   flex_uint8_t;
 
 // apple-touch-icon support in <link> tags
 #define ANDROID_APPLE_TOUCH_ICON
+
+// The user gesture flag is lost during a scheduled location change. We need to
+// maintain that flag until canHandleRequest to determine if a link was clicked
+// or if javascript tried to change the location.
+#define ANDROID_USER_GESTURE
