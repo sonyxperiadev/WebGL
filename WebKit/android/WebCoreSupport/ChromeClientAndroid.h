@@ -120,6 +120,9 @@ namespace android {
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
         virtual void reachedMaxAppCacheSize(int64_t spaceNeeded);
 #endif
+
+	virtual void populateVisitedLinks();
+
         // Methods used to request and provide Geolocation permissions.
         virtual void requestGeolocationPermissionForFrame(Frame*, Geolocation*);
         // Android-specific
