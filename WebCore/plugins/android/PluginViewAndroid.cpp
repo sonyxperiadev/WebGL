@@ -31,6 +31,7 @@
 #include "Document.h"
 #include "Element.h"
 #include "EventNames.h"
+#include "FocusController.h"
 #include "FrameLoader.h"
 #include "FrameLoadRequest.h"
 #include "FrameTree.h"
@@ -243,6 +244,12 @@ void PluginView::handleTouchEvent(TouchEvent* event)
     evt.data.touch.y = event->pageY() - m_npWindow.y;
 
     if (m_plugin->pluginFuncs()->event(m_instance, &evt)) {
+        // The plugin needs focus to receive keyboard events
+        if (evt.data.touch.action == kDown_ANPTouchAction) {
+            if (Page* page = m_parentFrame->page())
+                page->focusController()->setFocusedFrame(m_parentFrame);
+            m_parentFrame->document()->setFocusedNode(m_element);
+        }
         event->setDefaultPrevented(true);
     }
 }
@@ -264,6 +271,12 @@ void PluginView::handleMouseEvent(MouseEvent* event)
         // coordinates despite their misleading name.
         evt.data.mouse.x = event->pageX() - m_npWindow.x;
         evt.data.mouse.y = event->pageY() - m_npWindow.y;
+        if (isDown) {
+            // The plugin needs focus to receive keyboard events
+            if (Page* page = m_parentFrame->page())
+                page->focusController()->setFocusedFrame(m_parentFrame);
+            m_parentFrame->document()->setFocusedNode(m_element);
+        }
     }
     else {
       return;
