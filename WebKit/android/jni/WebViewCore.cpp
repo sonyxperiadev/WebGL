@@ -319,6 +319,8 @@ void WebViewCore::reset(bool fromConstructor)
 
     m_lastFocused = 0;
     m_lastFocusedBounds = WebCore::IntRect(0,0,0,0);
+    m_lastFocusedSelStart = 0;
+    m_lastFocusedSelEnd = 0;
     m_lastMoveGeneration = 0;
     clearContent();
     m_updatedFrameCache = true;
@@ -522,8 +524,20 @@ void WebViewCore::recordPictureSet(PictureSet* content)
     } // WebViewCoreRecordTimeCounter
     WebCore::Node* oldFocusNode = currentFocus();
     m_frameCacheOutOfDate = true;
-    WebCore::IntRect oldBounds = oldFocusNode ?
-        oldFocusNode->getRect() : WebCore::IntRect(0,0,0,0);
+    WebCore::IntRect oldBounds;
+    int oldSelStart = 0;
+    int oldSelEnd = 0;
+    if (oldFocusNode) {
+        oldBounds = oldFocusNode->getRect();
+        RenderObject* renderer = oldFocusNode->renderer();
+        if (renderer && (renderer->isTextArea() || renderer->isTextField())) {
+            WebCore::RenderTextControl* rtc =
+                static_cast<WebCore::RenderTextControl*>(renderer);
+            oldSelStart = rtc->selectionStart();
+            oldSelEnd = rtc->selectionEnd();
+        }
+    } else
+        oldBounds = WebCore::IntRect(0,0,0,0);
     unsigned latestVersion = 0;
     if (m_check_domtree_version) {
         // as domTreeVersion only increment, we can just check the sum to see
@@ -534,14 +548,18 @@ void WebViewCore::recordPictureSet(PictureSet* content)
     }
     DBG_NAV_LOGD("m_lastFocused=%p oldFocusNode=%p"
         " m_lastFocusedBounds={%d,%d,%d,%d} oldBounds={%d,%d,%d,%d}"
+        " m_lastFocusedSelection={%d,%d} oldSelection={%d,%d}"
         " m_check_domtree_version=%s latestVersion=%d m_domtree_version=%d",
         m_lastFocused, oldFocusNode,
         m_lastFocusedBounds.x(), m_lastFocusedBounds.y(),
         m_lastFocusedBounds.width(), m_lastFocusedBounds.height(),
         oldBounds.x(), oldBounds.y(), oldBounds.width(), oldBounds.height(),
+        m_lastFocusedSelStart, m_lastFocusedSelEnd, oldSelStart, oldSelEnd,
         m_check_domtree_version ? "true" : "false",
         latestVersion, m_domtree_version);
     if (m_lastFocused == oldFocusNode && m_lastFocusedBounds == oldBounds
+            && m_lastFocusedSelStart == oldSelStart
+            && m_lastFocusedSelEnd == oldSelEnd
             && !m_findIsUp
             && (!m_check_domtree_version || latestVersion == m_domtree_version))
     {
@@ -549,6 +567,8 @@ void WebViewCore::recordPictureSet(PictureSet* content)
     }
     m_lastFocused = oldFocusNode;
     m_lastFocusedBounds = oldBounds;
+    m_lastFocusedSelStart = oldSelStart;
+    m_lastFocusedSelEnd = oldSelEnd;
     m_domtree_version = latestVersion;
     DBG_NAV_LOG("call updateFrameCache");
     updateFrameCache();
