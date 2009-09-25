@@ -1394,6 +1394,17 @@ void Document::detach()
         FrameView* view = m_frame->view();
         if (view)
             view->detachCustomScrollbars();
+
+#if ENABLE(TOUCH_EVENTS) // Android
+        // clean up for the top document
+        if (!m_frame->ownerElement()) {
+            m_touchEventListeners.clear();
+#if PLATFORM(ANDROID)
+            if (view)
+                android::WebViewCore::getWebViewCore(view)->needTouchEvents(false);
+#endif
+        }
+#endif
     }
 
     // indicate destruction mode,  i.e. attached() but renderer == 0
