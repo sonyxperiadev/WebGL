@@ -333,6 +333,14 @@ void ChromeClientAndroid::reachedMaxAppCacheSize(int64_t spaceNeeded)
 }
 #endif
 
+void ChromeClientAndroid::populateVisitedLinks()
+{
+    Page* page = m_webFrame->page();
+    Frame* mainFrame = page->mainFrame();
+    FrameView* view = mainFrame->view();
+    android::WebViewCore::getWebViewCore(view)->populateVisitedLinks(&page->group());
+}
+
 void ChromeClientAndroid::requestGeolocationPermissionForFrame(Frame* frame, Geolocation* geolocation)
 {
     ASSERT(geolocation);

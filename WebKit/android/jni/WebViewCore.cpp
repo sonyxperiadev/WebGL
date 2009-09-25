@@ -66,6 +66,7 @@
 #include "KeyboardCodes.h"
 #include "Node.h"
 #include "Page.h"
+#include "PageGroup.h"
 #include "PlatformKeyboardEvent.h"
 #include "PlatformString.h"
 #include "PluginWidgetAndroid.h"
@@ -180,6 +181,7 @@ struct WebViewCore::JavaGlue {
     jmethodID   m_requestKeyboard;
     jmethodID   m_exceededDatabaseQuota;
     jmethodID   m_reachedMaxAppCacheSize;
+    jmethodID   m_populateVisitedLinks;
     jmethodID   m_geolocationPermissionsShowPrompt;
     jmethodID   m_geolocationPermissionsHidePrompt;
     jmethodID   m_addMessageToConsole;
@@ -255,6 +257,7 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     m_javaGlue->m_requestKeyboard = GetJMethod(env, clazz, "requestKeyboard", "(Z)V");
     m_javaGlue->m_exceededDatabaseQuota = GetJMethod(env, clazz, "exceededDatabaseQuota", "(Ljava/lang/String;Ljava/lang/String;JJ)V");
     m_javaGlue->m_reachedMaxAppCacheSize = GetJMethod(env, clazz, "reachedMaxAppCacheSize", "(J)V");
+    m_javaGlue->m_populateVisitedLinks = GetJMethod(env, clazz, "populateVisitedLinks", "()[Ljava/lang/String;");
     m_javaGlue->m_geolocationPermissionsShowPrompt = GetJMethod(env, clazz, "geolocationPermissionsShowPrompt", "(Ljava/lang/String;)V");
     m_javaGlue->m_geolocationPermissionsHidePrompt = GetJMethod(env, clazz, "geolocationPermissionsHidePrompt", "()V");
     m_javaGlue->m_addMessageToConsole = GetJMethod(env, clazz, "addMessageToConsole", "(Ljava/lang/String;ILjava/lang/String;)V");
@@ -265,6 +268,8 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     env->SetIntField(javaWebViewCore, gWebViewCoreFields.m_nativeClass, (jint)this);
 
     m_scrollOffsetX = m_scrollOffsetY = 0;
+
+    PageGroup::setShouldTrackVisitedLinks(true);
 
     reset(true);
 }
@@ -2053,6 +2058,25 @@ void WebViewCore::reachedMaxAppCacheSize(const unsigned long long spaceNeeded)
     checkException(env);
 #endif
 }
+
+void WebViewCore::populateVisitedLinks(WebCore::PageGroup* group)
+{
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    jobjectArray array = static_cast<jobjectArray>(env->CallObjectMethod(m_javaGlue->object(env).get(), m_javaGlue->m_populateVisitedLinks));
+    if (!array)
+      return;
+    jsize len = env->GetArrayLength(array);
+    for (jsize i = 0; i < len; i++) {
+        jstring item = static_cast<jstring>(env->GetObjectArrayElement(array, i));
+	const UChar* str = static_cast<const UChar*>(env->GetStringChars(item, NULL));
+	jsize len = env->GetStringLength(item);
+	group->addVisitedLink(str, len);
+	env->ReleaseStringChars(item, str);
+	env->DeleteLocalRef(item);
+    }
+    env->DeleteLocalRef(array);
+}
+
 
 void WebViewCore::geolocationPermissionsShowPrompt(const WebCore::String& origin)
 {

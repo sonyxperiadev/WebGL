@@ -53,6 +53,7 @@ namespace WebCore {
     class RenderTextControl;
     class ScrollView;
     class TimerBase;
+    class PageGroup;
 }
 
 struct PluginWidgetAndroid;
@@ -215,6 +216,12 @@ namespace android {
          * in order for the last appcache operation to succeed.
          */
         void reachedMaxAppCacheSize(const unsigned long long spaceNeeded);
+
+	/**
+	 * Set up the PageGroup's idea of which links have been visited, with the browser history.
+	 * @param group the object to deliver the links to.
+	 */
+	void populateVisitedLinks(WebCore::PageGroup*);
 
         /**
          * Instruct the browser to show a Geolocation permission prompt for the
