@@ -172,6 +172,19 @@ static void round_scaled(SkIRect* dst, const WebCore::FloatRect& src,
              SkScalarRound(SkFloatToScalar((src.y() + src.height()) * sy)));
 }
 
+static inline void fixPaintForBitmapsThatMaySeam(SkPaint* paint) {
+    /*  Bitmaps may be drawn to seem next to other images. If we are drawn
+        zoomed, or at fractional coordinates, we may see cracks/edges if
+        we antialias, because that will cause us to draw the same pixels
+        more than once (e.g. from the left and right bitmaps that share
+        an edge).
+
+        Disabling antialiasing fixes this, and since so far we are never
+        rotated at non-multiple-of-90 angles, this seems to do no harm
+     */
+    paint->setAntiAlias(false);
+}
+
 void BitmapImage::draw(GraphicsContext* ctxt, const FloatRect& dstRect,
                    const FloatRect& srcRect, CompositeOperator compositeOp)
 {
@@ -214,6 +227,7 @@ void BitmapImage::draw(GraphicsContext* ctxt, const FloatRect& dstRect,
     ctxt->setupFillPaint(&paint);   // need global alpha among other things
     paint.setFilterBitmap(true);
     paint.setXfermodeMode(WebCoreCompositeToSkiaComposite(compositeOp));
+    fixPaintForBitmapsThatMaySeam(&paint);
     canvas->drawBitmapRect(bitmap, &srcR, dstR, &paint);
 
 #ifdef TRACE_SUBSAMPLED_BITMAPS
@@ -287,6 +301,7 @@ void Image::drawPattern(GraphicsContext* ctxt, const FloatRect& srcRect,
     // now paint is the only owner of shader
     paint.setXfermodeMode(WebCoreCompositeToSkiaComposite(compositeOp));
     paint.setFilterBitmap(true);
+    fixPaintForBitmapsThatMaySeam(&paint);
 
     SkMatrix matrix(patternTransform);
 
