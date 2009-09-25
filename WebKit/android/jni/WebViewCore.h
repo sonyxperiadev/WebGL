@@ -451,6 +451,8 @@ namespace android {
         WebCoreReply*          m_popupReply;
         WebCore::Node* m_lastFocused;
         WebCore::IntRect m_lastFocusedBounds;
+        int m_lastFocusedSelStart;
+        int m_lastFocusedSelEnd;
         int m_lastMoveGeneration;
         static Mutex m_contentMutex; // protects ui/core thread pictureset access
         PictureSet m_content; // the set of pictures to draw (accessed by UI too)
