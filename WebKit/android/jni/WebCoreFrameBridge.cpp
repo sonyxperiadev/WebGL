@@ -634,7 +634,7 @@ WebFrame::canHandleRequest(const WebCore::ResourceRequest& request)
     if (equalIgnoringCase(request.httpMethod(), "POST"))
         return true;
     WebCore::KURL requestUrl = request.url();
-    if (!mUserInitiatedClick &&
+    if (!mUserInitiatedClick && !request.getUserGesture() &&
         (requestUrl.protocolIs("http") || requestUrl.protocolIs("https") ||
             requestUrl.protocolIs("file") || requestUrl.protocolIs("about") ||
             requestUrl.protocolIs("javascript")))
