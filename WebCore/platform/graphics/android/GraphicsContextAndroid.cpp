@@ -686,6 +686,30 @@ void GraphicsContext::fillRect(const FloatRect& rect, const Color& color)
         m_data->setup_paint_common(&paint);
         paint.setColor(color.rgb());    // punch in the specified color
         paint.setShader(NULL);          // in case we had one set
+
+        /*  Sometimes we record and draw portions of the page, using clips
+            for each portion. The problem with this is that webkit, sometimes,
+            sees that we're only recording a portion, and they adjust some of
+            their rectangle coordinates accordingly (e.g.
+            RenderBoxModelObject::paintFillLayerExtended() which calls
+            rect.intersect(paintInfo.rect) and then draws the bg with that
+            rect. The result is that we end up drawing rects that are meant to
+            seam together (one for each portion), but if the rects have
+            fractional coordinates (e.g. we are zoomed by a fractional amount)
+            we will double-draw those edges, resulting in visual cracks or
+            artifacts.
+
+            The fix seems to be to just turn off antialasing for rects (this
+            entry-point in GraphicsContext seems to have been sufficient,
+            though perhaps we'll find we need to do this as well in fillRect(r)
+            as well.) Currently setup_paint_common() enables antialiasing.
+
+            Since we never show the page rotated at a funny angle, disabling
+            antialiasing seems to have no real down-side, and it does fix the
+            bug when we're zoomed (and drawing portions that need to seam).
+         */
+        paint.setAntiAlias(false);
+
         GC2Canvas(this)->drawRect(rect, paint);
     }
 }
