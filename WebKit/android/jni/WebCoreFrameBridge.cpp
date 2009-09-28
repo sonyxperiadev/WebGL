@@ -738,6 +738,10 @@ static void CallPolicyFunction(JNIEnv* env, jobject obj, jint func, jint decisio
     PolicyFunctionWrapper* pFunc = (PolicyFunctionWrapper*)func;
     LOG_ASSERT(pFunc, "nativeCallPolicyFunction must take a valid function pointer!");
 
+    // If we are resending the form then we should reset the multiple submission protection.
+    if (decision == WebCore::PolicyUse)
+        pFrame->loader()->resetMultipleFormSubmissionProtection();
+
     (pFrame->loader()->*(pFunc->func))((WebCore::PolicyAction)decision);
 }
 
