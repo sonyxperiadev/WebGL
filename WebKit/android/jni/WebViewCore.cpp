@@ -903,8 +903,13 @@ void WebViewCore::needTouchEvents(bool need)
 
 #if ENABLE(TOUCH_EVENTS) // Android
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_needTouchEvents, need);
-    checkException(env);
+    AutoJObject obj = m_javaGlue->object(env);
+    // if this is called after DESTROY is handled in WebViewCore.java, mNativeClass
+    // will be null. Do nothing.
+    if (env && obj.get()) {
+        env->CallVoidMethod(obj.get(), m_javaGlue->m_needTouchEvents, need);
+        checkException(env);
+    }
 #endif
 }
 
