@@ -467,16 +467,21 @@ void FrameLoaderClientAndroid::dispatchDecidePolicyForMIMEType(FramePolicyFuncti
 }
 
 void FrameLoaderClientAndroid::dispatchDecidePolicyForNewWindowAction(FramePolicyFunction func,
-                                const NavigationAction&, const ResourceRequest& request,
+                                const NavigationAction& action, const ResourceRequest& request,
                                 PassRefPtr<FormState> formState, const String& frameName) {
     ASSERT(m_frame);
     ASSERT(func);
     if (!func)
         return;
+
     if (request.isNull()) {
         (m_frame->loader()->*func)(PolicyIgnore);
         return;
     }
+
+    if (action.type() == NavigationTypeFormSubmitted || action.type() == NavigationTypeFormResubmitted)
+        m_frame->loader()->resetMultipleFormSubmissionProtection();
+
     // If we get to this point it means that a link has a target that was not
     // found by the frame tree. Instead of creating a new frame, return the
     // current frame in dispatchCreatePage.
@@ -505,6 +510,12 @@ void FrameLoaderClientAndroid::dispatchDecidePolicyForNavigationAction(FramePoli
         (m_frame->loader()->*func)(PolicyIgnore);
         return;
     }
+
+    // Reset multiple form submission protection. If this is a resubmission, we check with the
+    // user and reset the protection if they choose to resubmit the form (see WebCoreFrameBridge.cpp)
+    if (action.type() == NavigationTypeFormSubmitted)
+        m_frame->loader()->resetMultipleFormSubmissionProtection();
+
     if (action.type() == NavigationTypeFormResubmitted) {
         m_webFrame->decidePolicyForFormResubmission(func);
         return;
