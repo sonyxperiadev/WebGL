@@ -187,6 +187,7 @@ public:
 #if PLATFORM(ANDROID)
     bool canLoadPoster() const;
     void setPoster(const String&);
+    void prepareToPlay();
 #endif
 
 #if ENABLE(PLUGIN_PROXY_FOR_VIDEO)

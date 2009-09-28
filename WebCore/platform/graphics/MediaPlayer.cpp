@@ -107,6 +107,7 @@ public:
 #if PLATFORM(ANDROID)
     virtual bool canLoadPoster() const { return false; }
     virtual void setPoster(const String&) { }
+    virtual void prepareToPlay() { }
 #endif
 
 #if ENABLE(PLUGIN_PROXY_FOR_VIDEO)
@@ -262,6 +263,11 @@ void MediaPlayer::load(const String& url, const ContentType& contentType)
 bool MediaPlayer::canLoadPoster() const
 {
     return m_private->canLoadPoster();
+}
+
+void MediaPlayer::prepareToPlay()
+{
+    m_private->prepareToPlay();
 }
 #endif
 
