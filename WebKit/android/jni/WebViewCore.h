@@ -217,11 +217,12 @@ namespace android {
          */
         void reachedMaxAppCacheSize(const unsigned long long spaceNeeded);
 
-	/**
-	 * Set up the PageGroup's idea of which links have been visited, with the browser history.
-	 * @param group the object to deliver the links to.
-	 */
-	void populateVisitedLinks(WebCore::PageGroup*);
+        /**
+         * Set up the PageGroup's idea of which links have been visited,
+         * with the browser history.
+         * @param group the object to deliver the links to.
+         */
+        void populateVisitedLinks(WebCore::PageGroup*);
 
         /**
          * Instruct the browser to show a Geolocation permission prompt for the
@@ -323,6 +324,8 @@ namespace android {
         void setFocusControllerActive(bool active);
 
         void saveDocumentState(WebCore::Frame* frame);
+
+        void addVisitedLink(const UChar*, int);
 
         // TODO: I don't like this hack but I need to access the java object in
         // order to send it as a parameter to java
@@ -483,6 +486,7 @@ namespace android {
         float m_screenWidthScale;
         unsigned m_domtree_version;
         bool m_check_domtree_version;
+        PageGroup* m_groupForVisitedLinks;
 
         SkTDArray<PluginWidgetAndroid*> m_plugins;
         WebCore::Timer<WebViewCore> m_pluginInvalTimer;
