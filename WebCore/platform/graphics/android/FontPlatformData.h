@@ -29,6 +29,8 @@
 #include "PlatformString.h"
 #endif
 
+#include "StringImpl.h"
+
 class SkPaint;
 class SkTypeface;
 
