@@ -26,6 +26,7 @@
 
 #include "config.h"
 
+#include "NotImplemented.h"
 #include "WebCoreJni.h"
 #include "jni_utility.h"
 #include <jni.h>
