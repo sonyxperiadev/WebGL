@@ -316,7 +316,7 @@ public:
         str = (jstring)env->GetObjectField(obj, gFieldIds->mAppCachePath);
         if (str) {
             WebCore::String path = to_string(env, str);
-            if (path.length()) {
+            if (path.length() && WebCore::cacheStorage().cacheDirectory().isNull()) {
                 WebCore::cacheStorage().setCacheDirectory(path);
             }
         }

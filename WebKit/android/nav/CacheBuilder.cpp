@@ -1117,7 +1117,7 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
             hasMouseOver = NodeHasEventListeners(node, &eventNames().mouseoverEvent, 1);
             isAnchor = true;
             KURL href = anchorNode->href();
-            if (!href.isEmpty() && !href.protocolIs("javascript"))
+            if (!href.isEmpty() && !WebCore::protocolIsJavaScript(href.string()))
                 // Set the exported string for all non-javascript anchors.
                 exported = href.string().copy();
         }

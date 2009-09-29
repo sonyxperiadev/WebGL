@@ -25,7 +25,9 @@
 #ifndef FontPlatformData_H
 #define FontPlatformData_H
 
-#include "StringImpl.h"
+#ifndef NDEBUG
+#include "PlatformString.h"
+#endif
 
 class SkPaint;
 class SkTypeface;
@@ -58,6 +60,10 @@ public:
     void     setupPaint(SkPaint*) const;
     float size() const { return mTextSize; }
     unsigned hash() const;
+
+#ifndef NDEBUG
+    String description() const { return ""; }
+#endif
 
 private:
     SkTypeface* mTypeface;
