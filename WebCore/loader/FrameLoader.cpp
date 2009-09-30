@@ -519,6 +519,9 @@ void FrameLoader::submitForm(const char* action, const String& url, PassRefPtr<F
     }
 
     FrameLoadRequest frameRequest;
+#ifdef ANDROID_USER_GESTURE
+    frameRequest.resourceRequest().setUserGesture(isProcessingUserGesture());
+#endif
 
     String targetOrBaseTarget = target.isEmpty() ? m_frame->document()->baseTarget() : target;
     Frame* targetFrame = findFrameForNavigation(targetOrBaseTarget);
@@ -1538,7 +1541,7 @@ void FrameLoader::loadURLIntoChildFrame(const KURL& url, const String& referer, 
     else
 #endif
 #ifdef ANDROID_USER_GESTURE
-        childFrame->loader()->loadURL(workingURL, referer, String(), false, childLoadType, 0, 0, true);
+        childFrame->loader()->loadURL(workingURL, referer, String(), false, childLoadType, 0, 0, false);
 #else
         childFrame->loader()->loadURL(workingURL, referer, String(), false, childLoadType, 0, 0);
 #endif
