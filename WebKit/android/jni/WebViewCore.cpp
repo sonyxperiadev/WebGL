@@ -257,7 +257,7 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     m_javaGlue->m_requestKeyboard = GetJMethod(env, clazz, "requestKeyboard", "(Z)V");
     m_javaGlue->m_exceededDatabaseQuota = GetJMethod(env, clazz, "exceededDatabaseQuota", "(Ljava/lang/String;Ljava/lang/String;JJ)V");
     m_javaGlue->m_reachedMaxAppCacheSize = GetJMethod(env, clazz, "reachedMaxAppCacheSize", "(J)V");
-    m_javaGlue->m_populateVisitedLinks = GetJMethod(env, clazz, "populateVisitedLinks", "()[Ljava/lang/String;");
+    m_javaGlue->m_populateVisitedLinks = GetJMethod(env, clazz, "populateVisitedLinks", "()V");
     m_javaGlue->m_geolocationPermissionsShowPrompt = GetJMethod(env, clazz, "geolocationPermissionsShowPrompt", "(Ljava/lang/String;)V");
     m_javaGlue->m_geolocationPermissionsHidePrompt = GetJMethod(env, clazz, "geolocationPermissionsHidePrompt", "()V");
     m_javaGlue->m_addMessageToConsole = GetJMethod(env, clazz, "addMessageToConsole", "(Ljava/lang/String;ILjava/lang/String;)V");
@@ -336,6 +336,7 @@ void WebViewCore::reset(bool fromConstructor)
     m_scrollOffsetY = 0;
     m_screenWidth = 0;
     m_screenHeight = 0;
+    m_groupForVisitedLinks = NULL;
 }
 
 static bool layoutIfNeededRecursive(WebCore::Frame* f)
@@ -1649,7 +1650,7 @@ void WebViewCore::passToJs(int generation, const WebCore::String& current,
     updateTextfield(focus, false, test);
 }
 
-void WebViewCore::scrollFocusedTextInput(int x, int y)
+void WebViewCore::scrollFocusedTextInput(float xPercent, int y)
 {
     WebCore::Node* focus = currentFocus();
     if (!focus) {
@@ -1665,6 +1666,10 @@ void WebViewCore::scrollFocusedTextInput(int x, int y)
     }
     WebCore::RenderTextControl* renderText =
         static_cast<WebCore::RenderTextControl*>(renderer);
+    int x = (int) (xPercent * (renderText->scrollWidth() -
+        renderText->clientWidth()));
+    DBG_NAV_LOGD("x=%d y=%d xPercent=%g scrollW=%d clientW=%d", x, y,
+        xPercent, renderText->scrollWidth(), renderText->clientWidth());
     renderText->setScrollLeft(x);
     renderText->setScrollTop(y);
 }
@@ -2086,22 +2091,11 @@ void WebViewCore::reachedMaxAppCacheSize(const unsigned long long spaceNeeded)
 
 void WebViewCore::populateVisitedLinks(WebCore::PageGroup* group)
 {
+    m_groupForVisitedLinks = group;
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    jobjectArray array = static_cast<jobjectArray>(env->CallObjectMethod(m_javaGlue->object(env).get(), m_javaGlue->m_populateVisitedLinks));
-    if (!array)
-      return;
-    jsize len = env->GetArrayLength(array);
-    for (jsize i = 0; i < len; i++) {
-        jstring item = static_cast<jstring>(env->GetObjectArrayElement(array, i));
-	const UChar* str = static_cast<const UChar*>(env->GetStringChars(item, NULL));
-	jsize len = env->GetStringLength(item);
-	group->addVisitedLink(str, len);
-	env->ReleaseStringChars(item, str);
-	env->DeleteLocalRef(item);
-    }
-    env->DeleteLocalRef(array);
+    env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_populateVisitedLinks);
+    checkException(env);
 }
-
 
 void WebViewCore::geolocationPermissionsShowPrompt(const WebCore::String& origin)
 {
@@ -2398,13 +2392,14 @@ static void PassToJs(JNIEnv *env, jobject obj,
         PlatformKeyboardEvent(keyCode, keyValue, 0, down, cap, fn, sym));
 }
 
-static void ScrollFocusedTextInput(JNIEnv *env, jobject obj, jint x, jint y)
+static void ScrollFocusedTextInput(JNIEnv *env, jobject obj, jfloat xPercent,
+    jint y)
 {
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
 #endif
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
-    viewImpl->scrollFocusedTextInput(x, y);
+    viewImpl->scrollFocusedTextInput(xPercent, y);
 }
 
 static void SetFocusControllerActive(JNIEnv *env, jobject obj, jboolean active)
@@ -2427,6 +2422,12 @@ static void SaveDocumentState(JNIEnv *env, jobject obj, jint frame)
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
     LOG_ASSERT(viewImpl, "viewImpl not set in nativeSaveDocumentState");
     viewImpl->saveDocumentState((WebCore::Frame*) frame);
+}
+
+void WebViewCore::addVisitedLink(const UChar* string, int length)
+{
+    if (m_groupForVisitedLinks)
+        m_groupForVisitedLinks->addVisitedLink(string, length);
 }
 
 static bool RecordContent(JNIEnv *env, jobject obj, jobject region, jobject pt)
@@ -2785,6 +2786,25 @@ static void FreeMemory(JNIEnv* env, jobject obj)
     GET_NATIVE_VIEW(env, obj)->sendPluginEvent(event);
 }
 
+static void ProvideVisitedHistory(JNIEnv *env, jobject obj, jobject hist)
+{
+    WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
+    LOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);
+
+    jobjectArray array = static_cast<jobjectArray>(hist);
+
+    jsize len = env->GetArrayLength(array);
+    for (jsize i = 0; i < len; i++) {
+        jstring item = static_cast<jstring>(env->GetObjectArrayElement(array, i));
+        const UChar* str = static_cast<const UChar*>(env->GetStringChars(item, NULL));
+        jsize len = env->GetStringLength(item);
+        viewImpl->addVisitedLink(str, len);
+        env->ReleaseStringChars(item, str);
+        env->DeleteLocalRef(item);
+    }
+    env->DeleteLocalRef(array);
+}
+
 // ----------------------------------------------------------------------------
 
 /*
@@ -2825,7 +2845,7 @@ static JNINativeMethod gJavaWebViewCoreMethods[] = {
         (void*) MoveMouseIfLatest },
     { "passToJs", "(ILjava/lang/String;IIZZZZ)V",
         (void*) PassToJs },
-    { "nativeScrollFocusedTextInput", "(II)V",
+    { "nativeScrollFocusedTextInput", "(FI)V",
         (void*) ScrollFocusedTextInput },
     { "nativeSetFocusControllerActive", "(Z)V",
         (void*) SetFocusControllerActive },
@@ -2872,6 +2892,8 @@ static JNINativeMethod gJavaWebViewCoreMethods[] = {
     { "nativeUpdatePluginState", "(III)V", (void*) UpdatePluginState },
     { "nativeUpdateFrameCacheIfLoading", "()V",
         (void*) UpdateFrameCacheIfLoading },
+    { "nativeProvideVisitedHistory", "([Ljava/lang/String;)V",
+        (void*) ProvideVisitedHistory },
 };
 
 int register_webviewcore(JNIEnv* env)

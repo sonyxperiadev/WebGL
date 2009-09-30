@@ -637,7 +637,7 @@ WebFrame::canHandleRequest(const WebCore::ResourceRequest& request)
     if (!mUserInitiatedClick && !request.getUserGesture() &&
         (requestUrl.protocolIs("http") || requestUrl.protocolIs("https") ||
             requestUrl.protocolIs("file") || requestUrl.protocolIs("about") ||
-            requestUrl.protocolIs("javascript")))
+            WebCore::protocolIsJavaScript(requestUrl.string())))
         return true;
     WebCore::String url(request.url().string());
     // Empty urls should not be sent to java

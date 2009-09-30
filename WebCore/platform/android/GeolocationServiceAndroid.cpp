@@ -347,7 +347,7 @@ void GeolocationServiceAndroid::newErrorAvailable(PassRefPtr<PositionError> erro
 }
 
 void GeolocationServiceAndroid::timerFired(Timer<GeolocationServiceAndroid>* timer) {
-    ASSERT(m_timer == timer);
+    ASSERT(&m_timer == timer);
     ASSERT(m_lastPosition || m_lastError);
     if (m_lastPosition)
         positionChanged();

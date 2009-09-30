@@ -181,7 +181,10 @@ void GeolocationPermissions::cancelPendingRequests(String origin)
     if (index != WTF::notFound) {
         // Get the permission from the permanent list.
         PermissionsMap::const_iterator iter = s_permanentPermissions.find(origin);
-        ASSERT(iter != (PermissionsMap::const_iterator end = s_permanentPermissions.end()));
+#ifndef NDEBUG
+        PermissionsMap::const_iterator end = s_permanentPermissions.end();
+        ASSERT(iter != end);
+#endif
         bool allow = iter->second;
 
         maybeCallbackFrames(origin, allow);
