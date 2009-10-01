@@ -95,6 +95,7 @@ public:
 #if PLATFORM(ANDROID)
     virtual bool canLoadPoster() const { return false; }
     virtual void setPoster(const String&) { }
+    virtual void prepareToPlay() { }
 #endif
 
 #if ENABLE(PLUGIN_PROXY_FOR_VIDEO)

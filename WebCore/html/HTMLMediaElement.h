@@ -227,6 +227,9 @@ private:
     bool endedPlayback() const;
     bool stoppedDueToErrors() const;
     bool pausedForUserInteraction() const;
+#if PLATFORM(ANDROID)
+    bool couldPlayIfEnoughData() const;
+#endif
 
     float minTimeSeekable() const;
     float maxTimeSeekable() const;
