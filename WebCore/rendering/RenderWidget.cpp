@@ -255,6 +255,7 @@ void RenderWidget::updateWidgetPosition()
         deref(arena);
     }
     
+#ifndef FLATTEN_IFRAME
     // if the frame bounds got changed, or if view needs layout (possibly indicating
     // content size is wrong) we have to do a layout to set the right widget size
     if (m_widget->isFrameView()) {
@@ -262,6 +263,7 @@ void RenderWidget::updateWidgetPosition()
         if (boundsChanged || frameView->needsLayout())
             frameView->layout();
     }
+#endif
 }
 
 void RenderWidget::setSelectionState(SelectionState state)
