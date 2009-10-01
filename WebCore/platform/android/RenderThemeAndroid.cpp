@@ -235,7 +235,7 @@ bool RenderThemeAndroid::paintTextArea(RenderObject* obj, const RenderObject::Pa
 {
     if (obj->isMenuList())
         return paintCombo(obj, info, rect);
-    return true;    
+    return true;
 }
 
 void RenderThemeAndroid::adjustSearchFieldStyle(CSSStyleSelector*, RenderStyle* style, Element*) const
@@ -245,7 +245,7 @@ void RenderThemeAndroid::adjustSearchFieldStyle(CSSStyleSelector*, RenderStyle* 
 
 bool RenderThemeAndroid::paintSearchField(RenderObject*, const RenderObject::PaintInfo&, const IntRect&)
 {
-    return true;    
+    return true;
 }
 
 void RenderThemeAndroid::adjustListboxStyle(CSSStyleSelector*, RenderStyle* style, Element*) const
@@ -259,12 +259,6 @@ static void adjustMenuListStyleCommon(RenderStyle* style, Element* e)
 {
     // Added to make room for our arrow.
     style->setPaddingRight(Length(RenderSkinCombo::extraWidth(), Fixed));
-    // Code copied from RenderThemeMac.mm
-    // Makes sure that the text shows up on our treatment
-    bool isEnabled = true;
-    if (e)
-        isEnabled = e->isEnabledFormControl();
-    style->setColor(isEnabled ? Color::black : Color::darkGray);
 }
 
 void RenderThemeAndroid::adjustMenuListStyle(CSSStyleSelector*, RenderStyle* style, Element* e) const
