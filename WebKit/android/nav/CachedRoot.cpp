@@ -90,7 +90,7 @@ public:
     bool mIsOpaque;
 };
 
-#if DEBUG_NAV_UI && !defined BROWSER_DEBUG
+#if DEBUG_NAV_UI
     static const char* TypeNames[] = {
         "kNo_Type",
         "kDrawBitmap_Type",
@@ -144,11 +144,9 @@ public:
         bool interestingType = mType == kDrawBitmap_Type ||
             mType == kDrawRect_Type || isTextType(mType);
         if (SkIRect::Intersects(mBounds, rect) == false) {
-#if DEBUG_NAV_UI && !defined BROWSER_DEBUG
-        LOGD("%s (no intersect) rect={%d,%d,%d,%d} mType=%s\n", __FUNCTION__,
-            rect.fLeft, rect.fTop, rect.fRight, rect.fBottom,
-            TypeNames[mType]);
-#endif
+            DBG_NAV_LOGD("BoundsCheck (no intersect) rect={%d,%d,%d,%d}"
+                " mType=%s", rect.fLeft, rect.fTop, rect.fRight, rect.fBottom,
+                TypeNames[mType]);
             if (interestingType)
                 checkLast();
             return false;
@@ -162,13 +160,11 @@ public:
                 mBounds.fLeft >= rect.fLeft && mBounds.fRight <= rect.fRight)) {
             mDrawnOver.setEmpty();
             mAllDrawnIn.join(rect);
-#if DEBUG_NAV_UI && !defined BROWSER_DEBUG
-        LOGD("%s (contains) rect={%d,%d,%d,%d}"
-            " mAllDrawnIn={%d,%d,%d,%d} mType=%s\n", __FUNCTION__,
-            rect.fLeft, rect.fTop, rect.fRight, rect.fBottom,
-            mAllDrawnIn.fLeft, mAllDrawnIn.fTop, mAllDrawnIn.fRight, mAllDrawnIn.fBottom,
-            TypeNames[mType]);
-#endif
+            DBG_NAV_LOGD("BoundsCheck (contains) rect={%d,%d,%d,%d}"
+                " mAllDrawnIn={%d,%d,%d,%d} mType=%s",
+                rect.fLeft, rect.fTop, rect.fRight, rect.fBottom,
+                mAllDrawnIn.fLeft, mAllDrawnIn.fTop, mAllDrawnIn.fRight,
+                mAllDrawnIn.fBottom, TypeNames[mType]);
        } else {
             checkLast();
             if (!isTextType(mType)) {
@@ -191,13 +187,14 @@ public:
 // ( http://tinyurl.com/ywsyzb )
                 mLastOver = rect;
             }
-#if DEBUG_NAV_UI && !defined BROWSER_DEBUG
+#if DEBUG_NAV_UI
         const SkIRect& drawnOver = mDrawnOver.getBounds();
-        LOGD("%s (overlaps) rect={%d,%d,%d,%d}"
-            " mDrawnOver={%d,%d,%d,%d} mType=%s mIsOpaque=%s mAllOpaque=%s\n", __FUNCTION__,
+        DBG_NAV_LOGD("(overlaps) rect={%d,%d,%d,%d}"
+            " mDrawnOver={%d,%d,%d,%d} mType=%s mIsOpaque=%s mAllOpaque=%s",
             rect.fLeft, rect.fTop, rect.fRight, rect.fBottom,
             drawnOver.fLeft, drawnOver.fTop, drawnOver.fRight, drawnOver.fBottom,
-            TypeNames[mType], mIsOpaque ? "true" : "false", mAllOpaque ? "true" : "false");
+            TypeNames[mType], mIsOpaque ? "true" : "false",
+            mAllOpaque ? "true" : "false");
 #endif
         }
         return false;
@@ -345,6 +342,7 @@ public:
         mHit.set(x - (HIT_SLOP << 1), y - HIT_SLOP, x, y + HIT_SLOP);
         mPartial.setEmpty();
         mBounds.setEmpty();
+        mPartialType = kNo_Type;
     }
 
     int left() {
@@ -367,14 +365,28 @@ public:
             return false;
         /* Text on one line may be broken into several parts. Reassemble
            the text into a rectangle before considering it. */
-        if (rect.fTop < mPartial.fBottom && rect.fBottom >
-                mPartial.fTop && mPartial.fRight + SLOP >= rect.fLeft) {
+        if (rect.fTop < mPartial.fBottom
+                && rect.fBottom > mPartial.fTop
+                && mPartial.fRight + SLOP >= rect.fLeft
+                && (mPartialType != kDrawBitmap_Type
+                || mPartial.height() <= rect.height() + HIT_SLOP)) {
+            DBG_NAV_LOGD("LeftCheck join mPartial=(%d, %d, %d, %d)"
+                " rect=(%d, %d, %d, %d)",
+                mPartial.fLeft, mPartial.fTop, mPartial.fRight, mPartial.fBottom,
+                rect.fLeft, rect.fTop, rect.fRight, rect.fBottom);
             mPartial.join(rect);
             return false;
         }
-        if (mPartial.isEmpty() == false)
+        if (mPartial.isEmpty() == false) {
             doRect(); // process the previous line of text
+#if DEBUG_NAV_UI
+            if (mHitLeft == INT_MAX)
+                DBG_NAV_LOGD("LeftCheck disabled rect=(%d, %d, %d, %d)",
+                    rect.fLeft, rect.fTop, rect.fRight, rect.fBottom);
+#endif
+        }
         mPartial = rect;
+        mPartialType = mType;
         return false;
     }
 
@@ -430,6 +442,7 @@ public:
     const int mY;
     int mHitLeft; // touched text extremes
     int mMostLeft; // paragraph extremes
+    Type mPartialType;
 };
 
 /*
@@ -649,9 +662,9 @@ public:
 
     virtual bool onIRect(const SkIRect& rect) {
         if (mSuccess && mType == kDrawGlyph_Type) {
-            DBG_NAV_LOGD("contains (%d,%d,r=%d,b=%d) == %s", rect.fLeft, rect.fTop,
-                rect.fRight, rect.fBottom, mRings.contains(rect) ? "true" :
-                "false");
+            DBG_NAV_LOGD("contains (%d,%d,r=%d,b=%d) == %s",
+                rect.fLeft, rect.fTop, rect.fRight, rect.fBottom,
+                mRings.contains(rect) ? "true" : "false");
             mSuccess &= mRings.contains(rect);
         }
         return false;
@@ -874,13 +887,13 @@ void CachedRoot::getSimulatedMousePosition(WebCore::IntPoint* point) const
             point->setY(y + 1);
         }
     }
-#if DEBUG_NAV_UI && !defined BROWSER_DEBUG
+#if DEBUG_NAV_UI
     const WebCore::IntRect& navBounds = mHistory->mNavBounds;
-    LOGD("%s mHistory->mNavBounds={%d,%d,%d,%d} "
-        "mHistory->mMouseBounds={%d,%d,%d,%d} point={%d,%d}\n", __FUNCTION__,
+    DBG_NAV_LOGD("mHistory->mNavBounds={%d,%d,%d,%d} "
+        "mHistory->mMouseBounds={%d,%d,%d,%d} point={%d,%d}",
         navBounds.x(), navBounds.y(), navBounds.width(), navBounds.height(),
-        mouseBounds.x(), mouseBounds.y(), mouseBounds.width(), mouseBounds.height(),
-        point->x(), point->y());
+        mouseBounds.x(), mouseBounds.y(), mouseBounds.width(),
+        mouseBounds.height(), point->x(), point->y());
 #endif
 }
 
@@ -946,10 +959,8 @@ void CachedRoot::innerMove(const CachedNode* node, BestData* bestData,
 {
     bestData->reset();
     bool outOfCursor = mCursorIndex == CURSOR_CLEARED;
-#if DEBUG_NAV_UI && !defined BROWSER_DEBUG
-    LOGD("%s mHistory->didFirstLayout()=%s && mCursorIndex=%d\n", __FUNCTION__,
+    DBG_NAV_LOGD("mHistory->didFirstLayout()=%s && mCursorIndex=%d",
         mHistory->didFirstLayout() ? "true" : "false", mCursorIndex);
-#endif
     if (mHistory->didFirstLayout() && mCursorIndex < CURSOR_SET) {
         mHistory->reset();
         outOfCursor = true;
@@ -1078,9 +1089,7 @@ WebCore::String CachedRoot::imageURI(int x, int y) const
 bool CachedRoot::maskIfHidden(BestData* best) const
 {
     if (mPicture == NULL) {
-#if DEBUG_NAV_UI && !defined BROWSER_DEBUG
-        LOGD("%s missing picture\n", __FUNCTION__);
-#endif
+        DBG_NAV_LOG("missing picture");
         return false;
     }
     const CachedNode* bestNode = best->mNode;
@@ -1119,30 +1128,30 @@ bool CachedRoot::maskIfHidden(BestData* best) const
     // was it not drawn or clipped out?
     if (boundsCheck.hidden()) { // if hidden, return false so that nav can try again
         CachedNode* node = const_cast<CachedNode*>(best->mNode);
-#if DEBUG_NAV_UI && !defined BROWSER_DEBUG
+#if DEBUG_NAV_UI
         const SkIRect& m = boundsCheck.mBounds;
         const SkIRect& s = boundsCheck.mBoundsSlop;
-        LOGD("%s hidden node:%p (%d) mBounds={%d,%d,%d,%d} mBoundsSlop="
-            "{%d,%d,%d,%d}\n", __FUNCTION__, node, node->index(),
+        DBG_NAV_LOGD("hidden node:%p (%d) mBounds={%d,%d,%d,%d} mBoundsSlop="
+            "{%d,%d,%d,%d}", node, node->index(),
             m.fLeft, m.fTop, m.fRight, m.fBottom,
             s.fLeft, s.fTop, s.fRight, s.fBottom);
         const SkIRect& o = boundsCheck.mDrawnOver.getBounds();
         const SkIRect& l = boundsCheck.mLastAll;
         const SkIRect& u = boundsCheck.mUnion;
-        LOGD("%s hidden mDrawnOver={%d,%d,%d,%d} mLastAll={%d,%d,%d,%d}"
-            " mUnion={%d,%d,%d,%d}\n", __FUNCTION__,
+        DBG_NAV_LOGD("hidden mDrawnOver={%d,%d,%d,%d} mLastAll={%d,%d,%d,%d}"
+            " mUnion={%d,%d,%d,%d}",
             o.fLeft, o.fTop, o.fRight, o.fBottom,
             l.fLeft, l.fTop, l.fRight, l.fBottom,
             u.fLeft, u.fTop, u.fRight, u.fBottom);
         const SkIRect& a = boundsCheck.mAllDrawnIn;
         const WebCore::IntRect& c = mScrolledBounds;
         const WebCore::IntRect& b = nodeBounds;
-        LOGD("%s hidden mAllDrawnIn={%d,%d,%d,%d} mScrolledBounds={%d,%d,%d,%d}"
-            " nodeBounds={%d,%d,%d,%d}\n", __FUNCTION__,
+        DBG_NAV_LOGD("hidden mAllDrawnIn={%d,%d,%d,%d}"
+            " mScrolledBounds={%d,%d,%d,%d} nodeBounds={%d,%d,%d,%d}",
             a.fLeft, a.fTop, a.fRight, a.fBottom,
             c.x(), c.y(), c.right(), c.bottom(),
             b.x(), b.y(), b.right(), b.bottom());
-        LOGD("%s bits.mWidth=%d bits.mHeight=%d transX=%d transY=%d\n", __FUNCTION__,
+        DBG_NAV_LOGD("bits.mWidth=%d bits.mHeight=%d transX=%d transY=%d",
             marginBounds.width(),marginBounds.height(),
             kMargin - bounds.x(), kMargin - bounds.y());
 #endif
@@ -1154,7 +1163,7 @@ bool CachedRoot::maskIfHidden(BestData* best) const
     // if partially occluded, modify the bounds so that the mouse click has a better x,y
        const SkIRect& over = boundsCheck.mDrawnOver.getBounds();
     if (over.isEmpty() == false) {
-#if DEBUG_NAV_UI && !defined BROWSER_DEBUG
+#if DEBUG_NAV_UI
         SkIRect orig = boundsCheck.mBounds;
 #endif
         SkIRect& base = boundsCheck.mBounds;
@@ -1166,10 +1175,10 @@ bool CachedRoot::maskIfHidden(BestData* best) const
             base.fTop = over.fBottom;
         else if (base.fBottom > over.fTop && base.fTop < over.fTop)
             base.fBottom = over.fTop;
-#if DEBUG_NAV_UI && !defined BROWSER_DEBUG
+#if DEBUG_NAV_UI
         const SkIRect& modded = boundsCheck.mBounds;
-        LOGD("%s partially occluded node:%p (%d) old:{%d,%d,%d,%d} new:{%d,%d,%d,%d}\n",
-            __FUNCTION__, best->mNode, best->mNode->index(),
+        DBG_NAV_LOGD("partially occluded node:%p (%d) old:{%d,%d,%d,%d}"
+            " new:{%d,%d,%d,%d}", best->mNode, best->mNode->index(),
             orig.fLeft, orig.fTop, orig.fRight, orig.fBottom,
             base.fLeft, base.fTop, base.fRight, base.fBottom);
 #endif
@@ -1245,12 +1254,12 @@ void CachedRoot::setCachedFocus(CachedFrame* frame, CachedNode* node)
         parent->setFocusIndex(frame->indexInParent());
         frame = parent;
     }
-#if DEBUG_NAV_UI && !defined BROWSER_DEBUG
+#if DEBUG_NAV_UI
     const CachedNode* focus = frame->currentFocus();
     WebCore::IntRect bounds = WebCore::IntRect(0, 0, 0, 0);
     if (focus)
         bounds = focus->bounds();
-    LOGD("%s new focus %d (nodePointer=%p) bounds={%d,%d,%d,%d}\n", __FUNCTION__,
+    DBG_NAV_LOGD("new focus %d (nodePointer=%p) bounds={%d,%d,%d,%d}",
         focus ? focus->index() : 0,
         focus ? focus->nodePointer() : NULL, bounds.x(), bounds.y(),
         bounds.width(), bounds.height());
@@ -1259,12 +1268,12 @@ void CachedRoot::setCachedFocus(CachedFrame* frame, CachedNode* node)
 
 void CachedRoot::setCursor(CachedFrame* frame, CachedNode* node)
 {
-#if DEBUG_NAV_UI && !defined BROWSER_DEBUG
+#if DEBUG_NAV_UI
     const CachedNode* cursor = currentCursor();
     WebCore::IntRect bounds;
     if (cursor)
         bounds = cursor->bounds();
-    LOGD("%s old cursor %d (nodePointer=%p) bounds={%d,%d,%d,%d}\n", __FUNCTION__,
+    DBG_NAV_LOGD("old cursor %d (nodePointer=%p) bounds={%d,%d,%d,%d}",
         cursor ? cursor->index() : 0,
         cursor ? cursor->nodePointer() : NULL, bounds.x(), bounds.y(),
         bounds.width(), bounds.height());
@@ -1280,12 +1289,12 @@ void CachedRoot::setCursor(CachedFrame* frame, CachedNode* node)
         parent->setCursorIndex(frame->indexInParent());
         frame = parent;
     }
-#if DEBUG_NAV_UI && !defined BROWSER_DEBUG
+#if DEBUG_NAV_UI
     cursor = currentCursor();
     bounds = WebCore::IntRect(0, 0, 0, 0);
     if (cursor)
         bounds = cursor->bounds();
-    LOGD("%s new cursor %d (nodePointer=%p) bounds={%d,%d,%d,%d}\n", __FUNCTION__,
+    DBG_NAV_LOGD("new cursor %d (nodePointer=%p) bounds={%d,%d,%d,%d}",
         cursor ? cursor->index() : 0,
         cursor ? cursor->nodePointer() : NULL, bounds.x(), bounds.y(),
         bounds.width(), bounds.height());
