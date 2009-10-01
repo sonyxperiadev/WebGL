@@ -1113,16 +1113,12 @@ void HTMLInputElement::setValue(const String& value)
     
     if (isTextField()) {
         unsigned max = m_data.value().length();
+#ifdef ANDROID_ACCEPT_CHANGES_TO_FOCUSED_TEXTFIELDS
+        // Make sure our UI side textfield changes to match the RenderTextControl
+        android::WebViewCore::getWebViewCore(document()->view())->updateTextfield(this, false, value);
+#endif
         if (document()->focusedNode() == this)
-#ifdef ANDROID_ACCEPT_CHANGES_TO_FOCUSED_TEXTFIELDS
-        {
-            // Make sure our UI side textfield changes to match the RenderTextControl
-            android::WebViewCore::getWebViewCore(document()->view())->updateTextfield(this, false, value);
-#endif
             InputElement::updateSelectionRange(this, this, max, max);
-#ifdef ANDROID_ACCEPT_CHANGES_TO_FOCUSED_TEXTFIELDS
-        }
-#endif
         else
             cacheSelection(max, max);
     }
