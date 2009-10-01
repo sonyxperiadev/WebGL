@@ -319,7 +319,7 @@ namespace android {
         /**
          * Scroll the focused textfield to (x, y) in document space
          */
-        void scrollFocusedTextInput(int x, int y);
+        void scrollFocusedTextInput(float x, int y);
         void setFocusControllerActive(bool active);
 
         void saveDocumentState(WebCore::Frame* frame);
