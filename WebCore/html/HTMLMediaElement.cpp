@@ -1446,6 +1446,13 @@ bool HTMLMediaElement::potentiallyPlaying() const
     return !paused() && m_readyState >= HAVE_FUTURE_DATA && !endedPlayback() && !stoppedDueToErrors() && !pausedForUserInteraction();
 }
 
+#if PLATFORM(ANDROID)
+bool HTMLMediaElement::couldPlayIfEnoughData() const
+{
+    return !paused() && !endedPlayback() && !stoppedDueToErrors() && !pausedForUserInteraction();
+}
+#endif
+
 bool HTMLMediaElement::endedPlayback() const
 {
     if (!m_player || m_readyState < HAVE_METADATA)
@@ -1527,6 +1534,10 @@ void HTMLMediaElement::updatePlayState()
         float time = currentTime();
         if (m_lastSeekTime < time)
             m_playedTimeRanges->add(m_lastSeekTime, time);
+#if PLATFORM(ANDROID)
+    } else if (couldPlayIfEnoughData() && playerPaused) {
+        m_player->prepareToPlay();
+#endif
     }
     
     if (renderer())

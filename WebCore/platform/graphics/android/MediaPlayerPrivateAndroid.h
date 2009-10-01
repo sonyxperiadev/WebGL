@@ -28,6 +28,8 @@
 
 #if ENABLE(VIDEO)
 
+class SkBitmap;
+
 #include "MediaPlayerPrivate.h"
 
 namespace WebCore {
@@ -79,11 +81,13 @@ public:
 
     virtual bool canLoadPoster() const { return true; }
     virtual void setPoster(const String&);
+    virtual void prepareToPlay();
 
     virtual void paint(GraphicsContext*, const IntRect&);
 
     void onPrepared(int duration, int width, int height);
     void onEnded();
+    void onPosterFetched(SkBitmap*);
 private:
     // Android-specific methods and fields.
     static MediaPlayerPrivateInterface* create(MediaPlayer* player);
@@ -97,10 +101,21 @@ private:
     String m_url;
     struct JavaGlue;
     JavaGlue* m_glue;
+
     float m_duration;
-    IntSize m_size;
     float m_currentTime;
+
     bool m_paused;
+    MediaPlayer::ReadyState m_readyState;
+    MediaPlayer::NetworkState m_networkState;
+
+    SkBitmap* m_poster;  // not owned
+    String m_posterUrl;
+
+    IntSize m_naturalSize;
+    bool m_naturalSizeUnknown;
+
+    bool m_isVisible;
 };
 
 }  // namespace WebCore

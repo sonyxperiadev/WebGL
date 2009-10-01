@@ -386,11 +386,13 @@ void RenderPartObject::layout()
                     h = 0;
                 if (w != view->width() || h != view->height()) {
                     view->resize(w, h);
-                    root->setNeedsLayout(true, false);
                 }
+
                 // Layout the view.
-                if (view->needsLayout())
+                do {
                     view->layout();
+                } while (view->layoutPending() || root->needsLayout());
+
                 int contentHeight = view->contentsHeight();
                 int contentWidth = view->contentsWidth();
                 // Only change the width or height if scrollbars are visible or
@@ -403,6 +405,20 @@ void RenderPartObject::layout()
 
                 // Update one last time
                 updateWidgetPosition();
+
+#if !ASSERT_DISABLED
+                ASSERT(!view->layoutPending());
+                ASSERT(!root->needsLayout());
+                // Sanity check when assertions are enabled.
+                RenderObject* c = root->nextInPreOrder();
+                while (c) {
+                    ASSERT(!c->needsLayout());
+                    c = c->nextInPreOrder();
+                }
+                Node* body = document()->body();
+                if (body)
+                    ASSERT(!body->renderer()->needsLayout());
+#endif
             }
         }
     }
@@ -446,8 +462,9 @@ void RenderPartObject::calcWidth() {
     updateWidgetPosition();
 
     // Layout to get the content width
-    while (view->needsLayout())
+    do {
         view->layout();
+    } while (view->layoutPending() || root->needsLayout());
 
     setWidth(max(width(), view->contentsWidth() + extraWidth));
 
@@ -471,8 +488,9 @@ void RenderPartObject::calcHeight() {
     updateWidgetPosition();
 
     // Layout to get the content height
-    while (view->needsLayout())
+    do {
         view->layout();
+    } while (view->layoutPending() || root->needsLayout());
 
     int extraHeight = paddingTop() + paddingBottom() + borderTop() + borderBottom();
     setHeight(max(width(), view->contentsHeight() + extraHeight));
