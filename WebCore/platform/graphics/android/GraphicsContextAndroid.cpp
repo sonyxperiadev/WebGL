@@ -247,6 +247,13 @@ public:
         paint->setColor(mState->applyAlpha(mState->mFillColor));
     }
 
+    void setup_paint_bitmap(SkPaint* paint) const {
+        this->setup_paint_common(paint);
+        // we only want the global alpha for bitmaps,
+        // so just give applyAlpha opaque black
+        paint->setColor(mState->applyAlpha(0xFF000000));
+    }
+
     /*  sets up the paint for stroking. Returns true if the style is really
         just a dash of squares (the size of the paint's stroke-width.
     */
@@ -831,10 +838,14 @@ void GraphicsContext::endTransparencyLayer()
 
     ///////////////////////////////////////////////////////////////////////////
 
+    void GraphicsContext::setupBitmapPaint(SkPaint* paint) {
+        m_data->setup_paint_bitmap(paint);
+    }
+
     void GraphicsContext::setupFillPaint(SkPaint* paint) {
         m_data->setup_paint_fill(paint);
     }
-    
+
     void GraphicsContext::setupStrokePaint(SkPaint* paint) {
         m_data->setup_paint_stroke(paint, NULL);
     }
