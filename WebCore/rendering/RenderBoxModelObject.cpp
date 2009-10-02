@@ -439,12 +439,8 @@ void RenderBoxModelObject::paintFillLayerExtended(const PaintInfo& paintInfo, co
                 context->setCompositeOperation(CompositeCopy);
                 context->fillRect(rect, baseColor);
                 context->restore();
-#ifdef ANDROID_ALLOW_TRANSPARENT_BACKGROUNDS
-            }
-#else
             } else
                 context->clearRect(rect);
-#endif
         }
 
         if (bgColor.isValid() && bgColor.alpha() > 0)
