@@ -37,7 +37,6 @@
 #	editing/BackForwardListChromium.cpp \
 #	editing/SmartReplace*.cpp \
 #	history/BackForwardListChromium.cpp \
-#	html/FileList.cpp \
 #   html/HTMLElementsAllInOne.cpp \
 #	loader/CachedXBLDocument.cpp \
 #	loader/CachedXSLStyleSheet.cpp \

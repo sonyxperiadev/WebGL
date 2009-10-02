@@ -146,6 +146,8 @@ struct WebFrame::JavaBrowserFrame
     jmethodID   mRequestFocus;
     jmethodID   mGetRawResFilename;
     jmethodID   mDensity;
+    jmethodID   mGetFileSize;
+    jmethodID   mGetFile;
     AutoJObject frame(JNIEnv* env) {
         return getRealObject(env, mObj);
     }
@@ -202,6 +204,8 @@ WebFrame::WebFrame(JNIEnv* env, jobject obj, jobject historyList, WebCore::Page*
     mJavaFrame->mGetRawResFilename = env->GetMethodID(clazz, "getRawResFilename",
             "(I)Ljava/lang/String;");
     mJavaFrame->mDensity = env->GetMethodID(clazz, "density","()F");
+    mJavaFrame->mGetFileSize = env->GetMethodID(clazz, "getFileSize", "(Ljava/lang/String;)I");
+    mJavaFrame->mGetFile = env->GetMethodID(clazz, "getFile", "(Ljava/lang/String;[BI)I");
 
     LOG_ASSERT(mJavaFrame->mStartLoadingResource, "Could not find method startLoadingResource");
     LOG_ASSERT(mJavaFrame->mLoadStarted, "Could not find method loadStarted");
@@ -221,6 +225,8 @@ WebFrame::WebFrame(JNIEnv* env, jobject obj, jobject historyList, WebCore::Page*
     LOG_ASSERT(mJavaFrame->mRequestFocus, "Could not find method requestFocus");
     LOG_ASSERT(mJavaFrame->mGetRawResFilename, "Could not find method getRawResFilename");
     LOG_ASSERT(mJavaFrame->mDensity, "Could not find method density");
+    LOG_ASSERT(mJavaFrame->mGetFileSize, "Could not find method getFileSize");
+    LOG_ASSERT(mJavaFrame->mGetFile, "Could not find method getFile");
 
     mUserAgent = WebCore::String();
     mUserInitiatedClick = false;
@@ -272,6 +278,19 @@ static jobject createJavaMapFromHTTPHeaders(JNIEnv* env, const WebCore::HTTPHead
     env->DeleteLocalRef(mapClass);
 
     return hashMap;
+}
+
+// In WebViewCore.java, we artificially append the filename to the URI so that
+// webkit treats the actual display name of the file as the filename, rather
+// than the last segment of the URI (which will simply be a number).  When we
+// pass the URI up to BrowserFrame, we no longer need the appended name (in fact
+// it causes problems), so remove it here.
+// FIXME: If we rewrite pathGetFileName (the current version is in
+// FileSystemPOSIX), we can get the filename that way rather than appending it.
+static jstring uriFromUriFileName(JNIEnv* env, const WebCore::String& name)
+{
+    const WebCore::String fileName = name.left(name.reverseFind('/'));
+    return env->NewString(fileName.characters(), fileName.length());
 }
 
 WebCoreResourceLoader*
@@ -329,6 +348,14 @@ WebFrame::startLoadingResource(WebCore::ResourceHandle* loader,
             const WebCore::FormDataElement& e = elements[i];
             if (e.m_type == WebCore::FormDataElement::data) {
                 size += e.m_data.size();
+            } else if (e.m_type == WebCore::FormDataElement::encodedFile) {
+                // Remove the filename, as we only need the URI
+                jstring name = uriFromUriFileName(env, e.m_filename);
+                int delta = env->CallIntMethod(obj.get(),
+                    mJavaFrame->mGetFileSize, name);
+                env->DeleteLocalRef(name);
+                checkException(env);
+                size += delta;
             }
         }
 
@@ -346,6 +373,15 @@ WebFrame::startLoadingResource(WebCore::ResourceHandle* loader,
                     if (e.m_type == WebCore::FormDataElement::data) {
                         int delta = e.m_data.size();
                         memcpy(bytes + offset, e.m_data.data(), delta);
+                        offset += delta;
+                    } else if (e.m_type
+                            == WebCore::FormDataElement::encodedFile) {
+                        // Remove the filename, as we only need the URI
+                        jstring name = uriFromUriFileName(env, e.m_filename);
+                        int delta = env->CallIntMethod(obj.get(),
+                            mJavaFrame->mGetFile, name, jPostDataStr, offset);
+                        env->DeleteLocalRef(name);
+                        checkException(env);
                         offset += delta;
                     }
                 }

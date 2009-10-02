@@ -1096,8 +1096,7 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
         }
         if (node->hasTagName(WebCore::HTMLNames::inputTag)) {
             HTMLInputElement* input = (HTMLInputElement*) node;
-            if (input->inputType() == HTMLInputElement::FILE)
-                continue;
+
             isTextField = input->isTextField();
             if (isTextField)
                 wantsKeyEvents = true;

@@ -368,7 +368,14 @@ void ChromeClientAndroid::onMainFrameLoadStarted()
         m_geolocationPermissions->resetTemporaryPermissionStates();
 }
 
-void ChromeClientAndroid::runOpenPanel(Frame*, PassRefPtr<FileChooser>) { notImplemented(); }
+void ChromeClientAndroid::runOpenPanel(Frame* frame,
+        PassRefPtr<FileChooser> chooser)
+{
+    android::WebViewCore* core = android::WebViewCore::getWebViewCore(
+            frame->view());
+    core->openFileChooser(chooser);
+}
+
 bool ChromeClientAndroid::setCursor(PlatformCursorHandle)
 {
     notImplemented(); 

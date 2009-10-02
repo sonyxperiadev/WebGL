@@ -38,7 +38,7 @@ String FileChooser::basenameForWidth(const Font& font, int width) const
     // often be much longer than the provided width, this may be fast enough.
     String output = m_filenames[0].copy();
     while (font.width(TextRun(output.impl())) > width && output.length() > 4) {
-        output = output.replace(output.length() - 4, 4, String("..."));
+        output = output.replace(0, 4, String("..."));
     }
     return output;
 }
@@ -49,7 +49,7 @@ String FileChooser::basenameForWidth(const Font& font, int width) const
 // second string is rendered on the screen when no file has been selected.
 String fileButtonChooseFileLabel()
 {
-    return String("Uploads Disabled");
+    return String("Upload a file");
 }
 
 String fileButtonNoFileSelectedLabel()

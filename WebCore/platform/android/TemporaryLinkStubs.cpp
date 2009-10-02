@@ -46,7 +46,6 @@
 #include "EditCommand.h"
 #include "Editor.h"
 #include "File.h"
-#include "FileList.h"
 #include "Font.h"
 #include "Frame.h"
 #include "FrameLoader.h"
@@ -505,17 +504,6 @@ ScrollbarTheme* ScrollbarTheme::nativeTheme()
 }
 
 }  // namespace WebCore
-
-FileList::FileList()
-{
-    notImplemented();
-}
-
-File* FileList::item(unsigned index) const
-{
-    notImplemented();
-    return 0;
-}
 
 AXObjectCache::~AXObjectCache()
 {
