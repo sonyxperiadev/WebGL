@@ -1528,25 +1528,35 @@ WebCore::String WebViewCore::getSelection(SkRegion* selRgn)
         DBG_NAV_LOGD("rect=(%d, %d, %d, %d)", rect.fLeft, rect.fTop,
             rect.fRight, rect.fBottom);
         int cy = centerY(rect);
-        WebCore::IntPoint startPt = WebCore::IntPoint(rect.fLeft + 1, cy);
-        WebCore::HitTestResult hitTestResult = m_mainFrame->eventHandler()->
-            hitTestResultAtPoint(startPt, false);
-        WebCore::Node* node = hitTestResult.innerNode();
+        WebCore::IntPoint startPt, endPt;
+        WebCore::Node* node, * endNode;
+        for (int top = rect.fTop + 1; top != cy; top = cy) {
+            startPt = WebCore::IntPoint(rect.fLeft + 1, top);
+            WebCore::HitTestResult hitTestResult = m_mainFrame->eventHandler()->
+                hitTestResultAtPoint(startPt, false);
+            node = hitTestResult.innerNode();
+            if (node)
+                break;
+            DBG_NAV_LOGD("!node (%s)", top != cy ? "top+1" : "cy");
+        }
         if (!node) {
             DBG_NAV_LOG("!node");
             return result;
         }
-        WebCore::IntPoint endPt = WebCore::IntPoint(rect.fRight - 1, cy);
-        hitTestResult = m_mainFrame->eventHandler()->hitTestResultAtPoint(endPt, false);
-        WebCore::Node* endNode = hitTestResult.innerNode();
-        if (!endNode) {
-            DBG_NAV_LOG("!endNode (right-1)");
-            endPt = WebCore::IntPoint(rect.fRight - 2, cy);
-            hitTestResult = m_mainFrame->eventHandler()->hitTestResultAtPoint(endPt, false);
-            endNode = hitTestResult.innerNode();
+        for (int bottom = rect.fBottom - 1; bottom != cy; bottom = cy) {
+            for (int right = rect.fRight - 1; right != rect.fRight-2; --right) {
+                endPt = WebCore::IntPoint(right, bottom);
+                WebCore::HitTestResult hitTestResult = m_mainFrame->
+                    eventHandler()->hitTestResultAtPoint(endPt, false);
+                endNode = hitTestResult.innerNode();
+                if (endNode)
+                    break;
+                DBG_NAV_LOGD("!endNode (%s) (right-%d)",
+                    bottom != cy ? "bottom-1" : "cy", rect.fRight - right);
+            }
         }
         if (!endNode) {
-            DBG_NAV_LOG("!endNode (right-2)");
+            DBG_NAV_LOG("!endNode");
             return result;
         }
         int start = findTextBoxIndex(node, startPt);
