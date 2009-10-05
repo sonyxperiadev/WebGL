@@ -259,12 +259,6 @@ static void adjustMenuListStyleCommon(RenderStyle* style, Element* e)
 {
     // Added to make room for our arrow.
     style->setPaddingRight(Length(RenderSkinCombo::extraWidth(), Fixed));
-    // Code copied from RenderThemeMac.mm
-    // Makes sure that the text shows up on our treatment
-    bool isEnabled = true;
-    if (e)
-        isEnabled = e->isEnabledFormControl();
-    style->setColor(isEnabled ? Color::black : Color::darkGray);
 }
 
 void RenderThemeAndroid::adjustMenuListStyle(CSSStyleSelector*, RenderStyle* style, Element* e) const
