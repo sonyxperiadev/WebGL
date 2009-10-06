@@ -63,6 +63,7 @@ public:
     virtual void load(const String&) { }
     virtual void cancelLoad() { }
     
+    virtual void prepareToPlay() { }
     virtual void play() { }
     virtual void pause() { }    
 
@@ -104,14 +105,10 @@ public:
 
     virtual void paint(GraphicsContext*, const IntRect&) { }
 
-#if PLATFORM(ANDROID)
     virtual bool canLoadPoster() const { return false; }
     virtual void setPoster(const String&) { }
-    virtual void prepareToPlay() { }
-#endif
 
 #if ENABLE(PLUGIN_PROXY_FOR_VIDEO)
-    virtual void setPoster(const String& /*url*/) { }
     virtual void deliverNotification(MediaPlayerProxyNotificationType) { }
     virtual void setMediaPlayerProxy(WebMediaPlayerProxy*) { }
 #endif
@@ -259,29 +256,25 @@ void MediaPlayer::load(const String& url, const ContentType& contentType)
         m_private.set(createNullMediaPlayer(this));
 }    
 
-#if PLATFORM(ANDROID)
 bool MediaPlayer::canLoadPoster() const
 {
     return m_private->canLoadPoster();
 }
 
-void MediaPlayer::prepareToPlay()
-{
-    m_private->prepareToPlay();
-}
-#endif
-
-#if ENABLE(PLUGIN_PROXY_FOR_VIDEO) || PLATFORM(ANDROID)
 void MediaPlayer::setPoster(const String& url)
 {
     m_private->setPoster(url);
 }
-#endif
 
 void MediaPlayer::cancelLoad()
 {
     m_private->cancelLoad();
 }    
+
+void MediaPlayer::prepareToPlay()
+{
+    m_private->prepareToPlay();
+}
 
 void MediaPlayer::play()
 {
