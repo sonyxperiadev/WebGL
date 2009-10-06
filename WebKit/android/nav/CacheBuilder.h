@@ -146,6 +146,7 @@ private:
         const UChar* mZipStart;
         const UChar* mBases[16]; // FIXME: random guess, maybe too small, maybe too big
         const UChar* mWords[16];
+        const UChar* mEnds[16];
         const UChar* mStarts[16]; // text is not necessarily contiguous
         const char* mStates;
         int mEndWord;
@@ -165,6 +166,22 @@ private:
         bool mInitialized;
         bool mContinuationNode;
         bool mCaseInsensitive;
+        void shiftWords(int shift) {
+            memmove(mBases, &mBases[shift], (sizeof(mBases) /
+                sizeof(mBases[0]) - shift) * sizeof(mBases[0]));
+            memmove(mWords, &mWords[shift], (sizeof(mWords) /
+                sizeof(mWords[0]) - shift) * sizeof(mWords[0]));
+            memmove(mEnds, &mEnds[shift], (sizeof(mEnds) /
+                sizeof(mEnds[0]) - shift) * sizeof(mEnds[0]));
+            memmove(mStarts, &mStarts[shift], (sizeof(mStarts) /
+                sizeof(mStarts[0]) - shift) * sizeof(mStarts[0]));
+        }
+        void newWord(const UChar* baseChars, const UChar* chars) {
+            mBases[mWordCount] = baseChars;
+            mWords[mWordCount] = chars;
+            mEnds[mWordCount] = mEnd;
+            mStarts[mWordCount] = mCurrentStart;
+        }
     };
     struct ClipColumnTracker {
         IntRect mBounds;

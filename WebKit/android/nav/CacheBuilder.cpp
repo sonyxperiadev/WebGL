@@ -1672,9 +1672,7 @@ CacheBuilder::FoundState CacheBuilder::FindPartialAddress(const UChar* baseChars
 // is that suggested this fix.
 //                    if (s->mWordCount == 0 && s->mContinuationNode)
 //                        return FOUND_NONE;
-                    s->mBases[s->mWordCount] = baseChars;
-                    s->mWords[s->mWordCount] = chars - s->mNumberCount;
-                    s->mStarts[s->mWordCount] = s->mCurrentStart;
+                    s->newWord(baseChars, chars);
                     if (WTF::isASCIILower(ch) && s->mNumberCount == 0)
                         s->mFirstLower = chars;
                     s->mNumberCount = 0;
@@ -1722,9 +1720,7 @@ CacheBuilder::FoundState CacheBuilder::FindPartialAddress(const UChar* baseChars
                         s->mNumberWords >>= ++shift;
                         if (s->mBases[0] != s->mBases[shift]) // if we're past the original node, bail
                             break;
-                        memmove(s->mBases, &s->mBases[shift], (sizeof(s->mBases) / sizeof(s->mBases[0]) - shift) * sizeof(s->mBases[0]));
-                        memmove(s->mWords, &s->mWords[shift], (sizeof(s->mWords) / sizeof(s->mWords[0]) - shift) * sizeof(s->mWords[0]));
-                        memmove(s->mStarts, &s->mStarts[shift], (sizeof(s->mStarts) / sizeof(s->mStarts[0]) - shift) * sizeof(s->mStarts[0]));
+                        s->shiftWords(shift);
                         s->mStartResult = s->mWords[0] - s->mStarts[0];
                         s->mWordCount -= shift;
                         // FIXME: need to adjust lineCount to account for discarded delimiters
@@ -1771,9 +1767,7 @@ CacheBuilder::FoundState CacheBuilder::FindPartialAddress(const UChar* baseChars
                             continue;
                         if (s->mWordCount == 0 && s->mContinuationNode)
                             return FOUND_NONE;
-                        s->mBases[s->mWordCount] = baseChars;
-                        s->mWords[s->mWordCount] = chars;
-                        s->mStarts[s->mWordCount] = s->mCurrentStart;
+                        s->newWord(baseChars, chars);
                         s->mNumberWords |= 1 << s->mWordCount;
                         s->mUnparsed = true;
                     }
@@ -1796,9 +1790,7 @@ CacheBuilder::FoundState CacheBuilder::FindPartialAddress(const UChar* baseChars
             case SECOND_HALF:
                 if (WTF::isASCIIAlpha(ch)) {
                     if (s->mLetterCount == 0) {
-                        s->mBases[s->mWordCount] = baseChars;
-                        s->mWords[s->mWordCount] = chars;
-                        s->mStarts[s->mWordCount] = s->mCurrentStart;
+                        s->newWord(baseChars, chars);
                         s->mWordCount++;
                     }
                     s->mLetterCount++;
@@ -1917,9 +1909,7 @@ CacheBuilder::FoundState CacheBuilder::FindPartialAddress(const UChar* baseChars
                     s->mZipDelimiter = true;
                 else {
                     if (s->mLetterCount == 0) {
-                        s->mBases[s->mWordCount] = baseChars;
-                        s->mWords[s->mWordCount] = chars;
-                        s->mStarts[s->mWordCount] = s->mCurrentStart;
+                        s->newWord(baseChars, chars);
                         s->mUnparsed = true;
                     }
                     ++s->mLetterCount;
@@ -1990,7 +1980,8 @@ CacheBuilder::FoundState CacheBuilder::FindPartialAddress(const UChar* baseChars
                                 goto nextTest;
                             abbr = true;
                         }
-                        letter = test[testIndex];
+                        letter = &test[testIndex] < s->mEnds[wordsIndex] ?
+                            test[testIndex] : ' ';
                         if (WTF::isASCIIAlpha(letter) == false && WTF::isASCIIDigit(letter) == false) {
                             if (s->mNumberWords != 0) {
                                 int shift = 0;
@@ -2031,9 +2022,7 @@ CacheBuilder::FoundState CacheBuilder::FindPartialAddress(const UChar* baseChars
                     s->mNumberWords >>= ++shift;
                     if (s->mBases[0] != s->mBases[shift])
                         return FOUND_NONE;
-                    memmove(s->mBases, &s->mBases[shift], (sizeof(s->mBases) / sizeof(s->mBases[0]) - shift) * sizeof(s->mBases[0]));
-                    memmove(s->mWords, &s->mWords[shift], (sizeof(s->mWords) / sizeof(s->mWords[0]) - shift) * sizeof(s->mWords[0]));
-                    memmove(s->mStarts, &s->mStarts[shift], (sizeof(s->mStarts) / sizeof(s->mStarts[0]) - shift) * sizeof(s->mStarts[0]));
+                    s->shiftWords(shift);
                     s->mStartResult = s->mWords[0] - s->mStarts[0];
                     s->mWordCount -= shift;
                     s->mProgress = ADDRESS_LINE;
