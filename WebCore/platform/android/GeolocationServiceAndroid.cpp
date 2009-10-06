@@ -29,7 +29,6 @@
 #include <JNIHelp.h>  // For jniRegisterNativeMethods
 #include <jni_utility.h>  // For getJNIEnv
 
-#include "Frame.h"
 #include "Geoposition.h"
 #include "PositionError.h"
 #include "PositionOptions.h"
@@ -300,9 +299,8 @@ bool GeolocationServiceAndroid::startUpdating(PositionOptions* options)
 
     // On Android, high power == GPS. Set whether to use GPS before we start the
     // implementation.
-    // FIXME: Checking for the presence of options will probably not be required
-    // once WebKit bug 27254 is fixed.
-    if (options && options->enableHighAccuracy())
+    ASSERT(options);
+    if (options->enableHighAccuracy())
         m_javaBridge->setEnableGps(true);
 
     if (!haveJavaBridge)
@@ -346,7 +344,8 @@ void GeolocationServiceAndroid::newErrorAvailable(PassRefPtr<PositionError> erro
     errorOccurred();
 }
 
-void GeolocationServiceAndroid::timerFired(Timer<GeolocationServiceAndroid>* timer) {
+void GeolocationServiceAndroid::timerFired(Timer<GeolocationServiceAndroid>* timer)
+{
     ASSERT(&m_timer == timer);
     ASSERT(m_lastPosition || m_lastError);
     if (m_lastPosition)
