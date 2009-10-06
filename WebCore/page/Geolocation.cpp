@@ -30,6 +30,8 @@
 #include "Chrome.h"
 #include "CurrentTime.h"
 #include "Document.h"
+#include "DOMWindow.h"
+#include "EventNames.h"
 #include "Frame.h"
 #include "Page.h"
 #include "SQLiteDatabase.h"
@@ -249,6 +251,15 @@ Geolocation::Geolocation(Frame* frame)
         return;
     ASSERT(m_frame->document());
     m_frame->document()->setUsingGeolocation(true);
+
+    if (m_frame->domWindow())
+        m_frame->domWindow()->addEventListener(eventNames().unloadEvent, this, false);
+}
+
+Geolocation::~Geolocation()
+{
+    if (m_frame && m_frame->domWindow())
+        m_frame->domWindow()->removeEventListener(eventNames().unloadEvent, this, false);
 }
 
 void Geolocation::disconnectFrame()
@@ -550,6 +561,16 @@ void Geolocation::geolocationServiceErrorOccurred(GeolocationService* service)
     ASSERT(service->lastError());
     
     handleError(service->lastError());
+}
+
+void Geolocation::handleEvent(Event* event, bool)
+{
+  ASSERT_UNUSED(event, event->type() == eventTypes().unloadEvent);
+  // Cancel any ongoing requests on page unload. This is required to release
+  // references to JS callbacks in the page, to allow the frame to be cleaned up
+  // by WebKit.
+  m_oneShots.clear();
+  m_watchers.clear();
 }
 
 void Geolocation::setDatabasePath(String databasePath)
