@@ -30,6 +30,7 @@
 #include "Chrome.h"
 #include "CurrentTime.h"
 #include "Document.h"
+#include "DOMWindow.h"
 #include "EventNames.h"
 #include "Frame.h"
 #include "Page.h"
