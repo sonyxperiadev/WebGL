@@ -319,6 +319,7 @@ void WebViewCore::reset(bool fromConstructor)
 
     m_lastFocused = 0;
     m_lastFocusedBounds = WebCore::IntRect(0,0,0,0);
+    m_focusBoundsChanged = false;
     m_lastFocusedSelStart = 0;
     m_lastFocusedSelEnd = 0;
     m_lastMoveGeneration = 0;
@@ -566,6 +567,8 @@ void WebViewCore::recordPictureSet(PictureSet* content)
     {
         return;
     }
+    m_focusBoundsChanged |= m_lastFocused == oldFocusNode
+        && m_lastFocusedBounds != oldBounds;
     m_lastFocused = oldFocusNode;
     m_lastFocusedBounds = oldBounds;
     m_lastFocusedSelStart = oldSelStart;
@@ -657,6 +660,13 @@ bool WebViewCore::drawContent(SkCanvas* canvas, SkColor color)
     m_contentMutex.unlock();
     DBG_SET_LOG("end");
     return tookTooLong;
+}
+
+bool WebViewCore::focusBoundsChanged()
+{
+    bool result = m_focusBoundsChanged;
+    m_focusBoundsChanged = false;
+    return result;
 }
 
 bool WebViewCore::pictureReady()
@@ -2904,6 +2914,11 @@ static bool DrawContent(JNIEnv *env, jobject obj, jobject canv, jint color)
     return viewImpl->drawContent(canvas, color);
 }
 
+static bool FocusBoundsChanged(JNIEnv* env, jobject obj)
+{
+    return GET_NATIVE_VIEW(env, obj)->focusBoundsChanged();
+}
+
 static bool PictureReady(JNIEnv* env, jobject obj)
 {
     return GET_NATIVE_VIEW(env, obj)->pictureReady();
@@ -2975,6 +2990,8 @@ static JNINativeMethod gJavaWebViewCoreMethods[] = {
         (void*) CopyContentToPicture },
     { "nativeDrawContent", "(Landroid/graphics/Canvas;I)Z",
         (void*) DrawContent } ,
+    { "nativeFocusBoundsChanged", "()Z",
+        (void*) FocusBoundsChanged } ,
     { "nativeKey", "(IIIZZZZ)Z",
         (void*) Key },
     { "nativeClick", "(II)V",
