@@ -43,7 +43,6 @@ namespace WebCore {
     public:
         static GeolocationService* create(GeolocationServiceClient*);
 
-        GeolocationServiceAndroid(GeolocationServiceClient*);
         virtual ~GeolocationServiceAndroid() {};
 
         virtual bool startUpdating(PositionOptions*);
@@ -58,6 +57,8 @@ namespace WebCore {
         void timerFired(Timer<GeolocationServiceAndroid>* timer);
 
     private:
+        GeolocationServiceAndroid(GeolocationServiceClient*);
+
         static bool isPositionMovement(Geoposition* position1, Geoposition* position2);
         static bool isPositionMoreAccurate(Geoposition* position1, Geoposition* position2);
         static bool isPositionMoreTimely(Geoposition* position1, Geoposition* position2);
