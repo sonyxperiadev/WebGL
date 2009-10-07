@@ -357,6 +357,11 @@ void ChromeClientAndroid::provideGeolocationPermissions(const String &origin, bo
     m_geolocationPermissions->providePermissionState(origin, allow, remember);
 }
 
+void ChromeClientAndroid::storeGeolocationPermissions()
+{
+    GeolocationPermissions::maybeStorePermanentPermissions();
+}
+
 void ChromeClientAndroid::onMainFrameLoadStarted()
 {
     if (m_geolocationPermissions.get())
