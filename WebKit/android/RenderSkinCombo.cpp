@@ -29,6 +29,7 @@
 #include "Document.h"
 #include "Element.h"
 #include "Node.h"
+#include "RenderStyle.h"
 #include "SkCanvas.h"
 #include "SkNinePatch.h"
 
@@ -65,6 +66,13 @@ bool RenderSkinCombo::Draw(SkCanvas* canvas, Node* element, int x, int y, int wi
         height = (s_margin<<1) + 1;
     }
     SkRect bounds;
+
+    bounds.set(SkIntToScalar(x+1), SkIntToScalar(y+1), SkIntToScalar(x + width-1), SkIntToScalar(y + height-1));
+    RenderStyle* style = element->renderStyle();
+    SkPaint paint;
+    paint.setColor(style->backgroundColor().rgb());
+    canvas->drawRect(bounds, paint);
+
     bounds.set(SkIntToScalar(x), SkIntToScalar(y), SkIntToScalar(x + width), SkIntToScalar(y + height));
     SkNinePatch::DrawNine(canvas, bounds, s_bitmap[state], s_mar);
     return false;
