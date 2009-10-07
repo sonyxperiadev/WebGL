@@ -127,6 +127,7 @@ namespace android {
         virtual void requestGeolocationPermissionForFrame(Frame*, Geolocation*);
         // Android-specific
         void provideGeolocationPermissions(const String &origin, bool allow, bool remember);
+        void storeGeolocationPermissions();
         void onMainFrameLoadStarted();
 
         virtual void runOpenPanel(Frame*, PassRefPtr<FileChooser>);
