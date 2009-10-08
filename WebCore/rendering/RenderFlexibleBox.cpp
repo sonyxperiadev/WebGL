@@ -218,7 +218,7 @@ void RenderFlexibleBox::layoutBlock(bool relayoutChildren)
 
     int previousWidth = width();
     int previousHeight = height();
-
+    
     #ifdef ANDROID_LAYOUT
     int previousVisibleWidth = m_visibleWidth;
 #endif

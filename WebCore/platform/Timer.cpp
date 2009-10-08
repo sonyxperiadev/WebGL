@@ -332,3 +332,4 @@ void TimerBase::fireTimersInNestedEventLoop()
 }
 
 } // namespace WebCore
+

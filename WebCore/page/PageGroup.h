@@ -44,7 +44,7 @@ namespace WebCore {
 
         static PageGroup* pageGroup(const String& groupName);
         static void closeLocalStorage();
-
+        
         const HashSet<Page*>& pages() const { return m_pages; }
 
         void addPage(Page*);

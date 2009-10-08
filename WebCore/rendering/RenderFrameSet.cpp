@@ -520,7 +520,7 @@ void RenderFrameSet::positionFrames()
 
     int rows = frameSet()->totalRows();
     int cols = frameSet()->totalCols();
-    
+
     int yPos = 0;
     int borderThickness = frameSet()->border();
 #ifdef FLATTEN_FRAMESET

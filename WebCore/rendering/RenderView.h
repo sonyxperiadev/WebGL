@@ -169,7 +169,7 @@ protected:
 
 private:
     bool shouldRepaint(const IntRect& r) const;
-
+        
 #ifdef FLATTEN_FRAMESET
 public: // used by layout function
 #endif
