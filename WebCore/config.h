@@ -86,6 +86,7 @@
 // ANDROID def should be after all PLATFORM to avoid override.
 // USE_SYSTEM_MALLOC needs to be defined before include FastMalloc.h
 #if PLATFORM(ANDROID)
+#define WEBCORE_NAVIGATOR_VENDOR "Google Inc."
 #define USE_SYSTEM_MALLOC 1
 #define ANDROID_MOBILE      // change can be merged back to WebKit.org for MOBILE
 #ifdef ANDROID_PLUGINS
