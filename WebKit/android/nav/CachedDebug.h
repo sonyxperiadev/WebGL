@@ -26,21 +26,9 @@
 #ifndef CachedDebug_H
 #define CachedDebug_H
 
-#ifndef DUMP_NAV_CACHE
-#ifdef NDEBUG
 #define DUMP_NAV_CACHE 0
-#else
-#define DUMP_NAV_CACHE 1
-#endif
-#endif
-
-#ifndef DEBUG_NAV_UI
-#ifdef NDEBUG
 #define DEBUG_NAV_UI 0
-#else
-#define DEBUG_NAV_UI 1
-#endif
-#endif
+#define DEBUG_NAV_UI_VERBOSE 0
 
 #if DEBUG_NAV_UI
 #define DBG_NAV_LOG(message) LOGD("%s %s", __FUNCTION__, message)
@@ -49,8 +37,13 @@
 #else
 #define DBG_NAV_LOG(message) ((void)0)
 #define DBG_NAV_LOGD(format, ...) ((void)0)
-#define DBG_NAV_LOGD_THROTTLE(format, ...) ((void)0)
 #define DEBUG_NAV_UI_LOGD(...) ((void)0)
+#endif
+
+#if DEBUG_NAV_UI_VERBOSE
+#define DBG_NAV_LOGV(format, ...) LOGD("%s " format, __FUNCTION__, __VA_ARGS__)
+#else
+#define DBG_NAV_LOGV(format, ...) ((void)0)
 #endif
 
 #if DUMP_NAV_CACHE != 0 && !defined DUMP_NAV_CACHE_USING_PRINTF && defined NDEBUG

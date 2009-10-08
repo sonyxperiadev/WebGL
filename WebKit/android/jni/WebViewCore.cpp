@@ -972,7 +972,7 @@ void WebViewCore::needTouchEvents(bool need)
 
 void WebViewCore::requestKeyboard(bool showKeyboard)
 {
-    DEBUG_NAV_UI_LOGD("%s", __FUNCTION__);
+    DBG_NAV_LOGD("showKeyboard=%d", showKeyboard);
     LOG_ASSERT(m_javaGlue->m_obj, "A Java widget was not associated with this view bridge!");
 
     JNIEnv* env = JSC::Bindings::getJNIEnv();
