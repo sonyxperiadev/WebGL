@@ -55,10 +55,6 @@ RenderTableSection::RenderTableSection(Node* node)
     , m_outerBorderRight(0)
     , m_outerBorderTop(0)
     , m_outerBorderBottom(0)
-    , m_overflowLeft(0)
-    , m_overflowWidth(0)
-    , m_overflowTop(0)
-    , m_overflowHeight(0)
     , m_needsCellRecalc(false)
     , m_hasOverflowingCell(false)
 {
@@ -501,10 +497,7 @@ int RenderTableSection::layoutRows(int toAdd)
     
     // Set the width of our section now.  The rows will also be this width.
     setWidth(table()->contentWidth());
-    m_overflowLeft = 0;
-    m_overflowWidth = width();
-    m_overflowTop = 0;
-    m_overflowHeight = 0;
+    m_overflow.clear();
     m_hasOverflowingCell = false;
 
     if (toAdd && totalRows && (m_rowPos[totalRows] || !nextSibling())) {
@@ -705,12 +698,6 @@ int RenderTableSection::layoutRows(int toAdd)
             } else
                 cell->setLocation(table()->columnPositions()[c] + hspacing, m_rowPos[rindx]);
 
-            m_overflowLeft = min(m_overflowLeft, cell->x() + cell->overflowLeft(false));
-            m_overflowWidth = max(m_overflowWidth, cell->x() + cell->overflowWidth(false));
-            m_overflowTop = min(m_overflowTop, cell->y() + cell->overflowTop(false));
-            m_overflowHeight = max(m_overflowHeight, cell->y() + cell->overflowHeight(false));
-            m_hasOverflowingCell |= cell->overflowLeft(false) || cell->overflowWidth(false) > cell->width() || cell->overflowTop(false) || cell->overflowHeight(false) > cell->height();
-
             // If the cell moved, we have to repaint it as well as any floating/positioned
             // descendants.  An exception is if we need a layout.  In this case, we know we're going to
             // repaint ourselves (and the cell) anyway.
@@ -725,10 +712,23 @@ int RenderTableSection::layoutRows(int toAdd)
 
     ASSERT(!needsLayout());
 
+    setHeight(m_rowPos[totalRows]);
+
+    // Now that our height has been determined, add in overflow from cells.
+    for (int r = 0; r < totalRows; r++) {
+        for (int c = 0; c < nEffCols; c++) {
+            RenderTableCell* cell = cellAt(r, c).cell;
+            if (!cell)
+                continue;
+            if (r < totalRows - 1 && cell == cellAt(r + 1, c).cell)
+                continue;
+            addOverflowFromChild(cell);
+        }
+    }
+    m_hasOverflowingCell = m_overflow;
+    
     statePusher.pop();
 
-    setHeight(m_rowPos[totalRows]);
-    m_overflowHeight = max(m_overflowHeight, height());
     return height();
 }
 

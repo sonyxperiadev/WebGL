@@ -29,7 +29,6 @@ namespace JSC {
 
     struct ArrayStorage {
         unsigned m_length;
-        unsigned m_vectorLength;
         unsigned m_numValuesInVector;
         SparseArrayValueMap* m_sparseValueMap;
         void* lazyCreationData; // A JSArray subclass can use this to fill the vector lazily.
@@ -38,15 +37,17 @@ namespace JSC {
 
     class JSArray : public JSObject {
         friend class JIT;
+        friend class Walker;
 
     public:
-        explicit JSArray(PassRefPtr<Structure>);
-        JSArray(PassRefPtr<Structure>, unsigned initialLength);
-        JSArray(PassRefPtr<Structure>, const ArgList& initialValues);
+        explicit JSArray(NonNullPassRefPtr<Structure>);
+        JSArray(NonNullPassRefPtr<Structure>, unsigned initialLength);
+        JSArray(NonNullPassRefPtr<Structure>, const ArgList& initialValues);
         virtual ~JSArray();
 
         virtual bool getOwnPropertySlot(ExecState*, const Identifier& propertyName, PropertySlot&);
         virtual bool getOwnPropertySlot(ExecState*, unsigned propertyName, PropertySlot&);
+        virtual bool getOwnPropertyDescriptor(ExecState*, const Identifier&, PropertyDescriptor&);
         virtual void put(ExecState*, unsigned propertyName, JSValue); // FIXME: Make protected and add setItem.
 
         static JS_EXPORTDATA const ClassInfo info;
@@ -61,18 +62,24 @@ namespace JSC {
         void push(ExecState*, JSValue);
         JSValue pop();
 
-        bool canGetIndex(unsigned i) { return i < m_fastAccessCutoff; }
+        bool canGetIndex(unsigned i) { return i < m_vectorLength && m_storage->m_vector[i]; }
         JSValue getIndex(unsigned i)
         {
             ASSERT(canGetIndex(i));
             return m_storage->m_vector[i];
         }
 
-        bool canSetIndex(unsigned i) { return i < m_fastAccessCutoff; }
-        JSValue setIndex(unsigned i, JSValue v)
+        bool canSetIndex(unsigned i) { return i < m_vectorLength; }
+        void setIndex(unsigned i, JSValue v)
         {
             ASSERT(canSetIndex(i));
-            return m_storage->m_vector[i] = v;
+            JSValue& x = m_storage->m_vector[i];
+            if (!x) {
+                ++m_storage->m_numValuesInVector;
+                if (i >= m_storage->m_length)
+                    m_storage->m_length = i + 1;
+            }
+            x = v;
         }
 
         void fillArgList(ExecState*, MarkedArgumentBuffer&);
@@ -82,12 +89,14 @@ namespace JSC {
         {
             return Structure::create(prototype, TypeInfo(ObjectType));
         }
+        
+        inline void markChildrenDirect(MarkStack& markStack);
 
     protected:
         virtual void put(ExecState*, const Identifier& propertyName, JSValue, PutPropertySlot&);
         virtual bool deleteProperty(ExecState*, const Identifier& propertyName);
         virtual bool deleteProperty(ExecState*, unsigned propertyName);
-        virtual void getPropertyNames(ExecState*, PropertyNameArray&);
+        virtual void getOwnPropertyNames(ExecState*, PropertyNameArray&);
         virtual void markChildren(MarkStack&);
 
         void* lazyCreationData();
@@ -106,25 +115,110 @@ namespace JSC {
         enum ConsistencyCheckType { NormalConsistencyCheck, DestructorConsistencyCheck, SortConsistencyCheck };
         void checkConsistency(ConsistencyCheckType = NormalConsistencyCheck);
 
-        unsigned m_fastAccessCutoff;
+        unsigned m_vectorLength;
         ArrayStorage* m_storage;
     };
 
     JSArray* asArray(JSValue);
 
-    JSArray* constructEmptyArray(ExecState*);
-    JSArray* constructEmptyArray(ExecState*, unsigned initialLength);
-    JSArray* constructArray(ExecState*, JSValue singleItemValue);
-    JSArray* constructArray(ExecState*, const ArgList& values);
+    inline JSArray* asArray(JSCell* cell)
+    {
+        ASSERT(cell->inherits(&JSArray::info));
+        return static_cast<JSArray*>(cell);
+    }
 
     inline JSArray* asArray(JSValue value)
     {
-        ASSERT(asObject(value)->inherits(&JSArray::info));
-        return static_cast<JSArray*>(asObject(value));
+        return asArray(value.asCell());
     }
 
-    inline bool isJSArray(JSGlobalData* globalData, JSValue v) { return v.isCell() && v.asCell()->vptr() == globalData->jsArrayVPtr; }
+    inline bool isJSArray(JSGlobalData* globalData, JSValue v)
+    {
+        return v.isCell() && v.asCell()->vptr() == globalData->jsArrayVPtr;
+    }
+    inline bool isJSArray(JSGlobalData* globalData, JSCell* cell) { return cell->vptr() == globalData->jsArrayVPtr; }
 
+    inline void JSArray::markChildrenDirect(MarkStack& markStack)
+    {
+        JSObject::markChildrenDirect(markStack);
+        
+        ArrayStorage* storage = m_storage;
+
+        unsigned usedVectorLength = std::min(storage->m_length, m_vectorLength);
+        markStack.appendValues(storage->m_vector, usedVectorLength, MayContainNullValues);
+
+        if (SparseArrayValueMap* map = storage->m_sparseValueMap) {
+            SparseArrayValueMap::iterator end = map->end();
+            for (SparseArrayValueMap::iterator it = map->begin(); it != end; ++it)
+                markStack.append(it->second);
+        }
+    }
+
+    inline void MarkStack::markChildren(JSCell* cell)
+    {
+        ASSERT(Heap::isCellMarked(cell));
+        if (cell->structure()->typeInfo().hasDefaultMark()) {
+#ifdef NDEBUG
+            asObject(cell)->markChildrenDirect(*this);
+#else
+            ASSERT(!m_isCheckingForDefaultMarkViolation);
+            m_isCheckingForDefaultMarkViolation = true;
+            cell->markChildren(*this);
+            ASSERT(m_isCheckingForDefaultMarkViolation);
+            m_isCheckingForDefaultMarkViolation = false;
+#endif
+            return;
+        }
+        if (cell->vptr() == m_jsArrayVPtr) {
+            asArray(cell)->markChildrenDirect(*this);
+            return;
+        }
+        cell->markChildren(*this);
+    }
+
+    inline void MarkStack::drain()
+    {
+        while (!m_markSets.isEmpty() || !m_values.isEmpty()) {
+            while (!m_markSets.isEmpty() && m_values.size() < 50) {
+                ASSERT(!m_markSets.isEmpty());
+                MarkSet& current = m_markSets.last();
+                ASSERT(current.m_values);
+                JSValue* end = current.m_end;
+                ASSERT(current.m_values);
+                ASSERT(current.m_values != end);
+            findNextUnmarkedNullValue:
+                ASSERT(current.m_values != end);
+                JSValue value = *current.m_values;
+                current.m_values++;
+
+                JSCell* cell;
+                if (!value || !value.isCell() || Heap::isCellMarked(cell = value.asCell())) {
+                    if (current.m_values == end) {
+                        m_markSets.removeLast();
+                        continue;
+                    }
+                    goto findNextUnmarkedNullValue;
+                }
+
+                Heap::markCell(cell);
+                if (cell->structure()->typeInfo().type() < CompoundType) {
+                    if (current.m_values == end) {
+                        m_markSets.removeLast();
+                        continue;
+                    }
+                    goto findNextUnmarkedNullValue;
+                }
+
+                if (current.m_values == end)
+                    m_markSets.removeLast();
+
+                markChildren(cell);
+            }
+            while (!m_values.isEmpty())
+                markChildren(m_values.removeLast());
+        }
+    }
+    
 } // namespace JSC
 
 #endif // JSArray_h

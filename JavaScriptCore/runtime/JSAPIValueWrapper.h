@@ -37,12 +37,6 @@ namespace JSC {
 
         virtual bool isAPIValueWrapper() const { return true; }
 
-        virtual JSValue toPrimitive(ExecState*, PreferredPrimitiveType) const;
-        virtual bool getPrimitiveNumber(ExecState*, double& number, JSValue&);
-        virtual bool toBoolean(ExecState*) const;
-        virtual double toNumber(ExecState*) const;
-        virtual UString toString(ExecState*) const;
-        virtual JSObject* toObject(ExecState*) const;
         static PassRefPtr<Structure> createStructure(JSValue prototype)
         {
             return Structure::create(prototype, TypeInfo(CompoundType));
@@ -54,6 +48,7 @@ namespace JSC {
             : JSCell(exec->globalData().apiWrapperStructure.get())
             , m_value(value)
         {
+            ASSERT(!value.isCell());
         }
 
         JSValue m_value;

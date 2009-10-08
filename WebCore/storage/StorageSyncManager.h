@@ -20,7 +20,7 @@
  * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #ifndef StorageSyncManager_h
@@ -31,8 +31,8 @@
 #include "PlatformString.h"
 
 #include <wtf/PassRefPtr.h>
+#include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
-#include <wtf/Threading.h>
 
 namespace WebCore {
 
@@ -40,7 +40,7 @@ namespace WebCore {
     class SecurityOrigin;
     class StorageAreaSync;
 
-    class StorageSyncManager : public ThreadSafeShared<StorageSyncManager> {
+    class StorageSyncManager : public RefCounted<StorageSyncManager> {
     public:
         static PassRefPtr<StorageSyncManager> create(const String& path);
         ~StorageSyncManager();

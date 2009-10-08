@@ -53,7 +53,7 @@ const ClassInfo NumberConstructor::info = { "Function", &InternalFunction::info,
 @end
 */
 
-NumberConstructor::NumberConstructor(ExecState* exec, PassRefPtr<Structure> structure, NumberPrototype* numberPrototype)
+NumberConstructor::NumberConstructor(ExecState* exec, NonNullPassRefPtr<Structure> structure, NumberPrototype* numberPrototype)
     : InternalFunction(&exec->globalData(), structure, Identifier(exec, numberPrototype->info.className))
 {
     // Number.Prototype
@@ -66,6 +66,11 @@ NumberConstructor::NumberConstructor(ExecState* exec, PassRefPtr<Structure> stru
 bool NumberConstructor::getOwnPropertySlot(ExecState* exec, const Identifier& propertyName, PropertySlot& slot)
 {
     return getStaticValueSlot<NumberConstructor, InternalFunction>(exec, ExecState::numberTable(exec), this, propertyName, slot);
+}
+
+bool NumberConstructor::getOwnPropertyDescriptor(ExecState* exec, const Identifier& propertyName, PropertyDescriptor& descriptor)
+{
+    return getStaticValueDescriptor<NumberConstructor, InternalFunction>(exec, ExecState::numberTable(exec), this, propertyName, descriptor);
 }
 
 static JSValue numberConstructorNaNValue(ExecState* exec, const Identifier&, const PropertySlot&)

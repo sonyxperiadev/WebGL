@@ -88,6 +88,11 @@ bool JSDOMWindowShell::getOwnPropertySlot(ExecState* exec, const Identifier& pro
     return m_window->getOwnPropertySlot(exec, propertyName, slot);
 }
 
+bool JSDOMWindowShell::getOwnPropertyDescriptor(ExecState* exec, const Identifier& propertyName, PropertyDescriptor& descriptor)
+{
+    return m_window->getOwnPropertyDescriptor(exec, propertyName, descriptor);
+}
+
 void JSDOMWindowShell::put(ExecState* exec, const Identifier& propertyName, JSValue value, PutPropertySlot& slot)
 {
     m_window->put(exec, propertyName, value, slot);
@@ -96,6 +101,11 @@ void JSDOMWindowShell::put(ExecState* exec, const Identifier& propertyName, JSVa
 void JSDOMWindowShell::putWithAttributes(ExecState* exec, const Identifier& propertyName, JSValue value, unsigned attributes)
 {
     m_window->putWithAttributes(exec, propertyName, value, attributes);
+}
+
+bool JSDOMWindowShell::defineOwnProperty(JSC::ExecState* exec, const JSC::Identifier& propertyName, JSC::PropertyDescriptor& descriptor, bool shouldThrow)
+{
+    return m_window->defineOwnProperty(exec, propertyName, descriptor, shouldThrow);
 }
 
 bool JSDOMWindowShell::deleteProperty(ExecState* exec, const Identifier& propertyName)
@@ -108,19 +118,24 @@ void JSDOMWindowShell::getPropertyNames(ExecState* exec, PropertyNameArray& prop
     m_window->getPropertyNames(exec, propertyNames);
 }
 
+void JSDOMWindowShell::getOwnPropertyNames(ExecState* exec, PropertyNameArray& propertyNames)
+{
+    m_window->getOwnPropertyNames(exec, propertyNames);
+}
+
 bool JSDOMWindowShell::getPropertyAttributes(JSC::ExecState* exec, const Identifier& propertyName, unsigned& attributes) const
 {
     return m_window->getPropertyAttributes(exec, propertyName, attributes);
 }
 
-void JSDOMWindowShell::defineGetter(ExecState* exec, const Identifier& propertyName, JSObject* getterFunction)
+void JSDOMWindowShell::defineGetter(ExecState* exec, const Identifier& propertyName, JSObject* getterFunction, unsigned attributes)
 {
-    m_window->defineGetter(exec, propertyName, getterFunction);
+    m_window->defineGetter(exec, propertyName, getterFunction, attributes);
 }
 
-void JSDOMWindowShell::defineSetter(ExecState* exec, const Identifier& propertyName, JSObject* setterFunction)
+void JSDOMWindowShell::defineSetter(ExecState* exec, const Identifier& propertyName, JSObject* setterFunction, unsigned attributes)
 {
-    m_window->defineSetter(exec, propertyName, setterFunction);
+    m_window->defineSetter(exec, propertyName, setterFunction, attributes);
 }
 
 JSValue JSDOMWindowShell::lookupGetter(ExecState* exec, const Identifier& propertyName)

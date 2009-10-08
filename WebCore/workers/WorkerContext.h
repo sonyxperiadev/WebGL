@@ -31,6 +31,7 @@
 
 #include "AtomicStringHash.h"
 #include "EventListener.h"
+#include "EventNames.h"
 #include "EventTarget.h"
 #include "ScriptExecutionContext.h"
 #include "WorkerScriptController.h"
@@ -41,6 +42,7 @@
 
 namespace WebCore {
 
+    class NotificationCenter;
     class ScheduledAction;
     class WorkerLocation;
     class WorkerNavigator;
@@ -48,7 +50,6 @@ namespace WebCore {
 
     class WorkerContext : public RefCounted<WorkerContext>, public ScriptExecutionContext, public EventTarget {
     public:
-
         virtual ~WorkerContext();
 
         virtual bool isWorkerContext() const { return true; }
@@ -79,8 +80,8 @@ namespace WebCore {
         WorkerContext* self() { return this; }
         WorkerLocation* location() const;
         void close();
-        void setOnerror(PassRefPtr<EventListener> eventListener) { m_onerrorListener = eventListener; }
-        EventListener* onerror() const { return m_onerrorListener.get(); }
+
+        DEFINE_ATTRIBUTE_EVENT_LISTENER(error);
 
         // WorkerUtils
         virtual void importScripts(const Vector<String>& urls, const String& callerURL, int callerLine, ExceptionCode&);
@@ -92,19 +93,13 @@ namespace WebCore {
         int setInterval(ScheduledAction*, int timeout);
         void clearInterval(int timeoutId);
 
-        // EventTarget
-        virtual void addEventListener(const AtomicString& eventType, PassRefPtr<EventListener>, bool useCapture);
-        virtual void removeEventListener(const AtomicString& eventType, EventListener*, bool useCapture);
-        virtual bool dispatchEvent(PassRefPtr<Event>, ExceptionCode&);
-
-        typedef Vector<RefPtr<EventListener> > ListenerVector;
-        typedef HashMap<AtomicString, ListenerVector> EventListenersMap;
-        EventListenersMap& eventListeners() { return m_eventListeners; }
-
         // ScriptExecutionContext
         virtual void reportException(const String& errorMessage, int lineNumber, const String& sourceURL);
+        virtual void addMessage(MessageDestination, MessageSource, MessageType, MessageLevel, const String& message, unsigned lineNumber, const String& sourceURL);
 
-        virtual void forwardException(const String& errorMessage, int lineNumber, const String& sourceURL) = 0;
+#if ENABLE(NOTIFICATIONS)
+        NotificationCenter* webkitNotifications() const;
+#endif
 
         // These methods are used for GC marking. See JSWorkerContext::markChildren(MarkStack&) in
         // JSWorkerContextCustom.cpp.
@@ -114,15 +109,19 @@ namespace WebCore {
         using RefCounted<WorkerContext>::ref;
         using RefCounted<WorkerContext>::deref;
 
+        bool isClosing() { return m_closing; }
+
     protected:
         WorkerContext(const KURL&, const String&, WorkerThread*);
-        bool isClosing() { return m_closing; }
 
     private:
         virtual void refScriptExecutionContext() { ref(); }
         virtual void derefScriptExecutionContext() { deref(); }
+
         virtual void refEventTarget() { ref(); }
         virtual void derefEventTarget() { deref(); }
+        virtual EventTargetData* eventTargetData();
+        virtual EventTargetData* ensureEventTargetData();
 
         virtual const KURL& virtualURL() const;
         virtual KURL virtualCompleteURL(const String&) const;
@@ -136,10 +135,11 @@ namespace WebCore {
         OwnPtr<WorkerScriptController> m_script;
         WorkerThread* m_thread;
 
-        RefPtr<EventListener> m_onerrorListener;
-        EventListenersMap m_eventListeners;
-
+#if ENABLE_NOTIFICATIONS
+        mutable RefPtr<NotificationCenter> m_notifications;
+#endif
         bool m_closing;
+        EventTargetData m_eventTargetData;
     };
 
 } // namespace WebCore

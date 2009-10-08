@@ -23,8 +23,8 @@
 #include "CSSComputedStyleDeclaration.h"
 #include "CSSMutableStyleDeclaration.h"
 #include "CSSParser.h"
-#include "CSSRuleList.h"
 #include "CSSRule.h"
+#include "CSSRuleList.h"
 #include "CSSStyleRule.h"
 #include "CString.h"
 #include "Document.h"
@@ -42,6 +42,7 @@
 #include "qwebframe.h"
 #include "qwebframe_p.h"
 #include "runtime_root.h"
+#include <parser/SourceCode.h>
 #include <wtf/Vector.h>
 
 using namespace WebCore;
@@ -53,45 +54,47 @@ public:
 /*!
     \class QWebElement
     \since 4.6
-    \brief The QWebElement class provides convenient access to DOM elements in a QWebFrame.
+    \brief The QWebElement class provides convenient access to DOM elements in
+    a QWebFrame.
+    \inmodule QtWebKit
 
-    QWebElement is the main class to easily access to the document model.
-    The document model is represented by a tree-like structure of DOM elements.
-    The root of the tree is called the document element and can be accessed using QWebFrame::documentElement().
+    A QWebElement object allows easy access to the document model, represented
+    by a tree-like structure of DOM elements. The root of the tree is called
+    the document element and can be accessed using
+    QWebFrame::documentElement().
 
-    You can reach specific elements using findAll() and findFirst(); the elements
-    are identified through CSS selectors.
+    Specific elements can be accessed using findAll() and findFirst(). These
+    elements are identified using CSS selectors. The code snippet below
+    demonstrates the use of findAll().
 
     \snippet webkitsnippets/webelement/main.cpp FindAll
 
-    The first list contains all \c span elements in the document. The second list contains
-    \c span elements that are children of \c p, classified with \c intro.
+    The first list contains all \c span elements in the document. The second
+    list contains \c span elements that are children of \c p, classified with
+    \c intro.
 
-    Using findFirst() is more efficient than calling findAll() and extracting the first element
-    only in the returned list.
+    Using findFirst() is more efficient than calling findAll(), and extracting
+    the first element only in the list returned.
 
-    Alternatively you can manually traverse the document using firstChild() and nextSibling():
+    Alternatively you can traverse the document manually using firstChild() and
+    nextSibling():
 
     \snippet webkitsnippets/webelement/main.cpp Traversing with QWebElement
 
-    The underlying content of QWebElement is explicitly shared. Creating a copy of a QWebElement
-    does not create a copy of the content. Instead, both instances point to the same element.
+    The underlying content of QWebElement is explicitly shared. Creating a copy
+    of a QWebElement does not create a copy of the content. Instead, both
+    instances point to the same element.
 
-    The element's attributes can be read using attribute() and modified with setAttribute().
+    The element's attributes can be read using attribute() and modified with
+    setAttribute().
 
-    The contents of child elements can be converted to plain text with toPlainText() and to
-    XHTML using toInnerXml(). To also include the element's tag in the output, use toOuterXml().
+    The contents of child elements can be converted to plain text with
+    toPlainText(); to XHTML using toInnerXml(). To include the element's tag in
+    the output, use toOuterXml().
 
-    It is possible to replace the contents using setPlainText() and setInnerXml(). To replace
-    the element itself and its contents, use setOuterXml().
-
-    In the JavaScript DOM interfaces, elements can have additional functions depending on their
-    type. For example an HTML form element can be triggered to submit the entire form to the
-    web server using the submit() function. A list of these special functions can be obtained
-    in QWebElement using functions(); they can be invoked using callFunction().
-
-    Similarly element specific properties can be obtained using scriptableProperties() and
-    read/written using scriptableProperty()/setScriptableProperty().
+    It is possible to replace the contents of child elements using
+    setPlainText() and setInnerXml(). To replace the element itself and its
+    contents, use setOuterXml().
 */
 
 /*!
@@ -156,7 +159,7 @@ QWebElement &QWebElement::operator=(const QWebElement &other)
 }
 
 /*!
-    Destroys the element. The underlying DOM element is not destroyed.
+    Destroys the element. However, the underlying DOM element is not destroyed.
 */
 QWebElement::~QWebElement()
 {
@@ -176,7 +179,7 @@ bool QWebElement::operator!=(const QWebElement& o) const
 }
 
 /*!
-    Returns true if the element is a null element; false otherwise.
+    Returns true if the element is a null element; otherwise returns false.
 */
 bool QWebElement::isNull() const
 {
@@ -184,13 +187,16 @@ bool QWebElement::isNull() const
 }
 
 /*!
-    Returns a new list of child elements matching the given CSS selector \a selectorQuery.
-    If there are no matching elements, an empty list is returned.
+    Returns a new list of child elements matching the given CSS selector
+    \a selectorQuery. If there are no matching elements, an empty list is
+    returned.
 
-    \l{http://www.w3.org/TR/REC-CSS2/selector.html#q1}{Standard CSS2 selector} syntax is
-    used for the query.
+    \l{http://www.w3.org/TR/REC-CSS2/selector.html#q1}{Standard CSS2 selector}
+    syntax is used for the query.
 
     \note This search is performed recursively.
+
+    \sa findFirst()
 */
 QList<QWebElement> QWebElement::findAll(const QString &selectorQuery) const
 {
@@ -203,7 +209,7 @@ QList<QWebElement> QWebElement::findAll(const QString &selectorQuery) const
     if (!nodes)
         return elements;
 
-    for (int i = 0; i < nodes->length(); ++i) {
+    for (unsigned i = 0; i < nodes->length(); ++i) {
         WebCore::Node* n = nodes->item(i);
         elements.append(QWebElement(static_cast<Element*>(n)));
     }
@@ -212,12 +218,15 @@ QList<QWebElement> QWebElement::findAll(const QString &selectorQuery) const
 }
 
 /*!
-    Returns the first child element that matches the given CSS selector \a selectorQuery.
+    Returns the first child element that matches the given CSS selector
+    \a selectorQuery.
 
-    \l{http://www.w3.org/TR/REC-CSS2/selector.html#q1}{Standard CSS2 selector} syntax is
-    used for the query.
+    \l{http://www.w3.org/TR/REC-CSS2/selector.html#q1}{Standard CSS2 selector}
+    syntax is used for the query.
 
     \note This search is performed recursively.
+
+    \sa findAll()
 */
 QWebElement QWebElement::findFirst(const QString &selectorQuery) const
 {
@@ -231,6 +240,8 @@ QWebElement QWebElement::findFirst(const QString &selectorQuery) const
     Replaces the existing content of this element with \a text.
 
     This is equivalent to setting the HTML innerText property.
+
+    \sa toPlainText()
 */
 void QWebElement::setPlainText(const QString &text)
 {
@@ -245,6 +256,8 @@ void QWebElement::setPlainText(const QString &text)
     element.
 
     This is equivalent to reading the HTML innerText property.
+
+    \sa setPlainText()
 */
 QString QWebElement::toPlainText() const
 {
@@ -254,11 +267,13 @@ QString QWebElement::toPlainText() const
 }
 
 /*!
-    Replaces the contents of this element as well as its own tag with \a markup.
-    The string may contain HTML or XML tags, which is parsed and formatted
-    before insertion into the document.
+    Replaces the contents of this element as well as its own tag with
+    \a markup. The string may contain HTML or XML tags, which is parsed and
+    formatted before insertion into the document.
 
     \note This is currently only implemented for (X)HTML elements.
+
+    \sa toOuterXml(), toInnerXml(), setInnerXml()
 */
 void QWebElement::setOuterXml(const QString &markup)
 {
@@ -272,9 +287,11 @@ void QWebElement::setOuterXml(const QString &markup)
 
 /*!
     Returns this element converted to XML, including the start and the end
-    tag of this element and its attributes.
+    tags as well as its attributes.
 
-    \note This is currently only implemented for (X)HTML elements.
+    \note This is currently implemented for (X)HTML elements only.
+
+    \sa setOuterXml(), setInnerXml(), toInnerXml()
 */
 QString QWebElement::toOuterXml() const
 {
@@ -285,11 +302,13 @@ QString QWebElement::toOuterXml() const
 }
 
 /*!
-    Replaces the content of this element with \a markup.
-    The string may contain HTML or XML tags, which is parsed and formatted
-    before insertion into the document.
+    Replaces the contents of this element with \a markup. The string may
+    contain HTML or XML tags, which is parsed and formatted before insertion
+    into the document.
 
-    \note This is currently only implemented for (X)HTML elements.
+    \note This is currently implemented for (X)HTML elements only.
+
+    \sa toInnerXml(), toOuterXml(), setOuterXml()
 */
 void QWebElement::setInnerXml(const QString &markup)
 {
@@ -302,10 +321,11 @@ void QWebElement::setInnerXml(const QString &markup)
 }
 
 /*!
-    Returns the XML between the start and the end tag of this
-    element.
+    Returns the XML content between the element's start and end tags.
 
-    \note This is currently only implemented for (X)HTML elements.
+    \note This is currently implemented for (X)HTML elements only.
+
+    \sa setInnerXml(), setOuterXml(), toOuterXml()
 */
 QString QWebElement::toInnerXml() const
 {
@@ -316,8 +336,10 @@ QString QWebElement::toInnerXml() const
 }
 
 /*!
-    Adds an attribute called \a name with the value \a value. If an attribute
-    with the same name exists, its value is replaced by \a value.
+    Adds an attribute with the given \a name and \a value. If an attribute with
+    the same name exists, its value is replaced by \a value.
+
+    \sa attribute(), attributeNS(), setAttributeNS()
 */
 void QWebElement::setAttribute(const QString &name, const QString &value)
 {
@@ -328,9 +350,11 @@ void QWebElement::setAttribute(const QString &name, const QString &value)
 }
 
 /*!
-    Adds an attribute called \a name in the namespace described with \a namespaceUri
-    with the value \a value. If an attribute with the same name exists, its value is
-    replaced by \a value.
+    Adds an attribute with the given \a name in \a namespaceUri with \a value.
+    If an attribute with the same name exists, its value is replaced by
+    \a value.
+
+    \sa attributeNS(), attribute(), setAttribute()
 */
 void QWebElement::setAttributeNS(const QString &namespaceUri, const QString &name, const QString &value)
 {
@@ -341,8 +365,10 @@ void QWebElement::setAttributeNS(const QString &namespaceUri, const QString &nam
 }
 
 /*!
-    Returns the attributed called \a name. If the attribute does not exist \a defaultValue is
-    returned.
+    Returns the attribute with the given \a name. If the attribute does not
+    exist, \a defaultValue is returned.
+
+    \sa setAttribute(), setAttributeNS(), attributeNS()
 */
 QString QWebElement::attribute(const QString &name, const QString &defaultValue) const
 {
@@ -355,8 +381,10 @@ QString QWebElement::attribute(const QString &name, const QString &defaultValue)
 }
 
 /*!
-    Returns the attributed called \a name in the namespace described with \a namespaceUri.
-    If the attribute does not exist \a defaultValue is returned.
+    Returns the attribute with the given \a name in \a namespaceUri. If the
+    attribute does not exist, \a defaultValue is returned.
+
+    \sa setAttributeNS(), setAttribute(), attribute()
 */
 QString QWebElement::attributeNS(const QString &namespaceUri, const QString &name, const QString &defaultValue) const
 {
@@ -369,7 +397,10 @@ QString QWebElement::attributeNS(const QString &namespaceUri, const QString &nam
 }
 
 /*!
-    Returns true if this element has an attribute called \a name; otherwise returns false.
+    Returns true if this element has an attribute with the given \a name;
+    otherwise returns false.
+
+    \sa attribute(), setAttribute()
 */
 bool QWebElement::hasAttribute(const QString &name) const
 {
@@ -379,8 +410,10 @@ bool QWebElement::hasAttribute(const QString &name) const
 }
 
 /*!
-    Returns true if this element has an attribute called \a name in the namespace described
-    with \a namespaceUri; otherwise returns false.
+    Returns true if this element has an attribute with the given \a name, in
+    \a namespaceUri; otherwise returns false.
+
+    \sa attributeNS(), setAttributeNS()
 */
 bool QWebElement::hasAttributeNS(const QString &namespaceUri, const QString &name) const
 {
@@ -390,7 +423,9 @@ bool QWebElement::hasAttributeNS(const QString &namespaceUri, const QString &nam
 }
 
 /*!
-    Removes the attribute called \a name from this element.
+    Removes the attribute with the given \a name from this element.
+
+    \sa attribute(), setAttribute(), hasAttribute()
 */
 void QWebElement::removeAttribute(const QString &name)
 {
@@ -401,8 +436,10 @@ void QWebElement::removeAttribute(const QString &name)
 }
 
 /*!
-    Removes the attribute called \a name in the namespace described with \a namespaceUri
-    from this element.
+    Removes the attribute with the given \a name, in \a namespaceUri, from this
+    element.
+
+    \sa attributeNS(), setAttributeNS(), hasAttributeNS()
 */
 void QWebElement::removeAttributeNS(const QString &namespaceUri, const QString &name)
 {
@@ -413,7 +450,10 @@ void QWebElement::removeAttributeNS(const QString &namespaceUri, const QString &
 }
 
 /*!
-    Returns true if the element has any attributes defined; otherwise returns false;
+    Returns true if the element has any attributes defined; otherwise returns
+    false;
+
+    \sa attribute(), setAttribute()
 */
 bool QWebElement::hasAttributes() const
 {
@@ -423,7 +463,36 @@ bool QWebElement::hasAttributes() const
 }
 
 /*!
+    Returns true if the element has keyboard input focus; otherwise, returns false
+
+    \sa setFocus()
+*/
+bool QWebElement::hasFocus() const
+{
+    if (!m_element)
+        return false;
+    if (m_element->document())
+        return m_element == m_element->document()->focusedNode();
+    return false;
+}
+
+/*!
+    Gives keyboard input focus to this element
+
+    \sa hasFocus()
+*/
+void QWebElement::setFocus()
+{
+    if (!m_element)
+        return;
+    if (m_element->document() && m_element->isFocusable())
+        m_element->document()->setFocusedNode(m_element);
+}
+
+/*!
     Returns the geometry of this element, relative to its containing frame.
+
+    \sa tagName()
 */
 QRect QWebElement::geometry() const
 {
@@ -434,6 +503,8 @@ QRect QWebElement::geometry() const
 
 /*!
     Returns the tag name of this element.
+
+    \sa geometry()
 */
 QString QWebElement::tagName() const
 {
@@ -443,7 +514,8 @@ QString QWebElement::tagName() const
 }
 
 /*!
-    Returns the namespace prefix of the element or an empty string if the element has no namespace prefix.
+    Returns the namespace prefix of the element. If the element has no\
+    namespace prefix, empty string is returned.
 */
 QString QWebElement::prefix() const
 {
@@ -453,8 +525,8 @@ QString QWebElement::prefix() const
 }
 
 /*!
-    If the element uses namespaces, this function returns the local name of the element;
-    otherwise it returns an empty string.
+    Returns the local name of the element. If the element does not use
+    namespaces, an empty string is returned.
 */
 QString QWebElement::localName() const
 {
@@ -464,7 +536,8 @@ QString QWebElement::localName() const
 }
 
 /*!
-    Returns the namespace URI of this element or an empty string if the element has no namespace URI.
+    Returns the namespace URI of this element. If the element has no namespace
+    URI, an empty string is returned.
 */
 QString QWebElement::namespaceUri() const
 {
@@ -474,8 +547,8 @@ QString QWebElement::namespaceUri() const
 }
 
 /*!
-    Returns the parent element of this element or a null element if this element
-    is the root document element.
+    Returns the parent element of this elemen. If this element is the root
+    document element, a null element is returned.
 */
 QWebElement QWebElement::parent() const
 {
@@ -485,9 +558,9 @@ QWebElement QWebElement::parent() const
 }
 
 /*!
-    Returns the first child element of this element.
+    Returns the element's first child.
 
-    \sa lastChild() previousSibling() nextSibling()
+    \sa lastChild(), previousSibling(), nextSibling()
 */
 QWebElement QWebElement::firstChild() const
 {
@@ -503,9 +576,9 @@ QWebElement QWebElement::firstChild() const
 }
 
 /*!
-    Returns the last child element of this element.
+    Returns the element's last child.
 
-    \sa firstChild() previousSibling() nextSibling()
+    \sa firstChild(), previousSibling(), nextSibling()
 */
 QWebElement QWebElement::lastChild() const
 {
@@ -521,9 +594,9 @@ QWebElement QWebElement::lastChild() const
 }
 
 /*!
-    Returns the next sibling element of this element.
+    Returns the element's next sibling.
 
-    \sa firstChild() previousSibling() lastChild()
+    \sa firstChild(), previousSibling(), lastChild()
 */
 QWebElement QWebElement::nextSibling() const
 {
@@ -539,9 +612,9 @@ QWebElement QWebElement::nextSibling() const
 }
 
 /*!
-    Returns the previous sibling element of this element.
+    Returns the element's previous sibling.
 
-    \sa firstChild() nextSibling() lastChild()
+    \sa firstChild(), nextSibling(), lastChild()
 */
 QWebElement QWebElement::previousSibling() const
 {
@@ -557,7 +630,7 @@ QWebElement QWebElement::previousSibling() const
 }
 
 /*!
-    Returns the document this element belongs to.
+    Returns the document which this element belongs to.
 */
 QWebElement QWebElement::document() const
 {
@@ -570,8 +643,8 @@ QWebElement QWebElement::document() const
 }
 
 /*!
-    Returns the web frame this elements is a part of. If the element is
-    a null element null is returned.
+    Returns the web frame which this element is a part of. If the element is a
+    null element, null is returned.
 */
 QWebFrame *QWebElement::webFrame() const
 {
@@ -617,41 +690,10 @@ static bool setupScriptContext(WebCore::Element* element, JSC::JSValue& thisValu
 }
 
 
-static bool setupScriptObject(WebCore::Element* element, ScriptObject& object, ScriptState*& state, ScriptController*& scriptController)
-{
-    if (!element)
-        return false;
-
-    Document* document = element->document();
-    if (!document)
-        return false;
-
-    Frame* frame = document->frame();
-    if (!frame)
-        return false;
-
-    scriptController = frame->script();
-
-    state = scriptController->globalObject()->globalExec();
-
-    JSC::JSValue thisValue = toJS(state, element);
-    if (!thisValue)
-        return false;
-
-    JSC::JSObject* thisObject = thisValue.toObject(state);
-    if (!thisObject)
-        return false;
-
-    object = ScriptObject(state, thisObject);
-    return true;
-}
-
 /*!
-    Executes the \a scriptSource with this element as the `this' object.
-
-    \sa callFunction()
+    Executes \a scriptSource with this element as \c this object.
 */
-QVariant QWebElement::evaluateScript(const QString& scriptSource)
+QVariant QWebElement::evaluateJavaScript(const QString& scriptSource)
 {
     if (scriptSource.isEmpty())
         return QVariant();
@@ -678,263 +720,40 @@ QVariant QWebElement::evaluateScript(const QString& scriptSource)
 }
 
 /*!
-    Calls the function with the given \a name and \a arguments.
-
-    The underlying DOM element that QWebElement wraps may have dedicated functions depending
-    on its type. For example a form element can have the "submit" function, that would submit
-    the form to the destination specified in the HTML.
-
-    \sa functions()
-*/
-QVariant QWebElement::callFunction(const QString &name, const QVariantList &arguments)
-{
-    ScriptState* state = 0;
-    ScriptObject thisObject;
-    ScriptController* scriptController = 0;
-
-    if (!setupScriptObject(m_element, thisObject, state, scriptController))
-        return QVariant();
-
-    ScriptFunctionCall functionCall(state, thisObject, name);
-
-    for (QVariantList::ConstIterator it = arguments.constBegin(), end = arguments.constEnd();
-         it != end; ++it)
-        functionCall.appendArgument(JSC::Bindings::convertQVariantToValue(state, scriptController->bindingRootObject(), *it));
-
-    bool hadException = false;
-    ScriptValue result = functionCall.call(hadException);
-    if (hadException)
-        return QVariant();
-
-    int distance = 0;
-    return JSC::Bindings::convertValueToQVariant(state, result.jsValue(), QMetaType::Void, &distance);
-}
-
-/*!
-    Returns a list of function names this element supports.
-
-    The function names returned are the same functions that are callable from the DOM
-    element's JavaScript binding.
-
-    \sa callFunction()
-*/
-QStringList QWebElement::functions() const
-{
-    ScriptState* state = 0;
-    ScriptObject thisObject;
-    ScriptController* scriptController = 0;
-
-    if (!setupScriptObject(m_element, thisObject, state, scriptController))
-        return QStringList();
-
-    JSC::JSObject* object = thisObject.jsObject();
-    if (!object)
-        return QStringList();
-
-    QStringList names;
-
-    // Enumerate the contents of the object
-    JSC::PropertyNameArray properties(state);
-    object->getPropertyNames(state, properties);
-    for (JSC::PropertyNameArray::const_iterator it = properties.begin();
-         it != properties.end(); ++it) {
-
-        JSC::JSValue property = object->get(state, *it);
-        if (!property)
-            continue;
-
-        JSC::JSObject* function = property.toObject(state);
-        if (!function)
-            continue;
-
-        JSC::CallData callData;
-        JSC::CallType callType = function->getCallData(callData);
-        if (callType == JSC::CallTypeNone)
-            continue;
-
-        JSC::UString ustring = (*it).ustring();
-        names << QString::fromUtf16((const ushort*)ustring.rep()->data(), ustring.size());
-    }
-
-    if (state->hadException())
-        state->clearException();
-
-    return names;
-}
-
-/*!
-    Returns the value of the element's \a name property.
-
-    If no such property exists, the returned variant is invalid.
-
-    The return property has the same value as the corresponding property
-    in the element's JavaScript binding with the same name.
-
-    Information about all available properties is provided through scriptProperties().
-
-    \sa setScriptableProperty(), scriptableProperties()
-*/
-QVariant QWebElement::scriptableProperty(const QString &name) const
-{
-    ScriptState* state = 0;
-    ScriptObject thisObject;
-    ScriptController *scriptController = 0;
-
-    if (!setupScriptObject(m_element, thisObject, state, scriptController))
-        return QVariant();
-
-    String wcName(name);
-    JSC::JSValue property = thisObject.jsObject()->get(state, JSC::Identifier(state, wcName));
-
-    // ###
-    if (state->hadException())
-        state->clearException();
-
-    int distance = 0;
-    return JSC::Bindings::convertValueToQVariant(state, property, QMetaType::Void, &distance);
-}
-
-/*!
-    Sets the value of the element's \a name property to \a value.
-
-    Information about all available properties is provided through scriptProperties().
-
-    Setting the property will affect the corresponding property
-    in the element's JavaScript binding with the same name.
-
-    \sa scriptableProperty(), scriptableProperties()
-*/
-void QWebElement::setScriptableProperty(const QString &name, const QVariant &value)
-{
-    ScriptState* state = 0;
-    ScriptObject thisObject;
-    ScriptController* scriptController = 0;
-
-    if (!setupScriptObject(m_element, thisObject, state, scriptController))
-        return;
-
-    JSC::JSValue jsValue = JSC::Bindings::convertQVariantToValue(state, scriptController->bindingRootObject(), value);
-    if (!jsValue)
-        return;
-
-    String wcName(name);
-    JSC::PutPropertySlot slot;
-    thisObject.jsObject()->put(state, JSC::Identifier(state, wcName), jsValue, slot);
-    if (state->hadException())
-        state->clearException();
-}
-
-/*!
-    Returns a list of property names this element supports.
-
-    The function names returned are the same properties that are accessible from the DOM
-    element's JavaScript binding.
-
-    \sa setScriptableProperty(), scriptableProperty()
-*/
-QStringList QWebElement::scriptableProperties() const
-{
-    if (!m_element)
-        return QStringList();
-
-    Document* document = m_element->document();
-    if (!document)
-        return QStringList();
-
-    Frame* frame = document->frame();
-    if (!frame)
-        return QStringList();
-
-    ScriptController* script = frame->script();
-    JSC::ExecState* exec = script->globalObject()->globalExec();
-
-    JSC::JSValue thisValue = toJS(exec, m_element);
-    if (!thisValue)
-        return QStringList();
-
-    JSC::JSObject* object = thisValue.toObject(exec);
-    if (!object)
-        return QStringList();
-
-    QStringList names;
-
-    // Enumerate the contents of the object
-    JSC::PropertyNameArray properties(exec);
-    object->getPropertyNames(exec, properties);
-    for (JSC::PropertyNameArray::const_iterator it = properties.begin();
-         it != properties.end(); ++it) {
-
-        JSC::JSValue property = object->get(exec, *it);
-        if (!property)
-            continue;
-
-        JSC::JSObject* function = property.toObject(exec);
-        if (!function)
-            continue;
-
-        JSC::CallData callData;
-        JSC::CallType callType = function->getCallData(callData);
-        if (callType != JSC::CallTypeNone)
-            continue;
-
-        JSC::UString ustring = (*it).ustring();
-        names << QString::fromUtf16((const ushort*)ustring.rep()->data(), ustring.size());
-    }
-
-    if (exec->hadException())
-        exec->clearException();
-
-    return names;
-}
-
-/*!
-    \enum QWebElement::ResolveRule
-    \since 4.6
+    \enum QWebElement::StyleResolveStrategy
 
     This enum describes how QWebElement's styleProperty resolves the given
     property name.
 
-    \value IgnoreCascadingStyles Return the property value as it is defined
-    in the element, without respecting style inheritance and other CSS rules.
-    \value RespectCascadingStyles The property's value is determined using
-    the inheritance and importance rules defined in the document's stylesheet.
+    \value InlineStyle Return the property value as it is defined in
+           the element, without respecting style inheritance and other CSS
+           rules.
+    \value CascadedStyle The property's value is determined using the
+           inheritance and importance rules defined in the document's
+           stylesheet.
+    \value ComputedStyle The property's value is the absolute value
+           of the style property resolved from the environment.
 */
 
 /*!
-    \enum QWebElement::StylePriority
-    \since 4.6
+    Returns the value of the style with the given \a name using the specified
+    \a strategy. If a style with \a name does not exist, an empty string is
+    returned.
 
-    This enum describes the priority newly set CSS properties should have when
-    set using QWebElement::setStyleProperty().
+    In CSS, the cascading part depends on which CSS rule has priority and is
+    thus applied. Generally, the last defined rule has priority. Thus, an
+    inline style rule has priority over an embedded block style rule, which
+    in return has priority over an external style rule.
 
-    \value NormalStylePriority Define the property without important
-    priority even if "!important" is explicitly set in \a value.
-    \value DeclaredStylePriority Define the property respecting the
-    priority specified in \a value.
-    \value ImportantStylePriority Define the property to have
-    an important priority, this is equal to appending "!important" to the value.
+    If the "!important" declaration is set on one of those, the declaration
+    receives highest priority, unless other declarations also use the
+    "!important" declaration. Then, the last "!important" declaration takes
+    predecence.
+
+    \sa setStyleProperty()
 */
 
-/*!
-    Returns the value of the style named \a name or an empty string if such one
-    does not exist.
-
-    If \a rule is IgnoreCascadingStyles, the value defined inside the element
-    (inline in CSS terminology) is returned.
-
-    if \a rule is RespectCascadingStyles, the actual style applied to the
-    element is returned.
-
-    In CSS, the cascading part has to do with which CSS rule has priority and
-    is thus applied. Generally speaking, the last defined rule has priority,
-    thus an inline style rule has priority over an embedded block style rule,
-    which in return has priority over an external style rule.
-
-    If the !important declaration is set on one of those, the declaration gets
-    highest priority, unless other declarations also use the !important
-    declaration, in which the last !important declaration takes predecence.
-*/
-QString QWebElement::styleProperty(const QString &name, ResolveRule rule) const
+QString QWebElement::styleProperty(const QString &name, StyleResolveStrategy strategy) const
 {
     if (!m_element || !m_element->isStyledElement())
         return QString();
@@ -946,10 +765,10 @@ QString QWebElement::styleProperty(const QString &name, ResolveRule rule) const
 
     CSSStyleDeclaration* style = static_cast<StyledElement*>(m_element)->style();
 
-    if (rule == IgnoreCascadingStyles)
+    if (strategy == InlineStyle)
         return style->getPropertyValue(propID);
 
-    if (rule == RespectCascadingStyles) {
+    if (strategy == CascadedStyle) {
         if (style->getPropertyPriority(propID))
             return style->getPropertyValue(propID);
 
@@ -977,32 +796,33 @@ QString QWebElement::styleProperty(const QString &name, ResolveRule rule) const
         return style->getPropertyValue(propID);
     }
 
+    if (strategy == ComputedStyle) {
+        if (!m_element || !m_element->isStyledElement())
+            return QString();
+
+        int propID = cssPropertyID(name);
+
+        RefPtr<CSSComputedStyleDeclaration> style = computedStyle(m_element);
+        if (!propID || !style)
+            return QString();
+
+        return style->getPropertyValue(propID);
+    }
+
     return QString();
 }
 
 /*!
-    Sets the value of the style named \a name to \a value.
+    Sets the value of the inline style with the given \a name to \a value.
 
-    Setting a value, doesn't necessarily mean that it will become the applied
+    Setting a value, does not necessarily mean that it will become the applied
     value, due to the fact that the style property's value might have been set
-    earlier with priority in external or embedded style declarations.
+    earlier with a higher priority in external or embedded style declarations.
 
-    In order to ensure that the value will be applied, ImportantStylePriority
-    should be used as \a priority.
-
-    Following the CSS syntax for property values, this is equal to appending
+    In order to ensure that the value will be applied, you may have to append
     "!important" to the value.
-
-    This syntax is supported when using DeclaredStylePriority as \a priority.
-
-    Using NormalStylePriority as \a priority, the property will have normal
-    priority, and any "!important" declaration will be ignored. On the other
-    hand, using ImportantStylePriority sets the important priority even when
-    not explicit passed in \a value.
-    By using DeclaredStylePriority as \a priority the property will respect the
-    priority specified in \a value.
 */
-void QWebElement::setStyleProperty(const QString &name, const QString &value, StylePriority priority)
+void QWebElement::setStyleProperty(const QString &name, const QString &value)
 {
     if (!m_element || !m_element->isStyledElement())
         return;
@@ -1013,42 +833,7 @@ void QWebElement::setStyleProperty(const QString &name, const QString &value, St
         return;
 
     ExceptionCode exception = 0;
-
-    const QRegExp hasImportantTest(QLatin1String("!\\s*important"));
-    int index = value.indexOf(hasImportantTest);
-
-    QString newValue = (index != -1) ? value.left(index - 1) : value;
-
-    switch (priority) {
-    case NormalStylePriority:
-        style->setProperty(name, newValue, "", exception);
-        break;
-    case DeclaredStylePriority:
-        style->setProperty(name, newValue, (index != -1) ? "important" : "", exception);
-        break;
-    case ImportantStylePriority:
-        style->setProperty(name, newValue, "important", exception);
-        break;
-    default:
-        break;
-    }
-}
-
-/*!
-    Returns the computed value for style named \a name or an empty string if the style has no such name.
-*/
-QString QWebElement::computedStyleProperty(const QString &name) const
-{
-    if (!m_element || !m_element->isStyledElement())
-        return QString();
-
-    int propID = cssPropertyID(name);
-
-    RefPtr<CSSComputedStyleDeclaration> style = computedStyle(m_element);
-    if (!propID || !style)
-        return QString();
-
-    return style->getPropertyValue(propID);
+    style->setProperty(name, value, exception);
 }
 
 /*!
@@ -1083,7 +868,8 @@ QStringList QWebElement::classes() const
 }
 
 /*!
-    Returns true if this element has a class called \a name; otherwise returns false.
+    Returns true if this element has a class with the given \a name; otherwise
+    returns false.
 */
 bool QWebElement::hasClass(const QString &name) const
 {
@@ -1092,7 +878,7 @@ bool QWebElement::hasClass(const QString &name) const
 }
 
 /*!
-    Adds the specified class \a name to the element.
+    Adds the specified class with the given \a name to the element.
 */
 void QWebElement::addClass(const QString &name)
 {
@@ -1105,7 +891,7 @@ void QWebElement::addClass(const QString &name)
 }
 
 /*!
-    Removes the specified class \a name from the element.
+    Removes the specified class with the given \a name from the element.
 */
 void QWebElement::removeClass(const QString &name)
 {
@@ -1118,8 +904,8 @@ void QWebElement::removeClass(const QString &name)
 }
 
 /*!
-    Adds the specified class \a name if it is not present,
-    removes it if it is already present.
+    Adds the specified class with the given \a name if it is not present. If
+    the class is already present, it will be removed.
 */
 void QWebElement::toggleClass(const QString &name)
 {
@@ -1134,11 +920,11 @@ void QWebElement::toggleClass(const QString &name)
 }
 
 /*!
-    Appends \a element as the element's last child.
+    Appends the given \a element as the element's last child.
 
-    If \a element is the child of another element, it is re-parented
-    to this element. If \a element is a child of this element, then
-    its position in the list of children is changed.
+    If \a element is the child of another element, it is re-parented to this
+    element. If \a element is a child of this element, then its position in
+    the list of children is changed.
 
     Calling this function on a null element does nothing.
 
@@ -1178,9 +964,9 @@ void QWebElement::appendInside(const QString &markup)
 /*!
     Prepends \a element as the element's first child.
 
-    If \a element is the child of another element, it is re-parented
-    to this element. If \a element is a child of this element, then
-    its position in the list of children is changed.
+    If \a element is the child of another element, it is re-parented to this
+    element. If \a element is a child of this element, then its position in
+    the list of children is changed.
 
     Calling this function on a null element does nothing.
 
@@ -1227,10 +1013,10 @@ void QWebElement::prependInside(const QString &markup)
 
 
 /*!
-    Inserts \a element before this element.
+    Inserts the given \a element before this element.
 
-    If \a element is the child of another element, it is re-parented
-    to the parent of this element.
+    If \a element is the child of another element, it is re-parented to the
+    parent of this element.
 
     Calling this function on a null element does nothing.
 
@@ -1274,10 +1060,10 @@ void QWebElement::prependOutside(const QString &markup)
 }
 
 /*!
-    Inserts \a element after this element.
+    Inserts the given \a element after this element.
 
-    If \a element is the child of another element, it is re-parented
-    to the parent of this element.
+    If \a element is the child of another element, it is re-parented to the
+    parent of this element.
 
     Calling this function on a null element does nothing.
 
@@ -1342,11 +1128,10 @@ QWebElement QWebElement::clone() const
 }
 
 /*!
-    Removes this element from the document and returns a reference
-    to this.
+    Removes this element from the document and returns a reference to it.
 
-    The element is still valid after removal, and can be inserted into
-    other parts of the document.
+    The element is still valid after removal, and can be inserted into other
+    parts of the document.
 
     \sa removeChildren(), removeFromDocument()
 */
@@ -1362,8 +1147,7 @@ QWebElement &QWebElement::takeFromDocument()
 }
 
 /*!
-    Removes this element from the document and makes this
-    a null element.
+    Removes this element from the document and makes it a null element.
 
     \sa removeChildren(), takeFromDocument()
 */
@@ -1414,9 +1198,10 @@ static RefPtr<Node> findInsertionPoint(PassRefPtr<Node> root)
 }
 
 /*!
-    Enclose the contents of this element in \a element as the child
-    of the deepest descendant element within the structure of the
-    first element provided.
+    Encloses the contents of this element with \a element. This element becomes
+    the child of the deepest descendant within \a element.
+
+    ### illustration
 
     \sa encloseWith()
 */
@@ -1446,9 +1231,8 @@ void QWebElement::encloseContentsWith(const QWebElement &element)
 }
 
 /*!
-    Enclose the contents of this element in the result of parsing
-    \a markup as the child of the deepest descendant element within
-    the structure of the first element provided.
+    Encloses the contents of this element with the result of parsing \a markup.
+    This element becomes the child of the deepest descendant within \a markup.
 
     \sa encloseWith()
 */
@@ -1490,9 +1274,8 @@ void QWebElement::encloseContentsWith(const QString &markup)
 }
 
 /*!
-    Enclose this element in \a element as the child of the deepest
-    descendant element within the structure of the first element
-    provided.
+    Encloses this element with \a element. This element becomes the child of
+    the deepest descendant within \a element.
 
     \sa replace()
 */
@@ -1523,8 +1306,8 @@ void QWebElement::encloseWith(const QWebElement &element)
 }
 
 /*!
-    Enclose this element in the result of parsing \a markup,
-    as the last child.
+    Encloses this element with the result of parsing \a markup. This element
+    becomes the child of the deepest descendant within \a markup.
 
     \sa replace()
 */
@@ -1569,8 +1352,7 @@ void QWebElement::encloseWith(const QString &markup)
 /*!
     Replaces this element with \a element.
 
-    It is not possible to replace the <html>, <head>, or <body>
-    elements using this method.
+    This method will not replace the <html>, <head> or <body> elements.
 
     \sa encloseWith()
 */
@@ -1586,8 +1368,7 @@ void QWebElement::replace(const QWebElement &element)
 /*!
     Replaces this element with the result of parsing \a markup.
 
-    It is not possible to replace the <html>, <head>, or <body>
-    elements using this method.
+    This method will not replace the <html>, <head> or <body> elements.
 
     \sa encloseWith()
 */
@@ -1601,13 +1382,32 @@ void QWebElement::replace(const QString &markup)
 }
 
 /*!
+    \internal
+    Walk \a node's parents until a valid QWebElement is found.
+    For example, a WebCore::Text node is not a valid Html QWebElement, but its
+    enclosing p tag is.
+*/
+QWebElement QWebElement::enclosingElement(WebCore::Node* node)
+{
+    QWebElement element(node);
+
+    while (element.isNull() && node) {
+        node = node->parentNode();
+        element = QWebElement(node);
+    }
+    return element;
+}
+
+/*!
     \fn inline bool QWebElement::operator==(const QWebElement& o) const;
 
-    Returns true if this element points to the same underlying DOM object than \a o; otherwise returns false.
+    Returns true if this element points to the same underlying DOM object as
+    \a o; otherwise returns false.
 */
 
 /*!
     \fn inline bool QWebElement::operator!=(const QWebElement& o) const;
 
-    Returns true if this element points to a different underlying DOM object than \a o; otherwise returns false.
+    Returns true if this element points to a different underlying DOM object
+    than \a o; otherwise returns false.
 */

@@ -51,6 +51,8 @@ class SkBitmapRef;
 class PrivateAndroidImageSourceRec;
 #elif PLATFORM(SKIA)
 class NativeImageSkia;
+#elif PLATFORM(HAIKU)
+class BBitmap;
 #elif PLATFORM(WINCE)
 #include "SharedBitmap.h"
 #endif
@@ -61,22 +63,14 @@ class IntSize;
 class SharedBuffer;
 class String;
 
-#if PLATFORM(WX)
-class ImageDecoder;
-typedef ImageDecoder* NativeImageSourcePtr;
-typedef const Vector<char>* NativeBytePtr;
-#if USE(WXGC)
-typedef wxGraphicsBitmap* NativeImagePtr;
-#else
-typedef wxBitmap* NativeImagePtr;
-#endif
-#elif PLATFORM(CG)
+#if PLATFORM(CG)
 typedef CGImageSourceRef NativeImageSourcePtr;
 typedef CGImageRef NativeImagePtr;
 #elif PLATFORM(QT)
 class ImageDecoderQt;
 typedef ImageDecoderQt* NativeImageSourcePtr;
 typedef QPixmap* NativeImagePtr;
+<<<<<<< HEAD:WebCore/platform/graphics/ImageSource.h
 #elif PLATFORM(ANDROID)
 #if PLATFORM(SGL)
 class String;
@@ -98,17 +92,26 @@ typedef ImageDecoder* NativeImageSourcePtr;
 typedef NativeImageSkia* NativeImagePtr;
 #endif
 #elif PLATFORM(CAIRO)
+=======
+#else
+>>>>>>> webkit.org at 49305:WebCore/platform/graphics/ImageSource.h
 class ImageDecoder;
 typedef ImageDecoder* NativeImageSourcePtr;
+#if PLATFORM(WX)
+#if USE(WXGC)
+typedef wxGraphicsBitmap* NativeImagePtr;
+#else
+typedef wxBitmap* NativeImagePtr;
+#endif
+#elif PLATFORM(CAIRO)
 typedef cairo_surface_t* NativeImagePtr;
 #elif PLATFORM(SKIA)
-class ImageDecoder;
-typedef ImageDecoder* NativeImageSourcePtr;
 typedef NativeImageSkia* NativeImagePtr;
+#elif PLATFORM(HAIKU)
+typedef BBitmap* NativeImagePtr;
 #elif PLATFORM(WINCE)
-class ImageDecoder;
-typedef ImageDecoder* NativeImageSourcePtr;
 typedef RefPtr<SharedBitmap> NativeImagePtr;
+#endif
 #endif
 
 const int cAnimationLoopOnce = -1;

@@ -54,6 +54,7 @@ typedef v8::Persistent<v8::FunctionTemplate> (*FunctionTemplateFactory)();
 
 #if ENABLE(VIDEO)
 #define VIDEO_HTMLELEMENT_TYPES(V)                                      \
+    V(AUDIO, HTMLAudioElementConstructor)                               \
     V(HTMLAUDIOELEMENT, HTMLAudioElement)                               \
     V(HTMLMEDIAELEMENT, HTMLMediaElement)                               \
     V(HTMLSOURCEELEMENT, HTMLSourceElement)                             \
@@ -88,6 +89,14 @@ typedef v8::Persistent<v8::FunctionTemplate> (*FunctionTemplateFactory)();
 #define APPLICATIONCACHE_NONNODE_WRAPPER_TYPES(V)
 #endif
 
+#if ENABLE(NOTIFICATIONS)
+#define NOTIFICATIONS_NONNODE_WRAPPER_TYPES(V)                          \
+    V(NOTIFICATION, Notification)                                       \
+    V(NOTIFICATIONCENTER, NotificationCenter)
+#else
+#define NOTIFICATIONS_NONNODE_WRAPPER_TYPES(V)
+#endif
+
 #if ENABLE(SHARED_WORKERS)
 #define SHARED_WORKER_ACTIVE_OBJECT_WRAPPER_TYPES(V)                    \
     V(SHAREDWORKER, SharedWorker)
@@ -109,7 +118,9 @@ typedef v8::Persistent<v8::FunctionTemplate> (*FunctionTemplateFactory)();
     V(ENTITY, Entity)                                                   \
     V(ENTITYREFERENCE, EntityReference)                                 \
     V(HTMLDOCUMENT, HTMLDocument)                                       \
+    V(IMAGE, HTMLImageElementConstructor)                               \
     V(NODE, Node)                                                       \
+    V(OPTION, HTMLOptionElementConstructor)                             \
     V(NOTATION, Notation)                                               \
     V(PROCESSINGINSTRUCTION, ProcessingInstruction)                     \
     V(TEXT, Text)                                                       \
@@ -216,7 +227,6 @@ typedef v8::Persistent<v8::FunctionTemplate> (*FunctionTemplateFactory)();
 
 #if ENABLE(SVG_FONTS)
 #define SVG_FONTS_ELEMENT_TYPES(V)                                      \
-    V(SVGDEFINITIONSRCELEMENT, SVGDefinitionSrcElement)                 \
     V(SVGFONTFACEELEMENT, SVGFontFaceElement)                           \
     V(SVGFONTFACEFORMATELEMENT, SVGFontFaceFormatElement)               \
     V(SVGFONTFACENAMEELEMENT, SVGFontFaceNameElement)                   \
@@ -289,13 +299,21 @@ typedef v8::Persistent<v8::FunctionTemplate> (*FunctionTemplateFactory)();
 #endif  // SVG
 
 
+#if ENABLE(WEB_SOCKETS)
+#define WEBSOCKET_ACTIVE_OBJECT_WRAPPER_TYPES(V)                        \
+    V(WEBSOCKET, WebSocket)
+#else
+#define WEBSOCKET_ACTIVE_OBJECT_WRAPPER_TYPES(V)
+#endif
+
 // ACTIVE_DOM_OBJECT_TYPES are DOM_OBJECT_TYPES that need special treatement
 // during GC.
 #define ACTIVE_DOM_OBJECT_TYPES(V)                                      \
     V(MESSAGEPORT, MessagePort)                                         \
     V(XMLHTTPREQUEST, XMLHttpRequest)                                   \
     WORKER_ACTIVE_OBJECT_WRAPPER_TYPES(V)                               \
-    SHARED_WORKER_ACTIVE_OBJECT_WRAPPER_TYPES(V)
+    SHARED_WORKER_ACTIVE_OBJECT_WRAPPER_TYPES(V)                        \
+    WEBSOCKET_ACTIVE_OBJECT_WRAPPER_TYPES(V)
 
 // NOTE: DOM_OBJECT_TYPES is split into two halves because
 //       Visual Studio's Intellinonsense crashes when macros get
@@ -303,8 +321,10 @@ typedef v8::Persistent<v8::FunctionTemplate> (*FunctionTemplateFactory)();
 // DOM_OBJECT_TYPES are non-node DOM types.
 #define DOM_OBJECT_TYPES_1(V)                                           \
     V(BARINFO, BarInfo)                                                 \
+    V(BEFORELOADEVENT, BeforeLoadEvent)                                 \
     V(CANVASGRADIENT, CanvasGradient)                                   \
     V(CANVASPATTERN, CanvasPattern)                                     \
+    V(CANVASRENDERINGCONTEXT, CanvasRenderingContext)                   \
     V(CANVASRENDERINGCONTEXT2D, CanvasRenderingContext2D)               \
     V(CLIENTRECT, ClientRect)                                           \
     V(CLIENTRECTLIST, ClientRectList)                                   \
@@ -359,6 +379,7 @@ typedef v8::Persistent<v8::FunctionTemplate> (*FunctionTemplateFactory)();
     V(NODEITERATOR, NodeIterator)                                       \
     V(NODELIST, NodeList)                                               \
     V(OVERFLOWEVENT, OverflowEvent)                                     \
+    V(PAGETRANSITIONEVENT, PageTransitionEvent)                         \
     V(PLUGIN, Plugin)                                                   \
     V(PLUGINARRAY, PluginArray)                                         \
     V(PROGRESSEVENT, ProgressEvent)                                     \
@@ -391,6 +412,7 @@ typedef v8::Persistent<v8::FunctionTemplate> (*FunctionTemplateFactory)();
     APPLICATIONCACHE_NONNODE_WRAPPER_TYPES(V)                           \
     DATAGRID_NONNODE_TYPES(V)                                           \
     VIDEO_NONNODE_TYPES(V)                                              \
+    NOTIFICATIONS_NONNODE_WRAPPER_TYPES(V)                              \
     SHARED_WORKER_NONNODE_WRAPPER_TYPES(V)                              \
     WORKER_NONNODE_WRAPPER_TYPES(V)
 
@@ -438,16 +460,42 @@ typedef v8::Persistent<v8::FunctionTemplate> (*FunctionTemplateFactory)();
 #define DOM_OBJECT_WORKERS_TYPES(V)
 #endif
 
+<<<<<<< HEAD:WebCore/bindings/v8/V8Index.h
 #if ENABLE(GEOLOCATION)
 #define DOM_OBJECT_GEOLOCATION_TYPES(V)                                 \
     V(COORDINATES, Coordinates)                                         \
     V(GEOLOCATION, Geolocation)                                         \
     V(GEOPOSITION, Geoposition)                                         \
     V(POSITIONERROR, PositionError)
+=======
+#if ENABLE(3D_CANVAS)
+#define DOM_OBJECT_3D_CANVAS_TYPES(V)                                   \
+    V(CANVASARRAY, CanvasArray)                                         \
+    V(CANVASARRAYBUFFER, CanvasArrayBuffer)                             \
+    V(CANVASBUFFER, CanvasBuffer)                                       \
+    V(CANVASBYTEARRAY, CanvasByteArray)                                 \
+    V(CANVASFLOATARRAY, CanvasFloatArray)                               \
+    V(CANVASFRAMEBUFFER, CanvasFramebuffer)                             \
+    V(CANVASINTARRAY, CanvasIntArray)                                   \
+    V(CANVASPROGRAM, CanvasProgram)                                     \
+    V(CANVASRENDERBUFFER, CanvasRenderbuffer)                           \
+    V(CANVASRENDERINGCONTEXT3D, CanvasRenderingContext3D)               \
+    V(CANVASSHADER, CanvasShader)                                       \
+    V(CANVASSHORTARRAY, CanvasShortArray)                               \
+    V(CANVASTEXTURE, CanvasTexture)                                     \
+    V(CANVASUNSIGNEDBYTEARRAY, CanvasUnsignedByteArray)                 \
+    V(CANVASUNSIGNEDINTARRAY, CanvasUnsignedIntArray)                   \
+    V(CANVASUNSIGNEDSHORTARRAY, CanvasUnsignedShortArray)
+>>>>>>> webkit.org at 49305:WebCore/bindings/v8/V8Index.h
 #else
+<<<<<<< HEAD:WebCore/bindings/v8/V8Index.h
 #define DOM_OBJECT_GEOLOCATION_TYPES(V)
+=======
+#define DOM_OBJECT_3D_CANVAS_TYPES(V)
+>>>>>>> webkit.org at 49305:WebCore/bindings/v8/V8Index.h
 #endif
 
+<<<<<<< HEAD:WebCore/bindings/v8/V8Index.h
 #if ENABLE(TOUCH_EVENTS)
 #define DOM_OBJECT_TOUCH_EVENT_TYPES(V)                                 \
     V(TOUCHLIST, TouchList)                                             \
@@ -458,12 +506,15 @@ typedef v8::Persistent<v8::FunctionTemplate> (*FunctionTemplateFactory)();
 #endif
 
 #if PLATFORM(CHROMIUM)
+=======
+>>>>>>> webkit.org at 49305:WebCore/bindings/v8/V8Index.h
 #define DOM_OBJECT_TYPES(V)                                             \
     DOM_OBJECT_TYPES_1(V)                                               \
     DOM_OBJECT_TYPES_2(V)                                               \
     DOM_OBJECT_DATABASE_TYPES(V)                                        \
     DOM_OBJECT_STORAGE_TYPES(V)                                         \
     DOM_OBJECT_WORKERS_TYPES(V)                                         \
+<<<<<<< HEAD:WebCore/bindings/v8/V8Index.h
     DOM_OBJECT_XPATH_TYPES(V)                                           \
     DOM_OBJECT_XSLT_TYPES(V)                                            \
     V(INSPECTORBACKEND, InspectorBackend)
@@ -477,6 +528,9 @@ typedef v8::Persistent<v8::FunctionTemplate> (*FunctionTemplateFactory)();
     DOM_OBJECT_TOUCH_EVENT_TYPES(V)                                     \
     DOM_OBJECT_WORKERS_TYPES(V)
 #endif
+=======
+    DOM_OBJECT_3D_CANVAS_TYPES(V)
+>>>>>>> webkit.org at 49305:WebCore/bindings/v8/V8Index.h
 
 #if ENABLE(SVG)
 // SVG_OBJECT_TYPES are svg non-node, non-pod types.

@@ -24,6 +24,10 @@
 #include "Frame.h"
 #include "FrameLoader.h"
 #include "HTMLDocument.h"
+#include "JSCanvasRenderingContext2D.h"
+#if ENABLE(3D_CANVAS)
+#include "JSCanvasRenderingContext3D.h"
+#endif
 #include "JSDOMWindowCustom.h"
 #include "JSHTMLDocument.h"
 #include "JSLocation.h"
@@ -35,6 +39,8 @@
 #include "SVGDocument.h"
 #endif
 
+#include <wtf/GetPtr.h>
+
 using namespace JSC;
 
 namespace WebCore {
@@ -42,8 +48,14 @@ namespace WebCore {
 void JSDocument::markChildren(MarkStack& markStack)
 {
     JSNode::markChildren(markStack);
-    markDOMNodesForDocument(markStack, impl());
-    markActiveObjectsForContext(markStack, *Heap::heap(this)->globalData(), impl());
+
+    Document* document = impl();
+    JSGlobalData& globalData = *Heap::heap(this)->globalData();
+
+    markDOMNodesForDocument(markStack, document);
+    markActiveObjectsForContext(markStack, globalData, document);
+    markDOMObjectWrapper(markStack, globalData, document->implementation());
+    markDOMObjectWrapper(markStack, globalData, document->styleSheets());
 }
 
 JSValue JSDocument::location(ExecState* exec) const
@@ -76,7 +88,7 @@ void JSDocument::setLocation(ExecState* exec, JSValue value)
         str = activeFrame->document()->completeURL(str).string();
 
     bool userGesture = activeFrame->script()->processingUserGesture();
-    frame->loader()->scheduleLocationChange(str, activeFrame->loader()->outgoingReferrer(), !activeFrame->script()->anyPageIsProcessingUserGesture(), false, userGesture);
+    frame->redirectScheduler()->scheduleLocationChange(str, activeFrame->loader()->outgoingReferrer(), !activeFrame->script()->anyPageIsProcessingUserGesture(), false, userGesture);
 }
 
 JSValue toJS(ExecState* exec, JSDOMGlobalObject* globalObject, Document* document)

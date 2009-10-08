@@ -84,6 +84,7 @@
 #import "WebPanelAuthenticationHandler.h"
 #import "WebPasteboardHelper.h"
 #import "WebPluginDatabase.h"
+#import "WebPluginHalterClient.h"
 #import "WebPolicyDelegate.h"
 #import "WebPreferenceKeysPrivate.h"
 #import "WebPreferencesPrivate.h"
@@ -93,6 +94,7 @@
 #import "WebTextIterator.h"
 #import "WebUIDelegate.h"
 #import "WebUIDelegatePrivate.h"
+#import "WebVideoFullscreenController.h"
 #import <CoreFoundation/CFSet.h>
 #import <Foundation/NSURLConnection.h>
 #import <WebCore/ApplicationCacheStorage.h>
@@ -619,7 +621,7 @@ static bool runningTigerMail()
         didOneTimeInitialization = true;
     }
 
-    _private->page = new Page(new WebChromeClient(self), new WebContextMenuClient(self), new WebEditorClient(self), new WebDragClient(self), new WebInspectorClient(self));
+    _private->page = new Page(new WebChromeClient(self), new WebContextMenuClient(self), new WebEditorClient(self), new WebDragClient(self), new WebInspectorClient(self), new WebPluginHalterClient(self));
 
     _private->page->settings()->setLocalStorageDatabasePath([[self preferences] _localStorageDatabasePath]);
 
@@ -661,11 +663,11 @@ static bool runningTigerMail()
 
     if (!WebKitLinkedOnOrAfter(WEBKIT_FIRST_VERSION_WITH_LOCAL_RESOURCE_SECURITY_RESTRICTION)) {
         // Originally, we allowed all local loads.
-        FrameLoader::setLocalLoadPolicy(FrameLoader::AllowLocalLoadsForAll);
+        SecurityOrigin::setLocalLoadPolicy(SecurityOrigin::AllowLocalLoadsForAll);
     } else if (!WebKitLinkedOnOrAfter(WEBKIT_FIRST_VERSION_WITH_MORE_STRICT_LOCAL_RESOURCE_SECURITY_RESTRICTION)) {
         // Later, we allowed local loads for local URLs and documents loaded
         // with substitute data.
-        FrameLoader::setLocalLoadPolicy(FrameLoader::AllowLocalLoadsForLocalAndSubstituteData);
+        SecurityOrigin::setLocalLoadPolicy(SecurityOrigin::AllowLocalLoadsForLocalAndSubstituteData);
     }
 
     if (!WebKitLinkedOnOrAfter(WEBKIT_FIRST_VERSION_WITHOUT_CONTENT_SNIFFING_FOR_FILE_URLS))
@@ -997,6 +999,8 @@ static bool fastDocumentTeardownEnabled()
         return;
     }
 
+    [self _exitFullscreen];
+
     if (Frame* mainFrame = [self _mainCoreFrame])
         mainFrame->loader()->detachFromParent();
 
@@ -1277,6 +1281,8 @@ static bool fastDocumentTeardownEnabled()
     settings->setPluginsEnabled([preferences arePlugInsEnabled]);
     settings->setDatabasesEnabled([preferences databasesEnabled]);
     settings->setLocalStorageEnabled([preferences localStorageEnabled]);
+    settings->setExperimentalNotificationsEnabled([preferences experimentalNotificationsEnabled]);
+    settings->setExperimentalWebSocketsEnabled([preferences experimentalWebSocketsEnabled]);
     settings->setPrivateBrowsingEnabled([preferences privateBrowsingEnabled]);
     settings->setSansSerifFontFamily([preferences sansSerifFontFamily]);
     settings->setSerifFontFamily([preferences serifFontFamily]);
@@ -1311,6 +1317,9 @@ static bool fastDocumentTeardownEnabled()
     settings->setXSSAuditorEnabled([preferences isXSSAuditorEnabled]);
     settings->setEnforceCSSMIMETypeInStrictMode(!WKAppVersionCheckLessThan(@"com.apple.iWeb", -1, 2.1));
     settings->setAcceleratedCompositingEnabled([preferences acceleratedCompositingEnabled]);
+    settings->setPluginHalterEnabled([preferences pluginHalterEnabled]);
+    settings->setPluginAllowedRunTime([preferences pluginAllowedRunTime]);
+    settings->setWebGLEnabled([preferences webGLEnabled]);
 }
 
 static inline IMP getMethod(id o, SEL s)
@@ -1371,6 +1380,8 @@ static inline IMP getMethod(id o, SEL s)
     cache->willCloseFrameFunc = getMethod(delegate, @selector(webView:willCloseFrame:));
     cache->willPerformClientRedirectToURLDelayFireDateForFrameFunc = getMethod(delegate, @selector(webView:willPerformClientRedirectToURL:delay:fireDate:forFrame:));
     cache->windowScriptObjectAvailableFunc = getMethod(delegate, @selector(webView:windowScriptObjectAvailable:));
+    cache->didDisplayInsecureContentFunc = getMethod(delegate, @selector(webViewDidDisplayInsecureContent:));
+    cache->didRunInsecureContentFunc = getMethod(delegate, @selector(webView:didRunInsecureContent:));
 }
 
 - (void)_cacheScriptDebugDelegateImplementations
@@ -1394,6 +1405,22 @@ static inline IMP getMethod(id o, SEL s)
     cache->willExecuteStatementFunc = getMethod(delegate, @selector(webView:willExecuteStatement:sourceId:line:forWebFrame:));
     cache->willLeaveCallFrameFunc = getMethod(delegate, @selector(webView:willLeaveCallFrame:sourceId:line:forWebFrame:));
     cache->exceptionWasRaisedFunc = getMethod(delegate, @selector(webView:exceptionWasRaised:sourceId:line:forWebFrame:));
+}
+
+- (void)_cacheHistoryDelegateImplementations
+{
+    WebHistoryDelegateImplementationCache *cache = &_private->historyDelegateImplementations;
+    id delegate = _private->historyDelegate;
+
+    if (!delegate) {
+        bzero(cache, sizeof(WebHistoryDelegateImplementationCache));
+        return;
+    }
+
+    cache->navigatedFunc = getMethod(delegate, @selector(webView:didNavigateWithNavigationData:inFrame:));
+    cache->clientRedirectFunc = getMethod(delegate, @selector(webView:didPerformClientRedirectFromURL:toURL:inFrame:));
+    cache->serverRedirectFunc = getMethod(delegate, @selector(webView:didPerformServerRedirectFromURL:toURL:inFrame:));
+    cache->setTitleFunc = getMethod(delegate, @selector(webView:updateHistoryTitle:forURL:));
 }
 
 - (id)_policyDelegateForwarder
@@ -2092,11 +2119,122 @@ static inline IMP getMethod(id o, SEL s)
     return _private ? _private->insertionPasteboard : nil;
 }
 
++ (void)_whiteListAccessFromOrigin:(NSString *)sourceOrigin destinationProtocol:(NSString *)destinationProtocol destinationHost:(NSString *)destinationHost allowDestinationSubdomains:(BOOL)allowDestinationSubdomains
+{
+    SecurityOrigin::whiteListAccessFromOrigin(*SecurityOrigin::createFromString(sourceOrigin), destinationProtocol, destinationHost, allowDestinationSubdomains);
+}
+
++(void)_resetOriginAccessWhiteLists
+{
+    SecurityOrigin::resetOriginAccessWhiteLists();
+}
 
 - (void)_updateActiveState
 {
     if (_private && _private->page)
         _private->page->focusController()->setActive([[self window] isKeyWindow]);
+}
+
+static PassOwnPtr<Vector<String> > toStringVector(NSArray* patterns)
+{
+    // Convert the patterns into Vectors.
+    NSUInteger count = [patterns count];
+    if (count == 0)
+        return 0;
+    Vector<String>* patternsVector = new Vector<String>;
+    for (NSUInteger i = 0; i < count; ++i) {
+        id entry = [patterns objectAtIndex:i];
+        if ([entry isKindOfClass:[NSString class]])
+            patternsVector->append(String((NSString*)entry));
+    }
+    return patternsVector;
+}
+
++ (void)_addUserScriptToGroup:(NSString *)groupName source:(NSString *)source url:(NSURL *)url worldID:(unsigned)worldID 
+                    whitelist:(NSArray *)whitelist blacklist:(NSArray *)blacklist injectionTime:(WebUserScriptInjectionTime)injectionTime
+{
+    String group(groupName);
+    if (group.isEmpty() || worldID == UINT_MAX)
+        return;
+    
+    PageGroup* pageGroup = PageGroup::pageGroup(group);
+    if (!pageGroup)
+        return;
+    
+    pageGroup->addUserScript(source, url, toStringVector(whitelist), toStringVector(blacklist), worldID, 
+                             injectionTime == WebInjectAtDocumentStart ? InjectAtDocumentStart : InjectAtDocumentEnd);
+}
+
++ (void)_addUserStyleSheetToGroup:(NSString *)groupName source:(NSString *)source url:(NSURL *)url worldID:(unsigned)worldID
+                        whitelist:(NSArray *)whitelist blacklist:(NSArray *)blacklist
+{
+    String group(groupName);
+    if (group.isEmpty() || worldID == UINT_MAX)
+        return;
+    
+    PageGroup* pageGroup = PageGroup::pageGroup(group);
+    if (!pageGroup)
+        return;
+
+    pageGroup->addUserStyleSheet(source, url, toStringVector(whitelist), toStringVector(blacklist), worldID);
+}
+
++ (void)_removeUserContentFromGroup:(NSString *)groupName url:(NSURL *)url worldID:(unsigned)worldID
+{
+    String group(groupName);
+    if (group.isEmpty())
+        return;
+    
+    PageGroup* pageGroup = PageGroup::pageGroup(group);
+    if (!pageGroup)
+        return;
+
+    pageGroup->removeUserContentWithURLForWorld(url, worldID);
+}
+
++ (void)_removeUserContentFromGroup:(NSString *)groupName worldID:(unsigned)worldID
+{
+    String group(groupName);
+    if (group.isEmpty())
+        return;
+    
+    PageGroup* pageGroup = PageGroup::pageGroup(group);
+    if (!pageGroup)
+        return;
+
+    pageGroup->removeUserContentForWorld(worldID);
+}
+
++ (void)_removeAllUserContentFromGroup:(NSString *)groupName
+{
+    String group(groupName);
+    if (group.isEmpty())
+        return;
+    
+    PageGroup* pageGroup = PageGroup::pageGroup(group);
+    if (!pageGroup)
+        return;
+    
+    pageGroup->removeAllUserContent();
+}
+
+- (BOOL)cssAnimationsSuspended
+{
+    return _private->cssAnimationsSuspended;
+}
+
+- (void)setCSSAnimationsSuspended:(BOOL)suspended
+{
+    if (suspended == _private->cssAnimationsSuspended)
+        return;
+        
+    _private->cssAnimationsSuspended = suspended;
+    
+    Frame* frame = core([self mainFrame]);
+    if (suspended)
+        frame->animation()->suspendAnimations(frame->document());
+    else
+        frame->animation()->resumeAnimations(frame->document());
 }
 
 @end
@@ -3875,6 +4013,17 @@ done:
 {
     return _private->scriptDebugDelegate;
 }
+  
+- (void)setHistoryDelegate:(id)delegate
+{
+    _private->historyDelegate = delegate;
+    [self _cacheHistoryDelegateImplementations];
+}
+
+- (id)historyDelegate
+{
+    return _private->historyDelegate;
+}
 
 - (BOOL)shouldClose
 {
@@ -5091,13 +5240,16 @@ static WebFrameView *containingFrameView(NSView *view)
     id documentView = [[[self selectedFrame] frameView] documentView];
     if (![documentView conformsToProtocol:@protocol(WebDocumentText)])
         return;
-    
-    NSString *selectedString = [(id <WebDocumentText>)documentView selectedString];
-    if ([selectedString length] == 0) {
-        return;
-    }
 
+    NSString *selectedString = [(id <WebDocumentText>)documentView selectedString];
+    if (![selectedString length])
+        return;
+
+#if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
+    [[NSWorkspace sharedWorkspace] showSearchResultsForQueryString:selectedString];
+#else
     (void)HISearchWindowShow((CFStringRef)selectedString, kNilOptions);
+#endif
 }
 
 #if USE(ACCELERATED_COMPOSITING)
@@ -5465,6 +5617,45 @@ static void layerSyncRunLoopObserverCallBack(CFRunLoopObserverRef, CFRunLoopActi
         runLoopOrder, layerSyncRunLoopObserverCallBack, &context);
 
     CFRunLoopAddObserver(CFRunLoopGetCurrent(), _private->layerSyncRunLoopObserver, kCFRunLoopCommonModes);
+}
+
+#endif
+
+#if ENABLE(VIDEO)
+
+- (void)_enterFullscreenForNode:(WebCore::Node*)node
+{
+    ASSERT(node->hasTagName(WebCore::HTMLNames::videoTag));
+    HTMLMediaElement* videoElement = static_cast<HTMLMediaElement*>(node);
+
+    if (_private->fullscreenController) {
+        if ([_private->fullscreenController mediaElement] == videoElement) {
+            // The backend may just warn us that the underlaying plaftormMovie()
+            // has changed. Just force an update.
+            [_private->fullscreenController setMediaElement:videoElement];
+            return; // No more to do.
+        }
+
+        // First exit Fullscreen for the old mediaElement.
+        [_private->fullscreenController mediaElement]->exitFullscreen();
+        // This previous call has to trigger _exitFullscreen,
+        // which has to clear _private->fullscreenController.
+        ASSERT(!_private->fullscreenController);
+    }
+    if (!_private->fullscreenController) {
+        _private->fullscreenController = [[WebVideoFullscreenController alloc] init];
+        [_private->fullscreenController setMediaElement:videoElement];
+        [_private->fullscreenController enterFullscreen:[[self window] screen]];        
+    }
+    else
+        [_private->fullscreenController setMediaElement:videoElement];
+}
+
+- (void)_exitFullscreen
+{
+    [_private->fullscreenController exitFullscreen];
+    [_private->fullscreenController release];
+    _private->fullscreenController = nil;
 }
 
 #endif

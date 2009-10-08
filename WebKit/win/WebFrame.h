@@ -224,6 +224,8 @@ public:
     virtual HRESULT STDMETHODCALLTYPE setExcludeFromTextSearch(
         /* [in] */ BOOL flag);
 
+    virtual HRESULT STDMETHODCALLTYPE reloadFromOrigin();
+
     virtual HRESULT STDMETHODCALLTYPE paintDocumentRectToContext(
         /* [in] */ RECT rect,
         /* [in] */ OLE_HANDLE deviceContext);
@@ -237,6 +239,10 @@ public:
     virtual HRESULT STDMETHODCALLTYPE numberOfActiveAnimations(UINT*);
 
     virtual HRESULT STDMETHODCALLTYPE isDisplayingStandaloneImage(BOOL*);
+
+    virtual HRESULT STDMETHODCALLTYPE allowsFollowingLink(
+        /* [in] */ BSTR url,
+        /* [retval][out] */ BOOL* result);
 
     // IWebDocumentText
     virtual HRESULT STDMETHODCALLTYPE supportsTextEncoding( 

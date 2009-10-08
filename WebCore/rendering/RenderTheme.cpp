@@ -30,6 +30,7 @@
 #include "GraphicsContext.h"
 #include "HTMLInputElement.h"
 #include "HTMLNames.h"
+#include "MediaControlElements.h"
 #include "Page.h"
 #include "RenderStyle.h"
 #include "RenderView.h"
@@ -84,6 +85,7 @@ void RenderTheme::adjustStyle(CSSStyleSelector* selector, RenderStyle* style, El
     
 #if USE(NEW_THEME)
     switch (part) {
+        case ListButtonPart:
         case CheckboxPart:
         case RadioPart:
         case PushButtonPart:
@@ -170,6 +172,7 @@ void RenderTheme::adjustStyle(CSSStyleSelector* selector, RenderStyle* style, El
             return adjustRadioStyle(selector, style, e);
         case PushButtonPart:
         case SquareButtonPart:
+        case ListButtonPart:
         case DefaultButtonPart:
         case ButtonPart:
             return adjustButtonStyle(selector, style, e);
@@ -187,6 +190,7 @@ void RenderTheme::adjustStyle(CSSStyleSelector* selector, RenderStyle* style, El
         case MenulistButtonPart:
             return adjustMenuListButtonStyle(selector, style, e);
         case MediaSliderPart:
+        case MediaVolumeSliderPart:
         case SliderHorizontalPart:
         case SliderVerticalPart:
             return adjustSliderTrackStyle(selector, style, e);
@@ -229,6 +233,7 @@ bool RenderTheme::paint(RenderObject* o, const RenderObject::PaintInfo& paintInf
         case RadioPart:
         case PushButtonPart:
         case SquareButtonPart:
+        case ListButtonPart:
         case DefaultButtonPart:
         case ButtonPart:
             m_theme->paint(part, controlStatesForRenderer(o), const_cast<GraphicsContext*>(paintInfo.context), r, o->style()->effectiveZoom(), o->view()->frameView());
@@ -247,6 +252,7 @@ bool RenderTheme::paint(RenderObject* o, const RenderObject::PaintInfo& paintInf
             return paintRadio(o, paintInfo, r);
         case PushButtonPart:
         case SquareButtonPart:
+        case ListButtonPart:
         case DefaultButtonPart:
         case ButtonPart:
             return paintButton(o, paintInfo, r);
@@ -281,6 +287,14 @@ bool RenderTheme::paint(RenderObject* o, const RenderObject::PaintInfo& paintInf
         case MediaSliderThumbPart:
             if (o->parent()->isSlider())
                 return paintMediaSliderThumb(o, paintInfo, r);
+            break;
+        case MediaVolumeSliderContainerPart:
+            return paintMediaVolumeSliderContainer(o, paintInfo, r);
+        case MediaVolumeSliderPart:
+            return paintMediaVolumeSliderTrack(o, paintInfo, r);
+        case MediaVolumeSliderThumbPart:
+            if (o->parent()->isSlider())
+                return paintMediaVolumeSliderThumb(o, paintInfo, r);
             break;
         case MediaTimeRemainingPart:
             return paintMediaTimeRemaining(o, paintInfo, r);
@@ -329,6 +343,7 @@ bool RenderTheme::paintBorderOnly(RenderObject* o, const RenderObject::PaintInfo
         case RadioPart:
         case PushButtonPart:
         case SquareButtonPart:
+        case ListButtonPart:
         case DefaultButtonPart:
         case ButtonPart:
         case MenulistPart:
@@ -363,6 +378,7 @@ bool RenderTheme::paintDecorations(RenderObject* o, const RenderObject::PaintInf
         case RadioPart:
         case PushButtonPart:
         case SquareButtonPart:
+        case ListButtonPart:
         case DefaultButtonPart:
         case ButtonPart:
         case MenulistPart:
@@ -390,6 +406,23 @@ bool RenderTheme::hitTestMediaControlPart(RenderObject* o, const IntPoint& absPo
 
     FloatPoint localPoint = o->absoluteToLocal(absPoint, false, true);  // respect transforms
     return toRenderBox(o)->borderBoxRect().contains(roundedIntPoint(localPoint));
+}
+
+bool RenderTheme::shouldRenderMediaControlPart(ControlPart part, Element* e)
+{
+    HTMLMediaElement* mediaElement = static_cast<HTMLMediaElement*>(e);
+    switch (part) {
+    case MediaMuteButtonPart:
+        return mediaElement->hasAudio();
+    case MediaRewindButtonPart:
+        return mediaElement->movieLoadType() != MediaPlayer::LiveStream;
+    case MediaReturnToRealtimeButtonPart:
+        return mediaElement->movieLoadType() == MediaPlayer::LiveStream;
+    case MediaFullscreenButtonPart:
+        return mediaElement->supportsFullscreen();
+    default:
+        return true;
+    }
 }
 #endif
 

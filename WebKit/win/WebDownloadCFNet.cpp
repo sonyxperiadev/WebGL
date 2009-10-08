@@ -47,6 +47,7 @@
 #pragma warning(push, 0)
 #include <WebCore/AuthenticationCF.h>
 #include <WebCore/BString.h>
+#include <WebCore/CredentialStorage.h>
 #include <WebCore/ResourceError.h>
 #include <WebCore/ResourceHandle.h>
 #include <WebCore/ResourceRequest.h>
@@ -193,7 +194,7 @@ HRESULT STDMETHODCALLTYPE WebDownload::initToResumeWithBundle(
     // Attempt to remove the ".download" extension from the bundle for the final file destination
     // Failing that, we clear m_destination and will ask the delegate later once the download starts
     if (m_bundlePath.endsWith(bundleExtension(), false)) {
-        m_destination = m_bundlePath.copy();
+        m_destination = m_bundlePath.threadsafeCopy();
         m_destination.truncate(m_destination.length() - bundleExtension().length());
     } else
         m_destination = String();
@@ -381,9 +382,10 @@ void WebDownload::didReceiveAuthenticationChallenge(CFURLAuthChallengeRef challe
 {
     // Try previously stored credential first.
     if (!CFURLAuthChallengeGetPreviousFailureCount(challenge)) {
-        CFURLCredentialRef credential = WebCoreCredentialStorage::get(CFURLAuthChallengeGetProtectionSpace(challenge));
-        if (credential) {
-            CFURLDownloadUseCredential(m_download.get(), credential, challenge);
+        Credential credential = CredentialStorage::get(core(CFURLAuthChallengeGetProtectionSpace(challenge)));
+        if (!credential.isEmpty()) {
+            RetainPtr<CFURLCredentialRef> cfCredential(AdoptCF, createCF(credential));
+            CFURLDownloadUseCredential(m_download.get(), cfCredential.get(), challenge);
             return;
         }
     }

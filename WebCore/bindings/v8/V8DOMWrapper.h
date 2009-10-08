@@ -31,13 +31,18 @@
 #ifndef V8DOMWrapper_h
 #define V8DOMWrapper_h
 
+#include "Document.h"
 #include "Event.h"
 #include "Node.h"
 #include "NodeFilter.h"
 #include "PlatformString.h" // for WebCore::String
 #include "V8CustomBinding.h"
+#include "V8CustomXPathNSResolver.h"
+#include "V8DOMMap.h"
 #include "V8Index.h"
 #include "V8Utilities.h"
+#include "V8XPathNSResolver.h"
+#include "XPathNSResolver.h"
 #include <v8.h>
 
 namespace WebCore {
@@ -86,7 +91,15 @@ namespace WebCore {
     class StyleSheetList;
     class V8EventListener;
     class V8ObjectEventListener;
+#if ENABLE(WEB_SOCKETS)
+    class WebSocket;
+#endif
     class WorkerContext;
+
+    enum ListenerLookupType {
+        ListenerFindOnly,
+        ListenerFindOrCreate,
+    };
 
     class V8DOMWrapper {
     public:
@@ -134,7 +147,26 @@ namespace WebCore {
             return convertNodeToV8Object(node.get());
         }
 
-        static v8::Handle<v8::Value> convertNodeToV8Object(Node*);
+        static v8::Handle<v8::Value> convertNodeToV8Object(Node* node)
+        {
+            if (!node)
+                return v8::Null();
+
+            Document* document = node->document();
+            if (node == document)
+                return convertDocumentToV8Object(document);
+
+            DOMWrapperMap<Node>& domNodeMap = getDOMNodeMap();
+            v8::Handle<v8::Object> wrapper = domNodeMap.get(node);
+            if (wrapper.IsEmpty())
+                return convertNewNodeToV8Object(node, 0, domNodeMap);
+
+            return wrapper;
+        }
+
+        static v8::Handle<v8::Value> convertDocumentToV8Object(Document*);
+
+        static v8::Handle<v8::Value> convertNewNodeToV8Object(Node*, V8Proxy*, DOMWrapperMap<Node>&);
 
         template <class C>
         static C* convertToNativeObject(V8ClassIndex::V8WrapperType type, v8::Handle<v8::Object> object)
@@ -184,12 +216,42 @@ namespace WebCore {
         static v8::Handle<v8::Value> convertEventTargetToV8Object(EventTarget*);
 
         // Wrap and unwrap JS event listeners.
-        static v8::Handle<v8::Value> convertEventListenerToV8Object(PassRefPtr<Event> eventListener)
+        static v8::Handle<v8::Value> convertEventListenerToV8Object(PassRefPtr<EventListener> eventListener)
         {
             return convertEventListenerToV8Object(eventListener.get());
         }
 
         static v8::Handle<v8::Value> convertEventListenerToV8Object(EventListener*);
+
+        static PassRefPtr<EventListener> getEventListener(Node* node, v8::Local<v8::Value> value, bool isAttribute, ListenerLookupType lookup);
+
+        static PassRefPtr<EventListener> getEventListener(SVGElementInstance* element, v8::Local<v8::Value> value, bool isAttribute, ListenerLookupType lookup);
+
+        static PassRefPtr<EventListener> getEventListener(AbstractWorker* worker, v8::Local<v8::Value> value, bool isAttribute, ListenerLookupType lookup);
+
+#if ENABLE(NOTIFICATIONS)
+        static PassRefPtr<EventListener> getEventListener(Notification* notification, v8::Local<v8::Value> value, bool isAttribute, ListenerLookupType lookup);
+#endif
+
+        static PassRefPtr<EventListener> getEventListener(WorkerContext* workerContext, v8::Local<v8::Value> value, bool isAttribute, ListenerLookupType lookup);
+
+        static PassRefPtr<EventListener> getEventListener(XMLHttpRequestUpload* upload, v8::Local<v8::Value> value, bool isAttribute, ListenerLookupType lookup);
+
+        static PassRefPtr<EventListener> getEventListener(EventTarget* eventTarget, v8::Local<v8::Value> value, bool isAttribute, ListenerLookupType lookup);
+
+        static PassRefPtr<EventListener> getEventListener(V8Proxy* proxy, v8::Local<v8::Value> value, bool isAttribute, ListenerLookupType lookup);
+
+
+        // XPath-related utilities
+        static RefPtr<XPathNSResolver> getXPathNSResolver(v8::Handle<v8::Value> value)
+        {
+            RefPtr<XPathNSResolver> resolver;
+            if (V8XPathNSResolver::HasInstance(value))
+                resolver = convertToNativeObject<XPathNSResolver>(V8ClassIndex::XPATHNSRESOLVER, v8::Handle<v8::Object>::Cast(value));
+            else if (value->IsObject())
+                resolver = V8CustomXPathNSResolver::create(value->ToObject());
+            return resolver;
+        }
 
         // DOMImplementation is a singleton and it is handled in a special
         // way. A wrapper is generated per document and stored in an

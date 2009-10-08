@@ -157,6 +157,11 @@ JSStringRef AccessibilityUIElement::role()
     return JSStringCreateWithCharacters(roleText, _tcslen(roleText));
 }
 
+JSStringRef AccessibilityUIElement::subrole()
+{
+    return 0;
+}
+
 JSStringRef AccessibilityUIElement::title()
 {
     BSTR titleBSTR;
@@ -321,6 +326,11 @@ int AccessibilityUIElement::lineForIndex(int)
 }
 
 JSStringRef AccessibilityUIElement::boundsForRange(unsigned location, unsigned length)
+{
+    return JSStringCreateWithCharacters(0, 0);
+}
+
+JSStringRef AccessibilityUIElement::stringForRange(unsigned, unsigned)
 {
     return JSStringCreateWithCharacters(0, 0);
 }

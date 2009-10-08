@@ -44,30 +44,17 @@ using namespace JSC;
 
 namespace WebCore {
 
-void JSAbstractWorker::markChildren(MarkStack& markStack)
-{
-    Base::markChildren(markStack);
-
-    markIfNotNull(markStack, m_impl->onerror());
-
-    typedef AbstractWorker::EventListenersMap EventListenersMap;
-    typedef AbstractWorker::ListenerVector ListenerVector;
-    EventListenersMap& eventListeners = m_impl->eventListeners();
-    for (EventListenersMap::iterator mapIter = eventListeners.begin(); mapIter != eventListeners.end(); ++mapIter) {
-        for (ListenerVector::iterator vecIter = mapIter->second.begin(); vecIter != mapIter->second.end(); ++vecIter)
-            (*vecIter)->markJSFunction(markStack);
-    }
-}
-
 JSValue JSAbstractWorker::addEventListener(ExecState* exec, const ArgList& args)
 {
     JSDOMGlobalObject* globalObject = toJSDOMGlobalObject(impl()->scriptExecutionContext());
     if (!globalObject)
         return jsUndefined();
-    RefPtr<JSEventListener> listener = globalObject->findOrCreateJSEventListener(args.at(1));
-    if (!listener)
+
+    JSValue listener = args.at(1);
+    if (!listener.isObject())
         return jsUndefined();
-    impl()->addEventListener(args.at(0).toString(exec), listener.release(), args.at(2).toBoolean(exec));
+
+    impl()->addEventListener(args.at(0).toString(exec), JSEventListener::create(asObject(listener), false), args.at(2).toBoolean(exec));
     return jsUndefined();
 }
 
@@ -76,10 +63,12 @@ JSValue JSAbstractWorker::removeEventListener(ExecState* exec, const ArgList& ar
     JSDOMGlobalObject* globalObject = toJSDOMGlobalObject(impl()->scriptExecutionContext());
     if (!globalObject)
         return jsUndefined();
-    JSEventListener* listener = globalObject->findJSEventListener(args.at(1));
-    if (!listener)
+
+    JSValue listener = args.at(1);
+    if (!listener.isObject())
         return jsUndefined();
-    impl()->removeEventListener(args.at(0).toString(exec), listener, args.at(2).toBoolean(exec));
+
+    impl()->removeEventListener(args.at(0).toString(exec), JSEventListener::create(asObject(listener), false).get(), args.at(2).toBoolean(exec));
     return jsUndefined();
 }
 

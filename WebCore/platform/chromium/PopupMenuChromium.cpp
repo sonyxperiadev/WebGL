@@ -50,6 +50,7 @@
 #include "PopupMenu.h"
 #include "RenderTheme.h"
 #include "ScrollbarTheme.h"
+#include "StringTruncator.h"
 #include "SystemTime.h"
 
 #include <wtf/CurrentTime.h>
@@ -72,10 +73,13 @@ static const TimeStamp kTypeAheadTimeoutMs = 1000;
 // The settings used for the drop down menu.
 // This is the delegate used if none is provided.
 static const PopupContainerSettings dropDownSettings = {
-    true, // focusOnShow
-    true, // setTextOnIndexChange
-    true, // acceptOnAbandon
-    false // loopSelectionNavigation
+    true,   // focusOnShow
+    true,   // setTextOnIndexChange
+    true,   // acceptOnAbandon
+    false,  // loopSelectionNavigation
+    false,  // restrictWidthOfListBox
+    // display item text in its first strong directional character's directionality.
+    PopupContainerSettings::FirstStrongDirectionalCharacterDirection,
 };
 
 // This class uses WebCore code to paint and handle events for a drop-down list
@@ -100,10 +104,7 @@ public:
 
     // PopupListBox methods
 
-    // Shows the popup
-    void showPopup();
-
-    // Hides the popup.  Do not call this directly: use client->hidePopup().
+    // Hides the popup.
     void hidePopup();
 
     // Updates our internal list to match the client.
@@ -373,8 +374,7 @@ void PopupContainer::showExternal(const IntRect& rect, FrameView* v, int index)
 
 void PopupContainer::hidePopup()
 {
-    if (client())
-        client()->popupClosed(this);
+    listBox()->hidePopup();
 }
 
 void PopupContainer::layout()
@@ -601,6 +601,22 @@ bool PopupListBox::isInterestedInEventForKey(int keyCode)
     }
 }
 
+static bool isCharacterTypeEvent(const PlatformKeyboardEvent& event)
+{
+    // Check whether the event is a character-typed event or not.
+    // In Windows, PlatformKeyboardEvent::Char (not RawKeyDown) type event
+    // is considered as character type event. In Mac OS, KeyDown (not
+    // KeyUp) is considered as character type event.
+#if PLATFORM(WIN_OS)
+    if (event.type() == PlatformKeyboardEvent::Char)
+        return true;
+#else
+    if (event.type() == PlatformKeyboardEvent::KeyDown)
+        return true;
+#endif
+    return false;
+}
+
 bool PopupListBox::handleKeyEvent(const PlatformKeyboardEvent& event)
 {
     if (event.type() == PlatformKeyboardEvent::KeyUp)
@@ -615,7 +631,7 @@ bool PopupListBox::handleKeyEvent(const PlatformKeyboardEvent& event)
         return true;
     case VKEY_RETURN:
         if (m_selectedIndex == -1)  {
-            m_popupClient->hidePopup();
+            hidePopup();
             // Don't eat the enter if nothing is selected.
             return false;
         }
@@ -641,7 +657,8 @@ bool PopupListBox::handleKeyEvent(const PlatformKeyboardEvent& event)
         break;
     default:
         if (!event.ctrlKey() && !event.altKey() && !event.metaKey()
-            && isPrintableChar(event.windowsVirtualKeyCode()))
+            && isPrintableChar(event.windowsVirtualKeyCode())
+            && isCharacterTypeEvent(event))
             typeAheadFind(event);
         break;
     }
@@ -690,21 +707,6 @@ static String stripLeadingWhiteSpace(const String& string)
     return string.substring(i, length - i);
 }
 
-static bool isCharacterTypeEvent(const PlatformKeyboardEvent& event) {
-    // Check whether the event is a character-typed event or not. 
-    // In Windows, PlatformKeyboardEvent::Char (not RawKeyDown) type event
-    // is considered as character type event. In Mac OS, KeyDown (not 
-    // KeyUp) is considered as character type event.
-#if PLATFORM(WIN_OS)
-    if (event.type() == PlatformKeyboardEvent::Char)
-        return true;
-#else
-    if (event.type() == PlatformKeyboardEvent::KeyDown)
-        return true;
-#endif
-    return false;
-}
-
 // From HTMLSelectElement.cpp, with modifications
 void PopupListBox::typeAheadFind(const PlatformKeyboardEvent& event)
 {
@@ -714,8 +716,7 @@ void PopupListBox::typeAheadFind(const PlatformKeyboardEvent& event)
     // Reset the time when user types in a character. The time gap between
     // last character and the current character is used to indicate whether
     // user typed in a string or just a character as the search prefix.
-    if (isCharacterTypeEvent(event))
-        m_lastCharTime = now;
+    m_lastCharTime = now;
 
     UChar c = event.windowsVirtualKeyCode();
 
@@ -817,25 +818,44 @@ void PopupListBox::paintRow(GraphicsContext* gc, const IntRect& rect, int rowInd
         return;
     }
     
+    if (!style.isVisible())
+        return;
+
     gc->setFillColor(textColor);
 
-    // Bunch of shit to deal with RTL text...
+    Font itemFont = getRowFont(rowIndex);
+    // FIXME: http://crbug.com/19872 We should get the padding of individual option
+    // elements.  This probably implies changes to PopupMenuClient.
+    bool rightAligned = m_popupClient->menuStyle().textDirection() == RTL;
+    int textX = 0;
+    int maxWidth = 0;
+    if (rightAligned)
+        maxWidth = rowRect.width() - max(0, m_popupClient->clientPaddingRight() - m_popupClient->clientInsetRight());
+    else {
+        textX = max(0, m_popupClient->clientPaddingLeft() - m_popupClient->clientInsetLeft());
+        maxWidth = rowRect.width() - textX;
+    }
+    // Prepare text to be drawn.
     String itemText = m_popupClient->itemText(rowIndex);
+    if (m_settings.restrictWidthOfListBox)  // truncate string to fit in.
+        itemText = StringTruncator::rightTruncate(itemText, maxWidth, itemFont);
     unsigned length = itemText.length();
     const UChar* str = itemText.characters();
-
-    TextRun textRun(str, length, false, 0, 0, itemText.defaultWritingDirection() == WTF::Unicode::RightToLeft);
-
-    // FIXME: http://b/1210481 We should get the padding of individual option
-    // elements.  This probably implies changes to PopupMenuClient.
-
-    // Draw the item text
-    if (style.isVisible()) {
-        Font itemFont = getRowFont(rowIndex);
-        int textX = max(0, m_popupClient->clientPaddingLeft() - m_popupClient->clientInsetLeft());
-        int textY = rowRect.y() + itemFont.ascent() + (rowRect.height() - itemFont.height()) / 2;
-        gc->drawBidiText(itemFont, textRun, IntPoint(textX, textY));
-    }
+    // Prepare the directionality to draw text.
+    bool rtl = false;
+    if (m_settings.itemTextDirectionalityHint == PopupContainerSettings::DOMElementDirection)
+        rtl = style.textDirection() == RTL;
+    else if (m_settings.itemTextDirectionalityHint ==
+             PopupContainerSettings::FirstStrongDirectionalCharacterDirection)
+        rtl = itemText.defaultWritingDirection() == WTF::Unicode::RightToLeft;
+    TextRun textRun(str, length, false, 0, 0, rtl);
+    // If the text is right-to-left, make it right-aligned by adjusting its
+    // beginning position.
+    if (rightAligned)
+        textX += maxWidth - itemFont.width(textRun);
+    // Draw the item text.
+    int textY = rowRect.y() + itemFont.ascent() + (rowRect.height() - itemFont.height()) / 2;
+    gc->drawBidiText(itemFont, textRun, IntPoint(textX, textY));
 }
 
 Font PopupListBox::getRowFont(int rowIndex)
@@ -859,7 +879,7 @@ void PopupListBox::abandon()
 
     m_selectedIndex = m_originalIndex;
 
-    m_popupClient->hidePopup();
+    hidePopup();
 
     if (m_acceptedIndexOnAbandon >= 0) {
         m_popupClient->valueChanged(m_acceptedIndexOnAbandon);
@@ -892,7 +912,7 @@ void PopupListBox::acceptIndex(int index)
     if (index < 0) {
         if (m_popupClient) {
             // Enter pressed with no selection, just close the popup.
-            m_popupClient->hidePopup();
+            hidePopup();
         }
         return;
     }
@@ -901,7 +921,7 @@ void PopupListBox::acceptIndex(int index)
         RefPtr<PopupListBox> keepAlive(this);
 
         // Hide ourselves first since valueChanged may have numerous side-effects.
-        m_popupClient->hidePopup();
+        hidePopup();
 
         // Tell the <select> PopupMenuClient what index was selected.
         m_popupClient->valueChanged(index);
@@ -1047,6 +1067,17 @@ void PopupListBox::adjustSelectedIndex(int delta)
     scrollToRevealSelection();
 }
 
+void PopupListBox::hidePopup()
+{
+    if (parent()) {
+        PopupContainer* container = static_cast<PopupContainer*>(parent());
+        if (container->client())
+            container->client()->popupClosed(container);
+    }
+
+    m_popupClient->popupDidHide();
+}
+
 void PopupListBox::updateFromElement()
 {
     clear();
@@ -1090,10 +1121,11 @@ void PopupListBox::layout()
             baseWidth = max(baseWidth, width);
         }
         // FIXME: http://b/1210481 We should get the padding of individual option elements.
-        paddingWidth = max(paddingWidth, 
+        paddingWidth = max(paddingWidth,
             m_popupClient->clientPaddingLeft() + m_popupClient->clientPaddingRight());
     }
 
+    // Calculate scroll bar width.
     int windowHeight = 0;
 
 #if PLATFORM(DARWIN)
@@ -1124,14 +1156,20 @@ void PopupListBox::layout()
     if (m_visibleRows < numItems())
         scrollbarWidth = ScrollbarTheme::nativeTheme()->scrollbarThickness();
 
-    int windowWidth = baseWidth + scrollbarWidth + paddingWidth;
-    int contentWidth = baseWidth;
-
-    if (windowWidth < m_baseWidth) {
+    int windowWidth;
+    int contentWidth;
+    if (m_settings.restrictWidthOfListBox) {
         windowWidth = m_baseWidth;
         contentWidth = m_baseWidth - scrollbarWidth - paddingWidth;
     } else {
-        m_baseWidth = baseWidth;
+        windowWidth = baseWidth + scrollbarWidth + paddingWidth;
+        contentWidth = baseWidth;
+
+        if (windowWidth < m_baseWidth) {
+            windowWidth = m_baseWidth;
+            contentWidth = m_baseWidth - scrollbarWidth - paddingWidth;
+        } else
+            m_baseWidth = baseWidth;
     }
 
     resize(windowWidth, windowHeight);

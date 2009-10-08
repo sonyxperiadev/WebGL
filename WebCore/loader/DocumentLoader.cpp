@@ -148,7 +148,6 @@ DocumentLoader::DocumentLoader(const ResourceRequest& req, const SubstituteData&
     , m_gotFirstByte(false)
     , m_primaryLoadComplete(false)
     , m_isClientRedirect(false)
-    , m_loadingFromCachedPage(false)
     , m_stopRecordingResponses(false)
     , m_substituteResourceDeliveryTimer(this, &DocumentLoader::substituteResourceDeliveryTimerFired)
     , m_didCreateGlobalHistoryEntry(false)
@@ -278,7 +277,7 @@ void DocumentLoader::stopLoading(DatabasePolicy databasePolicy)
         Document* doc = m_frame->document();
         
         if (loading || doc->parsing())
-            m_frame->loader()->stopLoading(false, databasePolicy);
+            m_frame->loader()->stopLoading(UnloadEventPolicyNone, databasePolicy);
     }
 
     // Always cancel multipart loaders
@@ -568,7 +567,7 @@ void DocumentLoader::getSubresources(Vector<PassRefPtr<ArchiveResource> >& subre
     const DocLoader::DocumentResourceMap& allResources = document->docLoader()->allCachedResources();
     DocLoader::DocumentResourceMap::const_iterator end = allResources.end();
     for (DocLoader::DocumentResourceMap::const_iterator it = allResources.begin(); it != end; ++it) {
-        RefPtr<ArchiveResource> subresource = this->subresource(KURL(it->second->url()));
+        RefPtr<ArchiveResource> subresource = this->subresource(KURL(ParsedURLString, it->second->url()));
         if (subresource)
             subresources.append(subresource.release());
     }
@@ -695,16 +694,6 @@ KURL DocumentLoader::urlForHistory() const
 bool DocumentLoader::urlForHistoryReflectsFailure() const
 {
     return m_substituteData.isValid() || m_response.httpStatusCode() >= 400;
-}
-
-void DocumentLoader::loadFromCachedPage(PassRefPtr<CachedPage> cachedPage)
-{
-    LOG(PageCache, "WebCorePageCache: DocumentLoader %p loading from cached page %p", this, cachedPage.get());
-    
-    prepareForLoadStart();
-    setLoadingFromCachedPage(true);
-    setCommitted(true);
-    frameLoader()->commitProvisionalLoad(cachedPage);
 }
 
 const KURL& DocumentLoader::originalURL() const

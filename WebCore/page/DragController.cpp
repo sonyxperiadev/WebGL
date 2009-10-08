@@ -26,6 +26,7 @@
 #include "config.h"
 #include "DragController.h"
 
+#if ENABLE(DRAG_SUPPORT)
 #include "CSSStyleDeclaration.h"
 #include "Clipboard.h"
 #include "ClipboardAccessPolicy.h"
@@ -46,6 +47,7 @@
 #include "HTMLAnchorElement.h"
 #include "HTMLInputElement.h"
 #include "HTMLNames.h"
+#include "HitTestRequest.h"
 #include "HitTestResult.h"
 #include "Image.h"
 #include "MoveSelectionCommand.h"
@@ -53,6 +55,7 @@
 #include "Page.h"
 #include "RenderFileUploadControl.h"
 #include "RenderImage.h"
+#include "RenderView.h"
 #include "ReplaceSelectionCommand.h"
 #include "ResourceRequest.h"
 #include "SelectionController.h"
@@ -107,7 +110,7 @@ static PassRefPtr<DocumentFragment> documentFragmentFromDragData(DragData* dragD
             String title;
             String url = dragData->asURL(&title);
             if (!url.isEmpty()) {
-                RefPtr<HTMLAnchorElement> anchor = new HTMLAnchorElement(document);
+                RefPtr<HTMLAnchorElement> anchor = HTMLAnchorElement::create(document);
                 anchor->setHref(url);
                 ExceptionCode ec;
                 RefPtr<Node> anchorText = document->createTextNode(title);
@@ -253,6 +256,25 @@ static HTMLInputElement* asFileInput(Node* node)
     return 0;
 }
 
+static Element* elementUnderMouse(Document* documentUnderMouse, const IntPoint& p)
+{
+    float zoomFactor = documentUnderMouse->frame()->pageZoomFactor();
+    IntPoint point = roundedIntPoint(FloatPoint(p.x() * zoomFactor, p.y() * zoomFactor));
+
+    HitTestRequest request(HitTestRequest::ReadOnly | HitTestRequest::Active);
+    HitTestResult result(point);
+    documentUnderMouse->renderView()->layer()->hitTest(request, result);
+
+    Node* n = result.innerNode();
+    while (n && !n->isElementNode())
+        n = n->parentNode();
+    if (n)
+        n = n->shadowAncestorNode();
+
+    ASSERT(n);
+    return static_cast<Element*>(n);
+}
+
 bool DragController::tryDocumentDrag(DragData* dragData, DragDestinationAction actionMask, DragOperation& operation)
 {
     ASSERT(dragData);
@@ -287,10 +309,8 @@ bool DragController::tryDocumentDrag(DragData* dragData, DragDestinationAction a
             return true;
         }
 
-        IntPoint dragPos = dragData->clientPosition();
-        IntPoint point = frameView->windowToContents(dragPos);
-        Element* element = m_documentUnderMouse->elementFromPoint(point.x(), point.y());
-        ASSERT(element);
+        IntPoint point = frameView->windowToContents(dragData->clientPosition());
+        Element* element = elementUnderMouse(m_documentUnderMouse, point);
         if (!asFileInput(element)) {
             VisibleSelection dragCaret = m_documentUnderMouse->frame()->visiblePositionForPoint(point);
             m_page->dragCaretController()->setSelection(dragCaret);
@@ -340,8 +360,7 @@ bool DragController::concludeEditDrag(DragData* dragData)
         return false;
 
     IntPoint point = m_documentUnderMouse->view()->windowToContents(dragData->clientPosition());
-    Element* element =  m_documentUnderMouse->elementFromPoint(point.x(), point.y());
-    ASSERT(element);
+    Element* element = elementUnderMouse(m_documentUnderMouse, point);
     Frame* innerFrame = element->ownerDocument()->frame();
     ASSERT(innerFrame);
 
@@ -630,6 +649,12 @@ bool DragController::startDrag(Frame* src, Clipboard* clipboard, DragOperation s
 
     if (isDHTMLDrag)
         dragImage = clipboard->createDragImage(dragImageOffset);
+    else {
+        // This drag operation is not a DHTML drag and may go outside the WebView.
+        // We provide a default set of allowed drag operations that follows from:
+        // http://trac.webkit.org/browser/trunk/WebKit/mac/WebView/WebHTMLView.mm?rev=48526#L3430
+        m_sourceDragOperation = (DragOperation)(DragOperationGeneric | DragOperationCopy);
+    }
 
     // We allow DHTML/JS to set the drag image, even if its a link, image or text we're dragging.
     // This is in the spirit of the IE API, which allows overriding of pasteboard data and DragOp.
@@ -785,3 +810,5 @@ void DragController::placeDragCaret(const IntPoint& windowPoint)
 }
 
 } // namespace WebCore
+
+#endif // ENABLE(DRAG_SUPPORT)

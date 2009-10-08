@@ -45,28 +45,35 @@ namespace JSC {
 
 namespace WebCore {
     class ConsoleMessage;
+    class Database;
+    class Frame;
+    class InspectorController;
     class InspectorResource;
     class Node;
     class ScriptFunctionCall;
     class ScriptString;
+    class Storage;
 
     class InspectorFrontend {
     public:
-        InspectorFrontend(ScriptState*, ScriptObject webInspector);
+        InspectorFrontend(InspectorController* inspectorController, ScriptState*, ScriptObject webInspector);
         ~InspectorFrontend();
 
         ScriptArray newScriptArray();
         ScriptObject newScriptObject();
 
+        void didCommitLoad();
         void addMessageToConsole(const ScriptObject& messageObj, const Vector<ScriptString>& frames, const Vector<ScriptValue> wrappedArguments, const String& message);
-        
+        void clearConsoleMessages();
+
         bool addResource(long long identifier, const ScriptObject& resourceObj);
         bool updateResource(long long identifier, const ScriptObject& resourceObj);
         void removeResource(long long identifier);
 
-        void updateFocusedNode(Node* node);
+        void addCookieDomain(String);
+
+        void updateFocusedNode(long long nodeId);
         void setAttachedWindow(bool attached);
-        void inspectedWindowScriptObjectCleared(Frame* frame);
         void showPanel(int panel);
         void populateInterface();
         void reset();
@@ -84,30 +91,52 @@ namespace WebCore {
         void failedToParseScriptSource(const JSC::SourceCode&, int errorLine, const JSC::UString& errorMessage);
         void addProfile(const JSC::JSValue& profile);
         void setRecordingProfile(bool isProfiling);
-        void pausedScript();
+        void pausedScript(const ScriptValue& callFrames);
         void resumedScript();
 #endif
 
 #if ENABLE(DATABASE)
         bool addDatabase(const ScriptObject& dbObj);
+        void selectDatabase(int databaseId);
+        void didGetDatabaseTableNames(int callId, const ScriptArray& tableNames);
 #endif
         
 #if ENABLE(DOM_STORAGE)
         bool addDOMStorage(const ScriptObject& domStorageObj);
+        void selectDOMStorage(int storageId);
+        void didGetDOMStorageEntries(int callId, const ScriptArray& entries);
+        void didSetDOMStorageItem(int callId, bool success);
+        void didRemoveDOMStorageItem(int callId, bool success);
+        void updateDOMStorage(int storageId);
 #endif
 
-        void setDocumentElement(const ScriptObject& root);
+        void setDocument(const ScriptObject& root);
+        void setDetachedRoot(const ScriptObject& root);
         void setChildNodes(int parentId, const ScriptArray& nodes);
-        void hasChildrenUpdated(int id, bool newValue);
+        void childNodeCountUpdated(int id, int newValue);
         void childNodeInserted(int parentId, int prevId, const ScriptObject& node);
         void childNodeRemoved(int parentId, int id);
         void attributesUpdated(int id, const ScriptArray& attributes);
         void didGetChildNodes(int callId);
         void didApplyDomChange(int callId, bool success);
+        void didGetEventListenersForNode(int callId, int nodeId, ScriptArray& listenersArray);
 
+        void timelineWasEnabled();
+        void timelineWasDisabled();
+        void addItemToTimeline(const ScriptObject& itemObj);
+
+        void didGetCookies(int callId, const ScriptArray& cookies, const String& cookiesString);
+        void didDispatchOnInjectedScript(int callId, const String& result, bool isException);
+
+        void addNodesToSearchResult(const String& nodeIds);
+
+        ScriptState* scriptState() const { return m_scriptState; }
+
+        void evaluateForTestInFrontend(int callId, const String& script);
     private:
         PassOwnPtr<ScriptFunctionCall> newFunctionCall(const String& functionName);
         void callSimpleFunction(const String& functionName);
+        InspectorController* m_inspectorController;
         ScriptState* m_scriptState;
         ScriptObject m_webInspector;
     };

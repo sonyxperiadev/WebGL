@@ -22,18 +22,23 @@
 #include "config.h"
 #include "RenderTextControlMultiLine.h"
 
+#include "Event.h"
 #include "EventNames.h"
 #include "Frame.h"
-#include "HitTestResult.h"
+#include "HTMLNames.h"
 #include "HTMLTextAreaElement.h"
+<<<<<<< HEAD:WebCore/rendering/RenderTextControlMultiLine.cpp
 #ifdef ANDROID_LAYOUT
 #include "Settings.h"
 #endif
+=======
+#include "HitTestResult.h"
+>>>>>>> webkit.org at 49305:WebCore/rendering/RenderTextControlMultiLine.cpp
 
 namespace WebCore {
 
-RenderTextControlMultiLine::RenderTextControlMultiLine(Node* node)
-    : RenderTextControl(node)
+RenderTextControlMultiLine::RenderTextControlMultiLine(Node* node, bool placeholderVisible)
+    : RenderTextControl(node, placeholderVisible)
 {
 }
 
@@ -46,16 +51,17 @@ RenderTextControlMultiLine::~RenderTextControlMultiLine()
 void RenderTextControlMultiLine::subtreeHasChanged()
 {
     RenderTextControl::subtreeHasChanged();
-    static_cast<Element*>(node())->setFormControlValueMatchesRenderer(false);
+    HTMLTextAreaElement* textArea = static_cast<HTMLTextAreaElement*>(node());
+    textArea->setFormControlValueMatchesRenderer(false);
+    textArea->updateValidity();
 
     if (!node()->focused())
         return;
 
-    // Fire the "input" DOM event
-    node()->dispatchEvent(eventNames().inputEvent, true, false);
+    node()->dispatchEvent(Event::create(eventNames().inputEvent, true, false));
 
     if (Frame* frame = document()->frame())
-        frame->textDidChangeInTextArea(static_cast<Element*>(node()));
+        frame->textDidChangeInTextArea(textArea);
 }
 
 bool RenderTextControlMultiLine::nodeAtPoint(const HitTestRequest& request, HitTestResult& result, int x, int y, int tx, int ty, HitTestAction hitTestAction)
@@ -63,7 +69,10 @@ bool RenderTextControlMultiLine::nodeAtPoint(const HitTestRequest& request, HitT
     if (!RenderTextControl::nodeAtPoint(request, result, x, y, tx, ty, hitTestAction))
         return false;
 
-    if (result.innerNode() == node() || result.innerNode() == innerTextElement())
+    bool resultIsTextValueOrPlaceholder
+        = !m_placeholderVisible && result.innerNode() == innerTextElement()
+        || m_placeholderVisible && result.innerNode()->isDescendantOf(innerTextElement());
+    if (result.innerNode() == node() || resultIsTextValueOrPlaceholder)
         hitInnerTextElement(result, x, y, tx, ty);
 
     return true;
@@ -95,7 +104,11 @@ void RenderTextControlMultiLine::updateFromElement()
     createSubtreeIfNeeded(0);
     RenderTextControl::updateFromElement();
 
-    setInnerTextValue(static_cast<HTMLTextAreaElement*>(node())->value());
+    HTMLTextAreaElement* textArea = static_cast<HTMLTextAreaElement*>(node());
+    if (m_placeholderVisible)
+        setInnerTextValue(textArea->getAttribute(HTMLNames::placeholderAttr));
+    else
+        setInnerTextValue(textArea->value());
 }
 
 void RenderTextControlMultiLine::cacheSelection(int start, int end)
@@ -105,13 +118,25 @@ void RenderTextControlMultiLine::cacheSelection(int start, int end)
 
 PassRefPtr<RenderStyle> RenderTextControlMultiLine::createInnerTextStyle(const RenderStyle* startStyle) const
 {
-    RefPtr<RenderStyle> textBlockStyle = RenderStyle::create();
-    textBlockStyle->inheritFrom(startStyle);
+    RefPtr<RenderStyle> textBlockStyle;
+    if (m_placeholderVisible) {
+        if (RenderStyle* pseudoStyle = getCachedPseudoStyle(INPUT_PLACEHOLDER))
+            textBlockStyle = RenderStyle::clone(pseudoStyle);
+    }
+    if (!textBlockStyle) {
+        textBlockStyle = RenderStyle::create();
+        textBlockStyle->inheritFrom(startStyle);
+    }
 
     adjustInnerTextStyle(startStyle, textBlockStyle.get());
     textBlockStyle->setDisplay(BLOCK);
 
     return textBlockStyle.release();
+}
+
+RenderStyle* RenderTextControlMultiLine::textBaseStyle() const
+{
+    return style();
 }
 
 }

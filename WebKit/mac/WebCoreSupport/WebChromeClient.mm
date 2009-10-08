@@ -49,12 +49,14 @@
 #import <Foundation/Foundation.h>
 #import <WebCore/BlockExceptions.h>
 #import <WebCore/Console.h>
+#import <WebCore/Element.h>
 #import <WebCore/FileChooser.h>
 #import <WebCore/FloatRect.h>
 #import <WebCore/Frame.h>
 #import <WebCore/FrameLoadRequest.h>
 #import <WebCore/Geolocation.h>
 #import <WebCore/HitTestResult.h>
+#import <WebCore/HTMLNames.h>
 #import <WebCore/IntRect.h>
 #import <WebCore/Page.h>
 #import <WebCore/PlatformScreen.h>
@@ -462,7 +464,7 @@ IntRect WebChromeClient::windowToScreen(const IntRect& r) const
     return enclosingIntRect(tempRect);
 }
 
-PlatformWidget WebChromeClient::platformWindow() const
+PlatformPageClient WebChromeClient::platformPageClient() const
 {
     if ([m_webView _usesDocumentViews])
         return 0;
@@ -670,12 +672,12 @@ void WebChromeClient::formStateDidChange(const WebCore::Node* node)
 
 void WebChromeClient::formDidFocus(const WebCore::Node* node)
 {
-    CallUIDelegate(m_webView, @selector(webView:formStateDidFocusNode:), kit(const_cast<WebCore::Node*>(node)));
+    CallUIDelegate(m_webView, @selector(webView:formDidFocusNode:), kit(const_cast<WebCore::Node*>(node)));
 }
 
 void WebChromeClient::formDidBlur(const WebCore::Node* node)
 {
-    CallUIDelegate(m_webView, @selector(webView:formStateDidBlurNode:), kit(const_cast<WebCore::Node*>(node)));
+    CallUIDelegate(m_webView, @selector(webView:formDidBlurNode:), kit(const_cast<WebCore::Node*>(node)));
 }
 
 #if USE(ACCELERATED_COMPOSITING)
@@ -711,6 +713,29 @@ void WebChromeClient::scheduleCompositingLayerSync()
     BEGIN_BLOCK_OBJC_EXCEPTIONS;
     [m_webView _scheduleCompositingLayerSync];
     END_BLOCK_OBJC_EXCEPTIONS;
+}
+
+#endif
+
+#if ENABLE(VIDEO)
+
+bool WebChromeClient::supportsFullscreenForNode(const Node* node)
+{
+    return node->hasTagName(WebCore::HTMLNames::videoTag);
+}
+
+void WebChromeClient::enterFullscreenForNode(Node* node)
+{
+    BEGIN_BLOCK_OBJC_EXCEPTIONS;
+    [m_webView _enterFullscreenForNode:node];
+    END_BLOCK_OBJC_EXCEPTIONS;
+}
+
+void WebChromeClient::exitFullscreenForNode(Node*)
+{
+    BEGIN_BLOCK_OBJC_EXCEPTIONS;
+    [m_webView _exitFullscreen];
+    END_BLOCK_OBJC_EXCEPTIONS;    
 }
 
 #endif

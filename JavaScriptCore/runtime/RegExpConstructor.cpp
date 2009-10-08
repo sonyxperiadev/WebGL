@@ -23,6 +23,7 @@
 #include "RegExpConstructor.h"
 
 #include "ArrayPrototype.h"
+#include "Error.h"
 #include "JSArray.h"
 #include "JSFunction.h"
 #include "JSString.h"
@@ -111,7 +112,7 @@ struct RegExpConstructorPrivate : FastAllocBase {
     unsigned lastOvectorIndex : 1;
 };
 
-RegExpConstructor::RegExpConstructor(ExecState* exec, PassRefPtr<Structure> structure, RegExpPrototype* regExpPrototype)
+RegExpConstructor::RegExpConstructor(ExecState* exec, NonNullPassRefPtr<Structure> structure, RegExpPrototype* regExpPrototype)
     : InternalFunction(&exec->globalData(), structure, Identifier(exec, "RegExp"))
     , d(new RegExpConstructorPrivate)
 {
@@ -233,6 +234,11 @@ bool RegExpConstructor::getOwnPropertySlot(ExecState* exec, const Identifier& pr
     return getStaticValueSlot<RegExpConstructor, InternalFunction>(exec, ExecState::regExpConstructorTable(exec), this, propertyName, slot);
 }
 
+bool RegExpConstructor::getOwnPropertyDescriptor(ExecState* exec, const Identifier& propertyName, PropertyDescriptor& descriptor)
+{
+    return getStaticValueDescriptor<RegExpConstructor, InternalFunction>(exec, ExecState::regExpConstructorTable(exec), this, propertyName, descriptor);
+}
+
 JSValue regExpConstructorDollar1(ExecState* exec, const Identifier&, const PropertySlot& slot)
 {
     return asRegExpConstructor(slot.slotBase())->getBackref(exec, 1);
@@ -329,7 +335,7 @@ JSObject* constructRegExp(ExecState* exec, const ArgList& args)
     JSValue arg0 = args.at(0);
     JSValue arg1 = args.at(1);
 
-    if (arg0.isObject(&RegExpObject::info)) {
+    if (arg0.inherits(&RegExpObject::info)) {
         if (!arg1.isUndefined())
             return throwError(exec, TypeError, "Cannot supply flags when constructing one RegExp from another.");
         return asObject(arg0);

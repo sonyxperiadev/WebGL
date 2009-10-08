@@ -27,6 +27,8 @@
 #include "config.h"
 #include "ContextMenu.h"
 
+#if ENABLE(CONTEXT_MENUS)
+
 #include "ContextMenuController.h"
 #include "ContextMenuClient.h"
 #include "CSSComputedStyleDeclaration.h"
@@ -359,10 +361,10 @@ void ContextMenu::populate()
                 appendItem(StopItem);
                 appendItem(ReloadItem);
 #else
-                if (loader->canGoBackOrForward(-1))
+                if (frame->page() && frame->page()->canGoBackOrForward(-1))
                     appendItem(BackItem);
 
-                if (loader->canGoBackOrForward(1))
+                if (frame->page() && frame->page()->canGoBackOrForward(1))
                     appendItem(ForwardItem);
 
                 // use isLoadingInAPISense rather than isLoading because Stop/Reload are
@@ -514,6 +516,7 @@ void ContextMenu::populate()
     }
 }
 
+#if ENABLE(INSPECTOR)
 void ContextMenu::addInspectElementItem()
 {
     Node* node = m_hitTestResult.innerNonSharedNode();
@@ -535,6 +538,7 @@ void ContextMenu::addInspectElementItem()
     appendItem(*separatorItem());
     appendItem(InspectElementItem);
 }
+#endif // ENABLE(INSPECTOR)
 
 void ContextMenu::checkOrEnableIfNeeded(ContextMenuItem& item) const
 {
@@ -717,10 +721,10 @@ void ContextMenu::checkOrEnableIfNeeded(ContextMenuItem& item) const
 #endif
 #if PLATFORM(GTK)
         case ContextMenuItemTagGoBack:
-            shouldEnable = frame->loader()->canGoBackOrForward(-1);
+            shouldEnable = frame->page() && frame->page()->canGoBackOrForward(-1);
             break;
         case ContextMenuItemTagGoForward:
-            shouldEnable = frame->loader()->canGoBackOrForward(1);
+            shouldEnable = frame->page() && frame->page()->canGoBackOrForward(1);
             break;
         case ContextMenuItemTagStop:
             shouldEnable = frame->loader()->documentLoader()->isLoadingInAPISense();
@@ -772,7 +776,9 @@ void ContextMenu::checkOrEnableIfNeeded(ContextMenuItem& item) const
         case ContextMenuItemTagTextDirectionMenu:
         case ContextMenuItemTagPDFSinglePageScrolling:
         case ContextMenuItemTagPDFFacingPagesScrolling:
+#if ENABLE(INSPECTOR)
         case ContextMenuItemTagInspectElement:
+#endif
         case ContextMenuItemBaseApplicationTag:
             break;
     }
@@ -781,4 +787,6 @@ void ContextMenu::checkOrEnableIfNeeded(ContextMenuItem& item) const
     item.setEnabled(shouldEnable);
 }
 
-}
+} // namespace WebCore
+
+#endif // ENABLE(CONTEXT_MENUS)

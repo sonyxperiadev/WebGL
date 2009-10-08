@@ -43,7 +43,7 @@ class HTMLSourceElement;
 class MediaError;
 class KURL;
 class TimeRanges;
-    
+
 class HTMLMediaElement : public HTMLElement, public MediaPlayerClient {
 public:
     HTMLMediaElement(const QualifiedName&, Document*);
@@ -57,6 +57,7 @@ public:
     virtual bool rendererIsNeeded(RenderStyle*);
     virtual RenderObject* createRenderer(RenderArena*, RenderStyle*);
     virtual void insertedIntoDocument();
+    virtual void willRemove();
     virtual void removedFromDocument();
     virtual void attach();
     virtual void recalcStyle(StyleChange);
@@ -65,6 +66,7 @@ public:
     
     virtual bool isVideo() const { return false; }
     virtual bool hasVideo() const { return false; }
+    virtual bool hasAudio() const;
 
     void rewind(float timeDelta);
     void returnToRealtime();
@@ -72,6 +74,8 @@ public:
     // Eventually overloaded in HTMLVideoElement
     virtual bool supportsFullscreen() const { return false; };
     virtual bool supportsSave() const;
+    
+    PlatformMedia platformMedia() const;
 
     void scheduleLoad();
     
@@ -119,7 +123,7 @@ public:
     void setPlaybackRate(float);
     bool webkitPreservesPitch() const;
     void setWebkitPreservesPitch(bool);
-    PassRefPtr<TimeRanges> played() const;
+    PassRefPtr<TimeRanges> played();
     PassRefPtr<TimeRanges> seekable() const;
     bool ended() const;
     bool autoplay() const;    
@@ -140,6 +144,8 @@ public:
     void beginScrubbing();
     void endScrubbing();
 
+    const IntRect screenRect();
+
     bool canPlay() const;
 
     float percentLoaded() const;
@@ -153,6 +159,9 @@ public:
 #endif
 
     bool hasSingleSecurityOrigin() const { return !m_player || m_player->hasSingleSecurityOrigin(); }
+    
+    void enterFullscreen();
+    void exitFullscreen();
 
 protected:
     float getTimeOffsetAttribute(const QualifiedName&, float valueOnError) const;
@@ -190,7 +199,9 @@ private:
     void stopPeriodicTimers();
 
     void seek(float time, ExceptionCode&);
+    void finishSeek();
     void checkIfSeekNeeded();
+    void addPlayedRange(float start, float end);
     
     void scheduleTimeupdateEvent(bool periodicEvent);
     void scheduleProgressEvent(const AtomicString& eventName);
@@ -200,6 +211,7 @@ private:
     // loading
     void selectMediaResource();
     void loadResource(const KURL&, ContentType&);
+    void scheduleNextSourceChild();
     void loadNextSourceChild();
     void userCancelledLoad();
     bool havePotentialSourceChild();
@@ -215,6 +227,8 @@ private:
     void loadInternal();
     void playInternal();
     void pauseInternal();
+
+    void prepareForLoad();
     
     bool processingUserGesture() const;
     bool processingMediaPlayerCallback() const { return m_processingMediaPlayerCallback > 0; }
@@ -304,6 +318,8 @@ protected:
     // Not all media engines provide enough information about a file to be able to
     // support progress events so setting m_sendProgressEvents disables them 
     bool m_sendProgressEvents : 1;
+
+    bool m_isFullscreen : 1;
 
 #if ENABLE(PLUGIN_PROXY_FOR_VIDEO)
     bool m_needWidgetUpdate : 1;

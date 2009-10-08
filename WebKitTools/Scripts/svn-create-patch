@@ -77,14 +77,15 @@ sub testfilecmp($$);
 $ENV{'LC_ALL'} = 'C';
 
 my $showHelp;
-my $svnVersion = `svn --version --quiet`;
+my $ignoreChangelogs = 0;
 my $devNull = File::Spec->devnull();
 
 my $result = GetOptions(
     "help"       => \$showHelp,
+    "ignore-changelogs"    => \$ignoreChangelogs
 );
 if (!$result || $showHelp) {
-    print STDERR basename($0) . " [-h|--help] [svndir1 [svndir2 ...]]\n";
+    print STDERR basename($0) . " [-h|--help] [--ignore-changelogs] [svndir1 [svndir2 ...]]\n";
     exit 1;
 }
 
@@ -156,7 +157,7 @@ sub findBaseUrl($)
     my $baseUrl;
     open INFO, "svn info '$infoPath' |" or die;
     while (<INFO>) {
-        if (/^URL: (.+)/) {
+        if (/^URL: (.+?)[\r\n]*$/) {
             $baseUrl = $1;
         }
     }
@@ -200,7 +201,7 @@ sub findSourceFileAndRevision($)
     my $sourceRevision;
     open INFO, "svn info '$file' |" or die;
     while (<INFO>) {
-        if (/^Copied From URL: (.+)/) {
+        if (/^Copied From URL: (.+?)[\r\n]*$/) {
             $sourceFile = File::Spec->abs2rel($1, $baseUrl);
         } elsif (/^Copied From Rev: ([0-9]+)/) {
             $sourceRevision = $1;
@@ -265,6 +266,11 @@ sub generateDiff($$)
 {
     my ($fileData, $prefix) = @_;
     my $file = File::Spec->catdir($prefix, $fileData->{path});
+    
+    if ($ignoreChangelogs && basename($file) eq "ChangeLog") {
+        return;
+    }
+    
     my $patch;
     if ($fileData->{modificationType} eq "additionWithHistory") {
         manufacturePatchForAdditionWithHistory($fileData);
@@ -292,7 +298,7 @@ sub generateFileList($\%)
         $line =~ s/[\r\n]+$//g;
         my $stat;
         my $path;
-        if (eval "v$svnVersion" ge v1.6) { 
+        if (isSVNVersion16OrNewer()) {
             $stat = substr($line, 0, 8);
             $path = substr($line, 8);
         } else {

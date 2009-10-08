@@ -30,6 +30,12 @@
 #include "config.h"
 #include "InspectorBackend.h"
 
+#if ENABLE(INSPECTOR)
+
+#if ENABLE(DATABASE)
+#include "Database.h"
+#endif
+
 #include "Element.h"
 #include "Frame.h"
 #include "FrameLoader.h"
@@ -37,13 +43,23 @@
 #include "InspectorClient.h"
 #include "InspectorController.h"
 #include "InspectorDOMAgent.h"
+#include "InspectorFrontend.h"
 #include "InspectorResource.h"
+#include "Pasteboard.h"
+#include "ScriptArray.h"
+#include "ScriptFunctionCall.h"
+
+#if ENABLE(DOM_STORAGE)
+#include "Storage.h"
+#endif
 
 #if ENABLE(JAVASCRIPT_DEBUGGER)
 #include "JavaScriptCallFrame.h"
 #include "JavaScriptDebugServer.h"
 using namespace JSC;
 #endif
+
+#include "markup.h"
 
 #include <wtf/RefPtr.h>
 #include <wtf/StdLibExtras.h>
@@ -139,10 +155,10 @@ bool InspectorBackend::addSourceToFrame(const String& mimeType, const String& so
     return true;
 }
 
-void InspectorBackend::clearMessages()
+void InspectorBackend::clearMessages(bool clearUI)
 {
     if (m_inspectorController)
-        m_inspectorController->clearConsoleMessages();
+        m_inspectorController->clearConsoleMessages(clearUI);
 }
 
 void InspectorBackend::toggleNodeSearch()
@@ -182,10 +198,10 @@ bool InspectorBackend::searchingForNode()
     return false;
 }
 
-void InspectorBackend::loaded(bool enableDOMAgent)
+void InspectorBackend::loaded()
 {
     if (m_inspectorController)
-        m_inspectorController->scriptObjectReady(enableDOMAgent);
+        m_inspectorController->scriptObjectReady();
 }
 
 void InspectorBackend::enableResourceTracking(bool always)
@@ -242,9 +258,28 @@ const String& InspectorBackend::platform() const
     return platform;
 }
 
+void InspectorBackend::enableTimeline(bool always)
+{
+    if (m_inspectorController)
+        m_inspectorController->enableTimeline(always);
+}
+
+void InspectorBackend::disableTimeline(bool always)
+{
+    if (m_inspectorController)
+        m_inspectorController->disableTimeline(always);
+}
+
+bool InspectorBackend::timelineEnabled() const
+{
+    if (m_inspectorController)
+        return m_inspectorController->timelineEnabled();
+    return false;
+}
+
 #if ENABLE(JAVASCRIPT_DEBUGGER)
 const ProfilesArray& InspectorBackend::profiles() const
-{    
+{
     if (m_inspectorController)
         return m_inspectorController->profiles();
     return m_emptyProfiles;
@@ -305,10 +340,16 @@ JavaScriptCallFrame* InspectorBackend::currentCallFrame() const
     return JavaScriptDebugServer::shared().currentCallFrame();
 }
 
-void InspectorBackend::addBreakpoint(const String& sourceID, unsigned lineNumber)
+void InspectorBackend::addBreakpoint(const String& sourceID, unsigned lineNumber, const String& condition)
 {
     intptr_t sourceIDValue = sourceID.toIntPtr();
-    JavaScriptDebugServer::shared().addBreakpoint(sourceIDValue, lineNumber);
+    JavaScriptDebugServer::shared().addBreakpoint(sourceIDValue, lineNumber, condition);
+}
+
+void InspectorBackend::updateBreakpoint(const String& sourceID, unsigned lineNumber, const String& condition)
+{
+    intptr_t sourceIDValue = sourceID.toIntPtr();
+    JavaScriptDebugServer::shared().updateBreakpoint(sourceIDValue, lineNumber, condition);
 }
 
 void InspectorBackend::removeBreakpoint(const String& sourceID, unsigned lineNumber)
@@ -355,34 +396,213 @@ void InspectorBackend::stepOutOfFunctionInDebugger()
 
 #endif
 
-void InspectorBackend::getChildNodes(long callId, long elementId)
+void InspectorBackend::dispatchOnInjectedScript(long callId, const String& methodName, const String& arguments, bool async)
 {
-    if (m_inspectorController)
-        m_inspectorController->domAgent()->getChildNodes(callId, elementId);
+    InspectorFrontend* frontend = inspectorFrontend();
+    if (!frontend)
+        return;
+
+    ScriptFunctionCall function(m_inspectorController->m_scriptState, m_inspectorController->m_injectedScriptObj, "dispatch");
+    function.appendArgument(methodName);
+    function.appendArgument(arguments);
+    if (async)
+        function.appendArgument(static_cast<int>(callId));
+    bool hadException = false;
+    ScriptValue result = function.call(hadException);
+    if (async)
+        return;  // InjectedScript will return result asynchronously by means of ::reportDidDispatchOnInjectedScript.
+    if (hadException)
+        frontend->didDispatchOnInjectedScript(callId, "", true);
+    else
+        frontend->didDispatchOnInjectedScript(callId, result.toString(m_inspectorController->m_scriptState), false);
+}
+
+void InspectorBackend::getChildNodes(long callId, long nodeId)
+{
+    if (InspectorDOMAgent* domAgent = inspectorDOMAgent())
+        domAgent->getChildNodes(callId, nodeId);
 }
 
 void InspectorBackend::setAttribute(long callId, long elementId, const String& name, const String& value)
 {
-    if (m_inspectorController)
-        m_inspectorController->domAgent()->setAttribute(callId, elementId, name, value);
+    if (InspectorDOMAgent* domAgent = inspectorDOMAgent())
+        domAgent->setAttribute(callId, elementId, name, value);
 }
 
 void InspectorBackend::removeAttribute(long callId, long elementId, const String& name)
 {
-    if (m_inspectorController)
-        m_inspectorController->domAgent()->removeAttribute(callId, elementId, name);
+    if (InspectorDOMAgent* domAgent = inspectorDOMAgent())
+        domAgent->removeAttribute(callId, elementId, name);
 }
 
-void InspectorBackend::setTextNodeValue(long callId, long elementId, const String& value)
+void InspectorBackend::setTextNodeValue(long callId, long nodeId, const String& value)
 {
-    if (m_inspectorController)
-        m_inspectorController->domAgent()->setTextNodeValue(callId, elementId, value);
+    if (InspectorDOMAgent* domAgent = inspectorDOMAgent())
+        domAgent->setTextNodeValue(callId, nodeId, value);
 }
 
-void InspectorBackend::highlight(Node* node)
+void InspectorBackend::getEventListenersForNode(long callId, long nodeId)
 {
-    if (m_inspectorController)
+    if (InspectorDOMAgent* domAgent = inspectorDOMAgent())
+        domAgent->getEventListenersForNode(callId, nodeId);
+}
+
+void InspectorBackend::copyNode(long nodeId)
+{
+    Node* node = nodeForId(nodeId);
+    if (!node)
+        return;
+    String markup = createMarkup(node);
+    Pasteboard::generalPasteboard()->writePlainText(markup);
+}
+
+void InspectorBackend::getCookies(long callId, const String& domain)
+{
+    if (!m_inspectorController)
+        return;
+    m_inspectorController->getCookies(callId, domain);
+}
+
+void InspectorBackend::deleteCookie(const String& cookieName, const String& domain)
+{
+    if (!m_inspectorController)
+        return;
+    m_inspectorController->deleteCookie(cookieName, domain);
+}
+
+void InspectorBackend::highlight(long nodeId)
+{
+    if (Node* node = nodeForId(nodeId))
         m_inspectorController->highlight(node);
 }
 
+Node* InspectorBackend::nodeForId(long nodeId)
+{
+    if (InspectorDOMAgent* domAgent = inspectorDOMAgent())
+        return domAgent->nodeForId(nodeId);
+    return 0;
+}
+
+ScriptValue InspectorBackend::wrapObject(const ScriptValue& object, const String& objectGroup)
+{
+    if (m_inspectorController)
+        return m_inspectorController->wrapObject(object, objectGroup);
+    return ScriptValue();
+}
+
+ScriptValue InspectorBackend::unwrapObject(const String& objectId)
+{
+    if (m_inspectorController)
+        return m_inspectorController->unwrapObject(objectId);
+    return ScriptValue();
+}
+
+void InspectorBackend::releaseWrapperObjectGroup(const String& objectGroup)
+{
+    if (m_inspectorController)
+        m_inspectorController->releaseWrapperObjectGroup(objectGroup);
+}
+
+long InspectorBackend::pushNodePathToFrontend(Node* node, bool selectInUI)
+{
+    InspectorFrontend* frontend = inspectorFrontend();
+    InspectorDOMAgent* domAgent = inspectorDOMAgent();
+    if (!domAgent || !frontend)
+        return 0;
+    long id = domAgent->pushNodePathToFrontend(node);
+    if (selectInUI)
+        frontend->updateFocusedNode(id);
+    return id;
+}
+
+void InspectorBackend::addNodesToSearchResult(const String& nodeIds)
+{
+    if (InspectorFrontend* frontend = inspectorFrontend())
+        frontend->addNodesToSearchResult(nodeIds);
+}
+
+#if ENABLE(DATABASE)
+Database* InspectorBackend::databaseForId(long databaseId)
+{
+    if (m_inspectorController)
+        return m_inspectorController->databaseForId(databaseId);
+    return 0;
+}
+
+void InspectorBackend::selectDatabase(Database* database)
+{
+    if (m_inspectorController)
+        m_inspectorController->selectDatabase(database);
+}
+
+void InspectorBackend::getDatabaseTableNames(long callId, long databaseId)
+{
+    if (InspectorFrontend* frontend = inspectorFrontend()) {
+        ScriptArray result = frontend->newScriptArray();
+        Database* database = m_inspectorController->databaseForId(databaseId);
+        if (database) {
+            Vector<String> tableNames = database->tableNames();
+            unsigned length = tableNames.size();
+            for (unsigned i = 0; i < length; ++i)
+                result.set(i, tableNames[i]);
+        }
+        frontend->didGetDatabaseTableNames(callId, result);
+    }
+}
+#endif
+
+#if ENABLE(DOM_STORAGE)
+void InspectorBackend::selectDOMStorage(Storage* storage)
+{
+    if (m_inspectorController)
+        m_inspectorController->selectDOMStorage(storage);
+}
+
+void InspectorBackend::getDOMStorageEntries(long callId, long storageId)
+{
+    if (m_inspectorController)
+        m_inspectorController->getDOMStorageEntries(callId, storageId);
+}
+
+void InspectorBackend::setDOMStorageItem(long callId, long storageId, const String& key, const String& value)
+{
+    if (m_inspectorController)
+        m_inspectorController->setDOMStorageItem(callId, storageId, key, value);
+}
+
+void InspectorBackend::removeDOMStorageItem(long callId, long storageId, const String& key)
+{
+    if (m_inspectorController)
+        m_inspectorController->removeDOMStorageItem(callId, storageId, key);
+}
+#endif
+
+void InspectorBackend::didEvaluateForTestInFrontend(long callId, const String& jsonResult)
+{
+    if (m_inspectorController)
+        m_inspectorController->didEvaluateForTestInFrontend(callId, jsonResult);
+}
+
+void InspectorBackend::reportDidDispatchOnInjectedScript(long callId, const String& result, bool isException)
+{
+    if (InspectorFrontend* frontend = inspectorFrontend())
+        frontend->didDispatchOnInjectedScript(callId, result, isException);
+}
+
+InspectorDOMAgent* InspectorBackend::inspectorDOMAgent()
+{
+    if (!m_inspectorController)
+        return 0;
+    return m_inspectorController->domAgent();
+}
+
+InspectorFrontend* InspectorBackend::inspectorFrontend()
+{
+    if (!m_inspectorController)
+        return 0;
+    return m_inspectorController->m_frontend.get();
+}
+
 } // namespace WebCore
+
+#endif // ENABLE(INSPECTOR)

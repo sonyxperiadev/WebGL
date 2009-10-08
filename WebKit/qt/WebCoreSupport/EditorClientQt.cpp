@@ -41,6 +41,7 @@
 #include "FocusController.h"
 #include "Frame.h"
 #include "HTMLElement.h"
+#include "HTMLNames.h"
 #include "KeyboardCodes.h"
 #include "KeyboardEvent.h"
 #include "NotImplemented.h"
@@ -96,6 +97,7 @@ static QString dumpRange(WebCore::Range *range)
 
 namespace WebCore {
 
+using namespace HTMLNames;
 
 bool EditorClientQt::shouldDeleteRange(Range* range)
 {
@@ -108,7 +110,7 @@ bool EditorClientQt::shouldDeleteRange(Range* range)
 bool EditorClientQt::shouldShowDeleteInterface(HTMLElement* element)
 {
     if (QWebPagePrivate::drtRun)
-        return element->className() == "needsDeletionUI";
+        return element->getAttribute(classAttr) == "needsDeletionUI";
     return false;
 }
 
@@ -218,7 +220,9 @@ void EditorClientQt::respondToChangedSelection()
 
     m_page->d->updateEditorActions();
     emit m_page->selectionChanged();
-    emit m_page->microFocusChanged();
+    Frame* frame = m_page->d->page->focusController()->focusedOrMainFrame();
+    if (!frame->editor()->ignoreCompositionSelectionChange())
+        emit m_page->microFocusChanged();
 }
 
 void EditorClientQt::didEndEditing()
@@ -593,10 +597,10 @@ bool EditorClientQt::isEditing() const
 void EditorClientQt::setInputMethodState(bool active)
 {
     QWidget *view = m_page->view();
-    if (view) {
+    if (view)
         view->setAttribute(Qt::WA_InputMethodEnabled, active);
-        emit m_page->microFocusChanged();
-    }
+
+    emit m_page->microFocusChanged();
 }
 
 }

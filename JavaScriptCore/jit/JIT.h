@@ -191,82 +191,82 @@ namespace JSC {
         // MacroAssembler will need to plant register swaps if it is not -
         // however the code will still function correctly.
 #if PLATFORM(X86_64)
-        static const RegisterID returnValueRegister = X86::eax;
-        static const RegisterID cachedResultRegister = X86::eax;
-        static const RegisterID firstArgumentRegister = X86::edi;
+        static const RegisterID returnValueRegister = X86Registers::eax;
+        static const RegisterID cachedResultRegister = X86Registers::eax;
+        static const RegisterID firstArgumentRegister = X86Registers::edi;
 
-        static const RegisterID timeoutCheckRegister = X86::r12;
-        static const RegisterID callFrameRegister = X86::r13;
-        static const RegisterID tagTypeNumberRegister = X86::r14;
-        static const RegisterID tagMaskRegister = X86::r15;
+        static const RegisterID timeoutCheckRegister = X86Registers::r12;
+        static const RegisterID callFrameRegister = X86Registers::r13;
+        static const RegisterID tagTypeNumberRegister = X86Registers::r14;
+        static const RegisterID tagMaskRegister = X86Registers::r15;
 
-        static const RegisterID regT0 = X86::eax;
-        static const RegisterID regT1 = X86::edx;
-        static const RegisterID regT2 = X86::ecx;
-        static const RegisterID regT3 = X86::ebx;
+        static const RegisterID regT0 = X86Registers::eax;
+        static const RegisterID regT1 = X86Registers::edx;
+        static const RegisterID regT2 = X86Registers::ecx;
+        static const RegisterID regT3 = X86Registers::ebx;
 
-        static const FPRegisterID fpRegT0 = X86::xmm0;
-        static const FPRegisterID fpRegT1 = X86::xmm1;
-        static const FPRegisterID fpRegT2 = X86::xmm2;
+        static const FPRegisterID fpRegT0 = X86Registers::xmm0;
+        static const FPRegisterID fpRegT1 = X86Registers::xmm1;
+        static const FPRegisterID fpRegT2 = X86Registers::xmm2;
 #elif PLATFORM(X86)
-        static const RegisterID returnValueRegister = X86::eax;
-        static const RegisterID cachedResultRegister = X86::eax;
+        static const RegisterID returnValueRegister = X86Registers::eax;
+        static const RegisterID cachedResultRegister = X86Registers::eax;
         // On x86 we always use fastcall conventions = but on
         // OS X if might make more sense to just use regparm.
-        static const RegisterID firstArgumentRegister = X86::ecx;
+        static const RegisterID firstArgumentRegister = X86Registers::ecx;
 
-        static const RegisterID timeoutCheckRegister = X86::esi;
-        static const RegisterID callFrameRegister = X86::edi;
+        static const RegisterID timeoutCheckRegister = X86Registers::esi;
+        static const RegisterID callFrameRegister = X86Registers::edi;
 
-        static const RegisterID regT0 = X86::eax;
-        static const RegisterID regT1 = X86::edx;
-        static const RegisterID regT2 = X86::ecx;
-        static const RegisterID regT3 = X86::ebx;
+        static const RegisterID regT0 = X86Registers::eax;
+        static const RegisterID regT1 = X86Registers::edx;
+        static const RegisterID regT2 = X86Registers::ecx;
+        static const RegisterID regT3 = X86Registers::ebx;
 
-        static const FPRegisterID fpRegT0 = X86::xmm0;
-        static const FPRegisterID fpRegT1 = X86::xmm1;
-        static const FPRegisterID fpRegT2 = X86::xmm2;
-#elif PLATFORM_ARM_ARCH(7)
-        static const RegisterID returnValueRegister = ARM::r0;
-        static const RegisterID cachedResultRegister = ARM::r0;
-        static const RegisterID firstArgumentRegister = ARM::r0;
+        static const FPRegisterID fpRegT0 = X86Registers::xmm0;
+        static const FPRegisterID fpRegT1 = X86Registers::xmm1;
+        static const FPRegisterID fpRegT2 = X86Registers::xmm2;
+#elif PLATFORM(ARM_THUMB2)
+        static const RegisterID returnValueRegister = ARMRegisters::r0;
+        static const RegisterID cachedResultRegister = ARMRegisters::r0;
+        static const RegisterID firstArgumentRegister = ARMRegisters::r0;
 
-        static const RegisterID regT0 = ARM::r0;
-        static const RegisterID regT1 = ARM::r1;
-        static const RegisterID regT2 = ARM::r2;
-        static const RegisterID regT3 = ARM::r4;
+        static const RegisterID regT0 = ARMRegisters::r0;
+        static const RegisterID regT1 = ARMRegisters::r1;
+        static const RegisterID regT2 = ARMRegisters::r2;
+        static const RegisterID regT3 = ARMRegisters::r4;
 
-        static const RegisterID callFrameRegister = ARM::r5;
-        static const RegisterID timeoutCheckRegister = ARM::r6;
+        static const RegisterID callFrameRegister = ARMRegisters::r5;
+        static const RegisterID timeoutCheckRegister = ARMRegisters::r6;
 
-        static const FPRegisterID fpRegT0 = ARM::d0;
-        static const FPRegisterID fpRegT1 = ARM::d1;
-        static const FPRegisterID fpRegT2 = ARM::d2;
-#elif PLATFORM(ARM)
-        static const RegisterID returnValueRegister = ARM::r0;
-        static const RegisterID cachedResultRegister = ARM::r0;
-        static const RegisterID firstArgumentRegister = ARM::r0;
+        static const FPRegisterID fpRegT0 = ARMRegisters::d0;
+        static const FPRegisterID fpRegT1 = ARMRegisters::d1;
+        static const FPRegisterID fpRegT2 = ARMRegisters::d2;
+#elif PLATFORM(ARM_TRADITIONAL)
+        static const RegisterID returnValueRegister = ARMRegisters::r0;
+        static const RegisterID cachedResultRegister = ARMRegisters::r0;
+        static const RegisterID firstArgumentRegister = ARMRegisters::r0;
 
-        static const RegisterID timeoutCheckRegister = ARM::r5;
-        static const RegisterID callFrameRegister = ARM::r4;
-        static const RegisterID ctiReturnRegister = ARM::r6;
+        static const RegisterID timeoutCheckRegister = ARMRegisters::r5;
+        static const RegisterID callFrameRegister = ARMRegisters::r4;
+        static const RegisterID ctiReturnRegister = ARMRegisters::r6;
 
-        static const RegisterID regT0 = ARM::r0;
-        static const RegisterID regT1 = ARM::r1;
-        static const RegisterID regT2 = ARM::r2;
+        static const RegisterID regT0 = ARMRegisters::r0;
+        static const RegisterID regT1 = ARMRegisters::r1;
+        static const RegisterID regT2 = ARMRegisters::r2;
         // Callee preserved
-        static const RegisterID regT3 = ARM::r7;
+        static const RegisterID regT3 = ARMRegisters::r7;
 
-        static const RegisterID regS0 = ARM::S0;
+        static const RegisterID regS0 = ARMRegisters::S0;
         // Callee preserved
-        static const RegisterID regS1 = ARM::S1;
+        static const RegisterID regS1 = ARMRegisters::S1;
 
-        static const RegisterID regStackPtr = ARM::sp;
-        static const RegisterID regLink = ARM::lr;
+        static const RegisterID regStackPtr = ARMRegisters::sp;
+        static const RegisterID regLink = ARMRegisters::lr;
 
-        static const FPRegisterID fpRegT0 = ARM::d0;
-        static const FPRegisterID fpRegT1 = ARM::d1;
-        static const FPRegisterID fpRegT2 = ARM::d2;
+        static const FPRegisterID fpRegT0 = ARMRegisters::d0;
+        static const FPRegisterID fpRegT1 = ARMRegisters::d1;
+        static const FPRegisterID fpRegT2 = ARMRegisters::d2;
 #else
     #error "JIT not supported on this platform."
 #endif
@@ -277,10 +277,9 @@ namespace JSC {
         static const int patchGetByIdDefaultOffset = 256;
 
     public:
-        static void compile(JSGlobalData* globalData, CodeBlock* codeBlock)
+        static JITCode compile(JSGlobalData* globalData, CodeBlock* codeBlock)
         {
-            JIT jit(globalData, codeBlock);
-            jit.privateCompile();
+            return JIT(globalData, codeBlock).privateCompile();
         }
 
         static void compileGetByIdProto(JSGlobalData* globalData, CallFrame* callFrame, CodeBlock* codeBlock, StructureStubInfo* stubInfo, Structure* structure, Structure* prototypeStructure, size_t cachedOffset, ReturnAddressPtr returnAddress)
@@ -353,7 +352,7 @@ namespace JSC {
         void privateCompileMainPass();
         void privateCompileLinkPass();
         void privateCompileSlowCases();
-        void privateCompile();
+        JITCode privateCompile();
         void privateCompileGetByIdProto(StructureStubInfo*, Structure*, Structure* prototypeStructure, size_t cachedOffset, ReturnAddressPtr returnAddress, CallFrame* callFrame);
         void privateCompileGetByIdSelfList(StructureStubInfo*, PolymorphicAccessStructureList*, int, Structure*, size_t cachedOffset);
         void privateCompileGetByIdProtoList(StructureStubInfo*, PolymorphicAccessStructureList*, int, Structure*, Structure* prototypeStructure, size_t cachedOffset, CallFrame* callFrame);
@@ -380,14 +379,18 @@ namespace JSC {
 
         enum CompileOpStrictEqType { OpStrictEq, OpNStrictEq };
         void compileOpStrictEq(Instruction* instruction, CompileOpStrictEqType type);
+        bool isOperandConstantImmediateDouble(unsigned src);
+        
+        void emitLoadDouble(unsigned index, FPRegisterID value);
+        void emitLoadInt32ToDouble(unsigned index, FPRegisterID value);
+
+        Address addressFor(unsigned index, RegisterID base = callFrameRegister);
 
 #if USE(JSVALUE32_64)
         Address tagFor(unsigned index, RegisterID base = callFrameRegister);
         Address payloadFor(unsigned index, RegisterID base = callFrameRegister);
-        Address addressFor(unsigned index, RegisterID base = callFrameRegister);
 
         bool getOperandConstantImmediateInt(unsigned op1, unsigned op2, unsigned& op, int32_t& constant);
-        bool isOperandConstantImmediateDouble(unsigned src);
 
         void emitLoadTag(unsigned index, RegisterID tag);
         void emitLoadPayload(unsigned index, RegisterID payload);
@@ -395,8 +398,6 @@ namespace JSC {
         void emitLoad(const JSValue& v, RegisterID tag, RegisterID payload);
         void emitLoad(unsigned index, RegisterID tag, RegisterID payload, RegisterID base = callFrameRegister);
         void emitLoad2(unsigned index1, RegisterID tag1, RegisterID payload1, unsigned index2, RegisterID tag2, RegisterID payload2);
-        void emitLoadDouble(unsigned index, FPRegisterID value);
-        void emitLoadInt32ToDouble(unsigned index, FPRegisterID value);
 
         void emitStore(unsigned index, RegisterID tag, RegisterID payload, RegisterID base = callFrameRegister);
         void emitStore(unsigned index, const JSValue constant, RegisterID base = callFrameRegister);
@@ -500,6 +501,7 @@ namespace JSC {
         JIT::Jump emitJumpIfNotImmediateInteger(RegisterID);
         JIT::Jump emitJumpIfNotImmediateIntegers(RegisterID, RegisterID, RegisterID);
         void emitJumpSlowCaseIfNotImmediateInteger(RegisterID);
+        void emitJumpSlowCaseIfNotImmediateNumber(RegisterID);
         void emitJumpSlowCaseIfNotImmediateIntegers(RegisterID, RegisterID, RegisterID);
 
 #if !USE(JSVALUE64)
@@ -512,7 +514,11 @@ namespace JSC {
 
         void emitTagAsBoolImmediate(RegisterID reg);
         void compileBinaryArithOp(OpcodeID, unsigned dst, unsigned src1, unsigned src2, OperandTypes opi);
-        void compileBinaryArithOpSlowCase(OpcodeID, Vector<SlowCaseEntry>::iterator&, unsigned dst, unsigned src1, unsigned src2, OperandTypes opi);
+#if USE(JSVALUE64)
+        void compileBinaryArithOpSlowCase(OpcodeID, Vector<SlowCaseEntry>::iterator&, unsigned dst, unsigned src1, unsigned src2, OperandTypes, bool op1HasImmediateIntFastCase, bool op2HasImmediateIntFastCase);
+#else
+        void compileBinaryArithOpSlowCase(OpcodeID, Vector<SlowCaseEntry>::iterator&, unsigned dst, unsigned src1, unsigned src2, OperandTypes);
+#endif
 
 #if ENABLE(JIT_OPTIMIZE_PROPERTY_ACCESS)
         void compileGetByIdHotPath(int resultVReg, int baseVReg, Identifier* ident, unsigned propertyAccessInstructionIndex);
@@ -536,7 +542,7 @@ namespace JSC {
         static const int patchOffsetGetByIdPropertyMapOffset = 31;
         static const int patchOffsetGetByIdPutResult = 31;
 #if ENABLE(OPCODE_SAMPLING)
-        static const int patchOffsetGetByIdSlowCaseCall = 63;
+        static const int patchOffsetGetByIdSlowCaseCall = 64;
 #else
         static const int patchOffsetGetByIdSlowCaseCall = 41;
 #endif
@@ -572,7 +578,7 @@ namespace JSC {
         static const int patchOffsetMethodCheckProtoObj = 11;
         static const int patchOffsetMethodCheckProtoStruct = 18;
         static const int patchOffsetMethodCheckPutFunction = 29;
-#elif PLATFORM_ARM_ARCH(7)
+#elif PLATFORM(ARM_THUMB2)
         // These architecture specific value are used to enable patching - see comment on op_put_by_id.
         static const int patchOffsetPutByIdStructure = 10;
         static const int patchOffsetPutByIdExternalLoad = 20;
@@ -595,8 +601,61 @@ namespace JSC {
         static const int patchOffsetMethodCheckProtoObj = 18;
         static const int patchOffsetMethodCheckProtoStruct = 28;
         static const int patchOffsetMethodCheckPutFunction = 46;
+#elif PLATFORM(ARM_TRADITIONAL)
+        // These architecture specific value are used to enable patching - see comment on op_put_by_id.
+        static const int patchOffsetPutByIdStructure = 4;
+        static const int patchOffsetPutByIdExternalLoad = 16;
+        static const int patchLengthPutByIdExternalLoad = 4;
+        static const int patchOffsetPutByIdPropertyMapOffset = 20;
+        // These architecture specific value are used to enable patching - see comment on op_get_by_id.
+        static const int patchOffsetGetByIdStructure = 4;
+        static const int patchOffsetGetByIdBranchToSlowCase = 16;
+        static const int patchOffsetGetByIdExternalLoad = 16;
+        static const int patchLengthGetByIdExternalLoad = 4;
+        static const int patchOffsetGetByIdPropertyMapOffset = 20;
+        static const int patchOffsetGetByIdPutResult = 28;
+#if ENABLE(OPCODE_SAMPLING)
+        #error "OPCODE_SAMPLING is not yet supported"
+#else
+        static const int patchOffsetGetByIdSlowCaseCall = 36;
+#endif
+        static const int patchOffsetOpCallCompareToJump = 12;
+
+        static const int patchOffsetMethodCheckProtoObj = 12;
+        static const int patchOffsetMethodCheckProtoStruct = 20;
+        static const int patchOffsetMethodCheckPutFunction = 32;
 #endif
 #endif // USE(JSVALUE32_64)
+
+#if PLATFORM(ARM_TRADITIONAL)
+        // sequenceOpCall
+        static const int sequenceOpCallInstructionSpace = 12;
+        static const int sequenceOpCallConstantSpace = 2;
+        // sequenceMethodCheck
+        static const int sequenceMethodCheckInstructionSpace = 40;
+        static const int sequenceMethodCheckConstantSpace = 6;
+        // sequenceGetByIdHotPath
+        static const int sequenceGetByIdHotPathInstructionSpace = 28;
+        static const int sequenceGetByIdHotPathConstantSpace = 3;
+        // sequenceGetByIdSlowCase
+        static const int sequenceGetByIdSlowCaseInstructionSpace = 40;
+        static const int sequenceGetByIdSlowCaseConstantSpace = 2;
+        // sequencePutById
+        static const int sequencePutByIdInstructionSpace = 28;
+        static const int sequencePutByIdConstantSpace = 3;
+#endif
+
+#if defined(ASSEMBLER_HAS_CONSTANT_POOL) && ASSEMBLER_HAS_CONSTANT_POOL
+#define BEGIN_UNINTERRUPTED_SEQUENCE(name) beginUninterruptedSequence(name ## InstructionSpace, name ## ConstantSpace)
+#define END_UNINTERRUPTED_SEQUENCE(name) endUninterruptedSequence(name ## InstructionSpace, name ## ConstantSpace)
+
+        void beginUninterruptedSequence(int, int);
+        void endUninterruptedSequence(int, int);
+
+#else
+#define BEGIN_UNINTERRUPTED_SEQUENCE(name)
+#define END_UNINTERRUPTED_SEQUENCE(name)
+#endif
 
         void emit_op_add(Instruction*);
         void emit_op_bitand(Instruction*);
@@ -741,6 +800,7 @@ namespace JSC {
         /* These functions are deprecated: Please use JITStubCall instead. */
         void emitPutJITStubArg(RegisterID src, unsigned argumentNumber);
 #if USE(JSVALUE32_64)
+        void emitPutJITStubArg(RegisterID tag, RegisterID payload, unsigned argumentNumber);
         void emitPutJITStubArgFromVirtualRegister(unsigned src, unsigned argumentNumber, RegisterID scratch1, RegisterID scratch2);
 #else
         void emitPutJITStubArgFromVirtualRegister(unsigned src, unsigned argumentNumber, RegisterID scratch);
@@ -834,6 +894,13 @@ namespace JSC {
 #else
         int m_lastResultBytecodeRegister;
         unsigned m_jumpTargetsPosition;
+#endif
+
+#ifndef NDEBUG
+#if defined(ASSEMBLER_HAS_CONSTANT_POOL) && ASSEMBLER_HAS_CONSTANT_POOL
+        Label m_uninterruptedInstructionSequenceBegin;
+        int m_uninterruptedConstantSequenceBegin;
+#endif
 #endif
     } JIT_CLASS_ALIGNMENT;
 } // namespace JSC

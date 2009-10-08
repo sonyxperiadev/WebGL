@@ -37,6 +37,7 @@
 #include "AXObjectCache.h"
 #include "CString.h"
 #include "DocumentLoader.h"
+#include "DocumentLoaderGtk.h"
 #include "FrameLoader.h"
 #include "FrameLoaderClientGtk.h"
 #include "FrameTree.h"
@@ -85,6 +86,7 @@ enum {
     LOAD_DONE,
     TITLE_CHANGED,
     HOVERING_OVER_LINK,
+    SCROLLBARS_POLICY_CHANGED,
     LAST_SIGNAL
 };
 
@@ -94,7 +96,9 @@ enum {
     PROP_NAME,
     PROP_TITLE,
     PROP_URI,
-    PROP_LOAD_STATUS
+    PROP_LOAD_STATUS,
+    PROP_HORIZONTAL_SCROLLBAR_POLICY,
+    PROP_VERTICAL_SCROLLBAR_POLICY
 };
 
 static guint webkit_web_frame_signals[LAST_SIGNAL] = { 0, };
@@ -118,6 +122,12 @@ static void webkit_web_frame_get_property(GObject* object, guint prop_id, GValue
     case PROP_LOAD_STATUS:
         g_value_set_enum(value, webkit_web_frame_get_load_status(frame));
         break;
+    case PROP_HORIZONTAL_SCROLLBAR_POLICY:
+        g_value_set_enum(value, webkit_web_frame_get_horizontal_scrollbar_policy(frame));
+        break;
+    case PROP_VERTICAL_SCROLLBAR_POLICY:
+        g_value_set_enum(value, webkit_web_frame_get_vertical_scrollbar_policy(frame));
+        break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
         break;
@@ -131,6 +141,11 @@ void webkit_web_frame_core_frame_gone(WebKitWebFrame* frame)
 {
     ASSERT(WEBKIT_IS_WEB_FRAME(frame));
     frame->priv->coreFrame = 0;
+}
+
+static WebKitWebDataSource* webkit_web_frame_get_data_source_from_core_loader(WebCore::DocumentLoader* loader)
+{
+    return loader ? static_cast<WebKit::DocumentLoader*>(loader)->dataSource() : NULL;
 }
 
 static void webkit_web_frame_finalize(GObject* object)
@@ -214,6 +229,37 @@ static void webkit_web_frame_class_init(WebKitWebFrameClass* frameClass)
             G_TYPE_NONE, 2,
             G_TYPE_STRING, G_TYPE_STRING);
 
+    /**
+     * WebKitWebFrame::scrollbars-policy-changed:
+     * @web_view: the object which received the signal
+     *
+     * Signal emitted when policy for one or both of the scrollbars of
+     * the view has changed. The default handler will apply the new
+     * policy to the container that holds the #WebKitWebFrame if it is
+     * a #GtkScrolledWindow and the frame is the main frame. If you do
+     * not want this to be handled automatically, you need to handle
+     * this signal.
+     *
+     * The exception to this rule is that policies to disable the
+     * scrollbars are applied as %GTK_POLICY_AUTOMATIC instead, since
+     * the size request of the widget would force browser windows to
+     * not be resizable.
+     *
+     * You can obtain the new policies from the
+     * WebKitWebFrame:horizontal-scrollbar-policy and
+     * WebKitWebFrame:vertical-scrollbar-policy properties.
+     *
+     * Since: 1.1.14
+     */
+    webkit_web_frame_signals[SCROLLBARS_POLICY_CHANGED] = g_signal_new("scrollbars-policy-changed",
+            G_TYPE_FROM_CLASS(frameClass),
+            (GSignalFlags)(G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION),
+            0,
+            g_signal_accumulator_true_handled,
+            NULL,
+            webkit_marshal_BOOLEAN__VOID,
+            G_TYPE_BOOLEAN, 0);
+
     /*
      * implementations of virtual methods
      */
@@ -260,6 +306,42 @@ static void webkit_web_frame_class_init(WebKitWebFrameClass* frameClass)
                                                       WEBKIT_LOAD_FINISHED,
                                                       WEBKIT_PARAM_READABLE));
 
+    /**
+     * WebKitWebFrame:horizontal-scrollbar-policy:
+     *
+     * Determines the current policy for the horizontal scrollbar of
+     * the frame. For the main frame, make sure to set the same policy
+     * on the scrollable widget containing the #WebKitWebView, unless
+     * you know what you are doing.
+     *
+     * Since: 1.1.14
+     */
+    g_object_class_install_property(objectClass, PROP_HORIZONTAL_SCROLLBAR_POLICY,
+                                    g_param_spec_enum("horizontal-scrollbar-policy",
+                                                      _("Horizontal Scrollbar Policy"),
+                                                      _("Determines the current policy for the horizontal scrollbar of the frame."),
+                                                      GTK_TYPE_POLICY_TYPE,
+                                                      GTK_POLICY_AUTOMATIC,
+                                                      WEBKIT_PARAM_READABLE));
+
+    /**
+     * WebKitWebFrame:vertical-scrollbar-policy:
+     *
+     * Determines the current policy for the vertical scrollbar of
+     * the frame. For the main frame, make sure to set the same policy
+     * on the scrollable widget containing the #WebKitWebView, unless
+     * you know what you are doing.
+     *
+     * Since: 1.1.14
+     */
+    g_object_class_install_property(objectClass, PROP_VERTICAL_SCROLLBAR_POLICY,
+                                    g_param_spec_enum("vertical-scrollbar-policy",
+                                                      _("Vertical Scrollbar Policy"),
+                                                      _("Determines the current policy for the vertical scrollbar of the frame."),
+                                                      GTK_TYPE_POLICY_TYPE,
+                                                      GTK_POLICY_AUTOMATIC,
+                                                      WEBKIT_PARAM_READABLE));
+
     g_type_class_add_private(frameClass, sizeof(WebKitWebFramePrivate));
 }
 
@@ -294,6 +376,8 @@ WebKitWebFrame* webkit_web_frame_new(WebKitWebView* webView)
     WebKit::FrameLoaderClient* client = new WebKit::FrameLoaderClient(frame);
     priv->coreFrame = Frame::create(viewPriv->corePage, 0, client).get();
     priv->coreFrame->init();
+
+    priv->origin = NULL;
 
     return frame;
 }
@@ -443,7 +527,7 @@ static void webkit_web_frame_load_data(WebKitWebFrame* frame, const gchar* conte
     SubstituteData substituteData(sharedBuffer.release(),
                                   mimeType ? String::fromUTF8(mimeType) : String::fromUTF8("text/html"),
                                   encoding ? String::fromUTF8(encoding) : String::fromUTF8("UTF-8"),
-                                  baseKURL,
+                                  KURL(KURL(), String::fromUTF8(unreachableURL)),
                                   KURL(KURL(), String::fromUTF8(unreachableURL)));
 
     coreFrame->loader()->load(request, substituteData, false);
@@ -603,6 +687,46 @@ JSGlobalContextRef webkit_web_frame_get_global_context(WebKitWebFrame* frame)
 }
 
 /**
+ * webkit_web_frame_get_data_source:
+ * @frame: a #WebKitWebFrame
+ *
+ * Returns the committed data source.
+ *
+ * Return value: the committed #WebKitWebDataSource.
+ *
+ * Since: 1.1.14
+ */
+WebKitWebDataSource* webkit_web_frame_get_data_source(WebKitWebFrame* frame)
+{
+    g_return_val_if_fail(WEBKIT_IS_WEB_FRAME(frame), NULL);
+
+    Frame* coreFrame = core(frame);
+    return webkit_web_frame_get_data_source_from_core_loader(coreFrame->loader()->documentLoader());
+}
+
+/**
+ * webkit_web_frame_get_provisional_data_source:
+ * @frame: a #WebKitWebFrame
+ *
+ * You use the webkit_web_frame_load_request method to initiate a request that
+ * creates a provisional data source. The provisional data source will
+ * transition to a committed data source once any data has been received. Use
+ * webkit_web_frame_get_data_source to get the committed data source.
+ *
+ * Return value: the provisional #WebKitWebDataSource or %NULL if a load
+ * request is not in progress.
+ *
+ * Since: 1.1.14
+ */
+WebKitWebDataSource* webkit_web_frame_get_provisional_data_source(WebKitWebFrame* frame)
+{
+    g_return_val_if_fail(WEBKIT_IS_WEB_FRAME(frame), NULL);
+
+    Frame* coreFrame = core(frame);
+    return webkit_web_frame_get_data_source_from_core_loader(coreFrame->loader()->provisionalDocumentLoader());
+}
+
+/**
  * webkit_web_frame_get_children:
  * @frame: a #WebKitWebFrame
  *
@@ -674,6 +798,19 @@ gchar* webkit_web_frame_dump_render_tree(WebKitWebFrame* frame)
     return g_strdup(string.utf8().data());
 }
 
+/**
+ * webkit_web_frame_get_pending_unload_event_count:
+ * @frame: a #WebKitWebFrame
+ *
+ * Return value: number of pending unload events
+ */
+guint webkit_web_frame_get_pending_unload_event_count(WebKitWebFrame* frame)
+{
+    g_return_val_if_fail(WEBKIT_IS_WEB_FRAME(frame), 0);
+
+    return core(frame)->domWindow()->pendingUnloadEventListeners();
+}
+
 static void begin_print_callback(GtkPrintOperation* op, GtkPrintContext* context, gpointer user_data)
 {
     PrintContext* printContext = reinterpret_cast<PrintContext*>(user_data);
@@ -695,6 +832,9 @@ static void begin_print_callback(GtkPrintOperation* op, GtkPrintContext* context
 static void draw_page_callback(GtkPrintOperation* op, GtkPrintContext* context, gint page_nr, gpointer user_data)
 {
     PrintContext* printContext = reinterpret_cast<PrintContext*>(user_data);
+
+    if (page_nr >= printContext->pageCount())
+        return;
 
     cairo_t* cr = gtk_print_context_get_cairo_context(context);
     GraphicsContext ctx(cr);
@@ -813,7 +953,7 @@ unsigned int webkit_web_frame_number_of_active_animations(WebKitWebFrame* frame)
 gchar* webkit_web_frame_get_response_mime_type(WebKitWebFrame* frame)
 {
     Frame* coreFrame = core(frame);
-    DocumentLoader* docLoader = coreFrame->loader()->documentLoader();
+    WebCore::DocumentLoader* docLoader = coreFrame->loader()->documentLoader();
     String mimeType = docLoader->responseMIMEType();
     return g_strdup(mimeType.utf8().data());
 }
@@ -882,4 +1022,83 @@ AtkObject* webkit_web_frame_get_focused_accessible_element(WebKitWebFrame* frame
 #else
     return NULL;
 #endif
+}
+
+GtkPolicyType webkit_web_frame_get_horizontal_scrollbar_policy(WebKitWebFrame* frame)
+{
+    g_return_val_if_fail(WEBKIT_IS_WEB_FRAME(frame), GTK_POLICY_AUTOMATIC);
+
+    Frame* coreFrame = core(frame);
+    FrameView* view = coreFrame->view();
+    if (!view)
+        return GTK_POLICY_AUTOMATIC;
+
+    ScrollbarMode hMode = view->horizontalScrollbarMode();
+
+    if (hMode == ScrollbarAlwaysOn)
+        return GTK_POLICY_ALWAYS;
+
+    if (hMode == ScrollbarAlwaysOff)
+        return GTK_POLICY_NEVER;
+
+    return GTK_POLICY_AUTOMATIC;
+}
+
+GtkPolicyType webkit_web_frame_get_vertical_scrollbar_policy(WebKitWebFrame* frame)
+{
+    g_return_val_if_fail(WEBKIT_IS_WEB_FRAME(frame), GTK_POLICY_AUTOMATIC);
+
+    Frame* coreFrame = core(frame);
+    FrameView* view = coreFrame->view();
+    if (!view)
+        return GTK_POLICY_AUTOMATIC;
+
+    ScrollbarMode vMode = view->verticalScrollbarMode();
+
+    if (vMode == ScrollbarAlwaysOn)
+        return GTK_POLICY_ALWAYS;
+
+    if (vMode == ScrollbarAlwaysOff)
+        return GTK_POLICY_NEVER;
+
+    return GTK_POLICY_AUTOMATIC;
+}
+
+/**
+ * webkit_web_frame_get_security_origin:
+ * @frame: a #WebKitWebFrame
+ *
+ * Returns the @frame's security origin.
+ *
+ * Return value: the security origin of @frame
+ *
+ * Since: 1.1.14
+ */
+WebKitSecurityOrigin* webkit_web_frame_get_security_origin(WebKitWebFrame* frame)
+{
+    WebKitWebFramePrivate* priv = frame->priv;
+    if (!priv->coreFrame || !priv->coreFrame->document() || !priv->coreFrame->document()->securityOrigin())
+        return NULL;
+
+    if (priv->origin && priv->origin->priv->coreOrigin.get() == priv->coreFrame->document()->securityOrigin())
+        return priv->origin;
+
+    if (priv->origin)
+        g_object_unref(priv->origin);
+
+    priv->origin = kit(priv->coreFrame->document()->securityOrigin());
+    return priv->origin;
+}
+
+void webkit_web_frame_layout(WebKitWebFrame* frame)
+{
+    Frame* coreFrame = core(frame);
+    if (!coreFrame)
+        return;
+
+    FrameView* view = coreFrame->view();
+    if (!view)
+        return;
+
+    view->layout();
 }

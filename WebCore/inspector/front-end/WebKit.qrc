@@ -9,9 +9,9 @@
     <file>ChangesView.js</file>
     <file>Color.js</file>
     <file>ConsoleView.js</file>
+    <file>CookieItemsView.js</file>
     <file>Database.js</file>
     <file>DatabaseQueryView.js</file>
-    <file>DatabasesPanel.js</file>
     <file>DatabaseTableView.js</file>
     <file>DataGrid.js</file>
     <file>DOMAgent.js</file>
@@ -21,9 +21,11 @@
     <file>Drawer.js</file>
     <file>ElementsPanel.js</file>
     <file>ElementsTreeOutline.js</file>
+    <file>EventListenersSidebarPane.js</file>
     <file>FontView.js</file>
     <file>ImageView.js</file>
     <file>InjectedScript.js</file>
+    <file>InjectedScriptAccess.js</file>
     <file>inspector.js</file>
     <file>KeyboardShortcut.js</file>
     <file>MetricsSidebarPane.js</file>
@@ -33,6 +35,7 @@
     <file>Panel.js</file>
     <file>PanelEnablerView.js</file>
     <file>Placard.js</file>
+    <file>Popup.js</file>
     <file>ProfileDataGridTree.js</file>
     <file>ProfilesPanel.js</file>
     <file>ProfileView.js</file>
@@ -50,20 +53,26 @@
     <file>SidebarTreeElement.js</file>
     <file>SourceFrame.js</file>
     <file>SourceView.js</file>
+    <file>StatusBarButton.js</file>
+    <file>StoragePanel.js</file>
     <file>StylesSidebarPane.js</file>
+    <file>SummaryBar.js</file>
     <file>TextPrompt.js</file>
+    <file>TimelineAgent.js</file>
     <file>TopDownProfileDataGridTree.js</file>
     <file>treeoutline.js</file>
     <file>utilities.js</file>
     <file>View.js</file>
+    <file>WatchExpressionsSidebarPane.js</file>
     <file>inspector.css</file>
+    <file>inspectorSyntaxHighlight.css</file>
     <file>Images/back.png</file>
     <file>Images/checker.png</file>
     <file>Images/clearConsoleButtonGlyph.png</file>
     <file>Images/closeButtons.png</file>
     <file>Images/consoleButtonGlyph.png</file>
+    <file>Images/cookie.png</file>
     <file>Images/database.png</file>
-    <file>Images/databasesIcon.png</file>
     <file>Images/databaseTable.png</file>
     <file>Images/debuggerContinue.png</file>
     <file>Images/debuggerPause.png</file>
@@ -80,12 +89,12 @@
     <file>Images/disclosureTriangleSmallRightDownWhite.png</file>
     <file>Images/disclosureTriangleSmallRightWhite.png</file>
     <file>Images/dockButtonGlyph.png</file>
-    <file>Images/domStorage.png</file>
     <file>Images/elementsIcon.png</file>
     <file>Images/enableOutlineButtonGlyph.png</file>
     <file>Images/enableSolidButtonGlyph.png</file>
     <file>Images/errorIcon.png</file>
     <file>Images/errorMediumIcon.png</file>
+    <file>Images/errorRedDot.png</file>
     <file>Images/excludeButtonGlyph.png</file>
     <file>Images/focusButtonGlyph.png</file>
     <file>Images/forward.png</file>
@@ -96,11 +105,14 @@
     <file>Images/goArrow.png</file>
     <file>Images/graphLabelCalloutLeft.png</file>
     <file>Images/graphLabelCalloutRight.png</file>
+    <file>Images/grayConnectorPoint.png</file>
     <file>Images/largerResourcesButtonGlyph.png</file>
+    <file>Images/localStorage.png</file>
     <file>Images/nodeSearchButtonGlyph.png</file>
     <file>Images/paneBottomGrow.png</file>
     <file>Images/paneBottomGrowActive.png</file>
     <file>Images/paneGrowHandleLine.png</file>
+    <file>Images/paneSettingsButtons.png</file>
     <file>Images/pauseOnExceptionButtonGlyph.png</file>
     <file>Images/percentButtonGlyph.png</file>
     <file>Images/profileGroupIcon.png</file>
@@ -134,6 +146,7 @@
     <file>Images/segmentHoverEnd.png</file>
     <file>Images/segmentSelected.png</file>
     <file>Images/segmentSelectedEnd.png</file>
+    <file>Images/sessionStorage.png</file>
     <file>Images/splitviewDimple.png</file>
     <file>Images/splitviewDividerBackground.png</file>
     <file>Images/statusbarBackground.png</file>
@@ -143,6 +156,8 @@
     <file>Images/statusbarMenuButtonSelected.png</file>
     <file>Images/statusbarResizerHorizontal.png</file>
     <file>Images/statusbarResizerVertical.png</file>
+    <file>Images/storageIcon.png</file>
+    <file>Images/successGreenDot.png</file>
     <file>Images/timelineHollowPillBlue.png</file>
     <file>Images/timelineHollowPillGray.png</file>
     <file>Images/timelineHollowPillGreen.png</file>
@@ -174,6 +189,8 @@
     <file>Images/userInputResultIcon.png</file>
     <file>Images/warningIcon.png</file>
     <file>Images/warningMediumIcon.png</file>
+    <file>Images/warningOrangeDot.png</file>
     <file>Images/warningsErrors.png</file>
+    <file>Images/whiteConnectorPoint.png</file>
 </qresource>
 </RCC>

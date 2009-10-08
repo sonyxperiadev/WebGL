@@ -20,7 +20,7 @@
  * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #ifndef StorageArea_h
@@ -31,7 +31,7 @@
 #include "PlatformString.h"
 
 #include <wtf/PassRefPtr.h>
-#include <wtf/Threading.h>
+#include <wtf/RefCounted.h>
 
 namespace WebCore {
 
@@ -42,7 +42,7 @@ namespace WebCore {
     enum StorageType { LocalStorage, SessionStorage };
 
     // This interface is required for Chromium since these actions need to be proxied between processes.
-    class StorageArea : public ThreadSafeShared<StorageArea> {
+    class StorageArea : public RefCounted<StorageArea> {
     public:
         virtual ~StorageArea() { }
 

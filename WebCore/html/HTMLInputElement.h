@@ -31,11 +31,13 @@
 namespace WebCore {
 
 class FileList;
+class HTMLDataListElement;
 class HTMLImageLoader;
+class HTMLOptionElement;
 class KURL;
 class VisibleSelection;
 
-class HTMLInputElement : public HTMLFormControlElementWithState, public InputElement {
+class HTMLInputElement : public HTMLTextFormControlElement, public InputElement {
 public:
     enum InputType {
         TEXT,
@@ -54,7 +56,8 @@ public:
         EMAIL,
         NUMBER,
         TELEPHONE,
-        URL
+        URL,
+        COLOR
     };
     
     enum AutoCompleteSetting {
@@ -72,8 +75,6 @@ public:
     virtual bool isKeyboardFocusable(KeyboardEvent*) const;
     virtual bool isMouseFocusable() const;
     virtual bool isEnumeratable() const { return inputType() != IMAGE; }
-    virtual void dispatchFocusEvent();
-    virtual void dispatchBlurEvent();
     virtual void updateFocusAppearance(bool restorePreviousSelection);
     virtual void aboutToUnload();
     virtual bool shouldUseInputMethod() const;
@@ -92,10 +93,19 @@ public:
 
     virtual bool valueMissing() const;
     virtual bool patternMismatch() const;
+    virtual bool tooLong() const;
+    // For ValidityState
+    bool rangeUnderflow() const;
+    bool rangeOverflow() const;
+    // Returns the minimum value for type=range.  Don't call this for other types.
+    double rangeMinimum() const;
+    // Returns the maximum value for type=range.  Don't call this for other types.
+    // This always returns a value which is <= rangeMinimum().
+    double rangeMaximum() const;
 
     bool isTextButton() const { return m_type == SUBMIT || m_type == RESET || m_type == BUTTON; }
     virtual bool isRadioButton() const { return m_type == RADIO; }
-    virtual bool isTextField() const { return m_type == TEXT || m_type == PASSWORD || m_type == SEARCH || m_type == ISINDEX || m_type == EMAIL || m_type == NUMBER || m_type == TELEPHONE || m_type == URL; }
+    virtual bool isTextField() const { return m_type == TEXT || m_type == PASSWORD || m_type == SEARCH || m_type == ISINDEX || m_type == EMAIL || m_type == NUMBER || m_type == TELEPHONE || m_type == URL || m_type == COLOR; }
     virtual bool isSearchField() const { return m_type == SEARCH; }
     virtual bool isInputTypeHidden() const { return m_type == HIDDEN; }
     virtual bool isPasswordField() const { return m_type == PASSWORD; }
@@ -127,12 +137,7 @@ public:
     virtual bool canStartSelection() const;
     
     bool canHaveSelection() const;
-    int selectionStart() const;
-    int selectionEnd() const;
-    void setSelectionStart(int);
-    void setSelectionEnd(int);
-    virtual void select();
-    void setSelectionRange(int start, int end);
+    virtual void select() { HTMLTextFormControlElement::select(); }
 
     virtual void accessKeyAction(bool sendToAnyElement);
 
@@ -194,8 +199,13 @@ public:
     KURL src() const;
     void setSrc(const String&);
 
+#if ENABLE(DATALIST)
+    HTMLElement* list() const;
+    HTMLOptionElement* selectedOption() const;
+#endif
+
     int maxLength() const;
-    void setMaxLength(int);
+    void setMaxLength(int, ExceptionCode&);
 
     bool multiple() const;
     void setMultiple(bool);
@@ -212,9 +222,7 @@ public:
     void addSearchResult();
     void onSearch();
 
-    VisibleSelection selection() const;
-
-    virtual String constrainValue(const String& proposedValue) const;
+    virtual String sanitizeValue(const String&) const;
 
     virtual void documentDidBecomeActive();
 
@@ -222,16 +230,14 @@ public:
     
     virtual bool willValidate() const;
 
-    virtual bool placeholderShouldBeVisible() const;
+    // Converts the specified string to a floating number.
+    // If the conversion fails, the return value is false. Take care that leading or trailing unnecessary characters make failures.  This returns false for an empty string input.
+    // The double* parameter may be 0.
+    static bool formStringToDouble(const String&, double*);
     
 protected:
     virtual void willMoveToNewOwnerDocument();
     virtual void didMoveToNewOwnerDocument();
-
-    void updatePlaceholderVisibility()
-    {
-        InputElement::updatePlaceholderVisibility(m_data, this, this, true);
-    }
 
 private:
     bool storesValueSeparateFromAttribute() const;
@@ -240,8 +246,19 @@ private:
     void registerForActivationCallbackIfNeeded();
     void unregisterForActivationCallbackIfNeeded();
 
+    virtual bool supportsPlaceholder() const { return isTextField(); }
+    virtual bool isEmptyValue() const { return value().isEmpty(); }
+    virtual void handleFocusEvent();
+    virtual void handleBlurEvent();
+    virtual int cachedSelectionStart() const { return m_data.cachedSelectionStart(); }
+    virtual int cachedSelectionEnd() const { return m_data.cachedSelectionEnd(); }
+
     virtual bool isOptionalFormControl() const { return !isRequiredFormControl(); }
     virtual bool isRequiredFormControl() const;
+
+#if ENABLE(DATALIST)
+    HTMLDataListElement* dataList() const;
+#endif
 
     InputElementData m_data;
     int m_xPos;
@@ -259,6 +276,9 @@ private:
     unsigned m_autocomplete : 2; // AutoCompleteSetting
     bool m_autofilled : 1;
     bool m_inited : 1;
+#if ENABLE(DATALIST)
+    bool m_hasNonEmptyList : 1;
+#endif
 };
 
 } //namespace

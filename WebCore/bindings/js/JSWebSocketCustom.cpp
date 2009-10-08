@@ -38,18 +38,11 @@
 #include "KURL.h"
 #include "WebSocket.h"
 #include "NotImplemented.h"
+#include <runtime/Error.h>
 
 using namespace JSC;
 
 namespace WebCore {
-
-void JSWebSocket::markChildren(MarkStack& markStack)
-{
-    Base::markChildren(markStack);
-    if (m_impl->readyState() != WebSocket::CLOSED)
-        markIfNotNull(markStack, m_impl->onmessage());
-    // FIXME: mark if EventListeners is registered.
-}
 
 // Custom functions
 JSValue JSWebSocket::send(ExecState* exec, const ArgList& args)

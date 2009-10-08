@@ -53,6 +53,7 @@ SVGAElement::SVGAElement(const QualifiedName& tagName, Document *doc)
     , SVGLangSpace()
     , SVGExternalResourcesRequired()
     , m_target(this, SVGNames::targetAttr)
+    , m_href(this, XLinkNames::hrefAttr)
 {
 }
 
@@ -165,20 +166,15 @@ bool SVGAElement::supportsFocus() const
 {
     if (isContentEditable())
         return SVGStyledTransformableElement::supportsFocus();
-    return isFocusable() || (document() && !document()->haveStylesheetsLoaded());
+    return true;
 }
 
 bool SVGAElement::isFocusable() const
 {
-    if (isContentEditable())
-        return SVGStyledTransformableElement::isFocusable();
-    
-    // FIXME: Even if we are not visible, we might have a child that is visible.
-    // Dave wants to fix that some day with a "has visible content" flag or the like.
-    if (!renderer() || !(renderer()->style()->visibility() == VISIBLE))
+    if (renderer() && renderer()->absoluteClippedOverflowRect().isEmpty())
         return false;
     
-    return !renderer()->absoluteClippedOverflowRect().isEmpty();
+    return SVGElement::isFocusable();
 }
 
 bool SVGAElement::isMouseFocusable() const

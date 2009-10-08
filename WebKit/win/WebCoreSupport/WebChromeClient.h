@@ -29,8 +29,10 @@
 #include <WebCore/FocusDirection.h>
 #include <WebCore/ScrollTypes.h>
 #include <wtf/Forward.h>
+#include <wtf/PassRefPtr.h>
 
 class WebView;
+class WebDesktopNotificationsDelegate;
 
 interface IWebUIDelegate;
 
@@ -93,9 +95,10 @@ public:
     virtual void scroll(const WebCore::IntSize& scrollDelta, const WebCore::IntRect& rectToScroll, const WebCore::IntRect& clipRect);
     virtual WebCore::IntPoint screenToWindow(const WebCore::IntPoint& p) const;
     virtual WebCore::IntRect windowToScreen(const WebCore::IntRect& r) const;
-    virtual PlatformWidget platformWindow() const;
+    virtual PlatformPageClient platformPageClient() const;
     virtual void contentsSizeChanged(WebCore::Frame*, const WebCore::IntSize&) const;
 
+    virtual void scrollbarsModeDidChange() const { }
     virtual void mouseDidMoveOverElement(const WebCore::HitTestResult&, unsigned modifierFlags);
 
     virtual void setToolTip(const WebCore::String&, WebCore::TextDirection);
@@ -131,8 +134,16 @@ public:
 
     virtual void requestGeolocationPermissionForFrame(WebCore::Frame*, WebCore::Geolocation*);
 
+#if ENABLE(NOTIFICATIONS)
+    virtual WebCore::NotificationPresenter* notificationPresenter() const { return reinterpret_cast<WebCore::NotificationPresenter*>(m_notificationsDelegate.get()); }
+#endif
+
 private:
     COMPtr<IWebUIDelegate> uiDelegate();
 
     WebView* m_webView;
+
+#if ENABLE(NOTIFICATIONS)
+    OwnPtr<WebDesktopNotificationsDelegate> m_notificationsDelegate;
+#endif
 };

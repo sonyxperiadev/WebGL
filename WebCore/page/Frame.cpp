@@ -59,6 +59,7 @@
 #include "Navigator.h"
 #include "NodeList.h"
 #include "Page.h"
+#include "PageGroup.h"
 #include "RegularExpression.h"
 #include "RenderPart.h"
 #include "RenderTableCell.h"
@@ -66,9 +67,12 @@
 #include "RenderTheme.h"
 #include "RenderView.h"
 #include "ScriptController.h"
+#include "ScriptSourceCode.h"
+#include "ScriptValue.h"
 #include "Settings.h"
 #include "TextIterator.h"
 #include "TextResourceDecoder.h"
+#include "UserContentURLPattern.h"
 #include "XMLNames.h"
 #include "htmlediting.h"
 #include "markup.h"
@@ -80,10 +84,6 @@
 #if USE(JSC)
 #include "JSDOMWindowShell.h"
 #include "runtime_root.h"
-#endif
-
-#if FRAME_LOADS_USER_STYLESHEET
-#include "UserStyleSheetLoader.h"
 #endif
 
 #if ENABLE(SVG)
@@ -99,6 +99,10 @@
 
 #if ENABLE(WML)
 #include "WMLNames.h"
+#endif
+
+#if ENABLE(MATHML)
+#include "MathMLNames.h"
 #endif
 
 using namespace std;
@@ -122,6 +126,7 @@ Frame::Frame(Page* page, HTMLFrameOwnerElement* ownerElement, FrameLoaderClient*
     : m_page(page)
     , m_treeNode(this, parentFromOwnerElement(ownerElement))
     , m_loader(this, frameLoaderClient)
+    , m_redirectScheduler(this)
     , m_ownerElement(ownerElement)
     , m_script(this)
     , m_selectionGranularity(CharacterGranularity)
@@ -131,6 +136,9 @@ Frame::Frame(Page* page, HTMLFrameOwnerElement* ownerElement, FrameLoaderClient*
     , m_eventHandler(this)
     , m_animationController(this)
     , m_lifeSupportTimer(this, &Frame::lifeSupportTimerFired)
+#if ENABLE(ORIENTATION_EVENTS)
+    , m_orientation(0)
+#endif
     , m_caretVisible(false)
     , m_caretPaint(true)
     , m_highlightTextMatches(false)
@@ -138,9 +146,6 @@ Frame::Frame(Page* page, HTMLFrameOwnerElement* ownerElement, FrameLoaderClient*
     , m_needsReapplyStyles(false)
     , m_isDisconnected(false)
     , m_excludeFromTextSearch(false)
-#if FRAME_LOADS_USER_STYLESHEET
-    , m_userStyleSheetLoader(0)
-#endif
 {
     Frame* parent = parentFromOwnerElement(ownerElement);
     m_zoomFactor = parent ? parent->m_zoomFactor : 1.0f;
@@ -157,6 +162,10 @@ Frame::Frame(Page* page, HTMLFrameOwnerElement* ownerElement, FrameLoaderClient*
 
 #if ENABLE(WML)
     WMLNames::init();
+#endif
+
+#if ENABLE(MATHML)
+    MathMLNames::init();
 #endif
 
     XMLNames::init();
@@ -203,10 +212,6 @@ Frame::~Frame()
     }
 
     ASSERT(!m_lifeSupportTimer.isActive());
-
-#if FRAME_LOADS_USER_STYLESHEET
-    delete m_userStyleSheetLoader;
-#endif
 }
 
 void Frame::init()
@@ -219,6 +224,11 @@ FrameLoader* Frame::loader() const
     return &m_loader;
 }
 
+RedirectScheduler* Frame::redirectScheduler() const
+{
+    return &m_redirectScheduler;
+}
+
 FrameView* Frame::view() const
 {
     return m_view.get();
@@ -226,6 +236,12 @@ FrameView* Frame::view() const
 
 void Frame::setView(PassRefPtr<FrameView> view)
 {
+    // We the custom scroll bars as early as possible to prevent m_doc->detach()
+    // from messing with the view such that its scroll bars won't be torn down.
+    // FIXME: We should revisit this.
+    if (m_view)
+        m_view->detachCustomScrollbars();
+
     // Detach the document now, so any onUnload handlers get run - if
     // we wait until the view is destroyed, then things won't be
     // hooked up enough for some JavaScript calls to work.
@@ -273,6 +289,15 @@ void Frame::setDocument(PassRefPtr<Document> newDoc)
     m_script.updateDocument();
 }
 
+#if ENABLE(ORIENTATION_EVENTS)
+void Frame::sendOrientationChangeEvent(int orientation)
+{
+    m_orientation = orientation;
+    if (Document* doc = document())
+        doc->dispatchWindowEvent(eventNames().orientationchangeEvent, false, false);
+}
+#endif // ENABLE(ORIENTATION_EVENTS)
+    
 Settings* Frame::settings() const
 {
     return m_page ? m_page->settings() : 0;
@@ -829,19 +854,44 @@ void Frame::reapplyStyles()
     // We should probably eventually move it into its own function.
     m_doc->docLoader()->setAutoLoadImages(m_page && m_page->settings()->loadsImagesAutomatically());
 
-#if FRAME_LOADS_USER_STYLESHEET
-    const KURL userStyleSheetLocation = m_page ? m_page->settings()->userStyleSheetLocation() : KURL();
-    if (!userStyleSheetLocation.isEmpty())
-        setUserStyleSheetLocation(userStyleSheetLocation);
-    else
-        setUserStyleSheet(String());
-#endif
-
     // FIXME: It's not entirely clear why the following is needed.
     // The document automatically does this as required when you set the style sheet.
     // But we had problems when this code was removed. Details are in
     // <http://bugs.webkit.org/show_bug.cgi?id=8079>.
     m_doc->updateStyleSelector();
+}
+
+void Frame::injectUserScripts(UserScriptInjectionTime injectionTime)
+{
+    if (!m_page)
+        return;
+    
+    // Walk the hashtable. Inject by world.
+    const UserScriptMap* userScripts = m_page->group().userScripts();
+    if (!userScripts)
+        return;
+    UserScriptMap::const_iterator end = userScripts->end();
+    for (UserScriptMap::const_iterator it = userScripts->begin(); it != end; ++it)
+        injectUserScriptsForWorld(it->first, *it->second, injectionTime);
+}
+
+void Frame::injectUserScriptsForWorld(unsigned worldID, const UserScriptVector& userScripts, UserScriptInjectionTime injectionTime)
+{
+    if (userScripts.isEmpty())
+        return;
+
+    Document* doc = document();
+    if (!doc)
+        return;
+
+    Vector<ScriptSourceCode> sourceCode;
+    unsigned count = userScripts.size();
+    for (unsigned i = 0; i < count; ++i) {
+        UserScript* script = userScripts[i].get();
+        if (script->injectionTime() == injectionTime && UserContentURLPattern::matchesPatterns(doc->url(), script->whitelist(), script->blacklist()))
+            sourceCode.append(ScriptSourceCode(script->source(), script->url()));
+    }
+    script()->evaluateInIsolatedWorld(worldID, sourceCode);
 }
 
 bool Frame::shouldChangeSelection(const VisibleSelection& newSelection) const
@@ -1559,6 +1609,11 @@ Page* Frame::page() const
     return m_page;
 }
 
+void Frame::detachFromPage()
+{
+    m_page = 0;
+}
+
 EventHandler* Frame::eventHandler() const
 {
     return &m_eventHandler;
@@ -1579,7 +1634,7 @@ void Frame::pageDestroyed()
     script()->clearScriptObjects();
     script()->updatePlatformScriptObjects();
 
-    m_page = 0;
+    detachFromPage();
 }
 
 void Frame::disconnectOwnerElement()
@@ -1624,7 +1679,7 @@ void Frame::unfocusWindow()
         page()->chrome()->unfocus();
 }
 
-bool Frame::shouldClose(RegisteredEventListenerVector* alternateEventListeners)
+bool Frame::shouldClose()
 {
     Chrome* chrome = page() ? page()->chrome() : 0;
     if (!chrome || !chrome->canRunBeforeUnloadConfirmPanel())
@@ -1638,7 +1693,8 @@ bool Frame::shouldClose(RegisteredEventListenerVector* alternateEventListeners)
     if (!body)
         return true;
 
-    RefPtr<BeforeUnloadEvent> beforeUnloadEvent = m_domWindow->dispatchBeforeUnloadEvent(alternateEventListeners);
+    RefPtr<BeforeUnloadEvent> beforeUnloadEvent = BeforeUnloadEvent::create();
+    m_domWindow->dispatchEvent(beforeUnloadEvent.get(), m_domWindow->document());
 
     if (!beforeUnloadEvent->defaultPrevented())
         doc->defaultEventHandler(beforeUnloadEvent.get());
@@ -1759,7 +1815,6 @@ void Frame::createView(const IntSize& viewportSize,
         frameView = FrameView::create(this);
 
     frameView->setScrollbarModes(horizontalScrollbarMode, verticalScrollbarMode);
-    frameView->updateDefaultScrollbarState();
 
     setView(frameView);
 

@@ -63,11 +63,17 @@ void CounterNode::recount()
     for (CounterNode* c = this; c; c = c->m_nextSibling) {
         int oldCount = c->m_countInParent;
         int newCount = c->computeCountInParent();
-        c->m_countInParent = newCount;
         if (oldCount == newCount)
             break;
-        if (c->m_renderer->isCounter())
-            c->m_renderer->setNeedsLayoutAndPrefWidthsRecalc();
+        c->m_countInParent = newCount;
+        // m_renderer contains the parent of the render node
+        // corresponding to a CounterNode. Let's find the counter
+        // child and make this re-layout.
+        for (RenderObject* o = c->m_renderer->firstChild(); o; o = o->nextSibling())
+            if (!o->documentBeingDestroyed() && o->isCounter()) {
+                o->setNeedsLayoutAndPrefWidthsRecalc();
+                break;
+            }
     }
 }
 
@@ -167,13 +173,13 @@ static void showTreeAndMark(const CounterNode* node)
 
     for (const CounterNode* c = root; c; c = nextInPreOrder(c)) {
         if (c == node)
-            fprintf(stderr, "*");                        
+            fprintf(stderr, "*");
         for (const CounterNode* d = c; d && d != root; d = d->parent())
             fprintf(stderr, "\t");
         if (c->isReset())
-            fprintf(stderr, "reset: %d\n", c->value());
+            fprintf(stderr, "reset: %d %d\n", c->value(), c->countInParent());
         else
-            fprintf(stderr, "increment: %d\n", c->value());
+            fprintf(stderr, "increment: %d %d\n", c->value(), c->countInParent());
     }
 }
 

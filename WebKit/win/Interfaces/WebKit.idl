@@ -73,6 +73,7 @@ import "ocidl.idl";
 #include "IWebCoreStatistics.idl"
 #include "IWebDataSource.idl"
 #include "IWebDatabaseManager.idl"
+#include "IWebDesktopNotificationsDelegate.idl"
 #include "IWebDocument.idl"
 #include "IWebDownload.idl"
 #include "IWebEditingDelegate.idl"
@@ -83,6 +84,7 @@ import "ocidl.idl";
 #include "IWebFrame.idl"
 #include "IWebFrameLoadDelegate.idl"
 #include "IWebFrameLoadDelegatePrivate.idl"
+#include "IWebFrameLoadDelegatePrivate2.idl"
 #include "IWebFramePrivate.idl"
 #include "IWebFrameView.idl"
 #include "IWebHTMLRepresentation.idl"
@@ -94,13 +96,16 @@ import "ocidl.idl";
 #include "IWebIconDatabase.idl"
 #include "IWebIconFetcher.idl"
 #include "IWebInspector.idl"
+#include "IWebInspectorPrivate.idl"
 #include "IWebJavaScriptCollector.idl"
 #include "IWebKitStatistics.idl"
 #include "IWebMutableURLRequestPrivate.idl"
 #include "IWebNotification.idl"
 #include "IWebNotificationCenter.idl"
 #include "IWebNotificationObserver.idl"
+#include "IWebPluginHalterDelegate.idl"
 #include "IWebPolicyDelegate.idl"
+#include "IWebPolicyDelegatePrivate.idl"
 #include "IWebPreferences.idl"
 #include "IWebPreferencesPrivate.idl"
 #include "IWebResource.idl"
@@ -111,6 +116,7 @@ import "ocidl.idl";
 #include "IWebSecurityOrigin.idl"
 #include "IWebTextRenderer.idl"
 #include "IWebUIDelegate.idl"
+#include "IWebUIDelegate2.idl"
 #include "IWebUIDelegatePrivate.idl"
 #include "IWebURLAuthenticationChallenge.idl"
 #include "IWebURLRequest.idl"
@@ -121,6 +127,7 @@ import "ocidl.idl";
 #include "IWebUndoTarget.idl"
 #include "IWebView.idl"
 #include "IWebViewPrivate.idl"
+#include "IWebWorkersPrivate.idl"
 
 #include "IGEN_DOMObject.idl"
 #include "IGEN_DOMCharacterData.idl"
@@ -357,6 +364,10 @@ library WebKit
     coclass WebCookieManager{
         [default] interface IWebCookieManager;
     }
-}
 
+    [uuid(0967AAFF-2FFE-4fcc-81F3-3FF2A9C6DCE2)]
+    coclass WebWorkersPrivate{
+        [default] interface IWebWorkersPrivate;
+    }
+}
 

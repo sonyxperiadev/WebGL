@@ -25,6 +25,7 @@
 #include "CString.h"
 #include "FloatConversion.h"
 #include "StringBuffer.h"
+#include "TextBreakIterator.h"
 #include "TextEncoding.h"
 #include <wtf/dtoa.h>
 #include <limits>
@@ -260,13 +261,6 @@ String String::substring(unsigned pos, unsigned len) const
     if (!m_impl) 
         return String();
     return m_impl->substring(pos, len);
-}
-
-String String::substringCopy(unsigned pos, unsigned len) const
-{
-    if (!m_impl) 
-        return String();
-    return m_impl->substringCopy(pos, len);
 }
 
 String String::lower() const
@@ -589,11 +583,18 @@ float String::toFloat(bool* ok) const
     return m_impl->toFloat(ok);
 }
 
-String String::copy() const
+String String::threadsafeCopy() const
 {
     if (!m_impl)
         return String();
-    return m_impl->copy();
+    return m_impl->threadsafeCopy();
+}
+
+String String::crossThreadString() const
+{
+    if (!m_impl)
+        return String();
+    return m_impl->crossThreadString();
 }
 
 bool String::isEmpty() const
@@ -919,6 +920,31 @@ PassRefPtr<SharedBuffer> utf8Buffer(const String& string)
 
     buffer.shrink(p - buffer.data());
     return SharedBuffer::adoptVector(buffer);
+}
+
+unsigned String::numGraphemeClusters() const
+{
+    TextBreakIterator* it = characterBreakIterator(characters(), length());
+    if (!it)
+        return length();
+
+    unsigned num = 0;
+    while (textBreakNext(it) != TextBreakDone)
+        ++num;
+    return num;
+}
+
+unsigned String::numCharactersInGraphemeClusters(unsigned numGraphemeClusters) const
+{
+    TextBreakIterator* it = characterBreakIterator(characters(), length());
+    if (!it)
+        return min(length(), numGraphemeClusters);
+
+    for (unsigned i = 0; i < numGraphemeClusters; ++i) {
+        if (textBreakNext(it) == TextBreakDone)
+            return length();
+    }
+    return textBreakCurrent(it);
 }
 
 } // namespace WebCore

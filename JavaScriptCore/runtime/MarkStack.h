@@ -27,33 +27,27 @@
 #define MarkStack_h
 
 #include "JSValue.h"
-
 #include <wtf/Noncopyable.h>
 
 namespace JSC {
+
+    class JSGlobalData;
     class Register;
     
     enum MarkSetProperties { MayContainNullValues, NoNullValues };
     
     class MarkStack : Noncopyable {
     public:
-        MarkStack()
-            : m_markSets()
-            , m_values()
+        MarkStack(void* jsArrayVPtr)
+            : m_jsArrayVPtr(jsArrayVPtr)
+#ifndef NDEBUG
+            , m_isCheckingForDefaultMarkViolation(false)
+#endif
         {
         }
 
-        ALWAYS_INLINE void append(JSValue value)
-        {
-            ASSERT(value);
-            if (value.marked())
-                return;
-            value.markDirect();
-            if (value.hasChildren())
-                m_values.append(value.asCell());
-        }
-
-        ALWAYS_INLINE void append(JSCell* cell);
+        ALWAYS_INLINE void append(JSValue);
+        ALWAYS_INLINE void append(JSCell*);
         
         ALWAYS_INLINE void appendValues(Register* values, size_t count, MarkSetProperties properties = NoNullValues)
         {
@@ -76,12 +70,15 @@ namespace JSC {
         }
 
     private:
+        void markChildren(JSCell*);
+
         struct MarkSet {
             MarkSet(JSValue* values, JSValue* end, MarkSetProperties properties)
                 : m_values(values)
                 , m_end(end)
                 , m_properties(properties)
             {
+                ASSERT(values);
             }
             JSValue* m_values;
             JSValue* m_end;
@@ -136,6 +133,12 @@ namespace JSC {
                 ASSERT(m_top);
                 return m_data[--m_top];
             }
+            
+            inline T& last()
+            {
+                ASSERT(m_top);
+                return m_data[m_top - 1];
+            }
 
             inline bool isEmpty()
             {
@@ -150,7 +153,14 @@ namespace JSC {
                 ASSERT(0 == (size % MarkStack::pageSize()));
                 if (size == m_allocated)
                     return;
+#if PLATFORM(WIN) || PLATFORM(SYMBIAN)
+                // We cannot release a part of a region with VirtualFree.  To get around this,
+                // we'll release the entire region and reallocate the size that we want.
+                releaseStack(m_data, m_allocated);
+                m_data = reinterpret_cast<T*>(allocateStack(size));
+#else
                 releaseStack(reinterpret_cast<char*>(m_data) + size, m_allocated - size);
+#endif
                 m_allocated = size;
                 m_capacity = m_allocated / sizeof(T);
             }
@@ -162,9 +172,15 @@ namespace JSC {
             T* m_data;
         };
 
+        void* m_jsArrayVPtr;
         MarkStackArray<MarkSet> m_markSets;
         MarkStackArray<JSCell*> m_values;
         static size_t s_pageSize;
+
+#ifndef NDEBUG
+    public:
+        bool m_isCheckingForDefaultMarkViolation;
+#endif
     };
 }
 

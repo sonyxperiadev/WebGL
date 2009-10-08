@@ -32,9 +32,13 @@
 
 #include "CachePolicy.h"
 #include "FrameLoaderTypes.h"
+#include "PolicyCallback.h"
+#include "PolicyChecker.h"
+#include "RedirectScheduler.h"
 #include "ResourceRequest.h"
 #include "ThreadableLoader.h"
 #include "Timer.h"
+#include <wtf/Forward.h>
 
 namespace WebCore {
 
@@ -42,7 +46,7 @@ namespace WebCore {
     class Archive;
 #endif
     class AuthenticationChallenge;
-    class CachedFrame;
+    class CachedFrameBase;
     class CachedPage;
     class CachedResource;
     class Document;
@@ -73,45 +77,9 @@ namespace WebCore {
     class Widget;
 
     struct FrameLoadRequest;
-    struct ScheduledRedirection;
     struct WindowFeatures;
 
     bool isBackForwardLoadType(FrameLoadType);
-
-    typedef void (*NavigationPolicyDecisionFunction)(void* argument,
-        const ResourceRequest&, PassRefPtr<FormState>, bool shouldContinue);
-    typedef void (*NewWindowPolicyDecisionFunction)(void* argument,
-        const ResourceRequest&, PassRefPtr<FormState>, const String& frameName, bool shouldContinue);
-    typedef void (*ContentPolicyDecisionFunction)(void* argument, PolicyAction);
-
-    class PolicyCheck {
-    public:
-        PolicyCheck();
-
-        void clear();
-        void set(const ResourceRequest&, PassRefPtr<FormState>,
-            NavigationPolicyDecisionFunction, void* argument);
-        void set(const ResourceRequest&, PassRefPtr<FormState>, const String& frameName,
-            NewWindowPolicyDecisionFunction, void* argument);
-        void set(ContentPolicyDecisionFunction, void* argument);
-
-        const ResourceRequest& request() const { return m_request; }
-        void clearRequest();
-
-        void call(bool shouldContinue);
-        void call(PolicyAction);
-        void cancel();
-
-    private:
-        ResourceRequest m_request;
-        RefPtr<FormState> m_formState;
-        String m_frameName;
-
-        NavigationPolicyDecisionFunction m_navigationFunction;
-        NewWindowPolicyDecisionFunction m_newWindowFunction;
-        ContentPolicyDecisionFunction m_contentFunction;
-        void* m_argument;
-    };
 
     class FrameLoader : public Noncopyable {
     public:
@@ -121,6 +89,8 @@ namespace WebCore {
         void init();
 
         Frame* frame() const { return m_frame; }
+
+        PolicyChecker* policyChecker() { return &m_policyChecker; }
 
         // FIXME: This is not cool, people. There are too many different functions that all start loads.
         // We should aim to consolidate these into a smaller set of functions, and try to reuse more of
@@ -144,13 +114,7 @@ namespace WebCore {
         void loadArchive(PassRefPtr<Archive>);
 #endif
 
-        // Returns true for any non-local URL. If document parameter is supplied, its local load policy dictates,
-        // otherwise if referrer is non-empty and represents a local file, then the local load is allowed.
-        static bool canLoad(const KURL&, const String& referrer, const Document*);
-        static bool canLoad(const KURL&, const String& referrer, const SecurityOrigin* = 0);
         static void reportLocalLoadFailed(Frame*, const String& url);
-
-        static bool shouldHideReferrer(const KURL&, const String& referrer);
 
         // Called by createWindow in JSDOMWindowBase.cpp, e.g. to fulfill a modal dialog creation
         Frame* createWindow(FrameLoader* frameLoaderForFrameLookup, const FrameLoadRequest&, const WindowFeatures&, bool& created);
@@ -195,6 +159,8 @@ namespace WebCore {
         void receivedMainResourceError(const ResourceError&, bool isComplete);
         void receivedData(const char*, int);
 
+        bool willLoadMediaElementURL(KURL&);
+
         void handleFallbackContent();
         bool isStopping() const;
 
@@ -204,8 +170,6 @@ namespace WebCore {
         ResourceError fileDoesNotExistError(const ResourceResponse&) const;
         ResourceError blockedError(const ResourceRequest&) const;
         ResourceError cannotShowURLError(const ResourceRequest&) const;
-
-        void cannotShowMIMEType(const ResourceResponse&);
         ResourceError interruptionForPolicyChangeError(const ResourceRequest&);
 
         bool isHostedByObjectElement() const;
@@ -213,10 +177,6 @@ namespace WebCore {
         bool canShowMIMEType(const String& MIMEType) const;
         bool representationExistsForURLScheme(const String& URLScheme);
         String generatedMIMETypeForURLScheme(const String& URLScheme);
-
-        void checkNavigationPolicy(const ResourceRequest&, NavigationPolicyDecisionFunction function, void* argument);
-        void checkContentPolicy(const String& MIMEType, ContentPolicyDecisionFunction, void* argument);
-        void cancelContentPolicyCheck();
 
         void reload(bool endToEndReload = false);
         void reloadWithOverrideEncoding(const String& overrideEncoding);
@@ -246,6 +206,7 @@ namespace WebCore {
 
         void checkLoadComplete();
         void detachFromParent();
+        void detachViewsAndDocumentLoader();
 
         void addExtraFieldsToSubresourceRequest(ResourceRequest&);
         void addExtraFieldsToMainResourceRequest(ResourceRequest&);
@@ -265,7 +226,7 @@ namespace WebCore {
             bool lockHistory, PassRefPtr<Event>, PassRefPtr<FormState>);
 
         void stop();
-        void stopLoading(bool sendUnload, DatabasePolicy = DatabasePolicyStop);
+        void stopLoading(UnloadEventPolicy, DatabasePolicy = DatabasePolicyStop);
         bool closeURL();
 
         void didExplicitOpen();
@@ -274,16 +235,6 @@ namespace WebCore {
         void commitIconURLToIconDatabase(const KURL&);
 
         KURL baseURL() const;
-
-        bool isScheduledLocationChangePending() const { return m_scheduledRedirection && isLocationChange(*m_scheduledRedirection); }
-        void scheduleHTTPRedirection(double delay, const String& url);
-        void scheduleLocationChange(const String& url, const String& referrer, bool lockHistory = true, bool lockBackForwardList = true, bool userGesture = false);
-        void scheduleRefresh(bool userGesture = false);
-        void scheduleHistoryNavigation(int steps);
-
-        bool canGoBackOrForward(int distance) const;
-        void goBackOrForward(int distance);
-        int getHistoryLength();
 
         void begin();
         void begin(const KURL&, bool dispatchWindowObjectAvailable = true, SecurityOrigin* forcedSecurityOrigin = 0);
@@ -312,10 +263,13 @@ namespace WebCore {
         void dispatchDocumentElementAvailable();
         void restoreDocumentState();
 
+        // Mixed content related functions.
+        static bool isMixedContent(SecurityOrigin* context, const KURL&);
+        void checkIfDisplayInsecureContent(SecurityOrigin* context, const KURL&);
+        void checkIfRunInsecureContent(SecurityOrigin* context, const KURL&);
+
         Frame* opener();
         void setOpener(Frame*);
-        bool openedByDOM() const;
-        void setOpenedByDOM();
 
         bool isProcessingUserGesture();
 
@@ -350,6 +304,7 @@ namespace WebCore {
         void setTitle(const String&);
 
         void commitProvisionalLoad(PassRefPtr<CachedPage>);
+        bool isLoadingFromCachedPage() const { return m_loadingFromCachedPage; }
 
         void goToItem(HistoryItem*, FrameLoadType);
         void saveDocumentAndScrollState();
@@ -357,16 +312,8 @@ namespace WebCore {
         HistoryItem* currentHistoryItem();
         void setCurrentHistoryItem(PassRefPtr<HistoryItem>);
 
-        enum LocalLoadPolicy {
-            AllowLocalLoadsForAll,  // No restriction on local loads.
-            AllowLocalLoadsForLocalAndSubstituteData,
-            AllowLocalLoadsForLocalOnly,
-        };
-        static void setLocalLoadPolicy(LocalLoadPolicy);
-        static bool restrictAccessToLocal();
-        static bool allowSubstituteDataAccessToLocal();
-
         bool committingFirstRealLoad() const { return !m_creatingInitialEmptyDocument && !m_committedFirstRealDocumentLoad; }
+        bool committedFirstRealDocumentLoad() const { return m_committedFirstRealDocumentLoad; }
 
         void iconLoadDecisionAvailable();
 
@@ -378,6 +325,20 @@ namespace WebCore {
         void applyUserAgent(ResourceRequest& request);
 
         bool shouldInterruptLoadForXFrameOptions(const String&, const KURL&);
+
+        void open(CachedFrameBase&);
+
+        // FIXME: Should these really be public?
+        void completed();
+        bool allAncestorsAreComplete() const; // including this
+        bool allChildrenAreComplete() const; // immediate children, not all descendants
+        void clientRedirected(const KURL&, double delay, double fireDate, bool lockBackForwardList);
+        void clientRedirectCancelledOrFinished(bool cancelWithLoadInProgress);
+
+        // FIXME: This is public because this asynchronous callback from the FrameLoaderClient
+        // uses the policy machinery (and therefore is called via the PolicyChecker).  Once we
+        // introduce a proper callback type for this function, we should make it private again.
+        void continueLoadAfterWillSubmitForm();
 
     private:
         PassRefPtr<HistoryItem> createHistoryItem(bool useOriginal);
@@ -405,17 +366,10 @@ namespace WebCore {
         void updateHistoryForClientRedirect();
         void updateHistoryForCommit();
         void updateHistoryForAnchorScroll();
-    
-        void redirectionTimerFired(Timer<FrameLoader>*);
-        void checkCompletedTimerFired(Timer<FrameLoader>*);
-        void checkLoadCompleteTimerFired(Timer<FrameLoader>*);
-        
-        void cancelRedirection(bool newLoadInProgress = false);
+
+        void checkTimerFired(Timer<FrameLoader>*);
 
         void started();
-
-        void completed();
-        void parentCompleted();
 
         bool shouldUsePlugin(const KURL&, const String& mimeType, bool hasFallback, bool& useFallback);
         bool loadPlugin(RenderPart*, const KURL&, const String& mimeType,
@@ -423,6 +377,7 @@ namespace WebCore {
         
         bool loadProvisionalItemFromCachedPage();
         void cachePageForHistoryItem(HistoryItem*);
+        void pageHidden();
 
         void receivedFirstData();
 
@@ -443,24 +398,16 @@ namespace WebCore {
 
         void setLoadType(FrameLoadType);
 
-        void checkNavigationPolicy(const ResourceRequest&, DocumentLoader*, PassRefPtr<FormState>, NavigationPolicyDecisionFunction, void* argument);
-        void checkNewWindowPolicy(const NavigationAction&, const ResourceRequest&, PassRefPtr<FormState>, const String& frameName);
-
-        void continueAfterNavigationPolicy(PolicyAction);
-        void continueAfterNewWindowPolicy(PolicyAction);
-        void continueAfterContentPolicy(PolicyAction);
-        void continueLoadAfterWillSubmitForm(PolicyAction = PolicyUse);
-
         static void callContinueLoadAfterNavigationPolicy(void*, const ResourceRequest&, PassRefPtr<FormState>, bool shouldContinue);
-        void continueLoadAfterNavigationPolicy(const ResourceRequest&, PassRefPtr<FormState>, bool shouldContinue);
         static void callContinueLoadAfterNewWindowPolicy(void*, const ResourceRequest&, PassRefPtr<FormState>, const String& frameName, bool shouldContinue);
-        void continueLoadAfterNewWindowPolicy(const ResourceRequest&, PassRefPtr<FormState>, const String& frameName, bool shouldContinue);
         static void callContinueFragmentScrollAfterNavigationPolicy(void*, const ResourceRequest&, PassRefPtr<FormState>, bool shouldContinue);
+
+        void continueLoadAfterNavigationPolicy(const ResourceRequest&, PassRefPtr<FormState>, bool shouldContinue);
+        void continueLoadAfterNewWindowPolicy(const ResourceRequest&, PassRefPtr<FormState>, const String& frameName, bool shouldContinue);
         void continueFragmentScrollAfterNavigationPolicy(const ResourceRequest&, bool shouldContinue);
+
         bool shouldScrollToAnchor(bool isFormSubmission, FrameLoadType, const KURL&);
         void addHistoryItemForFragmentScroll();
-
-        void stopPolicyCheck();
 
         void checkLoadCompleteForThisFrame();
 
@@ -472,18 +419,12 @@ namespace WebCore {
 
         void closeOldDataSources();
         void open(CachedPage&);
-        void open(CachedFrame&);
 
         void updateHistoryAfterClientRedirect();
 
-        void clear(bool clearWindowProperties = true, bool clearScriptObjects = true);
+        void clear(bool clearWindowProperties = true, bool clearScriptObjects = true, bool clearFrameView = true);
 
         bool shouldReloadToHandleUnreachableURL(DocumentLoader*);
-        void handleUnimplementablePolicy(const ResourceError&);
-
-        void scheduleRedirection(ScheduledRedirection*);
-        void startRedirectionTimer();
-        void stopRedirectionTimer();
 
         void dispatchDidCommitLoad();
         void dispatchAssignIdentifierToInitialRequest(unsigned long identifier, DocumentLoader*, const ResourceRequest&);
@@ -491,9 +432,6 @@ namespace WebCore {
         void dispatchDidReceiveResponse(DocumentLoader*, unsigned long identifier, const ResourceResponse&);
         void dispatchDidReceiveContentLength(DocumentLoader*, unsigned long identifier, int length);
         void dispatchDidFinishLoading(DocumentLoader*, unsigned long identifier);
-
-        static bool isLocationChange(const ScheduledRedirection&);
-        void scheduleFormSubmission(const FrameLoadRequest&, bool lockHistory, PassRefPtr<Event>, PassRefPtr<FormState>);
 
         void loadWithDocumentLoader(DocumentLoader*, FrameLoadType, PassRefPtr<FormState>); // Calls continueLoadAfterNavigationPolicy
         void load(DocumentLoader*);                                                         // Calls loadWithDocumentLoader   
@@ -513,8 +451,6 @@ namespace WebCore {
             bool lockHistory, FrameLoadType, PassRefPtr<Event>, PassRefPtr<FormState>);                                                         
 #endif
 
-        void clientRedirectCancelledOrFinished(bool cancelWithLoadInProgress);
-        void clientRedirected(const KURL&, double delay, double fireDate, bool lockBackForwardList);
         bool shouldReload(const KURL& currentURL, const KURL& destinationURL);
 
         void sendRemainingDelegateMessages(unsigned long identifier, const ResourceResponse&, int length, const ResourceError&);
@@ -541,6 +477,7 @@ namespace WebCore {
 
         void scheduleCheckCompleted();
         void scheduleCheckLoadComplete();
+        void startCheckCompleteTimer();
 
         KURL originalRequestURL() const;
 
@@ -550,6 +487,8 @@ namespace WebCore {
 
         Frame* m_frame;
         FrameLoaderClient* m_client;
+
+        PolicyChecker m_policyChecker;
 
         FrameState m_state;
         FrameLoadType m_loadType;
@@ -562,15 +501,7 @@ namespace WebCore {
         RefPtr<DocumentLoader> m_provisionalDocumentLoader;
         RefPtr<DocumentLoader> m_policyDocumentLoader;
 
-        // This identifies the type of navigation action which prompted this load. Note 
-        // that WebKit conveys this value as the WebActionNavigationTypeKey value
-        // on navigation action delegate callbacks.
-        FrameLoadType m_policyLoadType;
-        PolicyCheck m_policyCheck;
-
         bool m_delegateIsHandlingProvisionalLoadError;
-        bool m_delegateIsDecidingNavigationPolicy;
-        bool m_delegateIsHandlingUnimplementablePolicy;
 
         bool m_firstLayoutDone;
         bool m_quickRedirectComing;
@@ -598,8 +529,6 @@ namespace WebCore {
 
         bool m_cancellingWithLoadInProgress;
 
-        OwnPtr<ScheduledRedirection> m_scheduledRedirection;
-
         bool m_needsClear;
         bool m_receivedData;
 
@@ -610,15 +539,13 @@ namespace WebCore {
         bool m_containsPlugIns;
 
         KURL m_submittedFormURL;
-    
-        Timer<FrameLoader> m_redirectionTimer;
-        Timer<FrameLoader> m_checkCompletedTimer;
-        Timer<FrameLoader> m_checkLoadCompleteTimer;
+
+        Timer<FrameLoader> m_checkTimer;
+        bool m_shouldCallCheckCompleted;
+        bool m_shouldCallCheckLoadComplete;
 
         Frame* m_opener;
         HashSet<Frame*> m_openedFrames;
-
-        bool m_openedByDOM;
 
         bool m_creatingInitialEmptyDocument;
         bool m_isDisplayingInitialEmptyDocument;
@@ -629,6 +556,7 @@ namespace WebCore {
         RefPtr<HistoryItem> m_provisionalHistoryItem;
         
         bool m_didPerformFirstNavigation;
+        bool m_loadingFromCachedPage;
         
 #ifndef NDEBUG
         bool m_didDispatchDidCommitLoad;

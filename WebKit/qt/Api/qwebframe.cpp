@@ -268,6 +268,8 @@ void QWebFramePrivate::renderPrivate(QPainter *painter, const QRegion &clip)
     \since 4.4
     \brief The QWebFrame class represents a frame in a web page.
 
+    \inmodule QtWebKit
+
     QWebFrame represents a frame inside a web page. Each QWebPage
     object contains at least one frame, the main frame, obtained using
     QWebPage::mainFrame(). Additional frames will be created for HTML
@@ -542,7 +544,7 @@ QUrl QWebFrame::requestedUrl() const
     // loader does not get commited by the frame loader) it is
     // safer to rely on outgoingReferrer than originalRequest.
     if (!d->frame->loader()->activeDocumentLoader()
-        || (!d->frameLoaderClient->m_loadSucceeded
+        || (!d->frameLoaderClient->m_loadError.isNull()
         &&  !d->frame->loader()->outgoingReferrer().isEmpty()))
         return QUrl(d->frame->loader()->outgoingReferrer());
 
@@ -708,7 +710,9 @@ void QWebFrame::load(const QNetworkRequest &req,
   script can be specified through the charset attribute of the HTML script tag. It is also possible
   for the encoding to be specified by web server.
 
-  \sa toHtml()
+  \note This method will not affect session or global history for the frame.
+
+  \sa toHtml(), setContent()
 */
 void QWebFrame::setHtml(const QString &html, const QUrl &baseUrl)
 {
@@ -716,7 +720,7 @@ void QWebFrame::setHtml(const QString &html, const QUrl &baseUrl)
     WebCore::ResourceRequest request(kurl);
     const QByteArray utf8 = html.toUtf8();
     WTF::RefPtr<WebCore::SharedBuffer> data = WebCore::SharedBuffer::create(utf8.constData(), utf8.length());
-    WebCore::SubstituteData substituteData(data, WebCore::String("text/html"), WebCore::String("utf-8"), kurl);
+    WebCore::SubstituteData substituteData(data, WebCore::String("text/html"), WebCore::String("utf-8"), KURL());
     d->frame->loader()->load(request, substituteData, false);
 }
 
@@ -729,7 +733,9 @@ void QWebFrame::setHtml(const QString &html, const QUrl &baseUrl)
 
   The \a data is loaded immediately; external objects are loaded asynchronously.
 
-  \sa toHtml()
+  \note This method will not affect session or global history for the frame.
+
+  \sa toHtml(), setHtml()
 */
 void QWebFrame::setContent(const QByteArray &data, const QString &mimeType, const QUrl &baseUrl)
 {
@@ -739,10 +745,9 @@ void QWebFrame::setContent(const QByteArray &data, const QString &mimeType, cons
     QString actualMimeType = mimeType;
     if (actualMimeType.isEmpty())
         actualMimeType = QLatin1String("text/html");
-    WebCore::SubstituteData substituteData(buffer, WebCore::String(actualMimeType), WebCore::String(), kurl);
+    WebCore::SubstituteData substituteData(buffer, WebCore::String(actualMimeType), WebCore::String(), KURL());
     d->frame->loader()->load(request, substituteData, false);
 }
-
 
 /*!
   Returns the parent frame of this frame, or 0 if the frame is the web pages
@@ -801,13 +806,11 @@ void QWebFrame::setScrollBarPolicy(Qt::Orientation orientation, Qt::ScrollBarPol
         d->horizontalScrollBarPolicy = policy;
         if (d->frame->view()) {
             d->frame->view()->setHorizontalScrollbarMode((ScrollbarMode)policy);
-            d->frame->view()->updateDefaultScrollbarState();
         }
     } else {
         d->verticalScrollBarPolicy = policy;
         if (d->frame->view()) {
             d->frame->view()->setVerticalScrollbarMode((ScrollbarMode)policy);
-            d->frame->view()->updateDefaultScrollbarState();
         }
     }
 }
@@ -873,6 +876,7 @@ int QWebFrame::scrollBarMaximum(Qt::Orientation orientation) const
 */
 int QWebFrame::scrollBarMinimum(Qt::Orientation orientation) const
 {
+    Q_UNUSED(orientation)
     return 0;
 }
 
@@ -1024,7 +1028,8 @@ qreal QWebFrame::zoomFactor() const
 */
 bool QWebFrame::hasFocus() const
 {
-    return QWebFramePrivate::kit(d->frame->page()->focusController()->focusedFrame()) == this;
+    WebCore::Frame* ff = d->frame->page()->focusController()->focusedFrame();
+    return ff && QWebFramePrivate::kit(ff) == this;
 }
 
 /*!
@@ -1246,7 +1251,7 @@ QVariant QWebFrame::evaluateJavaScript(const QString& scriptSource)
     ScriptController *proxy = d->frame->script();
     QVariant rc;
     if (proxy) {
-        JSC::JSValue v = proxy->evaluate(ScriptSourceCode(scriptSource)).jsValue();
+        JSC::JSValue v = d->frame->loader()->executeScript(ScriptSourceCode(scriptSource)).jsValue();
         int distance = 0;
         rc = JSC::Bindings::convertValueToQVariant(proxy->globalObject()->globalExec(), v, QMetaType::Void, &distance);
     }
@@ -1363,6 +1368,8 @@ QWebFrame* QWebFramePrivate::kit(WebCore::Frame* coreFrame)
     \since 4.4
     \brief The QWebHitTestResult class provides information about the web
     page content after a hit test.
+
+    \inmodule QtWebKit
 
     QWebHitTestResult is returned by QWebFrame::hitTestContent() to provide
     information about the content of the web page at the specified position.

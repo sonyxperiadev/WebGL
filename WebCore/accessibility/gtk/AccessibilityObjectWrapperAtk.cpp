@@ -60,7 +60,7 @@ using namespace WebCore;
 
 static AccessibilityObject* fallbackObject()
 {
-    static AXObjectCache* fallbackCache = new AXObjectCache();
+    static AXObjectCache* fallbackCache = new AXObjectCache;
     static AccessibilityObject* object = 0;
     if (!object) {
         // FIXME: using fallbackCache->getOrCreate(ListBoxOptionRole) is a hack
@@ -556,7 +556,7 @@ static PangoLayout* getPangoLayoutForAtk(AtkText* textObject)
     HostWindow* hostWindow = coreObject->document()->view()->hostWindow();
     if (!hostWindow)
         return 0;
-    PlatformWidget webView = hostWindow->platformWindow();
+    PlatformPageClient webView = hostWindow->platformPageClient();
     if (!webView)
         return 0;
 

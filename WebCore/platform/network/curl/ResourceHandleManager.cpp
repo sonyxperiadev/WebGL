@@ -5,6 +5,8 @@
  * Copyright (C) 2007 Holger Hans Peter Freyther
  * Copyright (C) 2008 Collabora Ltd.
  * Copyright (C) 2008 Nuanti Ltd.
+ * Copyright (C) 2009 Appcelerator Inc.
+ * Copyright (C) 2009 Brent Fulgham <bfulgham@webkit.org>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -44,6 +46,7 @@
 
 #include <errno.h>
 #include <stdio.h>
+#include <wtf/Threading.h>
 #include <wtf/Vector.h>
 
 namespace WebCore {
@@ -54,16 +57,72 @@ const int maxRunningJobs = 5;
 
 static const bool ignoreSSLErrors = getenv("WEBKIT_IGNORE_SSL_ERRORS");
 
+static CString certificatePath()
+{
+#if PLATFORM(CF)
+    CFBundleRef webKitBundle = CFBundleGetBundleWithIdentifier(CFSTR("com.apple.WebKit"));
+    if (webKitBundle) {
+        RetainPtr<CFURLRef> certURLRef(AdoptCF, CFBundleCopyResourceURL(webKitBundle, CFSTR("cacert"), CFSTR("pem"), CFSTR("certificates")));
+        if (certURLRef) {
+            char path[MAX_PATH];
+            CFURLGetFileSystemRepresentation(certURLRef.get(), false, reinterpret_cast<UInt8*>(path), MAX_PATH);
+            return path;
+        }
+    }
+#endif
+    char* envPath = getenv("CURL_CA_BUNDLE_PATH");
+    if (envPath)
+       return envPath;
+
+    return CString();
+}
+
+static Mutex* sharedResourceMutex(curl_lock_data data) {
+    DEFINE_STATIC_LOCAL(Mutex, cookieMutex, ());
+    DEFINE_STATIC_LOCAL(Mutex, dnsMutex, ());
+    DEFINE_STATIC_LOCAL(Mutex, shareMutex, ());
+
+    switch (data) {
+        case CURL_LOCK_DATA_COOKIE:
+            return &cookieMutex;
+        case CURL_LOCK_DATA_DNS:
+            return &dnsMutex;
+        case CURL_LOCK_DATA_SHARE:
+            return &shareMutex;
+        default:
+            ASSERT_NOT_REACHED();
+            return NULL;
+    }
+}
+
+// libcurl does not implement its own thread synchronization primitives.
+// these two functions provide mutexes for cookies, and for the global DNS
+// cache.
+static void curl_lock_callback(CURL* handle, curl_lock_data data, curl_lock_access access, void* userPtr)
+{
+    if (Mutex* mutex = sharedResourceMutex(data))
+        mutex->lock();
+}
+
+static void curl_unlock_callback(CURL* handle, curl_lock_data data, void* userPtr)
+{
+    if (Mutex* mutex = sharedResourceMutex(data))
+        mutex->unlock();
+}
+
 ResourceHandleManager::ResourceHandleManager()
     : m_downloadTimer(this, &ResourceHandleManager::downloadTimerCallback)
     , m_cookieJarFileName(0)
     , m_runningJobs(0)
+    , m_certificatePath (certificatePath())
 {
     curl_global_init(CURL_GLOBAL_ALL);
     m_curlMultiHandle = curl_multi_init();
     m_curlShareHandle = curl_share_init();
     curl_share_setopt(m_curlShareHandle, CURLSHOPT_SHARE, CURL_LOCK_DATA_COOKIE);
     curl_share_setopt(m_curlShareHandle, CURLSHOPT_SHARE, CURL_LOCK_DATA_DNS);
+    curl_share_setopt(m_curlShareHandle, CURLSHOPT_LOCKFUNC, curl_lock_callback);
+    curl_share_setopt(m_curlShareHandle, CURLSHOPT_UNLOCKFUNC, curl_unlock_callback);
 }
 
 ResourceHandleManager::~ResourceHandleManager()
@@ -87,6 +146,23 @@ ResourceHandleManager* ResourceHandleManager::sharedInstance()
         sharedInstance = new ResourceHandleManager();
     return sharedInstance;
 }
+
+static void handleLocalReceiveResponse (CURL* handle, ResourceHandle* job, ResourceHandleInternal* d)
+{
+    // since the code in headerCallback will not have run for local files
+    // the code to set the URL and fire didReceiveResponse is never run,
+    // which means the ResourceLoader's response does not contain the URL.
+    // Run the code here for local files to resolve the issue.
+    // TODO: See if there is a better approach for handling this.
+     const char* hdr;
+     CURLcode err = curl_easy_getinfo(handle, CURLINFO_EFFECTIVE_URL, &hdr);
+     ASSERT(CURLE_OK == err);
+     d->m_response.setURL(KURL(ParsedURLString, hdr));
+     if (d->client())
+         d->client()->didReceiveResponse(job, d->m_response);
+     d->m_response.setResponseFired(true);
+}
+
 
 // called with data after all headers have been processed via headerCallback
 static size_t writeCallback(void* ptr, size_t size, size_t nmemb, void* data)
@@ -112,18 +188,10 @@ static size_t writeCallback(void* ptr, size_t size, size_t nmemb, void* data)
     if (CURLE_OK == err && httpCode >= 300 && httpCode < 400)
         return totalSize;
 
-    // since the code in headerCallback will not have run for local files
-    // the code to set the URL and fire didReceiveResponse is never run,
-    // which means the ResourceLoader's response does not contain the URL.
-    // Run the code here for local files to resolve the issue.
-    // TODO: See if there is a better approach for handling this.
     if (!d->m_response.responseFired()) {
-        const char* hdr;
-        err = curl_easy_getinfo(h, CURLINFO_EFFECTIVE_URL, &hdr);
-        d->m_response.setURL(KURL(hdr));
-        if (d->client())
-            d->client()->didReceiveResponse(job, d->m_response);
-        d->m_response.setResponseFired(true);
+        handleLocalReceiveResponse(h, job, d);
+        if (d->m_cancelled)
+            return 0;
     }
 
     if (d->client())
@@ -174,7 +242,7 @@ static size_t headerCallback(char* ptr, size_t size, size_t nmemb, void* data)
 
         const char* hdr;
         err = curl_easy_getinfo(h, CURLINFO_EFFECTIVE_URL, &hdr);
-        d->m_response.setURL(KURL(hdr));
+        d->m_response.setURL(KURL(ParsedURLString, hdr));
 
         long httpCode = 0;
         err = curl_easy_getinfo(h, CURLINFO_RESPONSE_CODE, &httpCode);
@@ -222,6 +290,7 @@ size_t readCallback(void* ptr, size_t size, size_t nmemb, void* data)
 {
     ResourceHandle* job = static_cast<ResourceHandle*>(data);
     ResourceHandleInternal* d = job->getInternal();
+
     if (d->m_cancelled)
         return 0;
 
@@ -311,6 +380,14 @@ void ResourceHandleManager::downloadTimerCallback(Timer<ResourceHandleManager>* 
             continue;
 
         if (CURLE_OK == msg->data.result) {
+            if (!d->m_response.responseFired()) {
+                handleLocalReceiveResponse(d->m_handle, job, d);
+                if (d->m_cancelled) {
+                    removeFromCurl(job);
+                    continue;
+                }
+            }
+
             if (d->client())
                 d->client()->didFinishLoading(job);
         } else {
@@ -629,6 +706,10 @@ void ResourceHandleManager::initializeHandle(ResourceHandle* job)
     // and/or reporting SSL errors to the user.
     if (ignoreSSLErrors)
         curl_easy_setopt(d->m_handle, CURLOPT_SSL_VERIFYPEER, false);
+
+    if (!m_certificatePath.isNull())
+       curl_easy_setopt(d->m_handle, CURLOPT_CAINFO, m_certificatePath.data());
+
     // enable gzip and deflate through Accept-Encoding:
     curl_easy_setopt(d->m_handle, CURLOPT_ENCODING, "");
 

@@ -125,6 +125,7 @@
 using namespace WebCore;
 using namespace HTMLNames;
 using namespace WTF;
+using namespace std;
 
 @interface NSWindow (BorderViewAccess)
 - (NSView*)_web_borderView;
@@ -212,6 +213,9 @@ extern NSString *NSTextInputReplacementRangeAttributeName;
 - (void)_setDrawsOwnDescendants:(BOOL)drawsOwnDescendants;
 - (void)_propagateDirtyRectsToOpaqueAncestors;
 - (void)_windowChangedKeyState;
+#if USE(ACCELERATED_COMPOSITING) && defined(BUILDING_ON_LEOPARD)
+- (void)_updateLayerGeometryFromView;
+#endif
 @end
 
 @interface NSApplication (WebNSApplicationDetails)
@@ -979,8 +983,7 @@ static NSURL* uniqueURLWithRelativePart(NSString *relativePart)
 {
     // FIXME: this can fail if the dataSource is nil, which happens when the WebView is tearing down from the window closing.
     WebHTMLView *view = (WebHTMLView *)[[[[_private->dataSource _webView] mainFrame] frameView] documentView];
-    ASSERT(view);
-    ASSERT([view isKindOfClass:[WebHTMLView class]]);
+    ASSERT(!view || [view isKindOfClass:[WebHTMLView class]]);
     return view;
 }
 
@@ -1148,8 +1151,11 @@ static void _updateMouseoverTimerCallback(CFRunLoopTimerRef timer, void *info)
 {
     NSPoint origin = [[self superview] bounds].origin;
     if (!NSEqualPoints(_private->lastScrollPosition, origin)) {
-        if (Frame* coreFrame = core([self _frame]))
-            coreFrame->eventHandler()->sendScrollEvent();
+        if (Frame* coreFrame = core([self _frame])) {
+            if (FrameView* coreView = coreFrame->view())
+                coreView->scrollPositionChanged();
+        }
+    
         [_private->completionController endRevertingChange:NO moveLeft:NO];
         
         WebView *webView = [self _webView];
@@ -1649,10 +1655,10 @@ static void _updateMouseoverTimerCallback(CFRunLoopTimerRef timer, void *info)
         urlStringSize.height = [urlFont ascender] - [urlFont descender];
         imageSize.height += urlStringSize.height;
         if (urlStringSize.width > MAX_DRAG_LABEL_WIDTH) {
-            imageSize.width = MAX(MAX_DRAG_LABEL_WIDTH + DRAG_LABEL_BORDER_X * 2.0f, MIN_DRAG_LABEL_WIDTH_BEFORE_CLIP);
+            imageSize.width = max(MAX_DRAG_LABEL_WIDTH + DRAG_LABEL_BORDER_X * 2, MIN_DRAG_LABEL_WIDTH_BEFORE_CLIP);
             clipURLString = YES;
         } else {
-            imageSize.width = MAX(labelSize.width + DRAG_LABEL_BORDER_X * 2.0f, urlStringSize.width + DRAG_LABEL_BORDER_X * 2.0f);
+            imageSize.width = max(labelSize.width + DRAG_LABEL_BORDER_X * 2, urlStringSize.width + DRAG_LABEL_BORDER_X * 2);
         }
     }
     NSImage *dragImage = [[[NSImage alloc] initWithSize: imageSize] autorelease];
@@ -2299,24 +2305,36 @@ static bool matchesExtensionOrEquivalent(NSString *filename, NSString *extension
     return [[webView _editingDelegateForwarder] webView:webView doCommandBySelector:selector];
 }
 
+typedef HashMap<SEL, String> SelectorNameMap;
+
+// Map selectors into Editor command names.
+// This is not needed for any selectors that have the same name as the Editor command.
+static const SelectorNameMap* createSelectorExceptionMap()
+{
+    SelectorNameMap* map = new HashMap<SEL, String>;
+
+    map->add(@selector(insertNewlineIgnoringFieldEditor:), "InsertNewline");
+    map->add(@selector(insertParagraphSeparator:), "InsertNewline");
+    map->add(@selector(insertTabIgnoringFieldEditor:), "InsertTab");
+    map->add(@selector(pageDown:), "MovePageDown");
+    map->add(@selector(pageDownAndModifySelection:), "MovePageDownAndModifySelection");
+    map->add(@selector(pageUp:), "MovePageUp");
+    map->add(@selector(pageUpAndModifySelection:), "MovePageUpAndModifySelection");
+
+    return map;
+}
+
 static String commandNameForSelector(SEL selector)
 {
-    // Change a few command names into ones supported by WebCore::Editor.
-    // If this list gets too long we might decide we need to use a hash table.
-    if (selector == @selector(insertParagraphSeparator:) || selector == @selector(insertNewlineIgnoringFieldEditor:))
-        return "InsertNewline";
-    if (selector == @selector(insertTabIgnoringFieldEditor:))
-        return "InsertTab";
-    if (selector == @selector(pageDown:))
-        return "MovePageDown";
-    if (selector == @selector(pageDownAndModifySelection:))
-        return "MovePageDownAndModifySelection";
-    if (selector == @selector(pageUp:))
-        return "MovePageUp";
-    if (selector == @selector(pageUpAndModifySelection:))
-        return "MovePageUpAndModifySelection";
+    // Check the exception map first.
+    static const SelectorNameMap* exceptionMap = createSelectorExceptionMap();
+    SelectorNameMap::const_iterator it = exceptionMap->find(selector);
+    if (it != exceptionMap->end())
+        return it->second;
 
     // Remove the trailing colon.
+    // No need to capitalize the command name since Editor command names are
+    // not case sensitive.
     const char* selectorName = sel_getName(selector);
     size_t selectorNameLength = strlen(selectorName);
     if (selectorNameLength < 2 || selectorName[selectorNameLength - 1] != ':')
@@ -3160,7 +3178,8 @@ WEBCORE_COMMAND(yankAndSelect)
     double start = CFAbsoluteTimeGetCurrent();
 #endif
 
-    if ([[self _webView] _mustDrawUnionedRect:rect singleRects:rects count:count])
+    WebView *webView = [self _webView];
+    if ([webView _mustDrawUnionedRect:rect singleRects:rects count:count])
         [self drawSingleRect:rect];
     else
         for (int i = 0; i < count; ++i)
@@ -3175,16 +3194,19 @@ WEBCORE_COMMAND(yankAndSelect)
         [self _setAsideSubviews];
         
 #if USE(ACCELERATED_COMPOSITING)
-    if ([[self _webView] _needsOneShotDrawingSynchronization]) {
+    if ([webView _needsOneShotDrawingSynchronization]) {
         // Disable screen updates so that any layer changes committed here
         // don't show up on the screen before the window flush at the end
-        // of the current window display.
-        [[self window] disableScreenUpdatesUntilFlush];
+        // of the current window display, but only if a window flush is actually
+        // going to happen.
+        NSWindow *window = [self window];
+        if ([window viewsNeedDisplay])
+            [window disableScreenUpdatesUntilFlush];
         
         // Make sure any layer changes that happened as a result of layout
         // via -viewWillDraw are committed.
         [CATransaction flush];
-        [[self _webView] _setNeedsOneShotDrawingSynchronization:NO];
+        [webView _setNeedsOneShotDrawingSynchronization:NO];
     }
 #endif
 }
@@ -3406,10 +3428,6 @@ done:
     Page* page = core([self _webView]);
     if (!page)
         return NSDragOperationNone;
-
-    // FIXME: Why do we override the source provided operation here?  Why not in DragController::startDrag
-    if (page->dragController()->sourceDragOperation() == DragOperationNone)
-        return NSDragOperationGeneric | NSDragOperationCopy;
 
     return (NSDragOperation)page->dragController()->sourceDragOperation();
 }
@@ -3715,7 +3733,7 @@ static BOOL isInPasswordField(Frame* coreFrame)
 #ifdef __LP64__
     // If the new bottom is equal to the old bottom (when both are treated as floats), we just copy
     // oldBottom over to newBottom. This prevents rounding errors that can occur when converting newBottomFloat to a double.
-    if (fabs((float)oldBottom - newBottomFloat) <= std::numeric_limits<float>::epsilon()) 
+    if (fabs((float)oldBottom - newBottomFloat) <= numeric_limits<float>::epsilon()) 
         *newBottom = oldBottom;
     else
 #endif
@@ -3750,7 +3768,7 @@ static BOOL isInPasswordField(Frame* coreFrame)
     float maxShrinkToFitScaleFactor = 1.0f / PrintingMaximumShrinkFactor;
     float shrinkToFitScaleFactor = [self _availablePaperWidthForPrintOperation:printOperation]/viewWidth;
     float shrinkToAvoidOrphan = _private->avoidingPrintOrphan ? (1.0f / PrintingOrphanShrinkAdjustment) : 1.0f;
-    return userScaleFactor * MAX(maxShrinkToFitScaleFactor, shrinkToFitScaleFactor) * shrinkToAvoidOrphan;
+    return userScaleFactor * max(maxShrinkToFitScaleFactor, shrinkToFitScaleFactor) * shrinkToAvoidOrphan;
 }
 
 // FIXME 3491344: This is a secret AppKit-internal method that we need to override in order
@@ -5450,13 +5468,13 @@ static CGPoint coreGraphicsScreenPointForAppKitScreenPoint(NSPoint point)
     if (!_private->layerHostingView)
         return;
     
-    const CGFloat maxHeight = 4096;
+    const CGFloat maxHeight = 2048;
     NSRect layerViewFrame = [self bounds];
 
     if (layerViewFrame.size.height > maxHeight) {
         CGFloat documentHeight = layerViewFrame.size.height;
             
-        // Clamp the size of the view to <= 4096px to avoid the bug.
+        // Clamp the size of the view to <= maxHeight to avoid the bug.
         layerViewFrame.size.height = maxHeight;
         NSRect visibleRect = [[self enclosingScrollView] documentVisibleRect];
         
@@ -5468,7 +5486,8 @@ static CGPoint coreGraphicsScreenPointForAppKitScreenPoint(NSPoint point)
         CGFloat bottomOffset = documentHeight - layerViewFrame.size.height - topOffset;
         [[_private->layerHostingView layer] setSublayerTransform:CATransform3DMakeTranslation(0, -bottomOffset, 0)];
     }
-        
+
+    [_private->layerHostingView _updateLayerGeometryFromView];  // Workaround for <rdar://problem/7071636>
     [_private->layerHostingView setFrame:layerViewFrame];
 }
 #endif // defined(BUILDING_ON_LEOPARD)

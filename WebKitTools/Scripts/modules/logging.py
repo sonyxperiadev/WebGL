@@ -35,5 +35,14 @@ def log(string):
     print >> sys.stderr, string
 
 def error(string):
-    log("ERROR: " + string)
+    log("ERROR: %s" % string)
     exit(1)
+
+# Simple class to split output between multiple destinations
+class tee:
+    def __init__(self, *files):
+        self.files = files
+
+    def write(self, string):
+        for file in self.files:
+            file.write(string)

@@ -31,11 +31,11 @@
 #include "config.h"
 #include "GraphicsContext.h"
 
-#include "GraphicsContextPlatformPrivate.h"
-#include "GraphicsContextPrivate.h"
 #include "Color.h"
 #include "FloatRect.h"
 #include "Gradient.h"
+#include "GraphicsContextPlatformPrivate.h"
+#include "GraphicsContextPrivate.h"
 #include "ImageBuffer.h"
 #include "IntRect.h"
 #include "NativeImageSkia.h"
@@ -46,9 +46,9 @@
 #include "SkBitmap.h"
 #include "SkBlurDrawLooper.h"
 #include "SkCornerPathEffect.h"
-#include "skia/ext/platform_canvas.h"
-#include "SkiaUtils.h"
 #include "SkShader.h"
+#include "SkiaUtils.h"
+#include "skia/ext/platform_canvas.h"
 
 #include <math.h>
 #include <wtf/Assertions.h>
@@ -59,6 +59,23 @@ using namespace std;
 namespace WebCore {
 
 namespace {
+
+inline int fastMod(int value, int max)
+{
+    int sign = SkExtractSign(value);
+    
+    value = SkApplySign(value, sign);
+    if (value >= max)
+        value %= max;
+    return SkApplySign(value, sign);
+}
+
+inline float square(float n)
+{
+    return n * n;
+}
+
+}  // namespace
 
 // "Seatbelt" functions ------------------------------------------------------
 //
@@ -195,23 +212,6 @@ void addCornerArc(SkPath* path, const SkRect& rect, const IntSize& size, int sta
     path->arcTo(r, SkIntToScalar(startAngle), SkIntToScalar(90), false);
 }
 
-inline int fastMod(int value, int max)
-{
-    int sign = SkExtractSign(value);
-
-    value = SkApplySign(value, sign);
-    if (value >= max)
-        value %= max;
-    return SkApplySign(value, sign);
-}
-
-inline float square(float n)
-{
-    return n * n;
-}
-
-}  // namespace
-
 // -----------------------------------------------------------------------------
 
 // This may be called with a NULL pointer to create a graphics context that has
@@ -293,7 +293,7 @@ void GraphicsContext::addInnerRoundedRectClip(const IntRect& rect, int thickness
     path.addOval(r, SkPath::kCW_Direction);
     // only perform the inset if we won't invert r
     if (2 * thickness < rect.width() && 2 * thickness < rect.height()) {
-        r.inset(SkIntToScalar(thickness) ,SkIntToScalar(thickness));
+        r.inset(SkIntToScalar(thickness), SkIntToScalar(thickness));
         path.addOval(r, SkPath::kCCW_Direction);
     }
     platformContext()->canvas()->clipPath(path);
@@ -403,6 +403,9 @@ void GraphicsContext::clipPath(WindRule clipRule)
         return;
 
     SkPath path = platformContext()->currentPathInLocalCoordinates();
+    if (!isPathSkiaSafe(getCTM(), path))
+        return;
+
     path.setFillType(clipRule == RULE_EVENODD ? SkPath::kEvenOdd_FillType : SkPath::kWinding_FillType);
     platformContext()->canvas()->clipPath(path);
 }
@@ -487,7 +490,7 @@ void GraphicsContext::drawFocusRing(const Color& color)
 
     const Vector<IntRect>& rects = focusRingRects();
     unsigned rectCount = rects.size();
-    if (0 == rectCount)
+    if (!rectCount)
         return;
 
     SkRegion focusRingRegion;
@@ -521,26 +524,28 @@ void GraphicsContext::drawLine(const IntPoint& point1, const IntPoint& point2)
         return;
 
     SkPaint paint;
-    SkPoint pts[2] = { (SkPoint)point1, (SkPoint)point2 };
-    if (!isPointSkiaSafe(getCTM(), pts[0]) || !isPointSkiaSafe(getCTM(), pts[1]))
+    if (!isPointSkiaSafe(getCTM(), point1) || !isPointSkiaSafe(getCTM(), point2))
         return;
+
+    FloatPoint p1 = point1;
+    FloatPoint p2 = point2;
+    bool isVerticalLine = (p1.x() == p2.x());
+    int width = roundf(strokeThickness());
 
     // We know these are vertical or horizontal lines, so the length will just
     // be the sum of the displacement component vectors give or take 1 -
     // probably worth the speed up of no square root, which also won't be exact.
-    SkPoint disp = pts[1] - pts[0];
-    int length = SkScalarRound(disp.fX + disp.fY);
+    FloatSize disp = p2 - p1;
+    int length = SkScalarRound(disp.width() + disp.height());
     platformContext()->setupPaintForStroking(&paint, 0, length);
-    int width = roundf(strokeThickness());
-    bool isVerticalLine = pts[0].fX == pts[1].fX;
 
     if (strokeStyle() == DottedStroke || strokeStyle() == DashedStroke) {
         // Do a rect fill of our endpoints.  This ensures we always have the
         // appearance of being a border.  We then draw the actual dotted/dashed line.
 
         SkRect r1, r2;
-        r1.set(pts[0].fX, pts[0].fY, pts[0].fX + width, pts[0].fY + width);
-        r2.set(pts[1].fX, pts[1].fY, pts[1].fX + width, pts[1].fY + width);
+        r1.set(p1.x(), p1.y(), p1.x() + width, p1.y() + width);
+        r2.set(p2.x(), p2.y(), p2.x() + width, p2.y() + width);
 
         if (isVerticalLine) {
             r1.offset(-width / 2, 0);
@@ -553,35 +558,11 @@ void GraphicsContext::drawLine(const IntPoint& point1, const IntPoint& point2)
         fillPaint.setColor(paint.getColor());
         platformContext()->canvas()->drawRect(r1, fillPaint);
         platformContext()->canvas()->drawRect(r2, fillPaint);
-
-        // Since we've already rendered the endcaps, adjust the endpoints to
-        // exclude them from the line itself.
-        if (isVerticalLine) {
-            pts[0].fY += width;
-            pts[1].fY -= width;
-        } else {
-            pts[0].fX += width;
-            pts[1].fX -= width;
-        }
     }
 
-    // "Borrowed" this comment and idea from GraphicsContextCG.cpp
-    //
-    // For odd widths, we add in 0.5 to the appropriate x/y so that the float
-    // arithmetic works out.  For example, with a border width of 3, KHTML will
-    // pass us (y1+y2)/2, e.g., (50+53)/2 = 103/2 = 51 when we want 51.5.  It is
-    // always true that an even width gave us a perfect position, but an odd
-    // width gave us a position that is off by exactly 0.5.
+    adjustLineToPixelBoundaries(p1, p2, width, penStyle);
+    SkPoint pts[2] = { (SkPoint)p1, (SkPoint)p2 };
 
-    if (width & 1) {  // Odd.
-        if (isVerticalLine) {
-            pts[0].fX = pts[0].fX + SK_ScalarHalf;
-            pts[1].fX = pts[0].fX;
-        } else {  // Horizontal line
-            pts[0].fY = pts[0].fY + SK_ScalarHalf;
-            pts[1].fY = pts[0].fY;
-        }
-    }
     platformContext()->canvas()->drawPoints(SkCanvas::kLines_PointMode, 2, pts, paint);
 }
 
@@ -844,9 +825,9 @@ FloatRect GraphicsContext::roundToDevicePixels(const FloatRect& rect)
     deviceLowerRight.setY(roundf(deviceLowerRight.y()));
 
     // Don't let the height or width round to 0 unless either was originally 0
-    if (deviceOrigin.y() == deviceLowerRight.y() && rect.height() != 0)
+    if (deviceOrigin.y() == deviceLowerRight.y() && rect.height())
         deviceLowerRight.move(0, 1);
-    if (deviceOrigin.x() == deviceLowerRight.x() && rect.width() != 0)
+    if (deviceOrigin.x() == deviceLowerRight.x() && rect.width())
         deviceLowerRight.move(1, 0);
 
     FloatPoint roundedOrigin(deviceOrigin.x() / deviceScaleX,
@@ -919,7 +900,7 @@ void GraphicsContext::setLineDash(const DashArray& dashes, float dashOffset)
         return;
     }
 
-    size_t count = (dashLength % 2) == 0 ? dashLength : dashLength * 2;
+    size_t count = !(dashLength % 2) ? dashLength : dashLength * 2;
     SkScalar* intervals = new SkScalar[count];
 
     for (unsigned int i = 0; i < count; i++)
@@ -990,8 +971,8 @@ void GraphicsContext::setPlatformShadow(const IntSize& size,
         return;
 
     // Detect when there's no effective shadow and clear the looper.
-    if (size.width() == 0 && size.height() == 0 && blurInt == 0) {
-        platformContext()->setDrawLooper(NULL);
+    if (!size.width() && !size.height() && !blurInt) {
+        platformContext()->setDrawLooper(0);
         return;
     }
 

@@ -82,8 +82,12 @@ private:
     public:
         static PassRefPtr<GeoNotifier> create(Geolocation* geolocation, PassRefPtr<PositionCallback> positionCallback, PassRefPtr<PositionErrorCallback> positionErrorCallback, PassRefPtr<PositionOptions> options) { return adoptRef(new GeoNotifier(geolocation, positionCallback, positionErrorCallback, options)); }
         
+<<<<<<< HEAD:WebCore/page/Geolocation.h
         void setFatalError(PassRefPtr<PositionError> error);
         void setCachedPosition(Geoposition* cachedPosition);
+=======
+        bool hasZeroTimeout() const;
+>>>>>>> webkit.org at 49305:WebCore/page/Geolocation.h
         void startTimerIfNeeded();
         void timerFired(Timer<GeoNotifier>*);
         
@@ -96,14 +100,22 @@ private:
         RefPtr<Geoposition> m_cachedPosition;
 
     private:
+<<<<<<< HEAD:WebCore/page/Geolocation.h
         GeoNotifier(Geolocation* geolocation, PassRefPtr<PositionCallback>, PassRefPtr<PositionErrorCallback>, PassRefPtr<PositionOptions>);
+=======
+        GeoNotifier(Geolocation*, PassRefPtr<PositionCallback>, PassRefPtr<PositionErrorCallback>, PassRefPtr<PositionOptions>);
+>>>>>>> webkit.org at 49305:WebCore/page/Geolocation.h
     };
 
     bool hasListeners() const { return !m_oneShots.isEmpty() || !m_watchers.isEmpty(); }
 
     void sendError(Vector<RefPtr<GeoNotifier> >&, PositionError*);
     void sendPosition(Vector<RefPtr<GeoNotifier> >&, Geoposition*);
+<<<<<<< HEAD:WebCore/page/Geolocation.h
 
+=======
+    
+>>>>>>> webkit.org at 49305:WebCore/page/Geolocation.h
     static void stopTimer(Vector<RefPtr<GeoNotifier> >&);
     void stopTimersForOneShots();
     void stopTimersForWatchers();
@@ -119,13 +131,20 @@ private:
     virtual void geolocationServicePositionChanged(GeolocationService*);
     virtual void geolocationServiceErrorOccurred(GeolocationService*);
 
+<<<<<<< HEAD:WebCore/page/Geolocation.h
     // EventListener
     virtual void handleEvent(Event*, bool isWindowEvent);
 
+=======
+<<<<<<< HEAD:WebCore/page/Geolocation.h
+>>>>>>> Merge webkit.org at R49305 : Automatic merge by git.:WebCore/page/Geolocation.h
     void fatalErrorOccurred(GeoNotifier* notifier);
     void requestTimedOut(GeoNotifier* notifier);
     void requestReturnedCachedPosition(GeoNotifier* notifier);
     bool haveSuitableCachedPosition(PositionOptions*);
+=======
+    void requestTimedOut(GeoNotifier*);
+>>>>>>> webkit.org at 49305:WebCore/page/Geolocation.h
 
     typedef HashSet<RefPtr<GeoNotifier> > GeoNotifierSet;
     typedef HashMap<int, RefPtr<GeoNotifier> > GeoNotifierMap;

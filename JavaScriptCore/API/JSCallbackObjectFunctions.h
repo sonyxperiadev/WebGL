@@ -47,7 +47,7 @@ inline JSCallbackObject<Base>* JSCallbackObject<Base>::asCallbackObject(JSValue 
 }
 
 template <class Base>
-JSCallbackObject<Base>::JSCallbackObject(ExecState* exec, PassRefPtr<Structure> structure, JSClassRef jsClass, void* data)
+JSCallbackObject<Base>::JSCallbackObject(ExecState* exec, NonNullPassRefPtr<Structure> structure, JSClassRef jsClass, void* data)
     : Base(structure)
     , m_callbackObjectData(new JSCallbackObjectData(data, jsClass))
 {
@@ -373,7 +373,7 @@ JSValue JSCallbackObject<Base>::call(ExecState* exec, JSObject* functionObject, 
 }
 
 template <class Base>
-void JSCallbackObject<Base>::getPropertyNames(ExecState* exec, PropertyNameArray& propertyNames)
+void JSCallbackObject<Base>::getOwnPropertyNames(ExecState* exec, PropertyNameArray& propertyNames)
 {
     JSContextRef execRef = toRef(exec);
     JSObjectRef thisRef = toRef(this);
@@ -407,7 +407,7 @@ void JSCallbackObject<Base>::getPropertyNames(ExecState* exec, PropertyNameArray
         }
     }
     
-    Base::getPropertyNames(exec, propertyNames);
+    Base::getOwnPropertyNames(exec, propertyNames);
 }
 
 template <class Base>

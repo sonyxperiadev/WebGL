@@ -71,6 +71,13 @@
 #    endif /* XP_PC */
 #endif /* __MWERKS__ */
 
+#ifdef __SYMBIAN32__
+#   ifndef XP_SYMBIAN
+#       define XP_SYMBIAN 1
+#       undef XP_WIN
+#   endif
+#endif  /* __SYMBIAN32__ */
+
 #if defined(__APPLE_CC__) && !defined(__MACOS_CLASSIC__) && !defined(XP_UNIX)
 #   define XP_MACOSX
 #endif
@@ -113,6 +120,14 @@
 /*----------------------------------------------------------------------*/
 /*             Definition of Basic Types                                */
 /*----------------------------------------------------------------------*/
+
+/* QNX sets the _INT16 and friends defines, but does not typedef the types */
+#ifdef __QNXNTO__
+#undef _UINT16
+#undef _INT16
+#undef _UINT32
+#undef _INT32
+#endif
 
 #ifndef _UINT16
 #define _UINT16

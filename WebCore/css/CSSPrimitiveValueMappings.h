@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 2007 Alexey Proskuryakov <ap@nypop.com>.
  * Copyright (C) 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2009 Torch Mobile Inc. All rights reserved. (http://www.torchmobile.com/)
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,11 +30,13 @@
 
 #include "CSSPrimitiveValue.h"
 #include "CSSValueKeywords.h"
+#include "FontSmoothingMode.h"
 #include "GraphicsTypes.h"
 #include "Path.h"
 #include "RenderStyleConstants.h"
 #include "SVGRenderStyleDefs.h"
 #include "TextDirection.h"
+#include "TextRenderingMode.h"
 #include "ThemeTypes.h"
 
 namespace WebCore {
@@ -197,6 +200,11 @@ template<> inline CSSPrimitiveValue::CSSPrimitiveValue(ControlPart e)
         case ListboxPart:
             m_value.ident = CSSValueListbox;
             break;
+#if ENABLE(DATALIST)
+        case ListButtonPart:
+            m_value.ident = CSSValueListButton;
+            break;
+#endif
         case ListItemPart:
             m_value.ident = CSSValueListitem;
             break;
@@ -226,6 +234,15 @@ template<> inline CSSPrimitiveValue::CSSPrimitiveValue(ControlPart e)
             break;
         case MediaSliderThumbPart:
             m_value.ident = CSSValueMediaSliderthumb;
+            break;
+        case MediaVolumeSliderContainerPart:
+            m_value.ident = CSSValueMediaVolumeSliderContainer;
+            break;
+        case MediaVolumeSliderPart:
+            m_value.ident = CSSValueMediaVolumeSlider;
+            break;
+        case MediaVolumeSliderThumbPart:
+            m_value.ident = CSSValueMediaVolumeSliderthumb;
             break;
         case MediaControlsBackgroundPart:
             m_value.ident = CSSValueMediaControlsBackground;
@@ -375,14 +392,14 @@ template<> inline CSSPrimitiveValue::CSSPrimitiveValue(EFillRepeat e)
         case RepeatFill:
             m_value.ident = CSSValueRepeat;
             break;
-        case RepeatXFill:
-            m_value.ident = CSSValueRepeatX;
-            break;
-        case RepeatYFill:
-            m_value.ident = CSSValueRepeatY;
-            break;
         case NoRepeatFill:
             m_value.ident = CSSValueNoRepeat;
+            break;
+        case RoundFill:
+            m_value.ident = CSSValueRound;
+            break;
+        case SpaceFill:
+            m_value.ident = CSSValueSpace;
             break;
     }
 }
@@ -392,12 +409,12 @@ template<> inline CSSPrimitiveValue::operator EFillRepeat() const
     switch (m_value.ident) {
         case CSSValueRepeat:
             return RepeatFill;
-        case CSSValueRepeatX:
-            return RepeatXFill;
-        case CSSValueRepeatY:
-            return RepeatYFill;
         case CSSValueNoRepeat:
             return NoRepeatFill;
+        case CSSValueRound:
+            return RoundFill;
+        case CSSValueSpace:
+            return SpaceFill;
         default:
             ASSERT_NOT_REACHED();
             return RepeatFill;
@@ -522,6 +539,7 @@ template<> inline CSSPrimitiveValue::operator EBoxOrient() const
         case CSSValueInlineAxis:
             return HORIZONTAL;
         case CSSValueVertical:
+        case CSSValueBlockAxis:
             return VERTICAL;
         default:
             ASSERT_NOT_REACHED();
@@ -777,6 +795,11 @@ template<> inline CSSPrimitiveValue::CSSPrimitiveValue(EDisplay e)
         case TABLE_CAPTION:
             m_value.ident = CSSValueTableCaption;
             break;
+#if ENABLE(WCSS)
+        case WAP_MARQUEE:
+            m_value.ident = CSSValueWapMarquee;
+            break;
+#endif
         case BOX:
             m_value.ident = CSSValueWebkitBox;
             break;
@@ -1782,6 +1805,81 @@ template<> inline CSSPrimitiveValue::operator EPointerEvents() const
     }
 }
 
+template<> inline CSSPrimitiveValue::CSSPrimitiveValue(FontSmoothingMode smoothing)
+    : m_type(CSS_IDENT)
+{
+    switch (smoothing) {
+    case AutoSmoothing:
+        m_value.ident = CSSValueAuto;
+        return;
+    case NoSmoothing:
+        m_value.ident = CSSValueNone;
+        return;
+    case Antialiased:
+        m_value.ident = CSSValueAntialiased;
+        return;
+    case SubpixelAntialiased:
+        m_value.ident = CSSValueSubpixelAntialiased;
+        return;
+    }
+    
+    ASSERT_NOT_REACHED();
+    m_value.ident = CSSValueAuto;
+}
+
+template<> inline CSSPrimitiveValue::operator FontSmoothingMode() const
+{
+    switch (m_value.ident) {
+    case CSSValueAuto:
+        return AutoSmoothing;
+    case CSSValueNone:
+        return NoSmoothing;
+    case CSSValueAntialiased:
+        return Antialiased;
+    case CSSValueSubpixelAntialiased:
+        return SubpixelAntialiased;
+    }
+    
+    ASSERT_NOT_REACHED();
+    return AutoSmoothing;
+}
+
+template<> inline CSSPrimitiveValue::CSSPrimitiveValue(TextRenderingMode e)
+    : m_type(CSS_IDENT)
+{
+    switch (e) {
+        case AutoTextRendering:
+            m_value.ident = CSSValueAuto;
+            break;
+        case OptimizeSpeed:
+            m_value.ident = CSSValueOptimizespeed;
+            break;
+        case OptimizeLegibility:
+            m_value.ident = CSSValueOptimizelegibility;
+            break;
+        case GeometricPrecision:
+            m_value.ident = CSSValueGeometricprecision;
+            break;
+    }
+}
+
+template<> inline CSSPrimitiveValue::operator TextRenderingMode() const
+{
+    switch (m_value.ident) {
+        case CSSValueAuto:
+            return AutoTextRendering;
+        case CSSValueOptimizespeed:
+            return OptimizeSpeed;
+        case CSSValueOptimizelegibility:
+            return OptimizeLegibility;
+        case CSSValueGeometricprecision:
+            return GeometricPrecision;
+        default:
+            ASSERT_NOT_REACHED();
+            return AutoTextRendering;
+    }
+}
+
 #if ENABLE(SVG)
 
 template<> inline CSSPrimitiveValue::CSSPrimitiveValue(LineCap e)
@@ -2182,42 +2280,6 @@ template<> inline CSSPrimitiveValue::operator ETextAnchor() const
         default:
             ASSERT_NOT_REACHED();
             return TA_START;
-    }
-}
-
-template<> inline CSSPrimitiveValue::CSSPrimitiveValue(ETextRendering e)
-    : m_type(CSS_IDENT)
-{
-    switch (e) {
-        case TR_AUTO:
-            m_value.ident = CSSValueAuto;
-            break;
-        case TR_OPTIMIZESPEED:
-            m_value.ident = CSSValueOptimizespeed;
-            break;
-        case TR_OPTIMIZELEGIBILITY:
-            m_value.ident = CSSValueOptimizelegibility;
-            break;
-        case TR_GEOMETRICPRECISION:
-            m_value.ident = CSSValueGeometricprecision;
-            break;
-    }
-}
-
-template<> inline CSSPrimitiveValue::operator ETextRendering() const
-{
-    switch (m_value.ident) {
-        case CSSValueAuto:
-            return TR_AUTO;
-        case CSSValueOptimizespeed:
-            return TR_OPTIMIZESPEED;
-        case CSSValueOptimizelegibility:
-            return TR_OPTIMIZELEGIBILITY;
-        case CSSValueGeometricprecision:
-            return TR_GEOMETRICPRECISION;
-        default:
-            ASSERT_NOT_REACHED();
-            return TR_AUTO;
     }
 }
 

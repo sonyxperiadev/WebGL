@@ -528,7 +528,7 @@ VisiblePosition ReplaceSelectionCommand::positionAtEndOfInsertedContent()
 VisiblePosition ReplaceSelectionCommand::positionAtStartOfInsertedContent()
 {
     // Return the inserted content's first VisiblePosition.
-    return VisiblePosition(nextCandidate(positionBeforeNode(m_firstNodeInserted.get())));
+    return VisiblePosition(nextCandidate(positionInParentBeforeNode(m_firstNodeInserted.get())));
 }
 
 // Remove style spans before insertion if they are unnecessary.  It's faster because we'll 
@@ -695,8 +695,17 @@ void ReplaceSelectionCommand::mergeEndIfNeeded()
     
     VisiblePosition destination = mergeForward ? endOfInsertedContent.next() : endOfInsertedContent;
     VisiblePosition startOfParagraphToMove = mergeForward ? startOfParagraph(endOfInsertedContent) : endOfInsertedContent.next();
+   
+    // Merging forward could result in deleting the destination anchor node.
+    // To avoid this, we add a placeholder node before the start of the paragraph.
+    if (endOfParagraph(startOfParagraphToMove) == destination) {
+        RefPtr<Node> placeholder = createBreakElement(document());
+        insertNodeBefore(placeholder, startOfParagraphToMove.deepEquivalent().node());
+        destination = VisiblePosition(Position(placeholder.get(), 0));
+    }
 
     moveParagraph(startOfParagraphToMove, endOfParagraph(startOfParagraphToMove), destination);
+    
     // Merging forward will remove m_lastLeafInserted from the document.
     // FIXME: Maintain positions for the start and end of inserted content instead of keeping nodes.  The nodes are
     // only ever used to create positions where inserted content starts/ends.  Also, we sometimes insert content
@@ -705,6 +714,10 @@ void ReplaceSelectionCommand::mergeEndIfNeeded()
         m_lastLeafInserted = destination.previous().deepEquivalent().node();
         if (!m_firstNodeInserted->inDocument())
             m_firstNodeInserted = endingSelection().visibleStart().deepEquivalent().node();
+        // If we merged text nodes, m_lastLeafInserted could be null. If this is the case,
+        // we use m_firstNodeInserted.
+        if (!m_lastLeafInserted)
+            m_lastLeafInserted = m_firstNodeInserted;
     }
 }
 
@@ -794,7 +807,7 @@ void ReplaceSelectionCommand::doApply()
         Node* br = endingSelection().start().node(); 
         ASSERT(br->hasTagName(brTag)); 
         // Insert content between the two blockquotes, but remove the br (since it was just a placeholder). 
-        insertionPos = positionBeforeNode(br); 
+        insertionPos = positionInParentBeforeNode(br);
         removeNode(br);
     }
     
@@ -817,9 +830,9 @@ void ReplaceSelectionCommand::doApply()
         ASSERT(startBlock != currentRoot);
         VisiblePosition visibleInsertionPos(insertionPos);
         if (isEndOfBlock(visibleInsertionPos) && !(isStartOfBlock(visibleInsertionPos) && fragment.hasInterchangeNewlineAtEnd()))
-            insertionPos = positionAfterNode(startBlock);
+            insertionPos = positionInParentAfterNode(startBlock);
         else if (isStartOfBlock(visibleInsertionPos))
-            insertionPos = positionBeforeNode(startBlock);
+            insertionPos = positionInParentBeforeNode(startBlock);
     }
 
     // Paste into run of tabs splits the tab span.

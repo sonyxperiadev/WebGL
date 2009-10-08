@@ -73,11 +73,6 @@ public:
     void appendColumn(int pos);
     void splitColumn(int pos, int newSize);
 
-    virtual int overflowWidth(bool includeInterior = true) const { return (!includeInterior && hasOverflowClip()) ? width() : m_overflowWidth; }
-    virtual int overflowLeft(bool includeInterior = true) const { return (!includeInterior && hasOverflowClip()) ? 0 : m_overflowLeft; }
-    virtual int overflowHeight(bool includeInterior = true) const { return (!includeInterior && hasOverflowClip()) ? height() : m_overflowHeight; }
-    virtual int overflowTop(bool includeInterior = true) const { return (!includeInterior && hasOverflowClip()) ? 0 : m_overflowTop; }
-
     int calcOuterBorderTop() const;
     int calcOuterBorderBottom() const;
     int calcOuterBorderLeft(bool rtl) const;
@@ -152,10 +147,6 @@ private:
     int m_outerBorderRight;
     int m_outerBorderTop;
     int m_outerBorderBottom;
-    int m_overflowLeft;
-    int m_overflowWidth;
-    int m_overflowTop;
-    int m_overflowHeight;
 
     bool m_needsCellRecalc;
     bool m_hasOverflowingCell;

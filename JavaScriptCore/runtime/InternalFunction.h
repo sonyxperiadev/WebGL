@@ -42,12 +42,12 @@ namespace JSC {
 
         static PassRefPtr<Structure> createStructure(JSValue proto) 
         { 
-            return Structure::create(proto, TypeInfo(ObjectType, ImplementsHasInstance | HasStandardGetOwnPropertySlot)); 
+            return Structure::create(proto, TypeInfo(ObjectType, ImplementsHasInstance | HasStandardGetOwnPropertySlot | HasDefaultMark)); 
         }
 
     protected:
-        InternalFunction(PassRefPtr<Structure> structure) : JSObject(structure) { }
-        InternalFunction(JSGlobalData*, PassRefPtr<Structure>, const Identifier&);
+        InternalFunction(NonNullPassRefPtr<Structure> structure) : JSObject(structure) { }
+        InternalFunction(JSGlobalData*, NonNullPassRefPtr<Structure>, const Identifier&);
 
     private:
         virtual CallType getCallData(CallData&) = 0;

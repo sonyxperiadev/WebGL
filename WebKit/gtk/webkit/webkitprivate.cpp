@@ -27,6 +27,7 @@
 #include "Frame.h"
 #include "FrameLoader.h"
 #include "FrameLoaderClientGtk.h"
+#include "HitTestResult.h"
 #include <libintl.h>
 #include "Logging.h"
 #include "PageCache.h"
@@ -37,6 +38,7 @@
 #include "ResourceHandleClient.h"
 #include "ResourceHandleInternal.h"
 #include <runtime/InitializeThreading.h>
+#include "SecurityOrigin.h"
 
 #if ENABLE(DATABASE)
 #include "DatabaseTracker.h"
@@ -97,7 +99,7 @@ WebKitWebNavigationReason kit(WebCore::NavigationType type)
 
 WebCore::NavigationType core(WebKitWebNavigationReason type)
 {
-    return (WebCore::NavigationType)type;
+    return static_cast<WebCore::NavigationType>(type);
 }
 
 WebCore::ResourceRequest core(WebKitNetworkRequest* request)
@@ -110,7 +112,76 @@ WebCore::ResourceRequest core(WebKitNetworkRequest* request)
     return ResourceRequest(url);
 }
 
+WebCore::EditingBehavior core(WebKitEditingBehavior type)
+{
+    return (WebCore::EditingBehavior)type;
+}
+
+WebKitHitTestResult* kit(const WebCore::HitTestResult& result)
+{
+    guint context = WEBKIT_HIT_TEST_RESULT_CONTEXT_DOCUMENT;
+    GOwnPtr<char> linkURI(0);
+    GOwnPtr<char> imageURI(0);
+    GOwnPtr<char> mediaURI(0);
+
+    if (!result.absoluteLinkURL().isEmpty()) {
+        context |= WEBKIT_HIT_TEST_RESULT_CONTEXT_LINK;
+        linkURI.set(g_strdup(result.absoluteLinkURL().string().utf8().data()));
+    }
+
+    if (!result.absoluteImageURL().isEmpty()) {
+        context |= WEBKIT_HIT_TEST_RESULT_CONTEXT_IMAGE;
+        imageURI.set(g_strdup(result.absoluteImageURL().string().utf8().data()));
+    }
+
+    if (!result.absoluteMediaURL().isEmpty()) {
+        context |= WEBKIT_HIT_TEST_RESULT_CONTEXT_MEDIA;
+        mediaURI.set(g_strdup(result.absoluteMediaURL().string().utf8().data()));
+    }
+
+    if (result.isSelected())
+        context |= WEBKIT_HIT_TEST_RESULT_CONTEXT_SELECTION;
+
+    if (result.isContentEditable())
+        context |= WEBKIT_HIT_TEST_RESULT_CONTEXT_EDITABLE;
+
+    return WEBKIT_HIT_TEST_RESULT(g_object_new(WEBKIT_TYPE_HIT_TEST_RESULT,
+                                           "link-uri", linkURI.get(),
+                                           "image-uri", imageURI.get(),
+                                           "media-uri", mediaURI.get(),
+                                           "context", context,
+                                           NULL));
+}
+
 } /** end namespace WebKit */
+
+namespace WTF {
+
+template <> void freeOwnedGPtr<SoupMessage>(SoupMessage* soupMessage)
+{
+    if (soupMessage)
+        g_object_unref(soupMessage);
+}
+
+template <> void freeOwnedGPtr<WebKitNetworkRequest>(WebKitNetworkRequest* request)
+{
+    if (request)
+        g_object_unref(request);
+}
+
+template <> void freeOwnedGPtr<WebKitNetworkResponse>(WebKitNetworkResponse* response)
+{
+    if (response)
+        g_object_unref(response);
+}
+
+template <> void freeOwnedGPtr<WebKitWebResource>(WebKitWebResource* resource)
+{
+    if (resource)
+        g_object_unref(resource);
+}
+
+}
 
 static GtkWidget* currentToplevelCallback(WebKitSoupAuthDialog* feature, SoupMessage* message, gpointer userData)
 {
@@ -130,7 +201,7 @@ static GtkWidget* currentToplevelCallback(WebKitSoupAuthDialog* feature, SoupMes
     if (!frame)
         return NULL;
 
-    GtkWidget* toplevel =  gtk_widget_get_toplevel(GTK_WIDGET(frame->page()->chrome()->platformWindow()));
+    GtkWidget* toplevel =  gtk_widget_get_toplevel(GTK_WIDGET(frame->page()->chrome()->platformPageClient()));
     if (GTK_WIDGET_TOPLEVEL(toplevel))
         return toplevel;
     else
@@ -156,9 +227,10 @@ void webkit_init()
     WebCore::pageCache()->setCapacity(3);
 
 #if ENABLE(DATABASE)
-    // FIXME: It should be possible for client applications to override this default location
     gchar* databaseDirectory = g_build_filename(g_get_user_data_dir(), "webkit", "databases", NULL);
-    WebCore::DatabaseTracker::tracker().setDatabaseDirectoryPath(databaseDirectory);
+    webkit_set_web_database_directory_path(databaseDirectory);
+
+    // FIXME: It should be possible for client applications to override the default appcache location
     WebCore::cacheStorage().setCacheDirectory(databaseDirectory);
     g_free(databaseDirectory);
 #endif
@@ -177,4 +249,14 @@ void webkit_init()
     SoupSessionFeature* sniffer = static_cast<SoupSessionFeature*>(g_object_new(SOUP_TYPE_CONTENT_SNIFFER, NULL));
     soup_session_add_feature(session, sniffer);
     g_object_unref(sniffer);
+}
+
+void webkit_white_list_access_from_origin(const gchar* sourceOrigin, const gchar* destinationProtocol, const gchar* destinationHost, bool allowDestinationSubdomains)
+{
+    SecurityOrigin::whiteListAccessFromOrigin(*SecurityOrigin::createFromString(sourceOrigin), destinationProtocol, destinationHost, allowDestinationSubdomains);
+}
+
+void webkit_reset_origin_access_white_lists()
+{
+    SecurityOrigin::resetOriginAccessWhiteLists();
 }

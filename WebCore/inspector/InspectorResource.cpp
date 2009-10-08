@@ -31,6 +31,8 @@
 #include "config.h"
 #include "InspectorResource.h"
 
+#if ENABLE(INSPECTOR)
+
 #include "CachedResource.h"
 #include "DocLoader.h"
 #include "DocumentLoader.h"
@@ -57,6 +59,8 @@ InspectorResource::InspectorResource(long long identifier, DocumentLoader* loade
     , m_startTime(-1.0)
     , m_responseReceivedTime(-1.0)
     , m_endTime(-1.0)
+    , m_loadEventTime(-1.0)
+    , m_domContentEventTime(-1.0)
     , m_isMainResource(false)
 {
 }
@@ -71,7 +75,7 @@ PassRefPtr<InspectorResource> InspectorResource::createCached(long long identifi
 
     resource->m_finished = true;
 
-    resource->m_requestURL = KURL(cachedResource->url());
+    resource->m_requestURL = KURL(ParsedURLString, cachedResource->url());
     resource->updateResponse(cachedResource->response());
 
     resource->m_length = cachedResource->encodedSize();
@@ -89,6 +93,9 @@ void InspectorResource::updateRequest(const ResourceRequest& request)
 {
     m_requestHeaderFields = request.httpHeaderFields();
     m_requestURL = request.url();
+    m_requestMethod = request.httpMethod();
+    if (request.httpBody() && !request.httpBody()->isEmpty())
+        m_requestFormData = request.httpBody()->flattenToString();
 
     m_changes.set(RequestChange);
 }
@@ -126,6 +133,8 @@ void InspectorResource::createScriptObject(InspectorFrontend* frontend)
         jsonObject.set("lastPathComponent", m_requestURL.lastPathComponent());
         jsonObject.set("isMainResource", m_isMainResource);
         jsonObject.set("cached", m_cached);
+        jsonObject.set("requestMethod", m_requestMethod);
+        jsonObject.set("requestFormData", m_requestFormData);
         if (!frontend->addResource(m_identifier, jsonObject))
             return;
 
@@ -153,6 +162,8 @@ void InspectorResource::updateScriptObject(InspectorFrontend* frontend)
         populateHeadersObject(&requestHeaders, m_requestHeaderFields);
         jsonObject.set("requestHeaders", requestHeaders);
         jsonObject.set("mainResource", m_isMainResource);
+        jsonObject.set("requestMethod", m_requestMethod);
+        jsonObject.set("requestFormData", m_requestFormData);
         jsonObject.set("didRequestChange", true);
     }
 
@@ -191,6 +202,10 @@ void InspectorResource::updateScriptObject(InspectorFrontend* frontend)
             jsonObject.set("responseReceivedTime", m_responseReceivedTime);
         if (m_endTime > 0)
             jsonObject.set("endTime", m_endTime);
+        if (m_loadEventTime > 0)
+            jsonObject.set("loadEventTime", m_loadEventTime);
+        if (m_domContentEventTime > 0)
+            jsonObject.set("domContentEventTime", m_domContentEventTime);
         jsonObject.set("didTimingChange", true);
     }
     if (!frontend->updateResource(m_identifier, jsonObject))
@@ -255,32 +270,8 @@ String InspectorResource::sourceString() const
     if (!m_xmlHttpResponseText.isNull())
         return String(m_xmlHttpResponseText);
 
-    RefPtr<SharedBuffer> buffer;
     String textEncodingName;
-
-    if (m_requestURL == m_loader->requestURL()) {
-        buffer = m_loader->mainResourceData();
-        textEncodingName = m_frame->document()->inputEncoding();
-    } else {
-        CachedResource* cachedResource = m_frame->document()->docLoader()->cachedResource(requestURL());
-        if (!cachedResource)
-            return String();
-
-        if (cachedResource->isPurgeable()) {
-            // If the resource is purgeable then make it unpurgeable to get
-            // get its data. This might fail, in which case we return an
-            // empty String.
-            // FIXME: should we do something else in the case of a purged
-            // resource that informs the user why there is no data in the
-            // inspector?
-            if (!cachedResource->makePurgeable(false))
-                return String();
-        }
-
-        buffer = cachedResource->data();
-        textEncodingName = cachedResource->encoding();
-    }
-
+    RefPtr<SharedBuffer> buffer = resourceData(&textEncodingName);
     if (!buffer)
         return String();
 
@@ -288,6 +279,31 @@ String InspectorResource::sourceString() const
     if (!encoding.isValid())
         encoding = WindowsLatin1Encoding();
     return encoding.decode(buffer->data(), buffer->size());
+}
+
+PassRefPtr<SharedBuffer> InspectorResource::resourceData(String* textEncodingName) const {
+    if (m_requestURL == m_loader->requestURL()) {
+        *textEncodingName = m_frame->document()->inputEncoding();
+        return m_loader->mainResourceData();
+    }
+
+    CachedResource* cachedResource = m_frame->document()->docLoader()->cachedResource(requestURL());
+    if (!cachedResource)
+        return 0;
+
+    if (cachedResource->isPurgeable()) {
+        // If the resource is purgeable then make it unpurgeable to get
+        // get its data. This might fail, in which case we return an
+        // empty String.
+        // FIXME: should we do something else in the case of a purged
+        // resource that informs the user why there is no data in the
+        // inspector?
+        if (!cachedResource->makePurgeable(false))
+            return 0;
+    }
+
+    *textEncodingName = cachedResource->encoding();
+    return cachedResource->data();
 }
 
 void InspectorResource::startTiming()
@@ -310,6 +326,18 @@ void InspectorResource::endTiming()
     m_changes.set(CompletionChange);
 }
 
+void InspectorResource::markDOMContentEventTime()
+{
+    m_domContentEventTime = currentTime();
+    m_changes.set(TimingChange);
+}
+
+void InspectorResource::markLoadEventTime()
+{
+    m_loadEventTime = currentTime();
+    m_changes.set(TimingChange);
+}
+
 void InspectorResource::markFailed()
 {
     m_failed = true;
@@ -323,3 +351,5 @@ void InspectorResource::addLength(int lengthReceived)
 }
 
 } // namespace WebCore
+
+#endif // ENABLE(INSPECTOR)

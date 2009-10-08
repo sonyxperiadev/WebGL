@@ -1,6 +1,7 @@
 #!/usr/bin/perl -w
 
 # Copyright (C) 2005, 2006, 2007 Apple Inc.  All rights reserved.
+# Copyright (C) 2009 Cameron McCormack <cam@mcc.id.au>
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -65,11 +66,16 @@ use File::Spec;
 use File::Temp qw(tempfile);
 use Getopt::Long;
 
+use FindBin;
+use lib $FindBin::Bin;
+use VCSUtils;
+
 sub checksum($);
 sub fixChangeLogPatch($);
 sub gitdiff2svndiff($);
 sub patch($);
 sub revertDirectories();
+sub removeEOL($);
 sub svnStatus($);
 sub unapplyPatch($$;$);
 sub unsetChangeLogDate($$);
@@ -79,6 +85,9 @@ if (!GetOptions("help!" => \$showHelp) || $showHelp) {
     print STDERR basename($0) . " [-h|--help] patch1 [patch2 ...]\n";
     exit 1;
 }
+
+my $pathScriptWasRunFrom = Cwd::getcwd();
+my $pathForRepositoryRoot = determineVCSRoot();
 
 my @copiedFiles;
 my %directoriesToCheck;
@@ -133,7 +142,9 @@ for $patch (@copiedFiles) {
     patch($patch);
 }
 
-revertDirectories();
+if (isSVN()) {
+    revertDirectories();
+}
 
 exit 0;
 
@@ -289,6 +300,7 @@ sub patch($)
 
 sub revertDirectories()
 {
+    chdir $pathForRepositoryRoot;
     my %checkedDirectories;
     foreach my $path (reverse sort keys %directoriesToCheck) {
         my @dirs = File::Spec->splitdir($path);
@@ -318,6 +330,14 @@ sub revertDirectories()
     }
 }
 
+sub removeEOL($)
+{
+    my ($line) = @_;
+
+    $line =~ s/[\r\n]+$//g;
+    return $line;
+}
+
 sub svnStatus($)
 {
     my ($fullPath) = @_;
@@ -331,10 +351,10 @@ sub svnStatus($)
         my $normalizedFullPath = File::Spec->catdir(File::Spec->splitdir($fullPath));
         while (<SVN>) {
             # Input may use a different EOL sequence than $/, so avoid chomp.
-            $_ =~ s/[\r\n]+$//g;
+            $_ = removeEOL($_);
             my $normalizedStatPath = File::Spec->catdir(File::Spec->splitdir(substr($_, 7)));
             if ($normalizedFullPath eq $normalizedStatPath) {
-                $svnStatus = $_;
+                $svnStatus = "$_\n";
                 last;
             }
         }
@@ -344,7 +364,7 @@ sub svnStatus($)
     }
     else {
         # Files will have only one status returned.
-        $svnStatus = <SVN>;
+        $svnStatus = removeEOL(<SVN>) . "\n";
     }
     close SVN;
     return $svnStatus;
@@ -353,11 +373,13 @@ sub svnStatus($)
 sub unapplyPatch($$;$)
 {
     my ($patch, $fullPath, $options) = @_;
+    chdir $pathForRepositoryRoot;
     $options = [] if (! $options);
     my $command = "patch " . join(" ", "-p0", "-R", @{$options});
     open PATCH, "| $command" or die "Failed to patch $fullPath: $!";
     print PATCH $patch;
     close PATCH;
+    chdir $pathScriptWasRunFrom;
 }
 
 sub unsetChangeLogDate($$)

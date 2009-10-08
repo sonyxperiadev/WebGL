@@ -94,6 +94,10 @@ body.attached #toolbar {
     padding-left: 0;
 }
 
+body.attached.platform-qt #toolbar {
+    cursor: auto;
+}
+
 body.attached.inactive #toolbar {
     border-top: 1px solid rgb(64%, 64%, 64%);
 }
@@ -199,15 +203,15 @@ body.attached #search-results-matches {
     background-image: url(Images/scriptsIcon.png);
 }
 
-.toolbar-item.databases .toolbar-icon {
-    background-image: url(Images/databasesIcon.png);
+.toolbar-item.storage .toolbar-icon {
+    background-image: url(Images/storageIcon.png);
 }
 
 .toolbar-item.profiles .toolbar-icon {
     background-image: url(Images/profilesIcon.png);
 }
 
-#close-button {
+#close-button-left, #close-button-right {
     width: 14px;
     height: 14px;
     background-image: url(Images/closeButtons.png);
@@ -217,15 +221,27 @@ body.attached #search-results-matches {
     margin: 5px 0;
 }
 
-#close-button:hover {
+#close-button-left:hover, #close-button-right:hover {
     background-position: 14px 0;
 }
 
-#close-button:active {
+#close-button-left:active, #close-button-right:active {
     background-position: 28px 0;
 }
 
-body.detached .toolbar-item.close {
+body.detached .toolbar-item.close-left, body.detached .toolbar-item.close-right {
+    display: none;
+}
+
+body.attached.platform-qt .toolbar-item.close-left, body.attached.platform-qt .toolbar-item.close-right {
+    display: none;
+}
+
+body.platform-mac-tiger .toolbar-item.close-right, body.platform-mac-leopard .toolbar-item.close-right { 
+    display: none;
+}
+
+body:not(.platform-mac-tiger):not(.platform-mac-leopard) .toolbar-item.close-left { 
     display: none;
 }
 
@@ -370,6 +386,10 @@ select.status-bar-item:active {
 
 body.detached #dock-status-bar-item .glyph {
     -webkit-mask-image: url(Images/dockButtonGlyph.png);
+}
+
+body.platform-qt #dock-status-bar-item {
+    display: none
 }
 
 #console-status-bar-item .glyph {
@@ -543,7 +563,7 @@ body.drawer-visible #drawer {
     padding-left: 6px;
 }
 
-.repeated-message.console-error-level::before, .repeated-message.console-warning-level:before {
+.repeated-message.console-error-level::before, .repeated-message.console-warning-level:before, .repeated-message.console-debug-level:before {
     visibility: hidden;
 }
 
@@ -572,6 +592,14 @@ body.drawer-visible #drawer {
 
 .console-error-level .console-message-text {
     color: red;
+}
+
+.console-debug-level .console-message-text {
+    color: blue;
+}
+
+.console-debug-level::before {
+    background-image: url(Images/searchSmallBrightBlue.png);
 }
 
 .console-error-level::before {
@@ -773,6 +801,10 @@ body.drawer-visible #drawer {
     margin-right: 100px;
 }
 
+.resource-view-headers .outline-disclosure .raw-form-data {
+    white-space:pre-wrap;
+}
+
 .resource-view .resource-view-content {
     position: absolute;
     top: 0;
@@ -830,13 +862,21 @@ body.drawer-visible #drawer {
     -webkit-user-select: text;
 }
 
-.resource-view.image img {
+.resource-view.image img.resource-image-view {
     max-width: 100%;
     max-height: 1000px;
     background-image: url(Images/checker.png);
     -webkit-box-shadow: 0px 5px 10px rgba(0, 0, 0, 0.5);
     -webkit-user-select: text;
     -webkit-user-drag: auto;
+}
+
+.resource-url {
+    vertical-align: middle;
+}
+
+.resource-status-image {
+    vertical-align: middle;
 }
 
 .resource-view.image .title {
@@ -1190,8 +1230,20 @@ body.inactive .placard.selected {
     margin-top: 1px;
 }
 
-.section:nth-last-of-type(1) {
+.section:nth-last-of-type(1), .event-bar:nth-last-of-type(1) {
     margin-bottom: 1px;
+}
+
+.watch-expressions-buttons-container {
+    text-align: center;
+}
+
+.event-bar:first-child {
+    margin-top: 1px;
+}
+
+.event-bar:nth-last-of-type(1) .header {
+    border-bottom: 1px solid rgb(163, 163, 163);
 }
 
 .section .header {
@@ -1225,7 +1277,7 @@ body.inactive .placard.selected {
     content: url(Images/treeDownTriangleWhite.png);
 }
 
-.section .header .title {
+.section .header .title, .event-bar .header .title {
     color: white;
     font-weight: bold;
     word-wrap: break-word;
@@ -1236,11 +1288,11 @@ body.inactive .placard.selected {
     font-style: italic;
 }
 
-.section .header label {
+.section .header label, .event-bar .header label {
     display: none;
 }
 
-.section.expanded .header label {
+.section.expanded .header label, .event-bar.expanded .header label {
     display: inline;
 }
 
@@ -1253,7 +1305,7 @@ body.inactive .placard.selected {
     vertical-align: 2px;
 }
 
-.section .header .subtitle {
+.section .header .subtitle, .event-bar .header .subtitle {
     float: right;
     font-size: 10px;
     margin-left: 5px;
@@ -1267,7 +1319,7 @@ body.inactive .placard.selected {
     color: inherit;
 }
 
-.section .properties {
+.section .properties, .event-bar .event-properties {
     display: none;
     margin: 0;
     padding: 2px 6px 3px;
@@ -1284,11 +1336,11 @@ body.inactive .placard.selected {
     opacity: 1.0;
 }
 
-.section.expanded .properties {
+.section.expanded .properties, .event-bar.expanded .event-properties {
     display: block;
 }
 
-.section .properties li {
+.section .properties li, .event-properties li {
     margin-left: 12px;
     white-space: nowrap;
     text-overflow: ellipsis;
@@ -1297,22 +1349,22 @@ body.inactive .placard.selected {
     cursor: auto;
 }
 
-.section .properties li.parent {
+.section .properties li.parent, .event-properties li.parent {
     margin-left: 1px;
 }
 
-.section .properties ol {
+.section .properties ol, .event-properties ol {
     display: none;
     margin: 0;
     -webkit-padding-start: 12px;
     list-style: none;
 }
 
-.section .properties ol.expanded {
+.section .properties ol.expanded, .event-properties ol.expanded {
     display: block;
 }
 
-.section .properties li.parent::before {
+.section .properties li.parent::before, .event-properties li.parent::before {
     content: url(Images/treeRightTriangleBlack.png);
     opacity: 0.75;
     float: left;
@@ -1324,14 +1376,77 @@ body.inactive .placard.selected {
     cursor: default;
 }
 
-.section .properties li.parent.expanded::before {
+.section .properties li.parent.expanded::before, .event-properties li.parent.expanded::before {
     content: url(Images/treeDownTriangleBlack.png);
     margin-top: 1px;
 }
 
-.section .properties li .info {
+.section .properties li .info, .event-properties li .info {
     padding-top: 4px;
     padding-bottom: 3px;
+}
+
+.section .event-bars {
+    display: none;
+}
+
+.section.expanded .event-bars {
+    display: block;
+}
+
+.event-bar {
+    position: relative;
+}
+
+.event-bar-connector {
+    position: absolute;
+    left: 75%;
+    bottom: -7px;
+    margin-left: -7px;
+    content: url(Images/grayConnectorPoint.png);
+    z-index: 3;
+}
+
+.event-bar.expanded .event-bar-connector {
+    content: url(Images/whiteConnectorPoint.png);
+}
+
+.event-bars .event-bar .header {
+    padding: 2px 8px 4px 18px;
+    border-top: 1px solid rgb(163, 163, 163);
+    background-image: -webkit-gradient(linear, left top, left bottom, from(rgb(243, 243, 243)), to(rgb(207, 207, 207)));
+    min-height: 18px;
+    white-space: nowrap;
+    -webkit-background-origin: padding;
+    -webkit-background-clip: padding;
+}
+
+.event-bars .event-bar.expanded .header {
+    border-bottom: 1px solid rgb(163, 163, 163);
+}
+
+.event-bars .event-bar .header .title {
+    font-weight: bold;
+    color: #333;
+    text-shadow: white 0 1px 0; 
+}
+
+.event-bars .event-bar .header .subtitle {
+    color: rgba(90, 90, 90, 0.742188);
+}
+
+.event-bars .event-bar .header::before {
+    position: absolute;
+    top: 4px;
+    left: 7px;
+    width: 8px;
+    height: 8px;
+    opacity: 0.75;
+    content: url(Images/treeRightTriangleBlack.png);
+}
+
+.event-bars .event-bar.expanded .header::before {
+    content: url(Images/treeDownTriangleBlack.png);
 }
 
 .editing {
@@ -1360,8 +1475,21 @@ body.inactive .placard.selected {
     text-overflow: clip;
 }
 
-li.editing .swatch, li.editing .enabled-button {
+li.editing .swatch, li.editing .enabled-button,  li.editing-sub-part .delete-button {
     display: none !important;
+}
+
+.watch-expressions > li.editing-sub-part .name {
+    display: block; 
+    width: 100%;
+}
+
+.watch-expressions > li.editing-sub-part .value, .watch-expressions > li.editing-sub-part .separator  {
+    display: none;
+}
+
+.watch-expressions-error-level {
+    color: red;
 }
 
 .section .properties li.editing-sub-part {
@@ -1397,11 +1525,22 @@ li.editing .swatch, li.editing .enabled-button {
     z-index: 1;
 }
 
+/* FIXME: need a better icon (comment in bug 27514) */
+.section .properties .delete-button {
+    width: 10px;
+    height: 10px;
+    background-image: url(Images/errorIcon.png);
+    background-position: 0 0;
+    background-color: transparent;
+    background-repeat: no-repeat;
+    border: 0 none transparent;
+}
+
 .section:hover .properties .enabled-button {
     display: block;
 }
 
-.section .properties .name {
+.section .properties .name, .event-properties .name {
     color: rgb(136, 19, 145);
 }
 
@@ -1409,7 +1548,7 @@ li.editing .swatch, li.editing .enabled-button {
     color: rgb(100, 100, 100);
 }
 
-.section .properties .number {
+.section .properties .number, .event-properties .number {
     color: blue;
 }
 
@@ -1417,22 +1556,27 @@ li.editing .swatch, li.editing .enabled-button {
     color: rgb(128, 0, 0);
 }
 
-.section .properties .keyword {
+.section .properties .keyword, .event-properties .keyword {
     color: rgb(136, 19, 79);
 }
 
-.section .properties .color {
+.section .properties .color, .event-properties .color {
     color: rgb(118, 15, 21);
 }
 
 .swatch {
     display: inline-block;
     vertical-align: baseline;
-    margin-left: 4px;
+    margin-left: 1px;
+    margin-right: 2px;
     margin-bottom: -1px;
     width: 1em;
     height: 1em;
-    border: 1px solid rgb(180, 180, 180);
+    border: 1px solid rgba(128, 128, 128, 0.6);
+}
+
+.swatch:hover {
+    border: 1px solid rgba(64, 64, 64, 0.8);
 }
 
 .pane:not(.expanded) + .pane, .pane:first-of-type {
@@ -1471,6 +1615,34 @@ li.editing .swatch, li.editing .enabled-button {
 
 .pane.expanded > .title::before {
     content: url(Images/disclosureTriangleSmallDownBlack.png);
+}
+
+.pane > .title > select {
+    display: none;
+    float: right;
+    width: 23px;
+    height: 17px;
+    color: transparent;
+    background-color: transparent;
+    border: none;
+    background-image: url(Images/paneSettingsButtons.png);
+    background-repeat: no-repeat;
+    margin: 1px 0 0 0;
+    padding: 0;
+    -webkit-border-radius: 0;
+    -webkit-appearance: none;
+}
+
+.pane.expanded:hover > .title > select {
+    display: inline-block;
+}
+
+.pane > .title > select:hover {
+    background-position: -23px 0px;
+}
+
+.pane > .title > select:active {
+    background-position: -46px 0px;
 }
 
 .pane > .body {
@@ -1622,8 +1794,16 @@ body.inactive .sidebar {
     content: url(Images/databaseTable.png);
 }
 
-.domstorage-sidebar-tree-item .icon {
-    content: url(Images/domStorage.png);
+.domstorage-sidebar-tree-item.local-storage .icon {
+    content: url(Images/localStorage.png);
+}
+
+.domstorage-sidebar-tree-item.session-storage .icon {
+    content: url(Images/sessionStorage.png);
+}
+
+.cookie-sidebar-tree-item .icon {
+    content: url(Images/cookie.png);
 }
 
 #storage-views {
@@ -1783,6 +1963,14 @@ body.inactive .sidebar {
     white-space: nowrap;
     text-overflow: ellipsis;
     overflow: hidden;
+}
+
+.data-grid .centered div {
+    text-align: center;
+}
+
+.data-grid .right div {
+    text-align: right;
 }
 
 .data-grid th.sortable div {
@@ -2091,7 +2279,7 @@ button.enable-toggle-status-bar-item.toggled-on .glyph {
     -webkit-mask-image: url(Images/enableSolidButtonGlyph.png);
 }
 
-#scripts-pause-on-exceptions-status-bar-item .glyph {
+.scripts-pause-on-exceptions-status-bar-item .glyph {
     -webkit-mask-image: url(Images/pauseOnExceptionButtonGlyph.png);
 }
 
@@ -2209,7 +2397,7 @@ button.enable-toggle-status-bar-item.toggled-on .glyph {
     overflow: auto;
 }
 
-#resources-larger-resources-status-bar-item .glyph {
+.resources-larger-resources-status-bar-item .glyph {
     -webkit-mask-image: url(Images/largerResourcesButtonGlyph.png);
 }
 
@@ -2221,7 +2409,13 @@ button.enable-toggle-status-bar-item.toggled-on .glyph {
     overflow: hidden;
 }
 
-#resources-filter li {
+#console-filter {
+    height: 24px;
+    padding: 2px 10px 0;
+    overflow: hidden;
+}
+
+#resources-filter li, #console-filter li {
     display: inline-block;
     margin: 1px 1px 0 0;
     padding: 0 6px 3px;
@@ -2236,7 +2430,17 @@ button.enable-toggle-status-bar-item.toggled-on .glyph {
     text-shadow: rgba(255, 255, 255, 0.5) 1px 1px 0;
 }
 
-#resources-filter li.selected, #resources-filter li:hover, #resources-filter li:active {
+#console-filter div.divider {
+    margin-left: 5px;
+    margin-right: 5px;
+    /* Only want a border-left here because border on both sides
+    made the divider too thick */
+    border-left: 1px solid gray;
+    display: inline;
+}
+
+#resources-filter li.selected, #resources-filter li:hover, #resources-filter li:active,
+#console-filter li.selected, #console-filter li:hover, #console-filter li:active {
     color: white;
     text-shadow: rgb(80, 80, 80) 1px 1px 1px;
     background: rgba(20, 20, 20, 0.4);
@@ -2244,13 +2448,15 @@ button.enable-toggle-status-bar-item.toggled-on .glyph {
     -webkit-box-shadow: 0 1px 0px rgba(255, 255, 255, 0.5);
 }
 
-#resources-filter li:hover {
+#resources-filter li:hover,
+#console-filter li:hover {
     background: rgba(20, 20, 20, 0.4);
     border-color: transparent;
     -webkit-box-shadow: none;
 }
 
-#resources-filter li:active {
+#resources-filter li:active,
+#console-filter li:active {
     background: rgba(20, 20, 20, 0.6);
 }
 
@@ -2316,36 +2522,36 @@ button.enable-toggle-status-bar-item.toggled-on .glyph {
     -webkit-background-clip: padding;
 }
 
-#resources-graph-legend {
+.summary-graph-legend {
     margin-top: -10px;
     padding-left: 15px;
 }
 
-.resources-graph-legend-item {
+.summary-graph-legend-item {
     display: inline-block;
     font-weight: bold;
     margin-right: 15px;
     vertical-align: top;
 }
 
-.resources-graph-legend-item.total {
+.summary-graph-legend-item.total {
     margin-left: 10px;
 }
 
-.resources-graph-legend-label {
+.summary-graph-legend-label {
     display: inline-block;
     text-align: left;
 }
 
-.resources-graph-legend-header {
+.summary-graph-legend-header {
     font-size: 12px;
 }
 
-.resources-graph-legend-value {
+.summary-graph-legend-value {
     font-size: 10px;
 }
 
-.resources-graph-legend-swatch {
+.summary-graph-legend-swatch {
     vertical-align: top;
     margin-top: 1px;
     margin-right: 3px;
@@ -2378,6 +2584,24 @@ button.enable-toggle-status-bar-item.toggled-on .glyph {
     top: 0;
     bottom: 0;
     background-color: rgba(0, 0, 0, 0.1);
+}
+
+.resources-onload-divider {
+    position: absolute;
+    width: 2px;
+    top: 0;
+    bottom: 0;
+    z-index: 300;
+    background-color: rgba(255, 0, 0, 0.5);
+}
+
+.resources-ondomcontent-divider {
+    position: absolute;
+    width: 2px;
+    top: 0;
+    bottom: 0;
+    z-index: 300;
+    background-color: rgba(0, 0, 255, 0.5);
 }
 
 .resources-divider.last {
@@ -2475,6 +2699,16 @@ button.enable-toggle-status-bar-item.toggled-on .glyph {
 .filter-all .resources-category-other, .filter-other .resources-category-other,
 .resource-sidebar-tree-item.selected {
     display: list-item;
+}
+
+.console-warning-level, .console-error-level, .console-log-level {
+    display: none;
+}
+
+.filter-all .console-warning-level, .filter-warnings .console-warning-level,
+.filter-all .console-error-level, .filter-errors .console-error-level,
+.filter-all .console-log-level, .filter-logs .console-log-level {
+    display: block;
 }
 
 .resources-graph-bar.waiting {
@@ -2970,6 +3204,10 @@ body.inactive .sidebar-tree-item.selected {
     content: url(Images/resourceDocumentIconSmall.png);
 }
 
+.bubble.debug, .console-debug-level .bubble {
+    background-color: rgb(0, 0, 255) !important;
+}
+
 .bubble.warning, .console-warning-level .bubble {
     background-color: rgb(232, 164, 0) !important;
 }
@@ -3093,16 +3331,21 @@ body.inactive .sidebar-tree-item.selected .bubble.search-matches {
 button.enable-toggle-status-bar-item .glyph {
 }
 
-#record-profile-status-bar-item .glyph {
+.record-profile-status-bar-item .glyph {
     -webkit-mask-image: url(Images/recordButtonGlyph.png);
 }
 
-#record-profile-status-bar-item.toggled-on .glyph {
+.record-profile-status-bar-item.toggled-on .glyph {
     -webkit-mask-image: url(Images/recordToggledButtonGlyph.png);
-    background-color: rgb(216, 0, 0);
+    background-color: rgb(216, 0, 0) !important;
 }
 
-#node-search-status-bar-item .glyph {
+/* FIXME: should have its own glyph. */
+.heap-snapshot-status-bar-item .glyph {
+    -webkit-mask-image: url(Images/focusButtonGlyph.png);
+}
+
+.node-search-status-bar-item .glyph {
     -webkit-mask-image: url(Images/nodeSearchButtonGlyph.png);
 }
 
@@ -3136,12 +3379,8 @@ button.enable-toggle-status-bar-item .glyph {
     margin-left: -1px;
 }
 
-.refresh-storage-status-bar-item {
-    background-image: url(Images/reloadButtons.png) !important;
-}
-
-.refresh-storage-status-bar-item:active {
-    background-position: 32px 0;
+.refresh-storage-status-bar-item .glyph {
+    -webkit-mask-image: url(Images/reloadButtonGlyph.png);
 }
 
 #storage-view-status-bar-items {
@@ -3190,4 +3429,8 @@ ol.breakpoint-list {
 
 .breakpoint-list a:hover {
     color: rgb(15%, 15%, 15%);
+}
+
+.webkit-html-js-node, .webkit-html-css-node {
+    white-space: pre;
 }

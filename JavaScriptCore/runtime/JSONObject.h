@@ -34,20 +34,21 @@ namespace JSC {
 
     class JSONObject : public JSObject {
     public:
-        JSONObject(PassRefPtr<Structure> structure)
+        JSONObject(NonNullPassRefPtr<Structure> structure)
             : JSObject(structure)
         {
         }
 
         static PassRefPtr<Structure> createStructure(JSValue prototype)
         {
-            return Structure::create(prototype, TypeInfo(ObjectType));
+            return Structure::create(prototype, TypeInfo(ObjectType, HasDefaultMark | HasDefaultGetPropertyNames));
         }
 
         static void markStringifiers(MarkStack&, Stringifier*);
 
     private:
         virtual bool getOwnPropertySlot(ExecState*, const Identifier&, PropertySlot&);
+        virtual bool getOwnPropertyDescriptor(ExecState*, const Identifier&, PropertyDescriptor&);
 
         virtual const ClassInfo* classInfo() const { return &info; }
         static const ClassInfo info;

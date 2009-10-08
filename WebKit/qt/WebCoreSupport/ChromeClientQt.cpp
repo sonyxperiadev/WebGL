@@ -39,12 +39,14 @@
 #include "WindowFeatures.h"
 #include "DatabaseTracker.h"
 #include "SecurityOrigin.h"
+#include "QWebPageClient.h"
 
 #include "qwebpage.h"
 #include "qwebpage_p.h"
 #include "qwebframe_p.h"
 #include "qwebsecurityorigin.h"
 #include "qwebsecurityorigin_p.h"
+#include "qwebview.h"
 
 #include <qtooltip.h>
 #include <qtextdocument.h>
@@ -303,16 +305,15 @@ IntRect ChromeClientQt::windowResizerRect() const
     return IntRect();
 }
 
-void ChromeClientQt::repaint(const IntRect& windowRect, bool contentChanged, bool immediate, bool repaintContentOnly)
+void ChromeClientQt::repaint(const IntRect& windowRect, bool contentChanged, bool, bool)
 {
     // No double buffer, so only update the QWidget if content changed.
     if (contentChanged) {
-        QWidget* view = m_webPage->view();
-        if (view) {
+        if (platformPageClient()) {
             QRect rect(windowRect);
             rect = rect.intersected(QRect(QPoint(0, 0), m_webPage->viewportSize()));
             if (!rect.isEmpty())
-                view->update(rect);
+                platformPageClient()->update(rect);
         }
         emit m_webPage->repaintRequested(windowRect);
     }
@@ -323,9 +324,8 @@ void ChromeClientQt::repaint(const IntRect& windowRect, bool contentChanged, boo
 
 void ChromeClientQt::scroll(const IntSize& delta, const IntRect& scrollViewRect, const IntRect&)
 {
-    QWidget* view = m_webPage->view();
-    if (view)
-        view->scroll(delta.width(), delta.height(), scrollViewRect);
+    if (platformPageClient())
+        platformPageClient()->scroll(delta.width(), delta.height(), scrollViewRect);
     emit m_webPage->scrollRequested(delta.width(), delta.height(), scrollViewRect);
 }
 
@@ -341,9 +341,9 @@ IntPoint ChromeClientQt::screenToWindow(const IntPoint& point) const
     return point;
 }
 
-PlatformWidget ChromeClientQt::platformWindow() const
+PlatformPageClient ChromeClientQt::platformPageClient() const
 {
-    return m_webPage->view();
+    return m_webPage->d->client;
 }
 
 void ChromeClientQt::contentsSizeChanged(Frame* frame, const IntSize& size) const
@@ -351,7 +351,7 @@ void ChromeClientQt::contentsSizeChanged(Frame* frame, const IntSize& size) cons
     emit QWebFramePrivate::kit(frame)->contentsSizeChanged(size);
 }
 
-void ChromeClientQt::mouseDidMoveOverElement(const HitTestResult& result, unsigned modifierFlags)
+void ChromeClientQt::mouseDidMoveOverElement(const HitTestResult& result, unsigned)
 {
     TextDirection dir;
     if (result.absoluteLinkURL() != lastHoverURL
@@ -402,7 +402,7 @@ void ChromeClientQt::exceededDatabaseQuota(Frame* frame, const String& databaseN
 #endif
 
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
-void ChromeClientQt::reachedMaxAppCacheSize(int64_t spaceNeeded)
+void ChromeClientQt::reachedMaxAppCacheSize(int64_t)
 {
     // FIXME: Free some space.
     notImplemented();
@@ -419,7 +419,7 @@ void ChromeClientQt::runOpenPanel(Frame* frame, PassRefPtr<FileChooser> prpFileC
         option.parentFrame = QWebFramePrivate::kit(frame);
 
         if (!fileChooser->filenames().isEmpty())
-            for (int i = 0; i < fileChooser->filenames().size(); ++i)
+            for (unsigned i = 0; i < fileChooser->filenames().size(); ++i)
                 option.suggestedFileNames += fileChooser->filenames()[i];
 
         QWebPage::ChooseMultipleFilesExtensionReturn output;

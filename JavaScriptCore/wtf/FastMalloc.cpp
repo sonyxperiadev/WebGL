@@ -178,10 +178,10 @@ void* fastZeroedMalloc(size_t n)
     return result;
 }
     
-void* tryFastZeroedMalloc(size_t n) 
+TryMallocReturnValue tryFastZeroedMalloc(size_t n) 
 {
-    void* result = tryFastMalloc(n);
-    if (!result)
+    void* result;
+    if (!tryFastMalloc(n).getValue(result))
         return 0;
     memset(result, 0, n);
     return result;
@@ -200,7 +200,7 @@ void* tryFastZeroedMalloc(size_t n)
 
 namespace WTF {
 
-void* tryFastMalloc(size_t n) 
+TryMallocReturnValue tryFastMalloc(size_t n) 
 {
     ASSERT(!isForbidden());
 
@@ -226,7 +226,9 @@ void* fastMalloc(size_t n)
     ASSERT(!isForbidden());
 
 #if ENABLE(FAST_MALLOC_MATCH_VALIDATION)
-    void* result = tryFastMalloc(n);
+    TryMallocReturnValue returnValue = tryFastMalloc(n);
+    void* result;
+    returnValue.getValue(result);
 #else
     void* result = malloc(n);
 #endif
@@ -236,7 +238,7 @@ void* fastMalloc(size_t n)
     return result;
 }
 
-void* tryFastCalloc(size_t n_elements, size_t element_size)
+TryMallocReturnValue tryFastCalloc(size_t n_elements, size_t element_size)
 {
     ASSERT(!isForbidden());
 
@@ -264,7 +266,9 @@ void* fastCalloc(size_t n_elements, size_t element_size)
     ASSERT(!isForbidden());
 
 #if ENABLE(FAST_MALLOC_MATCH_VALIDATION)
-    void* result = tryFastCalloc(n_elements, element_size);
+    TryMallocReturnValue returnValue = tryFastCalloc(n_elements, element_size);
+    void* result;
+    returnValue.getValue(result);
 #else
     void* result = calloc(n_elements, element_size);
 #endif
@@ -291,7 +295,7 @@ void fastFree(void* p)
 #endif
 }
 
-void* tryFastRealloc(void* p, size_t n)
+TryMallocReturnValue tryFastRealloc(void* p, size_t n)
 {
     ASSERT(!isForbidden());
 
@@ -323,7 +327,9 @@ void* fastRealloc(void* p, size_t n)
     ASSERT(!isForbidden());
 
 #if ENABLE(FAST_MALLOC_MATCH_VALIDATION)
-    void* result = tryFastRealloc(p, n);
+    TryMallocReturnValue returnValue = tryFastRealloc(p, n);
+    void* result;
+    returnValue.getValue(result);
 #else
     void* result = realloc(p, n);
 #endif
@@ -373,6 +379,9 @@ extern "C" const int jscore_fastmalloc_introspection = 0;
 #include <stdarg.h>
 #include <stddef.h>
 #include <stdio.h>
+#if PLATFORM(UNIX)
+#include <unistd.h>
+#endif
 #if COMPILER(MSVC)
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -385,6 +394,7 @@ extern "C" const int jscore_fastmalloc_introspection = 0;
 #if PLATFORM(DARWIN)
 #include "MallocZoneSupport.h"
 #include <wtf/HashSet.h>
+#include <wtf/Vector.h>
 #endif
 
 #ifndef PRIuS
@@ -539,7 +549,7 @@ static const size_t kNumClasses = 68;
 static const size_t kPageMapBigAllocationThreshold = 128 << 20;
 
 // Minimum number of pages to fetch from system at a time.  Must be
-// significantly bigger than kBlockSize to amortize system-call
+// significantly bigger than kPageSize to amortize system-call
 // overhead, and also to reduce external fragementation.  Also, we
 // should keep this value big because various incarnations of Linux
 // have small limits on the number of mmap() regions per
@@ -2268,7 +2278,7 @@ static inline TCMalloc_PageHeap* getPageHeap()
 #define pageheap getPageHeap()
 
 #if USE_BACKGROUND_THREAD_TO_SCAVENGE_MEMORY
-#if PLATFORM(WIN)
+#if PLATFORM(WIN_OS)
 static void sleep(unsigned seconds)
 {
     ::Sleep(seconds * 1000);
@@ -2277,6 +2287,10 @@ static void sleep(unsigned seconds)
 
 void TCMalloc_PageHeap::scavengerThread()
 {
+#if HAVE(PTHREAD_SETNAME_NP)
+  pthread_setname_np("JavaScriptCore: FastMalloc scavenger");
+#endif
+
   while (1) {
       if (!shouldContinueScavenging()) {
           pthread_mutex_lock(&m_scavengeMutex);
@@ -2382,7 +2396,7 @@ ALWAYS_INLINE void TCMalloc_Central_FreeList::ReleaseToSpans(void* object) {
   // The following check is expensive, so it is disabled by default
   if (false) {
     // Check that object does not occur in list
-    int got = 0;
+    unsigned got = 0;
     for (void* p = span->objects; p != NULL; p = *((void**) p)) {
       ASSERT(p != object);
       got++;
@@ -3576,7 +3590,7 @@ void* fastMalloc(size_t size)
     return malloc<true>(size);
 }
 
-void* tryFastMalloc(size_t size)
+TryMallocReturnValue tryFastMalloc(size_t size)
 {
     return malloc<false>(size);
 }
@@ -3637,7 +3651,7 @@ void* fastCalloc(size_t n, size_t elem_size)
     return calloc<true>(n, elem_size);
 }
 
-void* tryFastCalloc(size_t n, size_t elem_size)
+TryMallocReturnValue tryFastCalloc(size_t n, size_t elem_size)
 {
     return calloc<false>(n, elem_size);
 }
@@ -3701,7 +3715,7 @@ void* fastRealloc(void* old_ptr, size_t new_size)
     return realloc<true>(old_ptr, new_size);
 }
 
-void* tryFastRealloc(void* old_ptr, size_t new_size)
+TryMallocReturnValue tryFastRealloc(void* old_ptr, size_t new_size)
 {
     return realloc<false>(old_ptr, new_size);
 }

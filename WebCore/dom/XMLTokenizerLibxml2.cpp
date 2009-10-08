@@ -50,6 +50,7 @@
 #include "ScriptSourceCode.h"
 #include "ScriptValue.h"
 #include "TextResourceDecoder.h"
+#include "TransformSource.h"
 #include "XMLTokenizerScope.h"
 #include <libxml/parser.h>
 #include <libxml/parserInternals.h>
@@ -850,7 +851,8 @@ void XMLTokenizer::endElementNs()
         if (!scriptHref.isEmpty()) {
             // we have a src attribute 
             String scriptCharset = scriptElement->scriptCharset();
-            if ((m_pendingScript = m_doc->docLoader()->requestScript(scriptHref, scriptCharset))) {
+            if (element->dispatchBeforeLoadEvent(scriptHref) &&
+                (m_pendingScript = m_doc->docLoader()->requestScript(scriptHref, scriptCharset))) {
                 m_scriptElement = element;
                 m_pendingScript->addClient(this);
 
@@ -951,7 +953,7 @@ void XMLTokenizer::cdataBlock(const xmlChar* s, int len)
     
     exitText();
 
-    RefPtr<Node> newNode = new CDATASection(m_doc, toString(s, len));
+    RefPtr<Node> newNode = CDATASection::create(m_doc, toString(s, len));
     if (!m_currentNode->addChild(newNode.get()))
         return;
     if (m_view && !newNode->attached())
@@ -970,7 +972,7 @@ void XMLTokenizer::comment(const xmlChar* s)
     
     exitText();
 
-    RefPtr<Node> newNode = new Comment(m_doc, toString(s));
+    RefPtr<Node> newNode = Comment::create(m_doc, toString(s));
     m_currentNode->addChild(newNode.get());
     if (m_view && !newNode->attached())
         newNode->attach();
@@ -1280,7 +1282,8 @@ void XMLTokenizer::doEnd()
 {
 #if ENABLE(XSLT)
     if (m_sawXSLTransform) {
-        m_doc->setTransformSource(xmlDocPtrForString(m_doc->docLoader(), m_originalSourceForTransform, m_doc->url().string()));
+        void* doc = xmlDocPtrForString(m_doc->docLoader(), m_originalSourceForTransform, m_doc->url().string());
+        m_doc->setTransformSource(new TransformSource(doc));
         
         m_doc->setParsing(false); // Make the doc think it's done, so it will apply xsl sheets.
         m_doc->updateStyleSelector();

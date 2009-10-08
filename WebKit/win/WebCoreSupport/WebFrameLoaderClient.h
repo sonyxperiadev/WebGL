@@ -92,6 +92,9 @@ public:
     virtual void updateGlobalHistoryRedirectLinks();
     virtual bool shouldGoToHistoryItem(WebCore::HistoryItem*) const;
 
+    virtual void didDisplayInsecureContent();
+    virtual void didRunInsecureContent(WebCore::SecurityOrigin*);
+
     virtual PassRefPtr<WebCore::DocumentLoader> createDocumentLoader(const WebCore::ResourceRequest&, const WebCore::SubstituteData&);
     virtual void setTitle(const WebCore::String& title, const WebCore::KURL&);
 
@@ -109,6 +112,7 @@ public:
     virtual bool shouldUsePluginDocument(const WebCore::String& mimeType) const;
 
     virtual void dispatchDidFailToStartPlugin(const WebCore::PluginView*) const;
+    virtual bool shouldLoadMediaElementURL(const WebCore::KURL&) const;
 
 protected:
     WebFrameLoaderClient(WebFrame*);

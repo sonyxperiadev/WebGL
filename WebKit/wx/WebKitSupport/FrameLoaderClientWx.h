@@ -33,6 +33,7 @@
 #include "KURL.h"
 #include "ResourceResponse.h"
 
+class wxWebFrame;
 class wxWebView;
 
 namespace WebCore {
@@ -51,9 +52,8 @@ namespace WebCore {
     public:
         FrameLoaderClientWx();
         ~FrameLoaderClientWx();
-        void setFrame(Frame *frame);
+        void setFrame(wxWebFrame *frame);
         void setWebView(wxWebView *webview);
-        virtual void detachFrameLoader();
 
         virtual bool hasWebView() const; // mainly for assertions
 
@@ -150,6 +150,9 @@ namespace WebCore {
         virtual void saveScrollPositionAndViewStateToItem(HistoryItem*);
         virtual bool canCachePage() const;
         
+        virtual void didDisplayInsecureContent();
+        virtual void didRunInsecureContent(SecurityOrigin*);
+
         virtual void setMainDocumentError(DocumentLoader*, const ResourceError&);
         virtual void committedLoad(DocumentLoader*, const char*, int);
         virtual ResourceError cancelledError(const ResourceRequest&);
@@ -207,7 +210,8 @@ namespace WebCore {
         virtual void registerForIconNotification(bool listen = true);
 
     private:
-        Frame *m_frame;
+        wxWebFrame *m_webFrame;
+        Frame* m_frame;
         wxWebView *m_webView;
         ResourceResponse m_response;
         bool m_firstData;

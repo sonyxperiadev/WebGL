@@ -8,13 +8,13 @@
  * are met:
  *
  * 1.  Redistributions of source code must retain the above copyright
- *     notice, this list of conditions and the following disclaimer. 
+ *     notice, this list of conditions and the following disclaimer.
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
- *     documentation and/or other materials provided with the distribution. 
+ *     documentation and/or other materials provided with the distribution.
  * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
- *     from this software without specific prior written permission. 
+ *     from this software without specific prior written permission.
  *
  * THIS SOFTWARE IS PROVIDED BY APPLE AND ITS CONTRIBUTORS "AS IS" AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
@@ -29,7 +29,6 @@
  */
 
 var Preferences = {
-    ignoreWhitespace: true,
     showUserAgentStyles: true,
     maxInlineTextChildLength: 80,
     minConsoleHeight: 75,
@@ -39,7 +38,12 @@ var Preferences = {
     showInheritedComputedStyleProperties: false,
     styleRulesExpandedState: {},
     showMissingLocalizedStrings: false,
-    useDOMAgent: false
+    heapProfilerPresent: false,
+    samplingCPUProfiler: false,
+    showColorNicknames: true,
+    colorFormat: "hex",
+    eventListenersFilter: "all",
+    resourcesLargeRows: true
 }
 
 var WebInspector = {
@@ -70,7 +74,7 @@ var WebInspector = {
             // there isn't already a caret selection inside.
             var selection = window.getSelection();
             if (selection.isCollapsed && !this._currentFocusElement.isInsertionCaretInside()) {
-                var selectionRange = document.createRange();
+                var selectionRange = this._currentFocusElement.ownerDocument.createRange();
                 selectionRange.setStart(this._currentFocusElement, 0);
                 selectionRange.setEnd(this._currentFocusElement, 0);
 
@@ -119,13 +123,13 @@ var WebInspector = {
                 }
             }
         }
-        
+
         for (var panelName in WebInspector.panels) {
             if (WebInspector.panels[panelName] == x)
                 InspectorController.storeLastActivePanel(panelName);
         }
     },
-  
+
     _createPanels: function()
     {
         var hiddenPanels = (InspectorController.hiddenPanels() || "").split(',');
@@ -137,8 +141,23 @@ var WebInspector = {
             this.panels.scripts = new WebInspector.ScriptsPanel();
         if (hiddenPanels.indexOf("profiles") === -1)
             this.panels.profiles = new WebInspector.ProfilesPanel();
-        if (hiddenPanels.indexOf("databases") === -1)
-            this.panels.databases = new WebInspector.DatabasesPanel();      
+        if (hiddenPanels.indexOf("storage") === -1 && hiddenPanels.indexOf("databases") === -1)
+            this.panels.storage = new WebInspector.StoragePanel();      
+    },
+
+    _loadPreferences: function()
+    {
+        var colorFormat = InspectorController.setting("color-format");
+        if (colorFormat)
+            Preferences.colorFormat = colorFormat;
+
+        var eventListenersFilter = InspectorController.setting("event-listeners-filter");
+        if (eventListenersFilter)
+            Preferences.eventListenersFilter = eventListenersFilter;
+
+        var resourcesLargeRows = InspectorController.setting("resources-large-rows");
+        if (typeof resourcesLargeRows !== "undefined")
+            Preferences.resourcesLargeRows = resourcesLargeRows;
     },
 
     get attached()
@@ -307,7 +326,7 @@ var WebInspector = {
 
     set hoveredDOMNode(x)
     {
-        if (objectsAreSame(this._hoveredDOMNode, x))
+        if (this._hoveredDOMNode === x)
             return;
 
         this._hoveredDOMNode = x;
@@ -333,7 +352,7 @@ var WebInspector = {
         }
 
         if (this._hoveredDOMNode) {
-            InspectorController.highlightDOMNode(this._hoveredDOMNode);
+            InspectorController.highlightDOMNode(this._hoveredDOMNode.id);
             this.showingDOMNodeHighlight = true;
         } else {
             InspectorController.hideDOMNodeHighlight();
@@ -347,15 +366,15 @@ WebInspector.loaded = function()
     var platform = InspectorController.platform();
     document.body.addStyleClass("platform-" + platform);
 
+    this._loadPreferences();
+
     this.drawer = new WebInspector.Drawer();
     this.console = new WebInspector.ConsoleView(this.drawer);
     // TODO: Uncomment when enabling the Changes Panel
     // this.changes = new WebInspector.ChangesView(this.drawer);
     // TODO: Remove class="hidden" from inspector.html on button#changes-status-bar-item
     this.drawer.visibleView = this.console;
-
-    if (Preferences.useDOMAgent)
-        this.domAgent = new WebInspector.DOMAgent();
+    this.domAgent = new WebInspector.DOMAgent();
 
     this.resourceCategories = {
         documents: new WebInspector.ResourceCategory(WebInspector.UIString("Documents"), "documents"),
@@ -404,6 +423,7 @@ WebInspector.loaded = function()
     document.addEventListener("keyup", this.documentKeyUp.bind(this), true);
     document.addEventListener("beforecopy", this.documentCanCopy.bind(this), true);
     document.addEventListener("copy", this.documentCopy.bind(this), true);
+    document.addEventListener("contextmenu", this.contextMenu.bind(this), true);
 
     var mainPanelsElement = document.getElementById("main-panels");
     mainPanelsElement.handleKeyEvent = this.mainKeyDown.bind(this);
@@ -438,10 +458,11 @@ WebInspector.loaded = function()
     searchField.addEventListener("keyup", this.searchKeyUp.bind(this), false);
     searchField.addEventListener("search", this.performSearch.bind(this), false); // when the search is emptied
 
-    document.getElementById("toolbar").addEventListener("mousedown", this.toolbarDragStart, true);
-    document.getElementById("close-button").addEventListener("click", this.close, true);
+    toolbarElement.addEventListener("mousedown", this.toolbarDragStart, true);
+    document.getElementById("close-button-left").addEventListener("click", this.close, true);
+    document.getElementById("close-button-right").addEventListener("click", this.close, true);
 
-    InspectorController.loaded(Preferences.useDOMAgent);
+    InspectorController.loaded();
 }
 
 var windowLoaded = function()
@@ -658,6 +679,12 @@ WebInspector.documentCopy = function(event)
         WebInspector[this.currentFocusElement.id + "Copy"](event);
 }
 
+WebInspector.contextMenu = function(event)
+{
+    if (event.handled || event.target.hasStyleClass("popup-glasspane"))
+        event.preventDefault();
+}
+
 WebInspector.mainKeyDown = function(event)
 {
     if (this.currentPanel && this.currentPanel.handleKeyEvent)
@@ -772,7 +799,7 @@ WebInspector.toggleAttach = function()
 
 WebInspector.toolbarDragStart = function(event)
 {
-    if (!WebInspector.attached && InspectorController.platform() !== "mac-leopard")
+    if ((!WebInspector.attached && InspectorController.platform() !== "mac-leopard") || InspectorController.platform() == "qt")
         return;
 
     var target = event.target;
@@ -822,7 +849,7 @@ WebInspector.toolbarDrag = function(event)
     event.preventDefault();
 }
 
-WebInspector.elementDragStart = function(element, dividerDrag, elementDragEnd, event, cursor) 
+WebInspector.elementDragStart = function(element, dividerDrag, elementDragEnd, event, cursor)
 {
     if (this._elementDraggingEventListener || this._elementEndDraggingEventListener)
         this.elementDragEnd(event);
@@ -853,12 +880,12 @@ WebInspector.elementDragEnd = function(event)
 
 WebInspector.showConsole = function()
 {
-    this.drawer.visibleView = this.console;
+    this.drawer.showView(this.console);
 }
 
 WebInspector.showChanges = function()
 {
-    this.drawer.visibleView = this.changes;
+    this.drawer.showView(this.changes);
 }
 
 WebInspector.showElementsPanel = function()
@@ -881,9 +908,9 @@ WebInspector.showProfilesPanel = function()
     this.currentPanel = this.panels.profiles;
 }
 
-WebInspector.showDatabasesPanel = function()
+WebInspector.showStoragePanel = function()
 {
-    this.currentPanel = this.panels.databases;
+    this.currentPanel = this.panels.storage;
 }
 
 WebInspector.addResource = function(identifier, payload)
@@ -896,17 +923,34 @@ WebInspector.addResource = function(identifier, payload)
         payload.lastPathComponent,
         identifier,
         payload.isMainResource,
-        payload.cached);
+        payload.cached,
+        payload.requestMethod,
+        payload.requestFormData);
     this.resources[identifier] = resource;
     this.resourceURLMap[resource.url] = resource;
 
-    if (resource.mainResource) {
+    if (resource.mainResource)
         this.mainResource = resource;
-        this.panels.elements.reset();
-    }
 
     if (this.panels.resources)
         this.panels.resources.addResource(resource);
+}
+
+WebInspector.clearConsoleMessages = function()
+{
+    WebInspector.console.clearMessages(false);
+}
+
+WebInspector.selectDatabase = function(o)
+{
+    WebInspector.showStoragePanel();
+    WebInspector.panels.storage.selectDatabase(o);
+}
+
+WebInspector.selectDOMStorage = function(o)
+{
+    WebInspector.showStoragePanel();
+    WebInspector.panels.storage.selectDOMStorage(o);
 }
 
 WebInspector.updateResource = function(identifier, payload)
@@ -922,6 +966,8 @@ WebInspector.updateResource = function(identifier, payload)
         resource.lastPathComponent = payload.lastPathComponent;
         resource.requestHeaders = payload.requestHeaders;
         resource.mainResource = payload.mainResource;
+        resource.requestMethod = payload.requestMethod;
+        resource.requestFormData = payload.requestFormData;
     }
 
     if (payload.didResponseChange) {
@@ -936,7 +982,7 @@ WebInspector.updateResource = function(identifier, payload)
     if (payload.didTypeChange) {
         resource.type = payload.type;
     }
-    
+
     if (payload.didLengthChange) {
         resource.contentLength = payload.contentLength;
     }
@@ -953,6 +999,21 @@ WebInspector.updateResource = function(identifier, payload)
             resource.responseReceivedTime = payload.responseReceivedTime;
         if (payload.endTime)
             resource.endTime = payload.endTime;
+        
+        if (payload.loadEventTime) {
+            // This loadEventTime is for the main resource, and we want to show it
+            // for all resources on this page. This means we want to set it as a member
+            // of the resources panel instead of the individual resource.
+            if (this.panels.resources)
+                this.panels.resources.mainResourceLoadTime = payload.loadEventTime;
+        }
+        
+        if (payload.domContentEventTime) {
+            // This domContentEventTime is for the main resource, so it should go in
+            // the resources panel for the same reasons as above.
+            if (this.panels.resources)
+                this.panels.resources.mainResourceDOMContentTime = payload.domContentEventTime;
+        }
     }
 }
 
@@ -973,20 +1034,30 @@ WebInspector.removeResource = function(identifier)
 WebInspector.addDatabase = function(payload)
 {
     var database = new WebInspector.Database(
-        payload.database,
+        payload.id,
         payload.domain,
         payload.name,
         payload.version);
-    this.panels.databases.addDatabase(database);
+    this.panels.storage.addDatabase(database);
+}
+
+WebInspector.addCookieDomain = function(domain)
+{
+    this.panels.storage.addCookieDomain(domain);
 }
 
 WebInspector.addDOMStorage = function(payload)
 {
     var domStorage = new WebInspector.DOMStorage(
-        payload.domStorage,
+        payload.id,
         payload.host,
         payload.isLocalStorage);
-    this.panels.databases.addDOMStorage(domStorage);
+    this.panels.storage.addDOMStorage(domStorage);
+}
+
+WebInspector.updateDOMStorage = function(storageId)
+{
+    this.panels.storage.updateDOMStorage(storageId);
 }
 
 WebInspector.resourceTrackingWasEnabled = function()
@@ -1034,9 +1105,9 @@ WebInspector.failedToParseScriptSource = function(sourceURL, source, startingLin
     this.panels.scripts.addScript(null, sourceURL, source, startingLine, errorLine, errorMessage);
 }
 
-WebInspector.pausedScript = function()
+WebInspector.pausedScript = function(callFrames)
 {
-    this.panels.scripts.debuggerPaused();
+    this.panels.scripts.debuggerPaused(callFrames);
 }
 
 WebInspector.resumedScript = function()
@@ -1073,15 +1144,16 @@ WebInspector.reset = function()
     this.console.clearMessages();
 }
 
-WebInspector.inspectedWindowCleared = function(inspectedWindow)
-{
-    this.panels.elements.inspectedWindowCleared(inspectedWindow);
-}
-
 WebInspector.resourceURLChanged = function(resource, oldURL)
 {
     delete this.resourceURLMap[oldURL];
     this.resourceURLMap[resource.url] = resource;
+}
+
+WebInspector.didCommitLoad = function()
+{
+    // Cleanup elements panel early on inspected page refresh.
+    WebInspector.setDocument(null);
 }
 
 WebInspector.addMessageToConsole = function(payload)
@@ -1096,6 +1168,90 @@ WebInspector.addMessageToConsole = function(payload)
         payload.repeatCount);
     consoleMessage.setMessageBody(Array.prototype.slice.call(arguments, 1));
     this.console.addMessage(consoleMessage);
+}
+
+WebInspector.log = function(message)
+{
+    // remember 'this' for setInterval() callback
+    var self = this;
+    
+    // return indication if we can actually log a message
+    function isLogAvailable()
+    {
+        return WebInspector.ConsoleMessage && WebInspector.ObjectProxy && self.console;
+    }
+    
+    // flush the queue of pending messages
+    function flushQueue()
+    {
+        var queued = WebInspector.log.queued;
+        if (!queued) 
+            return;
+            
+        for (var i = 0; i < queued.length; ++i)
+            logMessage(queued[i]);
+        
+        delete WebInspector.log.queued;
+    }
+
+    // flush the queue if it console is available
+    // - this function is run on an interval
+    function flushQueueIfAvailable()
+    {
+        if (!isLogAvailable())
+            return;
+            
+        clearInterval(WebInspector.log.interval);
+        delete WebInspector.log.interval;
+        
+        flushQueue();
+    }
+    
+    // actually log the message
+    function logMessage(message)
+    {
+        var repeatCount = 1;
+        if (message == WebInspector.log.lastMessage)
+            repeatCount = WebInspector.log.repeatCount + 1;
+    
+        WebInspector.log.lastMessage = message;
+        WebInspector.log.repeatCount = repeatCount;
+        
+        // ConsoleMessage expects a proxy object
+        message = new WebInspector.ObjectProxy(null, [], 0, message, false);
+        
+        // post the message
+        var msg = new WebInspector.ConsoleMessage(
+            WebInspector.ConsoleMessage.MessageSource.Other,
+            WebInspector.ConsoleMessage.MessageType.Log,
+            WebInspector.ConsoleMessage.MessageLevel.Debug,
+            -1,
+            null,
+            null,
+            repeatCount,
+            message);
+    
+        self.console.addMessage(msg);
+    }
+    
+    // if we can't log the message, queue it
+    if (!isLogAvailable()) {
+        if (!WebInspector.log.queued)
+            WebInspector.log.queued = [];
+            
+        WebInspector.log.queued.push(message);
+        
+        if (!WebInspector.log.interval)
+            WebInspector.log.interval = setInterval(flushQueueIfAvailable, 1000);
+        
+        return;
+    }
+
+    // flush the pending queue if any
+    flushQueue();
+
+    // log the message
+    logMessage(message);
 }
 
 WebInspector.addProfile = function(profile)
@@ -1117,7 +1273,7 @@ WebInspector.drawLoadingPieChart = function(canvas, percent) {
     var r = 7;
 
     g.beginPath();
-    g.arc(cx, cy, r, 0, Math.PI * 2, false); 
+    g.arc(cx, cy, r, 0, Math.PI * 2, false);
     g.closePath();
 
     g.lineWidth = 1;
@@ -1131,15 +1287,16 @@ WebInspector.drawLoadingPieChart = function(canvas, percent) {
 
     g.beginPath();
     g.moveTo(cx, cy);
-    g.arc(cx, cy, r, startangle, endangle, false); 
+    g.arc(cx, cy, r, startangle, endangle, false);
     g.closePath();
 
     g.fillStyle = darkColor;
     g.fill();
 }
 
-WebInspector.updateFocusedNode = function(node)
+WebInspector.updateFocusedNode = function(nodeId)
 {
+    var node = WebInspector.domAgent.nodeForId(nodeId);
     if (!node)
         // FIXME: Should we deselect if null is passed in?
         return;
@@ -1247,7 +1404,7 @@ WebInspector.linkifyURLAsNode = function(url, linkText, classes, isExternal)
     a.title = url;
     a.target = "_blank";
     a.textContent = linkText;
-    
+
     return a;
 }
 
@@ -1329,6 +1486,11 @@ WebInspector.performSearch = function(event)
     this.currentPanel.performSearch(query);
 }
 
+WebInspector.addNodesToSearchResult = function(nodeIds)
+{
+    WebInspector.panels.elements.addNodesToSearchResult(nodeIds);
+}
+
 WebInspector.updateSearchMatchesCount = function(matches, panel)
 {
     if (!panel)
@@ -1385,7 +1547,7 @@ WebInspector.startEditing = function(element, committedCallback, cancelledCallba
         return;
     element.__editing = true;
 
-    var oldText = element.textContent;
+    var oldText = getContent(element);
     var oldHandleKeyEvent = element.handleKeyEvent;
     var moveDirection = "";
 
@@ -1397,6 +1559,13 @@ WebInspector.startEditing = function(element, committedCallback, cancelledCallba
 
     function blurEventListener() {
         editingCommitted.call(element);
+    }
+
+    function getContent(element) {
+        if (element.tagName === "INPUT" && element.type === "text")
+            return element.value;
+        else
+            return element.textContent;
     }
 
     function cleanUpAfterEditing() {
@@ -1415,17 +1584,22 @@ WebInspector.startEditing = function(element, committedCallback, cancelledCallba
     }
 
     function editingCancelled() {
-        this.innerText = oldText;
+        if (this.tagName === "INPUT" && this.type === "text")
+            this.value = oldText;
+        else
+            this.textContent = oldText;
 
         cleanUpAfterEditing.call(this);
 
-        cancelledCallback(this, context);
+        if (cancelledCallback)
+            cancelledCallback(this, context);
     }
 
     function editingCommitted() {
         cleanUpAfterEditing.call(this);
 
-        committedCallback(this, this.textContent, oldText, context, moveDirection);
+        if (committedCallback)
+            committedCallback(this, getContent(this), oldText, context, moveDirection);
     }
 
     element.handleKeyEvent = function(event) {
@@ -1454,6 +1628,11 @@ WebInspector._toolbarItemClicked = function(event)
 {
     var toolbarItem = event.currentTarget;
     this.currentPanel = toolbarItem.panel;
+}
+
+WebInspector.evaluateForTestInFrontend = function(callId, script)
+{
+    InspectorController.didEvaluateForTestInFrontend(callId, JSON.stringify(window.eval(script)));
 }
 
 // This table maps MIME types to the Resource.Types which are valid for them.

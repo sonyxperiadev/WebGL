@@ -55,21 +55,31 @@ WebInspector.ProfilesPanel = function()
 
     this.sidebarTree = new TreeOutline(this.sidebarTreeElement);
 
+    this.profilesListTreeElement = new WebInspector.SidebarSectionTreeElement(WebInspector.UIString("CPU PROFILES"), null, true);
+    this.sidebarTree.appendChild(this.profilesListTreeElement);
+    this.profilesListTreeElement.expand();
+
+    this.snapshotsListTreeElement = new WebInspector.SidebarSectionTreeElement(WebInspector.UIString("HEAP SNAPSHOTS"), null, true);
+    if (Preferences.heapProfilerPresent) {
+        this.sidebarTree.appendChild(this.snapshotsListTreeElement);
+        this.snapshotsListTreeElement.expand();
+    }
+
     this.profileViews = document.createElement("div");
     this.profileViews.id = "profile-views";
     this.element.appendChild(this.profileViews);
 
-    this.enableToggleButton = this.createStatusBarButton();
-    this.enableToggleButton.className = "enable-toggle-status-bar-item status-bar-item";
+    this.enableToggleButton = new WebInspector.StatusBarButton("", "enable-toggle-status-bar-item");
     this.enableToggleButton.addEventListener("click", this._toggleProfiling.bind(this), false);
 
-    this.recordButton = this.createStatusBarButton();
-    this.recordButton.title = WebInspector.UIString("Start profiling.");
-    this.recordButton.id = "record-profile-status-bar-item";
-    this.recordButton.className = "status-bar-item";
+    this.recordButton = new WebInspector.StatusBarButton(WebInspector.UIString("Start profiling."), "record-profile-status-bar-item");
     this.recordButton.addEventListener("click", this._recordClicked.bind(this), false);
 
     this.recording = false;
+
+    this.snapshotButton = new WebInspector.StatusBarButton(WebInspector.UIString("Take heap snapshot."), "heap-snapshot-status-bar-item");
+    this.snapshotButton.visible = Preferences.heapProfilerPresent;
+    this.snapshotButton.addEventListener("click", this._snapshotClicked.bind(this), false);
 
     this.profileViewStatusBarItemsContainer = document.createElement("div");
     this.profileViewStatusBarItemsContainer.id = "profile-view-status-bar-items";
@@ -87,7 +97,7 @@ WebInspector.ProfilesPanel.prototype = {
 
     get statusBarItems()
     {
-        return [this.enableToggleButton, this.recordButton, this.profileViewStatusBarItemsContainer];
+        return [this.enableToggleButton.element, this.recordButton.element, this.snapshotButton.element, this.profileViewStatusBarItemsContainer];
     },
 
     show: function()
@@ -137,7 +147,8 @@ WebInspector.ProfilesPanel.prototype = {
 
         this.sidebarTreeElement.removeStyleClass("some-expandable");
 
-        this.sidebarTree.removeChildren();
+        this.profilesListTreeElement.removeChildren();
+        this.snapshotsListTreeElement.removeChildren();
         this.profileViews.removeChildren();
 
         this.profileViewStatusBarItemsContainer.removeChildren();
@@ -155,7 +166,7 @@ WebInspector.ProfilesPanel.prototype = {
         this._profiles.push(profile);
         this._profilesIdMap[profile.uid] = profile;
 
-        var sidebarParent = this.sidebarTree;
+        var sidebarParent = this.profilesListTreeElement;
         var small = false;
         var alternateTitle;
 
@@ -317,10 +328,10 @@ WebInspector.ProfilesPanel.prototype = {
         this.recording = isProfiling;
 
         if (isProfiling) {
-            this.recordButton.addStyleClass("toggled-on");
+            this.recordButton.toggled = true;
             this.recordButton.title = WebInspector.UIString("Stop profiling.");
         } else {
-            this.recordButton.removeStyleClass("toggled-on");
+            this.recordButton.toggled = false;
             this.recordButton.title = WebInspector.UIString("Start profiling.");
         }
     },
@@ -336,14 +347,17 @@ WebInspector.ProfilesPanel.prototype = {
     {
         if (InspectorController.profilerEnabled()) {
             this.enableToggleButton.title = WebInspector.UIString("Profiling enabled. Click to disable.");
-            this.enableToggleButton.addStyleClass("toggled-on");
-            this.recordButton.removeStyleClass("hidden");
+            this.enableToggleButton.toggled = true;
+            this.recordButton.visible = true;
+            if (Preferences.heapProfilerPresent)
+                this.snapshotButton.visible = true;
             this.profileViewStatusBarItemsContainer.removeStyleClass("hidden");
             this.panelEnablerView.visible = false;
         } else {
             this.enableToggleButton.title = WebInspector.UIString("Profiling disabled. Click to enable.");
-            this.enableToggleButton.removeStyleClass("toggled-on");
-            this.recordButton.addStyleClass("hidden");
+            this.enableToggleButton.toggled = false;
+            this.recordButton.visible = false;
+            this.snapshotButton.visible = false;
             this.profileViewStatusBarItemsContainer.addStyleClass("hidden");
             this.panelEnablerView.visible = true;
         }
@@ -357,6 +371,11 @@ WebInspector.ProfilesPanel.prototype = {
             InspectorController.startProfiling();
         else
             InspectorController.stopProfiling();
+    },
+
+    _snapshotClicked: function()
+    {
+        InspectorController.takeHeapSnapshot();
     },
 
     _enableProfiling: function()
@@ -376,7 +395,10 @@ WebInspector.ProfilesPanel.prototype = {
 
     _populateProfiles: function()
     {
-        if (this.sidebarTree.children.length)
+        // FIXME: This code needs to be adjusted when more profiling types are added.
+        // Currently defaults to CPU profiles.
+        var cpuProfiles = this.sidebarTree.children[0];
+        if (cpuProfiles.children.length)
             return;
 
         var profiles = InspectorController.profiles();
@@ -386,8 +408,8 @@ WebInspector.ProfilesPanel.prototype = {
             this.addProfile(profile);
         }
 
-        if (this.sidebarTree.children[0])
-            this.sidebarTree.children[0].select();
+        if (cpuProfiles.children[0])
+            cpuProfiles.children[0].select();
 
         delete this._shouldPopulateProfiles;
     },

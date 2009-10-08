@@ -67,12 +67,16 @@ namespace WebCore {
     class ChromiumBridge {
     public:
         // Clipboard ----------------------------------------------------------
-        static bool clipboardIsFormatAvailable(PasteboardPrivate::ClipboardFormat);
+        static bool clipboardIsFormatAvailable(PasteboardPrivate::ClipboardFormat, PasteboardPrivate::ClipboardBuffer);
 
-        static String clipboardReadPlainText();
-        static void clipboardReadHTML(String*, KURL*);
+        static String clipboardReadPlainText(PasteboardPrivate::ClipboardBuffer);
+        static void clipboardReadHTML(PasteboardPrivate::ClipboardBuffer, String*, KURL*);
 
+        // Only the clipboardRead functions take a buffer argument because 
+        // Chromium currently uses a different technique to write to alternate
+        // clipboard buffers.
         static void clipboardWriteSelection(const String&, const KURL&, const String&, bool);
+        static void clipboardWritePlainText(const String&);
         static void clipboardWriteURL(const KURL&, const String&);
         static void clipboardWriteImage(const NativeImageSkia*, const KURL&, const String&);
 
@@ -92,6 +96,9 @@ namespace WebCore {
         static String directoryName(const String& path);
         static String pathByAppendingComponent(const String& path, const String& component);
         static bool makeAllDirectories(const String& path);
+        static String getAbsolutePath(const String&);
+        static bool isDirectory(const String&);
+        static KURL filePathToURL(const String&);
 
         // Font ---------------------------------------------------------------
 #if PLATFORM(WIN_OS)
@@ -103,12 +110,16 @@ namespace WebCore {
 
         // Forms --------------------------------------------------------------
         static void notifyFormStateChanged(const Document*);
-        
+
         // HTML5 DB -----------------------------------------------------------
 #if ENABLE(DATABASE)
-        static PlatformFileHandle databaseOpenFile(const String& fileName, int desiredFlags);
-        static bool databaseDeleteFile(const String& fileName);
+        // Returns a handle to the DB file and ooptionally a handle to its containing directory
+        static PlatformFileHandle databaseOpenFile(const String& fileName, int desiredFlags, PlatformFileHandle* dirHandle = 0);
+        // Returns a SQLite code (SQLITE_OK = 0, on success)
+        static int databaseDeleteFile(const String& fileName, bool syncDir = false);
+        // Returns the attributes of the DB file
         static long databaseGetFileAttributes(const String& fileName);
+        // Returns the size of the DB file
         static long long databaseGetFileSize(const String& fileName);
 #endif
 

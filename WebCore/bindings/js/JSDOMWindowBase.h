@@ -43,7 +43,7 @@ namespace WebCore {
     class JSDOMWindowBase : public JSDOMGlobalObject {
         typedef JSDOMGlobalObject Base;
     protected:
-        JSDOMWindowBase(PassRefPtr<JSC::Structure>, PassRefPtr<DOMWindow>, JSDOMWindowShell*);
+        JSDOMWindowBase(NonNullPassRefPtr<JSC::Structure>, PassRefPtr<DOMWindow>, JSDOMWindowShell*);
 
     public:
         void updateDocument();
@@ -76,7 +76,12 @@ namespace WebCore {
 
     private:
         struct JSDOMWindowBaseData : public JSDOMGlobalObjectData {
-            JSDOMWindowBaseData(PassRefPtr<DOMWindow>, JSDOMWindowShell*);
+            JSDOMWindowBaseData(PassRefPtr<DOMWindow> window, JSDOMWindowShell* shell)
+                : JSDOMGlobalObjectData(destroyJSDOMWindowBaseData)
+                , impl(window)
+                , shell(shell)
+            {
+            }
 
             RefPtr<DOMWindow> impl;
             JSDOMWindowShell* shell;
@@ -85,6 +90,8 @@ namespace WebCore {
         bool allowsAccessFromPrivate(const JSC::JSGlobalObject*) const;
         String crossDomainAccessErrorMessage(const JSC::JSGlobalObject*) const;
         
+        static void destroyJSDOMWindowBaseData(void*);
+
         JSDOMWindowBaseData* d() const { return static_cast<JSDOMWindowBaseData*>(JSC::JSVariableObject::d); }
     };
 

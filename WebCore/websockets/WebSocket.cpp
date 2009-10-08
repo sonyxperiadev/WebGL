@@ -34,12 +34,57 @@
 
 #include "WebSocket.h"
 
+#include "CString.h"
+#include "DOMWindow.h"
 #include "Event.h"
 #include "EventException.h"
 #include "EventListener.h"
+#include "EventNames.h"
+#include "Logging.h"
+#include "MessageEvent.h"
+#include "ScriptExecutionContext.h"
+#include "SecurityOrigin.h"
+#include "WebSocketChannel.h"
 #include <wtf/StdLibExtras.h>
 
 namespace WebCore {
+
+class ProcessWebSocketEventTask : public ScriptExecutionContext::Task {
+public:
+    typedef void (WebSocket::*Method)(Event*);
+    static PassRefPtr<ProcessWebSocketEventTask> create(PassRefPtr<WebSocket> webSocket, PassRefPtr<Event> event)
+    {
+        return adoptRef(new ProcessWebSocketEventTask(webSocket, event));
+    }
+    virtual void performTask(ScriptExecutionContext*)
+    {
+        ExceptionCode ec = 0;
+        m_webSocket->dispatchEvent(m_event.get(), ec);
+        ASSERT(!ec);
+    }
+
+  private:
+    ProcessWebSocketEventTask(PassRefPtr<WebSocket> webSocket, PassRefPtr<Event> event)
+        : m_webSocket(webSocket)
+        , m_event(event) { }
+
+    RefPtr<WebSocket> m_webSocket;
+    RefPtr<Event> m_event;
+};
+
+static bool isValidProtocolString(const WebCore::String& protocol)
+{
+    if (protocol.isNull())
+        return true;
+    if (protocol.isEmpty())
+        return false;
+    const UChar* characters = protocol.characters();
+    for (size_t i = 0; i < protocol.length(); i++) {
+        if (characters[i] < 0x21 || characters[i] > 0x7E)
+            return false;
+    }
+    return true;
+}
 
 WebSocket::WebSocket(ScriptExecutionContext* context)
     : ActiveDOMObject(context, this)
@@ -59,39 +104,49 @@ void WebSocket::connect(const KURL& url, ExceptionCode& ec)
 
 void WebSocket::connect(const KURL& url, const String& protocol, ExceptionCode& ec)
 {
+    LOG(Network, "WebSocket %p connect to %s protocol=%s", this, url.string().utf8().data(), protocol.utf8().data());
     m_url = url;
     m_protocol = protocol;
 
     if (!m_url.protocolIs("ws") && !m_url.protocolIs("wss")) {
+        LOG_ERROR("Error: wrong url for WebSocket %s", url.string().utf8().data());
         m_state = CLOSED;
         ec = SYNTAX_ERR;
         return;
     }
-    if (!m_protocol.isNull() && m_protocol.isEmpty()) {
+    if (!isValidProtocolString(m_protocol)) {
+        LOG_ERROR("Error: wrong protocol for WebSocket %s", m_protocol.utf8().data());
         m_state = CLOSED;
         ec = SYNTAX_ERR;
         return;
     }
-    // FIXME: Check protocol is valid form.
-    // FIXME: Connect WebSocketChannel.
+    // FIXME: if m_url.port() is blocking port, raise SECURITY_ERR.
+
+    m_channel = WebSocketChannel::create(scriptExecutionContext(), this, m_url, m_protocol);
+    m_channel->connect();
 }
 
-bool WebSocket::send(const String&, ExceptionCode& ec)
+bool WebSocket::send(const String& message, ExceptionCode& ec)
 {
-    if (m_state != OPEN) {
+    LOG(Network, "WebSocket %p send %s", this, message.utf8().data());
+    if (m_state == CONNECTING) {
         ec = INVALID_STATE_ERR;
         return false;
     }
-    // FIXME: send message on WebSocketChannel.
-    return false;
+    // No exception is raised if the connection was once established but has subsequently been closed.
+    if (m_state == CLOSED)
+        return false;
+    // FIXME: check message is valid utf8.
+    return m_channel->send(message);
 }
 
 void WebSocket::close()
 {
+    LOG(Network, "WebSocket %p close", this);
     if (m_state == CLOSED)
         return;
     m_state = CLOSED;
-    // FIXME: close WebSocketChannel.
+    m_channel->close();
 }
 
 const KURL& WebSocket::url() const
@@ -106,7 +161,8 @@ WebSocket::State WebSocket::readyState() const
 
 unsigned long WebSocket::bufferedAmount() const
 {
-    // FIXME: ask platform code to get buffered amount to be sent.
+    if (m_state == OPEN)
+        return m_channel->bufferedAmount();
     return 0;
 }
 
@@ -115,58 +171,43 @@ ScriptExecutionContext* WebSocket::scriptExecutionContext() const
     return ActiveDOMObject::scriptExecutionContext();
 }
 
-void WebSocket::addEventListener(const AtomicString&, PassRefPtr<EventListener>, bool)
-{
-    // FIXME: implement this.
-}
-
-void WebSocket::removeEventListener(const AtomicString&, EventListener*, bool)
-{
-    // FIXME: implement this.
-}
-
-bool WebSocket::dispatchEvent(PassRefPtr<Event>, ExceptionCode&)
-{
-    // FIXME: implement this.
-    return false;
-}
-
 void WebSocket::didConnect()
 {
+    LOG(Network, "WebSocket %p didConnect", this);
     if (m_state != CONNECTING) {
         didClose();
         return;
     }
     m_state = OPEN;
-    dispatchOpenEvent();
+    scriptExecutionContext()->postTask(ProcessWebSocketEventTask::create(this, Event::create(eventNames().openEvent, false, false)));
 }
 
 void WebSocket::didReceiveMessage(const String& msg)
 {
+    LOG(Network, "WebSocket %p didReceiveMessage %s", this, msg.utf8().data());
     if (m_state != OPEN)
         return;
-    dispatchMessageEvent(msg);
+    RefPtr<MessageEvent> evt = MessageEvent::create();
+    // FIXME: origin, lastEventId, source, messagePort.
+    evt->initMessageEvent(eventNames().messageEvent, false, false, SerializedScriptValue::create(msg), "", "", 0, 0);
+    scriptExecutionContext()->postTask(ProcessWebSocketEventTask::create(this, evt));
 }
 
 void WebSocket::didClose()
 {
+    LOG(Network, "WebSocket %p didClose", this);
     m_state = CLOSED;
-    dispatchCloseEvent();
+    scriptExecutionContext()->postTask(ProcessWebSocketEventTask::create(this, Event::create(eventNames().closeEvent, false, false)));
 }
 
-void WebSocket::dispatchOpenEvent()
+EventTargetData* WebSocket::eventTargetData()
 {
-    // FIXME: implement this.
+    return &m_eventTargetData;
 }
 
-void WebSocket::dispatchMessageEvent(const String&)
+EventTargetData* WebSocket::ensureEventTargetData()
 {
-    // FIXME: implement this.
-}
-
-void WebSocket::dispatchCloseEvent()
-{
-    // FIXME: implement this.
+    return &m_eventTargetData;
 }
 
 }  // namespace WebCore

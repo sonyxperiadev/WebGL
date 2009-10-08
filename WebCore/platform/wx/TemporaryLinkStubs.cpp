@@ -1,3 +1,4 @@
+<<<<<<< HEAD:WebCore/platform/wx/TemporaryLinkStubs.cpp
 /*
  * Copyright (C) 2006 Apple Computer, Inc.  All rights reserved.
  * Copyright (C) 2008 Collabora, Ltd.  All rights reserved.
@@ -178,3 +179,5 @@ PassRefPtr<SharedBuffer> SharedBuffer::createWithContentsOfFile(const String&) {
 void prefetchDNS(const String& hostname) { notImplemented(); }
 
 }
+=======
+>>>>>>> webkit.org at 49305:WebCore/platform/wx/TemporaryLinkStubs.cpp

@@ -100,7 +100,7 @@ void getSupportedKeySizes(Vector<String>&)
     notImplemented();
 }
 
-String signedPublicKeyAndChallengeString(unsigned keySizeIndex, const String &challengeString, const KURL &url)
+String signedPublicKeyAndChallengeString(unsigned, const String&, const KURL&)
 {
     return String();
 }
@@ -113,11 +113,6 @@ float userIdleTime()
     return FLT_MAX; // return an arbitrarily high userIdleTime so that releasing pages from the page cache isn't postponed
 }
 #endif
-
-void prefetchDNS(const String& hostname)
-{
-    notImplemented();
-}
 
 }
 

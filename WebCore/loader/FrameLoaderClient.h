@@ -60,22 +60,28 @@ namespace WebCore {
     class KURL;
     class NavigationAction;
     class PluginView;
+    class PolicyChecker;
     class ResourceError;
     class ResourceHandle;
     class ResourceLoader;
     struct ResourceRequest;
     class ResourceResponse;
     class ScriptString;
+    class SecurityOrigin;
     class SharedBuffer;
     class SubstituteData;
     class String;
     class Widget;
 
+<<<<<<< HEAD:WebCore/loader/FrameLoaderClient.h
 #ifdef ANDROID_HISTORY_CLIENT
     class BackForwardList;
 #endif
 
     typedef void (FrameLoader::*FramePolicyFunction)(PolicyAction);
+=======
+    typedef void (PolicyChecker::*FramePolicyFunction)(PolicyAction);
+>>>>>>> webkit.org at 49305:WebCore/loader/FrameLoaderClient.h
 
     class FrameLoaderClient {
     public:
@@ -173,6 +179,15 @@ namespace WebCore {
         virtual void dispatchDidChangeHistoryIndex(BackForwardList*) const = 0;
 #endif
 
+        // This frame has displayed inactive content (such as an image) from an
+        // insecure source.  Inactive content cannot spread to other frames.
+        virtual void didDisplayInsecureContent() = 0;
+
+        // The indicated security origin has run active content (such as a
+        // script) from an insecure source.  Note that the insecure content can
+        // spread to other frames in the same origin.
+        virtual void didRunInsecureContent(SecurityOrigin*) = 0;
+
         virtual ResourceError cancelledError(const ResourceRequest&) = 0;
         virtual ResourceError blockedError(const ResourceRequest&) = 0;
         virtual ResourceError cannotShowURLError(const ResourceRequest&) = 0;
@@ -246,6 +261,7 @@ namespace WebCore {
 #endif
 
         virtual bool shouldUsePluginDocument(const String& /*mimeType*/) const { return false; }
+        virtual bool shouldLoadMediaElementURL(const KURL&) const { return true; }
     };
 
 } // namespace WebCore

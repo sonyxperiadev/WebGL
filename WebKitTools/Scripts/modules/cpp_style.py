@@ -3,6 +3,7 @@
 #
 # Copyright (C) 2009 Google Inc. All rights reserved.
 # Copyright (C) 2009 Torch Mobile Inc.
+# Copyright (C) 2009 Apple Inc. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are
@@ -117,6 +118,7 @@ _ERROR_CATEGORIES = '''\
     build/namespaces
     build/printf_format
     build/storage_class
+    build/using_std
     legal/copyright
     readability/braces
     readability/casting
@@ -138,6 +140,7 @@ _ERROR_CATEGORIES = '''\
     runtime/int
     runtime/init
     runtime/invalid_increment
+    runtime/max_min_macros
     runtime/memset
     runtime/printf
     runtime/printf_format
@@ -1545,7 +1548,7 @@ def check_spacing(filename, clean_lines, line_number, error):
     # Alas, we can't test < or > because they're legitimately used sans spaces
     # (a->b, vector<int> a).  The only time we can tell is a < with no >, and
     # only if it's not template params list spilling into the next line.
-    matched = search(r'[^<>=!\s](==|!=|<=|>=)[^<>=!\s]', line)
+    matched = search(r'[^<>=!\s](==|!=|\+=|-=|\*=|/=|/|\|=|&=|<<=|>>=|<=|>=|\|\||\||&&|>>|<<)[^<>=!\s]', line)
     if not matched:
         # Note that while it seems that the '<[^<]*' term in the following
         # regexp could be simplified to '<.*', which would indeed match
@@ -1558,7 +1561,7 @@ def check_spacing(filename, clean_lines, line_number, error):
               'Missing spaces around %s' % matched.group(1))
     # We allow no-spaces around << and >> when used like this: 10<<20, but
     # not otherwise (particularly, not when used as streams)
-    matched = search(r'[^0-9\s](<<|>>)[^0-9\s]', line)
+    matched = search(r'[^0-9\s](<<|>>)[^0-9\s=]', line)
     if matched:
         error(filename, line_number, 'whitespace/operators', 3,
               'Missing spaces around %s' % matched.group(1))
@@ -1739,6 +1742,58 @@ def check_namespace_indentation(filename, clean_lines, line_number, file_extensi
             # otherwise we would need to count opened and closed braces,
             # which is obviously a lot more complicated.
             break
+
+
+def check_using_std(filename, clean_lines, line_number, error):
+    """Looks for 'using std::foo;' statements which should be replaced with 'using namespace std;'.
+
+    Args:
+      filename: The name of the current file.
+      clean_lines: A CleansedLines instance containing the file.
+      line_number: The number of the line to check.
+      error: The function to call with any errors found.
+    """
+
+    # This check doesn't apply to C or Objective-C implementation files.
+    if filename.endswith('.c') or filename.endswith('.m'):
+        return
+
+    line = clean_lines.elided[line_number] # Get rid of comments and strings.
+
+    using_std_match = match(r'\s*using\s+std::(?P<method_name>\S+)\s*;\s*$', line)
+    if not using_std_match:
+        return
+
+    method_name = using_std_match.group('method_name')
+    error(filename, line_number, 'build/using_std', 4,
+          "Use 'using namespace std;' instead of 'using std::%s;'." % method_name)
+
+
+def check_max_min_macros(filename, clean_lines, line_number, error):
+    """Looks use of MAX() and MIN() macros that should be replaced with std::max() and std::min().
+
+    Args:
+      filename: The name of the current file.
+      clean_lines: A CleansedLines instance containing the file.
+      line_number: The number of the line to check.
+      error: The function to call with any errors found.
+    """
+
+    # This check doesn't apply to C or Objective-C implementation files.
+    if filename.endswith('.c') or filename.endswith('.m'):
+        return
+
+    line = clean_lines.elided[line_number] # Get rid of comments and strings.
+
+    max_min_macros_search = search(r'\b(?P<max_min_macro>(MAX|MIN))\s*\(', line)
+    if not max_min_macros_search:
+        return
+
+    max_min_macro = max_min_macros_search.group('max_min_macro')
+    max_min_macro_lower = max_min_macro.lower()
+    error(filename, line_number, 'runtime/max_min_macros', 4,
+          'Use std::%s() or std::%s<type>() instead of the %s() macro.'
+          % (max_min_macro_lower, max_min_macro_lower, max_min_macro))
 
 
 def check_switch_indentation(filename, clean_lines, line_number, error):
@@ -2174,6 +2229,8 @@ def check_style(filename, clean_lines, line_number, file_extension, error):
 
     # Some more style checks
     check_namespace_indentation(filename, clean_lines, line_number, file_extension, error)
+    check_using_std(filename, clean_lines, line_number, error)
+    check_max_min_macros(filename, clean_lines, line_number, error)
     check_switch_indentation(filename, clean_lines, line_number, error)
     check_braces(filename, clean_lines, line_number, error)
     check_exit_statement_simplifications(filename, clean_lines, line_number, error)
@@ -3087,6 +3144,7 @@ def use_webkit_styles():
     #        modify the implementation and enable them.
     global _DEFAULT_FILTERS
     _DEFAULT_FILTERS = [
+        '-whitespace/end_of_line',
         '-whitespace/comments',
         '-whitespace/blank_line',
         '-runtime/explicit',  # explicit

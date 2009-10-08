@@ -265,8 +265,8 @@ void RenderTable::layout()
     LayoutStateMaintainer statePusher(view(), this, IntSize(x(), y()));
 
     setHeight(0);
-    m_overflowHeight = 0;
-    m_overflowTop = 0;
+    m_overflow.clear();
+
     initMaxMarginValues();
     
 #ifdef ANDROID_LAYOUT
@@ -354,9 +354,6 @@ void RenderTable::layout()
     if (m_caption)
         m_caption->layoutIfNeeded();
 
-    m_overflowWidth = width() + (collapsing ? outerBorderRight() - borderRight() : 0);
-    m_overflowLeft = collapsing ? borderLeft() - outerBorderLeft() : 0;
-
     // If any table section moved vertically, we will just repaint everything from that
     // section down (it is quite unlikely that any of the following sections
     // did not shift).
@@ -372,10 +369,6 @@ void RenderTable::layout()
             m_caption->repaintDuringLayoutIfMoved(captionRect);
 
         setHeight(height() + m_caption->height() + m_caption->marginTop() + m_caption->marginBottom());
-        m_overflowLeft = min(m_overflowLeft, m_caption->x() + m_caption->overflowLeft(false));
-        m_overflowWidth = max(m_overflowWidth, m_caption->x() + m_caption->overflowWidth(false));
-        m_overflowTop = min(m_overflowTop, m_caption->y() + m_caption->overflowTop(false));
-        m_overflowHeight = max(m_overflowHeight, m_caption->y() + m_caption->overflowHeight(false));
 
         if (height() != oldTableTop) {
             sectionMoved = true;
@@ -421,15 +414,11 @@ void RenderTable::layout()
     while (section) {
         if (!sectionMoved && section->y() != height()) {
             sectionMoved = true;
-            movedSectionTop = min(height(), section->y()) + section->overflowTop(false);
+            movedSectionTop = min(height(), section->y()) + section->topVisibleOverflow();
         }
         section->setLocation(bl, height());
 
         setHeight(height() + section->height());
-        m_overflowLeft = min(m_overflowLeft, section->x() + section->overflowLeft(false));
-        m_overflowWidth = max(m_overflowWidth, section->x() + section->overflowWidth(false));
-        m_overflowTop = min(m_overflowTop, section->y() + section->overflowTop(false));
-        m_overflowHeight = max(m_overflowHeight, section->y() + section->overflowHeight(false));
         section = sectionBelow(section);
     }
 
@@ -443,37 +432,34 @@ void RenderTable::layout()
             m_caption->repaintDuringLayoutIfMoved(captionRect);
 
         setHeight(height() + m_caption->height() + m_caption->marginTop() + m_caption->marginBottom());
-        m_overflowLeft = min(m_overflowLeft, m_caption->x() + m_caption->overflowLeft(false));
-        m_overflowWidth = max(m_overflowWidth, m_caption->x() + m_caption->overflowWidth(false));
     }
 
     if (isPositioned())
         calcHeight();
 
-    m_overflowHeight = max(m_overflowHeight, height());
-
     // table can be containing block of positioned elements.
     // FIXME: Only pass true if width or height changed.
     layoutPositionedObjects(true);
 
-    if (!hasOverflowClip()) {
-        int shadowLeft;
-        int shadowRight;
-        int shadowTop;
-        int shadowBottom;
-        style()->getBoxShadowExtent(shadowTop, shadowRight, shadowBottom, shadowLeft);
+    // Add overflow from borders.
+    int rightBorderOverflow = width() + (collapsing ? outerBorderRight() - borderRight() : 0);
+    int leftBorderOverflow = collapsing ? borderLeft() - outerBorderLeft() : 0;
+    int bottomBorderOverflow = height() + (collapsing ? outerBorderBottom() - borderBottom() : 0);
+    int topBorderOverflow = collapsing ? borderTop() - outerBorderTop() : 0;
+    addLayoutOverflow(IntRect(leftBorderOverflow, topBorderOverflow, rightBorderOverflow - leftBorderOverflow, bottomBorderOverflow - topBorderOverflow));
+    
+    // Add visual overflow from box-shadow and reflections.
+    addShadowOverflow();
+    
+    // Add overflow from our caption.
+    if (m_caption)
+        addOverflowFromChild(m_caption);
 
-        m_overflowLeft = min(m_overflowLeft, shadowLeft);
-        m_overflowWidth = max(m_overflowWidth, width() + shadowRight);
-        m_overflowTop = min(m_overflowTop, shadowTop);
-        m_overflowHeight = max(m_overflowHeight, height() + shadowBottom);
-
-        if (hasReflection()) {
-            IntRect reflection(reflectionBox());
-            m_overflowTop = min(m_overflowTop, reflection.y());
-            m_overflowHeight = max(m_overflowHeight, reflection.bottom());
-            m_overflowLeft = min(m_overflowLeft, reflection.x());
-            m_overflowHeight = max(m_overflowWidth, reflection.right());
+    // Add overflow from our sections.
+    for (RenderObject* child = firstChild(); child; child = child->nextSibling()) {
+        if (child->isTableSection()) {
+            RenderTableSection* section = toRenderTableSection(child);
+            addOverflowFromChild(section);
         }
     }
 
@@ -482,7 +468,7 @@ void RenderTable::layout()
     bool didFullRepaint = repainter.repaintAfterLayout();
     // Repaint with our new bounds if they are different from our old bounds.
     if (!didFullRepaint && sectionMoved)
-        repaintRectangle(IntRect(m_overflowLeft, movedSectionTop, m_overflowWidth - m_overflowLeft, m_overflowHeight - movedSectionTop));
+        repaintRectangle(IntRect(leftVisibleOverflow(), movedSectionTop, rightVisibleOverflow() - leftVisibleOverflow(), bottomVisibleOverflow() - movedSectionTop));
     
     setNeedsLayout(false);
 }
@@ -503,9 +489,9 @@ void RenderTable::paint(PaintInfo& paintInfo, int tx, int ty)
     PaintPhase paintPhase = paintInfo.phase;
 
     int os = 2 * maximalOutlineSize(paintPhase);
-    if (ty + overflowTop(false) >= paintInfo.rect.bottom() + os || ty + overflowHeight(false) <= paintInfo.rect.y() - os)
+    if (ty + topVisibleOverflow() >= paintInfo.rect.bottom() + os || ty + bottomVisibleOverflow() <= paintInfo.rect.y() - os)
         return;
-    if (tx + overflowLeft(false) >= paintInfo.rect.right() + os || tx + overflowWidth(false) <= paintInfo.rect.x() - os)
+    if (tx + leftVisibleOverflow() >= paintInfo.rect.right() + os || tx + rightVisibleOverflow() <= paintInfo.rect.x() - os)
         return;
 
     bool pushedClip = pushContentsClip(paintInfo, tx, ty);    

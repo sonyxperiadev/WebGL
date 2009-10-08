@@ -320,6 +320,8 @@ static WebCacheModel cacheModelForMainBundle(void)
         [NSNumber numberWithBool:YES],  WebKitPluginsEnabledPreferenceKey,
         [NSNumber numberWithBool:YES],  WebKitDatabasesEnabledPreferenceKey,
         [NSNumber numberWithBool:YES],  WebKitLocalStorageEnabledPreferenceKey,
+        [NSNumber numberWithBool:NO],   WebKitExperimentalNotificationsEnabledPreferenceKey,
+        [NSNumber numberWithBool:NO],   WebKitExperimentalWebSocketsEnabledPreferenceKey,
         [NSNumber numberWithBool:YES],  WebKitAllowAnimatedImagesPreferenceKey,
         [NSNumber numberWithBool:YES],  WebKitAllowAnimatedImageLoopingPreferenceKey,
         [NSNumber numberWithBool:YES],  WebKitDisplayImagesKey,
@@ -350,6 +352,9 @@ static WebCacheModel cacheModelForMainBundle(void)
         [NSNumber numberWithBool:YES],  WebKitZoomsTextOnlyPreferenceKey,
         [NSNumber numberWithBool:YES],  WebKitXSSAuditorEnabledPreferenceKey,
         [NSNumber numberWithBool:YES],  WebKitAcceleratedCompositingEnabledPreferenceKey,
+        [NSNumber numberWithBool:NO],   WebKitWebGLEnabledPreferenceKey,
+        [NSNumber numberWithBool:NO],   WebKitPluginHalterEnabledPreferenceKey,
+        [NSNumber numberWithUnsignedInt:4], WebKitPluginAllowedRunTimePreferenceKey,
         nil];
 
     // This value shouldn't ever change, which is assumed in the initialization of WebKitPDFDisplayModePreferenceKey above
@@ -1011,6 +1016,26 @@ static WebCacheModel cacheModelForMainBundle(void)
     [self _setBoolValue:localStorageEnabled forKey:WebKitLocalStorageEnabledPreferenceKey];
 }
 
+- (BOOL)experimentalNotificationsEnabled
+{
+    return [self _boolValueForKey:WebKitExperimentalNotificationsEnabledPreferenceKey];
+}
+
+- (void)setExperimentalNotificationsEnabled:(BOOL)experimentalNotificationsEnabled
+{
+    [self _setBoolValue:experimentalNotificationsEnabled forKey:WebKitExperimentalNotificationsEnabledPreferenceKey];
+}
+
+- (BOOL)experimentalWebSocketsEnabled
+{
+    return [self _boolValueForKey:WebKitExperimentalWebSocketsEnabledPreferenceKey];
+}
+
+- (void)setExperimentalWebSocketsEnabled:(BOOL)experimentalWebSocketsEnabled
+{
+    [self _setBoolValue:experimentalWebSocketsEnabled forKey:WebKitExperimentalWebSocketsEnabledPreferenceKey];
+}
+
 + (WebPreferences *)_getInstanceForIdentifier:(NSString *)ident
 {
     LOG(Encoding, "requesting for %@\n", ident);
@@ -1138,6 +1163,36 @@ static NSString *classIBCreatorID = nil;
     [self _setBoolValue:enabled forKey:WebKitAcceleratedCompositingEnabledPreferenceKey];
 }
 
+- (BOOL)webGLEnabled
+{
+    return [self _boolValueForKey:WebKitWebGLEnabledPreferenceKey];
+}
+
+- (void)setWebGLEnabled:(BOOL)enabled
+{
+    [self _setBoolValue:enabled forKey:WebKitWebGLEnabledPreferenceKey];
+}
+
+- (BOOL)pluginHalterEnabled
+{
+    return [self _boolValueForKey:WebKitPluginHalterEnabledPreferenceKey];
+}
+
+- (void)setPluginHalterEnabled:(BOOL)enabled
+{
+    [self _setBoolValue:enabled forKey:WebKitPluginHalterEnabledPreferenceKey];
+}
+
+- (unsigned)pluginAllowedRunTime
+{
+    return [self _integerValueForKey:WebKitPluginAllowedRunTimePreferenceKey];
+}
+
+- (void)setPluginAllowedRunTime:(unsigned)allowedRunTime
+{
+    return [self _setIntegerValue:allowedRunTime forKey:WebKitPluginAllowedRunTimePreferenceKey];
+}
+
 - (void)didRemoveFromWebView
 {
     ASSERT(_private->numWebViews);
@@ -1152,6 +1207,12 @@ static NSString *classIBCreatorID = nil;
 {
     ++_private->numWebViews;
 }
+
+- (void)_setPreferenceForTestWithValue:(NSString *)value forKey:(NSString *)key
+{
+    [self _setStringValue:value forKey:key];
+}
+
 @end
 
 @implementation WebPreferences (WebInternal)

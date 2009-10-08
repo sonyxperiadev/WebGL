@@ -35,9 +35,11 @@
 #include "Document.h"
 #include "DOMWindow.h"
 #include "Frame.h"
+#include "InspectorController.h"
 #include "Page.h"
 #include "ScriptObject.h"
 #include "ScriptValue.h"
+#include "Storage.h"
 
 #include "V8Binding.h"
 #include "V8Proxy.h"
@@ -61,10 +63,11 @@ bool getQuarantinedScriptObject(Database* database, ScriptObject& quarantinedObj
     return false;
 }
 
-bool getQuarantinedScriptObject(Frame* frame, Storage* storage, ScriptObject& quarantinedObject)
+bool getQuarantinedScriptObject(Storage* storage, ScriptObject& quarantinedObject)
 {
-    ASSERT(frame);
     ASSERT(storage);
+    Frame* frame = storage->frame();
+    ASSERT(frame);
 
 #if ENABLE(DOM_STORAGE)
     v8::HandleScope handleScope;
@@ -73,7 +76,8 @@ bool getQuarantinedScriptObject(Frame* frame, Storage* storage, ScriptObject& qu
     v8::Context::Scope scope(context);
 
     v8::Handle<v8::Value> v8Storage = V8DOMWrapper::convertToV8Object(V8ClassIndex::STORAGE, storage);
-    quarantinedObject = ScriptObject(frame->script()->state(), v8::Local<v8::Object>(v8::Object::Cast(*v8Storage)));
+    ScriptState* scriptState = frame->page()->inspectorController()->frontendScriptState();
+    quarantinedObject = ScriptObject(scriptState, v8::Local<v8::Object>(v8::Object::Cast(*v8Storage)));
 #else
     ASSERT_NOT_REACHED();
     quarantinedObject = ScriptObject();
@@ -94,7 +98,8 @@ bool getQuarantinedScriptObject(Node* node, ScriptObject& quarantinedObject)
     v8::Context::Scope scope(context);
 
     v8::Handle<v8::Value> v8Node = V8DOMWrapper::convertNodeToV8Object(node);
-    quarantinedObject = ScriptObject(frame->script()->state(), v8::Local<v8::Object>(v8::Object::Cast(*v8Node)));
+    ScriptState* scriptState = frame->page()->inspectorController()->frontendScriptState();
+    quarantinedObject = ScriptObject(scriptState, v8::Local<v8::Object>(v8::Object::Cast(*v8Node)));
 
     return true;
 }
@@ -111,7 +116,8 @@ bool getQuarantinedScriptObject(DOMWindow* domWindow, ScriptObject& quarantinedO
     v8::Context::Scope scope(context);
 
     v8::Handle<v8::Value> v8DomWindow = V8DOMWrapper::convertToV8Object(V8ClassIndex::DOMWINDOW, domWindow);
-    quarantinedObject = ScriptObject(frame->script()->state(), v8::Local<v8::Object>(v8::Object::Cast(*v8DomWindow)));
+    ScriptState* scriptState = frame->page()->inspectorController()->frontendScriptState();
+    quarantinedObject = ScriptObject(scriptState, v8::Local<v8::Object>(v8::Object::Cast(*v8DomWindow)));
 
     return true;
 }

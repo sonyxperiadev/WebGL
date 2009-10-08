@@ -23,8 +23,10 @@
 
 #include "ArgList.h"
 #include "CallFrame.h"
+#include "CodeBlock.h"
 #include "CollectorHeapIterator.h"
 #include "Interpreter.h"
+#include "JSArray.h"
 #include "JSGlobalObject.h"
 #include "JSLock.h"
 #include "JSONObject.h"
@@ -58,11 +60,18 @@
 #elif PLATFORM(WIN_OS)
 
 #include <windows.h>
+#include <malloc.h>
+
+#elif PLATFORM(HAIKU)
+
+#include <OS.h>
 
 #elif PLATFORM(UNIX)
 
 #include <stdlib.h>
+#if !PLATFORM(HAIKU)
 #include <sys/mman.h>
+#endif
 #include <unistd.h>
 
 #if PLATFORM(SOLARIS)
@@ -75,9 +84,15 @@
 #include <pthread_np.h>
 #endif
 
+#if PLATFORM(QNX)
+#include <fcntl.h>
+#include <sys/procfs.h>
+#include <stdio.h>
+#include <errno.h>
 #endif
 
-#define DEBUG_COLLECTOR 0
+#endif
+
 #define COLLECT_ON_EVERY_ALLOCATION 0
 
 using std::max;
@@ -86,7 +101,6 @@ namespace JSC {
 
 // tunable parameters
 
-const size_t SPARE_EMPTY_BLOCKS = 2;
 const size_t GROWTH_FACTOR = 2;
 const size_t LOW_WATER_FACTOR = 4;
 const size_t ALLOCATIONS_PER_COLLECTION = 4000;
@@ -98,8 +112,6 @@ const size_t ALLOCATIONS_PER_COLLECTION = 4000;
 const size_t MAX_NUM_BLOCKS = 256; // Max size of collector heap set to 16 MB
 static RHeap* userChunk = 0;
 #endif
-
-static void freeHeap(CollectorHeap*);
 
 #if ENABLE(JSC_MULTIPLE_THREADS)
 
@@ -189,8 +201,8 @@ void Heap::destroy()
 
     ASSERT(!primaryHeap.numLiveObjects);
 
-    freeHeap(&primaryHeap);
-    freeHeap(&numberHeap);
+    freeBlocks(&primaryHeap);
+    freeBlocks(&numberHeap);
 
 #if ENABLE(JSC_MULTIPLE_THREADS)
     if (m_currentThreadRegistrar) {
@@ -210,7 +222,7 @@ void Heap::destroy()
 }
 
 template <HeapType heapType>
-static NEVER_INLINE CollectorBlock* allocateBlock()
+NEVER_INLINE CollectorBlock* Heap::allocateBlock()
 {
 #if PLATFORM(DARWIN)
     vm_address_t address = 0;
@@ -224,9 +236,15 @@ static NEVER_INLINE CollectorBlock* allocateBlock()
     uintptr_t address = reinterpret_cast<uintptr_t>(mask);
 
     memset(reinterpret_cast<void*>(address), 0, BLOCK_SIZE);
+#elif PLATFORM(WINCE)
+    void* address = VirtualAlloc(NULL, BLOCK_SIZE, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
 #elif PLATFORM(WIN_OS)
-     // windows virtual address granularity is naturally 64k
-    LPVOID address = VirtualAlloc(NULL, BLOCK_SIZE, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+#if COMPILER(MINGW)
+    void* address = __mingw_aligned_malloc(BLOCK_SIZE, BLOCK_SIZE);
+#else
+    void* address = _aligned_malloc(BLOCK_SIZE, BLOCK_SIZE);
+#endif
+    memset(address, 0, BLOCK_SIZE);
 #elif HAVE(POSIX_MEMALIGN)
     void* address;
     posix_memalign(&address, BLOCK_SIZE, BLOCK_SIZE);
@@ -258,18 +276,58 @@ static NEVER_INLINE CollectorBlock* allocateBlock()
     address += adjust;
     memset(reinterpret_cast<void*>(address), 0, BLOCK_SIZE);
 #endif
-    reinterpret_cast<CollectorBlock*>(address)->type = heapType;
-    return reinterpret_cast<CollectorBlock*>(address);
+
+    CollectorBlock* block = reinterpret_cast<CollectorBlock*>(address);
+    block->freeList = block->cells;
+    block->heap = this;
+    block->type = heapType;
+
+    CollectorHeap& heap = heapType == PrimaryHeap ? primaryHeap : numberHeap;
+    size_t numBlocks = heap.numBlocks;
+    if (heap.usedBlocks == numBlocks) {
+        static const size_t maxNumBlocks = ULONG_MAX / sizeof(CollectorBlock*) / GROWTH_FACTOR;
+        if (numBlocks > maxNumBlocks)
+            CRASH();
+        numBlocks = max(MIN_ARRAY_SIZE, numBlocks * GROWTH_FACTOR);
+        heap.numBlocks = numBlocks;
+        heap.blocks = static_cast<CollectorBlock**>(fastRealloc(heap.blocks, numBlocks * sizeof(CollectorBlock*)));
+    }
+    heap.blocks[heap.usedBlocks++] = block;
+
+    return block;
 }
 
-static void freeBlock(CollectorBlock* block)
+template <HeapType heapType>
+NEVER_INLINE void Heap::freeBlock(size_t block)
+{
+    CollectorHeap& heap = heapType == PrimaryHeap ? primaryHeap : numberHeap;
+
+    freeBlock(heap.blocks[block]);
+
+    // swap with the last block so we compact as we go
+    heap.blocks[block] = heap.blocks[heap.usedBlocks - 1];
+    heap.usedBlocks--;
+
+    if (heap.numBlocks > MIN_ARRAY_SIZE && heap.usedBlocks < heap.numBlocks / LOW_WATER_FACTOR) {
+        heap.numBlocks = heap.numBlocks / GROWTH_FACTOR; 
+        heap.blocks = static_cast<CollectorBlock**>(fastRealloc(heap.blocks, heap.numBlocks * sizeof(CollectorBlock*)));
+    }
+}
+
+NEVER_INLINE void Heap::freeBlock(CollectorBlock* block)
 {
 #if PLATFORM(DARWIN)    
     vm_deallocate(current_task(), reinterpret_cast<vm_address_t>(block), BLOCK_SIZE);
 #elif PLATFORM(SYMBIAN)
     userChunk->Free(reinterpret_cast<TAny*>(block));
-#elif PLATFORM(WIN_OS)
+#elif PLATFORM(WINCE)
     VirtualFree(block, 0, MEM_RELEASE);
+#elif PLATFORM(WIN_OS)
+#if COMPILER(MINGW)
+    __mingw_aligned_free(block);
+#else
+    _aligned_free(block);
+#endif
 #elif HAVE(POSIX_MEMALIGN)
     free(block);
 #else
@@ -277,7 +335,7 @@ static void freeBlock(CollectorBlock* block)
 #endif
 }
 
-static void freeHeap(CollectorHeap* heap)
+void Heap::freeBlocks(CollectorHeap* heap)
 {
     for (size_t i = 0; i < heap->usedBlocks; ++i)
         if (heap->blocks[i])
@@ -370,38 +428,23 @@ collect:
 #ifndef NDEBUG
             heap.operationInProgress = NoOperation;
 #endif
-            bool collected = collect();
+            bool foundGarbage = collect();
+            numLiveObjects = heap.numLiveObjects;
+            usedBlocks = heap.usedBlocks;
+            i = heap.firstBlockWithPossibleSpace;
 #ifndef NDEBUG
             heap.operationInProgress = Allocation;
 #endif
-            if (collected) {
-                numLiveObjects = heap.numLiveObjects;
-                usedBlocks = heap.usedBlocks;
-                i = heap.firstBlockWithPossibleSpace;
+            if (foundGarbage)
                 goto scan;
-            }
-        }
-  
-        // didn't find a block, and GC didn't reclaim anything, need to allocate a new block
-        size_t numBlocks = heap.numBlocks;
-        if (usedBlocks == numBlocks) {
-            static const size_t maxNumBlocks = ULONG_MAX / sizeof(CollectorBlock*) / GROWTH_FACTOR;
-            if (numBlocks > maxNumBlocks)
-                CRASH();
-            numBlocks = max(MIN_ARRAY_SIZE, numBlocks * GROWTH_FACTOR);
-            heap.numBlocks = numBlocks;
-            heap.blocks = static_cast<CollectorBlock**>(fastRealloc(heap.blocks, numBlocks * sizeof(CollectorBlock*)));
         }
 
+        // didn't find a block, and GC didn't reclaim anything, need to allocate a new block
         targetBlock = reinterpret_cast<Block*>(allocateBlock<heapType>());
-        targetBlock->freeList = targetBlock->cells;
-        targetBlock->heap = this;
+        heap.firstBlockWithPossibleSpace = heap.usedBlocks - 1;
         targetBlockUsedCells = 0;
-        heap.blocks[usedBlocks] = reinterpret_cast<CollectorBlock*>(targetBlock);
-        heap.usedBlocks = usedBlocks + 1;
-        heap.firstBlockWithPossibleSpace = usedBlocks;
     }
-  
+
     // find a free spot in the block and detach it from the free list
     Cell* newCell = targetBlock->freeList;
 
@@ -486,6 +529,33 @@ static void* getStackBase(void* previousFrame)
 }
 #endif
 
+#if PLATFORM(QNX)
+static inline void *currentThreadStackBaseQNX()
+{
+    static void* stackBase = 0;
+    static size_t stackSize = 0;
+    static pthread_t stackThread;
+    pthread_t thread = pthread_self();
+    if (stackBase == 0 || thread != stackThread) {
+        struct _debug_thread_info threadInfo;
+        memset(&threadInfo, 0, sizeof(threadInfo));
+        threadInfo.tid = pthread_self();
+        int fd = open("/proc/self", O_RDONLY);
+        if (fd == -1) {
+            LOG_ERROR("Unable to open /proc/self (errno: %d)", errno);
+            return 0;
+        }
+        devctl(fd, DCMD_PROC_TIDSTATUS, &threadInfo, sizeof(threadInfo), 0);
+        close(fd);
+        stackBase = reinterpret_cast<void*>(threadInfo.stkbase);
+        stackSize = threadInfo.stksize;
+        ASSERT(stackBase);
+        stackThread = thread;
+    }
+    return static_cast<char*>(stackBase) + stackSize;
+}
+#endif
+
 static inline void* currentThreadStackBase()
 {
 #if PLATFORM(DARWIN)
@@ -511,6 +581,8 @@ static inline void* currentThreadStackBase()
           : "=r" (pTib)
         );
     return static_cast<void*>(pTib->StackBase);
+#elif PLATFORM(QNX)
+    return currentThreadStackBaseQNX();
 #elif PLATFORM(SOLARIS)
     stack_t s;
     thr_stksegment(&s);
@@ -529,6 +601,10 @@ static inline void* currentThreadStackBase()
         stackBase = (void*)info.iBase;
     }
     return (void*)stackBase;
+#elif PLATFORM(HAIKU)
+    thread_info threadInfo;
+    get_thread_info(find_thread(NULL), &threadInfo);
+    return threadInfo.stack_end;
 #elif PLATFORM(UNIX)
     static void* stackBase = 0;
     static size_t stackSize = 0;
@@ -587,6 +663,8 @@ void Heap::makeUsableFromMultipleThreads()
 
 void Heap::registerThread()
 {
+    ASSERT(!m_globalData->mainThreadOnly || isMainThread());
+
     if (!m_currentThreadRegistrar || pthread_getspecific(m_currentThreadRegistrar))
         return;
 
@@ -683,7 +761,7 @@ void Heap::markConservatively(MarkStack& markStack, void* start, void* end)
             // Mark the primary heap
             for (size_t block = 0; block < usedPrimaryBlocks; block++) {
                 if ((primaryBlocks[block] == blockAddr) & (offset <= lastCellOffset)) {
-                    if (reinterpret_cast<CollectorCell*>(xAsBits)->u.freeCell.zeroIfFree != 0) {
+                    if (reinterpret_cast<CollectorCell*>(xAsBits)->u.freeCell.zeroIfFree) {
                         markStack.append(reinterpret_cast<JSCell*>(xAsBits));
                         markStack.drain();
                     }
@@ -704,10 +782,16 @@ void NEVER_INLINE Heap::markCurrentThreadConservativelyInternal(MarkStack& markS
     markConservatively(markStack, stackPointer, stackBase);
 }
 
+#if COMPILER(GCC)
+#define REGISTER_BUFFER_ALIGNMENT __attribute__ ((aligned (sizeof(void*))))
+#else
+#define REGISTER_BUFFER_ALIGNMENT
+#endif
+
 void Heap::markCurrentThreadConservatively(MarkStack& markStack)
 {
     // setjmp forces volatile registers onto the stack
-    jmp_buf registers;
+    jmp_buf registers REGISTER_BUFFER_ALIGNMENT;
 #if COMPILER(MSVC)
 #pragma warning(push)
 #pragma warning(disable: 4611)
@@ -896,16 +980,6 @@ void Heap::markStackObjectsConservatively(MarkStack& markStack)
 #endif
 }
 
-void Heap::setGCProtectNeedsLocking()
-{
-    // Most clients do not need to call this, with the notable exception of WebCore.
-    // Clients that use shared heap have JSLock protection, while others are supposed
-    // to do explicit locking. WebCore violates this contract in Database code,
-    // which calls gcUnprotect from a secondary thread.
-    if (!m_protectedValuesMutex)
-        m_protectedValuesMutex.set(new Mutex);
-}
-
 void Heap::protect(JSValue k)
 {
     ASSERT(k);
@@ -914,13 +988,7 @@ void Heap::protect(JSValue k)
     if (!k.isCell())
         return;
 
-    if (m_protectedValuesMutex)
-        m_protectedValuesMutex->lock();
-
     m_protectedValues.add(k.asCell());
-
-    if (m_protectedValuesMutex)
-        m_protectedValuesMutex->unlock();
 }
 
 void Heap::unprotect(JSValue k)
@@ -931,38 +999,16 @@ void Heap::unprotect(JSValue k)
     if (!k.isCell())
         return;
 
-    if (m_protectedValuesMutex)
-        m_protectedValuesMutex->lock();
-
     m_protectedValues.remove(k.asCell());
-
-    if (m_protectedValuesMutex)
-        m_protectedValuesMutex->unlock();
-}
-
-Heap* Heap::heap(JSValue v)
-{
-    if (!v.isCell())
-        return 0;
-    return Heap::cellBlock(v.asCell())->heap;
 }
 
 void Heap::markProtectedObjects(MarkStack& markStack)
 {
-    if (m_protectedValuesMutex)
-        m_protectedValuesMutex->lock();
-
     ProtectCountSet::iterator end = m_protectedValues.end();
     for (ProtectCountSet::iterator it = m_protectedValues.begin(); it != end; ++it) {
-        JSCell* val = it->first;
-        if (!val->marked()) {
-            markStack.append(val);
-            markStack.drain();
-        }
+        markStack.append(it->first);
+        markStack.drain();
     }
-
-    if (m_protectedValuesMutex)
-        m_protectedValuesMutex->unlock();
 }
 
 template <HeapType heapType> size_t Heap::sweep()
@@ -1036,31 +1082,34 @@ template <HeapType heapType> size_t Heap::sweep()
         curBlock->freeList = freeList;
         curBlock->marked.clearAll();
         
-        if (usedCells == 0) {
-            emptyBlocks++;
-            if (emptyBlocks > SPARE_EMPTY_BLOCKS) {
-#if !DEBUG_COLLECTOR
-                freeBlock(reinterpret_cast<CollectorBlock*>(curBlock));
-#endif
-                // swap with the last block so we compact as we go
-                heap.blocks[block] = heap.blocks[heap.usedBlocks - 1];
-                heap.usedBlocks--;
-                block--; // Don't move forward a step in this case
-                
-                if (heap.numBlocks > MIN_ARRAY_SIZE && heap.usedBlocks < heap.numBlocks / LOW_WATER_FACTOR) {
-                    heap.numBlocks = heap.numBlocks / GROWTH_FACTOR; 
-                    heap.blocks = static_cast<CollectorBlock**>(fastRealloc(heap.blocks, heap.numBlocks * sizeof(CollectorBlock*)));
-                }
-            }
-        }
+        if (!usedCells)
+            ++emptyBlocks;
     }
     
     if (heap.numLiveObjects != numLiveObjects)
         heap.firstBlockWithPossibleSpace = 0;
-        
+    
     heap.numLiveObjects = numLiveObjects;
     heap.numLiveObjectsAtLastCollect = numLiveObjects;
     heap.extraCost = 0;
+    
+    if (!emptyBlocks)
+        return numLiveObjects;
+
+    size_t neededCells = 1.25f * (numLiveObjects + max(ALLOCATIONS_PER_COLLECTION, numLiveObjects));
+    size_t neededBlocks = (neededCells + HeapConstants<heapType>::cellsPerBlock - 1) / HeapConstants<heapType>::cellsPerBlock;
+    for (size_t block = 0; block < heap.usedBlocks; block++) {
+        if (heap.usedBlocks <= neededBlocks)
+            break;
+
+        Block* curBlock = reinterpret_cast<Block*>(heap.blocks[block]);
+        if (curBlock->usedCells)
+            continue;
+
+        freeBlock<heapType>(block);
+        block--; // Don't move forward a step in this case
+    }
+
     return numLiveObjects;
 }
 
@@ -1087,12 +1136,12 @@ bool Heap::collect()
     markProtectedObjects(markStack);
     if (m_markListSet && m_markListSet->size())
         MarkedArgumentBuffer::markLists(markStack, *m_markListSet);
-    if (m_globalData->exception && !m_globalData->exception.marked())
+    if (m_globalData->exception)
         markStack.append(m_globalData->exception);
     m_globalData->interpreter->registerFile().markCallFrames(markStack, this);
-    m_globalData->smallStrings.mark();
-    if (m_globalData->scopeNodeBeingReparsed)
-        m_globalData->scopeNodeBeingReparsed->markAggregate(markStack);
+    m_globalData->smallStrings.markChildren(markStack);
+    if (m_globalData->functionCodeBlockBeingReparsed)
+        m_globalData->functionCodeBlockBeingReparsed->markAggregate(markStack);
     if (m_globalData->firstStringifierToMark)
         JSONObject::markStringifiers(markStack, m_globalData->firstStringifierToMark);
 
@@ -1151,9 +1200,6 @@ size_t Heap::globalObjectCount()
 
 size_t Heap::protectedGlobalObjectCount()
 {
-    if (m_protectedValuesMutex)
-        m_protectedValuesMutex->lock();
-
     size_t count = 0;
     if (JSGlobalObject* head = m_globalData->head) {
         JSGlobalObject* o = head;
@@ -1164,23 +1210,12 @@ size_t Heap::protectedGlobalObjectCount()
         } while (o != head);
     }
 
-    if (m_protectedValuesMutex)
-        m_protectedValuesMutex->unlock();
-
     return count;
 }
 
 size_t Heap::protectedObjectCount()
 {
-    if (m_protectedValuesMutex)
-        m_protectedValuesMutex->lock();
-
-    size_t result = m_protectedValues.size();
-
-    if (m_protectedValuesMutex)
-        m_protectedValuesMutex->unlock();
-
-    return result;
+    return m_protectedValues.size();
 }
 
 static const char* typeName(JSCell* cell)
@@ -1194,7 +1229,7 @@ static const char* typeName(JSCell* cell)
     if (cell->isGetterSetter())
         return "gettersetter";
     ASSERT(cell->isObject());
-    const ClassInfo* info = static_cast<JSObject*>(cell)->classInfo();
+    const ClassInfo* info = cell->classInfo();
     return info ? info->className : "Object";
 }
 
@@ -1202,15 +1237,9 @@ HashCountedSet<const char*>* Heap::protectedObjectTypeCounts()
 {
     HashCountedSet<const char*>* counts = new HashCountedSet<const char*>;
 
-    if (m_protectedValuesMutex)
-        m_protectedValuesMutex->lock();
-
     ProtectCountSet::iterator end = m_protectedValues.end();
     for (ProtectCountSet::iterator it = m_protectedValues.begin(); it != end; ++it)
         counts->add(typeName(it->first));
-
-    if (m_protectedValuesMutex)
-        m_protectedValuesMutex->unlock();
 
     return counts;
 }

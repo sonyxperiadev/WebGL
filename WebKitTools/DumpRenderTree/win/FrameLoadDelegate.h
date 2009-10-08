@@ -35,12 +35,14 @@
 class AccessibilityController;
 class GCController;
 
-class FrameLoadDelegate : public IWebFrameLoadDelegate, public IWebFrameLoadDelegatePrivate {
+class FrameLoadDelegate : public IWebFrameLoadDelegate, public IWebFrameLoadDelegatePrivate2 {
 public:
     FrameLoadDelegate();
     virtual ~FrameLoadDelegate();
 
     void processWork();
+
+    void resetToConsistentState();
 
     // IUnknown
     virtual HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void** ppvObject);
@@ -130,6 +132,14 @@ public:
     virtual HRESULT STDMETHODCALLTYPE didFirstVisuallyNonEmptyLayoutInFrame( 
         /* [in] */ IWebView *sender,
         /* [in] */ IWebFrame *frame);
+
+    // IWebFrameLoadDelegatePrivate2
+    virtual HRESULT STDMETHODCALLTYPE didDisplayInsecureContent( 
+        /* [in] */ IWebView *sender);
+
+    virtual HRESULT STDMETHODCALLTYPE didRunInsecureContent( 
+        /* [in] */ IWebView *sender,
+        /* [in] */ IWebSecurityOrigin *origin);
 
 protected:
     void locationChangeDone(IWebError*, IWebFrame*);

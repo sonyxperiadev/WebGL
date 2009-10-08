@@ -48,11 +48,11 @@
 #endif
 
 // Configure platform-specific behavior when focused pop-up receives arrow/space/return keystroke.
-// (PLATFORM(MAC) is always false in Chromium, hence the extra test.)
+// (PLATFORM(MAC) and PLATFORM(GTK) are always false in Chromium, hence the extra tests.)
 #if PLATFORM(MAC) || (PLATFORM(CHROMIUM) && PLATFORM(DARWIN))
 #define ARROW_KEYS_POP_MENU 1
 #define SPACE_OR_RETURN_POP_MENU 0
-#elif PLATFORM(GTK)
+#elif PLATFORM(GTK) || (PLATFORM(CHROMIUM) && PLATFORM(LINUX))
 #define ARROW_KEYS_POP_MENU 0
 #define SPACE_OR_RETURN_POP_MENU 1
 #else
@@ -644,14 +644,16 @@ void SelectElement::menuListDefaultEventHandler(SelectElementData& data, Element
 
     if (event->type() == eventNames().mousedownEvent && event->isMouseEvent() && static_cast<MouseEvent*>(event)->button() == LeftButton) {
         element->focus();
-        if (RenderMenuList* menuList = toRenderMenuList(element->renderer())) {
-            if (menuList->popupIsVisible())
-                menuList->hidePopup();
-            else {
-                // Save the selection so it can be compared to the new selection when we call onChange during setSelectedIndex,
-                // which gets called from RenderMenuList::valueChanged, which gets called after the user makes a selection from the menu.
-                saveLastSelection(data, element);
-                menuList->showPopup();
+        if (element->renderer() && element->renderer()->isMenuList()) {
+            if (RenderMenuList* menuList = toRenderMenuList(element->renderer())) {
+                if (menuList->popupIsVisible())
+                    menuList->hidePopup();
+                else {
+                    // Save the selection so it can be compared to the new selection when we call onChange during setSelectedIndex,
+                    // which gets called from RenderMenuList::valueChanged, which gets called after the user makes a selection from the menu.
+                    saveLastSelection(data, element);
+                    menuList->showPopup();
+                }
             }
         }
         event->setDefaultHandled();
@@ -676,7 +678,7 @@ void SelectElement::listBoxDefaultEventHandler(SelectElementData& data, Element*
             data.setActiveSelectionState(true);
             
             bool multiSelectKeyPressed = false;
-#if PLATFORM(MAC)
+#if PLATFORM(MAC) || (PLATFORM(CHROMIUM) && PLATFORM(DARWIN))
             multiSelectKeyPressed = mouseEvent->metaKey();
 #else
             multiSelectKeyPressed = mouseEvent->ctrlKey();

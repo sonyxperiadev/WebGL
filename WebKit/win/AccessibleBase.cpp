@@ -105,7 +105,7 @@ HRESULT STDMETHODCALLTYPE AccessibleBase::get_accParent(IDispatch** parent)
     if (!m_object || !m_object->topDocumentFrameView())
         return E_FAIL;
 
-    return WebView::AccessibleObjectFromWindow(m_object->topDocumentFrameView()->hostWindow()->platformWindow(),
+    return WebView::AccessibleObjectFromWindow(m_object->topDocumentFrameView()->hostWindow()->platformPageClient(),
         OBJID_WINDOW, __uuidof(IAccessible), reinterpret_cast<void**>(parent));
 }
 
@@ -592,7 +592,15 @@ HRESULT AccessibleBase::getAccessibilityObjectForChild(VARIANT vChild, Accessibi
 
     if (vChild.lVal == CHILDID_SELF)
         childObj = m_object;
-    else {
+    else if (vChild.lVal < 0) {
+        // When broadcasting MSAA events, we negate the AXID and pass it as the
+        // child ID.
+        Document* document = m_object->document();
+        if (!document)
+            return E_FAIL;
+
+        childObj = document->axObjectCache()->objectFromAXID(-vChild.lVal);
+    } else {
         size_t childIndex = static_cast<size_t>(vChild.lVal - 1);
 
         if (childIndex >= m_object->children().size())

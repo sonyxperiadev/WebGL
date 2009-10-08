@@ -77,7 +77,7 @@ public:
 private:
     Task(PassRefPtr<ScriptExecutionContext::Task> task, const String& mode)
         : m_task(task)
-        , m_mode(mode.copy())
+        , m_mode(mode.crossThreadString())
     {
     }
 
@@ -173,6 +173,10 @@ MessageQueueWaitResult WorkerRunLoop::runInMode(WorkerContext* context, const Mo
     RefPtr<Task> task;
     MessageQueueWaitResult result = m_messageQueue.waitForMessageFilteredWithTimeout(task, predicate, absoluteTime);
 
+    // If the context is closing, don't dispatch any further tasks (per section 4.1.1 of the Web Workers spec).
+    if (context->isClosing())
+        return result;
+
     switch (result) {
     case MessageQueueTerminated:
         break;
@@ -201,7 +205,7 @@ void WorkerRunLoop::postTask(PassRefPtr<ScriptExecutionContext::Task> task)
 
 void WorkerRunLoop::postTaskForMode(PassRefPtr<ScriptExecutionContext::Task> task, const String& mode)
 {
-    m_messageQueue.append(Task::create(task, mode.copy()));
+    m_messageQueue.append(Task::create(task, mode.crossThreadString()));
 }
 
 } // namespace WebCore

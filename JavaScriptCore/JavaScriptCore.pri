@@ -36,6 +36,14 @@ GENERATED_SOURCES_DIR_SLASH = $${GENERATED_SOURCES_DIR}$${QMAKE_DIR_SEP}
 win32-* {
     LIBS += -lwinmm
 }
+contains(JAVASCRIPTCORE_JIT,yes) {
+    DEFINES+=ENABLE_JIT=1
+    DEFINES+=ENABLE_YARR_JIT=1
+}
+contains(JAVASCRIPTCORE_JIT,no) {
+    DEFINES+=ENABLE_JIT=0
+    DEFINES+=ENABLE_YARR_JIT=0
+}
 
 # In debug mode JIT disabled until crash fixed
 win32-* {
@@ -48,6 +56,11 @@ win32-* {
         QMAKE_CXXFLAGS += -fno-stack-protector
         QMAKE_CFLAGS += -fno-stack-protector
     }
+}
+
+wince* {
+    SOURCES += $$QT_SOURCE_TREE/src/3rdparty/ce-compat/ce_time.cpp
+    DEFINES += WINCEBASIC
 }
 
 include(pcre/pcre.pri)
@@ -99,12 +112,12 @@ SOURCES += \
     runtime/JSONObject.cpp \
     runtime/LiteralParser.cpp \
     runtime/MarkStack.cpp \
-    runtime/MarkStackPosix.cpp \
     runtime/TimeoutChecker.cpp \
     bytecode/CodeBlock.cpp \
     bytecode/StructureStubInfo.cpp \
     bytecode/JumpTable.cpp \
     assembler/ARMAssembler.cpp \
+    assembler/MacroAssemblerARM.cpp \
     jit/JIT.cpp \
     jit/JITCall.cpp \
     jit/JITArithmetic.cpp \
@@ -123,8 +136,21 @@ SOURCES += \
     yarr/RegexJIT.cpp \
     interpreter/RegisterFile.cpp
 
-win32-*: SOURCES += jit/ExecutableAllocatorWin.cpp
-else: SOURCES += jit/ExecutableAllocatorPosix.cpp
+symbian {
+    SOURCES += runtime/MarkStackSymbian.cpp
+} else {
+    win32-*|wince* {
+        SOURCES += jit/ExecutableAllocatorWin.cpp \
+                  runtime/MarkStackWin.cpp
+    } else {
+        SOURCES += jit/ExecutableAllocatorPosix.cpp \
+                  runtime/MarkStackPosix.cpp
+    }
+}
+
+!contains(DEFINES, USE_SYSTEM_MALLOC) {
+    SOURCES += wtf/TCSystemAlloc.cpp
+}
 
 # AllInOneFile.cpp helps gcc analize and optimize code
 # Other compilers may be able to do this at link time
@@ -154,6 +180,7 @@ SOURCES += \
     runtime/ErrorInstance.cpp \
     runtime/ErrorPrototype.cpp \
     interpreter/CallFrame.cpp \
+    runtime/Executable.cpp \
     runtime/FunctionConstructor.cpp \
     runtime/FunctionPrototype.cpp \
     runtime/GetterSetter.cpp \
@@ -188,6 +215,7 @@ SOURCES += \
     runtime/Operations.cpp \
     parser/Parser.cpp \
     parser/ParserArena.cpp \
+    runtime/PropertyDescriptor.cpp \
     runtime/PropertyNameArray.cpp \
     runtime/PropertySlot.cpp \
     runtime/PrototypeFunction.cpp \

@@ -32,6 +32,7 @@
 #include "DumpRenderTree.h"
 
 #include "AccessibilityController.h"
+#include "EventSender.h"
 #include "GCController.h"
 #include "LayoutTestController.h"
 #include "WorkQueue.h"
@@ -42,6 +43,10 @@
 #include <JavaScriptCore/JavaScript.h>
 
 #include <wtf/Assertions.h>
+
+#if PLATFORM(X11)
+#include <fontconfig/fontconfig.h>
+#endif
 
 #include <cassert>
 #include <getopt.h>
@@ -58,10 +63,12 @@ extern GList* webkit_web_history_item_get_children(WebKitWebHistoryItem*);
 extern GSList* webkit_web_frame_get_children(WebKitWebFrame* frame);
 extern gchar* webkit_web_frame_get_inner_text(WebKitWebFrame* frame);
 extern gchar* webkit_web_frame_dump_render_tree(WebKitWebFrame* frame);
+extern guint webkit_web_frame_get_pending_unload_event_count(WebKitWebFrame* frame);
 extern void webkit_web_settings_add_extra_plugin_directory(WebKitWebView* view, const gchar* directory);
 extern gchar* webkit_web_frame_get_response_mime_type(WebKitWebFrame* frame);
 extern void webkit_web_frame_clear_main_frame_name(WebKitWebFrame* frame);
 extern void webkit_web_view_set_group_name(WebKitWebView* view, const gchar* groupName);
+extern void webkit_reset_origin_access_white_lists();
 }
 
 volatile bool done;
@@ -73,6 +80,7 @@ AccessibilityController* axController = 0;
 LayoutTestController* gLayoutTestController = 0;
 static GCController* gcController = 0;
 static WebKitWebView* webView;
+static GtkWidget* window;
 static GtkWidget* container;
 WebKitWebFrame* mainFrame = 0;
 WebKitWebFrame* topLoadingFrame = 0;
@@ -121,6 +129,41 @@ static void appendString(gchar*& target, gchar* string)
     target = g_strconcat(target, string, NULL);
     g_free(oldString);
 }
+
+#if PLATFORM(X11)
+static void initializeFonts()
+{
+    static int numFonts = -1;
+
+    // Some tests may add or remove fonts via the @font-face rule.
+    // If that happens, font config should be re-created to suppress any unwanted change.
+    FcFontSet* appFontSet = FcConfigGetFonts(0, FcSetApplication);
+    if (appFontSet && numFonts >= 0 && appFontSet->nfont == numFonts)
+        return;
+
+    const char* fontDirEnv = g_getenv("WEBKIT_TESTFONTS");
+    if (!fontDirEnv)
+        g_error("WEBKIT_TESTFONTS environment variable is not set, but it should point to the directory "
+                "containing the fonts you can clone from git://gitorious.org/qtwebkit/testfonts.git\n");
+
+    GFile* fontDir = g_file_new_for_path(fontDirEnv);
+    if (!fontDir || !g_file_query_exists(fontDir, NULL))
+        g_error("WEBKIT_TESTFONTS environment variable is not set correctly - it should point to the directory "
+                "containing the fonts you can clone from git://gitorious.org/qtwebkit/testfonts.git\n");
+
+    FcConfig *config = FcConfigCreate();
+    if (!FcConfigParseAndLoad (config, (FcChar8*) FONTS_CONF_FILE, true))
+        g_error("Couldn't load font configuration file");
+    if (!FcConfigAppFontAddDir (config, (FcChar8*) g_file_get_path(fontDir)))
+        g_error("Couldn't add font dir!");
+    FcConfigSetCurrent(config);
+
+    g_object_unref(fontDir);
+
+    appFontSet = FcConfigGetFonts(config, FcSetApplication);
+    numFonts = appFontSet->nfont;
+}
+#endif
 
 static gchar* dumpFramesAsText(WebKitWebFrame* frame)
 {
@@ -262,7 +305,7 @@ static void invalidateAnyPreviousWaitToDumpWatchdog()
     waitForPolicy = false;
 }
 
-static void resetWebViewToConsistentStateBeforeTesting()
+static void resetDefaultsToConsistentValues()
 {
     WebKitWebSettings* settings = webkit_web_view_get_settings(webView);
     g_object_set(G_OBJECT(settings),
@@ -274,12 +317,25 @@ static void resetWebViewToConsistentStateBeforeTesting()
                  "enable-xss-auditor", FALSE,
                  "javascript-can-open-windows-automatically", TRUE,
                  "enable-offline-web-application-cache", TRUE,
+                 "enable-universal-access-from-file-uris", TRUE,
+                 "enable-scripts", TRUE,
+                 "default-font-family", "Times",
+                 "monospace-font-family", "Courier",
+                 "serif-font-family", "Times",
+                 "sans-serif-font-family", "Helvetica",
+                 "default-font-size", 16,
+                 "default-monospace-font-size", 13,
+                 "minimum-font-size", 1,
                  NULL);
 
     webkit_web_frame_clear_main_frame_name(mainFrame);
 
     WebKitWebInspector* inspector = webkit_web_view_get_inspector(webView);
     g_object_set(G_OBJECT(inspector), "javascript-profiling-enabled", FALSE, NULL);
+
+    webkit_reset_origin_access_white_lists();
+
+    setlocale(LC_ALL, "");
 }
 
 void dump()
@@ -354,16 +410,7 @@ static void setDefaultsToConsistentStateValuesForTesting()
 {
     gdk_screen_set_resolution(gdk_screen_get_default(), 72.0);
 
-    WebKitWebSettings* settings = webkit_web_view_get_settings(webView);
-    g_object_set(G_OBJECT(settings),
-                 "default-font-family", "Times",
-                 "monospace-font-family", "Courier",
-                 "serif-font-family", "Times",
-                 "sans-serif-font-family", "Helvetica",
-                 "default-font-size", 16,
-                 "default-monospace-font-size", 13,
-                 "minimum-font-size", 1,
-                 NULL);
+    resetDefaultsToConsistentValues();
 
     /* Disable the default auth dialog for testing */
     SoupSession* session = webkit_get_default_session();
@@ -372,6 +419,10 @@ static void setDefaultsToConsistentStateValuesForTesting()
 #if PLATFORM(X11)
     webkit_web_settings_add_extra_plugin_directory(webView, TEST_PLUGIN_DIR);
 #endif
+
+    gchar* databaseDirectory = g_build_filename(g_get_user_data_dir(), "gtkwebkitdrt", "databases", NULL);
+    webkit_set_web_database_directory_path(databaseDirectory);
+    g_free(databaseDirectory);
 }
 
 static void runTest(const string& testPathOrURL)
@@ -391,7 +442,7 @@ static void runTest(const string& testPathOrURL)
     gchar* url = autocorrectURL(pathOrURL.c_str());
     const string testURL(url);
 
-    resetWebViewToConsistentStateBeforeTesting();
+    resetDefaultsToConsistentValues();
 
     gLayoutTestController = new LayoutTestController(testURL, expectedPixelHash);
     topLoadingFrame = 0;
@@ -407,8 +458,10 @@ static void runTest(const string& testPathOrURL)
 
     bool isSVGW3CTest = (gLayoutTestController->testPathOrURL().find("svg/W3C-SVG-1.1") != string::npos);
     GtkAllocation size;
+    size.x = size.y = 0;
     size.width = isSVGW3CTest ? 480 : maxViewWidth;
     size.height = isSVGW3CTest ? 360 : maxViewHeight;
+    gtk_window_resize(GTK_WINDOW(window), size.width, size.height);
     gtk_widget_size_allocate(container, &size);
 
     if (prevTestBFItem)
@@ -418,7 +471,12 @@ static void runTest(const string& testPathOrURL)
     if (prevTestBFItem)
         g_object_ref(prevTestBFItem);
 
+#if PLATFORM(X11)
+    initializeFonts();
+#endif
 
+    // Focus the web view before loading the test to avoid focusing problems
+    gtk_widget_grab_focus(GTK_WIDGET(webView));
     webkit_web_view_open(webView, url);
 
     g_free(url);
@@ -462,8 +520,39 @@ static gboolean processWork(void* data)
     return FALSE;
 }
 
+static char* getFrameNameSuitableForTestResult(WebKitWebView* view, WebKitWebFrame* frame)
+{
+    char* frameName = g_strdup(webkit_web_frame_get_name(frame));
+
+    if (frame == webkit_web_view_get_main_frame(view)) {
+        // This is a bit strange. Shouldn't web_frame_get_name return NULL?
+        if (frameName && (frameName[0] != '\0')) {
+            char* tmp = g_strdup_printf("main frame \"%s\"", frameName);
+            g_free (frameName);
+            frameName = tmp;
+        } else {
+            g_free(frameName);
+            frameName = g_strdup("main frame");
+        }
+    } else if (!frameName || (frameName[0] == '\0')) {
+        g_free(frameName);
+        frameName = g_strdup("frame (anonymous)");
+    }
+
+    return frameName;
+}
+
 static void webViewLoadFinished(WebKitWebView* view, WebKitWebFrame* frame, void*)
 {
+    if (!done && !gLayoutTestController->dumpFrameLoadCallbacks()) {
+        guint pendingFrameUnloadEvents = webkit_web_frame_get_pending_unload_event_count(frame);
+        if (pendingFrameUnloadEvents) {
+            char* frameName = getFrameNameSuitableForTestResult(view, frame);
+            printf("%s - has %u onunload handler(s)\n", frameName, pendingFrameUnloadEvents);
+            g_free(frameName);
+        }
+    }
+
     if (frame != topLoadingFrame)
         return;
 
@@ -492,6 +581,10 @@ static void webViewWindowObjectCleared(WebKitWebView* view, WebKitWebFrame* fram
     axController->makeWindowObject(context, windowObject, &exception);
     ASSERT(!exception);
 
+    JSStringRef eventSenderStr = JSStringCreateWithUTF8CString("eventSender");
+    JSValueRef eventSender = makeEventSender(context);
+    JSObjectSetProperty(context, windowObject, eventSenderStr, eventSender, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete, 0);
+    JSStringRelease(eventSenderStr);
 }
 
 static gboolean webViewConsoleMessage(WebKitWebView* view, const gchar* message, unsigned int line, const gchar* sourceId, gpointer data)
@@ -593,6 +686,23 @@ static gboolean webViewClose(WebKitWebView* view)
     return TRUE;
 }
 
+static void databaseQuotaExceeded(WebKitWebView* view, WebKitWebFrame* frame, WebKitWebDatabase *database)
+{
+    ASSERT(view);
+    ASSERT(frame);
+    ASSERT(database);
+
+    WebKitSecurityOrigin* origin = webkit_web_database_get_security_origin(database);
+    if (gLayoutTestController->dumpDatabaseCallbacks()) {
+        printf("UI DELEGATE DATABASE CALLBACK: exceededDatabaseQuotaForSecurityOrigin:{%s, %s, %i} database:%s\n",
+            webkit_security_origin_get_protocol(origin),
+            webkit_security_origin_get_host(origin),
+            webkit_security_origin_get_port(origin),
+            webkit_web_database_get_name(database));
+    }
+    webkit_security_origin_set_web_database_quota(origin, 5 * 1024 * 1024);
+}
+
 
 static WebKitWebView* webViewCreate(WebKitWebView*, WebKitWebFrame*);
 
@@ -617,6 +727,7 @@ static WebKitWebView* createWebView()
                      "signal::status-bar-text-changed", webViewStatusBarTextChanged, 0,
                      "signal::create-web-view", webViewCreate, 0,
                      "signal::close-web-view", webViewClose, 0,
+                     "signal::database-quota-exceeded", databaseQuotaExceeded, 0,
                      NULL);
 
     return view;
@@ -641,6 +752,11 @@ int main(int argc, char* argv[])
     g_thread_init(NULL);
     gtk_init(&argc, &argv);
 
+#if PLATFORM(X11)
+    FcInit();
+    initializeFonts();
+#endif
+
     struct option options[] = {
         {"notree", no_argument, &dumpTree, false},
         {"pixel-tests", no_argument, &dumpPixels, true},
@@ -657,11 +773,11 @@ int main(int argc, char* argv[])
                 break;
         }
 
-    GtkWidget* window = gtk_window_new(GTK_WINDOW_POPUP);
+    window = gtk_window_new(GTK_WINDOW_POPUP);
     container = GTK_WIDGET(gtk_scrolled_window_new(NULL, NULL));
     gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(container), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
     gtk_container_add(GTK_CONTAINER(window), container);
-    gtk_widget_realize(window);
+    gtk_widget_show_all(window);
 
     webView = createWebView();
     gtk_container_add(GTK_CONTAINER(container), GTK_WIDGET(webView));
@@ -699,7 +815,7 @@ int main(int argc, char* argv[])
     delete axController;
     axController = 0;
 
-    g_object_unref(webView);
+    gtk_widget_destroy(window);
 
     return 0;
 }

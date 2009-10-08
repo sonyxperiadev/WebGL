@@ -32,6 +32,7 @@ namespace WebCore {
     macro(abort) \
     macro(beforecopy) \
     macro(beforecut) \
+    macro(beforeload) \
     macro(beforepaste) \
     macro(beforeunload) \
     macro(blur) \
@@ -45,6 +46,7 @@ namespace WebCore {
     macro(copy) \
     macro(cut) \
     macro(dblclick) \
+    macro(display) \
     macro(downloading) \
     macro(drag) \
     macro(dragend) \
@@ -57,10 +59,12 @@ namespace WebCore {
     macro(focus) \
     macro(hashchange) \
     macro(input) \
+    macro(invalid) \
     macro(keydown) \
     macro(keypress) \
     macro(keyup) \
     macro(load) \
+    macro(loadend) \
     macro(loadstart) \
     macro(message) \
     macro(mousedown) \
@@ -73,7 +77,10 @@ namespace WebCore {
     macro(obsolete) \
     macro(offline) \
     macro(online) \
+    macro(open) \
     macro(overflowchanged) \
+    macro(pagehide) \
+    macro(pageshow) \
     macro(paste) \
     macro(readystatechange) \
     macro(reset) \
@@ -136,6 +143,8 @@ namespace WebCore {
     macro(webkitAnimationIteration) \
     \
     macro(webkitTransitionEnd) \
+    \
+    macro(orientationchange) \
     \
 // end of DOM_EVENT_NAMES_FOR_EACH
 

@@ -60,7 +60,7 @@ void Parser::parse(JSGlobalData* globalData, int* errLine, UString* errMsg)
     *errMsg = 0;
 
     Lexer& lexer = *globalData->lexer;
-    lexer.setCode(*m_source);
+    lexer.setCode(*m_source, m_arena);
 
     int parseError = jscyyparse(globalData);
     bool lexError = lexer.sawError();
@@ -75,33 +75,6 @@ void Parser::parse(JSGlobalData* globalData, int* errLine, UString* errMsg)
 #ifdef ANDROID_INSTRUMENT
     android::TimeCounter::record(android::TimeCounter::JavaScriptParseTimeCounter, __FUNCTION__);
 #endif
-}
-
-void Parser::reparseInPlace(JSGlobalData* globalData, FunctionBodyNode* functionBodyNode)
-{
-    ASSERT(!functionBodyNode->data());
-
-    m_source = &functionBodyNode->source();
-    globalData->lexer->setIsReparsing();
-    parse(globalData, 0, 0);
-    ASSERT(m_sourceElements);
-
-    functionBodyNode->adoptData(std::auto_ptr<ScopeNodeData>(new ScopeNodeData(globalData->parser->arena(),
-        m_sourceElements,
-        m_varDeclarations ? &m_varDeclarations->data : 0, 
-        m_funcDeclarations ? &m_funcDeclarations->data : 0,
-        m_numConstants)));
-    bool usesArguments = functionBodyNode->usesArguments();
-    functionBodyNode->setFeatures(m_features);
-    if (usesArguments && !functionBodyNode->usesArguments())
-        functionBodyNode->setUsesArguments();
-
-    ASSERT(globalData->parser->arena().isEmpty());
-
-    m_source = 0;
-    m_sourceElements = 0;
-    m_varDeclarations = 0;
-    m_funcDeclarations = 0;
 }
 
 void Parser::didFinishParsing(SourceElements* sourceElements, ParserArenaData<DeclarationStacks::VarStack>* varStack, 

@@ -33,11 +33,30 @@
 
 #include "AbstractWorker.h"
 #include "BarInfo.h"
+#include "BeforeLoadEvent.h"
+#include "CanvasArray.h"
+#include "CanvasArrayBuffer.h"
+#include "CanvasBuffer.h"
+#include "CanvasByteArray.h"
+#include "CanvasFloatArray.h"
+#include "CanvasFramebuffer.h"
 #include "CanvasGradient.h"
+#include "CanvasIntArray.h"
+#include "CanvasObject.h"
 #include "CanvasPattern.h"
 #include "CanvasPixelArray.h"
+#include "CanvasProgram.h"
+#include "CanvasRenderbuffer.h"
+#include "CanvasRenderingContext.h"
 #include "CanvasRenderingContext2D.h"
+#include "CanvasRenderingContext3D.h"
+#include "CanvasShader.h"
+#include "CanvasShortArray.h"
+#include "CanvasUnsignedByteArray.h"
+#include "CanvasUnsignedIntArray.h"
+#include "CanvasUnsignedShortArray.h"
 #include "CanvasStyle.h"
+#include "CanvasTexture.h"
 #include "CharacterData.h"
 #include "ClientRect.h"
 #include "ClientRectList.h"
@@ -106,6 +125,7 @@
 #include "NodeIterator.h"
 #include "OverflowEvent.h"
 #include "Page.h"
+#include "PageTransitionEvent.h"
 #include "Plugin.h"
 #include "PluginArray.h"
 #include "ProcessingInstruction.h"
@@ -135,7 +155,6 @@
 #include "V8HTMLElement.h"
 #include "V8LazyEventListener.h"
 #include "V8NodeFilterCondition.h"
-#include "V8ObjectEventListener.h"
 #include "ValidityState.h"
 #include "VoidCallback.h"
 #include "WebKitAnimationEvent.h"
@@ -215,10 +234,15 @@
 #include "V8SVGPODTypeWrapper.h"
 #endif // SVG
 
+<<<<<<< HEAD:WebCore/bindings/v8/DOMObjectsInclude.h
 #if ENABLE(TOUCH_EVENTS)
 #include "Touch.h"
 #include "TouchList.h"
 #include "TouchEvent.h"
+=======
+#if ENABLE(WEB_SOCKETS)
+#include "WebSocket.h"
+>>>>>>> webkit.org at 49305:WebCore/bindings/v8/DOMObjectsInclude.h
 #endif
 
 #if ENABLE(WORKERS)
@@ -228,6 +252,11 @@
 #include "WorkerLocation.h"
 #include "WorkerNavigator.h"
 #endif // WORKERS
+
+#if ENABLE(NOTIFICATIONS)
+#include "Notification.h"
+#include "NotificationCenter.h"
+#endif // NOTIFICATIONS
 
 #if ENABLE(XPATH)
 #include "XPathEvaluator.h"

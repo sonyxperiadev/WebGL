@@ -38,6 +38,8 @@
 #include "DOMCoreException.h"
 #include "DedicatedWorkerContext.h"
 #include "Event.h"
+#include "Notification.h"
+#include "NotificationCenter.h"
 #include "EventException.h"
 #include "MessagePort.h"
 #include "RangeException.h"
@@ -46,7 +48,9 @@
 #include "V8Index.h"
 #include "V8Proxy.h"
 #include "V8WorkerContextEventListener.h"
-#include "V8WorkerContextObjectEventListener.h"
+#if ENABLE(WEB_SOCKETS)
+#include "WebSocket.h"
+#endif
 #include "Worker.h"
 #include "WorkerContext.h"
 #include "WorkerLocation.h"
@@ -66,6 +70,7 @@ static void reportFatalErrorInV8(const char* location, const char* message)
 WorkerContextExecutionProxy::WorkerContextExecutionProxy(WorkerContext* workerContext)
     : m_workerContext(workerContext)
     , m_recursion(0)
+    , m_listenerGuard(V8ListenerGuard::create())
 {
     initV8IfNeeded();
 }
@@ -77,13 +82,7 @@ WorkerContextExecutionProxy::~WorkerContextExecutionProxy()
 
 void WorkerContextExecutionProxy::dispose()
 {
-    // Disconnect all event listeners.
-    if (m_listeners.get()) {
-        for (V8EventListenerList::iterator iterator(m_listeners->begin()); iterator != m_listeners->end(); ++iterator)
-           static_cast<V8WorkerContextEventListener*>(*iterator)->disconnect();
-
-        m_listeners->clear();
-    }
+    m_listenerGuard->disconnectListeners();
 
     // Detach all events from their JS wrappers.
     for (size_t eventIndex = 0; eventIndex < m_events.size(); ++eventIndex) {
@@ -169,8 +168,6 @@ void WorkerContextExecutionProxy::initContextIfNeeded()
     // Insert the object instance as the prototype of the shadow object.
     v8::Handle<v8::Object> globalObject = m_context->Global();
     globalObject->Set(implicitProtoString, jsWorkerContext);
-
-    m_listeners.set(new V8EventListenerList());
 }
 
 v8::Handle<v8::Value> WorkerContextExecutionProxy::convertToV8Object(V8ClassIndex::V8WrapperType type, void* impl)
@@ -224,6 +221,14 @@ v8::Handle<v8::Value> WorkerContextExecutionProxy::convertToV8Object(V8ClassInde
             case V8ClassIndex::WORKERNAVIGATOR:
                 static_cast<WorkerNavigator*>(impl)->ref();
                 break;
+#if ENABLE(NOTIFICATIONS)
+            case V8ClassIndex::NOTIFICATIONCENTER:
+                static_cast<NotificationCenter*>(impl)->ref();
+                break;
+            case V8ClassIndex::NOTIFICATION:
+                static_cast<Notification*>(impl)->ref();
+                break;
+#endif
             case V8ClassIndex::DOMCOREEXCEPTION:
                 static_cast<DOMCoreException*>(impl)->ref();
                 break;
@@ -398,6 +403,7 @@ v8::Local<v8::Value> WorkerContextExecutionProxy::runScript(v8::Handle<v8::Scrip
     return result;
 }
 
+<<<<<<< HEAD:WebCore/bindings/v8/WorkerContextExecutionProxy.cpp
 PassRefPtr<V8EventListener> WorkerContextExecutionProxy::findOrCreateEventListenerHelper(v8::Local<v8::Value> object, bool isInline, bool findOnly, bool createObjectEventListener)
 {
     if (!object->IsObject())
@@ -419,19 +425,11 @@ PassRefPtr<V8EventListener> WorkerContextExecutionProxy::findOrCreateEventListen
     return newListener.release();
 }
 
+=======
+>>>>>>> webkit.org at 49305:WebCore/bindings/v8/WorkerContextExecutionProxy.cpp
 PassRefPtr<V8EventListener> WorkerContextExecutionProxy::findOrCreateEventListener(v8::Local<v8::Value> object, bool isInline, bool findOnly)
 {
-    return findOrCreateEventListenerHelper(object, isInline, findOnly, false);
-}
-
-PassRefPtr<V8EventListener> WorkerContextExecutionProxy::findOrCreateObjectEventListener(v8::Local<v8::Value> object, bool isInline, bool findOnly)
-{
-    return findOrCreateEventListenerHelper(object, isInline, findOnly, true);
-}
-
-void WorkerContextExecutionProxy::removeEventListener(V8EventListener* listener)
-{
-    m_listeners->remove(listener);
+    return findOnly ? V8EventListenerList::findWrapper(object, isInline) : V8EventListenerList::findOrCreateWrapper<V8WorkerContextEventListener>(this, m_listenerGuard, object, isInline);
 }
 
 void WorkerContextExecutionProxy::trackEvent(Event* event)

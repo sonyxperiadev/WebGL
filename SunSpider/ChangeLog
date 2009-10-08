@@ -1,3 +1,22 @@
+2009-09-30  Csaba Osztrogonac  <oszi@inf.u-szeged.hu>
+
+        Reviewed by Darin Adler.
+
+        Platform specific null device replaced with a platform independent.
+        https://bugs.webkit.org/show_bug.cgi?id=29544
+
+        * sunspider: Using File::Spec->devnull() instead of /dev/null and NUL.
+
+2009-09-21  Csaba Osztrogonac  <oszi@inf.u-szeged.hu>
+
+        Reviewed by Maciej Stachowiak.
+
+        [Qt] Make sunspider script work on Windows platform.
+        https://bugs.webkit.org/show_bug.cgi?id=29544
+
+        * sunspider:
+        Using platform specific null device instead of /dev/null.
+
 2009-06-19  Adam Treat  <adam.treat@torchmobile.com>
 
         Reviewed by Oliver Hunt.

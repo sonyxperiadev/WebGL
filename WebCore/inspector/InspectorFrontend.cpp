@@ -30,9 +30,11 @@
 #include "config.h"
 #include "InspectorFrontend.h"
 
+#if ENABLE(INSPECTOR)
+
 #include "ConsoleMessage.h"
 #include "Frame.h"
-#include "InspectorController.h"  // TODO(pfeldman): Extract SpecialPanels to remove include.
+#include "InspectorController.h"
 #include "Node.h"
 #include "ScriptFunctionCall.h"
 #include "ScriptObject.h"
@@ -49,8 +51,9 @@
 
 namespace WebCore {
 
-InspectorFrontend::InspectorFrontend(ScriptState* scriptState, ScriptObject webInspector)
-    : m_scriptState(scriptState)
+InspectorFrontend::InspectorFrontend(InspectorController* inspectorController, ScriptState* scriptState, ScriptObject webInspector)
+    : m_inspectorController(inspectorController)
+    , m_scriptState(scriptState)
     , m_webInspector(webInspector)
 {
 }
@@ -70,6 +73,11 @@ ScriptObject InspectorFrontend::newScriptObject()
     return ScriptObject::createNew(m_scriptState);
 }
 
+void InspectorFrontend::didCommitLoad()
+{
+    callSimpleFunction("didCommitLoad");
+}
+
 void InspectorFrontend::addMessageToConsole(const ScriptObject& messageObj, const Vector<ScriptString>& frames, const Vector<ScriptValue> wrappedArguments, const String& message)
 {
     OwnPtr<ScriptFunctionCall> function(newFunctionCall("addMessageToConsole"));
@@ -79,10 +87,15 @@ void InspectorFrontend::addMessageToConsole(const ScriptObject& messageObj, cons
             function->appendArgument(frames[i]);
     } else if (!wrappedArguments.isEmpty()) {
         for (unsigned i = 0; i < wrappedArguments.size(); ++i)
-            function->appendArgument(wrappedArguments[i]);
+            function->appendArgument(m_inspectorController->wrapObject(wrappedArguments[i], "console"));
     } else
         function->appendArgument(message);
     function->call();
+}
+
+void InspectorFrontend::clearConsoleMessages()
+{
+    callSimpleFunction("clearConsoleMessages");
 }
 
 bool InspectorFrontend::addResource(long long identifier, const ScriptObject& resourceObj)
@@ -112,14 +125,17 @@ void InspectorFrontend::removeResource(long long identifier)
     function->call();
 }
 
-void InspectorFrontend::updateFocusedNode(Node* node)
+void InspectorFrontend::addCookieDomain(String domain)
 {
-    ScriptObject quarantinedNode;
-    if (!getQuarantinedScriptObject(node, quarantinedNode))
-        return;
+    OwnPtr<ScriptFunctionCall> function(newFunctionCall("addCookieDomain"));
+    function->appendArgument(domain);
+    function->call();
+}
 
+void InspectorFrontend::updateFocusedNode(long long nodeId)
+{
     OwnPtr<ScriptFunctionCall> function(newFunctionCall("updateFocusedNode"));
-    function->appendArgument(quarantinedNode);
+    function->appendArgument(nodeId);
     function->call();
 }
 
@@ -130,26 +146,12 @@ void InspectorFrontend::setAttachedWindow(bool attached)
     function->call();
 }
 
-void InspectorFrontend::inspectedWindowScriptObjectCleared(Frame* frame)
-{
-    ScriptObject domWindow;
-    if (!getQuarantinedScriptObject(frame->domWindow(), domWindow))
-        return;
-
-    OwnPtr<ScriptFunctionCall> function(newFunctionCall("inspectedWindowCleared"));
-    function->appendArgument(domWindow);
-    function->call();
-}
-
 void InspectorFrontend::showPanel(int panel)
 {
     const char* showFunctionName;
     switch (panel) {
         case InspectorController::ConsolePanel:
             showFunctionName = "showConsole";
-            break;
-        case InspectorController::DatabasesPanel:
-            showFunctionName = "showDatabasesPanel";
             break;
         case InspectorController::ElementsPanel:
             showFunctionName = "showElementsPanel";
@@ -162,6 +164,9 @@ void InspectorFrontend::showPanel(int panel)
             break;
         case InspectorController::ScriptsPanel:
             showFunctionName = "showScriptsPanel";
+            break;
+        case InspectorController::StoragePanel:
+            showFunctionName = "showStoragePanel";
             break;
         default:
             ASSERT_NOT_REACHED();
@@ -190,6 +195,23 @@ void InspectorFrontend::resourceTrackingWasEnabled()
 void InspectorFrontend::resourceTrackingWasDisabled()
 {
     callSimpleFunction("resourceTrackingWasDisabled");
+}
+
+void InspectorFrontend::timelineWasEnabled()
+{
+    callSimpleFunction("timelineWasEnabled");
+}
+
+void InspectorFrontend::timelineWasDisabled()
+{
+    callSimpleFunction("timelineWasDisabled");
+}
+
+void InspectorFrontend::addItemToTimeline(const ScriptObject& itemObj)
+{
+    OwnPtr<ScriptFunctionCall> function(newFunctionCall("addItemToTimeline"));
+    function->appendArgument(itemObj);
+    function->call();
 }
 
 #if ENABLE(JAVASCRIPT_DEBUGGER)
@@ -253,9 +275,11 @@ void InspectorFrontend::setRecordingProfile(bool isProfiling)
     function->call();
 }
 
-void InspectorFrontend::pausedScript()
+void InspectorFrontend::pausedScript(const ScriptValue& callFrames)
 {
-    callSimpleFunction("pausedScript");
+    OwnPtr<ScriptFunctionCall> function(newFunctionCall("pausedScript"));
+    function->appendArgument(callFrames);
+    function->call();
 }
 
 void InspectorFrontend::resumedScript()
@@ -264,31 +288,16 @@ void InspectorFrontend::resumedScript()
 }
 #endif
 
-#if ENABLE(DATABASE)
-bool InspectorFrontend::addDatabase(const ScriptObject& dbObject)
+void InspectorFrontend::setDocument(const ScriptObject& root)
 {
-    OwnPtr<ScriptFunctionCall> function(newFunctionCall("addDatabase"));
-    function->appendArgument(dbObject);
-    bool hadException = false;
-    function->call(hadException);
-    return !hadException;
+    OwnPtr<ScriptFunctionCall> function(newFunctionCall("setDocument"));
+    function->appendArgument(root);
+    function->call();
 }
-#endif
 
-#if ENABLE(DOM_STORAGE)
-bool InspectorFrontend::addDOMStorage(const ScriptObject& domStorageObj)
+void InspectorFrontend::setDetachedRoot(const ScriptObject& root)
 {
-    OwnPtr<ScriptFunctionCall> function(newFunctionCall("addDOMStorage"));
-    function->appendArgument(domStorageObj);
-    bool hadException = false;
-    function->call(hadException);
-    return !hadException;
-}
-#endif
-
-void InspectorFrontend::setDocumentElement(const ScriptObject& root)
-{
-    OwnPtr<ScriptFunctionCall> function(newFunctionCall("setDocumentElement"));
+    OwnPtr<ScriptFunctionCall> function(newFunctionCall("setDetachedRoot"));
     function->appendArgument(root);
     function->call();
 }
@@ -301,9 +310,9 @@ void InspectorFrontend::setChildNodes(int parentId, const ScriptArray& nodes)
     function->call();
 }
 
-void InspectorFrontend::hasChildrenUpdated(int id, bool newValue)
+void InspectorFrontend::childNodeCountUpdated(int id, int newValue)
 {
-    OwnPtr<ScriptFunctionCall> function(newFunctionCall("hasChildrenUpdated"));
+    OwnPtr<ScriptFunctionCall> function(newFunctionCall("childNodeCountUpdated"));
     function->appendArgument(id);
     function->appendArgument(newValue);
     function->call();
@@ -349,6 +358,122 @@ void InspectorFrontend::didApplyDomChange(int callId, bool success)
     function->call();
 }
 
+void InspectorFrontend::didGetEventListenersForNode(int callId, int nodeId, ScriptArray& listenersArray)
+{
+    OwnPtr<ScriptFunctionCall> function(newFunctionCall("didGetEventListenersForNode"));
+    function->appendArgument(callId);
+    function->appendArgument(nodeId);
+    function->appendArgument(listenersArray);
+    function->call();
+}
+
+void InspectorFrontend::didGetCookies(int callId, const ScriptArray& cookies, const String& cookiesString)
+{
+    OwnPtr<ScriptFunctionCall> function(newFunctionCall("didGetCookies"));
+    function->appendArgument(callId);
+    function->appendArgument(cookies);
+    function->appendArgument(cookiesString);
+    function->call();
+}
+
+void InspectorFrontend::didDispatchOnInjectedScript(int callId, const String& result, bool isException)
+{
+    OwnPtr<ScriptFunctionCall> function(newFunctionCall("didDispatchOnInjectedScript"));
+    function->appendArgument(callId);
+    function->appendArgument(result);
+    function->appendArgument(isException);
+    function->call();
+}
+
+#if ENABLE(DATABASE)
+bool InspectorFrontend::addDatabase(const ScriptObject& dbObject)
+{
+    OwnPtr<ScriptFunctionCall> function(newFunctionCall("addDatabase"));
+    function->appendArgument(dbObject);
+    bool hadException = false;
+    function->call(hadException);
+    return !hadException;
+}
+
+void InspectorFrontend::selectDatabase(int databaseId)
+{
+    OwnPtr<ScriptFunctionCall> function(newFunctionCall("selectDatabase"));
+    function->appendArgument(databaseId);
+    function->call();
+}
+void InspectorFrontend::didGetDatabaseTableNames(int callId, const ScriptArray& tableNames)
+{
+    OwnPtr<ScriptFunctionCall> function(newFunctionCall("didGetDatabaseTableNames"));
+    function->appendArgument(callId);
+    function->appendArgument(tableNames);
+    function->call();
+}
+#endif
+
+#if ENABLE(DOM_STORAGE)
+bool InspectorFrontend::addDOMStorage(const ScriptObject& domStorageObj)
+{
+    OwnPtr<ScriptFunctionCall> function(newFunctionCall("addDOMStorage"));
+    function->appendArgument(domStorageObj);
+    bool hadException = false;
+    function->call(hadException);
+    return !hadException;
+}
+
+void InspectorFrontend::selectDOMStorage(int storageId)
+{
+    OwnPtr<ScriptFunctionCall> function(newFunctionCall("selectDOMStorage"));
+    function->appendArgument(storageId);
+    function->call();
+}
+
+void InspectorFrontend::didGetDOMStorageEntries(int callId, const ScriptArray& entries)
+{
+    OwnPtr<ScriptFunctionCall> function(newFunctionCall("didGetDOMStorageEntries"));
+    function->appendArgument(callId);
+    function->appendArgument(entries);
+    function->call();
+}
+
+void InspectorFrontend::didSetDOMStorageItem(int callId, bool success)
+{
+    OwnPtr<ScriptFunctionCall> function(newFunctionCall("didSetDOMStorageItem"));
+    function->appendArgument(callId);
+    function->appendArgument(success);
+    function->call();
+}
+
+void InspectorFrontend::didRemoveDOMStorageItem(int callId, bool success)
+{
+    OwnPtr<ScriptFunctionCall> function(newFunctionCall("didRemoveDOMStorageItem"));
+    function->appendArgument(callId);
+    function->appendArgument(success);
+    function->call();
+}
+
+void InspectorFrontend::updateDOMStorage(int storageId)
+{
+    OwnPtr<ScriptFunctionCall> function(newFunctionCall("updateDOMStorage"));
+    function->appendArgument(storageId);
+    function->call();
+}
+#endif
+
+void InspectorFrontend::addNodesToSearchResult(const String& nodeIds)
+{
+    OwnPtr<ScriptFunctionCall> function(newFunctionCall("addNodesToSearchResult"));
+    function->appendArgument(nodeIds);
+    function->call();
+}
+
+void InspectorFrontend::evaluateForTestInFrontend(int callId, const String& script)
+{
+    OwnPtr<ScriptFunctionCall> function(newFunctionCall("evaluateForTestInFrontend"));
+    function->appendArgument(callId);
+    function->appendArgument(script);
+    function->call();
+}
+
 PassOwnPtr<ScriptFunctionCall> InspectorFrontend::newFunctionCall(const String& functionName)
 {
     ScriptFunctionCall* function = new ScriptFunctionCall(m_scriptState, m_webInspector, "dispatch");
@@ -364,3 +489,5 @@ void InspectorFrontend::callSimpleFunction(const String& functionName)
 }
 
 } // namespace WebCore
+
+#endif // ENABLE(INSPECTOR)

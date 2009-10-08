@@ -459,14 +459,16 @@ void Font::drawComplexText(GraphicsContext* graphicsContext,
     TransparencyAwareUniscribePainter painter(graphicsContext, this, run, from, to, point);
 
     HDC hdc = painter.hdc();
-    if (!hdc)
+    if (windowsCanHandleTextDrawing(graphicsContext) && !hdc)
         return;
 
     // TODO(maruel): http://b/700464 SetTextColor doesn't support transparency.
     // Enforce non-transparent color.
     color = SkColorSetRGB(SkColorGetR(color), SkColorGetG(color), SkColorGetB(color));
-    SetTextColor(hdc, skia::SkColorToCOLORREF(color));
-    SetBkMode(hdc, TRANSPARENT);
+    if (hdc) {
+        SetTextColor(hdc, skia::SkColorToCOLORREF(color));
+        SetBkMode(hdc, TRANSPARENT);
+    }
 
     // If there is a non-blur shadow and both the fill color and shadow color 
     // are opaque, handle without skia. 

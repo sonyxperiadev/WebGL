@@ -35,10 +35,19 @@
 
 namespace WebCore {
 
+#define V8_HIDDEN_PROPERTIES(V) \
+    V(objectPrototype) \
+    V(isolatedWorld) \
+    V(listener) \
+    V(attributeListener) \
+    V(sleepFunction) \
+    V(toStringString)
+
     class V8HiddenPropertyName {
     public:
-        static v8::Handle<v8::String> objectPrototype();
-        static v8::Handle<v8::String> isolatedWorld();
+#define V8_DECLARE_PROPERTY(name) static v8::Handle<v8::String> name();
+        V8_HIDDEN_PROPERTIES(V8_DECLARE_PROPERTY);
+#undef V8_DECLARE_PROPERTY
 
     private:
         static v8::Persistent<v8::String>* createString(const char* key);

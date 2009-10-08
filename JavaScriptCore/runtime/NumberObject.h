@@ -27,10 +27,20 @@ namespace JSC {
 
     class NumberObject : public JSWrapperObject {
     public:
-        explicit NumberObject(PassRefPtr<Structure>);
+        explicit NumberObject(NonNullPassRefPtr<Structure>);
 
         static const ClassInfo info;
-
+#if USE(JSVALUE32)
+        static PassRefPtr<Structure> createStructure(JSValue prototype)
+        {
+            return Structure::create(prototype, TypeInfo(ObjectType, HasStandardGetOwnPropertySlot | HasDefaultGetPropertyNames));
+        }
+#else
+        static PassRefPtr<Structure> createStructure(JSValue prototype)
+        {
+            return Structure::create(prototype, TypeInfo(ObjectType, HasStandardGetOwnPropertySlot | HasDefaultMark | HasDefaultGetPropertyNames));
+        }
+#endif
     private:
         virtual const ClassInfo* classInfo() const { return &info; }
 

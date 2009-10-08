@@ -33,12 +33,39 @@
 
 #include "EventListener.h"
 #include "OwnHandle.h"
+#include "SharedPersistent.h"
 #include <v8.h>
+#include <wtf/PassRefPtr.h>
+#include <wtf/RefCounted.h>
 
 namespace WebCore {
 
     class Event;
     class Frame;
+    class V8Proxy;
+
+    // Shared by listener objects and V8Proxy so that V8Proxy can
+    // silence listeners when needed.
+    class V8ListenerGuard : public RefCounted<V8ListenerGuard> {
+      public:
+        static PassRefPtr<V8ListenerGuard> create()
+        {
+            return adoptRef(new V8ListenerGuard);
+        }
+
+        bool isDisconnected() const { return m_disconnected; }
+
+        void disconnectListeners()
+        {
+            m_disconnected = true;
+        }
+
+      private:
+        V8ListenerGuard()
+            : m_disconnected(false) { }
+
+        bool m_disconnected;
+    };
 
     // There are two kinds of event listeners: HTML or non-HMTL. onload,
     // onfocus, etc (attributes) are always HTML event handler type; Event
@@ -50,54 +77,94 @@ namespace WebCore {
     // but ALLOWs duplicated non-HTML event handlers.
     class V8AbstractEventListener : public EventListener {
     public:
-        virtual ~V8AbstractEventListener() { }
+        virtual ~V8AbstractEventListener();
+
+        static const V8AbstractEventListener* cast(const EventListener* listener)
+        {
+            return listener->type() == JSEventListenerType
+                ? static_cast<const V8AbstractEventListener*>(listener)
+                : 0;
+        }
+
+        static V8AbstractEventListener* cast(EventListener* listener)
+        {
+            return const_cast<V8AbstractEventListener*>(cast(const_cast<const EventListener*>(listener)));
+        }
+
+        // Implementation of EventListener interface.
+
+        virtual bool operator==(const EventListener& other) { return this == &other; }
+
+        virtual void handleEvent(ScriptExecutionContext*, Event*);
 
         // Returns the owner frame of the listener.
         Frame* frame() { return m_frame; }
 
-        virtual void handleEvent(Event*, bool isWindowEvent);
-        void invokeEventHandler(v8::Handle<v8::Context>, Event*, v8::Handle<v8::Value> jsEvent, bool isWindowEvent);
+        virtual bool isLazy() const { return false; }
 
         // Returns the listener object, either a function or an object.
-        virtual v8::Local<v8::Object> getListenerObject()
+        v8::Local<v8::Object> getListenerObject()
+        {
+            prepareListenerObject();
+            return v8::Local<v8::Object>::New(m_listener);
+        }
+
+        v8::Local<v8::Object> getExistingListenerObject()
         {
             return v8::Local<v8::Object>::New(m_listener);
+        }
+
+        bool hasExistingListenerObject()
+        {
+            return !m_listener.IsEmpty();
         }
 
         // Dispose listener object and clear the handle.
         void disposeListenerObject();
 
-        virtual bool disconnected() const { return !m_frame; }
+        // Detach the listener from its owner frame.
+        void disconnectFrame() { m_frame = 0; }
 
-        virtual bool isObjectListener() const { return false; }
+        virtual bool disconnected() const { return m_guard && m_guard->isDisconnected(); }
 
     protected:
+        V8AbstractEventListener(Frame*, PassRefPtr<V8ListenerGuard>, bool isAttribute);
+
+        virtual void prepareListenerObject() { }
+
+        void setListenerObject(v8::Handle<v8::Object> listener);
+
+        void invokeEventHandler(v8::Handle<v8::Context>, Event*, v8::Handle<v8::Value> jsEvent);
+
+        // Get the receiver object to use for event listener call.
+        v8::Local<v8::Object> getReceiverObject(Event*);
+
+        int lineNumber() const { return m_lineNumber; }
+
+    private:
+        // Implementation of EventListener function.
+        virtual bool virtualisAttribute() const { return m_isAttribute; }
+
+        virtual v8::Local<v8::Value> callListenerFunction(v8::Handle<v8::Value> jsevent, Event*) = 0;
+
         v8::Persistent<v8::Object> m_listener;
+
+        // Indicates if the above handle is weak.
+        bool m_isWeak;
 
         // Indicates if this is an HTML type listener.
         bool m_isAttribute;
-
-    private:
-        V8AbstractEventListener(Frame*, bool isInline);
-
-        virtual v8::Local<v8::Value> callListenerFunction(v8::Handle<v8::Value> jsevent, Event*, bool isWindowEvent) = 0;
-
-        // Get the receiver object to use for event listener call.
-        v8::Local<v8::Object> getReceiverObject(Event*, bool isWindowEvent);
 
         // Frame to which the event listener is attached to. An event listener must be destroyed before its owner frame is
         // deleted. See fast/dom/replaceChild.html
         // FIXME: this could hold m_frame live until the event listener is deleted.
         Frame* m_frame;
-        OwnHandle<v8::Context> m_context;
+        RefPtr<SharedPersistent<v8::Context> > m_context;
+        RefPtr<V8ListenerGuard> m_guard;
 
         // Position in the HTML source for HTML event listeners.
         int m_lineNumber;
         int m_columnNumber;
-
-        friend class V8EventListener;
-        friend class V8ObjectEventListener;
-        friend class V8LazyEventListener;
     };
 
 } // namespace WebCore

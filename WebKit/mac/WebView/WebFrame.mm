@@ -1174,7 +1174,7 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
         [result setObject:[NSNumber numberWithBool:YES] forKey:WebFrameHasPlugins];
     
     if (DOMWindow* domWindow = _private->coreFrame->domWindow()) {
-        if (domWindow->hasEventListener(eventNames().unloadEvent))
+        if (domWindow->hasEventListeners(eventNames().unloadEvent))
             [result setObject:[NSNumber numberWithBool:YES] forKey:WebFrameHasUnloadListener];
             
         if (domWindow->optionalApplicationCache())
@@ -1193,6 +1193,13 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
     }
     
     return result;
+}
+
+- (BOOL)_allowsFollowingLink:(NSURL *)URL
+{
+    if (!_private->coreFrame)
+        return YES;
+    return SecurityOrigin::canLoad(URL, String(), _private->coreFrame->document());
 }
 
 @end

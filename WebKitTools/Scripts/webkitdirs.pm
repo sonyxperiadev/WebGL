@@ -1,4 +1,5 @@
 # Copyright (C) 2005, 2006, 2007 Apple Inc. All rights reserved.
+# Copyright (C) 2009 Google Inc. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -28,8 +29,10 @@
 
 use strict;
 use warnings;
+use Config;
 use FindBin;
 use File::Basename;
+use File::Spec;
 use POSIX;
 use VCSUtils;
 
@@ -81,6 +84,15 @@ sub determineSourceDir
     }
 
     $sourceDir = "$sourceDir/OpenSource" if -d "$sourceDir/OpenSource";
+}
+
+sub currentPerlPath()
+{
+    my $thisPerl = $^X;
+    if ($^O ne 'VMS') {
+        $thisPerl .= $Config{_exe} unless $thisPerl =~ m/$Config{_exe}$/i;
+    }
+    return $thisPerl;
 }
 
 # used for scripts which are stored in a non-standard location
@@ -468,9 +480,17 @@ sub safariPath
         # Use Safari.app in product directory if present (good for Safari development team).
         if (isAppleMacWebKit() && -d "$configurationProductDir/Safari.app") {
             $safariBundle = "$configurationProductDir/Safari.app";
-        } elsif (isAppleWinWebKit() && -x "$configurationProductDir/bin/Safari.exe") {
-            $safariBundle = "$configurationProductDir/bin/Safari.exe";
-        } else {
+        } elsif (isAppleWinWebKit()) {
+            my $path = "$configurationProductDir/Safari.exe";
+            my $debugPath = "$configurationProductDir/Safari_debug.exe";
+
+            if (configurationForVisualStudio() =~ /Debug/ && -x $debugPath) {
+                $safariBundle = $debugPath;
+            } elsif (-x $path) {
+                $safariBundle = $path;
+            }
+        }
+        if (!$safariBundle) {
             return installedSafariPath();
         }
     }
@@ -537,6 +557,25 @@ sub libraryContainsSymbol
         close NM;
     }
     return $foundSymbol;
+}
+
+sub hasMathMLSupport
+{
+    my $path = shift;
+
+    return libraryContainsSymbol($path, "MathMLElement");
+}
+
+sub checkWebCoreMathMLSupport
+{
+    my $required = shift;
+    my $framework = "WebCore";
+    my $path = builtDylibPathForName($framework);
+    my $hasMathML = hasMathMLSupport($path);
+    if ($required && !$hasMathML) {
+        die "$framework at \"$path\" does not include MathML Support, please run build-webkit --mathml\n";
+    }
+    return $hasMathML;
 }
 
 sub hasSVGSupport
@@ -616,6 +655,26 @@ sub checkWebCore3DRenderingSupport
         die "$framework at \"$path\" does not include 3D rendering Support, please run build-webkit --3d-rendering\n";
     }
     return $has3DRendering;
+}
+
+sub has3DCanvasSupport
+{
+    return 0 if isQt();
+
+    my $path = shift;
+    return libraryContainsSymbol($path, "CanvasShader");
+}
+
+sub checkWebCore3DCanvasSupport
+{
+    my $required = shift;
+    my $framework = "WebCore";
+    my $path = builtDylibPathForName($framework);
+    my $has3DCanvas = has3DCanvasSupport($path);
+    if ($required && !$has3DCanvas) {
+        die "$framework at \"$path\" does not include 3D Canvas Support, please run build-webkit --3d-canvas\n";
+    }
+    return $has3DCanvas;
 }
 
 sub hasWMLSupport
@@ -788,6 +847,11 @@ sub isDebianBased()
     return -e "/etc/debian_version";
 }
 
+sub isFedoraBased()
+{
+    return -e "/etc/fedora-release";
+}
+
 sub isChromium()
 {
     determineIsChromium();
@@ -808,6 +872,16 @@ sub isCygwin()
 sub isDarwin()
 {
     return ($^O eq "darwin") || 0;
+}
+
+sub isWindows()
+{
+    return ($^O eq "MSWin32") || 0;
+}
+
+sub isLinux()
+{
+    return ($^O eq "linux") || 0;
 }
 
 sub isAppleWebKit()
@@ -894,7 +968,7 @@ sub relativeScriptsDir()
 sub launcherPath()
 {
     my $relativeScriptsPath = relativeScriptsDir();
-    if (isGtk() || isQt()) {
+    if (isGtk() || isQt() || isWx()) {
         return "$relativeScriptsPath/run-launcher";
     } elsif (isAppleWebKit()) {
         return "$relativeScriptsPath/run-safari";
@@ -907,6 +981,8 @@ sub launcherName()
         return "GtkLauncher";
     } elsif (isQt()) {
         return "QtLauncher";
+    } elsif (isWx()) {
+        return "wxBrowser";
     } elsif (isAppleWebKit()) {
         return "Safari";
     }
@@ -931,7 +1007,7 @@ sub checkRequiredSystemConfig
             print "http://developer.apple.com/tools/xcode\n";
             print "*************************************************************\n";
         }
-    } elsif (isGtk() or isQt() or isWx()) {
+    } elsif (isGtk() or isQt() or isWx() or isChromium()) {
         my @cmds = qw(flex bison gperf);
         my @missing = ();
         foreach my $cmd (@cmds) {
@@ -952,23 +1028,21 @@ sub setupCygwinEnv()
     return if !isCygwin();
     return if $vcBuildPath;
 
-    my $programFilesPath = `cygpath "$ENV{'PROGRAMFILES'}"`;
-    chomp $programFilesPath;
-    $vcBuildPath = "$programFilesPath/Microsoft Visual Studio 8/Common7/IDE/devenv.com";
+    my $vsInstallDir;
+    my $programFilesPath = $ENV{'PROGRAMFILES'} || "C:\\Program Files";
+    if ($ENV{'VSINSTALLDIR'}) {
+        $vsInstallDir = $ENV{'VSINSTALLDIR'};
+    } else {
+        $vsInstallDir = "$programFilesPath/Microsoft Visual Studio 8";
+    }
+    $vsInstallDir = `cygpath "$vsInstallDir"`;
+    chomp $vsInstallDir;
+    $vcBuildPath = "$vsInstallDir/Common7/IDE/devenv.com";
     if (-e $vcBuildPath) {
         # Visual Studio is installed; we can use pdevenv to build.
         $vcBuildPath = File::Spec->catfile(sourceDir(), qw(WebKitTools Scripts pdevenv));
     } else {
         # Visual Studio not found, try VC++ Express
-        my $vsInstallDir;
-        if ($ENV{'VSINSTALLDIR'}) {
-            $vsInstallDir = $ENV{'VSINSTALLDIR'};
-        } else {
-            $programFilesPath = $ENV{'PROGRAMFILES'} || "C:\\Program Files";
-            $vsInstallDir = "$programFilesPath/Microsoft Visual Studio 8";
-        }
-        $vsInstallDir = `cygpath "$vsInstallDir"`;
-        chomp $vsInstallDir;
         $vcBuildPath = "$vsInstallDir/Common7/IDE/VCExpress.exe";
         if (! -e $vcBuildPath) {
             print "*************************************************************\n";
@@ -1030,6 +1104,50 @@ sub buildVisualStudioProject
 
     print join(" ", @command), "\n";
     return system @command;
+}
+
+sub downloadWafIfNeeded
+{
+    # get / update waf if needed
+    my $waf = "$sourceDir/WebKitTools/wx/waf";
+    my $wafURL = 'http://wxwebkit.wxcommunity.com/downloads/deps/waf';
+    if (!-f $waf) {
+        my $result = system "curl -o $waf $wafURL";
+        chmod 0755, $waf;
+    }
+}
+
+sub buildWafProject
+{
+    my ($project, $shouldClean, @options) = @_;
+    
+    # set the PYTHONPATH for waf
+    my $pythonPath = $ENV{'PYTHONPATH'};
+    if (!defined($pythonPath)) {
+        $pythonPath = '';
+    }
+    my $sourceDir = sourceDir();
+    my $newPythonPath = "$sourceDir/WebKitTools/wx/build:$pythonPath";
+    if (isCygwin()) {
+        $newPythonPath = `cygpath --mixed --path $newPythonPath`;
+    }
+    $ENV{'PYTHONPATH'} = $newPythonPath;
+    
+    print "Building $project\n";
+
+    my $wafCommand = "$sourceDir/WebKitTools/wx/waf";
+    if ($ENV{'WXWEBKIT_WAF'}) {
+        $wafCommand = $ENV{'WXWEBKIT_WAF'};
+    }
+    if (isCygwin()) {
+        $wafCommand = `cygpath --windows "$wafCommand"`;
+        chomp($wafCommand);
+    }
+    if ($shouldClean) {
+        return system $wafCommand, "clean", "distclean";
+    }
+    
+    return system $wafCommand, 'configure', 'build', 'install', @options;
 }
 
 sub retrieveQMakespecVar
@@ -1187,26 +1305,28 @@ sub buildQMakeProject($@)
         push @buildArgs, "CONFIG-=release";
         push @buildArgs, "CONFIG+=debug";
     } else {
-        push @buildArgs, "CONFIG+=release";
         my $passedConfig = passedConfiguration() || "";
         if (!isDarwin() || $passedConfig =~ m/release/i) {
+            push @buildArgs, "CONFIG+=release";
             push @buildArgs, "CONFIG-=debug";
         } else {
+            push @buildArgs, "CONFIG+=debug";
             push @buildArgs, "CONFIG+=debug_and_release";
-            push @buildArgs, "CONFIG+=build_all";
         }
     }
 
-    my $dir = baseProductDir();
+    my $dir = File::Spec->canonpath(baseProductDir());
+    my @mkdirArgs;
+    push @mkdirArgs, "-p" if !isWindows();
     if (! -d $dir) {
-        system "mkdir", "-p", "$dir";
+        system "mkdir", @mkdirArgs, "$dir";
         if (! -d $dir) {
             die "Failed to create product directory " . $dir;
         }
     }
-    $dir = $dir . "/$config";
+    $dir = File::Spec->catfile($dir, $config);
     if (! -d $dir) {
-        system "mkdir", "-p", "$dir";
+        system "mkdir", @mkdirArgs, "$dir";
         if (! -d $dir) {
             die "Failed to create build directory " . $dir;
         }
@@ -1217,7 +1337,7 @@ sub buildQMakeProject($@)
     print "Calling '$qmakebin @buildArgs' in " . $dir . "\n\n";
     print "Installation directory: $prefix\n" if(defined($prefix));
 
-    my $result = system $qmakebin, @buildArgs;
+    my $result = system "$qmakebin @buildArgs";
     if ($result ne 0) {
        die "Failed to setup build environment using $qmakebin!\n";
     }
@@ -1248,6 +1368,30 @@ sub buildGtkProject($$@)
     }
 
     return buildAutotoolsProject($clean, @buildArgs);
+}
+
+sub buildChromium($@)
+{
+    my ($clean, @options) = @_;
+
+    my $result = 1;
+    if (isDarwin()) {
+        # Mac build - builds the root xcode project.
+        $result = buildXCodeProject("WebKit/chromium/webkit",
+                                    $clean,
+                                    (@options));
+    } elsif (isCygwin()) {
+        # Windows build - builds the root visual studio solution.
+        $result = buildVisualStudioProject("WebKit/chromium/webkit.sln",
+                                           $clean);
+    } elsif (isLinux()) {
+        # Linux build
+        # FIXME support linux.
+        print STDERR "Linux build is not supported. Yet.";
+    } else {
+        print STDERR "This platform is not supported by chromium.";
+    }
+    return $result;
 }
 
 sub setPathForRunningWebKitApp

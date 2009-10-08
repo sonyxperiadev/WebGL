@@ -33,30 +33,32 @@
 #import "WebDataSourceInternal.h"
 #import "WebFrameInternal.h"
 #import "WebHostedNetscapePluginView.h"
+#import "WebKitNSStringExtras.h"
 #import "WebNSDataExtras.h"
 #import "WebNSURLExtras.h"
-#import "WebKitNSStringExtras.h"
 #import "WebPluginRequest.h"
-#import "WebViewInternal.h"
 #import "WebUIDelegate.h"
 #import "WebUIDelegatePrivate.h"
-
-#import <mach/mach.h>
-#import <WebCore/CookieJar.h>
+#import "WebViewInternal.h"
+#import <JavaScriptCore/JSLock.h>
+#import <JavaScriptCore/PropertyNameArray.h>
 #import <WebCore/CString.h>
+#import <WebCore/CookieJar.h>
 #import <WebCore/DocumentLoader.h>
 #import <WebCore/Frame.h>
 #import <WebCore/FrameLoader.h>
 #import <WebCore/FrameTree.h>
 #import <WebCore/KURL.h>
-#import <WebCore/npruntime_impl.h>
-#import <WebCore/runtime_object.h>
+#import <WebCore/SecurityOrigin.h>
 #import <WebCore/ScriptController.h>
 #import <WebCore/ScriptValue.h>
+#import <WebCore/StringSourceProvider.h>
+#import <WebCore/npruntime_impl.h>
+#import <WebCore/runtime_object.h>
 #import <WebKitSystemInterface.h>
-#import <runtime/JSLock.h>
-#import <runtime/PropertyNameArray.h>
+#import <mach/mach.h>
 #import <utility>
+#import <wtf/RefCountedLeakCounter.h>
 
 extern "C" {
 #import "WebKitPluginClientServer.h"
@@ -94,6 +96,10 @@ private:
 
 static uint32_t pluginIDCounter;
 
+#ifndef NDEBUG
+static WTF::RefCountedLeakCounter netscapePluginInstanceProxyCounter("NetscapePluginInstanceProxy");
+#endif
+
 NetscapePluginInstanceProxy::NetscapePluginInstanceProxy(NetscapePluginHostProxy* pluginHostProxy, WebHostedNetscapePluginView *pluginView, bool fullFramePlugin)
     : m_pluginHostProxy(pluginHostProxy)
     , m_pluginView(pluginView)
@@ -108,6 +114,7 @@ NetscapePluginInstanceProxy::NetscapePluginInstanceProxy(NetscapePluginHostProxy
     , m_shouldStopSoon(false)
     , m_currentRequestID(0)
     , m_inDestroy(false)
+    , m_pluginIsWaitingForDraw(false)
 {
     ASSERT(m_pluginView);
     
@@ -123,6 +130,10 @@ NetscapePluginInstanceProxy::NetscapePluginInstanceProxy(NetscapePluginHostProxy
     } while (pluginHostProxy->pluginInstance(m_pluginID) || !m_pluginID);
     
     pluginHostProxy->addPluginInstance(this);
+
+#ifndef NDEBUG
+    netscapePluginInstanceProxyCounter.increment();
+#endif
 }
 
 NetscapePluginInstanceProxy::~NetscapePluginInstanceProxy()
@@ -131,6 +142,10 @@ NetscapePluginInstanceProxy::~NetscapePluginInstanceProxy()
     
     m_pluginID = 0;
     deleteAllValues(m_replies);
+
+#ifndef NDEBUG
+    netscapePluginInstanceProxyCounter.decrement();
+#endif
 }
 
 void NetscapePluginInstanceProxy::resize(NSRect size, NSRect clipRect, bool sync)
@@ -178,6 +193,7 @@ void NetscapePluginInstanceProxy::cleanup()
         (*it)->invalidate();
     
     m_pluginView = nil;
+    m_manualStream = 0;
 }
 
 void NetscapePluginInstanceProxy::invalidate()
@@ -583,7 +599,7 @@ NPError NetscapePluginInstanceProxy::loadRequest(NSURLRequest *request, const ch
             return NPERR_GENERIC_ERROR;
         }
     } else {
-        if (!FrameLoader::canLoad(URL, String(), core([m_pluginView webFrame])->document()))
+        if (!SecurityOrigin::canLoad(URL, String(), core([m_pluginView webFrame])->document()))
             return NPERR_GENERIC_ERROR;
     }
     
@@ -1032,22 +1048,22 @@ bool NetscapePluginInstanceProxy::enumerate(uint32_t objectID, data_t& resultDat
  
     PropertyNameArray propertyNames(exec);
     object->getPropertyNames(exec, propertyNames);
-    
-    NSMutableArray *array = [[NSMutableArray alloc] init];
+
+    RetainPtr<NSMutableArray*> array(AdoptNS, [[NSMutableArray alloc] init]);
     for (unsigned i = 0; i < propertyNames.size(); i++) {
         uint64_t methodName = reinterpret_cast<uint64_t>(_NPN_GetStringIdentifier(propertyNames[i].ustring().UTF8String().c_str()));
 
-        [array addObject:[NSNumber numberWithLongLong:methodName]];
+        [array.get() addObject:[NSNumber numberWithLongLong:methodName]];
     }
 
-    NSData *data = [NSPropertyListSerialization dataFromPropertyList:array format:NSPropertyListBinaryFormat_v1_0 errorDescription:0];
+    NSData *data = [NSPropertyListSerialization dataFromPropertyList:array.get() format:NSPropertyListBinaryFormat_v1_0 errorDescription:0];
     ASSERT(data);
-    
+
     resultLength = [data length];
     mig_allocate(reinterpret_cast<vm_address_t*>(&resultData), resultLength);
-    
+
     memcpy(resultData, [data bytes], resultLength);
-    
+
     exec->clearException();
 
     return true;
@@ -1271,9 +1287,19 @@ void NetscapePluginInstanceProxy::invalidateRect(double x, double y, double widt
 {
     ASSERT(m_pluginView);
     
+    m_pluginIsWaitingForDraw = true;
     [m_pluginView invalidatePluginContentRect:NSMakeRect(x, y, width, height)];
 }
 
+void NetscapePluginInstanceProxy::didDraw()
+{
+    if (!m_pluginIsWaitingForDraw)
+        return;
+    
+    m_pluginIsWaitingForDraw = false;
+    _WKPHPluginInstanceDidDraw(m_pluginHostProxy->port(), m_pluginID);
+}
+    
 bool NetscapePluginInstanceProxy::getCookies(data_t urlData, mach_msg_type_number_t urlLength, data_t& cookiesData, mach_msg_type_number_t& cookiesLength)
 {
     ASSERT(m_pluginView);

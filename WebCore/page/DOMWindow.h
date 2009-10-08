@@ -28,6 +28,7 @@
 
 #include "EventTarget.h"
 #include "KURL.h"
+#include "MessagePort.h"
 #include "PlatformString.h"
 #include "RegisteredEventListener.h"
 #include "SecurityOrigin.h"
@@ -53,11 +54,12 @@ namespace WebCore {
     class History;
     class Location;
     class Media;
-    class MessagePort;
     class Navigator;
     class Node;
+    class NotificationCenter;
     class PostMessageTimer;
     class ScheduledAction;
+    class SerializedScriptValue;
     class Screen;
     class WebKitPoint;
 
@@ -83,6 +85,13 @@ namespace WebCore {
         void disconnectFrame();
 
         void clear();
+
+#if ENABLE(ORIENTATION_EVENTS)
+        // This is the interface orientation in degrees. Some examples are:
+        //  0 is straight up; -90 is when the device is rotated 90 clockwise;
+        //  90 is when rotated counter clockwise.
+        int orientation() const;
+#endif
 
         void setSecurityOrigin(SecurityOrigin* securityOrigin) { m_securityOrigin = securityOrigin; }
         SecurityOrigin* securityOrigin() const { return m_securityOrigin.get(); }
@@ -205,7 +214,13 @@ namespace WebCore {
         DOMApplicationCache* applicationCache() const;
 #endif
 
-        void postMessage(const String& message, MessagePort*, const String& targetOrigin, DOMWindow* source, ExceptionCode&);
+#if ENABLE(NOTIFICATIONS)
+        NotificationCenter* webkitNotifications() const;
+#endif
+
+        void postMessage(PassRefPtr<SerializedScriptValue> message, const MessagePortArray*, const String& targetOrigin, DOMWindow* source, ExceptionCode&);
+        // FIXME: remove this when we update the ObjC bindings (bug #28774).
+        void postMessage(PassRefPtr<SerializedScriptValue> message, MessagePort*, const String& targetOrigin, DOMWindow* source, ExceptionCode&);
         void postMessageTimerFired(PostMessageTimer*);
 
         void scrollBy(int x, int y) const;
@@ -226,17 +241,20 @@ namespace WebCore {
 
         // Events
         // EventTarget API
-        virtual void addEventListener(const AtomicString& eventType, PassRefPtr<EventListener>, bool useCapture);
-        virtual void removeEventListener(const AtomicString& eventType, EventListener*, bool useCapture);
-        virtual bool dispatchEvent(PassRefPtr<Event>, ExceptionCode&);
+        virtual bool addEventListener(const AtomicString& eventType, PassRefPtr<EventListener>, bool useCapture);
+        virtual bool removeEventListener(const AtomicString& eventType, EventListener*, bool useCapture);
+        virtual void removeAllEventListeners();
 
-        void handleEvent(Event*, bool useCapture, RegisteredEventListenerVector* = 0);
-
-        void dispatchEvent(const AtomicString& eventType, bool canBubble, bool cancelable);
+        using EventTarget::dispatchEvent;
+        bool dispatchEvent(PassRefPtr<Event> prpEvent, PassRefPtr<EventTarget> prpTarget);
         void dispatchLoadEvent();
+<<<<<<< HEAD:WebCore/page/DOMWindow.h
         void dispatchUnloadEvent(RegisteredEventListenerVector* = 0);
         PassRefPtr<BeforeUnloadEvent> dispatchBeforeUnloadEvent(RegisteredEventListenerVector* = 0);
+=======
+>>>>>>> webkit.org at 49305:WebCore/page/DOMWindow.h
 
+<<<<<<< HEAD:WebCore/page/DOMWindow.h
         // Used for legacy "onEvent" property APIs.
         void setAttributeEventListener(const AtomicString& eventType, PassRefPtr<EventListener>);
         void clearAttributeEventListener(const AtomicString& eventType);
@@ -333,7 +351,74 @@ namespace WebCore {
         void setOntouchmove(PassRefPtr<EventListener>);
         EventListener* ontouchcancel() const;
         void setOntouchcancel(PassRefPtr<EventListener>);
+=======
+        DEFINE_ATTRIBUTE_EVENT_LISTENER(abort);
+        DEFINE_ATTRIBUTE_EVENT_LISTENER(blur);
+        DEFINE_ATTRIBUTE_EVENT_LISTENER(change);
+        DEFINE_ATTRIBUTE_EVENT_LISTENER(click);
+        DEFINE_ATTRIBUTE_EVENT_LISTENER(dblclick);
+        DEFINE_ATTRIBUTE_EVENT_LISTENER(drag);
+        DEFINE_ATTRIBUTE_EVENT_LISTENER(dragend);
+        DEFINE_ATTRIBUTE_EVENT_LISTENER(dragenter);
+        DEFINE_ATTRIBUTE_EVENT_LISTENER(dragleave);
+        DEFINE_ATTRIBUTE_EVENT_LISTENER(dragover);
+        DEFINE_ATTRIBUTE_EVENT_LISTENER(dragstart);
+        DEFINE_ATTRIBUTE_EVENT_LISTENER(drop);
+        DEFINE_ATTRIBUTE_EVENT_LISTENER(error);
+        DEFINE_ATTRIBUTE_EVENT_LISTENER(focus);
+        DEFINE_ATTRIBUTE_EVENT_LISTENER(hashchange);
+        DEFINE_ATTRIBUTE_EVENT_LISTENER(keydown);
+        DEFINE_ATTRIBUTE_EVENT_LISTENER(keypress);
+        DEFINE_ATTRIBUTE_EVENT_LISTENER(keyup);
+        DEFINE_ATTRIBUTE_EVENT_LISTENER(load);
+        DEFINE_ATTRIBUTE_EVENT_LISTENER(mousedown);
+        DEFINE_ATTRIBUTE_EVENT_LISTENER(mousemove);
+        DEFINE_ATTRIBUTE_EVENT_LISTENER(mouseout);
+        DEFINE_ATTRIBUTE_EVENT_LISTENER(mouseover);
+        DEFINE_ATTRIBUTE_EVENT_LISTENER(mouseup);
+        DEFINE_ATTRIBUTE_EVENT_LISTENER(mousewheel);
+        DEFINE_ATTRIBUTE_EVENT_LISTENER(offline);
+        DEFINE_ATTRIBUTE_EVENT_LISTENER(online);
+        DEFINE_ATTRIBUTE_EVENT_LISTENER(pagehide);
+        DEFINE_ATTRIBUTE_EVENT_LISTENER(pageshow);
+        DEFINE_ATTRIBUTE_EVENT_LISTENER(reset);
+        DEFINE_ATTRIBUTE_EVENT_LISTENER(resize);
+        DEFINE_ATTRIBUTE_EVENT_LISTENER(scroll);
+        DEFINE_ATTRIBUTE_EVENT_LISTENER(search);
+        DEFINE_ATTRIBUTE_EVENT_LISTENER(select);
+        DEFINE_ATTRIBUTE_EVENT_LISTENER(storage);
+        DEFINE_ATTRIBUTE_EVENT_LISTENER(submit);
+        DEFINE_ATTRIBUTE_EVENT_LISTENER(unload);
+        DEFINE_ATTRIBUTE_EVENT_LISTENER(beforeunload);
+        DEFINE_ATTRIBUTE_EVENT_LISTENER(canplay);
+        DEFINE_ATTRIBUTE_EVENT_LISTENER(canplaythrough);
+        DEFINE_ATTRIBUTE_EVENT_LISTENER(durationchange);
+        DEFINE_ATTRIBUTE_EVENT_LISTENER(emptied);
+        DEFINE_ATTRIBUTE_EVENT_LISTENER(ended);
+        DEFINE_ATTRIBUTE_EVENT_LISTENER(loadeddata);
+        DEFINE_ATTRIBUTE_EVENT_LISTENER(loadedmetadata);
+        DEFINE_ATTRIBUTE_EVENT_LISTENER(pause);
+        DEFINE_ATTRIBUTE_EVENT_LISTENER(play);
+        DEFINE_ATTRIBUTE_EVENT_LISTENER(playing);
+        DEFINE_ATTRIBUTE_EVENT_LISTENER(ratechange);
+        DEFINE_ATTRIBUTE_EVENT_LISTENER(seeked);
+        DEFINE_ATTRIBUTE_EVENT_LISTENER(seeking);
+        DEFINE_ATTRIBUTE_EVENT_LISTENER(timeupdate);
+        DEFINE_ATTRIBUTE_EVENT_LISTENER(volumechange);
+        DEFINE_ATTRIBUTE_EVENT_LISTENER(waiting);
+        DEFINE_ATTRIBUTE_EVENT_LISTENER(loadstart);
+        DEFINE_ATTRIBUTE_EVENT_LISTENER(progress);
+        DEFINE_ATTRIBUTE_EVENT_LISTENER(stalled);
+        DEFINE_ATTRIBUTE_EVENT_LISTENER(suspend);
+        DEFINE_ATTRIBUTE_EVENT_LISTENER(input);
+        DEFINE_ATTRIBUTE_EVENT_LISTENER(message);
+        DEFINE_ATTRIBUTE_EVENT_LISTENER(contextmenu);
+        DEFINE_ATTRIBUTE_EVENT_LISTENER(invalid);
+#if ENABLE(ORIENTATION_EVENTS)
+        DEFINE_ATTRIBUTE_EVENT_LISTENER(orientationchange);
+>>>>>>> webkit.org at 49305:WebCore/page/DOMWindow.h
 #endif
+<<<<<<< HEAD:WebCore/page/DOMWindow.h
         
         EventListener* oncanplay() const;
         void setOncanplay(PassRefPtr<EventListener>);
@@ -381,6 +466,13 @@ namespace WebCore {
         void setOnmessage(PassRefPtr<EventListener>);
         EventListener* oncontextmenu() const;
         void setOncontextmenu(PassRefPtr<EventListener>);
+=======
+
+        DEFINE_MAPPED_ATTRIBUTE_EVENT_LISTENER(webkitanimationstart, webkitAnimationStart);
+        DEFINE_MAPPED_ATTRIBUTE_EVENT_LISTENER(webkitanimationiteration, webkitAnimationIteration);
+        DEFINE_MAPPED_ATTRIBUTE_EVENT_LISTENER(webkitanimationend, webkitAnimationEnd);
+        DEFINE_MAPPED_ATTRIBUTE_EVENT_LISTENER(webkittransitionend, webkitTransitionEnd);
+>>>>>>> webkit.org at 49305:WebCore/page/DOMWindow.h
 
         void captureEvents();
         void releaseEvents();
@@ -415,8 +507,8 @@ namespace WebCore {
 
         virtual void refEventTarget() { ref(); }
         virtual void derefEventTarget() { deref(); }
-
-        void dispatchEventWithDocumentAsTarget(PassRefPtr<Event>, RegisteredEventListenerVector* = 0);
+        virtual EventTargetData* eventTargetData();
+        virtual EventTargetData* ensureEventTargetData();
 
         RefPtr<SecurityOrigin> m_securityOrigin;
         KURL m_url;
@@ -441,8 +533,11 @@ namespace WebCore {
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
         mutable RefPtr<DOMApplicationCache> m_applicationCache;
 #endif
+#if ENABLE(NOTIFICATIONS)
+        mutable RefPtr<NotificationCenter> m_notifications;
+#endif
 
-        RegisteredEventListenerVector m_eventListeners;
+        EventTargetData m_eventTargetData;
     };
 
 } // namespace WebCore

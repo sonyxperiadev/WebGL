@@ -9,8 +9,8 @@ DESTDIR = ../../../bin
 CONFIG += link_pkgconfig
 PKGCONFIG += fontconfig
 
-QT = core gui
-macx: QT += xml network
+QT = core gui network
+macx: QT += xml
 
 HEADERS = WorkQueue.h WorkQueueItem.h DumpRenderTree.h jsobjects.h testplugin.h
 SOURCES = WorkQueue.cpp DumpRenderTree.cpp main.cpp jsobjects.cpp testplugin.cpp
@@ -22,3 +22,5 @@ unix:!mac {
 lessThan(QT_MINOR_VERSION, 4) {
     DEFINES += QT_BEGIN_NAMESPACE="" QT_END_NAMESPACE=""
 }
+
+DEFINES+=USE_SYSTEM_MALLOC

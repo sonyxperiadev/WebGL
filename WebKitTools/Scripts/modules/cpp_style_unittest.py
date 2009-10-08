@@ -3,6 +3,7 @@
 #
 # Copyright (C) 2009 Google Inc. All rights reserved.
 # Copyright (C) 2009 Torch Mobile Inc.
+# Copyright (C) 2009 Apple Inc. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are
@@ -950,7 +951,7 @@ class CppStyleTest(CppStyleTestBase):
         self.assert_lint('int a[sizeof(struct Foo)];', '')
         self.assert_lint('int a[128 - sizeof(const bar)];', '')
         self.assert_lint('int a[(sizeof(foo) * 4)];', '')
-        self.assert_lint('int a[(arraysize(fixed_size_array)/2) << 1];', '')
+        self.assert_lint('int a[(arraysize(fixed_size_array)/2) << 1];', 'Missing spaces around /  [whitespace/operators] [3]')
         self.assert_lint('delete a[some_var];', '')
         self.assert_lint('return a[some_var];', '')
 
@@ -1208,6 +1209,62 @@ class CppStyleTest(CppStyleTestBase):
         self.assert_lint('typedef hash_map<Foo, Bar', 'Missing spaces around <'
                          '  [whitespace/operators] [3]')
         self.assert_lint('typedef hash_map<FoooooType, BaaaaarType,', '')
+        self.assert_lint('a<Foo> t+=b;', 'Missing spaces around +='
+                         '  [whitespace/operators] [3]')
+        self.assert_lint('a<Foo> t-=b;', 'Missing spaces around -='
+                         '  [whitespace/operators] [3]')
+        self.assert_lint('a<Foo*> t*=b;', 'Missing spaces around *='
+                         '  [whitespace/operators] [3]')
+        self.assert_lint('a<Foo*> t/=b;', 'Missing spaces around /='
+                         '  [whitespace/operators] [3]')
+        self.assert_lint('a<Foo*> t|=b;', 'Missing spaces around |='
+                         '  [whitespace/operators] [3]')
+        self.assert_lint('a<Foo*> t&=b;', 'Missing spaces around &='
+                         '  [whitespace/operators] [3]')
+        self.assert_lint('a<Foo*> t<<=b;', 'Missing spaces around <<='
+                         '  [whitespace/operators] [3]')
+        self.assert_lint('a<Foo*> t>>=b;', 'Missing spaces around >>='
+                         '  [whitespace/operators] [3]')
+        self.assert_lint('a<Foo*> t>>=&b|c;', 'Missing spaces around >>='
+                         '  [whitespace/operators] [3]')
+        self.assert_lint('a<Foo*> t<<=*b/c;', 'Missing spaces around <<='
+                         '  [whitespace/operators] [3]')
+        self.assert_lint('a<Foo> t -= b;', '')
+        self.assert_lint('a<Foo> t += b;', '')
+        self.assert_lint('a<Foo*> t *= b;', '')
+        self.assert_lint('a<Foo*> t /= b;', '')
+        self.assert_lint('a<Foo*> t |= b;', '')
+        self.assert_lint('a<Foo*> t &= b;', '')
+        self.assert_lint('a<Foo*> t <<= b;', '')
+        self.assert_lint('a<Foo*> t >>= b;', '')
+        self.assert_lint('a<Foo*> t >>= &b|c;', 'Missing spaces around |'
+                         '  [whitespace/operators] [3]')
+        self.assert_lint('a<Foo*> t <<= *b/c;', 'Missing spaces around /'
+                         '  [whitespace/operators] [3]')
+        self.assert_lint('a<Foo*> t <<= b/c; //Test', ['At least two spaces'
+                         ' is best between code and comments  [whitespace/'
+                         'comments] [2]', 'Should have a space between // '
+                         'and comment  [whitespace/comments] [4]', 'Missing'
+                         ' spaces around /  [whitespace/operators] [3]'])
+        self.assert_lint('a<Foo*> t <<= b||c;  //Test', ['Should have a space'
+                         ' between // and comment  [whitespace/comments] [4]',
+                         'Missing spaces around ||  [whitespace/operators] [3]'])
+        self.assert_lint('a<Foo*> t <<= b&&c;  // Test', 'Missing spaces around'
+                         ' &&  [whitespace/operators] [3]')
+        self.assert_lint('a<Foo*> t <<= b&&&c;  // Test', 'Missing spaces around'
+                         ' &&  [whitespace/operators] [3]')
+        self.assert_lint('a<Foo*> t <<= b&&*c;  // Test', 'Missing spaces around'
+                         ' &&  [whitespace/operators] [3]')
+        self.assert_lint('a<Foo*> t <<= b && *c;  // Test', '')
+        self.assert_lint('a<Foo*> t <<= b && &c;  // Test', '')
+        self.assert_lint('a<Foo*> t <<= b || &c;  /*Test', 'Complex multi-line '
+                         '/*...*/-style comment found. Lint may give bogus '
+                         'warnings.  Consider replacing these with //-style'
+                         ' comments, with #if 0...#endif, or with more clearly'
+                         ' structured multi-line comments.  [readability/multiline_comment] [5]')
+        self.assert_lint('a<Foo&> t <<= &b | &c;', '')
+        self.assert_lint('a<Foo*> t <<= &b & &c;  // Test', '')
+        self.assert_lint('a<Foo*> t <<= *b / &c;  // Test', '')
 
     def test_spacing_before_last_semicolon(self):
         self.assert_lint('call_function() ;',
@@ -2959,7 +3016,7 @@ class WebKitStyleTest(CppStyleTestBase):
             'Missing space after ,  [whitespace/comma] [3]')
         self.assert_multi_line_lint(
             'c = a|b;',
-            '')
+            'Missing spaces around |  [whitespace/operators] [3]')
         # FIXME: We cannot catch this lint error.
         # self.assert_multi_line_lint(
         #     'return condition ? 1:0;',
@@ -3424,6 +3481,49 @@ class WebKitStyleTest(CppStyleTestBase):
         self.assert_lint(
             'if (othertrue == fontType)',
             '')
+
+    def test_using_std(self):
+        self.assert_lint(
+            'using std::min;',
+            "Use 'using namespace std;' instead of 'using std::min;'."
+            "  [build/using_std] [4]",
+            'foo.cpp')
+
+    def test_max_macro(self):
+        self.assert_lint(
+            'int i = MAX(0, 1);',
+            '',
+            'foo.c')
+
+        self.assert_lint(
+            'int i = MAX(0, 1);',
+            'Use std::max() or std::max<type>() instead of the MAX() macro.'
+            '  [runtime/max_min_macros] [4]',
+            'foo.cpp')
+
+        self.assert_lint(
+            'inline int foo() { return MAX(0, 1); }',
+            'Use std::max() or std::max<type>() instead of the MAX() macro.'
+            '  [runtime/max_min_macros] [4]',
+            'foo.h')
+
+    def test_min_macro(self):
+        self.assert_lint(
+            'int i = MIN(0, 1);',
+            '',
+            'foo.c')
+
+        self.assert_lint(
+            'int i = MIN(0, 1);',
+            'Use std::min() or std::min<type>() instead of the MIN() macro.'
+            '  [runtime/max_min_macros] [4]',
+            'foo.cpp')
+
+        self.assert_lint(
+            'inline int foo() { return MIN(0, 1); }',
+            'Use std::min() or std::min<type>() instead of the MIN() macro.'
+            '  [runtime/max_min_macros] [4]',
+            'foo.h')
 
     def test_names(self):
         # FIXME: Implement this.

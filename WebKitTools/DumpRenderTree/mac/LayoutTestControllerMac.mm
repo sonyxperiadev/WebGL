@@ -51,7 +51,8 @@
 #import <WebKit/WebHTMLViewPrivate.h>
 #import <WebKit/WebHistory.h>
 #import <WebKit/WebHistoryPrivate.h>
-#import <WebKit/WebInspector.h>
+#import <WebKit/WebInspectorPrivate.h>
+#import <WebKit/WebGeolocationMockPrivate.h>
 #import <WebKit/WebNSURLExtras.h>
 #import <WebKit/WebPreferences.h>
 #import <WebKit/WebPreferencesPrivate.h>
@@ -59,6 +60,7 @@
 #import <WebKit/WebTypesInternal.h>
 #import <WebKit/WebView.h>
 #import <WebKit/WebViewPrivate.h>
+#import <WebKit/WebWorkersPrivate.h>
 #import <wtf/RetainPtr.h>
 
 @interface CommandValidationTarget : NSObject <NSValidatedUserInterfaceItem>
@@ -163,6 +165,11 @@ size_t LayoutTestController::webHistoryItemCount()
     return [[[WebHistory optionalSharedHistory] allItems] count];
 }
 
+unsigned LayoutTestController::workerThreadCount() const
+{
+    return [WebWorkersPrivate workerThreadCount];
+}
+
 void LayoutTestController::notifyDone()
 {
     if (m_waitToDump && !topLoadingFrame && !WorkQueue::shared()->count())
@@ -192,6 +199,16 @@ void LayoutTestController::setAcceptsEditing(bool newAcceptsEditing)
     [(EditingDelegate *)[[mainFrame webView] editingDelegate] setAcceptsEditing:newAcceptsEditing];
 }
 
+void LayoutTestController::setAlwaysAcceptCookies(bool alwaysAcceptCookies)
+{
+    if (alwaysAcceptCookies == m_alwaysAcceptCookies)
+        return;
+
+    m_alwaysAcceptCookies = alwaysAcceptCookies;
+    NSHTTPCookieAcceptPolicy cookieAcceptPolicy = alwaysAcceptCookies ? NSHTTPCookieAcceptPolicyAlways : NSHTTPCookieAcceptPolicyOnlyFromMainDocumentDomain;
+    [[NSHTTPCookieStorage sharedHTTPCookieStorage] setCookieAcceptPolicy:cookieAcceptPolicy];
+}
+
 void LayoutTestController::setAppCacheMaximumSize(unsigned long long size)
 {
     [WebApplicationCache setMaximumSize:size];
@@ -216,6 +233,18 @@ void LayoutTestController::setDatabaseQuota(unsigned long long quota)
     WebSecurityOrigin *origin = [[WebSecurityOrigin alloc] initWithURL:[NSURL URLWithString:@"file:///"]];
     [origin setQuota:quota];
     [origin release];
+}
+
+void LayoutTestController::setMockGeolocationPosition(double latitude, double longitude, double accuracy)
+{
+    [WebGeolocationMock setPosition:latitude:longitude:accuracy];
+}
+
+void LayoutTestController::setMockGeolocationError(int code, JSStringRef message)
+{
+    RetainPtr<CFStringRef> messageCF(AdoptCF, JSStringCopyCFString(kCFAllocatorDefault, message));
+    NSString *messageNS = (NSString *)messageCF.get();
+    [WebGeolocationMock setError:code:messageNS];
 }
 
 void LayoutTestController::setIconDatabaseEnabled(bool iconDatabaseEnabled)
@@ -293,6 +322,17 @@ void LayoutTestController::dispatchPendingLoadRequests()
     [[mainFrame webView] _dispatchPendingLoadRequests];
 }
 
+void LayoutTestController::overridePreference(JSStringRef key, JSStringRef value)
+{
+    RetainPtr<CFStringRef> keyCF(AdoptCF, JSStringCopyCFString(kCFAllocatorDefault, key));
+    NSString *keyNS = (NSString *)keyCF.get();
+
+    RetainPtr<CFStringRef> valueCF(AdoptCF, JSStringCopyCFString(kCFAllocatorDefault, value));
+    NSString *valueNS = (NSString *)valueCF.get();
+
+    [[WebPreferences standardPreferences] _setPreferenceForTestWithValue:valueNS forKey:keyNS];
+}
+
 void LayoutTestController::setPersistentUserStyleSheetLocation(JSStringRef jsURL)
 {
     RetainPtr<CFStringRef> urlString(AdoptCF, JSStringCopyCFString(0, jsURL));
@@ -320,14 +360,11 @@ void LayoutTestController::setSelectTrailingWhitespaceEnabled(bool flag)
     [[mainFrame webView] setSelectTrailingWhitespaceEnabled:flag];
 }
 
-static const CFTimeInterval waitToDumpWatchdogInterval = 10.0;
+static const CFTimeInterval waitToDumpWatchdogInterval = 15.0;
 
 static void waitUntilDoneWatchdogFired(CFRunLoopTimerRef timer, void* info)
 {
-    const char* message = "FAIL: Timed out waiting for notifyDone to be called\n";
-    fprintf(stderr, "%s", message);
-    fprintf(stdout, "%s", message);
-    dump();
+    gLayoutTestController->waitToDumpWatchdogTimerFired();
 }
 
 void LayoutTestController::setWaitToDump(bool waitUntilDone)
@@ -428,4 +465,46 @@ void LayoutTestController::waitForPolicyDelegate()
     setWaitToDump(true);
     [policyDelegate setControllerToNotifyDone:this];
     [[mainFrame webView] setPolicyDelegate:policyDelegate];
+}
+
+void LayoutTestController::whiteListAccessFromOrigin(JSStringRef sourceOrigin, JSStringRef destinationProtocol, JSStringRef destinationHost, bool allowDestinationSubdomains)
+{
+    RetainPtr<CFStringRef> sourceOriginCF(AdoptCF, JSStringCopyCFString(kCFAllocatorDefault, sourceOrigin));
+    NSString *sourceOriginNS = (NSString *)sourceOriginCF.get();
+    RetainPtr<CFStringRef> protocolCF(AdoptCF, JSStringCopyCFString(kCFAllocatorDefault, destinationProtocol));
+    NSString *destinationProtocolNS = (NSString *)protocolCF.get();
+    RetainPtr<CFStringRef> hostCF(AdoptCF, JSStringCopyCFString(kCFAllocatorDefault, destinationHost));
+    NSString *destinationHostNS = (NSString *)hostCF.get();
+    [WebView _whiteListAccessFromOrigin:sourceOriginNS destinationProtocol:destinationProtocolNS destinationHost:destinationHostNS allowDestinationSubdomains:allowDestinationSubdomains];
+}
+
+void LayoutTestController::addUserScript(JSStringRef source, bool runAtStart)
+{
+    RetainPtr<CFStringRef> sourceCF(AdoptCF, JSStringCopyCFString(kCFAllocatorDefault, source));
+    NSString *sourceNS = (NSString *)sourceCF.get();
+    [WebView _addUserScriptToGroup:@"org.webkit.DumpRenderTree" source:sourceNS url:nil worldID:1 whitelist:nil blacklist:nil injectionTime:(runAtStart ? WebInjectAtDocumentStart : WebInjectAtDocumentEnd)];
+}
+
+void LayoutTestController::addUserStyleSheet(JSStringRef source)
+{
+    RetainPtr<CFStringRef> sourceCF(AdoptCF, JSStringCopyCFString(kCFAllocatorDefault, source));
+    NSString *sourceNS = (NSString *)sourceCF.get();
+    [WebView _addUserStyleSheetToGroup:@"org.webkit.DumpRenderTree" source:sourceNS url:nil worldID:1 whitelist:nil blacklist:nil];
+}
+
+void LayoutTestController::showWebInspector()
+{
+    [[[mainFrame webView] inspector] show:nil];
+}
+
+void LayoutTestController::closeWebInspector()
+{
+    [[[mainFrame webView] inspector] close:nil];
+}
+
+void LayoutTestController::evaluateInWebInspector(long callId, JSStringRef script)
+{
+    RetainPtr<CFStringRef> scriptCF(AdoptCF, JSStringCopyCFString(kCFAllocatorDefault, script));
+    NSString *scriptNS = (NSString *)scriptCF.get();
+    [[[mainFrame webView] inspector] evaluateInFrontend:nil callId:callId script:scriptNS];
 }

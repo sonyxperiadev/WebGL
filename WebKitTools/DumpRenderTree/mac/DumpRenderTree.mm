@@ -38,6 +38,7 @@
 #import "EditingDelegate.h"
 #import "EventSendingController.h"
 #import "FrameLoadDelegate.h"
+#import "HistoryDelegate.h"
 #import "JavaScriptThreading.h"
 #import "LayoutTestController.h"
 #import "NavigationController.h"
@@ -116,6 +117,7 @@ static FrameLoadDelegate *frameLoadDelegate;
 static UIDelegate *uiDelegate;
 static EditingDelegate *editingDelegate;
 static ResourceLoadDelegate *resourceLoadDelegate;
+static HistoryDelegate *historyDelegate;
 PolicyDelegate *policyDelegate;
 
 static int dumpPixels;
@@ -354,7 +356,8 @@ static NSString *libraryPathForDumpRenderTree()
     return [@"~/Library/Application Support/DumpRenderTree" stringByExpandingTildeInPath];
 }
 
-static void setDefaultsToConsistentValuesForTesting()
+// Called before each test.
+static void resetDefaultsToConsistentValues()
 {
     // Give some clear to undocumented defaults values
     static const int NoFontSmoothing = 0;
@@ -384,15 +387,10 @@ static void setDefaultsToConsistentValuesForTesting()
     NSString *path = libraryPathForDumpRenderTree();
     [defaults setObject:[path stringByAppendingPathComponent:@"Databases"] forKey:WebDatabaseDirectoryDefaultsKey];
     [defaults setObject:[path stringByAppendingPathComponent:@"LocalCache"] forKey:WebKitLocalCacheDefaultsKey];
-    NSURLCache *sharedCache =
-        [[NSURLCache alloc] initWithMemoryCapacity:1024 * 1024
-                                      diskCapacity:0
-                                          diskPath:[path stringByAppendingPathComponent:@"URLCache"]];
-    [NSURLCache setSharedURLCache:sharedCache];
-    [sharedCache release];
 
     WebPreferences *preferences = [WebPreferences standardPreferences];
 
+    [preferences setAllowUniversalAccessFromFileURLs:YES];
     [preferences setStandardFontFamily:@"Times"];
     [preferences setFixedFontFamily:@"Courier"];
     [preferences setSerifFontFamily:@"Times"];
@@ -410,10 +408,58 @@ static void setDefaultsToConsistentValuesForTesting()
     [preferences setShouldPrintBackgrounds:YES];
     [preferences setCacheModel:WebCacheModelDocumentBrowser];
     [preferences setXSSAuditorEnabled:NO];
+    [preferences setExperimentalNotificationsEnabled:NO];
+    [preferences setExperimentalWebSocketsEnabled:NO];
+
+    [preferences setPrivateBrowsingEnabled:NO];
+    [preferences setAuthorAndUserStylesEnabled:YES];
+    [preferences setJavaScriptCanOpenWindowsAutomatically:YES];
+    [preferences setOfflineWebApplicationCacheEnabled:YES];
+    [preferences setDeveloperExtrasEnabled:NO];
+    [preferences setXSSAuditorEnabled:NO];
+    [preferences setLoadsImagesAutomatically:YES];
+    if (persistentUserStyleSheetLocation) {
+        [preferences setUserStyleSheetLocation:[NSURL URLWithString:(NSString *)(persistentUserStyleSheetLocation.get())]];
+        [preferences setUserStyleSheetEnabled:YES];
+    } else
+        [preferences setUserStyleSheetEnabled:NO];
 
     // The back/forward cache is causing problems due to layouts during transition from one page to another.
     // So, turn it off for now, but we might want to turn it back on some day.
     [preferences setUsesPageCache:NO];
+
+#if defined(BUILDING_ON_LEOPARD)
+    // Disable hardware composititing to avoid timeouts and crashes from buggy CoreVideo teardown code.
+    // https://bugs.webkit.org/show_bug.cgi?id=28845 and rdar://problem/7228836
+    SInt32 qtVersion;
+    OSErr err = Gestalt(gestaltQuickTimeVersion, &qtVersion);
+    assert(err == noErr);
+    // Bug 7228836 exists in at least 7.6.3 and 7.6.4, hopefully it will be fixed in 7.6.5.
+    // FIXME: Once we know the exact versions of QuickTime affected, we can update this check.
+    if (qtVersion <= 0x07640000)
+        [preferences setAcceleratedCompositingEnabled:NO];
+    else
+#endif
+        [preferences setAcceleratedCompositingEnabled:YES];
+
+    [[NSHTTPCookieStorage sharedHTTPCookieStorage] setCookieAcceptPolicy:NSHTTPCookieAcceptPolicyOnlyFromMainDocumentDomain];
+
+    setlocale(LC_ALL, "");
+}
+
+// Called once on DumpRenderTree startup.
+static void setDefaultsToConsistentValuesForTesting()
+{
+    resetDefaultsToConsistentValues();
+
+    NSString *path = libraryPathForDumpRenderTree();
+    NSURLCache *sharedCache =
+        [[NSURLCache alloc] initWithMemoryCapacity:1024 * 1024
+                                      diskCapacity:0
+                                          diskPath:[path stringByAppendingPathComponent:@"URLCache"]];
+    [NSURLCache setSharedURLCache:sharedCache];
+    [sharedCache release];
+
 }
 
 static void crashHandler(int sig)
@@ -448,6 +494,7 @@ static void allocateGlobalControllers()
     editingDelegate = [[EditingDelegate alloc] init];
     resourceLoadDelegate = [[ResourceLoadDelegate alloc] init];
     policyDelegate = [[PolicyDelegate alloc] init];
+    historyDelegate = [[HistoryDelegate alloc] init];
 }
 
 // ObjC++ doens't seem to let me pass NSObject*& sadly.
@@ -1033,9 +1080,14 @@ void dump()
     done = YES;
 }
 
-static bool shouldLogFrameLoadDelegates(const char *pathOrURL)
+static bool shouldLogFrameLoadDelegates(const char* pathOrURL)
 {
     return strstr(pathOrURL, "loading/");
+}
+
+static bool shouldLogHistoryDelegates(const char* pathOrURL)
+{
+    return strstr(pathOrURL, "globalhistory/");
 }
 
 static void resetWebViewToConsistentStateBeforeTesting()
@@ -1048,29 +1100,19 @@ static void resetWebViewToConsistentStateBeforeTesting()
     [webView setPolicyDelegate:nil];
     [policyDelegate setPermissive:NO];
     [policyDelegate setControllerToNotifyDone:0];
+    [frameLoadDelegate resetToConsistentState];
     [webView _setDashboardBehavior:WebDashboardBehaviorUseBackwardCompatibilityMode to:NO];
     [webView _clearMainFrameName];
     [[webView undoManager] removeAllActions];
+    [WebView _removeAllUserContentFromGroup:[webView groupName]];
 
-    WebPreferences *preferences = [webView preferences];
-    [preferences setPrivateBrowsingEnabled:NO];
-    [preferences setAuthorAndUserStylesEnabled:YES];
-    [preferences setJavaScriptCanOpenWindowsAutomatically:YES];
-    [preferences setOfflineWebApplicationCacheEnabled:YES];
-    [preferences setDeveloperExtrasEnabled:NO];
-    [preferences setXSSAuditorEnabled:NO];
-    [preferences setLoadsImagesAutomatically:YES];
-
-    if (persistentUserStyleSheetLocation) {
-        [preferences setUserStyleSheetLocation:[NSURL URLWithString:(NSString *)(persistentUserStyleSheetLocation.get())]];
-        [preferences setUserStyleSheetEnabled:YES];
-    } else
-        [preferences setUserStyleSheetEnabled:NO];
+    resetDefaultsToConsistentValues();
 
     [[mainFrame webView] setSmartInsertDeleteEnabled:YES];
     [[[mainFrame webView] inspector] setJavaScriptProfilingEnabled:NO];
 
     [WebView _setUsesTestModeFocusRingColor:YES];
+    [WebView _resetOriginAccessWhiteLists];
 }
 
 static void runTest(const string& testPathOrURL)
@@ -1120,6 +1162,11 @@ static void runTest(const string& testPathOrURL)
     if (shouldLogFrameLoadDelegates(pathOrURL.c_str()))
         gLayoutTestController->setDumpFrameLoadCallbacks(true);
 
+    if (shouldLogHistoryDelegates(pathOrURL.c_str()))
+        [[mainFrame webView] setHistoryDelegate:historyDelegate];
+    else
+        [[mainFrame webView] setHistoryDelegate:nil];
+    
     if ([WebHistory optionalSharedHistory])
         [WebHistory setOptionalSharedHistory:nil];
     lastMousePosition = NSZeroPoint;

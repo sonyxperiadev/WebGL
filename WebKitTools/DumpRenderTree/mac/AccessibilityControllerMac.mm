@@ -53,3 +53,12 @@ AccessibilityUIElement AccessibilityController::rootElement()
     id accessibilityObject = [[mainFrame frameView] documentView];
     return AccessibilityUIElement(accessibilityObject);
 }
+
+void AccessibilityController::setLogFocusEvents(bool)
+{
+}
+
+void AccessibilityController::setLogScrollingStartEvents(bool)
+{
+}
+

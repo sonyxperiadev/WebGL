@@ -508,7 +508,7 @@ bool RenderListBox::listIndexIsVisible(int index)
     return index >= m_indexOffset && index < m_indexOffset + numVisibleItems();
 }
 
-bool RenderListBox::scroll(ScrollDirection direction, ScrollGranularity granularity, float multiplier)
+bool RenderListBox::scroll(ScrollDirection direction, ScrollGranularity granularity, float multiplier, Node**)
 {
     return m_vBar && m_vBar->scroll(direction, granularity, multiplier);
 }
@@ -527,8 +527,7 @@ void RenderListBox::valueChanged(Scrollbar*)
     if (newOffset != m_indexOffset) {
         m_indexOffset = newOffset;
         repaint();
-        // Fire the scroll DOM event.
-        node()->dispatchEvent(eventNames().scrollEvent, false, false);
+        node()->dispatchEvent(Event::create(eventNames().scrollEvent, false, false));
     }
 }
 

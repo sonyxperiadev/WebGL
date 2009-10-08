@@ -106,6 +106,14 @@ bool ScriptObject::set(const char* name, int value)
     return handleException(m_scriptState);
 }
 
+bool ScriptObject::set(const char* name, unsigned value)
+{
+    JSLock lock(SilenceAssertionsOnly);
+    PutPropertySlot slot;
+    jsObject()->put(m_scriptState, Identifier(m_scriptState, name), jsNumber(m_scriptState, value), slot);
+    return handleException(m_scriptState);
+}
+
 bool ScriptObject::set(const char* name, bool value)
 {
     JSLock lock(SilenceAssertionsOnly);
@@ -127,7 +135,11 @@ bool ScriptGlobalObject::set(ScriptState* scriptState, const char* name, const S
     return handleException(scriptState);
 }
 
+<<<<<<< HEAD:WebCore/bindings/js/ScriptObject.cpp
 #if ENABLE(JAVASCRIPT_DEBUGGER)
+=======
+#if ENABLE(INSPECTOR)
+>>>>>>> webkit.org at 49305:WebCore/bindings/js/ScriptObject.cpp
 bool ScriptGlobalObject::set(ScriptState* scriptState, const char* name, InspectorBackend* value)
 {
     JSLock lock(SilenceAssertionsOnly);
@@ -135,7 +147,11 @@ bool ScriptGlobalObject::set(ScriptState* scriptState, const char* name, Inspect
     globalObject->putDirect(Identifier(scriptState, name), toJS(scriptState, globalObject, value));
     return handleException(scriptState);
 }
+<<<<<<< HEAD:WebCore/bindings/js/ScriptObject.cpp
 #endif
+=======
+#endif // ENABLE(INSPECTOR)
+>>>>>>> webkit.org at 49305:WebCore/bindings/js/ScriptObject.cpp
 
 bool ScriptGlobalObject::get(ScriptState* scriptState, const char* name, ScriptObject& value)
 {

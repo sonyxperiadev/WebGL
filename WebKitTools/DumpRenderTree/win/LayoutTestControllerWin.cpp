@@ -34,21 +34,22 @@
 #include "PolicyDelegate.h"
 #include "WorkQueue.h"
 #include "WorkQueueItem.h"
-#include <WebCore/COMPtr.h>
-#include <wtf/Platform.h>
-#include <wtf/RetainPtr.h>
-#include <wtf/Vector.h>
+#include <CoreFoundation/CoreFoundation.h>
 #include <JavaScriptCore/Assertions.h>
-#include <JavaScriptCore/JavaScriptCore.h>
 #include <JavaScriptCore/JSRetainPtr.h>
 #include <JavaScriptCore/JSStringRefBSTR.h>
+#include <JavaScriptCore/JavaScriptCore.h>
+#include <WebCore/COMPtr.h>
 #include <WebKit/WebKit.h>
 #include <WebKit/WebKitCOMAPI.h>
-#include <string>
-#include <CoreFoundation/CoreFoundation.h>
+#include <comutil.h>
 #include <shlwapi.h>
 #include <shlguid.h>
 #include <shobjidl.h>
+#include <string>
+#include <wtf/Platform.h>
+#include <wtf/RetainPtr.h>
+#include <wtf/Vector.h>
 
 using std::string;
 using std::wstring;
@@ -183,6 +184,17 @@ size_t LayoutTestController::webHistoryItemCount()
     return count;
 }
 
+unsigned LayoutTestController::workerThreadCount() const
+{
+    COMPtr<IWebWorkersPrivate> workers;
+    if (FAILED(WebKitCreateInstance(CLSID_WebWorkersPrivate, 0, __uuidof(workers), reinterpret_cast<void**>(&workers))))
+        return 0;
+    unsigned count;
+    if (FAILED(workers->workerThreadCount(&count)))
+        return 0;
+    return count;
+}
+
 void LayoutTestController::notifyDone()
 {
     // Same as on mac.  This can be shared.
@@ -260,6 +272,16 @@ void LayoutTestController::setAcceptsEditing(bool acceptsEditing)
     editingDelegate->setAcceptsEditing(acceptsEditing);
 }
 
+void LayoutTestController::setAlwaysAcceptCookies(bool alwaysAcceptCookies)
+{
+    if (alwaysAcceptCookies == m_alwaysAcceptCookies)
+        return;
+
+    if (!::setAlwaysAcceptCookies(alwaysAcceptCookies))
+        return;
+    m_alwaysAcceptCookies = alwaysAcceptCookies;
+}
+
 void LayoutTestController::setAuthorAndUserStylesEnabled(bool flag)
 {
     COMPtr<IWebView> webView;
@@ -288,6 +310,18 @@ void LayoutTestController::setCustomPolicyDelegate(bool setDelegate, bool permis
         webView->setPolicyDelegate(policyDelegate);
     } else
         webView->setPolicyDelegate(0);
+}
+
+void LayoutTestController::setMockGeolocationPosition(double latitude, double longitude, double accuracy)
+{
+    // FIXME: Implement for Geolocation layout tests.
+    // See https://bugs.webkit.org/show_bug.cgi?id=28264.
+}
+
+void LayoutTestController::setMockGeolocationError(int code, JSStringRef message)
+{
+    // FIXME: Implement for Geolocation layout tests.
+    // See https://bugs.webkit.org/show_bug.cgi?id=28264.
 }
 
 void LayoutTestController::setIconDatabaseEnabled(bool iconDatabaseEnabled)
@@ -615,14 +649,11 @@ void LayoutTestController::setSelectTrailingWhitespaceEnabled(bool flag)
     viewEditing->setSelectTrailingWhitespaceEnabled(flag ? TRUE : FALSE);
 }
 
-static const CFTimeInterval waitToDumpWatchdogInterval = 10.0;
+static const CFTimeInterval waitToDumpWatchdogInterval = 15.0;
 
 static void CALLBACK waitUntilDoneWatchdogFired(HWND, UINT, UINT_PTR, DWORD)
 {
-    const char* message = "FAIL: Timed out waiting for notifyDone to be called\n";
-    fprintf(stderr, message);
-    fprintf(stdout, message);
-    dump();
+    gLayoutTestController->waitToDumpWatchdogTimerFired();
 }
 
 void LayoutTestController::setWaitToDump(bool waitUntilDone)
@@ -707,9 +738,38 @@ void LayoutTestController::clearAllDatabases()
     databaseManager->deleteAllDatabases();
 }
 
+void LayoutTestController::overridePreference(JSStringRef key, JSStringRef value)
+{
+    COMPtr<IWebView> webView;
+    if (FAILED(frame->webView(&webView)))
+        return;
+
+    COMPtr<IWebPreferences> preferences;
+    if (FAILED(webView->preferences(&preferences)))
+        return;
+
+    COMPtr<IWebPreferencesPrivate> prefsPrivate(Query, preferences);
+    if (!prefsPrivate)
+        return;
+
+    BSTR keyBSTR = JSStringCopyBSTR(key);
+    BSTR valueBSTR = JSStringCopyBSTR(value);
+    prefsPrivate->setPreferenceForTest(keyBSTR, valueBSTR);
+    SysFreeString(keyBSTR);
+    SysFreeString(valueBSTR);
+}
+
 void LayoutTestController::setDatabaseQuota(unsigned long long quota)
 {
-    printf("ERROR: LayoutTestController::setDatabaseQuota() not implemented\n");
+    COMPtr<IWebDatabaseManager> databaseManager;
+    COMPtr<IWebDatabaseManager> tmpDatabaseManager;
+
+    if (FAILED(WebKitCreateInstance(CLSID_WebDatabaseManager, 0, IID_IWebDatabaseManager, (void**)&tmpDatabaseManager)))
+        return;
+    if (FAILED(tmpDatabaseManager->sharedWebDatabaseManager(&databaseManager)))
+        return;
+
+    databaseManager->setQuota(TEXT("file:///"), quota);
 }
 
 void LayoutTestController::setAppCacheMaximumSize(unsigned long long size)
@@ -778,4 +838,77 @@ unsigned LayoutTestController::numberOfActiveAnimations() const
         return 0;
 
     return number;
+}
+
+static _bstr_t bstrT(JSStringRef jsString)
+{
+    // The false parameter tells the _bstr_t constructor to adopt the BSTR we pass it.
+    return _bstr_t(JSStringCopyBSTR(jsString), false);
+}
+
+void LayoutTestController::whiteListAccessFromOrigin(JSStringRef sourceOrigin, JSStringRef destinationProtocol, JSStringRef destinationHost, bool allowDestinationSubdomains)
+{
+    COMPtr<IWebViewPrivate> webView;
+    if (FAILED(WebKitCreateInstance(__uuidof(WebView), 0, __uuidof(webView), reinterpret_cast<void**>(&webView))))
+        return;
+
+    webView->whiteListAccessFromOrigin(bstrT(sourceOrigin).GetBSTR(), bstrT(destinationProtocol).GetBSTR(), bstrT(destinationHost).GetBSTR(), allowDestinationSubdomains);
+}
+
+void LayoutTestController::addUserScript(JSStringRef source, bool runAtStart)
+{
+    COMPtr<IWebViewPrivate> webView;
+    if (FAILED(WebKitCreateInstance(__uuidof(WebView), 0, __uuidof(webView), reinterpret_cast<void**>(&webView))))
+        return;
+
+    webView->addUserScriptToGroup(_bstr_t(L"org.webkit.DumpRenderTree").GetBSTR(), 1, bstrT(source).GetBSTR(), 0, 0, 0, 0, 0, runAtStart ? WebInjectAtDocumentStart : WebInjectAtDocumentEnd);
+}
+
+
+void LayoutTestController::addUserStyleSheet(JSStringRef source)
+{
+    COMPtr<IWebViewPrivate> webView;
+    if (FAILED(WebKitCreateInstance(__uuidof(WebView), 0, __uuidof(webView), reinterpret_cast<void**>(&webView))))
+        return;
+
+    webView->addUserStyleSheetToGroup(_bstr_t(L"org.webkit.DumpRenderTree").GetBSTR(), 1, bstrT(source).GetBSTR(), 0, 0, 0, 0, 0);
+}
+
+void LayoutTestController::showWebInspector()
+{
+    COMPtr<IWebViewPrivate> webView;
+    if (FAILED(WebKitCreateInstance(__uuidof(WebView), 0, __uuidof(webView), reinterpret_cast<void**>(&webView))))
+        return;
+
+    COMPtr<IWebInspector> inspector;
+    if (SUCCEEDED(webView->inspector(&inspector)))
+        inspector->show();
+}
+
+void LayoutTestController::closeWebInspector()
+{
+    COMPtr<IWebViewPrivate> webView;
+    if (FAILED(WebKitCreateInstance(__uuidof(WebView), 0, __uuidof(webView), reinterpret_cast<void**>(&webView))))
+        return;
+
+    COMPtr<IWebInspector> inspector;
+    if (SUCCEEDED(webView->inspector(&inspector)))
+        inspector->close();
+}
+
+void LayoutTestController::evaluateInWebInspector(long callId, JSStringRef script)
+{
+    COMPtr<IWebViewPrivate> webView;
+    if (FAILED(WebKitCreateInstance(__uuidof(WebView), 0, __uuidof(webView), reinterpret_cast<void**>(&webView))))
+        return;
+
+    COMPtr<IWebInspector> inspector;
+    if (FAILED(webView->inspector(&inspector)))
+        return;
+
+    COMPtr<IWebInspectorPrivate> inspectorPrivate(Query, inspector);
+    if (!inspectorPrivate)
+        return;
+
+    inspectorPrivate->evaluateInFrontend(callId, bstrT(script).GetBSTR());
 }

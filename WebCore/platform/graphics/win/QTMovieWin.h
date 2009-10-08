@@ -59,6 +59,11 @@ class QTMOVIEWIN_API QTMovieWin {
 public:
     static bool initializeQuickTime();
 
+    typedef void (*SetTaskTimerDelayFunc)(double);
+    typedef void (*StopTaskTimerFunc)();
+    static void setTaskTimerFuncs(SetTaskTimerDelayFunc, StopTaskTimerFunc);
+    static void taskTimerFired();
+
     QTMovieWin(QTMovieWinClient*);
     ~QTMovieWin();
 
@@ -91,6 +96,7 @@ public:
     void setDisabled(bool);
 
     bool hasVideo() const;
+    bool hasAudio() const;
 
     static unsigned countSupportedTypes();
     static void getSupportedType(unsigned index, const UChar*& str, unsigned& len);

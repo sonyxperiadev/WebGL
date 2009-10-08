@@ -28,6 +28,7 @@
 
 #include "ChromeClient.h"
 #include "Document.h"
+#include "Frame.h"
 #include "Page.h"
 #include "Settings.h"
 
@@ -64,6 +65,11 @@ PageGroup::PageGroup(Page* page)
 {
     ASSERT(page);
     addPage(page);
+}
+
+PageGroup::~PageGroup()
+{
+    removeAllUserContent();
 }
 
 typedef HashMap<String, PageGroup*> PageGroupMap;
@@ -185,12 +191,139 @@ StorageNamespace* PageGroup::localStorage()
     if (!m_localStorage) {
         // Need a page in this page group to query the settings for the local storage database path.
         Page* page = *m_pages.begin();
-        ASSERT(page);
-        m_localStorage = StorageNamespace::localStorageNamespace(page->settings()->localStorageDatabasePath());
+        const String& path = page->settings()->localStorageDatabasePath();
+        unsigned quota = page->settings()->localStorageQuota();
+        m_localStorage = StorageNamespace::localStorageNamespace(path, quota);
     }
 
     return m_localStorage.get();
 }
 #endif
+
+void PageGroup::addUserScript(const String& source, const KURL& url,  PassOwnPtr<Vector<String> > whitelist,
+                              PassOwnPtr<Vector<String> > blacklist, unsigned worldID, UserScriptInjectionTime injectionTime)
+{
+    if (worldID == UINT_MAX)
+        return;
+    OwnPtr<UserScript> userScript(new UserScript(source, url, whitelist, blacklist, worldID, injectionTime));
+    if (!m_userScripts)
+        m_userScripts.set(new UserScriptMap);
+    UserScriptVector*& scriptsInWorld = m_userScripts->add(worldID, 0).first->second;
+    if (!scriptsInWorld)
+        scriptsInWorld = new UserScriptVector;
+    scriptsInWorld->append(userScript.release());
+}
+
+void PageGroup::addUserStyleSheet(const String& source, const KURL& url, PassOwnPtr<Vector<String> > whitelist,
+                                  PassOwnPtr<Vector<String> > blacklist, unsigned worldID)
+{
+    if (worldID == UINT_MAX)
+        return;
+    OwnPtr<UserStyleSheet> userStyleSheet(new UserStyleSheet(source, url, whitelist, blacklist, worldID));
+    if (!m_userStyleSheets)
+        m_userStyleSheets.set(new UserStyleSheetMap);
+    UserStyleSheetVector*& styleSheetsInWorld = m_userStyleSheets->add(worldID, 0).first->second;
+    if (!styleSheetsInWorld)
+        styleSheetsInWorld = new UserStyleSheetVector;
+    styleSheetsInWorld->append(userStyleSheet.release());
+    
+    // Clear our cached sheets and have them just reparse.
+    HashSet<Page*>::const_iterator end = m_pages.end();
+    for (HashSet<Page*>::const_iterator it = m_pages.begin(); it != end; ++it) {
+        for (Frame* frame = (*it)->mainFrame(); frame; frame = frame->tree()->traverseNext())
+            frame->document()->clearPageGroupUserSheets();
+    }
+}
+
+void PageGroup::removeUserContentWithURLForWorld(const KURL& url, unsigned worldID)
+{
+    if (m_userScripts) {
+        UserScriptMap::iterator it = m_userScripts->find(worldID);
+        if (it != m_userScripts->end()) {
+            UserScriptVector* scripts = it->second;
+            for (int i = scripts->size() - 1; i >= 0; --i) {
+                if (scripts->at(i)->url() == url)
+                    scripts->remove(i);
+            }
+            
+            if (scripts->isEmpty()) {
+                delete it->second;
+                m_userScripts->remove(it);
+            }
+        }
+    }
+    
+    if (m_userStyleSheets) {
+        UserStyleSheetMap::iterator it = m_userStyleSheets->find(worldID);
+        bool sheetsChanged = false;
+        if (it != m_userStyleSheets->end()) {
+            UserStyleSheetVector* stylesheets = it->second;
+            for (int i = stylesheets->size() - 1; i >= 0; --i) {
+                if (stylesheets->at(i)->url() == url) {
+                    stylesheets->remove(i);
+                    sheetsChanged = true;
+                }
+            }
+            
+            if (stylesheets->isEmpty()) {
+                delete it->second;
+                m_userStyleSheets->remove(it);
+            }
+        }
+        
+        // Clear our cached sheets and have them just reparse.
+        if (sheetsChanged) {
+            HashSet<Page*>::const_iterator end = m_pages.end();
+            for (HashSet<Page*>::const_iterator it = m_pages.begin(); it != end; ++it) {
+                for (Frame* frame = (*it)->mainFrame(); frame; frame = frame->tree()->traverseNext())
+                    frame->document()->clearPageGroupUserSheets();
+            }
+        }
+    }
+}
+
+void PageGroup::removeUserContentForWorld(unsigned worldID)
+{
+    if (m_userScripts) {
+        UserScriptMap::iterator it = m_userScripts->find(worldID);
+        if (it != m_userScripts->end()) {
+            delete it->second;
+            m_userScripts->remove(it);
+        }
+    }
+    
+    if (m_userStyleSheets) {
+        bool sheetsChanged = false;
+        UserStyleSheetMap::iterator it = m_userStyleSheets->find(worldID);
+        if (it != m_userStyleSheets->end()) {
+            delete it->second;
+            m_userStyleSheets->remove(it);
+            sheetsChanged = true;
+        }
+    
+        if (sheetsChanged) {
+            // Clear our cached sheets and have them just reparse.
+            HashSet<Page*>::const_iterator end = m_pages.end();
+            for (HashSet<Page*>::const_iterator it = m_pages.begin(); it != end; ++it) {
+                for (Frame* frame = (*it)->mainFrame(); frame; frame = frame->tree()->traverseNext())
+                    frame->document()->clearPageGroupUserSheets();
+            }
+        }
+    }
+}
+
+void PageGroup::removeAllUserContent()
+{
+    if (m_userScripts) {
+        deleteAllValues(*m_userScripts);
+        m_userScripts.clear();
+    }
+    
+    
+    if (m_userStyleSheets) {
+        deleteAllValues(*m_userStyleSheets);
+        m_userStyleSheets.clear();
+    }
+}
 
 } // namespace WebCore

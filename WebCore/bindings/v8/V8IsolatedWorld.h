@@ -35,6 +35,7 @@
 
 #include "V8DOMMap.h"
 #include "V8Index.h"
+#include "V8Proxy.h"
 #include "V8Utilities.h"
 #include "ScriptSourceCode.h"  // for WebCore::ScriptSourceCode
 
@@ -57,11 +58,14 @@ namespace WebCore {
     //
     class V8IsolatedWorld {
     public:
-        ~V8IsolatedWorld();
+        // Creates an isolated world. To destroy it, call destroy().
+        // This will delete the isolated world when the context it owns is GC'd.
+        V8IsolatedWorld(V8Proxy* proxy, int extensionGroup);
 
-        // Evaluate JavaScript in a new isolated world.  The script has access
-        // to the DOM of the document associated with |proxy|.
-        static void evaluate(const Vector<ScriptSourceCode>& sources, V8Proxy* proxy, int extensionGroup);
+        // Call this to destroy the isolated world. It will be deleted sometime
+        // after this call, once all script references to the world's context
+        // have been dropped.
+        void destroy();
 
         // Returns the isolated world associated with
         // v8::Context::GetEntered().  Because worlds are isolated, the entire
@@ -71,26 +75,42 @@ namespace WebCore {
         // FIXME: Consider edge cases with DOM mutation events that might
         // violate this invariant.
         //
-        static V8IsolatedWorld* getEntered();
+        static V8IsolatedWorld* getEntered()
+        {
+            // This is a temporary performance optimization.   Essentially,
+            // GetHiddenValue is too slow for this code path.  We need to get the
+            // V8 team to add a real property to v8::Context for isolated worlds.
+            // Until then, we optimize the common case of not having any isolated
+            // worlds at all.
+            if (!isolatedWorldCount)
+                return 0;
+            return getEnteredImpl();
+        }
 
-        v8::Handle<v8::Context> context() { return m_context; }
+        v8::Handle<v8::Context> context() { return m_context->get(); }
+        PassRefPtr<SharedPersistent<v8::Context> > shared_context() { return m_context; }
 
         DOMDataStore* getDOMDataStore() const { return m_domDataStore.getStore(); }
 
     private:
-        // The lifetime of an isolated world is managed by the V8 garbage
-        // collector.  In particular, the object created by this constructor is
-        // freed when |context| is garbage collected.
-        explicit V8IsolatedWorld(v8::Handle<v8::Context> context);
+        ~V8IsolatedWorld();
+
+        static V8IsolatedWorld* getEnteredImpl();
+
+        // Called by the garbage collector when our JavaScript context is about
+        // to be destroyed.
+        static void contextWeakReferenceCallback(v8::Persistent<v8::Value> object, void* isolated_world);
 
         // The v8::Context for the isolated world.  This object is keep on the
         // heap as long as |m_context| has not been garbage collected.
-        v8::Persistent<v8::Context> m_context;
+        RefPtr<SharedPersistent<v8::Context> > m_context;
 
         // The backing store for the isolated world's DOM wrappers.  This class
         // doesn't have visibility into the wrappers.  This handle simply helps
         // manage their lifetime.
         DOMDataStoreHandle m_domDataStore;
+
+        static int isolatedWorldCount;
     };
 
 } // namespace WebCore

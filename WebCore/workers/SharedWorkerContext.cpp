@@ -39,9 +39,15 @@
 #include "MessageEvent.h"
 #include "NotImplemented.h"
 #include "SharedWorkerThread.h"
-#include "WorkerObjectProxy.h"
 
 namespace WebCore {
+
+PassRefPtr<MessageEvent> createConnectEvent(PassRefPtr<MessagePort> port)
+{
+    RefPtr<MessageEvent> event = MessageEvent::create(new MessagePortArray(1, port));
+    event->initEvent(eventNames().connectEvent, false, false);
+    return event;
+}
 
 SharedWorkerContext::SharedWorkerContext(const String& name, const KURL& url, const String& userAgent, SharedWorkerThread* thread)
     : WorkerContext(url, userAgent, thread)
@@ -51,36 +57,6 @@ SharedWorkerContext::SharedWorkerContext(const String& name, const KURL& url, co
 
 SharedWorkerContext::~SharedWorkerContext()
 {
-}
-
-void SharedWorkerContext::forwardException(const String&, int, const String&)
-{
-    // FIXME: forward to console (do not need to report to parent context).
-}
-
-void SharedWorkerContext::addMessage(MessageDestination, MessageSource, MessageType, MessageLevel, const String&, unsigned, const String&)
-{
-    // FIXME: forward to console.
-    notImplemented();
-}
-
-void SharedWorkerContext::dispatchConnect(PassRefPtr<MessagePort> port)
-{
-    // Since close() stops the thread event loop, this should not ever get called while closing.
-    ASSERT(!isClosing());
-    // The connect event uses the MessageEvent interface, but has the name "connect".
-    RefPtr<Event> event = MessageEvent::create("", "", "", 0, port);
-    event->initEvent(eventNames().connectEvent, false, false);
-
-    if (m_onconnectListener.get()) {
-        event->setTarget(this);
-        event->setCurrentTarget(this);
-        m_onconnectListener->handleEvent(event.get(), false);
-    }
-
-    ExceptionCode ec = 0;
-    dispatchEvent(event.release(), ec);
-    ASSERT(!ec);
 }
 
 SharedWorkerThread* SharedWorkerContext::thread()

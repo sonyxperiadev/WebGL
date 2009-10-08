@@ -1,3 +1,1160 @@
+2009-10-08  Adam Roben  <aroben@apple.com>
+
+        Make IWebInspectorPrivate be accessed in a more standard way
+
+        IWebViewPrivate::inspectorPrivate has been removed. Callers should
+        instead use IWebViewPrivate::inspector and then use QueryInterface to
+        get the IWebInspectorPrivate interface. This matches how our other COM
+        classes work.
+
+        Fixes <http://webkit.org/b/30215> Make IWebInspectorPrivate be
+        accessed in a more standard way
+
+        Reviewed by John Sullivan and Tim Hatcher.
+
+        * Interfaces/IWebViewPrivate.idl: Removed inspectorPrivate.
+
+        * WebInspector.cpp:
+        (WebInspector::QueryInterface): Support querying to
+        IWebInspectorPrivate.
+
+        * WebView.cpp:
+        * WebView.h:
+        Removed inspectorPrivate.
+
+2009-10-08  Adam Roben  <aroben@apple.com>
+
+        Move the new IWebViewPrivate::inspectorPrivate function after all
+        functions that existed when Safari 4.0.3 was released
+
+        Fixes <http://webkit.org/b/30085> REGRESSION (r49091): run-safari
+        crashes in Safari.dll
+
+        Reviewed by John Sullivan.
+
+        * Interfaces/IWebViewPrivate.idl: Moved inspectorPrivate to the end of
+        the interface, so it won't modify the vtable that Safari 4.0.3 sees.
+
+2009-10-07  Adam Roben  <aroben@apple.com>
+
+        Expose origin whitelisting in the WebKit API on Windows
+
+        Fixes <http://webkit.org/b/30185>.
+
+        Reviewed by Eric Seidel.
+
+        * Interfaces/IWebViewPrivate.idl: Added whiteListAccessFromOrigin and
+        resetOriginAccessWhiteLists, to match the Mac SPI.
+
+        * WebView.cpp:
+        (WebView::whiteListAccessFromOrigin):
+        (WebView::resetOriginAccessWhiteLists):
+        * WebView.h:
+        Added. These just call through to SecurityOrigin.
+
+2009-10-07  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Darin Adler.
+
+        Factor PolicyChecker out of FrameLoader
+        https://bugs.webkit.org/show_bug.cgi?id=30155
+
+        Move the policy callback to the policy object.
+
+        * WebFrame.cpp:
+        (WebFrame::dispatchWillSubmitForm):
+        (WebFrame::receivedPolicyDecision):
+        (WebFrame::dispatchDecidePolicyForMIMEType):
+        (WebFrame::dispatchDecidePolicyForNewWindowAction):
+        (WebFrame::dispatchDecidePolicyForNavigationAction):
+
+2009-10-07  Daniel Bates  <dbates@webkit.org>
+
+        Reviewed by Darin Adler.
+
+        https://bugs.webkit.org/show_bug.cgi?id=30102
+        And
+        <rdar://problem/5015957>
+        
+        Fixes an issue (in the Windows build) where the cursor does not change to the
+        not-allowed cursor when the drag-and-drop operation is not allowed.
+        
+        The allowed effects in WebDragClient::startDrag are hard-coded to be 
+        DROPEFFECT_COPY | DROPEFFECT_LINK | DROPEFFECT_MOVE. Instead, the list of 
+        allowed drop effects should be determined by the allowed operations of the
+        drag source.
+        
+        We cannot test this using DRT because DRT looks at the programmatic drop 
+        cursor and until bug #24731 is fixed this value is hard-coded to DragOperationCopy.
+        That is, there is a discrepancy in the Windows build between the Windows API-based 
+        drop effect and the WebKit drop effect. Because DRT cannot read the screen buffer 
+        to determine the cursor, a manual test is needed.
+
+        * WebCoreSupport/WebDragClient.cpp:
+        (draggingSourceOperationMaskToDragCursors): Added method.
+        (WebDragClient::startDrag):
+
+2009-10-07  Steve Falkenburg  <sfalken@apple.com>
+
+        Reviewed by Darin Adler.
+
+        https://bugs.webkit.org/show_bug.cgi?id=30176
+        <rdar://problem/7281553> Extra information in UA causes problems with gmail
+        
+        * WebKit.vcproj/WebKit.rc: Restore PRODUCTVERSION to build number only. Remove extra space.
+
+2009-10-06  Pavel Feldman  <pfeldman@chromium.org>
+
+        Reviewed by Timothy Hatcher.
+
+        Web Inspector: default to an attached inspector window on Windows (as on Mac).
+
+        https://bugs.webkit.org/show_bug.cgi?id=30134
+
+        * WebCoreSupport/WebInspectorClient.cpp:
+        (WebInspectorClient::showWindowWithoutNotifications):
+
+2009-10-06  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Eric Seidel.
+
+        Move FrameLoader::canLoad to SecurityOrigin
+        https://bugs.webkit.org/show_bug.cgi?id=30111
+
+        * WebFrame.cpp:
+        (WebFrame::allowsFollowingLink):
+
+2009-10-06  Pavel Feldman  <pfeldman@chromium.org>
+
+        Reviewed by Timothy Hatcher.
+
+        Web Inspector: close inspector client view on
+        InspectorController::close API call.
+
+        In order to run batch web inspector layout tests (and not affect 
+        subsequent tests) we should close inspector client's view upon
+        InspectorController::close API call.
+
+        https://bugs.webkit.org/show_bug.cgi?id=30009
+
+        * WebCoreSupport/WebInspectorClient.cpp:
+        (WebInspectorClient::createPage):
+
+2009-10-06  David Levin  <levin@chromium.org>
+
+        Reviewed by NOBODY (windows build fix).
+
+        Speculative build fix for windows (due to r49160).
+
+        * WebDownloadCFNet.cpp:
+        (WebDownload::initToResumeWithBundle):
+        * WebIconDatabase.cpp:
+        (WebIconDatabase::dispatchDidAddIconForPageURL):
+
+2009-10-05  Pavel Feldman  <pfeldman@chromium.org>
+
+        Reviewed by Timothy Hatcher.
+
+        Web Inspector: add testing harness for Web Inspector.
+
+        https://bugs.webkit.org/show_bug.cgi?id=30010
+
+        * Interfaces/IWebInspectorPrivate.idl: Added.
+        * Interfaces/IWebViewPrivate.idl:
+        * Interfaces/WebKit.idl:
+        * WebInspector.cpp:
+        (WebInspector::evaluateInFrontend):
+        * WebInspector.h:
+        * WebView.cpp:
+        (WebView::inspectorPrivate):
+        * WebView.h:
+
+2009-10-02  Dave Hyatt  <hyatt@apple.com>
+
+        Reviewed by Adam Roben.
+
+        Add support for blacklist patterns to user stylesheets and scripts in addition to whitelist patterns.
+
+        * Interfaces/IWebViewPrivate.idl:
+        * WebView.cpp:
+        (toStringVector):
+        (WebView::addUserScriptToGroup):
+        (WebView::addUserStyleSheetToGroup):
+        * WebView.h:
+
+2009-10-02  Steve Falkenburg  <sfalken@apple.com>
+
+        Reviewed by Mark Rowe.
+
+        <https://bugs.webkit.org/show_bug.cgi?id=29989>
+        Safari version number shouldn't be exposed in WebKit code
+        
+        For a WebKit version of 532.3.4:
+        Product version is: 5.32.3.4 (was 4.0.3.0)
+        File version is: 5.32.3.4 (was 4.532.3.4)
+
+        * WebKit.vcproj/WebKit.rc:
+
+2009-09-30  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Dan Bernstein.
+
+        Fix for <rdar://problem/7259706>
+        Need WebKit API or SPI on Mac and Windows to test whether it's safe to load a page in a new tab/window
+
+        * Interfaces/IWebFramePrivate.idl:
+        * WebFrame.cpp:
+        (WebFrame::allowsFollowingLink):
+        * WebFrame.h:
+
+2009-09-30  Dave Hyatt  <hyatt@apple.com>
+
+        Reviewed by Adam Roben.
+
+        Add the ability to remove user stylesheets and scripts by URL.
+
+        * Interfaces/IWebViewPrivate.idl:
+        * WebView.cpp:
+        (WebView::removeUserContentWithURLFromGroup):
+        * WebView.h:
+
+2009-09-29  Kenneth Russell  <kbr@google.com>
+
+        Reviewed by Dimitri Glazkov.
+
+        Add support for run-time flag for 3D canvas
+        https://bugs.webkit.org/show_bug.cgi?id=29826
+
+        * WebView.cpp:
+        (WebView::notifyPreferencesChanged): Enable experimental WebGL
+        flag when 3D_CANVAS is enabled in the build.
+
+2009-09-28  Alexey Proskuryakov  <ap@apple.com>
+
+        Reviewed by Darin Adler and Sam Weinig.
+
+        Onclick not fired for an element copied with cloneContents() or cloneNode()
+        https://bugs.webkit.org/show_bug.cgi?id=25130
+
+        * DOMCreateInstance.cpp: GEN_DOMEventListener is a pure interface now.
+
+        * WebKit.vcproj/WebKit.vcproj: Removed GEN_DOMEventListener.cpp.
+
+2009-09-28  Fumitoshi Ukai  <ukai@chromium.org>
+
+        Reviewed by Eric Seidel.
+
+        Add experimentalWebSocketsEnabled in WebPreferences.
+        https://bugs.webkit.org/show_bug.cgi?id=28941
+
+        * Interfaces/IWebPreferencesPrivate.idl:
+        * WebPreferenceKeysPrivate.h:
+        * WebPreferences.cpp:
+        (WebPreferences::initializeDefaultSettings):
+        (WebPreferences::setExperimentalWebSocketsEnabled):
+        (WebPreferences::experimentalWebSocketsEnabled):
+        * WebPreferences.h:
+        * WebView.cpp:
+        (WebView::notifyPreferencesChanged):
+        (core):
+
+2009-09-25  Darin Adler  <darin@apple.com>
+
+        Reviewed by Steve Falkenburg.
+
+        Speed up access to history items by caching date computation.
+
+        * History/WebHistory.mm:
+        (getDayBoundaries): Refactored from timeIntervalForBeginningOfDay.
+        Returns the beginning of the day that the passed time is within and
+        the beginning of the next day.
+        (beginningOfDay): Added. Uses getDayBoundaries so it can be fast for
+        multiple dates within the same day, which is the common case.
+        (dateKey): Added. Calls beginningOfDay and converts to an integer.
+        (WebHistory::findKey): Changed to call dateKey instead of
+        timeIntervalForBeginningOfDay.
+
+2009-09-25  Adam Roben  <aroben@apple.com>
+
+        Add SPI to invalidate a WebView's backing store
+
+        This is useful in conjunction with
+        IWebUIDelegatePrivate2::drawBackground. This provides a way for the UI
+        delegate to force WebView to get its background redrawn.
+
+        Fixes <http://webkit.org/b/29737> Need SPI to invalidate a WebView's
+        backing store
+
+        Reviewed by Anders Carlsson.
+
+        * Interfaces/IWebViewPrivate.idl: Added invalidateBackingStore.
+        * WebView.cpp:
+        (WebView::invalidateBackingStore): If rect is 0, invalidate our whole
+        client rect. Otherwise invalidate the intersection of rect with our
+        client rect.
+        * WebView.h:
+
+2009-09-24  Jon Honeycutt  <jhoneycutt@apple.com>
+
+        Add a mechanism for automatically halting plug-ins.
+
+        Reviewed by Oliver Hunt.
+
+        * Interfaces/IWebPluginHalterDelegate.idl: Added. Defines an interface
+        for a delegate that determines whether plug-ins should be halted.
+
+        * Interfaces/IWebPreferencesPrivate.idl:
+        Declare functions to get and set the enabled state of the plug-in
+        halter and the plug-in allowed run time.
+
+        * Interfaces/IWebViewPrivate.idl:
+        Declare functions to get and set the IWebPluginHalterDelegate.
+
+        * Interfaces/WebKit.idl:
+
+        * WebCoreSupport/WebPluginHalterClient.cpp: Added.
+        (WebPluginHalterClient::WebPluginHalterClient):
+        (WebPluginHalterClient::shouldHaltPlugin):
+        Get the IWebPluginHalterDelegate for the WebView. Create a WebKit
+        DOMNode for the WebCore Node. Call the delegate's shouldHaltPlugin().
+        If the call fails, return false. Otherwise, return the result of the
+        call.
+
+        * WebCoreSupport/WebPluginHalterClient.h: Added.
+
+        * WebKit.vcproj/Interfaces.vcproj:
+        Add IWebPluginHalterDelegate.idl.
+
+        * WebKit.vcproj/WebKit.vcproj:
+        Add WebPluginHalterClient.{h,cpp}.
+
+        * WebPreferenceKeysPrivate.h:
+        Define WebKitPluginHalterEnabledPreferenceKey and
+        WebKitPluginAllowedRunTimePreferenceKey.
+
+        * WebPreferences.cpp:
+        (WebPreferences::initializeDefaultSettings):
+        Leave plug-in halting disabled by default. Set the default value for
+        the plug-in allowed run time to the max value of an unsigned int.
+        (WebPreferences::setPluginHalterEnabled):
+        (WebPreferences::pluginHalterEnabled):
+        (WebPreferences::setPluginAllowedRunTime):
+        (WebPreferences::pluginAllowedRunTime):
+
+        * WebPreferences.h:
+
+        * WebView.cpp:
+        (WebView::close):
+        Clear the IWebPluginHalterDelegate.
+        (WebView::initWithFrame):
+        Pass a WebPluginHalterClient when creating the Page.
+        (WebView::notifyPreferencesChanged):
+        Set the new settings when the preferences changed notification is
+        received.
+        (WebView::setPluginHalterDelegate):
+        (WebView::pluginHalterDelegate):
+
+        * WebView.h:
+        Declare overrides of setPluginHalterDelegate() and
+        pluginHalterDelegate(). Added a member to track the
+        IWebPluginHalterDelegate.
+
+2009-09-14  John Gregg  <johnnyg@google.com>
+
+        Reviewed by Eric Seidel.
+
+        Enable switch for notifications (experimental) in Page Settings
+        https://bugs.webkit.org/show_bug.cgi?id=28930
+
+        Adds support for the experimentalNotificationsEnabled flag in Settings through
+        WebPreferencesPrivate interface.  Also cleans up some issues accessing the
+        notification delegate through DumpRenderTree.
+
+        * Interfaces/IWebPreferencesPrivate.idl:
+        * WebCoreSupport/WebDesktopNotificationsDelegate.cpp:
+        (WebDesktopNotificationsDelegate::hasNotificationDelegate):
+        (WebDesktopNotificationsDelegate::notificationDelegate):
+        * WebPreferenceKeysPrivate.h:
+        * WebPreferences.cpp:
+        (WebPreferences::initializeDefaultSettings):
+        (WebPreferences::setExperimentalNotificationsEnabled):
+        (WebPreferences::experimentalNotificationsEnabled):
+        * WebPreferences.h:
+        * WebView.cpp:
+        (WebView::notifyPreferencesChanged):
+
+2009-09-23  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Adam Roben.
+
+        <rdar://problem/7243354> 
+        REGRESSION(48580-48636): Crash clicking embedded QT preview button on apple.com/trailers
+        
+        Check for a null IWebPolicyDelegatePrivate.
+        
+        * WebCoreSupport/WebFrameLoaderClient.cpp:
+        (WebFrameLoaderClient::shouldLoadMediaElementURL):
+
+2009-09-22  Sam Weinig  <sam@webkit.org>
+
+        Rubber-stamped by Adam Roben.
+
+        Remove accidentally left in declaration of reloadFromOrigin in IWebFramePrivate.idl
+
+        * Interfaces/IWebFramePrivate.idl:
+
+2009-09-22  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Steve Falkenburg.
+
+        Fix for <rdar://problem/6451745>
+        Windows WebKit needs to implement reloadFromOrigin()
+
+        * Interfaces/IWebFrame.idl:
+        * Interfaces/IWebFramePrivate.idl:
+        * Interfaces/IWebView.idl:
+        * WebFrame.cpp:
+        (WebFrame::reloadFromOrigin):
+        * WebFrame.h:
+        * WebView.cpp:
+        (WebView::reloadFromOrigin):
+        * WebView.h:
+
+2009-09-22  Adam Roben  <aroben@apple.com>
+
+        Manage refcounts correctly in DefaultDownloadDelegate::willSendRequest
+
+        Fixes <http://webkit.org/b/29650> Crash in
+        WebDownload::willSendRequest when using DefaultDownloadDelegate
+
+        Reviewed by Brady Eidson.
+
+        * DefaultDownloadDelegate.cpp:
+        (DefaultDownloadDelegate::willSendRequest): Call AddRef() on the
+        object we're returning via the finalRequest out-parameter.
+
+2009-09-21  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Adam Roben.
+
+        <rdar://problem/7135588> HTMLMediaElement should ask WebPolicyLoadDelegate before loading resource
+
+        Implement WebFrameLoaderClient::shouldLoadMediaElementURL and have it call the new private policy
+        delegate method.
+        
+        * Interfaces/IWebPolicyDelegatePrivate.idl: Added.
+        * Interfaces/WebKit.idl:
+        * WebCoreSupport/WebFrameLoaderClient.cpp:
+        (WebFrameLoaderClient::shouldLoadMediaElementURL):
+        * WebCoreSupport/WebFrameLoaderClient.h:
+        * WebKit.vcproj/Interfaces.vcproj:
+
+2009-09-17  Kenneth Rohde Christiansen  <kenneth@webkit.org>
+
+        Reviewed by Simon Hausmann.
+
+        Make PlatformWindow return something else than PlatformWidget
+        https://bugs.webkit.org/show_bug.cgi?id=29085
+
+        Reflect the rename of platformWindow and it's return type.
+
+        * AccessibleBase.cpp:
+        (AccessibleBase::get_accParent):
+        * WebCoreSupport/WebChromeClient.cpp:
+        (WebChromeClient::platformPageClient):
+        * WebCoreSupport/WebChromeClient.h:
+
+2009-09-17  Brian Weinstein  <bweinstein@apple.com>
+
+        Reviewed by Adam Roben.
+
+        Remove assertions that were being hit by calls to
+        m_verticalScrollbar->invalidate(). These assertions were valid,
+        but they were causing tests to fail, so replacing with a FIXME 
+        until we can find out the real cause/solution that is being tracked 
+        by http://webkit.org/b/29350.
+
+        * WebView.cpp:
+        (WebView::addToDirtyRegion):
+        (WebView::paintIntoBackingStore):
+
+2009-09-17  Ada Chan  <adachan@apple.com>
+
+        Post WebViewDidChangeSelectionNotification when the text selection changes.
+
+        Fixes <http://webkit.org/b/29321>
+
+        Reviewed by Adam Roben.
+
+        * Interfaces/IWebView.idl:
+        * WebCoreSupport/WebEditorClient.cpp:
+        (WebEditorClient::respondToChangedSelection):
+
+2009-09-17  Adam Roben  <aroben@apple.com>
+
+        Fix a crash when a WebView's HWND is destroyed before IWebView::close
+        is called
+
+        WebView's HWND was being sent a WM_TIMER message after the WebView was
+        destroyed. This normally isn't possible (we call DestroyWindow inside
+        WebView's destructor to ensure the HWND doesn't outlive the WebView),
+        but r48060 changed WebView to call SetParent(m_viewWindow,
+        HWND_MESSAGE) while handling WM_DESTROY, and apparently this puts the
+        HWND into some weird half-destroyed state where it can still receive
+        WM_TIMER messages.
+
+        Fixes <http://webkit.org/b/29337> <rdar://problem/7209897> REGRESSION
+        (r48060): unrepro but frequent crash in WebViewWndProc
+
+        Reviewed by Steve Falkenburg.
+
+        * WebView.cpp:
+        (WebViewWndProc): When handling WM_DESTROY, call setIsBeingDestroyed()
+        before calling close(). This allows setHostWindow to detect that we're
+        handling WM_DESTROY. No other code in close() cared whether
+        isBeingDestroyed() was true or not.
+        (WebView::setHostWindow): If our host window is being set to 0 and
+        we're being destroyed, don't become a message-only window. Doing this
+        while handling WM_DESTROY seems to lead to crashes.
+
+2009-09-16  Adam Roben  <aroben@apple.com>
+
+        Add a UI delegate callback to let the delegate draw a WebView's
+        background
+
+        Fixes <http://webkit.org/b/29315>.
+
+        Reviewed by Dave Hyatt.
+
+        * Interfaces/IWebUIDelegatePrivate.idl: Added
+        IWebUIDelegatePrivate2::drawBackground.
+
+        * WebView.cpp:
+        (WebView::paintIntoBackingStore): After clearing or filling with
+        white, let the delegate draw whatever background it wants. Also added
+        an assertion that the dirty rect is within our bounds.
+
+2009-09-16  Adam Roben  <aroben@apple.com>
+
+        Prevent WebView from painting over sibling windows
+
+        Fixes <http://webkit.org/b/29300> <rdar://problem/7227960> WebView can
+        paint over sibling windows
+
+        Reviewed by Darin Adler.
+
+        * WebView.cpp:
+        (WebView::initWithFrame): Create the WebView's HWND with the
+        WS_CLIPSIBLINGS style.
+
+2009-09-14  Brady Eidson  <beidson@apple.com>
+
+        Reviewed by Alexey Proskuryakov.
+
+        Safari 4 cannot be used to update firmware on Linksys routers.
+        <rdar://problem/7174050> and https://bugs.webkit.org/show_bug.cgi?id=29160
+
+        Adopt the new WebCore::CredentialStorage in WebKit/Win.
+
+        * WebDownloadCFNet.cpp:
+        (WebDownload::didReceiveAuthenticationChallenge):
+
+2009-09-11  Steve Falkenburg  <sfalken@apple.com>
+
+        Reviewed by Dan Bernstein.
+
+        Properly propagate preference from WebPreferences to WebCore::Settings.
+        https://bugs.webkit.org/show_bug.cgi?id=29192
+
+        * WebView.cpp:
+        (WebView::initWithFrame): Apply setting when creating a new WebView.
+        (WebView::notifyPreferencesChanged): Apply setting when preferences change.
+
+2009-09-11  Steve Falkenburg  <sfalken@apple.com>
+
+        Reviewed by Darin Adler.
+
+        Allow WebKit clients to opt out of high resolution timers on Windows.
+        https://bugs.webkit.org/show_bug.cgi?id=29192
+
+        * Interfaces/IWebPreferencesPrivate.idl: Added getter/setter.
+        Put this just after last 4.0.3 method for future merging.
+        * Interfaces/WebKit.idl: Touched to force a rebuild.
+        * WebPreferenceKeysPrivate.h: Added prefs key for high res timers.
+        * WebPreferences.cpp:
+        (WebPreferences::initializeDefaultSettings): Initialize high res timers to enabled.
+        (WebPreferences::setShouldUseHighResolutionTimers): Added.
+        (WebPreferences::shouldUseHighResolutionTimers): Added.
+        * WebPreferences.h: Added getter/setter.
+
+2009-09-11  Adam Roben  <aroben@apple.com>
+
+        Get user script/stylesheet tests running on Windows
+
+        Fixes <http://webkit.org/b/29181> User script/stylesheet tests are
+        skipped on Windows
+
+        Reviewed by John Sullivan.
+
+        * Interfaces/IWebViewPrivate.idl: Added addUserScriptToGroup,
+        addUserStyleSheetToGroup, removeUserContentFromGroup,
+        removeAllUserContentFromGropu to match the Mac SPI.
+
+        * WebView.cpp:
+        (WebView::addUserScriptToGroup):
+        (WebView::addUserStyleSheetToGroup):
+        (WebView::removeUserContentFromGroup):
+        (WebView::removeAllUserContentFromGroup):
+        * WebView.h:
+        Added. Implementation was based on similar methods in WebView.mm.
+
+2009-09-11  Jon Honeycutt  <jhoneycutt@apple.com>
+
+        Fix crash on launch on Windows.
+
+        Rubber-stamped by Mark Rowe.
+
+        * WebKit.vcproj/WebKit.vcproj:
+        Define ENABLE_WEB_SOCKETS for all configurations.
+
+2009-09-07  Drew Wilson  <atwilson@google.com>
+
+        Reviewed by David Levin.
+
+        Enable SHARED_WORKERS by default.
+        https://bugs.webkit.org/show_bug.cgi?id=28959
+
+        * WebKit.vcproj/WebKit.vcproj:
+
+2009-09-04  Adam Roben  <aroben@apple.com>
+
+        Make WebView function without a parent window
+
+        When WebView has no parent window, it becomes a message-only window,
+        which hides it from the screen and prevents it from appearing on the
+        taskbar.
+
+        Fixes <http://webkit.org/b/28971> <rdar://problem/4976998>
+        WebView::initWithFrame fails if there's no host window
+
+        Reviewed by Dave Hyatt.
+
+        * WebView.cpp:
+        (WebView::initWithFrame): m_hostWindow is null, use HWND_MESSAGE as
+        our parent window, which will make us a message-only window.
+        (WebView::setHostWindow): If he new host window is null, use
+        HWND_MESSAGE as our parent window, which will make us a message-only
+        window.
+
+2009-09-04  Adam Barth  <abarth@webkit.org>
+
+        Unreviewed attempt at a build fix.
+
+        Added missing include.
+
+        * WebCoreSupport/WebFrameLoaderClient.cpp:
+
+2009-09-04  Adam Barth  <abarth@webkit.org>
+
+        Unreviewed attempt at a build fix.
+
+        Fix typo of IWebFrameLoadDelegatePrivate2 and make
+        IWebFrameLoadDelegatePrivate inherit from IWebFrameLoadDelegatePrivate
+        as requestd by Adam Roben.
+
+        * Interfaces/IWebFrameLoadDelegatePrivate2.idl:
+        * WebCoreSupport/WebFrameLoaderClient.cpp:
+        (WebFrameLoaderClient::didDisplayInsecureContent):
+        (WebFrameLoaderClient::didRunInsecureContent):
+
+2009-09-04  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Eric Seidel.
+
+        https://bugs.webkit.org/show_bug.cgi?id=24696
+
+        Plumb mixed content notifications to IWebFrameLoadDelegatePrivate.
+
+        * Interfaces/IWebFrameLoadDelegatePrivate2.idl: Added.
+        * Interfaces/WebKit.idl:
+        * WebCoreSupport/WebFrameLoaderClient.cpp:
+        (WebFrameLoaderClient::didDisplayInsecureContent):
+        (WebFrameLoaderClient::didRunInsecureContent):
+        * WebKit.vcproj/Interfaces.vcproj:
+
+2009-09-03  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by eric@webkit.org.
+
+        https://bugs.webkit.org/show_bug.cgi?id=24696
+
+        Stub implementations of mixed content methods of FrameLoaderClient. 
+
+        * WebCoreSupport/WebFrameLoaderClient.cpp:
+        (WebFrameLoaderClient::didDisplayInsecureContent):
+        (WebFrameLoaderClient::didRunInsecureContent):
+        * WebCoreSupport/WebFrameLoaderClient.h:
+
+2009-09-01  Adam Roben  <aroben@apple.com>
+
+        Post a notification when a WebView is closing
+
+        This is useful for situations where some code wants to react to the
+        WebView closing but isn't in charge of the WebView and can't otherwise
+        be notified. This notification could replace
+        IWebUIDelegatePrivate::webViewClosing if we decide that the
+        notification system isn't too burdensome.
+
+        <http://webkit.org/b/28875>
+
+        Reviewed by John Sullivan.
+
+        * Interfaces/IWebViewPrivate.idl: Added the
+        WebViewWillCloseNotification string constant.
+        * WebKit.vcproj/WebKit.vcproj: Link against comsuppw.lib in all
+        configurations so that we can use _bstr_t.
+        * WebView.cpp:
+        (WebView::close): Post the WebViewWillCloseNotification.
+
+2009-08-31  Alexey Proskuryakov  <ap@webkit.org>
+
+        Reviewed by Darin Adler.
+
+        https://bugs.webkit.org/show_bug.cgi?id=28852
+        Rename KURL single argument constructor to avoid confusion
+
+        * WebURLResponse.cpp: (WebURLResponse::createInstance): Adapt to the change.
+
+2009-08-20  Adam Roben  <aroben@apple.com>
+
+        Give WebKit clients access to the window features specified in
+        window.open
+
+        Reviewed by Steve Falkenburg.
+
+        * COMVariantSetter.h: Added COMVariantSetters for bool and float.
+
+        * Interfaces/IWebUIDelegatePrivate.idl: Added IWebUIDelegatePrivate2,
+        which contains a new version of createWebViewWithRequest that also
+        passes the window features as an IPropertyBag. This is analagous to
+        the -createWebViewWithRequest:windowFeatures: method added to
+        WebUIDelegate on Mac in r27452. Also added key strings for use with
+        the window features property bag.
+
+        * WebCoreSupport/WebChromeClient.cpp:
+        (createWindowFeaturesPropertyBag): Added this helper function to turn
+        a WebCore::WindowFeatures into an IPropertyBag for passing to WebKit
+        clients.
+        (WebChromeClient::createWindow): If the UI delegate implements
+        IWebUIDelegatePrivate2, call the new createWebViewWithRequest function
+        that takes a window features property bag. If the delegate doesn't
+        implement the new function, fall back to the old functions.
+
+2009-08-20  Adam Roben  <aroben@apple.com>
+
+        A little clean-up in WebChromeClient::createWindow
+
+        Reviewed by Steve Falkenburg.
+
+        * WebCoreSupport/WebChromeClient.cpp:
+        (WebChromeClient::createWindow): Refactored to share more code between
+        the dialog and non-dialog cases.
+
+2009-08-28  Gustavo Noronha Silva  <gustavo.noronha@collabora.co.uk>
+
+        Reviewed by Holger Freyther.
+
+        https://bugs.webkit.org/show_bug.cgi?id=25889
+        [GTK] scrollbar policy for main frame is not implementable
+
+        Add empty implementation for new ChromeClient method.
+
+        * WebCoreSupport/WebChromeClient.h:
+        (WebChromeClient::scrollbarsModeDidChange):
+
+2009-08-27  Brent Fulgham  <bfulgham@webkit.org>
+
+        Reviewed by Adam Roben.
+
+        Modify Release_Cairo target to build testapi using the
+        Release_CFLite target so that the correct CoreFoundation
+        (in this case, CFLite.dll) is linked.
+
+        * WebKit.vcproj/WebKit.sln:
+
+2009-08-26  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Oliver Hunt.
+
+        Don't let local files access web URLs
+        https://bugs.webkit.org/show_bug.cgi?id=28480
+
+        * WebPreferences.cpp:
+        (WebPreferences::initializeDefaultSettings):
+
+2009-08-26  David Levin  <levin@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        ResourceRequestBase::*[Aa]llowHTTPCookies shouldn't mention http.
+        https://bugs.webkit.org/show_bug.cgi?id=28735
+
+        * WebMutableURLRequest.cpp:
+        (WebMutableURLRequest::setHTTPShouldHandleCookies):
+
+2009-08-25  Eric Carlson  <eric.carlson@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        <video> and <audio> controller should be accessible
+        https://bugs.webkit.org/show_bug.cgi?id=28081
+
+        * WebCoreLocalizedStrings.cpp:
+        (WebCore::localizedMediaControlElementString):
+        (WebCore::localizedMediaControlElementHelpText):
+        (WebCore::localizedMediaTimeDescription):
+            New.
+
+2009-08-25  Brent Fulgham  <bfulgham@webkit.org>
+
+        Build fix for Windows.
+
+        Revise Debug_Cairo build target to build testapi, jsc, WinLauncher,
+        DumpRenderTree, and TestNetscapeAPI using WinCairo debug build
+        settings so they link against the proper libraries.
+
+        * WebKit.vcproj/WebKit.sln:
+
+2009-08-25  David Levin  <levin@chromium.org>
+
+        Reviewed by Adam Roben.
+
+        PLATFORM(CFNETWORK) should be USE(CFNETWORK).
+        https://bugs.webkit.org/show_bug.cgi?id=28713
+
+        Also, moved the #if header section after the other #includes.
+
+        * WebError.cpp:
+        (WebError::localizedDescription):
+
+2009-08-24  Brent Fulgham  <bfulgham@webkit.org>
+
+        Reviewed by Steve Falkenburg.
+
+        Revise CFLite Debug build to emit DLL's with _debug label.
+        https://bugs.webkit.org/show_bug.cgi?id=28695.
+
+        * WebKit.vcproj/WebKit.vcproj: Modify Debug_Cairo target to
+          inherit from new debug_wincairo property sheet, instead of
+          the current debug sheet. 
+
+2009-08-22  Adam Barth  <abarth@webkit.org>
+
+        Revert 47684.  We're going to do this later once clients have had a
+        chance to opt into the setting they like.
+
+        * WebPreferences.cpp:
+        (WebPreferences::initializeDefaultSettings):
+
+2009-08-22  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Eric Seidel.
+
+        Don't let local files access web URLs
+        https://bugs.webkit.org/show_bug.cgi?id=28480
+
+        * WebPreferences.cpp:
+        (WebPreferences::initializeDefaultSettings):
+
+2009-08-20  Brian Weinstein  <bweinstein@apple.com>
+
+        Reviewed by Adam Roben.
+
+        Fix of <http://webkit.org/b/27850>. Panning by emulating Mouse Wheel Events breaks Google Maps.
+        
+        Switched to using RenderLayer::scrollByRecursively instead of emulating a mouse wheel,
+        and switched to handling the hit testing in WebView from doing it as part of the mouse wheel event.
+        One downside of this fix is that panning will not jump out of frames anymore (same behavior as pan-scrolling), but
+        this is tracked in <http://webkit.org/b/28237>.
+
+        * WebView.cpp:
+        (WebView::gestureNotify): Added hit testing here to figure out the node the user started the gesture on.
+        (WebView::gesture): Switched from emulating mouse wheel events for panning to calling RenderLayer::scrollByRecursively.
+        * WebView.h:
+
+2009-08-18  Brian Weinstein  <bweinstein@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        Fix of <https://bugs.webkit.org/show_bug.cgi?id=28326> DRT on Windows doesn't support 
+        LayoutTestController::setQuota or print a callback on UIDelegate::exceededDatabaseQuota.
+        
+        Added a setQuota interface method to IWebDatabaseManager and implemented it.
+
+        * Interfaces/IWebDatabaseManager.idl:
+        * WebDatabaseManager.cpp:
+        (WebDatabaseManager::setQuota):
+        * WebDatabaseManager.h:
+
+2009-08-18  Drew Wilson  <atwilson@google.com>
+
+        Unreviewed (build break).
+
+        Added missing include for WebWorkersPrivate.h.
+
+        * WebKitClassFactory.cpp:
+
+2009-08-18  Peter Kasting  <pkasting@google.com>
+
+        Reviewed by Eric Seidel.
+
+        https://bugs.webkit.org/show_bug.cgi?id=28415
+        Set svn:eol-style CRLF on all .sln and .vcproj files that don't already
+        have it.
+
+        * WebKit.vcproj/InterfacesGenerated.vcproj:
+
+2009-08-18  Drew Wilson  <atwilson@google.com>
+
+        Reviewed by Eric Seidel.
+
+        Need to extend DumpRenderTree to expose number of worker threads
+        https://bugs.webkit.org/show_bug.cgi?id=28292
+
+        Defined/implemented COM interfaces to expose WorkerThread::workerThreadCount() for DumpRenderTree.
+
+        * ForEachCoClass.h:
+        Added WebWorkersPrivate.
+        * Interfaces/IWebWorkersPrivate.idl: Added.
+        * Interfaces/WebKit.idl:
+        Added WebWorkersPrivate.
+        * WebKit.vcproj/Interfaces.vcproj:
+        * WebKit.vcproj/WebKit.vcproj:
+        * WebWorkersPrivate.cpp: Added.
+        Implementation of the IWebWorkersPrivate COM interface, to expose workerThreadCount() for DumpRenderTree.
+        (WebWorkersPrivate::QueryInterface):
+        (WebWorkersPrivate::AddRef):
+        (WebWorkersPrivate::Release):
+        (WebWorkersPrivate::workerThreadCount):
+        (WebWorkersPrivate::createInstance):
+        (WebWorkersPrivate::WebWorkersPrivate):
+        (WebWorkersPrivate::~WebWorkersPrivate):
+        * WebWorkersPrivate.h: Added.
+
+2009-08-17  Peter Kasting  <pkasting@google.com>
+
+        Reviewed by Steve Falkenburg.
+
+        https://bugs.webkit.org/show_bug.cgi?id=27323
+        Only add Cygwin to the path when it isn't already there.  This avoids
+        causing problems for people who purposefully have non-Cygwin versions of
+        executables like svn in front of the Cygwin ones in their paths.
+
+        * WebKit.vcproj/Interfaces.vcproj:
+        * WebKit.vcproj/InterfacesGenerated.vcproj:
+        * WebKit.vcproj/WebKit.vcproj:
+        * WebKit.vcproj/WebKitGUID.vcproj:
+
+2009-08-17  Simon Fraser  <simon.fraser@apple.com>
+
+        Speculative fix for Windows build bustage.
+
+        * DOMHTMLClasses.cpp:
+        (DOMHTMLElement::idName):
+
+2009-08-13  Jon Honeycutt  <jhoneycutt@apple.com>
+
+        Part of <rdar://problem/6218721> No MSAA focus events fired for Webkit
+        nightly (20866)
+
+        https://bugs.webkit.org/show_bug.cgi?id=20866
+
+        Reviewed by Oliver Hunt.
+
+        * AccessibleBase.cpp:
+        (AccessibleBase::getAccessibilityObjectForChild):
+        If the child ID is negative, negate it and treat it as an AXID.
+
+2009-08-12  Brian Weinstein  <bweinstein@apple.com>
+
+        Reviewed by Adam Roben.
+
+        Fix of <rdar://6728361> Mouse wheel scrolling on a page with expanded drop down 
+        list detaches drop down.
+        
+        Added a check in mouseWheel to see if our focus is currently in a popup, if so, close
+        the popup (matches other browser behavior).
+
+        * WebView.cpp:
+        (WebView::mouseWheel):
+
+2009-08-12  Adam Roben  <aroben@apple.com>
+
+        Make WebPreferenceKeysPrivate.h available for client use
+
+        Reviewed by Dave Hyatt.
+
+        Fixes <http://webkit.org/b/28227>.
+
+        * WebKit.vcproj/WebKit.vcproj: Copy WebPreferenceKeysPrivate.h to
+        $WebKitOutputDir, just like we do for a few other headers. Also let VS
+        reorder some XML attributes.
+
+        * WebPreferenceKeysPrivate.h: Touched this file to force a build.
+
+2009-08-11  Adam Roben  <aroben@apple.com>
+
+        Remove support for a window resizer within the WebView
+
+        Starting with Safari 4, there is never a window resizer inside the
+        WebView, so we no longer need to support that functionality.
+
+        Fixes <http://webkit.org/b/28190> Remove support for a window resizer
+        within the WebView
+
+        Reviewed by Dave Hyatt.
+
+        * Interfaces/IWebUIDelegatePrivate.idl: Replaced the delegate
+        functions related to the window resizer with unused*() functions. We
+        can't remove them entirely because we need to keep the vtable
+        unchanged so new versions of WebKit will work with old versions of
+        Safari (e.g., for nightlies and WebKit development).
+
+        * WebCoreSupport/WebChromeClient.cpp:
+        (WebChromeClient::windowResizerRect): Now always returns an empty
+        rect.
+
+        * WebView.cpp:
+        (WebView::paint):
+        (WebView::handleMouseEvent):
+        * WebView.h:
+        Removed window-resizer-related code.
+
+2009-08-11  John Gregg  <johnnyg@google.com>
+
+        Reviewed by Maciej Stachowiak.
+
+        Move the accessor for notifications presenter from WebUIDelegate
+        to WebUIDelegate2 which extends it.  When making this call from
+        WebCoreSupport, check using QueryInterface before calling.
+
+        https://bugs.webkit.org/show_bug.cgi?id=28198
+
+        * Interfaces/IWebUIDelegate.idl:
+        * Interfaces/IWebUIDelegate2.idl: Added.
+        * Interfaces/WebKit.idl:
+        * WebCoreSupport/WebDesktopNotificationsDelegate.cpp:
+        (WebDesktopNotificationsDelegate::show):
+        (WebDesktopNotificationsDelegate::cancel):
+        (WebDesktopNotificationsDelegate::notificationObjectDestroyed):
+        (WebDesktopNotificationsDelegate::requestPermission):
+        (WebDesktopNotificationsDelegate::checkPermission):
+        (WebDesktopNotificationsDelegate::hasNotificationDelegate):
+        (WebDesktopNotificationsDelegate::notificationDelegate):
+        * WebCoreSupport/WebDesktopNotificationsDelegate.h:
+
+2009-08-11  Drew Wilson  <atwilson@google.com>
+
+        Reviewed by NOBODY (build break).
+
+        Speculative Windows build fix - undo previous unnecessary change.
+
+        * WebCoreSupport/WebDesktopNotificationsDelegate.h:
+
+2009-08-11  Brian Weinstein  <bweinstein@apple.com>
+
+        Reviewed by Steve Falkenburg.
+
+        Refactored MIMETypeforExtension to be a member of IWebViewPrivate
+        instead of IWebView.
+
+        * Interfaces/IWebView.idl:
+        * Interfaces/IWebViewPrivate.idl:
+        * WebView.cpp:
+        (WebView::MIMETypeForExtension):
+        * WebView.h:
+
+2009-08-11  Drew Wilson <atwilson@google.com>
+
+        Reviewed by NOBODY (build break)
+
+        Speculative fix for windows build break.
+
+        * WebKitSupport/WebDesktopNotificationsDelegate.h:
+        WebCore/Notification*.h => WebCore/notifications/Notification*.h
+
+2009-08-11  John Gregg  <johnnyg@google.com>
+
+        Reviewed by Maciej Stachowiak.
+
+        Desktop Notifications API
+        https://bugs.webkit.org/show_bug.cgi?id=25643
+
+        Adds test hooks for notification features to WebCoreSupport for
+        use in DumpRenderTree.
+
+        * Interfaces/IWebDesktopNotificationsDelegate.idl: Added.
+        * Interfaces/IWebUIDelegate.idl:
+        * Interfaces/WebKit.idl:
+        * WebCoreSupport/WebChromeClient.cpp:
+        (WebChromeClient::WebChromeClient):
+        * WebCoreSupport/WebChromeClient.h:
+        (WebChromeClient::notificationPresenter):
+        * WebCoreSupport/WebDesktopNotificationsDelegate.cpp: Added.
+        (NotificationCOMWrapper::create):
+        (NotificationCOMWrapper::NotificationCOMWrapper):
+        (NotificationCOMWrapper::QueryInterface):
+        (NotificationCOMWrapper::AddRef):
+        (NotificationCOMWrapper::Release):
+        (NotificationCOMWrapper::isHTML):
+        (NotificationCOMWrapper::contentsURL):
+        (NotificationCOMWrapper::iconURL):
+        (NotificationCOMWrapper::title):
+        (NotificationCOMWrapper::text):
+        (NotificationCOMWrapper::notifyDisplay):
+        (NotificationCOMWrapper::notifyError):
+        (NotificationCOMWrapper::notifyClose):
+        (WebDesktopNotificationsDelegate::WebDesktopNotificationsDelegate):
+        (WebDesktopNotificationsDelegate::show):
+        (WebDesktopNotificationsDelegate::cancel):
+        (WebDesktopNotificationsDelegate::notificationObjectDestroyed):
+        (WebDesktopNotificationsDelegate::requestPermission):
+        (WebDesktopNotificationsDelegate::checkPermission):
+        (WebDesktopNotificationsDelegate::notificationDelegate):
+        * WebCoreSupport/WebDesktopNotificationsDelegate.h: Added.
+        * WebCoreSupport/WebInspectorDelegate.h:
+        (WebInspectorDelegate::desktopNotificationsDelegate):
+        * WebKit.vcproj/Interfaces.vcproj:
+        * WebKit.vcproj/WebKit.vcproj:
+
+2009-08-11  Brian Weinstein  <bweinstein@apple.com>
+
+        Reviewed by Adam Roben.
+
+        Fix of <rdar://5016504> SVG file cannot be dragged to webview,
+        but can be opened via Open File.
+        
+        Added a new function to IWebView that gets the MIME type for a given 
+        extension from the MIMETypeRegistry.
+
+        * Interfaces/IWebView.idl:
+        * WebView.cpp:
+        (WebView::MIMETypeForExtension):
+        * WebView.h:
+
+2009-08-11  Dmitry Titov <dimich@chromium.org>
+
+        Reviewed by Adam Roben.
+
+        Originally implemented by Glenn Wilson  <gwilson@chromium.org>.
+
+        Added support for overriding default preferences per-test.
+        See https://bugs.webkit.org/show_bug.cgi?id=20534
+
+        * Interfaces/IWebPreferencesPrivate.idl: added new method setPreferenceForTest
+        * WebPreferences.cpp: same.
+        * WebPreferences.h: same.
+
 2009-08-10  Dan Bernstein  <mitz@apple.com>
 
         Reviewed by Darin Adler.

@@ -36,19 +36,18 @@ class TextControlInnerElement;
 
 class RenderTextControlSingleLine : public RenderTextControl, private PopupMenuClient {
 public:
-    RenderTextControlSingleLine(Node*);
+    RenderTextControlSingleLine(Node*, bool);
     virtual ~RenderTextControlSingleLine();
 
     bool placeholderIsVisible() const { return m_placeholderVisible; }
     bool placeholderShouldBeVisible() const;
-    void updatePlaceholderVisibility();
 
     void addSearchResult();
     void stopSearchEventTimer();
 
     bool popupIsVisible() const { return m_searchPopupIsVisible; }
     void showPopup();
-    virtual void hidePopup(); // PopupMenuClient method
+    void hidePopup();
 
     void forwardEvent(Event*);
 
@@ -73,7 +72,7 @@ private:
     virtual int scrollHeight() const;
     virtual void setScrollLeft(int);
     virtual void setScrollTop(int);
-    virtual bool scroll(ScrollDirection, ScrollGranularity, float multiplier = 1.0f);
+    virtual bool scroll(ScrollDirection, ScrollGranularity, float multiplier = 1.0f, Node** stopNode = 0);
 
     int textBlockWidth() const;
     virtual int preferredContentWidth(float charWidth) const;
@@ -84,6 +83,7 @@ private:
     virtual void cacheSelection(int start, int end);
     virtual void styleDidChange(StyleDifference, const RenderStyle* oldStyle);
 
+    virtual RenderStyle* textBaseStyle() const;
     virtual PassRefPtr<RenderStyle> createInnerTextStyle(const RenderStyle* startStyle) const;
     PassRefPtr<RenderStyle> createInnerBlockStyle(const RenderStyle* startStyle) const;
     PassRefPtr<RenderStyle> createResultsButtonStyle(const RenderStyle* startStyle) const;
@@ -109,6 +109,7 @@ private:
     virtual int clientPaddingRight() const;
     virtual int listSize() const;
     virtual int selectedIndex() const;
+    virtual void popupDidHide();
     virtual bool itemIsSeparator(unsigned listIndex) const;
     virtual bool itemIsLabel(unsigned listIndex) const;
     virtual bool itemIsSelected(unsigned listIndex) const;
@@ -121,7 +122,6 @@ private:
 
     InputElement* inputElement() const;
 
-    bool m_placeholderVisible;
     bool m_searchPopupIsVisible;
     bool m_shouldDrawCapsLockIndicator;
 

@@ -19,9 +19,14 @@
     <xi:include href="xml/webkitwebnavigationaction.xml"/>
     <xi:include href="xml/webkitwebpolicydecision.xml"/>
     <xi:include href="xml/webkitnetworkrequest.xml"/>
+    <xi:include href="xml/webkitnetworkresponse.xml"/>
     <xi:include href="xml/webkitwebinspector.xml"/>
+    <xi:include href="xml/webkitwebdatabase.xml"/>
+    <xi:include href="xml/webkitwebdatasource.xml"/>
+    <xi:include href="xml/webkitwebresource.xml"/>
     <xi:include href="xml/webkitdownload.xml"/>
     <xi:include href="xml/webkitsoupauthdialog.xml"/>
+    <xi:include href="xml/webkitsecurityorigin.xml"/>
     <xi:include href="xml/webkitwebwindowfeatures.xml"/>
   </chapter>
 
@@ -74,5 +79,14 @@
   </index>
   <index id="index-1.1.11" role="1.1.11">
     <title>Index of new symbols in 1.1.11</title>
+  </index>
+  <index id="index-1.1.13" role="1.1.13">
+    <title>Index of new symbols in 1.1.13</title>
+  </index>
+  <index id="index-1.1.14" role="1.1.14">
+    <title>Index of new symbols in 1.1.14</title>
+  </index>
+  <index id="index-1.1.15" role="1.1.15">
+    <title>Index of new symbols in 1.1.15</title>
   </index>
 </book>

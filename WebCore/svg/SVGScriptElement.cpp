@@ -26,6 +26,7 @@
 #include "SVGScriptElement.h"
 
 #include "Document.h"
+#include "Event.h"
 #include "EventNames.h"
 #include "MappedAttribute.h"
 #include "SVGNames.h"
@@ -36,6 +37,7 @@ SVGScriptElement::SVGScriptElement(const QualifiedName& tagName, Document* doc, 
     : SVGElement(tagName, doc)
     , SVGURIReference()
     , SVGExternalResourcesRequired()
+    , m_href(this, XLinkNames::hrefAttr)
     , m_data(this, this)
 {
     m_data.setCreatedByParser(createdByParser);
@@ -209,7 +211,7 @@ void SVGScriptElement::dispatchLoadEvent()
 
 void SVGScriptElement::dispatchErrorEvent()
 {
-    dispatchEvent(eventNames().errorEvent, true, false);
+    dispatchEvent(Event::create(eventNames().errorEvent, true, false));
 }
 
 }

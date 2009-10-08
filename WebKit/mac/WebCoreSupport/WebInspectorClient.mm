@@ -81,8 +81,9 @@ void WebInspectorClient::inspectorDestroyed()
 
 Page* WebInspectorClient::createPage()
 {
-    if (!m_windowController)
-        m_windowController.adoptNS([[WebInspectorWindowController alloc] initWithInspectedWebView:m_webView]);
+    if (m_windowController)
+        [[m_windowController.get() webView] close];
+    m_windowController.adoptNS([[WebInspectorWindowController alloc] initWithInspectedWebView:m_webView]);
 
     return core([m_windowController.get() webView]);
 }
@@ -325,7 +326,7 @@ void WebInspectorClient::inspectorWindowObjectCleared()
 
     _visible = YES;
     
-    // If no preference is set - default to an attached window
+    // If no preference is set - default to an attached window. This is important for inspector LayoutTests.
     InspectorController::Setting shouldAttach = [_inspectedWebView page]->inspectorController()->setting(inspectorStartsAttachedName);
     _shouldAttach = (shouldAttach.type() == InspectorController::Setting::BooleanType) ? shouldAttach.booleanValue() : true;
 

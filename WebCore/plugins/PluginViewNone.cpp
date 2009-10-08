@@ -114,12 +114,14 @@ void PluginView::forceRedraw()
     notImplemented();
 }
 
-PluginView::~PluginView()
+bool PluginView::platformStart()
 {
     notImplemented();
+
+    return true;
 }
 
-void PluginView::init()
+void PluginView::platformDestroy()
 {
     notImplemented();
 }
@@ -134,9 +136,12 @@ void PluginView::updatePluginWidget()
     notImplemented();
 }
 
-void PluginView::platformStart()
+void PluginView::halt()
 {
-    notImplemented();
+}
+
+void PluginView::restart()
+{
 }
 
 } // namespace WebCore

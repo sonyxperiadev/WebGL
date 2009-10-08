@@ -57,10 +57,87 @@ WebInspector.ConsoleView = function(drawer)
 
     var anchoredStatusBar = document.getElementById("anchored-status-bar-items");
     anchoredStatusBar.appendChild(this.toggleConsoleButton);
+    
+    // Will hold the list of filter elements
+    this.filterBarElement = document.getElementById("console-filter");
+    
+    function createDividerElement() {
+        var dividerElement = document.createElement("div");
+        
+        dividerElement.addStyleClass("divider");
+        
+        this.filterBarElement.appendChild(dividerElement);
+    }
+    
+    function createFilterElement(category) {
+        var categoryElement = document.createElement("li");
+        categoryElement.category = category;
+     
+        categoryElement.addStyleClass(categoryElement.category);
+            
+        var label = category.toString();
+        categoryElement.appendChild(document.createTextNode(label));
+     
+        categoryElement.addEventListener("click", this._updateFilter.bind(this), false);
+     
+        this.filterBarElement.appendChild(categoryElement);
+        return categoryElement;
+    }
+    
+    this.allElement = createFilterElement.call(this, "All");
+    
+    createDividerElement.call(this);
+    
+    this.errorElement = createFilterElement.call(this, "Errors");
+    this.warningElement = createFilterElement.call(this, "Warnings");
+    this.logElement = createFilterElement.call(this, "Logs");
 
+    this.filter(this.allElement);
 }
 
 WebInspector.ConsoleView.prototype = {
+    
+    _updateFilter: function(e)
+    {
+        this.filter(e.target);
+    },
+    
+    filter: function(target)
+    {
+        if (target.category == "All") {
+            if (target.hasStyleClass("selected")) {
+                // We can't unselect all, so we break early here
+                return;
+            }
+            
+            this.errorElement.removeStyleClass("selected");
+            this.warningElement.removeStyleClass("selected");
+            this.logElement.removeStyleClass("selected");
+            
+            document.getElementById("console-messages").removeStyleClass("filter-errors");
+            document.getElementById("console-messages").removeStyleClass("filter-warnings");
+            document.getElementById("console-messages").removeStyleClass("filter-logs");
+        } else {
+            // Something other than all is being selected, so we want to unselect all
+            if (this.allElement.hasStyleClass("selected")) {
+                this.allElement.removeStyleClass("selected");
+                document.getElementById("console-messages").removeStyleClass("filter-all");
+            }
+        }
+        
+        if (target.hasStyleClass("selected")) {
+            target.removeStyleClass("selected");
+            var newClass = "filter-" + target.category.toLowerCase();
+            var filterElement = document.getElementById("console-messages");
+            filterElement.removeStyleClass(newClass);
+        } else {
+            target.addStyleClass("selected");
+            var newClass = "filter-" + target.category.toLowerCase();
+            var filterElement = document.getElementById("console-messages");
+            filterElement.addStyleClass(newClass);
+        }
+    },
+    
     _toggleConsoleButtonClicked: function()
     {
         this.drawer.visibleView = this;
@@ -70,6 +147,7 @@ WebInspector.ConsoleView.prototype = {
     {
         mainElement.appendChild(this.element);
         statusBarElement.appendChild(this.clearButton);
+        statusBarElement.appendChild(this.filterBarElement);
     },
 
     show: function()
@@ -175,7 +253,7 @@ WebInspector.ConsoleView.prototype = {
     clearMessages: function(clearInspectorController)
     {
         if (clearInspectorController)
-            InspectorController.clearMessages();
+            InspectorController.clearMessages(false);
         if (WebInspector.panels.resources)
             WebInspector.panels.resources.clearMessages();
 
@@ -212,10 +290,28 @@ WebInspector.ConsoleView.prototype = {
             return;
 
         var reportCompletions = this._reportCompletions.bind(this, bestMatchOnly, completionsReadyCallback, dotNotation, bracketNotation, prefix);
-        this._evalInInspectedWindow(expressionString, reportCompletions);
+        // Collect comma separated object properties for the completion.
+
+        if (!expressionString) {
+            if (WebInspector.panels.scripts && WebInspector.panels.scripts.paused) {
+                // Evaluate into properties in scope of the selected call frame.
+                reportCompletions(WebInspector.panels.scripts.variablesInSelectedCallFrame());
+                return;
+            } else {
+                expressionString = "this";
+            }
+        }
+
+        var includeInspectorCommandLineAPI = (!dotNotation && !bracketNotation);
+        if (WebInspector.panels.scripts && WebInspector.panels.scripts.paused)
+            var callFrameId = WebInspector.panels.scripts.selectedCallFrameId();
+        InjectedScriptAccess.getCompletions(expressionString, includeInspectorCommandLineAPI, callFrameId, reportCompletions);
     },
 
-    _reportCompletions: function(bestMatchOnly, completionsReadyCallback, dotNotation, bracketNotation, prefix, result) {
+    _reportCompletions: function(bestMatchOnly, completionsReadyCallback, dotNotation, bracketNotation, prefix, result, isException) {
+        if (isException)
+            return;
+
         if (bracketNotation) {
             if (prefix.length && prefix[0] === "'")
                 var quoteUsed = "'";
@@ -224,16 +320,7 @@ WebInspector.ConsoleView.prototype = {
         }
 
         var results = [];
-        var properties = Object.properties(result);
-        if (!dotNotation && !bracketNotation && result._inspectorCommandLineAPI) {
-            var commandLineAPI = Object.properties(result._inspectorCommandLineAPI);
-            for (var i = 0; i < commandLineAPI.length; ++i) {
-                var property = commandLineAPI[i];
-                if (property.charAt(0) !== "_")
-                    properties.push(property);
-            }
-        }
-        properties.sort();
+        var properties = Object.sortedProperties(result);
 
         for (var i = 0; i < properties.length; ++i) {
             var property = properties[i];
@@ -288,7 +375,7 @@ WebInspector.ConsoleView.prototype = {
         if (!link || !link.representedNode)
             return;
 
-        WebInspector.updateFocusedNode(link.representedNode);
+        WebInspector.updateFocusedNode(link.representedNode.id);
         event.stopPropagation();
         event.preventDefault();
     },
@@ -304,106 +391,27 @@ WebInspector.ConsoleView.prototype = {
         this.prompt.handleKeyEvent(event);
     },
 
-    _evalInInspectedWindow: function(expression, callback)
+    evalInInspectedWindow: function(expression, objectGroup, callback)
     {
         if (WebInspector.panels.scripts && WebInspector.panels.scripts.paused) {
-            WebInspector.panels.scripts.evaluateInSelectedCallFrame(expression, false, callback);
+            WebInspector.panels.scripts.evaluateInSelectedCallFrame(expression, false, objectGroup, callback);
             return;
         }
-        this.doEvalInWindow(expression, callback);
+        this.doEvalInWindow(expression, objectGroup, callback);
     },
 
-    _ensureCommandLineAPIInstalled: function(inspectedWindow)
-    {
-        if (!inspectedWindow._inspectorCommandLineAPI) {
-            inspectedWindow.eval("window._inspectorCommandLineAPI = { \
-                $: function() { return document.getElementById.apply(document, arguments) }, \
-                $$: function() { return document.querySelectorAll.apply(document, arguments) }, \
-                $x: function(xpath, context) { \
-                    var nodes = []; \
-                    try { \
-                        var doc = context || document; \
-                        var results = doc.evaluate(xpath, doc, null, XPathResult.ANY_TYPE, null); \
-                        var node; \
-                        while (node = results.iterateNext()) nodes.push(node); \
-                    } catch (e) {} \
-                    return nodes; \
-                }, \
-                dir: function() { return console.dir.apply(console, arguments) }, \
-                dirxml: function() { return console.dirxml.apply(console, arguments) }, \
-                keys: function(o) { var a = []; for (var k in o) a.push(k); return a; }, \
-                values: function(o) { var a = []; for (var k in o) a.push(o[k]); return a; }, \
-                profile: function() { return console.profile.apply(console, arguments) }, \
-                profileEnd: function() { return console.profileEnd.apply(console, arguments) }, \
-                _inspectedNodes: [], \
-                get $0() { return _inspectorCommandLineAPI._inspectedNodes[0] }, \
-                get $1() { return _inspectorCommandLineAPI._inspectedNodes[1] }, \
-                get $2() { return _inspectorCommandLineAPI._inspectedNodes[2] }, \
-                get $3() { return _inspectorCommandLineAPI._inspectedNodes[3] }, \
-                get $4() { return _inspectorCommandLineAPI._inspectedNodes[4] } \
-            };");
-
-            inspectedWindow._inspectorCommandLineAPI.clear = InspectorController.wrapCallback(this.clearMessages.bind(this));
-            inspectedWindow._inspectorCommandLineAPI.inspect = InspectorController.wrapCallback(inspectObject.bind(this));
-
-            function inspectObject(o)
-            {
-                if (arguments.length === 0)
-                    return;
-
-                InspectorController.inspectedWindow().console.log(o);
-                if (Object.type(o, InspectorController.inspectedWindow()) === "node") {
-                    WebInspector.showElementsPanel();
-                    WebInspector.panels.elements.treeOutline.revealAndSelectNode(o);
-                } else {
-                    switch (Object.describe(o)) {
-                        case "Database":
-                            WebInspector.showDatabasesPanel();
-                            WebInspector.panels.databases.selectDatabase(o);
-                            break;
-                        case "Storage":
-                            WebInspector.showDatabasesPanel();
-                            WebInspector.panels.databases.selectDOMStorage(o);
-                            break;
-                    }
-                }
-            }
-        }
-    },
-
-    addInspectedNode: function(node)
-    {
-        var inspectedWindow = InspectorController.inspectedWindow();
-        this._ensureCommandLineAPIInstalled(inspectedWindow);
-        var inspectedNodes = inspectedWindow._inspectorCommandLineAPI._inspectedNodes;
-        inspectedNodes.unshift(node);
-        if (inspectedNodes.length >= 5)
-            inspectedNodes.pop();
-    },
-
-    doEvalInWindow: function(expression, callback)
+    doEvalInWindow: function(expression, objectGroup, callback)
     {
         if (!expression) {
             // There is no expression, so the completion should happen against global properties.
             expression = "this";
         }
 
-        // Surround the expression in with statements to inject our command line API so that
-        // the window object properties still take more precedent than our API functions.
-        expression = "with (window._inspectorCommandLineAPI) { with (window) { " + expression + " } }";
-
-        var self = this;
-        function delayedEvaluation()
+        function evalCallback(result)
         {
-            var inspectedWindow = InspectorController.inspectedWindow();
-            self._ensureCommandLineAPIInstalled(inspectedWindow);
-            try {
-                callback(inspectedWindow.eval(expression));
-            } catch (e) {
-                callback(e, true);
-            }
-        }
-        setTimeout(delayedEvaluation, 0);
+            callback(result.value, result.isException);
+        };
+        InjectedScriptAccess.evaluate(expression, objectGroup, evalCallback);
     },
 
     _enterKeyPressed: function(event)
@@ -431,18 +439,23 @@ WebInspector.ConsoleView.prototype = {
             self.prompt.text = "";
             self.addMessage(new WebInspector.ConsoleCommandResult(result, exception, commandMessage));
         }
-        this._evalInInspectedWindow(str, printResult);
+        this.evalInInspectedWindow(str, "console", printResult);
     },
 
     _format: function(output, forceObjectFormat)
     {
-        var inspectedWindow = InspectorController.inspectedWindow();
+        var isProxy = (output != null && typeof output === "object");
+
         if (forceObjectFormat)
             var type = "object";
-        else if (output instanceof inspectedWindow.NodeList)
-            var type = "array";
         else
-            var type = Object.type(output, inspectedWindow);
+            var type = Object.proxyType(output);
+
+        if (isProxy && type !== "object" && type !== "function" && type !== "array" && type !== "node") {
+            // Unwrap primitive value, skip decoration.
+            output = output.description;
+            type = "undecorated"
+        }
 
         // We don't perform any special formatting on these types, so we just
         // pass them through the simple _formatvalue function.
@@ -451,8 +464,7 @@ WebInspector.ConsoleView.prototype = {
             "null": 1,
             "boolean": 1,
             "number": 1,
-            "date": 1,
-            "function": 1,
+            "undecorated": 1
         };
 
         var formatter;
@@ -479,6 +491,16 @@ WebInspector.ConsoleView.prototype = {
         elem.appendChild(document.createTextNode(val));
     },
 
+    _formatfunction: function(func, elem)
+    {
+        elem.appendChild(document.createTextNode(func.description));
+    },
+
+    _formatdate: function(date, elem)
+    {
+        elem.appendChild(document.createTextNode(date));
+    },
+
     _formatstring: function(str, elem)
     {
         elem.appendChild(document.createTextNode("\"" + str + "\""));
@@ -486,34 +508,48 @@ WebInspector.ConsoleView.prototype = {
 
     _formatregexp: function(re, elem)
     {
-        var formatted = String(re).replace(/([\\\/])/g, "\\$1").replace(/\\(\/[gim]*)$/, "$1").substring(1);
+        var formatted = String(re.description).replace(/([\\\/])/g, "\\$1").replace(/\\(\/[gim]*)$/, "$1").substring(1);
         elem.appendChild(document.createTextNode(formatted));
     },
 
     _formatarray: function(arr, elem)
     {
-        elem.appendChild(document.createTextNode("["));
-        for (var i = 0; i < arr.length; ++i) {
-            elem.appendChild(this._format(arr[i]));
-            if (i < arr.length - 1)
-                elem.appendChild(document.createTextNode(", "));
+        var self = this;
+        function printResult(properties)
+        {
+            if (!properties)
+                return;
+            elem.appendChild(document.createTextNode("["));
+            for (var i = 0; i < properties.length; ++i) {
+                var property = properties[i].value;
+                elem.appendChild(self._format(property));
+                if (i < properties.length - 1)
+                    elem.appendChild(document.createTextNode(", "));
+            }
+            elem.appendChild(document.createTextNode("]"));
         }
-        elem.appendChild(document.createTextNode("]"));
+        InjectedScriptAccess.getProperties(arr, false, printResult);
     },
 
-    _formatnode: function(node, elem)
+    _formatnode: function(object, elem)
     {
-        var treeOutline = new WebInspector.ElementsTreeOutline();
-        treeOutline.rootDOMNode = node;
-        treeOutline.element.addStyleClass("outline-disclosure");
-        if (!treeOutline.children[0].hasChildren)
-            treeOutline.element.addStyleClass("single-node");
-        elem.appendChild(treeOutline.element);
+        function printNode(nodeId)
+        {
+            if (!nodeId)
+                return;
+            var treeOutline = new WebInspector.ElementsTreeOutline();
+            treeOutline.rootDOMNode = WebInspector.domAgent.nodeForId(nodeId);
+            treeOutline.element.addStyleClass("outline-disclosure");
+            if (!treeOutline.children[0].hasChildren)
+                treeOutline.element.addStyleClass("single-node");
+            elem.appendChild(treeOutline.element);
+        }
+        InjectedScriptAccess.pushNodeToFrontend(object, printNode);
     },
 
     _formatobject: function(obj, elem)
     {
-        elem.appendChild(new WebInspector.ObjectPropertiesSection(new WebInspector.ObjectProxy(obj), Object.describe(obj, true), null, null, true).element);
+        elem.appendChild(new WebInspector.ObjectPropertiesSection(obj, obj.description, null, true).element);
     },
 
     _formaterror: function(obj, elem)
@@ -595,6 +631,13 @@ WebInspector.ConsoleMessage.prototype = {
         if (!parameters.length)
             return formattedResult;
 
+        // Formatting code below assumes that parameters are all wrappers whereas frontend console
+        // API allows passing arbitrary values as messages (strings, numberts, etc.). Wrap them here.
+        for (var i = 0; i < parameters.length; ++i) {
+            if (typeof parameters[i] !== "object" && typeof parameters[i] !== "function")
+                parameters[i] = WebInspector.ObjectProxy.wrapPrimitiveValue(parameters[i]);
+        }
+
         function formatForConsole(obj)
         {
             return WebInspector.console._format(obj);
@@ -605,7 +648,7 @@ WebInspector.ConsoleMessage.prototype = {
             return WebInspector.console._format(obj, true);
         }
 
-        if (Object.type(parameters[0], InspectorController.inspectedWindow()) === "string") {
+        if (Object.proxyType(parameters[0]) === "string") {
             var formatters = {}
             for (var i in String.standardFormatters)
                 formatters[i] = String.standardFormatters[i];
@@ -626,7 +669,7 @@ WebInspector.ConsoleMessage.prototype = {
                 return a;
             }
 
-            var result = String.format(parameters[0], parameters.slice(1), formatters, formattedResult, append);
+            var result = String.format(parameters[0].description, parameters.slice(1), formatters, formattedResult, append);
             formattedResult = result.formattedResult;
             parameters = result.unusedSubstitutions;
             if (parameters.length)
@@ -634,8 +677,8 @@ WebInspector.ConsoleMessage.prototype = {
         }
 
         for (var i = 0; i < parameters.length; ++i) {
-            if (typeof parameters[i] === "string")
-                formattedResult.appendChild(WebInspector.linkifyStringAsFragment(parameters[i]));
+            if (Object.proxyType(parameters[i]) === "string")
+                formattedResult.appendChild(WebInspector.linkifyStringAsFragment(parameters[i].description));
             else
                 formattedResult.appendChild(formatForConsole(parameters[i]));
 
@@ -682,6 +725,9 @@ WebInspector.ConsoleMessage.prototype = {
                 break;
             case WebInspector.ConsoleMessage.MessageLevel.Log:
                 element.addStyleClass("console-log-level");
+                break;
+            case WebInspector.ConsoleMessage.MessageLevel.Debug:
+                element.addStyleClass("console-debug-level");
                 break;
             case WebInspector.ConsoleMessage.MessageLevel.Warning:
                 element.addStyleClass("console-warning-level");
@@ -789,6 +835,9 @@ WebInspector.ConsoleMessage.prototype = {
             case WebInspector.ConsoleMessage.MessageLevel.Warning:
                 levelString = "Warning";
                 break;
+            case WebInspector.ConsoleMessage.MessageLevel.Debug:
+                levelString = "Debug";
+                break;
             case WebInspector.ConsoleMessage.MessageLevel.Error:
                 levelString = "Error";
                 break;
@@ -835,7 +884,8 @@ WebInspector.ConsoleMessage.MessageLevel = {
     Tip: 0,
     Log: 1,
     Warning: 2,
-    Error: 3
+    Error: 3,
+    Debug: 4
 }
 
 WebInspector.ConsoleCommand = function(command)
@@ -859,10 +909,18 @@ WebInspector.ConsoleCommand.prototype = {
     }
 }
 
+WebInspector.ConsoleTextMessage = function(text, level)
+{
+    level = level || WebInspector.ConsoleMessage.MessageLevel.Log;
+    WebInspector.ConsoleMessage.call(this, WebInspector.ConsoleMessage.MessageSource.JS, WebInspector.ConsoleMessage.MessageType.Log, level, 0, null, null, 1, text);
+}
+
+WebInspector.ConsoleTextMessage.prototype.__proto__ = WebInspector.ConsoleMessage.prototype;
+
 WebInspector.ConsoleCommandResult = function(result, exception, originatingCommand)
 {
     var level = (exception ? WebInspector.ConsoleMessage.MessageLevel.Error : WebInspector.ConsoleMessage.MessageLevel.Log);
-    var message = (exception ? String(result) : result);
+    var message = result;
     var line = (exception ? result.line : -1);
     var url = (exception ? result.sourceURL : null);
 
