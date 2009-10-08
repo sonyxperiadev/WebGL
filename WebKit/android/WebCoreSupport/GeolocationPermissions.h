@@ -92,6 +92,9 @@ namespace android {
 
         static void setDatabasePath(WebCore::String path);
 
+        // Saves the permanent permissions to the DB if required.
+        static void maybeStorePermanentPermissions();
+
       private:
         // Records the permission state for the specified origin.
         void recordPermissionState(WebCore::String origin, bool allow, bool remember);
@@ -113,7 +116,6 @@ namespace android {
         void cancelPendingRequests(WebCore::String origin);
 
         static void maybeLoadPermanentPermissions();
-        static void maybeStorePermanentPermissions();
 
         WebViewCore* m_webViewCore;
         WebCore::Frame* m_mainFrame;
