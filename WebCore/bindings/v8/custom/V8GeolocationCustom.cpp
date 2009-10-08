@@ -130,13 +130,7 @@ static PassRefPtr<PositionOptions> createPositionOptions(v8::Local<v8::Value> va
             return 0;
         }
         double timeoutDouble = timeoutNumber->Value();
-        // V8 does not export a public symbol for infinity, so we must use a
-        // platform type. On Android, it seems that V8 uses 0xf70f000000000000,
-        // which is the standard way to represent infinity in a double. However,
-        // numeric_limits<double>::infinity uses the system HUGE_VAL, which is
-        // different. Therefore we test using isinf() and check that the value
-        // is positive, which seems to handle things correctly.
-        // If the value is infinity, there's nothing to do.
+        // If the value is positive infinity, there's nothing to do.
         if (!(isinf(timeoutDouble) && timeoutDouble > 0)) {
             v8::Local<v8::Int32> timeoutInt32 = timeoutValue->ToInt32();
             if (timeoutInt32.IsEmpty()) {
@@ -161,7 +155,7 @@ static PassRefPtr<PositionOptions> createPositionOptions(v8::Local<v8::Value> va
         }
         double maximumAgeDouble = maximumAgeNumber->Value();
         if (isinf(maximumAgeDouble) && maximumAgeDouble > 0) {
-            // If the value is infinity, clear maximumAge.
+            // If the value is positive infinity, clear maximumAge.
             options->clearMaximumAge();
         } else {
             v8::Local<v8::Int32> maximumAgeInt32 = maximumAgeValue->ToInt32();
