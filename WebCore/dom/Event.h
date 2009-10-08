@@ -125,7 +125,7 @@ namespace WebCore {
 #if ENABLE(WORKERS)
         virtual bool isErrorEvent() const;
 #endif
-
+        
         bool propagationStopped() const { return m_propagationStopped; }
 
         bool defaultPrevented() const { return m_defaultPrevented; }

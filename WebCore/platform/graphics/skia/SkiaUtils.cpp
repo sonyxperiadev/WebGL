@@ -131,10 +131,10 @@ SkColor SkPMColorToColor(SkPMColor pm)
 {
     if (0 == pm)
         return 0;
-
+    
     unsigned a = SkGetPackedA32(pm);
     uint32_t scale = (255 << 16) / a;
-
+    
     return SkColorSetARGB(a,
                           InvScaleByte(SkGetPackedR32(pm), scale),
                           InvScaleByte(SkGetPackedG32(pm), scale),

@@ -1375,7 +1375,7 @@ void* IconDatabase::syncThreadMainLoop()
             didAnyWork = readFromDatabase();
             if (shouldStopThreadActivity())
                 break;
-               
+                
             // Prune unretained icons after the first time we sync anything out to the database
             // This way, pruning won't be the only operation we perform to the database by itself
             // We also don't want to bother doing this if the thread should be terminating (the user is quitting)

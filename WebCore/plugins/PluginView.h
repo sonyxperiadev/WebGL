@@ -299,7 +299,7 @@ namespace WebCore {
         NPP m_instance;
         NPP_t m_instanceStruct;
         NPWindow m_npWindow;
-        
+
         Vector<bool, 4> m_popupStateStack;
 
         HashSet<RefPtr<PluginStream> > m_streams;

@@ -51,7 +51,7 @@ namespace WebCore {
     
         void setDragImage(CachedImage*, const IntPoint&);
         void setDragImageElement(Node*, const IntPoint&);
-		
+        
         virtual DragImageRef createDragImage(IntPoint&) const;
         virtual void declareAndWriteDragImage(Element*, const KURL&, const String&, Frame*);
         virtual void writeURL(const KURL&, const String&, Frame*);

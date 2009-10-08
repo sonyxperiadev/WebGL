@@ -61,7 +61,7 @@ public:
     // The buffer must be in non-purgeable state before adopted to a SharedBuffer. 
     // It will stay that way until released.
     static PassRefPtr<SharedBuffer> adoptPurgeableBuffer(PurgeableBuffer* buffer);
-
+    
 #if PLATFORM(ANDROID)
     virtual
 #endif

@@ -401,7 +401,7 @@ void PluginView::performRequest(PluginRequest* request)
     // Targeted JavaScript requests are only allowed on the frame that contains the JavaScript plugin
     // and this has been made sure in ::load.
     ASSERT(targetFrameName.isEmpty() || m_parentFrame->tree()->find(targetFrameName) == m_parentFrame);
-
+    
 #if USE(JSC)
     // Executing a script can cause the plugin view to be destroyed, so we keep a reference to the parent frame.
     RefPtr<Frame> parentFrame = m_parentFrame;
@@ -1194,11 +1194,11 @@ void PluginView::paintMissingPluginIcon(GraphicsContext* context, const IntRect&
     int yOffset = (frameRect().height() - imageRect.height()) / 2;
 
     imageRect.move(xOffset, yOffset);
-    
+
     if (!rect.intersects(imageRect)) {
         return;
     }
-    
+
     context->save();
     context->clip(windowClipRect());
     context->drawImage(nullPluginImage.get(), imageRect.location());
