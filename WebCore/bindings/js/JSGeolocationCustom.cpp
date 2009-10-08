@@ -34,6 +34,7 @@
 #include "JSCustomPositionErrorCallback.h"
 #include "JSDOMWindow.h"
 #include "PositionOptions.h"
+#include <runtime/InternalFunction.h>
 
 using namespace JSC;
 using namespace std;
@@ -91,7 +92,7 @@ static PassRefPtr<PositionOptions> createPositionOptions(ExecState* exec, JSValu
     JSValue enableHighAccuracyValue = object->get(exec, Identifier(exec, "enableHighAccuracy"));
     if (exec->hadException())
         return 0;
-    if(!enableHighAccuracyValue.isUndefined()) {
+    if (!enableHighAccuracyValue.isUndefined()) {
         options->setEnableHighAccuracy(enableHighAccuracyValue.toBoolean(exec));
         if (exec->hadException())
             return 0;
@@ -104,8 +105,8 @@ static PassRefPtr<PositionOptions> createPositionOptions(ExecState* exec, JSValu
         double timeoutNumber = timeoutValue.toNumber(exec);
         if (exec->hadException())
             return 0;
-        // If the value is infinity, there's nothing to do.
-        if (timeoutNumber != Inf) {
+        // If the value is positive infinity, there's nothing to do.
+        if (!(isinf(timeoutNumber) && (timeoutNumber > 0))) {
             // Wrap to int32 and force non-negative to match behavior of window.setTimeout.
             options->setTimeout(max(0, timeoutValue.toInt32(exec)));
             if (exec->hadException())
@@ -120,8 +121,8 @@ static PassRefPtr<PositionOptions> createPositionOptions(ExecState* exec, JSValu
         double maximumAgeNumber = maximumAgeValue.toNumber(exec);
         if (exec->hadException())
             return 0;
-        if (maximumAgeNumber == Inf) {
-            // If the value is infinity, clear maximumAge.
+        if (isinf(maximumAgeNumber) && (maximumAgeNumber > 0)) {
+            // If the value is positive infinity, clear maximumAge.
             options->clearMaximumAge();
         } else {
             // Wrap to int32 and force non-negative to match behavior of window.setTimeout.
