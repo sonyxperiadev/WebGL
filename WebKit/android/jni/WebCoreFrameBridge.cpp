@@ -1036,7 +1036,7 @@ static void LoadData(JNIEnv *env, jobject obj, jstring baseUrl, jstring data,
 
     WebCore::SubstituteData substituteData(sharedBuffer,
             to_string(env, mimeType), to_string(env, encoding),
-            WebCore::KURL(to_string(env, failUrl)));
+            WebCore::KURL(ParsedURLString, to_string(env, failUrl)));
 
     // Perform the load
     pFrame->loader()->load(request, substituteData, false);
