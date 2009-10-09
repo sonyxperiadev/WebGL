@@ -567,14 +567,10 @@ public:
     virtual bool disabled() const;
 
 #if ENABLE(TOUCH_EVENTS) // Android
-    EventListener* ontouchstart() const;
-    void setOntouchstart(PassRefPtr<EventListener>);
-    EventListener* ontouchend() const;
-    void setOntouchend(PassRefPtr<EventListener>);
-    EventListener* ontouchmove() const;
-    void setOntouchmove(PassRefPtr<EventListener>);
-    EventListener* ontouchcancel() const;
-    void setOntouchcancel(PassRefPtr<EventListener>);
+    DEFINE_ATTRIBUTE_EVENT_LISTENER(touchstart);
+    DEFINE_ATTRIBUTE_EVENT_LISTENER(touchend);
+    DEFINE_ATTRIBUTE_EVENT_LISTENER(touchmove);
+    DEFINE_ATTRIBUTE_EVENT_LISTENER(touchcancel);
 #endif
 
     using TreeShared<Node>::ref;
