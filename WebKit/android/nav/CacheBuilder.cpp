@@ -1106,7 +1106,9 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
             }
             isPassword = input->inputType() == HTMLInputElement::PASSWORD;
             maxLength = input->maxLength();
-            name = input->name().string().copy();
+            // If this does not need to be threadsafe, we can use crossThreadString().
+            // See http://trac.webkit.org/changeset/49160.
+            name = input->name().string().threadsafeCopy();
             isUnclipped = isTransparent; // can't detect if this is drawn on top (example: deviant.com login parts)
         } else if (node->hasTagName(HTMLNames::textareaTag)) {
             isTextArea = wantsKeyEvents = true;
@@ -1123,14 +1125,14 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
             KURL href = anchorNode->href();
             if (!href.isEmpty() && !WebCore::protocolIsJavaScript(href.string()))
                 // Set the exported string for all non-javascript anchors.
-                exported = href.string().copy();
+                exported = href.string().threadsafeCopy();
         }
         if (isTextField || isTextArea) {
             RenderTextControl* renderText = 
                 static_cast<RenderTextControl*>(nodeRenderer);
             if (isFocus)
                 cachedRoot->setSelection(renderText->selectionStart(), renderText->selectionEnd());
-            exported = renderText->text().copy();
+            exported = renderText->text().threadsafeCopy();
             // FIXME: Would it be better to use (float) size()?
             // FIXME: Are we sure there will always be a style and font, and it's correct?
             RenderStyle* style = nodeRenderer->style();
