@@ -121,6 +121,7 @@ LOCAL_C_INCLUDES := \
 	$(LOCAL_PATH)/WebCore/loader \
 	$(LOCAL_PATH)/WebCore/loader/appcache \
 	$(LOCAL_PATH)/WebCore/loader/icon \
+	$(LOCAL_PATH)/WebCore/notifications \
 	$(LOCAL_PATH)/WebCore/page \
 	$(LOCAL_PATH)/WebCore/page/android \
 	$(LOCAL_PATH)/WebCore/page/animation \

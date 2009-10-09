@@ -217,6 +217,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	dom/OptionElement.cpp \
 	dom/OptionGroupElement.cpp \
 	dom/OverflowEvent.cpp \
+	dom/PageTransitionEvent.cpp \
 	dom/Position.cpp \
 	dom/PositionIterator.cpp \
 	dom/ProcessingInstruction.cpp \
@@ -308,6 +309,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	html/File.cpp \
 	html/FormDataList.cpp \
 	html/HTMLCollection.cpp \
+	html/HTMLDataListElement.cpp \
 	html/HTMLDocument.cpp \
 	html/FileList.cpp \
 	html/HTMLElementsAllInOne.cpp \
@@ -325,11 +327,30 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	html/TimeRanges.cpp \
 	html/ValidityState.cpp \
 	\
+	html/canvas/CanvasArray.cpp \
+	html/canvas/CanvasArrayBuffer.cpp \
+	html/canvas/CanvasBuffer.cpp \
+	html/canvas/CanvasByteArray.cpp \
+	html/canvas/CanvasFloatArray.cpp \
+	html/canvas/CanvasFramebuffer.cpp \
 	html/canvas/CanvasGradient.cpp \
+	html/canvas/CanvasIntArray.cpp \
+	html/canvas/CanvasNumberArray.cpp \
+	html/canvas/CanvasObject.cpp \
 	html/canvas/CanvasPattern.cpp \
 	html/canvas/CanvasPixelArray.cpp \
+	html/canvas/CanvasProgram.cpp \
+	html/canvas/CanvasRenderbuffer.cpp \
+	html/canvas/CanvasRenderingContext.cpp \
 	html/canvas/CanvasRenderingContext2D.cpp \
+	html/canvas/CanvasRenderingContext3D.cpp \
+	html/canvas/CanvasShader.cpp \
+	html/canvas/CanvasShortArray.cpp \
 	html/canvas/CanvasStyle.cpp \
+	html/canvas/CanvasTexture.cpp \
+	html/canvas/CanvasUnsignedByteArray.cpp \
+	html/canvas/CanvasUnsignedIntArray.cpp \
+	html/canvas/CanvasUnsignedShortArray.cpp \
 	\
 	loader/Cache.cpp \
 	loader/CachedCSSStyleSheet.cpp \
@@ -355,7 +376,10 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	loader/NetscapePlugInStreamLoader.cpp \
 	loader/PlaceholderDocument.cpp \
 	loader/PluginDocument.cpp \
+	loader/PolicyCallback.cpp \
+	loader/PolicyChecker.cpp \
 	loader/ProgressTracker.cpp \
+	loader/RedirectScheduler.cpp \
 	loader/Request.cpp \
 	loader/ResourceLoader.cpp \
 	loader/SubresourceLoader.cpp \
@@ -397,13 +421,16 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	page/MouseEventWithHitTestResults.cpp \
 	page/Navigator.cpp \
 	page/NavigatorBase.cpp \
+	page/OriginAccessEntry.cpp \
 	page/Page.cpp \
 	page/PageGroup.cpp \
 	page/PageGroupLoadDeferrer.cpp \
+	page/PluginHalter.cpp \
 	page/PrintContext.cpp \
 	page/Screen.cpp \
 	page/SecurityOrigin.cpp \
 	page/Settings.cpp \
+	page/UserContentURLPattern.cpp \
 	page/WindowFeatures.cpp \
 	page/WorkerNavigator.cpp \
 	page/XSSAuditor.cpp \
@@ -491,6 +518,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/graphics/GraphicsLayer.cpp \
 	platform/graphics/GraphicsTypes.cpp \
 	platform/graphics/Image.cpp \
+	platform/graphics/ImageSource.cpp \
 	platform/graphics/IntRect.cpp \
 	platform/graphics/MediaPlayer.cpp \
 	platform/graphics/Path.cpp \
@@ -555,6 +583,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	\
 	platform/network/AuthenticationChallengeBase.cpp \
 	platform/network/Credential.cpp \
+	platform/network/CredentialStorage.cpp \
 	platform/network/FormData.cpp \
 	platform/network/FormDataBuilder.cpp \
 	platform/network/HTTPHeaderMap.cpp \
@@ -565,6 +594,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/network/ResourceHandle.cpp \
 	platform/network/ResourceRequestBase.cpp \
 	platform/network/ResourceResponseBase.cpp \
+	platform/network/SocketStreamHandleBase.cpp \
 	\
 	platform/network/android/Cookie.cpp \
 	platform/network/android/ResourceHandleAndroid.cpp \
@@ -766,10 +796,13 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	storage/SQLResultSetRowList.cpp \
 	storage/SQLStatement.cpp \
 	storage/SQLTransaction.cpp \
+	storage/SQLTransactionClient.cpp \
+	storage/SQLTransactionCoordinator.cpp \
 	storage/Storage.cpp \
 	storage/StorageAreaImpl.cpp \
 	storage/StorageAreaSync.cpp \
 	storage/StorageEvent.cpp \
+	storage/StorageEventDispatcher.cpp \
 	storage/StorageMap.cpp \
 	storage/StorageNamespace.cpp \
 	storage/StorageNamespaceImpl.cpp \
@@ -795,7 +828,6 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	svg/SVGColor.cpp \
 	svg/SVGComponentTransferFunctionElement.cpp \
 	svg/SVGCursorElement.cpp \
-	svg/SVGDefinitionSrcElement.cpp \
 	svg/SVGDefsElement.cpp \
 	svg/SVGDescElement.cpp \
 	svg/SVGDocument.cpp \
