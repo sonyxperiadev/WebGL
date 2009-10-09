@@ -30,6 +30,7 @@
 #include "InspectorClient.h"
 #include "InspectorDOMAgent.h"
 #include "InspectorFrontend.h"
+#include "InspectorTimelineAgent.h"
 
 #include "Frame.h"
 #include "Node.h"
