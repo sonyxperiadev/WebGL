@@ -234,15 +234,14 @@
 #include "V8SVGPODTypeWrapper.h"
 #endif // SVG
 
-<<<<<<< HEAD:WebCore/bindings/v8/DOMObjectsInclude.h
 #if ENABLE(TOUCH_EVENTS)
 #include "Touch.h"
 #include "TouchList.h"
 #include "TouchEvent.h"
-=======
+#endif
+
 #if ENABLE(WEB_SOCKETS)
 #include "WebSocket.h"
->>>>>>> webkit.org at 49305:WebCore/bindings/v8/DOMObjectsInclude.h
 #endif
 
 #if ENABLE(WORKERS)

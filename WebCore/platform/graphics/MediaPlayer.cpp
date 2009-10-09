@@ -262,19 +262,11 @@ bool MediaPlayer::canLoadPoster() const
 {
     return m_private->canLoadPoster();
 }
-<<<<<<< HEAD:WebCore/platform/graphics/MediaPlayer.cpp
-
-=======
     
->>>>>>> webkit.org at 49305:WebCore/platform/graphics/MediaPlayer.cpp
 void MediaPlayer::setPoster(const String& url)
 {
     m_private->setPoster(url);
-<<<<<<< HEAD:WebCore/platform/graphics/MediaPlayer.cpp
-}
-=======
 }    
->>>>>>> webkit.org at 49305:WebCore/platform/graphics/MediaPlayer.cpp
 
 void MediaPlayer::cancelLoad()
 {
@@ -285,11 +277,7 @@ void MediaPlayer::prepareToPlay()
 {
     m_private->prepareToPlay();
 }
-<<<<<<< HEAD:WebCore/platform/graphics/MediaPlayer.cpp
-
-=======
     
->>>>>>> webkit.org at 49305:WebCore/platform/graphics/MediaPlayer.cpp
 void MediaPlayer::play()
 {
     m_private->play();

@@ -358,11 +358,7 @@ void ResourceRequestBase::updateResourceRequest() const
     m_resourceRequestUpdated = true;
 }
 
-<<<<<<< HEAD:WebCore/platform/network/ResourceRequestBase.cpp
-#if !PLATFORM(MAC) && !USE(CFNETWORK) && !PLATFORM(ANDROID)
-=======
-#if !PLATFORM(MAC) && !USE(CFNETWORK) && !USE(SOUP)
->>>>>>> webkit.org at 49305:WebCore/platform/network/ResourceRequestBase.cpp
+#if !PLATFORM(MAC) && !USE(CFNETWORK) && !USE(SOUP) && !PLATFORM(ANDROID)
 unsigned initializeMaximumHTTPConnectionCountPerHost()
 {
     // This is used by the loader to control the number of issued parallel load requests. 

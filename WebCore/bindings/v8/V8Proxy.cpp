@@ -32,11 +32,8 @@
 #include "V8Proxy.h"
 
 #include "CSSMutableStyleDeclaration.h"
-<<<<<<< HEAD:WebCore/bindings/v8/V8Proxy.cpp
 #include "CString.h"
-=======
 #include "DateExtension.h"
->>>>>>> webkit.org at 49305:WebCore/bindings/v8/V8Proxy.cpp
 #include "DOMObjectsInclude.h"
 #include "DocumentLoader.h"
 #include "FrameLoaderClient.h"
@@ -378,24 +375,6 @@ v8::Local<v8::Value> V8Proxy::evaluate(const ScriptSourceCode& source, Node* nod
     ASSERT(v8::Context::InContext());
     LOCK_V8;
 
-<<<<<<< HEAD:WebCore/bindings/v8/V8Proxy.cpp
-    // Compile the script.
-    v8::Local<v8::String> code = v8ExternalString(source.source());
-#if PLATFORM(CHROMIUM)
-    // TODO(andreip): ChromeBridge->BrowserBridge?
-    ChromiumBridge::traceEventBegin("v8.compile", node, "");
-#endif
-
-    // NOTE: For compatibility with WebCore, ScriptSourceCode's line starts at
-    // 1, whereas v8 starts at 0.
-    v8::Handle<v8::Script> script = compileScript(code, source.url(), source.startLine() - 1);
-#if PLATFORM(CHROMIUM)
-    // TODO(andreip): ChromeBridge->BrowserBridge?
-    ChromiumBridge::traceEventEnd("v8.compile", node, "");
-    ChromiumBridge::traceEventBegin("v8.run", node, "");
-#endif
-=======
->>>>>>> webkit.org at 49305:WebCore/bindings/v8/V8Proxy.cpp
     v8::Local<v8::Value> result;
     {
         // Isolate exceptions that occur when compiling and executing
@@ -407,14 +386,20 @@ v8::Local<v8::Value> V8Proxy::evaluate(const ScriptSourceCode& source, Node* nod
 
         // Compile the script.
         v8::Local<v8::String> code = v8ExternalString(source.source());
+#if PLATFORM(CHROMIUM)
+        // TODO(andreip): ChromeBridge->BrowserBridge?
         ChromiumBridge::traceEventBegin("v8.compile", node, "");
+#endif
 
         // NOTE: For compatibility with WebCore, ScriptSourceCode's line starts at
         // 1, whereas v8 starts at 0.
         v8::Handle<v8::Script> script = compileScript(code, source.url(), source.startLine() - 1);
+#if PLATFORM(CHROMIUM)
+        // TODO(andreip): ChromeBridge->BrowserBridge?
         ChromiumBridge::traceEventEnd("v8.compile", node, "");
 
         ChromiumBridge::traceEventBegin("v8.run", node, "");
+#endif
         // Set inlineCode to true for <a href="javascript:doSomething()">
         // and false for <script>doSomething</script>. We make a rough guess at
         // this based on whether the script source has a URL.
@@ -496,16 +481,9 @@ v8::Local<v8::Value> V8Proxy::runScriptInternal(v8::Handle<v8::Script> script, b
 
 v8::Local<v8::Value> V8Proxy::callFunction(v8::Handle<v8::Function> function, v8::Handle<v8::Object> receiver, int argc, v8::Handle<v8::Value> args[])
 {
-<<<<<<< HEAD:WebCore/bindings/v8/V8Proxy.cpp
 #ifdef ANDROID_INSTRUMENT
     android::TimeCounter::start(android::TimeCounter::JavaScriptExecuteTimeCounter);
 #endif
-
-    // For now, we don't put any artificial limitations on the depth
-    // of recursion that stems from calling functions. This is in
-    // contrast to the script evaluations.
-=======
->>>>>>> webkit.org at 49305:WebCore/bindings/v8/V8Proxy.cpp
     v8::Local<v8::Value> result;
     {
         V8ConsoleMessage::Scope scope;
@@ -817,14 +795,10 @@ void V8Proxy::resetIsolatedWorlds()
 
 void V8Proxy::clearForClose()
 {
-<<<<<<< HEAD:WebCore/bindings/v8/V8Proxy.cpp
-    if (!m_context.IsEmpty()) {
-        LOCK_V8;
-=======
     resetIsolatedWorlds();
 
     if (!context().IsEmpty()) {
->>>>>>> webkit.org at 49305:WebCore/bindings/v8/V8Proxy.cpp
+        LOCK_V8;
         v8::HandleScope handleScope;
 
         clearDocumentWrapper();
@@ -837,12 +811,8 @@ void V8Proxy::clearForNavigation()
     disconnectEventListeners();
     resetIsolatedWorlds();
 
-<<<<<<< HEAD:WebCore/bindings/v8/V8Proxy.cpp
-    if (!m_context.IsEmpty()) {
-        LOCK_V8;
-=======
     if (!context().IsEmpty()) {
->>>>>>> webkit.org at 49305:WebCore/bindings/v8/V8Proxy.cpp
+        LOCK_V8;
         v8::HandleScope handle;
         clearDocumentWrapper();
 

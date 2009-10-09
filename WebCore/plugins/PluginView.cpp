@@ -164,20 +164,16 @@ void PluginView::handleEvent(Event* event)
         handleMouseEvent(static_cast<MouseEvent*>(event));
     else if (event->isKeyboardEvent())
         handleKeyboardEvent(static_cast<KeyboardEvent*>(event));
-<<<<<<< HEAD:WebCore/plugins/PluginView.cpp
 #if defined(ANDROID_PLUGINS)
     else if (event->isTouchEvent())
         handleTouchEvent(static_cast<TouchEvent*>(event));
-=======
+#endif
 #if defined(Q_WS_X11)
     else if (event->type() == eventNames().DOMFocusOutEvent)
         handleFocusOutEvent();
     else if (event->type() == eventNames().DOMFocusInEvent)
         handleFocusInEvent();
->>>>>>> webkit.org at 49305:WebCore/plugins/PluginView.cpp
 #endif
-<<<<<<< HEAD:WebCore/plugins/PluginView.cpp
-=======
 }
 
 void PluginView::init()
@@ -220,7 +216,6 @@ bool PluginView::startOrAddToUnstartedList()
     }
 
     return start();
->>>>>>> webkit.org at 49305:WebCore/plugins/PluginView.cpp
 }
 
 
@@ -332,13 +327,10 @@ void PluginView::stop()
     m_isStarted = false;
 #if USE(JSC)
     JSC::JSLock::DropAllLocks dropAllLocks(JSC::SilenceAssertionsOnly);
-<<<<<<< HEAD:WebCore/plugins/PluginView.cpp
 #endif
-=======
 
 #if ENABLE(NETSCAPE_PLUGIN_API)
 #if !PLATFORM(WX) // FIXME: Revisit this when implementing plugins for wx
->>>>>>> webkit.org at 49305:WebCore/plugins/PluginView.cpp
 #ifdef XP_WIN
     // Unsubclass the window
     if (m_isWindowed) {

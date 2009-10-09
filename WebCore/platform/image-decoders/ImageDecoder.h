@@ -58,11 +58,7 @@ namespace WebCore {
             DisposeOverwriteBgcolor,   // Clear frame to transparent
             DisposeOverwritePrevious,  // Clear frame to previous framebuffer contents
         };
-<<<<<<< HEAD:WebCore/platform/image-decoders/ImageDecoder.h
-#if (PLATFORM(SKIA) || PLATFORM(SGL))
-=======
-#if PLATFORM(SKIA) || PLATFORM(QT)
->>>>>>> webkit.org at 49305:WebCore/platform/image-decoders/ImageDecoder.h
+#if (PLATFORM(SKIA) || PLATFORM(QT) || PLATFORM(SGL))
         typedef uint32_t PixelData;
 #else
         typedef unsigned PixelData;
@@ -152,13 +148,7 @@ namespace WebCore {
 
         inline PixelData* getAddr(int x, int y)
         {
-<<<<<<< HEAD:WebCore/platform/image-decoders/ImageDecoder.h
-#if PLATFORM(CAIRO) || PLATFORM(WX)
-            return m_bytes.data() + (y * width()) + x;
-#elif (PLATFORM(SKIA) || PLATFORM(SGL))
-=======
-#if PLATFORM(SKIA)
->>>>>>> webkit.org at 49305:WebCore/platform/image-decoders/ImageDecoder.h
+#if (PLATFORM(SKIA) || PLATFORM(SGL))
             return m_bitmap.getAddr32(x, y);
 #elif PLATFORM(QT)
             return reinterpret_cast<QRgb*>(m_image.scanLine(y)) + x;
@@ -183,7 +173,7 @@ namespace WebCore {
             }
         }
 
-#if PLATFORM(SKIA)
+#if (PLATFORM(SKIA) || PLATFORM(SGL))
         NativeImageSkia m_bitmap;
 #elif PLATFORM(QT)
         mutable QImage m_image;
@@ -194,11 +184,6 @@ namespace WebCore {
         IntSize m_size;       // The size of the buffer.  This should be the
                               // same as ImageDecoder::m_size.
         bool m_hasAlpha;      // Whether or not any of the pixels in the buffer have transparency.
-<<<<<<< HEAD:WebCore/platform/image-decoders/ImageDecoder.h
-#elif (PLATFORM(SKIA) || PLATFORM(SGL))
-        NativeImageSkia m_bitmap;
-=======
->>>>>>> webkit.org at 49305:WebCore/platform/image-decoders/ImageDecoder.h
 #endif
         IntRect m_rect;       // The rect of the original specified frame within the overall buffer.
                               // This will always just be the entire buffer except for GIF frames

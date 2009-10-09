@@ -60,13 +60,10 @@
 #include "RenderTextControlSingleLine.h"
 #include "RenderTheme.h"
 #include "TextEvent.h"
-<<<<<<< HEAD:WebCore/html/HTMLInputElement.cpp
 #ifdef ANDROID_ACCEPT_CHANGES_TO_FOCUSED_TEXTFIELDS
 #include "WebViewCore.h"
 #endif
-=======
 #include <wtf/MathExtras.h>
->>>>>>> webkit.org at 49305:WebCore/html/HTMLInputElement.cpp
 #include <wtf/StdLibExtras.h>
 
 using namespace std;

@@ -31,13 +31,6 @@
 #ifndef V8Proxy_h
 #define V8Proxy_h
 
-<<<<<<< HEAD:WebCore/bindings/v8/V8Proxy.h
-#include "Node.h"
-#include "NodeFilter.h"
-#include "PlatformString.h" // for WebCore::String
-=======
-#include "ChromiumBridge.h"
->>>>>>> webkit.org at 49305:WebCore/bindings/v8/V8Proxy.h
 #include "ScriptSourceCode.h" // for WebCore::ScriptSourceCode
 #include "SecurityOrigin.h" // for WebCore::SecurityOrigin
 #include "SharedPersistent.h"
@@ -49,12 +42,8 @@
 #include <wtf/PassRefPtr.h> // so generated bindings don't have to
 #include <wtf/Vector.h>
 
-<<<<<<< HEAD:WebCore/bindings/v8/V8Proxy.h
 #if defined(ENABLE_DOM_STATS_COUNTERS) && PLATFORM(CHROMIUM)
 #include "ChromiumBridge.h"
-=======
-#ifdef ENABLE_DOM_STATS_COUNTERS
->>>>>>> webkit.org at 49305:WebCore/bindings/v8/V8Proxy.h
 #define INC_STATS(name) ChromiumBridge::incrementStatsCounter(name)
 #else
 #define INC_STATS(name)
@@ -115,11 +104,7 @@ namespace WebCore {
         int group;
         v8::Extension* extension;
     };
-<<<<<<< HEAD:WebCore/bindings/v8/V8Proxy.h
-    typedef WTF::Vector<V8ExtensionInfo> V8ExtensionList;
-=======
     typedef WTF::Vector<V8ExtensionInfo> V8Extensions;
->>>>>>> webkit.org at 49305:WebCore/bindings/v8/V8Proxy.h
 
     class V8Proxy {
     public:

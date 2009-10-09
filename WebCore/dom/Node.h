@@ -511,7 +511,6 @@ public:
 
     unsigned short compareDocumentPosition(Node*);
 
-<<<<<<< HEAD:WebCore/dom/Node.h
 #ifdef ANDROID_INSTRUMENT
     // Overridden to prevent the normal new from being called.
     void* operator new(size_t) throw();
@@ -522,21 +521,6 @@ public:
     static size_t reportDOMNodesSize();
 #endif
 
-protected:
-    virtual void willMoveToNewOwnerDocument();
-    virtual void didMoveToNewOwnerDocument();
-    
-    virtual void addSubresourceAttributeURLs(ListHashSet<KURL>&) const { }
-    void setTabIndexExplicitly(short);
-    
-    bool hasRareData() const { return m_hasRareData; }
-    
-    NodeRareData* rareData() const;
-    NodeRareData* ensureRareData();
-
-public:
-=======
->>>>>>> webkit.org at 49305:WebCore/dom/Node.h
     virtual Node* toNode() { return this; }
 
     virtual ScriptExecutionContext* scriptExecutionContext() const;
@@ -582,91 +566,6 @@ public:
      */
     virtual bool disabled() const;
 
-<<<<<<< HEAD:WebCore/dom/Node.h
-    const RegisteredEventListenerVector& eventListeners() const;
-
-    // These 4 attribute event handler attributes are overrided by HTMLBodyElement
-    // and HTMLFrameSetElement to forward to the DOMWindow.
-    virtual EventListener* onblur() const;
-    virtual void setOnblur(PassRefPtr<EventListener>);
-    virtual EventListener* onerror() const;
-    virtual void setOnerror(PassRefPtr<EventListener>);
-    virtual EventListener* onfocus() const;
-    virtual void setOnfocus(PassRefPtr<EventListener>);
-    virtual EventListener* onload() const;
-    virtual void setOnload(PassRefPtr<EventListener>);
-
-    EventListener* onabort() const;
-    void setOnabort(PassRefPtr<EventListener>);
-    EventListener* onchange() const;
-    void setOnchange(PassRefPtr<EventListener>);
-    EventListener* onclick() const;
-    void setOnclick(PassRefPtr<EventListener>);
-    EventListener* oncontextmenu() const;
-    void setOncontextmenu(PassRefPtr<EventListener>);
-    EventListener* ondblclick() const;
-    void setOndblclick(PassRefPtr<EventListener>);
-    EventListener* oninput() const;
-    void setOninput(PassRefPtr<EventListener>);
-    EventListener* onkeydown() const;
-    void setOnkeydown(PassRefPtr<EventListener>);
-    EventListener* onkeypress() const;
-    void setOnkeypress(PassRefPtr<EventListener>);
-    EventListener* onkeyup() const;
-    void setOnkeyup(PassRefPtr<EventListener>);
-    EventListener* onmousedown() const;
-    void setOnmousedown(PassRefPtr<EventListener>);
-    EventListener* onmousemove() const;
-    void setOnmousemove(PassRefPtr<EventListener>);
-    EventListener* onmouseout() const;
-    void setOnmouseout(PassRefPtr<EventListener>);
-    EventListener* onmouseover() const;
-    void setOnmouseover(PassRefPtr<EventListener>);
-    EventListener* onmouseup() const;
-    void setOnmouseup(PassRefPtr<EventListener>);
-    EventListener* onmousewheel() const;
-    void setOnmousewheel(PassRefPtr<EventListener>);
-    EventListener* ondragenter() const;
-    void setOndragenter(PassRefPtr<EventListener>);
-    EventListener* ondragover() const;
-    void setOndragover(PassRefPtr<EventListener>);
-    EventListener* ondragleave() const;
-    void setOndragleave(PassRefPtr<EventListener>);
-    EventListener* ondrop() const;
-    void setOndrop(PassRefPtr<EventListener>);
-    EventListener* ondragstart() const;
-    void setOndragstart(PassRefPtr<EventListener>);
-    EventListener* ondrag() const;
-    void setOndrag(PassRefPtr<EventListener>);
-    EventListener* ondragend() const;
-    void setOndragend(PassRefPtr<EventListener>);
-    EventListener* onscroll() const;
-    void setOnscroll(PassRefPtr<EventListener>);
-    EventListener* onselect() const;
-    void setOnselect(PassRefPtr<EventListener>);
-    EventListener* onsubmit() const;
-    void setOnsubmit(PassRefPtr<EventListener>);
-
-    // WebKit extensions
-    EventListener* onbeforecut() const;
-    void setOnbeforecut(PassRefPtr<EventListener>);
-    EventListener* oncut() const;
-    void setOncut(PassRefPtr<EventListener>);
-    EventListener* onbeforecopy() const;
-    void setOnbeforecopy(PassRefPtr<EventListener>);
-    EventListener* oncopy() const;
-    void setOncopy(PassRefPtr<EventListener>);
-    EventListener* onbeforepaste() const;
-    void setOnbeforepaste(PassRefPtr<EventListener>);
-    EventListener* onpaste() const;
-    void setOnpaste(PassRefPtr<EventListener>);
-    EventListener* onreset() const;
-    void setOnreset(PassRefPtr<EventListener>);
-    EventListener* onsearch() const;
-    void setOnsearch(PassRefPtr<EventListener>);
-    EventListener* onselectstart() const;
-    void setOnselectstart(PassRefPtr<EventListener>);
-
 #if ENABLE(TOUCH_EVENTS) // Android
     EventListener* ontouchstart() const;
     void setOntouchstart(PassRefPtr<EventListener>);
@@ -678,8 +577,6 @@ public:
     void setOntouchcancel(PassRefPtr<EventListener>);
 #endif
 
-=======
->>>>>>> webkit.org at 49305:WebCore/dom/Node.h
     using TreeShared<Node>::ref;
     using TreeShared<Node>::deref;
 

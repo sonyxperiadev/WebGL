@@ -73,15 +73,11 @@ namespace WebCore {
     class String;
     class Widget;
 
-<<<<<<< HEAD:WebCore/loader/FrameLoaderClient.h
 #ifdef ANDROID_HISTORY_CLIENT
     class BackForwardList;
 #endif
 
-    typedef void (FrameLoader::*FramePolicyFunction)(PolicyAction);
-=======
     typedef void (PolicyChecker::*FramePolicyFunction)(PolicyAction);
->>>>>>> webkit.org at 49305:WebCore/loader/FrameLoaderClient.h
 
     class FrameLoaderClient {
     public:

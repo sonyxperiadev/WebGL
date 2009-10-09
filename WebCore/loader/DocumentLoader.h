@@ -43,11 +43,7 @@ namespace WebCore {
     class Archive;
     class ArchiveResource;
     class ArchiveResourceCollection;
-<<<<<<< HEAD:WebCore/loader/DocumentLoader.h
 #endif
-    class CachedPage;
-=======
->>>>>>> webkit.org at 49305:WebCore/loader/DocumentLoader.h
     class Frame;
     class FrameLoader;
     class MainResourceLoader;

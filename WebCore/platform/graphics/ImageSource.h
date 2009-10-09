@@ -70,7 +70,6 @@ typedef CGImageRef NativeImagePtr;
 class ImageDecoderQt;
 typedef ImageDecoderQt* NativeImageSourcePtr;
 typedef QPixmap* NativeImagePtr;
-<<<<<<< HEAD:WebCore/platform/graphics/ImageSource.h
 #elif PLATFORM(ANDROID)
 #if PLATFORM(SGL)
 class String;
@@ -91,10 +90,7 @@ class ImageDecoder;
 typedef ImageDecoder* NativeImageSourcePtr;
 typedef NativeImageSkia* NativeImagePtr;
 #endif
-#elif PLATFORM(CAIRO)
-=======
 #else
->>>>>>> webkit.org at 49305:WebCore/platform/graphics/ImageSource.h
 class ImageDecoder;
 typedef ImageDecoder* NativeImageSourcePtr;
 #if PLATFORM(WX)

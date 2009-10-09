@@ -74,13 +74,10 @@ namespace WebCore {
     typedef wxDragImage* DragImageRef;
 #elif PLATFORM(GTK)
     typedef GdkPixbuf* DragImageRef;
-<<<<<<< HEAD:WebCore/platform/DragImage.h
-#elif PLATFORM(ANDROID)
-    typedef void* DragImageRef;
-=======
 #elif PLATFORM(HAIKU)
     typedef BBitmap* DragImageRef;
->>>>>>> webkit.org at 49305:WebCore/platform/DragImage.h
+#elif PLATFORM(ANDROID)
+    typedef void* DragImageRef;
 #endif
     
     IntSize dragImageSize(DragImageRef);

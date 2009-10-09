@@ -1630,20 +1630,11 @@ void HTMLMediaElement::updatePlayState()
         m_playbackProgressTimer.stop();
         m_playing = false;
         float time = currentTime();
-<<<<<<< HEAD:WebCore/html/HTMLMediaElement.cpp
-        if (m_lastSeekTime < time)
-            m_playedTimeRanges->add(m_lastSeekTime, time);
-=======
         if (time > m_lastSeekTime)
             addPlayedRange(m_lastSeekTime, time);
->>>>>>> webkit.org at 49305:WebCore/html/HTMLMediaElement.cpp
     } else if (couldPlayIfEnoughData() && playerPaused)
         m_player->prepareToPlay();
-<<<<<<< HEAD:WebCore/html/HTMLMediaElement.cpp
-
-=======
     
->>>>>>> webkit.org at 49305:WebCore/html/HTMLMediaElement.cpp
     if (renderer())
         renderer()->updateFromElement();
 }

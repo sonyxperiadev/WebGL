@@ -43,66 +43,6 @@
 
 namespace WebCore {
 
-<<<<<<< HEAD:WebCore/bindings/v8/custom/V8DOMApplicationCacheCustom.cpp
-static const bool kFindOnly = true;
-static const bool kFindOrCreate = false;
-
-static PassRefPtr<EventListener> argumentToEventListener(DOMApplicationCache* appcache, v8::Local<v8::Value> value, bool findOnly)
-{
-    V8Proxy* proxy = V8Proxy::retrieve(appcache->scriptExecutionContext());
-    if (proxy)
-        return findOnly ? proxy->objectListeners()->findWrapper(value, false)
-                        : proxy->objectListeners()->findOrCreateWrapper<V8ObjectEventListener>(proxy->frame(), value, false);
-    return 0;
-}
-
-static v8::Local<v8::Object> eventListenerToV8Object(EventListener* listener)
-{
-    return (static_cast<V8ObjectEventListener*>(listener))->getListenerObject();
-}
-
-static inline ApplicationCacheHost::EventID toEventID(v8::Local<v8::String> value)
-{
-    String key = toWebCoreString(value);
-    ASSERT(key.startsWith("on"));
-    return DOMApplicationCache::toEventID(key.substring(2));
-}
-
-// Handles appcache.onfooevent attribute getting
-ACCESSOR_GETTER(DOMApplicationCacheEventHandler)
-{
-    INC_STATS("DOMApplicationCache.onevent_getter");
-    DOMApplicationCache* appcache = V8DOMWrapper::convertToNativeObject<DOMApplicationCache>(V8ClassIndex::DOMAPPLICATIONCACHE, info.Holder());
-    EventListener* listener = appcache->getAttributeEventListener(toEventID(name));
-    if (!listener)
-        return v8::Null();
-    return eventListenerToV8Object(listener);
-}
-
-// Handles appcache.onfooevent attribute setting
-ACCESSOR_SETTER(DOMApplicationCacheEventHandler)
-{
-    INC_STATS("DOMApplicationCache.onevent_setter");
-    DOMApplicationCache* appcache = V8DOMWrapper::convertToNativeObject<DOMApplicationCache>(V8ClassIndex::DOMAPPLICATIONCACHE, info.Holder());
-    ApplicationCacheHost::EventID eventType = toEventID(name);
-
-    if (EventListener* oldListener = appcache->getAttributeEventListener(eventType)) {
-        v8::Local<v8::Object> object = eventListenerToV8Object(oldListener);
-        removeHiddenDependency(info.Holder(), object, V8Custom::kDOMApplicationCacheCacheIndex);
-        appcache->clearAttributeEventListener(eventType);
-    }
-
-    if (value->IsFunction()) {
-        RefPtr<EventListener> newListener = argumentToEventListener(appcache, value, kFindOrCreate);
-        if (newListener) {
-            createHiddenDependency(info.Holder(), value, V8Custom::kDOMApplicationCacheCacheIndex);
-            appcache->setAttributeEventListener(eventType, newListener);
-        }
-    }
-}
-
-=======
->>>>>>> webkit.org at 49305:WebCore/bindings/v8/custom/V8DOMApplicationCacheCustom.cpp
 // Handles appcache.addEventListner(name, func, capture) method calls
 CALLBACK_FUNC_DECL(DOMApplicationCacheAddEventListener)
 {

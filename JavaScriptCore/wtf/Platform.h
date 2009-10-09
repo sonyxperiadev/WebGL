@@ -259,34 +259,21 @@
 
 #if defined(__ARMEB__)
 #define WTF_PLATFORM_BIG_ENDIAN 1
-<<<<<<< HEAD:JavaScriptCore/wtf/Platform.h
-#elif !defined(__ARM_EABI__) && !defined(__EABI__) && !defined(__VFP_FP__)
-#if !defined(ANDROID)
-=======
 
 #elif !defined(__ARM_EABI__) \
    && !defined(__EABI__) \
    && !defined(__VFP_FP__)
->>>>>>> webkit.org at 49305:JavaScriptCore/wtf/Platform.h
+#if !defined(ANDROID)
 #define WTF_PLATFORM_MIDDLE_ENDIAN 1
 
 #endif
-<<<<<<< HEAD:JavaScriptCore/wtf/Platform.h
 #endif
-#if !defined(__ARM_EABI__) && !defined(__EABI__)
-#define WTF_PLATFORM_FORCE_PACK 1
-#endif
-#define ARM_ARCH_VERSION 3
-#if defined(__ARM_ARCH_4__) || defined(__ARM_ARCH_4T__)
-#undef ARM_ARCH_VERSION
-=======
 
 /* Set ARM_ARCH_VERSION */
 #if   defined(__ARM_ARCH_4__) \
    || defined(__ARM_ARCH_4T__) \
    || defined(__MARM_ARMV4__) \
    || defined(_ARMV4I_)
->>>>>>> webkit.org at 49305:JavaScriptCore/wtf/Platform.h
 #define ARM_ARCH_VERSION 4
 
 #elif defined(__ARM_ARCH_5__) \
@@ -517,12 +504,8 @@
 #endif
 #define HAVE_READLINE 1
 #define HAVE_RUNLOOP_TIMER 1
-<<<<<<< HEAD:JavaScriptCore/wtf/Platform.h
 #define HAVE_PTHREAD_RWLOCK 1
-#endif
-=======
 #endif /* PLATFORM(MAC) && !PLATFORM(IPHONE) */
->>>>>>> webkit.org at 49305:JavaScriptCore/wtf/Platform.h
 
 #if PLATFORM(CHROMIUM) && PLATFORM(DARWIN)
 #define WTF_PLATFORM_CF 1
@@ -577,12 +560,9 @@
 #define HAVE_SIGNAL_H 1
 #endif
 
-<<<<<<< HEAD:JavaScriptCore/wtf/Platform.h
-#if !PLATFORM(WIN_OS) && !PLATFORM(SOLARIS) && !PLATFORM(SYMBIAN) && !COMPILER(RVCT) && !PLATFORM(ANDROID)
-=======
 #if !PLATFORM(WIN_OS) && !PLATFORM(SOLARIS) && !PLATFORM(QNX) \
-    && !PLATFORM(SYMBIAN) && !PLATFORM(HAIKU) && !COMPILER(RVCT)
->>>>>>> webkit.org at 49305:JavaScriptCore/wtf/Platform.h
+    && !PLATFORM(SYMBIAN) && !PLATFORM(HAIKU) && !COMPILER(RVCT) \
+    && !PLATFORM(ANDROID)
 #define HAVE_TM_GMTOFF 1
 #define HAVE_TM_ZONE 1
 #define HAVE_TIMEGM 1
@@ -633,17 +613,19 @@
 #define HAVE_SYS_PARAM_H 1
 #endif
 
-<<<<<<< HEAD:JavaScriptCore/wtf/Platform.h
-#elif PLATFORM(ANDROID)
-=======
 #elif PLATFORM(QNX)
->>>>>>> webkit.org at 49305:JavaScriptCore/wtf/Platform.h
 
 #define HAVE_ERRNO_H 1
-<<<<<<< HEAD:JavaScriptCore/wtf/Platform.h
+#define HAVE_MMAP 1
+#define HAVE_SBRK 1
+#define HAVE_STRINGS_H 1
+#define HAVE_SYS_PARAM_H 1
+#define HAVE_SYS_TIME_H 1
+
+#elif PLATFORM(ANDROID)
+
+#define HAVE_ERRNO_H 1
 #define HAVE_LANGINFO_H 0
-=======
->>>>>>> webkit.org at 49305:JavaScriptCore/wtf/Platform.h
 #define HAVE_MMAP 1
 #define HAVE_SBRK 1
 #define HAVE_STRINGS_H 1

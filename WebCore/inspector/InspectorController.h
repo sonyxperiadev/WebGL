@@ -64,11 +64,8 @@ class GraphicsContext;
 class HitTestResult;
 class InspectorClient;
 class InspectorDOMAgent;
-<<<<<<< HEAD:WebCore/inspector/InspectorController.h
-=======
 class InspectorFrontend;
 class InspectorTimelineAgent;
->>>>>>> webkit.org at 49305:WebCore/inspector/InspectorController.h
 class JavaScriptCallFrame;
 class KURL;
 class Node;
@@ -303,11 +300,7 @@ public:
 private:
 #if !PLATFORM(ANDROID)
     friend class InspectorBackend;
-<<<<<<< HEAD:WebCore/inspector/InspectorController.h
 #endif
-
-=======
->>>>>>> webkit.org at 49305:WebCore/inspector/InspectorController.h
     // Following are used from InspectorBackend and internally.
     void scriptObjectReady();
     void moveWindowBy(float x, float y) const;
@@ -398,15 +391,12 @@ private:
 #if !PLATFORM(ANDROID)
     OwnPtr<InspectorFrontend> m_frontend;
     RefPtr<InspectorBackend> m_inspectorBackend;
-<<<<<<< HEAD:WebCore/inspector/InspectorController.h
 #endif
-=======
     HashMap<String, ScriptValue> m_idToWrappedObject;
     ObjectGroupsMap m_objectGroups;
 
     long m_lastBoundObjectId;
     Vector<pair<long, String> > m_pendingEvaluateTestCommands;
->>>>>>> webkit.org at 49305:WebCore/inspector/InspectorController.h
 #if ENABLE(JAVASCRIPT_DEBUGGER)
     bool m_debuggerEnabled;
     bool m_attachDebuggerWhenShown;

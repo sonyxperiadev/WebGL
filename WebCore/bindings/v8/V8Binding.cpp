@@ -207,19 +207,7 @@ String v8NonStringValueToWebCoreString(v8::Handle<v8::Value> object)
         throwError(block.Exception());
         return StringImpl::empty();
     }
-<<<<<<< HEAD:WebCore/bindings/v8/V8Binding.cpp
-    return v8StringToWebCoreString(v8String, DoNotExternalize, PlainStringType);
-}
-
-AtomicString v8ValueToAtomicWebCoreString(v8::Handle<v8::Value> v8Value)
-{
-    if (v8Value->IsString())
-        return v8StringToAtomicWebCoreString(v8::Handle<v8::String>::Cast(v8Value));
-    String string = v8ValueToWebCoreString(v8Value);
-    return AtomicString(string);
-=======
     return v8StringToWebCoreString<String>(v8String, DoNotExternalize);
->>>>>>> webkit.org at 49305:WebCore/bindings/v8/V8Binding.cpp
 }
 
 AtomicString v8NonStringValueToAtomicWebCoreString(v8::Handle<v8::Value> object)

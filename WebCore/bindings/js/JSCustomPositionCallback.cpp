@@ -48,20 +48,7 @@ void JSCustomPositionCallback::handleEvent(Geoposition* geoposition)
     ExecState* exec = m_data.globalObject()->globalExec();
     MarkedArgumentBuffer args;
     args.append(toJS(exec, deprecatedGlobalObjectForPrototype(exec), geoposition));
-<<<<<<< HEAD:WebCore/bindings/js/JSCustomPositionCallback.cpp
-
-    globalObject->globalData()->timeoutChecker.start();
-    call(exec, function, callType, callData, m_callback, args);
-    globalObject->globalData()->timeoutChecker.stop();
-    
-    if (exec->hadException()) {
-        reportCurrentException(exec);
-    }
-    
-    Document::updateStyleForAllDocuments();
-=======
     m_data.invokeCallback(args);
->>>>>>> webkit.org at 49305:WebCore/bindings/js/JSCustomPositionCallback.cpp
 }
 
 } // namespace WebCore

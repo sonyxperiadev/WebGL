@@ -626,14 +626,13 @@ namespace WebCore {
         DECLARE_CALLBACK(SharedWorkerConstructor);
 #endif
 
-<<<<<<< HEAD:WebCore/bindings/v8/custom/V8CustomBinding.h
         DECLARE_CALLBACK(GeolocationGetCurrentPosition);
         DECLARE_CALLBACK(GeolocationWatchPosition);
         DECLARE_PROPERTY_ACCESSOR_GETTER(CoordinatesAltitude);
         DECLARE_PROPERTY_ACCESSOR_GETTER(CoordinatesAltitudeAccuracy);
         DECLARE_PROPERTY_ACCESSOR_GETTER(CoordinatesHeading);
         DECLARE_PROPERTY_ACCESSOR_GETTER(CoordinatesSpeed);
-=======
+
 #if ENABLE(WEB_SOCKETS)
         DECLARE_PROPERTY_ACCESSOR(WebSocketOnopen);
         DECLARE_PROPERTY_ACCESSOR(WebSocketOnmessage);
@@ -642,7 +641,6 @@ namespace WebCore {
         DECLARE_CALLBACK(WebSocketSend);
         DECLARE_CALLBACK(WebSocketClose);
 #endif
->>>>>>> webkit.org at 49305:WebCore/bindings/v8/custom/V8CustomBinding.h
 
 #undef DECLARE_INDEXED_ACCESS_CHECK
 #undef DECLARE_NAMED_ACCESS_CHECK

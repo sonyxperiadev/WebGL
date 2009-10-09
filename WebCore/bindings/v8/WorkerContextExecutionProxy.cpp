@@ -403,30 +403,6 @@ v8::Local<v8::Value> WorkerContextExecutionProxy::runScript(v8::Handle<v8::Scrip
     return result;
 }
 
-<<<<<<< HEAD:WebCore/bindings/v8/WorkerContextExecutionProxy.cpp
-PassRefPtr<V8EventListener> WorkerContextExecutionProxy::findOrCreateEventListenerHelper(v8::Local<v8::Value> object, bool isInline, bool findOnly, bool createObjectEventListener)
-{
-    if (!object->IsObject())
-        return 0;
-
-    V8EventListener* listener = m_listeners->find(object->ToObject(), isInline);
-    if (findOnly)
-        return listener;
-
-    // Create a new one, and add to cache.
-    RefPtr<V8EventListener> newListener;
-    if (createObjectEventListener)
-        newListener = V8WorkerContextObjectEventListener::create(this, v8::Local<v8::Object>::Cast(object), isInline);
-    else
-        newListener = V8WorkerContextEventListener::create(this, v8::Local<v8::Object>::Cast(object), isInline);
-
-    m_listeners->add(newListener.get());
-
-    return newListener.release();
-}
-
-=======
->>>>>>> webkit.org at 49305:WebCore/bindings/v8/WorkerContextExecutionProxy.cpp
 PassRefPtr<V8EventListener> WorkerContextExecutionProxy::findOrCreateEventListener(v8::Local<v8::Value> object, bool isInline, bool findOnly)
 {
     return findOnly ? V8EventListenerList::findWrapper(object, isInline) : V8EventListenerList::findOrCreateWrapper<V8WorkerContextEventListener>(this, m_listenerGuard, object, isInline);
