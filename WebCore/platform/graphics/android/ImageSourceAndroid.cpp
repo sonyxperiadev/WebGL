@@ -44,6 +44,8 @@
     using namespace android;
 #endif
 
+// TODO: We should make use of some of the common code in platform/graphics/ImageSource.cpp.
+
 SkPixelRef* SkCreateRLEPixelRef(const SkBitmap& src);
 
 //#define TRACE_SUBSAMPLE_BITMAPS
