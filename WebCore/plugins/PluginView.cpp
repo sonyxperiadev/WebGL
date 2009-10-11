@@ -290,7 +290,12 @@ PluginView::~PluginView()
 
     m_parentFrame->script()->cleanupScriptObjectsForPlugin(this);
 
+#if PLATFORM(ANDROID)
+    // Since we have no legacy plugins to check, we ignore the quirks check.
+    if (m_plugin)
+#else
     if (m_plugin && !(m_plugin->quirks().contains(PluginQuirkDontUnloadPlugin)))
+#endif
         m_plugin->unload();
 }
 

@@ -163,56 +163,16 @@ void PluginView::platformInit()
     m_npWindow.window = 0;
 }
 
-void PluginView::platformStart()
+bool PluginView::platformStart()
 {
-    notImplemented();
-}
-
-PluginView::~PluginView()
-{
-    stop();
-
-    deleteAllValues(m_requests);
-
-    freeStringArray(m_paramNames, m_paramCount);
-    freeStringArray(m_paramValues, m_paramCount);
-
-    m_parentFrame->script()->cleanupScriptObjectsForPlugin(this);
-
-// Since we have no legacy plugins to check, we ignore the quirks check
-//    if (m_plugin && !m_plugin->quirks().contains(PluginQuirkDontUnloadPlugin))
-    if (m_plugin) {
-        m_plugin->unload();
-    }
-    delete m_window;
-}
-
-void PluginView::init()
-{
-    if (m_haveInitialized)
-        return;
-    m_haveInitialized = true;
-
     android::WebViewCore* c = android::WebViewCore::getWebViewCore(this->parent());
     m_window->init(c);
+    return true;
+}
 
-    if (!m_plugin) {
-        ASSERT(m_status == PluginStatusCanNotFindPlugin);
-        return;
-    }
-
-    if (!m_plugin->load()) {
-        m_plugin = 0;
-        m_status = PluginStatusCanNotLoadPlugin;
-        return;
-    }
-
-    if (!start()) {
-        m_status = PluginStatusCanNotLoadPlugin;
-        return;
-    }
-
-    m_status = PluginStatusLoadedSuccessfully;
+void PluginView::platformDestroy()
+{
+    delete m_window;
 }
 
 void PluginView::handleTouchEvent(TouchEvent* event)
