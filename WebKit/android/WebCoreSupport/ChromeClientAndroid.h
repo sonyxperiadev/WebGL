@@ -104,7 +104,7 @@ namespace android {
         virtual void scroll(const IntSize& scrollDelta, const IntRect& rectToScroll, const IntRect& clipRect);
         virtual IntPoint screenToWindow(const IntPoint&) const;
         virtual IntRect windowToScreen(const IntRect&) const;
-        virtual PlatformWidget platformWindow() const;
+        virtual PlatformPageClient platformPageClient() const;
         virtual void contentsSizeChanged(Frame*, const IntSize&) const;
         virtual void scrollRectIntoView(const IntRect&, const ScrollView*) const;
         // End methods used by HostWindow.
