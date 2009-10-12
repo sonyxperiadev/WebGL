@@ -635,6 +635,16 @@ bool FrameLoaderClientAndroid::shouldGoToHistoryItem(HistoryItem* item) const {
     return item != NULL;
 }
 
+void FrameLoaderClientAndroid::didDisplayInsecureContent()
+{
+    notImplemented();
+}
+
+void FrameLoaderClientAndroid::didRunInsecureContent(SecurityOrigin*)
+{
+    notImplemented();
+}
+
 void FrameLoaderClientAndroid::committedLoad(DocumentLoader* loader, const char* data, int length) {
     ASSERT(m_frame);
     String encoding = loader->overrideEncoding();
