@@ -2937,6 +2937,15 @@ static void UpdatePluginState(JNIEnv* env, jobject obj, jint framePtr, jint node
 
 static void Pause(JNIEnv* env, jobject obj)
 {
+    // This is called for the foreground tab when the browser is put to the
+    // background (and also for any tab when it is put to the background of the
+    // browser). The browser can only be killed by the system when it is in the
+    // background, so saving the Geolocation permission state now ensures that
+    // is maintained when the browser is killed.
+    ChromeClient* chromeClient = GET_NATIVE_VIEW(env, obj)->mainFrame()->page()->chrome()->client();
+    ChromeClientAndroid* chromeClientAndroid = static_cast<ChromeClientAndroid*>(chromeClient);
+    chromeClientAndroid->storeGeolocationPermissions();
+
     ANPEvent event;
     SkANP::InitEvent(&event, kLifecycle_ANPEventType);
     event.data.lifecycle.action = kPause_ANPLifecycleAction;

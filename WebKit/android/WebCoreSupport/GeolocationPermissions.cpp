@@ -62,7 +62,6 @@ GeolocationPermissions::~GeolocationPermissions()
 {
     size_t index = s_instances.find(this);
     s_instances.remove(index);
-    maybeStorePermanentPermissions();
 }
 
 void GeolocationPermissions::queryPermissionState(Frame* frame)
@@ -256,7 +255,6 @@ void GeolocationPermissions::clear(String origin)
     PermissionsMap::iterator iter = s_permanentPermissions.find(origin);
     if (iter != s_permanentPermissions.end())
         s_permanentPermissions.remove(iter);
-    maybeStorePermanentPermissions();
 }
 
 void GeolocationPermissions::allow(String origin)
@@ -264,14 +262,12 @@ void GeolocationPermissions::allow(String origin)
     maybeLoadPermanentPermissions();
     // We replace any existing permanent permission.
     s_permanentPermissions.set(origin, true);
-    maybeStorePermanentPermissions();
 }
 
 void GeolocationPermissions::clearAll()
 {
     maybeLoadPermanentPermissions();
     s_permanentPermissions.clear();
-    maybeStorePermanentPermissions();
 }
 
 void GeolocationPermissions::maybeLoadPermanentPermissions()
@@ -306,8 +302,11 @@ void GeolocationPermissions::maybeLoadPermanentPermissions()
 
 void GeolocationPermissions::maybeStorePermanentPermissions()
 {
-    // If no instances remain, we need to store the permanent permissions.
-    if (s_instances.size() > 0)
+    // Protect against the case where we haven't yet loaded permissions, as
+    // saving in this case would overwrite the stored permissions with the empty
+    // set. This is safe as the permissions are always loaded before they are
+    // modified.
+    if (!s_permanentPermissionsLoaded)
         return;
 
     SQLiteDatabase database;
