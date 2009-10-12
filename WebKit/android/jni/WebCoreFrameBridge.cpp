@@ -1124,7 +1124,7 @@ static void GoBackOrForward(JNIEnv *env, jobject obj, jint pos)
     else if (pos == -1)
         pFrame->page()->goBack();
     else
-        pFrame->loader()->goBackOrForward(pos);
+        pFrame->page()->goBackOrForward(pos);
 }
 
 static jobject StringByEvaluatingJavaScriptFromString(JNIEnv *env, jobject obj, jstring script)
