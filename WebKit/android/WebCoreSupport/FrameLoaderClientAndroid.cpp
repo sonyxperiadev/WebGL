@@ -858,8 +858,6 @@ void FrameLoaderClientAndroid::transitionToCommittedForNewPage() {
     if (m_frame->ownerRenderer())
         m_frame->ownerRenderer()->setWidget(view.get());
 
-    m_frame->view()->initScrollbars();
-
     m_webFrame->transitionToCommitted(m_frame);
 }
 
