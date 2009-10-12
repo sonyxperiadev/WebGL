@@ -41,7 +41,6 @@ public:
     String hash() const;
     String host() const;
     String hostname() const;
-    virtual bool isFocusable() const;
     String pathname() const;
     String port() const;
     String protocol() const;
