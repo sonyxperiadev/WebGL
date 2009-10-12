@@ -396,6 +396,7 @@ namespace android {
 
         // draw the picture set with the specified background color
         bool drawContent(SkCanvas* , SkColor );
+        bool focusBoundsChanged();
         bool pictureReady();
 
         // record the inval area, and the picture size
@@ -464,6 +465,7 @@ namespace android {
         // Used in passToJS to avoid updating the UI text field until after the
         // key event has been processed.
         bool m_blockTextfieldUpdates;
+        bool m_focusBoundsChanged;
         bool m_skipContentDraw;
         // Passed in with key events to know when they were generated.  Store it
         // with the cache so that we can ignore stale text changes.
