@@ -1049,7 +1049,7 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
             clip.mHasClip = hasClip;
             clip.mDirection = direction;
             if (columns != NULL) {
-                const IntRect& oRect = ((RenderBox*)nodeRenderer)->overflowRect(true);
+                const IntRect& oRect = ((RenderBox*)nodeRenderer)->visibleOverflowRect();
                 clip.mBounds.move(oRect.x(), oRect.y());
             }
         }
