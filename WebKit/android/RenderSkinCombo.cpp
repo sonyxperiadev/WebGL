@@ -36,9 +36,9 @@ namespace WebCore {
 
 static SkBitmap         s_bitmap[2];    // Collection of assets for a combo box
 static bool             s_decoded;      // True if all assets were decoded
-static const int        s_margin = 0;
+static const int        s_margin = 2;
 static const SkIRect    s_mar = { s_margin, s_margin,
-                                  RenderSkinCombo::extraWidth() - 2, s_margin };
+                                RenderSkinCombo::extraWidth(), s_margin };
     
 RenderSkinCombo::RenderSkinCombo()
 {
@@ -61,8 +61,11 @@ bool RenderSkinCombo::Draw(SkCanvas* canvas, Node* element, int x, int y, int wi
         return true;
 
     State state = (element->isElementNode() && static_cast<Element*>(element)->isEnabledFormControl()) ? kNormal : kDisabled;
+    if (height < (s_margin<<1) + 1) {
+        height = (s_margin<<1) + 1;
+    }
     SkRect bounds;
-    bounds.set(SkIntToScalar(x + width), SkIntToScalar(y), SkIntToScalar(x + width), SkIntToScalar(y + height));
+    bounds.set(SkIntToScalar(x), SkIntToScalar(y), SkIntToScalar(x + width), SkIntToScalar(y + height));
     SkNinePatch::DrawNine(canvas, bounds, s_bitmap[state], s_mar);
     return false;
 }
