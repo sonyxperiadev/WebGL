@@ -86,7 +86,7 @@ Image* ImageBuffer::image() const
     return m_image.get();
 }
 
-PassRefPtr<ImageData> ImageBuffer::getImageData(const IntRect& rect) const
+PassRefPtr<ImageData> ImageBuffer::getUnmultipliedImageData(const IntRect& rect) const
 {
     GraphicsContext* gc = this->context();
     if (!gc) {
@@ -149,7 +149,7 @@ PassRefPtr<ImageData> ImageBuffer::getImageData(const IntRect& rect) const
     return result;
 }
 
-void ImageBuffer::putImageData(ImageData* source, const IntRect& sourceRect, const IntPoint& destPoint)
+void ImageBuffer::putUnmultipliedImageData(ImageData* source, const IntRect& sourceRect, const IntPoint& destPoint)
 {
     GraphicsContext* gc = this->context();
     if (!gc) {
