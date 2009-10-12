@@ -185,7 +185,7 @@ void ChromeClientAndroid::closeWindowSoon()
     // This will prevent javascript cross-scripting during unload
     page->setGroupName(String());
     // Stop loading but do not send the unload event
-    mainFrame->loader()->stopLoading(false);
+    mainFrame->loader()->stopLoading(UnloadEventPolicyNone);
     // Cancel all pending loaders
     mainFrame->loader()->stopAllLoaders();
     // Remove all event listeners so that no javascript can execute as a result
