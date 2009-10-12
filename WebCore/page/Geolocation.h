@@ -26,6 +26,7 @@
 #ifndef Geolocation_h
 #define Geolocation_h
 
+#include "EventListener.h"
 #include "GeolocationService.h"
 #include "Geoposition.h"
 #include "PositionCallback.h"
@@ -48,11 +49,11 @@ class Frame;
 class CachedPositionManager;
 
 
-class Geolocation : public RefCounted<Geolocation>, public GeolocationServiceClient {
+class Geolocation : public GeolocationServiceClient, public EventListener {
 public:
     static PassRefPtr<Geolocation> create(Frame* frame) { return adoptRef(new Geolocation(frame)); }
 
-    virtual ~Geolocation() {}
+    virtual ~Geolocation();
 
     void disconnectFrame();
     
@@ -117,6 +118,9 @@ private:
     // GeolocationServiceClient
     virtual void geolocationServicePositionChanged(GeolocationService*);
     virtual void geolocationServiceErrorOccurred(GeolocationService*);
+
+    // EventListener
+    virtual void handleEvent(Event*, bool isWindowEvent);
 
     void fatalErrorOccurred(GeoNotifier* notifier);
     void requestTimedOut(GeoNotifier* notifier);
