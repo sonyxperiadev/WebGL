@@ -204,6 +204,8 @@ namespace WebCore {
         void setCMYKAFillColor(float c, float m, float y, float k, float a);
         void setCMYKAStrokeColor(float c, float m, float y, float k, float a);
         
+        // initialize a paint for bitmaps
+        void setupBitmapPaint(SkPaint*);
         // initialize a paint for filling
         void setupFillPaint(SkPaint*);
         // initialize a paint for stroking
