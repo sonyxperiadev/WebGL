@@ -94,7 +94,6 @@ typedef unsigned char   flex_uint8_t;
 // Converts ListBoxes to dropdown popup lists.
 #define ANDROID_LISTBOX_USES_MENU_LIST
 
-#define ANDROID_ALLOW_TRANSPARENT_BACKGROUNDS
 #define ANDROID_HISTORY_CLIENT
 #define ANDROID_MULTIPLE_WINDOWS
 #define ANDROID_CSS_TAP_HIGHLIGHT_COLOR
