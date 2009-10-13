@@ -29,6 +29,7 @@
 #include "Document.h"
 #include "Element.h"
 #include "Node.h"
+#include "NodeRenderStyle.h"
 #include "RenderStyle.h"
 #include "SkCanvas.h"
 #include "SkNinePatch.h"
