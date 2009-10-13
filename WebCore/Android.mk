@@ -220,8 +220,6 @@ LOCAL_SRC_FILES := \
 	bindings/js/JSTreeWalkerCustom.cpp \
 	bindings/js/JSWebKitCSSMatrixConstructor.cpp \
 	bindings/js/JSWebKitPointConstructor.cpp \
-	bindings/js/JSWebSocketConstructor.cpp \
-	bindings/js/JSWebSocketCustom.cpp \
 	bindings/js/JSWorkerConstructor.cpp \
 	bindings/js/JSWorkerContextBase.cpp \
 	bindings/js/JSWorkerContextCustom.cpp \
@@ -665,7 +663,6 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/graphics/GraphicsLayer.cpp \
 	platform/graphics/GraphicsTypes.cpp \
 	platform/graphics/Image.cpp \
-	platform/graphics/ImageBuffer.cpp \
 	platform/graphics/IntRect.cpp \
 	platform/graphics/MediaPlayer.cpp \
 	platform/graphics/Path.cpp \
@@ -1125,8 +1122,6 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 endif
 
 LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
-	websockets/WebSocket.cpp \
-	\
 	workers/AbstractWorker.cpp \
 	workers/DedicatedWorkerContext.cpp \
 	workers/DedicatedWorkerThread.cpp \
