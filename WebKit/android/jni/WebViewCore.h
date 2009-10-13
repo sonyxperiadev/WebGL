@@ -27,6 +27,7 @@
 #define WEBVIEWCORE_H
 
 #include "android_npapi.h"
+#include "FileChooser.h"
 #include "CacheBuilder.h"
 #include "CachedHistory.h"
 #include "PictureSet.h"
@@ -388,6 +389,9 @@ namespace android {
 
         // other public functions
     public:
+        // Open a file chooser for selecting a file to upload
+        void openFileChooser(PassRefPtr<WebCore::FileChooser> );
+
         // reset the picture set to empty
         void clearContent();
 

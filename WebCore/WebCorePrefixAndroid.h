@@ -98,10 +98,6 @@ typedef unsigned char   flex_uint8_t;
 #define ANDROID_MULTIPLE_WINDOWS
 #define ANDROID_CSS_TAP_HIGHLIGHT_COLOR
 
-// Hack to make File Upload buttons draw disabled.
-// Will be removed if/when we get file uploads working.
-#define ANDROID_DISABLE_UPLOAD
-
 #define ANDROID_BLOCK_NETWORK_IMAGE
 
 // Changes needed to support native plugins (npapi.h). If the change is generic,
