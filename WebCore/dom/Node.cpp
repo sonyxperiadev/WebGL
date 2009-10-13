@@ -3368,16 +3368,6 @@ void Node::setOnselectstart(PassRefPtr<EventListener> eventListener)
     setAttributeEventListener(eventNames().selectstartEvent, eventListener);
 }
 
-EventListener* Node::onunload() const
-{
-    return getAttributeEventListener(eventNames().unloadEvent);
-}
-
-void Node::setOnunload(PassRefPtr<EventListener> eventListener)
-{
-    setAttributeEventListener(eventNames().unloadEvent, eventListener);
-}
-
 #if ENABLE(TOUCH_EVENTS) // Android
 EventListener* Node::ontouchstart() const
 {
