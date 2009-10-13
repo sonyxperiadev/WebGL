@@ -70,7 +70,6 @@ namespace android {
 
     class CachedRoot;
     class ListBoxReply;
-    class SurfaceCallback;
 
     class WebCoreReply : public WebCoreRefObject {
     public:
@@ -383,6 +382,9 @@ namespace android {
         // Creates a Surface (i.e. View) for a plugin
         jobject createSurface(const char* libName, const char* className,
                               NPP npp, int x, int y, int width, int height);
+
+        // Updates a Surface coordinates and dimensions for a plugin
+        void updateSurface(jobject childView, int x, int y, int width, int height);
 
         // Destroys a SurfaceView for a plugin
         void destroySurface(jobject childView);
