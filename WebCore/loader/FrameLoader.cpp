@@ -3907,7 +3907,14 @@ void FrameLoader::continueFragmentScrollAfterNavigationPolicy(const ResourceRequ
     KURL url = request.url();
     
     m_documentLoader->replaceRequestURLForAnchorScroll(url);
+#ifdef ANDROID_USER_GESTURE
+    // Do not add history items for a fragment scroll not initiated by the
+    // user. http://bugs.webkit.org/show_bug.cgi?id=30224
+    if (!isRedirect && !shouldTreatURLAsSameAsCurrent(url)
+            && (isProcessingUserGesture() || request.getUserGesture())) {
+#else
     if (!isRedirect && !shouldTreatURLAsSameAsCurrent(url)) {
+#endif
         // NB: must happen after _setURL, since we add based on the current request.
         // Must also happen before we openURL and displace the scroll position, since
         // adding the BF item will save away scroll state.
