@@ -205,7 +205,7 @@ WebFrame::WebFrame(JNIEnv* env, jobject obj, jobject historyList, WebCore::Page*
             "(I)Ljava/lang/String;");
     mJavaFrame->mDensity = env->GetMethodID(clazz, "density","()F");
     mJavaFrame->mGetFileSize = env->GetMethodID(clazz, "getFileSize", "(Ljava/lang/String;)I");
-    mJavaFrame->mGetFile = env->GetMethodID(clazz, "getFile", "(Ljava/lang/String;[BI)I");
+    mJavaFrame->mGetFile = env->GetMethodID(clazz, "getFile", "(Ljava/lang/String;[BII)I");
 
     LOG_ASSERT(mJavaFrame->mStartLoadingResource, "Could not find method startLoadingResource");
     LOG_ASSERT(mJavaFrame->mLoadStarted, "Could not find method loadStarted");
@@ -293,6 +293,33 @@ static jstring uriFromUriFileName(JNIEnv* env, const WebCore::String& name)
     return env->NewString(fileName.characters(), fileName.length());
 }
 
+// This class stores the URI and the size of each file for upload.  The URI is
+// stored so we do not have to create it again.  The size is stored so we can
+// compare the actual size of the file with the stated size.  If the actual size
+// is larger, we will not copy it, since we will not have enough space in our
+// buffer.
+class FileInfo {
+public:
+    FileInfo(JNIEnv* env, const WebCore::String& name) {
+        m_uri = uriFromUriFileName(env, name);
+        checkException(env);
+        m_size = 0;
+        m_env = env;
+    }
+    ~FileInfo() {
+        m_env->DeleteLocalRef(m_uri);
+    }
+    int getSize() { return m_size; }
+    jstring getUri() { return m_uri; }
+    void setSize(int size) { m_size = size; }
+private:
+    // This is only a pointer to the JNIEnv* returned by
+    // JSC::Bindings::getJNIEnv().  Used to delete the jstring when finished.
+    JNIEnv* m_env;
+    jstring m_uri;
+    int m_size;
+};
+
 WebCoreResourceLoader*
 WebFrame::startLoadingResource(WebCore::ResourceHandle* loader,
                                   const WebCore::ResourceRequest& request,
@@ -344,17 +371,18 @@ WebFrame::startLoadingResource(WebCore::ResourceHandle* loader,
         // Sizing pass
         int size = 0;
         size_t n = elements.size();
+        FileInfo** fileinfos = new FileInfo*[n];
         for (size_t i = 0; i < n; ++i) {
+            fileinfos[i] = 0;
             const WebCore::FormDataElement& e = elements[i];
             if (e.m_type == WebCore::FormDataElement::data) {
                 size += e.m_data.size();
             } else if (e.m_type == WebCore::FormDataElement::encodedFile) {
-                // Remove the filename, as we only need the URI
-                jstring name = uriFromUriFileName(env, e.m_filename);
+                fileinfos[i] = new FileInfo(env, e.m_filename);
                 int delta = env->CallIntMethod(obj.get(),
-                    mJavaFrame->mGetFileSize, name);
-                env->DeleteLocalRef(name);
+                    mJavaFrame->mGetFileSize, fileinfos[i]->getUri());
                 checkException(env);
+                fileinfos[i]->setSize(delta);
                 size += delta;
             }
         }
@@ -376,11 +404,9 @@ WebFrame::startLoadingResource(WebCore::ResourceHandle* loader,
                         offset += delta;
                     } else if (e.m_type
                             == WebCore::FormDataElement::encodedFile) {
-                        // Remove the filename, as we only need the URI
-                        jstring name = uriFromUriFileName(env, e.m_filename);
                         int delta = env->CallIntMethod(obj.get(),
-                            mJavaFrame->mGetFile, name, jPostDataStr, offset);
-                        env->DeleteLocalRef(name);
+                            mJavaFrame->mGetFile, fileinfos[i]->getUri(),
+                            jPostDataStr, offset, fileinfos[i]->getSize());
                         checkException(env);
                         offset += delta;
                     }
@@ -388,6 +414,7 @@ WebFrame::startLoadingResource(WebCore::ResourceHandle* loader,
                 env->ReleaseByteArrayElements(jPostDataStr, bytes, 0);
             }
         }
+        delete[] fileinfos;
     }
 
     jobject jHeaderMap = createJavaMapFromHTTPHeaders(env, headers);
