@@ -38,8 +38,6 @@
 
 namespace WebCore {
 
-const int MAX_COMBO_HEIGHT = 20;
-
 // Add a constant amount of padding to the textsize to get the final height
 // of buttons, so that our button images are large enough to properly fit
 // the text.
@@ -271,16 +269,8 @@ bool RenderThemeAndroid::paintCombo(RenderObject* obj, const RenderObject::Paint
 {
     if (obj->style() && !obj->style()->backgroundColor().alpha())
         return true;
-    Node* node = obj->node();
-    int height = rect.height();
-    int y = rect.y();
-    // If the combo box is too large, leave it at its max height, and center it.
-    if (height > MAX_COMBO_HEIGHT) {
-        y += (height - MAX_COMBO_HEIGHT) >> 1;
-        height = MAX_COMBO_HEIGHT;
-    }
-    return RenderSkinCombo::Draw(getCanvasFromInfo(info), node, rect.x(), y,
-            rect.width(), height);
+    return RenderSkinCombo::Draw(getCanvasFromInfo(info), obj->node(), rect.x(),
+            rect.y(), rect.width(), rect.height());
 }
 
 bool RenderThemeAndroid::paintMenuList(RenderObject* obj, const RenderObject::PaintInfo& info, const IntRect& rect) 
