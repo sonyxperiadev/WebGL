@@ -29,7 +29,6 @@
 #	editing/BackForwardListChromium.cpp \
 #	editing/SmartReplace*.cpp \
 #	history/BackForwardListChromium.cpp \
-#	html/FileList.cpp \
 #	loader/CachedXBLDocument.cpp \
 #	loader/CachedXSLStyleSheet.cpp \
 #	loader/FTP*.cpp \
@@ -310,7 +309,8 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	html/FormDataList.cpp \
 	html/HTMLCollection.cpp \
 	html/HTMLDocument.cpp \
-        html/HTMLElementsAllInOne.cpp \
+	html/FileList.cpp \
+	html/HTMLElementsAllInOne.cpp \
 	html/HTMLFormCollection.cpp \
 	html/HTMLImageLoader.cpp \
 	html/HTMLNameCollection.cpp \
