@@ -28,6 +28,7 @@
 #include "v8.h"
 
 #include "api.h"
+#include "arguments.h"
 #include "bootstrapper.h"
 #include "debug.h"
 #include "execution.h"
@@ -158,14 +159,12 @@ Object* Object::GetPropertyWithCallback(Object* receiver,
     Object* fun_obj = data->getter();
     v8::AccessorGetter call_fun = v8::ToCData<v8::AccessorGetter>(fun_obj);
     HandleScope scope;
-    Handle<JSObject> self(JSObject::cast(receiver));
-    Handle<JSObject> holder_handle(JSObject::cast(holder));
+    JSObject* self = JSObject::cast(receiver);
+    JSObject* holder_handle = JSObject::cast(holder);
     Handle<String> key(name);
-    Handle<Object> fun_data(data->data());
-    LOG(ApiNamedPropertyAccess("load", *self, name));
-    v8::AccessorInfo info(v8::Utils::ToLocal(self),
-                          v8::Utils::ToLocal(fun_data),
-                          v8::Utils::ToLocal(holder_handle));
+    LOG(ApiNamedPropertyAccess("load", self, name));
+    CustomArguments args(data->data(), self, holder_handle);
+    v8::AccessorInfo info(args.end());
     v8::Handle<v8::Value> result;
     {
       // Leaving JavaScript.
@@ -473,6 +472,21 @@ Object* JSObject::DeleteNormalizedProperty(String* name, DeleteMode mode) {
     }
   }
   return Heap::true_value();
+}
+
+
+bool JSObject::IsDirty() {
+  Object* cons_obj = map()->constructor();
+  if (!cons_obj->IsJSFunction())
+    return true;
+  JSFunction* fun = JSFunction::cast(cons_obj);
+  if (!fun->shared()->function_data()->IsFunctionTemplateInfo())
+    return true;
+  // If the object is fully fast case and has the same map it was
+  // created with then no changes can have been made to it.
+  return map() != fun->initial_map()
+      || !HasFastElements()
+      || !HasFastProperties();
 }
 
 
@@ -1186,10 +1200,26 @@ void HeapNumber::HeapNumberPrint(StringStream* accumulator) {
 
 
 String* JSObject::class_name() {
-  if (IsJSFunction()) return Heap::function_class_symbol();
+  if (IsJSFunction()) {
+    return Heap::function_class_symbol();
+  }
   if (map()->constructor()->IsJSFunction()) {
     JSFunction* constructor = JSFunction::cast(map()->constructor());
     return String::cast(constructor->shared()->instance_class_name());
+  }
+  // If the constructor is not present, return "Object".
+  return Heap::Object_symbol();
+}
+
+
+String* JSObject::constructor_name() {
+  if (IsJSFunction()) {
+    return Heap::function_class_symbol();
+  }
+  if (map()->constructor()->IsJSFunction()) {
+    JSFunction* constructor = JSFunction::cast(map()->constructor());
+    String* name = String::cast(constructor->shared()->name());
+    return name->length() > 0 ? name : constructor->shared()->inferred_name();
   }
   // If the constructor is not present, return "Object".
   return Heap::Object_symbol();
@@ -1507,11 +1537,9 @@ Object* JSObject::SetPropertyWithInterceptor(String* name,
   Handle<Object> value_handle(value);
   Handle<InterceptorInfo> interceptor(GetNamedInterceptor());
   if (!interceptor->setter()->IsUndefined()) {
-    Handle<Object> data_handle(interceptor->data());
     LOG(ApiNamedPropertyAccess("interceptor-named-set", this, name));
-    v8::AccessorInfo info(v8::Utils::ToLocal(this_handle),
-                          v8::Utils::ToLocal(data_handle),
-                          v8::Utils::ToLocal(this_handle));
+    CustomArguments args(interceptor->data(), this, this);
+    v8::AccessorInfo info(args.end());
     v8::NamedPropertySetter setter =
         v8::ToCData<v8::NamedPropertySetter>(interceptor->setter());
     v8::Handle<v8::Value> result;
@@ -1574,14 +1602,10 @@ Object* JSObject::SetPropertyWithCallback(Object* structure,
     Object* call_obj = data->setter();
     v8::AccessorSetter call_fun = v8::ToCData<v8::AccessorSetter>(call_obj);
     if (call_fun == NULL) return value;
-    Handle<JSObject> self(this);
-    Handle<JSObject> holder_handle(JSObject::cast(holder));
     Handle<String> key(name);
-    Handle<Object> fun_data(data->data());
     LOG(ApiNamedPropertyAccess("store", this, name));
-    v8::AccessorInfo info(v8::Utils::ToLocal(self),
-                          v8::Utils::ToLocal(fun_data),
-                          v8::Utils::ToLocal(holder_handle));
+    CustomArguments args(data->data(), this, JSObject::cast(holder));
+    v8::AccessorInfo info(args.end());
     {
       // Leaving JavaScript.
       VMState state(EXTERNAL);
@@ -2005,10 +2029,8 @@ PropertyAttributes JSObject::GetPropertyAttributeWithInterceptor(
   Handle<JSObject> receiver_handle(receiver);
   Handle<JSObject> holder_handle(this);
   Handle<String> name_handle(name);
-  Handle<Object> data_handle(interceptor->data());
-  v8::AccessorInfo info(v8::Utils::ToLocal(receiver_handle),
-                        v8::Utils::ToLocal(data_handle),
-                        v8::Utils::ToLocal(holder_handle));
+  CustomArguments args(interceptor->data(), receiver, this);
+  v8::AccessorInfo info(args.end());
   if (!interceptor->query()->IsUndefined()) {
     v8::NamedPropertyQuery query =
         v8::ToCData<v8::NamedPropertyQuery>(interceptor->query());
@@ -2276,11 +2298,9 @@ Object* JSObject::DeletePropertyWithInterceptor(String* name) {
   if (!interceptor->deleter()->IsUndefined()) {
     v8::NamedPropertyDeleter deleter =
         v8::ToCData<v8::NamedPropertyDeleter>(interceptor->deleter());
-    Handle<Object> data_handle(interceptor->data());
     LOG(ApiNamedPropertyAccess("interceptor-named-delete", *this_handle, name));
-    v8::AccessorInfo info(v8::Utils::ToLocal(this_handle),
-                          v8::Utils::ToLocal(data_handle),
-                          v8::Utils::ToLocal(this_handle));
+    CustomArguments args(interceptor->data(), this, this);
+    v8::AccessorInfo info(args.end());
     v8::Handle<v8::Boolean> result;
     {
       // Leaving JavaScript.
@@ -2339,11 +2359,9 @@ Object* JSObject::DeleteElementWithInterceptor(uint32_t index) {
   v8::IndexedPropertyDeleter deleter =
       v8::ToCData<v8::IndexedPropertyDeleter>(interceptor->deleter());
   Handle<JSObject> this_handle(this);
-  Handle<Object> data_handle(interceptor->data());
   LOG(ApiIndexedPropertyAccess("interceptor-indexed-delete", this, index));
-  v8::AccessorInfo info(v8::Utils::ToLocal(this_handle),
-                        v8::Utils::ToLocal(data_handle),
-                        v8::Utils::ToLocal(this_handle));
+  CustomArguments args(interceptor->data(), this, this);
+  v8::AccessorInfo info(args.end());
   v8::Handle<v8::Boolean> result;
   {
     // Leaving JavaScript.
@@ -3940,35 +3958,75 @@ const unibrow::byte* String::ReadBlock(String* input,
 }
 
 
-FlatStringReader* FlatStringReader::top_ = NULL;
+Relocatable* Relocatable::top_ = NULL;
+
+
+void Relocatable::PostGarbageCollectionProcessing() {
+  Relocatable* current = top_;
+  while (current != NULL) {
+    current->PostGarbageCollection();
+    current = current->prev_;
+  }
+}
+
+
+// Reserve space for statics needing saving and restoring.
+int Relocatable::ArchiveSpacePerThread() {
+  return sizeof(top_);
+}
+
+
+// Archive statics that are thread local.
+char* Relocatable::ArchiveState(char* to) {
+  *reinterpret_cast<Relocatable**>(to) = top_;
+  top_ = NULL;
+  return to + ArchiveSpacePerThread();
+}
+
+
+// Restore statics that are thread local.
+char* Relocatable::RestoreState(char* from) {
+  top_ = *reinterpret_cast<Relocatable**>(from);
+  return from + ArchiveSpacePerThread();
+}
+
+
+char* Relocatable::Iterate(ObjectVisitor* v, char* thread_storage) {
+  Relocatable* top = *reinterpret_cast<Relocatable**>(thread_storage);
+  Iterate(v, top);
+  return thread_storage + ArchiveSpacePerThread();
+}
+
+
+void Relocatable::Iterate(ObjectVisitor* v) {
+  Iterate(v, top_);
+}
+
+
+void Relocatable::Iterate(ObjectVisitor* v, Relocatable* top) {
+  Relocatable* current = top;
+  while (current != NULL) {
+    current->IterateInstance(v);
+    current = current->prev_;
+  }
+}
 
 
 FlatStringReader::FlatStringReader(Handle<String> str)
     : str_(str.location()),
-      length_(str->length()),
-      prev_(top_) {
-  top_ = this;
-  RefreshState();
+      length_(str->length()) {
+  PostGarbageCollection();
 }
 
 
 FlatStringReader::FlatStringReader(Vector<const char> input)
-    : str_(NULL),
+    : str_(0),
       is_ascii_(true),
       length_(input.length()),
-      start_(input.start()),
-      prev_(top_) {
-  top_ = this;
-}
+      start_(input.start()) { }
 
 
-FlatStringReader::~FlatStringReader() {
-  ASSERT_EQ(top_, this);
-  top_ = prev_;
-}
-
-
-void FlatStringReader::RefreshState() {
+void FlatStringReader::PostGarbageCollection() {
   if (str_ == NULL) return;
   Handle<String> str(str_);
   ASSERT(str->IsFlat());
@@ -3977,15 +4035,6 @@ void FlatStringReader::RefreshState() {
     start_ = str->ToAsciiVector().start();
   } else {
     start_ = str->ToUC16Vector().start();
-  }
-}
-
-
-void FlatStringReader::PostGarbageCollectionProcessing() {
-  FlatStringReader* current = top_;
-  while (current != NULL) {
-    current->RefreshState();
-    current = current->prev_;
   }
 }
 
@@ -4924,60 +4973,25 @@ void SharedFunctionInfo::SharedFunctionInfoIterateBody(ObjectVisitor* v) {
 }
 
 
-void ObjectVisitor::BeginCodeIteration(Code* code) {
-  ASSERT(code->ic_flag() == Code::IC_TARGET_IS_OBJECT);
-}
-
-
 void ObjectVisitor::VisitCodeTarget(RelocInfo* rinfo) {
   ASSERT(RelocInfo::IsCodeTarget(rinfo->rmode()));
-  VisitPointer(rinfo->target_object_address());
+  Object* target = Code::GetCodeFromTargetAddress(rinfo->target_address());
+  Object* old_target = target;
+  VisitPointer(&target);
+  CHECK_EQ(target, old_target);  // VisitPointer doesn't change Code* *target.
 }
 
 
 void ObjectVisitor::VisitDebugTarget(RelocInfo* rinfo) {
   ASSERT(RelocInfo::IsJSReturn(rinfo->rmode()) && rinfo->IsCallInstruction());
-  VisitPointer(rinfo->call_object_address());
-}
-
-
-// Convert relocatable targets from address to code object address. This is
-// mainly IC call targets but for debugging straight-line code can be replaced
-// with a call instruction which also has to be relocated.
-void Code::ConvertICTargetsFromAddressToObject() {
-  ASSERT(ic_flag() == IC_TARGET_IS_ADDRESS);
-
-  for (RelocIterator it(this, RelocInfo::kCodeTargetMask);
-       !it.done(); it.next()) {
-    Address ic_addr = it.rinfo()->target_address();
-    ASSERT(ic_addr != NULL);
-    HeapObject* code = HeapObject::FromAddress(ic_addr - Code::kHeaderSize);
-    ASSERT(code->IsHeapObject());
-    it.rinfo()->set_target_object(code);
-  }
-
-#ifdef ENABLE_DEBUGGER_SUPPORT
-  if (Debug::has_break_points()) {
-    for (RelocIterator it(this, RelocInfo::ModeMask(RelocInfo::JS_RETURN));
-         !it.done();
-         it.next()) {
-      if (it.rinfo()->IsCallInstruction()) {
-        Address addr = it.rinfo()->call_address();
-        ASSERT(addr != NULL);
-        HeapObject* code = HeapObject::FromAddress(addr - Code::kHeaderSize);
-        ASSERT(code->IsHeapObject());
-        it.rinfo()->set_call_object(code);
-      }
-    }
-  }
-#endif
-  set_ic_flag(IC_TARGET_IS_OBJECT);
+  Object* target = Code::GetCodeFromTargetAddress(rinfo->call_address());
+  Object* old_target = target;
+  VisitPointer(&target);
+  CHECK_EQ(target, old_target);  // VisitPointer doesn't change Code* *target.
 }
 
 
 void Code::CodeIterateBody(ObjectVisitor* v) {
-  v->BeginCodeIteration(this);
-
   int mode_mask = RelocInfo::kCodeTargetMask |
                   RelocInfo::ModeMask(RelocInfo::EMBEDDED_OBJECT) |
                   RelocInfo::ModeMask(RelocInfo::EXTERNAL_REFERENCE) |
@@ -5004,38 +5018,6 @@ void Code::CodeIterateBody(ObjectVisitor* v) {
   }
 
   ScopeInfo<>::IterateScopeInfo(this, v);
-
-  v->EndCodeIteration(this);
-}
-
-
-void Code::ConvertICTargetsFromObjectToAddress() {
-  ASSERT(ic_flag() == IC_TARGET_IS_OBJECT);
-
-  for (RelocIterator it(this, RelocInfo::kCodeTargetMask);
-       !it.done(); it.next()) {
-    // We cannot use the safe cast (Code::cast) here, because we may be in
-    // the middle of relocating old objects during GC and the map pointer in
-    // the code object may be mangled
-    Code* code = reinterpret_cast<Code*>(it.rinfo()->target_object());
-    ASSERT((code != NULL) && code->IsHeapObject());
-    it.rinfo()->set_target_address(code->instruction_start());
-  }
-
-#ifdef ENABLE_DEBUGGER_SUPPORT
-  if (Debug::has_break_points()) {
-    for (RelocIterator it(this, RelocInfo::ModeMask(RelocInfo::JS_RETURN));
-         !it.done();
-         it.next()) {
-      if (it.rinfo()->IsCallInstruction()) {
-        Code* code = reinterpret_cast<Code*>(it.rinfo()->call_object());
-        ASSERT((code != NULL) && code->IsHeapObject());
-        it.rinfo()->set_call_address(code->instruction_start());
-      }
-    }
-  }
-#endif
-  set_ic_flag(IC_TARGET_IS_ADDRESS);
 }
 
 
@@ -5465,10 +5447,8 @@ bool JSObject::HasElementWithInterceptor(JSObject* receiver, uint32_t index) {
   Handle<InterceptorInfo> interceptor(GetIndexedInterceptor());
   Handle<JSObject> receiver_handle(receiver);
   Handle<JSObject> holder_handle(this);
-  Handle<Object> data_handle(interceptor->data());
-  v8::AccessorInfo info(v8::Utils::ToLocal(receiver_handle),
-                        v8::Utils::ToLocal(data_handle),
-                        v8::Utils::ToLocal(holder_handle));
+  CustomArguments args(interceptor->data(), receiver, this);
+  v8::AccessorInfo info(args.end());
   if (!interceptor->query()->IsUndefined()) {
     v8::IndexedPropertyQuery query =
         v8::ToCData<v8::IndexedPropertyQuery>(interceptor->query());
@@ -5600,11 +5580,9 @@ Object* JSObject::SetElementWithInterceptor(uint32_t index, Object* value) {
   if (!interceptor->setter()->IsUndefined()) {
     v8::IndexedPropertySetter setter =
         v8::ToCData<v8::IndexedPropertySetter>(interceptor->setter());
-    Handle<Object> data_handle(interceptor->data());
     LOG(ApiIndexedPropertyAccess("interceptor-indexed-set", this, index));
-    v8::AccessorInfo info(v8::Utils::ToLocal(this_handle),
-                          v8::Utils::ToLocal(data_handle),
-                          v8::Utils::ToLocal(this_handle));
+    CustomArguments args(interceptor->data(), this, this);
+    v8::AccessorInfo info(args.end());
     v8::Handle<v8::Value> result;
     {
       // Leaving JavaScript.
@@ -5872,13 +5850,11 @@ Object* JSObject::GetElementWithInterceptor(JSObject* receiver,
   Handle<JSObject> holder_handle(this);
 
   if (!interceptor->getter()->IsUndefined()) {
-    Handle<Object> data_handle(interceptor->data());
     v8::IndexedPropertyGetter getter =
         v8::ToCData<v8::IndexedPropertyGetter>(interceptor->getter());
     LOG(ApiIndexedPropertyAccess("interceptor-indexed-get", this, index));
-    v8::AccessorInfo info(v8::Utils::ToLocal(this_handle),
-                          v8::Utils::ToLocal(data_handle),
-                          v8::Utils::ToLocal(holder_handle));
+    CustomArguments args(interceptor->data(), receiver, this);
+    v8::AccessorInfo info(args.end());
     v8::Handle<v8::Value> result;
     {
       // Leaving JavaScript.
@@ -6110,15 +6086,13 @@ Object* JSObject::GetPropertyWithInterceptor(
   Handle<JSObject> receiver_handle(receiver);
   Handle<JSObject> holder_handle(this);
   Handle<String> name_handle(name);
-  Handle<Object> data_handle(interceptor->data());
 
   if (!interceptor->getter()->IsUndefined()) {
     v8::NamedPropertyGetter getter =
         v8::ToCData<v8::NamedPropertyGetter>(interceptor->getter());
     LOG(ApiNamedPropertyAccess("interceptor-named-get", *holder_handle, name));
-    v8::AccessorInfo info(v8::Utils::ToLocal(receiver_handle),
-                          v8::Utils::ToLocal(data_handle),
-                          v8::Utils::ToLocal(holder_handle));
+    CustomArguments args(interceptor->data(), receiver, this);
+    v8::AccessorInfo info(args.end());
     v8::Handle<v8::Value> result;
     {
       // Leaving JavaScript.

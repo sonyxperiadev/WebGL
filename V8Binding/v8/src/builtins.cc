@@ -135,7 +135,9 @@ BUILTIN(EmptyFunction) {
 BUILTIN_END
 
 
-BUILTIN(ArrayCode) {
+BUILTIN(ArrayCodeGeneric) {
+  Counters::array_function_runtime.Increment();
+
   JSArray* array;
   if (CalledAsConstructor()) {
     array = JSArray::cast(*receiver);
@@ -166,11 +168,13 @@ BUILTIN(ArrayCode) {
     // Take the argument as the length.
     obj = array->Initialize(0);
     if (obj->IsFailure()) return obj;
-    if (args.length() == 2) return array->SetElementsLength(args[1]);
+    return array->SetElementsLength(args[1]);
   }
 
   // Optimize the case where there are no parameters passed.
-  if (args.length() == 1) return array->Initialize(4);
+  if (args.length() == 1) {
+    return array->Initialize(JSArray::kPreallocatedArrayElements);
+  }
 
   // Take the arguments as elements.
   int number_of_elements = args.length() - 1;
@@ -606,11 +610,6 @@ static void Generate_ConstructCall_DebugBreak(MacroAssembler* masm) {
 
 static void Generate_Return_DebugBreak(MacroAssembler* masm) {
   Debug::GenerateReturnDebugBreak(masm);
-}
-
-
-static void Generate_Return_DebugBreakEntry(MacroAssembler* masm) {
-  Debug::GenerateReturnDebugBreakEntry(masm);
 }
 
 

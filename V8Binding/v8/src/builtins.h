@@ -37,7 +37,7 @@ namespace internal {
                                                    \
   V(EmptyFunction)                                 \
                                                    \
-  V(ArrayCode)                                     \
+  V(ArrayCodeGeneric)                              \
                                                    \
   V(ArrayPush)                                     \
   V(ArrayPop)                                      \
@@ -83,14 +83,15 @@ namespace internal {
                                                                \
   /* Uses KeyedLoadIC_Initialize; must be after in list. */    \
   V(FunctionCall,               BUILTIN, UNINITIALIZED)        \
-  V(FunctionApply,              BUILTIN, UNINITIALIZED)
-
+  V(FunctionApply,              BUILTIN, UNINITIALIZED)        \
+                                                               \
+  V(ArrayCode,                  BUILTIN, UNINITIALIZED)        \
+  V(ArrayConstructCode,         BUILTIN, UNINITIALIZED)
 
 #ifdef ENABLE_DEBUGGER_SUPPORT
 // Define list of builtins used by the debugger implemented in assembly.
 #define BUILTIN_LIST_DEBUG_A(V)                                \
   V(Return_DebugBreak,          BUILTIN, DEBUG_BREAK)          \
-  V(Return_DebugBreakEntry,     BUILTIN, DEBUG_BREAK)          \
   V(ConstructCall_DebugBreak,   BUILTIN, DEBUG_BREAK)          \
   V(StubNoRegisters_DebugBreak, BUILTIN, DEBUG_BREAK)          \
   V(LoadIC_DebugBreak,          LOAD_IC, DEBUG_BREAK)          \
@@ -218,6 +219,9 @@ class Builtins : public AllStatic {
 
   static void Generate_FunctionCall(MacroAssembler* masm);
   static void Generate_FunctionApply(MacroAssembler* masm);
+
+  static void Generate_ArrayCode(MacroAssembler* masm);
+  static void Generate_ArrayConstructCode(MacroAssembler* masm);
 };
 
 } }  // namespace v8::internal

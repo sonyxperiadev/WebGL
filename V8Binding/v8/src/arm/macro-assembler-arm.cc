@@ -52,20 +52,15 @@ MacroAssembler::MacroAssembler(void* buffer, int size)
 
 
 // We do not support thumb inter-working with an arm architecture not supporting
-// the blx instruction (below v5t)
-#if defined(USE_THUMB_INTERWORK)
-#if !defined(__ARM_ARCH_5T__) && \
-  !defined(__ARM_ARCH_5TE__) &&  \
-  !defined(__ARM_ARCH_7A__) &&   \
-  !defined(__ARM_ARCH_7__)
-// add tests for other versions above v5t as required
-#error "for thumb inter-working we require architecture v5t or above"
-#endif
+// the blx instruction (below v5t).  If you know what CPU you are compiling for
+// you can use -march=armv7 or similar.
+#if defined(USE_THUMB_INTERWORK) && !defined(CAN_USE_THUMB_INSTRUCTIONS)
+# error "For thumb inter-working we require an architecture which supports blx"
 #endif
 
 
 // Using blx may yield better code, so use it when required or when available
-#if defined(USE_THUMB_INTERWORK) || defined(__ARM_ARCH_5__)
+#if defined(USE_THUMB_INTERWORK) || defined(CAN_USE_ARMV5_INSTRUCTIONS)
 #define USE_BLX 1
 #endif
 
@@ -132,7 +127,7 @@ void MacroAssembler::Call(intptr_t target, RelocInfo::Mode rmode,
   // and the target address of the call would be referenced by the first
   // instruction rather than the second one, which would make it harder to patch
   // (two instructions before the return address, instead of one).
-  ASSERT(kPatchReturnSequenceLength == sizeof(Instr));
+  ASSERT(kCallTargetAddressOffset == kInstrSize);
 }
 
 
@@ -166,7 +161,7 @@ void MacroAssembler::SmiJumpTable(Register index, Vector<Label*> targets) {
   add(pc, pc, Operand(index,
                       LSL,
                       assembler::arm::Instr::kInstrSizeLog2 - kSmiTagSize));
-  BlockConstPoolBefore(pc_offset() + (targets.length() + 1) * sizeof(Instr));
+  BlockConstPoolBefore(pc_offset() + (targets.length() + 1) * kInstrSize);
   nop();  // Jump table alignment.
   for (int i = 0; i < targets.length(); i++) {
     b(targets[i]);
@@ -296,27 +291,8 @@ void MacroAssembler::EnterExitFrame(StackFrame::Type type) {
 
   // Align the stack at this point.  After this point we have 5 pushes,
   // so in fact we have to unalign here!  See also the assert on the
-  // alignment immediately below.
-#if defined(V8_HOST_ARCH_ARM)
-  // Running on the real platform. Use the alignment as mandated by the local
-  // environment.
-  // Note: This will break if we ever start generating snapshots on one ARM
-  // platform for another ARM platform with a different alignment.
-  int activation_frame_alignment = OS::ActivationFrameAlignment();
-#else  // defined(V8_HOST_ARCH_ARM)
-  // If we are using the simulator then we should always align to the expected
-  // alignment. As the simulator is used to generate snapshots we do not know
-  // if the target platform will need alignment, so we will always align at
-  // this point here.
-  int activation_frame_alignment = 2 * kPointerSize;
-#endif  // defined(V8_HOST_ARCH_ARM)
-  if (activation_frame_alignment != kPointerSize) {
-    // This code needs to be made more general if this assert doesn't hold.
-    ASSERT(activation_frame_alignment == 2 * kPointerSize);
-    mov(r7, Operand(Smi::FromInt(0)));
-    tst(sp, Operand(activation_frame_alignment - 1));
-    push(r7, eq);  // Conditional push instruction.
-  }
+  // alignment in AlignStack.
+  AlignStack(1);
 
   // Push in reverse order: caller_fp, sp_on_exit, and caller_pc.
   stm(db_w, sp, fp.bit() | ip.bit() | lr.bit());
@@ -345,6 +321,30 @@ void MacroAssembler::EnterExitFrame(StackFrame::Type type) {
     CopyRegistersFromMemoryToStack(sp, kJSCallerSaved);
   }
 #endif
+}
+
+
+void MacroAssembler::AlignStack(int offset) {
+#if defined(V8_HOST_ARCH_ARM)
+  // Running on the real platform. Use the alignment as mandated by the local
+  // environment.
+  // Note: This will break if we ever start generating snapshots on one ARM
+  // platform for another ARM platform with a different alignment.
+  int activation_frame_alignment = OS::ActivationFrameAlignment();
+#else  // defined(V8_HOST_ARCH_ARM)
+  // If we are using the simulator then we should always align to the expected
+  // alignment. As the simulator is used to generate snapshots we do not know
+  // if the target platform will need alignment, so we will always align at
+  // this point here.
+  int activation_frame_alignment = 2 * kPointerSize;
+#endif  // defined(V8_HOST_ARCH_ARM)
+  if (activation_frame_alignment != kPointerSize) {
+    // This code needs to be made more general if this assert doesn't hold.
+    ASSERT(activation_frame_alignment == 2 * kPointerSize);
+    mov(r7, Operand(Smi::FromInt(0)));
+    tst(sp, Operand(activation_frame_alignment - offset));
+    push(r7, eq);  // Conditional push instruction.
+  }
 }
 
 
@@ -768,12 +768,12 @@ void MacroAssembler::CheckAccessGlobalProxy(Register holder_reg,
 }
 
 
-void MacroAssembler::AllocateObjectInNewSpace(int object_size,
-                                              Register result,
-                                              Register scratch1,
-                                              Register scratch2,
-                                              Label* gc_required,
-                                              AllocationFlags flags) {
+void MacroAssembler::AllocateInNewSpace(int object_size,
+                                        Register result,
+                                        Register scratch1,
+                                        Register scratch2,
+                                        Label* gc_required,
+                                        AllocationFlags flags) {
   ASSERT(!result.is(scratch1));
   ASSERT(!scratch1.is(scratch2));
 
@@ -818,12 +818,12 @@ void MacroAssembler::AllocateObjectInNewSpace(int object_size,
 }
 
 
-void MacroAssembler::AllocateObjectInNewSpace(Register object_size,
-                                              Register result,
-                                              Register scratch1,
-                                              Register scratch2,
-                                              Label* gc_required,
-                                              AllocationFlags flags) {
+void MacroAssembler::AllocateInNewSpace(Register object_size,
+                                        Register result,
+                                        Register scratch1,
+                                        Register scratch2,
+                                        Label* gc_required,
+                                        AllocationFlags flags) {
   ASSERT(!result.is(scratch1));
   ASSERT(!scratch1.is(scratch2));
 
@@ -999,23 +999,24 @@ void MacroAssembler::CallRuntime(Runtime::FunctionId fid, int num_arguments) {
 
 
 void MacroAssembler::TailCallRuntime(const ExternalReference& ext,
-                                     int num_arguments) {
+                                     int num_arguments,
+                                     int result_size) {
   // TODO(1236192): Most runtime routines don't need the number of
   // arguments passed in because it is constant. At some point we
   // should remove this need and make the runtime routine entry code
   // smarter.
   mov(r0, Operand(num_arguments));
-  JumpToBuiltin(ext);
+  JumpToRuntime(ext);
 }
 
 
-void MacroAssembler::JumpToBuiltin(const ExternalReference& builtin) {
+void MacroAssembler::JumpToRuntime(const ExternalReference& builtin) {
 #if defined(__thumb__)
   // Thumb mode builtin.
   ASSERT((reinterpret_cast<intptr_t>(builtin.address()) & 1) == 1);
 #endif
   mov(r1, Operand(builtin));
-  CEntryStub stub;
+  CEntryStub stub(1);
   Jump(stub.GetCode(), RelocInfo::CODE_TARGET);
 }
 
@@ -1052,7 +1053,7 @@ void MacroAssembler::InvokeBuiltin(Builtins::JavaScript id,
         Bootstrapper::FixupFlagsArgumentsCount::encode(argc) |
         Bootstrapper::FixupFlagsIsPCRelative::encode(true) |
         Bootstrapper::FixupFlagsUseCodeObject::encode(false);
-    Unresolved entry = { pc_offset() - sizeof(Instr), flags, name };
+    Unresolved entry = { pc_offset() - kInstrSize, flags, name };
     unresolved_.Add(entry);
   }
 }
@@ -1070,7 +1071,7 @@ void MacroAssembler::GetBuiltinEntry(Register target, Builtins::JavaScript id) {
         Bootstrapper::FixupFlagsArgumentsCount::encode(argc) |
         Bootstrapper::FixupFlagsIsPCRelative::encode(true) |
         Bootstrapper::FixupFlagsUseCodeObject::encode(true);
-    Unresolved entry = { pc_offset() - sizeof(Instr), flags, name };
+    Unresolved entry = { pc_offset() - kInstrSize, flags, name };
     unresolved_.Add(entry);
   }
 
@@ -1149,6 +1150,40 @@ void MacroAssembler::Abort(const char* msg) {
   CallRuntime(Runtime::kAbort, 2);
   // will not return here
 }
+
+
+#ifdef ENABLE_DEBUGGER_SUPPORT
+CodePatcher::CodePatcher(byte* address, int instructions)
+    : address_(address),
+      instructions_(instructions),
+      size_(instructions * Assembler::kInstrSize),
+      masm_(address, size_ + Assembler::kGap) {
+  // Create a new macro assembler pointing to the address of the code to patch.
+  // The size is adjusted with kGap on order for the assembler to generate size
+  // bytes of instructions without failing with buffer size constraints.
+  ASSERT(masm_.reloc_info_writer.pos() == address_ + size_ + Assembler::kGap);
+}
+
+
+CodePatcher::~CodePatcher() {
+  // Indicate that code has changed.
+  CPU::FlushICache(address_, size_);
+
+  // Check that the code was patched as expected.
+  ASSERT(masm_.pc_ == address_ + size_);
+  ASSERT(masm_.reloc_info_writer.pos() == address_ + size_ + Assembler::kGap);
+}
+
+
+void CodePatcher::Emit(Instr x) {
+  masm()->emit(x);
+}
+
+
+void CodePatcher::Emit(Address addr) {
+  masm()->emit(reinterpret_cast<Instr>(addr));
+}
+#endif  // ENABLE_DEBUGGER_SUPPORT
 
 
 } }  // namespace v8::internal

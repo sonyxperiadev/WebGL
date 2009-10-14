@@ -71,6 +71,14 @@ bool V8::Initialize(Deserializer *des) {
   ::assembler::arm::Simulator::Initialize();
 #endif
 
+  { // NOLINT
+    // Ensure that the thread has a valid stack guard.  The v8::Locker object
+    // will ensure this too, but we don't have to use lockers if we are only
+    // using one thread.
+    ExecutionAccess lock;
+    StackGuard::InitThread(lock);
+  }
+
   // Setup the object heap
   ASSERT(!Heap::HasBeenSetup());
   if (!Heap::Setup(create_heap_objects)) {
@@ -162,9 +170,11 @@ uint32_t V8::Random() {
 
 
 bool V8::IdleNotification(bool is_high_priority) {
-  if (!FLAG_use_idle_notification) return false;
+  // Returning true tells the caller that there is no need to call
+  // IdleNotification again.
+  if (!FLAG_use_idle_notification) return true;
   // Ignore high priority instances of V8.
-  if (is_high_priority) return false;
+  if (is_high_priority) return true;
 
   // Tell the heap that it may want to adjust.
   return Heap::IdleNotification();

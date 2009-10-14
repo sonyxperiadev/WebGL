@@ -2301,13 +2301,8 @@ TEST(DebugStepLinearMixedICs) {
   break_point_hit_count = 0;
   foo->Call(env->Global(), 0, NULL);
 
-  // With stepping all break locations are hit. For ARM the keyed load/store
-  // is not hit as they are not implemented as ICs.
-#if defined (__arm__) || defined(__thumb__)
-  CHECK_EQ(6, break_point_hit_count);
-#else
+  // With stepping all break locations are hit.
   CHECK_EQ(8, break_point_hit_count);
-#endif
 
   v8::Debug::SetDebugEventListener(NULL);
   CheckDebuggerUnloaded();
@@ -4101,11 +4096,11 @@ v8::Handle<v8::Function> debugger_call_with_data;
 // passed it throws an exception.
 static const char* debugger_call_with_closure_source =
     "var x = 3;"
-    "function (exec_state) {"
+    "(function (exec_state) {"
     "  if (exec_state.y) return x - 1;"
     "  exec_state.y = x;"
     "  return exec_state.y"
-    "}";
+    "})";
 v8::Handle<v8::Function> debugger_call_with_closure;
 
 // Function to retrieve the number of JavaScript frames by calling a JavaScript
@@ -4527,6 +4522,7 @@ TEST(DebuggerAgent) {
   // with the client connected.
   ok = i::Debugger::StartAgent("test", kPort2);
   CHECK(ok);
+  i::Debugger::WaitForAgent();
   i::Socket* client = i::OS::CreateSocket();
   ok = client->Connect("localhost", port2_str);
   CHECK(ok);

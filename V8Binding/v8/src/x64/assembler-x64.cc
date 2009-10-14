@@ -173,17 +173,31 @@ void CpuFeatures::Probe()  {
 // Patch the code at the current PC with a call to the target address.
 // Additional guard int3 instructions can be added if required.
 void RelocInfo::PatchCodeWithCall(Address target, int guard_bytes) {
-  // Call instruction takes up 13 bytes and int3 takes up one byte.
-  Address patch_site = pc_;
-  Memory::uint16_at(patch_site) = 0xBA49u;  // movq r10, imm64
-  // Write "0x00, call r10" starting at last byte of address.  We overwrite
-  // the 0x00 later, and this lets us write a uint32.
-  Memory::uint32_at(patch_site + 9) = 0xD2FF4900u;  // 0x00, call r10
-  Memory::Address_at(patch_site + 2) = target;
+  // Load register with immediate 64 and call through a register instructions
+  // takes up 13 bytes and int3 takes up one byte.
+  static const int kCallCodeSize = 13;
+  int code_size = kCallCodeSize + guard_bytes;
+
+  // Create a code patcher.
+  CodePatcher patcher(pc_, code_size);
+
+  // Add a label for checking the size of the code used for returning.
+#ifdef DEBUG
+  Label check_codesize;
+  patcher.masm()->bind(&check_codesize);
+#endif
+
+  // Patch the code.
+  patcher.masm()->movq(r10, target, RelocInfo::NONE);
+  patcher.masm()->call(r10);
+
+  // Check that the size of the code generated is as expected.
+  ASSERT_EQ(kCallCodeSize,
+            patcher.masm()->SizeOfCodeGeneratedSince(&check_codesize));
 
   // Add the requested number of int3 instructions after the call.
   for (int i = 0; i < guard_bytes; i++) {
-    *(patch_site + 13 + i) = 0xCC;  // int3
+    patcher.masm()->int3();
   }
 }
 
@@ -193,6 +207,9 @@ void RelocInfo::PatchCode(byte* instructions, int instruction_count) {
   for (int i = 0; i < instruction_count; i++) {
     *(pc_ + i) = *(instructions + i);
   }
+
+  // Indicate that code has changed.
+  CPU::FlushICache(pc_, instruction_count);
 }
 
 // -----------------------------------------------------------------------------
@@ -275,7 +292,7 @@ Assembler::Assembler(void* buffer, int buffer_size) {
 
   // Clear the buffer in debug mode unless it was provided by the
   // caller in which case we can't be sure it's okay to overwrite
-  // existing code in it; see CodePatcher::CodePatcher(...).
+  // existing code in it.
 #ifdef DEBUG
   if (own_buffer_) {
     memset(buffer_, 0xCC, buffer_size);  // int3
@@ -362,7 +379,7 @@ void Assembler::bind(Label* L) {
 
 
 void Assembler::GrowBuffer() {
-  ASSERT(overflow());  // should not call this otherwise
+  ASSERT(buffer_overflow());  // should not call this otherwise
   if (!own_buffer_) FATAL("external code buffer is too small");
 
   // compute new buffer size
@@ -424,7 +441,7 @@ void Assembler::GrowBuffer() {
     }
   }
 
-  ASSERT(!overflow());
+  ASSERT(!buffer_overflow());
 }
 
 
@@ -1401,6 +1418,15 @@ void Assembler::neg(Register dst) {
   EnsureSpace ensure_space(this);
   last_pc_ = pc_;
   emit_rex_64(dst);
+  emit(0xF7);
+  emit_modrm(0x3, dst);
+}
+
+
+void Assembler::negl(Register dst) {
+  EnsureSpace ensure_space(this);
+  last_pc_ = pc_;
+  emit_optional_rex_32(dst);
   emit(0xF7);
   emit_modrm(0x3, dst);
 }

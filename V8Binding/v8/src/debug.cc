@@ -518,6 +518,7 @@ void Debug::ThreadInit() {
   thread_local_.step_count_ = 0;
   thread_local_.last_fp_ = 0;
   thread_local_.step_into_fp_ = 0;
+  thread_local_.step_out_fp_ = 0;
   thread_local_.after_break_target_ = 0;
   thread_local_.debugger_entry_ = NULL;
   thread_local_.pending_interrupts_ = 0;
@@ -562,7 +563,6 @@ bool Debug::break_on_exception_ = false;
 bool Debug::break_on_uncaught_exception_ = true;
 
 Handle<Context> Debug::debug_context_ = Handle<Context>();
-Code* Debug::debug_break_return_entry_ = NULL;
 Code* Debug::debug_break_return_ = NULL;
 
 
@@ -643,11 +643,6 @@ void ScriptCache::HandleWeakScript(v8::Persistent<v8::Value> obj, void* data) {
 void Debug::Setup(bool create_heap_objects) {
   ThreadInit();
   if (create_heap_objects) {
-    // Get code to handle entry to debug break on return.
-    debug_break_return_entry_ =
-        Builtins::builtin(Builtins::Return_DebugBreakEntry);
-    ASSERT(debug_break_return_entry_->IsCode());
-
     // Get code to handle debug break on return.
     debug_break_return_ =
         Builtins::builtin(Builtins::Return_DebugBreak);
@@ -809,7 +804,6 @@ void Debug::PreemptionWhileInDebugger() {
 
 
 void Debug::Iterate(ObjectVisitor* v) {
-  v->VisitPointer(bit_cast<Object**, Code**>(&(debug_break_return_entry_)));
   v->VisitPointer(bit_cast<Object**, Code**>(&(debug_break_return_)));
 }
 
@@ -864,11 +858,18 @@ Object* Debug::Break(Arguments args) {
     break_points_hit = CheckBreakPoints(break_point_objects);
   }
 
-  // Notify debugger if a real break point is triggered or if performing single
-  // stepping with no more steps to perform. Otherwise do another step.
-  if (!break_points_hit->IsUndefined() ||
-    (thread_local_.last_step_action_ != StepNone &&
-     thread_local_.step_count_ == 0)) {
+  // If step out is active skip everything until the frame where we need to step
+  // out to is reached, unless real breakpoint is hit.
+  if (Debug::StepOutActive() && frame->fp() != Debug::step_out_fp() &&
+      break_points_hit->IsUndefined() ) {
+      // Step count should always be 0 for StepOut.
+      ASSERT(thread_local_.step_count_ == 0);
+  } else if (!break_points_hit->IsUndefined() ||
+             (thread_local_.last_step_action_ != StepNone &&
+              thread_local_.step_count_ == 0)) {
+    // Notify debugger if a real break point is triggered or if performing
+    // single stepping with no more steps to perform. Otherwise do another step.
+
     // Clear all current stepping setup.
     ClearStepping();
 
@@ -1104,7 +1105,13 @@ void Debug::PrepareStep(StepAction step_action, int step_count) {
 
   // Remember this step action and count.
   thread_local_.last_step_action_ = step_action;
-  thread_local_.step_count_ = step_count;
+  if (step_action == StepOut) {
+    // For step out target frame will be found on the stack so there is no need
+    // to set step counter for it. It's expected to always be 0 for StepOut.
+    thread_local_.step_count_ = 0;
+  } else {
+    thread_local_.step_count_ = step_count;
+  }
 
   // Get the frame where the execution has stopped and skip the debug frame if
   // any. The debug frame will only be present if execution was stopped due to
@@ -1183,13 +1190,28 @@ void Debug::PrepareStep(StepAction step_action, int step_count) {
 
   // If this is the last break code target step out is the only possibility.
   if (it.IsExit() || step_action == StepOut) {
+    if (step_action == StepOut) {
+      // Skip step_count frames starting with the current one.
+      while (step_count-- > 0 && !frames_it.done()) {
+        frames_it.Advance();
+      }
+    } else {
+      ASSERT(it.IsExit());
+      frames_it.Advance();
+    }
+    // Skip builtin functions on the stack.
+    while (!frames_it.done() &&
+           JSFunction::cast(frames_it.frame()->function())->IsBuiltin()) {
+      frames_it.Advance();
+    }
     // Step out: If there is a JavaScript caller frame, we need to
     // flood it with breakpoints.
-    frames_it.Advance();
     if (!frames_it.done()) {
       // Fill the function to return to with one-shot break points.
       JSFunction* function = JSFunction::cast(frames_it.frame()->function());
       FloodWithOneShot(Handle<SharedFunctionInfo>(function->shared()));
+      // Set target frame pointer.
+      ActivateStepOut(frames_it.frame());
     }
   } else if (!(is_inline_cache_stub || RelocInfo::IsConstructCall(it.rmode()) ||
                !call_function_stub.is_null())
@@ -1445,6 +1467,7 @@ void Debug::ClearStepping() {
   // Clear the various stepping setup.
   ClearOneShot();
   ClearStepIn();
+  ClearStepOut();
   ClearStepNext();
 
   // Clear multiple step counter.
@@ -1472,12 +1495,24 @@ void Debug::ClearOneShot() {
 
 
 void Debug::ActivateStepIn(StackFrame* frame) {
+  ASSERT(!StepOutActive());
   thread_local_.step_into_fp_ = frame->fp();
 }
 
 
 void Debug::ClearStepIn() {
   thread_local_.step_into_fp_ = 0;
+}
+
+
+void Debug::ActivateStepOut(StackFrame* frame) {
+  ASSERT(!StepInActive());
+  thread_local_.step_out_fp_ = frame->fp();
+}
+
+
+void Debug::ClearStepOut() {
+  thread_local_.step_out_fp_ = 0;
 }
 
 
@@ -1569,29 +1604,28 @@ void Debug::SetAfterBreakTarget(JavaScriptFrame* frame) {
   // Find the call address in the running code. This address holds the call to
   // either a DebugBreakXXX or to the debug break return entry code if the
   // break point is still active after processing the break point.
-  Address addr = frame->pc() - Assembler::kPatchReturnSequenceLength;
+  Address addr = frame->pc() - Assembler::kCallTargetAddressOffset;
 
   // Check if the location is at JS exit.
-  bool at_js_exit = false;
+  bool at_js_return = false;
+  bool break_at_js_return_active = false;
   RelocIterator it(debug_info->code());
   while (!it.done()) {
     if (RelocInfo::IsJSReturn(it.rinfo()->rmode())) {
-      at_js_exit = (it.rinfo()->pc() ==
-                        addr - Assembler::kPatchReturnSequenceAddressOffset);
+      at_js_return = (it.rinfo()->pc() ==
+          addr - Assembler::kPatchReturnSequenceAddressOffset);
+      break_at_js_return_active = it.rinfo()->IsCallInstruction();
     }
     it.next();
   }
 
   // Handle the jump to continue execution after break point depending on the
   // break location.
-  if (at_js_exit) {
-    // First check if the call in the code is still the debug break return
-    // entry code. If it is the break point is still active. If not the break
-    // point was removed during break point processing.
-    if (Assembler::target_address_at(addr) ==
-        debug_break_return_entry()->entry()) {
-      // Break point still active. Jump to the corresponding place in the
-      // original code.
+  if (at_js_return) {
+    // If the break point as return is still active jump to the corresponding
+    // place in the original code. If not the break point was removed during
+    // break point processing.
+    if (break_at_js_return_active) {
       addr +=  original_code->instruction_start() - code->instruction_start();
     }
 
@@ -2463,6 +2497,11 @@ void Debugger::StopAgent() {
   }
 }
 
+
+void Debugger::WaitForAgent() {
+  if (agent_ != NULL)
+    agent_->WaitUntilListening();
+}
 
 MessageImpl MessageImpl::NewEvent(DebugEvent event,
                                   bool running,

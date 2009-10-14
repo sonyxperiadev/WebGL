@@ -163,7 +163,7 @@ void Log::OpenMemoryBuffer() {
 
 void Log::Close() {
   if (Write == WriteToFile) {
-    fclose(output_handle_);
+    if (output_handle_ != NULL) fclose(output_handle_);
     output_handle_ = NULL;
   } else if (Write == WriteToMemory) {
     delete output_buffer_;
@@ -307,6 +307,20 @@ void LogMessageBuilder::AppendDetailed(String* str, bool show_impl_info) {
       Append("%lc", c);
     }
   }
+}
+
+
+void LogMessageBuilder::AppendStringPart(const char* str, int len) {
+  if (pos_ + len > Log::kMessageBufferSize) {
+    len = Log::kMessageBufferSize - pos_;
+    ASSERT(len >= 0);
+    if (len == 0) return;
+  }
+  Vector<char> buf(Log::message_buffer_ + pos_,
+                   Log::kMessageBufferSize - pos_);
+  OS::StrNCpy(buf, str, len);
+  pos_ += len;
+  ASSERT(pos_ <= Log::kMessageBufferSize);
 }
 
 

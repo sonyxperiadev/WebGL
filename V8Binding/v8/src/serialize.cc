@@ -70,7 +70,7 @@ const int kPageAndOffsetMask = (1 << kPageAndOffsetBits) - 1;
 
 // These values are special allocation space tags used for
 // serialization.
-// Mar the pages executable on platforms that support it.
+// Mark the pages executable on platforms that support it.
 const int kLargeCode = LAST_SPACE + 1;
 // Allocate extra remembered-set bits.
 const int kLargeFixedArray = LAST_SPACE + 2;
@@ -541,7 +541,7 @@ void ExternalReferenceTable::PopulateTable() {
 #undef DEF_ENTRY_A
 
   // Runtime functions
-#define RUNTIME_ENTRY(name, nargs) \
+#define RUNTIME_ENTRY(name, nargs, ressize) \
   { RUNTIME_FUNCTION, \
     Runtime::k##name, \
     "Runtime::" #name },
@@ -935,6 +935,15 @@ class ReferenceUpdater: public ObjectVisitor {
     }
   }
 
+  virtual void VisitCodeTarget(RelocInfo* rinfo) {
+    ASSERT(RelocInfo::IsCodeTarget(rinfo->rmode()));
+    Code* target = Code::GetCodeFromTargetAddress(rinfo->target_address());
+    Address encoded_target = serializer_->GetSavedAddress(target);
+    offsets_.Add(rinfo->target_address_address() - obj_address_);
+    addresses_.Add(encoded_target);
+  }
+
+
   virtual void VisitExternalReferences(Address* start, Address* end) {
     for (Address* p = start; p < end; ++p) {
       uint32_t code = reference_encoder_->Encode(*p);
@@ -1053,7 +1062,7 @@ void Serializer::Serialize() {
   // No active threads.
   CHECK_EQ(NULL, ThreadState::FirstInUse());
   // No active or weak handles.
-  CHECK(HandleScopeImplementer::instance()->Blocks()->is_empty());
+  CHECK(HandleScopeImplementer::instance()->blocks()->is_empty());
   CHECK_EQ(0, GlobalHandles::NumberOfWeakHandles());
   // We need a counter function during serialization to resolve the
   // references to counters in the code on the heap.
@@ -1090,6 +1099,14 @@ void Serializer::VisitPointers(Object** start, Object** end) {
     }
   }
   root_ = root;
+}
+
+
+void Serializer::VisitCodeTarget(RelocInfo* rinfo) {
+  ASSERT(RelocInfo::IsCodeTarget(rinfo->rmode()));
+  Code* target = Code::GetCodeFromTargetAddress(rinfo->target_address());
+  bool serialized;
+  Encode(target, &serialized);
 }
 
 
@@ -1255,10 +1272,7 @@ Address Serializer::PutObject(HeapObject* obj) {
   SaveAddress(obj, addr);
 
   if (type == CODE_TYPE) {
-    Code* code = Code::cast(obj);
-    // Ensure Code objects contain Object pointers, not Addresses.
-    code->ConvertICTargetsFromAddressToObject();
-    LOG(CodeMoveEvent(code->address(), addr));
+    LOG(CodeMoveEvent(obj->address(), addr));
   }
 
   // Write out the object prologue: type, size, and simulated address of obj.
@@ -1289,12 +1303,6 @@ Address Serializer::PutObject(HeapObject* obj) {
     writer_->PutC(']');
   }
 #endif
-
-  if (type == CODE_TYPE) {
-    Code* code = Code::cast(obj);
-    // Convert relocations from Object* to Address in Code objects
-    code->ConvertICTargetsFromObjectToAddress();
-  }
 
   objects_++;
   return addr;
@@ -1387,7 +1395,7 @@ void Deserializer::Deserialize() {
   // No active threads.
   ASSERT_EQ(NULL, ThreadState::FirstInUse());
   // No active handles.
-  ASSERT(HandleScopeImplementer::instance()->Blocks()->is_empty());
+  ASSERT(HandleScopeImplementer::instance()->blocks()->is_empty());
   reference_decoder_ = new ExternalReferenceDecoder();
   // By setting linear allocation only, we forbid the use of free list
   // allocation which is not predicted by SimulatedAddress.
@@ -1419,6 +1427,14 @@ void Deserializer::VisitPointers(Object** start, Object** end) {
     }
   }
   root_ = root;
+}
+
+
+void Deserializer::VisitCodeTarget(RelocInfo* rinfo) {
+  ASSERT(RelocInfo::IsCodeTarget(rinfo->rmode()));
+  Address encoded_address = reinterpret_cast<Address>(rinfo->target_object());
+  Code* target_object = reinterpret_cast<Code*>(Resolve(encoded_address));
+  rinfo->set_target_address(target_object->instruction_start());
 }
 
 
@@ -1616,10 +1632,7 @@ Object* Deserializer::GetObject() {
   obj->IterateBody(type, size, this);
 
   if (type == CODE_TYPE) {
-    Code* code = Code::cast(obj);
-    // Convert relocations from Object* to Address in Code objects
-    code->ConvertICTargetsFromObjectToAddress();
-    LOG(CodeMoveEvent(a, code->address()));
+    LOG(CodeMoveEvent(a, obj->address()));
   }
   objects_++;
   return o;
