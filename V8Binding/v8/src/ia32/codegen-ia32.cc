@@ -768,6 +768,11 @@ class FloatingPointHelper : public AllStatic {
   static void CheckFloatOperands(MacroAssembler* masm,
                                  Label* non_float,
                                  Register scratch);
+  // Test if operands are numbers (smi or HeapNumber objects), and load
+  // them into xmm0 and xmm1 if they are.  Jump to label not_numbers if
+  // either operand is not a number.  Operands are in edx and eax.
+  // Leaves operands unchanged.
+  static void LoadSse2Operands(MacroAssembler* masm, Label* not_numbers);
   // Allocate a heap number in new space with undefined value.
   // Returns tagged pointer in eax, or jumps to need_gc if new space is full.
   static void AllocateHeapNumber(MacroAssembler* masm,
@@ -2300,7 +2305,6 @@ void CodeGenerator::DeclareGlobals(Handle<FixedArray> pairs) {
 
 void CodeGenerator::VisitDeclaration(Declaration* node) {
   Comment cmnt(masm_, "[ Declaration");
-  CodeForStatementPosition(node);
   Variable* var = node->proxy()->var();
   ASSERT(var != NULL);  // must have been resolved
   Slot* slot = var->slot();
@@ -2539,10 +2543,12 @@ void CodeGenerator::GenerateReturnSequence(Result* return_value) {
   masm_->ret((scope_->num_parameters() + 1) * kPointerSize);
   DeleteFrame();
 
+#ifdef ENABLE_DEBUGGER_SUPPORT
   // Check that the size of the code used for returning matches what is
   // expected by the debugger.
   ASSERT_EQ(Debug::kIa32JSReturnSequenceLength,
             masm_->SizeOfCodeGeneratedSince(&check_exit_codesize));
+#endif
 }
 
 
@@ -4328,7 +4334,6 @@ void CodeGenerator::VisitCatchExtensionObject(CatchExtensionObject* node) {
 
 void CodeGenerator::VisitAssignment(Assignment* node) {
   Comment cmnt(masm_, "[ Assignment");
-  CodeForStatementPosition(node);
 
   { Reference target(this, node->target());
     if (target.is_illegal()) {
@@ -4410,8 +4415,6 @@ void CodeGenerator::VisitAssignment(Assignment* node) {
 
 void CodeGenerator::VisitThrow(Throw* node) {
   Comment cmnt(masm_, "[ Throw");
-  CodeForStatementPosition(node);
-
   Load(node->exception());
   Result result = frame_->CallRuntime(Runtime::kThrow, 1);
   frame_->Push(&result);
@@ -4428,12 +4431,10 @@ void CodeGenerator::VisitProperty(Property* node) {
 void CodeGenerator::VisitCall(Call* node) {
   Comment cmnt(masm_, "[ Call");
 
+  Expression* function = node->expression();
   ZoneList<Expression*>* args = node->arguments();
 
-  CodeForStatementPosition(node);
-
   // Check if the function is a variable or a property.
-  Expression* function = node->expression();
   Variable* var = function->AsVariableProxy()->AsVariable();
   Property* property = function->AsProperty();
 
@@ -4446,7 +4447,63 @@ void CodeGenerator::VisitCall(Call* node) {
   // is resolved in cache misses (this also holds for megamorphic calls).
   // ------------------------------------------------------------------------
 
-  if (var != NULL && !var->is_this() && var->is_global()) {
+  if (var != NULL && var->is_possibly_eval()) {
+    // ----------------------------------
+    // JavaScript example: 'eval(arg)'  // eval is not known to be shadowed
+    // ----------------------------------
+
+    // In a call to eval, we first call %ResolvePossiblyDirectEval to
+    // resolve the function we need to call and the receiver of the
+    // call.  Then we call the resolved function using the given
+    // arguments.
+
+    // Prepare the stack for the call to the resolved function.
+    Load(function);
+
+    // Allocate a frame slot for the receiver.
+    frame_->Push(Factory::undefined_value());
+    int arg_count = args->length();
+    for (int i = 0; i < arg_count; i++) {
+      Load(args->at(i));
+    }
+
+    // Prepare the stack for the call to ResolvePossiblyDirectEval.
+    frame_->PushElementAt(arg_count + 1);
+    if (arg_count > 0) {
+      frame_->PushElementAt(arg_count);
+    } else {
+      frame_->Push(Factory::undefined_value());
+    }
+
+    // Resolve the call.
+    Result result =
+        frame_->CallRuntime(Runtime::kResolvePossiblyDirectEval, 2);
+
+    // Touch up the stack with the right values for the function and the
+    // receiver.  Use a scratch register to avoid destroying the result.
+    Result scratch = allocator_->Allocate();
+    ASSERT(scratch.is_valid());
+    __ mov(scratch.reg(), FieldOperand(result.reg(), FixedArray::kHeaderSize));
+    frame_->SetElementAt(arg_count + 1, &scratch);
+
+    // We can reuse the result register now.
+    frame_->Spill(result.reg());
+    __ mov(result.reg(),
+           FieldOperand(result.reg(), FixedArray::kHeaderSize + kPointerSize));
+    frame_->SetElementAt(arg_count, &result);
+
+    // Call the function.
+    CodeForSourcePosition(node->position());
+    InLoopFlag in_loop = loop_nesting() > 0 ? IN_LOOP : NOT_IN_LOOP;
+    CallFunctionStub call_function(arg_count, in_loop);
+    result = frame_->CallStub(&call_function, arg_count + 1);
+
+    // Restore the context and overwrite the function on the stack with
+    // the result.
+    frame_->RestoreContextRegister();
+    frame_->SetElementAt(0, &result);
+
+  } else if (var != NULL && !var->is_this() && var->is_global()) {
     // ----------------------------------
     // JavaScript example: 'foo(1, 2, 3)'  // foo is global
     // ----------------------------------
@@ -4586,7 +4643,6 @@ void CodeGenerator::VisitCall(Call* node) {
 
 void CodeGenerator::VisitCallNew(CallNew* node) {
   Comment cmnt(masm_, "[ CallNew");
-  CodeForStatementPosition(node);
 
   // According to ECMA-262, section 11.2.2, page 44, the function
   // expression in new calls must be evaluated before the
@@ -4612,66 +4668,6 @@ void CodeGenerator::VisitCallNew(CallNew* node) {
   CodeForSourcePosition(node->position());
   Result result = frame_->CallConstructor(arg_count);
   // Replace the function on the stack with the result.
-  frame_->SetElementAt(0, &result);
-}
-
-
-void CodeGenerator::VisitCallEval(CallEval* node) {
-  Comment cmnt(masm_, "[ CallEval");
-
-  // In a call to eval, we first call %ResolvePossiblyDirectEval to resolve
-  // the function we need to call and the receiver of the call.
-  // Then we call the resolved function using the given arguments.
-
-  ZoneList<Expression*>* args = node->arguments();
-  Expression* function = node->expression();
-
-  CodeForStatementPosition(node);
-
-  // Prepare the stack for the call to the resolved function.
-  Load(function);
-
-  // Allocate a frame slot for the receiver.
-  frame_->Push(Factory::undefined_value());
-  int arg_count = args->length();
-  for (int i = 0; i < arg_count; i++) {
-    Load(args->at(i));
-  }
-
-  // Prepare the stack for the call to ResolvePossiblyDirectEval.
-  frame_->PushElementAt(arg_count + 1);
-  if (arg_count > 0) {
-    frame_->PushElementAt(arg_count);
-  } else {
-    frame_->Push(Factory::undefined_value());
-  }
-
-  // Resolve the call.
-  Result result =
-      frame_->CallRuntime(Runtime::kResolvePossiblyDirectEval, 2);
-
-  // Touch up the stack with the right values for the function and the
-  // receiver.  Use a scratch register to avoid destroying the result.
-  Result scratch = allocator_->Allocate();
-  ASSERT(scratch.is_valid());
-  __ mov(scratch.reg(), FieldOperand(result.reg(), FixedArray::kHeaderSize));
-  frame_->SetElementAt(arg_count + 1, &scratch);
-
-  // We can reuse the result register now.
-  frame_->Spill(result.reg());
-  __ mov(result.reg(),
-         FieldOperand(result.reg(), FixedArray::kHeaderSize + kPointerSize));
-  frame_->SetElementAt(arg_count, &result);
-
-  // Call the function.
-  CodeForSourcePosition(node->position());
-  InLoopFlag in_loop = loop_nesting() > 0 ? IN_LOOP : NOT_IN_LOOP;
-  CallFunctionStub call_function(arg_count, in_loop);
-  result = frame_->CallStub(&call_function, arg_count + 1);
-
-  // Restore the context and overwrite the function on the stack with
-  // the result.
-  frame_->RestoreContextRegister();
   frame_->SetElementAt(0, &result);
 }
 
@@ -6699,41 +6695,79 @@ void GenericBinaryOpStub::Generate(MacroAssembler* masm) {
     case Token::DIV: {
       // eax: y
       // edx: x
-      FloatingPointHelper::CheckFloatOperands(masm, &call_runtime, ebx);
-      // Fast-case: Both operands are numbers.
-      // Allocate a heap number, if needed.
-      Label skip_allocation;
-      switch (mode_) {
-        case OVERWRITE_LEFT:
-          __ mov(eax, Operand(edx));
-          // Fall through!
-        case OVERWRITE_RIGHT:
-          // If the argument in eax is already an object, we skip the
-          // allocation of a heap number.
-          __ test(eax, Immediate(kSmiTagMask));
-          __ j(not_zero, &skip_allocation, not_taken);
-          // Fall through!
-        case NO_OVERWRITE:
-          FloatingPointHelper::AllocateHeapNumber(masm,
-                                                  &call_runtime,
-                                                  ecx,
-                                                  edx,
-                                                  eax);
-          __ bind(&skip_allocation);
-          break;
-        default: UNREACHABLE();
-      }
-      FloatingPointHelper::LoadFloatOperands(masm, ecx);
 
-      switch (op_) {
-        case Token::ADD: __ faddp(1); break;
-        case Token::SUB: __ fsubp(1); break;
-        case Token::MUL: __ fmulp(1); break;
-        case Token::DIV: __ fdivp(1); break;
-        default: UNREACHABLE();
+      if (CpuFeatures::IsSupported(CpuFeatures::SSE2)) {
+        CpuFeatures::Scope use_sse2(CpuFeatures::SSE2);
+        FloatingPointHelper::LoadSse2Operands(masm, &call_runtime);
+
+        switch (op_) {
+          case Token::ADD: __ addsd(xmm0, xmm1); break;
+          case Token::SUB: __ subsd(xmm0, xmm1); break;
+          case Token::MUL: __ mulsd(xmm0, xmm1); break;
+          case Token::DIV: __ divsd(xmm0, xmm1); break;
+          default: UNREACHABLE();
+        }
+        // Allocate a heap number, if needed.
+        Label skip_allocation;
+        switch (mode_) {
+          case OVERWRITE_LEFT:
+            __ mov(eax, Operand(edx));
+            // Fall through!
+          case OVERWRITE_RIGHT:
+            // If the argument in eax is already an object, we skip the
+            // allocation of a heap number.
+            __ test(eax, Immediate(kSmiTagMask));
+            __ j(not_zero, &skip_allocation, not_taken);
+            // Fall through!
+          case NO_OVERWRITE:
+            FloatingPointHelper::AllocateHeapNumber(masm,
+                                                    &call_runtime,
+                                                    ecx,
+                                                    edx,
+                                                    eax);
+            __ bind(&skip_allocation);
+            break;
+          default: UNREACHABLE();
+        }
+        __ movdbl(FieldOperand(eax, HeapNumber::kValueOffset), xmm0);
+        __ ret(2 * kPointerSize);
+
+      } else {  // SSE2 not available, use FPU.
+        FloatingPointHelper::CheckFloatOperands(masm, &call_runtime, ebx);
+        // Allocate a heap number, if needed.
+        Label skip_allocation;
+        switch (mode_) {
+          case OVERWRITE_LEFT:
+            __ mov(eax, Operand(edx));
+            // Fall through!
+          case OVERWRITE_RIGHT:
+            // If the argument in eax is already an object, we skip the
+            // allocation of a heap number.
+            __ test(eax, Immediate(kSmiTagMask));
+            __ j(not_zero, &skip_allocation, not_taken);
+            // Fall through!
+          case NO_OVERWRITE:
+            FloatingPointHelper::AllocateHeapNumber(masm,
+                                                    &call_runtime,
+                                                    ecx,
+                                                    edx,
+                                                    eax);
+            __ bind(&skip_allocation);
+            break;
+          default: UNREACHABLE();
+        }
+        FloatingPointHelper::LoadFloatOperands(masm, ecx);
+
+        switch (op_) {
+          case Token::ADD: __ faddp(1); break;
+          case Token::SUB: __ fsubp(1); break;
+          case Token::MUL: __ fmulp(1); break;
+          case Token::DIV: __ fdivp(1); break;
+          default: UNREACHABLE();
+        }
+        __ fstp_d(FieldOperand(eax, HeapNumber::kValueOffset));
+        __ ret(2 * kPointerSize);
       }
-      __ fstp_d(FieldOperand(eax, HeapNumber::kValueOffset));
-      __ ret(2 * kPointerSize);
     }
     case Token::MOD: {
       // For MOD we go directly to runtime in the non-smi case.
@@ -6886,7 +6920,7 @@ void GenericBinaryOpStub::Generate(MacroAssembler* masm) {
       __ j(above_equal, &string1);
 
       // First and second argument are strings.
-      __ TailCallRuntime(ExternalReference(Runtime::kStringAdd), 2);
+      __ TailCallRuntime(ExternalReference(Runtime::kStringAdd), 2, 1);
 
       // Only first argument is a string.
       __ bind(&string1);
@@ -6949,12 +6983,12 @@ void FloatingPointHelper::AllocateHeapNumber(MacroAssembler* masm,
                                              Register scratch2,
                                              Register result) {
   // Allocate heap number in new space.
-  __ AllocateObjectInNewSpace(HeapNumber::kSize,
-                              result,
-                              scratch1,
-                              scratch2,
-                              need_gc,
-                              TAG_OBJECT);
+  __ AllocateInNewSpace(HeapNumber::kSize,
+                        result,
+                        scratch1,
+                        scratch2,
+                        need_gc,
+                        TAG_OBJECT);
 
   // Set the map.
   __ mov(FieldOperand(result, HeapObject::kMapOffset),
@@ -6977,6 +7011,38 @@ void FloatingPointHelper::LoadFloatOperand(MacroAssembler* masm,
   __ fild_s(Operand(esp, 0));
   __ pop(number);
 
+  __ bind(&done);
+}
+
+
+void FloatingPointHelper::LoadSse2Operands(MacroAssembler* masm,
+                                           Label* not_numbers) {
+  Label load_smi_edx, load_eax, load_smi_eax, load_float_eax, done;
+  // Load operand in edx into xmm0, or branch to not_numbers.
+  __ test(edx, Immediate(kSmiTagMask));
+  __ j(zero, &load_smi_edx, not_taken);  // Argument in edx is a smi.
+  __ cmp(FieldOperand(edx, HeapObject::kMapOffset), Factory::heap_number_map());
+  __ j(not_equal, not_numbers);  // Argument in edx is not a number.
+  __ movdbl(xmm0, FieldOperand(edx, HeapNumber::kValueOffset));
+  __ bind(&load_eax);
+  // Load operand in eax into xmm1, or branch to not_numbers.
+  __ test(eax, Immediate(kSmiTagMask));
+  __ j(zero, &load_smi_eax, not_taken);  // Argument in eax is a smi.
+  __ cmp(FieldOperand(eax, HeapObject::kMapOffset), Factory::heap_number_map());
+  __ j(equal, &load_float_eax);
+  __ jmp(not_numbers);  // Argument in eax is not a number.
+  __ bind(&load_smi_edx);
+  __ sar(edx, 1);  // Untag smi before converting to float.
+  __ cvtsi2sd(xmm0, Operand(edx));
+  __ shl(edx, 1);  // Retag smi for heap number overwriting test.
+  __ jmp(&load_eax);
+  __ bind(&load_smi_eax);
+  __ sar(eax, 1);  // Untag smi before converting to float.
+  __ cvtsi2sd(xmm1, Operand(eax));
+  __ shl(eax, 1);  // Retag smi for heap number overwriting test.
+  __ jmp(&done);
+  __ bind(&load_float_eax);
+  __ movdbl(xmm1, FieldOperand(eax, HeapNumber::kValueOffset));
   __ bind(&done);
 }
 
@@ -7175,7 +7241,7 @@ void ArgumentsAccessStub::GenerateReadElement(MacroAssembler* masm) {
   __ pop(ebx);  // Return address.
   __ push(edx);
   __ push(ebx);
-  __ TailCallRuntime(ExternalReference(Runtime::kGetArgumentsProperty), 1);
+  __ TailCallRuntime(ExternalReference(Runtime::kGetArgumentsProperty), 1, 1);
 }
 
 
@@ -7200,7 +7266,7 @@ void ArgumentsAccessStub::GenerateNewObject(MacroAssembler* masm) {
 
   // Do the runtime call to allocate the arguments object.
   __ bind(&runtime);
-  __ TailCallRuntime(ExternalReference(Runtime::kNewArgumentsFast), 3);
+  __ TailCallRuntime(ExternalReference(Runtime::kNewArgumentsFast), 3, 1);
 }
 
 
@@ -7343,28 +7409,56 @@ void CompareStub::Generate(MacroAssembler* masm) {
   // Inlined floating point compare.
   // Call builtin if operands are not floating point or smi.
   Label check_for_symbols;
-  FloatingPointHelper::CheckFloatOperands(masm, &check_for_symbols, ebx);
-  FloatingPointHelper::LoadFloatOperands(masm, ecx);
-  __ FCmp();
+  Label unordered;
+  if (CpuFeatures::IsSupported(CpuFeatures::SSE2)) {
+    CpuFeatures::Scope use_sse2(CpuFeatures::SSE2);
+    CpuFeatures::Scope use_cmov(CpuFeatures::CMOV);
 
-  // Jump to builtin for NaN.
-  __ j(parity_even, &call_builtin, not_taken);
+    FloatingPointHelper::LoadSse2Operands(masm, &check_for_symbols);
+    __ comisd(xmm0, xmm1);
 
-  // TODO(1243847): Use cmov below once CpuFeatures are properly hooked up.
-  Label below_lbl, above_lbl;
-  // use edx, eax to convert unsigned to signed comparison
-  __ j(below, &below_lbl, not_taken);
-  __ j(above, &above_lbl, not_taken);
+    // Jump to builtin for NaN.
+    __ j(parity_even, &unordered, not_taken);
+    __ mov(eax, 0);  // equal
+    __ mov(ecx, Immediate(Smi::FromInt(1)));
+    __ cmov(above, eax, Operand(ecx));
+    __ mov(ecx, Immediate(Smi::FromInt(-1)));
+    __ cmov(below, eax, Operand(ecx));
+    __ ret(2 * kPointerSize);
+  } else {
+    FloatingPointHelper::CheckFloatOperands(masm, &check_for_symbols, ebx);
+    FloatingPointHelper::LoadFloatOperands(masm, ecx);
+    __ FCmp();
 
-  __ xor_(eax, Operand(eax));  // equal
-  __ ret(2 * kPointerSize);
+    // Jump to builtin for NaN.
+    __ j(parity_even, &unordered, not_taken);
 
-  __ bind(&below_lbl);
-  __ mov(eax, -1);
-  __ ret(2 * kPointerSize);
+    Label below_lbl, above_lbl;
+    // Return a result of -1, 0, or 1, to indicate result of comparison.
+    __ j(below, &below_lbl, not_taken);
+    __ j(above, &above_lbl, not_taken);
 
-  __ bind(&above_lbl);
-  __ mov(eax, 1);
+    __ xor_(eax, Operand(eax));  // equal
+    // Both arguments were pushed in case a runtime call was needed.
+    __ ret(2 * kPointerSize);
+
+    __ bind(&below_lbl);
+    __ mov(eax, Immediate(Smi::FromInt(-1)));
+    __ ret(2 * kPointerSize);
+
+    __ bind(&above_lbl);
+    __ mov(eax, Immediate(Smi::FromInt(1)));
+    __ ret(2 * kPointerSize);  // eax, edx were pushed
+  }
+  // If one of the numbers was NaN, then the result is always false.
+  // The cc is never not-equal.
+  __ bind(&unordered);
+  ASSERT(cc_ != not_equal);
+  if (cc_ == less || cc_ == less_equal) {
+    __ mov(eax, Immediate(Smi::FromInt(1)));
+  } else {
+    __ mov(eax, Immediate(Smi::FromInt(-1)));
+  }
   __ ret(2 * kPointerSize);  // eax, edx were pushed
 
   // Fast negative check for symbol-to-symbol equality.
@@ -7436,7 +7530,7 @@ void StackCheckStub::Generate(MacroAssembler* masm) {
   __ push(eax);
 
   // Do tail-call to runtime routine.
-  __ TailCallRuntime(ExternalReference(Runtime::kStackGuard), 1);
+  __ TailCallRuntime(ExternalReference(Runtime::kStackGuard), 1, 1);
 }
 
 
@@ -7465,6 +7559,13 @@ void CallFunctionStub::Generate(MacroAssembler* masm) {
   __ GetBuiltinEntry(edx, Builtins::CALL_NON_FUNCTION);
   Handle<Code> adaptor(Builtins::builtin(Builtins::ArgumentsAdaptorTrampoline));
   __ jmp(adaptor, RelocInfo::CODE_TARGET);
+}
+
+
+int CEntryStub::MinorKey() {
+  ASSERT(result_size_ <= 2);
+  // Result returned in eax, or eax+edx if result_size_ is 2.
+  return 0;
 }
 
 

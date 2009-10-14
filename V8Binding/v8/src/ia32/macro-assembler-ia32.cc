@@ -319,7 +319,7 @@ void MacroAssembler::CmpInstanceType(Register map, InstanceType type) {
 
 
 void MacroAssembler::FCmp() {
-  fcompp();
+  fucompp();
   push(eax);
   fnstsw_ax();
   sahf();
@@ -664,12 +664,12 @@ void MacroAssembler::UpdateAllocationTopHelper(Register result_end,
 }
 
 
-void MacroAssembler::AllocateObjectInNewSpace(int object_size,
-                                              Register result,
-                                              Register result_end,
-                                              Register scratch,
-                                              Label* gc_required,
-                                              AllocationFlags flags) {
+void MacroAssembler::AllocateInNewSpace(int object_size,
+                                        Register result,
+                                        Register result_end,
+                                        Register scratch,
+                                        Label* gc_required,
+                                        AllocationFlags flags) {
   ASSERT(!result.is(result_end));
 
   // Load address of new object into result.
@@ -692,14 +692,14 @@ void MacroAssembler::AllocateObjectInNewSpace(int object_size,
 }
 
 
-void MacroAssembler::AllocateObjectInNewSpace(int header_size,
-                                              ScaleFactor element_size,
-                                              Register element_count,
-                                              Register result,
-                                              Register result_end,
-                                              Register scratch,
-                                              Label* gc_required,
-                                              AllocationFlags flags) {
+void MacroAssembler::AllocateInNewSpace(int header_size,
+                                        ScaleFactor element_size,
+                                        Register element_count,
+                                        Register result,
+                                        Register result_end,
+                                        Register scratch,
+                                        Label* gc_required,
+                                        AllocationFlags flags) {
   ASSERT(!result.is(result_end));
 
   // Load address of new object into result.
@@ -722,12 +722,12 @@ void MacroAssembler::AllocateObjectInNewSpace(int header_size,
 }
 
 
-void MacroAssembler::AllocateObjectInNewSpace(Register object_size,
-                                              Register result,
-                                              Register result_end,
-                                              Register scratch,
-                                              Label* gc_required,
-                                              AllocationFlags flags) {
+void MacroAssembler::AllocateInNewSpace(Register object_size,
+                                        Register result,
+                                        Register result_end,
+                                        Register scratch,
+                                        Label* gc_required,
+                                        AllocationFlags flags) {
   ASSERT(!result.is(result_end));
 
   // Load address of new object into result.
@@ -896,20 +896,21 @@ void MacroAssembler::CallRuntime(Runtime::Function* f, int num_arguments) {
 
 
 void MacroAssembler::TailCallRuntime(const ExternalReference& ext,
-                                     int num_arguments) {
+                                     int num_arguments,
+                                     int result_size) {
   // TODO(1236192): Most runtime routines don't need the number of
   // arguments passed in because it is constant. At some point we
   // should remove this need and make the runtime routine entry code
   // smarter.
   Set(eax, Immediate(num_arguments));
-  JumpToBuiltin(ext);
+  JumpToRuntime(ext);
 }
 
 
-void MacroAssembler::JumpToBuiltin(const ExternalReference& ext) {
+void MacroAssembler::JumpToRuntime(const ExternalReference& ext) {
   // Set the entry point and jump to the C entry runtime stub.
   mov(ebx, Immediate(ext));
-  CEntryStub ces;
+  CEntryStub ces(1);
   jmp(ces.GetCode(), RelocInfo::CODE_TARGET);
 }
 
@@ -1170,7 +1171,7 @@ void MacroAssembler::Abort(const char* msg) {
 
 
 CodePatcher::CodePatcher(byte* address, int size)
-  : address_(address), size_(size), masm_(address, size + Assembler::kGap) {
+    : address_(address), size_(size), masm_(address, size + Assembler::kGap) {
   // Create a new macro assembler pointing to the address of the code to patch.
   // The size is adjusted with kGap on order for the assembler to generate size
   // bytes of instructions without failing with buffer size constraints.

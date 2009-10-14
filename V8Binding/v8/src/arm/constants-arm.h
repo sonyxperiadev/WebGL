@@ -43,14 +43,41 @@
 # define USE_THUMB_INTERWORK 1
 #endif
 
+#if defined(__ARM_ARCH_5T__) || \
+    defined(__ARM_ARCH_5TE__) || \
+    defined(__ARM_ARCH_6__) || \
+    defined(__ARM_ARCH_7A__) || \
+    defined(__ARM_ARCH_7__)
+# define CAN_USE_ARMV5_INSTRUCTIONS 1
+# define CAN_USE_THUMB_INSTRUCTIONS 1
+#endif
+
+#if defined(__ARM_ARCH_6__) || \
+    defined(__ARM_ARCH_7A__) || \
+    defined(__ARM_ARCH_7__)
+# define CAN_USE_ARMV6_INSTRUCTIONS 1
+#endif
+
+#if defined(__ARM_ARCH_7A__) || \
+    defined(__ARM_ARCH_7__)
+# define CAN_USE_ARMV7_INSTRUCTIONS 1
+#endif
+
 // Simulator should support ARM5 instructions.
 #if !defined(__arm__)
-# define __ARM_ARCH_5__ 1
-# define __ARM_ARCH_5T__ 1
+# define CAN_USE_ARMV5_INSTRUCTIONS 1
+# define CAN_USE_THUMB_INSTRUCTIONS 1
 #endif
 
 namespace assembler {
 namespace arm {
+
+// Number of registers in normal ARM mode.
+static const int kNumRegisters = 16;
+
+// PC is register 15.
+static const int kPCRegister = 15;
+static const int kNoRegister = -1;
 
 // Defines constants and accessor classes to assemble, disassemble and
 // simulate ARM instructions.
@@ -267,6 +294,27 @@ class Instr {
   // We need to prevent the creation of instances of class Instr.
   DISALLOW_IMPLICIT_CONSTRUCTORS(Instr);
 };
+
+
+// Helper functions for converting between register numbers and names.
+class Registers {
+ public:
+  // Return the name of the register.
+  static const char* Name(int reg);
+
+  // Lookup the register number for the name provided.
+  static int Number(const char* name);
+
+  struct RegisterAlias {
+    int reg;
+    const char *name;
+  };
+
+ private:
+  static const char* names_[kNumRegisters];
+  static const RegisterAlias aliases_[];
+};
+
 
 
 } }  // namespace assembler::arm

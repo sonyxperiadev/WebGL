@@ -33,6 +33,7 @@
 #include "codegen-inl.h"
 #include "compilation-cache.h"
 #include "debug.h"
+#include "heap-profiler.h"
 #include "global-handles.h"
 #include "mark-compact.h"
 #include "natives.h"
@@ -76,14 +77,17 @@ int Heap::amount_of_external_allocated_memory_at_last_global_gc_ = 0;
 int Heap::semispace_size_  = 512*KB;
 int Heap::old_generation_size_ = 128*MB;
 int Heap::initial_semispace_size_ = 128*KB;
+size_t Heap::code_range_size_ = 0;
 #elif defined(V8_TARGET_ARCH_X64)
-int Heap::semispace_size_  = 8*MB;
+int Heap::semispace_size_  = 16*MB;
 int Heap::old_generation_size_ = 1*GB;
 int Heap::initial_semispace_size_ = 1*MB;
+size_t Heap::code_range_size_ = 256*MB;
 #else
-int Heap::semispace_size_  = 4*MB;
+int Heap::semispace_size_  = 8*MB;
 int Heap::old_generation_size_ = 512*MB;
 int Heap::initial_semispace_size_ = 512*KB;
+size_t Heap::code_range_size_ = 0;
 #endif
 
 GCCallback Heap::global_gc_prologue_callback_ = NULL;
@@ -496,8 +500,8 @@ void Heap::PostGarbageCollectionProcessing() {
     DisableAssertNoAllocation allow_allocation;
     GlobalHandles::PostGarbageCollectionProcessing();
   }
-  // Update flat string readers.
-  FlatStringReader::PostGarbageCollectionProcessing();
+  // Update relocatables.
+  Relocatable::PostGarbageCollectionProcessing();
 }
 
 
@@ -636,15 +640,7 @@ static void VerifyNonPointerSpacePointers() {
   HeapObjectIterator code_it(Heap::code_space());
   while (code_it.has_next()) {
     HeapObject* object = code_it.next();
-    if (object->IsCode()) {
-      Code::cast(object)->ConvertICTargetsFromAddressToObject();
-      object->Iterate(&v);
-      Code::cast(object)->ConvertICTargetsFromObjectToAddress();
-    } else {
-      // If we find non-code objects in code space (e.g., free list
-      // nodes) we want to verify them as well.
-      object->Iterate(&v);
-    }
+    object->Iterate(&v);
   }
 
   HeapObjectIterator data_it(Heap::old_data_space());
@@ -1257,6 +1253,10 @@ Object* Heap::AllocateHeapNumber(double value, PretenureFlag pretenure) {
   // spaces.
   STATIC_ASSERT(HeapNumber::kSize <= Page::kMaxHeapObjectSize);
   AllocationSpace space = (pretenure == TENURED) ? OLD_DATA_SPACE : NEW_SPACE;
+
+  // New space can't cope with forced allocation.
+  if (always_allocate()) space = OLD_DATA_SPACE;
+
   Object* result = AllocateRaw(HeapNumber::kSize, space, OLD_DATA_SPACE);
   if (result->IsFailure()) return result;
 
@@ -1268,7 +1268,8 @@ Object* Heap::AllocateHeapNumber(double value, PretenureFlag pretenure) {
 
 Object* Heap::AllocateHeapNumber(double value) {
   // Use general version, if we're forced to always allocate.
-  if (always_allocate()) return AllocateHeapNumber(value, NOT_TENURED);
+  if (always_allocate()) return AllocateHeapNumber(value, TENURED);
+
   // This version of AllocateHeapNumber is optimized for
   // allocation in new space.
   STATIC_ASSERT(HeapNumber::kSize <= Page::kMaxHeapObjectSize);
@@ -1319,7 +1320,7 @@ bool Heap::CreateApiObjects() {
 
 
 void Heap::CreateCEntryStub() {
-  CEntryStub stub;
+  CEntryStub stub(1);
   set_c_entry_code(*stub.GetCode());
 }
 
@@ -1586,6 +1587,31 @@ Object* Heap::SmiOrNumberFromDouble(double value,
 
   // Materialize the value in the heap.
   return AllocateHeapNumber(value, pretenure);
+}
+
+
+Object* Heap::NumberToString(Object* number) {
+  Object* cached = GetNumberStringCache(number);
+  if (cached != undefined_value()) {
+    return cached;
+  }
+
+  char arr[100];
+  Vector<char> buffer(arr, ARRAY_SIZE(arr));
+  const char* str;
+  if (number->IsSmi()) {
+    int num = Smi::cast(number)->value();
+    str = IntToCString(num, buffer);
+  } else {
+    double num = HeapNumber::cast(number)->value();
+    str = DoubleToCString(num, buffer);
+  }
+  Object* result = AllocateStringFromAscii(CStrVector(str));
+
+  if (!result->IsFailure()) {
+    SetNumberStringCache(number, String::cast(result));
+  }
+  return result;
 }
 
 
@@ -1869,6 +1895,9 @@ Object* Heap::AllocateByteArray(int length) {
   AllocationSpace space =
       size > MaxObjectSizeInPagedSpace() ? LO_SPACE : NEW_SPACE;
 
+  // New space can't cope with forced allocation.
+  if (always_allocate()) space = LO_SPACE;
+
   Object* result = AllocateRaw(size, space, OLD_DATA_SPACE);
 
   if (result->IsFailure()) return result;
@@ -1895,6 +1924,9 @@ Object* Heap::AllocatePixelArray(int length,
                                  uint8_t* external_pointer,
                                  PretenureFlag pretenure) {
   AllocationSpace space = (pretenure == TENURED) ? OLD_DATA_SPACE : NEW_SPACE;
+
+  // New space can't cope with forced allocation.
+  if (always_allocate()) space = OLD_DATA_SPACE;
 
   Object* result = AllocateRaw(PixelArray::kAlignedSize, space, OLD_DATA_SPACE);
 
@@ -1930,11 +1962,11 @@ Object* Heap::CreateCode(const CodeDesc& desc,
   // Initialize the object
   HeapObject::cast(result)->set_map(code_map());
   Code* code = Code::cast(result);
+  ASSERT(!CodeRange::exists() || CodeRange::contains(code->address()));
   code->set_instruction_size(desc.instr_size);
   code->set_relocation_size(desc.reloc_size);
   code->set_sinfo_size(sinfo_size);
   code->set_flags(flags);
-  code->set_ic_flag(Code::IC_TARGET_IS_ADDRESS);
   // Allow self references to created code object by patching the handle to
   // point to the newly allocated Code object.
   if (!self_reference.is_null()) {
@@ -1975,6 +2007,7 @@ Object* Heap::CopyCode(Code* code) {
             obj_size);
   // Relocate the copy.
   Code* new_code = Code::cast(result);
+  ASSERT(!CodeRange::exists() || CodeRange::contains(code->address()));
   new_code->Relocate(new_addr - old_addr);
   return new_code;
 }
@@ -2540,13 +2573,17 @@ Object* Heap::AllocateInternalSymbol(unibrow::CharacterStream* buffer,
 
 Object* Heap::AllocateRawAsciiString(int length, PretenureFlag pretenure) {
   AllocationSpace space = (pretenure == TENURED) ? OLD_DATA_SPACE : NEW_SPACE;
+
+  // New space can't cope with forced allocation.
+  if (always_allocate()) space = OLD_DATA_SPACE;
+
   int size = SeqAsciiString::SizeFor(length);
 
   Object* result = Failure::OutOfMemoryException();
   if (space == NEW_SPACE) {
     result = size <= kMaxObjectSizeInNewSpace
         ? new_space_.AllocateRaw(size)
-        : lo_space_->AllocateRawFixedArray(size);
+        : lo_space_->AllocateRaw(size);
   } else {
     if (size > MaxObjectSizeInPagedSpace()) space = LO_SPACE;
     result = AllocateRaw(size, space, OLD_DATA_SPACE);
@@ -2573,13 +2610,17 @@ Object* Heap::AllocateRawAsciiString(int length, PretenureFlag pretenure) {
 
 Object* Heap::AllocateRawTwoByteString(int length, PretenureFlag pretenure) {
   AllocationSpace space = (pretenure == TENURED) ? OLD_DATA_SPACE : NEW_SPACE;
+
+  // New space can't cope with forced allocation.
+  if (always_allocate()) space = OLD_DATA_SPACE;
+
   int size = SeqTwoByteString::SizeFor(length);
 
   Object* result = Failure::OutOfMemoryException();
   if (space == NEW_SPACE) {
     result = size <= kMaxObjectSizeInNewSpace
         ? new_space_.AllocateRaw(size)
-        : lo_space_->AllocateRawFixedArray(size);
+        : lo_space_->AllocateRaw(size);
   } else {
     if (size > MaxObjectSizeInPagedSpace()) space = LO_SPACE;
     result = AllocateRaw(size, space, OLD_DATA_SPACE);
@@ -2617,7 +2658,7 @@ Object* Heap::AllocateEmptyFixedArray() {
 
 Object* Heap::AllocateRawFixedArray(int length) {
   // Use the general function if we're forced to always allocate.
-  if (always_allocate()) return AllocateFixedArray(length, NOT_TENURED);
+  if (always_allocate()) return AllocateFixedArray(length, TENURED);
   // Allocate the raw data for a fixed array.
   int size = FixedArray::SizeFor(length);
   return size <= kMaxObjectSizeInNewSpace
@@ -2669,6 +2710,9 @@ Object* Heap::AllocateFixedArray(int length) {
 Object* Heap::AllocateFixedArray(int length, PretenureFlag pretenure) {
   ASSERT(empty_fixed_array()->IsFixedArray());
   if (length == 0) return empty_fixed_array();
+
+  // New space can't cope with forced allocation.
+  if (always_allocate()) pretenure = TENURED;
 
   int size = FixedArray::SizeFor(length);
   Object* result = Failure::OutOfMemoryException();
@@ -2795,7 +2839,9 @@ STRUCT_LIST(MAKE_CASE)
 
 
 bool Heap::IdleNotification() {
-  static const int kIdlesBeforeCollection = 7;
+  static const int kIdlesBeforeScavenge = 4;
+  static const int kIdlesBeforeMarkSweep = 7;
+  static const int kIdlesBeforeMarkCompact = 8;
   static int number_idle_notifications = 0;
   static int last_gc_count = gc_count_;
 
@@ -2808,19 +2854,22 @@ bool Heap::IdleNotification() {
     last_gc_count = gc_count_;
   }
 
-  if (number_idle_notifications >= kIdlesBeforeCollection) {
-    // The first time through we collect without forcing compaction.
-    // The second time through we force compaction and quit.
-    bool force_compaction =
-        number_idle_notifications > kIdlesBeforeCollection;
-    CollectAllGarbage(force_compaction);
+  if (number_idle_notifications == kIdlesBeforeScavenge) {
+    CollectGarbage(0, NEW_SPACE);
+    new_space_.Shrink();
     last_gc_count = gc_count_;
-    if (force_compaction) {
-      // Shrink new space.
-      new_space_.Shrink();
-      number_idle_notifications = 0;
-      finished = true;
-    }
+
+  } else if (number_idle_notifications == kIdlesBeforeMarkSweep) {
+    CollectAllGarbage(false);
+    new_space_.Shrink();
+    last_gc_count = gc_count_;
+
+  } else if (number_idle_notifications == kIdlesBeforeMarkCompact) {
+    CollectAllGarbage(true);
+    new_space_.Shrink();
+    last_gc_count = gc_count_;
+    number_idle_notifications = 0;
+    finished = true;
   }
 
   // Uncommit unused memory in new space.
@@ -3091,6 +3140,8 @@ void Heap::IterateStrongRoots(ObjectVisitor* v) {
   SYNCHRONIZE_TAG("bootstrapper");
   Top::Iterate(v);
   SYNCHRONIZE_TAG("top");
+  Relocatable::Iterate(v);
+  SYNCHRONIZE_TAG("relocatable");
 
 #ifdef ENABLE_DEBUGGER_SUPPORT
   Debug::Iterate(v);
@@ -3185,63 +3236,57 @@ bool Heap::Setup(bool create_heap_objects) {
     if (!ConfigureHeapDefault()) return false;
   }
 
-  // Setup memory allocator and allocate an initial chunk of memory.  The
-  // initial chunk is double the size of the new space to ensure that we can
-  // find a pair of semispaces that are contiguous and aligned to their size.
+  // Setup memory allocator and reserve a chunk of memory for new
+  // space.  The chunk is double the size of the new space to ensure
+  // that we can find a pair of semispaces that are contiguous and
+  // aligned to their size.
   if (!MemoryAllocator::Setup(MaxCapacity())) return false;
-  void* chunk
-      = MemoryAllocator::ReserveInitialChunk(2 * young_generation_size_);
+  void* chunk =
+      MemoryAllocator::ReserveInitialChunk(2 * young_generation_size_);
   if (chunk == NULL) return false;
 
-  // Put the initial chunk of the old space at the start of the initial
-  // chunk, then the two new space semispaces, then the initial chunk of
-  // code space.  Align the pair of semispaces to their size, which must be
-  // a power of 2.
+  // Align the pair of semispaces to their size, which must be a power
+  // of 2.
   ASSERT(IsPowerOf2(young_generation_size_));
-  Address code_space_start = reinterpret_cast<Address>(chunk);
-  Address new_space_start = RoundUp(code_space_start, young_generation_size_);
-  Address old_space_start = new_space_start + young_generation_size_;
-  int code_space_size = new_space_start - code_space_start;
-  int old_space_size = young_generation_size_ - code_space_size;
-
-  // Initialize new space.
+  Address new_space_start =
+      RoundUp(reinterpret_cast<byte*>(chunk), young_generation_size_);
   if (!new_space_.Setup(new_space_start, young_generation_size_)) return false;
 
-  // Initialize old space, set the maximum capacity to the old generation
-  // size. It will not contain code.
+  // Initialize old pointer space.
   old_pointer_space_ =
       new OldSpace(old_generation_size_, OLD_POINTER_SPACE, NOT_EXECUTABLE);
   if (old_pointer_space_ == NULL) return false;
-  if (!old_pointer_space_->Setup(old_space_start, old_space_size >> 1)) {
-    return false;
-  }
+  if (!old_pointer_space_->Setup(NULL, 0)) return false;
+
+  // Initialize old data space.
   old_data_space_ =
       new OldSpace(old_generation_size_, OLD_DATA_SPACE, NOT_EXECUTABLE);
   if (old_data_space_ == NULL) return false;
-  if (!old_data_space_->Setup(old_space_start + (old_space_size >> 1),
-                              old_space_size >> 1)) {
-    return false;
-  }
+  if (!old_data_space_->Setup(NULL, 0)) return false;
 
   // Initialize the code space, set its maximum capacity to the old
   // generation size. It needs executable memory.
+  // On 64-bit platform(s), we put all code objects in a 2 GB range of
+  // virtual address space, so that they can call each other with near calls.
+  if (code_range_size_ > 0) {
+    if (!CodeRange::Setup(code_range_size_)) {
+      return false;
+    }
+  }
+
   code_space_ =
       new OldSpace(old_generation_size_, CODE_SPACE, EXECUTABLE);
   if (code_space_ == NULL) return false;
-  if (!code_space_->Setup(code_space_start, code_space_size)) return false;
+  if (!code_space_->Setup(NULL, 0)) return false;
 
   // Initialize map space.
   map_space_ = new MapSpace(kMaxMapSpaceSize, MAP_SPACE);
   if (map_space_ == NULL) return false;
-  // Setting up a paged space without giving it a virtual memory range big
-  // enough to hold at least a page will cause it to allocate.
   if (!map_space_->Setup(NULL, 0)) return false;
 
   // Initialize global property cell space.
   cell_space_ = new CellSpace(old_generation_size_, CELL_SPACE);
   if (cell_space_ == NULL) return false;
-  // Setting up a paged space without giving it a virtual memory range big
-  // enough to hold at least a page will cause it to allocate.
   if (!cell_space_->Setup(NULL, 0)) return false;
 
   // The large object code space may contain code or data.  We set the memory
@@ -3553,163 +3598,6 @@ void HeapIterator::reset() {
 }
 
 
-#ifdef ENABLE_LOGGING_AND_PROFILING
-namespace {
-
-// JSConstructorProfile is responsible for gathering and logging
-// "constructor profile" of JS object allocated on heap.
-// It is run during garbage collection cycle, thus it doesn't need
-// to use handles.
-class JSConstructorProfile BASE_EMBEDDED {
- public:
-  JSConstructorProfile() : zscope_(DELETE_ON_EXIT) {}
-  void CollectStats(JSObject* obj);
-  void PrintStats();
-  // Used by ZoneSplayTree::ForEach.
-  void Call(String* name, const NumberAndSizeInfo& number_and_size);
- private:
-  struct TreeConfig {
-    typedef String* Key;
-    typedef NumberAndSizeInfo Value;
-    static const Key kNoKey;
-    static const Value kNoValue;
-    // Strings are unique, so it is sufficient to compare their pointers.
-    static int Compare(const Key& a, const Key& b) {
-      return a == b ? 0 : (a < b ? -1 : 1);
-    }
-  };
-
-  typedef ZoneSplayTree<TreeConfig> JSObjectsInfoTree;
-  static int CalculateJSObjectNetworkSize(JSObject* obj);
-
-  ZoneScope zscope_;
-  JSObjectsInfoTree js_objects_info_tree_;
-};
-
-const JSConstructorProfile::TreeConfig::Key
-    JSConstructorProfile::TreeConfig::kNoKey = NULL;
-const JSConstructorProfile::TreeConfig::Value
-    JSConstructorProfile::TreeConfig::kNoValue;
-
-
-int JSConstructorProfile::CalculateJSObjectNetworkSize(JSObject* obj) {
-  int size = obj->Size();
-  // If 'properties' and 'elements' are non-empty (thus, non-shared),
-  // take their size into account.
-  if (FixedArray::cast(obj->properties())->length() != 0) {
-    size += obj->properties()->Size();
-  }
-  if (FixedArray::cast(obj->elements())->length() != 0) {
-    size += obj->elements()->Size();
-  }
-  return size;
-}
-
-
-void JSConstructorProfile::Call(String* name,
-                                const NumberAndSizeInfo& number_and_size) {
-  SmartPointer<char> s_name;
-  if (name != NULL) {
-    s_name = name->ToCString(DISALLOW_NULLS, ROBUST_STRING_TRAVERSAL);
-  }
-  LOG(HeapSampleJSConstructorEvent(*s_name,
-                                   number_and_size.number(),
-                                   number_and_size.bytes()));
-}
-
-
-void JSConstructorProfile::CollectStats(JSObject* obj) {
-  String* constructor_func = NULL;
-  if (obj->map()->constructor()->IsJSFunction()) {
-    JSFunction* constructor = JSFunction::cast(obj->map()->constructor());
-    SharedFunctionInfo* sfi = constructor->shared();
-    String* name = String::cast(sfi->name());
-    constructor_func = name->length() > 0 ? name : sfi->inferred_name();
-  } else if (obj->IsJSFunction()) {
-    constructor_func = Heap::function_class_symbol();
-  }
-  JSObjectsInfoTree::Locator loc;
-  if (!js_objects_info_tree_.Find(constructor_func, &loc)) {
-    js_objects_info_tree_.Insert(constructor_func, &loc);
-  }
-  NumberAndSizeInfo number_and_size = loc.value();
-  number_and_size.increment_number(1);
-  number_and_size.increment_bytes(CalculateJSObjectNetworkSize(obj));
-  loc.set_value(number_and_size);
-}
-
-
-void JSConstructorProfile::PrintStats() {
-  js_objects_info_tree_.ForEach(this);
-}
-
-}  // namespace
-#endif
-
-
-//
-// HeapProfiler class implementation.
-//
-#ifdef ENABLE_LOGGING_AND_PROFILING
-void HeapProfiler::CollectStats(HeapObject* obj, HistogramInfo* info) {
-  InstanceType type = obj->map()->instance_type();
-  ASSERT(0 <= type && type <= LAST_TYPE);
-  info[type].increment_number(1);
-  info[type].increment_bytes(obj->Size());
-}
-#endif
-
-
-#ifdef ENABLE_LOGGING_AND_PROFILING
-void HeapProfiler::WriteSample() {
-  LOG(HeapSampleBeginEvent("Heap", "allocated"));
-  LOG(HeapSampleStats(
-      "Heap", "allocated", Heap::Capacity(), Heap::SizeOfObjects()));
-
-  HistogramInfo info[LAST_TYPE+1];
-#define DEF_TYPE_NAME(name) info[name].set_name(#name);
-  INSTANCE_TYPE_LIST(DEF_TYPE_NAME)
-#undef DEF_TYPE_NAME
-
-  JSConstructorProfile js_cons_profile;
-  HeapIterator iterator;
-  while (iterator.has_next()) {
-    HeapObject* obj = iterator.next();
-    CollectStats(obj, info);
-    if (obj->IsJSObject()) {
-      js_cons_profile.CollectStats(JSObject::cast(obj));
-    }
-  }
-
-  // Lump all the string types together.
-  int string_number = 0;
-  int string_bytes = 0;
-#define INCREMENT_SIZE(type, size, name, camel_name)   \
-    string_number += info[type].number();              \
-    string_bytes += info[type].bytes();
-  STRING_TYPE_LIST(INCREMENT_SIZE)
-#undef INCREMENT_SIZE
-  if (string_bytes > 0) {
-    LOG(HeapSampleItemEvent("STRING_TYPE", string_number, string_bytes));
-  }
-
-  for (int i = FIRST_NONSTRING_TYPE; i <= LAST_TYPE; ++i) {
-    if (info[i].bytes() > 0) {
-      LOG(HeapSampleItemEvent(info[i].name(), info[i].number(),
-                              info[i].bytes()));
-    }
-  }
-
-  js_cons_profile.PrintStats();
-
-  LOG(HeapSampleEndEvent("Heap", "allocated"));
-}
-
-
-#endif
-
-
-
 #ifdef DEBUG
 
 static bool search_for_any_global;
@@ -3750,10 +3638,6 @@ static void MarkObjectRecursively(Object** p) {
       (!search_for_any_global && (obj == search_target))) {
     found_target = true;
     return;
-  }
-
-  if (obj->IsCode()) {
-    Code::cast(obj)->ConvertICTargetsFromAddressToObject();
   }
 
   // not visited yet
@@ -3811,10 +3695,6 @@ static void UnmarkObjectRecursively(Object** p) {
   obj->IterateBody(Map::cast(map_p)->instance_type(),
                    obj->SizeFromMap(Map::cast(map_p)),
                    &unmark_visitor);
-
-  if (obj->IsCode()) {
-    Code::cast(obj)->ConvertICTargetsFromObjectToAddress();
-  }
 }
 
 

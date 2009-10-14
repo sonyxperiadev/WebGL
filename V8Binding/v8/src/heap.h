@@ -882,11 +882,14 @@ class Heap : public AllStatic {
     kRootListLength
   };
 
+  static Object* NumberToString(Object* number);
+
  private:
   static int semispace_size_;
   static int initial_semispace_size_;
   static int young_generation_size_;
   static int old_generation_size_;
+  static size_t code_range_size_;
 
   // For keeping track of how much data has survived
   // scavenge since last new space expansion.
@@ -1441,20 +1444,6 @@ class DisableAssertNoAllocation {
   ~DisableAssertNoAllocation() { }
 };
 
-#endif
-
-#ifdef ENABLE_LOGGING_AND_PROFILING
-// The HeapProfiler writes data to the log files, which can be postprocessed
-// to generate .hp files for use by the GHC/Valgrind tool hp2ps.
-class HeapProfiler {
- public:
-  // Write a single heap sample to the log file.
-  static void WriteSample();
-
- private:
-  // Update the array info with stats from obj.
-  static void CollectStats(HeapObject* obj, HistogramInfo* info);
-};
 #endif
 
 // GCTracer collects and prints ONE line after each garbage collector

@@ -41,6 +41,13 @@ static const Register kScratchRegister = r10;
 // Forward declaration.
 class JumpTarget;
 
+struct SmiIndex {
+  SmiIndex(Register index_register, ScaleFactor scale)
+      : reg(index_register),
+        scale(scale) {}
+  Register reg;
+  ScaleFactor scale;
+};
 
 // MacroAssembler implements a collection of frequently used macros.
 class MacroAssembler: public Assembler {
@@ -49,6 +56,7 @@ class MacroAssembler: public Assembler {
 
   void LoadRoot(Register destination, Heap::RootListIndex index);
   void CompareRoot(Register with, Heap::RootListIndex index);
+  void CompareRoot(Operand with, Heap::RootListIndex index);
   void PushRoot(Heap::RootListIndex index);
 
   // ---------------------------------------------------------------------------
@@ -87,15 +95,15 @@ class MacroAssembler: public Assembler {
   void LeaveConstructFrame() { LeaveFrame(StackFrame::CONSTRUCT); }
 
   // Enter specific kind of exit frame; either EXIT or
-  // EXIT_DEBUG. Expects the number of arguments in register eax and
-  // sets up the number of arguments in register edi and the pointer
-  // to the first argument in register esi.
-  void EnterExitFrame(StackFrame::Type type);
+  // EXIT_DEBUG. Expects the number of arguments in register rax and
+  // sets up the number of arguments in register rdi and the pointer
+  // to the first argument in register rsi.
+  void EnterExitFrame(StackFrame::Type type, int result_size = 1);
 
-  // Leave the current exit frame. Expects the return value in
-  // register eax:edx (untouched) and the pointer to the first
-  // argument in register esi.
-  void LeaveExitFrame(StackFrame::Type type);
+  // Leave the current exit frame. Expects/provides the return value in
+  // register rax:rdx (untouched) and the pointer to the first
+  // argument in register rsi.
+  void LeaveExitFrame(StackFrame::Type type, int result_size = 1);
 
 
   // ---------------------------------------------------------------------------
@@ -125,6 +133,239 @@ class MacroAssembler: public Assembler {
 
   // Store the code object for the given builtin in the target register.
   void GetBuiltinEntry(Register target, Builtins::JavaScript id);
+
+
+  // ---------------------------------------------------------------------------
+  // Smi tagging, untagging and operations on tagged smis.
+
+  // Conversions between tagged smi values and non-tagged integer values.
+
+  // Tag an integer value. The result must be known to be a valid smi value.
+  // Only uses the low 32 bits of the src register.
+  void Integer32ToSmi(Register dst, Register src);
+
+  // Tag an integer value if possible, or jump the integer value cannot be
+  // represented as a smi. Only uses the low 32 bit of the src registers.
+  void Integer32ToSmi(Register dst, Register src, Label* on_overflow);
+
+  // Adds constant to src and tags the result as a smi.
+  // Result must be a valid smi.
+  void Integer64AddToSmi(Register dst, Register src, int constant);
+
+  // Convert smi to 32-bit integer. I.e., not sign extended into
+  // high 32 bits of destination.
+  void SmiToInteger32(Register dst, Register src);
+
+  // Convert smi to 64-bit integer (sign extended if necessary).
+  void SmiToInteger64(Register dst, Register src);
+
+  // Multiply a positive smi's integer value by a power of two.
+  // Provides result as 64-bit integer value.
+  void PositiveSmiTimesPowerOfTwoToInteger64(Register dst,
+                                             Register src,
+                                             int power);
+
+  // Functions performing a check on a known or potential smi. Returns
+  // a condition that is satisfied if the check is successful.
+
+  // Is the value a tagged smi.
+  Condition CheckSmi(Register src);
+
+  // Is the value not a tagged smi.
+  Condition CheckNotSmi(Register src);
+
+  // Is the value a positive tagged smi.
+  Condition CheckPositiveSmi(Register src);
+
+  // Is the value not a positive tagged smi.
+  Condition CheckNotPositiveSmi(Register src);
+
+  // Are both values are tagged smis.
+  Condition CheckBothSmi(Register first, Register second);
+
+  // Is one of the values not a tagged smi.
+  Condition CheckNotBothSmi(Register first, Register second);
+
+  // Is the value the minimum smi value (since we are using
+  // two's complement numbers, negating the value is known to yield
+  // a non-smi value).
+  Condition CheckIsMinSmi(Register src);
+
+  // Check whether a tagged smi is equal to a constant.
+  Condition CheckSmiEqualsConstant(Register src, int constant);
+
+  // Check whether a tagged smi is greater than or equal to a constant.
+  Condition CheckSmiGreaterEqualsConstant(Register src, int constant);
+
+  // Checks whether an 32-bit integer value is a valid for conversion
+  // to a smi.
+  Condition CheckInteger32ValidSmiValue(Register src);
+
+  // Test-and-jump functions. Typically combines a check function
+  // above with a conditional jump.
+
+  // Jump if the value cannot be represented by a smi.
+  void JumpIfNotValidSmiValue(Register src, Label* on_invalid);
+
+  // Jump to label if the value is a tagged smi.
+  void JumpIfSmi(Register src, Label* on_smi);
+
+  // Jump to label if the value is not a tagged smi.
+  void JumpIfNotSmi(Register src, Label* on_not_smi);
+
+  // Jump to label if the value is not a positive tagged smi.
+  void JumpIfNotPositiveSmi(Register src, Label* on_not_smi);
+
+  // Jump to label if the value is a tagged smi with value equal
+  // to the constant.
+  void JumpIfSmiEqualsConstant(Register src, int constant, Label* on_equals);
+
+  // Jump to label if the value is a tagged smi with value greater than or equal
+  // to the constant.
+  void JumpIfSmiGreaterEqualsConstant(Register src,
+                                      int constant,
+                                      Label* on_equals);
+
+  // Jump if either or both register are not smi values.
+  void JumpIfNotBothSmi(Register src1, Register src2, Label* on_not_both_smi);
+
+  // Operations on tagged smi values.
+
+  // Smis represent a subset of integers. The subset is always equivalent to
+  // a two's complement interpretation of a fixed number of bits.
+
+  // Optimistically adds an integer constant to a supposed smi.
+  // If the src is not a smi, or the result is not a smi, jump to
+  // the label.
+  void SmiTryAddConstant(Register dst,
+                         Register src,
+                         int32_t constant,
+                         Label* on_not_smi_result);
+
+  // Add an integer constant to a tagged smi, giving a tagged smi as result,
+  // or jumping to a label if the result cannot be represented by a smi.
+  // If the label is NULL, no testing on the result is done.
+  void SmiAddConstant(Register dst,
+                      Register src,
+                      int32_t constant,
+                      Label* on_not_smi_result);
+
+  // Subtract an integer constant from a tagged smi, giving a tagged smi as
+  // result, or jumping to a label if the result cannot be represented by a smi.
+  // If the label is NULL, no testing on the result is done.
+  void SmiSubConstant(Register dst,
+                      Register src,
+                      int32_t constant,
+                      Label* on_not_smi_result);
+
+  // Negating a smi can give a negative zero or too large positive value.
+  void SmiNeg(Register dst,
+              Register src,
+              Label* on_not_smi_result);
+
+  // Adds smi values and return the result as a smi.
+  // If dst is src1, then src1 will be destroyed, even if
+  // the operation is unsuccessful.
+  void SmiAdd(Register dst,
+              Register src1,
+              Register src2,
+              Label* on_not_smi_result);
+
+  // Subtracts smi values and return the result as a smi.
+  // If dst is src1, then src1 will be destroyed, even if
+  // the operation is unsuccessful.
+  void SmiSub(Register dst,
+              Register src1,
+              Register src2,
+              Label* on_not_smi_result);
+
+  // Multiplies smi values and return the result as a smi,
+  // if possible.
+  // If dst is src1, then src1 will be destroyed, even if
+  // the operation is unsuccessful.
+  void SmiMul(Register dst,
+              Register src1,
+              Register src2,
+              Label* on_not_smi_result);
+
+  // Divides one smi by another and returns the quotient.
+  // Clobbers rax and rdx registers.
+  void SmiDiv(Register dst,
+              Register src1,
+              Register src2,
+              Label* on_not_smi_result);
+
+  // Divides one smi by another and returns the remainder.
+  // Clobbers rax and rdx registers.
+  void SmiMod(Register dst,
+              Register src1,
+              Register src2,
+              Label* on_not_smi_result);
+
+  // Bitwise operations.
+  void SmiNot(Register dst, Register src);
+  void SmiAnd(Register dst, Register src1, Register src2);
+  void SmiOr(Register dst, Register src1, Register src2);
+  void SmiXor(Register dst, Register src1, Register src2);
+  void SmiAndConstant(Register dst, Register src1, int constant);
+  void SmiOrConstant(Register dst, Register src1, int constant);
+  void SmiXorConstant(Register dst, Register src1, int constant);
+
+  void SmiShiftLeftConstant(Register dst,
+                            Register src,
+                            int shift_value,
+                            Label* on_not_smi_result);
+  void SmiShiftLogicalRightConstant(Register dst,
+                                  Register src,
+                                  int shift_value,
+                                  Label* on_not_smi_result);
+  void SmiShiftArithmeticRightConstant(Register dst,
+                                       Register src,
+                                       int shift_value);
+
+  // Shifts a smi value to the left, and returns the result if that is a smi.
+  // Uses and clobbers rcx, so dst may not be rcx.
+  void SmiShiftLeft(Register dst,
+                    Register src1,
+                    Register src2,
+                    Label* on_not_smi_result);
+  // Shifts a smi value to the right, shifting in zero bits at the top, and
+  // returns the unsigned intepretation of the result if that is a smi.
+  // Uses and clobbers rcx, so dst may not be rcx.
+  void SmiShiftLogicalRight(Register dst,
+                          Register src1,
+                          Register src2,
+                          Label* on_not_smi_result);
+  // Shifts a smi value to the right, sign extending the top, and
+  // returns the signed intepretation of the result. That will always
+  // be a valid smi value, since it's numerically smaller than the
+  // original.
+  // Uses and clobbers rcx, so dst may not be rcx.
+  void SmiShiftArithmeticRight(Register dst,
+                               Register src1,
+                               Register src2);
+
+  // Specialized operations
+
+  // Select the non-smi register of two registers where exactly one is a
+  // smi. If neither are smis, jump to the failure label.
+  void SelectNonSmi(Register dst,
+                    Register src1,
+                    Register src2,
+                    Label* on_not_smis);
+
+  // Converts, if necessary, a smi to a combination of number and
+  // multiplier to be used as a scaled index.
+  // The src register contains a *positive* smi value. The shift is the
+  // power of two to multiply the index value by (e.g.
+  // to index by smi-value * kPointerSize, pass the smi and kPointerSizeLog2).
+  // The returned index register may be either src or dst, depending
+  // on what is most efficient. If src and dst are different registers,
+  // src is always unchanged.
+  SmiIndex SmiToIndex(Register dst, Register src, int shift);
+
+  // Converts a positive smi to a negative index.
+  SmiIndex SmiToNegativeIndex(Register dst, Register src, int shift);
 
   // ---------------------------------------------------------------------------
   // Macro instructions
@@ -218,30 +459,30 @@ class MacroAssembler: public Assembler {
   // and result_end have not yet been tagged as heap objects. If
   // result_contains_top_on_entry is true the content of result is known to be
   // the allocation top on entry (could be result_end from a previous call to
-  // AllocateObjectInNewSpace). If result_contains_top_on_entry is true scratch
+  // AllocateInNewSpace). If result_contains_top_on_entry is true scratch
   // should be no_reg as it is never used.
-  void AllocateObjectInNewSpace(int object_size,
-                                Register result,
-                                Register result_end,
-                                Register scratch,
-                                Label* gc_required,
-                                AllocationFlags flags);
+  void AllocateInNewSpace(int object_size,
+                          Register result,
+                          Register result_end,
+                          Register scratch,
+                          Label* gc_required,
+                          AllocationFlags flags);
 
-  void AllocateObjectInNewSpace(int header_size,
-                                ScaleFactor element_size,
-                                Register element_count,
-                                Register result,
-                                Register result_end,
-                                Register scratch,
-                                Label* gc_required,
-                                AllocationFlags flags);
+  void AllocateInNewSpace(int header_size,
+                          ScaleFactor element_size,
+                          Register element_count,
+                          Register result,
+                          Register result_end,
+                          Register scratch,
+                          Label* gc_required,
+                          AllocationFlags flags);
 
-  void AllocateObjectInNewSpace(Register object_size,
-                                Register result,
-                                Register result_end,
-                                Register scratch,
-                                Label* gc_required,
-                                AllocationFlags flags);
+  void AllocateInNewSpace(Register object_size,
+                          Register result,
+                          Register result_end,
+                          Register scratch,
+                          Label* gc_required,
+                          AllocationFlags flags);
 
   // Undo allocation in new space. The object passed and objects allocated after
   // it will no longer be allocated. Make sure that no pointers are left to the
@@ -296,12 +537,14 @@ class MacroAssembler: public Assembler {
   void CallRuntime(Runtime::FunctionId id, int num_arguments);
 
   // Tail call of a runtime routine (jump).
-  // Like JumpToBuiltin, but also takes care of passing the number
+  // Like JumpToRuntime, but also takes care of passing the number
   // of arguments.
-  void TailCallRuntime(const ExternalReference& ext, int num_arguments);
+  void TailCallRuntime(const ExternalReference& ext,
+                       int num_arguments,
+                       int result_size);
 
-  // Jump to the builtin routine.
-  void JumpToBuiltin(const ExternalReference& ext);
+  // Jump to a runtime routine.
+  void JumpToRuntime(const ExternalReference& ext, int result_size);
 
 
   // ---------------------------------------------------------------------------
@@ -361,8 +604,16 @@ class MacroAssembler: public Assembler {
                       Label* done,
                       InvokeFlag flag);
 
-  // Get the code for the given builtin. Returns if able to resolve
-  // the function in the 'resolved' flag.
+  // Prepares for a call or jump to a builtin by doing two things:
+  // 1. Emits code that fetches the builtin's function object from the context
+  //    at runtime, and puts it in the register rdi.
+  // 2. Fetches the builtin's code object, and returns it in a handle, at
+  //    compile time, so that later code can emit instructions to jump or call
+  //    the builtin directly.  If the code object has not yet been created, it
+  //    returns the builtin code object for IllegalFunction, and sets the
+  //    output parameter "resolved" to false.  Code that uses the return value
+  //    should then add the address and the builtin name to the list of fixups
+  //    called unresolved_, which is fixed up by the bootstrapper.
   Handle<Code> ResolveBuiltin(Builtins::JavaScript id, bool* resolved);
 
   // Activation support.

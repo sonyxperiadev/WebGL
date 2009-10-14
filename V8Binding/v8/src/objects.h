@@ -211,7 +211,7 @@ enum PropertyNormalizationMode {
 // NOTE: Everything following JS_VALUE_TYPE is considered a
 // JSObject for GC purposes. The first four entries here have typeof
 // 'object', whereas JS_FUNCTION_TYPE has typeof 'function'.
-#define INSTANCE_TYPE_LIST(V)                   \
+#define INSTANCE_TYPE_LIST_ALL(V)               \
   V(SHORT_SYMBOL_TYPE)                          \
   V(MEDIUM_SYMBOL_TYPE)                         \
   V(LONG_SYMBOL_TYPE)                           \
@@ -282,8 +282,6 @@ enum PropertyNormalizationMode {
   V(OBJECT_TEMPLATE_INFO_TYPE)                  \
   V(SIGNATURE_INFO_TYPE)                        \
   V(TYPE_SWITCH_INFO_TYPE)                      \
-  V(DEBUG_INFO_TYPE)                            \
-  V(BREAK_POINT_INFO_TYPE)                      \
   V(SCRIPT_TYPE)                                \
                                                 \
   V(JS_VALUE_TYPE)                              \
@@ -297,6 +295,17 @@ enum PropertyNormalizationMode {
                                                 \
   V(JS_FUNCTION_TYPE)                           \
 
+#ifdef ENABLE_DEBUGGER_SUPPORT
+#define INSTANCE_TYPE_LIST_DEBUGGER(V)          \
+  V(DEBUG_INFO_TYPE)                            \
+  V(BREAK_POINT_INFO_TYPE)
+#else
+#define INSTANCE_TYPE_LIST_DEBUGGER(V)
+#endif
+
+#define INSTANCE_TYPE_LIST(V)                   \
+  INSTANCE_TYPE_LIST_ALL(V)                     \
+  INSTANCE_TYPE_LIST_DEBUGGER(V)
 
 
 // Since string types are not consecutive, this macro is used to
@@ -673,8 +682,10 @@ enum InstanceType {
   OBJECT_TEMPLATE_INFO_TYPE,
   SIGNATURE_INFO_TYPE,
   TYPE_SWITCH_INFO_TYPE,
+#ifdef ENABLE_DEBUGGER_SUPPORT
   DEBUG_INFO_TYPE,
   BREAK_POINT_INFO_TYPE,
+#endif
   SCRIPT_TYPE,
 
   JS_VALUE_TYPE,
@@ -751,14 +762,17 @@ class Object BASE_EMBEDDED {
   inline bool IsHeapNumber();
   inline bool IsString();
   inline bool IsSymbol();
+#ifdef DEBUG
+  // See objects-inl.h for more details
   inline bool IsSeqString();
   inline bool IsSlicedString();
   inline bool IsExternalString();
-  inline bool IsConsString();
   inline bool IsExternalTwoByteString();
   inline bool IsExternalAsciiString();
   inline bool IsSeqTwoByteString();
   inline bool IsSeqAsciiString();
+#endif  // DEBUG
+  inline bool IsConsString();
 
   inline bool IsNumber();
   inline bool IsByteArray();
@@ -889,11 +903,11 @@ class Object BASE_EMBEDDED {
 
 
 // Smi represents integer Numbers that can be stored in 31 bits.
-// TODO(X64) Increase to 53 bits?
 // Smis are immediate which means they are NOT allocated in the heap.
-// The this pointer has the following format: [31 bit signed int] 0
-// TODO(X64): 31 bits signed int sign-extended to 63 bits.
 // Smi stands for small integer.
+// The this pointer has the following format: [31 bit signed int] 0
+// On 64-bit, the top 32 bits of the pointer is allowed to have any
+// value.
 class Smi: public Object {
  public:
   // Returns the integer value.
@@ -1392,6 +1406,10 @@ class JSObject: public HeapObject {
   // Returns the class name ([[Class]] property in the specification).
   String* class_name();
 
+  // Returns the constructor name (the name (possibly, inferred name) of the
+  // function that was used to instantiate the object).
+  String* constructor_name();
+
   // Retrieve interceptors.
   InterceptorInfo* GetNamedInterceptor();
   InterceptorInfo* GetIndexedInterceptor();
@@ -1423,6 +1441,10 @@ class JSObject: public HeapObject {
 
   // Tells whether this object needs to be loaded.
   inline bool IsLoaded();
+
+  // Returns true if this is an instance of an api function and has
+  // been modified since it was created.  May give false positives.
+  bool IsDirty();
 
   bool HasProperty(String* name) {
     return GetPropertyAttribute(name) != ABSENT;
@@ -2512,13 +2534,6 @@ class Code: public HeapObject {
     NUMBER_OF_KINDS = KEYED_STORE_IC + 1
   };
 
-  // A state indicates that inline cache in this Code object contains
-  // objects or relative instruction addresses.
-  enum ICTargetState {
-    IC_TARGET_IS_ADDRESS,
-    IC_TARGET_IS_OBJECT
-  };
-
 #ifdef ENABLE_DISASSEMBLER
   // Printing
   static const char* Kind2String(Kind kind);
@@ -2557,12 +2572,6 @@ class Code: public HeapObject {
   inline bool is_store_stub() { return kind() == STORE_IC; }
   inline bool is_keyed_store_stub() { return kind() == KEYED_STORE_IC; }
   inline bool is_call_stub() { return kind() == CALL_IC; }
-
-  // [ic_flag]: State of inline cache targets. The flag is set to the
-  // object variant in ConvertICTargetsFromAddressToObject, and set to
-  // the address variant in ConvertICTargetsFromObjectToAddress.
-  inline ICTargetState ic_flag();
-  inline void set_ic_flag(ICTargetState value);
 
   // [major_key]: For kind STUB, the major key.
   inline CodeStub::Major major_key();
@@ -2608,12 +2617,6 @@ class Code: public HeapObject {
 
   // Returns the address of the scope information.
   inline byte* sinfo_start();
-
-  // Convert inline cache target from address to code object before GC.
-  void ConvertICTargetsFromAddressToObject();
-
-  // Convert inline cache target from code object to address after GC
-  void ConvertICTargetsFromObjectToAddress();
 
   // Relocate the code by delta bytes. Called to signal that this code
   // object has been moved by delta bytes.
@@ -2670,7 +2673,6 @@ class Code: public HeapObject {
           ~kCodeAlignmentMask;
 
   // Byte offsets within kKindSpecificFlagsOffset.
-  static const int kICFlagOffset = kKindSpecificFlagsOffset + 0;
   static const int kStubMajorKeyOffset = kKindSpecificFlagsOffset + 1;
 
   // Flags layout.
@@ -3101,9 +3103,7 @@ class SharedFunctionInfo: public HeapObject {
   inline bool is_expression();
   inline void set_is_expression(bool value);
 
-  // Is this function a top-level function. Used for accessing the
-  // caller of functions. Top-level functions (scripts, evals) are
-  // returned as null; see JSFunction::GetCallerAccessor(...).
+  // Is this function a top-level function (scripts, evals).
   inline bool is_toplevel();
   inline void set_is_toplevel(bool value);
 
@@ -4219,25 +4219,47 @@ class ExternalTwoByteString: public ExternalString {
 };
 
 
+// Utility superclass for stack-allocated objects that must be updated
+// on gc.  It provides two ways for the gc to update instances, either
+// iterating or updating after gc.
+class Relocatable BASE_EMBEDDED {
+ public:
+  inline Relocatable() : prev_(top_) { top_ = this; }
+  virtual ~Relocatable() {
+    ASSERT_EQ(top_, this);
+    top_ = prev_;
+  }
+  virtual void IterateInstance(ObjectVisitor* v) { }
+  virtual void PostGarbageCollection() { }
+
+  static void PostGarbageCollectionProcessing();
+  static int ArchiveSpacePerThread();
+  static char* ArchiveState(char* to);
+  static char* RestoreState(char* from);
+  static void Iterate(ObjectVisitor* v);
+  static void Iterate(ObjectVisitor* v, Relocatable* top);
+  static char* Iterate(ObjectVisitor* v, char* t);
+ private:
+  static Relocatable* top_;
+  Relocatable* prev_;
+};
+
+
 // A flat string reader provides random access to the contents of a
 // string independent of the character width of the string.  The handle
 // must be valid as long as the reader is being used.
-class FlatStringReader BASE_EMBEDDED {
+class FlatStringReader : public Relocatable {
  public:
   explicit FlatStringReader(Handle<String> str);
   explicit FlatStringReader(Vector<const char> input);
-  ~FlatStringReader();
-  void RefreshState();
+  void PostGarbageCollection();
   inline uc32 Get(int index);
   int length() { return length_; }
-  static void PostGarbageCollectionProcessing();
  private:
   String** str_;
   bool is_ascii_;
   int length_;
   const void* start_;
-  FlatStringReader* prev_;
-  static FlatStringReader* top_;
 };
 
 
@@ -4402,6 +4424,9 @@ class JSArray: public JSObject {
   void JSArrayPrint();
   void JSArrayVerify();
 #endif
+
+  // Number of element slots to pre-allocate for an empty array.
+  static const int kPreallocatedArrayElements = 4;
 
   // Layout description.
   static const int kLengthOffset = JSObject::kHeaderSize;
@@ -4804,9 +4829,6 @@ class ObjectVisitor BASE_EMBEDDED {
   // To allow lazy clearing of inline caches the visitor has
   // a rich interface for iterating over Code objects..
 
-  // Called prior to visiting the body of a Code object.
-  virtual void BeginCodeIteration(Code* code);
-
   // Visits a code target in the instruction stream.
   virtual void VisitCodeTarget(RelocInfo* rinfo);
 
@@ -4815,9 +4837,6 @@ class ObjectVisitor BASE_EMBEDDED {
 
   // Visits a debug call target in the instruction stream.
   virtual void VisitDebugTarget(RelocInfo* rinfo);
-
-  // Called after completing  visiting the body of a Code object.
-  virtual void EndCodeIteration(Code* code) {}
 
   // Handy shorthand for visiting a single pointer.
   virtual void VisitPointer(Object** p) { VisitPointers(p, p + 1); }

@@ -8,7 +8,6 @@ V8_LOCAL_SRC_FILES := \
 	src/ast.cc \
 	src/bootstrapper.cc \
 	src/builtins.cc \
-	src/cfg.cc \
 	src/checks.cc \
 	src/code-stubs.cc \
 	src/codegen.cc \
@@ -72,7 +71,6 @@ ifeq ($(TARGET_ARCH),arm)
   V8_LOCAL_SRC_FILES += \
 		src/arm/assembler-arm.cc \
 		src/arm/builtins-arm.cc \
-		src/arm/cfg-arm.cc \
 		src/arm/codegen-arm.cc \
 		src/arm/cpu-arm.cc \
 		src/arm/disasm-arm.cc \
@@ -90,7 +88,6 @@ ifeq ($(TARGET_ARCH),x86)
   V8_LOCAL_SRC_FILES += \
 	  src/ia32/assembler-ia32.cc \
 		src/ia32/builtins-ia32.cc \
-		src/ia32/cfg-ia32.cc \
 		src/ia32/codegen-ia32.cc \
 		src/ia32/cpu-ia32.cc \
 		src/ia32/disasm-ia32.cc \
@@ -128,5 +125,3 @@ V8_LOCAL_JS_LIBRARY_FILES := \
 	src/regexp-delay.js \
 	src/json-delay.js \
 	src/macros.py
-
-

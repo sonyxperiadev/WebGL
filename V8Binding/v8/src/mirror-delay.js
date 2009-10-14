@@ -25,8 +25,6 @@
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-// jsminify this file, js2c: jsmin
-
 // Touch the RegExp and Date functions to make sure that date-delay.js and
 // regexp-delay.js has been loaded. This is required as the mirrors use
 // functions within these files through the builtins object.
@@ -201,7 +199,8 @@ PropertyAttribute.DontDelete = DONT_DELETE;
 ScopeType = { Global: 0,
               Local: 1,
               With: 2,
-              Closure: 3 };
+              Closure: 3,
+              Catch: 4 };
 
 
 // Mirror hierarchy:

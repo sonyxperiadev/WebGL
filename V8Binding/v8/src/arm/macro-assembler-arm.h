@@ -96,6 +96,8 @@ class MacroAssembler: public Assembler {
   // Leave the current exit frame. Expects the return value in r0.
   void LeaveExitFrame(StackFrame::Type type);
 
+  // Align the stack by optionally pushing a Smi zero.
+  void AlignStack(int offset);
 
   // ---------------------------------------------------------------------------
   // JavaScript invokes
@@ -171,18 +173,18 @@ class MacroAssembler: public Assembler {
   // bytes). If the new space is exhausted control continues at the gc_required
   // label. The allocated object is returned in result. If the flag
   // tag_allocated_object is true the result is tagged as as a heap object.
-  void AllocateObjectInNewSpace(int object_size,
-                                Register result,
-                                Register scratch1,
-                                Register scratch2,
-                                Label* gc_required,
-                                AllocationFlags flags);
-  void AllocateObjectInNewSpace(Register object_size,
-                                Register result,
-                                Register scratch1,
-                                Register scratch2,
-                                Label* gc_required,
-                                AllocationFlags flags);
+  void AllocateInNewSpace(int object_size,
+                          Register result,
+                          Register scratch1,
+                          Register scratch2,
+                          Label* gc_required,
+                          AllocationFlags flags);
+  void AllocateInNewSpace(Register object_size,
+                          Register result,
+                          Register scratch1,
+                          Register scratch2,
+                          Label* gc_required,
+                          AllocationFlags flags);
 
   // Undo allocation in new space. The object passed and objects allocated after
   // it will no longer be allocated. The caller must make sure that no pointers
@@ -257,12 +259,14 @@ class MacroAssembler: public Assembler {
   void CallRuntime(Runtime::FunctionId fid, int num_arguments);
 
   // Tail call of a runtime routine (jump).
-  // Like JumpToBuiltin, but also takes care of passing the number
+  // Like JumpToRuntime, but also takes care of passing the number
   // of parameters.
-  void TailCallRuntime(const ExternalReference& ext, int num_arguments);
+  void TailCallRuntime(const ExternalReference& ext,
+                       int num_arguments,
+                       int result_size);
 
-  // Jump to the builtin routine.
-  void JumpToBuiltin(const ExternalReference& builtin);
+  // Jump to a runtime routine.
+  void JumpToRuntime(const ExternalReference& builtin);
 
   // Invoke specified builtin JavaScript function. Adds an entry to
   // the unresolved list if the name does not resolve.
@@ -327,14 +331,51 @@ class MacroAssembler: public Assembler {
                       Label* done,
                       InvokeFlag flag);
 
-  // Get the code for the given builtin. Returns if able to resolve
-  // the function in the 'resolved' flag.
+  // Prepares for a call or jump to a builtin by doing two things:
+  // 1. Emits code that fetches the builtin's function object from the context
+  //    at runtime, and puts it in the register rdi.
+  // 2. Fetches the builtin's code object, and returns it in a handle, at
+  //    compile time, so that later code can emit instructions to jump or call
+  //    the builtin directly.  If the code object has not yet been created, it
+  //    returns the builtin code object for IllegalFunction, and sets the
+  //    output parameter "resolved" to false.  Code that uses the return value
+  //    should then add the address and the builtin name to the list of fixups
+  //    called unresolved_, which is fixed up by the bootstrapper.
   Handle<Code> ResolveBuiltin(Builtins::JavaScript id, bool* resolved);
 
   // Activation support.
   void EnterFrame(StackFrame::Type type);
   void LeaveFrame(StackFrame::Type type);
 };
+
+
+#ifdef ENABLE_DEBUGGER_SUPPORT
+// The code patcher is used to patch (typically) small parts of code e.g. for
+// debugging and other types of instrumentation. When using the code patcher
+// the exact number of bytes specified must be emitted. It is not legal to emit
+// relocation information. If any of these constraints are violated it causes
+// an assertion to fail.
+class CodePatcher {
+ public:
+  CodePatcher(byte* address, int instructions);
+  virtual ~CodePatcher();
+
+  // Macro assembler to emit code.
+  MacroAssembler* masm() { return &masm_; }
+
+  // Emit an instruction directly.
+  void Emit(Instr x);
+
+  // Emit an address directly.
+  void Emit(Address addr);
+
+ private:
+  byte* address_;  // The address of the code being patched.
+  int instructions_;  // Number of instructions of the expected patch size.
+  int size_;  // Number of bytes of the expected patch size.
+  MacroAssembler masm_;  // Macro assembler used to generate the code.
+};
+#endif  // ENABLE_DEBUGGER_SUPPORT
 
 
 // -----------------------------------------------------------------------------
