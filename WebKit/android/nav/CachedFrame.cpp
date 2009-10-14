@@ -402,7 +402,7 @@ const CachedNode* CachedFrame::findBestAt(const WebCore::IntRect& rect,
                 int dx = testCenter.x() - center.x();
                 int dy = testCenter.y() - center.y();
                 int distance = dx * dx + dy * dy;
-                if ((!*inside && testInside) || *best > distance) {
+                if ((!*inside && testInside) || *best >= distance) {
                     *best = distance;
                     *inside = testInside;
                     result = test;
@@ -465,7 +465,7 @@ const CachedNode* CachedFrame::findBestHitAt(const WebCore::IntRect& rect,
         int dx = testCenter.x() - center.x();
         int dy = testCenter.y() - center.y();
         int distance = dx * dx + dy * dy;
-        if (*best <= distance)
+        if (*best < distance)
             continue;
         *best = distance;
         result = test;

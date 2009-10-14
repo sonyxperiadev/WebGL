@@ -37,6 +37,8 @@
 #include "SkString.h"
 #include "WebViewCore.h"
 
+#define DEBUG_VISIBLE_RECTS 1 // temporary debug printfs and fixes
+
 PluginWidgetAndroid::PluginWidgetAndroid(WebCore::PluginView* view)
         : m_pluginView(view) {
     m_flipPixelRef = NULL;
@@ -264,7 +266,10 @@ bool PluginWidgetAndroid::isAcceptingEvent(ANPEventFlag flag) {
 }
 
 void PluginWidgetAndroid::setVisibleScreen(const ANPRectI& visibleDocRect, float zoom) {
-
+#if DEBUG_VISIBLE_RECTS
+    SkDebugf("%s (%d,%d,%d,%d)", __FUNCTION__, visibleDocRect.left,
+        visibleDocRect.top, visibleDocRect.right, visibleDocRect.bottom);
+#endif
     // TODO update the bitmap size based on the zoom? (for kBitmap_ANPDrawingModel)
 
     int oldScreenW = m_visibleDocRect.width();
@@ -281,7 +286,9 @@ void PluginWidgetAndroid::setVisibleScreen(const ANPRectI& visibleDocRect, float
 }
 
 void PluginWidgetAndroid::setVisibleRects(const ANPRectI rects[], int32_t count) {
-
+#if DEBUG_VISIBLE_RECTS
+    SkDebugf("%s count=%d", __FUNCTION__, count);
+#endif
     // ensure the count does not exceed our allocated space
     if (count > MAX_REQUESTED_RECTS)
         count = MAX_REQUESTED_RECTS;
@@ -290,6 +297,24 @@ void PluginWidgetAndroid::setVisibleRects(const ANPRectI rects[], int32_t count)
     m_requestedVisibleRectCount = count;
     memcpy(m_requestedVisibleRect, rects, count * sizeof(rects[0]));
 
+#if DEBUG_VISIBLE_RECTS // FIXME: this fixes bad data from the plugin
+    // take it out once plugin supplies better data
+    for (int index = 0; index < count; index++) {
+        SkDebugf("%s [%d](%d,%d,%d,%d)", __FUNCTION__, index,
+            m_requestedVisibleRect[index].left,
+            m_requestedVisibleRect[index].top,
+            m_requestedVisibleRect[index].right,
+            m_requestedVisibleRect[index].bottom);
+        if (m_requestedVisibleRect[index].left ==
+                m_requestedVisibleRect[index].right) {
+            m_requestedVisibleRect[index].right += 1;
+        }
+        if (m_requestedVisibleRect[index].top ==
+                m_requestedVisibleRect[index].bottom) {
+            m_requestedVisibleRect[index].bottom += 1;
+        }
+    }
+#endif
     computeVisibleFrameRect();
 }
 
@@ -319,9 +344,18 @@ void PluginWidgetAndroid::computeVisibleFrameRect() {
         pluginRect.offset(m_pluginWindow->x, m_pluginWindow->y);
 
         // ensure the rect falls within the plugin's bounds
-        if (!pluginBounds.contains(pluginRect))
-          continue;
-
+        if (!pluginBounds.contains(pluginRect)) {
+#if DEBUG_VISIBLE_RECTS
+            SkDebugf("%s (%d,%d,%d,%d) !contain (%d,%d,%d,%d)", __FUNCTION__,
+                pluginBounds.fLeft, pluginBounds.fTop,
+                pluginBounds.fRight, pluginBounds.fBottom,
+                pluginRect.fLeft, pluginRect.fTop,
+                pluginRect.fRight, pluginRect.fBottom);
+ // FIXME: assume that the desired outcome is to clamp to the container
+            pluginRect.intersect(pluginBounds);
+#endif
+            continue;
+        }
         // combine this new rect with the higher priority rects
         pluginRect.join(visibleRect);
 
@@ -342,9 +376,14 @@ void PluginWidgetAndroid::computeVisibleFrameRect() {
 
 void PluginWidgetAndroid::scrollToVisibleFrameRect() {
 
-    if (!m_hasFocus || m_requestedFrameRect.isEmpty() || m_visibleDocRect.isEmpty())
+    if (!m_hasFocus || m_requestedFrameRect.isEmpty() || m_visibleDocRect.isEmpty()) {
+#if DEBUG_VISIBLE_RECTS
+        SkDebugf("%s call m_hasFocus=%d m_requestedFrameRect.isEmpty()=%d"
+            " m_visibleDocRect.isEmpty()=%d", __FUNCTION__, m_hasFocus,
+            m_requestedFrameRect.isEmpty(), m_visibleDocRect.isEmpty());
+#endif
         return;
-
+    }
     // if the entire rect is already visible then we don't need to scroll, which
     // requires converting the m_requestedFrameRect from frame to doc coordinates
     IntPoint pluginDocPoint = frameToDocumentCoords(m_requestedFrameRect.fLeft,
@@ -371,6 +410,9 @@ void PluginWidgetAndroid::scrollToVisibleFrameRect() {
 
     ScrollView* scrollView = m_pluginView->parent();
     android::WebViewCore* core = android::WebViewCore::getWebViewCore(scrollView);
+#if DEBUG_VISIBLE_RECTS
+    SkDebugf("%s call scrollBy (%d,%d)", __FUNCTION__, deltaX, deltaY);
+#endif
     core->scrollBy(deltaX, deltaY, true);
 }
 

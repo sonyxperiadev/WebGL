@@ -419,7 +419,6 @@ void drawMatches(SkCanvas* canvas)
 void resetCursorRing()
 {
     m_followedLink = false;
-    setPluginReceivesEvents(false);
     m_viewImpl->m_hasCursorBounds = false;
 }
 
@@ -434,7 +433,7 @@ void drawCursorRing(SkCanvas* canvas)
     const CachedFrame* frame;
     const CachedNode* node = root->currentCursor(&frame);
     if (!node) {
-        DBG_NAV_LOG("!node");
+        DBG_NAV_LOGV("%s", "!node");
         resetCursorRing();
         return;
     }
@@ -609,7 +608,7 @@ void fixCursor()
 CachedRoot* getFrameCache(FrameCachePermission allowNewer)
 {
     if (!m_viewImpl->m_updatedFrameCache) {
-        DBG_NAV_LOG("!m_viewImpl->m_updatedFrameCache");
+        DBG_NAV_LOGV("%s", "!m_viewImpl->m_updatedFrameCache");
         return m_frameCacheUI;
     }
     if (allowNewer == DontAllowNewer && m_viewImpl->m_lastGeneration < m_generation) {
@@ -1568,12 +1567,6 @@ static bool nativeCursorIsAnchor(JNIEnv *env, jobject obj)
     return node ? node->isAnchor() : false;
 }
 
-static bool nativeCursorIsPlugin(JNIEnv *env, jobject obj)
-{
-    const CachedNode* node = getCursorNode(env, obj);
-    return node ? node->isPlugin() : false;
-}
-
 static bool nativeCursorIsTextInput(JNIEnv *env, jobject obj)
 {
     const CachedNode* node = getCursorNode(env, obj);
@@ -1674,6 +1667,19 @@ static jobject nativeImageURI(JNIEnv *env, jobject obj, jint x, jint y)
     return ret;
 }
 
+static jint nativeFocusCandidateFramePointer(JNIEnv *env, jobject obj)
+{
+    WebView* view = GET_NATIVE_VIEW(env, obj);
+    CachedRoot* root = view->getFrameCache(WebView::DontAllowNewer);
+    if (!root)
+        return 0;
+    const CachedFrame* frame = 0;
+    const CachedNode* cursor = root->currentCursor(&frame);
+    if (!cursor || !cursor->wantsKeyEvents())
+        (void) root->currentFocus(&frame);
+    return reinterpret_cast<int>(frame ? frame->framePointer() : 0);
+}
+
 static bool nativeFocusCandidateIsPassword(JNIEnv *env, jobject obj)
 {
     const CachedNode* node = getFocusCandidate(env, obj);
@@ -1745,6 +1751,12 @@ static jint nativeFocusCandidateTextSize(JNIEnv *env, jobject obj)
 {
     const CachedNode* node = getFocusCandidate(env, obj);
     return node ? node->textSize() : 0;
+}
+
+static bool nativeFocusCandidateIsPlugin(JNIEnv *env, jobject obj)
+{
+    const CachedNode* node = getFocusCandidate(env, obj);
+    return node ? node->isPlugin() : false;
 }
 
 static jint nativeFocusNodePointer(JNIEnv *env, jobject obj)
@@ -2088,8 +2100,6 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeCursorIntersects },
     { "nativeCursorIsAnchor", "()Z",
         (void*) nativeCursorIsAnchor },
-    { "nativeCursorIsPlugin", "()Z",
-        (void*) nativeCursorIsPlugin },
     { "nativeCursorIsTextInput", "()Z",
         (void*) nativeCursorIsTextInput },
     { "nativeCursorPosition", "()Landroid/graphics/Point;",
@@ -2116,8 +2126,12 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeFindAll },
     { "nativeFindNext", "(Z)V",
         (void*) nativeFindNext },
+    { "nativeFocusCandidateFramePointer", "()I",
+        (void*) nativeFocusCandidateFramePointer },
     { "nativeFocusCandidateIsPassword", "()Z",
         (void*) nativeFocusCandidateIsPassword },
+    { "nativeFocusCandidateIsPlugin", "()Z",
+        (void*) nativeFocusCandidateIsPlugin },
     { "nativeFocusCandidateIsRtlText", "()Z",
         (void*) nativeFocusCandidateIsRtlText },
     { "nativeFocusCandidateIsTextField", "()Z",
