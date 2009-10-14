@@ -200,7 +200,6 @@ LOCAL_SRC_FILES := \
 	bindings/js/JSPluginArrayCustom.cpp \
 	bindings/js/JSPluginCustom.cpp \
 	bindings/js/JSPluginElementFunctions.cpp \
-	bindings/js/JSQuarantinedObjectWrapper.cpp \
 	bindings/js/JSSQLResultSetRowListCustom.cpp \
 	bindings/js/JSSQLTransactionCustom.cpp \
 	bindings/js/JSSVGElementInstanceCustom.cpp \
@@ -239,7 +238,6 @@ LOCAL_SRC_FILES := \
 	bindings/js/ScriptEventListener.cpp \
 	bindings/js/ScriptFunctionCall.cpp \
 	bindings/js/ScriptObject.cpp \
-	bindings/js/ScriptObjectQuarantine.cpp \
 	bindings/js/ScriptState.cpp \
 	bindings/js/ScriptValue.cpp \
 	bindings/js/WorkerScriptController.cpp \
