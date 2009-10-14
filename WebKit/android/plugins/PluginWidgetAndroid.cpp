@@ -49,6 +49,7 @@ PluginWidgetAndroid::PluginWidgetAndroid(WebCore::PluginView* view)
     m_requestedVisibleRectCount = 0;
     m_requestedFrameRect.setEmpty();
     m_visibleDocRect.setEmpty();
+    m_pluginBounds.setEmpty();
     m_hasFocus = false;
     m_zoomLevel = 0;
     m_javaClassName = NULL;
@@ -79,11 +80,31 @@ static SkBitmap::Config computeConfig(bool isTransparent) {
 }
 
 void PluginWidgetAndroid::setWindow(NPWindow* window, bool isTransparent) {
+
+    // store the reference locally for easy lookup
     m_pluginWindow = window;
 
+    // make a copy of the previous bounds
+    SkIRect oldPluginBounds = m_pluginBounds;
+
+    // keep a local copy of the plugin bounds because the m_pluginWindow pointer
+    // gets updated values prior to this method being called
+    m_pluginBounds.set(m_pluginWindow->x, m_pluginWindow->y,
+                       m_pluginWindow->x + m_pluginWindow->width,
+                       m_pluginWindow->y + m_pluginWindow->height);
+
     if (m_drawingModel == kSurface_ANPDrawingModel) {
-        if (!m_childView) {
-            IntPoint docPoint = frameToDocumentCoords(window->x, window->y);
+
+        IntPoint docPoint = frameToDocumentCoords(window->x, window->y);
+
+        // if the surface exists check for changes and update accordingly
+        if (m_childView && m_pluginBounds != oldPluginBounds) {
+
+            m_core->updateSurface(m_childView, docPoint.x(), docPoint.y(),
+                                  window->width, window->height);
+
+        // if the surface does not exist then create a new surface
+        } else if(!m_childView) {
 
             const String& libName = m_pluginView->plugin()->path();
             SkString skLibName;
@@ -324,12 +345,6 @@ void PluginWidgetAndroid::computeVisibleFrameRect() {
     if (m_visibleDocRect.isEmpty() || !m_pluginWindow)
         return;
 
-    // create a rect that represents the plugin's bounds
-    SkIRect pluginBounds;
-    pluginBounds.set(m_pluginWindow->x, m_pluginWindow->y,
-                     m_pluginWindow->x + m_pluginWindow->width,
-                     m_pluginWindow->y + m_pluginWindow->height);
-
     // create a rect that will contain as many of the rects that will fit on screen
     SkIRect visibleRect;
     visibleRect.setEmpty();
@@ -344,15 +359,15 @@ void PluginWidgetAndroid::computeVisibleFrameRect() {
         pluginRect.offset(m_pluginWindow->x, m_pluginWindow->y);
 
         // ensure the rect falls within the plugin's bounds
-        if (!pluginBounds.contains(pluginRect)) {
+        if (!m_pluginBounds.contains(pluginRect)) {
 #if DEBUG_VISIBLE_RECTS
             SkDebugf("%s (%d,%d,%d,%d) !contain (%d,%d,%d,%d)", __FUNCTION__,
-                pluginBounds.fLeft, pluginBounds.fTop,
-                pluginBounds.fRight, pluginBounds.fBottom,
+                     m_pluginBounds.fLeft, m_pluginBounds.fTop,
+                     m_pluginBounds.fRight, m_pluginBounds.fBottom,
                 pluginRect.fLeft, pluginRect.fTop,
                 pluginRect.fRight, pluginRect.fBottom);
  // FIXME: assume that the desired outcome is to clamp to the container
-            pluginRect.intersect(pluginBounds);
+            pluginRect.intersect(m_pluginBounds);
 #endif
             continue;
         }

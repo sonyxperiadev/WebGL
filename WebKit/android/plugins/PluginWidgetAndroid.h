@@ -148,6 +148,7 @@ private:
     ANPDrawingModel         m_drawingModel;
     ANPEventFlags           m_eventFlags;
     NPWindow*               m_pluginWindow;
+    SkIRect                 m_pluginBounds;
     SkIRect                 m_visibleDocRect;
     SkIRect                 m_requestedFrameRect;
     bool                    m_hasFocus;
