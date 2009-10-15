@@ -1086,10 +1086,9 @@ void moveSelection(int x, int y, bool extendSelection)
     getVisibleRect(&r);
     SkIRect area;
     area.set(r.x(), r.y(), r.right(), r.bottom());
+    m_selEnd = CopyPaste::findClosest(picture, area, x, y);
     if (!extendSelection)
-        m_selStart = m_selEnd = CopyPaste::findClosest(picture, area, x, y);
-    else
-        m_selEnd = CopyPaste::findClosest(picture, area, x, y);
+        m_selStart = m_selEnd;
     DBG_NAV_LOGD("x=%d y=%d extendSelection=%s m_selStart=(%d, %d, %d, %d)"
         " m_selEnd=(%d, %d, %d, %d)", x, y, extendSelection ? "true" : "false",
         m_selStart.fLeft, m_selStart.fTop, m_selStart.fRight, m_selStart.fBottom,
@@ -1101,23 +1100,14 @@ const SkRegion& getSelection()
     return m_selRegion;
 }
 
-void drawSelection(SkCanvas* canvas, int x, int y, bool extendSelection)
+void drawSelection(SkCanvas* canvas, float scale, int offset, int x, int y,
+    bool extendSelection)
 {
     if (!extendSelection) {
-        int dx = x - m_selStart.fLeft;
-        dx *= dx;
-        int otherX = x - m_selStart.fRight;
-        if (dx > (otherX *= otherX))
-            dx = otherX;
-        int dy = y - m_selStart.fTop;
-        int dist = dx * dx + dy * dy;
-        if (dist > MIN_ARROW_DISTANCE)
-            drawSelectionArrow(canvas, x, y);
-        else
-            drawSelectionPointer(canvas, x, y, true);
+        drawSelectionArrow(canvas, scale, x, y - offset);
     } else {
         drawSelectionRegion(canvas);
-        drawSelectionPointer(canvas, x, y, false);
+        drawSelectionPointer(canvas, scale, offset, x, y, false);
     }
 }
 
@@ -1140,7 +1130,8 @@ void drawSelectionRegion(SkCanvas* canvas)
     canvas->drawPath(path, paint);
 }
 
-void drawSelectionPointer(SkCanvas* canvas, int x, int y, bool gridded)
+void drawSelectionPointer(SkCanvas* canvas, float scale, int offset,
+    int x, int y, bool gridded)
 {
     SkPath path;
     getSelectionCaret(&path);
@@ -1151,6 +1142,8 @@ void drawSelectionPointer(SkCanvas* canvas, int x, int y, bool gridded)
     SkPixelXorXfermode xorMode(SK_ColorWHITE);
     paint.setXfermode(&xorMode);
     int sc = canvas->save();
+    canvas->scale(scale, scale);
+    canvas->translate(0, -SkIntToScalar(offset));
     if (gridded) {
         bool useLeft = x <= (m_selStart.fLeft + m_selStart.fRight) >> 1;
         canvas->translate(SkIntToScalar(useLeft ? m_selStart.fLeft :
@@ -1161,7 +1154,7 @@ void drawSelectionPointer(SkCanvas* canvas, int x, int y, bool gridded)
     canvas->restoreToCount(sc);
 }
 
-void drawSelectionArrow(SkCanvas* canvas, int x, int y)
+void drawSelectionArrow(SkCanvas* canvas, float scale, int x, int y)
 {
     SkPath path;
     getSelectionArrow(&path);
@@ -1171,6 +1164,7 @@ void drawSelectionArrow(SkCanvas* canvas, int x, int y)
     paint.setColor(SK_ColorBLACK);
     paint.setStrokeWidth(SK_Scalar1 * 2);
     int sc = canvas->save();
+    canvas->scale(scale, scale);
     canvas->translate(SkIntToScalar(x), SkIntToScalar(y));
     canvas->drawPath(path, paint);
     paint.setStyle(SkPaint::kFill_Style);
@@ -1623,7 +1617,7 @@ static void nativeDrawCursorRing(JNIEnv *env, jobject obj, jobject canv)
 }
 
 static void nativeDrawSelection(JNIEnv *env, jobject obj,
-                                       jobject canv, jint x, jint y, bool ex)
+    jobject canv, jfloat scale, jint offset, jint x, jint y, bool ex)
 {
     SkCanvas* canvas = GraphicsJNI::getNativeCanvas(env, canv);
     if (!canv) {
@@ -1635,7 +1629,7 @@ static void nativeDrawSelection(JNIEnv *env, jobject obj,
         DBG_NAV_LOG("!view");
         return;
     }
-    view->drawSelection(canvas, x, y, ex);
+    view->drawSelection(canvas, scale, offset, x, y, ex);
 }
 
 static void nativeDrawSelectionRegion(JNIEnv *env, jobject obj, jobject canv)
@@ -2116,7 +2110,7 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeDrawCursorRing },
     { "nativeDrawMatches", "(Landroid/graphics/Canvas;)V",
         (void*) nativeDrawMatches },
-    { "nativeDrawSelection", "(Landroid/graphics/Canvas;IIZ)V",
+    { "nativeDrawSelection", "(Landroid/graphics/Canvas;FIIIZ)V",
         (void*) nativeDrawSelection },
     { "nativeDrawSelectionRegion", "(Landroid/graphics/Canvas;)V",
         (void*) nativeDrawSelectionRegion },
