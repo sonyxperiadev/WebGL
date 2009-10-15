@@ -945,6 +945,9 @@ void textInputMotionUp(int x, int y)
     if (node) {
         sendMotionUp(static_cast<WebCore::Frame*>(frame->framePointer()),
                 static_cast<WebCore::Node*>(node->nodePointer()), x, y);
+        if (!node->isReadOnly()) {
+            displaySoftKeyboard(true);
+        }
     }
 }
 
@@ -992,7 +995,9 @@ bool motionUp(int x, int y, int slop)
     viewInvalidate();
     if (result->isTextField() || result->isTextArea()) {
         rebuildWebTextView();
-        displaySoftKeyboard(true);
+        if (!result->isReadOnly()) {
+            displaySoftKeyboard(true);
+        }
     } else {
         clearTextEntry();
         setFollowedLink(true);
