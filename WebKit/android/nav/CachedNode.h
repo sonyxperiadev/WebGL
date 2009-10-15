@@ -120,6 +120,7 @@ public:
     bool isPlugin() const {
         return mWantsKeyEvents && !mIsTextArea && !mIsTextField;
     }
+    bool isReadOnly() const { return mIsReadOnly; }
     bool isRtlText() const { return mIsRtlText; }
     bool isTextArea() const { return mIsTextArea; }
     bool isTextField() const { return mIsTextField; }
@@ -152,6 +153,7 @@ public:
     void setIsFocus(bool isFocus) { mIsFocus = isFocus; }
     void setIsParentAnchor(bool isAnchor) { mIsParentAnchor = isAnchor; }
     void setIsPassword(bool isPassword) { mIsPassword = isPassword; }
+    void setIsReadOnly(bool isReadOnly) { mIsReadOnly = isReadOnly; }
     void setIsRtlText(bool isRtlText) { mIsRtlText = isRtlText; }
     void setIsTextArea(bool isTextArea) { mIsTextArea = isTextArea; }
     void setIsTextField(bool isTextField) { mIsTextField = isTextField; }
@@ -204,6 +206,7 @@ private:
     bool mIsHidden : 1;
     bool mIsParentAnchor : 1;
     bool mIsPassword : 1;
+    bool mIsReadOnly : 1;
     bool mIsRtlText : 1;
     bool mIsTextArea : 1;
     bool mIsTextField : 1;

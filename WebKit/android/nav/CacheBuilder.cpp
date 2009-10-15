@@ -42,6 +42,7 @@
 #include "HTMLNames.h"
 #include "HTMLOptionElement.h"
 #include "HTMLSelectElement.h"
+#include "HTMLTextAreaElement.h"
 #include "InlineTextBox.h"
 #include "KURL.h"
 #include "PluginView.h"
@@ -991,6 +992,7 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
         bool isPassword = false;
         bool isTextArea = false;
         bool isTextField = false;
+        bool isReadOnly = false;
         bool isRtlText = false;
         bool isUnclipped = false;
         bool isFocus = node == focused;
@@ -1098,15 +1100,18 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
             HTMLInputElement* input = (HTMLInputElement*) node;
 
             isTextField = input->isTextField();
-            if (isTextField)
+            if (isTextField) {
                 wantsKeyEvents = true;
+                isReadOnly = input->readOnly();
+            }
             isPassword = input->inputType() == HTMLInputElement::PASSWORD;
             maxLength = input->maxLength();
             name = input->name().string().copy();
             isUnclipped = isTransparent; // can't detect if this is drawn on top (example: deviant.com login parts)
-        } else if (node->hasTagName(HTMLNames::textareaTag))
+        } else if (node->hasTagName(HTMLNames::textareaTag)) {
             isTextArea = wantsKeyEvents = true;
-        else if (node->hasTagName(HTMLNames::aTag)) {
+            isReadOnly = (static_cast<HTMLTextAreaElement*>(node))->readOnly();
+        } else if (node->hasTagName(HTMLNames::aTag)) {
             const HTMLAnchorElement* anchorNode = 
                 (const HTMLAnchorElement*) node;
             if (!anchorNode->isFocusable() && !HasTriggerEvent(node))
@@ -1195,6 +1200,7 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
         cachedNode.setIsArea(isArea);
         cachedNode.setIsFocus(isFocus);
         cachedNode.setIsPassword(isPassword);
+        cachedNode.setIsReadOnly(isReadOnly);
         cachedNode.setIsRtlText(isRtlText);
         cachedNode.setIsTextArea(isTextArea);
         cachedNode.setIsTextField(isTextField);
