@@ -141,6 +141,7 @@ namespace android {
         static bool s_alwaysDeny;
 
         static bool s_permanentPermissionsLoaded;
+        static bool s_permanentPermissionsModified;
         static WebCore::String s_databasePath;
     };
 
