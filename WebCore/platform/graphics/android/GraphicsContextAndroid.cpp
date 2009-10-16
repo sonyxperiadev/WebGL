@@ -1049,16 +1049,21 @@ void GraphicsContext::concatCTM(const TransformationMatrix& xform)
     GC2Canvas(this)->concat((SkMatrix) xform);
 }
 
+/*  This is intended to round the rect to device pixels (through the CTM)
+    and then invert the result back into source space, with the hope that when
+    it is drawn (through the matrix), it will land in the "right" place (i.e.
+    on pixel boundaries).
+
+    For android, we record this geometry once and then draw it though various
+    scale factors as the user zooms, without re-recording. Thus this routine
+    should just leave the original geometry alone.
+
+    If we instead draw into bitmap tiles, we should then perform this
+    transform -> round -> inverse step.
+ */
 FloatRect GraphicsContext::roundToDevicePixels(const FloatRect& rect)
 {
-    if (paintingDisabled())
-        return FloatRect();
-    
-    const SkMatrix& matrix = GC2Canvas(this)->getTotalMatrix();
-    SkRect r(rect);
-    matrix.mapRect(&r);
-    FloatRect result(SkScalarToFloat(r.fLeft), SkScalarToFloat(r.fTop), SkScalarToFloat(r.width()), SkScalarToFloat(r.height()));
-    return result;
+    return rect;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
