@@ -42,8 +42,9 @@ namespace android {
 GeolocationPermissions::PermissionsMap GeolocationPermissions::s_permanentPermissions;
 GeolocationPermissions::GeolocationPermissionsVector GeolocationPermissions::s_instances;
 bool GeolocationPermissions::s_alwaysDeny = false;
-String GeolocationPermissions::s_databasePath;
 bool GeolocationPermissions::s_permanentPermissionsLoaded = false;
+bool GeolocationPermissions::s_permanentPermissionsModified = false;
+String GeolocationPermissions::s_databasePath;
 
 static const char* databaseName = "/GeolocationPermissions.db";
 
@@ -158,6 +159,7 @@ void GeolocationPermissions::recordPermissionState(String origin, bool allow, bo
 {
     if (remember) {
         s_permanentPermissions.set(m_originInProgress, allow);
+        s_permanentPermissionsModified = true;
     } else {
         // It's possible that another tab recorded a permanent permission for
         // this origin while our request was in progress, but we record it
@@ -253,8 +255,10 @@ void GeolocationPermissions::clear(String origin)
 {
     maybeLoadPermanentPermissions();
     PermissionsMap::iterator iter = s_permanentPermissions.find(origin);
-    if (iter != s_permanentPermissions.end())
+    if (iter != s_permanentPermissions.end()) {
         s_permanentPermissions.remove(iter);
+        s_permanentPermissionsModified = true;
+    }
 }
 
 void GeolocationPermissions::allow(String origin)
@@ -262,12 +266,14 @@ void GeolocationPermissions::allow(String origin)
     maybeLoadPermanentPermissions();
     // We replace any existing permanent permission.
     s_permanentPermissions.set(origin, true);
+    s_permanentPermissionsModified = true;
 }
 
 void GeolocationPermissions::clearAll()
 {
     maybeLoadPermanentPermissions();
     s_permanentPermissions.clear();
+    s_permanentPermissionsModified = true;
 }
 
 void GeolocationPermissions::maybeLoadPermanentPermissions()
@@ -302,11 +308,10 @@ void GeolocationPermissions::maybeLoadPermanentPermissions()
 
 void GeolocationPermissions::maybeStorePermanentPermissions()
 {
-    // Protect against the case where we haven't yet loaded permissions, as
-    // saving in this case would overwrite the stored permissions with the empty
-    // set. This is safe as the permissions are always loaded before they are
-    // modified.
-    if (!s_permanentPermissionsLoaded)
+    // If the permanent permissions haven't been modified, there's no need to
+    // save them to the DB. (If we haven't even loaded them, writing them now
+    // would overwrite the stored permissions with the empty set.)
+    if (!s_permanentPermissionsModified)
         return;
 
     SQLiteDatabase database;
@@ -334,6 +339,8 @@ void GeolocationPermissions::maybeStorePermanentPermissions()
 
     transaction.commit();
     database.close();
+
+    s_permanentPermissionsModified = false;
 }
 
 void GeolocationPermissions::setDatabasePath(String path)
