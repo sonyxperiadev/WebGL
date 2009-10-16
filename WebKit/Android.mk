@@ -30,7 +30,6 @@ LOCAL_SRC_FILES := \
 	android/RenderSkinCombo.cpp \
 	android/RenderSkinRadio.cpp \
 	android/TimeCounter.cpp \
-	android/sort.cpp \
 	\
 	android/benchmark/Intercept.cpp \
 	android/benchmark/MyJavaVM.cpp \

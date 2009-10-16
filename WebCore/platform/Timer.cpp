@@ -37,11 +37,6 @@
 #include <wtf/HashSet.h>
 #include <wtf/Vector.h>
 
-#if PLATFORM(ANDROID)
-#include "stl_iterator_base.h"
-#include "heap.h"
-#endif
-
 using namespace std;
 
 namespace WebCore {
