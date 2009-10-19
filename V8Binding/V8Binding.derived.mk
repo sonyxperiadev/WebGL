@@ -648,14 +648,6 @@ GEN := \
     $(intermediates)/bindings/V8XMLHttpRequestProgressEvent.h \
     $(intermediates)/bindings/V8XMLHttpRequestUpload.h \
     $(intermediates)/bindings/V8XMLSerializer.h
-		
-
-#    $(intermediates)/bindings/V8XPathEvaluator.h \
-    $(intermediates)/bindings/V8XPathException.h \
-    $(intermediates)/bindings/V8XPathExpression.h \
-    $(intermediates)/bindings/V8XPathNSResolver.h \
-    $(intermediates)/bindings/V8XPathResult.h  \
-    $(intermediates)/bindings/V8XSLTProcessor.h
 
 $(GEN): PRIVATE_CUSTOM_TOOL = SOURCE_ROOT=$(WEBCORE_PATH) perl -I$(WEBCORE_PATH)/bindings/scripts $(WEBCORE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator V8 --include dom --include html --outputdir $(dir $@) $<
 $(GEN): $(intermediates)/bindings/V8%.h : $(WEBCORE_PATH)/xml/%.idl $(js_binding_scripts)
