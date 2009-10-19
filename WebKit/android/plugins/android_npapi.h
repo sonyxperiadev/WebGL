@@ -1,5 +1,5 @@
 /*
- * Copyright 2008, The Android Open Source Project
+ * Copyright 2009, The Android Open Source Project
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -137,6 +137,40 @@ typedef uint32_t ANPMatrixFlag;
  */
 #define kRequestDrawingModel_ANPSetValue    ((NPPVariable)1000)
 
+/** These are used as bitfields in ANPSupportedDrawingModels_EnumValue,
+    and as-is in ANPRequestDrawingModel_EnumValue. The drawing model determines
+    how to interpret the ANPDrawingContext provided in the Draw event and how
+    to interpret the NPWindow->window field.
+ */
+enum ANPDrawingModels {
+    /** Draw into a bitmap from the browser thread in response to a Draw event.
+        NPWindow->window is reserved (ignore)
+     */
+    kBitmap_ANPDrawingModel  = 0,
+    /** Draw into a surface (e.g. raster, openGL, etc.) using the Java surface
+        interface. When this model is used the browser will invoke the Java
+        class specified by kSetPluginStubJavaClassName_ANPSetValue which will
+        return an instance of a android Java View. The instance is then embedded
+        in the html. The plugin can then manipulate the view as it would any
+        normal Java View in android.
+
+        Unlike the bitmap model, a surface model is opaque so no html content
+        behind the plugin will be  visible. Unless the plugin needs to be
+        transparent the surface model should be chosen over the bitmap model as
+        it will have better performance.
+
+        Further, a plugin can manipulate some surfaces in native code using the
+        ANPSurfaceInterface.  This interface can be used to manipulate Java
+        objects that extend Surface.class by allowing them to access the
+        surface's underlying bitmap in native code.  For instance, if a raster
+        surface is used the plugin can lock, draw directly into the bitmap, and
+        unlock the surface in native code without making JNI calls to the Java
+        surface object.
+     */
+    kSurface_ANPDrawingModel = 0x01,
+};
+typedef int32_t ANPDrawingModel;
+
 /** Set the name of the Java class found in the plugin's apk that implements the
     PluginStub interface.  The value provided must be a null terminated char*
     that contains the fully qualified class name (e.g., your.package.className).
@@ -150,30 +184,6 @@ typedef uint32_t ANPMatrixFlag;
                 (void*)nullTerminatedChar*)
  */
 #define kSetPluginStubJavaClassName_ANPSetValue ((NPPVariable)1001)
-
-/** These are used as bitfields in ANPSupportedDrawingModels_EnumValue,
-    and as-is in ANPRequestDrawingModel_EnumValue. The drawing model determines
-    how to interpret the ANPDrawingContext provided in the Draw event and how
-    to interpret the NPWindow->window field.
- */
-enum ANPDrawingModels {
-    /** Draw into a bitmap from the browser thread in response to a Draw event.
-        NPWindow->window is reserved (ignore)
-     */
-    kBitmap_ANPDrawingModel  = 0,
-    /** Draw into a surface (e.g. raster, opengl, etc.)using the surface interface.
-        Unlike the bitmap model a surface model is opaque so no html content behind
-        the plugin will be  visible. Unless the surface needs to be transparent the
-        surface model should be chosen over the bitmap model as it will have faster
-        performance. An example surface is the raster surface where the service
-        interface is used to lock/unlock and draw into bitmap without waiting for
-        draw events. Prior to requesting this drawing model the plugin must provide
-        the name of the Java class that implements the PluginStub interface via
-        kSetJavaClassName_ANPSetValue.
-     */
-    kSurface_ANPDrawingModel = 1,
-};
-typedef int32_t ANPDrawingModel;
 
 /** Request to receive/disable events. If the pointer is NULL then all flags will
     be disabled. Otherwise, the event type will be enabled iff its corresponding
@@ -192,6 +202,10 @@ enum ANPEventFlag {
     kTouch_ANPEventFlag             = 0x02,
 };
 typedef uint32_t ANPEventFlags;
+
+
+///////////////////////////////////////////////////////////////////////////////
+// ANDROID INTERFACE DEFINITIONS
 
 /** Interfaces provide additional functionality to the plugin via function ptrs.
     Once an interface is retrieved, it is valid for the lifetime of the plugin
@@ -750,8 +764,15 @@ struct ANPAudioTrackInterfaceV0 : ANPInterface {
     bool (*isStopped)(ANPAudioTrack*);
 };
 
+struct ANPSystemInterfaceV0 : ANPInterface {
+    /** Return the path name for the current Application's plugin data directory,
+     *  or NULL if not supported
+     */
+    const char* (*getApplicationDataDirectory)();
+};
+
 ///////////////////////////////////////////////////////////////////////////////
-// HandleEvent
+// DEFINITION OF VALUES PASSED THROUGH NPP_HandleEvent
 
 enum ANPEventTypes {
     kNull_ANPEventType          = 0,
@@ -878,16 +899,6 @@ struct ANPEvent {
         } draw;
         int32_t     other[8];
     } data;
-};
-
-///////////////////////////////////////////////////////////////////////////////
-// System properties
-
-struct ANPSystemInterfaceV0 : ANPInterface {
-    /** Return the path name for the current Application's plugin data directory,
-     *  or NULL if not supported
-     */
-    const char* (*getApplicationDataDirectory)();
 };
 
 #endif
