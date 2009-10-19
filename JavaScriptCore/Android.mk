@@ -52,7 +52,6 @@ LOCAL_SRC_FILES := \
 	API/JSCallbackObject.cpp \
 	API/OpaqueJSString.cpp \
 	\
-	assembler/ARMAssembler.cpp \
 	bytecode/CodeBlock.cpp \
 	bytecode/JumpTable.cpp \
 	bytecode/Opcode.cpp \
