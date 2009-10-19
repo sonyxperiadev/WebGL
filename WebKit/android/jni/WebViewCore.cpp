@@ -239,9 +239,9 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     m_javaGlue->m_scrollTo = GetJMethod(env, clazz, "contentScrollTo", "(II)V");
     m_javaGlue->m_scrollBy = GetJMethod(env, clazz, "contentScrollBy", "(IIZ)V");
     m_javaGlue->m_contentDraw = GetJMethod(env, clazz, "contentDraw", "()V");
-    m_javaGlue->m_requestListBox = GetJMethod(env, clazz, "requestListBox", "([Ljava/lang/String;[Z[I)V");
+    m_javaGlue->m_requestListBox = GetJMethod(env, clazz, "requestListBox", "([Ljava/lang/String;[I[I)V");
     m_javaGlue->m_openFileChooser = GetJMethod(env, clazz, "openFileChooser", "()Ljava/lang/String;");
-    m_javaGlue->m_requestSingleListBox = GetJMethod(env, clazz, "requestListBox", "([Ljava/lang/String;[ZI)V");
+    m_javaGlue->m_requestSingleListBox = GetJMethod(env, clazz, "requestListBox", "([Ljava/lang/String;[II)V");
     m_javaGlue->m_jsAlert = GetJMethod(env, clazz, "jsAlert", "(Ljava/lang/String;Ljava/lang/String;)V");
     m_javaGlue->m_jsConfirm = GetJMethod(env, clazz, "jsConfirm", "(Ljava/lang/String;Ljava/lang/String;)Z");
     m_javaGlue->m_jsPrompt = GetJMethod(env, clazz, "jsPrompt", "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;");
@@ -1908,14 +1908,14 @@ void WebViewCore::listBoxRequest(WebCoreReply* reply, const uint16_t** labels, s
     jobjectArray labelArray = makeLabelArray(env, labels, count);
 
     // Create an array determining whether each item is enabled.
-    jbooleanArray enabledArray = env->NewBooleanArray(enabledCount);
+    jintArray enabledArray = env->NewIntArray(enabledCount);
     checkException(env);
-    jboolean* ptrArray = env->GetBooleanArrayElements(enabledArray, 0);
+    jint* ptrArray = env->GetIntArrayElements(enabledArray, 0);
     checkException(env);
     for (size_t i = 0; i < enabledCount; i++) {
         ptrArray[i] = enabled[i];
     }
-    env->ReleaseBooleanArrayElements(enabledArray, ptrArray, 0);
+    env->ReleaseIntArrayElements(enabledArray, ptrArray, 0);
     checkException(env);
 
     if (multiple) {
@@ -2066,6 +2066,13 @@ bool WebViewCore::handleMouseClick(WebCore::Frame* framePtr, WebCore::Node* node
             WebCore::HTMLSelectElement* select = static_cast<WebCore::HTMLSelectElement*>(nodePtr);
             const WTF::Vector<WebCore::Element*>& listItems = select->listItems();
             SkTDArray<const uint16_t*> names;
+            // Possible values for enabledArray.  Keep in Sync with values in
+            // InvokeListBox.Container in WebView.java
+            enum OptionStatus {
+                OPTGROUP = -1,
+                OPTION_DISABLED = 0,
+                OPTION_ENABLED = 1,
+            };
             SkTDArray<int> enabledArray;
             SkTDArray<int> selectedArray;
             int size = listItems.size();
@@ -2074,13 +2081,13 @@ bool WebViewCore::handleMouseClick(WebCore::Frame* framePtr, WebCore::Node* node
                 if (listItems[i]->hasTagName(WebCore::HTMLNames::optionTag)) {
                     WebCore::HTMLOptionElement* option = static_cast<WebCore::HTMLOptionElement*>(listItems[i]);
                     *names.append() = stringConverter(option->textIndentedToRespectGroupLabel());
-                    *enabledArray.append() = option->disabled() ? 0 : 1;
+                    *enabledArray.append() = option->disabled() ? OPTION_DISABLED : OPTION_ENABLED;
                     if (multiple && option->selected())
                         *selectedArray.append() = i;
                 } else if (listItems[i]->hasTagName(WebCore::HTMLNames::optgroupTag)) {
                     WebCore::HTMLOptGroupElement* optGroup = static_cast<WebCore::HTMLOptGroupElement*>(listItems[i]);
                     *names.append() = stringConverter(optGroup->groupLabelText());
-                    *enabledArray.append() = 0;
+                    *enabledArray.append() = OPTGROUP;
                 }
             }
             WebCoreReply* reply = new ListBoxReply(select, select->document()->frame(), this);
