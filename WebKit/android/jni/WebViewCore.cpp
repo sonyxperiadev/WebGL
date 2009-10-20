@@ -1791,7 +1791,7 @@ void WebViewCore::saveDocumentState(WebCore::Frame* frame)
 {
     if (!CacheBuilder::validNode(m_mainFrame, frame, 0))
         frame = m_mainFrame;
-    WebCore::HistoryItem *item = frame->loader()->currentHistoryItem();
+    WebCore::HistoryItem *item = frame->loader()->history()->currentItem();
 
     // item can be null when there is no offical URL for the current page. This happens
     // when the content is loaded using with WebCoreFrameBridge::LoadData() and there

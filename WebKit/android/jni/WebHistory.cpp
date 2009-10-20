@@ -113,7 +113,7 @@ static void WebHistoryClose(JNIEnv* env, jobject obj, jint frame)
         // Keep a small list of child frames to traverse.
         WTF::Vector<WebCore::Frame*> frameQueue;
         // Fix the top-level item.
-        pFrame->loader()->setCurrentHistoryItem(current);
+        pFrame->loader()->history()->setCurrentItem(current.get());
         WebCore::Frame* child = pFrame->tree()->firstChild();
         // Remember the parent history item so we can search for a child item.
         RefPtr<WebCore::HistoryItem> parent = current;
@@ -121,7 +121,7 @@ static void WebHistoryClose(JNIEnv* env, jobject obj, jint frame)
             // Use the old history item since the current one may have a
             // deleted parent.
             WebCore::HistoryItem* item = parent->childItemWithTarget(child->tree()->name());
-            child->loader()->setCurrentHistoryItem(item);
+            child->loader()->history()->setCurrentItem(item);
             // Append the first child to the queue if it exists.
             if (WebCore::Frame* f = child->tree()->firstChild())
                 frameQueue.append(f);
@@ -133,7 +133,7 @@ static void WebHistoryClose(JNIEnv* env, jobject obj, jint frame)
                 frameQueue.remove(0);
                 // Figure out the parent history item used when searching for
                 // the history item to use.
-                parent = child->tree()->parent()->loader()->currentHistoryItem();
+                parent = child->tree()->parent()->loader()->history()->currentItem();
             }
         }
     }
@@ -152,7 +152,7 @@ static void WebHistoryRestoreIndex(JNIEnv* env, jobject obj, jint frame, jint in
 
     // Update the current and previous history item.
     WebCore::FrameLoader* loader = pFrame->loader();
-    loader->setCurrentHistoryItem(currentItem);
+    loader->history()->setCurrentItem(currentItem);
 
     // load the current page with FrameLoadTypeIndexedBackForward so that it
     // will use cache when it is possible
