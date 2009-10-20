@@ -2413,18 +2413,16 @@ bool Node::addEventListener(const AtomicString& eventType, PassRefPtr<EventListe
     if (Document* document = this->document())
         document->addListenerTypeIfNeeded(eventType);
     updateSVGElementInstancesAfterEventListenerChange(this);
-<<<<<<< HEAD:WebCore/dom/Node.cpp
 
 #if ENABLE(TOUCH_EVENTS) // Android
-    if (eventType == eventNames().touchstartEvent || 
-            eventType == eventNames().touchendEvent ||
-            eventType == eventNames().touchmoveEvent || 
-            eventType == eventNames().touchcancelEvent)
-        document->addTouchEventListener(this);
+    if (this->document() &&
+            (eventType == eventNames().touchstartEvent ||
+             eventType == eventNames().touchendEvent ||
+             eventType == eventNames().touchmoveEvent ||
+             eventType == eventNames().touchcancelEvent))
+        this->document()->addTouchEventListener(this);
 #endif
-=======
     return true;
->>>>>>> webkit.org at 49305:WebCore/dom/Node.cpp
 }
 
 bool Node::removeEventListener(const AtomicString& eventType, EventListener* listener, bool useCapture)
@@ -2432,22 +2430,17 @@ bool Node::removeEventListener(const AtomicString& eventType, EventListener* lis
     if (!EventTarget::removeEventListener(eventType, listener, useCapture))
         return false;
 
-<<<<<<< HEAD:WebCore/dom/Node.cpp
-            updateSVGElementInstancesAfterEventListenerChange(this);
-#if ENABLE(TOUCH_EVENTS) // Android
-            if (eventType == eventNames().touchstartEvent || 
-                    eventType == eventNames().touchendEvent ||
-                    eventType == eventNames().touchmoveEvent || 
-                    eventType == eventNames().touchcancelEvent)
-                document()->removeTouchEventListener(this);
-#endif
-            return;
-        }
-    }
-=======
     updateSVGElementInstancesAfterEventListenerChange(this);
+
+#if ENABLE(TOUCH_EVENTS) // Android
+    if (this->document() &&
+            (eventType == eventNames().touchstartEvent ||
+             eventType == eventNames().touchendEvent ||
+             eventType == eventNames().touchmoveEvent ||
+             eventType == eventNames().touchcancelEvent))
+        this->document()->removeTouchEventListener(this);
+#endif
     return true;
->>>>>>> webkit.org at 49305:WebCore/dom/Node.cpp
 }
 
 EventTargetData* Node::eventTargetData()
@@ -2455,20 +2448,9 @@ EventTargetData* Node::eventTargetData()
     return hasRareData() ? rareData()->eventTargetData() : 0;
 }
 
-<<<<<<< HEAD:WebCore/dom/Node.cpp
-#if ENABLE(TOUCH_EVENTS) // Android
-    document()->removeTouchEventListener(this);
-#endif
-
-    size_t size = listeners->size();
-    for (size_t i = 0; i < size; ++i)
-        listeners->at(i)->setRemoved(true);
-    listeners->clear();
-=======
 EventTargetData* Node::ensureEventTargetData()
 {
     return ensureRareData()->ensureEventTargetData();
->>>>>>> webkit.org at 49305:WebCore/dom/Node.cpp
 }
 
 void Node::handleLocalEvents(Event* event)
@@ -2912,387 +2894,6 @@ void Node::defaultEventHandler(Event* event)
     }
 }
 
-<<<<<<< HEAD:WebCore/dom/Node.cpp
-EventListener* Node::onabort() const
-{
-    return getAttributeEventListener(eventNames().abortEvent);
-}
-
-void Node::setOnabort(PassRefPtr<EventListener> eventListener)
-{
-    setAttributeEventListener(eventNames().abortEvent, eventListener);
-}
-
-EventListener* Node::onblur() const
-{
-    return getAttributeEventListener(eventNames().blurEvent);
-}
-
-void Node::setOnblur(PassRefPtr<EventListener> eventListener)
-{
-    setAttributeEventListener(eventNames().blurEvent, eventListener);
-}
-
-EventListener* Node::onchange() const
-{
-    return getAttributeEventListener(eventNames().changeEvent);
-}
-
-void Node::setOnchange(PassRefPtr<EventListener> eventListener)
-{
-    setAttributeEventListener(eventNames().changeEvent, eventListener);
-}
-
-EventListener* Node::onclick() const
-{
-    return getAttributeEventListener(eventNames().clickEvent);
-}
-
-void Node::setOnclick(PassRefPtr<EventListener> eventListener)
-{
-    setAttributeEventListener(eventNames().clickEvent, eventListener);
-}
-
-EventListener* Node::oncontextmenu() const
-{
-    return getAttributeEventListener(eventNames().contextmenuEvent);
-}
-
-void Node::setOncontextmenu(PassRefPtr<EventListener> eventListener)
-{
-    setAttributeEventListener(eventNames().contextmenuEvent, eventListener);
-}
-
-EventListener* Node::ondblclick() const
-{
-    return getAttributeEventListener(eventNames().dblclickEvent);
-}
-
-void Node::setOndblclick(PassRefPtr<EventListener> eventListener)
-{
-    setAttributeEventListener(eventNames().dblclickEvent, eventListener);
-}
-
-EventListener* Node::onerror() const
-{
-    return getAttributeEventListener(eventNames().errorEvent);
-}
-
-void Node::setOnerror(PassRefPtr<EventListener> eventListener)
-{
-    setAttributeEventListener(eventNames().errorEvent, eventListener);
-}
-
-EventListener* Node::onfocus() const
-{
-    return getAttributeEventListener(eventNames().focusEvent);
-}
-
-void Node::setOnfocus(PassRefPtr<EventListener> eventListener)
-{
-    setAttributeEventListener(eventNames().focusEvent, eventListener);
-}
-
-EventListener* Node::oninput() const
-{
-    return getAttributeEventListener(eventNames().inputEvent);
-}
-
-void Node::setOninput(PassRefPtr<EventListener> eventListener)
-{
-    setAttributeEventListener(eventNames().inputEvent, eventListener);
-}
-
-EventListener* Node::onkeydown() const
-{
-    return getAttributeEventListener(eventNames().keydownEvent);
-}
-
-void Node::setOnkeydown(PassRefPtr<EventListener> eventListener)
-{
-    setAttributeEventListener(eventNames().keydownEvent, eventListener);
-}
-
-EventListener* Node::onkeypress() const
-{
-    return getAttributeEventListener(eventNames().keypressEvent);
-}
-
-void Node::setOnkeypress(PassRefPtr<EventListener> eventListener)
-{
-    setAttributeEventListener(eventNames().keypressEvent, eventListener);
-}
-
-EventListener* Node::onkeyup() const
-{
-    return getAttributeEventListener(eventNames().keyupEvent);
-}
-
-void Node::setOnkeyup(PassRefPtr<EventListener> eventListener)
-{
-    setAttributeEventListener(eventNames().keyupEvent, eventListener);
-}
-
-EventListener* Node::onload() const
-{
-    return getAttributeEventListener(eventNames().loadEvent);
-}
-
-void Node::setOnload(PassRefPtr<EventListener> eventListener)
-{
-    setAttributeEventListener(eventNames().loadEvent, eventListener);
-}
-
-EventListener* Node::onmousedown() const
-{
-    return getAttributeEventListener(eventNames().mousedownEvent);
-}
-
-void Node::setOnmousedown(PassRefPtr<EventListener> eventListener)
-{
-    setAttributeEventListener(eventNames().mousedownEvent, eventListener);
-}
-
-EventListener* Node::onmousemove() const
-{
-    return getAttributeEventListener(eventNames().mousemoveEvent);
-}
-
-void Node::setOnmousemove(PassRefPtr<EventListener> eventListener)
-{
-    setAttributeEventListener(eventNames().mousemoveEvent, eventListener);
-}
-
-EventListener* Node::onmouseout() const
-{
-    return getAttributeEventListener(eventNames().mouseoutEvent);
-}
-
-void Node::setOnmouseout(PassRefPtr<EventListener> eventListener)
-{
-    setAttributeEventListener(eventNames().mouseoutEvent, eventListener);
-}
-
-EventListener* Node::onmouseover() const
-{
-    return getAttributeEventListener(eventNames().mouseoverEvent);
-}
-
-void Node::setOnmouseover(PassRefPtr<EventListener> eventListener)
-{
-    setAttributeEventListener(eventNames().mouseoverEvent, eventListener);
-}
-
-EventListener* Node::onmouseup() const
-{
-    return getAttributeEventListener(eventNames().mouseupEvent);
-}
-
-void Node::setOnmouseup(PassRefPtr<EventListener> eventListener)
-{
-    setAttributeEventListener(eventNames().mouseupEvent, eventListener);
-}
-
-EventListener* Node::onmousewheel() const
-{
-    return getAttributeEventListener(eventNames().mousewheelEvent);
-}
-
-void Node::setOnmousewheel(PassRefPtr<EventListener> eventListener)
-{
-    setAttributeEventListener(eventNames().mousewheelEvent, eventListener);
-}
-
-EventListener* Node::ondragenter() const
-{
-    return getAttributeEventListener(eventNames().dragenterEvent);
-}
-
-void Node::setOndragenter(PassRefPtr<EventListener> eventListener)
-{
-    setAttributeEventListener(eventNames().dragenterEvent, eventListener);
-}
-
-EventListener* Node::ondragover() const
-{
-    return getAttributeEventListener(eventNames().dragoverEvent);
-}
-
-void Node::setOndragover(PassRefPtr<EventListener> eventListener)
-{
-    setAttributeEventListener(eventNames().dragoverEvent, eventListener);
-}
-
-EventListener* Node::ondragleave() const
-{
-    return getAttributeEventListener(eventNames().dragleaveEvent);
-}
-
-void Node::setOndragleave(PassRefPtr<EventListener> eventListener)
-{
-    setAttributeEventListener(eventNames().dragleaveEvent, eventListener);
-}
-
-EventListener* Node::ondrop() const
-{
-    return getAttributeEventListener(eventNames().dropEvent);
-}
-
-void Node::setOndrop(PassRefPtr<EventListener> eventListener)
-{
-    setAttributeEventListener(eventNames().dropEvent, eventListener);
-}
-
-EventListener* Node::ondragstart() const
-{
-    return getAttributeEventListener(eventNames().dragstartEvent);
-}
-
-void Node::setOndragstart(PassRefPtr<EventListener> eventListener)
-{
-    setAttributeEventListener(eventNames().dragstartEvent, eventListener);
-}
-
-EventListener* Node::ondrag() const
-{
-    return getAttributeEventListener(eventNames().dragEvent);
-}
-
-void Node::setOndrag(PassRefPtr<EventListener> eventListener)
-{
-    setAttributeEventListener(eventNames().dragEvent, eventListener);
-}
-
-EventListener* Node::ondragend() const
-{
-    return getAttributeEventListener(eventNames().dragendEvent);
-}
-
-void Node::setOndragend(PassRefPtr<EventListener> eventListener)
-{
-    setAttributeEventListener(eventNames().dragendEvent, eventListener);
-}
-
-EventListener* Node::onscroll() const
-{
-    return getAttributeEventListener(eventNames().scrollEvent);
-}
-
-void Node::setOnscroll(PassRefPtr<EventListener> eventListener)
-{
-    setAttributeEventListener(eventNames().scrollEvent, eventListener);
-}
-
-EventListener* Node::onselect() const
-{
-    return getAttributeEventListener(eventNames().selectEvent);
-}
-
-void Node::setOnselect(PassRefPtr<EventListener> eventListener)
-{
-    setAttributeEventListener(eventNames().selectEvent, eventListener);
-}
-
-EventListener* Node::onsubmit() const
-{
-    return getAttributeEventListener(eventNames().submitEvent);
-}
-
-void Node::setOnsubmit(PassRefPtr<EventListener> eventListener)
-{
-    setAttributeEventListener(eventNames().submitEvent, eventListener);
-}
-
-EventListener* Node::onbeforecut() const
-{
-    return getAttributeEventListener(eventNames().beforecutEvent);
-}
-
-void Node::setOnbeforecut(PassRefPtr<EventListener> eventListener)
-{
-    setAttributeEventListener(eventNames().beforecutEvent, eventListener);
-}
-
-EventListener* Node::oncut() const
-{
-    return getAttributeEventListener(eventNames().cutEvent);
-}
-
-void Node::setOncut(PassRefPtr<EventListener> eventListener)
-{
-    setAttributeEventListener(eventNames().cutEvent, eventListener);
-}
-
-EventListener* Node::onbeforecopy() const
-{
-    return getAttributeEventListener(eventNames().beforecopyEvent);
-}
-
-void Node::setOnbeforecopy(PassRefPtr<EventListener> eventListener)
-{
-    setAttributeEventListener(eventNames().beforecopyEvent, eventListener);
-}
-
-EventListener* Node::oncopy() const
-{
-    return getAttributeEventListener(eventNames().copyEvent);
-}
-
-void Node::setOncopy(PassRefPtr<EventListener> eventListener)
-{
-    setAttributeEventListener(eventNames().copyEvent, eventListener);
-}
-
-EventListener* Node::onbeforepaste() const
-{
-    return getAttributeEventListener(eventNames().beforepasteEvent);
-}
-
-void Node::setOnbeforepaste(PassRefPtr<EventListener> eventListener)
-{
-    setAttributeEventListener(eventNames().beforepasteEvent, eventListener);
-}
-
-EventListener* Node::onpaste() const
-{
-    return getAttributeEventListener(eventNames().pasteEvent);
-}
-
-void Node::setOnpaste(PassRefPtr<EventListener> eventListener)
-{
-    setAttributeEventListener(eventNames().pasteEvent, eventListener);
-}
-
-EventListener* Node::onreset() const
-{
-    return getAttributeEventListener(eventNames().resetEvent);
-}
-
-void Node::setOnreset(PassRefPtr<EventListener> eventListener)
-{
-    setAttributeEventListener(eventNames().resetEvent, eventListener);
-}
-
-EventListener* Node::onsearch() const
-{
-    return getAttributeEventListener(eventNames().searchEvent);
-}
-
-void Node::setOnsearch(PassRefPtr<EventListener> eventListener)
-{
-    setAttributeEventListener(eventNames().searchEvent, eventListener);
-}
-
-EventListener* Node::onselectstart() const
-{
-    return getAttributeEventListener(eventNames().selectstartEvent);
-}
-
-void Node::setOnselectstart(PassRefPtr<EventListener> eventListener)
-{
-    setAttributeEventListener(eventNames().selectstartEvent, eventListener);
-}
-
 #if ENABLE(TOUCH_EVENTS) // Android
 EventListener* Node::ontouchstart() const
 {
@@ -3335,8 +2936,6 @@ void Node::setOntouchcancel(PassRefPtr<EventListener> eventListener)
 }
 #endif // ENABLE(TOUCH_EVENT)
 
-=======
->>>>>>> webkit.org at 49305:WebCore/dom/Node.cpp
 } // namespace WebCore
 
 #ifndef NDEBUG

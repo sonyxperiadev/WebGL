@@ -41,58 +41,32 @@ using namespace std;
 
 namespace WebCore {
 
-<<<<<<< HEAD:WebCore/bindings/js/JSGeolocationCustom.cpp
-static PassRefPtr<PositionCallback> createPositionCallback(ExecState* exec, JSValue value)
-=======
 static PassRefPtr<PositionCallback> createPositionCallback(ExecState* exec, JSDOMGlobalObject* globalObject, JSValue value)
->>>>>>> webkit.org at 49305:WebCore/bindings/js/JSGeolocationCustom.cpp
 {
     // The spec specifies 'FunctionOnly' for this object.
-<<<<<<< HEAD:WebCore/bindings/js/JSGeolocationCustom.cpp
-    if (!value.isObject(&InternalFunction::info)) {
-=======
     if (!value.inherits(&InternalFunction::info)) {
->>>>>>> webkit.org at 49305:WebCore/bindings/js/JSGeolocationCustom.cpp
         setDOMException(exec, TYPE_MISMATCH_ERR);
         return 0;
     }
 
     JSObject* object = asObject(value);
-<<<<<<< HEAD:WebCore/bindings/js/JSGeolocationCustom.cpp
-    Frame* frame = toJSDOMWindow(exec->lexicalGlobalObject())->impl()->frame();
-    return JSCustomPositionCallback::create(object, frame);
-=======
     return JSCustomPositionCallback::create(object, globalObject);
->>>>>>> webkit.org at 49305:WebCore/bindings/js/JSGeolocationCustom.cpp
 }
 
-<<<<<<< HEAD:WebCore/bindings/js/JSGeolocationCustom.cpp
-static PassRefPtr<PositionErrorCallback> createPositionErrorCallback(ExecState* exec, JSValue value)
-=======
 static PassRefPtr<PositionErrorCallback> createPositionErrorCallback(ExecState* exec, JSDOMGlobalObject* globalObject, JSValue value)
->>>>>>> webkit.org at 49305:WebCore/bindings/js/JSGeolocationCustom.cpp
 {
     // Argument is optional (hence undefined is allowed), and null is allowed.
     if (value.isUndefinedOrNull())
         return 0;
 
     // The spec specifies 'FunctionOnly' for this object.
-<<<<<<< HEAD:WebCore/bindings/js/JSGeolocationCustom.cpp
-    if (!value.isObject(&InternalFunction::info)) {
-=======
     if (!value.inherits(&InternalFunction::info)) {
->>>>>>> webkit.org at 49305:WebCore/bindings/js/JSGeolocationCustom.cpp
         setDOMException(exec, TYPE_MISMATCH_ERR);
         return 0;
     }
 
     JSObject* object = asObject(value);
-<<<<<<< HEAD:WebCore/bindings/js/JSGeolocationCustom.cpp
-    Frame* frame = toJSDOMWindow(exec->lexicalGlobalObject())->impl()->frame();
-    return JSCustomPositionErrorCallback::create(object, frame);
-=======
     return JSCustomPositionErrorCallback::create(object, globalObject);
->>>>>>> webkit.org at 49305:WebCore/bindings/js/JSGeolocationCustom.cpp
 }
 
 static PassRefPtr<PositionOptions> createPositionOptions(ExecState* exec, JSValue value)
@@ -163,20 +137,12 @@ JSValue JSGeolocation::getCurrentPosition(ExecState* exec, const ArgList& args)
 {
     // Arguments: PositionCallback, (optional)PositionErrorCallback, (optional)PositionOptions
 
-<<<<<<< HEAD:WebCore/bindings/js/JSGeolocationCustom.cpp
-    RefPtr<PositionCallback> positionCallback = createPositionCallback(exec, args.at(0));
-=======
     RefPtr<PositionCallback> positionCallback = createPositionCallback(exec, static_cast<JSDOMGlobalObject*>(exec->lexicalGlobalObject()), args.at(0));
->>>>>>> webkit.org at 49305:WebCore/bindings/js/JSGeolocationCustom.cpp
     if (exec->hadException())
         return jsUndefined();
     ASSERT(positionCallback);
 
-<<<<<<< HEAD:WebCore/bindings/js/JSGeolocationCustom.cpp
-    RefPtr<PositionErrorCallback> positionErrorCallback = createPositionErrorCallback(exec, args.at(1));
-=======
     RefPtr<PositionErrorCallback> positionErrorCallback = createPositionErrorCallback(exec, static_cast<JSDOMGlobalObject*>(exec->lexicalGlobalObject()), args.at(1));
->>>>>>> webkit.org at 49305:WebCore/bindings/js/JSGeolocationCustom.cpp
     if (exec->hadException())
         return jsUndefined();
 
@@ -193,20 +159,12 @@ JSValue JSGeolocation::watchPosition(ExecState* exec, const ArgList& args)
 {
     // Arguments: PositionCallback, (optional)PositionErrorCallback, (optional)PositionOptions
 
-<<<<<<< HEAD:WebCore/bindings/js/JSGeolocationCustom.cpp
-    RefPtr<PositionCallback> positionCallback = createPositionCallback(exec, args.at(0));
-=======
     RefPtr<PositionCallback> positionCallback = createPositionCallback(exec, static_cast<JSDOMGlobalObject*>(exec->lexicalGlobalObject()), args.at(0));
->>>>>>> webkit.org at 49305:WebCore/bindings/js/JSGeolocationCustom.cpp
     if (exec->hadException())
         return jsUndefined();
     ASSERT(positionCallback);
 
-<<<<<<< HEAD:WebCore/bindings/js/JSGeolocationCustom.cpp
-    RefPtr<PositionErrorCallback> positionErrorCallback = createPositionErrorCallback(exec, args.at(1));
-=======
     RefPtr<PositionErrorCallback> positionErrorCallback = createPositionErrorCallback(exec, static_cast<JSDOMGlobalObject*>(exec->lexicalGlobalObject()), args.at(1));
->>>>>>> webkit.org at 49305:WebCore/bindings/js/JSGeolocationCustom.cpp
     if (exec->hadException())
         return jsUndefined();
 

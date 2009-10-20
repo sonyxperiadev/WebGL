@@ -396,12 +396,7 @@ void RenderPartObject::layout()
 #else
     calcWidth();
     calcHeight();
-<<<<<<< HEAD:WebCore/rendering/RenderPartObject.cpp
 #endif
-
-    adjustOverflowForBoxShadowAndReflect();
-=======
->>>>>>> webkit.org at 49305:WebCore/rendering/RenderPartObject.cpp
 
     RenderPart::layout();
 

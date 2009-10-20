@@ -143,14 +143,11 @@ public:
     bool handleMouseReleaseEvent(const PlatformMouseEvent&);
     bool handleWheelEvent(PlatformWheelEvent&);
 
-<<<<<<< HEAD:WebCore/page/EventHandler.h
 #if ENABLE(TOUCH_EVENTS) // Android
     bool handleTouchEvent(const PlatformTouchEvent&);
 #endif
 
-=======
 #if ENABLE(CONTEXT_MENUS)
->>>>>>> webkit.org at 49305:WebCore/page/EventHandler.h
     bool sendContextMenuEvent(const PlatformMouseEvent&);
 #endif
 

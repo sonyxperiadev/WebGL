@@ -46,11 +46,7 @@ public:
     ErrorCode code() const { return m_code; }
     const String& message() const { return m_message; }
     void setIsFatal(bool isFatal) { m_isFatal = isFatal; }
-<<<<<<< HEAD:WebCore/page/PositionError.h
-    bool isFatal() { return m_isFatal; }
-=======
     bool isFatal() const { return m_isFatal; }
->>>>>>> webkit.org at 49305:WebCore/page/PositionError.h
     
 private:
     PositionError(ErrorCode code, const String& message) 

@@ -460,14 +460,16 @@ typedef v8::Persistent<v8::FunctionTemplate> (*FunctionTemplateFactory)();
 #define DOM_OBJECT_WORKERS_TYPES(V)
 #endif
 
-<<<<<<< HEAD:WebCore/bindings/v8/V8Index.h
 #if ENABLE(GEOLOCATION)
 #define DOM_OBJECT_GEOLOCATION_TYPES(V)                                 \
     V(COORDINATES, Coordinates)                                         \
     V(GEOLOCATION, Geolocation)                                         \
     V(GEOPOSITION, Geoposition)                                         \
     V(POSITIONERROR, PositionError)
-=======
+#else
+#define DOM_OBJECT_GEOLOCATION_TYPES(V)
+#endif
+
 #if ENABLE(3D_CANVAS)
 #define DOM_OBJECT_3D_CANVAS_TYPES(V)                                   \
     V(CANVASARRAY, CanvasArray)                                         \
@@ -486,16 +488,10 @@ typedef v8::Persistent<v8::FunctionTemplate> (*FunctionTemplateFactory)();
     V(CANVASUNSIGNEDBYTEARRAY, CanvasUnsignedByteArray)                 \
     V(CANVASUNSIGNEDINTARRAY, CanvasUnsignedIntArray)                   \
     V(CANVASUNSIGNEDSHORTARRAY, CanvasUnsignedShortArray)
->>>>>>> webkit.org at 49305:WebCore/bindings/v8/V8Index.h
 #else
-<<<<<<< HEAD:WebCore/bindings/v8/V8Index.h
-#define DOM_OBJECT_GEOLOCATION_TYPES(V)
-=======
 #define DOM_OBJECT_3D_CANVAS_TYPES(V)
->>>>>>> webkit.org at 49305:WebCore/bindings/v8/V8Index.h
 #endif
 
-<<<<<<< HEAD:WebCore/bindings/v8/V8Index.h
 #if ENABLE(TOUCH_EVENTS)
 #define DOM_OBJECT_TOUCH_EVENT_TYPES(V)                                 \
     V(TOUCHLIST, TouchList)                                             \
@@ -506,15 +502,13 @@ typedef v8::Persistent<v8::FunctionTemplate> (*FunctionTemplateFactory)();
 #endif
 
 #if PLATFORM(CHROMIUM)
-=======
->>>>>>> webkit.org at 49305:WebCore/bindings/v8/V8Index.h
 #define DOM_OBJECT_TYPES(V)                                             \
     DOM_OBJECT_TYPES_1(V)                                               \
     DOM_OBJECT_TYPES_2(V)                                               \
     DOM_OBJECT_DATABASE_TYPES(V)                                        \
     DOM_OBJECT_STORAGE_TYPES(V)                                         \
     DOM_OBJECT_WORKERS_TYPES(V)                                         \
-<<<<<<< HEAD:WebCore/bindings/v8/V8Index.h
+    DOM_OBJECT_3D_CANVAS_TYPES(V)                                       \
     DOM_OBJECT_XPATH_TYPES(V)                                           \
     DOM_OBJECT_XSLT_TYPES(V)                                            \
     V(INSPECTORBACKEND, InspectorBackend)
@@ -528,9 +522,6 @@ typedef v8::Persistent<v8::FunctionTemplate> (*FunctionTemplateFactory)();
     DOM_OBJECT_TOUCH_EVENT_TYPES(V)                                     \
     DOM_OBJECT_WORKERS_TYPES(V)
 #endif
-=======
-    DOM_OBJECT_3D_CANVAS_TYPES(V)
->>>>>>> webkit.org at 49305:WebCore/bindings/v8/V8Index.h
 
 #if ENABLE(SVG)
 // SVG_OBJECT_TYPES are svg non-node, non-pod types.

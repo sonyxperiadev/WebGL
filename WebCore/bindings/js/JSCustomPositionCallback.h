@@ -42,11 +42,6 @@ public:
         return adoptRef(new JSCustomPositionCallback(callback, globalObject));
     }
     
-<<<<<<< HEAD:WebCore/bindings/js/JSCustomPositionCallback.h
-    virtual void handleEvent(Geoposition*);
-
-=======
->>>>>>> webkit.org at 49305:WebCore/bindings/js/JSCustomPositionCallback.h
 private:
     JSCustomPositionCallback(JSC::JSObject* callback, JSDOMGlobalObject*);
 

@@ -404,7 +404,6 @@
 #include "V8SharedWorker.h"
 #endif
 
-<<<<<<< HEAD:WebCore/bindings/v8/V8Index.cpp
 #if ENABLE(GEOLOCATION)
 #include "V8Coordinates.h"
 #include "V8Geolocation.h"
@@ -428,7 +427,8 @@
 
 #if ENABLE(XSLT)
 #include "V8XSLTProcessor.h"
-=======
+#endif
+
 #if ENABLE(3D_CANVAS)
 #include "V8CanvasRenderingContext3D.h"
 #include "V8CanvasArrayBuffer.h"
@@ -446,7 +446,6 @@
 #include "V8CanvasUnsignedByteArray.h"
 #include "V8CanvasUnsignedIntArray.h"
 #include "V8CanvasUnsignedShortArray.h"
->>>>>>> webkit.org at 49305:WebCore/bindings/v8/V8Index.cpp
 #endif
 
 namespace WebCore {

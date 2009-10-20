@@ -51,15 +51,11 @@ QT_END_NAMESPACE
 class wxRect2DDouble;
 #endif
 
-<<<<<<< HEAD:WebCore/platform/graphics/FloatRect.h
-#if (PLATFORM(SKIA) || PLATFORM(SGL))
-=======
 #if PLATFORM(HAIKU)
 class BRect;
 #endif
 
-#if PLATFORM(SKIA)
->>>>>>> webkit.org at 49305:WebCore/platform/graphics/FloatRect.h
+#if (PLATFORM(SKIA) || PLATFORM(SGL))
 struct SkRect;
 #endif
 
@@ -147,16 +143,12 @@ public:
     operator wxRect2DDouble() const;
 #endif
 
-<<<<<<< HEAD:WebCore/platform/graphics/FloatRect.h
-#if (PLATFORM(SKIA) || PLATFORM(SGL))
-=======
 #if PLATFORM(HAIKU)
     FloatRect(const BRect&);
     operator BRect() const;
 #endif
 
-#if PLATFORM(SKIA)
->>>>>>> webkit.org at 49305:WebCore/platform/graphics/FloatRect.h
+#if (PLATFORM(SKIA) || PLATFORM(SGL))
     FloatRect(const SkRect&);
     operator SkRect() const;
 #endif

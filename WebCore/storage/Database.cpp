@@ -104,11 +104,7 @@ static inline void updateGuidVersionMap(int guid, String newVersion)
     // FIXME: This is a quite-awkward restriction to have to program with.
 
     // Map null string to empty string (see comment above).
-<<<<<<< HEAD:WebCore/storage/Database.cpp
-    guidToVersionMap().set(guid, newVersion.isEmpty() ? String() : newVersion.copy());
-=======
     guidToVersionMap().set(guid, newVersion.isEmpty() ? String() : newVersion.threadsafeCopy());
->>>>>>> Merge webkit.org at R49305 : Automatic merge by git.:WebCore/storage/Database.cpp
 }
 
 typedef HashMap<int, HashSet<Database*>*> GuidDatabaseMap;
@@ -171,14 +167,8 @@ Database::Database(Document* document, const String& name, const String& expecte
 
 #if USE(JSC)
     JSC::initializeThreading();
-<<<<<<< HEAD:WebCore/storage/Database.cpp
-    // Database code violates the normal JSCore contract by calling jsUnprotect from a secondary thread, and thus needs additional locking.
-    JSDOMWindow::commonJSGlobalData()->heap.setGCProtectNeedsLocking();
 #elif USE(V8)
-    // TODO(benm): do we need the extra locking in V8 too? (See JSC comment above)
     V8::initializeThreading();
-=======
->>>>>>> webkit.org at 49305:WebCore/storage/Database.cpp
 #endif
 
     m_guid = guidForOriginAndName(m_securityOrigin->toString(), name);
@@ -655,11 +645,7 @@ Vector<String> Database::tableNames()
 
 void Database::setExpectedVersion(const String& version)
 {
-<<<<<<< HEAD:WebCore/storage/Database.cpp
-    m_expectedVersion = version.copy();
-=======
     m_expectedVersion = version.threadsafeCopy();
->>>>>>> Merge webkit.org at R49305 : Automatic merge by git.:WebCore/storage/Database.cpp
     // Update the in memory database version map.
     MutexLocker locker(guidMutex());
     updateGuidVersionMap(m_guid, version);

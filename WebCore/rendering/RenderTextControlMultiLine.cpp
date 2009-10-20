@@ -27,13 +27,10 @@
 #include "Frame.h"
 #include "HTMLNames.h"
 #include "HTMLTextAreaElement.h"
-<<<<<<< HEAD:WebCore/rendering/RenderTextControlMultiLine.cpp
+#include "HitTestResult.h"
 #ifdef ANDROID_LAYOUT
 #include "Settings.h"
 #endif
-=======
-#include "HitTestResult.h"
->>>>>>> webkit.org at 49305:WebCore/rendering/RenderTextControlMultiLine.cpp
 
 namespace WebCore {
 

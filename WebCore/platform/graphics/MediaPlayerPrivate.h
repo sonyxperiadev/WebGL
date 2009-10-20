@@ -44,11 +44,8 @@ public:
     virtual void cancelLoad() = 0;
     
     virtual void prepareToPlay() { }
-<<<<<<< HEAD:WebCore/platform/graphics/MediaPlayerPrivate.h
-=======
     virtual PlatformMedia platformMedia() const { return NoPlatformMedia; }
 
->>>>>>> webkit.org at 49305:WebCore/platform/graphics/MediaPlayerPrivate.h
     virtual void play() = 0;
     virtual void pause() = 0;    
 

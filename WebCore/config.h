@@ -75,16 +75,6 @@
 
 #endif /* PLATFORM(WIN_OS) */
 
-<<<<<<< HEAD:WebCore/config.h
-// On MSW, wx headers need to be included before windows.h is.
-// The only way we can always ensure this is if we include wx here.
-#if PLATFORM(WX)
-// The defines in KeyboardCodes.h conflict with Windows as well, and the only way I've found
-// to address the problem is include KeyboarddCodes.h before windows.h, so do it here.
-#include "KeyboardCodes.h"
-#include <wx/defs.h>
-#endif
-
 // ANDROID def should be after all PLATFORM to avoid override.
 // USE_SYSTEM_MALLOC needs to be defined before include FastMalloc.h
 #if PLATFORM(ANDROID)
@@ -140,8 +130,6 @@
 #define ENABLE_GEOLOCATION 1
 #endif  // PLATFORM(ANDROID)
 
-=======
->>>>>>> webkit.org at 49305:WebCore/config.h
 #ifdef __cplusplus
 
 // These undefs match up with defines in WebCorePrefix.h for Mac OS X.

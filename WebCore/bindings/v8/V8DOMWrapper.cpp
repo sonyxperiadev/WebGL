@@ -31,14 +31,10 @@
 #include "config.h"
 #include "V8DOMWrapper.h"
 
-<<<<<<< HEAD:WebCore/bindings/v8/V8DOMWrapper.cpp
+#include "CSSMutableStyleDeclaration.h"
 #if PLATFORM(CHROMIUM)
 #include "ChromiumBridge.h"
 #endif
-=======
->>>>>>> webkit.org at 49305:WebCore/bindings/v8/V8DOMWrapper.cpp
-#include "CSSMutableStyleDeclaration.h"
-#include "ChromiumBridge.h"
 #include "DOMObjectsInclude.h"
 #include "DocumentLoader.h"
 #include "FrameLoaderClient.h"

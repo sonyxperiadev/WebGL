@@ -242,10 +242,6 @@ void RenderFlexibleBox::layoutBlock(bool relayoutChildren)
 #endif
     setHeight(0);
 
-<<<<<<< HEAD:WebCore/rendering/RenderFlexibleBox.cpp
-    m_overflowHeight = 0;
-=======
->>>>>>> webkit.org at 49305:WebCore/rendering/RenderFlexibleBox.cpp
     m_flexingChildren = m_stretchingChildren = false;
 
     initMaxMarginValues();

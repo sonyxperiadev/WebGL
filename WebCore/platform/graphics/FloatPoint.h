@@ -95,16 +95,12 @@ public:
     operator QPointF() const;
 #endif
 
-<<<<<<< HEAD:WebCore/platform/graphics/FloatPoint.h
-#if (PLATFORM(SKIA) || PLATFORM(SGL))
-=======
 #if PLATFORM(HAIKU)
     FloatPoint(const BPoint&);
     operator BPoint() const;
 #endif
 
-#if PLATFORM(SKIA)
->>>>>>> webkit.org at 49305:WebCore/platform/graphics/FloatPoint.h
+#if (PLATFORM(SKIA) || PLATFORM(SGL))
     operator SkPoint() const;
     FloatPoint(const SkPoint&);
 #endif

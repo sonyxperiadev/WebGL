@@ -207,20 +207,6 @@
 #include "bindings/V8Screen.cpp"
 #include "bindings/V8StyleSheet.cpp"
 #include "bindings/V8StyleSheetList.cpp"
-#include "bindings/V8Text.cpp"
-#include "bindings/V8TextEvent.cpp"
-#include "bindings/V8TextMetrics.cpp"
-#include "bindings/V8TimeRanges.cpp"
-#include "bindings/V8TreeWalker.cpp"
-#include "bindings/V8UIEvent.cpp"
-#include "bindings/V8ValidityState.cpp"
-#include "bindings/V8WebKitAnimationEvent.cpp"
-#include "bindings/V8WebKitCSSKeyframeRule.cpp"
-#include "bindings/V8WebKitCSSKeyframesRule.cpp"
-#include "bindings/V8WebKitCSSMatrix.cpp"
-#include "bindings/V8WebKitCSSTransformValue.cpp"
-#include "bindings/V8WebKitPoint.cpp"
-#include "bindings/V8WebKitTransitionEvent.cpp"
 #include "bindings/V8WheelEvent.cpp"
 #include "bindings/V8XMLHttpRequest.cpp"
 #include "bindings/V8XMLHttpRequestException.cpp"
@@ -357,8 +343,8 @@
 #include "bindings/V8SVGUseElement.cpp"
 #include "bindings/V8SVGViewElement.cpp"
 #include "bindings/V8SVGZoomEvent.cpp"
-<<<<<<< HEAD:WebCore/bindings/v8/DerivedSourcesAllInOne.cpp
-=======
+#endif
+
 #include "bindings/V8Text.cpp"
 #include "bindings/V8TextEvent.cpp"
 #include "bindings/V8TextMetrics.cpp"
@@ -373,19 +359,15 @@
 #include "bindings/V8WebKitCSSTransformValue.cpp"
 #include "bindings/V8WebKitPoint.cpp"
 #include "bindings/V8WebKitTransitionEvent.cpp"
+
 #if ENABLE(WEB_SOCKETS)
 #include "bindings/V8WebSocket.cpp"
->>>>>>> webkit.org at 49305:WebCore/bindings/v8/DerivedSourcesAllInOne.cpp
 #endif
-<<<<<<< HEAD:WebCore/bindings/v8/DerivedSourcesAllInOne.cpp
 
 #if ENABLE(WORKERS)
 #include "bindings/V8AbstractWorker.cpp"
 #include "bindings/V8DedicatedWorkerContext.cpp"
 #include "bindings/V8SharedWorker.cpp"
-=======
-#include "bindings/V8WheelEvent.cpp"
->>>>>>> webkit.org at 49305:WebCore/bindings/v8/DerivedSourcesAllInOne.cpp
 #include "bindings/V8Worker.cpp"
 #include "bindings/V8WorkerContext.cpp"
 #include "bindings/V8WorkerLocation.cpp"

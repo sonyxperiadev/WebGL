@@ -4701,9 +4701,6 @@
 		F916C48D0DB510F80076CD83 /* JSXMLHttpRequestProgressEvent.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F916C48B0DB510F80076CD83 /* JSXMLHttpRequestProgressEvent.cpp */; };
 		F916C48E0DB510F80076CD83 /* JSXMLHttpRequestProgressEvent.h in Headers */ = {isa = PBXBuildFile; fileRef = F916C48C0DB510F80076CD83 /* JSXMLHttpRequestProgressEvent.h */; };
 		F9F0ED7A0DB50CA200D16DB9 /* XMLHttpRequestProgressEvent.h in Headers */ = {isa = PBXBuildFile; fileRef = F9F0ED770DB50CA200D16DB9 /* XMLHttpRequestProgressEvent.h */; };
-<<<<<<< HEAD:WebCore/WebCore.xcodeproj/project.pbxproj
-		FE6FD4880F676E5700092873 /* Coordinates.h in Headers */ = {isa = PBXBuildFile; fileRef = FE6FD4850F676E5700092873 /* Coordinates.h */; };
-=======
 		FABE72F41059C1EB00D999DD /* MathMLElement.cpp in Sources */ = {isa = PBXBuildFile; fileRef = FABE72ED1059C1EB00D999DD /* MathMLElement.cpp */; };
 		FABE72F51059C1EB00D999DD /* MathMLElement.h in Headers */ = {isa = PBXBuildFile; fileRef = FABE72EE1059C1EB00D999DD /* MathMLElement.h */; };
 		FABE72F61059C1EB00D999DD /* MathMLInlineContainerElement.cpp in Sources */ = {isa = PBXBuildFile; fileRef = FABE72EF1059C1EB00D999DD /* MathMLInlineContainerElement.cpp */; };
@@ -4713,7 +4710,6 @@
 		FABE72FD1059C21100D999DD /* MathMLElementFactory.cpp in Sources */ = {isa = PBXBuildFile; fileRef = FABE72FB1059C21100D999DD /* MathMLElementFactory.cpp */; };
 		FABE72FE1059C21100D999DD /* MathMLNames.cpp in Sources */ = {isa = PBXBuildFile; fileRef = FABE72FC1059C21100D999DD /* MathMLNames.cpp */; };
 		FE6FD4880F676E5700092873 /* Coordinates.h in Headers */ = {isa = PBXBuildFile; fileRef = FE6FD4850F676E5700092873 /* Coordinates.h */; settings = {ATTRIBUTES = (Private, ); }; };
->>>>>>> webkit.org at 49305:WebCore/WebCore.xcodeproj/project.pbxproj
 		FE6FD48D0F676E9300092873 /* JSCoordinates.cpp in Sources */ = {isa = PBXBuildFile; fileRef = FE6FD48B0F676E9300092873 /* JSCoordinates.cpp */; };
 		FE6FD48E0F676E9300092873 /* JSCoordinates.h in Headers */ = {isa = PBXBuildFile; fileRef = FE6FD48C0F676E9300092873 /* JSCoordinates.h */; };
 		FE700DD10F92D81A008E2BFE /* JSCoordinatesCustom.cpp in Sources */ = {isa = PBXBuildFile; fileRef = FE700DD00F92D81A008E2BFE /* JSCoordinatesCustom.cpp */; };
@@ -4724,11 +4720,7 @@
 		FE80D7AB0E9C1ED2000D6F75 /* JSGeolocationCustom.cpp in Sources */ = {isa = PBXBuildFile; fileRef = FE80D7A60E9C1ED2000D6F75 /* JSGeolocationCustom.cpp */; };
 		FE80D7C50E9C1F25000D6F75 /* Geolocation.cpp in Sources */ = {isa = PBXBuildFile; fileRef = FE80D7B70E9C1F25000D6F75 /* Geolocation.cpp */; };
 		FE80D7C60E9C1F25000D6F75 /* Geolocation.h in Headers */ = {isa = PBXBuildFile; fileRef = FE80D7B80E9C1F25000D6F75 /* Geolocation.h */; settings = {ATTRIBUTES = (Private, ); }; };
-<<<<<<< HEAD:WebCore/WebCore.xcodeproj/project.pbxproj
-		FE80D7C90E9C1F25000D6F75 /* Geoposition.h in Headers */ = {isa = PBXBuildFile; fileRef = FE80D7BB0E9C1F25000D6F75 /* Geoposition.h */; };
-=======
 		FE80D7C90E9C1F25000D6F75 /* Geoposition.h in Headers */ = {isa = PBXBuildFile; fileRef = FE80D7BB0E9C1F25000D6F75 /* Geoposition.h */; settings = {ATTRIBUTES = (Private, ); }; };
->>>>>>> webkit.org at 49305:WebCore/WebCore.xcodeproj/project.pbxproj
 		FE80D7CB0E9C1F25000D6F75 /* PositionCallback.h in Headers */ = {isa = PBXBuildFile; fileRef = FE80D7BD0E9C1F25000D6F75 /* PositionCallback.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		FE80D7CD0E9C1F25000D6F75 /* PositionError.h in Headers */ = {isa = PBXBuildFile; fileRef = FE80D7BF0E9C1F25000D6F75 /* PositionError.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		FE80D7CF0E9C1F25000D6F75 /* PositionErrorCallback.h in Headers */ = {isa = PBXBuildFile; fileRef = FE80D7C10E9C1F25000D6F75 /* PositionErrorCallback.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -17892,8 +17884,6 @@
 				49484FC8102CF23C00187DD3 /* CanvasPixelArray.h in Headers */,
 				49484FCB102CF23C00187DD3 /* CanvasRenderingContext2D.h in Headers */,
 				49484FCE102CF23C00187DD3 /* CanvasStyle.h in Headers */,
-<<<<<<< HEAD:WebCore/WebCore.xcodeproj/project.pbxproj
-=======
 				416E29A6102FA962007FC14E /* WorkerReportingProxy.h in Headers */,
 				B5C1123C102B6C4600096578 /* SQLTransactionCoordinator.h in Headers */,
 				D8B6152F1032495100C8554A /* Cookie.h in Headers */,
@@ -17958,10 +17948,7 @@
 				49EED1431051969400099FAB /* JSCanvasRenderingContext.h in Headers */,
 				49EED1451051969400099FAB /* JSCanvasRenderingContext2D.h in Headers */,
 				49EED1471051969400099FAB /* JSCanvasRenderingContext3D.h in Headers */,
->>>>>>> webkit.org at 49305:WebCore/WebCore.xcodeproj/project.pbxproj
 				59C77F2B10545B3B00506104 /* GeolocationServiceMock.h in Headers */,
-<<<<<<< HEAD:WebCore/WebCore.xcodeproj/project.pbxproj
-=======
 				51A052331058774F00CC9E95 /* CredentialStorage.h in Headers */,
 				51A052561058874000CC9E95 /* ProtectionSpaceHash.h in Headers */,
 				BC8BF151105813BF00A40A07 /* UserStyleSheet.h in Headers */,
@@ -17987,7 +17974,6 @@
 				A75E497610752ACB00C9B896 /* SerializedScriptValue.h in Headers */,
 				97059978107D975200A50A7C /* PolicyCallback.h in Headers */,
 				9705997A107D975200A50A7C /* PolicyChecker.h in Headers */,
->>>>>>> webkit.org at 49305:WebCore/WebCore.xcodeproj/project.pbxproj
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -20018,8 +20004,6 @@
 				49484FC7102CF23C00187DD3 /* CanvasPixelArray.cpp in Sources */,
 				49484FCA102CF23C00187DD3 /* CanvasRenderingContext2D.cpp in Sources */,
 				49484FCD102CF23C00187DD3 /* CanvasStyle.cpp in Sources */,
-<<<<<<< HEAD:WebCore/WebCore.xcodeproj/project.pbxproj
-=======
 				9392262D1032107B006E7D5D /* JSHTMLCanvasElementCustom.cpp in Sources */,
 				9392262F10321084006E7D5D /* JSCSSRuleListCustom.cpp in Sources */,
 				B5C1123B102B6C4600096578 /* SQLTransactionCoordinator.cpp in Sources */,
@@ -20091,10 +20075,7 @@
 				49EED14E1051971A00099FAB /* JSCanvasRenderingContext2DCustom.cpp in Sources */,
 				49EED14F1051971A00099FAB /* JSCanvasRenderingContext3DCustom.cpp in Sources */,
 				49EED1501051971A00099FAB /* JSCanvasRenderingContextCustom.cpp in Sources */,
->>>>>>> webkit.org at 49305:WebCore/WebCore.xcodeproj/project.pbxproj
 				59C77F2A10545B3B00506104 /* GeolocationServiceMock.cpp in Sources */,
-<<<<<<< HEAD:WebCore/WebCore.xcodeproj/project.pbxproj
-=======
 				51A052341058774F00CC9E95 /* CredentialStorage.cpp in Sources */,
 				510D4A4E103177A20049EA54 /* WebSocketChannel.cpp in Sources */,
 				51ABAE441043AB4A008C5260 /* WebSocketHandshake.cpp in Sources */,
@@ -20116,7 +20097,6 @@
 				A75E497710752ACB00C9B896 /* SerializedScriptValue.cpp in Sources */,
 				97059977107D975200A50A7C /* PolicyCallback.cpp in Sources */,
 				97059979107D975200A50A7C /* PolicyChecker.cpp in Sources */,
->>>>>>> webkit.org at 49305:WebCore/WebCore.xcodeproj/project.pbxproj
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

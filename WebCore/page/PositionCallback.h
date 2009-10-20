@@ -36,11 +36,7 @@ namespace WebCore {
     class PositionCallback : public RefCounted<PositionCallback> {
     public:
         virtual ~PositionCallback() { }
-<<<<<<< HEAD:WebCore/page/PositionCallback.h
-        virtual void handleEvent(Geoposition* position) = 0;
-=======
         virtual void handleEvent(Geoposition*) = 0;
->>>>>>> webkit.org at 49305:WebCore/page/PositionCallback.h
     };
     
 } // namespace WebCore

@@ -248,110 +248,7 @@ namespace WebCore {
         using EventTarget::dispatchEvent;
         bool dispatchEvent(PassRefPtr<Event> prpEvent, PassRefPtr<EventTarget> prpTarget);
         void dispatchLoadEvent();
-<<<<<<< HEAD:WebCore/page/DOMWindow.h
-        void dispatchUnloadEvent(RegisteredEventListenerVector* = 0);
-        PassRefPtr<BeforeUnloadEvent> dispatchBeforeUnloadEvent(RegisteredEventListenerVector* = 0);
-=======
->>>>>>> webkit.org at 49305:WebCore/page/DOMWindow.h
 
-<<<<<<< HEAD:WebCore/page/DOMWindow.h
-        // Used for legacy "onEvent" property APIs.
-        void setAttributeEventListener(const AtomicString& eventType, PassRefPtr<EventListener>);
-        void clearAttributeEventListener(const AtomicString& eventType);
-        EventListener* getAttributeEventListener(const AtomicString& eventType) const;
-
-        const RegisteredEventListenerVector& eventListeners() const { return m_eventListeners; }
-        bool hasEventListener(const AtomicString& eventType);
-        void removeAllEventListeners();
-
-        EventListener* onabort() const;
-        void setOnabort(PassRefPtr<EventListener>);
-        EventListener* onblur() const;
-        void setOnblur(PassRefPtr<EventListener>);
-        EventListener* onchange() const;
-        void setOnchange(PassRefPtr<EventListener>);
-        EventListener* onclick() const;
-        void setOnclick(PassRefPtr<EventListener>);
-        EventListener* ondblclick() const;
-        void setOndblclick(PassRefPtr<EventListener>);
-        EventListener* ondrag() const;
-        void setOndrag(PassRefPtr<EventListener>);
-        EventListener* ondragend() const;
-        void setOndragend(PassRefPtr<EventListener>);
-        EventListener* ondragenter() const;
-        void setOndragenter(PassRefPtr<EventListener>);
-        EventListener* ondragleave() const;
-        void setOndragleave(PassRefPtr<EventListener>);
-        EventListener* ondragover() const;
-        void setOndragover(PassRefPtr<EventListener>);
-        EventListener* ondragstart() const;
-        void setOndragstart(PassRefPtr<EventListener>);
-        EventListener* ondrop() const;
-        void setOndrop(PassRefPtr<EventListener>);
-        EventListener* onerror() const;
-        void setOnerror(PassRefPtr<EventListener>);
-        EventListener* onfocus() const;
-        void setOnfocus(PassRefPtr<EventListener>);
-        EventListener* onkeydown() const;
-        void setOnkeydown(PassRefPtr<EventListener>);
-        EventListener* onkeypress() const;
-        void setOnkeypress(PassRefPtr<EventListener>);
-        EventListener* onkeyup() const;
-        void setOnkeyup(PassRefPtr<EventListener>);
-        EventListener* onload() const;
-        void setOnload(PassRefPtr<EventListener>);
-        EventListener* onmousedown() const;
-        void setOnmousedown(PassRefPtr<EventListener>);
-        EventListener* onmousemove() const;
-        void setOnmousemove(PassRefPtr<EventListener>);
-        EventListener* onmouseout() const;
-        void setOnmouseout(PassRefPtr<EventListener>);
-        EventListener* onmouseover() const;
-        void setOnmouseover(PassRefPtr<EventListener>);
-        EventListener* onmouseup() const;
-        void setOnmouseup(PassRefPtr<EventListener>);
-        EventListener* onmousewheel() const;
-        void setOnmousewheel(PassRefPtr<EventListener>);
-        EventListener* onoffline() const;
-        void setOnoffline(PassRefPtr<EventListener>);
-        EventListener* ononline() const;
-        void setOnonline(PassRefPtr<EventListener>);
-        EventListener* onreset() const;
-        void setOnreset(PassRefPtr<EventListener>);
-        EventListener* onresize() const;
-        void setOnresize(PassRefPtr<EventListener>);
-        EventListener* onscroll() const;
-        void setOnscroll(PassRefPtr<EventListener>);
-        EventListener* onsearch() const;
-        void setOnsearch(PassRefPtr<EventListener>);
-        EventListener* onselect() const;
-        void setOnselect(PassRefPtr<EventListener>);
-        EventListener* onstorage() const;
-        void setOnstorage(PassRefPtr<EventListener>);
-        EventListener* onsubmit() const;
-        void setOnsubmit(PassRefPtr<EventListener>);
-        EventListener* onunload() const;
-        void setOnunload(PassRefPtr<EventListener>);
-        EventListener* onbeforeunload() const;
-        void setOnbeforeunload(PassRefPtr<EventListener>);
-        EventListener* onwebkitanimationstart() const;
-        void setOnwebkitanimationstart(PassRefPtr<EventListener>);
-        EventListener* onwebkitanimationiteration() const;
-        void setOnwebkitanimationiteration(PassRefPtr<EventListener>);
-        EventListener* onwebkitanimationend() const;
-        void setOnwebkitanimationend(PassRefPtr<EventListener>);
-        EventListener* onwebkittransitionend() const;
-        void setOnwebkittransitionend(PassRefPtr<EventListener>);
-#if ENABLE(TOUCH_EVENTS) // Android
-        EventListener* ontouchstart() const;
-        void setOntouchstart(PassRefPtr<EventListener>);
-        EventListener* ontouchend() const;
-        void setOntouchend(PassRefPtr<EventListener>);
-        EventListener* ontouchmove() const;
-        void setOntouchmove(PassRefPtr<EventListener>);
-        EventListener* ontouchcancel() const;
-        void setOntouchcancel(PassRefPtr<EventListener>);
-=======
         DEFINE_ATTRIBUTE_EVENT_LISTENER(abort);
         DEFINE_ATTRIBUTE_EVENT_LISTENER(blur);
         DEFINE_ATTRIBUTE_EVENT_LISTENER(change);
@@ -416,63 +313,23 @@ namespace WebCore {
         DEFINE_ATTRIBUTE_EVENT_LISTENER(invalid);
 #if ENABLE(ORIENTATION_EVENTS)
         DEFINE_ATTRIBUTE_EVENT_LISTENER(orientationchange);
->>>>>>> webkit.org at 49305:WebCore/page/DOMWindow.h
 #endif
-<<<<<<< HEAD:WebCore/page/DOMWindow.h
-        
-        EventListener* oncanplay() const;
-        void setOncanplay(PassRefPtr<EventListener>);
-        EventListener* oncanplaythrough() const;
-        void setOncanplaythrough(PassRefPtr<EventListener>);
-        EventListener* ondurationchange() const;
-        void setOndurationchange(PassRefPtr<EventListener>);
-        EventListener* onemptied() const;
-        void setOnemptied(PassRefPtr<EventListener>);
-        EventListener* onended() const;
-        void setOnended(PassRefPtr<EventListener>);
-        EventListener* onloadeddata() const;
-        void setOnloadeddata(PassRefPtr<EventListener>);
-        EventListener* onloadedmetadata() const;
-        void setOnloadedmetadata(PassRefPtr<EventListener>);
-        EventListener* onpause() const;
-        void setOnpause(PassRefPtr<EventListener>);
-        EventListener* onplay() const;
-        void setOnplay(PassRefPtr<EventListener>);
-        EventListener* onplaying() const;
-        void setOnplaying(PassRefPtr<EventListener>);
-        EventListener* onratechange() const;
-        void setOnratechange(PassRefPtr<EventListener>);
-        EventListener* onseeked() const;
-        void setOnseeked(PassRefPtr<EventListener>);
-        EventListener* onseeking() const;
-        void setOnseeking(PassRefPtr<EventListener>);
-        EventListener* ontimeupdate() const;
-        void setOntimeupdate(PassRefPtr<EventListener>);
-        EventListener* onvolumechange() const;
-        void setOnvolumechange(PassRefPtr<EventListener>);
-        EventListener* onwaiting() const;
-        void setOnwaiting(PassRefPtr<EventListener>);
-        EventListener* onloadstart() const;
-        void setOnloadstart(PassRefPtr<EventListener>);
-        EventListener* onprogress() const;
-        void setOnprogress(PassRefPtr<EventListener>);
-        EventListener* onstalled() const;
-        void setOnstalled(PassRefPtr<EventListener>);
-        EventListener* onsuspend() const;
-        void setOnsuspend(PassRefPtr<EventListener>);
-        EventListener* oninput() const;
-        void setOninput(PassRefPtr<EventListener>);
-        EventListener* onmessage() const;
-        void setOnmessage(PassRefPtr<EventListener>);
-        EventListener* oncontextmenu() const;
-        void setOncontextmenu(PassRefPtr<EventListener>);
-=======
 
         DEFINE_MAPPED_ATTRIBUTE_EVENT_LISTENER(webkitanimationstart, webkitAnimationStart);
         DEFINE_MAPPED_ATTRIBUTE_EVENT_LISTENER(webkitanimationiteration, webkitAnimationIteration);
         DEFINE_MAPPED_ATTRIBUTE_EVENT_LISTENER(webkitanimationend, webkitAnimationEnd);
         DEFINE_MAPPED_ATTRIBUTE_EVENT_LISTENER(webkittransitionend, webkitTransitionEnd);
->>>>>>> webkit.org at 49305:WebCore/page/DOMWindow.h
+
+#if ENABLE(TOUCH_EVENTS) // Android
+        EventListener* ontouchstart() const;
+        void setOntouchstart(PassRefPtr<EventListener>);
+        EventListener* ontouchend() const;
+        void setOntouchend(PassRefPtr<EventListener>);
+        EventListener* ontouchmove() const;
+        void setOntouchmove(PassRefPtr<EventListener>);
+        EventListener* ontouchcancel() const;
+        void setOntouchcancel(PassRefPtr<EventListener>);
+#endif
 
         void captureEvents();
         void releaseEvents();

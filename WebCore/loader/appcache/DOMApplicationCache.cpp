@@ -120,14 +120,11 @@ EventTargetData* DOMApplicationCache::eventTargetData()
     return &m_eventTargetData;
 }
 
-<<<<<<< HEAD:WebCore/loader/appcache/DOMApplicationCache.cpp
-=======
 EventTargetData* DOMApplicationCache::ensureEventTargetData()
 {
     return &m_eventTargetData;
 }
 
->>>>>>> webkit.org at 49305:WebCore/loader/appcache/DOMApplicationCache.cpp
 } // namespace WebCore
 
 #endif // ENABLE(OFFLINE_WEB_APPLICATIONS)

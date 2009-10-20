@@ -114,7 +114,6 @@
 #include "SVGViewSpec.h"
 #endif
 
-<<<<<<< HEAD:WebCore/loader/FrameLoader.cpp
 #ifdef ANDROID_INSTRUMENT
 #include "TimeCounter.h"
 #include "RenderArena.h"
@@ -122,10 +121,10 @@
 
 #if PLATFORM(ANDROID)
 #include "WebCoreFrameBridge.h"
-=======
+#endif
+
 #if PLATFORM(MAC) || PLATFORM(WIN)
 #define PAGE_CACHE_ACCEPTS_UNLOAD_HANDLERS
->>>>>>> webkit.org at 49305:WebCore/loader/FrameLoader.cpp
 #endif
 
 namespace WebCore {
