@@ -192,8 +192,13 @@
 #include "bindings/V8NodeIterator.cpp"
 #include "bindings/V8NodeList.cpp"
 #include "bindings/V8Notation.cpp"
+#if PLATFORM(ANDROID)
+// TODO: Upstream NOTIFICATIONS guard.
+#if ENABLE(NOTIFICATIONS)
 #include "bindings/V8Notification.cpp"
 #include "bindings/V8NotificationCenter.cpp"
+#endif
+#endif
 #include "bindings/V8OverflowEvent.cpp"
 #include "bindings/V8PageTransitionEvent.cpp"
 #include "bindings/V8Plugin.cpp"

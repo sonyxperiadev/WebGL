@@ -39,7 +39,12 @@
 #include "DocumentLoader.h"
 #include "FrameLoaderClient.h"
 #include "Notification.h"
+#if PLATFORM(ANDROID)
+// TODO: Upstream SVG guard.
+#if ENABLE(SVG)
 #include "SVGElementInstance.h"
+#endif
+#endif
 #include "ScriptController.h"
 #include "V8AbstractEventListener.h"
 #include "V8Binding.h"
@@ -1423,10 +1428,14 @@ PassRefPtr<EventListener> V8DOMWrapper::getEventListener(Node* node, v8::Local<v
     return 0;
 }
 
+#if PLATFORM(ANDROID)
+#if ENABLE(SVG)
 PassRefPtr<EventListener> V8DOMWrapper::getEventListener(SVGElementInstance* element, v8::Local<v8::Value> value, bool isAttribute, ListenerLookupType lookup)
 {
     return getEventListener(element->correspondingElement(), value, isAttribute, lookup);
 }
+#endif
+#endif
 
 PassRefPtr<EventListener> V8DOMWrapper::getEventListener(AbstractWorker* worker, v8::Local<v8::Value> value, bool isAttribute, ListenerLookupType lookup)
 {
