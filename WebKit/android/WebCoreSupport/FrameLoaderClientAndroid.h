@@ -126,6 +126,10 @@ namespace android {
         virtual void updateGlobalHistoryRedirectLinks();
 
         virtual bool shouldGoToHistoryItem(HistoryItem*) const;
+
+        virtual void didDisplayInsecureContent();
+        virtual void didRunInsecureContent(SecurityOrigin*);
+
 #ifdef ANDROID_HISTORY_CLIENT
         virtual void dispatchDidAddHistoryItem(HistoryItem*) const;
         virtual void dispatchDidRemoveHistoryItem(HistoryItem*, int) const;
