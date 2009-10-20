@@ -286,6 +286,11 @@ void ChromeClientAndroid::formStateDidChange(const Node*)
     notImplemented();
 }
 
+void ChromeClientAndroid::scrollbarsModeDidChange() const
+{
+    notImplemented();
+}
+
 void ChromeClientAndroid::mouseDidMoveOverElement(const HitTestResult&, unsigned int) {}
 void ChromeClientAndroid::setToolTip(const String&, TextDirection) {}
 void ChromeClientAndroid::print(Frame*) {}
