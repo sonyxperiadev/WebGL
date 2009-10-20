@@ -4147,8 +4147,8 @@ void Document::finishedParsing()
 
         if (InspectorController* controller = page()->inspectorController())
             controller->mainResourceFiredDOMContentEvent(f->loader()->documentLoader(), url());
-    }
 #endif
+    }
 }
 
 Vector<String> Document::formElementsState() const
