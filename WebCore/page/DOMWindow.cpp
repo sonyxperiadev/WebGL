@@ -1351,46 +1351,4 @@ EventTargetData* DOMWindow::ensureEventTargetData()
     return &m_eventTargetData;
 }
 
-#if ENABLE(TOUCH_EVENTS) // Android
-EventListener* DOMWindow::ontouchstart() const
-{
-    return getAttributeEventListener(eventNames().touchstartEvent);
-}
-
-void DOMWindow::setOntouchstart(PassRefPtr<EventListener> eventListener)
-{
-    setAttributeEventListener(eventNames().touchstartEvent, eventListener);
-}
-
-EventListener* DOMWindow::ontouchend() const
-{
-    return getAttributeEventListener(eventNames().touchendEvent);
-}
-
-void DOMWindow::setOntouchend(PassRefPtr<EventListener> eventListener)
-{
-    setAttributeEventListener(eventNames().touchendEvent, eventListener);
-}
-
-EventListener* DOMWindow::ontouchmove() const
-{
-    return getAttributeEventListener(eventNames().touchmoveEvent);
-}
-
-void DOMWindow::setOntouchmove(PassRefPtr<EventListener> eventListener)
-{
-    setAttributeEventListener(eventNames().touchmoveEvent, eventListener);
-}
-
-EventListener* DOMWindow::ontouchcancel() const
-{
-    return getAttributeEventListener(eventNames().touchcancelEvent);
-}
-
-void DOMWindow::setOntouchcancel(PassRefPtr<EventListener> eventListener)
-{
-    setAttributeEventListener(eventNames().touchcancelEvent, eventListener);
-}
-#endif
-
 } // namespace WebCore

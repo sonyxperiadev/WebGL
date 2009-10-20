@@ -2894,48 +2894,6 @@ void Node::defaultEventHandler(Event* event)
     }
 }
 
-#if ENABLE(TOUCH_EVENTS) // Android
-EventListener* Node::ontouchstart() const
-{
-    return getAttributeEventListener(eventNames().touchstartEvent);
-}
-
-void Node::setOntouchstart(PassRefPtr<EventListener> eventListener)
-{
-    setAttributeEventListener(eventNames().touchstartEvent, eventListener);
-}
-
-EventListener* Node::ontouchend() const
-{
-    return getAttributeEventListener(eventNames().touchendEvent);
-}
-
-void Node::setOntouchend(PassRefPtr<EventListener> eventListener)
-{
-    setAttributeEventListener(eventNames().touchendEvent, eventListener);
-}
-
-EventListener* Node::ontouchmove() const
-{
-    return getAttributeEventListener(eventNames().touchmoveEvent);
-}
-
-void Node::setOntouchmove(PassRefPtr<EventListener> eventListener)
-{
-    setAttributeEventListener(eventNames().touchmoveEvent, eventListener);
-}
-
-EventListener* Node::ontouchcancel() const
-{
-    return getAttributeEventListener(eventNames().touchcancelEvent);
-}
-
-void Node::setOntouchcancel(PassRefPtr<EventListener> eventListener)
-{
-    setAttributeEventListener(eventNames().touchcancelEvent, eventListener);
-}
-#endif // ENABLE(TOUCH_EVENT)
-
 } // namespace WebCore
 
 #ifndef NDEBUG
