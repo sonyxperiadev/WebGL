@@ -46,6 +46,9 @@
 
 #include "ScriptCallStack.h"
 #include <stdio.h>
+#if PLATFORM(ANDROID)
+#include <wtf/UnusedParam.h>
+#endif
 
 namespace WebCore {
 

@@ -49,6 +49,9 @@
 #include "WorkerThreadableLoader.h"
 #include "XMLHttpRequestException.h"
 #include <wtf/RefPtr.h>
+#if PLATFORM(ANDROID)
+#include <wtf/UnusedParam.h>
+#endif
 
 #if ENABLE(NOTIFICATIONS)
 #include "NotificationCenter.h"
