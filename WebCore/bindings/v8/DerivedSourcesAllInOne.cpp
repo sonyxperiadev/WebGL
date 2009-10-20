@@ -28,7 +28,11 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#if PLATFORM(ANDROID)
 // This source file coalesces the V8 derived sources into a single object file to
+#else
+// This source file coalesces the HTML elements into a single object file to
+#endif
 // reduce bloat and allow us to link release builds on 32-bit Windows.
 
 #include "bindings/V8Attr.cpp"
@@ -83,6 +87,9 @@
 #include "bindings/V8Document.cpp"
 #include "bindings/V8DocumentFragment.cpp"
 #include "bindings/V8DocumentType.cpp"
+#if ENABLE(OFFLINE_WEB_APPLICATIONS)
+#include "bindings/V8DOMApplicationCache.cpp"
+#endif
 #include "bindings/V8DOMCoreException.cpp"
 #include "bindings/V8DOMImplementation.cpp"
 #include "bindings/V8DOMParser.cpp"
@@ -210,16 +217,9 @@
 #include "bindings/V8Rect.cpp"
 #include "bindings/V8RGBColor.cpp"
 #include "bindings/V8Screen.cpp"
-#include "bindings/V8StyleSheet.cpp"
-#include "bindings/V8StyleSheetList.cpp"
-#include "bindings/V8WheelEvent.cpp"
-#include "bindings/V8XMLHttpRequest.cpp"
-#include "bindings/V8XMLHttpRequestException.cpp"
-#include "bindings/V8XMLHttpRequestProgressEvent.cpp"
-#include "bindings/V8XMLHttpRequestUpload.cpp"
-#include "bindings/V8XMLSerializer.cpp"
 
-
+#if PLATFORM(ANDROID)
+// TODO: Upstream DATABASE guard.
 #if ENABLE(DATABASE)
 #include "bindings/V8Database.cpp"
 #include "bindings/V8SQLError.cpp"
@@ -227,17 +227,17 @@
 #include "bindings/V8SQLResultSetRowList.cpp"
 #include "bindings/V8SQLTransaction.cpp"
 #endif
-
-
-#if ENABLE(OFFLINE_WEB_APPLICATIONS)
-#include "bindings/V8DOMApplicationCache.cpp"
 #endif
 
 #if ENABLE(DOM_STORAGE)
 #include "bindings/V8Storage.cpp"
 #include "bindings/V8StorageEvent.cpp"
 #endif
+#include "bindings/V8StyleSheet.cpp"
+#include "bindings/V8StyleSheetList.cpp"
 
+#if PLATFORM(ANDROID)
+// TODO: Upstream SVG guard.
 #if ENABLE(SVG)
 #include "bindings/V8SVGAElement.cpp"
 #include "bindings/V8SVGAltGlyphElement.cpp"
@@ -349,6 +349,7 @@
 #include "bindings/V8SVGViewElement.cpp"
 #include "bindings/V8SVGZoomEvent.cpp"
 #endif
+#endif
 
 #include "bindings/V8Text.cpp"
 #include "bindings/V8TextEvent.cpp"
@@ -364,11 +365,13 @@
 #include "bindings/V8WebKitCSSTransformValue.cpp"
 #include "bindings/V8WebKitPoint.cpp"
 #include "bindings/V8WebKitTransitionEvent.cpp"
-
 #if ENABLE(WEB_SOCKETS)
 #include "bindings/V8WebSocket.cpp"
 #endif
+#include "bindings/V8WheelEvent.cpp"
 
+#if PLATFORM(ANDROID)
+// TODO: Upstream WORKERS guard.
 #if ENABLE(WORKERS)
 #include "bindings/V8AbstractWorker.cpp"
 #include "bindings/V8DedicatedWorkerContext.cpp"
@@ -378,7 +381,16 @@
 #include "bindings/V8WorkerLocation.cpp"
 #include "bindings/V8WorkerNavigator.cpp"
 #endif
+#endif
 
+#include "bindings/V8XMLHttpRequest.cpp"
+#include "bindings/V8XMLHttpRequestException.cpp"
+#include "bindings/V8XMLHttpRequestProgressEvent.cpp"
+#include "bindings/V8XMLHttpRequestUpload.cpp"
+#include "bindings/V8XMLSerializer.cpp"
+
+#if PLATFORM(ANDROID)
+// TODO: Upstream XPATH guard.
 #if ENABLE(XPATH)
 #include "bindings/V8XPathEvaluator.cpp"
 #include "bindings/V8XPathException.cpp"
@@ -386,7 +398,11 @@
 #include "bindings/V8XPathNSResolver.cpp"
 #include "bindings/V8XPathResult.cpp"
 #endif
+#endif
 
+#if PLATFORM(ANDROID)
+// TODO: Upstream XSLT guard.
 #if ENABLE(XSLT)
 #include "bindings/V8XSLTProcessor.cpp"
+#endif
 #endif
