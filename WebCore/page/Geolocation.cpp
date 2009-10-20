@@ -241,7 +241,8 @@ String CachedPositionManager::s_databaseFile;
 
 
 Geolocation::Geolocation(Frame* frame)
-    : m_frame(frame)
+    : EventListener(GeolocationEventListenerType)
+    , m_frame(frame)
     , m_service(GeolocationService::create(this))
     , m_allowGeolocation(Unknown)
     , m_shouldClearCache(false)
@@ -563,14 +564,22 @@ void Geolocation::geolocationServiceErrorOccurred(GeolocationService* service)
     handleError(service->lastError());
 }
 
-void Geolocation::handleEvent(Event* event, bool)
+bool Geolocation::operator==(const EventListener& listener)
 {
-  ASSERT_UNUSED(event, event->type() == eventTypes().unloadEvent);
-  // Cancel any ongoing requests on page unload. This is required to release
-  // references to JS callbacks in the page, to allow the frame to be cleaned up
-  // by WebKit.
-  m_oneShots.clear();
-  m_watchers.clear();
+    if (listener.type() != GeolocationEventListenerType)
+        return false;
+    const Geolocation* geolocation = static_cast<const Geolocation*>(&listener);
+    return m_frame == geolocation->m_frame;
+}
+
+void Geolocation::handleEvent(ScriptExecutionContext*, Event* event)
+{
+    ASSERT_UNUSED(event, event->type() == eventTypes().unloadEvent);
+    // Cancel any ongoing requests on page unload. This is required to release
+    // references to JS callbacks in the page, to allow the frame to be cleaned up
+    // by WebKit.
+    m_oneShots.clear();
+    m_watchers.clear();
 }
 
 void Geolocation::setDatabasePath(String databasePath)

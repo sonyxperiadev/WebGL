@@ -120,7 +120,8 @@ private:
     virtual void geolocationServiceErrorOccurred(GeolocationService*);
 
     // EventListener
-    virtual void handleEvent(Event*, bool isWindowEvent);
+    virtual bool operator==(const EventListener&);
+    virtual void handleEvent(ScriptExecutionContext*, Event*);
 
     void fatalErrorOccurred(GeoNotifier* notifier);
     void requestTimedOut(GeoNotifier* notifier);
