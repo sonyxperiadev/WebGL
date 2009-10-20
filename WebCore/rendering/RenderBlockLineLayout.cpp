@@ -970,7 +970,13 @@ void RenderBlock::layoutInlineChildren(bool relayoutChildren, int& repaintTop, i
                     setWidth(min(width(), maxWidth));
                     m_minPrefWidth = min(m_minPrefWidth, maxWidth);
                     m_maxPrefWidth = min(m_maxPrefWidth, maxWidth);
-                    m_overflowWidth = min(m_overflowWidth, maxWidth);
+
+                    IntRect overflow = layoutOverflowRect();
+                    if (overflow.width() > maxWidth) {
+                        overflow.setWidth(maxWidth);
+                        clearLayoutOverflow();
+                        addLayoutOverflow(overflow);
+                    }
                 }
             }
         }
