@@ -236,6 +236,4 @@ $(CHARTABLES): $(LOCAL_PATH)/pcre/dftables
 $(CHARTABLES): $(LOCAL_PATH)/pcre/pcre_internal.h
 	$(transform-generated-source)
 
-$(intermediates)/pcre/pcre_tables.o : $(CHARTABLES)
-
-LOCAL_GENERATED_SOURCES += $(JSC_OBJECTS) $(LEXER_HEADER)
+LOCAL_GENERATED_SOURCES += $(JSC_OBJECTS) $(LEXER_HEADER) $(CHARTABLES)
