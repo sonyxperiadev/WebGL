@@ -757,14 +757,9 @@ void CacheBuilder::adjustForColumns(const ClipColumnTracker& track,
 
 // Checks if a node has one of event listener types.
 bool CacheBuilder::NodeHasEventListeners(Node* node, AtomicString* eventTypes, int length) {
-    const RegisteredEventListenerVector& listeners = node->eventListeners();
-    size_t size = listeners.size();
-    for (size_t i = 0; i < size; ++i) {
-        const RegisteredEventListener& r = *listeners[i];
-        for (int j = 0; j < length; ++j) {
-            if (r.eventType() == eventTypes[j])
-                return true;
-        }
+    for (int i = 0; i < length; ++i) {
+        if (!node->getEventListeners(eventTypes[i]).isEmpty())
+            return true;
     }
     return false;
 }
