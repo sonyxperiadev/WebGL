@@ -861,7 +861,7 @@ static void CallPolicyFunction(JNIEnv* env, jobject obj, jint func, jint decisio
     if (decision == WebCore::PolicyUse)
         pFrame->loader()->resetMultipleFormSubmissionProtection();
 
-    (pFrame->loader()->*(pFunc->func))((WebCore::PolicyAction)decision);
+    (pFrame->loader()->policyChecker()->*(pFunc->func))((WebCore::PolicyAction)decision);
 }
 
 static void CreateFrame(JNIEnv* env, jobject obj, jobject javaview, jobject jAssetManager, jobject historyList)

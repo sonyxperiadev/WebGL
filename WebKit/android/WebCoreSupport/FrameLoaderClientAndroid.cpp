@@ -432,7 +432,7 @@ void FrameLoaderClientAndroid::dispatchDecidePolicyForMIMEType(FramePolicyFuncti
     if (!func)
         return;
     if (request.isNull()) {
-        (m_frame->loader()->*func)(PolicyIgnore);
+        (m_frame->loader()->policyChecker()->*func)(PolicyIgnore);
         return;
     }
     // Default to Use (display internally).
@@ -463,7 +463,7 @@ void FrameLoaderClientAndroid::dispatchDecidePolicyForMIMEType(FramePolicyFuncti
     WebCore::DocumentLoader* docLoader = m_frame->loader()->activeDocumentLoader();
     if (docLoader->response().httpStatusCode() == 204)
         action = PolicyIgnore;
-    (m_frame->loader()->*func)(action);
+    (m_frame->loader()->policyChecker()->*func)(action);
 }
 
 void FrameLoaderClientAndroid::dispatchDecidePolicyForNewWindowAction(FramePolicyFunction func,
@@ -475,7 +475,7 @@ void FrameLoaderClientAndroid::dispatchDecidePolicyForNewWindowAction(FramePolic
         return;
 
     if (request.isNull()) {
-        (m_frame->loader()->*func)(PolicyIgnore);
+        (m_frame->loader()->policyChecker()->*func)(PolicyIgnore);
         return;
     }
 
@@ -486,9 +486,9 @@ void FrameLoaderClientAndroid::dispatchDecidePolicyForNewWindowAction(FramePolic
     // found by the frame tree. Instead of creating a new frame, return the
     // current frame in dispatchCreatePage.
     if (canHandleRequest(request))
-        (m_frame->loader()->*func)(PolicyUse);
+        (m_frame->loader()->policyChecker()->*func)(PolicyUse);
     else
-        (m_frame->loader()->*func)(PolicyIgnore);
+        (m_frame->loader()->policyChecker()->*func)(PolicyIgnore);
 }
 
 void FrameLoaderClientAndroid::cancelPolicyCheck() {
@@ -507,7 +507,7 @@ void FrameLoaderClientAndroid::dispatchDecidePolicyForNavigationAction(FramePoli
     if (!func)
         return;
     if (request.isNull()) {
-        (m_frame->loader()->*func)(PolicyIgnore);
+        (m_frame->loader()->policyChecker()->*func)(PolicyIgnore);
         return;
     }
 
@@ -520,14 +520,14 @@ void FrameLoaderClientAndroid::dispatchDecidePolicyForNavigationAction(FramePoli
         m_webFrame->decidePolicyForFormResubmission(func);
         return;
     } else {
-        (m_frame->loader()->*func)(PolicyUse);
+        (m_frame->loader()->policyChecker()->*func)(PolicyUse);
     }
 }
 
 void FrameLoaderClientAndroid::dispatchWillSubmitForm(FramePolicyFunction func, PassRefPtr<FormState>) {
     ASSERT(m_frame);
     ASSERT(func);
-    (m_frame->loader()->*func)(PolicyUse);
+    (m_frame->loader()->policyChecker()->*func)(PolicyUse);
 }
 
 void FrameLoaderClientAndroid::dispatchDidLoadMainResource(DocumentLoader*) {
