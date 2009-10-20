@@ -343,7 +343,7 @@ void FrameLoaderClientAndroid::dispatchDidFailProvisionalLoad(const ResourceErro
     // load with the replacement data.
     // use KURL(const char*) as KURL(const String& url) can trigger ASSERT for
     // invalidate URL string.
-    loadDataIntoFrame(m_frame, KURL(data), error.failingURL(), s);
+    loadDataIntoFrame(m_frame, KURL(ParsedURLString, data), error.failingURL(), s);
 
     // Delete the asset.
     delete a;
@@ -619,7 +619,7 @@ void FrameLoaderClientAndroid::updateGlobalHistory() {
             && docLoader->response().httpStatusCode() < 400) {
         m_webFrame->updateVisitedHistory(docLoader->urlForHistory(), false);
         if (!docLoader->serverRedirectSourceForHistory().isNull())
-            m_webFrame->updateVisitedHistory(KURL(docLoader->serverRedirectDestinationForHistory()), false);
+            m_webFrame->updateVisitedHistory(KURL(ParsedURLString, docLoader->serverRedirectDestinationForHistory()), false);
     }
 }
 
@@ -970,7 +970,7 @@ WTF::PassRefPtr<Widget> FrameLoaderClientAndroid::createPlugin(
             s = s.replace("VIDEO_ID", videoId);
             delete a;
             loadDataIntoFrame(frame.get(),
-                    KURL("file:///android_asset/webkit/"), String(), s);
+                    KURL(ParsedURLString, "file:///android_asset/webkit/"), String(), s);
             // Transfer ownership to a local refptr.
             WTF::RefPtr<Widget> widget(frame->view());
             return widget.release();
@@ -1088,7 +1088,7 @@ void FrameLoaderClientAndroid::didAddIconForPageUrl(const String& pageUrl) {
     // may register for icon notifications again since the icon data may have
     // to be read from disk.
     registerForIconNotification(false);
-    KURL u(pageUrl);
+    KURL u(ParsedURLString, pageUrl);
     if (equalIgnoringFragmentIdentifier(u, m_frame->loader()->url())) {
         dispatchDidReceiveIcon();
     }

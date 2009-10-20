@@ -140,7 +140,7 @@ jint WebCoreResourceLoader::CreateResponse(JNIEnv* env, jobject obj, jstring url
     TimeCounterAuto counter(TimeCounter::ResourceTimeCounter);
 #endif
     LOG_ASSERT(url, "Must have a url in the response!");
-    WebCore::KURL kurl(to_string(env, url));
+    WebCore::KURL kurl(WebCore::ParsedURLString, to_string(env, url));
     WebCore::String encodingStr;
     WebCore::String mimeTypeStr;
     if (mimeType) {
@@ -235,7 +235,7 @@ jstring WebCoreResourceLoader::RedirectedToUrl(JNIEnv* env, jobject obj,
 
     LOG_ASSERT(handle->client(), "Why do we not have a client?");
     WebCore::ResourceRequest r = handle->request();
-    WebCore::KURL url(WebCore::KURL(to_string(env, baseUrl)),
+    WebCore::KURL url(WebCore::KURL(WebCore::ParsedURLString, to_string(env, baseUrl)),
             to_string(env, redirectTo));
     r.setURL(url);
     if (r.httpMethod() == "POST") {
