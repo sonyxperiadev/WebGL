@@ -82,6 +82,7 @@
 #include "ResourceHandle.h"
 #include "ScriptController.h"
 #include "ScriptValue.h"
+#include "SecurityOrigin.h"
 #include "SelectionController.h"
 #include "Settings.h"
 #include "SubstituteData.h"
@@ -928,8 +929,8 @@ static void CreateFrame(JNIEnv* env, jobject obj, jobject javaview, jobject jAss
     frame->selection()->setFocused(true);
 
     // Allow local access to file:/// and substitute data
-    WebCore::FrameLoader::setLocalLoadPolicy(
-            WebCore::FrameLoader::AllowLocalLoadsForLocalAndSubstituteData);
+    WebCore::SecurityOrigin::setLocalLoadPolicy(
+            WebCore::SecurityOrigin::AllowLocalLoadsForLocalAndSubstituteData);
 
     LOGV("::WebCore:: createFrame %p", frame);
 
