@@ -113,6 +113,12 @@ IntSize MediaPlayerPrivate::naturalSize() const
     return m_naturalSize;
 }
 
+bool MediaPlayerPrivate::hasAudio() const
+{
+    // TODO
+    return false;
+}
+
 bool MediaPlayerPrivate::hasVideo() const
 {
     return false;
