@@ -42,6 +42,7 @@ namespace JSC {
 
     class CodeBlock;
     class ExecutablePool;
+    class FunctionExecutable;
     class Identifier;
     class JSGlobalData;
     class JSGlobalData;
@@ -53,8 +54,6 @@ namespace JSC {
     class PropertySlot;
     class PutPropertySlot;
     class RegisterFile;
-    class FuncDeclNode;
-    class FuncExprNode;
     class JSGlobalObject;
     class RegExp;
 
@@ -67,8 +66,7 @@ namespace JSC {
         Identifier& identifier() { return *static_cast<Identifier*>(asPointer); }
         int32_t int32() { return asInt32; }
         CodeBlock* codeBlock() { return static_cast<CodeBlock*>(asPointer); }
-        FuncDeclNode* funcDeclNode() { return static_cast<FuncDeclNode*>(asPointer); }
-        FuncExprNode* funcExprNode() { return static_cast<FuncExprNode*>(asPointer); }
+        FunctionExecutable* function() { return static_cast<FunctionExecutable*>(asPointer); }
         RegExp* regExp() { return static_cast<RegExp*>(asPointer); }
         JSPropertyNameIterator* propertyNameIterator() { return static_cast<JSPropertyNameIterator*>(asPointer); }
         JSGlobalObject* globalObject() { return static_cast<JSGlobalObject*>(asPointer); }
@@ -131,7 +129,7 @@ namespace JSC {
 #if COMPILER(MSVC)
 #pragma pack(pop)
 #endif // COMPILER(MSVC)
-#elif PLATFORM_ARM_ARCH(7)
+#elif PLATFORM(ARM_THUMB2)
     struct JITStackFrame {
         void* reserved; // Unused
         JITStubArg args[6];
@@ -151,13 +149,15 @@ namespace JSC {
         CallFrame* callFrame;
         JSValue* exception;
 
+        void* padding2;
+
         // These arguments passed on the stack.
         Profiler** enabledProfilerReference;
         JSGlobalData* globalData;
         
         ReturnAddressPtr* returnAddressSlot() { return &thunkReturnAddress; }
     };
-#elif PLATFORM(ARM)
+#elif PLATFORM(ARM_TRADITIONAL)
     struct JITStackFrame {
         JITStubArg padding; // Unused
         JITStubArg args[7];
@@ -345,7 +345,6 @@ extern "C" {
     void JIT_STUB cti_op_put_by_id_generic(STUB_ARGS_DECLARATION);
     void JIT_STUB cti_op_put_by_index(STUB_ARGS_DECLARATION);
     void JIT_STUB cti_op_put_by_val(STUB_ARGS_DECLARATION);
-    void JIT_STUB cti_op_put_by_val_array(STUB_ARGS_DECLARATION);
     void JIT_STUB cti_op_put_by_val_byte_array(STUB_ARGS_DECLARATION);
     void JIT_STUB cti_op_put_getter(STUB_ARGS_DECLARATION);
     void JIT_STUB cti_op_put_setter(STUB_ARGS_DECLARATION);

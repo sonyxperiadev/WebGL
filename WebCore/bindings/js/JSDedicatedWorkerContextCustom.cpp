@@ -35,15 +35,16 @@
 
 #include "JSDedicatedWorkerContext.h"
 
+#include "JSDOMBinding.h"
+#include "JSMessagePortCustom.h"
+
 using namespace JSC;
 
 namespace WebCore {
 
-void JSDedicatedWorkerContext::markChildren(MarkStack& markStack)
+JSC::JSValue JSDedicatedWorkerContext::postMessage(JSC::ExecState* exec, const JSC::ArgList& args)
 {
-    Base::markChildren(markStack);
-
-    markIfNotNull(markStack, impl()->onmessage());
+    return handlePostMessage(exec, args, impl());
 }
 
 } // namespace WebCore

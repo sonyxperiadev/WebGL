@@ -31,7 +31,6 @@
 WebInspector.ElementsTreeOutline = function() {
     this.element = document.createElement("ol");
     this.element.addEventListener("mousedown", this._onmousedown.bind(this), false);
-    this.element.addEventListener("dblclick", this._ondblclick.bind(this), false);
     this.element.addEventListener("mousemove", this._onmousemove.bind(this), false);
     this.element.addEventListener("mouseout", this._onmouseout.bind(this), false);
 
@@ -51,7 +50,7 @@ WebInspector.ElementsTreeOutline.prototype = {
 
     set rootDOMNode(x)
     {
-        if (objectsAreSame(this._rootDOMNode, x))
+        if (this._rootDOMNode === x)
             return;
 
         this._rootDOMNode = x;
@@ -66,7 +65,7 @@ WebInspector.ElementsTreeOutline.prototype = {
 
     set focusedDOMNode(x)
     {
-        if (objectsAreSame(this._focusedDOMNode, x)) {
+        if (this._focusedDOMNode === x) {
             this.revealAndSelectNode(x);
             return;
         }
@@ -79,11 +78,11 @@ WebInspector.ElementsTreeOutline.prototype = {
         // and the select() call would change the focusedDOMNode and reenter this setter. So to
         // avoid calling focusedNodeChanged() twice, first check if _focusedDOMNode is the same
         // node as the one passed in.
-        if (objectsAreSame(this._focusedDOMNode, x)) {
+        if (this._focusedDOMNode === x) {
             this.focusedNodeChanged();
 
             if (x && !this.suppressSelectHighlight) {
-                InspectorController.highlightDOMNode(x);
+                InspectorController.highlightDOMNode(x.id);
 
                 if ("_restorePreviousHighlightNodeTimeout" in this)
                     clearTimeout(this._restorePreviousHighlightNodeTimeout);
@@ -92,7 +91,7 @@ WebInspector.ElementsTreeOutline.prototype = {
                 {
                     var hoveredNode = WebInspector.hoveredDOMNode;
                     if (hoveredNode)
-                        InspectorController.highlightDOMNode(hoveredNode);
+                        InspectorController.highlightDOMNode(hoveredNode.id);
                     else
                         InspectorController.hideDOMNodeHighlight();
                 }
@@ -116,12 +115,12 @@ WebInspector.ElementsTreeOutline.prototype = {
             this.appendChild(treeElement);
         } else {
             // FIXME: this could use findTreeElement to reuse a tree element if it already exists
-            var node = (Preferences.ignoreWhitespace ? firstChildSkippingWhitespace.call(this.rootDOMNode) : this.rootDOMNode.firstChild);
+            var node = this.rootDOMNode.firstChild;
             while (node) {
                 treeElement = new WebInspector.ElementsTreeElement(node);
                 treeElement.selectable = this.selectEnabled;
                 this.appendChild(treeElement);
-                node = Preferences.ignoreWhitespace ? nextSiblingSkippingWhitespace.call(node) : node.nextSibling;
+                node = node.nextSibling;
             }
         }
 
@@ -138,19 +137,12 @@ WebInspector.ElementsTreeOutline.prototype = {
 
     focusedNodeChanged: function(forceUpdate) {},
 
-    findTreeElement: function(node, isAncestor, getParent, equal)
+    findTreeElement: function(node)
     {
-        if (typeof isAncestor === "undefined")
-            isAncestor = isAncestorIncludingParentFrames;
-        if (typeof getParent === "undefined")
-            getParent = parentNodeOrFrameElement;
-        if (typeof equal === "undefined")
-            equal = objectsAreSame;
-
-        var treeElement = TreeOutline.prototype.findTreeElement.call(this, node, isAncestor, getParent, equal);
+        var treeElement = TreeOutline.prototype.findTreeElement.call(this, node, isAncestorNode, parentNode);
         if (!treeElement && node.nodeType === Node.TEXT_NODE) {
             // The text node might have been inlined if it was short, so try to find the parent element.
-            treeElement = TreeOutline.prototype.findTreeElement.call(this, node.parentNode, isAncestor, getParent, equal);
+            treeElement = TreeOutline.prototype.findTreeElement.call(this, node.parentNode, isAncestorNode, parentNode);
         }
 
         return treeElement;
@@ -193,16 +185,6 @@ WebInspector.ElementsTreeOutline.prototype = {
         return element;
     },
 
-    _ondblclick: function(event)
-    {
-        var element = this._treeElementFromEvent(event);
-
-        if (!element || !element.ondblclick)
-            return;
-
-        element.ondblclick(element, event);
-    },
-
     _onmousedown: function(event)
     {
         var element = this._treeElementFromEvent(event);
@@ -232,7 +214,7 @@ WebInspector.ElementsTreeOutline.prototype = {
     _onmouseout: function(event)
     {
         var nodeUnderMouse = document.elementFromPoint(event.pageX, event.pageY);
-        if (nodeUnderMouse.isDescendant(this.element))
+        if (nodeUnderMouse && nodeUnderMouse.isDescendant(this.element))
             return;
 
         if (this._previousHoveredElement) {
@@ -248,14 +230,10 @@ WebInspector.ElementsTreeOutline.prototype.__proto__ = TreeOutline.prototype;
 
 WebInspector.ElementsTreeElement = function(node)
 {
-    var hasChildren = node.contentDocument || (Preferences.ignoreWhitespace ? (firstChildSkippingWhitespace.call(node) ? true : false) : node.hasChildNodes());
-    var titleInfo = nodeTitleInfo.call(node, hasChildren, WebInspector.linkifyURL);
-
-    if (titleInfo.hasChildren) 
-        this.whitespaceIgnored = Preferences.ignoreWhitespace;
+    var hasChildrenOverride = node.hasChildNodes() && !this._showInlineText(node);
 
     // The title will be updated in onattach.
-    TreeElement.call(this, "", node, titleInfo.hasChildren);
+    TreeElement.call(this, "", node, hasChildrenOverride);
 
     if (this.representedObject.nodeType == Node.ELEMENT_NODE)
         this._canAddAttributes = true;
@@ -380,15 +358,18 @@ WebInspector.ElementsTreeElement.prototype = {
 
     onpopulate: function()
     {
-        if (this.children.length || this.whitespaceIgnored !== Preferences.ignoreWhitespace)
+        if (this.children.length || this._showInlineText(this.representedObject))
             return;
-
-        this.whitespaceIgnored = Preferences.ignoreWhitespace;
 
         this.updateChildren();
     },
-
+    
     updateChildren: function(fullRefresh)
+    {
+        WebInspector.domAgent.getChildNodesAsync(this.representedObject, this._updateChildren.bind(this, fullRefresh));
+    },
+
+    _updateChildren: function(fullRefresh)
     {
         if (fullRefresh) {
             var selectedTreeElement = this.treeOutline.selectedTreeElement;
@@ -403,14 +384,14 @@ WebInspector.ElementsTreeElement.prototype = {
         function updateChildrenOfNode(node)
         {
             var treeOutline = treeElement.treeOutline;
-            var child = (Preferences.ignoreWhitespace ? firstChildSkippingWhitespace.call(node) : node.firstChild);
+            var child = node.firstChild;
             while (child) {
                 var currentTreeElement = treeElement.children[treeChildIndex];
-                if (!currentTreeElement || !objectsAreSame(currentTreeElement.representedObject, child)) {
+                if (!currentTreeElement || currentTreeElement.representedObject !== child) {
                     // Find any existing element that is later in the children list.
                     var existingTreeElement = null;
                     for (var i = (treeChildIndex + 1); i < treeElement.children.length; ++i) {
-                        if (objectsAreSame(treeElement.children[i].representedObject, child)) {
+                        if (treeElement.children[i].representedObject === child) {
                             existingTreeElement = treeElement.children[i];
                             break;
                         }
@@ -431,7 +412,7 @@ WebInspector.ElementsTreeElement.prototype = {
                     }
                 }
 
-                child = Preferences.ignoreWhitespace ? nextSiblingSkippingWhitespace.call(child) : child.nextSibling;
+                child = child.nextSibling;
                 ++treeChildIndex;
             }
         }
@@ -445,9 +426,7 @@ WebInspector.ElementsTreeElement.prototype = {
             var currentNode = currentChild.representedObject;
             var currentParentNode = currentNode.parentNode;
 
-            if (objectsAreSame(currentParentNode, this.representedObject))
-                continue;
-            if (this.representedObject.contentDocument && objectsAreSame(currentParentNode, this.representedObject.contentDocument))
+            if (currentParentNode === this.representedObject)
                 continue;
 
             var selectedTreeElement = this.treeOutline.selectedTreeElement;
@@ -455,13 +434,8 @@ WebInspector.ElementsTreeElement.prototype = {
                 this.select();
 
             this.removeChildAtIndex(i);
-
-            if (this.treeOutline.panel && currentNode.contentDocument)
-                this.treeOutline.panel.unregisterMutationEventListeners(currentNode.contentDocument.defaultView);
         }
 
-        if (this.representedObject.contentDocument)
-            updateChildrenOfNode(this.representedObject.contentDocument);
         updateChildrenOfNode(this.representedObject);
 
         var lastChild = this.children[this.children.length - 1];
@@ -477,9 +451,6 @@ WebInspector.ElementsTreeElement.prototype = {
     onexpand: function()
     {
         this.treeOutline.updateSelection();
-
-        if (this.treeOutline.panel && this.representedObject.contentDocument)
-            this.treeOutline.panel.registerMutationEventListeners(this.representedObject.contentDocument.defaultView);
     },
 
     oncollapse: function()
@@ -693,7 +664,7 @@ WebInspector.ElementsTreeElement.prototype = {
         }
 
         if (!parseElement.hasAttributes()) {
-            InspectorController.inspectedWindow().Element.prototype.removeAttribute.call(this.representedObject, attributeName);
+            this.representedObject.removeAttribute(attributeName);
             this._updateTitle();
             moveToNextAttributeIfNeeded.call(this);
             return;
@@ -704,12 +675,12 @@ WebInspector.ElementsTreeElement.prototype = {
             var attr = parseElement.attributes[i];
             foundOriginalAttribute = foundOriginalAttribute || attr.name === attributeName;
             try {
-                InspectorController.inspectedWindow().Element.prototype.setAttribute.call(this.representedObject, attr.name, attr.value);
+                this.representedObject.setAttribute(attr.name, attr.value);
             } catch(e) {} // ignore invalid attribute (innerHTML doesn't throw errors, but this can)
         }
 
         if (!foundOriginalAttribute)
-            InspectorController.inspectedWindow().Element.prototype.removeAttribute.call(this.representedObject, attributeName);
+            this.representedObject.removeAttribute(attributeName);
 
         this._updateTitle();
 
@@ -743,12 +714,115 @@ WebInspector.ElementsTreeElement.prototype = {
 
     _updateTitle: function()
     {
-        var title = nodeTitleInfo.call(this.representedObject, this.hasChildren, WebInspector.linkifyURL).title;
+        var title = this._nodeTitleInfo(this.representedObject, this.hasChildren, WebInspector.linkifyURL).title;
         this.title = "<span class=\"highlight\">" + title + "</span>";
         delete this.selectionElement;
         this.updateSelection();
         this._preventFollowingLinksOnDoubleClick();
     },
+
+    _nodeTitleInfo: function(node, hasChildren, linkify)
+    {
+        var info = {title: "", hasChildren: hasChildren};
+        
+        switch (node.nodeType) {
+            case Node.DOCUMENT_NODE:
+                info.title = "Document";
+                break;
+                
+            case Node.ELEMENT_NODE:
+                info.title = "<span class=\"webkit-html-tag\">&lt;" + node.nodeName.toLowerCase().escapeHTML();
+                
+                if (node.hasAttributes()) {
+                    for (var i = 0; i < node.attributes.length; ++i) {
+                        var attr = node.attributes[i];
+                        info.title += " <span class=\"webkit-html-attribute\"><span class=\"webkit-html-attribute-name\">" + attr.name.escapeHTML() + "</span>=&#8203;\"";
+                        
+                        var value = attr.value;
+                        if (linkify && (attr.name === "src" || attr.name === "href")) {
+                            var value = value.replace(/([\/;:\)\]\}])/g, "$1\u200B");
+                            info.title += linkify(attr.value, value, "webkit-html-attribute-value", node.nodeName.toLowerCase() == "a");
+                        } else {
+                            var value = value.escapeHTML();
+                            value = value.replace(/([\/;:\)\]\}])/g, "$1&#8203;");
+                            info.title += "<span class=\"webkit-html-attribute-value\">" + value + "</span>";
+                        }
+                        info.title += "\"</span>";
+                    }
+                }
+                info.title += "&gt;</span>&#8203;";
+                
+                // If this element only has a single child that is a text node,
+                // just show that text and the closing tag inline rather than
+                // create a subtree for them
+                
+                var textChild = onlyTextChild.call(node);
+                var showInlineText = textChild && textChild.textContent.length < Preferences.maxInlineTextChildLength;
+                
+                if (showInlineText) {
+                    info.title += "<span class=\"webkit-html-text-node\">" + textChild.nodeValue.escapeHTML() + "</span>&#8203;<span class=\"webkit-html-tag\">&lt;/" + node.nodeName.toLowerCase().escapeHTML() + "&gt;</span>";
+                    info.hasChildren = false;
+                }
+                break;
+                
+            case Node.TEXT_NODE:
+                if (isNodeWhitespace.call(node))
+                    info.title = "(whitespace)";
+                else {
+                    if (node.parentNode && node.parentNode.nodeName.toLowerCase() == "script") {
+                        var newNode = document.createElement("span");
+                        newNode.textContent = node.textContent;
+                        
+                        var javascriptSyntaxHighlighter = new WebInspector.JavaScriptSourceSyntaxHighlighter(null, null);
+                        javascriptSyntaxHighlighter.syntaxHighlightLine(newNode, null);
+                        
+                        info.title = "<span class=\"webkit-html-text-node webkit-html-js-node\">" + newNode.innerHTML.replace(/^[\n\r]*/, "").replace(/\s*$/, "") + "</span>";
+                    } else if (node.parentNode && node.parentNode.nodeName.toLowerCase() == "style") {
+                        var newNode = document.createElement("span");
+                        newNode.textContent = node.textContent;
+                        
+                        var cssSyntaxHighlighter = new WebInspector.CSSSourceSyntaxHighligher(null, null);
+                        cssSyntaxHighlighter.syntaxHighlightLine(newNode, null);
+                        
+                        info.title = "<span class=\"webkit-html-text-node webkit-html-css-node\">" + newNode.innerHTML.replace(/^[\n\r]*/, "").replace(/\s*$/, "") + "</span>";
+                    } else {
+                        info.title = "\"<span class=\"webkit-html-text-node\">" + node.nodeValue.escapeHTML() + "</span>\""; 
+                    }
+                } 
+                break;
+                
+            case Node.COMMENT_NODE:
+                info.title = "<span class=\"webkit-html-comment\">&lt;!--" + node.nodeValue.escapeHTML() + "--&gt;</span>";
+                break;
+                
+            case Node.DOCUMENT_TYPE_NODE:
+                info.title = "<span class=\"webkit-html-doctype\">&lt;!DOCTYPE " + node.nodeName;
+                if (node.publicId) {
+                    info.title += " PUBLIC \"" + node.publicId + "\"";
+                    if (node.systemId)
+                        info.title += " \"" + node.systemId + "\"";
+                } else if (node.systemId)
+                    info.title += " SYSTEM \"" + node.systemId + "\"";
+                if (node.internalSubset)
+                    info.title += " [" + node.internalSubset + "]";
+                info.title += "&gt;</span>";
+                break;
+            default:
+                info.title = node.nodeName.toLowerCase().collapseWhitespace().escapeHTML();
+        }
+        
+        return info;
+    },
+
+    _showInlineText: function(node)
+    {
+        if (node.nodeType === Node.ELEMENT_NODE) {
+            var textChild = onlyTextChild.call(node);
+            if (textChild && textChild.textContent.length < Preferences.maxInlineTextChildLength)
+                return true;
+        }
+        return false;
+    }
 }
 
 WebInspector.ElementsTreeElement.prototype.__proto__ = TreeElement.prototype;

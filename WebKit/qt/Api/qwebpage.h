@@ -25,18 +25,19 @@
 #include "qwebkitglobal.h"
 
 #include <QtCore/qobject.h>
+#include <QtCore/qurl.h>
 #include <QtGui/qwidget.h>
 
 QT_BEGIN_NAMESPACE
 class QNetworkProxy;
 class QUndoStack;
-class QUrl;
 class QMenu;
 class QNetworkRequest;
 class QNetworkReply;
 class QNetworkAccessManager;
 QT_END_NAMESPACE
 
+class QWebElement;
 class QWebFrame;
 class QWebNetworkRequest;
 class QWebHistory;
@@ -55,6 +56,7 @@ namespace WebCore {
     class InspectorClientQt;
     class ResourceHandle;
     class HitTestResult;
+    class QNetworkReplyHandler;
 
     struct FrameLoadRequest;
 }
@@ -265,7 +267,8 @@ public:
     QMenu *createStandardContextMenu();
 
     enum Extension {
-        ChooseMultipleFilesExtension
+        ChooseMultipleFilesExtension,
+        ErrorPageExtension
     };
     class ExtensionOption
     {};
@@ -282,6 +285,26 @@ public:
     public:
         QStringList fileNames;
     };
+
+    enum ErrorDomain { QtNetwork, Http, WebKit };
+    class ErrorPageExtensionOption : public ExtensionOption {
+    public:
+        QUrl url;
+        QWebFrame* frame;
+        ErrorDomain domain;
+        int error;
+        QString errorString;
+    };
+
+    class ErrorPageExtensionReturn : public ExtensionReturn {
+    public:
+        ErrorPageExtensionReturn() : contentType(QLatin1String("text/html")), encoding(QLatin1String("utf-8")) {};
+        QString contentType;
+        QString encoding;
+        QUrl baseUrl;
+        QByteArray content;
+    };
+
 
     virtual bool extension(Extension extension, const ExtensionOption *option = 0, ExtensionReturn *output = 0);
     virtual bool supportsExtension(Extension extension) const;
@@ -306,6 +329,7 @@ Q_SIGNALS:
     void windowCloseRequested();
     void printRequested(QWebFrame *frame);
     void linkClicked(const QUrl &url);
+    void webInspectorTriggered(const QWebElement& inspectedElement);
 
     void toolBarVisibilityChangeRequested(bool visible);
     void statusBarVisibilityChangeRequested(bool visible);
@@ -322,6 +346,8 @@ Q_SIGNALS:
 
     void saveFrameStateRequested(QWebFrame* frame, QWebHistoryItem* item);
     void restoreFrameStateRequested(QWebFrame* frame);
+
+    void networkRequestStarted(QWebFrame* frame, QNetworkRequest* request);
 
 protected:
     virtual QWebPage *createWindow(WebWindowType type);
@@ -343,19 +369,21 @@ protected:
 private:
     Q_PRIVATE_SLOT(d, void _q_onLoadProgressChanged(int))
     Q_PRIVATE_SLOT(d, void _q_webActionTriggered(bool checked))
-#ifndef NDEBUG
     Q_PRIVATE_SLOT(d, void _q_cleanupLeakMessages())
-#endif
+
     QWebPagePrivate *d;
 
     friend class QWebFrame;
     friend class QWebPagePrivate;
     friend class QWebView;
+    friend class QGraphicsWebView;
+    friend class QWebInspector;
     friend class WebCore::ChromeClientQt;
     friend class WebCore::EditorClientQt;
     friend class WebCore::FrameLoaderClientQt;
     friend class WebCore::InspectorClientQt;
     friend class WebCore::ResourceHandle;
+    friend class WebCore::QNetworkReplyHandler;
 };
 
 Q_DECLARE_OPERATORS_FOR_FLAGS(QWebPage::FindFlags)

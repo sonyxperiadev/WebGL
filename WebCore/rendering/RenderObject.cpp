@@ -4,6 +4,7 @@
  *           (C) 2000 Dirk Mueller (mueller@kde.org)
  *           (C) 2004 Allan Sandfeld Jensen (kde@carewolf.com)
  * Copyright (C) 2004, 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2009 Torch Mobile Inc. All rights reserved. (http://www.torchmobile.com/)
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -46,6 +47,7 @@
 #include "RenderTheme.h"
 #include "RenderView.h"
 #include "TransformState.h"
+#include "htmlediting.h"
 #include <algorithm>
 #ifdef ANDROID_LAYOUT
 #include "Settings.h"
@@ -145,6 +147,12 @@ RenderObject* RenderObject::createObject(Node* node, RenderStyle* style)
             o = new (arena) RenderTableCell(node);
             break;
         case TABLE_CAPTION:
+#if ENABLE(WCSS)
+        // As per the section 17.1 of the spec WAP-239-WCSS-20011026-a.pdf, 
+        // the marquee box inherits and extends the characteristics of the 
+        // principal block box ([CSS2] section 9.2.1).
+        case WAP_MARQUEE:
+#endif
             o = new (arena) RenderBlock(node);
             break;
         case BOX:
@@ -200,7 +208,6 @@ RenderObject::RenderObject(Node* node)
     , m_selectionState(SelectionNone)
     , m_hasColumns(false)
     , m_cellWidthChanged(false)
-    , m_replacedHasOverflow(false)
 {
 #ifndef NDEBUG
     renderObjectCounter.increment();
@@ -621,6 +628,11 @@ RenderBlock* RenderObject::containingBlock() const
             // inline directly.
             if (o->style()->position() == RelativePosition && o->isInline() && !o->isReplaced())
                 return o->containingBlock();
+#if ENABLE(SVG)
+            if (o->isSVGForeignObject()) //foreignObject is the containing block for contents inside it
+                break;
+#endif
+
             o = o->parent();
         }
     } else {
@@ -653,10 +665,10 @@ static bool mustRepaintFillLayers(const RenderObject* renderer, const FillLayer*
     if (!layer->xPosition().isZero() || !layer->yPosition().isZero())
         return true;
 
-    if (layer->isSizeSet()) {
-        if (layer->size().width().isPercent() || layer->size().height().isPercent())
+    if (layer->size().type == SizeLength) {
+        if (layer->size().size.width().isPercent() || layer->size().size.height().isPercent())
             return true;
-    } else if (img->usesImageContainerSize())
+    } else if (layer->size().type == Contain || layer->size().type == Cover || img->usesImageContainerSize())
         return true;
 
     return false;
@@ -1365,6 +1377,7 @@ Color RenderObject::selectionForegroundColor() const
     return color;
 }
 
+#if ENABLE(DRAG_SUPPORT)
 Node* RenderObject::draggableNode(bool dhtmlOK, bool uaOK, int x, int y, bool& dhtmlWillDrag) const
 {
     if (!dhtmlOK && !uaOK)
@@ -1399,6 +1412,7 @@ Node* RenderObject::draggableNode(bool dhtmlOK, bool uaOK, int x, int y, bool& d
     }
     return 0;
 }
+#endif // ENABLE(DRAG_SUPPORT)
 
 void RenderObject::selectionStartEnd(int& spos, int& epos) const
 {
@@ -1612,14 +1626,19 @@ void RenderObject::styleDidChange(StyleDifference diff, const RenderStyle*)
 
 void RenderObject::updateFillImages(const FillLayer* oldLayers, const FillLayer* newLayers)
 {
-    // FIXME: This will be slow when a large number of images is used.  Fix by using a dict.
-    for (const FillLayer* currOld = oldLayers; currOld; currOld = currOld->next()) {
-        if (currOld->image() && (!newLayers || !newLayers->containsImage(currOld->image())))
-            currOld->image()->removeClient(this);
-    }
+    // Optimize the common case
+    if (oldLayers && !oldLayers->next() && newLayers && !newLayers->next() && (oldLayers->image() == newLayers->image()))
+        return;
+    
+    // Go through the new layers and addClients first, to avoid removing all clients of an image.
     for (const FillLayer* currNew = newLayers; currNew; currNew = currNew->next()) {
-        if (currNew->image() && (!oldLayers || !oldLayers->containsImage(currNew->image())))
+        if (currNew->image())
             currNew->image()->addClient(this);
+    }
+
+    for (const FillLayer* currOld = oldLayers; currOld; currOld = currOld->next()) {
+        if (currOld->image())
+            currOld->image()->removeClient(this);
     }
 }
 
@@ -1739,6 +1758,23 @@ IntSize RenderObject::offsetFromContainer(RenderObject* o) const
     return offset;
 }
 
+IntSize RenderObject::offsetFromAncestorContainer(RenderObject* container) const
+{
+    IntSize offset;
+    const RenderObject* currContainer = this;
+    do {
+        RenderObject* nextContainer = currContainer->container();
+        ASSERT(nextContainer);  // This means we reached the top without finding container.
+        if (!nextContainer)
+            break;
+        ASSERT(!currContainer->hasTransform());
+        offset += currContainer->offsetFromContainer(nextContainer);
+        currContainer = nextContainer;
+    } while (currContainer != container);
+
+    return offset;
+}
+
 IntRect RenderObject::localCaretRect(InlineBox*, int, int* extraWidthToEndOfLine)
 {
     if (extraWidthToEndOfLine)
@@ -1772,8 +1808,11 @@ bool RenderObject::hasOutlineAnnotation() const
     return node() && node()->isLink() && document()->printing();
 }
 
-RenderObject* RenderObject::container() const
+RenderObject* RenderObject::container(RenderBoxModelObject* repaintContainer, bool* repaintContainerSkipped) const
 {
+    if (repaintContainerSkipped)
+        *repaintContainerSkipped = false;
+
     // This method is extremely similar to containingBlock(), but with a few notable
     // exceptions.
     // (1) It can be used on orphaned subtrees, i.e., it can be called safely even when
@@ -1798,14 +1837,20 @@ RenderObject* RenderObject::container() const
         // we'll just return 0).
         // FIXME: The definition of view() has changed to not crawl up the render tree.  It might
         // be safe now to use it.
-        while (o && o->parent() && !(o->hasTransform() && o->isRenderBlock()))
+        while (o && o->parent() && !(o->hasTransform() && o->isRenderBlock())) {
+            if (repaintContainerSkipped && o == repaintContainer)
+                *repaintContainerSkipped = true;
             o = o->parent();
+        }
     } else if (pos == AbsolutePosition) {
         // Same goes here.  We technically just want our containing block, but
         // we may not have one if we're part of an uninstalled subtree.  We'll
         // climb as high as we can though.
-        while (o && o->style()->position() == StaticPosition && !o->isRenderView() && !(o->hasTransform() && o->isRenderBlock()))
+        while (o && o->style()->position() == StaticPosition && !o->isRenderView() && !(o->hasTransform() && o->isRenderBlock())) {
+            if (repaintContainerSkipped && o == repaintContainer)
+                *repaintContainerSkipped = true;
             o = o->parent();
+        }
     }
 
     return o;
@@ -1825,7 +1870,12 @@ void RenderObject::destroy()
         children->destroyLeftoverChildren();
 
     // If this renderer is being autoscrolled, stop the autoscroll timer
-    if (document()->frame()->eventHandler()->autoscrollRenderer() == this)
+    
+    // FIXME: RenderObject::destroy should not get called with a renderar whose document
+    // has a null frame, so we assert this. However, we don't want release builds to crash which is why we
+    // check that the frame is not null.
+    ASSERT(document()->frame());
+    if (document()->frame() && document()->frame()->eventHandler()->autoscrollRenderer() == this)
         document()->frame()->eventHandler()->stopAutoscrollTimer(true);
 
     if (m_hasCounterNodeMap)

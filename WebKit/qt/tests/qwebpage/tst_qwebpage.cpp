@@ -20,6 +20,7 @@
 
 #include <QtTest/QtTest>
 
+#include <qwebelement.h>
 #include <qwebpage.h>
 #include <qwidget.h>
 #include <qwebview.h>
@@ -59,7 +60,7 @@
  * \return \p true if the requested signal was received
  *         \p false on timeout
  */
-static bool waitForSignal(QObject* obj, const char* signal, int timeout = 0)
+static bool waitForSignal(QObject* obj, const char* signal, int timeout = 10000)
 {
     QEventLoop loop;
     QObject::connect(obj, signal, &loop, SLOT(quit()));
@@ -110,9 +111,13 @@ private slots:
     void frameAt();
     void requestCache();
     void protectBindingsRuntimeObjectsFromCollector();
+    void localURLSchemes();
+    void testOptionalJSObjects();
+    void testEnablePersistentStorage();
+    void consoleOutput();
+    void inputMethods();
 
-private:
-
+    void crashTests_LazyInitializationOfMainFrame();
 
 private:
     QWebView* m_view;
@@ -217,6 +222,9 @@ void tst_QWebPage::infiniteLoopJS()
 
 void tst_QWebPage::loadFinished()
 {
+    qRegisterMetaType<QWebFrame*>("QWebFrame*");
+    qRegisterMetaType<QNetworkRequest*>("QNetworkRequest*");
+    QSignalSpy spyNetworkRequestStarted(m_page, SIGNAL(networkRequestStarted(QWebFrame*, QNetworkRequest*)));
     QSignalSpy spyLoadStarted(m_view, SIGNAL(loadStarted()));
     QSignalSpy spyLoadFinished(m_view, SIGNAL(loadFinished(bool)));
 
@@ -227,6 +235,7 @@ void tst_QWebPage::loadFinished()
 
     QTest::qWait(3000);
 
+    QVERIFY(spyNetworkRequestStarted.count() > 1);
     QVERIFY(spyLoadStarted.count() > 1);
     QVERIFY(spyLoadFinished.count() > 1);
 
@@ -236,6 +245,31 @@ void tst_QWebPage::loadFinished()
                             "foo \"><frame src=\"data:text/html,bar\"></frameset>"), QUrl());
     QTRY_COMPARE(spyLoadFinished.count(), 1);
     QCOMPARE(spyLoadFinished.count(), 1);
+}
+
+class ConsolePage : public QWebPage
+{
+public:
+    ConsolePage(QObject* parent = 0) : QWebPage(parent) {}
+
+    virtual void javaScriptConsoleMessage(const QString& message, int lineNumber, const QString& sourceID)
+    {
+        messages.append(message);
+        lineNumbers.append(lineNumber);
+        sourceIDs.append(sourceID);
+    }
+
+    QStringList messages;
+    QList<int> lineNumbers;
+    QStringList sourceIDs;
+};
+
+void tst_QWebPage::consoleOutput()
+{
+    ConsolePage page;
+    page.mainFrame()->evaluateJavaScript("this is not valid JavaScript");
+    QCOMPARE(page.messages.count(), 1);
+    QCOMPARE(page.lineNumbers.at(0), 1);
 }
 
 class TestPage : public QWebPage
@@ -316,13 +350,13 @@ void tst_QWebPage::userStyleSheet()
     m_page->setNetworkAccessManager(networkManager);
     networkManager->requestedUrls.clear();
 
-    m_page->settings()->setUserStyleSheetUrl(QUrl("data:text/css,p { background-image: url('http://does.not/exist.png');}"));
+    m_page->settings()->setUserStyleSheetUrl(QUrl("data:text/css;charset=utf-8;base64,"
+            + QByteArray("p { background-image: url('http://does.not/exist.png');}").toBase64()));
     m_view->setHtml("<p>hello world</p>");
     QVERIFY(::waitForSignal(m_view, SIGNAL(loadFinished(bool))));
 
-    QVERIFY(networkManager->requestedUrls.count() >= 2);
-    QCOMPARE(networkManager->requestedUrls.at(0), QUrl("data:text/css,p { background-image: url('http://does.not/exist.png');}"));
-    QCOMPARE(networkManager->requestedUrls.at(1), QUrl("http://does.not/exist.png"));
+    QVERIFY(networkManager->requestedUrls.count() >= 1);
+    QCOMPARE(networkManager->requestedUrls.at(0), QUrl("http://does.not/exist.png"));
 }
 
 void tst_QWebPage::modified()
@@ -405,6 +439,10 @@ void tst_QWebPage::database()
     QWebSettings::setOfflineStorageDefaultQuota(1024 * 1024);
     QVERIFY(QWebSettings::offlineStorageDefaultQuota() == 1024 * 1024);
 
+    m_page->settings()->setAttribute(QWebSettings::LocalStorageEnabled, true);
+    m_page->settings()->setAttribute(QWebSettings::SessionStorageEnabled, true);
+    m_page->settings()->setAttribute(QWebSettings::OfflineStorageDatabaseEnabled, true);
+
     QString dbFileName = path + "Databases.db";
 
     if (QFile::exists(dbFileName))
@@ -432,14 +470,19 @@ void tst_QWebPage::database()
     m_page->mainFrame()->evaluateJavaScript("var db3; db3=openDatabase('testdb', '1.0', 'test database API', 50000);db3.transaction(function(tx) { tx.executeSql('CREATE TABLE IF NOT EXISTS Test (text TEXT)', []); }, function(tx, result) { }, function(tx, error) { });");
     QTest::qWait(200);
 
+    // Remove all databases.
     QWebSecurityOrigin origin = m_page->mainFrame()->securityOrigin();
     QList<QWebDatabase> dbs = origin.databases();
-    if (dbs.count() > 0) {
-        QString fileName = dbs[0].fileName();
+    for (int i = 0; i < dbs.count(); i++) {
+        QString fileName = dbs[i].fileName();
         QVERIFY(QFile::exists(fileName));
-        QWebDatabase::removeDatabase(dbs[0]);
+        QWebDatabase::removeDatabase(dbs[i]);
         QVERIFY(!QFile::exists(fileName));
     }
+    QVERIFY(!origin.databases().size());
+    // Remove removed test :-)
+    QWebDatabase::removeAllDatabases();
+    QVERIFY(!origin.databases().size());
     QTest::qWait(1000);
 }
 
@@ -627,7 +670,6 @@ void tst_QWebPage::createViewlessPlugin()
 // import private API
 void QWEBKIT_EXPORT qt_webpage_setGroupName(QWebPage* page, const QString& groupName);
 QString QWEBKIT_EXPORT qt_webpage_groupName(QWebPage* page);
-void QWEBKIT_EXPORT qt_websettings_setLocalStorageDatabasePath(QWebSettings* settings, const QString& path);
 
 void tst_QWebPage::multiplePageGroupsAndLocalStorage()
 {
@@ -638,9 +680,11 @@ void tst_QWebPage::multiplePageGroupsAndLocalStorage()
     QWebView view1;
     QWebView view2;
 
-    qt_websettings_setLocalStorageDatabasePath(view1.page()->settings(), QDir::toNativeSeparators(QDir::currentPath() + "/path1"));
+    view1.page()->settings()->setAttribute(QWebSettings::LocalStorageEnabled, true);
+    view1.page()->settings()->setLocalStoragePath(QDir::toNativeSeparators(QDir::currentPath() + "/path1"));
     qt_webpage_setGroupName(view1.page(), "group1");
-    qt_websettings_setLocalStorageDatabasePath(view2.page()->settings(), QDir::toNativeSeparators(QDir::currentPath() + "/path2"));
+    view2.page()->settings()->setAttribute(QWebSettings::LocalStorageEnabled, true);    
+    view2.page()->settings()->setLocalStoragePath(QDir::toNativeSeparators(QDir::currentPath() + "/path2"));
     qt_webpage_setGroupName(view2.page(), "group2");
     QCOMPARE(qt_webpage_groupName(view1.page()), QString("group1"));
     QCOMPARE(qt_webpage_groupName(view2.page()), QString("group2"));
@@ -1165,6 +1209,94 @@ void tst_QWebPage::frameAt()
     frameAtHelper(webPage, webPage->mainFrame(), webPage->mainFrame()->pos());
 }
 
+void tst_QWebPage::inputMethods()
+{
+    m_view->page()->mainFrame()->setHtml("<html><body>" \
+                                            "<input type='text' id='input1' style='font-family: serif' value='' maxlength='20'/>" \
+                                            "</body></html>");
+    m_view->page()->mainFrame()->setFocus();
+
+    QList<QWebElement> inputs = m_view->page()->mainFrame()->documentElement().findAll("input");
+
+    QMouseEvent evpres(QEvent::MouseButtonPress, inputs.at(0).geometry().center(), Qt::LeftButton, Qt::NoButton, Qt::NoModifier);
+    m_view->page()->event(&evpres);
+    QMouseEvent evrel(QEvent::MouseButtonRelease, inputs.at(0).geometry().center(), Qt::LeftButton, Qt::NoButton, Qt::NoModifier);
+    m_view->page()->event(&evrel);
+
+    //ImMicroFocus
+    QVariant variant = m_view->page()->inputMethodQuery(Qt::ImMicroFocus);
+    QRect focusRect = variant.toRect();
+    QVERIFY(inputs.at(0).geometry().contains(variant.toRect().topLeft()));
+
+    //ImFont
+    variant = m_view->page()->inputMethodQuery(Qt::ImFont);
+    QFont font = variant.value<QFont>();
+    QCOMPARE(QString("-webkit-serif"), font.family());
+
+    QList<QInputMethodEvent::Attribute> inputAttributes;
+
+    //Insert text.
+    {
+        QInputMethodEvent eventText("QtWebKit", inputAttributes);
+        QSignalSpy signalSpy(m_view->page(), SIGNAL(microFocusChanged()));
+        m_view->page()->event(&eventText);
+        QCOMPARE(signalSpy.count(), 0);
+    }
+
+    {
+        QInputMethodEvent eventText("", inputAttributes);
+        eventText.setCommitString(QString("QtWebKit"), 0, 0);
+        m_view->page()->event(&eventText);
+    }
+
+#if QT_VERSION >= 0x040600
+    //ImMaximumTextLength
+    variant = m_view->page()->inputMethodQuery(Qt::ImMaximumTextLength);
+    QCOMPARE(20, variant.toInt());
+
+    //Set selection
+    inputAttributes << QInputMethodEvent::Attribute(QInputMethodEvent::Selection, 3, 2, QVariant());
+    QInputMethodEvent eventSelection("",inputAttributes);
+    m_view->page()->event(&eventSelection);
+
+    //ImAnchorPosition
+    variant = m_view->page()->inputMethodQuery(Qt::ImAnchorPosition);
+    int anchorPosition =  variant.toInt();
+    QCOMPARE(anchorPosition, 3);
+
+    //ImCursorPosition
+    variant = m_view->page()->inputMethodQuery(Qt::ImCursorPosition);
+    int cursorPosition =  variant.toInt();
+    QCOMPARE(cursorPosition, 5);
+
+    //ImCurrentSelection
+    variant = m_view->page()->inputMethodQuery(Qt::ImCurrentSelection);
+    QString selectionValue = variant.value<QString>();
+    QCOMPARE(selectionValue, QString("eb"));
+#endif
+
+    //ImSurroundingText
+    variant = m_view->page()->inputMethodQuery(Qt::ImSurroundingText);
+    QString value = variant.value<QString>();
+    QCOMPARE(value, QString("QtWebKit"));
+
+#if QT_VERSION >= 0x040600
+    {
+        QList<QInputMethodEvent::Attribute> attributes;
+        // Clear the selection, so the next test does not clear any contents.
+        QInputMethodEvent::Attribute newSelection(QInputMethodEvent::Selection, 0, 0, QVariant());
+        attributes.append(newSelection);
+        QInputMethodEvent event("composition", attributes);
+        m_view->page()->event(&event);
+    }
+
+    // A ongoing composition should not change the surrounding text before it is committed.
+    variant = m_view->page()->inputMethodQuery(Qt::ImSurroundingText);
+    value = variant.value<QString>();
+    QCOMPARE(value, QString("QtWebKit"));
+#endif
+}
+
 // import a little DRT helper function to trigger the garbage collector
 void QWEBKIT_EXPORT qt_drt_garbageCollector_collect();
 
@@ -1189,6 +1321,105 @@ void tst_QWebPage::protectBindingsRuntimeObjectsFromCollector()
     // don't crash!
     newPage->mainFrame()->evaluateJavaScript("testme('bar')");
 }
+
+void tst_QWebPage::localURLSchemes()
+{
+    int i = QWebSecurityOrigin::localSchemes().size();
+    QWebSecurityOrigin::removeLocalScheme("file");
+    QTRY_COMPARE(QWebSecurityOrigin::localSchemes().size(), i);
+    QWebSecurityOrigin::addLocalScheme("file");
+    QTRY_COMPARE(QWebSecurityOrigin::localSchemes().size(), i);
+    QString myscheme = "myscheme";
+    QWebSecurityOrigin::addLocalScheme(myscheme);
+    QTRY_COMPARE(QWebSecurityOrigin::localSchemes().size(), i + 1);
+    QVERIFY(QWebSecurityOrigin::localSchemes().contains(myscheme));
+    QWebSecurityOrigin::removeLocalScheme(myscheme);
+    QTRY_COMPARE(QWebSecurityOrigin::localSchemes().size(), i);
+    QWebSecurityOrigin::removeLocalScheme(myscheme);
+    QTRY_COMPARE(QWebSecurityOrigin::localSchemes().size(), i);
+}
+
+static inline bool testFlag(QWebPage& webPage, QWebSettings::WebAttribute settingAttribute, const QString& jsObjectName, bool settingValue)
+{
+    webPage.settings()->setAttribute(settingAttribute, settingValue);
+    return webPage.mainFrame()->evaluateJavaScript(QString("(window.%1 != undefined)").arg(jsObjectName)).toBool();
+}
+
+void tst_QWebPage::testOptionalJSObjects()
+{
+    // Once a feature is enabled and the JS object is accessed turning off the setting will not turn off
+    // the visibility of the JS object any more. For this reason this test uses two QWebPage instances.
+    // Part of the test is to make sure that the QWebPage instances do not interfere with each other so turning on
+    // a feature for one instance will not turn it on for another.
+
+    QWebPage webPage1;
+    QWebPage webPage2;
+
+    webPage1.currentFrame()->setHtml(QString("<html><body>test</body></html>"), QUrl());
+    webPage2.currentFrame()->setHtml(QString("<html><body>test</body></html>"), QUrl());
+
+    QEXPECT_FAIL("","Feature enabled/disabled checking problem. Look at bugs.webkit.org/show_bug.cgi?id=29867", Continue);
+    QCOMPARE(testFlag(webPage1, QWebSettings::OfflineWebApplicationCacheEnabled, "applicationCache", false), false);
+    QCOMPARE(testFlag(webPage2, QWebSettings::OfflineWebApplicationCacheEnabled, "applicationCache", true),  true);
+    QEXPECT_FAIL("","Feature enabled/disabled checking problem. Look at bugs.webkit.org/show_bug.cgi?id=29867", Continue);
+    QCOMPARE(testFlag(webPage1, QWebSettings::OfflineWebApplicationCacheEnabled, "applicationCache", false), false);
+    QCOMPARE(testFlag(webPage2, QWebSettings::OfflineWebApplicationCacheEnabled, "applicationCache", false), true);
+
+    QCOMPARE(testFlag(webPage1, QWebSettings::LocalStorageEnabled, "localStorage", false), false);
+    QCOMPARE(testFlag(webPage2, QWebSettings::LocalStorageEnabled, "localStorage", true),  true);
+    QCOMPARE(testFlag(webPage1, QWebSettings::LocalStorageEnabled, "localStorage", false), false);
+    QCOMPARE(testFlag(webPage2, QWebSettings::LocalStorageEnabled, "localStorage", false), true);
+
+    QCOMPARE(testFlag(webPage1, QWebSettings::SessionStorageEnabled, "sessionStorage", false), false);
+    QCOMPARE(testFlag(webPage2, QWebSettings::SessionStorageEnabled, "sessionStorage", true),  true);
+    QCOMPARE(testFlag(webPage1, QWebSettings::SessionStorageEnabled, "sessionStorage", false), false);
+    QCOMPARE(testFlag(webPage2, QWebSettings::SessionStorageEnabled, "sessionStorage", false), true);
+}
+
+void tst_QWebPage::testEnablePersistentStorage()
+{
+    QWebPage webPage;
+
+    // By default all persistent options should be disabled
+    QCOMPARE(webPage.settings()->testAttribute(QWebSettings::LocalStorageEnabled), false);
+    QCOMPARE(webPage.settings()->testAttribute(QWebSettings::OfflineStorageDatabaseEnabled), false);
+    QCOMPARE(webPage.settings()->testAttribute(QWebSettings::OfflineWebApplicationCacheEnabled), false);
+    QVERIFY(webPage.settings()->iconDatabasePath().isEmpty());
+
+    QWebSettings::enablePersistentStorage();
+
+    // Give it some time to initialize - icon database needs it
+    QTest::qWait(1000);
+
+    QCOMPARE(webPage.settings()->testAttribute(QWebSettings::LocalStorageEnabled), true);
+    QCOMPARE(webPage.settings()->testAttribute(QWebSettings::OfflineStorageDatabaseEnabled), true);
+    QCOMPARE(webPage.settings()->testAttribute(QWebSettings::OfflineWebApplicationCacheEnabled), true);
+
+    QVERIFY(!webPage.settings()->offlineStoragePath().isEmpty());
+    QVERIFY(!webPage.settings()->offlineWebApplicationCachePath().isEmpty());
+    QVERIFY(!webPage.settings()->iconDatabasePath().isEmpty());
+}
+
+void tst_QWebPage::crashTests_LazyInitializationOfMainFrame()
+{
+    {
+        QWebPage webPage;
+    }
+    {
+        QWebPage webPage;
+        webPage.selectedText();
+    }
+    {
+        QWebPage webPage;
+        webPage.triggerAction(QWebPage::Back, true);
+    }
+    {
+        QWebPage webPage;
+        QPoint pos(10,10);
+        webPage.updatePositionDependentActions(pos);
+    }
+}
+
 
 QTEST_MAIN(tst_QWebPage)
 #include "tst_qwebpage.moc"

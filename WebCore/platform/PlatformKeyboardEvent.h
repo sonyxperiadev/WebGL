@@ -59,6 +59,10 @@ QT_END_NAMESPACE
 class wxKeyEvent;
 #endif
 
+#if PLATFORM(HAIKU)
+class BMessage;
+#endif
+
 namespace WebCore {
 
     class PlatformKeyboardEvent {
@@ -153,6 +157,10 @@ namespace WebCore {
 
 #if PLATFORM(WX)
         PlatformKeyboardEvent(wxKeyEvent&);
+#endif
+
+#if PLATFORM(HAIKU)
+        PlatformKeyboardEvent(BMessage*);
 #endif
 
 #if PLATFORM(WIN) || PLATFORM(CHROMIUM)

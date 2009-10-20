@@ -42,6 +42,7 @@
 #pragma warning( pop )
 
 #include <CoreFoundation/CoreFoundation.h>
+#include <limits>
 #include <shlobj.h>
 #include <shfolder.h>
 #include <tchar.h>
@@ -54,6 +55,7 @@
 #endif
 
 using namespace WebCore;
+using std::numeric_limits;
 
 static const String& oldPreferencesPath()
 {
@@ -204,12 +206,14 @@ void WebPreferences::initializeDefaultSettings()
     CFDictionaryAddValue(defaults, CFSTR(WebKitJavaEnabledPreferenceKey), kCFBooleanTrue);
     CFDictionaryAddValue(defaults, CFSTR(WebKitJavaScriptEnabledPreferenceKey), kCFBooleanTrue);
     CFDictionaryAddValue(defaults, CFSTR(WebKitWebSecurityEnabledPreferenceKey), kCFBooleanTrue);
-    CFDictionaryAddValue(defaults, CFSTR(WebKitAllowUniversalAccessFromFileURLsPreferenceKey), kCFBooleanTrue);
+    CFDictionaryAddValue(defaults, CFSTR(WebKitAllowUniversalAccessFromFileURLsPreferenceKey), kCFBooleanFalse);
     CFDictionaryAddValue(defaults, CFSTR(WebKitXSSAuditorEnabledPreferenceKey), kCFBooleanTrue);
     CFDictionaryAddValue(defaults, CFSTR(WebKitJavaScriptCanOpenWindowsAutomaticallyPreferenceKey), kCFBooleanTrue);
     CFDictionaryAddValue(defaults, CFSTR(WebKitPluginsEnabledPreferenceKey), kCFBooleanTrue);
     CFDictionaryAddValue(defaults, CFSTR(WebKitDatabasesEnabledPreferenceKey), kCFBooleanTrue);
     CFDictionaryAddValue(defaults, CFSTR(WebKitLocalStorageEnabledPreferenceKey), kCFBooleanTrue);
+    CFDictionaryAddValue(defaults, CFSTR(WebKitExperimentalNotificationsEnabledPreferenceKey), kCFBooleanFalse);
+    CFDictionaryAddValue(defaults, CFSTR(WebKitExperimentalWebSocketsEnabledPreferenceKey), kCFBooleanFalse);
     CFDictionaryAddValue(defaults, CFSTR(WebKitAllowAnimatedImagesPreferenceKey), kCFBooleanTrue);
     CFDictionaryAddValue(defaults, CFSTR(WebKitAllowAnimatedImageLoopingPreferenceKey), kCFBooleanTrue);
     CFDictionaryAddValue(defaults, CFSTR(WebKitDisplayImagesKey), kCFBooleanTrue);
@@ -246,6 +250,13 @@ void WebPreferences::initializeDefaultSettings()
     CFDictionaryAddValue(defaults, CFSTR(WebKitOfflineWebApplicationCacheEnabledPreferenceKey), kCFBooleanFalse);
 
     CFDictionaryAddValue(defaults, CFSTR(WebKitPaintNativeControlsPreferenceKey), kCFBooleanTrue);
+
+    CFDictionaryAddValue(defaults, CFSTR(WebKitUseHighResolutionTimersPreferenceKey), kCFBooleanTrue);
+
+    CFDictionaryAddValue(defaults, CFSTR(WebKitPluginHalterEnabledPreferenceKey), kCFBooleanFalse);
+
+    RetainPtr<CFStringRef> pluginAllowedRunTime(AdoptCF, CFStringCreateWithFormat(0, 0, CFSTR("%u"), numeric_limits<unsigned>::max()));
+    CFDictionaryAddValue(defaults, CFSTR(WebKitPluginAllowedRunTimePreferenceKey), pluginAllowedRunTime.get());
 
     defaultSettings = defaults;
 }
@@ -1289,6 +1300,30 @@ HRESULT STDMETHODCALLTYPE WebPreferences::setLocalStorageDatabasePath(BSTR locat
     return S_OK;
 }
 
+HRESULT STDMETHODCALLTYPE WebPreferences::setExperimentalNotificationsEnabled(BOOL enabled)
+{
+    setBoolValue(CFSTR(WebKitExperimentalNotificationsEnabledPreferenceKey), enabled);
+    return S_OK;
+}
+
+HRESULT STDMETHODCALLTYPE WebPreferences::experimentalNotificationsEnabled(BOOL* enabled)
+{
+    *enabled = boolValueForKey(CFSTR(WebKitExperimentalNotificationsEnabledPreferenceKey));
+    return S_OK;
+}
+
+HRESULT STDMETHODCALLTYPE WebPreferences::setExperimentalWebSocketsEnabled(BOOL enabled)
+{
+    setBoolValue(CFSTR(WebKitExperimentalWebSocketsEnabledPreferenceKey), enabled);
+    return S_OK;
+}
+
+HRESULT STDMETHODCALLTYPE WebPreferences::experimentalWebSocketsEnabled(BOOL* enabled)
+{
+    *enabled = boolValueForKey(CFSTR(WebKitExperimentalWebSocketsEnabledPreferenceKey));
+    return S_OK;
+}
+
 HRESULT WebPreferences::setZoomsTextOnly(BOOL zoomsTextOnly)
 {
     setBoolValue(CFSTR(WebKitZoomsTextOnlyPreferenceKey), zoomsTextOnly);
@@ -1298,6 +1333,54 @@ HRESULT WebPreferences::setZoomsTextOnly(BOOL zoomsTextOnly)
 HRESULT WebPreferences::zoomsTextOnly(BOOL* zoomsTextOnly)
 {
     *zoomsTextOnly = boolValueForKey(CFSTR(WebKitZoomsTextOnlyPreferenceKey));
+    return S_OK;
+}
+
+HRESULT STDMETHODCALLTYPE WebPreferences::setShouldUseHighResolutionTimers(BOOL useHighResolutionTimers)
+{
+    setBoolValue(CFSTR(WebKitUseHighResolutionTimersPreferenceKey), useHighResolutionTimers);
+    return S_OK;
+}
+
+HRESULT STDMETHODCALLTYPE WebPreferences::shouldUseHighResolutionTimers(BOOL* useHighResolutionTimers)
+{
+    *useHighResolutionTimers = boolValueForKey(CFSTR(WebKitUseHighResolutionTimersPreferenceKey));
+    return S_OK;
+}
+
+
+HRESULT STDMETHODCALLTYPE WebPreferences::setPluginHalterEnabled(BOOL enabled)
+{
+    setBoolValue(CFSTR(WebKitPluginHalterEnabledPreferenceKey), enabled);
+    return S_OK;
+}
+
+HRESULT STDMETHODCALLTYPE WebPreferences::pluginHalterEnabled(BOOL* enabled)
+{
+    *enabled = boolValueForKey(CFSTR(WebKitPluginHalterEnabledPreferenceKey));
+    return S_OK;
+}
+
+HRESULT WebPreferences::setPluginAllowedRunTime(UINT allowedRunTime)
+{
+    setIntegerValue(CFSTR(WebKitPluginAllowedRunTimePreferenceKey), allowedRunTime);
+    return S_OK;
+}
+
+HRESULT WebPreferences::pluginAllowedRunTime(UINT* allowedRunTime)
+{
+    *allowedRunTime = integerValueForKey(CFSTR(WebKitPluginAllowedRunTimePreferenceKey));
+    return S_OK;
+}
+
+HRESULT WebPreferences::setPreferenceForTest(BSTR key, BSTR value)
+{
+    if (!SysStringLen(key) || !SysStringLen(value))
+        return E_FAIL;
+    RetainPtr<CFStringRef> keyString(AdoptCF, CFStringCreateWithCharacters(0, reinterpret_cast<UniChar*>(key), SysStringLen(key)));
+    RetainPtr<CFStringRef> valueString(AdoptCF, CFStringCreateWithCharacters(0, reinterpret_cast<UniChar*>(value), SysStringLen(value)));
+    setValueForKey(keyString.get(), valueString.get());
+    postPreferencesChangesNotification();
     return S_OK;
 }
 

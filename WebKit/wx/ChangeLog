@@ -1,3 +1,234 @@
+2009-10-07  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Darin Adler.
+
+        Factor PolicyChecker out of FrameLoader
+        https://bugs.webkit.org/show_bug.cgi?id=30155
+
+        Move the policy callback to the policy object.
+
+        * WebKitSupport/FrameLoaderClientWx.cpp:
+        (WebCore::FrameLoaderClientWx::dispatchWillSubmitForm):
+        (WebCore::FrameLoaderClientWx::dispatchDecidePolicyForMIMEType):
+        (WebCore::FrameLoaderClientWx::dispatchDecidePolicyForNewWindowAction):
+        (WebCore::FrameLoaderClientWx::dispatchDecidePolicyForNavigationAction):
+
+2009-09-25  Kevin Ollivier  <kevino@theolliviers.com>
+
+        wx build fix. Add EmptyPluginHalterClient when creating the Page.
+
+        * WebView.cpp:
+        (wxWebView::Create):
+
+2009-09-22  Kevin Ollivier  <kevino@theolliviers.com>
+
+        Build fix to ensure the import library gets properly installed on Windows.
+
+        * wscript:
+
+2009-09-17  Kenneth Rohde Christiansen  <kenneth@webkit.org>
+
+        Reviewed by Simon Hausmann.
+
+        Make PlatformWindow return something else than PlatformWidget
+        https://bugs.webkit.org/show_bug.cgi?id=29085
+
+        Reflect the rename of platformWindow and it's return type.
+
+        * WebKitSupport/ChromeClientWx.cpp:
+        (WebCore::ChromeClientWx::platformPageClient):
+        * WebKitSupport/ChromeClientWx.h:
+        * WebKitSupport/EditorClientWx.cpp:
+        (WebCore::EditorClientWx::isEditable):
+        (WebCore::EditorClientWx::registerCommandForUndo):
+        (WebCore::EditorClientWx::registerCommandForRedo):
+        (WebCore::EditorClientWx::clearUndoRedoOperations):
+        (WebCore::EditorClientWx::canUndo):
+        (WebCore::EditorClientWx::canRedo):
+        (WebCore::EditorClientWx::undo):
+        (WebCore::EditorClientWx::redo):
+
+2009-09-16  Kevin Ollivier  <kevino@theolliviers.com>
+
+        wxPython bindings build fixes after recent changes.
+
+        * WebView.h:
+        * bindings/python/wscript:
+
+2009-09-13  Kevin Watters  <kevinwatters@gmail.com>
+
+        Reviewed by Kevin Ollivier.
+
+        Allow a way to set the cache policy via wx API.
+        
+        https://bugs.webkit.org/show_bug.cgi?id=29200
+
+        * WebView.cpp:
+        (wxWebView::SetCachePolicy):
+        (wxWebView::GetCachePolicy):
+        * WebView.h:
+
+2009-09-13  Kevin Watters  <kevinwatters@gmail.com>
+
+        Reviewed by Kevin Ollivier.
+
+        Allow the user to query Frame::shouldClose via wx API.
+        
+        https://bugs.webkit.org/show_bug.cgi?id=29199
+
+        * WebFrame.cpp:
+        (wxWebFrame::ShouldClose):
+        * WebFrame.h:
+        * WebView.cpp:
+        (wxWebView::ShouldClose):
+        * WebView.h:
+
+2009-09-13  Kevin Watters  <kevinwatters@gmail.com>
+
+        Reviewed by Kevin Ollivier.
+
+        Fix mouse handling when the mouse leaves the window during mouse down.
+        
+        https://bugs.webkit.org/show_bug.cgi?id=29198
+
+        * WebView.cpp:
+        (wxWebView::OnMouseEvents):
+
+2009-09-13  Kevin Watters  <kevinwatters@gmail.com>
+
+        Reviewed by Kevin Ollivier.
+
+        Add support for console MessageLevel at wx API level.
+        
+        https://bugs.webkit.org/show_bug.cgi?id=29197
+
+        * WebKitSupport/ChromeClientWx.cpp:
+        (WebCore::ChromeClientWx::addMessageToConsole):
+        * WebView.h:
+
+2009-09-03  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by eric@webkit.org.
+
+        https://bugs.webkit.org/show_bug.cgi?id=24696
+
+        Stub implementations of mixed content methods of FrameLoaderClient. 
+
+        * WebKitSupport/FrameLoaderClientWx.cpp:
+        (WebCore::FrameLoaderClientWx::didDisplayInsecureContent):
+        (WebCore::FrameLoaderClientWx::didRunInsecureContent):
+        * WebKitSupport/FrameLoaderClientWx.h:
+
+2009-09-03  Kevin Watters  <kevinwatters@gmail.com>
+
+        Reviewed by Kevin Ollivier.
+
+        [wx] Frames support
+        https://bugs.webkit.org/show_bug.cgi?id=19041
+
+        * WebFrame.cpp:
+        (wxWebFrame::wxWebFrame):
+        (wxWebFrame::~wxWebFrame):
+        (wxWebFrame::GetFrame):
+        * WebFrame.h:
+        * WebFramePrivate.h:
+        * WebKitSupport/ChromeClientWx.cpp:
+        (WebCore::ChromeClientWx::platformWindow):
+        (WebCore::ChromeClientWx::scroll):
+        * WebKitSupport/EditorClientWx.cpp:
+        (WebCore::EditorClientWx::isEditable):
+        (WebCore::EditorClientWx::registerCommandForUndo):
+        (WebCore::EditorClientWx::registerCommandForRedo):
+        (WebCore::EditorClientWx::clearUndoRedoOperations):
+        (WebCore::EditorClientWx::canUndo):
+        (WebCore::EditorClientWx::canRedo):
+        (WebCore::EditorClientWx::undo):
+        (WebCore::EditorClientWx::redo):
+        * WebKitSupport/FrameLoaderClientWx.cpp:
+        (WebCore::FrameLoaderClientWx::FrameLoaderClientWx):
+        (WebCore::FrameLoaderClientWx::setFrame):
+        (WebCore::FrameLoaderClientWx::dispatchWillSubmitForm):
+        (WebCore::FrameLoaderClientWx::frameLoaderDestroyed):
+        (WebCore::FrameLoaderClientWx::committedLoad):
+        (WebCore::FrameLoaderClientWx::dispatchDecidePolicyForMIMEType):
+        (WebCore::FrameLoaderClientWx::dispatchDecidePolicyForNewWindowAction):
+        (WebCore::FrameLoaderClientWx::dispatchDecidePolicyForNavigationAction):
+        (WebCore::FrameLoaderClientWx::createFrame):
+        (WebCore::FrameLoaderClientWx::transitionToCommittedForNewPage):
+        * WebKitSupport/FrameLoaderClientWx.h:
+        * WebView.h:
+        * WebViewPrivate.h:
+
+2009-09-02  Kevin Ollivier  <kevino@theolliviers.com>
+
+        waf build fixes for Windows/MSVC.
+
+        * bindings/python/wscript:
+        * wscript:
+
+2009-09-02  Kevin Watters  <kevinwatters@gmail.com>
+
+        Reviewed by Kevin Ollivier.
+
+        wx port: Call WTF::initializeThreading().
+        https://bugs.webkit.org/show_bug.cgi?id=28912
+
+        * WebView.cpp:
+        (wxWebView::Create): call WTF::initializeThreading()
+
+2009-09-02  Kevin Ollivier  <kevino@theolliviers.com>
+
+        wx build fix. Use the 2 param KURL constructor.
+
+        * WebFrame.cpp:
+        (wxWebFrame::SetPageSource):
+
+2009-08-31  Alexey Proskuryakov  <ap@webkit.org>
+
+        Reviewed by Darin Adler.
+
+        https://bugs.webkit.org/show_bug.cgi?id=28852
+        Rename KURL single argument constructor to avoid confusion
+
+        * WebFrame.cpp: (wxWebFrame::SetPageSource): Adapt to the change.
+
+2009-08-28  Gustavo Noronha Silva  <gustavo.noronha@collabora.co.uk>
+
+        Reviewed by Holger Freyther.
+
+        https://bugs.webkit.org/show_bug.cgi?id=25889
+        [GTK] scrollbar policy for main frame is not implementable
+
+        Add empty implementation for new ChromeClient method.
+
+        * WebKitSupport/ChromeClientWx.h:
+        (WebCore::ChromeClientWx::scrollbarsModeDidChange):
+
+2009-08-19  Kevin Watters  <kevinwatters@gmail.com>
+
+        Reviewed by Kevin Ollivier.
+
+        Use FrameLoader::load() for loading pages from a HTML page string to address
+        bugs with using begin/write/end loading.
+        
+        https://bugs.webkit.org/show_bug.cgi?id=28488
+
+        * WebFrame.cpp:
+        (wxWebFrame::SetPageSource):
+
+2009-08-13  Kevin Ollivier  <kevino@theolliviers.com>
+
+        wx build fix. Make sure that the wxWebKit dynamic library is rebuilt whenever
+        webcore or jscore libs change.
+
+        * wscript:
+
+2009-08-12  Kevin Ollivier  <kevino@theolliviers.com>
+
+        wxPython build fix, the SWIG defines must also be available when compiling.
+
+        * bindings/python/wscript:
+
 2009-08-05  Kevin Ollivier  <kevino@theolliviers.com>
 
         Reviewed by Eric Seidel.

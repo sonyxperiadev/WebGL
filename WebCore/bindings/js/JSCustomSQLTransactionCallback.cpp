@@ -32,9 +32,11 @@
 #if ENABLE(DATABASE)
 
 #include "Frame.h"
-#include "ScriptController.h"
+#include "JSCallbackData.h"
+#include "JSDOMGlobalObject.h"
 #include "JSSQLTransaction.h"
 #include "Page.h"
+#include "ScriptController.h"
 #include <runtime/JSLock.h>
 #include <wtf/MainThread.h>
 #include <wtf/RefCountedLeakCounter.h>
@@ -47,39 +49,17 @@ using namespace JSC;
 static WTF::RefCountedLeakCounter counter("JSCustomSQLTransactionCallback");
 #endif
 
-// We have to clean up the data on the main thread for two reasons:
-//
-//     1) Can't deref a Frame on a non-main thread.
-//     2) Unprotecting the JSObject on a non-main thread would register that thread
-//        for JavaScript garbage collection, which could unnecessarily slow things down.
-
-class JSCustomSQLTransactionCallback::Data {
-public:
-    Data(JSObject* callback, Frame* frame) : m_callback(callback), m_frame(frame) { }
-    JSObject* callback() { return m_callback; }
-    Frame* frame() { return m_frame.get(); }
-
-private:
-    ProtectedPtr<JSObject> m_callback;
-    RefPtr<Frame> m_frame;
-};
-
-JSCustomSQLTransactionCallback::JSCustomSQLTransactionCallback(JSObject* callback, Frame* frame)
-    : m_data(new Data(callback, frame))
+JSCustomSQLTransactionCallback::JSCustomSQLTransactionCallback(JSObject* callback, JSDOMGlobalObject* globalObject)
+    : m_data(new JSCallbackData(callback, globalObject))
 {
 #ifndef NDEBUG
     counter.increment();
 #endif
 }
 
-void JSCustomSQLTransactionCallback::deleteData(void* context)
-{
-    delete static_cast<Data*>(context);
-}
-
 JSCustomSQLTransactionCallback::~JSCustomSQLTransactionCallback()
 {
-    callOnMainThread(deleteData, m_data);
+    callOnMainThread(JSCallbackData::deleteData, m_data);
 #ifndef NDEBUG
     m_data = 0;
     counter.decrement();
@@ -89,51 +69,14 @@ JSCustomSQLTransactionCallback::~JSCustomSQLTransactionCallback()
 void JSCustomSQLTransactionCallback::handleEvent(SQLTransaction* transaction, bool& raisedException)
 {
     ASSERT(m_data);
-    ASSERT(m_data->callback());
-    ASSERT(m_data->frame());
 
-    if (!m_data->frame()->script()->isEnabled())
-        return;
-
-    // FIXME: This is likely the wrong globalObject (for prototype chains at least)
-    JSGlobalObject* globalObject = m_data->frame()->script()->globalObject();
-    ExecState* exec = globalObject->globalExec();
-        
-    JSC::JSLock lock(SilenceAssertionsOnly);
-        
-    JSValue handleEventFunction = m_data->callback()->get(exec, Identifier(exec, "handleEvent"));
-    CallData handleEventCallData;
-    CallType handleEventCallType = handleEventFunction.getCallData(handleEventCallData);
-    CallData callbackCallData;
-    CallType callbackCallType = CallTypeNone;
-
-    if (handleEventCallType == CallTypeNone) {
-        callbackCallType = m_data->callback()->getCallData(callbackCallData);
-        if (callbackCallType == CallTypeNone) {
-            // FIXME: Should an exception be thrown here?
-            return;
-        }
-    }
-        
     RefPtr<JSCustomSQLTransactionCallback> protect(this);
         
+    JSC::JSLock lock(SilenceAssertionsOnly);
+    ExecState* exec = m_data->globalObject()->globalExec();
     MarkedArgumentBuffer args;
     args.append(toJS(exec, deprecatedGlobalObjectForPrototype(exec), transaction));
-
-    globalObject->globalData()->timeoutChecker.start();
-    if (handleEventCallType != CallTypeNone)
-        call(exec, handleEventFunction, handleEventCallType, handleEventCallData, m_data->callback(), args);
-    else
-        call(exec, m_data->callback(), callbackCallType, callbackCallData, m_data->callback(), args);
-    globalObject->globalData()->timeoutChecker.stop();
-        
-    if (exec->hadException()) {
-        reportCurrentException(exec);
-        
-        raisedException = true;
-    }
-        
-    Document::updateStyleForAllDocuments();
+    m_data->invokeCallback(args, &raisedException);
 }
     
 }

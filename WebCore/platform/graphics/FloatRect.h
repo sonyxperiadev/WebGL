@@ -33,7 +33,7 @@
 typedef struct CGRect CGRect;
 #endif
 
-#if PLATFORM(MAC)
+#if PLATFORM(MAC) || (PLATFORM(CHROMIUM) && PLATFORM(DARWIN))
 #ifdef NSGEOMETRY_TYPES_SAME_AS_CGGEOMETRY_TYPES
 typedef struct CGRect NSRect;
 #else
@@ -51,7 +51,15 @@ QT_END_NAMESPACE
 class wxRect2DDouble;
 #endif
 
+<<<<<<< HEAD:WebCore/platform/graphics/FloatRect.h
 #if (PLATFORM(SKIA) || PLATFORM(SGL))
+=======
+#if PLATFORM(HAIKU)
+class BRect;
+#endif
+
+#if PLATFORM(SKIA)
+>>>>>>> webkit.org at 49305:WebCore/platform/graphics/FloatRect.h
 struct SkRect;
 #endif
 
@@ -123,7 +131,8 @@ public:
     operator CGRect() const;
 #endif
 
-#if PLATFORM(MAC) && !defined(NSGEOMETRY_TYPES_SAME_AS_CGGEOMETRY_TYPES)
+#if (PLATFORM(MAC) && !defined(NSGEOMETRY_TYPES_SAME_AS_CGGEOMETRY_TYPES)) \
+        || (PLATFORM(CHROMIUM) && PLATFORM(DARWIN))
     FloatRect(const NSRect&);
     operator NSRect() const;
 #endif
@@ -138,7 +147,16 @@ public:
     operator wxRect2DDouble() const;
 #endif
 
+<<<<<<< HEAD:WebCore/platform/graphics/FloatRect.h
 #if (PLATFORM(SKIA) || PLATFORM(SGL))
+=======
+#if PLATFORM(HAIKU)
+    FloatRect(const BRect&);
+    operator BRect() const;
+#endif
+
+#if PLATFORM(SKIA)
+>>>>>>> webkit.org at 49305:WebCore/platform/graphics/FloatRect.h
     FloatRect(const SkRect&);
     operator SkRect() const;
 #endif

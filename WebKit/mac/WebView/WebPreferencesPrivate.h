@@ -107,6 +107,18 @@ extern NSString *WebPreferencesRemovedNotification;
 - (BOOL)isXSSAuditorEnabled;
 - (void)setXSSAuditorEnabled:(BOOL)flag;
 
+- (BOOL)experimentalNotificationsEnabled;
+- (void)setExperimentalNotificationsEnabled:(BOOL)notificationsEnabled;
+
+- (BOOL)experimentalWebSocketsEnabled;
+- (void)setExperimentalWebSocketsEnabled:(BOOL)websocketsEnabled;
+
+- (BOOL)pluginHalterEnabled;
+- (void)setPluginHalterEnabled:(BOOL)enabled;
+
+- (unsigned)pluginAllowedRunTime;
+- (void)setPluginAllowedRunTime:(unsigned)allowedRunTime;
+
 // zero means do AutoScale
 - (float)PDFScaleFactor;
 - (void)setPDFScaleFactor:(float)scale;
@@ -116,6 +128,10 @@ extern NSString *WebPreferencesRemovedNotification;
 
 - (WebTextDirectionSubmenuInclusionBehavior)textDirectionSubmenuInclusionBehavior;
 - (void)setTextDirectionSubmenuInclusionBehavior:(WebTextDirectionSubmenuInclusionBehavior)behavior;
+
+// Used to set preference specified in the test via LayoutTestController.overridePreference(..).
+// For use with DumpRenderTree only.
+- (void)_setPreferenceForTestWithValue:(NSString *)value forKey:(NSString *)key;
 
 // If site-specific spoofing is enabled, some pages that do inappropriate user-agent string checks will be
 // passed a nonstandard user-agent string to get them to work correctly. This method might be removed in
@@ -138,6 +154,9 @@ extern NSString *WebPreferencesRemovedNotification;
 
 - (BOOL)acceleratedCompositingEnabled;
 - (void)setAcceleratedCompositingEnabled:(BOOL)enabled;
+
+- (BOOL)webGLEnabled;
+- (void)setWebGLEnabled:(BOOL)enabled;
 
 // Other private methods
 - (void)_postPreferencesChangesNotification;

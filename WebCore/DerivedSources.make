@@ -1,5 +1,6 @@
 # Copyright (C) 2006, 2007, 2008 Apple Inc. All rights reserved.
 # Copyright (C) 2006 Samuel Weinig <sam.weinig@gmail.com> 
+# Copyright (C) 2009 Cameron McCormack <cam@mcc.id.au>
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -35,6 +36,7 @@ VPATH = \
     $(WebCore)/html/canvas \
     $(WebCore)/inspector \
     $(WebCore)/loader/appcache \
+    $(WebCore)/notifications \
     $(WebCore)/page \
     $(WebCore)/plugins \
     $(WebCore)/storage \
@@ -50,6 +52,7 @@ DOM_CLASSES = \
     AbstractWorker \
     Attr \
     BarInfo \
+    BeforeLoadEvent \
     CDATASection \
     CSSCharsetRule \
     CSSFontFaceRule \
@@ -67,9 +70,26 @@ DOM_CLASSES = \
     CSSValueList \
     CSSVariablesRule \
     CSSVariablesDeclaration \
+    CanvasArray \
+    CanvasArrayBuffer \
+    CanvasBuffer \
+    CanvasByteArray \
+    CanvasFloatArray \
+    CanvasFramebuffer \
     CanvasGradient \
+    CanvasIntArray \
     CanvasPattern \
+    CanvasProgram \
+    CanvasRenderbuffer \
+    CanvasRenderingContext \
     CanvasRenderingContext2D \
+    CanvasRenderingContext3D \
+    CanvasShader \
+    CanvasShortArray \
+    CanvasTexture \
+    CanvasUnsignedByteArray \
+    CanvasUnsignedIntArray \
+    CanvasUnsignedShortArray \
     CharacterData \
     ClientRect \
     ClientRectList \
@@ -99,6 +119,7 @@ DOM_CLASSES = \
     Event \
     EventException \
     EventListener \
+    EventSource \
     EventTarget \
     File \
     FileList \
@@ -120,6 +141,7 @@ DOM_CLASSES = \
     HTMLDataGridCellElement \
     HTMLDataGridColElement \
     HTMLDataGridRowElement \
+    HTMLDataListElement \
     HTMLDListElement \
     HTMLDirectoryElement \
     HTMLDivElement \
@@ -194,7 +216,10 @@ DOM_CLASSES = \
     NodeIterator \
     NodeList \
     Notation \
+    Notification \
+    NotificationCenter \
     OverflowEvent \
+    PageTransitionEvent \
     Plugin \
     PluginArray \
     PositionError \
@@ -238,7 +263,6 @@ DOM_CLASSES = \
     SVGColor \
     SVGComponentTransferFunctionElement \
     SVGCursorElement \
-    SVGDefinitionSrcElement \
     SVGDefsElement \
     SVGDescElement \
     SVGDocument \
@@ -367,7 +391,6 @@ DOM_CLASSES = \
     TreeWalker \
     UIEvent \
     ValidityState \
-    VoidCallback \
     WebKitAnimationEvent \
     WebKitCSSKeyframeRule \
     WebKitCSSKeyframesRule \
@@ -396,8 +419,10 @@ DOM_CLASSES = \
 
 .PHONY : all
 
+JS_DOM_HEADERS=$(filter-out JSEventListener.h JSEventTarget.h,$(DOM_CLASSES:%=JS%.h))
+
 all : \
-    $(filter-out JSEventListener.h JSEventTarget.h,$(DOM_CLASSES:%=JS%.h)) \
+    $(JS_DOM_HEADERS) \
     \
     JSJavaScriptCallFrame.h \
     \
@@ -417,27 +442,49 @@ all : \
     UserAgentStyleSheets.h \
     XLinkNames.cpp \
     XMLNames.cpp \
+    MathMLElementFactory.cpp \
+    MathMLNames.cpp \
     XPathGrammar.cpp \
     tokenizer.cpp \
 #
 
 # --------
 
+ADDITIONAL_IDL_DEFINES :=
+
 ifeq ($(OS),MACOS)
 
-FRAMEWORK_FLAGS = $(shell echo $(FRAMEWORK_SEARCH_PATHS) | perl -e 'print "-F " . join(" -F ", split(" ", <>));')
+FRAMEWORK_FLAGS = $(shell echo $(BUILT_PRODUCTS_DIR) $(FRAMEWORK_SEARCH_PATHS) | perl -e 'print "-F " . join(" -F ", split(" ", <>));')
 
-ifeq ($(shell gcc -E -P -dM -F $(BUILT_PRODUCTS_DIR) $(FRAMEWORK_FLAGS) WebCore/ForwardingHeaders/wtf/Platform.h | grep ENABLE_DASHBOARD_SUPPORT | cut -d' ' -f3), 1)
+ifeq ($(shell gcc -E -P -dM $(FRAMEWORK_FLAGS) WebCore/ForwardingHeaders/wtf/Platform.h | grep ENABLE_DASHBOARD_SUPPORT | cut -d' ' -f3), 1)
     ENABLE_DASHBOARD_SUPPORT = 1
 else
     ENABLE_DASHBOARD_SUPPORT = 0
 endif
 
+ifeq ($(shell gcc -E -P -dM $(FRAMEWORK_FLAGS) WebCore/ForwardingHeaders/wtf/Platform.h | grep ENABLE_ORIENTATION_EVENTS | cut -d' ' -f3), 1)
+    ENABLE_ORIENTATION_EVENTS = 1
+else
+    ENABLE_ORIENTATION_EVENTS = 0
+endif
+
 else
 
-ENABLE_DASHBOARD_SUPPORT = 0
-
+ifndef ENABLE_DASHBOARD_SUPPORT
+    ENABLE_DASHBOARD_SUPPORT = 0
 endif
+
+ifndef ENABLE_ORIENTATION_EVENTS
+    ENABLE_ORIENTATION_EVENTS = 0
+endif
+
+endif # MACOS
+
+ifeq ($(ENABLE_ORIENTATION_EVENTS), 1)
+    ADDITIONAL_IDL_DEFINES := $(ADDITIONAL_IDL_DEFINES) ENABLE_ORIENTATION_EVENTS
+endif
+
+# --------
 
 # CSS property names and value keywords
 
@@ -458,14 +505,14 @@ endif
 # 2. Lines containing only whitespace
 # These two types of lines will be ignored by make{prop,values}.pl.
 CSSPropertyNames.h : $(WEBCORE_CSS_PROPERTY_NAMES) css/makeprop.pl
-	if sort $(WEBCORE_CSS_PROPERTY_NAMES) | uniq -d | grep -E -v '(^#)|(^[[:space:]]*$)'; then echo 'Duplicate value!'; exit 1; fi
+	if sort $(WEBCORE_CSS_PROPERTY_NAMES) | uniq -d | grep -E -v '(^#)|(^[[:space:]]*$$)'; then echo 'Duplicate value!'; exit 1; fi
 	cat $(WEBCORE_CSS_PROPERTY_NAMES) > CSSPropertyNames.in
 	perl "$(WebCore)/css/makeprop.pl"
 
 CSSValueKeywords.h : $(WEBCORE_CSS_VALUE_KEYWORDS) css/makevalues.pl
 	# Lower case all the values, as CSS values are case-insensitive
 	perl -ne 'print lc' $(WEBCORE_CSS_VALUE_KEYWORDS) > CSSValueKeywords.in
-	if sort CSSValueKeywords.in | uniq -d | grep -E -v '(^#)|(^[[:space:]]*$)'; then echo 'Duplicate value!'; exit 1; fi
+	if sort CSSValueKeywords.in | uniq -d | grep -E -v '(^#)|(^[[:space:]]*$$)'; then echo 'Duplicate value!'; exit 1; fi
 	perl "$(WebCore)/css/makevalues.pl"
 
 # --------
@@ -540,10 +587,14 @@ ifeq ($(findstring ENABLE_WML,$(FEATURE_DEFINES)), ENABLE_WML)
     USER_AGENT_STYLE_SHEETS := $(USER_AGENT_STYLE_SHEETS) $(WebCore)/css/wml.css
 endif
 
+ifeq ($(findstring ENABLE_MATHML,$(FEATURE_DEFINES)), ENABLE_MATHML)
+    USER_AGENT_STYLE_SHEETS := $(USER_AGENT_STYLE_SHEETS) $(WebCore)/css/mathml.css
+endif
+
 ifeq ($(findstring ENABLE_VIDEO,$(FEATURE_DEFINES)), ENABLE_VIDEO)
     USER_AGENT_STYLE_SHEETS := $(USER_AGENT_STYLE_SHEETS) $(WebCore)/css/mediaControls.css
 ifeq ($(OS),MACOS)
-    USER_AGENT_STYLE_SHEETS := $(USER_AGENT_STYLE_SHEETS) $(WebCore)/css/mediaControlsQT.css
+    USER_AGENT_STYLE_SHEETS := $(USER_AGENT_STYLE_SHEETS) $(WebCore)/css/mediaControlsQuickTime.css
 endif
 endif
 
@@ -553,6 +604,10 @@ UserAgentStyleSheets.h : css/make-css-file-arrays.pl $(USER_AGENT_STYLE_SHEETS)
 # --------
 
 # HTML tag and attribute names
+
+ifeq ($(findstring ENABLE_DATALIST,$(FEATURE_DEFINES)), ENABLE_DATALIST)
+    HTML_FLAGS := $(HTML_FLAGS) ENABLE_DATALIST=1
+endif
 
 ifeq ($(findstring ENABLE_VIDEO,$(FEATURE_DEFINES)), ENABLE_VIDEO)
     HTML_FLAGS := $(HTML_FLAGS) ENABLE_VIDEO=1
@@ -677,13 +732,33 @@ WMLNames.cpp :
 
 endif
 
+# --------
+ 
+# MathML tag and attribute names, and element factory
+
+ifeq ($(findstring ENABLE_MATHML,$(FEATURE_DEFINES)), ENABLE_MATHML)
+
+MathMLElementFactory.cpp MathMLNames.cpp : dom/make_names.pl mathml/mathtags.in
+	perl -I $(WebCore)/bindings/scripts $< --tags $(WebCore)/mathml/mathtags.in --factory --wrapperFactory
+
+else
+
+MathMLElementFactory.cpp :
+	echo > $@
+
+MathMLNames.cpp :
+	echo > $@
+
+endif
+
+
 
 # --------
 
 # JavaScript bindings
 
 GENERATE_BINDINGS = perl -I $(WebCore)/bindings/scripts $(WebCore)/bindings/scripts/generate-bindings.pl \
-    --include dom --include html --include css --include page --include xml --include svg --outputDir .
+    --include dom --include html --include css --include page --include notifications --include xml --include svg --write-dependencies --outputDir .
 
 GENERATE_BINDINGS_SCRIPTS = \
     bindings/scripts/CodeGenerator.pm \
@@ -693,7 +768,9 @@ GENERATE_BINDINGS_SCRIPTS = \
 #
 
 JS%.h : %.idl $(GENERATE_BINDINGS_SCRIPTS) bindings/scripts/CodeGeneratorJS.pm
-	$(GENERATE_BINDINGS) --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator JS $<
+	$(GENERATE_BINDINGS) --defines "$(FEATURE_DEFINES) $(ADDITIONAL_IDL_DEFINES) LANGUAGE_JAVASCRIPT" --generator JS $<
+
+-include $(JS_DOM_HEADERS:.h=.dep)
 
 # ------------------------
 
@@ -701,9 +778,11 @@ JS%.h : %.idl $(GENERATE_BINDINGS_SCRIPTS) bindings/scripts/CodeGeneratorJS.pm
 
 ifeq ($(OS),MACOS)
 
-all : $(filter-out DOMDOMWindow.h DOMMimeType.h DOMPlugin.h,$(DOM_CLASSES:%=DOM%.h))
+OBJC_DOM_HEADERS=$(filter-out DOMDOMWindow.h DOMMimeType.h DOMPlugin.h,$(DOM_CLASSES:%=DOM%.h))
 
-all : CharsetData.cpp WebCore.exp
+all : $(OBJC_DOM_HEADERS)
+
+all : CharsetData.cpp WebCore.exp WebCore.LP64.exp
 
 # --------
 
@@ -716,17 +795,40 @@ CharsetData.cpp : platform/text/mac/make-charset-table.pl platform/text/mac/char
 
 # export file
 
-ifeq ($(shell gcc -E -P -dM -F $(BUILT_PRODUCTS_DIR) $(FRAMEWORK_FLAGS) WebCore/ForwardingHeaders/wtf/Platform.h | grep ENABLE_MAC_JAVA_BRIDGE | cut -d' ' -f3), 1)
+ifeq ($(shell gcc -E -P -dM $(FRAMEWORK_FLAGS) WebCore/ForwardingHeaders/wtf/Platform.h | grep ENABLE_MAC_JAVA_BRIDGE | cut -d' ' -f3), 1)
     WEBCORE_EXPORT_DEPENDENCIES := $(WEBCORE_EXPORT_DEPENDENCIES) WebCore.JNI.exp
 endif
 
-# See also "Generate 64-bit Export File" build phase script in WebCore.xcodeproj/project.pbxproj
-ifeq ($(shell gcc -E -P -dM -F $(BUILT_PRODUCTS_DIR) $(FRAMEWORK_FLAGS) WebCore/ForwardingHeaders/wtf/Platform.h | grep ENABLE_NETSCAPE_PLUGIN_API | cut -d' ' -f3), 1)
+ifeq ($(shell gcc -E -P -dM $(FRAMEWORK_FLAGS) WebCore/ForwardingHeaders/wtf/Platform.h | grep ENABLE_NETSCAPE_PLUGIN_API | cut -d' ' -f3), 1)
     WEBCORE_EXPORT_DEPENDENCIES := $(WEBCORE_EXPORT_DEPENDENCIES) WebCore.NPAPI.exp
+endif
+
+ifeq ($(shell gcc -E -P -dM $(FRAMEWORK_FLAGS) WebCore/ForwardingHeaders/wtf/Platform.h | grep WTF_USE_PLUGIN_HOST_PROCESS | cut -d' ' -f3), 1)
+    WEBCORE_EXPORT_DEPENDENCIES := $(WEBCORE_EXPORT_DEPENDENCIES) WebCore.PluginHostProcess.exp
+endif
+
+ifeq ($(findstring ENABLE_3D_RENDERING,$(FEATURE_DEFINES)), ENABLE_3D_RENDERING)
+    WEBCORE_EXPORT_DEPENDENCIES := $(WEBCORE_EXPORT_DEPENDENCIES) WebCore.3DRendering.exp
+endif
+
+ifeq ($(shell gcc -E -P -dM $(FRAMEWORK_FLAGS) WebCore/ForwardingHeaders/wtf/Platform.h | grep ENABLE_CONTEXT_MENUS | cut -d' ' -f3), 1)
+    WEBCORE_EXPORT_DEPENDENCIES := $(WEBCORE_EXPORT_DEPENDENCIES) WebCore.ContextMenus.exp
 endif
 
 ifeq ($(ENABLE_DASHBOARD_SUPPORT), 1)
     WEBCORE_EXPORT_DEPENDENCIES := $(WEBCORE_EXPORT_DEPENDENCIES) WebCore.DashboardSupport.exp
+endif
+
+ifeq ($(shell gcc -E -P -dM $(FRAMEWORK_FLAGS) WebCore/ForwardingHeaders/wtf/Platform.h | grep ENABLE_DRAG_SUPPORT | cut -d' ' -f3), 1)
+    WEBCORE_EXPORT_DEPENDENCIES := $(WEBCORE_EXPORT_DEPENDENCIES) WebCore.DragSupport.exp
+endif
+
+ifeq ($(shell gcc -E -P -dM $(FRAMEWORK_FLAGS) WebCore/ForwardingHeaders/wtf/Platform.h | grep ENABLE_INSPECTOR | cut -d' ' -f3), 1)
+    WEBCORE_EXPORT_DEPENDENCIES := $(WEBCORE_EXPORT_DEPENDENCIES) WebCore.Inspector.exp
+endif
+
+ifeq ($(ENABLE_ORIENTATION_EVENTS), 1)
+    WEBCORE_EXPORT_DEPENDENCIES := $(WEBCORE_EXPORT_DEPENDENCIES) WebCore.OrientationEvents.exp
 endif
 
 ifeq ($(findstring 10.4,$(MACOSX_DEPLOYMENT_TARGET)), 10.4)
@@ -737,18 +839,28 @@ ifeq ($(findstring ENABLE_PLUGIN_PROXY_FOR_VIDEO,$(FEATURE_DEFINES)), ENABLE_PLU
      WEBCORE_EXPORT_DEPENDENCIES := $(WEBCORE_EXPORT_DEPENDENCIES) WebCore.VideoProxy.exp
 endif
 
+ifeq ($(findstring ENABLE_VIDEO,$(FEATURE_DEFINES)), ENABLE_VIDEO)
+     WEBCORE_EXPORT_DEPENDENCIES := $(WEBCORE_EXPORT_DEPENDENCIES) WebCore.Video.exp
+endif
+
 WebCore.exp : WebCore.base.exp $(WEBCORE_EXPORT_DEPENDENCIES)
 	cat $^ > $@
+
+# Switch NSRect, NSSize and NSPoint with their CG counterparts for 64-bit.
+WebCore.LP64.exp : WebCore.exp
+	cat $^ | sed -e s/7_NSRect/6CGRect/ -e s/7_NSSize/6CGSize/ -e s/8_NSPoint/7CGPoint/ > $@
 
 # --------
 
 # Objective-C bindings
 
 DOM%.h : %.idl $(GENERATE_BINDINGS_SCRIPTS) bindings/scripts/CodeGeneratorObjC.pm bindings/objc/PublicDOMInterfaces.h
-	$(GENERATE_BINDINGS) --defines "$(FEATURE_DEFINES) LANGUAGE_OBJECTIVE_C" --generator ObjC $<
+	$(GENERATE_BINDINGS) --defines "$(FEATURE_DEFINES) $(ADDITIONAL_IDL_DEFINES) LANGUAGE_OBJECTIVE_C" --generator ObjC $<
+
+-include $(OBJC_DOM_HEADERS:.h=.dep)
 
 # --------
 
-endif
+endif # MACOS
 
 # ------------------------

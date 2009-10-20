@@ -1,3 +1,239 @@
+2009-10-06  Simon Fraser  <simon.fraser@apple.com>
+
+        Reviewed by Mark Rowe.
+
+        accessibility/media-element.html crashes (and has incorrect result)
+        https://bugs.webkit.org/show_bug.cgi?id=30108
+
+        Fix up the accessibilty label for the newly added fullscreen button,
+        and update the test result accordingly.
+
+        * English.lproj/Localizable.strings:
+
+2009-10-05  Kevin Decker  <kdecker@apple.com>
+
+        Reviewed by Dan Bernstein.
+
+        * WebKit.xcodeproj/project.pbxproj: Add WebPluginHalterClient to the project.
+
+2009-10-05  Yaar Schnitman  <yaar@chromium.org>
+
+        Reviewed by Dimitri Glazkov.
+
+        One of the dependencies' SVN url was missing a @ before the revision number.
+
+        https://bugs.webkit.org/show_bug.cgi?id=30101
+
+        * chromium/DEPS:
+
+2009-10-05  Pierre d'Herbemont  <pdherbemont@webkit.org>
+
+        Reviewed by Simon Fraser
+        
+        Support fullscreen in MediaPlayer (Mac)
+        https://bugs.webkit.org/show_bug.cgi?id=26742
+
+        Add new files for video fullscreen.
+
+        * WebKit.xcodeproj/project.pbxproj:
+
+2009-10-05  Pavel Feldman  <pfeldman@chromium.org>
+
+        Reviewed by Timothy Hatcher.
+
+        Web Inspector: add testing harness for Web Inspector.
+
+        https://bugs.webkit.org/show_bug.cgi?id=30010
+
+        * WebKit.xcodeproj/project.pbxproj:
+
+2009-10-04  Fumitoshi Ukai  <ukai@chromium.org>
+
+        Reviewed by Eric Seidel
+
+        Enable Web Sockets in chromium build.
+        https://bugs.webkit.org/show_bug.cgi?id=29917
+
+        * chromium/features.gypi:
+
+2009-10-02  Yaar Schnitman  <yaar@chromium.org>
+
+        Reviewed by Dimitri Glazkov.
+
+        Added gyp_webkit that does a subset of the things gyp_chromium does
+        plus some specialization for an upstream chromium build.
+
+        https://bugs.webkit.org/show_bug.cgi?id=29986
+
+        * chromium/DEPS: Points to gyp_webkit instead of gyp_chromium.
+        * chromium/gyp_webkit: A new python file.
+
+2009-10-01  Yaar Schnitman  <yaar@chromium.org>
+
+        Reviewed by Dimitri Glazkov.
+
+        Make it possible to override the list of feature defines when building
+        downstream.
+
+        https://bugs.webkit.org/show_bug.cgi?id=29979
+
+        * chromium/features.gypi:
+
+2009-10-01  Yaar Schnitman  <yaar@chromium.org>
+
+        Reviewed by Dimitri Glazkov.
+
+        Added windows-specific dependencies, updated some revisions and
+        re-organized file to make revision tracking easier. Also removed
+        extensions/v8 dependency that is no longer needed upstream.
+
+        https://bugs.webkit.org/show_bug.cgi?id=29973
+
+        * chromium/DEPS:
+
+2009-09-30  Yaar Schnitman  <yaar@chromium.org>
+
+        Reviewed by Dimitri Glazkov.
+
+        1. Keeping up with downstream revisions.
+        2. Turning off v8 snapshot build step.
+
+        https://bugs.webkit.org/show_bug.cgi?id=29928
+
+        * chromium/DEPS
+
+2009-09-29  Brady Eidson  <beidson@apple.com>
+
+        Reviewed by John Sullivan.
+
+        WebKit Mac API should provide a delegate interface for global history.
+        <rdar://problem/7042773> and https://webkit.org/b/29904
+
+        * WebKit.xcodeproj/project.pbxproj:
+
+2009-09-28  Yaar Schnitman  <yaar@chromium.org>
+
+        Reviewed by Dimitri Glazkov.
+
+        https://bugs.webkit.org/show_bug.cgi?id=29722
+
+        * chromium/DEPS: Describes the chromium port's dependencies and
+          is used by gclient to fetch them.
+        * chromium/webkit.gyp: Currently only builds webcore but in
+          the future will also build the webkit api.
+
+2009-09-26  David Kilzer  <ddkilzer@apple.com>
+
+        Part 2 of 2: <http://webkit.org/b/29753> DerivedSources.make broken for non-Mac targets
+
+        Reviewed by Darin Adler.
+
+        Fix ENABLE_ORIENTATION_EVENTS for non-Mac platforms.
+
+        * chromium/features.gypi: Added 'ENABLE_ORIENTATION_EVENTS=0' to
+        disable this feature by default.
+
+2009-09-22  Yaar Schnitman  <yaar@chromium.org>
+
+        Reviewed by David Levin.
+
+        Create chromium directory and ported chromium.org's features.gypi for 
+        the webkit chromium port.
+
+        https://bugs.webkit.org/show_bug.cgi?id=29617
+
+        * chromium/features.gypi: Added.
+
+2009-09-21  Dan Bernstein  <mitz@apple.com>
+
+        Reviewed by Anders Carlsson.
+
+        <rdar://problem/4137135> iFrame with PDF not being handled correctly on
+        usps.com
+        https://bugs.webkit.org/show_bug.cgi?id=4151
+
+        * WebKit.xcodeproj/project.pbxproj: Added WebPDFDocumentExtras.{h,mm}
+        and WebJSPDFDoc.{h,mm} and changed WebPDFRepresentation to
+        Objective-C++.
+
+2009-09-07  Steve Block  <steveblock@google.com>
+
+        Reviewed by Adam Barth.
+
+        Adds a mock Geolocation service. This will be used to provide predictable behavior of the
+        Geolocation API for use in LayoutTests. Later changes will integrate the the mock
+        Geolocation service with DumpRenderTree.
+        https://bugs.webkit.org/show_bug.cgi?id=28264
+
+        * WebKit.xcodeproj/project.pbxproj: Modified. Adds WebGeolocationMock.
+
+2009-09-03  John Sullivan  <sullivan@apple.com>
+
+        Reviewed by Adam Roben
+
+        * StringsNotToBeLocalized.txt:
+        Brought this file up to date.
+
+2009-08-31  Mark Rowe  <mrowe@apple.com>
+
+        Rubber-stamped by Beth Dakin.
+
+        Remove WebViewEditingContextMenu.nib and WebViewEditingContextMenuOld.nib.
+        We stopped using these back in r18592 when we switched over to context menus
+        driven by WebCore.
+
+        * English.lproj/WebViewEditingContextMenu.nib/classes.nib: Removed.
+        * English.lproj/WebViewEditingContextMenu.nib/info.nib: Removed.
+        * English.lproj/WebViewEditingContextMenu.nib/objects.nib: Removed.
+        * English.lproj/WebViewEditingContextMenuOld.nib/classes.nib: Removed.
+        * English.lproj/WebViewEditingContextMenuOld.nib/info.nib: Removed.
+        * English.lproj/WebViewEditingContextMenuOld.nib/objects.nib: Removed.
+        * WebKit.xcodeproj/project.pbxproj:
+
+2009-08-28  Chris Fleizach  <cfleizach@apple.com>
+
+        Reviewed by John Sullivan.
+
+        update-webkit-localizable-strings script can no longer complete
+        https://bugs.webkit.org/show_bug.cgi?id=28792
+
+        * English.lproj/Localizable.strings:
+
+2009-08-27  John Sullivan  <sullivan@apple.com>
+
+        * StringsNotToBeLocalized.txt:
+        Brought up to date, other than the problem mentioned in https://bugs.webkit.org/show_bug.cgi?id=28792
+
+2009-08-25  Eric Carlson  <eric.carlson@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        <video> and <audio> controller should be accessible
+        https://bugs.webkit.org/show_bug.cgi?id=28081
+
+        Add localized strings for media controller accessiblility.
+
+        * English.lproj/Localizable.strings:
+
+2009-08-20  Chris Fleizach  <cfleizach@apple.com>
+
+        Reviewed by Darin Adler.
+
+        Enable various "grouping" ARIA roles
+        https://bugs.webkit.org/show_bug.cgi?id=28486
+
+        * English.lproj/Localizable.strings:
+
+2009-08-18  Drew Wilson  <atwilson@google.com>
+
+        Reviewed by Eric Seidel.
+
+        Need to extend DumpRenderTree to expose number of worker threads.
+        https://bugs.webkit.org/show_bug.cgi?id=28292
+
+        * WebKit.xcodeproj/project.pbxproj:
+        Added WebWorkersPrivate APIs to mac WebKit to expose workerThreadCount() for DumpRenderTree.
+
 2009-08-06  Mark Rowe  <mrowe@apple.com>
 
         Rubber-stamped by Sam Weinig.

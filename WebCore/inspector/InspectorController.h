@@ -30,13 +30,18 @@
 #define InspectorController_h
 
 #include "Console.h"
+#include "Cookie.h"
 #include "PlatformString.h"
+#include "ScriptArray.h"
+#include "ScriptObject.h"
 #include "ScriptState.h"
+#include "ScriptValue.h"
 #include "StringHash.h"
 #include "Timer.h"
 
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
+#include <wtf/ListHashSet.h>
 #include <wtf/RefCounted.h>
 #include <wtf/Vector.h>
 
@@ -59,8 +64,12 @@ class GraphicsContext;
 class HitTestResult;
 class InspectorClient;
 class InspectorDOMAgent;
+<<<<<<< HEAD:WebCore/inspector/InspectorController.h
+=======
+class InspectorFrontend;
+class InspectorTimelineAgent;
+>>>>>>> webkit.org at 49305:WebCore/inspector/InspectorController.h
 class JavaScriptCallFrame;
-class StorageArea;
 class KURL;
 class Node;
 class Page;
@@ -68,9 +77,10 @@ struct ResourceRequest;
 class ResourceResponse;
 class ResourceError;
 class ScriptCallStack;
-class ScriptObject;
 class ScriptString;
 class SharedBuffer;
+class Storage;
+class StorageArea;
 
 class ConsoleMessage;
 class InspectorDatabaseResource;
@@ -90,17 +100,18 @@ class InspectorController
 public:
     typedef HashMap<long long, RefPtr<InspectorResource> > ResourcesMap;
     typedef HashMap<RefPtr<Frame>, ResourcesMap*> FrameResourcesMap;
-    typedef HashSet<RefPtr<InspectorDatabaseResource> > DatabaseResourcesSet;
-    typedef HashSet<RefPtr<InspectorDOMStorageResource> > DOMStorageResourcesSet;
+    typedef HashMap<int, RefPtr<InspectorDatabaseResource> > DatabaseResourcesMap;
+    typedef HashMap<int, RefPtr<InspectorDOMStorageResource> > DOMStorageResourcesMap;
+    typedef HashMap<String, Vector<String> > ObjectGroupsMap;
 
     typedef enum {
         CurrentPanel,
         ConsolePanel,
-        DatabasesPanel,
         ElementsPanel,
         ProfilesPanel,
         ResourcesPanel,
-        ScriptsPanel
+        ScriptsPanel,
+        StoragePanel
     } SpecialPanels;
 
     struct Setting {
@@ -187,7 +198,7 @@ public:
 
     void addMessageToConsole(MessageSource, MessageType, MessageLevel, ScriptCallStack*);
     void addMessageToConsole(MessageSource, MessageType, MessageLevel, const String& message, unsigned lineNumber, const String& sourceID);
-    void clearConsoleMessages();
+    void clearConsoleMessages(bool clearUI);
     const Vector<ConsoleMessage*>& consoleMessages() const { return m_consoleMessages; }
 
     void attachWindow();
@@ -201,7 +212,8 @@ public:
     void inspectedWindowScriptObjectCleared(Frame*);
     void windowScriptObjectAvailable();
 
-    void setFrontendProxyObject(ScriptState* state, ScriptObject object);
+    void setFrontendProxyObject(ScriptState* state, ScriptObject webInspectorObj, ScriptObject injectedScriptObj = ScriptObject());
+    ScriptState* frontendScriptState() const { return m_scriptState; }
 
     void populateScriptObjects();
     void resetScriptObjects();
@@ -225,11 +237,25 @@ public:
     bool resourceTrackingEnabled() const { return m_resourceTrackingEnabled; }
     void ensureResourceTrackingSettingsLoaded();
 
+    void enableTimeline(bool always = false);
+    void disableTimeline(bool always = false);
+    bool timelineEnabled() const;
+    InspectorTimelineAgent* timelineAgent() { return m_timelineAgent.get(); }
+
+    void mainResourceFiredLoadEvent(DocumentLoader*, const KURL&);
+    void mainResourceFiredDOMContentEvent(DocumentLoader*, const KURL&);
+                                                        
+    void getCookies(long callId, const String& url);
+
 #if ENABLE(DATABASE)
     void didOpenDatabase(Database*, const String& domain, const String& name, const String& version);
 #endif
 #if ENABLE(DOM_STORAGE)
     void didUseDOMStorage(StorageArea* storageArea, bool isLocalStorage, Frame* frame);
+    void selectDOMStorage(Storage* storage);
+    void getDOMStorageEntries(int callId, int storageId);
+    void setDOMStorageItem(long callId, long storageId, const String& key, const String& value);
+    void removeDOMStorageItem(long callId, long storageId, const String& key);
 #endif
 
     const ResourcesMap& resources() const { return m_resources; }
@@ -248,7 +274,6 @@ public:
     void addProfile(PassRefPtr<JSC::Profile>, unsigned lineNumber, const JSC::UString& sourceURL);
     void addProfileFinishedMessageToConsole(PassRefPtr<JSC::Profile>, unsigned lineNumber, const JSC::UString& sourceURL);
     void addStartProfilingMessageToConsole(const JSC::UString& title, unsigned lineNumber, const JSC::UString& sourceURL);
-    void addScriptProfile(JSC::Profile*);
     const ProfilesArray& profiles() const { return m_profiles; }
 
     bool isRecordingUserInitiatedProfile() const { return m_recordingUserInitiatedProfile; }
@@ -273,13 +298,18 @@ public:
     virtual void didContinue();
 #endif
 
+    void evaluateForTestInFrontend(long callId, const String& script);
+
 private:
 #if !PLATFORM(ANDROID)
     friend class InspectorBackend;
+<<<<<<< HEAD:WebCore/inspector/InspectorController.h
 #endif
 
+=======
+>>>>>>> webkit.org at 49305:WebCore/inspector/InspectorController.h
     // Following are used from InspectorBackend and internally.
-    void scriptObjectReady(bool enableDOMAgent);
+    void scriptObjectReady();
     void moveWindowBy(float x, float y) const;
     void setAttachedWindow(bool);
     void setAttachedWindowHeight(unsigned height);
@@ -287,11 +317,33 @@ private:
     void closeWindow();
     InspectorDOMAgent* domAgent() { return m_domAgent.get(); }
 
+    friend class InspectorFrontend;
+    // Following are used from InspectorFrontend only. We don't want to expose them to the
+    // rest of the InspectorController clients.
+    // TODO: extract these into a separate interface.
+    ScriptValue wrapObject(const ScriptValue& object, const String& objectGroup);
+    ScriptValue unwrapObject(const String& objectId);
+    void releaseWrapperObjectGroup(const String& objectGroup);
+    
+    void resetInjectedScript();
+
+    void deleteCookie(const String& cookieName, const String& domain);
+
 #if ENABLE(JAVASCRIPT_DEBUGGER)
     void startUserInitiatedProfilingSoon();
     void toggleRecordButton(bool);
     void enableDebuggerFromFrontend(bool always);
 #endif
+#if ENABLE(DATABASE)
+    void selectDatabase(Database* database);
+    Database* databaseForId(int databaseId);
+#endif
+#if ENABLE(DOM_STORAGE)
+    InspectorDOMStorageResource* getDOMStorageResourceForId(int storageId);
+#endif
+                                                        
+    ScriptObject buildObjectForCookie(const Cookie&);
+    ScriptArray buildArrayForCookies(ListHashSet<Cookie>&);
 
     void focusNode();
 
@@ -310,10 +362,14 @@ private:
 
     SpecialPanels specialPanelForJSName(const String& panelName);
 
+    void didEvaluateForTestInFrontend(long callId, const String& jsonResult);
+
     Page* m_inspectedPage;
     InspectorClient* m_client;
 
     RefPtr<InspectorDOMAgent> m_domAgent;
+    OwnPtr<InspectorTimelineAgent> m_timelineAgent;
+    ScriptObject m_injectedScriptObj;
     Page* m_page;
     RefPtr<Node> m_nodeToFocus;
     RefPtr<InspectorResource> m_mainResource;
@@ -324,10 +380,10 @@ private:
     HashMap<String, double> m_times;
     HashMap<String, unsigned> m_counts;
 #if ENABLE(DATABASE)
-    DatabaseResourcesSet m_databaseResources;
+    DatabaseResourcesMap m_databaseResources;
 #endif
 #if ENABLE(DOM_STORAGE)
-    DOMStorageResourcesSet m_domStorageResources;
+    DOMStorageResourcesMap m_domStorageResources;
 #endif
     ScriptState* m_scriptState;
     bool m_windowVisible;
@@ -342,7 +398,15 @@ private:
 #if !PLATFORM(ANDROID)
     OwnPtr<InspectorFrontend> m_frontend;
     RefPtr<InspectorBackend> m_inspectorBackend;
+<<<<<<< HEAD:WebCore/inspector/InspectorController.h
 #endif
+=======
+    HashMap<String, ScriptValue> m_idToWrappedObject;
+    ObjectGroupsMap m_objectGroups;
+
+    long m_lastBoundObjectId;
+    Vector<pair<long, String> > m_pendingEvaluateTestCommands;
+>>>>>>> webkit.org at 49305:WebCore/inspector/InspectorController.h
 #if ENABLE(JAVASCRIPT_DEBUGGER)
     bool m_debuggerEnabled;
     bool m_attachDebuggerWhenShown;

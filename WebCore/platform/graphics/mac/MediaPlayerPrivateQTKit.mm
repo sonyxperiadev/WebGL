@@ -39,6 +39,7 @@
 #import "KURL.h"
 #import "MIMETypeRegistry.h"
 #import "SoftLinking.h"
+#import "TimeRanges.h"
 #import "WebCoreSystemInterface.h"
 #import <QTKit/QTKit.h>
 #import <objc/objc-runtime.h>
@@ -84,6 +85,7 @@ SOFT_LINK_POINTER(QTKit, QTMovieAskUnresolvedDataRefsAttribute, NSString *)
 SOFT_LINK_POINTER(QTKit, QTMovieDataSizeAttribute, NSString *)
 SOFT_LINK_POINTER(QTKit, QTMovieDidEndNotification, NSString *)
 SOFT_LINK_POINTER(QTKit, QTMovieHasVideoAttribute, NSString *)
+SOFT_LINK_POINTER(QTKit, QTMovieHasAudioAttribute, NSString *)
 SOFT_LINK_POINTER(QTKit, QTMovieIsActiveAttribute, NSString *)
 SOFT_LINK_POINTER(QTKit, QTMovieLoadStateAttribute, NSString *)
 SOFT_LINK_POINTER(QTKit, QTMovieLoadStateDidChangeNotification, NSString *)
@@ -119,6 +121,7 @@ SOFT_LINK_POINTER(QTKit, QTMovieApertureModeAttribute, NSString *)
 #define QTMovieDataSizeAttribute getQTMovieDataSizeAttribute()
 #define QTMovieDidEndNotification getQTMovieDidEndNotification()
 #define QTMovieHasVideoAttribute getQTMovieHasVideoAttribute()
+#define QTMovieHasAudioAttribute getQTMovieHasAudioAttribute()
 #define QTMovieIsActiveAttribute getQTMovieIsActiveAttribute()
 #define QTMovieLoadStateAttribute getQTMovieLoadStateAttribute()
 #define QTMovieLoadStateDidChangeNotification getQTMovieLoadStateDidChangeNotification()
@@ -230,7 +233,7 @@ MediaPlayerPrivate::~MediaPlayerPrivate()
 
 void MediaPlayerPrivate::createQTMovie(const String& url)
 {
-    NSURL *cocoaURL = KURL(url);
+    NSURL *cocoaURL = KURL(ParsedURLString, url);
     NSDictionary *movieAttributes = [NSDictionary dictionaryWithObjectsAndKeys:
                        cocoaURL, QTMovieURLAttribute,
                        [NSNumber numberWithBool:m_player->preservesPitch()], QTMovieRateChangesPreservePitchAttribute,
@@ -562,6 +565,12 @@ void MediaPlayerPrivate::load(const String& url)
     [m_objcObserver.get() setDelayCallbacks:NO];
 }
 
+PlatformMedia MediaPlayerPrivate::platformMedia() const
+{
+    PlatformMedia plaftformMedia = { m_qtMovie.get() };
+    return plaftformMedia;
+}
+
 void MediaPlayerPrivate::play()
 {
     if (!metaDataAvailable())
@@ -719,18 +728,28 @@ bool MediaPlayerPrivate::hasVideo() const
     return [[m_qtMovie.get() attributeForKey:QTMovieHasVideoAttribute] boolValue];
 }
 
+bool MediaPlayerPrivate::hasAudio() const
+{
+    if (!m_qtMovie)
+        return false;
+    return [[m_qtMovie.get() attributeForKey:QTMovieHasAudioAttribute] boolValue];
+}
+
+bool MediaPlayerPrivate::supportsFullscreen() const
+{   
+    return true;
+}
+
 void MediaPlayerPrivate::setVolume(float volume)
 {
-    if (!metaDataAvailable())
-        return;
-    [m_qtMovie.get() setVolume:volume];  
+    if (m_qtMovie)
+        [m_qtMovie.get() setVolume:volume];  
 }
 
 void MediaPlayerPrivate::setRate(float rate)
 {
-    if (!metaDataAvailable())
-        return;
-    [m_qtMovie.get() setRate:rate];
+    if (m_qtMovie)
+        [m_qtMovie.get() setRate:rate];
 }
 
 void MediaPlayerPrivate::setPreservesPitch(bool preservesPitch)
@@ -758,10 +777,13 @@ int MediaPlayerPrivate::dataRate() const
     return wkQTMovieDataRate(m_qtMovie.get()); 
 }
 
-
-float MediaPlayerPrivate::maxTimeBuffered() const
+PassRefPtr<TimeRanges> MediaPlayerPrivate::buffered() const
 {
-    return maxTimeLoaded();
+    RefPtr<TimeRanges> timeRanges = TimeRanges::create();
+    float loaded = maxTimeLoaded();
+    if (loaded > 0)
+        timeRanges->add(0, loaded);
+    return timeRanges.release();
 }
 
 float MediaPlayerPrivate::maxTimeSeekable() const

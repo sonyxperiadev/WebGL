@@ -92,10 +92,19 @@ def credentials_from_keychain(username=None):
 def is_mac_os_x():
     return platform.mac_ver()[0]
 
+def parse_bug_id(message):
+    match = re.search("http\://webkit\.org/b/(?P<bug_id>\d+)", message)
+    if match:
+        return match.group('bug_id')
+    match = re.search(Bugzilla.bug_server_regex + "show_bug\.cgi\?id=(?P<bug_id>\d+)", message)
+    if match:
+        return match.group('bug_id')
+    return None
+
 # FIXME: This should not depend on git for config storage
 def read_config(key):
     # Need a way to read from svn too
-    config_process = subprocess.Popen("git config --get bugzilla." + key, stdout=subprocess.PIPE, shell=True)
+    config_process = subprocess.Popen("git config --get bugzilla.%s" % key, stdout=subprocess.PIPE, shell=True)
     value = config_process.communicate()[0]
     return_code = config_process.wait()
 
@@ -119,6 +128,11 @@ def read_credentials():
 def timestamp():
     return datetime.now().strftime("%Y%m%d%H%M%S")
 
+
+class BugzillaError(Exception):
+    pass
+
+
 class Bugzilla:
     def __init__(self, dryrun=False, committers=CommitterList()):
         self.dryrun = dryrun
@@ -137,12 +151,20 @@ class Bugzilla:
     def bug_url_for_bug_id(self, bug_id, xml=False):
         content_type = "&ctype=xml" if xml else ""
         return "%sshow_bug.cgi?id=%s%s" % (self.bug_server_url, bug_id, content_type)
-    
+
+    def short_bug_url_for_bug_id(self, bug_id):
+        return "http://webkit.org/b/%s" % bug_id
+
     def attachment_url_for_id(self, attachment_id, action="view"):
         action_param = ""
         if action and action != "view":
-            action_param = "&action=" + action
+            action_param = "&action=%s" % action
         return "%sattachment.cgi?id=%s%s" % (self.bug_server_url, attachment_id, action_param)
+
+    def _parse_attachment_flag(self, element, flag_name, attachment, result_key):
+        flag = element.find('flag', attrs={'name' : flag_name})
+        if flag and flag['status'] == '+':
+            attachment[result_key] = flag['setter']
 
     def _parse_attachment_element(self, element, bug_id):
         attachment = {}
@@ -153,24 +175,13 @@ class Bugzilla:
         attachment['url'] = self.attachment_url_for_id(attachment['id'])
         attachment['name'] = unicode(element.find('desc').string)
         attachment['type'] = str(element.find('type').string)
-
-        review_flag = element.find('flag', attrs={"name" : "review"})
-        if review_flag and review_flag['status'] == '+':
-            reviewer_email = review_flag['setter']
-            reviewer = self.committers.reviewer_by_bugzilla_email(reviewer_email)
-            attachment['reviewer'] = reviewer.full_name
-
-        commit_queue_flag = element.find('flag', attrs={"name" : "commit-queue"})
-        if commit_queue_flag and commit_queue_flag['status'] == '+':
-            committer_email = commit_queue_flag['setter']
-            committer = self.committers.committer_by_bugzilla_email(committer_email)
-            attachment['commit-queue'] = committer.full_name
-
+        self._parse_attachment_flag(element, 'review', attachment, 'reviewer_email')
+        self._parse_attachment_flag(element, 'commit-queue', attachment, 'committer_email')
         return attachment
 
     def fetch_attachments_from_bug(self, bug_id):
         bug_url = self.bug_url_for_bug_id(bug_id, xml=True)
-        log("Fetching: " + bug_url)
+        log("Fetching: %s" % bug_url)
 
         page = urllib2.urlopen(bug_url)
         soup = BeautifulSoup(page)
@@ -181,6 +192,12 @@ class Bugzilla:
             attachments.append(attachment)
         return attachments
 
+    def fetch_title_from_bug(self, bug_id):
+        bug_url = self.bug_url_for_bug_id(bug_id, xml=True)
+        page = urllib2.urlopen(bug_url)
+        soup = BeautifulSoup(page)
+        return soup.find('short_desc').string
+
     def fetch_patches_from_bug(self, bug_id):
         patches = []
         for attachment in self.fetch_attachments_from_bug(bug_id):
@@ -188,17 +205,45 @@ class Bugzilla:
                 patches.append(attachment)
         return patches
 
-    def fetch_reviewed_patches_from_bug(self, bug_id):
+    # _view_source_link belongs in some sort of webkit_config.py module.
+    def _view_source_link(self, local_path):
+        return "http://trac.webkit.org/browser/trunk/%s" % local_path
+
+    def _validate_setter_email(self, patch, result_key, lookup_function, rejection_function, reject_invalid_patches):
+        setter_email = patch.get(result_key + '_email')
+        if not setter_email:
+            return None
+
+        committer = lookup_function(setter_email)
+        if committer:
+            patch[result_key] = committer.full_name
+            return patch[result_key]
+
+        if reject_invalid_patches:
+            committer_list = "WebKitTools/Scripts/modules/committers.py"
+            failure_message = "%s does not have %s permissions according to %s." % (setter_email, result_key, self._view_source_link(committer_list))
+            rejection_function(patch['id'], failure_message)
+        else:
+            log("Warning, attachment %s on bug %s has invalid %s (%s)", (patch['id'], patch['bug_id'], result_key, setter_email))
+        return None
+
+    def _validate_reviewer(self, patch, reject_invalid_patches):
+        return self._validate_setter_email(patch, 'reviewer', self.committers.reviewer_by_bugzilla_email, self.reject_patch_from_review_queue, reject_invalid_patches)
+
+    def _validate_committer(self, patch, reject_invalid_patches):
+        return self._validate_setter_email(patch, 'committer', self.committers.committer_by_bugzilla_email, self.reject_patch_from_commit_queue, reject_invalid_patches)
+
+    def fetch_reviewed_patches_from_bug(self, bug_id, reject_invalid_patches=False):
         reviewed_patches = []
         for attachment in self.fetch_attachments_from_bug(bug_id):
-            if 'reviewer' in attachment and not attachment['is_obsolete']:
+            if self._validate_reviewer(attachment, reject_invalid_patches) and not attachment['is_obsolete']:
                 reviewed_patches.append(attachment)
         return reviewed_patches
 
-    def fetch_commit_queue_patches_from_bug(self, bug_id):
+    def fetch_commit_queue_patches_from_bug(self, bug_id, reject_invalid_patches=False):
         commit_queue_patches = []
-        for attachment in self.fetch_reviewed_patches_from_bug(bug_id):
-            if 'commit-queue' in attachment and not attachment['is_obsolete']:
+        for attachment in self.fetch_reviewed_patches_from_bug(bug_id, reject_invalid_patches):
+            if self._validate_committer(attachment, reject_invalid_patches) and not attachment['is_obsolete']:
                 commit_queue_patches.append(attachment)
         return commit_queue_patches
 
@@ -216,10 +261,10 @@ class Bugzilla:
 
         return bug_ids
 
-    def fetch_patches_from_commit_queue(self):
+    def fetch_patches_from_commit_queue(self, reject_invalid_patches=False):
         patches_to_land = []
         for bug_id in self.fetch_bug_ids_from_commit_queue():
-            patches = self.fetch_commit_queue_patches_from_bug(bug_id)
+            patches = self.fetch_commit_queue_patches_from_bug(bug_id, reject_invalid_patches)
             patches_to_land += patches
         return patches_to_land
 
@@ -245,7 +290,7 @@ class Bugzilla:
         # If the resulting page has a title, and it contains the word "invalid" assume it's the login failure page.
         if match and re.search("Invalid", match.group(1), re.IGNORECASE):
             # FIXME: We could add the ability to try again on failure.
-            raise ScriptError("Bugzilla login failed: %s" % match.group(1))
+            raise BugzillaError("Bugzilla login failed: %s" % match.group(1))
 
         self.authenticated = True
 
@@ -257,7 +302,7 @@ class Bugzilla:
             log(comment_text)
             return
         
-        self.browser.open(self.bug_server_url + "attachment.cgi?action=enter&bugid=" + bug_id)
+        self.browser.open("%sattachment.cgi?action=enter&bugid=%s" % (self.bug_server_url, bug_id))
         self.browser.select_form(name="entryform")
         self.browser['description'] = description
         self.browser['ispatch'] = ("1",)
@@ -287,7 +332,7 @@ class Bugzilla:
         if match:
             text_lines = BeautifulSoup(match.group('error_message')).findAll(text=True)
             error_message = "\n" + '\n'.join(["  " + line.strip() for line in text_lines if line.strip()])
-        raise ScriptError("Bug not created: %s" % error_message)
+        raise BugzillaError("Bug not created: %s" % error_message)
 
     def create_bug_with_patch(self, bug_title, bug_description, component, patch_file_object, patch_description, cc, mark_for_review=False):
         self.authenticate()
@@ -304,7 +349,8 @@ class Bugzilla:
         if not component or component not in component_names:
             component = self.prompt_for_component(component_names)
         self.browser['component'] = [component]
-        self.browser['cc'] = cc
+        if cc:
+            self.browser['cc'] = cc
         self.browser['short_desc'] = bug_title
         if bug_description:
             log(bug_description)
@@ -317,15 +363,23 @@ class Bugzilla:
 
         bug_id = self._check_create_bug_response(response.read())
         log("Bug %s created." % bug_id)
-        log(self.bug_server_url + "show_bug.cgi?id=" + bug_id)
+        log("%sshow_bug.cgi?id=%s" % (self.bug_server_url, bug_id))
         return bug_id
 
-    def clear_attachment_review_flag(self, attachment_id, additional_comment_text=None):
+    def _find_select_element_for_flag(self, flag_name):
+        # FIXME: This will break if we ever re-order attachment flags
+        if flag_name == "review":
+            return self.browser.find_control(type='select', nr=0)
+        if flag_name == "commit-queue":
+            return self.browser.find_control(type='select', nr=1)
+        raise Exception("Don't know how to find flag named \"%s\"" % flag_name)
+
+    def clear_attachment_flags(self, attachment_id, additional_comment_text=None):
         self.authenticate()
 
-        comment_text = "Clearing review flag on attachment: %s" % attachment_id
+        comment_text = "Clearing flags on attachment: %s" % attachment_id
         if additional_comment_text:
-            comment_text += "\n\n" + additional_comment_text
+            comment_text += "\n\n%s" % additional_comment_text
         log(comment_text)
 
         if self.dryrun:
@@ -334,8 +388,34 @@ class Bugzilla:
         self.browser.open(self.attachment_url_for_id(attachment_id, 'edit'))
         self.browser.select_form(nr=1)
         self.browser.set_value(comment_text, name='comment', nr=0)
-        self.browser.find_control(type='select', nr=0).value = ("X",)
+        self._find_select_element_for_flag('review').value = ("X",)
+        self._find_select_element_for_flag('commit-queue').value = ("X",)
         self.browser.submit()
+
+    # FIXME: We need a way to test this on a live bugzilla instance.
+    def _set_flag_on_attachment(self, attachment_id, flag_name, flag_value, comment_text, additional_comment_text):
+        self.authenticate()
+
+        if additional_comment_text:
+            comment_text += "\n\n%s" % additional_comment_text
+        log(comment_text)
+
+        if self.dryrun:
+            return
+
+        self.browser.open(self.attachment_url_for_id(attachment_id, 'edit'))
+        self.browser.select_form(nr=1)
+        self.browser.set_value(comment_text, name='comment', nr=0)
+        self._find_select_element_for_flag(flag_name).value = (flag_value,)
+        self.browser.submit()
+
+    def reject_patch_from_commit_queue(self, attachment_id, additional_comment_text=None):
+        comment_text = "Rejecting patch %s from commit-queue." % attachment_id
+        self._set_flag_on_attachment(attachment_id, 'commit-queue', '-', comment_text, additional_comment_text)
+
+    def reject_patch_from_review_queue(self, attachment_id, additional_comment_text=None):
+        comment_text = "Rejecting patch %s from review queue." % attachment_id
+        self._set_flag_on_attachment(attachment_id, 'review', '-', comment_text, additional_comment_text)
 
     def obsolete_attachment(self, attachment_id, comment_text = None):
         self.authenticate()
@@ -349,7 +429,8 @@ class Bugzilla:
         self.browser.select_form(nr=1)
         self.browser.find_control('isobsolete').items[0].selected = True
         # Also clear any review flag (to remove it from review/commit queues)
-        self.browser.find_control(type='select', nr=0).value = ("X",)
+        self._find_select_element_for_flag('review').value = ("X",)
+        self._find_select_element_for_flag('commit-queue').value = ("X",)
         if comment_text:
             log(comment_text)
             # Bugzilla has two textareas named 'comment', one is somehow hidden.  We want the first.
@@ -384,4 +465,18 @@ class Bugzilla:
             self.browser['comment'] = comment_text
         self.browser['bug_status'] = ['RESOLVED']
         self.browser['resolution'] = ['FIXED']
+        self.browser.submit()
+
+    def reopen_bug(self, bug_id, comment_text):
+        self.authenticate()
+
+        log("Re-opening bug %s" % bug_id)
+        log(comment_text) # Bugzilla requires a comment when re-opening a bug, so we know it will never be None.
+        if self.dryrun:
+            return
+
+        self.browser.open(self.bug_url_for_bug_id(bug_id))
+        self.browser.select_form(name="changeform")
+        self.browser['bug_status'] = ['REOPENED']
+        self.browser['comment'] = comment_text
         self.browser.submit()

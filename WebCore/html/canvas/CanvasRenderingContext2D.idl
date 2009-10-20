@@ -29,11 +29,9 @@ module html {
         GenerateConstructor,
         InterfaceUUID=98fb48ae-7216-489c-862b-8e1217fc4443,
         ImplementationUUID=ab4f0781-152f-450e-9546-5b3987491a54
-    ] CanvasRenderingContext2D {
+    ] CanvasRenderingContext2D : CanvasRenderingContext {
 
         // Web Applications 1.0 draft
-
-        readonly attribute HTMLCanvasElement canvas;
 
         void save();
         void restore();
@@ -113,7 +111,8 @@ module html {
         attribute [Custom] custom fillStyle;
         
         // pixel manipulation
-        ImageData createImageData(in float sw, in float sh);
+        ImageData createImageData(in float sw, in float sh)
+            raises (DOMException);
         ImageData getImageData(in float sx, in float sy, in float sw, in float sh)
             raises(DOMException);
         [Custom] void putImageData(/* in ImageData imagedata, in float dx, in float dy [, in float dirtyX, in float dirtyY, in float dirtyWidth, in float dirtyHeight] */);

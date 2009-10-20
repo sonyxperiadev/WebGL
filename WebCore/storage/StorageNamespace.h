@@ -41,13 +41,14 @@ namespace WebCore {
     // This interface is required for Chromium since these actions need to be proxied between processes.
     class StorageNamespace : public RefCounted<StorageNamespace> {
     public:
-        static PassRefPtr<StorageNamespace> localStorageNamespace(const String& path);
+        static PassRefPtr<StorageNamespace> localStorageNamespace(const String& path, unsigned quota);
         static PassRefPtr<StorageNamespace> sessionStorageNamespace();
 
         virtual ~StorageNamespace() { }
-        virtual PassRefPtr<StorageArea> storageArea(SecurityOrigin*) = 0;
+        virtual PassRefPtr<StorageArea> storageArea(PassRefPtr<SecurityOrigin>) = 0;
         virtual PassRefPtr<StorageNamespace> copy() = 0;
         virtual void close() = 0;
+        virtual void unlock() = 0;
     };
 
 } // namespace WebCore

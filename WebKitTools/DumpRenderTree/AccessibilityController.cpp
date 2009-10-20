@@ -52,8 +52,28 @@ void AccessibilityController::makeWindowObject(JSContextRef context, JSObjectRef
     JSObjectSetProperty(context, windowObject, accessibilityControllerStr.get(), accessibilityControllerObject, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete, exception);
 }
 
+static JSValueRef logFocusEventsCallback(JSContextRef ctx, JSObjectRef, JSObjectRef thisObject, size_t, const JSValueRef[], JSValueRef*)
+{
+    AccessibilityController* controller = static_cast<AccessibilityController*>(JSObjectGetPrivate(thisObject));
+    controller->setLogFocusEvents(true);
+    return JSValueMakeUndefined(ctx);
+}
+
+static JSValueRef logScrollingStartEventsCallback(JSContextRef ctx, JSObjectRef, JSObjectRef thisObject, size_t, const JSValueRef[], JSValueRef*)
+{
+    AccessibilityController* controller = static_cast<AccessibilityController*>(JSObjectGetPrivate(thisObject));
+    controller->setLogScrollingStartEvents(true);
+    return JSValueMakeUndefined(ctx);
+}
+
 JSClassRef AccessibilityController::getJSClass()
 {
+    static JSStaticFunction staticFunctions[] = {
+        { "logFocusEvents", logFocusEventsCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
+        { "logScrollingStartEvents", logScrollingStartEventsCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
+        { 0, 0, 0 }
+    };
+
     static JSStaticValue staticValues[] = {
         { "focusedElement", getFocusedElementCallback, 0, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { "rootElement", getRootElementCallback, 0, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
@@ -61,10 +81,16 @@ JSClassRef AccessibilityController::getJSClass()
     };
 
     static JSClassDefinition classDefinition = {
-        0, kJSClassAttributeNone, "AccessibilityController", 0, staticValues, 0,
+        0, kJSClassAttributeNone, "AccessibilityController", 0, staticValues, staticFunctions,
         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
     };
 
     static JSClassRef accessibilityControllerClass = JSClassCreate(&classDefinition);
     return accessibilityControllerClass;
+}
+
+void AccessibilityController::resetToConsistentState()
+{
+    setLogFocusEvents(false);
+    setLogScrollingStartEvents(false);
 }

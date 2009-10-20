@@ -20,15 +20,14 @@
  *
  */
 
-#include <stddef.h> // for size_t
-#include <stdint.h>
-
 #ifndef JSValue_h
 #define JSValue_h
 
 #include "CallData.h"
 #include "ConstructData.h"
 #include <math.h>
+#include <stddef.h> // for size_t
+#include <stdint.h>
 #include <wtf/AlwaysInline.h>
 #include <wtf/Assertions.h>
 #include <wtf/HashTraits.h>
@@ -42,7 +41,6 @@ namespace JSC {
     class JSImmediate;
     class JSObject;
     class JSString;
-    class MarkStack;
     class PropertySlot;
     class PutPropertySlot;
     class UString;
@@ -130,7 +128,7 @@ namespace JSC {
         bool isString() const;
         bool isGetterSetter() const;
         bool isObject() const;
-        bool isObject(const ClassInfo*) const;
+        bool inherits(const ClassInfo*) const;
         
         // Extracting the value.
         bool getBoolean(bool&) const;
@@ -171,12 +169,6 @@ namespace JSC {
         // Floating point conversions (this is a convenience method for webcore;
         // signle precision float is not a representation used in JS or JSC).
         float toFloat(ExecState* exec) const { return static_cast<float>(toNumber(exec)); }
-
-        // Garbage collection.
-        void markChildren(MarkStack&);
-        bool hasChildren() const;
-        bool marked() const;
-        void markDirect();
 
         // Object operations, with the toObject operation included.
         JSValue get(ExecState*, const Identifier& propertyName) const;
@@ -221,7 +213,8 @@ namespace JSC {
         enum { FalseTag =        0xfffffffc };
         enum { NullTag =         0xfffffffb };
         enum { UndefinedTag =    0xfffffffa };
-        enum { DeletedValueTag = 0xfffffff9 };
+        enum { EmptyValueTag =   0xfffffff9 };
+        enum { DeletedValueTag = 0xfffffff8 };
 
         enum { LowestTag =  DeletedValueTag };
 
@@ -435,7 +428,7 @@ namespace JSC {
 
     inline JSValue::JSValue()
     {
-        u.asBits.tag = CellTag;
+        u.asBits.tag = EmptyValueTag;
         u.asBits.payload = 0;
     }
 
@@ -471,19 +464,26 @@ namespace JSC {
 
     inline JSValue::JSValue(JSCell* ptr)
     {
-        u.asBits.tag = CellTag;
+        if (ptr)
+            u.asBits.tag = CellTag;
+        else
+            u.asBits.tag = EmptyValueTag;
         u.asBits.payload = reinterpret_cast<int32_t>(ptr);
     }
 
     inline JSValue::JSValue(const JSCell* ptr)
     {
-        u.asBits.tag = CellTag;
+        if (ptr)
+            u.asBits.tag = CellTag;
+        else
+            u.asBits.tag = EmptyValueTag;
         u.asBits.payload = reinterpret_cast<int32_t>(const_cast<JSCell*>(ptr));
     }
 
     inline JSValue::operator bool() const
     {
-        return u.asBits.payload || tag() != CellTag;
+        ASSERT(tag() != DeletedValueTag);
+        return tag() != EmptyValueTag;
     }
 
     inline bool JSValue::operator==(const JSValue& other) const

@@ -140,6 +140,18 @@ static JSValueRef boundsForRangeCallback(JSContextRef context, JSObjectRef funct
     return JSValueMakeString(context, boundsDescription.get());    
 }
 
+static JSValueRef stringForRangeCallback(JSContextRef context, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
+{
+    unsigned location = UINT_MAX, length = 0;
+    if (argumentCount == 2) {
+        location = JSValueToNumber(context, arguments[0], exception);
+        length = JSValueToNumber(context, arguments[1], exception);
+    }
+    
+    JSRetainPtr<JSStringRef> stringDescription(Adopt, toAXElement(thisObject)->stringForRange(location, length));
+    return JSValueMakeString(context, stringDescription.get());    
+}
+
 static JSValueRef childAtIndexCallback(JSContextRef context, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
 {
     int indexNumber = -1;
@@ -190,7 +202,8 @@ static JSValueRef attributeValueCallback(JSContextRef context, JSObjectRef funct
     JSStringRef attribute = NULL;
     if (argumentCount == 1)
         attribute = JSValueToStringCopy(context, arguments[0], exception);
-    JSValueRef result = JSValueMakeString(context, toAXElement(thisObject)->attributeValue(attribute));
+    JSRetainPtr<JSStringRef> attributeValue(Adopt, toAXElement(thisObject)->attributeValue(attribute));
+    JSValueRef result = JSValueMakeString(context, attributeValue.get());
     if (attribute)
         JSStringRelease(attribute);
     return result;
@@ -247,6 +260,12 @@ static JSValueRef decrementCallback(JSContextRef context, JSObjectRef function, 
 static JSValueRef getRoleCallback(JSContextRef context, JSObjectRef thisObject, JSStringRef propertyName, JSValueRef* exception)
 {
     JSRetainPtr<JSStringRef> role(Adopt, toAXElement(thisObject)->role());
+    return JSValueMakeString(context, role.get());
+}
+
+static JSValueRef getSubroleCallback(JSContextRef context, JSObjectRef thisObject, JSStringRef propertyName, JSValueRef* exception)
+{
+    JSRetainPtr<JSStringRef> role(Adopt, toAXElement(thisObject)->subrole());
     return JSValueMakeString(context, role.get());
 }
 
@@ -363,6 +382,7 @@ JSClassRef AccessibilityUIElement::getJSClass()
 {
     static JSStaticValue staticValues[] = {
         { "role", getRoleCallback, 0, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
+        { "subrole", getSubroleCallback, 0, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { "title", getTitleCallback, 0, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { "description", getDescriptionCallback, 0, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { "language", getLanguageCallback, 0, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
@@ -392,6 +412,7 @@ JSClassRef AccessibilityUIElement::getJSClass()
         { "parameterizedAttributeNames", parameterizedAttributeNamesCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { "lineForIndex", lineForIndexCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { "boundsForRange", boundsForRangeCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
+        { "stringForRange", stringForRangeCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { "childAtIndex", childAtIndexCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { "elementAtPoint", elementAtPointCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { "attributesOfColumnHeaders", attributesOfColumnHeadersCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },

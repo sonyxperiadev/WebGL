@@ -31,21 +31,31 @@
 #include "config.h"
 #include "V8DOMWrapper.h"
 
+<<<<<<< HEAD:WebCore/bindings/v8/V8DOMWrapper.cpp
 #if PLATFORM(CHROMIUM)
 #include "ChromiumBridge.h"
 #endif
+=======
+>>>>>>> webkit.org at 49305:WebCore/bindings/v8/V8DOMWrapper.cpp
 #include "CSSMutableStyleDeclaration.h"
+#include "ChromiumBridge.h"
 #include "DOMObjectsInclude.h"
 #include "DocumentLoader.h"
 #include "FrameLoaderClient.h"
+#include "Notification.h"
+#include "SVGElementInstance.h"
 #include "ScriptController.h"
+#include "V8AbstractEventListener.h"
 #include "V8Binding.h"
 #include "V8Collection.h"
 #include "V8CustomBinding.h"
+#include "V8CustomEventListener.h"
 #include "V8DOMMap.h"
 #include "V8DOMWindow.h"
+#include "V8EventListenerList.h"
 #include "V8Index.h"
 #include "V8IsolatedWorld.h"
+#include "V8Proxy.h"
 #include "WorkerContextExecutionProxy.h"
 
 #include <algorithm>
@@ -337,6 +347,7 @@ v8::Persistent<v8::FunctionTemplate> V8DOMWrapper::getTemplate(V8ClassIndex::V8W
 
         descriptor->PrototypeTemplate()->SetNamedPropertyHandler(USE_NAMED_PROPERTY_GETTER(DOMWindow));
         descriptor->PrototypeTemplate()->SetIndexedPropertyHandler(USE_INDEXED_PROPERTY_GETTER(DOMWindow));
+        descriptor->PrototypeTemplate()->SetInternalFieldCount(V8Custom::kDOMWindowInternalFieldCount);
 
         descriptor->SetHiddenPrototype(true);
 
@@ -381,6 +392,24 @@ v8::Persistent<v8::FunctionTemplate> V8DOMWrapper::getTemplate(V8ClassIndex::V8W
         break;
     }
 
+#if ENABLE(NOTIFICATIONS)
+    case V8ClassIndex::NOTIFICATION: {
+        // Reserve one more internal field for keeping event listeners.
+        v8::Local<v8::ObjectTemplate> instanceTemplate = descriptor->InstanceTemplate();
+        instanceTemplate->SetInternalFieldCount(V8Custom::kNotificationInternalFieldCount);
+        break;
+    }
+#endif // NOTIFICATIONS
+
+#if ENABLE(SVG)
+    case V8ClassIndex::SVGELEMENTINSTANCE: {
+        // Reserve one more internal field for keeping event listeners.
+        v8::Local<v8::ObjectTemplate> instanceTemplate = descriptor->InstanceTemplate();
+        instanceTemplate->SetInternalFieldCount(V8Custom::kSVGElementInstanceInternalFieldCount);
+        break;
+    }
+#endif
+
 #if ENABLE(WORKERS)
     case V8ClassIndex::ABSTRACTWORKER: {
         // Reserve one more internal field for keeping event listeners.
@@ -424,20 +453,42 @@ v8::Persistent<v8::FunctionTemplate> V8DOMWrapper::getTemplate(V8ClassIndex::V8W
     }
 #endif
 
+#if ENABLE(3D_CANVAS)
     // The following objects are created from JavaScript.
-    case V8ClassIndex::DOMPARSER:
-        descriptor->SetCallHandler(USE_CALLBACK(DOMParserConstructor));
+    case V8ClassIndex::CANVASARRAYBUFFER:
+        descriptor->SetCallHandler(USE_CALLBACK(CanvasArrayBufferConstructor));
         break;
-#if ENABLE(VIDEO)
-    case V8ClassIndex::HTMLAUDIOELEMENT:
-        descriptor->SetCallHandler(USE_CALLBACK(HTMLAudioElementConstructor));
+    case V8ClassIndex::CANVASBYTEARRAY:
+        descriptor->SetCallHandler(USE_CALLBACK(CanvasByteArrayConstructor));
+        descriptor->InstanceTemplate()->SetIndexedPropertyHandler(USE_INDEXED_PROPERTY_GETTER(CanvasByteArray), USE_INDEXED_PROPERTY_SETTER(CanvasByteArray));
+        break;
+    case V8ClassIndex::CANVASFLOATARRAY:
+        descriptor->SetCallHandler(USE_CALLBACK(CanvasFloatArrayConstructor));
+        descriptor->InstanceTemplate()->SetIndexedPropertyHandler(USE_INDEXED_PROPERTY_GETTER(CanvasFloatArray), USE_INDEXED_PROPERTY_SETTER(CanvasFloatArray));
+        break;
+    case V8ClassIndex::CANVASINTARRAY:
+        descriptor->SetCallHandler(USE_CALLBACK(CanvasIntArrayConstructor));
+        descriptor->InstanceTemplate()->SetIndexedPropertyHandler(USE_INDEXED_PROPERTY_GETTER(CanvasIntArray), USE_INDEXED_PROPERTY_SETTER(CanvasIntArray));
+        break;
+    case V8ClassIndex::CANVASSHORTARRAY:
+        descriptor->SetCallHandler(USE_CALLBACK(CanvasShortArrayConstructor));
+        descriptor->InstanceTemplate()->SetIndexedPropertyHandler(USE_INDEXED_PROPERTY_GETTER(CanvasShortArray), USE_INDEXED_PROPERTY_SETTER(CanvasShortArray));
+        break;
+    case V8ClassIndex::CANVASUNSIGNEDBYTEARRAY:
+        descriptor->SetCallHandler(USE_CALLBACK(CanvasUnsignedByteArrayConstructor));
+        descriptor->InstanceTemplate()->SetIndexedPropertyHandler(USE_INDEXED_PROPERTY_GETTER(CanvasUnsignedByteArray), USE_INDEXED_PROPERTY_SETTER(CanvasUnsignedByteArray));
+        break;
+    case V8ClassIndex::CANVASUNSIGNEDINTARRAY:
+        descriptor->SetCallHandler(USE_CALLBACK(CanvasUnsignedIntArrayConstructor));
+        descriptor->InstanceTemplate()->SetIndexedPropertyHandler(USE_INDEXED_PROPERTY_GETTER(CanvasUnsignedIntArray), USE_INDEXED_PROPERTY_SETTER(CanvasUnsignedIntArray));
+        break;
+    case V8ClassIndex::CANVASUNSIGNEDSHORTARRAY:
+        descriptor->SetCallHandler(USE_CALLBACK(CanvasUnsignedShortArrayConstructor));
+        descriptor->InstanceTemplate()->SetIndexedPropertyHandler(USE_INDEXED_PROPERTY_GETTER(CanvasUnsignedShortArray), USE_INDEXED_PROPERTY_SETTER(CanvasUnsignedShortArray));
         break;
 #endif
-    case V8ClassIndex::HTMLIMAGEELEMENT:
-        descriptor->SetCallHandler(USE_CALLBACK(HTMLImageElementConstructor));
-        break;
-    case V8ClassIndex::HTMLOPTIONELEMENT:
-        descriptor->SetCallHandler(USE_CALLBACK(HTMLOptionElementConstructor));
+    case V8ClassIndex::DOMPARSER:
+        descriptor->SetCallHandler(USE_CALLBACK(DOMParserConstructor));
         break;
     case V8ClassIndex::WEBKITCSSMATRIX:
         descriptor->SetCallHandler(USE_CALLBACK(WebKitCSSMatrixConstructor));
@@ -445,6 +496,15 @@ v8::Persistent<v8::FunctionTemplate> V8DOMWrapper::getTemplate(V8ClassIndex::V8W
     case V8ClassIndex::WEBKITPOINT:
         descriptor->SetCallHandler(USE_CALLBACK(WebKitPointConstructor));
         break;
+#if ENABLE(WEB_SOCKETS)
+    case V8ClassIndex::WEBSOCKET: {
+        // Reserve one more internal field for keeping event listeners.
+        v8::Local<v8::ObjectTemplate> instanceTemplate = descriptor->InstanceTemplate();
+        instanceTemplate->SetInternalFieldCount(V8Custom::kWebSocketInternalFieldCount);
+        descriptor->SetCallHandler(USE_CALLBACK(WebSocketConstructor));
+        break;
+    }
+#endif
     case V8ClassIndex::XMLSERIALIZER:
         descriptor->SetCallHandler(USE_CALLBACK(XMLSerializerConstructor));
         break;
@@ -481,6 +541,9 @@ v8::Persistent<v8::FunctionTemplate> V8DOMWrapper::getTemplate(V8ClassIndex::V8W
 #endif
     case V8ClassIndex::CLIENTRECTLIST:
         descriptor->InstanceTemplate()->SetIndexedPropertyHandler(USE_INDEXED_PROPERTY_GETTER(ClientRectList));
+        break;
+    case V8ClassIndex::FILELIST:
+        descriptor->InstanceTemplate()->SetIndexedPropertyHandler(USE_INDEXED_PROPERTY_GETTER(FileList));
         break;
 #if ENABLE(DATAGRID)
     case V8ClassIndex::DATAGRIDCOLUMNLIST:
@@ -534,6 +597,16 @@ v8::Local<v8::Function> V8DOMWrapper::getConstructor(V8ClassIndex::V8WrapperType
     if (!frame)
         return v8::Local<v8::Function>();
 
+#if ENABLE(WEB_SOCKETS)
+    // Make typeof(window.WebSocket) == 'undefined' when
+    // experimentalWebSocketEnabled is false.
+    if (type == V8ClassIndex::WEBSOCKET) {
+        Settings* settings = frame->settings();
+        if (!settings || !settings->experimentalWebSocketsEnabled())
+            return v8::Local<v8::Function>();
+    }
+#endif
+
     v8::Handle<v8::Context> context = V8Proxy::context(frame);
     if (context.IsEmpty())
         return v8::Local<v8::Function>();
@@ -562,6 +635,7 @@ v8::Handle<v8::Value> V8DOMWrapper::convertToV8Object(V8ClassIndex::V8WrapperTyp
 
     // These objects can be constructed under WorkerContextExecutionProxy.  They need special
     // handling, since if we proceed below V8Proxy::retrieve() will get called and will crash.
+    // TODO(ukai): websocket?
     if ((type == V8ClassIndex::DOMCOREEXCEPTION
          || type == V8ClassIndex::RANGEEXCEPTION
          || type == V8ClassIndex::EVENTEXCEPTION
@@ -982,7 +1056,6 @@ V8ClassIndex::V8WrapperType V8DOMWrapper::htmlElementType(HTMLElement* element)
 
 #if ENABLE(SVG_FONTS)
 #define FOR_EACH_FONTS_TAG(macro) \
-    macro(definition-src, DEFINITIONSRC) \
     macro(font-face, FONTFACE) \
     macro(font-face-format, FONTFACEFORMAT) \
     macro(font-face-name, FONTFACENAME) \
@@ -1105,6 +1178,8 @@ v8::Handle<v8::Value> V8DOMWrapper::convertEventToV8Object(Event* event)
         type = V8ClassIndex::OVERFLOWEVENT;
     else if (event->isMessageEvent())
         type = V8ClassIndex::MESSAGEEVENT;
+    else if (event->isPageTransitionEvent())
+        type = V8ClassIndex::PAGETRANSITIONEVENT;
     else if (event->isProgressEvent()) {
         if (event->isXMLHttpRequestProgressEvent())
             type = V8ClassIndex::XMLHTTPREQUESTPROGRESSEVENT;
@@ -1155,30 +1230,30 @@ static const V8ClassIndex::V8WrapperType mapping[] = {
     V8ClassIndex::NODE,                   // XPATH_NAMESPACE_NODE
 };
 
-// Caller checks node is not null.
-v8::Handle<v8::Value> V8DOMWrapper::convertNodeToV8Object(Node* node)
+v8::Handle<v8::Value> V8DOMWrapper::convertDocumentToV8Object(Document* document)
 {
-    if (!node)
-        return v8::Null();
-
     // Find a proxy for this node.
     //
     // Note that if proxy is found, we might initialize the context which can
     // instantiate a document wrapper.  Therefore, we get the proxy before
     // checking if the node already has a wrapper.
-    V8Proxy* proxy = 0;
-    Document* document = node->document();
-    if (document) {
-        Frame* frame = document->frame();
-        proxy = V8Proxy::retrieve(frame);
-        if (proxy)
-            proxy->initContextIfNeeded();
-    }
+    V8Proxy* proxy = V8Proxy::retrieve(document->frame());
+    if (proxy)
+        proxy->initContextIfNeeded();
 
     DOMWrapperMap<Node>& domNodeMap = getDOMNodeMap();
-    v8::Handle<v8::Object> wrapper = domNodeMap.get(node);
-    if (!wrapper.IsEmpty())
-        return wrapper;
+    v8::Handle<v8::Object> wrapper = domNodeMap.get(document);
+    if (wrapper.IsEmpty())
+        return convertNewNodeToV8Object(document, proxy, domNodeMap);
+
+    return wrapper;
+}
+
+// Caller checks node is not null.
+v8::Handle<v8::Value> V8DOMWrapper::convertNewNodeToV8Object(Node* node, V8Proxy* proxy, DOMWrapperMap<Node>& domNodeMap)
+{
+    if (!proxy && node->document())
+        proxy = V8Proxy::retrieve(node->document()->frame());
 
     bool isDocument = false; // document type node has special handling
     V8ClassIndex::V8WrapperType type;
@@ -1272,6 +1347,18 @@ v8::Handle<v8::Value> V8DOMWrapper::convertEventTargetToV8Object(EventTarget* ta
         return convertToV8Object(V8ClassIndex::WORKER, worker);
 #endif // WORKERS
 
+#if ENABLE(NOTIFICATIONS)
+    Notification* notification = target->toNotification();
+    if (notification)
+        return convertToV8Object(V8ClassIndex::NOTIFICATION, notification);
+#endif
+
+#if ENABLE(WEB_SOCKETS)
+    WebSocket* webSocket = target->toWebSocket();
+    if (webSocket)
+        return convertToV8Object(V8ClassIndex::WEBSOCKET, webSocket);
+#endif
+
     Node* node = target->toNode();
     if (node)
         return convertNodeToV8Object(node);
@@ -1320,6 +1407,98 @@ v8::Handle<v8::Value> V8DOMWrapper::convertEventListenerToV8Object(EventListener
     // FIXME: can a user take a lazy event listener and set to other places?
     V8AbstractEventListener* v8listener = static_cast<V8AbstractEventListener*>(listener);
     return v8listener->getListenerObject();
+}
+
+PassRefPtr<EventListener> V8DOMWrapper::getEventListener(Node* node, v8::Local<v8::Value> value, bool isAttribute, ListenerLookupType lookup)
+{
+    ScriptExecutionContext* context = node->scriptExecutionContext();
+    if (!context)
+        return 0;
+
+    V8Proxy* proxy = V8Proxy::retrieve(context);
+    // The document might be created using createDocument, which does
+    // not have a frame, use the active frame.
+    if (!proxy)
+        proxy = V8Proxy::retrieve(V8Proxy::retrieveFrameForEnteredContext());
+
+    if (proxy)
+        return (lookup == ListenerFindOnly) ? V8EventListenerList::findWrapper(value, isAttribute) : V8EventListenerList::findOrCreateWrapper<V8EventListener>(proxy->frame(), proxy->listenerGuard(), value, isAttribute);
+
+    return 0;
+}
+
+PassRefPtr<EventListener> V8DOMWrapper::getEventListener(SVGElementInstance* element, v8::Local<v8::Value> value, bool isAttribute, ListenerLookupType lookup)
+{
+    return getEventListener(element->correspondingElement(), value, isAttribute, lookup);
+}
+
+PassRefPtr<EventListener> V8DOMWrapper::getEventListener(AbstractWorker* worker, v8::Local<v8::Value> value, bool isAttribute, ListenerLookupType lookup)
+{
+    if (worker->scriptExecutionContext()->isWorkerContext()) {
+        WorkerContextExecutionProxy* workerContextProxy = WorkerContextExecutionProxy::retrieve();
+        ASSERT(workerContextProxy);
+        return workerContextProxy->findOrCreateEventListener(value, isAttribute, lookup == ListenerFindOnly);
+    }
+
+    V8Proxy* proxy = V8Proxy::retrieve(worker->scriptExecutionContext());
+    if (proxy)
+        return (lookup == ListenerFindOnly) ? V8EventListenerList::findWrapper(value, isAttribute) : V8EventListenerList::findOrCreateWrapper<V8EventListener>(proxy->frame(), proxy->listenerGuard(), value, isAttribute);
+
+    return 0;
+}
+
+#if ENABLE(NOTIFICATIONS)
+PassRefPtr<EventListener> V8DOMWrapper::getEventListener(Notification* notification, v8::Local<v8::Value> value, bool isAttribute, ListenerLookupType lookup)
+{
+    if (notification->scriptExecutionContext()->isWorkerContext()) {
+        WorkerContextExecutionProxy* workerContextProxy = WorkerContextExecutionProxy::retrieve();
+        ASSERT(workerContextProxy);
+        return workerContextProxy->findOrCreateEventListener(value, isAttribute, lookup == ListenerFindOnly);
+    }
+
+    V8Proxy* proxy = V8Proxy::retrieve(notification->scriptExecutionContext());
+    if (proxy)
+        return (lookup == ListenerFindOnly) ? V8EventListenerList::findWrapper(value, isAttribute) : V8EventListenerList::findOrCreateWrapper<V8EventListener>(proxy->frame(), proxy->listenerGuard(), value, isAttribute);
+
+    return 0;
+}
+#endif
+
+PassRefPtr<EventListener> V8DOMWrapper::getEventListener(WorkerContext* workerContext, v8::Local<v8::Value> value, bool isAttribute, ListenerLookupType lookup)
+{
+    WorkerContextExecutionProxy* workerContextProxy = workerContext->script()->proxy();
+    if (workerContextProxy)
+        return workerContextProxy->findOrCreateEventListener(value, isAttribute, lookup == ListenerFindOnly);
+
+    return 0;
+}
+
+PassRefPtr<EventListener> V8DOMWrapper::getEventListener(XMLHttpRequestUpload* upload, v8::Local<v8::Value> value, bool isAttribute, ListenerLookupType lookup)
+{
+    return getEventListener(upload->associatedXMLHttpRequest(), value, isAttribute, lookup);
+}
+
+PassRefPtr<EventListener> V8DOMWrapper::getEventListener(EventTarget* eventTarget, v8::Local<v8::Value> value, bool isAttribute, ListenerLookupType lookup)
+{
+    V8Proxy* proxy = V8Proxy::retrieve(eventTarget->scriptExecutionContext());
+    if (proxy)
+        return (lookup == ListenerFindOnly) ? V8EventListenerList::findWrapper(value, isAttribute) : V8EventListenerList::findOrCreateWrapper<V8EventListener>(proxy->frame(), proxy->listenerGuard(), value, isAttribute);
+
+#if ENABLE(WORKERS)
+    WorkerContextExecutionProxy* workerContextProxy = WorkerContextExecutionProxy::retrieve();
+    if (workerContextProxy)
+        return workerContextProxy->findOrCreateEventListener(value, isAttribute, lookup == ListenerFindOnly);
+#endif
+
+    return 0;
+}
+
+PassRefPtr<EventListener> V8DOMWrapper::getEventListener(V8Proxy* proxy, v8::Local<v8::Value> value, bool isAttribute, ListenerLookupType lookup)
+{
+    if (proxy)
+        return (lookup == ListenerFindOnly) ? V8EventListenerList::findWrapper(value, isAttribute) : V8EventListenerList::findOrCreateWrapper<V8EventListener>(proxy->frame(), proxy->listenerGuard(), value, isAttribute);
+
+    return 0;
 }
 
 v8::Handle<v8::Value> V8DOMWrapper::convertDOMImplementationToV8Object(DOMImplementation* impl)

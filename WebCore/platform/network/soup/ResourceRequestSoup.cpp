@@ -66,11 +66,20 @@ void ResourceRequest::updateFromSoupMessage(SoupMessage* soupMessage)
     while (soup_message_headers_iter_next(&headersIter, &headerName, &headerValue))
         m_httpHeaderFields.set(String::fromUTF8(headerName), String::fromUTF8(headerValue));
 
-    m_httpBody = FormData::create(soupMessage->request_body->data, soupMessage->request_body->length);
+    if (soupMessage->request_body->data)
+        m_httpBody = FormData::create(soupMessage->request_body->data, soupMessage->request_body->length);
 
-    // FIXME: m_allowHTTPCookies and m_firstPartyForCookies should
+    // FIXME: m_allowCookies and m_firstPartyForCookies should
     // probably be handled here and on doUpdatePlatformRequest
     // somehow.
+}
+
+unsigned initializeMaximumHTTPConnectionCountPerHost()
+{
+    // Soup has its own queue control; it wants to have all requests
+    // given to it, so that it is able to look ahead, and schedule
+    // them in a good way.
+    return 10000;
 }
 
 }

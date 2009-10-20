@@ -23,6 +23,8 @@
 #include "StringPrototype.h"
 
 #include "CachedCall.h"
+#include "Error.h"
+#include "Executable.h"
 #include "JSArray.h"
 #include "JSFunction.h"
 #include "ObjectPrototype.h"
@@ -119,7 +121,7 @@ const ClassInfo StringPrototype::info = { "String", &StringObject::info, 0, Exec
 */
 
 // ECMA 15.5.4
-StringPrototype::StringPrototype(ExecState* exec, PassRefPtr<Structure> structure)
+StringPrototype::StringPrototype(ExecState* exec, NonNullPassRefPtr<Structure> structure)
     : StringObject(exec, structure)
 {
     // The constructor will be added later, after StringConstructor has been built
@@ -129,6 +131,11 @@ StringPrototype::StringPrototype(ExecState* exec, PassRefPtr<Structure> structur
 bool StringPrototype::getOwnPropertySlot(ExecState* exec, const Identifier& propertyName, PropertySlot &slot)
 {
     return getStaticFunctionSlot<StringObject>(exec, ExecState::stringTable(exec), this, propertyName, slot);
+}
+
+bool StringPrototype::getOwnPropertyDescriptor(ExecState* exec, const Identifier& propertyName, PropertyDescriptor& descriptor)
+{
+    return getStaticFunctionDescriptor<StringObject>(exec, ExecState::stringTable(exec), this, propertyName, descriptor);
 }
 
 // ------------------------------ Functions --------------------------
@@ -220,7 +227,7 @@ JSValue JSC_HOST_CALL stringProtoFuncReplace(ExecState* exec, JSObject*, JSValue
     if (callType == CallTypeNone)
         replacementString = replacement.toString(exec);
 
-    if (pattern.isObject(&RegExpObject::info)) {
+    if (pattern.inherits(&RegExpObject::info)) {
         RegExp* reg = asRegExpObject(pattern)->regExp();
         bool global = reg->global();
 
@@ -365,7 +372,7 @@ JSValue JSC_HOST_CALL stringProtoFuncToString(ExecState* exec, JSObject*, JSValu
     if (thisValue.isString())
         return thisValue;
 
-    if (thisValue.isObject(&StringObject::info))
+    if (thisValue.inherits(&StringObject::info))
         return asStringObject(thisValue)->internalValue();
 
     return throwError(exec, TypeError);
@@ -466,7 +473,7 @@ JSValue JSC_HOST_CALL stringProtoFuncMatch(ExecState* exec, JSObject*, JSValue t
     UString u = s;
     RefPtr<RegExp> reg;
     RegExpObject* imp = 0;
-    if (a0.isObject(&RegExpObject::info))
+    if (a0.inherits(&RegExpObject::info))
         reg = asRegExpObject(a0)->regExp();
     else {
         /*
@@ -516,7 +523,7 @@ JSValue JSC_HOST_CALL stringProtoFuncSearch(ExecState* exec, JSObject*, JSValue 
 
     UString u = s;
     RefPtr<RegExp> reg;
-    if (a0.isObject(&RegExpObject::info))
+    if (a0.inherits(&RegExpObject::info))
         reg = asRegExpObject(a0)->regExp();
     else { 
         /*
@@ -568,7 +575,7 @@ JSValue JSC_HOST_CALL stringProtoFuncSplit(ExecState* exec, JSObject*, JSValue t
     unsigned i = 0;
     int p0 = 0;
     unsigned limit = a1.isUndefined() ? 0xFFFFFFFFU : a1.toUInt32(exec);
-    if (a0.isObject(&RegExpObject::info)) {
+    if (a0.inherits(&RegExpObject::info)) {
         RegExp* reg = asRegExpObject(a0)->regExp();
         if (s.isEmpty() && reg->match(s, 0) >= 0) {
             // empty string matched by regexp -> empty array
@@ -821,8 +828,8 @@ JSValue JSC_HOST_CALL stringProtoFuncFontsize(ExecState* exec, JSObject*, JSValu
     if (a0.getUInt32(smallInteger) && smallInteger <= 9) {
         unsigned stringSize = s.size();
         unsigned bufferSize = 22 + stringSize;
-        UChar* buffer = static_cast<UChar*>(tryFastMalloc(bufferSize * sizeof(UChar)));
-        if (!buffer)
+        UChar* buffer;
+        if (!tryFastMalloc(bufferSize * sizeof(UChar)).getValue(buffer))
             return jsUndefined();
         buffer[0] = '<';
         buffer[1] = 'f';
@@ -869,8 +876,8 @@ JSValue JSC_HOST_CALL stringProtoFuncLink(ExecState* exec, JSObject*, JSValue th
     unsigned linkTextSize = linkText.size();
     unsigned stringSize = s.size();
     unsigned bufferSize = 15 + linkTextSize + stringSize;
-    UChar* buffer = static_cast<UChar*>(tryFastMalloc(bufferSize * sizeof(UChar)));
-    if (!buffer)
+    UChar* buffer;
+    if (!tryFastMalloc(bufferSize * sizeof(UChar)).getValue(buffer))
         return jsUndefined();
     buffer[0] = '<';
     buffer[1] = 'a';

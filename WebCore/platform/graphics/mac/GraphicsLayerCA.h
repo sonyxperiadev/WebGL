@@ -62,6 +62,8 @@ public:
 
     virtual void removeFromParent();
 
+    virtual void setMaskLayer(GraphicsLayer*);
+
     virtual void setPosition(const FloatPoint&);
     virtual void setAnchorPoint(const FloatPoint3D&);
     virtual void setSize(const FloatSize&);
@@ -86,6 +88,10 @@ public:
     virtual void setNeedsDisplay();
     virtual void setNeedsDisplayInRect(const FloatRect&);
 
+#if ENABLE(3D_CANVAS)
+    virtual void setGraphicsContext3DNeedsDisplay();
+#endif
+    
     virtual void setContentsRect(const IntRect&);
     
     virtual void suspendAnimations(double time);
@@ -98,6 +104,9 @@ public:
     
     virtual void setContentsToImage(Image*);
     virtual void setContentsToVideo(PlatformLayer*);
+#if ENABLE(3D_CANVAS)
+    virtual void setContentsToGraphicsContext3D(const GraphicsContext3D*);
+#endif
     
     virtual PlatformLayer* platformLayer() const;
 
@@ -170,8 +179,12 @@ private:
 
     void updateContentsImage();
     void updateContentsVideo();
+#if ENABLE(3D_CANVAS)
+    void updateContentsGraphicsContext3D();
+#endif
     void updateContentsRect();
     void updateGeometryOrientation();
+    void updateMaskLayer();
 
     void updateLayerAnimations();
 
@@ -199,8 +212,12 @@ private:
         DirtyRectsChanged = 1 << 16,
         ContentsImageChanged = 1 << 17,
         ContentsVideoChanged = 1 << 18,
-        ContentsRectChanged = 1 << 19,
-        GeometryOrientationChanged = 1 << 20
+#if ENABLE(3D_CANVAS)
+        ContentsGraphicsContext3DChanged = 1 << 19,
+#endif
+        ContentsRectChanged = 1 << 20,
+        GeometryOrientationChanged = 1 << 21,
+        MaskLayerChanged = 1 << 22
     };
     typedef unsigned LayerChangeFlags;
     void noteLayerPropertyChanged(LayerChangeFlags flags);
@@ -215,6 +232,9 @@ private:
         NoContentsLayer = 0,
         ContentsLayerForImage,
         ContentsLayerForVideo
+#if ENABLE(3D_CANVAS)
+        ,ContentsLayerForGraphicsLayer3D
+#endif
     };
     
     ContentsLayerPurpose m_contentsLayerPurpose;
@@ -260,6 +280,11 @@ private:
     Vector<FloatRect> m_dirtyRects;
     
     LayerChangeFlags m_uncommittedChanges;
+    
+#if ENABLE(3D_CANVAS)
+    PlatformGraphicsContext3D m_platformGraphicsContext3D;
+    Platform3DObject m_platformTexture;
+#endif
 };
 
 } // namespace WebCore

@@ -215,6 +215,10 @@ void ChromeClient::setResizable(bool)
 
 void ChromeClient::closeWindowSoon()
 {
+    // We may not have a WebView as create-web-view can return NULL.
+    if (!m_webView)
+        return;
+
     webkit_web_view_stop_loading(m_webView);
 
     gboolean isHandled = false;
@@ -226,7 +230,6 @@ void ChromeClient::closeWindowSoon()
     // FIXME: should we clear the frame group name here explicitly? Mac does it.
     // But this gets cleared in Page's destructor anyway.
     // webkit_web_view_set_group_name(m_webView, "");
-    g_object_unref(m_webView);
 }
 
 bool ChromeClient::canTakeFocus(FocusDirection)
@@ -383,7 +386,7 @@ IntPoint ChromeClient::screenToWindow(const IntPoint& point) const
     return result;
 }
 
-PlatformWidget ChromeClient::platformWindow() const
+PlatformPageClient ChromeClient::platformPageClient() const
 {
     return GTK_WIDGET(m_webView);
 }
@@ -397,6 +400,40 @@ void ChromeClient::contentsSizeChanged(Frame* frame, const IntSize& size) const
         (widget->requisition.height != size.height()) &&
         (widget->requisition.width != size.width()))
         gtk_widget_queue_resize_no_redraw(widget);
+}
+
+void ChromeClient::scrollbarsModeDidChange() const
+{
+    WebKitWebFrame* webFrame = webkit_web_view_get_main_frame(m_webView);
+
+    g_object_notify(G_OBJECT(webFrame), "horizontal-scrollbar-policy");
+    g_object_notify(G_OBJECT(webFrame), "vertical-scrollbar-policy");
+
+    gboolean isHandled;
+    g_signal_emit_by_name(webFrame, "scrollbars-policy-changed", &isHandled);
+
+    if (isHandled)
+        return;
+
+    GtkWidget* parent = gtk_widget_get_parent(GTK_WIDGET(m_webView));
+    if (!parent || !GTK_IS_SCROLLED_WINDOW(parent))
+        return;
+
+    GtkPolicyType horizontalPolicy = webkit_web_frame_get_horizontal_scrollbar_policy(webFrame);
+    GtkPolicyType verticalPolicy = webkit_web_frame_get_vertical_scrollbar_policy(webFrame);
+
+    // ScrolledWindow doesn't like to display only part of a widget if
+    // the scrollbars are completely disabled; We have a disparity
+    // here on what the policy requested by the web app is and what we
+    // can represent; the idea is not to show scrollbars, only.
+    if (horizontalPolicy == GTK_POLICY_NEVER)
+        horizontalPolicy = GTK_POLICY_AUTOMATIC;
+
+    if (verticalPolicy == GTK_POLICY_NEVER)
+        verticalPolicy = GTK_POLICY_AUTOMATIC;
+
+    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(parent),
+                                   horizontalPolicy, verticalPolicy);
 }
 
 void ChromeClient::mouseDidMoveOverElement(const HitTestResult& hit, unsigned modifierFlags)
@@ -459,13 +496,17 @@ void ChromeClient::print(Frame* frame)
 }
 
 #if ENABLE(DATABASE)
-void ChromeClient::exceededDatabaseQuota(Frame* frame, const String&)
+void ChromeClient::exceededDatabaseQuota(Frame* frame, const String& databaseName)
 {
-    // Set to 5M for testing
-    // FIXME: Make this configurable
-    notImplemented();
-    const unsigned long long defaultQuota = 5 * 1024 * 1024;
+    guint64 defaultQuota = webkit_get_default_web_database_quota();
     DatabaseTracker::tracker().setQuota(frame->document()->securityOrigin(), defaultQuota);
+
+    WebKitWebFrame* webFrame = kit(frame);
+    WebKitWebView* webView = getViewFromFrame(webFrame);
+
+    WebKitSecurityOrigin* origin = webkit_web_frame_get_security_origin(webFrame);
+    WebKitWebDatabase* webDatabase = webkit_security_origin_get_web_database(origin, databaseName.utf8().data());
+    g_signal_emit_by_name(webView, "database-quota-exceeded", webFrame, webDatabase);
 }
 #endif
 
@@ -482,7 +523,7 @@ void ChromeClient::runOpenPanel(Frame*, PassRefPtr<FileChooser> prpFileChooser)
     RefPtr<FileChooser> chooser = prpFileChooser;
 
     GtkWidget* dialog = gtk_file_chooser_dialog_new(_("Upload File"),
-                                                    GTK_WINDOW(gtk_widget_get_toplevel(GTK_WIDGET(platformWindow()))),
+                                                    GTK_WINDOW(gtk_widget_get_toplevel(GTK_WIDGET(platformPageClient()))),
                                                     GTK_FILE_CHOOSER_ACTION_OPEN,
                                                     GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL,
                                                     GTK_STOCK_OPEN, GTK_RESPONSE_ACCEPT,

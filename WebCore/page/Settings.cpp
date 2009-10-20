@@ -48,6 +48,10 @@ static void setNeedsReapplyStylesInAllFrames(Page* page)
 bool Settings::gShouldPaintNativeControls = true;
 #endif
 
+#if PLATFORM(WIN) || (PLATFORM(WIN_OS) && PLATFORM(WX))
+bool Settings::gShouldUseHighResolutionTimers = true;
+#endif
+
 Settings::Settings(Page* page)
     : m_page(page)
 #ifdef ANDROID_LAYOUT
@@ -69,6 +73,8 @@ Settings::Settings(Page* page)
     , m_blockNetworkImage(false)
 #endif
     , m_maximumDecodedImageSize(numeric_limits<size_t>::max())
+    , m_localStorageQuota(5 * 1024 * 1024)  // Suggested by the HTML5 spec.
+    , m_pluginAllowedRunTime(numeric_limits<unsigned>::max())
     , m_isJavaEnabled(false)
     , m_loadsImagesAutomatically(false)
     , m_privateBrowsingEnabled(false)
@@ -110,7 +116,8 @@ Settings::Settings(Page* page)
     , m_usesEncodingDetector(false)
     , m_allowScriptsToCloseWindows(false)
     , m_editingBehavior(
-#if PLATFORM(MAC)
+#if PLATFORM(MAC) || (PLATFORM(CHROMIUM) && PLATFORM(DARWIN))
+        // (PLATFORM(MAC) is always false in Chromium, hence the extra condition.)
         EditingMacBehavior
 #else
         EditingWindowsBehavior
@@ -121,6 +128,12 @@ Settings::Settings(Page* page)
     , m_downloadableBinaryFontsEnabled(true)
     , m_xssAuditorEnabled(false)
     , m_acceleratedCompositingEnabled(true)
+    , m_experimentalNotificationsEnabled(false)
+    , m_pluginHalterEnabled(false)
+    , m_webGLEnabled(false)
+#if ENABLE(WEB_SOCKETS)
+    , m_experimentalWebSocketsEnabled(false)
+#endif
 {
     // A Frame may not have been created yet, so we initialize the AtomicString 
     // hash before trying to use it.
@@ -272,6 +285,11 @@ void Settings::setSessionStorageEnabled(bool sessionStorageEnabled)
     m_sessionStorageEnabled = sessionStorageEnabled;
 }
 
+void Settings::setLocalStorageQuota(unsigned localStorageQuota)
+{
+    m_localStorageQuota = localStorageQuota;
+}
+
 void Settings::setPrivateBrowsingEnabled(bool privateBrowsingEnabled)
 {
     m_privateBrowsingEnabled = privateBrowsingEnabled;
@@ -295,7 +313,6 @@ void Settings::setUserStyleSheetLocation(const KURL& userStyleSheetLocation)
     m_userStyleSheetLocation = userStyleSheetLocation;
 
     m_page->userStyleSheetLocationChanged();
-    setNeedsReapplyStylesInAllFrames(m_page);
 }
 
 void Settings::setShouldPrintBackgrounds(bool shouldPrintBackgrounds)
@@ -619,5 +636,45 @@ void Settings::setAcceleratedCompositingEnabled(bool enabled)
     m_acceleratedCompositingEnabled = enabled;
     setNeedsReapplyStylesInAllFrames(m_page);
 }
+
+void Settings::setExperimentalNotificationsEnabled(bool enabled)
+{
+    m_experimentalNotificationsEnabled = enabled;
+}
+
+void Settings::setPluginHalterEnabled(bool enabled)
+{
+    if (m_pluginHalterEnabled == enabled)
+        return;
+
+    m_pluginHalterEnabled = enabled;
+
+    m_page->pluginHalterEnabledStateChanged();
+}
+
+void Settings::setPluginAllowedRunTime(unsigned runTime)
+{
+    m_pluginAllowedRunTime = runTime;
+    m_page->pluginAllowedRunTimeChanged();
+}
+
+#if PLATFORM(WIN) || (PLATFORM(WIN_OS) && PLATFORM(WX))
+void Settings::setShouldUseHighResolutionTimers(bool shouldUseHighResolutionTimers)
+{
+    gShouldUseHighResolutionTimers = shouldUseHighResolutionTimers;
+}
+#endif
+
+void Settings::setWebGLEnabled(bool enabled)
+{
+    m_webGLEnabled = enabled;
+}
+
+#if ENABLE(WEB_SOCKETS)
+void Settings::setExperimentalWebSocketsEnabled(bool enabled)
+{
+    m_experimentalWebSocketsEnabled = enabled;
+}
+#endif
 
 } // namespace WebCore

@@ -1,6 +1,7 @@
 /*
     Copyright (C) 2004, 2005, 2006, 2007, 2008 Nikolas Zimmermann <zimmermann@kde.org>
                   2004, 2005, 2006, 2007 Rob Buis <buis@kde.org>
+    Copyright (C) Research In Motion Limited 2009. All rights reserved.
 
     This file is part of the KDE project
 
@@ -64,6 +65,7 @@ SVGUseElement::SVGUseElement(const QualifiedName& tagName, Document* doc)
     , m_y(this, SVGNames::yAttr, LengthModeHeight)
     , m_width(this, SVGNames::widthAttr, LengthModeWidth)
     , m_height(this, SVGNames::heightAttr, LengthModeHeight)
+    , m_href(this, XLinkNames::hrefAttr)
 {
 }
 
@@ -158,6 +160,9 @@ void SVGUseElement::childrenChanged(bool changedByParser, Node* beforeChange, No
  
 static bool shadowTreeContainsChangedNodes(SVGElementInstance* target)
 {
+    if (!target)      // when use is referencing an non-existing element, there will be no Instance tree built
+        return false;
+
     if (target->needsUpdate())
         return true;
 
@@ -324,7 +329,7 @@ void SVGUseElement::buildPendingResource()
     // Spec: If the 'use' element references a simple graphics element such as a 'rect', then there is only a
     // single SVGElementInstance object, and the correspondingElement attribute on this SVGElementInstance object
     // is the SVGRectElement that corresponds to the referenced 'rect' element.
-    m_targetElementInstance = new SVGElementInstance(this, target);
+    m_targetElementInstance = SVGElementInstance::create(this, target);
 
     // Eventually enter recursion to build SVGElementInstance objects for the sub-tree children
     bool foundProblem = false;
@@ -474,17 +479,17 @@ void SVGUseElement::buildInstanceTree(SVGElement* target, SVGElementInstance* ta
             continue;
 
         // Create SVGElementInstance object, for both container/non-container nodes.
-        SVGElementInstance* instancePtr = new SVGElementInstance(this, element);
-        targetInstance->appendChild(instancePtr);
+        RefPtr<SVGElementInstance> instancePtr = SVGElementInstance::create(this, element);
+        targetInstance->appendChild(instancePtr.get());
 
         // Enter recursion, appending new instance tree nodes to the "instance" object.
         if (element->hasChildNodes())
-            buildInstanceTree(element, instancePtr, foundProblem);
+            buildInstanceTree(element, instancePtr.get(), foundProblem);
 
         // Spec: If the referenced object is itself a 'use', or if there are 'use' subelements within the referenced
         // object, the instance tree will contain recursive expansion of the indirect references to form a complete tree.
         if (element->hasTagName(SVGNames::useTag))
-            handleDeepUseReferencing(static_cast<SVGUseElement*>(element), instancePtr, foundProblem);
+            handleDeepUseReferencing(static_cast<SVGUseElement*>(element), instancePtr.get(), foundProblem);
     }
 
     // Spec: If the referenced object is itself a 'use', or if there are 'use' subelements within the referenced
@@ -524,11 +529,11 @@ void SVGUseElement::handleDeepUseReferencing(SVGUseElement* use, SVGElementInsta
     }
 
     // Create an instance object, even if we're dealing with a cycle
-    SVGElementInstance* newInstance = new SVGElementInstance(this, target);
+    RefPtr<SVGElementInstance> newInstance = SVGElementInstance::create(this, target);
     targetInstance->appendChild(newInstance);
 
     // Eventually enter recursion to build SVGElementInstance objects for the sub-tree children
-    buildInstanceTree(target, newInstance, foundProblem);
+    buildInstanceTree(target, newInstance.get(), foundProblem);
 }
 
 void SVGUseElement::alterShadowTreeForSVGTag(SVGElement* target)
@@ -768,18 +773,18 @@ void SVGUseElement::transferEventListenersToShadowTree(SVGElementInstance* targe
     ASSERT(originalElement);
 
     if (SVGElement* shadowTreeElement = target->shadowTreeElement()) {
-        const RegisteredEventListenerVector& listeners = originalElement->eventListeners();
-        size_t size = listeners.size();
-        for (size_t i = 0; i < size; ++i) {
-            const RegisteredEventListener& r = *listeners[i];
-            EventListener* listener = r.listener();
-            ASSERT(listener);
-
-            // Event listeners created from markup have already been transfered to the shadow tree during cloning!
-            if (listener->wasCreatedFromMarkup())
-                continue;
-
-            shadowTreeElement->addEventListener(r.eventType(), listener, r.useCapture());
+        if (EventTargetData* d = originalElement->eventTargetData()) {
+            EventListenerMap& map = d->eventListenerMap;
+            EventListenerMap::iterator end = map.end();
+            for (EventListenerMap::iterator it = map.begin(); it != end; ++it) {
+                EventListenerVector& entry = it->second;
+                for (size_t i = 0; i < entry.size(); ++i) {
+                    // Event listeners created from markup have already been transfered to the shadow tree during cloning.
+                    if (entry[i].listener->wasCreatedFromMarkup())
+                        continue;
+                    shadowTreeElement->addEventListener(it->first, entry[i].listener, entry[i].useCapture);
+                }
+            }
         }
     }
 

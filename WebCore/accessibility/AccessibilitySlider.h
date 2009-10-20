@@ -58,12 +58,10 @@ namespace WebCore {
         virtual float minValueForRange() const;
         virtual AccessibilityOrientation orientation() const;
 
-        virtual void increment();
-        virtual void decrement();
+    protected:
+        AccessibilitySlider(RenderObject*);
 
     private:
-        AccessibilitySlider(RenderObject*);
-        void changeValue(float /*percentChange*/);
         HTMLInputElement* element() const;
     };
 

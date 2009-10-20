@@ -33,6 +33,8 @@
 #include "JIT.h"
 #include "JSValue.h"
 #include "Interpreter.h"
+#include "JSFunction.h"
+#include "JSStaticScopeObject.h"
 #include "Debugger.h"
 #include "BytecodeGenerator.h"
 #include <stdio.h>
@@ -1246,43 +1248,22 @@ void CodeBlock::dumpStatistics()
 #endif
 }
 
-CodeBlock::CodeBlock(ScopeNode* ownerNode)
+CodeBlock::CodeBlock(ScriptExecutable* ownerExecutable, CodeType codeType, PassRefPtr<SourceProvider> sourceProvider, unsigned sourceOffset, SymbolTable* symTab)
     : m_numCalleeRegisters(0)
     , m_numVars(0)
     , m_numParameters(0)
-    , m_ownerNode(ownerNode)
+    , m_ownerExecutable(ownerExecutable)
     , m_globalData(0)
 #ifndef NDEBUG
     , m_instructionCount(0)
 #endif
-    , m_needsFullScopeChain(false)
-    , m_usesEval(false)
-    , m_isNumericCompareFunction(false)
-    , m_codeType(NativeCode)
-    , m_source(0)
-    , m_sourceOffset(0)
-    , m_exceptionInfo(0)
-{
-#if DUMP_CODE_BLOCK_STATISTICS
-    liveCodeBlockSet.add(this);
-#endif
-}
-
-CodeBlock::CodeBlock(ScopeNode* ownerNode, CodeType codeType, PassRefPtr<SourceProvider> sourceProvider, unsigned sourceOffset)
-    : m_numCalleeRegisters(0)
-    , m_numVars(0)
-    , m_numParameters(0)
-    , m_ownerNode(ownerNode)
-    , m_globalData(0)
-#ifndef NDEBUG
-    , m_instructionCount(0)
-#endif
-    , m_needsFullScopeChain(ownerNode->needsActivation())
-    , m_usesEval(ownerNode->usesEval())
+    , m_needsFullScopeChain(ownerExecutable->needsActivation())
+    , m_usesEval(ownerExecutable->usesEval())
     , m_isNumericCompareFunction(false)
     , m_codeType(codeType)
     , m_source(sourceProvider)
     , m_sourceOffset(sourceOffset)
+    , m_symbolTable(symTab)
     , m_exceptionInfo(new ExceptionInfo)
 {
     ASSERT(m_source);
@@ -1350,7 +1331,6 @@ void CodeBlock::unlinkCallers()
 
 void CodeBlock::derefStructures(Instruction* vPC) const
 {
-    ASSERT(m_codeType != NativeCode);
     Interpreter* interpreter = m_globalData->interpreter;
 
     if (vPC[0].u.opcode == interpreter->getOpcode(op_get_by_id_self)) {
@@ -1396,7 +1376,6 @@ void CodeBlock::derefStructures(Instruction* vPC) const
 
 void CodeBlock::refStructures(Instruction* vPC) const
 {
-    ASSERT(m_codeType != NativeCode);
     Interpreter* interpreter = m_globalData->interpreter;
 
     if (vPC[0].u.opcode == interpreter->getOpcode(op_get_by_id_self)) {
@@ -1430,25 +1409,16 @@ void CodeBlock::refStructures(Instruction* vPC) const
 
 void CodeBlock::markAggregate(MarkStack& markStack)
 {
-    for (size_t i = 0; i < m_constantRegisters.size(); ++i) {
-        if (!m_constantRegisters[i].marked())
-            markStack.append(m_constantRegisters[i].jsValue());
-    }
-
-    for (size_t i = 0; i < m_functionExpressions.size(); ++i)
-        m_functionExpressions[i]->body()->markAggregate(markStack);
-
-    if (m_rareData) {
-        for (size_t i = 0; i < m_rareData->m_functions.size(); ++i)
-            m_rareData->m_functions[i]->body()->markAggregate(markStack);
-
-        m_rareData->m_evalCodeCache.markAggregate(markStack);
-    }
+    for (size_t i = 0; i < m_constantRegisters.size(); ++i)
+        markStack.append(m_constantRegisters[i].jsValue());
+    for (size_t i = 0; i < m_functionExprs.size(); ++i)
+        m_functionExprs[i]->markAggregate(markStack);
+    for (size_t i = 0; i < m_functionDecls.size(); ++i)
+        m_functionDecls[i]->markAggregate(markStack);
 }
 
 void CodeBlock::reparseForExceptionInfoIfNecessary(CallFrame* callFrame)
 {
-    ASSERT(m_codeType != NativeCode);
     if (m_exceptionInfo)
         return;
 
@@ -1465,61 +1435,11 @@ void CodeBlock::reparseForExceptionInfoIfNecessary(CallFrame* callFrame)
             scopeChain = scopeChain->next;
     }
 
-    switch (m_codeType) {
-        case FunctionCode: {
-            FunctionBodyNode* ownerFunctionBodyNode = static_cast<FunctionBodyNode*>(m_ownerNode);
-            RefPtr<FunctionBodyNode> newFunctionBody = m_globalData->parser->reparse<FunctionBodyNode>(m_globalData, ownerFunctionBodyNode);
-            ASSERT(newFunctionBody);
-            newFunctionBody->finishParsing(ownerFunctionBodyNode->copyParameters(), ownerFunctionBodyNode->parameterCount());
-
-            m_globalData->scopeNodeBeingReparsed = newFunctionBody.get();
-
-            CodeBlock& newCodeBlock = newFunctionBody->bytecodeForExceptionInfoReparse(scopeChain, this);
-            ASSERT(newCodeBlock.m_exceptionInfo);
-            ASSERT(newCodeBlock.m_instructionCount == m_instructionCount);
-
-#if ENABLE(JIT)
-            JIT::compile(m_globalData, &newCodeBlock);
-            ASSERT(newFunctionBody->generatedJITCode().size() == ownerNode()->generatedJITCode().size());
-#endif
-
-            m_exceptionInfo.set(newCodeBlock.m_exceptionInfo.release());
-
-            m_globalData->scopeNodeBeingReparsed = 0;
-
-            break;
-        }
-        case EvalCode: {
-            EvalNode* ownerEvalNode = static_cast<EvalNode*>(m_ownerNode);
-            RefPtr<EvalNode> newEvalBody = m_globalData->parser->reparse<EvalNode>(m_globalData, ownerEvalNode);
-
-            m_globalData->scopeNodeBeingReparsed = newEvalBody.get();
-
-            EvalCodeBlock& newCodeBlock = newEvalBody->bytecodeForExceptionInfoReparse(scopeChain, this);
-            ASSERT(newCodeBlock.m_exceptionInfo);
-            ASSERT(newCodeBlock.m_instructionCount == m_instructionCount);
-
-#if ENABLE(JIT)
-            JIT::compile(m_globalData, &newCodeBlock);
-            ASSERT(newEvalBody->generatedJITCode().size() == ownerNode()->generatedJITCode().size());
-#endif
-
-            m_exceptionInfo.set(newCodeBlock.m_exceptionInfo.release());
-
-            m_globalData->scopeNodeBeingReparsed = 0;
-
-            break;
-        }
-        default:
-            // CodeBlocks for Global code blocks are transient and therefore to not gain from 
-            // from throwing out there exception information.
-            ASSERT_NOT_REACHED();
-    }
+    m_exceptionInfo.set(m_ownerExecutable->reparseExceptionInfo(m_globalData, scopeChain, this));
 }
 
 HandlerInfo* CodeBlock::handlerForBytecodeOffset(unsigned bytecodeOffset)
 {
-    ASSERT(m_codeType != NativeCode);
     ASSERT(bytecodeOffset < m_instructionCount);
 
     if (!m_rareData)
@@ -1538,14 +1458,13 @@ HandlerInfo* CodeBlock::handlerForBytecodeOffset(unsigned bytecodeOffset)
 
 int CodeBlock::lineNumberForBytecodeOffset(CallFrame* callFrame, unsigned bytecodeOffset)
 {
-    ASSERT(m_codeType != NativeCode);
     ASSERT(bytecodeOffset < m_instructionCount);
 
     reparseForExceptionInfoIfNecessary(callFrame);
     ASSERT(m_exceptionInfo);
 
     if (!m_exceptionInfo->m_lineInfo.size())
-        return m_ownerNode->source().firstLine(); // Empty function
+        return m_ownerExecutable->source().firstLine(); // Empty function
 
     int low = 0;
     int high = m_exceptionInfo->m_lineInfo.size();
@@ -1558,13 +1477,12 @@ int CodeBlock::lineNumberForBytecodeOffset(CallFrame* callFrame, unsigned byteco
     }
     
     if (!low)
-        return m_ownerNode->source().firstLine();
+        return m_ownerExecutable->source().firstLine();
     return m_exceptionInfo->m_lineInfo[low - 1].lineNumber;
 }
 
 int CodeBlock::expressionRangeForBytecodeOffset(CallFrame* callFrame, unsigned bytecodeOffset, int& divot, int& startOffset, int& endOffset)
 {
-    ASSERT(m_codeType != NativeCode);
     ASSERT(bytecodeOffset < m_instructionCount);
 
     reparseForExceptionInfoIfNecessary(callFrame);
@@ -1604,7 +1522,6 @@ int CodeBlock::expressionRangeForBytecodeOffset(CallFrame* callFrame, unsigned b
 
 bool CodeBlock::getByIdExceptionInfoForBytecodeOffset(CallFrame* callFrame, unsigned bytecodeOffset, OpcodeID& opcodeID)
 {
-    ASSERT(m_codeType != NativeCode);
     ASSERT(bytecodeOffset < m_instructionCount);
 
     reparseForExceptionInfoIfNecessary(callFrame);
@@ -1633,7 +1550,6 @@ bool CodeBlock::getByIdExceptionInfoForBytecodeOffset(CallFrame* callFrame, unsi
 #if ENABLE(JIT)
 bool CodeBlock::functionRegisterForBytecodeOffset(unsigned bytecodeOffset, int& functionRegisterIndex)
 {
-    ASSERT(m_codeType != NativeCode);
     ASSERT(bytecodeOffset < m_instructionCount);
 
     if (!m_rareData || !m_rareData->m_functionRegisterInfos.size())
@@ -1660,7 +1576,6 @@ bool CodeBlock::functionRegisterForBytecodeOffset(unsigned bytecodeOffset, int& 
 #if !ENABLE(JIT)
 bool CodeBlock::hasGlobalResolveInstructionAtBytecodeOffset(unsigned bytecodeOffset)
 {
-    ASSERT(m_codeType != NativeCode);
     if (m_globalResolveInstructions.isEmpty())
         return false;
 
@@ -1681,7 +1596,6 @@ bool CodeBlock::hasGlobalResolveInstructionAtBytecodeOffset(unsigned bytecodeOff
 #else
 bool CodeBlock::hasGlobalResolveInfoAtBytecodeOffset(unsigned bytecodeOffset)
 {
-    ASSERT(m_codeType != NativeCode);
     if (m_globalResolveInfos.isEmpty())
         return false;
 
@@ -1701,18 +1615,6 @@ bool CodeBlock::hasGlobalResolveInfoAtBytecodeOffset(unsigned bytecodeOffset)
 }
 #endif
 
-#if ENABLE(JIT)
-void CodeBlock::setJITCode(JITCode jitCode)
-{
-    ASSERT(m_codeType != NativeCode); 
-    ownerNode()->setJITCode(jitCode);
-#if !ENABLE(OPCODE_SAMPLING)
-    if (!BytecodeGenerator::dumpsGeneratedCode())
-        m_instructions.clear();
-#endif
-}
-#endif
-
 void CodeBlock::shrinkToFit()
 {
     m_instructions.shrinkToFit();
@@ -1728,7 +1630,8 @@ void CodeBlock::shrinkToFit()
 #endif
 
     m_identifiers.shrinkToFit();
-    m_functionExpressions.shrinkToFit();
+    m_functionDecls.shrinkToFit();
+    m_functionExprs.shrinkToFit();
     m_constantRegisters.shrinkToFit();
 
     if (m_exceptionInfo) {
@@ -1739,7 +1642,6 @@ void CodeBlock::shrinkToFit()
 
     if (m_rareData) {
         m_rareData->m_exceptionHandlers.shrinkToFit();
-        m_rareData->m_functions.shrinkToFit();
         m_rareData->m_regexps.shrinkToFit();
         m_rareData->m_immediateSwitchJumpTables.shrinkToFit();
         m_rareData->m_characterSwitchJumpTables.shrinkToFit();

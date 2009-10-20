@@ -35,10 +35,11 @@
 #include "FrameView.h"
 #include "Frame.h"
 #include "Document.h"
+#include "TimeRanges.h"
 
 #if PLATFORM(MAC)
 #include "MediaPlayerPrivateQTKit.h"
-#elif PLATFORM(WINCE)
+#elif PLATFORM(WINCE) && !PLATFORM(QT)
 #include "MediaPlayerPrivateWince.h"
 #elif PLATFORM(WIN)
 #include "MediaPlayerPrivateQuickTimeWin.h"
@@ -67,11 +68,12 @@ public:
     virtual void play() { }
     virtual void pause() { }    
 
-    virtual bool supportsFullscreen() const { return false; }
+    virtual PlatformMedia platformMedia() const { return NoPlatformMedia; }
 
     virtual IntSize naturalSize() const { return IntSize(0, 0); }
 
     virtual bool hasVideo() const { return false; }
+    virtual bool hasAudio() const { return false; }
 
     virtual void setVisible(bool) { }
 
@@ -93,7 +95,7 @@ public:
     virtual MediaPlayer::ReadyState readyState() const { return MediaPlayer::HaveNothing; }
 
     virtual float maxTimeSeekable() const { return 0; }
-    virtual float maxTimeBuffered() const { return 0; }
+    virtual PassRefPtr<TimeRanges> buffered() const { return TimeRanges::create(); }
 
     virtual int dataRate() const { return 0; }
 
@@ -260,11 +262,19 @@ bool MediaPlayer::canLoadPoster() const
 {
     return m_private->canLoadPoster();
 }
+<<<<<<< HEAD:WebCore/platform/graphics/MediaPlayer.cpp
 
+=======
+    
+>>>>>>> webkit.org at 49305:WebCore/platform/graphics/MediaPlayer.cpp
 void MediaPlayer::setPoster(const String& url)
 {
     m_private->setPoster(url);
+<<<<<<< HEAD:WebCore/platform/graphics/MediaPlayer.cpp
 }
+=======
+}    
+>>>>>>> webkit.org at 49305:WebCore/platform/graphics/MediaPlayer.cpp
 
 void MediaPlayer::cancelLoad()
 {
@@ -275,7 +285,11 @@ void MediaPlayer::prepareToPlay()
 {
     m_private->prepareToPlay();
 }
+<<<<<<< HEAD:WebCore/platform/graphics/MediaPlayer.cpp
 
+=======
+    
+>>>>>>> webkit.org at 49305:WebCore/platform/graphics/MediaPlayer.cpp
 void MediaPlayer::play()
 {
     m_private->play();
@@ -331,9 +345,14 @@ IntSize MediaPlayer::naturalSize()
     return m_private->naturalSize();
 }
 
-bool MediaPlayer::hasVideo()
+bool MediaPlayer::hasVideo() const
 {
     return m_private->hasVideo();
+}
+
+bool MediaPlayer::hasAudio() const
+{
+    return m_private->hasAudio();
 }
 
 bool MediaPlayer::inMediaDocument()
@@ -342,6 +361,11 @@ bool MediaPlayer::inMediaDocument()
     Document* document = frame ? frame->document() : 0;
     
     return document && document->isMediaDocument();
+}
+
+PlatformMedia MediaPlayer::platformMedia() const
+{
+    return m_private->platformMedia();
 }
 
 MediaPlayer::NetworkState MediaPlayer::networkState()
@@ -397,9 +421,9 @@ void MediaPlayer::setEndTime(float time)
     m_private->setEndTime(time);
 }
 
-float MediaPlayer::maxTimeBuffered()
+PassRefPtr<TimeRanges> MediaPlayer::buffered()
 {
-    return m_private->maxTimeBuffered();
+    return m_private->buffered();
 }
 
 float MediaPlayer::maxTimeSeekable()

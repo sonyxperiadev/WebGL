@@ -33,7 +33,10 @@
 #include <QRegExp>
 #include <QNetworkRequest>
 #include <QNetworkReply>
+#ifndef QT_NO_OPENSSL
 #include <qsslerror.h>
+#endif
+#include "../util.h"
 
 //TESTED_CLASS=
 //TESTED_FILES=
@@ -578,8 +581,12 @@ private slots:
     void urlChange();
     void domCycles();
     void requestedUrl();
+    void javaScriptWindowObjectCleared_data();
+    void javaScriptWindowObjectCleared();
+    void javaScriptWindowObjectClearedOnEvaluate();
     void setHtml();
     void setHtmlWithResource();
+    void setHtmlWithBaseURL();
     void ipv6HostEncoding();
     void metaData();
     void popupFocus();
@@ -592,6 +599,7 @@ private slots:
     void hasSetFocus();
     void render();
     void scrollPosition();
+    void evaluateWillCauseRepaint();
 
 private:
     QString  evalJS(const QString&s) {
@@ -692,6 +700,7 @@ void tst_QWebFrame::init()
     m_page = m_view->page();
     m_myObject = new MyQObject();
     m_page->mainFrame()->addToJavaScriptWindowObject("myObject", m_myObject);
+    QDir::setCurrent(SRCDIR);
 }
 
 void tst_QWebFrame::cleanup()
@@ -2178,8 +2187,11 @@ public:
         if (request.url() == QUrl("qrc:/test1.html")) {
             setHeader(QNetworkRequest::LocationHeader, QString("qrc:/test2.html"));
             setAttribute(QNetworkRequest::RedirectionTargetAttribute, QUrl("qrc:/test2.html"));
-        } else if (request.url() == QUrl("qrc:/fake-ssl-error.html"))
+        }
+#ifndef QT_NO_OPENSSL
+        else if (request.url() == QUrl("qrc:/fake-ssl-error.html"))
             setError(QNetworkReply::SslHandshakeFailedError, tr("Fake error !")); // force a ssl error
+#endif
         else if (request.url() == QUrl("http://abcdef.abcdef/"))
             setError(QNetworkReply::HostNotFoundError, tr("Invalid URL"));
 
@@ -2206,8 +2218,10 @@ private slots:
             emit error(this->error());
         else if (request().url() == QUrl("http://abcdef.abcdef/"))
             emit metaDataChanged();
+#ifndef QT_NO_OPENSSL
         else if (request().url() == QUrl("qrc:/fake-ssl-error.html"))
             return;
+#endif
 
         emit readyRead();
         emit finished();
@@ -2227,12 +2241,14 @@ protected:
         if (op == QNetworkAccessManager::GetOperation)
             if (url == "qrc:/test1.html" ||  url == "http://abcdef.abcdef/")
                 return new FakeReply(request, this);
+#ifndef QT_NO_OPENSSL
             else if (url == "qrc:/fake-ssl-error.html") {
                 FakeReply* reply = new FakeReply(request, this);
                 QList<QSslError> errors;
                 emit sslErrors(reply, errors << QSslError(QSslError::UnspecifiedError));
                 return reply;
             }
+#endif
 
         return QNetworkAccessManager::createRequest(op, request, outgoingData);
     }
@@ -2266,6 +2282,7 @@ void tst_QWebFrame::requestedUrl()
     QCOMPARE(frame->requestedUrl(), QUrl("http://abcdef.abcdef/"));
     QCOMPARE(frame->url(), QUrl("http://abcdef.abcdef/"));
 
+#ifndef QT_NO_OPENSSL
     qRegisterMetaType<QList<QSslError> >("QList<QSslError>");
     qRegisterMetaType<QNetworkReply* >("QNetworkReply*");
 
@@ -2275,6 +2292,41 @@ void tst_QWebFrame::requestedUrl()
     QCOMPARE(spy2.count(), 1);
     QCOMPARE(frame->requestedUrl(), QUrl("qrc:/fake-ssl-error.html"));
     QCOMPARE(frame->url(), QUrl("qrc:/fake-ssl-error.html"));
+#endif
+}
+
+void tst_QWebFrame::javaScriptWindowObjectCleared_data()
+{
+    QTest::addColumn<QString>("html");
+    QTest::addColumn<int>("signalCount");
+    QTest::newRow("with <script>") << "<html><body><script></script><p>hello world</p></body></html>" << 1;
+    QTest::newRow("without <script>") << "<html><body><p>hello world</p></body></html>" << 0;
+}
+
+void tst_QWebFrame::javaScriptWindowObjectCleared()
+{
+    QWebPage page;
+    QWebFrame* frame = page.mainFrame();
+    QSignalSpy spy(frame, SIGNAL(javaScriptWindowObjectCleared()));
+    QFETCH(QString, html);
+    frame->setHtml(html);
+
+    QFETCH(int, signalCount);
+    QCOMPARE(spy.count(), signalCount);
+}
+
+void tst_QWebFrame::javaScriptWindowObjectClearedOnEvaluate()
+{
+    QWebPage page;
+    QWebFrame* frame = page.mainFrame();
+    QSignalSpy spy(frame, SIGNAL(javaScriptWindowObjectCleared()));
+    frame->setHtml("<html></html>");
+    QCOMPARE(spy.count(), 0);
+    frame->evaluateJavaScript("var a = 'a';");
+    QCOMPARE(spy.count(), 1);
+    // no new clear for a new script:
+    frame->evaluateJavaScript("var a = 1;");
+    QCOMPARE(spy.count(), 1);
 }
 
 void tst_QWebFrame::setHtml()
@@ -2317,7 +2369,29 @@ void tst_QWebFrame::setHtmlWithResource()
     QCOMPARE(spy.size(), 2);
 
     QWebElement p = frame->documentElement().findAll("p").at(0);
-    QCOMPARE(p.styleProperty("color", QWebElement::RespectCascadingStyles), QLatin1String("red"));
+    QCOMPARE(p.styleProperty("color", QWebElement::CascadedStyle), QLatin1String("red"));
+}
+
+void tst_QWebFrame::setHtmlWithBaseURL()
+{
+    QString html("<html><body><p>hello world</p><img src='resources/image2.png'/></body></html>");
+
+    QWebPage page;
+    QWebFrame* frame = page.mainFrame();
+
+    // in few seconds, the image should be completey loaded
+    QSignalSpy spy(&page, SIGNAL(loadFinished(bool)));
+
+    frame->setHtml(html, QUrl::fromLocalFile(QDir::currentPath()));
+    QTest::qWait(200);
+    QCOMPARE(spy.count(), 1);
+
+    QCOMPARE(frame->evaluateJavaScript("document.images.length").toInt(), 1);
+    QCOMPARE(frame->evaluateJavaScript("document.images[0].width").toInt(), 128);
+    QCOMPARE(frame->evaluateJavaScript("document.images[0].height").toInt(), 128);
+
+    // no history item has to be added.
+    QCOMPARE(m_view->page()->history()->count(), 0);
 }
 
 class TestNetworkManager : public QNetworkAccessManager
@@ -2408,23 +2482,17 @@ void tst_QWebFrame::popupFocus()
     view.resize(400, 100);
     view.show();
     view.setFocus();
-    QTest::qWait(200);
-    QVERIFY2(view.hasFocus(),
-             "The WebView should be created");
+    QTRY_VERIFY(view.hasFocus());
 
     // open the popup by clicking. check if focus is on the popup
     QTest::mouseClick(&view, Qt::LeftButton, 0, QPoint(25, 25));
     QObject* webpopup = firstChildByClassName(&view, "WebCore::QWebPopup");
     QComboBox* combo = qobject_cast<QComboBox*>(webpopup);
-    QTest::qWait(500);
-    QVERIFY2(!view.hasFocus() && combo->view()->hasFocus(),
-             "Focus sould be on the Popup");
+    QTRY_VERIFY(!view.hasFocus() && combo->view()->hasFocus()); // Focus should be on the popup
 
     // hide the popup and check if focus is on the page
     combo->hidePopup();
-    QTest::qWait(500);
-    QVERIFY2(view.hasFocus() && !combo->view()->hasFocus(),
-             "Focus sould be back on the WebView");
+    QTRY_VERIFY(view.hasFocus() && !combo->view()->hasFocus()); // Focus should be back on the WebView
 
     // triple the flashing time, should at least blink twice already
     int delay = qApp->cursorFlashTime() * 3;
@@ -2592,16 +2660,16 @@ void tst_QWebFrame::hasSetFocus()
     QCOMPARE(loadSpy.size(), 2);
 
     m_page->mainFrame()->setFocus();
-    QVERIFY(m_page->mainFrame()->hasFocus());
+    QTRY_VERIFY(m_page->mainFrame()->hasFocus());
 
     for (int i = 0; i < children.size(); ++i) {
         children.at(i)->setFocus();
-        QVERIFY(children.at(i)->hasFocus());
+        QTRY_VERIFY(children.at(i)->hasFocus());
         QVERIFY(!m_page->mainFrame()->hasFocus());
     }
 
     m_page->mainFrame()->setFocus();
-    QVERIFY(m_page->mainFrame()->hasFocus());
+    QTRY_VERIFY(m_page->mainFrame()->hasFocus());
 }
 
 void tst_QWebFrame::render()
@@ -2668,6 +2736,25 @@ void tst_QWebFrame::scrollPosition()
     QCOMPARE(x, 23);
     QCOMPARE(y, 29);
 }
+
+void tst_QWebFrame::evaluateWillCauseRepaint()
+{
+    QWebView view;
+    QString html("<html><body>top<div id=\"junk\" style=\"display: block;\">"
+                    "junk</div>bottom</body></html>");
+    view.setHtml(html);
+    view.show();
+
+    QTest::qWait(200);
+
+    view.page()->mainFrame()->evaluateJavaScript(
+        "document.getElementById('junk').style.display = 'none';");
+
+    ::waitForSignal(view.page(), SIGNAL(repaintRequested( const QRect &)));
+
+    QTest::qWait(2000);
+}
+
 
 QTEST_MAIN(tst_QWebFrame)
 #include "tst_qwebframe.moc"

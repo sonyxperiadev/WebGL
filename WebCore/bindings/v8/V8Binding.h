@@ -31,6 +31,7 @@
 #ifndef V8Binding_h
 #define V8Binding_h
 
+#include "AtomicString.h"
 #include "MathExtras.h"
 #include "PlatformString.h"
 
@@ -38,28 +39,27 @@
 
 namespace WebCore {
 
-    enum ExternalMode {
-        Externalize,
-        DoNotExternalize
-    };
-
-    enum StringType {
-        PlainStringType,
-        AtomicStringType
-    };
-
     // Convert v8 types to a WebCore::String. If the V8 string is not already
     // an external string then it is transformed into an external string at this
     // point to avoid repeated conversions.
-    String v8StringToWebCoreString(v8::Handle<v8::String>, ExternalMode mode, StringType type);
-    String v8ValueToWebCoreString(v8::Handle<v8::Value>);
+    String v8StringToWebCoreString(v8::Handle<v8::String>);
+    String v8NonStringValueToWebCoreString(v8::Handle<v8::Value>);
+    inline String v8ValueToWebCoreString(v8::Handle<v8::Value> value)
+    {
+        if (value->IsString())
+            return v8StringToWebCoreString(v8::Handle<v8::String>::Cast(value));
+        return v8NonStringValueToWebCoreString(value);
+    }
 
     // Convert v8 types to a WebCore::AtomicString.
     AtomicString v8StringToAtomicWebCoreString(v8::Handle<v8::String>);
-    AtomicString v8ValueToAtomicWebCoreString(v8::Handle<v8::Value>);
-
-    // Convert a string to a V8 string.
-    v8::Handle<v8::String> v8String(const String&);
+    AtomicString v8NonStringValueToAtomicWebCoreString(v8::Handle<v8::Value>);
+    inline AtomicString v8ValueToAtomicWebCoreString(v8::Handle<v8::Value> value)
+    {
+        if (value->IsString())
+            return v8StringToAtomicWebCoreString(v8::Handle<v8::String>::Cast(value));
+        return v8NonStringValueToAtomicWebCoreString(value);
+    }
 
     inline String toString(const String& string)
     {
@@ -70,6 +70,12 @@ namespace WebCore {
     // WebCore string. The reference counting mechanism is used to keep the
     // underlying buffer alive while the string is still live in the V8 engine.
     v8::Local<v8::String> v8ExternalString(const String&);
+
+    // Convert a string to a V8 string.
+    inline v8::Handle<v8::String> v8String(const String& string)
+    {
+        return v8ExternalString(string);
+    }
 
     // Enables caching v8 wrappers created for WebCore::StringImpl.  Currently this cache requires
     // all the calls (both to convert WebCore::String to v8::String and to GC the handle)
@@ -145,12 +151,19 @@ namespace WebCore {
     {
         return value ? v8::True() : v8::False();
     }
-   
+
     inline String toWebCoreStringWithNullCheck(v8::Handle<v8::Value> value)
     {
         if (value->IsNull()) 
             return String();
         return v8ValueToWebCoreString(value);
+    }
+
+    inline AtomicString v8ValueToAtomicWebCoreStringWithNullCheck(v8::Handle<v8::Value> value)
+    {
+        if (value->IsNull())
+            return AtomicString();
+        return v8ValueToAtomicWebCoreString(value);
     }
 
     inline String toWebCoreStringWithNullOrUndefinedCheck(v8::Handle<v8::Value> value)

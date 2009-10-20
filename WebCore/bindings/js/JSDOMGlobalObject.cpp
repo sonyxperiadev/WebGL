@@ -40,22 +40,9 @@ using namespace JSC;
 
 namespace WebCore {
 
-JSDOMGlobalObject::JSDOMGlobalObjectData::JSDOMGlobalObjectData()
-    : evt(0)
-{
-}
-
-JSDOMGlobalObject::JSDOMGlobalObject(PassRefPtr<Structure> structure, JSDOMGlobalObject::JSDOMGlobalObjectData* data, JSObject* thisValue)
+JSDOMGlobalObject::JSDOMGlobalObject(NonNullPassRefPtr<Structure> structure, JSDOMGlobalObject::JSDOMGlobalObjectData* data, JSObject* thisValue)
     : JSGlobalObject(structure, data, thisValue)
 {
-}
-
-JSDOMGlobalObject::~JSDOMGlobalObject()
-{
-    JSListenersMap::iterator it = d()->jsEventListeners.begin();
-    JSListenersMap::iterator end = d()->jsEventListeners.end();
-    for (; it != end; ++it)
-        it->second->clearGlobalObject();
 }
 
 void JSDOMGlobalObject::markChildren(MarkStack& markStack)
@@ -71,37 +58,12 @@ void JSDOMGlobalObject::markChildren(MarkStack& markStack)
         markStack.append(it2->second);
 }
 
-JSEventListener* JSDOMGlobalObject::findJSEventListener(JSValue val)
-{
-    if (!val.isObject())
-        return 0;
-
-    return d()->jsEventListeners.get(asObject(val));
-}
-
-PassRefPtr<JSEventListener> JSDOMGlobalObject::findOrCreateJSEventListener(JSValue val)
-{
-    if (JSEventListener* listener = findJSEventListener(val))
-        return listener;
-
-    if (!val.isObject())
-        return 0;
-
-    // The JSEventListener constructor adds it to our jsEventListeners map.
-    return JSEventListener::create(asObject(val), this, false).get();
-}
-
 PassRefPtr<JSEventListener> JSDOMGlobalObject::createJSAttributeEventListener(JSValue val)
 {
     if (!val.isObject())
         return 0;
 
-    return JSEventListener::create(asObject(val), this, true).get();
-}
-
-JSDOMGlobalObject::JSListenersMap& JSDOMGlobalObject::jsEventListeners()
-{
-    return d()->jsEventListeners;
+    return JSEventListener::create(asObject(val), true).get();
 }
 
 void JSDOMGlobalObject::setCurrentEvent(Event* evt)
@@ -112,6 +74,11 @@ void JSDOMGlobalObject::setCurrentEvent(Event* evt)
 Event* JSDOMGlobalObject::currentEvent() const
 {
     return d()->evt;
+}
+
+void JSDOMGlobalObject::destroyJSDOMGlobalObjectData(void* jsDOMGlobalObjectData)
+{
+    delete static_cast<JSDOMGlobalObjectData*>(jsDOMGlobalObjectData);
 }
 
 JSDOMGlobalObject* toJSDOMGlobalObject(Document* document)

@@ -26,7 +26,6 @@
 #include "Document.h" // For DOMConstructorWithDocument
 #include <runtime/Completion.h>
 #include <runtime/Lookup.h>
-#include <runtime/JSFunction.h>
 #include <wtf/Noncopyable.h>
 
 namespace JSC {
@@ -51,17 +50,19 @@ namespace WebCore {
     // Base class for all objects in this binding except Window.
     class DOMObject : public JSC::JSObject {
     protected:
-        explicit DOMObject(PassRefPtr<JSC::Structure> structure) 
+        explicit DOMObject(NonNullPassRefPtr<JSC::Structure> structure) 
             : JSObject(structure)
         {
         }
+
+        virtual bool defineOwnProperty(JSC::ExecState*, const JSC::Identifier&, JSC::PropertyDescriptor&, bool);
 
 #ifndef NDEBUG
         virtual ~DOMObject();
 #endif
     };
 
-    // FIXME: This class should colapse into DOMObject once all DOMObjects are
+    // FIXME: This class should collapse into DOMObject once all DOMObjects are
     // updated to store a globalObject pointer.
     class DOMObjectWithGlobalPointer : public DOMObject {
     public:
@@ -73,8 +74,13 @@ namespace WebCore {
             return m_globalObject->scriptExecutionContext();
         }
 
+        static PassRefPtr<JSC::Structure> createStructure(JSC::JSValue prototype)
+        {
+            return JSC::Structure::create(prototype, JSC::TypeInfo(JSC::ObjectType, JSC::HasStandardGetOwnPropertySlot));
+        }
+
     protected:
-        DOMObjectWithGlobalPointer(PassRefPtr<JSC::Structure> structure, JSDOMGlobalObject* globalObject)
+        DOMObjectWithGlobalPointer(NonNullPassRefPtr<JSC::Structure> structure, JSDOMGlobalObject* globalObject)
             : DOMObject(structure)
             , m_globalObject(globalObject)
         {
@@ -83,7 +89,7 @@ namespace WebCore {
             // needing to reach through the frame to get to the Document*.  See bug 27640.
             // ASSERT(globalObject->scriptExecutionContext());
         }
-        virtual ~DOMObjectWithGlobalPointer() {}
+        virtual ~DOMObjectWithGlobalPointer() { }
 
         void markChildren(JSC::MarkStack& markStack)
         {
@@ -104,7 +110,7 @@ namespace WebCore {
         }
 
     protected:
-        DOMConstructorObject(PassRefPtr<JSC::Structure> structure, JSDOMGlobalObject* globalObject)
+        DOMConstructorObject(NonNullPassRefPtr<JSC::Structure> structure, JSDOMGlobalObject* globalObject)
             : DOMObjectWithGlobalPointer(structure, globalObject)
         {
         }
@@ -120,7 +126,7 @@ namespace WebCore {
         }
 
     protected:
-        DOMConstructorWithDocument(PassRefPtr<JSC::Structure> structure, JSDOMGlobalObject* globalObject)
+        DOMConstructorWithDocument(NonNullPassRefPtr<JSC::Structure> structure, JSDOMGlobalObject* globalObject)
             : DOMConstructorObject(structure, globalObject)
         {
             ASSERT(globalObject->scriptExecutionContext()->isDocument());
@@ -141,9 +147,9 @@ namespace WebCore {
     void markDOMObjectWrapper(JSC::MarkStack&, JSC::JSGlobalData& globalData, void* object);
 
     JSC::Structure* getCachedDOMStructure(JSDOMGlobalObject*, const JSC::ClassInfo*);
-    JSC::Structure* cacheDOMStructure(JSDOMGlobalObject*, PassRefPtr<JSC::Structure>, const JSC::ClassInfo*);
+    JSC::Structure* cacheDOMStructure(JSDOMGlobalObject*, NonNullPassRefPtr<JSC::Structure>, const JSC::ClassInfo*);
     JSC::Structure* getCachedDOMStructure(JSC::ExecState*, const JSC::ClassInfo*);
-    JSC::Structure* cacheDOMStructure(JSC::ExecState*, PassRefPtr<JSC::Structure>, const JSC::ClassInfo*);
+    JSC::Structure* cacheDOMStructure(JSC::ExecState*, NonNullPassRefPtr<JSC::Structure>, const JSC::ClassInfo*);
 
     JSC::JSObject* getCachedDOMConstructor(JSC::ExecState*, const JSC::ClassInfo*);
     void cacheDOMConstructor(JSC::ExecState*, const JSC::ClassInfo*, JSC::JSObject* constructor);
@@ -276,6 +282,9 @@ namespace WebCore {
     {
         return toJS(exec, globalObject, ptr.get());
     }
+
+    // Validates that the passed object is a sequence type per section 4.1.13 of the WebIDL spec.
+    JSC::JSObject* toJSSequence(JSC::ExecState*, JSC::JSValue, unsigned&);
 
     bool checkNodeSecurity(JSC::ExecState*, Node*);
 

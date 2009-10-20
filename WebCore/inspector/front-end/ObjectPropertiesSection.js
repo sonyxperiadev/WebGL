@@ -48,72 +48,80 @@ WebInspector.ObjectPropertiesSection.prototype = {
         var callback = function(properties) {
             if (!properties)
                 return;
-            self._update(properties);
+            self.updateProperties(properties);
         };
-        InspectorController.getProperties(this.object, this.ignoreHasOwnProperty, callback);
+        InjectedScriptAccess.getProperties(this.object, this.ignoreHasOwnProperty, callback);
     },
 
-    _update: function(properties)
+    updateProperties: function(properties, rootTreeElementConstructor, rootPropertyComparer)
     {
+        if (!rootTreeElementConstructor)
+            rootTreeElementConstructor = this.treeElementConstructor;
+            
+        if (!rootPropertyComparer)
+            rootPropertyComparer = WebInspector.ObjectPropertiesSection.CompareProperties;
+            
         if (this.extraProperties)
-            for (var prop in this.extraProperties)
-                properties.push(new WebInspector.ObjectPropertyProxy(prop, this.extraProperties[prop]));
-        properties.sort(this._displaySort);
+            for (var i = 0; i < this.extraProperties.length; ++i)
+                properties.push(this.extraProperties[i]);
+                
+        properties.sort(rootPropertyComparer);
 
         this.propertiesTreeOutline.removeChildren();
 
         for (var i = 0; i < properties.length; ++i)
-            this.propertiesTreeOutline.appendChild(new this.treeElementConstructor(properties[i]));
+            this.propertiesTreeOutline.appendChild(new rootTreeElementConstructor(properties[i]));
 
         if (!this.propertiesTreeOutline.children.length) {
             var title = "<div class=\"info\">" + this.emptyPlaceholder + "</div>";
             var infoElement = new TreeElement(title, null, false);
             this.propertiesTreeOutline.appendChild(infoElement);
         }
-    },
-
-    _displaySort: function(propertyA, propertyB) {
-        var a = propertyA.name;
-        var b = propertyB.name;
-
-        // if used elsewhere make sure to
-        //  - convert a and b to strings (not needed here, properties are all strings)
-        //  - check if a == b (not needed here, no two properties can be the same)
-
-        var diff = 0;
-        var chunk = /^\d+|^\D+/;
-        var chunka, chunkb, anum, bnum;
-        while (diff === 0) {
-            if (!a && b)
-                return -1;
-            if (!b && a)
-                return 1;
-            chunka = a.match(chunk)[0];
-            chunkb = b.match(chunk)[0];
-            anum = !isNaN(chunka);
-            bnum = !isNaN(chunkb);
-            if (anum && !bnum)
-                return -1;
-            if (bnum && !anum)
-                return 1;
-            if (anum && bnum) {
-                diff = chunka - chunkb;
-                if (diff === 0 && chunka.length !== chunkb.length) {
-                    if (!+chunka && !+chunkb) // chunks are strings of all 0s (special case)
-                        return chunka.length - chunkb.length;
-                    else
-                        return chunkb.length - chunka.length;
-                }
-            } else if (chunka !== chunkb)
-                return (chunka < chunkb) ? -1 : 1;
-            a = a.substring(chunka.length);
-            b = b.substring(chunkb.length);
-        }
-        return diff;
     }
 }
 
 WebInspector.ObjectPropertiesSection.prototype.__proto__ = WebInspector.PropertiesSection.prototype;
+
+WebInspector.ObjectPropertiesSection.CompareProperties = function(propertyA, propertyB) 
+{
+    var a = propertyA.name;
+    var b = propertyB.name;
+
+    // if used elsewhere make sure to
+    //  - convert a and b to strings (not needed here, properties are all strings)
+    //  - check if a == b (not needed here, no two properties can be the same)
+
+    var diff = 0;
+    var chunk = /^\d+|^\D+/;
+    var chunka, chunkb, anum, bnum;
+    while (diff === 0) {
+        if (!a && b)
+            return -1;
+        if (!b && a)
+            return 1;
+        chunka = a.match(chunk)[0];
+        chunkb = b.match(chunk)[0];
+        anum = !isNaN(chunka);
+        bnum = !isNaN(chunkb);
+        if (anum && !bnum)
+            return -1;
+        if (bnum && !anum)
+            return 1;
+        if (anum && bnum) {
+            diff = chunka - chunkb;
+            if (diff === 0 && chunka.length !== chunkb.length) {
+                if (!+chunka && !+chunkb) // chunks are strings of all 0s (special case)
+                    return chunka.length - chunkb.length;
+                else
+                    return chunkb.length - chunka.length;
+            }
+        } else if (chunka !== chunkb)
+            return (chunka < chunkb) ? -1 : 1;
+        a = a.substring(chunka.length);
+        b = b.substring(chunkb.length);
+    }
+    return diff;
+}
 
 WebInspector.ObjectPropertyTreeElement = function(property)
 {
@@ -124,30 +132,22 @@ WebInspector.ObjectPropertyTreeElement = function(property)
 }
 
 WebInspector.ObjectPropertyTreeElement.prototype = {
-    safePropertyValue: function(object, propertyName)
-    {
-        if (object["__lookupGetter__"] && object.__lookupGetter__(propertyName))
-            return;
-        return object[propertyName];
-    },
-
     onpopulate: function()
     {
         if (this.children.length && !this.shouldRefreshChildren)
             return;
 
-        var self = this;
         var callback = function(properties) {
-            self.removeChildren();
+            this.removeChildren();
             if (!properties)
                 return;
 
-            properties.sort(self._displaySort);
+            properties.sort(WebInspector.ObjectPropertiesSection.CompareProperties);
             for (var i = 0; i < properties.length; ++i) {
-                self.appendChild(new self.treeOutline.section.treeElementConstructor(properties[i]));
+                this.appendChild(new this.treeOutline.section.treeElementConstructor(properties[i]));
             }
         };
-        InspectorController.getProperties(this.property.childObjectProxy, false, callback);
+        InjectedScriptAccess.getProperties(this.property.value, false, callback.bind(this));
     },
 
     ondblclick: function(element, event)
@@ -162,22 +162,26 @@ WebInspector.ObjectPropertyTreeElement.prototype = {
 
     update: function()
     {
-        var nameElement = document.createElement("span");
-        nameElement.className = "name";
-        nameElement.textContent = this.property.name;
+        this.nameElement = document.createElement("span");
+        this.nameElement.className = "name";
+        this.nameElement.textContent = this.property.name;
 
+        var separatorElement = document.createElement("span");
+        separatorElement.className = "separator";
+        separatorElement.textContent = ": ";
+        
         this.valueElement = document.createElement("span");
         this.valueElement.className = "value";
-        this.valueElement.textContent = this.property.textContent;
+        this.valueElement.textContent = this.property.value.description;
         if (this.property.isGetter)
            this.valueElement.addStyleClass("dimmed");
 
         this.listItemElement.removeChildren();
 
-        this.listItemElement.appendChild(nameElement);
-        this.listItemElement.appendChild(document.createTextNode(": "));
+        this.listItemElement.appendChild(this.nameElement);
+        this.listItemElement.appendChild(separatorElement);
         this.listItemElement.appendChild(this.valueElement);
-        this.hasChildren = this.property.hasChildren;
+        this.hasChildren = this.property.value.hasChildren;
     },
 
     updateSiblings: function()
@@ -247,7 +251,7 @@ WebInspector.ObjectPropertyTreeElement.prototype = {
                 self.updateSiblings();
             }
         };
-        InspectorController.setPropertyValue(this.property.parentObjectProxy, this.property.name, expression.trimWhitespace(), callback);
+        InjectedScriptAccess.setPropertyValue(this.property.parentObjectProxy, this.property.name, expression.trimWhitespace(), callback);
     }
 }
 

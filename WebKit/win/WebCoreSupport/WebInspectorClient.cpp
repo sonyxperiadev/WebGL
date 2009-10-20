@@ -99,12 +99,10 @@ void WebInspectorClient::inspectorDestroyed()
 
 Page* WebInspectorClient::createPage()
 {
-    if (m_webView)
-        return core(m_webView.get());
-
-    ASSERT(!m_hwnd);
-
     registerWindowClass();
+
+    if (m_hwnd)
+        ::DestroyWindow(m_hwnd);
 
     m_hwnd = ::CreateWindowEx(0, kWebInspectorWindowClassName, 0, WS_OVERLAPPEDWINDOW,
         defaultWindowRect().x(), defaultWindowRect().y(), defaultWindowRect().width(), defaultWindowRect().height(),
@@ -351,8 +349,9 @@ void WebInspectorClient::showWindowWithoutNotifications()
     ASSERT(m_webView);
     ASSERT(m_inspectedWebViewHwnd);
 
+    // If no preference is set - default to an attached window. This is important for inspector LayoutTests.
     InspectorController::Setting shouldAttach = m_inspectedWebView->page()->inspectorController()->setting(inspectorStartsAttachedName);
-    m_shouldAttachWhenShown = shouldAttach.type() == InspectorController::Setting::BooleanType ? shouldAttach.booleanValue() : false;
+    m_shouldAttachWhenShown = shouldAttach.type() == InspectorController::Setting::BooleanType ? shouldAttach.booleanValue() : true;
 
     if (!m_shouldAttachWhenShown) {
         // Put the Inspector's WebView inside our window and show it.

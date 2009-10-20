@@ -119,7 +119,7 @@ bool DragData::containsURL() const
     return m_platformDragData->hasUrls();
 }
 
-String DragData::asURL(String* title) const
+String DragData::asURL(String*) const
 {
     if (!m_platformDragData)
         return String();
@@ -128,7 +128,7 @@ String DragData::asURL(String* title) const
     if (urls.isEmpty())
         return String();
 
-    return urls.first().toString();
+    return encodeWithURLEscapeSequences(urls.first().toString());
 }
 
 PassRefPtr<DocumentFragment> DragData::asFragment(Document* doc) const

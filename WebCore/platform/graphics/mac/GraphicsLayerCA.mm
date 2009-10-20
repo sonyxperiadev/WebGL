@@ -31,6 +31,9 @@
 
 #import "Animation.h"
 #import "BlockExceptions.h"
+#if ENABLE(3D_CANVAS)
+#import "Canvas3DLayer.h"
+#endif
 #import "CString.h"
 #import "FloatConversion.h"
 #import "FloatRect.h"
@@ -145,11 +148,11 @@ static NSValue* getTransformFunctionValue(const TransformOperation* transformOp,
         case TransformOperation::ROTATE_Y:
             return [NSNumber numberWithDouble:transformOp ? deg2rad(static_cast<const RotateTransformOperation*>(transformOp)->angle()) : 0];
         case TransformOperation::SCALE_X:
-            return [NSNumber numberWithDouble:transformOp ? static_cast<const ScaleTransformOperation*>(transformOp)->x() : 0];
+            return [NSNumber numberWithDouble:transformOp ? static_cast<const ScaleTransformOperation*>(transformOp)->x() : 1];
         case TransformOperation::SCALE_Y:
-            return [NSNumber numberWithDouble:transformOp ? static_cast<const ScaleTransformOperation*>(transformOp)->y() : 0];
+            return [NSNumber numberWithDouble:transformOp ? static_cast<const ScaleTransformOperation*>(transformOp)->y() : 1];
         case TransformOperation::SCALE_Z:
-            return [NSNumber numberWithDouble:transformOp ? static_cast<const ScaleTransformOperation*>(transformOp)->z() : 0];
+            return [NSNumber numberWithDouble:transformOp ? static_cast<const ScaleTransformOperation*>(transformOp)->z() : 1];
         case TransformOperation::TRANSLATE_X:
             return [NSNumber numberWithDouble:transformOp ? static_cast<const TranslateTransformOperation*>(transformOp)->x(size) : 0];
         case TransformOperation::TRANSLATE_Y:
@@ -157,13 +160,23 @@ static NSValue* getTransformFunctionValue(const TransformOperation* transformOp,
         case TransformOperation::TRANSLATE_Z:
             return [NSNumber numberWithDouble:transformOp ? static_cast<const TranslateTransformOperation*>(transformOp)->z(size) : 0];
         case TransformOperation::SCALE:
+        case TransformOperation::SCALE_3D:
+            return [NSArray arrayWithObjects:
+                        [NSNumber numberWithDouble:transformOp ? static_cast<const ScaleTransformOperation*>(transformOp)->x() : 1],
+                        [NSNumber numberWithDouble:transformOp ? static_cast<const ScaleTransformOperation*>(transformOp)->y() : 1],
+                        [NSNumber numberWithDouble:transformOp ? static_cast<const ScaleTransformOperation*>(transformOp)->z() : 1],
+                        nil];
         case TransformOperation::TRANSLATE:
+        case TransformOperation::TRANSLATE_3D:
+            return [NSArray arrayWithObjects:
+                        [NSNumber numberWithDouble:transformOp ? static_cast<const TranslateTransformOperation*>(transformOp)->x(size) : 0],
+                        [NSNumber numberWithDouble:transformOp ? static_cast<const TranslateTransformOperation*>(transformOp)->y(size) : 0],
+                        [NSNumber numberWithDouble:transformOp ? static_cast<const TranslateTransformOperation*>(transformOp)->z(size) : 0],
+                        nil];
         case TransformOperation::SKEW_X:
         case TransformOperation::SKEW_Y:
         case TransformOperation::SKEW:
         case TransformOperation::MATRIX:
-        case TransformOperation::SCALE_3D:
-        case TransformOperation::TRANSLATE_3D:
         case TransformOperation::ROTATE_3D:
         case TransformOperation::MATRIX_3D:
         case TransformOperation::PERSPECTIVE:
@@ -204,6 +217,12 @@ static NSString* getValueFunctionNameForTransformOperation(TransformOperation::O
             return @"translateY"; // kCAValueFunctionTranslateY;
         case TransformOperation::TRANSLATE_Z:
             return @"translateZ"; // kCAValueFunctionTranslateZ;
+        case TransformOperation::SCALE:
+        case TransformOperation::SCALE_3D:
+            return @"scale"; // kCAValueFunctionScale;
+        case TransformOperation::TRANSLATE:
+        case TransformOperation::TRANSLATE_3D:
+            return @"translate"; // kCAValueFunctionTranslate;
         default:
             return nil;
     }
@@ -331,7 +350,7 @@ static NSDictionary* nullActionsDictionary()
     return actions;
 }
 
-GraphicsLayer* GraphicsLayer::createGraphicsLayer(GraphicsLayerClient* client)
+PassOwnPtr<GraphicsLayer> GraphicsLayer::create(GraphicsLayerClient* client)
 {
     return new GraphicsLayerCA(client);
 }
@@ -341,6 +360,10 @@ GraphicsLayerCA::GraphicsLayerCA(GraphicsLayerClient* client)
 , m_contentsLayerPurpose(NoContentsLayer)
 , m_contentsLayerHasBackgroundColor(false)
 , m_uncommittedChanges(NoChange)
+#if ENABLE(3D_CANVAS)
+, m_platformGraphicsContext3D(NullPlatformGraphicsContext3D)
+, m_platformTexture(NullPlatform3DObject)
+#endif
 {
     BEGIN_BLOCK_OBJC_EXCEPTIONS
     m_layer.adoptNS([[WebLayer alloc] init]);
@@ -430,6 +453,15 @@ void GraphicsLayerCA::removeFromParent()
     if (m_parent)
         static_cast<GraphicsLayerCA*>(m_parent)->noteLayerPropertyChanged(ChildrenChanged);
     GraphicsLayer::removeFromParent();
+}
+
+void GraphicsLayerCA::setMaskLayer(GraphicsLayer* layer)
+{
+    if (layer == m_maskLayer)
+        return;
+
+    GraphicsLayer::setMaskLayer(layer);
+    noteLayerPropertyChanged(MaskLayerChanged);
 }
 
 void GraphicsLayerCA::setPosition(const FloatPoint& point)
@@ -672,10 +704,10 @@ void GraphicsLayerCA::setContentsToImage(Image* image)
         CGColorSpaceRef colorSpace = CGImageGetColorSpace(m_pendingContentsImage.get());
 
         static CGColorSpaceRef deviceRGB = CGColorSpaceCreateDeviceRGB();
-        if (CFEqual(colorSpace, deviceRGB)) {
-            // CoreGraphics renders images tagged with DeviceRGB using GenericRGB. When we hand such
+        if (colorSpace && CFEqual(colorSpace, deviceRGB)) {
+            // CoreGraphics renders images tagged with DeviceRGB using the color space of the main display. When we hand such
             // images to CA we need to tag them similarly so CA rendering matches CG rendering.
-            static CGColorSpaceRef genericRGB = CGColorSpaceCreateWithName(kCGColorSpaceGenericRGB);
+            static CGColorSpaceRef genericRGB = CGDisplayCopyColorSpace(kCGDirectMainDisplay);
             m_pendingContentsImage.adoptCF(CGImageCreateCopyWithColorSpace(m_pendingContentsImage.get(), genericRGB));
         }
         m_contentsLayerPurpose = ContentsLayerForImage;
@@ -733,6 +765,9 @@ void GraphicsLayerCA::recursiveCommitChanges()
 {
     commitLayerChanges();
 
+    if (m_maskLayer)
+        static_cast<GraphicsLayerCA*>(m_maskLayer)->commitLayerChanges();
+
     const Vector<GraphicsLayer*>& childLayers = children();
     size_t numChildren = childLayers.size();
     for (size_t i = 0; i < numChildren; ++i) {
@@ -763,7 +798,12 @@ void GraphicsLayerCA::commitLayerChanges()
         
     if (m_uncommittedChanges & ContentsVideoChanged) // Needs to happen before ChildrenChanged
         updateContentsVideo();
-
+    
+#if ENABLE(3D_CANVAS)
+    if (m_uncommittedChanges & ContentsGraphicsContext3DChanged) // Needs to happen before ChildrenChanged
+        updateContentsGraphicsContext3D();
+#endif
+    
     if (m_uncommittedChanges & BackgroundColorChanged)  // Needs to happen before ChildrenChanged, and after updating image or video
         updateLayerBackgroundColor();
 
@@ -812,6 +852,9 @@ void GraphicsLayerCA::commitLayerChanges()
     if (m_uncommittedChanges & GeometryOrientationChanged)
         updateGeometryOrientation();
 
+    if (m_uncommittedChanges & MaskLayerChanged)
+        updateMaskLayer();
+
     m_uncommittedChanges = NoChange;
     END_BLOCK_OBJC_EXCEPTIONS
 }
@@ -821,10 +864,12 @@ void GraphicsLayerCA::updateSublayerList()
     NSMutableArray* newSublayers = nil;
 
     if (m_transformLayer) {
-        // FIXME: add the primary layer in the correct order with negative z-order children.
+        // Add the primary layer first. Even if we have negative z-order children, the primary layer always comes behind.
         newSublayers = [[NSMutableArray alloc] initWithObjects:m_layer.get(), nil];
     } else if (m_contentsLayer) {
         // FIXME: add the contents layer in the correct order with negative z-order children.
+        // This does not cause visible rendering issues because currently contents layers are only used
+        // for replaced elements that don't have children.
         newSublayers = [[NSMutableArray alloc] initWithObjects:m_contentsLayer.get(), nil];
     }
     
@@ -1061,6 +1106,18 @@ void GraphicsLayerCA::updateContentsVideo()
     }
 }
 
+#if ENABLE(3D_CANVAS)
+void GraphicsLayerCA::updateContentsGraphicsContext3D()
+{
+    // Canvas3D layer was set as m_contentsLayer, and will get parented in updateSublayerList().
+    if (m_contentsLayer) {
+        setupContentsLayer(m_contentsLayer.get());
+        [m_contentsLayer.get() setNeedsDisplay];
+        updateContentsRect();
+    }
+}
+#endif
+    
 void GraphicsLayerCA::updateContentsRect()
 {
     if (!m_contentsLayer)
@@ -1092,6 +1149,12 @@ void GraphicsLayerCA::updateGeometryOrientation()
     // Geometry orientation is mapped onto children transform in older QuartzCores,
     // so is handled via setGeometryOrientation().
 #endif
+}
+
+void GraphicsLayerCA::updateMaskLayer()
+{
+    CALayer* maskCALayer = m_maskLayer ? m_maskLayer->platformLayer() : 0;
+    [m_layer.get() setMask:maskCALayer];
 }
 
 void GraphicsLayerCA::updateLayerAnimations()
@@ -1247,6 +1310,40 @@ void GraphicsLayerCA::pauseAnimationOnLayer(AnimatedPropertyID property, int ind
     [layer addAnimation:pausedAnim forKey:animationName];  // This will replace the running animation.
 }
 
+#if ENABLE(3D_CANVAS)
+void GraphicsLayerCA::setContentsToGraphicsContext3D(const GraphicsContext3D* graphicsContext3D)
+{
+    PlatformGraphicsContext3D context = graphicsContext3D->platformGraphicsContext3D();
+    Platform3DObject texture = graphicsContext3D->platformTexture();
+    
+    if (context == m_platformGraphicsContext3D && texture == m_platformTexture)
+        return;
+        
+    m_platformGraphicsContext3D = context;
+    m_platformTexture = texture;
+    
+    noteLayerPropertyChanged(ChildrenChanged);
+    
+    BEGIN_BLOCK_OBJC_EXCEPTIONS
+
+    if (m_platformGraphicsContext3D != NullPlatformGraphicsContext3D && m_platformTexture != NullPlatform3DObject) {
+        // create the inner 3d layer
+        m_contentsLayer.adoptNS([[Canvas3DLayer alloc] initWithContext:static_cast<CGLContextObj>(m_platformGraphicsContext3D) texture:static_cast<GLuint>(m_platformTexture)]);
+#ifndef NDEBUG
+        [m_contentsLayer.get() setName:@"3D Layer"];
+#endif        
+    } else {
+        // remove the inner layer
+        m_contentsLayer = 0;
+    }
+    
+    END_BLOCK_OBJC_EXCEPTIONS
+    
+    noteLayerPropertyChanged(ContentsGraphicsContext3DChanged);
+    m_contentsLayerPurpose = m_contentsLayer ? ContentsLayerForGraphicsLayer3D : NoContentsLayer;
+}
+#endif
+    
 void GraphicsLayerCA::repaintLayerDirtyRects()
 {
     if (!m_dirtyRects.size())
@@ -1765,6 +1862,14 @@ void GraphicsLayerCA::noteLayerPropertyChanged(LayerChangeFlags flags)
     m_uncommittedChanges |= flags;
 }
 
+#if ENABLE(3D_CANVAS)
+void GraphicsLayerCA::setGraphicsContext3DNeedsDisplay()
+{
+    if (m_contentsLayerPurpose == ContentsLayerForGraphicsLayer3D)
+        [m_contentsLayer.get() setNeedsDisplay];
+}
+#endif
+    
 } // namespace WebCore
 
 #endif // USE(ACCELERATED_COMPOSITING)

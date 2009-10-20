@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2008, 2009 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -122,6 +122,7 @@ using namespace std;
 #ifdef BUILDING_ON_TIGER
 typedef unsigned NSUInteger;
 #define NSAccessibilityValueDescriptionAttribute @"AXValueDescription"
+#define NSAccessibilityTimelineSubrole @"AXTimeline"
 #endif
 
 @interface NSObject (WebKitAccessibilityArrayCategory)
@@ -378,7 +379,7 @@ static void AXAttributeStringSetSpelling(NSMutableAttributedString* attrString, 
         
         // add misspelling attribute for the intersection of the marker and the range
         int rStart = range.location + (marker.startOffset - offset);
-        int rLength = MIN(marker.endOffset, endOffset) - marker.startOffset;
+        int rLength = min(marker.endOffset, endOffset) - marker.startOffset;
         NSRange spellRange = NSMakeRange(rStart, rLength);
         AXAttributeStringSetNumber(attrString, NSAccessibilityMisspelledTextAttribute, [NSNumber numberWithBool:YES], spellRange);
         
@@ -478,6 +479,9 @@ static NSString* nsStringForReplacedNode(Node* replacedNode)
 
 - (NSAttributedString*)doAXAttributedStringForTextMarkerRange:(WebCoreTextMarkerRange*)textMarkerRange
 {
+    if (!m_object)
+        return nil;
+    
     // extract the start and end VisiblePosition
     VisiblePosition startVisiblePosition = visiblePositionForStartOfTextMarkerRange(textMarkerRange);
     if (startVisiblePosition.isNull())
@@ -487,6 +491,7 @@ static NSString* nsStringForReplacedNode(Node* replacedNode)
     if (endVisiblePosition.isNull())
         return nil;
 
+    VisiblePositionRange visiblePositionRange(startVisiblePosition, endVisiblePosition);
     // iterate over the range to build the AX attributed string
     NSMutableAttributedString* attrString = [[NSMutableAttributedString alloc] init];
     TextIterator it(makeRange(startVisiblePosition, endVisiblePosition).get());
@@ -499,6 +504,11 @@ static NSString* nsStringForReplacedNode(Node* replacedNode)
 
         // non-zero length means textual node, zero length means replaced node (AKA "attachments" in AX)
         if (it.length() != 0) {
+            // Add the text of the list marker item if necessary.
+            String listMarkerText = m_object->listMarkerTextForNodeAndPosition(node, VisiblePosition(it.range()->startPosition()));
+            if (!listMarkerText.isEmpty())
+                AXAttributedStringAppendText(attrString, node, offset, listMarkerText.characters(), listMarkerText.length());
+            
             AXAttributedStringAppendText(attrString, node, offset, it.characters(), it.length());
         } else {
             Node* replacedNode = node->childNode(offset);
@@ -536,6 +546,8 @@ static WebCoreTextMarkerRange* textMarkerRangeFromVisiblePositions(VisiblePositi
         return nil;
 
     m_object->updateBackingStore();
+    if (!m_object)
+        return nil;
 
     static NSArray* actionElementActions = [[NSArray alloc] initWithObjects: NSAccessibilityPressAction, NSAccessibilityShowMenuAction, nil];
     static NSArray* defaultElementActions = [[NSArray alloc] initWithObjects: NSAccessibilityShowMenuAction, nil];
@@ -563,6 +575,8 @@ static WebCoreTextMarkerRange* textMarkerRangeFromVisiblePositions(VisiblePositi
         return nil;
     
     m_object->updateBackingStore();
+    if (!m_object)
+        return nil;
     
     if (m_object->isAttachment())
         return [[self attachmentView] accessibilityAttributeNames];
@@ -669,6 +683,7 @@ static WebCoreTextMarkerRange* textMarkerRangeFromVisiblePositions(VisiblePositi
         [tempArray addObject:NSAccessibilityMinValueAttribute];
         [tempArray addObject:NSAccessibilityMaxValueAttribute];
         [tempArray addObject:NSAccessibilityOrientationAttribute];
+        [tempArray addObject:NSAccessibilityValueDescriptionAttribute];
         rangeAttrs = [[NSArray alloc] initWithArray:tempArray];
         [tempArray release];
     }
@@ -969,8 +984,23 @@ static const AccessibilityRoleMap& createAccessibilityRoleMap()
         { TableHeaderContainerRole, NSAccessibilityGroupRole },
         { DefinitionListDefinitionRole, NSAccessibilityGroupRole },
         { DefinitionListTermRole, NSAccessibilityGroupRole },
-        
         { SliderThumbRole, NSAccessibilityValueIndicatorRole },
+        { LandmarkApplicationRole, NSAccessibilityGroupRole },
+        { LandmarkBannerRole, NSAccessibilityGroupRole },
+        { LandmarkComplementaryRole, NSAccessibilityGroupRole },
+        { LandmarkContentInfoRole, NSAccessibilityGroupRole },
+        { LandmarkMainRole, NSAccessibilityGroupRole },
+        { LandmarkNavigationRole, NSAccessibilityGroupRole },
+        { LandmarkSearchRole, NSAccessibilityGroupRole },
+        { ApplicationLogRole, NSAccessibilityGroupRole },
+        { ApplicationMarqueeRole, NSAccessibilityGroupRole },
+        { ApplicationStatusRole, NSAccessibilityGroupRole },
+        { ApplicationTimerRole, NSAccessibilityGroupRole },
+        { DocumentRole, NSAccessibilityGroupRole },
+        { DocumentArticleRole, NSAccessibilityGroupRole },
+        { DocumentNoteRole, NSAccessibilityGroupRole },
+        { DocumentRegionRole, NSAccessibilityGroupRole },
+        { UserInterfaceTooltipRole, NSAccessibilityGroupRole },
         
 
     };
@@ -1019,6 +1049,47 @@ static NSString* roleValueToNSString(AccessibilityRole value)
             return NSAccessibilityDefinitionListSubrole;
     }
     
+    // ARIA content subroles.
+    switch (m_object->roleValue()) {
+        case LandmarkApplicationRole:
+            return @"AXLandmarkApplication";
+        case LandmarkBannerRole:
+            return @"AXLandmarkBanner";
+        case LandmarkComplementaryRole:
+            return @"AXLandmarkComplementary";
+        case LandmarkContentInfoRole:
+            return @"AXLandmarkContentInfo";
+        case LandmarkMainRole:
+            return @"AXLandmarkMain";
+        case LandmarkNavigationRole:
+            return @"AXLandmarkNavigation";
+        case LandmarkSearchRole:
+            return @"AXLandmarkSearch";
+        case ApplicationLogRole:
+            return @"AXApplicationLog";
+        case ApplicationMarqueeRole:
+            return @"AXApplicationMarquee";
+        case ApplicationStatusRole:
+            return @"AXApplicationStatus";
+        case ApplicationTimerRole:
+            return @"AXApplicationTimer";
+        case DocumentRole:
+            return @"AXDocument";
+        case DocumentArticleRole:
+            return @"AXDocumentArticle";
+        case DocumentNoteRole:
+            return @"AXDocumentNote";
+        case DocumentRegionRole:
+            return @"AXDocumentRegion";
+        case UserInterfaceTooltipRole:
+            return @"AXUserInterfaceTooltip";
+        default:
+            return nil;
+    }
+    
+    if (m_object->isMediaTimeline())
+        return NSAccessibilityTimelineSubrole;
+
     return nil;
 }
 
@@ -1047,8 +1118,44 @@ static NSString* roleValueToNSString(AccessibilityRole value)
     if ([axRole isEqualToString:NSAccessibilityImageRole])
         return NSAccessibilityRoleDescription(NSAccessibilityImageRole, [self subrole]);
     
-    if ([axRole isEqualToString:NSAccessibilityGroupRole])
-        return NSAccessibilityRoleDescription(NSAccessibilityGroupRole, [self subrole]);
+    if ([axRole isEqualToString:NSAccessibilityGroupRole]) {
+        switch (m_object->roleValue()) {
+            default:
+                return NSAccessibilityRoleDescription(NSAccessibilityGroupRole, [self subrole]);
+            case LandmarkApplicationRole:
+                return AXARIAContentGroupText(@"ARIALandmarkApplication");
+            case LandmarkBannerRole:
+                return AXARIAContentGroupText(@"ARIALandmarkBanner");
+            case LandmarkComplementaryRole:
+                return AXARIAContentGroupText(@"ARIALandmarkComplementary");
+            case LandmarkContentInfoRole:
+                return AXARIAContentGroupText(@"ARIALandmarkContentInfo");
+            case LandmarkMainRole:
+                return AXARIAContentGroupText(@"ARIALandmarkMain");
+            case LandmarkNavigationRole:
+                return AXARIAContentGroupText(@"ARIALandmarkNavigation");
+            case LandmarkSearchRole:
+                return AXARIAContentGroupText(@"ARIALandmarkSearch");
+            case ApplicationLogRole:
+                return AXARIAContentGroupText(@"ARIAApplicationLog");
+            case ApplicationMarqueeRole:
+                return AXARIAContentGroupText(@"ARIAApplicationMarquee");
+            case ApplicationStatusRole:
+                return AXARIAContentGroupText(@"ARIAApplicationStatus");
+            case ApplicationTimerRole:
+                return AXARIAContentGroupText(@"ARIAApplicationTimer");
+            case DocumentRole:
+                return AXARIAContentGroupText(@"ARIADocument");
+            case DocumentArticleRole:
+                return AXARIAContentGroupText(@"ARIADocumentArticle");
+            case DocumentNoteRole:
+                return AXARIAContentGroupText(@"ARIADocumentNote");
+            case DocumentRegionRole:
+                return AXARIAContentGroupText(@"ARIADocumentRegion");
+            case UserInterfaceTooltipRole:
+                return AXARIAContentGroupText(@"ARIAUserInterfaceTooltip");
+        }
+    }        
     
     if ([axRole isEqualToString:NSAccessibilityCheckBoxRole])
         return NSAccessibilityRoleDescription(NSAccessibilityCheckBoxRole, [self subrole]);
@@ -1111,6 +1218,9 @@ static NSString* roleValueToNSString(AccessibilityRole value)
     if ([axRole isEqualToString:NSAccessibilityToolbarRole])
         return NSAccessibilityRoleDescription(NSAccessibilityToolbarRole, [self subrole]);
 
+    if ([axRole isEqualToString:NSAccessibilitySplitterRole])
+        return NSAccessibilityRoleDescription(NSAccessibilitySplitterRole, [self subrole]);
+    
     return NSAccessibilityRoleDescription(NSAccessibilityUnknownRole, nil);
 }
 
@@ -1123,6 +1233,8 @@ static NSString* roleValueToNSString(AccessibilityRole value)
         return nil;
 
     m_object->updateBackingStore();
+    if (!m_object)
+        return nil;
     
     if ([attributeName isEqualToString: NSAccessibilityRoleAttribute])
         return [self role];
@@ -1244,7 +1356,7 @@ static NSString* roleValueToNSString(AccessibilityRole value)
         }
         return m_object->accessibilityDescription();
     }
-    
+
     if ([attributeName isEqualToString: NSAccessibilityValueAttribute]) {
         if (m_object->isAttachment()) {
             if ([[[self attachmentView] accessibilityAttributeNames] containsObject:NSAccessibilityValueAttribute]) 
@@ -1465,6 +1577,8 @@ static NSString* roleValueToNSString(AccessibilityRole value)
         return nil;
 
     m_object->updateBackingStore();
+    if (!m_object)
+        return nil;
 
     RefPtr<AccessibilityObject> focusedObj = m_object->focusedUIElement();
 
@@ -1480,6 +1594,8 @@ static NSString* roleValueToNSString(AccessibilityRole value)
         return nil;
 
     m_object->updateBackingStore();
+    if (!m_object)
+        return nil;
 
     RefPtr<AccessibilityObject> axObject = m_object->doAccessibilityHitTest(IntPoint(point));
     if (axObject)
@@ -1493,6 +1609,8 @@ static NSString* roleValueToNSString(AccessibilityRole value)
         return nil;
 
     m_object->updateBackingStore();
+    if (!m_object)
+        return nil;
 
     if ([attributeName isEqualToString: @"AXSelectedTextMarkerRange"])
         return YES;
@@ -1532,6 +1650,8 @@ static NSString* roleValueToNSString(AccessibilityRole value)
         return nil;
 
     m_object->updateBackingStore();
+    if (!m_object)
+        return nil;
 
     if (m_object->isAttachment())
         return [[self attachmentView] accessibilityIsIgnored];
@@ -1544,6 +1664,8 @@ static NSString* roleValueToNSString(AccessibilityRole value)
         return nil;
 
     m_object->updateBackingStore();
+    if (!m_object)
+        return nil;
 
     if (m_object->isAttachment()) 
         return nil;
@@ -1581,6 +1703,7 @@ static NSString* roleValueToNSString(AccessibilityRole value)
                       @"AXStyleTextMarkerRangeForTextMarker",
                       @"AXLengthForTextMarkerRange",
                       NSAccessibilityBoundsForRangeParameterizedAttribute,
+                      NSAccessibilityStringForRangeParameterizedAttribute,
                       nil];
     }
 
@@ -1629,6 +1752,8 @@ static NSString* roleValueToNSString(AccessibilityRole value)
         return;
 
     m_object->updateBackingStore();
+    if (!m_object)
+        return;
 
     if (m_object->isAttachment())
         [[self attachmentView] accessibilityPerformAction:NSAccessibilityPressAction];
@@ -1642,6 +1767,8 @@ static NSString* roleValueToNSString(AccessibilityRole value)
         return;
 
     m_object->updateBackingStore();
+    if (!m_object)
+        return;
 
     if (m_object->isAttachment())
         [[self attachmentView] accessibilityPerformAction:NSAccessibilityIncrementAction];
@@ -1655,6 +1782,8 @@ static NSString* roleValueToNSString(AccessibilityRole value)
         return;
 
     m_object->updateBackingStore();
+    if (!m_object)
+        return;
 
     if (m_object->isAttachment())
         [[self attachmentView] accessibilityPerformAction:NSAccessibilityDecrementAction];
@@ -1704,6 +1833,8 @@ static NSString* roleValueToNSString(AccessibilityRole value)
         return;
 
     m_object->updateBackingStore();
+    if (!m_object)
+        return;
 
     if ([action isEqualToString:NSAccessibilityPressAction])
         [self accessibilityPerformPressAction];
@@ -1724,6 +1855,8 @@ static NSString* roleValueToNSString(AccessibilityRole value)
         return;
 
     m_object->updateBackingStore();
+    if (!m_object)
+        return;
 
     WebCoreTextMarkerRange* textMarkerRange = nil;
     NSNumber*               number = nil;
@@ -1848,6 +1981,8 @@ static RenderObject* rendererForView(NSView* view)
         return nil;
 
     m_object->updateBackingStore();
+    if (!m_object)
+        return nil;
     
     // common parameter type check/casting.  Nil checks in handlers catch wrong type case.
     // NOTE: This assumes nil is not a valid parameter, because it is indistinguishable from
@@ -1931,6 +2066,14 @@ static RenderObject* rendererForView(NSView* view)
             return nil;
         NSRect rect = m_object->boundsForVisiblePositionRange(VisiblePositionRange(start, end));
         return [NSValue valueWithRect:rect];
+    }
+    
+    if ([attribute isEqualToString:NSAccessibilityStringForRangeParameterizedAttribute]) {
+        VisiblePosition start = m_object->visiblePositionForIndex(range.location);
+        VisiblePosition end = m_object->visiblePositionForIndex(range.location+range.length);
+        if (start.isNull() || end.isNull())
+            return nil;
+        return m_object->stringForVisiblePositionRange(VisiblePositionRange(start, end));
     }
 
     if ([attribute isEqualToString: @"AXAttributedStringForTextMarkerRange"])
@@ -2098,7 +2241,9 @@ static RenderObject* rendererForView(NSView* view)
         return NSNotFound;
 
     m_object->updateBackingStore();
-    
+    if (!m_object)
+        return NSNotFound;
+
     const AccessibilityObject::AccessibilityChildrenVector& children = m_object->children();
        
     if (children.isEmpty())
@@ -2120,6 +2265,8 @@ static RenderObject* rendererForView(NSView* view)
         return 0;
 
     m_object->updateBackingStore();
+    if (!m_object)
+        return 0;
     
     if ([attribute isEqualToString:NSAccessibilityChildrenAttribute]) {
         const AccessibilityObject::AccessibilityChildrenVector& children = m_object->children();
@@ -2138,6 +2285,8 @@ static RenderObject* rendererForView(NSView* view)
         return nil;
 
     m_object->updateBackingStore();
+    if (!m_object)
+        return nil;
     
     if ([attribute isEqualToString:NSAccessibilityChildrenAttribute]) {
         if (m_object->children().isEmpty()) {

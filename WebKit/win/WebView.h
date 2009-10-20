@@ -76,11 +76,11 @@ public:
     virtual HRESULT STDMETHODCALLTYPE canShowMIMEType( 
         /* [in] */ BSTR mimeType,
         /* [retval][out] */ BOOL *canShow);
-    
+
     virtual HRESULT STDMETHODCALLTYPE canShowMIMETypeAsHTML( 
         /* [in] */ BSTR mimeType,
         /* [retval][out] */ BOOL *canShow);
-    
+
     virtual HRESULT STDMETHODCALLTYPE MIMETypesShownAsHTML( 
         /* [retval][out] */ IEnumVARIANT **enumVariant);
     
@@ -353,6 +353,9 @@ public:
     virtual HRESULT STDMETHODCALLTYPE toggleGrammarChecking( 
         /* [in] */ IUnknown *sender);
 
+    virtual HRESULT STDMETHODCALLTYPE reloadFromOrigin( 
+        /* [in] */ IUnknown *sender);
+
     // IWebViewCSS
 
     virtual HRESULT STDMETHODCALLTYPE computedStyleForElement( 
@@ -568,6 +571,11 @@ public:
         /* [in] */ IWebNotification *notification);
 
     // IWebViewPrivate
+
+    virtual HRESULT STDMETHODCALLTYPE MIMETypeForExtension(
+        /* [in] */ BSTR extension,
+        /* [retval][out] */ BSTR *mimeType);
+
     virtual HRESULT STDMETHODCALLTYPE setCustomDropTarget(
         /* [in] */ IDropTarget* dt);
 
@@ -732,6 +740,25 @@ public:
     virtual HRESULT STDMETHODCALLTYPE setCanStartPlugins(
         /* [in] */ BOOL canStartPlugins);
 
+    virtual HRESULT STDMETHODCALLTYPE addUserScriptToGroup(BSTR groupName, unsigned worldID, BSTR source, BSTR url,
+                                                           unsigned whitelistCount, BSTR* whitelist, 
+                                                           unsigned blacklistCount, BSTR* blacklist,
+                                                           WebUserScriptInjectionTime);
+    virtual HRESULT STDMETHODCALLTYPE addUserStyleSheetToGroup(BSTR groupName, unsigned worldID, BSTR source, BSTR url,
+                                                               unsigned whitelistCount, BSTR* whitelist, 
+                                                               unsigned blacklistCount, BSTR* blacklist);
+    virtual HRESULT STDMETHODCALLTYPE removeUserContentWithURLFromGroup(BSTR groupName, unsigned worldID, BSTR url);
+    virtual HRESULT STDMETHODCALLTYPE removeUserContentFromGroup(BSTR groupName, unsigned worldID);
+    virtual HRESULT STDMETHODCALLTYPE removeAllUserContentFromGroup(BSTR groupName);
+
+    virtual HRESULT STDMETHODCALLTYPE setPluginHalterDelegate(IWebPluginHalterDelegate*);
+    virtual HRESULT STDMETHODCALLTYPE pluginHalterDelegate(IWebPluginHalterDelegate**);
+
+    virtual HRESULT STDMETHODCALLTYPE invalidateBackingStore(const RECT*);
+
+    virtual HRESULT STDMETHODCALLTYPE whiteListAccessFromOrigin(BSTR sourceOrigin, BSTR destinationProtocol, BSTR destinationHost, BOOL allowDestinationSubdomains);
+    virtual HRESULT STDMETHODCALLTYPE resetOriginAccessWhiteLists();
+
     // WebView
     bool shouldUseEmbeddedView(const WebCore::String& mimeType) const;
 
@@ -751,7 +778,6 @@ public:
     bool keyDown(WPARAM, LPARAM, bool systemKeyDown = false);
     bool keyUp(WPARAM, LPARAM, bool systemKeyDown = false);
     bool keyPress(WPARAM, LPARAM, bool systemKeyDown = false);
-    bool inResizer(LPARAM lParam);
     void paint(HDC, LPARAM);
     void paintIntoWindow(HDC bitmapDC, HDC windowDC, const WebCore::IntRect& dirtyRect);
     bool ensureBackingStore();
@@ -880,6 +906,7 @@ protected:
     COMPtr<IWebDownloadDelegate> m_downloadDelegate;
     COMPtr<WebPreferences> m_preferences;
     COMPtr<WebInspector> m_webInspector;
+    COMPtr<IWebPluginHalterDelegate> m_pluginHalterDelegate;
 
     bool m_userAgentOverridden;
     bool m_useBackForwardList;
@@ -918,6 +945,7 @@ protected:
     OwnPtr<HashSet<WebCore::String> > m_embeddedViewMIMETypes;
 
     //Variables needed to store gesture information
+    RefPtr<WebCore::Node> m_gestureTargetNode;
     long m_lastPanX;
     long m_lastPanY;
     long m_xOverpan;

@@ -51,12 +51,6 @@ ICOImageDecoder::ICOImageDecoder()
 {
 }
 
-ICOImageDecoder::~ICOImageDecoder()
-{
-    deleteAllValues(m_bmpReaders);
-    deleteAllValues(m_pngDecoders);
-}
-
 void ICOImageDecoder::setData(SharedBuffer* data, bool allDataReceived)
 {
     if (failed())
@@ -208,12 +202,12 @@ bool ICOImageDecoder::decodeAtIndex(size_t index)
             // We need to have already sized m_frameBufferCache before this, and
             // we must not resize it again later (see caution in frameCount()).
             ASSERT(m_frameBufferCache.size() == m_dirEntries.size());
-            m_bmpReaders[index] =
-                new BMPImageReader(this, dirEntry.m_imageOffset, 0, true);
+            m_bmpReaders[index].set(
+                new BMPImageReader(this, dirEntry.m_imageOffset, 0, true));
             m_bmpReaders[index]->setData(m_data.get());
             m_bmpReaders[index]->setBuffer(&m_frameBufferCache[index]);
         } else if (imageType == PNG) {
-            m_pngDecoders[index] = new PNGImageDecoder();
+            m_pngDecoders[index].set(new PNGImageDecoder());
             setDataForPNGDecoderAtIndex(index);
         } else {
             // Not enough data to determine image type yet.
@@ -249,18 +243,15 @@ bool ICOImageDecoder::processDirectory()
         ICON = 1,
         CURSOR = 2,
     };
-    if (((fileType != ICON) && (fileType != CURSOR)) || (idCount == 0)) {
+    if (((fileType != ICON) && (fileType != CURSOR)) || (!idCount)) {
         setFailed();
         return false;
     }
 
-    // Enlarge member vectors to hold all the entries.  We must initialize the
-    // BMP and PNG decoding vectors to 0 so that all entries can be safely
-    // deleted in our destructor.  If we don't do this, they'll contain garbage
-    // values, and deleting those will corrupt memory.
+    // Enlarge member vectors to hold all the entries.
     m_dirEntries.resize(idCount);
-    m_bmpReaders.fill(0, idCount);
-    m_pngDecoders.fill(0, idCount);
+    m_bmpReaders.resize(idCount);
+    m_pngDecoders.resize(idCount);
     return true;
 }
 
@@ -303,10 +294,10 @@ ICOImageDecoder::IconDirectoryEntry ICOImageDecoder::readDirectoryEntry()
     // matching uint8_ts) is so we can record dimensions of size 256 (which is
     // what a zero byte really means).
     int width = static_cast<uint8_t>(m_data->data()[m_decodedOffset]);
-    if (width == 0)
+    if (!width)
         width = 256;
     int height = static_cast<uint8_t>(m_data->data()[m_decodedOffset + 1]);
-    if (height == 0)
+    if (!height)
         height = 256;
     IconDirectoryEntry entry;
     entry.m_size = IntSize(width, height);
@@ -318,11 +309,12 @@ ICOImageDecoder::IconDirectoryEntry ICOImageDecoder::readDirectoryEntry()
     // this isn't quite what the bitmap info header says later, as we only use
     // this value to determine which icon entry is best.
     if (!entry.m_bitCount) {
-        uint8_t colorCount = m_data->data()[m_decodedOffset + 2];
-        if (colorCount) {
-            for (--colorCount; colorCount; colorCount >>= 1)
-                ++entry.m_bitCount;
-        }
+        int colorCount =
+            static_cast<uint8_t>(m_data->data()[m_decodedOffset + 2]);
+        if (!colorCount)
+            colorCount = 256;  // Vague in the spec, needed by real-world icons.
+        for (--colorCount; colorCount; colorCount >>= 1)
+            ++entry.m_bitCount;
     }
 
     m_decodedOffset += sizeOfDirEntry;

@@ -108,6 +108,13 @@
 #define WTF_PLATFORM_NETBSD 1
 #endif
 
+/* PLATFORM(QNX) */
+/* Operating system level dependencies for QNX that should be used */
+/* regardless of operating environment */
+#if defined(__QNXNTO__)
+#define WTF_PLATFORM_QNX 1
+#endif
+
 /* PLATFORM(UNIX) */
 /* Operating system level dependencies for Unix-like systems that */
 /* should be used regardless of operating environment */
@@ -118,7 +125,9 @@
    || defined(unix)        \
    || defined(__unix)      \
    || defined(__unix__)    \
-   || defined(_AIX)
+   || defined(_AIX)        \
+   || defined(__HAIKU__)   \
+   || defined(__QNXNTO__)
 #define WTF_PLATFORM_UNIX 1
 #endif
 
@@ -143,6 +152,8 @@
 #define WTF_PLATFORM_WX 1
 #elif defined(BUILDING_GTK__)
 #define WTF_PLATFORM_GTK 1
+#elif defined(BUILDING_HAIKU__)
+#define WTF_PLATFORM_HAIKU 1
 #elif PLATFORM(DARWIN)
 #define WTF_PLATFORM_MAC 1
 #elif PLATFORM(WIN_OS)
@@ -189,7 +200,7 @@
 
 /* Makes PLATFORM(WIN) default to PLATFORM(CAIRO) */
 /* FIXME: This should be changed from a blacklist to a whitelist */
-#if !PLATFORM(MAC) && !PLATFORM(QT) && !PLATFORM(WX) && !PLATFORM(CHROMIUM) && !PLATFORM(WINCE)
+#if !PLATFORM(MAC) && !PLATFORM(QT) && !PLATFORM(WX) && !PLATFORM(CHROMIUM) && !PLATFORM(WINCE) && !PLATFORM(HAIKU)
 #define WTF_PLATFORM_CAIRO 1
 #endif
 
@@ -240,15 +251,27 @@
 #endif
 
 /* PLATFORM(ARM) */
+#define PLATFORM_ARM_ARCH(N) (PLATFORM(ARM) && ARM_ARCH_VERSION >= N)
+
 #if   defined(arm) \
    || defined(__arm__)
 #define WTF_PLATFORM_ARM 1
+
 #if defined(__ARMEB__)
 #define WTF_PLATFORM_BIG_ENDIAN 1
+<<<<<<< HEAD:JavaScriptCore/wtf/Platform.h
 #elif !defined(__ARM_EABI__) && !defined(__EABI__) && !defined(__VFP_FP__)
 #if !defined(ANDROID)
+=======
+
+#elif !defined(__ARM_EABI__) \
+   && !defined(__EABI__) \
+   && !defined(__VFP_FP__)
+>>>>>>> webkit.org at 49305:JavaScriptCore/wtf/Platform.h
 #define WTF_PLATFORM_MIDDLE_ENDIAN 1
+
 #endif
+<<<<<<< HEAD:JavaScriptCore/wtf/Platform.h
 #endif
 #if !defined(__ARM_EABI__) && !defined(__EABI__)
 #define WTF_PLATFORM_FORCE_PACK 1
@@ -256,26 +279,98 @@
 #define ARM_ARCH_VERSION 3
 #if defined(__ARM_ARCH_4__) || defined(__ARM_ARCH_4T__)
 #undef ARM_ARCH_VERSION
+=======
+
+/* Set ARM_ARCH_VERSION */
+#if   defined(__ARM_ARCH_4__) \
+   || defined(__ARM_ARCH_4T__) \
+   || defined(__MARM_ARMV4__) \
+   || defined(_ARMV4I_)
+>>>>>>> webkit.org at 49305:JavaScriptCore/wtf/Platform.h
 #define ARM_ARCH_VERSION 4
-#endif
-#if defined(__ARM_ARCH_5__) || defined(__ARM_ARCH_5T__) \
-        || defined(__ARM_ARCH_5E__) || defined(__ARM_ARCH_5TE__) \
-        || defined(__ARM_ARCH_5TEJ__)
-#undef ARM_ARCH_VERSION
+
+#elif defined(__ARM_ARCH_5__) \
+   || defined(__ARM_ARCH_5T__) \
+   || defined(__ARM_ARCH_5E__) \
+   || defined(__ARM_ARCH_5TE__) \
+   || defined(__ARM_ARCH_5TEJ__) \
+   || defined(__MARM_ARMV5__)
 #define ARM_ARCH_VERSION 5
-#endif
-#if defined(__ARM_ARCH_6__) || defined(__ARM_ARCH_6J__) \
-     || defined(__ARM_ARCH_6K__) || defined(__ARM_ARCH_6Z__) \
-     || defined(__ARM_ARCH_6ZK__)
-#undef ARM_ARCH_VERSION
+
+#elif defined(__ARM_ARCH_6__) \
+   || defined(__ARM_ARCH_6J__) \
+   || defined(__ARM_ARCH_6K__) \
+   || defined(__ARM_ARCH_6Z__) \
+   || defined(__ARM_ARCH_6ZK__) \
+   || defined(__ARM_ARCH_6T2__) \
+   || defined(__ARMV6__)
 #define ARM_ARCH_VERSION 6
-#endif
-#if defined(__ARM_ARCH_7A__)
-#undef ARM_ARCH_VERSION
+
+#elif defined(__ARM_ARCH_7A__) \
+   || defined(__ARM_ARCH_7R__)
 #define ARM_ARCH_VERSION 7
+
+/* RVCT sets _TARGET_ARCH_ARM */
+#elif defined(__TARGET_ARCH_ARM)
+#define ARM_ARCH_VERSION __TARGET_ARCH_ARM
+
+#else
+#define ARM_ARCH_VERSION 0
+
 #endif
+
+/* Set THUMB_ARM_VERSION */
+#if   defined(__ARM_ARCH_4T__)
+#define THUMB_ARCH_VERSION 1
+
+#elif defined(__ARM_ARCH_5T__) \
+   || defined(__ARM_ARCH_5TE__) \
+   || defined(__ARM_ARCH_5TEJ__)
+#define THUMB_ARCH_VERSION 2
+
+#elif defined(__ARM_ARCH_6J__) \
+   || defined(__ARM_ARCH_6K__) \
+   || defined(__ARM_ARCH_6Z__) \
+   || defined(__ARM_ARCH_6ZK__) \
+   || defined(__ARM_ARCH_6M__)
+#define THUMB_ARCH_VERSION 3
+
+#elif defined(__ARM_ARCH_6T2__) \
+   || defined(__ARM_ARCH_7__) \
+   || defined(__ARM_ARCH_7A__) \
+   || defined(__ARM_ARCH_7R__) \
+   || defined(__ARM_ARCH_7M__)
+#define THUMB_ARCH_VERSION 4
+
+/* RVCT sets __TARGET_ARCH_THUMB */
+#elif defined(__TARGET_ARCH_THUMB)
+#define THUMB_ARCH_VERSION __TARGET_ARCH_THUMB
+
+#else
+#define THUMB_ARCH_VERSION 0
+#endif
+
+/* On ARMv5 and below the natural alignment is required. */
+#if !defined(ARM_REQUIRE_NATURAL_ALIGNMENT) && ARM_ARCH_VERSION <= 5
+#define ARM_REQUIRE_NATURAL_ALIGNMENT 1
+#endif
+
+/* Defines two pseudo-platforms for ARM and Thumb-2 instruction set. */
+#if !defined(WTF_PLATFORM_ARM_TRADITIONAL) && !defined(WTF_PLATFORM_ARM_THUMB2)
+#  if defined(thumb2) || defined(__thumb2__) \
+  || ((defined(__thumb) || defined(__thumb__)) && THUMB_ARCH_VERSION == 4)
+#    define WTF_PLATFORM_ARM_TRADITIONAL 0
+#    define WTF_PLATFORM_ARM_THUMB2 1
+#  elif PLATFORM_ARM_ARCH(4)
+#    define WTF_PLATFORM_ARM_TRADITIONAL 1
+#    define WTF_PLATFORM_ARM_THUMB2 0
+#  else
+#    error "Not supported ARM architecture"
+#  endif
+#elif PLATFORM(ARM_TRADITIONAL) && PLATFORM(ARM_THUMB2) /* Sanity Check */
+#  error "Cannot use both of WTF_PLATFORM_ARM_TRADITIONAL and WTF_PLATFORM_ARM_THUMB2 platforms"
+#endif // !defined(ARM_TRADITIONAL) && !defined(ARM_THUMB2)
 #endif /* ARM */
-#define PLATFORM_ARM_ARCH(N) (PLATFORM(ARM) && ARM_ARCH_VERSION >= N)
 
 /* PLATFORM(X86) */
 #if   defined(__i386__) \
@@ -298,7 +393,7 @@
 #endif
 
 /* PLATFORM(SPARC64) */
-#if defined(__sparc64__)
+#if defined(__sparc__) && defined(__arch64__) || defined (__sparcv9)
 #define WTF_PLATFORM_SPARC64 1
 #define WTF_PLATFORM_BIG_ENDIAN 1
 #endif
@@ -411,6 +506,9 @@
 #if PLATFORM(MAC) && !PLATFORM(IPHONE)
 #define WTF_PLATFORM_CF 1
 #define WTF_USE_PTHREADS 1
+#if !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_TIGER) && defined(__x86_64__)
+#define WTF_USE_PLUGIN_HOST_PROCESS 1
+#endif
 #if !defined(ENABLE_MAC_JAVA_BRIDGE)
 #define ENABLE_MAC_JAVA_BRIDGE 1
 #endif
@@ -419,8 +517,12 @@
 #endif
 #define HAVE_READLINE 1
 #define HAVE_RUNLOOP_TIMER 1
+<<<<<<< HEAD:JavaScriptCore/wtf/Platform.h
 #define HAVE_PTHREAD_RWLOCK 1
 #endif
+=======
+#endif /* PLATFORM(MAC) && !PLATFORM(IPHONE) */
+>>>>>>> webkit.org at 49305:JavaScriptCore/wtf/Platform.h
 
 #if PLATFORM(CHROMIUM) && PLATFORM(DARWIN)
 #define WTF_PLATFORM_CF 1
@@ -428,15 +530,19 @@
 #endif
 
 #if PLATFORM(IPHONE)
+#define ENABLE_CONTEXT_MENUS 0
+#define ENABLE_DRAG_SUPPORT 0
+#define ENABLE_FTPDIR 1
+#define ENABLE_GEOLOCATION 1
+#define ENABLE_ICONDATABASE 0
+#define ENABLE_INSPECTOR 0
+#define ENABLE_MAC_JAVA_BRIDGE 0
+#define ENABLE_NETSCAPE_PLUGIN_API 0
+#define ENABLE_ORIENTATION_EVENTS 1
+#define ENABLE_REPAINT_THROTTLING 1
+#define HAVE_READLINE 1
 #define WTF_PLATFORM_CF 1
 #define WTF_USE_PTHREADS 1
-#define ENABLE_FTPDIR 1
-#define ENABLE_MAC_JAVA_BRIDGE 0
-#define ENABLE_ICONDATABASE 0
-#define ENABLE_GEOLOCATION 1
-#define ENABLE_NETSCAPE_PLUGIN_API 0
-#define HAVE_READLINE 1
-#define ENABLE_REPAINT_THROTTLING 1
 #endif
 
 #if PLATFORM(WIN)
@@ -445,14 +551,20 @@
 
 #if PLATFORM(WX)
 #define ENABLE_ASSEMBLER 1
-#define WTF_USE_CURL 1
-#define WTF_USE_PTHREADS 1
 #endif
 
 #if PLATFORM(GTK)
 #if HAVE(PTHREAD_H)
 #define WTF_USE_PTHREADS 1
 #endif
+#endif
+
+#if PLATFORM(HAIKU)
+#define HAVE_POSIX_MEMALIGN 1
+#define WTF_USE_CURL 1
+#define WTF_USE_PTHREADS 1
+#define USE_SYSTEM_MALLOC 1
+#define ENABLE_NETSCAPE_PLUGIN_API 0
 #endif
 
 #if !defined(HAVE_ACCESSIBILITY)
@@ -465,7 +577,12 @@
 #define HAVE_SIGNAL_H 1
 #endif
 
+<<<<<<< HEAD:JavaScriptCore/wtf/Platform.h
 #if !PLATFORM(WIN_OS) && !PLATFORM(SOLARIS) && !PLATFORM(SYMBIAN) && !COMPILER(RVCT) && !PLATFORM(ANDROID)
+=======
+#if !PLATFORM(WIN_OS) && !PLATFORM(SOLARIS) && !PLATFORM(QNX) \
+    && !PLATFORM(SYMBIAN) && !PLATFORM(HAIKU) && !COMPILER(RVCT)
+>>>>>>> webkit.org at 49305:JavaScriptCore/wtf/Platform.h
 #define HAVE_TM_GMTOFF 1
 #define HAVE_TM_ZONE 1
 #define HAVE_TIMEGM 1
@@ -486,6 +603,7 @@
 #if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD) && !PLATFORM(IPHONE)
 #define HAVE_MADV_FREE_REUSE 1
 #define HAVE_MADV_FREE 1
+#define HAVE_PTHREAD_SETNAME_NP 1
 #endif
 
 #if PLATFORM(IPHONE)
@@ -515,10 +633,17 @@
 #define HAVE_SYS_PARAM_H 1
 #endif
 
+<<<<<<< HEAD:JavaScriptCore/wtf/Platform.h
 #elif PLATFORM(ANDROID)
+=======
+#elif PLATFORM(QNX)
+>>>>>>> webkit.org at 49305:JavaScriptCore/wtf/Platform.h
 
 #define HAVE_ERRNO_H 1
+<<<<<<< HEAD:JavaScriptCore/wtf/Platform.h
 #define HAVE_LANGINFO_H 0
+=======
+>>>>>>> webkit.org at 49305:JavaScriptCore/wtf/Platform.h
 #define HAVE_MMAP 1
 #define HAVE_SBRK 1
 #define HAVE_STRINGS_H 1
@@ -530,7 +655,10 @@
 /* FIXME: is this actually used or do other platforms generate their own config.h? */
 
 #define HAVE_ERRNO_H 1
+/* As long as Haiku doesn't have a complete support of locale this will be disabled. */
+#if !PLATFORM(HAIKU)
 #define HAVE_LANGINFO_H 1
+#endif
 #define HAVE_MMAP 1
 #define HAVE_SBRK 1
 #define HAVE_STRINGS_H 1
@@ -563,8 +691,20 @@
 #define ENABLE_FTPDIR 1
 #endif
 
+#if !defined(ENABLE_CONTEXT_MENUS)
+#define ENABLE_CONTEXT_MENUS 1
+#endif
+
+#if !defined(ENABLE_DRAG_SUPPORT)
+#define ENABLE_DRAG_SUPPORT 1
+#endif
+
 #if !defined(ENABLE_DASHBOARD_SUPPORT)
 #define ENABLE_DASHBOARD_SUPPORT 0
+#endif
+
+#if !defined(ENABLE_INSPECTOR)
+#define ENABLE_INSPECTOR 1
 #endif
 
 #if !defined(ENABLE_MAC_JAVA_BRIDGE)
@@ -573,6 +713,14 @@
 
 #if !defined(ENABLE_NETSCAPE_PLUGIN_API)
 #define ENABLE_NETSCAPE_PLUGIN_API 1
+#endif
+
+#if !defined(WTF_USE_PLUGIN_HOST_PROCESS)
+#define WTF_USE_PLUGIN_HOST_PROCESS 0
+#endif
+
+#if !defined(ENABLE_ORIENTATION_EVENTS)
+#define ENABLE_ORIENTATION_EVENTS 0
 #endif
 
 #if !defined(ENABLE_OPCODE_STATS)
@@ -594,6 +742,10 @@
 #define ENABLE_GEOLOCATION 0
 #endif
 
+#if !defined(ENABLE_NOTIFICATIONS)
+#define ENABLE_NOTIFICATIONS 0
+#endif
+
 #if !defined(ENABLE_TEXT_CARET)
 #define ENABLE_TEXT_CARET 1
 #endif
@@ -608,9 +760,13 @@
 #endif
 
 #if !defined(WTF_USE_JSVALUE64) && !defined(WTF_USE_JSVALUE32) && !defined(WTF_USE_JSVALUE32_64)
-#if PLATFORM(X86_64) && (PLATFORM(MAC) || (PLATFORM(LINUX) && !PLATFORM(QT)))
+#if PLATFORM(X86_64) && (PLATFORM(DARWIN) || PLATFORM(LINUX))
 #define WTF_USE_JSVALUE64 1
-#elif PLATFORM(PPC64) || PLATFORM(QT) /* All Qt layout tests crash in JSVALUE32_64 mode. */
+#elif PLATFORM(ARM) || PLATFORM(PPC64)
+#define WTF_USE_JSVALUE32 1
+#elif PLATFORM(WIN_OS) && COMPILER(MINGW)
+/* Using JSVALUE32_64 causes padding/alignement issues for JITStubArg
+on MinGW. See https://bugs.webkit.org/show_bug.cgi?id=29268 */
 #define WTF_USE_JSVALUE32 1
 #else
 #define WTF_USE_JSVALUE32_64 1
@@ -630,7 +786,7 @@
 #elif PLATFORM(X86) && PLATFORM(MAC)
     #define ENABLE_JIT 1
     #define WTF_USE_JIT_STUB_ARGUMENT_VA_LIST 1
-#elif PLATFORM_ARM_ARCH(7) && PLATFORM(IPHONE)
+#elif PLATFORM(ARM_THUMB2) && PLATFORM(IPHONE)
     /* Under development, temporarily disabled until 16Mb link range limit in assembler is fixed. */
     #define ENABLE_JIT 0
     #define ENABLE_JIT_OPTIMIZE_NATIVE_CALL 0
@@ -639,18 +795,23 @@
     #define ENABLE_JIT 1
 #endif
 
-#if PLATFORM(X86) && PLATFORM(QT)
-#if PLATFORM(WIN_OS) && COMPILER(MINGW) && GCC_VERSION >= 40100
+#if PLATFORM(QT)
+#if PLATFORM(X86) && PLATFORM(WIN_OS) && COMPILER(MINGW) && GCC_VERSION >= 40100
     #define ENABLE_JIT 1
     #define WTF_USE_JIT_STUB_ARGUMENT_VA_LIST 1
-#elif PLATFORM(WIN_OS) && COMPILER(MSVC)
+#elif PLATFORM(X86) && PLATFORM(WIN_OS) && COMPILER(MSVC)
     #define ENABLE_JIT 1
     #define WTF_USE_JIT_STUB_ARGUMENT_REGISTER 1
-#elif PLATFORM(LINUX) && GCC_VERSION >= 40100
+#elif PLATFORM(X86) && PLATFORM(LINUX) && GCC_VERSION >= 40100
     #define ENABLE_JIT 1
     #define WTF_USE_JIT_STUB_ARGUMENT_VA_LIST 1
+#elif PLATFORM(ARM_TRADITIONAL) && PLATFORM(LINUX)
+    #define ENABLE_JIT 1
+    #if PLATFORM(ARM_THUMB2)
+        #define ENABLE_JIT_OPTIMIZE_NATIVE_CALL 0
+    #endif
 #endif
-#endif /* PLATFORM(QT) && PLATFORM(X86) */
+#endif /* PLATFORM(QT) */
 
 #endif /* !defined(ENABLE_JIT) */
 
@@ -694,16 +855,17 @@
 #if (PLATFORM(X86) && PLATFORM(MAC)) \
  || (PLATFORM(X86_64) && PLATFORM(MAC)) \
  /* Under development, temporarily disabled until 16Mb link range limit in assembler is fixed. */ \
- || (PLATFORM_ARM_ARCH(7) && PLATFORM(IPHONE) && 0) \
+ || (PLATFORM(ARM_THUMB2) && PLATFORM(IPHONE) && 0) \
  || (PLATFORM(X86) && PLATFORM(WIN))
 #define ENABLE_YARR 1
 #define ENABLE_YARR_JIT 1
 #endif
 
-#if PLATFORM(X86) && PLATFORM(QT)
-#if (PLATFORM(WIN_OS) && COMPILER(MINGW) && GCC_VERSION >= 40100) \
- || (PLATFORM(WIN_OS) && COMPILER(MSVC)) \
- || (PLATFORM(LINUX) && GCC_VERSION >= 40100)
+#if PLATFORM(QT)
+#if (PLATFORM(X86) && PLATFORM(WIN_OS) && COMPILER(MINGW) && GCC_VERSION >= 40100) \
+ || (PLATFORM(X86) && PLATFORM(WIN_OS) && COMPILER(MSVC)) \
+ || (PLATFORM(X86) && PLATFORM(LINUX) && GCC_VERSION >= 40100) \
+ || (PLATFORM(ARM_TRADITIONAL) && PLATFORM(LINUX))
 #define ENABLE_YARR 1
 #define ENABLE_YARR_JIT 1
 #endif
@@ -731,15 +893,11 @@
 #define ENABLE_PAN_SCROLLING 1
 #endif
 
-#if !defined(ENABLE_ACTIVEX_TYPE_CONVERSION_WMPLAYER)
-#define ENABLE_ACTIVEX_TYPE_CONVERSION_WMPLAYER 1
-#endif
-
-/* Use the QtXmlStreamReader implementation for XMLTokenizer */
+/* Use the QXmlStreamReader implementation for XMLTokenizer */
+/* Use the QXmlQuery implementation for XSLTProcessor */
 #if PLATFORM(QT)
-#if !ENABLE(XSLT)
 #define WTF_USE_QXMLSTREAM 1
-#endif
+#define WTF_USE_QXMLQUERY 1
 #endif
 
 #if !PLATFORM(QT)
@@ -756,5 +914,14 @@
 #if PLATFORM(IPHONE)
 #define WTF_USE_ACCELERATED_COMPOSITING 1
 #endif
+
+#if COMPILER(GCC)
+#define WARN_UNUSED_RETURN __attribute__ ((warn_unused_result))
+#else
+#define WARN_UNUSED_RETURN
+#endif
+
+/* Set up a define for a common error that is intended to cause a build error -- thus the space after Error. */
+#define WTF_PLATFORM_CFNETWORK Error USE_macro_should_be_used_with_CFNETWORK
 
 #endif /* WTF_Platform_h */

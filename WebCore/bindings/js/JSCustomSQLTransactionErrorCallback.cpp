@@ -32,59 +32,40 @@
 #if ENABLE(DATABASE)
 
 #include "Frame.h"
-#include "ScriptController.h"
+#include "JSCallbackData.h"
 #include "JSSQLError.h"
+#include "ScriptController.h"
 #include <runtime/JSLock.h>
+#include <wtf/MainThread.h>
 
 namespace WebCore {
     
 using namespace JSC;
     
-JSCustomSQLTransactionErrorCallback::JSCustomSQLTransactionErrorCallback(JSObject* callback, Frame* frame)
-    : m_callback(callback)
-    , m_frame(frame)
+JSCustomSQLTransactionErrorCallback::JSCustomSQLTransactionErrorCallback(JSObject* callback, JSDOMGlobalObject* globalObject)
+    : m_data(new JSCallbackData(callback, globalObject))
 {
 }
-    
+
+JSCustomSQLTransactionErrorCallback::~JSCustomSQLTransactionErrorCallback()
+{
+    callOnMainThread(JSCallbackData::deleteData, m_data);
+#ifndef NDEBUG
+    m_data = 0;
+#endif
+}
+
 void JSCustomSQLTransactionErrorCallback::handleEvent(SQLError* error)
 {
-    ASSERT(m_callback);
-    ASSERT(m_frame);
-
-    if (!m_frame->script()->isEnabled())
-        return;
-
-    // FIXME: This is likely the wrong globalObject (for prototype chains at least)
-    JSGlobalObject* globalObject = m_frame->script()->globalObject();
-    ExecState* exec = globalObject->globalExec();
-
-    JSC::JSLock lock(SilenceAssertionsOnly);
-
-    JSValue function = m_callback->get(exec, Identifier(exec, "handleEvent"));
-    CallData callData;
-    CallType callType = function.getCallData(callData);
-    if (callType == CallTypeNone) {
-        callType = m_callback->getCallData(callData);
-        if (callType == CallTypeNone) {
-            // FIXME: Should an exception be thrown here?
-            return;
-        }
-        function = m_callback;
-    }
+    ASSERT(m_data);
 
     RefPtr<JSCustomSQLTransactionErrorCallback> protect(this);
 
+    JSC::JSLock lock(SilenceAssertionsOnly);
+    ExecState* exec = m_data->globalObject()->globalExec();
     MarkedArgumentBuffer args;
     args.append(toJS(exec, deprecatedGlobalObjectForPrototype(exec), error));
-
-    globalObject->globalData()->timeoutChecker.start();
-    call(exec, function, callType, callData, m_callback, args);
-    globalObject->globalData()->timeoutChecker.stop();
-
-    if (exec->hadException())
-        reportCurrentException(exec);
-
-    Document::updateStyleForAllDocuments();
+    m_data->invokeCallback(args);
 }
 
 }

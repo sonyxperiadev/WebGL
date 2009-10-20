@@ -60,10 +60,16 @@ namespace WebCore {
             m_isContentFiltered = isContentFiltered;
         }
 
-        long long getAppCacheID() const { return m_appCacheID; }
+        long long appCacheID() const { return m_appCacheID; }
         void setAppCacheID(long long id)
         {
             m_appCacheID = id;
+        }
+
+        const KURL& appCacheManifestURL() const { return m_appCacheManifestURL; }
+        void setAppCacheManifestURL(const KURL& url)
+        {
+            m_appCacheManifestURL = url;
         }
 
     private:
@@ -86,6 +92,10 @@ namespace WebCore {
         // The id of the appcache this response was retrieved from, or zero if
         // the response was not retrieved from an appcache.
         long long m_appCacheID;
+
+        // The manifest url of the appcache this response was retrieved from, if any.
+        // Note: only valid for main resource responses.
+        KURL m_appCacheManifestURL;
     };
 
 } // namespace WebCore

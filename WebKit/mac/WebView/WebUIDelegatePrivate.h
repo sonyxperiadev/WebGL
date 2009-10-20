@@ -109,7 +109,7 @@ enum {
 - (void)webView:(WebView *)sender willPopupMenu:(NSMenu *)menu;
 - (void)webView:(WebView *)sender contextMenuItemSelected:(NSMenuItem *)item forElement:(NSDictionary *)element;
 - (void)webView:(WebView *)sender saveFrameView:(WebFrameView *)frameView showingPanel:(BOOL)showingPanel;
-
+- (BOOL)webView:(WebView *)sender shouldHaltPlugin:(DOMNode *)pluginNode;
 /*!
     @method webView:frame:exceededDatabaseQuotaForSecurityOrigin:database:
     @param sender The WebView sending the delegate method.
@@ -127,8 +127,8 @@ enum {
 - (BOOL)webView:(WebView *)sender frame:(WebFrame *)frame requestGeolocationPermission:(WebGeolocation *)geolocation securityOrigin:(WebSecurityOrigin *)origin;
 
 - (void)webView:(WebView *)sender formStateDidChangeForNode:(DOMNode *)node;
-- (void)webView:(WebView *)sender formStateDidFocusNode:(DOMNode *)node;
-- (void)webView:(WebView *)sender formStateDidBlurNode:(DOMNode *)node;
+- (void)webView:(WebView *)sender formDidFocusNode:(DOMNode *)node;
+- (void)webView:(WebView *)sender formDidBlurNode:(DOMNode *)node;
 
 /*!
     @method webView:printFrame:

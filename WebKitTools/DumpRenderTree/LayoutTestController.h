@@ -32,6 +32,7 @@
 #include <JavaScriptCore/JSObjectRef.h>
 #include <wtf/RefCounted.h>
 #include <string>
+#include <vector>
 
 class LayoutTestController : public RefCounted<LayoutTestController> {
 public:
@@ -53,6 +54,7 @@ public:
     bool isCommandEnabled(JSStringRef name);
     void keepWebHistory();
     void notifyDone();
+    void overridePreference(JSStringRef key, JSStringRef value);
     JSStringRef pathToLocalResource(JSContextRef, JSStringRef url);
     void queueBackNavigation(int howFarBackward);
     void queueForwardNavigation(int howFarForward);
@@ -66,6 +68,8 @@ public:
     void setCacheModel(int);
     void setCustomPolicyDelegate(bool setDelegate, bool permissive);
     void setDatabaseQuota(unsigned long long quota);
+    void setMockGeolocationPosition(double latitude, double longitude, double accuracy);
+    void setMockGeolocationError(int code, JSStringRef message);
     void setIconDatabaseEnabled(bool iconDatabaseEnabled);
     void setJavaScriptProfilingEnabled(bool profilingEnabled);
     void setMainFrameIsFirstResponder(bool flag);
@@ -81,15 +85,19 @@ public:
     void setUserStyleSheetLocation(JSStringRef path);
     void waitForPolicyDelegate();
     size_t webHistoryItemCount();
+    unsigned workerThreadCount() const;
     int windowCount();
     
-    bool elementDoesAutoCompleteForElementWithId(JSStringRef id);
+    void grantDesktopNotificationPermission(JSStringRef origin);
+    bool checkDesktopNotificationPermission(JSStringRef origin);
 
-    bool dumpAsText() const { return m_dumpAsText; }
-    void setDumpAsText(bool dumpAsText) { m_dumpAsText = dumpAsText; }
+    bool elementDoesAutoCompleteForElementWithId(JSStringRef id);
 
     bool dumpAsPDF() const { return m_dumpAsPDF; }
     void setDumpAsPDF(bool dumpAsPDF) { m_dumpAsPDF = dumpAsPDF; }
+
+    bool dumpAsText() const { return m_dumpAsText; }
+    void setDumpAsText(bool dumpAsText) { m_dumpAsText = dumpAsText; }
     
     bool dumpBackForwardList() const { return m_dumpBackForwardList; }
     void setDumpBackForwardList(bool dumpBackForwardList) { m_dumpBackForwardList = dumpBackForwardList; }
@@ -103,23 +111,14 @@ public:
     bool dumpDatabaseCallbacks() const { return m_dumpDatabaseCallbacks; }
     void setDumpDatabaseCallbacks(bool dumpDatabaseCallbacks) { m_dumpDatabaseCallbacks = dumpDatabaseCallbacks; }
 
-    bool dumpStatusCallbacks() const { return m_dumpStatusCallbacks; }
-    void setDumpStatusCallbacks(bool dumpStatusCallbacks) { m_dumpStatusCallbacks = dumpStatusCallbacks; }
-
     bool dumpDOMAsWebArchive() const { return m_dumpDOMAsWebArchive; }
     void setDumpDOMAsWebArchive(bool dumpDOMAsWebArchive) { m_dumpDOMAsWebArchive = dumpDOMAsWebArchive; }
 
-    bool dumpSelectionRect() const { return m_dumpSelectionRect; }
-    void setDumpSelectionRect(bool dumpSelectionRect) { m_dumpSelectionRect = dumpSelectionRect; }
-
-    bool dumpSourceAsWebArchive() const { return m_dumpSourceAsWebArchive; }
-    void setDumpSourceAsWebArchive(bool dumpSourceAsWebArchive) { m_dumpSourceAsWebArchive = dumpSourceAsWebArchive; }
-
-    bool dumpTitleChanges() const { return m_dumpTitleChanges; }
-    void setDumpTitleChanges(bool dumpTitleChanges) { m_dumpTitleChanges = dumpTitleChanges; }
-
     bool dumpEditingCallbacks() const { return m_dumpEditingCallbacks; }
     void setDumpEditingCallbacks(bool dumpEditingCallbacks) { m_dumpEditingCallbacks = dumpEditingCallbacks; }
+
+    bool dumpFrameLoadCallbacks() const { return m_dumpFrameLoadCallbacks; }
+    void setDumpFrameLoadCallbacks(bool dumpFrameLoadCallbacks) { m_dumpFrameLoadCallbacks = dumpFrameLoadCallbacks; }
 
     bool dumpResourceLoadCallbacks() const { return m_dumpResourceLoadCallbacks; }
     void setDumpResourceLoadCallbacks(bool dumpResourceLoadCallbacks) { m_dumpResourceLoadCallbacks = dumpResourceLoadCallbacks; }
@@ -127,12 +126,21 @@ public:
     bool dumpResourceResponseMIMETypes() const { return m_dumpResourceResponseMIMETypes; }
     void setDumpResourceResponseMIMETypes(bool dumpResourceResponseMIMETypes) { m_dumpResourceResponseMIMETypes = dumpResourceResponseMIMETypes; }
 
+    bool dumpSelectionRect() const { return m_dumpSelectionRect; }
+    void setDumpSelectionRect(bool dumpSelectionRect) { m_dumpSelectionRect = dumpSelectionRect; }
+
+    bool dumpSourceAsWebArchive() const { return m_dumpSourceAsWebArchive; }
+    void setDumpSourceAsWebArchive(bool dumpSourceAsWebArchive) { m_dumpSourceAsWebArchive = dumpSourceAsWebArchive; }
+
+    bool dumpStatusCallbacks() const { return m_dumpStatusCallbacks; }
+    void setDumpStatusCallbacks(bool dumpStatusCallbacks) { m_dumpStatusCallbacks = dumpStatusCallbacks; }
+
+    bool dumpTitleChanges() const { return m_dumpTitleChanges; }
+    void setDumpTitleChanges(bool dumpTitleChanges) { m_dumpTitleChanges = dumpTitleChanges; }
+    
     bool dumpWillCacheResponse() const { return m_dumpWillCacheResponse; }
     void setDumpWillCacheResponse(bool dumpWillCacheResponse) { m_dumpWillCacheResponse = dumpWillCacheResponse; }
-
-    bool dumpFrameLoadCallbacks() const { return m_dumpFrameLoadCallbacks; }
-    void setDumpFrameLoadCallbacks(bool dumpFrameLoadCallbacks) { m_dumpFrameLoadCallbacks = dumpFrameLoadCallbacks; }
-
+    
     bool callCloseOnWebViews() const { return m_callCloseOnWebViews; }
     void setCallCloseOnWebViews(bool callCloseOnWebViews) { m_callCloseOnWebViews = callCloseOnWebViews; }
 
@@ -156,12 +164,25 @@ public:
 
     bool waitToDump() const { return m_waitToDump; }
     void setWaitToDump(bool waitToDump);
+    void waitToDumpWatchdogTimerFired();
 
     bool willSendRequestReturnsNullOnRedirect() const { return m_willSendRequestReturnsNullOnRedirect; }
     void setWillSendRequestReturnsNullOnRedirect(bool returnsNull) { m_willSendRequestReturnsNullOnRedirect = returnsNull; }
 
     bool windowIsKey() const { return m_windowIsKey; }
     void setWindowIsKey(bool windowIsKey);
+
+    bool alwaysAcceptCookies() const { return m_alwaysAcceptCookies; }
+    void setAlwaysAcceptCookies(bool alwaysAcceptCookies);
+    
+    bool handlesAuthenticationChallenges() const { return m_handlesAuthenticationChallenges; }
+    void setHandlesAuthenticationChallenges(bool handlesAuthenticationChallenges) { m_handlesAuthenticationChallenges = handlesAuthenticationChallenges; }
+    
+    const std::string& authenticationUsername() const { return m_authenticationUsername; }
+    void setAuthenticationUsername(std::string username) { m_authenticationUsername = username; }
+    
+    const std::string& authenticationPassword() const { return m_authenticationPassword; }
+    void setAuthenticationPassword(std::string password) { m_authenticationPassword = password; }
 
     bool globalFlag() const { return m_globalFlag; }
     void setGlobalFlag(bool globalFlag) { m_globalFlag = globalFlag; }
@@ -172,24 +193,39 @@ public:
     bool pauseAnimationAtTimeOnElementWithId(JSStringRef animationName, double time, JSStringRef elementId);
     bool pauseTransitionAtTimeOnElementWithId(JSStringRef propertyName, double time, JSStringRef elementId);
     unsigned numberOfActiveAnimations() const;
-    
+
+    void whiteListAccessFromOrigin(JSStringRef sourceOrigin, JSStringRef destinationProtocol, JSStringRef destinationHost, bool allowDestinationSubdomains);
+
+    void addUserScript(JSStringRef source, bool runAtStart);
+    void addUserStyleSheet(JSStringRef source);
+
+    void setGeolocationPermission(bool allow);
+    bool isGeolocationPermissionSet() const { return m_isGeolocationPermissionSet; }
+    bool geolocationPermission() const { return m_geolocationPermission; }
+
+    void showWebInspector();
+    void closeWebInspector();
+    void evaluateInWebInspector(long callId, JSStringRef script);
+
+    void setPOSIXLocale(JSStringRef locale);
+
 private:
-    bool m_dumpAsText;
     bool m_dumpAsPDF;
+    bool m_dumpAsText;
     bool m_dumpBackForwardList;
     bool m_dumpChildFrameScrollPositions;
     bool m_dumpChildFramesAsText;
-    bool m_dumpDatabaseCallbacks;
     bool m_dumpDOMAsWebArchive;
+    bool m_dumpDatabaseCallbacks;
+    bool m_dumpEditingCallbacks;
+    bool m_dumpFrameLoadCallbacks;
+    bool m_dumpResourceLoadCallbacks;
+    bool m_dumpResourceResponseMIMETypes;
     bool m_dumpSelectionRect;
     bool m_dumpSourceAsWebArchive;
     bool m_dumpStatusCallbacks;
     bool m_dumpTitleChanges;
-    bool m_dumpEditingCallbacks;
-    bool m_dumpResourceLoadCallbacks;
-    bool m_dumpResourceResponseMIMETypes;
     bool m_dumpWillCacheResponse;
-    bool m_dumpFrameLoadCallbacks;
     bool m_callCloseOnWebViews;
     bool m_canOpenWindows;
     bool m_closeRemainingWindowsWhenComplete;
@@ -200,11 +236,19 @@ private:
     bool m_waitToDump; // True if waitUntilDone() has been called, but notifyDone() has not yet been called.
     bool m_willSendRequestReturnsNullOnRedirect;
     bool m_windowIsKey;
-
+    bool m_alwaysAcceptCookies;
     bool m_globalFlag;
+    bool m_isGeolocationPermissionSet;
+    bool m_geolocationPermission;
+    bool m_handlesAuthenticationChallenges;
 
+    std::string m_authenticationUsername;
+    std::string m_authenticationPassword; 
     std::string m_testPathOrURL;
     std::string m_expectedPixelHash;    // empty string if no hash
+    
+    // origins which have been granted desktop notification access
+    std::vector<JSStringRef> m_desktopNotificationAllowedOrigins;
     
     static JSClassRef getJSClass();
     static JSStaticValue* staticValues();

@@ -126,12 +126,15 @@ namespace WebCore {
             PseudoChecked,
             PseudoEnabled,
             PseudoFullPageMedia,
+            PseudoDefault,
             PseudoDisabled,
             PseudoInputPlaceholder,
             PseudoOptional,
             PseudoRequired,
             PseudoReadOnly,
             PseudoReadWrite,
+            PseudoValid,
+            PseudoInvalid,
             PseudoIndeterminate,
             PseudoTarget,
             PseudoBefore,
@@ -170,15 +173,18 @@ namespace WebCore {
             PseudoMediaControlsMuteButton,
             PseudoMediaControlsPlayButton,
             PseudoMediaControlsTimelineContainer,
+            PseudoMediaControlsVolumeSliderContainer,
             PseudoMediaControlsCurrentTimeDisplay,
             PseudoMediaControlsTimeRemainingDisplay,
             PseudoMediaControlsTimeline,
+            PseudoMediaControlsVolumeSlider,
             PseudoMediaControlsSeekBackButton,
             PseudoMediaControlsSeekForwardButton,
             PseudoMediaControlsRewindButton,
             PseudoMediaControlsReturnToRealtimeButton,
             PseudoMediaControlsStatusDisplay,
-            PseudoMediaControlsFullscreenButton
+            PseudoMediaControlsFullscreenButton,
+            PseudoInputListButton
         };
 
         PseudoType pseudoType() const

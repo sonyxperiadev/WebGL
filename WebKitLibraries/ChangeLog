@@ -1,3 +1,123 @@
+2009-10-05  Pierre d'Herbemont  <pdherbemont@webkit.org>
+
+        Reviewed by Simon Fraser
+        
+        Support fullscreen in MediaPlayer (Mac)
+        https://bugs.webkit.org/show_bug.cgi?id=26742
+        
+        New methods required for video fullscreen.
+
+        * WebKitSystemInterface.h:
+        * libWebKitSystemInterfaceLeopard.a:
+        * libWebKitSystemInterfaceSnowLeopard.a:
+        * libWebKitSystemInterfaceTiger.a:
+
+2009-10-02  Steve Falkenburg  <sfalken@apple.com>
+
+        Windows build fix.
+        Re-apply lost changes to auto-version.sh.
+        
+        * win/tools/scripts/auto-version.sh:
+
+2009-10-02  Eric Carlson  <eric.carlson@apple.com>
+
+        Reviewed by Adam Roben.
+
+        <rdar://problem/7271334> 
+        Rename MediaControllerThemeQT to MediaControllerThemeQuickTime
+
+        * WebKitSystemInterface.h: 
+        MediaControllerThemeQT -> MediaControllerThemeQuickTime
+
+2009-10-02  Steve Falkenburg  <sfalken@apple.com>
+
+        Reviewed by Mark Rowe.
+
+        <https://bugs.webkit.org/show_bug.cgi?id=29989>
+        Safari version number shouldn't be exposed in WebKit code
+        
+        For a WebKit version of 532.3.4:
+        Product version is: 5.32.3.4 (was 4.0.3.0)
+        File version is: 5.32.3.4 (was 4.532.3.4)
+
+        * win/tools/scripts/PRODUCTVERSION: Removed.
+        * win/tools/scripts/auto-version.sh: Re-worked script to remove references to PRODUCTVERSION.
+
+2009-09-25  Dan Bernstein  <mitz@apple.com>
+
+        Reviewed by Adam Roben.
+
+        WebKitSystemInterface changes for
+        <rdar://problem/7211635> 2 byte characters are displayed as garbaged
+        <rdar://problem/7212626> garbled/gibberish text (off-by-one)
+
+        * win/include/WebKitSystemInterface/WebKitSystemInterface.h: Added
+        wkAddFontsFromPlistRepresentation() and replaced
+        wkCreateFontsPlistRepresentation() with wkCreateFontsPlist() and
+        wkAddFontsFromPlistRepresentation() with wkAddFontsFromPlist().
+        * win/lib/WebKitSystemInterface.lib:
+        * win/lib/WebKitSystemInterface_debug.lib:
+
+2009-09-23  Marshall Culpepper  <mculpepper@appcelerator.com>
+
+        Reviewed by Eric Seidel.
+        
+        Added $(WebKitLibrariesDir)/include/cairo so cairo.h is found by
+        default when the necessary dependencies are extracted into the
+        WebKitLibrariesDir.
+        https://bugs.webkit.org/show_bug.cgi?id=29661
+
+        * win/tools/vsprops/WinCairo.vsprops:
+
+2009-09-09  Brent Fulgham  <bfulgham@webkit.org>
+
+        Reviewed by Dave Levin.
+
+        Adjust WinCairo-specific property sheet to use static versions of
+        libjpeg.lib and libpng.lib.  Change to libpng.lib required addition
+        of zlib.lib to link.
+
+        * win/tools/vsprops/WinCairo.vsprops:
+
+2009-08-28  Steve Falkenburg  <sfalken@apple.com>
+
+        Reviewed by Adam Roben.
+
+        Define _CRT_SECURE_CPP_OVERLOAD_STANDARD_NAMES=1
+        to automatically use secure versions of C runtime lib calls on Windows.
+        https://bugs.webkit.org/show_bug.cgi?id=28824
+        
+        * win/tools/vsprops/common.vsprops:
+
+2009-08-25  Brent Fulgham  <bfulgham@webkit.org>
+
+        Rubber stamped by Steve Falkenburg.
+
+        debug_wincairo.vsprops was linking against wrong C runtime.
+
+        * win/tools/vsprops/debug_wincairo.vsprops: Link to correct
+          C runtime (as in the standard 'debug.vsprops' file.)
+
+2009-08-24  Brent Fulgham  <bfulgham@webkit.org>
+
+        Reviewed by Steve Falkenburg.
+
+        Revise CFLite Debug build to emit DLL's with _debug label.
+        https://bugs.webkit.org/show_bug.cgi?id=28695.
+
+        * win/tools/vsprops/debug_wincairo.vsprops: Added.
+
+2009-08-12  Peter Kasting  <pkasting@google.com>
+
+        Reviewed by Darin Adler.
+
+        https://bugs.webkit.org/show_bug.cgi?id=27323
+        Change pattern that strips all trailing whitespace to just remove EOL
+        chars (\r, \n), to make it clear that varying EOL chars is the primary
+        problem being solved.
+
+        * win/tools/scripts/auto-version.sh:
+
 2009-08-10  Peter Kasting  <pkasting@google.com>
 
         Reviewed by George Staikos.

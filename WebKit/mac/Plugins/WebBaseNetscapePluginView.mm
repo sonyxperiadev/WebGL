@@ -43,13 +43,17 @@
 
 #import <WebCore/WebCoreObjCExtras.h>
 #import <WebCore/AuthenticationMac.h>
+#import <WebCore/Credential.h>
+#import <WebCore/CredentialStorage.h>
 #import <WebCore/CString.h>
 #import <WebCore/Document.h>
 #import <WebCore/Element.h>
 #import <WebCore/Frame.h>
 #import <WebCore/FrameLoader.h>
 #import <WebCore/HTMLPlugInElement.h>
+#import <WebCore/HaltablePlugin.h>
 #import <WebCore/Page.h>
+#import <WebCore/ProtectionSpace.h>
 #import <WebCore/RenderView.h>
 #import <WebKit/DOMPrivate.h>
 #import <runtime/InitializeThreading.h>
@@ -59,6 +63,21 @@
 #define LoginWindowDidSwitchToUserNotification      @"WebLoginWindowDidSwitchToUserNotification"
 
 using namespace WebCore;
+
+class WebHaltablePlugin : public HaltablePlugin {
+public:
+    WebHaltablePlugin(WebBaseNetscapePluginView* view)
+        : m_view(view)
+    {
+    }
+    
+private:
+    virtual void halt() { [m_view stop]; }
+    virtual void restart() { [m_view start]; }
+    virtual Node* node() const { return [m_view element]; }
+
+    WebBaseNetscapePluginView* m_view;
+};
 
 @implementation WebBaseNetscapePluginView
 
@@ -111,7 +130,7 @@ using namespace WebCore;
         _mode = NP_EMBED;
     
     _loadManually = loadManually;
-
+    _haltable = new WebHaltablePlugin(self);
     return self;
 }
 
@@ -388,10 +407,13 @@ using namespace WebCore;
     }
     
     _isStarted = YES;
+    page->didStartPlugin(_haltable.get());
+
     [[self webView] addPluginInstanceView:self];
-    
-    [self updateAndSetWindow];
-    
+
+    if ([self currentWindow])
+        [self updateAndSetWindow];
+
     if ([self window]) {
         [self addWindowObservers];
         if ([[self window] isKeyWindow]) {
@@ -414,6 +436,11 @@ using namespace WebCore;
     
     if (!_isStarted)
         return;
+
+    if (Frame* frame = core([self webFrame])) {
+        if (Page* page = frame->page())
+            page->didStopPlugin(_haltable.get());
+    }
     
     _isStarted = NO;
     
@@ -478,11 +505,16 @@ using namespace WebCore;
                                                  selector:@selector(preferencesHaveChanged:)
                                                      name:WebPreferencesChangedNotification
                                                    object:nil];
-        
+
         // View moved to an actual window. Start it if not already started.
         [self start];
-        [self restartTimers];
-        [self addWindowObservers];
+
+        // Starting the plug-in can result in it removing itself from the window so we need to ensure that we're still in
+        // place before doing anything that requires a window.
+        if ([self window]) {
+            [self restartTimers];
+            [self addWindowObservers];
+        }
     } else if ([[self webView] hostWindow]) {
         // View moved out of an actual window, but still has a host window.
         // Call setWindow to explicitly "clip out" the plug-in from sight.
@@ -868,7 +900,7 @@ bool getAuthenticationInfo(const char* protocolStr, const char* hostStr, int32_t
     
     RetainPtr<NSURLProtectionSpace> protectionSpace(AdoptNS, [[NSURLProtectionSpace alloc] initWithHost:host port:port protocol:protocol realm:realm authenticationMethod:authenticationMethod]);
     
-    NSURLCredential *credential = WebCoreCredentialStorage::get(protectionSpace.get());
+    NSURLCredential *credential = mac(CredentialStorage::get(core(protectionSpace.get())));
     if (!credential)
         credential = [[NSURLCredentialStorage sharedCredentialStorage] defaultCredentialForProtectionSpace:protectionSpace.get()];
     if (!credential)

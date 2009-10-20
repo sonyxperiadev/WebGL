@@ -45,8 +45,7 @@ namespace WebCore {
     protected:
         struct JSDOMGlobalObjectData;
 
-        JSDOMGlobalObject(PassRefPtr<JSC::Structure>, JSDOMGlobalObjectData*, JSC::JSObject* thisValue);
-        virtual ~JSDOMGlobalObject();
+        JSDOMGlobalObject(NonNullPassRefPtr<JSC::Structure>, JSDOMGlobalObjectData*, JSC::JSObject* thisValue);
 
     public:
         JSDOMStructureMap& structures() { return d()->structures; }
@@ -54,19 +53,9 @@ namespace WebCore {
 
         virtual ScriptExecutionContext* scriptExecutionContext() const = 0;
 
-        // Finds a wrapper of a GC-unprotected JS EventListener, returns 0 if no existing one.
-        JSEventListener* findJSEventListener(JSC::JSValue);
-
-        // Finds or creates a wrapper of a JS EventListener. JS EventListener object is *NOT* GC-protected.
-        PassRefPtr<JSEventListener> findOrCreateJSEventListener(JSC::JSValue);
-
-        // Creates a GC-protected JS EventListener for an "onXXX" event attribute.
-        // These listeners cannot be removed through the removeEventListener API.
+        // Creates a JS EventListener for an "onXXX" event attribute. These
+        // listeners cannot be removed through the removeEventListener API.
         PassRefPtr<JSEventListener> createJSAttributeEventListener(JSC::JSValue);
-
-        typedef HashMap<JSC::JSObject*, JSEventListener*> JSListenersMap;
-
-        JSListenersMap& jsEventListeners();
 
         // Make binding code generation easier.
         JSDOMGlobalObject* globalObject() { return this; }
@@ -78,17 +67,27 @@ namespace WebCore {
 
     protected:
         struct JSDOMGlobalObjectData : public JSC::JSGlobalObject::JSGlobalObjectData {
-            JSDOMGlobalObjectData();
+            JSDOMGlobalObjectData()
+                : JSGlobalObjectData(destroyJSDOMGlobalObjectData)
+                , evt(0)
+            {
+            }
+
+            JSDOMGlobalObjectData(Destructor destructor)
+                : JSGlobalObjectData(destructor)
+                , evt(0)
+            {
+            }
 
             JSDOMStructureMap structures;
             JSDOMConstructorMap constructors;
-
-            JSDOMGlobalObject::JSListenersMap jsEventListeners;
 
             Event* evt;
         };
 
     private:
+        static void destroyJSDOMGlobalObjectData(void*);
+
         JSDOMGlobalObjectData* d() const { return static_cast<JSDOMGlobalObjectData*>(JSC::JSVariableObject::d); }
     };
 

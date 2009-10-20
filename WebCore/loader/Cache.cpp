@@ -34,6 +34,7 @@
 #include "FrameView.h"
 #include "Image.h"
 #include "ResourceHandle.h"
+#include "SecurityOrigin.h"
 #include <stdio.h>
 #include <wtf/CurrentTime.h>
 
@@ -105,7 +106,7 @@ CachedResource* Cache::requestResource(DocLoader* docLoader, CachedResource::Typ
     if (resource && requestIsPreload && !resource->isPreloaded())
         return 0;
     
-    if (FrameLoader::restrictAccessToLocal() && !FrameLoader::canLoad(url, String(), docLoader->doc())) {
+    if (SecurityOrigin::restrictAccessToLocal() && !SecurityOrigin::canLoad(url, String(), docLoader->doc())) {
         Document* doc = docLoader->doc();
         if (doc && !requestIsPreload)
             FrameLoader::reportLocalLoadFailed(doc->frame(), url.string());
@@ -183,6 +184,7 @@ void Cache::revalidateResource(CachedResource* resource, DocLoader* docLoader)
 {
     ASSERT(resource);
     ASSERT(resource->inCache());
+    ASSERT(resource == m_resources.get(resource->url()));
     ASSERT(!disabled());
     if (resource->resourceToRevalidate())
         return;
@@ -191,7 +193,7 @@ void Cache::revalidateResource(CachedResource* resource, DocLoader* docLoader)
         return;
     }
     const String& url = resource->url();
-    CachedResource* newResource = createResource(resource->type(), KURL(url), resource->encoding());
+    CachedResource* newResource = createResource(resource->type(), KURL(ParsedURLString, url), resource->encoding());
     newResource->setResourceToRevalidate(resource);
     evict(resource);
     m_resources.set(url, newResource);
@@ -206,6 +208,7 @@ void Cache::revalidationSucceeded(CachedResource* revalidatingResource, const Re
     ASSERT(resource);
     ASSERT(!resource->inCache());
     ASSERT(resource->isLoaded());
+    ASSERT(revalidatingResource->inCache());
     
     evict(revalidatingResource);
 
@@ -352,7 +355,7 @@ void Cache::pruneDeadResources()
         current = m_allResources[i].m_tail;
         while (current) {
             CachedResource* prev = current->m_prevInAllResourcesList;
-            if (!current->hasClients() && !current->isPreloaded()) {
+            if (!current->hasClients() && !current->isPreloaded() && !current->isCacheValidator()) {
                 evict(current);
                 // If evict() caused pruneDeadResources() to be re-entered, bail out. This can happen when removing an
                 // SVG CachedImage that has subresources.

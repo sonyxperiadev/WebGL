@@ -80,7 +80,9 @@ public:
     // This class selects a RenderStyle for a given element based on a collection of stylesheets.
     class CSSStyleSelector : public Noncopyable {
     public:
-        CSSStyleSelector(Document*, const String& userStyleSheet, StyleSheetList*, CSSStyleSheet*, bool strictParsing, bool matchAuthorAndUserStyles);
+        CSSStyleSelector(Document*, StyleSheetList* authorSheets, CSSStyleSheet* mappedElementSheet,
+                         CSSStyleSheet* pageUserSheet, const Vector<RefPtr<CSSStyleSheet> >* pageGroupUserSheets,
+                         bool strictParsing, bool matchAuthorAndUserStyles);
         ~CSSStyleSelector();
 
         void initElementAndPseudoState(Element*);
@@ -175,7 +177,6 @@ public:
         
         CSSRuleSet* m_authorStyle;
         CSSRuleSet* m_userStyle;
-        RefPtr<CSSStyleSheet> m_userSheet;
 
         bool m_hasUAAppearance;
         BorderData m_borderData;
@@ -223,7 +224,8 @@ public:
         void mapFillComposite(FillLayer*, CSSValue*);
         void mapFillOrigin(FillLayer*, CSSValue*);
         void mapFillImage(FillLayer*, CSSValue*);
-        void mapFillRepeat(FillLayer*, CSSValue*);
+        void mapFillRepeatX(FillLayer*, CSSValue*);
+        void mapFillRepeatY(FillLayer*, CSSValue*);
         void mapFillSize(FillLayer*, CSSValue*);
         void mapFillXPosition(FillLayer*, CSSValue*);
         void mapFillYPosition(FillLayer*, CSSValue*);

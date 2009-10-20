@@ -30,12 +30,15 @@
 
 #include "config.h"
 #include "HTMLFrameElement.h"
+#include "HTMLNames.h"
 
 #include "V8Binding.h"
 #include "V8CustomBinding.h"
 #include "V8Proxy.h"
 
 namespace WebCore {
+
+using namespace HTMLNames; 
 
 ACCESSOR_SETTER(HTMLFrameElementSrc)
 {
@@ -45,7 +48,7 @@ ACCESSOR_SETTER(HTMLFrameElementSrc)
     if (!allowSettingFrameSrcToJavascriptUrl(frame, srcValue))
         return;
 
-    frame->setSrc(srcValue);
+    frame->setAttribute(srcAttr, srcValue); 
 }
 
 ACCESSOR_SETTER(HTMLFrameElementLocation)

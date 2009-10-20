@@ -100,6 +100,11 @@ void LayoutTestController::setAcceptsEditing(bool acceptsEditing)
 {
 }
 
+void LayoutTestController::setAlwaysAcceptCookies(bool alwaysAcceptCookies)
+{
+    // FIXME: Implement this (and restore the default value before running each test in DumpRenderTree.cpp).
+}
+
 void LayoutTestController::setCustomPolicyDelegate(bool, bool)
 {
     // FIXME: implement
@@ -217,6 +222,12 @@ unsigned LayoutTestController::numberOfActiveAnimations() const
     return 0;
 }
 
+unsigned LayoutTestController::workerThreadCount() const
+{
+    // FIXME: implement
+    return 0;
+}
+
 void LayoutTestController::setSelectTrailingWhitespaceEnabled(bool flag)
 {
     // FIXME: implement
@@ -226,6 +237,18 @@ bool LayoutTestController::pauseTransitionAtTimeOnElementWithId(JSStringRef prop
 {
     // FIXME: implement
     return false;
+}
+
+void LayoutTestController::setMockGeolocationPosition(double latitude, double longitude, double accuracy)
+{
+    // FIXME: Implement for Geolocation layout tests.
+    // See https://bugs.webkit.org/show_bug.cgi?id=28264.
+}
+
+void LayoutTestController::setMockGeolocationError(int code, JSStringRef message)
+{
+    // FIXME: Implement for Geolocation layout tests.
+    // See https://bugs.webkit.org/show_bug.cgi?id=28264.
 }
 
 void LayoutTestController::setIconDatabaseEnabled(bool iconDatabaseEnabled)
@@ -257,6 +280,36 @@ size_t LayoutTestController::webHistoryItemCount()
 }
 
 void LayoutTestController::waitForPolicyDelegate()
+{
+    // FIXME: Implement this.
+}
+
+void LayoutTestController::overridePreference(JSStringRef /* key */, JSStringRef /* value */)
+{
+    // FIXME: implement
+}
+
+void LayoutTestController::addUserScript(JSStringRef source, bool runAtStart)
+{
+    printf("LayoutTestController::addUserScript not implemented.\n");
+}
+
+void LayoutTestController::addUserStyleSheet(JSStringRef source)
+{
+    printf("LayoutTestController::addUserStyleSheet not implemented.\n");
+}
+
+void LayoutTestController::showWebInspector()
+{
+    // FIXME: Implement this.
+}
+
+void LayoutTestController::closeWebInspector()
+{
+    // FIXME: Implement this.
+}
+
+void LayoutTestController::evaluateInWebInspector(long callId, JSStringRef script)
 {
     // FIXME: Implement this.
 }

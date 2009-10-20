@@ -40,6 +40,7 @@
 #include "MIMETypeRegistry.h"
 #include "markup.h"
 #include "NamedNodeMap.h"
+#include "Pasteboard.h"
 #include "PlatformString.h"
 #include "Range.h"
 #include "RenderImage.h"
@@ -92,6 +93,7 @@ void ClipboardChromium::clearData(const String& type)
         m_dataObject->url = KURL();
         m_dataObject->urlTitle = "";
     }
+
     if (dataType == ClipboardDataTypeText)
         m_dataObject->plainText = "";
 }
@@ -116,7 +118,11 @@ String ClipboardChromium::getData(const String& type, bool& success) const
         if (!isForDragging()) {
             // If this isn't for a drag, it's for a cut/paste event handler.
             // In this case, we need to check the clipboard.
-            text = ChromiumBridge::clipboardReadPlainText();
+            PasteboardPrivate::ClipboardBuffer buffer = 
+                Pasteboard::generalPasteboard()->isSelectionMode() ?
+                PasteboardPrivate::SelectionBuffer : 
+                PasteboardPrivate::StandardBuffer;
+            text = ChromiumBridge::clipboardReadPlainText(buffer);
             success = !text.isEmpty();
         } else if (!m_dataObject->plainText.isEmpty()) {
             success = true;
@@ -142,7 +148,7 @@ bool ClipboardChromium::setData(const String& type, const String& data)
     ClipboardDataType winType = clipboardTypeFromMIMEType(type);
 
     if (winType == ClipboardDataTypeURL) {
-        m_dataObject->url = KURL(data);
+        m_dataObject->url = KURL(ParsedURLString, data);
         return m_dataObject->url.isValid();
     }
 
@@ -150,6 +156,7 @@ bool ClipboardChromium::setData(const String& type, const String& data)
         m_dataObject->plainText = data;
         return true;
     }
+    
     return false;
 }
 
@@ -162,6 +169,9 @@ HashSet<String> ClipboardChromium::types() const
 
     if (!m_dataObject)
         return results;
+
+    if (!m_dataObject->filenames.isEmpty())
+        results.add("Files");
 
     if (m_dataObject->url.isValid()) {
         results.add("URL");
@@ -178,8 +188,17 @@ HashSet<String> ClipboardChromium::types() const
 
 PassRefPtr<FileList> ClipboardChromium::files() const
 {
-    notImplemented();
-    return 0;
+    if (policy() != ClipboardReadable)
+        return FileList::create();
+
+    if (!m_dataObject || m_dataObject->filenames.isEmpty())
+        return FileList::create();
+
+    RefPtr<FileList> fileList = FileList::create();
+    for (size_t i = 0; i < m_dataObject->filenames.size(); ++i)
+        fileList->append(File::create(m_dataObject->filenames.at(i)));
+
+    return fileList.release();
 }
 
 void ClipboardChromium::setDragImage(CachedImage* image, Node* node, const IntPoint& loc)

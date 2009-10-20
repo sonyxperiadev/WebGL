@@ -41,8 +41,11 @@
 
 namespace WebCore {
 
+<<<<<<< HEAD:WebCore/page/Geolocation.cpp
 static const char* permissionDeniedErrorMessage = "User denied Geolocation";
 
+=======
+>>>>>>> webkit.org at 49305:WebCore/page/Geolocation.cpp
 Geolocation::GeoNotifier::GeoNotifier(Geolocation* geolocation, PassRefPtr<PositionCallback> successCallback, PassRefPtr<PositionErrorCallback> errorCallback, PassRefPtr<PositionOptions> options)
     : m_geolocation(geolocation)
     , m_successCallback(successCallback)
@@ -60,15 +63,30 @@ Geolocation::GeoNotifier::GeoNotifier(Geolocation* geolocation, PassRefPtr<Posit
 
 void Geolocation::GeoNotifier::setFatalError(PassRefPtr<PositionError> error)
 {
+<<<<<<< HEAD:WebCore/page/Geolocation.cpp
     m_fatalError = error;
     m_timer.startOneShot(0);
+=======
+    ASSERT(m_successCallback);
+    // If no options were supplied from JS, we should have created a default set
+    // of options in JSGeolocationCustom.cpp.
+    ASSERT(m_options);
+>>>>>>> webkit.org at 49305:WebCore/page/Geolocation.cpp
 }
 
+<<<<<<< HEAD:WebCore/page/Geolocation.cpp
 void Geolocation::GeoNotifier::setCachedPosition(Geoposition* cachedPosition)
+=======
+bool Geolocation::GeoNotifier::hasZeroTimeout() const
+>>>>>>> webkit.org at 49305:WebCore/page/Geolocation.cpp
 {
+<<<<<<< HEAD:WebCore/page/Geolocation.cpp
     // We do not take owenership from the caller, but add our own ref count.
     m_cachedPosition = cachedPosition;
     m_timer.startOneShot(0);
+=======
+    return m_options->hasTimeout() && m_options->timeout() == 0;
+>>>>>>> webkit.org at 49305:WebCore/page/Geolocation.cpp
 }
 
 void Geolocation::GeoNotifier::startTimerIfNeeded()
@@ -81,6 +99,7 @@ void Geolocation::GeoNotifier::timerFired(Timer<GeoNotifier>*)
 {
     m_timer.stop();
 
+<<<<<<< HEAD:WebCore/page/Geolocation.cpp
     if (m_fatalError) {
         if (m_errorCallback)
             m_errorCallback->handleEvent(m_fatalError.get());
@@ -95,8 +114,14 @@ void Geolocation::GeoNotifier::timerFired(Timer<GeoNotifier>*)
         return;
     }
 
+=======
+>>>>>>> webkit.org at 49305:WebCore/page/Geolocation.cpp
     if (m_errorCallback) {
+<<<<<<< HEAD:WebCore/page/Geolocation.cpp
         RefPtr<PositionError> error = PositionError::create(PositionError::TIMEOUT, "Timed out");
+=======
+        RefPtr<PositionError> error = PositionError::create(PositionError::TIMEOUT, "Timeout expired");
+>>>>>>> webkit.org at 49305:WebCore/page/Geolocation.cpp
         m_errorCallback->handleEvent(error.get());
     }
     m_geolocation->requestTimedOut(this);
@@ -274,23 +299,55 @@ void Geolocation::disconnectFrame()
 
 void Geolocation::getCurrentPosition(PassRefPtr<PositionCallback> successCallback, PassRefPtr<PositionErrorCallback> errorCallback, PassRefPtr<PositionOptions> options)
 {
+<<<<<<< HEAD:WebCore/page/Geolocation.cpp
     RefPtr<GeoNotifier> notifier = makeRequest(successCallback, errorCallback, options);
     ASSERT(notifier);
+=======
+    RefPtr<GeoNotifier> notifier = GeoNotifier::create(this, successCallback, errorCallback, options);
+
+    if (notifier->hasZeroTimeout() || m_service->startUpdating(notifier->m_options.get()))
+        notifier->startTimerIfNeeded();
+    else {
+        if (notifier->m_errorCallback) {
+            RefPtr<PositionError> error = PositionError::create(PositionError::PERMISSION_DENIED, "Unable to Start");
+            notifier->m_errorCallback->handleEvent(error.get());
+        }
+        return;
+    }
+>>>>>>> webkit.org at 49305:WebCore/page/Geolocation.cpp
 
     m_oneShots.add(notifier);
 }
 
 int Geolocation::watchPosition(PassRefPtr<PositionCallback> successCallback, PassRefPtr<PositionErrorCallback> errorCallback, PassRefPtr<PositionOptions> options)
 {
+<<<<<<< HEAD:WebCore/page/Geolocation.cpp
     RefPtr<GeoNotifier> notifier = makeRequest(successCallback, errorCallback, options);
     ASSERT(notifier);
+=======
+    RefPtr<GeoNotifier> notifier = GeoNotifier::create(this, successCallback, errorCallback, options);
+>>>>>>> webkit.org at 49305:WebCore/page/Geolocation.cpp
 
+<<<<<<< HEAD:WebCore/page/Geolocation.cpp
+=======
+    if (notifier->hasZeroTimeout() || m_service->startUpdating(notifier->m_options.get()))
+        notifier->startTimerIfNeeded();
+    else {
+        if (notifier->m_errorCallback) {
+            RefPtr<PositionError> error = PositionError::create(PositionError::PERMISSION_DENIED, "Unable to Start");
+            notifier->m_errorCallback->handleEvent(error.get());
+        }
+        return 0;
+    }
+    
+>>>>>>> webkit.org at 49305:WebCore/page/Geolocation.cpp
     static int sIdentifier = 0;
     m_watchers.set(++sIdentifier, notifier);
 
     return sIdentifier;
 }
 
+<<<<<<< HEAD:WebCore/page/Geolocation.cpp
 PassRefPtr<Geolocation::GeoNotifier> Geolocation::makeRequest(PassRefPtr<PositionCallback> successCallback, PassRefPtr<PositionErrorCallback> errorCallback, PassRefPtr<PositionOptions> options)
 {
     RefPtr<GeoNotifier> notifier = GeoNotifier::create(this, successCallback, errorCallback, options);
@@ -334,6 +391,8 @@ void Geolocation::fatalErrorOccurred(Geolocation::GeoNotifier* notifier)
         m_service->stopUpdating();
 }
 
+=======
+>>>>>>> webkit.org at 49305:WebCore/page/Geolocation.cpp
 void Geolocation::requestTimedOut(GeoNotifier* notifier)
 {
     // If this is a one-shot request, stop it.
@@ -343,6 +402,7 @@ void Geolocation::requestTimedOut(GeoNotifier* notifier)
         m_service->stopUpdating();
 }
 
+<<<<<<< HEAD:WebCore/page/Geolocation.cpp
 void Geolocation::requestReturnedCachedPosition(GeoNotifier* notifier)
 {
     // If this is a one-shot request, stop it.
@@ -372,6 +432,8 @@ bool Geolocation::haveSuitableCachedPosition(PositionOptions* options)
     return m_cachedPositionManager->cachedPosition()->timestamp() > currentTimeMillis - options->maximumAge();
 }
 
+=======
+>>>>>>> webkit.org at 49305:WebCore/page/Geolocation.cpp
 void Geolocation::clearWatch(int watchId)
 {
     m_watchers.remove(watchId);
@@ -397,9 +459,17 @@ void Geolocation::setIsAllowed(bool allowed)
     // This may be due to either a new position from the service, or a cached
     // position.
     m_allowGeolocation = allowed ? Yes : No;
+<<<<<<< HEAD:WebCore/page/Geolocation.cpp
 
     if (!isAllowed()) {
         RefPtr<WebCore::PositionError> error = PositionError::create(PositionError::PERMISSION_DENIED, permissionDeniedErrorMessage);
+=======
+    
+    if (isAllowed())
+        makeSuccessCallbacks();
+    else {
+        RefPtr<PositionError> error = PositionError::create(PositionError::PERMISSION_DENIED, "User disallowed Geolocation");
+>>>>>>> webkit.org at 49305:WebCore/page/Geolocation.cpp
         error->setIsFatal(true);
         handleError(error.get());
         return;
@@ -436,7 +506,10 @@ void Geolocation::sendPosition(Vector<RefPtr<GeoNotifier> >& notifiers, Geoposit
         RefPtr<GeoNotifier> notifier = *it;
         ASSERT(notifier->m_successCallback);
         
+<<<<<<< HEAD:WebCore/page/Geolocation.cpp
         notifier->m_timer.stop();
+=======
+>>>>>>> webkit.org at 49305:WebCore/page/Geolocation.cpp
         notifier->m_successCallback->handleEvent(position);
     }
 }
@@ -475,15 +548,29 @@ void Geolocation::stopTimers()
 void Geolocation::handleError(PositionError* error)
 {
     ASSERT(error);
+<<<<<<< HEAD:WebCore/page/Geolocation.cpp
+=======
+    
+    Vector<RefPtr<GeoNotifier> > oneShotsCopy;
+    copyToVector(m_oneShots, oneShotsCopy);
+>>>>>>> webkit.org at 49305:WebCore/page/Geolocation.cpp
 
+<<<<<<< HEAD:WebCore/page/Geolocation.cpp
     Vector<RefPtr<GeoNotifier> > oneShotsCopy;
     copyToVector(m_oneShots, oneShotsCopy);
 
+=======
+>>>>>>> webkit.org at 49305:WebCore/page/Geolocation.cpp
     Vector<RefPtr<GeoNotifier> > watchersCopy;
     copyValuesToVector(m_watchers, watchersCopy);
 
     // Clear the lists before we make the callbacks, to avoid clearing notifiers
+<<<<<<< HEAD:WebCore/page/Geolocation.cpp
     // added by calls to Geolocation methods from the callbacks.
+=======
+    // added by calls to Geolocation methods from the callbacks, and to prevent
+    // further callbacks to these notifiers.
+>>>>>>> webkit.org at 49305:WebCore/page/Geolocation.cpp
     m_oneShots.clear();
     if (error->isFatal())
         m_watchers.clear();
@@ -515,17 +602,32 @@ void Geolocation::requestPermission()
 
 void Geolocation::geolocationServicePositionChanged(GeolocationService*)
 {
+<<<<<<< HEAD:WebCore/page/Geolocation.cpp
+=======
+    ASSERT_UNUSED(service, service == m_service);
+>>>>>>> webkit.org at 49305:WebCore/page/Geolocation.cpp
     ASSERT(m_service->lastPosition());
 
+<<<<<<< HEAD:WebCore/page/Geolocation.cpp
     m_cachedPositionManager->setCachedPosition(m_service->lastPosition());
 
+=======
+>>>>>>> webkit.org at 49305:WebCore/page/Geolocation.cpp
     // Stop all currently running timers.
     stopTimers();
+<<<<<<< HEAD:WebCore/page/Geolocation.cpp
 
+=======
+    
+>>>>>>> webkit.org at 49305:WebCore/page/Geolocation.cpp
     if (!isAllowed()) {
         // requestPermission() will ask the chrome for permission. This may be
         // implemented synchronously or asynchronously. In both cases,
+<<<<<<< HEAD:WebCore/page/Geolocation.cpp
         // makeSucessCallbacks() will be called if permission is granted, so
+=======
+        // makeSuccessCallbacks() will be called if permission is granted, so
+>>>>>>> webkit.org at 49305:WebCore/page/Geolocation.cpp
         // there's nothing more to do here.
         requestPermission();
         return;
@@ -538,15 +640,32 @@ void Geolocation::makeSuccessCallbacks()
 {
     ASSERT(m_service->lastPosition());
     ASSERT(isAllowed());
+<<<<<<< HEAD:WebCore/page/Geolocation.cpp
 
+=======
+    
+>>>>>>> webkit.org at 49305:WebCore/page/Geolocation.cpp
     Vector<RefPtr<GeoNotifier> > oneShotsCopy;
     copyToVector(m_oneShots, oneShotsCopy);
+<<<<<<< HEAD:WebCore/page/Geolocation.cpp
 
+=======
+    
+>>>>>>> webkit.org at 49305:WebCore/page/Geolocation.cpp
     Vector<RefPtr<GeoNotifier> > watchersCopy;
     copyValuesToVector(m_watchers, watchersCopy);
+<<<<<<< HEAD:WebCore/page/Geolocation.cpp
 
+=======
+    
+>>>>>>> webkit.org at 49305:WebCore/page/Geolocation.cpp
     // Clear the lists before we make the callbacks, to avoid clearing notifiers
+<<<<<<< HEAD:WebCore/page/Geolocation.cpp
     // added by calls to Geolocation methods from the callbacks.
+=======
+    // added by calls to Geolocation methods from the callbacks, and to prevent
+    // further callbacks to these notifiers.
+>>>>>>> webkit.org at 49305:WebCore/page/Geolocation.cpp
     m_oneShots.clear();
 
     sendPosition(oneShotsCopy, m_service->lastPosition());

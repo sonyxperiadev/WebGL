@@ -86,6 +86,7 @@ public:
     bool isAttributeSettable(JSStringRef attribute);
     bool isActionSupported(JSStringRef action);
     JSStringRef role();
+    JSStringRef subrole();
     JSStringRef title();
     JSStringRef description();
     JSStringRef language();
@@ -119,6 +120,7 @@ public:
     int lineForIndex(int);
     JSStringRef boundsForRange(unsigned location, unsigned length);
     void setSelectedTextRange(unsigned location, unsigned length);
+    JSStringRef stringForRange(unsigned location, unsigned length);
     
     // Table-specific
     AccessibilityUIElement cellForColumnAndRow(unsigned column, unsigned row);

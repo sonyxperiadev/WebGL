@@ -43,7 +43,7 @@ namespace JSC {
     class JSActivation : public JSVariableObject {
         typedef JSVariableObject Base;
     public:
-        JSActivation(CallFrame*, PassRefPtr<FunctionBodyNode>);
+        JSActivation(CallFrame*, NonNullPassRefPtr<FunctionExecutable>);
         virtual ~JSActivation();
 
         virtual void markChildren(MarkStack&);
@@ -70,13 +70,20 @@ namespace JSC {
 
     private:
         struct JSActivationData : public JSVariableObjectData {
-            JSActivationData(PassRefPtr<FunctionBodyNode> functionBody, Register* registers)
-                : JSVariableObjectData(&functionBody->generatedBytecode().symbolTable(), registers)
-                , functionBody(functionBody)
+            JSActivationData(NonNullPassRefPtr<FunctionExecutable> _functionExecutable, Register* registers)
+                : JSVariableObjectData(_functionExecutable->generatedBytecode().symbolTable(), registers)
+                , functionExecutable(_functionExecutable)
             {
+                // We have to manually ref and deref the symbol table as JSVariableObjectData
+                // doesn't know about SharedSymbolTable
+                functionExecutable->generatedBytecode().sharedSymbolTable()->ref();
+            }
+            ~JSActivationData()
+            {
+                static_cast<SharedSymbolTable*>(symbolTable)->deref();
             }
 
-            RefPtr<FunctionBodyNode> functionBody;
+            RefPtr<FunctionExecutable> functionExecutable;
         };
         
         static JSValue argumentsGetter(ExecState*, const Identifier&, const PropertySlot&);

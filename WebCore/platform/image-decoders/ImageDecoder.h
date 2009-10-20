@@ -1,5 +1,7 @@
 /*
  * Copyright (C) 2006 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2008-2009 Torch Mobile, Inc.
+ * Copyright (C) 2009 Nokia Corporation and/or its subsidiary(-ies)
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -37,7 +39,8 @@
 #if (PLATFORM(SKIA) || PLATFORM(SGL))
 // TODO(benm): ANDROID: Can we define PLATFORM(SKIA) instead of PLATFORM(SGL) before upstreaming?
 #include "NativeImageSkia.h"
-#include "SkBitmap.h"
+#elif PLATFORM(QT)
+#include <QImage>
 #endif
 
 namespace WebCore {
@@ -55,7 +58,11 @@ namespace WebCore {
             DisposeOverwriteBgcolor,   // Clear frame to transparent
             DisposeOverwritePrevious,  // Clear frame to previous framebuffer contents
         };
+<<<<<<< HEAD:WebCore/platform/image-decoders/ImageDecoder.h
 #if (PLATFORM(SKIA) || PLATFORM(SGL))
+=======
+#if PLATFORM(SKIA) || PLATFORM(QT)
+>>>>>>> webkit.org at 49305:WebCore/platform/image-decoders/ImageDecoder.h
         typedef uint32_t PixelData;
 #else
         typedef unsigned PixelData;
@@ -132,6 +139,11 @@ namespace WebCore {
             setRGBA(getAddr(x, y), r, g, b, a);
         }
 
+#if PLATFORM(QT)
+        void setDecodedImage(const QImage& image);
+        QImage decodedImage() const { return m_image; }
+#endif
+
     private:
         RGBA32Buffer& operator=(const RGBA32Buffer& other);
 
@@ -140,13 +152,18 @@ namespace WebCore {
 
         inline PixelData* getAddr(int x, int y)
         {
+<<<<<<< HEAD:WebCore/platform/image-decoders/ImageDecoder.h
 #if PLATFORM(CAIRO) || PLATFORM(WX)
             return m_bytes.data() + (y * width()) + x;
 #elif (PLATFORM(SKIA) || PLATFORM(SGL))
+=======
+#if PLATFORM(SKIA)
+>>>>>>> webkit.org at 49305:WebCore/platform/image-decoders/ImageDecoder.h
             return m_bitmap.getAddr32(x, y);
+#elif PLATFORM(QT)
+            return reinterpret_cast<QRgb*>(m_image.scanLine(y)) + x;
 #else
-            ASSERT_NOT_REACHED();
-            return 0;
+            return m_bytes.data() + (y * width()) + x;
 #endif
         }
 
@@ -166,13 +183,22 @@ namespace WebCore {
             }
         }
 
-#if PLATFORM(CAIRO) || PLATFORM(WX)
+#if PLATFORM(SKIA)
+        NativeImageSkia m_bitmap;
+#elif PLATFORM(QT)
+        mutable QImage m_image;
+        bool m_hasAlpha;
+        IntSize m_size;
+#else
         Vector<PixelData> m_bytes;
         IntSize m_size;       // The size of the buffer.  This should be the
                               // same as ImageDecoder::m_size.
         bool m_hasAlpha;      // Whether or not any of the pixels in the buffer have transparency.
+<<<<<<< HEAD:WebCore/platform/image-decoders/ImageDecoder.h
 #elif (PLATFORM(SKIA) || PLATFORM(SGL))
         NativeImageSkia m_bitmap;
+=======
+>>>>>>> webkit.org at 49305:WebCore/platform/image-decoders/ImageDecoder.h
 #endif
         IntRect m_rect;       // The rect of the original specified frame within the overall buffer.
                               // This will always just be the entire buffer except for GIF frames
@@ -188,13 +214,26 @@ namespace WebCore {
     // and the base class manages the RGBA32 frame cache.
     class ImageDecoder {
     public:
+        // ENABLE(IMAGE_DECODER_DOWN_SAMPLING) allows image decoders to write directly to
+        // scaled output buffers by down sampling. Call setMaxNumPixels() to specify the
+        // biggest size that decoded images can have. Image decoders will deflate those
+        // images that are bigger than m_maxNumPixels. (Not supported by all image decoders yet)
         ImageDecoder()
             : m_failed(false)
             , m_sizeAvailable(false)
+#if ENABLE(IMAGE_DECODER_DOWN_SAMPLING)
+            , m_maxNumPixels(-1)
+            , m_scaled(false)
+#endif
         {
         }
 
         virtual ~ImageDecoder() {}
+
+        // Factory function to create an ImageDecoder.  Ports that subclass
+        // ImageDecoder can provide their own implementation of this to avoid
+        // needing to write a dedicated setData() implementation.
+        static ImageDecoder* create(const SharedBuffer& data);
 
         // The the filename extension usually associated with an undecoded image of this type.
         virtual String filenameExtension() const = 0;
@@ -272,8 +311,25 @@ namespace WebCore {
         // since in practice only GIFs will ever use this.
         virtual void clearFrameBufferCache(size_t clearBeforeFrame) { }
 
+#if ENABLE(IMAGE_DECODER_DOWN_SAMPLING)
+        void setMaxNumPixels(int m) { m_maxNumPixels = m; }
+#endif
+
     protected:
+#if ENABLE(IMAGE_DECODER_DOWN_SAMPLING)
+        void prepareScaleDataIfNecessary();
+        int upperBoundScaledX(int origX, int searchStart = 0);
+        int lowerBoundScaledX(int origX, int searchStart = 0);
+        int scaledY(int origY, int searchStart = 0);
+#endif
+
         RefPtr<SharedBuffer> m_data; // The encoded data.
+#if ENABLE(IMAGE_DECODER_DOWN_SAMPLING)
+        int m_maxNumPixels;
+        Vector<int> m_scaledColumns;
+        Vector<int> m_scaledRows;
+        bool m_scaled;
+#endif
         Vector<RGBA32Buffer> m_frameBufferCache;
         bool m_failed;
 

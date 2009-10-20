@@ -45,6 +45,10 @@ class NSImage;
 typedef struct HBITMAP__ *HBITMAP;
 #endif
 
+#if PLATFORM(HAIKU)
+class BBitmap;
+#endif
+
 namespace WebCore {
     struct FrameData;
 }
@@ -137,6 +141,7 @@ public:
 #endif
 
 #if PLATFORM(WIN)
+    static PassRefPtr<BitmapImage> create(HBITMAP);
     virtual bool getHBITMAP(HBITMAP);
     virtual bool getHBITMAPOfSize(HBITMAP, LPSIZE);
 #endif
@@ -165,10 +170,16 @@ protected:
     virtual void drawFrameMatchingSourceSize(GraphicsContext*, const FloatRect& dstRect, const IntSize& srcSize, CompositeOperator);
 #endif
     virtual void draw(GraphicsContext*, const FloatRect& dstRect, const FloatRect& srcRect, CompositeOperator);
-#if PLATFORM(WX) || PLATFORM(WINCE)
+
+#if PLATFORM(WX) || (PLATFORM(WINCE) && !PLATFORM(QT))
     virtual void drawPattern(GraphicsContext*, const FloatRect& srcRect, const TransformationMatrix& patternTransform,
                              const FloatPoint& phase, CompositeOperator, const FloatRect& destRect);
-#endif    
+#endif
+
+#if PLATFORM(HAIKU)
+    virtual BBitmap* getBBitmap() const;
+#endif
+
     size_t currentFrame() const { return m_currentFrame; }
     size_t frameCount();
     NativeImagePtr frameAtIndex(size_t);

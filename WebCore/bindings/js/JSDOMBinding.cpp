@@ -28,6 +28,7 @@
 #include "ExceptionCode.h"
 #include "Frame.h"
 #include "HTMLAudioElement.h"
+#include "HTMLCanvasElement.h"
 #include "HTMLImageElement.h"
 #include "HTMLScriptElement.h"
 #include "HTMLNames.h"
@@ -42,6 +43,8 @@
 #include "RangeException.h"
 #include "ScriptController.h"
 #include "XMLHttpRequestException.h"
+#include <runtime/Error.h>
+#include <runtime/JSFunction.h>
 #include <runtime/PrototypeFunction.h>
 #include <wtf/StdLibExtras.h>
 
@@ -264,18 +267,48 @@ static inline bool isObservableThroughDOM(JSNode* jsNode)
     Node* node = jsNode->impl();
 
     if (node->inDocument()) {
-        // 1. If a node is in the document, and its wrapper has custom properties,
+        // If a node is in the document, and its wrapper has custom properties,
         // the wrapper is observable because future access to the node through the
         // DOM must reflect those properties.
         if (jsNode->hasCustomProperties())
             return true;
 
-        // 2. If a node is in the document, and has event listeners, its wrapper is
+        // If a node is in the document, and has event listeners, its wrapper is
         // observable because its wrapper is responsible for marking those event listeners.
-        if (node->eventListeners().size())
+        if (node->hasEventListeners())
             return true; // Technically, we may overzealously mark a wrapper for a node that has only non-JS event listeners. Oh well.
+
+        // If a node owns another object with a wrapper with custom properties,
+        // the wrapper must be treated as observable, because future access to
+        // those objects through the DOM must reflect those properties.
+        // FIXME: It would be better if this logic could be in the node next to
+        // the custom markChildren functions rather than here.
+        if (node->isElementNode()) {
+            if (NamedNodeMap* attributes = static_cast<Element*>(node)->attributeMap()) {
+                if (DOMObject* wrapper = getCachedDOMObjectWrapper(*jsNode->globalObject()->globalData(), attributes)) {
+                    if (wrapper->hasCustomProperties())
+                        return true;
+                }
+            }
+            if (node->isStyledElement()) {
+                if (CSSMutableStyleDeclaration* style = static_cast<StyledElement*>(node)->inlineStyleDecl()) {
+                    if (DOMObject* wrapper = getCachedDOMObjectWrapper(*jsNode->globalObject()->globalData(), style)) {
+                        if (wrapper->hasCustomProperties())
+                            return true;
+                    }
+                }
+            }
+            if (static_cast<Element*>(node)->hasTagName(canvasTag)) {
+                if (CanvasRenderingContext* context = static_cast<HTMLCanvasElement*>(node)->renderingContext()) {
+                    if (DOMObject* wrapper = getCachedDOMObjectWrapper(*jsNode->globalObject()->globalData(), context)) {
+                        if (wrapper->hasCustomProperties())
+                            return true;
+                    }
+                }
+            }
+        }
     } else {
-        // 3. If a wrapper is the last reference to an image or script element
+        // If a wrapper is the last reference to an image or script element
         // that is loading but not in the document, the wrapper is observable
         // because it is the only thing keeping the image element alive, and if
         // the image element is destroyed, its load event will not fire.
@@ -289,6 +322,11 @@ static inline bool isObservableThroughDOM(JSNode* jsNode)
             return true;
 #endif
     }
+
+    // If a node is firing event listeners, its wrapper is observable because
+    // its wrapper is responsible for marking those event listeners.
+    if (node->isFiringEventListeners())
+        return true;
 
     return false;
 }
@@ -348,6 +386,9 @@ void updateDOMNodeDocument(Node* node, Document* oldDocument, Document* newDocum
 
 void markDOMObjectWrapper(MarkStack& markStack, JSGlobalData& globalData, void* object)
 {
+    // FIXME: This could be changed to only mark wrappers that are "observable"
+    // as markDOMNodesForDocument does, allowing us to collect more wrappers,
+    // but doing this correctly would be challenging.
     if (!object)
         return;
     DOMObject* wrapper = getCachedDOMObjectWrapper(globalData, object);
@@ -559,7 +600,7 @@ Structure* getCachedDOMStructure(JSDOMGlobalObject* globalObject, const ClassInf
     return structures.get(classInfo).get();
 }
 
-Structure* cacheDOMStructure(JSDOMGlobalObject* globalObject, PassRefPtr<Structure> structure, const ClassInfo* classInfo)
+Structure* cacheDOMStructure(JSDOMGlobalObject* globalObject, NonNullPassRefPtr<Structure> structure, const ClassInfo* classInfo)
 {
     JSDOMStructureMap& structures = globalObject->structures();
     ASSERT(!structures.contains(classInfo));
@@ -571,7 +612,7 @@ Structure* getCachedDOMStructure(ExecState* exec, const ClassInfo* classInfo)
     return getCachedDOMStructure(static_cast<JSDOMGlobalObject*>(exec->lexicalGlobalObject()), classInfo);
 }
 
-Structure* cacheDOMStructure(ExecState* exec, PassRefPtr<Structure> structure, const ClassInfo* classInfo)
+Structure* cacheDOMStructure(ExecState* exec, NonNullPassRefPtr<Structure> structure, const ClassInfo* classInfo)
 {
     return cacheDOMStructure(static_cast<JSDOMGlobalObject*>(exec->lexicalGlobalObject()), structure, classInfo);
 }
@@ -587,6 +628,35 @@ void cacheDOMConstructor(ExecState* exec, const ClassInfo* classInfo, JSObject* 
     JSDOMConstructorMap& constructors = static_cast<JSDOMGlobalObject*>(exec->lexicalGlobalObject())->constructors();
     ASSERT(!constructors.contains(classInfo));
     constructors.set(classInfo, constructor);
+}
+
+JSC::JSObject* toJSSequence(ExecState* exec, JSValue value, unsigned& length)
+{
+    JSObject* object = value.getObject();
+    if (!object) {
+        throwError(exec, TypeError);
+        return 0;
+    }
+    JSValue lengthValue = object->get(exec, exec->propertyNames().length);
+    if (exec->hadException())
+        return 0;
+
+    if (lengthValue.isUndefinedOrNull()) {
+        throwError(exec, TypeError);
+        return 0;
+    }
+
+    length = lengthValue.toUInt32(exec);
+    if (exec->hadException())
+        return 0;
+
+    return object;
+}
+
+bool DOMObject::defineOwnProperty(ExecState* exec, const Identifier&, PropertyDescriptor&, bool)
+{
+    throwError(exec, TypeError, "defineProperty is not supported on DOM Objects");
+    return false;
 }
 
 } // namespace WebCore

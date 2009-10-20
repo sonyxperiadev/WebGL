@@ -40,6 +40,21 @@
 #include <wtf/Noncopyable.h>
 
 namespace WebCore {
+
+static Mutex& threadCountMutex()
+{
+    AtomicallyInitializedStatic(Mutex&, mutex = *new Mutex);
+    return mutex;
+}
+
+unsigned WorkerThread::m_threadCount = 0;
+
+unsigned WorkerThread::workerThreadCount()
+{
+    MutexLocker lock(threadCountMutex());
+    return m_threadCount;
+}
+
 struct WorkerThreadStartupData : Noncopyable {
 public:
     static std::auto_ptr<WorkerThreadStartupData> create(const KURL& scriptURL, const String& userAgent, const String& sourceCode)
@@ -56,20 +71,26 @@ private:
 
 WorkerThreadStartupData::WorkerThreadStartupData(const KURL& scriptURL, const String& userAgent, const String& sourceCode)
     : m_scriptURL(scriptURL.copy())
-    , m_userAgent(userAgent.copy())
-    , m_sourceCode(sourceCode.copy())
+    , m_userAgent(userAgent.crossThreadString())
+    , m_sourceCode(sourceCode.crossThreadString())
 {
 }
 
-WorkerThread::WorkerThread(const KURL& scriptURL, const String& userAgent, const String& sourceCode, WorkerLoaderProxy& workerLoaderProxy)
+WorkerThread::WorkerThread(const KURL& scriptURL, const String& userAgent, const String& sourceCode, WorkerLoaderProxy& workerLoaderProxy, WorkerReportingProxy& workerReportingProxy)
     : m_threadID(0)
     , m_workerLoaderProxy(workerLoaderProxy)
+    , m_workerReportingProxy(workerReportingProxy)
     , m_startupData(WorkerThreadStartupData::create(scriptURL, userAgent, sourceCode))
 {
+    MutexLocker lock(threadCountMutex());
+    m_threadCount++;
 }
 
 WorkerThread::~WorkerThread()
 {
+    MutexLocker lock(threadCountMutex());
+    ASSERT(m_threadCount > 0);
+    m_threadCount--;
 }
 
 bool WorkerThread::start()

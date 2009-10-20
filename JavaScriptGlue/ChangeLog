@@ -1,3 +1,64 @@
+2009-09-28  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Removed virtual destructor from JSGlobalObjectData to eliminate pointer
+        fix-ups when accessing JSGlobalObject::d.
+        
+        Replaced with an explicit destructor function pointer.
+
+        * JSRun.cpp:
+        (JSGlueGlobalObject::destroyData):
+        * JSRun.h:
+        (JSGlueGlobalObject::Data::Data):
+
+2009-09-12  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Maciej Stachowiak.
+
+        [ES5] Implement Object.keys
+        https://bugs.webkit.org/show_bug.cgi?id=29170
+
+        Switch over to getOwnPropertyNames instead of getPropertyNames.
+
+        * UserObjectImp.cpp:
+        (UserObjectImp::getOwnPropertyNames):
+        * UserObjectImp.h:
+
+2009-09-02  Darin Adler  <darin@apple.com>
+
+        Reviewed by Geoff Garen.
+
+        * JSValueWrapper.cpp:
+        (JSValueWrapper::JSObjectMark): Removed a check of the mark
+        bit. It's OK to do more work in this case, and there is no
+        longer a public function to access the mark bit.
+
+2009-08-14  Darin Adler  <darin@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Rename the confusing isObject(<class>) to inherits(<class>).
+        It still works on non-objects, returning false.
+
+        * JSUtils.cpp:
+        (KJSValueToJSObject):
+        (KJSValueToCFTypeInternal):
+        Changed from isObject to inherits.
+
+2009-08-13  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Maciej Stachowiak.
+
+        Devirtualise marking
+        https://bugs.webkit.org/show_bug.cgi?id=28294
+
+        Continue to jump through hoops to deal with the exposed marking routines
+        in JavaScriptGlue.
+
+        * JSValueWrapper.cpp:
+        (JSValueWrapper::JSObjectMark):
+
 2009-08-07  Oliver Hunt  <oliver@apple.com>
 
         Reviewed by Sam Weinig.

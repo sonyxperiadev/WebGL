@@ -1,6 +1,7 @@
 #!/usr/bin/perl -w
 
-# Copyright (C) 2005, 2006 Apple Computer, Inc.  All rights reserved.
+# Copyright (C) 2005, 2006 Apple Inc. All rights reserved.
+# Copyright (C) 2009 Google Inc. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -37,6 +38,9 @@ use lib $FindBin::Bin;
 use webkitdirs;
 use POSIX;
 
+sub formatBuildTime($);
+sub writeCongrats();
+
 my $originalWorkingDirectory = getcwd();
 chdirWebKit();
 
@@ -44,17 +48,18 @@ my $showHelp = 0;
 my $clean = 0;
 my $minimal = 0;
 my $makeArgs;
+my $startTime = time();
 
 my ($threeDCanvasSupport, $threeDRenderingSupport, $channelMessagingSupport, $databaseSupport, $datagridSupport, $domStorageSupport,
-    $filtersSupport, $geolocationSupport, $gnomeKeyringSupport, $iconDatabaseSupport,
-    $javaScriptDebuggerSupport, $offlineWebApplicationSupport, $rubySupport, $sharedWorkersSupport, 
+    $eventsourceSupport, $filtersSupport, $geolocationSupport, $iconDatabaseSupport,
+    $javaScriptDebuggerSupport, $mathmlSupport, $offlineWebApplicationSupport, $rubySupport, $sharedWorkersSupport, 
     $svgSupport, $svgAnimationSupport, $svgAsImageSupport, $svgDOMObjCBindingsSupport, $svgFontsSupport,
-    $svgForeignObjectSupport, $svgUseSupport, $videoSupport, $webSocketsSupport, $wmlSupport, $workersSupport,
-    $xpathSupport, $xsltSupport, $coverageSupport);
+    $svgForeignObjectSupport, $svgUseSupport, $videoSupport, $webSocketsSupport, $wmlSupport, $wcssSupport, $xhtmlmpSupport, $workersSupport,
+    $xpathSupport, $xsltSupport, $coverageSupport, $notificationsSupport);
 
 my @features = (
     { option => "3d-canvas", desc => "Toggle 3D canvas support",
-      define => "ENABLE_3D_CANVAS", default => 0, value => \$threeDCanvasSupport },
+      define => "ENABLE_3D_CANVAS", default => (isAppleMacWebKit() && !isTiger()), value => \$threeDCanvasSupport },
 
     { option => "3d-rendering", desc => "Toggle 3D rendering support",
       define => "ENABLE_3D_RENDERING", default => (isAppleMacWebKit() && !isTiger()), value => \$threeDRenderingSupport },
@@ -74,20 +79,26 @@ my @features = (
     { option => "dom-storage", desc => "Toggle DOM Storage Support",
       define => "ENABLE_DOM_STORAGE", default => 1, value => \$domStorageSupport },
 
+    { option => "eventsource", desc => "Toggle server-sent events support",
+      define => "ENABLE_EVENTSOURCE", default => 1, value => \$eventsourceSupport },
+
     { option => "filters", desc => "Toggle Filters support",
       define => "ENABLE_FILTERS", default => 0, value => \$filtersSupport },
 
     { option => "geolocation", desc => "Toggle Geolocation support",
-      define => "ENABLE_GEOLOCATION", default => 0, value => \$geolocationSupport },
-
-    { option => "gnomekeyring", desc => "Toggle GNOME Keyring Support (GTK+ port only)",
-      define => "WTF_USE_GNOMEKEYRING", default => 0, value => \$gnomeKeyringSupport },
+      define => "ENABLE_GEOLOCATION", default => isGtk(), value => \$geolocationSupport },
 
     { option => "icon-database", desc => "Toggle Icon database support",
       define => "ENABLE_ICONDATABASE", default => 1, value => \$iconDatabaseSupport },
 
     { option => "javascript-debugger", desc => "Toggle JavaScript Debugger/Profiler support",
       define => "ENABLE_JAVASCRIPT_DEBUGGER", default => 1, value => \$javaScriptDebuggerSupport },
+
+    { option => "mathml", desc => "Toggle MathML support",
+      define => "ENABLE_MATHML", default => 0, value => \$mathmlSupport },
+
+    { option => "notifications", desc => "Toggle Desktop Notifications Support",
+      define => "ENABLE_NOTIFICATIONS", default => 0, value => \$notificationsSupport },
 
     { option => "offline-web-applications", desc => "Toggle Offline Web Application Support",
       define => "ENABLE_OFFLINE_WEB_APPLICATIONS", default => 1, value => \$offlineWebApplicationSupport },
@@ -96,7 +107,7 @@ my @features = (
       define => "ENABLE_RUBY", default => 1, value => \$rubySupport },
 
     { option => "shared-workers", desc => "Toggle SharedWorkers support",
-      define => "ENABLE_SHARED_WORKERS", default => 0, value => \$sharedWorkersSupport },
+      define => "ENABLE_SHARED_WORKERS", default => (isAppleWebKit() || isGtk()), value => \$sharedWorkersSupport },
 
     { option => "svg", desc => "Toggle SVG support",
       define => "ENABLE_SVG", default => 1, value => \$svgSupport },
@@ -127,6 +138,12 @@ my @features = (
 
     { option => "wml", desc => "Toggle WML support",
       define => "ENABLE_WML", default => 0, value => \$wmlSupport },
+
+    { option => "xhtmlmp", desc => "Toggle XHTML-MP support",
+      define => "ENABLE_XHTMLMP", default => 0, value => \$xhtmlmpSupport },
+
+    { option => "wcss", desc => "Toggle WCSS support",
+      define => "ENABLE_WCSS", default => 0, value => \$wcssSupport },
 
     { option => "workers", desc => "Toggle Web Workers support",
       define => "ENABLE_WORKERS", default => (isAppleWebKit() || isGtk()), value => \$workersSupport },
@@ -204,18 +221,6 @@ if ($showHelp) {
 
 checkRequiredSystemConfig();
 setConfiguration();
-
-if (isWx()) {
-    $ENV{"WEBKITOUTPUTDIR"} = productDir();
-
-    my @opts = getWxArgs();
-
-    if ($clean) {
-        push(@opts, "clean");
-    }
-    system "WebKitTools/wx/build-wxwebkit @opts";
-    exit exitStatus($?);
-}
 
 my $productDir = productDir();
 
@@ -306,6 +311,19 @@ if (isGtk()) {
 # Force re-link of existing libraries if different than expected
 removeLibraryDependingOnSVG("WebCore", $svgSupport);
 
+if (isWx()) {
+    downloadWafIfNeeded();
+    push @projects, 'WebKitTools/wx/browser';
+    push @projects, 'WebKit/wx/bindings/python';
+}
+
+if (isChromium()) {
+    # Chromium doesn't build by project directories.
+    @projects = ();
+    my $result = buildChromium($clean, @options);
+    exit $result if $result;
+}
+
 # Build, and abort if the build fails.
 for my $dir (@projects) {
     chdir $dir or die;
@@ -327,6 +345,16 @@ for my $dir (@projects) {
         if ($dir eq "WebKit") {
             $result = buildVisualStudioProject("win/WebKit.vcproj/WebKit.sln", $clean);
         }
+    } elsif (isWx()) {
+        @options = ();
+        if (defined($makeArgs)) {
+            @options = split(/ /, $makeArgs);
+        }
+        if ($dir eq "WebKit" && isWx()) {
+            chdir 'wx' or die;
+        }
+            
+        $result = buildWafProject($dir, $clean, @options);
     }
 
     if (exitStatus($result)) {
@@ -339,21 +367,44 @@ for my $dir (@projects) {
         }
         exit exitStatus($result);
     }
-    chdir ".." or die;
+    chdirWebKit();
 }
 
 # Don't report the "WebKit is now built" message after a clean operation.
 exit if $clean;
 
 # Write out congratulations message.
-
-my $launcherPath = launcherPath();
-my $launcherName = launcherName();
-
-print "\n";
-print "===========================================================\n";
-print " WebKit is now built. To run $launcherName with this newly-built\n";
-print " code, use the \"$launcherPath\" script.\n";
-print "===========================================================\n";
+writeCongrats();
 
 exit 0;
+
+sub formatBuildTime($)
+{
+    my ($buildTime) = @_;
+
+    my $buildHours = int($buildTime / 3600);
+    my $buildMins = int(($buildTime - $buildHours * 3600) / 60);
+    my $buildSecs = $buildTime - $buildHours * 3600 - $buildMins * 60;
+
+    if ($buildHours) {
+        return sprintf("%dh:%02dm:%02ds", $buildHours, $buildMins, $buildSecs);
+    }
+    return sprintf("%02dm:%02ds", $buildMins, $buildSecs);
+}
+
+sub writeCongrats()
+{
+    my $launcherPath = launcherPath();
+    my $launcherName = launcherName();
+    my $endTime = time();
+    my $buildTime = formatBuildTime($endTime - $startTime);
+
+    print "\n";
+    print "===========================================================\n";
+    print " WebKit is now built ($buildTime). \n";
+    if (!isChromium()) {
+        print " To run $launcherName with this newly-built code, use the\n";
+        print " \"$launcherPath\" script.\n";
+    }
+    print "===========================================================\n";
+}

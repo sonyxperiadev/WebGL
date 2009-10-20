@@ -49,7 +49,28 @@ using namespace WTF;
 
 namespace JSC {
 
-static void substitute(UString& string, const UString& substring);
+/*
+    Details of the emitBytecode function.
+
+    Return value: The register holding the production's value.
+             dst: An optional parameter specifying the most efficient destination at
+                  which to store the production's value. The callee must honor dst.
+
+    The dst argument provides for a crude form of copy propagation. For example,
+
+        x = 1
+
+    becomes
+    
+        load r[x], 1
+    
+    instead of 
+
+        load r0, 1
+        mov r[x], r0
+    
+    because the assignment node, "x =", passes r[x] as dst to the number node, "1".
+*/
 
 // ------------------------------ ThrowableExpressionData --------------------------------
 
@@ -63,22 +84,27 @@ static void substitute(UString& string, const UString& substring)
     string = newString;
 }
 
-RegisterID* ThrowableExpressionData::emitThrowError(BytecodeGenerator& generator, ErrorType e, const char* msg)
+RegisterID* ThrowableExpressionData::emitThrowError(BytecodeGenerator& generator, ErrorType type, const char* message)
 {
     generator.emitExpressionInfo(divot(), startOffset(), endOffset());
-    RegisterID* exception = generator.emitNewError(generator.newTemporary(), e, jsString(generator.globalData(), msg));
+    RegisterID* exception = generator.emitNewError(generator.newTemporary(), type, jsString(generator.globalData(), message));
     generator.emitThrow(exception);
     return exception;
 }
 
-RegisterID* ThrowableExpressionData::emitThrowError(BytecodeGenerator& generator, ErrorType e, const char* msg, const Identifier& label)
+RegisterID* ThrowableExpressionData::emitThrowError(BytecodeGenerator& generator, ErrorType type, const char* messageTemplate, const UString& label)
 {
-    UString message = msg;
-    substitute(message, label.ustring());
+    UString message = messageTemplate;
+    substitute(message, label);
     generator.emitExpressionInfo(divot(), startOffset(), endOffset());
-    RegisterID* exception = generator.emitNewError(generator.newTemporary(), e, jsString(generator.globalData(), message));
+    RegisterID* exception = generator.emitNewError(generator.newTemporary(), type, jsString(generator.globalData(), message));
     generator.emitThrow(exception);
     return exception;
+}
+
+inline RegisterID* ThrowableExpressionData::emitThrowError(BytecodeGenerator& generator, ErrorType type, const char* messageTemplate, const Identifier& label)
+{
+    return emitThrowError(generator, type, messageTemplate, label.ustring());
 }
 
 // ------------------------------ StatementNode --------------------------------
@@ -96,6 +122,18 @@ void SourceElements::append(StatementNode* statement)
     if (statement->isEmptyStatement())
         return;
     m_statements.append(statement);
+}
+
+inline StatementNode* SourceElements::singleStatement() const
+{
+    size_t size = m_statements.size();
+    return size == 1 ? m_statements[0] : 0;
+}
+
+inline StatementNode* SourceElements::lastStatement() const
+{
+    size_t size = m_statements.size();
+    return size ? m_statements[size - 1] : 0;
 }
 
 // ------------------------------ NullNode -------------------------------------
@@ -122,7 +160,7 @@ RegisterID* NumberNode::emitBytecode(BytecodeGenerator& generator, RegisterID* d
 {
     if (dst == generator.ignoredResult())
         return 0;
-    return generator.emitLoad(dst, m_double);
+    return generator.emitLoad(dst, m_value);
 }
 
 // ------------------------------ StringNode -----------------------------------
@@ -138,9 +176,9 @@ RegisterID* StringNode::emitBytecode(BytecodeGenerator& generator, RegisterID* d
 
 RegisterID* RegExpNode::emitBytecode(BytecodeGenerator& generator, RegisterID* dst)
 {
-    RefPtr<RegExp> regExp = RegExp::create(generator.globalData(), m_pattern, m_flags);
+    RefPtr<RegExp> regExp = RegExp::create(generator.globalData(), m_pattern.ustring(), m_flags.ustring());
     if (!regExp->isValid())
-        return emitThrowError(generator, SyntaxError, ("Invalid regular expression: " + UString(regExp->errorMessage())).UTF8String().c_str());
+        return emitThrowError(generator, SyntaxError, "Invalid regular expression: %s", regExp->errorMessage());
     if (dst == generator.ignoredResult())
         return 0;
     return generator.emitNewRegExp(generator.finalDestination(dst), regExp.get());
@@ -596,7 +634,9 @@ RegisterID* PostfixDotNode::emitBytecode(BytecodeGenerator& generator, RegisterI
 
 RegisterID* PostfixErrorNode::emitBytecode(BytecodeGenerator& generator, RegisterID*)
 {
-    return emitThrowError(generator, ReferenceError, m_operator == OpPlusPlus ? "Postfix ++ operator applied to value that is not a reference." : "Postfix -- operator applied to value that is not a reference.");
+    return emitThrowError(generator, ReferenceError, m_operator == OpPlusPlus
+        ? "Postfix ++ operator applied to value that is not a reference."
+        : "Postfix -- operator applied to value that is not a reference.");
 }
 
 // ------------------------------ DeleteResolveNode -----------------------------------
@@ -758,7 +798,9 @@ RegisterID* PrefixDotNode::emitBytecode(BytecodeGenerator& generator, RegisterID
 
 RegisterID* PrefixErrorNode::emitBytecode(BytecodeGenerator& generator, RegisterID*)
 {
-    return emitThrowError(generator, ReferenceError, m_operator == OpPlusPlus ? "Prefix ++ operator applied to value that is not a reference." : "Prefix -- operator applied to value that is not a reference.");
+    return emitThrowError(generator, ReferenceError, m_operator == OpPlusPlus
+        ? "Prefix ++ operator applied to value that is not a reference."
+        : "Prefix -- operator applied to value that is not a reference.");
 }
 
 // ------------------------------ Unary Operation Nodes -----------------------------------
@@ -1205,7 +1247,13 @@ RegisterID* ConstDeclNode::emitCodeSingle(BytecodeGenerator& generator)
 
         return generator.emitNode(local, m_init);
     }
-    
+
+    if (generator.codeType() != EvalCode) {
+        if (m_init)
+            return generator.emitNode(m_init);
+        else
+            return generator.emitResolve(generator.newTemporary(), m_ident);
+    }
     // FIXME: While this code should only be hit in eval code, it will potentially
     // assign to the wrong base if m_ident exists in an intervening dynamic scope.
     RefPtr<RegisterID> base = generator.emitResolveBase(generator.newTemporary(), m_ident);
@@ -1230,20 +1278,26 @@ RegisterID* ConstStatementNode::emitBytecode(BytecodeGenerator& generator, Regis
     return generator.emitNode(m_next);
 }
 
-// ------------------------------ Helper functions for handling Vectors of StatementNode -------------------------------
+// ------------------------------ SourceElements -------------------------------
 
-static inline void statementListEmitCode(const StatementVector& statements, BytecodeGenerator& generator, RegisterID* dst)
+inline void SourceElements::emitBytecode(BytecodeGenerator& generator, RegisterID* dst)
 {
-    size_t size = statements.size();
+    size_t size = m_statements.size();
     for (size_t i = 0; i < size; ++i)
-        generator.emitNode(dst, statements[i]);
+        generator.emitNode(dst, m_statements[i]);
 }
 
 // ------------------------------ BlockNode ------------------------------------
 
+inline StatementNode* BlockNode::lastStatement() const
+{
+    return m_statements ? m_statements->lastStatement() : 0;
+}
+
 RegisterID* BlockNode::emitBytecode(BytecodeGenerator& generator, RegisterID* dst)
 {
-    statementListEmitCode(m_children, generator, dst);
+    if (m_statements)
+        m_statements->emitBytecode(generator, dst);
     return 0;
 }
 
@@ -1545,6 +1599,14 @@ RegisterID* WithNode::emitBytecode(BytecodeGenerator& generator, RegisterID* dst
     return result;
 }
 
+// ------------------------------ CaseClauseNode --------------------------------
+
+inline void CaseClauseNode::emitBytecode(BytecodeGenerator& generator, RegisterID* dst)
+{
+    if (m_statements)
+        m_statements->emitBytecode(generator, dst);
+}
+
 // ------------------------------ CaseBlockNode --------------------------------
 
 enum SwitchKind { 
@@ -1664,17 +1726,17 @@ RegisterID* CaseBlockNode::emitBytecodeForBlock(BytecodeGenerator& generator, Re
     size_t i = 0;
     for (ClauseListNode* list = m_list1; list; list = list->getNext()) {
         generator.emitLabel(labelVector[i++].get());
-        statementListEmitCode(list->getClause()->children(), generator, dst);
+        list->getClause()->emitBytecode(generator, dst);
     }
 
     if (m_defaultClause) {
         generator.emitLabel(defaultLabel.get());
-        statementListEmitCode(m_defaultClause->children(), generator, dst);
+        m_defaultClause->emitBytecode(generator, dst);
     }
 
     for (ClauseListNode* list = m_list2; list; list = list->getNext()) {
         generator.emitLabel(labelVector[i++].get());
-        statementListEmitCode(list->getClause()->children(), generator, dst);
+        list->getClause()->emitBytecode(generator, dst);
     }
     if (!m_defaultClause)
         generator.emitLabel(defaultLabel.get());
@@ -1806,27 +1868,15 @@ RegisterID* TryNode::emitBytecode(BytecodeGenerator& generator, RegisterID* dst)
 
 // -----------------------------ScopeNodeData ---------------------------
 
-ScopeNodeData::ScopeNodeData(ParserArena& arena, SourceElements* children, VarStack* varStack, FunctionStack* funcStack, int numConstants)
+ScopeNodeData::ScopeNodeData(ParserArena& arena, SourceElements* statements, VarStack* varStack, FunctionStack* funcStack, int numConstants)
     : m_numConstants(numConstants)
+    , m_statements(statements)
 {
     m_arena.swap(arena);
     if (varStack)
         m_varStack.swap(*varStack);
     if (funcStack)
         m_functionStack.swap(*funcStack);
-    if (children)
-        children->releaseContentsIntoVector(m_children);
-}
-
-void ScopeNodeData::markAggregate(MarkStack& markStack)
-{
-    FunctionStack::iterator end = m_functionStack.end();
-    for (FunctionStack::iterator ptr = m_functionStack.begin(); ptr != end; ++ptr) {
-        FunctionBodyNode* body = (*ptr)->body();
-        if (!body->isGenerated())
-            continue;
-        body->generatedBytecode().markAggregate(markStack);
-    }
 }
 
 // ------------------------------ ScopeNode -----------------------------
@@ -1836,10 +1886,6 @@ ScopeNode::ScopeNode(JSGlobalData* globalData)
     , ParserArenaRefCounted(globalData)
     , m_features(NoFeatures)
 {
-#if ENABLE(CODEBLOCK_SAMPLING)
-    if (SamplingTool* sampler = globalData->interpreter->sampler())
-        sampler->notifyOfScope(this);
-#endif
 }
 
 ScopeNode::ScopeNode(JSGlobalData* globalData, const SourceCode& source, SourceElements* children, VarStack* varStack, FunctionStack* funcStack, CodeFeatures features, int numConstants)
@@ -1849,10 +1895,17 @@ ScopeNode::ScopeNode(JSGlobalData* globalData, const SourceCode& source, SourceE
     , m_features(features)
     , m_source(source)
 {
-#if ENABLE(CODEBLOCK_SAMPLING)
-    if (SamplingTool* sampler = globalData->interpreter->sampler())
-        sampler->notifyOfScope(this);
-#endif
+}
+
+inline void ScopeNode::emitStatementsBytecode(BytecodeGenerator& generator, RegisterID* dst)
+{
+    if (m_data->m_statements)
+        m_data->m_statements->emitBytecode(generator, dst);
+}
+
+StatementNode* ScopeNode::singleStatement() const
+{
+    return m_data->m_statements ? m_data->m_statements->singleStatement() : 0;
 }
 
 // ------------------------------ ProgramNode -----------------------------
@@ -1879,36 +1932,12 @@ RegisterID* ProgramNode::emitBytecode(BytecodeGenerator& generator, RegisterID*)
 
     RefPtr<RegisterID> dstRegister = generator.newTemporary();
     generator.emitLoad(dstRegister.get(), jsUndefined());
-    statementListEmitCode(children(), generator, dstRegister.get());
+    emitStatementsBytecode(generator, dstRegister.get());
 
     generator.emitDebugHook(DidExecuteProgram, firstLine(), lastLine());
     generator.emitEnd(dstRegister.get());
     return 0;
 }
-
-void ProgramNode::generateBytecode(ScopeChainNode* scopeChainNode)
-{
-    ScopeChain scopeChain(scopeChainNode);
-    JSGlobalObject* globalObject = scopeChain.globalObject();
-    
-    m_code.set(new ProgramCodeBlock(this, GlobalCode, globalObject, source().provider()));
-    
-    OwnPtr<BytecodeGenerator> generator(new BytecodeGenerator(this, globalObject->debugger(), scopeChain, &globalObject->symbolTable(), m_code.get()));
-    generator->generate();
-
-    destroyData();
-}
-
-#if ENABLE(JIT)
-void ProgramNode::generateJITCode(ScopeChainNode* scopeChainNode)
-{
-    bytecode(scopeChainNode);
-    ASSERT(m_code);
-    ASSERT(!m_jitCode);
-    JIT::compile(scopeChainNode->globalData, m_code.get());
-    ASSERT(m_jitCode);
-}
-#endif
 
 // ------------------------------ EvalNode -----------------------------
 
@@ -1934,122 +1963,42 @@ RegisterID* EvalNode::emitBytecode(BytecodeGenerator& generator, RegisterID*)
 
     RefPtr<RegisterID> dstRegister = generator.newTemporary();
     generator.emitLoad(dstRegister.get(), jsUndefined());
-    statementListEmitCode(children(), generator, dstRegister.get());
+    emitStatementsBytecode(generator, dstRegister.get());
 
     generator.emitDebugHook(DidExecuteProgram, firstLine(), lastLine());
     generator.emitEnd(dstRegister.get());
     return 0;
 }
 
-void EvalNode::generateBytecode(ScopeChainNode* scopeChainNode)
-{
-    ScopeChain scopeChain(scopeChainNode);
-    JSGlobalObject* globalObject = scopeChain.globalObject();
-
-    m_code.set(new EvalCodeBlock(this, globalObject, source().provider(), scopeChain.localDepth()));
-
-    OwnPtr<BytecodeGenerator> generator(new BytecodeGenerator(this, globalObject->debugger(), scopeChain, &m_code->symbolTable(), m_code.get()));
-    generator->generate();
-
-    // Eval code needs to hang on to its declaration stacks to keep declaration info alive until Interpreter::execute time,
-    // so the entire ScopeNodeData cannot be destoyed.
-    children().clear();
-}
-
-EvalCodeBlock& EvalNode::bytecodeForExceptionInfoReparse(ScopeChainNode* scopeChainNode, CodeBlock* codeBlockBeingRegeneratedFrom)
-{
-    ASSERT(!m_code);
-
-    ScopeChain scopeChain(scopeChainNode);
-    JSGlobalObject* globalObject = scopeChain.globalObject();
-
-    m_code.set(new EvalCodeBlock(this, globalObject, source().provider(), scopeChain.localDepth()));
-
-    OwnPtr<BytecodeGenerator> generator(new BytecodeGenerator(this, globalObject->debugger(), scopeChain, &m_code->symbolTable(), m_code.get()));
-    generator->setRegeneratingForExceptionInfo(codeBlockBeingRegeneratedFrom);
-    generator->generate();
-
-    return *m_code;
-}
-
-void EvalNode::markAggregate(MarkStack& markStack)
-{
-    // We don't need to mark our own CodeBlock as the JSGlobalObject takes care of that
-    data()->markAggregate(markStack);
-}
-
-#if ENABLE(JIT)
-void EvalNode::generateJITCode(ScopeChainNode* scopeChainNode)
-{
-    bytecode(scopeChainNode);
-    ASSERT(m_code);
-    ASSERT(!m_jitCode);
-    JIT::compile(scopeChainNode->globalData, m_code.get());
-    ASSERT(m_jitCode);
-}
-#endif
-
 // ------------------------------ FunctionBodyNode -----------------------------
+
+FunctionParameters::FunctionParameters(ParameterNode* firstParameter)
+{
+    for (ParameterNode* parameter = firstParameter; parameter; parameter = parameter->nextParam())
+        append(parameter->ident());
+}
 
 inline FunctionBodyNode::FunctionBodyNode(JSGlobalData* globalData)
     : ScopeNode(globalData)
-    , m_parameters(0)
-    , m_parameterCount(0)
 {
 }
 
 inline FunctionBodyNode::FunctionBodyNode(JSGlobalData* globalData, SourceElements* children, VarStack* varStack, FunctionStack* funcStack, const SourceCode& sourceCode, CodeFeatures features, int numConstants)
     : ScopeNode(globalData, sourceCode, children, varStack, funcStack, features, numConstants)
-    , m_parameters(0)
-    , m_parameterCount(0)
 {
 }
 
-FunctionBodyNode::~FunctionBodyNode()
+void FunctionBodyNode::finishParsing(const SourceCode& source, ParameterNode* firstParameter, const Identifier& ident)
 {
-    for (size_t i = 0; i < m_parameterCount; ++i)
-        m_parameters[i].~Identifier();
-    fastFree(m_parameters);
-}
-
-void FunctionBodyNode::finishParsing(const SourceCode& source, ParameterNode* firstParameter)
-{
-    Vector<Identifier> parameters;
-    for (ParameterNode* parameter = firstParameter; parameter; parameter = parameter->nextParam())
-        parameters.append(parameter->ident());
-    size_t count = parameters.size();
-
     setSource(source);
-    finishParsing(parameters.releaseBuffer(), count);
+    finishParsing(FunctionParameters::create(firstParameter), ident);
 }
 
-void FunctionBodyNode::finishParsing(Identifier* parameters, size_t parameterCount)
+void FunctionBodyNode::finishParsing(PassRefPtr<FunctionParameters> parameters, const Identifier& ident)
 {
     ASSERT(!source().isNull());
     m_parameters = parameters;
-    m_parameterCount = parameterCount;
-}
-
-void FunctionBodyNode::markAggregate(MarkStack& markStack)
-{
-    if (m_code)
-        m_code->markAggregate(markStack);
-}
-
-#if ENABLE(JIT)
-PassRefPtr<FunctionBodyNode> FunctionBodyNode::createNativeThunk(JSGlobalData* globalData)
-{
-    RefPtr<FunctionBodyNode> body = new FunctionBodyNode(globalData);
-    globalData->parser->arena().reset();
-    body->m_code.set(new CodeBlock(body.get()));
-    body->m_jitCode = JITCode(JITCode::HostFunction(globalData->jitStubs.ctiNativeCallThunk()));
-    return body.release();
-}
-#endif
-
-bool FunctionBodyNode::isHostFunction() const
-{
-    return m_code && m_code->codeType() == NativeCode;
+    m_ident = ident;
 }
 
 FunctionBodyNode* FunctionBodyNode::create(JSGlobalData* globalData)
@@ -2068,59 +2017,14 @@ PassRefPtr<FunctionBodyNode> FunctionBodyNode::create(JSGlobalData* globalData, 
     return node.release();
 }
 
-void FunctionBodyNode::generateBytecode(ScopeChainNode* scopeChainNode)
-{
-    // This branch is only necessary since you can still create a non-stub FunctionBodyNode by
-    // calling Parser::parse<FunctionBodyNode>().   
-    if (!data())
-        scopeChainNode->globalData->parser->reparseInPlace(scopeChainNode->globalData, this);
-    ASSERT(data());
-
-    ScopeChain scopeChain(scopeChainNode);
-    JSGlobalObject* globalObject = scopeChain.globalObject();
-
-    m_code.set(new CodeBlock(this, FunctionCode, source().provider(), source().startOffset()));
-
-    OwnPtr<BytecodeGenerator> generator(new BytecodeGenerator(this, globalObject->debugger(), scopeChain, &m_code->symbolTable(), m_code.get()));
-    generator->generate();
-
-    destroyData();
-}
-
-#if ENABLE(JIT)
-void FunctionBodyNode::generateJITCode(ScopeChainNode* scopeChainNode)
-{
-    bytecode(scopeChainNode);
-    ASSERT(m_code);
-    ASSERT(!m_jitCode);
-    JIT::compile(scopeChainNode->globalData, m_code.get());
-    ASSERT(m_jitCode);
-}
-#endif
-
-CodeBlock& FunctionBodyNode::bytecodeForExceptionInfoReparse(ScopeChainNode* scopeChainNode, CodeBlock* codeBlockBeingRegeneratedFrom)
-{
-    ASSERT(!m_code);
-
-    ScopeChain scopeChain(scopeChainNode);
-    JSGlobalObject* globalObject = scopeChain.globalObject();
-
-    m_code.set(new CodeBlock(this, FunctionCode, source().provider(), source().startOffset()));
-
-    OwnPtr<BytecodeGenerator> generator(new BytecodeGenerator(this, globalObject->debugger(), scopeChain, &m_code->symbolTable(), m_code.get()));
-    generator->setRegeneratingForExceptionInfo(codeBlockBeingRegeneratedFrom);
-    generator->generate();
-
-    return *m_code;
-}
-
 RegisterID* FunctionBodyNode::emitBytecode(BytecodeGenerator& generator, RegisterID*)
 {
     generator.emitDebugHook(DidEnterCallFrame, firstLine(), lastLine());
-    statementListEmitCode(children(), generator, generator.ignoredResult());
-    if (children().size() && children().last()->isBlock()) {
-        BlockNode* blockNode = static_cast<BlockNode*>(children().last());
-        if (blockNode->children().size() && blockNode->children().last()->isReturnNode())
+    emitStatementsBytecode(generator, generator.ignoredResult());
+    StatementNode* singleStatement = this->singleStatement();
+    if (singleStatement && singleStatement->isBlock()) {
+        StatementNode* lastStatementInBlock = static_cast<BlockNode*>(singleStatement)->lastStatement();
+        if (lastStatementInBlock && lastStatementInBlock->isReturnNode())
             return 0;
     }
 
@@ -2130,31 +2034,7 @@ RegisterID* FunctionBodyNode::emitBytecode(BytecodeGenerator& generator, Registe
     return 0;
 }
 
-UString FunctionBodyNode::paramString() const
-{
-    UString s("");
-    for (size_t pos = 0; pos < m_parameterCount; ++pos) {
-        if (!s.isEmpty())
-            s += ", ";
-        s += parameters()[pos].ustring();
-    }
-
-    return s;
-}
-
-Identifier* FunctionBodyNode::copyParameters()
-{
-    Identifier* parameters = static_cast<Identifier*>(fastMalloc(m_parameterCount * sizeof(Identifier)));
-    VectorCopier<false, Identifier>::uninitializedCopy(m_parameters, m_parameters + m_parameterCount, parameters);
-    return parameters;
-}
-
 // ------------------------------ FuncDeclNode ---------------------------------
-
-JSFunction* FuncDeclNode::makeFunction(ExecState* exec, ScopeChainNode* scopeChain)
-{
-    return new (exec) JSFunction(exec, m_ident, m_body.get(), scopeChain);
-}
 
 RegisterID* FuncDeclNode::emitBytecode(BytecodeGenerator& generator, RegisterID* dst)
 {
@@ -2168,26 +2048,6 @@ RegisterID* FuncDeclNode::emitBytecode(BytecodeGenerator& generator, RegisterID*
 RegisterID* FuncExprNode::emitBytecode(BytecodeGenerator& generator, RegisterID* dst)
 {
     return generator.emitNewFunctionExpression(generator.finalDestination(dst), this);
-}
-
-JSFunction* FuncExprNode::makeFunction(ExecState* exec, ScopeChainNode* scopeChain)
-{
-    JSFunction* func = new (exec) JSFunction(exec, m_ident, m_body.get(), scopeChain);
-
-    /* 
-        The Identifier in a FunctionExpression can be referenced from inside
-        the FunctionExpression's FunctionBody to allow the function to call
-        itself recursively. However, unlike in a FunctionDeclaration, the
-        Identifier in a FunctionExpression cannot be referenced from and
-        does not affect the scope enclosing the FunctionExpression.
-     */
-
-    if (!m_ident.isNull()) {
-        JSStaticScopeObject* functionScopeObject = new (exec) JSStaticScopeObject(exec, m_ident, func, ReadOnly | DontDelete);
-        func->scope().push(functionScopeObject);
-    }
-
-    return func;
 }
 
 } // namespace JSC

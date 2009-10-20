@@ -27,6 +27,7 @@
 #include <QtCore/qstringlist.h>
 
 namespace WebCore {
+    class PluginDatabase;
     class PluginPackage;
 }
 
@@ -39,7 +40,7 @@ public:
     ~QWebPluginInfo();
 
 private:
-    QWebPluginInfo(WebCore::PluginPackage* plugin);
+    QWebPluginInfo(WebCore::PluginPackage* package);
 
 public:
     typedef QWebPluginFactory::MimeType MimeType;
@@ -61,7 +62,9 @@ public:
     friend class QWebPluginDatabase;
 
 private:
-    QWebPluginInfoPrivate *d;
+    QWebPluginInfoPrivate* d;
+    WebCore::PluginPackage* m_package;
+    mutable QList<MimeType> m_mimeTypes;
 };
 
 class QWebPluginDatabasePrivate;
@@ -88,7 +91,8 @@ public:
     friend class QWebSettings;
 
 private:
-    QWebPluginDatabasePrivate *d;
+    QWebPluginDatabasePrivate* d;
+    WebCore::PluginDatabase* m_database;
 };
 
 #endif // QWEBPLUGINDATABASE_H

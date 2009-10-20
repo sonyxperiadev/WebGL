@@ -195,7 +195,7 @@ void JIT::privateCompileMainPass()
 
         switch (m_interpreter->getOpcodeID(currentInstruction->u.opcode)) {
         DEFINE_BINARY_OP(op_del_by_val)
-#if !USE(JSVALUE32_64)
+#if USE(JSVALUE32)
         DEFINE_BINARY_OP(op_div)
 #endif
         DEFINE_BINARY_OP(op_in)
@@ -230,7 +230,7 @@ void JIT::privateCompileMainPass()
         DEFINE_OP(op_create_arguments)
         DEFINE_OP(op_debug)
         DEFINE_OP(op_del_by_id)
-#if USE(JSVALUE32_64)
+#if !USE(JSVALUE32)
         DEFINE_OP(op_div)
 #endif
         DEFINE_OP(op_end)
@@ -379,7 +379,7 @@ void JIT::privateCompileSlowCases()
         DEFINE_SLOWCASE_OP(op_construct)
         DEFINE_SLOWCASE_OP(op_construct_verify)
         DEFINE_SLOWCASE_OP(op_convert_this)
-#if USE(JSVALUE32_64)
+#if !USE(JSVALUE32)
         DEFINE_SLOWCASE_OP(op_div)
 #endif
         DEFINE_SLOWCASE_OP(op_eq)
@@ -438,7 +438,7 @@ void JIT::privateCompileSlowCases()
 #endif
 }
 
-void JIT::privateCompile()
+JITCode JIT::privateCompile()
 {
     sampleCodeBlock(m_codeBlock);
 #if ENABLE(OPCODE_SAMPLING)
@@ -552,7 +552,7 @@ void JIT::privateCompile()
         info.callReturnLocation = m_codeBlock->structureStubInfo(m_methodCallCompilationInfo[i].propertyAccessIndex).callReturnLocation;
     }
 
-    m_codeBlock->setJITCode(patchBuffer.finalizeCode());
+    return patchBuffer.finalizeCode();
 }
 
 #if !USE(JSVALUE32_64)
@@ -587,12 +587,11 @@ void JIT::unlinkCall(CallLinkInfo* callLinkInfo)
 
 void JIT::linkCall(JSFunction* callee, CodeBlock* callerCodeBlock, CodeBlock* calleeCodeBlock, JITCode& code, CallLinkInfo* callLinkInfo, int callerArgCount, JSGlobalData* globalData)
 {
-    ASSERT(calleeCodeBlock);
     RepatchBuffer repatchBuffer(callerCodeBlock);
 
     // Currently we only link calls with the exact number of arguments.
     // If this is a native call calleeCodeBlock is null so the number of parameters is unimportant
-    if (callerArgCount == calleeCodeBlock->m_numParameters || calleeCodeBlock->codeType() == NativeCode) {
+    if (!calleeCodeBlock || (callerArgCount == calleeCodeBlock->m_numParameters)) {
         ASSERT(!callLinkInfo->isLinked());
     
         if (calleeCodeBlock)

@@ -30,30 +30,38 @@ namespace WebCore {
 
     class JSEventListener : public EventListener {
     public:
-        static PassRefPtr<JSEventListener> create(JSC::JSObject* listener, JSDOMGlobalObject* globalObject, bool isAttribute)
+        static PassRefPtr<JSEventListener> create(JSC::JSObject* listener, bool isAttribute)
         {
-            return adoptRef(new JSEventListener(listener, globalObject, isAttribute));
+            return adoptRef(new JSEventListener(listener, isAttribute));
         }
+
+        static const JSEventListener* cast(const EventListener* listener)
+        {
+            return listener->type() == JSEventListenerType
+                ? static_cast<const JSEventListener*>(listener)
+                : 0;
+        }
+
         virtual ~JSEventListener();
-        void clearGlobalObject() { m_globalObject = 0; }
+
+        virtual bool operator==(const EventListener& other);
 
         // Returns true if this event listener was created for an event handler attribute, like "onload" or "onclick".
         bool isAttribute() const { return m_isAttribute; }
 
-        virtual JSC::JSObject* jsFunction() const;
+        virtual JSC::JSObject* jsFunction(ScriptExecutionContext*) const;
 
     private:
         virtual void markJSFunction(JSC::MarkStack&);
-        virtual void handleEvent(Event*, bool isWindowEvent);
-        virtual bool reportError(const String& message, const String& url, int lineNumber);
+        virtual void handleEvent(ScriptExecutionContext*, Event*);
+        virtual bool reportError(ScriptExecutionContext*, const String& message, const String& url, int lineNumber);
         virtual bool virtualisAttribute() const;
         void clearJSFunctionInline();
 
     protected:
-        JSEventListener(JSC::JSObject* function, JSDOMGlobalObject*, bool isAttribute);
+        JSEventListener(JSC::JSObject* function, bool isAttribute);
 
         mutable JSC::JSObject* m_jsFunction;
-        JSDOMGlobalObject* m_globalObject;
         bool m_isAttribute;
     };
 

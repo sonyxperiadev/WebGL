@@ -30,16 +30,23 @@
 #include "SecurityOrigin.h"
 
 #include "CString.h"
-#include "FrameLoader.h"
+#include "Document.h"
 #include "KURL.h"
-#include "PlatformString.h"
-#include "StringHash.h"
-#include <wtf/HashSet.h>
+#include "OriginAccessEntry.h"
 #include <wtf/StdLibExtras.h>
 
 namespace WebCore {
 
-typedef HashSet<String, CaseFoldingHash> URLSchemesMap;
+static SecurityOrigin::LocalLoadPolicy localLoadPolicy = SecurityOrigin::AllowLocalLoadsForLocalOnly;
+
+typedef Vector<OriginAccessEntry> OriginAccessWhiteList;
+typedef HashMap<String, OriginAccessWhiteList*> OriginAccessMap;
+
+static OriginAccessMap& originAccessMap()
+{
+    DEFINE_STATIC_LOCAL(OriginAccessMap, originAccessMap, ());
+    return originAccessMap;
+}
 
 static URLSchemesMap& localSchemes()
 {
@@ -68,7 +75,7 @@ static URLSchemesMap& noAccessSchemes()
     return noAccessSchemes;
 }
 
-static bool isDefaultPortForProtocol(unsigned short port, const String& protocol)
+bool SecurityOrigin::isDefaultPortForProtocol(unsigned short port, const String& protocol)
 {
     if (protocol.isEmpty())
         return false;
@@ -111,9 +118,9 @@ SecurityOrigin::SecurityOrigin(const KURL& url)
 }
 
 SecurityOrigin::SecurityOrigin(const SecurityOrigin* other)
-    : m_protocol(other->m_protocol.copy())
-    , m_host(other->m_host.copy())
-    , m_domain(other->m_domain.copy())
+    : m_protocol(other->m_protocol.threadsafeCopy())
+    , m_host(other->m_host.threadsafeCopy())
+    , m_domain(other->m_domain.threadsafeCopy())
     , m_port(other->m_port)
     , m_noAccess(other->m_noAccess)
     , m_universalAccess(other->m_universalAccess)
@@ -139,7 +146,7 @@ PassRefPtr<SecurityOrigin> SecurityOrigin::createEmpty()
     return create(KURL());
 }
 
-PassRefPtr<SecurityOrigin> SecurityOrigin::copy()
+PassRefPtr<SecurityOrigin> SecurityOrigin::threadsafeCopy()
 {
     return adoptRef(new SecurityOrigin(this));
 }
@@ -203,7 +210,47 @@ bool SecurityOrigin::canRequest(const KURL& url) const
 
     // We call isSameSchemeHostPort here instead of canAccess because we want
     // to ignore document.domain effects.
-    return isSameSchemeHostPort(targetOrigin.get());
+    if (isSameSchemeHostPort(targetOrigin.get()))
+        return true;
+
+    if (OriginAccessWhiteList* list = originAccessMap().get(toString())) {
+        for (size_t i = 0; i < list->size(); ++i) {
+            if (list->at(i).matchesOrigin(*targetOrigin))
+                return true;
+        }
+    }
+
+    return false;
+}
+
+bool SecurityOrigin::taintsCanvas(const KURL& url) const
+{
+    if (canRequest(url))
+        return false;
+
+    // This method exists because we treat data URLs as noAccess, contrary
+    // to the current (9/19/2009) draft of the HTML5 specification.  We still
+    // want to let folks paint data URLs onto untainted canvases, so we special
+    // case data URLs below.  If we change to match HTML5 w.r.t. data URL
+    // security, then we can remove this method in favor of !canRequest.
+    if (url.protocolIs("data"))
+        return false;
+
+    return true;
+}
+
+bool SecurityOrigin::canLoad(const KURL& url, const String& referrer, Document* document)
+{
+    if (!shouldTreatURLAsLocal(url.string()))
+        return true;
+
+    // If we were provided a document, we let its local file policy dictate the result,
+    // otherwise we allow local loads only if the supplied referrer is also local.
+    if (document)
+        return document->securityOrigin()->canLoadLocalResources();
+    if (!referrer.isEmpty())
+        return shouldTreatURLAsLocal(referrer);
+    return false;
 }
 
 void SecurityOrigin::grantLoadLocalResources()
@@ -213,7 +260,7 @@ void SecurityOrigin::grantLoadLocalResources()
     // in a SecurityOrigin is a security hazard because the documents without
     // the privilege can obtain the privilege by injecting script into the
     // documents that have been granted the privilege.
-    ASSERT(FrameLoader::allowSubstituteDataAccessToLocal());
+    ASSERT(allowSubstituteDataAccessToLocal());
     m_canLoadLocalResources = true;
 }
 
@@ -339,13 +386,31 @@ bool SecurityOrigin::isSameSchemeHostPort(const SecurityOrigin* other) const
     return true;
 }
 
-// static
 void SecurityOrigin::registerURLSchemeAsLocal(const String& scheme)
 {
     localSchemes().add(scheme);
 }
 
-// static
+void SecurityOrigin::removeURLSchemeRegisteredAsLocal(const String& scheme)
+{
+    if (scheme == "file")
+        return;
+#if PLATFORM(MAC)
+    if (scheme == "applewebdata")
+        return;
+#endif
+#if PLATFORM(QT)
+    if (scheme == "qrc")
+        return;
+#endif
+    localSchemes().remove(scheme);
+}
+
+const URLSchemesMap&  SecurityOrigin::localURLSchemes()
+{
+    return localSchemes();
+}
+
 bool SecurityOrigin::shouldTreatURLAsLocal(const String& url)
 {
     // This avoids an allocation of another String and the HashSet contains()
@@ -366,7 +431,6 @@ bool SecurityOrigin::shouldTreatURLAsLocal(const String& url)
     return localSchemes().contains(scheme);
 }
 
-// static
 bool SecurityOrigin::shouldTreatURLSchemeAsLocal(const String& scheme)
 {
     // This avoids an allocation of another String and the HashSet contains()
@@ -385,16 +449,69 @@ bool SecurityOrigin::shouldTreatURLSchemeAsLocal(const String& scheme)
     return localSchemes().contains(scheme);
 }
 
-// static
 void SecurityOrigin::registerURLSchemeAsNoAccess(const String& scheme)
 {
     noAccessSchemes().add(scheme);
 }
 
-// static
 bool SecurityOrigin::shouldTreatURLSchemeAsNoAccess(const String& scheme)
 {
     return noAccessSchemes().contains(scheme);
+}
+
+bool SecurityOrigin::shouldHideReferrer(const KURL& url, const String& referrer)
+{
+    bool referrerIsSecureURL = protocolIs(referrer, "https");
+    bool referrerIsWebURL = referrerIsSecureURL || protocolIs(referrer, "http");
+
+    if (!referrerIsWebURL)
+        return true;
+
+    if (!referrerIsSecureURL)
+        return false;
+
+    bool URLIsSecureURL = url.protocolIs("https");
+
+    return !URLIsSecureURL;
+}
+
+void SecurityOrigin::setLocalLoadPolicy(LocalLoadPolicy policy)
+{
+    localLoadPolicy = policy;
+}
+
+bool SecurityOrigin::restrictAccessToLocal()
+{
+    return localLoadPolicy != SecurityOrigin::AllowLocalLoadsForAll;
+}
+
+bool SecurityOrigin::allowSubstituteDataAccessToLocal()
+{
+    return localLoadPolicy != SecurityOrigin::AllowLocalLoadsForLocalOnly;
+}
+
+void SecurityOrigin::whiteListAccessFromOrigin(const SecurityOrigin& sourceOrigin, const String& destinationProtocol, const String& destinationDomains, bool allowDestinationSubdomains)
+{
+    ASSERT(isMainThread());
+    ASSERT(!sourceOrigin.isEmpty());
+    if (sourceOrigin.isEmpty())
+        return;
+
+    String sourceString = sourceOrigin.toString();
+    OriginAccessWhiteList* list = originAccessMap().get(sourceString);
+    if (!list) {
+        list = new OriginAccessWhiteList;
+        originAccessMap().set(sourceString, list);
+    }
+    list->append(OriginAccessEntry(destinationProtocol, destinationDomains, allowDestinationSubdomains ? OriginAccessEntry::AllowSubdomains : OriginAccessEntry::DisallowSubdomains));
+}
+
+void SecurityOrigin::resetOriginAccessWhiteLists()
+{
+    ASSERT(isMainThread());
+    OriginAccessMap& map = originAccessMap();
+    deleteAllValues(map);
+    map.clear();
 }
 
 } // namespace WebCore

@@ -33,6 +33,8 @@
 
 #include "V8Attr.h"
 #include "V8BarInfo.h"
+#include "V8BeforeLoadEvent.h"
+#include "V8CanvasRenderingContext.h"
 #include "V8CanvasRenderingContext2D.h"
 #include "V8CanvasGradient.h"
 #include "V8CanvasPattern.h"
@@ -107,6 +109,7 @@
 #include "V8HTMLHtmlElement.h"
 #include "V8HTMLIFrameElement.h"
 #include "V8HTMLImageElement.h"
+#include "V8HTMLImageElementConstructor.h"
 #include "V8HTMLInputElement.h"
 #include "V8HTMLIsIndexElement.h"
 #include "V8HTMLLabelElement.h"
@@ -121,6 +124,7 @@
 #include "V8HTMLOListElement.h"
 #include "V8HTMLOptGroupElement.h"
 #include "V8HTMLOptionElement.h"
+#include "V8HTMLOptionElementConstructor.h"
 #include "V8HTMLParagraphElement.h"
 #include "V8HTMLParamElement.h"
 #include "V8HTMLPreElement.h"
@@ -179,6 +183,7 @@
 #include "V8Navigator.h"
 #include "V8MimeType.h"
 #include "V8MimeTypeArray.h"
+#include "V8PageTransitionEvent.h"
 #include "V8Plugin.h"
 #include "V8PluginArray.h"
 #include "V8Range.h"
@@ -254,7 +259,6 @@
 #endif
 
 #if ENABLE(SVG_FONTS)
-#include "V8SVGDefinitionSrcElement.h"
 #include "V8SVGFontFaceElement.h"
 #include "V8SVGFontFaceFormatElement.h"
 #include "V8SVGFontFaceNameElement.h"
@@ -370,11 +374,16 @@
 
 #if ENABLE(VIDEO)
 #include "V8HTMLAudioElement.h"
+#include "V8HTMLAudioElementConstructor.h"
 #include "V8HTMLMediaElement.h"
 #include "V8HTMLSourceElement.h"
 #include "V8HTMLVideoElement.h"
 #include "V8MediaError.h"
 #include "V8TimeRanges.h"
+#endif
+
+#if ENABLE(WEB_SOCKETS)
+#include "V8WebSocket.h"
 #endif
 
 #if ENABLE(WORKERS)
@@ -386,10 +395,16 @@
 #include "V8WorkerNavigator.h"
 #endif
 
+#if ENABLE(NOTIFICATIONS)
+#include "V8Notification.h"
+#include "V8NotificationCenter.h"
+#endif
+
 #if ENABLE(SHARED_WORKERS)
 #include "V8SharedWorker.h"
 #endif
 
+<<<<<<< HEAD:WebCore/bindings/v8/V8Index.cpp
 #if ENABLE(GEOLOCATION)
 #include "V8Coordinates.h"
 #include "V8Geolocation.h"
@@ -413,6 +428,25 @@
 
 #if ENABLE(XSLT)
 #include "V8XSLTProcessor.h"
+=======
+#if ENABLE(3D_CANVAS)
+#include "V8CanvasRenderingContext3D.h"
+#include "V8CanvasArrayBuffer.h"
+#include "V8CanvasArray.h"
+#include "V8CanvasByteArray.h"
+#include "V8CanvasBuffer.h"
+#include "V8CanvasFloatArray.h"
+#include "V8CanvasFramebuffer.h"
+#include "V8CanvasIntArray.h"
+#include "V8CanvasProgram.h"
+#include "V8CanvasRenderbuffer.h"
+#include "V8CanvasShader.h"
+#include "V8CanvasShortArray.h"
+#include "V8CanvasTexture.h"
+#include "V8CanvasUnsignedByteArray.h"
+#include "V8CanvasUnsignedIntArray.h"
+#include "V8CanvasUnsignedShortArray.h"
+>>>>>>> webkit.org at 49305:WebCore/bindings/v8/V8Index.cpp
 #endif
 
 namespace WebCore {

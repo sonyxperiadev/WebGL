@@ -26,7 +26,10 @@
 import commands
 import os
 import platform
+import re
 import sys
+
+import Options
 
 from build_utils import *
 from waf_extensions import *
@@ -56,6 +59,24 @@ common_libs = []
 common_libpaths = []
 common_frameworks = []
 
+ports = [
+    'CF',
+    'Chromium',
+    'Gtk', 
+    'Haiku',
+    'Mac', 
+    'None',
+    'Qt',
+    'Safari',
+    'Win', 
+    'Wince',
+    'wx',
+]
+
+port_uses = {
+    'wx': ['CURL','PTHREADS', 'WXGC'],
+}
+
 jscore_dirs = [
     'API',
     'bytecode',
@@ -84,13 +105,15 @@ webcore_dirs = [
     'dom/default',
     'editing', 
     'history', 
-    'html', 
+    'html',
+    'html/canvas',
     'inspector', 
     'loader', 
     'loader/appcache', 
     'loader/archive', 
-    'loader/icon', 
-    'page', 
+    'loader/icon',
+    'notifications',
+    'page',
     'page/animation', 
     'platform', 
     'platform/animation', 
@@ -103,7 +126,8 @@ webcore_dirs = [
     'platform/image-decoders/jpeg', 
     'platform/image-decoders/png', 
     'platform/image-decoders/xbm', 
-    'platform/image-decoders/zlib', 
+    'platform/image-decoders/zlib',
+    'platform/mock',
     'platform/network', 
     'platform/sql', 
     'platform/text', 
@@ -111,6 +135,7 @@ webcore_dirs = [
     'rendering', 
     'rendering/style', 
     'storage', 
+    'websockets', 
     'xml'
 ]
 
@@ -120,18 +145,35 @@ config = 'Debug'
 if os.path.exists(config_file):
     config = open(config_file).read()
 
-output_dir = os.path.join(wk_root, 'WebKitBuild', config)
+config_dir = config
 
-waf_configname = config.upper()
+try:
+    branches = commands.getoutput("git branch --no-color")
+    match = re.search('^\* (.*)', branches, re.MULTILINE)
+    if match:
+        config_dir += ".%s" % match.group(1)
+except:
+    pass
+
+output_dir = os.path.join(wk_root, 'WebKitBuild', config_dir)
 
 build_port = "wx"
 building_on_win32 = sys.platform.startswith('win')
 
-if building_on_win32:
-    if config == 'Release':
-        waf_configname = waf_configname + ' CRT_MULTITHREADED_DLL'
-    else:
-        waf_configname = waf_configname + ' CRT_MULTITHREADED_DLL_DBG'
+def get_config():
+    waf_configname = config.upper().strip()
+    if building_on_win32:
+        isReleaseCRT = (config == 'Release')
+        if build_port == 'wx':
+            if Options.options.wxpython:
+                isReleaseCRT = True
+        
+        if isReleaseCRT:
+            waf_configname = waf_configname + ' CRT_MULTITHREADED_DLL'
+        else:
+            waf_configname = waf_configname + ' CRT_MULTITHREADED_DLL_DBG'
+            
+    return waf_configname
 
 create_hash_table = wk_root + "/JavaScriptCore/create_hash_table"
 if building_on_win32:
@@ -139,6 +181,16 @@ if building_on_win32:
 os.environ['CREATE_HASH_TABLE'] = create_hash_table
 
 feature_defines = ['ENABLE_DATABASE', 'ENABLE_XSLT', 'ENABLE_JAVASCRIPT_DEBUGGER']
+
+msvc_version = 'msvc2008'
+
+msvclibs_dir = os.path.join(wklibs_dir, msvc_version, 'win')
+
+def get_path_to_wxconfig():
+    if 'WX_CONFIG' in os.environ:
+        return os.environ['WX_CONFIG']
+    else:
+        return 'wx-config'
 
 def common_set_options(opt):
     """
@@ -149,38 +201,66 @@ def common_set_options(opt):
     opt.tool_options('python')
     
     opt.add_option('--wxpython', action='store_true', default=False, help='Create the wxPython bindings.')
+    opt.add_option('--wx-compiler-prefix', action='store', default='vc',
+                   help='Specify a different compiler prefix (do this if you used COMPILER_PREFIX when building wx itself)')
 
 def common_configure(conf):
     """
     Configuration used by all targets, called from the target's configure() step.
     """
+    
+    conf.env['MSVC_VERSIONS'] = ['msvc 9.0', 'msvc 8.0']
+    conf.env['MSVC_TARGETS'] = ['x86']
+    
+    if sys.platform.startswith('cygwin'):
+        print "ERROR: You must use the Win32 Python from python.org, not Cygwin Python, when building on Windows."
+        sys.exit(1)
+    
+    if sys.platform.startswith('darwin') and build_port == 'wx':
+        import platform
+        if platform.release().startswith('10'): # Snow Leopard
+            # wx currently only supports 32-bit compilation, so we want gcc-4.0 instead of 4.2 on Snow Leopard
+            # unless the user has explicitly set a different compiler.
+            if not "CC" in os.environ:
+                conf.env['CC'] = 'gcc-4.0'
+            if not "CXX" in os.environ:
+                conf.env['CXX'] = 'g++-4.0'
     conf.check_tool('compiler_cxx')
     conf.check_tool('compiler_cc')
-    conf.check_tool('python')
-    conf.check_python_headers()
+    if Options.options.wxpython:
+        conf.check_tool('python')
+        conf.check_python_headers()
     
     if sys.platform.startswith('darwin'):
         conf.check_tool('osx')
     
-    msvc_version = 'msvc2008'
+    global msvc_version
+    global msvclibs_dir
+    
     if building_on_win32:
         found_versions = conf.get_msvc_versions()
         if found_versions[0][0] == 'msvc 9.0':
             msvc_version = 'msvc2008'
         elif found_versions[0][0] == 'msvc 8.0':
             msvc_version = 'msvc2005'
-       
-    msvclibs_dir = ''
-    if build_port == "wx":
-        update_wx_deps(wk_root, msvc_version)
+        
         msvclibs_dir = os.path.join(wklibs_dir, msvc_version, 'win')
+        conf.env.append_value('CXXFLAGS', ['/wd4291','/wd4344','/wd4396','/wd4800'])
     
-        conf.env.append_value('CXXDEFINES', ['BUILDING_WX__=1', 'WTF_USE_WXGC=1'])
+    for use in port_uses[build_port]:
+       conf.env.append_value('CXXDEFINES', ['WTF_USE_%s' % use])
+    
+    if build_port == "wx":
+        update_wx_deps(conf, wk_root, msvc_version)
+    
+        conf.env.append_value('CXXDEFINES', ['BUILDING_WX__=1'])
 
         if building_on_win32:
             conf.env.append_value('LIBPATH', os.path.join(msvclibs_dir, 'lib'))
             # wx settings
-            wxdefines, wxincludes, wxlibs, wxlibpaths = get_wxmsw_settings(wx_root, shared=True, unicode=True, wxPython=True)
+            global config
+            is_debug = (config == 'Debug')
+            wxdefines, wxincludes, wxlibs, wxlibpaths = get_wxmsw_settings(wx_root, shared=True, unicode=True, debug=is_debug, wxPython=Options.options.wxpython)
             conf.env['CXXDEFINES_WX'] = wxdefines
             conf.env['CPPPATH_WX'] = wxincludes
             conf.env['LIB_WX'] = wxlibs
@@ -193,6 +273,14 @@ def common_configure(conf):
     
         conf.env.append_value('CPPPATH', wklibs_dir)
         conf.env.append_value('LIBPATH', wklibs_dir)
+        
+        # WebKit only supports 10.4+
+        mac_target = 'MACOSX_DEPLOYMENT_TARGET'
+        if mac_target in os.environ and os.environ[mac_target] == '10.3':
+            os.environ[mac_target] = '10.4'
+        
+        if mac_target in conf.env and conf.env[mac_target] == '10.3':
+            conf.env[mac_target] = '10.4'
     
     #conf.env['PREFIX'] = output_dir
     
@@ -240,26 +328,22 @@ def common_configure(conf):
         conf.env['LIB_XSLT'] = ['libxslt']
     else:    
         if build_port == 'wx':
-            conf.env.append_value('LIB', ['png', 'pthread'])
+            conf.env.append_value('LIB', ['jpeg', 'png', 'pthread'])
             conf.env.append_value('LIBPATH', os.path.join(wklibs_dir, 'unix', 'lib'))
             conf.env.append_value('CPPPATH', os.path.join(wklibs_dir, 'unix', 'include'))
             conf.env.append_value('CXXFLAGS', ['-fPIC', '-DPIC'])
             
-            conf.check_cfg(path='wx-config', args='--cxxflags --libs', package='', uselib_store='WX')
+            conf.check_cfg(path=get_path_to_wxconfig(), args='--cxxflags --libs', package='', uselib_store='WX', mandatory=True)
             
-        conf.check_cfg(path='xslt-config', args='--cflags --libs', package='', uselib_store='XSLT')
-        conf.check_cfg(path='xml2-config', args='--cflags --libs', package='', uselib_store='XML')
-        conf.check_cfg(path='curl-config', args='--cflags --libs', package='', uselib_store='CURL')
+        conf.check_cfg(msg='Checking for libxslt', path='xslt-config', args='--cflags --libs', package='', uselib_store='XSLT', mandatory=True)
+        conf.check_cfg(path='xml2-config', args='--cflags --libs', package='', uselib_store='XML', mandatory=True)
+        conf.check_cfg(path='curl-config', args='--cflags --libs', package='', uselib_store='CURL', mandatory=True)
         if sys.platform.startswith('darwin'):
             conf.env.append_value('LIB', ['WebCoreSQLite3'])
         
         if not sys.platform.startswith('darwin'):
-            conf.check_cfg(package='cairo', args='--cflags --libs', uselib_store='WX')
-            conf.check_cfg(package='pango', args='--cflags --libs', uselib_store='WX')
-            conf.check_cfg(package='gtk+-2.0', args='--cflags --libs', uselib_store='WX')
-            conf.check_cfg(package='sqlite3', args='--cflags --libs', uselib_store='SQLITE3')
-            conf.check_cfg(path='icu-config', args='--cflags --ldflags', package='', uselib_store='ICU')
-
-
-
-
+            conf.check_cfg(package='cairo', args='--cflags --libs', uselib_store='WX', mandatory=True)
+            conf.check_cfg(package='pango', args='--cflags --libs', uselib_store='WX', mandatory=True)
+            conf.check_cfg(package='gtk+-2.0', args='--cflags --libs', uselib_store='WX', mandatory=True)
+            conf.check_cfg(package='sqlite3', args='--cflags --libs', uselib_store='SQLITE3', mandatory=True)
+            conf.check_cfg(path='icu-config', args='--cflags --ldflags', package='', uselib_store='ICU', mandatory=True)

@@ -61,3 +61,11 @@ AccessibilityUIElement AccessibilityController::rootElement()
     AtkObject* axObject = gtk_widget_get_accessible(GTK_WIDGET(view));
     return AccessibilityUIElement(axObject);
 }
+
+void AccessibilityController::setLogFocusEvents(bool)
+{
+}
+
+void AccessibilityController::setLogScrollingStartEvents(bool)
+{
+}

@@ -94,7 +94,7 @@ private:
 
 
 CanvasRenderingContext2D::CanvasRenderingContext2D(HTMLCanvasElement* canvas)
-    : m_canvas(canvas)
+    : CanvasRenderingContext(canvas)
     , m_stateStack(1)
 {
     // Make sure that even if the drawingContext() has a different default
@@ -102,14 +102,8 @@ CanvasRenderingContext2D::CanvasRenderingContext2D(HTMLCanvasElement* canvas)
     setLineWidth(lineWidth());
 }
 
-void CanvasRenderingContext2D::ref()
+CanvasRenderingContext2D::~CanvasRenderingContext2D()
 {
-    m_canvas->ref();
-}
-
-void CanvasRenderingContext2D::deref()
-{
-    m_canvas->deref(); 
 }
 
 void CanvasRenderingContext2D::reset()
@@ -941,16 +935,13 @@ static inline FloatRect normalizeRect(const FloatRect& rect)
 
 void CanvasRenderingContext2D::checkOrigin(const KURL& url)
 {
-    RefPtr<SecurityOrigin> origin = SecurityOrigin::create(url);
-    if (!m_canvas->document()->securityOrigin()->canAccess(origin.get()))
+    if (m_canvas->document()->securityOrigin()->taintsCanvas(url))
         m_canvas->setOriginTainted();
 }
 
 void CanvasRenderingContext2D::checkOrigin(const String& url)
 {
-    RefPtr<SecurityOrigin> origin = SecurityOrigin::createFromString(url);
-    if (!m_canvas->document()->securityOrigin()->canAccess(origin.get()))
-        m_canvas->setOriginTainted();
+    checkOrigin(KURL(KURL(), url));
 }
 
 void CanvasRenderingContext2D::drawImage(HTMLImageElement* image, float x, float y)
@@ -1214,8 +1205,7 @@ PassRefPtr<CanvasPattern> CanvasRenderingContext2D::createPattern(HTMLImageEleme
     if (!cachedImage || !image->cachedImage()->image())
         return CanvasPattern::create(Image::nullImage(), repeatX, repeatY, true);
 
-    RefPtr<SecurityOrigin> origin = SecurityOrigin::createFromString(cachedImage->url());
-    bool originClean = m_canvas->document()->securityOrigin()->canAccess(origin.get());
+    bool originClean = !m_canvas->document()->securityOrigin()->taintsCanvas(KURL(KURL(), cachedImage->url()));
     return CanvasPattern::create(cachedImage->image(), repeatX, repeatY, originClean);
 }
 
@@ -1278,8 +1268,13 @@ static PassRefPtr<ImageData> createEmptyImageData(const IntSize& size)
     return data.get();
 }
 
-PassRefPtr<ImageData> CanvasRenderingContext2D::createImageData(float sw, float sh) const
+PassRefPtr<ImageData> CanvasRenderingContext2D::createImageData(float sw, float sh, ExceptionCode& ec) const
 {
+    ec = 0;
+    if (!isfinite(sw) || !isfinite(sh)) {
+        ec = NOT_SUPPORTED_ERR;
+        return 0;
+    }
     FloatSize unscaledSize(sw, sh);
     IntSize scaledSize = m_canvas->convertLogicalToDevice(unscaledSize);
     if (scaledSize.width() < 1)
@@ -1306,7 +1301,7 @@ PassRefPtr<ImageData> CanvasRenderingContext2D::getImageData(float sx, float sy,
     ImageBuffer* buffer = m_canvas ? m_canvas->buffer() : 0;
     if (!buffer)
         return createEmptyImageData(scaledRect.size());
-    return buffer->getImageData(scaledRect);
+    return buffer->getUnmultipliedImageData(scaledRect);
 }
 
 void CanvasRenderingContext2D::putImageData(ImageData* data, float dx, float dy, ExceptionCode& ec)
@@ -1357,7 +1352,7 @@ void CanvasRenderingContext2D::putImageData(ImageData* data, float dx, float dy,
     sourceRect.move(-destOffset);
     IntPoint destPoint(destOffset.width(), destOffset.height());
     
-    buffer->putImageData(data, sourceRect, destPoint);
+    buffer->putUnmultipliedImageData(data, sourceRect, destPoint);
 }
 
 String CanvasRenderingContext2D::font() const

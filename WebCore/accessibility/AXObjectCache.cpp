@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2008, 2009 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -36,6 +36,7 @@
 #include "AccessibilityListBox.h"
 #include "AccessibilityListBoxOption.h"
 #include "AccessibilityImageMapLink.h"
+#include "AccessibilityMediaControls.h"
 #include "AccessibilityRenderObject.h"
 #include "AccessibilitySlider.h"
 #include "AccessibilityTable.h"
@@ -43,8 +44,14 @@
 #include "AccessibilityTableColumn.h"
 #include "AccessibilityTableHeaderContainer.h"
 #include "AccessibilityTableRow.h"
-#include "InputElement.h"
+#include "FocusController.h"
+#include "Frame.h"
 #include "HTMLNames.h"
+#if ENABLE(VIDEO)
+#include "MediaControlElements.h"
+#endif
+#include "InputElement.h"
+#include "Page.h"
 #include "RenderObject.h"
 #include "RenderView.h"
 
@@ -71,6 +78,32 @@ AXObjectCache::~AXObjectCache()
         obj->detach();
         removeAXID(obj);
     }
+}
+
+AccessibilityObject* AXObjectCache::focusedUIElementForPage(const Page* page)
+{
+    // get the focused node in the page
+    Document* focusedDocument = page->focusController()->focusedOrMainFrame()->document();
+    Node* focusedNode = focusedDocument->focusedNode();
+    if (!focusedNode)
+        focusedNode = focusedDocument;
+
+    RenderObject* focusedNodeRenderer = focusedNode->renderer();
+    if (!focusedNodeRenderer)
+        return 0;
+
+    AccessibilityObject* obj = focusedNodeRenderer->document()->axObjectCache()->getOrCreate(focusedNodeRenderer);
+
+    if (obj->shouldFocusActiveDescendant()) {
+        if (AccessibilityObject* descendant = obj->activeDescendant())
+            obj = descendant;
+    }
+
+    // the HTML element, for example, is focusable but has an AX object that is ignored
+    if (obj->accessibilityIsIgnored())
+        obj = obj->parentObjectUnignored();
+
+    return obj;
 }
 
 AccessibilityObject* AXObjectCache::get(RenderObject* renderer)
@@ -108,7 +141,7 @@ AccessibilityObject* AXObjectCache::getOrCreate(RenderObject* renderer)
         RefPtr<AccessibilityObject> newObj = 0;
         if (renderer->isListBox())
             newObj = AccessibilityListBox::create(renderer);
-        else if (node && (node->hasTagName(ulTag) || node->hasTagName(olTag) || node->hasTagName(dlTag)))
+        else if (node && (nodeIsAriaType(node, "list") || node->hasTagName(ulTag) || node->hasTagName(olTag) || node->hasTagName(dlTag)))
             newObj = AccessibilityList::create(renderer);
         
         // aria tables
@@ -126,6 +159,12 @@ AccessibilityObject* AXObjectCache::getOrCreate(RenderObject* renderer)
             newObj = AccessibilityTableRow::create(renderer);
         else if (renderer->isTableCell())
             newObj = AccessibilityTableCell::create(renderer);
+
+#if ENABLE(VIDEO)
+        // media controls
+        else if (renderer->node() && renderer->node()->isMediaControlElement())
+            newObj = AccessibilityMediaControl::create(renderer);
+#endif
 
         // input type=range
         else if (renderer->isSlider())
@@ -213,6 +252,23 @@ void AXObjectCache::remove(RenderObject* renderer)
     m_renderObjectMapping.remove(renderer);
 }
 
+#if !PLATFORM(WIN)
+AXID AXObjectCache::platformGenerateAXID() const
+{
+    static AXID lastUsedID = 0;
+
+    // Generate a new ID.
+    AXID objID = lastUsedID;
+    do {
+        ++objID;
+    } while (objID == 0 || HashTraits<AXID>::isDeletedValue(objID) || m_idsInUse.contains(objID));
+
+    lastUsedID = objID;
+
+    return objID;
+}
+#endif
+
 AXID AXObjectCache::getAXID(AccessibilityObject* obj)
 {
     // check for already-assigned ID
@@ -221,15 +277,10 @@ AXID AXObjectCache::getAXID(AccessibilityObject* obj)
         ASSERT(m_idsInUse.contains(objID));
         return objID;
     }
-    
-    // generate a new ID
-    static AXID lastUsedID = 0;
-    objID = lastUsedID;
-    do
-        ++objID;
-    while (objID == 0 || HashTraits<AXID>::isDeletedValue(objID) || m_idsInUse.contains(objID));
+
+    objID = platformGenerateAXID();
+
     m_idsInUse.add(objID);
-    lastUsedID = objID;
     obj->setAXObjectID(objID);
     
     return objID;
@@ -288,7 +339,7 @@ void AXObjectCache::notificationPostTimerFired(Timer<AXObjectCache>*)
 }
     
 #if HAVE(ACCESSIBILITY)
-void AXObjectCache::postNotification(RenderObject* renderer, const String& message, bool postToElement)
+void AXObjectCache::postNotification(RenderObject* renderer, AXNotification notification, bool postToElement)
 {
     // Notifications for text input objects are sent to that object.
     // All others are sent to the top WebArea.
@@ -316,14 +367,14 @@ void AXObjectCache::postNotification(RenderObject* renderer, const String& messa
     if (!obj)
         return;
 
-    m_notificationsToPost.append(make_pair(obj, message));
+    m_notificationsToPost.append(make_pair(obj, notification));
     if (!m_notificationPostTimer.isActive())
         m_notificationPostTimer.startOneShot(0);
 }
 
 void AXObjectCache::selectedChildrenChanged(RenderObject* renderer)
 {
-    postNotification(renderer, "AXSelectedChildrenChanged", true);
+    postNotification(renderer, AXSelectedChildrenChanged, true);
 }
 #endif
 

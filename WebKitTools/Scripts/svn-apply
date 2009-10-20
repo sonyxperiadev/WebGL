@@ -1,6 +1,7 @@
 #!/usr/bin/perl -w
 
 # Copyright (C) 2005, 2006, 2007 Apple Inc.  All rights reserved.
+# Copyright (C) 2009 Cameron McCormack <cam@mcc.id.au>
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -80,6 +81,7 @@ sub isDirectoryEmptyForRemoval($);
 sub patch($);
 sub removeDirectoriesIfNeeded();
 sub setChangeLogDateAndReviewer($$);
+sub removeEOL($);
 sub svnStatus($);
 
 # These should be replaced by an scm class/module:
@@ -109,10 +111,6 @@ if (!$optionParseSuccess || $showHelp) {
     exit 1;
 }
 
-my $isGit = isGitDirectory(".");
-my $isSVN = isSVNDirectory(".");
-$isSVN || $isGit || die "Couldn't determine your version control system.";
-
 my %removeDirectoryIgnoreList = (
     '.' => 1,
     '..' => 1,
@@ -120,6 +118,11 @@ my %removeDirectoryIgnoreList = (
     '.svn' => 1,
     '_svn' => 1,
 );
+
+my $globalExitCode = 0;
+
+my $pathScriptWasRunFrom = Cwd::getcwd();
+my $pathForRepositoryRoot = determineVCSRoot();
 
 my %checkedDirectories;
 my %copiedFiles;
@@ -172,7 +175,7 @@ if ($patch && !$copiedFromPath) {
 }
 
 if ($merge) {
-    die "--merge is currently only supported for SVN" unless $isSVN;
+    die "--merge is currently only supported for SVN" unless isSVN();
     # How do we handle Git patches applied to an SVN checkout here?
     for my $file (sort keys %versions) {
         print "Getting version $versions{$file} of $file\n";
@@ -192,7 +195,7 @@ for $patch (@patches) {
 
 removeDirectoriesIfNeeded();
 
-exit 0;
+exit $globalExitCode;
 
 sub addDirectoriesIfNeeded($)
 {
@@ -226,16 +229,22 @@ sub addDirectoriesIfNeeded($)
 sub applyPatch($$;$)
 {
     my ($patch, $fullPath, $options) = @_;
+    chdir $pathForRepositoryRoot;
     $options = [] if (! $options);
+    push @{$options}, "--force" if $force;
     my $command = "patch " . join(" ", "-p0", @{$options});
     open PATCH, "| $command" or die "Failed to patch $fullPath\n";
     print PATCH $patch;
     close PATCH;
+    chdir $pathScriptWasRunFrom;
 
     my $exitCode = $? >> 8;
-    if ($exitCode != 0) {
-        print "patch -p0 \"$fullPath\" returned $exitCode.  Pass --force to ignore patch failures.\n";
-        exit($exitCode);
+    if ($exitCode) {
+        if (!$force) {
+            print "$command \"$fullPath\" returned $exitCode.  Pass --force to ignore patch failures.\n";
+            exit $exitCode;
+        }
+        $globalExitCode = $exitCode;
     }
 }
 
@@ -320,7 +329,10 @@ sub gitdiff2svndiff($)
 sub handleBinaryChange($$)
 {
     my ($fullPath, $contents) = @_;
-    if ($contents =~ m#((\n[A-Za-z0-9+/]{76})+\n[A-Za-z0-9+/=]{4,76}\n)#) {
+    # [A-Za-z0-9+/] is the class of allowed base64 characters.
+    # One or more lines, at most 76 characters in length.
+    # The last line is allowed to have up to two '=' characters at the end (to signify padding).
+    if ($contents =~ m#((\n[A-Za-z0-9+/]{76})*\n[A-Za-z0-9+/]{2,74}?[A-Za-z0-9+/=]{2}\n)#) {
         # Addition or Modification
         open FILE, ">", $fullPath or die;
         print FILE decode_base64($1);
@@ -369,7 +381,7 @@ sub patch($)
     my $addition = 0;
     my $isBinary = 0;
 
-    $addition = 1 if ($patch =~ /\n--- .+\(revision 0\)\r?\n/ || $patch =~ /\n@@ -0,0 .* @@/);
+    $addition = 1 if ($patch =~ /\n--- .+\(revision 0\)\r?\n/ || $patch =~ /\n@@ -0,0 .* @@/) && !exists($copiedFiles{$fullPath});
     $deletion = 1 if $patch =~ /\n@@ .* \+0,0 @@/;
     $isBinary = 1 if $patch =~ /\nCannot display: file marked as a binary type\./;
 
@@ -401,7 +413,7 @@ sub patch($)
             unlink("$fullPath.orig") if -e "$fullPath.orig" && checksum($fullPath) eq checksum("$fullPath.orig");
             scmAdd($fullPath);
             # What is this for?
-            system "svn", "stat", "$fullPath.orig" if $isSVN && -e "$fullPath.orig";
+            system "svn", "stat", "$fullPath.orig" if isSVN() && -e "$fullPath.orig";
         }
     }
 }
@@ -435,6 +447,14 @@ sub setChangeLogDateAndReviewer($$)
     return $patch;
 }
 
+sub removeEOL($)
+{
+    my ($line) = @_;
+
+    $line =~ s/[\r\n]+$//g;
+    return $line;
+}
+
 sub svnStatus($)
 {
     my ($fullPath) = @_;
@@ -448,10 +468,10 @@ sub svnStatus($)
         my $normalizedFullPath = File::Spec->catdir(File::Spec->splitdir($fullPath));
         while (<SVN>) {
             # Input may use a different EOL sequence than $/, so avoid chomp.
-            $_ =~ s/[\r\n]+$//g;
+            $_ = removeEOL($_);
             my $normalizedStatPath = File::Spec->catdir(File::Spec->splitdir(substr($_, 7)));
             if ($normalizedFullPath eq $normalizedStatPath) {
-                $svnStatus = $_;
+                $svnStatus = "$_\n";
                 last;
             }
         }
@@ -461,7 +481,7 @@ sub svnStatus($)
     }
     else {
         # Files will have only one status returned.
-        $svnStatus = <SVN>;
+        $svnStatus = removeEOL(<SVN>) . "\n";
     }
     close SVN;
     return $svnStatus;
@@ -472,10 +492,10 @@ sub svnStatus($)
 sub scmWillDeleteFile($)
 {
     my ($path) = @_;
-    if ($isSVN) {
+    if (isSVN()) {
         my $svnOutput = svnStatus($path);
         return 1 if $svnOutput && substr($svnOutput, 0, 1) eq "D";
-    } elsif ($isGit) {
+    } elsif (isGit()) {
         my $gitOutput = `git diff-index --name-status HEAD -- $path`;
         return 1 if $gitOutput && substr($gitOutput, 0, 1) eq "D";
     }
@@ -485,7 +505,7 @@ sub scmWillDeleteFile($)
 sub scmKnowsOfFile($)
 {
     my ($path) = @_;
-    if ($isSVN) {
+    if (isSVN()) {
         my $svnOutput = svnStatus($path);
         # This will match more than intended.  ? might not be the first field in the status
         if ($svnOutput && $svnOutput =~ m#\?\s+$path\n#) {
@@ -493,7 +513,7 @@ sub scmKnowsOfFile($)
         }
         # This does not handle errors well.
         return 1;
-    } elsif ($isGit) {
+    } elsif (isGit()) {
         `git ls-files --error-unmatch -- $path`;
         my $exitCode = $? >> 8;
         return $exitCode == 0;
@@ -503,9 +523,9 @@ sub scmKnowsOfFile($)
 sub scmCopy($$)
 {
     my ($source, $destination) = @_;
-    if ($isSVN) {
+    if (isSVN()) {
         system "svn", "copy", $source, $destination;
-    } elsif ($isGit) {
+    } elsif (isGit()) {
         system "cp", $source, $destination;
         system "git", "add", $destination;
     }
@@ -514,9 +534,9 @@ sub scmCopy($$)
 sub scmAdd($)
 {
     my ($path) = @_;
-    if ($isSVN) {
+    if (isSVN()) {
         system "svn", "add", $path;
-    } elsif ($isGit) {
+    } elsif (isGit()) {
         system "git", "add", $path;
     }
 }
@@ -524,7 +544,7 @@ sub scmAdd($)
 sub scmRemove($)
 {
     my ($path) = @_;
-    if ($isSVN) {
+    if (isSVN()) {
         # SVN is very verbose when removing directories.  Squelch all output except the last line.
         my $svnOutput;
         open SVN, "svn rm --force '$path' |" or die "svn rm --force '$path' failed!";
@@ -534,7 +554,7 @@ sub scmRemove($)
         }
         close SVN;
         print $svnOutput if $svnOutput;
-    } elsif ($isGit) {
+    } elsif (isGit()) {
         system "git", "rm", "--force", $path;
     }
 }

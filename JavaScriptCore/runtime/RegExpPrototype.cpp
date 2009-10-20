@@ -22,6 +22,7 @@
 #include "RegExpPrototype.h"
 
 #include "ArrayPrototype.h"
+#include "Error.h"
 #include "JSArray.h"
 #include "JSFunction.h"
 #include "JSObject.h"
@@ -45,7 +46,7 @@ static JSValue JSC_HOST_CALL regExpProtoFuncToString(ExecState*, JSObject*, JSVa
 
 const ClassInfo RegExpPrototype::info = { "RegExpPrototype", 0, 0, 0 };
 
-RegExpPrototype::RegExpPrototype(ExecState* exec, PassRefPtr<Structure> structure, Structure* prototypeFunctionStructure)
+RegExpPrototype::RegExpPrototype(ExecState* exec, NonNullPassRefPtr<Structure> structure, Structure* prototypeFunctionStructure)
     : JSObject(structure)
 {
     putDirectFunctionWithoutTransition(exec, new (exec) NativeFunctionWrapper(exec, prototypeFunctionStructure, 0, exec->propertyNames().compile, regExpProtoFuncCompile), DontEnum);
@@ -58,28 +59,28 @@ RegExpPrototype::RegExpPrototype(ExecState* exec, PassRefPtr<Structure> structur
     
 JSValue JSC_HOST_CALL regExpProtoFuncTest(ExecState* exec, JSObject*, JSValue thisValue, const ArgList& args)
 {
-    if (!thisValue.isObject(&RegExpObject::info))
+    if (!thisValue.inherits(&RegExpObject::info))
         return throwError(exec, TypeError);
     return asRegExpObject(thisValue)->test(exec, args);
 }
 
 JSValue JSC_HOST_CALL regExpProtoFuncExec(ExecState* exec, JSObject*, JSValue thisValue, const ArgList& args)
 {
-    if (!thisValue.isObject(&RegExpObject::info))
+    if (!thisValue.inherits(&RegExpObject::info))
         return throwError(exec, TypeError);
     return asRegExpObject(thisValue)->exec(exec, args);
 }
 
 JSValue JSC_HOST_CALL regExpProtoFuncCompile(ExecState* exec, JSObject*, JSValue thisValue, const ArgList& args)
 {
-    if (!thisValue.isObject(&RegExpObject::info))
+    if (!thisValue.inherits(&RegExpObject::info))
         return throwError(exec, TypeError);
 
     RefPtr<RegExp> regExp;
     JSValue arg0 = args.at(0);
     JSValue arg1 = args.at(1);
     
-    if (arg0.isObject(&RegExpObject::info)) {
+    if (arg0.inherits(&RegExpObject::info)) {
         if (!arg1.isUndefined())
             return throwError(exec, TypeError, "Cannot supply flags when constructing one RegExp from another.");
         regExp = asRegExpObject(arg0)->regExp();
@@ -99,8 +100,8 @@ JSValue JSC_HOST_CALL regExpProtoFuncCompile(ExecState* exec, JSObject*, JSValue
 
 JSValue JSC_HOST_CALL regExpProtoFuncToString(ExecState* exec, JSObject*, JSValue thisValue, const ArgList&)
 {
-    if (!thisValue.isObject(&RegExpObject::info)) {
-        if (thisValue.isObject(&RegExpPrototype::info))
+    if (!thisValue.inherits(&RegExpObject::info)) {
+        if (thisValue.inherits(&RegExpPrototype::info))
             return jsNontrivialString(exec, "//");
         return throwError(exec, TypeError);
     }

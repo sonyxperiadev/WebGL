@@ -38,10 +38,12 @@
 namespace WebCore {
 
 class CachedResource;
+class Database;
 class InspectorClient;
 class InspectorDOMAgent;
 class JavaScriptCallFrame;
 class Node;
+class Storage;
 
 class InspectorBackend : public RefCounted<InspectorBackend>
 {
@@ -69,7 +71,7 @@ public:
     void addResourceSourceToFrame(long identifier, Node* frame);
     bool addSourceToFrame(const String& mimeType, const String& source, Node* frame);
 
-    void clearMessages();
+    void clearMessages(bool clearUI);
 
     void toggleNodeSearch();
 
@@ -82,7 +84,7 @@ public:
 
     bool searchingForNode();
 
-    void loaded(bool enableDOMAgent);
+    void loaded();
 
     void enableResourceTracking(bool always);
     void disableResourceTracking(bool always);
@@ -92,6 +94,10 @@ public:
     void closeWindow();
 
     const String& platform() const;
+
+    void enableTimeline(bool always);
+    void disableTimeline(bool always);
+    bool timelineEnabled() const;
 
 #if ENABLE(JAVASCRIPT_DEBUGGER)
     const ProfilesArray& profiles() const;
@@ -109,7 +115,8 @@ public:
 
     JavaScriptCallFrame* currentCallFrame() const;
 
-    void addBreakpoint(const String& sourceID, unsigned lineNumber);
+    void addBreakpoint(const String& sourceID, unsigned lineNumber, const String& condition);
+    void updateBreakpoint(const String& sourceID, unsigned lineNumber, const String& condition);
     void removeBreakpoint(const String& sourceID, unsigned lineNumber);
 
     bool pauseOnExceptions();
@@ -123,16 +130,43 @@ public:
     void stepOutOfFunctionInDebugger();
 #endif
 
-    void getChildNodes(long callId, long elementId);
+    void dispatchOnInjectedScript(long callId, const String& methodName, const String& arguments, bool async);
+    void getChildNodes(long callId, long nodeId);
     void setAttribute(long callId, long elementId, const String& name, const String& value);
     void removeAttribute(long callId, long elementId, const String& name);
-    void setTextNodeValue(long callId, long elementId, const String& value);
+    void setTextNodeValue(long callId, long nodeId, const String& value);
+    void getEventListenersForNode(long callId, long nodeId);
+    void copyNode(long nodeId);
+
+    void getCookies(long callId, const String& domain);
+    void deleteCookie(const String& cookieName, const String& domain);
 
     // Generic code called from custom implementations.
-    void highlight(Node* node);
+    void highlight(long nodeId);
+    Node* nodeForId(long nodeId);
+    ScriptValue wrapObject(const ScriptValue& object, const String& objectGroup);
+    ScriptValue unwrapObject(const String& objectId);
+    void releaseWrapperObjectGroup(const String& objectGroup);
+    long pushNodePathToFrontend(Node* node, bool selectInUI);
+    void addNodesToSearchResult(const String& nodeIds);
+#if ENABLE(DATABASE)
+    Database* databaseForId(long databaseId);
+    void selectDatabase(Database* database);
+    void getDatabaseTableNames(long callId, long databaseId);
+#endif
+#if ENABLE(DOM_STORAGE)
+    void selectDOMStorage(Storage* storage);
+    void getDOMStorageEntries(long callId, long storageId);
+    void setDOMStorageItem(long callId, long storageId, const String& key, const String& value);
+    void removeDOMStorageItem(long callId, long storageId, const String& key);
+#endif
+    void reportDidDispatchOnInjectedScript(long callId, const String& result, bool isException);
+    void didEvaluateForTestInFrontend(long callId, const String& jsonResult);
 
 private:
     InspectorBackend(InspectorController* inspectorController, InspectorClient* client);
+    InspectorDOMAgent* inspectorDOMAgent();
+    InspectorFrontend* inspectorFrontend();
 
     InspectorController* m_inspectorController;
     InspectorClient* m_client;

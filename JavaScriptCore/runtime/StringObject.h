@@ -28,17 +28,18 @@ namespace JSC {
 
     class StringObject : public JSWrapperObject {
     public:
-        StringObject(ExecState*, PassRefPtr<Structure>);
-        StringObject(ExecState*, PassRefPtr<Structure>, const UString&);
+        StringObject(ExecState*, NonNullPassRefPtr<Structure>);
+        StringObject(ExecState*, NonNullPassRefPtr<Structure>, const UString&);
 
         static StringObject* create(ExecState*, JSString*);
 
         virtual bool getOwnPropertySlot(ExecState*, const Identifier& propertyName, PropertySlot&);
         virtual bool getOwnPropertySlot(ExecState*, unsigned propertyName, PropertySlot&);
+        virtual bool getOwnPropertyDescriptor(ExecState*, const Identifier&, PropertyDescriptor&);
 
         virtual void put(ExecState* exec, const Identifier& propertyName, JSValue, PutPropertySlot&);
         virtual bool deleteProperty(ExecState*, const Identifier& propertyName);
-        virtual void getPropertyNames(ExecState*, PropertyNameArray&);
+        virtual void getOwnPropertyNames(ExecState*, PropertyNameArray&);
 
         virtual const ClassInfo* classInfo() const { return &info; }
         static const JS_EXPORTDATA ClassInfo info;
@@ -51,12 +52,7 @@ namespace JSC {
         }
 
     protected:
-        StringObject(PassRefPtr<Structure>, JSString*);
-
-    private:
-        virtual UString toString(ExecState*) const;
-        virtual UString toThisString(ExecState*) const;
-        virtual JSString* toThisJSString(ExecState*);
+        StringObject(NonNullPassRefPtr<Structure>, JSString*);
   };
 
     StringObject* asStringObject(JSValue);

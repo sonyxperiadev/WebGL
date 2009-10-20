@@ -27,19 +27,20 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 #include <jsobjects.h>
-#include <qwebpage.h>
-#include <qwebhistory.h>
-#include <qwebframe.h>
-#include <qwebsecurityorigin.h>
-#include <qwebdatabase.h>
-#include <qevent.h>
+
+#include "DumpRenderTree.h"
+#include "WorkQueue.h"
+#include "WorkQueueItem.h"
+
 #include <qapplication.h>
 #include <qevent.h>
 #include <qtimer.h>
+#include <qwebdatabase.h>
+#include <qwebframe.h>
+#include <qwebhistory.h>
+#include <qwebpage.h>
+#include <qwebsecurityorigin.h>
 
-#include "DumpRenderTree.h"
-#include "WorkQueueItem.h"
-#include "WorkQueue.h"
 extern void qt_dump_editing_callbacks(bool b);
 extern void qt_dump_resource_load_callbacks(bool b);
 extern void qt_drt_setJavaScriptProfilingEnabled(QWebFrame*, bool enabled);
@@ -47,7 +48,7 @@ extern bool qt_drt_pauseAnimation(QWebFrame*, const QString &name, double time, 
 extern bool qt_drt_pauseTransitionOfProperty(QWebFrame*, const QString &name, double time, const QString &elementId);
 extern int qt_drt_numberOfActiveAnimations(QWebFrame*);
 
-QWebFrame *findFrameNamed(const QString &frameName, QWebFrame *frame)
+QWebFrame* findFrameNamed(const QString &frameName, QWebFrame* frame)
 {
     if (frame->frameName() == frameName)
         return frame;
@@ -64,7 +65,7 @@ bool LoadItem::invoke() const
     //qDebug() << ">>>LoadItem::invoke";
     Q_ASSERT(m_webPage);
 
-    QWebFrame *frame = 0;
+    QWebFrame* frame = 0;
     const QString t = target();
     if (t.isEmpty())
         frame = m_webPage->mainFrame();
@@ -128,11 +129,12 @@ void LayoutTestController::reset()
     m_waitForDone = false;
     m_dumpTitleChanges = false;
     m_dumpDatabaseCallbacks = false;
+    m_dumpStatusCallbacks = false;
     m_timeoutTimer.stop();
     m_topLoadingFrame = 0;
+    m_waitForPolicy = false;
     qt_dump_editing_callbacks(false);
     qt_dump_resource_load_callbacks(false);
-    QWebSettings::globalSettings()->setAttribute(QWebSettings::PrivateBrowsingEnabled, false);
 }
 
 void LayoutTestController::processWork()
@@ -150,6 +152,12 @@ void LayoutTestController::processWork()
 void LayoutTestController::maybeDump(bool success)
 {
     Q_ASSERT(sender() == m_topLoadingFrame);
+
+    // as the function is called on loadFinished, the test might
+    // already have dumped and thus no longer be active, thus
+    // bail out here.
+    if (!m_isLoading)
+        return;
 
     m_topLoadingFrame = 0;
     WorkQueue::shared()->setFrozen(true); // first complete load freezes the queue for the rest of this test
@@ -180,6 +188,8 @@ void LayoutTestController::notifyDone()
     m_timeoutTimer.stop();
     emit done();
     m_isLoading = false;
+    m_waitForDone = false;
+    m_waitForPolicy = false;
 }
 
 int LayoutTestController::windowCount()
@@ -237,7 +247,7 @@ void LayoutTestController::queueScript(const QString &url)
 
 void LayoutTestController::provisionalLoad()
 {
-    QWebFrame *frame = qobject_cast<QWebFrame*>(sender());
+    QWebFrame* frame = qobject_cast<QWebFrame*>(sender());
     if (!m_topLoadingFrame && m_isLoading)
         m_topLoadingFrame = frame;
 }
@@ -247,9 +257,8 @@ void LayoutTestController::timerEvent(QTimerEvent *ev)
     if (ev->timerId() == m_timeoutTimer.timerId()) {
         qDebug() << ">>>>>>>>>>>>> timeout";
         notifyDone();
-    } else {
+    } else
         QObject::timerEvent(ev);
-    }
 }
 
 QString LayoutTestController::encodeHostName(const QString &host)
@@ -279,14 +288,19 @@ void LayoutTestController::setFixedContentsSize(int width, int height)
 
 void LayoutTestController::setPrivateBrowsingEnabled(bool enable)
 {
-    QWebSettings::globalSettings()->setAttribute(QWebSettings::PrivateBrowsingEnabled, enable);
+    m_drt->webPage()->settings()->setAttribute(QWebSettings::PrivateBrowsingEnabled, enable);
+}
+
+void LayoutTestController::setPopupBlockingEnabled(bool enable)
+{
+    m_drt->webPage()->settings()->setAttribute(QWebSettings::JavascriptCanOpenWindows, !enable);
 }
 
 bool LayoutTestController::pauseAnimationAtTimeOnElementWithId(const QString &animationName,
                                                                double time,
                                                                const QString &elementId)
 {
-    QWebFrame *frame = m_drt->webPage()->mainFrame();
+    QWebFrame* frame = m_drt->webPage()->mainFrame();
     Q_ASSERT(frame);
     return qt_drt_pauseAnimation(frame, animationName, time, elementId);
 }
@@ -295,14 +309,14 @@ bool LayoutTestController::pauseTransitionAtTimeOnElementWithId(const QString &p
                                                                 double time,
                                                                 const QString &elementId)
 {
-    QWebFrame *frame = m_drt->webPage()->mainFrame();
+    QWebFrame* frame = m_drt->webPage()->mainFrame();
     Q_ASSERT(frame);
     return qt_drt_pauseTransitionOfProperty(frame, propertyName, time, elementId);
 }
 
 unsigned LayoutTestController::numberOfActiveAnimations() const
 {
-    QWebFrame *frame = m_drt->webPage()->mainFrame();
+    QWebFrame* frame = m_drt->webPage()->mainFrame();
     Q_ASSERT(frame);
     return qt_drt_numberOfActiveAnimations(frame);
 }
@@ -330,23 +344,88 @@ void LayoutTestController::clearAllDatabases()
     QWebDatabase::removeAllDatabases();
 }
 
+void LayoutTestController::whiteListAccessFromOrigin(const QString& sourceOrigin, const QString& destinationProtocol, const QString& destinationHost, bool allowDestinationSubdomains)
+{
+    QWebSecurityOrigin::whiteListAccessFromOrigin(sourceOrigin, destinationProtocol, destinationHost, allowDestinationSubdomains);
+}
+
+void LayoutTestController::waitForPolicyDelegate()
+{
+    m_waitForPolicy = true;
+    waitUntilDone();
+}
+
+void LayoutTestController::overridePreference(const QString& name, const QVariant& value)
+{
+    QWebSettings* settings = m_topLoadingFrame->page()->settings();
+
+    if (name == "WebKitJavaScriptEnabled")
+        settings->setAttribute(QWebSettings::JavascriptEnabled, value.toBool());
+    else if (name == "WebKitTabToLinksPreferenceKey")
+        settings->setAttribute(QWebSettings::LinksIncludedInFocusChain, value.toBool());
+    else if (name == "WebKitOfflineWebApplicationCacheEnabled")
+        settings->setAttribute(QWebSettings::OfflineWebApplicationCacheEnabled, value.toBool());
+    else if (name == "WebKitDefaultFontSize")
+        settings->setFontSize(QWebSettings::DefaultFontSize, value.toInt());
+}
+
 EventSender::EventSender(QWebPage *parent)
     : QObject(parent)
 {
     m_page = parent;
 }
 
-void EventSender::mouseDown()
+void EventSender::mouseDown(int button)
 {
+    Qt::MouseButton mouseButton;
+    switch (button) {
+    case 0:
+        mouseButton = Qt::LeftButton;
+        break;
+    case 1:
+        mouseButton = Qt::MidButton;
+        break;
+    case 2:
+        mouseButton = Qt::RightButton;
+        break;
+    case 3:
+        // fast/events/mouse-click-events expects the 4th button to be treated as the middle button
+        mouseButton = Qt::MidButton;
+        break;
+    default:
+        mouseButton = Qt::LeftButton;
+        break;
+    }
+
 //     qDebug() << "EventSender::mouseDown" << frame;
-    QMouseEvent event(QEvent::MouseButtonPress, m_mousePos, Qt::LeftButton, Qt::LeftButton, Qt::NoModifier);
+    QMouseEvent event(QEvent::MouseButtonPress, m_mousePos, mouseButton, mouseButton, Qt::NoModifier);
     QApplication::sendEvent(m_page, &event);
 }
 
-void EventSender::mouseUp()
+void EventSender::mouseUp(int button)
 {
+    Qt::MouseButton mouseButton;
+    switch (button) {
+    case 0:
+        mouseButton = Qt::LeftButton;
+        break;
+    case 1:
+        mouseButton = Qt::MidButton;
+        break;
+    case 2:
+        mouseButton = Qt::RightButton;
+        break;
+    case 3:
+        // fast/events/mouse-click-events expects the 4th button to be treated as the middle button
+        mouseButton = Qt::MidButton;
+        break;
+    default:
+        mouseButton = Qt::LeftButton;
+        break;
+    }
+
 //     qDebug() << "EventSender::mouseUp" << frame;
-    QMouseEvent event(QEvent::MouseButtonRelease, m_mousePos, Qt::LeftButton, Qt::LeftButton, Qt::NoModifier);
+    QMouseEvent event(QEvent::MouseButtonRelease, m_mousePos, mouseButton, mouseButton, Qt::NoModifier);
     QApplication::sendEvent(m_page, &event);
 }
 
@@ -440,17 +519,71 @@ void EventSender::keyDown(const QString &string, const QStringList &modifiers)
             s = QString();
             code = Qt::Key_Home;
             modifs = 0;
-        } else {
+        } else
             code = string.unicode()->toUpper().unicode();
+    } else {
+        qDebug() << ">>>>>>>>> keyDown" << string;
+
+        if (string.startsWith(QLatin1Char('F')) && string.count() <= 3) {
+            s = s.mid(1);
+            int functionKey = s.toInt();
+            Q_ASSERT(functionKey >= 1 && functionKey <= 35);
+            code = Qt::Key_F1 + (functionKey - 1);
+        // map special keycode strings used by the tests to something that works for Qt/X11
+        } else if (string == QLatin1String("leftArrow")) {
+            s = QString();
+            code = Qt::Key_Left;
+        } else if (string == QLatin1String("rightArrow")) {
+            s = QString();
+            code = Qt::Key_Right;
+        } else if (string == QLatin1String("upArrow")) {
+            s = QString();
+            code = Qt::Key_Up;
+        } else if (string == QLatin1String("downArrow")) {
+            s = QString();
+            code = Qt::Key_Down;
+        } else if (string == QLatin1String("pageUp")) {
+            s = QString();
+            code = Qt::Key_PageUp;
+        } else if (string == QLatin1String("pageDown")) {
+            s = QString();
+            code = Qt::Key_PageDown;
+        } else if (string == QLatin1String("home")) {
+            s = QString();
+            code = Qt::Key_Home;
+        } else if (string == QLatin1String("end")) {
+            s = QString();
+            code = Qt::Key_End;
+        } else if (string == QLatin1String("delete")) {
+            s = QString();
+            code = Qt::Key_Delete;
         }
     }
     QKeyEvent event(QEvent::KeyPress, code, modifs, s);
     QApplication::sendEvent(m_page, &event);
+    QKeyEvent event2(QEvent::KeyRelease, code, modifs, s);
+    QApplication::sendEvent(m_page, &event2);
 }
 
-QWebFrame *EventSender::frameUnderMouse() const
+void EventSender::contextClick()
 {
-    QWebFrame *frame = m_page->mainFrame();
+    QMouseEvent event(QEvent::MouseButtonPress, m_mousePos, Qt::RightButton, Qt::RightButton, Qt::NoModifier);
+    QApplication::sendEvent(m_page, &event);
+    QMouseEvent event2(QEvent::MouseButtonRelease, m_mousePos, Qt::RightButton, Qt::RightButton, Qt::NoModifier);
+    QApplication::sendEvent(m_page, &event2);
+}
+
+void EventSender::scheduleAsynchronousClick()
+{
+    QMouseEvent* event = new QMouseEvent(QEvent::MouseButtonPress, m_mousePos, Qt::LeftButton, Qt::RightButton, Qt::NoModifier);
+    QApplication::postEvent(m_page, event);
+    QMouseEvent* event2 = new QMouseEvent(QEvent::MouseButtonRelease, m_mousePos, Qt::LeftButton, Qt::RightButton, Qt::NoModifier);
+    QApplication::postEvent(m_page, event2);
+}
+
+QWebFrame* EventSender::frameUnderMouse() const
+{
+    QWebFrame* frame = m_page->mainFrame();
 
 redo:
     QList<QWebFrame*> children = frame->childFrames();
@@ -478,81 +611,81 @@ void TextInputController::doCommand(const QString &command)
     if (command == "moveBackwardAndModifySelection:") {
         modifiers |= Qt::ShiftModifier;
         keycode = Qt::Key_Left;
-    } else if(command =="moveDown:") {
+    } else if (command =="moveDown:") {
         keycode = Qt::Key_Down;
-    } else if(command =="moveDownAndModifySelection:") {
+    } else if (command =="moveDownAndModifySelection:") {
         modifiers |= Qt::ShiftModifier;
         keycode = Qt::Key_Down;
-    } else if(command =="moveForward:") {
+    } else if (command =="moveForward:") {
         keycode = Qt::Key_Right;
-    } else if(command =="moveForwardAndModifySelection:") {
+    } else if (command =="moveForwardAndModifySelection:") {
         modifiers |= Qt::ShiftModifier;
         keycode = Qt::Key_Right;
-    } else if(command =="moveLeft:") {
+    } else if (command =="moveLeft:") {
         keycode = Qt::Key_Left;
-    } else if(command =="moveLeftAndModifySelection:") {
+    } else if (command =="moveLeftAndModifySelection:") {
         modifiers |= Qt::ShiftModifier;
         keycode = Qt::Key_Left;
-    } else if(command =="moveRight:") {
+    } else if (command =="moveRight:") {
         keycode = Qt::Key_Right;
-    } else if(command =="moveRightAndModifySelection:") {
+    } else if (command =="moveRightAndModifySelection:") {
         modifiers |= Qt::ShiftModifier;
         keycode = Qt::Key_Right;
-    } else if(command =="moveToBeginningOfDocument:") {
+    } else if (command =="moveToBeginningOfDocument:") {
         modifiers |= Qt::ControlModifier;
         keycode = Qt::Key_Home;
-    } else if(command =="moveToBeginningOfLine:") {
+    } else if (command =="moveToBeginningOfLine:") {
         keycode = Qt::Key_Home;
-//     } else if(command =="moveToBeginningOfParagraph:") {
-    } else if(command =="moveToEndOfDocument:") {
+//     } else if (command =="moveToBeginningOfParagraph:") {
+    } else if (command =="moveToEndOfDocument:") {
         modifiers |= Qt::ControlModifier;
         keycode = Qt::Key_End;
-    } else if(command =="moveToEndOfLine:") {
+    } else if (command =="moveToEndOfLine:") {
         keycode = Qt::Key_End;
-//     } else if(command =="moveToEndOfParagraph:") {
-    } else if(command =="moveUp:") {
+//     } else if (command =="moveToEndOfParagraph:") {
+    } else if (command =="moveUp:") {
         keycode = Qt::Key_Up;
-    } else if(command =="moveUpAndModifySelection:") {
+    } else if (command =="moveUpAndModifySelection:") {
         modifiers |= Qt::ShiftModifier;
         keycode = Qt::Key_Up;
-    } else if(command =="moveWordBackward:") {
+    } else if (command =="moveWordBackward:") {
         modifiers |= Qt::ControlModifier;
         keycode = Qt::Key_Up;
-    } else if(command =="moveWordBackwardAndModifySelection:") {
+    } else if (command =="moveWordBackwardAndModifySelection:") {
         modifiers |= Qt::ShiftModifier;
         modifiers |= Qt::ControlModifier;
         keycode = Qt::Key_Left;
-    } else if(command =="moveWordForward:") {
+    } else if (command =="moveWordForward:") {
         modifiers |= Qt::ControlModifier;
         keycode = Qt::Key_Right;
-    } else if(command =="moveWordForwardAndModifySelection:") {
+    } else if (command =="moveWordForwardAndModifySelection:") {
         modifiers |= Qt::ControlModifier;
         modifiers |= Qt::ShiftModifier;
         keycode = Qt::Key_Right;
-    } else if(command =="moveWordLeft:") {
+    } else if (command =="moveWordLeft:") {
         modifiers |= Qt::ControlModifier;
         keycode = Qt::Key_Left;
-    } else if(command =="moveWordRight:") {
+    } else if (command =="moveWordRight:") {
         modifiers |= Qt::ControlModifier;
         keycode = Qt::Key_Left;
-    } else if(command =="moveWordRightAndModifySelection:") {
+    } else if (command =="moveWordRightAndModifySelection:") {
         modifiers |= Qt::ShiftModifier;
         modifiers |= Qt::ControlModifier;
         keycode = Qt::Key_Right;
-    } else if(command =="moveWordLeftAndModifySelection:") {
+    } else if (command =="moveWordLeftAndModifySelection:") {
         modifiers |= Qt::ShiftModifier;
         modifiers |= Qt::ControlModifier;
         keycode = Qt::Key_Left;
-    } else if(command =="pageDown:") {
-        keycode = Qt::Key_PageDown;        
-    } else if(command =="pageUp:") {
-        keycode = Qt::Key_PageUp;        
-    } else if(command == "deleteWordBackward:") {
+    } else if (command =="pageDown:") {
+        keycode = Qt::Key_PageDown;
+    } else if (command =="pageUp:") {
+        keycode = Qt::Key_PageUp;
+    } else if (command == "deleteWordBackward:") {
         modifiers |= Qt::ControlModifier;
         keycode = Qt::Key_Backspace;
-    } else if(command == "deleteBackward:") {
+    } else if (command == "deleteBackward:") {
         keycode = Qt::Key_Backspace;
-    } else if(command == "deleteForward:") {
+    } else if (command == "deleteForward:") {
         keycode = Qt::Key_Delete;
     }
     QKeyEvent event(QEvent::KeyPress, keycode, modifiers);

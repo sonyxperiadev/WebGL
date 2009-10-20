@@ -32,6 +32,7 @@
 #include "CachedScript.h"
 #include "DocLoader.h"
 #include "DocumentFragment.h"
+#include "Event.h"
 #include "EventNames.h"
 #include "Frame.h"
 #include "FrameLoader.h"
@@ -41,6 +42,7 @@
 #include "HTMLParser.h"
 #include "HTMLScriptElement.h"
 #include "HTMLViewSourceDocument.h"
+#include "InspectorTimelineAgent.h"
 #include "MappedAttribute.h"
 #include "Page.h"
 #include "PreloadScanner.h"
@@ -442,7 +444,8 @@ HTMLTokenizer::State HTMLTokenizer::scriptHandler(State state)
 #endif
                 // The parser might have been stopped by for example a window.close call in an earlier script.
                 // If so, we don't want to load scripts.
-                if (!m_parserStopped && (cs = m_doc->docLoader()->requestScript(m_scriptTagSrcAttrValue, m_scriptTagCharsetAttrValue)))
+                if (!m_parserStopped && m_scriptNode->dispatchBeforeLoadEvent(m_scriptTagSrcAttrValue) &&
+                    (cs = m_doc->docLoader()->requestScript(m_scriptTagSrcAttrValue, m_scriptTagCharsetAttrValue)))
                     m_pendingScripts.append(cs);
                 else
                     m_scriptNode = 0;
@@ -1670,18 +1673,24 @@ void HTMLTokenizer::write(const SegmentedString& str, bool appendData)
     if (!m_doc->ownerElement())
         printf("Beginning write at time %d\n", m_doc->elapsedTime());
 #endif
-    
+
     int processedCount = 0;
     double startTime = currentTime();
 #ifdef ANDROID_INSTRUMENT
     android::TimeCounter::start(android::TimeCounter::ParsingTimeCounter);
 #endif
 
+#if ENABLE(INSPECTOR)
+    InspectorTimelineAgent* timelineAgent = m_doc->inspectorTimelineAgent();
+    if (timelineAgent)
+        timelineAgent->willWriteHTML();
+#endif
+  
     Frame* frame = m_doc->frame();
 
     State state = m_state;
 
-    while (!m_src.isEmpty() && (!frame || !frame->loader()->isScheduledLocationChangePending())) {
+    while (!m_src.isEmpty() && (!frame || !frame->redirectScheduler()->locationChangePending())) {
         if (!continueProcessing(processedCount, startTime, state))
             break;
 
@@ -1797,7 +1806,12 @@ void HTMLTokenizer::write(const SegmentedString& str, bool appendData)
     if (!m_doc->ownerElement())
         printf("Ending write at time %d\n", m_doc->elapsedTime());
 #endif
-    
+
+#if ENABLE(INSPECTOR)
+    if (timelineAgent)
+        timelineAgent->didWriteHTML();
+#endif
+
     m_inWrite = wasInWrite;
 
     m_state = state;
@@ -2041,7 +2055,7 @@ void HTMLTokenizer::notifyFinished(CachedResource*)
 #endif
 
         if (errorOccurred)
-            n->dispatchEvent(eventNames().errorEvent, true, false);
+            n->dispatchEvent(Event::create(eventNames().errorEvent, true, false));
         else {
             if (static_cast<HTMLScriptElement*>(n.get())->shouldExecuteAsJavaScript())
                 m_state = scriptExecution(sourceCode, m_state);
@@ -2049,7 +2063,7 @@ void HTMLTokenizer::notifyFinished(CachedResource*)
             else
                 m_doc->setShouldProcessNoscriptElement(true);
 #endif
-            n->dispatchEvent(eventNames().loadEvent, false, false);
+            n->dispatchEvent(Event::create(eventNames().loadEvent, false, false));
         }
 
         // The state of m_pendingScripts.isEmpty() can change inside the scriptExecution()

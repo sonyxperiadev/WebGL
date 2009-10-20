@@ -31,6 +31,8 @@
 #include "config.h"
 #include "ScriptObjectQuarantine.h"
 
+#if ENABLE(INSPECTOR)
+
 #include "Document.h"
 #include "Frame.h"
 #include "JSDOMBinding.h"
@@ -38,6 +40,7 @@
 #include "JSNode.h"
 #include "ScriptObject.h"
 #include "ScriptValue.h"
+#include "Storage.h"
 
 #include <runtime/JSLock.h>
 
@@ -80,10 +83,11 @@ bool getQuarantinedScriptObject(Database* database, ScriptObject& quarantinedObj
 #endif
 
 #if ENABLE(DOM_STORAGE)
-bool getQuarantinedScriptObject(Frame* frame, Storage* storage, ScriptObject& quarantinedObject)
+bool getQuarantinedScriptObject(Storage* storage, ScriptObject& quarantinedObject)
 {
-    ASSERT(frame);
     ASSERT(storage);
+    Frame* frame = storage->frame();
+    ASSERT(frame);
 
     JSDOMGlobalObject* globalObject = toJSDOMWindow(frame);
     ExecState* exec = globalObject->globalExec();
@@ -123,3 +127,5 @@ bool getQuarantinedScriptObject(DOMWindow* domWindow, ScriptObject& quarantinedO
 
 
 } // namespace WebCore
+
+#endif // ENABLE(INSPECTOR)

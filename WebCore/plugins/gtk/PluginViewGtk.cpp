@@ -59,11 +59,10 @@
 #include <gdkconfig.h>
 #include <gtk/gtk.h>
 
-#if PLATFORM(X11)
+#if defined(XP_UNIX)
 #include "gtk2xtbin.h"
 #include <gdk/gdkx.h>
-#endif
-#ifdef GDK_WINDOWING_WIN32
+#elif defined(GDK_WINDOWING_WIN32)
 #include "PluginMessageThrottlerWin.h"
 #include <gdk/gdkwin32.h>
 #endif
@@ -228,7 +227,7 @@ void PluginView::setNPWindowIfNeeded()
 
     GtkAllocation allocation = { m_windowRect.x(), m_windowRect.y(), m_windowRect.width(), m_windowRect.height() };
     gtk_widget_size_allocate(platformPluginWidget(), &allocation);
-#if PLATFORM(X11)
+#if PLATFORM(XP_UNIX)
     if (!m_needsXEmbed) {
         gtk_xtbin_set_position(GTK_XTBIN(platformPluginWidget()), m_windowRect.x(), m_windowRect.y());
         gtk_xtbin_resize(platformPluginWidget(), m_windowRect.width(), m_windowRect.height());
@@ -293,7 +292,7 @@ NPError PluginView::getValueStatic(NPNVariable variable, void* value)
 
     switch (variable) {
     case NPNVToolkit:
-#if PLATFORM(GTK)
+#if defined(XP_UNIX)
         *static_cast<uint32*>(value) = 2;
 #else
         *static_cast<uint32*>(value) = 0;
@@ -301,7 +300,7 @@ NPError PluginView::getValueStatic(NPNVariable variable, void* value)
         return NPERR_NO_ERROR;
 
     case NPNVSupportsXEmbedBool:
-#if PLATFORM(X11)
+#if defined(XP_UNIX)
         *static_cast<NPBool*>(value) = true;
 #else
         *static_cast<NPBool*>(value) = false;
@@ -323,7 +322,7 @@ NPError PluginView::getValue(NPNVariable variable, void* value)
 
     switch (variable) {
     case NPNVxDisplay:
-#if PLATFORM(X11)
+#if defined(XP_UNIX)
         if (m_needsXEmbed)
             *(void **)value = (void *)GDK_DISPLAY();
         else
@@ -333,7 +332,7 @@ NPError PluginView::getValue(NPNVariable variable, void* value)
         return NPERR_GENERIC_ERROR;
 #endif
 
-#if PLATFORM(X11)
+#if PLATFORM(XP_UNIX)
     case NPNVxtAppContext:
         if (!m_needsXEmbed) {
             *(void **)value = XtDisplayToApplicationContext (GTK_XTBIN(platformPluginWidget())->xtclient.xtdisplay);
@@ -381,13 +380,13 @@ NPError PluginView::getValue(NPNVariable variable, void* value)
 #endif
 
         case NPNVnetscapeWindow: {
-#if PLATFORM(X11)
+#if defined(XP_UNIX)
             void* w = reinterpret_cast<void*>(value);
-            *((XID *)w) = GDK_WINDOW_XWINDOW(m_parentFrame->view()->hostWindow()->platformWindow()->window);
+            *((XID *)w) = GDK_WINDOW_XWINDOW(m_parentFrame->view()->hostWindow()->platformPageClient()->window);
 #endif
 #ifdef GDK_WINDOWING_WIN32
             HGDIOBJ* w = reinterpret_cast<HGDIOBJ*>(value);
-            *w = GDK_WINDOW_HWND(m_parentFrame->view()->hostWindow()->platformWindow()->window);
+            *w = GDK_WINDOW_HWND(m_parentFrame->view()->hostWindow()->platformPageClient()->window);
 #endif
             return NPERR_NO_ERROR;
         }
@@ -429,22 +428,7 @@ void PluginView::forceRedraw()
     if (m_isWindowed)
         gtk_widget_queue_draw(platformPluginWidget());
     else
-        gtk_widget_queue_draw(m_parentFrame->view()->hostWindow()->platformWindow());
-}
-
-PluginView::~PluginView()
-{
-    stop();
-
-    deleteAllValues(m_requests);
-
-    freeStringArray(m_paramNames, m_paramCount);
-    freeStringArray(m_paramValues, m_paramCount);
-
-    m_parentFrame->script()->cleanupScriptObjectsForPlugin(this);
-
-    if (m_plugin && !(m_plugin->quirks().contains(PluginQuirkDontUnloadPlugin)))
-        m_plugin->unload();
+        gtk_widget_queue_draw(m_parentFrame->view()->hostWindow()->platformPageClient());
 }
 
 static gboolean
@@ -453,27 +437,10 @@ plug_removed_cb(GtkSocket *socket, gpointer)
     return TRUE;
 }
 
-void PluginView::init()
+bool PluginView::platformStart()
 {
-    if (m_haveInitialized)
-        return;
-    m_haveInitialized = true;
-
-    if (!m_plugin) {
-        ASSERT(m_status == PluginStatusCanNotFindPlugin);
-        return;
-    }
-
-    if (!m_plugin->load()) {
-        m_plugin = 0;
-        m_status = PluginStatusCanNotLoadPlugin;
-        return;
-    }
-
-    if (!start()) {
-        m_status = PluginStatusCanNotLoadPlugin;
-        return;
-    }
+    ASSERT(m_isStarted);
+    ASSERT(m_status == PluginStatusLoadedSuccessfully);
 
     if (m_plugin->pluginFuncs()->getvalue) {
         PluginView::setCurrentPluginView(this);
@@ -484,22 +451,22 @@ void PluginView::init()
         PluginView::setCurrentPluginView(0);
     }
 
-#if PLATFORM(X11)
+#if defined(XP_UNIX)
     if (m_needsXEmbed) {
         setPlatformWidget(gtk_socket_new());
-        gtk_container_add(GTK_CONTAINER(m_parentFrame->view()->hostWindow()->platformWindow()), platformPluginWidget());
+        gtk_container_add(GTK_CONTAINER(m_parentFrame->view()->hostWindow()->platformPageClient()), platformPluginWidget());
         g_signal_connect(platformPluginWidget(), "plug_removed", G_CALLBACK(plug_removed_cb), NULL);
     } else if (m_isWindowed)
-        setPlatformWidget(gtk_xtbin_new(m_parentFrame->view()->hostWindow()->platformWindow()->window, 0));
+        setPlatformWidget(gtk_xtbin_new(m_parentFrame->view()->hostWindow()->platformPageClient()->window, 0));
 #else
     setPlatformWidget(gtk_socket_new());
-    gtk_container_add(GTK_CONTAINER(m_parentFrame->view()->hostWindow()->platformWindow()), platformPluginWidget());
+    gtk_container_add(GTK_CONTAINER(m_parentFrame->view()->hostWindow()->platformPageClient()), platformPluginWidget());
 #endif
     show();
 
     if (m_isWindowed) {
         m_npWindow.type = NPWindowTypeWindow;
-#if PLATFORM(X11)
+#if defined(XP_UNIX)
         NPSetWindowCallbackStruct *ws = new NPSetWindowCallbackStruct();
 
         ws->type = 0;
@@ -533,10 +500,18 @@ void PluginView::init()
     if (!(m_plugin->quirks().contains(PluginQuirkDeferFirstSetWindowCall)))
         updatePluginWidget(); // was: setNPWindowIfNeeded(), but this doesn't produce 0x0 rects at first go
 
-    m_status = PluginStatusLoadedSuccessfully;
+    return true;
 }
 
-void PluginView::platformStart()
+void PluginView::platformDestroy()
+{
+}
+
+void PluginView::halt()
+{
+}
+
+void PluginView::restart()
 {
 }
 

@@ -38,6 +38,7 @@
 #include "MediaList.h"
 #include "MediaQueryEvaluator.h"
 #include "Page.h"
+#include "ScriptEventListener.h"
 #include "Settings.h"
 
 namespace WebCore {
@@ -134,7 +135,9 @@ void HTMLLinkElement::parseMappedAttribute(MappedAttribute *attr)
         process();
     } else if (attr->name() == disabledAttr) {
         setDisabledState(!attr->isNull());
-    } else {
+    } else if (attr->name() == onbeforeloadAttr)
+        setAttributeEventListener(eventNames().beforeloadEvent, createAttributeEventListener(this, attr));
+    else {
         if (attr->name() == titleAttr && m_sheet)
             m_sheet->setTitle(attr->value());
         HTMLElement::parseMappedAttribute(attr);
@@ -217,11 +220,7 @@ void HTMLLinkElement::process()
     // This was buggy and would incorrectly match <link rel="alternate">, which has a different specified meaning. -dwh
     if (m_disabledState != 2 && (m_isStyleSheet || acceptIfTypeContainsTextCSS && type.contains("text/css")) && document()->frame() && m_url.isValid()) {
         // also, don't load style sheets for standalone documents
-        // Add ourselves as a pending sheet, but only if we aren't an alternate 
-        // stylesheet.  Alternate stylesheets don't hold up render tree construction.
-        if (!isAlternate())
-            document()->addPendingSheet();
-
+        
         String charset = getAttribute(charsetAttr);
         if (charset.isEmpty() && document()->frame())
             charset = document()->frame()->loader()->encoding();
@@ -230,14 +229,28 @@ void HTMLLinkElement::process()
             if (m_loading)
                 document()->removePendingSheet();
             m_cachedSheet->removeClient(this);
+            m_cachedSheet = 0;
         }
+
+        if (!dispatchBeforeLoadEvent(m_url))
+            return;
+        
         m_loading = true;
+        
+        // Add ourselves as a pending sheet, but only if we aren't an alternate 
+        // stylesheet.  Alternate stylesheets don't hold up render tree construction.
+        if (!isAlternate())
+            document()->addPendingSheet();
+
         m_cachedSheet = document()->docLoader()->requestCSSStyleSheet(m_url, charset);
+        
         if (m_cachedSheet)
             m_cachedSheet->addClient(this);
-        else if (!isAlternate()) { // The request may have been denied if stylesheet is local and document is remote.
+        else {
+            // The request may have been denied if (for example) the stylesheet is local and the document is remote.
             m_loading = false;
-            document()->removePendingSheet();
+            if (!isAlternate())
+                document()->removePendingSheet();
         }
     } else if (m_sheet) {
         // we no longer contain a stylesheet, e.g. perhaps rel or type was changed
@@ -282,7 +295,23 @@ void HTMLLinkElement::setCSSStyleSheet(const String& url, const String& charset,
     if (enforceMIMEType && document()->page() && !document()->page()->settings()->enforceCSSMIMETypeInStrictMode())
         enforceMIMEType = false;
 
-    m_sheet->parseString(sheet->sheetText(enforceMIMEType), strictParsing);
+    String sheetText = sheet->sheetText(enforceMIMEType);
+    m_sheet->parseString(sheetText, strictParsing);
+
+    if (strictParsing && document()->settings() && document()->settings()->needsSiteSpecificQuirks()) {
+        // Work around <https://bugs.webkit.org/show_bug.cgi?id=28350>.
+        DEFINE_STATIC_LOCAL(const String, slashKHTMLFixesDotCss, ("/KHTMLFixes.css"));
+        DEFINE_STATIC_LOCAL(const String, mediaWikiKHTMLFixesStyleSheet, ("/* KHTML fix stylesheet */\n/* work around the horizontal scrollbars */\n#column-content { margin-left: 0; }\n\n"));
+        // There are two variants of KHTMLFixes.css. One is equal to mediaWikiKHTMLFixesStyleSheet,
+        // while the other lacks the second trailing newline.
+        if (url.endsWith(slashKHTMLFixesDotCss) && !sheetText.isNull() && mediaWikiKHTMLFixesStyleSheet.startsWith(sheetText)
+                && sheetText.length() >= mediaWikiKHTMLFixesStyleSheet.length() - 1) {
+            ASSERT(m_sheet->length() == 1);
+            ExceptionCode ec;
+            m_sheet->deleteRule(0, ec);
+        }
+    }
+
     m_sheet->setTitle(title());
 
     RefPtr<MediaList> media = MediaList::createAllowingDescriptionSyntax(m_media);

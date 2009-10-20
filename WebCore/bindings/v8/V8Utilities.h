@@ -44,16 +44,25 @@ namespace WebCore {
 
     class Frame;
     class KURL;
+    class ScriptExecutionContext;
+    class ScriptState;
     class String;
 
     // Use an array to hold dependents. It works like a ref-counted scheme. A value can be added more than once to the DOM object.
-    void createHiddenDependency(v8::Local<v8::Object>, v8::Local<v8::Value>, int cacheIndex);
-    void removeHiddenDependency(v8::Local<v8::Object>, v8::Local<v8::Value>, int cacheIndex);
+    void createHiddenDependency(v8::Handle<v8::Object>, v8::Local<v8::Value>, int cacheIndex);
+    void removeHiddenDependency(v8::Handle<v8::Object>, v8::Local<v8::Value>, int cacheIndex);
 
     bool processingUserGesture();
     bool shouldAllowNavigation(Frame*);
     KURL completeURL(const String& relativeURL);
     void navigateIfAllowed(Frame*, const KURL&, bool lockHistory, bool lockBackForwardList);
+
+    ScriptExecutionContext* getScriptExecutionContext(ScriptState*);
+    inline ScriptExecutionContext* getScriptExecutionContext() {
+        return getScriptExecutionContext(0);
+    }
+
+    void reportException(ScriptState*, v8::TryCatch&);
 
     class AllowAllocation {
     public:

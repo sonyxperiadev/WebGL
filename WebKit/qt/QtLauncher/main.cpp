@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2009 Nokia Corporation and/or its subsidiary(-ies)
+ * Copyright (C) 2009 Girish Ramakrishnan <girish@forwardbias.in>
  * Copyright (C) 2006 George Staikos <staikos@kde.org>
  * Copyright (C) 2006 Dirk Mueller <mueller@kde.org>
  * Copyright (C) 2006 Zack Rusin <zack@kde.org>
@@ -34,6 +35,7 @@
 #include <qwebframe.h>
 #include <qwebsettings.h>
 #include <qwebelement.h>
+#include <qwebinspector.h>
 
 #include <QtGui>
 #include <QDebug>
@@ -62,6 +64,13 @@ public:
 
     virtual QWebPage *createWindow(QWebPage::WebWindowType);
     virtual QObject* createPlugin(const QString&, const QUrl&, const QStringList&, const QStringList&);
+    virtual bool supportsExtension(QWebPage::Extension extension) const
+    {
+        if (extension == QWebPage::ErrorPageExtension)
+            return true;
+        return false;
+    }
+    virtual bool extension(Extension extension, const ExtensionOption *option, ExtensionReturn *output);
 };
 
 class MainWindow : public QMainWindow
@@ -70,13 +79,15 @@ class MainWindow : public QMainWindow
 public:
     MainWindow(QString url = QString()): currentZoom(100) {
         setAttribute(Qt::WA_DeleteOnClose);
+        if (qgetenv("QTLAUNCHER_USE_ARGB_VISUALS").toInt() == 1)
+            setAttribute(Qt::WA_TranslucentBackground);
 
-        view = new QWebView(this);
-        setCentralWidget(view);
+        QSplitter* splitter = new QSplitter(Qt::Vertical, this);
+        setCentralWidget(splitter);
 
+        view = new QWebView(splitter);
         WebPage* page = new WebPage(view);
         view->setPage(page);
-        
         connect(view, SIGNAL(loadFinished(bool)),
                 this, SLOT(loadFinished()));
         connect(view, SIGNAL(titleChanged(const QString&)),
@@ -85,9 +96,15 @@ public:
                 this, SLOT(showLinkHover(const QString&, const QString&)));
         connect(view->page(), SIGNAL(windowCloseRequested()), this, SLOT(close()));
 
+        inspector = new QWebInspector(splitter);
+        inspector->setPage(page);
+        inspector->hide();
+        connect(this, SIGNAL(destroyed()), inspector, SLOT(deleteLater()));
+        connect(page, SIGNAL(webInspectorTriggered(const QWebElement&)), inspector, SLOT(show()));
+
         setupUI();
 
-        // set the proxy to the http_proxy env variable - if present        
+        // set the proxy to the http_proxy env variable - if present
         QUrl proxyUrl = view->guessUrlFromString(qgetenv("http_proxy"));
         if (proxyUrl.isValid() && !proxyUrl.host().isEmpty()) {
             int proxyPort = (proxyUrl.port() > 0)  ? proxyUrl.port() : 8080;
@@ -103,11 +120,12 @@ public:
             urlEdit->setText(qurl.toEncoded());
             view->load(qurl);
 
-            // the zoom values are chosen to be like in Mozilla Firefox 3
-            zoomLevels << 30 << 50 << 67 << 80 << 90;
-            zoomLevels << 100;
-            zoomLevels << 110 << 120 << 133 << 150 << 170 << 200 << 240 << 300;
         }
+
+        // the zoom values are chosen to be like in Mozilla Firefox 3
+        zoomLevels << 30 << 50 << 67 << 80 << 90;
+        zoomLevels << 100;
+        zoomLevels << 110 << 120 << 133 << 150 << 170 << 200 << 240 << 300;
     }
 
     QWebPage* webPage() const {
@@ -193,6 +211,22 @@ protected slots:
 #endif
     }
 
+    void screenshot()
+    {
+        QPixmap pixmap = QPixmap::grabWidget(view);
+        QLabel* label = new QLabel;
+        label->setAttribute(Qt::WA_DeleteOnClose);
+        label->setWindowTitle("Screenshot - Preview");
+        label->setPixmap(pixmap);
+        label->show();
+
+        QString fileName = QFileDialog::getSaveFileName(label, "Screenshot");
+        if (!fileName.isEmpty()) {
+            pixmap.save(fileName, "png");
+            label->setWindowTitle(QString("Screenshot - Saved at %1").arg(fileName));
+        }
+    }
+
     void setEditable(bool on) {
         view->page()->setContentEditable(on);
         formatMenuAction->setVisible(on);
@@ -206,6 +240,7 @@ protected slots:
         bool ok;
         QString str = QInputDialog::getText(this, "Select elements", "Choose elements",
                                             QLineEdit::Normal, "a", &ok);
+
         if (ok && !str.isEmpty()) {
             QList<QWebElement> result =  view->page()->mainFrame()->findAllElements(str);
             foreach (QWebElement e, result)
@@ -259,6 +294,7 @@ private:
 #if QT_VERSION >= 0x040400
         fileMenu->addAction(tr("Print"), this, SLOT(print()));
 #endif
+        QAction* screenshot = fileMenu->addAction("Screenshot", this, SLOT(screenshot()));
         fileMenu->addAction("Close", this, SLOT(close()));
 
         QMenu *editMenu = menuBar()->addMenu("&Edit");
@@ -285,7 +321,7 @@ private:
         viewMenu->addSeparator();
         viewMenu->addAction("Dump HTML", this, SLOT(dumpHtml()));
 
-        QMenu *formatMenu = new QMenu("F&ormat");
+        QMenu *formatMenu = new QMenu("F&ormat", this);
         formatMenuAction = menuBar()->addMenu(formatMenu);
         formatMenuAction->setVisible(false);
         formatMenu->addAction(view->pageAction(QWebPage::ToggleBold));
@@ -297,6 +333,7 @@ private:
         writingMenu->addAction(view->pageAction(QWebPage::SetTextDirectionRightToLeft));
 
         newWindow->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_N));
+        screenshot->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_S));
         view->pageAction(QWebPage::Back)->setShortcut(QKeySequence::Back);
         view->pageAction(QWebPage::Stop)->setShortcut(Qt::Key_Escape);
         view->pageAction(QWebPage::Forward)->setShortcut(QKeySequence::Forward);
@@ -321,12 +358,24 @@ private:
     QWebView *view;
     QLineEdit *urlEdit;
     QProgressBar *progress;
+    QWebInspector* inspector;
 
     QAction *formatMenuAction;
 
     QStringList urlList;
     QStringListModel urlModel;
 };
+
+bool WebPage::extension(Extension extension, const ExtensionOption *option, ExtensionReturn *output)
+{
+    const QWebPage::ErrorPageExtensionOption* info = static_cast<const QWebPage::ErrorPageExtensionOption*>(option);
+    QWebPage::ErrorPageExtensionReturn* errorPage = static_cast<QWebPage::ErrorPageExtensionReturn*>(output);
+
+    errorPage->content = QString("<html><head><title>Failed loading page</title></head><body>%1</body></html>")
+        .arg(info->errorString).toUtf8();
+
+    return true;
+}
 
 QWebPage *WebPage::createWindow(QWebPage::WebWindowType)
 {
@@ -356,6 +405,7 @@ public:
     URLLoader(QWebView* view, const QString& inputFileName)
         : m_view(view)
         , m_stdOut(stdout)
+        , m_loaded(0)
     {
         init(inputFileName);
     }
@@ -367,7 +417,7 @@ public slots:
         if (getUrl(qstr)) {
             QUrl url(qstr, QUrl::StrictMode);
             if (url.isValid()) {
-                m_stdOut << "Loading " << qstr << " ......" << endl;
+                m_stdOut << "Loading " << qstr << " ......" << ++m_loaded << endl;
                 m_view->load(url);
             } else
                 loadNext();
@@ -410,6 +460,7 @@ private:
     int m_index;
     QWebView* m_view;
     QTextStream m_stdOut;
+    int m_loaded;
 };
 
 #include "main.moc"
@@ -442,6 +493,11 @@ int main(int argc, char **argv)
 
     QWebSettings::globalSettings()->setAttribute(QWebSettings::PluginsEnabled, true);
     QWebSettings::globalSettings()->setAttribute(QWebSettings::DeveloperExtrasEnabled, true);
+    QWebSettings::enablePersistentStorage();
+
+    // To allow QWebInspector's configuration persistence
+    QCoreApplication::setOrganizationName("Nokia");
+    QCoreApplication::setApplicationName("QtLauncher");
 
     const QStringList args = app.arguments();
 

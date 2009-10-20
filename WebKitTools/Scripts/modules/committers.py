@@ -45,13 +45,43 @@ class Reviewer(Committer):
 # All reviewers are committers, so this list is only of committers
 # who are not reviewers.
 committers_unable_to_review = [
+    Committer("Aaron Boodman", "aa@chromium.org"),
+    Committer("Adam Langley", "agl@chromium.org"),
     Committer("Albert J. Wong", "ajwong@chromium.org"),
+    Committer("Antonio Gomes", "tonikitoo@webkit.org"),
+    Committer("Anthony Ricaud", "rik@webkit.org"),
     Committer("Ben Murdoch", "benm@google.com"),
+    Committer("Brent Fulgham", "bfulgham@webkit.org"),
+    Committer("Brian Weinstein", "bweinstein@apple.com"),
+    Committer("Cameron McCormack", "cam@webkit.org"),
+    Committer("Daniel Bates", "dbates@webkit.org"),
+    Committer("Drew Wilson", "atwilson@chromium.org"),
+    Committer("Dirk Schulze", "krit@webkit.org"),
+    Committer("Dmitry Titov", "dimich@chromium.org"),
+    Committer("Eli Fidler", "eli@staikos.net"),
+    Committer("Eric Roman", "eroman@chromium.org"),
+    Committer("Fumitoshi Ukai", "ukai@chromium.org"),
+    Committer("Greg Bolsinga", "bolsinga@apple.com"),
+    Committer("Jeremy Moskovich", "playmobil@google.com"),
     Committer("Jeremy Orlow", "jorlow@chromium.org"),
+    Committer("Jian Li", "jianli@chromium.org"),
+    Committer("John Abd-El-Malek", "jam@chromium.org"),
+    Committer("Joseph Pecoraro", "joepeck@webkit.org"),
+    Committer("Julie Parent", "jparent@google.com"),
+    Committer("Kenneth Rohde Christiansen", "kenneth@webkit.org"),
+    Committer("Laszlo Gombos", "laszlo.1.gombos@nokia.com"),
+    Committer("Nate Chapin", "japhet@chromium.org"),
+    Committer("Ojan Vafai", "ojan@chromium.org"),
+    Committer("Pam Greene", "pam@chromium.org"),
     Committer("Peter Kasting", "pkasting@google.com"),
     Committer("Pierre d'Herbemont", "pdherbemont@free.fr"),
-    Committer("Shinichiro Hamaji", "hamaji@google.com"),
-    Committer("Zoltan Horvath", "hzoltan@inf.u-szeged.hu"),
+    Committer("Ryosuke Niwa", "rniwa@webkit.org"),
+    Committer("Scott Violet", "sky@chromium.org"),
+    Committer("Shinichiro Hamaji", "hamaji@chromium.org"),
+    Committer("Tony Chang", "tony@chromium.org"),
+    Committer("Yael Aharon", "yael.aharon@nokia.com"),
+    Committer("Yong Li", "yong.li@torchmobile.com"),
+    Committer("Zoltan Horvath", "zoltan@webkit.org"),
 ]
 
 reviewers_list = [
@@ -71,12 +101,15 @@ reviewers_list = [
     Reviewer("David Kilzer", "ddkilzer@webkit.org"),
     Reviewer("David Levin", "levin@chromium.org"),
     Reviewer("Dimitri Glazkov", "dglazkov@chromium.org"),
+    Reviewer("Eric Carlson", "eric.carlson@apple.com"),
     Reviewer("Eric Seidel", "eric@webkit.org"),
     Reviewer("Gavin Barraclough", "barraclough@apple.com"),
+    Reviewer("Geoffrey Garen", "ggaren@apple.com"),
     Reviewer("George Staikos", "staikos@kde.org"),
     Reviewer("Gustavo Noronha", "gns@gnome.org"),
     Reviewer("Holger Freyther", "zecke@selfish.org"),
     Reviewer("Jan Alonzo", "jmalonzo@gmail.com"),
+    Reviewer("John Sullivan", "sullivan@apple.com"),
     Reviewer("Justin Garcia", "justin.garcia@apple.com"),
     Reviewer("Kevin McCullough", "kmccullough@apple.com"),
     Reviewer("Kevin Ollivier", "kevino@theolliviers.com"),
@@ -111,13 +144,10 @@ class CommitterList:
         return self._committers_by_email
 
     def committer_by_bugzilla_email(self, bugzilla_email):
-        committer = self._email_to_committer_map().get(bugzilla_email)
-        if not committer:
-            raise Exception("Unknown committer: %s" % bugzilla_email)
-        return committer
+        return self._email_to_committer_map().get(bugzilla_email)
 
     def reviewer_by_bugzilla_email(self, bugzilla_email):
         committer = self.committer_by_bugzilla_email(bugzilla_email)
-        if not committer.can_review:
-            raise Exception("Committer %s does not have review rights." % committer)
+        if committer and not committer.can_review:
+            return None
         return committer

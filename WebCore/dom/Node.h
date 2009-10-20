@@ -25,7 +25,6 @@
 #ifndef Node_h
 #define Node_h
 
-#include "DocPtr.h"
 #include "EventTarget.h"
 #include "KURLHash.h"
 #include "PlatformString.h"
@@ -68,7 +67,10 @@ class StringBuilder;
 
 typedef int ExceptionCode;
 
-enum StyleChangeType { NoStyleChange, InlineStyleChange, FullStyleChange, AnimationStyleChange };
+// SyntheticStyleChange means that we need to go through the entire style change logic even though
+// no style property has actually changed. It is used to restructure the tree when, for instance,
+// RenderLayers are created or destroyed due to animation changes.
+enum StyleChangeType { NoStyleChange, InlineStyleChange, FullStyleChange, SyntheticStyleChange };
 
 const unsigned short DOCUMENT_POSITION_EQUIVALENT = 0x00;
 const unsigned short DOCUMENT_POSITION_DISCONNECTED = 0x01;
@@ -108,7 +110,6 @@ public:
     enum StyleChange { NoChange, NoInherit, Inherit, Detach, Force };    
     static StyleChange diff(const RenderStyle*, const RenderStyle*);
 
-    Node(Document*, bool isElement = false, bool isContainer = false, bool isText = false);
     virtual ~Node();
 
     // DOM methods & attributes for Node
@@ -182,6 +183,14 @@ public:
     static bool isWMLElement() { return false; }
 #endif
 
+#if ENABLE(MATHML)
+    virtual bool isMathMLElement() const { return false; }
+#else
+    static bool isMathMLElement() { return false; }
+#endif
+
+
+    virtual bool isMediaControlElement() const { return false; }
     virtual bool isStyledElement() const { return false; }
     virtual bool isFrameOwnerElement() const { return false; }
     virtual bool isAttributeNode() const { return false; }
@@ -196,6 +205,9 @@ public:
 
     // The node's parent for the purpose of event capture and bubbling.
     virtual ContainerNode* eventParentNode();
+
+    // Node ancestors when concerned about event flow
+    void eventAncestors(Vector<RefPtr<ContainerNode> > &ancestors);
 
     bool isBlockFlow() const;
     bool isBlockFlowOrBlockTable() const;
@@ -289,10 +301,10 @@ public:
 
     virtual short tabIndex() const;
 
-    /**
-     * Whether this node can receive the keyboard focus.
-     */
-    virtual bool supportsFocus() const { return isFocusable(); }
+    // Whether this kind of node can receive focus by default. Most nodes are
+    // not focusable but some elements, such as form controls and links are.
+    virtual bool supportsFocus() const;
+    // Whether the node can actually be focused.
     virtual bool isFocusable() const;
     virtual bool isKeyboardFocusable(KeyboardEvent*) const;
     virtual bool isMouseFocusable() const;
@@ -316,7 +328,7 @@ public:
     {
         ASSERT(this);
         ASSERT(m_document || (nodeType() == DOCUMENT_TYPE_NODE && !inDocument()));
-        return m_document.get();
+        return m_document;
     }
     void setDocument(Document*);
 
@@ -499,6 +511,7 @@ public:
 
     unsigned short compareDocumentPosition(Node*);
 
+<<<<<<< HEAD:WebCore/dom/Node.h
 #ifdef ANDROID_INSTRUMENT
     // Overridden to prevent the normal new from being called.
     void* operator new(size_t) throw();
@@ -522,23 +535,25 @@ protected:
     NodeRareData* ensureRareData();
 
 public:
+=======
+>>>>>>> webkit.org at 49305:WebCore/dom/Node.h
     virtual Node* toNode() { return this; }
 
     virtual ScriptExecutionContext* scriptExecutionContext() const;
 
-    // Used for standard DOM addEventListener / removeEventListener APIs.
-    virtual void addEventListener(const AtomicString& eventType, PassRefPtr<EventListener>, bool useCapture);
-    virtual void removeEventListener(const AtomicString& eventType, EventListener*, bool useCapture);
+    virtual bool addEventListener(const AtomicString& eventType, PassRefPtr<EventListener>, bool useCapture);
+    virtual bool removeEventListener(const AtomicString& eventType, EventListener*, bool useCapture);
 
-    // Used for legacy "onEvent" property APIs.
-    void setAttributeEventListener(const AtomicString& eventType, PassRefPtr<EventListener>);
-    void clearAttributeEventListener(const AtomicString& eventType);
-    EventListener* getAttributeEventListener(const AtomicString& eventType) const;
+    // Handlers to do/undo actions on the target node before an event is dispatched to it and after the event
+    // has been dispatched.  The data pointer is handed back by the preDispatch and passed to postDispatch.
+    virtual void* preDispatchEventHandler(Event*) { return 0; }
+    virtual void postDispatchEventHandler(Event*, void* /*dataFromPreDispatch*/) { }
 
-    virtual bool dispatchEvent(PassRefPtr<Event>, ExceptionCode&);
-    bool dispatchEvent(const AtomicString& eventType, bool canBubble, bool cancelable);
+    using EventTarget::dispatchEvent;
+    virtual bool dispatchEvent(PassRefPtr<Event>);
 
-    void removeAllEventListeners() { if (hasRareData()) removeAllEventListenersSlowCase(); }
+    bool dispatchGenericEvent(PassRefPtr<Event>);
+    virtual void handleLocalEvents(Event*);
 
     void dispatchSubtreeModifiedEvent();
     void dispatchUIEvent(const AtomicString& eventType, int detail, PassRefPtr<Event> underlyingEvent);
@@ -552,14 +567,6 @@ public:
         bool isSimulated, Node* relatedTarget, PassRefPtr<Event> underlyingEvent);
     void dispatchSimulatedMouseEvent(const AtomicString& eventType, PassRefPtr<Event> underlyingEvent);
     void dispatchSimulatedClick(PassRefPtr<Event> underlyingEvent, bool sendMouseEvents = false, bool showPressedLook = true);
-    void dispatchProgressEvent(const AtomicString& eventType, bool lengthComputableArg, unsigned loadedArg, unsigned totalArg);
-    void dispatchWebKitAnimationEvent(const AtomicString& eventType, const String& animationName, double elapsedTime);
-    void dispatchWebKitTransitionEvent(const AtomicString& eventType, const String& propertyName, double elapsedTime);
-    void dispatchMutationEvent(const AtomicString& type, bool canBubble, PassRefPtr<Node> relatedNode, const String& prevValue, const String& newValue, ExceptionCode&);
-
-    bool dispatchGenericEvent(PassRefPtr<Event>);
-
-    virtual void handleLocalEvents(Event*, bool useCapture);
 
     virtual void dispatchFocusEvent();
     virtual void dispatchBlurEvent();
@@ -575,6 +582,7 @@ public:
      */
     virtual bool disabled() const;
 
+<<<<<<< HEAD:WebCore/dom/Node.h
     const RegisteredEventListenerVector& eventListeners() const;
 
     // These 4 attribute event handler attributes are overrided by HTMLBodyElement
@@ -670,16 +678,42 @@ public:
     void setOntouchcancel(PassRefPtr<EventListener>);
 #endif
 
+=======
+>>>>>>> webkit.org at 49305:WebCore/dom/Node.h
     using TreeShared<Node>::ref;
     using TreeShared<Node>::deref;
- 
+
+    virtual EventTargetData* eventTargetData();
+    virtual EventTargetData* ensureEventTargetData();
+
+protected:
+    // CreateElementZeroRefCount is deprecated and can be removed once we convert all element
+    // classes to start with a reference count of 1.
+    enum ConstructionType { CreateContainer, CreateElement, CreateOther, CreateText, CreateElementZeroRefCount };
+    Node(Document*, ConstructionType);
+
+    virtual void willMoveToNewOwnerDocument();
+    virtual void didMoveToNewOwnerDocument();
+    
+    virtual void addSubresourceAttributeURLs(ListHashSet<KURL>&) const { }
+    void setTabIndexExplicitly(short);
+    
+    bool hasRareData() const { return m_hasRareData; }
+    
+    NodeRareData* rareData() const;
+    NodeRareData* ensureRareData();
+
 private:
+    static bool initialRefCount(ConstructionType);
+    static bool isContainer(ConstructionType);
+    static bool isElement(ConstructionType);
+    static bool isText(ConstructionType);
+
     virtual void refEventTarget() { ref(); }
     virtual void derefEventTarget() { deref(); }
 
     void removeAllEventListenersSlowCase();
 
-private:
     virtual NodeRareData* createRareData();
     Node* containerChildNode(unsigned index) const;
     unsigned containerChildNodeCount() const;
@@ -697,7 +731,7 @@ private:
 
     void appendTextContent(bool convertBRsToNewlines, StringBuilder&) const;
 
-    DocPtr<Document> m_document;
+    Document* m_document;
     Node* m_previous;
     Node* m_next;
     RenderObject* m_renderer;
@@ -720,22 +754,16 @@ private:
     const bool m_isText : 1;
 
 protected:
-    // These bits are used by the Element derived class, pulled up here so they can
+    // These bits are used by derived classes, pulled up here so they can
     // be stored in the same memory word as the Node bits above.
-    bool m_parsingChildrenFinished : 1;
-#if ENABLE(SVG)
-    mutable bool m_areSVGAttributesValid : 1;
-#endif
 
-    // These bits are used by the StyledElement derived class, and live here for the
-    // same reason as above.
-    mutable bool m_isStyleAttributeValid : 1;
-    mutable bool m_synchronizingStyleAttribute : 1;
+    bool m_parsingChildrenFinished : 1; // Element
+    mutable bool m_isStyleAttributeValid : 1; // StyledElement
+    mutable bool m_synchronizingStyleAttribute : 1; // StyledElement
 
 #if ENABLE(SVG)
-    // This bit is used by the SVGElement derived class, and lives here for the same
-    // reason as above.
-    mutable bool m_synchronizingSVGAttributes : 1;
+    mutable bool m_areSVGAttributesValid : 1; // Element
+    mutable bool m_synchronizingSVGAttributes : 1; // SVGElement
 #endif
 
     // 11 bits remaining

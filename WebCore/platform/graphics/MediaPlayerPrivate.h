@@ -44,6 +44,11 @@ public:
     virtual void cancelLoad() = 0;
     
     virtual void prepareToPlay() { }
+<<<<<<< HEAD:WebCore/platform/graphics/MediaPlayerPrivate.h
+=======
+    virtual PlatformMedia platformMedia() const { return NoPlatformMedia; }
+
+>>>>>>> webkit.org at 49305:WebCore/platform/graphics/MediaPlayerPrivate.h
     virtual void play() = 0;
     virtual void pause() = 0;    
 
@@ -53,6 +58,7 @@ public:
     virtual IntSize naturalSize() const = 0;
 
     virtual bool hasVideo() const = 0;
+    virtual bool hasAudio() const = 0;
 
     virtual void setVisible(bool) = 0;
 
@@ -77,7 +83,7 @@ public:
     virtual MediaPlayer::ReadyState readyState() const = 0;
 
     virtual float maxTimeSeekable() const = 0;
-    virtual float maxTimeBuffered() const = 0;
+    virtual PassRefPtr<TimeRanges> buffered() const = 0;
 
     virtual int dataRate() const = 0;
 

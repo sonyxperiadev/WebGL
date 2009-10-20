@@ -65,7 +65,7 @@ GraphicsContext::GraphicsContext(HDC hdc, bool hasAlpha)
     : m_common(createGraphicsContextPrivate())
     , m_data(new GraphicsContextPlatformPrivate(CGContextWithHDC(hdc, hasAlpha)))
 {
-    CGContextRelease(m_data->m_cgContext);
+    CGContextRelease(m_data->m_cgContext.get());
     m_data->m_hdc = hdc;
     setPaintingDisabled(!m_data->m_cgContext);
     if (m_data->m_cgContext) {
@@ -98,7 +98,7 @@ void GraphicsContext::releaseWindowsContext(HDC hdc, const IntRect& dstRect, boo
         CGColorSpaceRelease(deviceRGB);
 
         CGImageRef image = CGBitmapContextCreateImage(bitmapContext);
-        CGContextDrawImage(m_data->m_cgContext, dstRect, image);
+        CGContextDrawImage(m_data->m_cgContext.get(), dstRect, image);
         
         // Delete all our junk.
         CGImageRelease(image);
@@ -121,7 +121,7 @@ void GraphicsContext::drawWindowsBitmap(WindowsBitmap* image, const IntPoint& po
     RetainPtr<CGDataProviderRef> dataProvider(AdoptCF, CGDataProviderCreateWithCFData(imageData.get()));
     RetainPtr<CGImageRef> cgImage(AdoptCF, CGImageCreate(image->size().width(), image->size().height(), 8, 32, image->bytesPerRow(), deviceRGB.get(),
                                                          kCGBitmapByteOrder32Little | kCGImageAlphaFirst, dataProvider.get(), 0, true, kCGRenderingIntentDefault));
-    CGContextDrawImage(m_data->m_cgContext, CGRectMake(point.x(), point.y(), image->size().width(), image->size().height()), cgImage.get());   
+    CGContextDrawImage(m_data->m_cgContext.get(), CGRectMake(point.x(), point.y(), image->size().width(), image->size().height()), cgImage.get());   
 }
 
 void GraphicsContext::drawFocusRing(const Color& color)
@@ -243,7 +243,7 @@ void GraphicsContext::drawLineForMisspellingOrBadGrammar(const IntPoint& point, 
 
 void GraphicsContextPlatformPrivate::flush()
 {
-    CGContextFlush(m_cgContext);
+    CGContextFlush(m_cgContext.get());
 }
 
 }

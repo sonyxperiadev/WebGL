@@ -33,7 +33,11 @@ namespace WebCore {
     
 class PositionOptions : public RefCounted<PositionOptions> {
 public:
+<<<<<<< HEAD:WebCore/page/PositionOptions.h
     static PassRefPtr<PositionOptions> create() { return adoptRef(new PositionOptions); }
+=======
+    static PassRefPtr<PositionOptions> create() { return adoptRef(new PositionOptions()); }
+>>>>>>> webkit.org at 49305:WebCore/page/PositionOptions.h
 
     bool enableHighAccuracy() const { return m_highAccuracy; }
     void setEnableHighAccuracy(bool enable) { m_highAccuracy = enable; }

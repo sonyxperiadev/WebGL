@@ -29,13 +29,15 @@
 #ifndef UIDelegate_h
 #define UIDelegate_h
 
+#include <WebCore/COMPtr.h>
 #include <WebKit/WebKit.h>
 #include <wtf/OwnPtr.h>
 #include <windef.h>
 
 class DRTUndoManager;
+class DRTDesktopNotificationPresenter;
 
-class UIDelegate : public IWebUIDelegate, IWebUIDelegatePrivate {
+class UIDelegate : public IWebUIDelegate2, IWebUIDelegatePrivate {
 public:
     UIDelegate();
 
@@ -326,20 +328,11 @@ public:
 protected:
     // IWebUIDelegatePrivate
 
-    virtual HRESULT STDMETHODCALLTYPE webViewResizerRect( 
-        /* [in] */ IWebView *sender,
-        /* [retval][out] */ RECT *rect) { return E_NOTIMPL; }
+    virtual HRESULT STDMETHODCALLTYPE unused1() { return E_NOTIMPL; }
 
-    virtual HRESULT STDMETHODCALLTYPE webViewSendResizeMessage( 
-        /* [in] */ UINT uMsg,
-        /* [in] */ WPARAM wParam,
-        /* [in] */ LPARAM lParam) { return E_NOTIMPL; }
+    virtual HRESULT STDMETHODCALLTYPE unused2() { return E_NOTIMPL; }
     
-    virtual HRESULT STDMETHODCALLTYPE webViewDrawResizer( 
-        /* [in] */ IWebView *sender,
-        /* [in] */ HDC dc,
-        /* [in] */ BOOL overlapsContent,
-        /* [in] */ RECT *rect) { return E_NOTIMPL; }
+    virtual HRESULT STDMETHODCALLTYPE unused3() { return E_NOTIMPL; }
     
     virtual HRESULT STDMETHODCALLTYPE webViewScrolled( 
         /* [in] */ IWebView *sender) { return E_NOTIMPL; }
@@ -399,11 +392,16 @@ protected:
     virtual HRESULT STDMETHODCALLTYPE webViewDidInvalidate( 
         /* [in] */ IWebView *sender);
 
+    virtual HRESULT STDMETHODCALLTYPE desktopNotificationsDelegate(
+        /* [out] */ IWebDesktopNotificationsDelegate** result);
+
     ULONG                   m_refCount;
 
 private:
     RECT m_frame;
     OwnPtr<DRTUndoManager> m_undoManager;
+
+    COMPtr<IWebDesktopNotificationsDelegate> m_desktopNotifications;
 };
 
 #endif

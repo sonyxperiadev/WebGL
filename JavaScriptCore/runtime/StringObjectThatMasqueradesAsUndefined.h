@@ -37,14 +37,14 @@ namespace JSC {
         }
 
     private:
-        StringObjectThatMasqueradesAsUndefined(ExecState* exec, PassRefPtr<Structure> structure, const UString& string)
+        StringObjectThatMasqueradesAsUndefined(ExecState* exec, NonNullPassRefPtr<Structure> structure, const UString& string)
             : StringObject(exec, structure, string)
         {
         }
 
         static PassRefPtr<Structure> createStructure(JSValue proto) 
         { 
-            return Structure::create(proto, TypeInfo(ObjectType, MasqueradesAsUndefined)); 
+            return Structure::create(proto, TypeInfo(ObjectType, MasqueradesAsUndefined | HasDefaultMark)); 
         }
 
         virtual bool toBoolean(ExecState*) const { return false; }

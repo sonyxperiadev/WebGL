@@ -45,6 +45,7 @@
 #include <QUrl>
 #include <QFocusEvent>
 #include <QFontDatabase>
+#include <QNetworkRequest>
 
 #include <qwebpage.h>
 #include <qwebframe.h>
@@ -83,8 +84,13 @@ public:
     bool javaScriptConfirm(QWebFrame *frame, const QString& msg);
     bool javaScriptPrompt(QWebFrame *frame, const QString& msg, const QString& defaultValue, QString* result);
 
+    void resetSettings();
+
 public slots:
     bool shouldInterruptJavaScript() { return false; }
+
+protected:
+    bool acceptNavigationRequest(QWebFrame* frame, const QNetworkRequest& request, NavigationType type);
 
 private slots:
     void setViewGeometry(const QRect &r)
@@ -100,19 +106,40 @@ private:
 WebPage::WebPage(QWidget *parent, DumpRenderTree *drt)
     : QWebPage(parent), m_drt(drt)
 {
-    settings()->setFontSize(QWebSettings::MinimumFontSize, 5);
-    settings()->setFontSize(QWebSettings::MinimumLogicalFontSize, 5);
-    // To get DRT compliant to some layout tests lets set the default fontsize to 13.
-    settings()->setFontSize(QWebSettings::DefaultFontSize, 13);
-    settings()->setFontSize(QWebSettings::DefaultFixedFontSize, 13);
-    settings()->setAttribute(QWebSettings::JavascriptCanOpenWindows, true);
-    settings()->setAttribute(QWebSettings::JavascriptCanAccessClipboard, true);
-    settings()->setAttribute(QWebSettings::LinksIncludedInFocusChain, false);
-    settings()->setAttribute(QWebSettings::PluginsEnabled, true);
+    QWebSettings* globalSettings = QWebSettings::globalSettings();
+
+    globalSettings->setFontSize(QWebSettings::MinimumFontSize, 5);
+    globalSettings->setFontSize(QWebSettings::MinimumLogicalFontSize, 5);
+    globalSettings->setFontSize(QWebSettings::DefaultFontSize, 16);
+    globalSettings->setFontSize(QWebSettings::DefaultFixedFontSize, 13);
+
+    globalSettings->setAttribute(QWebSettings::JavascriptCanOpenWindows, true);
+    globalSettings->setAttribute(QWebSettings::JavascriptCanAccessClipboard, true);
+    globalSettings->setAttribute(QWebSettings::LinksIncludedInFocusChain, false);
+    globalSettings->setAttribute(QWebSettings::PluginsEnabled, true);
+    globalSettings->setAttribute(QWebSettings::LocalContentCanAccessRemoteUrls, true);
+    globalSettings->setAttribute(QWebSettings::JavascriptEnabled, true);
+    globalSettings->setAttribute(QWebSettings::PrivateBrowsingEnabled, false);
+    globalSettings->setAttribute(QWebSettings::OfflineWebApplicationCacheEnabled, false);
+
     connect(this, SIGNAL(geometryChangeRequested(const QRect &)),
             this, SLOT(setViewGeometry(const QRect & )));
 
     setPluginFactory(new TestPlugin(this));
+}
+
+void WebPage::resetSettings()
+{
+    // After each layout test, reset the settings that may have been changed by
+    // layoutTestController.overridePreference() or similar.
+
+    settings()->resetFontSize(QWebSettings::DefaultFontSize);
+
+    settings()->resetAttribute(QWebSettings::JavascriptCanOpenWindows);
+    settings()->resetAttribute(QWebSettings::JavascriptEnabled);
+    settings()->resetAttribute(QWebSettings::PrivateBrowsingEnabled);
+    settings()->resetAttribute(QWebSettings::LinksIncludedInFocusChain);
+    settings()->resetAttribute(QWebSettings::OfflineWebApplicationCacheEnabled);
 }
 
 QWebPage *WebPage::createWindow(QWebPage::WebWindowType)
@@ -143,12 +170,49 @@ bool WebPage::javaScriptPrompt(QWebFrame*, const QString& msg, const QString& de
     return true;
 }
 
+bool WebPage::acceptNavigationRequest(QWebFrame* frame, const QNetworkRequest& request, NavigationType type)
+{
+    if (m_drt->layoutTestController()->waitForPolicy()) {
+        QString url = QString::fromUtf8(request.url().toEncoded());
+        QString typeDescription;
+
+        switch (type) {
+        case NavigationTypeLinkClicked:
+            typeDescription = "link clicked";
+            break;
+        case NavigationTypeFormSubmitted:
+            typeDescription = "form submitted";
+            break;
+        case NavigationTypeBackOrForward:
+            typeDescription = "back/forward";
+            break;
+        case NavigationTypeReload:
+            typeDescription = "reload";
+            break;
+        case NavigationTypeFormResubmitted:
+            typeDescription = "form resubmitted";
+            break;
+        case NavigationTypeOther:
+            typeDescription = "other";
+            break;
+        default:
+            typeDescription = "illegal value";
+        }
+
+        fprintf(stdout, "Policy delegate: attempt to load %s with navigation type '%s'\n",
+                url.toUtf8().constData(), typeDescription.toUtf8().constData());
+        m_drt->layoutTestController()->notifyDone();
+    }
+    return QWebPage::acceptNavigationRequest(frame, request, type);
+}
+
 DumpRenderTree::DumpRenderTree()
     : m_dumpPixels(false)
     , m_stdin(0)
     , m_notifier(0)
 {
     qt_drt_overwritePluginDirectories();
+    QWebSettings::enablePersistentStorage();
 
     m_controller = new LayoutTestController(this);
     connect(m_controller, SIGNAL(done()), this, SLOT(dump()));
@@ -168,6 +232,8 @@ DumpRenderTree::DumpRenderTree()
             SLOT(titleChanged(const QString&)));
     connect(m_page, SIGNAL(databaseQuotaExceeded(QWebFrame*,QString)),
             this, SLOT(dumpDatabaseQuota(QWebFrame*,QString)));
+    connect(m_page, SIGNAL(statusBarMessage(const QString&)),
+            this, SLOT(statusBarMessage(const QString&)));
 
     m_eventSender = new EventSender(m_page);
     m_textInputController = new TextInputController(m_page);
@@ -210,6 +276,8 @@ void DumpRenderTree::resetToConsistentStateBeforeTesting()
     m_page->blockSignals(false);
 
     m_page->mainFrame()->setZoomFactor(1.0);
+
+    static_cast<WebPage*>(m_page)->resetSettings();
     qt_drt_clearFrameName(m_page->mainFrame());
 
     WorkQueue::shared()->clear();
@@ -217,6 +285,9 @@ void DumpRenderTree::resetToConsistentStateBeforeTesting()
     //WorkQueue::shared()->setFrozen(false);
 
     m_controller->reset();
+    QWebSecurityOrigin::resetOriginAccessWhiteLists();
+
+    setlocale(LC_ALL, "");
 }
 
 void DumpRenderTree::open(const QUrl& aurl)
@@ -461,6 +532,14 @@ void DumpRenderTree::dumpDatabaseQuota(QWebFrame* frame, const QString& dbName)
            origin.port(),
            dbName.toUtf8().data());
     origin.setDatabaseQuota(5 * 1024 * 1024);
+}
+
+void DumpRenderTree::statusBarMessage(const QString& message)
+{
+    if (!m_controller->shouldDumpStatusCallbacks())
+        return;
+
+    printf("UI DELEGATE STATUS CALLBACK: setStatusText:%s\n", message.toUtf8().constData());
 }
 
 QWebPage *DumpRenderTree::createWindow()

@@ -32,13 +32,19 @@
 #include <WebCore/COMPtr.h>
 #include <WebKit/WebKit.h>
 #include <oleacc.h>
+#include <string>
+
+using namespace std;
 
 AccessibilityController::AccessibilityController()
+    : m_focusEventHook(0)
+    , m_scrollingStartEventHook(0)
 {
 }
 
 AccessibilityController::~AccessibilityController()
 {
+    setLogFocusEvents(false);
 }
 
 AccessibilityUIElement AccessibilityController::focusedElement()
@@ -81,4 +87,77 @@ AccessibilityUIElement AccessibilityController::rootElement()
         return 0;
 
     return rootAccessible;
+}
+
+static void CALLBACK logEventProc(HWINEVENTHOOK hWinEventHook, DWORD event, HWND hwnd, LONG idObject, LONG idChild, DWORD, DWORD)
+{
+    // Get the accessible object for this event.
+    COMPtr<IAccessible> parentObject;
+
+    VARIANT vChild;
+    VariantInit(&vChild);
+
+    HRESULT hr = AccessibleObjectFromEvent(hwnd, idObject, idChild, &parentObject, &vChild);
+    ASSERT(SUCCEEDED(hr));
+
+    // Get the name of the focused element, and log it to stdout.
+    BSTR nameBSTR;
+    hr = parentObject->get_accName(vChild, &nameBSTR);
+    ASSERT(SUCCEEDED(hr));
+    wstring name(nameBSTR, ::SysStringLen(nameBSTR));
+    SysFreeString(nameBSTR);
+
+    switch (event) {
+        case EVENT_OBJECT_FOCUS:
+            printf("Received focus event for object '%S'.\n", name.c_str());
+            break;
+
+        case EVENT_SYSTEM_SCROLLINGSTART:
+            printf("Received scrolling start event for object '%S'.\n", name.c_str());
+            break;
+
+        default:
+            printf("Received unknown event for object '%S'.\n", name.c_str());
+            break;
+    }
+}
+
+void AccessibilityController::setLogFocusEvents(bool logFocusEvents)
+{
+    if (!!m_focusEventHook == logFocusEvents)
+        return;
+
+    if (!logFocusEvents) {
+        UnhookWinEvent(m_focusEventHook);
+        m_focusEventHook = 0;
+        return;
+    }
+
+    // Ensure that accessibility is initialized for the WebView by querying for
+    // the root accessible object.
+    rootElement();
+
+    m_focusEventHook = SetWinEventHook(EVENT_OBJECT_FOCUS, EVENT_OBJECT_FOCUS, GetModuleHandle(0), logEventProc, GetCurrentProcessId(), 0, WINEVENT_INCONTEXT);
+
+    ASSERT(m_focusEventHook);
+}
+
+void AccessibilityController::setLogScrollingStartEvents(bool logScrollingStartEvents)
+{
+    if (!!m_scrollingStartEventHook == logScrollingStartEvents)
+        return;
+
+    if (!logScrollingStartEvents) {
+        UnhookWinEvent(m_scrollingStartEventHook);
+        m_scrollingStartEventHook = 0;
+        return;
+    }
+
+    // Ensure that accessibility is initialized for the WebView by querying for
+    // the root accessible object.
+    rootElement();
+
+    m_scrollingStartEventHook = SetWinEventHook(EVENT_SYSTEM_SCROLLINGSTART, EVENT_SYSTEM_SCROLLINGSTART, GetModuleHandle(0), logEventProc, GetCurrentProcessId(), 0, WINEVENT_INCONTEXT);
+
+    ASSERT(m_scrollingStartEventHook);
 }

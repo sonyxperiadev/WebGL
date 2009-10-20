@@ -420,7 +420,7 @@ static void appendStartMarkup(Vector<UChar>& result, const Node* node, const Ran
         case Node::COMMENT_NODE:
             // FIXME: Comment content is not escaped, but XMLSerializer (and possibly other callers) should raise an exception if it includes "-->".
             append(result, "<!--");
-            append(result, static_cast<const Comment*>(node)->nodeValue());
+            append(result, static_cast<const Comment*>(node)->data());
             append(result, "-->");
             break;
         case Node::DOCUMENT_NODE:
@@ -645,7 +645,7 @@ static void completeURLs(Node* node, const String& baseURL)
 {
     Vector<AttributeChange> changes;
 
-    KURL parsedBaseURL(baseURL);
+    KURL parsedBaseURL(ParsedURLString, baseURL);
 
     Node* end = node->traverseNextSibling();
     for (Node* n = node; n != end; n = n->traverseNextNode()) {
@@ -983,8 +983,16 @@ String createMarkup(const Range* range, Vector<Node*>* nodes, EAnnotateForInterc
                 if (!fullySelectedRootStyle->getPropertyCSSValue(CSSPropertyBackgroundImage) && static_cast<Element*>(fullySelectedRoot)->hasAttribute(backgroundAttr))
                     fullySelectedRootStyle->setProperty(CSSPropertyBackgroundImage, "url('" + static_cast<Element*>(fullySelectedRoot)->getAttribute(backgroundAttr) + "')");
                 
-                if (fullySelectedRootStyle->length())
+                if (fullySelectedRootStyle->length()) {
+                    // Reset the CSS properties to avoid an assertion error in addStyleMarkup().
+                    // This assertion is caused at least when we select all text of a <body> element whose
+                    // 'text-decoration' property is "inherit", and copy it.
+                    if (!propertyMissingOrEqualToNone(fullySelectedRootStyle.get(), CSSPropertyTextDecoration))
+                        fullySelectedRootStyle->setProperty(CSSPropertyTextDecoration, CSSValueNone);
+                    if (!propertyMissingOrEqualToNone(fullySelectedRootStyle.get(), CSSPropertyWebkitTextDecorationsInEffect))
+                        fullySelectedRootStyle->setProperty(CSSPropertyWebkitTextDecorationsInEffect, CSSValueNone);
                     addStyleMarkup(preMarkups, markups, fullySelectedRootStyle.get(), document, true);
+                }
             } else {
                 // Since this node and all the other ancestors are not in the selection we want to set RangeFullySelectsNode to DoesNotFullySelectNode
                 // so that styles that affect the exterior of the node are not included.

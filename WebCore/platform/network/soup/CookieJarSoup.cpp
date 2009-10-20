@@ -21,6 +21,7 @@
 #include "config.h"
 #include "CookieJarSoup.h"
 
+#include "Cookie.h"
 #include "CString.h"
 #include "Document.h"
 #include "KURL.h"
@@ -84,6 +85,18 @@ String cookies(const Document* /*document*/, const KURL& url)
 bool cookiesEnabled(const Document* /*document*/)
 {
     return defaultCookieJar();
+}
+
+bool getRawCookies(const Document*, const KURL&, Vector<Cookie>& rawCookies)
+{
+    // FIXME: Not yet implemented
+    rawCookies.clear();
+    return false; // return true when implemented
+}
+
+void deleteCookie(const Document*, const KURL&, const String&)
+{
+    // FIXME: Not yet implemented
 }
 
 }

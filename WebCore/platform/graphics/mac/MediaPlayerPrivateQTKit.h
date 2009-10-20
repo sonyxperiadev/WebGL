@@ -77,8 +77,12 @@ private:
     static MediaPlayer::SupportsType supportsType(const String& type, const String& codecs);
     static bool isAvailable();
 
+    PlatformMedia platformMedia() const;
+
     IntSize naturalSize() const;
     bool hasVideo() const;
+    bool hasAudio() const;
+    bool supportsFullscreen() const;
     
     void load(const String& url);
     void cancelLoad();
@@ -104,7 +108,7 @@ private:
     MediaPlayer::NetworkState networkState() const { return m_networkState; }
     MediaPlayer::ReadyState readyState() const { return m_readyState; }
     
-    float maxTimeBuffered() const;
+    PassRefPtr<TimeRanges> buffered() const;
     float maxTimeSeekable() const;
     unsigned bytesLoaded() const;
     bool totalBytesKnown() const;

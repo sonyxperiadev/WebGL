@@ -96,11 +96,11 @@ namespace JSC {
         };
         Statistics statistics() const;
 
-        void setGCProtectNeedsLocking();
         void protect(JSValue);
         void unprotect(JSValue);
 
         static Heap* heap(JSValue); // 0 for immediate values
+        static Heap* heap(JSCell*);
 
         size_t globalObjectCount();
         size_t protectedObjectCount();
@@ -133,6 +133,11 @@ namespace JSC {
         Heap(JSGlobalData*);
         ~Heap();
 
+        template <HeapType heapType> NEVER_INLINE CollectorBlock* allocateBlock();
+        template <HeapType heapType> NEVER_INLINE void freeBlock(size_t);
+        NEVER_INLINE void freeBlock(CollectorBlock*);
+        void freeBlocks(CollectorHeap*);
+
         void recordExtraCost(size_t);
         void markProtectedObjects(MarkStack&);
         void markCurrentThreadConservatively(MarkStack&);
@@ -145,7 +150,6 @@ namespace JSC {
         CollectorHeap primaryHeap;
         CollectorHeap numberHeap;
 
-        OwnPtr<Mutex> m_protectedValuesMutex; // Only non-null if the client explicitly requested it via setGCPrtotectNeedsLocking().
         ProtectCountSet m_protectedValues;
 
         HashSet<MarkedArgumentBuffer*>* m_markListSet;
@@ -175,7 +179,11 @@ namespace JSC {
 #endif
     template<> struct CellSize<sizeof(uint64_t)> { static const size_t m_value = 64; };
 
-    const size_t BLOCK_SIZE = 16 * 4096; // 64k
+#if PLATFORM(WINCE) || PLATFORM(SYMBIAN)
+    const size_t BLOCK_SIZE = 64 * 1024; // 64k
+#else
+    const size_t BLOCK_SIZE = 64 * 4096; // 256k
+#endif
 
     // derived constants
     const size_t BLOCK_OFFSET_MASK = BLOCK_SIZE - 1;

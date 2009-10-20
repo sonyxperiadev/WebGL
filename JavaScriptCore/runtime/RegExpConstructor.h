@@ -32,15 +32,16 @@ namespace JSC {
 
     class RegExpConstructor : public InternalFunction {
     public:
-        RegExpConstructor(ExecState*, PassRefPtr<Structure>, RegExpPrototype*);
+        RegExpConstructor(ExecState*, NonNullPassRefPtr<Structure>, RegExpPrototype*);
 
         static PassRefPtr<Structure> createStructure(JSValue prototype)
         {
-            return Structure::create(prototype, TypeInfo(ObjectType, ImplementsHasInstance));
+            return Structure::create(prototype, TypeInfo(ObjectType, ImplementsHasInstance | HasDefaultMark | HasDefaultGetPropertyNames));
         }
 
         virtual void put(ExecState*, const Identifier& propertyName, JSValue, PutPropertySlot&);
         virtual bool getOwnPropertySlot(ExecState*, const Identifier& propertyName, PropertySlot&);
+        virtual bool getOwnPropertyDescriptor(ExecState*, const Identifier&, PropertyDescriptor&);
 
         static const ClassInfo info;
 

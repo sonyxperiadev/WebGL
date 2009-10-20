@@ -65,6 +65,35 @@ namespace WebCore {
 extern WXDLLIMPEXP_WEBKIT const wxChar* wxWebViewNameStr;
 #endif
 
+static const int defaultCacheCapacity = 8192 * 1024; // mirrors Cache.cpp
+
+class WXDLLIMPEXP_WEBKIT wxWebViewCachePolicy
+{
+public:
+    wxWebViewCachePolicy(unsigned minDead = 0, unsigned maxDead = defaultCacheCapacity, unsigned totalCapacity = defaultCacheCapacity)
+        : m_minDeadCapacity(minDead)
+        , m_maxDeadCapacity(maxDead)
+        , m_capacity(totalCapacity)
+    {}
+
+    ~wxWebViewCachePolicy() {}
+
+    unsigned GetCapacity() const { return m_capacity; }
+    void SetCapacity(int capacity) { m_capacity = capacity; }
+
+    unsigned GetMinDeadCapacity() const { return m_minDeadCapacity; }
+    void SetMinDeadCapacity(unsigned minDeadCapacity) { m_minDeadCapacity = minDeadCapacity; }
+
+    unsigned GetMaxDeadCapacity() const { return m_maxDeadCapacity; }
+    void SetMaxDeadCapacity(unsigned maxDeadCapacity) { m_maxDeadCapacity = maxDeadCapacity; }
+
+protected:
+    unsigned m_capacity;
+    unsigned m_minDeadCapacity;
+    unsigned m_maxDeadCapacity;
+};
+
+
 // copied from WebKit/mac/Misc/WebKitErrors[Private].h
 enum {
     WebKitErrorCannotShowMIMEType =                             100,
@@ -159,6 +188,11 @@ public:
     wxWebFrame* GetMainFrame() { return m_mainFrame; }
 
     wxWebViewDOMElementInfo HitTest(const wxPoint& pos) const;
+    
+    bool ShouldClose() const;
+      
+    static void SetCachePolicy(const wxWebViewCachePolicy& cachePolicy);
+    static wxWebViewCachePolicy GetCachePolicy();
 
 protected:
 
@@ -171,7 +205,6 @@ protected:
     void OnKeyEvents(wxKeyEvent& event);
     void OnSetFocus(wxFocusEvent& event);
     void OnKillFocus(wxFocusEvent& event);
-    void OnActivate(wxActivateEvent& event);
     
 private:
     // any class wishing to process wxWindows events must use this macro
@@ -299,6 +332,14 @@ private:
     wxPoint m_position;
 };
 
+// copied from page/Console.h
+enum wxWebViewConsoleMessageLevel {
+    TipMessageLevel,
+    LogMessageLevel,
+    WarningMessageLevel,
+    ErrorMessageLevel
+};
+
 class WXDLLIMPEXP_WEBKIT wxWebViewConsoleMessageEvent : public wxCommandEvent
 {
 #ifndef SWIG
@@ -318,10 +359,14 @@ public:
     wxWebViewConsoleMessageEvent( wxWindow* win = (wxWindow*) NULL );
     wxEvent *Clone(void) const { return new wxWebViewConsoleMessageEvent(*this); }
 
+    wxWebViewConsoleMessageLevel GetLevel() const { return m_level; }
+    void SetLevel(wxWebViewConsoleMessageLevel level) { m_level = level; }
+
 private:
     unsigned int m_lineNumber;
     wxString m_message;
     wxString m_sourceID;
+    wxWebViewConsoleMessageLevel m_level;
 };
 
 class WXDLLIMPEXP_WEBKIT wxWebViewAlertEvent : public wxCommandEvent

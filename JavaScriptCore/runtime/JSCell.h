@@ -23,11 +23,12 @@
 #ifndef JSCell_h
 #define JSCell_h
 
-#include <wtf/Noncopyable.h>
-#include "Structure.h"
-#include "JSValue.h"
-#include "JSImmediate.h"
 #include "Collector.h"
+#include "JSImmediate.h"
+#include "JSValue.h"
+#include "MarkStack.h"
+#include "Structure.h"
+#include <wtf/Noncopyable.h>
 
 namespace JSC {
 
@@ -45,6 +46,7 @@ namespace JSC {
 
     private:
         explicit JSCell(Structure*);
+        JSCell(); // Only used for initializing Collector blocks.
         virtual ~JSCell();
 
     public:
@@ -55,7 +57,7 @@ namespace JSC {
         bool isString() const;
         bool isObject() const;
         virtual bool isGetterSetter() const;
-        virtual bool isObject(const ClassInfo*) const;
+        bool inherits(const ClassInfo*) const;
         virtual bool isAPIValueWrapper() const { return false; }
 
         Structure* structure() const;
@@ -74,21 +76,19 @@ namespace JSC {
         virtual bool getUInt32(uint32_t&) const;
 
         // Basic conversions.
-        virtual JSValue toPrimitive(ExecState*, PreferredPrimitiveType) const = 0;
-        virtual bool getPrimitiveNumber(ExecState*, double& number, JSValue&) = 0;
-        virtual bool toBoolean(ExecState*) const = 0;
-        virtual double toNumber(ExecState*) const = 0;
-        virtual UString toString(ExecState*) const = 0;
-        virtual JSObject* toObject(ExecState*) const = 0;
+        virtual JSValue toPrimitive(ExecState*, PreferredPrimitiveType) const;
+        virtual bool getPrimitiveNumber(ExecState*, double& number, JSValue&);
+        virtual bool toBoolean(ExecState*) const;
+        virtual double toNumber(ExecState*) const;
+        virtual UString toString(ExecState*) const;
+        virtual JSObject* toObject(ExecState*) const;
 
         // Garbage collection.
         void* operator new(size_t, ExecState*);
         void* operator new(size_t, JSGlobalData*);
         void* operator new(size_t, void* placementNewDestination) { return placementNewDestination; }
 
-        void markCellDirect();
         virtual void markChildren(MarkStack&);
-        bool marked() const;
 
         // Object operations, with the toObject operation included.
         virtual const ClassInfo* classInfo() const;
@@ -112,6 +112,7 @@ namespace JSC {
         Structure* m_structure;
     };
 
+    // FIXME: We should deprecate this and just use JSValue::asCell() instead.
     JSCell* asCell(JSValue);
 
     inline JSCell* asCell(JSValue value)
@@ -121,6 +122,11 @@ namespace JSC {
 
     inline JSCell::JSCell(Structure* structure)
         : m_structure(structure)
+    {
+    }
+
+    // Only used for initializing Collector blocks.
+    inline JSCell::JSCell()
     {
     }
 
@@ -150,19 +156,8 @@ namespace JSC {
         return m_structure;
     }
 
-    inline bool JSCell::marked() const
-    {
-        return Heap::isCellMarked(this);
-    }
-
-    inline void JSCell::markCellDirect()
-    {
-        Heap::markCell(this);
-    }
-
     inline void JSCell::markChildren(MarkStack&)
     {
-        ASSERT(marked());
     }
 
     inline void* JSCell::operator new(size_t size, JSGlobalData* globalData)
@@ -229,23 +224,6 @@ namespace JSC {
             return v == d;
         }
         return false;
-    }
-
-    inline void JSValue::markDirect()
-    {
-        ASSERT(!marked());
-        asCell()->markCellDirect();
-    }
-
-    inline void JSValue::markChildren(MarkStack& markStack)
-    {
-        ASSERT(marked());
-        asCell()->markChildren(markStack);
-    }
-
-    inline bool JSValue::marked() const
-    {
-        return !isCell() || asCell()->marked();
     }
 
 #if !USE(JSVALUE32_64)
@@ -315,24 +293,6 @@ namespace JSC {
         return isUndefined() ? nonInlineNaN() : 0; // null and false both convert to 0.
     }
 
-    inline UString JSValue::toString(ExecState* exec) const
-    {
-        if (isCell())
-            return asCell()->toString(exec);
-        if (isInt32())
-            return UString::from(asInt32());
-        if (isDouble())
-            return asDouble() == 0.0 ? "0" : UString::from(asDouble());
-        if (isTrue())
-            return "true";
-        if (isFalse())
-            return "false";
-        if (isNull())
-            return "null";
-        ASSERT(isUndefined());
-        return "undefined";
-    }
-
     inline bool JSValue::needsThisConversion() const
     {
         if (UNLIKELY(!isCell()))
@@ -353,12 +313,6 @@ namespace JSC {
             return asCell()->getJSNumber();
         return JSValue();
     }
-    
-    inline bool JSValue::hasChildren() const
-    {
-        return asCell()->structure()->typeInfo().type() >= CompoundType;
-    }
-    
 
     inline JSObject* JSValue::toObject(ExecState* exec) const
     {
@@ -372,37 +326,39 @@ namespace JSC {
 
     ALWAYS_INLINE void MarkStack::append(JSCell* cell)
     {
+        ASSERT(!m_isCheckingForDefaultMarkViolation);
         ASSERT(cell);
-        if (cell->marked())
+        if (Heap::isCellMarked(cell))
             return;
-        cell->markCellDirect();
+        Heap::markCell(cell);
         if (cell->structure()->typeInfo().type() >= CompoundType)
             m_values.append(cell);
     }
 
-    inline void MarkStack::drain() {
-        while (!m_markSets.isEmpty() || !m_values.isEmpty()) {
-            while ((!m_markSets.isEmpty()) && m_values.size() < 50) {
-                const MarkSet& current = m_markSets.removeLast();
-                JSValue* ptr = current.m_values;
-                JSValue* end = current.m_end;
-                if (current.m_properties == NoNullValues) {
-                    while (ptr != end)
-                        append(*ptr++);
-                } else {
-                    while (ptr != end) {
-                        if (JSValue value = *ptr++)
-                            append(value);
-                    }
-                }
-            }
-            while (!m_values.isEmpty()) {
-                JSCell* current = m_values.removeLast();
-                ASSERT(current->marked());
-                current->markChildren(*this);
-            }
-        }
+    ALWAYS_INLINE void MarkStack::append(JSValue value)
+    {
+        ASSERT(value);
+        if (value.isCell())
+            append(value.asCell());
     }
+
+    inline void Structure::markAggregate(MarkStack& markStack)
+    {
+        markStack.append(m_prototype);
+    }
+
+    inline Heap* Heap::heap(JSValue v)
+    {
+        if (!v.isCell())
+            return 0;
+        return heap(v.asCell());
+    }
+
+    inline Heap* Heap::heap(JSCell* c)
+    {
+        return cellBlock(c)->heap;
+    }
+
 } // namespace JSC
 
 #endif // JSCell_h

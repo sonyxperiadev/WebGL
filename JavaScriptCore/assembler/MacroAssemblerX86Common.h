@@ -64,7 +64,7 @@ public:
         DoubleLessThanOrEqual = X86Assembler::ConditionBE,
     };
 
-    static const RegisterID stackPointerRegister = X86::esp;
+    static const RegisterID stackPointerRegister = X86Registers::esp;
 
     // Integer arithmetic operations:
     //
@@ -132,20 +132,20 @@ public:
     {
         // On x86 we can only shift by ecx; if asked to shift by another register we'll
         // need rejig the shift amount into ecx first, and restore the registers afterwards.
-        if (shift_amount != X86::ecx) {
-            swap(shift_amount, X86::ecx);
+        if (shift_amount != X86Registers::ecx) {
+            swap(shift_amount, X86Registers::ecx);
 
             // E.g. transform "shll %eax, %eax" -> "xchgl %eax, %ecx; shll %ecx, %ecx; xchgl %eax, %ecx"
             if (dest == shift_amount)
-                m_assembler.shll_CLr(X86::ecx);
+                m_assembler.shll_CLr(X86Registers::ecx);
             // E.g. transform "shll %eax, %ecx" -> "xchgl %eax, %ecx; shll %ecx, %eax; xchgl %eax, %ecx"
-            else if (dest == X86::ecx)
+            else if (dest == X86Registers::ecx)
                 m_assembler.shll_CLr(shift_amount);
             // E.g. transform "shll %eax, %ebx" -> "xchgl %eax, %ecx; shll %ecx, %ebx; xchgl %eax, %ecx"
             else
                 m_assembler.shll_CLr(dest);
         
-            swap(shift_amount, X86::ecx);
+            swap(shift_amount, X86Registers::ecx);
         } else
             m_assembler.shll_CLr(dest);
     }
@@ -214,20 +214,20 @@ public:
     {
         // On x86 we can only shift by ecx; if asked to shift by another register we'll
         // need rejig the shift amount into ecx first, and restore the registers afterwards.
-        if (shift_amount != X86::ecx) {
-            swap(shift_amount, X86::ecx);
+        if (shift_amount != X86Registers::ecx) {
+            swap(shift_amount, X86Registers::ecx);
 
             // E.g. transform "shll %eax, %eax" -> "xchgl %eax, %ecx; shll %ecx, %ecx; xchgl %eax, %ecx"
             if (dest == shift_amount)
-                m_assembler.sarl_CLr(X86::ecx);
+                m_assembler.sarl_CLr(X86Registers::ecx);
             // E.g. transform "shll %eax, %ecx" -> "xchgl %eax, %ecx; shll %ecx, %eax; xchgl %eax, %ecx"
-            else if (dest == X86::ecx)
+            else if (dest == X86Registers::ecx)
                 m_assembler.sarl_CLr(shift_amount);
             // E.g. transform "shll %eax, %ebx" -> "xchgl %eax, %ecx; shll %ecx, %ebx; xchgl %eax, %ecx"
             else
                 m_assembler.sarl_CLr(dest);
         
-            swap(shift_amount, X86::ecx);
+            swap(shift_amount, X86Registers::ecx);
         } else
             m_assembler.sarl_CLr(dest);
     }
@@ -304,6 +304,11 @@ public:
     void load32(BaseIndex address, RegisterID dest)
     {
         m_assembler.movl_mr(address.offset, address.base, address.index, address.scale, dest);
+    }
+
+    void load32WithUnalignedHalfWords(BaseIndex address, RegisterID dest)
+    {
+        load32(address, dest);
     }
 
     DataLabel32 load32WithAddressOffsetPatch(Address address, RegisterID dest)
@@ -499,10 +504,7 @@ public:
 
     void move(ImmPtr imm, RegisterID dest)
     {
-        if (CAN_SIGN_EXTEND_U32_64(imm.asIntptr()))
-            m_assembler.movl_i32r(static_cast<int32_t>(imm.asIntptr()), dest);
-        else
-            m_assembler.movq_i64r(imm.asIntptr(), dest);
+        m_assembler.movq_i64r(imm.asIntptr(), dest);
     }
 
     void swap(RegisterID reg1, RegisterID reg2)
@@ -605,6 +607,11 @@ public:
     {
         m_assembler.cmpl_im(right.m_value, left.offset, left.base, left.index, left.scale);
         return Jump(m_assembler.jCC(x86Condition(cond)));
+    }
+
+    Jump branch32WithUnalignedHalfWords(Condition cond, BaseIndex left, Imm32 right)
+    {
+        return branch32(cond, left, right);
     }
 
     Jump branch16(Condition cond, BaseIndex left, RegisterID right)

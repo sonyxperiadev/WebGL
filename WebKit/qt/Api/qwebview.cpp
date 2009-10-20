@@ -20,6 +20,8 @@
 
 #include "config.h"
 #include "qwebview.h"
+
+#include "QWebPageClient.h"
 #include "qwebframe.h"
 #include "qwebpage_p.h"
 
@@ -29,46 +31,91 @@
 #include "qprinter.h"
 #include "qdir.h"
 #include "qfile.h"
+#if defined(Q_WS_X11)
+#include <QX11Info>
+#endif
 
-class QWebViewPrivate {
+class QWebViewPrivate : public QWebPageClient {
 public:
     QWebViewPrivate(QWebView *view)
         : view(view)
         , page(0)
         , renderHints(QPainter::TextAntialiasing)
+    {
+        Q_ASSERT(view);
+    }
+
+    virtual void scroll(int dx, int dy, const QRect&);
+    virtual void update(const QRect& dirtyRect);
+
 #ifndef QT_NO_CURSOR
-        , cursorSetByWebCore(false)
-        , usesWebCoreCursor(true)
+    virtual QCursor cursor() const;
+    virtual void updateCursor(const QCursor& cursor);
 #endif
-    {}
+
+    virtual int screenNumber() const;
+    virtual WId winId() const;
+
+    virtual QObject* pluginParent() const;
+
+    void _q_pageDestroyed();
 
     QWebView *view;
     QWebPage *page;
 
     QPainter::RenderHints renderHints;
+};
+
+void QWebViewPrivate::scroll(int dx, int dy, const QRect& rectToScroll)
+{
+    view->scroll(qreal(dx), qreal(dy), rectToScroll);
+}
+
+void QWebViewPrivate::update(const QRect & dirtyRect)
+{
+    view->update(dirtyRect);
+}
 
 #ifndef QT_NO_CURSOR
-    /*
-     * We keep track of if we have called setCursor and if the CursorChange
-     * event is sent due our setCursor call and if we currently use the WebCore
-     * Cursor and use it to decide if we can update to another WebCore Cursor.
-     */
-    bool cursorSetByWebCore;
-    bool usesWebCoreCursor;
+QCursor QWebViewPrivate::cursor() const
+{
+    return view->cursor();
+}
 
-    void setCursor(const QCursor& newCursor)
-    {
-        webCoreCursor = newCursor;
-
-        if (usesWebCoreCursor) {
-            cursorSetByWebCore = true;
-            view->setCursor(webCoreCursor);
-        }
-    }
-
-    QCursor webCoreCursor;
+void QWebViewPrivate::updateCursor(const QCursor& cursor)
+{
+    view->setCursor(cursor);
+}
 #endif
-};
+
+int QWebViewPrivate::screenNumber() const
+{
+#if defined(Q_WS_X11)
+    if (view)
+        return view->x11Info().screen();
+#endif
+
+    return 0;
+}
+
+WId QWebViewPrivate::winId() const
+{
+    if (view)
+        return view->winId();
+
+    return 0;
+}
+
+QObject* QWebViewPrivate::pluginParent() const
+{
+    return view;
+}
+
+void QWebViewPrivate::_q_pageDestroyed()
+{
+    page = 0;
+    view->setPage(0);
+}
 
 /*!
     \class QWebView
@@ -76,6 +123,8 @@ public:
     \brief The QWebView class provides a widget that is used to view and edit
     web documents.
     \ingroup advanced
+
+    \inmodule QtWebKit
 
     QWebView is the main widget component of the QtWebKit web browsing module.
     It can be used in various applications to display web content live from the
@@ -160,7 +209,7 @@ QWebView::QWebView(QWidget *parent)
 {
     d = new QWebViewPrivate(this);
 
-#if !defined(Q_WS_QWS)
+#if !defined(Q_WS_QWS) && !defined(Q_OS_SYMBIAN)
     setAttribute(Qt::WA_InputMethodEnabled);
 #endif
 
@@ -211,6 +260,7 @@ void QWebView::setPage(QWebPage* page)
     if (d->page == page)
         return;
     if (d->page) {
+        d->page->d->client = 0; // unset the page client
         if (d->page->parent() == this)
             delete d->page;
         else
@@ -219,6 +269,7 @@ void QWebView::setPage(QWebPage* page)
     d->page = page;
     if (d->page) {
         d->page->setView(this);
+        d->page->d->client = d; // set the page client
         d->page->setPalette(palette());
         // #### connect signals
         QWebFrame *mainFrame = d->page->mainFrame();
@@ -242,6 +293,8 @@ void QWebView::setPage(QWebPage* page)
 
         connect(d->page, SIGNAL(microFocusChanged()),
                 this, SLOT(updateMicroFocus()));
+        connect(d->page, SIGNAL(destroyed()),
+                this, SLOT(_q_pageDestroyed()));
     }
     setAttribute(Qt::WA_OpaquePaintEvent, d->page);
     update();
@@ -608,6 +661,7 @@ qreal QWebView::textSizeMultiplier() const
     return page()->mainFrame()->textSizeMultiplier();
 }
 
+#if !defined(Q_OS_SYMBIAN)
 /*!
     \property QWebView::renderHints
     \since 4.6
@@ -619,6 +673,7 @@ qreal QWebView::textSizeMultiplier() const
 
     \sa QPainter::renderHints()
 */
+#endif
 QPainter::RenderHints QWebView::renderHints() const
 {
     return d->renderHints;
@@ -694,19 +749,18 @@ bool QWebView::event(QEvent *e)
         if (e->type() == QEvent::ShortcutOverride) {
             d->page->event(e);
 #ifndef QT_NO_CURSOR
-        } else if (e->type() == static_cast<QEvent::Type>(WebCore::SetCursorEvent::EventType)) {
-            d->setCursor(static_cast<WebCore::SetCursorEvent*>(e)->cursor());
 #if QT_VERSION >= 0x040400
         } else if (e->type() == QEvent::CursorChange) {
-            // Okay we might use the WebCore Cursor now.
-            d->usesWebCoreCursor = d->cursorSetByWebCore;
-            d->cursorSetByWebCore = false;
-
-            // Go back to the WebCore Cursor. QWidget::unsetCursor is appromixated with this
-            if (!d->usesWebCoreCursor && cursor().shape() == Qt::ArrowCursor) {
-                d->usesWebCoreCursor = true;
-                d->setCursor(d->webCoreCursor);
-            }
+            // An unsetCursor will set the cursor to Qt::ArrowCursor.
+            // Thus this cursor change might be a QWidget::unsetCursor()
+            // If this is not the case and it came from WebCore, the
+            // QWebPageClient already has set its cursor internally
+            // to Qt::ArrowCursor, so updating the cursor is always
+            // right, as it falls back to the last cursor set by
+            // WebCore.
+            // FIXME: Add a QEvent::CursorUnset or similar to Qt.
+            if (cursor().shape() == Qt::ArrowCursor)
+                d->resetCursor();
 #endif
 #endif
         } else if (e->type() == QEvent::Leave)
@@ -1094,3 +1148,6 @@ void QWebView::changeEvent(QEvent *e)
 
     \sa QWebPage::linkDelegationPolicy()
 */
+
+#include "moc_qwebview.cpp"
+

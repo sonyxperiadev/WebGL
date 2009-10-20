@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2000 Peter Kelly (pmk@post.com)
- * Copyright (C) 2006, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2006, 2008, 2009 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -35,19 +35,8 @@
 
 namespace WebCore {
 
-ProcessingInstruction::ProcessingInstruction(Document* doc)
-    : ContainerNode(doc)
-    , m_cachedSheet(0)
-    , m_loading(false)
-    , m_alternate(false)
-#if ENABLE(XSLT)
-    , m_isXSL(false)
-#endif
-{
-}
-
-ProcessingInstruction::ProcessingInstruction(Document* doc, const String& target, const String& data)
-    : ContainerNode(doc)
+inline ProcessingInstruction::ProcessingInstruction(Document* document, const String& target, const String& data)
+    : ContainerNode(document)
     , m_target(target)
     , m_data(data)
     , m_cachedSheet(0)
@@ -57,6 +46,11 @@ ProcessingInstruction::ProcessingInstruction(Document* doc, const String& target
     , m_isXSL(false)
 #endif
 {
+}
+
+PassRefPtr<ProcessingInstruction> ProcessingInstruction::create(Document* document, const String& target, const String& data)
+{
+    return adoptRef(new ProcessingInstruction(document, target, data));
 }
 
 ProcessingInstruction::~ProcessingInstruction()
@@ -70,6 +64,7 @@ void ProcessingInstruction::setData(const String& data, ExceptionCode&)
     int oldLength = m_data.length();
     m_data = data;
     document()->textRemoved(this, 0, oldLength);
+    checkStyleSheet();
 }
 
 String ProcessingInstruction::nodeName() const
@@ -95,8 +90,9 @@ void ProcessingInstruction::setNodeValue(const String& nodeValue, ExceptionCode&
 
 PassRefPtr<Node> ProcessingInstruction::cloneNode(bool /*deep*/)
 {
-    // ### copy m_localHref
-    return new ProcessingInstruction(document(), m_target, m_data);
+    // FIXME: Is it a problem that this does not copy m_localHref?
+    // What about other data members?
+    return create(document(), m_target, m_data);
 }
 
 // DOM Section 1.1.1
@@ -147,13 +143,21 @@ void ProcessingInstruction::checkStyleSheet()
             }
 #endif
         } else {
+            if (m_cachedSheet) {
+                m_cachedSheet->removeClient(this);
+                m_cachedSheet = 0;
+            }
+            
+            String url = document()->completeURL(href).string();
+            if (!dispatchBeforeLoadEvent(url))
+                return;
+            
             m_loading = true;
             document()->addPendingSheet();
-            if (m_cachedSheet)
-                m_cachedSheet->removeClient(this);
+            
 #if ENABLE(XSLT)
             if (m_isXSL)
-                m_cachedSheet = document()->docLoader()->requestXSLStyleSheet(document()->completeURL(href).string());
+                m_cachedSheet = document()->docLoader()->requestXSLStyleSheet(url);
             else
 #endif
             {
@@ -161,10 +165,15 @@ void ProcessingInstruction::checkStyleSheet()
                 if (charset.isEmpty())
                     charset = document()->frame()->loader()->encoding();
 
-                m_cachedSheet = document()->docLoader()->requestCSSStyleSheet(document()->completeURL(href).string(), charset);
+                m_cachedSheet = document()->docLoader()->requestCSSStyleSheet(url, charset);
             }
             if (m_cachedSheet)
                 m_cachedSheet->addClient(this);
+            else {
+                // The request may have been denied if (for example) the stylesheet is local and the document is remote.
+                m_loading = false;
+                document()->removePendingSheet();
+            }
         }
     }
 }

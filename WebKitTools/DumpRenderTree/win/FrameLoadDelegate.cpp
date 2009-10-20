@@ -76,8 +76,7 @@ string descriptionSuitableForTestResult(IWebFrame* webFrame)
     string frameName = (webFrame == mainFrame) ? "main frame" : "frame";
     frameName += " \"" + BSTRtoString(frameNameBSTR) + "\""; 
 
-    SysFreeString(frameNameBSTR);
-
+    SysFreeString(frameNameBSTR); 
     return frameName;
 }
 
@@ -101,6 +100,8 @@ HRESULT STDMETHODCALLTYPE FrameLoadDelegate::QueryInterface(REFIID riid, void** 
         *ppvObject = static_cast<IWebFrameLoadDelegate*>(this);
     else if (IsEqualGUID(riid, IID_IWebFrameLoadDelegatePrivate))
         *ppvObject = static_cast<IWebFrameLoadDelegatePrivate*>(this);
+    else if (IsEqualGUID(riid, IID_IWebFrameLoadDelegatePrivate2))
+        *ppvObject = static_cast<IWebFrameLoadDelegatePrivate2*>(this);
     else
         return E_NOINTERFACE;
 
@@ -180,6 +181,9 @@ HRESULT STDMETHODCALLTYPE FrameLoadDelegate::didReceiveTitle(
     /* [in] */ BSTR title,
     /* [in] */ IWebFrame *frame)
 {
+    if (!done && gLayoutTestController->dumpFrameLoadCallbacks())
+        printf("%s - didReceiveTitle: %S\n", descriptionSuitableForTestResult(frame).c_str(), title);
+
     if (::gLayoutTestController->dumpTitleChanges() && !done)
         printf("TITLE CHANGED: %S\n", title ? title : L"");
     return S_OK;
@@ -194,6 +198,11 @@ void FrameLoadDelegate::processWork()
     // if we finish all the commands, we're ready to dump state
     if (WorkQueue::shared()->processWork() && !::gLayoutTestController->waitToDump())
         dump();
+}
+
+void FrameLoadDelegate::resetToConsistentState()
+{
+    m_accessibilityController->resetToConsistentState();
 }
 
 static void CALLBACK processWorkTimer(HWND, UINT, UINT_PTR id, DWORD)
@@ -346,3 +355,23 @@ HRESULT STDMETHODCALLTYPE FrameLoadDelegate::didFirstVisuallyNonEmptyLayoutInFra
 {
     return S_OK;
 }
+
+HRESULT STDMETHODCALLTYPE FrameLoadDelegate::didDisplayInsecureContent( 
+    /* [in] */ IWebView *sender)
+{
+    if (!done && gLayoutTestController->dumpFrameLoadCallbacks())
+        printf("didDisplayInsecureContent\n");
+
+    return S_OK;
+}
+
+HRESULT STDMETHODCALLTYPE FrameLoadDelegate::didRunInsecureContent( 
+    /* [in] */ IWebView *sender,
+    /* [in] */ IWebSecurityOrigin *origin)
+{
+    if (!done && gLayoutTestController->dumpFrameLoadCallbacks())
+        printf("didRunInsecureContent\n");
+
+    return S_OK;
+}
+

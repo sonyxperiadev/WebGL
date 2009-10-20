@@ -35,42 +35,20 @@ namespace WebCore {
 
 using namespace JSC;
 
-JSCustomPositionCallback::JSCustomPositionCallback(JSObject* callback, Frame* frame)
-    : m_callback(callback)
-    , m_frame(frame)
+JSCustomPositionCallback::JSCustomPositionCallback(JSObject* callback, JSDOMGlobalObject* globalObject)
+    : m_data(callback, globalObject)
 {
 }
 
 void JSCustomPositionCallback::handleEvent(Geoposition* geoposition)
 {
-    ASSERT(m_callback);
-    ASSERT(m_frame);
-    
-    if (!m_frame->script()->isEnabled())
-        return;
-
-    // FIXME: This is likely the wrong globalObject (for prototype chains at least)
-    JSGlobalObject* globalObject = m_frame->script()->globalObject();
-    ExecState* exec = globalObject->globalExec();
-    
-    JSC::JSLock lock(SilenceAssertionsOnly);
-    
-    JSValue function = m_callback->get(exec, Identifier(exec, "handleEvent"));
-    CallData callData;
-    CallType callType = function.getCallData(callData);
-    if (callType == CallTypeNone) {
-        callType = m_callback->getCallData(callData);
-        if (callType == CallTypeNone) {
-            // FIXME: Should an exception be thrown here?
-            return;
-        }
-        function = m_callback;
-    }
-    
     RefPtr<JSCustomPositionCallback> protect(this);
 
+    JSC::JSLock lock(SilenceAssertionsOnly);
+    ExecState* exec = m_data.globalObject()->globalExec();
     MarkedArgumentBuffer args;
     args.append(toJS(exec, deprecatedGlobalObjectForPrototype(exec), geoposition));
+<<<<<<< HEAD:WebCore/bindings/js/JSCustomPositionCallback.cpp
 
     globalObject->globalData()->timeoutChecker.start();
     call(exec, function, callType, callData, m_callback, args);
@@ -81,6 +59,9 @@ void JSCustomPositionCallback::handleEvent(Geoposition* geoposition)
     }
     
     Document::updateStyleForAllDocuments();
+=======
+    m_data.invokeCallback(args);
+>>>>>>> webkit.org at 49305:WebCore/bindings/js/JSCustomPositionCallback.cpp
 }
 
 } // namespace WebCore

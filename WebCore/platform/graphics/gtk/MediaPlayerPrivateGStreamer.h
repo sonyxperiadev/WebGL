@@ -56,6 +56,7 @@ namespace WebCore {
 
             IntSize naturalSize() const;
             bool hasVideo() const;
+            bool hasAudio() const;
 
             void load(const String &url);
             void cancelLoad();
@@ -80,7 +81,7 @@ namespace WebCore {
             MediaPlayer::NetworkState networkState() const;
             MediaPlayer::ReadyState readyState() const;
 
-            float maxTimeBuffered() const;
+            PassRefPtr<TimeRanges> buffered() const;
             float maxTimeSeekable() const;
             unsigned bytesLoaded() const;
             bool totalBytesKnown() const;
@@ -95,10 +96,14 @@ namespace WebCore {
             void timeChanged();
             void volumeChanged();
             void didEnd();
-            void loadingFailed();
+            void loadingFailed(MediaPlayer::NetworkState);
 
             void repaint();
             void paint(GraphicsContext*, const IntRect&);
+
+            bool hasSingleSecurityOrigin() const;
+
+            bool supportsFullscreen() const;
 
         private:
             MediaPlayerPrivate(MediaPlayer*);
@@ -132,6 +137,10 @@ namespace WebCore {
             IntSize m_size;
             bool m_visible;
             cairo_surface_t* m_surface;
+
+            bool m_paused;
+            bool m_seeking;
+            bool m_errorOccured;
     };
 }
 

@@ -44,6 +44,7 @@
 #include "WebHistoryItem.h"
 #include "WebMutableURLRequest.h"
 #include "WebNotificationCenter.h"
+#include "WebSecurityOrigin.h"
 #include "WebURLAuthenticationChallenge.h"
 #include "WebURLResponse.h"
 #include "WebView.h"
@@ -529,6 +530,36 @@ bool WebFrameLoaderClient::shouldGoToHistoryItem(HistoryItem*) const
     return true;
 }
 
+void WebFrameLoaderClient::didDisplayInsecureContent()
+{
+    WebView* webView = m_webFrame->webView();
+    COMPtr<IWebFrameLoadDelegatePrivate> frameLoadDelegatePriv;
+    if (FAILED(webView->frameLoadDelegatePrivate(&frameLoadDelegatePriv)) || !frameLoadDelegatePriv)
+        return;
+
+    COMPtr<IWebFrameLoadDelegatePrivate2> frameLoadDelegatePriv2(Query, frameLoadDelegatePriv);
+    if (!frameLoadDelegatePriv2)
+        return;
+
+    frameLoadDelegatePriv2->didDisplayInsecureContent(webView);
+}
+
+void WebFrameLoaderClient::didRunInsecureContent(SecurityOrigin* origin)
+{
+    COMPtr<IWebSecurityOrigin> webSecurityOrigin = WebSecurityOrigin::createInstance(origin);
+
+    WebView* webView = m_webFrame->webView();
+    COMPtr<IWebFrameLoadDelegatePrivate> frameLoadDelegatePriv;
+    if (FAILED(webView->frameLoadDelegatePrivate(&frameLoadDelegatePriv)) || !frameLoadDelegatePriv)
+        return;
+
+    COMPtr<IWebFrameLoadDelegatePrivate2> frameLoadDelegatePriv2(Query, frameLoadDelegatePriv);
+    if (!frameLoadDelegatePriv2)
+        return;
+
+    frameLoadDelegatePriv2->didRunInsecureContent(webView, webSecurityOrigin.get());
+}
+
 PassRefPtr<DocumentLoader> WebFrameLoaderClient::createDocumentLoader(const ResourceRequest& request, const SubstituteData& substituteData)
 {
     RefPtr<WebDocumentLoader> loader = WebDocumentLoader::create(request, substituteData);
@@ -763,4 +794,25 @@ bool WebFrameLoaderClient::shouldUsePluginDocument(const String& mimeType) const
         return false;
 
     return webView->shouldUseEmbeddedView(mimeType);
+}
+
+bool WebFrameLoaderClient::shouldLoadMediaElementURL(const KURL& url) const
+{
+    WebView* webView = m_webFrame->webView();
+    if (!webView)
+        return true;
+
+    COMPtr<IWebPolicyDelegate> policyDelegate;
+    if (FAILED(webView->policyDelegate(&policyDelegate)) || !policyDelegate)
+        return true;
+
+    COMPtr<IWebPolicyDelegatePrivate> policyDelegatePrivate(Query, policyDelegate);
+    if (!policyDelegatePrivate)
+        return true;
+
+    BOOL retval;
+    if (FAILED(policyDelegatePrivate->shouldLoadMediaURL(webView, BString(url), m_webFrame, &retval)))
+        return true;
+
+    return retval;
 }

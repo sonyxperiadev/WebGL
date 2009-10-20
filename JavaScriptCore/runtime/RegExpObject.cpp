@@ -57,7 +57,7 @@ const ClassInfo RegExpObject::info = { "RegExp", 0, 0, ExecState::regExpTable };
 @end
 */
 
-RegExpObject::RegExpObject(PassRefPtr<Structure> structure, PassRefPtr<RegExp> regExp)
+RegExpObject::RegExpObject(NonNullPassRefPtr<Structure> structure, NonNullPassRefPtr<RegExp> regExp)
     : JSObject(structure)
     , d(new RegExpObjectData(regExp, 0))
 {
@@ -70,6 +70,11 @@ RegExpObject::~RegExpObject()
 bool RegExpObject::getOwnPropertySlot(ExecState* exec, const Identifier& propertyName, PropertySlot& slot)
 {
     return getStaticValueSlot<RegExpObject, JSObject>(exec, ExecState::regExpTable(exec), this, propertyName, slot);
+}
+
+bool RegExpObject::getOwnPropertyDescriptor(ExecState* exec, const Identifier& propertyName, PropertyDescriptor& descriptor)
+{
+    return getStaticValueDescriptor<RegExpObject, JSObject>(exec, ExecState::regExpTable(exec), this, propertyName, descriptor);
 }
 
 JSValue regExpObjectGlobal(ExecState*, const Identifier&, const PropertySlot& slot)

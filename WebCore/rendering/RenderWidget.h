@@ -40,6 +40,8 @@ public:
 
     void updateWidgetPosition();
 
+    void showSubstituteImage(PassRefPtr<Image>);
+
 protected:
     RenderWidget(Node*);
 
@@ -61,10 +63,12 @@ private:
 
     void setWidgetGeometry(const IntRect&);
 
+    friend class RenderWidgetProtector;
     RenderArena* ref() { ++m_refCount; return renderArena(); }
     void deref(RenderArena*);
 
     RefPtr<Widget> m_widget;
+    RefPtr<Image> m_substituteImage;
     FrameView* m_frameView;
     int m_refCount;
 };

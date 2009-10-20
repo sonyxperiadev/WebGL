@@ -51,7 +51,6 @@
 #include "npruntime_priv.h"
 #include "NPV8Object.h"
 #include "ScriptSourceCode.h"
-#include "ScriptState.h"
 #include "Widget.h"
 #include "XSSAuditor.h"
 
@@ -96,7 +95,6 @@ ScriptController::ScriptController(Frame* frame)
     , m_sourceURL(0)
     , m_processingTimerCallback(false)
     , m_paused(false)
-    , m_scriptState(new ScriptState(frame))
     , m_proxy(new V8Proxy(frame))
 #if ENABLE(NETSCAPE_PLUGIN_API)
     , m_windowScriptNPObject(0)
@@ -186,9 +184,14 @@ bool ScriptController::processingUserGesture() const
     return false;
 }
 
-void ScriptController::evaluateInNewWorld(const Vector<ScriptSourceCode>& sources, int extensionGroup)
+void ScriptController::evaluateInIsolatedWorld(unsigned worldID, const Vector<ScriptSourceCode>& sources)
 {
-    m_proxy->evaluateInNewWorld(sources, extensionGroup);
+    m_proxy->evaluateInIsolatedWorld(worldID, sources, 0);
+}
+
+void ScriptController::evaluateInIsolatedWorld(unsigned worldID, const Vector<ScriptSourceCode>& sources, int extensionGroup)
+{
+    m_proxy->evaluateInIsolatedWorld(worldID, sources, extensionGroup);
 }
 
 void ScriptController::evaluateInNewContext(const Vector<ScriptSourceCode>& sources, int extensionGroup)
@@ -202,12 +205,7 @@ ScriptValue ScriptController::evaluate(const ScriptSourceCode& sourceCode)
     LOCK_V8;
     String sourceURL = sourceCode.url();
     
-    if (sourceURL.isNull() && !m_XSSAuditor->canEvaluateJavaScriptURL(sourceCode.source())) {
-        // This JavaScript URL is not safe to be evaluated.
-        return ScriptValue();
-    }
-    
-    if (!sourceURL.isNull() && !m_XSSAuditor->canEvaluate(sourceCode.source())) {
+    if (!m_XSSAuditor->canEvaluate(sourceCode.source())) {
         // This script is not safe to be evaluated.
         return ScriptValue();
     }
@@ -343,7 +341,7 @@ PassScriptInstance ScriptController::createScriptInstanceForWidget(Widget* widge
     return V8ScriptInstance::create(wrapper);
 }
 
-void ScriptController::cleanupScriptObjectsForPlugin(void* nativeHandle)
+void ScriptController::cleanupScriptObjectsForPlugin(Widget* nativeHandle)
 {
     PluginObjectMap::iterator it = m_pluginObjects.find(nativeHandle);
     if (it == m_pluginObjects.end())

@@ -37,13 +37,13 @@
 #include "V8Binding.h"
 #include "V8CustomBinding.h"
 #include "V8Document.h"
-#include "V8ObjectEventListener.h"
 #include "V8Proxy.h"
 #include "V8Utilities.h"
 #include "WorkerContextExecutionProxy.h"
 
 namespace WebCore {
 
+<<<<<<< HEAD:WebCore/bindings/v8/custom/V8DOMApplicationCacheCustom.cpp
 static const bool kFindOnly = true;
 static const bool kFindOrCreate = false;
 
@@ -101,13 +101,15 @@ ACCESSOR_SETTER(DOMApplicationCacheEventHandler)
     }
 }
 
+=======
+>>>>>>> webkit.org at 49305:WebCore/bindings/v8/custom/V8DOMApplicationCacheCustom.cpp
 // Handles appcache.addEventListner(name, func, capture) method calls
 CALLBACK_FUNC_DECL(DOMApplicationCacheAddEventListener)
 {
     INC_STATS("DOMApplicationCache.addEventListener()");
     DOMApplicationCache* appcache = V8DOMWrapper::convertToNativeObject<DOMApplicationCache>(V8ClassIndex::DOMAPPLICATIONCACHE, args.Holder());
 
-    RefPtr<EventListener> listener = argumentToEventListener(appcache, args[1], kFindOrCreate);
+    RefPtr<EventListener> listener = V8DOMWrapper::getEventListener(appcache, args[1], false, ListenerFindOrCreate);
     if (listener) {
         createHiddenDependency(args.Holder(), args[1], V8Custom::kDOMApplicationCacheCacheIndex);
         String eventType = toWebCoreString(args[0]);
@@ -123,7 +125,7 @@ CALLBACK_FUNC_DECL(DOMApplicationCacheRemoveEventListener)
     INC_STATS("DOMApplicationCache.removeEventListener()");
     DOMApplicationCache* appcache = V8DOMWrapper::convertToNativeObject<DOMApplicationCache>(V8ClassIndex::DOMAPPLICATIONCACHE, args.Holder());
 
-    RefPtr<EventListener> listener = argumentToEventListener(appcache, args[1], kFindOnly);
+    RefPtr<EventListener> listener = V8DOMWrapper::getEventListener(appcache, args[1], false, ListenerFindOnly);
     if (listener) {
         removeHiddenDependency(args.Holder(), args[1], V8Custom::kDOMApplicationCacheCacheIndex);
         String eventType = toWebCoreString(args[0]);

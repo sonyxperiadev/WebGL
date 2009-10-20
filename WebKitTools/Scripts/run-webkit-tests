@@ -5,6 +5,7 @@
 # Copyright (C) 2007 Matt Lilek (pewtermoose@gmail.com)
 # Copyright (C) 2007 Eric Seidel <eric@webkit.org>
 # Copyright (C) 2009 Google Inc. All rights reserved.
+# Copyright (C) 2009 Andras Becsi (becsi.andras@stud.u-szeged.hu), University of Szeged
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -70,80 +71,86 @@ use webkitdirs;
 use VCSUtils;
 use POSIX;
 
-sub launchWithCurrentEnv(@);
-sub openDiffTool();
-sub openDumpTool();
+sub buildPlatformResultHierarchy();
+sub buildPlatformTestHierarchy(@);
+sub closeCygpaths();
 sub closeDumpTool();
-sub dumpToolDidCrash();
 sub closeHTTPD();
 sub countAndPrintLeaks($$$);
+sub countFinishedTest($$$$);
+sub deleteExpectedAndActualResults($);
+sub dumpToolDidCrash();
+sub epiloguesAndPrologues($$);
+sub expectedDirectoryForTest($;$;$);
 sub fileNameWithNumber($$);
+sub htmlForResultsSection(\@$&);
+sub isTextOnlyTest($);
+sub launchWithCurrentEnv(@);
 sub numericcmp($$);
+sub openDiffTool();
+sub openDumpTool();
 sub openHTTPDIfNeeded();
+sub parseLeaksandPrintUniqueLeaks();
 sub pathcmp($$);
+sub printFailureMessageForTest($$);
 sub processIgnoreTests($$);
+sub readFromDumpToolWithTimer(**);
+sub recordActualResultsAndDiff($$);
+sub sampleDumpTool();
+sub setFileHandleNonBlocking(*$);
 sub slowestcmp($$);
 sub splitpath($);
 sub stripExtension($);
-sub isTextOnlyTest($);
-sub expectedDirectoryForTest($;$;$);
-sub countFinishedTest($$$$);
+sub stripMetrics($$);
 sub testCrashedOrTimedOut($$$$$);
-sub sampleDumpTool();
-sub printFailureMessageForTest($$);
 sub toURL($);
 sub toWindowsPath($);
-sub closeCygpaths();
 sub validateSkippedArg($$;$);
-sub htmlForResultsSection(\@$&);
-sub deleteExpectedAndActualResults($);
-sub recordActualResultsAndDiff($$);
-sub buildPlatformResultHierarchy();
-sub buildPlatformTestHierarchy(@);
-sub epiloguesAndPrologues($$);
-sub parseLeaksandPrintUniqueLeaks();
-sub readFromDumpToolWithTimer(*;$);
-sub setFileHandleNonBlocking(*$);
 sub writeToFile($$);
 
 # Argument handling
 my $addPlatformExceptions = 0;
 my $complexText = 0;
+my $exitAfterNFailures = 0;
+my $generateNewResults = isAppleMacWebKit() ? 1 : 0;
 my $guardMalloc = '';
 my $httpdPort = 8000;
 my $httpdSSLPort = 8443;
+my $ignoreMetrics = 0;
 my $ignoreTests = '';
+my $iterations = 1;
 my $launchSafari = 1;
-my $platform;
+my $mergeDepth;
 my $pixelTests = '';
+my $platform;
 my $quiet = '';
+my $randomizeTests = 0;
+my $repeatEach = 1;
 my $report10Slowest = 0;
 my $resetResults = 0;
+my $reverseTests = 0;
+my $root;
+my $runSample = 1;
 my $shouldCheckLeaks = 0;
 my $showHelp = 0;
-my $testsPerDumpTool;
+my $stripEditingCallbacks = isCygwin();
 my $testHTTP = 1;
 my $testMedia = 1;
 my $testResultsDirectory = "/tmp/layout-test-results";
+my $testsPerDumpTool = 1000;
 my $threaded = 0;
+# DumpRenderTree has an internal timeout of 15 seconds, so this must be > 15.
+my $timeoutSeconds = 20;
 my $tolerance = 0;
 my $treatSkipped = "default";
-my $verbose = 0;
-my $useValgrind = 0;
-my $strictTesting = 0;
-my $generateNewResults = isAppleMacWebKit() ? 1 : 0;
-my $stripEditingCallbacks = isCygwin();
-my $runSample = 1;
-my $root;
-my $reverseTests = 0;
-my $randomizeTests = 0;
-my $mergeDepth;
-my $timeoutSeconds = 15;
 my $useRemoteLinksToTests = 0;
+my $useValgrind = 0;
+my $verbose = 0;
+
 my @leaksFilenames;
 
-# Default to --no-http for Qt, and wx for now.
-$testHTTP = 0 if (isQt() || isWx());
+# Default to --no-http for wx for now.
+$testHTTP = 0 if (isWx());
 
 my $expectedTag = "expected";
 my $actualTag = "actual";
@@ -167,7 +174,15 @@ if (isAppleMacWebKit()) {
         $platform = "mac";
     }
 } elsif (isQt()) {
-    $platform = "qt";
+    if (isDarwin()) {
+        $platform = "qt-mac";
+    } elsif (isLinux()) {
+        $platform = "qt-linux";
+    } elsif (isWindows() || isCygwin()) {
+        $platform = "qt-win";
+    } else {
+        $platform = "qt";
+    }
 } elsif (isGtk()) {
     $platform = "gtk";
 } elsif (isWx()) {
@@ -186,19 +201,21 @@ my $launchSafariDefault = $launchSafari ? "launch" : "do not launch";
 my $httpDefault = $testHTTP ? "run" : "do not run";
 my $sampleDefault = $runSample ? "run" : "do not run";
 
-# FIXME: "--strict" should be renamed to qt-mac-comparison, or something along those lines.
 my $usage = <<EOF;
 Usage: $programName [options] [testdir|testpath ...]
   --add-platform-exceptions       Put new results for non-platform-specific failing tests into the platform-specific results directory
   --complex-text                  Use the complex text code path for all text (Mac OS X and Windows only)
   -c|--configuration config       Set DumpRenderTree build configuration
   -g|--guard-malloc               Enable malloc guard
-  --help                          Show this help message
+  --exit-after-n-failures N       Exit after the first N failures instead of running all tests
+  -h|--help                       Show this help message
   --[no-]http                     Run (or do not run) http tests (default: $httpDefault)
   -i|--ignore-tests               Comma-separated list of directories or tests to ignore
+  --iterations n                  Number of times to run the set of tests (e.g. ABCABCABC)
   --[no-]launch-safari            Launch (or do not launch) Safari to display test results (default: $launchSafariDefault)
   -l|--leaks                      Enable leaks checking
   --[no-]new-test-results         Generate results for new tests
+  --nthly n                       Restart DumpRenderTree every n tests (default: $testsPerDumpTool)
   -p|--pixel-tests                Enable pixel tests
   --tolerance t                   Ignore image differences less than this percentage (default: $tolerance)
   --platform                      Override the detected platform to use for tests and results (default: $platform)
@@ -207,16 +224,17 @@ Usage: $programName [options] [testdir|testpath ...]
   --reset-results                 Reset ALL results (including pixel tests if --pixel-tests is set)
   -o|--results-directory          Output results directory (default: $testResultsDirectory)
   --random                        Run the tests in a random order
+  --repeat-each n                 Number of times to run each test (e.g. AAABBBCCC)
   --reverse                       Run the tests in reverse alphabetical order
   --root                          Path to root tools build
   --[no-]sample-on-timeout        Run sample on timeout (default: $sampleDefault) (Mac OS X only)
-  -1|--singly                     Isolate each test case run (implies --verbose)
+  -1|--singly                     Isolate each test case run (implies --nthly 1 --verbose)
   --skipped=[default|ignore|only] Specifies how to treat the Skipped file
                                      default: Tests/directories listed in the Skipped file are not tested
                                      ignore:  The Skipped file is ignored
                                      only:    Only those tests/directories listed in the Skipped file will be run
   --slowest                       Report the 10 slowest tests
-  --strict                        Do a comparison with the output on Mac (Qt only)
+  --ignore-metrics                Ignore metrics in tests
   --[no-]strip-editing-callbacks  Remove editing callbacks from expected results
   -t|--threaded                   Run a concurrent JavaScript thead with each test
   --timeout t                     Sets the number of seconds before a test times out (default: $timeoutSeconds)
@@ -229,38 +247,41 @@ EOF
 setConfiguration();
 
 my $getOptionsResult = GetOptions(
+    'add-platform-exceptions' => \$addPlatformExceptions,
     'complex-text' => \$complexText,
+    'exit-after-n-failures=i' => \$exitAfterNFailures,
     'guard-malloc|g' => \$guardMalloc,
-    'help' => \$showHelp,
+    'help|h' => \$showHelp,
     'http!' => \$testHTTP,
+    'ignore-metrics!' => \$ignoreMetrics,
     'ignore-tests|i=s' => \$ignoreTests,
+    'iterations=i' => \$iterations,
     'launch-safari!' => \$launchSafari,
     'leaks|l' => \$shouldCheckLeaks,
+    'merge-leak-depth|m:5' => \$mergeDepth,
+    'new-test-results!' => \$generateNewResults,
+    'nthly=i' => \$testsPerDumpTool,
     'pixel-tests|p' => \$pixelTests,
     'platform=s' => \$platform,
     'port=i' => \$httpdPort,
     'quiet|q' => \$quiet,
-    'reset-results' => \$resetResults,
-    'new-test-results!' => \$generateNewResults,
-    'results-directory|o=s' => \$testResultsDirectory,
-    'singly|1' => sub { $testsPerDumpTool = 1; },
-    'nthly=i' => \$testsPerDumpTool,
-    'skipped=s' => \&validateSkippedArg,
-    'slowest' => \$report10Slowest,
-    'threaded|t' => \$threaded,
-    'tolerance=f' => \$tolerance,
-    'verbose|v' => \$verbose,
-    'valgrind' => \$useValgrind,
-    'sample-on-timeout!' => \$runSample,
-    'strict' => \$strictTesting,
-    'strip-editing-callbacks!' => \$stripEditingCallbacks,
     'random' => \$randomizeTests,
+    'repeat-each=i' => \$repeatEach,
+    'reset-results' => \$resetResults,
+    'results-directory|o=s' => \$testResultsDirectory,
     'reverse' => \$reverseTests,
     'root=s' => \$root,
-    'add-platform-exceptions' => \$addPlatformExceptions,
-    'merge-leak-depth|m:5' => \$mergeDepth,
+    'sample-on-timeout!' => \$runSample,
+    'singly|1' => sub { $testsPerDumpTool = 1; },
+    'skipped=s' => \&validateSkippedArg,
+    'slowest' => \$report10Slowest,
+    'strip-editing-callbacks!' => \$stripEditingCallbacks,
+    'threaded|t' => \$threaded,
     'timeout=i' => \$timeoutSeconds,
+    'tolerance=f' => \$tolerance,
     'use-remote-links-to-tests' => \$useRemoteLinksToTests,
+    'valgrind' => \$useValgrind,
+    'verbose|v' => \$verbose,
 );
 
 if (!$getOptionsResult || $showHelp) {
@@ -275,8 +296,6 @@ my $skippedOnly = $treatSkipped eq "only";
 
 my $configuration = configuration();
 
-$testsPerDumpTool = 1000 if !$testsPerDumpTool;
-
 $verbose = 1 if $testsPerDumpTool == 1;
 
 if ($shouldCheckLeaks && $testsPerDumpTool > 1000) {
@@ -286,8 +305,8 @@ if ($shouldCheckLeaks && $testsPerDumpTool > 1000) {
 # Stack logging does not play well with QuickTime on Tiger (rdar://problem/5537157)
 $testMedia = 0 if $shouldCheckLeaks && isTiger();
 
-# Generating remote links causes a lot of unnecessary spew on GTK and Qt build bot
-$useRemoteLinksToTests = 0 if (isGtk() || isQt());
+# Generating remote links causes a lot of unnecessary spew on GTK build bot
+$useRemoteLinksToTests = 0 if isGtk();
 
 setConfigurationProductDir(Cwd::abs_path($root)) if (defined($root));
 my $productDir = productDir();
@@ -297,10 +316,30 @@ $productDir .= "/Programs" if isGtk();
 chdirWebKit();
 
 if (!defined($root)) {
-    # Push the parameters to build-dumprendertree as an array
-    my @args = argumentsForConfiguration();
+    print STDERR "Running build-dumprendertree\n";
 
-    my $buildResult = system "WebKitTools/Scripts/build-dumprendertree", @args;
+    local *DEVNULL;
+    my ($childIn, $childOut, $childErr);
+    if ($quiet) {
+        open(DEVNULL, ">", File::Spec->devnull) or die "Failed to open /dev/null";
+        $childOut = ">&DEVNULL";
+        $childErr = ">&DEVNULL";
+    } else {
+        # When not quiet, let the child use our stdout/stderr.
+        $childOut = ">&STDOUT";
+        $childErr = ">&STDERR";
+    }
+
+    my @args = argumentsForConfiguration();
+    my $buildProcess = open3($childIn, $childOut, $childErr, "WebKitTools/Scripts/build-dumprendertree", @args) or die "Failed to run build-dumprendertree";
+    close($childIn);
+    waitpid $buildProcess, 0;
+    my $buildResult = $?;
+    close($childOut);
+    close($childErr);
+
+    close DEVNULL if ($quiet);
+
     if ($buildResult) {
         print STDERR "Compiling DumpRenderTree failed!\n";
         exit exitStatus($buildResult);
@@ -320,7 +359,7 @@ checkFrameworks() unless isCygwin();
 
 if (isAppleMacWebKit()) {
     push @INC, $productDir;
-    eval 'use DumpRenderTreeSupport;';
+    require DumpRenderTreeSupport;
 }
 
 my $layoutTestsName = "LayoutTests";
@@ -351,15 +390,16 @@ if ($pixelTests) {
     }
 }
 
-my @tests = ();
-my %testType = ();
-
 system "ln", "-s", $testDirectory, "/tmp/LayoutTests" unless -x "/tmp/LayoutTests";
 
-my %ignoredFiles = ();
+my %ignoredFiles = ( "results.html" => 1 );
 my %ignoredDirectories = map { $_ => 1 } qw(platform);
-my %ignoredLocalDirectories = map { $_ => 1 } qw(.svn _svn resources);
+my %ignoredLocalDirectories = map { $_ => 1 } qw(.svn _svn resources script-tests);
 my %supportedFileExtensions = map { $_ => 1 } qw(html shtml xml xhtml pl php);
+
+if (!checkWebCoreMathMLSupport(0)) { 
+    $ignoredDirectories{'mathml'} = 1;
+}
 
 # FIXME: We should fix webkitdirs.pm:hasSVG/WMLSupport() to do the correct feature detection for Cygwin.
 if (checkWebCoreSVGSupport(0)) { 
@@ -388,6 +428,10 @@ if (!checkWebCore3DRenderingSupport(0)) {
     $ignoredDirectories{'transforms/3d'} = 1;
 }
 
+if (!checkWebCore3DCanvasSupport(0)) {
+    $ignoredDirectories{'fast/canvas/webgl'} = 1;
+}
+
 if (checkWebCoreWMLSupport(0)) { 
     $supportedFileExtensions{'wml'} = 1;
 } else {
@@ -404,104 +448,12 @@ if (!checkWebCoreWCSSSupport(0)) {
     $ignoredDirectories{'fast/wcss'} = 1;
 }
 
-if ($ignoreTests) {
-    processIgnoreTests($ignoreTests, "ignore-tests");
-}
+processIgnoreTests($ignoreTests, "ignore-tests") if $ignoreTests;
+readSkippedFiles() unless $ignoreSkipped;
 
-sub fileShouldBeIgnored {
-    my($filePath) = @_;
-    foreach my $ignoredDir (keys %ignoredDirectories) {
-        if ($filePath =~ m/^$ignoredDir/) {
-            return 1;
-        }
-    }
-    return 0;
-}
-
-if (!$ignoreSkipped) {
-    foreach my $level (@platformTestHierarchy) {
-        if (open SKIPPED, "<", "$level/Skipped") {
-            if ($verbose) {
-                my ($dir, $name) = splitpath($level);
-                print "Skipped tests in $name:\n";
-            }
-
-            while (<SKIPPED>) {
-                my $skipped = $_;
-                chomp $skipped;
-                $skipped =~ s/^[ \n\r]+//;
-                $skipped =~ s/[ \n\r]+$//;
-                if ($skipped && $skipped !~ /^#/) {
-                    if ($skippedOnly) {
-                        if (!&fileShouldBeIgnored($skipped)) {
-                            push(@ARGV, $skipped);
-                        } elsif ($verbose) {
-                            print "    $skipped\n";
-                        }
-                    } else {
-                        if ($verbose) {
-                            print "    $skipped\n";
-                        }
-                        processIgnoreTests($skipped, "Skipped");
-                    }
-                }
-            }
-            close SKIPPED;
-        }
-    }
-}
-
-
-my $directoryFilter = sub {
-    return () if exists $ignoredLocalDirectories{basename($File::Find::dir)};
-    return () if exists $ignoredDirectories{File::Spec->abs2rel($File::Find::dir, $testDirectory)};
-    return @_;
-};
-
-my $fileFilter = sub {
-    my $filename = $_;
-    if ($filename =~ /\.([^.]+)$/) {
-        if (exists $supportedFileExtensions{$1}) {
-            my $path = File::Spec->abs2rel(catfile($File::Find::dir, $filename), $testDirectory);
-            push @tests, $path if !exists $ignoredFiles{$path};
-        }
-    }
-};
-
-for my $test (@ARGV) {
-    $test =~ s/^($layoutTestsName|$testDirectory)\///;
-    my $fullPath = catfile($testDirectory, $test);
-    if (file_name_is_absolute($test)) {
-        print "can't run test $test outside $testDirectory\n";
-    } elsif (-f $fullPath) {
-        my ($filename, $pathname, $fileExtension) = fileparse($test, qr{\.[^.]+$});
-        if (!exists $supportedFileExtensions{substr($fileExtension, 1)}) {
-            print "test $test does not have a supported extension\n";
-        } elsif ($testHTTP || $pathname !~ /^http\//) {
-            push @tests, $test;
-        }
-    } elsif (-d $fullPath) {
-        find({ preprocess => $directoryFilter, wanted => $fileFilter }, $fullPath);
-
-        for my $level (@platformTestHierarchy) {
-            my $platformPath = catfile($level, $test);
-            find({ preprocess => $directoryFilter, wanted => $fileFilter }, $platformPath) if (-d $platformPath);
-        }
-    } else {
-        print "test $test not found\n";
-    }
-}
-if (!scalar @ARGV) {
-    find({ preprocess => $directoryFilter, wanted => $fileFilter }, $testDirectory);
-
-    for my $level (@platformTestHierarchy) {
-        find({ preprocess => $directoryFilter, wanted => $fileFilter }, $level);
-    }
-}
+my @tests = findTestsToRun();
 
 die "no tests to run\n" if !@tests;
-
-@tests = sort pathcmp @tests;
 
 my %counts;
 my %tests;
@@ -537,20 +489,31 @@ my $isHttpdOpen = 0;
 sub catch_pipe { $dumpToolCrashed = 1; }
 $SIG{"PIPE"} = "catch_pipe";
 
-print "Testing ", scalar @tests, " test cases.\n";
+print "Testing ", scalar @tests, " test cases";
+print " $iterations times" if ($iterations > 1);
+print ", repeating each test $repeatEach times" if ($repeatEach > 1);
+print ".\n";
+
 my $overallStartTime = time;
 
 my %expectedResultPaths;
 
-# Reverse the tests
-@tests = reverse @tests if $reverseTests;
-
-# Shuffle the array
-@tests = shuffle(@tests) if $randomizeTests;
+my @originalTests = @tests;
+# Add individual test repetitions
+if ($repeatEach > 1) {
+    @tests = ();
+    foreach my $test (@originalTests) {
+        for (my $i = 0; $i < $repeatEach; $i++) {
+            push(@tests, $test);
+        }
+    }
+}
+# Add test set repetitions
+for (my $i = 1; $i < $iterations; $i++) {
+    push(@tests, @originalTests);
+}
 
 for my $test (@tests) {
-    next if $test eq 'results.html';
-
     my $newDumpTool = not $isDumpToolOpen;
     openDumpTool();
 
@@ -648,14 +611,12 @@ for my $test (@tests) {
     # The first block is the output of the test (in text, RenderTree or other formats).
     # The second block is for optional pixel data in PNG format, and may be empty if
     # pixel tests are not being run, or the test does not dump pixels (e.g. text tests).
-    
-    my $actualRead = readFromDumpToolWithTimer(IN);
-    my $errorRead = readFromDumpToolWithTimer(ERROR, $actualRead->{status} eq "timedOut");
+    my $readResults = readFromDumpToolWithTimer(IN, ERROR);
 
-    my $actual = $actualRead->{output};
-    my $error = $errorRead->{output};
+    my $actual = $readResults->{output};
+    my $error = $readResults->{error};
 
-    $expectedExtension = $actualRead->{extension};
+    $expectedExtension = $readResults->{extension};
     my $expectedFileName = "$base-$expectedTag.$expectedExtension";
 
     my $isText = isTextOnlyTest($actual);
@@ -663,12 +624,12 @@ for my $test (@tests) {
     my $expectedDir = expectedDirectoryForTest($base, $isText, $expectedExtension);
     $expectedResultPaths{$base} = "$expectedDir/$expectedFileName";
 
-    unless ($actualRead->{status} eq "success" && $errorRead->{status} eq "success") {
-        my $crashed = $actualRead->{status} eq "crashed" || $errorRead->{status} eq "crashed";
+    unless ($readResults->{status} eq "success") {
+        my $crashed = $readResults->{status} eq "crashed";
         testCrashedOrTimedOut($test, $base, $crashed, $actual, $error);
         countFinishedTest($test, $base, $crashed ? "crash" : "timedout", 0);
         next;
-     }
+    }
 
     $durations{$test} = time - $startTime if $report10Slowest;
 
@@ -682,15 +643,9 @@ for my $test (@tests) {
         }
         close EXPECTED;
     }
-    my $expectedMac;
-    if (!isAppleMacWebKit() && $strictTesting && !$isText) {
-      if (!$resetResults && open EXPECTED, "<", "$testDirectory/platform/mac/$expectedFileName") {
-        $expectedMac = "";
-        while (<EXPECTED>) {
-          $expectedMac .= $_;
-        }
-        close EXPECTED;
-      }
+
+    if ($ignoreMetrics && !$isText && defined $expected) {
+        ($actual, $expected) = stripMetrics($actual, $expected);
     }
 
     if ($shouldCheckLeaks && $testsPerDumpTool == 1) {
@@ -774,57 +729,6 @@ for my $test (@tests) {
         if ($actualHash ne "" && ($resetResults || !-f "$expectedPixelDir/$base-$expectedTag.checksum")) {
             writeToFile("$expectedPixelDir/$base-$expectedTag.checksum", $actualHash);
         }
-    }
-
-    if (!isAppleMacWebKit() && $strictTesting && !$isText) {
-      if (defined $expectedMac) {
-        my $simplified_actual;
-        $simplified_actual = $actual;
-        $simplified_actual =~ s/at \(-?[0-9]+,-?[0-9]+\) *//g;
-        $simplified_actual =~ s/size -?[0-9]+x-?[0-9]+ *//g;
-        $simplified_actual =~ s/text run width -?[0-9]+: //g;
-        $simplified_actual =~ s/text run width -?[0-9]+ [a-zA-Z ]+: //g;
-        $simplified_actual =~ s/RenderButton {BUTTON} .*/RenderButton {BUTTON}/g;
-        $simplified_actual =~ s/RenderImage {INPUT} .*/RenderImage {INPUT}/g;
-        $simplified_actual =~ s/RenderBlock {INPUT} .*/RenderBlock {INPUT}/g;
-        $simplified_actual =~ s/RenderTextControl {INPUT} .*/RenderTextControl {INPUT}/g;
-        $simplified_actual =~ s/\([0-9]+px/px/g;
-        $simplified_actual =~ s/ *" *\n +" */ /g;
-        $simplified_actual =~ s/" +$/"/g;
-
-        $simplified_actual =~ s/- /-/g;
-        $simplified_actual =~ s/\n( *)"\s+/\n$1"/g;
-        $simplified_actual =~ s/\s+"\n/"\n/g;
-        
-        $expectedMac =~ s/at \(-?[0-9]+,-?[0-9]+\) *//g;
-        $expectedMac =~ s/size -?[0-9]+x-?[0-9]+ *//g;
-        $expectedMac =~ s/text run width -?[0-9]+: //g;
-        $expectedMac =~ s/text run width -?[0-9]+ [a-zA-Z ]+: //g;
-        $expectedMac =~ s/RenderButton {BUTTON} .*/RenderButton {BUTTON}/g;
-        $expectedMac =~ s/RenderImage {INPUT} .*/RenderImage {INPUT}/g;
-        $expectedMac =~ s/RenderBlock {INPUT} .*/RenderBlock {INPUT}/g;
-        $expectedMac =~ s/RenderTextControl {INPUT} .*/RenderTextControl {INPUT}/g;
-        $expectedMac =~ s/\([0-9]+px/px/g;
-        $expectedMac =~ s/ *" *\n +" */ /g;
-        $expectedMac =~ s/" +$/"/g;
-
-        $expectedMac =~ s/- /-/g;
-        $expectedMac =~ s/\n( *)"\s+/\n$1"/g;
-        $expectedMac =~ s/\s+"\n/"\n/g;
-        
-        if ($simplified_actual ne $expectedMac) {
-          writeToFile("/tmp/actual.txt", $simplified_actual);
-          writeToFile("/tmp/expected.txt", $expectedMac);
-          system "diff -u \"/tmp/expected.txt\" \"/tmp/actual.txt\" > \"/tmp/simplified.diff\"";
-
-          $diffResult = "failed";
-          if ($verbose) {
-            print "\n";
-            system "cat /tmp/simplified.diff";
-            print "failed!!!!!";
-          }
-        }
-      }
     }
 
     if (dumpToolDidCrash()) {
@@ -971,6 +875,17 @@ for my $test (@tests) {
     }
 
     countFinishedTest($test, $base, $result, $isText);
+
+    # --reset-results does not check pass vs. fail, so exitAfterNFailures makes no sense with --reset-results.
+    if ($exitAfterNFailures && !$resetResults) {
+        my $passCount = $counts{match} || 0; # $counts{match} will be undefined if we've not yet passed a test (e.g. the first test fails).
+        my $failureCount = $count - $passCount; # "Failure" here includes new tests, timeouts, crashes, etc.
+        if ($failureCount >= $exitAfterNFailures) {
+            print "\nExiting early after $failureCount failures. $count tests run.";
+            closeDumpTool();
+            last;
+        }
+    }
 }
 printf "\n%0.2fs total testing time\n", (time - $overallStartTime) . "";
 
@@ -990,8 +905,7 @@ if ($isDiffToolOpen && $shouldCheckLeaks) {
 if ($totalLeaks) {
     if ($mergeDepth) {
         parseLeaksandPrintUniqueLeaks();
-    }
-    else { 
+    } else { 
         print "\nWARNING: $totalLeaks total leaks found!\n";
         print "See above for individual leaks results.\n" if ($leaksOutputFileNumber > 2);
     }
@@ -1025,31 +939,7 @@ if ($resetResults || ($counts{match} && $counts{match} == $count)) {
     exit;
 }
 
-
-my %text = (
-    match => "succeeded",
-    mismatch => "had incorrect layout",
-    new => "were new",
-    timedout => "timed out",
-    crash => "crashed",
-    error => "had stderr output"
-);
-
-for my $type ("match", "mismatch", "new", "timedout", "crash", "error") {
-    my $c = $counts{$type};
-    if ($c) {
-        my $t = $text{$type};
-        my $message;
-        if ($c == 1) {
-            $t =~ s/were/was/;
-            $message = sprintf "1 test case (%d%%) %s\n", 1 * 100 / $count, $t;
-        } else {
-            $message = sprintf "%d test cases (%d%%) %s\n", $c, $c * 100 / $count, $t;
-        }
-        $message =~ s-\(0%\)-(<1%)-;
-        print $message;
-    }
-}
+printResults();
 
 mkpath $testResultsDirectory;
 
@@ -1059,6 +949,10 @@ print HTML "<head>\n";
 print HTML "<title>Layout Test Results</title>\n";
 print HTML "</head>\n";
 print HTML "<body>\n";
+
+if ($ignoreMetrics) {
+    print HTML "<h4>Tested with metrics ignored.</h4>";
+}
 
 print HTML htmlForResultsSection(@{$tests{mismatch}}, "Tests where results did not match expected results", \&linksForMismatchTest);
 print HTML htmlForResultsSection(@{$tests{timedout}}, "Tests that timed out", \&linksForErrorTest);
@@ -1143,6 +1037,13 @@ sub countAndPrintLeaks($$$)
         );
     }
 
+    if (isSnowLeopard()) {
+        push @callStacksToExclude, (
+            "readMakerNoteProps", # <rdar://problem/7156432> leak in ImageIO
+            "QTKitMovieControllerView completeUISetup", # <rdar://problem/7155156> leak in QTKit
+        );
+    }
+
     my $leaksTool = sourceDir() . "/WebKitTools/Scripts/run-leaks";
     my $excludeString = "--exclude-callstack '" . (join "' --exclude-callstack '", @callStacksToExclude) . "'";
     $excludeString .= " --exclude-type '" . (join "' --exclude-type '", @typesToExclude) . "'" if @typesToExclude;
@@ -1172,7 +1073,7 @@ sub countAndPrintLeaks($$$)
 
         writeToFile($leaksFilePath, $leaksOutput);
         
-        push( @leaksFilenames, $leaksFilePath );
+        push @leaksFilenames, $leaksFilePath;
     }
 
     return $adjustedCount;
@@ -1414,6 +1315,9 @@ sub openHTTPDIfNeeded()
     } elsif (isDebianBased()) {
         $httpdPath = "/usr/sbin/apache2";
         $httpdConfig = "$testDirectory/http/conf/apache2-debian-httpd.conf";
+    } elsif (isFedoraBased()) {
+        $httpdPath = "/usr/sbin/httpd";
+        $httpdConfig = "$testDirectory/http/conf/fedora-httpd.conf";
     } else {
         $httpdConfig = "$testDirectory/http/conf/httpd.conf";
         $httpdConfig = "$testDirectory/http/conf/apache2-httpd.conf" if `$httpdPath -v` =~ m|Apache/2|;
@@ -1476,7 +1380,8 @@ sub fileNameWithNumber($$)
     return $base;
 }
 
-sub processIgnoreTests($$) {
+sub processIgnoreTests($$)
+{
     my @ignoreList = split(/\s*,\s*/, shift);
     my $listName = shift;
 
@@ -1541,7 +1446,8 @@ sub expectedDirectoryForTest($;$;$)
     return $isText ? $expectedDirectory : $platformResultHierarchy[$#platformResultHierarchy];
 }
 
-sub countFinishedTest($$$$) {
+sub countFinishedTest($$$$)
+{
     my ($test, $base, $result, $isText) = @_;
 
     if (($count + 1) % $testsPerDumpTool == 0 || $count == $#tests) {
@@ -1563,7 +1469,6 @@ sub countFinishedTest($$$$) {
     $count++;
     $counts{$result}++;
     push @{$tests{$result}}, $test;
-    $testType{$test} = $isText;
 }
 
 sub testCrashedOrTimedOut($$$$$)
@@ -1833,6 +1738,9 @@ sub buildPlatformResultHierarchy()
         for (; $i < @macPlatforms; $i++) {
             push @platforms, $macPlatforms[$i];
         }
+    } elsif ($platform =~ /^qt-/) {
+        push @platforms, $platform;
+        push @platforms, "qt";
     } else {
         @platforms = $platform;
     }
@@ -1854,7 +1762,8 @@ sub buildPlatformTestHierarchy(@)
     return ($platformHierarchy[0], $platformHierarchy[$#platformHierarchy]);
 }
 
-sub epiloguesAndPrologues($$) {
+sub epiloguesAndPrologues($$)
+{
     my ($lastDirectory, $directory) = @_;
     my @lastComponents = split('/', $lastDirectory);
     my @components = split('/', $directory);
@@ -1890,7 +1799,8 @@ sub epiloguesAndPrologues($$) {
     return @result;
 }
     
-sub parseLeaksandPrintUniqueLeaks() {
+sub parseLeaksandPrintUniqueLeaks()
+{
     return unless @leaksFilenames;
      
     my $mergedFilenames = join " ", @leaksFilenames;
@@ -1926,11 +1836,12 @@ sub extensionForMimeType($)
 }
 
 # Read up to the first #EOF (the content block of the test), or until detecting crashes or timeouts.
-sub readFromDumpToolWithTimer(*;$)
+sub readFromDumpToolWithTimer(**)
 {
-    my ($fh, $dontWaitForTimeOut) = @_;
+    my ($fhIn, $fhError) = @_;
 
-    setFileHandleNonBlocking($fh, 1);
+    setFileHandleNonBlocking($fhIn, 1);
+    setFileHandleNonBlocking($fhError, 1);
 
     my $maximumSecondsWithoutOutput = $timeoutSeconds;
     $maximumSecondsWithoutOutput *= 10 if $guardMalloc;
@@ -1939,11 +1850,14 @@ sub readFromDumpToolWithTimer(*;$)
     my $timeOfLastSuccessfulRead = time;
 
     my @output = ();
+    my @error = ();
     my $status = "success";
     my $mimeType = "text/plain";
     # We don't have a very good way to know when the "headers" stop
     # and the content starts, so we use this as a hack:
     my $haveSeenContentType = 0;
+    my $haveSeenEofIn = 0;
+    my $haveSeenEofError = 0;
 
     while (1) {
         if (time - $timeOfLastSuccessfulRead > $maximumSecondsWithoutOutput) {
@@ -1951,14 +1865,14 @@ sub readFromDumpToolWithTimer(*;$)
             last;
         }
 
-        my $line = readline($fh);
-        if (!defined($line)) {
+        # Once we've seen the EOF, we must not read anymore.
+        my $lineIn = readline($fhIn) unless $haveSeenEofIn;
+        my $lineError = readline($fhError) unless $haveSeenEofError;
+        if (!defined($lineIn) && !defined($lineError)) {
+            last if ($haveSeenEofIn && $haveSeenEofError);
+
             if ($! != EAGAIN) {
                 $status = "crashed";
-                last;
-            }
-
-            if ($dontWaitForTimeOut) {
                 last;
             }
 
@@ -1968,20 +1882,31 @@ sub readFromDumpToolWithTimer(*;$)
         }
 
         $timeOfLastSuccessfulRead = time;
-        
-        if (!$haveSeenContentType && $line =~ /^Content-Type: (\S+)$/) {
-            $mimeType = $1;
-            $haveSeenContentType = 1;
-            next;
+
+        if (defined($lineIn)) {
+            if (!$haveSeenContentType && $lineIn =~ /^Content-Type: (\S+)$/) {
+                $mimeType = $1;
+                $haveSeenContentType = 1;
+            } elsif ($lineIn =~ /#EOF/) {
+                $haveSeenEofIn = 1;
+            } else {
+                push @output, $lineIn;
+            }
         }
-        last  if ($line =~ /#EOF/);
-        
-        push @output, $line;
+        if (defined($lineError)) {
+            if ($lineError =~ /#EOF/) {
+                $haveSeenEofError = 1;
+            } else {
+                push @error, $lineError;
+            }
+        }
     }
 
-    setFileHandleNonBlocking($fh, 0);
+    setFileHandleNonBlocking($fhIn, 0);
+    setFileHandleNonBlocking($fhError, 0);
     return {
         output => join("", @output),
+        error => join("", @error),
         status => $status,
         mimeType => $mimeType,
         extension => extensionForMimeType($mimeType)
@@ -2015,4 +1940,168 @@ sub sampleDumpTool()
 
     my $outputFile = "$outputDirectory/HangReport.txt";
     system "/usr/bin/sample", $dumpToolPID, qw(10 10 -file), $outputFile;
+}
+
+sub stripMetrics($$)
+{
+    my ($actual, $expected) = @_;
+
+    foreach my $result ($actual, $expected) {
+        $result =~ s/at \(-?[0-9]+,-?[0-9]+\) *//g;
+        $result =~ s/size -?[0-9]+x-?[0-9]+ *//g;
+        $result =~ s/text run width -?[0-9]+: //g;
+        $result =~ s/text run width -?[0-9]+ [a-zA-Z ]+: //g;
+        $result =~ s/RenderButton {BUTTON} .*/RenderButton {BUTTON}/g;
+        $result =~ s/RenderImage {INPUT} .*/RenderImage {INPUT}/g;
+        $result =~ s/RenderBlock {INPUT} .*/RenderBlock {INPUT}/g;
+        $result =~ s/RenderTextControl {INPUT} .*/RenderTextControl {INPUT}/g;
+        $result =~ s/\([0-9]+px/px/g;
+        $result =~ s/ *" *\n +" */ /g;
+        $result =~ s/" +$/"/g;
+
+        $result =~ s/- /-/g;
+        $result =~ s/\n( *)"\s+/\n$1"/g;
+        $result =~ s/\s+"\n/"\n/g;
+        $result =~ s/scrollWidth [0-9]+/scrollWidth/g;
+        $result =~ s/scrollHeight [0-9]+/scrollHeight/g;
+    }
+
+    return ($actual, $expected);
+}
+
+sub fileShouldBeIgnored
+{
+    my ($filePath) = @_;
+    foreach my $ignoredDir (keys %ignoredDirectories) {
+        if ($filePath =~ m/^$ignoredDir/) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+sub readSkippedFiles
+{
+    foreach my $level (@platformTestHierarchy) {
+        if (open SKIPPED, "<", "$level/Skipped") {
+            if ($verbose) {
+                my ($dir, $name) = splitpath($level);
+                print "Skipped tests in $name:\n";
+            }
+
+            while (<SKIPPED>) {
+                my $skipped = $_;
+                chomp $skipped;
+                $skipped =~ s/^[ \n\r]+//;
+                $skipped =~ s/[ \n\r]+$//;
+                if ($skipped && $skipped !~ /^#/) {
+                    if ($skippedOnly) {
+                        if (!&fileShouldBeIgnored($skipped)) {
+                            push(@ARGV, $skipped);
+                        } elsif ($verbose) {
+                            print "    $skipped\n";
+                        }
+                    } else {
+                        if ($verbose) {
+                            print "    $skipped\n";
+                        }
+                        processIgnoreTests($skipped, "Skipped");
+                    }
+                }
+            }
+            close SKIPPED;
+        }
+    }
+}
+
+my @testsToRun;
+
+sub directoryFilter
+{
+    return () if exists $ignoredLocalDirectories{basename($File::Find::dir)};
+    return () if exists $ignoredDirectories{File::Spec->abs2rel($File::Find::dir, $testDirectory)};
+    return @_;
+}
+
+sub fileFilter
+{
+    my $filename = $_;
+    if ($filename =~ /\.([^.]+)$/) {
+        if (exists $supportedFileExtensions{$1}) {
+            my $path = File::Spec->abs2rel(catfile($File::Find::dir, $filename), $testDirectory);
+            push @testsToRun, $path if !exists $ignoredFiles{$path};
+        }
+    }
+}
+
+sub findTestsToRun
+{
+    @testsToRun = ();
+
+    for my $test (@ARGV) {
+        $test =~ s/^($layoutTestsName|$testDirectory)\///;
+        my $fullPath = catfile($testDirectory, $test);
+        if (file_name_is_absolute($test)) {
+            print "can't run test $test outside $testDirectory\n";
+        } elsif (-f $fullPath) {
+            my ($filename, $pathname, $fileExtension) = fileparse($test, qr{\.[^.]+$});
+            if (!exists $supportedFileExtensions{substr($fileExtension, 1)}) {
+                print "test $test does not have a supported extension\n";
+            } elsif ($testHTTP || $pathname !~ /^http\//) {
+                push @testsToRun, $test;
+            }
+        } elsif (-d $fullPath) {
+            find({ preprocess => \&directoryFilter, wanted => \&fileFilter }, $fullPath);
+            for my $level (@platformTestHierarchy) {
+                my $platformPath = catfile($level, $test);
+                find({ preprocess => \&directoryFilter, wanted => \&fileFilter }, $platformPath) if (-d $platformPath);
+            }
+        } else {
+            print "test $test not found\n";
+        }
+    }
+
+    if (!scalar @ARGV) {
+        find({ preprocess => \&directoryFilter, wanted => \&fileFilter }, $testDirectory);
+        for my $level (@platformTestHierarchy) {
+            find({ preprocess => \&directoryFilter, wanted => \&fileFilter }, $level);
+        }
+    }
+
+    @testsToRun = sort pathcmp @testsToRun;
+
+    # Reverse the tests
+    @testsToRun = reverse @testsToRun if $reverseTests;
+
+    # Shuffle the array
+    @testsToRun = shuffle(@testsToRun) if $randomizeTests;
+
+    return @testsToRun;
+}
+
+sub printResults
+{
+    my %text = (
+        match => "succeeded",
+        mismatch => "had incorrect layout",
+        new => "were new",
+        timedout => "timed out",
+        crash => "crashed",
+        error => "had stderr output"
+    );
+
+    for my $type ("match", "mismatch", "new", "timedout", "crash", "error") {
+        my $typeCount = $counts{$type};
+        next unless $typeCount;
+        my $typeText = $text{$type};
+        my $message;
+        if ($typeCount == 1) {
+            $typeText =~ s/were/was/;
+            $message = sprintf "1 test case (%d%%) %s\n", 1 * 100 / $count, $typeText;
+        } else {
+            $message = sprintf "%d test cases (%d%%) %s\n", $typeCount, $typeCount * 100 / $count, $typeText;
+        }
+        $message =~ s-\(0%\)-(<1%)-;
+        print $message;
+    }
 }

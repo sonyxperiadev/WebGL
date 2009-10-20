@@ -41,6 +41,7 @@ namespace WebCore {
     class KURL;
     class KeyboardEvent;
     class Page;
+    class Node;
 }
 #endif
 
@@ -110,10 +111,6 @@ namespace WebCore {
 - (id)_policyDelegateForwarder;
 - (void)_pushPerformingProgrammaticFocus;
 - (void)_popPerformingProgrammaticFocus;
-- (void)_incrementProgressForIdentifier:(id)identifier response:(NSURLResponse *)response;
-- (void)_incrementProgressForIdentifier:(id)identifier length:(int)length;
-- (void)_completeProgressForIdentifier:(id)identifer;
-- (void)_progressStarted:(WebFrame *)frame;
 - (void)_didStartProvisionalLoadForFrame:(WebFrame *)frame;
 + (BOOL)_viewClass:(Class *)vClass andRepresentationClass:(Class *)rClass forMIMEType:(NSString *)MIMEType;
 - (BOOL)_viewClass:(Class *)vClass andRepresentationClass:(Class *)rClass forMIMEType:(NSString *)MIMEType;
@@ -138,7 +135,6 @@ namespace WebCore {
 - (void)_didChangeValueForKey:(NSString *)key;
 - (WebBasePluginPackage *)_pluginForMIMEType:(NSString *)MIMEType;
 - (WebBasePluginPackage *)_pluginForExtension:(NSString *)extension;
-- (BOOL)_isMIMETypeRegisteredAsPlugin:(NSString *)MIMEType;
 
 - (void)setCurrentNodeHighlight:(WebNodeHighlight *)nodeHighlight;
 - (WebNodeHighlight *)currentNodeHighlight;
@@ -167,5 +163,10 @@ namespace WebCore {
 + (BOOL)_canHandleRequest:(NSURLRequest *)request forMainFrame:(BOOL)forMainFrame;
 
 - (void)_setInsertionPasteboard:(NSPasteboard *)pasteboard;
+
+#if ENABLE(VIDEO) && defined(__cplusplus)
+- (void)_enterFullscreenForNode:(WebCore::Node*)node;
+- (void)_exitFullscreen;
+#endif
 
 @end

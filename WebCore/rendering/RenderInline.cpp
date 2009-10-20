@@ -131,18 +131,6 @@ void RenderInline::styleDidChange(StyleDifference diff, const RenderStyle* oldSt
     }
 }
 
-static inline bool isAfterContent(RenderObject* child)
-{
-    if (!child)
-        return false;
-    if (child->style()->styleType() != AFTER)
-        return false;
-    // Text nodes don't have their own styles, so ignore the style on a text node.
-    if (child->isText() && !child->isBR())
-        return false;
-    return true;
-}
-
 void RenderInline::addChild(RenderObject* newChild, RenderObject* beforeChild)
 {
     if (continuation())
@@ -556,6 +544,23 @@ IntRect RenderInline::linesBoundingBox() const
     return result;
 }
 
+IntRect RenderInline::linesVisibleOverflowBoundingBox() const
+{
+    if (!firstLineBox() || !lastLineBox())
+        return IntRect();
+
+    // Return the width of the minimal left side and the maximal right side.
+    int leftSide = numeric_limits<int>::max();
+    int rightSide = numeric_limits<int>::min();
+    for (InlineFlowBox* curr = firstLineBox(); curr; curr = curr->nextFlowBox()) {
+        leftSide = min(leftSide, curr->leftVisibleOverflow());
+        rightSide = max(rightSide, curr->rightVisibleOverflow());
+    }
+
+    return IntRect(leftSide, firstLineBox()->topVisibleOverflow(), rightSide - leftSide,
+        lastLineBox()->bottomVisibleOverflow() - firstLineBox()->topVisibleOverflow());
+}
+
 IntRect RenderInline::clippedOverflowRectForRepaint(RenderBoxModelObject* repaintContainer)
 {
     // Only run-ins are allowed in here during layout.
@@ -565,7 +570,7 @@ IntRect RenderInline::clippedOverflowRectForRepaint(RenderBoxModelObject* repain
         return IntRect();
 
     // Find our leftmost position.
-    IntRect boundingBox(linesBoundingBox());
+    IntRect boundingBox(linesVisibleOverflowBoundingBox());
     int left = boundingBox.x();
     int top = boundingBox.y();
 
@@ -647,7 +652,8 @@ void RenderInline::computeRectForRepaint(RenderBoxModelObject* repaintContainer,
     if (repaintContainer == this)
         return;
 
-    RenderObject* o = container();
+    bool containerSkipped;
+    RenderObject* o = container(repaintContainer, &containerSkipped);
     if (!o)
         return;
 
@@ -688,6 +694,13 @@ void RenderInline::computeRectForRepaint(RenderBoxModelObject* repaintContainer,
             return;
     } else
         rect.setLocation(topLeft);
+
+    if (containerSkipped) {
+        // If the repaintContainer is below o, then we need to map the rect into repaintContainer's coordinates.
+        IntSize containerOffset = repaintContainer->offsetFromAncestorContainer(o);
+        rect.move(-containerOffset);
+        return;
+    }
     
     o->computeRectForRepaint(repaintContainer, rect, fixed);
 }
@@ -830,8 +843,12 @@ void RenderInline::imageChanged(WrappedImagePtr, const IntRect*)
 
 void RenderInline::addFocusRingRects(GraphicsContext* graphicsContext, int tx, int ty)
 {
-    for (InlineRunBox* curr = firstLineBox(); curr; curr = curr->nextLineBox())
-        graphicsContext->addFocusRingRect(IntRect(tx + curr->x(), ty + curr->y(), curr->width(), curr->height()));
+    for (InlineRunBox* curr = firstLineBox(); curr; curr = curr->nextLineBox()) {
+        RootInlineBox* root = curr->root();
+        int top = max(root->lineTop(), curr->y());
+        int bottom = min(root->lineBottom(), curr->y() + curr->height());
+        graphicsContext->addFocusRingRect(IntRect(tx + curr->x(), ty + top, curr->width(), bottom - top));
+    }
 
     for (RenderObject* curr = firstChild(); curr; curr = curr->nextSibling()) {
         if (!curr->isText() && !curr->isListMarker()) {
@@ -883,9 +900,12 @@ void RenderInline::paintOutline(GraphicsContext* graphicsContext, int tx, int ty
     Vector<IntRect> rects;
 
     rects.append(IntRect());
-    for (InlineRunBox* curr = firstLineBox(); curr; curr = curr->nextLineBox())
-        rects.append(IntRect(curr->x(), curr->y(), curr->width(), curr->height()));
-
+    for (InlineRunBox* curr = firstLineBox(); curr; curr = curr->nextLineBox()) {
+        RootInlineBox* root = curr->root();
+        int top = max(root->lineTop(), curr->y());
+        int bottom = min(root->lineBottom(), curr->y() + curr->height());
+        rects.append(IntRect(curr->x(), top, curr->width(), bottom - top));
+    }
     rects.append(IntRect());
 
     for (unsigned i = 1; i < rects.size() - 1; i++)

@@ -34,6 +34,7 @@
 #include "JITStubs.h"
 #include "JSValue.h"
 #include "MarkStack.h"
+#include "NumericStrings.h"
 #include "SmallStrings.h"
 #include "TimeoutChecker.h"
 #include <wtf/Forward.h>
@@ -45,15 +46,14 @@ struct OpaqueJSClassContextData;
 
 namespace JSC {
 
+    class CodeBlock;
     class CommonIdentifiers;
-    class FunctionBodyNode;
     class IdentifierTable;
     class Interpreter;
     class JSGlobalObject;
     class JSObject;
     class Lexer;
     class Parser;
-    class ScopeNode;
     class Stringifier;
     class Structure;
     class UString;
@@ -115,6 +115,7 @@ namespace JSC {
         CommonIdentifiers* propertyNames;
         const MarkedArgumentBuffer* emptyList; // Lists are supposed to be allocated on the stack to have their elements properly marked, which is not the case here - but this list has nothing to mark.
         SmallStrings smallStrings;
+        NumericStrings numericStrings;
 
 #if ENABLE(ASSEMBLER)
         ExecutableAllocator executableAllocator;
@@ -145,10 +146,18 @@ namespace JSC {
 
         HashSet<JSObject*> arrayVisitedElements;
 
-        ScopeNode* scopeNodeBeingReparsed;
+        CodeBlock* functionCodeBlockBeingReparsed;
         Stringifier* firstStringifierToMark;
 
         MarkStack markStack;
+
+#ifndef NDEBUG
+        bool mainThreadOnly;
+#endif
+
+        void startSampling();
+        void stopSampling();
+        void dumpSampleData(ExecState* exec);
     private:
         JSGlobalData(bool isShared, const VPtrSet&);
         static JSGlobalData*& sharedInstanceInternal();

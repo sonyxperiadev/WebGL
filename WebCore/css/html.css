@@ -72,6 +72,10 @@ layer {
     display: block
 }
 
+nav {
+    display: block
+}
+
 marquee {
     display: inline-block;
     overflow: -webkit-marquee
@@ -350,6 +354,11 @@ input[type="search"]::-webkit-search-results-button {
     display: inline-block;
 }
 
+input::-webkit-input-list-button {
+    -webkit-appearance: list-button;
+    display: inline-block;
+}
+
 textarea {
     -webkit-appearance: textarea;
     background-color: white;
@@ -364,7 +373,7 @@ textarea {
     word-wrap: break-word;
 }
 
-input::-webkit-input-placeholder, isindex::-webkit-input-placeholder {
+input::-webkit-input-placeholder, isindex::-webkit-input-placeholder, textarea::-webkit-input-placeholder {
     color: darkGray;
 }
 
@@ -481,6 +490,10 @@ select[size="1"] {
     border: 1px solid;
     -webkit-border-radius: 5px;
     white-space: pre;
+}
+
+datalist {
+    display: none;
 }
 
 optgroup {

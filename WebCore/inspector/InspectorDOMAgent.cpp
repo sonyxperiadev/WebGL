@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 2009 Apple Inc. All rights reserved.
  * Copyright (C) 2009 Google Inc. All rights reserved.
+ * Copyright (C) 2009 Joseph Pecoraro
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,7 +31,12 @@
 #include "config.h"
 #include "InspectorDOMAgent.h"
 
+#if ENABLE(INSPECTOR)
+
 #include "AtomicString.h"
+#include "ContainerNode.h"
+#include "Cookie.h"
+#include "CookieJar.h"
 #include "DOMWindow.h"
 #include "Document.h"
 #include "Event.h"
@@ -44,6 +50,7 @@
 #include "Node.h"
 #include "NodeList.h"
 #include "PlatformString.h"
+#include "ScriptEventListener.h"
 #include "ScriptObject.h"
 #include "Text.h"
 
@@ -53,7 +60,8 @@
 namespace WebCore {
 
 InspectorDOMAgent::InspectorDOMAgent(InspectorFrontend* frontend)
-    : m_frontend(frontend)
+    : EventListener(InspectorDOMAgentType)
+    , m_frontend(frontend)
     , m_lastNodeId(1)
 {
 }
@@ -67,6 +75,7 @@ void InspectorDOMAgent::setDocument(Document* doc)
 {
     if (doc == mainFrameDocument())
         return;
+    discardBindings();
 
     ListHashSet<RefPtr<Document> > copy = m_documents;
     for (ListHashSet<RefPtr<Document> >::iterator it = copy.begin(); it != copy.end(); ++it)
@@ -77,11 +86,15 @@ void InspectorDOMAgent::setDocument(Document* doc)
     if (doc) {
         startListening(doc);
         if (doc->documentElement()) {
-            pushDocumentElementToFrontend();
+            pushDocumentToFrontend();
         }
-    } else {
-        discardBindings();
     }
+}
+
+void InspectorDOMAgent::releaseDanglingNodes()
+{
+    deleteAllValues(m_danglingNodeToIdMaps);
+    m_danglingNodeToIdMaps.clear();
 }
 
 void InspectorDOMAgent::startListening(Document* doc)
@@ -92,8 +105,8 @@ void InspectorDOMAgent::startListening(Document* doc)
     doc->addEventListener(eventNames().DOMContentLoadedEvent, this, false);
     doc->addEventListener(eventNames().DOMNodeInsertedEvent, this, false);
     doc->addEventListener(eventNames().DOMNodeRemovedEvent, this, false);
-    doc->addEventListener(eventNames().DOMNodeRemovedFromDocumentEvent, this, true);
     doc->addEventListener(eventNames().DOMAttrModifiedEvent, this, false);
+    doc->addEventListener(eventNames().loadEvent, this, true);
     m_documents.add(doc);
 }
 
@@ -105,24 +118,18 @@ void InspectorDOMAgent::stopListening(Document* doc)
     doc->removeEventListener(eventNames().DOMContentLoadedEvent, this, false);
     doc->removeEventListener(eventNames().DOMNodeInsertedEvent, this, false);
     doc->removeEventListener(eventNames().DOMNodeRemovedEvent, this, false);
-    doc->removeEventListener(eventNames().DOMNodeRemovedFromDocumentEvent, this, true);
     doc->removeEventListener(eventNames().DOMAttrModifiedEvent, this, false);
+    doc->removeEventListener(eventNames().loadEvent, this, true);
     m_documents.remove(doc);
 }
 
-void InspectorDOMAgent::handleEvent(Event* event, bool)
+void InspectorDOMAgent::handleEvent(ScriptExecutionContext*, Event* event)
 {
     AtomicString type = event->type();
     Node* node = event->target()->toNode();
 
-    // Remove mapping entry if necessary.
-    if (type == eventNames().DOMNodeRemovedFromDocumentEvent) {
-        unbind(node);
-        return;
-    }
-
     if (type == eventNames().DOMAttrModifiedEvent) {
-        long id = idForNode(node);
+        long id = m_documentNodeToIdMap.get(node);
         // If node is not mapped yet -> ignore the event.
         if (!id)
             return;
@@ -133,20 +140,23 @@ void InspectorDOMAgent::handleEvent(Event* event, bool)
         if (isWhitespace(node))
             return;
 
+        // We could be attaching existing subtree. Forget the bindings.
+        unbind(node, &m_documentNodeToIdMap);
+
         Node* parent = static_cast<MutationEvent*>(event)->relatedNode();
-        long parentId = idForNode(parent);
+        long parentId = m_documentNodeToIdMap.get(parent);
         // Return if parent is not mapped yet.
         if (!parentId)
             return;
 
         if (!m_childrenRequested.contains(parentId)) {
             // No children are mapped yet -> only notify on changes of hasChildren.
-            m_frontend->hasChildrenUpdated(parentId, true);
+            m_frontend->childNodeCountUpdated(parentId, innerChildNodeCount(parent));
         } else {
             // Children have been requested -> return value of a new child.
-            long prevId = idForNode(innerPreviousSibling(node));
-
-            ScriptObject value = buildObjectForNode(node, 0);
+            Node* prevSibling = innerPreviousSibling(node);
+            long prevId = prevSibling ? m_documentNodeToIdMap.get(prevSibling) : 0;
+            ScriptObject value = buildObjectForNode(node, 0, &m_documentNodeToIdMap);
             m_frontend->childNodeInserted(parentId, prevId, value);
         }
     } else if (type == eventNames().DOMNodeRemovedEvent) {
@@ -154,7 +164,7 @@ void InspectorDOMAgent::handleEvent(Event* event, bool)
             return;
 
         Node* parent = static_cast<MutationEvent*>(event)->relatedNode();
-        long parentId = idForNode(parent);
+        long parentId = m_documentNodeToIdMap.get(parent);
         // If parent is not mapped yet -> ignore the event.
         if (!parentId)
             return;
@@ -162,92 +172,115 @@ void InspectorDOMAgent::handleEvent(Event* event, bool)
         if (!m_childrenRequested.contains(parentId)) {
             // No children are mapped yet -> only notify on changes of hasChildren.
             if (innerChildNodeCount(parent) == 1)
-                m_frontend->hasChildrenUpdated(parentId, false);
+                m_frontend->childNodeCountUpdated(parentId, 0);
         } else {
-            m_frontend->childNodeRemoved(parentId, idForNode(node));
+            m_frontend->childNodeRemoved(parentId, m_documentNodeToIdMap.get(node));
         }
+        unbind(node, &m_documentNodeToIdMap);
     } else if (type == eventNames().DOMContentLoadedEvent) {
         // Re-push document once it is loaded.
         discardBindings();
-        pushDocumentElementToFrontend();
+        pushDocumentToFrontend();
+    } else if (type == eventNames().loadEvent) {
+        long frameOwnerId = m_documentNodeToIdMap.get(node);
+        if (!frameOwnerId)
+            return;
+
+        if (!m_childrenRequested.contains(frameOwnerId)) {
+            // No children are mapped yet -> only notify on changes of hasChildren.
+            m_frontend->childNodeCountUpdated(frameOwnerId, innerChildNodeCount(node));
+        } else {
+            // Re-add frame owner element together with its new children.
+            long parentId = m_documentNodeToIdMap.get(innerParentNode(node));
+            m_frontend->childNodeRemoved(parentId, frameOwnerId);
+            long prevId = m_documentNodeToIdMap.get(innerPreviousSibling(node));
+            ScriptObject value = buildObjectForNode(node, 0, &m_documentNodeToIdMap);
+            m_frontend->childNodeInserted(parentId, prevId, value);
+            // Invalidate children requested flag for the element.
+            m_childrenRequested.remove(m_childrenRequested.find(frameOwnerId));
+        }
     }
 }
 
-long InspectorDOMAgent::bind(Node* node)
+long InspectorDOMAgent::bind(Node* node, NodeToIdMap* nodesMap)
 {
-    HashMap<Node*, long>::iterator it = m_nodeToId.find(node);
-    if (it != m_nodeToId.end())
-        return it->second;
-    long id = m_lastNodeId++;
-    m_nodeToId.set(node, id);
+    long id = nodesMap->get(node);
+    if (id)
+        return id;
+    id = m_lastNodeId++;
+    nodesMap->set(node, id);
     m_idToNode.set(id, node);
+    m_idToNodesMap.set(id, nodesMap);
     return id;
 }
 
-void InspectorDOMAgent::unbind(Node* node)
+void InspectorDOMAgent::unbind(Node* node, NodeToIdMap* nodesMap)
 {
     if (node->isFrameOwnerElement()) {
         const HTMLFrameOwnerElement* frameOwner = static_cast<const HTMLFrameOwnerElement*>(node);
         stopListening(frameOwner->contentDocument());
     }
 
-    HashMap<Node*, long>::iterator it = m_nodeToId.find(node);
-    if (it != m_nodeToId.end()) {
-        m_idToNode.remove(m_idToNode.find(it->second));
-        m_childrenRequested.remove(m_childrenRequested.find(it->second));
-        m_nodeToId.remove(it);
+    int id = nodesMap->get(node);
+    if (!id)
+        return;
+    m_idToNode.remove(id);
+    nodesMap->remove(node);
+    bool childrenRequested = m_childrenRequested.contains(id);
+    if (childrenRequested) {
+        // Unbind subtree known to client recursively.
+        m_childrenRequested.remove(id);
+        Node* child = innerFirstChild(node);
+        while (child) {
+            unbind(child, nodesMap);
+            child = innerNextSibling(child);
+        }
     }
 }
 
-void InspectorDOMAgent::pushDocumentElementToFrontend()
+void InspectorDOMAgent::pushDocumentToFrontend()
 {
-    Element* docElem = mainFrameDocument()->documentElement();
-    if (!m_nodeToId.contains(docElem))
-        m_frontend->setDocumentElement(buildObjectForNode(docElem, 0));
+    Document* document = mainFrameDocument();
+    if (!m_documentNodeToIdMap.contains(document))
+        m_frontend->setDocument(buildObjectForNode(document, 2, &m_documentNodeToIdMap));
 }
 
-void InspectorDOMAgent::pushChildNodesToFrontend(long elementId)
+void InspectorDOMAgent::pushChildNodesToFrontend(long nodeId)
 {
-    Node* node = nodeForId(elementId);
-    if (!node || (node->nodeType() != Node::ELEMENT_NODE))
+    Node* node = nodeForId(nodeId);
+    if (!node || (node->nodeType() != Node::ELEMENT_NODE && node->nodeType() != Node::DOCUMENT_NODE))
         return;
-    if (m_childrenRequested.contains(elementId))
+    if (m_childrenRequested.contains(nodeId))
         return;
 
-    Element* element = static_cast<Element*>(node);
-    ScriptArray children = buildArrayForElementChildren(element, 1);
-    m_childrenRequested.add(elementId);
-    m_frontend->setChildNodes(elementId, children);
+    NodeToIdMap* nodeMap = m_idToNodesMap.get(nodeId);
+    ScriptArray children = buildArrayForContainerChildren(node, 1, nodeMap);
+    m_childrenRequested.add(nodeId);
+    m_frontend->setChildNodes(nodeId, children);
 }
 
 void InspectorDOMAgent::discardBindings()
 {
-    m_nodeToId.clear();
+    m_documentNodeToIdMap.clear();
     m_idToNode.clear();
+    releaseDanglingNodes();
     m_childrenRequested.clear();
 }
 
 Node* InspectorDOMAgent::nodeForId(long id)
 {
+    if (!id)
+        return 0;
+
     HashMap<long, Node*>::iterator it = m_idToNode.find(id);
     if (it != m_idToNode.end())
         return it->second;
     return 0;
 }
 
-long InspectorDOMAgent::idForNode(Node* node)
+void InspectorDOMAgent::getChildNodes(long callId, long nodeId)
 {
-    if (!node)
-        return 0;
-    HashMap<Node*, long>::iterator it = m_nodeToId.find(node);
-    if (it != m_nodeToId.end())
-        return it->second;
-    return 0;
-}
-
-void InspectorDOMAgent::getChildNodes(long callId, long elementId)
-{
-    pushChildNodesToFrontend(elementId);
+    pushChildNodesToFrontend(nodeId);
     m_frontend->didGetChildNodes(callId);
 }
 
@@ -256,31 +289,40 @@ long InspectorDOMAgent::pushNodePathToFrontend(Node* nodeToPush)
     ASSERT(nodeToPush);  // Invalid input
 
     // If we are sending information to the client that is currently being created. Send root node first.
-    pushDocumentElementToFrontend();
+    pushDocumentToFrontend();
 
     // Return id in case the node is known.
-    long result = idForNode(nodeToPush);
+    long result = m_documentNodeToIdMap.get(nodeToPush);
     if (result)
         return result;
 
-    Element* element = innerParentElement(nodeToPush);
-    ASSERT(element);  // Node is detached or is a document itself
-
-    Vector<Element*> path;
-    while (element && !idForNode(element)) {
-        path.append(element);
-        element = innerParentElement(element);
+    Node* node = nodeToPush;
+    Vector<Node*> path;
+    NodeToIdMap* danglingMap = 0;
+    while (true) {
+        Node* parent = innerParentNode(node);
+        if (!parent) {
+            // Node being pushed is detached -> push subtree root.
+            danglingMap = new NodeToIdMap();
+            m_danglingNodeToIdMaps.append(danglingMap);
+            m_frontend->setDetachedRoot(buildObjectForNode(node, 0, danglingMap));
+            break;
+        } else {
+            path.append(parent);
+            if (m_documentNodeToIdMap.get(parent))
+                break;
+            else
+                node = parent;
+        }
     }
 
-    // element is known to the client
-    ASSERT(element);
-    path.append(element);
+    NodeToIdMap* map = danglingMap ? danglingMap : &m_documentNodeToIdMap;
     for (int i = path.size() - 1; i >= 0; --i) {
-        long nodeId = idForNode(path.at(i));
+        long nodeId = map->get(path.at(i));
         ASSERT(nodeId);
         pushChildNodesToFrontend(nodeId);
     }
-    return idForNode(nodeToPush);
+    return map->get(nodeToPush);
 }
 
 void InspectorDOMAgent::setAttribute(long callId, long elementId, const String& name, const String& value)
@@ -309,9 +351,9 @@ void InspectorDOMAgent::removeAttribute(long callId, long elementId, const Strin
     }
 }
 
-void InspectorDOMAgent::setTextNodeValue(long callId, long elementId, const String& value)
+void InspectorDOMAgent::setTextNodeValue(long callId, long nodeId, const String& value)
 {
-    Node* node = nodeForId(elementId);
+    Node* node = nodeForId(nodeId);
     if (node && (node->nodeType() == Node::TEXT_NODE)) {
         Text* text_node = static_cast<Text*>(node);
         ExceptionCode ec = 0;
@@ -322,12 +364,87 @@ void InspectorDOMAgent::setTextNodeValue(long callId, long elementId, const Stri
     }
 }
 
-ScriptObject InspectorDOMAgent::buildObjectForNode(Node* node, int depth)
+void InspectorDOMAgent::getEventListenersForNode(long callId, long nodeId)
+{
+    Node* node = nodeForId(nodeId);
+    ScriptArray listenersArray = m_frontend->newScriptArray();
+    unsigned counter = 0;
+    EventTargetData* d;
+
+    // Quick break if a null node or no listeners at all
+    if (!node || !(d = node->eventTargetData())) {
+        m_frontend->didGetEventListenersForNode(callId, nodeId, listenersArray);
+        return;
+    }
+
+    // Get the list of event types this Node is concerned with
+    Vector<AtomicString> eventTypes;
+    const EventListenerMap& listenerMap = d->eventListenerMap;
+    HashMap<AtomicString, EventListenerVector>::const_iterator end = listenerMap.end();
+    for (HashMap<AtomicString, EventListenerVector>::const_iterator iter = listenerMap.begin(); iter != end; ++iter)
+        eventTypes.append(iter->first);
+
+    // Quick break if no useful listeners
+    size_t eventTypesLength = eventTypes.size();
+    if (eventTypesLength == 0) {
+        m_frontend->didGetEventListenersForNode(callId, nodeId, listenersArray);
+        return;
+    }
+
+    // The Node's Event Ancestors (not including self)
+    Vector<RefPtr<ContainerNode> > ancestors;
+    node->eventAncestors(ancestors);
+
+    // Nodes and their Listeners for the concerned event types (order is top to bottom)
+    Vector<EventListenerInfo> eventInformation;
+    for (size_t i = ancestors.size(); i; --i) {
+        ContainerNode* ancestor = ancestors[i - 1].get();
+        for (size_t j = 0; j < eventTypesLength; ++j) {
+            AtomicString& type = eventTypes[j];
+            if (ancestor->hasEventListeners(type))
+                eventInformation.append(EventListenerInfo(static_cast<Node*>(ancestor), type, ancestor->getEventListeners(type)));
+        }
+    }
+
+    // Insert the Current Node at the end of that list (last in capturing, first in bubbling)
+    for (size_t i = 0; i < eventTypesLength; ++i) {
+        const AtomicString& type = eventTypes[i];
+        eventInformation.append(EventListenerInfo(node, type, node->getEventListeners(type)));
+    }
+
+    // Get Capturing Listeners (in this order)
+    size_t eventInformationLength = eventInformation.size();
+    for (size_t i = 0; i < eventInformationLength; ++i) {
+        const EventListenerInfo& info = eventInformation[i];
+        const EventListenerVector& vector = info.eventListenerVector;
+        for (size_t j = 0; j < vector.size(); ++j) {
+            const RegisteredEventListener& listener = vector[j];
+            if (listener.useCapture)
+                listenersArray.set(counter++, buildObjectForEventListener(listener, info.eventType, info.node));
+        }
+    }
+
+    // Get Bubbling Listeners (reverse order)
+    for (size_t i = eventInformationLength; i; --i) {
+        const EventListenerInfo& info = eventInformation[i - 1];
+        const EventListenerVector& vector = info.eventListenerVector;
+        for (size_t j = 0; j < vector.size(); ++j) {
+            const RegisteredEventListener& listener = vector[j];
+            if (!listener.useCapture)
+                listenersArray.set(counter++, buildObjectForEventListener(listener, info.eventType, info.node));
+        }
+    }
+
+    m_frontend->didGetEventListenersForNode(callId, nodeId, listenersArray);
+}
+
+ScriptObject InspectorDOMAgent::buildObjectForNode(Node* node, int depth, NodeToIdMap* nodesMap)
 {
     ScriptObject value = m_frontend->newScriptObject();
 
-    long id = bind(node);
+    long id = bind(node, nodesMap);
     String nodeName;
+    String localName;
     String nodeValue;
 
     switch (node->nodeType()) {
@@ -336,27 +453,32 @@ ScriptObject InspectorDOMAgent::buildObjectForNode(Node* node, int depth)
             nodeValue = node->nodeValue();
             break;
         case Node::ATTRIBUTE_NODE:
-        case Node::DOCUMENT_NODE:
+            localName = node->localName();
+            break;
         case Node::DOCUMENT_FRAGMENT_NODE:
             break;
+        case Node::DOCUMENT_NODE:
         case Node::ELEMENT_NODE:
         default:
             nodeName = node->nodeName();
+            localName = node->localName();
             break;
     }
 
     value.set("id", static_cast<int>(id));
     value.set("nodeType", node->nodeType());
     value.set("nodeName", nodeName);
+    value.set("localName", localName);
     value.set("nodeValue", nodeValue);
 
     if (node->nodeType() == Node::ELEMENT_NODE) {
         Element* element = static_cast<Element*>(node);
         value.set("attributes", buildArrayForElementAttributes(element));
-        int nodeCount = innerChildNodeCount(element);
+    }
+    if (node->nodeType() == Node::ELEMENT_NODE || node->nodeType() == Node::DOCUMENT_NODE) {
+        int nodeCount = innerChildNodeCount(node);
         value.set("childNodeCount", nodeCount);
-
-        ScriptArray children = buildArrayForElementChildren(element, depth);
+        ScriptArray children = buildArrayForContainerChildren(node, depth, nodesMap);
         if (children.length() > 0)
             value.set("children", children);
     }
@@ -381,16 +503,16 @@ ScriptArray InspectorDOMAgent::buildArrayForElementAttributes(Element* element)
     return attributesValue;
 }
 
-ScriptArray InspectorDOMAgent::buildArrayForElementChildren(Element* element, int depth)
+ScriptArray InspectorDOMAgent::buildArrayForContainerChildren(Node* container, int depth, NodeToIdMap* nodesMap)
 {
     ScriptArray children = m_frontend->newScriptArray();
     if (depth == 0) {
         int index = 0;
         // Special case the_only text child.
-        if (innerChildNodeCount(element) == 1) {
-            Node *child = innerFirstChild(element);
+        if (innerChildNodeCount(container) == 1) {
+            Node *child = innerFirstChild(container);
             if (child->nodeType() == Node::TEXT_NODE)
-                children.set(index++, buildObjectForNode(child, 0));
+                children.set(index++, buildObjectForNode(child, 0, nodesMap));
         }
         return children;
     } else if (depth > 0) {
@@ -398,9 +520,21 @@ ScriptArray InspectorDOMAgent::buildArrayForElementChildren(Element* element, in
     }
 
     int index = 0;
-    for (Node *child = innerFirstChild(element); child; child = innerNextSibling(child))
-        children.set(index++, buildObjectForNode(child, depth));
+    for (Node *child = innerFirstChild(container); child; child = innerNextSibling(child))
+        children.set(index++, buildObjectForNode(child, depth, nodesMap));
     return children;
+}
+
+ScriptObject InspectorDOMAgent::buildObjectForEventListener(const RegisteredEventListener& registeredEventListener, const AtomicString& eventType, Node* node)
+{
+    RefPtr<EventListener> eventListener = registeredEventListener.listener;
+    ScriptObject value = m_frontend->newScriptObject();
+    value.set("type", eventType);
+    value.set("useCapture", registeredEventListener.useCapture);
+    value.set("isAttribute", eventListener->isAttribute());
+    value.set("nodeId", static_cast<long long>(pushNodePathToFrontend(node)));
+    value.set("listener", getEventListenerHandlerBody(node->document(), m_frontend->scriptState(), eventListener.get()));
+    return value;
 }
 
 Node* InspectorDOMAgent::innerFirstChild(Node* node)
@@ -446,12 +580,12 @@ int InspectorDOMAgent::innerChildNodeCount(Node* node)
     return count;
 }
 
-Element* InspectorDOMAgent::innerParentElement(Node* node)
+Node* InspectorDOMAgent::innerParentNode(Node* node)
 {
-    Element* element = node->parentElement();
-    if (!element)
-        return node->ownerDocument()->ownerElement();
-    return element;
+    Node* parent = node->parentNode();
+    if (parent && parent->nodeType() == Node::DOCUMENT_NODE)
+        return static_cast<Document*>(parent)->ownerElement();
+    return parent;
 }
 
 bool InspectorDOMAgent::isWhitespace(Node* node)
@@ -460,12 +594,21 @@ bool InspectorDOMAgent::isWhitespace(Node* node)
     return node && node->nodeType() == Node::TEXT_NODE && node->nodeValue().stripWhiteSpace().length() == 0;
 }
 
-Document* InspectorDOMAgent::mainFrameDocument()
+Document* InspectorDOMAgent::mainFrameDocument() const
 {
-    ListHashSet<RefPtr<Document> >::iterator it = m_documents.begin();
+    ListHashSet<RefPtr<Document> >::const_iterator it = m_documents.begin();
     if (it != m_documents.end())
         return it->get();
     return 0;
 }
 
+bool InspectorDOMAgent::operator==(const EventListener& listener)
+{
+    if (const InspectorDOMAgent* inspectorDOMAgentListener = InspectorDOMAgent::cast(&listener))
+        return mainFrameDocument() == inspectorDOMAgentListener->mainFrameDocument();
+    return false;
+}
+
 } // namespace WebCore
+
+#endif // ENABLE(INSPECTOR)

@@ -33,40 +33,11 @@
 
 #include "config.h"
 
-#include "AXObjectCache.h"
-#include "CachedResource.h"
-#include "CookieJar.h"
-#include "Cursor.h"
-#include "DataGridColumnList.h"
-#include "FileSystem.h"
-#include "Font.h"
-#include "Frame.h"
-#include "FrameView.h"
-#include "GraphicsContext.h"
-#include "History.h"
-#include "IconLoader.h"
-#include "InspectorController.h"
-#include "IntPoint.h"
 #include "KURL.h"
-#include "Language.h"
-#include "Node.h"
 #include "NotImplemented.h"
-#include "Path.h"
-#include "PlatformMouseEvent.h"
-#include "PlatformScrollBar.h"
-#include "PluginInfoStore.h"
-#include "RenderTheme.h"
-#include "Screen.h"
-#include "Scrollbar.h"
-#include "ScrollbarTheme.h"
-#include "SharedBuffer.h"
-#include "TextBoundaries.h"
-#include "Threading.h"
-#include "Widget.h"
-#include "loader.h"
-#include <runtime/JSValue.h>
-#include <stdio.h>
-#include <stdlib.h>
+#include "PlatformString.h"
+#include "SSLKeyGenerator.h"
+#include "SystemTime.h"
 
 using namespace WebCore;
 
@@ -78,20 +49,14 @@ Vector<char> loadResourceIntoArray(const char*)
 
 namespace WebCore {
 
-bool historyContains(String const&)
-{
-    return false;
-}
-
-Vector<String> supportedKeySizes()
-{
-    notImplemented();
-    return Vector<String>();
-}
-
 String signedPublicKeyAndChallengeString(unsigned keySizeIndex, const String &challengeString, const KURL &url)
 {
     return String();
+}
+
+void getSupportedKeySizes(Vector<String>&)
+{
+    notImplemented();
 }
 
 float userIdleTime()
@@ -105,21 +70,10 @@ void callOnMainThread(void (*)())
     notImplemented();
 }
 
-PassRefPtr<SharedBuffer> SharedBuffer::createWithContentsOfFile(const String&)
-{
-    notImplemented();
-    return 0;
-}
-
 String KURL::fileSystemPath() const
 {
     notImplemented();
     return String();
-}
-
-void getSupportedKeySizes(Vector<String>&)
-{
-    notImplemented();
 }
 
 } // namespace WebCore

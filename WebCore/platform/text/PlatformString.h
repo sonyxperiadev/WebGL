@@ -56,6 +56,10 @@ QT_END_NAMESPACE
 class wxString;
 #endif
 
+#if PLATFORM(HAIKU)
+class BString;
+#endif
+
 namespace WebCore {
 
 class CString;
@@ -189,16 +193,13 @@ public:
 
     bool percentage(int& percentage) const;
 
-    // Makes a deep copy. Helpful only if you need to use a String on another thread.
+    // Returns a StringImpl suitable for use on another thread.
+    String crossThreadString() const;
+    // Makes a deep copy. Helpful only if you need to use a String on another thread
+    // (use crossThreadString if the method call doesn't need to be threadsafe).
     // Since the underlying StringImpl objects are immutable, there's no other reason
     // to ever prefer copy() over plain old assignment.
-    String copy() const;
-
-    // Makes a deep copy like copy() but only for a substring.
-    // (This ensures that you always get something suitable for a thread while subtring
-    // may not.  For example, in the empty string case, StringImpl::substring returns
-    // empty() which is not safe for another thread.)
-    String substringCopy(unsigned pos, unsigned len  = UINT_MAX) const;
+    String threadsafeCopy() const;
 
     bool isNull() const { return !m_impl; }
     bool isEmpty() const;
@@ -229,6 +230,11 @@ public:
     operator wxString() const;
 #endif
 
+#if PLATFORM(HAIKU)
+    String(const BString&);
+    operator BString() const;
+#endif
+
 #ifndef NDEBUG
     Vector<char> ascii() const;
 #endif
@@ -244,6 +250,14 @@ public:
     
     // Determines the writing direction using the Unicode Bidi Algorithm rules P2 and P3.
     WTF::Unicode::Direction defaultWritingDirection() const { return m_impl ? m_impl->defaultWritingDirection() : WTF::Unicode::LeftToRight; }
+
+    // Counts the number of grapheme clusters. A surrogate pair or a sequence
+    // of a non-combining character and following combining characters is
+    // counted as 1 grapheme cluster.
+    unsigned numGraphemeClusters() const;
+    // Returns the number of characters which will be less than or equal to
+    // the specified grapheme cluster length.
+    unsigned numCharactersInGraphemeClusters(unsigned) const;
 
 private:
     RefPtr<StringImpl> m_impl;

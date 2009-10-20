@@ -30,7 +30,9 @@ namespace WebCore {
 
 class FormDataList;
 class HTMLFormElement;
+class RenderTextControl;
 class ValidityState;
+class VisibleSelection;
 
 class HTMLFormControlElement : public HTMLElement {
 public:
@@ -42,6 +44,9 @@ public:
 
     HTMLFormElement* form() const { return m_form; }
     virtual ValidityState* validity();
+
+    bool formNoValidate() const;
+    void setFormNoValidate(bool);
 
     virtual bool isTextFormControl() const { return false; }
     virtual bool isEnabledFormControl() const { return !disabled(); }
@@ -102,10 +107,12 @@ public:
     virtual short tabIndex() const;
 
     virtual bool willValidate() const;
+    bool checkValidity();
+    void updateValidity();
     void setCustomValidity(const String&);
-
     virtual bool valueMissing() const { return false; }
     virtual bool patternMismatch() const { return false; }
+    virtual bool tooLong() const { return false; }
 
     void formDestroyed() { m_form = 0; }
 
@@ -117,12 +124,15 @@ protected:
 
 private:
     virtual HTMLFormElement* virtualForm() const;
+    virtual bool isDefaultButtonForForm() const;
+    virtual bool isValidFormControlElement();
 
     HTMLFormElement* m_form;
     RefPtr<ValidityState> m_validityState;
-    bool m_disabled;
-    bool m_readOnly;
-    bool m_valueMatchesRenderer;
+    bool m_disabled : 1;
+    bool m_readOnly : 1;
+    bool m_required : 1;
+    bool m_valueMatchesRenderer : 1;
 };
 
 class HTMLFormControlElementWithState : public HTMLFormControlElement {
@@ -135,6 +145,40 @@ public:
 protected:
     virtual void willMoveToNewOwnerDocument();
     virtual void didMoveToNewOwnerDocument();
+};
+
+class HTMLTextFormControlElement : public HTMLFormControlElementWithState {
+public:
+    HTMLTextFormControlElement(const QualifiedName&, Document*, HTMLFormElement*);
+    virtual ~HTMLTextFormControlElement();
+    virtual void dispatchFocusEvent();
+    virtual void dispatchBlurEvent();
+
+    int selectionStart();
+    int selectionEnd();
+    void setSelectionStart(int);
+    void setSelectionEnd(int);
+    void select();
+    void setSelectionRange(int start, int end);
+    VisibleSelection selection() const;
+
+protected:
+    bool placeholderShouldBeVisible() const;
+    void updatePlaceholderVisibility(bool);
+    virtual int cachedSelectionStart() const = 0;
+    virtual int cachedSelectionEnd() const = 0;
+    virtual void parseMappedAttribute(MappedAttribute*);
+
+private:
+    // A subclass should return true if placeholder processing is needed.
+    virtual bool supportsPlaceholder() const = 0;
+    // Returns true if user-editable value is empty.  This is used to check placeholder visibility.
+    virtual bool isEmptyValue() const = 0;
+    // Called in dispatchFocusEvent(), after placeholder process, before calling parent's dispatchFocusEvent().
+    virtual void handleFocusEvent() { }
+    // Called in dispatchBlurEvent(), after placeholder process, before calling parent's dispatchBlurEvent().
+    virtual void handleBlurEvent() { }
+    RenderTextControl* textRendererAfterUpdateLayout();
 };
 
 } //namespace

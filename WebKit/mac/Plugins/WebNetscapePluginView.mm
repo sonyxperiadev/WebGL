@@ -69,6 +69,7 @@
 #import <WebCore/Page.h> 
 #import <WebCore/PluginMainThreadScheduler.h>
 #import <WebCore/ScriptController.h>
+#import <WebCore/SecurityOrigin.h>
 #import <WebCore/SoftLinking.h> 
 #import <WebCore/WebCoreObjCExtras.h>
 #import <WebCore/WebCoreURLResponse.h>
@@ -78,13 +79,12 @@
 #import <wtf/Assertions.h>
 #import <objc/objc-runtime.h>
 
-using std::max;
-
 #define LoginWindowDidSwitchFromUserNotification    @"WebLoginWindowDidSwitchFromUserNotification"
 #define LoginWindowDidSwitchToUserNotification      @"WebLoginWindowDidSwitchToUserNotification"
 
 using namespace WebCore;
 using namespace WebKit;
+using namespace std;
 
 static inline bool isDrawingModelQuickDraw(NPDrawingModel drawingModel)
 {
@@ -1683,7 +1683,7 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
             return NPERR_INVALID_PARAM;
         }
     } else {
-        if (!FrameLoader::canLoad(URL, String(), core([self webFrame])->document()))
+        if (!SecurityOrigin::canLoad(URL, String(), core([self webFrame])->document()))
             return NPERR_GENERIC_ERROR;
     }
         
@@ -1794,7 +1794,7 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
                 NSString *contentLength = [header objectForKey:@"Content-Length"];
 
                 if (contentLength != nil)
-                    dataLength = MIN((unsigned)[contentLength intValue], dataLength);
+                    dataLength = min<unsigned>([contentLength intValue], dataLength);
                 [header removeObjectForKey:@"Content-Length"];
 
                 if ([header count] > 0) {

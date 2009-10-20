@@ -112,8 +112,8 @@ JSGlobalObject::~JSGlobalObject()
     if (headObject == this)
         headObject = 0;
 
-    HashSet<ProgramCodeBlock*>::const_iterator end = codeBlocks().end();
-    for (HashSet<ProgramCodeBlock*>::const_iterator it = codeBlocks().begin(); it != end; ++it)
+    HashSet<GlobalCodeBlock*>::const_iterator end = codeBlocks().end();
+    for (HashSet<GlobalCodeBlock*>::const_iterator it = codeBlocks().begin(); it != end; ++it)
         (*it)->clearGlobalObject();
         
     RegisterFile& registerFile = globalData()->interpreter->registerFile();
@@ -121,7 +121,7 @@ JSGlobalObject::~JSGlobalObject()
         registerFile.setGlobalObject(0);
         registerFile.setNumGlobals(0);
     }
-    delete d();
+    d()->destructor(d());
 }
 
 void JSGlobalObject::init(JSObject* thisValue)
@@ -129,7 +129,7 @@ void JSGlobalObject::init(JSObject* thisValue)
     ASSERT(JSLock::currentThreadIsHoldingLock());
 
     d()->globalData = Heap::heap(this)->globalData();
-    d()->globalScopeChain = ScopeChain(this, d()->globalData.get(), thisValue);
+    d()->globalScopeChain = ScopeChain(this, d()->globalData.get(), this, thisValue);
 
     JSGlobalObject::globalExec()->init(0, 0, d()->globalScopeChain.node(), CallFrame::noCaller(), 0, 0, 0);
 
@@ -175,18 +175,18 @@ void JSGlobalObject::putWithAttributes(ExecState* exec, const Identifier& proper
     }
 }
 
-void JSGlobalObject::defineGetter(ExecState* exec, const Identifier& propertyName, JSObject* getterFunc)
+void JSGlobalObject::defineGetter(ExecState* exec, const Identifier& propertyName, JSObject* getterFunc, unsigned attributes)
 {
     PropertySlot slot;
     if (!symbolTableGet(propertyName, slot))
-        JSVariableObject::defineGetter(exec, propertyName, getterFunc);
+        JSVariableObject::defineGetter(exec, propertyName, getterFunc, attributes);
 }
 
-void JSGlobalObject::defineSetter(ExecState* exec, const Identifier& propertyName, JSObject* setterFunc)
+void JSGlobalObject::defineSetter(ExecState* exec, const Identifier& propertyName, JSObject* setterFunc, unsigned attributes)
 {
     PropertySlot slot;
     if (!symbolTableGet(propertyName, slot))
-        JSVariableObject::defineSetter(exec, propertyName, setterFunc);
+        JSVariableObject::defineSetter(exec, propertyName, setterFunc, attributes);
 }
 
 static inline JSObject* lastInPrototypeChain(JSObject* object)
@@ -258,7 +258,7 @@ void JSGlobalObject::reset(JSValue prototype)
 
     JSCell* objectConstructor = new (exec) ObjectConstructor(exec, ObjectConstructor::createStructure(d()->functionPrototype), d()->objectPrototype, d()->prototypeFunctionStructure.get());
     JSCell* functionConstructor = new (exec) FunctionConstructor(exec, FunctionConstructor::createStructure(d()->functionPrototype), d()->functionPrototype);
-    JSCell* arrayConstructor = new (exec) ArrayConstructor(exec, ArrayConstructor::createStructure(d()->functionPrototype), d()->arrayPrototype);
+    JSCell* arrayConstructor = new (exec) ArrayConstructor(exec, ArrayConstructor::createStructure(d()->functionPrototype), d()->arrayPrototype, d()->prototypeFunctionStructure.get());
     JSCell* stringConstructor = new (exec) StringConstructor(exec, StringConstructor::createStructure(d()->functionPrototype), d()->prototypeFunctionStructure.get(), d()->stringPrototype);
     JSCell* booleanConstructor = new (exec) BooleanConstructor(exec, BooleanConstructor::createStructure(d()->functionPrototype), d()->booleanPrototype);
     JSCell* numberConstructor = new (exec) NumberConstructor(exec, NumberConstructor::createStructure(d()->functionPrototype), d()->numberPrototype);
@@ -361,8 +361,8 @@ void JSGlobalObject::markChildren(MarkStack& markStack)
 {
     JSVariableObject::markChildren(markStack);
     
-    HashSet<ProgramCodeBlock*>::const_iterator end = codeBlocks().end();
-    for (HashSet<ProgramCodeBlock*>::const_iterator it = codeBlocks().begin(); it != end; ++it)
+    HashSet<GlobalCodeBlock*>::const_iterator end = codeBlocks().end();
+    for (HashSet<GlobalCodeBlock*>::const_iterator it = codeBlocks().begin(); it != end; ++it)
         (*it)->markAggregate(markStack);
 
     RegisterFile& registerFile = globalData()->interpreter->registerFile();
@@ -453,6 +453,11 @@ void* JSGlobalObject::operator new(size_t size, JSGlobalData* globalData)
 #else
     return globalData->heap.allocate(size);
 #endif
+}
+
+void JSGlobalObject::destroyJSGlobalObjectData(void* jsGlobalObjectData)
+{
+    delete static_cast<JSGlobalObjectData*>(jsGlobalObjectData);
 }
 
 } // namespace JSC

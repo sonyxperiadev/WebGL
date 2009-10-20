@@ -76,6 +76,11 @@ typedef enum {
 } WebDashboardBehavior;
 #endif
 
+typedef enum {
+    WebInjectAtDocumentStart,
+    WebInjectAtDocumentEnd,
+} WebUserScriptInjectionTime;
+
 @interface WebController : NSTreeController {
     IBOutlet WebView *webView;
 }
@@ -133,6 +138,20 @@ typedef enum {
 @result The WebView's WebScriptDebugDelegate.
 */    
 - (id)scriptDebugDelegate;
+
+/*!
+    @method setHistoryDelegate:
+    @abstract Set the WebView's WebHistoryDelegate delegate.
+    @param delegate The WebHistoryDelegate to set as the delegate.
+*/    
+- (void)setHistoryDelegate:(id)delegate;
+
+/*!
+    @method historyDelegate
+    @abstract Return the WebView's WebHistoryDelegate delegate.
+    @result The WebView's WebHistoryDelegate delegate.
+*/    
+- (id)historyDelegate;
 
 - (BOOL)shouldClose;
 
@@ -442,6 +461,35 @@ Could be worth adding to the API.
 
 // Which pasteboard text is coming from in editing delegate methods such as shouldInsertNode.
 - (NSPasteboard *)_insertionPasteboard;
+
+// Whitelists access from an origin (sourceOrigin) to a set of one or more origins described by the parameters:
+// - destinationProtocol: The protocol to grant access to.
+// - destinationHost: The host to grant access to.
+// - allowDestinationSubdomains: If host is a domain, setting this to YES will whitelist host and all its subdomains, recursively.
++ (void)_whiteListAccessFromOrigin:(NSString *)sourceOrigin destinationProtocol:(NSString *)destinationProtocol destinationHost:(NSString *)destinationHost allowDestinationSubdomains:(BOOL)allowDestinationSubdomains;
+
+// Removes all white list entries created with _whiteListAccessFromOrigin.
++ (void)_resetOriginAccessWhiteLists;
+
++ (void)_addUserScriptToGroup:(NSString *)groupName source:(NSString *)source url:(NSURL *)url worldID:(unsigned)worldID whitelist:(NSArray *)whitelist blacklist:(NSArray *)blacklist injectionTime:(WebUserScriptInjectionTime)injectionTime;
++ (void)_addUserStyleSheetToGroup:(NSString *)groupName source:(NSString *)source url:(NSURL *)url worldID:(unsigned)worldID whitelist:(NSArray *)whitelist blacklist:(NSArray *)blacklist;
++ (void)_removeUserContentFromGroup:(NSString *)groupName url:(NSURL *)url worldID:(unsigned)worldID;
++ (void)_removeUserContentFromGroup:(NSString *)groupName worldID:(unsigned)worldID;
++ (void)_removeAllUserContentFromGroup:(NSString *)groupName;
+
+/*!
+    @method cssAnimationsSuspended
+    @abstract Returns whether or not CSS Animations are suspended.
+    @result YES if CSS Animations are suspended.
+*/
+- (BOOL)cssAnimationsSuspended;
+
+/*!
+    @method setCSSAnimationsSuspended
+    @param paused YES to suspend animations, NO to resume animations.
+    @discussion Suspends or resumes all running animations and transitions in the page.
+*/
+- (void)setCSSAnimationsSuspended:(BOOL)suspended;
 
 @end
 

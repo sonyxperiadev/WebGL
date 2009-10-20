@@ -51,6 +51,7 @@
 #include "PluginPackage.h"
 #include "ScriptController.h"
 #include "ScriptValue.h"
+#include "SecurityOrigin.h"
 #include "PluginDatabase.h"
 #include "PluginDebug.h"
 #include "PluginMainThreadScheduler.h"
@@ -143,8 +144,8 @@ void PluginView::setFrameRect(const IntRect& rect)
     // On Windows, always call plugin to change geometry.
     setNPWindowRect(rect);
 #elif XP_UNIX
-    // On Unix, only call plugin if it's full-page.
-    if (m_mode == NP_FULL)
+    // On Unix, multiple calls to setNPWindow() in windowed mode causes Flash to crash
+    if (m_mode == NP_FULL || !m_isWindowed)
         setNPWindowRect(rect);
 #endif
 }
@@ -163,10 +164,63 @@ void PluginView::handleEvent(Event* event)
         handleMouseEvent(static_cast<MouseEvent*>(event));
     else if (event->isKeyboardEvent())
         handleKeyboardEvent(static_cast<KeyboardEvent*>(event));
+<<<<<<< HEAD:WebCore/plugins/PluginView.cpp
 #if defined(ANDROID_PLUGINS)
     else if (event->isTouchEvent())
         handleTouchEvent(static_cast<TouchEvent*>(event));
+=======
+#if defined(Q_WS_X11)
+    else if (event->type() == eventNames().DOMFocusOutEvent)
+        handleFocusOutEvent();
+    else if (event->type() == eventNames().DOMFocusInEvent)
+        handleFocusInEvent();
+>>>>>>> webkit.org at 49305:WebCore/plugins/PluginView.cpp
 #endif
+<<<<<<< HEAD:WebCore/plugins/PluginView.cpp
+=======
+}
+
+void PluginView::init()
+{
+    if (m_haveInitialized)
+        return;
+
+    m_haveInitialized = true;
+
+    if (!m_plugin) {
+        ASSERT(m_status == PluginStatusCanNotFindPlugin);
+        return;
+    }
+
+    LOG(Plugins, "PluginView::init(): Initializing plug-in '%s'", m_plugin->name().utf8().data());
+
+    if (!m_plugin->load()) {
+        m_plugin = 0;
+        m_status = PluginStatusCanNotLoadPlugin;
+        return;
+    }
+
+    if (!startOrAddToUnstartedList()) {
+        m_status = PluginStatusCanNotLoadPlugin;
+        return;
+    }
+
+    m_status = PluginStatusLoadedSuccessfully;
+}
+
+bool PluginView::startOrAddToUnstartedList()
+{
+    if (!m_parentFrame->page())
+        return false;
+
+    if (!m_parentFrame->page()->canStartPlugins()) {
+        m_parentFrame->page()->addUnstartedPlugin(this);
+        m_isWaitingToStart = true;
+        return true;
+    }
+
+    return start();
+>>>>>>> webkit.org at 49305:WebCore/plugins/PluginView.cpp
 }
 
 
@@ -212,15 +266,57 @@ bool PluginView::start()
 
     m_status = PluginStatusLoadedSuccessfully;
 
-    platformStart();
+    if (!platformStart())
+        m_status = PluginStatusCanNotLoadPlugin;
+
+    if (m_status != PluginStatusLoadedSuccessfully)
+        return false;
+
+    if (parentFrame()->page())
+        parentFrame()->page()->didStartPlugin(this);
 
     return true;
+}
+
+PluginView::~PluginView()
+{
+    LOG(Plugins, "PluginView::~PluginView()");
+
+    removeFromUnstartedListIfNecessary();
+
+    stop();
+
+    deleteAllValues(m_requests);
+
+    freeStringArray(m_paramNames, m_paramCount);
+    freeStringArray(m_paramValues, m_paramCount);
+
+    platformDestroy();
+
+    m_parentFrame->script()->cleanupScriptObjectsForPlugin(this);
+
+    if (m_plugin && !(m_plugin->quirks().contains(PluginQuirkDontUnloadPlugin)))
+        m_plugin->unload();
+}
+
+void PluginView::removeFromUnstartedListIfNecessary()
+{
+    if (!m_isWaitingToStart)
+        return;
+
+    if (!m_parentFrame->page())
+        return;
+
+    m_parentFrame->page()->removeUnstartedPlugin(this);
 }
 
 void PluginView::stop()
 {
     if (!m_isStarted)
         return;
+
+    if (parentFrame()->page())
+        parentFrame()->page()->didStopPlugin(this);
 
     LOG(Plugins, "PluginView::stop(): Stopping plug-in '%s'", m_plugin->name().utf8().data());
 
@@ -236,7 +332,13 @@ void PluginView::stop()
     m_isStarted = false;
 #if USE(JSC)
     JSC::JSLock::DropAllLocks dropAllLocks(JSC::SilenceAssertionsOnly);
+<<<<<<< HEAD:WebCore/plugins/PluginView.cpp
 #endif
+=======
+
+#if ENABLE(NETSCAPE_PLUGIN_API)
+#if !PLATFORM(WX) // FIXME: Revisit this when implementing plugins for wx
+>>>>>>> webkit.org at 49305:WebCore/plugins/PluginView.cpp
 #ifdef XP_WIN
     // Unsubclass the window
     if (m_isWindowed) {
@@ -253,6 +355,8 @@ void PluginView::stop()
 #endif
     }
 #endif // XP_WIN
+#endif // !PLATFORM(WX)
+#endif // ENABLE(NETSCAPE_PLUGIN_API)
 
 #if !defined(XP_MACOSX)
     // Clear the window
@@ -332,33 +436,11 @@ static bool getString(ScriptController* proxy, JSValue result, String& string)
 }
 #endif
 
-bool PluginView::startOrAddToUnstartedList()
-{
-    if (!m_parentFrame->page())
-        return false;
-
-    if (!m_parentFrame->page()->canStartPlugins()) {
-        m_parentFrame->page()->addUnstartedPlugin(this);
-        m_isWaitingToStart = true;
-        return true;
-    }
-
-    return start();
-}
-
-void PluginView::removeFromUnstartedListIfNecessary()
-{
-    if (!m_isWaitingToStart)
-        return;
-
-    if (!m_parentFrame->page())
-        return;
-
-    m_parentFrame->page()->removeUnstartedPlugin(this);
-}
-
 void PluginView::performRequest(PluginRequest* request)
 {
+    if (!m_isStarted)
+        return;
+
     // don't let a plugin start any loads if it is no longer part of a document that is being 
     // displayed unless the loads are in the same frame as the plugin.
     const String& targetFrameName = request->frameLoadRequest().frameName();
@@ -473,9 +555,8 @@ NPError PluginView::load(const FrameLoadRequest& frameLoadRequest, bool sendNoti
         // For security reasons, only allow JS requests to be made on the frame that contains the plug-in.
         if (!targetFrameName.isNull() && m_parentFrame->tree()->find(targetFrameName) != m_parentFrame)
             return NPERR_INVALID_PARAM;
-    } else if (!FrameLoader::canLoad(url, String(), m_parentFrame->document())) {
+    } else if (!SecurityOrigin::canLoad(url, String(), m_parentFrame->document()))
             return NPERR_GENERIC_ERROR;
-    }
 
     PluginRequest* request = new PluginRequest(frameLoadRequest, sendNotification, notifyData, arePopupsAllowed());
     scheduleRequest(request);
@@ -794,7 +875,7 @@ PluginView::PluginView(Frame* parentFrame, const IntSize& size, PluginPackage* p
     , m_isTransparent(false)
     , m_haveInitialized(false)
     , m_isWaitingToStart(false)
-#if PLATFORM(GTK) || defined(Q_WS_X11)
+#if defined(XP_UNIX) || defined(Q_WS_X11)
     , m_needsXEmbed(false)
 #endif
 #if PLATFORM(WIN_OS) && !PLATFORM(WX) && ENABLE(NETSCAPE_PLUGIN_API)
@@ -810,6 +891,13 @@ PluginView::PluginView(Frame* parentFrame, const IntSize& size, PluginPackage* p
 #if defined(XP_MACOSX)
     , m_drawingModel(NPDrawingModel(-1))
     , m_eventModel(NPEventModel(-1))
+#endif
+#if defined(Q_WS_X11)
+    , m_hasPendingGeometryChange(false)
+    , m_drawable(0)
+    , m_visual(0)
+    , m_colormap(0)
+    , m_pluginDisplay(0)
 #endif
     , m_loadManually(loadManually)
     , m_manualStream(0)
@@ -1211,7 +1299,12 @@ static const char* MozillaUserAgent = "Mozilla/5.0 ("
 #elif defined(XP_WIN)
         "Windows; U; Windows NT 5.1;"
 #elif defined(XP_UNIX)
-        "X11; U; Linux i686;"
+// The Gtk port uses X11 plugins in Mac.
+#if PLATFORM(DARWIN) && PLATFORM(GTK)
+    "X11; U; Intel Mac OS X;"
+#else
+    "X11; U; Linux i686;"
+#endif
 #endif
         " en-US; rv:1.8.1) Gecko/20061010 Firefox/2.0";
 
@@ -1232,5 +1325,11 @@ const char* PluginView::userAgentStatic()
     return MozillaUserAgent;
 }
 #endif
+
+
+Node* PluginView::node() const
+{
+    return m_element;
+}
 
 } // namespace WebCore

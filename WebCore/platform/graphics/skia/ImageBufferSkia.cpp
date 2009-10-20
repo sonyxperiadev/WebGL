@@ -39,6 +39,7 @@
 #include "ImageData.h"
 #include "PlatformContextSkia.h"
 #include "PNGImageEncoder.h"
+#include "SkColorPriv.h"
 #include "SkiaUtils.h"
 
 using namespace std;
@@ -118,16 +119,16 @@ void ImageBuffer::platformTransformColorSpace(const Vector<int>& lookUpTable)
     }
 }
 
-PassRefPtr<ImageData> ImageBuffer::getImageData(const IntRect& rect) const
+template <Multiply multiplied>
+PassRefPtr<ImageData> getImageData(const IntRect& rect, const SkBitmap& bitmap, 
+                                   const IntSize& size)
 {
-    ASSERT(context());
-
     RefPtr<ImageData> result = ImageData::create(rect.width(), rect.height());
     unsigned char* data = result->data()->data()->data();
 
     if (rect.x() < 0 || rect.y() < 0 ||
-        (rect.x() + rect.width()) > m_size.width() ||
-        (rect.y() + rect.height()) > m_size.height())
+        (rect.x() + rect.width()) > size.width() ||
+        (rect.y() + rect.height()) > size.height())
         memset(data, 0, result->data()->length());
 
     int originX = rect.x();
@@ -137,8 +138,8 @@ PassRefPtr<ImageData> ImageBuffer::getImageData(const IntRect& rect) const
         originX = 0;
     }
     int endX = rect.x() + rect.width();
-    if (endX > m_size.width())
-        endX = m_size.width();
+    if (endX > size.width())
+        endX = size.width();
     int numColumns = endX - originX;
 
     int originY = rect.y();
@@ -148,11 +149,10 @@ PassRefPtr<ImageData> ImageBuffer::getImageData(const IntRect& rect) const
         originY = 0;
     }
     int endY = rect.y() + rect.height();
-    if (endY > m_size.height())
-        endY = m_size.height();
+    if (endY > size.height())
+        endY = size.height();
     int numRows = endY - originY;
 
-    const SkBitmap& bitmap = *context()->platformContext()->bitmap();
     ASSERT(bitmap.config() == SkBitmap::kARGB_8888_Config);
     SkAutoLockPixels bitmapLock(bitmap);
 
@@ -162,12 +162,21 @@ PassRefPtr<ImageData> ImageBuffer::getImageData(const IntRect& rect) const
     for (int y = 0; y < numRows; ++y) {
         uint32_t* srcRow = bitmap.getAddr32(originX, originY + y);
         for (int x = 0; x < numColumns; ++x) {
-            SkColor color = SkPMColorToColor(srcRow[x]);
             unsigned char* destPixel = &destRow[x * 4];
-            destPixel[0] = SkColorGetR(color);
-            destPixel[1] = SkColorGetG(color);
-            destPixel[2] = SkColorGetB(color);
-            destPixel[3] = SkColorGetA(color);
+            if (multiplied == Unmultiplied) {
+                SkColor color = SkPMColorToColor(srcRow[x]);
+                destPixel[0] = SkColorGetR(color);
+                destPixel[1] = SkColorGetG(color);
+                destPixel[2] = SkColorGetB(color);
+                destPixel[3] = SkColorGetA(color);
+            } else {
+                // Input and output are both pre-multiplied, we just need to re-arrange the
+                // bytes from the bitmap format to RGBA.
+                destPixel[0] = SkGetPackedR32(srcRow[x]);
+                destPixel[1] = SkGetPackedG32(srcRow[x]);
+                destPixel[2] = SkGetPackedB32(srcRow[x]);
+                destPixel[3] = SkGetPackedA32(srcRow[x]);
+            }
         }
         destRow += destBytesPerRow;
     }
@@ -175,8 +184,19 @@ PassRefPtr<ImageData> ImageBuffer::getImageData(const IntRect& rect) const
     return result;
 }
 
-void ImageBuffer::putImageData(ImageData* source, const IntRect& sourceRect,
-                               const IntPoint& destPoint)
+PassRefPtr<ImageData> ImageBuffer::getUnmultipliedImageData(const IntRect& rect) const
+{
+    return getImageData<Unmultiplied>(rect, *context()->platformContext()->bitmap(), m_size);
+}
+
+PassRefPtr<ImageData> ImageBuffer::getPremultipliedImageData(const IntRect& rect) const
+{
+    return getImageData<Premultiplied>(rect, *context()->platformContext()->bitmap(), m_size);
+}
+
+template <Multiply multiplied>
+void putImageData(ImageData*& source, const IntRect& sourceRect, const IntPoint& destPoint, 
+                  const SkBitmap& bitmap, const IntSize& size)
 {
     ASSERT(sourceRect.width() > 0);
     ASSERT(sourceRect.height() > 0);
@@ -184,27 +204,26 @@ void ImageBuffer::putImageData(ImageData* source, const IntRect& sourceRect,
     int originX = sourceRect.x();
     int destX = destPoint.x() + sourceRect.x();
     ASSERT(destX >= 0);
-    ASSERT(destX < m_size.width());
+    ASSERT(destX < size.width());
     ASSERT(originX >= 0);
     ASSERT(originX < sourceRect.right());
 
     int endX = destPoint.x() + sourceRect.right();
-    ASSERT(endX <= m_size.width());
+    ASSERT(endX <= size.width());
 
     int numColumns = endX - destX;
 
     int originY = sourceRect.y();
     int destY = destPoint.y() + sourceRect.y();
     ASSERT(destY >= 0);
-    ASSERT(destY < m_size.height());
+    ASSERT(destY < size.height());
     ASSERT(originY >= 0);
     ASSERT(originY < sourceRect.bottom());
 
     int endY = destPoint.y() + sourceRect.bottom();
-    ASSERT(endY <= m_size.height());
+    ASSERT(endY <= size.height());
     int numRows = endY - destY;
 
-    const SkBitmap& bitmap = *context()->platformContext()->bitmap();
     ASSERT(bitmap.config() == SkBitmap::kARGB_8888_Config);
     SkAutoLockPixels bitmapLock(bitmap);
 
@@ -216,11 +235,25 @@ void ImageBuffer::putImageData(ImageData* source, const IntRect& sourceRect,
         uint32_t* destRow = bitmap.getAddr32(destX, destY + y);
         for (int x = 0; x < numColumns; ++x) {
             const unsigned char* srcPixel = &srcRow[x * 4];
-            destRow[x] = SkPreMultiplyARGB(srcPixel[3], srcPixel[0],
-                                           srcPixel[1], srcPixel[2]);
+            if (multiplied == Unmultiplied)
+                destRow[x] = SkPreMultiplyARGB(srcPixel[3], srcPixel[0],
+                                               srcPixel[1], srcPixel[2]);
+            else
+                destRow[x] = SkPackARGB32(srcPixel[3], srcPixel[0],
+                                          srcPixel[1], srcPixel[2]);
         }
         srcRow += srcBytesPerRow;
     }
+}
+
+void ImageBuffer::putUnmultipliedImageData(ImageData* source, const IntRect& sourceRect, const IntPoint& destPoint)
+{
+    putImageData<Unmultiplied>(source, sourceRect, destPoint, *context()->platformContext()->bitmap(), m_size);
+}
+
+void ImageBuffer::putPremultipliedImageData(ImageData* source, const IntRect& sourceRect, const IntPoint& destPoint)
+{
+    putImageData<Premultiplied>(source, sourceRect, destPoint, *context()->platformContext()->bitmap(), m_size);
 }
 
 String ImageBuffer::toDataURL(const String&) const

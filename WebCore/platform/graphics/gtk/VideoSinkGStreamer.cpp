@@ -33,8 +33,14 @@
 #include <gst/video/video.h>
 
 static GstStaticPadTemplate sinktemplate = GST_STATIC_PAD_TEMPLATE("sink",
-        GST_PAD_SINK, GST_PAD_ALWAYS,
-        GST_STATIC_CAPS(GST_VIDEO_CAPS_RGBx ";" GST_VIDEO_CAPS_BGRx));
+                                                                   GST_PAD_SINK, GST_PAD_ALWAYS,
+// CAIRO_FORMAT_RGB24 used to render the video buffers is little/big endian dependant.
+#if G_BYTE_ORDER == G_LITTLE_ENDIAN
+                                                                   GST_STATIC_CAPS(GST_VIDEO_CAPS_BGRx)
+#else
+                                                                   GST_STATIC_CAPS(GST_VIDEO_CAPS_xRGB)
+#endif
+);
 
 GST_DEBUG_CATEGORY_STATIC(webkit_video_sink_debug);
 #define GST_CAT_DEFAULT webkit_video_sink_debug
@@ -102,9 +108,14 @@ webkit_video_sink_init(WebKitVideoSink* sink, WebKitVideoSinkClass* klass)
 static gboolean
 webkit_video_sink_idle_func(gpointer data)
 {
-    WebKitVideoSink* sink = WEBKIT_VIDEO_SINK(data);
+    WebKitVideoSink* sink = reinterpret_cast<WebKitVideoSink*>(data);
     WebKitVideoSinkPrivate* priv = sink->priv;
     GstBuffer* buffer;
+    GstCaps* caps;
+    GstVideoFormat format;
+    gint par_n, par_d;
+    gfloat par;
+    gint bwidth, bheight;
 
     if (!priv->async_queue)
         return FALSE;
@@ -113,19 +124,35 @@ webkit_video_sink_idle_func(gpointer data)
     if (!buffer || G_UNLIKELY(!GST_IS_BUFFER(buffer)))
         return FALSE;
 
+    caps = GST_BUFFER_CAPS(buffer);
+    if (!gst_video_format_parse_caps(caps, &format, &bwidth, &bheight)) {
+        GST_ERROR_OBJECT(sink, "Unknown video format in buffer caps '%s'",
+                         gst_caps_to_string(caps));
+        return FALSE;
+    }
+
+    if (!gst_video_parse_caps_pixel_aspect_ratio(caps, &par_n, &par_d))
+        par_n = par_d = 1;
+
+    par = (gfloat) par_n / (gfloat) par_d;
+
     // TODO: consider priv->rgb_ordering?
-    cairo_surface_t* src = cairo_image_surface_create_for_data(GST_BUFFER_DATA(buffer), CAIRO_FORMAT_RGB24, priv->width, priv->height, (4 * priv->width + 3) & ~3);
+    cairo_surface_t* src = cairo_image_surface_create_for_data(GST_BUFFER_DATA(buffer),
+                                                               CAIRO_FORMAT_RGB24,
+                                                               bwidth, bheight,
+                                                               4 * bwidth);
 
     // TODO: We copy the data twice right now. This could be easily improved.
     cairo_t* cr = cairo_create(priv->surface);
+    cairo_scale(cr, par, 1.0 / par);
     cairo_set_operator(cr, CAIRO_OPERATOR_SOURCE);
     cairo_set_source_surface(cr, src, 0, 0);
     cairo_surface_destroy(src);
     cairo_rectangle(cr, 0, 0, priv->width, priv->height);
     cairo_fill(cr);
     cairo_destroy(cr);
-
     gst_buffer_unref(buffer);
+    g_async_queue_unref(priv->async_queue);
 
     g_signal_emit(sink, webkit_video_sink_signals[REPAINT_REQUESTED], 0);
 
@@ -138,6 +165,7 @@ webkit_video_sink_render(GstBaseSink* bsink, GstBuffer* buffer)
     WebKitVideoSink* sink = WEBKIT_VIDEO_SINK(bsink);
     WebKitVideoSinkPrivate* priv = sink->priv;
 
+    g_async_queue_ref(priv->async_queue);
     g_async_queue_push(priv->async_queue, gst_buffer_ref(buffer));
     g_idle_add_full(G_PRIORITY_HIGH_IDLE, webkit_video_sink_idle_func, sink, 0);
 
@@ -151,9 +179,7 @@ webkit_video_sink_set_caps(GstBaseSink* bsink, GstCaps* caps)
     WebKitVideoSinkPrivate* priv = sink->priv;
     GstStructure* structure;
     gboolean ret;
-    const GValue* fps;
-    const GValue* par;
-    gint width, height;
+    gint width, height, fps_n, fps_d;
     int red_mask;
 
     GstCaps* intersection = gst_caps_intersect(gst_static_pad_template_get_caps(&sinktemplate), caps);
@@ -167,25 +193,19 @@ webkit_video_sink_set_caps(GstBaseSink* bsink, GstCaps* caps)
 
     ret = gst_structure_get_int(structure, "width", &width);
     ret &= gst_structure_get_int(structure, "height", &height);
-    fps = gst_structure_get_value(structure, "framerate");
-    ret &= (fps != 0);
 
-    par = gst_structure_get_value(structure, "pixel-aspect-ratio");
-
-    if (!ret)
-        return FALSE;
+    /* We dont yet use fps but handy to have */
+    ret &= gst_structure_get_fraction(structure, "framerate",
+                                      &fps_n, &fps_d);
+    g_return_val_if_fail(ret, FALSE);
 
     priv->width = width;
     priv->height = height;
+    priv->fps_n = fps_n;
+    priv->fps_d = fps_d;
 
-    /* We dont yet use fps or pixel aspect into but handy to have */
-    priv->fps_n = gst_value_get_fraction_numerator(fps);
-    priv->fps_d = gst_value_get_fraction_denominator(fps);
-
-    if (par) {
-        priv->par_n = gst_value_get_fraction_numerator(par);
-        priv->par_d = gst_value_get_fraction_denominator(par);
-    } else
+    if (!gst_structure_get_fraction(structure, "pixel-aspect-ratio",
+                                    &priv->par_n, &priv->par_d))
         priv->par_n = priv->par_d = 1;
 
     gst_structure_get_int(structure, "red_mask", &red_mask);
@@ -264,6 +284,8 @@ webkit_video_sink_stop(GstBaseSink* base_sink)
         gst_buffer_unref(buffer);
 
     g_async_queue_unlock(priv->async_queue);
+
+    g_idle_remove_by_data(base_sink);
 
     return TRUE;
 }

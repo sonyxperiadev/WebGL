@@ -31,25 +31,30 @@
 #ifndef V8Proxy_h
 #define V8Proxy_h
 
+<<<<<<< HEAD:WebCore/bindings/v8/V8Proxy.h
 #include "Node.h"
 #include "NodeFilter.h"
 #include "PlatformString.h" // for WebCore::String
+=======
+#include "ChromiumBridge.h"
+>>>>>>> webkit.org at 49305:WebCore/bindings/v8/V8Proxy.h
 #include "ScriptSourceCode.h" // for WebCore::ScriptSourceCode
 #include "SecurityOrigin.h" // for WebCore::SecurityOrigin
-#include "V8CustomBinding.h"
-#include "V8DOMMap.h"
+#include "SharedPersistent.h"
+#include "V8AbstractEventListener.h"
 #include "V8DOMWrapper.h"
-#include "V8EventListenerList.h"
 #include "V8GCController.h"
 #include "V8Index.h"
-#include "V8Utilities.h"
 #include <v8.h>
-#include <wtf/Assertions.h>
 #include <wtf/PassRefPtr.h> // so generated bindings don't have to
 #include <wtf/Vector.h>
 
+<<<<<<< HEAD:WebCore/bindings/v8/V8Proxy.h
 #if defined(ENABLE_DOM_STATS_COUNTERS) && PLATFORM(CHROMIUM)
 #include "ChromiumBridge.h"
+=======
+#ifdef ENABLE_DOM_STATS_COUNTERS
+>>>>>>> webkit.org at 49305:WebCore/bindings/v8/V8Proxy.h
 #define INC_STATS(name) ChromiumBridge::incrementStatsCounter(name)
 #else
 #define INC_STATS(name)
@@ -57,49 +62,14 @@
 
 namespace WebCore {
 
-    class CSSRule;
-    class CSSRuleList;
-    class CSSStyleDeclaration;
-    class CSSValue;
-    class CSSValueList;
-    class ClientRectList;
-    class DOMImplementation;
     class DOMWindow;
-    class Document;
-    class Element;
-    class Event;
-    class EventListener;
-    class EventTarget;
     class Frame;
-    class HTMLCollection;
-    class HTMLDocument;
-    class HTMLElement;
-    class HTMLOptionsCollection;
-    class MediaList;
-    class MimeType;
-    class MimeTypeArray;
-    class NamedNodeMap;
-    class Navigator;
     class Node;
-    class NodeFilter;
-    class NodeList;
-    class Plugin;
-    class PluginArray;
     class SVGElement;
-#if ENABLE(SVG)
-    class SVGElementInstance;
-#endif
-    class Screen;
     class ScriptExecutionContext;
-#if ENABLE(DOM_STORAGE)
-    class Storage;
-    class StorageEvent;
-#endif
     class String;
-    class StyleSheet;
-    class StyleSheetList;
     class V8EventListener;
-    class V8ObjectEventListener;
+    class V8IsolatedWorld;
 
     // FIXME: use standard logging facilities in WebCore.
     void logInfo(Frame*, const String& message, const String& url);
@@ -145,7 +115,11 @@ namespace WebCore {
         int group;
         v8::Extension* extension;
     };
+<<<<<<< HEAD:WebCore/bindings/v8/V8Proxy.h
     typedef WTF::Vector<V8ExtensionInfo> V8ExtensionList;
+=======
+    typedef WTF::Vector<V8ExtensionInfo> V8Extensions;
+>>>>>>> webkit.org at 49305:WebCore/bindings/v8/V8Proxy.h
 
     class V8Proxy {
     public:
@@ -158,7 +132,7 @@ namespace WebCore {
             GeneralError
         };
 
-        explicit V8Proxy(Frame* frame) : m_frame(frame), m_inlineCode(false), m_timerCallback(false), m_recursion(0) { }
+        explicit V8Proxy(Frame*);
 
         ~V8Proxy();
 
@@ -196,9 +170,6 @@ namespace WebCore {
 
         bool isEnabled();
 
-        V8EventListenerList* eventListeners() { return &m_eventListeners; }
-        V8EventListenerList* objectListeners() { return &m_objectListeners; }
-
 #if ENABLE(SVG)
         static void setSVGContext(void*, SVGElement*);
         static SVGElement* svgContext(void*);
@@ -211,7 +182,7 @@ namespace WebCore {
         // global scope, its own prototypes for intrinsic JavaScript objects (String,
         // Array, and so-on), and its own wrappers for all DOM nodes and DOM
         // constructors.
-        void evaluateInNewWorld(const Vector<ScriptSourceCode>& sources, int extensionGroup);
+        void evaluateInIsolatedWorld(int worldId, const Vector<ScriptSourceCode>& sources, int extensionGroup);
 
         // Evaluate JavaScript in a new context. The script gets its own global scope
         // and its own prototypes for intrinsic JavaScript objects (String, Array,
@@ -239,7 +210,12 @@ namespace WebCore {
         // To create JS Wrapper objects, we create a cache of a 'boiler plate'
         // object, and then simply Clone that object each time we need a new one.
         // This is faster than going through the full object creation process.
-        v8::Local<v8::Object> createWrapperFromCache(V8ClassIndex::V8WrapperType);
+        v8::Local<v8::Object> createWrapperFromCache(V8ClassIndex::V8WrapperType type)
+        {
+            int classIndex = V8ClassIndex::ToInt(type);
+            v8::Local<v8::Object> clone(m_wrapperBoilerplates->CloneElementAt(classIndex));
+            return clone.IsEmpty() ? createWrapperFromCacheSlowCase(type) : clone;
+        }
 
         // Returns the window object associated with a context.
         static DOMWindow* retrieveWindow(v8::Handle<v8::Context>);
@@ -290,6 +266,7 @@ namespace WebCore {
         // Returns V8 Context of a frame. If none exists, creates
         // a new context. It is potentially slow and consumes memory.
         static v8::Local<v8::Context> context(Frame*);
+        static PassRefPtr<SharedPersistent<v8::Context> > shared_context(Frame*);
         static v8::Local<v8::Context> mainWorldContext(Frame*);
         static v8::Local<v8::Context> currentContext();
 
@@ -334,10 +311,19 @@ namespace WebCore {
         static int sourceLineNumber();
         static String sourceName();
 
-        // Returns a local handle of the context.
-        v8::Local<v8::Context> context()
+        v8::Handle<v8::Context> context()
         {
-            return v8::Local<v8::Context>::New(m_context);
+            return m_context->get();
+        }
+
+        PassRefPtr<SharedPersistent<v8::Context> > shared_context()
+        {
+            return m_context;
+        }
+
+        PassRefPtr<V8ListenerGuard> listenerGuard()
+        {
+            return m_listenerGuard;
         }
 
         bool setContextDebugId(int id);
@@ -368,7 +354,6 @@ namespace WebCore {
         static const char* kContextDebugDataType;
         static const char* kContextDebugDataValue;
 
-        void disconnectEventListeners();
         void setSecurityToken();
         void clearDocumentWrapper();
 
@@ -381,6 +366,14 @@ namespace WebCore {
 
         // Dispose global handles of m_contexts and friends.
         void disposeContextHandles();
+
+        // If m_recursionCount is 0, let LocalStorage know so we can release
+        // the storage mutex.
+        void releaseStorageMutex();
+
+        void disconnectEventListeners();
+        
+        void resetIsolatedWorlds();
 
         static bool canAccessPrivate(DOMWindow*);
 
@@ -407,11 +400,17 @@ namespace WebCore {
             return v8::Local<v8::Context>::New(m_utilityContext);
         }
 
+        v8::Local<v8::Object> createWrapperFromCacheSlowCase(V8ClassIndex::V8WrapperType);
+
         static void registerExtensionWithV8(v8::Extension*);
+        static bool registeredExtensionWithV8(v8::Extension*);
 
         Frame* m_frame;
 
-        v8::Persistent<v8::Context> m_context;
+        RefPtr<SharedPersistent<v8::Context> > m_context;
+
+        RefPtr<V8ListenerGuard> m_listenerGuard;
+
         // For each possible type of wrapper, we keep a boilerplate object.
         // The boilerplate is used to create additional wrappers of the same
         // type.  We keep a single persistent handle to an array of the
@@ -426,14 +425,6 @@ namespace WebCore {
 
         int m_handlerLineNumber;
 
-        // A list of event listeners created for this frame,
-        // the list gets cleared when removing all timeouts.
-        V8EventListenerList m_eventListeners;
-
-        // A list of event listeners create for XMLHttpRequest object for this frame,
-        // the list gets cleared when removing all timeouts.
-        V8EventListenerList m_objectListeners;
-
         // True for <a href="javascript:foo()"> and false for <script>foo()</script>.
         // Only valid during execution.
         bool m_inlineCode;
@@ -447,8 +438,18 @@ namespace WebCore {
         // excessive recursion in the binding layer.
         int m_recursion;
 
-        // List of extensions registered with the context.
-        static V8ExtensionList m_extensions;
+        // All of the extensions registered with the context.
+        static V8Extensions m_extensions;
+
+        // The isolated worlds we are tracking for this frame. We hold them alive
+        // here so that they can be used again by future calls to
+        // evaluateInIsolatedWorld().
+        //
+        // Note: although the pointer is raw, the instance is kept alive by a strong
+        // reference to the v8 context it contains, which is not made weak until we
+        // call world->destroy().
+        typedef HashMap<int, V8IsolatedWorld*> IsolatedWorldMap;
+        IsolatedWorldMap m_isolatedWorlds;
     };
 
     template <int tag, typename T>

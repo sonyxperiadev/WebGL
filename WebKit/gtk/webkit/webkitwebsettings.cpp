@@ -24,6 +24,7 @@
 #include "config.h"
 #include "webkitwebsettings.h"
 
+#include "webkitenumtypes.h"
 #include "webkitprivate.h"
 #include "webkitversion.h"
 
@@ -93,6 +94,8 @@ struct _WebKitWebSettingsPrivate {
     gchar* user_agent;
     gboolean javascript_can_open_windows_automatically;
     gboolean enable_offline_web_application_cache;
+    WebKitEditingBehavior editing_behavior;
+    gboolean enable_universal_access_from_file_uris;
 };
 
 #define WEBKIT_WEB_SETTINGS_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), WEBKIT_TYPE_WEB_SETTINGS, WebKitWebSettingsPrivate))
@@ -130,7 +133,9 @@ enum {
     PROP_ENABLE_XSS_AUDITOR,
     PROP_USER_AGENT,
     PROP_JAVASCRIPT_CAN_OPEN_WINDOWS_AUTOMATICALLY,
-    PROP_ENABLE_OFFLINE_WEB_APPLICATION_CACHE
+    PROP_ENABLE_OFFLINE_WEB_APPLICATION_CACHE,
+    PROP_EDITING_BEHAVIOR,
+    PROP_ENABLE_UNIVERSAL_ACCESS_FROM_FILE_URIS
 };
 
 // Create a default user agent string
@@ -433,7 +438,7 @@ static void webkit_web_settings_class_init(WebKitWebSettingsClass* klass)
     *
     * This is currently experimental for WebKitGtk.
     *
-    * Since 1.1.2
+    * Since: 1.1.2
     */
     g_object_class_install_property(gobject_class,
                                     PROP_ENABLE_PRIVATE_BROWSING,
@@ -449,7 +454,7 @@ static void webkit_web_settings_class_init(WebKitWebSettingsClass* klass)
     *
     * Whether to enable spell checking while typing.
     *
-    * Since 1.1.6
+    * Since: 1.1.6
     */
     g_object_class_install_property(gobject_class,
                                     PROP_ENABLE_SPELL_CHECKING,
@@ -473,7 +478,7 @@ static void webkit_web_settings_class_init(WebKitWebSettingsClass* klass)
     * If no value is specified then the value returned by
     * gtk_get_default_language will be used.
     *
-    * Since 1.1.6
+    * Since: 1.1.6
     */
     g_object_class_install_property(gobject_class,
                                     PROP_SPELL_CHECKING_LANGUAGES,
@@ -489,7 +494,7 @@ static void webkit_web_settings_class_init(WebKitWebSettingsClass* klass)
     *
     * Whether to enable caret browsing mode.
     *
-    * Since 1.1.6
+    * Since: 1.1.6
     */
     g_object_class_install_property(gobject_class,
                                     PROP_ENABLE_CARET_BROWSING,
@@ -505,7 +510,7 @@ static void webkit_web_settings_class_init(WebKitWebSettingsClass* klass)
     * SQL database allows web pages to store structured data and be able to
     * use SQL to manipulate that data asynchronously.
     *
-    * Since 1.1.8
+    * Since: 1.1.8
     */
     g_object_class_install_property(gobject_class,
                                     PROP_ENABLE_HTML5_DATABASE,
@@ -521,7 +526,7 @@ static void webkit_web_settings_class_init(WebKitWebSettingsClass* klass)
     * Whether to enable HTML5 localStorage support. localStorage provides
     * simple synchronous storage access.
     *
-    * Since 1.1.8
+    * Since: 1.1.8
     */
     g_object_class_install_property(gobject_class,
                                     PROP_ENABLE_HTML5_LOCAL_STORAGE,
@@ -536,7 +541,7 @@ static void webkit_web_settings_class_init(WebKitWebSettingsClass* klass)
     * Whether to enable the XSS Auditor. This feature filters some kinds of
     * reflective XSS attacks on vulnerable web sites.
     *
-    * Since 1.1.11
+    * Since: 1.1.11
     */
     g_object_class_install_property(gobject_class,
                                     PROP_ENABLE_XSS_AUDITOR,
@@ -571,7 +576,7 @@ static void webkit_web_settings_class_init(WebKitWebSettingsClass* klass)
     * Whether JavaScript can open popup windows automatically without user
     * intervention.
     *
-    * Since 1.1.11
+    * Since: 1.1.11
     */
     g_object_class_install_property(gobject_class,
                                     PROP_JAVASCRIPT_CAN_OPEN_WINDOWS_AUTOMATICALLY,
@@ -587,7 +592,7 @@ static void webkit_web_settings_class_init(WebKitWebSettingsClass* klass)
     * Web Application Cache ensures web applications are available even when
     * the user is not connected to the network.
     *
-    * Since 1.1.13
+    * Since: 1.1.13
     */
     g_object_class_install_property(gobject_class,
                                     PROP_ENABLE_OFFLINE_WEB_APPLICATION_CACHE,
@@ -597,7 +602,50 @@ static void webkit_web_settings_class_init(WebKitWebSettingsClass* klass)
                                                          TRUE,
                                                          flags));
 
+    COMPILE_ASSERT(static_cast<int>(WEBKIT_EDITING_BEHAVIOR_MAC) == static_cast<int>(WebCore::EditingMacBehavior), editing_behavior_type_mac_match);
+    COMPILE_ASSERT(static_cast<int>(WEBKIT_EDITING_BEHAVIOR_WINDOWS) == static_cast<int>(WebCore::EditingWindowsBehavior), editing_behavior_type_windows_match);
 
+    /**
+    * WebKitWebSettings:editing-behavior
+    *
+    * This setting controls various editing behaviors that differ
+    * between platforms and that have been combined in two groups,
+    * 'Mac' and 'Windows'. Some examples:
+    * 
+    *  1) Clicking below the last line of an editable area puts the
+    * caret at the end of the last line on Mac, but in the middle of
+    * the last line on Windows.
+    *
+    *  2) Pushing down the arrow key on the last line puts the caret
+    *  at the end of the last line on Mac, but does nothing on
+    *  Windows. A similar case exists on the top line.
+    *
+    * Since: 1.1.13
+    */
+    g_object_class_install_property(gobject_class,
+                                    PROP_EDITING_BEHAVIOR,
+                                    g_param_spec_enum("editing-behavior",
+                                                      _("Editing behavior"),
+                                                      _("The behavior mode to use in editing mode"),
+                                                      WEBKIT_TYPE_EDITING_BEHAVIOR,
+                                                      WEBKIT_EDITING_BEHAVIOR_MAC,
+                                                      flags));
+
+    /**
+     * WebKitWebSettings:enable-universal-access-from-file-uris
+     *
+     * Whether to allow files loaded through file:// URIs universal access to
+     * all pages.
+     *
+     * Since: 1.1.13
+     */
+    g_object_class_install_property(gobject_class,
+                                    PROP_ENABLE_UNIVERSAL_ACCESS_FROM_FILE_URIS,
+                                    g_param_spec_boolean("enable-universal-access-from-file-uris",
+                                                         _("Enable universal access from file URIs"),
+                                                         _("Whether to allow universal access from file URIs"),
+                                                         FALSE,
+                                                         flags));
 
     g_type_class_add_private(klass, sizeof(WebKitWebSettingsPrivate));
 }
@@ -779,6 +827,12 @@ static void webkit_web_settings_set_property(GObject* object, guint prop_id, con
     case PROP_ENABLE_OFFLINE_WEB_APPLICATION_CACHE:
         priv->enable_offline_web_application_cache = g_value_get_boolean(value);
         break;
+    case PROP_EDITING_BEHAVIOR:
+        priv->editing_behavior = static_cast<WebKitEditingBehavior>(g_value_get_enum(value));
+        break;
+    case PROP_ENABLE_UNIVERSAL_ACCESS_FROM_FILE_URIS:
+        priv->enable_universal_access_from_file_uris = g_value_get_boolean(value);
+        break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
         break;
@@ -884,7 +938,13 @@ static void webkit_web_settings_get_property(GObject* object, guint prop_id, GVa
    case PROP_ENABLE_OFFLINE_WEB_APPLICATION_CACHE:
         g_value_set_boolean(value, priv->enable_offline_web_application_cache);
         break;
-    default:
+    case PROP_EDITING_BEHAVIOR:
+        g_value_set_enum(value, priv->editing_behavior);
+        break;
+   case PROP_ENABLE_UNIVERSAL_ACCESS_FROM_FILE_URIS:
+        g_value_set_boolean(value, priv->enable_universal_access_from_file_uris);
+        break;
+   default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
         break;
     }
@@ -946,6 +1006,8 @@ WebKitWebSettings* webkit_web_settings_copy(WebKitWebSettings* web_settings)
                  "user-agent", webkit_web_settings_get_user_agent(web_settings),
                  "javascript-can-open-windows-automatically", priv->javascript_can_open_windows_automatically,
                  "enable-offline-web-application-cache", priv->enable_offline_web_application_cache,
+                 "editing-behavior", priv->editing_behavior,
+                 "enable-universal-access-from-file-uris", priv->enable_universal_access_from_file_uris,
                  NULL));
 
     return copy;
