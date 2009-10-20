@@ -30,6 +30,7 @@
 #include "GraphicsContext.h"
 #include "MediaPlayerPrivateAndroid.h"
 #include "SkiaUtils.h"
+#include "TimeRanges.h"
 #include "WebCoreJni.h"
 #include "WebViewCore.h"
 #include "jni_utility.h"
@@ -182,9 +183,9 @@ float MediaPlayerPrivate::maxTimeSeekable() const
     return 0;
 }
 
-float MediaPlayerPrivate::maxTimeBuffered() const
+PassRefPtr<TimeRanges> MediaPlayerPrivate::buffered() const
 {
-    return 0;
+    return TimeRanges::create();
 }
 
 int MediaPlayerPrivate::dataRate() const
