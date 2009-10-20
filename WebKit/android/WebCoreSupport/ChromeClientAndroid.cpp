@@ -261,9 +261,7 @@ IntRect ChromeClientAndroid::windowToScreen(const IntRect&) const {
     return IntRect();
 }
 
-// new to change 38068 (Nov 6, 2008)
-// in place of view()->containingWindow(), webkit now uses view()->hostWindow()->platformWindow()
-PlatformWidget ChromeClientAndroid::platformWindow() const {
+PlatformPageClient ChromeClientAndroid::platformPageClient() const {
     Page* page = m_webFrame->page();
     Frame* mainFrame = page->mainFrame();
     FrameView* view = mainFrame->view();
