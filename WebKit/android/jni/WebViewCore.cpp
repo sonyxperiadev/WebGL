@@ -1580,7 +1580,7 @@ WebCore::String WebViewCore::getSelection(SkRegion* selRgn)
         if (end < -1) // use node if endNode is not valid
             endNode = node;
         if (end <= 0)
-            end = static_cast<WebCore::Text*>(endNode)->string()->length();
+            end = static_cast<WebCore::Text*>(endNode)->dataImpl()->length();
         DBG_NAV_LOGD("node=%p start=%d endNode=%p end=%d", node, start, endNode, end);
         WebCore::Node* startNode = node;
         do {
@@ -1589,7 +1589,7 @@ WebCore::String WebViewCore::getSelection(SkRegion* selRgn)
             if (node->getRect().isEmpty())
                 continue;
             WebCore::Text* textNode = static_cast<WebCore::Text*>(node);
-            WebCore::StringImpl* string = textNode->string();
+            WebCore::StringImpl* string = textNode->dataImpl();
             if (!string->length())
                 continue;
             const UChar* chars = string->characters();

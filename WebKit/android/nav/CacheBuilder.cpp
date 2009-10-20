@@ -2427,7 +2427,7 @@ bool CacheBuilder::isFocusableText(NodeWalk* walk, bool more, Node* node,
     CachedNodeType* type, String* exported) const
 {
     Text* textNode = static_cast<Text*>(node);
-    StringImpl* string = textNode->string();
+    StringImpl* string = textNode->dataImpl();
     const UChar* baseChars = string->characters();
 //    const UChar* originalBase = baseChars;
     int length = string->length();
@@ -2532,7 +2532,7 @@ bool CacheBuilder::isFocusableText(NodeWalk* walk, bool more, Node* node,
                             exported->truncate(0);
                             do {
                                 Text* tempText = static_cast<Text*>(temp);
-                                StringImpl* string = tempText->string();
+                                StringImpl* string = tempText->dataImpl();
                                 int end = tempText == walk->mFinalNode ? 
                                     walk->mEnd : string->length();
                                 exported->append(String(string->substring(
@@ -2592,7 +2592,7 @@ bool CacheBuilder::isFocusableText(NodeWalk* walk, bool more, Node* node,
                 } while (renderer == NULL);
                 baseInline = renderer->firstTextBox();
             } while (baseInline == NULL);
-            string = nextNode->string();
+            string = nextNode->dataImpl();
             baseChars = string->characters();
             inlineTextBox = baseInline;
             start = inlineTextBox->start();
@@ -2602,7 +2602,7 @@ bool CacheBuilder::isFocusableText(NodeWalk* walk, bool more, Node* node,
 tryNextCheckType:
         node = textNode;
         baseInline = saveInline;
-        string = textNode->string();
+        string = textNode->dataImpl();
         baseChars = string->characters();
     }
     if (foundBetter) {
@@ -2861,7 +2861,7 @@ bool CacheBuilder::ConstructTextRect(Text* textNode,
 {
     RenderText* renderText = (RenderText*) textNode->renderer();
     EVisibility vis = renderText->style()->visibility();
-    StringImpl* string = textNode->string();
+    StringImpl* string = textNode->dataImpl();
     const UChar* chars = string->characters();
     FloatPoint pt = renderText->localToAbsolute();
     do {
