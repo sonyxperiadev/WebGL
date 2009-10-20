@@ -259,6 +259,7 @@ $(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/css/%.cpp : $(intermediates)/css/
 
 GEN := \
     $(intermediates)/dom/JSAttr.h \
+    $(intermediates)/dom/JSBeforeLoadEvent.h \
     $(intermediates)/dom/JSCDATASection.h \
     $(intermediates)/dom/JSCharacterData.h \
     $(intermediates)/dom/JSClientRect.h \
@@ -289,6 +290,7 @@ GEN := \
     $(intermediates)/dom/JSNodeList.h \
     $(intermediates)/dom/JSNotation.h \
     $(intermediates)/dom/JSOverflowEvent.h \
+    $(intermediates)/dom/JSPageTransitionEvent.h \
     $(intermediates)/dom/JSProcessingInstruction.h \
     $(intermediates)/dom/JSProgressEvent.h \
     $(intermediates)/dom/JSRange.h \
@@ -330,11 +332,12 @@ GEN := \
     $(intermediates)/html/JSHTMLBodyElement.h \
     $(intermediates)/html/JSHTMLButtonElement.h \
     $(intermediates)/html/JSHTMLCanvasElement.h \
-	$(intermediates)/html/JSHTMLCollection.h \
+    $(intermediates)/html/JSHTMLCollection.h \
     $(intermediates)/html/JSHTMLDataGridElement.h \
     $(intermediates)/html/JSHTMLDataGridCellElement.h \
     $(intermediates)/html/JSHTMLDataGridColElement.h \
     $(intermediates)/html/JSHTMLDataGridRowElement.h \
+    $(intermediates)/html/JSHTMLDataListElement.h \
     $(intermediates)/html/JSHTMLDListElement.h \
     $(intermediates)/html/JSHTMLDirectoryElement.h \
     $(intermediates)/html/JSHTMLDivElement.h \
@@ -405,9 +408,27 @@ LOCAL_GENERATED_SOURCES += $(GEN) $(GEN:%.h=%.cpp)
 $(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/html/%.cpp : $(intermediates)/html/%.h
 
 GEN := \
-	$(intermediates)/html/canvas/JSCanvasGradient.h \
-	$(intermediates)/html/canvas/JSCanvasPattern.h \
-    $(intermediates)/html/canvas/JSCanvasRenderingContext2D.h
+    $(intermediates)/html/canvas/JSCanvasArray.h \
+    $(intermediates)/html/canvas/JSCanvasArrayBuffer.h \
+    $(intermediates)/html/canvas/JSCanvasBuffer.h \
+    $(intermediates)/html/canvas/JSCanvasByteArray.h \
+    $(intermediates)/html/canvas/JSCanvasFloatArray.h \
+    $(intermediates)/html/canvas/JSCanvasFramebuffer.h \
+    $(intermediates)/html/canvas/JSCanvasGradient.h \
+    $(intermediates)/html/canvas/JSCanvasIntArray.h \
+    $(intermediates)/html/canvas/JSCanvasNumberArray.h \
+    $(intermediates)/html/canvas/JSCanvasPattern.h \
+    $(intermediates)/html/canvas/JSCanvasProgram.h \
+    $(intermediates)/html/canvas/JSCanvasRenderbuffer.h \
+    $(intermediates)/html/canvas/JSCanvasRenderingContext.h \
+    $(intermediates)/html/canvas/JSCanvasRenderingContext2D.h \
+    $(intermediates)/html/canvas/JSCanvasRenderingContext3D.h \
+    $(intermediates)/html/canvas/JSCanvasShader.h \
+    $(intermediates)/html/canvas/JSCanvasShortArray.h \
+    $(intermediates)/html/canvas/JSCanvasTexture.h \
+    $(intermediates)/html/canvas/JSCanvasUnsignedByteArray.h \
+    $(intermediates)/html/canvas/JSCanvasUnsignedIntArray.h \
+    $(intermediates)/html/canvas/JSCanvasUnsignedShortArray.h
 
 $(GEN): PRIVATE_PATH := $(LOCAL_PATH)
 $(GEN): PRIVATE_CUSTOM_TOOL = perl -I$(PRIVATE_PATH)/bindings/scripts $(PRIVATE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator JS --include dom --include html --outputdir $(dir $@) $<
@@ -420,7 +441,7 @@ LOCAL_GENERATED_SOURCES += $(GEN) $(GEN:%.h=%.cpp)
 $(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/html/canvas/%.cpp : $(intermediates)/html/canvas/%.h
 
 GEN := \
-	$(intermediates)/inspector/JSInspectorBackend.h  \
+    $(intermediates)/inspector/JSInspectorBackend.h  \
     $(intermediates)/inspector/JSJavaScriptCallFrame.h 
     
 $(GEN): PRIVATE_PATH := $(LOCAL_PATH)
@@ -454,7 +475,7 @@ $(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/loader/appcache/%.cpp : $(interme
 GEN := \
     $(intermediates)/page/JSBarInfo.h \
     $(intermediates)/page/JSConsole.h \
-	$(intermediates)/page/JSCoordinates.h \
+    $(intermediates)/page/JSCoordinates.h \
     $(intermediates)/page/JSDOMSelection.h \
     $(intermediates)/page/JSDOMWindow.h \
     $(intermediates)/page/JSGeolocation.h \
@@ -553,7 +574,6 @@ GEN := \
     $(intermediates)/svg/JSSVGColor.h \
     $(intermediates)/svg/JSSVGComponentTransferFunctionElement.h \
     $(intermediates)/svg/JSSVGCursorElement.h \
-    $(intermediates)/svg/JSSVGDefinitionSrcElement.h \
     $(intermediates)/svg/JSSVGDefsElement.h \
     $(intermediates)/svg/JSSVGDescElement.h \
     $(intermediates)/svg/JSSVGDocument.h \
@@ -702,7 +722,7 @@ GEN := \
     $(intermediates)/xml/JSXMLHttpRequestUpload.h \
     $(intermediates)/xml/JSXMLSerializer.h \
     $(intermediates)/xml/JSXPathEvaluator.h \
-	$(intermediates)/xml/JSXPathException.h \
+    $(intermediates)/xml/JSXPathException.h \
     $(intermediates)/xml/JSXPathExpression.h \
     $(intermediates)/xml/JSXPathNSResolver.h \
     $(intermediates)/xml/JSXPathResult.h  \

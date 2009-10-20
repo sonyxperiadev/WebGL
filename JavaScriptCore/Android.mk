@@ -107,6 +107,7 @@ LOCAL_SRC_FILES := \
 	runtime/ErrorInstance.cpp \
 	runtime/ErrorPrototype.cpp \
 	runtime/ExceptionHelpers.cpp \
+	runtime/Executable.cpp \
 	runtime/FunctionConstructor.cpp \
 	runtime/FunctionPrototype.cpp \
 	runtime/GetterSetter.cpp \
@@ -148,6 +149,7 @@ LOCAL_SRC_FILES := \
 	runtime/ObjectConstructor.cpp \
 	runtime/ObjectPrototype.cpp \
 	runtime/Operations.cpp \
+	runtime/PropertyDescriptor.cpp \
 	runtime/PropertyNameArray.cpp \
 	runtime/PropertySlot.cpp \
 	runtime/PrototypeFunction.cpp \

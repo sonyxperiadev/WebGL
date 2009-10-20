@@ -31,6 +31,7 @@ BINDING_C_INCLUDES := \
 
 WEBCORE_SRC_FILES := \
 	bindings/v8/ChildThreadDOMData.cpp \
+	bindings/v8/DateExtension.cpp \
 	bindings/v8/DOMData.cpp \
 	bindings/v8/DOMDataStore.cpp \
 	bindings/v8/DerivedSourcesAllInOne.cpp \
@@ -67,11 +68,9 @@ WEBCORE_SRC_FILES := \
 	bindings/v8/V8NPObject.cpp \
 	bindings/v8/V8NPUtils.cpp \
 	bindings/v8/V8NodeFilterCondition.cpp \
-	bindings/v8/V8ObjectEventListener.cpp \
 	bindings/v8/V8Proxy.cpp \
 	bindings/v8/V8Utilities.cpp \
 	bindings/v8/V8WorkerContextEventListener.cpp \
-	bindings/v8/V8WorkerContextObjectEventListener.cpp \
 	bindings/v8/WorkerContextExecutionProxy.cpp \
 	bindings/v8/WorkerScriptController.cpp \
 	\
@@ -80,8 +79,17 @@ WEBCORE_SRC_FILES := \
 	bindings/v8/custom/V8AbstractWorkerCustom.cpp \
 	bindings/v8/custom/V8AttrCustom.cpp \
 	bindings/v8/custom/V8CSSStyleDeclarationCustom.cpp \
+	bindings/v8/custom/V8CanvasArrayBufferCustom.cpp \
+	bindings/v8/custom/V8CanvasByteArrayCustom.cpp \
+	bindings/v8/custom/V8CanvasFloatArrayCustom.cpp \
+	bindings/v8/custom/V8CanvasIntArrayCustom.cpp \
 	bindings/v8/custom/V8CanvasPixelArrayCustom.cpp \
 	bindings/v8/custom/V8CanvasRenderingContext2DCustom.cpp \
+	bindings/v8/custom/V8CanvasRenderingContext3DCustom.cpp \
+	bindings/v8/custom/V8CanvasShortArrayCustom.cpp \
+	bindings/v8/custom/V8CanvasUnsignedByteArrayCustom.cpp \
+	bindings/v8/custom/V8CanvasUnsignedIntArrayCustom.cpp \
+	bindings/v8/custom/V8CanvasUnsignedShortArrayCustom.cpp \
 	bindings/v8/custom/V8ClientRectListCustom.cpp \
 	bindings/v8/custom/V8ClipboardCustom.cpp \
 	bindings/v8/custom/V8CoordinatesCustom.cpp \
@@ -105,6 +113,7 @@ WEBCORE_SRC_FILES := \
 	bindings/v8/custom/V8DocumentLocationCustom.cpp \
 	bindings/v8/custom/V8ElementCustom.cpp \
 	bindings/v8/custom/V8EventCustom.cpp \
+	bindings/v8/custom/V8FileListCustom.cpp \
 	bindings/v8/custom/V8GeolocationCustom.cpp \
 	bindings/v8/custom/V8HTMLAudioElementConstructor.cpp \
 	bindings/v8/custom/V8HTMLCanvasElementCustom.cpp \
@@ -125,6 +134,7 @@ WEBCORE_SRC_FILES := \
 	bindings/v8/custom/V8LocationCustom.cpp \
 	bindings/v8/custom/V8MessageChannelConstructor.cpp \
 	bindings/v8/custom/V8MessagePortCustom.cpp \
+	bindings/v8/custom/V8MessageEventCustom.cpp \
 	bindings/v8/custom/V8NamedNodeMapCustom.cpp \
 	bindings/v8/custom/V8NamedNodesCollection.cpp \
 	bindings/v8/custom/V8NavigatorCustom.cpp \
@@ -133,7 +143,8 @@ WEBCORE_SRC_FILES := \
 	bindings/v8/custom/V8NodeIteratorCustom.cpp \
 	bindings/v8/custom/V8NodeListCustom.cpp \
 	bindings/v8/custom/V8SQLResultSetRowListCustom.cpp \
-	bindings/v8/custom/V8SQLTransactionCustom.cpp
+	bindings/v8/custom/V8SQLTransactionCustom.cpp \
+	bindings/v8/custom/V8WebSocketCustom.cpp
 
 ifeq ($(ENABLE_SVG), true)
 WEBCORE_SRC_FILES := $(WEBCORE_SRC_FILES) \
@@ -222,6 +233,7 @@ $(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/bindings/%.cpp : $(intermediates)
 
 GEN := \
     $(intermediates)/bindings/V8Attr.h \
+    $(intermediates)/bindings/V8BeforeLoadEvent.h \
     $(intermediates)/bindings/V8CDATASection.h \
     $(intermediates)/bindings/V8CharacterData.h \
     $(intermediates)/bindings/V8ClientRect.h \
@@ -253,6 +265,7 @@ GEN := \
     $(intermediates)/bindings/V8NodeList.h \
     $(intermediates)/bindings/V8Notation.h \
     $(intermediates)/bindings/V8OverflowEvent.h \
+    $(intermediates)/bindings/V8PageTransitionEvent.h \
     $(intermediates)/bindings/V8ProcessingInstruction.h \
     $(intermediates)/bindings/V8ProgressEvent.h \
     $(intermediates)/bindings/V8Range.h \
@@ -298,6 +311,7 @@ GEN := \
     $(intermediates)/bindings/V8HTMLDataGridColElement.h \
     $(intermediates)/bindings/V8HTMLDataGridElement.h \
     $(intermediates)/bindings/V8HTMLDataGridRowElement.h \
+    $(intermediates)/bindings/V8HTMLDataListElement.h \
     $(intermediates)/bindings/V8HTMLDListElement.h \
     $(intermediates)/bindings/V8HTMLDirectoryElement.h \
     $(intermediates)/bindings/V8HTMLDivElement.h \
@@ -367,10 +381,28 @@ LOCAL_GENERATED_SOURCES += $(GEN) $(GEN:%.h=%.cpp)
 $(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/bindings/%.cpp : $(intermediates)/bindings/%.h
 
 GEN := \
+    $(intermediates)/bindings/V8CanvasArray.h \
+    $(intermediates)/bindings/V8CanvasArrayBuffer.h \
+    $(intermediates)/bindings/V8CanvasBuffer.h \
+    $(intermediates)/bindings/V8CanvasByteArray.h \
+    $(intermediates)/bindings/V8CanvasFloatArray.h \
+    $(intermediates)/bindings/V8CanvasFramebuffer.h \
     $(intermediates)/bindings/V8CanvasGradient.h \
+    $(intermediates)/bindings/V8CanvasIntArray.h \
+    $(intermediates)/bindings/V8CanvasNumberArray.h \
     $(intermediates)/bindings/V8CanvasPattern.h \
     $(intermediates)/bindings/V8CanvasPixelArray.h \
-    $(intermediates)/bindings/V8CanvasRenderingContext2D.h 
+    $(intermediates)/bindings/V8CanvasProgram.h \
+    $(intermediates)/bindings/V8CanvasRenderbuffer.h \
+    $(intermediates)/bindings/V8CanvasRenderingContext.h \
+    $(intermediates)/bindings/V8CanvasRenderingContext2D.h \
+    $(intermediates)/bindings/V8CanvasRenderingContext3D.h \
+    $(intermediates)/bindings/V8CanvasShader.h \
+    $(intermediates)/bindings/V8CanvasShortArray.h \
+    $(intermediates)/bindings/V8CanvasTexture.h \
+    $(intermediates)/bindings/V8CanvasUnsignedByteArray.h \
+    $(intermediates)/bindings/V8CanvasUnsignedIntArray.h \
+    $(intermediates)/bindings/V8CanvasUnsignedShortArray.h
 
 $(GEN): PRIVATE_CUSTOM_TOOL = SOURCE_ROOT=$(WEBCORE_PATH) perl -I$(WEBCORE_PATH)/bindings/scripts $(WEBCORE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator V8 --include dom --include html --include html/canvas --outputdir $(dir $@) $<
 $(GEN): $(intermediates)/bindings/V8%.h : $(WEBCORE_PATH)/html/canvas/%.idl $(js_binding_scripts)
@@ -497,7 +529,6 @@ GEN := \
     $(intermediates)/bindings/V8SVGColor.h \
     $(intermediates)/bindings/V8SVGComponentTransferFunctionElement.h \
     $(intermediates)/bindings/V8SVGCursorElement.h \
-    $(intermediates)/bindings/V8SVGDefinitionSrcElement.h \
     $(intermediates)/bindings/V8SVGDefsElement.h \
     $(intermediates)/bindings/V8SVGDescElement.h \
     $(intermediates)/bindings/V8SVGDocument.h \
@@ -648,6 +679,9 @@ GEN := \
     $(intermediates)/bindings/V8XMLHttpRequestProgressEvent.h \
     $(intermediates)/bindings/V8XMLHttpRequestUpload.h \
     $(intermediates)/bindings/V8XMLSerializer.h
+
+GEN += \
+    $(intermediates)/bindings/V8XPathNSResolver.h
 
 $(GEN): PRIVATE_CUSTOM_TOOL = SOURCE_ROOT=$(WEBCORE_PATH) perl -I$(WEBCORE_PATH)/bindings/scripts $(WEBCORE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator V8 --include dom --include html --outputdir $(dir $@) $<
 $(GEN): $(intermediates)/bindings/V8%.h : $(WEBCORE_PATH)/xml/%.idl $(js_binding_scripts)
