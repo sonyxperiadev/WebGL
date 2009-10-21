@@ -235,7 +235,6 @@ inline void atomicIncrement(int volatile* addend) { OSAtomicIncrement32Barrier(c
 inline int atomicDecrement(int volatile* addend) { return OSAtomicDecrement32Barrier(const_cast<int*>(addend)); }
 
 #elif defined ANDROID
-#define WTF_USE_LOCKFREE_THREADSAFESHARED 1
 
 inline void atomicIncrement(int volatile* addend) { android_atomic_inc(addend); }
 inline int atomicDecrement(int volatile* addend) { return android_atomic_dec(addend); }
