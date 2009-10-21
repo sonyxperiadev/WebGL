@@ -138,7 +138,7 @@ Settings::Settings(Page* page)
     // A Frame may not have been created yet, so we initialize the AtomicString 
     // hash before trying to use it.
     AtomicString::init();
-#ifdef ANDROID_META_SUPPORT    
+#ifdef ANDROID_META_SUPPORT
     resetMetadataSettings();
 #endif
 }
@@ -444,9 +444,9 @@ void Settings::setMetadataSettings(const String& key, const String& value)
             int width = value.toInt();
             if (width <= 10000) {
                 if (width <= 320) {
-                    // This is a hack to accommodate the pages designed for the 
-                    // original iPhone. The new version, since 10/2007, is to 
-                    // use device-width which works for both portrait and 
+                    // This is a hack to accommodate the pages designed for the
+                    // original iPhone. The new version, since 10/2007, is to
+                    // use device-width which works for both portrait and
                     // landscape modes.
                     m_viewport_width = 0;
                 } else {
@@ -502,25 +502,25 @@ void Settings::setMetadataSettings(const String& key, const String& value)
     } else if (key == "telephone") {
         if (value == "no") {
             m_format_detection_telephone = false;
-        }        
+        }
     } else if (key == "address") {
         if (value == "no") {
             m_format_detection_address = false;
-        }        
+        }
     } else if (key == "email") {
         if (value == "no") {
             m_format_detection_email = false;
-        }        
+        }
     } else if (key == "format-detection") {
-        // even Apple doc says "format-detection" should be the name of the 
-        // <meta> tag. In the real world, e.g. amazon.com, use 
+        // even Apple doc says "format-detection" should be the name of the
+        // <meta> tag. In the real world, e.g. amazon.com, use
         // "format-detection=no" in the "viewport" <meta> tag to disable all
         // format detection.
         if (value == "no") {
             m_format_detection_telephone = false;
             m_format_detection_address = false;
             m_format_detection_email = false;
-        }        
+        }
     }
 }
 #endif

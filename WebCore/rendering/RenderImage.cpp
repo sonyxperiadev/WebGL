@@ -550,7 +550,7 @@ int RenderImage::calcReplacedWidth(bool includeMaxWidth) const
     }
     return width;
 #else
-     return max(minW, min(width, maxW));
+    return max(minW, min(width, maxW));
 #endif
 }
 
@@ -572,19 +572,19 @@ int RenderImage::calcReplacedHeight() const
 #ifdef ANDROID_LAYOUT
     height = max(minH, min(height, maxH));
     // in SSR mode, we will fit the image to its container width
-    if (height && document()->settings()->layoutAlgorithm() == Settings::kLayoutSSR) {        
+    if (height && document()->settings()->layoutAlgorithm() == Settings::kLayoutSSR) {
         int width;
         if (isWidthSpecified())
             width = calcReplacedWidthUsing(style()->width());
         else
             width = calcAspectRatioWidth();
         int minW = calcReplacedWidthUsing(style()->minWidth());
-        int maxW = style()->maxWidth().value() == undefinedLength ? width : 
-        	calcReplacedWidthUsing(style()->maxWidth());
+        int maxW = style()->maxWidth().value() == undefinedLength ? width :
+            calcReplacedWidthUsing(style()->maxWidth());
         width = max(minW, min(width, maxW));
 
         int cw = containingBlockWidthForContent();
-        if (cw && width && width>cw)
+        if (cw && width && width > cw)
             height = cw * height / width;   // preserve aspect ratio
     }
     return height;

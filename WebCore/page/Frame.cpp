@@ -25,6 +25,7 @@
  * the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
  * Boston, MA 02110-1301, USA.
  */
+
 #include "config.h"
 #include "Frame.h"
 
@@ -1630,7 +1631,6 @@ void Frame::pageDestroyed()
         page()->focusController()->setFocusedFrame(0);
 
     script()->clearWindowShell();
-
     script()->clearScriptObjects();
     script()->updatePlatformScriptObjects();
 
@@ -1704,7 +1704,6 @@ bool Frame::shouldClose()
     String text = doc->displayStringModifiedByEncoding(beforeUnloadEvent->result());
     return chrome->runBeforeUnloadConfirmPanel(text, this);
 }
-
 
 void Frame::scheduleClose()
 {

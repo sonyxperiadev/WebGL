@@ -139,9 +139,6 @@ public:
     // style from this RenderBlock.
     RenderBlock* createAnonymousBlock(bool isFlexibleBox = false) const;
 
-    Vector<IntRect>* columnRects() const;
-    int columnGap() const;
-
 protected:
     int maxTopPosMargin() const { return m_maxMargin ? m_maxMargin->m_topPos : MaxMargin::topPosDefault(this); }
     int maxTopNegMargin() const { return m_maxMargin ? m_maxMargin->m_topNeg : MaxMargin::topNegDefault(this); }
@@ -343,7 +340,17 @@ private:
 
     int desiredColumnWidth() const;
     unsigned desiredColumnCount() const;
+#if PLATFORM(ANDROID)
+public:
+    Vector<IntRect>* columnRects() const;
+private:
+#endif
     void setDesiredColumnCountAndWidth(int count, int width);
+#if PLATFORM(ANDROID)
+public:
+    int columnGap() const;
+private:
+#endif
     
     void paintContinuationOutlines(PaintInfo&, int tx, int ty);
 

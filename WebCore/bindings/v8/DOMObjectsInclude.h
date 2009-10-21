@@ -149,6 +149,7 @@
 #include "TextMetrics.h"
 #include "TimeRanges.h"
 #include "TreeWalker.h"
+#include "XSLTProcessor.h"
 #include "V8AbstractEventListener.h"
 #include "V8CustomEventListener.h"
 #include "V8DOMWindow.h"
@@ -156,7 +157,6 @@
 #include "V8LazyEventListener.h"
 #include "V8NodeFilterCondition.h"
 #include "ValidityState.h"
-#include "VoidCallback.h"
 #include "WebKitAnimationEvent.h"
 #include "WebKitCSSKeyframeRule.h"
 #include "WebKitCSSKeyframesRule.h"
@@ -174,7 +174,6 @@
 #include "XPathExpression.h"
 #include "XPathNSResolver.h"
 #include "XPathResult.h"
-#include "XSLTProcessor.h"
 
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
 #include "DOMApplicationCache.h"
@@ -234,7 +233,7 @@
 #include "V8SVGPODTypeWrapper.h"
 #endif // SVG
 
-#if ENABLE(TOUCH_EVENTS)
+#if ENABLE(TOUCH_EVENTS) // Android
 #include "Touch.h"
 #include "TouchList.h"
 #include "TouchEvent.h"

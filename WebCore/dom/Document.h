@@ -809,7 +809,7 @@ public:
 
     void updateFocusAppearanceSoon();
     void cancelFocusAppearanceUpdate();
-    
+        
 #ifdef ANDROID_MOBILE
     void setExtraLayoutDelay(int delay) { mExtraLayoutDelay = delay; }
     int extraLayoutDelay() { return mExtraLayoutDelay; }

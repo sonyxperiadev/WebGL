@@ -318,9 +318,6 @@ void RenderTextControl::subtreeHasChanged()
 
 String RenderTextControl::finishText(Vector<UChar>& result) const
 {
-    // ANDROID: This method was modified with a fix from WebKit r31081. This
-    // comment can be removed the next time we update.
-
     // Remove one trailing newline; there's always one that's collapsed out by rendering.
     size_t size = result.size();
     if (size && result[size - 1] == '\n')
@@ -495,9 +492,8 @@ void RenderTextControl::calcPrefWidths()
     m_minPrefWidth += toAdd;
     m_maxPrefWidth += toAdd;
 
+#if !PLATFORM(ANDROID)
     // FIXME: This causes cnn.com loading way slow. Comment it out for now
-//#ifdef ANDROID_LAYOUT
-#if 0
     Frame* frame = document()->frame();
     if (frame && frame->settings()->layoutAlgorithm() == Settings::kLayoutFitColumnToScreen) {
         int maxWidth = frame->view()->visibleWidth() - 2 * ANDROID_FCTS_MARGIN_PADDING;

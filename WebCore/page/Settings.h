@@ -92,7 +92,7 @@ namespace WebCore {
         bool useWideViewport() const { return m_useWideViewport; }
         void setUseWideViewport(bool use) { m_useWideViewport = use; }
 #endif
-    
+
         void setSerifFontFamily(const AtomicString&);
         const AtomicString& serifFontFamily() const { return m_serifFontFamily; }
 
