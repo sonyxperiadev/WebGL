@@ -102,7 +102,7 @@ public:
     const WebCore::IntRect& getBounds() const { return mBounds; }
     void getBounds(WebCore::IntRect* bounds) const { *bounds = mBounds; }
     const WebCore::String& getExport() const { return mExport; }
-    bool hasCursorRing() const { return !mIsHidden && mHasCursorRing; }
+    bool hasCursorRing() const { return mHasCursorRing; }
     bool hasMouseOver() const { return mHasMouseOver; }
     void hideCursor(CachedFrame* );
     const WebCore::IntRect& hitBounds() const { return mHitBounds; }
@@ -113,6 +113,7 @@ public:
     bool isArea() const { return mIsArea; }
     bool isFocus() const { return mIsFocus; }
     bool isFrame() const { return mChildFrameIndex >= 0 ; }
+    bool isHidden() const { return mIsHidden; }
     bool isNavable(const WebCore::IntRect& clip) const {
         return clip.intersects(mBounds);
     }
