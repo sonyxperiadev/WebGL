@@ -52,7 +52,7 @@ static inline bool shouldBreakAfter(UChar ch)
         case '-':
         case '?':
 #ifdef ANDROID_LAYOUT
-        // as '/' is used in uri which is always long, we would like to break it 
+        // as '/' is used in uri which is always long, we would like to break it
         case '/':
 #endif
         case softHyphen:

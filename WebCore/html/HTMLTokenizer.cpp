@@ -24,6 +24,7 @@
     the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
     Boston, MA 02110-1301, USA.
 */
+
 #include "config.h"
 #include "HTMLTokenizer.h"
 
@@ -484,7 +485,7 @@ HTMLTokenizer::State HTMLTokenizer::scriptHandler(State state)
 #ifdef ANDROID_INSTRUMENT
     android::TimeCounter::recordNoCounter(android::TimeCounter::ParsingTimeCounter, __FUNCTION__);
 #endif
-    
+
     if (!m_parser->skipMode() && !followingFrameset) {
         if (cs) {
             if (savedPrependingSrc)
@@ -517,7 +518,7 @@ HTMLTokenizer::State HTMLTokenizer::scriptHandler(State state)
 #ifdef ANDROID_INSTRUMENT
     android::TimeCounter::start(android::TimeCounter::ParsingTimeCounter);
 #endif
-    
+
     if (!m_executingScript && !state.loadingExtScript()) {
         m_src.append(m_pendingSrc);
         m_pendingSrc.clear();
@@ -541,7 +542,6 @@ HTMLTokenizer::State HTMLTokenizer::scriptHandler(State state)
         }
     }
     
-
 #if PRELOAD_SCANNER_ENABLED
     if (!m_pendingScripts.isEmpty() && !m_executingScript) {
         if (!m_preloadScanner)
@@ -1651,7 +1651,6 @@ void HTMLTokenizer::write(const SegmentedString& str, bool appendData)
         return;
     }
     
-
 #if PRELOAD_SCANNER_ENABLED
     if (m_preloadScanner && m_preloadScanner->inProgress() && appendData)
         m_preloadScanner->end();

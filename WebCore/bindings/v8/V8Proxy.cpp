@@ -32,7 +32,6 @@
 #include "V8Proxy.h"
 
 #include "CSSMutableStyleDeclaration.h"
-#include "CString.h"
 #include "DateExtension.h"
 #include "DOMObjectsInclude.h"
 #include "DocumentLoader.h"
@@ -51,6 +50,8 @@
 #include "V8Index.h"
 #include "V8IsolatedWorld.h"
 
+#include <algorithm>
+#include <utility>
 #include <v8.h>
 #include <v8-debug.h>
 #include <wtf/Assertions.h>
@@ -64,6 +65,10 @@
 
 #ifdef ANDROID_INSTRUMENT
 #include "TimeCounter.h"
+#endif
+
+#if PLATFORM(ANDROID)
+#include "CString.h"
 #endif
 
 namespace WebCore {

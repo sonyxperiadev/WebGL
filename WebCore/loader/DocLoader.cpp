@@ -255,6 +255,7 @@ CachedResource* DocLoader::requestResource(CachedResource::Type type, const Stri
     }
 
     checkForReload(fullURL);
+
     CachedResource* resource = cache()->requestResource(this, type, fullURL, charset, isPreload);
     if (resource) {
         // Check final URL of resource to catch redirects.

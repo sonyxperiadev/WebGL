@@ -262,12 +262,11 @@ void RenderTableSection::setCellWidths()
     if (view()->frameView()) {
         const Settings* settings = document()->settings();
         ASSERT(settings);
-        if (settings->layoutAlgorithm() == Settings::kLayoutFitColumnToScreen) {
+        if (settings->layoutAlgorithm() == Settings::kLayoutFitColumnToScreen)
             visibleWidth = view()->frameView()->screenWidth();
-        }
     }
 #endif
-    
+
     for (int i = 0; i < m_gridRows; i++) {
         Row& row = *m_grid[i].row;
         int cols = row.size();
@@ -284,12 +283,13 @@ void RenderTableSection::setCellWidths()
                 endCol++;
             }
             int w = columnPos[endCol] - columnPos[j] - table()->hBorderSpacing();
-#ifdef ANDROID_LAYOUT          
-            if (table()->isSingleColumn())
-                w = table()->width()-(table()->borderLeft()+table()->borderRight()+
-                    (table()->collapseBorders()?0:(table()->paddingLeft()+table()->paddingRight()+
-                    2*table()->hBorderSpacing())));
-#endif          
+#ifdef ANDROID_LAYOUT
+            if (table()->isSingleColumn()) {
+                int b = table()->collapseBorders() ?
+                    0 : table()->paddingLeft() + table()->paddingRight() + 2 * table()->hBorderSpacing();
+                w = table()->width() - (table()->borderLeft() + table()->borderRight() + b);
+            }
+#endif
             int oldWidth = cell->width();
 #ifdef ANDROID_LAYOUT
             if (w != oldWidth || (visibleWidth > 0 && visibleWidth != cell->getVisibleWidth())) {
@@ -326,7 +326,7 @@ int RenderTableSection::calcRowHeight()
 #ifdef ANDROID_LAYOUT
     if (table()->isSingleColumn())
         return m_rowPos[m_gridRows];
-#endif    
+#endif
 
     RenderTableCell* cell;
 
@@ -446,26 +446,26 @@ int RenderTableSection::layoutRows(int toAdd)
         int hspacing = table()->hBorderSpacing();
         int vspacing = table()->vBorderSpacing();
         int rHeight = vspacing;
-    
+
         int leftOffset = hspacing;
-    
+
         int nEffCols = table()->numEffCols();
         for (int r = 0; r < totalRows; r++) {
             for (int c = 0; c < nEffCols; c++) {
                 CellStruct current = cellAt(r, c);
                 RenderTableCell* cell = current.cell;
-                
+
                 if (!cell || current.inColSpan)
                     continue;
                 if (r > 0 && (cellAt(r-1, c).cell == cell))
                     continue;
-                   
+
 //                cell->setCellTopExtra(0);
 //                cell->setCellBottomExtra(0);
-                
+
                 int oldCellX = cell->x();
                 int oldCellY = cell->y();
-            
+
                 if (style()->direction() == RTL) {
                     cell->setX(table()->width());
                     cell->setY(rHeight);
@@ -485,7 +485,7 @@ int RenderTableSection::layoutRows(int toAdd)
                 rHeight += cell->height() + vspacing;
             }
         }
-    
+
         setHeight(rHeight);
         return height();
     }
@@ -1058,7 +1058,7 @@ void RenderTableSection::paintObject(PaintInfo& paintInfo, int tx, int ty)
     unsigned int startcol = 0;
     unsigned int endcol = totalCols;
     if (table()->isSingleColumn()) {
-        // FIXME: should we be smarter too?        
+        // FIXME: should we be smarter too?
     } else {
     // FIXME: possible to rollback to the common tree.
     // rowPos size is set in calcRowHeight(), which is called from table layout().
@@ -1155,6 +1155,7 @@ void RenderTableSection::paintObject(PaintInfo& paintInfo, int tx, int ty)
                     if (!row->hasSelfPaintingLayer())
                         cell->paintBackgroundsBehindCell(paintInfo, tx, ty, row);
                 }
+
                 if ((!cell->hasSelfPaintingLayer() && !row->hasSelfPaintingLayer()) || paintInfo.phase == PaintPhaseCollapsedTableBorders)
                     cell->paint(paintInfo, tx, ty);
             }

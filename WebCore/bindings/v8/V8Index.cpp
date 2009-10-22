@@ -142,6 +142,9 @@
 #include "V8HTMLTitleElement.h"
 #include "V8HTMLUListElement.h"
 #include "V8ImageData.h"
+#if !PLATFORM(ANDROID)
+#include "V8InspectorBackend.h"
+#endif
 #include "V8Media.h"
 #include "V8MediaList.h"
 #include "V8MessageChannel.h"
@@ -200,22 +203,9 @@
 #include "V8XMLHttpRequestUpload.h"
 #include "V8XMLSerializer.h"
 #include "V8RGBColor.h"
-#include "V8VoidCallback.h"
-
-#if !PLATFORM(ANDROID)
-#include "V8InspectorBackend.h"
-#endif
 
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
 #include "V8DOMApplicationCache.h"
-#endif
-
-#if ENABLE(DATABASE)
-#include "V8Database.h"
-#include "V8SQLError.h"
-#include "V8SQLResultSet.h"
-#include "V8SQLResultSetRowList.h"
-#include "V8SQLTransaction.h"
 #endif
 
 #if ENABLE(DOM_STORAGE)
@@ -404,6 +394,35 @@
 #include "V8SharedWorker.h"
 #endif
 
+#if ENABLE(3D_CANVAS)
+#include "V8CanvasRenderingContext3D.h"
+#include "V8CanvasArrayBuffer.h"
+#include "V8CanvasArray.h"
+#include "V8CanvasByteArray.h"
+#include "V8CanvasBuffer.h"
+#include "V8CanvasFloatArray.h"
+#include "V8CanvasFramebuffer.h"
+#include "V8CanvasIntArray.h"
+#include "V8CanvasProgram.h"
+#include "V8CanvasRenderbuffer.h"
+#include "V8CanvasShader.h"
+#include "V8CanvasShortArray.h"
+#include "V8CanvasTexture.h"
+#include "V8CanvasUnsignedByteArray.h"
+#include "V8CanvasUnsignedIntArray.h"
+#include "V8CanvasUnsignedShortArray.h"
+#endif
+
+#if PLATFORM(ANDROID)
+// TODO: Upstream these guards to webkit.org
+#if ENABLE(DATABASE)
+#include "V8Database.h"
+#include "V8SQLError.h"
+#include "V8SQLResultSet.h"
+#include "V8SQLResultSetRowList.h"
+#include "V8SQLTransaction.h"
+#endif
+
 #if ENABLE(GEOLOCATION)
 #include "V8Coordinates.h"
 #include "V8Geolocation.h"
@@ -429,24 +448,8 @@
 #include "V8XSLTProcessor.h"
 #endif
 
-#if ENABLE(3D_CANVAS)
-#include "V8CanvasRenderingContext3D.h"
-#include "V8CanvasArrayBuffer.h"
-#include "V8CanvasArray.h"
-#include "V8CanvasByteArray.h"
-#include "V8CanvasBuffer.h"
-#include "V8CanvasFloatArray.h"
-#include "V8CanvasFramebuffer.h"
-#include "V8CanvasIntArray.h"
-#include "V8CanvasProgram.h"
-#include "V8CanvasRenderbuffer.h"
-#include "V8CanvasShader.h"
-#include "V8CanvasShortArray.h"
-#include "V8CanvasTexture.h"
-#include "V8CanvasUnsignedByteArray.h"
-#include "V8CanvasUnsignedIntArray.h"
-#include "V8CanvasUnsignedShortArray.h"
-#endif
+#include "V8VoidCallback.h"
+#endif  // PLATFORM(ANDROID)
 
 namespace WebCore {
 

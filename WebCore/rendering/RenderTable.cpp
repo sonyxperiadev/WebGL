@@ -62,8 +62,8 @@ RenderTable::RenderTable(Node* node)
     , m_borderRight(0)
 {
 #ifdef ANDROID_LAYOUT
-    m_singleColumn = false;    
-#endif    
+    m_singleColumn = false;
+#endif
     m_columnPos.fill(0, 2);
     m_columns.fill(ColumnStruct(), 1);
 }
@@ -208,7 +208,7 @@ void RenderTable::calcWidth()
         }
     }
 #endif
-    
+
     if (isPositioned())
         calcAbsoluteHorizontal();
 
@@ -248,7 +248,7 @@ void RenderTable::calcWidth()
     // in SSR mode, we ignore left/right margin for table
     if (document()->settings()->layoutAlgorithm() == Settings::kLayoutSSR)
         return;
-#endif    
+#endif
     calcHorizontalMargins(style()->marginLeft(), style()->marginRight(), availableWidth);
 }
 
@@ -273,13 +273,13 @@ void RenderTable::layout()
     bool relayoutChildren = false;
     int oldVisibleWidth = m_visibleWidth;
 #endif
-    
+
     int oldWidth = width();
     calcWidth();
 
 #ifdef ANDROID_LAYOUT
     if (oldVisibleWidth != m_visibleWidth
-            && document()->settings()->layoutAlgorithm() == Settings::kLayoutFitColumnToScreen)
+        && document()->settings()->layoutAlgorithm() == Settings::kLayoutFitColumnToScreen)
         relayoutChildren = true;
     else if (document()->settings()->layoutAlgorithm() == Settings::kLayoutSSR) {
         // if the width of a table is wider than its container width, or it has a nested table,
@@ -298,7 +298,7 @@ void RenderTable::layout()
         }
 
         if (shouldRenderAsSingleColumn) {
-            m_singleColumn = true; 
+            m_singleColumn = true;
             if (width() > cw)
                 setWidth(cw);
             if (m_minPrefWidth > cw)

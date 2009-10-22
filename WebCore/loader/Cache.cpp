@@ -38,7 +38,6 @@
 #include <stdio.h>
 #include <wtf/CurrentTime.h>
 
-
 using namespace std;
 
 namespace WebCore {

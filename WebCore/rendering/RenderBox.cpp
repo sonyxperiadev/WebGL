@@ -1244,7 +1244,7 @@ void RenderBox::calcWidth()
         }
     }
 #endif
-                
+
     if (isPositioned()) {
         calcAbsoluteHorizontal();
         return;
@@ -1284,10 +1284,11 @@ void RenderBox::calcWidth()
         if (treatAsReplaced)
 #endif
             setWidth(max(w.value() + borderLeft() + borderRight() + paddingLeft() + paddingRight(), minPrefWidth()));
+
 #ifdef ANDROID_LAYOUT
             // in SSR mode with replaced box, if the box width is wider than the container width,
             // it will be shrinked to fit to the container.
-            if (containerWidth && (width() + m_marginLeft + m_marginRight) > containerWidth && 
+            if (containerWidth && (width() + m_marginLeft + m_marginRight) > containerWidth &&
                     document()->frame()->settings()->layoutAlgorithm() == Settings::kLayoutSSR) {
                 m_marginLeft = m_marginRight = 0;
                 setWidth(containerWidth);
@@ -1338,8 +1339,8 @@ void RenderBox::calcWidth()
     }
 #ifdef ANDROID_LAYOUT
     // in SSR mode with non-replaced box, we use ANDROID_SSR_MARGIN_PADDING for left/right margin.
-    // If the box width is wider than the container width, it will be shrinked to fit to the container. 
-    if (containerWidth && !treatAsReplaced && 
+    // If the box width is wider than the container width, it will be shrinked to fit to the container.
+    if (containerWidth && !treatAsReplaced &&
             document()->settings()->layoutAlgorithm() == Settings::kLayoutSSR) {
         setWidth(width() + m_marginLeft + m_marginRight);
         m_marginLeft = m_marginLeft > ANDROID_SSR_MARGIN_PADDING ? ANDROID_SSR_MARGIN_PADDING : m_marginLeft;

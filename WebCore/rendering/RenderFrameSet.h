@@ -73,7 +73,7 @@ public:
 #ifdef FLATTEN_FRAMESET
     void setGridNeedsLayout() { m_gridCalculated = false; }
 #endif
-    
+
 private:
     static const int noSplit = -1;
 

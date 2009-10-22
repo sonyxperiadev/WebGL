@@ -196,6 +196,7 @@ public:
     KURL getURLAttribute(const QualifiedName&) const;
     virtual const QualifiedName& imageSourceAttributeName() const;
     virtual String target() const { return String(); }
+
     virtual void focus(bool restorePreviousSelection = true);
     virtual void updateFocusAppearance(bool restorePreviousSelection);
     void blur();

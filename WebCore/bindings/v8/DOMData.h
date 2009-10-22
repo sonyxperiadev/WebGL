@@ -45,7 +45,9 @@ namespace WebCore {
     class DOMData : public Noncopyable {
     public:
         DOMData();
+#if PLATFORM(ANDROID)
         virtual ~DOMData() { }
+#endif
 
         static DOMData* getCurrent();
         static DOMData* getCurrentMainThread(); // Caller must be on the main thread.

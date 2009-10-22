@@ -865,7 +865,7 @@ void RenderBlock::layoutInlineChildren(bool relayoutChildren, int& repaintTop, i
             EFloat cssfloat = style()->floating();
             doTextWrap = autowrap && !positioned &&
                     (((dir == LTR && cssfloat != FRIGHT) ||
-                    (dir == RTL && cssfloat != FLEFT)) && 
+                    (dir == RTL && cssfloat != FLEFT)) &&
                     ((ta == TAAUTO) || (ta == JUSTIFY) ||
                     ((ta == LEFT || ta == WEBKIT_LEFT) && (dir == LTR)) ||
                     ((ta == RIGHT || ta == WEBKIT_RIGHT) && (dir == RTL))));
@@ -948,7 +948,7 @@ void RenderBlock::layoutInlineChildren(bool relayoutChildren, int& repaintTop, i
                     break;
                 }
                 if (obj->isFloating() || obj->isPositioned()) {
-                    // floating and absolute or fixed positioning are done out 
+                    // floating and absolute or fixed positioning are done out
                     // of normal flow. Don't need to worry about height any more.
                     break;
                 }

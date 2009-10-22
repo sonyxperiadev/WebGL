@@ -62,6 +62,9 @@ class Document;
 class DocumentLoader;
 class GraphicsContext;
 class HitTestResult;
+#if !PLATFORM(ANDROID)
+class InspectorBackend;
+#endif
 class InspectorClient;
 class InspectorDOMAgent;
 class InspectorFrontend;
@@ -83,11 +86,6 @@ class ConsoleMessage;
 class InspectorDatabaseResource;
 class InspectorDOMStorageResource;
 class InspectorResource;
-
-#if !PLATFORM(ANDROID)
-class InspectorBackend;
-class InspectorFrontend;
-#endif
 
 class InspectorController
 #if ENABLE(JAVASCRIPT_DEBUGGER)
@@ -360,6 +358,7 @@ private:
     Page* m_inspectedPage;
     InspectorClient* m_client;
 
+    OwnPtr<InspectorFrontend> m_frontend;
     RefPtr<InspectorDOMAgent> m_domAgent;
     OwnPtr<InspectorTimelineAgent> m_timelineAgent;
     ScriptObject m_injectedScriptObj;
@@ -389,7 +388,6 @@ private:
     bool m_resourceTrackingEnabled;
     bool m_resourceTrackingSettingsLoaded;
 #if !PLATFORM(ANDROID)
-    OwnPtr<InspectorFrontend> m_frontend;
     RefPtr<InspectorBackend> m_inspectorBackend;
 #endif
     HashMap<String, ScriptValue> m_idToWrappedObject;
