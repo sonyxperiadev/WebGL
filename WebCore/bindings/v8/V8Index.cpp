@@ -142,9 +142,6 @@
 #include "V8HTMLTitleElement.h"
 #include "V8HTMLUListElement.h"
 #include "V8ImageData.h"
-#if !PLATFORM(ANDROID)
-#include "V8InspectorBackend.h"
-#endif
 #include "V8Media.h"
 #include "V8MediaList.h"
 #include "V8MessageChannel.h"
@@ -446,6 +443,10 @@
 
 #if ENABLE(XSLT)
 #include "V8XSLTProcessor.h"
+#endif
+
+#if ENABLE(INSPECTOR)
+#include "V8InspectorBackend.h"
 #endif
 
 #include "V8VoidCallback.h"
