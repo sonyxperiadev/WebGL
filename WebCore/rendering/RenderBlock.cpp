@@ -1428,7 +1428,7 @@ bool RenderBlock::layoutOnlyPositionedObjects()
     updateScrollInfoAfterLayout();
 
 #ifdef ANDROID_FIX
-    // iframe flatten will call FrameView::layout() which calls performPostLayoutTasks, 
+    // iframe flatten will call FrameView::layout() which calls performPostLayoutTasks,
     // which may make us need to layout again
     if (!posChildNeedsLayout() || normalChildNeedsLayout() || selfNeedsLayout())
         return false;

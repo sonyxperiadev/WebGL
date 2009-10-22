@@ -106,8 +106,8 @@ private:
     virtual RenderObject* createRenderer(RenderArena*, RenderStyle *);
     virtual bool appendFormData(FormDataList&, bool);
 
-    virtual int listToOptionIndex(int listIndex) const;
     virtual int optionToListIndex(int optionIndex) const;
+    virtual int listToOptionIndex(int listIndex) const;
 
     virtual void reset();
 

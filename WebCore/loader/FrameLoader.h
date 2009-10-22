@@ -100,7 +100,6 @@ namespace WebCore {
         void setupForReplace();
         void setupForReplaceByMIMEType(const String& newMIMEType);
 
-
         void loadURLIntoChildFrame(const KURL&, const String& referer, Frame*);
 
         void loadFrameRequest(const FrameLoadRequest&, bool lockHistory, bool lockBackForwardList,  // Called by submitForm, calls loadPostRequest and loadURL.

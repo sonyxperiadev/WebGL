@@ -60,6 +60,8 @@
 #include "RenderObject.h"
 #include "npruntime_impl.h"
 #include "Settings.h"
+#include <wtf/ASCIICType.h>
+
 #if defined(ANDROID_PLUGINS)
 #include "TouchEvent.h"
 #endif
@@ -72,11 +74,7 @@
 #include "runtime.h"
 #include <runtime/JSLock.h>
 #include <runtime/JSValue.h>
-#endif
 
-#include <wtf/ASCIICType.h>
-
-#if USE(JSC)
 using JSC::ExecState;
 using JSC::JSLock;
 using JSC::JSObject;
@@ -1269,9 +1267,8 @@ void PluginView::invalidateWindowlessPluginRect(const IntRect& rect)
 void PluginView::paintMissingPluginIcon(GraphicsContext* context, const IntRect& rect)
 {
     static RefPtr<Image> nullPluginImage;
-    if (!nullPluginImage) {
+    if (!nullPluginImage)
         nullPluginImage = Image::loadPlatformResource("nullPlugin");
-    }
 
     IntRect imageRect(frameRect().x(), frameRect().y(), nullPluginImage->width(), nullPluginImage->height());
 
@@ -1280,9 +1277,8 @@ void PluginView::paintMissingPluginIcon(GraphicsContext* context, const IntRect&
 
     imageRect.move(xOffset, yOffset);
 
-    if (!rect.intersects(imageRect)) {
+    if (!rect.intersects(imageRect))
         return;
-    }
 
     context->save();
     context->clip(windowClipRect());
@@ -1311,8 +1307,10 @@ const char* PluginView::userAgent()
     if (m_plugin->quirks().contains(PluginQuirkWantsMozillaUserAgent))
         return MozillaUserAgent;
 #endif
+
     if (m_userAgent.isNull())
         m_userAgent = m_parentFrame->loader()->userAgent(m_url).utf8();
+
     return m_userAgent.data();
 }
 

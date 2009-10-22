@@ -602,7 +602,7 @@ void RenderFrameSet::positionFrames()
     child = (RenderBox*)firstChild();
     yPos = 0;
 #endif // FLATTEN_FRAMESET
-    
+
     for (int r = 0; r < rows; r++) {
         int xPos = 0;
         int height = m_rows.m_sizes[r];

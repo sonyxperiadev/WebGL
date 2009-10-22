@@ -70,7 +70,7 @@ void RenderFrame::layout()
     if (widget() && widget()->isFrameView()) {
         FrameView* view = static_cast<FrameView*>(widget());
         RenderView* root = NULL;
-        if (view->frame() && view->frame()->document() && 
+        if (view->frame() && view->frame()->document() &&
             view->frame()->document()->renderer() &&
             view->frame()->document()->renderer()->isRenderView())
             root = static_cast<RenderView*>(view->frame()->document()->renderer());

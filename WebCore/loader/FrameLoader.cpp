@@ -3091,7 +3091,7 @@ void FrameLoader::checkLoadCompleteForThisFrame()
 
             if (Page* page = m_frame->page())
                 page->progress()->progressCompleted(m_frame);
-                
+
 #ifdef ANDROID_INSTRUMENT
             if (!m_frame->tree()->parent() && m_frame->document()->renderArena())
                 android::TimeCounter::report(m_URL, cache()->getLiveSize(), cache()->getDeadSize(),

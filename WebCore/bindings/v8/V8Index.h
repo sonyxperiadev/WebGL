@@ -363,7 +363,7 @@ typedef v8::Persistent<v8::FunctionTemplate> (*FunctionTemplateFactory)();
     V(CANVASPIXELARRAY, CanvasPixelArray)                               \
     V(KEYBOARDEVENT, KeyboardEvent)                                     \
     V(LOCATION, Location)                                               \
-    V(MEDIA, Media)                                                     \
+    V(MEDIA, Media)                                               \
     V(MEDIALIST, MediaList)
 
 #define DOM_OBJECT_TYPES_2(V)                                           \
@@ -395,7 +395,6 @@ typedef v8::Persistent<v8::FunctionTemplate> (*FunctionTemplateFactory)();
     V(TREEWALKER, TreeWalker)                                           \
     V(UIEVENT, UIEvent)                                                 \
     V(VALIDITYSTATE, ValidityState)                                     \
-    V(VOIDCALLBACK, VoidCallback)                                       \
     V(WEBKITANIMATIONEVENT, WebKitAnimationEvent)                       \
     V(WEBKITCSSKEYFRAMERULE, WebKitCSSKeyframeRule)                     \
     V(WEBKITCSSKEYFRAMESRULE, WebKitCSSKeyframesRule)                   \
@@ -416,24 +415,6 @@ typedef v8::Persistent<v8::FunctionTemplate> (*FunctionTemplateFactory)();
     SHARED_WORKER_NONNODE_WRAPPER_TYPES(V)                              \
     WORKER_NONNODE_WRAPPER_TYPES(V)
 
-#if ENABLE(XPATH)
-#define DOM_OBJECT_XPATH_TYPES(V)                                       \
-    V(XPATHEVALUATOR, XPathEvaluator)                                   \
-    V(XPATHEXCEPTION, XPathException)                                   \
-    V(XPATHEXPRESSION, XPathExpression)                                 \
-    V(XPATHNSRESOLVER, XPathNSResolver)                                 \
-    V(XPATHRESULT, XPathResult)
-#else
-#define DOM_OBJECT_XPATH_TYPES(V)
-#endif
-
-#if ENABLE(XSLT)
-#define DOM_OBJECT_XSLT_TYPES(V)                                        \
-    V(XSLTPROCESSOR, XSLTProcessor)
-#else
-#define DOM_OBJECT_XSLT_TYPES(V)
-#endif
- 
 #if ENABLE(DATABASE)
 #define DOM_OBJECT_DATABASE_TYPES(V)                                    \
     V(DATABASE, Database)                                               \
@@ -458,16 +439,6 @@ typedef v8::Persistent<v8::FunctionTemplate> (*FunctionTemplateFactory)();
     V(ERROREVENT, ErrorEvent)
 #else
 #define DOM_OBJECT_WORKERS_TYPES(V)
-#endif
-
-#if ENABLE(GEOLOCATION)
-#define DOM_OBJECT_GEOLOCATION_TYPES(V)                                 \
-    V(COORDINATES, Coordinates)                                         \
-    V(GEOLOCATION, Geolocation)                                         \
-    V(GEOPOSITION, Geoposition)                                         \
-    V(POSITIONERROR, PositionError)
-#else
-#define DOM_OBJECT_GEOLOCATION_TYPES(V)
 #endif
 
 #if ENABLE(3D_CANVAS)
@@ -501,7 +472,50 @@ typedef v8::Persistent<v8::FunctionTemplate> (*FunctionTemplateFactory)();
 #define DOM_OBJECT_TOUCH_EVENT_TYPES(V)
 #endif
 
-#if PLATFORM(CHROMIUM)
+#if ENABLE(XPATH)
+#define DOM_OBJECT_XPATH_TYPES(V)                                       \
+    V(XPATHEVALUATOR, XPathEvaluator)                                   \
+    V(XPATHEXCEPTION, XPathException)                                   \
+    V(XPATHEXPRESSION, XPathExpression)                                 \
+    V(XPATHNSRESOLVER, XPathNSResolver)                                 \
+    V(XPATHRESULT, XPathResult)
+#else
+#define DOM_OBJECT_XPATH_TYPES(V)
+#endif
+
+#if ENABLE(XSLT)
+#define DOM_OBJECT_XSLT_TYPES(V)                                        \
+    V(XSLTPROCESSOR, XSLTProcessor)
+#else
+#define DOM_OBJECT_XSLT_TYPES(V)
+#endif
+
+#if ENABLE(GEOLOCATION)
+#define DOM_OBJECT_GEOLOCATION_TYPES(V)                                 \
+    V(COORDINATES, Coordinates)                                         \
+    V(GEOLOCATION, Geolocation)                                         \
+    V(GEOPOSITION, Geoposition)                                         \
+    V(POSITIONERROR, PositionError)
+#else
+#define DOM_OBJECT_GEOLOCATION_TYPES(V)
+#endif
+
+#if !PLATFORM(ANDROID)
+#define DOM_OBJECT_INSPECTOR_TYPES(V)                                   \
+    V(INSPECTORBACKEND, InspectorBackend)
+#else
+#define DOM_OBJECT_INSPECTOR_TYPES(V)
+#endif
+
+#if PLATFORM(ANDROID)
+#define DOM_OBJECT_VOIDCALLBACK_TYPES(V)                                \
+    V(VOIDCALLBACK, VoidCallback)
+#else
+#define DOM_OBJECT_VOIDCALLBACK_TYPES(V)
+#endif
+
+#if PLATFORM(ANDROID)
+// This block is modified, but is not Android-specific.
 #define DOM_OBJECT_TYPES(V)                                             \
     DOM_OBJECT_TYPES_1(V)                                               \
     DOM_OBJECT_TYPES_2(V)                                               \
@@ -511,16 +525,10 @@ typedef v8::Persistent<v8::FunctionTemplate> (*FunctionTemplateFactory)();
     DOM_OBJECT_3D_CANVAS_TYPES(V)                                       \
     DOM_OBJECT_XPATH_TYPES(V)                                           \
     DOM_OBJECT_XSLT_TYPES(V)                                            \
-    V(INSPECTORBACKEND, InspectorBackend)
-#elif PLATFORM(ANDROID)
-#define DOM_OBJECT_TYPES(V)                                             \
-    DOM_OBJECT_TYPES_1(V)                                               \
-    DOM_OBJECT_TYPES_2(V)                                               \
-    DOM_OBJECT_DATABASE_TYPES(V)                                        \
     DOM_OBJECT_GEOLOCATION_TYPES(V)                                     \
-    DOM_OBJECT_STORAGE_TYPES(V)                                         \
     DOM_OBJECT_TOUCH_EVENT_TYPES(V)                                     \
-    DOM_OBJECT_WORKERS_TYPES(V)
+    DOM_OBJECT_VOIDCALLBACK_TYPES(V)                                    \
+    DOM_OBJECT_INSPECTOR_TYPES(V)
 #endif
 
 #if ENABLE(SVG)

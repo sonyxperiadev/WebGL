@@ -777,7 +777,6 @@ void ApplicationCacheGroup::checkIfLoadIsComplete()
         RefPtr<ApplicationCache> oldNewestCache = (m_newestCache == m_cacheBeingUpdated) ? 0 : m_newestCache;
 
         setNewestCache(m_cacheBeingUpdated.release());
-
         if (cacheStorage().storeNewestCache(this)) {
             // New cache stored, now remove the old cache.
             if (oldNewestCache)
