@@ -236,7 +236,7 @@ inline int atomicDecrement(int volatile* addend) { return OSAtomicDecrement32Bar
 
 #elif defined ANDROID
 
-inline void atomicIncrement(int volatile* addend) { android_atomic_inc(addend); }
+inline int atomicIncrement(int volatile* addend) { return android_atomic_inc(addend); }
 inline int atomicDecrement(int volatile* addend) { return android_atomic_dec(addend); }
 
 #elif COMPILER(GCC) && !PLATFORM(SPARC64) // sizeof(_Atomic_word) != sizeof(int) on sparc64 gcc
