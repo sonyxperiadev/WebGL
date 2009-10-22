@@ -34,25 +34,10 @@
 
 namespace android {
 
-// Class, constructor, and get method on WeakReference
-jclass    gWeakRefClass;
-jmethodID gWeakRefInit;
-jmethodID gWeakRefGet;
-
-jobject adoptGlobalRef(JNIEnv* env, jobject obj)
-{
-    // Create a WeakReference object
-    jobject ref = env->NewObject(gWeakRefClass, gWeakRefInit, obj);
-    // Increment the ref count of the WeakReference
-    ref = env->NewGlobalRef(ref);
-    return ref;
-}
-
 AutoJObject getRealObject(JNIEnv* env, jobject obj)
 {
-    jobject real = env->CallObjectMethod(obj, gWeakRefGet);
-    if (!real)
-        LOGE("The real object has been deleted");
+    jobject real = env->NewLocalRef(obj);
+    LOG_ASSERT(real, "The real object has been deleted!");
     return AutoJObject(env, real);
 }
 
@@ -83,22 +68,6 @@ WebCore::String to_string(JNIEnv* env, jstring str)
     env->ReleaseStringChars(str, s);
     checkException(env);
     return ret;
-}
-
-int register_webcorejni(JNIEnv* env) {
-    // Instantiate the WeakReference fields.
-    jclass weakRef = env->FindClass("java/lang/ref/WeakReference");
-    LOG_ASSERT(weakRef, "Could not find WeakReference");
-    android::gWeakRefClass = (jclass)env->NewGlobalRef(weakRef);
-    android::gWeakRefInit = env->GetMethodID(android::gWeakRefClass,
-            "<init>", "(Ljava/lang/Object;)V");
-    LOG_ASSERT(android::gWeakRefInit,
-            "Could not find constructor for WeakReference");
-    android::gWeakRefGet = env->GetMethodID(android::gWeakRefClass, "get",
-            "()Ljava/lang/Object;");
-    LOG_ASSERT(android::gWeakRefInit,
-            "Could not find get method for WeakReference");
-    return JNI_OK;
 }
 
 }

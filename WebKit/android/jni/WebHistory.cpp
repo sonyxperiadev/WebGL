@@ -235,7 +235,7 @@ jbyteArray WebHistory::Flatten(JNIEnv* env, WTF::Vector<char>& v, WebCore::Histo
 
 WebHistoryItem::WebHistoryItem(JNIEnv* env, jobject obj,
         WebCore::HistoryItem* item) {
-    mObject = adoptGlobalRef(env, obj);
+    mObject = env->NewWeakGlobalRef(obj);
     mScale = 100;
     mActive = false;
     mParent = NULL;
@@ -247,7 +247,7 @@ WebHistoryItem::~WebHistoryItem() {
         JNIEnv* env = JSC::Bindings::getJNIEnv();
         if (!env)
             return;
-        env->DeleteGlobalRef(mObject);
+        env->DeleteWeakGlobalRef(mObject);
     }
 }
 

@@ -71,7 +71,7 @@ public:
     WebCore::HistoryItem* historyItem() { return mHistoryItem; }
 private:
     RefPtr<WebHistoryItem> mParent;
-    jobject         mObject;
+    jweak           mObject;
     int             mScale;
     int             mScreenWidthScale;
     bool            mActive;
