@@ -437,8 +437,8 @@ void drawCursorRing(SkCanvas* canvas)
         resetCursorRing();
         return;
     }
-    if (!node->hasCursorRing()) {
-        DBG_NAV_LOG("!node->hasCursorRing()");
+    if (node->isHidden()) {
+        DBG_NAV_LOG("node->isHidden()");
         m_viewImpl->m_hasCursorBounds = false;
         return;
     }
@@ -486,13 +486,12 @@ void drawCursorRing(SkCanvas* canvas)
         setPluginReceivesEvents(false);
         return;
     }
+    if (!node->hasCursorRing() || (m_pluginReceivesEvents && node->isPlugin()))
+        return;
     CursorRing::Flavor flavor = CursorRing::NORMAL_FLAVOR;
     if (!isButton) {
         flavor = node->type() != NORMAL_CACHEDNODETYPE ?
             CursorRing::FAKE_FLAVOR : CursorRing::NORMAL_FLAVOR;
-        if (m_pluginReceivesEvents && node->isPlugin()) {
-            return;
-        }
         if (m_followedLink) {
             flavor = static_cast<CursorRing::Flavor>
                     (flavor + CursorRing::NORMAL_ANIMATING);
@@ -737,7 +736,7 @@ void updateCursorBounds(const CachedRoot* root, const CachedFrame* cachedFrame,
     LOG_ASSERT(cachedNode, "updateCursorBounds: cachedNode cannot be null");
     LOG_ASSERT(cachedFrame, "updateCursorBounds: cachedFrame cannot be null");
     m_viewImpl->gCursorBoundsMutex.lock();
-    m_viewImpl->m_hasCursorBounds = cachedNode->hasCursorRing();
+    m_viewImpl->m_hasCursorBounds = !cachedNode->isHidden();
     // If m_viewImpl->m_hasCursorBounds is false, we never look at the other
     // values, so do not bother setting them.
     if (m_viewImpl->m_hasCursorBounds) {

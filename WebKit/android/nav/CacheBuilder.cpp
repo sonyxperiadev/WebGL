@@ -94,14 +94,11 @@ Frame* CacheBuilder::FrameAnd(const CacheBuilder* cacheBuilder) {
 #if DUMP_NAV_CACHE
 
 static bool hasEventListener(Node* node, const AtomicString& eventType) {
-    const RegisteredEventListenerVector& listeners = node->eventListeners();
-    size_t size = listeners.size();
-    for (size_t i = 0; i < size; ++i) {
-        const RegisteredEventListener& r = *listeners[i];
-        if (r.eventType() == eventType)
-            return true;
-    }
-    return false;
+    if (!node->isElementNode())
+        return false;
+    Element* element = static_cast<Element*>(node);
+    EventListener* listener = element->getAttributeEventListener(eventType);
+    return 0 != listener;
 }
 
 #define DEBUG_BUFFER_SIZE 256
