@@ -106,6 +106,7 @@ struct JavaGlue {
     jmethodID   m_getScaledMaxYScroll;
     jmethodID   m_getVisibleRect;
     jmethodID   m_rebuildWebTextView;
+    jmethodID   m_setOkayToNotMatch;
     jmethodID   m_displaySoftKeyboard;
     jmethodID   m_viewInvalidate;
     jmethodID   m_viewInvalidateRect;
@@ -134,6 +135,7 @@ WebView(JNIEnv* env, jobject javaWebView, int viewImpl)
     m_javaGlue.m_getScaledMaxYScroll = GetJMethod(env, clazz, "getScaledMaxYScroll", "()I");
     m_javaGlue.m_getVisibleRect = GetJMethod(env, clazz, "sendOurVisibleRect", "()Landroid/graphics/Rect;");
     m_javaGlue.m_rebuildWebTextView = GetJMethod(env, clazz, "rebuildWebTextView", "()V");
+    m_javaGlue.m_setOkayToNotMatch = GetJMethod(env, clazz, "setOkayNotToMatch", "()V");
     m_javaGlue.m_displaySoftKeyboard = GetJMethod(env, clazz, "displaySoftKeyboard", "(Z)V");
     m_javaGlue.m_viewInvalidate = GetJMethod(env, clazz, "viewInvalidate", "()V");
     m_javaGlue.m_viewInvalidateRect = GetJMethod(env, clazz, "viewInvalidate", "(IIII)V");
@@ -835,7 +837,7 @@ bool moveCursor(int keyCode, int count, bool ignoreScroll)
 void notifyProgressFinished()
 {
     DBG_NAV_LOGD("cursorIsTextInput=%d", cursorIsTextInput(DontAllowNewer));
-    rebuildWebTextView();
+    rebuildWebTextView(false);
 #if DEBUG_NAV_UI
     if (m_frameCacheUI) {
         const CachedNode* focus = m_frameCacheUI->currentFocus();
@@ -967,7 +969,7 @@ bool motionUp(int x, int y, int slop)
     }
     viewInvalidate();
     if (result->isTextField() || result->isTextArea()) {
-        rebuildWebTextView();
+        rebuildWebTextView(true);
         if (!result->isReadOnly()) {
             displaySoftKeyboard(true);
         }
@@ -1267,7 +1269,7 @@ bool hasFocusNode()
     return focusNode;
 }
 
-void rebuildWebTextView()
+void rebuildWebTextView(bool needNotMatchFocus)
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
     AutoJObject obj = m_javaGlue.object(env);
@@ -1277,6 +1279,10 @@ void rebuildWebTextView()
         return;
     env->CallVoidMethod(obj.get(), m_javaGlue.m_rebuildWebTextView);
     checkException(env);
+    if (needNotMatchFocus) {
+        env->CallVoidMethod(obj.get(), m_javaGlue.m_setOkayToNotMatch);
+        checkException(env);
+    }
 }
 
 void displaySoftKeyboard(bool isTextView)
@@ -1927,6 +1933,7 @@ static void nativeMoveCursorToNextTextInput(JNIEnv *env, jobject obj)
             static_cast<WebCore::Node*>(next->nodePointer()), pos.x(), pos.y());
     view->scrollRectOnScreen(bounds.x(), bounds.y(), bounds.right(),
             bounds.bottom());
+    view->getWebViewCore()->m_moveGeneration++;
 }
 
 static jint nativeTextFieldAction(JNIEnv *env, jobject obj)
