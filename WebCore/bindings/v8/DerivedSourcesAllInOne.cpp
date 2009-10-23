@@ -175,11 +175,6 @@
 #include "bindings/V8HTMLUListElement.cpp"
 #include "bindings/V8HTMLVideoElement.cpp"
 #include "bindings/V8ImageData.cpp"
-#if PLATFORM(ANDROID)
-// No inspector for now
-#else
-#include "bindings/V8InspectorBackend.cpp"
-#endif
 #include "bindings/V8KeyboardEvent.cpp"
 #include "bindings/V8Location.cpp"
 #include "bindings/V8Media.cpp"
@@ -404,5 +399,12 @@
 // TODO: Upstream XSLT guard.
 #if ENABLE(XSLT)
 #include "bindings/V8XSLTProcessor.cpp"
+#endif
+#endif
+
+#if PLATFORM(ANDROID)
+// TODO: Upstream INSPECTOR guard.
+#if ENABLE(INSPECTOR)
+#include "bindings/V8InspectorBackend.cpp"
 #endif
 #endif
