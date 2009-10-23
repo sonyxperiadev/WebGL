@@ -1231,7 +1231,7 @@ void sendMoveMouseIfLatest(bool disableFocusController)
 void sendMotionUp(
     WebCore::Frame* framePtr, WebCore::Node* nodePtr, int x, int y)
 {
-    m_viewImpl->m_touchGeneration = m_viewImpl->m_generation = ++m_generation;
+    m_viewImpl->m_touchGeneration = ++m_generation;
     DBG_NAV_LOGD("m_generation=%d framePtr=%p nodePtr=%p x=%d y=%d",
         m_generation, framePtr, nodePtr, x, y);
     LOG_ASSERT(m_javaGlue.m_obj, "A WebView was not associated with this WebViewNative!");

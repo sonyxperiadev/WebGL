@@ -420,7 +420,6 @@ namespace android {
         static Mutex gFrameCacheMutex;
         CachedRoot* m_frameCacheKit; // nav data being built by webcore
         SkPicture* m_navPictureKit;
-        int m_generation; // copy of the number bumped by WebViewNative
         int m_moveGeneration; // copy of state in WebViewNative triggered by move
         int m_touchGeneration; // copy of state in WebViewNative triggered by touch
         int m_lastGeneration; // last action using up to date cache
@@ -463,7 +462,6 @@ namespace android {
         WebCore::IntRect m_lastFocusedBounds;
         int m_lastFocusedSelStart;
         int m_lastFocusedSelEnd;
-        int m_lastMoveGeneration;
         static Mutex m_contentMutex; // protects ui/core thread pictureset access
         PictureSet m_content; // the set of pictures to draw (accessed by UI too)
         SkRegion m_addInval; // the accumulated inval region (not yet drawn)

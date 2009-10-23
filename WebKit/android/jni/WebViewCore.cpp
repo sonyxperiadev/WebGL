@@ -218,7 +218,6 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
 
     m_popupReply = 0;
     m_moveGeneration = 0;
-    m_generation = 0;
     m_lastGeneration = 0;
     m_touchGeneration = 0;
     m_blockTextfieldUpdates = false;
@@ -326,7 +325,6 @@ void WebViewCore::reset(bool fromConstructor)
     m_focusBoundsChanged = false;
     m_lastFocusedSelStart = 0;
     m_lastFocusedSelEnd = 0;
-    m_lastMoveGeneration = 0;
     clearContent();
     m_updatedFrameCache = true;
     m_frameCacheOutOfDate = true;
