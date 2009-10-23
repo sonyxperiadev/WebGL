@@ -1565,6 +1565,12 @@ static bool nativeCursorIsAnchor(JNIEnv *env, jobject obj)
     return node ? node->isAnchor() : false;
 }
 
+static bool nativeCursorIsReadOnly(JNIEnv *env, jobject obj)
+{
+    const CachedNode* node = getCursorNode(env, obj);
+    return node ? node->isReadOnly() : false;
+}
+
 static bool nativeCursorIsTextInput(JNIEnv *env, jobject obj)
 {
     const CachedNode* node = getCursorNode(env, obj);
@@ -2098,6 +2104,8 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeCursorIntersects },
     { "nativeCursorIsAnchor", "()Z",
         (void*) nativeCursorIsAnchor },
+    { "nativeCursorIsReadOnly", "()Z",
+        (void*) nativeCursorIsReadOnly },
     { "nativeCursorIsTextInput", "()Z",
         (void*) nativeCursorIsTextInput },
     { "nativeCursorPosition", "()Landroid/graphics/Point;",
