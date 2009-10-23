@@ -463,6 +463,8 @@ typedef v8::Persistent<v8::FunctionTemplate> (*FunctionTemplateFactory)();
 #define DOM_OBJECT_3D_CANVAS_TYPES(V)
 #endif
 
+#if PLATFORM(ANDROID)
+// TODO: Upstream these guards.
 #if ENABLE(TOUCH_EVENTS)
 #define DOM_OBJECT_TOUCH_EVENT_TYPES(V)                                 \
     V(TOUCHLIST, TouchList)                                             \
@@ -500,11 +502,12 @@ typedef v8::Persistent<v8::FunctionTemplate> (*FunctionTemplateFactory)();
 #define DOM_OBJECT_GEOLOCATION_TYPES(V)
 #endif
 
-#if !PLATFORM(ANDROID)
+#if ENABLE(INSPECTOR)
 #define DOM_OBJECT_INSPECTOR_TYPES(V)                                   \
     V(INSPECTORBACKEND, InspectorBackend)
 #else
 #define DOM_OBJECT_INSPECTOR_TYPES(V)
+#endif
 #endif
 
 #if PLATFORM(ANDROID)

@@ -105,7 +105,6 @@
 #include "HTMLSelectElement.h"
 #include "HTMLOptionsCollection.h"
 #include "ImageData.h"
-#include "InspectorBackend.h"
 #include "KeyboardEvent.h"
 #include "Location.h"
 #include "Media.h"
@@ -233,10 +232,13 @@
 #include "V8SVGPODTypeWrapper.h"
 #endif // SVG
 
-#if ENABLE(TOUCH_EVENTS) // Android
+#if PLATFORM(ANDROID)
+// TODO: Upstream TOUCH_EVENTS guard.
+#if ENABLE(TOUCH_EVENTS)
 #include "Touch.h"
 #include "TouchList.h"
 #include "TouchEvent.h"
+#endif
 #endif
 
 #if ENABLE(WEB_SOCKETS)
@@ -259,6 +261,13 @@
 #if ENABLE(XPATH)
 #include "XPathEvaluator.h"
 #endif // XPATH
+
+#if PLATFORM(ANDROID)
+// TODO: Upstream INSPECTOR guard.
+#if ENABLE(INSPECTOR)
+#include "InspectorBackend.h"
+#endif // INSPECTOR
+#endif
 
 namespace WebCore {
 
