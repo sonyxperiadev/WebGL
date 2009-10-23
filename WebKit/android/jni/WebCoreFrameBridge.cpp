@@ -63,10 +63,8 @@
 #if USE(JSC)
 #include "GCController.h"
 #include "JSDOMWindow.h"
-#include <runtime/InitializeThreading.h>
 #include <runtime/JSLock.h>
 #elif USE(V8)
-#include "InitializeThreading.h"
 #include "jni_npobject.h"
 #include "jni_instance.h"
 #endif  // USE(JSC)
@@ -867,11 +865,7 @@ static void CallPolicyFunction(JNIEnv* env, jobject obj, jint func, jint decisio
 
 static void CreateFrame(JNIEnv* env, jobject obj, jobject javaview, jobject jAssetManager, jobject historyList)
 {
-#if USE(JSC)
-    JSC::initializeThreading();
-#elif USE(V8)
-    V8::initializeThreading();
-#endif
+    ScriptController::initializeThreading();
 
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::NativeCallbackTimeCounter);

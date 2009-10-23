@@ -80,6 +80,10 @@ public:
         return m_windowShell->window();
     }
 
+    // This function must be called from the main thread. It is safe to call it repeatedly.
+    // Darwin is an exception to this rule: it is OK to call this function from any thread, even reentrantly.
+    static void initializeThreading();
+
     ScriptValue evaluate(const ScriptSourceCode&);
     void evaluateInIsolatedWorld(unsigned worldID, const Vector<ScriptSourceCode>&);
 
