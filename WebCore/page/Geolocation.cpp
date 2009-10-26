@@ -574,7 +574,7 @@ bool Geolocation::operator==(const EventListener& listener)
 
 void Geolocation::handleEvent(ScriptExecutionContext*, Event* event)
 {
-    ASSERT_UNUSED(event, event->type() == eventTypes().unloadEvent);
+    ASSERT_UNUSED(event, event->type() == eventNames().unloadEvent);
     // Cancel any ongoing requests on page unload. This is required to release
     // references to JS callbacks in the page, to allow the frame to be cleaned up
     // by WebKit.
