@@ -220,7 +220,7 @@ void GeolocationServiceBridge::startJavaImplementation()
                                                      kJavaGeolocationServiceClass,
                                                      kJavaGeolocationServiceClassNativeMethods,
                                                      NELEM(kJavaGeolocationServiceClassNativeMethods));
-    ASSERT(registered == NELEM(kJavaGeolocationServiceClassNativeMethods));
+    ASSERT(registered == JNI_OK);
 
     // Set up the methods we wish to call on the Java Location class.
     jclass javaLocationClass = env->FindClass(kJavaLocationClass);
