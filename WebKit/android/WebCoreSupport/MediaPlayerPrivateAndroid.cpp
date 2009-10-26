@@ -357,6 +357,8 @@ void MediaPlayerPrivate::onPrepared(int duration, int width, int height) {
 }
 
 void MediaPlayerPrivate::onEnded() {
+    m_currentTime = duration();
+    m_player->timeChanged();
     m_paused = true;
     m_currentTime = 0;
     m_networkState = MediaPlayer::Idle;
