@@ -369,6 +369,7 @@ typedef enum {
 #endif
 
 #ifdef ANDROID
+    // TODO(andreip): Remove?
     NPPFakeValueToForce32Bits = 0x7FFFFFFF
 #endif
 } NPPVariable;

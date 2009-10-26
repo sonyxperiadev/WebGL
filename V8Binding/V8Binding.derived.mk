@@ -20,11 +20,11 @@ LOCAL_CFLAGS += -DWTF_USE_V8=1
 v8binding_dir := $(LOCAL_PATH)
 
 BINDING_C_INCLUDES := \
-  $(LOCAL_PATH)/v8/include \
+	$(LOCAL_PATH)/v8/include \
 	$(WEBCORE_PATH)/bindings/v8 \
 	$(WEBCORE_PATH)/bindings/v8/custom \
 	$(LOCAL_PATH)/binding \
-	$(LOCAL_PATH)/npapi \
+	$(WEBCORE_PATH)/bridge \
 	$(LOCAL_PATH)/jni \
 	$(JAVASCRIPTCORE_PATH)/wtf \
 	$(JAVASCRIPTCORE_PATH)
