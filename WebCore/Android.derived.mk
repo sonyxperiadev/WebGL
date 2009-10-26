@@ -721,11 +721,6 @@ GEN := \
     $(intermediates)/xml/JSXMLHttpRequestProgressEvent.h \
     $(intermediates)/xml/JSXMLHttpRequestUpload.h \
     $(intermediates)/xml/JSXMLSerializer.h \
-    $(intermediates)/xml/JSXPathEvaluator.h \
-    $(intermediates)/xml/JSXPathException.h \
-    $(intermediates)/xml/JSXPathExpression.h \
-    $(intermediates)/xml/JSXPathNSResolver.h \
-    $(intermediates)/xml/JSXPathResult.h  \
     $(intermediates)/xml/JSXSLTProcessor.h 
 $(GEN): PRIVATE_PATH := $(LOCAL_PATH)
 $(GEN): PRIVATE_CUSTOM_TOOL = perl -I$(PRIVATE_PATH)/bindings/scripts $(PRIVATE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator JS --include dom --include html --outputdir $(dir $@) $<
