@@ -162,7 +162,6 @@ LOCAL_SRC_FILES := \
 	bindings/js/JSCustomSQLTransactionCallback.cpp \
 	bindings/js/JSCustomSQLTransactionErrorCallback.cpp \
 	bindings/js/JSCustomVoidCallback.cpp \
-	bindings/js/JSCustomXPathNSResolver.cpp \
 	bindings/js/JSDesktopNotificationsCustom.cpp \
 	bindings/js/JSDOMApplicationCacheCustom.cpp \
 	bindings/js/JSDOMBinding.cpp \
@@ -1189,7 +1188,6 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	workers/WorkerThread.cpp \
 	\
 	xml/DOMParser.cpp \
-	xml/NativeXPathNSResolver.cpp \
 	xml/XMLHttpRequest.cpp \
 	xml/XMLHttpRequestUpload.cpp \
 	xml/XMLSerializer.cpp

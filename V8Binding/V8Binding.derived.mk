@@ -102,7 +102,6 @@ WEBCORE_SRC_FILES := \
 	bindings/v8/custom/V8CustomSQLTransactionCallback.cpp \
 	bindings/v8/custom/V8CustomSQLTransactionErrorCallback.cpp \
 	bindings/v8/custom/V8CustomVoidCallback.cpp \
-	bindings/v8/custom/V8CustomXPathNSResolver.cpp \
 	bindings/v8/custom/V8DOMApplicationCacheCustom.cpp \
 	bindings/v8/custom/V8DOMParserConstructor.cpp \
 	bindings/v8/custom/V8DOMWindowCustom.cpp \
