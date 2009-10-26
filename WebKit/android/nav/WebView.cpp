@@ -1104,17 +1104,6 @@ const SkRegion& getSelection()
     return m_selRegion;
 }
 
-void drawSelection(SkCanvas* canvas, float scale, int offset, int x, int y,
-    bool extendSelection)
-{
-    if (!extendSelection) {
-        drawSelectionArrow(canvas, scale, x, y - offset);
-    } else {
-        drawSelectionRegion(canvas);
-        drawSelectionPointer(canvas, scale, offset, x, y, false);
-    }
-}
-
 void drawSelectionRegion(SkCanvas* canvas)
 {
     CachedRoot* root = getFrameCache(DontAllowNewer);
@@ -1134,46 +1123,31 @@ void drawSelectionRegion(SkCanvas* canvas)
     canvas->drawPath(path, paint);
 }
 
-void drawSelectionPointer(SkCanvas* canvas, float scale, int offset,
-    int x, int y, bool gridded)
+void drawSelectionPointer(SkCanvas* canvas, float scale, int x, int y, bool ex)
 {
     SkPath path;
-    getSelectionCaret(&path);
+    if (ex)
+        getSelectionCaret(&path);
+    else
+        getSelectionArrow(&path);
     SkPaint paint;
     paint.setAntiAlias(true);
     paint.setStyle(SkPaint::kStroke_Style);
     paint.setColor(SK_ColorBLACK);
     SkPixelXorXfermode xorMode(SK_ColorWHITE);
-    paint.setXfermode(&xorMode);
-    int sc = canvas->save();
-    canvas->scale(scale, scale);
-    canvas->translate(0, -SkIntToScalar(offset));
-    if (gridded) {
-        bool useLeft = x <= (m_selStart.fLeft + m_selStart.fRight) >> 1;
-        canvas->translate(SkIntToScalar(useLeft ? m_selStart.fLeft :
-            m_selStart.fRight), SkIntToScalar(m_selStart.fTop));
-    } else
-        canvas->translate(SkIntToScalar(x), SkIntToScalar(y));
-    canvas->drawPath(path, paint);
-    canvas->restoreToCount(sc);
-}
-
-void drawSelectionArrow(SkCanvas* canvas, float scale, int x, int y)
-{
-    SkPath path;
-    getSelectionArrow(&path);
-    SkPaint paint;
-    paint.setAntiAlias(true);
-    paint.setStyle(SkPaint::kStroke_Style);
-    paint.setColor(SK_ColorBLACK);
-    paint.setStrokeWidth(SK_Scalar1 * 2);
+    if (ex)
+        paint.setXfermode(&xorMode);
+    else
+        paint.setStrokeWidth(SK_Scalar1 * 2);
     int sc = canvas->save();
     canvas->scale(scale, scale);
     canvas->translate(SkIntToScalar(x), SkIntToScalar(y));
     canvas->drawPath(path, paint);
-    paint.setStyle(SkPaint::kFill_Style);
-    paint.setColor(SK_ColorWHITE);
-    canvas->drawPath(path, paint);
+    if (!ex) {
+        paint.setStyle(SkPaint::kFill_Style);
+        paint.setColor(SK_ColorWHITE);
+        canvas->drawPath(path, paint);
+    }
     canvas->restoreToCount(sc);
 }
 
@@ -1191,14 +1165,13 @@ void getSelectionCaret(SkPath* path)
 {
     SkScalar height = SkIntToScalar(m_selStart.fBottom - m_selStart.fTop);
     SkScalar dist = height / 4;
-    path->lineTo(0, height);
-    SkScalar bottom = height + dist;
-    path->lineTo(-dist, bottom);
-    SkScalar edge = bottom - SK_Scalar1/2;
-    path->moveTo(-dist, edge);
-    path->lineTo(dist, edge);
-    path->moveTo(dist, bottom);
-    path->lineTo(0, height);
+    path->moveTo(0, -height / 2);
+    path->rLineTo(0, height);
+    path->rLineTo(-dist, dist);
+    path->rMoveTo(0, -SK_Scalar1/2);
+    path->rLineTo(dist * 2, 0);
+    path->rMoveTo(0, SK_Scalar1/2);
+    path->rLineTo(-dist, -dist);
 }
 
 void sendMoveMouse(WebCore::Frame* framePtr, WebCore::Node* nodePtr, int x, int y)
@@ -1626,8 +1599,8 @@ static void nativeDrawCursorRing(JNIEnv *env, jobject obj, jobject canv)
     view->drawCursorRing(canvas);
 }
 
-static void nativeDrawSelection(JNIEnv *env, jobject obj,
-    jobject canv, jfloat scale, jint offset, jint x, jint y, bool ex)
+static void nativeDrawSelectionPointer(JNIEnv *env, jobject obj,
+    jobject canv, jfloat scale, jint x, jint y, bool ex)
 {
     SkCanvas* canvas = GraphicsJNI::getNativeCanvas(env, canv);
     if (!canv) {
@@ -1639,7 +1612,7 @@ static void nativeDrawSelection(JNIEnv *env, jobject obj,
         DBG_NAV_LOG("!view");
         return;
     }
-    view->drawSelection(canvas, scale, offset, x, y, ex);
+    view->drawSelectionPointer(canvas, scale, x, y, ex);
 }
 
 static void nativeDrawSelectionRegion(JNIEnv *env, jobject obj, jobject canv)
@@ -2122,8 +2095,8 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeDrawCursorRing },
     { "nativeDrawMatches", "(Landroid/graphics/Canvas;)V",
         (void*) nativeDrawMatches },
-    { "nativeDrawSelection", "(Landroid/graphics/Canvas;FIIIZ)V",
-        (void*) nativeDrawSelection },
+    { "nativeDrawSelectionPointer", "(Landroid/graphics/Canvas;FIIZ)V",
+        (void*) nativeDrawSelectionPointer },
     { "nativeDrawSelectionRegion", "(Landroid/graphics/Canvas;)V",
         (void*) nativeDrawSelectionRegion },
     { "nativeDumpDisplayTree", "(Ljava/lang/String;)V",

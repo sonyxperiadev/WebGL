@@ -1481,19 +1481,25 @@ static int findTextBoxIndex(WebCore::Node* node, const WebCore::IntPoint& pt)
     do {
         int textBoxStart = textBox->start();
         int textBoxEnd = textBoxStart + textBox->len();
-        if (textBoxEnd <= textBoxStart)
+        if (textBoxEnd <= textBoxStart) {
+            DBG_NAV_LOGD("textBoxStart=%d <= textBoxEnd=%d", textBoxStart,
+                textBoxEnd);
             continue;
+        }
         WebCore::IntRect bounds = textBox->selectionRect(absPt.x(), absPt.y(),
             textBoxStart, textBoxEnd);
-        if (!bounds.contains(x, y))
+        if (!bounds.contains(x, y)) {
+            DBG_NAV_LOGD("[absPt=(%g,%g) textBoxStart=%d textBoxEnd=%d]"
+                " !contains (x=%d, y=%d)",
+                absPt.x(), absPt.y(), textBoxStart, textBoxEnd, x, y);
             continue;
+        }
         int offset = textBox->offsetForPosition(x - absPt.x());
 #if DEBUG_NAV_UI
         int prior = offset > 0 ? textBox->positionForOffset(offset - 1) : -1;
         int current = textBox->positionForOffset(offset);
         int next = textBox->positionForOffset(offset + 1);
-        DBG_NAV_LOGD(
-            "offset=%d pt.x=%d globalX=%d renderX=%d x=%d "
+        DBG_NAV_LOGD("offset=%d pt.x=%d globalX=%d renderX=%g x=%d "
             "textBox->x()=%d textBox->start()=%d prior=%d current=%d next=%d",
             offset, pt.x(), globalX, absPt.x(), x,
             textBox->x(), textBox->start(), prior, current, next
@@ -1527,6 +1533,38 @@ static int centerY(const SkIRect& rect)
     return (rect.fTop + rect.fBottom) >> 1;
 }
 
+static void ShowNode(Node* node)
+{
+#if DEBUG_NAV_UI
+    WebCore::Node* match = node->document();
+    int index = 1;
+    while (match != node && (match = match->traverseNextNode()))
+        index++;
+    if (match != node)
+        index = -1;
+    const char* name = "text";
+    WebCore::CString cstr;
+    if (!node->isTextNode()) {
+        cstr = node->localName().string().utf8();
+        name = cstr.data();
+    }
+    node->getRect();
+    const WebCore::IntRect& b = node->getRect();
+    DBG_NAV_LOGD("%s %p (%d) (%d,%d,w=%d,h=%d)", name, node, index,
+        b.x(), b.y(), b.width(), b.height());
+#endif
+}
+
+static WebCore::Node* ChildIsTextNode(WebCore::Node* node)
+{
+    WebCore::Node* child = node;
+    while (child && !child->isTextNode()) {
+        ShowNode(child);
+        child = child->traverseNextNode(node);
+    }
+    return child;
+}
+
 WebCore::String WebViewCore::getSelection(SkRegion* selRgn)
 {
     SkRegion::Iterator iter(*selRgn);
@@ -1542,14 +1580,14 @@ WebCore::String WebViewCore::getSelection(SkRegion* selRgn)
         int cy = centerY(rect);
         WebCore::IntPoint startPt, endPt;
         WebCore::Node* node, * endNode;
-        for (int top = rect.fTop + 1; top != cy; top = cy) {
+        for (int top = rect.fTop + 2; top != cy; top = cy) {
             startPt = WebCore::IntPoint(rect.fLeft + 1, top);
             WebCore::HitTestResult hitTestResult = m_mainFrame->eventHandler()->
                 hitTestResultAtPoint(startPt, false);
-            node = hitTestResult.innerNode();
+            node = ChildIsTextNode(hitTestResult.innerNode());
             if (node)
                 break;
-            DBG_NAV_LOGD("!node (%s)", top != cy ? "top+1" : "cy");
+            DBG_NAV_LOGD("node=%p (%s)", node, top != cy ? "top+1" : "cy");
         }
         if (!node) {
             DBG_NAV_LOG("!node");
@@ -1560,10 +1598,10 @@ WebCore::String WebViewCore::getSelection(SkRegion* selRgn)
                 endPt = WebCore::IntPoint(right, bottom);
                 WebCore::HitTestResult hitTestResult = m_mainFrame->
                     eventHandler()->hitTestResultAtPoint(endPt, false);
-                endNode = hitTestResult.innerNode();
+                endNode = ChildIsTextNode(hitTestResult.innerNode());
                 if (endNode)
                     break;
-                DBG_NAV_LOGD("!endNode (%s) (right-%d)",
+                DBG_NAV_LOGD("!endNode=%p (%s) (right-%d)", node,
                     bottom != cy ? "bottom-1" : "cy", rect.fRight - right);
             }
         }
