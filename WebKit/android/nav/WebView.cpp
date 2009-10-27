@@ -95,7 +95,7 @@ enum FrameCachePermission {
 };
 
 struct JavaGlue {
-    jobject     m_obj;
+    jweak       m_obj;
     jmethodID   m_clearTextEntry;
     jmethodID   m_overrideLoading;
     jmethodID   m_scrollBy;
@@ -123,7 +123,7 @@ WebView(JNIEnv* env, jobject javaWebView, int viewImpl)
 {
     jclass clazz = env->FindClass("android/webkit/WebView");
  //   m_javaGlue = new JavaGlue;
-    m_javaGlue.m_obj = adoptGlobalRef(env, javaWebView);
+    m_javaGlue.m_obj = env->NewWeakGlobalRef(javaWebView);
     m_javaGlue.m_scrollBy = GetJMethod(env, clazz, "setContentScrollBy", "(IIZ)Z");
     m_javaGlue.m_clearTextEntry = GetJMethod(env, clazz, "clearTextEntry", "()V");
     m_javaGlue.m_overrideLoading = GetJMethod(env, clazz, "overrideLoading", "(Ljava/lang/String;)V");
@@ -168,7 +168,7 @@ WebView(JNIEnv* env, jobject javaWebView, int viewImpl)
     if (m_javaGlue.m_obj)
     {
         JNIEnv* env = JSC::Bindings::getJNIEnv();
-        env->DeleteGlobalRef(m_javaGlue.m_obj);
+        env->DeleteWeakGlobalRef(m_javaGlue.m_obj);
         m_javaGlue.m_obj = 0;
     }
     delete m_frameCacheUI;
@@ -209,12 +209,7 @@ void clearTextEntry()
 {
     DEBUG_NAV_UI_LOGD("%s", __FUNCTION__);
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    AutoJObject obj = m_javaGlue.object(env);
-    // if it is called during or after DESTROY is handled, the real object of
-    // WebView can be gone. Check before using it.
-    if (!obj.get())
-        return;
-    env->CallVoidMethod(obj.get(), m_javaGlue.m_clearTextEntry);
+    env->CallVoidMethod(m_javaGlue.object(env).get(), m_javaGlue.m_clearTextEntry);
     checkException(env);
 }
 
@@ -628,12 +623,7 @@ int getScaledMaxXScroll()
 {
     LOG_ASSERT(m_javaGlue.m_obj, "A java object was not associated with this native WebView!");
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    AutoJObject obj = m_javaGlue.object(env);
-    // if it is called during or after DESTROY is handled, the real object of
-    // WebView can be gone. Check before using it.
-    if (!obj.get())
-        return 0;
-    int result = env->CallIntMethod(obj.get(), m_javaGlue.m_getScaledMaxXScroll);
+    int result = env->CallIntMethod(m_javaGlue.object(env).get(), m_javaGlue.m_getScaledMaxXScroll);
     checkException(env);
     return result;
 }
@@ -642,12 +632,7 @@ int getScaledMaxYScroll()
 {
     LOG_ASSERT(m_javaGlue.m_obj, "A java object was not associated with this native WebView!");
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    AutoJObject obj = m_javaGlue.object(env);
-    // if it is called during or after DESTROY is handled, the real object of
-    // WebView can be gone. Check before using it.
-    if (!obj.get())
-        return 0;
-    int result = env->CallIntMethod(obj.get(), m_javaGlue.m_getScaledMaxYScroll);
+    int result = env->CallIntMethod(m_javaGlue.object(env).get(), m_javaGlue.m_getScaledMaxYScroll);
     checkException(env);
     return result;
 }
@@ -656,12 +641,7 @@ void getVisibleRect(WebCore::IntRect* rect)
 {
     LOG_ASSERT(m_javaGlue.m_obj, "A java object was not associated with this native WebView!");
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    AutoJObject obj = m_javaGlue.object(env);
-    // if it is called during or after DESTROY is handled, the real object of
-    // WebView can be gone. Check before using it.
-    if (!obj.get())
-        return;
-    jobject jRect = env->CallObjectMethod(obj.get(), m_javaGlue.m_getVisibleRect);
+    jobject jRect = env->CallObjectMethod(m_javaGlue.object(env).get(), m_javaGlue.m_getVisibleRect);
     checkException(env);
     int left = (int) env->GetIntField(jRect, m_javaGlue.m_rectLeft);
     checkException(env);
@@ -991,13 +971,9 @@ int getBlockLeftEdge(int x, int y, float scale)
 void overrideUrlLoading(const WebCore::String& url)
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    AutoJObject obj = m_javaGlue.object(env);
-    // if it is called during or after DESTROY is handled, the real object of
-    // WebView can be gone. Check before using it.
-    if (!obj.get())
-        return;
     jstring jName = env->NewString((jchar*) url.characters(), url.length());
-    env->CallVoidMethod(obj.get(), m_javaGlue.m_overrideLoading, jName);
+    env->CallVoidMethod(m_javaGlue.object(env).get(),
+            m_javaGlue.m_overrideLoading, jName);
     env->DeleteLocalRef(jName);
 }
 
@@ -1123,12 +1099,7 @@ void sendMoveMouse(WebCore::Frame* framePtr, WebCore::Node* nodePtr, int x, int 
 {
     DBG_NAV_LOGD("framePtr=%p nodePtr=%p x=%d y=%d", framePtr, nodePtr, x, y);
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    AutoJObject obj = m_javaGlue.object(env);
-    // if it is called during or after DESTROY is handled, the real object of
-    // WebView can be gone. Check before using it.
-    if (!obj.get())
-        return;
-    env->CallVoidMethod(obj.get(), m_javaGlue.m_sendMoveMouse,
+    env->CallVoidMethod(m_javaGlue.object(env).get(), m_javaGlue.m_sendMoveMouse,
         (jint) framePtr, (jint) nodePtr, x, y);
     checkException(env);
 }
@@ -1137,12 +1108,8 @@ void sendMoveMouseIfLatest(bool disableFocusController)
 {
     LOG_ASSERT(m_javaGlue.m_obj, "A java object was not associated with this native WebView!");
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    AutoJObject obj = m_javaGlue.object(env);
-    // if it is called during or after DESTROY is handled, the real object of
-    // WebView can be gone. Check before using it.
-    if (!obj.get())
-        return;
-    env->CallVoidMethod(obj.get(), m_javaGlue.m_sendMoveMouseIfLatest, disableFocusController);
+    env->CallVoidMethod(m_javaGlue.object(env).get(),
+            m_javaGlue.m_sendMoveMouseIfLatest, disableFocusController);
     checkException(env);
 }
 
@@ -1154,12 +1121,7 @@ void sendMotionUp(
         m_generation, framePtr, nodePtr, x, y);
     LOG_ASSERT(m_javaGlue.m_obj, "A WebView was not associated with this WebViewNative!");
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    AutoJObject obj = m_javaGlue.object(env);
-    // if it is called during or after DESTROY is handled, the real object of
-    // WebView can be gone. Check before using it.
-    if (!obj.get())
-        return;
-    env->CallVoidMethod(obj.get(), m_javaGlue.m_sendMotionUp,
+    env->CallVoidMethod(m_javaGlue.object(env).get(), m_javaGlue.m_sendMotionUp,
         m_generation, (jint) framePtr, (jint) nodePtr, x, y);
     checkException(env);
 }
@@ -1228,12 +1190,7 @@ bool scrollBy(int dx, int dy)
     LOG_ASSERT(m_javaGlue.m_obj, "A java object was not associated with this native WebView!");
 
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    AutoJObject obj = m_javaGlue.object(env);
-    // if it is called during or after DESTROY is handled, the real object of
-    // WebView can be gone. Check before using it.
-    if (!obj.get())
-        return false;
-    bool result = env->CallBooleanMethod(obj.get(),
+    bool result = env->CallBooleanMethod(m_javaGlue.object(env).get(),
         m_javaGlue.m_scrollBy, dx, dy, true);
     checkException(env);
     return result;
@@ -1270,24 +1227,15 @@ bool hasFocusNode()
 void rebuildWebTextView()
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    AutoJObject obj = m_javaGlue.object(env);
-    // if it is called during or after DESTROY is handled, the real object of
-    // WebView can be gone. Check before using it.
-    if (!obj.get())
-        return;
-    env->CallVoidMethod(obj.get(), m_javaGlue.m_rebuildWebTextView);
+    env->CallVoidMethod(m_javaGlue.object(env).get(),
+            m_javaGlue.m_rebuildWebTextView);
     checkException(env);
 }
 
 void displaySoftKeyboard(bool isTextView)
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    AutoJObject obj = m_javaGlue.object(env);
-    // if it is called during or after DESTROY is handled, the real object of
-    // WebView can be gone. Check before using it.
-    if (!obj.get())
-        return;
-    env->CallVoidMethod(obj.get(),
+    env->CallVoidMethod(m_javaGlue.object(env).get(),
             m_javaGlue.m_displaySoftKeyboard, isTextView);
     checkException(env);
 }
@@ -1295,37 +1243,22 @@ void displaySoftKeyboard(bool isTextView)
 void viewInvalidate()
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    AutoJObject obj = m_javaGlue.object(env);
-    // if it is called during or after DESTROY is handled, the real object of
-    // WebView can be gone. Check before using it.
-    if (!obj.get())
-        return;
-    env->CallVoidMethod(obj.get(), m_javaGlue.m_viewInvalidate);
+    env->CallVoidMethod(m_javaGlue.object(env).get(), m_javaGlue.m_viewInvalidate);
     checkException(env);
 }
 
 void viewInvalidateRect(int l, int t, int r, int b)
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    AutoJObject obj = m_javaGlue.object(env);
-    // if it is called during or after DESTROY is handled, the real object of
-    // WebView can be gone. Check before using it.
-    if (!obj.get())
-        return;
-    env->CallVoidMethod(obj.get(), m_javaGlue.m_viewInvalidateRect, l, r, t, b);
+    env->CallVoidMethod(m_javaGlue.object(env).get(), m_javaGlue.m_viewInvalidateRect, l, r, t, b);
     checkException(env);
 }
 
 void postInvalidateDelayed(int64_t delay, const WebCore::IntRect& bounds)
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    AutoJObject obj = m_javaGlue.object(env);
-    // if it is called during or after DESTROY is handled, the real object of
-    // WebView can be gone. Check before using it.
-    if (!obj.get())
-        return;
-    env->CallVoidMethod(obj.get(), m_javaGlue.m_postInvalidateDelayed,
-            delay, bounds.x(), bounds.y(), bounds.right(), bounds.bottom());
+    env->CallVoidMethod(m_javaGlue.object(env).get(), m_javaGlue.m_postInvalidateDelayed,
+        delay, bounds.x(), bounds.y(), bounds.right(), bounds.bottom());
     checkException(env);
 }
 

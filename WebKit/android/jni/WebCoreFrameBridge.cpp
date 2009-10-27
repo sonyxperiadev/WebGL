@@ -127,8 +127,8 @@ namespace android {
 
 struct WebFrame::JavaBrowserFrame
 {
-    jobject     mObj;
-    jobject     mHistoryList; // WebBackForwardList object
+    jweak       mObj;
+    jweak       mHistoryList; // WebBackForwardList object
     jmethodID   mStartLoadingResource;
     jmethodID   mLoadStarted;
     jmethodID   mTransitionToCommitted;
@@ -168,8 +168,8 @@ WebFrame::WebFrame(JNIEnv* env, jobject obj, jobject historyList, WebCore::Page*
 {
     jclass clazz = env->GetObjectClass(obj);
     mJavaFrame = new JavaBrowserFrame;
-    mJavaFrame->mObj = adoptGlobalRef(env, obj);
-    mJavaFrame->mHistoryList = adoptGlobalRef(env, historyList);
+    mJavaFrame->mObj = env->NewWeakGlobalRef(obj);
+    mJavaFrame->mHistoryList = env->NewWeakGlobalRef(historyList);
     mJavaFrame->mStartLoadingResource = env->GetMethodID(clazz, "startLoadingResource",
             "(ILjava/lang/String;Ljava/lang/String;Ljava/util/HashMap;[BIZ)Landroid/webkit/LoadListener;");
     mJavaFrame->mLoadStarted = env->GetMethodID(clazz, "loadStarted",
@@ -237,8 +237,8 @@ WebFrame::~WebFrame()
 {
     if (mJavaFrame->mObj) {
         JNIEnv* env = JSC::Bindings::getJNIEnv();
-        env->DeleteGlobalRef(mJavaFrame->mObj);
-        env->DeleteGlobalRef(mJavaFrame->mHistoryList);
+        env->DeleteWeakGlobalRef(mJavaFrame->mObj);
+        env->DeleteWeakGlobalRef(mJavaFrame->mHistoryList);
         mJavaFrame->mObj = 0;
     }
     delete mJavaFrame;
@@ -336,10 +336,6 @@ WebFrame::startLoadingResource(WebCore::ResourceHandle* loader,
     WebCore::HTTPHeaderMap headers = request.httpHeaderFields();
 
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    AutoJObject obj = mJavaFrame->frame(env);
-    if (!obj.get())
-        return 0;
-
     WebCore::String urlStr = request.url().string();
     int colon = urlStr.find(':');
     bool allLower = true;
@@ -360,6 +356,7 @@ WebFrame::startLoadingResource(WebCore::ResourceHandle* loader,
         jMethodStr = env->NewString(method.characters(), method.length());
     jbyteArray jPostDataStr = NULL;
     WebCore::FormData* formdata = request.httpBody();
+    AutoJObject obj = mJavaFrame->frame(env);
     if (formdata) {
         // We can use the formdata->flatten() but it will result in two 
         // memcpys, first through loading up the vector with the form data
@@ -442,8 +439,8 @@ WebFrame::startLoadingResource(WebCore::ResourceHandle* loader,
 
     jobject jLoadListener =
         env->CallObjectMethod(obj.get(), mJavaFrame->mStartLoadingResource,
-                                              (int)loader, jUrlStr, jMethodStr, jHeaderMap,
-                                              jPostDataStr, cacheMode, synchronous);
+                (int)loader, jUrlStr, jMethodStr, jHeaderMap,
+                jPostDataStr, cacheMode, synchronous);
 
     env->DeleteLocalRef(jUrlStr);
     env->DeleteLocalRef(jMethodStr);
@@ -468,13 +465,11 @@ WebFrame::reportError(int errorCode, const WebCore::String& description,
 #endif
     LOGV("::WebCore:: reportError(%d, %s)", errorCode, description.ascii().data());
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    AutoJObject obj = mJavaFrame->frame(env);
-    if (!obj.get())
-        return;
 
     jstring descStr = env->NewString((unsigned short*)description.characters(), description.length());
     jstring failUrl = env->NewString((unsigned short*)failingUrl.characters(), failingUrl.length());
-    env->CallVoidMethod(obj.get(), mJavaFrame->mReportError, errorCode, descStr, failUrl);
+    env->CallVoidMethod(mJavaFrame->frame(env).get(), mJavaFrame->mReportError,
+            errorCode, descStr, failUrl);
     env->DeleteLocalRef(descStr);
     env->DeleteLocalRef(failUrl);
 }
@@ -500,9 +495,6 @@ WebFrame::loadStarted(WebCore::Frame* frame)
         return;
 
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    AutoJObject obj = mJavaFrame->frame(env);
-    if (!obj.get())
-        return;
     WebCore::String urlString(url.string());
     // If this is the main frame and we already have a favicon in the database,
     // send it along with the page started notification.
@@ -515,7 +507,7 @@ WebFrame::loadStarted(WebCore::Frame* frame)
     }
     jstring urlStr = env->NewString((unsigned short*)urlString.characters(), urlString.length());
 
-    env->CallVoidMethod(obj.get(), mJavaFrame->mLoadStarted, urlStr, favicon,
+    env->CallVoidMethod(mJavaFrame->frame(env).get(), mJavaFrame->mLoadStarted, urlStr, favicon,
             (int)loadType, isMainFrame);
     checkException(env);
     env->DeleteLocalRef(urlStr);
@@ -540,12 +532,9 @@ WebFrame::transitionToCommitted(WebCore::Frame* frame)
     TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
 #endif
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    AutoJObject obj = mJavaFrame->frame(env);
-    if (!obj.get())
-        return;
     WebCore::FrameLoadType loadType = frame->loader()->loadType();
     bool isMainFrame = (!frame->tree() || !frame->tree()->parent());
-    env->CallVoidMethod(obj.get(), mJavaFrame->mTransitionToCommitted,
+    env->CallVoidMethod(mJavaFrame->frame(env).get(), mJavaFrame->mTransitionToCommitted,
             (int)loadType, isMainFrame);
     checkException(env);
 }
@@ -557,9 +546,6 @@ WebFrame::didFinishLoad(WebCore::Frame* frame)
     TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
 #endif
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    AutoJObject obj = mJavaFrame->frame(env);
-    if (!obj.get())
-        return;
     WebCore::FrameLoader* loader = frame->loader();
     const WebCore::KURL& url = loader->activeDocumentLoader()->url();
     if (url.isEmpty())
@@ -570,7 +556,7 @@ WebFrame::didFinishLoad(WebCore::Frame* frame)
     WebCore::FrameLoadType loadType = loader->loadType();
     WebCore::String urlString(url.string());
     jstring urlStr = env->NewString((unsigned short*)urlString.characters(), urlString.length());
-    env->CallVoidMethod(obj.get(), mJavaFrame->mLoadFinished, urlStr,
+    env->CallVoidMethod(mJavaFrame->frame(env).get(), mJavaFrame->mLoadFinished, urlStr,
             (int)loadType, isMainFrame);
     checkException(env);
     env->DeleteLocalRef(urlStr);
@@ -619,12 +605,9 @@ WebFrame::setTitle(const WebCore::String& title)
     LOGV("setTitle(%s)", title.ascii().data());
 #endif
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    AutoJObject obj = mJavaFrame->frame(env);
-    if (!obj.get())
-        return;
     jstring jTitleStr = env->NewString((unsigned short *)title.characters(), title.length());
 
-    env->CallVoidMethod(obj.get(), mJavaFrame->mSetTitle,
+    env->CallVoidMethod(mJavaFrame->frame(env).get(), mJavaFrame->mSetTitle,
                                         jTitleStr);
     checkException(env);
     env->DeleteLocalRef(jTitleStr);
@@ -638,11 +621,8 @@ WebFrame::windowObjectCleared(WebCore::Frame* frame)
 #endif
     LOGV("::WebCore:: windowObjectCleared");
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    AutoJObject obj = mJavaFrame->frame(env);
-    if (!obj.get())
-        return;
 
-    env->CallVoidMethod(obj.get(), mJavaFrame->mWindowObjectCleared, (int)frame);
+    env->CallVoidMethod(mJavaFrame->frame(env).get(), mJavaFrame->mWindowObjectCleared, (int)frame);
     checkException(env);
 }
 
@@ -653,11 +633,8 @@ WebFrame::setProgress(float newProgress)
     TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
 #endif
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    AutoJObject obj = mJavaFrame->frame(env);
-    if (!obj.get())
-        return;
     int progress = (int) (100 * newProgress);
-    env->CallVoidMethod(obj.get(), mJavaFrame->mSetProgress, progress);
+    env->CallVoidMethod(mJavaFrame->frame(env).get(), mJavaFrame->mSetProgress, progress);
     checkException(env);
 }
 
@@ -675,14 +652,11 @@ WebFrame::didReceiveIcon(WebCore::Image* icon)
 #endif
     LOG_ASSERT(icon, "DidReceiveIcon called without an image!");
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    AutoJObject obj = mJavaFrame->frame(env);
-    if (!obj.get())
-        return;
     jobject bitmap = webcoreImageToJavaBitmap(env, icon);
     if (!bitmap)
         return;
 
-    env->CallVoidMethod(obj.get(), mJavaFrame->mDidReceiveIcon, bitmap);
+    env->CallVoidMethod(mJavaFrame->frame(env).get(), mJavaFrame->mDidReceiveIcon, bitmap);
     env->DeleteLocalRef(bitmap);
     checkException(env);
 }
@@ -694,13 +668,10 @@ WebFrame::didReceiveTouchIconURL(const WebCore::String& url, bool precomposed)
     TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
 #endif
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    AutoJObject obj = mJavaFrame->frame(env);
-    if (!obj.get())
-        return;
     jstring jUrlStr = env->NewString((unsigned short*)url.characters(),
             url.length());
 
-    env->CallVoidMethod(obj.get(),
+    env->CallVoidMethod(mJavaFrame->frame(env).get(),
             mJavaFrame->mDidReceiveTouchIconUrl, jUrlStr, precomposed);
     checkException(env);
 }
@@ -713,13 +684,9 @@ WebFrame::updateVisitedHistory(const WebCore::KURL& url, bool reload)
 #endif
     WebCore::String urlStr(url.string());
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    AutoJObject obj = mJavaFrame->frame(env);
-    if (!obj.get())
-        return;
-
     jstring jUrlStr = env->NewString((unsigned short*)urlStr.characters(), urlStr.length());
 
-    env->CallVoidMethod(obj.get(), mJavaFrame->mUpdateVisitedHistory, jUrlStr, reload);
+    env->CallVoidMethod(mJavaFrame->frame(env).get(), mJavaFrame->mUpdateVisitedHistory, jUrlStr, reload);
     checkException(env);
 }
 
@@ -743,14 +710,11 @@ WebFrame::canHandleRequest(const WebCore::ResourceRequest& request)
     if (url.isEmpty())
         return true;
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    AutoJObject obj = mJavaFrame->frame(env);
-    if (!obj.get())
-        return true;
     jstring jUrlStr = env->NewString((unsigned short *)url.characters(), url.length());
 
     // check to see whether browser app wants to hijack url loading.
     // if browser app handles the url, we will return false to bail out WebCore loading
-    jboolean ret = env->CallBooleanMethod(obj.get(), mJavaFrame->mHandleUrl, jUrlStr);
+    jboolean ret = env->CallBooleanMethod(mJavaFrame->frame(env).get(), mJavaFrame->mHandleUrl, jUrlStr);
     checkException(env);
     return (ret == 0);
 }
@@ -762,13 +726,10 @@ WebFrame::createWindow(bool dialog, bool userGesture)
     TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
 #endif
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    AutoJObject obj = mJavaFrame->frame(env);
-    if (!obj.get())
-        return NULL;
-    jobject jobj = env->CallObjectMethod(obj.get(),
+    jobject obj = env->CallObjectMethod(mJavaFrame->frame(env).get(),
             mJavaFrame->mCreateWindow, dialog, userGesture);
-    if (jobj) {
-        WebCore::Frame* frame = GET_NATIVE_FRAME(env, jobj);
+    if (obj) {
+        WebCore::Frame* frame = GET_NATIVE_FRAME(env, obj);
         return frame;
     }
     return NULL;
@@ -781,10 +742,7 @@ WebFrame::requestFocus() const
     TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
 #endif
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    AutoJObject obj = mJavaFrame->frame(env);
-    if (!obj.get())
-        return;
-    env->CallVoidMethod(obj.get(), mJavaFrame->mRequestFocus);
+    env->CallVoidMethod(mJavaFrame->frame(env).get(), mJavaFrame->mRequestFocus);
     checkException(env);
 }
 
@@ -796,10 +754,7 @@ WebFrame::closeWindow(WebViewCore* webViewCore)
 #endif
     assert(webViewCore);
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    AutoJObject obj = mJavaFrame->frame(env);
-    if (!obj.get())
-        return;
-    env->CallVoidMethod(obj.get(), mJavaFrame->mCloseWindow,
+    env->CallVoidMethod(mJavaFrame->frame(env).get(), mJavaFrame->mCloseWindow,
             webViewCore->getJavaObject().get());
 }
 
@@ -814,22 +769,16 @@ WebFrame::decidePolicyForFormResubmission(WebCore::FramePolicyFunction func)
     TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
 #endif
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    AutoJObject obj = mJavaFrame->frame(env);
-    if (!obj.get())
-        return;
     PolicyFunctionWrapper* p = new PolicyFunctionWrapper;
     p->func = func;
-    env->CallVoidMethod(obj.get(), mJavaFrame->mDecidePolicyForFormResubmission, p);
+    env->CallVoidMethod(mJavaFrame->frame(env).get(), mJavaFrame->mDecidePolicyForFormResubmission, p);
 }
 
 WebCore::String
 WebFrame::getRawResourceFilename(RAW_RES_ID id) const
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    AutoJObject obj = mJavaFrame->frame(env);
-    if (!obj.get())
-        return WebCore::String();
-    jstring ret = (jstring) env->CallObjectMethod(obj.get(),
+    jstring ret = (jstring) env->CallObjectMethod(mJavaFrame->frame(env).get(),
             mJavaFrame->mGetRawResFilename, (int)id);
 
     return to_string(env, ret);
@@ -839,10 +788,7 @@ float
 WebFrame::density() const
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    AutoJObject obj = mJavaFrame->frame(env);
-    if (!obj.get())
-        return 1.0;
-    jfloat dpi = env->CallFloatMethod(obj.get(), mJavaFrame->mDensity);
+    jfloat dpi = env->CallFloatMethod(mJavaFrame->frame(env).get(), mJavaFrame->mDensity);
     checkException(env);
     return dpi;
 }
@@ -1164,8 +1110,20 @@ protected:
         JNIEnv* env = JSC::Bindings::getJNIEnv();
         // JavaInstance creates a global ref to instance in its constructor.
         env->DeleteGlobalRef(_instance->_instance);
-        // Set the object to our WeakReference wrapper.
-        _instance->_instance = adoptGlobalRef(env, instance);
+        // Set the object to a weak reference.
+        _instance->_instance = env->NewWeakGlobalRef(instance);
+    }
+    ~WeakJavaInstance() {
+        JNIEnv* env = JSC::Bindings::getJNIEnv();
+        // Store the weak reference so we can delete it later.
+        jweak weak = _instance->_instance;
+        // The JavaInstance destructor attempts to delete the global ref stored
+        // in _instance. Since we replaced it in our constructor with a weak
+        // reference, restore the global ref here so the vm will not complain.
+        _instance->_instance = env->NewGlobalRef(
+                getRealObject(env, _instance->_instance).get());
+        // Delete the weak reference.
+        env->DeleteWeakGlobalRef(weak);
     }
 
     virtual void virtualBegin() {
@@ -1195,7 +1153,7 @@ protected:
 private:
     typedef JSC::Bindings::JavaInstance INHERITED;
     jobject _realObject;
-    jobject _weakRef;
+    jweak   _weakRef;
 };
 #endif  // USE(JSC)
 

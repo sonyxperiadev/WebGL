@@ -61,13 +61,9 @@ private:
     friend AutoJObject getRealObject(JNIEnv*, jobject);
 };
 
-// Get the real object stored in the WeakReference returned as an
+// Get the real object stored in the weak reference returned as an
 // AutoJObject.
 AutoJObject getRealObject(JNIEnv*, jobject);
-
-// Convert the given jobject to a WeakReference and create a new global
-// reference to that WeakReference.
-jobject adoptGlobalRef(JNIEnv*, jobject);
 
 // Helper method for check java exceptions. Returns true if an exception
 // occurred and logs the exception.
