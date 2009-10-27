@@ -165,6 +165,10 @@ void PluginView::handleEvent(Event* event)
 #if defined(ANDROID_PLUGINS)
     else if (event->isTouchEvent())
         handleTouchEvent(static_cast<TouchEvent*>(event));
+    else if (event->type() == eventNames().DOMFocusOutEvent)
+        handleFocusEvent(false);
+    else if (event->type() == eventNames().DOMFocusInEvent)
+        handleFocusEvent(true);
 #endif
 #if defined(Q_WS_X11)
     else if (event->type() == eventNames().DOMFocusOutEvent)

@@ -1400,33 +1400,6 @@ Node* WebViewCore::cursorNodeIsPlugin() {
     return 0;
 }
 
-
-void WebViewCore::updatePluginState(Frame* frame, Node* node, PluginState state) {
-
-    // check that the node and frame pointers are (still) valid
-    if (!frame || !node || !CacheBuilder::validNode(m_mainFrame, frame, node))
-        return;
-
-    // check that the node is a plugin view
-    PluginView* pluginView = nodeIsPlugin(node);
-    if (!pluginView)
-        return;
-
-    // create the event
-    ANPEvent event;
-    SkANP::InitEvent(&event, kLifecycle_ANPEventType);
-
-    if (state == kLoseFocus_PluginState)
-        event.data.lifecycle.action = kLoseFocus_ANPLifecycleAction;
-    else if (state == kGainFocus_PluginState)
-        event.data.lifecycle.action = kGainFocus_ANPLifecycleAction;
-    else
-        return;
-
-    // send the event
-    pluginView->platformPluginWidget()->sendEvent(event);
-}
-
 ///////////////////////////////////////////////////////////////////////////////
 void WebViewCore::moveMouseIfLatest(int moveGeneration,
     WebCore::Frame* frame, int x, int y)
@@ -3000,17 +2973,6 @@ static bool PictureReady(JNIEnv* env, jobject obj)
     return GET_NATIVE_VIEW(env, obj)->pictureReady();
 }
 
-static void UpdatePluginState(JNIEnv* env, jobject obj, jint framePtr, jint nodePtr, jint state)
-{
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
-#endif
-    WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
-    LOG_ASSERT(viewImpl, "viewImpl not set in nativeUpdatePluginState");
-    viewImpl->updatePluginState((WebCore::Frame*) framePtr, (WebCore::Node*) nodePtr,
-                                (PluginState) state);
-}
-
 static void Pause(JNIEnv* env, jobject obj)
 {
     // This is called for the foreground tab when the browser is put to the
@@ -3149,7 +3111,6 @@ static JNINativeMethod gJavaWebViewCoreMethods[] = {
     { "nativeResume", "()V", (void*) Resume },
     { "nativeFreeMemory", "()V", (void*) FreeMemory },
     { "nativeSetJsFlags", "(Ljava/lang/String;)V", (void*) SetJsFlags },
-    { "nativeUpdatePluginState", "(III)V", (void*) UpdatePluginState },
     { "nativeUpdateFrameCacheIfLoading", "()V",
         (void*) UpdateFrameCacheIfLoading },
     { "nativeProvideVisitedHistory", "([Ljava/lang/String;)V",

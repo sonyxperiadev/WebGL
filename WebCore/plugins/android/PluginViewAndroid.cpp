@@ -258,6 +258,20 @@ static ANPKeyModifier make_modifiers(bool shift, bool alt) {
     return mod;
 }
 
+void PluginView::handleFocusEvent(bool hasFocus)
+{
+    ANPEvent evt;
+    SkANP::InitEvent(&evt, kLifecycle_ANPEventType);
+    evt.data.lifecycle.action = hasFocus ? kGainFocus_ANPLifecycleAction :
+                                           kLoseFocus_ANPLifecycleAction;
+    m_window->sendEvent(evt);
+
+    // redraw the plugin which subsequently invalidates the nav cache
+    IntRect rect = IntRect(m_npWindow.x, m_npWindow.y,
+                           m_npWindow.width, m_npWindow.height);
+    m_window->webViewCore()->contentInvalidate(rect);
+}
+
 void PluginView::handleKeyboardEvent(KeyboardEvent* event)
 {
     if (!m_window->isAcceptingEvent(kKey_ANPEventFlag))
@@ -319,6 +333,9 @@ void PluginView::handleKeyboardEvent(KeyboardEvent* event)
 
     if (m_plugin->pluginFuncs()->event(m_instance, &evt)) {
         event->setDefaultHandled();
+    } else {
+        // remove the plugin from the document's focus
+        m_parentFrame->document()->focusedNodeRemoved();
     }
 }
 
@@ -498,7 +515,6 @@ void PluginView::invalidateRect(NPRect* rect)
     }
 
     m_window->inval(r, true);
-//    android::WebViewCore::getWebViewCore(parent())->contentInvalidate(r);
 }
 
 void PluginView::invalidateRegion(NPRegion region)

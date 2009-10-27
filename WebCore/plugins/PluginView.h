@@ -289,6 +289,7 @@ namespace WebCore {
 #endif
 
 #ifdef ANDROID_PLUGINS
+        void handleFocusEvent(bool hasFocus);
         void handleTouchEvent(TouchEvent*);
         // called at the end of the base constructor
         void platformInit();
