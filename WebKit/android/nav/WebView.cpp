@@ -98,7 +98,6 @@ struct JavaGlue {
     jobject     m_obj;
     jmethodID   m_clearTextEntry;
     jmethodID   m_overrideLoading;
-    jmethodID   m_sendPluginState;
     jmethodID   m_scrollBy;
     jmethodID   m_sendMoveMouse;
     jmethodID   m_sendMoveMouseIfLatest;
@@ -128,7 +127,6 @@ WebView(JNIEnv* env, jobject javaWebView, int viewImpl)
     m_javaGlue.m_scrollBy = GetJMethod(env, clazz, "setContentScrollBy", "(IIZ)Z");
     m_javaGlue.m_clearTextEntry = GetJMethod(env, clazz, "clearTextEntry", "()V");
     m_javaGlue.m_overrideLoading = GetJMethod(env, clazz, "overrideLoading", "(Ljava/lang/String;)V");
-    m_javaGlue.m_sendPluginState = GetJMethod(env, clazz, "sendPluginState", "(I)V");
     m_javaGlue.m_sendMoveMouse = GetJMethod(env, clazz, "sendMoveMouse", "(IIII)V");
     m_javaGlue.m_sendMoveMouseIfLatest = GetJMethod(env, clazz, "sendMoveMouseIfLatest", "(Z)V");
     m_javaGlue.m_sendMotionUp = GetJMethod(env, clazz, "sendMotionUp", "(IIIII)V");
@@ -163,10 +161,6 @@ WebView(JNIEnv* env, jobject javaWebView, int viewImpl)
     m_matches = 0;
     m_hasCurrentLocation = false;
     m_isFindPaintSetUp = false;
-    m_pluginReceivesEvents = false; // initialization is the only time this
-                                    // variable should be set directly, all
-                                    // other changes should be made through
-                                    // setPluginReceivesEvents(bool)
 }
 
 ~WebView()
@@ -483,10 +477,9 @@ void drawCursorRing(SkCanvas* canvas)
             " bounds=(%d,%d,w=%d,h=%d)", node->index(), node->nodePointer(),
             bounds.x(), bounds.y(), bounds.width(), bounds.height());
         m_followedLink = false;
-        setPluginReceivesEvents(false);
         return;
     }
-    if (!node->hasCursorRing() || (m_pluginReceivesEvents && node->isPlugin()))
+    if (!node->hasCursorRing() || (node->isPlugin() && node->isFocus()))
         return;
     CursorRing::Flavor flavor = CursorRing::NORMAL_FLAVOR;
     if (!isButton) {
@@ -499,13 +492,12 @@ void drawCursorRing(SkCanvas* canvas)
 #if DEBUG_NAV_UI
         const WebCore::IntRect& ring = (*rings)[0];
         DBG_NAV_LOGD("cursorNode=%d (nodePointer=%p) flavor=%s rings=%d"
-            " (%d, %d, %d, %d) pluginReceivesEvents=%s isPlugin=%s",
+            " (%d, %d, %d, %d) isPlugin=%s",
             node->index(), node->nodePointer(),
             flavor == CursorRing::FAKE_FLAVOR ? "FAKE_FLAVOR" :
             flavor == CursorRing::NORMAL_ANIMATING ? "NORMAL_ANIMATING" :
             flavor == CursorRing::FAKE_ANIMATING ? "FAKE_ANIMATING" : "NORMAL_FLAVOR",
             rings->size(), ring.x(), ring.y(), ring.width(), ring.height(),
-            m_pluginReceivesEvents ? "true" : "false",
             node->isPlugin() ? "true" : "false");
 #endif
     }
@@ -756,7 +748,6 @@ void updateCursorBounds(const CachedRoot* root, const CachedFrame* cachedFrame,
 /* returns true if the key had no effect (neither scrolled nor changed cursor) */
 bool moveCursor(int keyCode, int count, bool ignoreScroll)
 {
-    setPluginReceivesEvents(false);
     CachedRoot* root = getFrameCache(AllowNewer);
     if (!root) {
         DBG_NAV_LOG("!root");
@@ -839,21 +830,6 @@ bool moveCursor(int keyCode, int count, bool ignoreScroll)
             direction == CachedFrame::UP ? dy >= 0 : dy <= 0;
     }
     return result;
-}
-
-bool pluginEatsNavKey()
-{
-    CachedRoot* root = getFrameCache(DontAllowNewer);
-    if (!root) {
-        DBG_NAV_LOG("!root");
-        return false;
-    }
-    const CachedNode* cursor = root->currentCursor();
-    DBG_NAV_LOGD("cursor=%p isPlugin=%s pluginReceivesEvents=%s",
-        cursor, cursor && cursor->isPlugin() ? "true" : "false",
-        m_pluginReceivesEvents ? "true" : "false");
-    // FIXME: check to see if plugin wants keys
-    return cursor && cursor->isPlugin() && m_pluginReceivesEvents;
 }
 
 void notifyProgressFinished()
@@ -975,7 +951,6 @@ bool motionUp(int x, int y, int slop)
             0, x, y);
         viewInvalidate();
         clearTextEntry();
-        setPluginReceivesEvents(false);
         return pageScrolled;
     }
     DBG_NAV_LOGD("CachedNode:%p (%d) x=%d y=%d rx=%d ry=%d", result,
@@ -984,7 +959,6 @@ bool motionUp(int x, int y, int slop)
     updateCursorBounds(root, frame, result);
     root->setCursor(const_cast<CachedFrame*>(frame),
         const_cast<CachedNode*>(result));
-    updatePluginReceivesEvents();
     CachedNodeType type = result->type();
     if (type == NORMAL_CACHEDNODETYPE) {
         sendMotionUp(
@@ -1032,35 +1006,6 @@ void setFindIsUp(bool up)
     m_viewImpl->m_findIsUp = up;
     if (!up)
         m_hasCurrentLocation = false;
-}
-
-void setPluginReceivesEvents(bool value)
-{
-    if (value == m_pluginReceivesEvents)
-        return;
-
-    //send message to plugin in webkit
-    JNIEnv* env = JSC::Bindings::getJNIEnv();
-    AutoJObject obj = m_javaGlue.object(env);
-    // if it is called during or after DESTROY is handled, the real object of
-    // WebView can be gone. Check before using it.
-    if (!obj.get())
-        return;
-    env->CallVoidMethod(obj.get(), m_javaGlue.m_sendPluginState,
-                        value ? kGainFocus_PluginState : kLoseFocus_PluginState);
-    checkException(env);
-    m_pluginReceivesEvents = value;
-}
-
-void updatePluginReceivesEvents()
-{
-    CachedRoot* root = getFrameCache(DontAllowNewer);
-    if (!root)
-        return;
-    const CachedNode* cursor = root->currentCursor();
-    setPluginReceivesEvents(cursor && cursor->isPlugin());
-    DBG_NAV_LOGD("m_pluginReceivesEvents=%s cursor=%p", m_pluginReceivesEvents
-        ? "true" : "false", cursor);
 }
 
 void setFollowedLink(bool followed)
@@ -1396,7 +1341,6 @@ private: // local state for WebView
     int m_generation; // associate unique ID with sent kit focus to match with ui
     SkPicture* m_navPictureUI;
     bool m_followedLink;
-    bool m_pluginReceivesEvents;
     SkMSec m_ringAnimationEnd;
     // Corresponds to the same-named boolean on the java side.
     bool m_heightCanMeasure;
@@ -1736,6 +1680,12 @@ static bool nativeFocusCandidateIsPlugin(JNIEnv *env, jobject obj)
     return node ? node->isPlugin() : false;
 }
 
+static bool nativeFocusIsPlugin(JNIEnv *env, jobject obj)
+{
+    const CachedNode* node = getFocusNode(env, obj);
+    return node ? node->isPlugin() : false;
+}
+
 static jint nativeFocusNodePointer(JNIEnv *env, jobject obj)
 {
     const CachedNode* node = getFocusNode(env, obj);
@@ -1823,11 +1773,6 @@ static void nativeSetFindIsDown(JNIEnv *env, jobject obj)
     WebView* view = GET_NATIVE_VIEW(env, obj);
     LOG_ASSERT(view, "view not set in %s", __FUNCTION__);
     view->setFindIsUp(false);
-}
-
-static void nativeUpdatePluginReceivesEvents(JNIEnv *env, jobject obj)
-{
-    GET_NATIVE_VIEW(env, obj)->updatePluginReceivesEvents();
 }
 
 static void nativeSetFollowedLink(JNIEnv *env, jobject obj, bool followed)
@@ -2008,11 +1953,6 @@ static void nativeMoveSelection(JNIEnv *env, jobject obj, int x, int y, bool ex)
     view->moveSelection(x, y, ex);
 }
 
-static bool nativePluginEatsNavKey(JNIEnv *env, jobject obj)
-{
-    return GET_NATIVE_VIEW(env, obj)->pluginEatsNavKey();
-}
-
 static jobject nativeGetSelection(JNIEnv *env, jobject obj)
 {
     WebView* view = GET_NATIVE_VIEW(env, obj);
@@ -2129,6 +2069,8 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeFocusCandidateText },
     { "nativeFocusCandidateTextSize", "()I",
         (void*) nativeFocusCandidateTextSize },
+    { "nativeFocusIsPlugin", "()Z",
+        (void*) nativeFocusIsPlugin },
     { "nativeFocusNodePointer", "()I",
         (void*) nativeFocusNodePointer },
     { "nativeGetCursorRingBounds", "()Landroid/graphics/Rect;",
@@ -2157,8 +2099,6 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeMoveGeneration },
     { "nativeMoveSelection", "(IIZ)V",
         (void*) nativeMoveSelection },
-    { "nativePluginEatsNavKey", "()Z",
-        (void*) nativePluginEatsNavKey },
     { "nativeRecordButtons", "(ZZZ)V",
         (void*) nativeRecordButtons },
     { "nativeSelectBestAt", "(Landroid/graphics/Rect;)V",
@@ -2177,8 +2117,6 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeUpdateCachedTextfield },
     { "nativeGetBlockLeftEdge", "(IIF)I",
         (void*) nativeGetBlockLeftEdge },
-    { "nativeUpdatePluginReceivesEvents", "()V",
-        (void*) nativeUpdatePluginReceivesEvents }
 };
 
 int register_webview(JNIEnv* env)
