@@ -1971,35 +1971,16 @@ void WebViewCore::touchUp(int touchGeneration,
             " x=%d y=%d", m_touchGeneration, touchGeneration, x, y);
         return; // short circuit if a newer touch has been generated
     }
+    // This moves m_mousePos to the correct place, and handleMouseClick uses
+    // m_mousePos to determine where the click happens.
     moveMouse(frame, x, y);
     m_lastGeneration = touchGeneration;
     if (frame && CacheBuilder::validNode(m_mainFrame, frame, 0)) {
         frame->loader()->resetMultipleFormSubmissionProtection();
     }
-    // If the click is on an unselected textfield/area we do not want to allow
-    // the click to change the selection, because we will set it ourselves
-    // elsewhere - beginning for textareas, end for textfields
-    bool needToIgnoreChangesToSelectedRange = true;
-    WebCore::Node* focusNode = currentFocus();
-    if (focusNode) {
-        WebCore::RenderObject* renderer = focusNode->renderer();
-        if (renderer && (renderer->isTextField() || renderer->isTextArea())) {
-            // Now check to see if the click is inside the focused textfield
-            if (focusNode->getRect().contains(x, y))
-                needToIgnoreChangesToSelectedRange = false;
-        }
-    }
-    EditorClientAndroid* client = 0;
-    if (needToIgnoreChangesToSelectedRange) {
-        client = static_cast<EditorClientAndroid*>(
-                m_mainFrame->editor()->client());
-        client->setShouldChangeSelectedRange(false);
-    }
     DBG_NAV_LOGD("touchGeneration=%d handleMouseClick frame=%p node=%p"
         " x=%d y=%d", touchGeneration, frame, node, x, y);
     handleMouseClick(frame, node);
-    if (needToIgnoreChangesToSelectedRange)
-        client->setShouldChangeSelectedRange(true);
 }
 
 // Common code for both clicking with the trackball and touchUp
