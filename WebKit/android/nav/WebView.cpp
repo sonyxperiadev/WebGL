@@ -1233,7 +1233,8 @@ void rebuildWebTextView(bool needNotMatchFocus)
             m_javaGlue.m_rebuildWebTextView);
     checkException(env);
     if (needNotMatchFocus) {
-        env->CallVoidMethod(obj.get(), m_javaGlue.m_setOkayToNotMatch);
+        env->CallVoidMethod(m_javaGlue.object(env).get(),
+                m_javaGlue.m_setOkayToNotMatch);
         checkException(env);
     }
 }
