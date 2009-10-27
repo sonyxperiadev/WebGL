@@ -342,7 +342,8 @@ public:
         flag = env->GetBooleanField(obj, gFieldIds->mDatabaseEnabled);
         s->setDatabasesEnabled(flag);
         str = (jstring)env->GetObjectField(obj, gFieldIds->mDatabasePath);
-        WebCore::DatabaseTracker::tracker().setDatabaseDirectoryPath(to_string(env, str));
+        if (str && WebCore::DatabaseTracker::tracker().databaseDirectoryPath().isNull())
+            WebCore::DatabaseTracker::tracker().setDatabaseDirectoryPath(to_string(env, str));
 #endif
 #if ENABLE(DOM_STORAGE)
         flag = env->GetBooleanField(obj, gFieldIds->mDomStorageEnabled);
