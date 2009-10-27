@@ -847,14 +847,13 @@ void RenderBlock::layoutInlineChildren(bool relayoutChildren, int& repaintTop, i
 
     if (firstChild()) {
 #ifdef ANDROID_LAYOUT
-        // if we are in fitColumnToScreen mode and viewport width is not device-width,
+        // if we are in fitColumnToScreen mode
         // and the current object is not float:right in LTR or not float:left in RTL,
         // and text align is auto, or justify or left in LTR, or right in RTL, we
         // will wrap text around screen width so that it doesn't need to scroll
         // horizontally when reading a paragraph.
         const Settings* settings = document()->settings();
-        bool doTextWrap = settings && settings->viewportWidth() != 0 &&
-                settings->layoutAlgorithm() == Settings::kLayoutFitColumnToScreen;
+        bool doTextWrap = settings && settings->layoutAlgorithm() == Settings::kLayoutFitColumnToScreen;
         if (doTextWrap) {
             int ta = style()->textAlign();
             int dir = style()->direction();
