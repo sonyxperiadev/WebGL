@@ -386,9 +386,6 @@ void RenderPartObject::layout()
                     ASSERT(!c->needsLayout());
                     c = c->nextInPreOrder();
                 }
-                Node* body = document()->body();
-                if (body)
-                    ASSERT(!body->renderer()->needsLayout());
 #endif
             }
         }
