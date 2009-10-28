@@ -147,4 +147,26 @@ void CSSImportRule::addSubresourceStyleURLs(ListHashSet<KURL>& urls)
         addSubresourceURL(urls, m_styleSheet->baseURL());
 }
 
+#ifdef ANDROID_INSTRUMENT
+void* CSSImportRule::operator new(size_t size)
+{
+    return StyleBase::operator new(size);
+}
+
+void* CSSImportRule::operator new[](size_t size)
+{
+    return StyleBase::operator new[](size);
+}
+
+void CSSImportRule::operator delete(void* p, size_t size)
+{
+    StyleBase::operator delete(p, size);
+}
+
+void CSSImportRule::operator delete[](void* p, size_t size)
+{
+    StyleBase::operator delete[](p, size);
+}
+#endif
+
 } // namespace WebCore

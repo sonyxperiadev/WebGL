@@ -453,4 +453,26 @@ void HTMLLinkElement::addSubresourceAttributeURLs(ListHashSet<KURL>& urls) const
         styleSheet->addSubresourceStyleURLs(urls);
 }
 
+#ifdef ANDROID_INSTRUMENT
+void* HTMLLinkElement::operator new(size_t size)
+{
+    return Node::operator new(size);
+}
+
+void* HTMLLinkElement::operator new[](size_t size)
+{
+    return Node::operator new[](size);
+}
+
+void HTMLLinkElement::operator delete(void* p, size_t size)
+{
+    Node::operator delete(p, size);
+}
+
+void HTMLLinkElement::operator delete[](void* p, size_t size)
+{
+    Node::operator delete[](p, size);
+}
+#endif
+
 }
