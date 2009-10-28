@@ -1670,7 +1670,16 @@ void WebViewCore::deleteSelection(int start, int end, int textGeneration)
     WebCore::Node* focus = currentFocus();
     if (!focus)
         return;
-    WebCore::TypingCommand::deleteSelection(focus->document());
+    // Prevent our editor client from passing a message to change the
+    // selection.
+    EditorClientAndroid* client = static_cast<EditorClientAndroid*>(
+            m_mainFrame->editor()->client());
+    client->setUiGeneratedSelectionChange(true);
+    PlatformKeyboardEvent down(kKeyCodeDel, 0, 0, true, false, false, false);
+    PlatformKeyboardEvent up(kKeyCodeDel, 0, 0, false, false, false, false);
+    key(down);
+    key(up);
+    client->setUiGeneratedSelectionChange(false);
     m_textGeneration = textGeneration;
 }
 
