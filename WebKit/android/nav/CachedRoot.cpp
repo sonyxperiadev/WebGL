@@ -866,7 +866,8 @@ int CachedRoot::getBlockLeftEdge(int x, int y, float scale) const
     return result;
 }
 
-void CachedRoot::getSimulatedMousePosition(WebCore::IntPoint* point) const
+void CachedRoot::getSimulatedMousePosition(const CachedNode* cursor,
+    WebCore::IntPoint* point) const
 {
 #ifndef NDEBUG
     ASSERT(CachedFrame::mDebug.mInUse);
@@ -878,7 +879,6 @@ void CachedRoot::getSimulatedMousePosition(WebCore::IntPoint* point) const
     int height = mouseBounds.height();
     point->setX(x + (width >> 1)); // default to box center
     point->setY(y + (height >> 1));
-    const CachedNode* cursor = currentCursor();
     if (cursor && cursor->bounds().contains(mHistory->mMouseBounds)) {
         if (cursor->isTextField()) // if text field, return end of line
             point->setX(x + width - 1);
