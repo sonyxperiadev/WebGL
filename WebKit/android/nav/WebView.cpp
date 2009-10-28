@@ -741,8 +741,7 @@ void updateCursorBounds(const CachedRoot* root, const CachedFrame* cachedFrame,
         m_viewImpl->m_cursorBounds = cachedNode->bounds();
         m_viewImpl->m_cursorHitBounds = cachedNode->hitBounds();
         m_viewImpl->m_cursorFrame = cachedFrame->framePointer();
-        root->getSimulatedMousePosition(cachedNode,
-            &m_viewImpl->m_cursorLocation);
+        root->getSimulatedMousePosition(&m_viewImpl->m_cursorLocation);
         m_viewImpl->m_cursorNode = cachedNode->nodePointer();
     }
     m_viewImpl->gCursorBoundsMutex.unlock();
@@ -1462,7 +1461,7 @@ static jobject nativeCursorPosition(JNIEnv *env, jobject obj)
     const CachedRoot* root = view->getFrameCache(WebView::DontAllowNewer);
     WebCore::IntPoint pos = WebCore::IntPoint(0, 0);
     if (root)
-        root->getSimulatedMousePosition(root->currentCursor(), &pos);
+        root->getSimulatedMousePosition(&pos);
     jclass pointClass = env->FindClass("android/graphics/Point");
     jmethodID init = env->GetMethodID(pointClass, "<init>", "(II)V");
     jobject point = env->NewObject(pointClass, init, pos.x(), pos.y());
@@ -1929,7 +1928,7 @@ static void nativeMoveCursorToNextTextInput(JNIEnv *env, jobject obj)
     root->setCursor(const_cast<CachedFrame*>(frame),
             const_cast<CachedNode*>(next));
     WebCore::IntPoint pos;
-    root->getSimulatedMousePosition(next, &pos);
+    root->getSimulatedMousePosition(&pos);
     view->sendMoveMouse(static_cast<WebCore::Frame*>(frame->framePointer()),
             static_cast<WebCore::Node*>(next->nodePointer()), pos.x(), pos.y());
     view->scrollRectOnScreen(bounds.x(), bounds.y(), bounds.right(),
