@@ -51,6 +51,9 @@ namespace WebCore {
         virtual Geoposition* lastPosition() const { return m_lastPosition.get(); }
         virtual PositionError* lastError() const { return m_lastError.get(); }
 
+        virtual void suspend();
+        virtual void resume();
+
         // Android-specific
         void newPositionAvailable(PassRefPtr<Geoposition>);
         void newErrorAvailable(PassRefPtr<PositionError>);

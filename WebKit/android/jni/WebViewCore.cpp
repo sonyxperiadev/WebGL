@@ -47,6 +47,7 @@
 #include "FrameLoaderClientAndroid.h"
 #include "FrameTree.h"
 #include "FrameView.h"
+#include "Geolocation.h"
 #include "GraphicsContext.h"
 #include "GraphicsJNI.h"
 #include "HitTestResult.h"
@@ -64,6 +65,7 @@
 #include "InlineTextBox.h"
 #include <JNIHelp.h>
 #include "KeyboardCodes.h"
+#include "Navigator.h"
 #include "Node.h"
 #include "Page.h"
 #include "PageGroup.h"
@@ -2986,6 +2988,13 @@ static void Pause(JNIEnv* env, jobject obj)
     ChromeClientAndroid* chromeClientAndroid = static_cast<ChromeClientAndroid*>(chromeClient);
     chromeClientAndroid->storeGeolocationPermissions();
 
+    Frame* mainFrame = GET_NATIVE_VIEW(env, obj)->mainFrame();
+    for (Frame* frame = mainFrame; frame; frame = frame->tree()->traverseNext()) {
+        Geolocation* geolocation = frame->domWindow()->navigator()->optionalGeolocation();
+        if (geolocation)
+            geolocation->suspend();
+    }
+
     ANPEvent event;
     SkANP::InitEvent(&event, kLifecycle_ANPEventType);
     event.data.lifecycle.action = kPause_ANPLifecycleAction;
@@ -2994,6 +3003,13 @@ static void Pause(JNIEnv* env, jobject obj)
 
 static void Resume(JNIEnv* env, jobject obj)
 {
+    Frame* mainFrame = GET_NATIVE_VIEW(env, obj)->mainFrame();
+    for (Frame* frame = mainFrame; frame; frame = frame->tree()->traverseNext()) {
+        Geolocation* geolocation = frame->domWindow()->navigator()->optionalGeolocation();
+        if (geolocation)
+            geolocation->resume();
+    }
+
     ANPEvent event;
     SkANP::InitEvent(&event, kLifecycle_ANPEventType);
     event.data.lifecycle.action = kResume_ANPLifecycleAction;

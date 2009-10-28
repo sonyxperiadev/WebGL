@@ -50,6 +50,7 @@ public:
     ~GeolocationServiceBridge();
 
     void start();
+    void stop();
     void setEnableGps(bool enable);
 
     // Static wrapper functions to hide JNI nastiness.
@@ -109,6 +110,7 @@ GeolocationServiceBridge::GeolocationServiceBridge(ListenerInterface* listener)
 
 GeolocationServiceBridge::~GeolocationServiceBridge()
 {
+    stop();
     stopJavaImplementation();
 }
 
@@ -117,6 +119,13 @@ void GeolocationServiceBridge::start()
     ASSERT(m_javaGeolocationServiceObject);
     getJNIEnv()->CallVoidMethod(m_javaGeolocationServiceObject,
                                 javaGeolocationServiceClassMethodIDs[GEOLOCATION_SERVICE_METHOD_START]);
+}
+
+void GeolocationServiceBridge::stop()
+{
+    ASSERT(m_javaGeolocationServiceObject);
+    getJNIEnv()->CallVoidMethod(m_javaGeolocationServiceObject,
+                                javaGeolocationServiceClassMethodIDs[GEOLOCATION_SERVICE_METHOD_STOP]);
 }
 
 void GeolocationServiceBridge::setEnableGps(bool enable)
@@ -253,8 +262,6 @@ void GeolocationServiceBridge::stopJavaImplementation()
 {
     // Called by GeolocationServiceAndroid on WebKit thread.
     ASSERT(m_javaGeolocationServiceObject);
-    getJNIEnv()->CallVoidMethod(m_javaGeolocationServiceObject,
-                                javaGeolocationServiceClassMethodIDs[GEOLOCATION_SERVICE_METHOD_STOP]);
     getJNIEnv()->DeleteGlobalRef(m_javaGeolocationServiceObject);
 }
 
@@ -318,6 +325,18 @@ void GeolocationServiceAndroid::stopUpdating()
     // new position from the system service when a request is first made.
     m_lastPosition = 0;
     m_lastError = 0;
+}
+
+void GeolocationServiceAndroid::suspend()
+{
+    ASSERT(m_javaBridge);
+    m_javaBridge->stop();
+}
+
+void GeolocationServiceAndroid::resume()
+{
+    ASSERT(m_javaBridge);
+    m_javaBridge->start();
 }
 
 // Note that there is no guarantee that subsequent calls to this method offer a
