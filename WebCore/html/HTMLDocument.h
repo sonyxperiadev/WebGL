@@ -82,6 +82,14 @@ public:
 protected:
     HTMLDocument(Frame*);
 
+#ifdef ANDROID_INSTRUMENT
+    // Overridden to resolve the ambiguous
+    void* operator new(size_t size);
+    void* operator new[](size_t size);
+    void operator delete(void* p, size_t size);
+    void operator delete[](void* p, size_t size);
+#endif
+
 private:
     virtual bool childAllowed(Node*);
 
