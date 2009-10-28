@@ -36,18 +36,13 @@
 #include "IconRecord.h"
 #include "IntSize.h"
 #include "Logging.h"
+#include "ScriptController.h"
 #include "SQLiteStatement.h"
 #include "SQLiteTransaction.h"
 #include "SuddenTermination.h"
 #include <wtf/CurrentTime.h>
 #include <wtf/MainThread.h>
 #include <wtf/StdLibExtras.h>
-
-#if USE(JSC)
-#include <runtime/InitializeThreading.h>
-#elif USE(V8)
-#include "InitializeThreading.h"
-#endif
 
 // For methods that are meant to support API from the main thread - should not be called internally
 #define ASSERT_NOT_SYNC_THREAD() ASSERT(!m_syncThreadRunning || !IS_ICON_SYNC_THREAD())
@@ -98,11 +93,7 @@ static IconDatabaseClient* defaultClient()
 IconDatabase* iconDatabase()
 {
     if (!sharedIconDatabase) {
-#if USE(JSC)
-        JSC::initializeThreading();
-#elif USE(V8)
-        V8::initializeThreading();
-#endif
+        ScriptController::initializeThreading();
         sharedIconDatabase = new IconDatabase;
     }
     return sharedIconDatabase;

@@ -39,11 +39,6 @@
 #include "FrameView.h"
 #include "GraphicsContext.h"
 #include "HistoryItem.h"
-#if USE(JSC)
-#include "InitializeThreading.h"
-#elif USE(V8)
-#include "V8InitializeThreading.h"
-#endif
 #include "InspectorClientAndroid.h"
 #include "Intercept.h"
 #include "IntRect.h"
@@ -53,6 +48,7 @@
 #include "Page.h"
 #include "PlatformGraphicsContext.h"
 #include "ResourceRequest.h"
+#include "ScriptController.h"
 #include "SelectionController.h"
 #include "Settings.h"
 #include "SharedBuffer.h"
@@ -121,11 +117,7 @@ int main(int argc, char** argv) {
         LOGE("Please supply a file to read\n");
         return 1;
     }
-#if USE(JSC)
-    JSC::initializeThreading();
-#elif USE(V8)
-    V8::initializeThreading();
-#endif
+    ScriptController::initializeThreading();
 
     // Setting this allows data: urls to load from a local file.
     FrameLoader::setLocalLoadPolicy(FrameLoader::AllowLocalLoadsForAll);
