@@ -41,7 +41,7 @@
 
 namespace WebCore {
 
-static const char* permissionDeniedErrorMessage = "User denied Geolocation";
+static const char permissionDeniedErrorMessage[] = "User denied Geolocation";
 
 Geolocation::GeoNotifier::GeoNotifier(Geolocation* geolocation, PassRefPtr<PositionCallback> successCallback, PassRefPtr<PositionErrorCallback> errorCallback, PassRefPtr<PositionOptions> options)
     : m_geolocation(geolocation)
@@ -49,7 +49,6 @@ Geolocation::GeoNotifier::GeoNotifier(Geolocation* geolocation, PassRefPtr<Posit
     , m_errorCallback(errorCallback)
     , m_options(options)
     , m_timer(this, &Geolocation::GeoNotifier::timerFired)
-    , m_fatalError(0)
 {
     ASSERT(m_geolocation);
     ASSERT(m_successCallback);
@@ -60,8 +59,15 @@ Geolocation::GeoNotifier::GeoNotifier(Geolocation* geolocation, PassRefPtr<Posit
 
 void Geolocation::GeoNotifier::setFatalError(PassRefPtr<PositionError> error)
 {
+    // This method is called at most once on a given GeoNotifier object.
+    ASSERT(!m_fatalError);
     m_fatalError = error;
     m_timer.startOneShot(0);
+}
+
+bool Geolocation::GeoNotifier::hasZeroTimeout() const
+{
+    return m_options->hasTimeout() && m_options->timeout() == 0;
 }
 
 void Geolocation::GeoNotifier::setCachedPosition(Geoposition* cachedPosition)
@@ -96,10 +102,50 @@ void Geolocation::GeoNotifier::timerFired(Timer<GeoNotifier>*)
     }
 
     if (m_errorCallback) {
-        RefPtr<PositionError> error = PositionError::create(PositionError::TIMEOUT, "Timed out");
+        RefPtr<PositionError> error = PositionError::create(PositionError::TIMEOUT, "Timeout expired");
         m_errorCallback->handleEvent(error.get());
     }
     m_geolocation->requestTimedOut(this);
+}
+
+void Geolocation::Watchers::set(int id, PassRefPtr<GeoNotifier> notifier)
+{
+    m_idToNotifierMap.set(id, notifier);
+    m_notifierToIdMap.set(notifier, id);
+}
+
+void Geolocation::Watchers::remove(int id)
+{
+    IdToNotifierMap::iterator iter = m_idToNotifierMap.find(id);
+    if (iter == m_idToNotifierMap.end())
+        return;
+    m_notifierToIdMap.remove(iter->second);
+    m_idToNotifierMap.remove(iter);
+}
+
+void Geolocation::Watchers::remove(GeoNotifier* notifier)
+{
+    NotifierToIdMap::iterator iter = m_notifierToIdMap.find(notifier);
+    if (iter == m_notifierToIdMap.end())
+        return;
+    m_idToNotifierMap.remove(iter->second);
+    m_notifierToIdMap.remove(iter);
+}
+
+void Geolocation::Watchers::clear()
+{
+    m_idToNotifierMap.clear();
+    m_notifierToIdMap.clear();
+}
+
+bool Geolocation::Watchers::isEmpty() const
+{
+    return m_idToNotifierMap.isEmpty();
+}
+
+void Geolocation::Watchers::getNotifiersVector(Vector<RefPtr<GeoNotifier> >& copy) const
+{
+    copyValuesToVector(m_idToNotifierMap, copy);
 }
 
 static const char* databaseName = "/CachedPosition.db";
@@ -275,7 +321,7 @@ void Geolocation::disconnectFrame()
 
 void Geolocation::getCurrentPosition(PassRefPtr<PositionCallback> successCallback, PassRefPtr<PositionErrorCallback> errorCallback, PassRefPtr<PositionOptions> options)
 {
-    RefPtr<GeoNotifier> notifier = makeRequest(successCallback, errorCallback, options);
+    RefPtr<GeoNotifier> notifier = startRequest(successCallback, errorCallback, options);
     ASSERT(notifier);
 
     m_oneShots.add(notifier);
@@ -283,24 +329,23 @@ void Geolocation::getCurrentPosition(PassRefPtr<PositionCallback> successCallbac
 
 int Geolocation::watchPosition(PassRefPtr<PositionCallback> successCallback, PassRefPtr<PositionErrorCallback> errorCallback, PassRefPtr<PositionOptions> options)
 {
-    RefPtr<GeoNotifier> notifier = makeRequest(successCallback, errorCallback, options);
+    RefPtr<GeoNotifier> notifier = startRequest(successCallback, errorCallback, options);
     ASSERT(notifier);
 
-    static int sIdentifier = 0;
-    m_watchers.set(++sIdentifier, notifier);
-
-    return sIdentifier;
+    static int nextAvailableWatchId = 1;
+    m_watchers.set(nextAvailableWatchId, notifier.release());
+    return nextAvailableWatchId++;
 }
 
-PassRefPtr<Geolocation::GeoNotifier> Geolocation::makeRequest(PassRefPtr<PositionCallback> successCallback, PassRefPtr<PositionErrorCallback> errorCallback, PassRefPtr<PositionOptions> options)
+PassRefPtr<Geolocation::GeoNotifier> Geolocation::startRequest(PassRefPtr<PositionCallback> successCallback, PassRefPtr<PositionErrorCallback> errorCallback, PassRefPtr<PositionOptions> options)
 {
     RefPtr<GeoNotifier> notifier = GeoNotifier::create(this, successCallback, errorCallback, options);
 
     // Check whether permissions have already been denied. Note that if this is the case,
     // the permission state can not change again in the lifetime of this page.
-    if (isDenied()) {
+    if (isDenied())
         notifier->setFatalError(PositionError::create(PositionError::PERMISSION_DENIED, permissionDeniedErrorMessage));
-    } else {
+    else {
         if (haveSuitableCachedPosition(notifier->m_options.get())) {
             ASSERT(m_cachedPositionManager->cachedPosition());
             if (isAllowed())
@@ -310,7 +355,7 @@ PassRefPtr<Geolocation::GeoNotifier> Geolocation::makeRequest(PassRefPtr<Positio
                 requestPermission();
             }
         } else {
-            if (m_service->startUpdating(notifier->m_options.get()))
+            if (notifier->hasZeroTimeout() || m_service->startUpdating(notifier->m_options.get()))
                 notifier->startTimerIfNeeded();
             else
                 notifier->setFatalError(PositionError::create(PositionError::UNKNOWN_ERROR, "Failed to start Geolocation service"));
@@ -324,12 +369,7 @@ void Geolocation::fatalErrorOccurred(Geolocation::GeoNotifier* notifier)
 {
     // This request has failed fatally. Remove it from our lists.
     m_oneShots.remove(notifier);
-    for (GeoNotifierMap::iterator iter = m_watchers.begin(); iter != m_watchers.end(); ++iter) {
-        if (iter->second == notifier) {
-            m_watchers.remove(iter);
-            break;
-        }
-    }
+    m_watchers.remove(notifier);
 
     if (!hasListeners())
         m_service->stopUpdating();
@@ -400,7 +440,7 @@ void Geolocation::setIsAllowed(bool allowed)
     m_allowGeolocation = allowed ? Yes : No;
 
     if (!isAllowed()) {
-        RefPtr<WebCore::PositionError> error = PositionError::create(PositionError::PERMISSION_DENIED, permissionDeniedErrorMessage);
+        RefPtr<PositionError> error = PositionError::create(PositionError::PERMISSION_DENIED, permissionDeniedErrorMessage);
         error->setIsFatal(true);
         handleError(error.get());
         return;
@@ -462,7 +502,7 @@ void Geolocation::stopTimersForOneShots()
 void Geolocation::stopTimersForWatchers()
 {
     Vector<RefPtr<GeoNotifier> > copy;
-    copyValuesToVector(m_watchers, copy);
+    m_watchers.getNotifiersVector(copy);
     
     stopTimer(copy);
 }
@@ -476,15 +516,16 @@ void Geolocation::stopTimers()
 void Geolocation::handleError(PositionError* error)
 {
     ASSERT(error);
-
+    
     Vector<RefPtr<GeoNotifier> > oneShotsCopy;
     copyToVector(m_oneShots, oneShotsCopy);
 
     Vector<RefPtr<GeoNotifier> > watchersCopy;
-    copyValuesToVector(m_watchers, watchersCopy);
+    m_watchers.getNotifiersVector(watchersCopy);
 
     // Clear the lists before we make the callbacks, to avoid clearing notifiers
-    // added by calls to Geolocation methods from the callbacks.
+    // added by calls to Geolocation methods from the callbacks, and to prevent
+    // further callbacks to these notifiers.
     m_oneShots.clear();
     if (error->isFatal())
         m_watchers.clear();
@@ -514,19 +555,20 @@ void Geolocation::requestPermission()
     page->chrome()->requestGeolocationPermissionForFrame(m_frame, this);
 }
 
-void Geolocation::geolocationServicePositionChanged(GeolocationService*)
+void Geolocation::geolocationServicePositionChanged(GeolocationService* service)
 {
+    ASSERT_UNUSED(service, service == m_service);
     ASSERT(m_service->lastPosition());
 
     m_cachedPositionManager->setCachedPosition(m_service->lastPosition());
 
     // Stop all currently running timers.
     stopTimers();
-
+    
     if (!isAllowed()) {
         // requestPermission() will ask the chrome for permission. This may be
         // implemented synchronously or asynchronously. In both cases,
-        // makeSucessCallbacks() will be called if permission is granted, so
+        // makeSuccessCallbacks() will be called if permission is granted, so
         // there's nothing more to do here.
         requestPermission();
         return;
@@ -539,15 +581,16 @@ void Geolocation::makeSuccessCallbacks()
 {
     ASSERT(m_service->lastPosition());
     ASSERT(isAllowed());
-
+    
     Vector<RefPtr<GeoNotifier> > oneShotsCopy;
     copyToVector(m_oneShots, oneShotsCopy);
-
+    
     Vector<RefPtr<GeoNotifier> > watchersCopy;
-    copyValuesToVector(m_watchers, watchersCopy);
-
+    m_watchers.getNotifiersVector(watchersCopy);
+    
     // Clear the lists before we make the callbacks, to avoid clearing notifiers
-    // added by calls to Geolocation methods from the callbacks.
+    // added by calls to Geolocation methods from the callbacks, and to prevent
+    // further callbacks to these notifiers.
     m_oneShots.clear();
 
     sendPosition(oneShotsCopy, m_service->lastPosition());
