@@ -107,17 +107,6 @@ static bool getEntryPoint(PlatformModule module,
     }
 }
 
-int PluginPackage::compareFileVersion(
-        const PlatformModuleVersion& compareVersion) const
-{
-    // return -1, 0, or 1 if plug-in version is less than, equal to,
-    // or greater than the passed version
-    if (m_moduleVersion != compareVersion)
-        return m_moduleVersion > compareVersion ? 1 : -1;
-    else
-        return 0;
-}
-
 bool PluginPackage::isPluginBlacklisted()
 {
     // No blacklisted Android plugins... yet!
