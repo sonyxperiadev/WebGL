@@ -151,7 +151,7 @@ PassRefPtr<Geoposition> GeolocationServiceBridge::convertLocationToGeoposition(J
         env->CallBooleanMethod(location, javaLocationClassMethodIDs[LOCATION_METHOD_HAS_ALTITUDE]);
     double altitude =
         hasAltitude ?
-        env->CallFloatMethod(location, javaLocationClassMethodIDs[LOCATION_METHOD_GET_ALTITUDE]) :
+        env->CallDoubleMethod(location, javaLocationClassMethodIDs[LOCATION_METHOD_GET_ALTITUDE]) :
         0.0;
     // accuracy is required, but is not supplied by the emulator.
     double accuracy =
