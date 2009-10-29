@@ -441,20 +441,6 @@ LOCAL_GENERATED_SOURCES += $(GEN) $(GEN:%.h=%.cpp)
 $(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/html/canvas/%.cpp : $(intermediates)/html/canvas/%.h
 
 GEN := \
-    $(intermediates)/inspector/JSInspectorBackend.h  \
-    $(intermediates)/inspector/JSJavaScriptCallFrame.h 
-    
-$(GEN): PRIVATE_PATH := $(LOCAL_PATH)
-$(GEN): PRIVATE_CUSTOM_TOOL = perl -I$(PRIVATE_PATH)/bindings/scripts $(PRIVATE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator JS --include dom --include html --outputdir $(dir $@) $<
-$(GEN): $(intermediates)/inspector/JS%.h : $(LOCAL_PATH)/inspector/%.idl $(js_binding_scripts)
-	$(transform-generated-source)
-LOCAL_GENERATED_SOURCES += $(GEN) $(GEN:%.h=%.cpp)
-
-# We also need the .cpp files, which are generated as side effects of the
-# above rules.  Specifying this explicitly makes -j2 work.
-$(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/inspector/%.cpp : $(intermediates)/inspector/%.h
-
-GEN := \
     $(intermediates)/loader/appcache/JSDOMApplicationCache.h 
     
 $(GEN): PRIVATE_PATH := $(LOCAL_PATH)
