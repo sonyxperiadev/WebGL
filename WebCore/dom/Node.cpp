@@ -2333,16 +2333,28 @@ ContainerNode* Node::eventParentNode()
 #ifdef ANDROID_INSTRUMENT
 static size_t nodeSize = 0;
 
-void* Node::operator new(size_t s) throw()
+void* Node::operator new(size_t size)
 {
-    nodeSize += s;
-    return ::operator new(s);
+    nodeSize += size;
+    return ::operator new(size);
 }
 
-void Node::operator delete(void* ptr, size_t s)
+void* Node::operator new[](size_t size)
 {
-    nodeSize -= s;
-    ::operator delete(ptr);
+    nodeSize += size;
+    return ::operator new[](size);
+}
+
+void Node::operator delete(void* p, size_t size)
+{
+    nodeSize -= size;
+    ::operator delete(p);
+}
+
+void Node::operator delete[](void* p, size_t size)
+{
+    nodeSize -= size;
+    ::operator delete[](p);
 }
 
 size_t Node::reportDOMNodesSize()

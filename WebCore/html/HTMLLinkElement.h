@@ -103,6 +103,14 @@ public:
 
     virtual void finishParsingChildren();
 
+#ifdef ANDROID_INSTRUMENT
+    // Overridden to resolve the ambiguous
+    void* operator new(size_t size);
+    void* operator new[](size_t size);
+    void operator delete(void* p, size_t size);
+    void operator delete[](void* p, size_t size);
+#endif
+
 protected:
     CachedResourceHandle<CachedCSSStyleSheet> m_cachedSheet;
     RefPtr<CSSStyleSheet> m_sheet;

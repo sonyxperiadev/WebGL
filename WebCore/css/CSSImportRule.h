@@ -65,6 +65,14 @@ private:
     // from CachedResourceClient
     virtual void setCSSStyleSheet(const String& url, const String& charset, const CachedCSSStyleSheet*);
 
+#ifdef ANDROID_INSTRUMENT
+    // Overridden to resolve the ambiguous
+    void* operator new(size_t size);
+    void* operator new[](size_t size);
+    void operator delete(void* p, size_t size);
+    void operator delete[](void* p, size_t size);
+#endif
+
     String m_strHref;
     RefPtr<MediaList> m_lstMedia;
     RefPtr<CSSStyleSheet> m_styleSheet;
