@@ -37,6 +37,11 @@
 #if USE(JSC)
 #include "Profile.h"
 #endif
+
+// Now that Inspector call sites are properly guarded with ENABLE(INSPECTOR),
+// this stub is no longer needed.
+// TODO: Upstream this to webkit.org.
+
 // This stub file was created to avoid building and linking in all the
 // Inspector codebase. If you would like to enable the Inspector, do the
 // following steps:

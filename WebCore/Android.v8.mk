@@ -437,7 +437,6 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	\
 	page/android/DragControllerAndroid.cpp \
 	page/android/EventHandlerAndroid.cpp \
-	page/android/InspectorControllerAndroid.cpp \
 	\
 	page/animation/AnimationBase.cpp \
 	page/animation/AnimationController.cpp \
