@@ -200,9 +200,6 @@ LOCAL_SRC_FILES := \
 	bindings/js/JSImageConstructor.cpp \
 	bindings/js/JSImageDataCustom.cpp \
 	bindings/js/JSInspectedObjectWrapper.cpp \
-	bindings/js/JSInspectorBackendCustom.cpp \
-	bindings/js/JSInspectorCallbackWrapper.cpp \
-	bindings/js/JSJavaScriptCallFrameCustom.cpp \
 	bindings/js/JSLazyEventListener.cpp \
 	bindings/js/JSLocationCustom.cpp \
 	bindings/js/JSMessageChannelConstructor.cpp \
@@ -630,7 +627,6 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	\
 	page/android/DragControllerAndroid.cpp \
 	page/android/EventHandlerAndroid.cpp \
-	page/android/InspectorControllerAndroid.cpp \
 	\
 	page/animation/AnimationBase.cpp \
 	page/animation/AnimationController.cpp \
