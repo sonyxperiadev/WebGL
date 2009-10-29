@@ -83,7 +83,7 @@ typedef v8::Persistent<v8::FunctionTemplate> (*FunctionTemplateFactory)();
 #endif
 
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
-#define APPLICATIONCACHE_NONNODE_WRAPPER_TYPES(V)                      \
+#define APPLICATIONCACHE_NONNODE_WRAPPER_TYPES(V)                       \
   V(DOMAPPLICATIONCACHE, DOMApplicationCache)
 #else
 #define APPLICATIONCACHE_NONNODE_WRAPPER_TYPES(V)
@@ -100,7 +100,9 @@ typedef v8::Persistent<v8::FunctionTemplate> (*FunctionTemplateFactory)();
 #if ENABLE(SHARED_WORKERS)
 #define SHARED_WORKER_ACTIVE_OBJECT_WRAPPER_TYPES(V)                    \
     V(SHAREDWORKER, SharedWorker)
-#define SHARED_WORKER_NONNODE_WRAPPER_TYPES(V)
+
+#define SHARED_WORKER_NONNODE_WRAPPER_TYPES(V)                          \
+    V(SHAREDWORKERCONTEXT, SharedWorkerContext)
 #else
 #define SHARED_WORKER_ACTIVE_OBJECT_WRAPPER_TYPES(V)
 #define SHARED_WORKER_NONNODE_WRAPPER_TYPES(V)
@@ -363,7 +365,7 @@ typedef v8::Persistent<v8::FunctionTemplate> (*FunctionTemplateFactory)();
     V(CANVASPIXELARRAY, CanvasPixelArray)                               \
     V(KEYBOARDEVENT, KeyboardEvent)                                     \
     V(LOCATION, Location)                                               \
-    V(MEDIA, Media)                                               \
+    V(MEDIA, Media)                                                     \
     V(MEDIALIST, MediaList)
 
 #define DOM_OBJECT_TYPES_2(V)                                           \
@@ -463,17 +465,6 @@ typedef v8::Persistent<v8::FunctionTemplate> (*FunctionTemplateFactory)();
 #define DOM_OBJECT_3D_CANVAS_TYPES(V)
 #endif
 
-#if PLATFORM(ANDROID)
-// TODO: Upstream these guards.
-#if ENABLE(TOUCH_EVENTS)
-#define DOM_OBJECT_TOUCH_EVENT_TYPES(V)                                 \
-    V(TOUCHLIST, TouchList)                                             \
-    V(TOUCHEVENT, TouchEvent)                                           \
-    V(TOUCH, Touch)
-#else
-#define DOM_OBJECT_TOUCH_EVENT_TYPES(V)
-#endif
-
 #if ENABLE(XPATH)
 #define DOM_OBJECT_XPATH_TYPES(V)                                       \
     V(XPATHEVALUATOR, XPathEvaluator)                                   \
@@ -492,6 +483,13 @@ typedef v8::Persistent<v8::FunctionTemplate> (*FunctionTemplateFactory)();
 #define DOM_OBJECT_XSLT_TYPES(V)
 #endif
 
+#if ENABLE(INSPECTOR)
+#define DOM_OBJECT_INSPECTOR_TYPES(V)                                   \
+    V(INSPECTORBACKEND, InspectorBackend)
+#else
+#define DOM_OBJECT_INSPECTOR_TYPES(V)
+#endif
+
 #if ENABLE(GEOLOCATION)
 #define DOM_OBJECT_GEOLOCATION_TYPES(V)                                 \
     V(COORDINATES, Coordinates)                                         \
@@ -502,11 +500,15 @@ typedef v8::Persistent<v8::FunctionTemplate> (*FunctionTemplateFactory)();
 #define DOM_OBJECT_GEOLOCATION_TYPES(V)
 #endif
 
-#if ENABLE(INSPECTOR)
-#define DOM_OBJECT_INSPECTOR_TYPES(V)                                   \
-    V(INSPECTORBACKEND, InspectorBackend)
+#if PLATFORM(ANDROID)
+// TODO: Upstream this guard.
+#if ENABLE(TOUCH_EVENTS)
+#define DOM_OBJECT_TOUCH_EVENT_TYPES(V)                                 \
+    V(TOUCHLIST, TouchList)                                             \
+    V(TOUCHEVENT, TouchEvent)                                           \
+    V(TOUCH, Touch)
 #else
-#define DOM_OBJECT_INSPECTOR_TYPES(V)
+#define DOM_OBJECT_TOUCH_EVENT_TYPES(V)
 #endif
 #endif
 

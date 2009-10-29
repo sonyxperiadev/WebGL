@@ -410,8 +410,6 @@
 #include "V8CanvasUnsignedShortArray.h"
 #endif
 
-#if PLATFORM(ANDROID)
-// TODO: Upstream these guards to webkit.org
 #if ENABLE(DATABASE)
 #include "V8Database.h"
 #include "V8SQLError.h"
@@ -420,6 +418,24 @@
 #include "V8SQLTransaction.h"
 #endif
 
+#if ENABLE(XPATH)
+#include "V8XPathResult.h"
+#include "V8XPathException.h"
+#include "V8XPathExpression.h"
+#include "V8XPathNSResolver.h"
+#include "V8XPathEvaluator.h"
+#endif
+
+#if ENABLE(XSLT)
+#include "V8XSLTProcessor.h"
+#endif
+
+#if ENABLE(INSPECTOR)
+#include "V8InspectorBackend.h"
+#endif
+
+#if PLATFORM(ANDROID)
+// TODO: Upstream these guards to webkit.org
 #if ENABLE(GEOLOCATION)
 #include "V8Coordinates.h"
 #include "V8Geolocation.h"
@@ -431,22 +447,6 @@
 #include "V8Touch.h"
 #include "V8TouchList.h"
 #include "V8TouchEvent.h"
-#endif
-
-#if ENABLE(XPATH)
-#include "V8XPathResult.h"
-#include "V8XPathException.h"
-#include "V8XPathExpression.h"
-#include "V8XPathEvaluator.h"
-#include "V8XPathNSResolver.h"
-#endif
-
-#if ENABLE(XSLT)
-#include "V8XSLTProcessor.h"
-#endif
-
-#if ENABLE(INSPECTOR)
-#include "V8InspectorBackend.h"
 #endif
 
 #include "V8VoidCallback.h"

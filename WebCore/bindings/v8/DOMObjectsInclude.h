@@ -31,7 +31,6 @@
 #ifndef DOMObjectsInclude_h
 #define DOMObjectsInclude_h
 
-#include "AbstractWorker.h"
 #include "BarInfo.h"
 #include "BeforeLoadEvent.h"
 #include "CanvasArray.h"
@@ -76,7 +75,6 @@
 #include "CSSValueList.h"
 #include "CSSVariablesDeclaration.h"
 #include "CSSVariablesRule.h"
-#include "Database.h"
 #include "DocumentType.h"
 #include "DocumentFragment.h"
 #include "DOMCoreException.h"
@@ -137,18 +135,12 @@
 #include "ScriptExecutionContext.h"
 #include "SecurityOrigin.h"
 #include "Settings.h"
-#include "SharedWorker.h"
-#include "SharedWorkerContext.h"
-#include "SQLTransaction.h"
-#include "SQLResultSet.h"
-#include "SQLResultSetRowList.h"
 #include "StyleSheet.h"
 #include "StyleSheetList.h"
 #include "TextEvent.h"
 #include "TextMetrics.h"
 #include "TimeRanges.h"
 #include "TreeWalker.h"
-#include "XSLTProcessor.h"
 #include "V8AbstractEventListener.h"
 #include "V8CustomEventListener.h"
 #include "V8DOMWindow.h"
@@ -169,14 +161,17 @@
 #include "XMLHttpRequestProgressEvent.h"
 #include "XMLHttpRequestUpload.h"
 #include "XMLSerializer.h"
-#include "XPathException.h"
-#include "XPathExpression.h"
-#include "XPathNSResolver.h"
-#include "XPathResult.h"
 
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
 #include "DOMApplicationCache.h"
 #endif
+
+#if ENABLE(DATABASE)
+#include "Database.h"
+#include "SQLTransaction.h"
+#include "SQLResultSet.h"
+#include "SQLResultSetRowList.h"
+#endif // DATABASE
 
 #if ENABLE(DATAGRID)
 #include "DataGridColumn.h"
@@ -246,12 +241,18 @@
 #endif
 
 #if ENABLE(WORKERS)
+#include "AbstractWorker.h"
 #include "DedicatedWorkerContext.h"
 #include "Worker.h"
 #include "WorkerContext.h"
 #include "WorkerLocation.h"
 #include "WorkerNavigator.h"
 #endif // WORKERS
+
+#if ENABLE(SHARED_WORKERS)
+#include "SharedWorker.h"
+#include "SharedWorkerContext.h"
+#endif  // SHARED_WORKERS
 
 #if ENABLE(NOTIFICATIONS)
 #include "Notification.h"
@@ -260,14 +261,19 @@
 
 #if ENABLE(XPATH)
 #include "XPathEvaluator.h"
+#include "XPathException.h"
+#include "XPathExpression.h"
+#include "XPathNSResolver.h"
+#include "XPathResult.h"
 #endif // XPATH
 
-#if PLATFORM(ANDROID)
-// TODO: Upstream INSPECTOR guard.
+#if ENABLE(XSLT)
+#include "XSLTProcessor.h"
+#endif // XSLT
+
 #if ENABLE(INSPECTOR)
 #include "InspectorBackend.h"
 #endif // INSPECTOR
-#endif
 
 namespace WebCore {
 
