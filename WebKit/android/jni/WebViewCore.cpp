@@ -190,6 +190,7 @@ struct WebViewCore::JavaGlue {
     jmethodID   m_createSurface;
     jmethodID   m_updateSurface;
     jmethodID   m_destroySurface;
+    jmethodID   m_sendFindAgain;
     AutoJObject object(JNIEnv* env) {
         return getRealObject(env, m_obj);
     }
@@ -267,6 +268,7 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     m_javaGlue->m_createSurface = GetJMethod(env, clazz, "createSurface", "(Ljava/lang/String;Ljava/lang/String;IIIII)Landroid/webkit/ViewManager$ChildView;");
     m_javaGlue->m_updateSurface = GetJMethod(env, clazz, "updateSurface", "(Landroid/webkit/ViewManager$ChildView;IIII)V");
     m_javaGlue->m_destroySurface = GetJMethod(env, clazz, "destroySurface", "(Landroid/webkit/ViewManager$ChildView;)V");
+    m_javaGlue->m_sendFindAgain = GetJMethod(env, clazz, "sendFindAgain", "()V");
 
     env->SetIntField(javaWebViewCore, gWebViewCoreFields.m_nativeClass, (jint)this);
 
@@ -578,6 +580,16 @@ void WebViewCore::recordPictureSet(PictureSet* content)
     m_domtree_version = latestVersion;
     DBG_NAV_LOG("call updateFrameCache");
     updateFrameCache();
+    if (m_findIsUp) {
+        JNIEnv* env = JSC::Bindings::getJNIEnv();
+        AutoJObject obj = m_javaGlue->object(env);
+        // if it is called during DESTROY is handled, the real object of WebViewCore
+        // can be gone. Check before using it.
+        if (!obj.get())
+            return;
+        env->CallVoidMethod(obj.get(), m_javaGlue->m_sendFindAgain);
+        checkException(env);
+    }
 }
 
 void WebViewCore::updateButtonList(WTF::Vector<Container>* buttons)
