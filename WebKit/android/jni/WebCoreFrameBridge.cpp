@@ -1202,7 +1202,12 @@ static void AddJavascriptInterface(JNIEnv *env, jobject obj, jint nativeFramePoi
         // the ref count when the object is not reachable from JavaScript
         // side. Code here must release the reference count increased by
         // JavaInstanceToNPObject.
-        _NPN_ReleaseObject(obj);
+
+        // Note that while this function is declared in WebCore/bridge/npruntime.h, for V8 builds
+        // we use WebCore/bindings/v8/npruntime.cpp (rather than
+        // WebCore/bridge/npruntime.cpp), so the function is implemented there.
+        // TODO: Combine the two versions of these NPAPI files.
+        NPN_ReleaseObject(obj);
         JSC::Bindings::releaseCharactersForJString(interfaceName, name);
     }
 #endif

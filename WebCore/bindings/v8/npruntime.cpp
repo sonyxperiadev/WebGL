@@ -312,6 +312,15 @@ void _NPN_DeallocateObject(NPObject* npObject)
     }
 }
 
+#if PLATFORM(ANDROID)
+// Android uses NPN_ReleaseObject (the 'public' version of _NPN_ReleaseObject)
+// in WebCoreFrameBridge.cpp. See http://trac.webkit.org/changeset/47021.
+// TODO: Upstream this to webkit.org.
+void NPN_ReleaseObject(NPObject *obj)
+{
+    _NPN_ReleaseObject(obj);
+}
+#endif
 void _NPN_ReleaseObject(NPObject* npObject)
 {
     ASSERT(npObject);

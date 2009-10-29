@@ -1,3 +1,0 @@
-Copy from WebCore/bridge.
-
-We only need npapi.h and npruntime.h. Chrome's version is also tied to Chromme codebase.
