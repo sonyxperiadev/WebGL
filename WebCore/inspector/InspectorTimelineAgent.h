@@ -115,12 +115,17 @@ namespace WebCore {
         Vector< TimelineRecordEntry > m_recordStack;
     };
 
+#if PLATFORM(ANDROID)
+// TODO: Upstream this guard to webkit.org
+#if ENABLE(INSPECTOR)
 inline InspectorTimelineAgent* InspectorTimelineAgent::retrieve(ScriptExecutionContext* context)
 {
     if (context->isDocument())
         return static_cast<Document*>(context)->inspectorTimelineAgent();
     return 0;
 }
+#endif
+#endif
 
 } // namespace WebCore
 
