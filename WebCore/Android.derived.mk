@@ -321,6 +321,7 @@ GEN := \
     $(intermediates)/html/JSDataGridColumnList.h \
     $(intermediates)/html/JSFile.h \
     $(intermediates)/html/JSFileList.h \
+    $(intermediates)/html/JSHTMLAllCollection.h \
     $(intermediates)/html/JSHTMLAnchorElement.h \
     $(intermediates)/html/JSHTMLAppletElement.h \
     $(intermediates)/html/JSHTMLAreaElement.h \
@@ -408,6 +409,7 @@ LOCAL_GENERATED_SOURCES += $(GEN) $(GEN:%.h=%.cpp)
 $(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/html/%.cpp : $(intermediates)/html/%.h
 
 GEN := \
+    $(intermediates)/html/canvas/JSCanvasActiveInfo.h \
     $(intermediates)/html/canvas/JSCanvasArray.h \
     $(intermediates)/html/canvas/JSCanvasArrayBuffer.h \
     $(intermediates)/html/canvas/JSCanvasBuffer.h \

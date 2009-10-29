@@ -308,6 +308,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	html/CollectionCache.cpp \
 	html/File.cpp \
 	html/FormDataList.cpp \
+	html/HTMLAllCollection.cpp \
 	html/HTMLCollection.cpp \
 	html/HTMLDataListElement.cpp \
 	html/HTMLDocument.cpp \
@@ -368,6 +369,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	loader/WorkerThreadableLoader.cpp \
 	loader/FormState.cpp \
 	loader/FrameLoader.cpp \
+	loader/HistoryController.cpp \
 	loader/ImageDocument.cpp \
 	loader/ImageLoader.cpp \
 	loader/MainResourceLoader.cpp \
@@ -381,6 +383,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	loader/ProgressTracker.cpp \
 	loader/RedirectScheduler.cpp \
 	loader/Request.cpp \
+	loader/ResourceLoadNotifier.cpp \
 	loader/ResourceLoader.cpp \
 	loader/SubresourceLoader.cpp \
 	loader/TextDocument.cpp \
@@ -962,7 +965,6 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	svg/graphics/filters/SVGFEDiffuseLighting.cpp \
 	svg/graphics/filters/SVGFEDisplacementMap.cpp \
 	svg/graphics/filters/SVGFEFlood.cpp \
-	svg/graphics/filters/SVGFEGaussianBlur.cpp \
 	svg/graphics/filters/SVGFEImage.cpp \
 	svg/graphics/filters/SVGFEMerge.cpp \
 	svg/graphics/filters/SVGFEMorphology.cpp \

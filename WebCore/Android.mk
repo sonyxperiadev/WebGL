@@ -179,8 +179,9 @@ LOCAL_SRC_FILES := \
 	bindings/js/JSEventCustom.cpp \
 	bindings/js/JSEventListener.cpp \
 	bindings/js/JSEventTarget.cpp \
+	bindings/js/JSExceptionBase.cpp \
 	bindings/js/JSGeolocationCustom.cpp \
-	bindings/js/JSHTMLAllCollection.cpp \
+	bindings/js/JSHTMLAllCollectionCustom.cpp \
 	bindings/js/JSHTMLAppletElementCustom.cpp \
 	bindings/js/JSHTMLCanvasElementCustom.cpp \
 	bindings/js/JSHTMLCollectionCustom.cpp \
@@ -259,6 +260,8 @@ LOCAL_SRC_FILES := \
 	bindings/js/ScriptValue.cpp \
 	bindings/js/SerializedScriptValue.cpp \
 	bindings/js/WorkerScriptController.cpp \
+	\
+	bindings/ScriptControllerBase.cpp \
 	\
 	bridge/IdentifierRep.cpp \
 	bridge/NP_jsobject.cpp \
@@ -495,6 +498,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	html/File.cpp \
 	html/FileList.cpp \
 	html/FormDataList.cpp \
+	html/HTMLAllCollection.cpp \
 	html/HTMLCollection.cpp \
 	html/HTMLDataListElement.cpp \
 	html/HTMLDocument.cpp \
@@ -557,6 +561,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	loader/FTPDirectoryParser.cpp \
 	loader/FormState.cpp \
 	loader/FrameLoader.cpp \
+	loader/HistoryController.cpp \
 	loader/ImageDocument.cpp \
 	loader/ImageLoader.cpp \
 	loader/MainResourceLoader.cpp \
@@ -570,6 +575,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	loader/ProgressTracker.cpp \
 	loader/RedirectScheduler.cpp \
 	loader/Request.cpp \
+	loader/ResourceLoadNotifier.cpp \
 	loader/ResourceLoader.cpp \
 	loader/SubresourceLoader.cpp \
 	loader/TextDocument.cpp \
@@ -1154,7 +1160,6 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	svg/graphics/filters/SVGFEDiffuseLighting.cpp \
 	svg/graphics/filters/SVGFEDisplacementMap.cpp \
 	svg/graphics/filters/SVGFEFlood.cpp \
-	svg/graphics/filters/SVGFEGaussianBlur.cpp \
 	svg/graphics/filters/SVGFEImage.cpp \
 	svg/graphics/filters/SVGFEMerge.cpp \
 	svg/graphics/filters/SVGFEMorphology.cpp \
