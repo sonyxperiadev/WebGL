@@ -113,6 +113,7 @@ LOCAL_C_INCLUDES := \
 	external/skia/include/utils \
 	external/skia/src/ports \
 	external/sqlite/dist \
+	external/v8/include \
 	frameworks/base/core/jni/android/graphics \
 	$(LOCAL_PATH) \
 	$(LOCAL_PATH)/WebCore \
@@ -244,10 +245,3 @@ include $(BASE_PATH)/WebKit/android/wds/client/Android.mk
 
 # Build the webkit merge tool.
 include $(BASE_PATH)/WebKitTools/android/webkitmerge/Android.mk
-
-# Build libv8 and v8shell
-ifeq ($(ENABLE_V8_SNAPSHOT),true)
-  include $(BASE_PATH)/V8Binding/Android.mksnapshot.mk
-endif
-include $(BASE_PATH)/V8Binding/Android.libv8.mk
-include $(BASE_PATH)/V8Binding/Android.v8shell.mk
