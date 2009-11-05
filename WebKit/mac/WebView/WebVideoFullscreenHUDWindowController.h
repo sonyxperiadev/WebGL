@@ -38,6 +38,7 @@
     NSTrackingArea *_area;
 #endif
     BOOL _mouseIsInHUD;
+    BOOL _isEndingFullscreen;
 
     NSControl *_timeline;
     NSTextField *_remainingTimeText;
@@ -50,6 +51,7 @@
 - (void)fadeWindowIn;
 - (void)fadeWindowOut;
 - (void)closeWindow;
+- (void)updateRate;
 
 @end
 

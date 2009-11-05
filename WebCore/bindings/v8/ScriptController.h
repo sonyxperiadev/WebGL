@@ -42,6 +42,7 @@
 #include <wtf/Vector.h>
 
 namespace WebCore {
+    class DOMWrapperWorld;
     class Event;
     class Frame;
     class HTMLPlugInElement;
@@ -59,6 +60,15 @@ namespace WebCore {
         // or this accessor should be made JSProxy*
         V8Proxy* proxy() { return m_proxy.get(); }
 
+<<<<<<< HEAD:WebCore/bindings/v8/ScriptController.h
+=======
+        ScriptValue executeScript(const ScriptSourceCode&);
+        ScriptValue executeScript(const String& script, bool forceUserGesture = false);
+
+        // Returns true if argument is a JavaScript URL.
+        bool executeIfJavaScriptURL(const KURL&, bool userGesture = false, bool replaceDocument = true);
+
+>>>>>>> webkit.org at r50258.:WebCore/bindings/v8/ScriptController.h
         // This function must be called from the main thread. It is safe to call it repeatedly.
         static void initializeThreading();
 
@@ -87,14 +97,11 @@ namespace WebCore {
         // all DOM nodes and DOM constructors.
         void evaluateInNewContext(const Vector<ScriptSourceCode>&, int extensionGroup);
 
-        // JSC has a WindowShell object, but for V8, the ScriptController
-        // is the WindowShell.
-        bool haveWindowShell() const { return true; }
-
         // Masquerade 'this' as the windowShell.
         // This is a bit of a hack, but provides reasonable compatibility
         // with what JSC does as well.
-        ScriptController* windowShell() { return this; }
+        ScriptController* windowShell(DOMWrapperWorld*) { return this; }
+        ScriptController* existingWindowShell(DOMWrapperWorld*) { return this; }
 
         XSSAuditor* xssAuditor() { return m_XSSAuditor.get(); }
 
@@ -165,6 +172,8 @@ namespace WebCore {
         Frame* m_frame;
         const String* m_sourceURL;
 
+        bool m_inExecuteScript;
+
         bool m_processingTimerCallback;
         bool m_paused;
 
@@ -182,6 +191,8 @@ namespace WebCore {
         // The XSSAuditor associated with this ScriptController.
         OwnPtr<XSSAuditor> m_XSSAuditor;
     };
+
+    DOMWrapperWorld* mainThreadNormalWorld();
 
 } // namespace WebCore
 

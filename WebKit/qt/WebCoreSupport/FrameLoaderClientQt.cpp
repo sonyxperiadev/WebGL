@@ -214,12 +214,12 @@ void FrameLoaderClientQt::transitionToCommittedForNewPage()
     QColor backgroundColor = brush.style() == Qt::SolidPattern ? brush.color() : QColor();
 
     QWebPage* page = m_webFrame->page();
-    const QSize fixedLayoutSize = page->fixedContentsSize();
+    const QSize preferredLayoutSize = page->preferredContentsSize();
 
     m_frame->createView(m_webFrame->page()->viewportSize(),
                         backgroundColor, !backgroundColor.alpha(),
-                        fixedLayoutSize.isValid() ? IntSize(fixedLayoutSize) : IntSize(),
-                        fixedLayoutSize.isValid(),
+                        preferredLayoutSize.isValid() ? IntSize(preferredLayoutSize) : IntSize(),
+                        preferredLayoutSize.isValid(),
                         (ScrollbarMode)m_webFrame->scrollBarPolicy(Qt::Horizontal),
                         (ScrollbarMode)m_webFrame->scrollBarPolicy(Qt::Vertical));
 }
@@ -378,7 +378,8 @@ void FrameLoaderClientQt::dispatchDidFinishLoad()
     if (dumpFrameLoaderCallbacks)
         printf("%s - didFinishLoadForFrame\n", qPrintable(drtDescriptionSuitableForTestResult(m_frame)));
 
-    m_loadError = ResourceError(); // clears the previous error
+    // Clears the previous error.
+    m_loadError = ResourceError();
 
     if (!m_webFrame)
         return;
@@ -432,6 +433,8 @@ void FrameLoaderClientQt::revertToProvisionalState(DocumentLoader*)
 void FrameLoaderClientQt::postProgressStartedNotification()
 {
     if (m_webFrame && m_frame->page()) {
+        // A new load starts, so lets clear the previous error.
+        m_loadError = ResourceError();
         emit loadStarted();
         postProgressEstimateChangedNotification();
     }
@@ -1230,9 +1233,12 @@ PassRefPtr<Widget> FrameLoaderClientQt::createPlugin(const IntSize& pluginSize, 
         if (object) {
             QWidget* widget = qobject_cast<QWidget*>(object);
             if (widget) {
-                QWidget* parentWidget = qobject_cast<QWidget*>(m_webFrame->page()->d->client->pluginParent());
-                if (parentWidget)
-                    widget->setParent(parentWidget);
+                QWidget* parentWidget;
+                if (m_webFrame->page()->d->client)
+                    parentWidget = qobject_cast<QWidget*>(m_webFrame->page()->d->client->pluginParent());
+                else
+                    parentWidget = 0;  // The plug-in won't be fully functional because the QWebView doesn't exist.
+                widget->setParent(parentWidget);
                 RefPtr<QtPluginWidget> w = adoptRef(new QtPluginWidget());
                 w->setPlatformWidget(widget);
                 // Make sure it's invisible until properly placed into the layout
@@ -1242,8 +1248,13 @@ PassRefPtr<Widget> FrameLoaderClientQt::createPlugin(const IntSize& pluginSize, 
 #if QT_VERSION >= 0x040600
             QGraphicsWidget* graphicsWidget = qobject_cast<QGraphicsWidget*>(object);
             if (graphicsWidget) {
+                QGraphicsObject* parentWidget;
+                if (m_webFrame->page()->d->client)
+                    parentWidget = qobject_cast<QGraphicsObject*>(m_webFrame->page()->d->client->pluginParent());
+                else
+                    parentWidget = 0;  // The plug-in won't be fully functional because the QWebView doesn't exist.
                 graphicsWidget->hide();
-                graphicsWidget->setParentItem(qobject_cast<QGraphicsObject*>(m_webFrame->page()->d->client->pluginParent()));
+                graphicsWidget->setParentItem(parentWidget);
                 RefPtr<QtPluginGraphicsWidget> w = QtPluginGraphicsWidget::create(graphicsWidget);
                 // Make sure it's invisible until properly placed into the layout
                 w->setFrameRect(IntRect(0, 0, 0, 0));

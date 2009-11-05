@@ -43,6 +43,7 @@
 
 #import <WebCore/WebCoreObjCExtras.h>
 #import <WebCore/AuthenticationMac.h>
+#import <WebCore/BitmapImage.h>
 #import <WebCore/Credential.h>
 #import <WebCore/CredentialStorage.h>
 #import <WebCore/CString.h>
@@ -55,6 +56,7 @@
 #import <WebCore/Page.h>
 #import <WebCore/ProtectionSpace.h>
 #import <WebCore/RenderView.h>
+#import <WebCore/RenderWidget.h>
 #import <WebKit/DOMPrivate.h>
 #import <runtime/InitializeThreading.h>
 #import <wtf/Assertions.h>
@@ -72,12 +74,27 @@ public:
     }
     
 private:
-    virtual void halt() { [m_view stop]; }
-    virtual void restart() { [m_view start]; }
-    virtual Node* node() const { return [m_view element]; }
+    virtual void halt();
+    virtual void restart();
+    virtual Node* node() const;
 
     WebBaseNetscapePluginView* m_view;
 };
+
+void WebHaltablePlugin::halt()
+{
+    [m_view halt];
+}
+
+void WebHaltablePlugin::restart()
+{ 
+    [m_view resumeFromHalt];
+}
+    
+Node* WebHaltablePlugin::node() const
+{
+    return [m_view element];
+}
 
 @implementation WebBaseNetscapePluginView
 
@@ -241,6 +258,10 @@ private:
 - (void)sendModifierEventWithKeyCode:(int)keyCode character:(char)character
 {
     ASSERT_NOT_REACHED();
+}
+
+- (void)privateBrowsingModeDidChange
+{
 }
 
 - (void)removeTrackingRect
@@ -455,6 +476,51 @@ private:
     [self destroyPlugin];
 }
 
+- (void)halt
+{
+    ASSERT(!_isHalted);
+    ASSERT(_isStarted);
+    Element *element = [self element];
+#if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
+    CGImageRef cgImage = CGImageRetain([core([self webFrame])->nodeImage(element) CGImageForProposedRect:nil context:nil hints:nil]);
+#else
+    RetainPtr<CGImageSourceRef> imageRef(AdoptCF, CGImageSourceCreateWithData((CFDataRef)[core([self webFrame])->nodeImage(element) TIFFRepresentation], 0));
+    CGImageRef cgImage = CGImageSourceCreateImageAtIndex(imageRef.get(), 0, 0);
+#endif
+    ASSERT(cgImage);
+    
+    // BitmapImage will release the passed in CGImage on destruction.
+    RefPtr<Image> nodeImage = BitmapImage::create(cgImage);
+    ASSERT(element->renderer());
+    toRenderWidget(element->renderer())->showSubstituteImage(nodeImage);
+    [self stop];
+    _isHalted = YES;  
+    _hasBeenHalted = YES;
+}
+
+- (void)resumeFromHalt
+{
+    ASSERT(_isHalted);
+    ASSERT(!_isStarted);
+    [self start];
+    
+    if (_isStarted)
+        _isHalted = NO;
+    
+    ASSERT([self element]->renderer());
+    toRenderWidget([self element]->renderer())->showSubstituteImage(0);
+}
+
+- (BOOL)isHalted
+{
+    return _isHalted;
+}
+
+- (BOOL)hasBeenHalted
+{
+    return _hasBeenHalted;
+}
+
 - (void)viewWillMoveToWindow:(NSWindow *)newWindow
 {
     // We must remove the tracking rect before we move to the new window.
@@ -506,6 +572,8 @@ private:
                                                      name:WebPreferencesChangedNotification
                                                    object:nil];
 
+        _isPrivateBrowsingEnabled = [[[self webView] preferences] privateBrowsingEnabled];
+        
         // View moved to an actual window. Start it if not already started.
         [self start];
 
@@ -586,9 +654,12 @@ private:
 - (void)preferencesHaveChanged:(NSNotification *)notification
 {
     WebPreferences *preferences = [[self webView] preferences];
-    BOOL arePlugInsEnabled = [preferences arePlugInsEnabled];
+
+    if ([notification object] != preferences)
+        return;
     
-    if ([notification object] == preferences && _isStarted != arePlugInsEnabled) {
+    BOOL arePlugInsEnabled = [preferences arePlugInsEnabled];
+    if (_isStarted != arePlugInsEnabled) {
         if (arePlugInsEnabled) {
             if ([self currentWindow]) {
                 [self start];
@@ -597,6 +668,12 @@ private:
             [self stop];
             [self invalidatePluginContentRect:[self bounds]];
         }
+    }
+    
+    BOOL isPrivateBrowsingEnabled = [preferences privateBrowsingEnabled];
+    if (isPrivateBrowsingEnabled != _isPrivateBrowsingEnabled) {
+        _isPrivateBrowsingEnabled = isPrivateBrowsingEnabled;
+        [self privateBrowsingModeDidChange];
     }
 }
 
@@ -640,13 +717,12 @@ private:
 
 - (WebDataSource *)dataSource
 {
-    WebFrame *webFrame = kit(_element->document()->frame());
-    return [webFrame _dataSource];
+    return [[self webFrame] _dataSource];
 }
 
 - (WebFrame *)webFrame
 {
-    return [[self dataSource] webFrame];
+    return kit(_element->document()->frame());
 }
 
 - (WebView *)webView

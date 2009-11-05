@@ -106,13 +106,17 @@ NPClass *getPluginClass(void)
 
 static bool identifiersInitialized = false;
 
-#define ID_PROPERTY_PROPERTY                    0
-#define ID_PROPERTY_EVENT_LOGGING               1
-#define ID_PROPERTY_HAS_STREAM                  2
-#define ID_PROPERTY_TEST_OBJECT                 3
-#define ID_PROPERTY_LOG_DESTROY                 4
-#define ID_PROPERTY_RETURN_ERROR_FROM_NEWSTREAM 5
-#define NUM_PROPERTY_IDENTIFIERS                6
+enum {
+    ID_PROPERTY_PROPERTY = 0,
+    ID_PROPERTY_EVENT_LOGGING,
+    ID_PROPERTY_HAS_STREAM,
+    ID_PROPERTY_TEST_OBJECT,
+    ID_PROPERTY_LOG_DESTROY,
+    ID_PROPERTY_RETURN_ERROR_FROM_NEWSTREAM,
+    ID_PROPERTY_PRIVATE_BROWSING_ENABLED,
+    ID_PROPERTY_CACHED_PRIVATE_BROWSING_ENABLED,
+    NUM_PROPERTY_IDENTIFIERS
+};
 
 static NPIdentifier pluginPropertyIdentifiers[NUM_PROPERTY_IDENTIFIERS];
 static const NPUTF8 *pluginPropertyIdentifierNames[NUM_PROPERTY_IDENTIFIERS] = {
@@ -122,6 +126,8 @@ static const NPUTF8 *pluginPropertyIdentifierNames[NUM_PROPERTY_IDENTIFIERS] = {
     "testObject",
     "logDestroy",
     "returnErrorFromNewStream",
+    "privateBrowsingEnabled",
+    "cachedPrivateBrowsingEnabled",
 };
 
 enum {
@@ -144,6 +150,7 @@ enum {
     ID_TEST_POSTURL_FILE,
     ID_TEST_CONSTRUCT,
     ID_TEST_THROW_EXCEPTION_METHOD,
+    ID_TEST_FAIL_METHOD,
     ID_DESTROY_NULL_STREAM,
     NUM_METHOD_IDENTIFIERS
 };
@@ -169,6 +176,7 @@ static const NPUTF8 *pluginMethodIdentifierNames[NUM_METHOD_IDENTIFIERS] = {
     "testPostURLFile",
     "testConstruct",
     "testThrowException",
+    "testFail",
     "destroyNullStream"
 };
 
@@ -225,6 +233,14 @@ static bool pluginGetProperty(NPObject* obj, NPIdentifier name, NPVariant* resul
         return true;
     } else if (name == pluginPropertyIdentifiers[ID_PROPERTY_RETURN_ERROR_FROM_NEWSTREAM]) {
         BOOLEAN_TO_NPVARIANT(plugin->returnErrorFromNewStream, *result);
+        return true;
+    } else if (name == pluginPropertyIdentifiers[ID_PROPERTY_PRIVATE_BROWSING_ENABLED]) {
+        NPBool privateBrowsingEnabled = FALSE;
+        browser->getvalue(plugin->npp, NPNVprivateModeBool, &privateBrowsingEnabled);
+        BOOLEAN_TO_NPVARIANT(privateBrowsingEnabled, *result);
+        return true;
+    } else if (name == pluginPropertyIdentifiers[ID_PROPERTY_CACHED_PRIVATE_BROWSING_ENABLED]) {
+        BOOLEAN_TO_NPVARIANT(plugin->cachedPrivateBrowsingMode, *result);
         return true;
     }
     return false;
@@ -309,13 +325,13 @@ static NPIdentifier variantToIdentifier(NPVariant variant)
 static bool testIdentifierToString(PluginObject*, const NPVariant* args, uint32_t argCount, NPVariant* result)
 {
     if (argCount != 1)
-        return false;
+        return true;
     NPIdentifier identifier = variantToIdentifier(args[0]);
     if (!identifier)
-        return false;
+        return true;
     NPUTF8* utf8String = browser->utf8fromidentifier(identifier);
     if (!utf8String)
-        return false;
+        return true;
     STRINGZ_TO_NPVARIANT(utf8String, *result);
     return true;
 }
@@ -669,6 +685,10 @@ static bool pluginInvoke(NPObject* header, NPIdentifier name, const NPVariant* a
     else if (name == pluginMethodIdentifiers[ID_TEST_THROW_EXCEPTION_METHOD]) {
         browser->setexception(header, "plugin object testThrowException SUCCESS");
         return true;
+    } else if (name == pluginMethodIdentifiers[ID_TEST_FAIL_METHOD]) {
+        NPObject* windowScriptObject;
+        browser->getvalue(plugin->npp, NPNVWindowNPObject, &windowScriptObject);
+        browser->invoke(plugin->npp, windowScriptObject, name, args, argCount, result);
     } else if (name == pluginMethodIdentifiers[ID_DESTROY_NULL_STREAM]) 
         return destroyNullStream(plugin, args, argCount, result);
     

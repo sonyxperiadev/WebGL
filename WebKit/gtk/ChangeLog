@@ -1,3 +1,244 @@
+2009-10-28  Gustavo Noronha Silva  <gustavo.noronha@collabora.co.uk>
+
+        Reviewed by Jan Alonzo.
+
+        [GTK] API to start inspector for a WebView
+        https://bugs.webkit.org/show_bug.cgi?id=22551
+
+        Provide a simple, coordinates-based API to start the inspector.
+
+        * WebCoreSupport/InspectorClientGtk.cpp:
+        (WebKit::InspectorClient::createPage): Use files from the source
+        tree when running from the top of the source directory.
+        (WebKit::InspectorClient::localizedStringsURL): Ditto.
+        * webkit/webkitprivate.h:
+        * webkit/webkitwebinspector.cpp:
+        (webkit_web_inspector_inspect_coordinates):
+        (webkit_web_inspector_close):
+        (webkit_web_inspector_execute_script):
+        * webkit/webkitwebinspector.h:
+
+2009-10-27  Shinichiro Hamaji  <hamaji@chromium.org>
+
+        Reviewed by Darin Adler.
+
+        Provide a way to get counter values with layoutTestContoller
+        https://bugs.webkit.org/show_bug.cgi?id=30555
+
+        * webkit/webkitprivate.h:
+        * webkit/webkitwebframe.cpp:
+        (webkit_web_frame_counter_value_for_element_by_id):
+
+2009-10-28  Joe Mason  <jmason@rim.com>
+
+        Reviewed by Adam Treat.
+
+        Call the shared FrameLoader::defaultObjectContentType instead of
+        copying code into FrameLoaderClient::objectContentType.  This causes no
+        behavioural change.
+
+        * WebCoreSupport/FrameLoaderClientGtk.cpp:
+        (WebKit::FrameLoaderClient::objectContentType):
+
+2009-10-28  Xan Lopez  <xlopez@igalia.com>
+
+        Reviewed by Jan Alonzo.
+
+        [Gtk] Extraneous object of ROLE_PANEL in hierarchy for entries
+        https://bugs.webkit.org/show_bug.cgi?id=25897
+
+        Update test to also check that entries implement the AtkText
+        interface.
+
+        * tests/testatk.c:
+        (run_get_text_tests):
+        (test_webkit_atk_get_text_at_offset_forms):
+        (test_webkit_atk_get_text_at_offset):
+        (main):
+
+2009-10-26  Gustavo Noronha Silva  <gustavo.noronha@collabora.co.uk>
+
+        Unreviewed. Update documentation control files for 1.1.16.
+
+        * docs/webkitgtk-docs.sgml:
+        * docs/webkitgtk-sections.txt:
+
+2009-10-26  Gustavo Noronha Silva  <gustavo.noronha@collabora.co.uk>
+
+        Reviewed by Xan Lopez.
+
+        https://bugs.webkit.org/show_bug.cgi?id=30759
+        [GTK] Should use WebKitNetworkResponse, and expose it
+
+        WebKitDownload now uses our WebKitNetworkResponse instead of using
+        ResourceResponse directly. By exposing the response, like we do
+        with the request, we give our users the ability to look at the
+        response headers, status code, and so on, through the SoupMessage
+        object.
+
+        * webkit/webkitdownload.cpp:
+        (webkit_download_dispose):
+        (webkit_download_finalize):
+        (webkit_download_get_property):
+        (webkit_download_set_property):
+        (webkit_download_class_init):
+        (webkit_download_get_network_response):
+        (webkit_download_set_response):
+        (webkit_download_get_total_size):
+        (webkit_download_get_progress):
+        (webkit_download_received_data):
+        * webkit/webkitdownload.h:
+
+2009-10-26  Xan Lopez  <xlopez@igalia.com>
+
+        Reviewed by Gustavo Noronha.
+
+        Update for 1.1.16 release.
+
+        * NEWS:
+
+2009-10-22  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by NOBODY (build fix).
+        Build fix following bug #30696.
+
+        * WebCoreSupport/FrameLoaderClientGtk.cpp:
+        (WebKit::FrameLoaderClient::windowObjectCleared):
+        * webkit/webkitwebframe.cpp:
+        (webkit_web_frame_get_global_context):
+
+2009-10-22  Alejandro G. Castro  <alex@igalia.com>
+
+        Reviewed by Xan Lopez.
+
+        m_webView should be private attribute of the EditorClientGtk.
+        https://bugs.webkit.org/show_bug.cgi?id=30664
+
+        * WebKit/gtk/WebCoreSupport/EditorClientGtk.h:
+
+2009-10-20  Fumitoshi Ukai  <ukai@chromium.org>
+
+        Reviewed by David Levin.
+
+        Removed WebSocket runtime settings.
+        https://bugs.webkit.org/show_bug.cgi?id=29896
+
+        WebSocket runtime configuration is supported by chromium/v8 only.
+
+        * webkit/webkitwebview.cpp:
+        (webkit_web_view_update_settings):
+        (webkit_web_view_settings_notify):
+
+2009-10-19  Jan Michael Alonzo  <jmalonzo@webkit.org>
+
+        Reviewed by Alexey Proskuryakov.
+
+        [Gtk] ApplicationCacheStorage error while compiling WebKit/gtk/webkit/webkitapplicationcache.cpp
+        https://bugs.webkit.org/show_bug.cgi?id=30358
+
+        Guard calls to cacheStorage() with ENABLE(OFFLINE_WEB_APPLICATIONS).
+
+        * webkit/webkitapplicationcache.cpp:
+
+2009-10-19  Zan Dobersek  <zandobersek@gmail.com>
+
+        Reviewed by Gustavo Noronha.
+
+        Add a settings to allow DOM pastes to be performed.
+
+        * webkit/webkitwebsettings.cpp:
+        (webkit_web_settings_class_init):
+        (webkit_web_settings_set_property):
+        (webkit_web_settings_get_property):
+        (webkit_web_settings_copy):
+        * webkit/webkitwebview.cpp:
+        (webkit_web_view_update_settings):
+        (webkit_web_view_settings_notify):
+
+2009-10-19  Gustavo Noronha Silva  <gustavo.noronha@collabora.co.uk>
+
+        Unreviewed. Make WebKitHitTestResult actually appear in the
+        documentation index.
+
+        * docs/webkitgtk-docs.sgml:
+
+2009-10-15  Xan Lopez  <xlopez@igalia.com>
+
+        Reviewed by Gustavo Noronha.
+
+        Protect WebSocket calls in case the feature is not compiled in.
+
+        * webkit/webkitwebview.cpp:
+        (webkit_web_view_update_settings):
+        (webkit_web_view_settings_notify):
+
+2009-10-15  Zan Dobersek  <zandobersek@gmail.com>
+
+        Reviewed by Gustavo Noronha.
+
+        Add a settings to enable support for experimental Web Sockets.
+        Currently this comes in handy in layout tests.
+
+        * webkit/webkitwebsettings.cpp:
+        (webkit_web_settings_class_init):
+        (webkit_web_settings_set_property):
+        (webkit_web_settings_get_property):
+        (webkit_web_settings_copy):
+        * webkit/webkitwebview.cpp:
+        (webkit_web_view_update_settings):
+        (webkit_web_view_settings_notify):
+
+2009-10-15  Gustavo Noronha Silva  <gustavo.noronha@collabora.co.uk>
+
+        Reviewed by Xan Lopez.
+
+        page transition may crash webkit
+        https://bugs.webkit.org/show_bug.cgi?id=29890
+
+        There are actually cases in which a resource may be asked using
+        webkit_web_view_get_resource after a new load has already been
+        started, so protect ourselves from crashes in this case.
+
+        * WebCoreSupport/FrameLoaderClientGtk.cpp:
+        (WebKit::FrameLoaderClient::dispatchDidFinishLoading):
+        * webkit/webkitwebview.cpp:
+        (webkit_web_view_get_resource):
+
+2009-10-12  Gustavo Noronha Silva  <gustavo.noronha@collabora.co.uk>
+
+        Rubber-stamped by Xan Lopez.
+
+        Remove unnecessary self-include.
+
+        * webkit/webkitsecurityorigin.h:
+
+2009-10-12  Christian Dywan  <christian@twotoasts.de>
+
+        Reviewed by Gustavo Noronha.
+
+        [GTK] Crash when right-clicking misspelled word
+        https://bugs.webkit.org/show_bug.cgi?id=29772
+
+        Make sure the dictionary exist before adding it to the list of
+        dictionaries.
+
+        * WebCoreSupport/EditorClientGtk.cpp:
+        (WebKit::EditorClient::checkSpellingOfString):
+        * webkit/webkitwebsettings.cpp:
+        (webkit_web_settings_set_property):
+
+2009-10-08  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Eric Seidel.
+
+        Move executeScript from FrameLoader to ScriptController
+        https://bugs.webkit.org/show_bug.cgi?id=30200
+
+        Update API call.
+
+        * webkit/webkitwebview.cpp:
+        (webkit_web_view_execute_script):
+
 2009-10-07  Xan Lopez  <xlopez@igalia.com>
 
         Fix the GTK+ build.
@@ -2001,7 +2242,7 @@
 
         Refactor how SoupMessage is handled, so that our ResourceRequest
         object doesn't have to store it as a member, which complicates
-        managing ResourceRequest's lifetime.
+        managing ResourceRequest's lifetvime.
 
         * tests/testhttpbackend.c:
         (navigation_policy_decision_requested_cb):

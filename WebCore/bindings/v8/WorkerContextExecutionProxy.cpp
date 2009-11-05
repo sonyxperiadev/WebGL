@@ -43,6 +43,8 @@
 #include "EventException.h"
 #include "MessagePort.h"
 #include "RangeException.h"
+#include "SharedWorker.h"
+#include "SharedWorkerContext.h"
 #include "V8Binding.h"
 #include "V8DOMMap.h"
 #include "V8Index.h"
@@ -126,10 +128,18 @@ void WorkerContextExecutionProxy::initV8IfNeeded()
     v8::V8::IgnoreOutOfMemoryException();
     v8::V8::SetFatalErrorHandler(reportFatalErrorInV8);
 
+<<<<<<< HEAD:WebCore/bindings/v8/WorkerContextExecutionProxy.cpp
 #if PLATFORM(ANDROID)
     const int workerThreadPreemptionIntervalMs = 5;
     v8::Locker::StartPreemption(workerThreadPreemptionIntervalMs);
 #endif
+=======
+    v8::ResourceConstraints resource_constraints;
+    uint32_t here;
+    resource_constraints.set_stack_limit(&here - kWorkerMaxStackSize / sizeof(uint32_t*));
+    v8::SetResourceConstraints(&resource_constraints);
+
+>>>>>>> webkit.org at r50258.:WebCore/bindings/v8/WorkerContextExecutionProxy.cpp
     v8Initialized = true;
 }
 
@@ -405,7 +415,7 @@ v8::Local<v8::Value> WorkerContextExecutionProxy::runScript(v8::Handle<v8::Scrip
 
 PassRefPtr<V8EventListener> WorkerContextExecutionProxy::findOrCreateEventListener(v8::Local<v8::Value> object, bool isInline, bool findOnly)
 {
-    return findOnly ? V8EventListenerList::findWrapper(object, isInline) : V8EventListenerList::findOrCreateWrapper<V8WorkerContextEventListener>(this, m_listenerGuard, object, isInline);
+    return findOnly ? V8EventListenerList::findWrapper(object, isInline) : V8EventListenerList::findOrCreateWrapper<V8WorkerContextEventListener>(m_listenerGuard, object, isInline);
 }
 
 void WorkerContextExecutionProxy::trackEvent(Event* event)

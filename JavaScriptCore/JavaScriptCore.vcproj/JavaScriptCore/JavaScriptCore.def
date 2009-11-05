@@ -11,6 +11,7 @@ EXPORTS
     ??0JSFunction@JSC@@QAE@PAVExecState@1@V?$NonNullPassRefPtr@VStructure@JSC@@@WTF@@HABVIdentifier@1@P6I?AVJSValue@1@0PAVJSObject@1@V61@ABVArgList@1@@Z@Z
     ??0Mutex@WTF@@QAE@XZ
     ??0PrototypeFunction@JSC@@QAE@PAVExecState@1@HABVIdentifier@1@P6I?AVJSValue@1@0PAVJSObject@1@V41@ABVArgList@1@@Z@Z
+    ??0PrototypeFunction@JSC@@QAE@PAVExecState@1@V?$NonNullPassRefPtr@VStructure@JSC@@@WTF@@HABVIdentifier@1@P6I?AVJSValue@1@0PAVJSObject@1@V61@ABVArgList@1@@Z@Z
     ??0RefCountedLeakCounter@WTF@@QAE@PBD@Z
     ??0StringObject@JSC@@QAE@PAVExecState@1@V?$NonNullPassRefPtr@VStructure@JSC@@@WTF@@ABVUString@1@@Z
     ??0Structure@JSC@@AAE@VJSValue@1@ABVTypeInfo@1@@Z
@@ -77,6 +78,7 @@ EXPORTS
     ?createInheritorID@JSObject@JSC@@AAEPAVStructure@2@XZ
     ?createInterruptedExecutionException@JSC@@YA?AVJSValue@1@PAVJSGlobalData@1@@Z
     ?createLeaked@JSGlobalData@JSC@@SA?AV?$PassRefPtr@VJSGlobalData@JSC@@@WTF@@XZ
+    ?createSingleCharacterString@SmallStrings@JSC@@AAEXPAVJSGlobalData@2@E@Z
     ?createStackOverflowError@JSC@@YA?AVJSValue@1@PAVExecState@1@@Z
     ?createStructure@JSByteArray@JSC@@SA?AV?$PassRefPtr@VStructure@JSC@@@WTF@@VJSValue@2@@Z
     ?createTable@HashTable@JSC@@ABEXPAVJSGlobalData@2@@Z
@@ -94,6 +96,7 @@ EXPORTS
     ?defineSetter@JSGlobalObject@JSC@@UAEXPAVExecState@2@ABVIdentifier@2@PAVJSObject@2@I@Z
     ?defineSetter@JSObject@JSC@@UAEXPAVExecState@2@ABVIdentifier@2@PAV12@I@Z
     ?deleteOwnedPtr@WTF@@YAXPAUHBITMAP__@@@Z
+    ?deleteOwnedPtr@WTF@@YAXPAUHDC__@@@Z
     ?deleteOwnedPtr@WTF@@YAXPAUHRGN__@@@Z
     ?deleteProperty@JSCell@JSC@@UAE_NPAVExecState@2@ABVIdentifier@2@@Z
     ?deleteProperty@JSCell@JSC@@UAE_NPAVExecState@2@I@Z

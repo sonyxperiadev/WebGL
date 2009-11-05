@@ -117,7 +117,7 @@ sub determineBaseProductDir
             unlink($personalPlistFile) || die "Could not delete $personalPlistFile: $!";
         }
 
-        open PRODUCT, "defaults read com.apple.Xcode PBXApplicationwideBuildSettings 2> /dev/null |" or die;
+        open PRODUCT, "defaults read com.apple.Xcode PBXApplicationwideBuildSettings 2> " . File::Spec->devnull() . " |" or die;
         $baseProductDir = join '', <PRODUCT>;
         close PRODUCT;
 
@@ -125,7 +125,7 @@ sub determineBaseProductDir
         undef $baseProductDir unless $baseProductDir =~ /^\//;
 
         if (!defined($baseProductDir)) {
-            open PRODUCT, "defaults read com.apple.Xcode PBXProductDirectory 2> /dev/null |" or die;
+            open PRODUCT, "defaults read com.apple.Xcode PBXProductDirectory 2> " . File::Spec->devnull() . " |" or die;
             $baseProductDir = <PRODUCT>;
             close PRODUCT;
             if ($baseProductDir) {
@@ -215,6 +215,14 @@ sub determineArchitecture
     }
 }
 
+sub jscPath($)
+{
+    my ($productDir) = @_;
+    my $jscName = "jsc";
+    $jscName .= "_debug"  if (isCygwin() && ($configuration eq "Debug"));
+    return "$productDir/$jscName";
+}
+
 sub argumentsForConfiguration()
 {
     determineConfiguration();
@@ -298,6 +306,16 @@ sub productDir
 {
     determineConfigurationProductDir();
     return $configurationProductDir;
+}
+
+sub jscProductDir
+{
+    my $productDir = productDir();
+    $productDir .= "/JavaScriptCore" if isQt();
+    $productDir .= "/$configuration" if (isQt() && isWindows());
+    $productDir .= "/Programs" if isGtk();
+
+    return $productDir;
 }
 
 sub configuration()
@@ -792,7 +810,7 @@ sub determineIsQt()
     }
 
     # The presence of QTDIR only means Qt if --gtk is not on the command-line
-    if (isGtk()) {
+    if (isGtk() || isWx()) {
         $isQt = 0;
         return;
     }
@@ -1100,7 +1118,12 @@ sub buildVisualStudioProject
         $action = "/clean";
     }
 
-    my @command = ($vcBuildPath, $winProjectPath, $action, $config);
+    my $useenv = "/useenv";
+    if (isChromium()) {
+        $useenv = "";
+    }
+
+    my @command = ($vcBuildPath, $useenv, $winProjectPath, $action, $config);
 
     print join(" ", @command), "\n";
     return system @command;

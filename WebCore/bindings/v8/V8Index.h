@@ -445,6 +445,7 @@ typedef v8::Persistent<v8::FunctionTemplate> (*FunctionTemplateFactory)();
 
 #if ENABLE(3D_CANVAS)
 #define DOM_OBJECT_3D_CANVAS_TYPES(V)                                   \
+    V(CANVASACTIVEINFO, CanvasActiveInfo)                               \
     V(CANVASARRAY, CanvasArray)                                         \
     V(CANVASARRAYBUFFER, CanvasArrayBuffer)                             \
     V(CANVASBUFFER, CanvasBuffer)                                       \
@@ -490,6 +491,7 @@ typedef v8::Persistent<v8::FunctionTemplate> (*FunctionTemplateFactory)();
 #define DOM_OBJECT_INSPECTOR_TYPES(V)
 #endif
 
+<<<<<<< HEAD:WebCore/bindings/v8/V8Index.h
 #if ENABLE(GEOLOCATION)
 #define DOM_OBJECT_GEOLOCATION_TYPES(V)                                 \
     V(COORDINATES, Coordinates)                                         \
@@ -521,6 +523,8 @@ typedef v8::Persistent<v8::FunctionTemplate> (*FunctionTemplateFactory)();
 
 #if PLATFORM(ANDROID)
 // This block is modified, but is not Android-specific.
+=======
+>>>>>>> webkit.org at r50258.:WebCore/bindings/v8/V8Index.h
 #define DOM_OBJECT_TYPES(V)                                             \
     DOM_OBJECT_TYPES_1(V)                                               \
     DOM_OBJECT_TYPES_2(V)                                               \
@@ -530,11 +534,17 @@ typedef v8::Persistent<v8::FunctionTemplate> (*FunctionTemplateFactory)();
     DOM_OBJECT_3D_CANVAS_TYPES(V)                                       \
     DOM_OBJECT_XPATH_TYPES(V)                                           \
     DOM_OBJECT_XSLT_TYPES(V)                                            \
+<<<<<<< HEAD:WebCore/bindings/v8/V8Index.h
     DOM_OBJECT_GEOLOCATION_TYPES(V)                                     \
     DOM_OBJECT_TOUCH_EVENT_TYPES(V)                                     \
     DOM_OBJECT_VOIDCALLBACK_TYPES(V)                                    \
+=======
+>>>>>>> webkit.org at r50258.:WebCore/bindings/v8/V8Index.h
     DOM_OBJECT_INSPECTOR_TYPES(V)
+<<<<<<< HEAD:WebCore/bindings/v8/V8Index.h
 #endif
+=======
+>>>>>>> webkit.org at r50258.:WebCore/bindings/v8/V8Index.h
 
 #if ENABLE(SVG)
 // SVG_OBJECT_TYPES are svg non-node, non-pod types.

@@ -321,7 +321,6 @@ static WebCacheModel cacheModelForMainBundle(void)
         [NSNumber numberWithBool:YES],  WebKitDatabasesEnabledPreferenceKey,
         [NSNumber numberWithBool:YES],  WebKitLocalStorageEnabledPreferenceKey,
         [NSNumber numberWithBool:NO],   WebKitExperimentalNotificationsEnabledPreferenceKey,
-        [NSNumber numberWithBool:NO],   WebKitExperimentalWebSocketsEnabledPreferenceKey,
         [NSNumber numberWithBool:YES],  WebKitAllowAnimatedImagesPreferenceKey,
         [NSNumber numberWithBool:YES],  WebKitAllowAnimatedImageLoopingPreferenceKey,
         [NSNumber numberWithBool:YES],  WebKitDisplayImagesKey,
@@ -353,7 +352,6 @@ static WebCacheModel cacheModelForMainBundle(void)
         [NSNumber numberWithBool:YES],  WebKitXSSAuditorEnabledPreferenceKey,
         [NSNumber numberWithBool:YES],  WebKitAcceleratedCompositingEnabledPreferenceKey,
         [NSNumber numberWithBool:NO],   WebKitWebGLEnabledPreferenceKey,
-        [NSNumber numberWithBool:NO],   WebKitPluginHalterEnabledPreferenceKey,
         [NSNumber numberWithUnsignedInt:4], WebKitPluginAllowedRunTimePreferenceKey,
         nil];
 
@@ -1026,16 +1024,6 @@ static WebCacheModel cacheModelForMainBundle(void)
     [self _setBoolValue:experimentalNotificationsEnabled forKey:WebKitExperimentalNotificationsEnabledPreferenceKey];
 }
 
-- (BOOL)experimentalWebSocketsEnabled
-{
-    return [self _boolValueForKey:WebKitExperimentalWebSocketsEnabledPreferenceKey];
-}
-
-- (void)setExperimentalWebSocketsEnabled:(BOOL)experimentalWebSocketsEnabled
-{
-    [self _setBoolValue:experimentalWebSocketsEnabled forKey:WebKitExperimentalWebSocketsEnabledPreferenceKey];
-}
-
 + (WebPreferences *)_getInstanceForIdentifier:(NSString *)ident
 {
     LOG(Encoding, "requesting for %@\n", ident);
@@ -1171,16 +1159,6 @@ static NSString *classIBCreatorID = nil;
 - (void)setWebGLEnabled:(BOOL)enabled
 {
     [self _setBoolValue:enabled forKey:WebKitWebGLEnabledPreferenceKey];
-}
-
-- (BOOL)pluginHalterEnabled
-{
-    return [self _boolValueForKey:WebKitPluginHalterEnabledPreferenceKey];
-}
-
-- (void)setPluginHalterEnabled:(BOOL)enabled
-{
-    [self _setBoolValue:enabled forKey:WebKitPluginHalterEnabledPreferenceKey];
 }
 
 - (unsigned)pluginAllowedRunTime

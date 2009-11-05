@@ -107,10 +107,10 @@ void PluginView::updatePluginWidget()
     if (m_windowRect == oldWindowRect && m_clipRect == oldClipRect)
         return;
 
-    if (m_drawable)
-        XFreePixmap(QX11Info::display(), m_drawable);
+    if (!m_isWindowed && m_windowRect.size() != oldWindowRect.size()) {
+        if (m_drawable)
+            XFreePixmap(QX11Info::display(), m_drawable);
 
-    if (!m_isWindowed) {
         m_drawable = XCreatePixmap(QX11Info::display(), QX11Info::appRootWindow(), m_windowRect.width(), m_windowRect.height(), 
                                    ((NPSetWindowCallbackStruct*)m_npWindow.ws_info)->depth);
         QApplication::syncX(); // make sure that the server knows about the Drawable
@@ -178,10 +178,19 @@ void PluginView::paint(GraphicsContext* context, const IntRect& rect)
     const bool syncX = m_pluginDisplay && m_pluginDisplay != QX11Info::display();
 
     QPainter* painter = context->platformContext();
+    IntRect exposedRect(rect);
+    exposedRect.intersect(frameRect());
+    exposedRect.move(-frameRect().x(), -frameRect().y());
 
     QPixmap qtDrawable = QPixmap::fromX11Pixmap(m_drawable, QPixmap::ExplicitlyShared);
     const int drawableDepth = ((NPSetWindowCallbackStruct*)m_npWindow.ws_info)->depth;
     ASSERT(drawableDepth == qtDrawable.depth());
+
+    // When printing, Qt uses a QPicture to capture the output in preview mode. The
+    // QPicture holds a reference to the X Pixmap. As a result, the print preview would
+    // update itself when the X Pixmap changes. To prevent this, we create a copy.
+    if (m_element->document()->printing())
+        qtDrawable = qtDrawable.copy();
 
     if (m_isTransparent && drawableDepth != 32) {
         // Attempt content propagation for drawable with no alpha by copying over from the backing store
@@ -196,17 +205,17 @@ void PluginView::paint(GraphicsContext* context, const IntRect& rect)
         // (because backing store contents are already transformed). What we really mean to do 
         // here is to check if we are painting on QWebView, but let's be a little permissive :)
         QWebPageClient* client = m_parentFrame->view()->hostWindow()->platformPageClient();
-        const bool backingStoreHasUntransformedContents = qobject_cast<QWidget*>(client->pluginParent());
+        const bool backingStoreHasUntransformedContents = client && qobject_cast<QWidget*>(client->pluginParent());
 
         if (hasValidBackingStore && backingStorePixmap->depth() == drawableDepth 
             && backingStoreHasUntransformedContents) {
             GC gc = XDefaultGC(QX11Info::display(), QX11Info::appScreen());
             XCopyArea(QX11Info::display(), backingStorePixmap->handle(), m_drawable, gc,
-                offset.x() + m_windowRect.x() + m_clipRect.x(), offset.y() + m_windowRect.y() + m_clipRect.y(),
-                m_clipRect.width(), m_clipRect.height(), m_clipRect.x(), m_clipRect.y());
+                offset.x() + m_windowRect.x() + exposedRect.x(), offset.y() + m_windowRect.y() + exposedRect.y(),
+                exposedRect.width(), exposedRect.height(), exposedRect.x(), exposedRect.y());
         } else { // no backing store, clean the pixmap because the plugin thinks its transparent
             QPainter painter(&qtDrawable);
-            painter.fillRect(m_clipRect, Qt::white);
+            painter.fillRect(exposedRect, Qt::white);
         }
 
         if (syncX)
@@ -218,19 +227,19 @@ void PluginView::paint(GraphicsContext* context, const IntRect& rect)
     XGraphicsExposeEvent& exposeEvent = xevent.xgraphicsexpose;
     exposeEvent.type = GraphicsExpose;
     exposeEvent.display = QX11Info::display();
-    exposeEvent.drawable = m_drawable;
-    exposeEvent.x = m_clipRect.x();
-    exposeEvent.y = m_clipRect.y();
-    exposeEvent.width = m_clipRect.x() + m_clipRect.width(); // flash bug? it thinks width is the right
-    exposeEvent.height = m_clipRect.y() + m_clipRect.height(); // flash bug? it thinks height is the bottom
+    exposeEvent.drawable = qtDrawable.handle();
+    exposeEvent.x = exposedRect.x();
+    exposeEvent.y = exposedRect.y();
+    exposeEvent.width = exposedRect.x() + exposedRect.width(); // flash bug? it thinks width is the right in transparent mode
+    exposeEvent.height = exposedRect.y() + exposedRect.height(); // flash bug? it thinks height is the bottom in transparent mode
 
     dispatchNPEvent(xevent);
 
     if (syncX)
         XSync(m_pluginDisplay, False); // sync changes by plugin
 
-    painter->drawPixmap(frameRect().x() + m_clipRect.x(), frameRect().y() + m_clipRect.y(), qtDrawable,
-        m_clipRect.x(), m_clipRect.y(), m_clipRect.width(), m_clipRect.height());
+    painter->drawPixmap(QPoint(frameRect().x() + exposedRect.x(), frameRect().y() + exposedRect.y()), qtDrawable,
+                        exposedRect);
 }
 
 // TODO: Unify across ports.
@@ -240,24 +249,24 @@ bool PluginView::dispatchNPEvent(NPEvent& event)
         return false;
 
     PluginView::setCurrentPluginView(this);
-    JSC::JSLock::DropAllLocks dropAllLocks(false);
-
+    JSC::JSLock::DropAllLocks dropAllLocks(JSC::SilenceAssertionsOnly);
     setCallingPlugin(true);
     bool accepted = m_plugin->pluginFuncs()->event(m_instance, &event);
     setCallingPlugin(false);
+    PluginView::setCurrentPluginView(0);
 
     return accepted;
 }
 
-void setSharedXEventFields(XEvent* xEvent, QWidget* hostWindow)
+void setSharedXEventFields(XEvent* xEvent, QWidget* ownerWidget)
 {
     xEvent->xany.serial = 0; // we are unaware of the last request processed by X Server
     xEvent->xany.send_event = false;
-    xEvent->xany.display = hostWindow->x11Info().display();
+    xEvent->xany.display = QX11Info::display();
     // NOTE: event->xany.window doesn't always respond to the .window property of other XEvent's
     // but does in the case of KeyPress, KeyRelease, ButtonPress, ButtonRelease, and MotionNotify
     // events; thus, this is right:
-    xEvent->xany.window = hostWindow->window()->handle();
+    xEvent->xany.window = ownerWidget ? ownerWidget->window()->handle() : 0;
 }
 
 void PluginView::initXEvent(XEvent* xEvent)
@@ -265,8 +274,8 @@ void PluginView::initXEvent(XEvent* xEvent)
     memset(xEvent, 0, sizeof(XEvent));
 
     QWebPageClient* client = m_parentFrame->view()->hostWindow()->platformPageClient();
-    QWidget* window = QWidget::find(client->winId());
-    setSharedXEventFields(xEvent, window);
+    QWidget* ownerWidget = client ? client->ownerWidget() : 0;
+    setSharedXEventFields(xEvent, ownerWidget);
 }
 
 void setXKeyEventSpecificFields(XEvent* xEvent, KeyboardEvent* event)
@@ -458,8 +467,16 @@ void PluginView::setNPWindowIfNeeded()
     if (!m_isStarted || !parent() || !m_plugin->pluginFuncs()->setwindow)
         return;
 
+    // If the plugin didn't load sucessfully, no point in calling setwindow
+    if (m_status != PluginStatusLoadedSuccessfully)
+        return;
+
     // On Unix, only call plugin if it's full-page or windowed
     if (m_mode != NP_FULL && m_mode != NP_EMBED)
+        return;
+
+    // Check if the platformPluginWidget still exists
+    if (m_isWindowed && !platformPluginWidget())
         return;
 
     if (!m_hasPendingGeometryChange)
@@ -467,7 +484,6 @@ void PluginView::setNPWindowIfNeeded()
     m_hasPendingGeometryChange = false;
 
     if (m_isWindowed) {
-        ASSERT(platformPluginWidget());
         platformPluginWidget()->setGeometry(m_windowRect);
         // if setMask is set with an empty QRegion, no clipping will
         // be performed, so in that case we hide the plugin view
@@ -577,13 +593,7 @@ NPError PluginView::getValue(NPNVariable variable, void* value)
 
     switch (variable) {
     case NPNVxDisplay:
-        if (platformPluginWidget())
-            *(void **)value = platformPluginWidget()->x11Info().display();
-        else {
-            QWebPageClient* client = m_parentFrame->view()->hostWindow()->platformPageClient();
-            QWidget* window = QWidget::find(client->winId());
-            *(void **)value = window->x11Info().display();
-        }
+        *(void **)value = QX11Info::display();
         return NPERR_NO_ERROR;
 
     case NPNVxtAppContext:
@@ -628,7 +638,8 @@ NPError PluginView::getValue(NPNVariable variable, void* value)
 
     case NPNVnetscapeWindow: {
         void* w = reinterpret_cast<void*>(value);
-        *((XID *)w) = m_parentFrame->view()->hostWindow()->platformPageClient()->winId();
+        QWebPageClient* client = m_parentFrame->view()->hostWindow()->platformPageClient();
+        *((XID *)w) = client ? client->ownerWidget()->window()->winId() : 0;
         return NPERR_NO_ERROR;
     }
 
@@ -659,7 +670,7 @@ void PluginView::invalidateRect(NPRect* rect)
         invalidate();
         return;
     }
-    IntRect r(rect->left, rect->top, rect->right + rect->left, rect->bottom + rect->top);
+    IntRect r(rect->left, rect->top, rect->right - rect->left, rect->bottom - rect->top);
     invalidateWindowlessPluginRect(r);
 }
 
@@ -754,9 +765,9 @@ bool PluginView::platformStart()
     }
 
     if (m_isWindowed) {
-        if (m_needsXEmbed) {
-            QWebPageClient* client = m_parentFrame->view()->hostWindow()->platformPageClient();
-            setPlatformWidget(new PluginContainerQt(this, QWidget::find(client->winId())));
+        QWebPageClient* client = m_parentFrame->view()->hostWindow()->platformPageClient();
+        if (m_needsXEmbed && client) {
+            setPlatformWidget(new PluginContainerQt(this, client->ownerWidget()));
             // sync our XEmbed container window creation before sending the xid to plugins.
             QApplication::syncX();
         } else {

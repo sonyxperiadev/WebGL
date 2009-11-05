@@ -38,6 +38,7 @@ WebInspector.ElementsTreeOutline = function() {
 
     this.includeRootDOMNode = true;
     this.selectEnabled = false;
+    this.showInElementsPanelEnabled = false;
     this.rootDOMNode = null;
     this.focusedDOMNode = null;
 }
@@ -184,6 +185,34 @@ WebInspector.ElementsTreeOutline.prototype = {
 
         return element;
     },
+    
+    handleKeyEvent: function(event)
+    {
+        var selectedElement = this.selectedTreeElement;
+        if (!selectedElement)
+            return;
+
+        // Delete or backspace pressed, delete the node.
+        if (event.keyCode === 8 || event.keyCode === 46) {
+            selectedElement.remove();
+            return;
+        }
+
+        // On Enter or Return start editing the first attribute
+        // or create a new attribute on the selected element.
+        if (event.keyIdentifier === "Enter") {
+            if (this._editing)
+                return;
+
+            selectedElement._startEditing();
+
+            // prevent a newline from being immediately inserted
+            event.preventDefault();
+            return;
+        }
+
+        TreeOutline.prototype.handleKeyEvent.call(this, event);
+    },
 
     _onmousedown: function(event)
     {
@@ -197,12 +226,15 @@ WebInspector.ElementsTreeOutline.prototype = {
 
     _onmousemove: function(event)
     {
+        var element = this._treeElementFromEvent(event);
+        if (element && this._previousHoveredElement === element)
+            return;
+
         if (this._previousHoveredElement) {
             this._previousHoveredElement.hovered = false;
             delete this._previousHoveredElement;
         }
 
-        var element = this._treeElementFromEvent(event);
         if (element && !element.elementCloseTag) {
             element.hovered = true;
             this._previousHoveredElement = element;
@@ -276,38 +308,43 @@ WebInspector.ElementsTreeElement.prototype = {
             if (x) {
                 this.updateSelection();
                 this.listItemElement.addStyleClass("hovered");
-            } else
+                if (this._canAddAttributes)
+                    this._pendingToggleNewAttribute = setTimeout(this.toggleNewAttributeButton.bind(this, true), 500);
+            } else {
                 this.listItemElement.removeStyleClass("hovered");
-            if (this._canAddAttributes)
-                this.toggleNewAttributeButton();
+                if (this._pendingToggleNewAttribute) {
+                    clearTimeout(this._pendingToggleNewAttribute);
+                    delete this._pendingToggleNewAttribute;
+                }
+                this.toggleNewAttributeButton(false);
+            }
         }
     },
 
-    toggleNewAttributeButton: function()
+    toggleNewAttributeButton: function(visible)
     {
-        function removeWhenEditing(event)
+        function removeAddAttributeSpan()
         {
             if (this._addAttributeElement && this._addAttributeElement.parentNode)
                 this._addAttributeElement.parentNode.removeChild(this._addAttributeElement);
             delete this._addAttributeElement;
+
+            this.updateSelection();
         }
 
-        if (!this._addAttributeElement && this._hovered && !this._editing) {
+        if (!this._addAttributeElement && visible && !this._editing) {
             var span = document.createElement("span");
-            span.className = "add-attribute";
-            span.textContent = "\u2026";
-            span.addEventListener("dblclick", removeWhenEditing.bind(this), false);
+            span.className = "add-attribute webkit-html-attribute-name";
+            span.textContent = " ?=\"\"";
+            span.addEventListener("dblclick", removeAddAttributeSpan.bind(this), false);
             this._addAttributeElement = span;
 
             var tag = this.listItemElement.getElementsByClassName("webkit-html-tag")[0];
             this._insertInLastAttributePosition(tag, span);
-        } else if (!this._hovered && this._addAttributeElement) {
-            if (this._addAttributeElement.parentNode)
-                this._addAttributeElement.parentNode.removeChild(this._addAttributeElement);
-            delete this._addAttributeElement;
-        }
+        } else if (!visible && this._addAttributeElement)
+            removeAddAttributeSpan.call(this);
     },
-    
+
     updateSelection: function()
     {
         var listItemElement = this.listItemElement;
@@ -475,6 +512,14 @@ WebInspector.ElementsTreeElement.prototype = {
         if (this._editing)
             return;
 
+        if (this.isEventWithinDisclosureTriangle(event))
+            return;
+
+        if (this.treeOutline.showInElementsPanelEnabled) {    
+            WebInspector.showElementsPanel();
+            WebInspector.panels.elements.focusedDOMNode = this.representedObject;
+        }
+
         // Prevent selecting the nearest word on double click.
         if (event.detail >= 2)
             event.preventDefault();
@@ -485,13 +530,8 @@ WebInspector.ElementsTreeElement.prototype = {
         if (this._editing)
             return;
 
-        if (this._startEditing(event, treeElement))
+        if (this._startEditingFromEvent(event, treeElement))
             return;
-
-        if (this.treeOutline.panel) {
-            this.treeOutline.rootDOMNode = this.representedObject.parentNode;
-            this.treeOutline.focusedDOMNode = this.representedObject;
-        }
 
         if (this.hasChildren && !this.expanded)
             this.expand();
@@ -508,9 +548,11 @@ WebInspector.ElementsTreeElement.prototype = {
             tag.appendChild(node);
             tag.appendChild(document.createTextNode('>'));
         }
+
+        this.updateSelection();
     },
 
-    _startEditing: function(event, treeElement)
+    _startEditingFromEvent: function(event, treeElement)
     {
         if (this.treeOutline.focusedDOMNode != this.representedObject)
             return;
@@ -531,6 +573,30 @@ WebInspector.ElementsTreeElement.prototype = {
             return this._addNewAttribute(treeElement.listItemElement);
 
         return false;
+    },
+
+    _startEditing: function()
+    {
+        if (this.treeOutline.focusedDOMNode !== this.representedObject)
+            return;
+
+        var listItem = this._listItemNode;
+
+        if (this._canAddAttributes) {
+            this.toggleNewAttributeButton(false);
+            var attribute = listItem.getElementsByClassName("webkit-html-attribute")[0];
+            if (attribute)
+                return this._startEditingAttribute(attribute, attribute.getElementsByClassName("webkit-html-attribute-value")[0]);
+
+            return this._addNewAttribute(listItem);
+        }
+
+        if (this.representedObject.nodeType === Node.TEXT_NODE) {
+            var textNode = listItem.getElementsByClassName("webkit-html-text-node")[0];
+            if (textNode)
+                return this._startEditingTextNode(textNode);
+            return;
+        }
     },
 
     _addNewAttribute: function(listItemElement)
@@ -640,7 +706,7 @@ WebInspector.ElementsTreeElement.prototype = {
                 }
             }
 
-            if (!found && moveDirection === "backward")
+            if (!found && moveDirection === "backward" && attributes.length > 0)
                 moveToAttribute = attributes[attributes.length - 1].name;
             else if (!found && moveDirection === "forward" && !/^\s*$/.test(newText))
                 newAttribute = true;
@@ -772,9 +838,9 @@ WebInspector.ElementsTreeElement.prototype = {
                     if (node.parentNode && node.parentNode.nodeName.toLowerCase() == "script") {
                         var newNode = document.createElement("span");
                         newNode.textContent = node.textContent;
-                        
+
                         var javascriptSyntaxHighlighter = new WebInspector.JavaScriptSourceSyntaxHighlighter(null, null);
-                        javascriptSyntaxHighlighter.syntaxHighlightLine(newNode, null);
+                        javascriptSyntaxHighlighter.syntaxHighlightNode(newNode);
                         
                         info.title = "<span class=\"webkit-html-text-node webkit-html-js-node\">" + newNode.innerHTML.replace(/^[\n\r]*/, "").replace(/\s*$/, "") + "</span>";
                     } else if (node.parentNode && node.parentNode.nodeName.toLowerCase() == "style") {
@@ -822,7 +888,30 @@ WebInspector.ElementsTreeElement.prototype = {
                 return true;
         }
         return false;
+    },
+    
+    remove: function()
+    {
+        var parentElement = this.parent;
+        if (!parentElement)
+            return;
+
+        var self = this;
+        function removeNodeCallback(removedNodeId)
+        {
+            // -1 is an error code, which means removing the node from the DOM failed,
+            // so we shouldn't remove it from the tree.
+            if (removedNodeId === -1)
+                return;
+
+            parentElement.removeChild(self);
+        }
+
+        var callId = WebInspector.Callback.wrap(removeNodeCallback);
+        InspectorController.removeNode(callId, this.representedObject.id);
     }
 }
 
 WebInspector.ElementsTreeElement.prototype.__proto__ = TreeElement.prototype;
+
+WebInspector.didRemoveNode = WebInspector.Callback.processCallback;

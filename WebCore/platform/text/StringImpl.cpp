@@ -89,48 +89,13 @@ StringImpl::StringImpl()
     hash();
 }
 
-inline StringImpl::StringImpl(UChar* characters, unsigned length, AdoptBuffer)
+inline StringImpl::StringImpl(const UChar* characters, unsigned length)
     : m_data(characters)
     , m_length(length)
     , m_hash(0)
 {
     ASSERT(characters);
     ASSERT(length);
-}
-
-// This constructor is only for use by AtomicString.
-StringImpl::StringImpl(const UChar* characters, unsigned length, unsigned hash)
-    : m_data(0)
-    , m_length(length)
-    , m_hash(hash)
-{
-    ASSERT(hash);
-    ASSERT(characters);
-    ASSERT(length);
-
-    setInTable();
-    UChar* data = newUCharVector(length);
-    memcpy(data, characters, length * sizeof(UChar));
-    m_data = data;
-}
-
-// This constructor is only for use by AtomicString.
-StringImpl::StringImpl(const char* characters, unsigned length, unsigned hash)
-    : m_data(0)
-    , m_length(length)
-    , m_hash(hash)
-{
-    ASSERT(hash);
-    ASSERT(characters);
-    ASSERT(length);
-
-    setInTable();
-    UChar* data = newUCharVector(length);
-    for (unsigned i = 0; i != length; ++i) {
-        unsigned char c = characters[i];
-        data[i] = c;
-    }
-    m_data = data;
 }
 
 StringImpl::~StringImpl()
@@ -184,46 +149,38 @@ UChar32 StringImpl::characterStartingAt(unsigned i)
     return 0;
 }
 
-bool StringImpl::isLower()
-{
-    // Do a faster loop for the case where all the characters are ASCII.
-    bool allLower = true;
-    UChar ored = 0;
-    for (unsigned i = 0; i < m_length; i++) {
-        UChar c = m_data[i];
-        allLower = allLower && isASCIILower(c);
-        ored |= c;
-    }
-    if (!(ored & ~0x7F))
-        return allLower;
-
-    // Do a slower check for cases that include non-ASCII characters.
-    allLower = true;
-    unsigned i = 0;
-    while (i < m_length) {
-        UChar32 character;
-        U16_NEXT(m_data, i, m_length, character)
-        allLower = allLower && Unicode::isLower(character);
-    }
-    return allLower;
-}
-
 PassRefPtr<StringImpl> StringImpl::lower()
 {
-    UChar* data;
-    PassRefPtr<StringImpl> newImpl = createUninitialized(m_length, data);
-    int32_t length = m_length;
-
-    // Do a faster loop for the case where all the characters are ASCII.
+    // Note: This is a hot function in the Dromaeo benchmark, specifically the
+    // no-op code path up through the first 'return' statement.
+    
+    // First scan the string for uppercase and non-ASCII characters:
     UChar ored = 0;
-    for (int i = 0; i < length; i++) {
-        UChar c = m_data[i];
-        ored |= c;
-        data[i] = toASCIILower(c);
+    bool noUpper = true;
+    const UChar *end = m_data + m_length;
+    for (const UChar* chp = m_data; chp != end; chp++) {
+        if (UNLIKELY(isASCIIUpper(*chp)))
+            noUpper = false;
+        ored |= *chp;
     }
-    if (!(ored & ~0x7F))
-        return newImpl;
+    
+    // Nothing to do if the string is all ASCII with no uppercase.
+    if (noUpper && !(ored & ~0x7F))
+        return this;
 
+    int32_t length = m_length;
+    UChar* data;
+    RefPtr<StringImpl> newImpl = createUninitialized(m_length, data);
+
+    if (!(ored & ~0x7F)) {
+        // Do a faster loop for the case where all the characters are ASCII.
+        for (int i = 0; i < length; i++) {
+            UChar c = m_data[i];
+            data[i] = toASCIILower(c);
+        }
+        return newImpl;
+    }
+    
     // Do a slower implementation for cases that include non-ASCII characters.
     bool error;
     int32_t realLength = Unicode::toLower(data, length, m_data, m_length, &error);
@@ -238,6 +195,9 @@ PassRefPtr<StringImpl> StringImpl::lower()
 
 PassRefPtr<StringImpl> StringImpl::upper()
 {
+    // This function could be optimized for no-op cases the way lower() is,
+    // but in empirical testing, few actual calls to upper() are no-ops, so
+    // it wouldn't be worth the extra time for pre-scanning.
     UChar* data;
     PassRefPtr<StringImpl> newImpl = createUninitialized(m_length, data);
     int32_t length = m_length;
@@ -322,6 +282,8 @@ PassRefPtr<StringImpl> StringImpl::stripWhiteSpace()
     while (end && isSpaceOrNewline(m_data[end]))
         end--;
 
+    if (!start && end == m_length - 1)
+        return this;
     return create(m_data + start, end + 1 - start);
 }
 
@@ -364,12 +326,16 @@ PassRefPtr<StringImpl> StringImpl::simplifyWhiteSpace()
     const UChar* from = m_data;
     const UChar* fromend = from + m_length;
     int outc = 0;
+    bool changedToSpace = false;
     
     UChar* to = data.characters();
     
     while (true) {
-        while (from != fromend && isSpaceOrNewline(*from))
+        while (from != fromend && isSpaceOrNewline(*from)) {
+            if (*from != ' ')
+                changedToSpace = true;
             from++;
+        }
         while (from != fromend && !isSpaceOrNewline(*from))
             to[outc++] = *from++;
         if (from != fromend)
@@ -380,6 +346,9 @@ PassRefPtr<StringImpl> StringImpl::simplifyWhiteSpace()
     
     if (outc > 0 && to[outc - 1] == ' ')
         outc--;
+    
+    if (static_cast<unsigned>(outc) == m_length && !changedToSpace)
+        return this;
     
     data.shrink(outc);
     
@@ -933,7 +902,7 @@ PassRefPtr<StringImpl> StringImpl::adopt(StringBuffer& buffer)
     unsigned length = buffer.length();
     if (length == 0)
         return empty();
-    return adoptRef(new StringImpl(buffer.release(), length, AdoptBuffer()));
+    return adoptRef(new StringImpl(buffer.release(), length));
 }
 
 PassRefPtr<StringImpl> StringImpl::adopt(Vector<UChar>& vector)
@@ -941,7 +910,7 @@ PassRefPtr<StringImpl> StringImpl::adopt(Vector<UChar>& vector)
     size_t size = vector.size();
     if (size == 0)
         return empty();
-    return adoptRef(new StringImpl(vector.releaseBuffer(), size, AdoptBuffer()));
+    return adoptRef(new StringImpl(vector.releaseBuffer(), size));
 }
 
 PassRefPtr<StringImpl> StringImpl::createUninitialized(unsigned length, UChar*& data)
@@ -957,7 +926,7 @@ PassRefPtr<StringImpl> StringImpl::createUninitialized(unsigned length, UChar*& 
     size_t size = sizeof(StringImpl) + length * sizeof(UChar);
     StringImpl* string = static_cast<StringImpl*>(fastMalloc(size));
     data = reinterpret_cast<UChar*>(string + 1);
-    string = new (string) StringImpl(data, length, AdoptBuffer());
+    string = new (string) StringImpl(data, length);
     return adoptRef(string);
 }
 
@@ -998,7 +967,7 @@ PassRefPtr<StringImpl> StringImpl::create(const JSC::UString& str)
 {
     SharedUChar* sharedBuffer = const_cast<JSC::UString*>(&str)->rep()->sharedBuffer();
     if (sharedBuffer) {
-        PassRefPtr<StringImpl> impl = adoptRef(new StringImpl(const_cast<UChar*>(str.data()), str.size(), AdoptBuffer()));
+        PassRefPtr<StringImpl> impl = adoptRef(new StringImpl(str.data(), str.size()));
         sharedBuffer->ref();
         impl->m_sharedBufferAndFlags.set(sharedBuffer);
         return impl;
@@ -1043,7 +1012,7 @@ PassRefPtr<StringImpl> StringImpl::crossThreadString()
 {
     SharedUChar* shared = sharedBuffer();
     if (shared) {
-        RefPtr<StringImpl> impl = adoptRef(new StringImpl(const_cast<UChar*>(m_data), m_length, AdoptBuffer()));
+        RefPtr<StringImpl> impl = adoptRef(new StringImpl(m_data, m_length));
         impl->m_sharedBufferAndFlags.set(shared->crossThreadCopy().releaseRef());
         return impl.release();
     }

@@ -158,6 +158,10 @@ public:
     virtual HRESULT STDMETHODCALLTYPE renderTreeAsExternalRepresentation(
         /* [retval][out] */ BSTR *result);
 
+    virtual HRESULT STDMETHODCALLTYPE counterValueForElementById(
+        /* [in] */ BSTR id,
+        /* [retval][out] */ BSTR *result);
+
     virtual HRESULT STDMETHODCALLTYPE scrollOffset(
         /* [retval][out] */ SIZE* offset);
 
@@ -243,6 +247,15 @@ public:
     virtual HRESULT STDMETHODCALLTYPE allowsFollowingLink(
         /* [in] */ BSTR url,
         /* [retval][out] */ BOOL* result);
+
+    virtual HRESULT STDMETHODCALLTYPE stringByEvaluatingJavaScriptInIsolatedWorld( 
+        /* [in] */ unsigned int worldID,
+        /* [in] */ OLE_HANDLE jsGlobalObject,
+        /* [in] */ BSTR script,
+        /* [retval][out] */ BSTR* evaluationResult);
+
+    virtual /* [local] */ JSGlobalContextRef STDMETHODCALLTYPE contextForWorldID(
+        /* [in] */ unsigned worldID);
 
     // IWebDocumentText
     virtual HRESULT STDMETHODCALLTYPE supportsTextEncoding( 

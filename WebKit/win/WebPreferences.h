@@ -332,12 +332,6 @@ public:
     virtual HRESULT STDMETHODCALLTYPE setExperimentalNotificationsEnabled(
         /* [in] */ BOOL enabled);
 
-    virtual HRESULT STDMETHODCALLTYPE experimentalWebSocketsEnabled(
-        /* [retval][out] */ BOOL *enabled);
-
-    virtual HRESULT STDMETHODCALLTYPE setExperimentalWebSocketsEnabled(
-        /* [in] */ BOOL enabled);
-
     virtual HRESULT STDMETHODCALLTYPE setShouldPaintNativeControls( 
     /* [in] */ BOOL shouldPaint);
 
@@ -379,12 +373,6 @@ public:
 
     virtual HRESULT STDMETHODCALLTYPE shouldUseHighResolutionTimers(
     /* [retval][out] */ BOOL* useHighResolutionTimers);
-
-    virtual HRESULT STDMETHODCALLTYPE setPluginHalterEnabled(
-    /* [in] */ BOOL enabled);
-
-    virtual HRESULT STDMETHODCALLTYPE pluginHalterEnabled(
-    /* [retval][out] */ BOOL* enabled);
 
     virtual HRESULT STDMETHODCALLTYPE setPluginAllowedRunTime(
     /* [in] */ UINT allowedRunTime);

@@ -166,6 +166,16 @@ namespace WebCore {
 
         static v8::Handle<v8::Value> convertDocumentToV8Object(Document*);
 
+        static v8::Handle<v8::Value> convertNewNodeToV8Object(PassRefPtr<Node> node)
+        {
+            return convertNewNodeToV8Object(node.get());
+        }
+
+        static v8::Handle<v8::Value> convertNewNodeToV8Object(Node* node)
+        {
+            return convertNewNodeToV8Object(node, 0, getDOMNodeMap());
+        }
+
         static v8::Handle<v8::Value> convertNewNodeToV8Object(Node*, V8Proxy*, DOMWrapperMap<Node>&);
 
         template <class C>
@@ -216,12 +226,12 @@ namespace WebCore {
         static v8::Handle<v8::Value> convertEventTargetToV8Object(EventTarget*);
 
         // Wrap and unwrap JS event listeners.
-        static v8::Handle<v8::Value> convertEventListenerToV8Object(PassRefPtr<EventListener> eventListener)
+        static v8::Handle<v8::Value> convertEventListenerToV8Object(ScriptExecutionContext* context, PassRefPtr<EventListener> eventListener)
         {
-            return convertEventListenerToV8Object(eventListener.get());
+            return convertEventListenerToV8Object(context, eventListener.get());
         }
 
-        static v8::Handle<v8::Value> convertEventListenerToV8Object(EventListener*);
+        static v8::Handle<v8::Value> convertEventListenerToV8Object(ScriptExecutionContext*, EventListener*);
 
         static PassRefPtr<EventListener> getEventListener(Node* node, v8::Local<v8::Value> value, bool isAttribute, ListenerLookupType lookup);
 

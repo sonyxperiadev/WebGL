@@ -2,6 +2,8 @@
  * Copyright (C) 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
  * Copyright (C) 2008 Nokia Corporation and/or its subsidiary(-ies)
  * Copyright (C) 2008, 2009 Torch Mobile Inc. All rights reserved. (http://www.torchmobile.com/)
+ * Copyright (C) 2008 Alp Toker <alp@atoker.com>
+ * Copyright (C) Research In Motion Limited 2009. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -57,6 +59,7 @@
 #include "FrameLoaderClient.h"
 #include "FrameTree.h"
 #include "FrameView.h"
+#include "HTMLAnchorElement.h"
 #include "HTMLAppletElement.h"
 #include "HTMLFormElement.h"
 #include "HTMLFrameElement.h"
@@ -76,6 +79,7 @@
 #include "PageTransitionEvent.h"
 #include "PlaceholderDocument.h"
 #include "PluginData.h"
+#include "PluginDatabase.h"
 #include "PluginDocument.h"
 #include "ProgressTracker.h"
 #include "RenderPart.h"
@@ -114,6 +118,7 @@
 #include "SVGViewSpec.h"
 #endif
 
+<<<<<<< HEAD:WebCore/loader/FrameLoader.cpp
 #ifdef ANDROID_INSTRUMENT
 #include "TimeCounter.h"
 #include "RenderArena.h"
@@ -127,6 +132,8 @@
 #define PAGE_CACHE_ACCEPTS_UNLOAD_HANDLERS
 #endif
 
+=======
+>>>>>>> webkit.org at r50258.:WebCore/loader/FrameLoader.cpp
 namespace WebCore {
 
 #if ENABLE(SVG)
@@ -178,6 +185,8 @@ FrameLoader::FrameLoader(Frame* frame, FrameLoaderClient* client)
     : m_frame(frame)
     , m_client(client)
     , m_policyChecker(frame)
+    , m_history(frame)
+    , m_notifer(frame)
     , m_state(FrameStateCommittedPage)
     , m_loadType(FrameLoadTypeStandard)
     , m_delegateIsHandlingProvisionalLoadError(false)
@@ -186,7 +195,6 @@ FrameLoader::FrameLoader(Frame* frame, FrameLoaderClient* client)
     , m_sentRedirectNotification(false)
     , m_inStopAllLoaders(false)
     , m_isExecutingJavaScriptFormAction(false)
-    , m_isRunningScript(false)
     , m_didCallImplicitClose(false)
     , m_wasUnloadEventEmitted(false)
     , m_unloadEventBeingDispatched(false)
@@ -205,6 +213,7 @@ FrameLoader::FrameLoader(Frame* frame, FrameLoaderClient* client)
     , m_committedFirstRealDocumentLoad(false)
     , m_didPerformFirstNavigation(false)
     , m_loadingFromCachedPage(false)
+    , m_suppressOpenerInNewFrame(false)
 #ifndef NDEBUG
     , m_didDispatchDidCommitLoad(false)
 #endif
@@ -262,7 +271,7 @@ Frame* FrameLoader::createWindow(FrameLoader* frameLoaderForFrameLookup, const F
         Frame* frame = frameLoaderForFrameLookup->frame()->tree()->find(request.frameName());
         if (frame && shouldAllowNavigation(frame)) {
             if (!request.resourceRequest().url().isEmpty())
-                frame->loader()->loadFrameRequest(request, false, false, 0, 0);
+                frame->loader()->loadFrameRequest(request, false, false, 0, 0, SendReferrer);
             if (Page* page = frame->page())
                 page->chrome()->focus();
             created = false;
@@ -329,15 +338,17 @@ void FrameLoader::changeLocation(const KURL& url, const String& referrer, bool l
     request.setUserGesture(userGesture);
 #endif
     
-    if (executeIfJavaScriptURL(request.url(), userGesture))
+    if (m_frame->script()->executeIfJavaScriptURL(request.url(), userGesture))
         return;
 
-    urlSelected(request, "_self", 0, lockHistory, lockBackForwardList, userGesture);
+    urlSelected(request, "_self", 0, lockHistory, lockBackForwardList, userGesture, SendReferrer);
 }
 
-void FrameLoader::urlSelected(const ResourceRequest& request, const String& passedTarget, PassRefPtr<Event> triggeringEvent, bool lockHistory, bool lockBackForwardList, bool userGesture)
+void FrameLoader::urlSelected(const ResourceRequest& request, const String& passedTarget, PassRefPtr<Event> triggeringEvent, bool lockHistory, bool lockBackForwardList, bool userGesture, ReferrerPolicy referrerPolicy)
 {
-    if (executeIfJavaScriptURL(request.url(), userGesture, false))
+    ASSERT(!m_suppressOpenerInNewFrame);
+
+    if (m_frame->script()->executeIfJavaScriptURL(request.url(), userGesture, false))
         return;
 
     String target = passedTarget;
@@ -346,11 +357,15 @@ void FrameLoader::urlSelected(const ResourceRequest& request, const String& pass
 
     FrameLoadRequest frameRequest(request, target);
 
-    if (frameRequest.resourceRequest().httpReferrer().isEmpty())
+    if (referrerPolicy == NoReferrer)
+        m_suppressOpenerInNewFrame = true;
+    else if (frameRequest.resourceRequest().httpReferrer().isEmpty())
         frameRequest.resourceRequest().setHTTPReferrer(m_outgoingReferrer);
     addHTTPOriginIfNeeded(frameRequest.resourceRequest(), outgoingOrigin());
 
-    loadFrameRequest(frameRequest, lockHistory, lockBackForwardList, triggeringEvent, 0);
+    loadFrameRequest(frameRequest, lockHistory, lockBackForwardList, triggeringEvent, 0, referrerPolicy);
+
+    m_suppressOpenerInNewFrame = false;
 }
 
 bool FrameLoader::requestFrame(HTMLFrameOwnerElement* ownerElement, const String& urlString, const AtomicString& frameName)
@@ -374,7 +389,7 @@ bool FrameLoader::requestFrame(HTMLFrameOwnerElement* ownerElement, const String
         return false;
 
     if (!scriptURL.isEmpty())
-        frame->loader()->executeIfJavaScriptURL(scriptURL);
+        frame->script()->executeIfJavaScriptURL(scriptURL);
 
     return true;
 }
@@ -446,7 +461,7 @@ void FrameLoader::submitForm(const char* action, const String& url, PassRefPtr<F
 
     if (protocolIsJavaScript(u)) {
         m_isExecutingJavaScriptFormAction = true;
-        executeIfJavaScriptURL(u, false, false);
+        m_frame->script()->executeIfJavaScriptURL(u, false, false);
         m_isExecutingJavaScriptFormAction = false;
         return;
     }
@@ -533,8 +548,14 @@ void FrameLoader::stopLoading(UnloadEventPolicy unloadEventPolicy, DatabasePolic
         }
 
         // Dispatching the unload event could have made m_frame->document() null.
-        if (m_frame->document() && !m_frame->document()->inPageCache())
-            m_frame->document()->removeAllEventListeners();
+        if (m_frame->document() && !m_frame->document()->inPageCache()) {
+            // Don't remove event listeners from a transitional empty document (see bug 28716 for more information).
+            bool keepEventListeners = m_isDisplayingInitialEmptyDocument && m_provisionalDocumentLoader
+                && m_frame->document()->securityOrigin()->isSecureTransitionTo(m_provisionalDocumentLoader->url());
+
+            if (!keepEventListeners)
+                m_frame->document()->removeAllEventListeners();
+        }
     }
 
     m_isComplete = true; // to avoid calling completed() in finishedParsing()
@@ -581,7 +602,7 @@ void FrameLoader::stop()
 
 bool FrameLoader::closeURL()
 {
-    saveDocumentState();
+    history()->saveDocumentState();
     
     // Should only send the pagehide event here if the current document exists and has not been placed in the page cache.    
     Document* currentDocument = m_frame->document();
@@ -624,7 +645,6 @@ bool FrameLoader::didOpenURL(const KURL& url)
 
     m_frame->redirectScheduler()->cancel();
     m_frame->editor()->clearLastEditCommand();
-    closeURL();
 
     m_isComplete = false;
     m_isLoadingMainResource = true;
@@ -664,62 +684,6 @@ void FrameLoader::didExplicitOpen()
         m_URL = m_frame->document()->url();
 }
 
-bool FrameLoader::executeIfJavaScriptURL(const KURL& url, bool userGesture, bool replaceDocument)
-{
-    if (!protocolIsJavaScript(url))
-        return false;
-
-    if (m_frame->page() && !m_frame->page()->javaScriptURLsAreAllowed())
-        return true;
-
-    const int javascriptSchemeLength = sizeof("javascript:") - 1;
-
-    String script = url.string().substring(javascriptSchemeLength);
-    ScriptValue result;
-    if (m_frame->script()->xssAuditor()->canEvaluateJavaScriptURL(script))
-        result = executeScript(decodeURLEscapeSequences(script), userGesture);
-
-    String scriptResult;
-    if (!result.getString(scriptResult))
-        return true;
-
-    SecurityOrigin* currentSecurityOrigin = m_frame->document()->securityOrigin();
-
-    // FIXME: We should always replace the document, but doing so
-    //        synchronously can cause crashes:
-    //        http://bugs.webkit.org/show_bug.cgi?id=16782
-    if (replaceDocument) {
-        stopAllLoaders();
-        begin(m_URL, true, currentSecurityOrigin);
-        write(scriptResult);
-        end();
-    }
-
-    return true;
-}
-
-ScriptValue FrameLoader::executeScript(const String& script, bool forceUserGesture)
-{
-    return executeScript(ScriptSourceCode(script, forceUserGesture ? KURL() : m_URL));
-}
-
-ScriptValue FrameLoader::executeScript(const ScriptSourceCode& sourceCode)
-{
-    if (!m_frame->script()->isEnabled() || m_frame->script()->isPaused())
-        return ScriptValue();
-
-    bool wasRunningScript = m_isRunningScript;
-    m_isRunningScript = true;
-
-    ScriptValue result = m_frame->script()->evaluate(sourceCode);
-
-    if (!wasRunningScript) {
-        m_isRunningScript = false;
-        Document::updateStyleForAllDocuments();
-    }
-
-    return result;
-}
 
 void FrameLoader::cancelAndClear()
 {
@@ -730,6 +694,14 @@ void FrameLoader::cancelAndClear()
 
     clear(false);
     m_frame->script()->updatePlatformScriptObjects();
+}
+
+void FrameLoader::replaceDocument(const String& html)
+{
+    stopAllLoaders();
+    begin(m_URL, true, m_frame->document()->securityOrigin());
+    write(html);
+    end();
 }
 
 void FrameLoader::clear(bool clearWindowProperties, bool clearScriptObjects, bool clearFrameView)
@@ -806,6 +778,8 @@ void FrameLoader::receivedFirstData()
     double delay;
     String url;
     if (!m_documentLoader)
+        return;
+    if (m_frame->inViewSourceMode())
         return;
     if (!parseHTTPRefresh(m_documentLoader->response().httpHeaderField("Refresh"), false, delay, url))
         return;
@@ -895,7 +869,7 @@ void FrameLoader::begin(const KURL& url, bool dispatch, SecurityOrigin* origin)
             document->parseDNSPrefetchControlHeader(dnsPrefetchControl);
     }
 
-    restoreDocumentState();
+    history()->restoreDocumentState();
 
     document->implicitOpen();
     
@@ -1082,52 +1056,6 @@ void FrameLoader::commitIconURLToIconDatabase(const KURL& icon)
     iconDatabase()->setIconURLForPageURL(icon.string(), originalRequestURL().string());
 }
 
-void FrameLoader::restoreDocumentState()
-{
-    Document* doc = m_frame->document();
-        
-    HistoryItem* itemToRestore = 0;
-    
-    switch (loadType()) {
-        case FrameLoadTypeReload:
-        case FrameLoadTypeReloadFromOrigin:
-        case FrameLoadTypeSame:
-        case FrameLoadTypeReplace:
-            break;
-        case FrameLoadTypeBack:
-        case FrameLoadTypeBackWMLDeckNotAccessible:
-        case FrameLoadTypeForward:
-        case FrameLoadTypeIndexedBackForward:
-        case FrameLoadTypeRedirectWithLockedBackForwardList:
-        case FrameLoadTypeStandard:
-            itemToRestore = m_currentHistoryItem.get(); 
-    }
-    
-    if (!itemToRestore)
-        return;
-
-    LOG(Loading, "WebCoreLoading %s: restoring form state from %p", m_frame->tree()->name().string().utf8().data(), itemToRestore);
-    doc->setStateForNewFormElements(itemToRestore->documentState());
-}
-
-void FrameLoader::gotoAnchor()
-{
-    // If our URL has no ref, then we have no place we need to jump to.
-    // OTOH If CSS target was set previously, we want to set it to 0, recalc
-    // and possibly repaint because :target pseudo class may have been
-    // set (see bug 11321).
-    if (!m_URL.hasFragmentIdentifier() && !m_frame->document()->cssTarget())
-        return;
-
-    String fragmentIdentifier = m_URL.fragmentIdentifier();
-    if (gotoAnchor(fragmentIdentifier))
-        return;
-
-    // Try again after decoding the ref, based on the document's encoding.
-    if (m_decoder)
-        gotoAnchor(decodeURLEscapeSequences(fragmentIdentifier, m_decoder->encoding()));
-}
-
 void FrameLoader::finishedParsing()
 {
     if (m_creatingInitialEmptyDocument)
@@ -1150,8 +1078,7 @@ void FrameLoader::finishedParsing()
     // Check if the scrollbars are really needed for the content.
     // If not, remove them, relayout, and repaint.
     m_frame->view()->restoreScrollbar();
-
-    gotoAnchor();
+    m_frame->view()->scrollToFragment(m_URL);
 }
 
 void FrameLoader::loadDone()
@@ -1275,7 +1202,7 @@ void FrameLoader::loadURLIntoChildFrame(const KURL& url, const String& referer, 
 {
     ASSERT(childFrame);
 
-    HistoryItem* parentItem = currentHistoryItem();
+    HistoryItem* parentItem = history()->currentItem();
     FrameLoadType loadType = this->loadType();
     FrameLoadType childLoadType = FrameLoadTypeRedirectWithLockedBackForwardList;
 
@@ -1291,7 +1218,7 @@ void FrameLoader::loadURLIntoChildFrame(const KURL& url, const String& referer, 
             // this is needed is Radar 3213556.
             workingURL = KURL(ParsedURLString, childItem->originalURLString());
             childLoadType = loadType;
-            childFrame->loader()->m_provisionalHistoryItem = childItem;
+            childFrame->loader()->history()->setProvisionalItem(childItem);
         }
     }
 
@@ -1342,6 +1269,7 @@ String FrameLoader::encoding() const
     return settings ? settings->defaultTextEncodingName() : String();
 }
 
+<<<<<<< HEAD:WebCore/loader/FrameLoader.cpp
 bool FrameLoader::gotoAnchor(const String& name)
 {
     ASSERT(m_frame->document());
@@ -1399,6 +1327,8 @@ bool FrameLoader::gotoAnchor(const String& name)
     return true;
 }
 
+=======
+>>>>>>> webkit.org at r50258.:WebCore/loader/FrameLoader.cpp
 bool FrameLoader::requestObject(RenderPart* renderer, const String& url, const AtomicString& frameName,
     const String& mimeType, const Vector<String>& paramNames, const Vector<String>& paramValues)
 {
@@ -1453,6 +1383,30 @@ bool FrameLoader::shouldUsePlugin(const KURL& url, const String& mimeType, bool 
     return objectType == ObjectContentNone || objectType == ObjectContentNetscapePlugin || objectType == ObjectContentOtherPlugin;
 }
 
+ObjectContentType FrameLoader::defaultObjectContentType(const KURL& url, const String& mimeTypeIn)
+{
+    String mimeType = mimeTypeIn;
+    // We don't use MIMETypeRegistry::getMIMETypeForPath() because it returns "application/octet-stream" upon failure
+    if (mimeType.isEmpty())
+        mimeType = MIMETypeRegistry::getMIMETypeForExtension(url.path().substring(url.path().reverseFind('.') + 1));
+
+    if (mimeType.isEmpty())
+        return ObjectContentFrame; // Go ahead and hope that we can display the content.
+
+    if (MIMETypeRegistry::isSupportedImageMIMEType(mimeType))
+        return WebCore::ObjectContentImage;
+
+#if !PLATFORM(MAC) && !PLATFORM(CHROMIUM)  // Mac has no PluginDatabase, nor does Chromium 
+    if (PluginDatabase::installedPlugins()->isMIMETypeRegistered(mimeType))
+        return WebCore::ObjectContentNetscapePlugin;
+#endif
+
+    if (MIMETypeRegistry::isSupportedNonImageMIMEType(mimeType))
+        return WebCore::ObjectContentFrame;
+
+    return WebCore::ObjectContentNone;
+}
+
 static HTMLPlugInElement* toPlugInElement(Node* node)
 {
     if (!node)
@@ -1482,6 +1436,8 @@ bool FrameLoader::loadPlugin(RenderPart* renderer, const KURL& url, const String
             FrameLoader::reportLocalLoadFailed(m_frame, url.string());
             return false;
         }
+
+        checkIfRunInsecureContent(m_frame->document()->securityOrigin(), url);
 
         widget = m_client->createPlugin(IntSize(renderer->contentWidth(), renderer->contentHeight()),
                                         element, url, paramNames, paramValues, mimeType,
@@ -1521,6 +1477,10 @@ void FrameLoader::checkIfDisplayInsecureContent(SecurityOrigin* context, const K
     if (!isMixedContent(context, url))
         return;
 
+    String message = String::format("The page at %s displayed insecure content from %s.\n",
+        m_URL.string().utf8().data(), url.string().utf8().data());
+    m_frame->domWindow()->console()->addMessage(HTMLMessageSource, LogMessageType, WarningMessageLevel, message, 1, String());
+
     m_client->didDisplayInsecureContent();
 }
 
@@ -1528,6 +1488,10 @@ void FrameLoader::checkIfRunInsecureContent(SecurityOrigin* context, const KURL&
 {
     if (!isMixedContent(context, url))
         return;
+
+    String message = String::format("The page at %s ran insecure content from %s.\n",
+        m_URL.string().utf8().data(), url.string().utf8().data());
+    m_frame->domWindow()->console()->addMessage(HTMLMessageSource, LogMessageType, WarningMessageLevel, message, 1, String());
 
     m_client->didRunInsecureContent(context);
 }
@@ -1626,9 +1590,7 @@ bool FrameLoader::canCachePageContainingThisFrame()
         // the right NPObjects. See <rdar://problem/5197041> for more information.
         && !m_containsPlugIns
         && !m_URL.protocolIs("https")
-#ifndef PAGE_CACHE_ACCEPTS_UNLOAD_HANDLERS
         && (!m_frame->domWindow() || !m_frame->domWindow()->hasEventListeners(eventNames().unloadEvent))
-#endif
 #if ENABLE(DATABASE)
         && !m_frame->document()->hasOpenDatabases()
 #endif
@@ -1636,7 +1598,7 @@ bool FrameLoader::canCachePageContainingThisFrame()
         && !SharedWorkerRepository::hasSharedWorkers(m_frame->document())
 #endif
         && !m_frame->document()->usingGeolocation()
-        && m_currentHistoryItem
+        && history()->currentItem()
         && !m_quickRedirectComing
         && !m_documentLoader->isLoadingInAPISense()
         && !m_documentLoader->isStopping()
@@ -1773,10 +1735,8 @@ bool FrameLoader::logCanCacheFrameDecision(int indentLevel)
             { PCLOG("   -Frame contains plugins"); cannotCache = true; }
         if (m_URL.protocolIs("https"))
             { PCLOG("   -Frame is HTTPS"); cannotCache = true; }
-#ifndef PAGE_CACHE_ACCEPTS_UNLOAD_HANDLERS
         if (m_frame->domWindow() && m_frame->domWindow()->hasEventListeners(eventNames().unloadEvent))
             { PCLOG("   -Frame has an unload event listener"); cannotCache = true; }
-#endif
 #if ENABLE(DATABASE)
         if (m_frame->document()->hasOpenDatabases())
             { PCLOG("   -Frame has open database handles"); cannotCache = true; }
@@ -1787,7 +1747,7 @@ bool FrameLoader::logCanCacheFrameDecision(int indentLevel)
 #endif
         if (m_frame->document()->usingGeolocation())
             { PCLOG("   -Frame uses Geolocation"); cannotCache = true; }
-        if (!m_currentHistoryItem)
+        if (!history()->currentItem())
             { PCLOG("   -No current history item"); cannotCache = true; }
         if (m_quickRedirectComing)
             { PCLOG("   -Quick redirect is coming"); cannotCache = true; }
@@ -1865,12 +1825,13 @@ void FrameLoader::scrollToAnchor(const KURL& url)
     }
     
     m_URL = url;
-    updateHistoryForAnchorScroll();
+    history()->updateForAnchorScroll();
 
     // If we were in the autoscroll/panScroll mode we want to stop it before following the link to the anchor
     m_frame->eventHandler()->stopAutoscrollTimer();
     started();
-    gotoAnchor();
+    if (FrameView* view = m_frame->view())
+        view->scrollToFragment(m_URL);
 
     // It's important to model this as a load that starts and immediately finishes.
     // Otherwise, the parent frame may think we never finished loading.
@@ -1886,10 +1847,13 @@ bool FrameLoader::isComplete() const
 void FrameLoader::completed()
 {
     RefPtr<Frame> protect(m_frame);
-    for (Frame* child = m_frame->tree()->firstChild(); child; child = child->tree()->nextSibling())
-        child->redirectScheduler()->startTimer();
+
+    for (Frame* descendant = m_frame->tree()->traverseNext(m_frame); descendant; descendant = descendant->tree()->traverseNext(m_frame))
+        descendant->redirectScheduler()->startTimer();
+    
     if (Frame* parent = m_frame->tree()->parent())
         parent->loader()->checkCompleted();
+
     if (m_frame->view())
         m_frame->view()->maintainScrollPositionAtAnchor(0);
 }
@@ -1941,7 +1905,7 @@ static bool isFeedWithNestedProtocolInHTTPFamily(const KURL& url)
 }
 
 void FrameLoader::loadFrameRequest(const FrameLoadRequest& request, bool lockHistory, bool lockBackForwardList,
-    PassRefPtr<Event> event, PassRefPtr<FormState> formState)
+    PassRefPtr<Event> event, PassRefPtr<FormState> formState, ReferrerPolicy referrerPolicy)
 {    
     KURL url = request.resourceRequest().url();
 
@@ -1960,7 +1924,7 @@ void FrameLoader::loadFrameRequest(const FrameLoadRequest& request, bool lockHis
         }
     }
 
-    if (SecurityOrigin::shouldHideReferrer(url, referrer))
+    if (SecurityOrigin::shouldHideReferrer(url, referrer) || referrerPolicy == NoReferrer)
         referrer = String();
     
     FrameLoadType loadType;
@@ -2182,6 +2146,13 @@ void FrameLoader::loadWithDocumentLoader(DocumentLoader* loader, FrameLoadType t
         if (loader->triggeringAction().isEmpty())
             loader->setTriggeringAction(NavigationAction(newURL, policyChecker()->loadType(), isFormSubmission));
 
+        if (Element* ownerElement = m_frame->document()->ownerElement()) {
+            if (!ownerElement->dispatchBeforeLoadEvent(loader->request().url().string())) {
+                continueLoadAfterNavigationPolicy(loader->request(), formState, false);
+                return;
+            }
+        }
+
         policyChecker()->checkNavigationPolicy(loader->request(), loader, formState,
             callContinueLoadAfterNavigationPolicy, this);
     }
@@ -2208,15 +2179,12 @@ void FrameLoader::receivedData(const char* data, int length)
 
 bool FrameLoader::willLoadMediaElementURL(KURL& url)
 {
-    if (!m_client->shouldLoadMediaElementURL(url))
-        return false;
-
     ResourceRequest request(url);
 
     unsigned long identifier;
     ResourceError error;
     requestFromDelegate(request, identifier, error);
-    sendRemainingDelegateMessages(identifier, ResourceResponse(url, String(), -1, String(), String()), -1, error);
+    notifier()->sendRemainingDelegateMessages(m_documentLoader.get(), identifier, ResourceResponse(url, String(), -1, String(), String()), -1, error);
 
     url = request.url();
 
@@ -2532,7 +2500,7 @@ void FrameLoader::commitProvisionalLoad(PassRefPtr<CachedPage> prpCachedPage)
 
     // Check to see if we need to cache the page we are navigating away from into the back/forward cache.
     // We are doing this here because we know for sure that a new page is about to be loaded.
-    cachePageForHistoryItem(m_currentHistoryItem.get());
+    cachePageForHistoryItem(history()->currentItem());
     
     if (m_loadType != FrameLoadTypeReplace)
         closeOldDataSources();
@@ -2566,7 +2534,7 @@ void FrameLoader::commitProvisionalLoad(PassRefPtr<CachedPage> prpCachedPage)
     LOG(Loading, "WebCoreLoading %s: Finished committing provisional load to URL %s", m_frame->tree()->name().string().utf8().data(), m_URL.string().utf8().data());
 
     if (m_loadType == FrameLoadTypeStandard && m_documentLoader->isClientRedirect())
-        updateHistoryForClientRedirect();
+        history()->updateForClientRedirect();
 
     if (m_loadingFromCachedPage) {
         m_frame->document()->documentDidBecomeActive();
@@ -2586,10 +2554,10 @@ void FrameLoader::commitProvisionalLoad(PassRefPtr<CachedPage> prpCachedPage)
             // FIXME: If we get a resource with more than 2B bytes, this code won't do the right thing.
             // However, with today's computers and networking speeds, this won't happen in practice.
             // Could be an issue with a giant local file.
-            sendRemainingDelegateMessages(identifier, response, static_cast<int>(response.expectedContentLength()), error);
+            notifier()->sendRemainingDelegateMessages(m_documentLoader.get(), identifier, response, static_cast<int>(response.expectedContentLength()), error);
         }
         
-        pageCache()->remove(m_currentHistoryItem.get());
+        pageCache()->remove(history()->currentItem());
 
         m_documentLoader->setPrimaryLoadComplete(true);
 
@@ -2607,7 +2575,7 @@ void FrameLoader::transitionToCommitted(PassRefPtr<CachedPage> cachedPage)
         return;
 
     m_client->setCopiesOnScroll();
-    updateHistoryForCommit();
+    history()->updateForCommit();
 
     // The call to closeURL() invokes the unload event handler, which can execute arbitrary
     // JavaScript. If the script initiates a new load, we need to abandon the current load,
@@ -2639,7 +2607,7 @@ void FrameLoader::transitionToCommitted(PassRefPtr<CachedPage> cachedPage)
         case FrameLoadTypeIndexedBackForward:
             if (Page* page = m_frame->page())
                 if (page->backForwardList()) {
-                    updateHistoryForBackForwardNavigation();
+                    history()->updateForBackForwardNavigation();
 
                     // Create a document view for this document, or used the cached view.
                     if (cachedPage) {
@@ -2657,12 +2625,12 @@ void FrameLoader::transitionToCommitted(PassRefPtr<CachedPage> cachedPage)
         case FrameLoadTypeReloadFromOrigin:
         case FrameLoadTypeSame:
         case FrameLoadTypeReplace:
-            updateHistoryForReload();
+            history()->updateForReload();
             m_client->transitionToCommittedForNewPage();
             break;
 
         case FrameLoadTypeStandard:
-            updateHistoryForStandardLoad();
+            history()->updateForStandardLoad();
 #ifndef BUILDING_ON_TIGER
             // This code was originally added for a Leopard performance imporvement. We decided to 
             // ifdef it to fix correctness issues on Tiger documented in <rdar://problem/5441823>.
@@ -2673,7 +2641,7 @@ void FrameLoader::transitionToCommitted(PassRefPtr<CachedPage> cachedPage)
             break;
 
         case FrameLoadTypeRedirectWithLockedBackForwardList:
-            updateHistoryForRedirectWithLockedBackForwardList();
+            history()->updateForRedirectWithLockedBackForwardList();
             m_client->transitionToCommittedForNewPage();
             break;
 
@@ -2922,6 +2890,8 @@ void FrameLoader::finishedLoadingDocument(DocumentLoader* loader)
     loader->setParsedArchiveData(mainResource->data());
 
     m_responseMIMEType = mainResource->mimeType();
+
+    closeURL();
     didOpenURL(mainResource->url());
 
     String userChosenEncoding = documentLoader()->overrideEncoding();
@@ -3026,7 +2996,7 @@ void FrameLoader::checkLoadCompleteForThisFrame()
             RefPtr<HistoryItem> item;
             if (Page* page = m_frame->page())
                 if (isBackForwardLoadType(loadType()) && m_frame == page->mainFrame())
-                    item = m_currentHistoryItem;
+                    item = history()->currentItem();
                 
             bool shouldReset = true;
             if (!(pdl->isLoadingInAPISense() && !pdl->isStopping())) {
@@ -3075,7 +3045,7 @@ void FrameLoader::checkLoadCompleteForThisFrame()
             // If the user had a scroll point, scroll to it, overriding the anchor point if any.
             if (Page* page = m_frame->page())
                 if ((isBackForwardLoadType(m_loadType) || m_loadType == FrameLoadTypeReload || m_loadType == FrameLoadTypeReloadFromOrigin) && page->backForwardList())
-                    restoreScrollPositionAndViewState();
+                    history()->restoreScrollPositionAndViewState();
 
             if (m_creatingInitialEmptyDocument || !m_committedFirstRealDocumentLoad)
                 return;
@@ -3131,7 +3101,7 @@ void FrameLoader::continueLoadAfterWillSubmitForm()
 
     if (Page* page = m_frame->page()) {
         identifier = page->progress()->createUniqueIdentifier();
-        dispatchAssignIdentifierToInitialRequest(identifier, m_provisionalDocumentLoader.get(), m_provisionalDocumentLoader->originalRequest());
+        notifier()->assignIdentifierToInitialRequest(identifier, m_provisionalDocumentLoader.get(), m_provisionalDocumentLoader->originalRequest());
     }
 
     if (!m_provisionalDocumentLoader->startLoadingMainResource(identifier))
@@ -3142,7 +3112,7 @@ void FrameLoader::didFirstLayout()
 {
     if (Page* page = m_frame->page())
         if (isBackForwardLoadType(m_loadType) && page->backForwardList())
-            restoreScrollPositionAndViewState();
+            history()->restoreScrollPositionAndViewState();
 
     m_firstLayoutDone = true;
     m_client->dispatchDidFirstLayout();
@@ -3159,9 +3129,7 @@ void FrameLoader::frameLoadCompleted()
 
     m_client->frameLoadCompleted();
 
-    // Even if already complete, we might have set a previous item on a frame that
-    // didn't do any data loading on the past transaction. Make sure to clear these out.
-    m_previousHistoryItem = 0;
+    history()->updateForFrameLoadCompleted();
 
     // After a canceled provisional load, firstLayoutDone is false.
     // Reset it to true if we're displaying a page.
@@ -3262,7 +3230,7 @@ void FrameLoader::detachFromParent()
 
     closeURL();
     stopAllLoaders();
-    saveScrollPositionAndViewStateToItem(currentHistoryItem());
+    history()->saveScrollPositionAndViewStateToItem(history()->currentItem());
     detachChildren();
 
 #if ENABLE(INSPECTOR)
@@ -3457,49 +3425,9 @@ unsigned long FrameLoader::loadResourceSynchronously(const ResourceRequest& requ
         }
 #endif
     }
-    
-    sendRemainingDelegateMessages(identifier, response, data.size(), error);
+
+    notifier()->sendRemainingDelegateMessages(m_documentLoader.get(), identifier, response, data.size(), error);
     return identifier;
-}
-
-void FrameLoader::assignIdentifierToInitialRequest(unsigned long identifier, const ResourceRequest& clientRequest)
-{
-    return dispatchAssignIdentifierToInitialRequest(identifier, activeDocumentLoader(), clientRequest);
-}
-
-void FrameLoader::willSendRequest(ResourceLoader* loader, ResourceRequest& clientRequest, const ResourceResponse& redirectResponse)
-{
-    applyUserAgent(clientRequest);
-    dispatchWillSendRequest(loader->documentLoader(), loader->identifier(), clientRequest, redirectResponse);
-}
-
-void FrameLoader::didReceiveResponse(ResourceLoader* loader, const ResourceResponse& r)
-{
-    activeDocumentLoader()->addResponse(r);
-    
-    if (Page* page = m_frame->page())
-        page->progress()->incrementProgress(loader->identifier(), r);
-    dispatchDidReceiveResponse(loader->documentLoader(), loader->identifier(), r);
-}
-
-void FrameLoader::didReceiveData(ResourceLoader* loader, const char* data, int length, int lengthReceived)
-{
-    if (Page* page = m_frame->page())
-        page->progress()->incrementProgress(loader->identifier(), data, length);
-    dispatchDidReceiveContentLength(loader->documentLoader(), loader->identifier(), lengthReceived);
-}
-
-void FrameLoader::didFailToLoad(ResourceLoader* loader, const ResourceError& error)
-{
-    if (Page* page = m_frame->page())
-        page->progress()->completeProgress(loader->identifier());
-    if (!error.isNull())
-        m_client->dispatchDidFailLoading(loader->documentLoader(), loader->identifier(), error);
-}
-
-void FrameLoader::didLoadResourceByXMLHttpRequest(unsigned long identifier, const ScriptString& sourceString)
-{
-    m_client->dispatchDidLoadResourceByXMLHttpRequest(identifier, sourceString);
 }
 
 const ResourceRequest& FrameLoader::originalRequest() const
@@ -3513,7 +3441,7 @@ void FrameLoader::receivedMainResourceError(const ResourceError& error, bool isC
     RefPtr<Frame> protect(m_frame);
 
     RefPtr<DocumentLoader> loader = activeDocumentLoader();
-    
+
     if (isComplete) {
         // FIXME: Don't want to do this if an entirely new load is going, so should check
         // that both data sources on the frame are either this or nil.
@@ -3521,7 +3449,7 @@ void FrameLoader::receivedMainResourceError(const ResourceError& error, bool isC
         if (m_client->shouldFallBack(error))
             handleFallbackContent();
     }
-    
+
     if (m_state == FrameStateProvisional && m_provisionalDocumentLoader) {
         if (m_submittedFormURL == m_provisionalDocumentLoader->originalRequestCopy().url())
             m_submittedFormURL = KURL();
@@ -3529,7 +3457,7 @@ void FrameLoader::receivedMainResourceError(const ResourceError& error, bool isC
         // We might have made a page cache item, but now we're bailing out due to an error before we ever
         // transitioned to the new page (before WebFrameState == commit).  The goal here is to restore any state
         // so that the existing view (that wenever got far enough to replace) can continue being used.
-        invalidateCurrentItemCachedPage();
+        history()->invalidateCurrentItemCachedPage();
         
         // Call clientRedirectCancelledOrFinished here so that the frame load delegate is notified that the redirect's
         // status has changed, if there was a redirect. The frame load delegate may have saved some state about
@@ -3539,8 +3467,7 @@ void FrameLoader::receivedMainResourceError(const ResourceError& error, bool isC
         if (m_sentRedirectNotification)
             clientRedirectCancelledOrFinished(false);
     }
-    
-    
+
     loader->mainReceivedError(error, isComplete);
 }
 
@@ -3581,7 +3508,7 @@ void FrameLoader::continueFragmentScrollAfterNavigationPolicy(const ResourceRequ
         // we have already saved away the scroll and doc state for the long slow load,
         // but it's not an obvious case.
 
-        addHistoryItemForFragmentScroll();
+        history()->updateBackForwardListForFragmentScroll();
     }
     
     scrollToAnchor(url);
@@ -3630,7 +3557,7 @@ void FrameLoader::continueLoadAfterNavigationPolicy(const ResourceRequest&, Pass
     // through this method already, nested; otherwise, policyDataSource should still be set.
     ASSERT(m_policyDocumentLoader || !m_provisionalDocumentLoader->unreachableURL().isEmpty());
 
-    bool isTargetItem = m_provisionalHistoryItem ? m_provisionalHistoryItem->isTargetItem() : false;
+    bool isTargetItem = history()->provisionalItem() ? history()->provisionalItem()->isTargetItem() : false;
 
     // Two reasons we can't continue:
     //    1) Navigation policy delegate said we can't so request is nil. A primary case of this 
@@ -3653,7 +3580,7 @@ void FrameLoader::continueLoadAfterNavigationPolicy(const ResourceRequest&, Pass
         if ((isTargetItem || isLoadingMainFrame()) && isBackForwardLoadType(policyChecker()->loadType()))
             if (Page* page = m_frame->page()) {
                 Frame* mainFrame = page->mainFrame();
-                if (HistoryItem* resetItem = mainFrame->loader()->m_currentHistoryItem.get()) {
+                if (HistoryItem* resetItem = mainFrame->loader()->history()->currentItem()) {
                     page->backForwardList()->goToItem(resetItem);
                     Settings* settings = m_frame->settings();
                     page->setGlobalHistoryItem((!settings || settings->privateBrowsingEnabled()) ? 0 : resetItem);
@@ -3715,22 +3642,9 @@ void FrameLoader::continueLoadAfterNewWindowPolicy(const ResourceRequest& reques
 
     mainFrame->page()->setOpenedByDOM();
     mainFrame->loader()->m_client->dispatchShow();
-    mainFrame->loader()->setOpener(frame.get());
+    if (!m_suppressOpenerInNewFrame)
+        mainFrame->loader()->setOpener(frame.get());
     mainFrame->loader()->loadWithNavigationAction(request, NavigationAction(), false, FrameLoadTypeStandard, formState);
-}
-
-void FrameLoader::sendRemainingDelegateMessages(unsigned long identifier, const ResourceResponse& response, int length, const ResourceError& error)
-{    
-    if (!response.isNull())
-        dispatchDidReceiveResponse(m_documentLoader.get(), identifier, response);
-    
-    if (length > 0)
-        dispatchDidReceiveContentLength(m_documentLoader.get(), identifier, length);
-    
-    if (error.isNull())
-        dispatchDidFinishLoading(m_documentLoader.get(), identifier);
-    else
-        m_client->dispatchDidFailLoading(m_documentLoader.get(), identifier, error);
 }
 
 void FrameLoader::requestFromDelegate(ResourceRequest& request, unsigned long& identifier, ResourceError& error)
@@ -3740,11 +3654,11 @@ void FrameLoader::requestFromDelegate(ResourceRequest& request, unsigned long& i
     identifier = 0;
     if (Page* page = m_frame->page()) {
         identifier = page->progress()->createUniqueIdentifier();
-        dispatchAssignIdentifierToInitialRequest(identifier, m_documentLoader.get(), request);
+        notifier()->assignIdentifierToInitialRequest(identifier, m_documentLoader.get(), request);
     }
 
     ResourceRequest newRequest(request);
-    dispatchWillSendRequest(m_documentLoader.get(), identifier, newRequest, ResourceResponse());
+    notifier()->dispatchWillSendRequest(m_documentLoader.get(), identifier, newRequest, ResourceResponse());
 
     if (newRequest.isNull())
         error = cancelledError(request);
@@ -3782,7 +3696,7 @@ void FrameLoader::loadedResourceFromMemoryCache(const CachedResource* resource)
     unsigned long identifier;
     ResourceError error;
     requestFromDelegate(request, identifier, error);
-    sendRemainingDelegateMessages(identifier, resource->response(), resource->encodedSize(), error);
+    notifier()->sendRemainingDelegateMessages(m_documentLoader.get(), identifier, resource->response(), resource->encodedSize(), error);
 }
 
 void FrameLoader::applyUserAgent(ResourceRequest& request)
@@ -3810,14 +3724,9 @@ bool FrameLoader::shouldInterruptLoadForXFrameOptions(const String& content, con
     return false;
 }
 
-void FrameLoader::addHistoryItemForFragmentScroll()
-{
-    addBackForwardItemClippedAtTarget(false);
-}
-
 bool FrameLoader::loadProvisionalItemFromCachedPage()
 {
-    RefPtr<CachedPage> cachedPage = pageCache()->get(m_provisionalHistoryItem.get());
+    RefPtr<CachedPage> cachedPage = pageCache()->get(history()->provisionalItem());
     if (!cachedPage || !cachedPage->document())
         return false;
 
@@ -3861,119 +3770,21 @@ void FrameLoader::pageHidden()
 
 bool FrameLoader::shouldTreatURLAsSameAsCurrent(const KURL& url) const
 {
-    if (!m_currentHistoryItem)
+    if (!history()->currentItem())
         return false;
-    return url == m_currentHistoryItem->url() || url == m_currentHistoryItem->originalURL();
+    return url == history()->currentItem()->url() || url == history()->currentItem()->originalURL();
 }
 
-PassRefPtr<HistoryItem> FrameLoader::createHistoryItem(bool useOriginal)
+void FrameLoader::checkDidPerformFirstNavigation()
 {
-    DocumentLoader* docLoader = documentLoader();
-    
-    KURL unreachableURL = docLoader ? docLoader->unreachableURL() : KURL();
-    
-    KURL url;
-    KURL originalURL;
-
-    if (!unreachableURL.isEmpty()) {
-        url = unreachableURL;
-        originalURL = unreachableURL;
-    } else {
-        originalURL = docLoader ? docLoader->originalURL() : KURL();
-        if (useOriginal)
-            url = originalURL;
-        else if (docLoader)
-            url = docLoader->requestURL();
-    }
-
-    LOG(History, "WebCoreHistory: Creating item for %s", url.string().ascii().data());
-    
-    // Frames that have never successfully loaded any content
-    // may have no URL at all. Currently our history code can't
-    // deal with such things, so we nip that in the bud here.
-    // Later we may want to learn to live with nil for URL.
-    // See bug 3368236 and related bugs for more information.
-    if (url.isEmpty()) 
-        url = blankURL();
-    if (originalURL.isEmpty())
-        originalURL = blankURL();
-    
-    Frame* parentFrame = m_frame->tree()->parent();
-    String parent = parentFrame ? parentFrame->tree()->name() : "";
-    String title = docLoader ? docLoader->title() : "";
-
-    RefPtr<HistoryItem> item = HistoryItem::create(url, m_frame->tree()->name(), parent, title);
-    item->setOriginalURLString(originalURL.string());
-
-    if (!unreachableURL.isEmpty() || !docLoader || docLoader->response().httpStatusCode() >= 400)
-        item->setLastVisitWasFailure(true);
-
-    // Save form state if this is a POST
-    if (docLoader) {
-        if (useOriginal)
-            item->setFormInfoFromRequest(docLoader->originalRequest());
-        else
-            item->setFormInfoFromRequest(docLoader->request());
-    }
-    
-    // Set the item for which we will save document state
-    m_previousHistoryItem = m_currentHistoryItem;
-    m_currentHistoryItem = item;
-    
-    return item.release();
-}
-
-void FrameLoader::addBackForwardItemClippedAtTarget(bool doClip)
-{
-    // In the case of saving state about a page with frames, we store a tree of items that mirrors the frame tree.  
-    // The item that was the target of the user's navigation is designated as the "targetItem".  
-    // When this function is called with doClip=true we're able to create the whole tree except for the target's children, 
-    // which will be loaded in the future. That part of the tree will be filled out as the child loads are committed.
-
     Page* page = m_frame->page();
     if (!page)
         return;
 
-    if (documentLoader()->urlForHistory().isEmpty())
-        return;
-
-    Frame* mainFrame = page->mainFrame();
-    ASSERT(mainFrame);
-    FrameLoader* frameLoader = mainFrame->loader();
-
-    if (!frameLoader->m_didPerformFirstNavigation && page->backForwardList()->entries().size() == 1) {
-        frameLoader->m_didPerformFirstNavigation = true;
+    if (!m_didPerformFirstNavigation && page->backForwardList()->entries().size() == 1) {
+        m_didPerformFirstNavigation = true;
         m_client->didPerformFirstNavigation();
     }
-
-    RefPtr<HistoryItem> item = frameLoader->createHistoryItemTree(m_frame, doClip);
-    LOG(BackForward, "WebCoreBackForward - Adding backforward item %p for frame %s", item.get(), documentLoader()->url().string().ascii().data());
-    page->backForwardList()->addItem(item);
-}
-
-PassRefPtr<HistoryItem> FrameLoader::createHistoryItemTree(Frame* targetFrame, bool clipAtTarget)
-{
-    RefPtr<HistoryItem> bfItem = createHistoryItem(m_frame->tree()->parent() ? true : false);
-    if (m_previousHistoryItem)
-        saveScrollPositionAndViewStateToItem(m_previousHistoryItem.get());
-    if (!(clipAtTarget && m_frame == targetFrame)) {
-        // save frame state for items that aren't loading (khtml doesn't save those)
-        saveDocumentState();
-        for (Frame* child = m_frame->tree()->firstChild(); child; child = child->tree()->nextSibling()) {
-            FrameLoader* childLoader = child->loader();
-            bool hasChildLoaded = childLoader->frameHasLoaded();
-            
-            // If the child is a frame corresponding to an <object> element that never loaded,
-            // we don't want to create a history item, because that causes fallback content
-            // to be ignored on reload.
-            
-            if (!(!hasChildLoaded && childLoader->isHostedByObjectElement()))
-                bfItem->addChildItem(childLoader->createHistoryItemTree(targetFrame, clipAtTarget));
-        }
-    }
-    if (m_frame == targetFrame)
-        bfItem->setIsTargetItem(true);
-    return bfItem;
 }
 
 Frame* FrameLoader::findFrameForNavigation(const AtomicString& name)
@@ -3984,100 +3795,10 @@ Frame* FrameLoader::findFrameForNavigation(const AtomicString& name)
     return frame;
 }
 
-void FrameLoader::saveScrollPositionAndViewStateToItem(HistoryItem* item)
-{
-    if (!item || !m_frame->view())
-        return;
-        
-    item->setScrollPoint(m_frame->view()->scrollPosition());
-    // FIXME: It would be great to work out a way to put this code in WebCore instead of calling through to the client.
-    m_client->saveViewStateToItem(item);
-}
-
-/*
- There is a race condition between the layout and load completion that affects restoring the scroll position.
- We try to restore the scroll position at both the first layout and upon load completion.
- 
- 1) If first layout happens before the load completes, we want to restore the scroll position then so that the
- first time we draw the page is already scrolled to the right place, instead of starting at the top and later
- jumping down.  It is possible that the old scroll position is past the part of the doc laid out so far, in
- which case the restore silent fails and we will fix it in when we try to restore on doc completion.
- 2) If the layout happens after the load completes, the attempt to restore at load completion time silently
- fails.  We then successfully restore it when the layout happens.
-*/
-void FrameLoader::restoreScrollPositionAndViewState()
-{
-    if (!m_committedFirstRealDocumentLoad)
-        return;
-
-    ASSERT(m_currentHistoryItem);
-    
-    // FIXME: As the ASSERT attests, it seems we should always have a currentItem here.
-    // One counterexample is <rdar://problem/4917290>
-    // For now, to cover this issue in release builds, there is no technical harm to returning
-    // early and from a user standpoint - as in the above radar - the previous page load failed 
-    // so there *is* no scroll or view state to restore!
-    if (!m_currentHistoryItem)
-        return;
-    
-    // FIXME: It would be great to work out a way to put this code in WebCore instead of calling
-    // through to the client. It's currently used only for the PDF view on Mac.
-    m_client->restoreViewState();
-    
-    if (FrameView* view = m_frame->view())
-        if (!view->wasScrolledByUser())
-            view->setScrollPosition(m_currentHistoryItem->scrollPoint());
-}
-
-void FrameLoader::invalidateCurrentItemCachedPage()
-{
-    // When we are pre-commit, the currentItem is where the pageCache data resides    
-    CachedPage* cachedPage = pageCache()->get(m_currentHistoryItem.get());
-
-    // FIXME: This is a grotesque hack to fix <rdar://problem/4059059> Crash in RenderFlow::detach
-    // Somehow the PageState object is not properly updated, and is holding onto a stale document.
-    // Both Xcode and FileMaker see this crash, Safari does not.
-    
-    ASSERT(!cachedPage || cachedPage->document() == m_frame->document());
-    if (cachedPage && cachedPage->document() == m_frame->document()) {
-        cachedPage->document()->setInPageCache(false);
-        cachedPage->clear();
-    }
-    
-    if (cachedPage)
-        pageCache()->remove(m_currentHistoryItem.get());
-}
-
-void FrameLoader::saveDocumentState()
-{
-    if (m_creatingInitialEmptyDocument)
-        return;
-
-    // For a standard page load, we will have a previous item set, which will be used to
-    // store the form state.  However, in some cases we will have no previous item, and
-    // the current item is the right place to save the state.  One example is when we
-    // detach a bunch of frames because we are navigating from a site with frames to
-    // another site.  Another is when saving the frame state of a frame that is not the
-    // target of the current navigation (if we even decide to save with that granularity).
-
-    // Because of previousItem's "masking" of currentItem for this purpose, it's important
-    // that previousItem be cleared at the end of a page transition.  We leverage the
-    // checkLoadComplete recursion to achieve this goal.
-
-    HistoryItem* item = m_previousHistoryItem ? m_previousHistoryItem.get() : m_currentHistoryItem.get();
-    if (!item)
-        return;
-
-    Document* document = m_frame->document();
-    ASSERT(document);
-    
-    if (item->isCurrentDocument(document)) {
-        LOG(Loading, "WebCoreLoading %s: saving form state to %p", m_frame->tree()->name().string().utf8().data(), item);
-        item->setDocumentState(document->formElementsState());
-    }
-}
-
 // Loads content into this frame, as specified by history item
+// FIXME: This function should really be split into a couple pieces, some of
+// which should be methods of HistoryController and some of which should be
+// methods of FrameLoader.
 void FrameLoader::loadItem(HistoryItem* item, FrameLoadType loadType)
 {
     if (!m_frame->page())
@@ -4096,7 +3817,7 @@ void FrameLoader::loadItem(HistoryItem* item, FrameLoadType loadType)
     // check for all that as an additional optimization.
     // We also do not do anchor-style navigation if we're posting a form or navigating from
     // a page that was resulted from a form post.
-    bool shouldScroll = !formData && !(m_currentHistoryItem && m_currentHistoryItem->formData()) && urlsMatchItem(item);
+    bool shouldScroll = !formData && !(history()->currentItem() && history()->currentItem()->formData()) && history()->urlsMatchItem(item);
 
 #if ENABLE(WML)
     // All WML decks should go through the real load mechanism, not the scroll-to-anchor code
@@ -4106,12 +3827,12 @@ void FrameLoader::loadItem(HistoryItem* item, FrameLoadType loadType)
 
     if (shouldScroll) {
         // Must do this maintenance here, since we don't go through a real page reload
-        saveScrollPositionAndViewStateToItem(m_currentHistoryItem.get());
+        history()->saveScrollPositionAndViewStateToItem(history()->currentItem());
 
         if (FrameView* view = m_frame->view())
             view->setWasScrolledByUser(false);
 
-        m_currentHistoryItem = item;
+        history()->setCurrentItem(item);
 
         // FIXME: Form state might need to be saved here too.
 
@@ -4120,7 +3841,7 @@ void FrameLoader::loadItem(HistoryItem* item, FrameLoadType loadType)
         scrollToAnchor(item->url());
     
         // must do this maintenance here, since we don't go through a real page reload
-        restoreScrollPositionAndViewState();
+        history()->restoreScrollPositionAndViewState();
         
         // Fake the URL change by updating the data source's request.  This will no longer
         // be necessary if we do the better fix described above.
@@ -4132,7 +3853,7 @@ void FrameLoader::loadItem(HistoryItem* item, FrameLoadType loadType)
         m_client->didFinishLoad();
     } else {
         // Remember this item so we can traverse any child items as child frames load
-        m_provisionalHistoryItem = item;
+        history()->setProvisionalItem(item);
 
         bool inPageCache = false;
         
@@ -4149,7 +3870,7 @@ void FrameLoader::loadItem(HistoryItem* item, FrameLoadType loadType)
                 loadWithDocumentLoader(cachedPage->documentLoader(), loadType, 0);   
                 inPageCache = true;
             } else {
-                LOG(PageCache, "Not restoring page for %s from back/forward cache because cache entry has expired", m_provisionalHistoryItem->url().string().ascii().data());
+                LOG(PageCache, "Not restoring page for %s from back/forward cache because cache entry has expired", history()->provisionalItem()->url().string().ascii().data());
                 pageCache()->remove(item);
             }
         }
@@ -4224,322 +3945,6 @@ void FrameLoader::loadItem(HistoryItem* item, FrameLoadType loadType)
     }
 }
 
-// Walk the frame tree and ensure that the URLs match the URLs in the item.
-bool FrameLoader::urlsMatchItem(HistoryItem* item) const
-{
-    const KURL& currentURL = documentLoader()->url();
-    if (!equalIgnoringFragmentIdentifier(currentURL, item->url()))
-        return false;
-
-    const HistoryItemVector& childItems = item->children();
-
-    unsigned size = childItems.size();
-    for (unsigned i = 0; i < size; ++i) {
-        Frame* childFrame = m_frame->tree()->child(childItems[i]->target());
-        if (childFrame && !childFrame->loader()->urlsMatchItem(childItems[i].get()))
-            return false;
-    }
-
-    return true;
-}
-
-// Main funnel for navigating to a previous location (back/forward, non-search snap-back)
-// This includes recursion to handle loading into framesets properly
-void FrameLoader::goToItem(HistoryItem* targetItem, FrameLoadType type)
-{
-    ASSERT(!m_frame->tree()->parent());
-    
-    // shouldGoToHistoryItem is a private delegate method. This is needed to fix:
-    // <rdar://problem/3951283> can view pages from the back/forward cache that should be disallowed by Parental Controls
-    // Ultimately, history item navigations should go through the policy delegate. That's covered in:
-    // <rdar://problem/3979539> back/forward cache navigations should consult policy delegate
-    Page* page = m_frame->page();
-    if (!page)
-        return;
-    if (!m_client->shouldGoToHistoryItem(targetItem))
-        return;
-
-    // Set the BF cursor before commit, which lets the user quickly click back/forward again.
-    // - plus, it only makes sense for the top level of the operation through the frametree,
-    // as opposed to happening for some/one of the page commits that might happen soon
-    BackForwardList* bfList = page->backForwardList();
-    HistoryItem* currentItem = bfList->currentItem();    
-    bfList->goToItem(targetItem);
-    Settings* settings = m_frame->settings();
-    page->setGlobalHistoryItem((!settings || settings->privateBrowsingEnabled()) ? 0 : targetItem);
-    recursiveGoToItem(targetItem, currentItem, type);
-}
-
-// The general idea here is to traverse the frame tree and the item tree in parallel,
-// tracking whether each frame already has the content the item requests.  If there is
-// a match (by URL), we just restore scroll position and recurse.  Otherwise we must
-// reload that frame, and all its kids.
-void FrameLoader::recursiveGoToItem(HistoryItem* item, HistoryItem* fromItem, FrameLoadType type)
-{
-    ASSERT(item);
-    ASSERT(fromItem);
-    
-    KURL itemURL = item->url();
-    KURL currentURL;
-    if (documentLoader())
-        currentURL = documentLoader()->url();
-    
-    // Always reload the target frame of the item we're going to.  This ensures that we will
-    // do -some- load for the transition, which means a proper notification will be posted
-    // to the app.
-    // The exact URL has to match, including fragment.  We want to go through the _load
-    // method, even if to do a within-page navigation.
-    // The current frame tree and the frame tree snapshot in the item have to match.
-    if (!item->isTargetItem() &&
-        itemURL == currentURL &&
-        ((m_frame->tree()->name().isEmpty() && item->target().isEmpty()) || m_frame->tree()->name() == item->target()) &&
-        childFramesMatchItem(item))
-    {
-        // This content is good, so leave it alone and look for children that need reloading
-        // Save form state (works from currentItem, since prevItem is nil)
-        ASSERT(!m_previousHistoryItem);
-        saveDocumentState();
-        saveScrollPositionAndViewStateToItem(m_currentHistoryItem.get());
-
-        if (FrameView* view = m_frame->view())
-            view->setWasScrolledByUser(false);
-
-        m_currentHistoryItem = item;
-                
-        // Restore form state (works from currentItem)
-        restoreDocumentState();
-        
-        // Restore the scroll position (we choose to do this rather than going back to the anchor point)
-        restoreScrollPositionAndViewState();
-        
-        const HistoryItemVector& childItems = item->children();
-        
-        int size = childItems.size();
-        for (int i = 0; i < size; ++i) {
-            String childFrameName = childItems[i]->target();
-            HistoryItem* fromChildItem = fromItem->childItemWithTarget(childFrameName);
-            ASSERT(fromChildItem || fromItem->isTargetItem());
-            Frame* childFrame = m_frame->tree()->child(childFrameName);
-            ASSERT(childFrame);
-            childFrame->loader()->recursiveGoToItem(childItems[i].get(), fromChildItem, type);
-        }
-    } else {
-        loadItem(item, type);
-    }
-}
-
-// helper method that determines whether the subframes described by the item's subitems
-// match our own current frameset
-bool FrameLoader::childFramesMatchItem(HistoryItem* item) const
-{
-    const HistoryItemVector& childItems = item->children();
-    if (childItems.size() != m_frame->tree()->childCount())
-        return false;
-    
-    unsigned size = childItems.size();
-    for (unsigned i = 0; i < size; ++i) {
-        if (!m_frame->tree()->child(childItems[i]->target()))
-            return false;
-    }
-    
-    // Found matches for all item targets
-    return true;
-}
-
-// There are 3 things you might think of as "history", all of which are handled by these functions.
-//
-//     1) Back/forward: The m_currentHistoryItem is part of this mechanism.
-//     2) Global history: Handled by the client.
-//     3) Visited links: Handled by the PageGroup.
-
-void FrameLoader::updateHistoryForStandardLoad()
-{
-    LOG(History, "WebCoreHistory: Updating History for Standard Load in frame %s", documentLoader()->url().string().ascii().data());
-
-    Settings* settings = m_frame->settings();
-    bool needPrivacy = !settings || settings->privateBrowsingEnabled();
-    const KURL& historyURL = documentLoader()->urlForHistory();
-
-    if (!documentLoader()->isClientRedirect()) {
-        if (!historyURL.isEmpty()) {
-            addBackForwardItemClippedAtTarget(true);
-            if (!needPrivacy) {
-                m_client->updateGlobalHistory();
-                m_documentLoader->setDidCreateGlobalHistoryEntry(true);
-                if (m_documentLoader->unreachableURL().isEmpty())
-                    m_client->updateGlobalHistoryRedirectLinks();
-            }
-            if (Page* page = m_frame->page())
-                page->setGlobalHistoryItem(needPrivacy ? 0 : page->backForwardList()->currentItem());
-        }
-    } else if (documentLoader()->unreachableURL().isEmpty() && m_currentHistoryItem) {
-        m_currentHistoryItem->setURL(documentLoader()->url());
-        m_currentHistoryItem->setFormInfoFromRequest(documentLoader()->request());
-    }
-
-    if (!historyURL.isEmpty() && !needPrivacy) {
-        if (Page* page = m_frame->page())
-            page->group().addVisitedLink(historyURL);
-
-        if (!m_documentLoader->didCreateGlobalHistoryEntry() && documentLoader()->unreachableURL().isEmpty() && !url().isEmpty())
-            m_client->updateGlobalHistoryRedirectLinks();
-    }
-}
-
-void FrameLoader::updateHistoryForClientRedirect()
-{
-#if !LOG_DISABLED
-    if (documentLoader())
-        LOG(History, "WebCoreHistory: Updating History for client redirect in frame %s", documentLoader()->title().utf8().data());
-#endif
-
-    // Clear out form data so we don't try to restore it into the incoming page.  Must happen after
-    // webcore has closed the URL and saved away the form state.
-    if (m_currentHistoryItem) {
-        m_currentHistoryItem->clearDocumentState();
-        m_currentHistoryItem->clearScrollPoint();
-    }
-
-    Settings* settings = m_frame->settings();
-    bool needPrivacy = !settings || settings->privateBrowsingEnabled();
-    const KURL& historyURL = documentLoader()->urlForHistory();
-
-    if (!historyURL.isEmpty() && !needPrivacy) {
-        if (Page* page = m_frame->page())
-            page->group().addVisitedLink(historyURL);
-    }
-}
-
-void FrameLoader::updateHistoryForBackForwardNavigation()
-{
-#if !LOG_DISABLED
-    if (documentLoader())
-        LOG(History, "WebCoreHistory: Updating History for back/forward navigation in frame %s", documentLoader()->title().utf8().data());
-#endif
-
-    // Must grab the current scroll position before disturbing it
-    saveScrollPositionAndViewStateToItem(m_previousHistoryItem.get());
-}
-
-void FrameLoader::updateHistoryForReload()
-{
-#if !LOG_DISABLED
-    if (documentLoader())
-        LOG(History, "WebCoreHistory: Updating History for reload in frame %s", documentLoader()->title().utf8().data());
-#endif
-
-    if (m_currentHistoryItem) {
-        pageCache()->remove(m_currentHistoryItem.get());
-    
-        if (loadType() == FrameLoadTypeReload || loadType() == FrameLoadTypeReloadFromOrigin)
-            saveScrollPositionAndViewStateToItem(m_currentHistoryItem.get());
-    
-        // Sometimes loading a page again leads to a different result because of cookies. Bugzilla 4072
-        if (documentLoader()->unreachableURL().isEmpty())
-            m_currentHistoryItem->setURL(documentLoader()->requestURL());
-    }
-}
-
-void FrameLoader::updateHistoryForRedirectWithLockedBackForwardList()
-{
-#if !LOG_DISABLED
-    if (documentLoader())
-        LOG(History, "WebCoreHistory: Updating History for redirect load in frame %s", documentLoader()->title().utf8().data());
-#endif
-    
-    Settings* settings = m_frame->settings();
-    bool needPrivacy = !settings || settings->privateBrowsingEnabled();
-    const KURL& historyURL = documentLoader()->urlForHistory();
-
-    if (documentLoader()->isClientRedirect()) {
-        if (!m_currentHistoryItem && !m_frame->tree()->parent()) {
-            if (!historyURL.isEmpty()) {
-                addBackForwardItemClippedAtTarget(true);
-                if (!needPrivacy) {
-                    m_client->updateGlobalHistory();
-                    m_documentLoader->setDidCreateGlobalHistoryEntry(true);
-                    if (m_documentLoader->unreachableURL().isEmpty())
-                        m_client->updateGlobalHistoryRedirectLinks();
-                }
-                if (Page* page = m_frame->page())
-                    page->setGlobalHistoryItem(needPrivacy ? 0 : page->backForwardList()->currentItem());
-            }
-        }
-        if (m_currentHistoryItem) {
-            m_currentHistoryItem->setURL(documentLoader()->url());
-            m_currentHistoryItem->setFormInfoFromRequest(documentLoader()->request());
-        }
-    } else {
-        Frame* parentFrame = m_frame->tree()->parent();
-        if (parentFrame && parentFrame->loader()->m_currentHistoryItem)
-            parentFrame->loader()->m_currentHistoryItem->setChildItem(createHistoryItem(true));
-    }
-
-    if (!historyURL.isEmpty() && !needPrivacy) {
-        if (Page* page = m_frame->page())
-            page->group().addVisitedLink(historyURL);
-
-        if (!m_documentLoader->didCreateGlobalHistoryEntry() && documentLoader()->unreachableURL().isEmpty() && !url().isEmpty())
-            m_client->updateGlobalHistoryRedirectLinks();
-    }
-}
-
-void FrameLoader::updateHistoryForCommit()
-{
-#if !LOG_DISABLED
-    if (documentLoader())
-        LOG(History, "WebCoreHistory: Updating History for commit in frame %s", documentLoader()->title().utf8().data());
-#endif
-    FrameLoadType type = loadType();
-    if (isBackForwardLoadType(type) ||
-        ((type == FrameLoadTypeReload || type == FrameLoadTypeReloadFromOrigin) && !provisionalDocumentLoader()->unreachableURL().isEmpty())) {
-        // Once committed, we want to use current item for saving DocState, and
-        // the provisional item for restoring state.
-        // Note previousItem must be set before we close the URL, which will
-        // happen when the data source is made non-provisional below
-        m_previousHistoryItem = m_currentHistoryItem;
-        ASSERT(m_provisionalHistoryItem);
-        m_currentHistoryItem = m_provisionalHistoryItem;
-        m_provisionalHistoryItem = 0;
-    }
-}
-
-void FrameLoader::updateHistoryForAnchorScroll()
-{
-    if (m_URL.isEmpty())
-        return;
-
-    Settings* settings = m_frame->settings();
-    if (!settings || settings->privateBrowsingEnabled())
-        return;
-
-    Page* page = m_frame->page();
-    if (!page)
-        return;
-
-    page->group().addVisitedLink(m_URL);
-}
-
-// Walk the frame tree, telling all frames to save their form state into their current
-// history item.
-void FrameLoader::saveDocumentAndScrollState()
-{
-    for (Frame* frame = m_frame; frame; frame = frame->tree()->traverseNext(m_frame)) {
-        frame->loader()->saveDocumentState();
-        frame->loader()->saveScrollPositionAndViewStateToItem(frame->loader()->currentHistoryItem());
-    }
-}
-
-HistoryItem* FrameLoader::currentHistoryItem()
-{
-    return m_currentHistoryItem.get();
-}
-
-void FrameLoader::setCurrentHistoryItem(PassRefPtr<HistoryItem> item)
-{
-    m_currentHistoryItem = item;
-}
-
 void FrameLoader::setMainDocumentError(DocumentLoader* loader, const ResourceError& error)
 {
     m_client->setMainDocumentError(loader, error);
@@ -4581,26 +3986,9 @@ ResourceError FrameLoader::fileDoesNotExistError(const ResourceResponse& respons
     return m_client->fileDoesNotExistError(response);    
 }
 
-void FrameLoader::didFinishLoad(ResourceLoader* loader)
-{    
-    if (Page* page = m_frame->page())
-        page->progress()->completeProgress(loader->identifier());
-    dispatchDidFinishLoading(loader->documentLoader(), loader->identifier());
-}
-
 bool FrameLoader::shouldUseCredentialStorage(ResourceLoader* loader)
 {
     return m_client->shouldUseCredentialStorage(loader->documentLoader(), loader->identifier());
-}
-
-void FrameLoader::didReceiveAuthenticationChallenge(ResourceLoader* loader, const AuthenticationChallenge& currentWebChallenge)
-{
-    m_client->dispatchDidReceiveAuthenticationChallenge(loader->documentLoader(), loader->identifier(), currentWebChallenge);
-}
-
-void FrameLoader::didCancelAuthenticationChallenge(ResourceLoader* loader, const AuthenticationChallenge& currentWebChallenge)
-{
-    m_client->dispatchDidCancelAuthenticationChallenge(loader->documentLoader(), loader->identifier(), currentWebChallenge);
 }
 
 void FrameLoader::setTitle(const String& title)
@@ -4626,7 +4014,8 @@ void FrameLoader::dispatchDocumentElementAvailable()
 
 void FrameLoader::dispatchWindowObjectAvailable()
 {
-    if (!m_frame->script()->isEnabled() || !m_frame->script()->haveWindowShell())
+    // FIXME: should this be isolated-worlds-aware?
+    if (!m_frame->script()->isEnabled() || !m_frame->script()->existingWindowShell(mainThreadNormalWorld()))
         return;
 
     m_client->windowObjectCleared();
@@ -4683,8 +4072,7 @@ void FrameLoader::didChangeTitle(DocumentLoader* loader)
 
     if (loader == m_documentLoader) {
         // Must update the entries in the back-forward list too.
-        if (m_currentHistoryItem)
-            m_currentHistoryItem->setTitle(loader->title());
+        history()->setCurrentItemTitle(loader->title());
         // This must go through the WebFrame because it has the right notion of the current b/f item.
         m_client->setTitle(loader->title(), loader->urlForHistory());
         m_client->setMainFrameDocumentReady(true); // update observers with new DOMDocument
@@ -4706,63 +4094,6 @@ void FrameLoader::dispatchDidCommitLoad()
 #if ENABLE(INSPECTOR)
     if (Page* page = m_frame->page())
         page->inspectorController()->didCommitLoad(m_documentLoader.get());
-#endif
-}
-
-void FrameLoader::dispatchAssignIdentifierToInitialRequest(unsigned long identifier, DocumentLoader* loader, const ResourceRequest& request)
-{
-    m_client->assignIdentifierToInitialRequest(identifier, loader, request);
-
-#if ENABLE(INSPECTOR)
-    if (Page* page = m_frame->page())
-        page->inspectorController()->identifierForInitialRequest(identifier, loader, request);
-#endif
-}
-
-void FrameLoader::dispatchWillSendRequest(DocumentLoader* loader, unsigned long identifier, ResourceRequest& request, const ResourceResponse& redirectResponse)
-{
-    StringImpl* oldRequestURL = request.url().string().impl();
-    m_documentLoader->didTellClientAboutLoad(request.url());
-
-    m_client->dispatchWillSendRequest(loader, identifier, request, redirectResponse);
-
-    // If the URL changed, then we want to put that new URL in the "did tell client" set too.
-    if (!request.isNull() && oldRequestURL != request.url().string().impl())
-        m_documentLoader->didTellClientAboutLoad(request.url());
-
-#if ENABLE(INSPECTOR)
-    if (Page* page = m_frame->page())
-        page->inspectorController()->willSendRequest(loader, identifier, request, redirectResponse);
-#endif
-}
-
-void FrameLoader::dispatchDidReceiveResponse(DocumentLoader* loader, unsigned long identifier, const ResourceResponse& r)
-{
-    m_client->dispatchDidReceiveResponse(loader, identifier, r);
-
-#if ENABLE(INSPECTOR)
-    if (Page* page = m_frame->page())
-        page->inspectorController()->didReceiveResponse(loader, identifier, r);
-#endif
-}
-
-void FrameLoader::dispatchDidReceiveContentLength(DocumentLoader* loader, unsigned long identifier, int length)
-{
-    m_client->dispatchDidReceiveContentLength(loader, identifier, length);
-
-#if ENABLE(INSPECTOR)
-    if (Page* page = m_frame->page())
-        page->inspectorController()->didReceiveContentLength(loader, identifier, length);
-#endif
-}
-
-void FrameLoader::dispatchDidFinishLoading(DocumentLoader* loader, unsigned long identifier)
-{
-    m_client->dispatchDidFinishLoading(loader, identifier);
-
-#if ENABLE(INSPECTOR)
-    if (Page* page = m_frame->page())
-        page->inspectorController()->didFinishLoading(loader, identifier);
 #endif
 }
 

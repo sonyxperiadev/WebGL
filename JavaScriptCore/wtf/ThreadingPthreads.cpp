@@ -272,7 +272,10 @@ void Mutex::unlock()
 }
 
 #if HAVE(PTHREAD_RWLOCK)
+<<<<<<< HEAD:JavaScriptCore/wtf/ThreadingPthreads.cpp
 
+=======
+>>>>>>> webkit.org at r50258.:JavaScriptCore/wtf/ThreadingPthreads.cpp
 ReadWriteLock::ReadWriteLock()
 {
     pthread_rwlock_init(&m_readWriteLock, NULL);

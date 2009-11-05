@@ -112,21 +112,9 @@ qint64 FormDataIODevice::writeData(const char*, qint64)
     return -1;
 }
 
-void FormDataIODevice::setParent(QNetworkReply* reply)
-{
-    QIODevice::setParent(reply);
-
-    connect(reply, SIGNAL(finished()), SLOT(slotFinished()), Qt::QueuedConnection);
-}
-
 bool FormDataIODevice::isSequential() const
 {
     return true;
-}
-
-void FormDataIODevice::slotFinished()
-{
-    deleteLater();
 }
 
 QNetworkReplyHandler::QNetworkReplyHandler(ResourceHandle* handle, LoadMode loadMode)
@@ -187,8 +175,8 @@ void QNetworkReplyHandler::abort()
         QNetworkReply* reply = release();
         reply->abort();
         reply->deleteLater();
-        deleteLater();
     }
+    deleteLater();
 }
 
 QNetworkReply* QNetworkReplyHandler::release()
@@ -200,6 +188,7 @@ QNetworkReply* QNetworkReplyHandler::release()
         // posted meta call events that were the result of a signal emission
         // don't reach the slots in our instance.
         QCoreApplication::removePostedEvents(this, QEvent::MetaCall);
+        m_reply->setParent(0);
         m_reply = 0;
     }
     return reply;

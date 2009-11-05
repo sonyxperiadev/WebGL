@@ -445,6 +445,24 @@ v8::Persistent<v8::FunctionTemplate> V8DOMWrapper::getTemplate(V8ClassIndex::V8W
 
 #endif // WORKERS
 
+#if ENABLE(SHARED_WORKERS)
+    case V8ClassIndex::SHAREDWORKER: {
+        // Reserve one more internal field for keeping event listeners.
+        v8::Local<v8::ObjectTemplate> instanceTemplate = descriptor->InstanceTemplate();
+        instanceTemplate->SetInternalFieldCount(V8Custom::kSharedWorkerInternalFieldCount);
+        descriptor->SetCallHandler(USE_CALLBACK(SharedWorkerConstructor));
+        break;
+    }
+
+    case V8ClassIndex::SHAREDWORKERCONTEXT: {
+        // Reserve internal fields for keeping event listeners.
+        v8::Local<v8::ObjectTemplate> instanceTemplate = descriptor->InstanceTemplate();
+        ASSERT(instanceTemplate->InternalFieldCount() == V8Custom::kDefaultWrapperInternalFieldCount);
+        instanceTemplate->SetInternalFieldCount(V8Custom::kSharedWorkerContextInternalFieldCount);
+        break;
+    }
+#endif // SHARED_WORKERS
+
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
     case V8ClassIndex::DOMAPPLICATIONCACHE: {
         // Reserve one more internal field for keeping event listeners.
@@ -597,16 +615,6 @@ v8::Local<v8::Function> V8DOMWrapper::getConstructor(V8ClassIndex::V8WrapperType
     Frame* frame = window->frame();
     if (!frame)
         return v8::Local<v8::Function>();
-
-#if ENABLE(WEB_SOCKETS)
-    // Make typeof(window.WebSocket) == 'undefined' when
-    // experimentalWebSocketEnabled is false.
-    if (type == V8ClassIndex::WEBSOCKET) {
-        Settings* settings = frame->settings();
-        if (!settings || !settings->experimentalWebSocketsEnabled())
-            return v8::Local<v8::Function>();
-    }
-#endif
 
     v8::Handle<v8::Context> context = V8Proxy::context(frame);
     if (context.IsEmpty())
@@ -1198,6 +1206,8 @@ v8::Handle<v8::Value> V8DOMWrapper::convertEventToV8Object(Event* event)
     else if (event->isStorageEvent())
         type = V8ClassIndex::STORAGEEVENT;
 #endif
+    else if (event->isBeforeLoadEvent())
+        type = V8ClassIndex::BEFORELOADEVENT;
 
 
     v8::Handle<v8::Object> result = instantiateV8Object(type, V8ClassIndex::EVENT, event);
@@ -1281,14 +1291,14 @@ v8::Handle<v8::Value> V8DOMWrapper::convertNewNodeToV8Object(Node* node, V8Proxy
         else
             type = V8ClassIndex::DOCUMENT;
     } else {
-        ASSERT(nodeType < sizeof(mapping)/sizeof(mapping[0]));
+        ASSERT(nodeType < static_cast<int>(sizeof(mapping)/sizeof(mapping[0])));
         type = mapping[nodeType];
         ASSERT(type != V8ClassIndex::INVALID_CLASS_INDEX);
     }
 
     v8::Handle<v8::Context> context;
     if (proxy)
-        context = V8Proxy::context(proxy->frame());
+        context = proxy->context();
 
     // Enter the node's context and create the wrapper in that context.
     if (!context.IsEmpty())
@@ -1400,14 +1410,14 @@ v8::Handle<v8::Value> V8DOMWrapper::convertEventTargetToV8Object(EventTarget* ta
     return notHandledByInterceptor();
 }
 
-v8::Handle<v8::Value> V8DOMWrapper::convertEventListenerToV8Object(EventListener* listener)
+v8::Handle<v8::Value> V8DOMWrapper::convertEventListenerToV8Object(ScriptExecutionContext* context, EventListener* listener)
 {
     if (!listener)
         return v8::Null();
 
     // FIXME: can a user take a lazy event listener and set to other places?
     V8AbstractEventListener* v8listener = static_cast<V8AbstractEventListener*>(listener);
-    return v8listener->getListenerObject();
+    return v8listener->getListenerObject(context);
 }
 
 PassRefPtr<EventListener> V8DOMWrapper::getEventListener(Node* node, v8::Local<v8::Value> value, bool isAttribute, ListenerLookupType lookup)
@@ -1423,7 +1433,7 @@ PassRefPtr<EventListener> V8DOMWrapper::getEventListener(Node* node, v8::Local<v
         proxy = V8Proxy::retrieve(V8Proxy::retrieveFrameForEnteredContext());
 
     if (proxy)
-        return (lookup == ListenerFindOnly) ? V8EventListenerList::findWrapper(value, isAttribute) : V8EventListenerList::findOrCreateWrapper<V8EventListener>(proxy->frame(), proxy->listenerGuard(), value, isAttribute);
+        return (lookup == ListenerFindOnly) ? V8EventListenerList::findWrapper(value, isAttribute) : V8EventListenerList::findOrCreateWrapper<V8EventListener>(proxy->listenerGuard(), value, isAttribute);
 
     return 0;
 }
@@ -1447,7 +1457,7 @@ PassRefPtr<EventListener> V8DOMWrapper::getEventListener(AbstractWorker* worker,
 
     V8Proxy* proxy = V8Proxy::retrieve(worker->scriptExecutionContext());
     if (proxy)
-        return (lookup == ListenerFindOnly) ? V8EventListenerList::findWrapper(value, isAttribute) : V8EventListenerList::findOrCreateWrapper<V8EventListener>(proxy->frame(), proxy->listenerGuard(), value, isAttribute);
+        return (lookup == ListenerFindOnly) ? V8EventListenerList::findWrapper(value, isAttribute) : V8EventListenerList::findOrCreateWrapper<V8EventListener>(proxy->listenerGuard(), value, isAttribute);
 
     return 0;
 }
@@ -1463,7 +1473,7 @@ PassRefPtr<EventListener> V8DOMWrapper::getEventListener(Notification* notificat
 
     V8Proxy* proxy = V8Proxy::retrieve(notification->scriptExecutionContext());
     if (proxy)
-        return (lookup == ListenerFindOnly) ? V8EventListenerList::findWrapper(value, isAttribute) : V8EventListenerList::findOrCreateWrapper<V8EventListener>(proxy->frame(), proxy->listenerGuard(), value, isAttribute);
+        return (lookup == ListenerFindOnly) ? V8EventListenerList::findWrapper(value, isAttribute) : V8EventListenerList::findOrCreateWrapper<V8EventListener>(proxy->listenerGuard(), value, isAttribute);
 
     return 0;
 }
@@ -1487,7 +1497,7 @@ PassRefPtr<EventListener> V8DOMWrapper::getEventListener(EventTarget* eventTarge
 {
     V8Proxy* proxy = V8Proxy::retrieve(eventTarget->scriptExecutionContext());
     if (proxy)
-        return (lookup == ListenerFindOnly) ? V8EventListenerList::findWrapper(value, isAttribute) : V8EventListenerList::findOrCreateWrapper<V8EventListener>(proxy->frame(), proxy->listenerGuard(), value, isAttribute);
+        return (lookup == ListenerFindOnly) ? V8EventListenerList::findWrapper(value, isAttribute) : V8EventListenerList::findOrCreateWrapper<V8EventListener>(proxy->listenerGuard(), value, isAttribute);
 
 #if ENABLE(WORKERS)
     WorkerContextExecutionProxy* workerContextProxy = WorkerContextExecutionProxy::retrieve();
@@ -1501,7 +1511,7 @@ PassRefPtr<EventListener> V8DOMWrapper::getEventListener(EventTarget* eventTarge
 PassRefPtr<EventListener> V8DOMWrapper::getEventListener(V8Proxy* proxy, v8::Local<v8::Value> value, bool isAttribute, ListenerLookupType lookup)
 {
     if (proxy)
-        return (lookup == ListenerFindOnly) ? V8EventListenerList::findWrapper(value, isAttribute) : V8EventListenerList::findOrCreateWrapper<V8EventListener>(proxy->frame(), proxy->listenerGuard(), value, isAttribute);
+        return (lookup == ListenerFindOnly) ? V8EventListenerList::findWrapper(value, isAttribute) : V8EventListenerList::findOrCreateWrapper<V8EventListener>(proxy->listenerGuard(), value, isAttribute);
 
     return 0;
 }

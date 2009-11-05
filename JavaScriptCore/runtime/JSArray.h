@@ -87,12 +87,13 @@ namespace JSC {
 
         static PassRefPtr<Structure> createStructure(JSValue prototype)
         {
-            return Structure::create(prototype, TypeInfo(ObjectType));
+            return Structure::create(prototype, TypeInfo(ObjectType, StructureFlags));
         }
         
         inline void markChildrenDirect(MarkStack& markStack);
 
     protected:
+        static const unsigned StructureFlags = OverridesGetOwnPropertySlot | OverridesMarkChildren | OverridesGetPropertyNames | JSObject::StructureFlags;
         virtual void put(ExecState*, const Identifier& propertyName, JSValue, PutPropertySlot&);
         virtual bool deleteProperty(ExecState*, const Identifier& propertyName);
         virtual bool deleteProperty(ExecState*, unsigned propertyName);
@@ -157,7 +158,7 @@ namespace JSC {
     inline void MarkStack::markChildren(JSCell* cell)
     {
         ASSERT(Heap::isCellMarked(cell));
-        if (cell->structure()->typeInfo().hasDefaultMark()) {
+        if (!cell->structure()->typeInfo().overridesMarkChildren()) {
 #ifdef NDEBUG
             asObject(cell)->markChildrenDirect(*this);
 #else

@@ -32,11 +32,10 @@
 #define ChromiumBridge_h
 
 #include "FileSystem.h"
+#include "ImageSource.h"
 #include "LinkHash.h"
 #include "PassRefPtr.h"
 #include "PasteboardPrivate.h"
-
-class NativeImageSkia;
 
 typedef struct NPObject NPObject;
 typedef struct _NPP NPP_t;
@@ -78,7 +77,7 @@ namespace WebCore {
         static void clipboardWriteSelection(const String&, const KURL&, const String&, bool);
         static void clipboardWritePlainText(const String&);
         static void clipboardWriteURL(const KURL&, const String&);
-        static void clipboardWriteImage(const NativeImageSkia*, const KURL&, const String&);
+        static void clipboardWriteImage(NativeImagePtr, const KURL&, const String&);
 
         // Cookies ------------------------------------------------------------
         static void setCookies(const KURL& url, const KURL& firstPartyForCookies, const String& value);
@@ -126,6 +125,9 @@ namespace WebCore {
         // JavaScript ---------------------------------------------------------
         static void notifyJSOutOfMemory(Frame*);
         static bool allowScriptDespiteSettings(const KURL& documentURL);
+
+        // Keygen -------------------------------------------------------------
+        static String signedPublicKeyAndChallengeString(unsigned keySizeIndex, const String& challenge, const KURL& url);
 
         // Language -----------------------------------------------------------
         static String computedDefaultLanguage();

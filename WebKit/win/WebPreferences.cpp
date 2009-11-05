@@ -213,7 +213,6 @@ void WebPreferences::initializeDefaultSettings()
     CFDictionaryAddValue(defaults, CFSTR(WebKitDatabasesEnabledPreferenceKey), kCFBooleanTrue);
     CFDictionaryAddValue(defaults, CFSTR(WebKitLocalStorageEnabledPreferenceKey), kCFBooleanTrue);
     CFDictionaryAddValue(defaults, CFSTR(WebKitExperimentalNotificationsEnabledPreferenceKey), kCFBooleanFalse);
-    CFDictionaryAddValue(defaults, CFSTR(WebKitExperimentalWebSocketsEnabledPreferenceKey), kCFBooleanFalse);
     CFDictionaryAddValue(defaults, CFSTR(WebKitAllowAnimatedImagesPreferenceKey), kCFBooleanTrue);
     CFDictionaryAddValue(defaults, CFSTR(WebKitAllowAnimatedImageLoopingPreferenceKey), kCFBooleanTrue);
     CFDictionaryAddValue(defaults, CFSTR(WebKitDisplayImagesKey), kCFBooleanTrue);
@@ -252,8 +251,6 @@ void WebPreferences::initializeDefaultSettings()
     CFDictionaryAddValue(defaults, CFSTR(WebKitPaintNativeControlsPreferenceKey), kCFBooleanTrue);
 
     CFDictionaryAddValue(defaults, CFSTR(WebKitUseHighResolutionTimersPreferenceKey), kCFBooleanTrue);
-
-    CFDictionaryAddValue(defaults, CFSTR(WebKitPluginHalterEnabledPreferenceKey), kCFBooleanFalse);
 
     RetainPtr<CFStringRef> pluginAllowedRunTime(AdoptCF, CFStringCreateWithFormat(0, 0, CFSTR("%u"), numeric_limits<unsigned>::max()));
     CFDictionaryAddValue(defaults, CFSTR(WebKitPluginAllowedRunTimePreferenceKey), pluginAllowedRunTime.get());
@@ -1312,18 +1309,6 @@ HRESULT STDMETHODCALLTYPE WebPreferences::experimentalNotificationsEnabled(BOOL*
     return S_OK;
 }
 
-HRESULT STDMETHODCALLTYPE WebPreferences::setExperimentalWebSocketsEnabled(BOOL enabled)
-{
-    setBoolValue(CFSTR(WebKitExperimentalWebSocketsEnabledPreferenceKey), enabled);
-    return S_OK;
-}
-
-HRESULT STDMETHODCALLTYPE WebPreferences::experimentalWebSocketsEnabled(BOOL* enabled)
-{
-    *enabled = boolValueForKey(CFSTR(WebKitExperimentalWebSocketsEnabledPreferenceKey));
-    return S_OK;
-}
-
 HRESULT WebPreferences::setZoomsTextOnly(BOOL zoomsTextOnly)
 {
     setBoolValue(CFSTR(WebKitZoomsTextOnlyPreferenceKey), zoomsTextOnly);
@@ -1345,19 +1330,6 @@ HRESULT STDMETHODCALLTYPE WebPreferences::setShouldUseHighResolutionTimers(BOOL 
 HRESULT STDMETHODCALLTYPE WebPreferences::shouldUseHighResolutionTimers(BOOL* useHighResolutionTimers)
 {
     *useHighResolutionTimers = boolValueForKey(CFSTR(WebKitUseHighResolutionTimersPreferenceKey));
-    return S_OK;
-}
-
-
-HRESULT STDMETHODCALLTYPE WebPreferences::setPluginHalterEnabled(BOOL enabled)
-{
-    setBoolValue(CFSTR(WebKitPluginHalterEnabledPreferenceKey), enabled);
-    return S_OK;
-}
-
-HRESULT STDMETHODCALLTYPE WebPreferences::pluginHalterEnabled(BOOL* enabled)
-{
-    *enabled = boolValueForKey(CFSTR(WebKitPluginHalterEnabledPreferenceKey));
     return S_OK;
 }
 

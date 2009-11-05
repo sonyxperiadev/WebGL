@@ -105,6 +105,14 @@ enum {
     WebKitErrorJavaUnavailable =                                202,
 };
 
+enum wxProxyType {
+    HTTP,
+    Socks4,
+    Socks4A,
+    Socks5,
+    Socks5Hostname
+};
+
 class WXDLLIMPEXP_WEBKIT wxWebView : public wxWindow
 {
     // ChromeClientWx needs to get the Page* stored by the wxWebView
@@ -194,6 +202,18 @@ public:
     static void SetCachePolicy(const wxWebViewCachePolicy& cachePolicy);
     static wxWebViewCachePolicy GetCachePolicy();
 
+    void SetMouseWheelZooms(bool mouseWheelZooms) { m_mouseWheelZooms = mouseWheelZooms; }
+    bool GetMouseWheelZooms() const { return m_mouseWheelZooms; }
+
+    static void SetDatabaseDirectory(const wxString& databaseDirectory);
+    static wxString GetDatabaseDirectory();
+
+    static void SetProxyInfo(const wxString& host = wxEmptyString,
+                             unsigned long port = 0,
+                             wxProxyType type = HTTP,
+                             const wxString& username = wxEmptyString,
+                             const wxString& password = wxEmptyString);
+
 protected:
 
     // event handlers (these functions should _not_ be virtual)
@@ -216,6 +236,7 @@ private:
     bool m_isEditable;
     bool m_isInitialized;
     bool m_beingDestroyed;
+    bool m_mouseWheelZooms;
     WebViewPrivate* m_impl;
     wxWebFrame* m_mainFrame;
     wxString m_title;

@@ -45,12 +45,18 @@
 #include "FrameLoadRequest.h"
 #include "FrameView.h"
 #include "HTMLCollection.h"
+#include "MediaPlayer.h"
+#include "NotificationCenter.h"
 #include "Page.h"
 #include "PlatformScreen.h"
+#include "RuntimeEnabledFeatures.h"
 #include "ScheduledAction.h"
 #include "ScriptSourceCode.h"
 #include "SerializedScriptValue.h"
 #include "Settings.h"
+#include "SharedWorkerRepository.h"
+#include "Storage.h"
+#include "WebSocket.h"
 #include "WindowFeatures.h"
 
 // Horizontal and vertical offset, from the parent content area, around newly
@@ -235,6 +241,71 @@ ACCESSOR_GETTER(DOMWindowAudio)
     return V8DOMWrapper::getConstructor(V8ClassIndex::AUDIO, window);
 }
 
+ACCESSOR_RUNTIME_ENABLER(DOMWindowAudio)
+{
+    return MediaPlayer::isAvailable();
+}
+
+ACCESSOR_RUNTIME_ENABLER(DOMWindowHTMLMediaElement)
+{
+    return MediaPlayer::isAvailable();
+}
+
+ACCESSOR_RUNTIME_ENABLER(DOMWindowHTMLAudioElement)
+{
+    return MediaPlayer::isAvailable();
+}
+
+ACCESSOR_RUNTIME_ENABLER(DOMWindowHTMLVideoElement)
+{
+    return MediaPlayer::isAvailable();
+}
+
+ACCESSOR_RUNTIME_ENABLER(DOMWindowMediaError)
+{
+    return MediaPlayer::isAvailable();
+}
+
+#endif
+
+#if ENABLE(SHARED_WORKERS)
+ACCESSOR_RUNTIME_ENABLER(DOMWindowSharedWorker)
+{
+    return SharedWorkerRepository::isAvailable();
+}
+#endif
+
+#if ENABLE(WEB_SOCKETS)
+ACCESSOR_RUNTIME_ENABLER(DOMWindowWebSocket)
+{
+    return WebSocket::isAvailable();
+}
+#endif
+
+#if ENABLE(DATABASE)
+ACCESSOR_RUNTIME_ENABLER(DOMWindowOpenDatabase)
+{
+    return WebCore::RuntimeEnabledFeatures::databaseEnabled();
+}
+#endif
+
+#if ENABLE(DOM_STORAGE)
+ACCESSOR_RUNTIME_ENABLER(DOMWindowLocalStorage)
+{
+    return RuntimeEnabledFeatures::localStorageEnabled();
+}
+
+ACCESSOR_RUNTIME_ENABLER(DOMWindowSessionStorage)
+{
+    return RuntimeEnabledFeatures::sessionStorageEnabled();
+}
+#endif
+
+#if ENABLE(NOTIFICATIONS)
+ACCESSOR_RUNTIME_ENABLER(DOMWindowWebkitNotifications)
+{
+    return NotificationCenter::isAvailable();
+}
 #endif
 
 ACCESSOR_GETTER(DOMWindowImage)

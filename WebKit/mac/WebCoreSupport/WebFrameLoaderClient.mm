@@ -988,7 +988,7 @@ void WebFrameLoaderClient::saveViewStateToItem(HistoryItem* item)
 
 void WebFrameLoaderClient::restoreViewState()
 {
-    HistoryItem* currentItem = core(m_webFrame.get())->loader()->currentHistoryItem();
+    HistoryItem* currentItem = core(m_webFrame.get())->loader()->history()->currentItem();
     ASSERT(currentItem);
 
     // FIXME: As the ASSERT attests, it seems we should always have a currentItem here.
@@ -1738,18 +1738,7 @@ jobject WebFrameLoaderClient::javaApplet(NSView* view)
 }
 #endif
 
-bool WebFrameLoaderClient::shouldLoadMediaElementURL(const KURL& url) const {
-    WebView *webView = getWebView(m_webFrame.get());
-    
-    if (id policyDelegate = [webView policyDelegate]) {
-        if ([policyDelegate respondsToSelector:@selector(webView:shouldLoadMediaURL:inFrame:)])
-            return [policyDelegate webView:webView shouldLoadMediaURL:url inFrame:m_webFrame.get()];
-    }
-    return true;
-}
-
 @implementation WebFramePolicyListener
-
 + (void)initialize
 {
     JSC::initializeThreading();

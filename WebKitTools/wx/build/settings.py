@@ -95,8 +95,9 @@ jscore_dirs = [
 ]
 
 webcore_dirs = [
-    'accessibility', 
-    'bindings/js', 
+    'accessibility',
+    'bindings',
+    'bindings/js',
     'bridge', 
     'bridge/c', 
     'css',
@@ -139,21 +140,8 @@ webcore_dirs = [
     'xml'
 ]
 
-config_file = os.path.join(wk_root, 'WebKitBuild', 'Configuration')
-config = 'Debug'
-
-if os.path.exists(config_file):
-    config = open(config_file).read()
-
-config_dir = config
-
-try:
-    branches = commands.getoutput("git branch --no-color")
-    match = re.search('^\* (.*)', branches, re.MULTILINE)
-    if match:
-        config_dir += ".%s" % match.group(1)
-except:
-    pass
+config = get_config(wk_root)
+config_dir = config + git_branch_name()
 
 output_dir = os.path.join(wk_root, 'WebKitBuild', config_dir)
 
@@ -203,6 +191,7 @@ def common_set_options(opt):
     opt.add_option('--wxpython', action='store_true', default=False, help='Create the wxPython bindings.')
     opt.add_option('--wx-compiler-prefix', action='store', default='vc',
                    help='Specify a different compiler prefix (do this if you used COMPILER_PREFIX when building wx itself)')
+    opt.add_option('--macosx-version', action='store', default='', help="Version of OS X to build for.")
 
 def common_configure(conf):
     """
@@ -245,11 +234,32 @@ def common_configure(conf):
             msvc_version = 'msvc2005'
         
         msvclibs_dir = os.path.join(wklibs_dir, msvc_version, 'win')
-        conf.env.append_value('CXXFLAGS', ['/wd4291','/wd4344','/wd4396','/wd4800'])
+
+        # Disable several warnings which occur many times during the build.
+        # Some of them are harmless (4099, 4344, 4396, 4800) and working around
+        # them in WebKit code is probably just not worth it. We can simply do
+        # nothing about the others (4503). A couple are possibly valid but
+        # there are just too many of them in the code so fixing them is
+        # impossible in practice and just results in tons of distracting output
+        # (4244, 4291). Finally 4996 is actively harmful as it is given for
+        # just about any use of standard C/C++ library facilities.
+        conf.env.append_value('CXXFLAGS', [
+            '/wd4099',  # type name first seen using 'struct' now seen using 'class'
+            '/wd4244',  # conversion from 'xxx' to 'yyy', possible loss of data:
+            '/wd4291',  # no matching operator delete found (for placement new)
+            '/wd4344',  # behaviour change in template deduction
+            '/wd4396',  # inline can't be used in friend declaration
+            '/wd4503',  # decorated name length exceeded, name was truncated
+            '/wd4800',  # forcing value to bool 'true' or 'false'
+            '/wd4996',  # deprecated function
+        ])
+
+        # This one also occurs in C code, so disable it there as well.
+        conf.env.append_value('CCFLAGS', ['/wd4996'])
     
     for use in port_uses[build_port]:
        conf.env.append_value('CXXDEFINES', ['WTF_USE_%s' % use])
-    
+
     if build_port == "wx":
         update_wx_deps(conf, wk_root, msvc_version)
     
@@ -265,7 +275,7 @@ def common_configure(conf):
             conf.env['CPPPATH_WX'] = wxincludes
             conf.env['LIB_WX'] = wxlibs
             conf.env['LIBPATH_WX'] = wxlibpaths
-    
+
     if sys.platform.startswith('darwin'):
         conf.env['LIB_ICU'] = ['icucore']
         # Apple does not ship the ICU headers with Mac OS X, so WebKit includes a copy of 3.2 headers
@@ -274,15 +284,33 @@ def common_configure(conf):
         conf.env.append_value('CPPPATH', wklibs_dir)
         conf.env.append_value('LIBPATH', wklibs_dir)
         
-        # WebKit only supports 10.4+
-        mac_target = 'MACOSX_DEPLOYMENT_TARGET'
-        if mac_target in os.environ and os.environ[mac_target] == '10.3':
-            os.environ[mac_target] = '10.4'
+        min_version = None
         
-        if mac_target in conf.env and conf.env[mac_target] == '10.3':
-            conf.env[mac_target] = '10.4'
-    
-    #conf.env['PREFIX'] = output_dir
+        mac_target = 'MACOSX_DEPLOYMENT_TARGET'
+        if Options.options.macosx_version != '':
+            min_version = Options.options.macosx_version
+        
+        # WebKit only supports 10.4+, but ppc systems often set this to earlier systems
+        if not min_version:
+            min_version = commands.getoutput('sw_vers -productVersion')[:4]
+            if min_version in ['10.1','10.2','10.3']:
+                min_version = '10.4'
+
+        os.environ[mac_target] = conf.env[mac_target] = min_version        
+
+        sdk_version = min_version
+        if min_version == "10.4":
+            sdk_version += "u"
+            conf.env.append_value('LIB', ['WebKitSystemInterfaceTiger'])
+        
+        sdkroot = '/Developer/SDKs/MacOSX%s.sdk' % sdk_version
+        sdkflags = ['-arch', 'i386', '-isysroot', sdkroot]
+        
+        conf.env.append_value('CPPFLAGS', sdkflags)
+        conf.env.append_value('LINKFLAGS', sdkflags)
+        
+        conf.env.append_value('CPPPATH_SQLITE3', [os.path.join(wklibs_dir, 'WebCoreSQLite3')])
+        conf.env.append_value('LIB_SQLITE3', ['WebCoreSQLite3'])
     
     libprefix = ''
     if building_on_win32:
@@ -310,7 +338,7 @@ def common_configure(conf):
         conf.env.append_value('LIB', [
             'kernel32', 'user32','gdi32','comdlg32','winspool','winmm',
             'shell32', 'comctl32', 'ole32', 'oleaut32', 'uuid', 'advapi32', 
-            'wsock32', 'gdiplus'])
+            'wsock32', 'gdiplus', 'version'])
 
         conf.env['LIB_ICU'] = ['icudt', 'icule', 'iculx', 'icuuc', 'icuin', 'icuio', 'icutu']
         
@@ -337,9 +365,10 @@ def common_configure(conf):
             
         conf.check_cfg(msg='Checking for libxslt', path='xslt-config', args='--cflags --libs', package='', uselib_store='XSLT', mandatory=True)
         conf.check_cfg(path='xml2-config', args='--cflags --libs', package='', uselib_store='XML', mandatory=True)
-        conf.check_cfg(path='curl-config', args='--cflags --libs', package='', uselib_store='CURL', mandatory=True)
-        if sys.platform.startswith('darwin'):
-            conf.env.append_value('LIB', ['WebCoreSQLite3'])
+        if sys.platform.startswith('darwin') and min_version and min_version == '10.4':
+            conf.check_cfg(path=os.path.join(wklibs_dir, 'unix', 'bin', 'curl-config'), args='--cflags --libs', package='', uselib_store='CURL', mandatory=True)
+        else:
+            conf.check_cfg(path='curl-config', args='--cflags --libs', package='', uselib_store='CURL', mandatory=True)
         
         if not sys.platform.startswith('darwin'):
             conf.check_cfg(package='cairo', args='--cflags --libs', uselib_store='WX', mandatory=True)

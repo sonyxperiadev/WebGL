@@ -875,7 +875,7 @@ void HTMLInputElement::attach()
         if (!m_imageLoader)
             m_imageLoader.set(new HTMLImageLoader(this));
         m_imageLoader->updateFromElement();
-        if (renderer()) {
+        if (renderer() && m_imageLoader->haveFiredBeforeLoadEvent()) {
             RenderImage* imageObj = toRenderImage(renderer());
             imageObj->setCachedImage(m_imageLoader->image()); 
             
@@ -1567,9 +1567,16 @@ void HTMLInputElement::defaultEventHandler(Event* evt)
             if (r && r->isTextField())
                 toRenderTextControl(r)->setEdited(false);
         }
-        // Form may never have been present, or may have been destroyed by the change event.
-        if (form())
-            form()->submitClick(evt);
+
+        RefPtr<HTMLFormElement> formForSubmission = form();
+        // If there is no form and the element is an <isindex>, then create a temporary form just to be used for submission.
+        if (!formForSubmission && inputType() == ISINDEX)
+            formForSubmission = createTemporaryFormForIsIndex();
+
+        // Form may never have been present, or may have been destroyed by code responding to the change event.
+        if (formForSubmission)
+            formForSubmission->submitClick(evt);
+
         evt->setDefaultHandled();
         return;
     }
@@ -1585,6 +1592,19 @@ void HTMLInputElement::defaultEventHandler(Event* evt)
 
     if (!callBaseClassEarly && !evt->defaultHandled())
         HTMLFormControlElementWithState::defaultEventHandler(evt);
+}
+
+PassRefPtr<HTMLFormElement> HTMLInputElement::createTemporaryFormForIsIndex()
+{
+    RefPtr<HTMLFormElement> form = new HTMLFormElement(formTag, document());
+    form->registerFormElement(this);
+    form->setMethod("GET");
+    if (!document()->baseURL().isEmpty()) {
+        // We treat the href property of the <base> element as the form action, as per section 7.5 
+        // "Queries and Indexes" of the HTML 2.0 spec. <http://www.w3.org/MarkUp/html-spec/html-spec_7.html#SEC7.5>.
+        form->setAction(document()->baseURL().string());
+    }
+    return form.release();
 }
 
 bool HTMLInputElement::isURLAttribute(Attribute *attr) const

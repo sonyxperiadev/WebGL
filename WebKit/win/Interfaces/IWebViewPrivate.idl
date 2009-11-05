@@ -28,6 +28,7 @@ import "oaidl.idl";
 import "ocidl.idl";
 import "IWebFormDelegate.idl";
 import "IWebFrameLoadDelegatePrivate.idl";
+import "IWebHistoryDelegate.idl";
 import "IWebInspector.idl";
 import "IWebInspectorPrivate.idl";
 #endif
@@ -38,6 +39,7 @@ cpp_quote("#define WebViewWillCloseNotification L\"WebViewWillCloseNotification\
 interface IEnumTextMatches;
 interface IWebFormDelegate;
 interface IWebFrameLoadDelegatePrivate;
+interface IWebHistoryDelegate;
 interface IWebInspector;
 interface IWebInspectorPrivate;
 interface IWebPluginHalterDelegate;
@@ -190,8 +192,10 @@ interface IWebViewPrivate : IUnknown
     HRESULT addUserStyleSheetToGroup([in] BSTR groupName, [in] unsigned worldID, [in] BSTR source, [in] BSTR url,
                                      [in] unsigned whitelistCount, [in, size_is(whitelistCount)] BSTR* whitelist,
                                      [in] unsigned blacklistCount, [in, size_is(blacklistCount)] BSTR* blacklist);
-    HRESULT removeUserContentWithURLFromGroup([in] BSTR groupName, [in] unsigned worldID, [in] BSTR url);
-    HRESULT removeUserContentFromGroup([in] BSTR groupName, [in] unsigned worldID);
+    HRESULT removeUserScriptFromGroup([in] BSTR groupName, [in] unsigned worldID, [in] BSTR url);
+    HRESULT removeUserStyleSheetFromGroup([in] BSTR groupName, [in] unsigned worldID, [in] BSTR url);
+    HRESULT removeUserScriptsFromGroup([in] BSTR groupName, [in] unsigned worldID);
+    HRESULT removeUserStyleSheetsFromGroup([in] BSTR groupName, [in] unsigned worldID);
     HRESULT removeAllUserContentFromGroup([in] BSTR groupName);
 
     HRESULT setPluginHalterDelegate([in] IWebPluginHalterDelegate* d);
@@ -208,4 +212,12 @@ interface IWebViewPrivate : IUnknown
 
     // Removes all white list entries created with whiteListAccessFromOrigin.
     HRESULT resetOriginAccessWhiteLists();
+
+    HRESULT setHistoryDelegate([in] IWebHistoryDelegate* historyDelegate);
+    HRESULT historyDelegate([out,retval] IWebHistoryDelegate** historyDelegate);
+    HRESULT addVisitedLinks([in] BSTR* visitedURLs, [in] unsigned visitedURLCount);
+
+    HRESULT isNodeHaltedPlugin([in] IDOMNode*, [retval, out] BOOL*);
+    HRESULT restartHaltedPluginForNode([in] IDOMNode*);
+    HRESULT hasPluginForNodeBeenHalted([in] IDOMNode*, [retval, out] BOOL*);
 }
