@@ -435,7 +435,6 @@
 #include "V8InspectorBackend.h"
 #endif
 
-<<<<<<< HEAD:WebCore/bindings/v8/V8Index.cpp
 #if PLATFORM(ANDROID)
 // TODO: Upstream these guards to webkit.org
 #if ENABLE(GEOLOCATION)
@@ -454,8 +453,6 @@
 #include "V8VoidCallback.h"
 #endif  // PLATFORM(ANDROID)
 
-=======
->>>>>>> webkit.org at r50258.:WebCore/bindings/v8/V8Index.cpp
 namespace WebCore {
 
 FunctionTemplateFactory V8ClassIndex::GetFactory(V8WrapperType type)

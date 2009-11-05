@@ -809,12 +809,8 @@ void V8Proxy::clearForClose()
 {
     resetIsolatedWorlds();
 
-<<<<<<< HEAD:WebCore/bindings/v8/V8Proxy.cpp
-    if (!context().IsEmpty()) {
-        LOCK_V8;
-=======
     if (!m_context.IsEmpty()) {
->>>>>>> webkit.org at r50258.:WebCore/bindings/v8/V8Proxy.cpp
+        LOCK_V8;
         v8::HandleScope handleScope;
 
         clearDocumentWrapper();
@@ -827,12 +823,8 @@ void V8Proxy::clearForNavigation()
     disconnectEventListeners();
     resetIsolatedWorlds();
 
-<<<<<<< HEAD:WebCore/bindings/v8/V8Proxy.cpp
-    if (!context().IsEmpty()) {
-        LOCK_V8;
-=======
     if (!m_context.IsEmpty()) {
->>>>>>> webkit.org at r50258.:WebCore/bindings/v8/V8Proxy.cpp
+        LOCK_V8;
         v8::HandleScope handle;
         clearDocumentWrapper();
 

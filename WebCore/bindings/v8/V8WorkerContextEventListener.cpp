@@ -36,11 +36,8 @@
 
 #include "Event.h"
 #include "V8Binding.h"
-<<<<<<< HEAD:WebCore/bindings/v8/V8WorkerContextEventListener.cpp
 #include "V8Utilities.h"
-=======
 #include "WorkerContext.h"
->>>>>>> webkit.org at r50258.:WebCore/bindings/v8/V8WorkerContextEventListener.cpp
 #include "WorkerContextExecutionProxy.h"
 
 namespace WebCore {

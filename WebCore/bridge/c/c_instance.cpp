@@ -121,13 +121,10 @@ JSValue CInstance::invokeMethod(ExecState* exec, const MethodList& methodList, c
         convertValueToNPVariant(exec, args.at(i), &cArgs[i]);
 
     // Invoke the 'C' method.
-<<<<<<< HEAD:WebCore/bridge/c/c_instance.cpp
 #ifdef ANDROID_NPN_SETEXCEPTION
     SetGlobalException(0);
 #endif
-=======
     bool retval = true;
->>>>>>> webkit.org at r50258.:WebCore/bridge/c/c_instance.cpp
     NPVariant resultVariant;
     VOID_TO_NPVARIANT(resultVariant);
 
@@ -166,13 +163,10 @@ JSValue CInstance::invokeDefaultMethod(ExecState* exec, const ArgList& args)
         convertValueToNPVariant(exec, args.at(i), &cArgs[i]);
 
     // Invoke the 'C' method.
-<<<<<<< HEAD:WebCore/bridge/c/c_instance.cpp
 #ifdef ANDROID_NPN_SETEXCEPTION
     SetGlobalException(0);
 #endif
-=======
     bool retval = true;
->>>>>>> webkit.org at r50258.:WebCore/bridge/c/c_instance.cpp
     NPVariant resultVariant;
     VOID_TO_NPVARIANT(resultVariant);
     {

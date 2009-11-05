@@ -45,42 +45,9 @@
 
 namespace WebCore {
 
-<<<<<<< HEAD:WebCore/loader/FrameLoader.h
 #if ENABLE(ARCHIVE) // ANDROID extension: disabled to reduce code size
-    class Archive;
-#endif
-    class AuthenticationChallenge;
-    class CachedFrameBase;
-    class CachedPage;
-    class CachedResource;
-    class Document;
-    class DocumentLoader;
-    class Event;
-    class FormData;
-    class FormState;
-    class Frame;
-    class FrameLoaderClient;
-    class HistoryItem;
-    class HTMLAppletElement;
-    class HTMLFormElement;
-    class HTMLFrameOwnerElement;
-    class IconLoader;
-    class IntSize;
-    class NavigationAction;
-    class RenderPart;
-    class ResourceError;
-    class ResourceLoader;
-    class ResourceResponse;
-    class ScriptSourceCode;
-    class ScriptString;
-    class ScriptValue;
-    class SecurityOrigin;
-    class SharedBuffer;
-    class SubstituteData;
-    class TextResourceDecoder;
-    class Widget;
-=======
 class Archive;
+#endif
 class AuthenticationChallenge;
 class CachedFrameBase;
 class CachedPage;
@@ -111,7 +78,6 @@ class SharedBuffer;
 class SubstituteData;
 class TextResourceDecoder;
 class Widget;
->>>>>>> webkit.org at r50258.:WebCore/loader/FrameLoader.h
 
 struct FrameLoadRequest;
 struct WindowFeatures;
@@ -144,21 +110,13 @@ public:
     void loadFrameRequest(const FrameLoadRequest&, bool lockHistory, bool lockBackForwardList,  // Called by submitForm, calls loadPostRequest and loadURL.
         PassRefPtr<Event>, PassRefPtr<FormState>, ReferrerPolicy);
 
-<<<<<<< HEAD:WebCore/loader/FrameLoader.h
-        void load(const ResourceRequest&, bool lockHistory);                                        // Called by WebFrame, calls load(ResourceRequest, SubstituteData).
-        void load(const ResourceRequest&, const SubstituteData&, bool lockHistory);                 // Called both by WebFrame and internally, calls load(DocumentLoader*).
-        void load(const ResourceRequest&, const String& frameName, bool lockHistory);               // Called by WebPluginController.
-        
-#if ENABLE(ARCHIVE) // ANDROID extension: disabled to reduce code size
-        void loadArchive(PassRefPtr<Archive>);
-#endif
-=======
     void load(const ResourceRequest&, bool lockHistory);                                        // Called by WebFrame, calls load(ResourceRequest, SubstituteData).
     void load(const ResourceRequest&, const SubstituteData&, bool lockHistory);                 // Called both by WebFrame and internally, calls load(DocumentLoader*).
     void load(const ResourceRequest&, const String& frameName, bool lockHistory);               // Called by WebPluginController.
     
+#if ENABLE(ARCHIVE) // ANDROID extension: disabled to reduce code size
     void loadArchive(PassRefPtr<Archive>);
->>>>>>> webkit.org at r50258.:WebCore/loader/FrameLoader.h
+#endif
 
     static void reportLocalLoadFailed(Frame*, const String& url);
 
@@ -441,30 +399,23 @@ private:
 
     void dispatchDidCommitLoad();
 
-<<<<<<< HEAD:WebCore/loader/FrameLoader.h
-#ifdef ANDROID_USER_GESTURE
-        void loadPostRequest(const ResourceRequest&, const String& referrer,                // Called by loadFrameRequest, calls loadWithNavigationAction
-            const String& frameName, bool lockHistory, FrameLoadType, PassRefPtr<Event>, PassRefPtr<FormState>, bool);
-        void loadURL(const KURL&, const String& referrer, const String& frameName,          // Called by loadFrameRequest, calls loadWithNavigationAction or dispatches to navigation policy delegate
-            bool lockHistory, FrameLoadType, PassRefPtr<Event>, PassRefPtr<FormState>, bool);
-#else
-        void loadPostRequest(const ResourceRequest&, const String& referrer,                // Called by loadFrameRequest, calls loadWithNavigationAction
-            const String& frameName, bool lockHistory, FrameLoadType, PassRefPtr<Event>, PassRefPtr<FormState>);
-        void loadURL(const KURL&, const String& referrer, const String& frameName,          // Called by loadFrameRequest, calls loadWithNavigationAction or dispatches to navigation policy delegate
-            bool lockHistory, FrameLoadType, PassRefPtr<Event>, PassRefPtr<FormState>);                                                         
-#endif
-=======
     void loadWithDocumentLoader(DocumentLoader*, FrameLoadType, PassRefPtr<FormState>); // Calls continueLoadAfterNavigationPolicy
     void load(DocumentLoader*);                                                         // Calls loadWithDocumentLoader   
->>>>>>> webkit.org at r50258.:WebCore/loader/FrameLoader.h
 
     void loadWithNavigationAction(const ResourceRequest&, const NavigationAction&,      // Calls loadWithDocumentLoader
         bool lockHistory, FrameLoadType, PassRefPtr<FormState>);
 
+#ifdef ANDROID_USER_GESTURE
+    void loadPostRequest(const ResourceRequest&, const String& referrer,                // Called by loadFrameRequest, calls loadWithNavigationAction
+        const String& frameName, bool lockHistory, FrameLoadType, PassRefPtr<Event>, PassRefPtr<FormState>, bool);
+    void loadURL(const KURL&, const String& referrer, const String& frameName,          // Called by loadFrameRequest, calls loadWithNavigationAction or dispatches to navigation policy delegate
+        bool lockHistory, FrameLoadType, PassRefPtr<Event>, PassRefPtr<FormState>, bool);
+#else
     void loadPostRequest(const ResourceRequest&, const String& referrer,                // Called by loadFrameRequest, calls loadWithNavigationAction
         const String& frameName, bool lockHistory, FrameLoadType, PassRefPtr<Event>, PassRefPtr<FormState>);
     void loadURL(const KURL&, const String& referrer, const String& frameName,          // Called by loadFrameRequest, calls loadWithNavigationAction or dispatches to navigation policy delegate
         bool lockHistory, FrameLoadType, PassRefPtr<Event>, PassRefPtr<FormState>);                                                         
+#endif
 
     bool shouldReload(const KURL& currentURL, const KURL& destinationURL);
 

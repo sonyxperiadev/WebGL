@@ -34,13 +34,10 @@
 #include "EventNames.h"
 #include "Frame.h"
 #include "Page.h"
-<<<<<<< HEAD:WebCore/page/Geolocation.cpp
 #include "SQLiteDatabase.h"
 #include "SQLiteStatement.h"
 #include "SQLiteTransaction.h"
 #include "SQLValue.h"
-=======
->>>>>>> webkit.org at r50258.:WebCore/page/Geolocation.cpp
 
 namespace WebCore {
 
@@ -98,15 +95,12 @@ void Geolocation::GeoNotifier::timerFired(Timer<GeoNotifier>*)
         return;
     }
 
-<<<<<<< HEAD:WebCore/page/Geolocation.cpp
     if (m_cachedPosition) {
         m_successCallback->handleEvent(m_cachedPosition.get());
         m_geolocation->requestReturnedCachedPosition(this);
         return;
     }
 
-=======
->>>>>>> webkit.org at r50258.:WebCore/page/Geolocation.cpp
     if (m_errorCallback) {
         RefPtr<PositionError> error = PositionError::create(PositionError::TIMEOUT, "Timeout expired");
         m_errorCallback->handleEvent(error.get());
@@ -154,7 +148,6 @@ void Geolocation::Watchers::getNotifiersVector(Vector<RefPtr<GeoNotifier> >& cop
     copyValuesToVector(m_idToNotifierMap, copy);
 }
 
-<<<<<<< HEAD:WebCore/page/Geolocation.cpp
 static const char* databaseName = "/CachedPosition.db";
 
 class CachedPositionManager {
@@ -293,8 +286,6 @@ RefPtr<Geoposition>* CachedPositionManager::s_cachedPosition;
 String CachedPositionManager::s_databaseFile;
 
 
-=======
->>>>>>> webkit.org at r50258.:WebCore/page/Geolocation.cpp
 Geolocation::Geolocation(Frame* frame)
     : EventListener(GeolocationEventListenerType)
     , m_frame(frame)
@@ -331,12 +322,7 @@ void Geolocation::disconnectFrame()
 void Geolocation::getCurrentPosition(PassRefPtr<PositionCallback> successCallback, PassRefPtr<PositionErrorCallback> errorCallback, PassRefPtr<PositionOptions> options)
 {
     RefPtr<GeoNotifier> notifier = startRequest(successCallback, errorCallback, options);
-<<<<<<< HEAD:WebCore/page/Geolocation.cpp
     ASSERT(notifier);
-=======
-    if (!notifier)
-        return;
->>>>>>> webkit.org at r50258.:WebCore/page/Geolocation.cpp
 
     m_oneShots.add(notifier);
 }
@@ -344,20 +330,12 @@ void Geolocation::getCurrentPosition(PassRefPtr<PositionCallback> successCallbac
 int Geolocation::watchPosition(PassRefPtr<PositionCallback> successCallback, PassRefPtr<PositionErrorCallback> errorCallback, PassRefPtr<PositionOptions> options)
 {
     RefPtr<GeoNotifier> notifier = startRequest(successCallback, errorCallback, options);
-<<<<<<< HEAD:WebCore/page/Geolocation.cpp
     ASSERT(notifier);
-=======
-    if (!notifier)
-        return 0;
->>>>>>> webkit.org at r50258.:WebCore/page/Geolocation.cpp
 
     static int nextAvailableWatchId = 1;
-<<<<<<< HEAD:WebCore/page/Geolocation.cpp
-=======
     // In case of overflow, make sure the ID remains positive, but reuse the ID values.
     if (nextAvailableWatchId < 1)
         nextAvailableWatchId = 1;
->>>>>>> webkit.org at r50258.:WebCore/page/Geolocation.cpp
     m_watchers.set(nextAvailableWatchId, notifier.release());
     return nextAvailableWatchId++;
 }
@@ -371,7 +349,6 @@ PassRefPtr<Geolocation::GeoNotifier> Geolocation::startRequest(PassRefPtr<Positi
     if (isDenied())
         notifier->setFatalError(PositionError::create(PositionError::PERMISSION_DENIED, permissionDeniedErrorMessage));
     else {
-<<<<<<< HEAD:WebCore/page/Geolocation.cpp
         if (haveSuitableCachedPosition(notifier->m_options.get())) {
             ASSERT(m_cachedPositionManager->cachedPosition());
             if (isAllowed())
@@ -379,24 +356,12 @@ PassRefPtr<Geolocation::GeoNotifier> Geolocation::startRequest(PassRefPtr<Positi
             else {
                 m_requestsAwaitingCachedPosition.add(notifier);
                 requestPermission();
-=======
-        if (notifier->hasZeroTimeout() || m_service->startUpdating(notifier->m_options.get()))
-            notifier->startTimerIfNeeded();
-        else {
-            if (notifier->m_errorCallback) {
-                RefPtr<PositionError> error = PositionError::create(PositionError::PERMISSION_DENIED, "Unable to Start");
-                notifier->m_errorCallback->handleEvent(error.get());
->>>>>>> webkit.org at r50258.:WebCore/page/Geolocation.cpp
             }
-<<<<<<< HEAD:WebCore/page/Geolocation.cpp
         } else {
             if (notifier->hasZeroTimeout() || m_service->startUpdating(notifier->m_options.get()))
                 notifier->startTimerIfNeeded();
             else
                 notifier->setFatalError(PositionError::create(PositionError::UNKNOWN_ERROR, "Failed to start Geolocation service"));
-=======
-            return 0;
->>>>>>> webkit.org at r50258.:WebCore/page/Geolocation.cpp
         }
     }
 
@@ -476,15 +441,8 @@ void Geolocation::setIsAllowed(bool allowed)
     // This may be due to either a new position from the service, or a cached
     // position.
     m_allowGeolocation = allowed ? Yes : No;
-<<<<<<< HEAD:WebCore/page/Geolocation.cpp
 
     if (!isAllowed()) {
-=======
-    
-    if (isAllowed())
-        makeSuccessCallbacks();
-    else {
->>>>>>> webkit.org at r50258.:WebCore/page/Geolocation.cpp
         RefPtr<PositionError> error = PositionError::create(PositionError::PERMISSION_DENIED, permissionDeniedErrorMessage);
         error->setIsFatal(true);
         handleError(error.get());
