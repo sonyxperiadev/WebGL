@@ -35,6 +35,7 @@
 #include "Color.h"
 #include "DatabaseTracker.h"
 #include "Document.h"
+#include "DOMWindow.h"
 #include "Element.h"
 #include "Editor.h"
 #include "EditorClientAndroid.h"
