@@ -36,7 +36,6 @@
 
 #include "Event.h"
 #include "V8Binding.h"
-#include "V8Utilities.h"
 #include "WorkerContext.h"
 #include "WorkerContextExecutionProxy.h"
 
@@ -64,7 +63,6 @@ void V8WorkerContextEventListener::handleEvent(ScriptExecutionContext* context, 
     // See issue 889829.
     RefPtr<V8AbstractEventListener> protect(this);
 
-    LOCK_V8;
     v8::HandleScope handleScope;
 
     WorkerContextExecutionProxy* proxy = workerProxy(context);

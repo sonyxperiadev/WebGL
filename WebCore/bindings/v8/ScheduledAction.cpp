@@ -106,7 +106,6 @@ void ScheduledAction::execute(V8Proxy* proxy)
 {
     ASSERT(proxy);
 
-    LOCK_V8;
     v8::HandleScope handleScope;
     v8::Handle<v8::Context> v8Context = v8::Local<v8::Context>::New(m_context.get());
     if (v8Context.IsEmpty())
@@ -135,7 +134,6 @@ void ScheduledAction::execute(WorkerContext* workerContext)
     WorkerScriptController* scriptController = workerContext->script();
 
     if (!m_function.IsEmpty() && m_function->IsFunction()) {
-        LOCK_V8;
         v8::HandleScope handleScope;
         v8::Handle<v8::Context> v8Context = v8::Local<v8::Context>::New(m_context.get());
         ASSERT(!v8Context.IsEmpty());

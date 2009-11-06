@@ -31,13 +31,6 @@
 #ifndef V8Utilities_h
 #define V8Utilities_h
 
-#if ENABLE(V8_LOCKERS)
-// TODO(benm): Need to re-add in locking for V8. We lost some of the lock points during the merge. Define it to void here so we don't lock some of the time.
-#define LOCK_V8 ((void) 0)
-#else
-#define LOCK_V8 ((void) 0)
-#endif
-
 #include <v8.h>
 
 namespace WebCore {

@@ -78,7 +78,6 @@ void V8AbstractEventListener::handleEvent(ScriptExecutionContext* context, Event
     // See issue 889829.
     RefPtr<V8AbstractEventListener> protect(this);
 
-    LOCK_V8;
     v8::HandleScope handleScope;
 
     v8::Local<v8::Context> v8Context = toV8Context(context);

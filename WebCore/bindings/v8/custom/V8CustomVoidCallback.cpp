@@ -49,7 +49,6 @@ V8CustomVoidCallback::~V8CustomVoidCallback()
 
 void V8CustomVoidCallback::handleEvent()
 {
-    LOCK_V8;
     v8::HandleScope handleScope;
 
     v8::Handle<v8::Context> context = V8Proxy::context(m_frame.get());
