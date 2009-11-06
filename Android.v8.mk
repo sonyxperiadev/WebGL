@@ -151,7 +151,6 @@ LOCAL_C_INCLUDES := \
 	$(LOCAL_PATH)/WebCore/rendering \
 	$(LOCAL_PATH)/WebCore/rendering/style \
 	$(LOCAL_PATH)/WebCore/storage \
-	$(LOCAL_PATH)/WebCore/websockets \
 	$(LOCAL_PATH)/WebCore/workers \
 	$(LOCAL_PATH)/WebCore/xml \
 	$(LOCAL_PATH)/WebKit/android \
