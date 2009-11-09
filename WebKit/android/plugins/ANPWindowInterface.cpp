@@ -68,9 +68,9 @@ static void anp_clearVisibleRects(NPP instance) {
 }
 
 static void anp_showKeyboard(NPP instance, bool value) {
-    ScrollView* scrollView = pluginViewForInstance(instance)->parent();
-    android::WebViewCore* core = android::WebViewCore::getWebViewCore(scrollView);
-    core->requestKeyboard(value);
+    PluginView* pluginView = pluginViewForInstance(instance);
+    PluginWidgetAndroid* pluginWidget = pluginView->platformPluginWidget();
+    pluginWidget->webViewCore()->requestKeyboard(value);
 }
 
 static void anp_requestFullScreen(NPP instance) {

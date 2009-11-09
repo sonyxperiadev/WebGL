@@ -26,10 +26,16 @@
 // must include config.h first for webkit to fiddle with new/delete
 #include "config.h"
 
-#include "android_npapi.h"
 #include "CString.h"
 #include "JavaSharedClient.h"
 #include "PluginClient.h"
+#include "PluginPackage.h"
+#include "PluginView.h"
+#include "PluginWidgetAndroid.h"
+#include "SkString.h"
+#include "WebViewCore.h"
+
+#include "ANPSystem_npapi.h"
 
 static const char* gApplicationDataDir = NULL;
 
@@ -61,6 +67,25 @@ static const char* anp_getApplicationDataDirectory() {
     return gApplicationDataDir;
 }
 
+static WebCore::PluginView* pluginViewForInstance(NPP instance) {
+    if (instance && instance->ndata)
+        return static_cast<WebCore::PluginView*>(instance->ndata);
+    return PluginView::currentPluginView();
+}
+
+static jclass anp_loadJavaClass(NPP instance, const char* className) {
+    WebCore::PluginView* pluginView = pluginViewForInstance(instance);
+    PluginWidgetAndroid* pluginWidget = pluginView->platformPluginWidget();
+
+    const WebCore::String& libName = pluginView->plugin()->path();
+    SkString skLibName;
+    skLibName.setUTF16(libName.characters(), libName.length());
+
+    jclass result;
+    result = pluginWidget->webViewCore()->getPluginClass(skLibName.c_str(), className);
+    return result;
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 
 #define ASSIGN(obj, name)   (obj)->name = anp_##name
@@ -69,4 +94,5 @@ void ANPSystemInterfaceV0_Init(ANPInterface* v) {
     ANPSystemInterfaceV0* i = reinterpret_cast<ANPSystemInterfaceV0*>(v);
 
     ASSIGN(i, getApplicationDataDirectory);
+    ASSIGN(i, loadJavaClass);
 }
