@@ -850,10 +850,13 @@ void FrameView::repaintContentRectangle(const IntRect& r, bool immediate)
     double delay = adjustedDeferredRepaintDelay();
     if ((m_deferringRepaints || m_deferredRepaintTimer.isActive() || delay) && !immediate) {
         IntRect visibleContent = visibleContentRect();
+#ifdef ANDROID_CAPTURE_OFFSCREEN_PAINTS
+        IntRect fullVis = visibleContent;
+#endif
         visibleContent.intersect(r);
 #ifdef ANDROID_CAPTURE_OFFSCREEN_PAINTS
-        if (visibleContent.isEmpty())
-            ScrollView::platformOffscreenContentRectangle(r);
+        if (r != visibleContent)
+            ScrollView::platformOffscreenContentRectangle(fullVis, r);
 #endif
         if (visibleContent.isEmpty())
             return;
