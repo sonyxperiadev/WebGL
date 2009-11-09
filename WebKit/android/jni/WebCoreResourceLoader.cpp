@@ -100,14 +100,14 @@ void WebCoreResourceLoader::downloadFile()
 * the cache. This may be slow, but is only used during a navigation to
 * a POST response.
 */
-bool WebCoreResourceLoader::willLoadFromCache(const WebCore::KURL& url)
+bool WebCoreResourceLoader::willLoadFromCache(const WebCore::KURL& url, int64_t identifier)
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
     WebCore::String urlStr = url.string();
     jstring jUrlStr = env->NewString(urlStr.characters(), urlStr.length());
     jclass resourceLoader = env->FindClass("android/webkit/LoadListener");
     bool val = env->CallStaticBooleanMethod(resourceLoader, 
-            gResourceLoader.mWillLoadFromCacheMethodID, jUrlStr);
+            gResourceLoader.mWillLoadFromCacheMethodID, jUrlStr, identifier);
     checkException(env);
     env->DeleteLocalRef(jUrlStr);
 
@@ -318,7 +318,7 @@ int register_resource_loader(JNIEnv* env)
         "Could not find method downloadFile on LoadListener");
 
     gResourceLoader.mWillLoadFromCacheMethodID = 
-        env->GetStaticMethodID(resourceLoader, "willLoadFromCache", "(Ljava/lang/String;)Z");
+        env->GetStaticMethodID(resourceLoader, "willLoadFromCache", "(Ljava/lang/String;J)Z");
     LOG_FATAL_IF(gResourceLoader.mWillLoadFromCacheMethodID == NULL, 
         "Could not find static method willLoadFromCache on LoadListener");
 

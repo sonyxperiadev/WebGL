@@ -53,7 +53,7 @@ public:
     /**
     * Call to java to find out if this URL is in the cache
     */
-    static bool willLoadFromCache(const WebCore::KURL& url);
+    static bool willLoadFromCache(const WebCore::KURL& url, int64_t identifier);
 
     // Native jni functions
     static void SetResponseHeader(JNIEnv*, jobject, jint, jstring, jstring);
