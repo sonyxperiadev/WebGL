@@ -420,9 +420,12 @@ static void write_item(WTF::Vector<char>& v, WebCore::HistoryItem* item)
 
     // Form data
     const WebCore::FormData* formData = item->formData();
-    if (formData)
+    if (formData) {
         write_string(v, formData->flattenToString());
-    else
+        // save the identifier as it is not included in the flatten data
+        int64_t id = formData->identifier();
+        v.append((char*)&id, sizeof(int64_t));
+    } else
         write_string(v, WebCore::String()); // Empty constructor does not allocate a buffer.
 
     // Target
@@ -573,6 +576,15 @@ static bool read_item_recursive(WebCore::HistoryItem* newItem,
         else
             return false;
         data += l;
+        // Read the identifier
+        {
+            int64_t id;
+            int size = (int)sizeof(int64_t);
+            memcpy(&id, data, size);
+            data += size;
+            if (id)
+                formData->setIdentifier(id);
+        }
     }
     if (end - data < sizeofUnsigned)
         return false;

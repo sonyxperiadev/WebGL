@@ -98,7 +98,8 @@ bool ResourceHandle::willLoadFromCache(ResourceRequest& request, Frame*)
     // set the cache policy correctly, copied from
     // network/mac/ResourceHandleMac.mm
     request.setCachePolicy(ReturnCacheDataDontLoad);
-    return WebCoreResourceLoader::willLoadFromCache(request.url());
+    FormData* formData = request.httpBody();
+    return WebCoreResourceLoader::willLoadFromCache(request.url(), formData ? formData->identifier() : 0);
 }
 
 bool ResourceHandle::loadsBlocked() 

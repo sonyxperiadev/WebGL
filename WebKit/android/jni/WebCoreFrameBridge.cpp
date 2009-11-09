@@ -28,6 +28,7 @@
 #include <config.h>
 
 #include <wtf/Platform.h>
+#include <wtf/CurrentTime.h>
 
 #include "android_graphics.h"
 #include "Arena.h"
@@ -169,7 +170,7 @@ WebFrame::WebFrame(JNIEnv* env, jobject obj, jobject historyList, WebCore::Page*
     mJavaFrame->mObj = env->NewWeakGlobalRef(obj);
     mJavaFrame->mHistoryList = env->NewWeakGlobalRef(historyList);
     mJavaFrame->mStartLoadingResource = env->GetMethodID(clazz, "startLoadingResource",
-            "(ILjava/lang/String;Ljava/lang/String;Ljava/util/HashMap;[BIZ)Landroid/webkit/LoadListener;");
+            "(ILjava/lang/String;Ljava/lang/String;Ljava/util/HashMap;[BJIZ)Landroid/webkit/LoadListener;");
     mJavaFrame->mLoadStarted = env->GetMethodID(clazz, "loadStarted",
             "(Ljava/lang/String;Landroid/graphics/Bitmap;IZ)V");
     mJavaFrame->mTransitionToCommitted = env->GetMethodID(clazz, "transitionToCommitted",
@@ -438,7 +439,7 @@ WebFrame::startLoadingResource(WebCore::ResourceHandle* loader,
     jobject jLoadListener =
         env->CallObjectMethod(obj.get(), mJavaFrame->mStartLoadingResource,
                 (int)loader, jUrlStr, jMethodStr, jHeaderMap,
-                jPostDataStr, cacheMode, synchronous);
+                jPostDataStr, formdata ? formdata->identifier(): 0, cacheMode, synchronous);
 
     env->DeleteLocalRef(jUrlStr);
     env->DeleteLocalRef(jMethodStr);
@@ -946,7 +947,11 @@ static void PostUrl(JNIEnv *env, jobject obj, jstring url, jbyteArray postData)
     if (postData) {
         jsize size = env->GetArrayLength(postData);
         jbyte* bytes = env->GetByteArrayElements(postData, NULL);
-        request.setHTTPBody(WebCore::FormData::create((const void*)bytes, size));
+        RefPtr<FormData> formData = FormData::create((const void*)bytes, size);
+        // the identifier uses the same logic as generateFormDataIdentifier() in
+        // HTMLFormElement.cpp
+        formData->setIdentifier(static_cast<int64_t>(WTF::currentTime() * 1000000.0));
+        request.setHTTPBody(formData);
         env->ReleaseByteArrayElements(postData, bytes, 0);
     }
 
