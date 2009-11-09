@@ -189,6 +189,7 @@ struct WebViewCore::JavaGlue {
     jmethodID   m_geolocationPermissionsShowPrompt;
     jmethodID   m_geolocationPermissionsHidePrompt;
     jmethodID   m_addMessageToConsole;
+    jmethodID   m_getPluginClass;
     jmethodID   m_startFullScreenPluginActivity;
     jmethodID   m_createSurface;
     jmethodID   m_updateSurface;
@@ -267,6 +268,7 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     m_javaGlue->m_geolocationPermissionsShowPrompt = GetJMethod(env, clazz, "geolocationPermissionsShowPrompt", "(Ljava/lang/String;)V");
     m_javaGlue->m_geolocationPermissionsHidePrompt = GetJMethod(env, clazz, "geolocationPermissionsHidePrompt", "()V");
     m_javaGlue->m_addMessageToConsole = GetJMethod(env, clazz, "addMessageToConsole", "(Ljava/lang/String;ILjava/lang/String;)V");
+    m_javaGlue->m_getPluginClass = GetJMethod(env, clazz, "getPluginClass", "(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/Class;");
     m_javaGlue->m_startFullScreenPluginActivity = GetJMethod(env, clazz, "startFullScreenPluginActivity", "(Ljava/lang/String;Ljava/lang/String;I)V");
     m_javaGlue->m_createSurface = GetJMethod(env, clazz, "createSurface", "(Ljava/lang/String;Ljava/lang/String;IIIII)Landroid/webkit/ViewManager$ChildView;");
     m_javaGlue->m_updateSurface = GetJMethod(env, clazz, "updateSurface", "(Landroid/webkit/ViewManager$ChildView;IIII)V");
@@ -2425,18 +2427,40 @@ void WebViewCore::setBackgroundColor(SkColor c)
     view->setBaseBackgroundColor(bcolor);
 }
 
+jclass WebViewCore::getPluginClass(const char* libName, const char* className)
+{
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    AutoJObject obj = m_javaGlue->object(env);
+    // if it is called during DESTROY is handled, the real object of WebViewCore
+    // can be gone. Check before using it.
+    if (!obj.get())
+        return NULL;
+
+    jstring libString = env->NewStringUTF(libName);
+    jstring classString = env->NewStringUTF(className);
+    jobject pluginClass = env->CallObjectMethod(obj.get(),
+                                           m_javaGlue->m_getPluginClass,
+                                           libString, classString);
+    checkException(env);
+
+    if (pluginClass != NULL) {
+        return static_cast<jclass>(pluginClass);
+    } else {
+        return NULL;
+    }
+}
+
 void WebViewCore::startFullScreenPluginActivity(const char* libName,
                                                 const char* className, NPP npp)
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-
-    jstring libString = env->NewStringUTF(libName);
     AutoJObject obj = m_javaGlue->object(env);
     // if it is called during DESTROY is handled, the real object of WebViewCore
     // can be gone. Check before using it.
     if (!obj.get())
         return;
 
+    jstring libString = env->NewStringUTF(libName);
     jstring classString = env->NewStringUTF(className);
     env->CallVoidMethod(obj.get(),
                         m_javaGlue->m_startFullScreenPluginActivity,

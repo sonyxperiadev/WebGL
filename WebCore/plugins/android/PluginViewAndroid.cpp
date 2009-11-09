@@ -75,6 +75,7 @@
 
 #include "android_npapi.h"
 #include "ANPSurface_npapi.h"
+#include "ANPSystem_npapi.h"
 #include "SkANP.h"
 #include "SkFlipPixelRef.h"
 
@@ -165,8 +166,6 @@ void PluginView::platformInit()
 
 bool PluginView::platformStart()
 {
-    android::WebViewCore* c = android::WebViewCore::getWebViewCore(this->parent());
-    m_window->init(c);
     return true;
 }
 
@@ -362,8 +361,15 @@ void PluginView::setParent(ScrollView* parent)
 {
     Widget::setParent(parent);
 
-    if (parent)
+    if (parent) {
+        // the widget needs initialized now so that the plugin has access to
+        // WebViewCore when NPP_New is called
+        if (m_window && !m_window->webViewCore()) {
+            android::WebViewCore* c = android::WebViewCore::getWebViewCore(this->parent());
+            m_window->init(c);
+        }
         init();
+    }
 }
 
 void PluginView::setNPWindowRect(const IntRect& rect)

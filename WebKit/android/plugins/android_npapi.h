@@ -764,13 +764,6 @@ struct ANPAudioTrackInterfaceV0 : ANPInterface {
     bool (*isStopped)(ANPAudioTrack*);
 };
 
-struct ANPSystemInterfaceV0 : ANPInterface {
-    /** Return the path name for the current Application's plugin data directory,
-     *  or NULL if not supported
-     */
-    const char* (*getApplicationDataDirectory)();
-};
-
 ///////////////////////////////////////////////////////////////////////////////
 // DEFINITION OF VALUES PASSED THROUGH NPP_HandleEvent
 

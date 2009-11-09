@@ -367,6 +367,9 @@ namespace android {
         // Notify the Java side that webkit is requesting a keyboard
         void requestKeyboard(bool);
 
+        // Generates a class loader that contains classes from the plugin's apk
+        jclass getPluginClass(const char* libName, const char* className);
+
         // Creates a full screen surface (i.e. View on an Activity) for a plugin
         void startFullScreenPluginActivity(const char* libName,
                                            const char* className, NPP npp);
