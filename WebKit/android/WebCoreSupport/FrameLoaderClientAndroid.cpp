@@ -755,7 +755,7 @@ void FrameLoaderClientAndroid::saveViewStateToItem(HistoryItem* item) {
 void FrameLoaderClientAndroid::restoreViewState() {
 #ifdef ANDROID_HISTORY_CLIENT
     WebViewCore* webViewCore = WebViewCore::getWebViewCore(m_frame->view());
-    HistoryItem* item = m_frame->loader()->currentHistoryItem();
+    HistoryItem* item = m_frame->loader()->history()->currentItem();
     // restore the scale (only) for the top frame
     if (!m_frame->tree()->parent()) {
         int scale = item->bridge()->scale();
