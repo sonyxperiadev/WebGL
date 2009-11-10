@@ -725,6 +725,8 @@ sub GenerateHeader
             my $attributeIsReadonly = ($attribute->type =~ /^readonly/);
 
             my $property = "\@property" . GetPropertyAttributes($attribute->signature->type, $attributeIsReadonly);
+            # Some SVGFE*Element.idl use 'operator' as attribute name, rewrite as '_operator' to avoid clashes with C/C++
+            $attributeName =~ s/operator/_operator/ if ($attributeName =~ /operator/);
             $property .= " " . $attributeType . ($attributeType =~ /\*$/ ? "" : " ") . $attributeName;
 
             my $publicInterfaceKey = $property . ";";
@@ -1149,15 +1151,21 @@ sub GenerateImplementation
 
             # - GETTER
             my $getterSig = "- ($attributeType)$attributeInterfaceName\n";
+
+            # Some SVGFE*Element.idl use 'operator' as attribute name, rewrite as '_operator' to avoid clashes with C/C++
+            $attributeName =~ s/operatorAnimated/_operatorAnimated/ if ($attributeName =~ /operatorAnimated/);
+            $getterSig =~ s/operator/_operator/ if ($getterSig =~ /operator/);
+
             my $hasGetterException = @{$attribute->getterExceptions};
             my $getterContentHead;
             my $reflect = $attribute->signature->extendedAttributes->{"Reflect"};
             my $reflectURL = $attribute->signature->extendedAttributes->{"ReflectURL"};
             if ($reflect || $reflectURL) {
-                $implIncludes{"HTMLNames.h"} = 1;
                 my $contentAttributeName = (($reflect || $reflectURL) eq "1") ? $attributeName : ($reflect || $reflectURL);
+                my $namespace = $codeGenerator->NamespaceForAttributeName($interfaceName, $contentAttributeName);
+                $implIncludes{"${namespace}.h"} = 1;
                 my $getAttributeFunctionName = $reflectURL ? "getURLAttribute" : "getAttribute";
-                $getterContentHead = "IMPL->${getAttributeFunctionName}(WebCore::HTMLNames::${contentAttributeName}Attr";
+                $getterContentHead = "IMPL->${getAttributeFunctionName}(WebCore::${namespace}::${contentAttributeName}Attr";
             } else {
                 $getterContentHead = "IMPL->" . $codeGenerator->WK_lcfirst($attributeName) . "(";
             }
@@ -1291,20 +1299,20 @@ sub GenerateImplementation
                     } else {
                         push(@implContent, "    IMPL->$coreSetterName($arg);\n");
                     }
-                } elsif ($hasSetterException) {
-                    push(@implContent, "    $exceptionInit\n");
-                    push(@implContent, "    IMPL->$coreSetterName($arg, ec);\n");
-                    push(@implContent, "    $exceptionRaiseOnError\n");
                 } else {
                     my $reflect = $attribute->signature->extendedAttributes->{"Reflect"};
                     my $reflectURL = $attribute->signature->extendedAttributes->{"ReflectURL"};
+                    push(@implContent, "    $exceptionInit\n") if $hasSetterException;
+                    my $ec = $hasSetterException ? ", ec" : "";
                     if ($reflect || $reflectURL) {
-                        $implIncludes{"HTMLNames.h"} = 1;
                         my $contentAttributeName = (($reflect || $reflectURL) eq "1") ? $attributeName : ($reflect || $reflectURL);
-                        push(@implContent, "    IMPL->setAttribute(WebCore::HTMLNames::${contentAttributeName}Attr, $arg);\n");
+                        my $namespace = $codeGenerator->NamespaceForAttributeName($interfaceName, $contentAttributeName);
+                        $implIncludes{"${namespace}.h"} = 1;
+                        push(@implContent, "    IMPL->setAttribute(WebCore::${namespace}::${contentAttributeName}Attr, $arg$ec);\n");
                     } else {
-                        push(@implContent, "    IMPL->$coreSetterName($arg);\n");
+                        push(@implContent, "    IMPL->$coreSetterName($arg$ec);\n");
                     }
+                    push(@implContent, "    $exceptionRaiseOnError\n") if $hasSetterException;
                 }
 
                 push(@implContent, "}\n\n");

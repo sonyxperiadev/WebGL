@@ -102,6 +102,7 @@ void ScriptController::gcUnprotectJSWrapper(void* domObject)
 ScriptController::ScriptController(Frame* frame)
     : m_frame(frame)
     , m_sourceURL(0)
+    , m_inExecuteScript(false)
     , m_processingTimerCallback(false)
     , m_paused(false)
     , m_proxy(new V8Proxy(frame))
@@ -173,6 +174,9 @@ bool ScriptController::processingUserGesture() const
     // Based on code from kjs_bindings.cpp.
     // Note: This is more liberal than Firefox's implementation.
     if (event) {
+        if (event->createdByDOM())
+            return false;
+
         const AtomicString& type = event->type();
         bool eventOk =
             // mouse events
@@ -438,6 +442,12 @@ void ScriptController::attachDebugger(void*)
 void ScriptController::updateDocument()
 {
     m_proxy->updateDocument();
+}
+
+// FIXME: Stub method so we compile.  Currently called from FrameLoader.cpp.
+DOMWrapperWorld* mainThreadNormalWorld()
+{
+    return 0;
 }
 
 } // namespace WebCore

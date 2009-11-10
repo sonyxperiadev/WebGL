@@ -63,7 +63,8 @@ namespace WebCore {
         ScriptObject newScriptObject();
 
         void didCommitLoad();
-        void addMessageToConsole(const ScriptObject& messageObj, const Vector<ScriptString>& frames, const Vector<ScriptValue> wrappedArguments, const String& message);
+        void addConsoleMessage(const ScriptObject& messageObj, const Vector<ScriptString>& frames, const Vector<ScriptValue> wrappedArguments, const String& message);
+        void updateConsoleMessageRepeatCount(const int count);
         void clearConsoleMessages();
 
         bool addResource(long long identifier, const ScriptObject& resourceObj);
@@ -89,8 +90,10 @@ namespace WebCore {
         void profilerWasDisabled();
         void parsedScriptSource(const JSC::SourceCode&);
         void failedToParseScriptSource(const JSC::SourceCode&, int errorLine, const JSC::UString& errorMessage);
-        void addProfile(const JSC::JSValue& profile);
+        void addProfileHeader(const ScriptValue& profile);
         void setRecordingProfile(bool isProfiling);
+        void didGetProfileHeaders(int callId, const ScriptArray& headers);
+        void didGetProfile(int callId, const ScriptValue& profile);
         void pausedScript(const ScriptValue& callFrames);
         void resumedScript();
 #endif
@@ -120,10 +123,11 @@ namespace WebCore {
         void didGetChildNodes(int callId);
         void didApplyDomChange(int callId, bool success);
         void didGetEventListenersForNode(int callId, int nodeId, ScriptArray& listenersArray);
+        void didRemoveNode(int callId, int nodeId);
 
-        void timelineWasEnabled();
-        void timelineWasDisabled();
-        void addItemToTimeline(const ScriptObject& itemObj);
+        void timelineProfilerWasStarted();
+        void timelineProfilerWasStopped();
+        void addRecordToTimeline(const ScriptObject&);
 
         void didGetCookies(int callId, const ScriptArray& cookies, const String& cookiesString);
         void didDispatchOnInjectedScript(int callId, const String& result, bool isException);

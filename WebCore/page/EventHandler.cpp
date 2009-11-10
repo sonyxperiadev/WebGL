@@ -136,10 +136,12 @@ inline bool EventHandler::eventLoopHandleMouseUp(const MouseEventWithHitTestResu
     return false;
 }
 
+#if ENABLE(DRAG_SUPPORT)
 inline bool EventHandler::eventLoopHandleMouseDragged(const MouseEventWithHitTestResults&)
 {
     return false;
 }
+#endif
 
 #endif
 

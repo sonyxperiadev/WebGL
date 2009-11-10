@@ -30,9 +30,10 @@
 #include "GraphicsContext3D.h"
 
 #include "CachedImage.h"
+#include "CanvasActiveInfo.h"
+#include "CanvasArray.h"
 #include "CanvasBuffer.h"
 #include "CanvasFramebuffer.h"
-#include "CanvasArray.h"
 #include "CanvasFloatArray.h"
 #include "CanvasIntArray.h"
 #include "CanvasObject.h"
@@ -49,29 +50,91 @@
 #include "WebKitCSSMatrix.h"
 
 #include <CoreGraphics/CGBitmapContext.h>
+#include <OpenGL/CGLRenderers.h>
 
 namespace WebCore {
 
-GraphicsContext3D::GraphicsContext3D()
+static void setPixelFormat(Vector<CGLPixelFormatAttribute>& attribs, int colorBits, int depthBits, bool accelerated, bool supersample, bool closest)
 {
-    CGLPixelFormatAttribute attribs[] =
-    {
-        (CGLPixelFormatAttribute) kCGLPFAAccelerated,
-        (CGLPixelFormatAttribute) kCGLPFAColorSize, (CGLPixelFormatAttribute) 32,
-        (CGLPixelFormatAttribute) kCGLPFADepthSize, (CGLPixelFormatAttribute) 32,
-        (CGLPixelFormatAttribute) kCGLPFASupersample,
-        (CGLPixelFormatAttribute) 0
-    };
+    attribs.clear();
     
-    CGLPixelFormatObj pixelFormatObj;
-    GLint numPixelFormats;
+    attribs.append(kCGLPFAColorSize);
+    attribs.append(static_cast<CGLPixelFormatAttribute>(colorBits));
+    attribs.append(kCGLPFADepthSize);
+    attribs.append(static_cast<CGLPixelFormatAttribute>(depthBits));
     
-    CGLChoosePixelFormat(attribs, &pixelFormatObj, &numPixelFormats);
+    if (accelerated)
+        attribs.append(kCGLPFAAccelerated);
+    else {
+        attribs.append(kCGLPFARendererID);
+        attribs.append(static_cast<CGLPixelFormatAttribute>(kCGLRendererGenericFloatID));
+    }
+        
+    if (supersample)
+        attribs.append(kCGLPFASupersample);
+        
+    if (closest)
+        attribs.append(kCGLPFAClosestPolicy);
+        
+    attribs.append(static_cast<CGLPixelFormatAttribute>(0));
+}
+
+PassOwnPtr<GraphicsContext3D> GraphicsContext3D::create()
+{
+    OwnPtr<GraphicsContext3D> context(new GraphicsContext3D());
+    return context->m_contextObj ? context.release() : 0;
+}
+
+GraphicsContext3D::GraphicsContext3D()
+    : m_contextObj(0)
+    , m_texture(0)
+    , m_fbo(0)
+    , m_depthBuffer(0)
+{
+    Vector<CGLPixelFormatAttribute> attribs;
+    CGLPixelFormatObj pixelFormatObj = 0;
+    GLint numPixelFormats = 0;
     
-    CGLCreateContext(pixelFormatObj, 0, &m_contextObj);
+    // We will try:
+    //
+    //  1) 32 bit RGBA/32 bit depth/accelerated/supersampled
+    //  2) 32 bit RGBA/32 bit depth/accelerated
+    //  3) 32 bit RGBA/16 bit depth/accelerated
+    //  4) closest to 32 bit RGBA/16 bit depth/software renderer
+    //
+    //  If none of that works, we simply fail and set m_contextObj to 0.
     
+    setPixelFormat(attribs, 32, 32, true, true, false);
+    CGLChoosePixelFormat(attribs.data(), &pixelFormatObj, &numPixelFormats);
+    if (numPixelFormats == 0) {
+        setPixelFormat(attribs, 32, 32, true, false, false);
+        CGLChoosePixelFormat(attribs.data(), &pixelFormatObj, &numPixelFormats);
+        
+        if (numPixelFormats == 0) {
+            setPixelFormat(attribs, 32, 16, true, false, false);
+            CGLChoosePixelFormat(attribs.data(), &pixelFormatObj, &numPixelFormats);
+        
+            if (numPixelFormats == 0) {
+                setPixelFormat(attribs, 32, 16, false, false, true);
+                CGLChoosePixelFormat(attribs.data(), &pixelFormatObj, &numPixelFormats);
+        
+                if (numPixelFormats == 0) {
+                    // Could not find an acceptable renderer - fail
+                    return;
+                }
+            }
+        }
+    }
+    
+    CGLError err = CGLCreateContext(pixelFormatObj, 0, &m_contextObj);
     CGLDestroyPixelFormat(pixelFormatObj);
     
+    if (err != kCGLNoError || !m_contextObj) {
+        // Could not create the context - fail
+        m_contextObj = 0;
+        return;
+    }
+
     // Set the current context to the one given to us.
     CGLSetCurrentContext(m_contextObj);
     
@@ -102,12 +165,14 @@ GraphicsContext3D::GraphicsContext3D()
 
 GraphicsContext3D::~GraphicsContext3D()
 {
-    CGLSetCurrentContext(m_contextObj);
-    ::glDeleteRenderbuffersEXT(1, & m_depthBuffer);
-    ::glDeleteTextures(1, &m_texture);
-    ::glDeleteFramebuffersEXT(1, &m_fbo);
-    CGLSetCurrentContext(0);
-    CGLDestroyContext(m_contextObj);
+    if (m_contextObj) {
+        CGLSetCurrentContext(m_contextObj);
+        ::glDeleteRenderbuffersEXT(1, & m_depthBuffer);
+        ::glDeleteTextures(1, &m_texture);
+        ::glDeleteFramebuffersEXT(1, &m_fbo);
+        CGLSetCurrentContext(0);
+        CGLDestroyContext(m_contextObj);
+    }
 }
 
 void GraphicsContext3D::checkError() const
@@ -135,7 +200,7 @@ void GraphicsContext3D::endPaint()
 
 void GraphicsContext3D::reshape(int width, int height)
 {
-    if (width == m_currentWidth && height == m_currentHeight)
+    if (width == m_currentWidth && height == m_currentHeight || !m_contextObj)
         return;
     
     m_currentWidth = width;
@@ -167,6 +232,9 @@ void GraphicsContext3D::reshape(int width, int height)
 
 static inline void ensureContext(CGLContextObj context)
 {
+    if (!context)
+        return;
+        
     CGLContextObj currentContext = CGLGetCurrentContext();
     if (currentContext != context)
         CGLSetCurrentContext(context);
@@ -442,6 +510,46 @@ void GraphicsContext3D::generateMipmap(unsigned long target)
     ::glGenerateMipmapEXT(target);
 }
 
+bool GraphicsContext3D::getActiveAttrib(CanvasProgram* program, unsigned long index, ActiveInfo& info)
+{
+    if (!program->object())
+        return false;
+    ensureContext(m_contextObj);
+    GLint maxAttributeSize = 0;
+    ::glGetProgramiv(static_cast<GLuint>(program->object()), GL_ACTIVE_ATTRIBUTE_MAX_LENGTH, &maxAttributeSize);
+    GLchar name[maxAttributeSize]; // GL_ACTIVE_ATTRIBUTE_MAX_LENGTH includes null termination
+    GLsizei nameLength = 0;
+    GLint size = 0;
+    GLenum type = 0;
+    ::glGetActiveAttrib(static_cast<GLuint>(program->object()), index, maxAttributeSize, &nameLength, &size, &type, name);
+    if (!nameLength)
+        return false;
+    info.name = String(name, nameLength);
+    info.type = type;
+    info.size = size;
+    return true;
+}
+    
+bool GraphicsContext3D::getActiveUniform(CanvasProgram* program, unsigned long index, ActiveInfo& info)
+{
+    if (!program->object())
+        return false;
+    ensureContext(m_contextObj);
+    GLint maxUniformSize = 0;
+    ::glGetProgramiv(static_cast<GLuint>(program->object()), GL_ACTIVE_UNIFORM_MAX_LENGTH, &maxUniformSize);
+    GLchar name[maxUniformSize]; // GL_ACTIVE_UNIFORM_MAX_LENGTH includes null termination
+    GLsizei nameLength = 0;
+    GLint size = 0;
+    GLenum type = 0;
+    ::glGetActiveUniform(static_cast<GLuint>(program->object()), index, maxUniformSize, &nameLength, &size, &type, name);
+    if (!nameLength)
+        return false;
+    info.name = String(name, nameLength);
+    info.type = type;
+    info.size = size;
+    return true;
+}
+
 int GraphicsContext3D::getAttribLocation(CanvasProgram* program, const String& name)
 {
     if (!program)
@@ -554,6 +662,22 @@ void GraphicsContext3D::polygonOffset(double factor, double units)
 {
     ensureContext(m_contextObj);
     ::glPolygonOffset(static_cast<float>(factor), static_cast<float>(units));
+}
+
+PassRefPtr<CanvasArray> GraphicsContext3D::readPixels(long x, long y, unsigned long width, unsigned long height, unsigned long format, unsigned long type)
+{
+    ensureContext(m_contextObj);
+    
+    // FIXME: For now we only accept GL_UNSIGNED_BYTE/GL_RGBA. In reality OpenGL ES 2.0 accepts that pair and one other
+    // as specified by GL_IMPLEMENTATION_COLOR_READ_FORMAT and GL_IMPLEMENTATION_COLOR_READ_TYPE. But for now we will
+    // not accept those.
+    // FIXME: Also, we should throw when an unacceptable value is passed
+    if (type != GL_UNSIGNED_BYTE || format != GL_RGBA)
+        return 0;
+        
+    RefPtr<CanvasUnsignedByteArray> array = CanvasUnsignedByteArray::create(width * height * 4);
+    ::glReadPixels(x, y, width, height, format, type, (GLvoid*) array->data());
+    return array;    
 }
 
 void GraphicsContext3D::releaseShaderCompiler()

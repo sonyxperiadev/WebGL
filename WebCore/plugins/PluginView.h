@@ -72,6 +72,7 @@ class NPObject;
 namespace WebCore {
     class Element;
     class Frame;
+    class Image;
     class KeyboardEvent;
     class MouseEvent;
 #ifdef ANDROID_PLUGINS
@@ -222,6 +223,9 @@ namespace WebCore {
         virtual void restart();
         virtual Node* node() const;
 
+        bool isHalted() const { return m_isHalted; }
+        bool hasBeenHalted() const { return m_hasBeenHalted; }
+
         static bool isCallingPlugin();
 
 #ifdef ANDROID_PLUGINS
@@ -251,7 +255,7 @@ namespace WebCore {
         void invalidateWindowlessPluginRect(const IntRect&);
 
 #if PLATFORM(WIN_OS) && !PLATFORM(WX) && ENABLE(NETSCAPE_PLUGIN_API)
-        void paintWindowedPluginIntoContext(GraphicsContext*, const IntRect&) const;
+        void paintWindowedPluginIntoContext(GraphicsContext*, const IntRect&);
         static HDC WINAPI hookedBeginPaint(HWND, PAINTSTRUCT*);
         static BOOL WINAPI hookedEndPaint(HWND, const PAINTSTRUCT*);
 #endif
@@ -283,22 +287,32 @@ namespace WebCore {
 
         void handleKeyboardEvent(KeyboardEvent*);
         void handleMouseEvent(MouseEvent*);
-#if defined(Q_WS_X11)
+#if defined(Q_WS_X11) && ENABLE(NETSCAPE_PLUGIN_API)
         void handleFocusInEvent();
         void handleFocusOutEvent();
 #endif
 
+<<<<<<< HEAD:WebCore/plugins/PluginView.h
 #ifdef ANDROID_PLUGINS
         void handleFocusEvent(bool hasFocus);
         void handleTouchEvent(TouchEvent*);
         // called at the end of the base constructor
         void platformInit();
+=======
+#if PLATFORM(WIN_OS)
+        void paintIntoTransformedContext(HDC);
+        PassRefPtr<Image> snapshot();
+>>>>>>> webkit.org at r50258.:WebCore/plugins/PluginView.h
 #endif
+<<<<<<< HEAD:WebCore/plugins/PluginView.h
 #ifdef PLUGIN_PLATFORM_SETVALUE
         // called if the default setValue does not recognize the variable
         NPError platformSetValue(NPPVariable variable, void* value);
 #endif
         
+=======
+
+>>>>>>> webkit.org at r50258.:WebCore/plugins/PluginView.h
         int m_mode;
         int m_paramCount;
         char** m_paramNames;
@@ -358,7 +372,7 @@ public:
 
 private:
 
-#if defined(XP_UNIX) || defined(Q_WS_X11)
+#if defined(XP_UNIX) || defined(Q_WS_X11) || PLATFORM(SYMBIAN)
         void setNPWindowIfNeeded();
 #elif defined(XP_MACOSX)
         NP_CGContext m_npCgContext;
@@ -371,7 +385,7 @@ private:
         Point globalMousePosForPlugin() const;
 #endif
 
-#if defined(Q_WS_X11)
+#if defined(Q_WS_X11) && ENABLE(NETSCAPE_PLUGIN_API)
         bool m_hasPendingGeometryChange;
         Pixmap m_drawable;
         Visual* m_visual;
@@ -388,6 +402,9 @@ private:
         RefPtr<PluginStream> m_manualStream;
 
         bool m_isJavaScriptPaused;
+
+        bool m_isHalted;
+        bool m_hasBeenHalted;
 
         static PluginView* s_currentPluginView;
     };

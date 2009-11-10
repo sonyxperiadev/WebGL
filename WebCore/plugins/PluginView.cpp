@@ -138,8 +138,8 @@ void PluginView::setFrameRect(const IntRect& rect)
 
     updatePluginWidget();
 
-#if PLATFORM(WIN_OS)
-    // On Windows, always call plugin to change geometry.
+#if PLATFORM(WIN_OS) || PLATFORM(SYMBIAN)
+    // On Windows and Symbian, always call plugin to change geometry.
     setNPWindowRect(rect);
 #elif XP_UNIX
     // On Unix, multiple calls to setNPWindow() in windowed mode causes Flash to crash
@@ -162,6 +162,7 @@ void PluginView::handleEvent(Event* event)
         handleMouseEvent(static_cast<MouseEvent*>(event));
     else if (event->isKeyboardEvent())
         handleKeyboardEvent(static_cast<KeyboardEvent*>(event));
+<<<<<<< HEAD:WebCore/plugins/PluginView.cpp
 #if defined(ANDROID_PLUGINS)
     else if (event->isTouchEvent())
         handleTouchEvent(static_cast<TouchEvent*>(event));
@@ -171,6 +172,9 @@ void PluginView::handleEvent(Event* event)
         handleFocusEvent(true);
 #endif
 #if defined(Q_WS_X11)
+=======
+#if defined(Q_WS_X11) && ENABLE(NETSCAPE_PLUGIN_API)
+>>>>>>> webkit.org at r50258.:WebCore/plugins/PluginView.cpp
     else if (event->type() == eventNames().DOMFocusOutEvent)
         handleFocusOutEvent();
     else if (event->type() == eventNames().DOMFocusInEvent)
@@ -426,7 +430,7 @@ static bool getString(ScriptController* proxy, JSValue result, String& string)
         return false;
     JSLock lock(JSC::SilenceAssertionsOnly);
 
-    ExecState* exec = proxy->globalObject()->globalExec();
+    ExecState* exec = proxy->globalObject(pluginWorld())->globalExec();
     UString ustring = result.toString(exec);
     exec->clearException();
 
@@ -486,7 +490,7 @@ void PluginView::performRequest(PluginRequest* request)
 #if USE(JSC)
     // Executing a script can cause the plugin view to be destroyed, so we keep a reference to the parent frame.
     RefPtr<Frame> parentFrame = m_parentFrame;
-    JSValue result = m_parentFrame->loader()->executeScript(jsString, request->shouldAllowPopups()).jsValue();
+    JSValue result = m_parentFrame->script()->executeScript(jsString, request->shouldAllowPopups()).jsValue();
 
     if (targetFrameName.isNull()) {
         String resultString;
@@ -891,7 +895,7 @@ PluginView::PluginView(Frame* parentFrame, const IntSize& size, PluginPackage* p
     , m_drawingModel(NPDrawingModel(-1))
     , m_eventModel(NPEventModel(-1))
 #endif
-#if defined(Q_WS_X11)
+#if defined(Q_WS_X11) && ENABLE(NETSCAPE_PLUGIN_API)
     , m_hasPendingGeometryChange(false)
     , m_drawable(0)
     , m_visual(0)
@@ -901,6 +905,8 @@ PluginView::PluginView(Frame* parentFrame, const IntSize& size, PluginPackage* p
     , m_loadManually(loadManually)
     , m_manualStream(0)
     , m_isJavaScriptPaused(false)
+    , m_isHalted(false)
+    , m_hasBeenHalted(false)
 {
 #if defined(ANDROID_PLUGINS)
     platformInit();

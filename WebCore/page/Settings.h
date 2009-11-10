@@ -306,19 +306,17 @@ namespace WebCore {
         static bool shouldUseHighResolutionTimers() { return gShouldUseHighResolutionTimers; }
 #endif
 
-        void setPluginHalterEnabled(bool);
-        bool pluginHalterEnabled() const { return m_pluginHalterEnabled; }
-
         void setPluginAllowedRunTime(unsigned);
         unsigned pluginAllowedRunTime() const { return m_pluginAllowedRunTime; }
 
         void setWebGLEnabled(bool);
         bool webGLEnabled() const { return m_webGLEnabled; }
 
-#if ENABLE(WEB_SOCKETS)
-        void setExperimentalWebSocketsEnabled(bool);
-        bool experimentalWebSocketsEnabled() const { return m_experimentalWebSocketsEnabled; }
-#endif
+        void setPrintingMinimumShrinkFactor(float);
+        float printingMinimumShrinkFactor() const { return m_printingMinimumShrinkFactor; }
+
+        void setPrintingMaximumShrinkFactor(float);
+        float printingMaximumShrinkFactor() const { return m_printingMaximumShrinkFactor; }
 
     private:
         Page* m_page;
@@ -379,6 +377,8 @@ namespace WebCore {
         size_t m_maximumDecodedImageSize;
         unsigned m_localStorageQuota;
         unsigned m_pluginAllowedRunTime;
+        float m_printingMinimumShrinkFactor;
+        float m_printingMaximumShrinkFactor;
         bool m_isJavaEnabled : 1;
         bool m_loadsImagesAutomatically : 1;
         bool m_privateBrowsingEnabled : 1;
@@ -424,12 +424,7 @@ namespace WebCore {
         bool m_xssAuditorEnabled : 1;
         bool m_acceleratedCompositingEnabled : 1;
         bool m_experimentalNotificationsEnabled : 1;
-        bool m_pluginHalterEnabled : 1;
         bool m_webGLEnabled : 1;
-
-#if ENABLE(WEB_SOCKETS)
-        bool m_experimentalWebSocketsEnabled : 1;
-#endif
 
 #if USE(SAFARI_THEME)
         static bool gShouldPaintNativeControls;

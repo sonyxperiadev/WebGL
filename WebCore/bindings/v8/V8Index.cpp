@@ -34,6 +34,7 @@
 #include "V8Attr.h"
 #include "V8BarInfo.h"
 #include "V8BeforeLoadEvent.h"
+#include "V8CanvasActiveInfo.h"
 #include "V8CanvasRenderingContext.h"
 #include "V8CanvasRenderingContext2D.h"
 #include "V8CanvasGradient.h"
@@ -355,7 +356,6 @@
 #include "V8SVGTransform.h"
 #include "V8SVGTransformList.h"
 #include "V8SVGUnitTypes.h"
-#include "V8SVGURIReference.h"
 #include "V8SVGZoomEvent.h"
 #endif
 
@@ -389,6 +389,7 @@
 
 #if ENABLE(SHARED_WORKERS)
 #include "V8SharedWorker.h"
+#include "V8SharedWorkerContext.h"
 #endif
 
 #if ENABLE(3D_CANVAS)
@@ -434,6 +435,7 @@
 #include "V8InspectorBackend.h"
 #endif
 
+<<<<<<< HEAD:WebCore/bindings/v8/V8Index.cpp
 #if PLATFORM(ANDROID)
 // TODO: Upstream these guards to webkit.org
 #if ENABLE(GEOLOCATION)
@@ -452,6 +454,8 @@
 #include "V8VoidCallback.h"
 #endif  // PLATFORM(ANDROID)
 
+=======
+>>>>>>> webkit.org at r50258.:WebCore/bindings/v8/V8Index.cpp
 namespace WebCore {
 
 FunctionTemplateFactory V8ClassIndex::GetFactory(V8WrapperType type)

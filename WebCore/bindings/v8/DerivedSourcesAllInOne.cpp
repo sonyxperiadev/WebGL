@@ -34,6 +34,7 @@
 #include "bindings/V8Attr.cpp"
 #include "bindings/V8BarInfo.cpp"
 #include "bindings/V8BeforeLoadEvent.cpp"
+#include "bindings/V8CanvasActiveInfo.cpp"
 #include "bindings/V8CanvasArray.cpp"
 #include "bindings/V8CanvasArrayBuffer.cpp"
 #include "bindings/V8CanvasBuffer.cpp"
@@ -253,6 +254,10 @@
 
 #if ENABLE(SHARED_WORKERS)
 #include "bindings/V8SharedWorker.cpp"
+<<<<<<< HEAD:WebCore/bindings/v8/DerivedSourcesAllInOne.cpp
+=======
+#include "bindings/V8SharedWorkerContext.cpp"
+>>>>>>> webkit.org at r50258.:WebCore/bindings/v8/DerivedSourcesAllInOne.cpp
 #endif
 
 #if ENABLE(SVG)
@@ -361,7 +366,6 @@
 #include "bindings/V8SVGTRefElement.cpp"
 #include "bindings/V8SVGTSpanElement.cpp"
 #include "bindings/V8SVGUnitTypes.cpp"
-#include "bindings/V8SVGURIReference.cpp"
 #include "bindings/V8SVGUseElement.cpp"
 #include "bindings/V8SVGViewElement.cpp"
 #include "bindings/V8SVGZoomEvent.cpp"
@@ -382,6 +386,7 @@
 #if ENABLE(INSPECTOR)
 #include "bindings/V8InspectorBackend.cpp"
 #endif
+<<<<<<< HEAD:WebCore/bindings/v8/DerivedSourcesAllInOne.cpp
 
 #if PLATFORM(ANDROID)
 // TODO: Upstream NOTIFICATIONS guard.
@@ -390,3 +395,5 @@
 #include "bindings/V8NotificationCenter.cpp"
 #endif
 #endif
+=======
+>>>>>>> webkit.org at r50258.:WebCore/bindings/v8/DerivedSourcesAllInOne.cpp

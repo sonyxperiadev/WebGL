@@ -82,18 +82,12 @@ interface IWebPreferencesPrivate : IUnknown
     HRESULT experimentalNotificationsEnabled([out, retval] BOOL *enabled);
     HRESULT setExperimentalNotificationsEnabled([in] BOOL enabled);
 
-    HRESULT experimentalWebSocketsEnabled([out, retval] BOOL *enabled);
-    HRESULT setExperimentalWebSocketsEnabled([in] BOOL enabled);
-
     HRESULT setShouldUseHighResolutionTimers([in] BOOL useHighResolutionTimers);
     HRESULT shouldUseHighResolutionTimers([out, retval] BOOL* useHighResolutionTimers);
 
     // Used to set preference specified by a test via LayoutTestController.overridePreference(..).
     // Used by DumpRenderTree.
     HRESULT setPreferenceForTest([in] BSTR key, [in] BSTR value);
-
-    HRESULT setPluginHalterEnabled([in] BOOL enabled);
-    HRESULT pluginHalterEnabled([out, retval] BOOL* enabled);
 
     HRESULT setPluginAllowedRunTime([in] UINT allowedRunTime);
     HRESULT pluginAllowedRunTime([out, retval] UINT* allowedRunTime);

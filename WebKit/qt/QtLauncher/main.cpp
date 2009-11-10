@@ -34,6 +34,7 @@
 #include <qwebview.h>
 #include <qwebframe.h>
 #include <qwebsettings.h>
+#include <qwebplugindatabase.h>
 #include <qwebelement.h>
 #include <qwebinspector.h>
 
@@ -232,6 +233,16 @@ protected slots:
         formatMenuAction->setVisible(on);
     }
 
+    void dumpPlugins() {
+        QList<QWebPluginInfo> plugins = QWebSettings::pluginDatabase()->plugins();
+        foreach (const QWebPluginInfo plugin, plugins) {
+            qDebug() << "Plugin:" << plugin.name();
+            foreach (const QWebPluginInfo::MimeType mime, plugin.mimeTypes()) {
+                qDebug() << "   " << mime.name;
+            }
+        }
+    }
+
     void dumpHtml() {
         qDebug() << "HTML: " << view->page()->mainFrame()->toHtml();
     }
@@ -242,7 +253,7 @@ protected slots:
                                             QLineEdit::Normal, "a", &ok);
 
         if (ok && !str.isEmpty()) {
-            QList<QWebElement> result =  view->page()->mainFrame()->findAllElements(str);
+            QWebElementCollection result =  view->page()->mainFrame()->findAllElements(str);
             foreach (QWebElement e, result)
                 e.setStyleProperty("background-color", "yellow");
             statusBar()->showMessage(QString("%1 element(s) selected").arg(result.count()), 5000);
@@ -292,7 +303,7 @@ private:
         QMenu *fileMenu = menuBar()->addMenu("&File");
         QAction *newWindow = fileMenu->addAction("New Window", this, SLOT(newWindow()));
 #if QT_VERSION >= 0x040400
-        fileMenu->addAction(tr("Print"), this, SLOT(print()));
+        fileMenu->addAction(tr("Print"), this, SLOT(print()), QKeySequence::Print);
 #endif
         QAction* screenshot = fileMenu->addAction("Screenshot", this, SLOT(screenshot()));
         fileMenu->addAction("Close", this, SLOT(close()));
@@ -320,6 +331,7 @@ private:
         zoomTextOnly->setChecked(false);
         viewMenu->addSeparator();
         viewMenu->addAction("Dump HTML", this, SLOT(dumpHtml()));
+        viewMenu->addAction("Dump plugins", this, SLOT(dumpPlugins()));
 
         QMenu *formatMenu = new QMenu("F&ormat", this);
         formatMenuAction = menuBar()->addMenu(formatMenu);

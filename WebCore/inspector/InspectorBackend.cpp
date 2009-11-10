@@ -258,33 +258,26 @@ const String& InspectorBackend::platform() const
     return platform;
 }
 
-void InspectorBackend::enableTimeline(bool always)
+void InspectorBackend::startTimelineProfiler()
 {
     if (m_inspectorController)
-        m_inspectorController->enableTimeline(always);
+        m_inspectorController->startTimelineProfiler();
 }
 
-void InspectorBackend::disableTimeline(bool always)
+void InspectorBackend::stopTimelineProfiler()
 {
     if (m_inspectorController)
-        m_inspectorController->disableTimeline(always);
+        m_inspectorController->stopTimelineProfiler();
 }
 
-bool InspectorBackend::timelineEnabled() const
+bool InspectorBackend::timelineProfilerEnabled() const
 {
     if (m_inspectorController)
-        return m_inspectorController->timelineEnabled();
+        return m_inspectorController->timelineProfilerEnabled();
     return false;
 }
 
 #if ENABLE(JAVASCRIPT_DEBUGGER)
-const ProfilesArray& InspectorBackend::profiles() const
-{
-    if (m_inspectorController)
-        return m_inspectorController->profiles();
-    return m_emptyProfiles;
-}
-
 void InspectorBackend::startProfiling()
 {
     if (m_inspectorController)
@@ -314,6 +307,18 @@ bool InspectorBackend::profilerEnabled()
     if (m_inspectorController)
         return m_inspectorController->profilerEnabled();
     return false;
+}
+
+void InspectorBackend::getProfileHeaders(long callId)
+{
+    if (m_inspectorController)
+        m_inspectorController->getProfileHeaders(callId);
+}
+
+void InspectorBackend::getProfile(long callId, unsigned uid)
+{
+    if (m_inspectorController)
+        m_inspectorController->getProfile(callId, uid);
 }
 
 void InspectorBackend::enableDebugger(bool always)
@@ -454,6 +459,35 @@ void InspectorBackend::copyNode(long nodeId)
         return;
     String markup = createMarkup(node);
     Pasteboard::generalPasteboard()->writePlainText(markup);
+}
+    
+void InspectorBackend::removeNode(long callId, long nodeId)
+{
+    InspectorFrontend* frontend = inspectorFrontend();
+    if (!frontend)
+        return;
+
+    Node* node = nodeForId(nodeId);
+    if (!node) {
+        // Use -1 to denote an error condition.
+        frontend->didRemoveNode(callId, -1);
+        return;
+    }
+
+    Node* parentNode = node->parentNode();
+    if (!parentNode) {
+        frontend->didRemoveNode(callId, -1);
+        return;
+    }
+
+    ExceptionCode code;
+    parentNode->removeChild(node, code);
+    if (code) {
+        frontend->didRemoveNode(callId, -1);
+        return;
+    }
+
+    frontend->didRemoveNode(callId, nodeId);
 }
 
 void InspectorBackend::getCookies(long callId, const String& domain)

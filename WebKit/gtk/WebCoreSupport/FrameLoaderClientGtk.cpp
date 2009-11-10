@@ -4,6 +4,7 @@
  *  Copyright (C) 2007 Christian Dywan <christian@twotoasts.de>
  *  Copyright (C) 2008, 2009 Collabora Ltd.  All rights reserved.
  *  Copyright (C) 2009 Gustavo Noronha Silva <gns@gnome.org>
+ *  Copyright (C) Research In Motion Limited 2009. All rights reserved.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Lesser General Public
@@ -490,24 +491,7 @@ PassRefPtr<Widget> FrameLoaderClient::createJavaAppletWidget(const IntSize&, HTM
 
 ObjectContentType FrameLoaderClient::objectContentType(const KURL& url, const String& mimeType)
 {
-    String type = mimeType;
-    // We don't use MIMETypeRegistry::getMIMETypeForPath() because it returns "application/octet-stream" upon failure
-    if (type.isEmpty())
-        type = MIMETypeRegistry::getMIMETypeForExtension(url.path().substring(url.path().reverseFind('.') + 1));
-
-    if (type.isEmpty())
-        return WebCore::ObjectContentFrame;
-
-    if (MIMETypeRegistry::isSupportedImageMIMEType(type))
-        return WebCore::ObjectContentImage;
-
-    if (PluginDatabase::installedPlugins()->isMIMETypeRegistered(mimeType))
-        return WebCore::ObjectContentNetscapePlugin;
-
-    if (MIMETypeRegistry::isSupportedNonImageMIMEType(type))
-        return WebCore::ObjectContentFrame;
-
-    return WebCore::ObjectContentNone;
+    return FrameLoader::defaultObjectContentType(url, mimeType);
 }
 
 String FrameLoaderClient::overrideMediaType() const
@@ -530,8 +514,8 @@ void FrameLoaderClient::windowObjectCleared()
 
     // TODO: Consider using g_signal_has_handler_pending() to avoid the overhead
     // when there are no handlers.
-    JSGlobalContextRef context = toGlobalRef(coreFrame->script()->globalObject()->globalExec());
-    JSObjectRef windowObject = toRef(coreFrame->script()->globalObject());
+    JSGlobalContextRef context = toGlobalRef(coreFrame->script()->globalObject(mainThreadNormalWorld())->globalExec());
+    JSObjectRef windowObject = toRef(coreFrame->script()->globalObject(mainThreadNormalWorld()));
     ASSERT(windowObject);
 
     WebKitWebView* webView = getViewFromFrame(m_frame);
@@ -846,6 +830,11 @@ void FrameLoaderClient::dispatchDidFinishLoading(WebCore::DocumentLoader* loader
     WebKitWebView* webView = getViewFromFrame(m_frame);
     GOwnPtr<gchar> identifierString(toString(identifier));
     WebKitWebResource* webResource = webkit_web_view_get_resource(webView, identifierString.get());
+
+    // A NULL WebResource means the load has been interrupted, and
+    // replaced by another one while this resource was being loaded.
+    if (!webResource)
+        return;
 
     const char* uri = webkit_web_resource_get_uri(webResource);
     RefPtr<ArchiveResource> coreResource(loader->subresource(KURL(KURL(), uri)));

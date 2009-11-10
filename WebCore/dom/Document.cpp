@@ -58,6 +58,7 @@
 #include "FrameLoader.h"
 #include "FrameTree.h"
 #include "FrameView.h"
+#include "HTMLAllCollection.h"
 #include "HTMLAnchorElement.h"
 #include "HTMLBodyElement.h"
 #include "HTMLCanvasElement.h"
@@ -534,6 +535,16 @@ Document::~Document()
         m_styleSheets->documentDestroyed();
 }
 
+Document::JSWrapperCache* Document::createWrapperCache(DOMWrapperWorld* world)
+{
+    JSWrapperCache* wrapperCache = new JSWrapperCache();
+    m_wrapperCacheMap.set(world, wrapperCache);
+#if USE(JSC)
+    world->rememberDocument(this);
+#endif
+    return wrapperCache;
+}
+
 void Document::resetLinkColor()
 {
     m_linkColor = Color(0, 0, 238);
@@ -976,7 +987,7 @@ Element* Document::elementFromPoint(int x, int y) const
         return 0;
 
     float zoomFactor = frame->pageZoomFactor();
-    IntPoint point = roundedIntPoint(FloatPoint(x * zoomFactor, y * zoomFactor)) + view()->scrollOffset();
+    IntPoint point = roundedIntPoint(FloatPoint(x * zoomFactor  + view()->scrollX(), y * zoomFactor + view()->scrollY()));
 
     if (!frameView->visibleContentRect().contains(point))
         return 0;
@@ -1006,7 +1017,7 @@ PassRefPtr<Range> Document::caretRangeFromPoint(int x, int y)
         return 0;
 
     float zoomFactor = frame->pageZoomFactor();
-    IntPoint point = roundedIntPoint(FloatPoint(x * zoomFactor, y * zoomFactor)) + view()->scrollOffset();
+    IntPoint point = roundedIntPoint(FloatPoint(x * zoomFactor + view()->scrollX(), y * zoomFactor + view()->scrollY()));
 
     if (!frameView->visibleContentRect().contains(point))
         return 0;
@@ -1622,6 +1633,9 @@ void Document::open(Document* ownerDocument)
 
     implicitOpen();
 
+    if (DOMWindow* domWindow = this->domWindow())
+        domWindow->removeAllEventListeners();
+
     if (m_frame)
         m_frame->loader()->didExplicitOpen();
 }
@@ -1643,7 +1657,11 @@ void Document::implicitOpen()
 {
     cancelParsing();
 
-    clear();
+    delete m_tokenizer;
+    m_tokenizer = 0;
+
+    removeChildren();
+
     m_tokenizer = createTokenizer();
     setParsing(true);
 
@@ -1772,7 +1790,7 @@ void Document::implicitClose()
     if (f)
         f->animation()->resumeAnimations(this);
 
-    ImageLoader::dispatchPendingLoadEvents();
+    ImageLoader::dispatchPendingEvents();
     dispatchWindowLoadEvent();
     dispatchWindowEvent(PageTransitionEvent::create(eventNames().pageshowEvent, false), this);
     if (f)
@@ -1919,16 +1937,6 @@ void Document::finishParsing()
     // (3) Data is still remaining to be parsed.
     if (m_tokenizer)
         m_tokenizer->finish();
-}
-
-void Document::clear()
-{
-    delete m_tokenizer;
-    m_tokenizer = 0;
-
-    removeChildren();
-    if (DOMWindow* domWindow = this->domWindow())
-        domWindow->removeAllEventListeners();
 }
 
 const KURL& Document::virtualURL() const
@@ -2476,8 +2484,8 @@ void Document::removePendingSheet()
     if (!m_pendingStylesheets && m_tokenizer)
         m_tokenizer->executeScriptsWaitingForStylesheets();
 
-    if (!m_pendingStylesheets && m_gotoAnchorNeededAfterStylesheetsLoad && m_frame)
-        m_frame->loader()->gotoAnchor();
+    if (!m_pendingStylesheets && m_gotoAnchorNeededAfterStylesheetsLoad && view())
+        view()->scrollToFragment(m_frame->loader()->url());
 }
 
 void Document::updateStyleSelector()
@@ -3013,46 +3021,54 @@ void Document::dispatchWindowLoadEvent()
 
 PassRefPtr<Event> Document::createEvent(const String& eventType, ExceptionCode& ec)
 {
+    RefPtr<Event> event;
     if (eventType == "Event" || eventType == "Events" || eventType == "HTMLEvents")
-        return Event::create();
-    if (eventType == "KeyboardEvent" || eventType == "KeyboardEvents")
-        return KeyboardEvent::create();
-    if (eventType == "MessageEvent")
-        return MessageEvent::create();
-    if (eventType == "MouseEvent" || eventType == "MouseEvents")
-        return MouseEvent::create();
-    if (eventType == "MutationEvent" || eventType == "MutationEvents")
-        return MutationEvent::create();
-    if (eventType == "OverflowEvent")
-        return OverflowEvent::create();
-    if (eventType == "PageTransitionEvent")
-        return PageTransitionEvent::create();
-    if (eventType == "ProgressEvent")
-        return ProgressEvent::create();
+        event = Event::create();
+    else if (eventType == "KeyboardEvent" || eventType == "KeyboardEvents")
+        event = KeyboardEvent::create();
+    else if (eventType == "MessageEvent")
+        event = MessageEvent::create();
+    else if (eventType == "MouseEvent" || eventType == "MouseEvents")
+        event = MouseEvent::create();
+    else if (eventType == "MutationEvent" || eventType == "MutationEvents")
+        event = MutationEvent::create();
+    else if (eventType == "OverflowEvent")
+        event = OverflowEvent::create();
+    else if (eventType == "PageTransitionEvent")
+        event = PageTransitionEvent::create();
+    else if (eventType == "ProgressEvent")
+        event = ProgressEvent::create();
 #if ENABLE(DOM_STORAGE)
-    if (eventType == "StorageEvent")
-        return StorageEvent::create();
+    else if (eventType == "StorageEvent")
+        event = StorageEvent::create();
 #endif
-    if (eventType == "TextEvent")
-        return TextEvent::create();
-    if (eventType == "UIEvent" || eventType == "UIEvents")
-        return UIEvent::create();
-    if (eventType == "WebKitAnimationEvent")
-        return WebKitAnimationEvent::create();
-    if (eventType == "WebKitTransitionEvent")
-        return WebKitTransitionEvent::create();
-    if (eventType == "WheelEvent")
-        return WheelEvent::create();
+    else if (eventType == "TextEvent")
+        event = TextEvent::create();
+    else if (eventType == "UIEvent" || eventType == "UIEvents")
+        event = UIEvent::create();
+    else if (eventType == "WebKitAnimationEvent")
+        event = WebKitAnimationEvent::create();
+    else if (eventType == "WebKitTransitionEvent")
+        event = WebKitTransitionEvent::create();
+    else if (eventType == "WheelEvent")
+        event = WheelEvent::create();
 #if ENABLE(SVG)
-    if (eventType == "SVGEvents")
-        return Event::create();
-    if (eventType == "SVGZoomEvents")
-        return SVGZoomEvent::create();
+    else if (eventType == "SVGEvents")
+        event = Event::create();
+    else if (eventType == "SVGZoomEvents")
+        event = SVGZoomEvent::create();
 #endif
+<<<<<<< HEAD:WebCore/dom/Document.cpp
 #if ENABLE(TOUCH_EVENTS) // Android
     if (eventType == "TouchEvent")
         return TouchEvent::create();
 #endif
+=======
+    if (event) {
+        event->setCreatedByDOM(true);
+        return event.release();
+    }
+>>>>>>> webkit.org at r50258.:WebCore/dom/Document.cpp
     ec = NOT_SUPPORTED_ERR;
     return 0;
 }
@@ -3083,6 +3099,8 @@ void Document::addListenerTypeIfNeeded(const AtomicString& eventType)
         addListenerType(ANIMATIONITERATION_LISTENER);
     else if (eventType == eventNames().webkitTransitionEndEvent)
         addListenerType(TRANSITIONEND_LISTENER);
+    else if (eventType == eventNames().beforeloadEvent)
+        addListenerType(BEFORELOAD_LISTENER);
 }
 
 CSSStyleDeclaration* Document::getOverrideStyle(Element*, const String&)
@@ -4107,9 +4125,9 @@ PassRefPtr<HTMLCollection> Document::anchors()
     return HTMLCollection::create(this, DocAnchors);
 }
 
-PassRefPtr<HTMLCollection> Document::all()
+PassRefPtr<HTMLAllCollection> Document::all()
 {
-    return HTMLCollection::create(this, DocAll);
+    return HTMLAllCollection::create(this);
 }
 
 PassRefPtr<HTMLCollection> Document::windowNamedItems(const String &name)
@@ -4658,7 +4676,7 @@ void Document::resourceRetrievedByXMLHttpRequest(unsigned long identifier, const
     Frame* frame = this->frame();
     if (frame) {
         FrameLoader* frameLoader = frame->loader();
-        frameLoader->didLoadResourceByXMLHttpRequest(identifier, sourceString);
+        frameLoader->notifier()->didLoadResourceByXMLHttpRequest(identifier, sourceString);
     }
 }
 

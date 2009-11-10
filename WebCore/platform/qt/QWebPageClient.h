@@ -32,7 +32,10 @@ class QWebPageClient {
 public:
     virtual void scroll(int dx, int dy, const QRect&) = 0;
     virtual void update(const QRect&) = 0;
-
+    virtual void setInputMethodEnabled(bool enable) = 0;
+#if QT_VERSION >= 0x040600
+    virtual void setInputMethodHint(Qt::InputMethodHint hint, bool enable) = 0;
+#endif
     inline void resetCursor()
     {
 #ifndef QT_NO_CURSOR
@@ -52,8 +55,9 @@ public:
 #endif
     }
 
+    virtual QPalette palette() const = 0;
     virtual int screenNumber() const = 0;
-    virtual WId winId() const = 0;
+    virtual QWidget* ownerWidget() const = 0;
 
     virtual QObject* pluginParent() const = 0;
 

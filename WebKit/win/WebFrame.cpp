@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
+ * Copyright (C) Research In Motion Limited 2009. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -77,7 +78,6 @@
 #include <WebCore/HTMLPlugInElement.h>
 #include <WebCore/JSDOMWindow.h>
 #include <WebCore/KeyboardEvent.h>
-#include <WebCore/MIMETypeRegistry.h>
 #include <WebCore/MouseRelatedEvent.h>
 #include <WebCore/NotImplemented.h>
 #include <WebCore/Page.h>
@@ -96,6 +96,9 @@
 #include <WebCore/ScriptController.h>
 #include <WebCore/SecurityOrigin.h>
 #include <JavaScriptCore/APICast.h>
+#include <JavaScriptCore/JSLock.h>
+#include <JavaScriptCore/JSObject.h>
+#include <JavaScriptCore/JSValue.h>
 #include <wtf/MathExtras.h>
 #pragma warning(pop)
 
@@ -115,6 +118,11 @@ extern "C" {
 
 using namespace WebCore;
 using namespace HTMLNames;
+
+using JSC::JSGlobalObject;
+using JSC::JSLock;
+using JSC::JSValue;
+using JSC::SilenceAssertionsOnly;
 
 #define FLASH_REDRAW 0
 
@@ -479,7 +487,17 @@ JSGlobalContextRef STDMETHODCALLTYPE WebFrame::globalContext()
     if (!coreFrame)
         return 0;
 
-    return toGlobalRef(coreFrame->script()->globalObject()->globalExec());
+    return toGlobalRef(coreFrame->script()->globalObject(mainThreadNormalWorld())->globalExec());
+}
+
+JSGlobalContextRef STDMETHODCALLTYPE WebFrame::contextForWorldID(
+    /* [in] */ unsigned worldID)
+{
+    Frame* coreFrame = core(this);
+    if (!coreFrame)
+        return 0;
+
+    return toGlobalRef(coreFrame->script()->globalObject(worldID)->globalExec());
 }
 
 HRESULT STDMETHODCALLTYPE WebFrame::loadRequest( 
@@ -803,6 +821,25 @@ HRESULT STDMETHODCALLTYPE WebFrame::renderTreeAsExternalRepresentation(
         return E_FAIL;
 
     *result = BString(externalRepresentation(coreFrame->contentRenderer())).release();
+    return S_OK;
+}
+
+HRESULT STDMETHODCALLTYPE WebFrame::counterValueForElementById(
+    /* [in] */ BSTR id, /* [retval][out] */ BSTR *result)
+{
+    if (!result)
+        return E_POINTER;
+
+    Frame* coreFrame = core(this);
+    if (!coreFrame)
+        return E_FAIL;
+
+    String coreId = String(id, SysStringLen(id));
+
+    Element* element = coreFrame->document()->getElementById(coreId);
+    if (!element)
+        return E_FAIL;
+    *result = BString(counterValueForElement(element)).release();
     return S_OK;
 }
 
@@ -1664,25 +1701,9 @@ PassRefPtr<Widget> WebFrame::createJavaAppletWidget(const IntSize& pluginSize, H
     return pluginView;
 }
 
-ObjectContentType WebFrame::objectContentType(const KURL& url, const String& mimeTypeIn)
+ObjectContentType WebFrame::objectContentType(const KURL& url, const String& mimeType)
 {
-    String mimeType = mimeTypeIn;
-    if (mimeType.isEmpty())
-        mimeType = MIMETypeRegistry::getMIMETypeForExtension(url.path().substring(url.path().reverseFind('.') + 1));
-
-    if (mimeType.isEmpty())
-        return ObjectContentFrame; // Go ahead and hope that we can display the content.
-
-    if (MIMETypeRegistry::isSupportedImageMIMEType(mimeType))
-        return WebCore::ObjectContentImage;
-
-    if (PluginDatabase::installedPlugins()->isMIMETypeRegistered(mimeType))
-        return WebCore::ObjectContentNetscapePlugin;
-
-    if (MIMETypeRegistry::isSupportedNonImageMIMEType(mimeType))
-        return WebCore::ObjectContentFrame;
-
-    return WebCore::ObjectContentNone;
+    return WebCore::FrameLoader::defaultObjectContentType(url, mimeType);
 }
 
 String WebFrame::overrideMediaType() const
@@ -1702,8 +1723,8 @@ void WebFrame::windowObjectCleared()
 
     COMPtr<IWebFrameLoadDelegate> frameLoadDelegate;
     if (SUCCEEDED(d->webView->frameLoadDelegate(&frameLoadDelegate))) {
-        JSContextRef context = toRef(coreFrame->script()->globalObject()->globalExec());
-        JSObjectRef windowObject = toRef(coreFrame->script()->globalObject());
+        JSContextRef context = toRef(coreFrame->script()->globalObject(mainThreadNormalWorld())->globalExec());
+        JSObjectRef windowObject = toRef(coreFrame->script()->globalObject(mainThreadNormalWorld()));
         ASSERT(windowObject);
 
         if (FAILED(frameLoadDelegate->didClearWindowObject(d->webView, context, windowObject, this)))
@@ -2145,6 +2166,49 @@ HRESULT STDMETHODCALLTYPE WebFrame::isDescendantOfFrame(
         return S_OK;
 
     *result = (coreFrame && coreFrame->tree()->isDescendantOf(core(ancestorWebFrame.get()))) ? TRUE : FALSE;
+    return S_OK;
+}
+
+HRESULT STDMETHODCALLTYPE WebFrame::stringByEvaluatingJavaScriptInIsolatedWorld(
+    /* [in] */ unsigned int worldID,
+    /* [in] */ OLE_HANDLE jsGlobalObject,
+    /* [in] */ BSTR script,
+    /* [retval][out] */ BSTR* evaluationResult)
+{
+    if (!evaluationResult)
+        return E_POINTER;
+    *evaluationResult = 0;
+
+    Frame* coreFrame = core(this);
+    JSObjectRef globalObjectRef = reinterpret_cast<JSObjectRef>(jsGlobalObject);
+    String string = String(script, SysStringLen(script));
+
+    // Start off with some guess at a frame and a global object, we'll try to do better...!
+    JSDOMWindow* anyWorldGlobalObject = coreFrame->script()->globalObject(mainThreadNormalWorld());
+
+    // The global object is probably a shell object? - if so, we know how to use this!
+    JSC::JSObject* globalObjectObj = toJS(globalObjectRef);
+    if (!strcmp(globalObjectObj->classInfo()->className, "JSDOMWindowShell"))
+        anyWorldGlobalObject = static_cast<JSDOMWindowShell*>(globalObjectObj)->window();
+
+    // Get the frame frome the global object we've settled on.
+    Frame* frame = anyWorldGlobalObject->impl()->frame();
+    ASSERT(frame->document());
+    JSValue result = frame->script()->executeScriptInIsolatedWorld(worldID, string, true).jsValue();
+
+    if (!frame) // In case the script removed our frame from the page.
+        return S_OK;
+
+    // This bizarre set of rules matches behavior from WebKit for Safari 2.0.
+    // If you don't like it, use -[WebScriptObject evaluateWebScript:] or 
+    // JSEvaluateScript instead, since they have less surprising semantics.
+    if (!result || !result.isBoolean() && !result.isString() && !result.isNumber())
+        return S_OK;
+
+    JSLock lock(SilenceAssertionsOnly);
+    String resultString = String(result.toString(anyWorldGlobalObject->globalExec()));
+    *evaluationResult = BString(resultString).release();
+
     return S_OK;
 }
 

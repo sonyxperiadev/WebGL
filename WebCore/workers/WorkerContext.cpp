@@ -49,9 +49,15 @@
 #include "WorkerThreadableLoader.h"
 #include "XMLHttpRequestException.h"
 #include <wtf/RefPtr.h>
+<<<<<<< HEAD:WebCore/workers/WorkerContext.cpp
 #if PLATFORM(ANDROID)
+=======
+>>>>>>> webkit.org at r50258.:WebCore/workers/WorkerContext.cpp
 #include <wtf/UnusedParam.h>
+<<<<<<< HEAD:WebCore/workers/WorkerContext.cpp
 #endif
+=======
+>>>>>>> webkit.org at r50258.:WebCore/workers/WorkerContext.cpp
 
 #if ENABLE(NOTIFICATIONS)
 #include "NotificationCenter.h"

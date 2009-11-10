@@ -31,10 +31,15 @@
 #import "WebKitSystemInterface.h"
 #import "WebTypesInternal.h"
 #import <wtf/RetainPtr.h>
+#import <limits>
+
+using namespace std;
 
 #define HAVE_MEDIA_CONTROL (!defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD))
 
 @interface WebVideoFullscreenHUDWindowController (Private) <NSWindowDelegate>
+
+- (void)keyDown:(NSEvent *)event;
 
 - (void)updateTime;
 - (void)timelinePositionChanged:(id)sender;
@@ -47,7 +52,7 @@
 - (double)volume;
 - (void)setVolume:(double)volume;
 
-- (void)playingChanged:(id)sender;
+- (void)togglePlaying:(id)sender;
 - (BOOL)playing;
 - (void)setPlaying:(BOOL)playing;
 
@@ -112,6 +117,23 @@
     [[self windowController] fadeWindowIn];
 }
 
+- (BOOL)resignFirstResponder
+{
+    return NO;
+}
+
+- (BOOL)performKeyEquivalent:(NSEvent *)event
+{
+    // Block all command key events while the fullscreen window is up.
+    if ([event type] != NSKeyDown)
+        return NO;
+    
+    if (!([event modifierFlags] & NSCommandKeyMask))
+        return NO;
+    
+    return YES;
+}
+
 @end
 
 //
@@ -162,11 +184,19 @@ static const NSTimeInterval HUDWindowFadeOutDelay = 3;
 }
 #endif
 
+- (void)keyDown:(NSEvent *)event
+{
+    if ([[event characters] isEqualToString:@" "])
+        [_playButton performClick:self];
+    else
+        [super keyDown:event];
+}
+
 - (id<WebVideoFullscreenHUDWindowControllerDelegate>)delegate
 {
     return _delegate;
 }
-     
+
 - (void)setDelegate:(id<WebVideoFullscreenHUDWindowControllerDelegate>)delegate
 {
     _delegate = delegate;
@@ -178,6 +208,7 @@ static const NSTimeInterval HUDWindowFadeOutDelay = 3;
 
     // First, update right away, then schedule future update
     [self updateTime];
+    [self updateRate];
 
     [_timelineUpdateTimer invalidate];
     [_timelineUpdateTimer release];
@@ -311,7 +342,7 @@ static NSTextField *createTimeTextField(NSRect frame)
     CGFloat center = (windowWidth - kButtonSize) / 2;
     _playButton = createControlWithMediaUIControlType(WKMediaUIControlPlayPauseButton, NSMakeRect(center, top - kButtonSize, kButtonSize, kButtonSize));
     [_playButton setTarget:self];
-    [_playButton setAction:@selector(playingChanged:)];
+    [_playButton setAction:@selector(togglePlaying:)];
     [contentView addSubview:_playButton];
 
     CGFloat closeToRight = windowWidth - 2 * kMargin - kButtonMiniSize;
@@ -324,6 +355,8 @@ static NSTextField *createTimeTextField(NSRect frame)
     CGFloat left = kMargin;
     NSControl *volumeDownButton = createControlWithMediaUIControlType(WKMediaUIControlVolumeDownButton, NSMakeRect(left, top - kButtonSize / 2 - kButtonMiniSize / 2, kButtonMiniSize, kButtonMiniSize));
     [contentView addSubview:volumeDownButton];
+    [volumeDownButton setTarget:self];
+    [volumeDownButton setAction:@selector(decrementVolume:)];
     [volumeDownButton release];
 
     static const int volumeSliderWidth = 50;
@@ -336,9 +369,11 @@ static NSTextField *createTimeTextField(NSRect frame)
     [contentView addSubview:_volumeSlider];
 
     left = kMargin + kButtonMiniSize + volumeSliderWidth + kButtonMiniSize / 2;
-    NSControl *button = createControlWithMediaUIControlType(WKMediaUIControlVolumeUpButton, NSMakeRect(left, top - kButtonSize / 2 - kButtonMiniSize / 2, kButtonMiniSize, kButtonMiniSize));
-    [contentView addSubview:button];
-    [button release];
+    NSControl *volumeUpButton = createControlWithMediaUIControlType(WKMediaUIControlVolumeUpButton, NSMakeRect(left, top - kButtonSize / 2 - kButtonMiniSize / 2, kButtonMiniSize, kButtonMiniSize));
+    [volumeUpButton setTarget:self];
+    [volumeUpButton setAction:@selector(incrementVolume:)];
+    [contentView addSubview:volumeUpButton];
+    [volumeUpButton release];
     
     static const int timeTextWidth = 50;
     static const int sliderHeight = 13;
@@ -426,6 +461,24 @@ static NSTextField *createTimeTextField(NSRect frame)
     [self setVolume:[_volumeSlider doubleValue]];
 }
 
+- (void)decrementVolume:(id)sender
+{
+    if (![_delegate mediaElement])
+        return;
+
+    double volume = [self volume] - 10;
+    [self setVolume:max(volume, 0.)];
+}
+
+- (void)incrementVolume:(id)sender
+{
+    if (![_delegate mediaElement])
+        return;
+
+    double volume = [self volume] + 10;
+    [self setVolume:min(volume, [self maxVolume])];
+}
+
 - (double)volume
 {
     return [_delegate mediaElement] ? [_delegate mediaElement]->volume() * [self maxVolume] : 0;
@@ -436,15 +489,23 @@ static NSTextField *createTimeTextField(NSRect frame)
     if (![_delegate mediaElement])
         return;
     WebCore::ExceptionCode e;
+    if ([_delegate mediaElement]->muted())
+        [_delegate mediaElement]->setMuted(false);
     [_delegate mediaElement]->setVolume(volume / [self maxVolume], e);
 }
 
-- (void)playingChanged:(id)sender
+- (void)updateRate
 {
-    [self setPlaying:![self playing]];
-    
+    [_playButton setIntValue:[self playing]];
+}
+
+- (void)togglePlaying:(id)sender
+{
+    BOOL nowPlaying = [self playing];
+    [self setPlaying:!nowPlaying];
+
     // Keep HUD visible when paused
-    if (![self playing])
+    if (!nowPlaying)
         [self fadeWindowIn];
     else if (!_mouseIsInHUD) {
         [NSObject cancelPreviousPerformRequestsWithTarget:self selector:@selector(fadeWindowOut) object:nil];
@@ -560,6 +621,9 @@ static NSString *stringToTimeTextAttributed(NSString *string, NSTextAlignment al
 
 - (void)exitFullscreen:(id)sender
 {
+    if (_isEndingFullscreen)
+        return;
+    _isEndingFullscreen = YES;
     [_delegate requestExitFullscreen]; 
 }
 

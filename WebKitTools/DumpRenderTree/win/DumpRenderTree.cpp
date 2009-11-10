@@ -31,6 +31,7 @@
 
 #include "EditingDelegate.h"
 #include "FrameLoadDelegate.h"
+#include "HistoryDelegate.h"
 #include "LayoutTestController.h"
 #include "PixelDumpSupport.h"
 #include "PolicyDelegate.h"
@@ -97,6 +98,7 @@ COMPtr<FrameLoadDelegate> sharedFrameLoadDelegate;
 COMPtr<UIDelegate> sharedUIDelegate;
 COMPtr<EditingDelegate> sharedEditingDelegate;
 COMPtr<ResourceLoadDelegate> sharedResourceLoadDelegate;
+COMPtr<HistoryDelegate> sharedHistoryDelegate;
 
 IWebFrame* frame;
 HWND webViewWindow;
@@ -199,7 +201,7 @@ static const wstring& fontsPath()
     return path;
 }
 
-#ifdef DEBUG_WEBKIT_HAS_SUFFIX
+#ifdef DEBUG_ALL
 #define WEBKITDLL TEXT("WebKit_debug.dll")
 #else
 #define WEBKITDLL TEXT("WebKit.dll")
@@ -681,6 +683,11 @@ static bool shouldLogFrameLoadDelegates(const char* pathOrURL)
     return strstr(pathOrURL, "/loading/") || strstr(pathOrURL, "\\loading\\");
 }
 
+static bool shouldLogHistoryDelegates(const char* pathOrURL)
+{
+    return strstr(pathOrURL, "/globalhistory/") || strstr(pathOrURL, "\\globalhistory\\");
+}
+
 static void resetDefaultsToConsistentValues(IWebPreferences* preferences)
 {
 #ifdef USE_MAC_FONTS
@@ -737,7 +744,6 @@ static void resetDefaultsToConsistentValues(IWebPreferences* preferences)
         prefsPrivate->setAuthorAndUserStylesEnabled(TRUE);
         prefsPrivate->setDeveloperExtrasEnabled(FALSE);
         prefsPrivate->setExperimentalNotificationsEnabled(TRUE);
-        prefsPrivate->setExperimentalWebSocketsEnabled(FALSE);
         prefsPrivate->setShouldPaintNativeControls(FALSE); // FIXME - need to make DRT pass with Windows native controls <http://bugs.webkit.org/show_bug.cgi?id=25592>
         prefsPrivate->setXSSAuditorEnabled(FALSE);
         prefsPrivate->setOfflineWebApplicationCacheEnabled(TRUE);
@@ -836,6 +842,17 @@ static void runTest(const string& testPathOrURL)
     if (shouldLogFrameLoadDelegates(pathOrURL.c_str()))
         gLayoutTestController->setDumpFrameLoadCallbacks(true);
 
+    COMPtr<IWebView> webView;
+    if (SUCCEEDED(frame->webView(&webView))) {
+        COMPtr<IWebViewPrivate> viewPrivate;
+        if (SUCCEEDED(webView->QueryInterface(&viewPrivate))) {
+            if (shouldLogHistoryDelegates(pathOrURL.c_str())) {
+                gLayoutTestController->setDumpHistoryDelegateCallbacks(true);            
+                viewPrivate->setHistoryDelegate(sharedHistoryDelegate.get());
+            } else
+                viewPrivate->setHistoryDelegate(0);
+        }
+    }
     COMPtr<IWebHistory> history;
     if (SUCCEEDED(WebKitCreateInstance(CLSID_WebHistory, 0, __uuidof(history), reinterpret_cast<void**>(&history))))
         history->setOptionalSharedHistory(0);
@@ -843,8 +860,7 @@ static void runTest(const string& testPathOrURL)
     resetWebViewToConsistentStateBeforeTesting();
 
     prevTestBFItem = 0;
-    COMPtr<IWebView> webView;
-    if (SUCCEEDED(frame->webView(&webView))) {
+    if (webView) {
         COMPtr<IWebBackForwardList> bfList;
         if (SUCCEEDED(webView->backForwardList(&bfList)))
             bfList->currentItem(&prevTestBFItem);
@@ -1095,9 +1111,11 @@ IWebView* createWebViewAndOffscreenWindow(HWND* webViewWindow)
 #if USE(CFNETWORK)
 RetainPtr<CFURLCacheRef> sharedCFURLCache()
 {
+#ifndef DEBUG_ALL
+    HMODULE module = GetModuleHandle(TEXT("CFNetwork.dll"));
+#else
     HMODULE module = GetModuleHandle(TEXT("CFNetwork_debug.dll"));
-    if (!module)
-        module = GetModuleHandle(TEXT("CFNetwork.dll"));
+#endif
     if (!module)
         return 0;
 
@@ -1153,6 +1171,7 @@ int main(int argc, char* argv[])
     sharedUIDelegate.adoptRef(new UIDelegate);
     sharedEditingDelegate.adoptRef(new EditingDelegate);
     sharedResourceLoadDelegate.adoptRef(new ResourceLoadDelegate);
+    sharedHistoryDelegate.adoptRef(new HistoryDelegate);
 
     // FIXME - need to make DRT pass with Windows native controls <http://bugs.webkit.org/show_bug.cgi?id=25592>
     COMPtr<IWebPreferences> tmpPreferences;

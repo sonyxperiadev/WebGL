@@ -167,6 +167,8 @@ void HTMLMediaElement::parseMappedAttribute(MappedAttribute* attr)
             m_player->setAutobuffer(!attr->isNull());
     } else if (attrName == onabortAttr)
         setAttributeEventListener(eventNames().abortEvent, createAttributeEventListener(this, attr));
+    else if (attrName == onbeforeloadAttr)
+        setAttributeEventListener(eventNames().beforeloadEvent, createAttributeEventListener(this, attr));
     else if (attrName == oncanplayAttr)
         setAttributeEventListener(eventNames().canplayEvent, createAttributeEventListener(this, attr));
     else if (attrName == oncanplaythroughAttr)
@@ -185,8 +187,6 @@ void HTMLMediaElement::parseMappedAttribute(MappedAttribute* attr)
         setAttributeEventListener(eventNames().loadeddataEvent, createAttributeEventListener(this, attr));
     else if (attrName == onloadedmetadataAttr)
         setAttributeEventListener(eventNames().loadedmetadataEvent, createAttributeEventListener(this, attr));
-    else if (attrName == onloadendAttr)
-        setAttributeEventListener(eventNames().loadendEvent, createAttributeEventListener(this, attr));
     else if (attrName == onloadstartAttr)
         setAttributeEventListener(eventNames().loadstartEvent, createAttributeEventListener(this, attr));
     else if (attrName == onpauseAttr)
@@ -247,16 +247,12 @@ void HTMLMediaElement::insertedIntoDocument()
         scheduleLoad();
 }
 
-void HTMLMediaElement::willRemove()
-{
-    if (m_isFullscreen)
-        exitFullscreen();
-    HTMLElement::willRemove();
-}
 void HTMLMediaElement::removedFromDocument()
 {
     if (m_networkState > NETWORK_EMPTY)
         pause();
+    if (m_isFullscreen)
+        exitFullscreen();
     HTMLElement::removedFromDocument();
 }
 
@@ -466,17 +462,15 @@ void HTMLMediaElement::loadInternal()
     // 4 - If the media element's networkState is set to NETWORK_LOADING or NETWORK_IDLE, set
     // the error attribute to a new MediaError object whose code attribute is set to
     // MEDIA_ERR_ABORTED, fire a progress event called abort at the media element, in the
-    // context of the fetching process that is in progress for the element, and fire a progress
-    // event called loadend at the media element, in the context of the same fetching process.
+    // context of the fetching process that is in progress for the element.
     if (m_networkState == NETWORK_LOADING || m_networkState == NETWORK_IDLE) {
         m_error = MediaError::create(MediaError::MEDIA_ERR_ABORTED);
 
-        // fire synchronous 'abort' and 'loadend'
+        // fire synchronous 'abort'
         bool totalKnown = m_player && m_player->totalBytesKnown();
         unsigned loaded = m_player ? m_player->bytesLoaded() : 0;
         unsigned total = m_player ? m_player->totalBytes() : 0;
         dispatchEvent(ProgressEvent::create(eventNames().abortEvent, totalKnown, loaded, total));
-        dispatchEvent(ProgressEvent::create(eventNames().loadendEvent, totalKnown, loaded, total));
     }
 
     // 5
@@ -508,35 +502,34 @@ void HTMLMediaElement::loadInternal()
 
 void HTMLMediaElement::selectMediaResource()
 {
-    // 1 - If the media element has neither a src attribute nor any source element children, run these substeps
+    // 1 - Set the networkState to NETWORK_NO_SOURCE
+    m_networkState = NETWORK_NO_SOURCE;
+
+    // 2 - Asynchronously await a stable state.
+
+    // 3 - If the media element has neither a src attribute nor any source element children, run these substeps
     String mediaSrc = getAttribute(srcAttr);
     if (!mediaSrc && !havePotentialSourceChild()) {
         m_loadState = WaitingForSource;
 
-        // 1 -  Set the networkState to NETWORK_NO_SOURCE
-        m_networkState = NETWORK_NO_SOURCE;
-        
-        // 2 - While the media element has neither a src attribute nor any source element children, 
-        // wait. (This steps might wait forever.)
-
-        m_delayingTheLoadEvent = false;
+        // 1 - Set the networkState to NETWORK_EMPTY and abort these steps
+        m_networkState = NETWORK_EMPTY;
+        ASSERT(!m_delayingTheLoadEvent);
         return;
     }
 
-    // 2
+    // 4
     m_delayingTheLoadEvent = true;
-
-    // 3
     m_networkState = NETWORK_LOADING;
 
-    // 4
+    // 5
     scheduleProgressEvent(eventNames().loadstartEvent);
 
-    // 5 - If the media element has a src attribute, then run these substeps
+    // 6 - If the media element has a src attribute, then run these substeps
     ContentType contentType("");
-    if (!mediaSrc.isEmpty()) {
+    if (!mediaSrc.isNull()) {
         KURL mediaURL = document()->completeURL(mediaSrc);
-        if (isSafeToLoadURL(mediaURL, Complain)) {
+        if (isSafeToLoadURL(mediaURL, Complain) && dispatchBeforeLoadEvent(mediaURL.string())) {
             m_loadState = LoadingFromSrcAttr;
             loadResource(mediaURL, contentType);
         } else 
@@ -643,23 +636,18 @@ void HTMLMediaElement::noneSupported()
     m_loadState = WaitingForSource;
     m_currentSourceNode = 0;
 
-    // 4 - Reaching this step indicates that either the URL failed to resolve, or the media
+    // 5 - Reaching this step indicates that either the URL failed to resolve, or the media
     // resource failed to load. Set the error attribute to a new MediaError object whose
     // code attribute is set to MEDIA_ERR_SRC_NOT_SUPPORTED.
     m_error = MediaError::create(MediaError::MEDIA_ERR_SRC_NOT_SUPPORTED);
 
-    // 5 - Set the element's networkState attribute to the NETWORK_NO_SOURCE value.
+    // 6 - Set the element's networkState attribute to the NETWORK_NO_SOURCE value.
     m_networkState = NETWORK_NO_SOURCE;
 
-    // 6 - Queue a task to fire a progress event called error at the media element, in
+    // 7 - Queue a task to fire a progress event called error at the media element, in
     // the context of the fetching process that was used to try to obtain the media
     // resource in the resource fetch algorithm.
     scheduleProgressEvent(eventNames().errorEvent);
-
-    // 7 - Queue a task to fire a progress event called loadend at the media element, in
-    // the context of the fetching process that was used to try to obtain the media
-    // resource in the resource fetch algorithm.
-    scheduleProgressEvent(eventNames().loadendEvent);
 
     // 8 - Set the element's delaying-the-load-event flag to false. This stops delaying the load event.
     m_delayingTheLoadEvent = false;
@@ -686,19 +674,15 @@ void HTMLMediaElement::mediaEngineError(PassRefPtr<MediaError> err)
     // the context of the fetching process started by this instance of this algorithm.
     scheduleProgressEvent(eventNames().errorEvent);
 
-    // 4 - Queue a task to fire a progress event called loadend at the media element, in
-    // the context of the fetching process started by this instance of this algorithm.
-    scheduleProgressEvent(eventNames().loadendEvent);
-
-    // 5 - Set the element's networkState attribute to the NETWORK_EMPTY value and queue a
+    // 4 - Set the element's networkState attribute to the NETWORK_EMPTY value and queue a
     // task to fire a simple event called emptied at the element.
     m_networkState = NETWORK_EMPTY;
     scheduleEvent(eventNames().emptiedEvent);
 
-    // 6 - Set the element's delaying-the-load-event flag to false. This stops delaying the load event.
+    // 5 - Set the element's delaying-the-load-event flag to false. This stops delaying the load event.
     m_delayingTheLoadEvent = false;
 
-    // 7 - Abort the overall resource selection algorithm.
+    // 6 - Abort the overall resource selection algorithm.
     m_currentSourceNode = 0;
 }
 
@@ -785,7 +769,6 @@ void HTMLMediaElement::setNetworkState(MediaPlayer::NetworkState state)
                 setReadyState(currentState);
 
             scheduleProgressEvent(eventNames().loadEvent);
-            scheduleProgressEvent(eventNames().loadendEvent);
         }
     }
 }
@@ -1384,7 +1367,7 @@ KURL HTMLMediaElement::selectNextSourceChild(ContentType *contentType, InvalidSo
 
         // Is it safe to load this url?
         mediaURL = source->src();
-        if (!mediaURL.isValid() || !isSafeToLoadURL(mediaURL, actionIfInvalid))
+        if (!mediaURL.isValid() || !isSafeToLoadURL(mediaURL, actionIfInvalid) || !dispatchBeforeLoadEvent(mediaURL.string()))
             goto check_again;
 
         // Making it this far means the <source> looks reasonable
@@ -1664,16 +1647,12 @@ void HTMLMediaElement::userCancelledLoad()
 #endif
     stopPeriodicTimers();
 
-    // 2 - Set the error attribute to a new MediaError object whose code attribute is set to MEDIA_ERR_ABORT.
+    // 2 - Set the error attribute to a new MediaError object whose code attribute is set to MEDIA_ERR_ABORTED.
     m_error = MediaError::create(MediaError::MEDIA_ERR_ABORTED);
 
     // 3 - Queue a task to fire a progress event called abort at the media element, in the context
     // of the fetching process started by this instance of this algorithm.
     scheduleProgressEvent(eventNames().abortEvent);
-
-    // 4 - Queue a task to fire a progress event called loadend at the media element, in the context
-    // of the fetching process started by this instance of this algorithm.
-    scheduleProgressEvent(eventNames().loadendEvent);
 
     // 5 - If the media element's readyState attribute has a value equal to HAVE_NOTHING, set the
     // element's networkState attribute to the NETWORK_EMPTY value and queue a task to fire a
@@ -1695,6 +1674,9 @@ void HTMLMediaElement::userCancelledLoad()
 
 void HTMLMediaElement::documentWillBecomeInactive()
 {
+    if (m_isFullscreen)
+        exitFullscreen();
+
     m_inActiveDocument = false;
     userCancelledLoad();
 

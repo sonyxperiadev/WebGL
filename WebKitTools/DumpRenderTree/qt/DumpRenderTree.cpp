@@ -30,6 +30,9 @@
  */
 
 #include "DumpRenderTree.h"
+#include "EventSenderQt.h"
+#include "LayoutTestControllerQt.h"
+#include "TextInputControllerQt.h"
 #include "jsobjects.h"
 #include "testplugin.h"
 #include "WorkQueue.h"
@@ -65,6 +68,7 @@ extern void qt_dump_set_accepts_editing(bool b);
 extern void qt_dump_frame_loader(bool b);
 extern void qt_drt_clearFrameName(QWebFrame* qFrame);
 extern void qt_drt_overwritePluginDirectories();
+extern void qt_drt_resetOriginAccessWhiteLists();
 
 namespace WebCore {
 
@@ -285,9 +289,10 @@ void DumpRenderTree::resetToConsistentStateBeforeTesting()
     //WorkQueue::shared()->setFrozen(false);
 
     m_controller->reset();
-    QWebSecurityOrigin::resetOriginAccessWhiteLists();
+    qt_drt_resetOriginAccessWhiteLists();
 
-    setlocale(LC_ALL, "");
+    QLocale qlocale;
+    QLocale::setDefault(qlocale); 
 }
 
 void DumpRenderTree::open(const QUrl& aurl)
@@ -312,7 +317,7 @@ void DumpRenderTree::open(const QUrl& aurl)
     int width = isW3CTest ? 480 : maxViewWidth;
     int height = isW3CTest ? 360 : maxViewHeight;
     m_page->view()->resize(QSize(width, height));
-    m_page->setFixedContentsSize(QSize());
+    m_page->setPreferredContentsSize(QSize());
     m_page->setViewportSize(QSize(width, height));
 
     QFocusEvent ev(QEvent::FocusIn);
@@ -591,7 +596,8 @@ void DumpRenderTree::initializeFonts()
         exit(1);
     }
     char currentPath[PATH_MAX+1];
-    getcwd(currentPath, PATH_MAX);
+    if (!getcwd(currentPath, PATH_MAX))
+        qFatal("Couldn't get current working directory");
     QByteArray configFile = currentPath;
     FcConfig *config = FcConfigCreate();
     configFile += "/WebKitTools/DumpRenderTree/qt/fonts.conf";

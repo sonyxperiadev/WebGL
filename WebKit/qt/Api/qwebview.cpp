@@ -1,6 +1,7 @@
 /*
     Copyright (C) 2008 Nokia Corporation and/or its subsidiary(-ies)
     Copyright (C) 2008 Holger Hans Peter Freyther
+    Copyright (C) 2009 Girish Ramakrishnan <girish@forwardbias.in>
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -47,14 +48,19 @@ public:
 
     virtual void scroll(int dx, int dy, const QRect&);
     virtual void update(const QRect& dirtyRect);
+    virtual void setInputMethodEnabled(bool enable);
+#if QT_VERSION >= 0x040600
+    virtual void setInputMethodHint(Qt::InputMethodHint hint, bool enable);
+#endif
 
 #ifndef QT_NO_CURSOR
     virtual QCursor cursor() const;
     virtual void updateCursor(const QCursor& cursor);
 #endif
 
+    virtual QPalette palette() const;
     virtual int screenNumber() const;
-    virtual WId winId() const;
+    virtual QWidget* ownerWidget() const;
 
     virtual QObject* pluginParent() const;
 
@@ -76,6 +82,19 @@ void QWebViewPrivate::update(const QRect & dirtyRect)
     view->update(dirtyRect);
 }
 
+void QWebViewPrivate::setInputMethodEnabled(bool enable)
+{
+    view->setAttribute(Qt::WA_InputMethodEnabled, enable);
+}
+#if QT_VERSION >= 0x040600
+void QWebViewPrivate::setInputMethodHint(Qt::InputMethodHint hint, bool enable)
+{
+    if (enable)
+        view->setInputMethodHints(view->inputMethodHints() | hint);
+    else
+        view->setInputMethodHints(view->inputMethodHints() & ~hint);
+}
+#endif
 #ifndef QT_NO_CURSOR
 QCursor QWebViewPrivate::cursor() const
 {
@@ -88,6 +107,11 @@ void QWebViewPrivate::updateCursor(const QCursor& cursor)
 }
 #endif
 
+QPalette QWebViewPrivate::palette() const
+{
+    return view->palette();
+}
+
 int QWebViewPrivate::screenNumber() const
 {
 #if defined(Q_WS_X11)
@@ -98,12 +122,9 @@ int QWebViewPrivate::screenNumber() const
     return 0;
 }
 
-WId QWebViewPrivate::winId() const
+QWidget* QWebViewPrivate::ownerWidget() const
 {
-    if (view)
-        return view->winId();
-
-    return 0;
+    return view;
 }
 
 QObject* QWebViewPrivate::pluginParent() const
@@ -224,8 +245,14 @@ QWebView::QWebView(QWidget *parent)
 */
 QWebView::~QWebView()
 {
-    if (d->page)
+    if (d->page) {
+#if QT_VERSION >= 0x040600
+        d->page->d->view.clear();
+#else
         d->page->d->view = 0;
+#endif
+        d->page->d->client = 0;
+    }
 
     if (d->page && d->page->parent() == this)
         delete d->page;
@@ -661,24 +688,38 @@ qreal QWebView::textSizeMultiplier() const
     return page()->mainFrame()->textSizeMultiplier();
 }
 
-#if !defined(Q_OS_SYMBIAN)
 /*!
     \property QWebView::renderHints
     \since 4.6
     \brief the default render hints for the view
 
-    These hints are used to initialize QPainter before painting the web page.
+    These hints are used to initialize QPainter before painting the Web page.
 
     QPainter::TextAntialiasing is enabled by default.
 
+    \note This property is not available on Symbian. However, the getter and
+    setter functions can still be used directly.
+
     \sa QPainter::renderHints()
 */
-#endif
+
+/*!
+    \since 4.6
+    Returns the render hints used by the view to render content.
+
+    \sa QPainter::renderHints()
+*/
 QPainter::RenderHints QWebView::renderHints() const
 {
     return d->renderHints;
 }
 
+/*!
+    \since 4.6
+    Sets the render hints used by the view to the specified \a hints.
+
+    \sa QPainter::setRenderHints()
+*/
 void QWebView::setRenderHints(QPainter::RenderHints hints)
 {
     if (hints == d->renderHints)
@@ -688,11 +729,11 @@ void QWebView::setRenderHints(QPainter::RenderHints hints)
 }
 
 /*!
-    If \a enabled is true, the render hint \a hint is enabled; otherwise it
-    is disabled.
-
     \since 4.6
-    \sa renderHints
+    If \a enabled is true, enables the specified render \a hint; otherwise
+    disables it.
+
+    \sa renderHints, QPainter::renderHints()
 */
 void QWebView::setRenderHint(QPainter::RenderHint hint, bool enabled)
 {

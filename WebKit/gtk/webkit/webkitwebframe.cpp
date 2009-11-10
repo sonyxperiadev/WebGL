@@ -683,7 +683,7 @@ JSGlobalContextRef webkit_web_frame_get_global_context(WebKitWebFrame* frame)
     if (!coreFrame)
         return NULL;
 
-    return toGlobalRef(coreFrame->script()->globalObject()->globalExec());
+    return toGlobalRef(coreFrame->script()->globalObject(mainThreadNormalWorld())->globalExec());
 }
 
 /**
@@ -796,6 +796,28 @@ gchar* webkit_web_frame_dump_render_tree(WebKitWebFrame* frame)
 
     String string = externalRepresentation(coreFrame->contentRenderer());
     return g_strdup(string.utf8().data());
+}
+
+/**
+ * webkit_web_frame_counter_value_for_element_by_id:
+ * @frame: a #WebKitWebFrame
+ * @id: an element ID string
+ *
+ * Return value: The counter value of element @id in @frame
+ */
+gchar* webkit_web_frame_counter_value_for_element_by_id(WebKitWebFrame* frame, const gchar* id)
+{
+    g_return_val_if_fail(WEBKIT_IS_WEB_FRAME(frame), NULL);
+
+    Frame* coreFrame = core(frame);
+    if (!coreFrame)
+        return 0;
+
+    Element* coreElement = coreFrame->document()->getElementById(AtomicString(id));
+    if (!coreElement)
+        return 0;
+    String counterValue = counterValueForElement(coreElement);
+    return g_strdup(counterValue.utf8().data());
 }
 
 /**

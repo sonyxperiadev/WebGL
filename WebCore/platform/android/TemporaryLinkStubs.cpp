@@ -28,17 +28,15 @@
 
 #define ANDROID_COMPILE_HACK
 
-#include <stdio.h>
-#include <stdlib.h>
 #include "AXObjectCache.h"
+#include "CString.h"
 #include "CachedPage.h"
 #include "CachedResource.h"
-#include "CookieJar.h"
+#include "Clipboard.h"
 #include "Console.h"
 #include "ContextMenu.h"
 #include "ContextMenuItem.h"
-#include "Clipboard.h"
-#include "CString.h"
+#include "CookieJar.h"
 #include "Cursor.h"
 #include "Database.h"
 #include "DocumentFragment.h"
@@ -48,8 +46,8 @@
 #include "File.h"
 #include "Font.h"
 #include "Frame.h"
-#include "FrameLoader.h"
 #include "FrameLoadRequest.h"
+#include "FrameLoader.h"
 #include "FrameView.h"
 #include "GraphicsContext.h"
 #include "HTMLFrameOwnerElement.h"
@@ -59,21 +57,11 @@
 #include "IconDatabase.h"
 #include "IconLoader.h"
 #include "IntPoint.h"
-
-#if USE(JSC)
-#include "JavaScriptCallFrame.h"
-#include "JavaScriptDebugServer.h"
-#include "API/JSClassRef.h"
-#include "JavaScriptProfile.h"
-#include "jni_utility.h"
-#endif
-
 #include "KURL.h"
 #include "Language.h"
-#include "loader.h"
 #include "LocalizedStrings.h"
-#include "MainResourceLoader.h"
 #include "MIMETypeRegistry.h"
+#include "MainResourceLoader.h"
 #include "Node.h"
 #include "NotImplemented.h"
 #include "PageCache.h"
@@ -88,6 +76,17 @@
 #include "ScrollbarTheme.h"
 #include "SmartReplace.h"
 #include "Widget.h"
+#include "loader.h"
+#include <stdio.h>
+#include <stdlib.h>
+
+#if USE(JSC)
+#include "API/JSClassRef.h"
+#include "JavaScriptCallFrame.h"
+#include "JavaScriptDebugServer.h"
+#include "JavaScriptProfile.h"
+#include "jni_utility.h"
+#endif
 
 using namespace WebCore;
 

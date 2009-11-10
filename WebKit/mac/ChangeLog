@@ -1,3 +1,553 @@
+2009-10-28  Eric Carlson  <eric.carlson@apple.com>
+
+        Reviewed by Simon Fraser.
+
+        <rdar://problem/7303145> 
+        Can't exit full screen mode or restart movie after pressing command -R.
+
+        * WebView/WebVideoFullscreenController.mm:
+        (-[WebVideoFullscreenController _requestExit]): 
+            New, call media element's exitFullscreen method.
+        (-[WebVideoFullscreenController requestExitFullscreenWithAnimation:]): 
+            Call mediaElement->exitFullscreen() after a delay as it turns around and calls
+            WebVideoFullscreenController:exitFullscreen.
+
+        * WebView/WebVideoFullscreenHUDWindowController.h:
+        * WebView/WebVideoFullscreenHUDWindowController.mm:
+        (-[WebVideoFullscreenHUDWindow resignFirstResponder]):
+            New, don't give up responder status.
+        (-[WebVideoFullscreenHUDWindow performKeyEquivalent:]):
+            New, block all command key events.
+        (-[WebVideoFullscreenHUDWindowController exitFullscreen:]):
+            Remember when we are in the process of exiting fullscreen, don't allow recursion.
+
+        * WebView/WebView.mm:
+        (-[WebView _exitFullscreen]):
+            Early return if fullscreen controller is nil.
+
+        * WebView/WebWindowAnimation.h: 
+            Correct comment about _window retain status.
+        * WebView/WebWindowAnimation.m:
+        (-[WebWindowScaleAnimation dealloc]):
+            Don't release _window, we never reatained it.
+
+2009-10-27  Shinichiro Hamaji  <hamaji@chromium.org>
+
+        Reviewed by Darin Adler.
+
+        Provide a way to get counter values with layoutTestContoller
+        https://bugs.webkit.org/show_bug.cgi?id=30555
+
+        Add counterValueForElement in WebFrame to call WebCore::counterValueForElement.
+
+        * Misc/WebCoreStatistics.h:
+        * Misc/WebCoreStatistics.mm:
+        (-[WebFrame counterValueForElement:]):
+
+2009-10-27  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Updated for refactoring in the date code.
+
+        * WebView/WebView.mm:
+        (aeDescFromJSValue): Since we just want a number of milliseconds, do that
+        instead of something more complicated.
+
+2009-10-26  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Anders Carlsson.
+
+        Move some WebView event handling code into its own file, WebViewEventHandling.mm
+
+        * WebView/WebView.mm:
+        (-[WebView _close]):
+        (-[WebView _selectedOrMainFrame]):
+        * WebView/WebViewEventHandling.mm: Added.
+        (-[WebView _closingEventHandling]):
+        (-[WebView _setMouseDownEvent:]):
+        (-[WebView mouseDown:]):
+        (-[WebView mouseUp:]):
+        (+[WebView _updateMouseoverWithEvent:]):
+        (-[WebView _updateMouseoverWithFakeEvent]):
+        (_updateMouseoverWithEvent:fakeEvent::if):
+        (-[WebView _stopAutoscrollTimer]):
+        (-[WebView _setToolTip:]):
+        * WebView/WebViewInternal.h:
+
+2009-10-26  Simon Fraser  <simon.fraser@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        <rdar://problem/6988966> Hardware layers do not show up in page snapshots
+
+        * WebView/WebHTMLViewPrivate.h:
+        * WebView/WebHTMLView.mm:
+        (-[WebHTMLView _compositingLayersHostingView]):
+        Add a private method that returns the NSView used to host compositing layers.
+        
+2009-10-23  Mark Rowe  <mrowe@apple.com>
+
+        Fix engineering builds in the mysterious future.
+
+        * Configurations/DebugRelease.xcconfig:
+
+2009-10-23  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Geoff Garen.
+
+        https://bugs.webkit.org/show_bug.cgi?id=30729
+        Provide private API to request the global context for a specific world.
+        Used to initialize parameters on the global object.
+
+        * WebView/WebFramePrivate.h:
+        * WebView/WebFrame.mm:
+        (-[WebFrame contextForWorldID:]):
+
+2009-10-22  Eric Carlson  <eric.carlson@apple.com>
+
+        Reviewed by John Sullivan.
+
+        <rdar://problem/7322847>
+        Pressing space bar key in full screen mode should pause movie but doesn't
+
+        * WebView/WebVideoFullscreenHUDWindowController.mm:
+        (-[WebVideoFullscreenHUDWindowController keyDown:]):  New, toggle playback on space key.
+        (-[WebVideoFullscreenHUDWindowController windowDidLoad]): Play button action is now called togglePlaying.
+        (-[WebVideoFullscreenHUDWindowController togglePlaying:]): Rename from playingChanged.
+
+2009-10-22  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by NOBODY (build fix).
+        Build fix following bug #30696.
+
+        * Plugins/Hosted/NetscapePluginInstanceProxy.mm:
+        (WebKit::NetscapePluginInstanceProxy::getWindowNPObject):
+        (WebKit::NetscapePluginInstanceProxy::evaluate):
+        (WebKit::NetscapePluginInstanceProxy::invoke):
+        (WebKit::NetscapePluginInstanceProxy::invokeDefault):
+        (WebKit::NetscapePluginInstanceProxy::construct):
+        (WebKit::NetscapePluginInstanceProxy::getProperty):
+        (WebKit::NetscapePluginInstanceProxy::setProperty):
+        (WebKit::NetscapePluginInstanceProxy::removeProperty):
+        (WebKit::NetscapePluginInstanceProxy::hasProperty):
+        (WebKit::NetscapePluginInstanceProxy::hasMethod):
+        (WebKit::NetscapePluginInstanceProxy::enumerate):
+
+2009-10-16  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Sam Weinig & Geoff Garen.
+
+        https://bugs.webkit.org/show_bug.cgi?id=30696
+        Update to incorporate support for IsolatedWorlds in JSC bindings.
+
+        * WebView/WebFrame.mm:
+        (-[WebFrame _attachScriptDebugger]):
+        (-[WebFrame _stringByEvaluatingJavaScriptFromString:forceUserGesture:]):
+        (-[WebFrame globalContext]):
+        * WebView/WebScriptDebugDelegate.mm:
+        (-[WebScriptCallFrame evaluateWebScript:]):
+        * WebView/WebView.mm:
+        (-[WebView aeDescByEvaluatingJavaScriptFromString:]):
+
+2009-10-22  Eric Carlson  <eric.carlson@apple.com>
+
+        Reviewed by Dan Bernstein & Simon Fraser.
+
+        <rdar://problem/7297717>
+        https://bugs.webkit.org/show_bug.cgi?id=30323
+        Play/pause button in full-screen video controller does not reflect current state
+
+        * WebView/WebVideoFullscreenController.mm:
+        (-[WebVideoFullscreenController setMediaElement:WebCore::]): Register for QTMovieRateDidChangeNotification
+        (-[WebVideoFullscreenController rateChanged:]): Call HUD controller when rate changes.
+
+        * WebView/WebVideoFullscreenHUDWindowController.h:
+        * WebView/WebVideoFullscreenHUDWindowController.mm:
+        (-[WebVideoFullscreenHUDWindowController scheduleTimeUpdate]): Call updateRate so play button
+        reflects playback state.
+        (-[WebVideoFullscreenHUDWindowController updateRate]): New, set play button state according to
+        movie state.
+        (-[WebVideoFullscreenHUDWindowController playingChanged:]): Only call [self playing] once.
+
+2009-10-21  John Sullivan  <sullivan@apple.com>
+
+        Rubber-stamped by Dan Bernstein.
+
+        * WebView/WebDynamicScrollBarsView.h:
+        Corrected a couple of long-obsolete comments regarding Safari's use of this class.
+
+2009-10-20  Dan Bernstein  <mitz@apple.com>
+
+        Rubber-stamped by Mark Rowe.
+
+        <rdar://problem/7319749> REGRESSION(r49806): Contextual Menu items missing
+        https://bugs.webkit.org/show_bug.cgi?id=30568
+
+        Revert accidental change from r49806.
+
+        * WebCoreSupport/WebContextMenuClient.mm:
+        (WebContextMenuClient::getCustomMenuFromDefaultItems):
+
+2009-10-20  Fumitoshi Ukai  <ukai@chromium.org>
+
+        Reviewed by David Levin.
+
+        Removed WebSocket runtime settings.
+        https://bugs.webkit.org/show_bug.cgi?id=29896
+
+        WebSocket runtime configuration is supported by chromium/v8 only.
+
+        * WebView/WebPreferenceKeysPrivate.h:
+        * WebView/WebPreferences.mm:
+        (+[WebPreferences initialize]):
+        * WebView/WebPreferencesPrivate.h:
+        * WebView/WebView.mm:
+        (-[WebView _preferencesChangedNotification:]):
+
+2009-10-19  Nate Chapin  <japhet@chromium.org>
+
+        Reviewed by Alexey Proskuryakov.
+
+        Update call to loadFrameRequest to match new parameters.
+
+        * WebView/WebPDFView.mm:
+        (-[WebPDFView PDFViewWillClickOnLink:withURL:]): Update call to loadFrameRequest.
+
+2009-10-19  David Kilzer  <ddkilzer@apple.com>
+
+        Documentation fix for -[NSObject(WebResourceLoadDelegate) webView:resource:willSendRequest:redirectResponse:fromDataSource:]
+
+        Reviewed by Dan Bernstein.
+
+        * WebView/WebResourceLoadDelegate.h: Prepended "webView:" to the
+        @method declaration of
+        -webView:resource:willSendRequest:redirectResponse:fromDataSource:
+        which was absent before r3953 and was missed during the great
+        documentation clean up of r4269.
+
+2009-10-19  Anders Carlsson  <andersca@apple.com>
+
+        Fix build.
+
+        * Plugins/WebNetscapePluginView.mm:
+        (-[WebNetscapePluginView saveAndSetNewPortStateForUpdate:]):
+
+2009-10-19  Dan Bernstein  <mitz@apple.com>
+
+        Reviewed by Anders Carlsson.
+
+        Split assertions of conjunctions into separate statements or remove
+        redundant assertions.
+
+        * Plugins/Hosted/NetscapePluginHostProxy.mm:
+        (WebKit::NetscapePluginHostProxy::deadNameNotificationCallback):
+        * Plugins/Hosted/WebHostedNetscapePluginView.mm:
+        (-[WebHostedNetscapePluginView setAttributeKeys:andValues:]):
+        (-[WebHostedNetscapePluginView _webPluginContainerCancelCheckIfAllowedToLoadRequest:]):
+        * Plugins/WebBaseNetscapePluginView.mm:
+        (-[WebBaseNetscapePluginView halt]):
+        (-[WebBaseNetscapePluginView resumeFromHalt]):
+        * Plugins/WebNetscapePluginView.mm:
+        (-[WebNetscapePluginView saveAndSetNewPortStateForUpdate:]):
+        (-[WebNetscapePluginView _webPluginContainerCancelCheckIfAllowedToLoadRequest:]):
+        * WebCoreSupport/WebContextMenuClient.mm:
+        (WebContextMenuClient::getCustomMenuFromDefaultItems):
+        * WebCoreSupport/WebEditorClient.mm:
+        (WebEditorClient::checkGrammarOfString):
+        (WebEditorClient::checkTextOfParagraph):
+        * WebView/WebTextCompletionController.mm:
+        (-[WebTextCompletionController _reflectSelection]):
+
+2009-10-18  Mark Rowe  <mrowe@apple.com>
+
+        Reviewed by Dan Bernstein.
+
+        <rdar://problem/7309062> Crashes in WebCore::DocumentLoader::isStopping below WebKit::NetscapePluginInstanceProxy::loadRequest.
+
+        * Plugins/Hosted/NetscapePluginInstanceProxy.mm:
+        (WebKit::NetscapePluginInstanceProxy::loadRequest): Null-check the DocumentLoader before deferencing it.
+
+2009-10-16  Kevin Decker  <kdecker@apple.com>
+
+        Reviewed by Jon Honeycutt.
+
+        <rdar://problem/7304575>
+        
+        * Plugins/WebBaseNetscapePluginView.h: Added new boolean ivar and -hasBeenHalted instance method.
+        * Plugins/WebBaseNetscapePluginView.mm:
+        (-[WebBaseNetscapePluginView halt]):Update _hasBeenHalted.
+        (-[WebBaseNetscapePluginView hasBeenHalted]): Added.
+        * WebView/WebView.mm:
+        (+[WebView _hasPluginForNodeBeenHalted:]): Checks to see if a plug-in node's been halted.
+        * WebView/WebViewPrivate.h: Added -_hasPluginForNodeBeenHalted method.
+
+2009-10-16  Kevin Decker  <kdecker@apple.com>
+
+        Reviewed by Anders Carlson.
+
+        Small code cleanup
+        
+        * Plugins/WebBaseNetscapePluginView.mm:
+        (WebHaltablePlugin::halt): Just call -[WebBaseNetscapePluginView halt].
+        (WebHaltablePlugin::restart): Just call -[WebBaseNetscapePluginView resumeFromHalt]
+        (-[WebBaseNetscapePluginView halt]): 
+        (-[WebBaseNetscapePluginView resumeFromHalt]):
+        * WebView/WebView.mm:
+        (_pluginViewForNode): Added a check if a render is a widget. This prevents a later assertion.
+
+2009-10-16  Kevin Decker  <kdecker@apple.com>
+
+        Reviewed by Anders Carlson.
+
+        Last part of:
+        <rdar://problem/7273354>
+
+        * WebView/WebView.mm: 
+        (_pluginViewForNode): Added with code extracted from _isNodeHaltedPlugin
+        (+[WebView _isNodeHaltedPlugin:]): Made this a class method.
+        (+[WebView _restartHaltedPluginForNode:]): Added. Restarts a plug-in
+        * WebView/WebViewPrivate.h: Added +_restartHaltedPluginForNode to header.
+
+2009-10-16  Kevin Decker  <kdecker@apple.com>
+
+        Reviewed by Anders.
+
+        <rdar://problem/7273354> 
+
+        * Plugins/WebBaseNetscapePluginView.h: Added _isHalted ivar and three new methods: -halt, -resumeFromHalt, and -isHalted
+        * Plugins/WebBaseNetscapePluginView.mm:
+        (WebHaltablePlugin::halt): Call -halt instead of -stop.  
+        (WebHaltablePlugin::restart):Call -resumeFromHalt instead of -start. 
+        (-[WebBaseNetscapePluginView halt]): Added. Stop the plug-in, update _isHalted.
+        (-[WebBaseNetscapePluginView resumeFromHalt]): Added. Start the plug-in, update _isHalted.
+        (-[WebBaseNetscapePluginView isHalted]): Added.
+        * WebView/WebView.mm:
+        (-[WebView _isNodeHaltedPlugin:]): Added. Queries a DOMNode to determine if it's a halted plug-in.
+        * WebView/WebViewPrivate.h: Added _isNodeHaltedPlugin.
+
+2009-10-15  Eric Carlson  <eric.carlson@apple.com>
+
+        Reviewed by Adele Peterson.
+
+        <rdar://problem/7306052> Fullscreen max/min volume buttons non-functional
+
+        * WebView/WebVideoFullscreenHUDWindowController.mm:
+        (-[WebVideoFullscreenHUDWindowController windowDidLoad]): Set volume buttons target and action.
+        (-[WebVideoFullscreenHUDWindowController decrementVolume:]): New, decrement the volume by 10%.
+        (-[WebVideoFullscreenHUDWindowController incrementVolume:]): New, increment the volume by 10%.
+
+2009-10-15  Eric Carlson  <eric.carlson@apple.com>
+
+        Reviewed by Simon Fraser.
+
+        <rdar://problem/7295738> No way to mute/unmute a movie in full screen video mode
+
+        * WebView/WebVideoFullscreenHUDWindowController.mm:
+        (-[WebVideoFullscreenHUDWindowController setVolume:]): Unmute movie before changing volume.
+
+2009-10-14  Kevin Decker  <kdecker@apple.com>
+
+        Unbreak the world.
+        
+        * Plugins/WebBaseNetscapePluginView.mm:
+        (WebHaltablePlugin::restart):
+
+2009-10-14  Kevin Decker  <kdecker@apple.com>
+
+        Reviewed by Anders Carlsson and Jon Honeycutt
+
+        <rdar://problem/7304295> snapshots of halted plug-ins are missing
+        
+        * Plugins/WebBaseNetscapePluginView.mm: Move bodies of WebHaltablePlugin virtual functions from WebHaltablePlugin class definition.
+        (WebHaltablePlugin::halt): Provide a substitute image to the RenderWidget for the plug-in view.
+        (WebHaltablePlugin::restart): Clear the substitute image.
+
+2009-10-13  Dave Hyatt  <hyatt@apple.com>
+
+        Reviewed by Adam Roben.
+
+        Change the order of arguments on some methods.  Split removal for user stylesheets and script into
+        separate functions based off the type of object being removed.
+
+        * WebView/WebView.mm:
+        (+[WebView _addUserScriptToGroup:worldID:source:url:whitelist:blacklist:injectionTime:]):
+        (+[WebView _addUserStyleSheetToGroup:worldID:source:url:whitelist:blacklist:]):
+        (+[WebView _removeUserScriptFromGroup:worldID:url:]):
+        (+[WebView _removeUserStyleSheetFromGroup:worldID:url:]):
+        (+[WebView _removeUserScriptsFromGroup:worldID:]):
+        (+[WebView _removeUserStyleSheetsFromGroup:worldID:]):
+        * WebView/WebViewPrivate.h:
+
+2009-10-13  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        <rdar://problem/6660507> Add "privacy mode" to Netscape Plug-in API
+
+        Listen for WebPreferences notifications and update the _isPrivateBrowsingEnabled ivar 
+        when the value changes. Also call -[WebBaseNetscapePluginView privateBrowsingModeDidChange] when the
+        value changes. In process this just calls NPP_SetValue, and OOP it sends a MIG message to the plug-in host.
+        
+        * Plugins/Hosted/NetscapePluginHostManager.h:
+        * Plugins/Hosted/NetscapePluginHostManager.mm:
+        (WebKit::NetscapePluginHostManager::instantiatePlugin):
+        * Plugins/Hosted/NetscapePluginInstanceProxy.h:
+        * Plugins/Hosted/NetscapePluginInstanceProxy.mm:
+        (WebKit::NetscapePluginInstanceProxy::privateBrowsingModeDidChange):
+        * Plugins/Hosted/WebHostedNetscapePluginView.mm:
+        (-[WebHostedNetscapePluginView createPlugin]):
+        (-[WebHostedNetscapePluginView privateBrowsingModeDidChange]):
+        * Plugins/Hosted/WebKitPluginHost.defs:
+        * Plugins/WebBaseNetscapePluginView.h:
+        * Plugins/WebBaseNetscapePluginView.mm:
+        (-[WebBaseNetscapePluginView privateBrowsingModeDidChange]):
+        (-[WebBaseNetscapePluginView viewDidMoveToWindow]):
+        (-[WebBaseNetscapePluginView preferencesHaveChanged:]):
+        * Plugins/WebNetscapePluginView.mm:
+        (-[WebNetscapePluginView privateBrowsingModeDidChange]):
+        (-[WebNetscapePluginView getVariable:value:]):
+
+2009-10-12  Simon Fraser  <simon.fraser@apple.com>
+
+        Reviewed by Darin Adler.
+
+        Video keeps playing after going fullscreen, then closing window
+        https://bugs.webkit.org/show_bug.cgi?id=30164
+        
+        Clear the QTMovie on the QTMovieView when coming out of fullscreen,
+        to fix issue where the underlying movie keeps playing.
+
+        * WebView/WebVideoFullscreenController.mm:
+        (-[WebVideoFullscreenController windowDidExitFullscreen]):
+
+2009-10-11  Dan Bernstein  <mitz@apple.com>
+
+        Reviewed by Darin Adler.
+
+        <rdar://problem/7294267> REGRESSION (r48492): Gmail voice and video chat
+        doesn’t work
+        https://bugs.webkit.org/show_bug.cgi?id=30295
+
+        Test: plugins/setProperty.html
+
+        * Plugins/Hosted/ProxyInstance.mm:
+        (WebKit::ProxyInstance::setFieldValue): Fixed a typo. The function
+        should return early if m_instanceProxy is null.
+
+2009-10-09  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Darin Adler.
+
+        Factor HistoryController out of FrameLoader
+        https://bugs.webkit.org/show_bug.cgi?id=30246
+
+        Update API call.
+
+        * WebCoreSupport/WebFrameLoaderClient.mm:
+        (WebFrameLoaderClient::restoreViewState):
+        * WebView/WebView.mm:
+        (-[WebView _loadBackForwardListFromOtherView:]):
+
+2009-10-09  Mark Rowe  <mrowe@apple.com>
+
+        Reviewed by Brady Eidson.
+
+        <rdar://problem/7290671> Crash after navigating away from a page with subframe containing plug-in
+
+        At the time that -stop is called on a WebBaseNetscapePluginView that is contained within a subframe
+        the WebFrame's data source has been zeroed out.  This was causing -[WebBaseNetscapePluginView webFrame]
+        to return nil during -stop, preventing the plug-in view from unregistering itself from the PluginHalter.
+        We fix this by having -webFrame retrieve the frame directly rather than retrieving it from the data source.
+
+        * Plugins/WebBaseNetscapePluginView.mm:
+        (-[WebBaseNetscapePluginView dataSource]): Get the data source from the WebFrame.
+        (-[WebBaseNetscapePluginView webFrame]): Get the Frame directly from the element's document rather
+        than taking a windy route through the WebDataSource.
+
+2009-10-09  Brady Eidson  <beidson@apple.com>
+
+        Reviewed by Dan Bernstein.
+
+        Add SPI to specifically enable visited link tracking.
+
+        * History/WebHistory.mm:
+        (+[WebHistory _setVisitedLinkTrackingEnabled:]):
+        * History/WebHistoryPrivate.h:
+
+2009-10-08  Jon Honeycutt  <jhoneycutt@apple.com>
+
+        Remove the WebKitPluginHalterEnabledPreferenceKey in favor of checking
+        for the existence of a PluginHalterDelegate.
+
+        Reviewed by Dan Bernstein.
+
+        * WebCoreSupport/WebPluginHalterClient.h:
+        Add declaration for new function.
+
+        * WebCoreSupport/WebPluginHalterClient.mm:
+        (WebPluginHalterClient::enabled):
+        Check whether the UIDelegate responds to shouldHaltPlugin.
+
+        * WebView/WebPreferenceKeysPrivate.h:
+        Remove the "enabled" preference key.
+
+        * WebView/WebPreferences.mm:
+        (+[WebPreferences initialize]):
+        Remove the initialization of the pref.
+
+        * WebView/WebPreferencesPrivate.h:
+        Remove the getter/setter for this pref.
+
+        * WebView/WebView.mm:
+        (-[WebView _preferencesChangedNotification:]):
+        Remove propagation of the pref. 
+
+2009-10-08  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Eric Seidel.
+
+        Move executeScript from FrameLoader to ScriptController
+        https://bugs.webkit.org/show_bug.cgi?id=30200
+
+        Update API call.
+
+        * WebView/WebFrame.mm:
+        (-[WebFrame _stringByEvaluatingJavaScriptFromString:forceUserGesture:]):
+        * WebView/WebView.mm:
+        (-[WebView aeDescByEvaluatingJavaScriptFromString:]):
+
+2009-10-08  Brady Eidson  <beidson@apple.com>
+
+        Reviewed by Dan Bernstein.
+
+        Ask the History Delegate to populate the visited links hash.
+        <rdar://problem/7285293> and https://webkit.org/b/29904
+
+        * History/WebHistory.mm:
+        (+[WebHistory _removeAllVisitedLinks]):
+        * History/WebHistoryPrivate.h:
+        * WebCoreSupport/WebChromeClient.mm:
+        (WebChromeClient::populateVisitedLinks):
+        * WebView/WebDelegateImplementationCaching.h:
+        * WebView/WebDelegateImplementationCaching.mm:
+        (CallHistoryDelegate):
+        * WebView/WebHistoryDelegate.h:
+        * WebView/WebView.mm:
+        (-[WebView _cacheHistoryDelegateImplementations]):
+        (-[WebView addVisitedLinks:]):
+        * WebView/WebViewPrivate.h:
+
+2009-10-08  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Remove the shouldLoadMediaElementURL implementation.
+
+        * WebCoreSupport/WebFrameLoaderClient.h:
+        * WebCoreSupport/WebFrameLoaderClient.mm:
+        * WebView/WebPolicyDelegatePrivate.h:
+
 2009-10-07  Simon Fraser  <simon.fraser@apple.com>
 
         Re-land 49269-49271 since reverting them did not fix the tests.

@@ -53,6 +53,7 @@ extern "C" {
 }
 
 static bool down = false;
+static bool currentEventButton = 1;
 static bool dragMode = true;
 static bool replayingSavedEvents = false;
 static int lastMousePositionX;
@@ -122,11 +123,26 @@ static JSValueRef contextClickCallback(JSContextRef context, JSObjectRef functio
 static void updateClickCount(int /* button */)
 {
     // FIXME: take the last clicked button number and the time of last click into account.
-    if (lastClickPositionX != lastMousePositionX && lastClickPositionY != lastMousePositionY)
+    if (lastClickPositionX != lastMousePositionX || lastClickPositionY != lastMousePositionY)
         clickCount = 1;
     else
         clickCount++;
 }
+
+#if !GTK_CHECK_VERSION(2,17,3)
+static void getRootCoords(GtkWidget* view, int* rootX, int* rootY)
+{
+    GtkWidget* window = gtk_widget_get_toplevel(GTK_WIDGET(view));
+    int tmpX, tmpY;
+
+    gtk_widget_translate_coordinates(view, window, lastMousePositionX, lastMousePositionY, &tmpX, &tmpY);
+
+    gdk_window_get_origin(window->window, rootX, rootY);
+
+    *rootX += tmpX;
+    *rootY += tmpY;
+}
+#endif
 
 static JSValueRef mouseDownCallback(JSContextRef context, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
 {
@@ -140,9 +156,29 @@ static JSValueRef mouseDownCallback(JSContextRef context, JSObjectRef function, 
     memset(&event, 0, sizeof(event));
     event.type = GDK_BUTTON_PRESS;
     event.button.button = 1;
+
+    if (argumentCount == 1) {
+        event.button.button = (int)JSValueToNumber(context, arguments[0], exception) + 1;
+        g_return_val_if_fail((!exception || !*exception), JSValueMakeUndefined(context));
+    }
+
+    currentEventButton = event.button.button;
+
     event.button.x = lastMousePositionX;
     event.button.y = lastMousePositionY;
     event.button.window = GTK_WIDGET(view)->window;
+    event.button.time = GDK_CURRENT_TIME;
+    event.button.device = gdk_device_get_core_pointer();
+
+    int x_root, y_root;
+#if GTK_CHECK_VERSION(2,17,3)
+    gdk_window_get_root_coords(GTK_WIDGET(view)->window, lastMousePositionX, lastMousePositionY, &x_root, &y_root);
+#else
+    getRootCoords(GTK_WIDGET(view), &x_root, &y_root);
+#endif
+
+    event.button.x_root = x_root;
+    event.button.y_root = y_root;
 
     updateClickCount(1);
 
@@ -177,9 +213,29 @@ static JSValueRef mouseUpCallback(JSContextRef context, JSObjectRef function, JS
     memset(&event, 0, sizeof(event));
     event.type = GDK_BUTTON_RELEASE;
     event.button.button = 1;
+
+    if (argumentCount == 1) {
+        event.button.button = (int)JSValueToNumber(context, arguments[0], exception) + 1;
+        g_return_val_if_fail((!exception || !*exception), JSValueMakeUndefined(context));
+    }
+
+    currentEventButton = event.button.button;
+
     event.button.x = lastMousePositionX;
     event.button.y = lastMousePositionY;
     event.button.window = GTK_WIDGET(view)->window;
+    event.button.time = GDK_CURRENT_TIME;
+    event.button.device = gdk_device_get_core_pointer();
+
+    int x_root, y_root;
+#if GTK_CHECK_VERSION(2,17,3)
+    gdk_window_get_root_coords(GTK_WIDGET(view)->window, lastMousePositionX, lastMousePositionY, &x_root, &y_root);
+#else
+    getRootCoords(GTK_WIDGET(view), &x_root, &y_root);
+#endif
+
+    event.button.x_root = x_root;
+    event.button.y_root = y_root;
 
     if ((dragMode && !replayingSavedEvents) || msgQueue[endOfQueue].delay) {
         msgQueue[endOfQueue].event = event;
@@ -213,11 +269,33 @@ static JSValueRef mouseMoveToCallback(JSContextRef context, JSObjectRef function
     g_return_val_if_fail((!exception || !*exception), JSValueMakeUndefined(context));
 
     GdkEvent event;
+    memset(&event, 0, sizeof(event));
     event.type = GDK_MOTION_NOTIFY;
     event.motion.x = lastMousePositionX;
     event.motion.y = lastMousePositionY;
     event.motion.time = GDK_CURRENT_TIME;
     event.motion.window = GTK_WIDGET(view)->window;
+    event.motion.device = gdk_device_get_core_pointer();
+
+    int x_root, y_root;
+#if GTK_CHECK_VERSION(2,17,3)
+    gdk_window_get_root_coords(GTK_WIDGET(view)->window, lastMousePositionX, lastMousePositionY, &x_root, &y_root);
+#else
+    getRootCoords(GTK_WIDGET(view), &x_root, &y_root);
+#endif
+
+    event.motion.x_root = x_root;
+    event.motion.y_root = y_root;
+
+    if (down) {
+        if (currentEventButton == 1)
+            event.motion.state = GDK_BUTTON1_MASK;
+        else if (currentEventButton == 2)
+            event.motion.state = GDK_BUTTON2_MASK;
+        else if (currentEventButton == 3)
+            event.motion.state = GDK_BUTTON3_MASK;
+    } else
+        event.motion.state = 0;
 
     if (dragMode && down && !replayingSavedEvents) {
         msgQueue[endOfQueue].event = event;

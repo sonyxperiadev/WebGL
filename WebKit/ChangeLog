@@ -1,3 +1,48 @@
+2009-10-27  Dan Bernstein  <mitz@apple.com>
+
+        Reviewed by Darin Adler.
+
+        Updated license
+
+        * LICENSE:
+
+2009-10-26  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Anders Carlsson.
+
+        Move some WebView event handling code into its own file, WebViewEventHandling.mm
+
+        * WebKit.xcodeproj/project.pbxproj:
+
+2009-10-19  John Gregg  <johnnyg@google.com>
+
+        Reviewed by Dimitri Glazkov.
+
+        set ENABLE_NOTIFICATIONS=1 for Chromium
+        https://bugs.webkit.org/show_bug.cgi?id=29949
+
+        * chromium/features.gypi:
+
+2009-10-13  Drew Wilson  <atwilson@atwilson-macpro.local>
+
+        Reviewed by David Levin.
+
+        Enable SHARED_WORKERS for Chromium
+        https://bugs.webkit.org/show_bug.cgi?id=30289
+
+        * chromium/features.gypi:
+        Turned on ENABLE_SHARED_WORKERS by default. This doesn't actually turn on
+        SharedWorkers yet, as Chromium overrides this flag in its feature_overrides.gypi.
+
+2009-10-12  Yaar Schnitman  <yaar@chromium.org>
+
+        Reviewed by Dimitri Glazkov.
+
+        Chromium Port - Windows
+        https://bugs.webkit.org/show_bug.cgi?id=29969
+
+        * chromium/DEPS: Added gtest dep required by windows and incremented some of the deps revisions.
+
 2009-10-06  Simon Fraser  <simon.fraser@apple.com>
 
         Reviewed by Mark Rowe.

@@ -39,6 +39,7 @@
 #include "FrameLoader.h"
 #include "FrameView.h"
 #include "GraphicsContext.h"
+#include "HTMLFormElement.h"
 #include "Logging.h"
 #include "markup.h"
 #include "Page.h"
@@ -49,6 +50,7 @@
 #include "PluginHalterClient.h"
 #include "RenderObject.h"
 #include "RenderView.h"
+#include "ResourceHandleManager.h"
 #include "Scrollbar.h"
 #include "SelectionController.h"
 #include "Settings.h"
@@ -66,6 +68,10 @@
 #include "JSDOMBinding.h"
 #include <runtime/JSValue.h>
 #include <runtime/UString.h>
+
+#if ENABLE(DATABASE)
+#include "DatabaseTracker.h"
+#endif
 
 #include "wx/wxprec.h"
 #ifndef WX_PRECOMP
@@ -268,6 +274,7 @@ wxWebView::wxWebView() :
     m_isEditable(false),
     m_isInitialized(false),
     m_beingDestroyed(false),
+    m_mouseWheelZooms(false),
     m_title(wxEmptyString)
 {
 }
@@ -278,6 +285,7 @@ wxWebView::wxWebView(wxWindow* parent, int id, const wxPoint& position,
     m_isEditable(false),
     m_isInitialized(false),
     m_beingDestroyed(false),
+    m_mouseWheelZooms(false),
     m_title(wxEmptyString)
 {
     Create(parent, id, position, size, style, name);
@@ -326,6 +334,10 @@ bool wxWebView::Create(wxWindow* parent, int id, const wxPoint& position,
     settings->setSansSerifFontFamily("Arial");
     settings->setStandardFontFamily("Times New Roman");
     settings->setJavaScriptEnabled(true);
+
+#if ENABLE(DATABASE)
+    settings->setDatabasesEnabled(true);
+#endif
 
     m_isInitialized = true;
 
@@ -591,8 +603,16 @@ void wxWebView::OnMouseEvents(wxMouseEvent& event)
     wxEventType type = event.GetEventType();
     
     if (type == wxEVT_MOUSEWHEEL) {
-        WebCore::PlatformWheelEvent wkEvent(event, globalPoint);
-        frame->eventHandler()->handleWheelEvent(wkEvent);
+        if (m_mouseWheelZooms && event.ControlDown() && !event.AltDown() && !event.ShiftDown()) {
+            if (event.GetWheelRotation() < 0)
+                DecreaseTextSize();
+            else if (event.GetWheelRotation() > 0)
+                IncreaseTextSize();
+        } else {
+            WebCore::PlatformWheelEvent wkEvent(event, globalPoint);
+            frame->eventHandler()->handleWheelEvent(wkEvent);
+        }
+
         return;
     }
     
@@ -886,4 +906,48 @@ bool wxWebView::ShouldClose() const
         return m_mainFrame->ShouldClose();
 
     return true;
+}
+
+/* static */
+void wxWebView::SetDatabaseDirectory(const wxString& databaseDirectory)
+{
+#if ENABLE(DATABASE)
+    WebCore::DatabaseTracker::tracker().setDatabaseDirectoryPath(databaseDirectory);
+#endif
+}
+
+/* static */
+wxString wxWebView::GetDatabaseDirectory()
+{
+#if ENABLE(DATABASE)
+    return WebCore::DatabaseTracker::tracker().databaseDirectoryPath();
+#else
+    return wxEmptyString;
+#endif
+}
+
+static WebCore::ResourceHandleManager::ProxyType curlProxyType(wxProxyType type)
+{
+    switch (type) {
+        case HTTP: return WebCore::ResourceHandleManager::HTTP;
+        case Socks4: return WebCore::ResourceHandleManager::Socks4;
+        case Socks4A: return WebCore::ResourceHandleManager::Socks4A;
+        case Socks5: return WebCore::ResourceHandleManager::Socks5;
+        case Socks5Hostname: return WebCore::ResourceHandleManager::Socks5Hostname;
+        default:
+            ASSERT_NOT_REACHED();
+            return WebCore::ResourceHandleManager::HTTP;
+    }
+}
+
+/* static */
+void wxWebView::SetProxyInfo(const wxString& host,
+                             unsigned long port,
+                             wxProxyType type,
+                             const wxString& username,
+                             const wxString& password)
+{
+    using WebCore::ResourceHandleManager;
+    if (ResourceHandleManager* mgr = ResourceHandleManager::sharedInstance())
+        mgr->setProxyInfo(host, port, curlProxyType(type), username, password);
 }

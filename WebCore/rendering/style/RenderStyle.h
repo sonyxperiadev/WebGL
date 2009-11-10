@@ -458,7 +458,7 @@ public:
             return font().lineSpacing();
 
         if (lh.isPercent())
-            return lh.calcMinValue(fontSize());
+            return lh.calcMinValue(fontSize(), true);
 
         return lh.value();
     }
@@ -1196,11 +1196,14 @@ public:
     static const Vector<StyleDashboardRegion>& noneDashboardRegions();
 #endif
 
+<<<<<<< HEAD:WebCore/rendering/style/RenderStyle.h
 #ifdef ANDROID_CSS_TAP_HIGHLIGHT_COLOR
     static Color initialTapHighlightColor() { return Color::tap; }
 #endif
 };
 
+=======
+>>>>>>> webkit.org at r50258.:WebCore/rendering/style/RenderStyle.h
 } // namespace WebCore
 
 #endif // RenderStyle_h

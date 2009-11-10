@@ -90,7 +90,8 @@ extern "C" {
 
 - (void)setAttributeKeys:(NSArray *)keys andValues:(NSArray *)values
 {
-    ASSERT(!_attributeKeys && !_attributeValues);
+    ASSERT(!_attributeKeys);
+    ASSERT(!_attributeValues);
     
     _attributeKeys.adoptNS([keys copy]);
     _attributeValues.adoptNS([values copy]);
@@ -102,7 +103,8 @@ extern "C" {
 
     NSString *userAgent = [[self webView] userAgentForURL:_baseURL.get()];
 
-    _proxy = NetscapePluginHostManager::shared().instantiatePlugin(_pluginPackage.get(), self, _MIMEType.get(), _attributeKeys.get(), _attributeValues.get(), userAgent, _sourceURL.get(), _mode == NP_FULL);
+    _proxy = NetscapePluginHostManager::shared().instantiatePlugin(_pluginPackage.get(), self, _MIMEType.get(), _attributeKeys.get(), _attributeValues.get(), userAgent, _sourceURL.get(), 
+                                                                   _mode == NP_FULL, _isPrivateBrowsingEnabled);
     if (!_proxy) 
         return NO;
 
@@ -126,6 +128,12 @@ extern "C" {
     
     if (_pluginLayer)
         [newLayer addSublayer:_pluginLayer.get()];
+}
+
+- (void)privateBrowsingModeDidChange
+{
+    if (_proxy)
+        _proxy->privateBrowsingModeDidChange(_isPrivateBrowsingEnabled);
 }
 
 - (void)loadStream
@@ -414,7 +422,7 @@ extern "C" {
     ASSERT([webPluginContainerCheck isKindOfClass:[WebPluginContainerCheck class]]);
     
     id contextInfo = [webPluginContainerCheck contextInfo];
-    ASSERT(contextInfo && [contextInfo isKindOfClass:[NSNumber class]]);
+    ASSERT([contextInfo isKindOfClass:[NSNumber class]]);
 
     if (!_proxy)
         return;

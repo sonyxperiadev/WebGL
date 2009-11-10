@@ -33,6 +33,7 @@
 
 #include "BarInfo.h"
 #include "BeforeLoadEvent.h"
+#include "CanvasActiveInfo.h"
 #include "CanvasArray.h"
 #include "CanvasArrayBuffer.h"
 #include "CanvasBuffer.h"

@@ -42,6 +42,7 @@
 #import <WebKit/DOMElement.h>
 #import <WebKit/WebApplicationCache.h>
 #import <WebKit/WebBackForwardList.h>
+#import <WebKit/WebCoreStatistics.h>
 #import <WebKit/WebDatabaseManagerPrivate.h>
 #import <WebKit/WebDataSource.h>
 #import <WebKit/WebFrame.h>
@@ -149,6 +150,19 @@ JSStringRef LayoutTestController::copyEncodedHostName(JSStringRef name)
 void LayoutTestController::display()
 {
     displayWebView();
+}
+
+JSRetainPtr<JSStringRef> LayoutTestController::counterValueForElementById(JSStringRef id)
+{
+    RetainPtr<CFStringRef> idCF(AdoptCF, JSStringCopyCFString(kCFAllocatorDefault, id));
+    NSString *idNS = (NSString *)idCF.get();
+
+    DOMElement *element = [[mainFrame DOMDocument] getElementById:idNS];
+    if (!element)
+        return 0;
+
+    JSRetainPtr<JSStringRef> counterValue(Adopt, JSStringCreateWithCFString((CFStringRef)[mainFrame counterValueForElement:element]));
+    return counterValue;
 }
 
 void LayoutTestController::keepWebHistory()
@@ -333,6 +347,11 @@ void LayoutTestController::overridePreference(JSStringRef key, JSStringRef value
     [[WebPreferences standardPreferences] _setPreferenceForTestWithValue:valueNS forKey:keyNS];
 }
 
+void LayoutTestController::removeAllVisitedLinks()
+{
+    [WebHistory _removeAllVisitedLinks];
+}
+
 void LayoutTestController::setPersistentUserStyleSheetLocation(JSStringRef jsURL)
 {
     RetainPtr<CFStringRef> urlString(AdoptCF, JSStringCopyCFString(0, jsURL));
@@ -482,24 +501,26 @@ void LayoutTestController::addUserScript(JSStringRef source, bool runAtStart)
 {
     RetainPtr<CFStringRef> sourceCF(AdoptCF, JSStringCopyCFString(kCFAllocatorDefault, source));
     NSString *sourceNS = (NSString *)sourceCF.get();
-    [WebView _addUserScriptToGroup:@"org.webkit.DumpRenderTree" source:sourceNS url:nil worldID:1 whitelist:nil blacklist:nil injectionTime:(runAtStart ? WebInjectAtDocumentStart : WebInjectAtDocumentEnd)];
+    [WebView _addUserScriptToGroup:@"org.webkit.DumpRenderTree" worldID:1 source:sourceNS url:nil whitelist:nil blacklist:nil injectionTime:(runAtStart ? WebInjectAtDocumentStart : WebInjectAtDocumentEnd)];
 }
 
 void LayoutTestController::addUserStyleSheet(JSStringRef source)
 {
     RetainPtr<CFStringRef> sourceCF(AdoptCF, JSStringCopyCFString(kCFAllocatorDefault, source));
     NSString *sourceNS = (NSString *)sourceCF.get();
-    [WebView _addUserStyleSheetToGroup:@"org.webkit.DumpRenderTree" source:sourceNS url:nil worldID:1 whitelist:nil blacklist:nil];
+    [WebView _addUserStyleSheetToGroup:@"org.webkit.DumpRenderTree" worldID:1 source:sourceNS url:nil whitelist:nil blacklist:nil];
 }
 
 void LayoutTestController::showWebInspector()
 {
+    [[[mainFrame webView] preferences] setDeveloperExtrasEnabled:true];
     [[[mainFrame webView] inspector] show:nil];
 }
 
 void LayoutTestController::closeWebInspector()
 {
     [[[mainFrame webView] inspector] close:nil];
+    [[[mainFrame webView] preferences] setDeveloperExtrasEnabled:false];
 }
 
 void LayoutTestController::evaluateInWebInspector(long callId, JSStringRef script)
@@ -507,4 +528,11 @@ void LayoutTestController::evaluateInWebInspector(long callId, JSStringRef scrip
     RetainPtr<CFStringRef> scriptCF(AdoptCF, JSStringCopyCFString(kCFAllocatorDefault, script));
     NSString *scriptNS = (NSString *)scriptCF.get();
     [[[mainFrame webView] inspector] evaluateInFrontend:nil callId:callId script:scriptNS];
+}
+
+void LayoutTestController::evaluateScriptInIsolatedWorld(unsigned worldID, JSObjectRef globalObject, JSStringRef script)
+{
+    RetainPtr<CFStringRef> scriptCF(AdoptCF, JSStringCopyCFString(kCFAllocatorDefault, script));
+    NSString *scriptNS = (NSString *)scriptCF.get();
+    [mainFrame _stringByEvaluatingJavaScriptInIsolatedWorld:worldID WithGlobalObject:globalObject FromString:scriptNS];
 }
