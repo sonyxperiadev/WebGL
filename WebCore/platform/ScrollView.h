@@ -334,7 +334,9 @@ private:
 public:
     bool platformProhibitsScrolling();
 #ifdef ANDROID_CAPTURE_OFFSCREEN_PAINTS
-    void platformOffscreenContentRectangle(const IntRect& );
+    // capture parts of rect not contained by vis
+    void platformOffscreenContentRectangle(const IntRect& vis,
+        const IntRect& rect);
 #endif
 #endif
 }; // class ScrollView
