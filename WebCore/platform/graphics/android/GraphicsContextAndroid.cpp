@@ -759,6 +759,11 @@ void GraphicsContext::addInnerRoundedRectClip(const IntRect& rect, int thickness
     GC2Canvas(this)->clipPath(path);
 }
 
+void GraphicsContext::canvasClip(const Path& path)
+{
+    clip(path);
+}
+
 void GraphicsContext::clipOut(const IntRect& r)
 {
     if (paintingDisabled())
@@ -1191,4 +1196,3 @@ SkCanvas* android_gc2canvas(WebCore::GraphicsContext* gc)
 {
     return gc->platformContext()->mCanvas;
 }
-
