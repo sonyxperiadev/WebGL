@@ -37,6 +37,12 @@
 #include "SkStream.h"
 #include "SkTemplates.h"
 
+// need a flag to tell us when we're on a large-ram device (e.g. >= 256M)
+// for now just use this hack
+#if 1
+    #define ON_LARGE_RAM_DEVICE
+#endif
+
 #ifdef ANDROID_ANIMATED_GIF
     #include "EmojiFont.h"
     #include "gif/GIFImageDecoder.h"
@@ -52,9 +58,17 @@ SkPixelRef* SkCreateRLEPixelRef(const SkBitmap& src);
 //#define TRACE_RLE_BITMAPS
 
 
-// don't use RLE for images smaller than this, since they incur a drawing cost
-// (and don't work as patterns yet) we only want to use RLE when we must
-#define MIN_RLE_ALLOC_SIZE      (2*1024*1024)
+#ifdef ON_LARGE_RAM_DEVICE
+    // don't use RLE for images smaller than this, since they incur a drawing cost
+    // (and don't work as patterns yet) we only want to use RLE when we must
+    #define MIN_RLE_ALLOC_SIZE          (8*1024*1024)
+
+    // see dox for computeMaxBitmapSizeForCache()
+    #define MAX_SIZE_BEFORE_SUBSAMPLE   (8*1024*1024)
+#else
+    #define MIN_RLE_ALLOC_SIZE          (2*1024*1024)
+    #define MAX_SIZE_BEFORE_SUBSAMPLE   (2*1024*1024)
+#endif
 
 /*  Images larger than this should be subsampled. Using ashmem, the decoded
     pixels will be purged as needed, so this value can be pretty large. Making
@@ -67,7 +81,7 @@ SkPixelRef* SkCreateRLEPixelRef(const SkBitmap& src);
     Perhaps this value should be some fraction of the available RAM...
 */
 static size_t computeMaxBitmapSizeForCache() {
-    return 2*1024*1024;
+    return MAX_SIZE_BEFORE_SUBSAMPLE;
 }
 
 /* 8bit images larger than this should be recompressed in RLE, to reduce
