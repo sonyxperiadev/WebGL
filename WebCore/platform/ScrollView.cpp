@@ -713,10 +713,16 @@ void ScrollView::frameRectsChanged()
 void ScrollView::repaintContentRectangle(const IntRect& rect, bool now)
 {
     IntRect visibleContent = visibleContentRect();
+#ifdef ANDROID_CAPTURE_OFFSCREEN_PAINTS
+    IntRect fullVis = visibleContent;
+#endif
     visibleContent.intersect(rect);
+#ifdef ANDROID_CAPTURE_OFFSCREEN_PAINTS
+    if (rect != visibleContent)
+        platformOffscreenContentRectangle(fullVis, rect);
+#endif
     if (visibleContent.isEmpty())
         return;
-
     if (platformWidget()) {
         platformRepaintContentRectangle(visibleContent, now);
         return;
