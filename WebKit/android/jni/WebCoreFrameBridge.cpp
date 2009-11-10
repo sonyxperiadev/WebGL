@@ -1081,7 +1081,7 @@ static jobject StringByEvaluatingJavaScriptFromString(JNIEnv *env, jobject obj, 
     LOG_ASSERT(pFrame, "stringByEvaluatingJavaScriptFromString must take a valid frame pointer!");
 
     WebCore::ScriptValue value =
-            pFrame->loader()->executeScript(to_string(env, script), true);
+            pFrame->script()->executeScript(to_string(env, script), true);
     WebCore::String result = WebCore::String();
     if (!value.getString(result))
         return NULL;
