@@ -30,6 +30,8 @@ BINDING_C_INCLUDES := \
 	$(JAVASCRIPTCORE_PATH)
 
 WEBCORE_SRC_FILES := \
+	bindings/ScriptControllerBase.cpp \
+	\
 	bindings/v8/ChildThreadDOMData.cpp \
 	bindings/v8/DateExtension.cpp \
 	bindings/v8/DOMData.cpp \
@@ -37,6 +39,7 @@ WEBCORE_SRC_FILES := \
 	bindings/v8/DerivedSourcesAllInOne.cpp \
 	bindings/v8/MainThreadDOMData.cpp \
 	bindings/v8/NPV8Object.cpp \
+	bindings/v8/RuntimeEnabledFeatures.cpp \
 	bindings/v8/ScheduledAction.cpp \
 	bindings/v8/ScopedDOMDataStore.cpp \
 	bindings/v8/ScriptArray.cpp \
@@ -49,6 +52,7 @@ WEBCORE_SRC_FILES := \
 	bindings/v8/ScriptObject.cpp \
 	bindings/v8/ScriptScope.cpp \
 	bindings/v8/ScriptState.cpp \
+	bindings/v8/ScriptStringImpl.cpp \
 	bindings/v8/ScriptValue.cpp \
 	bindings/v8/StaticDOMDataStore.cpp \
 	bindings/v8/V8AbstractEventListener.cpp \
@@ -114,6 +118,7 @@ WEBCORE_SRC_FILES := \
 	bindings/v8/custom/V8EventCustom.cpp \
 	bindings/v8/custom/V8FileListCustom.cpp \
 	bindings/v8/custom/V8GeolocationCustom.cpp \
+	bindings/v8/custom/V8HTMLAllCollectionCustom.cpp \
 	bindings/v8/custom/V8HTMLAudioElementConstructor.cpp \
 	bindings/v8/custom/V8HTMLCanvasElementCustom.cpp \
 	bindings/v8/custom/V8HTMLCollectionCustom.cpp \
@@ -249,7 +254,6 @@ GEN := \
     $(intermediates)/bindings/V8ErrorEvent.h \
     $(intermediates)/bindings/V8Event.h \
     $(intermediates)/bindings/V8EventException.h \
-    $(intermediates)/bindings/V8HTMLAllCollection.h \
     $(intermediates)/bindings/V8KeyboardEvent.h \
     $(intermediates)/bindings/V8MessageChannel.h \
     $(intermediates)/bindings/V8MessageEvent.h \
@@ -293,6 +297,7 @@ GEN := \
     $(intermediates)/bindings/V8DataGridColumnList.h \
     $(intermediates)/bindings/V8File.h \
     $(intermediates)/bindings/V8FileList.h \
+    $(intermediates)/bindings/V8HTMLAllCollection.h \
     $(intermediates)/bindings/V8HTMLAnchorElement.h \
     $(intermediates)/bindings/V8HTMLAppletElement.h \
     $(intermediates)/bindings/V8HTMLAreaElement.h \
@@ -379,6 +384,7 @@ LOCAL_GENERATED_SOURCES += $(GEN) $(GEN:%.h=%.cpp)
 $(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/bindings/%.cpp : $(intermediates)/bindings/%.h
 
 GEN := \
+    $(intermediates)/bindings/V8CanvasActiveInfo.h \
     $(intermediates)/bindings/V8CanvasArray.h \
     $(intermediates)/bindings/V8CanvasArrayBuffer.h \
     $(intermediates)/bindings/V8CanvasBuffer.h \
