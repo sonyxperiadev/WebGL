@@ -3058,17 +3058,14 @@ PassRefPtr<Event> Document::createEvent(const String& eventType, ExceptionCode& 
     else if (eventType == "SVGZoomEvents")
         event = SVGZoomEvent::create();
 #endif
-<<<<<<< HEAD:WebCore/dom/Document.cpp
 #if ENABLE(TOUCH_EVENTS) // Android
-    if (eventType == "TouchEvent")
-        return TouchEvent::create();
+    else if (eventType == "TouchEvent")
+        event = TouchEvent::create();
 #endif
-=======
     if (event) {
         event->setCreatedByDOM(true);
         return event.release();
     }
->>>>>>> webkit.org at r50258.:WebCore/dom/Document.cpp
     ec = NOT_SUPPORTED_ERR;
     return 0;
 }

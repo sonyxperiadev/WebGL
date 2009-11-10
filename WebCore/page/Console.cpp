@@ -46,15 +46,7 @@
 
 #include "ScriptCallStack.h"
 #include <stdio.h>
-<<<<<<< HEAD:WebCore/page/Console.cpp
-#if PLATFORM(ANDROID)
-=======
->>>>>>> webkit.org at r50258.:WebCore/page/Console.cpp
 #include <wtf/UnusedParam.h>
-<<<<<<< HEAD:WebCore/page/Console.cpp
-#endif
-=======
->>>>>>> webkit.org at r50258.:WebCore/page/Console.cpp
 
 namespace WebCore {
 

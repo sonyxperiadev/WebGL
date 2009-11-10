@@ -60,15 +60,12 @@ namespace WebCore {
         // or this accessor should be made JSProxy*
         V8Proxy* proxy() { return m_proxy.get(); }
 
-<<<<<<< HEAD:WebCore/bindings/v8/ScriptController.h
-=======
         ScriptValue executeScript(const ScriptSourceCode&);
         ScriptValue executeScript(const String& script, bool forceUserGesture = false);
 
         // Returns true if argument is a JavaScript URL.
         bool executeIfJavaScriptURL(const KURL&, bool userGesture = false, bool replaceDocument = true);
 
->>>>>>> webkit.org at r50258.:WebCore/bindings/v8/ScriptController.h
         // This function must be called from the main thread. It is safe to call it repeatedly.
         static void initializeThreading();
 

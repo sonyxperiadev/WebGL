@@ -118,22 +118,11 @@
 #include "SVGViewSpec.h"
 #endif
 
-<<<<<<< HEAD:WebCore/loader/FrameLoader.cpp
 #ifdef ANDROID_INSTRUMENT
 #include "TimeCounter.h"
 #include "RenderArena.h"
 #endif
 
-#if PLATFORM(ANDROID)
-#include "WebCoreFrameBridge.h"
-#endif
-
-#if PLATFORM(MAC) || PLATFORM(WIN)
-#define PAGE_CACHE_ACCEPTS_UNLOAD_HANDLERS
-#endif
-
-=======
->>>>>>> webkit.org at r50258.:WebCore/loader/FrameLoader.cpp
 namespace WebCore {
 
 #if ENABLE(SVG)
@@ -1269,66 +1258,6 @@ String FrameLoader::encoding() const
     return settings ? settings->defaultTextEncodingName() : String();
 }
 
-<<<<<<< HEAD:WebCore/loader/FrameLoader.cpp
-bool FrameLoader::gotoAnchor(const String& name)
-{
-    ASSERT(m_frame->document());
-
-    if (!m_frame->document()->haveStylesheetsLoaded()) {
-        m_frame->document()->setGotoAnchorNeededAfterStylesheetsLoad(true);
-        return false;
-    }
-
-    m_frame->document()->setGotoAnchorNeededAfterStylesheetsLoad(false);
-
-    Element* anchorNode = m_frame->document()->findAnchor(name);
-
-#if ENABLE(SVG)
-    if (m_frame->document()->isSVGDocument()) {
-        if (name.startsWith("xpointer(")) {
-            // We need to parse the xpointer reference here
-        } else if (name.startsWith("svgView(")) {
-            RefPtr<SVGSVGElement> svg = static_cast<SVGDocument*>(m_frame->document())->rootElement();
-            if (!svg->currentView()->parseViewSpec(name))
-                return false;
-            svg->setUseCurrentView(true);
-        } else {
-            if (anchorNode && anchorNode->hasTagName(SVGNames::viewTag)) {
-                RefPtr<SVGViewElement> viewElement = anchorNode->hasTagName(SVGNames::viewTag) ? static_cast<SVGViewElement*>(anchorNode) : 0;
-                if (viewElement.get()) {
-                    RefPtr<SVGSVGElement> svg = static_cast<SVGSVGElement*>(SVGLocatable::nearestViewportElement(viewElement.get()));
-                    svg->inheritViewAttributes(viewElement.get());
-                }
-            }
-        }
-        // FIXME: need to decide which <svg> to focus on, and zoom to that one
-        // FIXME: need to actually "highlight" the viewTarget(s)
-    }
-#endif
-
-    m_frame->document()->setCSSTarget(anchorNode); // Setting to null will clear the current target.
-  
-    // Implement the rule that "" and "top" both mean top of page as in other browsers.
-    if (!anchorNode && !(name.isEmpty() || equalIgnoringCase(name, "top")))
-        return false;
-
-    if (FrameView* view = m_frame->view())
-#ifdef ANDROID_SCROLL_ON_GOTO_ANCHOR
-    {
-        // TODO(andreip): check with Grace if this is correct.
-        android::WebFrame::getWebFrame(m_frame)->setUserInitiatedClick(true);
-#endif
-        view->maintainScrollPositionAtAnchor(anchorNode ? static_cast<Node*>(anchorNode) : m_frame->document());
-#ifdef ANDROID_SCROLL_ON_GOTO_ANCHOR
-        android::WebFrame::getWebFrame(m_frame)->setUserInitiatedClick(false);
-    }
-#endif
-
-    return true;
-}
-
-=======
->>>>>>> webkit.org at r50258.:WebCore/loader/FrameLoader.cpp
 bool FrameLoader::requestObject(RenderPart* renderer, const String& url, const AtomicString& frameName,
     const String& mimeType, const Vector<String>& paramNames, const Vector<String>& paramValues)
 {

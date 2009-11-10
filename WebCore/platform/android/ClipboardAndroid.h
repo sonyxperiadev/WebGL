@@ -35,21 +35,6 @@ namespace WebCore {
 
 class CachedImage;
 
-<<<<<<< HEAD:WebCore/platform/android/ClipboardAndroid.h
-    class ClipboardAndroid : public Clipboard, public CachedResourceClient {
-    public:
-        ClipboardAndroid(ClipboardAccessPolicy policy, bool isForDragging);
-        ~ClipboardAndroid();
-    
-        void clearData(const String&);
-        void clearAllData();
-        String getData(const String&, bool& success) const;
-        bool setData(const String&, const String&);
-    
-        // extensions beyond IE's API
-        HashSet<String> types() const;
-        PassRefPtr<FileList> files() const;
-=======
 class ClipboardAndroid : public Clipboard, public CachedResourceClient {
 public:
     ClipboardAndroid(ClipboardAccessPolicy policy, bool isForDragging);
@@ -62,10 +47,10 @@ public:
 
     // extensions beyond IE's API
     HashSet<String> types() const;
+    PassRefPtr<FileList> files() const;
 
     void setDragImage(CachedImage*, const IntPoint&);
     void setDragImageElement(Node*, const IntPoint&);
->>>>>>> webkit.org at r50258.:WebCore/platform/android/ClipboardAndroid.h
     
     virtual DragImageRef createDragImage(IntPoint&) const;
     virtual void declareAndWriteDragImage(Element*, const KURL&, const String&, Frame*);

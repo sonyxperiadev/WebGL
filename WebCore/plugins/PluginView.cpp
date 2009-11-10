@@ -162,7 +162,6 @@ void PluginView::handleEvent(Event* event)
         handleMouseEvent(static_cast<MouseEvent*>(event));
     else if (event->isKeyboardEvent())
         handleKeyboardEvent(static_cast<KeyboardEvent*>(event));
-<<<<<<< HEAD:WebCore/plugins/PluginView.cpp
 #if defined(ANDROID_PLUGINS)
     else if (event->isTouchEvent())
         handleTouchEvent(static_cast<TouchEvent*>(event));
@@ -171,10 +170,7 @@ void PluginView::handleEvent(Event* event)
     else if (event->type() == eventNames().DOMFocusInEvent)
         handleFocusEvent(true);
 #endif
-#if defined(Q_WS_X11)
-=======
 #if defined(Q_WS_X11) && ENABLE(NETSCAPE_PLUGIN_API)
->>>>>>> webkit.org at r50258.:WebCore/plugins/PluginView.cpp
     else if (event->type() == eventNames().DOMFocusOutEvent)
         handleFocusOutEvent();
     else if (event->type() == eventNames().DOMFocusInEvent)

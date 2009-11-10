@@ -254,10 +254,7 @@
 
 #if ENABLE(SHARED_WORKERS)
 #include "bindings/V8SharedWorker.cpp"
-<<<<<<< HEAD:WebCore/bindings/v8/DerivedSourcesAllInOne.cpp
-=======
 #include "bindings/V8SharedWorkerContext.cpp"
->>>>>>> webkit.org at r50258.:WebCore/bindings/v8/DerivedSourcesAllInOne.cpp
 #endif
 
 #if ENABLE(SVG)
@@ -386,7 +383,6 @@
 #if ENABLE(INSPECTOR)
 #include "bindings/V8InspectorBackend.cpp"
 #endif
-<<<<<<< HEAD:WebCore/bindings/v8/DerivedSourcesAllInOne.cpp
 
 #if PLATFORM(ANDROID)
 // TODO: Upstream NOTIFICATIONS guard.
@@ -395,5 +391,3 @@
 #include "bindings/V8NotificationCenter.cpp"
 #endif
 #endif
-=======
->>>>>>> webkit.org at r50258.:WebCore/bindings/v8/DerivedSourcesAllInOne.cpp

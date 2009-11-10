@@ -94,10 +94,7 @@ private:
         RefPtr<PositionOptions> m_options;
         Timer<GeoNotifier> m_timer;
         RefPtr<PositionError> m_fatalError;
-<<<<<<< HEAD:WebCore/page/Geolocation.h
         RefPtr<Geoposition> m_cachedPosition;
-=======
->>>>>>> webkit.org at r50258.:WebCore/page/Geolocation.h
 
     private:
         GeoNotifier(Geolocation*, PassRefPtr<PositionCallback>, PassRefPtr<PositionErrorCallback>, PassRefPtr<PositionOptions>);
@@ -139,13 +136,10 @@ private:
 
     PassRefPtr<GeoNotifier> startRequest(PassRefPtr<PositionCallback>, PassRefPtr<PositionErrorCallback>, PassRefPtr<PositionOptions>);
 
-<<<<<<< HEAD:WebCore/page/Geolocation.h
     // EventListener
     virtual bool operator==(const EventListener&);
     virtual void handleEvent(ScriptExecutionContext*, Event*);
 
-=======
->>>>>>> webkit.org at r50258.:WebCore/page/Geolocation.h
     void fatalErrorOccurred(GeoNotifier*);
     void requestTimedOut(GeoNotifier*);
     void requestReturnedCachedPosition(GeoNotifier*);

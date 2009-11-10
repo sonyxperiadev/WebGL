@@ -292,27 +292,22 @@ namespace WebCore {
         void handleFocusOutEvent();
 #endif
 
-<<<<<<< HEAD:WebCore/plugins/PluginView.h
+#if PLATFORM(WIN_OS)
+        void paintIntoTransformedContext(HDC);
+        PassRefPtr<Image> snapshot();
+#endif
+
 #ifdef ANDROID_PLUGINS
         void handleFocusEvent(bool hasFocus);
         void handleTouchEvent(TouchEvent*);
         // called at the end of the base constructor
         void platformInit();
-=======
-#if PLATFORM(WIN_OS)
-        void paintIntoTransformedContext(HDC);
-        PassRefPtr<Image> snapshot();
->>>>>>> webkit.org at r50258.:WebCore/plugins/PluginView.h
 #endif
-<<<<<<< HEAD:WebCore/plugins/PluginView.h
 #ifdef PLUGIN_PLATFORM_SETVALUE
         // called if the default setValue does not recognize the variable
         NPError platformSetValue(NPPVariable variable, void* value);
 #endif
         
-=======
-
->>>>>>> webkit.org at r50258.:WebCore/plugins/PluginView.h
         int m_mode;
         int m_paramCount;
         char** m_paramNames;

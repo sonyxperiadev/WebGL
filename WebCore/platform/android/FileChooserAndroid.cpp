@@ -36,20 +36,11 @@ String FileChooser::basenameForWidth(const Font& font, int width) const
         return String();
     // FIXME: This could be a lot faster, but assuming the data will not
     // often be much longer than the provided width, this may be fast enough.
-<<<<<<< HEAD:WebCore/platform/android/FileChooserAndroid.cpp
     // If this does not need to be threadsafe, we can use crossThreadString().
     // See http://trac.webkit.org/changeset/49160.
-=======
->>>>>>> webkit.org at r50258.:WebCore/platform/android/FileChooserAndroid.cpp
     String output = m_filenames[0].threadsafeCopy();
-<<<<<<< HEAD:WebCore/platform/android/FileChooserAndroid.cpp
-    while (font.width(TextRun(output.impl())) > width && output.length() > 4) {
-        output = output.replace(0, 4, String("..."));
-    }
-=======
     while (font.width(TextRun(output.impl())) > width && output.length() > 4)
-        output = output.replace(output.length() - 4, 4, String("..."));
->>>>>>> webkit.org at r50258.:WebCore/platform/android/FileChooserAndroid.cpp
+        output = output.replace(0, 4, String("..."));
     return output;
 }
 
