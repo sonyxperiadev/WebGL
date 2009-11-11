@@ -24,13 +24,11 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#ifdef ANDROID_PLUGINS
-
-#define LOG_TAG "WebKit"
-
 #include "config.h"
 #include "PluginDatabase.h"
 #include "PluginPackage.h"
+
+#ifdef ANDROID_PLUGINS
 
 #include "Timer.h"
 #include "PlatformString.h"
@@ -44,6 +42,8 @@
 
 #include "PluginDebug.h"
 #include "PluginDebugAndroid.h"
+
+#define LOG_TAG "WebKit"
 
 namespace WebCore {
 

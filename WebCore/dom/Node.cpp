@@ -22,13 +22,13 @@
  * Boston, MA 02110-1301, USA.
  */
 
+#include "config.h"
+#include "Node.h"
+
 #ifdef ANDROID_DOM_LOGGING
 #define LOG_TAG "webcore"
 #include "AndroidLog.h"
 #endif
-
-#include "config.h"
-#include "Node.h"
 
 #include "Attr.h"
 #include "CSSParser.h"
