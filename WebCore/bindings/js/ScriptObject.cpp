@@ -33,11 +33,11 @@
 
 #include "JSDOMBinding.h"
 
-#if ENABLE(JAVASCRIPT_DEBUGGER)
+#include <runtime/JSLock.h>
+
+#if ENABLE(INSPECTOR)
 #include "JSInspectorBackend.h"
 #endif
-
-#include <runtime/JSLock.h>
 
 using namespace JSC;
 
@@ -135,7 +135,6 @@ bool ScriptGlobalObject::set(ScriptState* scriptState, const char* name, const S
     return handleException(scriptState);
 }
 
-#if ENABLE(JAVASCRIPT_DEBUGGER)
 #if ENABLE(INSPECTOR)
 bool ScriptGlobalObject::set(ScriptState* scriptState, const char* name, InspectorBackend* value)
 {
@@ -145,7 +144,6 @@ bool ScriptGlobalObject::set(ScriptState* scriptState, const char* name, Inspect
     return handleException(scriptState);
 }
 #endif // ENABLE(INSPECTOR)
-#endif
 
 bool ScriptGlobalObject::get(ScriptState* scriptState, const char* name, ScriptObject& value)
 {
