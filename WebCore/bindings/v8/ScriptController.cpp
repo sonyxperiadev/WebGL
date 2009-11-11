@@ -156,7 +156,7 @@ bool ScriptController::processingUserGesture() const
         return true;
 
     V8Proxy* activeProxy = activeFrame->script()->proxy();
-    LOCK_V8;
+
     v8::HandleScope handleScope;
     v8::Handle<v8::Context> v8Context = V8Proxy::mainWorldContext(activeFrame);
     // FIXME: find all cases context can be empty:
@@ -215,7 +215,6 @@ void ScriptController::evaluateInNewContext(const Vector<ScriptSourceCode>& sour
 // Evaluate a script file in the environment of this proxy.
 ScriptValue ScriptController::evaluate(const ScriptSourceCode& sourceCode)
 {
-    LOCK_V8;
     String sourceURL = sourceCode.url();
     
     if (!m_XSSAuditor->canEvaluate(sourceCode.source())) {
@@ -257,7 +256,6 @@ void ScriptController::finishedWithEvent(Event* event)
 // Create a V8 object with an interceptor of NPObjectPropertyGetter.
 void ScriptController::bindToWindowObject(Frame* frame, const String& key, NPObject* object)
 {
-    LOCK_V8;
     v8::HandleScope handleScope;
 
     v8::Handle<v8::Context> v8Context = V8Proxy::mainWorldContext(frame);
@@ -275,13 +273,13 @@ void ScriptController::bindToWindowObject(Frame* frame, const String& key, NPObj
 
 void ScriptController::collectGarbage()
 {
-    LOCK_V8;
     v8::HandleScope handleScope;
     v8::Handle<v8::Context> v8Context = V8Proxy::mainWorldContext(m_proxy->frame());
     if (v8Context.IsEmpty())
         return;
 
     v8::Context::Scope scope(v8Context);
+
     m_proxy->evaluate(ScriptSourceCode("if (window.gc) void(gc());"), 0);
 }
 
@@ -372,7 +370,6 @@ static NPObject* createNoScriptObject()
 
 static NPObject* createScriptObject(Frame* frame)
 {
-    LOCK_V8;
     v8::HandleScope handleScope;
     v8::Handle<v8::Context> v8Context = V8Proxy::mainWorldContext(frame);
     if (v8Context.IsEmpty())
@@ -410,7 +407,6 @@ NPObject* ScriptController::createScriptObjectForPluginElement(HTMLPlugInElement
     if (!isEnabled())
         return createNoScriptObject();
 
-    LOCK_V8;
     v8::HandleScope handleScope;
     v8::Handle<v8::Context> v8Context = V8Proxy::mainWorldContext(m_frame);
     if (v8Context.IsEmpty())

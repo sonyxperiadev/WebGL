@@ -120,7 +120,6 @@ void WorkerContextExecutionProxy::initV8IfNeeded()
 {
     static bool v8Initialized = false;
 
-    LOCK_V8;
     if (v8Initialized)
         return;
 
@@ -350,7 +349,6 @@ bool WorkerContextExecutionProxy::forgetV8EventObject(Event* event)
 
 ScriptValue WorkerContextExecutionProxy::evaluate(const String& script, const String& fileName, int baseLine, WorkerContextExecutionState* state)
 {
-    LOCK_V8;
     v8::HandleScope hs;
 
     initContextIfNeeded();

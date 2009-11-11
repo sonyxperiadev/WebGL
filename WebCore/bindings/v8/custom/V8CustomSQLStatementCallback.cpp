@@ -52,7 +52,6 @@ V8CustomSQLStatementCallback::~V8CustomSQLStatementCallback()
 
 void V8CustomSQLStatementCallback::handleEvent(SQLTransaction* transaction, SQLResultSet* resultSet, bool& raisedException)
 {
-    LOCK_V8;
     v8::HandleScope handleScope;
 
     v8::Handle<v8::Context> context = V8Proxy::context(m_frame.get());

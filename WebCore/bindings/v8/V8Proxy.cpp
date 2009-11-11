@@ -284,6 +284,7 @@ bool V8Proxy::handleOutOfMemory()
     // TODO (andreip): ChromeBridge -> BrowserBridge?
     ChromiumBridge::notifyJSOutOfMemory(frame);
 #endif
+
     // Disable JS.
     Settings* settings = frame->settings();
     ASSERT(settings);
@@ -384,7 +385,6 @@ void V8Proxy::setInjectedScriptContextDebugId(v8::Handle<v8::Context> targetCont
 v8::Local<v8::Value> V8Proxy::evaluate(const ScriptSourceCode& source, Node* node)
 {
     ASSERT(v8::Context::InContext());
-    LOCK_V8;
 
     v8::Local<v8::Value> result;
     {
@@ -726,7 +726,6 @@ void V8Proxy::clearDocumentWrapper()
 
 void V8Proxy::updateDocumentWrapperCache()
 {
-    LOCK_V8;
     v8::HandleScope handleScope;
     v8::Context::Scope contextScope(m_context);
 
@@ -810,7 +809,6 @@ void V8Proxy::clearForClose()
     resetIsolatedWorlds();
 
     if (!m_context.IsEmpty()) {
-        LOCK_V8;
         v8::HandleScope handleScope;
 
         clearDocumentWrapper();
@@ -824,7 +822,6 @@ void V8Proxy::clearForNavigation()
     resetIsolatedWorlds();
 
     if (!m_context.IsEmpty()) {
-        LOCK_V8;
         v8::HandleScope handle;
         clearDocumentWrapper();
 
@@ -909,7 +906,6 @@ void V8Proxy::updateDocument()
 
 void V8Proxy::updateSecurityOrigin()
 {
-    LOCK_V8;
     v8::HandleScope scope;
     setSecurityToken();
 }
@@ -1113,7 +1109,6 @@ void V8Proxy::initContextIfNeeded()
 #ifdef ANDROID_INSTRUMENT
     android::TimeCounter::start(android::TimeCounter::JavaScriptInitTimeCounter);
 #endif
-    LOCK_V8;
     // Create a handle scope for all local handles.
     v8::HandleScope handleScope;
 

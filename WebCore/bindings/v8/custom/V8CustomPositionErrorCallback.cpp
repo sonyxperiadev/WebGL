@@ -49,7 +49,6 @@ V8CustomPositionErrorCallback::~V8CustomPositionErrorCallback()
 
 void V8CustomPositionErrorCallback::handleEvent(PositionError* error)
 {
-    LOCK_V8;
     v8::HandleScope handleScope;
 
     v8::Handle<v8::Context> context = V8Proxy::context(m_frame.get());

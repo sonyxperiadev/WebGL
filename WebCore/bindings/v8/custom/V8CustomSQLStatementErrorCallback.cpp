@@ -52,7 +52,6 @@ V8CustomSQLStatementErrorCallback::~V8CustomSQLStatementErrorCallback()
 
 bool V8CustomSQLStatementErrorCallback::handleEvent(SQLTransaction* transaction, SQLError* error)
 {
-    LOCK_V8;
     v8::HandleScope handleScope;
 
     v8::Handle<v8::Context> context = V8Proxy::context(m_frame.get());
