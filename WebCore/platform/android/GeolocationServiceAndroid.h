@@ -34,43 +34,43 @@
 
 namespace WebCore {
 
-    // The GeolocationServiceBridge is the bridge to the Java implementation of
-    // the Geolocation service. It is an implementation detail of
-    // GeolocationServiceAndroid.
-    class GeolocationServiceBridge;
+// The GeolocationServiceBridge is the bridge to the Java implementation of
+// the Geolocation service. It is an implementation detail of
+// GeolocationServiceAndroid.
+class GeolocationServiceBridge;
 
-    class GeolocationServiceAndroid : public GeolocationService {
-    public:
-        static GeolocationService* create(GeolocationServiceClient*);
+class GeolocationServiceAndroid : public GeolocationService {
+public:
+    static GeolocationService* create(GeolocationServiceClient*);
 
-        virtual ~GeolocationServiceAndroid() {};
+    virtual ~GeolocationServiceAndroid() {};
 
-        virtual bool startUpdating(PositionOptions*);
-        virtual void stopUpdating();
+    virtual bool startUpdating(PositionOptions*);
+    virtual void stopUpdating();
 
-        virtual Geoposition* lastPosition() const { return m_lastPosition.get(); }
-        virtual PositionError* lastError() const { return m_lastError.get(); }
+    virtual Geoposition* lastPosition() const { return m_lastPosition.get(); }
+    virtual PositionError* lastError() const { return m_lastError.get(); }
 
-        virtual void suspend();
-        virtual void resume();
+    virtual void suspend();
+    virtual void resume();
 
-        // Android-specific
-        void newPositionAvailable(PassRefPtr<Geoposition>);
-        void newErrorAvailable(PassRefPtr<PositionError>);
-        void timerFired(Timer<GeolocationServiceAndroid>* timer);
+    // Android-specific
+    void newPositionAvailable(PassRefPtr<Geoposition>);
+    void newErrorAvailable(PassRefPtr<PositionError>);
+    void timerFired(Timer<GeolocationServiceAndroid>* timer);
 
-    private:
-        GeolocationServiceAndroid(GeolocationServiceClient*);
+private:
+    GeolocationServiceAndroid(GeolocationServiceClient*);
 
-        static bool isPositionMovement(Geoposition* position1, Geoposition* position2);
-        static bool isPositionMoreAccurate(Geoposition* position1, Geoposition* position2);
-        static bool isPositionMoreTimely(Geoposition* position1, Geoposition* position2);
+    static bool isPositionMovement(Geoposition* position1, Geoposition* position2);
+    static bool isPositionMoreAccurate(Geoposition* position1, Geoposition* position2);
+    static bool isPositionMoreTimely(Geoposition* position1, Geoposition* position2);
 
-        Timer<GeolocationServiceAndroid> m_timer;
-        RefPtr<Geoposition> m_lastPosition;
-        RefPtr<PositionError> m_lastError;
-        OwnPtr<GeolocationServiceBridge> m_javaBridge;
-    };
+    Timer<GeolocationServiceAndroid> m_timer;
+    RefPtr<Geoposition> m_lastPosition;
+    RefPtr<PositionError> m_lastError;
+    OwnPtr<GeolocationServiceBridge> m_javaBridge;
+};
 
 } // namespace WebCore
 
