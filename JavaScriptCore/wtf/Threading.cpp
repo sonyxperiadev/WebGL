@@ -28,6 +28,10 @@
 
 #include <string.h>
 
+#if PLATFORM(ANDROID)
+#include <memory>
+#endif
+
 namespace WTF {
 
 struct NewThreadContext : FastAllocBase {
