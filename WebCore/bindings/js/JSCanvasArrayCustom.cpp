@@ -27,7 +27,6 @@
 
 #if ENABLE(3D_CANVAS)
 
-#include "config.h"
 #include "JSCanvasArray.h"
 #include "JSCanvasByteArray.h"
 #include "JSCanvasUnsignedByteArray.h"
