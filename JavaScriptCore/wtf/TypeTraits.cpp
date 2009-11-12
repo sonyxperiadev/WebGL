@@ -24,6 +24,10 @@
 
 #include "Assertions.h"
 
+#if PLATFORM(ANDROID)
+#include <memory>
+#endif
+
 namespace WTF {
 
 COMPILE_ASSERT(IsInteger<bool>::value, WTF_IsInteger_bool_true);

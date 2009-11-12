@@ -130,6 +130,89 @@
 #define ENABLE_INSPECTOR 0
 #undef ENABLE_EVENT_SOURCE
 #define ENABLE_EVENT_SOURCE 0
+
+#define FLATTEN_FRAMESET
+#define FLATTEN_IFRAME
+
+// not android specific, should be submitted back
+#define ANDROID_FASTER_MATRIX
+
+#define ANDROID_EXPOSE_COLUMN_GAP
+
+#define ANDROID_LAYOUT
+
+#define ANDROID_FIX
+
+// Passes the webkit-originated changes of a focused textfield to our UI
+// thread
+#define ANDROID_ACCEPT_CHANGES_TO_FOCUSED_TEXTFIELDS
+
+// Fix for an issue where WebKit was scrolling a focused element onscreen.
+// Unnecessary for us, since we handle scrolling outside of WebKit.
+#define ANDROID_SCROLL_FIX
+
+#define ANDROID_META_SUPPORT
+
+// Converts ListBoxes to dropdown popup lists.
+#define ANDROID_LISTBOX_USES_MENU_LIST
+
+#define ANDROID_HISTORY_CLIENT
+#define ANDROID_MULTIPLE_WINDOWS
+#define ANDROID_CSS_TAP_HIGHLIGHT_COLOR
+
+#define ANDROID_BLOCK_NETWORK_IMAGE
+
+// Changes needed to support native plugins (npapi.h). If the change is generic,
+// it may be under a different #define (see: PLUGIN_PLATFORM_SETVALUE,
+// PLUGIN_SCHEDULE_TIMER)
+#define ANDROID_PLUGINS
+
+// Add support for the orientation window property
+#define ANDROID_ORIENTATION_SUPPORT
+
+// This enables a portable implementation of NPN_[Un]ScheduleTimer
+// Will submit this as a patch to apple
+#define PLUGIN_SCHEDULE_TIMER
+
+// This adds platformInit() and platformSetValue() to pluginview
+// Will submit this as a patch to apple
+#define PLUGIN_PLATFORM_SETVALUE
+
+// This enables logging the DOM tree, Render tree even for the release build
+#define ANDROID_DOM_LOGGING
+
+// Notify WebViewCore when a clipped out rectangle is drawn,
+// so that all invals are captured by the display tree.
+#define ANDROID_CAPTURE_OFFSCREEN_PAINTS
+
+// This disables the css position:fixed to the Browser window. Instead the fixed
+// element will be always fixed to the top page.
+#define ANDROID_DISABLE_POSITION_FIXED
+
+// Fix exceptions not surfacing through NPAPI bindings to the
+// JavaScriptCore execution context.
+#define ANDROID_NPN_SETEXCEPTION 1
+
+// Enable dumping the display tree to a file (triggered in WebView.java)
+#define ANDROID_DUMP_DISPLAY_TREE
+
+// Allow webkit to initiate scroll when going to an anchor on a page
+// The implementation is not acceptable to webkit. Either scrollRectToVisible
+// needs additional flavor or parameter to know that it can't be ignored,
+// and/or script engine must keep whether event was user initiated.
+#define ANDROID_SCROLL_ON_GOTO_ANCHOR
+
+// Animated GIF support.
+#define ANDROID_ANIMATED_GIF
+
+// apple-touch-icon support in <link> tags
+#define ANDROID_APPLE_TOUCH_ICON
+
+// The user gesture flag is lost during a scheduled location change. We need to
+// maintain that flag until canHandleRequest to determine if a link was clicked
+// or if javascript tried to change the location.
+#define ANDROID_USER_GESTURE
+
 #endif  // PLATFORM(ANDROID)
 
 #ifdef __cplusplus
