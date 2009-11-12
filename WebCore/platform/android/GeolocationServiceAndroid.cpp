@@ -26,17 +26,17 @@
 #include "config.h"
 #include "GeolocationServiceAndroid.h"
 
-#include <JNIHelp.h>  // For jniRegisterNativeMethods
-#include <jni_utility.h>  // For getJNIEnv
-
 #include "Geoposition.h"
 #include "PositionError.h"
 #include "PositionOptions.h"
 #include "WebViewCore.h"
+
+#include <JNIHelp.h>  // For jniRegisterNativeMethods
+#include <jni_utility.h>  // For getJNIEnv
 #include <wtf/CurrentTime.h>
 
 using JSC::Bindings::getJNIEnv;
-using std::max;
+using namespace std;
 
 namespace WebCore {
 
