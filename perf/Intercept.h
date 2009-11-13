@@ -67,7 +67,7 @@ public:
         , m_timer(this, &MyWebFrame::timerFired) {}
 
     virtual WebCoreResourceLoader* startLoadingResource(ResourceHandle* handle,
-            const ResourceRequest& req, bool, bool);
+            const ResourceRequest& req, bool);
 
     virtual bool canHandleRequest(const ResourceRequest&) { return true; }
 
