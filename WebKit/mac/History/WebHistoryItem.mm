@@ -107,7 +107,7 @@ void WKNotifyHistoryItemChanged()
 
 - (id)initWithURLString:(NSString *)URLString title:(NSString *)title lastVisitedTimeInterval:(NSTimeInterval)time
 {
-    WebCoreThreadViolationCheck();
+    WebCoreThreadViolationCheckRoundOne();
     return [self initWithWebCoreHistoryItem:HistoryItem::create(URLString, title, time)];
 }
 
@@ -126,7 +126,7 @@ void WKNotifyHistoryItemChanged()
 
 - (void)finalize
 {
-    WebCoreThreadViolationCheck();
+    WebCoreThreadViolationCheckRoundOne();
     // FIXME: ~HistoryItem is what releases the history item's icon from the icon database
     // It's probably not good to release icons from the database only when the object is garbage-collected. 
     // Need to change design so this happens at a predictable time.
@@ -140,7 +140,7 @@ void WKNotifyHistoryItemChanged()
 
 - (id)copyWithZone:(NSZone *)zone
 {
-    WebCoreThreadViolationCheck();
+    WebCoreThreadViolationCheckRoundOne();
     WebHistoryItem *copy = (WebHistoryItem *)NSCopyObject(self, 0, zone);
     RefPtr<HistoryItem> item = core(_private)->copy();
     copy->_private = kitPrivate(item.get());
@@ -175,7 +175,7 @@ void WKNotifyHistoryItemChanged()
     core(_private)->setAlternateTitle(alternateTitle);
 }
 
-- (NSString *)alternateTitle;
+- (NSString *)alternateTitle
 {
     return nsStringNilIfEmpty(core(_private)->alternateTitle());
 }
@@ -218,7 +218,8 @@ void WKNotifyHistoryItemChanged()
     HistoryItem* coreItem = core(_private);
     NSMutableString *result = [NSMutableString stringWithFormat:@"%@ %@", [super description], (NSString*)coreItem->urlString()];
     if (coreItem->target()) {
-        [result appendFormat:@" in \"%@\"", (NSString*)coreItem->target()];
+        NSString *target = coreItem->target();
+        [result appendFormat:@" in \"%@\"", target];
     }
     if (coreItem->isTargetItem()) {
         [result appendString:@" *target*"];
@@ -256,6 +257,9 @@ HistoryItem* core(WebHistoryItem *item)
 {
     if (!item)
         return 0;
+    
+    ASSERT(historyItemWrappers().get(core(item->_private)) == item);
+
     return core(item->_private);
 }
 
@@ -299,7 +303,7 @@ static WebWindowWatcher *_windowWatcher = nil;
 
 - (id)initWithWebCoreHistoryItem:(PassRefPtr<HistoryItem>)item
 {   
-    WebCoreThreadViolationCheck();
+    WebCoreThreadViolationCheckRoundOne();
     // Need to tell WebCore what function to call for the 
     // "History Item has Changed" notification - no harm in doing this
     // everytime a WebHistoryItem is created
@@ -325,7 +329,7 @@ static WebWindowWatcher *_windowWatcher = nil;
     core(_private)->setVisitCount(count);
 }
 
-- (void)setViewState:(id)statePList;
+- (void)setViewState:(id)statePList
 {
     core(_private)->setViewState(statePList);
 }
@@ -378,10 +382,10 @@ static WebWindowWatcher *_windowWatcher = nil;
 
     if (NSArray *redirectURLs = [dict _webkit_arrayForKey:redirectURLsKey]) {
         NSUInteger size = [redirectURLs count];
-        std::auto_ptr<Vector<String> > redirectURLsVector(new Vector<String>(size));
+        OwnPtr<Vector<String> > redirectURLsVector(new Vector<String>(size));
         for (NSUInteger i = 0; i < size; ++i)
             (*redirectURLsVector)[i] = String([redirectURLs _webkit_stringAtIndex:i]);
-        core(_private)->setRedirectURLs(redirectURLsVector);
+        core(_private)->setRedirectURLs(redirectURLsVector.release());
     }
 
     NSArray *dailyCounts = [dict _webkit_arrayForKey:dailyVisitCountKey];
@@ -417,14 +421,9 @@ static WebWindowWatcher *_windowWatcher = nil;
     return core(_private)->scrollPoint();
 }
 
-- (void)_visitedWithTitle:(NSString *)title
+- (void)_visitedWithTitle:(NSString *)title increaseVisitCount:(BOOL)increaseVisitCount
 {
-    core(_private)->visited(title, [NSDate timeIntervalSinceReferenceDate]);
-}
-
-- (void)_setVisitCount:(int)count
-{
-    core(_private)->setVisitCount(count);
+    core(_private)->visited(title, [NSDate timeIntervalSinceReferenceDate], increaseVisitCount ? IncreaseVisitCount : DoNotIncreaseVisitCount);
 }
 
 - (void)_recordInitialVisit
@@ -582,10 +581,7 @@ static WebWindowWatcher *_windowWatcher = nil;
 - (WebHistoryItem *)targetItem
 {    
     ASSERT_MAIN_THREAD();
-    HistoryItem* coreItem = core(_private);
-    if (coreItem->isTargetItem() || !coreItem->hasChildren())
-        return self;
-    return kit(coreItem->recurseToFindTargetItem());
+    return kit(core(_private)->targetItem());
 }
 
 + (void)_releaseAllPendingPageCaches
@@ -649,11 +645,19 @@ static WebWindowWatcher *_windowWatcher = nil;
 @end
 
 
-// FIXME: <rdar://problem/4886761>
-// This is a bizarre policy - we flush the page caches ANY time ANY window is closed?  
+// FIXME: <rdar://problem/4886761>.
+// This is a bizarre policy. We flush the page caches ANY time ANY window is closed?
+
 @implementation WebWindowWatcher
--(void)windowWillClose:(NSNotification *)notification
+
+- (void)windowWillClose:(NSNotification *)notification
 {
+    if (!pthread_main_np()) {
+        [self performSelectorOnMainThread:_cmd withObject:notification waitUntilDone:NO];
+        return;
+    }
+
     pageCache()->releaseAutoreleasedPagesNow();
 }
+
 @end

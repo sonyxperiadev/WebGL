@@ -34,7 +34,7 @@
 namespace JSC {
 static const unsigned numCharactersToStore = 0x100;
 
-class SmallStringsStorage : Noncopyable {
+class SmallStringsStorage : public Noncopyable {
 public:
     SmallStringsStorage();
 
@@ -47,24 +47,16 @@ private:
 };
 
 SmallStringsStorage::SmallStringsStorage()
+    : m_base(m_characters, numCharactersToStore)
 {
-    for (unsigned i = 0; i < numCharactersToStore; ++i)
-        m_characters[i] = i;
-
     m_base.rc = numCharactersToStore + 1;
-    m_base.buf = m_characters;
-    m_base.len = numCharactersToStore;
-    m_base.offset = 0;
-    m_base._hash = 0;
-    m_base.m_baseString = 0;
-    m_base.preCapacity = 0;
-    m_base.usedPreCapacity = 0;
-    m_base.reportedCost = 0;
-
     // make sure UString doesn't try to reuse the buffer by pretending we have one more character in it
     m_base.usedCapacity = numCharactersToStore + 1;
     m_base.capacity = numCharactersToStore + 1;
     m_base.checkConsistency();
+
+    for (unsigned i = 0; i < numCharactersToStore; ++i)
+        m_characters[i] = i;
 
     memset(&m_reps, 0, sizeof(m_reps));
     for (unsigned i = 0; i < numCharactersToStore; ++i) {
@@ -93,10 +85,10 @@ SmallStrings::~SmallStrings()
 void SmallStrings::mark()
 {
     if (m_emptyString && !m_emptyString->marked())
-        m_emptyString->mark();
+        m_emptyString->markCellDirect();
     for (unsigned i = 0; i < numCharactersToStore; ++i) {
         if (m_singleCharacterStrings[i] && !m_singleCharacterStrings[i]->marked())
-            m_singleCharacterStrings[i]->mark();
+            m_singleCharacterStrings[i]->markCellDirect();
     }
 }
 

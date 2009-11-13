@@ -25,7 +25,12 @@
 
 #include "config.h"
 #include "IconDatabase.h"
+
+#if !ENABLE(ICONDATABASE)
+
+#include "PlatformString.h"
 #include "SharedBuffer.h"
+#include <wtf/StdLibExtras.h>
 
 namespace WebCore {
 
@@ -47,8 +52,8 @@ const int updateTimerDelay = 5;
 
 String IconDatabase::defaultDatabaseFilename()
 {
-    static String defaultDatabaseFilename = "Icons.db";
-    return defaultDatabaseFilename;
+    DEFINE_STATIC_LOCAL(String, defaultDatabaseFilename, ("Icons.db"));
+    return defaultDatabaseFilename.copy();
 }
 
 IconDatabase* iconDatabase()
@@ -62,7 +67,7 @@ IconDatabase::IconDatabase()
 {
 }
 
-bool IconDatabase::open(const String& databasePath)
+bool IconDatabase::open(const String& /*databasePath*/)
 {
     return false;
 }
@@ -85,7 +90,7 @@ void IconDatabase::removeAllIcons()
 {
 }
 
-void IconDatabase::setPrivateBrowsingEnabled(bool flag)
+void IconDatabase::setPrivateBrowsingEnabled(bool /*flag*/)
 {
 }
 
@@ -99,7 +104,7 @@ void IconDatabase::readIconForPageURLFromDisk(const String&)
 
 }
 
-Image* IconDatabase::iconForPageURL(const String& pageURL, const IntSize& size)
+Image* IconDatabase::iconForPageURL(const String& /*pageURL*/, const IntSize& size)
 {
     return defaultIcon(size);
 }
@@ -115,33 +120,33 @@ bool IconDatabase::iconDataKnownForIconURL(const String&)
     return false;
 }
 
-String IconDatabase::iconURLForPageURL(const String& pageURL)
+String IconDatabase::iconURLForPageURL(const String& /*pageURL*/)
 {
     return String();
 }
 
-Image* IconDatabase::defaultIcon(const IntSize& size)
+Image* IconDatabase::defaultIcon(const IntSize& /*size*/)
 {
     return 0;
 }
 
-void IconDatabase::retainIconForPageURL(const String& pageURL)
+void IconDatabase::retainIconForPageURL(const String& /*pageURL*/)
 {
 }
 
-void IconDatabase::releaseIconForPageURL(const String& pageURL)
+void IconDatabase::releaseIconForPageURL(const String& /*pageURL*/)
 {
 }
 
-void IconDatabase::setIconDataForIconURL(PassRefPtr<SharedBuffer> data, const String& iconURL)
+void IconDatabase::setIconDataForIconURL(PassRefPtr<SharedBuffer> /*data*/, const String& /*iconURL*/)
 {
 }
 
-void IconDatabase::setIconURLForPageURL(const String& iconURL, const String& pageURL)
+void IconDatabase::setIconURLForPageURL(const String& /*iconURL*/, const String& /*pageURL*/)
 {
 }
 
-void IconDatabase::setEnabled(bool enabled)
+void IconDatabase::setEnabled(bool /*enabled*/)
 {
 }
 
@@ -167,8 +172,47 @@ void IconDatabase::allowDatabaseCleanup()
 {
 }
 
+size_t IconDatabase::pageURLMappingCount()
+{
+    return 0;
+}
+
+size_t IconDatabase::retainedPageURLCount()
+{
+    return 0;
+}
+
+size_t IconDatabase::iconRecordCount()
+{
+    return 0;
+}
+
+size_t IconDatabase::iconRecordCountWithData()
+{
+    return 0;
+}
+
 void IconDatabase::setClient(IconDatabaseClient*)
 {
 }
 
+// ************************
+// *** Sync Thread Only ***
+// ************************
+
+void IconDatabase::importIconURLForPageURL(const String&, const String&)
+{
+}
+
+void IconDatabase::importIconDataForIconURL(PassRefPtr<SharedBuffer>, const String&)
+{
+}
+
+bool IconDatabase::shouldStopThreadActivity() const
+{
+    return true;
+}
+
 } // namespace WebCore
+
+#endif // !ENABLE(ICONDATABASE)

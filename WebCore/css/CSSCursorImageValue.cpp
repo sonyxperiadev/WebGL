@@ -27,6 +27,7 @@
 #include "PlatformString.h"
 #include "RenderStyle.h"
 #include <wtf/MathExtras.h>
+#include <wtf/UnusedParam.h>
 
 #if ENABLE(SVG)
 #include "SVGCursorElement.h"
@@ -39,7 +40,7 @@ namespace WebCore {
 static inline bool isSVGCursorIdentifier(const String& url)
 {
     KURL kurl(url);
-    return kurl.hasRef();
+    return kurl.hasFragmentIdentifier();
 }
 
 static inline SVGCursorElement* resourceReferencedByCursorElement(const String& fragmentId, Document* document)
@@ -79,7 +80,9 @@ CSSCursorImageValue::~CSSCursorImageValue()
 
 bool CSSCursorImageValue::updateIfSVGCursorIsUsed(Element* element)
 {
-#if ENABLE(SVG)
+#if !ENABLE(SVG)
+    UNUSED_PARAM(element);
+#else
     if (!element || !element->isSVGElement())
         return false;
 

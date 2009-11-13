@@ -28,14 +28,10 @@
 
 #if ENABLE(XPATH)
 
-#include "CString.h"
-#include "Console.h"
-#include "DOMWindow.h"
 #include "Document.h"
 #include "ExceptionCode.h"
 #include "Frame.h"
 #include "JSDOMWindowCustom.h"
-#include "JSDOMBinding.h"
 #include "ScriptController.h"
 #include <runtime/JSLock.h>
 
@@ -43,7 +39,7 @@ namespace WebCore {
 
 using namespace JSC;
 
-PassRefPtr<JSCustomXPathNSResolver> JSCustomXPathNSResolver::create(JSC::ExecState* exec, JSC::JSValuePtr value)
+PassRefPtr<JSCustomXPathNSResolver> JSCustomXPathNSResolver::create(JSC::ExecState* exec, JSC::JSValue value)
 {
     if (value.isUndefinedOrNull())
         return 0;
@@ -76,19 +72,19 @@ String JSCustomXPathNSResolver::lookupNamespaceURI(const String& prefix)
     if (!m_frame->script()->isEnabled())
         return String();
 
-    JSLock lock(false);
+    JSLock lock(SilenceAssertionsOnly);
 
     JSGlobalObject* globalObject = m_frame->script()->globalObject();
     ExecState* exec = globalObject->globalExec();
         
-    JSValuePtr function = m_customResolver->get(exec, Identifier(exec, "lookupNamespaceURI"));
+    JSValue function = m_customResolver->get(exec, Identifier(exec, "lookupNamespaceURI"));
     CallData callData;
     CallType callType = function.getCallData(callData);
     if (callType == CallTypeNone) {
         callType = m_customResolver->getCallData(callData);
         if (callType == CallTypeNone) {
             // FIXME: Pass actual line number and source URL.
-            m_frame->domWindow()->console()->addMessage(JSMessageSource, ErrorMessageLevel, "XPathNSResolver does not have a lookupNamespaceURI method.", 0, String());
+            m_frame->domWindow()->console()->addMessage(JSMessageSource, LogMessageType, ErrorMessageLevel, "XPathNSResolver does not have a lookupNamespaceURI method.", 0, String());
             return String();
         }
         function = m_customResolver;
@@ -96,12 +92,12 @@ String JSCustomXPathNSResolver::lookupNamespaceURI(const String& prefix)
 
     RefPtr<JSCustomXPathNSResolver> selfProtector(this);
 
-    ArgList args;
+    MarkedArgumentBuffer args;
     args.append(jsString(exec, prefix));
 
-    globalObject->startTimeoutCheck();
-    JSValuePtr retval = call(exec, function, callType, callData, m_customResolver, args);
-    globalObject->stopTimeoutCheck();
+    globalObject->globalData()->timeoutChecker.start();
+    JSValue retval = call(exec, function, callType, callData, m_customResolver, args);
+    globalObject->globalData()->timeoutChecker.stop();
 
     String result;
     if (exec->hadException())
@@ -111,7 +107,7 @@ String JSCustomXPathNSResolver::lookupNamespaceURI(const String& prefix)
             result = retval.toString(exec);
     }
 
-    Document::updateDocumentsRendering();
+    Document::updateStyleForAllDocuments();
 
     return result;
 }

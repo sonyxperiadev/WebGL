@@ -26,6 +26,8 @@
 #include "config.h"
 #include "JavaScriptProfileNode.h"
 
+#if ENABLE(JAVASCRIPT_DEBUGGER)
+
 #include "JSDOMBinding.h"
 #include <profiler/ProfileNode.h>
 #include <JavaScriptCore/APICast.h>
@@ -46,7 +48,7 @@ namespace WebCore {
 typedef HashMap<ProfileNode*, JSObject*> ProfileNodeMap;
 
 static ProfileNodeMap& profileNodeCache()
-{ 
+{
     DEFINE_STATIC_LOCAL(ProfileNodeMap, staticProfileNodes, ());
     return staticProfileNodes;
 }
@@ -82,7 +84,7 @@ static JSValueRef getLineNumber(JSContextRef ctx, JSObjectRef thisObject, JSStri
 
 static JSValueRef getTotalTime(JSContextRef ctx, JSObjectRef thisObject, JSStringRef, JSValueRef*)
 {
-    JSC::JSLock lock(false);
+    JSC::JSLock lock(SilenceAssertionsOnly);
 
     if (!JSValueIsObjectOfClass(ctx, thisObject, ProfileNodeClass()))
         return JSValueMakeUndefined(ctx);
@@ -93,7 +95,7 @@ static JSValueRef getTotalTime(JSContextRef ctx, JSObjectRef thisObject, JSStrin
 
 static JSValueRef getSelfTime(JSContextRef ctx, JSObjectRef thisObject, JSStringRef, JSValueRef*)
 {
-    JSC::JSLock lock(false);
+    JSC::JSLock lock(SilenceAssertionsOnly);
 
     if (!JSValueIsObjectOfClass(ctx, thisObject, ProfileNodeClass()))
         return JSValueMakeUndefined(ctx);
@@ -104,7 +106,7 @@ static JSValueRef getSelfTime(JSContextRef ctx, JSObjectRef thisObject, JSString
 
 static JSValueRef getTotalPercent(JSContextRef ctx, JSObjectRef thisObject, JSStringRef, JSValueRef*)
 {
-    JSC::JSLock lock(false);
+    JSC::JSLock lock(SilenceAssertionsOnly);
 
     if (!JSValueIsObjectOfClass(ctx, thisObject, ProfileNodeClass()))
         return JSValueMakeUndefined(ctx);
@@ -115,7 +117,7 @@ static JSValueRef getTotalPercent(JSContextRef ctx, JSObjectRef thisObject, JSSt
 
 static JSValueRef getSelfPercent(JSContextRef ctx, JSObjectRef thisObject, JSStringRef, JSValueRef*)
 {
-    JSC::JSLock lock(false);
+    JSC::JSLock lock(SilenceAssertionsOnly);
 
     if (!JSValueIsObjectOfClass(ctx, thisObject, ProfileNodeClass()))
         return JSValueMakeUndefined(ctx);
@@ -126,7 +128,7 @@ static JSValueRef getSelfPercent(JSContextRef ctx, JSObjectRef thisObject, JSStr
 
 static JSValueRef getNumberOfCalls(JSContextRef ctx, JSObjectRef thisObject, JSStringRef, JSValueRef*)
 {
-    JSC::JSLock lock(false);
+    JSC::JSLock lock(SilenceAssertionsOnly);
 
     if (!JSValueIsObjectOfClass(ctx, thisObject, ProfileNodeClass()))
         return JSValueMakeUndefined(ctx);
@@ -137,7 +139,7 @@ static JSValueRef getNumberOfCalls(JSContextRef ctx, JSObjectRef thisObject, JSS
 
 static JSValueRef getChildren(JSContextRef ctx, JSObjectRef thisObject, JSStringRef, JSValueRef* exception)
 {
-    JSC::JSLock lock(false);
+    JSC::JSLock lock(SilenceAssertionsOnly);
 
     if (!JSValueIsObjectOfClass(ctx, thisObject, ProfileNodeClass()))
         return JSValueMakeUndefined(ctx);
@@ -162,7 +164,7 @@ static JSValueRef getChildren(JSContextRef ctx, JSObjectRef thisObject, JSString
         return JSValueMakeUndefined(ctx);
 
     JSRetainPtr<JSStringRef> pushString(Adopt, JSStringCreateWithUTF8CString("push"));
-    
+
     JSValueRef pushProperty = JSObjectGetProperty(ctx, result, pushString.get(), exception);
     if (exception && *exception)
         return JSValueMakeUndefined(ctx);
@@ -171,8 +173,9 @@ static JSValueRef getChildren(JSContextRef ctx, JSObjectRef thisObject, JSString
     if (exception && *exception)
         return JSValueMakeUndefined(ctx);
 
+    ExecState* exec = toJS(ctx);
     for (Vector<RefPtr<ProfileNode> >::const_iterator it = children.begin(); it != children.end(); ++it) {
-        JSValueRef arg0 = toRef(toJS(toJS(ctx), (*it).get() ));
+        JSValueRef arg0 = toRef(exec, toJS(exec, (*it).get() ));
         JSObjectCallAsFunction(ctx, pushFunction, result, 1, &arg0, exception);
         if (exception && *exception)
             return JSValueMakeUndefined(ctx);
@@ -181,15 +184,50 @@ static JSValueRef getChildren(JSContextRef ctx, JSObjectRef thisObject, JSString
     return result;
 }
 
+static JSValueRef getParent(JSContextRef ctx, JSObjectRef thisObject, JSStringRef, JSValueRef*)
+{
+    JSC::JSLock lock(SilenceAssertionsOnly);
+
+    if (!JSValueIsObjectOfClass(ctx, thisObject, ProfileNodeClass()))
+        return JSValueMakeUndefined(ctx);
+
+    ProfileNode* profileNode = static_cast<ProfileNode*>(JSObjectGetPrivate(thisObject));
+    ExecState* exec = toJS(ctx);
+    return toRef(exec, toJS(exec, profileNode->parent()));
+}
+
+static JSValueRef getHead(JSContextRef ctx, JSObjectRef thisObject, JSStringRef, JSValueRef*)
+{
+    JSC::JSLock lock(SilenceAssertionsOnly);
+
+    if (!JSValueIsObjectOfClass(ctx, thisObject, ProfileNodeClass()))
+        return JSValueMakeUndefined(ctx);
+
+    ProfileNode* profileNode = static_cast<ProfileNode*>(JSObjectGetPrivate(thisObject));
+    ExecState* exec = toJS(ctx);
+    return toRef(exec, toJS(exec, profileNode->head()));
+}
+
 static JSValueRef getVisible(JSContextRef ctx, JSObjectRef thisObject, JSStringRef, JSValueRef*)
 {
-    JSC::JSLock lock(false);
+    JSC::JSLock lock(SilenceAssertionsOnly);
 
     if (!JSValueIsObjectOfClass(ctx, thisObject, ProfileNodeClass()))
         return JSValueMakeUndefined(ctx);
 
     ProfileNode* profileNode = static_cast<ProfileNode*>(JSObjectGetPrivate(thisObject));
     return JSValueMakeBoolean(ctx, profileNode->visible());
+}
+
+static JSValueRef getCallUID(JSContextRef ctx, JSObjectRef thisObject, JSStringRef, JSValueRef*)
+{
+    JSC::JSLock lock(SilenceAssertionsOnly);
+
+    if (!JSValueIsObjectOfClass(ctx, thisObject, ProfileNodeClass()))
+        return JSValueMakeUndefined(ctx);
+
+    ProfileNode* profileNode = static_cast<ProfileNode*>(JSObjectGetPrivate(thisObject));
+    return JSValueMakeNumber(ctx, profileNode->callIdentifier().hash());
 }
 
 static void finalize(JSObjectRef object)
@@ -211,7 +249,10 @@ JSClassRef ProfileNodeClass()
         { "selfPercent", getSelfPercent, 0, kJSPropertyAttributeNone },
         { "numberOfCalls", getNumberOfCalls, 0, kJSPropertyAttributeNone },
         { "children", getChildren, 0, kJSPropertyAttributeNone },
+        { "parent", getParent, 0, kJSPropertyAttributeNone },
+        { "head", getHead, 0, kJSClassAttributeNone },
         { "visible", getVisible, 0, kJSPropertyAttributeNone },
+        { "callUID", getCallUID, 0, kJSPropertyAttributeNone },
         { 0, 0, 0, 0 }
     };
 
@@ -224,7 +265,7 @@ JSClassRef ProfileNodeClass()
     return profileNodeClass;
 }
 
-JSValuePtr toJS(ExecState* exec, ProfileNode* profileNode)
+JSValue toJS(ExecState* exec, ProfileNode* profileNode)
 {
     if (!profileNode)
         return jsNull();
@@ -241,3 +282,5 @@ JSValuePtr toJS(ExecState* exec, ProfileNode* profileNode)
 }
 
 } // namespace WebCore
+
+#endif // ENABLE(JAVASCRIPT_DEBUGGER)

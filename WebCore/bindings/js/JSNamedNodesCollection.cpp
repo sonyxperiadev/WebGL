@@ -29,32 +29,32 @@
 #include "AtomicString.h"
 #include "Element.h"
 #include "JSNode.h"
-#include "NamedAttrMap.h"
+#include "NamedNodeMap.h"
 
 namespace WebCore {
 
 using namespace JSC;
 
-ASSERT_CLASS_FITS_IN_CELL(JSNamedNodesCollection)
+ASSERT_CLASS_FITS_IN_CELL(JSNamedNodesCollection);
 
 const ClassInfo JSNamedNodesCollection::s_info = { "Collection", 0, 0, 0 };
 
 // Such a collection is usually very short-lived, it only exists
 // for constructs like document.forms.<name>[1],
 // so it shouldn't be a problem that it's storing all the nodes (with the same name). (David)
-JSNamedNodesCollection::JSNamedNodesCollection(ExecState* exec, const Vector<RefPtr<Node> >& nodes)
-    : DOMObject(getDOMStructure<JSNamedNodesCollection>(exec))
+JSNamedNodesCollection::JSNamedNodesCollection(ExecState* exec, JSDOMGlobalObject* globalObject, const Vector<RefPtr<Node> >& nodes)
+    : DOMObjectWithGlobalPointer(getDOMStructure<JSNamedNodesCollection>(exec, globalObject), globalObject)
     , m_nodes(new Vector<RefPtr<Node> >(nodes))
 {
 }
 
-JSValuePtr JSNamedNodesCollection::lengthGetter(ExecState* exec, const Identifier&, const PropertySlot& slot)
+JSValue JSNamedNodesCollection::lengthGetter(ExecState* exec, const Identifier&, const PropertySlot& slot)
 {
     JSNamedNodesCollection* thisObj = static_cast<JSNamedNodesCollection*>(asObject(slot.slotBase()));
     return jsNumber(exec, thisObj->m_nodes->size());
 }
 
-JSValuePtr JSNamedNodesCollection::indexGetter(ExecState* exec, const Identifier&, const PropertySlot& slot)
+JSValue JSNamedNodesCollection::indexGetter(ExecState* exec, const Identifier&, const PropertySlot& slot)
 {
     JSNamedNodesCollection *thisObj = static_cast<JSNamedNodesCollection*>(asObject(slot.slotBase()));
     return toJS(exec, (*thisObj->m_nodes)[slot.index()].get());
@@ -86,7 +86,7 @@ bool JSNamedNodesCollection::getOwnPropertySlot(ExecState* exec, const Identifie
         }
     }
 
-    return DOMObject::getOwnPropertySlot(exec, propertyName, slot);
+    return DOMObjectWithGlobalPointer::getOwnPropertySlot(exec, propertyName, slot);
 }
 
 } // namespace WebCore

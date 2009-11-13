@@ -24,8 +24,8 @@
  */
 
 #include "CachedPrefix.h"
-#include "CachedFrame.h"
 #include "CachedHistory.h"
+#include "CachedRoot.h"
 #include "Node.h"
 #include "PlatformString.h"
 
@@ -34,13 +34,13 @@
 
 namespace android {
 
-void CachedNode::clearFocus(CachedFrame* parent)
+void CachedNode::clearCursor(CachedFrame* parent)
 {
     if (isFrame()) {
         CachedFrame* child = const_cast<CachedFrame*>(parent->hasFrame(this));
-        child->clearFocus();
+        child->clearCursor();
     }
-    mIsFocus = false;
+    mIsCursor = false;
 }
 
 bool CachedNode::Clip(const WebCore::IntRect& outer, WebCore::IntRect* inner,
@@ -73,24 +73,40 @@ bool CachedNode::Clip(const WebCore::IntRect& outer, WebCore::IntRect* inner,
 
 bool CachedNode::clip(const WebCore::IntRect& bounds)
 {
-    return Clip(bounds, &mBounds, &mFocusRing);
+    return Clip(bounds, &mBounds, &mCursorRing);
 }
 
 #define OVERLAP 3
 
-void CachedNode::fixUpFocusRects()
+void CachedNode::fixUpCursorRects(const CachedRoot* root)
 {
-    if (mFixedUpFocusRects)
+    if (mFixedUpCursorRects)
         return;
-    mFixedUpFocusRects = true;
+    mFixedUpCursorRects = true;
+    // if the hit-test rect doesn't intersect any other rect, use it
+    if (mHitBounds != mBounds && mHitBounds.contains(mBounds) &&
+            root->checkRings(mCursorRing, mHitBounds)) {
+        DBG_NAV_LOGD("use mHitBounds (%d,%d,%d,%d)", mHitBounds.x(),
+            mHitBounds.y(), mHitBounds.width(), mHitBounds.height());
+        mUseHitBounds = true;
+        return;
+    }
     if (mNavableRects <= 1)
         return;
+    // if there is more than 1 rect, and the bounds doesn't intersect
+    // any other cursor ring bounds, use it
+    if (root->checkRings(mCursorRing, mBounds)) {
+        DBG_NAV_LOGD("use mBounds (%d,%d,%d,%d)", mBounds.x(),
+            mBounds.y(), mBounds.width(), mBounds.height());
+        mUseBounds = true;
+        return;
+    }
 #if DEBUG_NAV_UI
     {
-        WebCore::IntRect* boundsPtr = mFocusRing.begin() - 1;
-        const WebCore::IntRect* const boundsEnd = mFocusRing.begin() + mFocusRing.size();
+        WebCore::IntRect* boundsPtr = mCursorRing.begin() - 1;
+        const WebCore::IntRect* const boundsEnd = mCursorRing.begin() + mCursorRing.size();
         while (++boundsPtr < boundsEnd)
-            LOGD("%s %d:(%d, %d, %d, %d)\n", __FUNCTION__, boundsPtr - mFocusRing.begin(),
+            LOGD("%s %d:(%d, %d, %d, %d)\n", __FUNCTION__, boundsPtr - mCursorRing.begin(),
                 boundsPtr->x(), boundsPtr->y(), boundsPtr->width(), boundsPtr->height());
     }
 #endif
@@ -98,16 +114,16 @@ void CachedNode::fixUpFocusRects()
     bool again;
     do {
         again = false;
-        size_t size = mFocusRing.size();
-        WebCore::IntRect* unitBoundsPtr = mFocusRing.begin() - 1;
-        const WebCore::IntRect* const unitBoundsEnd = mFocusRing.begin() + size;
+        size_t size = mCursorRing.size();
+        WebCore::IntRect* unitBoundsPtr = mCursorRing.begin() - 1;
+        const WebCore::IntRect* const unitBoundsEnd = mCursorRing.begin() + size;
         while (++unitBoundsPtr < unitBoundsEnd) {
             // any other unitBounds to the left or right of this one?
             int unitTop = unitBoundsPtr->y();
             int unitBottom = unitBoundsPtr->bottom();
             int unitLeft = unitBoundsPtr->x();
             int unitRight = unitBoundsPtr->right();
-            WebCore::IntRect* testBoundsPtr = mFocusRing.begin() - 1;
+            WebCore::IntRect* testBoundsPtr = mCursorRing.begin() - 1;
             while (++testBoundsPtr < unitBoundsEnd) {
                 if (unitBoundsPtr == testBoundsPtr)
                     continue;
@@ -135,7 +151,7 @@ void CachedNode::fixUpFocusRects()
                 WebCore::IntRect candidate = WebCore::IntRect(candidateLeft, candidateTop, 
                     candidateRight - candidateLeft, candidateBottom - candidateTop);
                 // does a different unit bounds intersect the candidate? if so, don't add
-                WebCore::IntRect* checkBoundsPtr = mFocusRing.begin() - 1;
+                WebCore::IntRect* checkBoundsPtr = mCursorRing.begin() - 1;
                 while (++checkBoundsPtr < unitBoundsEnd) {
                     if (checkBoundsPtr->intersects(candidate) == false)
                         continue;
@@ -163,10 +179,10 @@ void CachedNode::fixUpFocusRects()
                     candidateRight - candidateLeft, candidateBottom - candidateTop);
                  ASSERT(candidate.isEmpty() == false);
 #if DEBUG_NAV_UI
-                LOGD("%s %d:(%d, %d, %d, %d)\n", __FUNCTION__, mFocusRing.size(),
+                LOGD("%s %d:(%d, %d, %d, %d)\n", __FUNCTION__, mCursorRing.size(),
                     candidate.x(), candidate.y(), candidate.width(), candidate.height());
 #endif
-                mFocusRing.append(candidate);
+                mCursorRing.append(candidate);
                 again = true;
                 goto tryAgain;
         nextCheck:
@@ -179,14 +195,23 @@ tryAgain:
 }
 
 
-void CachedNode::focusRingBounds(WebCore::IntRect* bounds) const
+void CachedNode::cursorRingBounds(WebCore::IntRect* bounds) const
 {
     int partMax = mNavableRects;
     ASSERT(partMax > 0);
-    *bounds = mFocusRing[0];
+    *bounds = mCursorRing[0];
     for (int partIndex = 1; partIndex < partMax; partIndex++)
-        bounds->unite(mFocusRing[partIndex]);
-    bounds->inflate(FOCUS_RING_HIT_TEST_RADIUS);
+        bounds->unite(mCursorRing[partIndex]);
+    bounds->inflate(CURSOR_RING_HIT_TEST_RADIUS);
+}
+
+void CachedNode::hideCursor(CachedFrame* parent)
+{
+    if (isFrame()) {
+        CachedFrame* child = const_cast<CachedFrame*>(parent->hasFrame(this));
+        child->hideCursor();
+    }
+    mIsHidden = true;
 }
 
 void CachedNode::init(WebCore::Node* node)
@@ -203,8 +228,8 @@ void CachedNode::move(int x, int y)
 {
     mBounds.move(x, y);
     // mHitTestBounds will be moved by caller
-    WebCore::IntRect* first = mFocusRing.begin();
-    WebCore::IntRect* last = first + mFocusRing.size();
+    WebCore::IntRect* first = mCursorRing.begin();
+    WebCore::IntRect* last = first + mCursorRing.size();
     --first;
     while (++first != last)
         first->move(x, y);
@@ -216,10 +241,10 @@ bool CachedNode::partRectsContains(const CachedNode* other) const
     int outerMax = mNavableRects;
     int innerMax = other->mNavableRects;
     do {
-        const WebCore::IntRect& outerBounds = mFocusRing[outerIndex];
+        const WebCore::IntRect& outerBounds = mCursorRing[outerIndex];
         int innerIndex = 0;
         do {
-            const WebCore::IntRect& innerBounds = other->mFocusRing[innerIndex];
+            const WebCore::IntRect& innerBounds = other->mCursorRing[innerIndex];
             if (innerBounds.contains(outerBounds))
                 return true;
         } while (++innerIndex < innerMax);
@@ -249,10 +274,10 @@ const char* CachedNode::Debug::condition(Condition t) const
         case BUTTED_UP: return "BUTTED_UP"; break;
         case CENTER_FURTHER: return "CENTER_FURTHER"; break;
         case CLOSER: return "CLOSER"; break;
-        case CLOSER_IN_FOCUS: return "CLOSER_IN_FOCUS"; break;
+        case CLOSER_IN_CURSOR: return "CLOSER_IN_CURSOR"; break;
         case CLOSER_OVERLAP: return "CLOSER_OVERLAP"; break;
         case CLOSER_TOP: return "CLOSER_TOP"; break;
-        case FOCUSABLE: return "FOCUSABLE"; break;
+        case NAVABLE: return "NAVABLE"; break;
         case FURTHER: return "FURTHER"; break;
         case IN_UMBRA: return "IN_UMBRA"; break;
         case IN_WORKING: return "IN_WORKING"; break;
@@ -264,11 +289,10 @@ const char* CachedNode::Debug::condition(Condition t) const
         case CHILD: return "CHILD"; break;
         case DISABLED: return "DISABLED"; break;
         case HIGHER_TAB_INDEX: return "HIGHER_TAB_INDEX"; break;
-        case IN_FOCUS: return "IN_FOCUS"; break;
-        case IN_FOCUS_CHILDREN: return "IN_FOCUS_CHILDREN"; break;
-        case NOT_ENCLOSING_FOCUS: return "NOT_ENCLOSING_FOCUS"; break;
-   //     case NOT_FOCUS_CHILD: return "NOT_FOCUS_CHILD"; break;
-        case NOT_FOCUS_NODE: return "NOT_FOCUS_NODE"; break;
+        case IN_CURSOR: return "IN_CURSOR"; break;
+        case IN_CURSOR_CHILDREN: return "IN_CURSOR_CHILDREN"; break;
+        case NOT_ENCLOSING_CURSOR: return "NOT_ENCLOSING_CURSOR"; break;
+        case NOT_CURSOR_NODE: return "NOT_CURSOR_NODE"; break;
         case OUTSIDE_OF_BEST: return "OUTSIDE_OF_BEST"; break;
         case OUTSIDE_OF_ORIGINAL: return "OUTSIDE_OF_ORIGINAL"; break;
         default: return "???";
@@ -302,9 +326,9 @@ void CachedNode::Debug::print() const
     DUMP_NAV_LOGD("%.*s\"\n", index, scratch);
     DEBUG_PRINT_RECT(mBounds);
     DEBUG_PRINT_RECT(mHitBounds);
-    const WTF::Vector<WebCore::IntRect>& rects = b->focusRings();
+    const WTF::Vector<WebCore::IntRect>& rects = b->cursorRings();
     size_t size = rects.size();
-    DUMP_NAV_LOGD("// IntRect focusRings={ // size=%d\n", size);
+    DUMP_NAV_LOGD("// IntRect cursorRings={ // size=%d\n", size);
     for (size_t i = 0; i < size; i++)
         DUMP_NAV_LOGD("    // {%d, %d, %d, %d}, // %d\n", rects[i].x(), rects[i].y(),
             rects[i].width(), rects[i].height(), i);
@@ -322,13 +346,14 @@ void CachedNode::Debug::print() const
     DUMP_NAV_LOGD("// Type mType=%s;\n", type(b->mType));
     DEBUG_PRINT_BOOL(mClippedOut);
     DEBUG_PRINT_BOOL(mDisabled);
-    DEBUG_PRINT_BOOL(mFixedUpFocusRects);
-    DEBUG_PRINT_BOOL(mHasFocusRing);
+    DEBUG_PRINT_BOOL(mFixedUpCursorRects);
+    DEBUG_PRINT_BOOL(mHasCursorRing);
     DEBUG_PRINT_BOOL(mHasMouseOver);
     DEBUG_PRINT_BOOL(mIsAnchor);
     DEBUG_PRINT_BOOL(mIsArea);
+    DEBUG_PRINT_BOOL(mIsCursor);
     DEBUG_PRINT_BOOL(mIsFocus);
-    DEBUG_PRINT_BOOL(mIsInput);
+    DEBUG_PRINT_BOOL(mIsHidden);
     DEBUG_PRINT_BOOL(mIsParentAnchor);
     DEBUG_PRINT_BOOL(mIsPassword);
     DEBUG_PRINT_BOOL(mIsRtlText);
@@ -337,6 +362,8 @@ void CachedNode::Debug::print() const
     DEBUG_PRINT_BOOL(mIsTransparent);
     DEBUG_PRINT_BOOL(mIsUnclipped);
     DEBUG_PRINT_BOOL(mLast);
+    DEBUG_PRINT_BOOL(mUseBounds);
+    DEBUG_PRINT_BOOL(mUseHitBounds);
     DEBUG_PRINT_BOOL(mWantsKeyEvents);
     DUMP_NAV_LOGD("\n");
 }

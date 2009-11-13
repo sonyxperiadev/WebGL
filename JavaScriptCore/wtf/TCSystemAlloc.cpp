@@ -1,4 +1,4 @@
-// Copyright (c) 2005, 2007, The Android Open Source Project
+// Copyright (c) 2005, 2007, Google Inc.
 // All rights reserved.
 // 
 // Redistribution and use in source and binary forms, with or without
@@ -31,6 +31,14 @@
 // Author: Sanjay Ghemawat
 
 #include "config.h"
+#include "TCSystemAlloc.h"
+
+#include <algorithm>
+#include <fcntl.h>
+#include "Assertions.h"
+#include "TCSpinLock.h"
+#include "UnusedParam.h"
+
 #if HAVE(STDINT_H)
 #include <stdint.h>
 #elif HAVE(INTTYPES_H)
@@ -38,6 +46,7 @@
 #else
 #include <sys/types.h>
 #endif
+
 #if PLATFORM(WIN_OS)
 #include "windows.h"
 #else
@@ -45,15 +54,12 @@
 #include <unistd.h>
 #include <sys/mman.h>
 #endif
-#include <fcntl.h>
-#include "Assertions.h"
-#include "TCSystemAlloc.h"
-#include "TCSpinLock.h"
-#include "UnusedParam.h"
 
 #ifndef MAP_ANONYMOUS
 #define MAP_ANONYMOUS MAP_ANON
 #endif
+
+using namespace std;
 
 // Structure for discovering alignment
 union MemoryAligner {
@@ -381,9 +387,24 @@ void* TCMalloc_SystemAlloc(size_t size, size_t *actual_size, size_t alignment) {
   return NULL;
 }
 
+#if HAVE(MADV_FREE_REUSE)
+
 void TCMalloc_SystemRelease(void* start, size_t length)
 {
-#if HAVE(MADV_DONTNEED)
+    while (madvise(start, length, MADV_FREE_REUSABLE) == -1 && errno == EAGAIN) { }
+}
+
+#elif HAVE(MADV_FREE) || HAVE(MADV_DONTNEED)
+
+void TCMalloc_SystemRelease(void* start, size_t length)
+{
+    // MADV_FREE clears the modified bit on pages, which allows
+    // them to be discarded immediately.
+#if HAVE(MADV_FREE)
+    const int advice = MADV_FREE;
+#else
+    const int advice = MADV_DONTNEED;
+#endif
   if (FLAGS_malloc_devmem_start) {
     // It's not safe to use MADV_DONTNEED if we've been mapping
     // /dev/mem for heap memory
@@ -410,29 +431,91 @@ void TCMalloc_SystemRelease(void* start, size_t length)
     // Note -- ignoring most return codes, because if this fails it
     // doesn't matter...
     while (madvise(reinterpret_cast<char*>(new_start), new_end - new_start,
-                   MADV_DONTNEED) == -1 &&
+                   advice) == -1 &&
            errno == EAGAIN) {
       // NOP
     }
-    return;
   }
-#endif
+}
 
-#if HAVE(MMAP)
+#elif HAVE(MMAP)
+
+void TCMalloc_SystemRelease(void* start, size_t length)
+{
   void* newAddress = mmap(start, length, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
   // If the mmap failed then that's ok, we just won't return the memory to the system.
   ASSERT_UNUSED(newAddress, newAddress == start || newAddress == reinterpret_cast<void*>(MAP_FAILED));
-  return;
-#endif
-
-#if !HAVE(MADV_DONTNEED) && !HAVE(MMAP)
-  UNUSED_PARAM(start);
-  UNUSED_PARAM(length);
-#endif
 }
 
-#if HAVE(VIRTUALALLOC)
-void TCMalloc_SystemCommit(void*, size_t)
+#elif HAVE(VIRTUALALLOC)
+
+void TCMalloc_SystemRelease(void* start, size_t length)
 {
+    if (VirtualFree(start, length, MEM_DECOMMIT))
+        return;
+
+    // The decommit may fail if the memory region consists of allocations
+    // from more than one call to VirtualAlloc.  In this case, fall back to
+    // using VirtualQuery to retrieve the allocation boundaries and decommit
+    // them each individually.
+
+    char* ptr = static_cast<char*>(start);
+    char* end = ptr + length;
+    MEMORY_BASIC_INFORMATION info;
+    while (ptr < end) {
+        size_t resultSize = VirtualQuery(ptr, &info, sizeof(info));
+        ASSERT_UNUSED(resultSize, resultSize == sizeof(info));
+
+        size_t decommitSize = min<size_t>(info.RegionSize, end - ptr);
+        BOOL success = VirtualFree(ptr, decommitSize, MEM_DECOMMIT);
+        ASSERT_UNUSED(success, success);
+        ptr += decommitSize;
+    }
 }
+
+#else
+
+// Platforms that don't support returning memory use an empty inline version of TCMalloc_SystemRelease
+// declared in TCSystemAlloc.h
+
+#endif
+
+#if HAVE(MADV_FREE_REUSE)
+
+void TCMalloc_SystemCommit(void* start, size_t length)
+{
+    while (madvise(start, length, MADV_FREE_REUSE) == -1 && errno == EAGAIN) { }
+}
+
+#elif HAVE(VIRTUALALLOC)
+
+void TCMalloc_SystemCommit(void* start, size_t length)
+{
+    if (VirtualAlloc(start, length, MEM_COMMIT, PAGE_READWRITE) == start)
+        return;
+
+    // The commit may fail if the memory region consists of allocations
+    // from more than one call to VirtualAlloc.  In this case, fall back to
+    // using VirtualQuery to retrieve the allocation boundaries and commit them
+    // each individually.
+
+    char* ptr = static_cast<char*>(start);
+    char* end = ptr + length;
+    MEMORY_BASIC_INFORMATION info;
+    while (ptr < end) {
+        size_t resultSize = VirtualQuery(ptr, &info, sizeof(info));
+        ASSERT_UNUSED(resultSize, resultSize == sizeof(info));
+
+        size_t commitSize = min<size_t>(info.RegionSize, end - ptr);
+        void* newAddress = VirtualAlloc(ptr, commitSize, MEM_COMMIT, PAGE_READWRITE);
+        ASSERT_UNUSED(newAddress, newAddress == ptr);
+        ptr += commitSize;
+    }
+}
+
+#else
+
+// Platforms that don't need to explicitly commit memory use an empty inline version of TCMalloc_SystemCommit
+// declared in TCSystemAlloc.h
+
 #endif

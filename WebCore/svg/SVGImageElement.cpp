@@ -1,9 +1,7 @@
 /*
     Copyright (C) 2004, 2005, 2006, 2008 Nikolas Zimmermann <zimmermann@kde.org>
-                  2004, 2005, 2006, 2007, 2008 Rob Buis <buis@kde.org>
+                  2004, 2005, 2006, 2007, 2008, 2009 Rob Buis <buis@kde.org>
                   2006 Alexander Kellett <lypanov@kde.org>
-
-    This file is part of the KDE project
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -27,6 +25,7 @@
 #include "SVGImageElement.h"
 
 #include "CSSPropertyNames.h"
+#include "MappedAttribute.h"
 #include "RenderSVGImage.h"
 #include "SVGDocument.h"
 #include "SVGLength.h"
@@ -92,10 +91,11 @@ void SVGImageElement::svgAttributeChanged(const QualifiedName& attrName)
 {
     SVGStyledTransformableElement::svgAttributeChanged(attrName);
 
+    if (SVGURIReference::isKnownAttribute(attrName))
+        m_imageLoader.updateFromElementIgnoringPreviousError();
+
     if (!renderer())
         return;
-
-    bool isURIAttribute = SVGURIReference::isKnownAttribute(attrName);
 
     if (attrName == SVGNames::xAttr || attrName == SVGNames::yAttr ||
         attrName == SVGNames::widthAttr || attrName == SVGNames::heightAttr ||
@@ -103,12 +103,8 @@ void SVGImageElement::svgAttributeChanged(const QualifiedName& attrName)
         SVGTests::isKnownAttribute(attrName) ||
         SVGLangSpace::isKnownAttribute(attrName) ||
         SVGExternalResourcesRequired::isKnownAttribute(attrName) ||
-        isURIAttribute ||
         SVGStyledTransformableElement::isKnownAttribute(attrName)) {
         renderer()->setNeedsLayout(true);
-
-        if (isURIAttribute)
-            m_imageLoader.updateFromElementIgnoringPreviousError();
     }
 }
 
@@ -132,7 +128,7 @@ void SVGImageElement::attach()
 {
     SVGStyledTransformableElement::attach();
 
-    if (RenderSVGImage* imageObj = static_cast<RenderSVGImage*>(renderer())) {
+    if (RenderImage* imageObj = toRenderImage(renderer())) {
         if (imageObj->hasImage())
             return;
 

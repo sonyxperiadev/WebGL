@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2003, 2006, 2007 Apple Inc.  All rights reserved.
+ * Copyright (C) 2008-2009 Torch Mobile, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -71,6 +72,8 @@ class wxWindowDC;
 #endif
 #elif PLATFORM(SKIA)
 typedef class PlatformContextSkia PlatformGraphicsContext;
+#elif PLATFORM(WINCE)
+typedef struct HDC__ PlatformGraphicsContext;
 #else
 typedef void PlatformGraphicsContext;
 #endif
@@ -93,6 +96,12 @@ typedef unsigned char UInt8;
 #endif
 
 namespace WebCore {
+
+#if PLATFORM(WINCE) && !PLATFORM(QT)
+    class SharedBitmap;
+    class SimpleFontData;
+    class GlyphBuffer;
+#endif
 
     const int cMisspellingLineThickness = 3;
     const int cMisspellingLinePatternWidth = 4;
@@ -123,6 +132,18 @@ namespace WebCore {
         DashedStroke
     };
 
+// FIXME: This is a place-holder until we decide to add
+// real color space support to WebCore.  At that time, ColorSpace will be a
+// class and instances will be held  off of Colors.   There will be
+// special singleton Gradient and Pattern color spaces to mark when
+// a fill or stroke is using a gradient or pattern instead of a solid color.
+// https://bugs.webkit.org/show_bug.cgi?id=20558
+    enum ColorSpace {
+        SolidColorSpace,
+        PatternColorSpace,
+        GradientColorSpace
+    };
+
     enum InterpolationQuality {
         InterpolationDefault,
         InterpolationNone,
@@ -131,20 +152,14 @@ namespace WebCore {
         InterpolationHigh
     };
 
-    // FIXME: Currently these constants have to match the values used in the SVG
-    // DOM API. That's a mistake. We need to make cut that dependency.
-    enum GradientSpreadMethod {
-        SpreadMethodPad = 1,
-        SpreadMethodReflect = 2,
-        SpreadMethodRepeat = 3
-    };
-
-    class GraphicsContext : Noncopyable {
+    class GraphicsContext : public Noncopyable {
     public:
         GraphicsContext(PlatformGraphicsContext*);
         ~GraphicsContext();
        
+#if !PLATFORM(WINCE) || PLATFORM(QT)
         PlatformGraphicsContext* platformContext() const;
+#endif
         
         float strokeThickness() const;
         void setStrokeThickness(float);
@@ -152,17 +167,28 @@ namespace WebCore {
         void setStrokeStyle(const StrokeStyle& style);
         Color strokeColor() const;
         void setStrokeColor(const Color&);
+
+        ColorSpace strokeColorSpace() const;
+
         void setStrokePattern(PassRefPtr<Pattern>);
+        Pattern* strokePattern() const;
+
         void setStrokeGradient(PassRefPtr<Gradient>);
+        Gradient* strokeGradient() const;
 
         WindRule fillRule() const;
         void setFillRule(WindRule);
-        GradientSpreadMethod spreadMethod() const;
-        void setSpreadMethod(GradientSpreadMethod);
         Color fillColor() const;
         void setFillColor(const Color&);
+
         void setFillPattern(PassRefPtr<Pattern>);
+        Pattern* fillPattern() const;
+
         void setFillGradient(PassRefPtr<Gradient>);
+        Gradient* fillGradient() const;
+
+        ColorSpace fillColorSpace() const;
+
         void setShadowsIgnoreTransforms(bool);
 
         void setShouldAntialias(bool);
@@ -206,6 +232,9 @@ namespace WebCore {
         void restore();
 
         // These draw methods will do both stroking and filling.
+        // FIXME: ...except drawRect(), which fills properly but always strokes
+        // using a 1-pixel stroke inset from the rect borders (of the correct
+        // stroke color).
         void drawRect(const IntRect&);
         void drawLine(const IntPoint&, const IntPoint&);
         void drawEllipse(const IntRect&);
@@ -311,7 +340,23 @@ namespace WebCore {
         void concatCTM(const TransformationMatrix&);
         TransformationMatrix getCTM() const;
 
-#if PLATFORM(WIN)
+#if PLATFORM(WINCE) && !PLATFORM(QT)
+        void setBitmap(PassRefPtr<SharedBitmap>);
+        const TransformationMatrix& affineTransform() const;
+        TransformationMatrix& affineTransform();
+        void resetAffineTransform();
+        void fillRect(const FloatRect&, const Gradient*);
+        void drawText(const SimpleFontData* fontData, const GlyphBuffer& glyphBuffer, int from, int numGlyphs, const FloatPoint& point);
+        void drawFrameControl(const IntRect& rect, unsigned type, unsigned state);
+        void drawFocusRect(const IntRect& rect);
+        void paintTextField(const IntRect& rect, unsigned state);
+        void drawBitmap(SharedBitmap*, const IntRect& dstRect, const IntRect& srcRect, CompositeOperator compositeOp);
+        void drawBitmapPattern(SharedBitmap*, const FloatRect& tileRectIn, const TransformationMatrix& patternTransform, const FloatPoint& phase, CompositeOperator op, const FloatRect& destRect, const IntSize& origSourceSize);
+        void drawIcon(HICON icon, const IntRect& dstRect, UINT flags);
+        HDC getWindowsContext(const IntRect&, bool supportAlphaBlend = false, bool mayCreateBitmap = true); // The passed in rect is used to create a bitmap for compositing inside transparency layers.
+        void releaseWindowsContext(HDC, const IntRect&, bool supportAlphaBlend = false, bool mayCreateBitmap = true);    // The passed in HDC should be the one handed back by getWindowsContext.
+        void drawRoundCorner(bool newClip, RECT clipRect, RECT rectWin, HDC dc, int width, int height);
+#elif PLATFORM(WIN)
         GraphicsContext(HDC, bool hasAlpha = false); // FIXME: To be removed.
         bool inTransparencyLayer() const;
         HDC getWindowsContext(const IntRect&, bool supportAlphaBlend = true, bool mayCreateBitmap = true); // The passed in rect is used to create a bitmap for compositing inside transparency layers.
@@ -356,6 +401,7 @@ namespace WebCore {
 #if PLATFORM(QT) && defined(Q_WS_WIN)
         HDC getWindowsContext(const IntRect&, bool supportAlphaBlend = true, bool mayCreateBitmap = true);
         void releaseWindowsContext(HDC, const IntRect&, bool supportAlphaBlend = true, bool mayCreateBitmap = true);
+        bool shouldIncludeChildWindows() const { return false; }
 #endif
 
 #if PLATFORM(QT)
@@ -380,8 +426,12 @@ namespace WebCore {
         void setPlatformStrokeColor(const Color&);
         void setPlatformStrokeStyle(const StrokeStyle&);
         void setPlatformStrokeThickness(float);
+        void setPlatformStrokeGradient(Gradient*);
+        void setPlatformStrokePattern(Pattern*);
 
         void setPlatformFillColor(const Color&);
+        void setPlatformFillGradient(Gradient*);
+        void setPlatformFillPattern(Pattern*);
 
         void setPlatformShouldAntialias(bool b);
 
@@ -402,3 +452,4 @@ namespace WebCore {
 } // namespace WebCore
 
 #endif // GraphicsContext_h
+

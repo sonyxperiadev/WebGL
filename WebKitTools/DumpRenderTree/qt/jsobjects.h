@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2008 Nokia Corporation and/or its subsidiary(-ies)
+ * Copyright (C) 2009 Torch Mobile Inc. http://www.torchmobile.com/
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -32,6 +33,8 @@
 #include <qdebug.h>
 #include <qpoint.h>
 #include <qstringlist.h>
+#include <qsize.h>
+#include <qbasictimer.h>
 
 class QWebFrame;
 namespace WebCore {
@@ -47,7 +50,9 @@ public:
     void setLoading(bool loading) { m_isLoading = loading; }
 
     bool shouldDumpAsText() const { return m_textDump; }
+    bool shouldDumpBackForwardList() const { return m_dumpBackForwardList; }
     bool shouldDumpChildrenAsText() const { return m_dumpChildrenAsText; }
+    bool shouldDumpDatabaseCallbacks() const { return m_dumpDatabaseCallbacks; }
     bool shouldWaitUntilDone() const { return m_waitForDone; }
     bool canOpenWindows() const { return m_canOpenWindows; }
     bool shouldDumpTitleChanges() const { return m_dumpTitleChanges; }
@@ -64,12 +69,18 @@ public slots:
     void maybeDump(bool ok);
     void dumpAsText() { m_textDump = true; }
     void dumpChildFramesAsText() { m_dumpChildrenAsText = true; }
+    void dumpDatabaseCallbacks() { m_dumpDatabaseCallbacks = true; }
     void setCanOpenWindows() { m_canOpenWindows = true; }
     void waitUntilDone();
     void notifyDone();
+    void dumpBackForwardList() { m_dumpBackForwardList = true; }
     void dumpEditingCallbacks();
     void dumpResourceLoadCallbacks();
+    void queueBackNavigation(int howFarBackward);
+    void queueForwardNavigation(int howFarForward);
+    void queueLoad(const QString &url, const QString &target = QString());
     void queueReload();
+    void queueScript(const QString &url);
     void provisionalLoad();
     void setCloseRemainingWindowsWhenComplete(bool=false) {}
     int windowCount();
@@ -79,15 +90,32 @@ public slots:
     QString encodeHostName(const QString &host);
     QString decodeHostName(const QString &host);
     void dumpSelectionRect() const {}
-    
+    void setJavaScriptProfilingEnabled(bool enable);
+    void setFixedContentsSize(int width, int height);
+    void setPrivateBrowsingEnabled(bool enable);
+
+    bool pauseAnimationAtTimeOnElementWithId(const QString &animationName, double time, const QString &elementId);
+    bool pauseTransitionAtTimeOnElementWithId(const QString &propertyName, double time, const QString &elementId);
+    unsigned numberOfActiveAnimations() const;
+    void dispatchPendingLoadRequests();
+    void disableImageLoading();
+
+    void setDatabaseQuota(int size);
+    void clearAllDatabases();
+
+private slots:
+    void processWork();
+
 private:
     bool m_isLoading;
     bool m_textDump;
+    bool m_dumpBackForwardList;
     bool m_dumpChildrenAsText;
     bool m_canOpenWindows;
     bool m_waitForDone;
     bool m_dumpTitleChanges;
-    int m_timeoutTimer;
+    bool m_dumpDatabaseCallbacks;
+    QBasicTimer m_timeoutTimer;
     QWebFrame *m_topLoadingFrame;
     WebCore::DumpRenderTree *m_drt;
 };
@@ -135,6 +163,18 @@ public slots:
 //     void characterIndexForPoint(int, int);
 //     void substringFromRange(int, int);
 //     void conversationIdentifier();
+};
+
+class GCController : public QObject
+{
+    Q_OBJECT
+public:
+    GCController(QWebPage* parent);
+
+public slots:
+    void collect() const;
+    void collectOnAlternateThread(bool waitUntilDone) const;
+    size_t getJSObjectCount() const;
 };
 
 #endif

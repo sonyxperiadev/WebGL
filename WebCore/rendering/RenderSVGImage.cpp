@@ -2,9 +2,8 @@
     Copyright (C) 2006 Alexander Kellett <lypanov@kde.org>
     Copyright (C) 2006 Apple Computer, Inc.
     Copyright (C) 2007 Nikolas Zimmermann <zimmermann@kde.org>
-    Copyright (C) 2007, 2008 Rob Buis <buis@kde.org>
-
-    This file is part of the WebKit project
+    Copyright (C) 2007, 2008, 2009 Rob Buis <buis@kde.org>
+    Copyright (C) 2009, Google, Inc.
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -32,6 +31,7 @@
 #include "FloatQuad.h"
 #include "GraphicsContext.h"
 #include "PointerEventsHitRules.h"
+#include "RenderLayer.h"
 #include "SVGImageElement.h"
 #include "SVGLength.h"
 #include "SVGPreserveAspectRatio.h"
@@ -47,10 +47,6 @@ RenderSVGImage::RenderSVGImage(SVGImageElement* impl)
 {
 }
 
-RenderSVGImage::~RenderSVGImage()
-{
-}
-
 void RenderSVGImage::adjustRectsForAspectRatio(FloatRect& destRect, FloatRect& srcRect, SVGPreserveAspectRatio* aspectRatio)
 {
     float origDestWidth = destRect.width();
@@ -59,7 +55,7 @@ void RenderSVGImage::adjustRectsForAspectRatio(FloatRect& destRect, FloatRect& s
         float widthToHeightMultiplier = srcRect.height() / srcRect.width();
         if (origDestHeight > (origDestWidth * widthToHeightMultiplier)) {
             destRect.setHeight(origDestWidth * widthToHeightMultiplier);
-            switch(aspectRatio->align()) {
+            switch (aspectRatio->align()) {
                 case SVGPreserveAspectRatio::SVG_PRESERVEASPECTRATIO_XMINYMID:
                 case SVGPreserveAspectRatio::SVG_PRESERVEASPECTRATIO_XMIDYMID:
                 case SVGPreserveAspectRatio::SVG_PRESERVEASPECTRATIO_XMAXYMID:
@@ -74,7 +70,7 @@ void RenderSVGImage::adjustRectsForAspectRatio(FloatRect& destRect, FloatRect& s
         }
         if (origDestWidth > (origDestHeight / widthToHeightMultiplier)) {
             destRect.setWidth(origDestHeight / widthToHeightMultiplier);
-            switch(aspectRatio->align()) {
+            switch (aspectRatio->align()) {
                 case SVGPreserveAspectRatio::SVG_PRESERVEASPECTRATIO_XMIDYMIN:
                 case SVGPreserveAspectRatio::SVG_PRESERVEASPECTRATIO_XMIDYMID:
                 case SVGPreserveAspectRatio::SVG_PRESERVEASPECTRATIO_XMIDYMAX:
@@ -93,7 +89,7 @@ void RenderSVGImage::adjustRectsForAspectRatio(FloatRect& destRect, FloatRect& s
         if (origDestHeight < (origDestWidth * widthToHeightMultiplier)) {
             float destToSrcMultiplier = srcRect.width() / destRect.width();
             srcRect.setHeight(destRect.height() * destToSrcMultiplier);
-            switch(aspectRatio->align()) {
+            switch (aspectRatio->align()) {
                 case SVGPreserveAspectRatio::SVG_PRESERVEASPECTRATIO_XMINYMID:
                 case SVGPreserveAspectRatio::SVG_PRESERVEASPECTRATIO_XMIDYMID:
                 case SVGPreserveAspectRatio::SVG_PRESERVEASPECTRATIO_XMAXYMID:
@@ -110,7 +106,7 @@ void RenderSVGImage::adjustRectsForAspectRatio(FloatRect& destRect, FloatRect& s
         if (origDestWidth < (origDestHeight / widthToHeightMultiplier)) {
             float destToSrcMultiplier = srcRect.height() / destRect.height();
             srcRect.setWidth(destRect.width() * destToSrcMultiplier);
-            switch(aspectRatio->align()) {
+            switch (aspectRatio->align()) {
                 case SVGPreserveAspectRatio::SVG_PRESERVEASPECTRATIO_XMIDYMIN:
                 case SVGPreserveAspectRatio::SVG_PRESERVEASPECTRATIO_XMIDYMID:
                 case SVGPreserveAspectRatio::SVG_PRESERVEASPECTRATIO_XMIDYMAX:
@@ -126,26 +122,14 @@ void RenderSVGImage::adjustRectsForAspectRatio(FloatRect& destRect, FloatRect& s
     }
 }
 
-bool RenderSVGImage::calculateLocalTransform()
-{
-    TransformationMatrix oldTransform = m_localTransform;
-    m_localTransform = static_cast<SVGStyledTransformableElement*>(element())->animatedLocalTransform();
-    return (m_localTransform != oldTransform);
-}
-
 void RenderSVGImage::layout()
 {
     ASSERT(needsLayout());
-    
-    IntRect oldBounds;
-    IntRect oldOutlineBox;
-    bool checkForRepaint = checkForRepaintDuringLayout();
-    if (checkForRepaint) {
-        oldBounds = absoluteClippedOverflowRect();
-        oldOutlineBox = absoluteOutlineBounds();
-    }
-    
-    calculateLocalTransform();
+
+    LayoutRepainter repainter(*this, checkForRepaintDuringLayout());
+
+    SVGImageElement* image = static_cast<SVGImageElement*>(node());
+    m_localTransform = image->animatedLocalTransform();
     
     // minimum height
     setHeight(errorOccurred() ? intrinsicSize().height() : 0);
@@ -153,14 +137,10 @@ void RenderSVGImage::layout()
     calcWidth();
     calcHeight();
 
-    SVGImageElement* image = static_cast<SVGImageElement*>(node());
     m_localBounds = FloatRect(image->x().value(image), image->y().value(image), image->width().value(image), image->height().value(image));
 
-    calculateAbsoluteBounds();
-
-    if (checkForRepaint)
-        repaintAfterLayoutIfNeeded(oldBounds, oldOutlineBox);
-
+    repainter.repaintAfterLayout();
+    
     setNeedsLayout(false);
 }
 
@@ -170,7 +150,7 @@ void RenderSVGImage::paint(PaintInfo& paintInfo, int, int)
         return;
 
     paintInfo.context->save();
-    paintInfo.context->concatCTM(localTransform());
+    paintInfo.context->concatCTM(localToParentTransform());
 
     if (paintInfo.phase == PaintPhaseForeground) {
         SVGResourceFilter* filter = 0;
@@ -187,14 +167,16 @@ void RenderSVGImage::paint(PaintInfo& paintInfo, int, int)
             adjustRectsForAspectRatio(destRect, srcRect, imageElt->preserveAspectRatio());
 
         paintInfo.context->drawImage(image(), destRect, srcRect);
-
-        finishRenderSVGContent(this, paintInfo, m_localBounds, filter, savedInfo.context);
+        finishRenderSVGContent(this, paintInfo, filter, savedInfo.context);
     }
-    
+
+    if ((paintInfo.phase == PaintPhaseOutline || paintInfo.phase == PaintPhaseSelfOutline) && style()->outlineWidth())
+        paintOutline(paintInfo.context, 0, 0, width(), height(), style());
+
     paintInfo.context->restore();
 }
 
-bool RenderSVGImage::nodeAtPoint(const HitTestRequest&, HitTestResult& result, int _x, int _y, int, int, HitTestAction hitTestAction)
+bool RenderSVGImage::nodeAtFloatPoint(const HitTestRequest&, HitTestResult& result, const FloatPoint& pointInParent, HitTestAction hitTestAction)
 {
     // We only draw in the forground phase, so we only hit-test then.
     if (hitTestAction != HitTestForeground)
@@ -204,12 +186,11 @@ bool RenderSVGImage::nodeAtPoint(const HitTestRequest&, HitTestResult& result, i
     
     bool isVisible = (style()->visibility() == VISIBLE);
     if (isVisible || !hitRules.requireVisible) {
-        double localX, localY;
-        absoluteTransform().inverse().map(_x, _y, &localX, &localY);
+        FloatPoint localPoint = localToParentTransform().inverse().mapPoint(pointInParent);
 
         if (hitRules.canHitFill) {
-            if (m_localBounds.contains(narrowPrecisionToFloat(localX), narrowPrecisionToFloat(localY))) {
-                updateHitTestResult(result, IntPoint(_x, _y));
+            if (m_localBounds.contains(localPoint)) {
+                updateHitTestResult(result, roundedIntPoint(localPoint));
                 return true;
             }
         }
@@ -218,56 +199,61 @@ bool RenderSVGImage::nodeAtPoint(const HitTestRequest&, HitTestResult& result, i
     return false;
 }
 
-FloatRect RenderSVGImage::relativeBBox(bool) const
+bool RenderSVGImage::nodeAtPoint(const HitTestRequest&, HitTestResult&, int, int, int, int, HitTestAction)
+{
+    ASSERT_NOT_REACHED();
+    return false;
+}
+
+FloatRect RenderSVGImage::objectBoundingBox() const
 {
     return m_localBounds;
+}
+
+FloatRect RenderSVGImage::repaintRectInLocalCoordinates() const
+{
+    FloatRect repaintRect = m_localBounds;
+
+    // Filters can paint outside the image content
+    repaintRect.unite(filterBoundingBoxForRenderer(this));
+
+    return repaintRect;
 }
 
 void RenderSVGImage::imageChanged(WrappedImagePtr image, const IntRect* rect)
 {
     RenderImage::imageChanged(image, rect);
-
-    // We override to invalidate a larger rect, since SVG images can draw outside their "bounds"
-    repaintRectangle(absoluteClippedOverflowRect());
+    repaint();
 }
 
-void RenderSVGImage::calculateAbsoluteBounds()
+IntRect RenderSVGImage::clippedOverflowRectForRepaint(RenderBoxModelObject* repaintContainer)
 {
-    // FIXME: broken with CSS transforms
-    FloatRect absoluteRect = absoluteTransform().mapRect(relativeBBox(true));
-
-#if ENABLE(SVG_FILTERS)
-    // Filters can expand the bounding box
-    SVGResourceFilter* filter = getFilterById(document(), style()->svgStyle()->filter());
-    if (filter)
-        absoluteRect.unite(filter->filterBBoxForItemBBox(absoluteRect));
-#endif
-
-    if (!absoluteRect.isEmpty())
-        absoluteRect.inflate(1); // inflate 1 pixel for antialiasing
-
-    m_absoluteBounds = enclosingIntRect(absoluteRect);
+    return SVGRenderBase::clippedOverflowRectForRepaint(this, repaintContainer);
 }
 
-IntRect RenderSVGImage::clippedOverflowRectForRepaint(RenderBox* /*repaintContainer*/)
+void RenderSVGImage::computeRectForRepaint(RenderBoxModelObject* repaintContainer, IntRect& repaintRect, bool fixed)
 {
-    // FIXME: handle non-root repaintContainer
-    return m_absoluteBounds;
+    SVGRenderBase::computeRectForRepaint(this, repaintContainer, repaintRect, fixed);
+}
+
+void RenderSVGImage::mapLocalToContainer(RenderBoxModelObject* repaintContainer, bool fixed , bool useTransforms, TransformState& transformState) const
+{
+    SVGRenderBase::mapLocalToContainer(this, repaintContainer, fixed, useTransforms, transformState);
 }
 
 void RenderSVGImage::addFocusRingRects(GraphicsContext* graphicsContext, int, int)
 {
     // this is called from paint() after the localTransform has already been applied
-    IntRect contentRect = enclosingIntRect(relativeBBox());
+    IntRect contentRect = enclosingIntRect(repaintRectInLocalCoordinates());
     graphicsContext->addFocusRingRect(contentRect);
 }
 
-void RenderSVGImage::absoluteRects(Vector<IntRect>& rects, int, int, bool)
+void RenderSVGImage::absoluteRects(Vector<IntRect>& rects, int, int)
 {
     rects.append(absoluteClippedOverflowRect());
 }
 
-void RenderSVGImage::absoluteQuads(Vector<FloatQuad>& quads, bool)
+void RenderSVGImage::absoluteQuads(Vector<FloatQuad>& quads)
 {
     quads.append(FloatRect(absoluteClippedOverflowRect()));
 }

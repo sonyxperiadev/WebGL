@@ -63,7 +63,7 @@ public:
     }
 private:
     DebugServer();
-    Vector<Frame*> m_frames;
+    WTF::Vector<Frame*> m_frames;
     ThreadIdentifier m_threadId;
     friend DebugServer* server();
 };

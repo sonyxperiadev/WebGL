@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2005, 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -34,28 +34,24 @@
 
 #ifdef __cplusplus
 #import <WebCore/WebCoreKeyboardUIMode.h>
-#endif
 
-#ifdef __cplusplus
 namespace WebCore {
-    class KeyboardEvent;
-    class KURL;
-    class Page;
     class String;
+    class Frame;
+    class KURL;
+    class KeyboardEvent;
+    class Page;
 }
-typedef WebCore::KeyboardEvent WebCoreKeyboardEvent;
-typedef WebCore::Page WebCorePage;
-#else
-@class WebCoreKeyboardEvent;
-@class WebCorePage;
 #endif
 
 @class WebBasePluginPackage;
 @class WebDownload;
 @class WebNodeHighlight;
 
+#ifdef __cplusplus
+
 @interface WebView (WebViewEditingExtras)
-- (BOOL)_interceptEditingKeyEvent:(WebCoreKeyboardEvent *)event shouldSaveCommand:(BOOL)shouldSave;
+- (BOOL)_interceptEditingKeyEvent:(WebCore::KeyboardEvent*)event shouldSaveCommand:(BOOL)shouldSave;
 - (BOOL)_shouldChangeSelectedDOMRange:(DOMRange *)currentRange toDOMRange:(DOMRange *)proposedRange affinity:(NSSelectionAffinity)selectionAffinity stillSelecting:(BOOL)flag;
 @end
 
@@ -66,22 +62,52 @@ typedef WebCore::Page WebCorePage;
 @end
 
 @interface WebView (WebViewInternal)
-#ifdef __cplusplus
+
+- (WebCore::Frame*)_mainCoreFrame;
+
 - (WebCore::String)_userAgentForURL:(const WebCore::KURL&)url;
 - (WebCore::KeyboardUIMode)_keyboardUIMode;
+
+- (BOOL)_becomingFirstResponderFromOutside;
+
+#if ENABLE(ICONDATABASE)
+- (void)_registerForIconNotification:(BOOL)listen;
+- (void)_dispatchDidReceiveIconFromWebFrame:(WebFrame *)webFrame;
 #endif
+
+- (void)_setMouseDownEvent:(NSEvent *)event;
+- (void)_cancelUpdateMouseoverTimer;
+- (void)_stopAutoscrollTimer;
+- (void)_updateMouseoverWithFakeEvent;
+- (void)_selectionChanged;
+- (void)_setToolTip:(NSString *)toolTip;
+
+#if USE(ACCELERATED_COMPOSITING)
+- (BOOL)_needsOneShotDrawingSynchronization;
+- (void)_setNeedsOneShotDrawingSynchronization:(BOOL)needsSynchronization;
+- (void)_startedAcceleratedCompositingForFrame:(WebFrame*)webFrame;
+- (void)_stoppedAcceleratedCompositingForFrame:(WebFrame*)webFrame;
+- (void)_scheduleCompositingLayerSync;
+#endif
+
 @end
 
-@interface WebView (WebViewMiscInternal)
+#endif
+
+// FIXME: Temporary way to expose methods that are in the wrong category inside WebView.
+@interface WebView (WebViewOtherInternal)
 
 + (void)_setCacheModel:(WebCacheModel)cacheModel;
 + (WebCacheModel)_cacheModel;
-- (WebCorePage*)page;
+
+#ifdef __cplusplus
+- (WebCore::Page*)page;
+#endif
+
 - (NSMenu *)_menuForElement:(NSDictionary *)element defaultItems:(NSArray *)items;
 - (id)_UIDelegateForwarder;
 - (id)_editingDelegateForwarder;
 - (id)_policyDelegateForwarder;
-- (id)_scriptDebugDelegateForwarder;
 - (void)_pushPerformingProgrammaticFocus;
 - (void)_popPerformingProgrammaticFocus;
 - (void)_incrementProgressForIdentifier:(id)identifier response:(NSURLResponse *)response;
@@ -124,12 +150,8 @@ typedef WebCore::Page WebCorePage;
 - (void)_addObject:(id)object forIdentifier:(unsigned long)identifier;
 - (id)_objectForIdentifier:(unsigned long)identifier;
 - (void)_removeObjectForIdentifier:(unsigned long)identifier;
-- (BOOL)_becomingFirstResponderFromOutside;
 
-- (void)_registerForIconNotification:(BOOL)listen;
-- (void)_dispatchDidReceiveIconFromWebFrame:(WebFrame *)webFrame;
-
-- (void)_setZoomMultiplier:(float)m isTextOnly:(BOOL)isTextOnly;
+- (void)_setZoomMultiplier:(float)multiplier isTextOnly:(BOOL)isTextOnly;
 - (float)_zoomMultiplier:(BOOL)isTextOnly;
 - (float)_realZoomMultiplier;
 - (BOOL)_realZoomMultiplierIsTextOnly;
@@ -141,83 +163,9 @@ typedef WebCore::Page WebCorePage;
 - (IBAction)_resetZoom:(id)sender isTextOnly:(BOOL)isTextOnly;
 
 - (BOOL)_mustDrawUnionedRect:(NSRect)rect singleRects:(const NSRect *)rects count:(NSInteger)count;
-- (void)_updateFocusedAndActiveStateForFrame:(WebFrame *)webFrame;
 
 + (BOOL)_canHandleRequest:(NSURLRequest *)request forMainFrame:(BOOL)forMainFrame;
 
+- (void)_setInsertionPasteboard:(NSPasteboard *)pasteboard;
+
 @end
-
-typedef struct _WebResourceDelegateImplementationCache {
-    IMP didCancelAuthenticationChallengeFunc;
-    IMP didReceiveAuthenticationChallengeFunc;
-    IMP identifierForRequestFunc;
-    IMP willSendRequestFunc;
-    IMP didReceiveResponseFunc;
-    IMP didReceiveContentLengthFunc;
-    IMP didFinishLoadingFromDataSourceFunc;
-    IMP didFailLoadingWithErrorFromDataSourceFunc;
-    IMP didLoadResourceFromMemoryCacheFunc;
-    IMP willCacheResponseFunc;
-    IMP plugInFailedWithErrorFunc;
-    IMP shouldUseCredentialStorageFunc;
-} WebResourceDelegateImplementationCache;
-
-typedef struct _WebFrameLoadDelegateImplementationCache {
-    IMP didClearWindowObjectForFrameFunc;
-    IMP windowScriptObjectAvailableFunc;
-    IMP didHandleOnloadEventsForFrameFunc;
-    IMP didReceiveServerRedirectForProvisionalLoadForFrameFunc;
-    IMP didCancelClientRedirectForFrameFunc;
-    IMP willPerformClientRedirectToURLDelayFireDateForFrameFunc;
-    IMP didChangeLocationWithinPageForFrameFunc;
-    IMP willCloseFrameFunc;
-    IMP didStartProvisionalLoadForFrameFunc;
-    IMP didReceiveTitleForFrameFunc;
-    IMP didCommitLoadForFrameFunc;
-    IMP didFailProvisionalLoadWithErrorForFrameFunc;
-    IMP didFailLoadWithErrorForFrameFunc;
-    IMP didFinishLoadForFrameFunc;
-    IMP didFirstLayoutInFrameFunc;
-    IMP didFirstVisuallyNonEmptyLayoutInFrameFunc;
-    IMP didReceiveIconForFrameFunc;
-    IMP didFinishDocumentLoadForFrameFunc;
-} WebFrameLoadDelegateImplementationCache;
-
-WebResourceDelegateImplementationCache* WebViewGetResourceLoadDelegateImplementations(WebView *webView);
-WebFrameLoadDelegateImplementationCache* WebViewGetFrameLoadDelegateImplementations(WebView *webView);
-
-#ifdef __cplusplus
-
-id CallFormDelegate(WebView *, SEL, id, id);
-id CallFormDelegate(WebView *self, SEL selector, id object1, id object2, id object3, id object4, id object5);
-BOOL CallFormDelegateReturningBoolean(BOOL, WebView *, SEL, id, SEL, id);
-
-id CallUIDelegate(WebView *, SEL);
-id CallUIDelegate(WebView *, SEL, id);
-id CallUIDelegate(WebView *, SEL, NSRect);
-id CallUIDelegate(WebView *, SEL, id, id);
-id CallUIDelegate(WebView *, SEL, id, BOOL);
-id CallUIDelegate(WebView *, SEL, id, id, id);
-id CallUIDelegate(WebView *, SEL, id, NSUInteger);
-float CallUIDelegateReturningFloat(WebView *, SEL);
-BOOL CallUIDelegateReturningBoolean(BOOL, WebView *, SEL);
-BOOL CallUIDelegateReturningBoolean(BOOL, WebView *, SEL, id);
-BOOL CallUIDelegateReturningBoolean(BOOL, WebView *, SEL, id, id);
-BOOL CallUIDelegateReturningBoolean(BOOL, WebView *, SEL, id, BOOL);
-
-id CallFrameLoadDelegate(IMP, WebView *, SEL);
-id CallFrameLoadDelegate(IMP, WebView *, SEL, id);
-id CallFrameLoadDelegate(IMP, WebView *, SEL, id, id);
-id CallFrameLoadDelegate(IMP, WebView *, SEL, id, id, id);
-id CallFrameLoadDelegate(IMP, WebView *, SEL, id, id, id, id);
-id CallFrameLoadDelegate(IMP, WebView *, SEL, id, NSTimeInterval, id, id);
-
-id CallResourceLoadDelegate(IMP, WebView *, SEL, id, id);
-id CallResourceLoadDelegate(IMP, WebView *, SEL, id, id, id);
-id CallResourceLoadDelegate(IMP, WebView *, SEL, id, id, id, id);
-id CallResourceLoadDelegate(IMP, WebView *, SEL, id, NSInteger, id);
-id CallResourceLoadDelegate(IMP, WebView *, SEL, id, id, NSInteger, id);
-
-BOOL CallResourceLoadDelegateReturningBoolean(BOOL, IMP, WebView *, SEL, id, id);
-
-#endif

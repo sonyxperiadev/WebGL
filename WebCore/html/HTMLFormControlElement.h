@@ -24,16 +24,15 @@
 #ifndef HTMLFormControlElement_h
 #define HTMLFormControlElement_h
 
-#include "FormControlElement.h"
-#include "FormControlElementWithState.h"
 #include "HTMLElement.h"
 
 namespace WebCore {
 
 class FormDataList;
 class HTMLFormElement;
+class ValidityState;
 
-class HTMLFormControlElement : public HTMLElement, public FormControlElement {
+class HTMLFormControlElement : public HTMLElement {
 public:
     HTMLFormControlElement(const QualifiedName& tagName, Document*, HTMLFormElement*);
     virtual ~HTMLFormControlElement();
@@ -42,11 +41,10 @@ public:
     virtual int tagPriority() const { return 1; }
 
     HTMLFormElement* form() const { return m_form; }
+    virtual ValidityState* validity();
 
-    virtual const AtomicString& type() const = 0;
-
-    virtual bool isControl() const { return true; }
-    virtual bool isEnabled() const { return !disabled(); }
+    virtual bool isTextFormControl() const { return false; }
+    virtual bool isEnabledFormControl() const { return !disabled(); }
 
     virtual void parseMappedAttribute(MappedAttribute*);
     virtual void attach();
@@ -55,10 +53,10 @@ public:
 
     virtual void reset() {}
 
-    virtual bool valueMatchesRenderer() const { return m_valueMatchesRenderer; }
-    virtual void setValueMatchesRenderer(bool b = true) { m_valueMatchesRenderer = b; }
+    virtual bool formControlValueMatchesRenderer() const { return m_valueMatchesRenderer; }
+    virtual void setFormControlValueMatchesRenderer(bool b) { m_valueMatchesRenderer = b; }
 
-    void onChange();
+    virtual void dispatchFormControlChangeEvent();
 
     bool disabled() const;
     void setDisabled(bool);
@@ -69,16 +67,24 @@ public:
     virtual bool isMouseFocusable() const;
     virtual bool isEnumeratable() const { return false; }
 
-    virtual bool isReadOnlyControl() const { return m_readOnly; }
+    virtual bool isReadOnlyFormControl() const { return m_readOnly; }
     void setReadOnly(bool);
 
     // Determines whether or not a control will be automatically focused
     virtual bool autofocus() const;
     void setAutofocus(bool);
 
+    bool required() const;
+    void setRequired(bool);
+
     virtual void recalcStyle(StyleChange);
 
-    virtual const AtomicString& name() const;
+    virtual const AtomicString& formControlName() const;
+    virtual const AtomicString& formControlType() const = 0;
+
+    const AtomicString& type() const { return formControlType(); }
+    const AtomicString& name() const { return formControlName(); }
+
     void setName(const AtomicString& name);
 
     virtual bool isFormControlElement() const { return true; }
@@ -96,8 +102,15 @@ public:
     virtual short tabIndex() const;
 
     virtual bool willValidate() const;
+    void setCustomValidity(const String&);
+
+    virtual bool valueMissing() const { return false; }
+    virtual bool patternMismatch() const { return false; }
 
     void formDestroyed() { m_form = 0; }
+
+    virtual void dispatchFocusEvent();
+    virtual void dispatchBlurEvent();
 
 protected:
     void removeFromForm();
@@ -106,19 +119,17 @@ private:
     virtual HTMLFormElement* virtualForm() const;
 
     HTMLFormElement* m_form;
+    RefPtr<ValidityState> m_validityState;
     bool m_disabled;
     bool m_readOnly;
     bool m_valueMatchesRenderer;
 };
 
-class HTMLFormControlElementWithState : public HTMLFormControlElement, public FormControlElementWithState  {
+class HTMLFormControlElementWithState : public HTMLFormControlElement {
 public:
     HTMLFormControlElementWithState(const QualifiedName& tagName, Document*, HTMLFormElement*);
     virtual ~HTMLFormControlElementWithState();
 
-    virtual bool isFormControlElementWithState() const { return true; }
-
-    virtual FormControlElement* toFormControlElement() { return this; }
     virtual void finishParsingChildren();
 
 protected:

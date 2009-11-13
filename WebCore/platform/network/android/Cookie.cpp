@@ -34,10 +34,10 @@ namespace WebCore {
 
     class Document;
 
-    void setCookies(Document* , const KURL& url, const KURL& policyBaseURL, const String& value)
+    void setCookies(Document*, const KURL& url, const String& value)
     {
         if (JavaSharedClient::GetCookieClient())
-            JavaSharedClient::GetCookieClient()->setCookies(url, policyBaseURL, value);
+            JavaSharedClient::GetCookieClient()->setCookies(url, value);
     }
 
     String cookies(const Document* , const KURL& url)

@@ -50,7 +50,7 @@ Completion checkSyntax(ExecState* exec, const SourceCode& source)
     return Completion(Normal);
 }
 
-Completion evaluate(ExecState* exec, ScopeChain& scopeChain, const SourceCode& source, JSValuePtr thisValue)
+Completion evaluate(ExecState* exec, ScopeChain& scopeChain, const SourceCode& source, JSValue thisValue)
 {
     JSLock lock(exec);
     
@@ -63,12 +63,12 @@ Completion evaluate(ExecState* exec, ScopeChain& scopeChain, const SourceCode& s
 
     JSObject* thisObj = (!thisValue || thisValue.isUndefinedOrNull()) ? exec->dynamicGlobalObject() : thisValue.toObject(exec);
 
-    JSValuePtr exception = noValue();
-    JSValuePtr result = exec->interpreter()->execute(programNode.get(), exec, scopeChain.node(), thisObj, &exception);
+    JSValue exception;
+    JSValue result = exec->interpreter()->execute(programNode.get(), exec, scopeChain.node(), thisObj, &exception);
 
     if (exception) {
         if (exception.isObject() && asObject(exception)->isWatchdogException())
-            return Completion(Interrupted, result);
+            return Completion(Interrupted, exception);
         return Completion(Throw, exception);
     }
     return Completion(Normal, result);

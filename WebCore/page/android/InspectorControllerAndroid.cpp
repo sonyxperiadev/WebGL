@@ -26,12 +26,16 @@
 #include "config.h"
 #include "InspectorController.h"
 
+#include "InspectorBackend.h"
 #include "InspectorClient.h"
+#include "InspectorDOMAgent.h"
+#include "InspectorFrontend.h"
 
 #include "Frame.h"
 #include "Node.h"
+#if USE(JSC)
 #include "Profile.h"
-
+#endif
 // This stub file was created to avoid building and linking in all the
 // Inspector codebase. If you would like to enable the Inspector, do the
 // following steps:
@@ -60,11 +64,17 @@ namespace WebCore {
 struct InspectorResource : public RefCounted<InspectorResource> {
 };
 
+#if ENABLE(DATABASE)
 struct InspectorDatabaseResource : public RefCounted<InspectorDatabaseResource> {
 };
+#endif
+
+#if ENABLE(DOM_STORAGE)
+struct InspectorDOMStorageResource : public RefCounted<InspectorDatabaseResource> {
+};
+#endif
 
 InspectorController::InspectorController(Page*, InspectorClient* client)
-    : m_startProfiling(this, 0)
 {
     m_client = client;
 }
@@ -80,18 +90,20 @@ void InspectorController::didReceiveContentLength(DocumentLoader*, unsigned long
 void InspectorController::didFinishLoading(DocumentLoader*, unsigned long) {}
 void InspectorController::didLoadResourceFromMemoryCache(DocumentLoader*, const CachedResource*) {}
 void InspectorController::frameDetachedFromParent(Frame*) {}
-
-void InspectorController::addMessageToConsole(MessageSource, MessageLevel, ScriptCallStack*) {}
-void InspectorController::addMessageToConsole(MessageSource, MessageLevel, const String& message, unsigned lineNumber, const String& sourceID) {}
+void InspectorController::addMessageToConsole(WebCore::MessageSource, WebCore::MessageType, WebCore::MessageLevel, WebCore::String const&, unsigned int, WebCore::String const&) {}
+void InspectorController::addMessageToConsole(WebCore::MessageSource, WebCore::MessageType, WebCore::MessageLevel, ScriptCallStack*) {}
 #if ENABLE(DATABASE)
 void InspectorController::didOpenDatabase(Database*, String const&, String const&, String const&) {}
+#endif
+#if ENABLE(DOM_STORAGE)
+    void InspectorController::didUseDOMStorage(StorageArea* storageArea, bool isLocalStorage, Frame* frame)  {}
 #endif
 bool InspectorController::enabled() const { return false; }
 void InspectorController::inspect(Node*) {}
 bool InspectorController::windowVisible() { return false; }
-void InspectorController::addProfile(PassRefPtr<JSC::Profile>, unsigned int, const JSC::UString&) {}
+void InspectorController::resourceRetrievedByXMLHttpRequest(unsigned long identifier, const ScriptString& sourceString) {}
+void InspectorController::scriptImported(unsigned long identifier, const String& sourceString) {}
 void InspectorController::inspectedPageDestroyed() {}
-void InspectorController::resourceRetrievedByXMLHttpRequest(unsigned long identifier, const JSC::UString& sourceString) {}
 
 void InspectorController::inspectedWindowScriptObjectCleared(Frame* frame) {}
 void InspectorController::startGroup(MessageSource source, ScriptCallStack* callFrame) {}
@@ -102,8 +114,9 @@ void InspectorController::count(const String& title, unsigned lineNumber, const 
 
 void InspectorController::mouseDidMoveOverElement(const HitTestResult&, unsigned modifierFlags) {}
 void InspectorController::handleMousePressOnNode(Node*) {}
-void InspectorController::failedToParseSource(JSC::ExecState* exec, const JSC::SourceCode& source, int errorLine, const JSC::UString& errorMessage) {}    
-void InspectorController::didParseSource(JSC::ExecState* exec, const JSC::SourceCode& source) {}
+
+#if ENABLE(JAVASCRIPT_DEBUGGER)
 void InspectorController::didPause() {}
+#endif
 
 }  // namespace WebCore

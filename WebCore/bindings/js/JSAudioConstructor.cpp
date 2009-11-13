@@ -41,42 +41,34 @@ namespace WebCore {
 
 const ClassInfo JSAudioConstructor::s_info = { "AudioConstructor", 0, 0, 0 };
 
-JSAudioConstructor::JSAudioConstructor(ExecState* exec, ScriptExecutionContext* context)
-    : DOMObject(JSAudioConstructor::createStructure(exec->lexicalGlobalObject()->objectPrototype()))
+JSAudioConstructor::JSAudioConstructor(ExecState* exec, JSDOMGlobalObject* globalObject)
+    : DOMConstructorWithDocument(JSAudioConstructor::createStructure(globalObject->objectPrototype()), globalObject)
 {
-    ASSERT(context->isDocument());
-    m_document = static_cast<JSDocument*>(asObject(toJS(exec, static_cast<Document*>(context))));
-
+    putDirect(exec->propertyNames().prototype, JSHTMLAudioElementPrototype::self(exec, globalObject), None);
     putDirect(exec->propertyNames().length, jsNumber(exec, 1), ReadOnly|DontDelete|DontEnum);
 }
 
 static JSObject* constructAudio(ExecState* exec, JSObject* constructor, const ArgList& args)
 {
+    JSAudioConstructor* jsAudio = static_cast<JSAudioConstructor*>(constructor);
     // FIXME: Why doesn't this need the call toJS on the document like JSImageConstructor?
-
-    Document* document = static_cast<JSAudioConstructor*>(constructor)->document();
+    Document* document = jsAudio->document();
     if (!document)
         return throwError(exec, ReferenceError, "Audio constructor associated document is unavailable");
 
     RefPtr<HTMLAudioElement> audio = new HTMLAudioElement(HTMLNames::audioTag, document);
+    audio->setAutobuffer(true);
     if (args.size() > 0) {
-        audio->setSrc(args.at(exec, 0).toString(exec));
+        audio->setSrc(args.at(0).toString(exec));
         audio->scheduleLoad();
     }
-    return asObject(toJS(exec, audio.release()));
+    return asObject(toJS(exec, jsAudio->globalObject(), audio.release()));
 }
 
 ConstructType JSAudioConstructor::getConstructData(ConstructData& constructData)
 {
     constructData.native.function = constructAudio;
     return ConstructTypeHost;
-}
-
-void JSAudioConstructor::mark()
-{
-    DOMObject::mark();
-    if (!m_document->marked())
-        m_document->mark();
 }
 
 } // namespace WebCore

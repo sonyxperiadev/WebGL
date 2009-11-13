@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
- * Copyright (C) 2004, 2005, 2006 Apple Computer, Inc.
+ * Copyright (C) 2004, 2005, 2006, 2009 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -22,11 +22,10 @@
 #include "config.h"
 #include "HTMLAreaElement.h"
 
-#include "Document.h"
-#include "FloatRect.h"
 #include "HTMLNames.h"
 #include "HitTestResult.h"
-#include "Length.h"
+#include "MappedAttribute.h"
+#include "Path.h"
 #include "RenderObject.h"
 
 using namespace std;
@@ -35,8 +34,8 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
-HTMLAreaElement::HTMLAreaElement(const QualifiedName& tagName, Document *doc)
-    : HTMLAnchorElement(tagName, doc)
+HTMLAreaElement::HTMLAreaElement(const QualifiedName& tagName, Document* document)
+    : HTMLAnchorElement(tagName, document)
     , m_coords(0)
     , m_coordsLen(0)
     , m_lastSize(-1, -1)
@@ -50,7 +49,7 @@ HTMLAreaElement::~HTMLAreaElement()
     delete [] m_coords;
 }
 
-void HTMLAreaElement::parseMappedAttribute(MappedAttribute *attr)
+void HTMLAreaElement::parseMappedAttribute(MappedAttribute* attr)
 {
     if (attr->name() == shapeAttr) {
         if (equalIgnoringCase(attr->value(), "default"))
@@ -73,11 +72,11 @@ void HTMLAreaElement::parseMappedAttribute(MappedAttribute *attr)
 bool HTMLAreaElement::mapMouseEvent(int x, int y, const IntSize& size, HitTestResult& result)
 {
     if (m_lastSize != size) {
-        region = getRegion(size);
+        m_region.set(new Path(getRegion(size)));
         m_lastSize = size;
     }
 
-    if (!region.contains(IntPoint(x, y)))
+    if (!m_region->contains(IntPoint(x, y)))
         return false;
     
     result.setInnerNode(this);
@@ -150,44 +149,9 @@ Path HTMLAreaElement::getRegion(const IntSize& size) const
     return path;
 }
 
-String HTMLAreaElement::accessKey() const
-{
-    return getAttribute(accesskeyAttr);
-}
-
-void HTMLAreaElement::setAccessKey(const String& value)
-{
-    setAttribute(accesskeyAttr, value);
-}
-
-String HTMLAreaElement::alt() const
-{
-    return getAttribute(altAttr);
-}
-
-void HTMLAreaElement::setAlt(const String& value)
-{
-    setAttribute(altAttr, value);
-}
-
-String HTMLAreaElement::coords() const
-{
-    return getAttribute(coordsAttr);
-}
-
-void HTMLAreaElement::setCoords(const String& value)
-{
-    setAttribute(coordsAttr, value);
-}
-
 KURL HTMLAreaElement::href() const
 {
     return document()->completeURL(getAttribute(hrefAttr));
-}
-
-void HTMLAreaElement::setHref(const String& value)
-{
-    setAttribute(hrefAttr, value);
 }
 
 bool HTMLAreaElement::noHref() const
@@ -200,16 +164,6 @@ void HTMLAreaElement::setNoHref(bool noHref)
     setAttribute(nohrefAttr, noHref ? "" : 0);
 }
 
-String HTMLAreaElement::shape() const
-{
-    return getAttribute(shapeAttr);
-}
-
-void HTMLAreaElement::setShape(const String& value)
-{
-    setAttribute(shapeAttr, value);
-}
-
 bool HTMLAreaElement::isFocusable() const
 {
     return HTMLElement::isFocusable();
@@ -218,11 +172,6 @@ bool HTMLAreaElement::isFocusable() const
 String HTMLAreaElement::target() const
 {
     return getAttribute(targetAttr);
-}
-
-void HTMLAreaElement::setTarget(const String& value)
-{
-    setAttribute(targetAttr, value);
 }
 
 }

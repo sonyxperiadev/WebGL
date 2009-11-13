@@ -206,11 +206,20 @@ typedef enum {
 
 /*!
 Could be worth adding to the API.
- @method loadItemsFromOtherView:
+ @method _loadBackForwardListFromOtherView:
  @abstract Loads the view with the contents of the other view, including its backforward list.
  @param otherView   The WebView from which to copy contents.
  */
 - (void)_loadBackForwardListFromOtherView:(WebView *)otherView;
+
+
+/*!
+ @method _dispatchPendingLoadRequests:
+ @abstract Dispatches any pending load requests that have been scheduled because of recent DOM additions or style changes.
+ @discussion You only need to call this method if you require synchronous notification of loads through the resource load delegate.
+ Otherwise the resource load delegate will be notified about loads during a future run loop iteration.
+ */
+- (void)_dispatchPendingLoadRequests;
 
 + (NSArray *)_supportedFileExtensions;
 
@@ -231,6 +240,13 @@ Could be worth adding to the API.
 
 + (NSString *)_standardUserAgentWithApplicationName:(NSString *)applicationName;
 
+/*!
+    @method canCloseAllWebViews
+    @abstract Checks if all the open WebViews can be closed (by dispatching the beforeUnload event to the pages).
+    @result YES if all the WebViews can be closed.
+*/
++ (BOOL)canCloseAllWebViews;
+
 // May well become public
 - (void)_setFormDelegate:(id<WebFormDelegate>)delegate;
 - (id<WebFormDelegate>)_formDelegate;
@@ -240,6 +256,12 @@ Could be worth adding to the API.
 // _close is now replaced by public method -close. It remains here only for backward compatibility
 // until callers can be weaned off of it.
 - (void)_close;
+
+// Indicates if the WebView is in the midst of a user gesture.
+- (BOOL)_isProcessingUserGesture;
+
+// SPI for DumpRenderTree
+- (void)_updateActiveState;
 
 /*!
     @method _registerViewClass:representationClass:forURLScheme:
@@ -294,8 +316,6 @@ Could be worth adding to the API.
 // regardless of OS X version.
 + (void)_setUsesTestModeFocusRingColor:(BOOL)f;
 + (BOOL)_usesTestModeFocusRingColor;
-
-+ (NSString *)_minimumRequiredSafariBuildNumber;
 
 /*!
     @method setAlwaysShowVerticalScroller:
@@ -369,15 +389,22 @@ Could be worth adding to the API.
 - (WebHistoryItem *)_globalHistoryItem;
 
 /*!
- @method textIteratorForRect:
- @param rectangle from which we want the WebTextIterator to load text from
- @result a WebtextIterator object.
+    @method textIteratorForRect:
+    @param rect The rectangle of the document that we're interested in text from.
+    @result WebTextIterator object, initialized with a range that corresponds to
+    the passed-in rectangle.
+    @abstract This method gives the text for the approximate range of the document
+    corresponding to the rectangle. The range is determined by using hit testing at
+    the top left and bottom right of the rectangle. Because of that, there can be
+    text visible in the rectangle that is not included in the iterator. If you need
+    a guarantee of iterating all text that is visible, then you need to instead make
+    a WebTextIterator with a DOMRange that covers the entire document.
  */
 - (WebTextIterator *)textIteratorForRect:(NSRect)rect;
 
 #if ENABLE_DASHBOARD_SUPPORT
-// <rdar://problem/5217124> Clients other than dashboard, don't use this.
-// Do not remove until Dashboard has moved off it
+// <rdar://problem/5217124> Clients other than Dashboard, don't use this.
+// As of this writing, Dashboard uses this on Tiger, but not on Leopard or newer.
 - (void)handleAuthenticationForResource:(id)identifier challenge:(NSURLAuthenticationChallenge *)challenge fromDataSource:(WebDataSource *)dataSource;
 #endif
 
@@ -405,6 +432,16 @@ Could be worth adding to the API.
 
 - (void)setMemoryCacheDelegateCallsEnabled:(BOOL)suspend;
 - (BOOL)areMemoryCacheDelegateCallsEnabled;
+
+- (void)_setJavaScriptURLsAreAllowed:(BOOL)setJavaScriptURLsAreAllowed;
+
++ (NSCursor *)_pointingHandCursor;
+
+// SPI for DumpRenderTree
+- (BOOL)_isUsingAcceleratedCompositing;
+
+// Which pasteboard text is coming from in editing delegate methods such as shouldInsertNode.
+- (NSPasteboard *)_insertionPasteboard;
 
 @end
 
@@ -440,11 +477,36 @@ Could be worth adding to the API.
 // FIXME: This method should be merged into WebIBActions when we're not in API freeze
 - (void)toggleGrammarChecking:(id)sender;
 #endif
+
+@end
+
+@interface WebView (WebViewTextChecking)
+
+- (BOOL)isAutomaticQuoteSubstitutionEnabled;
+- (BOOL)isAutomaticLinkDetectionEnabled;
+- (BOOL)isAutomaticDashSubstitutionEnabled;
+- (BOOL)isAutomaticTextReplacementEnabled;
+- (BOOL)isAutomaticSpellingCorrectionEnabled;
+#if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
+- (void)setAutomaticQuoteSubstitutionEnabled:(BOOL)flag;
+- (void)toggleAutomaticQuoteSubstitution:(id)sender;
+- (void)setAutomaticLinkDetectionEnabled:(BOOL)flag;
+- (void)toggleAutomaticLinkDetection:(id)sender;
+- (void)setAutomaticDashSubstitutionEnabled:(BOOL)flag;
+- (void)toggleAutomaticDashSubstitution:(id)sender;
+- (void)setAutomaticTextReplacementEnabled:(BOOL)flag;
+- (void)toggleAutomaticTextReplacement:(id)sender;
+- (void)setAutomaticSpellingCorrectionEnabled:(BOOL)flag;
+- (void)toggleAutomaticSpellingCorrection:(id)sender;
+#endif
+
 @end
 
 @interface WebView (WebViewEditingInMail)
 - (void)_insertNewlineInQuotedContent;
 - (void)_replaceSelectionWithNode:(DOMNode *)node matchStyle:(BOOL)matchStyle;
+- (BOOL)_selectionIsCaret;
+- (BOOL)_selectionIsAll;
 @end
 
 @interface NSObject (WebFrameLoadDelegatePrivate)
@@ -459,6 +521,9 @@ Could be worth adding to the API.
 - (void)webView:(WebView *)sender didHandleOnloadEventsForFrame:(WebFrame *)frame;
 
 - (void)webView:(WebView *)sender didFirstVisuallyNonEmptyLayoutInFrame:(WebFrame *)frame;
+
+// For implementing the WebInspector's test harness
+- (void)webView:(WebView *)webView didClearInspectorWindowObject:(WebScriptObject *)windowObject forFrame:(WebFrame *)frame;
 
 @end
 

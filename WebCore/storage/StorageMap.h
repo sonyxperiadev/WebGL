@@ -26,6 +26,8 @@
 #ifndef StorageMap_h
 #define StorageMap_h
 
+#if ENABLE(DOM_STORAGE)
+
 #include "PlatformString.h"
 #include "StringHash.h"
 
@@ -40,7 +42,7 @@ namespace WebCore {
         static PassRefPtr<StorageMap> create();
 
         unsigned length() const;
-        bool key(unsigned index, String& key) const;
+        String key(unsigned index) const;
         String getItem(const String&) const;
         PassRefPtr<StorageMap> setItem(const String& key, const String& value, String& oldValue);
         PassRefPtr<StorageMap> removeItem(const String&, String& oldValue);
@@ -61,5 +63,7 @@ namespace WebCore {
     };
 
 } // namespace WebCore
+
+#endif // ENABLE(DOM_STORAGE)
 
 #endif // StorageMap_h

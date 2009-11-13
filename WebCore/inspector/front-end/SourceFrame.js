@@ -27,6 +27,7 @@ WebInspector.SourceFrame = function(element, addBreakpointDelegate)
 {
     this.messages = [];
     this.breakpoints = [];
+    this._shortcuts = {};
 
     this.addBreakpointDelegate = addBreakpointDelegate;
 
@@ -110,6 +111,11 @@ WebInspector.SourceFrame.prototype = {
 
     revealLine: function(lineNumber)
     {
+        if (!this._isContentLoaded()) {
+            this._lineNumberToReveal = lineNumber;
+            return;
+        }
+    
         var row = this.sourceRow(lineNumber);
         if (row)
             row.scrollIntoViewIfNeeded(true);
@@ -172,6 +178,11 @@ WebInspector.SourceFrame.prototype = {
 
     highlightLine: function(lineNumber)
     {
+        if (!this._isContentLoaded()) {
+            this._lineNumberToHighlight = lineNumber;
+            return;
+        }
+
         var sourceRow = this.sourceRow(lineNumber);
         if (!sourceRow)
             return;
@@ -189,7 +200,15 @@ WebInspector.SourceFrame.prototype = {
     {
         WebInspector.addMainEventListeners(this.element.contentDocument);
         this.element.contentDocument.addEventListener("mousedown", this._documentMouseDown.bind(this), true);
+        this.element.contentDocument.addEventListener("keydown", this._documentKeyDown.bind(this), true);
+        this.element.contentDocument.addEventListener("keyup", WebInspector.documentKeyUp.bind(WebInspector), true);
         this.element.contentDocument.addEventListener("webkitAnimationEnd", this._highlightLineEnds.bind(this), false);
+
+        // Register 'eval' shortcut.
+        var isMac = InspectorController.platform().indexOf("mac-") === 0;
+        var platformSpecificModifier = isMac ? WebInspector.KeyboardShortcut.Modifiers.Meta : WebInspector.KeyboardShortcut.Modifiers.Ctrl;
+        var shortcut = WebInspector.KeyboardShortcut.makeKey(69 /* 'E' */, platformSpecificModifier | WebInspector.KeyboardShortcut.Modifiers.Shift);
+        this._shortcuts[shortcut] = this._evalSelectionInCallFrame.bind(this);
 
         var headElement = this.element.contentDocument.getElementsByTagName("head")[0];
         if (!headElement) {
@@ -225,15 +244,36 @@ WebInspector.SourceFrame.prototype = {
 
         this.element.contentWindow.Element.prototype.addStyleClass = Element.prototype.addStyleClass;
         this.element.contentWindow.Element.prototype.removeStyleClass = Element.prototype.removeStyleClass;
+        this.element.contentWindow.Element.prototype.removeMatchingStyleClasses = Element.prototype.removeMatchingStyleClasses;
         this.element.contentWindow.Element.prototype.hasStyleClass = Element.prototype.hasStyleClass;
         this.element.contentWindow.Node.prototype.enclosingNodeOrSelfWithNodeName = Node.prototype.enclosingNodeOrSelfWithNodeName;
+        this.element.contentWindow.Node.prototype.enclosingNodeOrSelfWithNodeNameInArray = Node.prototype.enclosingNodeOrSelfWithNodeNameInArray;
 
         this._addExistingMessagesToSource();
         this._addExistingBreakpointsToSource();
         this._updateExecutionLine();
+        if (this._executionLine)
+            this.revealLine(this._executionLine);
 
         if (this.autoSizesToFitContentHeight)
             this.sizeToFitContentHeight();
+            
+        if (this._lineNumberToReveal) {
+            this.revealLine(this._lineNumberToReveal);
+            delete this._lineNumberToReveal;
+        }
+    
+        if (this._lineNumberToHighlight) {
+            this.highlightLine(this._lineNumberToHighlight);
+            delete this._lineNumberToHighlight;
+        }
+        
+        this.dispatchEventToListeners("content loaded");
+    },
+    
+    _isContentLoaded: function() {
+        var doc = this.element.contentDocument;
+        return doc && doc.getElementsByTagName("table")[0];
     },
 
     _windowResized: function(event)
@@ -253,6 +293,36 @@ WebInspector.SourceFrame.prototype = {
             sourceRow._breakpointObject.enabled = !sourceRow._breakpointObject.enabled;
         else if (this.addBreakpointDelegate)
             this.addBreakpointDelegate(this.lineNumberForSourceRow(sourceRow));
+    },
+
+    _documentKeyDown: function(event)
+    {
+        var shortcut = WebInspector.KeyboardShortcut.makeKeyFromEvent(event);
+        var handler = this._shortcuts[shortcut];
+        if (handler) {
+            handler(event);
+            event.preventDefault();
+        } else {
+            WebInspector.documentKeyDown(event);
+        }
+    },
+
+    _evalSelectionInCallFrame: function(event)
+    {
+        if (!WebInspector.panels.scripts || !WebInspector.panels.scripts.paused)
+            return;
+
+        var selection = this.element.contentWindow.getSelection();
+        if (!selection.rangeCount)
+            return;
+
+        var expression = selection.getRangeAt(0).toString().trimWhitespace();
+        WebInspector.panels.scripts.evaluateInSelectedCallFrame(expression, false, function(result, exception) {
+            WebInspector.showConsole();
+            var commandMessage = new WebInspector.ConsoleCommand(expression);
+            WebInspector.console.addMessage(commandMessage);
+            WebInspector.console.addMessage(new WebInspector.ConsoleCommandResult(result, exception, commandMessage));
+        });
     },
 
     _breakpointEnableChanged: function(event)
@@ -300,6 +370,8 @@ WebInspector.SourceFrame.prototype = {
         var sourceRow = this.sourceRow(breakpoint.line);
         if (!sourceRow)
             return;
+
+        breakpoint.sourceText = sourceRow.getElementsByClassName('webkit-line-content')[0].textContent;
 
         this._drawBreakpointImagesIfNeeded();
 

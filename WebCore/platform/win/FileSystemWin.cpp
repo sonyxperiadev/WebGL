@@ -133,8 +133,10 @@ String pathGetFileName(const String& path)
 
 String directoryName(const String& path)
 {
-    notImplemented();
-    return String();
+    String fileName = pathGetFileName(path);
+    String dirName = String(path);
+    dirName.truncate(dirName.length() - pathGetFileName(path).length());
+    return dirName;
 }
 
 static String bundleName()
@@ -191,11 +193,11 @@ CString openTemporaryFile(const char*, PlatformFileHandle& handle)
     char tempPath[MAX_PATH];
     int tempPathLength = ::GetTempPathA(_countof(tempPath), tempPath);
     if (tempPathLength <= 0 || tempPathLength > _countof(tempPath))
-        return 0;
+        return CString();
 
     HCRYPTPROV hCryptProv = 0;
     if (!CryptAcquireContext(&hCryptProv, 0, 0, PROV_RSA_FULL, CRYPT_VERIFYCONTEXT))
-        return 0;
+        return CString();
 
     char proposedPath[MAX_PATH];
     while (1) {
@@ -226,7 +228,7 @@ CString openTemporaryFile(const char*, PlatformFileHandle& handle)
     CryptReleaseContext(hCryptProv, 0);
 
     if (!isHandleValid(handle))
-        return 0;
+        return CString();
 
     return proposedPath;
 }

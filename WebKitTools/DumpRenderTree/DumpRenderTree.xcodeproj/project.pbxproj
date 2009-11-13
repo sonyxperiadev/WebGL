@@ -16,6 +16,7 @@
 				A84F609108B1370E00E9745F /* PBXTargetDependency */,
 				A84F608F08B1370E00E9745F /* PBXTargetDependency */,
 				141BF238096A451E00E0753C /* PBXTargetDependency */,
+				5DC82A701023C93D00FD1D3B /* PBXTargetDependency */,
 			);
 			name = All;
 			productName = All;
@@ -34,6 +35,19 @@
 		1AC6C84A0D07638600CD3161 /* PluginObject.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 1AC6C7800D07589B00CD3161 /* PluginObject.cpp */; };
 		1AC6C84B0D07638600CD3161 /* TestObject.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 1AC6C7810D07589B00CD3161 /* TestObject.cpp */; };
 		23BCB8900EA57623003C6289 /* OpenGL.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 23BCB88F0EA57623003C6289 /* OpenGL.framework */; };
+		5DB9AC970F722C3600684641 /* AHEM____.TTF in Copy Font Files */ = {isa = PBXBuildFile; fileRef = AA7F10C20CB3C1030003BDC9 /* AHEM____.TTF */; };
+		5DB9AC980F722C3600684641 /* WebKitWeightWatcher100.ttf in Copy Font Files */ = {isa = PBXBuildFile; fileRef = 375F09710DAC3CB600C8B4E5 /* WebKitWeightWatcher100.ttf */; };
+		5DB9AC990F722C3600684641 /* WebKitWeightWatcher200.ttf in Copy Font Files */ = {isa = PBXBuildFile; fileRef = 375F09720DAC3CB600C8B4E5 /* WebKitWeightWatcher200.ttf */; };
+		5DB9AC9A0F722C3600684641 /* WebKitWeightWatcher300.ttf in Copy Font Files */ = {isa = PBXBuildFile; fileRef = 375F09730DAC3CB600C8B4E5 /* WebKitWeightWatcher300.ttf */; };
+		5DB9AC9B0F722C3600684641 /* WebKitWeightWatcher400.ttf in Copy Font Files */ = {isa = PBXBuildFile; fileRef = 375F09740DAC3CB600C8B4E5 /* WebKitWeightWatcher400.ttf */; };
+		5DB9AC9C0F722C3600684641 /* WebKitWeightWatcher500.ttf in Copy Font Files */ = {isa = PBXBuildFile; fileRef = 375F09750DAC3CB600C8B4E5 /* WebKitWeightWatcher500.ttf */; };
+		5DB9AC9D0F722C3600684641 /* WebKitWeightWatcher600.ttf in Copy Font Files */ = {isa = PBXBuildFile; fileRef = 375F09760DAC3CB600C8B4E5 /* WebKitWeightWatcher600.ttf */; };
+		5DB9AC9E0F722C3600684641 /* WebKitWeightWatcher700.ttf in Copy Font Files */ = {isa = PBXBuildFile; fileRef = 375F09770DAC3CB600C8B4E5 /* WebKitWeightWatcher700.ttf */; };
+		5DB9AC9F0F722C3600684641 /* WebKitWeightWatcher800.ttf in Copy Font Files */ = {isa = PBXBuildFile; fileRef = 375F09780DAC3CB600C8B4E5 /* WebKitWeightWatcher800.ttf */; };
+		5DB9ACA00F722C3600684641 /* WebKitWeightWatcher900.ttf in Copy Font Files */ = {isa = PBXBuildFile; fileRef = 375F09790DAC3CB600C8B4E5 /* WebKitWeightWatcher900.ttf */; };
+		8465E2C70FFA8DF2003B8342 /* PixelDumpSupport.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8465E2C60FFA8DF2003B8342 /* PixelDumpSupport.cpp */; };
+		933BF5AB0F93FA5C000F0441 /* PlainTextController.h in Headers */ = {isa = PBXBuildFile; fileRef = 933BF5A90F93FA5C000F0441 /* PlainTextController.h */; };
+		933BF5AC0F93FA5C000F0441 /* PlainTextController.mm in Sources */ = {isa = PBXBuildFile; fileRef = 933BF5AA0F93FA5C000F0441 /* PlainTextController.mm */; };
 		9340994C08540CAE007F3BC8 /* DumpRenderTreePrefix.h in Headers */ = {isa = PBXBuildFile; fileRef = 32A70AAB03705E1F00C91783 /* DumpRenderTreePrefix.h */; };
 		9340995108540CAE007F3BC8 /* WebKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9335435F03D75502008635CE /* WebKit.framework */; };
 		A817090008B163EF00CCB9FB /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A84F608908B136DA00E9745F /* Cocoa.framework */; };
@@ -45,6 +59,8 @@
 		A8B91AE20CF3B372008F91FF /* DumpRenderTreePasteboard.h in Headers */ = {isa = PBXBuildFile; fileRef = A8B91ADF0CF3B372008F91FF /* DumpRenderTreePasteboard.h */; };
 		A8B91BFD0CF522B4008F91FF /* CheckedMalloc.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A8B91BF70CF522B4008F91FF /* CheckedMalloc.cpp */; };
 		A8B91BFF0CF522B4008F91FF /* CheckedMalloc.h in Headers */ = {isa = PBXBuildFile; fileRef = A8B91BF90CF522B4008F91FF /* CheckedMalloc.h */; };
+		A8D79CEA0FC28B2C004AC8FE /* DumpRenderTreeFileDraggingSource.h in Headers */ = {isa = PBXBuildFile; fileRef = A8D79CE80FC28B2C004AC8FE /* DumpRenderTreeFileDraggingSource.h */; };
+		A8D79CEB0FC28B2C004AC8FE /* DumpRenderTreeFileDraggingSource.m in Sources */ = {isa = PBXBuildFile; fileRef = A8D79CE90FC28B2C004AC8FE /* DumpRenderTreeFileDraggingSource.m */; };
 		AE8259F308D22463000507AB /* Carbon.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AE8257EF08D22389000507AB /* Carbon.framework */; };
 		AE8259F408D22463000507AB /* Carbon.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AE8257EF08D22389000507AB /* Carbon.framework */; };
 		B5A752A208AF5D1F00138E45 /* QuartzCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B5A752A108AF5D1F00138E45 /* QuartzCore.framework */; };
@@ -107,6 +123,13 @@
 			remoteGlobalIDString = 141BF21E096A441D00E0753C;
 			remoteInfo = TestNetscapePlugIn;
 		};
+		5DC82A6F1023C93D00FD1D3B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 5DC82A661023C8DE00FD1D3B;
+			remoteInfo = "DumpRenderTree Perl Support";
+		};
 		A84F608E08B1370E00E9745F /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
@@ -122,6 +145,29 @@
 			remoteInfo = DumpRenderTree;
 		};
 /* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		5DB9ACAA0F722C4400684641 /* Copy Font Files */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = DumpRenderTree.resources;
+			dstSubfolderSpec = 7;
+			files = (
+				5DB9AC970F722C3600684641 /* AHEM____.TTF in Copy Font Files */,
+				5DB9AC980F722C3600684641 /* WebKitWeightWatcher100.ttf in Copy Font Files */,
+				5DB9AC990F722C3600684641 /* WebKitWeightWatcher200.ttf in Copy Font Files */,
+				5DB9AC9A0F722C3600684641 /* WebKitWeightWatcher300.ttf in Copy Font Files */,
+				5DB9AC9B0F722C3600684641 /* WebKitWeightWatcher400.ttf in Copy Font Files */,
+				5DB9AC9C0F722C3600684641 /* WebKitWeightWatcher500.ttf in Copy Font Files */,
+				5DB9AC9D0F722C3600684641 /* WebKitWeightWatcher600.ttf in Copy Font Files */,
+				5DB9AC9E0F722C3600684641 /* WebKitWeightWatcher700.ttf in Copy Font Files */,
+				5DB9AC9F0F722C3600684641 /* WebKitWeightWatcher800.ttf in Copy Font Files */,
+				5DB9ACA00F722C3600684641 /* WebKitWeightWatcher900.ttf in Copy Font Files */,
+			);
+			name = "Copy Font Files";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		141BF233096A44CF00E0753C /* TestNetscapePlugIn.plugin */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = TestNetscapePlugIn.plugin; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -143,7 +189,10 @@
 		375F09770DAC3CB600C8B4E5 /* WebKitWeightWatcher700.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; name = WebKitWeightWatcher700.ttf; path = fonts/WebKitWeightWatcher700.ttf; sourceTree = "<group>"; };
 		375F09780DAC3CB600C8B4E5 /* WebKitWeightWatcher800.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; name = WebKitWeightWatcher800.ttf; path = fonts/WebKitWeightWatcher800.ttf; sourceTree = "<group>"; };
 		375F09790DAC3CB600C8B4E5 /* WebKitWeightWatcher900.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; name = WebKitWeightWatcher900.ttf; path = fonts/WebKitWeightWatcher900.ttf; sourceTree = "<group>"; };
+		8465E2C60FFA8DF2003B8342 /* PixelDumpSupport.cpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.objcpp; fileEncoding = 30; path = PixelDumpSupport.cpp; sourceTree = "<group>"; };
 		9335435F03D75502008635CE /* WebKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = WebKit.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		933BF5A90F93FA5C000F0441 /* PlainTextController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = PlainTextController.h; path = mac/PlainTextController.h; sourceTree = "<group>"; };
+		933BF5AA0F93FA5C000F0441 /* PlainTextController.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; name = PlainTextController.mm; path = mac/PlainTextController.mm; sourceTree = "<group>"; };
 		9340995408540CAF007F3BC8 /* DumpRenderTree */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = DumpRenderTree; sourceTree = BUILT_PRODUCTS_DIR; };
 		A803FF7409CAAD08009B2A37 /* DumpRenderTree.h */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.h; fileEncoding = 4; path = DumpRenderTree.h; sourceTree = "<group>"; };
 		A817090308B164D300CCB9FB /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = JavaScriptCore.framework; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -154,6 +203,8 @@
 		A8B91ADF0CF3B372008F91FF /* DumpRenderTreePasteboard.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = DumpRenderTreePasteboard.h; path = mac/DumpRenderTreePasteboard.h; sourceTree = "<group>"; };
 		A8B91BF70CF522B4008F91FF /* CheckedMalloc.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = CheckedMalloc.cpp; path = mac/CheckedMalloc.cpp; sourceTree = "<group>"; };
 		A8B91BF90CF522B4008F91FF /* CheckedMalloc.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = CheckedMalloc.h; path = mac/CheckedMalloc.h; sourceTree = "<group>"; };
+		A8D79CE80FC28B2C004AC8FE /* DumpRenderTreeFileDraggingSource.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = DumpRenderTreeFileDraggingSource.h; sourceTree = "<group>"; };
+		A8D79CE90FC28B2C004AC8FE /* DumpRenderTreeFileDraggingSource.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = DumpRenderTreeFileDraggingSource.m; sourceTree = "<group>"; };
 		AA7F10C20CB3C1030003BDC9 /* AHEM____.TTF */ = {isa = PBXFileReference; lastKnownFileType = file; name = "AHEM____.TTF"; path = "qt/fonts/AHEM____.TTF"; sourceTree = "<group>"; };
 		AE8257EF08D22389000507AB /* Carbon.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Carbon.framework; path = /System/Library/Frameworks/Carbon.framework; sourceTree = "<absolute>"; };
 		B5A7526708AF4A4A00138E45 /* ImageDiff */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = ImageDiff; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -235,8 +286,8 @@
 				AE8259F308D22463000507AB /* Carbon.framework in Frameworks */,
 				A84F608A08B136DA00E9745F /* Cocoa.framework in Frameworks */,
 				A817090408B164D300CCB9FB /* JavaScriptCore.framework in Frameworks */,
-				9340995108540CAE007F3BC8 /* WebKit.framework in Frameworks */,
 				23BCB8900EA57623003C6289 /* OpenGL.framework in Frameworks */,
+				9340995108540CAE007F3BC8 /* WebKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -269,6 +320,8 @@
 				BCA18C0A0C9B59EF00114369 /* DumpRenderTreeMac.h */,
 				BCA18B730C9B08F100114369 /* DumpRenderTreeDraggingInfo.h */,
 				BCA18B740C9B08F100114369 /* DumpRenderTreeDraggingInfo.mm */,
+				A8D79CE80FC28B2C004AC8FE /* DumpRenderTreeFileDraggingSource.h */,
+				A8D79CE90FC28B2C004AC8FE /* DumpRenderTreeFileDraggingSource.m */,
 				BC9D90210C97472D0099A4A3 /* WorkQueue.cpp */,
 				BC9D90220C97472E0099A4A3 /* WorkQueue.h */,
 				BC9D90230C97472E0099A4A3 /* WorkQueueItem.h */,
@@ -286,12 +339,12 @@
 		141BF1F5096A439800E0753C /* TestNetscapePlugIn.subproj */ = {
 			isa = PBXGroup;
 			children = (
+				141BF448096A45C800E0753C /* Info.plist */,
 				1AC6C77F0D07589B00CD3161 /* main.cpp */,
 				1AC6C7800D07589B00CD3161 /* PluginObject.cpp */,
 				141BF447096A45C800E0753C /* PluginObject.h */,
 				1AC6C7810D07589B00CD3161 /* TestObject.cpp */,
 				1A8F024C0BB9B056008CFA34 /* TestObject.h */,
-				141BF448096A45C800E0753C /* Info.plist */,
 			);
 			path = TestNetscapePlugIn.subproj;
 			sourceTree = "<group>";
@@ -319,6 +372,8 @@
 				BCA18B6E0C9B08DB00114369 /* NavigationController.m */,
 				BCA18B2F0C9B01B400114369 /* ObjCController.h */,
 				BCA18B300C9B01B400114369 /* ObjCController.m */,
+				933BF5A90F93FA5C000F0441 /* PlainTextController.h */,
+				933BF5AA0F93FA5C000F0441 /* PlainTextController.mm */,
 				BCA18B3A0C9B024900114369 /* TextInputController.h */,
 				BCA18B480C9B02C400114369 /* TextInputController.m */,
 			);
@@ -356,6 +411,7 @@
 		9345229B0BD12B2C0086EDA0 /* Resources */ = {
 			isa = PBXGroup;
 			children = (
+				AA7F10C20CB3C1030003BDC9 /* AHEM____.TTF */,
 				375F09710DAC3CB600C8B4E5 /* WebKitWeightWatcher100.ttf */,
 				375F09720DAC3CB600C8B4E5 /* WebKitWeightWatcher200.ttf */,
 				375F09730DAC3CB600C8B4E5 /* WebKitWeightWatcher300.ttf */,
@@ -365,7 +421,6 @@
 				375F09770DAC3CB600C8B4E5 /* WebKitWeightWatcher700.ttf */,
 				375F09780DAC3CB600C8B4E5 /* WebKitWeightWatcher800.ttf */,
 				375F09790DAC3CB600C8B4E5 /* WebKitWeightWatcher900.ttf */,
-				AA7F10C20CB3C1030003BDC9 /* AHEM____.TTF */,
 			);
 			name = Resources;
 			sourceTree = "<group>";
@@ -377,9 +432,9 @@
 				AE8257EF08D22389000507AB /* Carbon.framework */,
 				A84F608908B136DA00E9745F /* Cocoa.framework */,
 				A817090308B164D300CCB9FB /* JavaScriptCore.framework */,
+				23BCB88F0EA57623003C6289 /* OpenGL.framework */,
 				B5A752A108AF5D1F00138E45 /* QuartzCore.framework */,
 				9335435F03D75502008635CE /* WebKit.framework */,
-				23BCB88F0EA57623003C6289 /* OpenGL.framework */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -387,11 +442,11 @@
 		A8B91AC40CF3B170008F91FF /* ObjCPlugin */ = {
 			isa = PBXGroup;
 			children = (
-				BCA18B250C9B015C00114369 /* WorkQueueItemMac.mm */,
 				BCA18B760C9B08F100114369 /* ObjCPlugin.h */,
 				BCA18B770C9B08F100114369 /* ObjCPlugin.m */,
 				BCA18B780C9B08F100114369 /* ObjCPluginFunction.h */,
 				BCA18B790C9B08F100114369 /* ObjCPluginFunction.m */,
+				BCA18B250C9B015C00114369 /* WorkQueueItemMac.mm */,
 			);
 			name = ObjCPlugin;
 			sourceTree = "<group>";
@@ -423,6 +478,7 @@
 			isa = PBXGroup;
 			children = (
 				BCB284F30CFA84F2007E533E /* ImageDiffCG.cpp */,
+				8465E2C60FFA8DF2003B8342 /* PixelDumpSupport.cpp */,
 				BCB2848A0CFA820F007E533E /* PixelDumpSupport.h */,
 				BCB284880CFA8202007E533E /* PixelDumpSupportCG.cpp */,
 				BCB284890CFA8202007E533E /* PixelDumpSupportCG.h */,
@@ -447,32 +503,34 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				BC0E24E00E2D9451001B6BC2 /* AccessibilityUIElement.h in Headers */,
 				BCA18B380C9B021900114369 /* AppleScriptController.h in Headers */,
+				A8B91BFF0CF522B4008F91FF /* CheckedMalloc.h in Headers */,
 				BCA18B7A0C9B08F100114369 /* DumpRenderTreeDraggingInfo.h in Headers */,
+				A8D79CEA0FC28B2C004AC8FE /* DumpRenderTreeFileDraggingSource.h in Headers */,
 				BCA18C0B0C9B59EF00114369 /* DumpRenderTreeMac.h in Headers */,
+				A8B91AE20CF3B372008F91FF /* DumpRenderTreePasteboard.h in Headers */,
 				9340994C08540CAE007F3BC8 /* DumpRenderTreePrefix.h in Headers */,
+				A8B91AE00CF3B372008F91FF /* DumpRenderTreeWindow.h in Headers */,
 				BCA18B610C9B08C200114369 /* EditingDelegate.h in Headers */,
 				BCA18B6F0C9B08DB00114369 /* EventSendingController.h in Headers */,
 				BCA18B630C9B08C200114369 /* FrameLoadDelegate.h in Headers */,
 				14770FE20A22ADF7009342EE /* GCController.h in Headers */,
+				BC47412A0D038A4C0072B006 /* JavaScriptThreading.h in Headers */,
 				BC0131DB0C9772010087317D /* LayoutTestController.h in Headers */,
 				BCA18B710C9B08DB00114369 /* NavigationController.h in Headers */,
 				BCA18B310C9B01B400114369 /* ObjCController.h in Headers */,
 				BCA18B7D0C9B08F100114369 /* ObjCPlugin.h in Headers */,
 				BCA18B7F0C9B08F100114369 /* ObjCPluginFunction.h in Headers */,
+				BCB284C70CFA83C4007E533E /* PixelDumpSupport.h in Headers */,
+				BCB284D00CFA83CC007E533E /* PixelDumpSupportCG.h in Headers */,
+				933BF5AB0F93FA5C000F0441 /* PlainTextController.h in Headers */,
 				BCA18B650C9B08C200114369 /* PolicyDelegate.h in Headers */,
 				BCA18B670C9B08C200114369 /* ResourceLoadDelegate.h in Headers */,
 				BCA18B3C0C9B024900114369 /* TextInputController.h in Headers */,
 				BCA18B690C9B08C200114369 /* UIDelegate.h in Headers */,
 				BC9D90250C97472E0099A4A3 /* WorkQueue.h in Headers */,
 				BC9D90260C97472E0099A4A3 /* WorkQueueItem.h in Headers */,
-				A8B91AE00CF3B372008F91FF /* DumpRenderTreeWindow.h in Headers */,
-				A8B91AE20CF3B372008F91FF /* DumpRenderTreePasteboard.h in Headers */,
-				A8B91BFF0CF522B4008F91FF /* CheckedMalloc.h in Headers */,
-				BCB284C70CFA83C4007E533E /* PixelDumpSupport.h in Headers */,
-				BCB284D00CFA83CC007E533E /* PixelDumpSupportCG.h in Headers */,
-				BC47412A0D038A4C0072B006 /* JavaScriptThreading.h in Headers */,
-				BC0E24E00E2D9451001B6BC2 /* AccessibilityUIElement.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -484,6 +542,23 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXHeadersBuildPhase section */
+
+/* Begin PBXLegacyTarget section */
+		5DC82A661023C8DE00FD1D3B /* DumpRenderTree Perl Support */ = {
+			isa = PBXLegacyTarget;
+			buildArgumentsString = "$(ACTION)";
+			buildConfigurationList = 5DC82A6E1023C92A00FD1D3B /* Build configuration list for PBXLegacyTarget "DumpRenderTree Perl Support" */;
+			buildPhases = (
+			);
+			buildToolPath = /usr/bin/make;
+			buildWorkingDirectory = "$(SRCROOT)/mac/PerlSupport";
+			dependencies = (
+			);
+			name = "DumpRenderTree Perl Support";
+			passBuildSettingsInEnvironment = 1;
+			productName = "DumpRenderTree Perl Support";
+		};
+/* End PBXLegacyTarget section */
 
 /* Begin PBXNativeTarget section */
 		141BF21E096A441D00E0753C /* TestNetscapePlugIn */ = {
@@ -511,6 +586,7 @@
 				9340994B08540CAE007F3BC8 /* Headers */,
 				9340994D08540CAE007F3BC8 /* Sources */,
 				9340994F08540CAE007F3BC8 /* Frameworks */,
+				5DB9ACAA0F722C4400684641 /* Copy Font Files */,
 			);
 			buildRules = (
 			);
@@ -557,6 +633,7 @@
 				9340994A08540CAE007F3BC8 /* DumpRenderTree */,
 				B5A7525A08AF4A4A00138E45 /* ImageDiff */,
 				141BF21E096A441D00E0753C /* TestNetscapePlugIn */,
+				5DC82A661023C8DE00FD1D3B /* DumpRenderTree Perl Support */,
 			);
 		};
 /* End PBXProject section */
@@ -586,36 +663,39 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				BCD08B3A0E1057EF00A7D0C1 /* AccessibilityController.cpp in Sources */,
+				BCD08B710E1059D200A7D0C1 /* AccessibilityControllerMac.mm in Sources */,
+				BC0E24E10E2D9451001B6BC2 /* AccessibilityUIElement.cpp in Sources */,
+				BC0E26150E2DA4C6001B6BC2 /* AccessibilityUIElementMac.mm in Sources */,
 				BCA18B390C9B021900114369 /* AppleScriptController.m in Sources */,
+				A8B91BFD0CF522B4008F91FF /* CheckedMalloc.cpp in Sources */,
 				BCA18C470C9B5B9400114369 /* DumpRenderTree.mm in Sources */,
 				BCA18B7B0C9B08F100114369 /* DumpRenderTreeDraggingInfo.mm in Sources */,
+				A8D79CEB0FC28B2C004AC8FE /* DumpRenderTreeFileDraggingSource.m in Sources */,
+				A8B91ADA0CF3B32F008F91FF /* DumpRenderTreePasteboard.m in Sources */,
+				A8B91ADC0CF3B32F008F91FF /* DumpRenderTreeWindow.mm in Sources */,
 				BCA18B620C9B08C200114369 /* EditingDelegate.mm in Sources */,
 				BCA18B700C9B08DB00114369 /* EventSendingController.mm in Sources */,
 				BCA18B640C9B08C200114369 /* FrameLoadDelegate.mm in Sources */,
 				BCF6C6500C98E9C000AC063E /* GCController.cpp in Sources */,
 				BCA18B230C9B014B00114369 /* GCControllerMac.mm in Sources */,
+				BC4741410D038A570072B006 /* JavaScriptThreadingPthreads.cpp in Sources */,
 				BC0131DA0C9772010087317D /* LayoutTestController.cpp in Sources */,
 				BCA18B240C9B014B00114369 /* LayoutTestControllerMac.mm in Sources */,
 				BCA18B720C9B08DB00114369 /* NavigationController.m in Sources */,
 				BCA18B320C9B01B400114369 /* ObjCController.m in Sources */,
 				BCA18B7E0C9B08F100114369 /* ObjCPlugin.m in Sources */,
 				BCA18B800C9B08F100114369 /* ObjCPluginFunction.m in Sources */,
+				8465E2C70FFA8DF2003B8342 /* PixelDumpSupport.cpp in Sources */,
+				BCB284CD0CFA83C8007E533E /* PixelDumpSupportCG.cpp in Sources */,
+				BCB284D60CFA83D1007E533E /* PixelDumpSupportMac.mm in Sources */,
+				933BF5AC0F93FA5C000F0441 /* PlainTextController.mm in Sources */,
 				BCA18B660C9B08C200114369 /* PolicyDelegate.mm in Sources */,
 				BCA18B680C9B08C200114369 /* ResourceLoadDelegate.mm in Sources */,
 				BCA18B490C9B02C400114369 /* TextInputController.m in Sources */,
 				BCA18B6A0C9B08C200114369 /* UIDelegate.mm in Sources */,
 				BC9D90240C97472E0099A4A3 /* WorkQueue.cpp in Sources */,
 				BCA18B260C9B015C00114369 /* WorkQueueItemMac.mm in Sources */,
-				A8B91ADA0CF3B32F008F91FF /* DumpRenderTreePasteboard.m in Sources */,
-				A8B91ADC0CF3B32F008F91FF /* DumpRenderTreeWindow.mm in Sources */,
-				A8B91BFD0CF522B4008F91FF /* CheckedMalloc.cpp in Sources */,
-				BCB284CD0CFA83C8007E533E /* PixelDumpSupportCG.cpp in Sources */,
-				BCB284D60CFA83D1007E533E /* PixelDumpSupportMac.mm in Sources */,
-				BC4741410D038A570072B006 /* JavaScriptThreadingPthreads.cpp in Sources */,
-				BCD08B3A0E1057EF00A7D0C1 /* AccessibilityController.cpp in Sources */,
-				BCD08B710E1059D200A7D0C1 /* AccessibilityControllerMac.mm in Sources */,
-				BC0E24E10E2D9451001B6BC2 /* AccessibilityUIElement.cpp in Sources */,
-				BC0E26150E2DA4C6001B6BC2 /* AccessibilityUIElementMac.mm in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -634,6 +714,11 @@
 			isa = PBXTargetDependency;
 			target = 141BF21E096A441D00E0753C /* TestNetscapePlugIn */;
 			targetProxy = 141BF237096A451E00E0753C /* PBXContainerItemProxy */;
+		};
+		5DC82A701023C93D00FD1D3B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 5DC82A661023C8DE00FD1D3B /* DumpRenderTree Perl Support */;
+			targetProxy = 5DC82A6F1023C93D00FD1D3B /* PBXContainerItemProxy */;
 		};
 		A84F608F08B1370E00E9745F /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -690,6 +775,70 @@
 			buildSettings = {
 			};
 			name = Release;
+		};
+		5DC82A671023C8DE00FD1D3B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "DumpRenderTree Perl Support";
+			};
+			name = Debug;
+		};
+		5DC82A681023C8DE00FD1D3B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "DumpRenderTree Perl Support";
+			};
+			name = Release;
+		};
+		5DC82A691023C8DE00FD1D3B /* Production */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "DumpRenderTree Perl Support";
+			};
+			name = Production;
+		};
+		90CBC3500F748B1300A712B7 /* Production */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = BCB281EE0CFA713D007E533E /* Base.xcconfig */;
+			buildSettings = {
+				WEBKIT_FRAMEWORK_RESOURCES_PATH = WebKit.framework/Versions/A/Resources;
+			};
+			name = Production;
+		};
+		90CBC3510F748B1300A712B7 /* Production */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks/$(WEBKIT_FRAMEWORK_RESOURCES_PATH)";
+				PRODUCT_NAME = All;
+			};
+			name = Production;
+		};
+		90CBC3520F748B1300A712B7 /* Production */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = BCB281F00CFA713D007E533E /* DumpRenderTree.xcconfig */;
+			buildSettings = {
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks/$(WEBKIT_FRAMEWORK_RESOURCES_PATH)";
+				SKIP_INSTALL = NO;
+			};
+			name = Production;
+		};
+		90CBC3530F748B1300A712B7 /* Production */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = BCB283D80CFA7AFD007E533E /* ImageDiff.xcconfig */;
+			buildSettings = {
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks/$(WEBKIT_FRAMEWORK_RESOURCES_PATH)";
+				SKIP_INSTALL = NO;
+			};
+			name = Production;
+		};
+		90CBC3540F748B1300A712B7 /* Production */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = BCB283DE0CFA7C20007E533E /* TestNetscapePlugIn.xcconfig */;
+			buildSettings = {
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks/$(WEBKIT_FRAMEWORK_RESOURCES_PATH)";
+				SKIP_INSTALL = NO;
+			};
+			name = Production;
 		};
 		A84F609308B1371400E9745F /* Debug */ = {
 			isa = XCBuildConfiguration;
@@ -749,45 +898,60 @@
 			buildConfigurations = (
 				141BF222096A441E00E0753C /* Debug */,
 				141BF223096A441E00E0753C /* Release */,
+				90CBC3540F748B1300A712B7 /* Production */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Production;
 		};
 		149C29BF08902C6D008A9EFC /* Build configuration list for PBXNativeTarget "DumpRenderTree" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				149C29C008902C6D008A9EFC /* Debug */,
 				149C29C108902C6D008A9EFC /* Release */,
+				90CBC3520F748B1300A712B7 /* Production */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Production;
 		};
 		149C29C308902C6D008A9EFC /* Build configuration list for PBXProject "DumpRenderTree" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				149C29C408902C6D008A9EFC /* Debug */,
 				149C29C508902C6D008A9EFC /* Release */,
+				90CBC3500F748B1300A712B7 /* Production */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Production;
+		};
+		5DC82A6E1023C92A00FD1D3B /* Build configuration list for PBXLegacyTarget "DumpRenderTree Perl Support" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				5DC82A671023C8DE00FD1D3B /* Debug */,
+				5DC82A681023C8DE00FD1D3B /* Release */,
+				5DC82A691023C8DE00FD1D3B /* Production */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Production;
 		};
 		A84F609208B1371400E9745F /* Build configuration list for PBXAggregateTarget "All" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				A84F609308B1371400E9745F /* Debug */,
 				A84F609408B1371400E9745F /* Release */,
+				90CBC3510F748B1300A712B7 /* Production */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Production;
 		};
 		B5A7526408AF4A4A00138E45 /* Build configuration list for PBXNativeTarget "ImageDiff" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				B5A7526508AF4A4A00138E45 /* Debug */,
 				B5A7526608AF4A4A00138E45 /* Release */,
+				90CBC3530F748B1300A712B7 /* Production */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Production;
 		};
 /* End XCConfigurationList section */
 	};

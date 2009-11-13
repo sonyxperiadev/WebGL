@@ -39,10 +39,9 @@
 #if defined(Q_OS_WIN32)
 #include <windows.h>
 #endif
-#endif
-
-#if PLATFORM(DARWIN)
+#if defined(Q_WS_MAC)
 #include <CoreFoundation/CFBundle.h>
+#endif
 #endif
 
 #include <time.h>
@@ -54,7 +53,7 @@
 
 typedef const struct __CFData* CFDataRef;
 
-#if PLATFORM(WIN)
+#if PLATFORM(WIN_OS)
 // These are to avoid including <winbase.h> in a header for Chromium
 typedef void *HANDLE;
 // Assuming STRICT
@@ -66,7 +65,38 @@ namespace WebCore {
 
 class CString;
 
-#if PLATFORM(WIN)
+#if PLATFORM(QT)
+
+typedef QFile* PlatformFileHandle;
+const PlatformFileHandle invalidPlatformFileHandle = 0;
+#if defined(Q_WS_MAC)
+typedef CFBundleRef PlatformModule;
+typedef unsigned PlatformModuleVersion;
+#elif defined(Q_OS_WIN)
+typedef HMODULE PlatformModule;
+struct PlatformModuleVersion {
+    unsigned leastSig;
+    unsigned mostSig;
+
+    PlatformModuleVersion(unsigned)
+        : leastSig(0)
+        , mostSig(0)
+    {
+    }
+
+    PlatformModuleVersion(unsigned lsb, unsigned msb)
+        : leastSig(lsb)
+        , mostSig(msb)
+    {
+    }
+
+};
+#else
+typedef QLibrary* PlatformModule;
+typedef unsigned PlatformModuleVersion;
+#endif
+
+#elif PLATFORM(WIN_OS)
 typedef HANDLE PlatformFileHandle;
 typedef HMODULE PlatformModule;
 // FIXME: -1 is INVALID_HANDLE_VALUE, defined in <winbase.h>. Chromium tries to
@@ -90,37 +120,6 @@ struct PlatformModuleVersion {
     }
 
 };
-#elif PLATFORM(QT)
-
-typedef QFile* PlatformFileHandle;
-const PlatformFileHandle invalidPlatformFileHandle = 0;
-#if defined(Q_WS_MAC)
-typedef CFBundleRef PlatformModule;
-typedef unsigned PlatformModuleVersion;
-#elif defined(Q_WS_X11) || defined(Q_WS_QWS) || defined(Q_WS_S60)
-typedef QLibrary* PlatformModule;
-typedef unsigned PlatformModuleVersion;
-#elif defined(Q_OS_WIN)
-typedef HMODULE PlatformModule;
-struct PlatformModuleVersion {
-    unsigned leastSig;
-    unsigned mostSig;
-
-    PlatformModuleVersion(unsigned)
-        : leastSig(0)
-        , mostSig(0)
-    {
-    }
-
-    PlatformModuleVersion(unsigned lsb, unsigned msb)
-        : leastSig(lsb)
-        , mostSig(msb)
-    {
-    }
-
-};
-#endif
-
 #else
 typedef int PlatformFileHandle;
 #if PLATFORM(GTK)

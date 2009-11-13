@@ -33,68 +33,16 @@
 
 #if ENABLE(VIDEO)
 
-#include "MediaPlayer.h"
+#include "MediaPlayerPrivate.h"
 
 namespace WebCore {
 
-class MediaPlayerPrivate : public Noncopyable {
+class MediaPlayerPrivate {
 public:
-    MediaPlayerPrivate(MediaPlayer*);
-    ~MediaPlayerPrivate();
-
-    IntSize naturalSize() const;
-    bool hasVideo() const;
-
-    void load(const String& url);
-    void cancelLoad();
-
-    void play();
-    void pause();    
-
-    bool paused() const;
-    bool seeking() const;
-
-    float duration() const;
-    float currentTime() const;
-    void seek(float time);
-    void setEndTime(float);
-
-    void setRate(float);
-    void setVolume(float);
-
-    int dataRate() const;
-
-    MediaPlayer::NetworkState networkState() const;
-    MediaPlayer::ReadyState readyState() const;
-
-    float maxTimeBuffered() const;
-    float maxTimeSeekable() const;
-    unsigned bytesLoaded() const;
-    bool totalBytesKnown() const;
-    unsigned totalBytes() const;
-
-    void setVisible(bool);
-    void setRect(const IntRect&);
-
-    void paint(GraphicsContext*, const IntRect&);
-
-    static void getSupportedTypes(HashSet<String>&);
-    static bool isAvailable();
-
-    // Public methods to be called by WebMediaPlayer
-    FrameView* frameView();
-    void networkStateChanged();
-    void readyStateChanged();
-    void timeChanged();
-    void volumeChanged();
-    void repaint();
-
-private:
-    MediaPlayer* m_player;
-    void* m_data;
+    static void registerMediaEngine(MediaEngineRegistrar);
 };
 
-}  // namespace WebCore
+} // namespace WebCore
 
 #endif
 

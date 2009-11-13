@@ -28,7 +28,11 @@
 #include "config.h"
 #include "FrameLoaderClientWx.h"
 
+#include <JavaScriptCore/JavaScript.h>
+#include <JavaScriptCore/APICast.h>
+
 #include "DocumentLoader.h"
+#include "FormState.h"
 #include "Frame.h"
 #include "FrameLoaderTypes.h"
 #include "FrameView.h"
@@ -42,9 +46,12 @@
 #include "RenderPart.h"
 #include "ResourceError.h"
 #include "ResourceResponse.h"
+#include "ScriptController.h"
+#include "ScriptString.h"
 
 #include <stdio.h>
 
+#include "WebFrame.h"
 #include "WebView.h"
 #include "WebViewPrivate.h"
 
@@ -70,8 +77,7 @@ inline int wxNavTypeFromWebNavType(NavigationType type){
 }
 
 FrameLoaderClientWx::FrameLoaderClientWx()
-    : RefCounted<FrameLoaderClientWx>(0)
-    , m_frame(0)
+    : m_frame(0)
 {
 }
 
@@ -95,20 +101,9 @@ void FrameLoaderClientWx::detachFrameLoader()
     m_frame = 0;
 }
 
-void FrameLoaderClientWx::ref()
-{
-    RefCounted<FrameLoaderClientWx>::ref();
-}
-
-void FrameLoaderClientWx::deref()
-{
-    RefCounted<FrameLoaderClientWx>::deref();
-}
-
 bool FrameLoaderClientWx::hasWebView() const
 {
-    notImplemented();
-    return true;
+    return m_webView != NULL;
 }
 
 bool FrameLoaderClientWx::hasBackForwardList() const
@@ -487,8 +482,7 @@ void FrameLoaderClientWx::didFinishLoad()
 
 void FrameLoaderClientWx::prepareForDataSourceReplacement()
 {
-    if (m_frame && m_frame->loader())
-        m_frame->loader()->detachChildren();
+    notImplemented();
 }
 
 
@@ -531,6 +525,11 @@ void FrameLoaderClientWx::updateGlobalHistory()
     notImplemented();
 }
 
+void FrameLoaderClientWx::updateGlobalHistoryRedirectLinks()
+{
+    notImplemented();
+}
+
 bool FrameLoaderClientWx::shouldGoToHistoryItem(WebCore::HistoryItem*) const
 {
     notImplemented();
@@ -561,40 +560,39 @@ void FrameLoaderClientWx::committedLoad(WebCore::DocumentLoader* loader, const c
     fl->addData(data, length);
 }
 
-WebCore::ResourceError FrameLoaderClientWx::cancelledError(const WebCore::ResourceRequest&)
+WebCore::ResourceError FrameLoaderClientWx::cancelledError(const WebCore::ResourceRequest& request)
 {
     notImplemented();
-    return ResourceError();
+    return ResourceError(String(), WebKitErrorCannotShowURL, request.url().string(), String());
 }
 
-WebCore::ResourceError FrameLoaderClientWx::blockedError(const ResourceRequest&)
+WebCore::ResourceError FrameLoaderClientWx::blockedError(const ResourceRequest& request)
 {
     notImplemented();
-    return ResourceError();
+    return ResourceError(String(), WebKitErrorCannotShowURL, request.url().string(), String());
 }
 
-WebCore::ResourceError FrameLoaderClientWx::cannotShowURLError(const WebCore::ResourceRequest&)
+WebCore::ResourceError FrameLoaderClientWx::cannotShowURLError(const WebCore::ResourceRequest& request)
 {
-    notImplemented();
-    return ResourceError();
+    return ResourceError(String(), WebKitErrorCannotShowURL, request.url().string(), String());
 }
 
-WebCore::ResourceError FrameLoaderClientWx::interruptForPolicyChangeError(const WebCore::ResourceRequest&)
+WebCore::ResourceError FrameLoaderClientWx::interruptForPolicyChangeError(const WebCore::ResourceRequest& request)
 {
     notImplemented();
-    return ResourceError();
+    return ResourceError(String(), WebKitErrorFrameLoadInterruptedByPolicyChange, request.url().string(), String());
 }
 
-WebCore::ResourceError FrameLoaderClientWx::cannotShowMIMETypeError(const WebCore::ResourceResponse&)
+WebCore::ResourceError FrameLoaderClientWx::cannotShowMIMETypeError(const WebCore::ResourceResponse& response)
 {
     notImplemented();
-    return ResourceError();
+    return ResourceError(String(), WebKitErrorCannotShowMIMEType, response.url().string(), String());
 }
 
-WebCore::ResourceError FrameLoaderClientWx::fileDoesNotExistError(const WebCore::ResourceResponse&)
+WebCore::ResourceError FrameLoaderClientWx::fileDoesNotExistError(const WebCore::ResourceResponse& response)
 {
     notImplemented();
-    return ResourceError();
+    return ResourceError(String(), WebKitErrorCannotShowURL, response.url().string(), String());
 }
 
 bool FrameLoaderClientWx::shouldFallBack(const WebCore::ResourceError& error)
@@ -658,13 +656,23 @@ void FrameLoaderClientWx::dispatchDidFinishLoading(DocumentLoader*, unsigned lon
 
 void FrameLoaderClientWx::dispatchDidFailLoading(DocumentLoader*, unsigned long, const ResourceError&)
 {
-    notImplemented();
+    if (m_webView) {
+        wxWebViewLoadEvent wkEvent(m_webView);
+        wkEvent.SetState(wxWEBVIEW_LOAD_FAILED);
+        wkEvent.SetURL(m_frame->loader()->documentLoader()->request().url().string());
+        m_webView->GetEventHandler()->ProcessEvent(wkEvent);
+    }
 }
 
 bool FrameLoaderClientWx::dispatchDidLoadResourceFromMemoryCache(DocumentLoader*, const ResourceRequest&, const ResourceResponse&, int)
 {
     notImplemented();
     return false;
+}
+
+void FrameLoaderClientWx::dispatchDidLoadResourceByXMLHttpRequest(unsigned long, const ScriptString&)
+{
+  notImplemented();
 }
 
 void FrameLoaderClientWx::dispatchDidFailProvisionalLoad(const ResourceError&)
@@ -692,12 +700,23 @@ void FrameLoaderClientWx::dispatchDecidePolicyForMIMEType(FramePolicyFunction fu
     (m_frame->loader()->*function)(PolicyUse);
 }
 
-void FrameLoaderClientWx::dispatchDecidePolicyForNewWindowAction(FramePolicyFunction function, const NavigationAction&, const ResourceRequest&, PassRefPtr<FormState>, const String&)
+void FrameLoaderClientWx::dispatchDecidePolicyForNewWindowAction(FramePolicyFunction function, const NavigationAction&, const ResourceRequest& request, PassRefPtr<FormState>, const String& targetName)
 {
     if (!m_frame)
         return;
 
-    notImplemented();
+    if (m_webView) {
+        wxWebViewNewWindowEvent wkEvent(m_webView);
+        wkEvent.SetURL(request.url().string());
+        wkEvent.SetTargetName(targetName);
+        if (m_webView->GetEventHandler()->ProcessEvent(wkEvent)) {
+            // if the app handles and doesn't skip the event, 
+            // from WebKit's perspective treat it as blocked / ignored
+            (m_frame->loader()->*function)(PolicyIgnore);
+            return;
+        }
+    }
+    
     (m_frame->loader()->*function)(PolicyUse);
 }
 
@@ -791,7 +810,7 @@ ObjectContentType FrameLoaderClientWx::objectContentType(const KURL& url, const 
     return ObjectContentType();
 }
 
-Widget* FrameLoaderClientWx::createPlugin(const IntSize&, Element*, const KURL&, const Vector<String>&, const Vector<String>&, const String&, bool loadManually)
+PassRefPtr<Widget> FrameLoaderClientWx::createPlugin(const IntSize&, HTMLPlugInElement*, const KURL&, const Vector<String>&, const Vector<String>&, const String&, bool loadManually)
 {
     notImplemented();
     return 0;
@@ -803,13 +822,13 @@ void FrameLoaderClientWx::redirectDataToPlugin(Widget* pluginWidget)
     return;
 }
 
-ResourceError FrameLoaderClientWx::pluginWillHandleLoadError(const ResourceResponse&)
+ResourceError FrameLoaderClientWx::pluginWillHandleLoadError(const ResourceResponse& response)
 {
     notImplemented();
-    return ResourceError();
+    return ResourceError(String(), WebKitErrorCannotLoadPlugIn, response.url().string(), String());
 }
 
-Widget* FrameLoaderClientWx::createJavaAppletWidget(const IntSize&, Element*, const KURL& baseURL,
+PassRefPtr<Widget> FrameLoaderClientWx::createJavaAppletWidget(const IntSize&, HTMLAppletElement*, const KURL& baseURL,
                                                     const Vector<String>& paramNames, const Vector<String>& paramValues)
 {
     notImplemented();
@@ -824,7 +843,19 @@ String FrameLoaderClientWx::overrideMediaType() const
 
 void FrameLoaderClientWx::windowObjectCleared()
 {
-    notImplemented();
+    if (m_webView) {
+        wxWebViewWindowObjectClearedEvent wkEvent(m_webView);
+        Frame* coreFrame = m_webView->GetMainFrame()->GetFrame();
+        JSGlobalContextRef context = toGlobalRef(coreFrame->script()->globalObject()->globalExec());
+        JSObjectRef windowObject = toRef(coreFrame->script()->globalObject());
+        wkEvent.SetJSContext(context);
+        wkEvent.SetWindowObject(windowObject);
+        m_webView->GetEventHandler()->ProcessEvent(wkEvent);
+    }
+}
+
+void FrameLoaderClientWx::documentElementAvailable()
+{
 }
 
 void FrameLoaderClientWx::didPerformFirstNavigation() const
@@ -859,20 +890,16 @@ void FrameLoaderClientWx::transitionToCommittedForNewPage()
 
     m_frame->setView(0);
 
-    FrameView* frameView;
+    RefPtr<FrameView> frameView;
     if (isMainFrame)
-        frameView = new FrameView(m_frame, IntRect(m_webView->GetRect()).size());
+        frameView = FrameView::create(m_frame, IntRect(m_webView->GetRect()).size());
     else
-        frameView = new FrameView(m_frame);
+        frameView = FrameView::create(m_frame);
 
     ASSERT(frameView);
     m_frame->setView(frameView);
-    frameView->deref(); // FrameViews are created with a ref count of 1. Release this ref since we've assigned it to frame.
 
     frameView->setPlatformWidget(m_webView);
-
-    if (m_frame->ownerRenderer())
-        m_frame->ownerRenderer()->setWidget(frameView);
 
     if (HTMLFrameOwnerElement* owner = m_frame->ownerElement())
         m_frame->view()->setScrollbarModes(owner->scrollingMode(), owner->scrollingMode());

@@ -22,7 +22,10 @@
 #include "config.h"
 #include "XMLHttpRequest.h"
 
+#include "Cache.h"
 #include "CString.h"
+#include "CrossOriginAccessControl.h"
+#include "CrossOriginPreflightResultCache.h"
 #include "DOMImplementation.h"
 #include "Document.h"
 #include "Event.h"
@@ -31,23 +34,17 @@
 #include "EventNames.h"
 #include "File.h"
 #include "HTTPParsers.h"
-#include "KURL.h"
-#include "KURLHash.h"
 #include "ResourceError.h"
 #include "ResourceRequest.h"
-#include "ScriptExecutionContext.h"
+#include "SecurityOrigin.h"
 #include "Settings.h"
-#include "SystemTime.h"
 #include "TextResourceDecoder.h"
 #include "ThreadableLoader.h"
 #include "XMLHttpRequestException.h"
 #include "XMLHttpRequestProgressEvent.h"
 #include "XMLHttpRequestUpload.h"
 #include "markup.h"
-#include <wtf/CurrentTime.h>
-#include <wtf/Noncopyable.h>
 #include <wtf/StdLibExtras.h>
-#include <wtf/Threading.h>
 
 #if USE(JSC)
 #include "JSDOMWindow.h"
@@ -55,14 +52,11 @@
 
 namespace WebCore {
 
-typedef HashSet<String, CaseFoldingHash> HeadersSet;
-
 struct XMLHttpRequestStaticData {
     XMLHttpRequestStaticData();
     String m_proxyHeaderPrefix;
     String m_secHeaderPrefix;
     HashSet<String, CaseFoldingHash> m_forbiddenRequestHeaders;
-    HashSet<String, CaseFoldingHash> m_allowedCrossSiteResponseHeaders;
 };
 
 XMLHttpRequestStaticData::XMLHttpRequestStaticData()
@@ -71,76 +65,25 @@ XMLHttpRequestStaticData::XMLHttpRequestStaticData()
 {
     m_forbiddenRequestHeaders.add("accept-charset");
     m_forbiddenRequestHeaders.add("accept-encoding");
+    m_forbiddenRequestHeaders.add("access-control-request-headers");
+    m_forbiddenRequestHeaders.add("access-control-request-method");
     m_forbiddenRequestHeaders.add("connection");
     m_forbiddenRequestHeaders.add("content-length");
     m_forbiddenRequestHeaders.add("content-transfer-encoding");
+    m_forbiddenRequestHeaders.add("cookie");
+    m_forbiddenRequestHeaders.add("cookie2");
     m_forbiddenRequestHeaders.add("date");
     m_forbiddenRequestHeaders.add("expect");
     m_forbiddenRequestHeaders.add("host");
     m_forbiddenRequestHeaders.add("keep-alive");
+    m_forbiddenRequestHeaders.add("origin");
     m_forbiddenRequestHeaders.add("referer");
     m_forbiddenRequestHeaders.add("te");
     m_forbiddenRequestHeaders.add("trailer");
     m_forbiddenRequestHeaders.add("transfer-encoding");
     m_forbiddenRequestHeaders.add("upgrade");
+    m_forbiddenRequestHeaders.add("user-agent");
     m_forbiddenRequestHeaders.add("via");
-
-    m_allowedCrossSiteResponseHeaders.add("cache-control");
-    m_allowedCrossSiteResponseHeaders.add("content-language");
-    m_allowedCrossSiteResponseHeaders.add("content-type");
-    m_allowedCrossSiteResponseHeaders.add("expires");
-    m_allowedCrossSiteResponseHeaders.add("last-modified");
-    m_allowedCrossSiteResponseHeaders.add("pragma");
-}
-
-class PreflightResultCacheItem : Noncopyable {
-public:
-    PreflightResultCacheItem(bool credentials)
-        : m_absoluteExpiryTime(0)
-        , m_credentials(credentials)
-    {
-    }
-
-    bool parse(const ResourceResponse&);
-    bool allowsCrossSiteMethod(const String&) const;
-    bool allowsCrossSiteHeaders(const HTTPHeaderMap&) const;
-    bool allowsRequest(bool includeCredentials, const String& method, const HTTPHeaderMap& requestHeaders) const;
-
-private:
-    template<class HashType>
-    static void addToAccessControlAllowList(const String& string, unsigned start, unsigned end, HashSet<String, HashType>&);
-    template<class HashType>
-    static bool parseAccessControlAllowList(const String& string, HashSet<String, HashType>&);
-    static bool parseAccessControlMaxAge(const String& string, unsigned& expiryDelta);
-
-    // FIXME: A better solution to holding onto the absolute expiration time might be
-    // to start a timer for the expiration delta, that removes this from the cache when
-    // it fires.
-    double m_absoluteExpiryTime;
-    bool m_credentials;
-    HashSet<String> m_methods;
-    HeadersSet m_headers;
-};
-
-class PreflightResultCache : Noncopyable {
-public:
-    static PreflightResultCache& shared();
-
-    void appendEntry(const String& origin, const KURL&, PreflightResultCacheItem*);
-    bool canSkipPreflight(const String& origin, const KURL&, bool includeCredentials, const String& method, const HTTPHeaderMap& requestHeaders);
-
-private:
-    PreflightResultCache() { }
-
-    typedef HashMap<std::pair<String, KURL>, PreflightResultCacheItem*> PreflightResultHashMap;
-
-    PreflightResultHashMap m_preflightHashMap;
-    Mutex m_mutex;
-};
-
-static bool isOnAccessControlSimpleRequestHeaderWhitelist(const String& name)
-{
-    return equalIgnoringCase(name, "accept") || equalIgnoringCase(name, "accept-language") || equalIgnoringCase(name, "content-type");
 }
 
 // Determines if a string is a valid token, as defined by
@@ -177,131 +120,6 @@ static bool isSetCookieHeader(const AtomicString& name)
     return equalIgnoringCase(name, "set-cookie") || equalIgnoringCase(name, "set-cookie2");
 }
 
-template<class HashType>
-void PreflightResultCacheItem::addToAccessControlAllowList(const String& string, unsigned start, unsigned end, HashSet<String, HashType>& set)
-{
-    StringImpl* stringImpl = string.impl();
-    if (!stringImpl)
-        return;
-
-    // Skip white space from start.
-    while (start <= end && isSpaceOrNewline((*stringImpl)[start]))
-        start++;
-
-    // only white space
-    if (start > end) 
-        return;
-
-    // Skip white space from end.
-    while (end && isSpaceOrNewline((*stringImpl)[end]))
-        end--;
-
-    // substringCopy() is called on the strings because the cache is accessed on multiple threads.
-    set.add(string.substringCopy(start, end - start + 1));
-}
-
-
-template<class HashType>
-bool PreflightResultCacheItem::parseAccessControlAllowList(const String& string, HashSet<String, HashType>& set)
-{
-    int start = 0;
-    int end;
-    while ((end = string.find(',', start)) != -1) {
-        if (start == end)
-            return false;
-
-        addToAccessControlAllowList(string, start, end - 1, set);
-        start = end + 1;
-    }
-    if (start != static_cast<int>(string.length()))
-        addToAccessControlAllowList(string, start, string.length() - 1, set);
-
-    return true;
-}
-
-bool PreflightResultCacheItem::parseAccessControlMaxAge(const String& string, unsigned& expiryDelta)
-{
-    // FIXME: this will not do the correct thing for a number starting with a '+'
-    bool ok = false;
-    expiryDelta = string.toUIntStrict(&ok);
-    return ok;
-}
-
-bool PreflightResultCacheItem::parse(const ResourceResponse& response)
-{
-    m_methods.clear();
-    if (!parseAccessControlAllowList(response.httpHeaderField("Access-Control-Allow-Methods"), m_methods))
-        return false;
-
-    m_headers.clear();
-    if (!parseAccessControlAllowList(response.httpHeaderField("Access-Control-Allow-Headers"), m_headers))
-        return false;
-
-    unsigned expiryDelta = 0;
-    if (!parseAccessControlMaxAge(response.httpHeaderField("Access-Control-Max-Age"), expiryDelta))
-        expiryDelta = 5;
-
-    m_absoluteExpiryTime = currentTime() + expiryDelta;
-    return true;
-}
-
-bool PreflightResultCacheItem::allowsCrossSiteMethod(const String& method) const
-{
-    return m_methods.contains(method) || method == "GET" || method == "POST";
-}
-
-bool PreflightResultCacheItem::allowsCrossSiteHeaders(const HTTPHeaderMap& requestHeaders) const
-{
-    HTTPHeaderMap::const_iterator end = requestHeaders.end();
-    for (HTTPHeaderMap::const_iterator it = requestHeaders.begin(); it != end; ++it) {
-        if (!m_headers.contains(it->first) && !isOnAccessControlSimpleRequestHeaderWhitelist(it->first))
-            return false;
-    }
-    return true;
-}
-
-bool PreflightResultCacheItem::allowsRequest(bool includeCredentials, const String& method, const HTTPHeaderMap& requestHeaders) const
-{
-    if (m_absoluteExpiryTime < currentTime())
-        return false;
-    if (includeCredentials && !m_credentials)
-        return false;
-    if (!allowsCrossSiteMethod(method))
-        return false;
-    if (!allowsCrossSiteHeaders(requestHeaders))
-        return false;
-    return true;
-}
-
-PreflightResultCache& PreflightResultCache::shared()
-{
-    AtomicallyInitializedStatic(PreflightResultCache&, cache = *new PreflightResultCache);
-    return cache;
-}
-
-void PreflightResultCache::appendEntry(const String& origin, const KURL& url, PreflightResultCacheItem* preflightResult)
-{
-    MutexLocker lock(m_mutex);
-    // Note that the entry may already be present in the HashMap if another thread is accessing the same location.
-    m_preflightHashMap.set(std::make_pair(origin.copy(), url.copy()), preflightResult);
-}
-
-bool PreflightResultCache::canSkipPreflight(const String& origin, const KURL& url, bool includeCredentials,
-                                            const String& method, const HTTPHeaderMap& requestHeaders)
-{
-    MutexLocker lock(m_mutex);
-    PreflightResultHashMap::iterator cacheIt = m_preflightHashMap.find(std::make_pair(origin, url));
-    if (cacheIt == m_preflightHashMap.end())
-        return false;
-
-    if (cacheIt->second->allowsRequest(includeCredentials, method, requestHeaders))
-        return true;
-
-    delete cacheIt->second;
-    m_preflightHashMap.remove(cacheIt);
-    return false;
-}
-
 static const XMLHttpRequestStaticData* staticData = 0;
 
 static const XMLHttpRequestStaticData* createXMLHttpRequestStaticData()
@@ -328,14 +146,20 @@ XMLHttpRequest::XMLHttpRequest(ScriptExecutionContext* context)
     , m_uploadComplete(false)
     , m_sameOriginRequest(true)
     , m_inPreflight(false)
+    , m_didTellLoaderAboutRequest(false)
     , m_receivedLength(0)
     , m_lastSendLineNumber(0)
+    , m_exceptionCode(0)
 {
     initializeXMLHttpRequestStaticData();
 }
 
 XMLHttpRequest::~XMLHttpRequest()
 {
+    if (m_didTellLoaderAboutRequest) {
+        cache()->loader()->nonCacheRequestComplete(m_url);
+        m_didTellLoaderAboutRequest = false;
+    }
     if (m_upload)
         m_upload->disconnectXMLHttpRequest();
 }
@@ -379,7 +203,7 @@ Document* XMLHttpRequest::responseXML() const
             m_responseXML = document()->implementation()->createDocument(0);
             m_responseXML->open();
             m_responseXML->setURL(m_url);
-            // FIXME: set Last-Modified and cookies (currently, those are only available for HTMLDocuments).
+            // FIXME: Set Last-Modified.
             m_responseXML->write(String(m_responseText));
             m_responseXML->finishParsing();
             m_responseXML->close();
@@ -465,8 +289,18 @@ void XMLHttpRequest::callReadyStateChangeListener()
 
     dispatchReadyStateChangeEvent();
 
-    if (m_state == DONE)
+    if (m_state == DONE && !m_error)
         dispatchLoadEvent();
+}
+
+void XMLHttpRequest::setWithCredentials(bool value, ExceptionCode& ec)
+{
+    if (m_state != OPENED || m_loader) {
+        ec = INVALID_STATE_ERR;
+        return;
+    }
+
+    m_includeCredentials = value;
 }
 
 void XMLHttpRequest::open(const String& method, const KURL& url, bool async, ExceptionCode& ec)
@@ -562,7 +396,7 @@ void XMLHttpRequest::send(Document* document, ExceptionCode& ec)
     if (!initSend(ec))
         return;
 
-    if (m_method != "GET" && m_method != "HEAD" && (m_url.protocolIs("http") || m_url.protocolIs("https"))) {
+    if (m_method != "GET" && m_method != "HEAD" && m_url.protocolInHTTPFamily()) {
         String contentType = getRequestHeader("Content-Type");
         if (contentType.isEmpty()) {
 #if ENABLE(DASHBOARD_SUPPORT)
@@ -593,7 +427,7 @@ void XMLHttpRequest::send(const String& body, ExceptionCode& ec)
     if (!initSend(ec))
         return;
 
-    if (!body.isNull() && m_method != "GET" && m_method != "HEAD" && (m_url.protocolIs("http") || m_url.protocolIs("https"))) {
+    if (!body.isNull() && m_method != "GET" && m_method != "HEAD" && m_url.protocolInHTTPFamily()) {
         String contentType = getRequestHeader("Content-Type");
         if (contentType.isEmpty()) {
 #if ENABLE(DASHBOARD_SUPPORT)
@@ -617,7 +451,7 @@ void XMLHttpRequest::send(File* body, ExceptionCode& ec)
     if (!initSend(ec))
         return;
 
-    if (m_method != "GET" && m_method != "HEAD" && (m_url.protocolIs("http") || m_url.protocolIs("https"))) {
+    if (m_method != "GET" && m_method != "HEAD" && m_url.protocolInHTTPFamily()) {
         // FIXME: Should we set a Content-Type if one is not set.
         // FIXME: add support for uploading bundles.
         m_requestEntityBody = FormData::create();
@@ -629,18 +463,27 @@ void XMLHttpRequest::send(File* body, ExceptionCode& ec)
 
 void XMLHttpRequest::createRequest(ExceptionCode& ec)
 {
+    // Upload event listeners should be disallowed for simple cross-origin requests, because POSTing to an URL that does not
+    // permit cross origin requests should look exactly like POSTing to an URL that does not respond at all. If a listener exists
+    // when creating the request, it will force preflight.
+    // Also, only async requests support upload progress events.
+    m_uploadEventsAllowed = false;
     if (m_async) {
         dispatchLoadStartEvent();
-        if (m_requestEntityBody && m_upload)
+        if (m_requestEntityBody && m_upload) {
+            m_uploadEventsAllowed = m_upload->hasListeners();
             m_upload->dispatchLoadStartEvent();
+        }
     }
 
     m_sameOriginRequest = scriptExecutionContext()->securityOrigin()->canRequest(m_url);
 
     if (!m_sameOriginRequest) {
-        makeCrossSiteAccessRequest(ec);
+        makeCrossOriginAccessRequest(ec);
         return;
     }
+
+    m_uploadEventsAllowed = true;
 
     makeSameOriginRequest(ec);
 }
@@ -654,6 +497,7 @@ void XMLHttpRequest::makeSameOriginRequest(ExceptionCode& ec)
 
     if (m_requestEntityBody) {
         ASSERT(m_method != "GET");
+        ASSERT(m_method != "HEAD");
         request.setHTTPBody(m_requestEntityBody.release());
     }
 
@@ -666,38 +510,31 @@ void XMLHttpRequest::makeSameOriginRequest(ExceptionCode& ec)
         loadRequestSynchronously(request, ec);
 }
 
-bool XMLHttpRequest::isSimpleCrossSiteAccessRequest() const
-{
-    if (m_method != "GET" && m_method != "POST")
-        return false;
-
-    HTTPHeaderMap::const_iterator end = m_requestHeaders.end();
-    for (HTTPHeaderMap::const_iterator it = m_requestHeaders.begin(); it != end; ++it) {
-        if (!isOnAccessControlSimpleRequestHeaderWhitelist(it->first))
-            return false;
-    }
-
-    return true;
-}
-
-void XMLHttpRequest::makeCrossSiteAccessRequest(ExceptionCode& ec)
+void XMLHttpRequest::makeCrossOriginAccessRequest(ExceptionCode& ec)
 {
     ASSERT(!m_sameOriginRequest);
 
-    if (isSimpleCrossSiteAccessRequest())
-        makeSimpleCrossSiteAccessRequest(ec);
+    if (!m_uploadEventsAllowed && isSimpleCrossOriginAccessRequest(m_method, m_requestHeaders))
+        makeSimpleCrossOriginAccessRequest(ec);
     else
-        makeCrossSiteAccessRequestWithPreflight(ec);
+        makeCrossOriginAccessRequestWithPreflight(ec);
 }
 
-void XMLHttpRequest::makeSimpleCrossSiteAccessRequest(ExceptionCode& ec)
+void XMLHttpRequest::makeSimpleCrossOriginAccessRequest(ExceptionCode& ec)
 {
-    ASSERT(isSimpleCrossSiteAccessRequest());
+    ASSERT(isSimpleCrossOriginAccessRequest(m_method, m_requestHeaders));
+
+    // Cross-origin requests are only defined for HTTP. We would catch this when checking response headers later, but there is no reason to send a request that's guaranteed to be denied.
+    if (!m_url.protocolInHTTPFamily()) {
+        ec = XMLHttpRequestException::NETWORK_ERR;
+        networkError();
+        return;
+    }
 
     KURL url = m_url;
     url.setUser(String());
     url.setPass(String());
- 
+
     ResourceRequest request(url);
     request.setHTTPMethod(m_method);
     request.setAllowHTTPCookies(m_includeCredentials);
@@ -706,20 +543,26 @@ void XMLHttpRequest::makeSimpleCrossSiteAccessRequest(ExceptionCode& ec)
     if (m_requestHeaders.size() > 0)
         request.addHTTPHeaderFields(m_requestHeaders);
 
+    if (m_requestEntityBody) {
+        ASSERT(m_method != "GET");
+        ASSERT(m_method != "HEAD");
+        request.setHTTPBody(m_requestEntityBody.release());
+    }
+
     if (m_async)
         loadRequestAsynchronously(request);
     else
         loadRequestSynchronously(request, ec);
 }
 
-void XMLHttpRequest::makeCrossSiteAccessRequestWithPreflight(ExceptionCode& ec)
+void XMLHttpRequest::makeCrossOriginAccessRequestWithPreflight(ExceptionCode& ec)
 {
     String origin = scriptExecutionContext()->securityOrigin()->toString();
     KURL url = m_url;
     url.setUser(String());
     url.setPass(String());
 
-    if (!PreflightResultCache::shared().canSkipPreflight(origin, url, m_includeCredentials, m_method, m_requestHeaders)) {
+    if (!CrossOriginPreflightResultCache::shared().canSkipPreflight(origin, url, m_includeCredentials, m_method, m_requestHeaders)) {
         m_inPreflight = true;
         ResourceRequest preflightRequest(url);
         preflightRequest.setHTTPMethod("OPTIONS");
@@ -744,6 +587,7 @@ void XMLHttpRequest::makeCrossSiteAccessRequestWithPreflight(ExceptionCode& ec)
         }
 
         if (m_async) {
+            m_uploadEventsAllowed = true;
             loadRequestAsynchronously(preflightRequest);
             return;
         }
@@ -766,10 +610,12 @@ void XMLHttpRequest::makeCrossSiteAccessRequestWithPreflight(ExceptionCode& ec)
 
     if (m_requestEntityBody) {
         ASSERT(m_method != "GET");
+        ASSERT(m_method != "HEAD");
         request.setHTTPBody(m_requestEntityBody.release());
     }
 
     if (m_async) {
+        m_uploadEventsAllowed = true;
         loadRequestAsynchronously(request);
         return;
     }
@@ -798,58 +644,59 @@ void XMLHttpRequest::handleAsynchronousPreflightResult()
 
     if (m_requestEntityBody) {
         ASSERT(m_method != "GET");
+        ASSERT(m_method != "HEAD");
         request.setHTTPBody(m_requestEntityBody.release());
     }
 
+    m_uploadEventsAllowed = true;
     loadRequestAsynchronously(request);
 }
 
 void XMLHttpRequest::loadRequestSynchronously(ResourceRequest& request, ExceptionCode& ec)
 {
     ASSERT(!m_async);
-    Vector<char> data;
-    ResourceError error;
-    ResourceResponse response;
 
-    unsigned long identifier = ThreadableLoader::loadResourceSynchronously(scriptExecutionContext(), request, error, response, data);
     m_loader = 0;
+    m_exceptionCode = 0;
+    StoredCredentials storedCredentials = (m_sameOriginRequest || m_includeCredentials) ? AllowStoredCredentials : DoNotAllowStoredCredentials;
 
-    // No exception for file:/// resources, see <rdar://problem/4962298>.
-    // Also, if we have an HTTP response, then it wasn't a network error in fact.
-    if (error.isNull() || request.url().isLocalFile() || response.httpStatusCode() > 0) {
-        processSyncLoadResults(identifier, data, response, ec);
-        return;
-    }
-
-    if (error.isCancellation()) {
-        abortError();
-        ec = XMLHttpRequestException::ABORT_ERR;
-        return;
-    }
-
-    networkError();
-    ec = XMLHttpRequestException::NETWORK_ERR;
+    ThreadableLoader::loadResourceSynchronously(scriptExecutionContext(), request, *this, storedCredentials);
+    if (!m_exceptionCode && m_error)
+        m_exceptionCode = XMLHttpRequestException::NETWORK_ERR;
+    ec = m_exceptionCode;
 }
-
 
 void XMLHttpRequest::loadRequestAsynchronously(ResourceRequest& request)
 {
     ASSERT(m_async);
+    m_exceptionCode = 0;
     // SubresourceLoader::create can return null here, for example if we're no longer attached to a page.
     // This is true while running onunload handlers.
     // FIXME: We need to be able to send XMLHttpRequests from onunload, <http://bugs.webkit.org/show_bug.cgi?id=10904>.
     // FIXME: Maybe create can return null for other reasons too?
-    // We need to keep content sniffing enabled for local files due to CFNetwork not providing a MIME type
-    // for local files otherwise, <rdar://problem/5671813>.
     LoadCallbacks callbacks = m_inPreflight ? DoNotSendLoadCallbacks : SendLoadCallbacks;
-    ContentSniff contentSniff =  request.url().isLocalFile() ? SniffContent : DoNotSniffContent;
-    m_loader = ThreadableLoader::create(scriptExecutionContext(), this, request, callbacks, contentSniff);
+    StoredCredentials storedCredentials = (m_sameOriginRequest || m_includeCredentials) ? AllowStoredCredentials : DoNotAllowStoredCredentials;
+
+    if (m_upload)
+        request.setReportUploadProgress(true);
+
+    m_loader = ThreadableLoader::create(scriptExecutionContext(), this, request, callbacks, DoNotSniffContent, storedCredentials, DenyCrossOriginRedirect);
 
     if (m_loader) {
         // Neither this object nor the JavaScript wrapper should be deleted while
         // a request is in progress because we need to keep the listeners alive,
         // and they are referenced by the JavaScript wrapper.
         setPendingActivity(this);
+        
+        // For now we should only balance the nonCached request count for main-thread XHRs and not
+        // Worker XHRs, as the Cache is not thread-safe.
+        // This will become irrelevant after https://bugs.webkit.org/show_bug.cgi?id=27165 is resolved.
+        if (!scriptExecutionContext()->isWorkerContext()) {
+            ASSERT(isMainThread());
+            ASSERT(!m_didTellLoaderAboutRequest);
+            cache()->loader()->nonCacheRequestInFlight(m_url);
+            m_didTellLoaderAboutRequest = true;
+        }
     }
 }
 
@@ -867,7 +714,7 @@ void XMLHttpRequest::abort()
     
     if ((m_state <= OPENED && !sendFlag) || m_state == DONE)
         m_state = UNSENT;
-     else {
+    else {
         ASSERT(!m_loader);
         changeState(DONE);
         m_state = UNSENT;
@@ -876,7 +723,7 @@ void XMLHttpRequest::abort()
     dispatchAbortEvent();
     if (!m_uploadComplete) {
         m_uploadComplete = true;
-        if (m_upload)
+        if (m_upload && m_uploadEventsAllowed)
             m_upload->dispatchAbortEvent();
     }
 }
@@ -921,8 +768,7 @@ void XMLHttpRequest::genericError()
     clearRequest();
     m_error = true;
 
-    // The spec says we should "Synchronously switch the state to DONE." and then "Synchronously dispatch a readystatechange event on the object"
-    // but this does not match Firefox.
+    changeState(DONE);
 }
 
 void XMLHttpRequest::networkError()
@@ -931,7 +777,7 @@ void XMLHttpRequest::networkError()
     dispatchErrorEvent();
     if (!m_uploadComplete) {
         m_uploadComplete = true;
-        if (m_upload)
+        if (m_upload && m_uploadEventsAllowed)
             m_upload->dispatchErrorEvent();
     }
     internalAbort();
@@ -943,7 +789,7 @@ void XMLHttpRequest::abortError()
     dispatchAbortEvent();
     if (!m_uploadComplete) {
         m_uploadComplete = true;
-        if (m_upload)
+        if (m_upload && m_uploadEventsAllowed)
             m_upload->dispatchAbortEvent();
     }
 }
@@ -958,9 +804,9 @@ void XMLHttpRequest::dropProtection()
     // can't be recouped until the load is done, so only
     // report the extra cost at that point.
 
-   if (JSDOMGlobalObject* globalObject = toJSDOMGlobalObject(scriptExecutionContext()))
-       if (DOMObject* wrapper = getCachedDOMObjectWrapper(*globalObject->globalData(), this))
-           JSC::Heap::heap(wrapper)->reportExtraMemoryCost(m_responseText.size() * 2);
+    if (JSDOMGlobalObject* globalObject = toJSDOMGlobalObject(scriptExecutionContext()))
+        if (DOMObject* wrapper = getCachedDOMObjectWrapper(*globalObject->globalData(), this))
+            JSC::Heap::heap(wrapper)->reportExtraMemoryCost(m_responseText.size() * 2);
 #endif
 
     unsetPendingActivity(this);
@@ -977,7 +823,7 @@ static void reportUnsafeUsage(ScriptExecutionContext* context, const String& mes
         return;
     // FIXME: It's not good to report the bad usage without indicating what source line it came from.
     // We should pass additional parameters so we can tell the console where the mistake occurred.
-    context->addMessage(ConsoleDestination, JSMessageSource, ErrorMessageLevel, message, 1, String());
+    context->addMessage(ConsoleDestination, JSMessageSource, LogMessageType, ErrorMessageLevel, message, 1, String());
 }
 
 void XMLHttpRequest::setRequestHeader(const AtomicString& name, const String& value, ExceptionCode& ec)
@@ -1082,11 +928,6 @@ String XMLHttpRequest::getResponseHeader(const AtomicString& name, ExceptionCode
     return m_response.httpHeaderField(name);
 }
 
-bool XMLHttpRequest::isOnAccessControlResponseHeaderWhitelist(const String& name) const
-{
-    return staticData->m_allowedCrossSiteResponseHeaders.contains(name);
-}
-
 String XMLHttpRequest::responseMIMEType() const
 {
     String mimeType = extractMIMETypeFromMediaType(m_mimeTypeOverride);
@@ -1123,57 +964,50 @@ int XMLHttpRequest::status(ExceptionCode& ec) const
 
 String XMLHttpRequest::statusText(ExceptionCode& ec) const
 {
-    // FIXME: <http://bugs.webkit.org/show_bug.cgi?id=3547> XMLHttpRequest.statusText returns always "OK".
-    if (m_response.httpStatusCode())
-        return "OK";
+    if (!m_response.httpStatusText().isNull())
+        return m_response.httpStatusText();
 
     if (m_state == OPENED) {
-        // See comments in getStatus() above.
+        // See comments in status() above.
         ec = INVALID_STATE_ERR;
     }
 
     return String();
 }
 
-void XMLHttpRequest::processSyncLoadResults(unsigned long identifier, const Vector<char>& data, const ResourceResponse& response, ExceptionCode& ec)
+void XMLHttpRequest::didFail(const ResourceError& error)
 {
-    if (m_sameOriginRequest && !scriptExecutionContext()->securityOrigin()->canRequest(response.url())) {
-        abort();
-        return;
+    if (m_didTellLoaderAboutRequest) {
+        cache()->loader()->nonCacheRequestComplete(m_url);
+        m_didTellLoaderAboutRequest = false;
     }
     
-    didReceiveResponse(response);
-    changeState(HEADERS_RECEIVED);
-
-    const char* bytes = static_cast<const char*>(data.data());
-    int len = static_cast<int>(data.size());
-    didReceiveData(bytes, len);
-
-    didFinishLoading(identifier);
-    if (m_error)
-        ec = XMLHttpRequestException::NETWORK_ERR;
-}
-
-void XMLHttpRequest::didFail()
-{
     // If we are already in an error state, for instance we called abort(), bail out early.
     if (m_error)
         return;
 
+    if (error.isCancellation()) {
+        m_exceptionCode = XMLHttpRequestException::ABORT_ERR;
+        abortError();
+        return;
+    }
+
+    m_exceptionCode = XMLHttpRequestException::NETWORK_ERR;
     networkError();
 }
 
-void XMLHttpRequest::didGetCancelled()
+void XMLHttpRequest::didFailRedirectCheck()
 {
-    // If we are already in an error state, for instance we called abort(), bail out early.
-    if (m_error)
-        return;
-
-    abortError();
+    networkError();
 }
 
 void XMLHttpRequest::didFinishLoading(unsigned long identifier)
 {
+    if (m_didTellLoaderAboutRequest) {
+        cache()->loader()->nonCacheRequestComplete(m_url);
+        m_didTellLoaderAboutRequest = false;
+    }
+
     if (m_error)
         return;
 
@@ -1189,7 +1023,7 @@ void XMLHttpRequest::didFinishLoading(unsigned long identifier)
         m_responseText += m_decoder->flush();
 
     scriptExecutionContext()->resourceRetrievedByXMLHttpRequest(identifier, m_responseText);
-    scriptExecutionContext()->addMessage(InspectorControllerDestination, JSMessageSource, LogMessageLevel, "XHR finished loading: \"" + m_url + "\".", m_lastSendLineNumber, m_lastSendURL);
+    scriptExecutionContext()->addMessage(InspectorControllerDestination, JSMessageSource, LogMessageType, LogMessageLevel, "XHR finished loading: \"" + m_url + "\".", m_lastSendLineNumber, m_lastSendURL);
 
     bool hadLoader = m_loader;
     m_loader = 0;
@@ -1219,31 +1053,14 @@ void XMLHttpRequest::didSendData(unsigned long long bytesSent, unsigned long lon
     if (!m_upload)
         return;
 
-    m_upload->dispatchProgressEvent(bytesSent, totalBytesToBeSent);
+    if (m_uploadEventsAllowed)
+        m_upload->dispatchProgressEvent(bytesSent, totalBytesToBeSent);
 
     if (bytesSent == totalBytesToBeSent && !m_uploadComplete) {
         m_uploadComplete = true;
-        m_upload->dispatchLoadEvent();
+        if (m_uploadEventsAllowed)
+            m_upload->dispatchLoadEvent();
     }
-}
-
-bool XMLHttpRequest::accessControlCheck(const ResourceResponse& response)
-{
-    const String& accessControlOriginString = response.httpHeaderField("Access-Control-Origin");
-    if (accessControlOriginString == "*" && !m_includeCredentials)
-        return true;
-
-    RefPtr<SecurityOrigin> accessControlOrigin = SecurityOrigin::createFromString(accessControlOriginString);
-    if (!accessControlOrigin->isSameSchemeHostPort(scriptExecutionContext()->securityOrigin()))
-        return false;
-
-    if (m_includeCredentials) {
-        const String& accessControlCredentialsString = response.httpHeaderField("Access-Control-Credentials");
-        if (accessControlCredentialsString != "true")
-            return false;
-    }
-
-    return true;
 }
 
 void XMLHttpRequest::didReceiveResponse(const ResourceResponse& response)
@@ -1254,7 +1071,7 @@ void XMLHttpRequest::didReceiveResponse(const ResourceResponse& response)
     }
 
     if (!m_sameOriginRequest) {
-        if (!accessControlCheck(response)) {
+        if (!passesAccessControlCheck(response, m_includeCredentials, scriptExecutionContext()->securityOrigin())) {
             networkError();
             return;
         }
@@ -1271,20 +1088,20 @@ void XMLHttpRequest::didReceiveResponsePreflight(const ResourceResponse& respons
     ASSERT(m_inPreflight);
     ASSERT(!m_sameOriginRequest);
 
-    if (!accessControlCheck(response)) {
+    if (!passesAccessControlCheck(response, m_includeCredentials, scriptExecutionContext()->securityOrigin())) {
         networkError();
         return;
     }
 
-    OwnPtr<PreflightResultCacheItem> preflightResult(new PreflightResultCacheItem(m_includeCredentials));
+    OwnPtr<CrossOriginPreflightResultCacheItem> preflightResult(new CrossOriginPreflightResultCacheItem(m_includeCredentials));
     if (!preflightResult->parse(response)
-        || !preflightResult->allowsCrossSiteMethod(m_method)
-        || !preflightResult->allowsCrossSiteHeaders(m_requestHeaders)) {
+        || !preflightResult->allowsCrossOriginMethod(m_method)
+        || !preflightResult->allowsCrossOriginHeaders(m_requestHeaders)) {
         networkError();
         return;
     }
 
-    PreflightResultCache::shared().appendEntry(scriptExecutionContext()->securityOrigin()->toString(), m_url, preflightResult.release());
+    CrossOriginPreflightResultCache::shared().appendEntry(scriptExecutionContext()->securityOrigin()->toString(), m_url, preflightResult.release());
 }
 
 void XMLHttpRequest::didReceiveAuthenticationCancellation(const ResourceResponse& failureResponse)
@@ -1304,13 +1121,16 @@ void XMLHttpRequest::didReceiveData(const char* data, int len)
         if (!m_responseEncoding.isEmpty())
             m_decoder = TextResourceDecoder::create("text/plain", m_responseEncoding);
         // allow TextResourceDecoder to look inside the m_response if it's XML or HTML
-        else if (responseIsXML())
+        else if (responseIsXML()) {
             m_decoder = TextResourceDecoder::create("application/xml");
-        else if (responseMIMEType() == "text/html")
+            // Don't stop on encoding errors, unlike it is done for other kinds of XML resources. This matches the behavior of previous WebKit versions, Firefox and Opera.
+            m_decoder->useLenientXMLDecoding();
+        } else if (responseMIMEType() == "text/html")
             m_decoder = TextResourceDecoder::create("text/html", "UTF-8");
         else
             m_decoder = TextResourceDecoder::create("text/plain", "UTF-8");
     }
+
     if (!len)
         return;
 

@@ -87,6 +87,8 @@ public:
     virtual void undo();
     virtual void redo();
     
+    virtual const char* interpretKeyEvent(const KeyboardEvent*);
+    virtual bool handleEditingKeyboardEvent(KeyboardEvent*);
     virtual void handleKeyboardEvent(KeyboardEvent*);
     virtual void handleInputMethodKeydown(KeyboardEvent*);
     
@@ -106,6 +108,8 @@ public:
     virtual void showSpellingUI(bool show);
     virtual bool spellingUIIsShowing();
     virtual void getGuessesForWord(const String&, Vector<String>& guesses);
+    virtual String getAutoCorrectSuggestionForMisspelledWord(const WebCore::String&);
+    
     virtual void setInputMethodState(bool enabled);
 
 private:

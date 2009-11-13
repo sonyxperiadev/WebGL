@@ -27,9 +27,12 @@
 #include "CachedPage.h"
 
 #include "CachedFramePlatformData.h"
+#include "CString.h"
 #include "DocumentLoader.h"
 #include "Frame.h"
+#include "FrameLoaderClient.h"
 #include "FrameView.h"
+#include "Logging.h"
 #include <wtf/RefCountedLeakCounter.h>
 
 #if ENABLE(SVG)
@@ -51,15 +54,29 @@ CachedFrame::CachedFrame(Frame* frame)
     , m_documentLoader(frame->loader()->documentLoader())
     , m_view(frame->view())
     , m_mousePressNode(frame->eventHandler()->mousePressNode())
-    , m_URL(frame->loader()->url())
-    , m_cachedFrameScriptData(frame)
+    , m_url(frame->loader()->url())
 {
 #ifndef NDEBUG
     cachedFrameCounter().increment();
 #endif
+    ASSERT(m_document);
+    ASSERT(m_documentLoader);
+    ASSERT(m_view);
+
+    // Active DOM objects must be suspended before we cached the frame script data
+    m_document->suspendActiveDOMObjects();
+    m_cachedFrameScriptData.set(new ScriptCachedFrameData(frame));
+    
     m_document->documentWillBecomeInactive(); 
     frame->clearTimers();
     m_document->setInPageCache(true);
+    
+    frame->loader()->client()->savePlatformDataToCachedFrame(this);
+
+    for (Frame* child = frame->tree()->firstChild(); child; child = child->tree()->nextSibling())
+        m_childFrames.append(CachedFrame::create(child));
+
+    LOG(PageCache, "Finished creating CachedFrame with url %s and documentloader %p\n", m_url.string().utf8().data(), m_documentLoader.get());
 }
 
 CachedFrame::~CachedFrame()
@@ -71,19 +88,25 @@ CachedFrame::~CachedFrame()
     clear();
 }
 
-void CachedFrame::restore(Frame* frame)
+void CachedFrame::restore()
 {
     ASSERT(m_document->view() == m_view);
     
-    m_cachedFrameScriptData.restore(frame);
+    Frame* frame = m_view->frame();
+    m_cachedFrameScriptData->restore(frame);
 
 #if ENABLE(SVG)
-    if (m_document && m_document->svgExtensions())
+    if (m_document->svgExtensions())
         m_document->accessSVGExtensions()->unpauseAnimations();
 #endif
 
     frame->animation()->resumeAnimations(m_document.get());
     frame->eventHandler()->setMousePressNode(mousePressNode());
+    m_document->resumeActiveDOMObjects();
+
+    // It is necessary to update any platform script objects after restoring the
+    // cached page.
+    frame->script()->updatePlatformScriptObjects();
 }
 
 void CachedFrame::clear()
@@ -100,11 +123,13 @@ void CachedFrame::clear()
     if (m_document->inPageCache()) {
         Frame::clearTimers(m_view.get(), m_document.get());
 
+        // FIXME: Why do we need to call removeAllEventListeners here? When the document is in page cache, this method won't work
+        // fully anyway, because the document won't be able to access its DOMWindow object (due to being frameless).
+        m_document->removeAllEventListeners();
+
         m_document->setInPageCache(false);
         // FIXME: We don't call willRemove here. Why is that OK?
         m_document->detach();
-        m_document->removeAllEventListenersFromAllNodes();
-
         m_view->clearFrame();
     }
 
@@ -113,7 +138,7 @@ void CachedFrame::clear()
     m_document = 0;
     m_view = 0;
     m_mousePressNode = 0;
-    m_URL = KURL();
+    m_url = KURL();
 
     m_cachedFramePlatformData.clear();
 
@@ -128,6 +153,15 @@ void CachedFrame::setCachedFramePlatformData(CachedFramePlatformData* data)
 CachedFramePlatformData* CachedFrame::cachedFramePlatformData()
 {
     return m_cachedFramePlatformData.get();
+}
+
+int CachedFrame::descendantFrameCount() const
+{
+    int count = m_childFrames.size();
+    for (size_t i = 0; i < m_childFrames.size(); ++i)
+        count += m_childFrames[i]->descendantFrameCount();
+    
+    return count;
 }
 
 } // namespace WebCore

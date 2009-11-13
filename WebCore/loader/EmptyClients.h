@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2006 Eric Seidel (eric@webkit.org)
+ * Copyright (C) 2008, 2009 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,12 +29,14 @@
 
 #include "ChromeClient.h"
 #include "ContextMenuClient.h"
-#include "DragClient.h"
+#include "Console.h"
 #include "DocumentLoader.h"
+#include "DragClient.h"
 #include "EditCommand.h"
 #include "EditorClient.h"
-#include "FocusDirection.h"
 #include "FloatRect.h"
+#include "FocusDirection.h"
+#include "FormState.h"
 #include "FrameLoaderClient.h"
 #include "InspectorClient.h"
 #include "ResourceError.h"
@@ -92,7 +95,7 @@ public:
 
     virtual void setResizable(bool) { }
 
-    virtual void addMessageToConsole(const String&, unsigned, const String&) { }
+    virtual void addMessageToConsole(MessageSource, MessageType, MessageLevel, const String&, unsigned, const String&) { }
 
     virtual bool canRunBeforeUnloadConfirmPanel() { return false; }
     virtual bool runBeforeUnloadConfirmPanel(const String&, Frame*) { return true; }
@@ -122,15 +125,38 @@ public:
 
     virtual void mouseDidMoveOverElement(const HitTestResult&, unsigned) { }
 
-    virtual void setToolTip(const String&) { }
+    virtual void setToolTip(const String&, TextDirection) { }
 
     virtual void print(Frame*) { }
 
+#if ENABLE(DATABASE)
     virtual void exceededDatabaseQuota(Frame*, const String&) { }
+#endif
+
+#if ENABLE(OFFLINE_WEB_APPLICATIONS)
+    virtual void reachedMaxAppCacheSize(int64_t) { }
+#endif
 
     virtual void runOpenPanel(Frame*, PassRefPtr<FileChooser>) { }
 
     virtual void formStateDidChange(const Node*) { }
+
+    virtual void formDidFocus(const Node*) { }
+    virtual void formDidBlur(const Node*) { }
+
+    virtual PassOwnPtr<HTMLParserQuirks> createHTMLParserQuirks() { return 0; }
+
+    virtual bool setCursor(PlatformCursorHandle) { return false; }
+
+    virtual void scrollRectIntoView(const IntRect&, const ScrollView*) const {}
+
+    virtual void requestGeolocationPermissionForFrame(Frame*, Geolocation*) {}
+
+#if USE(ACCELERATED_COMPOSITING)
+    virtual void attachRootGraphicsLayer(Frame*, GraphicsLayer*) {};
+    virtual void setNeedsOneShotDrawingSynchronization() {};
+    virtual void scheduleCompositingLayerSync() {};
+#endif
 };
 
 class EmptyFrameLoaderClient : public FrameLoaderClient {
@@ -161,6 +187,7 @@ public:
     virtual void dispatchDidFinishLoading(DocumentLoader*, unsigned long) { }
     virtual void dispatchDidFailLoading(DocumentLoader*, unsigned long, const ResourceError&) { }
     virtual bool dispatchDidLoadResourceFromMemoryCache(DocumentLoader*, const ResourceRequest&, const ResourceResponse&, int) { return false; }
+    virtual void dispatchDidLoadResourceByXMLHttpRequest(unsigned long, const ScriptString&) { }
 
     virtual void dispatchDidHandleOnloadEvents() { }
     virtual void dispatchDidReceiveServerRedirectForProvisionalLoad() { }
@@ -211,14 +238,14 @@ public:
     virtual void committedLoad(DocumentLoader*, const char*, int) { }
     virtual void finishedLoading(DocumentLoader*) { }
 
-    virtual ResourceError cancelledError(const ResourceRequest&) { return ResourceError(); }
-    virtual ResourceError blockedError(const ResourceRequest&) { return ResourceError(); }
-    virtual ResourceError cannotShowURLError(const ResourceRequest&) { return ResourceError(); }
-    virtual ResourceError interruptForPolicyChangeError(const ResourceRequest&) { return ResourceError(); }
+    virtual ResourceError cancelledError(const ResourceRequest&) { ResourceError error("", 0, "", ""); error.setIsCancellation(true); return error; }
+    virtual ResourceError blockedError(const ResourceRequest&) { return ResourceError("", 0, "", ""); }
+    virtual ResourceError cannotShowURLError(const ResourceRequest&) { return ResourceError("", 0, "", ""); }
+    virtual ResourceError interruptForPolicyChangeError(const ResourceRequest&) { return ResourceError("", 0, "", ""); }
 
-    virtual ResourceError cannotShowMIMETypeError(const ResourceResponse&) { return ResourceError(); }
-    virtual ResourceError fileDoesNotExistError(const ResourceResponse&) { return ResourceError(); }
-    virtual ResourceError pluginWillHandleLoadError(const ResourceResponse&) { return ResourceError(); }
+    virtual ResourceError cannotShowMIMETypeError(const ResourceResponse&) { return ResourceError("", 0, "", ""); }
+    virtual ResourceError fileDoesNotExistError(const ResourceResponse&) { return ResourceError("", 0, "", ""); }
+    virtual ResourceError pluginWillHandleLoadError(const ResourceResponse&) { return ResourceError("", 0, "", ""); }
 
     virtual bool shouldFallBack(const ResourceError&) { return false; }
 
@@ -244,26 +271,41 @@ public:
     virtual void transitionToCommittedForNewPage() { }    
 
     virtual void updateGlobalHistory() { }
-    virtual void updateGlobalHistoryForRedirectWithoutHistoryItem() { }
+    virtual void updateGlobalHistoryRedirectLinks() { }
     virtual bool shouldGoToHistoryItem(HistoryItem*) const { return false; }
+#ifdef ANDROID_HISTORY_CLIENT
+    virtual void dispatchDidAddHistoryItem(HistoryItem*) const {}
+    virtual void dispatchDidRemoveHistoryItem(HistoryItem*, int) const {}
+    virtual void dispatchDidChangeHistoryIndex(BackForwardList*) const {}
+#endif
     virtual void saveViewStateToItem(HistoryItem*) { }
     virtual bool canCachePage() const { return false; }
 
     virtual PassRefPtr<Frame> createFrame(const KURL&, const String&, HTMLFrameOwnerElement*, const String&, bool, int, int) { return 0; }
-    virtual Widget* createPlugin(const IntSize&, Element*, const KURL&, const Vector<String>&, const Vector<String>&, const String&, bool) { return 0; }
-    virtual Widget* createJavaAppletWidget(const IntSize&, Element*, const KURL&, const Vector<String>&, const Vector<String>&) { return 0; }
+    virtual PassRefPtr<Widget> createPlugin(const IntSize&, HTMLPlugInElement*, const KURL&, const Vector<String>&, const Vector<String>&, const String&, bool) { return 0; }
+    virtual PassRefPtr<Widget> createJavaAppletWidget(const IntSize&, HTMLAppletElement*, const KURL&, const Vector<String>&, const Vector<String>&) { return 0; }
 
     virtual ObjectContentType objectContentType(const KURL&, const String&) { return ObjectContentType(); }
     virtual String overrideMediaType() const { return String(); }
 
     virtual void redirectDataToPlugin(Widget*) { }
     virtual void windowObjectCleared() { }
+    virtual void documentElementAvailable() { }
     virtual void didPerformFirstNavigation() const { }
 
     virtual void registerForIconNotification(bool) { }
 
+#if USE(V8)
+    virtual void didCreateScriptContextForFrame() { }
+    virtual void didDestroyScriptContextForFrame() { }
+    virtual void didCreateIsolatedScriptContext() { }
+#endif
+
 #if PLATFORM(MAC)
     virtual NSCachedURLResponse* willCacheResponse(DocumentLoader*, unsigned long, NSCachedURLResponse* response) const { return response; }
+#endif
+#if USE(CFNETWORK)
+    virtual bool shouldCacheResponse(DocumentLoader*, unsigned long, const ResourceResponse&, const unsigned char*, unsigned long long) { return true; }
 #endif
 
 };
@@ -336,10 +378,32 @@ public:
     virtual NSArray* pasteboardTypesForSelection(Frame*) { return 0; }
 #endif
 #endif
+#if PLATFORM(MAC) && !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
+    virtual void uppercaseWord() { }
+    virtual void lowercaseWord() { }
+    virtual void capitalizeWord() { }
+    virtual void showSubstitutionsPanel(bool) { }
+    virtual bool substitutionsPanelIsShowing() { return false; }
+    virtual void toggleSmartInsertDelete() { }
+    virtual bool isAutomaticQuoteSubstitutionEnabled() { return false; }
+    virtual void toggleAutomaticQuoteSubstitution() { }
+    virtual bool isAutomaticLinkDetectionEnabled() { return false; }
+    virtual void toggleAutomaticLinkDetection() { }
+    virtual bool isAutomaticDashSubstitutionEnabled() { return false; }
+    virtual void toggleAutomaticDashSubstitution() { }
+    virtual bool isAutomaticTextReplacementEnabled() { return false; }
+    virtual void toggleAutomaticTextReplacement() { }
+    virtual bool isAutomaticSpellingCorrectionEnabled() { return false; }
+    virtual void toggleAutomaticSpellingCorrection() { }
+#endif
     virtual void ignoreWordInSpellDocument(const String&) { }
     virtual void learnWord(const String&) { }
     virtual void checkSpellingOfString(const UChar*, int, int*, int*) { }
+    virtual String getAutoCorrectSuggestionForMisspelledWord(const String&) { return String(); }
     virtual void checkGrammarOfString(const UChar*, int, Vector<GrammarDetail>&, int*, int*) { }
+#if PLATFORM(MAC) && !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
+    virtual void checkTextOfParagraph(const UChar*, int, uint64_t, Vector<TextCheckingResult>&) { };
+#endif
     virtual void updateSpellingUIWithGrammarString(const String&, const GrammarDetail&) { }
     virtual void updateSpellingUIWithMisspelledWord(const String&) { }
     virtual void showSpellingUI(bool) { }
@@ -362,6 +426,7 @@ public:
     virtual void copyImageToClipboard(const HitTestResult&) { }
     virtual void searchWithGoogle(const Frame*) { }
     virtual void lookUpInDictionary(Frame*) { }
+    virtual bool isSpeaking() { return false; }
     virtual void speak(const String&) { }
     virtual void stopSpeaking() { }
 
@@ -392,6 +457,8 @@ public:
 
     virtual String localizedStringsURL() { return String(); }
 
+    virtual String hiddenPanels() { return String(); }
+
     virtual void showWindow() { }
     virtual void closeWindow() { }
 
@@ -407,8 +474,11 @@ public:
     virtual void populateSetting(const String&, InspectorController::Setting&) { }
     virtual void storeSetting(const String&, const InspectorController::Setting&) { }
     virtual void removeSetting(const String&) { }
+
+    virtual void inspectorWindowObjectCleared() { }
 };
 
 }
 
 #endif // EmptyClients_h
+

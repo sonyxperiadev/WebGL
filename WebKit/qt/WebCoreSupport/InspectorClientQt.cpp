@@ -114,6 +114,12 @@ String InspectorClientQt::localizedStringsURL()
     return String();
 }
 
+String InspectorClientQt::hiddenPanels()
+{
+    notImplemented();
+    return String();
+}
+
 void InspectorClientQt::showWindow()
 {
     if (!m_webPage)
@@ -175,6 +181,11 @@ void InspectorClientQt::inspectedURLChanged(const String& newURL)
 {
     m_inspectedURL = newURL;
     updateWindowTitle();
+}
+
+void InspectorClientQt::inspectorWindowObjectCleared()
+{
+    notImplemented();
 }
 
 void InspectorClientQt::updateWindowTitle()

@@ -22,8 +22,6 @@
 #ifndef FloatPoint3D_h
 #define FloatPoint3D_h
 
-#if ENABLE(SVG)
-
 namespace WebCore {
 
 class FloatPoint;
@@ -51,8 +49,16 @@ private:
     float m_z;
 };
 
-} // namespace WebCore
+inline bool operator==(const FloatPoint3D& a, const FloatPoint3D& b)
+{
+    return a.x() == b.x() && a.y() == b.y() && a.z() == b.z();
+}
 
-#endif // ENABLE(SVG)
+inline bool operator!=(const FloatPoint3D& a, const FloatPoint3D& b)
+{
+    return a.x() != b.x() || a.y() != b.y() || a.z() != b.z();
+}
+
+} // namespace WebCore
 
 #endif // FloatPoint3D_h

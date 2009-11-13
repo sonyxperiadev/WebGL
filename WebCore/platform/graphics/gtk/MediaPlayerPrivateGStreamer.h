@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007 Apple Inc.  All rights reserved.
+ * Copyright (C) 2007, 2009 Apple Inc.  All rights reserved.
  * Copyright (C) 2007 Collabora Ltd. All rights reserved.
  * Copyright (C) 2007 Alp Toker <alp@atoker.com>
  *
@@ -24,10 +24,11 @@
 
 #if ENABLE(VIDEO)
 
-#include "MediaPlayer.h"
+#include "MediaPlayerPrivate.h"
 #include "Timer.h"
 
-#include <gtk/gtk.h>
+#include <cairo.h>
+#include <glib.h>
 
 typedef struct _GstElement GstElement;
 typedef struct _GstMessage GstMessage;
@@ -44,90 +45,93 @@ namespace WebCore {
     gboolean mediaPlayerPrivateEOSCallback(GstBus* bus, GstMessage* message, gpointer data);
     gboolean mediaPlayerPrivateStateCallback(GstBus* bus, GstMessage* message, gpointer data);
 
-    class MediaPlayerPrivate : Noncopyable
-    {
-    friend gboolean mediaPlayerPrivateErrorCallback(GstBus* bus, GstMessage* message, gpointer data);
-    friend gboolean mediaPlayerPrivateEOSCallback(GstBus* bus, GstMessage* message, gpointer data);
-    friend gboolean mediaPlayerPrivateStateCallback(GstBus* bus, GstMessage* message, gpointer data);
+    class MediaPlayerPrivate : public MediaPlayerPrivateInterface {
+        friend gboolean mediaPlayerPrivateErrorCallback(GstBus* bus, GstMessage* message, gpointer data);
+        friend gboolean mediaPlayerPrivateEOSCallback(GstBus* bus, GstMessage* message, gpointer data);
+        friend gboolean mediaPlayerPrivateStateCallback(GstBus* bus, GstMessage* message, gpointer data);
 
-    public:
-        MediaPlayerPrivate(MediaPlayer*);
-        ~MediaPlayerPrivate();
+        public:
+            static void registerMediaEngine(MediaEngineRegistrar);
+            ~MediaPlayerPrivate();
 
-        IntSize naturalSize();
-        bool hasVideo();
+            IntSize naturalSize() const;
+            bool hasVideo() const;
 
-        void load(String url);
-        void cancelLoad();
+            void load(const String &url);
+            void cancelLoad();
 
-        void play();
-        void pause();
+            void play();
+            void pause();
 
-        bool paused() const;
-        bool seeking() const;
+            bool paused() const;
+            bool seeking() const;
 
-        float duration();
-        float currentTime() const;
-        void seek(float);
-        void setEndTime(float);
+            float duration() const;
+            float currentTime() const;
+            void seek(float);
+            void setEndTime(float);
 
-        void setRate(float);
-        void setVolume(float);
-        void setMuted(bool);
+            void setRate(float);
+            void setVolume(float);
+            void setMuted(bool);
 
-        int dataRate() const;
+            int dataRate() const;
 
-        MediaPlayer::NetworkState networkState();
-        MediaPlayer::ReadyState readyState();
+            MediaPlayer::NetworkState networkState() const;
+            MediaPlayer::ReadyState readyState() const;
 
-        float maxTimeBuffered();
-        float maxTimeSeekable();
-        unsigned bytesLoaded();
-        bool totalBytesKnown();
-        unsigned totalBytes();
+            float maxTimeBuffered() const;
+            float maxTimeSeekable() const;
+            unsigned bytesLoaded() const;
+            bool totalBytesKnown() const;
+            unsigned totalBytes() const;
 
-        void setVisible(bool);
-        void setRect(const IntRect&);
+            void setVisible(bool);
+            void setSize(const IntSize&);
 
-        void loadStateChanged();
-        void rateChanged();
-        void sizeChanged();
-        void timeChanged();
-        void volumeChanged();
-        void didEnd();
-        void loadingFailed();
+            void loadStateChanged();
+            void rateChanged();
+            void sizeChanged();
+            void timeChanged();
+            void volumeChanged();
+            void didEnd();
+            void loadingFailed();
 
-        void repaint();
-        void paint(GraphicsContext*, const IntRect&);
-        static void getSupportedTypes(HashSet<String>&);
-        static bool isAvailable() { return true; }
+            void repaint();
+            void paint(GraphicsContext*, const IntRect&);
 
-    private:
+        private:
+            MediaPlayerPrivate(MediaPlayer*);
+            static MediaPlayerPrivateInterface* create(MediaPlayer* player);
 
-        void updateStates();
-        void cancelSeek();
-        void endPointTimerFired(Timer<MediaPlayerPrivate>*);
-        float maxTimeLoaded();
-        void startEndPointTimerIfNeeded();
+            static void getSupportedTypes(HashSet<String>&);
+            static MediaPlayer::SupportsType supportsType(const String& type, const String& codecs);
+            static bool isAvailable() { return true; }
 
-        void createGSTPlayBin(String url);
+            void updateStates();
+            void cancelSeek();
+            void endPointTimerFired(Timer<MediaPlayerPrivate>*);
+            float maxTimeLoaded() const;
+            void startEndPointTimerIfNeeded();
 
-    private:
-        MediaPlayer* m_player;
-        GstElement* m_playBin;
-        GstElement* m_videoSink;
-        GstElement* m_source;
-        float m_rate;
-        float m_endTime;
-        bool m_isEndReached;
-        double m_volume;
-        MediaPlayer::NetworkState m_networkState;
-        MediaPlayer::ReadyState m_readyState;
-        bool m_startedPlaying;
-        bool m_isStreaming;
-        IntRect m_rect;
-        bool m_visible;
-        cairo_surface_t* m_surface;
+            void createGSTPlayBin(String url);
+
+        private:
+            MediaPlayer* m_player;
+            GstElement* m_playBin;
+            GstElement* m_videoSink;
+            GstElement* m_source;
+            float m_rate;
+            float m_endTime;
+            bool m_isEndReached;
+            double m_volume;
+            MediaPlayer::NetworkState m_networkState;
+            MediaPlayer::ReadyState m_readyState;
+            bool m_startedPlaying;
+            mutable bool m_isStreaming;
+            IntSize m_size;
+            bool m_visible;
+            cairo_surface_t* m_surface;
     };
 }
 

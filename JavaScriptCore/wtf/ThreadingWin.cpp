@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 2007, 2008 Apple Inc. All rights reserved.
  * Copyright (C) 2009 Google Inc. All rights reserved.
+ * Copyright (C) 2009 Torch Mobile, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -89,7 +90,14 @@
 #if !USE(PTHREADS) && PLATFORM(WIN_OS)
 #include "ThreadSpecific.h"
 #endif
+#if !PLATFORM(WINCE)
 #include <process.h>
+#endif
+#if HAVE(ERRNO_H)
+#include <errno.h>
+#else
+#define NO_ERRNO
+#endif
 #include <windows.h>
 #include <wtf/CurrentTime.h>
 #include <wtf/HashMap.h>
@@ -98,7 +106,7 @@
 
 namespace WTF {
 
-// MS_VC_EXCEPTION, THREADNAME_INFO, and setThreadName all come from <http://msdn.microsoft.com/en-us/library/xcb2z8hs.aspx>.
+// MS_VC_EXCEPTION, THREADNAME_INFO, and setThreadNameInternal all come from <http://msdn.microsoft.com/en-us/library/xcb2z8hs.aspx>.
 static const DWORD MS_VC_EXCEPTION = 0x406D1388;
 
 #pragma pack(push, 8)
@@ -110,16 +118,12 @@ typedef struct tagTHREADNAME_INFO {
 } THREADNAME_INFO;
 #pragma pack(pop)
 
-static void setThreadName(DWORD dwThreadID, LPCSTR szThreadName)
+void setThreadNameInternal(const char* szThreadName)
 {
-    // Visual Studio has a 31-character limit on thread names. Longer names will
-    // be truncated silently, but we'd like callers to know about the limit.
-    ASSERT_ARG(szThreadName, strlen(szThreadName) <= 31);
-
     THREADNAME_INFO info;
     info.dwType = 0x1000;
     info.szName = szThreadName;
-    info.dwThreadID = dwThreadID;
+    info.dwThreadID = GetCurrentThreadId();
     info.dwFlags = 0;
 
     __try {
@@ -157,7 +161,7 @@ void initializeThreading()
         initializeRandomNumberGenerator();
         initializeMainThread();
         mainThreadIdentifier = currentThread();
-        setThreadName(mainThreadIdentifier, "Main Thread");
+        setThreadNameInternal("Main Thread");
     }
 }
 
@@ -214,14 +218,23 @@ ThreadIdentifier createThreadInternal(ThreadFunction entryPoint, void* data, con
     unsigned threadIdentifier = 0;
     ThreadIdentifier threadID = 0;
     ThreadFunctionInvocation* invocation = new ThreadFunctionInvocation(entryPoint, data);
+#if PLATFORM(WINCE)
+    // This is safe on WINCE, since CRT is in the core and innately multithreaded.
+    // On desktop Windows, need to use _beginthreadex (not available on WinCE) if using any CRT functions
+    HANDLE threadHandle = CreateThread(0, 0, (LPTHREAD_START_ROUTINE)wtfThreadEntryPoint, invocation, 0, (LPDWORD)&threadIdentifier);
+#else
     HANDLE threadHandle = reinterpret_cast<HANDLE>(_beginthreadex(0, 0, wtfThreadEntryPoint, invocation, 0, &threadIdentifier));
+#endif
     if (!threadHandle) {
+#if PLATFORM(WINCE)
+        LOG_ERROR("Failed to create thread at entry point %p with data %p: %ld", entryPoint, data, ::GetLastError());
+#elif defined(NO_ERRNO)
+        LOG_ERROR("Failed to create thread at entry point %p with data %p.", entryPoint, data);
+#else
         LOG_ERROR("Failed to create thread at entry point %p with data %p: %ld", entryPoint, data, errno);
+#endif
         return 0;
     }
-
-    if (threadName)
-        setThreadName(threadIdentifier, threadName);
 
     threadID = static_cast<ThreadIdentifier>(threadIdentifier);
     storeThreadHandleByIdentifier(threadIdentifier, threadHandle);
@@ -250,7 +263,7 @@ int waitForThreadCompletion(ThreadIdentifier threadID, void** result)
 void detachThread(ThreadIdentifier threadID)
 {
     ASSERT(threadID);
-    
+
     HANDLE threadHandle = threadHandleForIdentifier(threadID);
     if (threadHandle)
         CloseHandle(threadHandle);
@@ -457,10 +470,13 @@ bool ThreadCondition::timedWait(Mutex& mutex, double absoluteTime)
     if (absoluteTime < currentTime)
         return false;
 
-    double intervalMilliseconds = (absoluteTime - currentTime) * 1000.0;
-    if (intervalMilliseconds >= INT_MAX)
-        intervalMilliseconds = INT_MAX;
+    // Time is too far in the future (and would overflow unsigned long) - wait forever.
+    if (absoluteTime - currentTime > static_cast<double>(INT_MAX) / 1000.0) {
+        wait(mutex);
+        return true;
+    }
 
+    double intervalMilliseconds = (absoluteTime - currentTime) * 1000.0;
     return m_condition.timedWait(mutex.impl(), static_cast<unsigned long>(intervalMilliseconds));
 }
 

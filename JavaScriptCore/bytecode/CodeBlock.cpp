@@ -55,8 +55,11 @@ static UString escapeQuotes(const UString& str)
     return result;
 }
 
-static UString valueToSourceString(ExecState* exec, JSValuePtr val)
+static UString valueToSourceString(ExecState* exec, JSValue val)
 {
+    if (!val)
+        return "0";
+
     if (val.isString()) {
         UString result("\"");
         result += escapeQuotes(val.toString(exec)) + "\"";
@@ -74,7 +77,7 @@ static CString registerName(int r)
     return (UString("r") + UString::from(r)).UTF8String();
 }
 
-static CString constantName(ExecState* exec, int k, JSValuePtr value)
+static CString constantName(ExecState* exec, int k, JSValue value)
 {
     return (valueToSourceString(exec, value) + "(@k" + UString::from(k) + ")").UTF8String();
 }
@@ -227,44 +230,44 @@ static void printGlobalResolveInfo(const GlobalResolveInfo& resolveInfo, unsigne
 
 static void printStructureStubInfo(const StructureStubInfo& stubInfo, unsigned instructionOffset)
 {
-    switch (stubInfo.opcodeID) {
-    case op_get_by_id_self:
+    switch (stubInfo.accessType) {
+    case access_get_by_id_self:
         printf("  [%4d] %s: %s\n", instructionOffset, "get_by_id_self", pointerToSourceString(stubInfo.u.getByIdSelf.baseObjectStructure).UTF8String().c_str());
         return;
-    case op_get_by_id_proto:
+    case access_get_by_id_proto:
         printf("  [%4d] %s: %s, %s\n", instructionOffset, "get_by_id_proto", pointerToSourceString(stubInfo.u.getByIdProto.baseObjectStructure).UTF8String().c_str(), pointerToSourceString(stubInfo.u.getByIdProto.prototypeStructure).UTF8String().c_str());
         return;
-    case op_get_by_id_chain:
+    case access_get_by_id_chain:
         printf("  [%4d] %s: %s, %s\n", instructionOffset, "get_by_id_chain", pointerToSourceString(stubInfo.u.getByIdChain.baseObjectStructure).UTF8String().c_str(), pointerToSourceString(stubInfo.u.getByIdChain.chain).UTF8String().c_str());
         return;
-    case op_get_by_id_self_list:
+    case access_get_by_id_self_list:
         printf("  [%4d] %s: %s (%d)\n", instructionOffset, "op_get_by_id_self_list", pointerToSourceString(stubInfo.u.getByIdSelfList.structureList).UTF8String().c_str(), stubInfo.u.getByIdSelfList.listSize);
         return;
-    case op_get_by_id_proto_list:
+    case access_get_by_id_proto_list:
         printf("  [%4d] %s: %s (%d)\n", instructionOffset, "op_get_by_id_proto_list", pointerToSourceString(stubInfo.u.getByIdProtoList.structureList).UTF8String().c_str(), stubInfo.u.getByIdProtoList.listSize);
         return;
-    case op_put_by_id_transition:
+    case access_put_by_id_transition:
         printf("  [%4d] %s: %s, %s, %s\n", instructionOffset, "put_by_id_transition", pointerToSourceString(stubInfo.u.putByIdTransition.previousStructure).UTF8String().c_str(), pointerToSourceString(stubInfo.u.putByIdTransition.structure).UTF8String().c_str(), pointerToSourceString(stubInfo.u.putByIdTransition.chain).UTF8String().c_str());
         return;
-    case op_put_by_id_replace:
+    case access_put_by_id_replace:
         printf("  [%4d] %s: %s\n", instructionOffset, "put_by_id_replace", pointerToSourceString(stubInfo.u.putByIdReplace.baseObjectStructure).UTF8String().c_str());
         return;
-    case op_get_by_id:
+    case access_get_by_id:
         printf("  [%4d] %s\n", instructionOffset, "get_by_id");
         return;
-    case op_put_by_id:
+    case access_put_by_id:
         printf("  [%4d] %s\n", instructionOffset, "put_by_id");
         return;
-    case op_get_by_id_generic:
+    case access_get_by_id_generic:
         printf("  [%4d] %s\n", instructionOffset, "op_get_by_id_generic");
         return;
-    case op_put_by_id_generic:
+    case access_put_by_id_generic:
         printf("  [%4d] %s\n", instructionOffset, "op_put_by_id_generic");
         return;
-    case op_get_array_length:
+    case access_get_array_length:
         printf("  [%4d] %s\n", instructionOffset, "op_get_array_length");
         return;
-    case op_get_string_length:
+    case access_get_string_length:
         printf("  [%4d] %s\n", instructionOffset, "op_get_string_length");
         return;
     default:
@@ -357,21 +360,12 @@ void CodeBlock::dump(ExecState* exec) const
         unsigned registerIndex = m_numVars;
         size_t i = 0;
         do {
-            printf("   r%u = %s\n", registerIndex, valueToSourceString(exec, m_constantRegisters[i].jsValue(exec)).ascii());
+            printf("   r%u = %s\n", registerIndex, valueToSourceString(exec, m_constantRegisters[i].jsValue()).ascii());
             ++i;
             ++registerIndex;
         } while (i < m_constantRegisters.size());
     }
 
-    if (m_rareData && !m_rareData->m_unexpectedConstants.isEmpty()) {
-        printf("\nUnexpected Constants:\n");
-        size_t i = 0;
-        do {
-            printf("  k%u = %s\n", static_cast<unsigned>(i), valueToSourceString(exec, m_rareData->m_unexpectedConstants[i]).ascii());
-            ++i;
-        } while (i < m_rareData->m_unexpectedConstants.size());
-    }
-    
     if (m_rareData && !m_rareData->m_regexps.isEmpty()) {
         printf("\nm_regexps:\n");
         size_t i = 0;
@@ -497,15 +491,13 @@ void CodeBlock::dump(ExecState* exec, const Vector<Instruction>::const_iterator&
             printf("[%4d] create_arguments\n", location);
             break;
         }
+        case op_init_arguments: {
+            printf("[%4d] init_arguments\n", location);
+            break;
+        }
         case op_convert_this: {
             int r0 = (++it)->u.operand;
             printf("[%4d] convert_this %s\n", location, registerName(r0).c_str());
-            break;
-        }
-        case op_unexpected_load: {
-            int r0 = (++it)->u.operand;
-            int k0 = (++it)->u.operand;
-            printf("[%4d] unexpected_load\t %s, %s\n", location, registerName(r0).c_str(), constantName(exec, k0, unexpectedConstant(k0)).c_str());
             break;
         }
         case op_new_object: {
@@ -606,6 +598,7 @@ void CodeBlock::dump(ExecState* exec, const Vector<Instruction>::const_iterator&
         }
         case op_div: {
             printBinaryOp(location, it, "div");
+            ++it;
             break;
         }
         case op_mod: {
@@ -703,7 +696,7 @@ void CodeBlock::dump(ExecState* exec, const Vector<Instruction>::const_iterator&
         }
         case op_resolve_global: {
             int r0 = (++it)->u.operand;
-            JSValuePtr scope = JSValuePtr((++it)->u.jsCell);
+            JSValue scope = JSValue((++it)->u.jsCell);
             int id0 = (++it)->u.operand;
             printf("[%4d] resolve_global\t %s, %s, %s\n", location, registerName(r0).c_str(), valueToSourceString(exec, scope).ascii(), idName(id0, m_identifiers[id0]).c_str());
             it += 2;
@@ -725,13 +718,13 @@ void CodeBlock::dump(ExecState* exec, const Vector<Instruction>::const_iterator&
         }
         case op_get_global_var: {
             int r0 = (++it)->u.operand;
-            JSValuePtr scope = JSValuePtr((++it)->u.jsCell);
+            JSValue scope = JSValue((++it)->u.jsCell);
             int index = (++it)->u.operand;
             printf("[%4d] get_global_var\t %s, %s, %d\n", location, registerName(r0).c_str(), valueToSourceString(exec, scope).ascii(), index);
             break;
         }
         case op_put_global_var: {
-            JSValuePtr scope = JSValuePtr((++it)->u.jsCell);
+            JSValue scope = JSValue((++it)->u.jsCell);
             int index = (++it)->u.operand;
             int r0 = (++it)->u.operand;
             printf("[%4d] put_global_var\t %s, %d, %s\n", location, valueToSourceString(exec, scope).ascii(), index, registerName(r0).c_str());
@@ -748,13 +741,6 @@ void CodeBlock::dump(ExecState* exec, const Vector<Instruction>::const_iterator&
             int r1 = (++it)->u.operand;
             int id0 = (++it)->u.operand;
             printf("[%4d] resolve_with_base %s, %s, %s\n", location, registerName(r0).c_str(), registerName(r1).c_str(), idName(id0, m_identifiers[id0]).c_str());
-            break;
-        }
-        case op_resolve_func: {
-            int r0 = (++it)->u.operand;
-            int r1 = (++it)->u.operand;
-            int id0 = (++it)->u.operand;
-            printf("[%4d] resolve_func\t %s, %s, %s\n", location, registerName(r0).c_str(), registerName(r1).c_str(), idName(id0, m_identifiers[id0]).c_str());
             break;
         }
         case op_get_by_id: {
@@ -823,6 +809,10 @@ void CodeBlock::dump(ExecState* exec, const Vector<Instruction>::const_iterator&
             printf("[%4d] put_setter\t %s, %s, %s\n", location, registerName(r0).c_str(), idName(id0, m_identifiers[id0]).c_str(), registerName(r1).c_str());
             break;
         }
+        case op_method_check: {
+            printf("[%4d] op_method_check\n", location);
+            break;
+        }
         case op_del_by_id: {
             int r0 = (++it)->u.operand;
             int r1 = (++it)->u.operand;
@@ -888,11 +878,25 @@ void CodeBlock::dump(ExecState* exec, const Vector<Instruction>::const_iterator&
             printConditionalJump(begin, it, location, "jneq_null");
             break;
         }
+        case op_jneq_ptr: {
+            int r0 = (++it)->u.operand;
+            int r1 = (++it)->u.operand;
+            int offset = (++it)->u.operand;
+            printf("[%4d] jneq_ptr\t\t %s, %s, %d(->%d)\n", location, registerName(r0).c_str(), registerName(r1).c_str(), offset, locationForOffset(begin, it, offset));
+            break;
+        }
         case op_jnless: {
             int r0 = (++it)->u.operand;
             int r1 = (++it)->u.operand;
             int offset = (++it)->u.operand;
             printf("[%4d] jnless\t\t %s, %s, %d(->%d)\n", location, registerName(r0).c_str(), registerName(r1).c_str(), offset, locationForOffset(begin, it, offset));
+            break;
+        }
+        case op_jnlesseq: {
+            int r0 = (++it)->u.operand;
+            int r1 = (++it)->u.operand;
+            int offset = (++it)->u.operand;
+            printf("[%4d] jnlesseq\t\t %s, %s, %d(->%d)\n", location, registerName(r0).c_str(), registerName(r1).c_str(), offset, locationForOffset(begin, it, offset));
             break;
         }
         case op_loop_if_less: {
@@ -958,6 +962,18 @@ void CodeBlock::dump(ExecState* exec, const Vector<Instruction>::const_iterator&
             printf("[%4d] call_eval\t %s, %s, %d, %d\n", location, registerName(dst).c_str(), registerName(func).c_str(), argCount, registerOffset);
             break;
         }
+        case op_call_varargs: {
+            int dst = (++it)->u.operand;
+            int func = (++it)->u.operand;
+            int argCount = (++it)->u.operand;
+            int registerOffset = (++it)->u.operand;
+            printf("[%4d] call_varargs\t %s, %s, %s, %d\n", location, registerName(dst).c_str(), registerName(func).c_str(), registerName(argCount).c_str(), registerOffset);
+            break;
+        }
+        case op_load_varargs: {
+            printUnaryOp(location, it, "load_varargs");
+            break;
+        }
         case op_tear_off_activation: {
             int r0 = (++it)->u.operand;
             printf("[%4d] tear_off_activation\t %s\n", location, registerName(r0).c_str());
@@ -986,6 +1002,19 @@ void CodeBlock::dump(ExecState* exec, const Vector<Instruction>::const_iterator&
             int r0 = (++it)->u.operand;
             int r1 = (++it)->u.operand;
             printf("[%4d] construct_verify\t %s, %s\n", location, registerName(r0).c_str(), registerName(r1).c_str());
+            break;
+        }
+        case op_strcat: {
+            int r0 = (++it)->u.operand;
+            int r1 = (++it)->u.operand;
+            int count = (++it)->u.operand;
+            printf("[%4d] op_strcat\t %s, %s, %d\n", location, registerName(r0).c_str(), registerName(r1).c_str(), count);
+            break;
+        }
+        case op_to_primitive: {
+            int r0 = (++it)->u.operand;
+            int r1 = (++it)->u.operand;
+            printf("[%4d] op_to_primitive\t %s, %s\n", location, registerName(r0).c_str(), registerName(r1).c_str());
             break;
         }
         case op_get_pnames: {
@@ -1037,7 +1066,7 @@ void CodeBlock::dump(ExecState* exec, const Vector<Instruction>::const_iterator&
             int r0 = (++it)->u.operand;
             int errorType = (++it)->u.operand;
             int k0 = (++it)->u.operand;
-            printf("[%4d] new_error\t %s, %d, %s\n", location, registerName(r0).c_str(), errorType, constantName(exec, k0, unexpectedConstant(k0)).c_str());
+            printf("[%4d] new_error\t %s, %d, %s\n", location, registerName(r0).c_str(), errorType, constantName(exec, k0, getConstant(k0)).c_str());
             break;
         }
         case op_jsr: {
@@ -1095,7 +1124,6 @@ static HashSet<CodeBlock*> liveCodeBlockSet;
 #define FOR_EACH_MEMBER_VECTOR_RARE_DATA(macro) \
     macro(regexps) \
     macro(functions) \
-    macro(unexpectedConstants) \
     macro(exceptionHandlers) \
     macro(immediateSwitchJumpTables) \
     macro(characterSwitchJumpTables) \
@@ -1218,10 +1246,30 @@ void CodeBlock::dumpStatistics()
 #endif
 }
 
+CodeBlock::CodeBlock(ScopeNode* ownerNode)
+    : m_numCalleeRegisters(0)
+    , m_numVars(0)
+    , m_numParameters(0)
+    , m_ownerNode(ownerNode)
+    , m_globalData(0)
+#ifndef NDEBUG
+    , m_instructionCount(0)
+#endif
+    , m_needsFullScopeChain(false)
+    , m_usesEval(false)
+    , m_isNumericCompareFunction(false)
+    , m_codeType(NativeCode)
+    , m_source(0)
+    , m_sourceOffset(0)
+    , m_exceptionInfo(0)
+{
+#if DUMP_CODE_BLOCK_STATISTICS
+    liveCodeBlockSet.add(this);
+#endif
+}
 
 CodeBlock::CodeBlock(ScopeNode* ownerNode, CodeType codeType, PassRefPtr<SourceProvider> sourceProvider, unsigned sourceOffset)
     : m_numCalleeRegisters(0)
-    , m_numConstants(0)
     , m_numVars(0)
     , m_numParameters(0)
     , m_ownerNode(ownerNode)
@@ -1267,15 +1315,27 @@ CodeBlock::~CodeBlock()
             callLinkInfo->callee->removeCaller(callLinkInfo);
     }
 
+    for (size_t size = m_methodCallLinkInfos.size(), i = 0; i < size; ++i) {
+        if (Structure* structure = m_methodCallLinkInfos[i].cachedStructure) {
+            structure->deref();
+            // Both members must be filled at the same time
+            ASSERT(!!m_methodCallLinkInfos[i].cachedPrototypeStructure);
+            m_methodCallLinkInfos[i].cachedPrototypeStructure->deref();
+        }
+    }
+
+#if ENABLE(JIT_OPTIMIZE_CALL)
     unlinkCallers();
 #endif
+
+#endif // !ENABLE(JIT)
 
 #if DUMP_CODE_BLOCK_STATISTICS
     liveCodeBlockSet.remove(this);
 #endif
 }
 
-#if ENABLE(JIT) 
+#if ENABLE(JIT_OPTIMIZE_CALL)
 void CodeBlock::unlinkCallers()
 {
     size_t size = m_linkedCallerList.size();
@@ -1290,6 +1350,7 @@ void CodeBlock::unlinkCallers()
 
 void CodeBlock::derefStructures(Instruction* vPC) const
 {
+    ASSERT(m_codeType != NativeCode);
     Interpreter* interpreter = m_globalData->interpreter;
 
     if (vPC[0].u.opcode == interpreter->getOpcode(op_get_by_id_self)) {
@@ -1335,6 +1396,7 @@ void CodeBlock::derefStructures(Instruction* vPC) const
 
 void CodeBlock::refStructures(Instruction* vPC) const
 {
+    ASSERT(m_codeType != NativeCode);
     Interpreter* interpreter = m_globalData->interpreter;
 
     if (vPC[0].u.opcode == interpreter->getOpcode(op_get_by_id_self)) {
@@ -1366,29 +1428,27 @@ void CodeBlock::refStructures(Instruction* vPC) const
     ASSERT(vPC[0].u.opcode == interpreter->getOpcode(op_get_by_id) || vPC[0].u.opcode == interpreter->getOpcode(op_put_by_id) || vPC[0].u.opcode == interpreter->getOpcode(op_get_by_id_generic) || vPC[0].u.opcode == interpreter->getOpcode(op_put_by_id_generic));
 }
 
-void CodeBlock::mark()
+void CodeBlock::markAggregate(MarkStack& markStack)
 {
-    for (size_t i = 0; i < m_constantRegisters.size(); ++i)
+    for (size_t i = 0; i < m_constantRegisters.size(); ++i) {
         if (!m_constantRegisters[i].marked())
-            m_constantRegisters[i].mark();
+            markStack.append(m_constantRegisters[i].jsValue());
+    }
 
     for (size_t i = 0; i < m_functionExpressions.size(); ++i)
-        m_functionExpressions[i]->body()->mark();
+        m_functionExpressions[i]->body()->markAggregate(markStack);
 
     if (m_rareData) {
         for (size_t i = 0; i < m_rareData->m_functions.size(); ++i)
-            m_rareData->m_functions[i]->body()->mark();
+            m_rareData->m_functions[i]->body()->markAggregate(markStack);
 
-        for (size_t i = 0; i < m_rareData->m_unexpectedConstants.size(); ++i) {
-            if (!m_rareData->m_unexpectedConstants[i].marked())
-                m_rareData->m_unexpectedConstants[i].mark();
-        }
-        m_rareData->m_evalCodeCache.mark();
+        m_rareData->m_evalCodeCache.markAggregate(markStack);
     }
 }
 
 void CodeBlock::reparseForExceptionInfoIfNecessary(CallFrame* callFrame)
 {
+    ASSERT(m_codeType != NativeCode);
     if (m_exceptionInfo)
         return;
 
@@ -1420,7 +1480,7 @@ void CodeBlock::reparseForExceptionInfoIfNecessary(CallFrame* callFrame)
 
 #if ENABLE(JIT)
             JIT::compile(m_globalData, &newCodeBlock);
-            ASSERT(newCodeBlock.m_jitCode.codeSize == m_jitCode.codeSize);
+            ASSERT(newFunctionBody->generatedJITCode().size() == ownerNode()->generatedJITCode().size());
 #endif
 
             m_exceptionInfo.set(newCodeBlock.m_exceptionInfo.release());
@@ -1441,7 +1501,7 @@ void CodeBlock::reparseForExceptionInfoIfNecessary(CallFrame* callFrame)
 
 #if ENABLE(JIT)
             JIT::compile(m_globalData, &newCodeBlock);
-            ASSERT(newCodeBlock.m_jitCode.codeSize == m_jitCode.codeSize);
+            ASSERT(newEvalBody->generatedJITCode().size() == ownerNode()->generatedJITCode().size());
 #endif
 
             m_exceptionInfo.set(newCodeBlock.m_exceptionInfo.release());
@@ -1459,6 +1519,7 @@ void CodeBlock::reparseForExceptionInfoIfNecessary(CallFrame* callFrame)
 
 HandlerInfo* CodeBlock::handlerForBytecodeOffset(unsigned bytecodeOffset)
 {
+    ASSERT(m_codeType != NativeCode);
     ASSERT(bytecodeOffset < m_instructionCount);
 
     if (!m_rareData)
@@ -1477,6 +1538,7 @@ HandlerInfo* CodeBlock::handlerForBytecodeOffset(unsigned bytecodeOffset)
 
 int CodeBlock::lineNumberForBytecodeOffset(CallFrame* callFrame, unsigned bytecodeOffset)
 {
+    ASSERT(m_codeType != NativeCode);
     ASSERT(bytecodeOffset < m_instructionCount);
 
     reparseForExceptionInfoIfNecessary(callFrame);
@@ -1502,6 +1564,7 @@ int CodeBlock::lineNumberForBytecodeOffset(CallFrame* callFrame, unsigned byteco
 
 int CodeBlock::expressionRangeForBytecodeOffset(CallFrame* callFrame, unsigned bytecodeOffset, int& divot, int& startOffset, int& endOffset)
 {
+    ASSERT(m_codeType != NativeCode);
     ASSERT(bytecodeOffset < m_instructionCount);
 
     reparseForExceptionInfoIfNecessary(callFrame);
@@ -1541,6 +1604,7 @@ int CodeBlock::expressionRangeForBytecodeOffset(CallFrame* callFrame, unsigned b
 
 bool CodeBlock::getByIdExceptionInfoForBytecodeOffset(CallFrame* callFrame, unsigned bytecodeOffset, OpcodeID& opcodeID)
 {
+    ASSERT(m_codeType != NativeCode);
     ASSERT(bytecodeOffset < m_instructionCount);
 
     reparseForExceptionInfoIfNecessary(callFrame);
@@ -1569,6 +1633,7 @@ bool CodeBlock::getByIdExceptionInfoForBytecodeOffset(CallFrame* callFrame, unsi
 #if ENABLE(JIT)
 bool CodeBlock::functionRegisterForBytecodeOffset(unsigned bytecodeOffset, int& functionRegisterIndex)
 {
+    ASSERT(m_codeType != NativeCode);
     ASSERT(bytecodeOffset < m_instructionCount);
 
     if (!m_rareData || !m_rareData->m_functionRegisterInfos.size())
@@ -1595,6 +1660,7 @@ bool CodeBlock::functionRegisterForBytecodeOffset(unsigned bytecodeOffset, int& 
 #if !ENABLE(JIT)
 bool CodeBlock::hasGlobalResolveInstructionAtBytecodeOffset(unsigned bytecodeOffset)
 {
+    ASSERT(m_codeType != NativeCode);
     if (m_globalResolveInstructions.isEmpty())
         return false;
 
@@ -1615,6 +1681,7 @@ bool CodeBlock::hasGlobalResolveInstructionAtBytecodeOffset(unsigned bytecodeOff
 #else
 bool CodeBlock::hasGlobalResolveInfoAtBytecodeOffset(unsigned bytecodeOffset)
 {
+    ASSERT(m_codeType != NativeCode);
     if (m_globalResolveInfos.isEmpty())
         return false;
 
@@ -1635,9 +1702,10 @@ bool CodeBlock::hasGlobalResolveInfoAtBytecodeOffset(unsigned bytecodeOffset)
 #endif
 
 #if ENABLE(JIT)
-void CodeBlock::setJITCode(JITCodeRef& jitCode)
+void CodeBlock::setJITCode(JITCode jitCode)
 {
-    m_jitCode = jitCode;
+    ASSERT(m_codeType != NativeCode); 
+    ownerNode()->setJITCode(jitCode);
 #if !ENABLE(OPCODE_SAMPLING)
     if (!BytecodeGenerator::dumpsGeneratedCode())
         m_instructions.clear();
@@ -1672,7 +1740,6 @@ void CodeBlock::shrinkToFit()
     if (m_rareData) {
         m_rareData->m_exceptionHandlers.shrinkToFit();
         m_rareData->m_functions.shrinkToFit();
-        m_rareData->m_unexpectedConstants.shrinkToFit();
         m_rareData->m_regexps.shrinkToFit();
         m_rareData->m_immediateSwitchJumpTables.shrinkToFit();
         m_rareData->m_characterSwitchJumpTables.shrinkToFit();

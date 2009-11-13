@@ -59,28 +59,37 @@ namespace WebCore {
     class Node;
     class PageGroup;
     class PluginData;
+    class PluginView;
     class ProgressTracker;
-    class Selection;
+    class RenderTheme;
+    class VisibleSelection;
     class SelectionController;
-#if ENABLE(DOM_STORAGE)
-    class SessionStorage;
-#endif
     class Settings;
+#if ENABLE(DOM_STORAGE)
+    class StorageNamespace;
+#endif
 #if ENABLE(WML)
     class WMLPageState;
 #endif
 
     enum FindDirection { FindDirectionForward, FindDirectionBackward };
 
-    class Page : Noncopyable {
+    class Page : public Noncopyable {
     public:
         static void setNeedsReapplyStyles();
 
         Page(ChromeClient*, ContextMenuClient*, EditorClient*, DragClient*, InspectorClient*);
         ~Page();
-        
+
+        RenderTheme* theme() const { return m_theme.get(); };
+
         static void refreshPlugins(bool reload);
         PluginData* pluginData() const;
+
+        void setCanStartPlugins(bool);
+        bool canStartPlugins() const { return m_canStartPlugins; }
+        void addUnstartedPlugin(PluginView*);
+        void removeUnstartedPlugin(PluginView*);
 
         EditorClient* editorClient() const { return m_editorClient; }
 
@@ -137,7 +146,7 @@ namespace WebCore {
         OwnPtr<SchedulePairHashSet> m_scheduledRunLoopPairs;
 #endif
 
-        const Selection& selection() const;
+        const VisibleSelection& selection() const;
 
         void setDefersLoading(bool);
         bool defersLoading() const { return m_defersLoading; }
@@ -153,13 +162,12 @@ namespace WebCore {
         float mediaVolume() const { return m_mediaVolume; }
         void setMediaVolume(float volume);
 
+        // Notifications when the Page starts and stops being presented via a native window.
+        void didMoveOnscreen();
+        void willMoveOffscreen();
+
         void userStyleSheetLocationChanged();
         const String& userStyleSheet() const;
-        
-        void changePendingUnloadEventCount(int delta);
-        unsigned pendingUnloadEventCount();
-        void changePendingBeforeUnloadEventCount(int delta);
-        unsigned pendingBeforeUnloadEventCount();
 
         static void setDebuggerForAllPages(JSC::Debugger*);
         void setDebugger(JSC::Debugger*);
@@ -177,8 +185,8 @@ namespace WebCore {
         static void visitedStateChanged(PageGroup*, LinkHash visitedHash);
 
 #if ENABLE(DOM_STORAGE)
-        SessionStorage* sessionStorage(bool optionalCreate = true);
-        void setSessionStorage(PassRefPtr<SessionStorage>);
+        StorageNamespace* sessionStorage(bool optionalCreate = true);
+        void setSessionStorage(PassRefPtr<StorageNamespace>);
 #endif
 
 #if ENABLE(WML)
@@ -195,6 +203,9 @@ namespace WebCore {
 
         void setMemoryCacheClientCallsEnabled(bool);
         bool areMemoryCacheClientCallsEnabled() const { return m_areMemoryCacheClientCallsEnabled; }
+
+        void setJavaScriptURLsAreAllowed(bool);
+        bool javaScriptURLsAreAllowed() const;
 
     private:
         void initGroup();
@@ -215,6 +226,8 @@ namespace WebCore {
 
         mutable RefPtr<PluginData> m_pluginData;
 
+        RefPtr<RenderTheme> m_theme;
+
         EditorClient* m_editorClient;
 
         int m_frameCount;
@@ -227,7 +240,9 @@ namespace WebCore {
         bool m_cookieEnabled;
         bool m_areMemoryCacheClientCallsEnabled;
         float m_mediaVolume;
-    
+
+        bool m_javaScriptURLsAreAllowed;
+
         InspectorController* m_parentInspectorController;
 
         String m_userStyleSheetPath;
@@ -239,15 +254,15 @@ namespace WebCore {
         PageGroup* m_group;
 
         JSC::Debugger* m_debugger;
-        
-        unsigned m_pendingUnloadEventCount;
-        unsigned m_pendingBeforeUnloadEventCount;
 
         double m_customHTMLTokenizerTimeDelay;
         int m_customHTMLTokenizerChunkSize;
 
+        bool m_canStartPlugins;
+        HashSet<PluginView*> m_unstartedPlugins;
+
 #if ENABLE(DOM_STORAGE)
-        RefPtr<SessionStorage> m_sessionStorage;
+        RefPtr<StorageNamespace> m_sessionStorage;
 #endif
 
 #if PLATFORM(WIN) || (PLATFORM(WX) && defined(__WXMSW__)) || (PLATFORM(QT) && defined(Q_WS_WIN))

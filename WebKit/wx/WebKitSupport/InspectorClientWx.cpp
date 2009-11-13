@@ -59,6 +59,12 @@ String InspectorClientWx::localizedStringsURL()
     return String();
 }
 
+String InspectorClientWx::hiddenPanels()
+{
+    notImplemented();
+    return String();
+}
+
 void InspectorClientWx::showWindow()
 {
     notImplemented();
@@ -110,6 +116,11 @@ void InspectorClientWx::storeSetting(const String& key, const InspectorControlle
 }
 
 void InspectorClientWx::removeSetting(const String& key)
+{
+    notImplemented();
+}
+
+void InspectorClientWx::inspectorWindowObjectCleared()
 {
     notImplemented();
 }

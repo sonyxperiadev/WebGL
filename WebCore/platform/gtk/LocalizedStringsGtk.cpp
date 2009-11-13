@@ -30,11 +30,14 @@
 #include "config.h"
 
 #include "LocalizedStrings.h"
+#include "CString.h"
+#include "GOwnPtr.h"
+#include "IntSize.h"
 #include "NotImplemented.h"
 #include "PlatformString.h"
 
+#include <glib/gi18n-lib.h>
 #include <gtk/gtk.h>
-#include <glib/gi18n.h>
 
 namespace WebCore {
 
@@ -125,11 +128,7 @@ String contextMenuItemTagDelete()
 
 String contextMenuItemTagSelectAll()
 {
-#if GTK_CHECK_VERSION(2,10,0)
     static String stockLabel = String::fromUTF8(gtkStockLabel(GTK_STOCK_SELECT_ALL));
-#else
-    static String stockLabel = String::fromUTF8(_("Select _All"));
-#endif
     return stockLabel;
 }
 
@@ -339,8 +338,21 @@ String unknownFileSizeText()
 
 String imageTitle(const String& filename, const IntSize& size)
 {
-    notImplemented();
-    return String();
+    GOwnPtr<gchar> string(g_strdup_printf(C_("Title string for images", "%s  (%dx%d pixels)"),
+                                          filename.utf8().data(),
+                                          size.width(), size.height()));
+
+    return String::fromUTF8(string.get());
+}
+
+String mediaElementLoadingStateText()
+{
+    return String::fromUTF8(_("Loading..."));
+}
+
+String mediaElementLiveBroadcastStateText()
+{
+    return String::fromUTF8(_("Live Broadcast"));
 }
 
 }

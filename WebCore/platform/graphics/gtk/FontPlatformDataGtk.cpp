@@ -3,6 +3,7 @@
  * Copyright (C) 2006 Michael Emmel mike.emmel@gmail.com
  * Copyright (C) 2007, 2008 Alp Toker <alp@atoker.com>
  * Copyright (C) 2007 Holger Hans Peter Freyther
+ * Copyright (C) 2009 Igalia S.L.
  * All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
@@ -108,10 +109,9 @@ FontPlatformData::FontPlatformData(const FontDescription& fontDescription, const
     cairo_matrix_init_scale(&fontMatrix, fontDescription.computedPixelSize(), fontDescription.computedPixelSize());
     cairo_matrix_init_identity(&ctm);
 
-#if GTK_CHECK_VERSION(2,10,0)
     if (GdkScreen* screen = gdk_screen_get_default())
         options = gdk_screen_get_font_options(screen);
-#endif
+
     // gdk_screen_get_font_options() returns NULL if no default options are
     // set, so we always have to check.
     if (!options)
@@ -149,16 +149,54 @@ FontPlatformData::FontPlatformData(cairo_font_face_t* fontFace, int size, bool b
     static const cairo_font_options_t* defaultOptions = cairo_font_options_create();
     const cairo_font_options_t* options = NULL;
 
-#if GTK_CHECK_VERSION(2,10,0)
     if (GdkScreen* screen = gdk_screen_get_default())
         options = gdk_screen_get_font_options(screen);
-#endif
+
     // gdk_screen_get_font_options() returns NULL if no default options are
     // set, so we always have to check.
     if (!options)
         options = defaultOptions;
 
     m_scaledFont = cairo_scaled_font_create(fontFace, &fontMatrix, &ctm, options);
+}
+
+FontPlatformData& FontPlatformData::operator=(const FontPlatformData& other)
+{
+    // Check for self-assignment.
+    if (this == &other)
+        return *this;
+
+    m_size = other.m_size;
+    m_syntheticBold = other.m_syntheticBold;
+    m_syntheticOblique = other.m_syntheticOblique;
+
+    if (other.m_scaledFont)
+        cairo_scaled_font_reference(other.m_scaledFont);
+    if (m_scaledFont)
+        cairo_scaled_font_destroy(m_scaledFont);
+    m_scaledFont = other.m_scaledFont;
+
+    if (other.m_pattern)
+        FcPatternReference(other.m_pattern);
+    if (m_pattern)
+        FcPatternDestroy(m_pattern);
+    m_pattern = other.m_pattern;
+
+    if (m_fallbacks) {
+        FcFontSetDestroy(m_fallbacks);
+        // This will be re-created on demand.
+        m_fallbacks = 0;
+    }
+
+    return *this;
+}
+
+FontPlatformData::FontPlatformData(const FontPlatformData& other)
+    : m_pattern(0)
+    , m_fallbacks(0)
+    , m_scaledFont(0)
+{
+    *this = other;
 }
 
 bool FontPlatformData::init()
@@ -176,6 +214,20 @@ bool FontPlatformData::init()
 
 FontPlatformData::~FontPlatformData()
 {
+    if (m_pattern && ((FcPattern*)-1 != m_pattern)) {
+        FcPatternDestroy(m_pattern);
+        m_pattern = 0;
+    }
+
+    if (m_fallbacks) {
+        FcFontSetDestroy(m_fallbacks);
+        m_fallbacks = 0;
+    }
+
+    if (m_scaledFont) {
+        cairo_scaled_font_destroy(m_scaledFont);
+        m_scaledFont = 0;
+    }
 }
 
 bool FontPlatformData::isFixedPitch()
@@ -206,5 +258,12 @@ bool FontPlatformData::operator==(const FontPlatformData& other) const
         return false;
     return FcPatternEqual(m_pattern, other.m_pattern);
 }
+
+#ifndef NDEBUG
+String FontPlatformData::description() const
+{
+    return String();
+}
+#endif
 
 }

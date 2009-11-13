@@ -46,15 +46,15 @@ namespace WebCore {
 
 #ifndef SWIG
 
-#if WXMAKINGDLL_WEBKIT
+#if !wxCHECK_VERSION(2,9,0) && wxCHECK_GCC_VERSION(4,0)
+#define WXDLLIMPEXP_WEBKIT __attribute__ ((visibility("default")))
+#elif WXMAKINGDLL_WEBKIT
 #define WXDLLIMPEXP_WEBKIT WXEXPORT
 #elif defined(WXUSINGDLL_WEBKIT)
 #define WXDLLIMPEXP_WEBKIT WXIMPORT
-#else
-#define WXDLLIMPEXP_WEBKIT
 #endif
 
-#else 
+#else
 #define WXDLLIMPEXP_WEBKIT
 #endif // SWIG
 
@@ -98,6 +98,7 @@ class WXDLLIMPEXP_WEBKIT wxWebFrame
     friend class WebCore::EditorClientWx;
     friend class wxWebView;
 
+public:
     wxWebFrame(wxWebView* container, wxWebFrame* parent = NULL, WebViewFrameData* data = NULL);
     
     ~wxWebFrame();
@@ -142,6 +143,7 @@ class WXDLLIMPEXP_WEBKIT wxWebFrame
     void IncreaseTextSize();
     bool CanDecreaseTextSize() const;
     void DecreaseTextSize();
+    void ResetTextSize();
     void MakeEditable(bool enable);
     bool IsEditable() const { return m_isEditable; }
 

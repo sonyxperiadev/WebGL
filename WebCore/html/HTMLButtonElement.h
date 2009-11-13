@@ -33,7 +33,7 @@ public:
     HTMLButtonElement(const QualifiedName&, Document*, HTMLFormElement* = 0);
     virtual ~HTMLButtonElement();
 
-    virtual const AtomicString& type() const;
+    virtual const AtomicString& formControlType() const;
         
     virtual RenderObject* createRenderer(RenderArena*, RenderStyle*);
 
@@ -61,6 +61,7 @@ public:
     
 private:
     enum Type { SUBMIT, RESET, BUTTON };
+    virtual bool isOptionalFormControl() const { return true; }
 
     Type m_type;
     bool m_activeSubmit;

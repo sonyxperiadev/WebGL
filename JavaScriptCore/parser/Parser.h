@@ -23,9 +23,9 @@
 #ifndef Parser_h
 #define Parser_h
 
-#include "SourceProvider.h"
 #include "Debugger.h"
 #include "Nodes.h"
+#include "SourceProvider.h"
 #include <wtf/Forward.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/OwnPtr.h>
@@ -37,32 +37,27 @@ namespace JSC {
     class ProgramNode;
     class UString;
 
-    template <typename T>
-    struct ParserRefCountedData : ParserRefCounted {
-        ParserRefCountedData(JSGlobalData* globalData)
-            : ParserRefCounted(globalData)
-        {
-        }
+    template <typename T> struct ParserArenaData : ParserArenaDeletable { T data; };
 
-        T data;
-    };
-
-    class Parser : Noncopyable {
+    class Parser : public Noncopyable {
     public:
         template <class ParsedNode> PassRefPtr<ParsedNode> parse(ExecState*, Debugger*, const SourceCode&, int* errLine = 0, UString* errMsg = 0);
         template <class ParsedNode> PassRefPtr<ParsedNode> reparse(JSGlobalData*, ParsedNode*);
         void reparseInPlace(JSGlobalData*, FunctionBodyNode*);
 
-        void didFinishParsing(SourceElements*, ParserRefCountedData<DeclarationStacks::VarStack>*, 
-                              ParserRefCountedData<DeclarationStacks::FunctionStack>*, CodeFeatures features, int lastLine, int numConstants);
+        void didFinishParsing(SourceElements*, ParserArenaData<DeclarationStacks::VarStack>*, 
+                              ParserArenaData<DeclarationStacks::FunctionStack>*, CodeFeatures features, int lastLine, int numConstants);
+
+        ParserArena& arena() { return m_arena; }
 
     private:
         void parse(JSGlobalData*, int* errLine, UString* errMsg);
 
+        ParserArena m_arena;
         const SourceCode* m_source;
-        RefPtr<SourceElements> m_sourceElements;
-        RefPtr<ParserRefCountedData<DeclarationStacks::VarStack> > m_varDeclarations;
-        RefPtr<ParserRefCountedData<DeclarationStacks::FunctionStack> > m_funcDeclarations;
+        SourceElements* m_sourceElements;
+        ParserArenaData<DeclarationStacks::VarStack>* m_varDeclarations;
+        ParserArenaData<DeclarationStacks::FunctionStack>* m_funcDeclarations;
         CodeFeatures m_features;
         int m_lastLine;
         int m_numConstants;
@@ -75,7 +70,7 @@ namespace JSC {
         RefPtr<ParsedNode> result;
         if (m_sourceElements) {
             result = ParsedNode::create(&exec->globalData(),
-                                         m_sourceElements.get(),
+                                         m_sourceElements,
                                          m_varDeclarations ? &m_varDeclarations->data : 0, 
                                          m_funcDeclarations ? &m_funcDeclarations->data : 0,
                                          *m_source,
@@ -84,8 +79,9 @@ namespace JSC {
             result->setLoc(m_source->firstLine(), m_lastLine);
         }
 
+        m_arena.reset();
+
         m_source = 0;
-        m_sourceElements = 0;
         m_varDeclarations = 0;
         m_funcDeclarations = 0;
 
@@ -101,7 +97,7 @@ namespace JSC {
         RefPtr<ParsedNode> result;
         if (m_sourceElements) {
             result = ParsedNode::create(globalData,
-                                        m_sourceElements.get(),
+                                        m_sourceElements,
                                         m_varDeclarations ? &m_varDeclarations->data : 0, 
                                         m_funcDeclarations ? &m_funcDeclarations->data : 0,
                                         *m_source,
@@ -110,8 +106,9 @@ namespace JSC {
             result->setLoc(m_source->firstLine(), m_lastLine);
         }
 
+        m_arena.reset();
+
         m_source = 0;
-        m_sourceElements = 0;
         m_varDeclarations = 0;
         m_funcDeclarations = 0;
 

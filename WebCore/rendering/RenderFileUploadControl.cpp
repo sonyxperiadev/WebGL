@@ -22,6 +22,7 @@
 #include "RenderFileUploadControl.h"
 
 #include "FileList.h"
+#include "Frame.h"
 #include "FrameView.h"
 #include "GraphicsContext.h"
 #include "HTMLInputElement.h"
@@ -73,7 +74,7 @@ RenderFileUploadControl::~RenderFileUploadControl()
     m_fileChooser->disconnectClient();
 }
 
-void RenderFileUploadControl::styleDidChange(RenderStyle::Diff diff, const RenderStyle* oldStyle)
+void RenderFileUploadControl::styleDidChange(StyleDifference diff, const RenderStyle* oldStyle)
 {
     RenderBlock::styleDidChange(diff, oldStyle);
     if (m_button)
@@ -84,12 +85,12 @@ void RenderFileUploadControl::styleDidChange(RenderStyle::Diff diff, const Rende
 
 void RenderFileUploadControl::valueChanged()
 {
-    // onChange may destroy this renderer
+    // dispatchFormControlChangeEvent may destroy this renderer
     RefPtr<FileChooser> fileChooser = m_fileChooser;
 
     HTMLInputElement* inputElement = static_cast<HTMLInputElement*>(node());
     inputElement->setFileListFromRenderer(fileChooser->filenames());
-    inputElement->onChange();
+    inputElement->dispatchFormControlChangeEvent();
  
     // only repaint if it doesn't seem we have been destroyed
     if (!fileChooser->disconnected())
@@ -157,7 +158,7 @@ int RenderFileUploadControl::maxFilenameWidth() const
 
 PassRefPtr<RenderStyle> RenderFileUploadControl::createButtonStyle(const RenderStyle* parentStyle) const
 {
-    RefPtr<RenderStyle> style = getCachedPseudoStyle(RenderStyle::FILE_UPLOAD_BUTTON);
+    RefPtr<RenderStyle> style = getCachedPseudoStyle(FILE_UPLOAD_BUTTON);
     if (!style) {
         style = RenderStyle::create();
         if (parentStyle)
@@ -202,7 +203,7 @@ void RenderFileUploadControl::paintObject(PaintInfo& paintInfo, int tx, int ty)
         else
             textX = contentLeft + contentWidth() - buttonAndIconWidth - style()->font().width(textRun);
         // We want to match the button's baseline
-        RenderButton* buttonRenderer = static_cast<RenderButton*>(m_button->renderer());
+        RenderButton* buttonRenderer = toRenderButton(m_button->renderer());
         int textY = buttonRenderer->absoluteBoundingBoxRect().y()
             + buttonRenderer->marginTop() + buttonRenderer->borderTop() + buttonRenderer->paddingTop()
             + buttonRenderer->baselinePosition(true, false);

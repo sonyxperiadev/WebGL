@@ -53,7 +53,7 @@ static NSString * const WebSubframeArchivesKey = @"WebSubframeArchives";
     NSArray *cachedSubresources;
     NSArray *cachedSubframeArchives;
 @private
-    LegacyWebArchive* coreArchive;
+    RefPtr<LegacyWebArchive> coreArchive;
 }
 
 - (id)initWithCoreArchive:(PassRefPtr<LegacyWebArchive>)coreArchive;
@@ -76,7 +76,7 @@ static NSString * const WebSubframeArchivesKey = @"WebSubframeArchives";
     self = [super init];
     if (!self)
         return nil;
-    coreArchive = LegacyWebArchive::create().releaseRef();
+    coreArchive = LegacyWebArchive::create();
     return self;
 }
 
@@ -87,33 +87,26 @@ static NSString * const WebSubframeArchivesKey = @"WebSubframeArchives";
         [self release];
         return nil;
     }
-    coreArchive = _coreArchive.releaseRef();
+    coreArchive = _coreArchive;
     return self;
 }
 
 - (LegacyWebArchive*)coreArchive
 {
-    return coreArchive;
+    return coreArchive.get();
 }
 
 - (void)setCoreArchive:(PassRefPtr<LegacyWebArchive>)newCoreArchive
 {
     ASSERT(coreArchive);
     ASSERT(newCoreArchive);
-    if (coreArchive)
-        coreArchive->deref();
-    coreArchive = newCoreArchive.releaseRef();
+    coreArchive = newCoreArchive;
 }
 
 - (void)dealloc
 {
     if (WebCoreObjCScheduleDeallocateOnMainThread([WebArchivePrivate class], self))
         return;
-
-    if (coreArchive) {
-        coreArchive->deref();
-        coreArchive = 0;
-    }
     
     [cachedMainResource release];
     [cachedSubresources release];
@@ -122,23 +115,13 @@ static NSString * const WebSubframeArchivesKey = @"WebSubframeArchives";
     [super dealloc];
 }
 
-- (void)finalize
-{
-    if (coreArchive) {
-        coreArchive->deref();
-        coreArchive = 0;
-    }
-    
-    [super finalize];
-}
-
 @end
 
 @implementation WebArchive
 
 - (id)init
 {
-    WebCoreThreadViolationCheck();
+    WebCoreThreadViolationCheckRoundTwo();
 
     self = [super init];
     if (!self)
@@ -166,7 +149,7 @@ static BOOL isArrayOfClass(id object, Class elementClass)
         return [[self _webkit_invokeOnMainThread] initWithMainResource:mainResource subresources:subresources subframeArchives:subframeArchives];
 #endif
 
-    WebCoreThreadViolationCheck();
+    WebCoreThreadViolationCheckRoundTwo();
 
     self = [super init];
     if (!self)
@@ -219,7 +202,7 @@ static BOOL isArrayOfClass(id object, Class elementClass)
 
 - (id)initWithData:(NSData *)data
 {
-    WebCoreThreadViolationCheck();
+    WebCoreThreadViolationCheckRoundTwo();
 
     self = [super init];
     if (!self)
@@ -296,7 +279,7 @@ static BOOL isArrayOfClass(id object, Class elementClass)
         return [[self _webkit_invokeOnMainThread] mainResource];
 #endif
 
-    WebCoreThreadViolationCheck();
+    WebCoreThreadViolationCheckRoundTwo();
 
     // Currently from WebKit API perspective, WebArchives are entirely immutable once created
     // If they ever become mutable, we'll need to rethink this. 
@@ -316,7 +299,7 @@ static BOOL isArrayOfClass(id object, Class elementClass)
         return [[self _webkit_invokeOnMainThread] subresources];
 #endif
 
-    WebCoreThreadViolationCheck();
+    WebCoreThreadViolationCheckRoundTwo();
 
     // Currently from WebKit API perspective, WebArchives are entirely immutable once created
     // If they ever become mutable, we'll need to rethink this.     
@@ -337,8 +320,9 @@ static BOOL isArrayOfClass(id object, Class elementClass)
             }
         }
     }
-    
-    return [[_private->cachedSubresources retain] autorelease];
+    // Maintain the WebKit 3 behavior of this API, which is documented and
+    // relied upon by some clients, of returning nil if there are no subresources.
+    return [_private->cachedSubresources count] ? [[_private->cachedSubresources retain] autorelease] : nil;
 }
 
 - (NSArray *)subframeArchives
@@ -348,7 +332,7 @@ static BOOL isArrayOfClass(id object, Class elementClass)
         return [[self _webkit_invokeOnMainThread] subframeArchives];
 #endif
 
-    WebCoreThreadViolationCheck();
+    WebCoreThreadViolationCheckRoundTwo();
 
     // Currently from WebKit API perspective, WebArchives are entirely immutable once created
     // If they ever become mutable, we'll need to rethink this.  
@@ -373,7 +357,7 @@ static BOOL isArrayOfClass(id object, Class elementClass)
 
 - (NSData *)data
 {
-    WebCoreThreadViolationCheck();
+    WebCoreThreadViolationCheckRoundTwo();
 
 #if !LOG_DISABLED
     CFAbsoluteTime start = CFAbsoluteTimeGetCurrent();
@@ -396,7 +380,7 @@ static BOOL isArrayOfClass(id object, Class elementClass)
 
 - (id)_initWithCoreLegacyWebArchive:(PassRefPtr<WebCore::LegacyWebArchive>)coreLegacyWebArchive
 {
-    WebCoreThreadViolationCheck();
+    WebCoreThreadViolationCheckRoundTwo();
 
     self = [super init];
     if (!self)
@@ -413,7 +397,7 @@ static BOOL isArrayOfClass(id object, Class elementClass)
 
 - (WebCore::LegacyWebArchive *)_coreLegacyWebArchive
 {
-    WebCoreThreadViolationCheck();
+    WebCoreThreadViolationCheckRoundTwo();
 
     return [_private coreArchive];
 }

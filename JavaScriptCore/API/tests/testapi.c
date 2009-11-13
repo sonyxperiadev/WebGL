@@ -26,6 +26,7 @@
 #include "JavaScriptCore.h"
 #include "JSBasePrivate.h"
 #include <math.h>
+#define ASSERT_DISABLED 0
 #include <wtf/Assertions.h>
 #include <wtf/UnusedParam.h>
 
@@ -41,11 +42,13 @@ static double nan(const char*)
 #endif
 
 static JSGlobalContextRef context = 0;
-
+static int failed = 0;
 static void assertEqualsAsBoolean(JSValueRef value, bool expectedValue)
 {
-    if (JSValueToBoolean(context, value) != expectedValue)
+    if (JSValueToBoolean(context, value) != expectedValue) {
         fprintf(stderr, "assertEqualsAsBoolean failed: %p, %d\n", value, expectedValue);
+        failed = 1;
+    }
 }
 
 static void assertEqualsAsNumber(JSValueRef value, double expectedValue)
@@ -55,8 +58,10 @@ static void assertEqualsAsNumber(JSValueRef value, double expectedValue)
     // FIXME <rdar://4668451> - On i386 the isnan(double) macro tries to map to the isnan(float) function,
     // causing a build break with -Wshorten-64-to-32 enabled.  The issue is known by the appropriate team.
     // After that's resolved, we can remove these casts
-    if (number != expectedValue && !(isnan((float)number) && isnan((float)expectedValue)))
+    if (number != expectedValue && !(isnan((float)number) && isnan((float)expectedValue))) {
         fprintf(stderr, "assertEqualsAsNumber failed: %p, %lf\n", value, expectedValue);
+        failed = 1;
+    }
 }
 
 static void assertEqualsAsUTF8String(JSValueRef value, const char* expectedValue)
@@ -68,12 +73,17 @@ static void assertEqualsAsUTF8String(JSValueRef value, const char* expectedValue
     JSStringGetUTF8CString(valueAsString, jsBuffer, jsSize);
     
     unsigned i;
-    for (i = 0; jsBuffer[i]; i++)
-        if (jsBuffer[i] != expectedValue[i])
+    for (i = 0; jsBuffer[i]; i++) {
+        if (jsBuffer[i] != expectedValue[i]) {
             fprintf(stderr, "assertEqualsAsUTF8String failed at character %d: %c(%d) != %c(%d)\n", i, jsBuffer[i], jsBuffer[i], expectedValue[i], expectedValue[i]);
-        
-    if (jsSize < strlen(jsBuffer) + 1)
+            failed = 1;
+        }
+    }
+
+    if (jsSize < strlen(jsBuffer) + 1) {
         fprintf(stderr, "assertEqualsAsUTF8String failed: jsSize was too small\n");
+        failed = 1;
+    }
 
     free(jsBuffer);
     JSStringRelease(valueAsString);
@@ -94,14 +104,28 @@ static void assertEqualsAsCharactersPtr(JSValueRef value, const char* expectedVa
     CFStringGetCharacters(expectedValueAsCFString, CFRangeMake(0, cfLength), cfBuffer);
     CFRelease(expectedValueAsCFString);
 
-    if (memcmp(jsBuffer, cfBuffer, cfLength * sizeof(UniChar)) != 0)
+    if (memcmp(jsBuffer, cfBuffer, cfLength * sizeof(UniChar)) != 0) {
         fprintf(stderr, "assertEqualsAsCharactersPtr failed: jsBuffer != cfBuffer\n");
+        failed = 1;
+    }
     
-    if (jsLength != (size_t)cfLength)
+    if (jsLength != (size_t)cfLength) {
         fprintf(stderr, "assertEqualsAsCharactersPtr failed: jsLength(%ld) != cfLength(%ld)\n", jsLength, cfLength);
-    
+        failed = 1;
+    }
+
     free(cfBuffer);
     JSStringRelease(valueAsString);
+}
+
+static bool timeZoneIsPST()
+{
+    char timeZoneName[70];
+    struct tm gtm;
+    memset(&gtm, 0, sizeof(gtm));
+    strftime(timeZoneName, sizeof(timeZoneName), "%Z", &gtm);
+
+    return 0 == strcmp("PST", timeZoneName);
 }
 
 static JSValueRef jsGlobalValue; // non-stack value for testing JSValueProtect()
@@ -115,6 +139,7 @@ static bool MyObject_hasProperty(JSContextRef context, JSObjectRef object, JSStr
 
     if (JSStringIsEqualToUTF8CString(propertyName, "alwaysOne")
         || JSStringIsEqualToUTF8CString(propertyName, "cantFind")
+        || JSStringIsEqualToUTF8CString(propertyName, "throwOnGet")
         || JSStringIsEqualToUTF8CString(propertyName, "myPropertyName")
         || JSStringIsEqualToUTF8CString(propertyName, "hasPropertyLie")
         || JSStringIsEqualToUTF8CString(propertyName, "0")) {
@@ -140,7 +165,11 @@ static JSValueRef MyObject_getProperty(JSContextRef context, JSObjectRef object,
     if (JSStringIsEqualToUTF8CString(propertyName, "cantFind")) {
         return JSValueMakeUndefined(context);
     }
-    
+
+    if (JSStringIsEqualToUTF8CString(propertyName, "throwOnGet")) {
+        return JSEvaluateScript(context, JSStringCreateWithUTF8CString("throw 'an exception'"), object, JSStringCreateWithUTF8CString("test script"), 1, exception);
+    }
+
     if (JSStringIsEqualToUTF8CString(propertyName, "0")) {
         *exception = JSValueMakeNumber(context, 1);
         return JSValueMakeNumber(context, 1);
@@ -159,6 +188,10 @@ static bool MyObject_setProperty(JSContextRef context, JSObjectRef object, JSStr
     if (JSStringIsEqualToUTF8CString(propertyName, "cantSet"))
         return true; // pretend we set the property in order to swallow it
     
+    if (JSStringIsEqualToUTF8CString(propertyName, "throwOnSet")) {
+        JSEvaluateScript(context, JSStringCreateWithUTF8CString("throw 'an exception'"), object, JSStringCreateWithUTF8CString("test script"), 1, exception);
+    }
+    
     return false;
 }
 
@@ -171,7 +204,7 @@ static bool MyObject_deleteProperty(JSContextRef context, JSObjectRef object, JS
         return true;
     
     if (JSStringIsEqualToUTF8CString(propertyName, "throwOnDelete")) {
-        *exception = JSValueMakeNumber(context, 2);
+        JSEvaluateScript(context, JSStringCreateWithUTF8CString("throw 'an exception'"), object, JSStringCreateWithUTF8CString("test script"), 1, exception);
         return false;
     }
 
@@ -201,6 +234,11 @@ static JSValueRef MyObject_callAsFunction(JSContextRef context, JSObjectRef obje
     UNUSED_PARAM(thisObject);
     UNUSED_PARAM(exception);
 
+    if (argumentCount > 0 && JSValueIsString(context, arguments[0]) && JSStringIsEqualToUTF8CString(JSValueToStringCopy(context, arguments[0], 0), "throwOnCall")) {
+        JSEvaluateScript(context, JSStringCreateWithUTF8CString("throw 'an exception'"), object, JSStringCreateWithUTF8CString("test script"), 1, exception);
+        return JSValueMakeUndefined(context);
+    }
+
     if (argumentCount > 0 && JSValueIsStrictEqual(context, arguments[0], JSValueMakeNumber(context, 0)))
         return JSValueMakeNumber(context, 1);
     
@@ -212,6 +250,11 @@ static JSObjectRef MyObject_callAsConstructor(JSContextRef context, JSObjectRef 
     UNUSED_PARAM(context);
     UNUSED_PARAM(object);
 
+    if (argumentCount > 0 && JSValueIsString(context, arguments[0]) && JSStringIsEqualToUTF8CString(JSValueToStringCopy(context, arguments[0], 0), "throwOnConstruct")) {
+        JSEvaluateScript(context, JSStringCreateWithUTF8CString("throw 'an exception'"), object, JSStringCreateWithUTF8CString("test script"), 1, exception);
+        return object;
+    }
+
     if (argumentCount > 0 && JSValueIsStrictEqual(context, arguments[0], JSValueMakeNumber(context, 0)))
         return JSValueToObject(context, JSValueMakeNumber(context, 1), exception);
     
@@ -222,6 +265,11 @@ static bool MyObject_hasInstance(JSContextRef context, JSObjectRef constructor, 
 {
     UNUSED_PARAM(context);
     UNUSED_PARAM(constructor);
+
+    if (JSValueIsString(context, possibleValue) && JSStringIsEqualToUTF8CString(JSValueToStringCopy(context, possibleValue, 0), "throwOnHasInstance")) {
+        JSEvaluateScript(context, JSStringCreateWithUTF8CString("throw 'an exception'"), constructor, JSStringCreateWithUTF8CString("test script"), 1, exception);
+        return false;
+    }
 
     JSStringRef numberString = JSStringCreateWithUTF8CString("Number");
     JSObjectRef numberConstructor = JSValueToObject(context, JSObjectGetProperty(context, JSContextGetGlobalObject(context), numberString, exception), exception);
@@ -296,6 +344,122 @@ static JSClassRef MyObject_class(JSContextRef context)
     
     return jsClass;
 }
+
+static bool EvilExceptionObject_hasInstance(JSContextRef context, JSObjectRef constructor, JSValueRef possibleValue, JSValueRef* exception)
+{
+    UNUSED_PARAM(context);
+    UNUSED_PARAM(constructor);
+    
+    JSStringRef hasInstanceName = JSStringCreateWithUTF8CString("hasInstance");
+    JSValueRef hasInstance = JSObjectGetProperty(context, constructor, hasInstanceName, exception);
+    JSStringRelease(hasInstanceName);
+    if (!hasInstance)
+        return false;
+    JSObjectRef function = JSValueToObject(context, hasInstance, exception);
+    JSValueRef result = JSObjectCallAsFunction(context, function, constructor, 1, &possibleValue, exception);
+    return result && JSValueToBoolean(context, result);
+}
+
+static JSValueRef EvilExceptionObject_convertToType(JSContextRef context, JSObjectRef object, JSType type, JSValueRef* exception)
+{
+    UNUSED_PARAM(object);
+    UNUSED_PARAM(exception);
+    JSStringRef funcName;
+    switch (type) {
+    case kJSTypeNumber:
+        funcName = JSStringCreateWithUTF8CString("toNumber");
+        break;
+    case kJSTypeString:
+        funcName = JSStringCreateWithUTF8CString("toStringExplicit");
+        break;
+    default:
+        return NULL;
+        break;
+    }
+    
+    JSValueRef func = JSObjectGetProperty(context, object, funcName, exception);
+    JSStringRelease(funcName);    
+    JSObjectRef function = JSValueToObject(context, func, exception);
+    if (!function)
+        return NULL;
+    JSValueRef value = JSObjectCallAsFunction(context, function, object, 0, NULL, exception);
+    if (!value) {
+        JSStringRef errorString = JSStringCreateWithUTF8CString("convertToType failed"); 
+        JSValueRef errorStringRef = JSValueMakeString(context, errorString);
+        JSStringRelease(errorString);
+        return errorStringRef;
+    }
+    return value;
+}
+
+JSClassDefinition EvilExceptionObject_definition = {
+    0,
+    kJSClassAttributeNone,
+
+    "EvilExceptionObject",
+    NULL,
+
+    NULL,
+    NULL,
+
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    EvilExceptionObject_hasInstance,
+    EvilExceptionObject_convertToType,
+};
+
+static JSClassRef EvilExceptionObject_class(JSContextRef context)
+{
+    UNUSED_PARAM(context);
+    
+    static JSClassRef jsClass;
+    if (!jsClass)
+        jsClass = JSClassCreate(&EvilExceptionObject_definition);
+    
+    return jsClass;
+}
+
+JSClassDefinition EmptyObject_definition = {
+    0,
+    kJSClassAttributeNone,
+    
+    NULL,
+    NULL,
+    
+    NULL,
+    NULL,
+    
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+};
+
+static JSClassRef EmptyObject_class(JSContextRef context)
+{
+    UNUSED_PARAM(context);
+    
+    static JSClassRef jsClass;
+    if (!jsClass)
+        jsClass = JSClassCreate(&EmptyObject_definition);
+    
+    return jsClass;
+}
+
 
 static JSValueRef Base_get(JSContextRef ctx, JSObjectRef object, JSStringRef propertyName, JSValueRef* exception)
 {
@@ -539,6 +703,17 @@ static JSValueRef globalObject_call(JSContextRef ctx, JSObjectRef function, JSOb
     return JSValueMakeNumber(ctx, 3);
 }
 
+static JSValueRef functionGC(JSContextRef context, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
+{
+    UNUSED_PARAM(function);
+    UNUSED_PARAM(thisObject);
+    UNUSED_PARAM(argumentCount);
+    UNUSED_PARAM(arguments);
+    UNUSED_PARAM(exception);
+    JSGarbageCollect(context);
+    return JSValueMakeUndefined(context);
+}
+
 static JSStaticValue globalObject_staticValues[] = {
     { "globalStaticValue", globalObject_get, globalObject_set, kJSPropertyAttributeNone },
     { 0, 0, 0, 0 }
@@ -546,6 +721,7 @@ static JSStaticValue globalObject_staticValues[] = {
 
 static JSStaticFunction globalObject_staticFunctions[] = {
     { "globalStaticFunction", globalObject_call, kJSPropertyAttributeNone },
+    { "gc", functionGC, kJSPropertyAttributeNone },
     { 0, 0, 0 }
 };
 
@@ -655,6 +831,16 @@ int main(int argc, char* argv[])
     JSStringRef myObjectIString = JSStringCreateWithUTF8CString("MyObject");
     JSObjectSetProperty(context, globalObject, myObjectIString, myObject, kJSPropertyAttributeNone, NULL);
     JSStringRelease(myObjectIString);
+    
+    JSObjectRef EvilExceptionObject = JSObjectMake(context, EvilExceptionObject_class(context), NULL);
+    JSStringRef EvilExceptionObjectIString = JSStringCreateWithUTF8CString("EvilExceptionObject");
+    JSObjectSetProperty(context, globalObject, EvilExceptionObjectIString, EvilExceptionObject, kJSPropertyAttributeNone, NULL);
+    JSStringRelease(EvilExceptionObjectIString);
+    
+    JSObjectRef EmptyObject = JSObjectMake(context, EmptyObject_class(context), NULL);
+    JSStringRef EmptyObjectIString = JSStringCreateWithUTF8CString("EmptyObject");
+    JSObjectSetProperty(context, globalObject, EmptyObjectIString, EmptyObject, kJSPropertyAttributeNone, NULL);
+    JSStringRelease(EmptyObjectIString);
     
     JSValueRef exception;
 
@@ -846,7 +1032,7 @@ int main(int argc, char* argv[])
     JSStringRelease(functionBody);
     
     string = JSValueToStringCopy(context, function, NULL);
-    assertEqualsAsUTF8String(JSValueMakeString(context, string), "function foo(foo) {return foo;}");
+    assertEqualsAsUTF8String(JSValueMakeString(context, string), "function foo(foo) { return foo;\n}");
     JSStringRelease(string);
 
     JSStringRef print = JSStringCreateWithUTF8CString("print");
@@ -898,7 +1084,8 @@ int main(int argc, char* argv[])
 
     JSValueRef argumentsDateValues[] = { JSValueMakeNumber(context, 0) };
     o = JSObjectMakeDate(context, 1, argumentsDateValues, NULL);
-    assertEqualsAsUTF8String(o, "Wed Dec 31 1969 16:00:00 GMT-0800 (PST)");
+    if (timeZoneIsPST())
+        assertEqualsAsUTF8String(o, "Wed Dec 31 1969 16:00:00 GMT-0800 (PST)");
 
     string = JSStringCreateWithUTF8CString("an error message");
     JSValueRef argumentsErrorValues[] = { JSValueMakeString(context, string) };
@@ -953,10 +1140,18 @@ int main(int argc, char* argv[])
     ASSERT(JSValueIsEqual(context, v, o, NULL));
     JSStringRelease(script);
 
+    // Verify that creating a constructor for a class with no static functions does not trigger
+    // an assert inside putDirect or lead to a crash during GC. <https://bugs.webkit.org/show_bug.cgi?id=25785>
+    nullDefinition = kJSClassDefinitionEmpty;
+    nullClass = JSClassCreate(&nullDefinition);
+    myConstructor = JSObjectMakeConstructor(context, nullClass, 0);
+    JSClassRelease(nullClass);
+
     char* scriptUTF8 = createStringWithContentsOfFile(scriptPath);
-    if (!scriptUTF8)
+    if (!scriptUTF8) {
         printf("FAIL: Test script could not be loaded.\n");
-    else {
+        failed = 1;
+    } else {
         script = JSStringCreateWithUTF8CString(scriptUTF8);
         result = JSEvaluateScript(context, script, NULL, NULL, 1, &exception);
         if (JSValueIsUndefined(context, result))
@@ -968,6 +1163,7 @@ int main(int argc, char* argv[])
             CFShow(exceptionCF);
             CFRelease(exceptionCF);
             JSStringRelease(exceptionIString);
+            failed = 1;
         }
         JSStringRelease(script);
         free(scriptUTF8);
@@ -978,6 +1174,7 @@ int main(int argc, char* argv[])
     v = NULL;
     o = NULL;
     globalObject = NULL;
+    myConstructor = NULL;
 
     JSStringRelease(jsEmptyIString);
     JSStringRelease(jsOneIString);
@@ -990,6 +1187,27 @@ int main(int argc, char* argv[])
 
     JSGlobalContextRelease(context);
     JSClassRelease(globalObjectClass);
+
+    // Test for an infinite prototype chain that used to be created. This test
+    // passes if the call to JSObjectHasProperty() does not hang.
+
+    JSClassDefinition prototypeLoopClassDefinition = kJSClassDefinitionEmpty;
+    prototypeLoopClassDefinition.staticFunctions = globalObject_staticFunctions;
+    JSClassRef prototypeLoopClass = JSClassCreate(&prototypeLoopClassDefinition);
+    JSGlobalContextRef prototypeLoopContext = JSGlobalContextCreateInGroup(NULL, prototypeLoopClass);
+
+    JSStringRef nameProperty = JSStringCreateWithUTF8CString("name");
+    JSObjectHasProperty(prototypeLoopContext, JSContextGetGlobalObject(prototypeLoopContext), nameProperty);
+
+    JSGlobalContextRelease(prototypeLoopContext);
+    JSClassRelease(prototypeLoopClass);
+
+    printf("PASS: Infinite prototype chain does not occur.\n");
+
+    if (failed) {
+        printf("FAIL: Some tests failed.\n");
+        return 1;
+    }
 
     printf("PASS: Program exited normally.\n");
     return 0;

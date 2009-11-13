@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2006, 2007, 2008 Apple Inc.  All rights reserved.
+ * Copyright (C) 2009 Anthony Ricaud <rik@webkit.org>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -259,7 +260,7 @@ body.attached #main {
     right: 0;
 }
 
-body.console-visible #main-status-bar {
+body.drawer-visible #main-status-bar {
     height: 24px;
     background-image: url(Images/statusbarResizerVertical.png), url(Images/statusbarBackground.png);
     background-repeat: no-repeat, repeat-x;
@@ -267,11 +268,11 @@ body.console-visible #main-status-bar {
     cursor: row-resize;
 }
 
-body.console-visible #main-status-bar * {
+body.drawer-visible #main-status-bar * {
     cursor: default;
 }
 
-body.console-visible #main-panels {
+body.drawer-visible #main-panels {
     bottom: 24px;
 }
 
@@ -306,14 +307,39 @@ body.console-visible #main-panels {
     z-index: 200;
 }
 
+.glyph {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.75);
+    z-index: 1;
+}
+
+.glyph.shadow {
+    top: 1px;
+    background-color: white !important;
+    z-index: 0;
+}
+
 button.status-bar-item {
+    position: relative;
     width: 32px;
     background-image: url(Images/statusbarButtons.png);
     background-position: 0 0;
 }
 
 button.status-bar-item:active {
-    background-position: 32px 0;
+    background-position: 32px 0 !important;
+}
+
+button.status-bar-item .glyph.shadow {
+    background-color: rgba(255, 255, 255, 0.33) !important;
+}
+
+button.status-bar-item.toggled-on .glyph {
+    background-color: rgb(66, 129, 235);
 }
 
 button.status-bar-item:disabled {
@@ -338,47 +364,31 @@ select.status-bar-item:active {
     -webkit-border-image: url(Images/statusbarMenuButtonSelected.png) 0 17 0 2;
 }
 
-#dock-status-bar-item {
-    background-image: url(Images/dockButtons.png);
+#dock-status-bar-item .glyph {
+    -webkit-mask-image: url(Images/undockButtonGlyph.png);
 }
 
-body.attached #dock-status-bar-item:active {
-    background-position: 32px 0;
+body.detached #dock-status-bar-item .glyph {
+    -webkit-mask-image: url(Images/dockButtonGlyph.png);
 }
 
-body.detached #dock-status-bar-item {
-    background-position: 0 24px;
+#console-status-bar-item .glyph {
+    -webkit-mask-image: url(Images/consoleButtonGlyph.png);
 }
 
-body.detached #dock-status-bar-item.toggled-on:active {
-    background-position: 32px 24px;
+#clear-console-status-bar-item .glyph {
+    -webkit-mask-image: url(Images/clearConsoleButtonGlyph.png);
 }
 
-#console-status-bar-item {
-    background-image: url(Images/consoleButtons.png);
+#changes-status-bar-item .glyph {
+    -webkit-mask-image: url(Images/consoleButtonGlyph.png); /* TODO: Needs Image for Changes Toggle Button */
 }
 
-#console-status-bar-item:active {
-    background-position: 32px 0;
+#clear-changes-status-bar-item .glyph {
+    -webkit-mask-image: url(Images/clearConsoleButtonGlyph.png);
 }
 
-#console-status-bar-item.toggled-on {
-    background-position: 0 24px;
-}
-
-#console-status-bar-item.toggled-on:active {
-    background-position: 32px 24px;
-}
-
-#clear-console-status-bar-item {
-    background-image: url(Images/clearConsoleButtons.png);
-}
-
-#clear-console-status-bar-item:active {
-    background-position: 32px 0;
-}
-
-#error-warning-count {
+#count-items {
     position: absolute;
     right: 16px;
     top: 0;
@@ -388,8 +398,20 @@ body.detached #dock-status-bar-item.toggled-on:active {
     height: 19px;
 }
 
-#error-warning-count:hover {
+#changes-count, #error-warning-count {
+    display: inline;
+}
+
+#error-warning-count:hover, #changes-count:hover {
     border-bottom: 1px solid rgb(96, 96, 96);
+}
+
+#style-changes-count::before {
+    content: url(Images/styleIcon.png); /* TODO: Needs Image for Style Changes Icon */
+    width: 10px;
+    height: 10px;
+    vertical-align: -1px;
+    margin-right: 2px;
 }
 
 #error-count::before {
@@ -399,8 +421,8 @@ body.detached #dock-status-bar-item.toggled-on:active {
     vertical-align: -1px;
     margin-right: 2px;
 }
-
-#error-count + #warning-count {
+    
+#changes-count + #error-warning-count, #error-count + #warning-count {
     margin-left: 6px;
 }
 
@@ -412,7 +434,7 @@ body.detached #dock-status-bar-item.toggled-on:active {
     margin-right: 2px;
 }
 
-#console {
+#drawer {
     display: none;
     position: absolute;
     bottom: 0;
@@ -425,11 +447,11 @@ body.detached #dock-status-bar-item.toggled-on:active {
     background-position: bottom;
 }
 
-body.console-visible #console {
+body.drawer-visible #drawer {
     display: block;
 }
 
-#console-status-bar {
+#drawer-status-bar {
     position: absolute;
     bottom: 0;
     left: 0;
@@ -439,12 +461,13 @@ body.console-visible #console {
 
 #console-messages {
     position: absolute;
+    z-index: 0;
     top: 0;
     left: 0;
     right: 0;
     bottom: 23px;
-    font-size: 10px;
-    font-family: Monaco, Lucida Console, monospace;
+    font-size: initial;
+    font-family: monospace;
     padding: 2px 0;
     overflow-y: overlay;
     -webkit-user-select: text;
@@ -463,6 +486,10 @@ body.console-visible #console {
     background-image: url(Images/userInputIcon.png);
 }
 
+.console-user-command-result.console-log-level::before {
+    background-image: url(Images/userInputResultIcon.png);
+}
+
 .console-message, .console-user-command {
     position: relative;
     border-bottom: 1px solid rgb(240, 240, 240);
@@ -470,7 +497,15 @@ body.console-visible #console {
     min-height: 16px;
 }
 
-.console-message::before, .console-user-command::before, #console-prompt::before, .console-group-title-level::before {
+.console-adjacent-user-command-result {
+    border-bottom: none;
+}
+
+.console-adjacent-user-command-result + .console-user-command-result.console-log-level::before {
+    background-image: none;
+}
+
+.console-message::before, .console-user-command::before, #console-prompt::before, .console-group-title::before {
     position: absolute;
     display: block;
     content: "";
@@ -516,18 +551,18 @@ body.console-visible #console {
     margin-left: 16px;
 }
 
-.console-group-title-level {
+.console-group-title {
     font-weight: bold;
 }
 
-.console-group-title-level::before {
+.console-group-title::before {
     background-image: url(Images/disclosureTriangleSmallDown.png);
     top: 0.6em;
     width: 11px;
     height: 12px;
 }
 
-.console-group.collapsed .console-group-title-level::before {
+.console-group.collapsed .console-group-title::before {
     background-image: url(Images/disclosureTriangleSmallRight.png);
 }
 
@@ -561,35 +596,34 @@ body.console-visible #console {
     color: rgb(0, 128, 255);
 }
 
-.console-message-url {
-    color: rgb(33%, 33%, 33%) !important;
+#console-messages a {
+    color: rgb(33%, 33%, 33%);
     cursor: pointer;
-    float: right;
 }
 
-.console-message-url:hover {
+#console-messages a:hover {
     color: rgb(15%, 15%, 15%);
 }
 
-.console-message-url:hover::after {
-    opacity: 1;
+.console-message-url {
+    float: right;
 }
 
 .console-group-messages .section {
-    margin: 0;
+    margin: 0 0 0 12px !important;
 }
 
 .console-group-messages .section .header {
     padding: 0 8px 0 0;
     background-image: none;
     border: none;
-    min-height: 16px;
+    min-height: 0;
 }
 
 .console-group-messages .section .header::before {
     position: absolute;
     top: 1px;
-    left: 12px;
+    left: 1px;
     width: 8px;
     height: 8px;
     content: url(Images/treeRightTriangleBlack.png);
@@ -601,6 +635,21 @@ body.console-visible #console {
 
 .console-group-messages .section .header .title {
     color: black;
+    font-weight: normal;
+}
+
+.console-group-messages .section .properties li .info {
+    padding-top: 0;
+    padding-bottom: 0;
+    color: rgb(60%, 60%, 60%);
+}
+
+.console-group-messages .outline-disclosure {
+    padding-left: 0;
+}
+
+.console-group-messages .outline-disclosure > ol {
+    padding: 0 0 0 12px !important;
 }
 
 .console-group-messages .outline-disclosure, .console-group-messages .outline-disclosure ol {
@@ -608,31 +657,41 @@ body.console-visible #console {
     line-height: 1em;
 }
 
-.console-group-messages .outline-disclosure li {
-    padding-top: 2px;
-    padding-bottom: 2px;
+.console-group-messages .outline-disclosure.single-node li {
+    padding-left: 2px;
 }
 
 .console-group-messages .outline-disclosure li .selection {
-    z-index: 0;
-    margin-top: -1px;
+    margin-left: -6px;
+    margin-right: -6px;
+}
+
+.console-group-messages .add-attribute {
+    display: none;
+}
+
+.console-formatted-object, .console-formatted-node {
+    position: relative;
+    display: inline-block;
+    vertical-align: top;
 }
 
 .console-formatted-object .section, .console-formatted-node .section {
     position: static;
 }
 
+.console-formatted-object .properties, .console-formatted-node .properties {
+    padding-left: 0 !important;
+}
+
+.error-message {
+    color: red;
+}
+
 .auto-complete-text {
     color: rgb(128, 128, 128);
     -webkit-user-select: none;
     -webkit-user-modify: read-only;
-}
-
-.inspectible-node:hover {
-    background-color: rgba(56, 121, 217, 0.1);
-    -webkit-border-radius: 5px;
-    padding: 0 5px 1px;
-    margin: 0 -5px -1px;
 }
 
 .panel {
@@ -733,6 +792,11 @@ body.console-visible #console {
 .resource-view.headers-visible .source-view-frame {
     height: auto;
     vertical-align: top;
+}
+
+.invisible {
+    color: inherit;
+    text-decoration: none;
 }
 
 .webkit-line-gutter-backdrop {
@@ -1057,6 +1121,11 @@ body.console-visible #console {
     text-decoration: underline;
 }
 
+.add-attribute {
+    margin-left: 1px;
+    margin-right: 1px;
+}
+
 .placard {
     position: relative;
     margin-top: 1px;
@@ -1135,6 +1204,10 @@ body.inactive .placard.selected {
     -webkit-background-clip: padding;
 }
 
+.section.no-affect .header {
+    background-image: -webkit-gradient(linear, left top, left bottom, from(rgb(167, 167, 167)), to(rgb(123, 123, 123)))
+}
+
 .section .header::before {
     position: absolute;
     top: 4px;
@@ -1142,6 +1215,10 @@ body.inactive .placard.selected {
     width: 8px;
     height: 8px;
     content: url(Images/treeRightTriangleWhite.png);
+}
+
+.section.blank-section .header::before {
+    display: none;
 }
 
 .section.expanded .header::before {
@@ -1153,6 +1230,10 @@ body.inactive .placard.selected {
     font-weight: bold;
     word-wrap: break-word;
     white-space: normal;
+}
+
+.section .header .title.blank-title {
+    font-style: italic;
 }
 
 .section .header label {
@@ -1192,6 +1273,15 @@ body.inactive .placard.selected {
     padding: 2px 6px 3px;
     list-style: none;
     background-color: white;
+    min-height: 18px;
+}
+
+.section.no-affect .properties li {
+    opacity: 0.5;
+}
+
+.section.no-affect .properties li.editing {
+    opacity: 1.0;
 }
 
 .section.expanded .properties {
@@ -1532,7 +1622,11 @@ body.inactive .sidebar {
     content: url(Images/databaseTable.png);
 }
 
-#database-views {
+.domstorage-sidebar-tree-item .icon {
+    content: url(Images/domStorage.png);
+}
+
+#storage-views {
     position: absolute;
     top: 0;
     right: 0;
@@ -1540,7 +1634,7 @@ body.inactive .sidebar {
     bottom: 0;
 }
 
-.database-view {
+.storage-view {
     display: none;
     overflow: hidden;
     position: absolute;
@@ -1550,20 +1644,20 @@ body.inactive .sidebar {
     bottom: 0;
 }
 
-.database-view.visible {
+.storage-view.visible {
     display: block;
 }
 
-.database-view.table {
+.storage-view.table {
     overflow: hidden;
 }
 
-.database-view.table .data-grid {
+.storage-view.table .data-grid {
     border: none;
     height: 100%;
 }
 
-.database-view.table .database-table-empty, .database-view.table .database-table-error {
+.storage-view.table .storage-table-empty, .storage-view.table .storage-table-error {
     position: absolute;
     top: 0;
     bottom: 25%;
@@ -1581,7 +1675,7 @@ body.inactive .sidebar {
     white-space: pre-wrap;
 }
 
-.database-view.table .database-table-error {
+.storage-view.table .storage-table-error {
     color: rgb(66%, 33%, 33%);
 }
 
@@ -1773,9 +1867,18 @@ body.inactive .data-grid th.sort-ascending, body.inactive .data-grid th.sort-des
     text-indent: 10px;
 }
 
-.database-view.query {
-    font-size: 10px;
-    font-family: Monaco, Lucida Console, monospace;
+.data-grid-resizer {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 5px;
+    z-index: 500;
+    cursor: col-resize;
+}
+
+.storage-view.query {
+    font-size: initial;
+    font-family: monospace;
     padding: 2px 0;
     overflow-y: overlay;
     overflow-x: hidden;
@@ -1882,6 +1985,7 @@ body.inactive .data-grid th.sort-ascending, body.inactive .data-grid th.sort-des
     font-size: 10px;
     color: rgb(110, 116, 128);
     margin-bottom: 12px;
+    margin-left: 20px;
 }
 
 .panel-enabler-disclaimer:empty {
@@ -1917,10 +2021,8 @@ body.inactive .data-grid th.sort-ascending, body.inactive .data-grid th.sort-des
     position: relative;
     display: block;
     text-align: left;
-    margin-left: 50px;
-    margin-bottom: 6px;
-    line-height: 18px;
     word-break: break-word;
+    margin: 0 0 5px 20px;
 }
 
 .panel-enabler-view button {
@@ -1949,6 +2051,30 @@ body.inactive .panel-enabler-view button, .panel-enabler-view button:disabled {
     background-image: -webkit-gradient(linear, left top, left bottom, from(rgb(250, 250, 250)), to(rgb(235, 235, 235)));
 }
 
+.panel-enabler-view input {
+    height: 17px;
+    width: 17px;
+    border: 1px solid rgb(165, 165, 165);
+    background-image: -webkit-gradient(linear, left top, left bottom, from(rgb(252, 252, 252)), to(rgb(223, 223, 223)));
+    -webkit-border-radius: 8px;
+    -webkit-appearance: none;
+    vertical-align: middle;
+    margin: 0 5px 5px 0;
+}
+
+.panel-enabler-view input:active {
+    background-image: -webkit-gradient(linear, left top, left bottom, from(rgb(194, 194, 194)), to(rgb(239, 239, 239)));
+}
+
+.panel-enabler-view input:checked {
+    background: url(Images/radioDot.png) center no-repeat,
+                -webkit-gradient(linear, left top, left bottom, from(rgb(252, 252, 252)), to(rgb(223, 223, 223)));
+}
+
+.panel-enabler-view.resources img {
+    content: url(Images/resourcesSilhouette.png);
+}
+
 .panel-enabler-view.scripts img {
     content: url(Images/scriptsSilhouette.png);
 }
@@ -1957,36 +2083,16 @@ body.inactive .panel-enabler-view button, .panel-enabler-view button:disabled {
     content: url(Images/profilesSilhouette.png);
 }
 
-button.enable-toggle-status-bar-item {
-    background-image: url(Images/enableButtons.png);
+button.enable-toggle-status-bar-item .glyph {
+    -webkit-mask-image: url(Images/enableOutlineButtonGlyph.png);
 }
 
-button.enable-toggle-status-bar-item:active {
-    background-position: 32px 0;
+button.enable-toggle-status-bar-item.toggled-on .glyph {
+    -webkit-mask-image: url(Images/enableSolidButtonGlyph.png);
 }
 
-button.enable-toggle-status-bar-item.toggled-on {
-    background-position: 0 24px;
-}
-
-button.enable-toggle-status-bar-item.toggled-on:active {
-    background-position: 32px 24px;
-}
-
-#scripts-pause-on-exceptions-status-bar-item {
-    background-image: url(Images/pauseOnExceptionButtons.png);
-}
-
-#scripts-pause-on-exceptions-status-bar-item:active {
-    background-position: 32px 0;
-}
-
-#scripts-pause-on-exceptions-status-bar-item.toggled-on {
-    background-position: 0 24px;
-}
-
-#scripts-pause-on-exceptions-status-bar-item.toggled-on:active {
-    background-position: 32px 24px;
+#scripts-pause-on-exceptions-status-bar-item .glyph {
+    -webkit-mask-image: url(Images/pauseOnExceptionButtonGlyph.png);
 }
 
 #scripts-status-bar {
@@ -2103,25 +2209,54 @@ button.enable-toggle-status-bar-item.toggled-on:active {
     overflow: auto;
 }
 
-#resources-larger-resources-status-bar-item {
-    background-image: url(Images/largerResourcesButtons.png);
+#resources-larger-resources-status-bar-item .glyph {
+    -webkit-mask-image: url(Images/largerResourcesButtonGlyph.png);
 }
 
-#resources-larger-resources-status-bar-item:active {
-    background-position: 32px 0;
+#resources-filter {
+    height: 24px;
+    padding: 2px 10px 0;
+    background: -webkit-gradient(linear, left top, left bottom, from(rgb(233, 233, 233)), to(rgb(207, 207, 207)));
+    border-bottom: 1px solid rgb(177, 177, 177);
+    overflow: hidden;
 }
 
-#resources-larger-resources-status-bar-item.toggled-on {
-    background-position: 0 24px;
+#resources-filter li {
+    display: inline-block;
+    margin: 1px 1px 0 0;
+    padding: 0 6px 3px;
+    font-size: 12px;
+    line-height: 12px;
+    font-weight: bold;
+    color: rgb(40, 40, 40);
+    border: 1px solid transparent;
+    border-bottom: 0;
+    background: transparent;
+    -webkit-border-radius: 8px;
+    text-shadow: rgba(255, 255, 255, 0.5) 1px 1px 0;
 }
 
-#resources-larger-resources-status-bar-item.toggled-on:active {
-    background-position: 32px 24px;
+#resources-filter li.selected, #resources-filter li:hover, #resources-filter li:active {
+    color: white;
+    text-shadow: rgb(80, 80, 80) 1px 1px 1px;
+    background: rgba(20, 20, 20, 0.4);
+    border-color: rgba(20, 20, 20, 0.2);
+    -webkit-box-shadow: 0 1px 0px rgba(255, 255, 255, 0.5);
+}
+
+#resources-filter li:hover {
+    background: rgba(20, 20, 20, 0.4);
+    border-color: transparent;
+    -webkit-box-shadow: none;
+}
+
+#resources-filter li:active {
+    background: rgba(20, 20, 20, 0.6);
 }
 
 #resources-container {
     position: absolute;
-    top: 0;
+    top: 24px;
     left: 0;
     bottom: 0;
     right: 0;
@@ -2326,6 +2461,22 @@ button.enable-toggle-status-bar-item.toggled-on:active {
     -webkit-border-image: url(Images/timelinePillGray.png) 6 7 6 7;
 }
 
+.resources-category-documents, .resources-category-stylesheets, .resources-category-images,
+.resources-category-scripts, .resources-category-xhr, .resources-category-fonts, .resources-category-other {
+    display: none;
+}
+
+.filter-all .resources-category-documents, .filter-documents .resources-category-documents,
+.filter-all .resources-category-stylesheets, .filter-stylesheets .resources-category-stylesheets,
+.filter-all .resources-category-images, .filter-images .resources-category-images,
+.filter-all .resources-category-scripts, .filter-scripts .resources-category-scripts,
+.filter-all .resources-category-xhr, .filter-xhr .resources-category-xhr,
+.filter-all .resources-category-fonts, .filter-fonts .resources-category-fonts,
+.filter-all .resources-category-other, .filter-other .resources-category-other,
+.resource-sidebar-tree-item.selected {
+    display: list-item;
+}
+
 .resources-graph-bar.waiting {
     opacity: 0.35;
 }
@@ -2429,7 +2580,7 @@ button.enable-toggle-status-bar-item.toggled-on:active {
 
 #resource-views {
     position: absolute;
-    top: 0;
+    top: 24px;
     right: 0;
     left: 200px;
     bottom: 0;
@@ -2447,6 +2598,10 @@ button.enable-toggle-status-bar-item.toggled-on:active {
     width: 5px;
     z-index: 500;
     cursor: col-resize;
+}
+
+.resources .sidebar-resizer-vertical {
+    top: 24px;
 }
 
 .sidebar-tree, .sidebar-tree .children {
@@ -2495,6 +2650,10 @@ button.enable-toggle-status-bar-item.toggled-on:active {
 }
 
 .sidebar-tree > .children > .sidebar-tree-item {
+    padding-left: 37px;
+}
+
+.sidebar-tree > .children > .children > .sidebar-tree-item {
     padding-left: 37px;
 }
 
@@ -2889,6 +3048,14 @@ body.inactive .sidebar-tree-item.selected .bubble.search-matches {
     height: 100%;
 }
 
+.profile-view .data-grid th.average-column {
+    text-align: center;
+}
+
+.profile-view .data-grid td.average-column {
+    text-align: right;
+}
+
 .profile-view .data-grid th.self-column {
     text-align: center;
 }
@@ -2923,74 +3090,104 @@ body.inactive .sidebar-tree-item.selected .bubble.search-matches {
     color: white;
 }
 
-#record-profile-status-bar-item {
-    background-image: url(Images/recordButtons.png);
+button.enable-toggle-status-bar-item .glyph {
 }
 
-#record-profile-status-bar-item:active {
-    background-position: 32px 0;
+#record-profile-status-bar-item .glyph {
+    -webkit-mask-image: url(Images/recordButtonGlyph.png);
 }
 
-#record-profile-status-bar-item.toggled-on {
-    background-position: 0 24px;
+#record-profile-status-bar-item.toggled-on .glyph {
+    -webkit-mask-image: url(Images/recordToggledButtonGlyph.png);
+    background-color: rgb(216, 0, 0);
 }
 
-#record-profile-status-bar-item.toggled-on:active {
-    background-position: 32px 24px;
+#node-search-status-bar-item .glyph {
+    -webkit-mask-image: url(Images/nodeSearchButtonGlyph.png);
 }
 
-#node-search-status-bar-item {
-    background-image: url(Images/nodeSearchButtons.png);
+.percent-time-status-bar-item .glyph {
+    -webkit-mask-image: url(Images/percentButtonGlyph.png);
 }
 
-#node-search-status-bar-item:active {
-    background-position: 32px 0;
+.focus-profile-node-status-bar-item .glyph {
+    -webkit-mask-image: url(Images/focusButtonGlyph.png);
 }
 
-#node-search-status-bar-item.toggled-on {
-    background-position: 0 24px;
+.exclude-profile-node-status-bar-item .glyph {
+    -webkit-mask-image: url(Images/excludeButtonGlyph.png);
 }
 
-#node-search-status-bar-item.toggled-on:active {
-    background-position: 32px 24px;
+.reset-profile-status-bar-item .glyph {
+    -webkit-mask-image: url(Images/reloadButtonGlyph.png);
 }
 
-.percent-time-status-bar-item {
-    background-image: url(Images/percentButtons.png) !important;
+.delete-storage-status-bar-item .glyph {
+    -webkit-mask-image: url(Images/excludeButtonGlyph.png);
 }
 
-.percent-time-status-bar-item:active {
-    background-position: 32px 0;
+#storage-view-status-bar-items {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 200px;
+    overflow: hidden;
+    border-left: 1px solid rgb(184, 184, 184);
+    margin-left: -1px;
 }
 
-.percent-time-status-bar-item.toggled-on {
-    background-position: 0 24px;
-}
-
-.percent-time-status-bar-item.toggled-on:active {
-    background-position: 32px 24px;
-}
-
-.focus-profile-node-status-bar-item {
-    background-image: url(Images/focusButtons.png) !important;
-}
-
-.focus-profile-node-status-bar-item:active {
-    background-position: 32px 0;
-}
-
-.exclude-profile-node-status-bar-item {
-    background-image: url(Images/excludeButtons.png) !important;
-}
-
-.exclude-profile-node-status-bar-item:active {
-    background-position: 32px 0;
-}
-
-.reset-profile-status-bar-item {
+.refresh-storage-status-bar-item {
     background-image: url(Images/reloadButtons.png) !important;
 }
 
-.reset-profile-status-bar-item:active {
+.refresh-storage-status-bar-item:active {
     background-position: 32px 0;
+}
+
+#storage-view-status-bar-items {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 200px;
+    overflow: hidden;
+    border-left: 1px solid rgb(184, 184, 184);
+    margin-left: -1px;
+}
+
+ol.breakpoint-list {
+    -webkit-padding-start: 2px;
+    list-style: none;
+    margin: 0;
+}
+
+.breakpoint-list li {
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    overflow: hidden;
+    margin: 4px 0;
+}
+
+.breakpoint-list .checkbox-elem {
+    font-size: 10px;
+    margin: 0 4px;
+    vertical-align: top;
+    position: relative;
+    z-index: 1;
+}
+
+.breakpoint-list .source-text {
+    font-family: monospace;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    overflow: hidden;
+    margin: 2px 0 0px 20px;
+}
+
+.breakpoint-list a {
+    color: rgb(33%, 33%, 33%);
+    cursor: pointer;
+}
+
+.breakpoint-list a:hover {
+    color: rgb(15%, 15%, 15%);
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007 Holger Hans Peter Freyther
+ * Copyright (C) 2007, 2009 Holger Hans Peter Freyther
  * Copyright (C) 2008 Collabora, Ltd.
  * Copyright (C) 2008 Apple Inc. All rights reserved.
  *
@@ -22,8 +22,7 @@
 #include "config.h"
 #include "FileSystem.h"
 
-#include "guriescape.h"
-#include "NotImplemented.h"
+#include "GOwnPtr.h"
 #include "PlatformString.h"
 #include "CString.h"
 
@@ -180,6 +179,9 @@ String homeDirectoryPath()
 
 String pathGetFileName(const String& pathName)
 {
+    if (pathName.isEmpty())
+        return pathName;
+
     char* tmpFilename = filenameFromString(pathName);
     char* baseName = g_path_get_basename(tmpFilename);
     String fileName = String::fromUTF8(baseName);
@@ -191,8 +193,10 @@ String pathGetFileName(const String& pathName)
 
 String directoryName(const String& path)
 {
-    notImplemented();
-    return String();
+    /* No null checking needed */
+    GOwnPtr<char> tmpFilename(filenameFromString(path));
+    GOwnPtr<char> dirname(g_path_get_dirname(tmpFilename.get()));
+    return String::fromUTF8(dirname.get());
 }
 
 Vector<String> listDirectory(const String& path, const String& filter)
@@ -229,7 +233,7 @@ CString openTemporaryFile(const char* prefix, PlatformFileHandle& handle)
     if (!isHandleValid(fileDescriptor)) {
         LOG_ERROR("Can't create a temporary file.");
         g_free(tempPath);
-        return 0;
+        return CString();
     }
     CString tempFilePath = tempPath;
     g_free(tempPath);

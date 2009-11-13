@@ -31,7 +31,6 @@
 #include "FrameLoaderClient.h"
 #include "FrameLoader.h"
 #include "KURL.h"
-#include "RefCounted.h"
 #include "ResourceResponse.h"
 
 class wxWebView;
@@ -48,16 +47,13 @@ namespace WebCore {
 
     struct LoadErrorResetToken;
 
-    class FrameLoaderClientWx : public FrameLoaderClient, public RefCounted<FrameLoaderClientWx> {
+    class FrameLoaderClientWx : public FrameLoaderClient {
     public:
         FrameLoaderClientWx();
         ~FrameLoaderClientWx();
         void setFrame(Frame *frame);
         void setWebView(wxWebView *webview);
         virtual void detachFrameLoader();
-
-        virtual void ref();
-        virtual void deref();
 
         virtual bool hasWebView() const; // mainly for assertions
 
@@ -149,6 +145,7 @@ namespace WebCore {
         virtual void transitionToCommittedForNewPage();
         
         virtual void updateGlobalHistory();
+        virtual void updateGlobalHistoryRedirectLinks();
         virtual bool shouldGoToHistoryItem(HistoryItem*) const;
         virtual void saveScrollPositionAndViewStateToItem(HistoryItem*);
         virtual bool canCachePage() const;
@@ -175,8 +172,9 @@ namespace WebCore {
         virtual void dispatchDidReceiveContentLength(DocumentLoader*, unsigned long, int);
         virtual void dispatchDidFinishLoading(DocumentLoader*, unsigned long);
         virtual void dispatchDidFailLoading(DocumentLoader*, unsigned long, const ResourceError&);
-
         virtual bool dispatchDidLoadResourceFromMemoryCache(DocumentLoader*, const ResourceRequest&, const ResourceResponse&, int);
+        virtual void dispatchDidLoadResourceByXMLHttpRequest(unsigned long, const ScriptString&);
+
         virtual void dispatchDidFailProvisionalLoad(const ResourceError&);
         virtual void dispatchDidFailLoad(const ResourceError&);
         virtual Frame* dispatchCreatePage();
@@ -192,16 +190,17 @@ namespace WebCore {
 
         virtual PassRefPtr<Frame> createFrame(const KURL& url, const String& name, HTMLFrameOwnerElement* ownerElement,
                                    const String& referrer, bool allowsScrolling, int marginWidth, int marginHeight);
-        virtual Widget* createPlugin(const IntSize&, Element*, const KURL&, const Vector<String>&, const Vector<String>&, const String&, bool loadManually) ;
+        virtual PassRefPtr<Widget> createPlugin(const IntSize&, HTMLPlugInElement*, const KURL&, const Vector<String>&, const Vector<String>&, const String&, bool loadManually) ;
         virtual void redirectDataToPlugin(Widget* pluginWidget);
         virtual ResourceError pluginWillHandleLoadError(const ResourceResponse&);
         
-        virtual Widget* createJavaAppletWidget(const IntSize&, Element*, const KURL& baseURL, const Vector<String>& paramNames, const Vector<String>& paramValues);
+        virtual PassRefPtr<Widget> createJavaAppletWidget(const IntSize&, HTMLAppletElement*, const KURL& baseURL, const Vector<String>& paramNames, const Vector<String>& paramValues);
 
         virtual ObjectContentType objectContentType(const KURL& url, const String& mimeType);
         virtual String overrideMediaType() const;
 
         virtual void windowObjectCleared();
+        virtual void documentElementAvailable();
         
         virtual void didPerformFirstNavigation() const;
         

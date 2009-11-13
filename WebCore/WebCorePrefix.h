@@ -18,8 +18,8 @@
  *
  */
 
-/* This prefix file is for use on Mac OS X and Windows only. It should contain only:
- *    1) files to precompile on Mac OS X and Windows for faster builds
+/* This prefix file should contain only:
+ *    1) files to precompile for faster builds
  *    2) in one case at least: OS-X-specific performance bug workarounds
  *    3) the special trick to catch us using new or delete without including "config.h"
  * The project should be able to build without this header, although we rarely test that.
@@ -45,8 +45,10 @@
 #define WINVER 0x0500
 #endif
 
+#ifndef WTF_USE_CURL
 #ifndef _WINSOCKAPI_
 #define _WINSOCKAPI_ // Prevent inclusion of winsock.h in windows.h
+#endif
 #endif
 
 // If we don't define these, they get defined in windef.h. 
@@ -65,7 +67,13 @@
 #if defined(__APPLE__)
 #include <regex.h>
 #endif
+
+// On Linux this causes conflicts with libpng because there are two impls. of
+// longjmp - see here: https://bugs.launchpad.net/ubuntu/+source/libpng/+bug/218409
+#ifndef BUILDING_WX__
 #include <setjmp.h>
+#endif
+
 #include <signal.h>
 #include <stdarg.h>
 #include <stddef.h>
@@ -97,16 +105,14 @@
 
 #include <time.h>
 
+#ifndef BUILDING_WX__
 #include <CoreFoundation/CoreFoundation.h>
+#ifdef WIN_CAIRO
+#include <ConditionalMacros.h>
+#include <windows.h>
+#include <stdio.h>
+#else
 #include <CoreServices/CoreServices.h>
-
-#include <AvailabilityMacros.h>
-
-#if defined(__APPLE__)
-#if MAC_OS_X_VERSION_MAX_ALLOWED <= MAC_OS_X_VERSION_10_4
-#define BUILDING_ON_TIGER 1
-#elif MAC_OS_X_VERSION_MAX_ALLOWED <= MAC_OS_X_VERSION_10_5
-#define BUILDING_ON_LEOPARD 1
 #endif
 #endif
 

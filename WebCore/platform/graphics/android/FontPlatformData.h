@@ -25,6 +25,10 @@
 #ifndef FontPlatformData_H
 #define FontPlatformData_H
 
+#ifndef NDEBUG
+#include "PlatformString.h"
+#endif
+
 #include "StringImpl.h"
 
 class SkPaint;
@@ -42,6 +46,8 @@ public:
     FontPlatformData(const FontPlatformData&);
     FontPlatformData(SkTypeface*, float textSize, bool fakeBold, bool fakeItalic);
     FontPlatformData(const FontPlatformData& src, float textSize);
+    FontPlatformData(float size, bool syntheticBold, bool syntheticOblique);
+
     ~FontPlatformData();
 
     FontPlatformData(WTF::HashTableDeletedValueType)
@@ -54,7 +60,12 @@ public:
     bool operator==(const FontPlatformData& a) const;
 
     void     setupPaint(SkPaint*) const;
+    float size() const { return mTextSize; }
     unsigned hash() const;
+
+#ifndef NDEBUG
+    String description() const { return ""; }
+#endif
 
 private:
     SkTypeface* mTypeface;

@@ -101,10 +101,16 @@ HRESULT STDMETHODCALLTYPE DOMNode::QueryInterface(REFIID riid, void** ppvObject)
 // DOMNode --------------------------------------------------------------------
 
 HRESULT STDMETHODCALLTYPE DOMNode::nodeName( 
-    /* [retval][out] */ BSTR* /*result*/)
+    /* [retval][out] */ BSTR* result)
 {
-    ASSERT_NOT_REACHED();
-    return E_NOTIMPL;
+    if (!result)
+        return E_POINTER;
+
+    if (!m_node)
+        return E_FAIL;
+
+    *result = BString(m_node->nodeName()).release();
+    return S_OK;
 }
 
 HRESULT STDMETHODCALLTYPE DOMNode::nodeValue( 
@@ -381,7 +387,7 @@ HRESULT STDMETHODCALLTYPE DOMNode::dispatchEvent(
         return hr;
 
     WebCore::ExceptionCode ec = 0;
-    *result = WebCore::EventTargetNodeCast(m_node)->dispatchEvent(domEvent->coreEvent(), ec) ? TRUE : FALSE;
+    *result = m_node->dispatchEvent(domEvent->coreEvent(), ec) ? TRUE : FALSE;
 #if 0   // FIXME - raise dom exceptions
     WebCore::raiseOnDOMError(ec);
 #endif

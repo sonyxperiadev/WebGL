@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005, 2006, 2007, 2008 Apple Inc.  All rights reserved.
+ * Copyright (C) 2005, 2006, 2007, 2008, 2009 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -50,12 +50,13 @@
 #include <wtf/RetainPtr.h>
 #include <wtf/Vector.h>
 #include <windows.h>
+#if PLATFORM(CFNETWORK)
 #include <CFNetwork/CFURLCachePriv.h>
+#endif
 #include <CoreFoundation/CoreFoundation.h>
 #include <JavaScriptCore/JavaScriptCore.h>
-#include <WebCore/COMPtr.h>
-#include <WebKit/ForEachCoClass.h>
 #include <WebKit/WebKit.h>
+#include <WebKit/WebKitCOMAPI.h>
 
 using namespace std;
 
@@ -86,7 +87,7 @@ volatile bool done;
 // that child frame is the "topmost frame that is loading".
 IWebFrame* topLoadingFrame;     // !nil iff a load is in progress
 static COMPtr<IWebHistoryItem> prevTestBFItem;  // current b/f item at the end of the previous test
-IWebPolicyDelegate* policyDelegate; 
+PolicyDelegate* policyDelegate; 
 COMPtr<FrameLoadDelegate> sharedFrameLoadDelegate;
 COMPtr<UIDelegate> sharedUIDelegate;
 COMPtr<EditingDelegate> sharedEditingDelegate;
@@ -96,7 +97,8 @@ IWebFrame* frame;
 HWND webViewWindow;
 
 LayoutTestController* gLayoutTestController = 0;
-CFRunLoopTimerRef waitToDumpWatchdog = 0; 
+
+UINT_PTR waitToDumpWatchdog = 0;
 
 const unsigned maxViewWidth = 800;
 const unsigned maxViewHeight = 600;
@@ -215,6 +217,7 @@ static void initialize()
         TEXT("Times Bold.ttf"),
         TEXT("Times Italic.ttf"),
         TEXT("Times Roman.ttf"),
+        TEXT("WebKit Layout Tests 2.ttf"),
         TEXT("WebKit Layout Tests.ttf"),
         TEXT("WebKitWeightWatcher100.ttf"),
         TEXT("WebKitWeightWatcher200.ttf"),
@@ -230,7 +233,7 @@ static void initialize()
     wstring resourcesPath = fontsPath();
 
     COMPtr<IWebTextRenderer> textRenderer;
-    if (SUCCEEDED(CoCreateInstance(CLSID_WebTextRenderer, 0, CLSCTX_ALL, IID_IWebTextRenderer, (void**)&textRenderer)))
+    if (SUCCEEDED(WebKitCreateInstance(CLSID_WebTextRenderer, 0, IID_IWebTextRenderer, (void**)&textRenderer)))
         for (int i = 0; i < ARRAYSIZE(fontsToInstall); ++i)
             textRenderer->registerPrivateFont(wstring(resourcesPath + fontsToInstall[i]).c_str());
 
@@ -403,6 +406,24 @@ static void dumpHistoryItem(IWebHistoryItem* item, int indent, bool current)
     BSTR url;
     if (FAILED(item->URLString(&url)))
         return;
+
+    if (wcsstr(url, L"file:/") == url) {
+        static wchar_t* layoutTestsString = L"/LayoutTests/";
+        static wchar_t* fileTestString = L"(file test):";
+        
+        wchar_t* result = wcsstr(url, layoutTestsString);
+        if (result == NULL)
+            return;
+        wchar_t* start = result + wcslen(layoutTestsString);
+
+        BSTR newURL = SysAllocStringLen(NULL, SysStringLen(url));
+        wcscpy(newURL, fileTestString);
+        wcscpy(newURL + wcslen(fileTestString), start);
+
+        SysFreeString(url);
+        url = newURL;
+    }
+
     printf("%S", url ? url : L"");
     SysFreeString(url);
 
@@ -534,13 +555,24 @@ static void dumpBackForwardListForAllWindows()
     unsigned count = openWindows().size();
     for (unsigned i = 0; i < count; i++) {
         HWND window = openWindows()[i];
-        IWebView* webView = windowToWebViewMap().get(window);
+        IWebView* webView = windowToWebViewMap().get(window).get();
         dumpBackForwardList(webView);
     }
 }
 
+static void invalidateAnyPreviousWaitToDumpWatchdog()
+{
+    if (!waitToDumpWatchdog)
+        return;
+
+    KillTimer(0, waitToDumpWatchdog);
+    waitToDumpWatchdog = 0;
+}
+
 void dump()
 {
+    invalidateAnyPreviousWaitToDumpWatchdog();
+
     COMPtr<IWebDataSource> dataSource;
     if (SUCCEEDED(frame->dataSource(&dataSource))) {
         COMPtr<IWebURLResponse> response;
@@ -615,14 +647,14 @@ void dump()
 
 fail:
     SysFreeString(resultString);
-    // This will exit from our message loop
+    // This will exit from our message loop.
     PostQuitMessage(0);
     done = true;
 }
 
 static bool shouldLogFrameLoadDelegates(const char* pathOrURL)
 {
-    return strstr(pathOrURL, "loading/");
+    return strstr(pathOrURL, "/loading/") || strstr(pathOrURL, "\\loading\\");
 }
 
 static void resetWebViewToConsistentStateBeforeTesting()
@@ -632,6 +664,8 @@ static void resetWebViewToConsistentStateBeforeTesting()
         return;
 
     webView->setPolicyDelegate(0);
+    policyDelegate->setPermissive(false);
+    policyDelegate->setControllerToNotifyDone(0);
 
     COMPtr<IWebIBActions> webIBActions(Query, webView);
     if (webIBActions) {
@@ -643,6 +677,7 @@ static void resetWebViewToConsistentStateBeforeTesting()
     if (SUCCEEDED(webView->preferences(&preferences))) {
         preferences->setPrivateBrowsingEnabled(FALSE);
         preferences->setJavaScriptCanOpenWindowsAutomatically(TRUE);
+        preferences->setLoadsImagesAutomatically(TRUE);
 
         if (persistentUserStyleSheetLocation) {
             Vector<wchar_t> urlCharacters(CFStringGetLength(persistentUserStyleSheetLocation.get()));
@@ -658,6 +693,8 @@ static void resetWebViewToConsistentStateBeforeTesting()
         if (prefsPrivate) {
             prefsPrivate->setAuthorAndUserStylesEnabled(TRUE);
             prefsPrivate->setDeveloperExtrasEnabled(FALSE);
+            prefsPrivate->setShouldPaintNativeControls(FALSE); // FIXME - need to make DRT pass with Windows native controls <http://bugs.webkit.org/show_bug.cgi?id=25592>
+            prefsPrivate->setXSSAuditorEnabled(FALSE);
         }
     }
 
@@ -678,6 +715,8 @@ static void resetWebViewToConsistentStateBeforeTesting()
         SetFocus(viewWindow);
 
     webViewPrivate->clearMainFrameName();
+
+    sharedUIDelegate->resetUndoManager();
 }
 
 static void runTest(const string& testPathOrURL)
@@ -719,15 +758,16 @@ static void runTest(const string& testPathOrURL)
     done = false;
     topLoadingFrame = 0;
 
+    gLayoutTestController->setIconDatabaseEnabled(false);
+
     if (shouldLogFrameLoadDelegates(pathOrURL.c_str()))
         gLayoutTestController->setDumpFrameLoadCallbacks(true);
 
-    COMPtr<IWebHistory> history(Create, CLSID_WebHistory);
-    if (history)
+    COMPtr<IWebHistory> history;
+    if (SUCCEEDED(WebKitCreateInstance(CLSID_WebHistory, 0, __uuidof(history), reinterpret_cast<void**>(&history))))
         history->setOptionalSharedHistory(0);
 
     resetWebViewToConsistentStateBeforeTesting();
-    sharedUIDelegate->resetUndoManager();
 
     prevTestBFItem = 0;
     COMPtr<IWebView> webView;
@@ -744,7 +784,7 @@ static void runTest(const string& testPathOrURL)
     webView->hostWindow(reinterpret_cast<OLE_HANDLE*>(&hostWindow));
 
     COMPtr<IWebMutableURLRequest> request;
-    HRESULT hr = CoCreateInstance(CLSID_WebMutableURLRequest, 0, CLSCTX_ALL, IID_IWebMutableURLRequest, (void**)&request);
+    HRESULT hr = WebKitCreateInstance(CLSID_WebMutableURLRequest, 0, IID_IWebMutableURLRequest, (void**)&request);
     if (FAILED(hr))
         goto exit;
 
@@ -763,6 +803,8 @@ static void runTest(const string& testPathOrURL)
         TranslateMessage(&msg);
         DispatchMessage(&msg);
     }
+
+    resetWebViewToConsistentStateBeforeTesting();
 
     frame->stopLoading();
 
@@ -937,9 +979,9 @@ Vector<HWND>& openWindows()
     return vector;
 }
 
-HashMap<HWND, IWebView*>& windowToWebViewMap()
+WindowToWebViewMap& windowToWebViewMap()
 {
-    static HashMap<HWND, IWebView*> map;
+    static WindowToWebViewMap map;
     return map;
 }
 
@@ -950,7 +992,7 @@ IWebView* createWebViewAndOffscreenWindow(HWND* webViewWindow)
 
     IWebView* webView;
 
-    HRESULT hr = CoCreateInstance(CLSID_WebView, 0, CLSCTX_ALL, IID_IWebView, (void**)&webView);
+    HRESULT hr = WebKitCreateInstance(CLSID_WebView, 0, IID_IWebView, (void**)&webView);
     if (FAILED(hr)) {
         fprintf(stderr, "Failed to create CLSID_WebView instance, error 0x%x\n", hr);
         return 0;
@@ -1021,6 +1063,27 @@ IWebView* createWebViewAndOffscreenWindow(HWND* webViewWindow)
     return webView;
 }
 
+#if PLATFORM(CFNETWORK)
+RetainPtr<CFURLCacheRef> sharedCFURLCache()
+{
+    HMODULE module = GetModuleHandle(TEXT("CFNetwork_debug.dll"));
+    if (!module)
+        module = GetModuleHandle(TEXT("CFNetwork.dll"));
+    if (!module)
+        return 0;
+
+    typedef CFURLCacheRef (*CFURLCacheCopySharedURLCacheProcPtr)(void);
+    if (CFURLCacheCopySharedURLCacheProcPtr copyCache = reinterpret_cast<CFURLCacheCopySharedURLCacheProcPtr>(GetProcAddress(module, "CFURLCacheCopySharedURLCache")))
+        return RetainPtr<CFURLCacheRef>(AdoptCF, copyCache());
+
+    typedef CFURLCacheRef (*CFURLCacheSharedURLCacheProcPtr)(void);
+    if (CFURLCacheSharedURLCacheProcPtr sharedCache = reinterpret_cast<CFURLCacheSharedURLCacheProcPtr>(GetProcAddress(module, "CFURLCacheSharedURLCache")))
+        return sharedCache();
+
+    return 0;
+}
+#endif
+
 int main(int argc, char* argv[])
 {
     leakChecking = false;
@@ -1062,13 +1125,27 @@ int main(int argc, char* argv[])
     sharedEditingDelegate.adoptRef(new EditingDelegate);
     sharedResourceLoadDelegate.adoptRef(new ResourceLoadDelegate);
 
+    // FIXME - need to make DRT pass with Windows native controls <http://bugs.webkit.org/show_bug.cgi?id=25592>
+    COMPtr<IWebPreferences> tmpPreferences;
+    if (FAILED(WebKitCreateInstance(CLSID_WebPreferences, 0, IID_IWebPreferences, reinterpret_cast<void**>(&tmpPreferences))))
+        return -1;
+    COMPtr<IWebPreferences> standardPreferences;
+    if (FAILED(tmpPreferences->standardPreferences(&standardPreferences)))
+        return -1;
+    COMPtr<IWebPreferencesPrivate> standardPreferencesPrivate;
+    if (FAILED(standardPreferences->QueryInterface(&standardPreferencesPrivate)))
+        return -1;
+    standardPreferencesPrivate->setShouldPaintNativeControls(FALSE);
+    standardPreferences->setJavaScriptEnabled(TRUE);
+    standardPreferences->setDefaultFontSize(16);
+    
     COMPtr<IWebView> webView(AdoptCOM, createWebViewAndOffscreenWindow(&webViewWindow));
     if (!webView)
         return -1;
 
     COMPtr<IWebIconDatabase> iconDatabase;
     COMPtr<IWebIconDatabase> tmpIconDatabase;
-    if (FAILED(CoCreateInstance(CLSID_WebIconDatabase, 0, CLSCTX_ALL, IID_IWebIconDatabase, (void**)&tmpIconDatabase)))
+    if (FAILED(WebKitCreateInstance(CLSID_WebIconDatabase, 0, IID_IWebIconDatabase, (void**)&tmpIconDatabase)))
         return -1;
     if (FAILED(tmpIconDatabase->sharedIconDatabase(&iconDatabase)))
         return -1;
@@ -1076,7 +1153,10 @@ int main(int argc, char* argv[])
     if (FAILED(webView->mainFrame(&frame)))
         return -1;
 
-    CFURLCacheRemoveAllCachedResponses(CFURLCacheSharedURLCache());
+#if PLATFORM(CFNETWORK)
+    RetainPtr<CFURLCacheRef> urlCache = sharedCFURLCache();
+    CFURLCacheRemoveAllCachedResponses(urlCache.get());
+#endif
 
 #ifdef _DEBUG
     _CrtMemState entryToMainMemCheckpoint;

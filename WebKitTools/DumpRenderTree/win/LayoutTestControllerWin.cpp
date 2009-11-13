@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007 Apple Inc.  All rights reserved.
+ * Copyright (C) 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -41,7 +41,9 @@
 #include <JavaScriptCore/Assertions.h>
 #include <JavaScriptCore/JavaScriptCore.h>
 #include <JavaScriptCore/JSRetainPtr.h>
+#include <JavaScriptCore/JSStringRefBSTR.h>
 #include <WebKit/WebKit.h>
+#include <WebKit/WebKitCOMAPI.h>
 #include <string>
 #include <CoreFoundation/CoreFoundation.h>
 #include <shlwapi.h>
@@ -119,6 +121,24 @@ JSStringRef LayoutTestController::copyEncodedHostName(JSStringRef name)
     return 0;
 }
 
+void LayoutTestController::disableImageLoading()
+{
+    COMPtr<IWebView> webView;
+    if (FAILED(frame->webView(&webView)))
+        return;
+    
+    COMPtr<IWebPreferences> preferences;
+    if (FAILED(webView->preferences(&preferences)))
+        return;
+    
+    preferences->setLoadsImagesAutomatically(FALSE);
+}
+
+void LayoutTestController::dispatchPendingLoadRequests()
+{
+    // FIXME: Implement for testing fix for 6727495
+}
+
 void LayoutTestController::display()
 {
     displayWebView();
@@ -126,15 +146,41 @@ void LayoutTestController::display()
 
 void LayoutTestController::keepWebHistory()
 {
-    COMPtr<IWebHistory> history(Create, CLSID_WebHistory);
-    if (!history)
+    COMPtr<IWebHistory> history;
+    if (FAILED(WebKitCreateInstance(CLSID_WebHistory, 0, __uuidof(history), reinterpret_cast<void**>(&history))))
         return;
 
-    COMPtr<IWebHistory> sharedHistory(Create, CLSID_WebHistory);
-    if (!sharedHistory)
+    COMPtr<IWebHistory> sharedHistory;
+    if (FAILED(WebKitCreateInstance(CLSID_WebHistory, 0, __uuidof(sharedHistory), reinterpret_cast<void**>(&sharedHistory))))
         return;
 
     history->setOptionalSharedHistory(sharedHistory.get());
+}
+
+void LayoutTestController::waitForPolicyDelegate()
+{
+    // FIXME: Implement this.
+}
+
+size_t LayoutTestController::webHistoryItemCount()
+{
+    COMPtr<IWebHistory> history;
+    if (FAILED(WebKitCreateInstance(CLSID_WebHistory, 0, __uuidof(history), reinterpret_cast<void**>(&history))))
+        return 0;
+
+    COMPtr<IWebHistory> sharedHistory;
+    if (FAILED(history->optionalSharedHistory(&sharedHistory)) || !sharedHistory)
+        return 0;
+
+    COMPtr<IWebHistoryPrivate> sharedHistoryPrivate;
+    if (FAILED(sharedHistory->QueryInterface(&sharedHistoryPrivate)))
+        return 0;
+
+    int count;
+    if (FAILED(sharedHistoryPrivate->allItems(&count, 0)))
+        return 0;
+
+    return count;
 }
 
 void LayoutTestController::notifyDone()
@@ -156,18 +202,6 @@ JSStringRef LayoutTestController::pathToLocalResource(JSContextRef context, JSSt
     }
 
     return JSStringCreateWithCharacters(localPath.c_str(), localPath.length());
-}
-
-void LayoutTestController::queueBackNavigation(int howFarBack)
-{
-    // Same as on mac.  This can be shared.
-    WorkQueue::shared()->queue(new BackItem(howFarBack));
-}
-
-void LayoutTestController::queueForwardNavigation(int howFarForward)
-{
-    // Same as on mac.  This can be shared.
-    WorkQueue::shared()->queue(new ForwardItem(howFarForward));
 }
 
 static wstring jsStringRefToWString(JSStringRef jsStr)
@@ -208,16 +242,6 @@ void LayoutTestController::queueLoad(JSStringRef url, JSStringRef target)
     WorkQueue::shared()->queue(new LoadItem(jsAbsoluteURL.get(), target));
 }
 
-void LayoutTestController::queueReload()
-{
-    WorkQueue::shared()->queue(new ReloadItem);
-}
-
-void LayoutTestController::queueScript(JSStringRef script)
-{
-    WorkQueue::shared()->queue(new ScriptItem(script));
-}
-
 void LayoutTestController::setAcceptsEditing(bool acceptsEditing)
 {
     COMPtr<IWebView> webView;
@@ -253,16 +277,30 @@ void LayoutTestController::setAuthorAndUserStylesEnabled(bool flag)
     prefsPrivate->setAuthorAndUserStylesEnabled(flag);
 }
 
-void LayoutTestController::setCustomPolicyDelegate(bool setDelegate)
+void LayoutTestController::setCustomPolicyDelegate(bool setDelegate, bool permissive)
 {
     COMPtr<IWebView> webView;
     if (FAILED(frame->webView(&webView)))
         return;
 
-    if (setDelegate)
+    if (setDelegate) {
+        policyDelegate->setPermissive(permissive);
         webView->setPolicyDelegate(policyDelegate);
-    else
-        webView->setPolicyDelegate(NULL);
+    } else
+        webView->setPolicyDelegate(0);
+}
+
+void LayoutTestController::setIconDatabaseEnabled(bool iconDatabaseEnabled)
+{
+    // See also <rdar://problem/6480108>
+    COMPtr<IWebIconDatabase> iconDatabase;
+    COMPtr<IWebIconDatabase> tmpIconDatabase;
+    if (FAILED(WebKitCreateInstance(CLSID_WebIconDatabase, 0, IID_IWebIconDatabase, (void**)&tmpIconDatabase)))
+        return;
+    if (FAILED(tmpIconDatabase->sharedIconDatabase(&iconDatabase)))
+        return;
+
+    iconDatabase->setEnabled(iconDatabaseEnabled);
 }
 
 void LayoutTestController::setMainFrameIsFirstResponder(bool flag)
@@ -283,7 +321,7 @@ void LayoutTestController::setPrivateBrowsingEnabled(bool privateBrowsingEnabled
     preferences->setPrivateBrowsingEnabled(privateBrowsingEnabled);
 }
 
-void LayoutTestController::setPopupBlockingEnabled(bool privateBrowsingEnabled)
+void LayoutTestController::setXSSAuditorEnabled(bool enabled)
 {
     COMPtr<IWebView> webView;
     if (FAILED(frame->webView(&webView)))
@@ -293,7 +331,24 @@ void LayoutTestController::setPopupBlockingEnabled(bool privateBrowsingEnabled)
     if (FAILED(webView->preferences(&preferences)))
         return;
 
-    preferences->setJavaScriptCanOpenWindowsAutomatically(!privateBrowsingEnabled);
+    COMPtr<IWebPreferencesPrivate> prefsPrivate(Query, preferences);
+    if (!prefsPrivate)
+        return;
+
+    prefsPrivate->setXSSAuditorEnabled(enabled);
+}
+
+void LayoutTestController::setPopupBlockingEnabled(bool enabled)
+{
+    COMPtr<IWebView> webView;
+    if (FAILED(frame->webView(&webView)))
+        return;
+
+    COMPtr<IWebPreferences> preferences;
+    if (FAILED(webView->preferences(&preferences)))
+        return;
+
+    preferences->setJavaScriptCanOpenWindowsAutomatically(!enabled);
 }
 
 void LayoutTestController::setTabKeyCyclesThroughElements(bool shouldCycle)
@@ -547,9 +602,22 @@ void LayoutTestController::setJavaScriptProfilingEnabled(bool flag)
     inspector->setJavaScriptProfilingEnabled(flag);
 }
 
+void LayoutTestController::setSelectTrailingWhitespaceEnabled(bool flag)
+{
+    COMPtr<IWebView> webView;
+    if (FAILED(frame->webView(&webView)))
+        return;
+
+    COMPtr<IWebViewEditing> viewEditing;
+    if (FAILED(webView->QueryInterface(&viewEditing)))
+        return;
+
+    viewEditing->setSelectTrailingWhitespaceEnabled(flag ? TRUE : FALSE);
+}
+
 static const CFTimeInterval waitToDumpWatchdogInterval = 10.0;
 
-static void waitUntilDoneWatchdogFired(CFRunLoopTimerRef timer, void* info)
+static void CALLBACK waitUntilDoneWatchdogFired(HWND, UINT, UINT_PTR, DWORD)
 {
     const char* message = "FAIL: Timed out waiting for notifyDone to be called\n";
     fprintf(stderr, message);
@@ -559,12 +627,9 @@ static void waitUntilDoneWatchdogFired(CFRunLoopTimerRef timer, void* info)
 
 void LayoutTestController::setWaitToDump(bool waitUntilDone)
 {
-    // Same as on mac.  This can be shared.
     m_waitToDump = waitUntilDone;
-    if (m_waitToDump && !waitToDumpWatchdog) {
-        waitToDumpWatchdog = CFRunLoopTimerCreate(kCFAllocatorDefault, CFAbsoluteTimeGetCurrent() + waitToDumpWatchdogInterval, 0, 0, 0, waitUntilDoneWatchdogFired, NULL);
-        CFRunLoopAddTimer(CFRunLoopGetCurrent(), waitToDumpWatchdog, kCFRunLoopCommonModes);
-    }
+    if (m_waitToDump && !waitToDumpWatchdog)
+        waitToDumpWatchdog = SetTimer(0, 0, waitToDumpWatchdogInterval * 1000, waitUntilDoneWatchdogFired);
 }
 
 int LayoutTestController::windowCount()
@@ -619,12 +684,98 @@ void LayoutTestController::execCommand(JSStringRef name, JSStringRef value)
     SysFreeString(valueBSTR);
 }
 
+void LayoutTestController::setCacheModel(int)
+{
+    // FIXME: Implement
+}
+
+bool LayoutTestController::isCommandEnabled(JSStringRef /*name*/)
+{
+    printf("ERROR: LayoutTestController::isCommandEnabled() not implemented\n");
+    return false;
+}
+
 void LayoutTestController::clearAllDatabases()
 {
-    printf("ERROR: LayoutTestController::clearAllDatabases() not implemented\n");
+    COMPtr<IWebDatabaseManager> databaseManager;
+    COMPtr<IWebDatabaseManager> tmpDatabaseManager;
+    if (FAILED(WebKitCreateInstance(CLSID_WebDatabaseManager, 0, IID_IWebDatabaseManager, (void**)&tmpDatabaseManager)))
+        return;
+    if (FAILED(tmpDatabaseManager->sharedWebDatabaseManager(&databaseManager)))
+        return;
+
+    databaseManager->deleteAllDatabases();
 }
 
 void LayoutTestController::setDatabaseQuota(unsigned long long quota)
 {
     printf("ERROR: LayoutTestController::setDatabaseQuota() not implemented\n");
+}
+
+void LayoutTestController::setAppCacheMaximumSize(unsigned long long size)
+{
+    printf("ERROR: LayoutTestController::setAppCacheMaximumSize() not implemented\n");
+}
+
+bool LayoutTestController::pauseAnimationAtTimeOnElementWithId(JSStringRef animationName, double time, JSStringRef elementId)
+{
+    COMPtr<IDOMDocument> document;
+    if (FAILED(frame->DOMDocument(&document)))
+        return false;
+
+    BSTR idBSTR = JSStringCopyBSTR(elementId);
+    COMPtr<IDOMElement> element;
+    HRESULT hr = document->getElementById(idBSTR, &element);
+    SysFreeString(idBSTR);
+    if (FAILED(hr))
+        return false;
+
+    COMPtr<IWebFramePrivate> framePrivate(Query, frame);
+    if (!framePrivate)
+        return false;
+
+    BSTR nameBSTR = JSStringCopyBSTR(animationName);
+    BOOL wasRunning = FALSE;
+    hr = framePrivate->pauseAnimation(nameBSTR, element.get(), time, &wasRunning);
+    SysFreeString(nameBSTR);
+
+    return SUCCEEDED(hr) && wasRunning;
+}
+
+bool LayoutTestController::pauseTransitionAtTimeOnElementWithId(JSStringRef propertyName, double time, JSStringRef elementId)
+{
+    COMPtr<IDOMDocument> document;
+    if (FAILED(frame->DOMDocument(&document)))
+        return false;
+
+    BSTR idBSTR = JSStringCopyBSTR(elementId);
+    COMPtr<IDOMElement> element;
+    HRESULT hr = document->getElementById(idBSTR, &element);
+    SysFreeString(idBSTR);
+    if (FAILED(hr))
+        return false;
+
+    COMPtr<IWebFramePrivate> framePrivate(Query, frame);
+    if (!framePrivate)
+        return false;
+
+    BSTR nameBSTR = JSStringCopyBSTR(propertyName);
+    BOOL wasRunning = FALSE;
+    hr = framePrivate->pauseTransition(nameBSTR, element.get(), time, &wasRunning);
+    SysFreeString(nameBSTR);
+
+    return SUCCEEDED(hr) && wasRunning;
+}
+
+unsigned LayoutTestController::numberOfActiveAnimations() const
+{
+    COMPtr<IWebFramePrivate> framePrivate(Query, frame);
+    if (!framePrivate)
+        return 0;
+
+    UINT number = 0;
+    if (FAILED(framePrivate->numberOfActiveAnimations(&number)))
+        return 0;
+
+    return number;
 }

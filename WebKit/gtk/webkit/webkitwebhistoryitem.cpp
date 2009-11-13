@@ -1,5 +1,6 @@
 /*
- * Copyright (C) 2008 Jan Michael C. Alonzo
+ * Copyright (C) 2008, 2009 Jan Michael C. Alonzo
+ * Copyright (C) 2009 Igalia S.L.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -17,13 +18,13 @@
  * Boston, MA 02110-1301, USA.
  */
 
-
 #include "config.h"
 
 #include "webkitwebhistoryitem.h"
 #include "webkitprivate.h"
 
 #include <glib.h>
+#include <glib/gi18n-lib.h>
 
 #include "CString.h"
 #include "HistoryItem.h"
@@ -50,15 +51,15 @@
 
 using namespace WebKit;
 
-extern "C" {
-
 struct _WebKitWebHistoryItemPrivate {
-    WTF::RefPtr<WebCore::HistoryItem> historyItem;
+    WebCore::HistoryItem* historyItem;
 
     WebCore::CString title;
     WebCore::CString alternateTitle;
     WebCore::CString uri;
     WebCore::CString originalUri;
+
+    gboolean disposed;
 };
 
 #define WEBKIT_WEB_HISTORY_ITEM_GET_PRIVATE(obj)    (G_TYPE_INSTANCE_GET_PRIVATE((obj), WEBKIT_TYPE_WEB_HISTORY_ITEM, WebKitWebHistoryItemPrivate))
@@ -79,42 +80,30 @@ static void webkit_web_history_item_set_property(GObject* object, guint prop_id,
 
 static void webkit_web_history_item_get_property(GObject* object, guint prop_id, GValue* value, GParamSpec* pspec);
 
-static GHashTable* webkit_history_items()
+GHashTable* webkit_history_items()
 {
-    static GHashTable* historyItems = g_hash_table_new(g_direct_hash, g_direct_equal);
+    static GHashTable* historyItems = g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, g_object_unref);
     return historyItems;
 }
 
-static void webkit_history_item_add(WebKitWebHistoryItem* webHistoryItem, WebCore::HistoryItem* historyItem)
+void webkit_history_item_add(WebKitWebHistoryItem* webHistoryItem, WebCore::HistoryItem* historyItem)
 {
     g_return_if_fail(WEBKIT_IS_WEB_HISTORY_ITEM(webHistoryItem));
 
     GHashTable* table = webkit_history_items();
-
-    g_hash_table_insert(table, historyItem, g_object_ref(webHistoryItem));
-}
-
-static void webkit_history_item_remove(WebCore::HistoryItem* historyItem)
-{
-    GHashTable* table = webkit_history_items();
-    WebKitWebHistoryItem* webHistoryItem = (WebKitWebHistoryItem*) g_hash_table_lookup(table, historyItem);
-
-    g_return_if_fail(webHistoryItem != NULL);
-
-    g_hash_table_remove(table, historyItem);
-    g_object_unref(webHistoryItem);
+    g_hash_table_insert(table, historyItem, webHistoryItem);
 }
 
 static void webkit_web_history_item_dispose(GObject* object)
 {
     WebKitWebHistoryItem* webHistoryItem = WEBKIT_WEB_HISTORY_ITEM(object);
+    WebKitWebHistoryItemPrivate* priv = webHistoryItem->priv;
 
-    webkit_history_item_remove(core(webHistoryItem));
-
-    /* destroy table if empty */
-    GHashTable* table = webkit_history_items();
-    if (!g_hash_table_size(table))
-        g_hash_table_destroy(table);
+    if (!priv->disposed) {
+        WebCore::HistoryItem* item = core(webHistoryItem);
+        item->deref();
+        priv->disposed = true;
+    }
 
     G_OBJECT_CLASS(webkit_web_history_item_parent_class)->dispose(object);
 }
@@ -141,6 +130,8 @@ static void webkit_web_history_item_class_init(WebKitWebHistoryItemClass* klass)
     gobject_class->set_property = webkit_web_history_item_set_property;
     gobject_class->get_property = webkit_web_history_item_get_property;
 
+    webkit_init();
+
     /**
     * WebKitWebHistoryItem:title:
     *
@@ -152,8 +143,8 @@ static void webkit_web_history_item_class_init(WebKitWebHistoryItemClass* klass)
                                     PROP_TITLE,
                                     g_param_spec_string(
                                     "title",
-                                    "Title",
-                                    "The title of the history item",
+                                    _("Title"),
+                                    _("The title of the history item"),
                                     NULL,
                                     WEBKIT_PARAM_READABLE));
 
@@ -168,8 +159,8 @@ static void webkit_web_history_item_class_init(WebKitWebHistoryItemClass* klass)
                                     PROP_ALTERNATE_TITLE,
                                     g_param_spec_string(
                                     "alternate-title",
-                                    "Alternate Title",
-                                    "The alternate title of the history item",
+                                    _("Alternate Title"),
+                                    _("The alternate title of the history item"),
                                     NULL,
                                     WEBKIT_PARAM_READWRITE));
 
@@ -184,8 +175,8 @@ static void webkit_web_history_item_class_init(WebKitWebHistoryItemClass* klass)
                                     PROP_URI,
                                     g_param_spec_string(
                                     "uri",
-                                    "URI",
-                                    "The URI of the history item",
+                                    _("URI"),
+                                    _("The URI of the history item"),
                                     NULL,
                                     WEBKIT_PARAM_READABLE));
 
@@ -200,8 +191,8 @@ static void webkit_web_history_item_class_init(WebKitWebHistoryItemClass* klass)
                                     PROP_ORIGINAL_URI,
                                     g_param_spec_string(
                                     "original-uri",
-                                    "Original URI",
-                                    "The original URI of the history item",
+                                    _("Original URI"),
+                                    _("The original URI of the history item"),
                                     NULL,
                                     WEBKIT_PARAM_READABLE));
 
@@ -216,8 +207,8 @@ static void webkit_web_history_item_class_init(WebKitWebHistoryItemClass* klass)
                                     PROP_LAST_VISITED_TIME,
                                     g_param_spec_double(
                                     "last-visited-time",
-                                    "Last visited Time",
-                                    "The time at which the history item was last visited",
+                                    _("Last visited Time"),
+                                    _("The time at which the history item was last visited"),
                                     0, G_MAXDOUBLE, 0,
                                     WEBKIT_PARAM_READABLE));
 
@@ -270,21 +261,9 @@ static void webkit_web_history_item_get_property(GObject* object, guint prop_id,
 }
 
 /* Helper function to create a new WebHistoryItem instance when needed */
-WebKitWebHistoryItem* webkit_web_history_item_new_with_core_item(WebCore::HistoryItem* item)
+WebKitWebHistoryItem* webkit_web_history_item_new_with_core_item(PassRefPtr<WebCore::HistoryItem> historyItem)
 {
-    WebKitWebHistoryItem* webHistoryItem = kit(item);
-
-    if (webHistoryItem)
-        g_object_ref(webHistoryItem);
-    else {
-        webHistoryItem = WEBKIT_WEB_HISTORY_ITEM(g_object_new(WEBKIT_TYPE_WEB_HISTORY_ITEM, NULL));
-        WebKitWebHistoryItemPrivate* priv = webHistoryItem->priv;
-
-        priv->historyItem = item;
-        webkit_history_item_add(webHistoryItem, priv->historyItem.get());
-    }
-
-    return webHistoryItem;
+    return kit(historyItem);
 }
 
 
@@ -300,8 +279,9 @@ WebKitWebHistoryItem* webkit_web_history_item_new()
     WebKitWebHistoryItem* webHistoryItem = WEBKIT_WEB_HISTORY_ITEM(g_object_new(WEBKIT_TYPE_WEB_HISTORY_ITEM, NULL));
     WebKitWebHistoryItemPrivate* priv = webHistoryItem->priv;
 
-    priv->historyItem = WebCore::HistoryItem::create();
-    webkit_history_item_add(webHistoryItem, priv->historyItem.get());
+    RefPtr<WebCore::HistoryItem> item = WebCore::HistoryItem::create();
+    priv->historyItem = item.release().releaseRef();
+    webkit_history_item_add(webHistoryItem, priv->historyItem);
 
     return webHistoryItem;
 }
@@ -323,8 +303,9 @@ WebKitWebHistoryItem* webkit_web_history_item_new_with_data(const gchar* uri, co
     WebKitWebHistoryItem* webHistoryItem = WEBKIT_WEB_HISTORY_ITEM(g_object_new(WEBKIT_TYPE_WEB_HISTORY_ITEM, NULL));
     WebKitWebHistoryItemPrivate* priv = webHistoryItem->priv;
 
-    priv->historyItem = WebCore::HistoryItem::create(historyUri, historyTitle, 0);
-    webkit_history_item_add(webHistoryItem, priv->historyItem.get());
+    RefPtr<WebCore::HistoryItem> item = WebCore::HistoryItem::create(historyUri, historyTitle, 0);
+    priv->historyItem = item.release().releaseRef();
+    webkit_history_item_add(webHistoryItem, priv->historyItem);
 
     return webHistoryItem;
 }
@@ -341,7 +322,7 @@ G_CONST_RETURN gchar* webkit_web_history_item_get_title(WebKitWebHistoryItem* we
 
     WebCore::HistoryItem* item = core(webHistoryItem);
 
-    g_return_val_if_fail(item != NULL, NULL);
+    g_return_val_if_fail(item, NULL);
 
     WebKitWebHistoryItemPrivate* priv = webHistoryItem->priv;
     priv->title = item->title().utf8();
@@ -363,7 +344,7 @@ G_CONST_RETURN gchar* webkit_web_history_item_get_alternate_title(WebKitWebHisto
 
     WebCore::HistoryItem* item = core(webHistoryItem);
 
-    g_return_val_if_fail(item != NULL, NULL);
+    g_return_val_if_fail(item, NULL);
 
     WebKitWebHistoryItemPrivate* priv = webHistoryItem->priv;
     priv->alternateTitle = item->alternateTitle().utf8();
@@ -403,7 +384,7 @@ G_CONST_RETURN gchar* webkit_web_history_item_get_uri(WebKitWebHistoryItem* webH
 
     WebCore::HistoryItem* item = core(WEBKIT_WEB_HISTORY_ITEM(webHistoryItem));
 
-    g_return_val_if_fail(item != NULL, NULL);
+    g_return_val_if_fail(item, NULL);
 
     WebKitWebHistoryItemPrivate* priv = webHistoryItem->priv;
     priv->uri = item->urlString().utf8();
@@ -425,7 +406,7 @@ G_CONST_RETURN gchar* webkit_web_history_item_get_original_uri(WebKitWebHistoryI
 
     WebCore::HistoryItem* item = core(WEBKIT_WEB_HISTORY_ITEM(webHistoryItem));
 
-    g_return_val_if_fail(item != NULL, NULL);
+    g_return_val_if_fail(item, NULL);
 
     WebKitWebHistoryItemPrivate* priv = webHistoryItem->priv;
     priv->originalUri = item->originalURLString().utf8();
@@ -447,31 +428,79 @@ gdouble webkit_web_history_item_get_last_visited_time(WebKitWebHistoryItem* webH
 
     WebCore::HistoryItem* item = core(WEBKIT_WEB_HISTORY_ITEM(webHistoryItem));
 
-    g_return_val_if_fail(item != NULL, 0);
+    g_return_val_if_fail(item, 0);
 
     return item->lastVisitedTime();
 }
 
-} /* end extern "C" */
+/* private methods */
+
+G_CONST_RETURN gchar* webkit_web_history_item_get_target(WebKitWebHistoryItem* webHistoryItem)
+{
+    g_return_val_if_fail(WEBKIT_IS_WEB_HISTORY_ITEM(webHistoryItem), NULL);
+
+    WebCore::HistoryItem* item = core(webHistoryItem);
+
+    g_return_val_if_fail(item, NULL);
+
+    WebCore::CString t = item->target().utf8();
+    return g_strdup(t.data());
+}
+
+gboolean webkit_web_history_item_is_target_item(WebKitWebHistoryItem* webHistoryItem)
+{
+    g_return_val_if_fail(WEBKIT_IS_WEB_HISTORY_ITEM(webHistoryItem), false);
+
+    WebCore::HistoryItem* item = core(webHistoryItem);
+
+    g_return_val_if_fail(item, false);
+
+    return item->isTargetItem();
+}
+
+GList* webkit_web_history_item_get_children(WebKitWebHistoryItem* webHistoryItem)
+{
+    g_return_val_if_fail(WEBKIT_IS_WEB_HISTORY_ITEM(webHistoryItem), NULL);
+
+    WebCore::HistoryItem* item = core(webHistoryItem);
+
+    g_return_val_if_fail(item, NULL);
+
+    const WebCore::HistoryItemVector& children = item->children();
+    if (!children.size())
+        return NULL;
+
+    unsigned size = children.size();
+    GList* kids = NULL;
+    for (unsigned i = 0; i < size; ++i)
+        kids = g_list_prepend(kids, kit(children[i].get()));
+
+    return g_list_reverse(kids);
+}
 
 WebCore::HistoryItem* WebKit::core(WebKitWebHistoryItem* webHistoryItem)
 {
     g_return_val_if_fail(WEBKIT_IS_WEB_HISTORY_ITEM(webHistoryItem), NULL);
 
-    WebKitWebHistoryItemPrivate* priv = webHistoryItem->priv;
-    WTF::RefPtr<WebCore::HistoryItem> historyItem = priv->historyItem;
-
-    return historyItem ? historyItem.get() : 0;
+    return webHistoryItem->priv->historyItem;
 }
 
-WebKitWebHistoryItem* WebKit::kit(WebCore::HistoryItem* historyItem)
+WebKitWebHistoryItem* WebKit::kit(PassRefPtr<WebCore::HistoryItem> historyItem)
 {
-    g_return_val_if_fail(historyItem != NULL, NULL);
+    g_return_val_if_fail(historyItem, NULL);
 
-    WebKitWebHistoryItem* webHistoryItem;
+    RefPtr<WebCore::HistoryItem> item = historyItem;
     GHashTable* table = webkit_history_items();
+    WebKitWebHistoryItem* webHistoryItem = (WebKitWebHistoryItem*) g_hash_table_lookup(table, item.get());
 
-    webHistoryItem = (WebKitWebHistoryItem*) g_hash_table_lookup(table, historyItem);
+    if (!webHistoryItem) {
+        webHistoryItem = WEBKIT_WEB_HISTORY_ITEM(g_object_new(WEBKIT_TYPE_WEB_HISTORY_ITEM, NULL));
+        WebKitWebHistoryItemPrivate* priv = webHistoryItem->priv;
+
+        priv->historyItem = item.release().releaseRef();
+        webkit_history_item_add(webHistoryItem, priv->historyItem);
+    }
+
     return webHistoryItem;
 }
 

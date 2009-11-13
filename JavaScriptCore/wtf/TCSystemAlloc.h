@@ -1,4 +1,4 @@
-// Copyright (c) 2005, 2007, The Android Open Source Project
+// Copyright (c) 2005, 2007, Google Inc.
 // All rights reserved.
 // 
 // Redistribution and use in source and binary forms, with or without
@@ -62,9 +62,13 @@ extern void* TCMalloc_SystemAlloc(size_t bytes, size_t *actual_bytes,
 // be released, partial pages will not.)
 extern void TCMalloc_SystemRelease(void* start, size_t length);
 
-#if HAVE(VIRTUALALLOC)
 extern void TCMalloc_SystemCommit(void* start, size_t length);
-#else
+
+#if !HAVE(MADV_FREE_REUSE) && !HAVE(MADV_DONTNEED) && !HAVE(MMAP) && !HAVE(VIRTUALALLOC)
+inline void TCMalloc_SystemRelease(void*, size_t) { }
+#endif
+
+#if !HAVE(VIRTUALALLOC) && !HAVE(MADV_FREE_REUSE)
 inline void TCMalloc_SystemCommit(void*, size_t) { }
 #endif
 

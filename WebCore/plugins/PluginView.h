@@ -58,17 +58,24 @@ typedef struct PluginWidgetAndroid* PlatformPluginWidget;
 typedef PlatformWidget PlatformPluginWidget;
 #endif
 
+#if USE(JSC)
 namespace JSC {
     namespace Bindings {
         class Instance;
     }
 }
+#endif
+
+class NPObject;
 
 namespace WebCore {
     class Element;
     class Frame;
     class KeyboardEvent;
     class MouseEvent;
+#ifdef ANDROID_PLUGINS
+    class TouchEvent;
+#endif
     class KURL;
 #if PLATFORM(WIN_OS) && !PLATFORM(WX) && ENABLE(NETSCAPE_PLUGIN_API)
     class PluginMessageThrottlerWin;
@@ -115,7 +122,7 @@ namespace WebCore {
 
     class PluginView : public Widget, private PluginStreamClient, public PluginManualLoader {
     public:
-        static PluginView* create(Frame* parentFrame, const IntSize&, Element*, const KURL&, const Vector<String>& paramNames, const Vector<String>& paramValues, const String& mimeType, bool loadManually);
+        static PassRefPtr<PluginView> create(Frame* parentFrame, const IntSize&, Element*, const KURL&, const Vector<String>& paramNames, const Vector<String>& paramValues, const String& mimeType, bool loadManually);
         virtual ~PluginView();
 
         PluginPackage* plugin() const { return m_plugin.get(); }
@@ -124,7 +131,11 @@ namespace WebCore {
         void setNPWindowRect(const IntRect&);
         static PluginView* currentPluginView();
 
+#if USE(JSC)
         PassRefPtr<JSC::Bindings::Instance> bindingInstance();
+#elif USE(V8)
+        NPObject* getNPObject();
+#endif
 
         PluginStatus status() const { return m_status; }
 
@@ -185,6 +196,14 @@ namespace WebCore {
 
         virtual bool isPluginView() const { return true; }
 
+        Frame* parentFrame() const { return m_parentFrame; }
+
+        void focusPluginElement();
+
+        const String& pluginsPage() const { return m_pluginsPage; }
+        const String& mimeType() const { return m_mimeType; }
+        const KURL& url() const { return m_url; }
+
 #if PLATFORM(WIN_OS) && !PLATFORM(WX) && ENABLE(NETSCAPE_PLUGIN_API)
         static LRESULT CALLBACK PluginViewWndProc(HWND, UINT, WPARAM, LPARAM);
         LRESULT wndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
@@ -199,17 +218,21 @@ namespace WebCore {
 
         static bool isCallingPlugin();
 
-#if PLATFORM(QT)
-        bool isNPAPIPlugin() const { return m_isNPAPIPlugin; }
-        void setIsNPAPIPlugin(bool b) { m_isNPAPIPlugin = b; }
+#ifdef ANDROID_PLUGINS
+        Frame* getParentFrame() const { return m_parentFrame; }
+        Element* getElement() const { return m_element; }
 #endif
+
+        bool start();
 
     private:
         PluginView(Frame* parentFrame, const IntSize&, PluginPackage*, Element*, const KURL&, const Vector<String>& paramNames, const Vector<String>& paramValues, const String& mimeType, bool loadManually);
 
         void setParameters(const Vector<String>& paramNames, const Vector<String>& paramValues);
+        bool startOrAddToUnstartedList();
+        void removeFromUnstartedListIfNecessary();
         void init();
-        bool start();
+        void platformStart();
         void stop();
         static void setCurrentPluginView(PluginView*);
         NPError load(const FrameLoadRequest&, bool sendNotification, void* notifyData);
@@ -255,6 +278,7 @@ namespace WebCore {
         void handleMouseEvent(MouseEvent*);
 
 #ifdef ANDROID_PLUGINS
+        void handleTouchEvent(TouchEvent*);
         // called at the end of the base constructor
         void platformInit();
 #endif
@@ -267,10 +291,11 @@ namespace WebCore {
         int m_paramCount;
         char** m_paramNames;
         char** m_paramValues;
+        String m_pluginsPage;
 
-        CString m_mimeType;
+        String m_mimeType;
         CString m_userAgent;
-        
+
         NPP m_instance;
         NPP_t m_instanceStruct;
         NPWindow m_npWindow;
@@ -283,10 +308,7 @@ namespace WebCore {
         bool m_isWindowed;
         bool m_isTransparent;
         bool m_haveInitialized;
-
-#if PLATFORM(QT)
-        bool m_isNPAPIPlugin;
-#endif
+        bool m_isWaitingToStart;
 
 #if PLATFORM(GTK) || defined(Q_WS_X11)
         bool m_needsXEmbed;
@@ -298,6 +320,7 @@ namespace WebCore {
         unsigned m_lastMessage;
         bool m_isCallingPluginWndProc;
         HDC m_wmPrintHDC;
+        bool m_haveUpdatedPluginWidget;
 #endif
 
 #ifdef PLUGIN_SCHEDULE_TIMER
@@ -322,13 +345,21 @@ public:
 
 private:
 
-#if defined(XP_MACOSX)
+#if PLATFORM(GTK) || defined(Q_WS_X11)
+        void setNPWindowIfNeeded();
+#elif defined(XP_MACOSX)
         NP_CGContext m_npCgContext;
         OwnPtr<Timer<PluginView> > m_nullEventTimer;
+        NPDrawingModel m_drawingModel;
+        NPEventModel m_eventModel;
 
         void setNPWindowIfNeeded();
         void nullEventTimerFired(Timer<PluginView>*);
         Point globalMousePosForPlugin() const;
+#endif
+
+#if defined(Q_WS_X11)
+        bool m_hasPendingGeometryChange;
 #endif
 
         IntRect m_clipRect; // The clip rect to apply to a windowed plug-in
@@ -344,4 +375,4 @@ private:
 
 } // namespace WebCore
 
-#endif 
+#endif

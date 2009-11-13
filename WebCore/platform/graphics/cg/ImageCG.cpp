@@ -73,6 +73,7 @@ BitmapImage::BitmapImage(CGImageRef cgImage, ImageObserver* observer)
     , m_repetitionCountStatus(Unknown)
     , m_repetitionsComplete(0)
     , m_isSolidColor(false)
+    , m_checkedForSolidColor(false)
     , m_animationFinished(true)
     , m_allDataReceived(true)
     , m_haveSize(true)
@@ -99,6 +100,7 @@ BitmapImage::BitmapImage(CGImageRef cgImage, ImageObserver* observer)
 
 void BitmapImage::checkForSolidColor()
 {
+    m_checkedForSolidColor = true;
     if (frameCount() > 1)
         m_isSolidColor = false;
     else {
@@ -164,32 +166,44 @@ void BitmapImage::draw(GraphicsContext* ctxt, const FloatRect& destRect, const F
         // interpolation smoothes sharp edges, causing pixels from outside the source rect to bleed
         // into the destination rect. See <rdar://problem/6112909>.
         shouldUseSubimage = (interpolationQuality == kCGInterpolationHigh || interpolationQuality == kCGInterpolationDefault) && srcRect.size() != destRect.size();
+        float xScale = srcRect.width() / destRect.width();
+        float yScale = srcRect.height() / destRect.height();
         if (shouldUseSubimage) {
-            image = CGImageCreateWithImageInRect(image, srcRect);
+            FloatRect subimageRect = srcRect;
+            float leftPadding = srcRect.x() - floorf(srcRect.x());
+            float topPadding = srcRect.y() - floorf(srcRect.y());
+
+            subimageRect.move(-leftPadding, -topPadding);
+            adjustedDestRect.move(-leftPadding / xScale, -topPadding / yScale);
+
+            subimageRect.setWidth(ceilf(subimageRect.width() + leftPadding));
+            adjustedDestRect.setWidth(subimageRect.width() / xScale);
+
+            subimageRect.setHeight(ceilf(subimageRect.height() + topPadding));
+            adjustedDestRect.setHeight(subimageRect.height() / yScale);
+
+            image = CGImageCreateWithImageInRect(image, subimageRect);
             if (currHeight < srcRect.bottom()) {
                 ASSERT(CGImageGetHeight(image) == currHeight - CGRectIntegral(srcRect).origin.y);
-                adjustedDestRect.setHeight(destRect.height() / srcRect.height() * CGImageGetHeight(image));
+                adjustedDestRect.setHeight(CGImageGetHeight(image) / yScale);
             }
         } else {
-            float xScale = srcRect.width() / destRect.width();
-            float yScale = srcRect.height() / destRect.height();
-
             adjustedDestRect.setLocation(FloatPoint(destRect.x() - srcRect.x() / xScale, destRect.y() - srcRect.y() / yScale));
             adjustedDestRect.setSize(FloatSize(selfSize.width() / xScale, selfSize.height() / yScale));
-
-            CGContextClipToRect(context, destRect);
         }
+
+        CGContextClipToRect(context, destRect);
     }
 
     // If the image is only partially loaded, then shrink the destination rect that we're drawing into accordingly.
     if (!shouldUseSubimage && currHeight < selfSize.height())
         adjustedDestRect.setHeight(adjustedDestRect.height() * currHeight / selfSize.height());
 
-    // Flip the coords.
     ctxt->setCompositeOperation(compositeOp);
-    CGContextTranslateCTM(context, adjustedDestRect.x(), adjustedDestRect.bottom());
+
+    // Flip the coords.
     CGContextScaleCTM(context, 1, -1);
-    adjustedDestRect.setLocation(FloatPoint());
+    adjustedDestRect.setY(-adjustedDestRect.bottom());
 
     // Draw the image.
     CGContextDrawImage(context, adjustedDestRect, image);
@@ -203,7 +217,7 @@ void BitmapImage::draw(GraphicsContext* ctxt, const FloatRect& destRect, const F
         imageObserver()->didDraw(this);
 }
 
-void Image::drawPatternCallback(void* info, CGContextRef context)
+static void drawPatternCallback(void* info, CGContextRef context)
 {
     CGImageRef image = (CGImageRef)info;
     CGContextDrawImage(context, GraphicsContext(context).roundToDevicePixels(FloatRect(0, 0, CGImageGetWidth(image), CGImageGetHeight(image))), image);

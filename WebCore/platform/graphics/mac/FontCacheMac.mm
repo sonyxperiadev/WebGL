@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
  * Copyright (C) 2007 Nicholas Shanks <webkit@nickshanks.com>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,7 +35,8 @@
 #import "FontPlatformData.h"
 #import "WebCoreSystemInterface.h"
 #import "WebFontCache.h"
-#include <wtf/StdLibExtras.h>
+#import <AppKit/AppKit.h>
+#import <wtf/StdLibExtras.h>
 
 #ifdef BUILDING_ON_TIGER
 typedef int NSInteger;
@@ -43,16 +44,30 @@ typedef int NSInteger;
 
 namespace WebCore {
 
+#if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
+static void fontCacheRegisteredFontsChangedNotificationCallback(CFNotificationCenterRef, void* observer, CFStringRef name, const void *, CFDictionaryRef)
+{
+    ASSERT_UNUSED(observer, observer == fontCache());
+    ASSERT_UNUSED(name, CFEqual(name, kCTFontManagerRegisteredFontsChangedNotification));
+    fontCache()->invalidate();
+}
+#else
 static void fontCacheATSNotificationCallback(ATSFontNotificationInfoRef, void*)
 {
     fontCache()->invalidate();
 }
+#endif
 
 void FontCache::platformInit()
 {
     wkSetUpFontCache();
+#if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
+    CFNotificationCenterAddObserver(CFNotificationCenterGetLocalCenter(), this, fontCacheRegisteredFontsChangedNotificationCallback, kCTFontManagerRegisteredFontsChangedNotification, 0, CFNotificationSuspensionBehaviorDeliverImmediately);
+#else
+    // kCTFontManagerRegisteredFontsChangedNotification does not exist on Leopard and earlier.
     // FIXME: Passing kATSFontNotifyOptionReceiveWhileSuspended may be an overkill and does not seem to work anyway.
     ATSFontNotificationSubscribe(fontCacheATSNotificationCallback, kATSFontNotifyOptionReceiveWhileSuspended, 0, 0);
+#endif
 }
 
 static int toAppKitFontWeight(FontWeight fontWeight)
@@ -191,13 +206,11 @@ FontPlatformData* FontCache::createFontPlatformData(const FontDescription& fontD
         actualTraits = [fontManager traitsOfFont:nsFont];
     NSInteger actualWeight = [fontManager weightOfFont:nsFont];
 
-    FontPlatformData* result = new FontPlatformData;
+    NSFont *platformFont = fontDescription.usePrinterFont() ? [nsFont printerFont] : [nsFont screenFont];
+    bool syntheticBold = isAppKitFontWeightBold(weight) && !isAppKitFontWeightBold(actualWeight);
+    bool syntheticOblique = (traits & NSFontItalicTrait) && !(actualTraits & NSFontItalicTrait);
 
-    // Use the correct font for print vs. screen.
-    result->setFont(fontDescription.usePrinterFont() ? [nsFont printerFont] : [nsFont screenFont]);
-    result->m_syntheticBold = isAppKitFontWeightBold(weight) && !isAppKitFontWeightBold(actualWeight);
-    result->m_syntheticOblique = (traits & NSFontItalicTrait) && !(actualTraits & NSFontItalicTrait);
-    return result;
+    return new FontPlatformData(platformFont, syntheticBold, syntheticOblique);
 }
 
 } // namespace WebCore

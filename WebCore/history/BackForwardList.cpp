@@ -306,16 +306,20 @@ bool BackForwardList::containsItem(HistoryItem* entry)
 }
 
 #if ENABLE(WML)
-void BackForwardList::clearWmlPageHistory()
+void BackForwardList::clearWMLPageHistory()
 {
-    PassRefPtr<HistoryItem> cur = currentItem();
+    RefPtr<HistoryItem> currentItem = this->currentItem();
 
-    for (unsigned i = 0; i < m_entries.size(); ++i)
+    int size = m_entries.size();
+    for (int i = 0; i < size; ++i)
         pageCache()->remove(m_entries[i].get());
 
     m_entries.clear();
     m_entryHash.clear();
     m_current = NoCurrentItemIndex;
+
+    // Spec: The history stack may be reset to a state where it only contains the current card.
+    addItem(currentItem);
 }
 #endif
 

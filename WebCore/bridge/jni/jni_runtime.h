@@ -46,7 +46,7 @@ class JavaString
 public:
     JavaString()
     {
-        JSLock lock(false);
+        JSLock lock(SilenceAssertionsOnly);
         _rep = UString().rep();
     }
 
@@ -55,7 +55,7 @@ public:
         int _size = e->GetStringLength (s);
         const jchar *uc = getUCharactersFromJStringInEnv (e, s);
         {
-            JSLock lock(false);
+            JSLock lock(SilenceAssertionsOnly);
             _rep = UString(reinterpret_cast<const UChar*>(uc), _size).rep();
         }
         releaseUCharactersForJStringInEnv (e, s, uc);
@@ -71,13 +71,13 @@ public:
     
     ~JavaString()
     {
-        JSLock lock(false);
+        JSLock lock(SilenceAssertionsOnly);
         _rep = 0;
     }
     
     const char *UTF8String() const { 
         if (_utf8String.c_str() == 0) {
-            JSLock lock(false);
+            JSLock lock(SilenceAssertionsOnly);
             _utf8String = UString(_rep).UTF8String();
         }
         return _utf8String.c_str();
@@ -112,8 +112,8 @@ class JavaField : public Field
 public:
     JavaField (JNIEnv *env, jobject aField);
 
-    virtual JSValuePtr valueFromInstance(ExecState *exec, const Instance *instance) const;
-    virtual void setValueToInstance(ExecState *exec, const Instance *instance, JSValuePtr aValue) const;
+    virtual JSValue valueFromInstance(ExecState *exec, const Instance *instance) const;
+    virtual void setValueToInstance(ExecState *exec, const Instance *instance, JSValue aValue) const;
     
     UString::Rep* name() const { return ((UString)_name).rep(); }
     virtual RuntimeType type() const { return _type.UTF8String(); }
@@ -168,13 +168,13 @@ public:
 
     RootObject* rootObject() const;
 
-    virtual void setValueAt(ExecState *exec, unsigned int index, JSValuePtr aValue) const;
-    virtual JSValuePtr valueAt(ExecState *exec, unsigned int index) const;
+    virtual void setValueAt(ExecState *exec, unsigned int index, JSValue aValue) const;
+    virtual JSValue valueAt(ExecState *exec, unsigned int index) const;
     virtual unsigned int getLength() const;
     
     jobject javaArray() const { return _array->_instance; }
 
-    static JSValuePtr convertJObjectToArray (ExecState* exec, jobject anObject, const char* type, PassRefPtr<RootObject>);
+    static JSValue convertJObjectToArray (ExecState* exec, jobject anObject, const char* type, PassRefPtr<RootObject>);
 
 private:
     RefPtr<JObjectWrapper> _array;

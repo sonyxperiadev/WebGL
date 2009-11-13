@@ -1,7 +1,7 @@
 /*
  *  Copyright (C) 1999-2002 Harri Porten (porten@kde.org)
  *  Copyright (C) 2001 Peter Kelly (pmk@post.com)
- *  Copyright (C) 2004, 2007, 2008 Apple Inc. All rights reserved.
+ *  Copyright (C) 2004, 2007, 2008, 2009 Apple Inc. All rights reserved.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Library General Public
@@ -28,27 +28,27 @@
 
 namespace JSC {
 
-void GetterSetter::mark()
+void GetterSetter::markChildren(MarkStack& markStack)
 {
-    JSCell::mark();
+    JSCell::markChildren(markStack);
 
     if (m_getter && !m_getter->marked())
-        m_getter->mark();
+        markStack.append(m_getter);
     if (m_setter && !m_setter->marked())
-        m_setter->mark();
+        markStack.append(m_setter);
 }
 
-JSValuePtr GetterSetter::toPrimitive(ExecState*, PreferredPrimitiveType) const
+JSValue GetterSetter::toPrimitive(ExecState*, PreferredPrimitiveType) const
 {
     ASSERT_NOT_REACHED();
     return jsNull();
 }
 
-bool GetterSetter::getPrimitiveNumber(ExecState*, double& number, JSValuePtr& value)
+bool GetterSetter::getPrimitiveNumber(ExecState*, double& number, JSValue& value)
 {
     ASSERT_NOT_REACHED();
     number = 0;
-    value = noValue();
+    value = JSValue();
     return true;
 }
 

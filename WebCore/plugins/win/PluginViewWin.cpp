@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 2006, 2007, 2008 Apple Inc. All rights reserved.
  * Copyright (C) 2008 Collabora Ltd. All rights reserved.
+ * Copyright (C) 2008-2009 Torch Mobile, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -45,7 +46,6 @@
 #include "KeyboardEvent.h"
 #include "MIMETypeRegistry.h"
 #include "MouseEvent.h"
-#include "NotImplemented.h"
 #include "Page.h"
 #include "FocusController.h"
 #include "PlatformMouseEvent.h"
@@ -65,6 +65,13 @@
 #include <runtime/JSLock.h>
 #include <runtime/JSValue.h>
 #include <wtf/ASCIICType.h>
+
+#if PLATFORM(WINCE)
+#undef LOG_NPERROR
+#define LOG_NPERROR(x)
+#undef LOG_PLUGIN_NET_ERROR
+#define LOG_PLUGIN_NET_ERROR()
+#endif
 
 #if PLATFORM(QT)
 #include <QWidget.h>
@@ -97,8 +104,7 @@ using namespace HTMLNames;
 const LPCWSTR kWebPluginViewdowClassName = L"WebPluginView";
 const LPCWSTR kWebPluginViewProperty = L"WebPluginViewProperty";
 
-static const char* MozillaUserAgent = "Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US; rv:1.8.1) Gecko/20061010 Firefox/2.0";
-
+#if !PLATFORM(WINCE)
 // The code used to hook BeginPaint/EndPaint originally came from
 // <http://www.fengyuan.com/article/wmprint.html>.
 // Copyright (C) 2000 by Feng Yuan (www.fengyuan.com).
@@ -121,11 +127,23 @@ HDC WINAPI PluginView::hookedBeginPaint(HWND hWnd, PAINTSTRUCT* lpPaint)
         return pluginView->m_wmPrintHDC;
     }
 
+#if COMPILER(GCC)
+    HDC result;
+    asm ("push    %2\n"
+         "push    %3\n"
+         "call    *%4\n"
+         : "=a" (result)
+         : "a" (beginPaintSysCall), "g" (lpPaint), "g" (hWnd), "m" (*beginPaint)
+         : "memory"
+        );
+    return result;
+#else
     // Call through to the original BeginPaint.
     __asm   mov     eax, beginPaintSysCall
     __asm   push    lpPaint
     __asm   push    hWnd
     __asm   call    beginPaint
+#endif
 }
 
 BOOL WINAPI PluginView::hookedEndPaint(HWND hWnd, const PAINTSTRUCT* lpPaint)
@@ -137,11 +155,22 @@ BOOL WINAPI PluginView::hookedEndPaint(HWND hWnd, const PAINTSTRUCT* lpPaint)
         return TRUE;
     }
 
+#if COMPILER(GCC)
+    BOOL result;
+    asm ("push   %2\n"
+         "push   %3\n"
+         "call   *%4\n"
+         : "=a" (result)
+         : "a" (endPaintSysCall), "g" (lpPaint), "g" (hWnd), "m" (*endPaint)
+        );
+    return result;
+#else
     // Call through to the original EndPaint.
     __asm   mov     eax, endPaintSysCall
     __asm   push    lpPaint
     __asm   push    hWnd
     __asm   call    endPaint
+#endif
 }
 
 static void hook(const char* module, const char* proc, unsigned& sysCallID, BYTE*& pProc, const void* pNewProc)
@@ -151,7 +180,7 @@ static void hook(const char* module, const char* proc, unsigned& sysCallID, BYTE
 
     HINSTANCE hMod = GetModuleHandleA(module);
 
-    pProc = reinterpret_cast<BYTE*>(GetProcAddress(hMod, proc));
+    pProc = reinterpret_cast<BYTE*>(reinterpret_cast<ptrdiff_t>(GetProcAddress(hMod, proc)));
 
     if (pProc[0] != 0xB8)
         return;
@@ -181,9 +210,11 @@ static void setUpOffscreenPaintingHooks(HDC (WINAPI*hookedBeginPaint)(HWND, PAIN
     // we hook into BeginPaint/EndPaint to allow their normal WM_PAINT handling
     // to draw into a given HDC. Note that this hooking affects the entire
     // process.
-    hook("user32.dll", "BeginPaint", beginPaintSysCall, beginPaint, hookedBeginPaint);
-    hook("user32.dll", "EndPaint", endPaintSysCall, endPaint, hookedEndPaint);
+    hook("user32.dll", "BeginPaint", beginPaintSysCall, beginPaint, reinterpret_cast<const void *>(reinterpret_cast<ptrdiff_t>(hookedBeginPaint)));
+    hook("user32.dll", "EndPaint", endPaintSysCall, endPaint, reinterpret_cast<const void *>(reinterpret_cast<ptrdiff_t>(hookedEndPaint)));
+
 }
+#endif
 
 static bool registerPluginView()
 {
@@ -199,11 +230,18 @@ static bool registerPluginView()
 
     ASSERT(Page::instanceHandle());
 
+#if PLATFORM(WINCE)
+    WNDCLASS wcex = { 0 };
+#else
     WNDCLASSEX wcex;
-
     wcex.cbSize = sizeof(WNDCLASSEX);
+    wcex.hIconSm        = 0;
+#endif
 
     wcex.style          = CS_DBLCLKS;
+#if PLATFORM(WINCE)
+    wcex.style          |= CS_PARENTDC;
+#endif
     wcex.lpfnWndProc    = DefWindowProc;
     wcex.cbClsExtra     = 0;
     wcex.cbWndExtra     = 0;
@@ -213,9 +251,12 @@ static bool registerPluginView()
     wcex.hbrBackground  = (HBRUSH)COLOR_WINDOW;
     wcex.lpszMenuName   = 0;
     wcex.lpszClassName  = kWebPluginViewdowClassName;
-    wcex.hIconSm        = 0;
 
+#if PLATFORM(WINCE)
+    return !!RegisterClass(&wcex);
+#else
     return !!RegisterClassEx(&wcex);
+#endif
 }
 
 LRESULT CALLBACK PluginView::PluginViewWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
@@ -287,6 +328,7 @@ PluginView::wndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         m_popPopupsStateTimer.startOneShot(0);
     }
 
+#if !PLATFORM(WINCE)
     if (message == WM_PRINTCLIENT) {
         // Most (all?) windowed plugins don't respond to WM_PRINTCLIENT, so we
         // change the message to WM_PAINT and rely on our hooked versions of
@@ -294,6 +336,7 @@ PluginView::wndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         message = WM_PAINT;
         m_wmPrintHDC = reinterpret_cast<HDC>(wParam);
     }
+#endif
 
     // Call the plug-in's window proc.
     LRESULT result = ::CallWindowProc(m_pluginWndProc, hWnd, message, wParam, lParam);
@@ -316,11 +359,15 @@ void PluginView::updatePluginWidget()
     IntRect oldWindowRect = m_windowRect;
     IntRect oldClipRect = m_clipRect;
 
+#if PLATFORM(WINCE)
+    m_windowRect = frameView->contentsToWindow(frameRect());
+#else
     m_windowRect = IntRect(frameView->contentsToWindow(frameRect().location()), frameRect().size());
+#endif
     m_clipRect = windowClipRect();
     m_clipRect.move(-m_windowRect.x(), -m_windowRect.y());
 
-    if (platformPluginWidget() && (m_windowRect != oldWindowRect || m_clipRect != oldClipRect)) {
+    if (platformPluginWidget() && (!m_haveUpdatedPluginWidget || m_windowRect != oldWindowRect || m_clipRect != oldClipRect)) {
         HRGN rgn;
 
         setCallingPlugin(true);
@@ -338,7 +385,7 @@ void PluginView::updatePluginWidget()
             ::SetWindowRgn(platformPluginWidget(), rgn, TRUE);
         }
 
-        if (m_windowRect != oldWindowRect)
+        if (!m_haveUpdatedPluginWidget || m_windowRect != oldWindowRect)
             ::MoveWindow(platformPluginWidget(), m_windowRect.x(), m_windowRect.y(), m_windowRect.width(), m_windowRect.height(), TRUE);
 
         if (clipToZeroRect) {
@@ -347,6 +394,8 @@ void PluginView::updatePluginWidget()
         }
 
         setCallingPlugin(false);
+
+        m_haveUpdatedPluginWidget = true;
     }
 }
 
@@ -390,7 +439,7 @@ bool PluginView::dispatchNPEvent(NPEvent& npEvent)
         shouldPop = true;
     }
 
-    JSC::JSLock::DropAllLocks dropAllLocks(false);
+    JSC::JSLock::DropAllLocks dropAllLocks(JSC::SilenceAssertionsOnly);
     setCallingPlugin(true);
     bool result = m_plugin->pluginFuncs()->event(m_instance, &npEvent);
     setCallingPlugin(false);
@@ -403,6 +452,7 @@ bool PluginView::dispatchNPEvent(NPEvent& npEvent)
 
 void PluginView::paintWindowedPluginIntoContext(GraphicsContext* context, const IntRect& rect) const
 {
+#if !PLATFORM(WINCE)
     ASSERT(m_isWindowed);
     ASSERT(context->shouldIncludeChildWindows());
 
@@ -427,6 +477,7 @@ void PluginView::paintWindowedPluginIntoContext(GraphicsContext* context, const 
     SetWorldTransform(hdc, &originalTransform);
 
     context->releaseWindowsContext(hdc, frameRect(), false);
+#endif
 }
 
 void PluginView::paint(GraphicsContext* context, const IntRect& rect)
@@ -441,8 +492,10 @@ void PluginView::paint(GraphicsContext* context, const IntRect& rect)
         return;
 
     if (m_isWindowed) {
+#if !PLATFORM(WINCE)
         if (context->shouldIncludeChildWindows())
             paintWindowedPluginIntoContext(context, rect);
+#endif
         return;
     }
 
@@ -455,7 +508,7 @@ void PluginView::paint(GraphicsContext* context, const IntRect& rect)
     // of the window and the plugin expects that the passed in DC has window coordinates.
     // In the Qt port we always draw in an offscreen buffer and therefore need to preserve
     // the translation set in getWindowsContext.
-#if !PLATFORM(QT)
+#if !PLATFORM(QT) && !PLATFORM(WINCE)
     if (!context->inTransparencyLayer()) {
         XFORM transform;
         GetWorldTransform(hdc, &transform);
@@ -468,15 +521,24 @@ void PluginView::paint(GraphicsContext* context, const IntRect& rect)
     m_npWindow.type = NPWindowTypeDrawable;
     m_npWindow.window = hdc;
 
-    IntPoint p = static_cast<FrameView*>(parent())->contentsToWindow(frameRect().location());
-    
     WINDOWPOS windowpos;
     memset(&windowpos, 0, sizeof(windowpos));
+
+#if PLATFORM(WINCE)
+    IntRect r = static_cast<FrameView*>(parent())->contentsToWindow(frameRect());
+
+    windowpos.x = r.x();
+    windowpos.y = r.y();
+    windowpos.cx = r.width();
+    windowpos.cy = r.height();
+#else
+    IntPoint p = static_cast<FrameView*>(parent())->contentsToWindow(frameRect().location());
 
     windowpos.x = p.x();
     windowpos.y = p.y();
     windowpos.cx = frameRect().width();
     windowpos.cy = frameRect().height();
+#endif
 
     npEvent.event = WM_WINDOWPOSCHANGED;
     npEvent.lParam = reinterpret_cast<uint32>(&windowpos);
@@ -512,13 +574,15 @@ void PluginView::handleKeyboardEvent(KeyboardEvent* event)
         npEvent.lParam = 0x8000;
     }
 
-    JSC::JSLock::DropAllLocks dropAllLocks(false);
+    JSC::JSLock::DropAllLocks dropAllLocks(JSC::SilenceAssertionsOnly);
     if (!dispatchNPEvent(npEvent))
         event->setDefaultHandled();
 }
 
+#if !PLATFORM(WINCE)
 extern HCURSOR lastSetCursor;
 extern bool ignoreNextSetCursor;
+#endif
 
 void PluginView::handleMouseEvent(MouseEvent* event)
 {
@@ -552,10 +616,7 @@ void PluginView::handleMouseEvent(MouseEvent* event)
             }
     }
     else if (event->type() == eventNames().mousedownEvent) {
-        // Focus the plugin
-        if (Page* page = m_parentFrame->page())
-            page->focusController()->setFocusedFrame(m_parentFrame);
-        m_parentFrame->document()->setFocusedNode(m_element);
+        focusPluginElement();
         switch (event->button()) {
             case 0:
                 npEvent.event = WM_LBUTTONDOWN;
@@ -582,16 +643,14 @@ void PluginView::handleMouseEvent(MouseEvent* event)
     } else
         return;
 
-    HCURSOR currentCursor = ::GetCursor();
-
-    JSC::JSLock::DropAllLocks dropAllLocks(false);
+    JSC::JSLock::DropAllLocks dropAllLocks(JSC::SilenceAssertionsOnly);
     if (!dispatchNPEvent(npEvent))
         event->setDefaultHandled();
 
-#if !PLATFORM(QT)
+#if !PLATFORM(QT) && !PLATFORM(WINCE)
     // Currently, Widget::setCursor is always called after this function in EventHandler.cpp
     // and since we don't want that we set ignoreNextSetCursor to true here to prevent that.
-    ignoreNextSetCursor = true;     
+    ignoreNextSetCursor = true;
     lastSetCursor = ::GetCursor();
 #endif
 }
@@ -600,6 +659,15 @@ void PluginView::setParent(ScrollView* parent)
 {
     Widget::setParent(parent);
 
+#if PLATFORM(WINCE)
+    if (parent) {
+        init();
+        if (parent->isVisible())
+            show();
+        else
+            hide();
+    }
+#else
     if (parent)
         init();
     else {
@@ -613,7 +681,7 @@ void PluginView::setParent(ScrollView* parent)
         if (platformPluginWidget() == focusedWindow || ::IsChild(platformPluginWidget(), focusedWindow))
             ::SetFocus(0);
     }
-
+#endif
 }
 
 void PluginView::setParentVisible(bool visible)
@@ -636,6 +704,17 @@ void PluginView::setNPWindowRect(const IntRect& rect)
     if (!m_isStarted)
         return;
 
+#if PLATFORM(WINCE)
+    IntRect r = static_cast<FrameView*>(parent())->contentsToWindow(rect);
+    m_npWindow.x = r.x();
+    m_npWindow.y = r.y();
+
+    m_npWindow.width = r.width();
+    m_npWindow.height = r.height();
+
+    m_npWindow.clipRect.right = r.width();
+    m_npWindow.clipRect.bottom = r.height();
+#else
     IntPoint p = static_cast<FrameView*>(parent())->contentsToWindow(rect.location());
     m_npWindow.x = p.x();
     m_npWindow.y = p.y();
@@ -643,13 +722,14 @@ void PluginView::setNPWindowRect(const IntRect& rect)
     m_npWindow.width = rect.width();
     m_npWindow.height = rect.height();
 
-    m_npWindow.clipRect.left = 0;
-    m_npWindow.clipRect.top = 0;
     m_npWindow.clipRect.right = rect.width();
     m_npWindow.clipRect.bottom = rect.height();
+#endif
+    m_npWindow.clipRect.left = 0;
+    m_npWindow.clipRect.top = 0;
 
     if (m_plugin->pluginFuncs()->setwindow) {
-        JSC::JSLock::DropAllLocks dropAllLocks(false);
+        JSC::JSLock::DropAllLocks dropAllLocks(JSC::SilenceAssertionsOnly);
         setCallingPlugin(true);
         m_plugin->pluginFuncs()->setwindow(m_instance, &m_npWindow);
         setCallingPlugin(false);
@@ -659,77 +739,18 @@ void PluginView::setNPWindowRect(const IntRect& rect)
 
         ASSERT(platformPluginWidget());
 
+#if PLATFORM(WINCE)
+        if (!m_pluginWndProc) {
+            WNDPROC currentWndProc = (WNDPROC)GetWindowLong(platformPluginWidget(), GWL_WNDPROC);
+            if (currentWndProc != PluginViewWndProc)
+                m_pluginWndProc = (WNDPROC)SetWindowLong(platformPluginWidget(), GWL_WNDPROC, (LONG)PluginViewWndProc);
+        }
+#else
         WNDPROC currentWndProc = (WNDPROC)GetWindowLongPtr(platformPluginWidget(), GWLP_WNDPROC);
         if (currentWndProc != PluginViewWndProc)
             m_pluginWndProc = (WNDPROC)SetWindowLongPtr(platformPluginWidget(), GWLP_WNDPROC, (LONG)PluginViewWndProc);
+#endif
     }
-}
-
-void PluginView::stop()
-{
-    if (!m_isStarted)
-        return;
-
-    HashSet<RefPtr<PluginStream> > streams = m_streams;
-    HashSet<RefPtr<PluginStream> >::iterator end = streams.end();
-    for (HashSet<RefPtr<PluginStream> >::iterator it = streams.begin(); it != end; ++it) {
-        (*it)->stop();
-        disconnectStream((*it).get());
-    }
-
-    ASSERT(m_streams.isEmpty());
-
-    m_isStarted = false;
-
-    // Unsubclass the window
-    if (m_isWindowed) {
-        WNDPROC currentWndProc = (WNDPROC)GetWindowLongPtr(platformPluginWidget(), GWLP_WNDPROC);
-        
-        if (currentWndProc == PluginViewWndProc)
-            SetWindowLongPtr(platformPluginWidget(), GWLP_WNDPROC, (LONG)m_pluginWndProc);
-    }
-
-    JSC::JSLock::DropAllLocks dropAllLocks(false);
-
-    // Clear the window
-    m_npWindow.window = 0;
-    if (m_plugin->pluginFuncs()->setwindow && !m_plugin->quirks().contains(PluginQuirkDontSetNullWindowHandleOnDestroy)) {
-        setCallingPlugin(true);
-        m_plugin->pluginFuncs()->setwindow(m_instance, &m_npWindow);
-        setCallingPlugin(false);
-    }
-
-    PluginMainThreadScheduler::scheduler().unregisterPlugin(m_instance);
-
-    // Destroy the plugin
-    NPSavedData* savedData = 0;
-    setCallingPlugin(true);
-    NPError npErr = m_plugin->pluginFuncs()->destroy(m_instance, &savedData);
-    setCallingPlugin(false);
-    LOG_NPERROR(npErr);
-
-    if (savedData) {
-        if (savedData->buf)
-            NPN_MemFree(savedData->buf);
-        NPN_MemFree(savedData);
-    }
-
-    m_instance->pdata = 0;
-}
-
-const char* PluginView::userAgentStatic()
-{
-    return 0;
-}
-
-const char* PluginView::userAgent()
-{
-    if (m_plugin->quirks().contains(PluginQuirkWantsMozillaUserAgent))
-        return MozillaUserAgent;
-
-    if (m_userAgent.isNull())
-        m_userAgent = m_parentFrame->loader()->userAgent(m_url).utf8();
-    return m_userAgent.data();
 }
 
 NPError PluginView::handlePostReadFile(Vector<char>& buffer, uint32 len, const char* buf)
@@ -767,11 +788,15 @@ NPError PluginView::handlePostReadFile(Vector<char>& buffer, uint32 len, const c
 
 NPError PluginView::getValueStatic(NPNVariable variable, void* value)
 {
+    LOG(Plugins, "PluginView::getValueStatic(%s)", prettyNameForNPNVariable(variable).data());
+
     return NPERR_GENERIC_ERROR;
 }
 
 NPError PluginView::getValue(NPNVariable variable, void* value)
 {
+    LOG(Plugins, "PluginView::getValue(%s)", prettyNameForNPNVariable(variable).data());
+
     switch (variable) {
 #if ENABLE(NETSCAPE_PLUGIN_API)
         case NPNVWindowNPObject: {
@@ -890,6 +915,8 @@ void PluginView::forceRedraw()
 
 PluginView::~PluginView()
 {
+    removeFromUnstartedListIfNecessary();
+
     stop();
 
     deleteAllValues(m_requests);
@@ -923,14 +950,24 @@ void PluginView::init()
         return;
     }
 
-    if (!start()) {
+    if (!startOrAddToUnstartedList()) {
         m_status = PluginStatusCanNotLoadPlugin;
         return;
     }
 
+    m_status = PluginStatusLoadedSuccessfully;
+}
+
+void PluginView::platformStart()
+{
+    ASSERT(m_isStarted);
+    ASSERT(m_status == PluginStatusLoadedSuccessfully);
+
     if (m_isWindowed) {
         registerPluginView();
+#if !PLATFORM(WINCE)
         setUpOffscreenPaintingHooks(hookedBeginPaint, hookedEndPaint);
+#endif
 
         DWORD flags = WS_CHILD;
         if (isSelfVisible())
@@ -939,6 +976,7 @@ void PluginView::init()
         HWND parentWindowHandle = windowHandleForPlatformWidget(m_parentFrame->view()->hostWindow()->platformWindow());
         HWND window = ::CreateWindowEx(0, kWebPluginViewdowClassName, 0, flags,
                                        0, 0, 0, 0, parentWindowHandle, 0, Page::instanceHandle(), 0);
+
 #if PLATFORM(WIN_OS) && PLATFORM(QT)
         m_window = window;
 #else
@@ -949,6 +987,8 @@ void PluginView::init()
         // the Shockwave Director plug-in.
 #if PLATFORM(WIN_OS) && PLATFORM(X86_64) && COMPILER(MSVC)
         ::SetWindowLongPtrA(platformPluginWidget(), GWLP_WNDPROC, (LONG_PTR)DefWindowProcA);
+#elif PLATFORM(WINCE)
+        ::SetWindowLong(platformPluginWidget(), GWL_WNDPROC, (LONG)DefWindowProc);
 #else
         ::SetWindowLongPtrA(platformPluginWidget(), GWL_WNDPROC, (LONG)DefWindowProcA);
 #endif
@@ -961,10 +1001,10 @@ void PluginView::init()
         m_npWindow.window = 0;
     }
 
+    updatePluginWidget();
+
     if (!m_plugin->quirks().contains(PluginQuirkDeferFirstSetWindowCall))
         setNPWindowRect(frameRect());
-
-    m_status = PluginStatusLoadedSuccessfully;
 }
 
 } // namespace WebCore

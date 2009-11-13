@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007 Apple Inc.  All rights reserved.
+ * Copyright (C) 2007, 2009 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,6 +30,8 @@
 #define PolicyDelegate_h
 
 #include <WebKit/WebKit.h>
+
+class LayoutTestController;
 
 class PolicyDelegate : public IWebPolicyDelegate {
 public:
@@ -65,10 +67,16 @@ public:
     virtual HRESULT STDMETHODCALLTYPE unableToImplementPolicyWithError( 
         /* [in] */ IWebView *webView,
         /* [in] */ IWebError *error,
-        /* [in] */ IWebFrame *frame){ return E_NOTIMPL; }
+        /* [in] */ IWebFrame *frame);
+
+    // PolicyDelegate
+    void setPermissive(bool permissive) { m_permissiveDelegate = permissive; }
+    void setControllerToNotifyDone(LayoutTestController* controller) { m_controllerToNotifyDone = controller; }
 
 private:
     ULONG m_refCount;
+    bool m_permissiveDelegate;
+    LayoutTestController* m_controllerToNotifyDone;
 };
 
 #endif // PolicyDelegate_h

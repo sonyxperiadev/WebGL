@@ -48,7 +48,7 @@ void SimpleFontData::platformInit()
     SkPaint  paint;
     SkPaint::FontMetrics metrics;
     
-    m_font.setupPaint(&paint);
+    m_platformData.setupPaint(&paint);
     (void)paint.getFontMetrics(&metrics);
 
     // use ceil instead of round to favor descent, given a lot of accidental
@@ -64,6 +64,13 @@ void SimpleFontData::platformInit()
     m_lineGap = SkScalarRound(metrics.fLeading);
 }
 
+void SimpleFontData::platformCharWidthInit()
+{
+    m_avgCharWidth = 0.f;
+    m_maxCharWidth = 0.f;
+    initCharWidths();
+}
+
 void SimpleFontData::platformDestroy()
 {
     delete m_smallCapsFontData;
@@ -72,7 +79,7 @@ void SimpleFontData::platformDestroy()
 SimpleFontData* SimpleFontData::smallCapsFontData(const FontDescription& fontDescription) const
 {
     if (!m_smallCapsFontData) {
-        m_smallCapsFontData = new SimpleFontData(FontPlatformData(m_font, fontDescription.computedSize() * 0.7f));
+        m_smallCapsFontData = new SimpleFontData(FontPlatformData(m_platformData, fontDescription.computedSize() * 0.7f));
     }
     return m_smallCapsFontData;
 }
@@ -84,7 +91,7 @@ bool SimpleFontData::containsCharacters(const UChar* characters, int length) con
     SkPaint     paint;
     uint16_t    glyphs[kMaxBufferCount];
 
-    m_font.setupPaint(&paint);
+    m_platformData.setupPaint(&paint);
     paint.setTextEncoding(SkPaint::kUTF16_TextEncoding);
 
     while (length > 0) {
@@ -114,7 +121,7 @@ float SimpleFontData::platformWidthForGlyph(Glyph glyph) const
 
     SkPaint  paint;
 
-    m_font.setupPaint(&paint);
+    m_platformData.setupPaint(&paint);
 
     if (EmojiFont::IsEmojiGlyph(glyph))
         return EmojiFont::GetAdvanceWidth(glyph, paint);

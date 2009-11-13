@@ -34,7 +34,6 @@
 #include "Font.h"
 
 #include "GraphicsContext.h"
-#include "NotImplemented.h"
 #include "SimpleFontData.h"
 
 #include <cairo.h>
@@ -43,12 +42,6 @@
 #include <pango/pangocairo.h>
 #if defined(USE_FREETYPE)
 #include <pango/pangofc-fontmap.h>
-#endif
-
-#if !defined(PANGO_VERSION_CHECK)
-// PANGO_VERSION_CHECK() and pango_layout_get_line_readonly() appeared in 1.5.2
-#define pango_layout_get_line_readonly pango_layout_get_line
-#define PANGO_VERSION_CHECK(major,minor,micro) 0
 #endif
 
 namespace WebCore {
@@ -145,14 +138,14 @@ static gchar* convertUniCharToUTF8(const UChar* characters, gint length, int fro
 static void setPangoAttributes(const Font* font, const TextRun& run, PangoLayout* layout)
 {
 #if defined(USE_FREETYPE)
-    if (font->primaryFont()->m_font.m_pattern) {
-        PangoFontDescription* desc = pango_fc_font_description_from_pattern(font->primaryFont()->m_font.m_pattern, FALSE);
+    if (font->primaryFont()->platformData().m_pattern) {
+        PangoFontDescription* desc = pango_fc_font_description_from_pattern(font->primaryFont()->platformData().m_pattern, FALSE);
         pango_layout_set_font_description(layout, desc);
         pango_font_description_free(desc);
     }
 #elif defined(USE_PANGO)
-    if (font->primaryFont()->m_font.m_font) {
-        PangoFontDescription* desc = pango_font_describe(font->primaryFont()->m_font.m_font);
+    if (font->primaryFont()->platformData().m_font) {
+        PangoFontDescription* desc = pango_font_describe(font->primaryFont()->platformData().m_font);
         pango_layout_set_font_description(layout, desc);
         pango_font_description_free(desc);
     }
@@ -181,6 +174,11 @@ static void setPangoAttributes(const Font* font, const TextRun& run, PangoLayout
 
     pango_layout_set_attributes(layout, list);
     pango_attr_list_unref(list);
+}
+
+bool Font::canReturnFallbackFontsForComplexText()
+{
+    return false;
 }
 
 void Font::drawComplexText(GraphicsContext* context, const TextRun& run, const FloatPoint& point, int from, int to) const
@@ -290,7 +288,7 @@ static PangoLayout* getDefaultPangoLayout(const TextRun& run)
     return layout;
 }
 
-float Font::floatWidthForComplexText(const TextRun& run) const
+float Font::floatWidthForComplexText(const TextRun& run, HashSet<const SimpleFontData*>* /* fallbackFonts */) const
 {
     if (run.length() == 0)
         return 0.0f;

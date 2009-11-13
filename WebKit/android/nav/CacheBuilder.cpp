@@ -27,8 +27,8 @@
 #include "CachedNode.h"
 #include "CachedRoot.h"
 #include "Document.h"
+#include "EventListener.h"
 #include "EventNames.h"
-#include "EventTargetNode.h"
 #include "Frame.h"
 #include "FrameLoader.h"
 #include "FrameLoaderClientAndroid.h"
@@ -45,6 +45,7 @@
 #include "InlineTextBox.h"
 #include "KURL.h"
 #include "PluginView.h"
+#include "RegisteredEventListener.h"
 #include "RenderImage.h"
 #include "RenderInline.h"
 #include "RenderListBox.h"
@@ -88,7 +89,19 @@ Frame* CacheBuilder::FrameAnd(const CacheBuilder* cacheBuilder) {
     return loader->getFrame();
 }
 
+
 #if DUMP_NAV_CACHE
+
+static bool hasEventListener(Node* node, const AtomicString& eventType) {
+    const RegisteredEventListenerVector& listeners = node->eventListeners();
+    size_t size = listeners.size();
+    for (size_t i = 0; i < size; ++i) {
+        const RegisteredEventListener& r = *listeners[i];
+        if (r.eventType() == eventType)
+            return true;
+    }
+    return false;
+}
 
 #define DEBUG_BUFFER_SIZE 256
 #define DEBUG_WRAP_SIZE 150
@@ -345,24 +358,20 @@ void CacheBuilder::Debug::groups() {
         DUMP_NAV_LOGD("static DebugTestNode TEST%s_RECTS[] = {\n", name);
         do {
             String properties;
-            EventTargetNode* elementTarget = node->isEventTargetNode() ? 
-                (EventTargetNode*) node : NULL;
-            if (elementTarget) {
-                if (elementTarget->getEventListener(eventNames().clickEvent))
-                    properties.append("ONCLICK | ");
-                if (elementTarget->getEventListener(eventNames().mousedownEvent))
-                    properties.append("MOUSEDOWN | ");
-                if (elementTarget->getEventListener(eventNames().mouseupEvent)) 
-                    properties.append("MOUSEUP | ");
-                if (elementTarget->getEventListener(eventNames().mouseoverEvent)) 
-                    properties.append("MOUSEOVER | ");
-                if (elementTarget->getEventListener(eventNames().mouseoutEvent)) 
-                    properties.append("MOUSEOUT | ");
-                if (elementTarget->getEventListener(eventNames().keydownEvent))
-                    properties.append("KEYDOWN | ");
-                if (elementTarget->getEventListener(eventNames().keyupEvent))
-                    properties.append("KEYUP | ");
-            }
+            if (hasEventListener(node, eventNames().clickEvent))
+                properties.append("ONCLICK | ");
+            if (hasEventListener(node, eventNames().mousedownEvent))
+                properties.append("MOUSEDOWN | ");
+            if (hasEventListener(node, eventNames().mouseupEvent))
+                properties.append("MOUSEUP | ");
+            if (hasEventListener(node, eventNames().mouseoverEvent))
+                properties.append("MOUSEOVER | ");
+            if (hasEventListener(node, eventNames().mouseoutEvent))
+                properties.append("MOUSEOUT | ");
+            if (hasEventListener(node, eventNames().keydownEvent))
+                properties.append("KEYDOWN | ");
+            if (hasEventListener(node, eventNames().keyupEvent))
+                properties.append("KEYUP | ");
             if (CacheBuilder::HasFrame(node))
                 properties.append("FRAME | ");
             if (focus == node) {
@@ -381,7 +390,7 @@ void CacheBuilder::Debug::groups() {
                 properties.truncate(properties.length() - 3);
             IntRect rect = node->getRect();
             if (node->hasTagName(HTMLNames::areaTag))
-                rect = Builder(frame)->getAreaRect(static_cast<HTMLAreaElement*>(node));
+                rect = getAreaRect(static_cast<HTMLAreaElement*>(node));
             char buffer[DEBUG_BUFFER_SIZE];
             memset(buffer, 0, sizeof(buffer));
             mBuffer = buffer;
@@ -437,7 +446,7 @@ void CacheBuilder::Debug::groups() {
             //print(renderer ? renderer->information().ascii() : "NO_RENDER_INFO");
             if (node->isElementNode()) {
                 Element* element = static_cast<Element*>(node);
-                NamedAttrMap* attrs = element->attributes();
+                NamedNodeMap* attrs = element->attributes();
                 unsigned length = attrs->length();
                 if (length > 0) {
                     newLine();
@@ -448,8 +457,6 @@ void CacheBuilder::Debug::groups() {
                     }
                 }
             }
-            if (renderer) 
-                renderTree(renderer, 0, node, count);
             count++;
             newLine();
         } while ((node = node->traverseNextNode()) != NULL);
@@ -520,9 +527,10 @@ void CacheBuilder::Debug::groups() {
                         mIndex += snprintf(&mBuffer[mIndex], mBufferSize - mIndex, ", %d, %d, %d", 
                             0 /*textBox->spaceAdd()*/, textBox->start(), 0 /*textBox->textPos()*/);
                         mIndex += snprintf(&mBuffer[mIndex], mBufferSize - mIndex, ", %d, %d, %d, %d", 
-                            textBox->xPos(), textBox->yPos(), textBox->width(), textBox->height());
+                            textBox->x(), textBox->y(), textBox->width(), textBox->height());
+                        int baseline = textBox->renderer()->style(textBox->isFirstLineStyle())->font().ascent();
                         mIndex += snprintf(&mBuffer[mIndex], mBufferSize - mIndex, ", %d }, // %d ", 
-                            textBox->baseline(), ++rectIndex);
+                            baseline, ++rectIndex);
                         wideString(node->textContent().characters() + textBox->start(), textBox->len(), true);
                         DUMP_NAV_LOGD("%.*s\n", mIndex, mBuffer);
                         textBox = textBox->nextTextBox();
@@ -552,8 +560,6 @@ bool CacheBuilder::Debug::isFocusable(Node* node) {
     if (node->isMouseFocusable())
         return true;
     if (node->isFocusable())
-        return true;
-    if (node->isEventTargetNode())
         return true;
     if (CacheBuilder::AnyIsClick(node))
         return false;
@@ -645,64 +651,6 @@ void CacheBuilder::Debug::setIndent(int indent)
     print(scratch);
 }
 
-void CacheBuilder::Debug::renderTree(RenderObject* renderer, int indent,
-    Node* child, int count)
-{
-    char scratch[256];
-    Node* node = renderer->node();
-    if (node != child) {
-        count = ParentIndex(child, count, node);
-        if (renderer->isRenderBlock() == false)
-            goto tryParent;
-        RenderBlock* renderBlock = (RenderBlock*) renderer;
-        if (renderBlock->hasColumns() == false)
-            goto tryParent;
-        Vector<IntRect>* rects = renderBlock->columnRects();
-        newLine(indent);
-        snprintf(scratch, sizeof(scratch), "// render parent=%d", count);
-        print(scratch);
-        for (size_t x = 0; x < rects->size(); x++) {
-            const IntRect& rect = rects->at(x);
-            snprintf(scratch, sizeof(scratch), "(%d,%d,%d,%d) ", rect.x(),
-                rect.y(), rect.width(), rect.height());
-            print(scratch);
-        }
-    }
-    {
-        newLine(indent);
-        RenderStyle* style = renderer->style();
-        EVisibility vis = style->visibility();
-        ASSERT(vis == VISIBLE || vis == HIDDEN || vis == COLLAPSE);
-        snprintf(scratch, sizeof(scratch), 
-            "// render style visible:%s opacity:%g width:%d height:%d"
-            " hasBackground:%s isInlineFlow:%s isBlockFlow:%s"
-            " textOverflow:%s",
-            vis == VISIBLE ? "visible" : vis == HIDDEN ? "hidden" : "collapse", 
-            style->opacity(), 0 /*renderer->width()*/, 0 /*renderer->height()*/,
-            style->hasBackground() ? "true" : "false",
-            0 /*renderer->isInlineFlow()*/ ? "true" : "false",
-            renderer->isBlockFlow() ? "true" : "false",
-            style->textOverflow() ? "true" : "false"
-            );
-        print(scratch);
-        newLine(indent);
-        const IntRect& oRect = renderer->absoluteClippedOverflowRect();
-        const IntRect& cRect = renderer->getOverflowClipRect(0,0);
-        snprintf(scratch, sizeof(scratch), 
-            "// render xPos:%d yPos:%d overflowRect:{%d, %d, %d, %d} "
-            " getOverflowClipRect:{%d, %d, %d, %d} ", 
-            0 /*renderer->xPos()*/, 0 /*renderer->yPos()*/,
-            oRect.x(), oRect.y(), oRect.width(), oRect.height(),
-            cRect.x(), cRect.y(), cRect.width(), cRect.height()
-            );
-        print(scratch);
-    }
-tryParent:
-    RenderObject* parent = renderer->parent();
-    if (parent)
-        renderTree(parent, indent + 2, node, count);
-}   
-
 void CacheBuilder::Debug::uChar(const UChar* name, unsigned len, bool hex) {
     const UChar* end = name + len;
     bool wroteHex = false;
@@ -773,7 +721,6 @@ void CacheBuilder::Debug::wideString(const String& str) {
 
 CacheBuilder::CacheBuilder()
 {
-    mLastKnownFocus = NULL;
     mAllowableTypes = ALL_CACHEDNODETYPES;
 #ifdef DUMP_NAV_CACHE_USING_PRINTF
     gNavCacheLogFile = NULL;
@@ -807,20 +754,35 @@ void CacheBuilder::adjustForColumns(const ClipColumnTracker& track,
     }    
 }
 
-bool CacheBuilder::AnyChildIsClick(Node* node)
-{
-    Node* child = node->firstChild();
-    while (child != NULL) {
-        if (child->isEventTargetNode()) {
-            EventTargetNode* target = (EventTargetNode*) child;
-            if (target->isFocusable() ||
-                    target->getEventListener(eventNames().clickEvent) || 
-                    target->getEventListener(eventNames().mousedownEvent) ||
-                    target->getEventListener(eventNames().mouseupEvent) ||
-                    target->getEventListener(eventNames().keydownEvent) ||
-                    target->getEventListener(eventNames().keyupEvent))
+// Checks if a node has one of event listener types.
+bool CacheBuilder::NodeHasEventListeners(Node* node, AtomicString* eventTypes, int length) {
+    const RegisteredEventListenerVector& listeners = node->eventListeners();
+    size_t size = listeners.size();
+    for (size_t i = 0; i < size; ++i) {
+        const RegisteredEventListener& r = *listeners[i];
+        for (int j = 0; j < length; ++j) {
+            if (r.eventType() == eventTypes[j])
                 return true;
         }
+    }
+    return false;
+}
+
+bool CacheBuilder::AnyChildIsClick(Node* node)
+{
+    AtomicString eventTypes[5] = {
+        eventNames().clickEvent,
+        eventNames().mousedownEvent,
+        eventNames().mouseupEvent,
+        eventNames().keydownEvent,
+        eventNames().keyupEvent
+    };
+
+    Node* child = node->firstChild();
+    while (child != NULL) {
+        if (child->isFocusable() ||
+            NodeHasEventListeners(child, eventTypes, 5))
+                return true;
         if (AnyChildIsClick(child))
             return true;
         child = child->nextSibling();
@@ -832,26 +794,32 @@ bool CacheBuilder::AnyIsClick(Node* node)
 {
     if (node->hasTagName(HTMLNames::bodyTag))
         return AnyChildIsClick(node);
-    EventTargetNode* target = (EventTargetNode*) node;
-    if (target->getEventListener(eventNames().mouseoverEvent) == NULL && 
-            target->getEventListener(eventNames().mouseoutEvent) == NULL &&
-            target->getEventListener(eventNames().keydownEvent) == NULL &&
-            target->getEventListener(eventNames().keyupEvent) == NULL)
+
+    AtomicString eventTypeSetOne[4] = {
+        eventNames().mouseoverEvent,
+        eventNames().mouseoutEvent,
+        eventNames().keydownEvent,
+        eventNames().keyupEvent
+    };
+
+    if (!NodeHasEventListeners(node, eventTypeSetOne, 4))
         return false;
-    if (target->getEventListener(eventNames().clickEvent)) 
+
+    AtomicString eventTypeSetTwo[3] = {
+        eventNames().clickEvent,
+        eventNames().mousedownEvent,
+        eventNames().mouseupEvent
+    };
+
+    if (NodeHasEventListeners(node, eventTypeSetTwo, 3))
         return false;
-    if (target->getEventListener(eventNames().mousedownEvent))
-        return false;
-    if (target->getEventListener(eventNames().mouseupEvent))
-        return false;
+
     return AnyChildIsClick(node);
 }
 
 void CacheBuilder::buildCache(CachedRoot* root)
 {
     Frame* frame = FrameAnd(this);
-    mLastKnownFocus = NULL;
-    m_areaBoundsMap.clear();
     BuildFrame(frame, frame, root, (CachedFrame*) root);
     root->finishInit(); // set up frame parent pointers, child pointers
     setData((CachedFrame*) root);
@@ -933,10 +901,8 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
     Node* node = parent;
     int cacheIndex = 1;
     Node* focused = doc->focusedNode();
-    if (focused) {
-        setLastFocus(focused);
-        cachedRoot->setFocusBounds(mLastKnownFocusBounds);
-    }
+    if (focused)
+        cachedRoot->setFocusBounds(focused->getRect());
     int globalOffsetX, globalOffsetY;
     GetGlobalOffset(frame, &globalOffsetX, &globalOffsetY);
     while (walk.mMore || (node = node->traverseNextNode()) != NULL) {
@@ -1004,39 +970,24 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
         }
         RenderObject* nodeRenderer = node->renderer();
         bool isTransparent = false;
-        bool hasFocusRing = true;
+        bool hasCursorRing = true;
         if (nodeRenderer != NULL) {
             RenderStyle* style = nodeRenderer->style();
             if (style->visibility() == HIDDEN)
                 continue;
-            if (nodeRenderer->isImage()) { // set all the area elements to have a link to their images
-                RenderImage* image = static_cast<RenderImage*>(nodeRenderer);
-                HTMLMapElement* map = image->imageMap();
-                if (map) {
-                    Node* node;
-                    for (node = map->firstChild(); node; 
-                            node = node->traverseNextNode(map)) {
-                        if (!node->hasTagName(HTMLNames::areaTag))
-                            continue;
-                        HTMLAreaElement* area = static_cast<HTMLAreaElement*>(node);
-                        m_areaBoundsMap.set(area, image);
-                    }
-                }
-            }
             isTransparent = style->hasBackground() == false;
 #ifdef ANDROID_CSS_TAP_HIGHLIGHT_COLOR
-            hasFocusRing = style->tapHighlightColor().alpha() > 0;
+            hasCursorRing = style->tapHighlightColor().alpha() > 0;
 #endif
         }
         bool more = walk.mMore;
         walk.reset();
      //   GetGlobalBounds(node, &bounds, false);
-        bool computeFocusRings = false;
+        bool computeCursorRings = false;
         bool hasClip = false;
         bool hasMouseOver = false;
         bool isAnchor = false;
         bool isArea = node->hasTagName(HTMLNames::areaTag);
-        bool isInput = false;
         bool isPassword = false;
         bool isTextArea = false;
         bool isTextField = false;
@@ -1055,8 +1006,6 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
         IntRect bounds;
         IntRect absBounds;
         WTF::Vector<IntRect>* columns = NULL;
-        int minimumFocusableWidth = MINIMUM_FOCUSABLE_WIDTH;
-        int minimumFocusableHeight = MINIMUM_FOCUSABLE_HEIGHT;
         if (isArea) {
             HTMLAreaElement* area = static_cast<HTMLAreaElement*>(node);
             bounds = getAreaRect(area);
@@ -1131,7 +1080,7 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
                 IntRect(0, 0, INT_MAX, INT_MAX);
             if (ConstructTextRects((WebCore::Text*) node, walk.mStart, 
                     (WebCore::Text*) walk.mFinalNode, walk.mEnd, globalOffsetX,
-                    globalOffsetY, &bounds, clip, &cachedNode.focusRings()) == false)
+                    globalOffsetY, &bounds, clip, &cachedNode.cursorRings()) == false)
                 continue;
             absBounds = bounds;
             cachedNode.setBounds(bounds);
@@ -1139,7 +1088,7 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
                 continue;
             if (bounds.height() < MINIMUM_FOCUSABLE_HEIGHT)
                 continue;
-            computeFocusRings = true;
+            computeCursorRings = true;
             isUnclipped = true;  // FIXME: to hide or partially occlude synthesized links, each
                                  // focus ring will also need the offset and length of characters
                                  // used to produce it
@@ -1149,26 +1098,26 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
             HTMLInputElement* input = (HTMLInputElement*) node;
             if (input->inputType() == HTMLInputElement::FILE)
                 continue;
-            isInput = true;
             isTextField = input->isTextField();
+            if (isTextField)
+                wantsKeyEvents = true;
             isPassword = input->inputType() == HTMLInputElement::PASSWORD;
             maxLength = input->maxLength();
             name = input->name().string().copy();
             isUnclipped = isTransparent; // can't detect if this is drawn on top (example: deviant.com login parts)
         } else if (node->hasTagName(HTMLNames::textareaTag))
-            isTextArea = true;
+            isTextArea = wantsKeyEvents = true;
         else if (node->hasTagName(HTMLNames::aTag)) {
             const HTMLAnchorElement* anchorNode = 
                 (const HTMLAnchorElement*) node;
             if (!anchorNode->isFocusable() && !HasTriggerEvent(node))
                 continue;
-            EventTargetNode* target = (EventTargetNode*) node;
-            if (target->disabled())
+            if (node->disabled())
                 continue;
-            hasMouseOver = target->getEventListener(eventNames().mouseoverEvent);
+            hasMouseOver = NodeHasEventListeners(node, &eventNames().mouseoverEvent, 1);
             isAnchor = true;
             KURL href = anchorNode->href();
-            if (!href.isEmpty() && !href.protocolIs("javascript"))
+            if (!href.isEmpty() && !WebCore::protocolIsJavaScript(href.string()))
                 // Set the exported string for all non-javascript anchors.
                 exported = href.string().copy();
         }
@@ -1188,20 +1137,14 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
                         style->textAlign() == WebCore::RIGHT ||
                         style->textAlign() == WebCore::WEBKIT_RIGHT;
             }
-            minimumFocusableWidth += 4;
-            minimumFocusableHeight += 4;
         }
         takesFocus = true;
-        if (isAnchor) {
-            bounds = absBounds;
-        } else {
+        bounds = absBounds;
+        if (!isAnchor) {
             bool isFocusable = node->isKeyboardFocusable(NULL) || 
                 node->isMouseFocusable() || node->isFocusable();
             if (isFocusable == false) {
-                if (node->isEventTargetNode() == false)
-                    continue;
-                EventTargetNode* eventTargetNode = (EventTargetNode*) node;
-                if (eventTargetNode->disabled())
+                if (node->disabled())
                     continue;
                 bool overOrOut = HasOverOrOut(node);
                 bool hasTrigger = HasTriggerEvent(node);
@@ -1209,32 +1152,15 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
                     continue;
                 takesFocus = hasTrigger;
             }
-            bounds = node->getRect();
-            // For Bank of America site
-            if (isTextField && ((RenderBox*)nodeRenderer)->paddingLeft() > 100) {
-                int paddingLeft = ((RenderBox*)nodeRenderer)->paddingLeft();
-                int paddingTop = ((RenderBox*)nodeRenderer)->paddingTop();
-                int x = bounds.x() + paddingLeft;
-                int y = bounds.y() + paddingTop;
-                int width = bounds.width() - paddingLeft - ((RenderBox*)nodeRenderer)->paddingRight();
-                int height = bounds.height() - paddingTop - ((RenderBox*)nodeRenderer)->paddingBottom();
-                bounds.setLocation(IntPoint(x, y));
-                bounds.setSize(IntSize(width, height));
-            }
-            if (bounds.width() < minimumFocusableWidth)
-                continue;
-            if (bounds.height() < minimumFocusableHeight)
-                continue;
-            bounds.move(globalOffsetX, globalOffsetY);
         }
-        computeFocusRings = true;
+        computeCursorRings = true;
     keepNode:
         cachedNode.init(node);
-        if (computeFocusRings == false) {
+        if (computeCursorRings == false) {
             cachedNode.setBounds(bounds);
-            cachedNode.focusRings().append(bounds);
+            cachedNode.cursorRings().append(bounds);
         } else if (ConstructPartRects(node, bounds, cachedNode.boundsPtr(), 
-                globalOffsetX, globalOffsetY, &cachedNode.focusRings()) == false)
+                globalOffsetX, globalOffsetY, &cachedNode.cursorRings()) == false)
             continue;
     keepTextNode:
         IntRect clip = hasClip ? bounds : absBounds;
@@ -1254,22 +1180,21 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
                 clip.intersect(parentClip);
             hasClip = true;
         }
-        if (hasClip && cachedNode.clip(clip) == false) {
+        if (hasClip && !clip.isEmpty() && cachedNode.clip(clip) == false) {
             cachedNode.setBounds(clip);
-            cachedNode.focusRings().append(clip);
+            cachedNode.cursorRings().append(clip);
             isUnclipped = true;
         }
         cachedNode.setNavableRects();
         cachedNode.setChildFrameIndex(-1);
         cachedNode.setExport(exported);
-        cachedNode.setHasFocusRing(hasFocusRing);
+        cachedNode.setHasCursorRing(hasCursorRing);
         cachedNode.setHasMouseOver(hasMouseOver);
         cachedNode.setHitBounds(absBounds);
         cachedNode.setIndex(cacheIndex);
         cachedNode.setIsAnchor(isAnchor);
         cachedNode.setIsArea(isArea);
         cachedNode.setIsFocus(isFocus);
-        cachedNode.setIsInput(isInput);
         cachedNode.setIsPassword(isPassword);
         cachedNode.setIsRtlText(isRtlText);
         cachedNode.setIsTextArea(isTextArea);
@@ -1335,7 +1260,7 @@ bool CacheBuilder::CleanUpContainedNodes(CachedFrame* cachedFrame,
             lastNode->hasTagName(HTMLNames::bodyTag) ||
             lastNode->hasTagName(HTMLNames::formTag)) {
         lastCached->setBounds(IntRect(0, 0, 0, 0));
-        lastCached->focusRings().clear();
+        lastCached->cursorRings().clear();
         lastCached->setNavableRects();
         return false;
     }
@@ -1345,11 +1270,8 @@ bool CacheBuilder::CleanUpContainedNodes(CachedFrame* cachedFrame,
         lastNode->isKeyboardFocusable(NULL) == false && 
         lastNode->isMouseFocusable() == false &&
         lastNode->isFocusable() == false &&
-        lastNode->isEventTargetNode() == true && 
         HasOverOrOut(lastNode) == true && 
         HasTriggerEvent(lastNode) == false;
-    if (cachedFrame->focusIndex() == lastChildIndex)
-        cachedFrame->setFocusIndex(last->mCachedNodeIndex);
     if (onlyChildCached->parent() == lastCached)
         onlyChildCached->setParentIndex(lastCached->parentIndex());
     if (outerIsMouseMoveOnly || onlyChild->isKeyboardFocusable(NULL))
@@ -1535,11 +1457,13 @@ static bool validZip(int stateIndex, const UChar* zipPtr)
 
 #define MAX_PLACE_NAME_LENGTH 25 // the longest allowable one word place name
 
-CacheBuilder::FoundState CacheBuilder::FindAddress(const UChar* chars, unsigned length, int* start, int* end)
+CacheBuilder::FoundState CacheBuilder::FindAddress(const UChar* chars,
+    unsigned length, int* start, int* end, bool caseInsensitive)
 {
     FindState addressState;
     FindReset(&addressState);
     addressState.mWords[0] = addressState.mStarts[0] = chars;
+    addressState.mCaseInsensitive = caseInsensitive;
     FoundState state = FindPartialAddress(chars, chars, length, &addressState);
     if (state == FOUND_PARTIAL && addressState.mProgress == ZIP_CODE &&
             addressState.mNumberCount == 0) {
@@ -1666,6 +1590,7 @@ CacheBuilder::FoundState CacheBuilder::FindPartialAddress(const UChar* baseChars
     s->mCurrentStart = chars;
     s->mEnd = chars + length;
     int candIndex = 0;
+    bool retryState;
     bool mustBeAllUpper = false;
     bool secondHalf = false;
     chars -= 1;
@@ -1760,6 +1685,8 @@ CacheBuilder::FoundState CacheBuilder::FindPartialAddress(const UChar* baseChars
                 } else if (s->mLetterCount >= MAX_PLACE_NAME_LENGTH) {
                     break;
                 } else if (s->mFirstLower != NULL) {
+                    if (s->mCaseInsensitive)
+                        goto resetWord;
                     size_t length = chars - s->mFirstLower;
                     if (length > 3)
                         break;
@@ -1988,6 +1915,15 @@ CacheBuilder::FoundState CacheBuilder::FindPartialAddress(const UChar* baseChars
                         s->mZipDelimiter = true;
                 } else if (WTF::isASCIIAlpha(ch) == false)
                     s->mZipDelimiter = true;
+                else {
+                    if (s->mLetterCount == 0) {
+                        s->mBases[s->mWordCount] = baseChars;
+                        s->mWords[s->mWordCount] = chars;
+                        s->mStarts[s->mWordCount] = s->mCurrentStart;
+                        s->mUnparsed = true;
+                    }
+                    ++s->mLetterCount;
+                }
                 if (s->mNumberCount == 5 || s->mNumberCount == 9) {
                     if (validZip(s->mZipHint, s->mZipStart) == false)
                         goto noZipMatch;
@@ -2019,8 +1955,9 @@ CacheBuilder::FoundState CacheBuilder::FindPartialAddress(const UChar* baseChars
                     break;
                 s->mProgress = FIND_STREET;
             case FIND_STREET:
-            findStreet: // minus two below skips city before state
-                for (int wordsIndex = s->mStateWord - 2; wordsIndex >= 0; --wordsIndex) {
+            findStreet:
+                retryState = false;
+                for (int wordsIndex = s->mStateWord - 1; wordsIndex >= 0; --wordsIndex) {
                     const UChar* test = s->mWords[wordsIndex];
                     UChar letter = test[0];
                     letter -= 'A';
@@ -2066,16 +2003,26 @@ CacheBuilder::FoundState CacheBuilder::FindPartialAddress(const UChar* baseChars
                                     wordReduction = shift;
                                 } while (s->mNumberWords >> ++shift != 0);
                                 if (wordReduction >= 0) {
-                                    if (s->mContinuationNode)
+                                    if (s->mContinuationNode) {
+                                        if (retryState)
+                                            break;
                                         return FOUND_NONE;
+                                    }
                                     s->mStartResult = s->mWords[wordReduction] - s->mStarts[wordReduction];
                                 }
                             }
-                            return FOUND_COMPLETE;
+                            if (wordsIndex != s->mStateWord - 1)
+                                return FOUND_COMPLETE;
+                            retryState = true;
                         }
                     nextTest:
                         names += offset;
                     }
+                }
+                if (retryState) {
+                    s->mProgress = ADDRESS_LINE;
+                    s->mStates = NULL;
+                    continue;
                 }
                 if (s->mNumberWords != 0) {
                     unsigned shift = 0;
@@ -2381,14 +2328,28 @@ void CacheBuilder::FindResetNumber(FindState* state)
     state->mStorePtr = state->mStore;
 }
 
-IntRect CacheBuilder::getAreaRect(const HTMLAreaElement* area) const
+IntRect CacheBuilder::getAreaRect(const HTMLAreaElement* area)
 {
-    RenderImage* map = m_areaBoundsMap.get(area);
-    if (!map)
-        return IntRect();
-    if (area->isDefault())
-        return map->absoluteBoundingBoxRect();
-    return area->getRect(map);
+    Node* node = area->document();
+    while ((node = node->traverseNextNode()) != NULL) {
+        RenderObject* renderer = node->renderer();
+        if (renderer && renderer->isRenderImage()) {
+            RenderImage* image = static_cast<RenderImage*>(renderer);
+            HTMLMapElement* map = image->imageMap();
+            if (map) {
+                Node* n;
+                for (n = map->firstChild(); n;
+                        n = n->traverseNextNode(map)) {
+                    if (n == area) {
+                        if (area->isDefault())
+                            return image->absoluteBoundingBoxRect();
+                        return area->getRect(image);
+                    }
+                }
+            }
+        }
+    }
+    return IntRect();
 }
 
 void CacheBuilder::GetGlobalOffset(Node* node, int* x, int * y) 
@@ -2432,20 +2393,26 @@ Frame* CacheBuilder::HasFrame(Node* node)
 
 bool CacheBuilder::HasOverOrOut(Node* node)
 {
-    EventTargetNode* target = (EventTargetNode*) node;
-    return target->getEventListener(eventNames().mouseoverEvent) || 
-        target->getEventListener(eventNames().mouseoutEvent);
+    // eventNames are thread-local data, I avoid using 'static' variable here.
+    AtomicString eventTypes[2] = {
+        eventNames().mouseoverEvent,
+        eventNames().mouseoutEvent
+    };
 
+    return NodeHasEventListeners(node, eventTypes, 2);
 }
 
 bool CacheBuilder::HasTriggerEvent(Node* node)
 {
-    EventTargetNode* target = (EventTargetNode*) node;
-    return target->getEventListener(eventNames().clickEvent) || 
-        target->getEventListener(eventNames().mousedownEvent) ||
-        target->getEventListener(eventNames().mouseupEvent) || 
-        target->getEventListener(eventNames().keydownEvent) ||
-        target->getEventListener(eventNames().keyupEvent);
+    AtomicString eventTypes[5] = {
+        eventNames().clickEvent,
+        eventNames().mousedownEvent,
+        eventNames().mouseupEvent,
+        eventNames().keydownEvent,
+        eventNames().keyupEvent
+    };
+
+    return NodeHasEventListeners(node, eventTypes, 5);
 }
 
 // #define EMAIL_PATTERN "x@y.d" // where 'x' is letters, numbers, and '-', '.', '_' ; 'y' is 'x' without the underscore, and 'd' is a valid domain
@@ -2458,61 +2425,6 @@ bool CacheBuilder::IsDomainChar(UChar ch)
     if (ch > 'z' - 0x20)
         return false;
     return (body[ch >> 5] & 1 << (ch & 0x1f)) != 0;
-}
-
-// does not find text to keep it fast
-// (this assume text nodes are more rarely moved than other nodes)
-Node* CacheBuilder::findByCenter(int x, int y) const
-{
-    DBG_NAV_LOGD("x=%d y=%d\n", x, y);
-    Frame* frame = FrameAnd(this);
-    Node* node = frame->document();
-    ASSERT(node != NULL);
-    int globalOffsetX, globalOffsetY;
-    GetGlobalOffset(frame, &globalOffsetX, &globalOffsetY);
-    while ((node = node->traverseNextNode()) != NULL) {
-        Frame* child = HasFrame(node);
-        if (child != NULL) {
-            if (child->document() == NULL)
-                continue;
-            CacheBuilder* cacheBuilder = Builder(child);
-     //       if (cacheBuilder->mViewBounds.isEmpty())
-     //           continue;
-            Node* result = cacheBuilder->findByCenter(x, y);
-            if (result != NULL)
-                return result;
-        }
-        if (node->isTextNode())
-            continue;
-        IntRect bounds;
-        if (node->hasTagName(HTMLNames::areaTag)) {
-            HTMLAreaElement* area = static_cast<HTMLAreaElement*>(node);
-            bounds = getAreaRect(area);
-            bounds.move(globalOffsetX, globalOffsetY);
-        } else
-            bounds = node->getRect();
-        if (bounds.isEmpty())
-            continue;
-        bounds.move(globalOffsetX, globalOffsetY);
-        if (x != bounds.x() + (bounds.width() >> 1))
-            continue;
-        if (y != bounds.y() + (bounds.height() >> 1))
-            continue;
-        if (node->isKeyboardFocusable(NULL))
-            return node;
-        if (node->isMouseFocusable())
-            return node;
-        if (node->isFocusable())
-            return node;
-        if (node->isEventTargetNode() == false)
-            continue;
-        if (AnyIsClick(node))
-            continue;
-        if (HasTriggerEvent(node) == false)
-            continue;
-        return node;
-    }
-    return NULL;
 }
 
 bool CacheBuilder::isFocusableText(NodeWalk* walk, bool more, Node* node, 
@@ -2733,29 +2645,6 @@ bool CacheBuilder::IsMailboxChar(UChar ch)
     return (body[ch >> 5] & 1 << (ch & 0x1f)) != 0;
 }
 
-bool CacheBuilder::outOfDate()
-{
-    Node* kitFocusNode = currentFocus();
-    if (mLastKnownFocus != kitFocusNode) {
-        DBG_NAV_LOGD("%s\n", "mLastKnownFocus != kitFocusNode");
-        return true;
-    }
-    if (kitFocusNode == NULL)
-        return false;
-    IntRect kitBounds = kitFocusNode->getRect();
-    bool result = kitBounds != mLastKnownFocusBounds;
-    if (result == true)
-        DBG_NAV_LOGD("%s\n", "kitBounds != mLastKnownFocusBounds");
-    return result;
-}
-
-void CacheBuilder::setLastFocus(Node* node)
-{
-    ASSERT(node);
-    mLastKnownFocus = node;
-    mLastKnownFocusBounds = node->getRect();
-}
-
 bool CacheBuilder::setData(CachedFrame* cachedFrame) 
 {
     Frame* frame = FrameAnd(this);
@@ -2790,13 +2679,13 @@ bool CacheBuilder::setData(CachedFrame* cachedFrame)
     return true;
 }
 
-bool CacheBuilder::validNode(void* matchFrame, void* matchNode) const
+bool CacheBuilder::validNode(Frame* startFrame, void* matchFrame,
+        void* matchNode)
 {
-    Frame* frame = FrameAnd(this);
-    if (matchFrame == frame) {
+    if (matchFrame == startFrame) {
         if (matchNode == NULL)
             return true;
-        Node* node = frame->document();
+        Node* node = startFrame->document();
         while (node != NULL) {
             if (node == matchNode) {
                 const IntRect& rect = node->hasTagName(HTMLNames::areaTag) ? 
@@ -2812,15 +2701,15 @@ bool CacheBuilder::validNode(void* matchFrame, void* matchNode) const
         DBG_NAV_LOGD("frame=%p valid node=%p invalid\n", matchFrame, matchNode);
         return false;
     }
-    Frame* child = frame->tree()->firstChild();
+    Frame* child = startFrame->tree()->firstChild();
     while (child) {
-        bool result = Builder(child)->validNode(matchFrame, matchNode);
+        bool result = validNode(child, matchFrame, matchNode);
         if (result)
             return result;
         child = child->tree()->nextSibling();
     }
 #if DEBUG_NAV_UI
-    if (frame->tree()->parent() == NULL)
+    if (startFrame->tree()->parent() == NULL)
         DBG_NAV_LOGD("frame=%p node=%p false\n", matchFrame, matchNode);
 #endif
     return false;
@@ -3020,7 +2909,7 @@ bool CacheBuilder::ConstructTextRects(Text* node, int start,
                 if ((int) textBox->end() >= start)
                     break;
             } while ((textBox = textBox->nextTextBox()) != NULL);
-            if (ConstructTextRect(node, textBox, start, relEnd, 
+            if (textBox && ConstructTextRect(node, textBox, start, relEnd,
                     x, y, focusBounds, clipBounds, result) == false)
                 return false;
         }

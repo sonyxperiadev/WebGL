@@ -23,6 +23,22 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
+function bludgeonArguments() { if (0) arguments; return function g() {} }
+h = bludgeonArguments();
+gc();
+
+var failed = false;
+function pass(msg)
+{
+    print("PASS: " + msg, "green");
+}
+
+function fail(msg)
+{
+    print("FAIL: " + msg, "red");
+    failed = true;
+}
+
 function shouldBe(a, b)
 {
     var evalA;
@@ -33,23 +49,22 @@ function shouldBe(a, b)
     }
     
     if (evalA == b || isNaN(evalA) && typeof evalA == 'number' && isNaN(b) && typeof b == 'number')
-        print("PASS: " + a + " should be " + b + " and is.", "green");
+        pass(a + " should be " + b + " and is.");
     else
-        print("__FAIL__: " + a + " should be " + b + " but instead is " + evalA + ".", "red");
+        fail(a + " should be " + b + " but instead is " + evalA + ".");
 }
 
 function shouldThrow(a)
 {
-    var result = "__FAIL__: " + a + " did not throw an exception.";
-    
     var evalA;
     try {
         eval(a);
     } catch(e) {
-        result = "PASS: " + a + " threw: " + e;
+        pass(a + " threw: " + e);
+        return;
     }
-    
-    print(result);
+
+    fail(a + " did not throw an exception.");
 }
 
 function globalStaticFunction()
@@ -70,9 +85,14 @@ shouldBe("MyObject.alwaysOne", 1);
 MyObject.cantDelete = 1;
 delete MyObject.cantDelete;
 shouldBe("MyObject.cantDelete", 1);
-shouldBe("delete MyObject.throwOnDelete", 2); // deleteProperty -- should throw 2
+shouldBe("delete MyObject.throwOnDelete", "an exception");
 MyObject.cantSet = 1;
 shouldBe("MyObject.cantSet", undefined);
+shouldBe("MyObject.throwOnGet", "an exception");
+shouldBe("MyObject.throwOnSet = 5", "an exception");
+shouldBe("MyObject('throwOnCall')", "an exception");
+shouldBe("new MyObject('throwOnConstruct')", "an exception");
+shouldBe("'throwOnHasInstance' instanceof MyObject", "an exception");
 
 var foundMyPropertyName = false;
 var foundRegularType = false;
@@ -82,12 +102,16 @@ for (var p in MyObject) {
     if (p == "regularType")
         foundRegularType = true;
 }
-print(foundMyPropertyName
-      ? "PASS: MyObject.myPropertyName was enumerated"
-      : "__FAIL__: MyObject.myPropertyName was not enumerated");
-print(foundRegularType
-      ? "PASS: MyObject.regularType was enumerated"
-      : "__FAIL__: MyObject.regularType was not enumerated");
+
+if (foundMyPropertyName)
+    pass("MyObject.myPropertyName was enumerated");
+else
+    fail("MyObject.myPropertyName was not enumerated");
+
+if (foundRegularType)
+    pass("MyObject.regularType was enumerated");
+else
+    fail("MyObject.regularType was not enumerated");
 
 myObject = new MyObject();
 
@@ -100,7 +124,7 @@ shouldBe("MyObject ? 1 : 0", true); // toBoolean
 shouldBe("+MyObject", 1); // toNumber
 shouldBe("(MyObject.toString())", "[object MyObject]"); // toString
 shouldBe("String(MyObject)", "MyObjectAsString"); // type conversion to string
-shouldBe("MyObject - 0", NaN); // toPrimitive
+shouldBe("MyObject - 0", 1); // toNumber
 
 shouldBe("typeof MyConstructor", "object");
 constructedObject = new MyConstructor(1);
@@ -130,3 +154,21 @@ shouldBe("derived.baseDup = 0", 2);
 shouldBe("derived.baseOnly = 0", 1);
 shouldBe("derived.derivedOnly = 0", 2)
 shouldBe("derived.protoDup = 0", 2);
+
+shouldBe("undefined instanceof MyObject", false);
+EvilExceptionObject.hasInstance = function f() { return f(); };
+EvilExceptionObject.__proto__ = undefined;
+shouldThrow("undefined instanceof EvilExceptionObject");
+EvilExceptionObject.hasInstance = function () { return true; };
+shouldBe("undefined instanceof EvilExceptionObject", true);
+
+EvilExceptionObject.toNumber = function f() { return f(); }
+shouldThrow("EvilExceptionObject*5");
+EvilExceptionObject.toStringExplicit = function f() { return f(); }
+shouldThrow("String(EvilExceptionObject)");
+
+shouldBe("EmptyObject", "[object CallbackObject]");
+
+if (failed)
+    throw "Some tests failed";
+

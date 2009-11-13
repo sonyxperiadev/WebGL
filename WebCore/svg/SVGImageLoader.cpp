@@ -42,22 +42,18 @@ SVGImageLoader::~SVGImageLoader()
 
 void SVGImageLoader::dispatchLoadEvent()
 {
-    if (!haveFiredLoadEvent() && image()) {
-        setHaveFiredLoadEvent(true);
-        
-        if (image()->errorOccurred())
-            element()->dispatchEventForType(eventNames().errorEvent, false, false);
-        else {
-            SVGImageElement* imageElement = static_cast<SVGImageElement*>(element());
-            if (imageElement->externalResourcesRequiredBaseValue())
-                imageElement->sendSVGLoadEventIfPossible(true);
-        }
+    if (image()->errorOccurred())
+        element()->dispatchEvent(eventNames().errorEvent, false, false);
+    else {
+        SVGImageElement* imageElement = static_cast<SVGImageElement*>(element());
+        if (imageElement->externalResourcesRequiredBaseValue())
+            imageElement->sendSVGLoadEventIfPossible(true);
     }
 }
 
 String SVGImageLoader::sourceURI(const AtomicString& attr) const
 {
-    return parseURL(KURL(element()->baseURI(), attr).string());
+    return deprecatedParseURL(KURL(element()->baseURI(), attr).string());
 }
 
 }

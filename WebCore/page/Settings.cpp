@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,10 +28,13 @@
 
 #include "Frame.h"
 #include "FrameTree.h"
+#include "FrameView.h"
 #include "HistoryItem.h"
 #include "Page.h"
 #include "PageCache.h"
 #include <limits>
+
+using namespace std;
 
 namespace WebCore {
 
@@ -42,7 +45,7 @@ static void setNeedsReapplyStylesInAllFrames(Page* page)
 }
 
 #if USE(SAFARI_THEME)
-bool Settings::gShouldPaintNativeControls = false;
+bool Settings::gShouldPaintNativeControls = true;
 #endif
 
 Settings::Settings(Page* page)
@@ -65,13 +68,18 @@ Settings::Settings(Page* page)
 #ifdef ANDROID_BLOCK_NETWORK_IMAGE
     , m_blockNetworkImage(false)
 #endif
+    , m_maximumDecodedImageSize(numeric_limits<size_t>::max())
     , m_isJavaEnabled(false)
     , m_loadsImagesAutomatically(false)
     , m_privateBrowsingEnabled(false)
+    , m_caretBrowsingEnabled(false)
     , m_arePluginsEnabled(false)
     , m_databasesEnabled(false)
     , m_localStorageEnabled(false)
+    , m_sessionStorageEnabled(true)
     , m_isJavaScriptEnabled(false)
+    , m_isWebSecurityEnabled(true)
+    , m_allowUniversalAccessFromFileURLs(true)
     , m_javaScriptCanOpenWindowsAutomatically(false)
     , m_shouldPrintBackgrounds(false)
     , m_textAreasAreResizable(false)
@@ -80,6 +88,9 @@ Settings::Settings(Page* page)
 #endif
     , m_needsAdobeFrameReloadingQuirk(false)
     , m_needsKeyboardEventDisambiguationQuirks(false)
+    , m_treatsAnyTextCSSLinkAsStylesheet(false)
+    , m_needsLeopardMailQuirks(false)
+    , m_needsTigerMailQuirks(false)
     , m_isDOMPasteAllowed(false)
     , m_shrinksStandaloneImagesToFit(true)
     , m_usesPageCache(false)
@@ -90,14 +101,26 @@ Settings::Settings(Page* page)
     , m_needsSiteSpecificQuirks(false)
     , m_fontRenderingMode(0)
     , m_webArchiveDebugModeEnabled(false)
+    , m_localFileContentSniffingEnabled(false)
     , m_inApplicationChromeMode(false)
     , m_offlineWebApplicationCacheEnabled(false)
-    , m_rangeMutationDisabledForOldAppleMail(false)
     , m_shouldPaintCustomScrollbars(false)
     , m_zoomsTextOnly(false)
     , m_enforceCSSMIMETypeInStrictMode(true)
-    , m_maximumDecodedImageSize(std::numeric_limits<size_t>::max())
-    , m_needsIChatMemoryCacheCallsQuirk(false)
+    , m_usesEncodingDetector(false)
+    , m_allowScriptsToCloseWindows(false)
+    , m_editingBehavior(
+#if PLATFORM(MAC)
+        EditingMacBehavior
+#else
+        EditingWindowsBehavior
+#endif
+        )
+    // FIXME: This should really be disabled by default as it makes platforms that don't support the feature download files
+    // they can't use by. Leaving enabled for now to not change existing behavior.
+    , m_downloadableBinaryFontsEnabled(true)
+    , m_xssAuditorEnabled(false)
+    , m_acceleratedCompositingEnabled(true)
 {
     // A Frame may not have been created yet, so we initialize the AtomicString 
     // hash before trying to use it.
@@ -214,6 +237,16 @@ void Settings::setJavaScriptEnabled(bool isJavaScriptEnabled)
     m_isJavaScriptEnabled = isJavaScriptEnabled;
 }
 
+void Settings::setWebSecurityEnabled(bool isWebSecurityEnabled)
+{
+    m_isWebSecurityEnabled = isWebSecurityEnabled;
+}
+
+void Settings::setAllowUniversalAccessFromFileURLs(bool allowUniversalAccessFromFileURLs)
+{
+    m_allowUniversalAccessFromFileURLs = allowUniversalAccessFromFileURLs;
+}
+
 void Settings::setJavaEnabled(bool isJavaEnabled)
 {
     m_isJavaEnabled = isJavaEnabled;
@@ -224,13 +257,6 @@ void Settings::setPluginsEnabled(bool arePluginsEnabled)
     m_arePluginsEnabled = arePluginsEnabled;
 }
 
-#ifdef ANDROID_PLUGINS
-void Settings::setPluginsPath(const String& pluginsPath)
-{
-    m_pluginsPath = pluginsPath;
-}
-#endif
-
 void Settings::setDatabasesEnabled(bool databasesEnabled)
 {
     m_databasesEnabled = databasesEnabled;
@@ -239,6 +265,11 @@ void Settings::setDatabasesEnabled(bool databasesEnabled)
 void Settings::setLocalStorageEnabled(bool localStorageEnabled)
 {
     m_localStorageEnabled = localStorageEnabled;
+}
+
+void Settings::setSessionStorageEnabled(bool sessionStorageEnabled)
+{
+    m_sessionStorageEnabled = sessionStorageEnabled;
 }
 
 void Settings::setPrivateBrowsingEnabled(bool privateBrowsingEnabled)
@@ -313,6 +344,21 @@ void Settings::setNeedsKeyboardEventDisambiguationQuirks(bool needsQuirks)
     m_needsKeyboardEventDisambiguationQuirks = needsQuirks;
 }
 
+void Settings::setTreatsAnyTextCSSLinkAsStylesheet(bool treatsAnyTextCSSLinkAsStylesheet)
+{
+    m_treatsAnyTextCSSLinkAsStylesheet = treatsAnyTextCSSLinkAsStylesheet;
+}
+
+void Settings::setNeedsLeopardMailQuirks(bool needsQuirks)
+{
+    m_needsLeopardMailQuirks = needsQuirks;
+}
+
+void Settings::setNeedsTigerMailQuirks(bool needsQuirks)
+{
+    m_needsTigerMailQuirks = needsQuirks;
+}
+    
 void Settings::setDOMPasteAllowed(bool DOMPasteAllowed)
 {
     m_isDOMPasteAllowed = DOMPasteAllowed;
@@ -366,9 +412,10 @@ void Settings::resetMetadataSettings()
     m_viewport_minimum_scale = 0;
     m_viewport_maximum_scale = 0;
     m_viewport_user_scalable = true;
-    m_format_detection_telephone = true;    
-    m_format_detection_address = true;    
-    m_format_detection_email = true;    
+    m_viewport_target_densitydpi = -1;
+    m_format_detection_telephone = true;
+    m_format_detection_address = true;
+    m_format_detection_email = true;
 }
 
 void Settings::setMetadataSettings(const String& key, const String& value)
@@ -378,11 +425,11 @@ void Settings::setMetadataSettings(const String& key, const String& value)
             m_viewport_width = 0;
         } else {
             int width = value.toInt();
-            if (width >= 200 && width <= 10000) {
-                if (width == 320) {
+            if (width <= 10000) {
+                if (width <= 320) {
                     // This is a hack to accommodate the pages designed for the 
                     // original iPhone. The new version, since 10/2007, is to 
-                    // use device-width which works for both prtrait and 
+                    // use device-width which works for both portrait and 
                     // landscape modes.
                     m_viewport_width = 0;
                 } else {
@@ -419,7 +466,22 @@ void Settings::setMetadataSettings(const String& key, const String& value)
         // some sites, e.g. gomoviesapp.com, use "false".
         if (value == "no" || value == "0" || value == "false") {
             m_viewport_user_scalable = false;
-        }        
+        }
+    } else if (key == "target-densitydpi") {
+        if (value == "device-dpi") {
+            m_viewport_target_densitydpi = 0;
+        } else if (value == "low-dpi") {
+            m_viewport_target_densitydpi = 120;
+        } else if (value == "medium-dpi") {
+            m_viewport_target_densitydpi = 160;
+        } else if (value == "high-dpi") {
+            m_viewport_target_densitydpi = 240;
+        } else {
+            int dpi = value.toInt();
+            if (dpi >= 70 && dpi <= 400) {
+                m_viewport_target_densitydpi = dpi;
+            }
+        }
     } else if (key == "telephone") {
         if (value == "no") {
             m_format_detection_telephone = false;
@@ -478,14 +540,14 @@ void Settings::setWebArchiveDebugModeEnabled(bool enabled)
     m_webArchiveDebugModeEnabled = enabled;
 }
 
+void Settings::setLocalFileContentSniffingEnabled(bool enabled)
+{
+    m_localFileContentSniffingEnabled = enabled;
+}
+
 void Settings::setLocalStorageDatabasePath(const String& path)
 {
     m_localStorageDatabasePath = path;
-}
-
-void Settings::disableRangeMutationForOldAppleMail(bool disable)
-{
-    m_rangeMutationDisabledForOldAppleMail = disable;
 }
 
 void Settings::setApplicationChromeMode(bool mode)
@@ -524,9 +586,38 @@ void Settings::setShouldPaintNativeControls(bool shouldPaintNativeControls)
 }
 #endif
 
-void Settings::setNeedsIChatMemoryCacheCallsQuirk(bool needsIChatMemoryCacheCallsQuirk)
+void Settings::setUsesEncodingDetector(bool usesEncodingDetector)
 {
-    m_needsIChatMemoryCacheCallsQuirk = needsIChatMemoryCacheCallsQuirk;
+    m_usesEncodingDetector = usesEncodingDetector;
+}
+
+void Settings::setAllowScriptsToCloseWindows(bool allowScriptsToCloseWindows)
+{
+    m_allowScriptsToCloseWindows = allowScriptsToCloseWindows;
+}
+
+void Settings::setCaretBrowsingEnabled(bool caretBrowsingEnabled)
+{
+    m_caretBrowsingEnabled = caretBrowsingEnabled;
+}
+
+void Settings::setDownloadableBinaryFontsEnabled(bool downloadableBinaryFontsEnabled)
+{
+    m_downloadableBinaryFontsEnabled = downloadableBinaryFontsEnabled;
+}
+
+void Settings::setXSSAuditorEnabled(bool xssAuditorEnabled)
+{
+    m_xssAuditorEnabled = xssAuditorEnabled;
+}
+
+void Settings::setAcceleratedCompositingEnabled(bool enabled)
+{
+    if (m_acceleratedCompositingEnabled == enabled)
+        return;
+        
+    m_acceleratedCompositingEnabled = enabled;
+    setNeedsReapplyStylesInAllFrames(m_page);
 }
 
 } // namespace WebCore

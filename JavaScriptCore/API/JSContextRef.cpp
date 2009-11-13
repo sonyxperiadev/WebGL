@@ -70,7 +70,7 @@ JSGlobalContextRef JSGlobalContextCreate(JSClassRef globalObjectClass)
 #else
     {
 #endif
-        JSLock lock(true);
+        JSLock lock(LockForReal);
         return JSGlobalContextCreateInGroup(toRef(&JSGlobalData::sharedInstance()), globalObjectClass);
     }
 #endif // PLATFORM(DARWIN)
@@ -82,7 +82,7 @@ JSGlobalContextRef JSGlobalContextCreateInGroup(JSContextGroupRef group, JSClass
 {
     initializeThreading();
 
-    JSLock lock(true);
+    JSLock lock(LockForReal);
 
     RefPtr<JSGlobalData> globalData = group ? PassRefPtr<JSGlobalData>(toJS(group)) : JSGlobalData::create();
 
@@ -97,7 +97,7 @@ JSGlobalContextRef JSGlobalContextCreateInGroup(JSContextGroupRef group, JSClass
 
     JSGlobalObject* globalObject = new (globalData.get()) JSCallbackObject<JSGlobalObject>(globalObjectClass);
     ExecState* exec = globalObject->globalExec();
-    JSValuePtr prototype = globalObjectClass->prototype(exec);
+    JSValue prototype = globalObjectClass->prototype(exec);
     if (!prototype)
         prototype = jsNull();
     globalObject->resetPrototype(prototype);

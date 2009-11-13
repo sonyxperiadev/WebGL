@@ -128,7 +128,7 @@ void WTFLogVerbose(const char* file, int line, const char* function, WTFLogChann
 
 /* ASSERT, ASSERT_WITH_MESSAGE, ASSERT_NOT_REACHED */
 
-#if PLATFORM(WIN_CE)
+#if PLATFORM(WINCE) && !PLATFORM(TORCHMOBILE)
 /* FIXME: We include this here only to avoid a conflict with the ASSERT macro. */
 #include <windows.h>
 #undef min
@@ -136,8 +136,8 @@ void WTFLogVerbose(const char* file, int line, const char* function, WTFLogChann
 #undef ERROR
 #endif
 
-#if PLATFORM(WIN_OS)
-/* FIXME: Change to use something other than ASSERT to avoid this conflict with win32. */
+#if PLATFORM(WIN_OS) || PLATFORM(SYMBIAN)
+/* FIXME: Change to use something other than ASSERT to avoid this conflict with the underlying platform */
 #undef ASSERT
 #endif
 
@@ -194,7 +194,7 @@ while (0)
 
 /* COMPILE_ASSERT */
 #ifndef COMPILE_ASSERT
-#define COMPILE_ASSERT(exp, name) typedef int dummy##name [(exp) ? 1 : -1];
+#define COMPILE_ASSERT(exp, name) typedef int dummy##name [(exp) ? 1 : -1]
 #endif
 
 /* FATAL */

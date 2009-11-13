@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2007, 2008, 2009 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,10 +26,12 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#import "config.h"
 #import "DumpRenderTree.h"
 #import "LayoutTestController.h"
 
 #import "EditingDelegate.h"
+#import "PolicyDelegate.h"
 #import "WorkQueue.h"
 #import "WorkQueueItem.h"
 #import <Foundation/Foundation.h>
@@ -37,21 +39,58 @@
 #import <JavaScriptCore/JSStringRef.h>
 #import <JavaScriptCore/JSStringRefCF.h>
 #import <WebKit/DOMDocument.h>
+#import <WebKit/DOMElement.h>
+#import <WebKit/WebApplicationCache.h>
 #import <WebKit/WebBackForwardList.h>
 #import <WebKit/WebDatabaseManagerPrivate.h>
 #import <WebKit/WebDataSource.h>
 #import <WebKit/WebFrame.h>
+#import <WebKit/WebFrameViewPrivate.h>
+#import <WebKit/WebIconDatabasePrivate.h>
 #import <WebKit/WebHTMLRepresentation.h>
 #import <WebKit/WebHTMLViewPrivate.h>
 #import <WebKit/WebHistory.h>
+#import <WebKit/WebHistoryPrivate.h>
 #import <WebKit/WebInspector.h>
 #import <WebKit/WebNSURLExtras.h>
 #import <WebKit/WebPreferences.h>
 #import <WebKit/WebPreferencesPrivate.h>
 #import <WebKit/WebSecurityOriginPrivate.h>
+#import <WebKit/WebTypesInternal.h>
 #import <WebKit/WebView.h>
 #import <WebKit/WebViewPrivate.h>
 #import <wtf/RetainPtr.h>
+
+@interface CommandValidationTarget : NSObject <NSValidatedUserInterfaceItem>
+{
+    SEL _action;
+}
+- (id)initWithAction:(SEL)action;
+@end
+
+@implementation CommandValidationTarget
+
+- (id)initWithAction:(SEL)action
+{
+    self = [super init];
+    if (!self)
+        return nil;
+
+    _action = action;
+    return self;
+}
+
+- (SEL)action
+{
+    return _action;
+}
+
+- (NSInteger)tag
+{
+    return 0;
+}
+
+@end
 
 LayoutTestController::~LayoutTestController()
 {
@@ -119,6 +158,11 @@ void LayoutTestController::keepWebHistory()
     }
 }
 
+size_t LayoutTestController::webHistoryItemCount()
+{
+    return [[[WebHistory optionalSharedHistory] allItems] count];
+}
+
 void LayoutTestController::notifyDone()
 {
     if (m_waitToDump && !topLoadingFrame && !WorkQueue::shared()->count())
@@ -129,16 +173,6 @@ void LayoutTestController::notifyDone()
 JSStringRef LayoutTestController::pathToLocalResource(JSContextRef context, JSStringRef url)
 {
     return JSStringRetain(url); // Do nothing on mac.
-}
-
-void LayoutTestController::queueBackNavigation(int howFarBack)
-{
-    WorkQueue::shared()->queue(new BackItem(howFarBack));
-}
-
-void LayoutTestController::queueForwardNavigation(int howFarForward)
-{
-    WorkQueue::shared()->queue(new ForwardItem(howFarForward));
 }
 
 void LayoutTestController::queueLoad(JSStringRef url, JSStringRef target)
@@ -153,19 +187,14 @@ void LayoutTestController::queueLoad(JSStringRef url, JSStringRef target)
     WorkQueue::shared()->queue(new LoadItem(absoluteURL.get(), target));
 }
 
-void LayoutTestController::queueReload()
-{
-    WorkQueue::shared()->queue(new ReloadItem);
-}
-
-void LayoutTestController::queueScript(JSStringRef script)
-{
-    WorkQueue::shared()->queue(new ScriptItem(script));
-}
-
 void LayoutTestController::setAcceptsEditing(bool newAcceptsEditing)
 {
     [(EditingDelegate *)[[mainFrame webView] editingDelegate] setAcceptsEditing:newAcceptsEditing];
+}
+
+void LayoutTestController::setAppCacheMaximumSize(unsigned long long size)
+{
+    [WebApplicationCache setMaximumSize:size];
 }
 
 void LayoutTestController::setAuthorAndUserStylesEnabled(bool flag)
@@ -173,11 +202,12 @@ void LayoutTestController::setAuthorAndUserStylesEnabled(bool flag)
     [[[mainFrame webView] preferences] setAuthorAndUserStylesEnabled:flag];
 }
 
-void LayoutTestController::setCustomPolicyDelegate(bool setDelegate)
+void LayoutTestController::setCustomPolicyDelegate(bool setDelegate, bool permissive)
 {
-    if (setDelegate)
+    if (setDelegate) {
+        [policyDelegate setPermissive:permissive];
         [[mainFrame webView] setPolicyDelegate:policyDelegate];
-    else
+    } else
         [[mainFrame webView] setPolicyDelegate:nil];
 }
 
@@ -188,20 +218,42 @@ void LayoutTestController::setDatabaseQuota(unsigned long long quota)
     [origin release];
 }
 
+void LayoutTestController::setIconDatabaseEnabled(bool iconDatabaseEnabled)
+{
+    // FIXME: Workaround <rdar://problem/6480108>
+    static WebIconDatabase* sharedWebIconDatabase = NULL;
+    if (!sharedWebIconDatabase) {
+        if (!iconDatabaseEnabled)
+            return;
+        sharedWebIconDatabase = [WebIconDatabase sharedIconDatabase];
+        if ([sharedWebIconDatabase isEnabled] == iconDatabaseEnabled)
+            return;
+    }
+    [sharedWebIconDatabase setEnabled:iconDatabaseEnabled];
+}
+
+void LayoutTestController::setJavaScriptProfilingEnabled(bool profilingEnabled)
+{
+    [[[mainFrame webView] preferences] setDeveloperExtrasEnabled:profilingEnabled];
+    [[[mainFrame webView] inspector] setJavaScriptProfilingEnabled:profilingEnabled];
+}
+
 void LayoutTestController::setMainFrameIsFirstResponder(bool flag)
 {
     NSView *documentView = [[mainFrame frameView] documentView];
     
     NSResponder *firstResponder = flag ? documentView : nil;
     [[[mainFrame webView] window] makeFirstResponder:firstResponder];
-        
-    if ([documentView isKindOfClass:[WebHTMLView class]])
-        [(WebHTMLView *)documentView _updateFocusedAndActiveState];
 }
 
 void LayoutTestController::setPrivateBrowsingEnabled(bool privateBrowsingEnabled)
 {
     [[[mainFrame webView] preferences] setPrivateBrowsingEnabled:privateBrowsingEnabled];
+}
+
+void LayoutTestController::setXSSAuditorEnabled(bool enabled)
+{
+    [[[mainFrame webView] preferences] setXSSAuditorEnabled:enabled];
 }
 
 void LayoutTestController::setPopupBlockingEnabled(bool popupBlockingEnabled)
@@ -231,6 +283,16 @@ void LayoutTestController::setUserStyleSheetLocation(JSStringRef path)
     [[WebPreferences standardPreferences] setUserStyleSheetLocation:url];
 }
 
+void LayoutTestController::disableImageLoading()
+{
+    [[WebPreferences standardPreferences] setLoadsImagesAutomatically:NO];
+}
+
+void LayoutTestController::dispatchPendingLoadRequests()
+{
+    [[mainFrame webView] _dispatchPendingLoadRequests];
+}
+
 void LayoutTestController::setPersistentUserStyleSheetLocation(JSStringRef jsURL)
 {
     RetainPtr<CFStringRef> urlString(AdoptCF, JSStringCopyCFString(0, jsURL));
@@ -245,9 +307,7 @@ void LayoutTestController::clearPersistentUserStyleSheet()
 void LayoutTestController::setWindowIsKey(bool windowIsKey)
 {
     m_windowIsKey = windowIsKey;
-    NSView *documentView = [[mainFrame frameView] documentView];
-    if ([documentView isKindOfClass:[WebHTMLView class]])
-        [(WebHTMLView *)documentView _updateFocusedAndActiveState];
+    [[mainFrame webView] _updateActiveState];
 }
 
 void LayoutTestController::setSmartInsertDeleteEnabled(bool flag)
@@ -255,10 +315,9 @@ void LayoutTestController::setSmartInsertDeleteEnabled(bool flag)
     [[mainFrame webView] setSmartInsertDeleteEnabled:flag];
 }
 
-void LayoutTestController::setJavaScriptProfilingEnabled(bool profilingEnabled)
+void LayoutTestController::setSelectTrailingWhitespaceEnabled(bool flag)
 {
-    [[[mainFrame webView] preferences] setDeveloperExtrasEnabled:profilingEnabled];
-    [[[mainFrame webView] inspector] setJavaScriptProfilingEnabled:profilingEnabled];
+    [[mainFrame webView] setSelectTrailingWhitespaceEnabled:flag];
 }
 
 static const CFTimeInterval waitToDumpWatchdogInterval = 10.0;
@@ -308,4 +367,65 @@ void LayoutTestController::execCommand(JSStringRef name, JSStringRef value)
     NSString *valueNS = (NSString *)valueCF.get();
 
     [[mainFrame webView] _executeCoreCommandByName:nameNS value:valueNS];
+}
+
+void LayoutTestController::setCacheModel(int cacheModel)
+{
+    [[WebPreferences standardPreferences] setCacheModel:cacheModel];
+}
+
+bool LayoutTestController::isCommandEnabled(JSStringRef name)
+{
+    RetainPtr<CFStringRef> nameCF(AdoptCF, JSStringCopyCFString(kCFAllocatorDefault, name));
+    NSString *nameNS = reinterpret_cast<const NSString *>(nameCF.get());
+
+    // Accept command strings with capital letters for first letter without trailing colon.
+    if (![nameNS hasSuffix:@":"] && [nameNS length]) {
+        nameNS = [[[[nameNS substringToIndex:1] lowercaseString]
+            stringByAppendingString:[nameNS substringFromIndex:1]]
+            stringByAppendingString:@":"];
+    }
+
+    SEL selector = NSSelectorFromString(nameNS);
+    RetainPtr<CommandValidationTarget> target(AdoptNS, [[CommandValidationTarget alloc] initWithAction:selector]);
+    id validator = [NSApp targetForAction:selector to:[mainFrame webView] from:target.get()];
+    if (!validator)
+        return false;
+    if (![validator respondsToSelector:selector])
+        return false;
+    if (![validator respondsToSelector:@selector(validateUserInterfaceItem:)])
+        return true;
+    return [validator validateUserInterfaceItem:target.get()];
+}
+
+bool LayoutTestController::pauseAnimationAtTimeOnElementWithId(JSStringRef animationName, double time, JSStringRef elementId)
+{
+    RetainPtr<CFStringRef> idCF(AdoptCF, JSStringCopyCFString(kCFAllocatorDefault, elementId));
+    NSString *idNS = (NSString *)idCF.get();
+    RetainPtr<CFStringRef> nameCF(AdoptCF, JSStringCopyCFString(kCFAllocatorDefault, animationName));
+    NSString *nameNS = (NSString *)nameCF.get();
+    
+    return [mainFrame _pauseAnimation:nameNS onNode:[[mainFrame DOMDocument] getElementById:idNS] atTime:time];
+}
+
+bool LayoutTestController::pauseTransitionAtTimeOnElementWithId(JSStringRef propertyName, double time, JSStringRef elementId)
+{
+    RetainPtr<CFStringRef> idCF(AdoptCF, JSStringCopyCFString(kCFAllocatorDefault, elementId));
+    NSString *idNS = (NSString *)idCF.get();
+    RetainPtr<CFStringRef> nameCF(AdoptCF, JSStringCopyCFString(kCFAllocatorDefault, propertyName));
+    NSString *nameNS = (NSString *)nameCF.get();
+    
+    return [mainFrame _pauseTransitionOfProperty:nameNS onNode:[[mainFrame DOMDocument] getElementById:idNS] atTime:time];
+}
+
+unsigned LayoutTestController::numberOfActiveAnimations() const
+{
+    return [mainFrame _numberOfActiveAnimations];
+}
+
+void LayoutTestController::waitForPolicyDelegate()
+{
+    setWaitToDump(true);
+    [policyDelegate setControllerToNotifyDone:this];
+    [[mainFrame webView] setPolicyDelegate:policyDelegate];
 }

@@ -29,7 +29,6 @@
 #include "CairoPath.h"
 #include "FloatRect.h"
 #include "GraphicsContext.h"
-#include "NotImplemented.h"
 #include "PlatformString.h"
 #include "StrokeStyleApplier.h"
 
@@ -88,6 +87,11 @@ bool Path::isEmpty() const
     cairo_path_destroy(p);
     return !hasData;
 #endif
+}
+
+bool Path::hasCurrentPoint() const
+{
+    return !isEmpty();
 }
 
 void Path::translate(const FloatSize& p)

@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 2006, 2008 Apple Inc. All rights reserved.
  * Copyright (C) 2008 Collabora, Ltd.  All rights reserved.
+ * Copyright (C) 2009 Torch Mobile, Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -68,6 +69,11 @@ int PluginPackage::compareFileVersion(const PlatformModuleVersion& compareVersio
 
 bool PluginPackage::isPluginBlacklisted()
 {
+    if (name() == "Citrix ICA Client") {
+        // The Citrix ICA Client plug-in requires a Mozilla-based browser; see <rdar://6418681>.
+        return true;
+    }
+
     if (name() == "Silverlight Plug-In") {
         // workaround for <rdar://5557379> Crash in Silverlight when opening microsoft.com.
         // the latest 1.0 version of Silverlight does not reproduce this crash, so allow it
@@ -76,9 +82,16 @@ bool PluginPackage::isPluginBlacklisted()
 
         if (compareFileVersion(slPluginMinRequired) < 0)
             return true;
-    } else if (fileName() == "npmozax.dll")
+    } else if (fileName() == "npmozax.dll") {
         // Bug 15217: Mozilla ActiveX control complains about missing xpcom_core.dll
         return true;
+    } else if (name() == "Yahoo Application State Plugin") {
+        // https://bugs.webkit.org/show_bug.cgi?id=26860
+        // Bug in Yahoo Application State plug-in earlier than 1.0.0.6 leads to heap corruption. 
+        static const PlatformModuleVersion yahooAppStatePluginMinRequired(0x00000006, 0x00010000);
+        if (compareFileVersion(yahooAppStatePluginMinRequired) < 0)
+            return true;
+    }
 
     return false;
 }
@@ -114,7 +127,7 @@ void PluginPackage::determineQuirks(const String& mimeType)
         m_quirks.add(PluginQuirkHasModalMessageLoop);
     }
 
-    if (name() == "VLC Multimedia Plugin") {
+    if (name() == "VLC Multimedia Plugin" || name() == "VLC Multimedia Plug-in") {
         // VLC hangs on NPP_Destroy if we call NPP_SetWindow with a null window handle
         m_quirks.add(PluginQuirkDontSetNullWindowHandleOnDestroy);
 
@@ -232,6 +245,9 @@ bool PluginPackage::load()
         m_loadCount++;
         return true;
     } else {
+#if PLATFORM(WINCE)
+        m_module = ::LoadLibraryW(m_path.charactersWithNullTermination());
+#else
         WCHAR currentPath[MAX_PATH];
 
         if (!::GetCurrentDirectoryW(MAX_PATH, currentPath))
@@ -243,13 +259,14 @@ bool PluginPackage::load()
             return false;
 
         // Load the library
-        m_module = ::LoadLibraryW(m_path.charactersWithNullTermination());
+        m_module = ::LoadLibraryExW(m_path.charactersWithNullTermination(), 0, LOAD_WITH_ALTERED_SEARCH_PATH);
 
         if (!::SetCurrentDirectoryW(currentPath)) {
             if (m_module)
                 ::FreeLibrary(m_module);
             return false;
         }
+#endif
     }
 
     if (!m_module)
@@ -261,13 +278,19 @@ bool PluginPackage::load()
     NP_InitializeFuncPtr NP_Initialize = 0;
     NPError npErr;
 
+#if PLATFORM(WINCE)
+    NP_Initialize = (NP_InitializeFuncPtr)GetProcAddress(m_module, L"NP_Initialize");
+    NP_GetEntryPoints = (NP_GetEntryPointsFuncPtr)GetProcAddress(m_module, L"NP_GetEntryPoints");
+    m_NPP_Shutdown = (NPP_ShutdownProcPtr)GetProcAddress(m_module, L"NP_Shutdown");
+#else
     NP_Initialize = (NP_InitializeFuncPtr)GetProcAddress(m_module, "NP_Initialize");
     NP_GetEntryPoints = (NP_GetEntryPointsFuncPtr)GetProcAddress(m_module, "NP_GetEntryPoints");
     m_NPP_Shutdown = (NPP_ShutdownProcPtr)GetProcAddress(m_module, "NP_Shutdown");
+#endif
 
     if (!NP_Initialize || !NP_GetEntryPoints || !m_NPP_Shutdown)
         goto abort;
-  
+
     memset(&m_pluginFuncs, 0, sizeof(m_pluginFuncs));
     m_pluginFuncs.size = sizeof(m_pluginFuncs);
 
@@ -276,56 +299,7 @@ bool PluginPackage::load()
     if (npErr != NPERR_NO_ERROR)
         goto abort;
 
-    memset(&m_browserFuncs, 0, sizeof(m_browserFuncs));
-    m_browserFuncs.size = sizeof (m_browserFuncs);
-    m_browserFuncs.version = NP_VERSION_MINOR;
-
-    m_browserFuncs.geturl = NPN_GetURL;
-    m_browserFuncs.posturl = NPN_PostURL;
-    m_browserFuncs.requestread = NPN_RequestRead;
-    m_browserFuncs.newstream = NPN_NewStream;
-    m_browserFuncs.write = NPN_Write;
-    m_browserFuncs.destroystream = NPN_DestroyStream;
-    m_browserFuncs.status = NPN_Status;
-    m_browserFuncs.uagent = NPN_UserAgent;
-    m_browserFuncs.memalloc = NPN_MemAlloc;
-    m_browserFuncs.memfree = NPN_MemFree;
-    m_browserFuncs.memflush = NPN_MemFlush;
-    m_browserFuncs.reloadplugins = NPN_ReloadPlugins;
-    m_browserFuncs.geturlnotify = NPN_GetURLNotify;
-    m_browserFuncs.posturlnotify = NPN_PostURLNotify;
-    m_browserFuncs.getvalue = NPN_GetValue;
-    m_browserFuncs.setvalue = NPN_SetValue;
-    m_browserFuncs.invalidaterect = NPN_InvalidateRect;
-    m_browserFuncs.invalidateregion = NPN_InvalidateRegion;
-    m_browserFuncs.forceredraw = NPN_ForceRedraw;
-    m_browserFuncs.getJavaEnv = NPN_GetJavaEnv;
-    m_browserFuncs.getJavaPeer = NPN_GetJavaPeer;
-    m_browserFuncs.pushpopupsenabledstate = NPN_PushPopupsEnabledState;
-    m_browserFuncs.poppopupsenabledstate = NPN_PopPopupsEnabledState;
-    m_browserFuncs.pluginthreadasynccall = NPN_PluginThreadAsyncCall;
-
-    m_browserFuncs.releasevariantvalue = _NPN_ReleaseVariantValue;
-    m_browserFuncs.getstringidentifier = _NPN_GetStringIdentifier;
-    m_browserFuncs.getstringidentifiers = _NPN_GetStringIdentifiers;
-    m_browserFuncs.getintidentifier = _NPN_GetIntIdentifier;
-    m_browserFuncs.identifierisstring = _NPN_IdentifierIsString;
-    m_browserFuncs.utf8fromidentifier = _NPN_UTF8FromIdentifier;
-    m_browserFuncs.intfromidentifier = _NPN_IntFromIdentifier;
-    m_browserFuncs.createobject = _NPN_CreateObject;
-    m_browserFuncs.retainobject = _NPN_RetainObject;
-    m_browserFuncs.releaseobject = _NPN_ReleaseObject;
-    m_browserFuncs.invoke = _NPN_Invoke;
-    m_browserFuncs.invokeDefault = _NPN_InvokeDefault;
-    m_browserFuncs.evaluate = _NPN_Evaluate;
-    m_browserFuncs.getproperty = _NPN_GetProperty;
-    m_browserFuncs.setproperty = _NPN_SetProperty;
-    m_browserFuncs.removeproperty = _NPN_RemoveProperty;
-    m_browserFuncs.hasproperty = _NPN_HasProperty;
-    m_browserFuncs.hasmethod = _NPN_HasMethod;
-    m_browserFuncs.setexception = _NPN_SetException;
-    m_browserFuncs.enumerate = _NPN_Enumerate;
-    m_browserFuncs.construct = _NPN_Construct;
+    initializeBrowserFuncs();
 
     npErr = NP_Initialize(&m_browserFuncs);
     LOG_NPERROR(npErr);

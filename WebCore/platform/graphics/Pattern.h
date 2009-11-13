@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 2006, 2007, 2008 Apple Computer, Inc.  All rights reserved.
  * Copyright (C) 2008 Eric Seidel <eric@webkit.org>
+ * Copyright (C) 2007-2008 Torch Mobile, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,6 +31,7 @@
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
+#include "TransformationMatrix.h"
 
 #if PLATFORM(CG)
 typedef struct CGPattern* CGPatternRef;
@@ -51,6 +53,8 @@ typedef wxGraphicsBrush* PlatformPatternPtr;
 class wxBrush;
 typedef wxBrush* PlatformPatternPtr;
 #endif // USE(WXGC)
+#elif PLATFORM(WINCE)
+typedef void* PlatformPatternPtr;
 #endif
 
 namespace WebCore {
@@ -67,7 +71,9 @@ namespace WebCore {
 
         Image* tileImage() const { return m_tileImage.get(); }
 
-        PlatformPatternPtr createPlatformPattern(const TransformationMatrix& patternTransform) const;
+        // Pattern space is an abstract space that maps to the default user space by the transformation 'userSpaceTransformation' 
+        PlatformPatternPtr createPlatformPattern(const TransformationMatrix& userSpaceTransformation) const;
+        void setPatternSpaceTransform(const TransformationMatrix& patternSpaceTransformation) { m_patternSpaceTransformation = patternSpaceTransformation; }
 
     private:
         Pattern(Image*, bool repeatX, bool repeatY);
@@ -75,6 +81,7 @@ namespace WebCore {
         RefPtr<Image> m_tileImage;
         bool m_repeatX;
         bool m_repeatY;
+        TransformationMatrix m_patternSpaceTransformation;
     };
 
 } //namespace

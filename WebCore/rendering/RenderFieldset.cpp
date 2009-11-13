@@ -99,7 +99,7 @@ RenderObject* RenderFieldset::layoutLegend(bool relayoutChildren)
         int b = borderTop();
         int h = legend->height();
         legend->setLocation(xPos, max((b-h)/2, 0));
-        setHeight(max(b,h) + paddingTop());
+        setHeight(max(b, h) + paddingTop());
     }
     return legend;
 }
@@ -107,10 +107,10 @@ RenderObject* RenderFieldset::layoutLegend(bool relayoutChildren)
 RenderBox* RenderFieldset::findLegend() const
 {
     for (RenderObject* legend = firstChild(); legend; legend = legend->nextSibling()) {
-        if (!legend->isFloatingOrPositioned() && legend->element() &&
-            legend->element()->hasTagName(legendTag)
+        if (!legend->isFloatingOrPositioned() && legend->node() &&
+            legend->node()->hasTagName(legendTag)
 #if ENABLE(WML)
-            || legend->element()->hasTagName(WMLNames::insertedLegendTag)
+            || legend->node()->hasTagName(WMLNames::insertedLegendTag)
 #endif
            )
             return toRenderBox(legend);
@@ -131,13 +131,10 @@ void RenderFieldset::paintBoxDecorations(PaintInfo& paintInfo, int tx, int ty)
     h -= yOff;
     ty += yOff;
 
-    int my = max(ty, paintInfo.rect.y());
-    int end = min(paintInfo.rect.bottom(), ty + h);
-    int mh = end - my;
+    paintBoxShadow(paintInfo.context, tx, ty, w, h, style(), Normal);
 
-    paintBoxShadow(paintInfo.context, tx, ty, w, h, style());
-
-    paintFillLayers(paintInfo, style()->backgroundColor(), style()->backgroundLayers(), my, mh, tx, ty, w, h);
+    paintFillLayers(paintInfo, style()->backgroundColor(), style()->backgroundLayers(), tx, ty, w, h);
+    paintBoxShadow(paintInfo.context, tx, ty, w, h, style(), Inset);
 
     if (!style()->hasBorder())
         return;
@@ -176,11 +173,7 @@ void RenderFieldset::paintMask(PaintInfo& paintInfo, int tx, int ty)
     h -= yOff;
     ty += yOff;
 
-    int my = max(ty, paintInfo.rect.y());
-    int end = min(paintInfo.rect.bottom(), ty + h);
-    int mh = end - my;
-
-    paintMaskImages(paintInfo, my, mh, tx, ty, w, h);
+    paintMaskImages(paintInfo, tx, ty, w, h);
 }
         
 void RenderFieldset::paintBorderMinusLegend(GraphicsContext* graphicsContext, int tx, int ty, int w, int h,
@@ -204,17 +197,17 @@ void RenderFieldset::paintBorderMinusLegend(GraphicsContext* graphicsContext, in
 
     if (render_t) {
         if (lx >= borderLeftWidth)
-            drawBorder(graphicsContext, tx, ty, tx + min(lx, w), ty + style->borderTopWidth(), BSTop, tc, style->color(), ts,
+            drawLineForBoxSide(graphicsContext, tx, ty, tx + min(lx, w), ty + style->borderTopWidth(), BSTop, tc, style->color(), ts,
                        (render_l && (ls == DOTTED || ls == DASHED || ls == DOUBLE) ? borderLeftWidth : 0),
                        (lx >= w && render_r && (rs == DOTTED || rs == DASHED || rs == DOUBLE) ? borderRightWidth : 0));
         if (lx + lw <=  w - borderRightWidth)
-            drawBorder(graphicsContext, tx + max(0, lx + lw), ty, tx + w, ty + style->borderTopWidth(), BSTop, tc, style->color(), ts,
+            drawLineForBoxSide(graphicsContext, tx + max(0, lx + lw), ty, tx + w, ty + style->borderTopWidth(), BSTop, tc, style->color(), ts,
                        (lx + lw <= 0 && render_l && (ls == DOTTED || ls == DASHED || ls == DOUBLE) ? borderLeftWidth : 0),
                        (render_r && (rs == DOTTED || rs == DASHED || rs == DOUBLE) ? borderRightWidth : 0));
     }
 
     if (render_b)
-        drawBorder(graphicsContext, tx, ty + h - style->borderBottomWidth(), tx + w, ty + h, BSBottom, bc, style->color(), bs,
+        drawLineForBoxSide(graphicsContext, tx, ty + h - style->borderBottomWidth(), tx + w, ty + h, BSBottom, bc, style->color(), bs,
                    (render_l && (ls == DOTTED || ls == DASHED || ls == DOUBLE) ? style->borderLeftWidth() : 0),
                    (render_r && (rs == DOTTED || rs == DASHED || rs == DOUBLE) ? style->borderRightWidth() : 0));
 
@@ -238,7 +231,7 @@ void RenderFieldset::paintBorderMinusLegend(GraphicsContext* graphicsContext, in
             startY = lb;
         }
 
-        drawBorder(graphicsContext, tx, startY, tx + borderLeftWidth, ty + h, BSLeft, lc, style->color(), ls,
+        drawLineForBoxSide(graphicsContext, tx, startY, tx + borderLeftWidth, ty + h, BSLeft, lc, style->color(), ls,
                    ignore_top ? 0 : style->borderTopWidth(), ignore_bottom ? 0 : style->borderBottomWidth());
     }
 
@@ -262,12 +255,12 @@ void RenderFieldset::paintBorderMinusLegend(GraphicsContext* graphicsContext, in
             startY = lb;
         }
 
-        drawBorder(graphicsContext, tx + w - borderRightWidth, startY, tx + w, ty + h, BSRight, rc, style->color(), rs,
+        drawLineForBoxSide(graphicsContext, tx + w - borderRightWidth, startY, tx + w, ty + h, BSRight, rc, style->color(), rs,
                    ignore_top ? 0 : style->borderTopWidth(), ignore_bottom ? 0 : style->borderBottomWidth());
     }
 }
 
-void RenderFieldset::styleDidChange(RenderStyle::Diff diff, const RenderStyle* oldStyle)
+void RenderFieldset::styleDidChange(StyleDifference diff, const RenderStyle* oldStyle)
 {
     RenderBlock::styleDidChange(diff, oldStyle);
 

@@ -34,7 +34,9 @@
 #include "FrameView.h"
 #include "HTMLFrameSetElement.h"
 #include "HTMLNames.h"
+#include "ScriptEventListener.h"
 #include "KURL.h"
+#include "MappedAttribute.h"
 #include "Page.h"
 #include "RenderFrame.h"
 #include "Settings.h"
@@ -43,8 +45,8 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
-HTMLFrameElementBase::HTMLFrameElementBase(const QualifiedName& tagName, Document* doc, bool createdByParser)
-    : HTMLFrameOwnerElement(tagName, doc, createdByParser)
+HTMLFrameElementBase::HTMLFrameElementBase(const QualifiedName& tagName, Document* document)
+    : HTMLFrameOwnerElement(tagName, document)
     , m_scrolling(ScrollbarAuto)
     , m_marginWidth(-1)
     , m_marginHeight(-1)
@@ -77,7 +79,7 @@ bool HTMLFrameElementBase::isURLAllowed(const AtomicString& URLString) const
     // But we don't allow more than one.
     bool foundSelfReference = false;
     for (Frame* frame = document()->frame(); frame; frame = frame->tree()->parent()) {
-        if (equalIgnoringRef(frame->loader()->url(), completeURL)) {
+        if (equalIgnoringFragmentIdentifier(frame->loader()->url(), completeURL)) {
             if (foundSelfReference)
                 return false;
             foundSelfReference = true;
@@ -109,7 +111,7 @@ void HTMLFrameElementBase::openURL()
 void HTMLFrameElementBase::parseMappedAttribute(MappedAttribute *attr)
 {
     if (attr->name() == srcAttr)
-        setLocation(parseURL(attr->value()));
+        setLocation(deprecatedParseURL(attr->value()));
     else if (attr->name() == idAttr) {
         // Important to call through to base for the id attribute so the hasID bit gets set.
         HTMLFrameOwnerElement::parseMappedAttribute(attr);
@@ -140,10 +142,10 @@ void HTMLFrameElementBase::parseMappedAttribute(MappedAttribute *attr)
         if (contentFrame())
             contentFrame()->setInViewSourceMode(viewSourceMode());
     } else if (attr->name() == onloadAttr) {
-        setInlineEventListenerForTypeAndAttribute(eventNames().loadEvent, attr);
+        setAttributeEventListener(eventNames().loadEvent, createAttributeEventListener(this, attr));
     } else if (attr->name() == onbeforeunloadAttr) {
         // FIXME: should <frame> elements have beforeunload handlers?
-        setInlineEventListenerForTypeAndAttribute(eventNames().beforeunloadEvent, attr);
+        setAttributeEventListener(eventNames().beforeunloadEvent, createAttributeEventListener(this, attr));
     } else
         HTMLFrameOwnerElement::parseMappedAttribute(attr);
 }
@@ -191,9 +193,10 @@ void HTMLFrameElementBase::attach()
 
     HTMLFrameOwnerElement::attach();
     
-    if (RenderPart* renderPart = static_cast<RenderPart*>(renderer()))
+    if (RenderPart* renderPart = toRenderPart(renderer())) {
         if (Frame* frame = contentFrame())
             renderPart->setWidget(frame->view());
+    }
 }
 
 KURL HTMLFrameElementBase::location() const

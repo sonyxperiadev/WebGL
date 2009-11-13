@@ -39,7 +39,6 @@ PopupMenu::~PopupMenu()
 
 void PopupMenu::show(const IntRect&, FrameView*, int)
 {
-
 }
 
 void PopupMenu::hide()

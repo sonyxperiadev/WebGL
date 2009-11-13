@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2008, 2009 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -36,20 +36,20 @@ namespace JSC {
     public:
         DebuggerActivation(JSObject*);
 
-        virtual void mark();
+        virtual void markChildren(MarkStack&);
         virtual UString className() const;
         virtual bool getOwnPropertySlot(ExecState*, const Identifier& propertyName, PropertySlot&);
-        virtual void put(ExecState*, const Identifier& propertyName, JSValuePtr, PutPropertySlot&);
-        virtual void putWithAttributes(ExecState*, const Identifier& propertyName, JSValuePtr, unsigned attributes);
+        virtual void put(ExecState*, const Identifier& propertyName, JSValue, PutPropertySlot&);
+        virtual void putWithAttributes(ExecState*, const Identifier& propertyName, JSValue, unsigned attributes);
         virtual bool deleteProperty(ExecState*, const Identifier& propertyName);
         virtual void getPropertyNames(ExecState*, PropertyNameArray&);
         virtual bool getPropertyAttributes(ExecState*, const Identifier& propertyName, unsigned& attributes) const;
         virtual void defineGetter(ExecState*, const Identifier& propertyName, JSObject* getterFunction);
         virtual void defineSetter(ExecState*, const Identifier& propertyName, JSObject* setterFunction);
-        virtual JSValuePtr lookupGetter(ExecState*, const Identifier& propertyName);
-        virtual JSValuePtr lookupSetter(ExecState*, const Identifier& propertyName);
+        virtual JSValue lookupGetter(ExecState*, const Identifier& propertyName);
+        virtual JSValue lookupSetter(ExecState*, const Identifier& propertyName);
 
-        static PassRefPtr<Structure> createStructure(JSValuePtr prototype) 
+        static PassRefPtr<Structure> createStructure(JSValue prototype) 
         {
             return Structure::create(prototype, TypeInfo(ObjectType)); 
         }

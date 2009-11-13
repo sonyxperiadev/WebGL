@@ -26,6 +26,8 @@
 #include "config.h"
 #include "JavaScriptCallFrame.h"
 
+#if ENABLE(JAVASCRIPT_DEBUGGER)
+
 #include "PlatformString.h"
 #include <debugger/DebuggerCallFrame.h>
 #include <runtime/JSGlobalObject.h>
@@ -37,7 +39,7 @@
 using namespace JSC;
 
 namespace WebCore {
-
+    
 JavaScriptCallFrame::JavaScriptCallFrame(const DebuggerCallFrame& debuggerCallFrame, PassRefPtr<JavaScriptCallFrame> caller, intptr_t sourceID, int line)
     : m_debuggerCallFrame(debuggerCallFrame)
     , m_caller(caller)
@@ -60,15 +62,23 @@ const JSC::ScopeChainNode* JavaScriptCallFrame::scopeChain() const
     return m_debuggerCallFrame.scopeChain();
 }
 
+JSC::JSGlobalObject* JavaScriptCallFrame::dynamicGlobalObject() const
+{
+    ASSERT(m_isValid);
+    if (!m_isValid)
+        return 0;
+    return m_debuggerCallFrame.dynamicGlobalObject();
+}
+
 String JavaScriptCallFrame::functionName() const
 {
     ASSERT(m_isValid);
     if (!m_isValid)
         return String();
-    const UString* functionName = m_debuggerCallFrame.functionName();
-    if (!functionName)
+    UString functionName = m_debuggerCallFrame.calculatedFunctionName();
+    if (functionName.isEmpty())
         return String();
-    return *functionName;
+    return functionName;
 }
 
 DebuggerCallFrame::Type JavaScriptCallFrame::type() const
@@ -88,14 +98,16 @@ JSObject* JavaScriptCallFrame::thisObject() const
 }
 
 // Evaluate some JavaScript code in the scope of this frame.
-JSValuePtr JavaScriptCallFrame::evaluate(const UString& script, JSValuePtr& exception) const
+JSValue JavaScriptCallFrame::evaluate(const UString& script, JSValue& exception) const
 {
     ASSERT(m_isValid);
     if (!m_isValid)
         return jsNull();
 
-    JSLock lock(false);
+    JSLock lock(SilenceAssertionsOnly);
     return m_debuggerCallFrame.evaluate(script, exception);
 }
 
 } // namespace WebCore
+
+#endif // ENABLE(JAVASCRIPT_DEBUGGER)

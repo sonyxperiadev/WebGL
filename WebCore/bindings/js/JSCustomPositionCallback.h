@@ -44,7 +44,7 @@ class JSCustomPositionCallback : public PositionCallback {
 public:
     static PassRefPtr<JSCustomPositionCallback> create(JSC::JSObject* callback, Frame* frame) { return adoptRef(new JSCustomPositionCallback(callback, frame)); }
     
-    virtual void handleEvent(Geoposition*, bool& raisedException);
+    virtual void handleEvent(Geoposition*);
 
 private:
     JSCustomPositionCallback(JSC::JSObject* callback, Frame*);

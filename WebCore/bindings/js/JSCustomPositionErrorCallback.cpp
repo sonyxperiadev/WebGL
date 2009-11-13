@@ -26,10 +26,8 @@
 #include "config.h"
 #include "JSCustomPositionErrorCallback.h"
 
-#include "CString.h"
 #include "Frame.h"
 #include "JSPositionError.h"
-#include "Page.h"
 #include "ScriptController.h"
 #include <runtime/JSLock.h>
 
@@ -50,13 +48,14 @@ void JSCustomPositionErrorCallback::handleEvent(PositionError* positionError)
     
     if (!m_frame->script()->isEnabled())
         return;
-    
+
+    // FIXME: This is likely the wrong globalObject (for prototype chains at least)
     JSGlobalObject* globalObject = m_frame->script()->globalObject();
     ExecState* exec = globalObject->globalExec();
     
-    JSC::JSLock lock(false);
+    JSC::JSLock lock(SilenceAssertionsOnly);
     
-    JSValuePtr function = m_callback->get(exec, Identifier(exec, "handleEvent"));
+    JSValue function = m_callback->get(exec, Identifier(exec, "handleEvent"));
     CallData callData;
     CallType callType = function.getCallData(callData);
     if (callType == CallTypeNone) {
@@ -70,15 +69,17 @@ void JSCustomPositionErrorCallback::handleEvent(PositionError* positionError)
     
     RefPtr<JSCustomPositionErrorCallback> protect(this);
     
-    ArgList args;
-    args.append(toJS(exec, positionError));
+    MarkedArgumentBuffer args;
+    args.append(toJS(exec, deprecatedGlobalObjectForPrototype(exec), positionError));
     
-    globalObject->startTimeoutCheck();
+    globalObject->globalData()->timeoutChecker.start();
     call(exec, function, callType, callData, m_callback, args);
-    globalObject->stopTimeoutCheck();
+    globalObject->globalData()->timeoutChecker.stop();
     
     if (exec->hadException())
         reportCurrentException(exec);
+    
+    Document::updateStyleForAllDocuments();
 }
     
 } // namespace WebCore

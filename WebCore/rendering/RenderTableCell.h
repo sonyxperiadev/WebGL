@@ -4,7 +4,7 @@
  *           (C) 1998 Waldo Bastian (bastian@kde.org)
  *           (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
- * Copyright (C) 2003, 2004, 2005, 2006, 2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2003, 2004, 2005, 2006, 2007, 2009 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -33,12 +33,6 @@ class RenderTableCell : public RenderBlock {
 public:
     RenderTableCell(Node*);
 
-    virtual const char* renderName() const { return isAnonymous() ? "RenderTableCell (anonymous)" : "RenderTableCell"; }
-
-    virtual bool isTableCell() const { return true; }
-
-    virtual void destroy();
-
     // FIXME: need to implement cellIndex
     int cellIndex() const { return 0; }
     void setCellIndex(int) { }
@@ -54,19 +48,19 @@ public:
     int row() const { return m_row; }
     void setRow(int row) { m_row = row; }
 
-    RenderTableSection* section() const { return static_cast<RenderTableSection*>(parent()->parent()); }
-    RenderTable* table() const { return static_cast<RenderTable*>(parent()->parent()->parent()); }
+    RenderTableSection* section() const { return toRenderTableSection(parent()->parent()); }
+    RenderTable* table() const { return toRenderTable(parent()->parent()->parent()); }
 
     Length styleOrColWidth() const;
 
-    virtual bool requiresLayer() const { return isPositioned() || isTransparent() || hasOverflowClip() || hasTransform() || hasMask() || hasReflection(); }
-
     virtual void calcPrefWidths();
-    virtual void calcWidth();
+
+#if PLATFORM(ANDROID)
 #ifdef ANDROID_LAYOUT
     // RenderTableSection needs to access this in setCellWidths()
     int getVisibleWidth() { return m_visibleWidth; }
-#endif    
+#endif
+#endif
 
     void updateWidth(int);
 
@@ -94,15 +88,8 @@ public:
     virtual void layout();
 
     virtual void paint(PaintInfo&, int tx, int ty);
-    virtual void paintBoxDecorations(PaintInfo&, int tx, int ty);
-    virtual void paintMask(PaintInfo& paintInfo, int tx, int ty);
-    void paintCollapsedBorder(GraphicsContext*, int x, int y, int w, int h);
-    void paintBackgroundsBehindCell(PaintInfo&, int tx, int ty, RenderObject* backgroundObject);
 
-    virtual IntRect clippedOverflowRectForRepaint(RenderBox* repaintContainer);
-    virtual void computeRectForRepaint(IntRect&, RenderBox* repaintContainer, bool fixed = false);
-    virtual FloatPoint localToAbsolute(FloatPoint localPoint = FloatPoint(), bool fixed = false, bool useTransforms = false) const;
-    virtual FloatPoint absoluteToLocal(FloatPoint containerPoint, bool fixed = false, bool useTransforms = false) const;
+    void paintBackgroundsBehindCell(PaintInfo&, int tx, int ty, RenderObject* backgroundObject);
 
     virtual int baselinePosition(bool firstLine = false, bool isRootLineBox = false) const;
 
@@ -120,12 +107,31 @@ public:
     virtual void setOverrideSize(int);
 
 protected:
-    virtual void styleWillChange(RenderStyle::Diff, const RenderStyle* newStyle);
-    virtual void styleDidChange(RenderStyle::Diff, const RenderStyle* oldStyle);
+    virtual void styleWillChange(StyleDifference, const RenderStyle* newStyle);
+    virtual void styleDidChange(StyleDifference, const RenderStyle* oldStyle);
 
-    virtual FloatQuad localToContainerQuad(const FloatQuad&, RenderBox* repaintContainer, bool fixed = false) const;
+    virtual void mapLocalToContainer(RenderBoxModelObject* repaintContainer, bool useTransforms, bool fixed, TransformState&) const;
+    virtual void mapAbsoluteToLocalPoint(bool fixed, bool useTransforms, TransformState&) const;
 
 private:
+    virtual const char* renderName() const { return isAnonymous() ? "RenderTableCell (anonymous)" : "RenderTableCell"; }
+
+    virtual bool isTableCell() const { return true; }
+
+    virtual void destroy();
+
+    virtual bool requiresLayer() const { return isPositioned() || isTransparent() || hasOverflowClip() || hasTransform() || hasMask() || hasReflection(); }
+
+    virtual void calcWidth();
+
+    virtual void paintBoxDecorations(PaintInfo&, int tx, int ty);
+    virtual void paintMask(PaintInfo&, int tx, int ty);
+
+    virtual IntRect clippedOverflowRectForRepaint(RenderBoxModelObject* repaintContainer);
+    virtual void computeRectForRepaint(RenderBoxModelObject* repaintContainer, IntRect&, bool fixed = false);
+
+    void paintCollapsedBorder(GraphicsContext*, int x, int y, int w, int h);
+
     int m_row;
     int m_column;
     int m_rowSpan;
@@ -134,6 +140,21 @@ private:
     int m_intrinsicPaddingBottom;
     int m_percentageHeight;
 };
+
+inline RenderTableCell* toRenderTableCell(RenderObject* object)
+{
+    ASSERT(!object || object->isTableCell());
+    return static_cast<RenderTableCell*>(object);
+}
+
+inline const RenderTableCell* toRenderTableCell(const RenderObject* object)
+{
+    ASSERT(!object || object->isTableCell());
+    return static_cast<const RenderTableCell*>(object);
+}
+
+// This will catch anyone doing an unnecessary cast.
+void toRenderTableCell(const RenderTableCell*);
 
 } // namespace WebCore
 

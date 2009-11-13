@@ -288,7 +288,7 @@ static bool fontContainsCharacter(const FontPlatformData* fontData,
     if (count == 0 && ChromiumBridge::ensureFontLoaded(hfont))
         count = GetFontUnicodeRanges(hdc, 0);
     if (count == 0) {
-        ASSERT_NOT_REACHED();
+        LOG_ERROR("Unable to get the font unicode range after second attempt");
         SelectObject(hdc, oldFont);
         ReleaseDC(0, hdc);
         return true;
@@ -394,51 +394,16 @@ const SimpleFontData* FontCache::getFontDataForCharacters(const Font& font, cons
         family = panUniFonts[i]; 
         data = getCachedFontPlatformData(font.fontDescription(), AtomicString(family, wcslen(family)));
     }
-    if (i < numFonts) // we found the font that covers this character !
+    // When i-th font (0-base) in |panUniFonts| contains a character and
+    // we get out of the loop, |i| will be |i + 1|. That is, if only the
+    // last font in the array covers the character, |i| will be numFonts.
+    // So, we have to use '<=" rather than '<' to see if we found a font
+    // covering the character.
+    if (i <= numFonts) 
        return getCachedFontData(data);
 
     return 0;
 
-}
-
-const AtomicString& FontCache::alternateFamilyName(const AtomicString& familyName)
-{
-    // Note that mapping to Courier is removed because 
-    // because it's a bitmap font on Windows.
-    // Alias Courier -> Courier New
-    static AtomicString courier("Courier"), courierNew("Courier New");
-    if (equalIgnoringCase(familyName, courier))
-        return courierNew;
-
-    // Alias Times <-> Times New Roman.
-    static AtomicString times("Times"), timesNewRoman("Times New Roman");
-    if (equalIgnoringCase(familyName, times))
-        return timesNewRoman;
-    if (equalIgnoringCase(familyName, timesNewRoman))
-        return times;
-    
-    // Alias Helvetica <-> Arial
-    static AtomicString arial("Arial"), helvetica("Helvetica");
-    if (equalIgnoringCase(familyName, helvetica))
-        return arial;
-    if (equalIgnoringCase(familyName, arial))
-        return helvetica;
-
-    // We block bitmap fonts altogether so that we have to 
-    // alias MS Sans Serif (bitmap font) -> Microsoft Sans Serif (truetype font)
-    static AtomicString msSans("MS Sans Serif");
-    static AtomicString microsoftSans("Microsoft Sans Serif");
-    if (equalIgnoringCase(familyName, msSans))
-        return microsoftSans;
-
-    // Alias MS Serif (bitmap) -> Times New Roman (truetype font). There's no 
-    // 'Microsoft Sans Serif-equivalent' for Serif. 
-    static AtomicString msSerif("MS Serif");
-    if (equalIgnoringCase(familyName, msSerif))
-        return timesNewRoman;
-
-    // FIXME: should we map 'system' to something ('Tahoma') ? 
-    return emptyAtom;
 }
 
 FontPlatformData* FontCache::getSimilarFontPlatformData(const Font& font)
@@ -449,14 +414,6 @@ FontPlatformData* FontCache::getSimilarFontPlatformData(const Font& font)
 FontPlatformData* FontCache::getLastResortFallbackFont(const FontDescription& description)
 {
     FontDescription::GenericFamilyType generic = description.genericFamily();
-    // FIXME: Mapping webkit generic to GenericFamilyType needs to
-    // be more intelligent. 
-    // This spot rarely gets reached. GetFontDataForCharacters() gets hit a lot
-    // more often (see FIXME comment there). 
-    const wchar_t* family = getFontFamilyForScript(description.dominantScript(), generic);
-
-    if (family)
-        return getCachedFontPlatformData(description, AtomicString(family, wcslen(family)));
 
     // FIXME: Would be even better to somehow get the user's default font here.
     // For now we'll pick the default that the user would get without changing
@@ -488,13 +445,6 @@ static LONG toGDIFontWeight(FontWeight fontWeight)
         FW_HEAVY        // FontWeight900
     };
     return gdiFontWeights[fontWeight];
-}
-
-// FIXME: This may not be the best place to put this function
-AtomicString FontCache::getGenericFontForScript(UScriptCode script, const FontDescription& description)
-{
-    const wchar_t* scriptFont = getFontFamilyForScript( script, description.genericFamily());
-    return scriptFont ? AtomicString(scriptFont, wcslen(scriptFont)) : emptyAtom;
 }
 
 static void FillLogFont(const FontDescription& fontDescription, LOGFONT* winfont)

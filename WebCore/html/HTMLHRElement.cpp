@@ -19,12 +19,14 @@
  * Boston, MA 02110-1301, USA.
  *
  */
+
 #include "config.h"
 #include "HTMLHRElement.h"
 
 #include "CSSPropertyNames.h"
 #include "CSSValueKeywords.h"
 #include "HTMLNames.h"
+#include "MappedAttribute.h"
 
 namespace WebCore {
 
@@ -69,7 +71,7 @@ void HTMLHRElement::parseMappedAttribute(MappedAttribute *attr)
     } else if (attr->name() == widthAttr) {
         bool ok;
         int v = attr->value().toInt(&ok);
-        if(ok && !v)
+        if (ok && !v)
             addCSSLength(attr, CSSPropertyWidth, "1");
         else
             addCSSLength(attr, CSSPropertyWidth, attr->value());

@@ -23,6 +23,7 @@
 #if ENABLE(SVG)
 #include "SVGMarkerElement.h"
 
+#include "MappedAttribute.h"
 #include "PlatformString.h"
 #include "RenderSVGViewportContainer.h"
 #include "SVGAngle.h"
@@ -169,7 +170,7 @@ SVGResource* SVGMarkerElement::canvasResource()
     if (!m_marker)
         m_marker = SVGResourceMarker::create();
 
-    m_marker->setMarker(static_cast<RenderSVGViewportContainer*>(renderer()));
+    m_marker->setMarker(toRenderSVGViewportContainer(renderer()));
 
     if (orientType() == SVG_MARKER_ORIENT_ANGLE) {
         if (orientAngle())

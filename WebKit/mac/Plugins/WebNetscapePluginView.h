@@ -30,6 +30,7 @@
 
 #import "WebBaseNetscapePluginView.h"
 
+#import "WebNetscapeContainerCheckPrivate.h"
 #import <WebKit/npfunctions.h>
 #import <WebKit/npapi.h>
 #import <wtf/HashMap.h>
@@ -52,14 +53,12 @@ typedef union PluginPort {
     NP_CGContext cgPort;
 } PluginPort;
 
-typedef struct _NPPluginTextInputFuncs NPPluginTextInputFuncs;
-
 // Because the Adobe 7.x Acrobat plug-in has a hard coded check for a view named 
 // "WebNetscapePluginDocumentView", this class must retain the old name in order 
 // for the plug-in to function correctly. (rdar://problem/4699455)
 #define WebNetscapePluginView WebNetscapePluginDocumentView
 
-@interface WebNetscapePluginView : WebBaseNetscapePluginView<WebPluginManualLoader, NSTextInput>
+@interface WebNetscapePluginView : WebBaseNetscapePluginView<WebPluginManualLoader, WebPluginContainerCheckController>
 {
     RefPtr<WebNetscapePluginStream> _manualStream;
 #ifndef BUILDING_ON_TIGER
@@ -101,9 +100,11 @@ typedef struct _NPPluginTextInputFuncs NPPluginTextInputFuncs;
     HashSet<RefPtr<WebNetscapePluginStream> > streams;
     RetainPtr<NSMutableDictionary> _pendingFrameLoads;
     
+    BOOL _isFlash;
     BOOL _isSilverlight;
     
-    NPPluginTextInputFuncs *textInputFuncs;
+    NSMutableDictionary *_containerChecksInProgress;
+    uint32 _currentContainerCheckRequestID;
 }
 
 + (WebNetscapePluginView *)currentPluginView;
@@ -117,7 +118,7 @@ typedef struct _NPPluginTextInputFuncs NPPluginTextInputFuncs;
       attributeKeys:(NSArray *)keys
     attributeValues:(NSArray *)values
        loadManually:(BOOL)loadManually
-         DOMElement:(DOMElement *)anElement;
+            element:(PassRefPtr<WebCore::HTMLPlugInElement>)element;
 
 
 - (NPP)plugin;
@@ -142,6 +143,8 @@ typedef struct _NPPluginTextInputFuncs NPPluginTextInputFuncs;
 - (void)didCallPlugInFunction;
 
 - (void)handleMouseMoved:(NSEvent *)event;
+- (uint32)checkIfAllowedToLoadURL:(const char*)urlCString frame:(const char*)frameNameCString callbackFunc:(void (*)(NPP npp, uint32 checkID, NPBool allowed, void* context))callbackFunc context:(void*)context;
+- (void)cancelCheckIfAllowedToLoadURL:(uint32)checkID;
 
 @end
 
@@ -167,8 +170,15 @@ typedef struct _NPPluginTextInputFuncs NPPluginTextInputFuncs;
 - (uint32)scheduleTimerWithInterval:(uint32)interval repeat:(NPBool)repeat timerFunc:(void (*)(NPP npp, uint32 timerID))timerFunc;
 - (void)unscheduleTimer:(uint32)timerID;
 - (NPError)popUpContextMenu:(NPMenu *)menu;
-
+- (NPError)getVariable:(NPNURLVariable)variable forURL:(const char*)url value:(char**)value length:(uint32*)length;
+- (NPError)setVariable:(NPNURLVariable)variable forURL:(const char*)url value:(const char*)value length:(uint32)length;
+- (NPError)getAuthenticationInfoWithProtocol:(const char*) protocol host:(const char*)host port:(int32)port scheme:(const char*)scheme realm:(const char*)realm
+                                    username:(char**)username usernameLength:(uint32*)usernameLength 
+                                    password:(char**)password passwordLength:(uint32*)passwordLength;
+- (char*)resolveURL:(const char*)url forTarget:(const char*)target;
 @end
+
+WKNBrowserContainerCheckFuncs *browserContainerCheckFuncs();
 
 #endif
 

@@ -92,13 +92,22 @@ Page* InspectorClient::createPage()
     g_signal_connect(m_webView, "destroy",
                      G_CALLBACK(notifyWebViewDestroyed), (gpointer)this);
 
-    webkit_web_view_open(m_webView, "file://"DATA_DIR"/webkit-1.0/webinspector/inspector.html");
+    gchar* inspectorURI = g_filename_to_uri(DATA_DIR"/webkit-1.0/webinspector/inspector.html", NULL, NULL);
+    webkit_web_view_load_uri(m_webView, inspectorURI);
+    g_free(inspectorURI);
+
     gtk_widget_show(GTK_WIDGET(m_webView));
 
     return core(m_webView);
 }
 
 String InspectorClient::localizedStringsURL()
+{
+    // FIXME: support l10n of localizedStrings.js
+    return String::fromUTF8(g_filename_to_uri(DATA_DIR"/webkit-1.0/webinspector/localizedStrings.js", NULL, NULL));
+}
+
+String InspectorClient::hiddenPanels()
 {
     notImplemented();
     return String();
@@ -166,6 +175,12 @@ void InspectorClient::inspectedURLChanged(const String& newURL)
 
     webkit_web_inspector_set_inspected_uri(m_webInspector, newURL.utf8().data());
 }
+
+void InspectorClient::inspectorWindowObjectCleared()
+{
+    notImplemented();
+}
+
 
 void InspectorClient::populateSetting(const String& key, InspectorController::Setting& setting)
 {

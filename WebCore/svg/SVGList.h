@@ -96,7 +96,11 @@ namespace WebCore {
 
         Item insertItemBefore(Item newItem, unsigned int index, ExceptionCode&)
         {
-            m_vector.insert(index, newItem);
+            if (index < m_vector.size()) {
+                m_vector.insert(index, newItem);
+            } else {
+                m_vector.append(newItem);
+            }
             return newItem;
         }
 
@@ -161,8 +165,7 @@ namespace WebCore {
     };
 
     template<typename Item>
-    class SVGPODList : public SVGList<RefPtr<SVGPODListItem<Item> > >
-    {
+    class SVGPODList : public SVGList<RefPtr<SVGPODListItem<Item> > > {
     public:
         Item initialize(Item newItem, ExceptionCode& ec)
         {

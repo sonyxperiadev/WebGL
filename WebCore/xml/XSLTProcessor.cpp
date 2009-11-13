@@ -55,11 +55,10 @@
 #include <wtf/Assertions.h>
 #include <wtf/Platform.h>
 #include <wtf/Vector.h>
-#if PLATFORM(MAC)
-#include "SoftLinking.h"
-#endif
 
 #if PLATFORM(MAC)
+#include "SoftLinking.h"
+
 SOFT_LINK_LIBRARY(libxslt);
 SOFT_LINK(libxslt, xsltFreeStylesheet, void, (xsltStylesheetPtr sheet), (sheet))
 SOFT_LINK(libxslt, xsltFreeTransformContext, void, (xsltTransformContextPtr ctxt), (ctxt))
@@ -100,7 +99,7 @@ void XSLTProcessor::parseErrorFunc(void* userData, xmlError* error)
             break;
     }
 
-    console->addMessage(XMLMessageSource, level, error->message, error->line, error->file);
+    console->addMessage(XMLMessageSource, LogMessageType, level, error->message, error->line, error->file);
 }
 
 // FIXME: There seems to be no way to control the ctxt pointer for loading here, thus we have globals.
@@ -128,7 +127,7 @@ static xmlDocPtr docLoaderFunc(const xmlChar* uri,
 
             bool requestAllowed = globalDocLoader->frame() && globalDocLoader->doc()->securityOrigin()->canRequest(url);
             if (requestAllowed) {
-                globalDocLoader->frame()->loader()->loadResourceSynchronously(url, error, response, data);
+                globalDocLoader->frame()->loader()->loadResourceSynchronously(url, AllowStoredCredentials, error, response, data);
                 requestAllowed = globalDocLoader->doc()->securityOrigin()->canRequest(response.url());
             }
             if (!requestAllowed) {

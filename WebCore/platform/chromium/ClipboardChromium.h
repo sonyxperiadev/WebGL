@@ -47,13 +47,20 @@ namespace WebCore {
         static PassRefPtr<ClipboardChromium> create(
             bool isForDragging, PassRefPtr<ChromiumDataObject>, ClipboardAccessPolicy);
 
+        // Returns the file name (not including the extension). This removes any
+        // invalid file system characters as well as making sure the
+        // path + extension is not bigger than allowed by the file system.
+        // This may change the file extension in dataObject.
+        static String validateFileName(const String& title, ChromiumDataObject* dataObject);
+
         virtual void clearData(const String& type);
         void clearAllData();
         String getData(const String& type, bool& success) const;
         bool setData(const String& type, const String& data);
 
         // extensions beyond IE's API
-        HashSet<String> types() const;
+        virtual HashSet<String> types() const;
+        virtual PassRefPtr<FileList> files() const;
 
         void setDragImage(CachedImage*, const IntPoint&);
         void setDragImageElement(Node*, const IntPoint&);
@@ -76,7 +83,6 @@ namespace WebCore {
         void resetFromClipboard();
         void setDragImage(CachedImage*, Node*, const IntPoint&);
         RefPtr<ChromiumDataObject> m_dataObject;
-        Frame* m_frame;
     };
 
 } // namespace WebCore

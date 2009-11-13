@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009, Google Inc. All rights reserved.
+ * Copyright (C) 2009 Google Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -39,12 +39,13 @@
 
 namespace WebCore {
     class Document;
-    class ResourceRequest;
+    struct ResourceRequest;
     class ThreadableLoaderClient;
 
     class DocumentThreadableLoader : public RefCounted<DocumentThreadableLoader>, public ThreadableLoader, private SubresourceLoaderClient  {
     public:
-        static PassRefPtr<DocumentThreadableLoader> create(Document*, ThreadableLoaderClient*, const ResourceRequest&, LoadCallbacks, ContentSniff);
+        static void loadResourceSynchronously(Document*, const ResourceRequest&, ThreadableLoaderClient&, StoredCredentials);
+        static PassRefPtr<DocumentThreadableLoader> create(Document*, ThreadableLoaderClient*, const ResourceRequest&, LoadCallbacks, ContentSniff, StoredCredentials, CrossOriginRedirectPolicy);
         virtual ~DocumentThreadableLoader();
 
         virtual void cancel();
@@ -57,7 +58,7 @@ namespace WebCore {
         virtual void derefThreadableLoader() { deref(); }
 
     private:
-        DocumentThreadableLoader(Document*, ThreadableLoaderClient*, const ResourceRequest&, LoadCallbacks, ContentSniff);
+        DocumentThreadableLoader(Document*, ThreadableLoaderClient*, const ResourceRequest&, LoadCallbacks, ContentSniff, StoredCredentials, CrossOriginRedirectPolicy);
         virtual void willSendRequest(SubresourceLoader*, ResourceRequest&, const ResourceResponse& redirectResponse);
         virtual void didSendData(SubresourceLoader*, unsigned long long bytesSent, unsigned long long totalBytesToBeSent);
 
@@ -66,11 +67,16 @@ namespace WebCore {
         virtual void didFinishLoading(SubresourceLoader*);
         virtual void didFail(SubresourceLoader*, const ResourceError&);
 
+        virtual bool getShouldUseCredentialStorage(SubresourceLoader*, bool& shouldUseCredentialStorage);
+        virtual void didReceiveAuthenticationChallenge(SubresourceLoader*, const AuthenticationChallenge&);
         virtual void receivedCancellation(SubresourceLoader*, const AuthenticationChallenge&);
 
         RefPtr<SubresourceLoader> m_loader;
         ThreadableLoaderClient* m_client;
         Document* m_document;
+        bool m_allowStoredCredentials;
+        bool m_sameOriginRequest;
+        bool m_denyCrossOriginRedirect;
     };
 
 } // namespace WebCore

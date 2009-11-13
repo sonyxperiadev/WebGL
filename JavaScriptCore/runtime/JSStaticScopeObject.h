@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2008, 2009 Apple Inc. All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -43,22 +43,21 @@ namespace JSC{
         };
         
     public:
-        JSStaticScopeObject(ExecState* exec, const Identifier& ident, JSValuePtr value, unsigned attributes)
+        JSStaticScopeObject(ExecState* exec, const Identifier& ident, JSValue value, unsigned attributes)
             : JSVariableObject(exec->globalData().staticScopeStructure, new JSStaticScopeObjectData())
         {
             d()->registerStore = value;
             symbolTable().add(ident.ustring().rep(), SymbolTableEntry(-1, attributes));
         }
         virtual ~JSStaticScopeObject();
-        virtual void mark();
+        virtual void markChildren(MarkStack&);
         bool isDynamicScope() const;
         virtual JSObject* toThisObject(ExecState*) const;
         virtual bool getOwnPropertySlot(ExecState*, const Identifier&, PropertySlot&);
-        virtual bool getOwnPropertySlot(ExecState*, const Identifier&, PropertySlot&, bool& slotIsWriteable);
-        virtual void put(ExecState*, const Identifier&, JSValuePtr, PutPropertySlot&);
-        void putWithAttributes(ExecState*, const Identifier&, JSValuePtr, unsigned attributes);
+        virtual void put(ExecState*, const Identifier&, JSValue, PutPropertySlot&);
+        void putWithAttributes(ExecState*, const Identifier&, JSValue, unsigned attributes);
 
-        static PassRefPtr<Structure> createStructure(JSValuePtr proto) { return Structure::create(proto, TypeInfo(ObjectType, NeedsThisConversion)); }
+        static PassRefPtr<Structure> createStructure(JSValue proto) { return Structure::create(proto, TypeInfo(ObjectType, NeedsThisConversion)); }
 
     private:
         JSStaticScopeObjectData* d() { return static_cast<JSStaticScopeObjectData*>(JSVariableObject::d); }

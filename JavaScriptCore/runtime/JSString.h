@@ -23,8 +23,8 @@
 #ifndef JSString_h
 #define JSString_h
 
-#include "CommonIdentifiers.h"
 #include "CallFrame.h"
+#include "CommonIdentifiers.h"
 #include "Identifier.h"
 #include "JSNumberCell.h"
 #include "PropertySlot.h"
@@ -60,7 +60,7 @@ namespace JSC {
 
     class JSString : public JSCell {
         friend class JIT;
-        friend class Interpreter;
+        friend struct VPtrSet;
 
     public:
         JSString(JSGlobalData* globalData, const UString& value)
@@ -90,7 +90,7 @@ namespace JSC {
         bool canGetIndex(unsigned i) { return i < static_cast<unsigned>(m_value.size()); }
         JSString* getIndex(JSGlobalData*, unsigned);
 
-        static PassRefPtr<Structure> createStructure(JSValuePtr proto) { return Structure::create(proto, TypeInfo(StringType, NeedsThisConversion)); }
+        static PassRefPtr<Structure> createStructure(JSValue proto) { return Structure::create(proto, TypeInfo(StringType, NeedsThisConversion)); }
 
     private:
         enum VPtrStealingHackType { VPtrStealingHack };
@@ -99,8 +99,8 @@ namespace JSC {
         {
         }
 
-        virtual JSValuePtr toPrimitive(ExecState*, PreferredPrimitiveType) const;
-        virtual bool getPrimitiveNumber(ExecState*, double& number, JSValuePtr& value);
+        virtual JSValue toPrimitive(ExecState*, PreferredPrimitiveType) const;
+        virtual bool getPrimitiveNumber(ExecState*, double& number, JSValue& value);
         virtual bool toBoolean(ExecState*) const;
         virtual double toNumber(ExecState*) const;
         virtual JSObject* toObject(ExecState*) const;
@@ -117,9 +117,9 @@ namespace JSC {
         UString m_value;
     };
 
-    JSString* asString(JSValuePtr);
+    JSString* asString(JSValue);
 
-    inline JSString* asString(JSValuePtr value)
+    inline JSString* asString(JSValue value)
     {
         ASSERT(asCell(value)->isString());
         return static_cast<JSString*>(asCell(value));
@@ -202,11 +202,13 @@ namespace JSC {
         return false;
     }
 
+    inline bool isJSString(JSGlobalData* globalData, JSValue v) { return v.isCell() && v.asCell()->vptr() == globalData->jsStringVPtr; }
+
     // --- JSValue inlines ----------------------------
 
-    inline JSString* JSValuePtr::toThisJSString(ExecState* exec)
+    inline JSString* JSValue::toThisJSString(ExecState* exec)
     {
-        return JSImmediate::isImmediate(asValue()) ? jsString(exec, JSImmediate::toString(asValue())) : asCell()->toThisJSString(exec);
+        return isCell() ? asCell()->toThisJSString(exec) : jsString(exec, toString(exec));
     }
 
 } // namespace JSC

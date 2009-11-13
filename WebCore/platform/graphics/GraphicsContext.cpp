@@ -30,7 +30,6 @@
 #include "Generator.h"
 #include "GraphicsContextPrivate.h"
 #include "Font.h"
-#include "NotImplemented.h"
 
 using namespace std;
 
@@ -128,6 +127,11 @@ void GraphicsContext::setStrokeColor(const Color& color)
     setPlatformStrokeColor(color);
 }
 
+ColorSpace GraphicsContext::strokeColorSpace() const
+{
+    return m_common->state.strokeColorSpace;
+}
+
 void GraphicsContext::setShadow(const IntSize& size, int blur, const Color& color)
 {
     m_common->state.shadowSize = size;
@@ -178,16 +182,6 @@ void GraphicsContext::setFillRule(WindRule fillRule)
     m_common->state.fillRule = fillRule;
 }
 
-GradientSpreadMethod GraphicsContext::spreadMethod() const
-{
-    return m_common->state.spreadMethod;
-}
-
-void GraphicsContext::setSpreadMethod(GradientSpreadMethod spreadMethod)
-{
-    m_common->state.spreadMethod = spreadMethod;
-}
-
 void GraphicsContext::setFillColor(const Color& color)
 {
     m_common->state.fillColorSpace = SolidColorSpace;
@@ -220,6 +214,7 @@ void GraphicsContext::setStrokePattern(PassRefPtr<Pattern> pattern)
     }
     m_common->state.strokeColorSpace = PatternColorSpace;
     m_common->state.strokePattern = pattern;
+    setPlatformStrokePattern(m_common->state.strokePattern.get());
 }
 
 void GraphicsContext::setFillPattern(PassRefPtr<Pattern> pattern)
@@ -231,6 +226,7 @@ void GraphicsContext::setFillPattern(PassRefPtr<Pattern> pattern)
     }
     m_common->state.fillColorSpace = PatternColorSpace;
     m_common->state.fillPattern = pattern;
+    setPlatformFillPattern(m_common->state.fillPattern.get());
 }
 
 void GraphicsContext::setStrokeGradient(PassRefPtr<Gradient> gradient)
@@ -242,6 +238,7 @@ void GraphicsContext::setStrokeGradient(PassRefPtr<Gradient> gradient)
     }
     m_common->state.strokeColorSpace = GradientColorSpace;
     m_common->state.strokeGradient = gradient;
+    setPlatformStrokeGradient(m_common->state.strokeGradient.get());
 }
 
 void GraphicsContext::setFillGradient(PassRefPtr<Gradient> gradient)
@@ -253,6 +250,32 @@ void GraphicsContext::setFillGradient(PassRefPtr<Gradient> gradient)
     }
     m_common->state.fillColorSpace = GradientColorSpace;
     m_common->state.fillGradient = gradient;
+    setPlatformFillGradient(m_common->state.fillGradient.get());
+}
+
+Gradient* GraphicsContext::fillGradient() const
+{
+    return m_common->state.fillGradient.get();
+}
+
+ColorSpace GraphicsContext::fillColorSpace() const
+{
+    return m_common->state.fillColorSpace;
+}
+
+Gradient* GraphicsContext::strokeGradient() const
+{
+    return m_common->state.strokeGradient.get();
+}
+
+Pattern* GraphicsContext::fillPattern() const
+{
+    return m_common->state.fillPattern.get();
+}
+
+Pattern* GraphicsContext::strokePattern() const
+{
+    return m_common->state.strokePattern.get();
 }
 
 void GraphicsContext::setShadowsIgnoreTransforms(bool ignoreTransforms)
@@ -301,6 +324,7 @@ void GraphicsContext::drawImage(Image* image, const IntRect& dest, const IntRect
     drawImage(image, FloatRect(dest), srcRect, op, useLowQualityScale);
 }
 
+#if !PLATFORM(WINCE) || PLATFORM(QT)
 void GraphicsContext::drawText(const Font& font, const TextRun& run, const IntPoint& point, int from, int to)
 {
     if (paintingDisabled())
@@ -308,6 +332,7 @@ void GraphicsContext::drawText(const Font& font, const TextRun& run, const IntPo
     
     font.drawText(this, run, point, from, to);
 }
+#endif
 
 void GraphicsContext::drawBidiText(const Font& font, const TextRun& run, const FloatPoint& point)
 {
@@ -317,7 +342,7 @@ void GraphicsContext::drawBidiText(const Font& font, const TextRun& run, const F
     BidiResolver<TextRunIterator, BidiCharacterRun> bidiResolver;
     WTF::Unicode::Direction paragraphDirection = run.ltr() ? WTF::Unicode::LeftToRight : WTF::Unicode::RightToLeft;
 
-    bidiResolver.setStatus(BidiStatus(paragraphDirection, paragraphDirection, paragraphDirection, new BidiContext(run.ltr() ? 0 : 1, paragraphDirection, run.directionalOverride())));
+    bidiResolver.setStatus(BidiStatus(paragraphDirection, paragraphDirection, paragraphDirection, BidiContext::create(run.ltr() ? 0 : 1, paragraphDirection, run.directionalOverride())));
 
     bidiResolver.setPosition(TextRunIterator(&run, 0));
     bidiResolver.createBidiRunsForLine(TextRunIterator(&run, run.length()));
@@ -488,6 +513,24 @@ void GraphicsContext::fillRect(const FloatRect& rect, Generator& generator)
         return;
     generator.fill(this, rect);
 }
+
+#if !PLATFORM(SKIA)
+void GraphicsContext::setPlatformFillGradient(Gradient*)
+{
+}
+
+void GraphicsContext::setPlatformFillPattern(Pattern*)
+{
+}
+
+void GraphicsContext::setPlatformStrokeGradient(Gradient*)
+{
+}
+
+void GraphicsContext::setPlatformStrokePattern(Pattern*)
+{
+}
+#endif
 
 #if !PLATFORM(CG) && !PLATFORM(SKIA)
 // Implement this if you want to go ahead and push the drawing mode into your native context

@@ -1,36 +1,60 @@
 # JavaScriptCore - Qt4 build info
 VPATH += $$PWD
 
-INCLUDEPATH += tmp
-INCLUDEPATH += $$PWD $$PWD/parser $$PWD/bytecompiler $$PWD/debugger $$PWD/runtime $$PWD/wtf $$PWD/wtf/unicode $$PWD/interpreter $$PWD/jit $$PWD/profiler $$PWD/wrec $$PWD/API $$PWD/.. \
-               $$PWD/ForwardingHeaders $$PWD/bytecode $$PWD/assembler
-DEFINES += BUILDING_QT__
+CONFIG(debug, debug|release) {
+    isEmpty(GENERATED_SOURCES_DIR):GENERATED_SOURCES_DIR = generated$${QMAKE_DIR_SEP}debug
+    OBJECTS_DIR = obj/debug
+} else { # Release
+    isEmpty(GENERATED_SOURCES_DIR):GENERATED_SOURCES_DIR = generated$${QMAKE_DIR_SEP}release
+    OBJECTS_DIR = obj/release
+}
 
-isEmpty(GENERATED_SOURCES_DIR):GENERATED_SOURCES_DIR = tmp
-GENERATED_SOURCES_DIR_SLASH = $$GENERATED_SOURCES_DIR/
+INCLUDEPATH = \
+    $$PWD \
+    $$PWD/.. \
+    $$PWD/assembler \
+    $$PWD/bytecode \
+    $$PWD/bytecompiler \
+    $$PWD/debugger \
+    $$PWD/interpreter \
+    $$PWD/jit \
+    $$PWD/parser \
+    $$PWD/profiler \
+    $$PWD/runtime \
+    $$PWD/wrec \
+    $$PWD/wtf \
+    $$PWD/wtf/unicode \
+    $$PWD/yarr \
+    $$PWD/API \
+    $$PWD/ForwardingHeaders \
+    $$GENERATED_SOURCES_DIR \
+    $$INCLUDEPATH
+
+DEFINES += BUILDING_QT__ BUILDING_JavaScriptCore BUILDING_WTF
+
+GENERATED_SOURCES_DIR_SLASH = $${GENERATED_SOURCES_DIR}$${QMAKE_DIR_SEP}
 win32-* {
-    GENERATED_SOURCES_DIR_SLASH ~= s|/|\|
     LIBS += -lwinmm
 }
 
-# Disable the JIT due to numerous observed miscompilations :(
-#CONFIG(release):isEqual(QT_ARCH,i386) {
-#     JIT_DEFINES = ENABLE_JIT ENABLE_WREC ENABLE_JIT_OPTIMIZE_CALL ENABLE_JIT_OPTIMIZE_PROPERTY_ACCESS ENABLE_JIT_OPTIMIZE_ARITHMETIC
-#     # gcc <= 4.1 is known to miscompile, so require >= 4.2, written as major > 3 and minor > 1
-#     linux-g++*:greaterThan(QT_GCC_MAJOR_VERSION,3):greaterThan(QT_GCC_MINOR_VERSION,1) {
-#         DEFINES += $$JIT_DEFINES
-#         SOURCES += wtf/TCSystemAlloc.cpp
-#         DEFINES -= USE_SYSTEM_MALLOC
-#     }
-#     win32-msvc* {
-#         DEFINES += $$JIT_DEFINES
-#     }
-#}
+# In debug mode JIT disabled until crash fixed
+win32-* {
+    CONFIG(debug):!contains(DEFINES, ENABLE_JIT=1): DEFINES+=ENABLE_JIT=0
+}
+
+# Rules when JIT enabled (not disabled)
+!contains(DEFINES, ENABLE_JIT=0) {
+    linux-g++*:greaterThan(QT_GCC_MAJOR_VERSION,3):greaterThan(QT_GCC_MINOR_VERSION,0) {
+        QMAKE_CXXFLAGS += -fno-stack-protector
+        QMAKE_CFLAGS += -fno-stack-protector
+    }
+}
 
 include(pcre/pcre.pri)
 
 LUT_FILES += \
     runtime/DatePrototype.cpp \
+    runtime/JSONObject.cpp \
     runtime/NumberConstructor.cpp \
     runtime/StringPrototype.cpp \
     runtime/ArrayPrototype.cpp \
@@ -51,6 +75,7 @@ SOURCES += \
     wtf/MainThread.cpp \
     wtf/RandomNumber.cpp \
     wtf/RefCountedLeakCounter.cpp \
+    wtf/TypeTraits.cpp \
     wtf/unicode/CollatorDefault.cpp \
     wtf/unicode/icu/CollatorICU.cpp \
     wtf/unicode/UTF8.cpp \
@@ -71,26 +96,31 @@ SOURCES += \
     runtime/JSVariableObject.cpp \
     runtime/JSActivation.cpp \
     runtime/JSNotAnObject.cpp \
+    runtime/JSONObject.cpp \
+    runtime/LiteralParser.cpp \
+    runtime/MarkStack.cpp \
+    runtime/MarkStackPosix.cpp \
+    runtime/TimeoutChecker.cpp \
     bytecode/CodeBlock.cpp \
     bytecode/StructureStubInfo.cpp \
     bytecode/JumpTable.cpp \
+    assembler/ARMAssembler.cpp \
     jit/JIT.cpp \
     jit/JITCall.cpp \
     jit/JITArithmetic.cpp \
+    jit/JITOpcodes.cpp \
     jit/JITPropertyAccess.cpp \
     jit/ExecutableAllocator.cpp \
+    jit/JITStubs.cpp \
     bytecompiler/BytecodeGenerator.cpp \
     runtime/ExceptionHelpers.cpp \
     runtime/JSPropertyNameIterator.cpp \
     interpreter/Interpreter.cpp \
     bytecode/Opcode.cpp \
     bytecode/SamplingTool.cpp \
-    wrec/CharacterClass.cpp \
-    wrec/CharacterClassConstructor.cpp \
-    wrec/WREC.cpp \
-    wrec/WRECFunctors.cpp \
-    wrec/WRECGenerator.cpp \
-    wrec/WRECParser.cpp \
+    yarr/RegexCompiler.cpp \
+    yarr/RegexInterpreter.cpp \
+    yarr/RegexJIT.cpp \
     interpreter/RegisterFile.cpp
 
 win32-*: SOURCES += jit/ExecutableAllocatorWin.cpp
@@ -112,8 +142,8 @@ SOURCES += \
     runtime/ConstructData.cpp \
     wtf/CurrentTime.cpp \
     runtime/DateConstructor.cpp \
+    runtime/DateConversion.cpp \
     runtime/DateInstance.cpp \
-    runtime/DateMath.cpp \
     runtime/DatePrototype.cpp \
     debugger/Debugger.cpp \
     debugger/DebuggerCallFrame.cpp \
@@ -132,6 +162,7 @@ SOURCES += \
     runtime/InternalFunction.cpp \
     runtime/Completion.cpp \
     runtime/JSArray.cpp \
+    runtime/JSAPIValueWrapper.cpp \
     runtime/JSByteArray.cpp \
     runtime/JSCell.cpp \
     runtime/JSFunction.cpp \
@@ -156,6 +187,7 @@ SOURCES += \
     runtime/ObjectPrototype.cpp \
     runtime/Operations.cpp \
     parser/Parser.cpp \
+    parser/ParserArena.cpp \
     runtime/PropertyNameArray.cpp \
     runtime/PropertySlot.cpp \
     runtime/PrototypeFunction.cpp \
@@ -177,13 +209,20 @@ SOURCES += \
     profiler/ProfileNode.cpp \
     profiler/Profiler.cpp \
     profiler/TreeProfile.cpp \
+    wtf/DateMath.cpp \
     wtf/FastMalloc.cpp \
     wtf/Threading.cpp \
-    wtf/ThreadingQt.cpp \
     wtf/qt/MainThreadQt.cpp
 
+!contains(DEFINES, ENABLE_SINGLE_THREADED=1) {
+    SOURCES += wtf/qt/ThreadingQt.cpp
+} else {
+    DEFINES += ENABLE_JSC_MULTIPLE_THREADS=0
+    SOURCES += wtf/ThreadingNone.cpp
+}
+
 # GENERATOR 1-A: LUT creator
-lut.output = $$GENERATED_SOURCES_DIR/${QMAKE_FILE_BASE}.lut.h
+lut.output = $${GENERATED_SOURCES_DIR}$${QMAKE_DIR_SEP}${QMAKE_FILE_BASE}.lut.h
 lut.commands = perl $$PWD/create_hash_table ${QMAKE_FILE_NAME} -i > ${QMAKE_FILE_OUT}
 lut.depend = ${QMAKE_FILE_NAME}
 lut.input = LUT_FILES
@@ -191,7 +230,7 @@ lut.CONFIG += no_link
 addExtraCompiler(lut)
 
 # GENERATOR 1-B: particular LUT creator (for 1 file only)
-keywordlut.output = $$GENERATED_SOURCES_DIR/Lexer.lut.h
+keywordlut.output = $${GENERATED_SOURCES_DIR}$${QMAKE_DIR_SEP}Lexer.lut.h
 keywordlut.commands = perl $$PWD/create_hash_table ${QMAKE_FILE_NAME} -i > ${QMAKE_FILE_OUT}
 keywordlut.depend = ${QMAKE_FILE_NAME}
 keywordlut.input = KEYWORDLUT_FILES
@@ -199,8 +238,8 @@ keywordlut.CONFIG += no_link
 addExtraCompiler(keywordlut)
 
 # GENERATOR 2: bison grammar
-jscbison.output = $$GENERATED_SOURCES_DIR/${QMAKE_FILE_BASE}.cpp
-jscbison.commands = bison -d -p jscyy ${QMAKE_FILE_NAME} -o ${QMAKE_FILE_BASE}.tab.c && $(MOVE) ${QMAKE_FILE_BASE}.tab.c ${QMAKE_FILE_OUT} && $(MOVE) ${QMAKE_FILE_BASE}.tab.h $$GENERATED_SOURCES_DIR/${QMAKE_FILE_BASE}.h
+jscbison.output = $${GENERATED_SOURCES_DIR}$${QMAKE_DIR_SEP}${QMAKE_FILE_BASE}.cpp
+jscbison.commands = bison -d -p jscyy ${QMAKE_FILE_NAME} -o $${GENERATED_SOURCES_DIR}$${QMAKE_DIR_SEP}${QMAKE_FILE_BASE}.tab.c && $(MOVE) $${GENERATED_SOURCES_DIR}$${QMAKE_DIR_SEP}${QMAKE_FILE_BASE}.tab.c ${QMAKE_FILE_OUT} && $(MOVE) $${GENERATED_SOURCES_DIR}$${QMAKE_DIR_SEP}${QMAKE_FILE_BASE}.tab.h $${GENERATED_SOURCES_DIR}$${QMAKE_DIR_SEP}${QMAKE_FILE_BASE}.h
 jscbison.depend = ${QMAKE_FILE_NAME}
 jscbison.input = JSCBISON
 jscbison.variable_out = GENERATED_SOURCES

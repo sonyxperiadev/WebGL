@@ -27,10 +27,16 @@
 
 #import "WebNetscapePluginEventHandlerCocoa.h"
 
+#import "WebKitSystemInterface.h"
 #import "WebNetscapePluginView.h"
+#import <wtf/UnusedParam.h>
+#import <wtf/Vector.h>
 
 WebNetscapePluginEventHandlerCocoa::WebNetscapePluginEventHandlerCocoa(WebNetscapePluginView* pluginView)
     : WebNetscapePluginEventHandler(pluginView)
+#ifndef __LP64__
+    , m_keyEventHandler(0)
+#endif
 {
 }
 
@@ -40,15 +46,18 @@ static inline void initializeEvent(NPCocoaEvent* event, NPCocoaEventType type)
     event->version = 0;
 }
 
-void WebNetscapePluginEventHandlerCocoa::drawRect(const NSRect& rect)
+void WebNetscapePluginEventHandlerCocoa::drawRect(CGContextRef context, const NSRect& rect)
 {
     NPCocoaEvent event;
     
     initializeEvent(&event, NPCocoaEventDrawRect);
+    event.data.draw.context = context;
     event.data.draw.x = rect.origin.x;
     event.data.draw.y = rect.origin.y;
     event.data.draw.width = rect.size.width;
     event.data.draw.height = rect.size.height;
+    
+    RetainPtr<CGContextRef> protect(context);
     
     sendEvent(&event);
 }
@@ -117,9 +126,13 @@ void WebNetscapePluginEventHandlerCocoa::keyDown(NSEvent *event)
 {
     bool retval = sendKeyEvent(event, NPCocoaEventKeyDown);
     
+#ifndef __LP64__
     // If the plug-in did not handle the event, pass it on to the Input Manager.
-    if (!retval)
-        [m_pluginView interpretKeyEvents:[NSArray arrayWithObject:event]];
+    if (retval)
+        WKSendKeyEventToTSM(event);
+#else
+    UNUSED_PARAM(retval);
+#endif
 }
 
 void WebNetscapePluginEventHandlerCocoa::keyUp(NSEvent *event)
@@ -138,6 +151,23 @@ void WebNetscapePluginEventHandlerCocoa::flagsChanged(NSEvent *nsEvent)
     event.data.key.characters = 0;
     event.data.key.charactersIgnoringModifiers = 0;
     
+    sendEvent(&event);
+}
+
+void WebNetscapePluginEventHandlerCocoa::syntheticKeyDownWithCommandModifier(int keyCode, char character)
+{
+    char nullTerminatedString[] = { character, '\0' };
+    
+    RetainPtr<NSString> characters(AdoptNS, [[NSString alloc] initWithUTF8String:nullTerminatedString]);
+    
+    NPCocoaEvent event;
+    initializeEvent(&event, NPCocoaEventKeyDown);
+    event.data.key.modifierFlags = NSCommandKeyMask;
+    event.data.key.keyCode = keyCode;
+    event.data.key.isARepeat = false;
+    event.data.key.characters = (NPNSString *)characters.get();
+    event.data.key.charactersIgnoringModifiers = (NPNSString *)characters.get();
+
     sendEvent(&event);
 }
 
@@ -173,6 +203,11 @@ void WebNetscapePluginEventHandlerCocoa::focusChanged(bool hasFocus)
     event.data.focus.hasFocus = hasFocus;
     
     sendEvent(&event);
+    
+    if (hasFocus)
+        installKeyEventHandler();
+    else
+        removeKeyEventHandler();
 }
 
 void* WebNetscapePluginEventHandlerCocoa::platformWindow(NSWindow* window)
@@ -201,5 +236,68 @@ bool WebNetscapePluginEventHandlerCocoa::sendEvent(NPCocoaEvent* event)
     m_currentEventIsUserGesture = false;
     return result;
 }
+
+#ifndef __LP64__
+
+void WebNetscapePluginEventHandlerCocoa::installKeyEventHandler()
+{
+    static const EventTypeSpec TSMEvents[] =
+    {
+        { kEventClassTextInput, kEventTextInputUnicodeForKeyEvent }
+    };
+    
+    if (!m_keyEventHandler)
+        InstallEventHandler(GetWindowEventTarget((WindowRef)[[m_pluginView window] windowRef]),
+                            NewEventHandlerUPP(TSMEventHandler),
+                            GetEventTypeCount(TSMEvents),
+                            TSMEvents,
+                            this,
+                            &m_keyEventHandler);
+}
+
+void WebNetscapePluginEventHandlerCocoa::removeKeyEventHandler()
+{
+    if (m_keyEventHandler) {
+        RemoveEventHandler(m_keyEventHandler);
+        m_keyEventHandler = 0;
+    }    
+}
+
+OSStatus WebNetscapePluginEventHandlerCocoa::TSMEventHandler(EventHandlerCallRef inHandlerRef, EventRef event, void* eventHandler)
+{
+    return static_cast<WebNetscapePluginEventHandlerCocoa*>(eventHandler)->handleTSMEvent(event);
+}
+
+OSStatus WebNetscapePluginEventHandlerCocoa::handleTSMEvent(EventRef eventRef)
+{
+    ASSERT(GetEventKind(eventRef) == kEventTextInputUnicodeForKeyEvent);
+    
+    // Get the text buffer size.
+    ByteCount size;
+    OSStatus result = GetEventParameter(eventRef, kEventParamTextInputSendText, typeUnicodeText, 0, 0, &size, 0);
+    if (result != noErr)
+        return result;
+    
+    unsigned length = size / sizeof(UniChar);
+    Vector<UniChar, 16> characters(length);
+    
+    // Now get the actual text.
+    result = GetEventParameter(eventRef, kEventParamTextInputSendText, typeUnicodeText, 0, size, 0, characters.data());
+    if (result != noErr)
+        return result;
+
+    RetainPtr<CFStringRef> text(AdoptCF, CFStringCreateWithCharacters(0, characters.data(), length));
+
+    NPCocoaEvent event;
+    
+    initializeEvent(&event, NPCocoaEventTextInput);
+    event.data.text.text = (NPNSString*)text.get();
+    
+    sendEvent(&event);
+
+    return noErr;
+}
+
+#endif // __LP64__
 
 #endif // ENABLE(NETSCAPE_PLUGIN_API)

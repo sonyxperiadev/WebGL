@@ -53,6 +53,7 @@ BitmapImage::BitmapImage(ImageObserver* observer)
     , m_repetitionsComplete(0)
     , m_desiredFrameStartTime(0)
     , m_isSolidColor(false)
+    , m_checkedForSolidColor(false)
     , m_animationFinished(false)
     , m_allDataReceived(false)
     , m_haveSize(false)
@@ -85,7 +86,7 @@ void BitmapImage::destroyDecodedData(bool destroyAll)
 
     destroyMetadataAndNotify(framesCleared);
 
-    m_source.clear(destroyAll, clearBeforeFrame, m_data.get(), m_allDataReceived);
+    m_source.clear(destroyAll, clearBeforeFrame, data(), m_allDataReceived);
     return;
 }
 
@@ -94,7 +95,7 @@ void BitmapImage::destroyDecodedDataIfNecessary(bool destroyAll)
     // Animated images >5MB are considered large enough that we'll only hang on
     // to one frame at a time.
     static const unsigned cLargeAnimationCutoff = 5242880;
-    if (frameCount() * frameBytes(m_size) > cLargeAnimationCutoff)
+    if (m_frames.size() * frameBytes(m_size) > cLargeAnimationCutoff)
         destroyDecodedData(destroyAll);
 }
 
@@ -162,7 +163,7 @@ bool BitmapImage::dataChanged(bool allDataReceived)
     
     // Feed all the data we've seen so far to the image decoder.
     m_allDataReceived = allDataReceived;
-    m_source.setData(m_data.get(), allDataReceived);
+    m_source.setData(data(), allDataReceived);
     
     // Clear the frame count.
     m_haveFrameCount = false;

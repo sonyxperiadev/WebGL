@@ -27,6 +27,8 @@
 #include "config.h"
 
 #include "AtomicString.h"
+#include "CSSComputedStyleDeclaration.h"
+#include "CSSMutableStyleDeclaration.h"
 #include "CSSPropertyNames.h"
 #include "CSSValueKeywords.h"
 #include "CreateLinkCommand.h"
@@ -35,13 +37,14 @@
 #include "EditorClient.h"
 #include "Event.h"
 #include "EventHandler.h"
-#include "Frame.h"
 #include "FormatBlockCommand.h"
+#include "Frame.h"
 #include "HTMLFontElement.h"
 #include "HTMLImageElement.h"
 #include "IndentOutdentCommand.h"
 #include "InsertListCommand.h"
 #include "Page.h"
+#include "RenderBox.h"
 #include "ReplaceSelectionCommand.h"
 #include "Scrollbar.h"
 #include "Settings.h"
@@ -87,64 +90,85 @@ static Frame* targetFrame(Frame* frame, Event* event)
     return node->document()->frame();
 }
 
-static bool executeApplyStyle(Frame* frame, EditorCommandSource source, EditAction action, int propertyID, const String& propertyValue)
+static bool applyCommandToFrame(Frame* frame, EditorCommandSource source, EditAction action, CSSMutableStyleDeclaration* style)
 {
-    RefPtr<CSSMutableStyleDeclaration> style = CSSMutableStyleDeclaration::create();
-    style->setProperty(propertyID, propertyValue);
     // FIXME: We don't call shouldApplyStyle when the source is DOM; is there a good reason for that?
     switch (source) {
         case CommandFromMenuOrKeyBinding:
-            frame->editor()->applyStyleToSelection(style.get(), action);
+            frame->editor()->applyStyleToSelection(style, action);
             return true;
         case CommandFromDOM:
         case CommandFromDOMWithUserInterface:
-            frame->editor()->applyStyle(style.get());
+            frame->editor()->applyStyle(style);
             return true;
     }
     ASSERT_NOT_REACHED();
     return false;
 }
 
-static bool executeApplyStyle(Frame* frame, EditorCommandSource source, EditAction action, int propertyID, const char* propertyValue)
+static bool executeApplyStyle(Frame* frame, EditorCommandSource source, EditAction action, int propertyID, const String& propertyValue)
 {
-    return executeApplyStyle(frame, source, action, propertyID, String(propertyValue));
+    RefPtr<CSSMutableStyleDeclaration> style = CSSMutableStyleDeclaration::create();
+    style->setProperty(propertyID, propertyValue);
+    return applyCommandToFrame(frame, source, action, style.get());
 }
 
 static bool executeApplyStyle(Frame* frame, EditorCommandSource source, EditAction action, int propertyID, int propertyValue)
 {
     RefPtr<CSSMutableStyleDeclaration> style = CSSMutableStyleDeclaration::create();
     style->setProperty(propertyID, propertyValue);
-    // FIXME: We don't call shouldApplyStyle when the source is DOM; is there a good reason for that?
-    switch (source) {
-        case CommandFromMenuOrKeyBinding:
-            frame->editor()->applyStyleToSelection(style.get(), action);
-            return true;
-        case CommandFromDOM:
-        case CommandFromDOMWithUserInterface:
-            frame->editor()->applyStyle(style.get());
-            return true;
+    return applyCommandToFrame(frame, source, action, style.get());
+}
+
+// FIXME: executeToggleStyleInList does not handle complicated cases such as <b><u>hello</u>world</b> properly.
+//        This function must use Editor::selectionHasStyle to determine the current style but we cannot fix this
+//        until https://bugs.webkit.org/show_bug.cgi?id=27818 is resolved.
+static bool executeToggleStyleInList(Frame* frame, EditorCommandSource source, EditAction action, int propertyID, CSSValue* value)
+{
+    ExceptionCode ec = 0;
+    Node* nodeToRemove = 0;
+    RefPtr<CSSComputedStyleDeclaration> selectionStyle = frame->selectionComputedStyle(nodeToRemove);
+    RefPtr<CSSValue> selectedCSSValue = selectionStyle->getPropertyCSSValue(propertyID);
+    String newStyle = "none";
+    if (selectedCSSValue->isValueList()) {
+        RefPtr<CSSValueList> selectedCSSValueList = static_cast<CSSValueList*>(selectedCSSValue.get());
+        if (!selectedCSSValueList->removeAll(value))
+            selectedCSSValueList->append(value);
+        if (selectedCSSValueList->length())
+            newStyle = selectedCSSValueList->cssText();
+
+    } else if (selectedCSSValue->cssText() == "none")
+        newStyle = value->cssText();
+
+    ASSERT(ec == 0);
+    if (nodeToRemove) {
+        nodeToRemove->remove(ec);
+        ASSERT(ec == 0);
     }
-    ASSERT_NOT_REACHED();
-    return false;
+
+    // FIXME: We shouldn't be having to convert new style into text.  We should have setPropertyCSSValue.
+    RefPtr<CSSMutableStyleDeclaration> newMutableStyle = CSSMutableStyleDeclaration::create();
+    newMutableStyle->setProperty(propertyID, newStyle,ec);
+    return applyCommandToFrame(frame, source, action, newMutableStyle.get());
 }
 
 static bool executeToggleStyle(Frame* frame, EditorCommandSource source, EditAction action, int propertyID, const char* offValue, const char* onValue)
 {
     RefPtr<CSSMutableStyleDeclaration> style = CSSMutableStyleDeclaration::create();
-    style->setProperty(propertyID, onValue);
-    style->setProperty(propertyID, frame->editor()->selectionStartHasStyle(style.get()) ? offValue : onValue);
-    // FIXME: We don't call shouldApplyStyle when the source is DOM; is there a good reason for that?
-    switch (source) {
-        case CommandFromMenuOrKeyBinding:
-            frame->editor()->applyStyleToSelection(style.get(), action);
-            return true;
-        case CommandFromDOM:
-        case CommandFromDOMWithUserInterface:
-            frame->editor()->applyStyle(style.get());
-            return true;
-    }
-    ASSERT_NOT_REACHED();
-    return false;
+    style->setProperty(propertyID, onValue); // We need to add this style to pass it to selectionStartHasStyle / selectionHasStyle
+
+    // Style is considered present when
+    // mac: present at the beginning of selection
+    // other: present throughout the selection
+    Settings* settings = frame->document()->settings();
+    bool styleIsPresent;
+    if (settings && settings->editingBehavior() == EditingMacBehavior)
+        styleIsPresent = frame->editor()->selectionStartHasStyle(style.get());
+    else
+        styleIsPresent = frame->editor()->selectionHasStyle(style.get()) == TrueTriState;
+
+    style->setProperty(propertyID, styleIsPresent ? offValue : onValue);
+    return applyCommandToFrame(frame, source, action, style.get());
 }
 
 static bool executeApplyParagraphStyle(Frame* frame, EditorCommandSource source, EditAction action, int propertyID, const String& propertyValue)
@@ -184,15 +208,15 @@ static bool executeInsertNode(Frame* frame, PassRefPtr<Node> content)
 
 static bool expandSelectionToGranularity(Frame* frame, TextGranularity granularity)
 {
-    Selection selection = frame->selection()->selection();
+    VisibleSelection selection = frame->selection()->selection();
     selection.expandUsingGranularity(granularity);
-    RefPtr<Range> newRange = selection.toRange();
+    RefPtr<Range> newRange = selection.toNormalizedRange();
     if (!newRange)
         return false;
     ExceptionCode ec = 0;
     if (newRange->collapsed(ec))
         return false;
-    RefPtr<Range> oldRange = frame->selection()->selection().toRange();
+    RefPtr<Range> oldRange = frame->selection()->selection().toNormalizedRange();
     EAffinity affinity = frame->selection()->affinity();
     if (!frame->editor()->client()->shouldChangeSelectedRange(oldRange.get(), newRange.get(), affinity, false))
         return false;
@@ -342,7 +366,7 @@ static bool executeDeleteToEndOfParagraph(Frame* frame, Event*, EditorCommandSou
 
 static bool executeDeleteToMark(Frame* frame, Event*, EditorCommandSource, const String&)
 {
-    RefPtr<Range> mark = frame->mark().toRange();
+    RefPtr<Range> mark = frame->mark().toNormalizedRange();
     if (mark) {
         SelectionController* selection = frame->selection();
         bool selected = selection->setSelectedRange(unionDOMRanges(mark.get(), frame->editor()->selectedRange().get()).get(), DOWNSTREAM, true);
@@ -491,9 +515,9 @@ static bool executeInsertNewlineInQuotedContent(Frame* frame, Event*, EditorComm
     return true;
 }
 
-static bool executeInsertOrderedList(Frame* frame, Event*, EditorCommandSource, const String& value)
+static bool executeInsertOrderedList(Frame* frame, Event*, EditorCommandSource, const String&)
 {
-    applyCommand(InsertListCommand::create(frame->document(), InsertListCommand::OrderedList, value));
+    applyCommand(InsertListCommand::create(frame->document(), InsertListCommand::OrderedList));
     return true;
 }
 
@@ -514,9 +538,9 @@ static bool executeInsertText(Frame* frame, Event*, EditorCommandSource, const S
     return true;
 }
 
-static bool executeInsertUnorderedList(Frame* frame, Event*, EditorCommandSource, const String& value)
+static bool executeInsertUnorderedList(Frame* frame, Event*, EditorCommandSource, const String&)
 {
-    applyCommand(InsertListCommand::create(frame->document(), InsertListCommand::UnorderedList, value));
+    applyCommand(InsertListCommand::create(frame->document(), InsertListCommand::UnorderedList));
     return true;
 }
 
@@ -826,6 +850,30 @@ static bool executeMoveWordRightAndModifySelection(Frame* frame, Event*, EditorC
     return true;
 }
 
+static bool executeMoveToLeftEndOfLine(Frame* frame, Event*, EditorCommandSource, const String&)
+{
+    frame->selection()->modify(SelectionController::MOVE, SelectionController::LEFT, LineBoundary, true);
+    return true;
+}
+
+static bool executeMoveToLeftEndOfLineAndModifySelection(Frame* frame, Event*, EditorCommandSource, const String&)
+{
+    frame->selection()->modify(SelectionController::EXTEND, SelectionController::LEFT, LineBoundary, true);
+    return true;
+}
+
+static bool executeMoveToRightEndOfLine(Frame* frame, Event*, EditorCommandSource, const String&)
+{
+    frame->selection()->modify(SelectionController::MOVE, SelectionController::RIGHT, LineBoundary, true);
+    return true;
+}
+
+static bool executeMoveToRightEndOfLineAndModifySelection(Frame* frame, Event*, EditorCommandSource, const String&)
+{
+    frame->selection()->modify(SelectionController::EXTEND, SelectionController::RIGHT, LineBoundary, true);
+    return true;
+}
+
 static bool executeOutdent(Frame* frame, Event*, EditorCommandSource, const String&)
 {
     applyCommand(IndentOutdentCommand::create(frame->document(), IndentOutdentCommand::Outdent));
@@ -888,7 +936,7 @@ static bool executeSelectSentence(Frame* frame, Event*, EditorCommandSource, con
 
 static bool executeSelectToMark(Frame* frame, Event*, EditorCommandSource, const String&)
 {
-    RefPtr<Range> mark = frame->mark().toRange();
+    RefPtr<Range> mark = frame->mark().toNormalizedRange();
     RefPtr<Range> selection = frame->editor()->selectedRange();
     if (!mark || !selection) {
         systemBeep();
@@ -911,7 +959,17 @@ static bool executeSetMark(Frame* frame, Event*, EditorCommandSource, const Stri
 
 static bool executeStrikethrough(Frame* frame, Event*, EditorCommandSource source, const String&)
 {
-    return executeToggleStyle(frame, source, EditActionChangeAttributes, CSSPropertyWebkitTextDecorationsInEffect, "none", "line-through");
+    RefPtr<CSSPrimitiveValue> lineThrough = CSSPrimitiveValue::createIdentifier(CSSValueLineThrough);
+    return executeToggleStyleInList(frame, source, EditActionUnderline, CSSPropertyWebkitTextDecorationsInEffect, lineThrough.get());
+}
+
+static bool executeStyleWithCSS(Frame* frame, Event*, EditorCommandSource, const String& value)
+{
+    if (value != "false" && value != "true")
+        return false;
+    
+    frame->editor()->setShouldStyleWithCSS(value == "true" ? true : false);
+    return true;
 }
 
 static bool executeSubscript(Frame* frame, Event*, EditorCommandSource source, const String&)
@@ -926,8 +984,8 @@ static bool executeSuperscript(Frame* frame, Event*, EditorCommandSource source,
 
 static bool executeSwapWithMark(Frame* frame, Event*, EditorCommandSource, const String&)
 {
-    const Selection& mark = frame->mark();
-    const Selection& selection = frame->selection()->selection();
+    const VisibleSelection& mark = frame->mark();
+    const VisibleSelection& selection = frame->selection()->selection();
     if (mark.isNone() || selection.isNone()) {
         systemBeep();
         return false;
@@ -955,8 +1013,8 @@ static bool executeTranspose(Frame* frame, Event*, EditorCommandSource, const St
 
 static bool executeUnderline(Frame* frame, Event*, EditorCommandSource source, const String&)
 {
-    // FIXME: This currently clears overline, line-through, and blink as an unwanted side effect.
-    return executeToggleStyle(frame, source, EditActionUnderline, CSSPropertyWebkitTextDecorationsInEffect, "none", "underline");
+    RefPtr<CSSPrimitiveValue> underline = CSSPrimitiveValue::createIdentifier(CSSValueUnderline);
+    return executeToggleStyleInList(frame, source, EditActionUnderline, CSSPropertyWebkitTextDecorationsInEffect, underline.get());
 }
 
 static bool executeUndo(Frame* frame, Event*, EditorCommandSource, const String&)
@@ -1033,20 +1091,20 @@ static bool enabled(Frame*, Event*, EditorCommandSource)
 static bool enabledVisibleSelection(Frame* frame, Event* event, EditorCommandSource)
 {
     // The term "visible" here includes a caret in editable text or a range in any text.
-    const Selection& selection = frame->editor()->selectionForCommand(event);
+    const VisibleSelection& selection = frame->editor()->selectionForCommand(event);
     return (selection.isCaret() && selection.isContentEditable()) || selection.isRange();
 }
 
 static bool enabledVisibleSelectionAndMark(Frame* frame, Event* event, EditorCommandSource)
 {
-    const Selection& selection = frame->editor()->selectionForCommand(event);
+    const VisibleSelection& selection = frame->editor()->selectionForCommand(event);
     return ((selection.isCaret() && selection.isContentEditable()) || selection.isRange())
         && frame->mark().isCaretOrRange();
 }
 
 static bool enableCaretInEditableText(Frame* frame, Event* event, EditorCommandSource)
 {
-    const Selection& selection = frame->editor()->selectionForCommand(event);
+    const VisibleSelection& selection = frame->editor()->selectionForCommand(event);
     return selection.isCaret() && selection.isContentEditable();
 }
 
@@ -1136,6 +1194,11 @@ static TriState stateOrderedList(Frame* frame, Event*)
 static TriState stateStrikethrough(Frame* frame, Event*)
 {
     return stateStyle(frame, CSSPropertyTextDecoration, "line-through");
+}
+
+static TriState stateStyleWithCSS(Frame* frame, Event*)
+{
+    return frame->editor()->shouldStyleWithCSS() ? TrueTriState : FalseTriState;
 }
 
 static TriState stateSubscript(Frame* frame, Event*)
@@ -1244,8 +1307,8 @@ static const CommandMap& createCommandMap()
         { "IgnoreSpelling", { executeIgnoreSpelling, supportedFromMenuOrKeyBinding, enabledInEditableText, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
         { "Indent", { executeIndent, supported, enabledInRichlyEditableText, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
         { "InsertBacktab", { executeInsertBacktab, supportedFromMenuOrKeyBinding, enabledInEditableText, stateNone, valueNull, isTextInsertion, doNotAllowExecutionWhenDisabled } },
-        { "InsertHorizontalRule", { executeInsertHorizontalRule, supported, enabledInRichlyEditableText, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
         { "InsertHTML", { executeInsertHTML, supported, enabledInEditableText, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
+        { "InsertHorizontalRule", { executeInsertHorizontalRule, supported, enabledInRichlyEditableText, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
         { "InsertImage", { executeInsertImage, supported, enabledInRichlyEditableText, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
         { "InsertLineBreak", { executeInsertLineBreak, supported, enabledInEditableText, stateNone, valueNull, isTextInsertion, doNotAllowExecutionWhenDisabled } },
         { "InsertNewline", { executeInsertNewline, supportedFromMenuOrKeyBinding, enabledInEditableText, stateNone, valueNull, isTextInsertion, doNotAllowExecutionWhenDisabled } },    
@@ -1296,6 +1359,10 @@ static const CommandMap& createCommandMap()
         { "MoveToEndOfParagraphAndModifySelection", { executeMoveToEndOfParagraphAndModifySelection, supportedFromMenuOrKeyBinding, enabledVisibleSelection, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
         { "MoveToEndOfSentence", { executeMoveToEndOfSentence, supportedFromMenuOrKeyBinding, enabledInEditableText, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
         { "MoveToEndOfSentenceAndModifySelection", { executeMoveToEndOfSentenceAndModifySelection, supportedFromMenuOrKeyBinding, enabledVisibleSelection, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
+        { "MoveToLeftEndOfLine", { executeMoveToLeftEndOfLine, supportedFromMenuOrKeyBinding, enabledInEditableText, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
+        { "MoveToLeftEndOfLineAndModifySelection", { executeMoveToLeftEndOfLineAndModifySelection, supportedFromMenuOrKeyBinding, enabledInEditableText, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
+        { "MoveToRightEndOfLine", { executeMoveToRightEndOfLine, supportedFromMenuOrKeyBinding, enabledInEditableText, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
+        { "MoveToRightEndOfLineAndModifySelection", { executeMoveToRightEndOfLineAndModifySelection, supportedFromMenuOrKeyBinding, enabledInEditableText, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
         { "MoveUp", { executeMoveUp, supportedFromMenuOrKeyBinding, enabledInEditableText, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
         { "MoveUpAndModifySelection", { executeMoveUpAndModifySelection, supportedFromMenuOrKeyBinding, enabledVisibleSelection, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
         { "MoveWordBackward", { executeMoveWordBackward, supportedFromMenuOrKeyBinding, enabledInEditableText, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
@@ -1320,6 +1387,7 @@ static const CommandMap& createCommandMap()
         { "SelectWord", { executeSelectWord, supportedFromMenuOrKeyBinding, enabledVisibleSelection, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
         { "SetMark", { executeSetMark, supportedFromMenuOrKeyBinding, enabledVisibleSelection, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
         { "Strikethrough", { executeStrikethrough, supported, enabledInRichlyEditableText, stateStrikethrough, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
+        { "StyleWithCSS", { executeStyleWithCSS, supported, enabledInRichlyEditableText, stateStyleWithCSS, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
         { "Subscript", { executeSubscript, supported, enabledInRichlyEditableText, stateSubscript, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
         { "Superscript", { executeSuperscript, supported, enabledInRichlyEditableText, stateSuperscript, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
         { "SwapWithMark", { executeSwapWithMark, supportedFromMenuOrKeyBinding, enabledVisibleSelectionAndMark, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
@@ -1428,7 +1496,7 @@ bool Editor::Command::execute(const String& parameter, Event* triggeringEvent) c
 {
     if (!isEnabled(triggeringEvent)) {
         // Let certain commands be executed when performed explicitly even if they are disabled.
-        if (!isSupported() || !m_frame || !m_frame->document() || !m_command->allowExecutionWhenDisabled)
+        if (!isSupported() || !m_frame || !m_command->allowExecutionWhenDisabled)
             return false;
     }
     m_frame->document()->updateLayoutIgnorePendingStylesheets();
@@ -1447,21 +1515,21 @@ bool Editor::Command::isSupported() const
 
 bool Editor::Command::isEnabled(Event* triggeringEvent) const
 {
-    if (!isSupported() || !m_frame || !m_frame->document())
+    if (!isSupported() || !m_frame)
         return false;
     return m_command->isEnabled(m_frame.get(), triggeringEvent, m_source);
 }
 
 TriState Editor::Command::state(Event* triggeringEvent) const
 {
-    if (!isSupported() || !m_frame || !m_frame->document())
+    if (!isSupported() || !m_frame)
         return FalseTriState;
     return m_command->state(m_frame.get(), triggeringEvent);
 }
 
 String Editor::Command::value(Event* triggeringEvent) const
 {
-    if (!isSupported() || !m_frame || !m_frame->document())
+    if (!isSupported() || !m_frame)
         return String();
     return m_command->value(m_frame.get(), triggeringEvent);
 }

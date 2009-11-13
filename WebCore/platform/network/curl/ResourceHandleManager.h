@@ -32,6 +32,11 @@
 #include "Timer.h"
 #include "ResourceHandleClient.h"
 
+#if PLATFORM(WIN)
+#include <winsock2.h>
+#include <windows.h>
+#endif
+
 #include <curl/curl.h>
 #include <wtf/Vector.h>
 

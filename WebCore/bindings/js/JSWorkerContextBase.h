@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2008, 2009 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,6 +33,9 @@
 
 namespace WebCore {
 
+    class JSDedicatedWorkerContext;
+    class JSSharedWorkerContext;
+    class JSWorkerContext;
     class WorkerContext;
 
     class JSWorkerContextBase : public JSDOMGlobalObject {
@@ -41,7 +44,6 @@ namespace WebCore {
         JSWorkerContextBase(PassRefPtr<JSC::Structure>, PassRefPtr<WorkerContext>);
         virtual ~JSWorkerContextBase();
 
-        virtual void put(JSC::ExecState*, const JSC::Identifier& propertyName, JSC::JSValuePtr, JSC::PutPropertySlot&);
         virtual const JSC::ClassInfo* classInfo() const { return &s_info; }
         static const JSC::ClassInfo s_info;
 
@@ -51,6 +53,18 @@ namespace WebCore {
     private:
         RefPtr<WorkerContext> m_impl;
     };
+
+    // Returns a JSWorkerContext or jsNull()
+    // Always ignores the execState and passed globalObject, WorkerContext is itself a globalObject and will always use its own prototype chain.
+    JSC::JSValue toJS(JSC::ExecState*, JSDOMGlobalObject*, WorkerContext*);
+    JSC::JSValue toJS(JSC::ExecState*, WorkerContext*);
+
+    JSDedicatedWorkerContext* toJSDedicatedWorkerContext(JSC::JSValue);
+    JSWorkerContext* toJSWorkerContext(JSC::JSValue);
+
+#if ENABLE(SHARED_WORKERS)
+    JSSharedWorkerContext* toJSSharedWorkerContext(JSC::JSValue);
+#endif
 
 } // namespace WebCore
 

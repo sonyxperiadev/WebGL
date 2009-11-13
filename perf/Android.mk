@@ -32,81 +32,21 @@ LOCAL_SRC_FILES := \
 	MyJavaVM.cpp \
 	main.cpp
 
-WEBCORE := external/webkit/WebCore
-WEBKIT := external/webkit/WebKit
-JSC := external/webkit/JavaScriptCore
+# Pull the webkit definitions from the base webkit makefile.
+LOCAL_STATIC_LIBRARIES := libwebcore $(WEBKIT_STATIC_LIBRARIES)
+LOCAL_SHARED_LIBRARIES := $(WEBKIT_SHARED_LIBRARIES)
+LOCAL_LDLIBS := $(WEBKIT_LDLIBS)
+LOCAL_C_INCLUDES := $(WEBKIT_C_INCLUDES)
+LOCAL_CFLAGS := $(WEBKIT_CFLAGS)
 
-LOCAL_CFLAGS += -include "WebCorePrefixAndroid.h"
+LOCAL_MODULE := webcore_test
 
-LOCAL_C_INCLUDES := \
-	$(JNI_H_INCLUDE) \
-	external/webkit \
-	$(WEBCORE) \
-	$(WEBCORE)/page \
-	$(WEBCORE)/platform \
-	$(WEBCORE)/platform/graphics \
-	$(WEBCORE)/platform/network \
-	$(WEBCORE)/platform/text \
-	$(WEBCORE)/rendering \
-	$(WEBKIT) \
-	$(WEBKIT)/android/stl \
-	$(JSC) \
-	external/icu4c/common \
-	external/libxml2/include \
-	external/skia/include/effects \
-	external/skia/include/images \
-	external/skia/include/ports \
-	external/skia/include/utils \
-	external/skia/src/ports \
-	external/sqlite/dist \
-	$(WEBCORE)/bindings/js \
-	$(WEBCORE)/bridge \
-	$(WEBCORE)/bridge/c \
-	$(WEBCORE)/bridge/jni \
-	$(WEBCORE)/css \
-	$(WEBCORE)/dom \
-	$(WEBCORE)/editing \
-	$(WEBCORE)/history \
-	$(WEBCORE)/html \
-	$(WEBCORE)/inspector \
-	$(WEBCORE)/loader \
-	$(WEBCORE)/loader/appcache \
-	$(WEBCORE)/loader/icon \
-	$(WEBCORE)/page/android \
-	$(WEBCORE)/page/animation \
-	$(WEBCORE)/platform/android \
-	$(WEBCORE)/platform/graphics/android \
-	$(WEBCORE)/platform/graphics/network \
-	$(WEBCORE)/platform/image-decoders \
-	$(WEBCORE)/platform/network/android \
-	$(WEBCORE)/platform/sql \
-	$(WEBCORE)/plugins \
-	$(WEBCORE)/rendering/style \
-	$(WEBCORE)/storage \
-	$(WEBCORE)/xml \
-	$(WEBKIT)/android \
-	$(WEBKIT)/android/jni \
-	$(WEBKIT)/android/nav \
-	$(WEBKIT)/android/plugins \
-	$(WEBKIT)/android/WebCoreSupport \
-	$(JSC)/API \
-	$(JSC)/VM \
-	$(JSC)/debugger \
-	$(JSC)/kjs \
-	$(JSC)/icu \
-	$(JSC)/pcre \
-	$(JSC)/profiler \
-	$(JSC)/runtime \
-	$(JSC)/wtf \
-	$(JSC)/wtf/unicode \
-	$(JSC)/wtf/unicode/icu \
-	$(JSC)/ForwardingHeaders \
-	$(call include-path-for, corecg graphics)
+# Do this dependency by hand. The reason we have to do this is because the
+# headers that this program pulls in are generated during the build of webcore.
+# We make all of our object files depend on those files so that they are built
+# before we try to compile our sources.
+LOCAL_ADDITIONAL_DEPENDENCIES := $(filter %.h, $(WEBKIT_GENERATED_SOURCES))
 
-LOCAL_SHARED_LIBRARIES := libwebcore
-
-LOCAL_MODULE:= webcore_test
 LOCAL_MODULE_TAGS := optional
 
 include $(BUILD_EXECUTABLE)
-

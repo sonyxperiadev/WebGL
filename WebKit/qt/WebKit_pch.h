@@ -1,7 +1,7 @@
 /*
  * This file is part of the precompiled header for all of WebKit.
  *
- * Copyright (C) 2007 Trolltech
+ * Copyright (C) 2009 Nokia Corporation and/or its subsidiary(-ies).
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -77,7 +77,4 @@
 #include <wtf/UnusedParam.h>
 #include <wtf/AlwaysInline.h>
 #include <wtf/GetPtr.h>
-
-#include "../../WebCore/bindings/js/JSDOMBinding.h"
-#include "../../JavaScriptCore/runtime/MathObject.h"
 #endif

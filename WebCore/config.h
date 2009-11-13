@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2004, 2005, 2006 Apple Inc.
- * 
+ *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
  * License as published by the Free Software Foundation; either
@@ -23,6 +23,22 @@
 #endif
 
 #include <wtf/Platform.h>
+
+#if PLATFORM(WIN_OS) && !defined(BUILDING_WX__) && !COMPILER(GCC)
+#if defined(BUILDING_JavaScriptCore) || defined(BUILDING_WTF)
+#define JS_EXPORTDATA __declspec(dllexport)
+#else
+#define JS_EXPORTDATA __declspec(dllimport)
+#endif
+#if defined(BUILDING_WebCore) || defined(BUILDING_WebKit)
+#define WEBKIT_EXPORTDATA __declspec(dllexport)
+#else
+#define WEBKIT_EXPORTDATA __declspec(dllimport)
+#endif
+#else
+#define JS_EXPORTDATA
+#define WEBKIT_EXPORTDATA
+#endif
 
 #define MOBILE 0
 
@@ -69,32 +85,57 @@
 
 // ANDROID def should be after all PLATFORM to avoid override.
 // USE_SYSTEM_MALLOC needs to be defined before include FastMalloc.h
-#ifdef ANDROID
+#if PLATFORM(ANDROID)
 #define USE_SYSTEM_MALLOC 1
 #define ANDROID_MOBILE      // change can be merged back to WebKit.org for MOBILE
 #ifdef ANDROID_PLUGINS
 #define WTF_USE_JAVASCRIPTCORE_BINDINGS 1
 #define WTF_USE_NPOBJECT 1
 #endif
-#define WTF_USE_LOW_BANDWIDTH_DISPLAY 1
 #define LOG_DISABLED 1
 #include <wtf/Assertions.h>
 // center place to handle which option feature ANDROID will enable
+#undef ENABLE_CHANNEL_MESSAGING
+#define ENABLE_CHANNEL_MESSAGING 1
 #undef ENABLE_DATABASE
-#define ENABLE_DATABASE 0
+#define ENABLE_DATABASE 1
+#undef ENABLE_DOM_STORAGE
+#define ENABLE_DOM_STORAGE 1
 #undef ENABLE_FTPDIR
 #define ENABLE_FTPDIR 0
+#ifndef ENABLE_SVG
 #define ENABLE_SVG 0
-#define ENABLE_SVG_EXPERIMENTAL_FEATURES 0
+#undef ENABLE_V8_LOCKERS
+#define ENABLE_V8_LOCKERS 1
+#undef ENABLE_VIDEO
+#define ENABLE_VIDEO 1
+#undef ENABLE_WORKERS
+#define ENABLE_WORKERS 1
+#endif
+#if ENABLE_SVG
+#if !defined(ENABLE_SVG_ANIMATION)
+#define ENABLE_SVG_ANIMATION 0 // to enable:
+    // fix error: no matching function for call to 'sort(WebCore::SVGSMILElement**, WebCore::SVGSMILElement**, WebCore::PriorityCompare)'
+    // fix error: no matching function for call to 'sort(WebCore::SMILTime*, WebCore::SMILTime*)'
+    // add ENABLE_SVG_ANIMATION=1 to SVG_FLAGS in JavaScriptCore.derived.mk
+#endif
+#define ENABLE_SVG_AS_IMAGE 1
+#define ENABLE_SVG_FILTERS 1
+#define ENABLE_SVG_FONTS 1
+#define ENABLE_SVG_FOREIGN_OBJECT 1
+#define ENABLE_SVG_USE 1
+#endif
 #define ENABLE_XBL 0
 #define ENABLE_XPATH 0
 #define ENABLE_XSLT 0
-#define ENABLE_VIDEO 0
+
 #undef ENABLE_ARCHIVE
 #define ENABLE_ARCHIVE 0 // ANDROID addition: allow web archive to be disabled
-#define ENABLE_OFFLINE_WEB_APPLICATIONS 0
+#define ENABLE_OFFLINE_WEB_APPLICATIONS 1
 #define ENABLE_TOUCH_EVENTS 1
-#endif
+#undef ENABLE_GEOLOCATION
+#define ENABLE_GEOLOCATION 1
+#endif  // PLATFORM(ANDROID)
 
 #ifdef __cplusplus
 
@@ -120,15 +161,27 @@
 #endif
 
 #if PLATFORM(WIN)
+#if defined(WIN_CAIRO)
+#undef WTF_PLATFORM_CG
+#define WTF_PLATFORM_CAIRO 1
+#undef WTF_USE_CFNETWORK
+#define WTF_USE_CURL 1
+#ifndef _WINSOCKAPI_
+#define _WINSOCKAPI_ // Prevent inclusion of winsock.h in windows.h
+#endif
+#else
 #define WTF_PLATFORM_CG 1
 #undef WTF_PLATFORM_CAIRO
 #define WTF_USE_CFNETWORK 1
+#undef WTF_USE_CURL
+#endif
 #undef WTF_USE_WININET
 #define WTF_PLATFORM_CF 1
 #define WTF_USE_PTHREADS 0
 #endif
 
 #if PLATFORM(MAC)
+// ATSUI vs. CoreText
 #if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
 #define WTF_USE_ATSUI 0
 #define WTF_USE_CORE_TEXT 1
@@ -136,8 +189,10 @@
 #define WTF_USE_ATSUI 1
 #define WTF_USE_CORE_TEXT 0
 #endif
+
+// New theme
 #define WTF_USE_NEW_THEME 1
-#endif
+#endif // PLATFORM(MAC)
 
 #if PLATFORM(SYMBIAN)
 #undef WIN32

@@ -1,7 +1,7 @@
 /*
  * This file is part of the theme implementation for form controls in WebCore.
  *
- * Copyright (C) 2007 Trolltech
+ * Copyright (C) 2009 Nokia Corporation and/or its subsidiary(-ies).
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -36,11 +36,13 @@ namespace WebCore {
 class RenderStyle;
 class HTMLMediaElement;
 
-class RenderThemeQt : public RenderTheme
-{
-public:
-    RenderThemeQt();
+class RenderThemeQt : public RenderTheme {
+private:
+    RenderThemeQt(Page* page);
     virtual ~RenderThemeQt();
+
+public:
+    static PassRefPtr<RenderTheme> create(Page*);
 
     virtual bool supportsHover(const RenderStyle*) const;
     virtual bool supportsFocusRing(const RenderStyle* style) const;
@@ -54,9 +56,6 @@ public:
     virtual bool supportsControlTints() const;
 
     virtual void adjustRepaintRect(const RenderObject* o, IntRect& r);
-
-    virtual bool isControlStyled(const RenderStyle*, const BorderData&,
-                                 const FillLayer&, const Color&) const;
 
     // The platform selection color.
     virtual Color platformActiveSelectionBackgroundColor() const;
@@ -128,6 +127,7 @@ private:
     void paintMediaBackground(QPainter* painter, const IntRect& r) const;
     QColor getMediaControlForegroundColor(RenderObject* o = 0) const;
 #endif
+    void computeSizeBasedOnStyle(RenderStyle* renderStyle) const;
 
 private:
     bool supportsFocus(ControlPart) const;
@@ -137,17 +137,20 @@ private:
     void setButtonPadding(RenderStyle*) const;
     void setPopupPadding(RenderStyle*) const;
 
+    QStyle* qStyle() const;
+    QStyle* fallbackStyle();
+
+    Page* m_page;
+
 #ifdef Q_WS_MAC
     int m_buttonFontPixelSize;
 #endif
     QString m_buttonFontFamily;
 
     QStyle* m_fallbackStyle;
-    QStyle* fallbackStyle();
 };
 
-class StylePainter
-{
+class StylePainter {
 public:
     explicit StylePainter(const RenderObject::PaintInfo& paintInfo);
     explicit StylePainter(GraphicsContext* context);

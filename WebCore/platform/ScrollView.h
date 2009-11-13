@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2004, 2006, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2009 Holger Hans Peter Freyther
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -46,9 +47,6 @@ typedef struct _GtkAdjustment GtkAdjustment;
 class wxScrollWinEvent;
 #endif
 
-// DANGER WILL ROBINSON! THIS FILE IS UNDERGOING HEAVY REFACTORING.
-// Everything is changing!
-// Port authors should wait until this refactoring is complete before attempting to implement this interface.
 namespace WebCore {
 
 class HostWindow;
@@ -57,7 +55,6 @@ class Scrollbar;
 
 class ScrollView : public Widget, public ScrollbarClient {
 public:
-    ScrollView();
     ~ScrollView();
 
     // ScrollbarClient method.  FrameView overrides the other two.
@@ -71,8 +68,8 @@ public:
     virtual IntRect windowClipRect(bool clipToContents = true) const = 0;
 
     // Methods for child manipulation and inspection.
-    const HashSet<Widget*>* children() const { return &m_children; }
-    void addChild(Widget*);
+    const HashSet<RefPtr<Widget> >* children() const { return &m_children; }
+    void addChild(PassRefPtr<Widget>);
     void removeChild(Widget*);
     
     // If the scroll view does not use a native widget, then it will have cross-platform Scrollbars.  These methods
@@ -125,7 +122,7 @@ public:
     
     // Methods for getting/setting the size of the document contained inside the ScrollView (as an IntSize or as individual width and height
     // values).
-    IntSize contentsSize() const;
+    IntSize contentsSize() const; // Always at least as big as the visibleWidth()/visibleHeight().
     int contentsWidth() const { return contentsSize().width(); }
     int contentsHeight() const { return contentsSize().height(); }
     virtual void setContentsSize(const IntSize&);
@@ -183,7 +180,7 @@ public:
     virtual void setFrameRect(const IntRect&);
 
     // For platforms that need to hit test scrollbars from within the engine's event handlers (like Win32).
-    Scrollbar* scrollbarUnderMouse(const PlatformMouseEvent& mouseEvent);
+    Scrollbar* scrollbarAtPoint(const IntPoint& windowPoint);
 
     // This method exists for scrollviews that need to handle wheel events manually.
     // On Mac the underlying NSScrollView just does the scrolling, but on other platforms
@@ -216,13 +213,22 @@ public:
     virtual void hide();
     virtual void setParentVisible(bool);
     
-    // Pan scrolling methods.
+    // Pan scrolling.
+    static const int noPanScrollRadius = 15;
     void addPanScrollIcon(const IntPoint&);
     void removePanScrollIcon();
 
+    virtual bool isPointInScrollbarCorner(const IntPoint&);
     virtual bool scrollbarCornerPresent() const;
 
+    virtual IntRect convertFromScrollbarToContainingView(const Scrollbar*, const IntRect&) const;
+    virtual IntRect convertFromContainingViewToScrollbar(const Scrollbar*, const IntRect&) const;
+    virtual IntPoint convertFromScrollbarToContainingView(const Scrollbar*, const IntPoint&) const;
+    virtual IntPoint convertFromContainingViewToScrollbar(const Scrollbar*, const IntPoint&) const;
+
 protected:
+    ScrollView();
+
     virtual void repaintContentRectangle(const IntRect&, bool now = false);
     virtual void paintContents(GraphicsContext*, const IntRect& damageRect) = 0;
     
@@ -240,7 +246,7 @@ private:
     ScrollbarMode m_verticalScrollbarMode;
     bool m_prohibitsScrolling;
 
-    HashSet<Widget*> m_children;
+    HashSet<RefPtr<Widget> > m_children;
 
     // This bool is unused on Mac OS because we directly ask the platform widget
     // whether it is safe to blit on scroll.
@@ -254,6 +260,7 @@ private:
     bool m_scrollbarsSuppressed;
 
     bool m_inUpdateScrollbars;
+    unsigned m_updateScrollbarsPass;
 
     IntPoint m_panScrollIconPoint;
     bool m_drawPanScrollIcon;
@@ -283,10 +290,6 @@ private:
     void platformSetScrollbarsSuppressed(bool repaintOnUnsuppress);
     void platformRepaintContentRectangle(const IntRect&, bool now);
     bool platformIsOffscreen() const;
-    bool platformHandleHorizontalAdjustment(const IntSize&);
-    bool platformHandleVerticalAdjustment(const IntSize&);
-    bool platformHasHorizontalAdjustment() const;
-    bool platformHasVerticalAdjustment() const;
 
 #if PLATFORM(MAC) && defined __OBJC__
 public:
@@ -297,9 +300,11 @@ private:
 #endif
 
 #if PLATFORM(QT)
+public:
+    void adjustWidgetsPreventingBlittingCount(int delta);
 private:
-    bool rootPreventsBlitting() const { return root()->m_widgetsThatPreventBlitting > 0; }
-    unsigned m_widgetsThatPreventBlitting;
+    bool rootPreventsBlitting() const { return root()->m_widgetsPreventingBlitting > 0; }
+    unsigned m_widgetsPreventingBlitting;
 #else
     bool rootPreventsBlitting() const { return false; }
 #endif

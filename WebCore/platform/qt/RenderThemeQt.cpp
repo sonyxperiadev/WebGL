@@ -28,35 +28,36 @@
  */
 
 #include "config.h"
-
-#include "qwebpage.h"
 #include "RenderThemeQt.h"
+
+#include "CSSStyleSelector.h"
+#include "CSSStyleSheet.h"
 #include "ChromeClientQt.h"
+#include "Color.h"
+#include "Document.h"
+#include "Font.h"
+#include "FontSelector.h"
+#include "GraphicsContext.h"
+#include "HTMLMediaElement.h"
+#include "HTMLNames.h"
 #include "NotImplemented.h"
+#include "Page.h"
+#include "RenderBox.h"
+#include "RenderTheme.h"
+#include "qwebpage.h"
 
 #include <QApplication>
 #include <QColor>
 #include <QDebug>
 #include <QFile>
-#include <QWidget>
+#include <QLineEdit>
 #include <QPainter>
 #include <QPushButton>
 #include <QStyleFactory>
 #include <QStyleOptionButton>
 #include <QStyleOptionFrameV2>
+#include <QWidget>
 
-#include "Color.h"
-#include "CSSStyleSelector.h"
-#include "CSSStyleSheet.h"
-#include "FontSelector.h"
-#include "Document.h"
-#include "Page.h"
-#include "Font.h"
-#include "RenderTheme.h"
-#include "GraphicsContext.h"
-#include "HTMLMediaElement.h"
-#include "HTMLNames.h"
-#include "RenderBox.h"
 
 namespace WebCore {
 
@@ -105,14 +106,24 @@ StylePainter::~StylePainter()
     }
 }
 
-RenderTheme* theme()
+PassRefPtr<RenderTheme> RenderThemeQt::create(Page* page)
 {
-    static RenderThemeQt rt;
-    return &rt;
+    return adoptRef(new RenderThemeQt(page));
 }
 
-RenderThemeQt::RenderThemeQt()
+PassRefPtr<RenderTheme> RenderTheme::themeForPage(Page* page)
+{
+    if (page)
+        return RenderThemeQt::create(page);
+
+    static RenderTheme* fallback = RenderThemeQt::create(0).releaseRef();
+    return fallback;
+}
+
+RenderThemeQt::RenderThemeQt(Page* page)
     : RenderTheme()
+    , m_page(page)
+    , m_fallbackStyle(0)
 {
     QPushButton button;
     button.setAttribute(Qt::WA_MacSmallSize);
@@ -122,8 +133,6 @@ RenderThemeQt::RenderThemeQt()
 #ifdef Q_WS_MAC
     m_buttonFontPixelSize = fontInfo.pixelSize();
 #endif
-
-    m_fallbackStyle = 0;
 }
 
 RenderThemeQt::~RenderThemeQt()
@@ -134,13 +143,28 @@ RenderThemeQt::~RenderThemeQt()
 // for some widget painting, we need to fallback to Windows style
 QStyle* RenderThemeQt::fallbackStyle()
 {
-    if(!m_fallbackStyle)
+    if (!m_fallbackStyle)
         m_fallbackStyle = QStyleFactory::create(QLatin1String("windows"));
 
-    if(!m_fallbackStyle)
+    if (!m_fallbackStyle)
         m_fallbackStyle = QApplication::style();
 
     return m_fallbackStyle;
+}
+
+QStyle* RenderThemeQt::qStyle() const
+{
+    if (m_page) {
+        ChromeClientQt* client = static_cast<ChromeClientQt*>(m_page->chrome()->client());
+
+        if (!client->m_webPage)
+            return QApplication::style();
+
+        if (QWidget* view = client->m_webPage->view())
+            return view->style();
+    }
+
+    return QApplication::style();
 }
 
 bool RenderThemeQt::supportsHover(const RenderStyle*) const
@@ -158,8 +182,7 @@ int RenderThemeQt::baselinePosition(const RenderObject* o) const
     if (!o->isBox())
         return 0;
 
-    if (o->style()->appearance() == CheckboxPart ||
-        o->style()->appearance() == RadioPart)
+    if (o->style()->appearance() == CheckboxPart || o->style()->appearance() == RadioPart)
         return toRenderBox(o)->marginTop() + toRenderBox(o)->height() - 2; // Same as in old khtml
     return RenderTheme::baselinePosition(o);
 }
@@ -182,14 +205,20 @@ bool RenderThemeQt::supportsControlTints() const
     return true;
 }
 
-static QRect inflateButtonRect(const QRect& originalRect)
+static int findFrameLineWidth(QStyle* style)
+{
+    QLineEdit lineEdit;
+    QStyleOptionFrameV2 opt;
+    return style->pixelMetric(QStyle::PM_DefaultFrameWidth, &opt, &lineEdit);
+}
+
+static QRect inflateButtonRect(const QRect& originalRect, QStyle* style)
 {
     QStyleOptionButton option;
     option.state |= QStyle::State_Small;
     option.rect = originalRect;
 
-    QRect layoutRect = QApplication::style()->subElementRect(QStyle::SE_PushButtonLayoutItem,
-                                                                  &option, 0);
+    QRect layoutRect = style->subElementRect(QStyle::SE_PushButtonLayoutItem, &option, 0);
     if (!layoutRect.isNull()) {
         int paddingLeft = layoutRect.left() - originalRect.left();
         int paddingRight = originalRect.right() - layoutRect.right();
@@ -197,44 +226,28 @@ static QRect inflateButtonRect(const QRect& originalRect)
         int paddingBottom = originalRect.bottom() - layoutRect.bottom();
 
         return originalRect.adjusted(-paddingLeft, -paddingTop, paddingRight, paddingBottom);
-    } else {
-        return originalRect;
     }
+    return originalRect;
 }
 
-void RenderThemeQt::adjustRepaintRect(const RenderObject* o, IntRect& r)
+void RenderThemeQt::adjustRepaintRect(const RenderObject* o, IntRect& rect)
 {
     switch (o->style()->appearance()) {
-    case CheckboxPart: {
+    case CheckboxPart:
         break;
-    }
-    case RadioPart: {
+    case RadioPart:
         break;
-    }
     case PushButtonPart:
     case ButtonPart: {
-        QRect inflatedRect = inflateButtonRect(r);
-        r = IntRect(inflatedRect.x(), inflatedRect.y(), inflatedRect.width(), inflatedRect.height());
+        QRect inflatedRect = inflateButtonRect(rect, qStyle());
+        rect = IntRect(inflatedRect.x(), inflatedRect.y(), inflatedRect.width(), inflatedRect.height());
         break;
     }
-    case MenulistPart: {
+    case MenulistPart:
         break;
-    }
     default:
         break;
     }
-}
-
-bool RenderThemeQt::isControlStyled(const RenderStyle* style, const BorderData& border,
-                                     const FillLayer& background, const Color& backgroundColor) const
-{
-    if (style->appearance() == TextFieldPart
-            || style->appearance() == TextAreaPart
-            || style->appearance() == ListboxPart) {
-        return style->border() != border;
-    }
-
-    return RenderTheme::isControlStyled(style, border, background, backgroundColor);
 }
 
 Color RenderThemeQt::platformActiveSelectionBackgroundColor() const
@@ -272,7 +285,7 @@ int RenderThemeQt::minimumMenuListSize(RenderStyle*) const
     return 7 * fm.width(QLatin1Char('x'));
 }
 
-static void computeSizeBasedOnStyle(RenderStyle* renderStyle)
+void RenderThemeQt::computeSizeBasedOnStyle(RenderStyle* renderStyle) const
 {
     // If the width and height are both specified, then we have nothing to do.
     if (!renderStyle->width().isIntrinsicOrAuto() && !renderStyle->height().isAuto())
@@ -280,22 +293,20 @@ static void computeSizeBasedOnStyle(RenderStyle* renderStyle)
 
     QSize size(0, 0);
     const QFontMetrics fm(renderStyle->font().font());
-    QStyle* applicationStyle = QApplication::style();
+    QStyle* style = qStyle();
 
     switch (renderStyle->appearance()) {
     case CheckboxPart: {
         QStyleOption styleOption;
         styleOption.state |= QStyle::State_Small;
-        int checkBoxWidth = applicationStyle->pixelMetric(QStyle::PM_IndicatorWidth,
-                                                          &styleOption);
+        int checkBoxWidth = style->pixelMetric(QStyle::PM_IndicatorWidth, &styleOption);
         size = QSize(checkBoxWidth, checkBoxWidth);
         break;
     }
     case RadioPart: {
         QStyleOption styleOption;
         styleOption.state |= QStyle::State_Small;
-        int radioWidth = applicationStyle->pixelMetric(QStyle::PM_ExclusiveIndicatorWidth,
-                                                       &styleOption);
+        int radioWidth = style->pixelMetric(QStyle::PM_ExclusiveIndicatorWidth, &styleOption);
         size = QSize(radioWidth, radioWidth);
         break;
     }
@@ -304,21 +315,18 @@ static void computeSizeBasedOnStyle(RenderStyle* renderStyle)
         QStyleOptionButton styleOption;
         styleOption.state |= QStyle::State_Small;
         QSize contentSize = fm.size(Qt::TextShowMnemonic, QString::fromLatin1("X"));
-        QSize pushButtonSize = applicationStyle->sizeFromContents(QStyle::CT_PushButton,
-                                                                  &styleOption,
-                                                                  contentSize,
-                                                                  0);
+        QSize pushButtonSize = style->sizeFromContents(QStyle::CT_PushButton,
+                                                       &styleOption, contentSize, 0);
         styleOption.rect = QRect(0, 0, pushButtonSize.width(), pushButtonSize.height());
-        QRect layoutRect = applicationStyle->subElementRect(QStyle::SE_PushButtonLayoutItem,
-                                                                  &styleOption,
-                                                                  0);
-        // If the style supports layout rects we use that, and
-        // compensate accordingly in paintButton() below.
-        if (!layoutRect.isNull()) {
+        QRect layoutRect = style->subElementRect(QStyle::SE_PushButtonLayoutItem,
+                                                 &styleOption, 0);
+
+        // If the style supports layout rects we use that, and  compensate accordingly
+        // in paintButton() below.
+        if (!layoutRect.isNull())
             size.setHeight(layoutRect.height());
-        } else {
+        else
             size.setHeight(pushButtonSize.height());
-        }
 
         break;
     }
@@ -326,10 +334,8 @@ static void computeSizeBasedOnStyle(RenderStyle* renderStyle)
         QStyleOptionComboBox styleOption;
         styleOption.state |= QStyle::State_Small;
         int contentHeight = qMax(fm.lineSpacing(), 14) + 2;
-        QSize menuListSize = applicationStyle->sizeFromContents(QStyle::CT_ComboBox,
-                                                        &styleOption,
-                                                        QSize(0, contentHeight),
-                                                        0);
+        QSize menuListSize = style->sizeFromContents(QStyle::CT_ComboBox,
+                                                     &styleOption, QSize(0, contentHeight), 0);
         size.setHeight(menuListSize.height());
         break;
     }
@@ -339,13 +345,15 @@ static void computeSizeBasedOnStyle(RenderStyle* renderStyle)
         int h = qMax(fm.lineSpacing(), 14) + 2*verticalMargin;
         int w = fm.width(QLatin1Char('x')) * 17 + 2*horizontalMargin;
         QStyleOptionFrameV2 opt;
-        opt.lineWidth = applicationStyle->pixelMetric(QStyle::PM_DefaultFrameWidth,
-                                                           &opt, 0);
-        QSize sz = applicationStyle->sizeFromContents(QStyle::CT_LineEdit,
-                                                           &opt,
-                                                           QSize(w, h).expandedTo(QApplication::globalStrut()),
-                                                           0);
+        opt.lineWidth = findFrameLineWidth(style);
+        QSize sz = style->sizeFromContents(QStyle::CT_LineEdit,
+                                           &opt,
+                                           QSize(w, h).expandedTo(QApplication::globalStrut()),
+                                           0);
         size.setHeight(sz.height());
+
+        renderStyle->setPaddingLeft(Length(opt.lineWidth, Fixed));
+        renderStyle->setPaddingRight(Length(opt.lineWidth, Fixed));
         break;
     }
     default:
@@ -410,8 +418,6 @@ void RenderThemeQt::adjustButtonStyle(CSSStyleSelector* selector, RenderStyle* s
 
     setButtonSize(style);
     setButtonPadding(style);
-
-    style->setColor(QApplication::palette().text().color());
 }
 
 void RenderThemeQt::setButtonSize(RenderStyle* style) const
@@ -429,19 +435,18 @@ void RenderThemeQt::setButtonPadding(RenderStyle* style) const
     styleOption.rect = originalRect;
 
     // Default padding is based on the button margin pixel metric
-    int buttonMargin = QApplication::style()->pixelMetric(QStyle::PM_ButtonMargin,
-                                                          &styleOption, 0);
+    int buttonMargin = qStyle()->pixelMetric(QStyle::PM_ButtonMargin, &styleOption, 0);
     int paddingLeft = buttonMargin;
     int paddingRight = buttonMargin;
     int paddingTop = 1;
     int paddingBottom = 0;
 
     // Then check if the style uses layout margins
-    QRect layoutRect = QApplication::style()->subElementRect(QStyle::SE_PushButtonLayoutItem,
-                                                                  &styleOption, 0);
+    QRect layoutRect = qStyle()->subElementRect(QStyle::SE_PushButtonLayoutItem,
+                                                &styleOption, 0);
     if (!layoutRect.isNull()) {
-        QRect contentsRect = QApplication::style()->subElementRect(QStyle::SE_PushButtonContents,
-                                                                  &styleOption, 0);
+        QRect contentsRect = qStyle()->subElementRect(QStyle::SE_PushButtonContents,
+                                                      &styleOption, 0);
         paddingLeft = contentsRect.left() - layoutRect.left();
         paddingRight = layoutRect.right() - contentsRect.right();
         paddingTop = contentsRect.top() - layoutRect.top();
@@ -470,14 +475,13 @@ bool RenderThemeQt::paintButton(RenderObject* o, const RenderObject::PaintInfo& 
     option.state |= QStyle::State_Small;
 
     ControlPart appearance = applyTheme(option, o);
-    if(appearance == PushButtonPart || appearance == ButtonPart) {
-        option.rect = inflateButtonRect(option.rect);
+    if (appearance == PushButtonPart || appearance == ButtonPart) {
+        option.rect = inflateButtonRect(option.rect, qStyle());
         p.drawControl(QStyle::CE_PushButton, option);
-    } else if(appearance == RadioPart) {
+    } else if (appearance == RadioPart)
        p.drawControl(QStyle::CE_RadioButton, option);
-    } else if(appearance == CheckboxPart) {
+    else if (appearance == CheckboxPart)
        p.drawControl(QStyle::CE_CheckBox, option);
-    }
 
     return false;
 }
@@ -485,7 +489,9 @@ bool RenderThemeQt::paintButton(RenderObject* o, const RenderObject::PaintInfo& 
 void RenderThemeQt::adjustTextFieldStyle(CSSStyleSelector*, RenderStyle* style, Element*) const
 {
     style->setBackgroundColor(Color::transparent);
-    style->setColor(QApplication::palette().text().color());
+    style->resetBorder();
+    style->resetPadding();
+    computeSizeBasedOnStyle(style);
 }
 
 bool RenderThemeQt::paintTextField(RenderObject* o, const RenderObject::PaintInfo& i, const IntRect& r)
@@ -499,7 +505,7 @@ bool RenderThemeQt::paintTextField(RenderObject* o, const RenderObject::PaintInf
         panel.initFrom(p.widget);
 
     panel.rect = r;
-    panel.lineWidth = p.style->pixelMetric(QStyle::PM_DefaultFrameWidth, &panel, p.widget);
+    panel.lineWidth = findFrameLineWidth(qStyle());
     panel.state |= QStyle::State_Sunken;
     panel.features = QStyleOptionFrameV2::None;
 
@@ -541,8 +547,6 @@ void RenderThemeQt::adjustMenuListStyle(CSSStyleSelector*, RenderStyle* style, E
 
     // Add in the padding that we'd like to use.
     setPopupPadding(style);
-
-    style->setColor(QApplication::palette().text().color());
 }
 
 void RenderThemeQt::setPopupPadding(RenderStyle* style) const
@@ -551,7 +555,7 @@ void RenderThemeQt::setPopupPadding(RenderStyle* style) const
     style->setPaddingLeft(Length(padding, Fixed));
 
     QStyleOptionComboBox opt;
-    int w = QApplication::style()->pixelMetric(QStyle::PM_ButtonIconSize, &opt, 0);
+    int w = qStyle()->pixelMetric(QStyle::PM_ButtonIconSize, &opt, 0);
     style->setPaddingRight(Length(padding + w, Fixed));
 
     style->setPaddingTop(Length(2, Fixed));
@@ -572,7 +576,7 @@ bool RenderThemeQt::paintMenuList(RenderObject* o, const RenderObject::PaintInfo
 
     const QPoint topLeft = r.topLeft();
     p.painter->translate(topLeft);
-    opt.rect.moveTo(QPoint(0,0));
+    opt.rect.moveTo(QPoint(0, 0));
     opt.rect.setSize(r.size());
 
     p.drawComplexControl(QStyle::CC_ComboBox, opt);
@@ -583,7 +587,7 @@ bool RenderThemeQt::paintMenuList(RenderObject* o, const RenderObject::PaintInfo
 void RenderThemeQt::adjustMenuListButtonStyle(CSSStyleSelector* selector, RenderStyle* style,
                                               Element* e) const
 {
-    // WORKAROUND because html4.css specifies -webkit-border-radius for <select> so we override it here
+    // WORKAROUND because html.css specifies -webkit-border-radius for <select> so we override it here
     // see also http://bugs.webkit.org/show_bug.cgi?id=18399
     style->resetBorderRadius();
 
@@ -597,8 +601,6 @@ void RenderThemeQt::adjustMenuListButtonStyle(CSSStyleSelector* selector, Render
 
     // Add in the padding that we'd like to use.
     setPopupPadding(style);
-
-    style->setColor(QApplication::palette().text().color());
 }
 
 bool RenderThemeQt::paintMenuListButton(RenderObject* o, const RenderObject::PaintInfo& i,
@@ -695,17 +697,17 @@ bool RenderThemeQt::paintSearchFieldResultsDecoration(RenderObject* o, const Ren
 bool RenderThemeQt::supportsFocus(ControlPart appearance) const
 {
     switch (appearance) {
-        case PushButtonPart:
-        case ButtonPart:
-        case TextFieldPart:
-        case TextAreaPart:
-        case ListboxPart:
-        case MenulistPart:
-        case RadioPart:
-        case CheckboxPart:
-            return true;
-        default: // No for all others...
-            return false;
+    case PushButtonPart:
+    case ButtonPart:
+    case TextFieldPart:
+    case TextAreaPart:
+    case ListboxPart:
+    case MenulistPart:
+    case RadioPart:
+    case CheckboxPart:
+        return true;
+    default: // No for all others...
+        return false;
     }
 }
 
@@ -729,26 +731,30 @@ ControlPart RenderThemeQt::applyTheme(QStyleOption& option, RenderObject* o) con
     if (isHovered(o))
         option.state |= QStyle::State_MouseOver;
 
+    option.direction = Qt::LeftToRight;
+    if (o->style() && o->style()->direction() == WebCore::RTL)
+        option.direction = Qt::RightToLeft;
+
     ControlPart result = o->style()->appearance();
 
     switch (result) {
-        case PushButtonPart:
-        case SquareButtonPart:
-        case ButtonPart:
-        case ButtonBevelPart:
-        case ListItemPart:
-        case MenulistButtonPart:
-        case SearchFieldResultsButtonPart:
-        case SearchFieldCancelButtonPart: {
-            if (isPressed(o))
-                option.state |= QStyle::State_Sunken;
-            else if (result == PushButtonPart)
-                option.state |= QStyle::State_Raised;
-            break;
-        }
+    case PushButtonPart:
+    case SquareButtonPart:
+    case ButtonPart:
+    case ButtonBevelPart:
+    case ListItemPart:
+    case MenulistButtonPart:
+    case SearchFieldResultsButtonPart:
+    case SearchFieldCancelButtonPart: {
+        if (isPressed(o))
+            option.state |= QStyle::State_Sunken;
+        else if (result == PushButtonPart)
+            option.state |= QStyle::State_Raised;
+        break;
+    }
     }
 
-    if(result == RadioPart || result == CheckboxPart)
+    if (result == RadioPart || result == CheckboxPart)
         option.state |= (isChecked(o) ? QStyle::State_On : QStyle::State_Off);
 
     // If the webview has a custom palette, use it
@@ -776,10 +782,10 @@ String RenderThemeQt::extraMediaControlsStyleSheet()
 }
 
 // Helper class to transform the painter's world matrix to the object's content area, scaled to 0,0,100,100
-class WorldMatrixTransformer
-{
+class WorldMatrixTransformer {
 public:
-    WorldMatrixTransformer(QPainter* painter, RenderObject* renderObject, const IntRect& r) : m_painter(painter) {
+    WorldMatrixTransformer(QPainter* painter, RenderObject* renderObject, const IntRect& r) : m_painter(painter)
+    {
         RenderStyle* style = renderObject->style();
         m_originalTransform = m_painter->transform();
         m_painter->translate(r.x() + style->paddingLeft().value(), r.y() + style->paddingTop().value());
@@ -796,7 +802,7 @@ private:
 
 HTMLMediaElement* RenderThemeQt::getMediaElementFromRenderObject(RenderObject* o) const
 {
-    Node* node = o->element();
+    Node* node = o->node();
     Node* mediaNode = node ? node->shadowAncestorNode() : 0;
     if (!mediaNode || (!mediaNode->hasTagName(videoTag) && !mediaNode->hasTagName(audioTag)))
         return 0;
@@ -807,7 +813,7 @@ HTMLMediaElement* RenderThemeQt::getMediaElementFromRenderObject(RenderObject* o
 void RenderThemeQt::paintMediaBackground(QPainter* painter, const IntRect& r) const
 {
     painter->setPen(Qt::NoPen);
-    static QColor transparentBlack(0,0,0,100);
+    static QColor transparentBlack(0, 0, 0, 100);
     painter->setBrush(transparentBlack);
     painter->drawRoundedRect(r.x(), r.y(), r.width(), r.height(), 5.0, 5.0);
 }
@@ -815,14 +821,14 @@ void RenderThemeQt::paintMediaBackground(QPainter* painter, const IntRect& r) co
 QColor RenderThemeQt::getMediaControlForegroundColor(RenderObject* o) const
 {
     QColor fgColor = platformActiveSelectionBackgroundColor();
-    if (o && o->element()->active())
+    if (o && o->node()->active())
         fgColor = fgColor.lighter();
     return fgColor;
 }
 
 bool RenderThemeQt::paintMediaFullscreenButton(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
 {
-   return RenderTheme::paintMediaFullscreenButton(o, paintInfo, r);
+    return RenderTheme::paintMediaFullscreenButton(o, paintInfo, r);
 }
 
 bool RenderThemeQt::paintMediaMuteButton(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)

@@ -34,6 +34,9 @@
 #include "KeyGeneratorClient.h"
 #include "KURL.h"
 #include "NetworkStateNotifier.h"
+#include "Page.h"
+#include "PluginClient.h"
+#include "PluginDatabase.h"
 #include "Timer.h"
 #include "TimerClient.h"
 #include "jni_utility.h"
@@ -56,7 +59,7 @@ static jfieldID gJavaBridge_ObjectID;
 
 // ----------------------------------------------------------------------------
    
-class JavaBridge : public TimerClient, public CookieClient, public KeyGeneratorClient
+class JavaBridge : public TimerClient, public CookieClient, public PluginClient, public KeyGeneratorClient
 {
 public:
     JavaBridge(JNIEnv* env, jobject obj);
@@ -68,9 +71,12 @@ public:
     virtual void setSharedTimer(long long timemillis);
     virtual void stopSharedTimer();
 
-    virtual void setCookies(WebCore::KURL const& url, WebCore::KURL const& docURL, WebCore::String const& value);
+    virtual void setCookies(WebCore::KURL const& url, WebCore::String const& value);
     virtual WebCore::String cookies(WebCore::KURL const& url);
     virtual bool cookiesEnabled();
+
+    virtual WTF::Vector<WebCore::String> getPluginDirectories();
+    virtual WebCore::String getPluginSharedDataDirectory();
 
     virtual WTF::Vector<String> getSupportedKeyStrengthList();
     virtual WebCore::String getSignedPublicKeyAndChallengeString(unsigned index,
@@ -82,7 +88,7 @@ public:
 
     ////////////////////////////////////////////
 
-    void signalServiceFuncPtrQueue();
+    virtual void signalServiceFuncPtrQueue();
 
     // jni functions
     static void Constructor(JNIEnv* env, jobject obj);
@@ -92,6 +98,7 @@ public:
     static void SetNetworkOnLine(JNIEnv* env, jobject obj, jboolean online);
     static void SetDeferringTimers(JNIEnv* env, jobject obj, jboolean defer);
     static void ServiceFuncPtrQueue(JNIEnv*);
+    static void UpdatePluginDirectories(JNIEnv* env, jobject obj, jobjectArray array, jboolean reload);
 
 private:
     jobject     mJavaObject;
@@ -100,13 +107,14 @@ private:
     jmethodID   mSetCookies;
     jmethodID   mCookies;
     jmethodID   mCookiesEnabled;
+    jmethodID   mGetPluginDirectories;
+    jmethodID   mGetPluginSharedDataDirectory;
     jmethodID   mSignalFuncPtrQueue;
     jmethodID   mGetKeyStrengthList;
     jmethodID   mGetSignedPublicKey;
 };
 
 static void (*sSharedTimerFiredCallback)();
-static JavaBridge* gJavaBridge;
 
 JavaBridge::JavaBridge(JNIEnv* env, jobject obj)
 {
@@ -115,9 +123,11 @@ JavaBridge::JavaBridge(JNIEnv* env, jobject obj)
 
     mSetSharedTimer = env->GetMethodID(clazz, "setSharedTimer", "(J)V");
     mStopSharedTimer = env->GetMethodID(clazz, "stopSharedTimer", "()V");
-    mSetCookies = env->GetMethodID(clazz, "setCookies", "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V");
+    mSetCookies = env->GetMethodID(clazz, "setCookies", "(Ljava/lang/String;Ljava/lang/String;)V");
     mCookies = env->GetMethodID(clazz, "cookies", "(Ljava/lang/String;)Ljava/lang/String;");
     mCookiesEnabled = env->GetMethodID(clazz, "cookiesEnabled", "()Z");
+    mGetPluginDirectories = env->GetMethodID(clazz, "getPluginDirectories", "()[Ljava/lang/String;");
+    mGetPluginSharedDataDirectory = env->GetMethodID(clazz, "getPluginSharedDataDirectory", "()Ljava/lang/String;");
     mSignalFuncPtrQueue = env->GetMethodID(clazz, "signalServiceFuncPtrQueue", "()V");
     mGetKeyStrengthList = env->GetMethodID(clazz, "getKeyStrengthList", "()[Ljava/lang/String;");
     mGetSignedPublicKey = env->GetMethodID(clazz, "getSignedPublicKey", "(ILjava/lang/String;Ljava/lang/String;)Ljava/lang/String;");
@@ -127,15 +137,17 @@ JavaBridge::JavaBridge(JNIEnv* env, jobject obj)
     LOG_ASSERT(mSetCookies, "Could not find method setCookies");
     LOG_ASSERT(mCookies, "Could not find method cookies");
     LOG_ASSERT(mCookiesEnabled, "Could not find method cookiesEnabled");
+    LOG_ASSERT(mGetPluginDirectories, "Could not find method getPluginDirectories");
+    LOG_ASSERT(mGetPluginSharedDataDirectory, "Could not find method getPluginSharedDataDirectory");
     LOG_ASSERT(mGetKeyStrengthList, "Could not find method getKeyStrengthList");
     LOG_ASSERT(mGetSignedPublicKey, "Could not find method getSignedPublicKey");
 
     JavaSharedClient::SetTimerClient(this);
     JavaSharedClient::SetCookieClient(this);
+    JavaSharedClient::SetPluginClient(this);
     JavaSharedClient::SetKeyGeneratorClient(this);
-    gJavaBridge = this;
-}   
-    
+}
+
 JavaBridge::~JavaBridge()
 {
     if (mJavaObject) {
@@ -146,6 +158,7 @@ JavaBridge::~JavaBridge()
     
     JavaSharedClient::SetTimerClient(NULL);
     JavaSharedClient::SetCookieClient(NULL);
+    JavaSharedClient::SetPluginClient(NULL);
     JavaSharedClient::SetKeyGeneratorClient(NULL);
 }
 
@@ -166,19 +179,16 @@ JavaBridge::stopSharedTimer()
 }
 
 void
-JavaBridge::setCookies(WebCore::KURL const& url, WebCore::KURL const& docUrl, WebCore::String const& value)
+JavaBridge::setCookies(WebCore::KURL const& url, WebCore::String const& value)
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
     const WebCore::String& urlStr = url.string();
     jstring jUrlStr = env->NewString(urlStr.characters(), urlStr.length());
-    const WebCore::String& docUrlStr = docUrl.string();
-    jstring jDocUrlStr = env->NewString(docUrlStr.characters(), docUrlStr.length());
     jstring jValueStr = env->NewString(value.characters(), value.length());
 
     AutoJObject obj = getRealObject(env, mJavaObject);
-    env->CallVoidMethod(obj.get(), mSetCookies, jUrlStr, jDocUrlStr, jValueStr);
+    env->CallVoidMethod(obj.get(), mSetCookies, jUrlStr, jValueStr);
     env->DeleteLocalRef(jUrlStr);
-    env->DeleteLocalRef(jDocUrlStr);
     env->DeleteLocalRef(jValueStr);
 }
 
@@ -205,6 +215,36 @@ JavaBridge::cookiesEnabled()
     AutoJObject obj = getRealObject(env, mJavaObject);
     jboolean ret = env->CallBooleanMethod(obj.get(), mCookiesEnabled);
     return (ret != 0);
+}
+
+WTF::Vector<WebCore::String>
+JavaBridge::getPluginDirectories()
+{
+    WTF::Vector<WebCore::String> directories;
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    AutoJObject obj = getRealObject(env, mJavaObject);
+    jobjectArray array = (jobjectArray)
+            env->CallObjectMethod(obj.get(), mGetPluginDirectories);
+    int count = env->GetArrayLength(array);
+    for (int i = 0; i < count; i++) {
+        jstring dir = (jstring) env->GetObjectArrayElement(array, i);
+        directories.append(to_string(env, dir));
+        env->DeleteLocalRef(dir);
+    }
+    env->DeleteLocalRef(array);
+    checkException(env);
+    return directories;
+}
+
+WebCore::String
+JavaBridge::getPluginSharedDataDirectory()
+{
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    AutoJObject obj = getRealObject(env, mJavaObject);
+    jstring ret = (jstring)env->CallObjectMethod(obj.get(), mGetPluginSharedDataDirectory);
+    WebCore::String path = to_string(env, ret);
+    checkException(env);
+    return path;
 }
 
 void
@@ -262,14 +302,6 @@ WebCore::String JavaBridge::getSignedPublicKeyAndChallengeString(unsigned index,
 
 // ----------------------------------------------------------------------------
 
-// visible to Shared
-void AndroidSignalServiceFuncPtrQueue()
-{
-    gJavaBridge->signalServiceFuncPtrQueue();
-}
-
-// ----------------------------------------------------------------------------
-
 void JavaBridge::Constructor(JNIEnv* env, jobject obj)
 {
     JavaBridge* javaBridge = new JavaBridge(env, obj);
@@ -312,14 +344,26 @@ void JavaBridge::SetNetworkOnLine(JNIEnv* env, jobject obj, jboolean online)
 	WebCore::networkStateNotifier().networkStateChange(online);
 }
 
-void JavaBridge::SetDeferringTimers(JNIEnv* env, jobject obj, jboolean defer)
-{
-    WebCore::setDeferringTimers(defer);
-}
-
 void JavaBridge::ServiceFuncPtrQueue(JNIEnv*)
 {
     JavaSharedClient::ServiceFunctionPtrQueue();
+}
+
+void JavaBridge::UpdatePluginDirectories(JNIEnv* env, jobject obj,
+        jobjectArray array, jboolean reload) {
+    WTF::Vector<WebCore::String> directories;
+    int count = env->GetArrayLength(array);
+    for (int i = 0; i < count; i++) {
+        jstring dir = (jstring) env->GetObjectArrayElement(array, i);
+        directories.append(to_string(env, dir));
+        env->DeleteLocalRef(dir);
+    }
+    checkException(env);
+    WebCore::PluginDatabase *pluginDatabase =
+            WebCore::PluginDatabase::installedPlugins();
+    pluginDatabase->setPluginDirectories(directories);
+    // refreshPlugins() should refresh both PluginDatabase and Page's PluginData
+    WebCore::Page::refreshPlugins(reload);
 }
 
 // ----------------------------------------------------------------------------
@@ -339,10 +383,10 @@ static JNINativeMethod gWebCoreJavaBridgeMethods[] = {
         (void*) JavaBridge::SetCacheSize },
     { "setNetworkOnLine", "(Z)V",
         (void*) JavaBridge::SetNetworkOnLine },
-    { "setDeferringTimers", "(Z)V",
-        (void*) JavaBridge::SetDeferringTimers },
     { "nativeServiceFuncPtrQueue", "()V",
         (void*) JavaBridge::ServiceFuncPtrQueue },
+    { "nativeUpdatePluginDirectories", "([Ljava/lang/String;Z)V",
+        (void*) JavaBridge::UpdatePluginDirectories }
 };
 
 int register_javabridge(JNIEnv* env)

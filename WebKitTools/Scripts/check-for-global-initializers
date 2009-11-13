@@ -52,13 +52,12 @@ my $executablePath = "$ENV{'TARGET_BUILD_DIR'}/$ENV{'EXECUTABLE_PATH'}";
 
 my $buildTimestampPath = $ENV{'TARGET_TEMP_DIR'} . "/" . basename($0) . ".timestamp";
 my $buildTimestampAge = -M $buildTimestampPath;
-
-touch($buildTimestampPath);
+my $scriptAge = -M $0;
 
 my $list = $ENV{"LINK_FILE_LIST_${variant}_${arch}"};
 
 if (!open LIST, $list) {
-    print "Could not open $list\n";
+    print "ERROR: Could not open $list\n";
     exit 1;
 }
 
@@ -69,12 +68,12 @@ close LIST;
 my $sawError = 0;
 
 for my $file (sort @files) {
-    if (defined $buildTimestampAge) {
+    if (defined $buildTimestampAge && $buildTimestampAge < $scriptAge) {
         my $fileAge = -M $file;
         next if defined $fileAge && $fileAge > $buildTimestampAge;
     }
     if (!open NM, "(nm '$file' | sed 's/^/STDOUT:/') 2>&1 |") {
-        print "Could not open $file\n";
+        print "ERROR: Could not open $file\n";
         $sawError = 1;
         next;
     }
@@ -96,7 +95,7 @@ for my $file (sort @files) {
             if ($target eq "JavaScriptCore") {
                 next if $shortName eq "AllInOneFile.o";
                 next if $shortName eq "Opcode.o";
-                next if $shortName eq "StructureID.o";
+                next if $shortName eq "Structure.o";
                 next if $shortName eq "nodes.o";
             }
             if ($target eq "WebCore") {
@@ -104,18 +103,18 @@ for my $file (sort @files) {
                 next if $shortName eq "CachedResource.o";
                 next if $shortName eq "Frame.o";
                 next if $shortName eq "JSCustomSQLTransactionCallback.o";
-                next if $shortName eq "JSEventListener.o";
+                next if $shortName eq "JSLazyEventListener.o";
                 next if $shortName eq "Node.o";
                 next if $shortName eq "Page.o";
                 next if $shortName eq "Range.o";
+                next if $shortName eq "RenderBlockLineLayout.o";
                 next if $shortName eq "RenderObject.o";
                 next if $shortName eq "SubresourceLoader.o";
                 next if $shortName eq "SVGElementInstance.o";
-                next if $shortName eq "bidi.o";
             }
         }
 
-        print "$shortName has a global initializer in it! ($file)\n";
+        print "ERROR: $shortName has a global initializer in it! ($file)\n";
         $sawError = 1;
     }
 }
@@ -125,6 +124,7 @@ if ($sawError and !$coverageBuild) {
     exit 1;
 }
 
+touch($buildTimestampPath);
 exit 0;
 
 sub touch($)

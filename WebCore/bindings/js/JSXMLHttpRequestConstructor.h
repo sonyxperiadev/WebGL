@@ -21,22 +21,16 @@
 #define JSXMLHttpRequestConstructor_h
 
 #include "JSDOMBinding.h"
-#include "JSDocument.h"
 
 namespace WebCore {
 
-class JSXMLHttpRequestConstructor : public DOMObject {
+class JSXMLHttpRequestConstructor : public DOMConstructorObject {
 public:
-    JSXMLHttpRequestConstructor(JSC::ExecState*, ScriptExecutionContext*);
-    Document* document() const { return m_document->impl(); }
+    JSXMLHttpRequestConstructor(JSC::ExecState*, JSDOMGlobalObject*);
     static const JSC::ClassInfo s_info;
-
-    virtual void mark();
 private:
     virtual JSC::ConstructType getConstructData(JSC::ConstructData&);
     virtual const JSC::ClassInfo* classInfo() const { return &s_info; }
-
-    JSDocument* m_document;
 };
 
 } // namespace WebCore

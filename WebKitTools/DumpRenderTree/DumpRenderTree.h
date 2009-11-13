@@ -40,11 +40,8 @@
 #include "DumpRenderTreeWin.h"
 #elif PLATFORM(GTK)
 #include "DumpRenderTreeGtk.h"
-#endif
-
-#if PLATFORM(CF)
-#include <CoreFoundation/CoreFoundation.h>
-extern CFRunLoopTimerRef waitToDumpWatchdog;
+#elif PLATFORM(WX)
+#include "DumpRenderTreeWx.h"
 #endif
 
 #include <string>

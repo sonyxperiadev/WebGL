@@ -63,29 +63,8 @@ namespace WebCore {
 
 typedef WebCore::HistoryItem WebCoreHistoryItem;
 
-WebCore::CSSStyleDeclaration* core(DOMCSSStyleDeclaration *);
-DOMCSSStyleDeclaration *kit(WebCore::CSSStyleDeclaration*);
-
 WebCore::Frame* core(WebFrame *);
 WebFrame *kit(WebCore::Frame *);
-
-WebCore::Element* core(DOMElement *);
-DOMElement *kit(WebCore::Element*);
-
-WebCore::Node* core(DOMNode *);
-DOMNode *kit(WebCore::Node*);
-
-WebCore::Document* core(DOMDocument *);
-DOMDocument *kit(WebCore::Document*);
-
-WebCore::DocumentFragment* core(DOMDocumentFragment *);
-DOMDocumentFragment *kit(WebCore::DocumentFragment*);
-
-WebCore::HTMLElement* core(DOMHTMLElement *);
-DOMHTMLElement *kit(WebCore::HTMLElement*);
-
-WebCore::Range* core(DOMRange *);
-DOMRange *kit(WebCore::Range*);
 
 WebCore::Page* core(WebView *);
 WebView *kit(WebCore::Page*);
@@ -167,10 +146,7 @@ WebView *getWebView(WebFrame *webFrame);
 - (DOMDocumentFragment *)_documentFragmentWithMarkupString:(NSString *)markupString baseURLString:(NSString *)baseURLString;
 - (DOMDocumentFragment *)_documentFragmentWithNodesAsParagraphs:(NSArray *)nodes;
 
-- (void)_replaceSelectionWithFragment:(DOMDocumentFragment *)fragment selectReplacement:(BOOL)selectReplacement smartReplace:(BOOL)smartReplace matchStyle:(BOOL)matchStyle;
 - (void)_replaceSelectionWithNode:(DOMNode *)node selectReplacement:(BOOL)selectReplacement smartReplace:(BOOL)smartReplace matchStyle:(BOOL)matchStyle;
-- (void)_replaceSelectionWithMarkupString:(NSString *)markupString baseURLString:(NSString *)baseURLString selectReplacement:(BOOL)selectReplacement smartReplace:(BOOL)smartReplace;
-- (void)_replaceSelectionWithText:(NSString *)text selectReplacement:(BOOL)selectReplacement smartReplace:(BOOL)smartReplace;
 
 - (void)_insertParagraphSeparatorInQuotedContent;
 

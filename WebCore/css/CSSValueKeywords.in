@@ -341,6 +341,7 @@ invert
 landscape
 level
 line-through
+local
 loud
 lower
 -webkit-marquee
@@ -504,9 +505,11 @@ media-mute-button
 media-play-button
 media-seek-back-button
 media-seek-forward-button
+media-rewind-button
+media-return-to-realtime-button
 media-slider
 media-sliderthumb
-media-timeline-container
+media-controls-background
 media-current-time-display
 media-time-remaining-display
 menulist
@@ -537,15 +540,15 @@ round
 #
 # CSS_PROP_BACKGROUND_CLIP/ORIGIN
 #
+# border/content/padding are deprecated and ultimately will only apply to the -webkit- form of these properties.
+# border-box/content-box/padding-box should be used instead.
+#
 border
-content
-padding
-
-#
-# CSS_PROP_BOX_SIZING
-#
 border-box
+content
 content-box
+padding
+padding-box
 
 #
 # CSS_PROP__KHTML_RTL_ORDERING
@@ -573,6 +576,12 @@ lines
 #
 running
 paused
+
+#
+# CSS_PROP__WEBKIT_TRANSFORM_STYLE
+#
+flat
+preserve-3d
 
 #
 # CSS_PROP__WEBKIT_TRANSITION_TIMING_FUNCTION

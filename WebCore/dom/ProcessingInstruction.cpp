@@ -123,7 +123,7 @@ void ProcessingInstruction::checkStyleSheet()
         bool isCSS = type.isEmpty() || type == "text/css";
 #if ENABLE(XSLT)
         m_isXSL = (type == "text/xml" || type == "text/xsl" || type == "application/xml" ||
-                   type == "application/xhtml+xml" || type == "application/rss+xml" || type == "application/atom=xml");
+                   type == "application/xhtml+xml" || type == "application/rss+xml" || type == "application/atom+xml");
         if (!isCSS && !m_isXSL)
 #else
         if (!isCSS)
@@ -258,8 +258,7 @@ void ProcessingInstruction::removedFromDocument()
 {
     ContainerNode::removedFromDocument();
 
-    if (document()->renderer())
-        document()->removeStyleSheetCandidateNode(this);
+    document()->removeStyleSheetCandidateNode(this);
 
     // FIXME: It's terrible to do a synchronous update of the style selector just because a <style> or <link> element got removed.
     if (m_cachedSheet)

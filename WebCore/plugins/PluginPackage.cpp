@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 2006, 2008 Apple Inc. All rights reserved.
  * Copyright (C) 2008 Collabora Ltd.  All rights reserved.
+ * Copyright (C) 2009 Holger Hans Peter Freyther
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -21,7 +22,7 @@
  * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #include "config.h"
@@ -46,7 +47,7 @@ PluginPackage::~PluginPackage()
     // course would cause a crash, so we check to call unload before we
     // ASSERT.
     // FIXME: There is probably a better way to fix this.
-    if (m_loadCount == 0)
+    if (!m_loadCount)
         unloadWithoutShutdown();
     else
         unload();
@@ -58,7 +59,7 @@ void PluginPackage::freeLibrarySoon()
 {
     ASSERT(!m_freeLibraryTimer.isActive());
     ASSERT(m_module);
-    ASSERT(m_loadCount == 0);
+    ASSERT(!m_loadCount);
 
 #ifdef ANDROID_PLUGINS
     // TODO(jripley): Timer<T> is broken. Unload immediately for now.
@@ -72,7 +73,7 @@ void PluginPackage::freeLibrarySoon()
 void PluginPackage::freeLibraryTimerFired(Timer<PluginPackage>*)
 {
     ASSERT(m_module);
-    ASSERT(m_loadCount == 0);
+    ASSERT(!m_loadCount);
 
     unloadModule(m_module);
     m_module = 0;
@@ -97,14 +98,16 @@ int PluginPackage::compare(const PluginPackage& compareTo) const
     if (diff)
         return diff;
 
-    if (diff = compareFileVersion(compareTo.version()))
+    diff = compareFileVersion(compareTo.version());
+    if (diff)
         return diff;
 
     return strcmp(parentDirectory().utf8().data(), compareTo.parentDirectory().utf8().data());
 }
 
 PluginPackage::PluginPackage(const String& path, const time_t& lastModified)
-    : m_isLoaded(false)
+    : m_isEnabled(true)
+    , m_isLoaded(false)
     , m_loadCount(0)
     , m_path(path)
     , m_moduleVersion(0)
@@ -134,13 +137,8 @@ void PluginPackage::unloadWithoutShutdown()
     if (!m_isLoaded)
         return;
 
-    ASSERT(m_loadCount == 0);
+    ASSERT(!m_loadCount);
     ASSERT(m_module);
-
-#if defined(ANDROID_PLUGINS)
-    // Remove the Java object from PluginList.
-    unregisterPluginObject();
-#endif
 
     // <rdar://5530519>: Crash when closing tab with pdf file (Reader 7 only)
     // If the plugin has subclassed its parent window, as with Reader 7, we may have
@@ -151,6 +149,11 @@ void PluginPackage::unloadWithoutShutdown()
     freeLibrarySoon();
 
     m_isLoaded = false;
+}
+
+void PluginPackage::setEnabled(bool enabled)
+{
+    m_isEnabled = enabled;
 }
 
 PassRefPtr<PluginPackage> PluginPackage::createPackage(const String& path, const time_t& lastModified)
@@ -245,6 +248,88 @@ void PluginPackage::determineModuleVersionFromDescription()
             }
         }
     }
+}
+#endif
+
+#if ENABLE(NETSCAPE_PLUGIN_API)
+void PluginPackage::initializeBrowserFuncs()
+{
+    memset(&m_browserFuncs, 0, sizeof(m_browserFuncs));
+    m_browserFuncs.size = sizeof(m_browserFuncs);
+    m_browserFuncs.version = NP_VERSION_MINOR;
+
+    m_browserFuncs.geturl = NPN_GetURL;
+    m_browserFuncs.posturl = NPN_PostURL;
+    m_browserFuncs.requestread = NPN_RequestRead;
+    m_browserFuncs.newstream = NPN_NewStream;
+    m_browserFuncs.write = NPN_Write;
+    m_browserFuncs.destroystream = NPN_DestroyStream;
+    m_browserFuncs.status = NPN_Status;
+    m_browserFuncs.uagent = NPN_UserAgent;
+    m_browserFuncs.memalloc = NPN_MemAlloc;
+    m_browserFuncs.memfree = NPN_MemFree;
+    m_browserFuncs.memflush = NPN_MemFlush;
+    m_browserFuncs.reloadplugins = NPN_ReloadPlugins;
+    m_browserFuncs.geturlnotify = NPN_GetURLNotify;
+    m_browserFuncs.posturlnotify = NPN_PostURLNotify;
+    m_browserFuncs.getvalue = NPN_GetValue;
+    m_browserFuncs.setvalue = NPN_SetValue;
+    m_browserFuncs.invalidaterect = NPN_InvalidateRect;
+    m_browserFuncs.invalidateregion = NPN_InvalidateRegion;
+    m_browserFuncs.forceredraw = NPN_ForceRedraw;
+    m_browserFuncs.getJavaEnv = NPN_GetJavaEnv;
+    m_browserFuncs.getJavaPeer = NPN_GetJavaPeer;
+    m_browserFuncs.pushpopupsenabledstate = NPN_PushPopupsEnabledState;
+    m_browserFuncs.poppopupsenabledstate = NPN_PopPopupsEnabledState;
+    m_browserFuncs.pluginthreadasynccall = NPN_PluginThreadAsyncCall;
+
+    m_browserFuncs.releasevariantvalue = _NPN_ReleaseVariantValue;
+    m_browserFuncs.getstringidentifier = _NPN_GetStringIdentifier;
+    m_browserFuncs.getstringidentifiers = _NPN_GetStringIdentifiers;
+    m_browserFuncs.getintidentifier = _NPN_GetIntIdentifier;
+    m_browserFuncs.identifierisstring = _NPN_IdentifierIsString;
+    m_browserFuncs.utf8fromidentifier = _NPN_UTF8FromIdentifier;
+    m_browserFuncs.intfromidentifier = _NPN_IntFromIdentifier;
+    m_browserFuncs.createobject = _NPN_CreateObject;
+    m_browserFuncs.retainobject = _NPN_RetainObject;
+    m_browserFuncs.releaseobject = _NPN_ReleaseObject;
+    m_browserFuncs.invoke = _NPN_Invoke;
+    m_browserFuncs.invokeDefault = _NPN_InvokeDefault;
+    m_browserFuncs.evaluate = _NPN_Evaluate;
+    m_browserFuncs.getproperty = _NPN_GetProperty;
+    m_browserFuncs.setproperty = _NPN_SetProperty;
+    m_browserFuncs.removeproperty = _NPN_RemoveProperty;
+    m_browserFuncs.hasproperty = _NPN_HasProperty;
+    m_browserFuncs.hasmethod = _NPN_HasMethod;
+    m_browserFuncs.setexception = _NPN_SetException;
+    m_browserFuncs.enumerate = _NPN_Enumerate;
+    m_browserFuncs.construct = _NPN_Construct;
+}
+#endif
+
+#if ENABLE(PLUGIN_PACKAGE_SIMPLE_HASH)
+unsigned PluginPackage::hash() const
+{
+    unsigned hashCodes[] = {
+        m_path.impl()->hash(),
+        m_lastModified
+    };
+
+    return StringImpl::computeHash(reinterpret_cast<UChar*>(hashCodes), sizeof(hashCodes) / sizeof(UChar));
+}
+
+bool PluginPackage::equal(const PluginPackage& a, const PluginPackage& b)
+{
+    return a.m_description == b.m_description;
+}
+
+int PluginPackage::compareFileVersion(const PlatformModuleVersion& compareVersion) const
+{
+    // return -1, 0, or 1 if plug-in version is less than, equal to, or greater than
+    // the passed version
+    if (m_moduleVersion != compareVersion)
+        return m_moduleVersion > compareVersion ? 1 : -1;
+    return 0;
 }
 #endif
 

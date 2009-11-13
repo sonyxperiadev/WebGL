@@ -19,18 +19,13 @@
 
 # This comment block is read by tools/webkitsync/diff.cpp
 # Don't remove it or move it. 
-# If you edit it, keep it in alphabetical order
 #
 # The following files are intentionally not included
 # LOCAL_SRC_FILES_EXCLUDED := \
-#	JSC/AllInOneFile.cpp \
-#	JSC/CollectorHeapIntrospector.cpp \
-#	JSC/grammar.y \
-#	JSC/testJSC.cpp \
-#	pcre/dftables.c \
-#	pcre/pcre_maketables.c \
+#	AllInOneFile.cpp \
+#	jsc.cpp \
+#	parser/Grammar.y \
 #	pcre/ucptable.cpp \
-#	wtf/OwnPtrWin.cpp \
 #	wtf/GOwnPtr.cpp \
 #	wtf/*Gtk.cpp \
 #	wtf/*Qt.cpp \
@@ -38,25 +33,32 @@
 
 # This comment block is read by tools/webkitsync/diff.cpp
 # Don't remove it or move it. 
-# If you edit it, keep it in alphabetical order
 #
 # The following directory wildcard matches are intentionally not included
 # If an entry starts with '/', any subdirectory may match
 # If an entry starts with '^', the first directory must match
 # LOCAL_DIR_WILDCARD_EXCLUDED := \
 #	^API/* \
-#	^JavaScriptCore.apolloproj/* \
+#	/chromium/* \
 #	/gtk/* \
+#	^jit/* \
+#	/mac/* \
 #	/qt/* \
+#	/win/* \
+#	/wx/* \
 
 LOCAL_SRC_FILES := \
+  API/JSValueRef.cpp \
+	API/JSCallbackObject.cpp \
+	API/OpaqueJSString.cpp \
 	\
-	\
+	assembler/ARMAssembler.cpp \
 	bytecode/CodeBlock.cpp \
 	bytecode/JumpTable.cpp \
 	bytecode/Opcode.cpp \
 	bytecode/SamplingTool.cpp \
 	bytecode/StructureStubInfo.cpp \
+	\
 	bytecompiler/BytecodeGenerator.cpp \
 	\
 	debugger/Debugger.cpp \
@@ -70,6 +72,8 @@ LOCAL_SRC_FILES := \
 	parser/Lexer.cpp \
 	parser/Nodes.cpp \
 	parser/Parser.cpp \
+	parser/ParserArena.cpp \
+	\
 	pcre/pcre_compile.cpp \
 	pcre/pcre_exec.cpp \
 	pcre/pcre_tables.cpp \
@@ -96,8 +100,8 @@ LOCAL_SRC_FILES := \
 	runtime/Completion.cpp \
 	runtime/ConstructData.cpp \
 	runtime/DateConstructor.cpp \
+	runtime/DateConversion.cpp \
 	runtime/DateInstance.cpp \
-	runtime/DateMath.cpp \
 	runtime/DatePrototype.cpp \
 	runtime/Error.cpp \
 	runtime/ErrorConstructor.cpp \
@@ -111,6 +115,7 @@ LOCAL_SRC_FILES := \
 	runtime/Identifier.cpp \
 	runtime/InitializeThreading.cpp \
 	runtime/InternalFunction.cpp \
+	runtime/JSAPIValueWrapper.cpp \
 	runtime/JSActivation.cpp \
 	runtime/JSArray.cpp \
 	runtime/JSByteArray.cpp \
@@ -123,6 +128,7 @@ LOCAL_SRC_FILES := \
 	runtime/JSLock.cpp \
 	runtime/JSNotAnObject.cpp \
 	runtime/JSNumberCell.cpp \
+	runtime/JSONObject.cpp \
 	runtime/JSObject.cpp \
 	runtime/JSPropertyNameIterator.cpp \
 	runtime/JSStaticScopeObject.cpp \
@@ -130,7 +136,10 @@ LOCAL_SRC_FILES := \
 	runtime/JSValue.cpp \
 	runtime/JSVariableObject.cpp \
 	runtime/JSWrapperObject.cpp \
+	runtime/LiteralParser.cpp \
 	runtime/Lookup.cpp \
+	runtime/MarkStack.cpp \
+	runtime/MarkStackPosix.cpp \
 	runtime/MathObject.cpp \
 	runtime/NativeErrorConstructor.cpp \
 	runtime/NativeErrorPrototype.cpp \
@@ -154,6 +163,7 @@ LOCAL_SRC_FILES := \
 	runtime/StringPrototype.cpp \
 	runtime/Structure.cpp \
 	runtime/StructureChain.cpp \
+	runtime/TimeoutChecker.cpp \
 	runtime/UString.cpp \
 	\
 	wrec/CharacterClass.cpp \
@@ -163,11 +173,10 @@ LOCAL_SRC_FILES := \
 	wrec/WRECGenerator.cpp \
 	wrec/WRECParser.cpp \
 	\
-	wtf/android/MainThreadAndroid.cpp \
 	wtf/Assertions.cpp \
 	wtf/ByteArray.cpp \
 	wtf/CurrentTime.cpp \
-	wtf/dtoa.cpp \
+	wtf/DateMath.cpp \
 	wtf/FastMalloc.cpp \
 	wtf/HashTable.cpp \
 	wtf/MainThread.cpp \
@@ -176,8 +185,15 @@ LOCAL_SRC_FILES := \
 	wtf/TCSystemAlloc.cpp \
 	wtf/Threading.cpp \
 	wtf/ThreadingPthreads.cpp \
+	\
+	wtf/TypeTraits.cpp \
+	wtf/dtoa.cpp \
+	\
+	wtf/android/MainThreadAndroid.cpp \
+	\
 	wtf/unicode/CollatorDefault.cpp \
 	wtf/unicode/UTF8.cpp \
+	\
 	wtf/unicode/icu/CollatorICU.cpp
 
 # Rule to build grammar.y with our custom bison.
@@ -192,6 +208,7 @@ LOCAL_GENERATED_SOURCES += $(GEN)
 JSC_OBJECTS := $(addprefix $(intermediates)/runtime/, \
 				ArrayPrototype.lut.h \
 				DatePrototype.lut.h \
+				JSONObject.lut.h \
 				MathObject.lut.h \
 				NumberConstructor.lut.h \
 				RegExpConstructor.lut.h \
@@ -221,4 +238,4 @@ $(CHARTABLES): $(LOCAL_PATH)/pcre/pcre_internal.h
 
 $(intermediates)/pcre/pcre_tables.o : $(CHARTABLES)
 
-LOCAL_GENERATED_SOURCES += $(JSC_OBJECTS) $(LEXER_HEADER) $(CHARTABLES)
+LOCAL_GENERATED_SOURCES += $(JSC_OBJECTS) $(LEXER_HEADER)

@@ -1,6 +1,6 @@
-// Copyright (c) 2005, 2007, The Android Open Source Project
+// Copyright (c) 2005, 2007, Google Inc.
 // All rights reserved.
-// Copyright (C) 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
+// Copyright (C) 2005, 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
 // 
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
@@ -78,6 +78,7 @@
 #include "FastMalloc.h"
 
 #include "Assertions.h"
+#include <limits>
 #if ENABLE(JSC_MULTIPLE_THREADS)
 #include <pthread.h>
 #endif
@@ -88,13 +89,19 @@
 #endif
 #endif
 
-#if !defined(USE_SYSTEM_MALLOC) && defined(NDEBUG)
+#if !(defined(USE_SYSTEM_MALLOC) && USE_SYSTEM_MALLOC) && defined(NDEBUG)
 #define FORCE_SYSTEM_MALLOC 0
 #else
 #define FORCE_SYSTEM_MALLOC 1
 #endif
 
-#define TCMALLOC_TRACK_DECOMMITED_SPANS (HAVE(VIRTUALALLOC))
+// Use a background thread to periodically scavenge memory to release back to the system
+// https://bugs.webkit.org/show_bug.cgi?id=27900: don't turn this on for Tiger until we have figured out why it caused a crash.
+#if defined(BUILDING_ON_TIGER)
+#define USE_BACKGROUND_THREAD_TO_SCAVENGE_MEMORY 0
+#else
+#define USE_BACKGROUND_THREAD_TO_SCAVENGE_MEMORY 1
+#endif
 
 #ifndef NDEBUG
 namespace WTF {
@@ -151,6 +158,19 @@ void fastMallocAllow()
 
 namespace WTF {
 
+#if ENABLE(FAST_MALLOC_MATCH_VALIDATION)
+
+namespace Internal {
+
+void fastMallocMatchFailed(void*)
+{
+    CRASH();
+}
+
+} // namespace Internal
+
+#endif
+
 void* fastZeroedMalloc(size_t n) 
 {
     void* result = fastMalloc(n);
@@ -183,13 +203,34 @@ namespace WTF {
 void* tryFastMalloc(size_t n) 
 {
     ASSERT(!isForbidden());
+
+#if ENABLE(FAST_MALLOC_MATCH_VALIDATION)
+    if (std::numeric_limits<size_t>::max() - sizeof(AllocAlignmentInteger) <= n)  // If overflow would occur...
+        return 0;
+
+    void* result = malloc(n + sizeof(AllocAlignmentInteger));
+    if (!result)
+        return 0;
+
+    *static_cast<AllocAlignmentInteger*>(result) = Internal::AllocTypeMalloc;
+    result = static_cast<AllocAlignmentInteger*>(result) + 1;
+
+    return result;
+#else
     return malloc(n);
+#endif
 }
 
 void* fastMalloc(size_t n) 
 {
     ASSERT(!isForbidden());
+
+#if ENABLE(FAST_MALLOC_MATCH_VALIDATION)
+    void* result = tryFastMalloc(n);
+#else
     void* result = malloc(n);
+#endif
+
     if (!result)
         CRASH();
     return result;
@@ -198,13 +239,36 @@ void* fastMalloc(size_t n)
 void* tryFastCalloc(size_t n_elements, size_t element_size)
 {
     ASSERT(!isForbidden());
+
+#if ENABLE(FAST_MALLOC_MATCH_VALIDATION)
+    size_t totalBytes = n_elements * element_size;
+    if (n_elements > 1 && element_size && (totalBytes / element_size) != n_elements || (std::numeric_limits<size_t>::max() - sizeof(AllocAlignmentInteger) <= totalBytes))
+        return 0;
+
+    totalBytes += sizeof(AllocAlignmentInteger);
+    void* result = malloc(totalBytes);
+    if (!result)
+        return 0;
+
+    memset(result, 0, totalBytes);
+    *static_cast<AllocAlignmentInteger*>(result) = Internal::AllocTypeMalloc;
+    result = static_cast<AllocAlignmentInteger*>(result) + 1;
+    return result;
+#else
     return calloc(n_elements, element_size);
+#endif
 }
 
 void* fastCalloc(size_t n_elements, size_t element_size)
 {
     ASSERT(!isForbidden());
+
+#if ENABLE(FAST_MALLOC_MATCH_VALIDATION)
+    void* result = tryFastCalloc(n_elements, element_size);
+#else
     void* result = calloc(n_elements, element_size);
+#endif
+
     if (!result)
         CRASH();
     return result;
@@ -213,19 +277,57 @@ void* fastCalloc(size_t n_elements, size_t element_size)
 void fastFree(void* p)
 {
     ASSERT(!isForbidden());
+
+#if ENABLE(FAST_MALLOC_MATCH_VALIDATION)
+    if (!p)
+        return;
+
+    AllocAlignmentInteger* header = Internal::fastMallocMatchValidationValue(p);
+    if (*header != Internal::AllocTypeMalloc)
+        Internal::fastMallocMatchFailed(p);
+    free(header);
+#else
     free(p);
+#endif
 }
 
 void* tryFastRealloc(void* p, size_t n)
 {
     ASSERT(!isForbidden());
+
+#if ENABLE(FAST_MALLOC_MATCH_VALIDATION)
+    if (p) {
+        if (std::numeric_limits<size_t>::max() - sizeof(AllocAlignmentInteger) <= n)  // If overflow would occur...
+            return 0;
+        AllocAlignmentInteger* header = Internal::fastMallocMatchValidationValue(p);
+        if (*header != Internal::AllocTypeMalloc)
+            Internal::fastMallocMatchFailed(p);
+        void* result = realloc(header, n + sizeof(AllocAlignmentInteger));
+        if (!result)
+            return 0;
+
+        // This should not be needed because the value is already there:
+        // *static_cast<AllocAlignmentInteger*>(result) = Internal::AllocTypeMalloc;
+        result = static_cast<AllocAlignmentInteger*>(result) + 1;
+        return result;
+    } else {
+        return fastMalloc(n);
+    }
+#else
     return realloc(p, n);
+#endif
 }
 
 void* fastRealloc(void* p, size_t n)
 {
     ASSERT(!isForbidden());
+
+#if ENABLE(FAST_MALLOC_MATCH_VALIDATION)
+    void* result = tryFastRealloc(p, n);
+#else
     void* result = realloc(p, n);
+#endif
+
     if (!result)
         CRASH();
     return result;
@@ -265,6 +367,7 @@ extern "C" const int jscore_fastmalloc_introspection = 0;
 #include "TCSystemAlloc.h"
 #include <algorithm>
 #include <errno.h>
+#include <limits>
 #include <new>
 #include <pthread.h>
 #include <stdarg.h>
@@ -321,9 +424,11 @@ namespace WTF {
 #define CHECK_CONDITION ASSERT
 
 #if PLATFORM(DARWIN)
+class Span;
+class TCMalloc_Central_FreeListPadded;
 class TCMalloc_PageHeap;
 class TCMalloc_ThreadCache;
-class TCMalloc_Central_FreeListPadded;
+template <typename T> class PageHeapAllocator;
 
 class FastMallocZone {
 public:
@@ -339,7 +444,7 @@ public:
     static void statistics(malloc_zone_t*, malloc_statistics_t* stats) { memset(stats, 0, sizeof(malloc_statistics_t)); }
 
 private:
-    FastMallocZone(TCMalloc_PageHeap*, TCMalloc_ThreadCache**, TCMalloc_Central_FreeListPadded*);
+    FastMallocZone(TCMalloc_PageHeap*, TCMalloc_ThreadCache**, TCMalloc_Central_FreeListPadded*, PageHeapAllocator<Span>*, PageHeapAllocator<TCMalloc_ThreadCache>*);
     static size_t size(malloc_zone_t*, const void*);
     static void* zoneMalloc(malloc_zone_t*, size_t);
     static void* zoneCalloc(malloc_zone_t*, size_t numItems, size_t size);
@@ -352,6 +457,8 @@ private:
     TCMalloc_PageHeap* m_pageHeap;
     TCMalloc_ThreadCache** m_threadHeaps;
     TCMalloc_Central_FreeListPadded* m_centralCaches;
+    PageHeapAllocator<Span>* m_spanAllocator;
+    PageHeapAllocator<TCMalloc_ThreadCache>* m_pageHeapAllocator;
 };
 
 #endif
@@ -820,6 +927,9 @@ class PageHeapAllocator {
   char* free_area_;
   size_t free_avail_;
 
+  // Linked list of all regions allocated by this allocator
+  void* allocated_regions_;
+
   // Free list of already carved objects
   void* free_list_;
 
@@ -830,6 +940,7 @@ class PageHeapAllocator {
   void Init() {
     ASSERT(kAlignedSize <= kAllocIncrement);
     inuse_ = 0;
+    allocated_regions_ = 0;
     free_area_ = NULL;
     free_avail_ = 0;
     free_list_ = NULL;
@@ -844,9 +955,14 @@ class PageHeapAllocator {
     } else {
       if (free_avail_ < kAlignedSize) {
         // Need more room
-        free_area_ = reinterpret_cast<char*>(MetaDataAlloc(kAllocIncrement));
-        if (free_area_ == NULL) CRASH();
-        free_avail_ = kAllocIncrement;
+        char* new_allocation = reinterpret_cast<char*>(MetaDataAlloc(kAllocIncrement));
+        if (!new_allocation)
+          CRASH();
+
+        *(void**)new_allocation = allocated_regions_;
+        allocated_regions_ = new_allocation;
+        free_area_ = new_allocation + kAlignedSize;
+        free_avail_ = kAllocIncrement - kAlignedSize;
       }
       result = free_area_;
       free_area_ += kAlignedSize;
@@ -863,6 +979,18 @@ class PageHeapAllocator {
   }
 
   int inuse() const { return inuse_; }
+
+#if defined(WTF_CHANGES) && PLATFORM(DARWIN)
+  template <class Recorder>
+  void recordAdministrativeRegions(Recorder& recorder, const RemoteMemoryReader& reader)
+  {
+      vm_address_t adminAllocation = reinterpret_cast<vm_address_t>(allocated_regions_);
+      while (adminAllocation) {
+          recorder.recordRegion(adminAllocation, kAllocIncrement);
+          adminAllocation = *reader(reinterpret_cast<vm_address_t*>(adminAllocation));
+      }
+  }
+#endif
 };
 
 // -------------------------------------------------------------------------
@@ -921,11 +1049,7 @@ struct Span {
 #endif
 };
 
-#if TCMALLOC_TRACK_DECOMMITED_SPANS
 #define ASSERT_SPAN_COMMITTED(span) ASSERT(!span->decommitted)
-#else
-#define ASSERT_SPAN_COMMITTED(span)
-#endif
 
 #ifdef SPAN_HISTORY
 void Event(Span* span, char op, int v = 0) {
@@ -1071,6 +1195,32 @@ template <> class MapSelector<32> {
 // contiguous runs of pages (called a "span").
 // -------------------------------------------------------------------------
 
+#if USE_BACKGROUND_THREAD_TO_SCAVENGE_MEMORY
+// The central page heap collects spans of memory that have been deleted but are still committed until they are released
+// back to the system.  We use a background thread to periodically scan the list of free spans and release some back to the
+// system.  Every 5 seconds, the background thread wakes up and does the following:
+// - Check if we needed to commit memory in the last 5 seconds.  If so, skip this scavenge because it's a sign that we are short
+// of free committed pages and so we should not release them back to the system yet.
+// - Otherwise, go through the list of free spans (from largest to smallest) and release up to a fraction of the free committed pages
+// back to the system.
+// - If the number of free committed pages reaches kMinimumFreeCommittedPageCount, we can stop the scavenging and block the
+// scavenging thread until the number of free committed pages goes above kMinimumFreeCommittedPageCount.
+
+// Background thread wakes up every 5 seconds to scavenge as long as there is memory available to return to the system.
+static const int kScavengeTimerDelayInSeconds = 5;
+
+// Number of free committed pages that we want to keep around.
+static const size_t kMinimumFreeCommittedPageCount = 512;
+
+// During a scavenge, we'll release up to a fraction of the free committed pages.
+#if PLATFORM(WIN)
+// We are slightly less aggressive in releasing memory on Windows due to performance reasons.
+static const int kMaxScavengeAmountFactor = 3;
+#else
+static const int kMaxScavengeAmountFactor = 2;
+#endif
+#endif
+
 class TCMalloc_PageHeap {
  public:
   void init();
@@ -1170,6 +1320,14 @@ class TCMalloc_PageHeap {
   // Bytes allocated from system
   uint64_t system_bytes_;
 
+#if USE_BACKGROUND_THREAD_TO_SCAVENGE_MEMORY
+  // Number of pages kept in free lists that are still committed.
+  Length free_committed_pages_;
+
+  // Number of pages that we committed in the last scavenge wait interval.
+  Length pages_committed_since_last_scavenge_;
+#endif
+
   bool GrowHeap(Length n);
 
   // REQUIRES   span->length >= n
@@ -1192,9 +1350,11 @@ class TCMalloc_PageHeap {
   // span of exactly the specified length.  Else, returns NULL.
   Span* AllocLarge(Length n);
 
+#if !USE_BACKGROUND_THREAD_TO_SCAVENGE_MEMORY
   // Incrementally release some memory to the system.
   // IncrementalScavenge(n) is called whenever n pages are freed.
   void IncrementalScavenge(Length n);
+#endif
 
   // Number of pages to deallocate before doing more scavenging
   int64_t scavenge_counter_;
@@ -1205,6 +1365,24 @@ class TCMalloc_PageHeap {
 #if defined(WTF_CHANGES) && PLATFORM(DARWIN)
   friend class FastMallocZone;
 #endif
+
+#if USE_BACKGROUND_THREAD_TO_SCAVENGE_MEMORY
+  static NO_RETURN void* runScavengerThread(void*);
+
+  NO_RETURN void scavengerThread();
+
+  void scavenge();
+
+  inline bool shouldContinueScavenging() const;
+
+  pthread_mutex_t m_scavengeMutex;
+
+  pthread_cond_t m_scavengeCondition;
+
+  // Keeps track of whether the background thread is actively scavenging memory every kScavengeTimerDelayInSeconds, or
+  // it's blocked waiting for more pages to be deleted.
+  bool m_scavengeThreadActive;
+#endif  // USE_BACKGROUND_THREAD_TO_SCAVENGE_MEMORY
 };
 
 void TCMalloc_PageHeap::init()
@@ -1213,6 +1391,12 @@ void TCMalloc_PageHeap::init()
   pagemap_cache_ = PageMapCache(0);
   free_pages_ = 0;
   system_bytes_ = 0;
+
+#if USE_BACKGROUND_THREAD_TO_SCAVENGE_MEMORY
+  free_committed_pages_ = 0;
+  pages_committed_since_last_scavenge_ = 0;
+#endif  // USE_BACKGROUND_THREAD_TO_SCAVENGE_MEMORY
+
   scavenge_counter_ = 0;
   // Start scavenging at kMaxPages list
   scavenge_index_ = kMaxPages-1;
@@ -1223,7 +1407,67 @@ void TCMalloc_PageHeap::init()
     DLL_Init(&free_[i].normal);
     DLL_Init(&free_[i].returned);
   }
+
+#if USE_BACKGROUND_THREAD_TO_SCAVENGE_MEMORY
+  pthread_mutex_init(&m_scavengeMutex, 0);
+  pthread_cond_init(&m_scavengeCondition, 0);
+  m_scavengeThreadActive = true;
+  pthread_t thread;
+  pthread_create(&thread, 0, runScavengerThread, this);
+#endif  // USE_BACKGROUND_THREAD_TO_SCAVENGE_MEMORY
 }
+
+#if USE_BACKGROUND_THREAD_TO_SCAVENGE_MEMORY
+void* TCMalloc_PageHeap::runScavengerThread(void* context)
+{
+  static_cast<TCMalloc_PageHeap*>(context)->scavengerThread();
+#if COMPILER(MSVC)
+  // Without this, Visual Studio will complain that this method does not return a value.
+  return 0;
+#endif
+}
+
+void TCMalloc_PageHeap::scavenge() 
+{
+    // If we have to commit memory in the last 5 seconds, it means we don't have enough free committed pages
+    // for the amount of allocations that we do.  So hold off on releasing memory back to the system.
+    if (pages_committed_since_last_scavenge_ > 0) {
+        pages_committed_since_last_scavenge_ = 0;
+        return;
+    }
+    Length pagesDecommitted = 0;
+    for (int i = kMaxPages; i >= 0; i--) {
+        SpanList* slist = (static_cast<size_t>(i) == kMaxPages) ? &large_ : &free_[i];
+        if (!DLL_IsEmpty(&slist->normal)) {
+            // Release the last span on the normal portion of this list
+            Span* s = slist->normal.prev; 
+            // Only decommit up to a fraction of the free committed pages if pages_allocated_since_last_scavenge_ > 0.
+            if ((pagesDecommitted + s->length) * kMaxScavengeAmountFactor > free_committed_pages_)
+                continue;
+            DLL_Remove(s);
+            TCMalloc_SystemRelease(reinterpret_cast<void*>(s->start << kPageShift),
+                                   static_cast<size_t>(s->length << kPageShift));
+            if (!s->decommitted) {
+                pagesDecommitted += s->length;
+                s->decommitted = true;
+            }
+            DLL_Prepend(&slist->returned, s);
+            // We can stop scavenging if the number of free committed pages left is less than or equal to the minimum number we want to keep around.
+            if (free_committed_pages_ <= kMinimumFreeCommittedPageCount + pagesDecommitted)
+                break;
+        }
+    }
+    pages_committed_since_last_scavenge_ = 0;
+    ASSERT(free_committed_pages_ >= pagesDecommitted);
+    free_committed_pages_ -= pagesDecommitted;
+}
+
+inline bool TCMalloc_PageHeap::shouldContinueScavenging() const 
+{
+    return free_committed_pages_ > kMinimumFreeCommittedPageCount; 
+}
+
+#endif  // USE_BACKGROUND_THREAD_TO_SCAVENGE_MEMORY
 
 inline Span* TCMalloc_PageHeap::New(Length n) {
   ASSERT(Check());
@@ -1247,12 +1491,21 @@ inline Span* TCMalloc_PageHeap::New(Length n) {
 
     Span* result = ll->next;
     Carve(result, n, released);
-#if TCMALLOC_TRACK_DECOMMITED_SPANS
     if (result->decommitted) {
         TCMalloc_SystemCommit(reinterpret_cast<void*>(result->start << kPageShift), static_cast<size_t>(n << kPageShift));
         result->decommitted = false;
-    }
+#if USE_BACKGROUND_THREAD_TO_SCAVENGE_MEMORY
+        pages_committed_since_last_scavenge_ += n;
 #endif
+    }
+#if USE_BACKGROUND_THREAD_TO_SCAVENGE_MEMORY
+    else {
+        // The newly allocated memory is from a span that's in the normal span list (already committed).  Update the
+        // free committed pages count.
+        ASSERT(free_committed_pages_ >= n);
+        free_committed_pages_ -= n;
+    }
+#endif  // USE_BACKGROUND_THREAD_TO_SCAVENGE_MEMORY
     ASSERT(Check());
     free_pages_ -= n;
     return result;
@@ -1309,12 +1562,21 @@ Span* TCMalloc_PageHeap::AllocLarge(Length n) {
 
   if (best != NULL) {
     Carve(best, n, from_released);
-#if TCMALLOC_TRACK_DECOMMITED_SPANS
     if (best->decommitted) {
         TCMalloc_SystemCommit(reinterpret_cast<void*>(best->start << kPageShift), static_cast<size_t>(n << kPageShift));
         best->decommitted = false;
-    }
+#if USE_BACKGROUND_THREAD_TO_SCAVENGE_MEMORY
+        pages_committed_since_last_scavenge_ += n;
 #endif
+    }
+#if USE_BACKGROUND_THREAD_TO_SCAVENGE_MEMORY
+    else {
+        // The newly allocated memory is from a span that's in the normal span list (already committed).  Update the
+        // free committed pages count.
+        ASSERT(free_committed_pages_ >= n);
+        free_committed_pages_ -= n;
+    }
+#endif  // USE_BACKGROUND_THREAD_TO_SCAVENGE_MEMORY
     ASSERT(Check());
     free_pages_ -= n;
     return best;
@@ -1339,14 +1601,10 @@ Span* TCMalloc_PageHeap::Split(Span* span, Length n) {
   return leftover;
 }
 
-#if !TCMALLOC_TRACK_DECOMMITED_SPANS
-static ALWAYS_INLINE void propagateDecommittedState(Span*, Span*) { }
-#else
 static ALWAYS_INLINE void propagateDecommittedState(Span* destination, Span* source)
 {
     destination->decommitted = source->decommitted;
 }
-#endif
 
 inline void TCMalloc_PageHeap::Carve(Span* span, Length n, bool released) {
   ASSERT(n > 0);
@@ -1373,15 +1631,17 @@ inline void TCMalloc_PageHeap::Carve(Span* span, Length n, bool released) {
   }
 }
 
-#if !TCMALLOC_TRACK_DECOMMITED_SPANS
-static ALWAYS_INLINE void mergeDecommittedStates(Span*, Span*) { }
-#else
 static ALWAYS_INLINE void mergeDecommittedStates(Span* destination, Span* other)
 {
-    if (other->decommitted)
+    if (destination->decommitted && !other->decommitted) {
+        TCMalloc_SystemRelease(reinterpret_cast<void*>(other->start << kPageShift),
+                               static_cast<size_t>(other->length << kPageShift));
+    } else if (other->decommitted && !destination->decommitted) {
+        TCMalloc_SystemRelease(reinterpret_cast<void*>(destination->start << kPageShift),
+                               static_cast<size_t>(destination->length << kPageShift));
         destination->decommitted = true;
+    }
 }
-#endif
 
 inline void TCMalloc_PageHeap::Delete(Span* span) {
   ASSERT(Check());
@@ -1398,10 +1658,10 @@ inline void TCMalloc_PageHeap::Delete(Span* span) {
   // necessary.  We do not bother resetting the stale pagemap
   // entries for the pieces we are merging together because we only
   // care about the pagemap entries for the boundaries.
-  //
-  // Note that the spans we merge into "span" may come out of
-  // a "returned" list.  For simplicity, we move these into the
-  // "normal" list of the appropriate size class.
+#if USE_BACKGROUND_THREAD_TO_SCAVENGE_MEMORY
+  // Track the total size of the neighboring free spans that are committed.
+  Length neighboringCommittedSpansLength = 0;
+#endif
   const PageID p = span->start;
   const Length n = span->length;
   Span* prev = GetDescriptor(p-1);
@@ -1409,6 +1669,10 @@ inline void TCMalloc_PageHeap::Delete(Span* span) {
     // Merge preceding span into this span
     ASSERT(prev->start + prev->length == p);
     const Length len = prev->length;
+#if USE_BACKGROUND_THREAD_TO_SCAVENGE_MEMORY
+    if (!prev->decommitted)
+        neighboringCommittedSpansLength += len;
+#endif
     mergeDecommittedStates(span, prev);
     DLL_Remove(prev);
     DeleteSpan(prev);
@@ -1422,6 +1686,10 @@ inline void TCMalloc_PageHeap::Delete(Span* span) {
     // Merge next span into this span
     ASSERT(next->start == p+n);
     const Length len = next->length;
+#if USE_BACKGROUND_THREAD_TO_SCAVENGE_MEMORY
+    if (!next->decommitted)
+        neighboringCommittedSpansLength += len;
+#endif
     mergeDecommittedStates(span, next);
     DLL_Remove(next);
     DeleteSpan(next);
@@ -1432,17 +1700,40 @@ inline void TCMalloc_PageHeap::Delete(Span* span) {
 
   Event(span, 'D', span->length);
   span->free = 1;
-  if (span->length < kMaxPages) {
-    DLL_Prepend(&free_[span->length].normal, span);
+  if (span->decommitted) {
+    if (span->length < kMaxPages)
+      DLL_Prepend(&free_[span->length].returned, span);
+    else
+      DLL_Prepend(&large_.returned, span);
   } else {
-    DLL_Prepend(&large_.normal, span);
+    if (span->length < kMaxPages)
+      DLL_Prepend(&free_[span->length].normal, span);
+    else
+      DLL_Prepend(&large_.normal, span);
   }
   free_pages_ += n;
 
+#if USE_BACKGROUND_THREAD_TO_SCAVENGE_MEMORY
+  if (span->decommitted) {
+      // If the merged span is decommitted, that means we decommitted any neighboring spans that were
+      // committed.  Update the free committed pages count.
+      free_committed_pages_ -= neighboringCommittedSpansLength;
+  } else {
+      // If the merged span remains committed, add the deleted span's size to the free committed pages count.
+      free_committed_pages_ += n;
+  }
+
+  // Make sure the scavenge thread becomes active if we have enough freed pages to release some back to the system.
+  if (!m_scavengeThreadActive && shouldContinueScavenging())
+      pthread_cond_signal(&m_scavengeCondition);
+#else
   IncrementalScavenge(n);
+#endif
+
   ASSERT(Check());
 }
 
+#if !USE_BACKGROUND_THREAD_TO_SCAVENGE_MEMORY
 void TCMalloc_PageHeap::IncrementalScavenge(Length n) {
   // Fast path; not yet time to release memory
   scavenge_counter_ -= n;
@@ -1463,9 +1754,7 @@ void TCMalloc_PageHeap::IncrementalScavenge(Length n) {
       DLL_Remove(s);
       TCMalloc_SystemRelease(reinterpret_cast<void*>(s->start << kPageShift),
                              static_cast<size_t>(s->length << kPageShift));
-#if TCMALLOC_TRACK_DECOMMITED_SPANS
       s->decommitted = true;
-#endif
       DLL_Prepend(&slist->returned, s);
 
       scavenge_counter_ = std::max<size_t>(64UL, std::min<size_t>(kDefaultReleaseDelay, kDefaultReleaseDelay - (free_pages_ / kDefaultReleaseDelay)));
@@ -1482,6 +1771,7 @@ void TCMalloc_PageHeap::IncrementalScavenge(Length n) {
   // Nothing to scavenge, delay for a while
   scavenge_counter_ = kDefaultReleaseDelay;
 }
+#endif
 
 void TCMalloc_PageHeap::RegisterSizeClass(Span* span, size_t sc) {
   // Associate span object with all interior pages as well
@@ -1592,6 +1882,10 @@ bool TCMalloc_PageHeap::GrowHeap(Length n) {
     if (ptr == NULL) return false;
   }
   ask = actual_size >> kPageShift;
+
+#if USE_BACKGROUND_THREAD_TO_SCAVENGE_MEMORY
+  pages_committed_since_last_scavenge_ += ask;
+#endif
 
   uint64_t old_system_bytes = system_bytes_;
   system_bytes_ += (ask << kPageShift);
@@ -1972,6 +2266,34 @@ static inline TCMalloc_PageHeap* getPageHeap()
 }
 
 #define pageheap getPageHeap()
+
+#if USE_BACKGROUND_THREAD_TO_SCAVENGE_MEMORY
+#if PLATFORM(WIN)
+static void sleep(unsigned seconds)
+{
+    ::Sleep(seconds * 1000);
+}
+#endif
+
+void TCMalloc_PageHeap::scavengerThread()
+{
+  while (1) {
+      if (!shouldContinueScavenging()) {
+          pthread_mutex_lock(&m_scavengeMutex);
+          m_scavengeThreadActive = false;
+          // Block until there are enough freed pages to release back to the system.
+          pthread_cond_wait(&m_scavengeCondition, &m_scavengeMutex);
+          m_scavengeThreadActive = true;
+          pthread_mutex_unlock(&m_scavengeMutex);
+      }
+      sleep(kScavengeTimerDelayInSeconds);
+      {
+          SpinLockHolder h(&pageheap_lock);
+          pageheap->scavenge();
+      }
+  }
+}
+#endif
 
 // If TLS is available, we also store a copy
 // of the per-thread object in a __thread variable
@@ -3263,7 +3585,20 @@ template <bool crashOnFailure>
 ALWAYS_INLINE
 #endif
 void* malloc(size_t size) {
-  void* result = do_malloc(size);
+#if ENABLE(FAST_MALLOC_MATCH_VALIDATION)
+    if (std::numeric_limits<size_t>::max() - sizeof(AllocAlignmentInteger) <= size)  // If overflow would occur...
+        return 0;
+    size += sizeof(AllocAlignmentInteger);
+    void* result = do_malloc(size);
+    if (!result)
+        return 0;
+
+    *static_cast<AllocAlignmentInteger*>(result) = Internal::AllocTypeMalloc;
+    result = static_cast<AllocAlignmentInteger*>(result) + 1;
+#else
+    void* result = do_malloc(size);
+#endif
+
 #ifndef WTF_CHANGES
   MallocHook::InvokeNewHook(result, size);
 #endif
@@ -3277,7 +3612,18 @@ void free(void* ptr) {
 #ifndef WTF_CHANGES
   MallocHook::InvokeDeleteHook(ptr);
 #endif
-  do_free(ptr);
+
+#if ENABLE(FAST_MALLOC_MATCH_VALIDATION)
+    if (!ptr)
+        return;
+
+    AllocAlignmentInteger* header = Internal::fastMallocMatchValidationValue(ptr);
+    if (*header != Internal::AllocTypeMalloc)
+        Internal::fastMallocMatchFailed(ptr);
+    do_free(header);
+#else
+    do_free(ptr);
+#endif
 }
 
 #ifndef WTF_CHANGES
@@ -3300,16 +3646,31 @@ template <bool crashOnFailure>
 ALWAYS_INLINE
 #endif
 void* calloc(size_t n, size_t elem_size) {
-  const size_t totalBytes = n * elem_size;
+  size_t totalBytes = n * elem_size;
     
   // Protect against overflow
   if (n > 1 && elem_size && (totalBytes / elem_size) != n)
     return 0;
-    
-  void* result = do_malloc(totalBytes);
-  if (result != NULL) {
+
+#if ENABLE(FAST_MALLOC_MATCH_VALIDATION)
+    if (std::numeric_limits<size_t>::max() - sizeof(AllocAlignmentInteger) <= totalBytes)  // If overflow would occur...
+        return 0;
+
+    totalBytes += sizeof(AllocAlignmentInteger);
+    void* result = do_malloc(totalBytes);
+    if (!result)
+        return 0;
+
     memset(result, 0, totalBytes);
-  }
+    *static_cast<AllocAlignmentInteger*>(result) = Internal::AllocTypeMalloc;
+    result = static_cast<AllocAlignmentInteger*>(result) + 1;
+#else
+    void* result = do_malloc(totalBytes);
+    if (result != NULL) {
+        memset(result, 0, totalBytes);
+    }
+#endif
+
 #ifndef WTF_CHANGES
   MallocHook::InvokeNewHook(result, totalBytes);
 #endif
@@ -3350,9 +3711,13 @@ ALWAYS_INLINE
 #endif
 void* realloc(void* old_ptr, size_t new_size) {
   if (old_ptr == NULL) {
+#if ENABLE(FAST_MALLOC_MATCH_VALIDATION)
+    void* result = malloc(new_size);
+#else
     void* result = do_malloc(new_size);
 #ifndef WTF_CHANGES
     MallocHook::InvokeNewHook(result, new_size);
+#endif
 #endif
     return result;
   }
@@ -3363,6 +3728,16 @@ void* realloc(void* old_ptr, size_t new_size) {
     free(old_ptr);
     return NULL;
   }
+
+#if ENABLE(FAST_MALLOC_MATCH_VALIDATION)
+    if (std::numeric_limits<size_t>::max() - sizeof(AllocAlignmentInteger) <= new_size)  // If overflow would occur...
+        return 0;
+    new_size += sizeof(AllocAlignmentInteger);
+    AllocAlignmentInteger* header = Internal::fastMallocMatchValidationValue(old_ptr);
+    if (*header != Internal::AllocTypeMalloc)
+        Internal::fastMallocMatchFailed(old_ptr);
+    old_ptr = header;
+#endif
 
   // Get the size of the old entry
   const PageID p = reinterpret_cast<uintptr_t>(old_ptr) >> kPageShift;
@@ -3400,8 +3775,14 @@ void* realloc(void* old_ptr, size_t new_size) {
     // that we already know the sizeclass of old_ptr.  The benefit
     // would be small, so don't bother.
     do_free(old_ptr);
+#if ENABLE(FAST_MALLOC_MATCH_VALIDATION)
+    new_ptr = static_cast<AllocAlignmentInteger*>(new_ptr) + 1;
+#endif
     return new_ptr;
   } else {
+#if ENABLE(FAST_MALLOC_MATCH_VALIDATION)
+    old_ptr = pByte + sizeof(AllocAlignmentInteger);  // Set old_ptr back to the user pointer.
+#endif
     return old_ptr;
   }
 }
@@ -3571,7 +3952,7 @@ extern "C" struct mallinfo mallinfo(void) {
 
 #if defined(__GLIBC__)
 extern "C" {
-# if defined(__GNUC__) && !defined(__MACH__) && defined(HAVE___ATTRIBUTE__)
+#if COMPILER(GCC) && !defined(__MACH__) && defined(HAVE___ATTRIBUTE__)
   // Potentially faster variants that use the gcc alias extension.
   // Mach-O (Darwin) does not support weak aliases, hence the __MACH__ check.
 # define ALIAS(x) __attribute__ ((weak, alias (x)))
@@ -3630,6 +4011,7 @@ public:
 
     void visit(void* ptr) { m_freeObjects.add(ptr); }
     bool isFreeObject(void* ptr) const { return m_freeObjects.contains(ptr); }
+    bool isFreeObject(vm_address_t ptr) const { return isFreeObject(reinterpret_cast<void*>(ptr)); }
     size_t freeObjectCount() const { return m_freeObjects.size(); }
 
     void findFreeObjects(TCMalloc_ThreadCache* threadCache)
@@ -3680,7 +4062,9 @@ class PageMapMemoryUsageRecorder {
     vm_range_recorder_t* m_recorder;
     const RemoteMemoryReader& m_reader;
     const FreeObjectFinder& m_freeObjectFinder;
-    mutable HashSet<void*> m_seenPointers;
+
+    HashSet<void*> m_seenPointers;
+    Vector<Span*> m_coalescedSpans;
 
 public:
     PageMapMemoryUsageRecorder(task_t task, void* context, unsigned typeMask, vm_range_recorder_t* recorder, const RemoteMemoryReader& reader, const FreeObjectFinder& freeObjectFinder)
@@ -3692,51 +4076,133 @@ public:
         , m_freeObjectFinder(freeObjectFinder)
     { }
 
-    int visit(void* ptr) const
+    ~PageMapMemoryUsageRecorder()
+    {
+        ASSERT(!m_coalescedSpans.size());
+    }
+
+    void recordPendingRegions()
+    {
+        Span* lastSpan = m_coalescedSpans[m_coalescedSpans.size() - 1];
+        vm_range_t ptrRange = { m_coalescedSpans[0]->start << kPageShift, 0 };
+        ptrRange.size = (lastSpan->start << kPageShift) - ptrRange.address + (lastSpan->length * kPageSize);
+
+        // Mark the memory region the spans represent as a candidate for containing pointers
+        if (m_typeMask & MALLOC_PTR_REGION_RANGE_TYPE)
+            (*m_recorder)(m_task, m_context, MALLOC_PTR_REGION_RANGE_TYPE, &ptrRange, 1);
+
+        if (!(m_typeMask & MALLOC_PTR_IN_USE_RANGE_TYPE)) {
+            m_coalescedSpans.clear();
+            return;
+        }
+
+        Vector<vm_range_t, 1024> allocatedPointers;
+        for (size_t i = 0; i < m_coalescedSpans.size(); ++i) {
+            Span *theSpan = m_coalescedSpans[i];
+            if (theSpan->free)
+                continue;
+
+            vm_address_t spanStartAddress = theSpan->start << kPageShift;
+            vm_size_t spanSizeInBytes = theSpan->length * kPageSize;
+
+            if (!theSpan->sizeclass) {
+                // If it's an allocated large object span, mark it as in use
+                if (!m_freeObjectFinder.isFreeObject(spanStartAddress))
+                    allocatedPointers.append((vm_range_t){spanStartAddress, spanSizeInBytes});
+            } else {
+                const size_t objectSize = ByteSizeForClass(theSpan->sizeclass);
+
+                // Mark each allocated small object within the span as in use
+                const vm_address_t endOfSpan = spanStartAddress + spanSizeInBytes;
+                for (vm_address_t object = spanStartAddress; object + objectSize <= endOfSpan; object += objectSize) {
+                    if (!m_freeObjectFinder.isFreeObject(object))
+                        allocatedPointers.append((vm_range_t){object, objectSize});
+                }
+            }
+        }
+
+        (*m_recorder)(m_task, m_context, MALLOC_PTR_IN_USE_RANGE_TYPE, allocatedPointers.data(), allocatedPointers.size());
+
+        m_coalescedSpans.clear();
+    }
+
+    int visit(void* ptr)
     {
         if (!ptr)
             return 1;
 
         Span* span = m_reader(reinterpret_cast<Span*>(ptr));
+        if (!span->start)
+            return 1;
+
         if (m_seenPointers.contains(ptr))
             return span->length;
         m_seenPointers.add(ptr);
 
-        // Mark the memory used for the Span itself as an administrative region
-        vm_range_t ptrRange = { reinterpret_cast<vm_address_t>(ptr), sizeof(Span) };
-        if (m_typeMask & (MALLOC_PTR_REGION_RANGE_TYPE | MALLOC_ADMIN_REGION_RANGE_TYPE))
-            (*m_recorder)(m_task, m_context, MALLOC_ADMIN_REGION_RANGE_TYPE, &ptrRange, 1);
-
-        ptrRange.address = span->start << kPageShift;
-        ptrRange.size = span->length * kPageSize;
-
-        // Mark the memory region the span represents as candidates for containing pointers
-        if (m_typeMask & (MALLOC_PTR_REGION_RANGE_TYPE | MALLOC_ADMIN_REGION_RANGE_TYPE))
-            (*m_recorder)(m_task, m_context, MALLOC_PTR_REGION_RANGE_TYPE, &ptrRange, 1);
-
-        if (!span->free && (m_typeMask & MALLOC_PTR_IN_USE_RANGE_TYPE)) {
-            // If it's an allocated large object span, mark it as in use
-            if (span->sizeclass == 0 && !m_freeObjectFinder.isFreeObject(reinterpret_cast<void*>(ptrRange.address)))
-                (*m_recorder)(m_task, m_context, MALLOC_PTR_IN_USE_RANGE_TYPE, &ptrRange, 1);
-            else if (span->sizeclass) {
-                const size_t byteSize = ByteSizeForClass(span->sizeclass);
-                unsigned totalObjects = (span->length << kPageShift) / byteSize;
-                ASSERT(span->refcount <= totalObjects);
-                char* ptr = reinterpret_cast<char*>(span->start << kPageShift);
-
-                // Mark each allocated small object within the span as in use
-                for (unsigned i = 0; i < totalObjects; i++) {
-                    char* thisObject = ptr + (i * byteSize);
-                    if (m_freeObjectFinder.isFreeObject(thisObject))
-                        continue;
-
-                    vm_range_t objectRange = { reinterpret_cast<vm_address_t>(thisObject), byteSize };
-                    (*m_recorder)(m_task, m_context, MALLOC_PTR_IN_USE_RANGE_TYPE, &objectRange, 1);
-                }
-            }
+        if (!m_coalescedSpans.size()) {
+            m_coalescedSpans.append(span);
+            return span->length;
         }
 
+        Span* previousSpan = m_coalescedSpans[m_coalescedSpans.size() - 1];
+        vm_address_t previousSpanStartAddress = previousSpan->start << kPageShift;
+        vm_size_t previousSpanSizeInBytes = previousSpan->length * kPageSize;
+
+        // If the new span is adjacent to the previous span, do nothing for now.
+        vm_address_t spanStartAddress = span->start << kPageShift;
+        if (spanStartAddress == previousSpanStartAddress + previousSpanSizeInBytes) {
+            m_coalescedSpans.append(span);
+            return span->length;
+        }
+
+        // New span is not adjacent to previous span, so record the spans coalesced so far.
+        recordPendingRegions();
+        m_coalescedSpans.append(span);
+
         return span->length;
+    }
+};
+
+class AdminRegionRecorder {
+    task_t m_task;
+    void* m_context;
+    unsigned m_typeMask;
+    vm_range_recorder_t* m_recorder;
+    const RemoteMemoryReader& m_reader;
+
+    Vector<vm_range_t, 1024> m_pendingRegions;
+
+public:
+    AdminRegionRecorder(task_t task, void* context, unsigned typeMask, vm_range_recorder_t* recorder, const RemoteMemoryReader& reader)
+        : m_task(task)
+        , m_context(context)
+        , m_typeMask(typeMask)
+        , m_recorder(recorder)
+        , m_reader(reader)
+    { }
+
+    void recordRegion(vm_address_t ptr, size_t size)
+    {
+        if (m_typeMask & MALLOC_ADMIN_REGION_RANGE_TYPE)
+            m_pendingRegions.append((vm_range_t){ ptr, size });
+    }
+
+    void visit(void *ptr, size_t size)
+    {
+        recordRegion(reinterpret_cast<vm_address_t>(ptr), size);
+    }
+
+    void recordPendingRegions()
+    {
+        if (m_pendingRegions.size()) {
+            (*m_recorder)(m_task, m_context, MALLOC_ADMIN_REGION_RANGE_TYPE, m_pendingRegions.data(), m_pendingRegions.size());
+            m_pendingRegions.clear();
+        }
+    }
+
+    ~AdminRegionRecorder()
+    {
+        ASSERT(!m_pendingRegions.size());
     }
 };
 
@@ -3759,10 +4225,22 @@ kern_return_t FastMallocZone::enumerate(task_t task, void* context, unsigned typ
 
     TCMalloc_PageHeap::PageMap* pageMap = &pageHeap->pagemap_;
     PageMapFreeObjectFinder pageMapFinder(memoryReader, finder);
-    pageMap->visit(pageMapFinder, memoryReader);
+    pageMap->visitValues(pageMapFinder, memoryReader);
 
     PageMapMemoryUsageRecorder usageRecorder(task, context, typeMask, recorder, memoryReader, finder);
-    pageMap->visit(usageRecorder, memoryReader);
+    pageMap->visitValues(usageRecorder, memoryReader);
+    usageRecorder.recordPendingRegions();
+
+    AdminRegionRecorder adminRegionRecorder(task, context, typeMask, recorder, memoryReader);
+    pageMap->visitAllocations(adminRegionRecorder, memoryReader);
+
+    PageHeapAllocator<Span>* spanAllocator = memoryReader(mzone->m_spanAllocator);
+    PageHeapAllocator<TCMalloc_ThreadCache>* pageHeapAllocator = memoryReader(mzone->m_pageHeapAllocator);
+
+    spanAllocator->recordAdministrativeRegions(adminRegionRecorder, memoryReader);
+    pageHeapAllocator->recordAdministrativeRegions(adminRegionRecorder, memoryReader);
+
+    adminRegionRecorder.recordPendingRegions();
 
     return 0;
 }
@@ -3803,15 +4281,24 @@ void* FastMallocZone::zoneRealloc(malloc_zone_t*, void*, size_t)
 
 extern "C" {
 malloc_introspection_t jscore_fastmalloc_introspection = { &FastMallocZone::enumerate, &FastMallocZone::goodSize, &FastMallocZone::check, &FastMallocZone::print,
-    &FastMallocZone::log, &FastMallocZone::forceLock, &FastMallocZone::forceUnlock, &FastMallocZone::statistics };
+    &FastMallocZone::log, &FastMallocZone::forceLock, &FastMallocZone::forceUnlock, &FastMallocZone::statistics
+
+#if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD) && !PLATFORM(IPHONE)
+    , 0 // zone_locked will not be called on the zone unless it advertises itself as version five or higher.
+#endif
+
+    };
 }
 
-FastMallocZone::FastMallocZone(TCMalloc_PageHeap* pageHeap, TCMalloc_ThreadCache** threadHeaps, TCMalloc_Central_FreeListPadded* centralCaches)
+FastMallocZone::FastMallocZone(TCMalloc_PageHeap* pageHeap, TCMalloc_ThreadCache** threadHeaps, TCMalloc_Central_FreeListPadded* centralCaches, PageHeapAllocator<Span>* spanAllocator, PageHeapAllocator<TCMalloc_ThreadCache>* pageHeapAllocator)
     : m_pageHeap(pageHeap)
     , m_threadHeaps(threadHeaps)
     , m_centralCaches(centralCaches)
+    , m_spanAllocator(spanAllocator)
+    , m_pageHeapAllocator(pageHeapAllocator)
 {
     memset(&m_zone, 0, sizeof(m_zone));
+    m_zone.version = 4;
     m_zone.zone_name = "JavaScriptCore FastMalloc";
     m_zone.size = &FastMallocZone::size;
     m_zone.malloc = &FastMallocZone::zoneMalloc;
@@ -3827,7 +4314,7 @@ FastMallocZone::FastMallocZone(TCMalloc_PageHeap* pageHeap, TCMalloc_ThreadCache
 
 void FastMallocZone::init()
 {
-    static FastMallocZone zone(pageheap, &thread_heaps, static_cast<TCMalloc_Central_FreeListPadded*>(central_cache));
+    static FastMallocZone zone(pageheap, &thread_heaps, static_cast<TCMalloc_Central_FreeListPadded*>(central_cache), &span_allocator, &threadheap_allocator);
 }
 
 #endif

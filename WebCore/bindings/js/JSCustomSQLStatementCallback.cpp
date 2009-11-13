@@ -28,9 +28,8 @@
 
 #include "config.h"
 #include "JSCustomSQLStatementCallback.h"
+#if ENABLE(DATABASE)
 
-#include "CString.h"
-#include "DOMWindow.h"
 #include "Frame.h"
 #include "ScriptController.h"
 #include "JSSQLResultSet.h"
@@ -55,12 +54,13 @@ void JSCustomSQLStatementCallback::handleEvent(SQLTransaction* transaction, SQLR
     if (!m_frame->script()->isEnabled())
         return;
 
+    // FIXME: This is likely the wrong globalObject (for prototype chains at least)
     JSGlobalObject* globalObject = m_frame->script()->globalObject();
     ExecState* exec = globalObject->globalExec();
         
-    JSC::JSLock lock(false);
+    JSC::JSLock lock(SilenceAssertionsOnly);
 
-    JSValuePtr function = m_callback->get(exec, Identifier(exec, "handleEvent"));
+    JSValue function = m_callback->get(exec, Identifier(exec, "handleEvent"));
     CallData callData;
     CallType callType = function.getCallData(callData);
     if (callType == CallTypeNone) {
@@ -74,13 +74,13 @@ void JSCustomSQLStatementCallback::handleEvent(SQLTransaction* transaction, SQLR
 
     RefPtr<JSCustomSQLStatementCallback> protect(this);
 
-    ArgList args;
-    args.append(toJS(exec, transaction));
-    args.append(toJS(exec, resultSet));
+    MarkedArgumentBuffer args;
+    args.append(toJS(exec, deprecatedGlobalObjectForPrototype(exec), transaction));
+    args.append(toJS(exec, deprecatedGlobalObjectForPrototype(exec), resultSet));
         
-    globalObject->startTimeoutCheck();
+    globalObject->globalData()->timeoutChecker.start();
     call(exec, function, callType, callData, m_callback, args);
-    globalObject->stopTimeoutCheck();
+    globalObject->globalData()->timeoutChecker.stop();
 
     if (exec->hadException()) {
         reportCurrentException(exec);
@@ -88,7 +88,9 @@ void JSCustomSQLStatementCallback::handleEvent(SQLTransaction* transaction, SQLR
         raisedException = true;
     }
 
-    Document::updateDocumentsRendering();
+    Document::updateStyleForAllDocuments();
 }
 
 }
+
+#endif // ENABLE(DATABASE)

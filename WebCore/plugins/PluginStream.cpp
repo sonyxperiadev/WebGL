@@ -34,6 +34,7 @@
 #include "PluginDebug.h"
 #include "SharedBuffer.h"
 #include "SubresourceLoader.h"
+#include <StringExtras.h>
 
 // We use -2 here because some plugins like to return -1 to indicate error
 // and this way we won't clash with them.
@@ -129,20 +130,20 @@ void PluginStream::startStream()
 
     // Some plugins (Flash) expect that javascript URLs are passed back decoded as this is the
     // format used when requesting the URL.
-    if (responseURL.protocolIs("javascript"))
+    if (protocolIsJavaScript(responseURL))
         m_stream.url = strdup(decodeURLEscapeSequences(responseURL.string()).utf8().data());
     else
         m_stream.url = strdup(responseURL.string().utf8().data());
-    
+
     CString mimeTypeStr = m_resourceResponse.mimeType().utf8();
-    
+
     long long expectedContentLength = m_resourceResponse.expectedContentLength();
 
     if (m_resourceResponse.isHTTP()) {
         Vector<UChar> stringBuilder;
         String separator(": ");
 
-        String statusLine = String::format("HTTP %lu OK\n", m_resourceResponse.httpStatusCode());
+        String statusLine = String::format("HTTP %d OK\n", m_resourceResponse.httpStatusCode());
 
         stringBuilder.append(statusLine.characters(), statusLine.length());
 
@@ -247,6 +248,11 @@ void PluginStream::destroyStream()
 
     bool newStreamCalled = m_stream.ndata;
 
+    // Protect from destruction if:
+    //  NPN_DestroyStream is called from NPP_NewStream or
+    //  PluginStreamClient::streamDidFinishLoading() removes the last reference
+    RefPtr<PluginStream> protect(this);
+
     if (newStreamCalled) {
         if (m_reason == NPRES_DONE && (m_transferMode == NP_ASFILE || m_transferMode == NP_ASFILEONLY)) {
             ASSERT(!m_path.isNull());
@@ -280,9 +286,6 @@ void PluginStream::destroyStream()
             m_loader->setDefersLoading(true);
         if (!newStreamCalled && m_quirks.contains(PluginQuirkFlashURLNotifyBug) &&
             equalIgnoringCase(m_resourceRequest.httpMethod(), "POST")) {
-            // Protect the stream if NPN_DestroyStream is called from NPP_NewStream
-            RefPtr<PluginStream> protect(this);
-
             m_transferMode = NP_NORMAL;
             m_stream.url = "";
             m_stream.notifyData = m_notifyData;
@@ -302,8 +305,6 @@ void PluginStream::destroyStream()
 
     m_streamState = StreamStopped;
 
-    // streamDidFinishLoading can cause us to be deleted.
-    RefPtr<PluginStream> protect(this);
     if (!m_loadManually)
         m_client->streamDidFinishLoading(this);
 

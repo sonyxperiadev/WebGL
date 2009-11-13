@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2008, 2009 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -37,13 +37,13 @@ namespace JSC {
 ASSERT_CLASS_FITS_IN_CELL(JSNotAnObject);
 
 // JSValue methods
-JSValuePtr JSNotAnObject::toPrimitive(ExecState* exec, PreferredPrimitiveType) const
+JSValue JSNotAnObject::toPrimitive(ExecState* exec, PreferredPrimitiveType) const
 {
     ASSERT_UNUSED(exec, exec->hadException() && exec->exception() == m_exception);
     return m_exception;
 }
 
-bool JSNotAnObject::getPrimitiveNumber(ExecState* exec, double&, JSValuePtr&)
+bool JSNotAnObject::getPrimitiveNumber(ExecState* exec, double&, JSValue&)
 {
     ASSERT_UNUSED(exec, exec->hadException() && exec->exception() == m_exception);
     return false;
@@ -74,11 +74,10 @@ JSObject* JSNotAnObject::toObject(ExecState* exec) const
 }
 
 // Marking
-void JSNotAnObject::mark()
+void JSNotAnObject::markChildren(MarkStack& markStack)
 {
-    JSCell::mark();
-    if (!m_exception->marked())
-        m_exception->mark();
+    JSObject::markChildren(markStack);
+    markStack.append(m_exception);
 }
 
 // JSObject methods
@@ -94,12 +93,12 @@ bool JSNotAnObject::getOwnPropertySlot(ExecState* exec, unsigned, PropertySlot&)
     return false;
 }
 
-void JSNotAnObject::put(ExecState* exec, const Identifier& , JSValuePtr, PutPropertySlot&)
+void JSNotAnObject::put(ExecState* exec, const Identifier& , JSValue, PutPropertySlot&)
 {
     ASSERT_UNUSED(exec, exec->hadException() && exec->exception() == m_exception);
 }
 
-void JSNotAnObject::put(ExecState* exec, unsigned, JSValuePtr)
+void JSNotAnObject::put(ExecState* exec, unsigned, JSValue)
 {
     ASSERT_UNUSED(exec, exec->hadException() && exec->exception() == m_exception);
 }

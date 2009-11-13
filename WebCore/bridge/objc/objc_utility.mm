@@ -126,7 +126,7 @@ bool convertJSMethodNameToObjc(const char *JSName, char *buffer, size_t bufferSi
     [], other       exception
 
 */
-ObjcValue convertValueToObjcValue(ExecState* exec, JSValuePtr value, ObjcValueType type)
+ObjcValue convertValueToObjcValue(ExecState* exec, JSValue value, ObjcValueType type)
 {
     ObjcValue result;
     double d = 0;
@@ -136,7 +136,7 @@ ObjcValue convertValueToObjcValue(ExecState* exec, JSValuePtr value, ObjcValueTy
 
     switch (type) {
         case ObjcObjectType: {
-            JSLock lock(false);
+            JSLock lock(SilenceAssertionsOnly);
             
             JSGlobalObject *originGlobalObject = exec->dynamicGlobalObject();
             RootObject* originRootObject = findRootObject(originGlobalObject);
@@ -194,16 +194,16 @@ ObjcValue convertValueToObjcValue(ExecState* exec, JSValuePtr value, ObjcValueTy
     return result;
 }
 
-JSValuePtr convertNSStringToString(ExecState* exec, NSString *nsstring)
+JSValue convertNSStringToString(ExecState* exec, NSString *nsstring)
 {
-    JSLock lock(false);
+    JSLock lock(SilenceAssertionsOnly);
     
     unichar *chars;
     unsigned int length = [nsstring length];
     chars = (unichar *)malloc(sizeof(unichar)*length);
     [nsstring getCharacters:chars];
     UString u((const UChar*)chars, length);
-    JSValuePtr aValue = jsString(exec, u);
+    JSValue aValue = jsString(exec, u);
     free((void *)chars);
     return aValue;
 }
@@ -226,9 +226,9 @@ JSValuePtr convertNSStringToString(ExecState* exec, NSString *nsstring)
     id              object wrapper
     other           should not happen
 */
-JSValuePtr convertObjcValueToValue(ExecState* exec, void* buffer, ObjcValueType type, RootObject* rootObject)
+JSValue convertObjcValueToValue(ExecState* exec, void* buffer, ObjcValueType type, RootObject* rootObject)
 {
-    JSLock lock(false);
+    JSLock lock(SilenceAssertionsOnly);
     
     switch (type) {
         case ObjcObjectType: {

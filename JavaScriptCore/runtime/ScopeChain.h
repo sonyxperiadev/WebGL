@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2003, 2008 Apple Inc. All rights reserved.
+ *  Copyright (C) 2003, 2008, 2009 Apple Inc. All rights reserved.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Library General Public
@@ -21,16 +21,17 @@
 #ifndef ScopeChain_h
 #define ScopeChain_h
 
-#include <wtf/Assertions.h>
+#include "FastAllocBase.h"
 
 namespace JSC {
 
     class JSGlobalData;
     class JSGlobalObject;
     class JSObject;
+    class MarkStack;
     class ScopeChainIterator;
     
-    class ScopeChainNode {
+    class ScopeChainNode : public FastAllocBase {
     public:
         ScopeChainNode(ScopeChainNode* next, JSObject* object, JSGlobalData* globalData, JSObject* globalThis)
             : next(next)
@@ -41,6 +42,18 @@ namespace JSC {
         {
             ASSERT(globalData);
         }
+#ifndef NDEBUG
+        // Due to the number of subtle and timing dependent bugs that have occurred due
+        // to deleted but still "valid" ScopeChainNodes we now deliberately clobber the
+        // contents in debug builds.
+        ~ScopeChainNode()
+        {
+            next = 0;
+            object = 0;
+            globalData = 0;
+            globalThis = 0;
+        }
+#endif
 
         ScopeChainNode* next;
         JSObject* object;
@@ -171,6 +184,9 @@ namespace JSC {
         {
             if (m_node)
                 m_node->deref();
+#ifndef NDEBUG
+            m_node = 0;
+#endif
         }
 
         void swap(ScopeChain&);
@@ -189,7 +205,7 @@ namespace JSC {
         
         JSGlobalObject* globalObject() const { return m_node->globalObject(); }
 
-        void mark() const;
+        void markAggregate(MarkStack&) const;
 
         // Caution: this should only be used if the codeblock this is being used
         // with needs a full scope chain, otherwise this returns the depth of

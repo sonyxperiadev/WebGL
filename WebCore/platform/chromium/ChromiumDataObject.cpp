@@ -37,6 +37,7 @@ void ChromiumDataObject::clear()
 {
     url = KURL();
     urlTitle = "";
+    fileExtension = "";
     filenames.clear();
     plainText = "";
     textHtml = "";
@@ -46,13 +47,28 @@ void ChromiumDataObject::clear()
         fileContent->clear();
 }
 
-bool ChromiumDataObject::hasData()
+bool ChromiumDataObject::hasData() const
 {
     return !url.isEmpty()
+        || !fileExtension.isEmpty()
         || !filenames.isEmpty()
         || !plainText.isEmpty()
         || !textHtml.isEmpty()
         || fileContent;
+}
+
+ChromiumDataObject::ChromiumDataObject(const ChromiumDataObject& other)
+    : url(other.url)
+    , urlTitle(other.urlTitle)
+    , fileExtension(other.fileExtension)
+    , filenames(other.filenames)
+    , plainText(other.plainText)
+    , textHtml(other.textHtml)
+    , htmlBaseUrl(other.htmlBaseUrl)
+    , fileContentFilename(other.fileContentFilename)
+{
+    if (other.fileContent.get())
+        fileContent = other.fileContent->copy();
 }
 
 } // namespace WebCore

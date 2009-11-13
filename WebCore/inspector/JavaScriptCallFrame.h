@@ -26,6 +26,8 @@
 #ifndef JavaScriptCallFrame_h
 #define JavaScriptCallFrame_h
 
+#if ENABLE(JAVASCRIPT_DEBUGGER)
+
 #include <interpreter/CallFrame.h>
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
@@ -59,20 +61,23 @@ namespace WebCore {
         String functionName() const;
         JSC::DebuggerCallFrame::Type type() const;
         const JSC::ScopeChainNode* scopeChain() const;
+        JSC::JSGlobalObject* dynamicGlobalObject() const;
 
         JSC::JSObject* thisObject() const;
-        JSC::JSValuePtr evaluate(const JSC::UString& script, JSC::JSValuePtr& exception) const;
+        JSC::JSValue evaluate(const JSC::UString& script, JSC::JSValue& exception) const;
         
     private:
         JavaScriptCallFrame(const JSC::DebuggerCallFrame&, PassRefPtr<JavaScriptCallFrame> caller, intptr_t sourceID, int line);
 
         JSC::DebuggerCallFrame m_debuggerCallFrame;
         RefPtr<JavaScriptCallFrame> m_caller;
-        int m_sourceID;
+        intptr_t m_sourceID;
         int m_line;
         bool m_isValid;
     };
 
 } // namespace WebCore
+
+#endif // ENABLE(JAVASCRIPT_DEBUGGER)
 
 #endif // JavaScriptCallFrame_h

@@ -1,8 +1,8 @@
 /*
  *  Copyright (C) 1999-2000 Harri Porten (porten@kde.org)
- *  Copyright (C) 2004, 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
+ *  Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
  *  Copyright (C) 2007 Cameron Zwarich (cwzwarich@uwaterloo.ca)
- *  Copyright (c) 2009, Google Inc. All rights reserved.
+ *  Copyright (C) 2009 Google Inc. All rights reserved.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Library General Public
@@ -62,6 +62,9 @@ namespace JSC {
 extern const double NaN;
 extern const double Inf;
 
+// This number must be at least 2 to avoid sharing empty, null as well as 1 character strings from SmallStrings.
+static const int minLengthToShare = 10;
+
 static inline size_t overflowIndicator() { return std::numeric_limits<size_t>::max(); }
 static inline size_t maxUChars() { return std::numeric_limits<size_t>::max() / sizeof(UChar); }
 
@@ -93,7 +96,7 @@ static inline void copyChars(UChar* destination, const UChar* source, unsigned n
     memcpy(destination, source, numCharacters * sizeof(UChar));
 }
 
-COMPILE_ASSERT(sizeof(UChar) == 2, uchar_is_2_bytes)
+COMPILE_ASSERT(sizeof(UChar) == 2, uchar_is_2_bytes);
 
 CString::CString(const char* c)
     : m_length(strlen(c))
@@ -191,30 +194,20 @@ UString::BaseString* UString::Rep::nullBaseString;
 UString::BaseString* UString::Rep::emptyBaseString;
 UString* UString::nullUString;
 
-static void initializeStaticBaseString(int len, UChar* buf, UString::BaseString& base)
+static void initializeStaticBaseString(UString::BaseString& base)
 {
-    base.offset = 0;
-    base.len = len;
     base.rc = INT_MAX / 2;
-    base._hash = 0;
     base.m_identifierTableAndFlags.setFlag(UString::Rep::StaticFlag);
-    base.m_baseString = 0;
-    base.buf = buf;
-    base.preCapacity = 0;
-    base.usedPreCapacity = 0;
-    base.capacity = 0;
-    base.usedCapacity = 0;
-    base.reportedCost = 0;
     base.checkConsistency();
 }
 
 void initializeUString()
 {
-    UString::Rep::nullBaseString = new UString::BaseString;
-    initializeStaticBaseString(0, 0, *UString::Rep::nullBaseString);
+    UString::Rep::nullBaseString = new UString::BaseString(0, 0);
+    initializeStaticBaseString(*UString::Rep::nullBaseString);
 
-    UString::Rep::emptyBaseString = new UString::BaseString;
-    initializeStaticBaseString(0, &sharedEmptyChar, *UString::Rep::emptyBaseString);
+    UString::Rep::emptyBaseString = new UString::BaseString(&sharedEmptyChar, 0);
+    initializeStaticBaseString(*UString::Rep::emptyBaseString);
 
     UString::nullUString = new UString;
 }
@@ -226,52 +219,6 @@ PassRefPtr<UString::Rep> UString::Rep::createCopying(const UChar* d, int l)
     UChar* copyD = static_cast<UChar*>(fastMalloc(l * sizeof(UChar)));
     copyChars(copyD, d, l);
     return create(copyD, l);
-}
-
-PassRefPtr<UString::Rep> UString::Rep::create(UChar* d, int l)
-{
-    BaseString* r = new BaseString;
-    r->offset = 0;
-    r->len = l;
-    r->rc = 1;
-    r->_hash = 0;
-    r->m_baseString = 0;
-    r->reportedCost = 0;
-    r->buf = d;
-    r->usedCapacity = l;
-    r->capacity = l;
-    r->usedPreCapacity = 0;
-    r->preCapacity = 0;
-
-    r->checkConsistency();
-
-    // steal the single reference this Rep was created with
-    return adoptRef(r);
-}
-
-PassRefPtr<UString::Rep> UString::Rep::create(PassRefPtr<Rep> rep, int offset, int length)
-{
-    ASSERT(rep);
-    rep->checkConsistency();
-
-    int repOffset = rep->offset;
-
-    PassRefPtr<BaseString> base = rep->baseString();
-
-    ASSERT(-(offset + repOffset) <= base->usedPreCapacity);
-    ASSERT(offset + repOffset + length <= base->usedCapacity);
-
-    Rep* r = new Rep;
-    r->offset = repOffset + offset;
-    r->len = length;
-    r->rc = 1;
-    r->_hash = 0;
-    r->setBaseString(base);
-
-    r->checkConsistency();
-
-    // steal the single reference this Rep was created with
-    return adoptRef(r);
 }
 
 PassRefPtr<UString::Rep> UString::Rep::createFromUTF8(const char* string)
@@ -288,6 +235,23 @@ PassRefPtr<UString::Rep> UString::Rep::createFromUTF8(const char* string)
     return UString::Rep::createCopying(buffer.data(), p - buffer.data());
 }
 
+PassRefPtr<UString::Rep> UString::Rep::create(UChar* string, int length, PassRefPtr<UString::SharedUChar> sharedBuffer)
+{
+    PassRefPtr<UString::Rep> rep = create(string, length);
+    rep->baseString()->setSharedBuffer(sharedBuffer);
+    rep->checkConsistency();
+    return rep;
+}
+
+UString::SharedUChar* UString::Rep::sharedBuffer()
+{
+    UString::BaseString* base = baseString();
+    if (len < minLengthToShare)
+        return 0;
+
+    return base->sharedBuffer();
+}
+
 void UString::Rep::destroy()
 {
     checkConsistency();
@@ -297,10 +261,14 @@ void UString::Rep::destroy()
     if (!isStatic()) {
         if (identifierTable())
             Identifier::remove(this);
+
         UString::BaseString* base = baseString();
-        if (base == this)
-            fastFree(base->buf);
-        else
+        if (base == this) {
+            if (m_sharedBuffer)
+                m_sharedBuffer->deref();
+            else
+                fastFree(base->buf);
+        } else
             base->deref();
 
         delete this;
@@ -424,25 +392,88 @@ void UString::Rep::checkConsistency() const
 }
 #endif
 
-// put these early so they can be inlined
-static inline size_t expandedSize(size_t size, size_t otherSize)
+UString::SharedUChar* UString::BaseString::sharedBuffer()
 {
-    // Do the size calculation in two parts, returning overflowIndicator if
-    // we overflow the maximum value that we can handle.
+    if (!m_sharedBuffer)
+        setSharedBuffer(SharedUChar::create(new OwnFastMallocPtr<UChar>(buf)));
+    return m_sharedBuffer;
+}
 
-    if (size > maxUChars())
+void UString::BaseString::setSharedBuffer(PassRefPtr<UString::SharedUChar> sharedBuffer)
+{
+    // The manual steps below are because m_sharedBuffer can't be a RefPtr. m_sharedBuffer
+    // is in a union with another variable to avoid making BaseString any larger.
+    if (m_sharedBuffer)
+        m_sharedBuffer->deref();
+    m_sharedBuffer = sharedBuffer.releaseRef();
+}
+
+bool UString::BaseString::slowIsBufferReadOnly()
+{
+    // The buffer may not be modified as soon as the underlying data has been shared with another class.
+    if (m_sharedBuffer->isShared())
+        return true;
+
+    // At this point, we know it that the underlying buffer isn't shared outside of this base class,
+    // so get rid of m_sharedBuffer.
+    OwnPtr<OwnFastMallocPtr<UChar> > mallocPtr(m_sharedBuffer->release());
+    UChar* unsharedBuf = const_cast<UChar*>(mallocPtr->release());
+    setSharedBuffer(0);
+    preCapacity += (buf - unsharedBuf);
+    buf = unsharedBuf;
+    return false;
+}
+
+// Put these early so they can be inlined.
+static inline size_t expandedSize(size_t capacitySize, size_t precapacitySize)
+{
+    // Combine capacitySize & precapacitySize to produce a single size to allocate,
+    // check that doing so does not result in overflow.
+    size_t size = capacitySize + precapacitySize;
+    if (size < capacitySize)
         return overflowIndicator();
 
-    size_t expandedSize = ((size + 10) / 10 * 11) + 1;
-    if (maxUChars() - expandedSize < otherSize)
-        return overflowIndicator();
+    // Small Strings (up to 4 pages):
+    // Expand the allocation size to 112.5% of the amount requested.  This is largely sicking
+    // to our previous policy, however 112.5% is cheaper to calculate.
+    if (size < 0x4000) {
+        size_t expandedSize = ((size + (size >> 3)) | 15) + 1;
+        // Given the limited range within which we calculate the expansion in this
+        // fashion the above calculation should never overflow.
+        ASSERT(expandedSize >= size);
+        ASSERT(expandedSize < maxUChars());
+        return expandedSize;
+    }
 
-    return expandedSize + otherSize;
+    // Medium Strings (up to 128 pages):
+    // For pages covering multiple pages over-allocation is less of a concern - any unused
+    // space will not be paged in if it is not used, so this is purely a VM overhead.  For
+    // these strings allocate 2x the requested size.
+    if (size < 0x80000) {
+        size_t expandedSize = ((size + size) | 0xfff) + 1;
+        // Given the limited range within which we calculate the expansion in this
+        // fashion the above calculation should never overflow.
+        ASSERT(expandedSize >= size);
+        ASSERT(expandedSize < maxUChars());
+        return expandedSize;
+    }
+
+    // Large Strings (to infinity and beyond!):
+    // Revert to our 112.5% policy - probably best to limit the amount of unused VM we allow
+    // any individual string be responsible for.
+    size_t expandedSize = ((size + (size >> 3)) | 0xfff) + 1;
+
+    // Check for overflow - any result that is at least as large as requested (but
+    // still below the limit) is okay.
+    if ((expandedSize >= size) && (expandedSize < maxUChars()))
+        return expandedSize;
+    return overflowIndicator();
 }
 
 static inline bool expandCapacity(UString::Rep* rep, int requiredLength)
 {
     rep->checkConsistency();
+    ASSERT(!rep->baseString()->isBufferReadOnly());
 
     UString::BaseString* base = rep->baseString();
 
@@ -463,6 +494,35 @@ static inline bool expandCapacity(UString::Rep* rep, int requiredLength)
     return true;
 }
 
+bool UString::Rep::reserveCapacity(int capacity)
+{
+    // If this is an empty string there is no point 'growing' it - just allocate a new one.
+    // If the BaseString is shared with another string that is using more capacity than this
+    // string is, then growing the buffer won't help.
+    // If the BaseString's buffer is readonly, then it isn't allowed to grow.
+    UString::BaseString* base = baseString();
+    if (!base->buf || !base->capacity || (offset + len) != base->usedCapacity || base->isBufferReadOnly())
+        return false;
+    
+    // If there is already sufficient capacity, no need to grow!
+    if (capacity <= base->capacity)
+        return true;
+
+    checkConsistency();
+
+    size_t newCapacity = expandedSize(capacity, base->preCapacity);
+    UChar* oldBuf = base->buf;
+    base->buf = reallocChars(base->buf, newCapacity);
+    if (!base->buf) {
+        base->buf = oldBuf;
+        return false;
+    }
+    base->capacity = newCapacity - base->preCapacity;
+
+    checkConsistency();
+    return true;
+}
+
 void UString::expandCapacity(int requiredLength)
 {
     if (!JSC::expandCapacity(m_rep.get(), requiredLength))
@@ -472,6 +532,7 @@ void UString::expandCapacity(int requiredLength)
 void UString::expandPreCapacity(int requiredPreCap)
 {
     m_rep->checkConsistency();
+    ASSERT(!m_rep->baseString()->isBufferReadOnly());
 
     BaseString* base = m_rep->baseString();
 
@@ -547,6 +608,17 @@ UString::UString(const Vector<UChar>& buffer)
         m_rep = Rep::createCopying(buffer.data(), buffer.size());
 }
 
+static ALWAYS_INLINE int newCapacityWithOverflowCheck(const int currentCapacity, const int extendLength, const bool plusOne = false)
+{
+    ASSERT_WITH_MESSAGE(extendLength >= 0, "extendedLength = %d", extendLength);
+
+    const int plusLength = plusOne ? 1 : 0;
+    if (currentCapacity > std::numeric_limits<int>::max() - extendLength - plusLength)
+        CRASH();
+
+    return currentCapacity + extendLength + plusLength;
+}
+
 static ALWAYS_INLINE PassRefPtr<UString::Rep> concatenate(PassRefPtr<UString::Rep> r, const UChar* tData, int tSize)
 {
     RefPtr<UString::Rep> rep = r;
@@ -564,25 +636,25 @@ static ALWAYS_INLINE PassRefPtr<UString::Rep> concatenate(PassRefPtr<UString::Re
     } else if (thisSize == 0) {
         // this is empty
         rep = UString::Rep::createCopying(tData, tSize);
-    } else if (rep == base && rep->rc == 1) {
+    } else if (rep == base && !base->isShared()) {
         // this is direct and has refcount of 1 (so we can just alter it directly)
-        if (!expandCapacity(rep.get(), thisOffset + length))
+        if (!expandCapacity(rep.get(), newCapacityWithOverflowCheck(thisOffset, length)))
             rep = &UString::Rep::null();
         if (rep->data()) {
             copyChars(rep->data() + thisSize, tData, tSize);
             rep->len = length;
             rep->_hash = 0;
         }
-    } else if (thisOffset + thisSize == base->usedCapacity && thisSize >= minShareSize) {
+    } else if (thisOffset + thisSize == base->usedCapacity && thisSize >= minShareSize && !base->isBufferReadOnly()) {
         // this reaches the end of the buffer - extend it if it's long enough to append to
-        if (!expandCapacity(rep.get(), thisOffset + length))
+        if (!expandCapacity(rep.get(), newCapacityWithOverflowCheck(thisOffset, length)))
             rep = &UString::Rep::null();
         if (rep->data()) {
             copyChars(rep->data() + thisSize, tData, tSize);
             rep = UString::Rep::create(rep, 0, length);
         }
     } else {
-        // this is shared with someone using more capacity, gotta make a whole new string
+        // This is shared in some way that prevents us from modifying base, so we must make a whole new string.
         size_t newCapacity = expandedSize(length, 0);
         UChar* d = allocChars(newCapacity);
         if (!d)
@@ -618,9 +690,9 @@ static ALWAYS_INLINE PassRefPtr<UString::Rep> concatenate(PassRefPtr<UString::Re
         rep = createRep(t);
     } else if (tSize == 0) {
         // t is empty, we'll just return *this below.
-    } else if (rep == base && rep->rc == 1) {
+    } else if (rep == base && !base->isShared()) {
         // this is direct and has refcount of 1 (so we can just alter it directly)
-        expandCapacity(rep.get(), thisOffset + length);
+        expandCapacity(rep.get(), newCapacityWithOverflowCheck(thisOffset, length));
         UChar* d = rep->data();
         if (d) {
             for (int i = 0; i < tSize; ++i)
@@ -628,9 +700,9 @@ static ALWAYS_INLINE PassRefPtr<UString::Rep> concatenate(PassRefPtr<UString::Re
             rep->len = length;
             rep->_hash = 0;
         }
-    } else if (thisOffset + thisSize == base->usedCapacity && thisSize >= minShareSize) {
+    } else if (thisOffset + thisSize == base->usedCapacity && thisSize >= minShareSize && !base->isBufferReadOnly()) {
         // this string reaches the end of the buffer - extend it
-        expandCapacity(rep.get(), thisOffset + length);
+        expandCapacity(rep.get(), newCapacityWithOverflowCheck(thisOffset, length));
         UChar* d = rep->data();
         if (d) {
             for (int i = 0; i < tSize; ++i)
@@ -638,7 +710,7 @@ static ALWAYS_INLINE PassRefPtr<UString::Rep> concatenate(PassRefPtr<UString::Re
             rep = UString::Rep::create(rep, 0, length);
         }
     } else {
-        // this is shared with someone using more capacity, gotta make a whole new string
+        // This is shared in some way that prevents us from modifying base, so we must make a whole new string.
         size_t newCapacity = expandedSize(length, 0);
         UChar* d = allocChars(newCapacity);
         if (!d)
@@ -663,12 +735,18 @@ PassRefPtr<UString::Rep> concatenate(UString::Rep* a, UString::Rep* b)
     b->checkConsistency();
 
     int aSize = a->size();
-    int aOffset = a->offset;
     int bSize = b->size();
-    int bOffset = b->offset;
-    int length = aSize + bSize;
+    int aOffset = a->offset;
 
     // possible cases:
+
+    UString::BaseString* aBase = a->baseString();
+    if (bSize == 1 && aOffset + aSize == aBase->usedCapacity && aOffset + aSize < aBase->capacity && !aBase->isBufferReadOnly()) {
+        // b is a single character (common fast case)
+        ++aBase->usedCapacity;
+        a->data()[aSize] = b->data()[0];
+        return UString::Rep::create(a, 0, aSize + 1);
+    }
 
     // a is empty
     if (aSize == 0)
@@ -677,23 +755,19 @@ PassRefPtr<UString::Rep> concatenate(UString::Rep* a, UString::Rep* b)
     if (bSize == 0)
         return a;
 
-    UString::BaseString* aBase = a->baseString();
-    if (bSize == 1 && aOffset + aSize == aBase->usedCapacity && aOffset + length <= aBase->capacity) {
-        // b is a single character (common fast case)
-        aBase->usedCapacity = aOffset + length;
-        a->data()[aSize] = b->data()[0];
-        return UString::Rep::create(a, 0, length);
-    }
+    int bOffset = b->offset;
+    int length = aSize + bSize;
 
     UString::BaseString* bBase = b->baseString();
     if (aOffset + aSize == aBase->usedCapacity && aSize >= minShareSize && 4 * aSize >= bSize
-        && (-bOffset != bBase->usedPreCapacity || aSize >= bSize)) {
+        && (-bOffset != bBase->usedPreCapacity || aSize >= bSize) && !aBase->isBufferReadOnly()) {
         // - a reaches the end of its buffer so it qualifies for shared append
         // - also, it's at least a quarter the length of b - appending to a much shorter
         //   string does more harm than good
         // - however, if b qualifies for prepend and is longer than a, we'd rather prepend
+        
         UString x(a);
-        x.expandCapacity(aOffset + length);
+        x.expandCapacity(newCapacityWithOverflowCheck(aOffset, length));
         if (!a->data() || !x.data())
             return 0;
         copyChars(a->data() + aSize, b->data(), bSize);
@@ -706,7 +780,7 @@ PassRefPtr<UString::Rep> concatenate(UString::Rep* a, UString::Rep* b)
         return result;
     }
 
-    if (-bOffset == bBase->usedPreCapacity && bSize >= minShareSize && 4 * bSize >= aSize) {
+    if (-bOffset == bBase->usedPreCapacity && bSize >= minShareSize && 4 * bSize >= aSize && !bBase->isBufferReadOnly()) {
         // - b reaches the beginning of its buffer so it qualifies for shared prepend
         // - also, it's at least a quarter the length of a - prepending to a much shorter
         //   string does more harm than good
@@ -784,7 +858,8 @@ PassRefPtr<UString::Rep> concatenate(UString::Rep* rep, double d)
     int decimalPoint;
     int sign;
 
-    char* result = WTF::dtoa(d, 0, &decimalPoint, &sign, NULL);
+    char result[80];
+    WTF::dtoa(result, d, 0, &decimalPoint, &sign, NULL);
     int length = static_cast<int>(strlen(result));
   
     int i = 0;
@@ -835,9 +910,7 @@ PassRefPtr<UString::Rep> concatenate(UString::Rep* rep, double d)
         buf[i++] = '\0';
     }
     
-  WTF::freedtoa(result);
-
-  return concatenate(rep, buf);
+    return concatenate(rep, buf);
 }
 
 UString UString::from(int i)
@@ -925,8 +998,9 @@ UString UString::from(double d)
     char buf[80];
     int decimalPoint;
     int sign;
-
-    char* result = WTF::dtoa(d, 0, &decimalPoint, &sign, NULL);
+    
+    char result[80];
+    WTF::dtoa(result, d, 0, &decimalPoint, &sign, NULL);
     int length = static_cast<int>(strlen(result));
   
     int i = 0;
@@ -977,9 +1051,7 @@ UString UString::from(double d)
         buf[i++] = '\0';
     }
     
-  WTF::freedtoa(result);
-
-  return UString(buf);
+    return UString(buf);
 }
 
 UString UString::spliceSubstringsWithSeparators(const Range* substringRanges, int rangeCount, const UString* separators, int separatorCount) const
@@ -1024,6 +1096,28 @@ UString UString::spliceSubstringsWithSeparators(const Range* substringRanges, in
     return UString::Rep::create(buffer, totalLength);
 }
 
+UString UString::replaceRange(int rangeStart, int rangeLength, const UString& replacement) const
+{
+    m_rep->checkConsistency();
+
+    int replacementLength = replacement.size();
+    int totalLength = size() - rangeLength + replacementLength;
+    if (totalLength == 0)
+        return "";
+
+    UChar* buffer = allocChars(totalLength);
+    if (!buffer)
+        return null();
+
+    copyChars(buffer, data(), rangeStart);
+    copyChars(buffer + rangeStart, replacement.data(), replacementLength);
+    int rangeEnd = rangeStart + rangeLength;
+    copyChars(buffer + rangeStart + replacementLength, data() + rangeEnd, size() - rangeEnd);
+
+    return UString::Rep::create(buffer, totalLength);
+}
+
+
 UString& UString::append(const UString &t)
 {
     m_rep->checkConsistency();
@@ -1041,23 +1135,23 @@ UString& UString::append(const UString &t)
         *this = t;
     } else if (tSize == 0) {
         // t is empty
-    } else if (m_rep == base && m_rep->rc == 1) {
+    } else if (m_rep == base && !base->isShared()) {
         // this is direct and has refcount of 1 (so we can just alter it directly)
-        expandCapacity(thisOffset + length);
+        expandCapacity(newCapacityWithOverflowCheck(thisOffset, length));
         if (data()) {
             copyChars(m_rep->data() + thisSize, t.data(), tSize);
             m_rep->len = length;
             m_rep->_hash = 0;
         }
-    } else if (thisOffset + thisSize == base->usedCapacity && thisSize >= minShareSize) {
+    } else if (thisOffset + thisSize == base->usedCapacity && thisSize >= minShareSize && !base->isBufferReadOnly()) {
         // this reaches the end of the buffer - extend it if it's long enough to append to
-        expandCapacity(thisOffset + length);
+        expandCapacity(newCapacityWithOverflowCheck(thisOffset, length));
         if (data()) {
             copyChars(m_rep->data() + thisSize, t.data(), tSize);
             m_rep = Rep::create(m_rep, 0, length);
         }
     } else {
-        // this is shared with someone using more capacity, gotta make a whole new string
+        // This is shared in some way that prevents us from modifying base, so we must make a whole new string.
         size_t newCapacity = expandedSize(length, 0);
         UChar* d = allocChars(newCapacity);
         if (!d)
@@ -1079,6 +1173,18 @@ UString& UString::append(const UString &t)
 UString& UString::append(const UChar* tData, int tSize)
 {
     m_rep = concatenate(m_rep.release(), tData, tSize);
+    return *this;
+}
+
+UString& UString::appendNumeric(int i)
+{
+    m_rep = concatenate(rep(), i);
+    return *this;
+}
+
+UString& UString::appendNumeric(double d)
+{
+    m_rep = concatenate(rep(), d);
     return *this;
 }
 
@@ -1108,25 +1214,25 @@ UString& UString::append(UChar c)
             m_rep = Rep::create(d, 1);
             m_rep->baseString()->capacity = newCapacity;
         }
-    } else if (m_rep == base && m_rep->rc == 1) {
+    } else if (m_rep == base && !base->isShared()) {
         // this is direct and has refcount of 1 (so we can just alter it directly)
-        expandCapacity(thisOffset + length + 1);
+        expandCapacity(newCapacityWithOverflowCheck(thisOffset, length, true));
         UChar* d = m_rep->data();
         if (d) {
             d[length] = c;
             m_rep->len = length + 1;
             m_rep->_hash = 0;
         }
-    } else if (thisOffset + length == base->usedCapacity && length >= minShareSize) {
+    } else if (thisOffset + length == base->usedCapacity && length >= minShareSize && !base->isBufferReadOnly()) {
         // this reaches the end of the string - extend it and share
-        expandCapacity(thisOffset + length + 1);
+        expandCapacity(newCapacityWithOverflowCheck(thisOffset, length, true));
         UChar* d = m_rep->data();
         if (d) {
             d[length] = c;
             m_rep = Rep::create(m_rep, 0, length + 1);
         }
     } else {
-        // this is shared with someone using more capacity, gotta make a whole new string
+        // This is shared in some way that prevents us from modifying base, so we must make a whole new string.
         size_t newCapacity = expandedSize(length + 1, 0);
         UChar* d = allocChars(newCapacity);
         if (!d)
@@ -1202,7 +1308,7 @@ UString& UString::operator=(const char* c)
     int l = static_cast<int>(strlen(c));
     UChar* d;
     BaseString* base = m_rep->baseString();
-    if (m_rep->rc == 1 && l <= base->capacity && m_rep == base && m_rep->offset == 0 && base->preCapacity == 0) {
+    if (!base->isShared() && l <= base->capacity && m_rep == base && m_rep->offset == 0 && base->preCapacity == 0) {
         d = base->buf;
         m_rep->_hash = 0;
         m_rep->len = l;
@@ -1518,19 +1624,6 @@ UString UString::substr(int pos, int len) const
         return *this;
 
     return UString(Rep::create(m_rep, pos, len));
-}
-
-bool operator==(const UString& s1, const UString& s2)
-{
-    int size = s1.size();
-    switch (size) {
-        case 0:
-            return !s2.size();
-        case 1:
-            return s2.size() == 1 && s1.data()[0] == s2.data()[0];
-        default:
-            return s2.size() == size && memcmp(s1.data(), s2.data(), size * sizeof(UChar)) == 0;
-    }
 }
 
 bool operator==(const UString& s1, const char *s2)

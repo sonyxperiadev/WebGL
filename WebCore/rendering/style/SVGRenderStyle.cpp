@@ -32,6 +32,7 @@
 
 #include "CSSPrimitiveValue.h"
 #include "CSSValueList.h"
+#include "NodeRenderStyle.h"
 #include "RenderObject.h"
 #include "RenderStyle.h"
 #include "SVGStyledElement.h"
@@ -128,7 +129,7 @@ float SVGRenderStyle::cssPrimitiveToLength(const RenderObject* item, CSSValue* v
         return defaultValue;
 
     if (cssType == CSSPrimitiveValue::CSS_PERCENTAGE) {
-        SVGStyledElement* element = static_cast<SVGStyledElement*>(item->element());
+        SVGStyledElement* element = static_cast<SVGStyledElement*>(item->node());
         SVGElement* viewportElement = (element ? element->viewportElement() : 0);
         if (viewportElement) {
             float result = primitive->getFloatValue() / 100.0f;
@@ -136,7 +137,7 @@ float SVGRenderStyle::cssPrimitiveToLength(const RenderObject* item, CSSValue* v
         }
     }
 
-    return primitive->computeLengthFloat(const_cast<RenderStyle*>(item->style()));
+    return primitive->computeLengthFloat(const_cast<RenderStyle*>(item->style()), item->document()->documentElement()->renderStyle());
 }
 
 }

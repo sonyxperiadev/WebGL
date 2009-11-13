@@ -29,6 +29,8 @@
 #include "config.h"
 #include "JSSQLTransaction.h"
 
+#if ENABLE(DATABASE)
+
 #include "DOMWindow.h"
 #include "ExceptionCode.h"
 #include "JSCustomSQLStatementCallback.h"
@@ -40,22 +42,27 @@ using namespace JSC;
 
 namespace WebCore {
     
-JSValuePtr JSSQLTransaction::executeSql(ExecState* exec, const ArgList& args)
+JSValue JSSQLTransaction::executeSql(ExecState* exec, const ArgList& args)
 {
-    String sqlStatement = args.at(exec, 0).toString(exec);
+    if (args.isEmpty()) {
+        setDOMException(exec, SYNTAX_ERR);
+        return jsUndefined();
+    }
+
+    String sqlStatement = args.at(0).toString(exec);
     if (exec->hadException())
         return jsUndefined();
 
     // Now assemble the list of SQL arguments
     Vector<SQLValue> sqlValues;
-    if (!args.at(exec, 1).isUndefinedOrNull()) {
-        JSObject* object = args.at(exec, 1).getObject();
+    if (!args.at(1).isUndefinedOrNull()) {
+        JSObject* object = args.at(1).getObject();
         if (!object) {
             setDOMException(exec, TYPE_MISMATCH_ERR);
             return jsUndefined();
         }
 
-        JSValuePtr lengthValue = object->get(exec, exec->propertyNames().length);
+        JSValue lengthValue = object->get(exec, exec->propertyNames().length);
         if (exec->hadException())
             return jsUndefined();
         unsigned length = lengthValue.toUInt32(exec);
@@ -63,7 +70,7 @@ JSValuePtr JSSQLTransaction::executeSql(ExecState* exec, const ArgList& args)
             return jsUndefined();
         
         for (unsigned i = 0 ; i < length; ++i) {
-            JSValuePtr value = object->get(exec, i);
+            JSValue value = object->get(exec, i);
             if (exec->hadException())
                 return jsUndefined();
             
@@ -81,8 +88,8 @@ JSValuePtr JSSQLTransaction::executeSql(ExecState* exec, const ArgList& args)
     }
 
     RefPtr<SQLStatementCallback> callback;
-    if (!args.at(exec, 2).isUndefinedOrNull()) {
-        JSObject* object = args.at(exec, 2).getObject();
+    if (!args.at(2).isUndefinedOrNull()) {
+        JSObject* object = args.at(2).getObject();
         if (!object) {
             setDOMException(exec, TYPE_MISMATCH_ERR);
             return jsUndefined();
@@ -93,8 +100,8 @@ JSValuePtr JSSQLTransaction::executeSql(ExecState* exec, const ArgList& args)
     }
     
     RefPtr<SQLStatementErrorCallback> errorCallback;
-    if (!args.at(exec, 3).isUndefinedOrNull()) {
-        JSObject* object = args.at(exec, 3).getObject();
+    if (!args.at(3).isUndefinedOrNull()) {
+        JSObject* object = args.at(3).getObject();
         if (!object) {
             setDOMException(exec, TYPE_MISMATCH_ERR);
             return jsUndefined();
@@ -112,3 +119,5 @@ JSValuePtr JSSQLTransaction::executeSql(ExecState* exec, const ArgList& args)
 }
 
 }
+
+#endif // ENABLE(DATABASE)

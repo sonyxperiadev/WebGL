@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2008 Gustavo Noronha Silva
- * Copyright (C) 2008 Holger Hans Peter Freyther
+ * Copyright (C) 2008, 2009 Holger Hans Peter Freyther
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -20,6 +20,7 @@
 
 #include "config.h"
 
+#include <glib/gi18n-lib.h>
 #include "webkitwebinspector.h"
 #include "webkitmarshal.h"
 #include "InspectorClientGtk.h"
@@ -56,8 +57,6 @@
 
 using namespace WebKit;
 
-extern "C" {
-
 enum {
     INSPECT_WEB_VIEW,
     SHOW_WINDOW,
@@ -75,12 +74,13 @@ enum {
 
     PROP_WEB_VIEW,
     PROP_INSPECTED_URI,
+    PROP_JAVASCRIPT_PROFILING_ENABLED
 };
 
 G_DEFINE_TYPE(WebKitWebInspector, webkit_web_inspector, G_TYPE_OBJECT)
 
 struct _WebKitWebInspectorPrivate {
-    InspectorClient* inspectorClient;
+    WebCore::Page* page;
     WebKitWebView* inspector_view;
     gchar* inspected_uri;
 };
@@ -131,7 +131,7 @@ static void webkit_web_inspector_class_init(WebKitWebInspectorClass* klass)
      */
     webkit_web_inspector_signals[INSPECT_WEB_VIEW] = g_signal_new("inspect-web-view",
             G_TYPE_FROM_CLASS(klass),
-            (GSignalFlags)(G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION),
+            (GSignalFlags)G_SIGNAL_RUN_LAST,
             0,
             webkit_inspect_web_view_request_handled,
             NULL,
@@ -152,7 +152,7 @@ static void webkit_web_inspector_class_init(WebKitWebInspectorClass* klass)
      */
     webkit_web_inspector_signals[SHOW_WINDOW] = g_signal_new("show-window",
             G_TYPE_FROM_CLASS(klass),
-            (GSignalFlags)(G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION),
+            (GSignalFlags)G_SIGNAL_RUN_LAST,
             0,
             g_signal_accumulator_true_handled,
             NULL,
@@ -171,7 +171,7 @@ static void webkit_web_inspector_class_init(WebKitWebInspectorClass* klass)
      */
     webkit_web_inspector_signals[ATTACH_WINDOW] = g_signal_new("attach-window",
             G_TYPE_FROM_CLASS(klass),
-            (GSignalFlags)(G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION),
+            (GSignalFlags)G_SIGNAL_RUN_LAST,
             0,
             g_signal_accumulator_true_handled,
             NULL,
@@ -189,7 +189,7 @@ static void webkit_web_inspector_class_init(WebKitWebInspectorClass* klass)
      */
     webkit_web_inspector_signals[DETACH_WINDOW] = g_signal_new("detach-window",
             G_TYPE_FROM_CLASS(klass),
-            (GSignalFlags)(G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION),
+            (GSignalFlags)G_SIGNAL_RUN_LAST,
             0,
             g_signal_accumulator_true_handled,
             NULL,
@@ -216,7 +216,7 @@ static void webkit_web_inspector_class_init(WebKitWebInspectorClass* klass)
      */
     webkit_web_inspector_signals[CLOSE_WINDOW] = g_signal_new("close-window",
             G_TYPE_FROM_CLASS(klass),
-            (GSignalFlags)(G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION),
+            (GSignalFlags)G_SIGNAL_RUN_LAST,
             0,
             g_signal_accumulator_true_handled,
             NULL,
@@ -235,7 +235,7 @@ static void webkit_web_inspector_class_init(WebKitWebInspectorClass* klass)
      */
     webkit_web_inspector_signals[FINISHED] = g_signal_new("finished",
             G_TYPE_FROM_CLASS(klass),
-            (GSignalFlags)(G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION),
+            (GSignalFlags)G_SIGNAL_RUN_LAST,
             0,
             NULL,
             NULL,
@@ -255,8 +255,8 @@ static void webkit_web_inspector_class_init(WebKitWebInspectorClass* klass)
      */
     g_object_class_install_property(gobject_class, PROP_WEB_VIEW,
                                     g_param_spec_object("web-view",
-                                                        "Web View",
-                                                        "The Web View that renders the Web Inspector itself",
+                                                        _("Web View"),
+                                                        _("The Web View that renders the Web Inspector itself"),
                                                         WEBKIT_TYPE_WEB_VIEW,
                                                         WEBKIT_PARAM_READABLE));
 
@@ -269,10 +269,27 @@ static void webkit_web_inspector_class_init(WebKitWebInspectorClass* klass)
      */
     g_object_class_install_property(gobject_class, PROP_INSPECTED_URI,
                                     g_param_spec_string("inspected-uri",
-                                                        "Inspected URI",
-                                                        "The URI that is currently being inspected",
+                                                        _("Inspected URI"),
+                                                        _("The URI that is currently being inspected"),
                                                         NULL,
                                                         WEBKIT_PARAM_READABLE));
+
+    /**
+    * WebKitWebInspector:javascript-profiling-enabled
+    *
+    * This is enabling JavaScript profiling in the Inspector. This means
+    * that Console.profiles will return the profiles.
+    *
+    * Since: 1.1.1
+    */
+    g_object_class_install_property(gobject_class,
+                                    PROP_JAVASCRIPT_PROFILING_ENABLED,
+                                    g_param_spec_boolean(
+                                        "javascript-profiling-enabled",
+                                        _("Enable JavaScript profiling"),
+                                        _("Profile the executed JavaScript."),
+                                        FALSE,
+                                        WEBKIT_PARAM_READWRITE));
 
     g_type_class_add_private(klass, sizeof(WebKitWebInspectorPrivate));
 }
@@ -298,7 +315,19 @@ static void webkit_web_inspector_finalize(GObject* object)
 
 static void webkit_web_inspector_set_property(GObject* object, guint prop_id, const GValue* value, GParamSpec* pspec)
 {
+    WebKitWebInspector* web_inspector = WEBKIT_WEB_INSPECTOR(object);
+    WebKitWebInspectorPrivate* priv = web_inspector->priv;
+
     switch(prop_id) {
+    case PROP_JAVASCRIPT_PROFILING_ENABLED: {
+        bool enabled = g_value_get_boolean(value);
+        WebCore::InspectorController* controller = priv->page->inspectorController();
+        if (enabled)
+            controller->enableProfiler();
+        else
+            controller->disableProfiler();
+        break;
+    }
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
         break;
@@ -316,6 +345,9 @@ static void webkit_web_inspector_get_property(GObject* object, guint prop_id, GV
         break;
     case PROP_INSPECTED_URI:
         g_value_set_string(value, priv->inspected_uri);
+        break;
+    case PROP_JAVASCRIPT_PROFILING_ENABLED:
+        g_value_set_boolean(value, priv->page->inspectorController()->profilerEnabled());
         break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -388,11 +420,9 @@ const gchar* webkit_web_inspector_get_inspected_uri(WebKitWebInspector *web_insp
 }
 
 void
-webkit_web_inspector_set_inspector_client(WebKitWebInspector* web_inspector, WebKit::InspectorClient* inspectorClient)
+webkit_web_inspector_set_inspector_client(WebKitWebInspector* web_inspector, WebCore::Page* page)
 {
     WebKitWebInspectorPrivate* priv = web_inspector->priv;
 
-    priv->inspectorClient = inspectorClient;
-}
-
+    priv->page = page;
 }

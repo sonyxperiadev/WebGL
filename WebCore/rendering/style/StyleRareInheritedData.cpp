@@ -29,6 +29,9 @@ namespace WebCore {
 
 StyleRareInheritedData::StyleRareInheritedData()
     : textStrokeWidth(RenderStyle::initialTextStrokeWidth())
+#ifdef ANDROID_CSS_TAP_HIGHLIGHT_COLOR
+    , tapHighlightColor(RenderStyle::initialTapHighlightColor())
+#endif
     , textShadow(0)
     , textSecurity(RenderStyle::initialTextSecurity())
     , userModify(READ_ONLY)
@@ -37,9 +40,6 @@ StyleRareInheritedData::StyleRareInheritedData()
     , nbspMode(NBNORMAL)
     , khtmlLineBreak(LBNORMAL)
     , textSizeAdjust(RenderStyle::initialTextSizeAdjust())
-#ifdef ANDROID_CSS_TAP_HIGHLIGHT_COLOR
-    , tapHighlightColor(RenderStyle::initialTapHighlightColor())
-#endif
     , resize(RenderStyle::initialResize())
     , userSelect(RenderStyle::initialUserSelect())
 {
@@ -50,6 +50,9 @@ StyleRareInheritedData::StyleRareInheritedData(const StyleRareInheritedData& o)
     , textStrokeColor(o.textStrokeColor)
     , textStrokeWidth(o.textStrokeWidth)
     , textFillColor(o.textFillColor)
+#ifdef ANDROID_CSS_TAP_HIGHLIGHT_COLOR
+    , tapHighlightColor(o.tapHighlightColor)
+#endif
     , textShadow(o.textShadow ? new ShadowData(*o.textShadow) : 0)
     , highlight(o.highlight)
     , textSecurity(o.textSecurity)
@@ -59,9 +62,6 @@ StyleRareInheritedData::StyleRareInheritedData(const StyleRareInheritedData& o)
     , nbspMode(o.nbspMode)
     , khtmlLineBreak(o.khtmlLineBreak)
     , textSizeAdjust(o.textSizeAdjust)
-#ifdef ANDROID_CSS_TAP_HIGHLIGHT_COLOR
-    , tapHighlightColor(o.tapHighlightColor)
-#endif
     , resize(o.resize)
     , userSelect(o.userSelect)
 {
@@ -89,12 +89,13 @@ bool StyleRareInheritedData::operator==(const StyleRareInheritedData& o) const
 #ifdef ANDROID_CSS_TAP_HIGHLIGHT_COLOR
         && tapHighlightColor == o.tapHighlightColor
 #endif
+        && resize == o.resize
         && userSelect == o.userSelect;
 }
 
 bool StyleRareInheritedData::shadowDataEquivalent(const StyleRareInheritedData& o) const
 {
-    if (!textShadow && o.textShadow || textShadow && !o.textShadow)
+    if ((!textShadow && o.textShadow) || (textShadow && !o.textShadow))
         return false;
     if (textShadow && o.textShadow && (*textShadow != *o.textShadow))
         return false;

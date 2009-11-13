@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007 Apple Inc.  All rights reserved.
+ * Copyright (C) 2007, 2009 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -32,6 +32,7 @@
 #include "DumpRenderTree.h"
 #include <WebCore/COMPtr.h>
 #include <WebKit/WebKit.h>
+#include <WebKit/WebKitCOMAPI.h>
 #include <JavaScriptCore/JSStringRef.h>
 #include <JavaScriptCore/JSStringRefCF.h>
 #include <JavaScriptCore/RetainPtr.h>
@@ -50,9 +51,9 @@ static wstring jsStringRefToWString(JSStringRef jsStr)
     return buffer.data();
 }
 
-void LoadItem::invoke() const
+bool LoadItem::invoke() const
 {
-    wstring targetString = jsStringRefToWString(target());
+    wstring targetString = jsStringRefToWString(m_target.get());
 
     COMPtr<IWebFrame> targetFrame;
     if (targetString.empty())
@@ -62,73 +63,80 @@ void LoadItem::invoke() const
         bool failed = FAILED(frame->findFrameNamed(targetBSTR, &targetFrame));
         SysFreeString(targetBSTR);
         if (failed)
-            return;
+            return false;
     }
 
     COMPtr<IWebURLRequest> request;
-    if (FAILED(CoCreateInstance(CLSID_WebURLRequest, 0, CLSCTX_ALL, IID_IWebURLRequest, (void**)&request)))
-        return;
+    if (FAILED(WebKitCreateInstance(CLSID_WebURLRequest, 0, IID_IWebURLRequest, (void**)&request)))
+        return false;
 
-    wstring urlString = jsStringRefToWString(url());
+    wstring urlString = jsStringRefToWString(m_url.get());
     BSTR urlBSTR = SysAllocString(urlString.c_str());
     bool failed = FAILED(request->initWithURL(urlBSTR, WebURLRequestUseProtocolCachePolicy, 60));
     SysFreeString(urlBSTR);
     if (failed)
-        return;
+        return false;
 
     targetFrame->loadRequest(request.get());
+    return true;
 }
 
-void ReloadItem::invoke() const
+bool ReloadItem::invoke() const
 {
     COMPtr<IWebView> webView;
     if (FAILED(frame->webView(&webView)))
-        return;
+        return false;
 
     COMPtr<IWebIBActions> webActions;
-    if (SUCCEEDED(webView->QueryInterface(&webActions)))
-        webActions->reload(0);
+    if (FAILED(webView->QueryInterface(&webActions)))
+        return false;
+
+    webActions->reload(0);
+    return true;
 }
 
-void ScriptItem::invoke() const
+bool ScriptItem::invoke() const
 {
     COMPtr<IWebView> webView;
     if (FAILED(frame->webView(&webView)))
-        return;
+        return false;
 
-    wstring scriptString = jsStringRefToWString(script());
+    wstring scriptString = jsStringRefToWString(m_script.get());
 
     BSTR result;
     BSTR scriptBSTR = SysAllocString(scriptString.c_str());
     webView->stringByEvaluatingJavaScriptFromString(scriptBSTR, &result);
     SysFreeString(result);
     SysFreeString(scriptBSTR);
+
+    return true;
 }
 
-void BackForwardItem::invoke() const
+bool BackForwardItem::invoke() const
 {
     COMPtr<IWebView> webView;
     if (FAILED(frame->webView(&webView)))
-        return;
+        return false;
 
     BOOL result;
     if (m_howFar == 1) {
         webView->goForward(&result);
-        return;
+        return true;
     }
 
     if (m_howFar == -1) {
         webView->goBack(&result);
-        return;
+        return true;
     }
     
     COMPtr<IWebBackForwardList> bfList;
     if (FAILED(webView->backForwardList(&bfList)))
-        return;
+        return false;
 
     COMPtr<IWebHistoryItem> item;
     if (FAILED(bfList->itemAtIndex(m_howFar, &item)))
-        return;
+        return false;
 
     webView->goToBackForwardItem(item.get(), &result);
+    return true;
 }

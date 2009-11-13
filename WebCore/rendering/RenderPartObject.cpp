@@ -2,7 +2,7 @@
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 2000 Simon Hausmann <hausmann@kde.org>
  *           (C) 2000 Stefan Schimanski (1Stein@gmx.de)
- * Copyright (C) 2004, 2005, 2006, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2004, 2005, 2006, 2008, 2009 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -25,10 +25,7 @@
 #include "RenderPartObject.h"
 
 #include "Frame.h"
-#include "FrameLoader.h"
 #include "FrameLoaderClient.h"
-#include "FrameTree.h"
-#include "FrameView.h"
 #include "HTMLEmbedElement.h"
 #include "HTMLIFrameElement.h"
 #include "HTMLNames.h"
@@ -40,15 +37,15 @@
 #include "RenderView.h"
 #include "Text.h"
 
-#ifdef FLATTEN_IFRAME
-#include "RenderView.h"
+#if ENABLE(PLUGIN_PROXY_FOR_VIDEO)
+#include "HTMLVideoElement.h"
 #endif
 
 namespace WebCore {
 
 using namespace HTMLNames;
 
-RenderPartObject::RenderPartObject(HTMLFrameOwnerElement* element)
+RenderPartObject::RenderPartObject(Element* element)
     : RenderPart(element)
 {
     // init RenderObject attributes
@@ -61,8 +58,8 @@ RenderPartObject::RenderPartObject(HTMLFrameOwnerElement* element)
 
 RenderPartObject::~RenderPartObject()
 {
-    if (m_view)
-        m_view->removeWidgetToUpdate(this);
+    if (frameView())
+        frameView()->removeWidgetToUpdate(this);
 }
 
 static bool isURLAllowed(Document* doc, const String& url)
@@ -75,7 +72,7 @@ static bool isURLAllowed(Document* doc, const String& url)
     KURL completeURL = doc->completeURL(url);
     bool foundSelfReference = false;
     for (Frame* frame = doc->frame(); frame; frame = frame->tree()->parent()) {
-        if (equalIgnoringRef(frame->loader()->url(), completeURL)) {
+        if (equalIgnoringFragmentIdentifier(frame->loader()->url(), completeURL)) {
             if (foundSelfReference)
                 return false;
             foundSelfReference = true;
@@ -132,10 +129,35 @@ static String serviceTypeForClassId(const String& classId, const PluginData* plu
 
 static inline bool shouldUseEmbedDescendant(HTMLObjectElement* objectElement, const PluginData* pluginData)
 {
+#if PLATFORM(MAC)
+    UNUSED_PARAM(objectElement);
+    UNUSED_PARAM(pluginData);
+    // On Mac, we always want to use the embed descendant.
+    return true;
+#else
     // If we have both an <object> and <embed>, we always want to use the <embed> except when we have
     // an ActiveX plug-in and plan to use it.
     return !(havePlugin(pluginData, activeXType())
         && serviceTypeForClassId(objectElement->classId(), pluginData) == activeXType());
+#endif
+}
+
+static void mapDataParamToSrc(Vector<String>* paramNames, Vector<String>* paramValues)
+{
+    // Some plugins don't understand the "data" attribute of the OBJECT tag (i.e. Real and WMP
+    // require "src" attribute).
+    int srcIndex = -1, dataIndex = -1;
+    for (unsigned int i = 0; i < paramNames->size(); ++i) {
+        if (equalIgnoringCase((*paramNames)[i], "src"))
+            srcIndex = i;
+        else if (equalIgnoringCase((*paramNames)[i], "data"))
+            dataIndex = i;
+    }
+
+    if (srcIndex == -1 && dataIndex != -1) {
+        paramNames->append("src");
+        paramValues->append((*paramValues)[dataIndex]);
+    }
 }
 
 void RenderPartObject::updateWidget(bool onlyCreateNonNetscapePlugins)
@@ -144,10 +166,10 @@ void RenderPartObject::updateWidget(bool onlyCreateNonNetscapePlugins)
     String serviceType;
     Vector<String> paramNames;
     Vector<String> paramValues;
-    Frame* frame = m_view->frame();
+    Frame* frame = frameView()->frame();
 
-    if (element()->hasTagName(objectTag)) {
-        HTMLObjectElement* o = static_cast<HTMLObjectElement*>(element());
+    if (node()->hasTagName(objectTag)) {
+        HTMLObjectElement* o = static_cast<HTMLObjectElement*>(node());
 
         o->setNeedWidgetUpdate(false);
         if (!o->isFinishedParsingChildren())
@@ -222,7 +244,7 @@ void RenderPartObject::updateWidget(bool onlyCreateNonNetscapePlugins)
         }
         
         // Turn the attributes of either the EMBED tag or OBJECT tag into arrays, but don't override PARAM values.
-        NamedAttrMap* attributes = embedOrObject->attributes();
+        NamedNodeMap* attributes = embedOrObject->attributes();
         if (attributes) {
             for (unsigned i = 0; i < attributes->length(); ++i) {
                 Attribute* it = attributes->attributeItem(i);
@@ -233,6 +255,8 @@ void RenderPartObject::updateWidget(bool onlyCreateNonNetscapePlugins)
                 }
             }
         }
+
+        mapDataParamToSrc(&paramNames, &paramValues);
 
         // If we still don't have a type, try to map from a specific CLASSID to a type.
         if (serviceType.isEmpty())
@@ -261,8 +285,8 @@ void RenderPartObject::updateWidget(bool onlyCreateNonNetscapePlugins)
         bool success = frame->loader()->requestObject(this, url, AtomicString(o->name()), serviceType, paramNames, paramValues);
         if (!success && m_hasFallbackContent)
             o->renderFallbackContent();
-    } else if (element()->hasTagName(embedTag)) {
-        HTMLEmbedElement *o = static_cast<HTMLEmbedElement*>(element());
+    } else if (node()->hasTagName(embedTag)) {
+        HTMLEmbedElement *o = static_cast<HTMLEmbedElement*>(node());
         o->setNeedWidgetUpdate(false);
         url = o->url();
         serviceType = o->serviceType();
@@ -273,7 +297,7 @@ void RenderPartObject::updateWidget(bool onlyCreateNonNetscapePlugins)
             return;
 
         // add all attributes set on the embed object
-        NamedAttrMap* a = o->attributes();
+        NamedNodeMap* a = o->attributes();
         if (a) {
             for (unsigned i = 0; i < a->length(); ++i) {
                 Attribute* it = a->attributeItem(i);
@@ -294,74 +318,196 @@ void RenderPartObject::updateWidget(bool onlyCreateNonNetscapePlugins)
 
         frame->loader()->requestObject(this, url, o->getAttribute(nameAttr), serviceType, paramNames, paramValues);
     }
+#if ENABLE(PLUGIN_PROXY_FOR_VIDEO)        
+    else if (node()->hasTagName(videoTag) || node()->hasTagName(audioTag)) {
+        HTMLMediaElement* o = static_cast<HTMLMediaElement*>(node());
+
+        o->setNeedWidgetUpdate(false);
+        if (node()->hasTagName(videoTag)) {
+            HTMLVideoElement* vid = static_cast<HTMLVideoElement*>(node());
+            String poster = vid->poster();
+            if (!poster.isEmpty()) {
+                paramNames.append("_media_element_poster_");
+                paramValues.append(poster);
+            }
+        }
+
+        url = o->initialURL();
+        if (!url.isEmpty()) {
+            paramNames.append("_media_element_src_");
+            paramValues.append(url);
+        }
+
+        serviceType = "application/x-media-element-proxy-plugin";
+        frame->loader()->requestObject(this, url, nullAtom, serviceType, paramNames, paramValues);
+    }
+#endif
 }
 
 void RenderPartObject::layout()
 {
     ASSERT(needsLayout());
 
-    calcWidth();
-    calcHeight();
-    
 #ifdef FLATTEN_IFRAME
+    RenderPart::calcWidth();
+    RenderPart::calcHeight();
     // Some IFrames have a width and/or height of 1 when they are meant to be
-    // hidden. If that is the case, don't try to expand.
-    int w = width();
-    int h = height();
-    if (m_widget && m_widget->isFrameView() &&
-            w > 1 && h > 1) {
-        FrameView* view = static_cast<FrameView*>(m_widget);
-        RenderView* root = NULL;
-        if (view->frame() && view->frame()->document() &&
-            view->frame()->document()->renderer() && view->frame()->document()->renderer()->isRenderView())
-            root = static_cast<RenderView*>(view->frame()->document()->renderer());
-        if (root) {
-            // Update the dimensions to get the correct minimum preferred width
-            updateWidgetPosition();
+    // hidden. If that is the case, do not try to expand.
+    if (node()->hasTagName(iframeTag) && widget() && widget()->isFrameView()
+            && width() > 1 && height() > 1) {
+        HTMLIFrameElement* element = static_cast<HTMLIFrameElement*>(node());
+        bool scrolling = element->scrollingMode() != ScrollbarAlwaysOff;
+        bool widthIsFixed = style()->width().isFixed();
+        bool heightIsFixed = style()->height().isFixed();
+        // If an iframe has a fixed dimension and suppresses scrollbars, it
+        // will disrupt layout if we force it to expand. Plus on a desktop,
+        // the extra content is not accessible.
+        if (scrolling || !widthIsFixed || !heightIsFixed) {
+            FrameView* view = static_cast<FrameView*>(widget());
+            RenderView* root = view ? view->frame()->contentRenderer() : NULL;
+            RenderPart* owner = view->frame()->ownerRenderer();
+            if (root && style()->visibility() != HIDDEN
+                    && (!owner || owner->style()->visibility() != HIDDEN)) {
+                // Update the dimensions to get the correct minimum preferred
+                // width
+                updateWidgetPosition();
 
-            // Use the preferred width if it is larger.
-            setWidth(max(w, root->minPrefWidth()));
-            int extraWidth = paddingLeft() + paddingRight() + borderLeft() + borderRight();
-            int extraHeight = paddingTop() + paddingBottom() + borderTop() + borderBottom();
-            // Resize the view to recalc the height.
-            int height = h - extraHeight;
-            int width = w - extraWidth;
-            if (width > view->width())
-                height = 0;
-            if (width != view->width() || height != view->height()) {
-                view->resize(width, height);
-                root->setNeedsLayout(true, false);
+                int extraWidth = paddingLeft() + paddingRight() + borderLeft() + borderRight();
+                int extraHeight = paddingTop() + paddingBottom() + borderTop() + borderBottom();
+                // Use the preferred width if it is larger and only if
+                // scrollbars are visible or the width style is not fixed.
+                if (scrolling || !widthIsFixed)
+                    setWidth(max(width(), root->minPrefWidth()) + extraWidth);
+
+                // Resize the view to recalc the height.
+                int h = height() - extraHeight;
+                int w = width() - extraWidth;
+                if (w > view->width())
+                    h = 0;
+                if (w != view->width() || h != view->height()) {
+                    view->resize(w, h);
+                }
+
+                // Layout the view.
+                do {
+                    view->layout();
+                } while (view->layoutPending() || root->needsLayout());
+
+                int contentHeight = view->contentsHeight();
+                int contentWidth = view->contentsWidth();
+                // Only change the width or height if scrollbars are visible or
+                // if the style is not a fixed value. Use the maximum value so
+                // that iframes never shrink.
+                if (scrolling || !heightIsFixed)
+                    setHeight(max(height(), contentHeight + extraHeight));
+                if (scrolling || !widthIsFixed)
+                    setWidth(max(width(), contentWidth + extraWidth));
+
+                // Update one last time
+                updateWidgetPosition();
+
+#if !ASSERT_DISABLED
+                ASSERT(!view->layoutPending());
+                ASSERT(!root->needsLayout());
+                // Sanity check when assertions are enabled.
+                RenderObject* c = root->nextInPreOrder();
+                while (c) {
+                    ASSERT(!c->needsLayout());
+                    c = c->nextInPreOrder();
+                }
+                Node* body = document()->body();
+                if (body)
+                    ASSERT(!body->renderer()->needsLayout());
+#endif
             }
-            // Layout the view.
-            if (view->needsLayout())
-                view->layout();
-            int contentHeight = view->contentsHeight();
-            int contentWidth = view->contentsWidth();
-            // Do not shrink iframes with specified sizes
-            if (contentHeight > h || style()->height().isAuto())
-                setHeight(contentHeight);
-            setWidth(std::min(contentWidth, 800));
         }
     }
+#else
+    calcWidth();
+    calcHeight();
 #endif
-    adjustOverflowForBoxShadow();
+
+    adjustOverflowForBoxShadowAndReflect();
 
     RenderPart::layout();
 
-    if (!m_widget && m_view)
-        m_view->addWidgetToUpdate(this);
+    if (!widget() && frameView())
+        frameView()->addWidgetToUpdate(this);
 
     setNeedsLayout(false);
 }
 
+#ifdef FLATTEN_IFRAME
+void RenderPartObject::calcWidth() {
+    RenderPart::calcWidth();
+    if (!node()->hasTagName(iframeTag) || !widget() || !widget()->isFrameView())
+        return;
+    FrameView* view = static_cast<FrameView*>(widget());
+    RenderView* root = static_cast<RenderView*>(view->frame()->contentRenderer());
+    if (!root)
+        return;
+    // Do not expand if the scrollbars are suppressed and the width is fixed.
+    bool scrolling = static_cast<HTMLIFrameElement*>(node())->scrollingMode() != ScrollbarAlwaysOff;
+    if (!scrolling && style()->width().isFixed())
+        return;
+    // Update the dimensions to get the correct minimum preferred
+    // width
+    updateWidgetPosition();
+
+    int extraWidth = paddingLeft() + paddingRight() + borderLeft() + borderRight();
+    // Set the width
+    setWidth(max(width(), root->minPrefWidth()) + extraWidth);
+
+    // Update based on the new width
+    updateWidgetPosition();
+
+    // Layout to get the content width
+    do {
+        view->layout();
+    } while (view->layoutPending() || root->needsLayout());
+
+    setWidth(max(width(), view->contentsWidth() + extraWidth));
+
+    // Update one last time to ensure the dimensions.
+    updateWidgetPosition();
+}
+
+void RenderPartObject::calcHeight() {
+    RenderPart::calcHeight();
+    if (!node()->hasTagName(iframeTag) || !widget() || !widget()->isFrameView())
+        return;
+    FrameView* view = static_cast<FrameView*>(widget());
+    RenderView* root = static_cast<RenderView*>(view->frame()->contentRenderer());
+    if (!root)
+        return;
+    // Do not expand if the scrollbars are suppressed and the height is fixed.
+    bool scrolling = static_cast<HTMLIFrameElement*>(node())->scrollingMode() != ScrollbarAlwaysOff;
+    if (!scrolling && style()->height().isFixed())
+        return;
+    // Update the widget
+    updateWidgetPosition();
+
+    // Layout to get the content height
+    do {
+        view->layout();
+    } while (view->layoutPending() || root->needsLayout());
+
+    int extraHeight = paddingTop() + paddingBottom() + borderTop() + borderBottom();
+    setHeight(max(width(), view->contentsHeight() + extraHeight));
+
+    // Update one last time to ensure the dimensions.
+    updateWidgetPosition();
+}
+#endif
+
 void RenderPartObject::viewCleared()
 {
-    if (element() && m_widget && m_widget->isFrameView()) {
-        FrameView* view = static_cast<FrameView*>(m_widget);
+    if (node() && widget() && widget()->isFrameView()) {
+        FrameView* view = static_cast<FrameView*>(widget());
         int marginw = -1;
         int marginh = -1;
-        if (element()->hasTagName(iframeTag)) {
-            HTMLIFrameElement* frame = static_cast<HTMLIFrameElement*>(element());
+        if (node()->hasTagName(iframeTag)) {
+            HTMLIFrameElement* frame = static_cast<HTMLIFrameElement*>(node());
             marginw = frame->getMarginWidth();
             marginh = frame->getMarginHeight();
         }

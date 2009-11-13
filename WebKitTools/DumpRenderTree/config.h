@@ -26,8 +26,29 @@
 
 #include <wtf/Platform.h>
 
+#ifdef __cplusplus
+#undef new
+#undef delete
+#include <wtf/FastMalloc.h>
+#endif
+
+#if PLATFORM(WIN_OS) && !COMPILER(GCC)
+#define JS_EXPORTDATA __declspec(dllimport)
+#define WEBKIT_EXPORTDATA __declspec(dllimport)
+#else
+#define JS_EXPORTDATA
+#define WEBKIT_EXPORTDATA
+#endif
+
 #if PLATFORM(WIN)
 #define WTF_PLATFORM_CF 1 
+#if defined(WIN_CAIRO)
+#define WTF_PLATFORM_CAIRO 1
+#define WTF_USE_CURL 1
+#else
+#define WTF_PLATFORM_CG 1
+#define WTF_USE_CFNETWORK 1
+#endif
 
 #undef _WIN32_WINNT
 #define _WIN32_WINNT 0x0500

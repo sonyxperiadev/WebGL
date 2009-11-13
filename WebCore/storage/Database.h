@@ -29,6 +29,7 @@
 #ifndef Database_h
 #define Database_h
 
+#if ENABLE(DATABASE)
 #include <wtf/MessageQueue.h>
 #include "PlatformString.h"
 #include "SecurityOrigin.h"
@@ -44,7 +45,11 @@
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefPtr.h>
 #include <wtf/Deque.h>
+#else
+#include "PlatformString.h"
+#endif
 
+#if ENABLE(DATABASE)
 namespace WebCore {
 
 class DatabaseAuthorizer;
@@ -78,6 +83,7 @@ public:
 
     void disableAuthorizer();
     void enableAuthorizer();
+    void setAuthorizerReadOnly();
 
     Vector<String> tableNames();
 
@@ -94,6 +100,7 @@ public:
     bool deleted() const { return m_deleted; }
 
     void close();
+    bool opened() const { return m_opened; }
     
     void stop();
     bool stopped() const { return m_stopped; }
@@ -135,6 +142,8 @@ private:
     
     bool m_stopped;
 
+    bool m_opened;
+
     SQLiteDatabase m_sqliteDatabase;
     RefPtr<DatabaseAuthorizer> m_databaseAuthorizer;
 
@@ -144,5 +153,16 @@ private:
 };
 
 } // namespace WebCore
+
+#else
+
+namespace WebCore {
+class Database : public ThreadSafeShared<Database> {
+public:
+    static const String& databaseInfoTableName();
+};
+} // namespace WebCore
+
+#endif // ENABLE(DATABASE)
 
 #endif // Database_h

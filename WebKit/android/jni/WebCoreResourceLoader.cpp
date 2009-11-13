@@ -134,7 +134,7 @@ void WebCoreResourceLoader::SetResponseHeader(JNIEnv* env, jobject obj, jint nat
 
 jint WebCoreResourceLoader::CreateResponse(JNIEnv* env, jobject obj, jstring url, jint statusCode,
                                                     jstring statusText, jstring mimeType, jlong expectedLength,
-                                                    jstring encoding, jlong expireTime)
+                                                    jstring encoding)
 {
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::ResourceTimeCounter);
@@ -160,10 +160,6 @@ jint WebCoreResourceLoader::CreateResponse(JNIEnv* env, jobject obj, jstring url
         response->setHTTPStatusText(status);
         LOGV("Response setStatusText: %s", status.latin1().data());
     }
-    // FIXME: This assumes that time_t is a long and that long is the same size as int.
-    if ((unsigned long)expireTime > INT_MAX)
-        expireTime = INT_MAX;
-    response->setExpirationDate((time_t)expireTime);
     return (int)response;
 }
    
@@ -286,7 +282,7 @@ static JNINativeMethod gResourceloaderMethods[] = {
     /* name, signature, funcPtr */
     { "nativeSetResponseHeader", "(ILjava/lang/String;Ljava/lang/String;)V",
         (void*) WebCoreResourceLoader::SetResponseHeader },
-    { "nativeCreateResponse", "(Ljava/lang/String;ILjava/lang/String;Ljava/lang/String;JLjava/lang/String;J)I",
+    { "nativeCreateResponse", "(Ljava/lang/String;ILjava/lang/String;Ljava/lang/String;JLjava/lang/String;)I",
         (void*) WebCoreResourceLoader::CreateResponse },
     { "nativeReceivedResponse", "(I)V",
         (void*) WebCoreResourceLoader::ReceivedResponse },

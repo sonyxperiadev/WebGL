@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2005, 2008, 2009 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,9 +33,11 @@
 #import "WebNSURLExtras.h"
 #import "WebTypesInternal.h"
 #import <WebCore/HistoryItem.h>
+#import <WebCore/HistoryPropertyList.h>
 #import <WebCore/PageGroup.h>
 
 using namespace WebCore;
+using namespace std;
 
 typedef int64_t WebHistoryDateKey;
 typedef HashMap<WebHistoryDateKey, RetainPtr<NSMutableArray> > DateToEntriesMap;
@@ -55,19 +57,29 @@ NSString *DatesArrayKey = @"WebHistoryDates";
 
 #define currentFileVersion 1
 
+class WebHistoryWriter : public HistoryPropertyListWriter {
+public:
+    WebHistoryWriter(DateToEntriesMap*);
+
+private:
+    virtual void writeHistoryItems(BinaryPropertyListObjectStream&);
+
+    DateToEntriesMap* m_entriesByDate;
+    Vector<int> m_dateKeys;
+};
+
 @interface WebHistoryPrivate : NSObject {
 @private
     NSMutableDictionary *_entriesByURL;
     DateToEntriesMap* _entriesByDate;
     NSMutableArray *_orderedLastVisitedDays;
-    WebHistoryItem *_lastVisitedEntry;
     BOOL itemLimitSet;
     int itemLimit;
     BOOL ageInDaysLimitSet;
     int ageInDaysLimit;
 }
 
-- (WebHistoryItem *)visitedURL:(NSURL *)url withTitle:(NSString *)title;
+- (WebHistoryItem *)visitedURL:(NSURL *)url withTitle:(NSString *)title increaseVisitCount:(BOOL)increaseVisitCount;
 
 - (BOOL)addItem:(WebHistoryItem *)entry discardDuplicate:(BOOL)discardDuplicate;
 - (void)addItems:(NSArray *)newEntries;
@@ -93,9 +105,6 @@ NSString *DatesArrayKey = @"WebHistoryDates";
 - (int)historyAgeInDaysLimit;
 
 - (void)addVisitedLinksToPageGroup:(PageGroup&)group;
-
-- (WebHistoryItem *)lastVisitedEntry;
-- (void)setLastVisitedEntry:(WebHistoryItem *)lastVisitedEntry;
 
 @end
 
@@ -127,7 +136,6 @@ NSString *DatesArrayKey = @"WebHistoryDates";
 {
     [_entriesByURL release];
     [_orderedLastVisitedDays release];
-    [_lastVisitedEntry release];
     delete _entriesByDate;
     [super dealloc];
 }
@@ -261,7 +269,7 @@ static WebHistoryDateKey timeIntervalForBeginningOfDay(NSTimeInterval interval)
     }
 }
 
-- (WebHistoryItem *)visitedURL:(NSURL *)url withTitle:(NSString *)title
+- (WebHistoryItem *)visitedURL:(NSURL *)url withTitle:(NSString *)title increaseVisitCount:(BOOL)increaseVisitCount
 {
     ASSERT(url);
     ASSERT(title);
@@ -276,7 +284,7 @@ static WebHistoryDateKey timeIntervalForBeginningOfDay(NSTimeInterval interval)
         BOOL itemWasInDateCaches = [self removeItemFromDateCaches:entry];
         ASSERT_UNUSED(itemWasInDateCaches, itemWasInDateCaches);
 
-        [entry _visitedWithTitle:title];
+        [entry _visitedWithTitle:title increaseVisitCount:increaseVisitCount];
     } else {
         LOG(History, "Adding new global history entry for %@", url);
         entry = [[WebHistoryItem alloc] initWithURLString:URLString title:title lastVisitedTimeInterval:[NSDate timeIntervalSinceReferenceDate]];
@@ -387,7 +395,7 @@ static WebHistoryDateKey timeIntervalForBeginningOfDay(NSTimeInterval interval)
         for (DateToEntriesMap::const_iterator it = _entriesByDate->begin(); it != end; ++it)
             daysAsTimeIntervals.append(it->first);
 
-        std::sort(daysAsTimeIntervals.begin(), daysAsTimeIntervals.end());
+        sort(daysAsTimeIntervals.begin(), daysAsTimeIntervals.end());
         size_t count = daysAsTimeIntervals.size();
         _orderedLastVisitedDays = [[NSMutableArray alloc] initWithCapacity:count];
         for (int i = count - 1; i >= 0; i--) {
@@ -464,30 +472,6 @@ static WebHistoryDateKey timeIntervalForBeginningOfDay(NSTimeInterval interval)
 {
     return [[NSCalendarDate calendarDate] dateByAddingYears:0 months:0 days:-[self historyAgeInDaysLimit]
                                                       hours:0 minutes:0 seconds:0];
-}
-
-// Return a flat array of WebHistoryItems. Ignores the date and item count limits; these are
-// respected when loading instead of when saving, so that clients can learn of discarded items
-// by listening to WebHistoryItemsDiscardedWhileLoadingNotification.
-- (NSArray *)arrayRepresentation
-{
-    NSMutableArray *arrayRep = [NSMutableArray array];
-
-    Vector<int> dateKeys;
-    dateKeys.reserveCapacity(_entriesByDate->size());
-    DateToEntriesMap::const_iterator end = _entriesByDate->end();
-    for (DateToEntriesMap::const_iterator it = _entriesByDate->begin(); it != end; ++it)
-        dateKeys.append(it->first);
-
-    std::sort(dateKeys.begin(), dateKeys.end());
-    for (int dateIndex = dateKeys.size() - 1; dateIndex >= 0; dateIndex--) {
-        NSArray *entries = _entriesByDate->get(dateKeys[dateIndex]).get();
-        int entryCount = [entries count];
-        for (int entryIndex = 0; entryIndex < entryCount; ++entryIndex)
-            [arrayRep addObject:[[entries objectAtIndex:entryIndex] dictionaryRepresentation]];
-    }
-
-    return arrayRep;
 }
 
 - (BOOL)loadHistoryGutsFromURL:(NSURL *)URL savedItemsCount:(int *)numberOfItemsLoaded collectDiscardedItemsInto:(NSMutableArray *)discardedItems error:(NSError **)error
@@ -595,23 +579,18 @@ static WebHistoryDateKey timeIntervalForBeginningOfDay(NSTimeInterval interval)
     return YES;
 }
 
-- (BOOL)saveHistoryGuts:(int *)numberOfItemsSaved URL:(NSURL *)URL error:(NSError **)error
+- (NSData *)data
 {
-    *numberOfItemsSaved = 0;
-
-    NSArray *array = [self arrayRepresentation];
-    NSDictionary *dictionary = [NSDictionary dictionaryWithObjectsAndKeys:
-        array, DatesArrayKey,
-        [NSNumber numberWithInt:currentFileVersion], FileVersionKey,
-        nil];
-    NSData *data = [NSPropertyListSerialization dataFromPropertyList:dictionary format:NSPropertyListBinaryFormat_v1_0 errorDescription:nil];
-    if (![data writeToURL:URL options:0 error:error]) {
-        LOG_ERROR("attempt to save %@ to %@ failed", dictionary, URL);
-        return NO;
+    if (_entriesByDate->isEmpty()) {
+        static NSData *emptyHistoryData = (NSData *)CFDataCreate(0, 0, 0);
+        return emptyHistoryData;
     }
-
-    *numberOfItemsSaved = [array count];
-    return YES;
+    
+    // Ignores the date and item count limits; these are respected when loading instead of when saving, so
+    // that clients can learn of discarded items by listening to WebHistoryItemsDiscardedWhileLoadingNotification.
+    WebHistoryWriter writer(_entriesByDate);
+    writer.writePropertyList();
+    return [[(NSData *)writer.releaseData().get() retain] autorelease];
 }
 
 - (BOOL)saveToURL:(NSURL *)URL error:(NSError **)error
@@ -620,16 +599,14 @@ static WebHistoryDateKey timeIntervalForBeginningOfDay(NSTimeInterval interval)
     double start = CFAbsoluteTimeGetCurrent();
 #endif
 
-    int numberOfItems;
-    if (![self saveHistoryGuts:&numberOfItems URL:URL error:error])
-        return NO;
+    BOOL result = [[self data] writeToURL:URL options:0 error:error];
 
 #if !LOG_DISABLED
     double duration = CFAbsoluteTimeGetCurrent() - start;
-    LOG(Timing, "saving %d history entries to %@ took %f seconds", numberOfItems, URL, duration);
+    LOG(Timing, "saving history to %@ took %f seconds", URL, duration);
 #endif
 
-    return YES;
+    return result;
 }
 
 - (void)addVisitedLinksToPageGroup:(PageGroup&)group
@@ -646,19 +623,6 @@ static WebHistoryDateKey timeIntervalForBeginningOfDay(NSTimeInterval interval)
             group.addVisitedLink(buffer.data(), length);
         }
     }
-}
-
-- (WebHistoryItem *)lastVisitedEntry
-{
-    return _lastVisitedEntry;
-}
-
-- (void)setLastVisitedEntry:(WebHistoryItem *)lastVisitedEntry
-{
-    if (_lastVisitedEntry == lastVisitedEntry)
-        return;
-    [_lastVisitedEntry release];
-    _lastVisitedEntry = [lastVisitedEntry retain];
 }
 
 @end
@@ -817,41 +781,30 @@ static WebHistoryDateKey timeIntervalForBeginningOfDay(NSTimeInterval interval)
     return [_historyPrivate allItems];
 }
 
+- (NSData *)_data
+{
+    return [_historyPrivate data];
+}
+
 @end
 
 @implementation WebHistory (WebInternal)
 
-- (void)_visitedURL:(NSURL *)url withTitle:(NSString *)title method:(NSString *)method wasFailure:(BOOL)wasFailure serverRedirectURL:(NSString *)serverRedirectURL isClientRedirect:(BOOL)isClientRedirect
+- (void)_visitedURL:(NSURL *)url withTitle:(NSString *)title method:(NSString *)method wasFailure:(BOOL)wasFailure increaseVisitCount:(BOOL)increaseVisitCount
 {
-    if (isClientRedirect) {
-        ASSERT(!serverRedirectURL);
-        if (WebHistoryItem *lastVisitedEntry = [_historyPrivate lastVisitedEntry])
-            core(lastVisitedEntry)->addRedirectURL([url _web_originalDataAsString]);
-    }
-
-    WebHistoryItem *entry = [_historyPrivate visitedURL:url withTitle:title];
-    [_historyPrivate setLastVisitedEntry:entry];
+    WebHistoryItem *entry = [_historyPrivate visitedURL:url withTitle:title increaseVisitCount:increaseVisitCount];
 
     HistoryItem* item = core(entry);
     item->setLastVisitWasFailure(wasFailure);
 
     if ([method length])
-        item->setLastVisitWasHTTPNonGet([method caseInsensitiveCompare:@"GET"]);
+        item->setLastVisitWasHTTPNonGet([method caseInsensitiveCompare:@"GET"] && (![[url scheme] caseInsensitiveCompare:@"http"] || ![[url scheme] caseInsensitiveCompare:@"https"]));
 
-    if (serverRedirectURL) {
-        ASSERT(!isClientRedirect);
-        item->addRedirectURL(serverRedirectURL);
-    }
+    item->setRedirectURLs(0);
 
     NSArray *entries = [[NSArray alloc] initWithObjects:entry, nil];
     [self _sendNotification:WebHistoryItemsAddedNotification entries:entries];
     [entries release];
-}
-
-- (void)_visitedURLForRedirectWithoutHistoryItem:(NSURL *)url
-{
-    if (WebHistoryItem *lastVisitedEntry = [_historyPrivate lastVisitedEntry])
-        core(lastVisitedEntry)->addRedirectURL([url _web_originalDataAsString]);
 }
 
 - (void)_addVisitedLinksToPageGroup:(WebCore::PageGroup&)group
@@ -860,3 +813,23 @@ static WebHistoryDateKey timeIntervalForBeginningOfDay(NSTimeInterval interval)
 }
 
 @end
+
+WebHistoryWriter::WebHistoryWriter(DateToEntriesMap* entriesByDate)
+    : m_entriesByDate(entriesByDate)
+{
+    m_dateKeys.reserveCapacity(m_entriesByDate->size());
+    DateToEntriesMap::const_iterator end = m_entriesByDate->end();
+    for (DateToEntriesMap::const_iterator it = m_entriesByDate->begin(); it != end; ++it)
+        m_dateKeys.append(it->first);
+    sort(m_dateKeys.begin(), m_dateKeys.end());
+}
+
+void WebHistoryWriter::writeHistoryItems(BinaryPropertyListObjectStream& stream)
+{
+    for (int dateIndex = m_dateKeys.size() - 1; dateIndex >= 0; dateIndex--) {
+        NSArray *entries = m_entriesByDate->get(m_dateKeys[dateIndex]).get();
+        NSUInteger entryCount = [entries count];
+        for (NSUInteger entryIndex = 0; entryIndex < entryCount; ++entryIndex)
+            writeHistoryItem(stream, core([entries objectAtIndex:entryIndex]));
+    }
+}

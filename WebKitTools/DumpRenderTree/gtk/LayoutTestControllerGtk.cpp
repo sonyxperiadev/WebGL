@@ -2,6 +2,7 @@
  * Copyright (C) 2007 Apple Inc. All rights reserved.
  * Copyright (C) 2007 Eric Seidel <eric@webkit.org>
  * Copyright (C) 2008 Nuanti Ltd.
+ * Copyright (C) 2009 Jan Michael Alonzo <jmalonzo@gmail.com>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -37,8 +38,17 @@
 #include <JavaScriptCore/JSRetainPtr.h>
 #include <JavaScriptCore/JSStringRef.h>
 
+#include <stdio.h>
 #include <glib.h>
+#include <libsoup/soup.h>
 #include <webkit/webkit.h>
+
+extern "C" {
+bool webkit_web_frame_pause_animation(WebKitWebFrame* frame, const gchar* name, double time, const gchar* element);
+bool webkit_web_frame_pause_transition(WebKitWebFrame* frame, const gchar* name, double time, const gchar* element);
+unsigned int webkit_web_frame_number_of_active_animations(WebKitWebFrame* frame);
+void webkit_application_cache_set_maximum_size(unsigned long long size);
+}
 
 LayoutTestController::~LayoutTestController()
 {
@@ -62,8 +72,7 @@ void LayoutTestController::clearBackForwardList()
     gint limit = webkit_web_back_forward_list_get_limit(list);
     webkit_web_back_forward_list_set_limit(list, 0);
     webkit_web_back_forward_list_set_limit(list, limit);
-    // FIXME: implement add_item()
-    //webkit_web_back_forward_list_add_item(list, item);
+    webkit_web_back_forward_list_add_item(list, item);
     webkit_web_back_forward_list_go_to_item(list, item);
     g_object_unref(item);
 }
@@ -80,6 +89,11 @@ JSStringRef LayoutTestController::copyEncodedHostName(JSStringRef name)
     return 0;
 }
 
+void LayoutTestController::dispatchPendingLoadRequests()
+{
+    // FIXME: Implement for testing fix for 6727495
+}
+
 void LayoutTestController::display()
 {
     displayWebView();
@@ -90,11 +104,18 @@ void LayoutTestController::keepWebHistory()
     // FIXME: implement
 }
 
+size_t LayoutTestController::webHistoryItemCount()
+{
+    // FIXME: implement
+    return 0;
+}
+
 void LayoutTestController::notifyDone()
 {
     if (m_waitToDump && !topLoadingFrame && !WorkQueue::shared()->count())
         dump();
     m_waitToDump = false;
+    waitForPolicy = false;
 }
 
 JSStringRef LayoutTestController::pathToLocalResource(JSContextRef context, JSStringRef url)
@@ -103,30 +124,26 @@ JSStringRef LayoutTestController::pathToLocalResource(JSContextRef context, JSSt
     return JSStringRetain(url); // Do nothing on Unix.
 }
 
-void LayoutTestController::queueBackNavigation(int howFarBack)
-{
-    WorkQueue::shared()->queue(new BackItem(howFarBack));
-}
-
-void LayoutTestController::queueForwardNavigation(int howFarForward)
-{
-    WorkQueue::shared()->queue(new ForwardItem(howFarForward));
-}
-
 void LayoutTestController::queueLoad(JSStringRef url, JSStringRef target)
 {
-    // FIXME: We need to resolve relative URLs here
-    WorkQueue::shared()->queue(new LoadItem(url, target));
-}
+    gchar* relativeURL = JSStringCopyUTF8CString(url);
+    SoupURI* baseURI = soup_uri_new(webkit_web_frame_get_uri(mainFrame));
 
-void LayoutTestController::queueReload()
-{
-    WorkQueue::shared()->queue(new ReloadItem);
-}
+    SoupURI* absoluteURI = soup_uri_new_with_base(baseURI, relativeURL);
+    soup_uri_free(baseURI);
+    g_free(relativeURL);
 
-void LayoutTestController::queueScript(JSStringRef script)
-{
-    WorkQueue::shared()->queue(new ScriptItem(script));
+    gchar* absoluteCString;
+    if (absoluteURI) {
+        absoluteCString = soup_uri_to_string(absoluteURI, FALSE);
+        soup_uri_free(absoluteURI);
+    } else
+        absoluteCString = JSStringCopyUTF8CString(url);
+
+    JSRetainPtr<JSStringRef> absoluteURL(Adopt, JSStringCreateWithUTF8CString(absoluteCString));
+    g_free(absoluteCString);
+
+    WorkQueue::shared()->queue(new LoadItem(absoluteURL.get(), target));
 }
 
 void LayoutTestController::setAcceptsEditing(bool acceptsEditing)
@@ -135,9 +152,15 @@ void LayoutTestController::setAcceptsEditing(bool acceptsEditing)
     webkit_web_view_set_editable(webView, acceptsEditing);
 }
 
-void LayoutTestController::setCustomPolicyDelegate(bool setDelegate)
+void LayoutTestController::setCustomPolicyDelegate(bool setDelegate, bool permissive)
 {
     // FIXME: implement
+}
+
+void LayoutTestController::waitForPolicyDelegate()
+{
+    waitForPolicy = true;
+    setWaitToDump(true);
 }
 
 void LayoutTestController::setMainFrameIsFirstResponder(bool flag)
@@ -204,22 +227,31 @@ void LayoutTestController::setWaitToDump(bool waitUntilDone)
 
     m_waitToDump = waitUntilDone;
     if (m_waitToDump && !waitToDumpWatchdog)
-#if GLIB_CHECK_VERSION(2,14,0)
         waitToDumpWatchdog = g_timeout_add_seconds(timeoutSeconds, waitToDumpWatchdogFired, 0);
-#else
-        waitToDumpWatchdog = g_timeout_add(timeoutSeconds * 1000, waitToDumpWatchdogFired, 0);
-#endif
 }
 
 int LayoutTestController::windowCount()
 {
-    // FIXME: implement
-    return 1;
+    // +1 -> including the main view
+    return g_slist_length(webViewList) + 1;
 }
 
-void LayoutTestController::setPrivateBrowsingEnabled(bool privateBrowsingEnabled)
+void LayoutTestController::setPrivateBrowsingEnabled(bool flag)
 {
-    // FIXME: implement
+    WebKitWebView* view = webkit_web_frame_get_web_view(mainFrame);
+    ASSERT(view);
+
+    WebKitWebSettings* settings = webkit_web_view_get_settings(view);
+    g_object_set(G_OBJECT(settings), "enable-private-browsing", flag, NULL);
+}
+
+void LayoutTestController::setXSSAuditorEnabled(bool flag)
+{
+    WebKitWebView* view = webkit_web_frame_get_web_view(mainFrame);
+    ASSERT(view);
+
+    WebKitWebSettings* settings = webkit_web_view_get_settings(view);
+    g_object_set(G_OBJECT(settings), "enable-xss-auditor", flag, NULL);
 }
 
 void LayoutTestController::setAuthorAndUserStylesEnabled(bool flag)
@@ -227,14 +259,42 @@ void LayoutTestController::setAuthorAndUserStylesEnabled(bool flag)
     // FIXME: implement
 }
 
-void LayoutTestController::setJavaScriptProfilingEnabled(bool flag)
+void LayoutTestController::disableImageLoading()
+{
+    // FIXME: Implement for testing fix for https://bugs.webkit.org/show_bug.cgi?id=27896
+    // Also need to make sure image loading is re-enabled for each new test.
+}
+
+void LayoutTestController::setIconDatabaseEnabled(bool flag)
 {
     // FIXME: implement
 }
 
-void LayoutTestController::setPopupBlockingEnabled(bool popupBlockingEnabled)
+void LayoutTestController::setJavaScriptProfilingEnabled(bool flag)
+{
+    WebKitWebView* view = webkit_web_frame_get_web_view(mainFrame);
+    ASSERT(view);
+
+    WebKitWebSettings* settings = webkit_web_view_get_settings(view);
+    g_object_set(G_OBJECT(settings), "enable-developer-extras", flag, NULL);
+
+    WebKitWebInspector* inspector = webkit_web_view_get_inspector(view);
+    g_object_set(G_OBJECT(inspector), "javascript-profiling-enabled", flag, NULL);
+}
+
+void LayoutTestController::setSelectTrailingWhitespaceEnabled(bool flag)
 {
     // FIXME: implement
+}
+
+void LayoutTestController::setPopupBlockingEnabled(bool flag)
+{
+    WebKitWebView* view = webkit_web_frame_get_web_view(mainFrame);
+    ASSERT(view);
+
+    WebKitWebSettings* settings = webkit_web_view_get_settings(view);
+    g_object_set(G_OBJECT(settings), "javascript-can-open-windows-automatically", !flag, NULL);
+
 }
 
 bool LayoutTestController::elementDoesAutoCompleteForElementWithId(JSStringRef id) 
@@ -246,6 +306,17 @@ bool LayoutTestController::elementDoesAutoCompleteForElementWithId(JSStringRef i
 void LayoutTestController::execCommand(JSStringRef name, JSStringRef value)
 {
     // FIXME: implement
+}
+
+void LayoutTestController::setCacheModel(int)
+{
+    // FIXME: implement
+}
+
+bool LayoutTestController::isCommandEnabled(JSStringRef /*name*/)
+{
+    // FIXME: implement
+    return false;
 }
 
 void LayoutTestController::setPersistentUserStyleSheetLocation(JSStringRef jsURL)
@@ -268,3 +339,26 @@ void LayoutTestController::setDatabaseQuota(unsigned long long quota)
     // FIXME: implement
 }
 
+void LayoutTestController::setAppCacheMaximumSize(unsigned long long size)
+{
+    webkit_application_cache_set_maximum_size(size);
+}
+
+bool LayoutTestController::pauseAnimationAtTimeOnElementWithId(JSStringRef animationName, double time, JSStringRef elementId)
+{    
+    gchar* name = JSStringCopyUTF8CString(animationName);
+    gchar* element = JSStringCopyUTF8CString(elementId);
+    return webkit_web_frame_pause_animation(mainFrame, name, time, element);
+}
+
+bool LayoutTestController::pauseTransitionAtTimeOnElementWithId(JSStringRef propertyName, double time, JSStringRef elementId)
+{    
+    gchar* name = JSStringCopyUTF8CString(propertyName);
+    gchar* element = JSStringCopyUTF8CString(elementId);
+    return webkit_web_frame_pause_transition(mainFrame, name, time, element);
+}
+
+unsigned LayoutTestController::numberOfActiveAnimations() const
+{
+    return webkit_web_frame_number_of_active_animations(mainFrame);
+}

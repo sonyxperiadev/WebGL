@@ -45,15 +45,11 @@ WMLImageLoader::~WMLImageLoader()
 void WMLImageLoader::dispatchLoadEvent()
 {
     // WML doesn't fire any events.
-    if (haveFiredLoadEvent())
-        return;
-
-    setHaveFiredLoadEvent(true);
 }
 
 String WMLImageLoader::sourceURI(const AtomicString& attr) const
 {
-    return parseURL(KURL(element()->baseURI(), attr).string());
+    return deprecatedParseURL(KURL(element()->baseURI(), attr).string());
 }
 
 void WMLImageLoader::notifyFinished(CachedResource* image)

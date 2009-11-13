@@ -102,4 +102,4 @@ void ScrollView::platformOffscreenContentRectangle(const IntRect& rect)
 }
 #endif
 
-}
+} // namespace WebCore

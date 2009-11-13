@@ -30,7 +30,7 @@
 
 #include "CharacterNames.h"
 #include "KURL.h"
-#include "TextEncoding.h"
+#include "TextResourceDecoder.h"
 
 using namespace std;
 
@@ -45,9 +45,12 @@ bool parseManifest(const KURL& manifestURL, const char* data, int length, Manife
     ASSERT(manifest.fallbackURLs.isEmpty());
     
     Mode mode = Explicit;
-    String s = UTF8Encoding().decode(data, length);
+
+    RefPtr<TextResourceDecoder> decoder = TextResourceDecoder::create("text/cache-manifest", "UTF-8");
+    String s = decoder->decode(data, length);
+    s += decoder->flush();
     
-    // Look for the magic signature: "^\xFEFF?CACHE MANIFEST[ \t]?" (the BOM is removed by decode()).
+    // Look for the magic signature: "^\xFEFF?CACHE MANIFEST[ \t]?" (the BOM is removed by TextResourceDecoder).
     // Example: "CACHE MANIFEST #comment" is a valid signature.
     // Example: "CACHE MANIFEST;V2" is not.
     if (!s.startsWith("CACHE MANIFEST"))
@@ -111,8 +114,8 @@ bool parseManifest(const KURL& manifestURL, const char* data, int length, Manife
             if (!url.isValid())
                 continue;
 
-            if (url.hasRef())
-                url.setRef(String());
+            if (url.hasFragmentIdentifier())
+                url.removeFragmentIdentifier();
             
             if (!equalIgnoringCase(url.protocol(), manifestURL.protocol()))
                 continue;
@@ -138,8 +141,8 @@ bool parseManifest(const KURL& manifestURL, const char* data, int length, Manife
             KURL namespaceURL(manifestURL, String(line.characters(), p - line.characters()));
             if (!namespaceURL.isValid())
                 continue;
-            if (namespaceURL.hasRef())
-                namespaceURL.setRef(String());
+            if (namespaceURL.hasFragmentIdentifier())
+                namespaceURL.removeFragmentIdentifier();
 
             if (!protocolHostAndPortAreEqual(manifestURL, namespaceURL))
                 continue;
@@ -156,8 +159,8 @@ bool parseManifest(const KURL& manifestURL, const char* data, int length, Manife
             KURL fallbackURL(manifestURL, String(fallbackStart, p - fallbackStart));
             if (!fallbackURL.isValid())
                 continue;
-            if (fallbackURL.hasRef())
-                fallbackURL.setRef(String());
+            if (fallbackURL.hasFragmentIdentifier())
+                fallbackURL.removeFragmentIdentifier();
 
             if (!protocolHostAndPortAreEqual(manifestURL, fallbackURL))
                 continue;

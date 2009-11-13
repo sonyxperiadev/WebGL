@@ -27,10 +27,12 @@
 #include "Element.h"
 
 #include "AXObjectCache.h"
+#include "Attr.h"
 #include "CSSStyleSelector.h"
 #include "CString.h"
+#include "ClientRect.h"
+#include "ClientRectList.h"
 #include "Document.h"
-#include "Editor.h"
 #include "ElementRareData.h"
 #include "ExceptionCode.h"
 #include "FocusController.h"
@@ -38,15 +40,17 @@
 #include "FrameView.h"
 #include "HTMLElement.h"
 #include "HTMLNames.h"
-#include "NamedAttrMap.h"
+#include "NamedNodeMap.h"
 #include "NodeList.h"
 #include "NodeRenderStyle.h"
 #include "Page.h"
-#include "PlatformString.h"
-#include "RenderBlock.h"
-#include "SelectionController.h"
+#include "RenderView.h"
 #include "TextIterator.h"
 #include "XMLNames.h"
+
+#if ENABLE(SVG)
+#include "SVGNames.h"
+#endif
 
 namespace WebCore {
 
@@ -83,25 +87,30 @@ NodeRareData* Element::createRareData()
     
 PassRefPtr<Node> Element::cloneNode(bool deep)
 {
-    ExceptionCode ec = 0;
-    RefPtr<Element> clone = document()->createElementNS(namespaceURI(), nodeName(), ec);
-    ASSERT(!ec);
-    
-    // clone attributes
-    if (namedAttrMap)
-        clone->attributes()->setAttributes(*namedAttrMap);
+    return deep ? cloneElementWithChildren() : cloneElementWithoutChildren();
+}
 
-    clone->copyNonAttributeProperties(this);
-    
-    if (deep)
-        cloneChildNodes(clone.get());
-
+PassRefPtr<Element> Element::cloneElementWithChildren()
+{
+    RefPtr<Element> clone = cloneElementWithoutChildren();
+    cloneChildNodes(clone.get());
     return clone.release();
 }
 
-PassRefPtr<Element> Element::cloneElement()
+PassRefPtr<Element> Element::cloneElementWithoutChildren()
 {
-    return static_pointer_cast<Element>(cloneNode(false));
+    RefPtr<Element> clone = document()->createElement(tagQName(), false);
+    // This will catch HTML elements in the wrong namespace that are not correctly copied.
+    // This is a sanity check as HTML overloads some of the DOM methods.
+    ASSERT(isHTMLElement() == clone->isHTMLElement());
+
+    // Clone attributes.
+    if (namedAttrMap)
+        clone->attributes()->setAttributes(*attributes(true)); // Call attributes(true) to force attribute synchronization to occur (for svg and style) before cloning happens.
+
+    clone->copyNonAttributeProperties(this);
+    
+    return clone.release();
 }
 
 void Element::removeAttribute(const QualifiedName& name, ExceptionCode& ec)
@@ -130,12 +139,12 @@ void Element::setBooleanAttribute(const QualifiedName& name, bool b)
 }
 
 // Virtual function, defined in base class.
-NamedAttrMap* Element::attributes() const
+NamedNodeMap* Element::attributes() const
 {
     return attributes(false);
 }
 
-NamedAttrMap* Element::attributes(bool readonly) const
+NamedNodeMap* Element::attributes(bool readonly) const
 {
     if (!m_isStyleAttributeValid)
         updateStyleAttribute();
@@ -189,9 +198,9 @@ void Element::scrollIntoView(bool alignToTop)
     if (renderer()) {
         // Align to the top / bottom and to the closest edge.
         if (alignToTop)
-            renderer()->enclosingLayer()->scrollRectToVisible(bounds, false, RenderLayer::gAlignToEdgeIfNeeded, RenderLayer::gAlignTopAlways);
+            renderer()->enclosingLayer()->scrollRectToVisible(bounds, false, ScrollAlignment::alignToEdgeIfNeeded, ScrollAlignment::alignTopAlways);
         else
-            renderer()->enclosingLayer()->scrollRectToVisible(bounds, false, RenderLayer::gAlignToEdgeIfNeeded, RenderLayer::gAlignBottomAlways);
+            renderer()->enclosingLayer()->scrollRectToVisible(bounds, false, ScrollAlignment::alignToEdgeIfNeeded, ScrollAlignment::alignBottomAlways);
     }
 }
 
@@ -201,9 +210,9 @@ void Element::scrollIntoViewIfNeeded(bool centerIfNeeded)
     IntRect bounds = getRect();    
     if (renderer()) {
         if (centerIfNeeded)
-            renderer()->enclosingLayer()->scrollRectToVisible(bounds, false, RenderLayer::gAlignCenterIfNeeded, RenderLayer::gAlignCenterIfNeeded);
+            renderer()->enclosingLayer()->scrollRectToVisible(bounds, false, ScrollAlignment::alignCenterIfNeeded, ScrollAlignment::alignCenterIfNeeded);
         else
-            renderer()->enclosingLayer()->scrollRectToVisible(bounds, false, RenderLayer::gAlignToEdgeIfNeeded, RenderLayer::gAlignToEdgeIfNeeded);
+            renderer()->enclosingLayer()->scrollRectToVisible(bounds, false, ScrollAlignment::alignToEdgeIfNeeded, ScrollAlignment::alignToEdgeIfNeeded);
     }
 }
 
@@ -258,23 +267,54 @@ static float localZoomForRenderer(RenderObject* renderer)
 static int adjustForLocalZoom(int value, RenderObject* renderer)
 {
     float zoomFactor = localZoomForRenderer(renderer);
-    if (zoomFactor == 1.0f)
+    if (zoomFactor == 1)
         return value;
+    // Needed because computeLengthInt truncates (rather than rounds) when scaling up.
+    if (zoomFactor > 1)
+        value++;
     return static_cast<int>(value / zoomFactor);
 }
 
 static int adjustForAbsoluteZoom(int value, RenderObject* renderer)
 {
     float zoomFactor = renderer->style()->effectiveZoom();
-    if (zoomFactor == 1.0f)
+    if (zoomFactor == 1)
         return value;
+    // Needed because computeLengthInt truncates (rather than rounds) when scaling up.
+    if (zoomFactor > 1)
+        value++;
     return static_cast<int>(value / zoomFactor);
+}
+
+static FloatPoint adjustFloatPointForAbsoluteZoom(const FloatPoint& point, RenderObject* renderer)
+{
+    // The result here is in floats, so we don't need the truncation hack from the integer version above.
+    float zoomFactor = renderer->style()->effectiveZoom();
+    if (zoomFactor == 1)
+        return point;
+    return FloatPoint(point.x() / zoomFactor, point.y() / zoomFactor);
+}
+
+static void adjustFloatQuadForAbsoluteZoom(FloatQuad& quad, RenderObject* renderer)
+{
+    quad.setP1(adjustFloatPointForAbsoluteZoom(quad.p1(), renderer));
+    quad.setP2(adjustFloatPointForAbsoluteZoom(quad.p2(), renderer));
+    quad.setP3(adjustFloatPointForAbsoluteZoom(quad.p3(), renderer));
+    quad.setP4(adjustFloatPointForAbsoluteZoom(quad.p4(), renderer));
+}
+
+static void adjustIntRectForAbsoluteZoom(IntRect& rect, RenderObject* renderer)
+{
+    rect.setX(adjustForAbsoluteZoom(rect.x(), renderer));
+    rect.setY(adjustForAbsoluteZoom(rect.y(), renderer));
+    rect.setWidth(adjustForAbsoluteZoom(rect.width(), renderer));
+    rect.setHeight(adjustForAbsoluteZoom(rect.height(), renderer));
 }
 
 int Element::offsetLeft()
 {
     document()->updateLayoutIgnorePendingStylesheets();
-    if (RenderBox* rend = renderBox())
+    if (RenderBoxModelObject* rend = renderBoxModelObject())
         return adjustForLocalZoom(rend->offsetLeft(), rend);
     return 0;
 }
@@ -282,7 +322,7 @@ int Element::offsetLeft()
 int Element::offsetTop()
 {
     document()->updateLayoutIgnorePendingStylesheets();
-    if (RenderBox* rend = renderBox())
+    if (RenderBoxModelObject* rend = renderBoxModelObject())
         return adjustForLocalZoom(rend->offsetTop(), rend);
     return 0;
 }
@@ -290,7 +330,7 @@ int Element::offsetTop()
 int Element::offsetWidth()
 {
     document()->updateLayoutIgnorePendingStylesheets();
-    if (RenderBox* rend = renderBox())
+    if (RenderBoxModelObject* rend = renderBoxModelObject())
         return adjustForAbsoluteZoom(rend->offsetWidth(), rend);
     return 0;
 }
@@ -298,7 +338,7 @@ int Element::offsetWidth()
 int Element::offsetHeight()
 {
     document()->updateLayoutIgnorePendingStylesheets();
-    if (RenderBox* rend = renderBox())
+    if (RenderBoxModelObject* rend = renderBoxModelObject())
         return adjustForAbsoluteZoom(rend->offsetHeight(), rend);
     return 0;
 }
@@ -306,9 +346,9 @@ int Element::offsetHeight()
 Element* Element::offsetParent()
 {
     document()->updateLayoutIgnorePendingStylesheets();
-    if (RenderBox* rend = renderBox())
+    if (RenderObject* rend = renderer())
         if (RenderObject* offsetParent = rend->offsetParent())
-            return static_cast<Element*>(offsetParent->element());
+            return static_cast<Element*>(offsetParent->node());
     return 0;
 }
 
@@ -339,15 +379,14 @@ int Element::clientWidth()
     bool inCompatMode = document()->inCompatMode();
     if ((!inCompatMode && document()->documentElement() == this) ||
         (inCompatMode && isHTMLElement() && document()->body() == this)) {
-        if (FrameView* view = document()->view())
-            return view->layoutWidth();
+        if (FrameView* view = document()->view()) {
+            if (RenderView* renderView = document()->renderView())
+                return adjustForAbsoluteZoom(view->layoutWidth(), renderView);
+        }
     }
     
-
-    if (RenderBox* rend = renderBox()) {
-        if (!rend->isRenderInline())
-            return adjustForAbsoluteZoom(rend->clientWidth(), rend);
-    }
+    if (RenderBox* rend = renderBox())
+        return adjustForAbsoluteZoom(rend->clientWidth(), rend);
     return 0;
 }
 
@@ -361,18 +400,18 @@ int Element::clientHeight()
 
     if ((!inCompatMode && document()->documentElement() == this) ||
         (inCompatMode && isHTMLElement() && document()->body() == this)) {
-        if (FrameView* view = document()->view())
-            return view->layoutHeight();
+        if (FrameView* view = document()->view()) {
+            if (RenderView* renderView = document()->renderView())
+                return adjustForAbsoluteZoom(view->layoutHeight(), renderView);
+        }
     }
     
-    if (RenderBox* rend = renderBox()) {
-        if (!rend->isRenderInline())
-            return adjustForAbsoluteZoom(rend->clientHeight(), rend);
-    }
+    if (RenderBox* rend = renderBox())
+        return adjustForAbsoluteZoom(rend->clientHeight(), rend);
     return 0;
 }
 
-int Element::scrollLeft()
+int Element::scrollLeft() const
 {
     document()->updateLayoutIgnorePendingStylesheets();
     if (RenderBox* rend = renderBox())
@@ -380,7 +419,7 @@ int Element::scrollLeft()
     return 0;
 }
 
-int Element::scrollTop()
+int Element::scrollTop() const
 {
     document()->updateLayoutIgnorePendingStylesheets();
     if (RenderBox* rend = renderBox())
@@ -402,24 +441,72 @@ void Element::setScrollTop(int newTop)
         rend->setScrollTop(static_cast<int>(newTop * rend->style()->effectiveZoom()));
 }
 
-int Element::scrollWidth()
+int Element::scrollWidth() const
 {
     document()->updateLayoutIgnorePendingStylesheets();
-    if (RenderBox* rend = renderBox()) {
-        if (rend->hasOverflowClip() || !rend->isRenderInline())
-            return adjustForAbsoluteZoom(rend->scrollWidth(), rend);
-    }
+    if (RenderBox* rend = renderBox())
+        return adjustForAbsoluteZoom(rend->scrollWidth(), rend);
     return 0;
 }
 
-int Element::scrollHeight()
+int Element::scrollHeight() const
 {
     document()->updateLayoutIgnorePendingStylesheets();
-    if (RenderBox* rend = renderBox()) {
-        if (rend->hasOverflowClip() || !rend->isRenderInline())
-            return adjustForAbsoluteZoom(rend->scrollHeight(), rend);
-    }
+    if (RenderBox* rend = renderBox())
+        return adjustForAbsoluteZoom(rend->scrollHeight(), rend);
     return 0;
+}
+
+PassRefPtr<ClientRectList> Element::getClientRects() const
+{
+    document()->updateLayoutIgnorePendingStylesheets();
+
+    RenderBoxModelObject* renderBoxModelObject = this->renderBoxModelObject();
+    if (!renderBoxModelObject)
+        return ClientRectList::create();
+
+    // FIXME: Handle SVG elements.
+    // FIXME: Handle table/inline-table with a caption.
+
+    Vector<FloatQuad> quads;
+    renderBoxModelObject->absoluteQuads(quads);
+
+    if (FrameView* view = document()->view()) {
+        IntRect visibleContentRect = view->visibleContentRect();
+        for (size_t i = 0; i < quads.size(); ++i) {
+            quads[i].move(-visibleContentRect.x(), -visibleContentRect.y());
+            adjustFloatQuadForAbsoluteZoom(quads[i], renderBoxModelObject);
+        }
+    }
+
+    return ClientRectList::create(quads);
+}
+
+PassRefPtr<ClientRect> Element::getBoundingClientRect() const
+{
+    document()->updateLayoutIgnorePendingStylesheets();
+    RenderBoxModelObject* renderBoxModelObject = this->renderBoxModelObject();
+    if (!renderBoxModelObject)
+        return ClientRect::create();
+
+    Vector<FloatQuad> quads;
+    renderBoxModelObject->absoluteQuads(quads);
+
+    if (quads.isEmpty())
+        return ClientRect::create();
+
+    IntRect result = quads[0].enclosingBoundingBox();
+    for (size_t i = 1; i < quads.size(); ++i)
+        result.unite(quads[i].enclosingBoundingBox());
+
+    if (FrameView* view = document()->view()) {
+        IntRect visibleContentRect = view->visibleContentRect();
+        result.move(-visibleContentRect.x(), -visibleContentRect.y());
+    }
+
+    adjustIntRectForAbsoluteZoom(result, renderBoxModelObject);
+
+    return ClientRect::create(result);
 }
 
 static inline bool shouldIgnoreAttributeCase(const Element* e)
@@ -504,6 +591,12 @@ PassRefPtr<Attribute> Element::createAttribute(const QualifiedName& name, const 
 
 void Element::attributeChanged(Attribute* attr, bool)
 {
+    recalcStyleIfNeededAfterAttributeChanged(attr);
+    updateAfterAttributeChanged(attr);
+}
+
+void Element::updateAfterAttributeChanged(Attribute* attr)
+{
     if (!document()->axObjectCache()->accessibilityEnabled())
         return;
 
@@ -516,8 +609,14 @@ void Element::attributeChanged(Attribute* attr, bool)
         document()->axObjectCache()->handleAriaRoleChanged(renderer());
     }
 }
-
-void Element::setAttributeMap(PassRefPtr<NamedAttrMap> list)
+    
+void Element::recalcStyleIfNeededAfterAttributeChanged(Attribute* attr)
+{
+    if (document()->attached() && document()->styleSelector()->hasSelectorForAttribute(attr->name().localName()))
+        setNeedsStyleRecalc();
+}
+        
+void Element::setAttributeMap(PassRefPtr<NamedNodeMap> list)
 {
     document()->incDOMTreeVersion();
 
@@ -595,7 +694,7 @@ KURL Element::baseURI() const
 
 void Element::createAttributeMap() const
 {
-    namedAttrMap = NamedAttrMap::create(const_cast<Element*>(this));
+    namedAttrMap = NamedNodeMap::create(const_cast<Element*>(this));
 }
 
 bool Element::isURLAttribute(Attribute*) const
@@ -628,7 +727,7 @@ void Element::insertedIntoDocument()
     ContainerNode::insertedIntoDocument();
 
     if (hasID()) {
-        if (NamedAttrMap* attrs = namedAttrMap.get()) {
+        if (NamedNodeMap* attrs = namedAttrMap.get()) {
             Attribute* idItem = attrs->getAttributeItem(idAttr);
             if (idItem && !idItem->isNull())
                 updateId(nullAtom, idItem->value());
@@ -639,7 +738,7 @@ void Element::insertedIntoDocument()
 void Element::removedFromDocument()
 {
     if (hasID()) {
-        if (NamedAttrMap* attrs = namedAttrMap.get()) {
+        if (NamedNodeMap* attrs = namedAttrMap.get()) {
             Attribute* idItem = attrs->getAttributeItem(idAttr);
             if (idItem && !idItem->isNull())
                 updateId(idItem->value(), nullAtom);
@@ -651,6 +750,8 @@ void Element::removedFromDocument()
 
 void Element::attach()
 {
+    suspendPostAttachCallbacks();
+
     createRendererIfNeeded();
     ContainerNode::attach();
     if (hasRareData()) {   
@@ -661,6 +762,8 @@ void Element::attach()
             data->setNeedsFocusAppearanceUpdateSoonAfterAttach(false);
         }
     }
+
+    resumePostAttachCallbacks();
 }
 
 void Element::detach()
@@ -671,11 +774,39 @@ void Element::detach()
     ContainerNode::detach();
 }
 
+bool Element::pseudoStyleCacheIsInvalid(const RenderStyle* currentStyle, RenderStyle* newStyle)
+{
+    ASSERT(currentStyle = renderStyle());
+
+    if (!renderer() || !currentStyle)
+        return false;
+
+    RenderStyle::PseudoStyleCache pseudoStyleCache;
+    currentStyle->getPseudoStyleCache(pseudoStyleCache);
+    size_t cacheSize = pseudoStyleCache.size();
+    for (size_t i = 0; i < cacheSize; ++i) {
+        RefPtr<RenderStyle> newPseudoStyle;
+        PseudoId pseudoId = pseudoStyleCache[i]->styleType();
+        if (pseudoId == FIRST_LINE || pseudoId == FIRST_LINE_INHERITED)
+            newPseudoStyle = renderer()->uncachedFirstLineStyle(newStyle);
+        else
+            newPseudoStyle = renderer()->getUncachedPseudoStyle(pseudoId, newStyle, newStyle);
+
+        if (*newPseudoStyle != *pseudoStyleCache[i]) {
+            if (pseudoId < FIRST_INTERNAL_PSEUDOID)
+                newStyle->setHasPseudoStyle(pseudoId);
+            newStyle->addCachedPseudoStyle(newPseudoStyle);
+            return true;
+        }
+    }
+    return false;
+}
+
 void Element::recalcStyle(StyleChange change)
 {
     RenderStyle* currentStyle = renderStyle();
     bool hasParentStyle = parentNode() ? parentNode()->renderStyle() : false;
-    bool hasPositionalRules = changed() && currentStyle && currentStyle->childrenAffectedByPositionalRules();
+    bool hasPositionalRules = needsStyleRecalc() && currentStyle && currentStyle->childrenAffectedByPositionalRules();
     bool hasDirectAdjacentRules = currentStyle && currentStyle->childrenAffectedByDirectAdjacentRules();
 
 #if ENABLE(SVG)
@@ -683,11 +814,11 @@ void Element::recalcStyle(StyleChange change)
         hasParentStyle = true;
 #endif
 
-    if ((change > NoChange || changed())) {
+    if ((change > NoChange || needsStyleRecalc())) {
         if (hasRareData())
             rareData()->resetComputedStyle();
     }
-    if (hasParentStyle && (change >= Inherit || changed())) {
+    if (hasParentStyle && (change >= Inherit || needsStyleRecalc())) {
         RefPtr<RenderStyle> newStyle = document()->styleSelector()->styleForElement(this);
         StyleChange ch = diff(currentStyle, newStyle.get());
         if (ch == Detach || !currentStyle) {
@@ -695,8 +826,8 @@ void Element::recalcStyle(StyleChange change)
                 detach();
             attach(); // FIXME: The style gets computed twice by calling attach. We could do better if we passed the style along.
             // attach recalulates the style for all children. No need to do it twice.
-            setChanged(NoStyleChange);
-            setHasChangedChild(false);
+            setNeedsStyleRecalc(NoStyleChange);
+            setChildNeedsStyleRecalc(false);
             return;
         }
 
@@ -721,9 +852,9 @@ void Element::recalcStyle(StyleChange change)
                 newStyle->setChildrenAffectedByDirectAdjacentRules();
         }
 
-        if (ch != NoChange) {
+        if (ch != NoChange || pseudoStyleCacheIsInvalid(currentStyle, newStyle.get())) {
             setRenderStyle(newStyle);
-        } else if (changed() && (styleChangeType() != AnimationStyleChange) && (document()->usesSiblingRules() || document()->usesDescendantRules())) {
+        } else if (needsStyleRecalc() && (styleChangeType() != AnimationStyleChange) && (document()->usesSiblingRules() || document()->usesDescendantRules())) {
             // Although no change occurred, we use the new style so that the cousin style sharing code won't get
             // fooled into believing this style is the same.  This is only necessary if the document actually uses
             // sibling/descendant rules, since otherwise it isn't possible for ancestor styles to affect sharing of
@@ -736,7 +867,11 @@ void Element::recalcStyle(StyleChange change)
              setRenderStyle(newStyle);
 
         if (change != Force) {
-            if ((document()->usesDescendantRules() || hasPositionalRules) && styleChangeType() >= FullStyleChange)
+            // If "rem" units are used anywhere in the document, and if the document element's font size changes, then go ahead and force font updating
+            // all the way down the tree.  This is simpler than having to maintain a cache of objects (and such font size changes should be rare anyway).
+            if (document()->usesRemUnits() && ch != NoChange && currentStyle && newStyle && currentStyle->fontSize() != newStyle->fontSize() && document()->documentElement() == this)
+                change = Force;
+            else if ((document()->usesDescendantRules() || hasPositionalRules) && styleChangeType() >= FullStyleChange)
                 change = Force;
             else
                 change = ch;
@@ -748,17 +883,17 @@ void Element::recalcStyle(StyleChange change)
     // without doing way too much re-resolution.
     bool forceCheckOfNextElementSibling = false;
     for (Node *n = firstChild(); n; n = n->nextSibling()) {
-        bool childRulesChanged = n->changed() && n->styleChangeType() == FullStyleChange;
+        bool childRulesChanged = n->needsStyleRecalc() && n->styleChangeType() == FullStyleChange;
         if (forceCheckOfNextElementSibling && n->isElementNode())
-            n->setChanged();
-        if (change >= Inherit || n->isTextNode() || n->hasChangedChild() || n->changed())
+            n->setNeedsStyleRecalc();
+        if (change >= Inherit || n->isTextNode() || n->childNeedsStyleRecalc() || n->needsStyleRecalc())
             n->recalcStyle(change);
         if (n->isElementNode())
             forceCheckOfNextElementSibling = childRulesChanged && hasDirectAdjacentRules;
     }
 
-    setChanged(NoStyleChange);
-    setHasChangedChild(false);
+    setNeedsStyleRecalc(NoStyleChange);
+    setChildNeedsStyleRecalc(false);
 }
 
 bool Element::childTypeAllowed(NodeType type)
@@ -780,7 +915,7 @@ bool Element::childTypeAllowed(NodeType type)
 static void checkForSiblingStyleChanges(Element* e, RenderStyle* style, bool finishedParsingCallback,
                                         Node* beforeChange, Node* afterChange, int childCountDelta)
 {
-    if (!style || (e->changed() && style->childrenAffectedByPositionalRules()))
+    if (!style || (e->needsStyleRecalc() && style->childrenAffectedByPositionalRules()))
         return;
 
     // :first-child.  In the parser callback case, we don't have to check anything, since we were right the first time.
@@ -800,11 +935,11 @@ static void checkForSiblingStyleChanges(Element* e, RenderStyle* style, bool fin
         // This is the insert/append case.
         if (newFirstChild != firstElementAfterInsertion && firstElementAfterInsertion && firstElementAfterInsertion->attached() &&
             firstElementAfterInsertion->renderStyle() && firstElementAfterInsertion->renderStyle()->firstChildState())
-            firstElementAfterInsertion->setChanged();
+            firstElementAfterInsertion->setNeedsStyleRecalc();
             
         // We also have to handle node removal.
         if (childCountDelta < 0 && newFirstChild == firstElementAfterInsertion && newFirstChild && newFirstChild->renderStyle() && !newFirstChild->renderStyle()->firstChildState())
-            newFirstChild->setChanged();
+            newFirstChild->setNeedsStyleRecalc();
     }
 
     // :last-child.  In the parser callback case, we don't have to check anything, since we were right the first time.
@@ -822,12 +957,12 @@ static void checkForSiblingStyleChanges(Element* e, RenderStyle* style, bool fin
         
         if (newLastChild != lastElementBeforeInsertion && lastElementBeforeInsertion && lastElementBeforeInsertion->attached() &&
             lastElementBeforeInsertion->renderStyle() && lastElementBeforeInsertion->renderStyle()->lastChildState())
-            lastElementBeforeInsertion->setChanged();
+            lastElementBeforeInsertion->setNeedsStyleRecalc();
             
         // We also have to handle node removal.  The parser callback case is similar to node removal as well in that we need to change the last child
         // to match now.
         if ((childCountDelta < 0 || finishedParsingCallback) && newLastChild == lastElementBeforeInsertion && newLastChild && newLastChild->renderStyle() && !newLastChild->renderStyle()->lastChildState())
-            newLastChild->setChanged();
+            newLastChild->setNeedsStyleRecalc();
     }
 
     // The + selector.  We need to invalidate the first element following the insertion point.  It is the only possible element
@@ -838,7 +973,7 @@ static void checkForSiblingStyleChanges(Element* e, RenderStyle* style, bool fin
              firstElementAfterInsertion && !firstElementAfterInsertion->isElementNode();
              firstElementAfterInsertion = firstElementAfterInsertion->nextSibling()) {};
         if (firstElementAfterInsertion && firstElementAfterInsertion->attached())
-            firstElementAfterInsertion->setChanged();
+            firstElementAfterInsertion->setNeedsStyleRecalc();
     }
 
     // Forward positional selectors include the ~ selector, nth-child, nth-of-type, first-of-type and only-of-type.
@@ -850,11 +985,11 @@ static void checkForSiblingStyleChanges(Element* e, RenderStyle* style, bool fin
     // here.  recalcStyle will then force a walk of the children when it sees that this has happened.
     if ((style->childrenAffectedByForwardPositionalRules() && afterChange) ||
         (style->childrenAffectedByBackwardPositionalRules() && beforeChange))
-        e->setChanged();
+        e->setNeedsStyleRecalc();
     
     // :empty selector.
     if (style->affectedByEmpty() && (!style->emptyState() || e->hasChildNodes()))
-        e->setChanged();
+        e->setNeedsStyleRecalc();
 }
 
 void Element::childrenChanged(bool changedByParser, Node* beforeChange, Node* afterChange, int childCountDelta)
@@ -891,7 +1026,7 @@ void Element::dispatchAttrAdditionEvent(Attribute*)
         return;
     ExceptionCode ec = 0;
     dispatchEvent(new MutationEvent(DOMAttrModifiedEvent, true, false, attr, attr->value(),
-        attr->value(),document()->attrName(attr->id()), MutationEvent::ADDITION), ec);
+        attr->value(), document()->attrName(attr->id()), MutationEvent::ADDITION), ec);
 #endif
 }
 
@@ -899,7 +1034,7 @@ String Element::openTagStartToString() const
 {
     String result = "<" + nodeName();
 
-    NamedAttrMap *attrMap = attributes(true);
+    NamedNodeMap* attrMap = attributes(true);
 
     if (attrMap) {
         unsigned numAttrs = attrMap->length();
@@ -999,7 +1134,7 @@ PassRefPtr<Attr> Element::removeAttributeNode(Attr* attr, ExceptionCode& ec)
         return 0;
     }
 
-    NamedAttrMap *attrs = attributes(true);
+    NamedNodeMap* attrs = attributes(true);
     if (!attrs)
         return 0;
 
@@ -1034,7 +1169,7 @@ void Element::removeAttributeNS(const String& namespaceURI, const String& localN
 
 PassRefPtr<Attr> Element::getAttributeNode(const String& name)
 {
-    NamedAttrMap* attrs = attributes(true);
+    NamedNodeMap* attrs = attributes(true);
     if (!attrs)
         return 0;
     String localName = shouldIgnoreAttributeCase(this) ? name.lower() : name;
@@ -1043,7 +1178,7 @@ PassRefPtr<Attr> Element::getAttributeNode(const String& name)
 
 PassRefPtr<Attr> Element::getAttributeNodeNS(const String& namespaceURI, const String& localName)
 {
-    NamedAttrMap* attrs = attributes(true);
+    NamedNodeMap* attrs = attributes(true);
     if (!attrs)
         return 0;
     return static_pointer_cast<Attr>(attrs->getNamedItem(QualifiedName(nullAtom, localName, namespaceURI)));
@@ -1051,7 +1186,7 @@ PassRefPtr<Attr> Element::getAttributeNodeNS(const String& namespaceURI, const S
 
 bool Element::hasAttribute(const String& name) const
 {
-    NamedAttrMap* attrs = attributes(true);
+    NamedNodeMap* attrs = attributes(true);
     if (!attrs)
         return false;
 
@@ -1063,7 +1198,7 @@ bool Element::hasAttribute(const String& name) const
 
 bool Element::hasAttributeNS(const String& namespaceURI, const String& localName) const
 {
-    NamedAttrMap* attrs = attributes(true);
+    NamedNodeMap* attrs = attributes(true);
     if (!attrs)
         return false;
     return attrs->getAttributeItem(QualifiedName(nullAtom, localName, namespaceURI));
@@ -1105,18 +1240,17 @@ void Element::updateFocusAppearance(bool /*restorePreviousSelection*/)
             return;
 
         // FIXME: We should restore the previous selection if there is one.
-        Selection newSelection = hasTagName(htmlTag) || hasTagName(bodyTag) ? Selection(Position(this, 0), DOWNSTREAM) : Selection::selectionFromContentsOfNode(this);
+        VisibleSelection newSelection = hasTagName(htmlTag) || hasTagName(bodyTag) ? VisibleSelection(Position(this, 0), DOWNSTREAM) : VisibleSelection::selectionFromContentsOfNode(this);
         
         if (frame->shouldChangeSelection(newSelection)) {
             frame->selection()->setSelection(newSelection);
             frame->revealSelection();
         }
-#ifdef ANDROID_SCROLL_FIX
-        // We handle the scrolling the screen with our navigation code,
-        // so ignore this call to put the rectangle on screen.
     }
-#else
-    } else if (renderer() && !renderer()->isWidget())
+    // FIXME: I'm not sure all devices will want this off, but this is
+    // currently turned off for Andriod.
+#if !ENABLE(DIRECTIONAL_PAD_NAVIGATION)
+    else if (renderer() && !renderer()->isWidget())
         renderer()->enclosingLayer()->scrollRectToVisible(getRect());
 #endif
 }
@@ -1124,14 +1258,6 @@ void Element::updateFocusAppearance(bool /*restorePreviousSelection*/)
 void Element::blur()
 {
     cancelFocusAppearanceUpdate();
-#ifdef ANDROID_IGNORE_BLUR
-    // Since we control the focus anyway, there is no need to do blur events
-    // unless the element has a blur event.
-    NamedAttrMap* map = attributes();
-    Node* blur = (map->getNamedItem(HTMLNames::onblurAttr)).get();
-    if (!blur)
-        return;
-#endif
     Document* doc = document();
     if (doc->focusedNode() == this) {
         if (doc->frame())
@@ -1206,7 +1332,7 @@ void Element::cancelFocusAppearanceUpdate()
 void Element::normalizeAttributes()
 {
     // Normalize attributes.
-    NamedAttrMap* attrs = attributes(true);
+    NamedNodeMap* attrs = attributes(true);
     if (!attrs)
         return;
     unsigned numAttrs = attrs->length();
@@ -1260,4 +1386,15 @@ unsigned Element::childElementCount() const
     return count;
 }
 
+KURL Element::getURLAttribute(const QualifiedName& name) const
+{
+#ifndef NDEBUG
+    if (namedAttrMap) {
+        if (Attribute* attribute = namedAttrMap->getAttributeItem(name))
+            ASSERT(isURLAttribute(attribute));
+    }
+#endif
+    return document()->completeURL(getAttribute(name));
 }
+
+} // namespace WebCore

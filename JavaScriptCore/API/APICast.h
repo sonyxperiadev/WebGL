@@ -26,14 +26,17 @@
 #ifndef APICast_h
 #define APICast_h
 
+#include "JSAPIValueWrapper.h"
 #include "JSValue.h"
+#include <wtf/Platform.h>
+#include <wtf/UnusedParam.h>
 
 namespace JSC {
     class ExecState;
     class PropertyNameArray;
     class JSGlobalData;
     class JSObject;
-    class JSValuePtr;
+    class JSValue;
 }
 
 typedef const struct OpaqueJSContextGroup* JSContextGroupRef;
@@ -55,9 +58,18 @@ inline JSC::ExecState* toJS(JSGlobalContextRef c)
     return reinterpret_cast<JSC::ExecState*>(c);
 }
 
-inline JSC::JSValuePtr toJS(JSValueRef v)
+inline JSC::JSValue toJS(JSC::ExecState*, JSValueRef v)
 {
-    return JSC::JSValuePtr::decode(reinterpret_cast<JSC::JSValueEncodedAsPointer*>(const_cast<OpaqueJSValue*>(v)));
+#if USE(JSVALUE32_64)
+    JSC::JSCell* jsCell = reinterpret_cast<JSC::JSCell*>(const_cast<OpaqueJSValue*>(v));
+    if (!jsCell)
+        return JSC::JSValue();
+    if (jsCell->isAPIValueWrapper())
+        return static_cast<JSC::JSAPIValueWrapper*>(jsCell)->value();
+    return jsCell;
+#else
+    return JSC::JSValue::decode(reinterpret_cast<JSC::EncodedJSValue>(const_cast<OpaqueJSValue*>(v)));
+#endif
 }
 
 inline JSC::JSObject* toJS(JSObjectRef o)
@@ -75,14 +87,18 @@ inline JSC::JSGlobalData* toJS(JSContextGroupRef g)
     return reinterpret_cast<JSC::JSGlobalData*>(const_cast<OpaqueJSContextGroup*>(g));
 }
 
-inline JSValueRef toRef(JSC::JSValuePtr v)
+inline JSValueRef toRef(JSC::ExecState* exec, JSC::JSValue v)
 {
-    return reinterpret_cast<JSValueRef>(JSC::JSValuePtr::encode(v));
-}
-
-inline JSValueRef* toRef(JSC::JSValuePtr* v)
-{
-    return reinterpret_cast<JSValueRef*>(v);
+#if USE(JSVALUE32_64)
+    if (!v)
+        return 0;
+    if (!v.isCell())
+        return reinterpret_cast<JSValueRef>(asCell(JSC::jsAPIValueWrapper(exec, v)));
+    return reinterpret_cast<JSValueRef>(asCell(v));
+#else
+    UNUSED_PARAM(exec);
+    return reinterpret_cast<JSValueRef>(JSC::JSValue::encode(v));
+#endif
 }
 
 inline JSObjectRef toRef(JSC::JSObject* o)

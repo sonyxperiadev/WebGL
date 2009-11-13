@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
- * Copyright (C) 2004, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2004, 2008, 2009 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -25,55 +25,39 @@
 
 #include "HTMLAnchorElement.h"
 #include "IntSize.h"
-#include "Path.h"
 
 namespace WebCore {
 
 class HitTestResult;
+class Path;
 
 class HTMLAreaElement : public HTMLAnchorElement {
 public:
     HTMLAreaElement(const QualifiedName&, Document*);
-    ~HTMLAreaElement();
-
-    virtual HTMLTagStatus endTagRequirement() const { return TagStatusForbidden; }
-    virtual int tagPriority() const { return 0; }
-
-    virtual void parseMappedAttribute(MappedAttribute*);
+    virtual ~HTMLAreaElement();
 
     bool isDefault() const { return m_shape == Default; }
 
     bool mapMouseEvent(int x, int y, const IntSize&, HitTestResult&);
 
-    virtual IntRect getRect(RenderObject*) const;
-
-    String accessKey() const;
-    void setAccessKey(const String&);
-
-    String alt() const;
-    void setAlt(const String&);
-
-    String coords() const;
-    void setCoords(const String&);
+    IntRect getRect(RenderObject*) const;
 
     KURL href() const;
-    void setHref(const String&);
 
     bool noHref() const;
     void setNoHref(bool);
 
-    String shape() const;
-    void setShape(const String&);
-
-    virtual bool isFocusable() const;
-
-    virtual String target() const;
-    void setTarget(const String&);
-
 private:
+    virtual HTMLTagStatus endTagRequirement() const { return TagStatusForbidden; }
+    virtual int tagPriority() const { return 0; }
+    virtual void parseMappedAttribute(MappedAttribute*);
+    virtual bool isFocusable() const;
+    virtual String target() const;
+
     enum Shape { Default, Poly, Rect, Circle, Unknown };
     Path getRegion(const IntSize&) const;
-    Path region;
+
+    OwnPtr<Path> m_region;
     Length* m_coords;
     int m_coordsLen;
     IntSize m_lastSize;

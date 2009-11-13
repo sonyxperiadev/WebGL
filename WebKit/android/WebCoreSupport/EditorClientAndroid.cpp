@@ -36,6 +36,7 @@
 #include "NotImplemented.h"
 #include "PlatformKeyboardEvent.h"
 #include "PlatformString.h"
+#include "WebViewCore.h"
 
 namespace android {
     
@@ -215,17 +216,33 @@ void EditorClientAndroid::redo() {}
 
 // functions new to Jun-07 tip of tree merge:
 void EditorClientAndroid::showSpellingUI(bool) {}
-void EditorClientAndroid::getGuessesForWord(String const&, Vector<String>&) {}
+void EditorClientAndroid::getGuessesForWord(String const&, WTF::Vector<String>&) {}
 bool EditorClientAndroid::spellingUIIsShowing() { return false; }
-void EditorClientAndroid::checkGrammarOfString(unsigned short const*, int, Vector<GrammarDetail>&, int*, int*) {}
+void EditorClientAndroid::checkGrammarOfString(unsigned short const*, int, WTF::Vector<GrammarDetail>&, int*, int*) {}
 void EditorClientAndroid::checkSpellingOfString(unsigned short const*, int, int*, int*) {}
+String EditorClientAndroid::getAutoCorrectSuggestionForMisspelledWord(const String&) { return String(); }
 void EditorClientAndroid::textFieldDidEndEditing(Element*) {}
 void EditorClientAndroid::textDidChangeInTextArea(Element*) {}
 void EditorClientAndroid::textDidChangeInTextField(Element*) {}
 void EditorClientAndroid::textFieldDidBeginEditing(Element*) {}
 void EditorClientAndroid::ignoreWordInSpellDocument(String const&) {}
-void EditorClientAndroid::respondToChangedSelection() {}
-bool EditorClientAndroid::shouldChangeSelectedRange(Range*, Range*, EAffinity, bool) { return m_notFromClick; }
+
+// We need to pass the selection up to the WebTextView
+void EditorClientAndroid::respondToChangedSelection() {
+    if (m_uiGeneratedSelectionChange)
+        return;
+    Frame* frame = m_page->focusController()->focusedOrMainFrame();
+    if (!frame || !frame->view())
+        return;
+    WebViewCore* webViewCore = WebViewCore::getWebViewCore(frame->view());
+    webViewCore->updateTextSelection();
+}
+
+bool EditorClientAndroid::shouldChangeSelectedRange(Range*, Range*, EAffinity,
+        bool) {
+    return m_shouldChangeSelectedRange;
+}
+
 bool EditorClientAndroid::doTextFieldCommandFromEvent(Element*, KeyboardEvent*) { return false; }
 void EditorClientAndroid::textWillBeDeletedInTextField(Element*) {}
 void EditorClientAndroid::updateSpellingUIWithGrammarString(String const&, GrammarDetail const&) {}

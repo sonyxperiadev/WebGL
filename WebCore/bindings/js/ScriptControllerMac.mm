@@ -112,7 +112,7 @@ WebScriptObject* ScriptController::windowScriptObject()
         return 0;
 
     if (!m_windowScriptObject) {
-        JSC::JSLock lock(false);
+        JSC::JSLock lock(JSC::SilenceAssertionsOnly);
         JSC::Bindings::RootObject* root = bindingRootObject();
         m_windowScriptObject = [WebScriptObject scriptObjectForJSObject:toRef(windowShell()) originRootObject:root rootObject:root];
     }
@@ -141,7 +141,7 @@ void ScriptController::disconnectPlatformScriptObjects()
 
 static pthread_t mainThread;
 
-static void updateRenderingForBindings(JSC::ExecState*, JSC::JSObject* rootObject)
+static void updateStyleIfNeededForBindings(JSC::ExecState*, JSC::JSObject* rootObject)
 {
     if (pthread_self() != mainThread)
         return;
@@ -157,18 +157,14 @@ static void updateRenderingForBindings(JSC::ExecState*, JSC::JSObject* rootObjec
     if (!frame)
         return;
 
-    Document* document = frame->document();
-    if (!document)
-        return;
-
-    document->updateRendering();
+    frame->document()->updateStyleIfNeeded();
 }
 
 void ScriptController::initJavaJSBindings()
 {
     mainThread = pthread_self();
     JSC::Bindings::JavaJSObject::initializeJNIThreading();
-    JSC::Bindings::Instance::setDidExecuteFunction(updateRenderingForBindings);
+    JSC::Bindings::Instance::setDidExecuteFunction(updateStyleIfNeededForBindings);
 }
 
 #endif

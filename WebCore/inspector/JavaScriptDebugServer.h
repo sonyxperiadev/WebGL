@@ -29,6 +29,8 @@
 #ifndef JavaScriptDebugServer_h
 #define JavaScriptDebugServer_h
 
+#if ENABLE(JAVASCRIPT_DEBUGGER)
+
 #include "Timer.h"
 #include <debugger/Debugger.h>
 #include <wtf/HashMap.h>
@@ -37,6 +39,7 @@
 
 namespace JSC {
     class DebuggerCallFrame;
+    class JSGlobalObject;
 }
 
 namespace WebCore {
@@ -97,6 +100,8 @@ namespace WebCore {
 
         void dispatchFunctionToListeners(JavaScriptExecutionCallback, Page*);
         void pauseIfNeeded(Page*);
+        
+        virtual void detach(JSC::JSGlobalObject*);
 
         virtual void sourceParsed(JSC::ExecState*, const JSC::SourceCode&, int errorLine, const JSC::UString& errorMsg);
         virtual void callEvent(const JSC::DebuggerCallFrame&, intptr_t sourceID, int lineNumber);
@@ -126,5 +131,7 @@ namespace WebCore {
     };
 
 } // namespace WebCore
+
+#endif // ENABLE(JAVASCRIPT_DEBUGGER)
 
 #endif // JavaScriptDebugServer_h

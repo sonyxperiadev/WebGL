@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2008, 2009 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -32,9 +32,8 @@
 
 #include "MediaControlElements.h"
 
-#include "Event.h"
+#include "LocalizedStrings.h"
 #include "EventNames.h"
-#include "EventHandler.h"
 #include "FloatConversion.h"
 #include "Frame.h"
 #include "HTMLNames.h"
@@ -42,6 +41,7 @@
 #include "RenderMedia.h"
 #include "RenderSlider.h"
 #include "RenderTheme.h"
+#include "CString.h"
 
 namespace WebCore {
 
@@ -61,88 +61,277 @@ MediaControlShadowRootElement::MediaControlShadowRootElement(Document* doc, HTML
     rootStyle->setDisplay(BLOCK);
     rootStyle->setPosition(RelativePosition);
     RenderMediaControlShadowRoot* renderer = new (mediaElement->renderer()->renderArena()) RenderMediaControlShadowRoot(this);
-    renderer->setParent(mediaElement->renderer());
     renderer->setStyle(rootStyle.release());
     setRenderer(renderer);
     setAttached();
     setInDocument(true);
 }
 
-// ----------------------------
+void MediaControlShadowRootElement::updateStyle()
+{
+    if (renderer()) {
+        RenderStyle* timelineContainerStyle = m_mediaElement->renderer()->getCachedPseudoStyle(MEDIA_CONTROLS_TIMELINE_CONTAINER);
+        renderer()->setStyle(timelineContainerStyle);
+    }
+}
 
-MediaTextDisplayElement::MediaTextDisplayElement(Document* doc, RenderStyle::PseudoId pseudo, HTMLMediaElement* mediaElement) 
+// ----------------------------
+    
+
+MediaControlElement::MediaControlElement(Document* doc, PseudoId pseudo, HTMLMediaElement* mediaElement) 
     : HTMLDivElement(divTag, doc)
     , m_mediaElement(mediaElement)
+    , m_pseudoStyleId(pseudo)
 {
-    RenderStyle* style = m_mediaElement->renderer()->getCachedPseudoStyle(pseudo);
-    RenderObject* renderer = createRenderer(m_mediaElement->renderer()->renderArena(), style);
-    if (renderer) {
-        setRenderer(renderer);
-        renderer->setStyle(style);
-    }
-    setAttached();
     setInDocument(true);
 }
 
-void MediaTextDisplayElement::attachToParent(Element* parent)
+void MediaControlElement::attachToParent(Element* parent)
 {
     parent->addChild(this);
-    if (renderer())
-        parent->renderer()->addChild(renderer());
 }
 
-void MediaTextDisplayElement::update()
+void MediaControlElement::update()
 {
     if (renderer())
         renderer()->updateFromElement();
+    updateStyle();
 }
 
-MediaTimeDisplayElement::MediaTimeDisplayElement(Document* doc, HTMLMediaElement* element, bool currentTime)
-    : MediaTextDisplayElement(doc, currentTime ? RenderStyle::MEDIA_CONTROLS_CURRENT_TIME_DISPLAY : RenderStyle::MEDIA_CONTROLS_TIME_REMAINING_DISPLAY, element)
+PassRefPtr<RenderStyle> MediaControlElement::styleForElement()
 {
+    RenderStyle* style = m_mediaElement->renderer()->getCachedPseudoStyle(m_pseudoStyleId);
+    if (!style)
+        return 0;
+    
+    // text-decoration can't be overrided from CSS. So we do it here.
+    // See https://bugs.webkit.org/show_bug.cgi?id=27015
+    style->setTextDecoration(TDNONE);
+    style->setTextDecorationsInEffect(TDNONE);
+
+    return style;
+}
+
+bool MediaControlElement::rendererIsNeeded(RenderStyle* style)
+{
+    return HTMLDivElement::rendererIsNeeded(style) && parent() && parent()->renderer();
+}
+    
+void MediaControlElement::attach()
+{
+    RefPtr<RenderStyle> style = styleForElement();
+    if (!style)
+        return;
+    bool needsRenderer = rendererIsNeeded(style.get());
+    if (!needsRenderer)
+        return;
+    RenderObject* renderer = createRenderer(m_mediaElement->renderer()->renderArena(), style.get());
+    if (!renderer)
+        return;
+    renderer->setStyle(style.get());
+    setRenderer(renderer);
+    if (parent() && parent()->renderer()) {
+        // Find next sibling with a renderer to determine where to insert.
+        Node* sibling = nextSibling();
+        while (sibling && !sibling->renderer())
+            sibling = sibling->nextSibling();
+        parent()->renderer()->addChild(renderer, sibling ? sibling->renderer() : 0);
+    }
+    ContainerNode::attach();
+}
+
+void MediaControlElement::updateStyle()
+{
+    if (!m_mediaElement || !m_mediaElement->renderer())
+        return;
+
+    RefPtr<RenderStyle> style = styleForElement();
+    if (!style)
+        return;
+
+    bool needsRenderer = rendererIsNeeded(style.get()) && parent() && parent()->renderer();
+    if (renderer() && !needsRenderer)
+        detach();
+    else if (!renderer() && needsRenderer)
+        attach();
+    else if (renderer()) {
+        renderer()->setStyle(style.get());
+
+        // Make sure that if there is any innerText renderer, it is updated as well.
+        if (firstChild() && firstChild()->renderer())
+            firstChild()->renderer()->setStyle(style.get());
+    }
 }
 
 // ----------------------------
 
-MediaControlInputElement::MediaControlInputElement(Document* doc, RenderStyle::PseudoId pseudo, const String& type, HTMLMediaElement* mediaElement) 
+MediaControlTimelineContainerElement::MediaControlTimelineContainerElement(Document* doc, HTMLMediaElement* element)
+: MediaControlElement(doc, MEDIA_CONTROLS_TIMELINE_CONTAINER, element)
+{
+}
+
+bool MediaControlTimelineContainerElement::rendererIsNeeded(RenderStyle* style)
+{
+    if (!MediaControlElement::rendererIsNeeded(style))
+        return false;
+
+    // This is for MediaControllerThemeClassic:
+    // If there is no style for MediaControlStatusDisplayElement style, don't hide
+    // the timeline.
+    if (!m_mediaElement->renderer()->getCachedPseudoStyle(MEDIA_CONTROLS_STATUS_DISPLAY))
+        return true;
+
+    float duration = m_mediaElement->duration();
+    return !isnan(duration) && !isinf(duration);
+}
+
+    
+// ----------------------------
+
+MediaControlStatusDisplayElement::MediaControlStatusDisplayElement(Document* doc, HTMLMediaElement* element)
+: MediaControlElement(doc, MEDIA_CONTROLS_STATUS_DISPLAY, element)
+, m_stateBeingDisplayed(Nothing)
+{
+}
+
+void MediaControlStatusDisplayElement::update()
+{
+    MediaControlElement::update();
+
+    // Get the new state that we'll have to display.
+    StateBeingDisplayed newStateToDisplay = Nothing;
+
+    if (m_mediaElement->readyState() != HTMLMediaElement::HAVE_ENOUGH_DATA && !m_mediaElement->currentSrc().isEmpty())
+        newStateToDisplay = Loading;
+    else if (m_mediaElement->movieLoadType() == MediaPlayer::LiveStream)
+        newStateToDisplay = LiveBroadcast;
+
+    // Propagate only if needed.
+    if (newStateToDisplay == m_stateBeingDisplayed)
+        return;
+    m_stateBeingDisplayed = newStateToDisplay;
+
+    ExceptionCode e;
+    switch (m_stateBeingDisplayed) {
+    case Nothing:
+        setInnerText("", e);
+        break;
+    case Loading:
+        setInnerText(mediaElementLoadingStateText(), e);
+        break;
+    case LiveBroadcast:
+        setInnerText(mediaElementLiveBroadcastStateText(), e);
+        break;
+    }
+}
+
+bool MediaControlStatusDisplayElement::rendererIsNeeded(RenderStyle* style)
+{
+    if (!MediaControlElement::rendererIsNeeded(style))
+        return false;
+    float duration = m_mediaElement->duration();
+    return (isnan(duration) || isinf(duration));
+}
+
+// ----------------------------
+    
+MediaControlInputElement::MediaControlInputElement(Document* doc, PseudoId pseudo, const String& type, HTMLMediaElement* mediaElement, MediaControlElementType displayType) 
     : HTMLInputElement(inputTag, doc)
     , m_mediaElement(mediaElement)
+    , m_pseudoStyleId(pseudo)
+    , m_displayType(displayType)
 {
     setInputType(type);
-    RenderStyle* style = m_mediaElement->renderer()->getCachedPseudoStyle(pseudo);
-    RenderObject* renderer = createRenderer(m_mediaElement->renderer()->renderArena(), style);
-    if (renderer) {
-        setRenderer(renderer);
-        renderer->setStyle(style);
-    }
-    setAttached();
     setInDocument(true);
 }
 
 void MediaControlInputElement::attachToParent(Element* parent)
 {
     parent->addChild(this);
-    parent->renderer()->addChild(renderer());
 }
 
 void MediaControlInputElement::update()
 {
+    updateDisplayType();
     if (renderer())
         renderer()->updateFromElement();
+    updateStyle();
 }
 
+PassRefPtr<RenderStyle> MediaControlInputElement::styleForElement()
+{
+    return m_mediaElement->renderer()->getCachedPseudoStyle(m_pseudoStyleId);
+}
+
+bool MediaControlInputElement::rendererIsNeeded(RenderStyle* style)
+{
+    return HTMLInputElement::rendererIsNeeded(style) && parent() && parent()->renderer();
+}
+
+void MediaControlInputElement::attach()
+{
+    RefPtr<RenderStyle> style = styleForElement();
+    if (!style)
+        return;
+    
+    bool needsRenderer = rendererIsNeeded(style.get());
+    if (!needsRenderer)
+        return;
+    RenderObject* renderer = createRenderer(m_mediaElement->renderer()->renderArena(), style.get());
+    if (!renderer)
+        return;
+    renderer->setStyle(style.get());
+    setRenderer(renderer);
+    if (parent() && parent()->renderer()) {
+        // Find next sibling with a renderer to determine where to insert.
+        Node* sibling = nextSibling();
+        while (sibling && !sibling->renderer())
+            sibling = sibling->nextSibling();
+        parent()->renderer()->addChild(renderer, sibling ? sibling->renderer() : 0);
+    }  
+    ContainerNode::attach();
+}
+
+void MediaControlInputElement::updateStyle()
+{
+    if (!m_mediaElement || !m_mediaElement->renderer())
+        return;
+    
+    RefPtr<RenderStyle> style = styleForElement();
+    if (!style)
+        return;
+    
+    bool needsRenderer = rendererIsNeeded(style.get()) && parent() && parent()->renderer();
+    if (renderer() && !needsRenderer)
+        detach();
+    else if (!renderer() && needsRenderer)
+        attach();
+    else if (renderer())
+        renderer()->setStyle(style.get());
+}
+    
 bool MediaControlInputElement::hitTest(const IntPoint& absPoint)
 {
     if (renderer() && renderer()->style()->hasAppearance())
-        return theme()->hitTestMediaControlPart(renderer(), absPoint);
+        return renderer()->theme()->hitTestMediaControlPart(renderer(), absPoint);
 
     return false;
+}
+
+void MediaControlInputElement::setDisplayType(MediaControlElementType displayType)
+{
+    if (displayType == m_displayType)
+        return;
+
+    m_displayType = displayType;
+    if (RenderObject* o = renderer())
+        o->repaint();
 }
 
 // ----------------------------
 
 MediaControlMuteButtonElement::MediaControlMuteButtonElement(Document* doc, HTMLMediaElement* element)
-    : MediaControlInputElement(doc, RenderStyle::MEDIA_CONTROLS_MUTE_BUTTON, "button", element)
+    : MediaControlInputElement(doc, MEDIA_CONTROLS_MUTE_BUTTON, "button", element, element->muted() ? MediaUnMuteButton : MediaMuteButton)
 {
 }
 
@@ -155,30 +344,37 @@ void MediaControlMuteButtonElement::defaultEventHandler(Event* event)
     HTMLInputElement::defaultEventHandler(event);
 }
 
+void MediaControlMuteButtonElement::updateDisplayType()
+{
+    setDisplayType(m_mediaElement->muted() ? MediaUnMuteButton : MediaMuteButton);
+}
+
 // ----------------------------
 
 MediaControlPlayButtonElement::MediaControlPlayButtonElement(Document* doc, HTMLMediaElement* element)
-    : MediaControlInputElement(doc, RenderStyle::MEDIA_CONTROLS_PLAY_BUTTON, "button", element)
+    : MediaControlInputElement(doc, MEDIA_CONTROLS_PLAY_BUTTON, "button", element, element->canPlay() ? MediaPlayButton : MediaPauseButton)
 {
 }
 
 void MediaControlPlayButtonElement::defaultEventHandler(Event* event)
 {
     if (event->type() == eventNames().clickEvent) {
-        ExceptionCode ec;
-        if (m_mediaElement->canPlay())
-            m_mediaElement->play(ec);
-        else 
-            m_mediaElement->pause(ec);
+        m_mediaElement->togglePlayState();
         event->setDefaultHandled();
     }
     HTMLInputElement::defaultEventHandler(event);
 }
 
+void MediaControlPlayButtonElement::updateDisplayType()
+{
+    setDisplayType(m_mediaElement->canPlay() ? MediaPlayButton : MediaPauseButton);
+}
+
 // ----------------------------
 
 MediaControlSeekButtonElement::MediaControlSeekButtonElement(Document* doc, HTMLMediaElement* element, bool forward)
-    : MediaControlInputElement(doc, forward ? RenderStyle::MEDIA_CONTROLS_SEEK_FORWARD_BUTTON : RenderStyle::MEDIA_CONTROLS_SEEK_BACK_BUTTON, "button", element)
+    : MediaControlInputElement(doc, forward ? MEDIA_CONTROLS_SEEK_FORWARD_BUTTON : MEDIA_CONTROLS_SEEK_BACK_BUTTON,
+                               "button", element, forward ? MediaSeekForwardButton : MediaSeekBackButton)
     , m_forward(forward)
     , m_seeking(false)
     , m_capturing(false)
@@ -193,8 +389,7 @@ void MediaControlSeekButtonElement::defaultEventHandler(Event* event)
             m_capturing = true;
             frame->eventHandler()->setCapturingMouseEventsNode(this);
         }
-        ExceptionCode ec;
-        m_mediaElement->pause(ec);
+        m_mediaElement->pause();
         m_seekTimer.startRepeating(cSeekRepeatDelay);
         event->setDefaultHandled();
     } else if (event->type() == eventNames().mouseupEvent) {
@@ -225,43 +420,92 @@ void MediaControlSeekButtonElement::seekTimerFired(Timer<MediaControlSeekButtonE
     m_mediaElement->setCurrentTime(m_mediaElement->currentTime() + seekTime, ec);
 }
 
+void MediaControlSeekButtonElement::detach()
+{
+    if (m_capturing) {
+        if (Frame* frame = document()->frame())
+            frame->eventHandler()->setCapturingMouseEventsNode(0);      
+    }
+    MediaControlInputElement::detach();
+}
+
+
 // ----------------------------
 
-MediaControlTimelineElement::MediaControlTimelineElement(Document* doc, HTMLMediaElement* element)
-    : MediaControlInputElement(doc, RenderStyle::MEDIA_CONTROLS_TIMELINE, "range", element)
+MediaControlRewindButtonElement::MediaControlRewindButtonElement(Document* doc, HTMLMediaElement* element)
+: MediaControlInputElement(doc, MEDIA_CONTROLS_REWIND_BUTTON, "button", element, MediaRewindButton)
+{
+}
+
+void MediaControlRewindButtonElement::defaultEventHandler(Event* event)
+{
+    if (event->type() == eventNames().clickEvent) {
+        m_mediaElement->rewind(30);
+        event->setDefaultHandled();
+    }    
+    HTMLInputElement::defaultEventHandler(event);
+}
+
+bool MediaControlRewindButtonElement::rendererIsNeeded(RenderStyle* style)
+{
+    return MediaControlInputElement::rendererIsNeeded(style) && m_mediaElement->movieLoadType() != MediaPlayer::LiveStream;
+}
+
+
+// ----------------------------
+
+MediaControlReturnToRealtimeButtonElement::MediaControlReturnToRealtimeButtonElement(Document* doc, HTMLMediaElement* element)
+: MediaControlInputElement(doc, MEDIA_CONTROLS_RETURN_TO_REALTIME_BUTTON, "button", element, MediaReturnToRealtimeButton)
+{
+}
+
+void MediaControlReturnToRealtimeButtonElement::defaultEventHandler(Event* event)
+{
+    if (event->type() == eventNames().clickEvent) {
+        m_mediaElement->returnToRealtime();
+        event->setDefaultHandled();
+    }
+    HTMLInputElement::defaultEventHandler(event);
+}
+
+bool MediaControlReturnToRealtimeButtonElement::rendererIsNeeded(RenderStyle* style)
+{
+    return MediaControlInputElement::rendererIsNeeded(style) && m_mediaElement->movieLoadType() == MediaPlayer::LiveStream;
+}
+
+// ----------------------------
+
+MediaControlTimelineElement::MediaControlTimelineElement(Document* document, HTMLMediaElement* element)
+    : MediaControlInputElement(document, MEDIA_CONTROLS_TIMELINE, "range", element, MediaTimelineContainer)
 { 
-    setAttribute(precisionAttr, "float");
 }
 
 void MediaControlTimelineElement::defaultEventHandler(Event* event)
 {
-    RenderSlider* slider = static_cast<RenderSlider*>(renderer());
-    bool oldInDragMode = slider && slider->inDragMode();
-    float oldTime = narrowPrecisionToFloat(value().toDouble());
-    bool oldEnded = m_mediaElement->ended();
+    // Left button is 0. Accepts only if mouse event is from left button.
+    if (!event->isMouseEvent() || static_cast<MouseEvent*>(event)->button())
+        return;
 
-    HTMLInputElement::defaultEventHandler(event);
+    if (event->type() == eventNames().mousedownEvent)
+        m_mediaElement->beginScrubbing();
+
+    MediaControlInputElement::defaultEventHandler(event);
+
+    if (event->type() == eventNames().mouseoverEvent || event->type() == eventNames().mouseoutEvent || event->type() == eventNames().mousemoveEvent)
+        return;
 
     float time = narrowPrecisionToFloat(value().toDouble());
-    if (oldTime != time || event->type() == eventNames().inputEvent) {
+    if (time != m_mediaElement->currentTime()) {
         ExceptionCode ec;
         m_mediaElement->setCurrentTime(time, ec);
     }
 
-    // Media element stays in non-paused state when it reaches end. If the slider is now dragged
-    // to some other position the playback resumes which does not match usual media player UIs.
-    // Get the expected behavior by pausing explicitly in this case.
-    if (oldEnded && !m_mediaElement->ended() && !m_mediaElement->paused()) {
-        ExceptionCode ec;
-        m_mediaElement->pause(ec);
-    }
+    RenderSlider* slider = toRenderSlider(renderer());
+    if (slider && slider->inDragMode())
+        toRenderMedia(m_mediaElement->renderer())->updateTimeDisplay();
 
-    // Pause playback during drag, but do it without using DOM API which would generate events 
-    bool inDragMode = slider && slider->inDragMode();
-    if (inDragMode != oldInDragMode)
-        m_mediaElement->setPausedInternal(inDragMode);
-    if (inDragMode)
-        static_cast<RenderMedia*>(m_mediaElement->renderer())->updateTimeDisplay();
+    if (event->type() == eventNames().mouseupEvent)
+        m_mediaElement->endScrubbing();
 }
 
 void MediaControlTimelineElement::update(bool updateDuration) 
@@ -271,12 +515,13 @@ void MediaControlTimelineElement::update(bool updateDuration)
         setAttribute(maxAttr, String::number(isfinite(dur) ? dur : 0));
     }
     setValue(String::number(m_mediaElement->currentTime()));
+    MediaControlInputElement::update();
 }
 
 // ----------------------------
 
 MediaControlFullscreenButtonElement::MediaControlFullscreenButtonElement(Document* doc, HTMLMediaElement* element)
-    : MediaControlInputElement(doc, RenderStyle::MEDIA_CONTROLS_FULLSCREEN_BUTTON, "button", element)
+    : MediaControlInputElement(doc, MEDIA_CONTROLS_FULLSCREEN_BUTTON, "button", element, MediaFullscreenButton)
 {
 }
 
@@ -288,7 +533,45 @@ void MediaControlFullscreenButtonElement::defaultEventHandler(Event* event)
     HTMLInputElement::defaultEventHandler(event);
 }
 
+bool MediaControlFullscreenButtonElement::rendererIsNeeded(RenderStyle* style)
+{
+    return MediaControlInputElement::rendererIsNeeded(style) && m_mediaElement->supportsFullscreen();
+}
+
+
 // ----------------------------
+
+MediaControlTimeDisplayElement::MediaControlTimeDisplayElement(Document* doc, PseudoId pseudo, HTMLMediaElement* element)
+    : MediaControlElement(doc, pseudo, element)
+    , m_isVisible(true)
+{
+}
+
+PassRefPtr<RenderStyle> MediaControlTimeDisplayElement::styleForElement()
+{
+    RefPtr<RenderStyle> style = MediaControlElement::styleForElement();
+    if (!m_isVisible) {
+        style = RenderStyle::clone(style.get());
+        style->setWidth(Length(0, Fixed));
+    }
+    return style;
+}
+
+void MediaControlTimeDisplayElement::setVisible(bool visible)
+{
+    if (visible == m_isVisible)
+        return;
+    m_isVisible = visible;
+
+    // This function is used during the RenderMedia::layout()
+    // call, where we cannot change the renderer at this time.
+    if (!renderer() || !renderer()->style())
+        return;
+
+    RefPtr<RenderStyle> style = styleForElement();
+    renderer()->setStyle(style.get());
+}
+
 
 } //namespace WebCore
 #endif // enable(video)

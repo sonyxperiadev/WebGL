@@ -42,6 +42,7 @@ public:
 
     SkShader*           m_shader;
     SkShader::TileMode  m_tileMode;
+    int                 m_colorCountWhenShaderWasBuilt;
 };
 
 namespace WebCore {
@@ -57,45 +58,54 @@ static U8CPU F2B(float x)
     return (int)(x * 255);
 }
 
-SkShader* Gradient::getShader(SkShader::TileMode mode) {
-    if (NULL == m_gradient) {
+SkShader* Gradient::getShader(SkShader::TileMode mode)
+{
+    if (NULL == m_gradient)
         m_gradient = new PlatformGradientRec;
-    } else if (m_gradient->m_tileMode == mode) {
+    else if (mode == m_gradient->m_tileMode)
         return m_gradient->m_shader;
+
+    // need to ensure that the m_stops array is sorted. We call getColor()
+    // which, as a side effect, does the sort.
+    // TODO: refactor Gradient.h to formally expose a sort method
+    {
+        float r, g, b, a;
+        this->getColor(0, &r, &g, &b, &a);
     }
 
-    SkPoint pts[2];
+    SkPoint pts[2] = { m_p0, m_p1 };    // convert to SkPoint
 
-    android_setpt(&pts[0], m_p0);
-    android_setpt(&pts[1], m_p1);
-    size_t count = m_stops.size();
+    const size_t count = m_stops.size();
     SkAutoMalloc    storage(count * (sizeof(SkColor) + sizeof(SkScalar)));
     SkColor*        colors = (SkColor*)storage.get();
     SkScalar*       pos = (SkScalar*)(colors + count);
 
     Vector<ColorStop>::iterator iter = m_stops.begin();
-    int i = -1;
-    while (i++, iter != m_stops.end()) {
+    for (int i = 0; iter != m_stops.end(); i++) {
         pos[i] = SkFloatToScalar(iter->stop);
         colors[i] = SkColorSetARGB(F2B(iter->alpha), F2B(iter->red),
-            F2B(iter->green), F2B(iter->blue));
+                                   F2B(iter->green), F2B(iter->blue));
         ++iter;
     }
 
     SkShader* s;
-    if (0 == count) {
-        // it seems the spec says a zero-size gradient draws transparent
-        s = new SkColorShader(0);
-    } else if (m_radial) {
-        s = SkGradientShader::CreateRadial(pts[0], SkFloatToScalar(m_r0),
-                                           colors, pos, count, mode);
-    } else {
+    if (m_radial)
+        // FIXME: SVG always passes 0 for m_r0
+        s = SkGradientShader::CreateRadial(pts[0],
+            SkFloatToScalar(m_r0 ? m_r0 : m_r1), colors, pos, count, mode);
+    else
         s = SkGradientShader::CreateLinear(pts, colors, pos, count, mode);
-    }
 
+    if (NULL == s)
+        s = new SkColorShader(0);
+
+    // zap our previous shader, if present
     m_gradient->m_shader->safeUnref();
     m_gradient->m_shader = s;
     m_gradient->m_tileMode = mode;
+    SkMatrix matrix = m_gradientSpaceTransformation;
+    s->setLocalMatrix(matrix);
+
     return s;
 }
 
@@ -109,7 +119,7 @@ void Gradient::fill(GraphicsContext* context, const FloatRect& rect)
 
     paint.setAntiAlias(true);
     paint.setShader(this->getShader(mode));
-    android_gc2canvas(context)->drawRect(*android_setrect(&r, rect), paint);
+    android_gc2canvas(context)->drawRect(rect, paint);
 }
 
 

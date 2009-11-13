@@ -39,6 +39,7 @@
 #include <WebCore/KURL.h>
 #pragma warning(pop)
 
+#include <wtf/PassOwnPtr.h>
 #include <wtf/RetainPtr.h>
 
 using namespace WebCore;
@@ -143,10 +144,10 @@ HRESULT STDMETHODCALLTYPE WebHistoryItem::initFromDictionaryRepresentation(void*
         return E_FAIL;
     bool lastVisitWasHTTPNonGet = lastVisitWasHTTPNonGetRef && CFBooleanGetValue(lastVisitWasHTTPNonGetRef);
 
-    std::auto_ptr<Vector<String> > redirectURLsVector;
+    OwnPtr<Vector<String> > redirectURLsVector;
     if (CFArrayRef redirectURLsRef = static_cast<CFArrayRef>(CFDictionaryGetValue(dictionaryRef, redirectURLsKey))) {
         CFIndex size = CFArrayGetCount(redirectURLsRef);
-        redirectURLsVector.reset(new Vector<String>(size));
+        redirectURLsVector = PassOwnPtr<Vector<String> >(new Vector<String>(size));
         for (CFIndex i = 0; i < size; ++i)
             (*redirectURLsVector)[i] = String(static_cast<CFStringRef>(CFArrayGetValueAtIndex(redirectURLsRef, i)));
     }
@@ -193,8 +194,8 @@ HRESULT STDMETHODCALLTYPE WebHistoryItem::initFromDictionaryRepresentation(void*
     if (lastVisitWasHTTPNonGet && (protocolIs(m_historyItem->urlString(), "http") || protocolIs(m_historyItem->urlString(), "https")))
         m_historyItem->setLastVisitWasHTTPNonGet(true);
 
-    if (redirectURLsVector.get())
-        m_historyItem->setRedirectURLs(redirectURLsVector);
+    if (redirectURLsVector)
+        m_historyItem->setRedirectURLs(redirectURLsVector.release());
 
     if (dailyVector.get())
         m_historyItem->adoptVisitCounts(*dailyVector, *weeklyVector);
@@ -411,21 +412,14 @@ HRESULT STDMETHODCALLTYPE WebHistoryItem::children(unsigned* outChildCount, SAFE
         return E_OUTOFMEMORY;
 
     for (unsigned i = 0; i < childCount; ++i) {
-        WebHistoryItem* item = WebHistoryItem::createInstance(coreChildren[i]);
+        COMPtr<WebHistoryItem> item(AdoptCOM, WebHistoryItem::createInstance(coreChildren[i]));
         if (!item) {
             SafeArrayDestroy(children);
             return E_OUTOFMEMORY;
         }
 
-        COMPtr<IUnknown> unknown;
-        HRESULT hr = item->QueryInterface(IID_IUnknown, (void**)&unknown);
-        if (FAILED(hr)) {
-            SafeArrayDestroy(children);
-            return hr;
-        }
-
         LONG longI = i;
-        hr = SafeArrayPutElement(children, &longI, unknown.get());
+        HRESULT hr = SafeArrayPutElement(children, &longI, item.get());
         if (FAILED(hr)) {
             SafeArrayDestroy(children);
             return hr;
@@ -492,9 +486,9 @@ HRESULT STDMETHODCALLTYPE WebHistoryItem::redirectURLs(IEnumVARIANT** urls)
     return S_OK;
 }
 
-HRESULT STDMETHODCALLTYPE WebHistoryItem::visitedWithTitle(BSTR title)
+HRESULT STDMETHODCALLTYPE WebHistoryItem::visitedWithTitle(BSTR title, BOOL increaseVisitCount)
 {
-    m_historyItem->visited(title, CFAbsoluteTimeGetCurrent());
+    m_historyItem->visited(title, CFAbsoluteTimeGetCurrent(), increaseVisitCount ? IncreaseVisitCount : DoNotIncreaseVisitCount);
     return S_OK;
 }
 

@@ -30,21 +30,21 @@
 
 
 #include "config.h"
-#include "ImageSourceSkia.h"
+#include "ImageSource.h"
 #include "SharedBuffer.h"
 
 #include "GIFImageDecoder.h"
+#include "ICOImageDecoder.h"
 #include "JPEGImageDecoder.h"
 #include "PNGImageDecoder.h"
 #include "BMPImageDecoder.h"
 #include "XBMImageDecoder.h"
-#include "ICOImageDecoder.h"
 
 #include "SkBitmap.h"
 
 namespace WebCore {
 
-ImageDecoder* createDecoder(const Vector<char>& data, const IntSize& preferredIconSize)
+ImageDecoder* createDecoder(const Vector<char>& data)
 {
     // We need at least 4 bytes to figure out what kind of image we're dealing with.
     int length = data.size();
@@ -79,7 +79,7 @@ ImageDecoder* createDecoder(const Vector<char>& data, const IntSize& preferredIc
     // CURs begin with 2-byte 0 followed by 2-byte 2.
     if (!memcmp(contents, "\000\000\001\000", 4) ||
         !memcmp(contents, "\000\000\002\000", 4))
-        return new ICOImageDecoder(preferredIconSize);
+        return new ICOImageDecoder();
    
     // XBMs require 8 bytes of info.
     if (length >= 8 && strncmp(contents, "#define ", 8) == 0)
@@ -100,16 +100,16 @@ ImageSource::~ImageSource()
 
 void ImageSource::clear(bool destroyAll, size_t clearBeforeFrame, SharedBuffer* data, bool allDataReceived)
 {
-    // TODO(darin): Figure out what to do with the |data| and |allDataReceived| params.
-
-    if (destroyAll) {
-        delete m_decoder;
-        m_decoder = 0;
+    if (!destroyAll) {
+        if (m_decoder)
+            m_decoder->clearFrameBufferCache(clearBeforeFrame);
         return;
     }
 
-    if (m_decoder)
-        m_decoder->clearFrameBufferCache(clearBeforeFrame);
+    delete m_decoder;
+    m_decoder = 0;
+    if (data)
+        setData(data, allDataReceived);
 }
 
 bool ImageSource::initialized() const
@@ -124,7 +124,7 @@ void ImageSource::setData(SharedBuffer* data, bool allDataReceived)
     // If insufficient bytes are available to determine the image type, no decoder plugin will be
     // made.
     if (!m_decoder)
-        m_decoder = createDecoder(data->buffer(), IntSize());
+        m_decoder = createDecoder(data->buffer());
 
     // CreateDecoder will return NULL if the decoder could not be created. Plus,
     // we should not send more data to a decoder which has already decided it
@@ -150,10 +150,12 @@ IntSize ImageSource::size() const
     return m_decoder->size();
 }
 
-IntSize ImageSource::frameSizeAtIndex(size_t) const
+IntSize ImageSource::frameSizeAtIndex(size_t index) const
 {
-    // TODO(brettw) do we need anything here?
-    return size();
+    if (!m_decoder)
+        return IntSize();
+
+    return m_decoder->frameSizeAtIndex(index);
 }
 
 int ImageSource::repetitionCount()
@@ -185,9 +187,8 @@ NativeImagePtr ImageSource::createFrameAtIndex(size_t index)
         return 0;
 
     // Copy the bitmap.  The pixel data is refcounted internally by SkBitmap, so
-    // this doesn't cost much.  This pointer will be owned by the BitmapImage
-    // and freed in FrameData::clear().
-    return new NativeImageSkia(buffer->bitmap());
+    // this doesn't cost much.  
+    return buffer->asNewNativeImage();
 }
 
 bool ImageSource::frameIsCompleteAtIndex(size_t index)
@@ -227,16 +228,6 @@ bool ImageSource::frameHasAlphaAtIndex(size_t index)
         return false;
 
     return buffer->hasAlpha();
-}
-
-void ImageSourceSkia::setData(SharedBuffer* data,
-                              bool allDataReceived,
-                              const IntSize& preferredIconSize)
-{
-    if (!m_decoder)
-        m_decoder = createDecoder(data->buffer(), preferredIconSize);
-
-    ImageSource::setData(data, allDataReceived);
 }
 
 String ImageSource::filenameExtension() const

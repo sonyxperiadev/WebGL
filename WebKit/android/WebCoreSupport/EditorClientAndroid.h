@@ -35,7 +35,10 @@ namespace android {
 
 class EditorClientAndroid : public EditorClient {
 public:
-    EditorClientAndroid() { m_notFromClick = true; }
+    EditorClientAndroid() {
+        m_shouldChangeSelectedRange = true;
+        m_uiGeneratedSelectionChange = false;
+    }
     virtual void pageDestroyed();
     
     virtual bool shouldDeleteRange(Range*);
@@ -94,20 +97,23 @@ public:
     virtual void ignoreWordInSpellDocument(const String&);
     virtual void learnWord(const String&);
     virtual void checkSpellingOfString(const UChar*, int length, int* misspellingLocation, int* misspellingLength);
-    virtual void checkGrammarOfString(const UChar*, int length, Vector<GrammarDetail>&, int* badGrammarLocation, int* badGrammarLength);
+    virtual String getAutoCorrectSuggestionForMisspelledWord(const String& misspelledWorld);
+    virtual void checkGrammarOfString(const UChar*, int length, WTF::Vector<GrammarDetail>&, int* badGrammarLocation, int* badGrammarLength);
     virtual void updateSpellingUIWithGrammarString(const String&, const GrammarDetail& detail);
     virtual void updateSpellingUIWithMisspelledWord(const String&);
     virtual void showSpellingUI(bool show);
     virtual bool spellingUIIsShowing();
-    virtual void getGuessesForWord(const String&, Vector<String>& guesses);
+    virtual void getGuessesForWord(const String&, WTF::Vector<String>& guesses);
     virtual void setInputMethodState(bool);
 
     // Android specific:
     void setPage(Page* page) { m_page = page; }
-    void setFromClick(bool fromClick) { m_notFromClick = !fromClick; }
+    void setShouldChangeSelectedRange(bool shouldChangeSelectedRange) { m_shouldChangeSelectedRange = shouldChangeSelectedRange; }
+    void setUiGeneratedSelectionChange(bool uiGenerated) { m_uiGeneratedSelectionChange = uiGenerated; }
 private:
     Page* m_page;
-    bool  m_notFromClick;
+    bool  m_shouldChangeSelectedRange;
+    bool  m_uiGeneratedSelectionChange;
 };
 
 }

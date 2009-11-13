@@ -37,6 +37,9 @@
 
 #include <wx/defs.h>
 #include <wx/bitmap.h>
+#if USE(WXGC)
+#include <wx/graphics.h>
+#endif
 #include <wx/image.h>
 #include <wx/rawbmp.h>
 
@@ -107,6 +110,8 @@ void ImageSource::setData(SharedBuffer* data, bool allDataReceived)
     // This method will examine the data and instantiate an instance of the appropriate decoder plugin.
     // If insufficient bytes are available to determine the image type, no decoder plugin will be
     // made.
+    if (m_decoder)
+        delete m_decoder;
     m_decoder = createDecoder(*data);
     if (!m_decoder)
         return;
@@ -129,9 +134,12 @@ IntSize ImageSource::size() const
     return m_decoder->size();
 }
 
-IntSize ImageSource::frameSizeAtIndex(size_t) const
+IntSize ImageSource::frameSizeAtIndex(size_t index) const
 {
-    return size();
+    if (!m_decoder)
+        return IntSize();
+
+    return m_decoder->frameSizeAtIndex(index);
 }
 
 int ImageSource::repetitionCount()
@@ -170,7 +178,7 @@ void ImageSource::clear(bool destroyAll, size_t clearBeforeFrame, SharedBuffer* 
     delete m_decoder;
     m_decoder = 0;
     if (data)
-      setData(data, allDataReceived);
+        setData(data, allDataReceived);
 }
 
 NativeImagePtr ImageSource::createFrameAtIndex(size_t index)
@@ -182,49 +190,7 @@ NativeImagePtr ImageSource::createFrameAtIndex(size_t index)
     if (!buffer || buffer->status() == RGBA32Buffer::FrameEmpty)
         return 0;
     
-    IntRect imageRect = buffer->rect();
-    unsigned char* bytes = (unsigned char*)buffer->bytes().data();
-    long colorSize = buffer->bytes().size();
-    
-    typedef wxPixelData<wxBitmap, wxAlphaPixelFormat> PixelData;
-
-    int width = size().width();
-    int height = size().height();
-
-    wxBitmap* bmp = new wxBitmap(width, height, 32);
-    PixelData data(*bmp);
-    
-    int rowCounter = 0;
-    long pixelCounter = 0;
-    
-    PixelData::Iterator p(data);
-    
-    PixelData::Iterator rowStart = p; 
-    
-    // NB: It appears that the data is in BGRA format instead of RGBA format.
-    // This code works properly on both ppc and intel, meaning the issue is
-    // likely not an issue of byte order getting mixed up on different archs. 
-    for (long i = 0; i < buffer->bytes().size()*4; i+=4) {
-        p.Red() = bytes[i+2];
-        p.Green() = bytes[i+1];
-        p.Blue() = bytes[i+0];
-        p.Alpha() = bytes[i+3];
-        
-        p++;
-
-        pixelCounter++;
-        if ( (pixelCounter % width ) == 0 ) {
-            rowCounter++;
-            p = rowStart;
-            p.MoveTo(data, 0, rowCounter);
-        }
-
-    }
-#if !wxCHECK_VERSION(2,9,0)
-    bmp->UseAlpha();
-#endif
-    ASSERT(bmp->IsOk());
-    return bmp;
+    return buffer->asNewNativeImage();
 }
 
 float ImageSource::frameDurationAtIndex(size_t index)

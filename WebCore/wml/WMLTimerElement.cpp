@@ -24,6 +24,7 @@
 #include "WMLTimerElement.h"
 
 #include "HTMLNames.h"
+#include "MappedAttribute.h"
 #include "WMLCardElement.h"
 #include "WMLDocument.h"
 #include "WMLNames.h"
@@ -45,8 +46,6 @@ void WMLTimerElement::parseMappedAttribute(MappedAttribute* attr)
 {
     if (attr->name() == HTMLNames::nameAttr)
         m_name = parseValueForbiddingVariableReferences(attr->value());
-    else if (attr->name() == HTMLNames::valueAttr)
-        m_value = parseValueSubstitutingVariableReferences(attr->value());
     else
         WMLElement::parseMappedAttribute(attr);
 }
@@ -56,12 +55,10 @@ void WMLTimerElement::insertedIntoDocument()
     WMLElement::insertedIntoDocument();
 
     // If the value of timeout is not a positive integer, ignore it
-    if (m_value.toInt() <= 0)
+    if (value().toInt() <= 0)
         return;
 
     Node* parent = parentNode();
-    ASSERT(parent);
-
     if (!parent || !parent->isWMLElement())
         return;
 
@@ -69,6 +66,17 @@ void WMLTimerElement::insertedIntoDocument()
         m_card = static_cast<WMLCardElement*>(parent);
         m_card->setIntrinsicEventTimer(this);
     }
+}
+
+void WMLTimerElement::removedFromDocument()
+{
+    Node* parent = parentNode();
+    if (parent && parent->isWMLElement() && parent->hasTagName(cardTag)) {
+        m_card->setIntrinsicEventTimer(0);
+        m_card = 0;
+    }
+
+    WMLElement::removedFromDocument();
 }
 
 void WMLTimerElement::timerFired(Timer<WMLTimerElement>*)
@@ -80,10 +88,12 @@ void WMLTimerElement::timerFired(Timer<WMLTimerElement>*)
     if (!pageState)
         return;
 
+    String value = this->value();
+
     // When the timer expires, set the name varialbe of timer to '0'
     if (!m_name.isEmpty()) {
-        m_value = "0";
-        pageState->storeVariable(m_name, m_value);
+        value = "0";
+        pageState->storeVariable(m_name, value);
     }
 
     WMLIntrinsicEventType eventType = WMLIntrinsicEventOnTimer;
@@ -113,7 +123,7 @@ void WMLTimerElement::start(int interval)
     }
 
     if (interval <= 0)
-        interval = m_value.toInt();
+        interval = value().toInt();
 
     if (interval > 0)
         m_timer.startOneShot(interval / 10.0f);
@@ -134,6 +144,11 @@ void WMLTimerElement::storeIntervalToPageState()
 
     if (WMLPageState* pageState = wmlPageStateForDocument(document()))
         pageState->storeVariable(m_name, String::number(interval));
+}
+
+String WMLTimerElement::value() const
+{
+    return parseValueSubstitutingVariableReferences(getAttribute(HTMLNames::valueAttr));
 }
 
 }

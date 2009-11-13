@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2006 Michael Emmel mike.emmel@gmail.com
- * Copyright (C) 2007 Holger Hans Peter Freyther
+ * Copyright (C) 2007, 2009 Holger Hans Peter Freyther
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -33,7 +33,6 @@
 #include "GraphicsContext.h"
 #include "HostWindow.h"
 #include "IntRect.h"
-#include "NotImplemented.h"
 #include "RenderObject.h"
 
 #include <gdk/gdk.h>
@@ -41,33 +40,22 @@
 
 namespace WebCore {
 
-class WidgetPrivate {
-public:
-    GdkCursor* cursor;
-};
+static GdkCursor* lastSetCursor;
 
 Widget::Widget(PlatformWidget widget)
-    : m_data(new WidgetPrivate)
 {
     init(widget);
-    m_data->cursor = 0;
 }
 
 Widget::~Widget()
 {
     ASSERT(!parent());
     releasePlatformWidget();
-    delete m_data;
 }
 
 void Widget::setFocus()
 {
     gtk_widget_grab_focus(platformWidget() ? platformWidget() : GTK_WIDGET(root()->hostWindow()->platformWindow()));
-}
-
-Cursor Widget::cursor()
-{
-    return Cursor(m_data->cursor);
 }
 
 static GdkDrawable* gdkDrawable(PlatformWidget widget)
@@ -77,7 +65,7 @@ static GdkDrawable* gdkDrawable(PlatformWidget widget)
     
 void Widget::setCursor(const Cursor& cursor)
 {
-    GdkCursor* pcur = cursor.impl();
+    GdkCursor* platformCursor = cursor.impl();
 
     // http://bugs.webkit.org/show_bug.cgi?id=16388
     // [GTK] Widget::setCursor() gets called frequently
@@ -85,11 +73,11 @@ void Widget::setCursor(const Cursor& cursor)
     // gdk_window_set_cursor() in certain GDK backends seems to be an
     // expensive operation, so avoid it if possible.
 
-    if (pcur == m_data->cursor)
+    if (platformCursor == lastSetCursor)
         return;
 
-    gdk_window_set_cursor(gdkDrawable(platformWidget()) ? GDK_WINDOW(gdkDrawable(platformWidget())) : GTK_WIDGET(root()->hostWindow()->platformWindow())->window, pcur);
-    m_data->cursor = pcur;
+    gdk_window_set_cursor(gdkDrawable(platformWidget()) ? GDK_WINDOW(gdkDrawable(platformWidget())) : GTK_WIDGET(root()->hostWindow()->platformWindow())->window, platformCursor);
+    lastSetCursor = platformCursor;
 }
 
 void Widget::show()
@@ -106,46 +94,23 @@ void Widget::hide()
     gtk_widget_hide(platformWidget());
 }
 
-/*
- * Strategy to painting a Widget:
- *  1.) do not paint if there is no GtkWidget set
- *  2.) We assume that GTK_NO_WINDOW is set and that frameRectsChanged positioned
- *      the widget correctly. ATM we do not honor the GraphicsContext translation.
- */
-void Widget::paint(GraphicsContext* context, const IntRect&)
+void Widget::paint(GraphicsContext* context, const IntRect& rect)
+{
+}
+
+void Widget::setIsSelected(bool isSelected)
 {
     if (!platformWidget())
         return;
 
-    if (!context->gdkExposeEvent())
+    // See if the platformWidget has a webkit-widget-is-selected property
+    // and set it afterwards.
+    GParamSpec* spec = g_object_class_find_property(G_OBJECT_GET_CLASS(platformWidget()),
+                                                    "webkit-widget-is-selected");
+    if (!spec)
         return;
 
-    GtkWidget* widget = platformWidget();
-    ASSERT(GTK_WIDGET_NO_WINDOW(widget));
-
-    GdkEvent* event = gdk_event_new(GDK_EXPOSE);
-    event->expose = *context->gdkExposeEvent();
-    event->expose.region = gtk_widget_region_intersect(widget, event->expose.region);
-
-    /*
-     * This will be unref'ed by gdk_event_free.
-     */
-    g_object_ref(event->expose.window);
-
-    /*
-     * If we are going to paint do the translation and GtkAllocation manipulation.
-     */
-    if (!gdk_region_empty(event->expose.region)) {
-        gdk_region_get_clipbox(event->expose.region, &event->expose.area);
-        gtk_widget_send_expose(widget, event);
-    }
-
-    gdk_event_free(event);
-}
-
-void Widget::setIsSelected(bool)
-{
-    notImplemented();
+    g_object_set(platformWidget(), "webkit-widget-is-selected", isSelected, NULL);
 }
 
 IntRect Widget::frameRect() const
@@ -169,12 +134,7 @@ void Widget::retainPlatformWidget()
 {
     if (!platformWidget())
          return;
-#if GLIB_CHECK_VERSION(2,10,0)
     g_object_ref_sink(platformWidget());
-#else
-    g_object_ref(platformWidget());
-    gtk_object_sink(GTK_OBJECT(platformWidget()));
-#endif
 }
 
 }

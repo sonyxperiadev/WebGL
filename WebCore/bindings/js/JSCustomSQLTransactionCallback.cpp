@@ -29,10 +29,9 @@
 #include "config.h"
 #include "JSCustomSQLTransactionCallback.h"
 
-#include "CString.h"
-#include "DOMWindow.h"
+#if ENABLE(DATABASE)
+
 #include "Frame.h"
-#include "Logging.h"
 #include "ScriptController.h"
 #include "JSSQLTransaction.h"
 #include "Page.h"
@@ -95,13 +94,14 @@ void JSCustomSQLTransactionCallback::handleEvent(SQLTransaction* transaction, bo
 
     if (!m_data->frame()->script()->isEnabled())
         return;
-        
+
+    // FIXME: This is likely the wrong globalObject (for prototype chains at least)
     JSGlobalObject* globalObject = m_data->frame()->script()->globalObject();
     ExecState* exec = globalObject->globalExec();
         
-    JSC::JSLock lock(false);
+    JSC::JSLock lock(SilenceAssertionsOnly);
         
-    JSValuePtr handleEventFunction = m_data->callback()->get(exec, Identifier(exec, "handleEvent"));
+    JSValue handleEventFunction = m_data->callback()->get(exec, Identifier(exec, "handleEvent"));
     CallData handleEventCallData;
     CallType handleEventCallType = handleEventFunction.getCallData(handleEventCallData);
     CallData callbackCallData;
@@ -117,15 +117,15 @@ void JSCustomSQLTransactionCallback::handleEvent(SQLTransaction* transaction, bo
         
     RefPtr<JSCustomSQLTransactionCallback> protect(this);
         
-    ArgList args;
-    args.append(toJS(exec, transaction));
+    MarkedArgumentBuffer args;
+    args.append(toJS(exec, deprecatedGlobalObjectForPrototype(exec), transaction));
 
-    globalObject->startTimeoutCheck();
+    globalObject->globalData()->timeoutChecker.start();
     if (handleEventCallType != CallTypeNone)
         call(exec, handleEventFunction, handleEventCallType, handleEventCallData, m_data->callback(), args);
     else
         call(exec, m_data->callback(), callbackCallType, callbackCallData, m_data->callback(), args);
-    globalObject->stopTimeoutCheck();
+    globalObject->globalData()->timeoutChecker.stop();
         
     if (exec->hadException()) {
         reportCurrentException(exec);
@@ -133,7 +133,9 @@ void JSCustomSQLTransactionCallback::handleEvent(SQLTransaction* transaction, bo
         raisedException = true;
     }
         
-    Document::updateDocumentsRendering();
+    Document::updateStyleForAllDocuments();
 }
     
 }
+
+#endif // ENABLE(DATABASE)

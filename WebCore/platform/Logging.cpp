@@ -25,6 +25,7 @@
 
 #include "config.h"
 #include "Logging.h"
+#include "PlatformString.h"
 
 namespace WebCore {
 
@@ -56,7 +57,75 @@ WTFLogChannel LogStorageAPI =        { 0x00800000, "WebCoreLogLevel", WTFLogChan
 
 WTFLogChannel LogMedia =             { 0x01000000, "WebCoreLogLevel", WTFLogChannelOff };
 
-WTFLogChannel LogPlugin =            { 0x02000000, "WebCoreLogLevel", WTFLogChannelOff };
+WTFLogChannel LogPlugins =           { 0x02000000, "WebCoreLogLevel", WTFLogChannelOff };
 WTFLogChannel LogArchives =          { 0x04000000, "WebCoreLogLevel", WTFLogChannelOff };
+
+WTFLogChannel* getChannelFromName(const String& channelName)
+{
+    if (!(channelName.length() >= 2))
+        return 0;
+
+    if (equalIgnoringCase(channelName, String("BackForward")))
+        return &LogBackForward;
+
+    if (equalIgnoringCase(channelName, String("Editing")))
+        return &LogEditing;
+
+    if (equalIgnoringCase(channelName, String("Events")))
+        return &LogEvents;
+
+    if (equalIgnoringCase(channelName, String("Frames")))
+        return &LogFrames;
+
+    if (equalIgnoringCase(channelName, String("FTP")))
+        return &LogFTP;
+
+    if (equalIgnoringCase(channelName, String("History")))
+        return &LogHistory;
+
+    if (equalIgnoringCase(channelName, String("IconDatabase")))
+        return &LogIconDatabase;
+
+    if (equalIgnoringCase(channelName, String("Loading")))
+        return &LogLoading;
+
+    if (equalIgnoringCase(channelName, String("Media")))
+        return &LogMedia;
+
+    if (equalIgnoringCase(channelName, String("Network")))
+        return &LogNetwork;
+
+    if (equalIgnoringCase(channelName, String("NotYetImplemented")))
+        return &LogNotYetImplemented;
+
+    if (equalIgnoringCase(channelName, String("PageCache")))
+        return &LogPageCache;
+
+    if (equalIgnoringCase(channelName, String("PlatformLeaks")))
+        return &LogPlatformLeaks;
+
+    if (equalIgnoringCase(channelName, String("Plugins")))
+        return &LogPlugins;
+
+    if (equalIgnoringCase(channelName, String("PopupBlocking")))
+        return &LogPopupBlocking;
+
+    if (equalIgnoringCase(channelName, String("SpellingAndGrammar")))
+        return &LogSpellingAndGrammar;
+
+    if (equalIgnoringCase(channelName, String("SQLDatabase")))
+        return &LogSQLDatabase;
+
+    if (equalIgnoringCase(channelName, String("StorageAPI")))
+        return &LogStorageAPI;
+
+    if (equalIgnoringCase(channelName, String("TextConversion")))
+        return &LogTextConversion;
+
+    if (equalIgnoringCase(channelName, String("Threading")))
+        return &LogThreading;
+
+    return 0;
+}
 
 }

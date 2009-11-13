@@ -27,7 +27,7 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 # THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-# Script to run the Web Kit Open Source Project JavaScriptCore tests (adapted from Mozilla).
+# Script to run the WebKit Open Source Project JavaScriptCore tests (adapted from Mozilla).
 
 use strict;
 use FindBin;
@@ -36,83 +36,72 @@ use lib $FindBin::Bin;
 use webkitdirs;
 use POSIX;
 
-my $coverageSupport = 0;
-GetOptions('coverage!' => \$coverageSupport);
-
-my @coverageSupportOption = ();
-if ($coverageSupport) {
-    push @coverageSupportOption, "GCC_GENERATE_TEST_COVERAGE_FILES=YES";
-    push @coverageSupportOption, "GCC_INSTRUMENT_PROGRAM_FLOW_ARCS=YES";
-    push @coverageSupportOption, "EXTRA_LINK= -ftest-coverage -fprofile-arcs";
-    push @coverageSupportOption, "OTHER_CFLAGS= -MD";
-    push @coverageSupportOption, "OTHER_LDFLAGS= -ftest-coverage -fprofile-arcs -framework AppKit";
-}
-
 # determine configuration
-my $configuration;
 setConfiguration();
-$configuration = configuration();
+my $configuration = configuration();
 
-my @jsArgs;
-my @xcodeArgs;
-my $root;
-my $run64Bit;
+my @testsToSkip = (
+    # Various ecma/Date tests sometimes fail on Windows (but not Mac) https://bugs.webkit.org/show_bug.cgi?id=25160
+    "ecma/Date/15.9.2.1.js",
+    "ecma/Date/15.9.2.2-1.js",
+    "ecma/Date/15.9.2.2-2.js",
+    "ecma/Date/15.9.2.2-3.js",
+    "ecma/Date/15.9.2.2-4.js",
+    "ecma/Date/15.9.2.2-5.js",
+    "ecma/Date/15.9.2.2-6.js",
+    # ecma_3/Date/15.9.5.7.js fails on Mac (but not Windows) https://bugs.webkit.org/show_bug.cgi?id=25161
+    "ecma_3/Date/15.9.5.7.js",
+);
 
-# pre-evaluate arguments.  jsDriver args have - preceding, xcode args do not.
-# special arguments
-#     --root=<path to webkit root> use pre-built root
-#     --gtk build gtk 
-#     --no-64-bit or --64-bit
-foreach my $arg(@ARGV) {
-    print $arg."\n";
-    if( $arg =~ /root=(.*)/ ){
-        $root = $1;
-    } elsif( $arg =~ /^--gtk$/i || $arg =~ /^--qt$/i || $arg =~ /^--wx$/i ){
-    } elsif( $arg =~ /(no-)?64-bit/ ) {
-        $run64Bit = !defined($1);
-    } elsif( $arg =~ /^-/ or !($arg =~/=/)){
-        push( @jsArgs, $arg );
-    } else {
-        push( @xcodeArgs, $arg );
-    }
+my $jsDriverArgs = "-L " . join(" ", @testsToSkip);
+my $root; # intentionally left undefined
+my $skipBuild = 0;
+my $showHelp = 0;
+
+my $programName = basename($0);
+my $usage = <<EOF;
+Usage: $programName [options] [options to pass to build system]
+  --help                        Show this help message
+  --jsDriver-args=              A string of arguments to pass to jsDriver.pl
+  --root=                       Path to pre-built root containing jsc
+EOF
+
+GetOptions(
+    'j|jsDriver-args=s' => \$jsDriverArgs,
+    'root=s' => \$root,
+    'skip-build' => \$skipBuild,
+    'help' => \$showHelp
+);
+
+# Assume any arguments left over from GetOptions are assumed to be build arguments
+my @buildArgs = @ARGV;
+
+# Arguments passed to --jsDriver-args (if any) are passed to jsDriver.pl
+my @jsArgs = split(" ", $jsDriverArgs);
+
+if ($showHelp) {
+   print STDERR $usage;
+   exit 1;
 }
 
 setConfigurationProductDir(Cwd::abs_path($root)) if (defined($root));
 
-if (isOSX() && !isTiger()) {
-    my $preferredArch = preferredArchitecture("JavaScriptCore");
-    setRun64Bit($run64Bit);
-    my $arch = preferredArchitecture("JavaScriptCore");
-    if ($arch ne $preferredArch) {
-        push(@jsArgs, "-a", $arch);
-    }
-}
-
-if(!defined($root)){
+if (!defined($root) && !$skipBuild) {
     chdirWebKit();
-    push(@xcodeArgs, "--" . $configuration);
-    
-    # FIXME: These should be stored per-config and ignored here
-    push(@xcodeArgs, "--qt")  if isQt();
-    push(@xcodeArgs, "--gtk")  if isGtk();
-    push(@xcodeArgs, "--wx")  if isWx();
 
-    my $arch = preferredArchitecture("JavaScriptCore");
-    push(@xcodeArgs, "ARCHS=$arch") if (isOSX());
+    push(@buildArgs, argumentsForConfiguration());
     
-    my $buildResult = system "perl", "WebKitTools/Scripts/build-jsc", @xcodeArgs;
+    print "Running: build-jsc " . join(" ", @buildArgs) . "\n";
+    my $buildResult = system "perl", "WebKitTools/Scripts/build-jsc", @buildArgs;
     if ($buildResult) {
         print STDERR "Compiling jsc failed!\n";
         exit exitStatus($buildResult);
     }
 }
 
-# Find JavaScriptCore directory
-chdirWebKit();
-chdir("JavaScriptCore");
 
 my $productDir = productDir();
-chdir "tests/mozilla" or die;
+
 $productDir .= "/JavaScriptCore" if isQt();
 $productDir .= "/Programs" if isGtk();
 $ENV{DYLD_FRAMEWORK_PATH} = $productDir;
@@ -126,6 +115,27 @@ sub jscPath($)
     return "$productDir/$jscName";
 }
 
+sub testapiPath($)
+{
+    my ($productDir) = @_;
+    my $jscName = "testapi";
+    $jscName .= "_debug"  if (isCygwin() && ($configuration eq "Debug"));
+    return "$productDir/$jscName";
+}
+
+#run api tests
+if (isAppleMacWebKit()) {
+    chdirWebKit();
+    chdir($productDir) or die;
+    my $testapiResult = system testapiPath($productDir);
+    exit exitStatus($testapiResult)  if $testapiResult;
+}
+
+# Find JavaScriptCore directory
+chdirWebKit();
+chdir("JavaScriptCore");
+chdir "tests/mozilla" or die;
+printf "Running: jsDriver.pl -e squirrelfish -s %s -f actual.html %s\n", jscPath($productDir), join(" ", @jsArgs);
 my $result = system "perl", "jsDriver.pl", "-e", "squirrelfish", "-s", jscPath($productDir), "-f", "actual.html", @jsArgs;
 exit exitStatus($result)  if $result;
 

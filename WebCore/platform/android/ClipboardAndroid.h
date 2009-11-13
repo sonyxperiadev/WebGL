@@ -47,6 +47,7 @@ namespace WebCore {
     
         // extensions beyond IE's API
         HashSet<String> types() const;
+        PassRefPtr<FileList> files() const;
     
         void setDragImage(CachedImage*, const IntPoint&);
         void setDragImageElement(Node*, const IntPoint&);

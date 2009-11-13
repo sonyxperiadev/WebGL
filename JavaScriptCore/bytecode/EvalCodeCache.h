@@ -41,7 +41,7 @@ namespace JSC {
 
     class EvalCodeCache {
     public:
-        PassRefPtr<EvalNode> get(ExecState* exec, const UString& evalSource, ScopeChainNode* scopeChain, JSValuePtr& exceptionValue)
+        PassRefPtr<EvalNode> get(ExecState* exec, const UString& evalSource, ScopeChainNode* scopeChain, JSValue& exceptionValue)
         {
             RefPtr<EvalNode> evalNode;
 
@@ -68,11 +68,11 @@ namespace JSC {
 
         bool isEmpty() const { return m_cacheMap.isEmpty(); }
 
-        void mark()
+        void markAggregate(MarkStack& markStack)
         {
             EvalCacheMap::iterator end = m_cacheMap.end();
             for (EvalCacheMap::iterator ptr = m_cacheMap.begin(); ptr != end; ++ptr)
-                ptr->second->mark();
+                ptr->second->markAggregate(markStack);
         }
     private:
         static const int maxCacheableSourceLength = 256;

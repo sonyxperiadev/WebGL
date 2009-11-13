@@ -263,7 +263,7 @@ bool PictureSet::draw(SkCanvas* canvas)
             SkPath pathClip;
             area.getBoundaryPath(&pathClip);
             canvas->clipPath(pathClip);
-            pathClip.computeBounds(&pathBounds, SkPath::kFast_BoundsType);
+            pathBounds = pathClip.getBounds();
         } else {
             pathBounds.set(area.getBounds());
             canvas->clipRect(pathBounds);

@@ -52,6 +52,8 @@ namespace WebKit {
 
         virtual WebCore::String localizedStringsURL();
 
+        virtual WebCore::String hiddenPanels();
+
         virtual void showWindow();
         virtual void closeWindow();
 
@@ -67,6 +69,8 @@ namespace WebKit {
         virtual void populateSetting(const WebCore::String& key, WebCore::InspectorController::Setting&);
         virtual void storeSetting(const WebCore::String& key, const WebCore::InspectorController::Setting&);
         virtual void removeSetting(const WebCore::String& key);
+
+        virtual void inspectorWindowObjectCleared();
 
     private:
         WebKitWebView* m_webView;

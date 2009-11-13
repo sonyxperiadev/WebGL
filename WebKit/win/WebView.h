@@ -296,6 +296,8 @@ public:
     virtual HRESULT STDMETHODCALLTYPE registerURLSchemeAsLocal( 
         /* [in] */ BSTR scheme);
 
+    virtual HRESULT STDMETHODCALLTYPE close();
+
     // IWebIBActions
 
     virtual HRESULT STDMETHODCALLTYPE takeStringURLFrom( 
@@ -724,6 +726,12 @@ public:
     virtual HRESULT STDMETHODCALLTYPE setMemoryCacheDelegateCallsEnabled( 
         /* [in] */ BOOL enabled);
 
+    virtual HRESULT STDMETHODCALLTYPE setJavaScriptURLsAreAllowed(
+        /* [in] */ BOOL areAllowed);
+
+    virtual HRESULT STDMETHODCALLTYPE setCanStartPlugins(
+        /* [in] */ BOOL canStartPlugins);
+
     // WebView
     bool shouldUseEmbeddedView(const WebCore::String& mimeType) const;
 
@@ -736,7 +744,9 @@ public:
     bool onInitMenuPopup(WPARAM, LPARAM);
     bool onUninitMenuPopup(WPARAM, LPARAM);
     void performContextMenuAction(WPARAM, LPARAM, bool byPosition);
-    bool mouseWheel(WPARAM, LPARAM, bool isHorizontal);
+    bool mouseWheel(WPARAM, LPARAM, bool isMouseHWheel);
+    bool gesture(WPARAM, LPARAM);
+    bool gestureNotify(WPARAM, LPARAM);
     bool execCommand(WPARAM wParam, LPARAM lParam);
     bool keyDown(WPARAM, LPARAM, bool systemKeyDown = false);
     bool keyUp(WPARAM, LPARAM, bool systemKeyDown = false);
@@ -753,7 +763,6 @@ public:
     void frameRect(RECT* rect);
     void closeWindow();
     void closeWindowSoon();
-    void close();
     bool didClose() const { return m_didClose; }
 
     bool transparent() const { return m_transparent; }
@@ -812,6 +821,8 @@ public:
 
     bool onGetObject(WPARAM, LPARAM, LRESULT&) const;
     static STDMETHODIMP AccessibleObjectFromWindow(HWND, DWORD objectID, REFIID, void** ppObject);
+
+    void downloadURL(const WebCore::KURL&);
 
 private:
     void setZoomMultiplier(float multiplier, bool isTextOnly);
@@ -905,6 +916,12 @@ protected:
     HWND m_topLevelParent;
 
     OwnPtr<HashSet<WebCore::String> > m_embeddedViewMIMETypes;
+
+    //Variables needed to store gesture information
+    long m_lastPanX;
+    long m_lastPanY;
+    long m_xOverpan;
+    long m_yOverpan;
 };
 
 #endif

@@ -35,6 +35,7 @@
 #define ENABLE_NETSCAPE_PLUGIN_API 1
 #endif
 
+@class DOMDocumentFragment;
 @class DOMNode;
 @class WebIconFetcher;
 @class WebScriptObject;
@@ -43,6 +44,14 @@
 extern NSString *WebPageCacheEntryDateKey;
 extern NSString *WebPageCacheDataSourceKey;
 extern NSString *WebPageCacheDocumentViewKey;
+
+extern NSString *WebFrameMainDocumentError;
+extern NSString *WebFrameHasPlugins;
+extern NSString *WebFrameHasUnloadListener;
+extern NSString *WebFrameUsesDatabases;
+extern NSString *WebFrameUsesGeolocation;
+extern NSString *WebFrameUsesApplicationCache;
+extern NSString *WebFrameCanSuspendActiveDOMObjects;
 
 typedef enum {
     WebFrameLoadTypeStandard,
@@ -54,7 +63,8 @@ typedef enum {
     WebFrameLoadTypeSame,               // user loads same URL again (but not reload button)
     WebFrameLoadTypeInternal,           // maps to WebCore::FrameLoadTypeRedirectWithLockedBackForwardList
     WebFrameLoadTypeReplace,
-    WebFrameLoadTypeReloadFromOrigin
+    WebFrameLoadTypeReloadFromOrigin,
+    WebFrameLoadTypeBackWMLDeckNotAccessible
 } WebFrameLoadType;
 
 @interface WebFrame (WebPrivate)
@@ -95,4 +105,9 @@ typedef enum {
 // Returns the total number of currently running animations (includes both CSS transitions and CSS animations).
 - (unsigned) _numberOfActiveAnimations;
 
+- (void)_replaceSelectionWithFragment:(DOMDocumentFragment *)fragment selectReplacement:(BOOL)selectReplacement smartReplace:(BOOL)smartReplace matchStyle:(BOOL)matchStyle;
+- (void)_replaceSelectionWithText:(NSString *)text selectReplacement:(BOOL)selectReplacement smartReplace:(BOOL)smartReplace;
+- (void)_replaceSelectionWithMarkupString:(NSString *)markupString baseURLString:(NSString *)baseURLString selectReplacement:(BOOL)selectReplacement smartReplace:(BOOL)smartReplace;
+
+- (NSMutableDictionary *)_cacheabilityDictionary;
 @end

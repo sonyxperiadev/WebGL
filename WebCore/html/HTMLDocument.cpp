@@ -75,11 +75,6 @@
 
 #include "DocTypeStrings.cpp"
 
-#ifdef ANDROID_META_SUPPORT
-#include "FrameTree.h"
-#include "Settings.h"
-#endif
-
 namespace WebCore {
 
 using namespace HTMLNames;
@@ -156,9 +151,12 @@ Element* HTMLDocument::activeElement()
 
 bool HTMLDocument::hasFocus()
 {
-    if (!page()->focusController()->isActive())
+    Page* page = this->page();
+    if (!page)
         return false;
-    if (Frame* focusedFrame = page()->focusController()->focusedFrame()) {
+    if (!page->focusController()->isActive())
+        return false;
+    if (Frame* focusedFrame = page->focusController()->focusedFrame()) {
         if (focusedFrame->tree()->isDescendantOf(frame()))
             return true;
     }
@@ -286,9 +284,8 @@ void HTMLDocument::releaseEvents()
 Tokenizer *HTMLDocument::createTokenizer()
 {
     bool reportErrors = false;
-    if (frame())
-        if (Page* page = frame()->page())
-            reportErrors = page->inspectorController()->windowVisible();
+    if (Page* page = this->page())
+        reportErrors = page->inspectorController()->windowVisible();
 
     return new HTMLTokenizer(this, reportErrors);
 }
@@ -312,34 +309,18 @@ PassRefPtr<Element> HTMLDocument::createElement(const AtomicString& name, Except
     return HTMLElementFactory::createHTMLElement(QualifiedName(nullAtom, lowerName, xhtmlNamespaceURI), this, 0, false);
 }
 
-static void addItemToMap(HTMLDocument::NameCountMap& map, const AtomicString& name)
+static void addItemToMap(HashCountedSet<AtomicStringImpl*>& map, const AtomicString& name)
 {
     if (name.isEmpty())
         return;
- 
-    HTMLDocument::NameCountMap::iterator it = map.find(name.impl()); 
-    if (it == map.end())
-        map.set(name.impl(), 1);
-    else
-        ++(it->second);
+    map.add(name.impl());
 }
 
-static void removeItemFromMap(HTMLDocument::NameCountMap& map, const AtomicString& name)
+static void removeItemFromMap(HashCountedSet<AtomicStringImpl*>& map, const AtomicString& name)
 {
     if (name.isEmpty())
         return;
- 
-    HTMLDocument::NameCountMap::iterator it = map.find(name.impl()); 
-    if (it == map.end())
-        return;
-
-    int oldVal = it->second;
-    ASSERT(oldVal != 0);
-    int newVal = oldVal - 1;
-    if (newVal == 0)
-        map.remove(it);
-    else
-        it->second = newVal;
+    map.remove(name.impl());
 }
 
 void HTMLDocument::addNamedItem(const AtomicString& name)
@@ -347,7 +328,7 @@ void HTMLDocument::addNamedItem(const AtomicString& name)
     addItemToMap(m_namedItemCounts, name);
 }
 
-void HTMLDocument::removeNamedItem(const AtomicString &name)
+void HTMLDocument::removeNamedItem(const AtomicString& name)
 { 
     removeItemFromMap(m_namedItemCounts, name);
 }
@@ -394,13 +375,6 @@ void HTMLDocument::determineParseMode()
         String lowerPubID = docType->publicId().lower();
         CString pubIDStr = lowerPubID.latin1();
        
-#ifdef ANDROID_META_SUPPORT
-        if ((!frame()->tree() || !frame()->tree()->parent()) &&
-                strstr(pubIDStr.data(), "-//wapforum//dtd xhtml mobile 1.") == pubIDStr.data()) {
-            // fit mobile sites directly in the screen
-            frame()->settings()->setMetadataSettings("width", "device-width");
-        }
-#endif
         // Look up the entry in our gperf-generated table.
         const PubIDInfo* doctypeEntry = findDoctypeEntry(pubIDStr.data(), pubIDStr.length());
         if (!doctypeEntry)
@@ -433,5 +407,11 @@ void HTMLDocument::clear()
     // We've long had a comment saying that IE doesn't support this.
     // But I do see it in the documentation for Mozilla.
 }
-    
+
+bool HTMLDocument::isFrameSet() const
+{
+    HTMLElement* bodyElement = body();
+    return bodyElement && bodyElement->renderer() && bodyElement->hasTagName(framesetTag);
+}
+
 }

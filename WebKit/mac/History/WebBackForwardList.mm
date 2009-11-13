@@ -33,6 +33,7 @@
 #import "WebHistoryItemInternal.h"
 #import "WebHistoryItemPrivate.h"
 #import "WebKitLogging.h"
+#import "WebKitVersionChecks.h"
 #import "WebNSObjectExtras.h"
 #import "WebPreferencesPrivate.h"
 #import "WebTypesInternal.h"
@@ -82,7 +83,7 @@ WebBackForwardList *kit(BackForwardList* backForwardList)
 
 - (id)initWithBackForwardList:(PassRefPtr<BackForwardList>)backForwardList
 {   
-    WebCoreThreadViolationCheck();
+    WebCoreThreadViolationCheckRoundOne();
     self = [super init];
     if (!self)
         return nil;
@@ -115,20 +116,26 @@ WebBackForwardList *kit(BackForwardList* backForwardList)
         return;
 
     BackForwardList* backForwardList = core(self);
-    ASSERT(backForwardList->closed());
-    backForwardLists().remove(backForwardList);
-    backForwardList->deref();
-        
+    ASSERT(backForwardList);
+    if (backForwardList) {
+        ASSERT(backForwardList->closed());
+        backForwardLists().remove(backForwardList);
+        backForwardList->deref();
+    }
+
     [super dealloc];
 }
 
 - (void)finalize
 {
-    WebCoreThreadViolationCheck();
+    WebCoreThreadViolationCheckRoundOne();
     BackForwardList* backForwardList = core(self);
-    ASSERT(backForwardList->closed());
-    backForwardLists().remove(backForwardList);
-    backForwardList->deref();
+    ASSERT(backForwardList);
+    if (backForwardList) {
+        ASSERT(backForwardList->closed());
+        backForwardLists().remove(backForwardList);
+        backForwardList->deref();
+    }
         
     [super finalize];
 }
@@ -138,7 +145,7 @@ WebBackForwardList *kit(BackForwardList* backForwardList)
     core(self)->close();
 }
 
-- (void)addItem:(WebHistoryItem *)entry;
+- (void)addItem:(WebHistoryItem *)entry
 {
     core(self)->addItem(core(entry));
     
@@ -198,18 +205,42 @@ static NSArray* vectorToNSArray(HistoryItemVector& list)
     return result;
 }
 
-- (NSArray *)backListWithLimit:(int)limit;
+static bool bumperCarBackForwardHackNeeded() 
+{
+    static bool hackNeeded = [[[NSBundle mainBundle] bundleIdentifier] isEqualToString:@"com.freeverse.bumpercar"] && 
+        !WebKitLinkedOnOrAfter(WEBKIT_FIRST_VERSION_WITHOUT_BUMPERCAR_BACK_FORWARD_QUIRK);
+
+    return hackNeeded;
+}
+
+- (NSArray *)backListWithLimit:(int)limit
 {
     HistoryItemVector list;
     core(self)->backListWithLimit(limit, list);
-    return vectorToNSArray(list);
+    NSArray *result = vectorToNSArray(list);
+    
+    if (bumperCarBackForwardHackNeeded()) {
+        static NSArray *lastBackListArray = nil;
+        [lastBackListArray release];
+        lastBackListArray = [result retain];
+    }
+    
+    return result;
 }
 
-- (NSArray *)forwardListWithLimit:(int)limit;
+- (NSArray *)forwardListWithLimit:(int)limit
 {
     HistoryItemVector list;
     core(self)->forwardListWithLimit(limit, list);
-    return vectorToNSArray(list);
+    NSArray *result = vectorToNSArray(list);
+    
+    if (bumperCarBackForwardHackNeeded()) {
+        static NSArray *lastForwardListArray = nil;
+        [lastForwardListArray release];
+        lastForwardListArray = [result retain];
+    }
+    
+    return result;
 }
 
 - (int)capacity

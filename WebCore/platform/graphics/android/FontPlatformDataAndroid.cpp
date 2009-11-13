@@ -103,6 +103,13 @@ FontPlatformData::FontPlatformData(const FontPlatformData& src, float textSize)
     trace(4);
 }
     
+FontPlatformData::FontPlatformData(float size, bool bold, bool oblique)
+    : mTypeface(NULL), mTextSize(size), mFakeBold(bold), mFakeItalic(oblique)
+{
+    inc_count();
+    trace(5);
+}
+
 FontPlatformData::~FontPlatformData()
 {
     dec_count();
@@ -140,6 +147,7 @@ void FontPlatformData::setupPaint(SkPaint* paint) const
 
     paint->setAntiAlias(true);
     paint->setSubpixelText(true);
+    paint->setHinting(SkPaint::kSlight_Hinting);
     paint->setTextSize(SkFloatToScalar(ts));
     paint->setTypeface(mTypeface);
     paint->setFakeBoldText(mFakeBold);

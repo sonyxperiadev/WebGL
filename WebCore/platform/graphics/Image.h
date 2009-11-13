@@ -31,9 +31,9 @@
 #include "GraphicsTypes.h"
 #include "ImageSource.h"
 #include "IntRect.h"
-#include <wtf/RefPtr.h>
-#include <wtf/PassRefPtr.h>
 #include "SharedBuffer.h"
+#include <wtf/PassRefPtr.h>
+#include <wtf/RefPtr.h>
 
 #if PLATFORM(MAC)
 #ifdef __OBJC__
@@ -61,19 +61,19 @@ class NativeImageSkia;
 #include <QPixmap>
 #endif
 
-#if PLATFORM(SGL)
-class SkBitmapRef;
+#if PLATFORM(GTK)
+typedef struct _GdkPixbuf GdkPixbuf;
 #endif
 
 namespace WebCore {
 
-class TransformationMatrix;
 class FloatPoint;
 class FloatRect;
 class FloatSize;
 class GraphicsContext;
 class SharedBuffer;
 class String;
+class TransformationMatrix;
 
 // This class gets notified when an image creates or destroys decoded frames and when it advances animation frames.
 class ImageObserver;
@@ -81,6 +81,7 @@ class ImageObserver;
 class Image : public RefCounted<Image> {
     friend class GeneratedImage;
     friend class GraphicsContext;
+
 public:
     virtual ~Image();
     
@@ -118,9 +119,9 @@ public:
 
     SharedBuffer* data() { return m_data.get(); }
 
-    // It may look unusual that there is no start animation call as public API.  This is because
-    // we start and stop animating lazily.  Animation begins whenever someone draws the image.  It will
-    // automatically pause once all observers no longer want to render the image anywhere.
+    // Animation begins whenever someone draws the image, so startAnimation() is not normally called.
+    // It will automatically pause once all observers no longer want to render the image anywhere.
+    virtual void startAnimation(bool /*catchUpIfNecessary*/ = true) { }
     virtual void stopAnimation() {}
     virtual void resetAnimation() {}
     
@@ -147,8 +148,11 @@ public:
 #endif
 
 #if PLATFORM(SGL)
-    virtual SkBitmapRef* getBitmap() { return 0; }
     virtual void setURL(const String& str) {}
+#endif
+
+#if PLATFORM(GTK)
+    virtual GdkPixbuf* getGdkPixbuf() { return 0; }
 #endif
 
 protected:
@@ -164,20 +168,13 @@ protected:
     void drawTiled(GraphicsContext*, const FloatRect& dstRect, const FloatRect& srcRect, TileRule hRule, TileRule vRule, CompositeOperator);
 
     // Supporting tiled drawing
-    virtual bool mayFillWithSolidColor() const { return false; }
+    virtual bool mayFillWithSolidColor() { return false; }
     virtual Color solidColor() const { return Color(); }
-    
-    virtual void startAnimation(bool /*catchUpIfNecessary*/ = true) { }
     
     virtual void drawPattern(GraphicsContext*, const FloatRect& srcRect, const TransformationMatrix& patternTransform,
                              const FloatPoint& phase, CompositeOperator, const FloatRect& destRect);
-#if PLATFORM(CG)
-    // These are private to CG.  Ideally they would be only in the .cpp file, but the callback requires access
-    // to the private function nativeImageForCurrentFrame()
-    static void drawPatternCallback(void* info, CGContext*);
-#endif
-    
-protected:
+
+private:
     RefPtr<SharedBuffer> m_data; // The encoded raw data for the image. 
     ImageObserver* m_imageObserver;
 };

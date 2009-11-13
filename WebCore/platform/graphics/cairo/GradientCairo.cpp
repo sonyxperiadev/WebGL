@@ -57,6 +57,22 @@ cairo_pattern_t* Gradient::platformGradient()
         ++stopIterator;
     }
 
+    switch (m_spreadMethod) {
+    case SpreadMethodPad:
+        cairo_pattern_set_extend(m_gradient, CAIRO_EXTEND_PAD);
+        break;
+    case SpreadMethodReflect:
+        cairo_pattern_set_extend(m_gradient, CAIRO_EXTEND_REFLECT);
+        break;
+    case SpreadMethodRepeat:
+        cairo_pattern_set_extend(m_gradient, CAIRO_EXTEND_REPEAT);
+        break;
+    }
+
+    cairo_matrix_t matrix = m_gradientSpaceTransformation;
+    cairo_matrix_invert(&matrix);
+    cairo_pattern_set_matrix(m_gradient, &matrix);
+
     return m_gradient;
 }
 
@@ -64,11 +80,11 @@ void Gradient::fill(GraphicsContext* context, const FloatRect& rect)
 {
     cairo_t* cr = context->platformContext();
 
-    cairo_save(cr);
+    context->save();
     cairo_set_source(cr, platformGradient());
     cairo_rectangle(cr, rect.x(), rect.y(), rect.width(), rect.height());
     cairo_fill(cr);
-    cairo_restore(cr);
+    context->restore();
 }
 
 } //namespace

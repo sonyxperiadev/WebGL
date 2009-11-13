@@ -1,5 +1,5 @@
 /*
-    Copyright (C) 2008 Nokia Corporation and/or its subsidiary(-ies)
+    Copyright (C) 2008,2009 Nokia Corporation and/or its subsidiary(-ies)
     Copyright (C) 2007 Staikos Computing Services Inc.
 
     This library is free software; you can redistribute it and/or
@@ -25,6 +25,7 @@
 #include <QtCore/qurl.h>
 #include <QtCore/qvariant.h>
 #include <QtGui/qicon.h>
+#include <QtScript/qscriptengine.h>
 #if QT_VERSION >= 0x040400
 #include <QtNetwork/qnetworkaccessmanager.h>
 #endif
@@ -48,6 +49,7 @@ class QWebPage;
 class QWebHitTestResult;
 class QWebHistoryItem;
 class QWebSecurityOrigin;
+class QWebElement;
 
 namespace WebCore {
     class WidgetPrivate;
@@ -58,8 +60,7 @@ class QWebFrameData;
 class QWebHitTestResultPrivate;
 class QWebFrame;
 
-class QWEBKIT_EXPORT QWebHitTestResult
-{
+class QWEBKIT_EXPORT QWebHitTestResult {
 public:
     QWebHitTestResult();
     QWebHitTestResult(const QWebHitTestResult &other);
@@ -70,13 +71,14 @@ public:
 
     QPoint pos() const;
     QRect boundingRect() const;
-    QRect enclosingBlock() const;
+    QWebElement enclosingBlockElement() const;
     QString title() const;
 
     QString linkText() const;
     QUrl linkUrl() const;
     QUrl linkTitle() const;
     QWebFrame *linkTargetFrame() const;
+    QWebElement linkElement() const;
 
     QString alternateText() const; // for img, area, input and applet
 
@@ -86,9 +88,9 @@ public:
     bool isContentEditable() const;
     bool isContentSelected() const;
 
-    QWebFrame *frame() const;
+    QWebElement element() const;
 
-    bool isScrollBar() const;
+    QWebFrame *frame() const;
 
 private:
     QWebHitTestResult(QWebHitTestResultPrivate *priv);
@@ -99,16 +101,19 @@ private:
     friend class QWebPage;
 };
 
-class QWEBKIT_EXPORT QWebFrame : public QObject
-{
+class QWEBKIT_EXPORT QWebFrame : public QObject {
     Q_OBJECT
     Q_PROPERTY(qreal textSizeMultiplier READ textSizeMultiplier WRITE setTextSizeMultiplier DESIGNABLE false)
     Q_PROPERTY(qreal zoomFactor READ zoomFactor WRITE setZoomFactor)
     Q_PROPERTY(QString title READ title)
     Q_PROPERTY(QUrl url READ url WRITE setUrl)
+    Q_PROPERTY(QUrl requestedUrl READ requestedUrl)
+    Q_PROPERTY(QUrl baseUrl READ baseUrl)
     Q_PROPERTY(QIcon icon READ icon)
     Q_PROPERTY(QSize contentsSize READ contentsSize)
     Q_PROPERTY(QPoint scrollPosition READ scrollPosition WRITE setScrollPosition)
+    Q_PROPERTY(bool clipRenderToViewport READ clipRenderToViewport WRITE setClipRenderToViewport)
+    Q_PROPERTY(bool focus READ hasFocus)
 private:
     QWebFrame(QWebPage *parent, QWebFrameData *frameData);
     QWebFrame(QWebFrame *parent, QWebFrameData *frameData);
@@ -129,6 +134,7 @@ public:
     void setContent(const QByteArray &data, const QString &mimeType = QString(), const QUrl &baseUrl = QUrl());
 
     void addToJavaScriptWindowObject(const QString &name, QObject *object);
+    void addToJavaScriptWindowObject(const QString &name, QObject *object, QScriptEngine::ValueOwnership ownership);
     QString toHtml() const;
     QString toPlainText() const;
     QString renderTreeDump() const;
@@ -136,6 +142,8 @@ public:
     QString title() const;
     void setUrl(const QUrl &url);
     QUrl url() const;
+    QUrl requestedUrl() const;
+    QUrl baseUrl() const;
     QIcon icon() const;
     QMultiMap<QString, QString> metaData() const;
 
@@ -159,7 +167,8 @@ public:
 
     void render(QPainter *painter, const QRegion &clip);
     void render(QPainter *painter);
-    void renderContents(QPainter *painter, const QRegion &contents);
+    bool clipRenderToViewport() const;
+    void setClipRenderToViewport(bool clipRenderToViewport);
 
     void setTextSizeMultiplier(qreal factor);
     qreal textSizeMultiplier() const;
@@ -167,9 +176,16 @@ public:
     qreal zoomFactor() const;
     void setZoomFactor(qreal factor);
 
+    bool hasFocus() const;
+    void setFocus();
+
     QPoint pos() const;
     QRect geometry() const;
     QSize contentsSize() const;
+
+    QWebElement documentElement() const;
+    QList<QWebElement> findAllElements(const QString &selectorQuery) const;
+    QWebElement findFirstElement(const QString &selectorQuery) const;
 
     QWebHitTestResult hitTestContent(const QPoint &pos) const;
 
@@ -195,6 +211,9 @@ Q_SIGNALS:
     void iconChanged();
 
     void contentsSizeChanged(const QSize &size);
+
+    void loadStarted();
+    void loadFinished(bool ok);
 
 private:
     friend class QWebPage;

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008 Nokia Corporation and/or its subsidiary(-ies)
+ * Copyright (C) 2009 Nokia Corporation and/or its subsidiary(-ies)
  * Copyright (C) 2006 George Staikos <staikos@kde.org>
  * Copyright (C) 2006 Dirk Mueller <mueller@kde.org>
  * Copyright (C) 2006 Zack Rusin <zack@kde.org>
@@ -33,19 +33,27 @@
 #include <qwebview.h>
 #include <qwebframe.h>
 #include <qwebsettings.h>
+#include <qwebelement.h>
 
 #include <QtGui>
 #include <QDebug>
+#include <QtNetwork/QNetworkProxy>
 #if QT_VERSION >= 0x040400 && !defined(QT_NO_PRINTER)
 #include <QPrintPreviewDialog>
 #endif
 
+#ifndef QT_NO_UITOOLS
 #include <QtUiTools/QUiLoader>
+#endif
 
 #include <QVector>
 #include <QTextStream>
 #include <QFile>
 #include <cstdio>
+
+#ifndef NDEBUG
+void QWEBKIT_EXPORT qt_drt_garbageCollector_collect();
+#endif
 
 class WebPage : public QWebPage
 {
@@ -60,25 +68,39 @@ class MainWindow : public QMainWindow
 {
     Q_OBJECT
 public:
-    MainWindow(const QString& url = QString()): currentZoom(100) {
+    MainWindow(QString url = QString()): currentZoom(100) {
+        setAttribute(Qt::WA_DeleteOnClose);
+
         view = new QWebView(this);
         setCentralWidget(view);
 
-        view->setPage(new WebPage(view));
-
+        WebPage* page = new WebPage(view);
+        view->setPage(page);
+        
         connect(view, SIGNAL(loadFinished(bool)),
                 this, SLOT(loadFinished()));
         connect(view, SIGNAL(titleChanged(const QString&)),
                 this, SLOT(setWindowTitle(const QString&)));
         connect(view->page(), SIGNAL(linkHovered(const QString&, const QString&, const QString &)),
                 this, SLOT(showLinkHover(const QString&, const QString&)));
-        connect(view->page(), SIGNAL(windowCloseRequested()), this, SLOT(deleteLater()));
+        connect(view->page(), SIGNAL(windowCloseRequested()), this, SLOT(close()));
 
         setupUI();
 
-        QUrl qurl = guessUrlFromString(url);
+        // set the proxy to the http_proxy env variable - if present        
+        QUrl proxyUrl = view->guessUrlFromString(qgetenv("http_proxy"));
+        if (proxyUrl.isValid() && !proxyUrl.host().isEmpty()) {
+            int proxyPort = (proxyUrl.port() > 0)  ? proxyUrl.port() : 8080;
+            page->networkAccessManager()->setProxy(QNetworkProxy(QNetworkProxy::HttpProxy, proxyUrl.host(), proxyPort));
+        }
+
+        QFileInfo fi(url);
+        if (fi.exists() && fi.isRelative())
+            url = fi.absoluteFilePath();
+
+        QUrl qurl = view->guessUrlFromString(url);
         if (qurl.isValid()) {
-            urlEdit->setText(qurl.toString());
+            urlEdit->setText(qurl.toEncoded());
             view->load(qurl);
 
             // the zoom values are chosen to be like in Mozilla Firefox 3
@@ -99,8 +121,11 @@ public:
 protected slots:
 
     void changeLocation() {
-        QUrl url = guessUrlFromString(urlEdit->text());
-        urlEdit->setText(url.toString());
+        QString string = urlEdit->text();
+        QUrl url = view->guessUrlFromString(string);
+        if (!url.isValid())
+            url = QUrl("http://" + string + "/");
+        urlEdit->setText(url.toEncoded());
         view->load(url);
         view->setFocus(Qt::OtherFocusReason);
     }
@@ -128,11 +153,6 @@ protected slots:
         if (!toolTip.isEmpty())
             QToolTip::showText(QCursor::pos(), toolTip);
 #endif
-    }
-
-    void newWindow() {
-        MainWindow *mw = new MainWindow;
-        mw->show();
     }
 
     void zoomIn() {
@@ -181,6 +201,26 @@ protected slots:
     void dumpHtml() {
         qDebug() << "HTML: " << view->page()->mainFrame()->toHtml();
     }
+
+    void selectElements() {
+        bool ok;
+        QString str = QInputDialog::getText(this, "Select elements", "Choose elements",
+                                            QLineEdit::Normal, "a", &ok);
+        if (ok && !str.isEmpty()) {
+            QList<QWebElement> result =  view->page()->mainFrame()->findAllElements(str);
+            foreach (QWebElement e, result)
+                e.setStyleProperty("background-color", "yellow");
+            statusBar()->showMessage(QString("%1 element(s) selected").arg(result.count()), 5000);
+        }
+    }
+
+public slots:
+
+    void newWindow(const QString &url = QString()) {
+        MainWindow *mw = new MainWindow(url);
+        mw->show();
+    }
+
 private:
 
     QVector<int> zoomLevels;
@@ -272,38 +312,10 @@ private:
         view->pageAction(QWebPage::ToggleBold)->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_B));
         view->pageAction(QWebPage::ToggleItalic)->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_I));
         view->pageAction(QWebPage::ToggleUnderline)->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_U));
-    }
 
-    QUrl guessUrlFromString(const QString &string) {
-        QString urlStr = string.trimmed();
-        QRegExp test(QLatin1String("^[a-zA-Z]+\\:.*"));
+        QMenu *toolsMenu = menuBar()->addMenu("&Tools");
+        toolsMenu->addAction("Select elements...", this, SLOT(selectElements()));
 
-        // Check if it looks like a qualified URL. Try parsing it and see.
-        bool hasSchema = test.exactMatch(urlStr);
-        if (hasSchema) {
-            QUrl url(urlStr, QUrl::TolerantMode);
-            if (url.isValid())
-                return url;
-        }
-
-        // Might be a file.
-        if (QFile::exists(urlStr))
-            return QUrl::fromLocalFile(urlStr);
-
-        // Might be a shorturl - try to detect the schema.
-        if (!hasSchema) {
-            int dotIndex = urlStr.indexOf(QLatin1Char('.'));
-            if (dotIndex != -1) {
-                QString prefix = urlStr.left(dotIndex).toLower();
-                QString schema = (prefix == QLatin1String("ftp")) ? prefix : QLatin1String("http");
-                QUrl url(schema + QLatin1String("://") + urlStr, QUrl::TolerantMode);
-                if (url.isValid())
-                    return url;
-            }
-        }
-
-        // Fall back to QUrl's own tolerant parser.
-        return QUrl(string, QUrl::TolerantMode);
     }
 
     QWebView *view;
@@ -319,6 +331,7 @@ private:
 QWebPage *WebPage::createWindow(QWebPage::WebWindowType)
 {
     MainWindow *mw = new MainWindow;
+    mw->show();
     return mw->webPage();
 }
 
@@ -327,8 +340,13 @@ QObject *WebPage::createPlugin(const QString &classId, const QUrl &url, const QS
     Q_UNUSED(url);
     Q_UNUSED(paramNames);
     Q_UNUSED(paramValues);
+#ifndef QT_NO_UITOOLS
     QUiLoader loader;
     return loader.createWidget(classId, view());
+#else
+    Q_UNUSED(classId);
+    return 0;
+#endif
 }
 
 class URLLoader : public QObject
@@ -396,6 +414,18 @@ private:
 
 #include "main.moc"
 
+int launcherMain(const QApplication& app)
+{
+#ifndef NDEBUG
+    int retVal = app.exec();
+    qt_drt_garbageCollector_collect();
+    QWebSettings::clearMemoryCaches();
+    return retVal;
+#else
+    return app.exec();
+#endif
+}
+
 int main(int argc, char **argv)
 {
     QApplication app(argc, argv);
@@ -415,25 +445,31 @@ int main(int argc, char **argv)
 
     const QStringList args = app.arguments();
 
-    // robotized
     if (args.contains(QLatin1String("-r"))) {
+        // robotized
         QString listFile = args.at(2);
         if (!(args.count() == 3) && QFile::exists(listFile)) {
             qDebug() << "Usage: QtLauncher -r listfile";
             exit(0);
         }
-        MainWindow window(url);
-        QWebView *view = window.webView();
+        MainWindow* window = new MainWindow;
+        QWebView *view = window->webView();
         URLLoader loader(view, listFile);
         QObject::connect(view, SIGNAL(loadFinished(bool)), &loader, SLOT(loadNext()));
-        window.show();
-        return app.exec();
+        loader.loadNext();
+        window->show();
+        launcherMain(app);
     } else {
         if (args.count() > 1)
             url = args.at(1);
-            
-        MainWindow window(url);
-        window.show();
-        return app.exec();
+
+        MainWindow* window = new MainWindow(url);
+
+        // Opens every given urls in new windows
+        for (int i = 2; i < args.count(); i++)
+            window->newWindow(args.at(i));
+
+        window->show();
+        launcherMain(app);
     }
 }

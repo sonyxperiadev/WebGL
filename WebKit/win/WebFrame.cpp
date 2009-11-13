@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -69,10 +69,12 @@
 #include <WebCore/GDIObjectCounter.h>
 #include <WebCore/GraphicsContext.h>
 #include <WebCore/HistoryItem.h>
+#include <WebCore/HTMLAppletElement.h>
 #include <WebCore/HTMLFormElement.h>
 #include <WebCore/HTMLFormControlElement.h>
 #include <WebCore/HTMLInputElement.h>
 #include <WebCore/HTMLNames.h>
+#include <WebCore/HTMLPlugInElement.h>
 #include <WebCore/JSDOMWindow.h>
 #include <WebCore/KeyboardEvent.h>
 #include <WebCore/MIMETypeRegistry.h>
@@ -96,13 +98,19 @@
 #include <wtf/MathExtras.h>
 #pragma warning(pop)
 
+#if PLATFORM(CG)
 #include <CoreGraphics/CoreGraphics.h>
+#elif PLATFORM(CAIRO)
+#include <cairo-win32.h>
+#endif
 
+#if PLATFORM(CG)
 // CG SPI used for printing
 extern "C" {
     CGAffineTransform CGContextGetBaseCTM(CGContextRef c); 
     void CGContextSetBaseCTM(CGContextRef c, CGAffineTransform m); 
 }
+#endif
 
 using namespace WebCore;
 using namespace HTMLNames;
@@ -871,7 +879,7 @@ HRESULT STDMETHODCALLTYPE WebFrame::pendingFrameUnloadEventCount(
     if (!coreFrame)
         return E_FAIL;
 
-    *result = coreFrame->eventHandler()->pendingFrameUnloadEventCount();
+    *result = coreFrame->domWindow()->pendingUnloadEventListeners();
     return S_OK;
 }
 
@@ -1046,6 +1054,87 @@ HRESULT WebFrame::elementDoesAutoComplete(IDOMElement *element, BOOL *result)
     else
         *result = (inputElement->inputType() == HTMLInputElement::TEXT && inputElement->autoComplete());
 
+    return S_OK;
+}
+
+HRESULT WebFrame::pauseAnimation(BSTR animationName, IDOMNode* node, double secondsFromNow, BOOL* animationWasRunning)
+{
+    if (!node || !animationWasRunning)
+        return E_POINTER;
+
+    *animationWasRunning = FALSE;
+
+    Frame* frame = core(this);
+    if (!frame)
+        return E_FAIL;
+
+    AnimationController* controller = frame->animation();
+    if (!controller)
+        return E_FAIL;
+
+    COMPtr<DOMNode> domNode(Query, node);
+    if (!domNode)
+        return E_FAIL;
+
+    *animationWasRunning = controller->pauseAnimationAtTime(domNode->node()->renderer(), String(animationName, SysStringLen(animationName)), secondsFromNow);
+    return S_OK;
+}
+
+HRESULT WebFrame::pauseTransition(BSTR propertyName, IDOMNode* node, double secondsFromNow, BOOL* transitionWasRunning)
+{
+    if (!node || !transitionWasRunning)
+        return E_POINTER;
+
+    *transitionWasRunning = FALSE;
+
+    Frame* frame = core(this);
+    if (!frame)
+        return E_FAIL;
+
+    AnimationController* controller = frame->animation();
+    if (!controller)
+        return E_FAIL;
+
+    COMPtr<DOMNode> domNode(Query, node);
+    if (!domNode)
+        return E_FAIL;
+
+    *transitionWasRunning = controller->pauseTransitionAtTime(domNode->node()->renderer(), String(propertyName, SysStringLen(propertyName)), secondsFromNow);
+    return S_OK;
+}
+
+HRESULT WebFrame::numberOfActiveAnimations(UINT* number)
+{
+    if (!number)
+        return E_POINTER;
+
+    *number = 0;
+
+    Frame* frame = core(this);
+    if (!frame)
+        return E_FAIL;
+
+    AnimationController* controller = frame->animation();
+    if (!controller)
+        return E_FAIL;
+
+    *number = controller->numberOfActiveAnimations();
+    return S_OK;
+}
+
+HRESULT WebFrame::isDisplayingStandaloneImage(BOOL* result)
+{
+    if (!result)
+        return E_POINTER;
+
+    *result = FALSE;
+
+    Frame* frame = core(this);
+    if (!frame)
+        return E_FAIL;
+
+    Document* document = frame->document();
+    *result = document && document->isImageDocument();
     return S_OK;
 }
 
@@ -1232,7 +1321,13 @@ void WebFrame::dispatchWillSubmitForm(FramePolicyFunction function, PassRefPtr<F
 
     COMPtr<IDOMElement> formElement(AdoptCOM, DOMElement::createInstance(formState->form()));
 
-    COMPtr<IPropertyBag> formValuesPropertyBag(AdoptCOM, COMPropertyBag<String>::createInstance(formState->values()));
+    HashMap<String, String> formValuesMap;
+    const StringPairVector& textFieldValues = formState->textFieldValues();
+    size_t size = textFieldValues.size();
+    for (size_t i = 0; i < size; ++i)
+        formValuesMap.add(textFieldValues[i].first, textFieldValues[i].second);
+
+    COMPtr<IPropertyBag> formValuesPropertyBag(AdoptCOM, COMPropertyBag<String>::createInstance(formValuesMap));
 
     COMPtr<WebFrame> sourceFrame(kit(formState->sourceFrame()));
     if (SUCCEEDED(formDelegate->willSubmitForm(this, sourceFrame.get(), formElement.get(), formValuesPropertyBag.get(), setUpPolicyListener(function).get())))
@@ -1288,8 +1383,6 @@ String WebFrame::generatedMIMETypeForURLScheme(const String& /*URLScheme*/) cons
 
 void WebFrame::frameLoadCompleted()
 {
-    if (Frame* coreFrame = core(this))
-        coreFrame->loader()->setPreviousHistoryItem(0);
 }
 
 void WebFrame::restoreViewState()
@@ -1518,14 +1611,14 @@ void WebFrame::dispatchDidFailLoad(const ResourceError& error)
     }
 }
 
-void WebFrame::startDownload(const ResourceRequest&)
+void WebFrame::startDownload(const ResourceRequest& request)
 {
-    notImplemented();
+    d->webView->downloadURL(request.url());
 }
 
-Widget* WebFrame::createJavaAppletWidget(const IntSize& pluginSize, Element* element, const KURL& /*baseURL*/, const Vector<String>& paramNames, const Vector<String>& paramValues)
+PassRefPtr<Widget> WebFrame::createJavaAppletWidget(const IntSize& pluginSize, HTMLAppletElement* element, const KURL& /*baseURL*/, const Vector<String>& paramNames, const Vector<String>& paramValues)
 {
-    PluginView* pluginView = PluginView::create(core(this), pluginSize, element, KURL(), paramNames, paramValues, "application/x-java-applet", false);
+    RefPtr<PluginView> pluginView = PluginView::create(core(this), pluginSize, element, KURL(), paramNames, paramValues, "application/x-java-applet", false);
 
     // Check if the plugin can be loaded successfully
     if (pluginView->plugin() && pluginView->plugin()->load())
@@ -1583,16 +1676,17 @@ void WebFrame::windowObjectCleared()
 
     COMPtr<IWebFrameLoadDelegate> frameLoadDelegate;
     if (SUCCEEDED(d->webView->frameLoadDelegate(&frameLoadDelegate))) {
-        COMPtr<IWebFrameLoadDelegate2> frameLoadDelegate2(Query, frameLoadDelegate);
-
         JSContextRef context = toRef(coreFrame->script()->globalObject()->globalExec());
         JSObjectRef windowObject = toRef(coreFrame->script()->globalObject());
         ASSERT(windowObject);
 
-        if (!frameLoadDelegate2 || 
-            FAILED(frameLoadDelegate2->didClearWindowObject(d->webView, context, windowObject, this)))
+        if (FAILED(frameLoadDelegate->didClearWindowObject(d->webView, context, windowObject, this)))
             frameLoadDelegate->windowScriptObjectAvailable(d->webView, context, windowObject);
     }
+}
+
+void WebFrame::documentElementAvailable()
+{
 }
 
 void WebFrame::didPerformFirstNavigation() const
@@ -1643,7 +1737,7 @@ HRESULT STDMETHODCALLTYPE WebFrame::setInPrintingMode(
         return S_OK;
 
     Frame* coreFrame = core(this);
-    if (!coreFrame)
+    if (!coreFrame || !coreFrame->document())
         return E_FAIL;
 
     m_inPrintingMode = !!value;
@@ -1652,7 +1746,7 @@ HRESULT STDMETHODCALLTYPE WebFrame::setInPrintingMode(
     // according to the paper size
     float minLayoutWidth = 0.0f;
     float maxLayoutWidth = 0.0f;
-    if (m_inPrintingMode && !coreFrame->isFrameSet()) {
+    if (m_inPrintingMode && !coreFrame->document()->isFrameSet()) {
         if (!printDC) {
             ASSERT_NOT_REACHED();
             return E_POINTER;
@@ -1683,12 +1777,9 @@ void WebFrame::headerAndFooterHeights(float* headerHeight, float* footerHeight)
     COMPtr<IWebUIDelegate> ui;
     if (FAILED(d->webView->uiDelegate(&ui)))
         return;
-    COMPtr<IWebUIDelegate2> ui2;
-    if (FAILED(ui->QueryInterface(IID_IWebUIDelegate2, (void**) &ui2)))
-        return;
-    if (headerHeight && SUCCEEDED(ui2->webViewHeaderHeight(d->webView, &height)))
+    if (headerHeight && SUCCEEDED(ui->webViewHeaderHeight(d->webView, &height)))
         *headerHeight = height;
-    if (footerHeight && SUCCEEDED(ui2->webViewFooterHeight(d->webView, &height)))
+    if (footerHeight && SUCCEEDED(ui->webViewFooterHeight(d->webView, &height)))
         *footerHeight = height;
 }
 
@@ -1699,12 +1790,9 @@ IntRect WebFrame::printerMarginRect(HDC printDC)
     COMPtr<IWebUIDelegate> ui;
     if (FAILED(d->webView->uiDelegate(&ui)))
         return emptyRect;
-    COMPtr<IWebUIDelegate2> ui2;
-    if (FAILED(ui->QueryInterface(IID_IWebUIDelegate2, (void**) &ui2)))
-        return emptyRect;
 
     RECT rect;
-    if (FAILED(ui2->webViewPrintingMarginRect(d->webView, &rect)))
+    if (FAILED(ui->webViewPrintingMarginRect(d->webView, &rect)))
         return emptyRect;
 
     rect.left = MulDiv(rect.left, ::GetDeviceCaps(printDC, LOGPIXELSX), 1000);
@@ -1768,6 +1856,98 @@ HRESULT STDMETHODCALLTYPE WebFrame::getPrintedPageCount(
     return S_OK;
 }
 
+void WebFrame::drawHeader(PlatformGraphicsContext* pctx, IWebUIDelegate* ui, const IntRect& pageRect, float headerHeight)
+{
+    int x = pageRect.x();
+    int y = 0;
+    RECT headerRect = {x, y, x+pageRect.width(), y+static_cast<int>(headerHeight)};
+    ui->drawHeaderInRect(d->webView, &headerRect, static_cast<OLE_HANDLE>(reinterpret_cast<LONG64>(pctx)));
+}
+
+void WebFrame::drawFooter(PlatformGraphicsContext* pctx, IWebUIDelegate* ui, const IntRect& pageRect, UINT page, UINT pageCount, float headerHeight, float footerHeight)
+{
+    int x = pageRect.x();
+    int y = max((int)headerHeight+pageRect.height(), m_pageHeight-static_cast<int>(footerHeight));
+    RECT footerRect = {x, y, x+pageRect.width(), y+static_cast<int>(footerHeight)};
+    ui->drawFooterInRect(d->webView, &footerRect, static_cast<OLE_HANDLE>(reinterpret_cast<LONG64>(pctx)), page+1, pageCount);
+}
+
+#if PLATFORM(CG)
+void WebFrame::spoolPage(PlatformGraphicsContext* pctx, GraphicsContext* spoolCtx, HDC printDC, IWebUIDelegate* ui, float headerHeight, float footerHeight, UINT page, UINT pageCount)
+{
+    Frame* coreFrame = core(this);
+
+    IntRect pageRect = m_pageRects[page];
+
+    CGContextSaveGState(pctx);
+
+    IntRect printRect = printerRect(printDC);
+    CGRect mediaBox = CGRectMake(CGFloat(0),
+                                 CGFloat(0),
+                                 CGFloat(printRect.width()),
+                                 CGFloat(printRect.height()));
+
+    CGContextBeginPage(pctx, &mediaBox);
+
+    // FIXME: Could some of this coordinate space manipulation be shared with Cairo?
+    CGFloat scale = static_cast<float>(mediaBox.size.width)/static_cast<float>(pageRect.width());
+    CGAffineTransform ctm = CGContextGetBaseCTM(pctx);
+    ctm = CGAffineTransformScale(ctm, -scale, -scale);
+    ctm = CGAffineTransformTranslate(ctm, CGFloat(-pageRect.x()), CGFloat(-pageRect.y()+headerHeight)); // reserves space for header
+    CGContextScaleCTM(pctx, scale, scale);
+    CGContextTranslateCTM(pctx, CGFloat(-pageRect.x()), CGFloat(-pageRect.y()+headerHeight));   // reserves space for header
+    CGContextSetBaseCTM(pctx, ctm);
+
+    coreFrame->view()->paintContents(spoolCtx, pageRect);
+
+    CGContextTranslateCTM(pctx, CGFloat(pageRect.x()), CGFloat(pageRect.y())-headerHeight);
+
+    if (headerHeight)
+        drawHeader(pctx, ui, pageRect, headerHeight);
+
+    if (footerHeight)
+        drawFooter(pctx, ui, pageRect, page, pageCount, headerHeight, footerHeight);
+
+    CGContextEndPage(pctx);
+    CGContextRestoreGState(pctx);
+}
+#elif PLATFORM(CAIRO)
+void WebFrame::spoolPage(PlatformGraphicsContext* pctx, GraphicsContext* spoolCtx, HDC printDC, IWebUIDelegate* ui, float headerHeight, float footerHeight, UINT page, UINT pageCount)
+{
+    Frame* coreFrame = core(this);
+
+    IntRect pageRect = m_pageRects[page];
+
+    cairo_save(pctx);
+
+    IntRect printRect = printerRect(printDC);
+    IntRect mediaBox(0, 0, printRect.width(), printRect.height());
+
+    ::StartPage(printDC);
+
+    // FIXME: Could some of this coordinate space manipulation be shared with CG?
+    float scale = static_cast<float>(mediaBox.size().width())/static_cast<float>(pageRect.width());
+    cairo_scale(pctx, -scale, -scale);
+    cairo_translate(pctx, -pageRect.x(), -pageRect.y()+headerHeight);
+    cairo_scale(pctx, scale, scale);
+    cairo_translate(pctx, -pageRect.x(), -pageRect.y()+headerHeight);   // reserves space for header
+
+    coreFrame->view()->paintContents(spoolCtx, pageRect);
+
+    cairo_translate(pctx, pageRect.x(), pageRect.y()-headerHeight);
+
+    if (headerHeight)
+        drawHeader(pctx, ui, pageRect, headerHeight);
+    
+    if (footerHeight)
+        drawFooter(pctx, ui, pageRect, page, pageCount, headerHeight, footerHeight);
+
+    cairo_show_page(pctx);
+    ::EndPage(printDC);
+    cairo_restore(pctx);
+}
+#endif
+
 HRESULT STDMETHODCALLTYPE WebFrame::spoolPages( 
     /* [in] */ HDC printDC,
     /* [in] */ UINT startPage,
@@ -1805,59 +1985,14 @@ HRESULT STDMETHODCALLTYPE WebFrame::spoolPages(
     COMPtr<IWebUIDelegate> ui;
     if (FAILED(d->webView->uiDelegate(&ui)))
         return E_FAIL;
-    // FIXME: we can return early after the updated app is released
-    COMPtr<IWebUIDelegate2> ui2;
-    if (FAILED(ui->QueryInterface(IID_IWebUIDelegate2, (void**) &ui2)))
-        ui2 = 0;
 
     float headerHeight = 0, footerHeight = 0;
     headerAndFooterHeights(&headerHeight, &footerHeight);
     GraphicsContext spoolCtx(pctx);
     spoolCtx.setShouldIncludeChildWindows(true);
 
-    for (UINT ii = startPage; ii < endPage; ii++) {
-        IntRect pageRect = m_pageRects[ii];
-
-        CGContextSaveGState(pctx);
-
-        IntRect printRect = printerRect(printDC);
-        CGRect mediaBox = CGRectMake(CGFloat(0),
-                                     CGFloat(0),
-                                     CGFloat(printRect.width()),
-                                     CGFloat(printRect.height()));
-
-        CGContextBeginPage(pctx, &mediaBox);
-
-        CGFloat scale = (float)mediaBox.size.width/ (float)pageRect.width();
-        CGAffineTransform ctm = CGContextGetBaseCTM(pctx);
-        ctm = CGAffineTransformScale(ctm, -scale, -scale);
-        ctm = CGAffineTransformTranslate(ctm, CGFloat(-pageRect.x()), CGFloat(-pageRect.y()+headerHeight)); // reserves space for header
-        CGContextScaleCTM(pctx, scale, scale);
-        CGContextTranslateCTM(pctx, CGFloat(-pageRect.x()), CGFloat(-pageRect.y()+headerHeight));   // reserves space for header
-        CGContextSetBaseCTM(pctx, ctm);
-
-        coreFrame->view()->paintContents(&spoolCtx, pageRect);
-
-        if (ui2) {
-            CGContextTranslateCTM(pctx, CGFloat(pageRect.x()), CGFloat(pageRect.y())-headerHeight);
-
-            int x = pageRect.x();
-            int y = 0;
-            if (headerHeight) {
-                RECT headerRect = {x, y, x+pageRect.width(), y+(int)headerHeight};
-                ui2->drawHeaderInRect(d->webView, &headerRect, (OLE_HANDLE)(LONG64)pctx);
-            }
-
-            if (footerHeight) {
-                y = max((int)headerHeight+pageRect.height(), m_pageHeight-(int)footerHeight);
-                RECT footerRect = {x, y, x+pageRect.width(), y+(int)footerHeight};
-                ui2->drawFooterInRect(d->webView, &footerRect, (OLE_HANDLE)(LONG64)pctx, ii+1, pageCount);
-            }
-        }
-
-        CGContextEndPage(pctx);
-        CGContextRestoreGState(pctx);
-    }
+    for (UINT ii = startPage; ii < endPage; ii++)
+        spoolPage(pctx, &spoolCtx, printDC, ui.get(), headerHeight, footerHeight, ii, pageCount);
  
     return S_OK;
 }
@@ -1868,10 +2003,10 @@ HRESULT STDMETHODCALLTYPE WebFrame::isFrameSet(
     *result = FALSE;
 
     Frame* coreFrame = core(this);
-    if (!coreFrame)
+    if (!coreFrame || !coreFrame->document())
         return E_FAIL;
 
-    *result = coreFrame->isFrameSet() ? TRUE : FALSE;
+    *result = coreFrame->document()->isFrameSet() ? TRUE : FALSE;
     return S_OK;
 }
 
@@ -2044,4 +2179,3 @@ void WebFrame::updateBackground()
 
     coreFrame->view()->updateBackgroundRecursively(backgroundColor, webView()->transparent());
 }
-

@@ -28,6 +28,7 @@
 #import "config.h"
 #import "Frame.h"
 
+#import "Base64.h"
 #import "BlockExceptions.h"
 #import "ColorMac.h"
 #import "Cursor.h"
@@ -57,7 +58,6 @@
 #import "visible_units.h"
 
 #import <Carbon/Carbon.h>
-#import <runtime/JSLock.h>
 #import <wtf/StdLibExtras.h>
 
 #if ENABLE(DASHBOARD_SUPPORT)
@@ -69,8 +69,6 @@
 @end
  
 using namespace std;
-
-using JSC::JSLock;
 
 namespace WebCore {
 
@@ -149,14 +147,15 @@ static RegularExpression* regExpForLabels(NSArray* labels)
 
 NSString* Frame::searchForNSLabelsAboveCell(RegularExpression* regExp, HTMLTableCellElement* cell)
 {
-    RenderTableCell* cellRenderer = static_cast<RenderTableCell*>(cell->renderer());
+    RenderObject* cellRenderer = cell->renderer();
 
     if (cellRenderer && cellRenderer->isTableCell()) {
-        RenderTableCell* cellAboveRenderer = cellRenderer->table()->cellAbove(cellRenderer);
+        RenderTableCell* tableCellRenderer = toRenderTableCell(cellRenderer);
+        RenderTableCell* cellAboveRenderer = tableCellRenderer->table()->cellAbove(tableCellRenderer);
 
         if (cellAboveRenderer) {
             HTMLTableCellElement* aboveCell =
-                static_cast<HTMLTableCellElement*>(cellAboveRenderer->element());
+                static_cast<HTMLTableCellElement*>(cellAboveRenderer->node());
 
             if (aboveCell) {
                 // search within the above cell we found for a match
@@ -472,8 +471,11 @@ void Frame::setUseSecureKeyboardEntry(bool enable)
 #ifdef BUILDING_ON_TIGER
         KeyScript(enableRomanKeyboardsOnly);
 #else
+        // WebKit substitutes nil for input context when in password field, which corresponds to null TSMDocument. So, there is
+        // no need to call TSMGetActiveDocument(), which may return an incorrect result when selection hasn't been yet updated
+        // after focusing a node.
         CFArrayRef inputSources = TISCreateASCIICapableInputSourceList();
-        TSMSetDocumentProperty(TSMGetActiveDocument(), kTSMDocumentEnabledInputSourcesPropertyTag, sizeof(CFArrayRef), &inputSources);
+        TSMSetDocumentProperty(0, kTSMDocumentEnabledInputSourcesPropertyTag, sizeof(CFArrayRef), &inputSources);
         CFRelease(inputSources);
 #endif
     } else {
@@ -481,7 +483,7 @@ void Frame::setUseSecureKeyboardEntry(bool enable)
 #ifdef BUILDING_ON_TIGER
         KeyScript(smKeyEnableKybds);
 #else
-        TSMRemoveDocumentProperty(TSMGetActiveDocument(), kTSMDocumentEnabledInputSourcesPropertyTag);
+        TSMRemoveDocumentProperty(0, kTSMDocumentEnabledInputSourcesPropertyTag);
 #endif
     }
 }
@@ -490,8 +492,6 @@ void Frame::setUseSecureKeyboardEntry(bool enable)
 NSMutableDictionary* Frame::dashboardRegionsDictionary()
 {
     Document* doc = document();
-    if (!doc)
-        return nil;
 
     const Vector<DashboardRegionValue>& regions = doc->dashboardRegions();
     size_t n = regions.size();
@@ -537,7 +537,23 @@ void Frame::setUserStyleSheetLocation(const KURL& url)
 {
     delete m_userStyleSheetLoader;
     m_userStyleSheetLoader = 0;
-    if (m_doc && m_doc->docLoader())
+
+    // Data URLs with base64-encoded UTF-8 style sheets are common. We can process them
+    // synchronously and avoid using a loader. 
+    if (url.protocolIs("data") && url.string().startsWith("data:text/css;charset=utf-8;base64,")) {
+        const unsigned prefixLength = 35;
+        Vector<char> encodedData(url.string().length() - prefixLength);
+        for (unsigned i = prefixLength; i < url.string().length(); ++i)
+            encodedData[i - prefixLength] = static_cast<char>(url.string()[i]);
+
+        Vector<char> styleSheetAsUTF8;
+        if (base64Decode(encodedData, styleSheetAsUTF8)) {
+            m_doc->setUserStyleSheet(String::fromUTF8(styleSheetAsUTF8.data()));
+            return;
+        }
+    }
+
+    if (m_doc->docLoader())
         m_userStyleSheetLoader = new UserStyleSheetLoader(m_doc, url.string());
 }
 
@@ -545,8 +561,7 @@ void Frame::setUserStyleSheet(const String& styleSheet)
 {
     delete m_userStyleSheetLoader;
     m_userStyleSheetLoader = 0;
-    if (m_doc)
-        m_doc->setUserStyleSheet(styleSheet);
+    m_doc->setUserStyleSheet(styleSheet);
 }
 
 } // namespace WebCore

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2007, 2008, 2009 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -35,18 +35,18 @@ using namespace JSC;
 
 namespace WebCore {
 
-void JSNodeFilter::mark()
+void JSNodeFilter::markChildren(MarkStack& markStack)
 {
-    impl()->mark();
-    DOMObject::mark();
+    Base::markChildren(markStack);
+    impl()->markAggregate(markStack);
 }
 
-JSValuePtr JSNodeFilter::acceptNode(ExecState* exec, const ArgList& args)
+JSValue JSNodeFilter::acceptNode(ExecState* exec, const ArgList& args)
 {
-    return jsNumber(exec, impl()->acceptNode(exec, toNode(args.at(exec, 0))));
+    return jsNumber(exec, impl()->acceptNode(exec, toNode(args.at(0))));
 }
 
-PassRefPtr<NodeFilter> toNodeFilter(JSValuePtr value)
+PassRefPtr<NodeFilter> toNodeFilter(JSValue value)
 {
     if (value.isObject(&JSNodeFilter::s_info))
         return static_cast<JSNodeFilter*>(asObject(value))->impl();

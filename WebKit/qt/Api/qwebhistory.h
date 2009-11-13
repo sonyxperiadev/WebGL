@@ -35,12 +35,15 @@ namespace WebCore {
 }
 
 class QWebHistoryItemPrivate;
-class QWEBKIT_EXPORT QWebHistoryItem
-{
+
+class QWEBKIT_EXPORT QWebHistoryItem {
 public:
     QWebHistoryItem(const QWebHistoryItem &other);
     QWebHistoryItem &operator=(const QWebHistoryItem &other);
     ~QWebHistoryItem();
+
+    //bool restoreState(QByteArray& buffer);
+    //QByteArray saveState(QWebHistory::HistoryStateVersion version = DefaultHistoryVersion) const;
 
     QUrl originalUrl() const;
     QUrl url() const;
@@ -60,13 +63,28 @@ private:
     friend class QWebHistory;
     friend class QWebPage;
     friend class WebCore::FrameLoaderClientQt;
+    friend class QWebHistoryItemPrivate;
+    //friend QDataStream & operator<<(QDataStream& out,const QWebHistoryItem& hist);
+    //friend QDataStream & operator>>(QDataStream& in,QWebHistoryItem& hist);
     QExplicitlySharedDataPointer<QWebHistoryItemPrivate> d;
 };
 
+//QWEBKIT_EXPORT QDataStream & operator<<(QDataStream& out,const QWebHistoryItem& hist);
+//QWEBKIT_EXPORT QDataStream & operator>>(QDataStream& in,QWebHistoryItem& hist);
+
+
 class QWebHistoryPrivate;
-class QWEBKIT_EXPORT QWebHistory
-{
+class QWEBKIT_EXPORT QWebHistory {
 public:
+    enum HistoryStateVersion {
+        HistoryVersion_1,
+        /*, HistoryVersion_2, */
+        DefaultHistoryVersion = HistoryVersion_1
+    };
+
+    bool restoreState(const QByteArray& buffer);
+    QByteArray saveState(HistoryStateVersion version = DefaultHistoryVersion) const;
+
     void clear();
 
     QList<QWebHistoryItem> items() const;
@@ -98,10 +116,15 @@ private:
 
     friend class QWebPage;
     friend class QWebPagePrivate;
+    friend QWEBKIT_EXPORT QDataStream& operator>>(QDataStream&, QWebHistory&);
+    friend QWEBKIT_EXPORT QDataStream& operator<<(QDataStream&, const QWebHistory&);
 
     Q_DISABLE_COPY(QWebHistory)
 
     QWebHistoryPrivate *d;
 };
+
+QWEBKIT_EXPORT QDataStream& operator<<(QDataStream& stream, const QWebHistory& history);
+QWEBKIT_EXPORT QDataStream& operator>>(QDataStream& stream, QWebHistory& history);
 
 #endif

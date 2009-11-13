@@ -107,6 +107,11 @@ static bool setupForText(SkPaint* paint, GraphicsContext* gc,
     return true;
 }
 
+bool Font::canReturnFallbackFontsForComplexText()
+{
+    return false;
+}
+
 void Font::drawGlyphs(GraphicsContext* gc, const SimpleFontData* font,
                       const GlyphBuffer& glyphBuffer,  int from, int numGlyphs,
                       const FloatPoint& point) const
@@ -206,7 +211,7 @@ void Font::drawComplexText(GraphicsContext* gc, TextRun const& run,
                      paint);
 }
 
-float Font::floatWidthForComplexText(const TextRun& run) const
+float Font::floatWidthForComplexText(const TextRun& run, HashSet<const SimpleFontData*>*) const
 {
     SkPaint paint;
 

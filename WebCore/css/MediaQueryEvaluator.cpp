@@ -40,10 +40,16 @@
 #include "MediaList.h"
 #include "MediaQuery.h"
 #include "MediaQueryExp.h"
+#include "NodeRenderStyle.h"
 #include "Page.h"
+#include "RenderView.h"
 #include "RenderStyle.h"
 #include "PlatformScreen.h"
 #include <wtf/HashMap.h>
+
+#if ENABLE(3D_RENDERING)
+#include "RenderLayerCompositor.h"
+#endif
 
 namespace WebCore {
 
@@ -162,7 +168,7 @@ bool MediaQueryEvaluator::eval(const MediaList* mediaList, CSSStyleSelector* sty
 
 static bool parseAspectRatio(CSSValue* value, int& h, int& v)
 {
-    if (value->isValueList()){
+    if (value->isValueList()) {
         CSSValueList* valueList = static_cast<CSSValueList*>(value);
         if (valueList->length() == 3) {
             CSSValue* i0 = valueList->itemWithoutBoundsCheck(0);
@@ -230,6 +236,38 @@ static bool monochromeMediaFeatureEval(CSSValue* value, RenderStyle* style, Fram
     return colorMediaFeatureEval(value, style, frame, op);
 }
 
+static bool orientationMediaFeatureEval(CSSValue* value, RenderStyle*, Frame* frame, MediaFeaturePrefix)
+{
+    // A missing parameter should fail
+    if (!value)
+        return false;
+
+    FrameView* view = frame->view();
+    int width = view->layoutWidth();
+    int height = view->layoutHeight();
+    if (width > height) // Square viewport is portrait
+        return "landscape" == static_cast<CSSPrimitiveValue*>(value)->getStringValue();
+    return "portrait" == static_cast<CSSPrimitiveValue*>(value)->getStringValue();
+}
+
+static bool aspect_ratioMediaFeatureEval(CSSValue* value, RenderStyle*, Frame* frame, MediaFeaturePrefix op)
+{
+    if (value) {
+        FrameView* view = frame->view();
+        int width = view->layoutWidth();
+        int height = view->layoutHeight();
+        int h = 0;
+        int v = 0;
+        if (parseAspectRatio(value, h, v))
+            return v != 0 && compareValue(width * v, height * h, op);
+        return false;
+    }
+
+    // ({,min-,max-}aspect-ratio)
+    // assume if we have a device, its aspect ratio is non-zero
+    return true;
+}
+
 static bool device_aspect_ratioMediaFeatureEval(CSSValue* value, RenderStyle*, Frame* frame, MediaFeaturePrefix op)
 {
     if (value) {
@@ -268,7 +306,8 @@ static bool device_heightMediaFeatureEval(CSSValue* value, RenderStyle* style, F
 {
     if (value) {
         FloatRect sg = screenRect(frame->page()->mainFrame()->view());
-        return value->isPrimitiveValue() && compareValue(static_cast<int>(sg.height()), static_cast<CSSPrimitiveValue*>(value)->computeLengthInt(style), op);
+        RenderStyle* rootStyle = frame->document()->documentElement()->renderStyle();
+        return value->isPrimitiveValue() && compareValue(static_cast<int>(sg.height()), static_cast<CSSPrimitiveValue*>(value)->computeLengthInt(style, rootStyle), op);
     }
     // ({,min-,max-}device-height)
     // assume if we have a device, assume non-zero
@@ -279,7 +318,8 @@ static bool device_widthMediaFeatureEval(CSSValue* value, RenderStyle* style, Fr
 {
     if (value) {
         FloatRect sg = screenRect(frame->page()->mainFrame()->view());
-        return value->isPrimitiveValue() && compareValue(static_cast<int>(sg.width()), static_cast<CSSPrimitiveValue*>(value)->computeLengthInt(style), op);
+        RenderStyle* rootStyle = frame->document()->documentElement()->renderStyle();
+        return value->isPrimitiveValue() && compareValue(static_cast<int>(sg.width()), static_cast<CSSPrimitiveValue*>(value)->computeLengthInt(style, rootStyle), op);
     }
     // ({,min-,max-}device-width)
     // assume if we have a device, assume non-zero
@@ -289,9 +329,10 @@ static bool device_widthMediaFeatureEval(CSSValue* value, RenderStyle* style, Fr
 static bool heightMediaFeatureEval(CSSValue* value, RenderStyle* style, Frame* frame, MediaFeaturePrefix op)
 {
     FrameView* view = frame->view();
-    
+    RenderStyle* rootStyle = frame->document()->documentElement()->renderStyle();
+
     if (value)
-        return value->isPrimitiveValue() && compareValue(view->layoutHeight(), static_cast<CSSPrimitiveValue*>(value)->computeLengthInt(style), op);
+        return value->isPrimitiveValue() && compareValue(view->layoutHeight(), static_cast<CSSPrimitiveValue*>(value)->computeLengthInt(style, rootStyle), op);
 
     return view->layoutHeight() != 0;
 }
@@ -299,9 +340,10 @@ static bool heightMediaFeatureEval(CSSValue* value, RenderStyle* style, Frame* f
 static bool widthMediaFeatureEval(CSSValue* value, RenderStyle* style, Frame* frame, MediaFeaturePrefix op)
 {
     FrameView* view = frame->view();
-    
+    RenderStyle* rootStyle = frame->document()->documentElement()->renderStyle();
+
     if (value)
-        return value->isPrimitiveValue() && compareValue(view->layoutWidth(), static_cast<CSSPrimitiveValue*>(value)->computeLengthInt(style), op);
+        return value->isPrimitiveValue() && compareValue(view->layoutWidth(), static_cast<CSSPrimitiveValue*>(value)->computeLengthInt(style, rootStyle), op);
 
     return view->layoutWidth() != 0;
 }
@@ -326,6 +368,16 @@ static bool min_monochromeMediaFeatureEval(CSSValue* value, RenderStyle* style, 
 static bool max_monochromeMediaFeatureEval(CSSValue* value, RenderStyle* style, Frame* frame, MediaFeaturePrefix)
 {
     return monochromeMediaFeatureEval(value, style, frame, MaxPrefix);
+}
+
+static bool min_aspect_ratioMediaFeatureEval(CSSValue* value, RenderStyle* style, Frame* frame, MediaFeaturePrefix)
+{
+    return aspect_ratioMediaFeatureEval(value, style, frame, MinPrefix);
+}
+
+static bool max_aspect_ratioMediaFeatureEval(CSSValue* value, RenderStyle* style, Frame* frame, MediaFeaturePrefix)
+{
+    return aspect_ratioMediaFeatureEval(value, style, frame, MaxPrefix);
 }
 
 static bool min_device_aspect_ratioMediaFeatureEval(CSSValue* value, RenderStyle* style, Frame* frame, MediaFeaturePrefix)
@@ -415,13 +467,29 @@ static bool transform_2dMediaFeatureEval(CSSValue* value, RenderStyle*, Frame*, 
     return true;
 }
 
-static bool transform_3dMediaFeatureEval(CSSValue* value, RenderStyle*, Frame*, MediaFeaturePrefix op)
+static bool transform_3dMediaFeatureEval(CSSValue* value, RenderStyle*, Frame* frame, MediaFeaturePrefix op)
 {
+    bool returnValueIfNoParameter;
+    int have3dRendering;
+
+#if ENABLE(3D_RENDERING)
+    bool threeDEnabled = false;
+    if (RenderView* view = frame->contentRenderer())
+        threeDEnabled = view->compositor()->hasAcceleratedCompositing();
+
+    returnValueIfNoParameter = threeDEnabled;
+    have3dRendering = threeDEnabled ? 1 : 0;
+#else
+    UNUSED_PARAM(frame);
+    returnValueIfNoParameter = false;
+    have3dRendering = 0;
+#endif
+
     if (value) {
         float number;
-        return numberValue(value, number) && compareValue(0, static_cast<int>(number), op);
+        return numberValue(value, number) && compareValue(have3dRendering, static_cast<int>(number), op);
     }
-    return false;
+    return returnValueIfNoParameter;
 }
 
 static void createFunctionMap()

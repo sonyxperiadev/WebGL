@@ -30,6 +30,8 @@
 #include "WebDatabaseManager.h"
 #include "WebKitDLL.h"
 
+#if ENABLE(DATABASE)
+
 #include "CFDictionaryPropertyBag.h"
 #include "COMEnumVariant.h"
 #include "MarshallingHelpers.h"
@@ -49,7 +51,7 @@ static inline bool isEqual(LPCWSTR s1, LPCWSTR s2)
     return !wcscmp(s1, s2);
 }
 
-class DatabaseDetailsPropertyBag : public IPropertyBag, Noncopyable {
+class DatabaseDetailsPropertyBag : public IPropertyBag, public Noncopyable {
 public:
     static DatabaseDetailsPropertyBag* createInstance(const DatabaseDetails&);
 
@@ -364,3 +366,5 @@ void WebKitSetWebDatabasesPathIfNecessary()
 
     pathSet = true;
 }
+
+#endif

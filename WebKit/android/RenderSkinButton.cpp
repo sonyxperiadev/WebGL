@@ -25,6 +25,7 @@
 #define LOG_TAG "WebCore"
 
 #include "config.h"
+#include "CString.h"
 #include "android_graphics.h"
 #include "Document.h"
 #include "IntRect.h"
@@ -43,18 +44,19 @@ struct PatchData {
 
 static const PatchData gFiles[] =
     {
-        { "res/drawable/btn_default_normal_disable.9.png", 2, 7 },
-        { "res/drawable/btn_default_normal.9.png", 2, 7 },
-        { "res/drawable/btn_default_selected.9.png", 2, 7 },
-        { "res/drawable/btn_default_pressed.9.png", 2, 7 }
+        { "btn_default_normal_disable.9.png", 2, 7 },
+        { "btn_default_normal.9.png", 2, 7 },
+        { "btn_default_selected.9.png", 2, 7 },
+        { "btn_default_pressed.9.png", 2, 7 }
     };
 
 static SkBitmap gButton[sizeof(gFiles)/sizeof(gFiles[0])];
-static bool     gDecoded;
+static bool gDecoded;
+static bool gHighRes;
 
 namespace WebCore {
 
-void RenderSkinButton::Init(android::AssetManager* am)
+void RenderSkinButton::Init(android::AssetManager* am, String drawableDirectory)
 {
     static bool gInited;
     if (gInited)
@@ -62,8 +64,10 @@ void RenderSkinButton::Init(android::AssetManager* am)
 
     gInited = true;
     gDecoded = true;
+    gHighRes = drawableDirectory[drawableDirectory.length() - 5] == 'h';
     for (size_t i = 0; i < sizeof(gFiles)/sizeof(gFiles[0]); i++) {
-        if (!RenderSkinAndroid::DecodeBitmap(am, gFiles[i].name, &gButton[i])) {
+        String path = drawableDirectory + gFiles[i].name;
+        if (!RenderSkinAndroid::DecodeBitmap(am, path.utf8().data(), &gButton[i])) {
             gDecoded = false;
             LOGD("RenderSkinButton::Init: button assets failed to decode\n\tBrowser buttons will not draw");
             break;
@@ -90,15 +94,23 @@ void RenderSkinButton::Draw(SkCanvas* canvas, const IntRect& r, RenderSkinAndroi
             static_cast<unsigned>(RenderSkinAndroid::kNumStates));
 
     // Set up the ninepatch information for drawing.
-    SkRect bounds;
-    android_setrect(&bounds, r);
+    SkRect bounds(r);
     const PatchData& pd = gFiles[newState];
     int marginValue = pd.margin + pd.outset;
 
     SkIRect margin;
 
     margin.set(marginValue, marginValue, marginValue, marginValue);
-    
+    if (gHighRes) {
+    /* FIXME: it shoudn't be necessary to offset the button here,
+       but gives the right results. */
+        bounds.offset(0, SK_Scalar1 * 2);
+    /* FIXME: This temporarily gets around the fact that the margin values and
+       positioning were created for a low res asset, which was used on
+       g1-like devices. A better fix would be to read the offset information
+       out of the png. */
+        margin.set(10, 9, 10, 14);
+    }
     // Draw to the canvas.
     SkNinePatch::DrawNine(canvas, bounds, gButton[newState], margin);
 }

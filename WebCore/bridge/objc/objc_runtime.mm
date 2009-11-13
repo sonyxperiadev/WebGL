@@ -90,29 +90,29 @@ ObjcField::ObjcField(CFStringRef name)
 {
 }
 
-JSValuePtr ObjcField::valueFromInstance(ExecState* exec, const Instance* instance) const
+JSValue ObjcField::valueFromInstance(ExecState* exec, const Instance* instance) const
 {
-    JSValuePtr result = jsUndefined();
+    JSValue result = jsUndefined();
     
     id targetObject = (static_cast<const ObjcInstance*>(instance))->getObject();
 
-    JSLock::DropAllLocks dropAllLocks(false); // Can't put this inside the @try scope because it unwinds incorrectly.
+    JSLock::DropAllLocks dropAllLocks(SilenceAssertionsOnly); // Can't put this inside the @try scope because it unwinds incorrectly.
 
     @try {
         if (id objcValue = [targetObject valueForKey:(NSString *)_name.get()])
             result = convertObjcValueToValue(exec, &objcValue, ObjcObjectType, instance->rootObject());
     } @catch(NSException* localException) {
-        JSLock::lock(false);
+        JSLock::lock(SilenceAssertionsOnly);
         throwError(exec, GeneralError, [localException reason]);
-        JSLock::unlock(false);
+        JSLock::unlock(SilenceAssertionsOnly);
     }
 
     // Work around problem in some versions of GCC where result gets marked volatile and
     // it can't handle copying from a volatile to non-volatile.
-    return const_cast<JSValuePtr&>(result);
+    return const_cast<JSValue&>(result);
 }
 
-static id convertValueToObjcObject(ExecState* exec, JSValuePtr value)
+static id convertValueToObjcObject(ExecState* exec, JSValue value)
 {
     RefPtr<RootObject> rootObject = findRootObject(exec->dynamicGlobalObject());
     if (!rootObject)
@@ -120,19 +120,19 @@ static id convertValueToObjcObject(ExecState* exec, JSValuePtr value)
     return [webScriptObjectClass() _convertValueToObjcValue:value originRootObject:rootObject.get() rootObject:rootObject.get()];
 }
 
-void ObjcField::setValueToInstance(ExecState* exec, const Instance* instance, JSValuePtr aValue) const
+void ObjcField::setValueToInstance(ExecState* exec, const Instance* instance, JSValue aValue) const
 {
     id targetObject = (static_cast<const ObjcInstance*>(instance))->getObject();
     id value = convertValueToObjcObject(exec, aValue);
 
-    JSLock::DropAllLocks dropAllLocks(false); // Can't put this inside the @try scope because it unwinds incorrectly.
+    JSLock::DropAllLocks dropAllLocks(SilenceAssertionsOnly); // Can't put this inside the @try scope because it unwinds incorrectly.
 
     @try {
         [targetObject setValue:value forKey:(NSString *)_name.get()];
     } @catch(NSException* localException) {
-        JSLock::lock(false);
+        JSLock::lock(SilenceAssertionsOnly);
         throwError(exec, GeneralError, [localException reason]);
-        JSLock::unlock(false);
+        JSLock::unlock(SilenceAssertionsOnly);
     }
 }
 
@@ -144,7 +144,7 @@ ObjcArray::ObjcArray(ObjectStructPtr a, PassRefPtr<RootObject> rootObject)
 {
 }
 
-void ObjcArray::setValueAt(ExecState* exec, unsigned int index, JSValuePtr aValue) const
+void ObjcArray::setValueAt(ExecState* exec, unsigned int index, JSValue aValue) const
 {
     if (![_array.get() respondsToSelector:@selector(insertObject:atIndex:)]) {
         throwError(exec, TypeError, "Array is not mutable.");
@@ -167,7 +167,7 @@ void ObjcArray::setValueAt(ExecState* exec, unsigned int index, JSValuePtr aValu
     }
 }
 
-JSValuePtr ObjcArray::valueAt(ExecState* exec, unsigned int index) const
+JSValue ObjcArray::valueAt(ExecState* exec, unsigned int index) const
 {
     if (index > [_array.get() count])
         return throwError(exec, RangeError, "Index exceeds array size.");
@@ -189,7 +189,8 @@ unsigned int ObjcArray::getLength() const
 const ClassInfo ObjcFallbackObjectImp::s_info = { "ObjcFallbackObject", 0, 0, 0 };
 
 ObjcFallbackObjectImp::ObjcFallbackObjectImp(ExecState* exec, ObjcInstance* i, const Identifier& propertyName)
-    : JSObject(getDOMStructure<ObjcFallbackObjectImp>(exec))
+    // FIXME: deprecatedGetDOMStructure uses the prototype off of the wrong global object
+    : JSObject(deprecatedGetDOMStructure<ObjcFallbackObjectImp>(exec))
     , _instance(i)
     , _item(propertyName)
 {
@@ -202,16 +203,16 @@ bool ObjcFallbackObjectImp::getOwnPropertySlot(ExecState*, const Identifier&, Pr
     return true;
 }
 
-void ObjcFallbackObjectImp::put(ExecState*, const Identifier&, JSValuePtr, PutPropertySlot&)
+void ObjcFallbackObjectImp::put(ExecState*, const Identifier&, JSValue, PutPropertySlot&)
 {
 }
 
-static JSValuePtr callObjCFallbackObject(ExecState* exec, JSObject* function, JSValuePtr thisValue, const ArgList& args)
+static JSValue JSC_HOST_CALL callObjCFallbackObject(ExecState* exec, JSObject* function, JSValue thisValue, const ArgList& args)
 {
     if (!thisValue.isObject(&RuntimeObjectImp::s_info))
         return throwError(exec, TypeError);
 
-    JSValuePtr result = jsUndefined();
+    JSValue result = jsUndefined();
 
     RuntimeObjectImp* imp = static_cast<RuntimeObjectImp*>(asObject(thisValue));
     Instance* instance = imp->getInternalInstance();
@@ -254,7 +255,7 @@ bool ObjcFallbackObjectImp::deleteProperty(ExecState*, const Identifier&)
     return false;
 }
 
-JSValuePtr ObjcFallbackObjectImp::defaultValue(ExecState* exec, PreferredPrimitiveType) const
+JSValue ObjcFallbackObjectImp::defaultValue(ExecState* exec, PreferredPrimitiveType) const
 {
     return _instance->getValueOfUndefinedField(exec, _item);
 }

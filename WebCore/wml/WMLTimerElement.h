@@ -35,6 +35,7 @@ public:
 
     virtual void parseMappedAttribute(MappedAttribute*);
     virtual void insertedIntoDocument();
+    virtual void removedFromDocument();
 
     void timerFired(Timer<WMLTimerElement>*);
 
@@ -42,10 +43,11 @@ public:
     void stop();
     void storeIntervalToPageState();
 
+    String value() const;
+
 private:
     WMLCardElement* m_card;
     String m_name;
-    String m_value;
     Timer<WMLTimerElement> m_timer;
 };
 

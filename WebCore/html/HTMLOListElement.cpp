@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *
@@ -18,12 +18,14 @@
  * Boston, MA 02110-1301, USA.
  *
  */
+
 #include "config.h"
 #include "HTMLOListElement.h"
 
 #include "CSSPropertyNames.h"
 #include "CSSValueKeywords.h"
 #include "HTMLNames.h"
+#include "MappedAttribute.h"
 #include "RenderListItem.h"
 
 namespace WebCore {
@@ -61,12 +63,16 @@ void HTMLOListElement::parseMappedAttribute(MappedAttribute* attr)
         else if (attr->value() == "1")
             addCSSProperty(attr, CSSPropertyListStyleType, CSSValueDecimal);
     } else if (attr->name() == startAttr) {
-        int s = !attr->isNull() ? attr->value().toInt() : 1;
-        if (s != m_start) {
-            m_start = s;
-            for (RenderObject* r = renderer(); r; r = r->nextInPreOrder(renderer()))
-                if (r->isListItem())
-                    static_cast<RenderListItem*>(r)->updateValue();
+        bool canParse;
+        int start = attr->value().toInt(&canParse);
+        if (!canParse)
+            start = 1;
+        if (start == m_start)
+            return;
+        m_start = start;
+        for (RenderObject* child = renderer(); child; child = child->nextInPreOrder(renderer())) {
+            if (child->isListItem())
+                toRenderListItem(child)->updateValue();
         }
     } else
         HTMLElement::parseMappedAttribute(attr);

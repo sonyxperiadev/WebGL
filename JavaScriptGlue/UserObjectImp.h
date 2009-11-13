@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2005, 2008, 2009 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -46,26 +46,26 @@ public:
 
     virtual void getPropertyNames(ExecState*, PropertyNameArray&);
 
-    virtual JSValuePtr callAsFunction(ExecState *exec, JSObject *thisObj, const ArgList &args);
+    virtual JSValue callAsFunction(ExecState *exec, JSObject *thisObj, const ArgList &args);
     virtual bool getOwnPropertySlot(ExecState *, const Identifier&, PropertySlot&);
-    virtual void put(ExecState *exec, const Identifier &propertyName, JSValuePtr value, int attr = None);
+    virtual void put(ExecState *exec, const Identifier &propertyName, JSValue value, PutPropertySlot&);
 
-    JSValuePtr toPrimitive(ExecState*, JSType preferredType = UnspecifiedType) const;
+    JSValue toPrimitive(ExecState*, JSType preferredType = UnspecifiedType) const;
     virtual bool toBoolean(ExecState *exec) const;
     virtual double toNumber(ExecState *exec) const;
     virtual UString toString(ExecState *exec) const;
 
-    virtual void mark();
+    virtual void markChildren(MarkStack&);
 
     JSUserObject *GetJSUserObject() const;
 
-    static PassRefPtr<Structure> createStructure(JSValuePtr prototype)
+    static PassRefPtr<Structure> createStructure(JSValue prototype)
     {
         return Structure::create(prototype, TypeInfo(ObjectType));
     }
 
 private:
-    static JSValuePtr userObjectGetter(ExecState*, const Identifier& propertyName, const PropertySlot&);
+    static JSValue userObjectGetter(ExecState*, const Identifier& propertyName, const PropertySlot&);
 
     JSUserObject* fJSUserObject;
 };

@@ -26,6 +26,7 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#import "config.h"
 #import "DumpRenderTree.h"
 #import "FrameLoadDelegate.h"
 
@@ -38,6 +39,7 @@
 #import "ObjCController.h"
 #import "ObjCPlugin.h"
 #import "ObjCPluginFunction.h"
+#import "PlainTextController.h"
 #import "TextInputController.h"
 #import "WorkQueue.h"
 #import "WorkQueueItem.h"
@@ -105,22 +107,19 @@
 - (void)dealloc
 {
     delete gcController;
+    delete accessibilityController;
     [super dealloc];
 }
 
 // Exec messages in the work queue until they're all done, or one of them starts a new load
 - (void)processWork:(id)dummy
 {
-    // quit doing work once a load is in progress
-    while (WorkQueue::shared()->count() > 0 && !topLoadingFrame) {
-        WorkQueueItem* item = WorkQueue::shared()->dequeue();
-        ASSERT(item);
-        item->invoke();
-        delete item;
-    }
+    // if another load started, then wait for it to complete.
+    if (topLoadingFrame)
+        return;
 
-    // if we didn't start a new load, then we finished all the commands, so we're ready to dump state
-    if (!topLoadingFrame && !gLayoutTestController->waitToDump())
+    // if we finish all the commands, we're ready to dump state
+    if (WorkQueue::shared()->processWork() && !gLayoutTestController->waitToDump())
         dump();
 }
 
@@ -171,8 +170,6 @@
     gLayoutTestController->setWindowIsKey(true);
     NSView *documentView = [[mainFrame frameView] documentView];
     [[[mainFrame webView] window] makeFirstResponder:documentView];
-    if ([documentView isKindOfClass:[WebHTMLView class]])
-        [(WebHTMLView *)documentView _updateFocusedAndActiveState];
 }
 
 - (void)webView:(WebView *)sender didFailProvisionalLoadWithError:(NSError *)error forFrame:(WebFrame *)frame
@@ -182,7 +179,7 @@
         printf ("%s\n", [string UTF8String]);
     }
 
-    if ([error domain] == NSURLErrorDomain && [error code] == NSURLErrorServerCertificateHasUnknownRoot) {
+    if ([error domain] == NSURLErrorDomain && ([error code] == NSURLErrorServerCertificateHasUnknownRoot || [error code] == NSURLErrorServerCertificateUntrusted)) {
         NSURL *failedURL = [[error userInfo] objectForKey:@"NSErrorFailingURLKey"];
         [NSURLRequest setAllowsAnyHTTPSCertificate:YES forHost:[failedURL _web_hostString]];
         [frame loadRequest:[[[[frame provisionalDataSource] request] mutableCopy] autorelease]];
@@ -212,7 +209,7 @@
     [gNavigationController webView:sender didFinishLoadForFrame:frame];
 }
 
-- (void)webView:(WebView *)sender didFailLoadWithError:(NSError *)error forFrame:(WebFrame *)frame;
+- (void)webView:(WebView *)sender didFailLoadWithError:(NSError *)error forFrame:(WebFrame *)frame
 {
     if (!done && gLayoutTestController->dumpFrameLoadCallbacks()) {
         NSString *string = [NSString stringWithFormat:@"%@ - didFailLoadWithError", [frame _drt_descriptionSuitableForTestResult]];
@@ -225,7 +222,7 @@
     [self webView:sender locationChangeDone:error forDataSource:[frame dataSource]];    
 }
 
-- (void)webView:(WebView *)webView windowScriptObjectAvailable:(WebScriptObject *)windowScriptObject;
+- (void)webView:(WebView *)webView windowScriptObjectAvailable:(WebScriptObject *)windowScriptObject
 {
     if (!done && gLayoutTestController->dumpFrameLoadCallbacks()) {
         NSString *string = [NSString stringWithFormat:@"?? - windowScriptObjectAvailable"];
@@ -256,24 +253,21 @@
     ASSERT(!exception);
 
     // Make Old-Style controllers
-    EventSendingController *esc = [[EventSendingController alloc] init];
-    [obj setValue:esc forKey:@"eventSender"];
-    [esc release];
-    
-    TextInputController *tic = [[TextInputController alloc] initWithWebView:sender];
-    [obj setValue:tic forKey:@"textInputController"];
-    [tic release];
-    
+
     AppleScriptController *asc = [[AppleScriptController alloc] initWithWebView:sender];
     [obj setValue:asc forKey:@"appleScriptController"];
     [asc release];
 
+    EventSendingController *esc = [[EventSendingController alloc] init];
+    [obj setValue:esc forKey:@"eventSender"];
+    [esc release];
+    
+    [obj setValue:gNavigationController forKey:@"navigationController"];
+    
     ObjCController *occ = [[ObjCController alloc] init];
     [obj setValue:occ forKey:@"objCController"];
     [occ release];
 
-    [obj setValue:gNavigationController forKey:@"navigationController"];
-    
     ObjCPlugin *plugin = [[ObjCPlugin alloc] init];
     [obj setValue:plugin forKey:@"objCPlugin"];
     [plugin release];
@@ -281,6 +275,12 @@
     ObjCPluginFunction *pluginFunction = [[ObjCPluginFunction alloc] init];
     [obj setValue:pluginFunction forKey:@"objCPluginFunction"];
     [pluginFunction release];
+
+    [obj setValue:[PlainTextController sharedPlainTextController] forKey:@"plainText"];
+
+    TextInputController *tic = [[TextInputController alloc] initWithWebView:sender];
+    [obj setValue:tic forKey:@"textInputController"];
+    [tic release];
 }
 
 - (void)webView:(WebView *)sender didReceiveTitle:(NSString *)title forFrame:(WebFrame *)frame
@@ -326,7 +326,7 @@
     }
 }
 
-- (void)webView:(WebView *)sender didFinishDocumentLoadForFrame:(WebFrame *)frame;
+- (void)webView:(WebView *)sender didFinishDocumentLoadForFrame:(WebFrame *)frame
 {
     if (!done && gLayoutTestController->dumpFrameLoadCallbacks()) {
         NSString *string = [NSString stringWithFormat:@"%@ - didFinishDocumentLoadForFrame", [frame _drt_descriptionSuitableForTestResult]];
@@ -340,7 +340,7 @@
     }
 }
 
-- (void)webView:(WebView *)sender didHandleOnloadEventsForFrame:(WebFrame *)frame;
+- (void)webView:(WebView *)sender didHandleOnloadEventsForFrame:(WebFrame *)frame
 {
     if (!done && gLayoutTestController->dumpFrameLoadCallbacks()) {
         NSString *string = [NSString stringWithFormat:@"%@ - didHandleOnloadEventsForFrame", [frame _drt_descriptionSuitableForTestResult]];

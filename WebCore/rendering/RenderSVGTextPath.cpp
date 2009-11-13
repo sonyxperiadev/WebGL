@@ -45,7 +45,7 @@ RenderSVGTextPath::RenderSVGTextPath(Node* n)
 
 Path RenderSVGTextPath::layoutPath() const
 {
-    SVGTextPathElement* textPathElement = static_cast<SVGTextPathElement*>(element());
+    SVGTextPathElement* textPathElement = static_cast<SVGTextPathElement*>(node());
         String pathId = SVGURIReference::getTarget(textPathElement->href());
     Element* targetElement = textPathElement->document()->getElementById(pathId);    
     if (!targetElement || !targetElement->hasTagName(SVGNames::pathTag))
@@ -65,57 +65,17 @@ Path RenderSVGTextPath::layoutPath() const
 
 float RenderSVGTextPath::startOffset() const
 {
-    return static_cast<SVGTextPathElement*>(element())->startOffset().valueAsPercentage();
+    return static_cast<SVGTextPathElement*>(node())->startOffset().valueAsPercentage();
 }
 
 bool RenderSVGTextPath::exactAlignment() const
 {
-    return static_cast<SVGTextPathElement*>(element())->spacing() == SVG_TEXTPATH_SPACINGTYPE_EXACT;
+    return static_cast<SVGTextPathElement*>(node())->spacing() == SVG_TEXTPATH_SPACINGTYPE_EXACT;
 }
 
 bool RenderSVGTextPath::stretchMethod() const
 {
-    return static_cast<SVGTextPathElement*>(element())->method() == SVG_TEXTPATH_METHODTYPE_STRETCH;
-}
-
-void RenderSVGTextPath::absoluteRects(Vector<IntRect>& rects, int, int)
-{
-    InlineRunBox* firstBox = firstLineBox();
-
-    SVGRootInlineBox* rootBox = firstBox ? static_cast<SVGInlineTextBox*>(firstBox)->svgRootInlineBox() : 0;
-    RenderBlock* object = rootBox ? rootBox->block() : 0;
-
-    if (!object)
-        return;
-
-    int xRef = object->x() + x();
-    int yRef = object->y() + y();
-
-    for (InlineRunBox* curr = firstBox; curr; curr = curr->nextLineBox()) {
-        FloatRect rect(xRef + curr->xPos(), yRef + curr->yPos(), curr->width(), curr->height());
-        // FIXME: broken with CSS transforms
-        rects.append(enclosingIntRect(absoluteTransform().mapRect(rect)));
-    }
-}
-
-void RenderSVGTextPath::absoluteQuads(Vector<FloatQuad>& quads, bool)
-{
-    InlineRunBox* firstBox = firstLineBox();
-
-    SVGRootInlineBox* rootBox = firstBox ? static_cast<SVGInlineTextBox*>(firstBox)->svgRootInlineBox() : 0;
-    RenderBlock* object = rootBox ? rootBox->block() : 0;
-
-    if (!object)
-        return;
-
-    int xRef = object->x() + x();
-    int yRef = object->y() + y();
-
-    for (InlineRunBox* curr = firstBox; curr; curr = curr->nextLineBox()) {
-        FloatRect rect(xRef + curr->xPos(), yRef + curr->yPos(), curr->width(), curr->height());
-        // FIXME: broken with CSS transforms
-        quads.append(absoluteTransform().mapRect(rect));
-    }
+    return static_cast<SVGTextPathElement*>(node())->method() == SVG_TEXTPATH_METHODTYPE_STRETCH;
 }
 
 }

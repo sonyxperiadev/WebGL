@@ -28,6 +28,7 @@
 
 #import "WebDOMOperationsPrivate.h"
 
+#import "DOMDocumentInternal.h"
 #import "DOMNodeInternal.h"
 #import "DOMRangeInternal.h"
 #import "WebArchiveInternal.h"
@@ -43,32 +44,29 @@
 #import <WebKit/DOMHTML.h>
 #import <wtf/Assertions.h>
 
-#if ENABLE(SVG)
-#import <WebKit/DOMSVG.h>
-#endif
-
 using namespace WebCore;
 
 @implementation DOMNode (WebDOMNodeOperations)
 
 - (WebArchive *)webArchive
 {
-    return [[[WebArchive alloc] _initWithCoreLegacyWebArchive:LegacyWebArchive::create([self _node])] autorelease];
+    return [[[WebArchive alloc] _initWithCoreLegacyWebArchive:LegacyWebArchive::create(core(self))] autorelease];
 }
 
 - (NSString *)markupString
 {
-    return createFullMarkup([self _node]);
+    return createFullMarkup(core(self));
 }
 
 @end
 
-@implementation DOMNode (WebDOMNodeOperationsPrivate)
+/* This doesn't appear to be used by anyone.  We should consider removing this. */
+@implementation DOMNode (WebDOMNodeOperationsInternal)
 
 - (NSArray *)_subresourceURLs
 {
     ListHashSet<KURL> urls;
-    [self _node]->getSubresourceURLs(urls);
+    core(self)->getSubresourceURLs(urls);
     if (!urls.size())
         return nil;
 
@@ -95,14 +93,15 @@ using namespace WebCore;
 
 - (NSURL *)URLWithAttributeString:(NSString *)string
 {
-    // FIXME: Is parseURL appropriate here?
-    return core(self)->completeURL(parseURL(string));
+    // FIXME: Is deprecatedParseURL appropriate here?
+    return core(self)->completeURL(deprecatedParseURL(string));
 }
 
 @end
 
-@implementation DOMDocument (WebDOMDocumentOperationsPrivate)
+@implementation DOMDocument (WebDOMDocumentOperationsInternal)
 
+/* This doesn't appear to be used by anyone.  We should consider removing this. */
 - (DOMRange *)_createRangeWithNode:(DOMNode *)node
 {
     DOMRange *range = [self createRange];
@@ -117,16 +116,30 @@ using namespace WebCore;
 
 @end
 
+@implementation DOMDocument (WebDOMDocumentOperationsPrivate)
+
+- (NSArray *)_focusableNodes
+{
+    Vector<RefPtr<Node> > nodes;
+    core(self)->getFocusableNodes(nodes);
+    NSMutableArray *array = [NSMutableArray arrayWithCapacity:nodes.size()];
+    for (unsigned i = 0; i < nodes.size(); ++i)
+        [array addObject:kit(nodes[i].get())];
+    return array;
+}
+
+@end
+
 @implementation DOMRange (WebDOMRangeOperations)
 
 - (WebArchive *)webArchive
 {
-    return [[[WebArchive alloc] _initWithCoreLegacyWebArchive:LegacyWebArchive::create([self _range])] autorelease];
+    return [[[WebArchive alloc] _initWithCoreLegacyWebArchive:LegacyWebArchive::create(core(self))] autorelease];
 }
 
 - (NSString *)markupString
 {
-    return createFullMarkup([self _range]);
+    return createFullMarkup(core(self));
 }
 
 @end

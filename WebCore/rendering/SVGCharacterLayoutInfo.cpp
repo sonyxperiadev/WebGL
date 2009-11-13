@@ -274,7 +274,7 @@ void SVGCharacterLayoutInfo::addLayoutInformation(InlineFlowBox* flowBox, float 
                            angleStack.isEmpty() && baselineShiftStack.isEmpty() &&
                            curx == 0.0f && cury == 0.0f;
 
-    RenderSVGTextPath* textPath = static_cast<RenderSVGTextPath*>(flowBox->object());
+    RenderSVGTextPath* textPath = toRenderSVGTextPath(flowBox->renderer());
     Path path = textPath->layoutPath();
 
     float baselineShift = calculateBaselineShift(textPath);
@@ -390,11 +390,11 @@ void SVGCharacterLayoutInfo::addStackContent(StackType type, const PositionedFlo
         dyStackChanged = true;
         dyStack.append(list);
         break;
-   case AngleStack:
+    case AngleStack:
         angleStackChanged = true;
         angleStack.append(list);
         break; 
-   default:
+    default:
         ASSERT_NOT_REACHED();
     }
 }
@@ -521,7 +521,7 @@ TransformationMatrix SVGChar::characterTransform() const
     ctm.rotate(angle);
 
     if (pathData) {
-        ctm.scale(pathData->xScale, pathData->yScale);
+        ctm.scaleNonUniform(pathData->xScale, pathData->yScale);
         ctm.translate(pathData->xShift, pathData->yShift);
         ctm.rotate(pathData->orientationAngle);
     }

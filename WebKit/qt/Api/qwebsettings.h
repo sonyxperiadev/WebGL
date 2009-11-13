@@ -27,19 +27,18 @@
 #include <QtGui/qicon.h>
 #include <QtCore/qshareddata.h>
 
-namespace WebCore
-{
+namespace WebCore {
     class Settings;
 }
 
 class QWebPage;
+class QWebPluginDatabase;
 class QWebSettingsPrivate;
 QT_BEGIN_NAMESPACE
 class QUrl;
 QT_END_NAMESPACE
 
-class QWEBKIT_EXPORT QWebSettings
-{
+class QWEBKIT_EXPORT QWebSettings {
 public:
     enum FontFamily {
         StandardFont,
@@ -63,7 +62,8 @@ public:
         PrintElementBackgrounds,
         OfflineStorageDatabaseEnabled,
         OfflineWebApplicationCacheEnabled,
-        LocalStorageDatabaseEnabled
+        LocalStorageDatabaseEnabled,
+        LocalContentCanAccessRemoteUrls
     };
     enum WebGraphic {
         MissingImageGraphic,
@@ -95,10 +95,15 @@ public:
     void setUserStyleSheetUrl(const QUrl &location);
     QUrl userStyleSheetUrl() const;
 
+    void setDefaultTextEncoding(const QString &encoding);
+    QString defaultTextEncoding() const;
+
     static void setIconDatabasePath(const QString &location);
     static QString iconDatabasePath();
     static void clearIconDatabase();
     static QIcon iconForUrl(const QUrl &url);
+
+    static QWebPluginDatabase *pluginDatabase();
 
     static void setWebGraphic(WebGraphic type, const QPixmap &graphic);
     static QPixmap webGraphic(WebGraphic type);
@@ -114,6 +119,10 @@ public:
 
     static void setOfflineWebApplicationCachePath(const QString& path);
     static QString offlineWebApplicationCachePath();
+    static void setOfflineWebApplicationCacheQuota(qint64 maximumSize);
+    static qint64 offlineWebApplicationCacheQuota();
+
+    static void clearMemoryCaches();
 
     inline QWebSettingsPrivate* handle() const { return d; }
 

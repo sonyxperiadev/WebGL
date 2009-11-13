@@ -26,12 +26,16 @@
 #include "Frame.h"
 #include "FrameLoader.h"
 #include "HTMLNames.h"
+#include "MappedAttribute.h"
 #include "NodeList.h"
+#include "Page.h"
 #include "RenderStyle.h"
 #include "WMLDocument.h"
 #include "WMLDoElement.h"
+#include "WMLInputElement.h"
 #include "WMLIntrinsicEventHandler.h"
 #include "WMLNames.h"
+#include "WMLSelectElement.h"
 #include "WMLTemplateElement.h"
 #include "WMLTimerElement.h"
 #include "WMLVariables.h"
@@ -48,6 +52,7 @@ WMLCardElement::WMLCardElement(const QualifiedName& tagName, Document* doc)
     , m_eventTimer(0)
     , m_template(0)
 {
+    ASSERT(hasTagName(cardTag));
 }
 
 WMLCardElement::~WMLCardElement()
@@ -127,20 +132,24 @@ void WMLCardElement::handleIntrinsicEventIfNeeded()
     FrameLoader* loader = frame->loader();
     if (!loader)
         return;
-    
-    int currentHistoryLength = loader->getHistoryLength();
-    int lastHistoryLength = pageState->historyLength();
 
     // Calculate the entry method of current card 
     WMLIntrinsicEventType eventType = WMLIntrinsicEventUnknown;
-    if (lastHistoryLength > currentHistoryLength)
-        eventType = WMLIntrinsicEventOnEnterBackward;
-    else if (lastHistoryLength < currentHistoryLength)
-        eventType = WMLIntrinsicEventOnEnterForward;
 
-    // Synchronize history length with WMLPageState
-    pageState->setHistoryLength(currentHistoryLength);
- 
+    switch (loader->loadType()) {
+    case FrameLoadTypeReload:
+        break;
+    case FrameLoadTypeBack:
+        eventType = WMLIntrinsicEventOnEnterBackward;
+        break;
+    case FrameLoadTypeBackWMLDeckNotAccessible:
+        reportWMLError(document(), WMLErrorDeckNotAccessible);
+        return;
+    default:
+        eventType = WMLIntrinsicEventOnEnterForward;
+        break;
+    }
+
     // Figure out target event handler
     WMLIntrinsicEventHandler* eventHandler = this->eventHandler();
     bool hasIntrinsicEvent = false;
@@ -162,16 +171,15 @@ void WMLCardElement::handleIntrinsicEventIfNeeded()
     if (m_eventTimer)
         m_eventTimer->start();
 
-    // FIXME: Initialize input/select  elements in this card
-    /*
-    Node* node = this;
-    while (node = node->traverseNextNode()) {
+    for (Node* node = traverseNextNode(); node != 0; node = node->traverseNextNode()) {
+        if (!node->isElementNode())
+            continue;
+
         if (node->hasTagName(inputTag))
-            static_cast<WMLInputElement*>(node)->init();
+            static_cast<WMLInputElement*>(node)->initialize();
         else if (node->hasTagName(selectTag))
             static_cast<WMLSelectElement*>(node)->selectInitialOptions();
     }
-    */
 }
 
 void WMLCardElement::handleDeckLevelTaskOverridesIfNeeded()
@@ -233,12 +241,24 @@ void WMLCardElement::parseMappedAttribute(MappedAttribute* attr)
 void WMLCardElement::insertedIntoDocument()
 {
     WMLElement::insertedIntoDocument();
+    Document* document = this->document();
 
     // The first card inserted into a document, is visible by default.
     if (!m_isVisible) {
-        RefPtr<NodeList> nodeList = document()->getElementsByTagName("card");
+        RefPtr<NodeList> nodeList = document->getElementsByTagName("card");
         if (nodeList && nodeList->length() == 1 && nodeList->item(0) == this)
             m_isVisible = true;
+    }
+
+    // For the WML layout tests we embed WML content in a XHTML document. Navigating to different cards
+    // within the same deck has a different behaviour in HTML than in WML. HTML wants to "scroll to anchor"
+    // (see FrameLoader) but WML wants a reload. Notify the root document of the layout test that we want
+    // to mimic WML behaviour. This is rather tricky, but has been tested extensively. Usually it's not possible
+    // at all to embed WML in HTML, it's not designed that way, we're just "abusing" it for dynamically created layout tests.
+    if (document->page() && document->page()->mainFrame()) {
+        Document* rootDocument = document->page()->mainFrame()->document();
+        if (rootDocument && rootDocument != document)
+            rootDocument->setContainsWMLContent(true);
     }
 }
 
@@ -291,7 +311,7 @@ WMLCardElement* WMLCardElement::determineActiveCard(Document* doc)
         return 0;
 
     // Figure out the new target card
-    String cardName = doc->url().ref();
+    String cardName = doc->url().fragmentIdentifier();
 
     WMLCardElement* activeCard = findNamedCardInDocument(doc, cardName);
     if (activeCard) {
