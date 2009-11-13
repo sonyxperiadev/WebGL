@@ -31,9 +31,6 @@
 
 #include "PlatformString.h"
 #include "StringSourceProvider.h"
-#ifdef ANDROID_NPN_SETEXCEPTION
-#include "c_runtime.h"
-#endif  // ANDROID_NPN_SETEXCEPTION
 #include "c_utility.h"
 #include "c_instance.h"
 #include "IdentifierRep.h"
@@ -380,21 +377,11 @@ bool _NPN_HasMethod(NPP, NPObject* o, NPIdentifier methodName)
     return false;
 }
 
-#ifdef ANDROID_NPN_SETEXCEPTION
-void _NPN_SetException(NPObject* o, const NPUTF8* message)
-#else
 void _NPN_SetException(NPObject*, const NPUTF8* message)
-#endif
 {
-#ifdef ANDROID_NPN_SETEXCEPTION
-    if (o->_class == NPScriptObjectClass) {
-        JSC::Bindings::SetGlobalException(message);
-    }
-#else
     // Ignorning the NPObject param is consistent with the Mozilla implementation.
     UString exception(message);
     CInstance::setGlobalException(exception);
-#endif  // ANDROID_NPN_SETEXCEPTION
 }
 
 bool _NPN_Enumerate(NPP, NPObject* o, NPIdentifier** identifier, uint32_t* count)

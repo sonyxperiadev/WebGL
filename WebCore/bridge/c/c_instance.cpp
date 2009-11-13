@@ -121,9 +121,6 @@ JSValue CInstance::invokeMethod(ExecState* exec, const MethodList& methodList, c
         convertValueToNPVariant(exec, args.at(i), &cArgs[i]);
 
     // Invoke the 'C' method.
-#ifdef ANDROID_NPN_SETEXCEPTION
-    SetGlobalException(0);
-#endif
     bool retval = true;
     NPVariant resultVariant;
     VOID_TO_NPVARIANT(resultVariant);
@@ -143,9 +140,6 @@ JSValue CInstance::invokeMethod(ExecState* exec, const MethodList& methodList, c
 
     JSValue resultValue = convertNPVariantToValue(exec, &resultVariant, _rootObject.get());
     _NPN_ReleaseVariantValue(&resultVariant);
-#ifdef ANDROID_NPN_SETEXCEPTION
-    MoveGlobalExceptionToExecState(exec);
-#endif
     return resultValue;
 }
 
@@ -163,9 +157,6 @@ JSValue CInstance::invokeDefaultMethod(ExecState* exec, const ArgList& args)
         convertValueToNPVariant(exec, args.at(i), &cArgs[i]);
 
     // Invoke the 'C' method.
-#ifdef ANDROID_NPN_SETEXCEPTION
-    SetGlobalException(0);
-#endif
     bool retval = true;
     NPVariant resultVariant;
     VOID_TO_NPVARIANT(resultVariant);
@@ -184,9 +175,6 @@ JSValue CInstance::invokeDefaultMethod(ExecState* exec, const ArgList& args)
 
     JSValue resultValue = convertNPVariantToValue(exec, &resultVariant, _rootObject.get());
     _NPN_ReleaseVariantValue(&resultVariant);
-#ifdef ANDROID_NPN_SETEXCEPTION
-    MoveGlobalExceptionToExecState(exec);
-#endif
     return resultValue;
 }
 

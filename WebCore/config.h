@@ -189,10 +189,6 @@
 // element will be always fixed to the top page.
 #define ANDROID_DISABLE_POSITION_FIXED
 
-// Fix exceptions not surfacing through NPAPI bindings to the
-// JavaScriptCore execution context.
-#define ANDROID_NPN_SETEXCEPTION 1
-
 // Enable dumping the display tree to a file (triggered in WebView.java)
 #define ANDROID_DUMP_DISPLAY_TREE
 

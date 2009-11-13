@@ -32,46 +32,10 @@
 #include "c_instance.h"
 #include "c_utility.h"
 #include "npruntime_impl.h"
-#ifdef ANDROID_NPN_SETEXCEPTION
-#include "runtime/Error.h"
-#endif  // ANDROID_NPN_SETEXCEPTION
 #include <runtime/JSLock.h>
 
 namespace JSC {
 namespace Bindings {
-
-#ifdef ANDROID_NPN_SETEXCEPTION
-/*
- * When throwing an exception, we need to use the current ExecState.
- * The following two methods implement a similar solution to the
- * Objective-C implementation, where _NPN_SetException set a global
- * exception (using SetGlobalException).
- * We then test (using MoveGlobalExceptionToExecState) if the exception
- * is set, after each javascript call that might result in an exception.
- * If the exception is set we throw it with the passed ExecState.
- */
-
-static UString* globalLastException = 0;
-
-void SetGlobalException(const NPUTF8* exception)
-{
-    if (globalLastException != 0) {
-        delete globalLastException;
-        globalLastException = 0;
-    }
-    if (exception != 0)
-        globalLastException = new UString(exception);
-}
-
-void MoveGlobalExceptionToExecState(ExecState* exec)
-{
-    if (!globalLastException)
-        return;
-    JSLock lock(exec);
-    throwError(exec, GeneralError, *globalLastException);
-    SetGlobalException(0);
-}
-#endif // ANDROID_NPN_SETEXCEPTION
 
 JSValue CField::valueFromInstance(ExecState* exec, const Instance* inst) const
 {
@@ -81,17 +45,11 @@ JSValue CField::valueFromInstance(ExecState* exec, const Instance* inst) const
         NPVariant property;
         VOID_TO_NPVARIANT(property);
 
-#ifdef ANDROID_NPN_SETEXCEPTION
-        SetGlobalException(0);
-#endif  // ANDROID_NPN_SETEXCEPTION
         bool result;
         {
             JSLock::DropAllLocks dropAllLocks(SilenceAssertionsOnly);
             result = obj->_class->getProperty(obj, _fieldIdentifier, &property);
         }
-#ifdef ANDROID_NPN_SETEXCEPTION
-        MoveGlobalExceptionToExecState(exec);
-#endif  // ANDROID_NPN_SETEXCEPTION
         if (result) {
             JSValue result = convertNPVariantToValue(exec, &property, instance->rootObject());
             _NPN_ReleaseVariantValue(&property);
@@ -109,18 +67,12 @@ void CField::setValueToInstance(ExecState *exec, const Instance *inst, JSValue a
         NPVariant variant;
         convertValueToNPVariant(exec, aValue, &variant);
 
-#ifdef ANDROID_NPN_SETEXCEPTION
-        SetGlobalException(0);
-#endif  // ANDROID_NPN_SETEXCEPTION
         {
             JSLock::DropAllLocks dropAllLocks(SilenceAssertionsOnly);
             obj->_class->setProperty(obj, _fieldIdentifier, &variant);
         }
 
         _NPN_ReleaseVariantValue(&variant);
-#ifdef ANDROID_NPN_SETEXCEPTION
-        MoveGlobalExceptionToExecState(exec);
-#endif  // ANDROID_NPN_SETEXCEPTION
     }
 }
 

@@ -60,11 +60,6 @@ private:
     NPIdentifier _methodIdentifier;
 };
 
-#ifdef ANDROID_NPN_SETEXCEPTION
-void SetGlobalException(const NPUTF8* exception);
-void MoveGlobalExceptionToExecState(ExecState* exec);
-#endif  // ANDROID_NPN_SETEXCEPTION
-
 } // namespace Bindings
 } // namespace JSC
 
