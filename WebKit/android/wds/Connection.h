@@ -26,6 +26,7 @@
 #ifndef WDS_CONNECTION_H
 #define WDS_CONNECTION_H
 
+#include <unistd.h>
 #include <sys/socket.h>
 
 namespace android {
