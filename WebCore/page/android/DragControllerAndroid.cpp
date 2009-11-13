@@ -28,6 +28,7 @@
 #include "DragController.h"
 
 #include "DragData.h"
+#include "NotImplemented.h"
 
 namespace WebCore {
 
@@ -39,12 +40,12 @@ bool DragController::isCopyKeyDown()
 DragOperation DragController::dragOperation(DragData* dragData)
 {
     // FIXME: This logic is incomplete
-    ASSERT(0);
+    notImplemented();
     if (dragData->containsURL())
         return DragOperationCopy;
 
     return DragOperationNone;
-} 
+}
 
 void DragController::cleanupAfterSystemDrag()
 {
