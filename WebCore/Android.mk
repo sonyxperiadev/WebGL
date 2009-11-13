@@ -114,22 +114,6 @@
 # The remainder of the file is read by tools/webkitsync/diff.cpp
 # If you edit it, keep it in alphabetical order
 LOCAL_SRC_FILES := \
-	accessibility/AXObjectCache.cpp \
-	accessibility/AccessibilityARIAGrid.cpp \
-	accessibility/AccessibilityARIAGridCell.cpp \
-	accessibility/AccessibilityARIAGridRow.cpp \
-	accessibility/AccessibilityImageMapLink.cpp \
-	accessibility/AccessibilityList.cpp \
-	accessibility/AccessibilityListBox.cpp \
-	accessibility/AccessibilityListBoxOption.cpp \
-	accessibility/AccessibilityObject.cpp \
-	accessibility/AccessibilityRenderObject.cpp \
-	accessibility/AccessibilitySlider.cpp \
-	accessibility/AccessibilityTable.cpp \
-	accessibility/AccessibilityTableCell.cpp \
-	accessibility/AccessibilityTableColumn.cpp \
-	accessibility/AccessibilityTableHeaderContainer.cpp \
-	accessibility/AccessibilityTableRow.cpp \
 	bindings/js/GCController.cpp \
 	bindings/js/JSAbstractWorkerCustom.cpp \
 	bindings/js/JSAttrCustom.cpp \
@@ -500,9 +484,6 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	history/PageCache.cpp \
 	\
 	html/CollectionCache.cpp \
-	html/DOMDataGridDataSource.cpp \
-	html/DataGridColumn.cpp \
-	html/DataGridColumnList.cpp \
 	html/File.cpp \
 	html/FileList.cpp \
 	html/FormDataList.cpp \
@@ -558,15 +539,11 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	loader/CachedResourceClientWalker.cpp \
 	loader/CachedResourceHandle.cpp \
 	loader/CachedScript.cpp \
-	loader/CachedXBLDocument.cpp \
-	loader/CachedXSLStyleSheet.cpp \
 	loader/CrossOriginAccessControl.cpp \
 	loader/CrossOriginPreflightResultCache.cpp \
 	loader/DocLoader.cpp \
 	loader/DocumentLoader.cpp \
 	loader/DocumentThreadableLoader.cpp \
-	loader/FTPDirectoryDocument.cpp \
-	loader/FTPDirectoryParser.cpp \
 	loader/FormState.cpp \
 	loader/FrameLoader.cpp \
 	loader/HistoryController.cpp \
@@ -839,7 +816,6 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	plugins/PluginArray.cpp \
 	plugins/PluginData.cpp \
 	plugins/PluginDatabase.cpp \
-	plugins/PluginDebug.cpp \
 	plugins/PluginInfoStore.cpp \
 	plugins/PluginMainThreadScheduler.cpp \
 	plugins/PluginPackage.cpp \
@@ -871,7 +847,6 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	rendering/RenderBoxModelObject.cpp \
 	rendering/RenderButton.cpp \
 	rendering/RenderCounter.cpp \
-	rendering/RenderDataGrid.cpp \
 	rendering/RenderFieldset.cpp \
 	rendering/RenderFileUploadControl.cpp \
 	rendering/RenderFlexibleBox.cpp \
