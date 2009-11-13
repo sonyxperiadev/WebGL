@@ -153,7 +153,7 @@ void MyResourceLoader::loadFile(const String& file) {
 }
 
 WebCoreResourceLoader* MyWebFrame::startLoadingResource(ResourceHandle* handle,
-        const ResourceRequest& req, bool ignore1, bool ignore2) {
+        const ResourceRequest& req, bool ignore) {
     MyResourceLoader* loader = new MyResourceLoader(handle, req.url().string());
     Retain(loader);
     m_requests.append(loader);

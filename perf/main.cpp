@@ -49,6 +49,7 @@
 #include "PlatformGraphicsContext.h"
 #include "ResourceRequest.h"
 #include "ScriptController.h"
+#include "SecurityOrigin.h"
 #include "SelectionController.h"
 #include "Settings.h"
 #include "SharedBuffer.h"
@@ -78,7 +79,7 @@ public:
     virtual void signalServiceFuncPtrQueue() {}
 
     // Cookie methods that do nothing.
-    virtual void setCookies(const KURL&, const KURL&, const String&) {}
+    virtual void setCookies(const KURL&, const String&) {}
     virtual String cookies(const KURL&) { return ""; }
     virtual bool cookiesEnabled() { return false; }
 
@@ -120,7 +121,7 @@ int main(int argc, char** argv) {
     ScriptController::initializeThreading();
 
     // Setting this allows data: urls to load from a local file.
-    FrameLoader::setLocalLoadPolicy(FrameLoader::AllowLocalLoadsForAll);
+    SecurityOrigin::setLocalLoadPolicy(SecurityOrigin::AllowLocalLoadsForAll);
 
     // Create the fake JNIEnv and JavaVM
     InitializeJavaVM();
@@ -137,7 +138,7 @@ int main(int argc, char** argv) {
     ChromeClientAndroid* chrome = new ChromeClientAndroid;
     EditorClientAndroid* editor = new EditorClientAndroid;
     Page* page = new Page(chrome, new ContextMenuClientAndroid, editor,
-            new DragClientAndroid, new InspectorClientAndroid);
+            new DragClientAndroid, new InspectorClientAndroid, NULL);
     editor->setPage(page);
 
     // Create MyWebFrame that intercepts network requests
@@ -157,8 +158,8 @@ int main(int argc, char** argv) {
     // draw later without risk of it being deleted.
     WebViewCore* webViewCore = new WebViewCore(JSC::Bindings::getJNIEnv(),
             MY_JOBJECT, frame.get());
-    FrameView* frameView = new FrameView(frame.get());
-    WebFrameView* webFrameView = new WebFrameView(frameView, webViewCore);
+    RefPtr<FrameView> frameView = FrameView::create(frame.get());
+    WebFrameView* webFrameView = new WebFrameView(frameView.get(), webViewCore);
     frame->setView(frameView);
     frameView->resize(width, height);
     Release(webViewCore);
@@ -226,7 +227,6 @@ int main(int argc, char** argv) {
     delete enc;
 
     // Tear down the world.
-    frameView->deref();
     frame->loader()->detachFromParent();
     delete page;
 
