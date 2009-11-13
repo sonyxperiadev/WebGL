@@ -147,10 +147,6 @@
 // thread
 #define ANDROID_ACCEPT_CHANGES_TO_FOCUSED_TEXTFIELDS
 
-// Fix for an issue where WebKit was scrolling a focused element onscreen.
-// Unnecessary for us, since we handle scrolling outside of WebKit.
-#define ANDROID_SCROLL_FIX
-
 #define ANDROID_META_SUPPORT
 
 // Converts ListBoxes to dropdown popup lists.
@@ -184,10 +180,6 @@
 // Notify WebViewCore when a clipped out rectangle is drawn,
 // so that all invals are captured by the display tree.
 #define ANDROID_CAPTURE_OFFSCREEN_PAINTS
-
-// This disables the css position:fixed to the Browser window. Instead the fixed
-// element will be always fixed to the top page.
-#define ANDROID_DISABLE_POSITION_FIXED
 
 // Enable dumping the display tree to a file (triggered in WebView.java)
 #define ANDROID_DUMP_DISPLAY_TREE
