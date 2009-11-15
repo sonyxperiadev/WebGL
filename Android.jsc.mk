@@ -29,13 +29,6 @@ WEBKIT_SRC_FILES :=
 # We have to use bison 2.3
 include $(BASE_PATH)/bison_check.mk
 
-# Include source files for JavaScriptCore
-d := JavaScriptCore
-LOCAL_PATH := $(BASE_PATH)/$d
-intermediates := $(base_intermediates)/$d
-include $(LOCAL_PATH)/Android.mk
-WEBKIT_SRC_FILES += $(addprefix $d/,$(LOCAL_SRC_FILES))
-
 # Include source files for WebCore
 d := WebCore
 LOCAL_PATH := $(BASE_PATH)/$d
@@ -168,9 +161,6 @@ LOCAL_C_INCLUDES := \
 	$(LOCAL_PATH)/JavaScriptCore/wtf/unicode \
 	$(LOCAL_PATH)/JavaScriptCore/wtf/unicode/icu \
 	$(LOCAL_PATH)/JavaScriptCore/ForwardingHeaders \
-	$(base_intermediates)/JavaScriptCore \
-	$(base_intermediates)/JavaScriptCore/parser \
-	$(base_intermediates)/JavaScriptCore/runtime \
 	$(base_intermediates)/WebCore/ \
 	$(base_intermediates)/WebCore/bindings/js \
 	$(base_intermediates)/WebCore/css \
@@ -236,6 +226,32 @@ WEBKIT_STATIC_LIBRARIES := $(LOCAL_STATIC_LIBRARIES)
 # Build the library all at once
 include $(BUILD_STATIC_LIBRARY)
 
+# Now build libjs as a static library.
+include $(CLEAR_VARS)
+LOCAL_MODULE := libjs
+LOCAL_LDLIBS := $(WEBKIT_LDLIBS)
+LOCAL_SHARED_LIBRARIES := $(WEBKIT_SHARED_LIBRARIES)
+LOCAL_STATIC_LIBRARIES := $(WEBKIT_STATIC_LIBRARIES)
+LOCAL_CFLAGS := $(WEBKIT_CFLAGS)
+# Include source files for JavaScriptCore
+d := JavaScriptCore
+LOCAL_PATH := $(BASE_PATH)/$d
+LOCAL_MODULE_CLASS := STATIC_LIBRARIES
+# Cannot use base_intermediates as this is a new module
+intermediates := $(call local-intermediates-dir)
+include $(LOCAL_PATH)/Android.mk
+# Redefine LOCAL_SRC_FILES with the correct prefix
+LOCAL_SRC_FILES := $(addprefix $d/,$(LOCAL_SRC_FILES))
+# Use the base path to resolve file names
+LOCAL_PATH := $(BASE_PATH)
+# Append jsc intermediate include paths to the WebKit include list.
+LOCAL_C_INCLUDES := $(WEBKIT_C_INCLUDES) \
+	$(intermediates) \
+	$(intermediates)/parser \
+	$(intermediates)/runtime \
+# Build libjs
+include $(BUILD_STATIC_LIBRARY)
+
 # Now build the shared library using only the exported jni entry point. This
 # will strip out any unused code from the entry point.
 include $(CLEAR_VARS)
@@ -244,7 +260,7 @@ include $(CLEAR_VARS)
 LOCAL_MODULE := libwebcore
 LOCAL_LDLIBS := $(WEBKIT_LDLIBS)
 LOCAL_SHARED_LIBRARIES := $(WEBKIT_SHARED_LIBRARIES)
-LOCAL_STATIC_LIBRARIES := libwebcore $(WEBKIT_STATIC_LIBRARIES)
+LOCAL_STATIC_LIBRARIES := libwebcore libjs $(WEBKIT_STATIC_LIBRARIES)
 LOCAL_LDFLAGS := -fvisibility=hidden
 LOCAL_CFLAGS := $(WEBKIT_CFLAGS)
 LOCAL_C_INCLUDES := $(WEBKIT_C_INCLUDES)
