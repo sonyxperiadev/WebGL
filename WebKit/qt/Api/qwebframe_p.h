@@ -27,11 +27,11 @@
 #include "EventHandler.h"
 #include "KURL.h"
 #include "PlatformString.h"
+#include "qwebelement.h"
 #include "wtf/RefPtr.h"
 #include "Frame.h"
 
-namespace WebCore
-{
+namespace WebCore {
     class FrameLoaderClientQt;
     class FrameView;
     class HTMLFrameOwnerElement;
@@ -39,13 +39,18 @@ namespace WebCore
 }
 class QWebPage;
 
-
-class QWebFrameData
-{
+class QWebFrameData {
 public:
+    QWebFrameData(WebCore::Page*, WebCore::Frame* parentFrame = 0,
+                  WebCore::HTMLFrameOwnerElement* = 0,
+                  const WebCore::String& frameName = WebCore::String());
+
     WebCore::KURL url;
     WebCore::String name;
     WebCore::HTMLFrameOwnerElement* ownerElement;
+    WebCore::Page* page;
+    RefPtr<WebCore::Frame> frame;
+    WebCore::FrameLoaderClientQt* frameLoaderClient;
 
     WebCore::String referrer;
     bool allowsScrolling;
@@ -53,8 +58,7 @@ public:
     int marginHeight;
 };
 
-class QWebFramePrivate
-{
+class QWebFramePrivate {
 public:
     QWebFramePrivate()
         : q(0)
@@ -66,9 +70,9 @@ public:
         , allowsScrolling(true)
         , marginWidth(-1)
         , marginHeight(-1)
+        , clipRenderToViewport(true)
         {}
-    void init(QWebFrame *qframe, WebCore::Page *page,
-              QWebFrameData *frameData);
+    void init(QWebFrame* qframe, QWebFrameData* frameData);
 
     inline QWebFrame *parentFrame() { return qobject_cast<QWebFrame*>(q->parent()); }
 
@@ -76,12 +80,12 @@ public:
     WebCore::Scrollbar* verticalScrollBar() const;
 
     Qt::ScrollBarPolicy horizontalScrollBarPolicy;
-    Qt::ScrollBarPolicy verticalScrollBarPolicy; 
+    Qt::ScrollBarPolicy verticalScrollBarPolicy;
 
     static WebCore::Frame* core(QWebFrame*);
     static QWebFrame* kit(WebCore::Frame*);
 
-    void renderPrivate(QPainter *painter, const QRegion &clip, bool contents = false);
+    void renderPrivate(QPainter *painter, const QRegion &clip);
 
     QWebFrame *q;
     WebCore::FrameLoaderClientQt *frameLoaderClient;
@@ -91,22 +95,23 @@ public:
     bool allowsScrolling;
     int marginWidth;
     int marginHeight;
+    bool clipRenderToViewport;
 };
 
-class QWebHitTestResultPrivate
-{
+class QWebHitTestResultPrivate {
 public:
     QWebHitTestResultPrivate() : isContentEditable(false), isContentSelected(false), isScrollBar(false) {}
     QWebHitTestResultPrivate(const WebCore::HitTestResult &hitTest);
 
     QPoint pos;
     QRect boundingRect;
-    QRect enclosingBlock;
+    QWebElement enclosingBlock;
     QString title;
     QString linkText;
     QUrl linkUrl;
     QString linkTitle;
     QPointer<QWebFrame> linkTargetFrame;
+    QWebElement linkElement;
     QString alternateText;
     QUrl imageUrl;
     QPixmap pixmap;

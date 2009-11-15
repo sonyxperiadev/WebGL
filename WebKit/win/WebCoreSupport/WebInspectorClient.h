@@ -50,6 +50,8 @@ public:
 
     virtual WebCore::String localizedStringsURL();
 
+    virtual WebCore::String hiddenPanels();
+
     virtual void showWindow();
     virtual void closeWindow();
     virtual bool windowVisible();
@@ -67,6 +69,8 @@ public:
     virtual void populateSetting(const WebCore::String& key, WebCore::InspectorController::Setting&);
     virtual void storeSetting(const WebCore::String& key, const WebCore::InspectorController::Setting&);
     virtual void removeSetting(const WebCore::String& key);
+
+    virtual void inspectorWindowObjectCleared();
 
 private:
     ~WebInspectorClient();

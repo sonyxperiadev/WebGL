@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2005, 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -72,8 +72,22 @@ enum {
     WebMenuItemTagTextDirectionDefault,
     WebMenuItemTagTextDirectionLeftToRight,
     WebMenuItemTagTextDirectionRightToLeft,
+    WebMenuItemTagCorrectSpellingAutomatically,
+    WebMenuItemTagSubstitutionsMenu,
+    WebMenuItemTagShowSubstitutions,
+    WebMenuItemTagSmartCopyPaste,
+    WebMenuItemTagSmartQuotes,
+    WebMenuItemTagSmartDashes,
+    WebMenuItemTagSmartLinks,
+    WebMenuItemTagTextReplacement,
+    WebMenuItemTagTransformationsMenu,
+    WebMenuItemTagMakeUpperCase,
+    WebMenuItemTagMakeLowerCase,
+    WebMenuItemTagCapitalize,
+    WebMenuItemTagChangeBack,
     WebMenuItemTagBaseApplication = 10000
 };
+@class WebGeolocation;
 @class WebSecurityOrigin;
 
 @interface NSObject (WebUIDelegatePrivate)
@@ -109,5 +123,20 @@ enum {
 
 - (BOOL)webView:(WebView *)sender shouldReplaceUploadFile:(NSString *)path usingGeneratedFilename:(NSString **)filename;
 - (NSString *)webView:(WebView *)sender generateReplacementFile:(NSString *)path;
- 
+
+- (BOOL)webView:(WebView *)sender frame:(WebFrame *)frame requestGeolocationPermission:(WebGeolocation *)geolocation securityOrigin:(WebSecurityOrigin *)origin;
+
+- (void)webView:(WebView *)sender formStateDidChangeForNode:(DOMNode *)node;
+- (void)webView:(WebView *)sender formStateDidFocusNode:(DOMNode *)node;
+- (void)webView:(WebView *)sender formStateDidBlurNode:(DOMNode *)node;
+
+/*!
+    @method webView:printFrame:
+    @abstract Informs that a WebFrame needs to be printed
+    @param webView The WebView sending the delegate method
+    @param frameView The WebFrame needing to be printed
+    @discussion This method is called when a script or user requests the page to be printed.
+*/
+- (void)webView:(WebView *)sender printFrame:(WebFrame *)frame;
+
 @end

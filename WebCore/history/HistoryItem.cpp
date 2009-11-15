@@ -50,7 +50,6 @@ HistoryItem::HistoryItem()
     : m_lastVisitedTime(0)
     , m_lastVisitWasHTTPNonGet(false)
     , m_lastVisitWasFailure(false)
-    , m_isInPageCache(false)
     , m_isTargetItem(false)
     , m_visitCount(0)
 {
@@ -63,7 +62,6 @@ HistoryItem::HistoryItem(const String& urlString, const String& title, double ti
     , m_lastVisitedTime(time)
     , m_lastVisitWasHTTPNonGet(false)
     , m_lastVisitWasFailure(false)
-    , m_isInPageCache(false)
     , m_isTargetItem(false)
     , m_visitCount(0)
 {    
@@ -78,7 +76,6 @@ HistoryItem::HistoryItem(const String& urlString, const String& title, const Str
     , m_lastVisitedTime(time)
     , m_lastVisitWasHTTPNonGet(false)
     , m_lastVisitWasFailure(false)
-    , m_isInPageCache(false)
     , m_isTargetItem(false)
     , m_visitCount(0)
 {
@@ -94,7 +91,6 @@ HistoryItem::HistoryItem(const KURL& url, const String& target, const String& pa
     , m_lastVisitedTime(0)
     , m_lastVisitWasHTTPNonGet(false)
     , m_lastVisitWasFailure(false)
-    , m_isInPageCache(false)
     , m_isTargetItem(false)
     , m_visitCount(0)
 {    
@@ -103,7 +99,7 @@ HistoryItem::HistoryItem(const KURL& url, const String& target, const String& pa
 
 HistoryItem::~HistoryItem()
 {
-    ASSERT(!m_isInPageCache);
+    ASSERT(!m_cachedPage);
     iconDatabase()->releaseIconForPageURL(m_urlString);
 }
 
@@ -120,20 +116,21 @@ inline HistoryItem::HistoryItem(const HistoryItem& item)
     , m_lastVisitWasHTTPNonGet(item.m_lastVisitWasHTTPNonGet)
     , m_scrollPoint(item.m_scrollPoint)
     , m_lastVisitWasFailure(item.m_lastVisitWasFailure)
-    , m_isInPageCache(item.m_isInPageCache)
     , m_isTargetItem(item.m_isTargetItem)
     , m_visitCount(item.m_visitCount)
     , m_dailyVisitCounts(item.m_dailyVisitCounts)
     , m_weeklyVisitCounts(item.m_weeklyVisitCounts)
     , m_formContentType(item.m_formContentType)
 {
+    ASSERT(!item.m_cachedPage);
+
     if (item.m_formData)
         m_formData = item.m_formData->copy();
         
-    unsigned size = item.m_subItems.size();
-    m_subItems.reserveCapacity(size);
+    unsigned size = item.m_children.size();
+    m_children.reserveInitialCapacity(size);
     for (unsigned i = 0; i < size; ++i)
-        m_subItems.append(item.m_subItems[i]->copy());
+        m_children.uncheckedAppend(item.m_children[i]->copy());
 
     if (item.m_redirectURLs)
         m_redirectURLs.set(new Vector<String>(*item.m_redirectURLs));
@@ -168,8 +165,8 @@ const String& HistoryItem::alternateTitle() const
 
 Image* HistoryItem::icon() const
 {
-    Image* result = iconDatabase()->iconForPageURL(m_urlString, IntSize(16,16));
-    return result ? result : iconDatabase()->defaultIcon(IntSize(16,16));
+    Image* result = iconDatabase()->iconForPageURL(m_urlString, IntSize(16, 16));
+    return result ? result : iconDatabase()->defaultIcon(IntSize(16, 16));
 }
 
 double HistoryItem::lastVisitedTime() const
@@ -316,14 +313,16 @@ void HistoryItem::collapseDailyVisitsToWeekly()
         m_weeklyVisitCounts.shrink(maxWeeklyCounts);
 }
 
-void HistoryItem::recordVisitAtTime(double time)
+void HistoryItem::recordVisitAtTime(double time, VisitCountBehavior visitCountBehavior)
 {
     padDailyCountsForNewVisit(time);
 
     m_lastVisitedTime = time;
-    m_visitCount++;
 
-    m_dailyVisitCounts[0]++;
+    if (visitCountBehavior == IncreaseVisitCount) {
+        ++m_visitCount;
+        ++m_dailyVisitCounts[0];
+    }
 
     collapseDailyVisitsToWeekly();
 }
@@ -334,10 +333,10 @@ void HistoryItem::setLastVisitedTime(double time)
         recordVisitAtTime(time);
 }
 
-void HistoryItem::visited(const String& title, double time)
+void HistoryItem::visited(const String& title, double time, VisitCountBehavior visitCountBehavior)
 {
     m_title = title;
-    recordVisitAtTime(time);
+    recordVisitAtTime(time, visitCountBehavior);
 }
 
 int HistoryItem::visitCount() const
@@ -358,10 +357,10 @@ void HistoryItem::setVisitCount(int count)
 
 void HistoryItem::adoptVisitCounts(Vector<int>& dailyCounts, Vector<int>& weeklyCounts)
 {
-  m_dailyVisitCounts.clear();
-  m_dailyVisitCounts.swap(dailyCounts);
-  m_weeklyVisitCounts.clear();
-  m_weeklyVisitCounts.swap(weeklyCounts);
+    m_dailyVisitCounts.clear();
+    m_dailyVisitCounts.swap(dailyCounts);
+    m_weeklyVisitCounts.clear();
+    m_weeklyVisitCounts.swap(weeklyCounts);
 }
 
 const IntPoint& HistoryItem::scrollPoint() const
@@ -416,55 +415,69 @@ void HistoryItem::setIsTargetItem(bool flag)
 
 void HistoryItem::addChildItem(PassRefPtr<HistoryItem> child)
 {
-    m_subItems.append(child);
+    ASSERT(!childItemWithTarget(child->target()));
+    m_children.append(child);
 #ifdef ANDROID_HISTORY_CLIENT
     notifyHistoryItemChanged(this);
 #endif
 }
 
-HistoryItem* HistoryItem::childItemWithName(const String& name) const
+void HistoryItem::setChildItem(PassRefPtr<HistoryItem> child)
 {
-    unsigned size = m_subItems.size();
-    for (unsigned i = 0; i < size; ++i) 
-        if (m_subItems[i]->target() == name)
-            return m_subItems[i].get();
+    ASSERT(!child->isTargetItem());
+    unsigned size = m_children.size();
+    for (unsigned i = 0; i < size; ++i)  {
+        if (m_children[i]->target() == child->target()) {
+            child->setIsTargetItem(m_children[i]->isTargetItem());
+            m_children[i] = child;
+            return;
+        }
+    }
+    m_children.append(child);
+}
+
+HistoryItem* HistoryItem::childItemWithTarget(const String& target) const
+{
+    unsigned size = m_children.size();
+    for (unsigned i = 0; i < size; ++i) {
+        if (m_children[i]->target() == target)
+            return m_children[i].get();
+    }
     return 0;
 }
 
-// <rdar://problem/4895849> HistoryItem::recurseToFindTargetItem() should be replace with a non-recursive method
-HistoryItem* HistoryItem::recurseToFindTargetItem()
+// <rdar://problem/4895849> HistoryItem::findTargetItem() should be replaced with a non-recursive method.
+HistoryItem* HistoryItem::findTargetItem()
 {
     if (m_isTargetItem)
         return this;
-    if (!m_subItems.size())
-        return 0;
-    
-    HistoryItem* match;
-    unsigned size = m_subItems.size();
+    unsigned size = m_children.size();
     for (unsigned i = 0; i < size; ++i) {
-        match = m_subItems[i]->recurseToFindTargetItem();
-        if (match)
+        if (HistoryItem* match = m_children[i]->targetItem())
             return match;
     }
-    
     return 0;
 }
 
 HistoryItem* HistoryItem::targetItem()
 {
-    if (!m_subItems.size())
-        return this;
-    return recurseToFindTargetItem();
+    HistoryItem* foundItem = findTargetItem();
+    return foundItem ? foundItem : this;
 }
 
 const HistoryItemVector& HistoryItem::children() const
 {
-    return m_subItems;
+    return m_children;
 }
 
 bool HistoryItem::hasChildren() const
 {
-    return m_subItems.size();
+    return !m_children.isEmpty();
+}
+
+void HistoryItem::clearChildren()
+{
+    m_children.clear();
 }
 
 String HistoryItem::formContentType() const
@@ -490,6 +503,16 @@ void HistoryItem::setFormInfoFromRequest(const ResourceRequest& request)
 #endif
 }
 
+void HistoryItem::setFormData(PassRefPtr<FormData> formData)
+{
+    m_formData = formData;
+}
+
+void HistoryItem::setFormContentType(const String& formContentType)
+{
+    m_formContentType = formContentType;
+}
+
 FormData* HistoryItem::formData()
 {
     return m_formData.get();
@@ -498,7 +521,7 @@ FormData* HistoryItem::formData()
 bool HistoryItem::isCurrentDocument(Document* doc) const
 {
     // FIXME: We should find a better way to check if this is the current document.
-    return urlString() == doc->url();
+    return equalIgnoringFragmentIdentifier(url(), doc->url());
 }
 
 void HistoryItem::mergeAutoCompleteHints(HistoryItem* otherItem)
@@ -527,9 +550,9 @@ Vector<String>* HistoryItem::redirectURLs() const
     return m_redirectURLs.get();
 }
 
-void HistoryItem::setRedirectURLs(std::auto_ptr<Vector<String> > redirectURLs)
+void HistoryItem::setRedirectURLs(PassOwnPtr<Vector<String> > redirectURLs)
 {
-    m_redirectURLs.adopt(redirectURLs);
+    m_redirectURLs = redirectURLs;
 }
 
 #ifndef NDEBUG
@@ -549,8 +572,8 @@ int HistoryItem::showTreeWithIndent(unsigned indentLevel) const
     fprintf(stderr, "%s+-%s (%p)\n", prefix.data(), m_urlString.utf8().data(), this);
     
     int totalSubItems = 0;
-    for (unsigned i = 0; i < m_subItems.size(); ++i)
-        totalSubItems += m_subItems[i]->showTreeWithIndent(indentLevel + 1);
+    for (unsigned i = 0; i < m_children.size(); ++i)
+        totalSubItems += m_children[i]->showTreeWithIndent(indentLevel + 1);
     return totalSubItems + 1;
 }
 

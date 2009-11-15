@@ -64,7 +64,7 @@ void ObjcInstance::moveGlobalExceptionToExecState(ExecState* exec)
     }
 
     if (!s_exceptionEnvironment || s_exceptionEnvironment == exec->dynamicGlobalObject()) {
-        JSLock lock(false);
+        JSLock lock(SilenceAssertionsOnly);
         throwError(exec, GeneralError, s_exception);
     }
 
@@ -124,11 +124,11 @@ bool ObjcInstance::supportsInvokeDefaultMethod() const
     return [_instance.get() respondsToSelector:@selector(invokeDefaultMethodWithArguments:)];
 }
 
-JSValuePtr ObjcInstance::invokeMethod(ExecState* exec, const MethodList &methodList, const ArgList &args)
+JSValue ObjcInstance::invokeMethod(ExecState* exec, const MethodList &methodList, const ArgList &args)
 {
-    JSValuePtr result = jsUndefined();
+    JSValue result = jsUndefined();
     
-    JSLock::DropAllLocks dropAllLocks(false); // Can't put this inside the @try scope because it unwinds incorrectly.
+    JSLock::DropAllLocks dropAllLocks(SilenceAssertionsOnly); // Can't put this inside the @try scope because it unwinds incorrectly.
 
     setGlobalException(nil);
     
@@ -158,7 +158,7 @@ JSValuePtr ObjcInstance::invokeMethod(ExecState* exec, const MethodList &methodL
         NSMutableArray* objcArgs = [NSMutableArray array];
         int count = args.size();
         for (int i = 0; i < count; i++) {
-            ObjcValue value = convertValueToObjcValue(exec, args.at(exec, i), ObjcObjectType);
+            ObjcValue value = convertValueToObjcValue(exec, args.at(i), ObjcObjectType);
             [objcArgs addObject:value.objectValue];
         }
         [invocation setArgument:&objcArgs atIndex:3];
@@ -173,7 +173,7 @@ JSValuePtr ObjcInstance::invokeMethod(ExecState* exec, const MethodList &methodL
             // types.
             ASSERT(objcValueType != ObjcInvalidType && objcValueType != ObjcVoidType);
 
-            ObjcValue value = convertValueToObjcValue(exec, args.at(exec, i-2), objcValueType);
+            ObjcValue value = convertValueToObjcValue(exec, args.at(i-2), objcValueType);
 
             switch (objcValueType) {
                 case ObjcObjectType:
@@ -242,14 +242,14 @@ JSValuePtr ObjcInstance::invokeMethod(ExecState* exec, const MethodList &methodL
 
     // Work around problem in some versions of GCC where result gets marked volatile and
     // it can't handle copying from a volatile to non-volatile.
-    return const_cast<JSValuePtr&>(result);
+    return const_cast<JSValue&>(result);
 }
 
-JSValuePtr ObjcInstance::invokeDefaultMethod(ExecState* exec, const ArgList &args)
+JSValue ObjcInstance::invokeDefaultMethod(ExecState* exec, const ArgList &args)
 {
-    JSValuePtr result = jsUndefined();
+    JSValue result = jsUndefined();
 
-    JSLock::DropAllLocks dropAllLocks(false); // Can't put this inside the @try scope because it unwinds incorrectly.
+    JSLock::DropAllLocks dropAllLocks(SilenceAssertionsOnly); // Can't put this inside the @try scope because it unwinds incorrectly.
     setGlobalException(nil);
     
 @try {
@@ -269,7 +269,7 @@ JSValuePtr ObjcInstance::invokeDefaultMethod(ExecState* exec, const ArgList &arg
     NSMutableArray* objcArgs = [NSMutableArray array];
     unsigned count = args.size();
     for (unsigned i = 0; i < count; i++) {
-        ObjcValue value = convertValueToObjcValue(exec, args.at(exec, i), ObjcObjectType);
+        ObjcValue value = convertValueToObjcValue(exec, args.at(i), ObjcObjectType);
         [objcArgs addObject:value.objectValue];
     }
     [invocation setArgument:&objcArgs atIndex:2];
@@ -293,16 +293,16 @@ JSValuePtr ObjcInstance::invokeDefaultMethod(ExecState* exec, const ArgList &arg
 
     // Work around problem in some versions of GCC where result gets marked volatile and
     // it can't handle copying from a volatile to non-volatile.
-    return const_cast<JSValuePtr&>(result);
+    return const_cast<JSValue&>(result);
 }
 
-bool ObjcInstance::setValueOfUndefinedField(ExecState* exec, const Identifier& property, JSValuePtr aValue)
+bool ObjcInstance::setValueOfUndefinedField(ExecState* exec, const Identifier& property, JSValue aValue)
 {
     id targetObject = getObject();
     if (![targetObject respondsToSelector:@selector(setValue:forUndefinedKey:)])
         return false;
 
-    JSLock::DropAllLocks dropAllLocks(false); // Can't put this inside the @try scope because it unwinds incorrectly.
+    JSLock::DropAllLocks dropAllLocks(SilenceAssertionsOnly); // Can't put this inside the @try scope because it unwinds incorrectly.
 
     // This check is not really necessary because NSObject implements
     // setValue:forUndefinedKey:, and unfortnately the default implementation
@@ -324,13 +324,13 @@ bool ObjcInstance::setValueOfUndefinedField(ExecState* exec, const Identifier& p
     return true;
 }
 
-JSValuePtr ObjcInstance::getValueOfUndefinedField(ExecState* exec, const Identifier& property) const
+JSValue ObjcInstance::getValueOfUndefinedField(ExecState* exec, const Identifier& property) const
 {
-    JSValuePtr result = jsUndefined();
+    JSValue result = jsUndefined();
     
     id targetObject = getObject();
 
-    JSLock::DropAllLocks dropAllLocks(false); // Can't put this inside the @try scope because it unwinds incorrectly.
+    JSLock::DropAllLocks dropAllLocks(SilenceAssertionsOnly); // Can't put this inside the @try scope because it unwinds incorrectly.
 
     // This check is not really necessary because NSObject implements
     // valueForUndefinedKey:, and unfortnately the default implementation
@@ -350,10 +350,10 @@ JSValuePtr ObjcInstance::getValueOfUndefinedField(ExecState* exec, const Identif
 
     // Work around problem in some versions of GCC where result gets marked volatile and
     // it can't handle copying from a volatile to non-volatile.
-    return const_cast<JSValuePtr&>(result);
+    return const_cast<JSValue&>(result);
 }
 
-JSValuePtr ObjcInstance::defaultValue(ExecState* exec, PreferredPrimitiveType hint) const
+JSValue ObjcInstance::defaultValue(ExecState* exec, PreferredPrimitiveType hint) const
 {
     if (hint == PreferString)
         return stringValue(exec);
@@ -366,24 +366,24 @@ JSValuePtr ObjcInstance::defaultValue(ExecState* exec, PreferredPrimitiveType hi
     return valueOf(exec);
 }
 
-JSValuePtr ObjcInstance::stringValue(ExecState* exec) const
+JSValue ObjcInstance::stringValue(ExecState* exec) const
 {
     return convertNSStringToString(exec, [getObject() description]);
 }
 
-JSValuePtr ObjcInstance::numberValue(ExecState* exec) const
+JSValue ObjcInstance::numberValue(ExecState* exec) const
 {
     // FIXME:  Implement something sensible
     return jsNumber(exec, 0);
 }
 
-JSValuePtr ObjcInstance::booleanValue() const
+JSValue ObjcInstance::booleanValue() const
 {
     // FIXME:  Implement something sensible
     return jsBoolean(false);
 }
 
-JSValuePtr ObjcInstance::valueOf(ExecState* exec) const 
+JSValue ObjcInstance::valueOf(ExecState* exec) const 
 {
     return stringValue(exec);
 }

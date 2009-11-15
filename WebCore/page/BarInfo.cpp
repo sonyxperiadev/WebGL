@@ -41,9 +41,19 @@ BarInfo::BarInfo(Frame* frame, Type type)
 {
 }
 
+Frame* BarInfo::frame() const
+{
+    return m_frame;
+}
+
 void BarInfo::disconnectFrame()
 {
     m_frame = 0;
+}
+
+BarInfo::Type BarInfo::type() const
+{
+    return m_type;
 }
 
 bool BarInfo::visible() const
@@ -52,20 +62,20 @@ bool BarInfo::visible() const
         return false;
 
     switch (m_type) {
-        case Locationbar:
-            return m_frame->page()->chrome()->toolbarsVisible();
-        case Toolbar:
-            return m_frame->page()->chrome()->toolbarsVisible();
-        case Personalbar:
-            return m_frame->page()->chrome()->toolbarsVisible();
-        case Menubar: 
-            return m_frame->page()->chrome()->menubarVisible();
-        case Scrollbars: 
-            return m_frame->page()->chrome()->scrollbarsVisible();
-        case Statusbar:
-            return m_frame->page()->chrome()->statusbarVisible();
-        default:
-            return false;
+    case Locationbar:
+        return m_frame->page()->chrome()->toolbarsVisible();
+    case Toolbar:
+        return m_frame->page()->chrome()->toolbarsVisible();
+    case Personalbar:
+        return m_frame->page()->chrome()->toolbarsVisible();
+    case Menubar:
+        return m_frame->page()->chrome()->menubarVisible();
+    case Scrollbars:
+        return m_frame->page()->chrome()->scrollbarsVisible();
+    case Statusbar:
+        return m_frame->page()->chrome()->statusbarVisible();
+    default:
+        return false;
     }
 }
 

@@ -29,6 +29,9 @@
 #include "config.h"
 #include "Database.h"
 
+#include <wtf/StdLibExtras.h>
+
+#if ENABLE(DATABASE)
 #include "ChangeVersionWrapper.h"
 #include "CString.h"
 #include "DatabaseAuthorizer.h"
@@ -37,22 +40,38 @@
 #include "DatabaseTracker.h"
 #include "Document.h"
 #include "ExceptionCode.h"
-#include "FileSystem.h"
 #include "Frame.h"
 #include "InspectorController.h"
-#include "JSDOMWindow.h"
 #include "Logging.h"
 #include "NotImplemented.h"
 #include "Page.h"
 #include "OriginQuotaManager.h"
 #include "SQLiteDatabase.h"
+#include "SQLiteFileSystem.h"
 #include "SQLiteStatement.h"
 #include "SQLResultSet.h"
-#include <runtime/InitializeThreading.h>
 #include <wtf/MainThread.h>
-#include <wtf/StdLibExtras.h>
+#endif
+
+#if USE(JSC)
+#include "JSDOMWindow.h"
+#include <runtime/InitializeThreading.h>
+#elif USE(V8)
+#include "InitializeThreading.h"
+#endif
 
 namespace WebCore {
+
+// If we sleep for more the 30 seconds while blocked on SQLITE_BUSY, give up.
+static const int maxSqliteBusyWaitTime = 30000;
+
+const String& Database::databaseInfoTableName()
+{
+    DEFINE_STATIC_LOCAL(String, name, ("__WebKitDatabaseInfoTable__"));
+    return name;
+}
+
+#if ENABLE(DATABASE)
 
 static Mutex& guidMutex()
 {
@@ -75,12 +94,6 @@ static GuidDatabaseMap& guidToDatabaseMap()
 {
     DEFINE_STATIC_LOCAL(GuidDatabaseMap, map, ());
     return map;
-}
-
-const String& Database::databaseInfoTableName()
-{
-    DEFINE_STATIC_LOCAL(String, name, ("__WebKitDatabaseInfoTable__"));
-    return name;
 }
 
 static const String& databaseVersionKey()
@@ -111,7 +124,7 @@ PassRefPtr<Database> Database::openDatabase(Document* document, const String& na
     document->setHasOpenDatabases();
 
     if (Page* page = document->frame()->page())
-        page->inspectorController()->didOpenDatabase(database.get(), document->domain(), name, expectedVersion);
+        page->inspectorController()->didOpenDatabase(database.get(), document->securityOrigin()->host(), name, expectedVersion);
 
     return database;
 }
@@ -124,6 +137,7 @@ Database::Database(Document* document, const String& name, const String& expecte
     , m_expectedVersion(expectedVersion)
     , m_deleted(false)
     , m_stopped(false)
+    , m_opened(false)
 {
     ASSERT(document);
     m_securityOrigin = document->securityOrigin();
@@ -131,9 +145,14 @@ Database::Database(Document* document, const String& name, const String& expecte
     if (m_name.isNull())
         m_name = "";
 
+#if USE(JSC)
     JSC::initializeThreading();
     // Database code violates the normal JSCore contract by calling jsUnprotect from a secondary thread, and thus needs additional locking.
     JSDOMWindow::commonJSGlobalData()->heap.setGCProtectNeedsLocking();
+#elif USE(V8)
+    // TODO(benm): do we need the extra locking in V8 too? (See JSC comment above)
+    V8::initializeThreading();
+#endif
 
     m_guid = guidForOriginAndName(m_securityOrigin->toString(), name);
 
@@ -306,7 +325,13 @@ void Database::markAsDeletedAndClose()
 
 void Database::close()
 {
-    m_sqliteDatabase.close();
+    if (m_opened) {
+        ASSERT(m_document->databaseThread());
+        ASSERT(currentThread() == document()->databaseThread()->getThreadID());
+        m_sqliteDatabase.close();
+        m_document->databaseThread()->recordDatabaseClosed(this);
+        m_opened = false;
+    }
 }
 
 void Database::stop()
@@ -328,10 +353,7 @@ void Database::stop()
 
 unsigned long long Database::databaseSize() const
 {
-    long long size;
-    if (!getFileSize(m_filename, size))
-        size = 0;
-    return size;
+    return SQLiteFileSystem::getDatabaseFileSize(m_filename);
 }
 
 unsigned long long Database::maximumSize() const
@@ -355,6 +377,12 @@ void Database::enableAuthorizer()
 {
     ASSERT(m_databaseAuthorizer);
     m_databaseAuthorizer->enable();
+}
+
+void Database::setAuthorizerReadOnly()
+{
+    ASSERT(m_databaseAuthorizer);
+    m_databaseAuthorizer->setReadOnly();
 }
 
 static int guidForOriginAndName(const String& origin, const String& name)
@@ -410,8 +438,13 @@ bool Database::performOpenAndVerify(ExceptionCode& e)
         return false;
     }
 
+    m_opened = true;
+    if (m_document->databaseThread())
+        m_document->databaseThread()->recordDatabaseOpen(this);
+
     ASSERT(m_databaseAuthorizer);
     m_sqliteDatabase.setAuthorizer(m_databaseAuthorizer);
+    m_sqliteDatabase.setBusyTimeout(maxSqliteBusyWaitTime);
 
     if (!m_sqliteDatabase.tableExists(databaseInfoTableName())) {
         if (!m_sqliteDatabase.executeCommand("CREATE TABLE " + databaseInfoTableName() + " (key TEXT NOT NULL ON CONFLICT FAIL UNIQUE ON CONFLICT REPLACE,value TEXT NOT NULL ON CONFLICT FAIL);")) {
@@ -421,18 +454,23 @@ bool Database::performOpenAndVerify(ExceptionCode& e)
         }
     }
 
-
     String currentVersion;
     {
         MutexLocker locker(guidMutex());
-        currentVersion = guidToVersionMap().get(m_guid);
 
-        if (currentVersion.isNull())
-            LOG(StorageAPI, "Current cached version for guid %i is null", m_guid);
-        else
+        // Note: It is not safe to put an empty string into the guidToVersionMap() map.
+        // That's because the map is cross-thread, but empty strings are per-thread.
+        // The copy() function makes a version of the string you can use on the current
+        // thread, but we need a string we can keep in a cross-thread data structure.
+        // FIXME: This is a quite-awkward restriction to have to program with.
+
+        GuidVersionMap::iterator entry = guidToVersionMap().find(m_guid);
+        if (entry != guidToVersionMap().end()) {
+            // Map null string to empty string (see comment above).
+            currentVersion = entry->second.isNull() ? String("") : entry->second;
             LOG(StorageAPI, "Current cached version for guid %i is %s", m_guid, currentVersion.ascii().data());
-
-        if (currentVersion.isNull()) {
+        } else {
+            LOG(StorageAPI, "No cached version for guid %i", m_guid);
             if (!getVersionFromDatabase(currentVersion)) {
                 LOG_ERROR("Failed to get current version from database %s", databaseDebugName().ascii().data());
                 e = INVALID_STATE_ERR;
@@ -447,11 +485,11 @@ bool Database::performOpenAndVerify(ExceptionCode& e)
                     e = INVALID_STATE_ERR;
                     return false;
                 }
-
                 currentVersion = m_expectedVersion;
             }
 
-            guidToVersionMap().set(m_guid, currentVersion.copy());
+            // Map empty string to null string (see comment above).
+            guidToVersionMap().set(m_guid, currentVersion.isEmpty() ? String() : currentVersion.copy());
         }
     }
 
@@ -593,5 +631,7 @@ String Database::stringIdentifier() const
     // Return a deep copy for ref counting thread safety
     return m_name.copy();
 }
+
+#endif
 
 }

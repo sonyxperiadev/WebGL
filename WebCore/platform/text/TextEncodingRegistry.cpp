@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2006, 2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2007-2009 Torch Mobile, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -38,7 +39,7 @@
 #include <wtf/StringExtras.h>
 #include <wtf/Threading.h>
 
-#if USE(ICU_UNICODE)
+#if USE(ICU_UNICODE) || USE(GLIB_ICU_UNICODE_HYBRID)
 #include "TextCodecICU.h"
 #endif
 #if PLATFORM(MAC)
@@ -46,6 +47,9 @@
 #endif
 #if PLATFORM(QT)
 #include "qt/TextCodecQt.h"
+#endif
+#if PLATFORM(WINCE)
+#include "TextCodecWince.h"
 #endif
 
 using namespace WTF;
@@ -185,15 +189,20 @@ static void buildBaseTextCodecMaps()
     TextCodecUserDefined::registerEncodingNames(addToTextEncodingNameMap);
     TextCodecUserDefined::registerCodecs(addToTextCodecMap);
 
-#if USE(ICU_UNICODE)
+#if USE(ICU_UNICODE) || USE(GLIB_ICU_UNICODE_HYBRID)
     TextCodecICU::registerBaseEncodingNames(addToTextEncodingNameMap);
     TextCodecICU::registerBaseCodecs(addToTextCodecMap);
+#endif
+
+#if PLATFORM(WINCE)
+    TextCodecWince::registerBaseEncodingNames(addToTextEncodingNameMap);
+    TextCodecWince::registerBaseCodecs(addToTextCodecMap);
 #endif
 }
 
 static void extendTextCodecMaps()
 {
-#if USE(ICU_UNICODE)
+#if USE(ICU_UNICODE) || USE(GLIB_ICU_UNICODE_HYBRID)
     TextCodecICU::registerExtendedEncodingNames(addToTextEncodingNameMap);
     TextCodecICU::registerExtendedCodecs(addToTextCodecMap);
 #endif
@@ -207,9 +216,14 @@ static void extendTextCodecMaps()
     TextCodecMac::registerEncodingNames(addToTextEncodingNameMap);
     TextCodecMac::registerCodecs(addToTextCodecMap);
 #endif
+
+#if PLATFORM(WINCE)
+    TextCodecWince::registerExtendedEncodingNames(addToTextEncodingNameMap);
+    TextCodecWince::registerExtendedCodecs(addToTextCodecMap);
+#endif
 }
 
-std::auto_ptr<TextCodec> newTextCodec(const TextEncoding& encoding)
+PassOwnPtr<TextCodec> newTextCodec(const TextEncoding& encoding)
 {
     MutexLocker lock(encodingRegistryMutex());
 

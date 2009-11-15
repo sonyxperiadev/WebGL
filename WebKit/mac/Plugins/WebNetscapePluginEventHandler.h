@@ -40,7 +40,7 @@ public:
     static WebNetscapePluginEventHandler* create(WebNetscapePluginView*);
     virtual ~WebNetscapePluginEventHandler() { }
     
-    virtual void drawRect(const NSRect&) = 0;
+    virtual void drawRect(CGContextRef, const NSRect&) = 0;
     
     virtual void mouseDown(NSEvent*) = 0;
     virtual void mouseDragged(NSEvent*) = 0;
@@ -53,6 +53,7 @@ public:
     virtual void keyDown(NSEvent*) = 0;
     virtual void keyUp(NSEvent*) = 0;
     virtual void flagsChanged(NSEvent*) = 0;
+    virtual void syntheticKeyDownWithCommandModifier(int keyCode, char character) = 0;
     
     virtual void focusChanged(bool hasFocus) = 0;
     virtual void windowFocusChanged(bool hasFocus) = 0;

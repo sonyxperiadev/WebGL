@@ -29,6 +29,7 @@
 
 #if ENABLE(SVG)
 #include "RenderSVGInlineText.h"
+#include "SVGNames.h"
 #endif
 
 #if ENABLE(WML)
@@ -124,17 +125,30 @@ String Text::wholeText() const
     const Text* startText = earliestLogicallyAdjacentTextNode(this);
     const Text* endText = latestLogicallyAdjacentTextNode(this);
 
-    Vector<UChar> result;
     Node* onePastEndText = endText->nextSibling();
+    unsigned resultLength = 0;
     for (const Node* n = startText; n != onePastEndText; n = n->nextSibling()) {
         if (!n->isTextNode())
             continue;
         const Text* t = static_cast<const Text*>(n);
         const String& data = t->data();
-        result.append(data.characters(), data.length());
+        resultLength += data.length();
     }
+    UChar* resultData;
+    String result = String::createUninitialized(resultLength, resultData);
+    UChar* p = resultData;
+    for (const Node* n = startText; n != onePastEndText; n = n->nextSibling()) {
+        if (!n->isTextNode())
+            continue;
+        const Text* t = static_cast<const Text*>(n);
+        const String& data = t->data();
+        unsigned dataLength = data.length();
+        memcpy(p, data.characters(), dataLength * sizeof(UChar));
+        p += dataLength;
+    }
+    ASSERT(p == resultData + resultLength);
 
-    return String::adopt(result);
+    return result;
 }
 
 PassRefPtr<Text> Text::replaceWholeText(const String& newText, ExceptionCode&)
@@ -233,7 +247,11 @@ bool Text::rendererIsNeeded(RenderStyle *style)
 RenderObject *Text::createRenderer(RenderArena* arena, RenderStyle*)
 {
 #if ENABLE(SVG)
-    if (parentNode()->isSVGElement())
+    if (parentNode()->isSVGElement()
+#if ENABLE(SVG_FOREIGN_OBJECT)
+        && !parentNode()->hasTagName(SVGNames::foreignObjectTag)
+#endif
+    )
         return new (arena) RenderSVGInlineText(this, m_data);
 #endif
     
@@ -242,6 +260,19 @@ RenderObject *Text::createRenderer(RenderArena* arena, RenderStyle*)
 
 void Text::attach()
 {
+#if ENABLE(WML)
+    if (document()->isWMLDocument() && !containsOnlyWhitespace()) {
+        String text = m_data;
+        ASSERT(!text.isEmpty());
+
+        text = substituteVariableReferences(text, document());
+
+        ExceptionCode code = 0;
+        setData(text, code);
+        ASSERT(!code);
+    }
+#endif
+
     createRendererIfNeeded();
     CharacterData::attach();
 }
@@ -252,7 +283,7 @@ void Text::recalcStyle(StyleChange change)
         if (renderer())
             renderer()->setStyle(parentNode()->renderer()->style());
     }
-    if (changed()) {
+    if (needsStyleRecalc()) {
         if (renderer()) {
             if (renderer()->isText())
                 toRenderText(renderer())->setText(m_data);
@@ -262,7 +293,7 @@ void Text::recalcStyle(StyleChange change)
             attach();
         }
     }
-    setChanged(NoStyleChange);
+    setNeedsStyleRecalc(NoStyleChange);
 }
 
 // DOM Section 1.1.1
@@ -300,29 +331,6 @@ PassRefPtr<Text> Text::createWithLengthLimit(Document* doc, const String& text, 
         
     return new Text(doc, nodeText);
 }
-
-#if ENABLE(WML)
-void Text::insertedIntoDocument()
-{
-    CharacterData::insertedIntoDocument();
-
-    if (!parentNode()->isWMLElement() || !length())
-        return;
-
-    WMLPageState* pageState = wmlPageStateForDocument(document());
-    if (!pageState->hasVariables())
-        return;
-
-    String text = data();
-    if (!text.impl() || text.impl()->containsOnlyWhitespace())
-        return;
-
-    text = substituteVariableReferences(text, document());
-
-    ExceptionCode ec;
-    setData(text, ec);
-}
-#endif
 
 #ifndef NDEBUG
 void Text::formatForDebugger(char *buffer, unsigned length) const

@@ -63,6 +63,28 @@ void AccessibilityUIElement::getChildren(Vector<AccessibilityUIElement>& childre
         children.append(getChildAtIndex(i));
 }
 
+void AccessibilityUIElement::getChildrenWithRange(Vector<AccessibilityUIElement>& elementVector, unsigned location, unsigned length)
+{
+    long childCount;
+    unsigned appendedCount = 0;
+    if (FAILED(m_element->get_accChildCount(&childCount)))
+        return;
+    for (long i = location; i < childCount && appendedCount < length; ++i, ++appendedCount)
+        elementVector.append(getChildAtIndex(i));
+}
+
+int AccessibilityUIElement::childrenCount()
+{
+    long childCount;
+    m_element->get_accChildCount(&childCount);
+    return childCount;
+}
+
+AccessibilityUIElement AccessibilityUIElement::elementAtPoint(int x, int y)
+{
+    return 0;
+}
+
 AccessibilityUIElement AccessibilityUIElement::getChildAtIndex(unsigned index)
 {
     COMPtr<IDispatch> child;
@@ -90,7 +112,13 @@ JSStringRef AccessibilityUIElement::attributesOfDocumentLinks()
 {
     return JSStringCreateWithCharacters(0, 0);
 }
+
 AccessibilityUIElement AccessibilityUIElement::titleUIElement()
+{
+    return 0;
+}
+
+AccessibilityUIElement AccessibilityUIElement::parentElement()
 {
     return 0;
 }
@@ -149,6 +177,27 @@ JSStringRef AccessibilityUIElement::description()
     return JSStringCreateWithCharacters(description.data(), description.length());
 }
 
+JSStringRef AccessibilityUIElement::language()
+{
+    return JSStringCreateWithCharacters(0, 0);
+}
+
+double AccessibilityUIElement::x()
+{
+    long x, y, width, height;
+    if (FAILED(m_element->accLocation(&x, &y, &width, &height, self())))
+        return 0;
+    return x;
+}
+
+double AccessibilityUIElement::y()
+{
+    long x, y, width, height;
+    if (FAILED(m_element->accLocation(&x, &y, &width, &height, self())))
+        return 0;
+    return y;
+}
+
 double AccessibilityUIElement::width()
 {
     long x, y, width, height;
@@ -163,6 +212,21 @@ double AccessibilityUIElement::height()
     if (FAILED(m_element->accLocation(&x, &y, &width, &height, self())))
         return 0;
     return height;
+}
+
+double AccessibilityUIElement::clickPointX()
+{
+    return 0;
+}
+
+double AccessibilityUIElement::clickPointY()
+{
+    return 0;
+}
+
+JSStringRef AccessibilityUIElement::valueDescription()
+{
+    return 0;
 }
 
 double AccessibilityUIElement::intValue()
@@ -186,7 +250,17 @@ double AccessibilityUIElement::maxValue()
     return 0;
 }
 
-bool AccessibilityUIElement::supportsPressAction()
+bool AccessibilityUIElement::isActionSupported(JSStringRef action)
+{
+    return false;
+}
+
+bool AccessibilityUIElement::isEnabled()
+{
+    return false;
+}
+
+bool AccessibilityUIElement::isRequired() const
 {
     return false;
 }
@@ -262,5 +336,23 @@ JSStringRef AccessibilityUIElement::selectedTextRange()
 }
 
 void AccessibilityUIElement::setSelectedTextRange(unsigned location, unsigned length)
+{
+}
+
+JSStringRef AccessibilityUIElement::attributeValue(JSStringRef attribute)
+{
+    return JSStringCreateWithCharacters(0, 0);
+}
+
+bool AccessibilityUIElement::isAttributeSettable(JSStringRef attribute)
+{
+    return false;
+}
+
+void AccessibilityUIElement::increment()
+{
+}
+
+void AccessibilityUIElement::decrement()
 {
 }

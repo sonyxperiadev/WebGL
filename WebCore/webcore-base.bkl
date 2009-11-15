@@ -34,6 +34,7 @@ wxWebCore port Bakefile project file.
     <include file="WebCoreSources.bkl" />
 
     <set var="WEBCORE_BASE_SOURCES">
+        $(WEBCORE_SOURCES_ACCESSIBILITY)
         $(WEBCORE_SOURCES_BMP)
         $(WEBCORE_SOURCES_BRIDGE)
         $(WEBCORE_SOURCES_CSS)
@@ -62,11 +63,13 @@ wxWebCore port Bakefile project file.
 
     <template id="webcore_base" template="xml2,iconv,xslt,icu,jscore,curl,sqlite3">
         <include>$(SRCDIR)</include>
+        <include>$(SRCDIR)/accessibility</include>
         <include>$(SRCDIR)/bindings/js</include>
         <include>$(SRCDIR)/bridge</include>
         <include>$(SRCDIR)/bridge/c</include>
         <include>$(SRCDIR)/bridge/jni</include>
         <include>$(SRCDIR)/css</include>
+        <include>$(SRCDIR)/DerivedSources/WebCore</include>
         <include>$(SRCDIR)/dom</include>
         <include>$(SRCDIR)/editing</include>
         <include>$(SRCDIR)/history</include>
@@ -99,13 +102,11 @@ wxWebCore port Bakefile project file.
         <include>$(SRCDIR)/rendering</include>
         <include>$(SRCDIR)/rendering/style</include>
         <include>$(SRCDIR)/storage</include>
+        <include>$(SRCDIR)/workers</include>
         <include>$(SRCDIR)/xml</include>
-        <!-- FIXME: this is below the other headers because there currently exists both
-             WebCore/DerivedSources/HTMLElementFactory.h and WebCore/html/HTMLElementFactory.h 
-             and the latter is the one WebCore/dom/Document.cpp needs to compile. -->
-        <include>$(SRCDIR)/DerivedSources/WebCore</include>
         <include>$(WK_ROOT)</include>
         <include>$(WK_ROOT)/JavaScriptCore</include>
+        <include>$(WK_ROOT)/JavaScriptCore/assembler</include>
         <include>$(WK_ROOT)/JavaScriptCore/ForwardingHeaders</include>
         <include>$(WK_ROOT)/JavaScriptCore/bindings</include>
         <include>$(WK_ROOT)/JavaScriptCore/bytecompiler</include>

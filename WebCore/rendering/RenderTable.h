@@ -1,12 +1,10 @@
 /*
- * This file is part of the DOM implementation for KDE.
- *
  * Copyright (C) 1997 Martin Jones (mjones@kde.org)
  *           (C) 1997 Torben Weis (weis@kde.org)
  *           (C) 1998 Waldo Bastian (bastian@kde.org)
  *           (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
- * Copyright (C) 2003, 2004, 2005, 2006 Apple Computer, Inc.
+ * Copyright (C) 2003, 2004, 2005, 2006, 2009 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -39,34 +37,7 @@ class TableLayout;
 
 class RenderTable : public RenderBlock {
 public:
-    enum Rules {
-        None    = 0x00,
-        RGroups = 0x01,
-        CGroups = 0x02,
-        Groups  = 0x03,
-        Rows    = 0x05,
-        Cols    = 0x0a,
-        All     = 0x0f
-    };
-    enum Frame {
-        Void   = 0x00,
-        Above  = 0x01,
-        Below  = 0x02,
-        Lhs    = 0x04,
-        Rhs    = 0x08,
-        Hsides = 0x03,
-        Vsides = 0x0c,
-        Box    = 0x0f
-    };
-
     RenderTable(Node*);
-    ~RenderTable();
-
-    virtual const char* renderName() const { return "RenderTable"; }
-
-    virtual bool isTable() const { return true; }
-
-    virtual bool avoidsFloats() const { return true; }
 
     int getColumnPos(int col) const { return m_columnPos[col]; }
 
@@ -79,8 +50,6 @@ public:
     int borderTop() const;
     int borderBottom() const;
     
-    Rules getRules() const { return static_cast<Rules>(m_rules); }
-
     const Color& bgColor() const { return style()->backgroundColor(); }
 
     int outerBorderTop() const;
@@ -92,22 +61,7 @@ public:
     int calcBorderRight() const;
     void recalcHorizontalBorders();
 
-    // overrides
     virtual void addChild(RenderObject* child, RenderObject* beforeChild = 0);
-    virtual void paint(PaintInfo&, int tx, int ty);
-    virtual void paintBoxDecorations(PaintInfo&, int tx, int ty);
-    virtual void paintMask(PaintInfo& paintInfo, int tx, int ty);
-    virtual void layout();
-    virtual void calcPrefWidths();
-
-    virtual int getBaselineOfFirstLineBox() const;
-
-    virtual RenderBlock* firstLineBlock() const;
-    virtual void updateFirstLetter();
-    
-    virtual void setCellWidths();
-
-    virtual void calcWidth();
 
     struct ColumnStruct {
         enum {
@@ -169,8 +123,6 @@ public:
         setNeedsLayout(true);
     }
 
-    virtual RenderObject* removeChildNode(RenderObject*, bool fullRemove = true);
-
     RenderTableSection* sectionAbove(const RenderTableSection*, bool skipEmptySections = false) const;
     RenderTableSection* sectionBelow(const RenderTableSection*, bool skipEmptySections = false) const;
 
@@ -182,8 +134,6 @@ public:
     const CollapsedBorderValue* currentBorderStyle() const { return m_currentBorder; }
     
     bool hasSections() const { return m_head || m_foot || m_firstBody; }
-
-    virtual IntRect getOverflowClipRect(int tx, int ty);
 
     void recalcSectionsIfNeeded() const
     {
@@ -197,9 +147,36 @@ public:
 #endif
 
 protected:
-    virtual void styleDidChange(RenderStyle::Diff, const RenderStyle* oldStyle);
+    virtual void styleDidChange(StyleDifference, const RenderStyle* oldStyle);
 
 private:
+    virtual const char* renderName() const { return "RenderTable"; }
+
+    virtual bool isTable() const { return true; }
+
+    virtual bool avoidsFloats() const { return true; }
+
+    virtual void removeChild(RenderObject* oldChild);
+
+    virtual void paint(PaintInfo&, int tx, int ty);
+    virtual void paintObject(PaintInfo&, int tx, int ty);
+    virtual void paintBoxDecorations(PaintInfo&, int tx, int ty);
+    virtual void paintMask(PaintInfo&, int tx, int ty);
+    virtual void layout();
+    virtual void calcPrefWidths();
+    virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, int xPos, int yPos, int tx, int ty, HitTestAction);
+    
+    virtual int firstLineBoxBaseline() const;
+
+    virtual RenderBlock* firstLineBlock() const;
+    virtual void updateFirstLetter();
+    
+    virtual void setCellWidths();
+
+    virtual void calcWidth();
+
+    virtual IntRect overflowClipRect(int tx, int ty);
+
     void recalcSections() const;
 
     mutable Vector<int> m_columnPos;
@@ -210,13 +187,10 @@ private:
     mutable RenderTableSection* m_foot;
     mutable RenderTableSection* m_firstBody;
 
-    TableLayout* m_tableLayout;
+    OwnPtr<TableLayout> m_tableLayout;
 
     const CollapsedBorderValue* m_currentBorder;
     
-    unsigned m_frame : 4; // Frame
-    unsigned m_rules : 4; // Rules
-
     mutable bool m_hasColElements : 1;
     mutable bool m_needsSectionRecalc : 1;
     
@@ -228,6 +202,21 @@ private:
     int m_borderLeft;
     int m_borderRight;
 };
+
+inline RenderTable* toRenderTable(RenderObject* object)
+{
+    ASSERT(!object || object->isTable());
+    return static_cast<RenderTable*>(object);
+}
+
+inline const RenderTable* toRenderTable(const RenderObject* object)
+{
+    ASSERT(!object || object->isTable());
+    return static_cast<const RenderTable*>(object);
+}
+
+// This will catch anyone doing an unnecessary cast.
+void toRenderTable(const RenderTable*);
 
 } // namespace WebCore
 

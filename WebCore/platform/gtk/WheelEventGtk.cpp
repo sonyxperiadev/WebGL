@@ -27,11 +27,9 @@
 
 #include "config.h"
 #include "PlatformWheelEvent.h"
+#include "Scrollbar.h"
 
 #include <gdk/gdk.h>
-
-// GTK_CHECK_VERSION is defined in gtk/gtkversion.h
-#include <gtk/gtk.h>
 
 namespace WebCore {
 
@@ -52,30 +50,27 @@ PlatformWheelEvent::PlatformWheelEvent(GdkEventScroll* event)
             m_deltaY = -delta;
             break;
         case GDK_SCROLL_LEFT:
-            m_deltaX = -delta;
-            break;
-        case GDK_SCROLL_RIGHT:
             m_deltaX = delta;
             break;
+        case GDK_SCROLL_RIGHT:
+            m_deltaX = -delta;
+            break;
     }
+    m_wheelTicksX = m_deltaX;
+    m_wheelTicksY = m_deltaY;
 
-    m_position = IntPoint((int)event->x, (int)event->y);
-    m_globalPosition = IntPoint((int)event->x_root, (int)event->y_root);
-    m_granularity = ScrollByLineWheelEvent;
+    m_position = IntPoint(static_cast<int>(event->x), static_cast<int>(event->y));
+    m_globalPosition = IntPoint(static_cast<int>(event->x_root), static_cast<int>(event->y_root));
+    m_granularity = ScrollByPixelWheelEvent;
     m_isAccepted = false;
     m_shiftKey = event->state & GDK_SHIFT_MASK;
     m_ctrlKey = event->state & GDK_CONTROL_MASK;
     m_altKey = event->state & GDK_MOD1_MASK;
-#if GTK_CHECK_VERSION(2,10,0)
     m_metaKey = event->state & GDK_META_MASK;
-#else
-    // GDK_MOD2_MASK doesn't always mean meta so we can't use it
-    m_metaKey = false;
-#endif
 
     // FIXME: retrieve the user setting for the number of lines to scroll on each wheel event
-    m_deltaX *= horizontalLineMultiplier();
-    m_deltaY *= verticalLineMultiplier();
+    m_deltaX *= static_cast<float>(cScrollbarPixelsPerLineStep);
+    m_deltaY *= static_cast<float>(cScrollbarPixelsPerLineStep);
 }
 
 }

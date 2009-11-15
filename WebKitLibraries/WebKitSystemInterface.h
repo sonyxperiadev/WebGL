@@ -1,6 +1,6 @@
 /*      
     WebKitSystemInterface.h
-    Copyright (C) 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
+    Copyright (C) 2005, 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
 
     Public header file.
 */
@@ -157,6 +157,17 @@ void WKNSWindowRestoreCGContext(NSWindow *, CGContextRef);
 
 void WKNSWindowMakeBottomCornersSquare(NSWindow *);
 
+// These constants match the ones used by ThemeScrollbarArrowStyle (some of the values are private, so we can't just
+// use that enum directly).
+typedef enum {
+    WKThemeScrollBarArrowsSingle     = 0,
+    WKThemeScrollBarArrowsLowerRight = 1,
+    WKThemeScrollBarArrowsDouble     = 2,
+    WKThemeScrollBarArrowsUpperLeft  = 3,
+} WKThemeScrollBarArrowStyle;
+
+OSStatus WKThemeDrawTrack(const HIThemeTrackDrawInfo* inDrawInfo, CGContextRef inContext, int inArrowStyle);
+
 #ifdef BUILDING_ON_TIGER
 // WKSupportsMultipartXMixedReplace is not required on Leopard as multipart/x-mixed-replace is always handled by NSURLRequest
 BOOL WKSupportsMultipartXMixedReplace(NSMutableURLRequest *request);
@@ -168,22 +179,87 @@ void WKGetWheelEventDeltas(NSEvent *, float *deltaX, float *deltaY, BOOL *contin
 
 BOOL WKAppVersionCheckLessThan(NSString *, int, double);
 
+typedef enum {
+    WKMovieTypeUnknown,
+    WKMovieTypeDownload,
+    WKMovieTypeStoredStream,
+    WKMovieTypeLiveStream
+} WKMovieType;
+
+int WKQTMovieGetType(QTMovie* movie);
+
+unsigned WKQTIncludeOnlyModernMediaFileTypes(void);
 int WKQTMovieDataRate(QTMovie* movie);
 float WKQTMovieMaxTimeLoaded(QTMovie* movie);
+float WKQTMovieMaxTimeSeekable(QTMovie* movie);
+NSString *WKQTMovieMaxTimeLoadedChangeNotification(void);
 void WKQTMovieViewSetDrawSynchronously(QTMovieView* view, BOOL sync);
 
 CFStringRef WKCopyFoundationCacheDirectory(void);
 
-void WKDrawMediaFullscreenButton(CGContextRef context, CGRect rect, BOOL active);
-void WKDrawMediaMuteButton(CGContextRef context, CGRect rect, BOOL active);
-void WKDrawMediaPauseButton(CGContextRef context, CGRect rect, BOOL active);
-void WKDrawMediaPlayButton(CGContextRef context, CGRect rect, BOOL active);
-void WKDrawMediaSeekBackButton(CGContextRef context, CGRect rect, BOOL active);
-void WKDrawMediaSeekForwardButton(CGContextRef context, CGRect rect, BOOL active);
-void WKDrawMediaSliderTrack(CGContextRef context, CGRect rect, float percentLoaded);
-void WKDrawMediaSliderThumb(CGContextRef context, CGRect rect, BOOL active);
-void WKDrawMediaUnMuteButton(CGContextRef context, CGRect rect, BOOL active);
+typedef enum {
+    WKMediaUIPartFullscreenButton   = 0,
+    WKMediaUIPartMuteButton,
+    WKMediaUIPartPlayButton,
+    WKMediaUIPartSeekBackButton,
+    WKMediaUIPartSeekForwardButton,
+    WKMediaUIPartSlider,
+    WKMediaUIPartSliderThumb,
+    WKMediaUIPartRewindButton,
+    WKMediaUIPartSeekToRealtimeButton,
+    WKMediaUIPartUnMuteButton,
+    WKMediaUIPartPauseButton,
+    WKMediaUIPartBackground,
+    WKMediaUIPartCurrentTimeDisplay,
+    WKMediaUIPartTimeRemainingDisplay
+} WKMediaUIPart;
 
+typedef enum {
+    WKMediaControllerThemeClassic   = 1,
+    WKMediaControllerThemeQT        = 2
+} WKMediaControllerThemeStyle;
+
+typedef enum {
+    WKMediaControllerFlagDisabled = 1 << 0,
+    WKMediaControllerFlagPressed = 1 << 1,
+    WKMediaControllerFlagDrawEndCaps = 1 << 3,
+} WKMediaControllerThemeState;
+
+BOOL WKHitTestMediaUIPart(int part, int themeStyle, CGRect bounds, CGPoint point);
+void WKMeasureMediaUIPart(int part, int themeStyle, CGRect *bounds, CGSize *naturalSize);
+void WKDrawMediaUIPart(int part, int themeStyle, CGContextRef context, CGRect rect, unsigned state);
+void WKDrawMediaSliderTrack(int themeStyle, CGContextRef context, CGRect rect, float timeLoaded, float currentTime, float duration, unsigned state);
+
+#if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD) && defined(__x86_64__)
+mach_port_t WKInitializeRenderServer(void);
+    
+@class CALayer;
+
+CALayer *WKMakeRenderLayer(uint32_t contextID);
+    
+typedef struct __WKSoftwareCARendererRef *WKSoftwareCARendererRef;
+
+WKSoftwareCARendererRef WKSoftwareCARendererCreate(uint32_t contextID);
+void WKSoftwareCARendererDestroy(WKSoftwareCARendererRef);
+void WKSoftwareCARendererRender(WKSoftwareCARendererRef, CGContextRef, CGRect);
+
+#import <mach/mig.h>
+
+CFRunLoopSourceRef WKCreateMIGServerSource(mig_subsystem_t subsystem, mach_port_t serverPort);
+
+NSUInteger WKGetInputPanelWindowStyle(void);
+ 
+UInt8 WKGetNSEventKeyChar(NSEvent *);
+    
+#endif
+
+@class CAPropertyAnimation;
+void WKSetCAAnimationValueFunction(CAPropertyAnimation*, NSString* function);
+
+unsigned WKInitializeMaximumHTTPConnectionCountPerHost(unsigned preferredConnectionCount);
+
+BOOL WKIsLatchingWheelEvent(NSEvent *);
+    
 #ifdef __cplusplus
 }
 #endif

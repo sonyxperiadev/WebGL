@@ -31,7 +31,6 @@ module core {
         [Custom] void getCurrentPosition(in PositionCallback successCallback, in PositionErrorCallback errorCallback, in PositionOptions options);
 
         [Custom] long watchPosition(in PositionCallback successCallback, in PositionErrorCallback errorCallback, in PositionOptions options);
-
         void clearWatch(in long watchId);
     };
 

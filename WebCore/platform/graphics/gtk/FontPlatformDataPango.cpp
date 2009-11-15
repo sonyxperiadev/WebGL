@@ -4,6 +4,7 @@
  * Copyright (C) 2007, 2008 Alp Toker <alp@atoker.com>
  * Copyright (C) 2007 Holger Hans Peter Freyther
  * Copyright (C) 2007 Pioneer Research Center USA, Inc.
+ * Copyright (C) 2009 Igalia S.L.
  * All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
@@ -33,10 +34,6 @@
 #include <pango/pango.h>
 #include <pango/pangocairo.h>
 
-#if !defined(PANGO_VERSION_CHECK)
-#define PANGO_VERSION_CHECK(major,minor,micro) 0
-#endif
-
 // Use cairo-ft i a recent enough Pango version isn't available
 #if !PANGO_VERSION_CHECK(1,18,0)
 #include <cairo-ft.h>
@@ -46,8 +43,8 @@
 
 namespace WebCore {
 
-  PangoFontMap* FontPlatformData::m_fontMap = 0;
-  GHashTable* FontPlatformData::m_hashTable = 0;
+PangoFontMap* FontPlatformData::m_fontMap = 0;
+GHashTable* FontPlatformData::m_hashTable = 0;
 
 FontPlatformData::FontPlatformData(const FontDescription& fontDescription, const AtomicString& familyName)
     : m_context(0)
@@ -112,14 +109,14 @@ FontPlatformData::FontPlatformData(const FontDescription& fontDescription, const
         cairo_font_face_t* face = cairo_ft_font_face_create_for_pattern(fcfont->font_pattern);
         double size;
         if (FcPatternGetDouble(fcfont->font_pattern, FC_PIXEL_SIZE, 0, &size) != FcResultMatch)
-          size = 12.0;
+            size = 12.0;
         cairo_matrix_t fontMatrix;
         cairo_matrix_init_scale(&fontMatrix, size, size);
         cairo_font_options_t* fontOptions;
         if (pango_cairo_context_get_font_options(m_context))
-          fontOptions = cairo_font_options_copy(pango_cairo_context_get_font_options(m_context));
+            fontOptions = cairo_font_options_copy(pango_cairo_context_get_font_options(m_context));
         else
-          fontOptions = cairo_font_options_create();
+            fontOptions = cairo_font_options_create();
         cairo_matrix_t ctm;
         cairo_matrix_init_identity(&ctm);
         m_scaledFont = cairo_scaled_font_create(face, &fontMatrix, &ctm, fontOptions);
@@ -193,7 +190,20 @@ bool FontPlatformData::init()
 
 FontPlatformData::~FontPlatformData()
 {
-    // Destroy takes place in FontData::platformDestroy().
+    if (m_font && m_font != reinterpret_cast<PangoFont*>(-1)) {
+        g_object_unref(m_font);
+        m_font = 0;
+    }
+
+    if (m_context) {
+        g_object_unref(m_context);
+        m_context = 0;
+    }
+
+    if (m_scaledFont) {
+        cairo_scaled_font_destroy(m_scaledFont);
+        m_scaledFont = 0;
+    }
 }
 
 bool FontPlatformData::isFixedPitch()
@@ -211,6 +221,45 @@ void FontPlatformData::setFont(cairo_t* cr) const
     cairo_set_scaled_font(cr, m_scaledFont);
 }
 
+FontPlatformData& FontPlatformData::operator=(const FontPlatformData& other)
+{
+    // Check for self-assignment.
+    if (this == &other)
+        return *this;
+
+    m_size = other.m_size;
+    m_syntheticBold = other.m_syntheticBold;
+    m_syntheticOblique = other.m_syntheticOblique;
+
+    if (other.m_scaledFont)
+        cairo_scaled_font_reference(other.m_scaledFont);
+    if (m_scaledFont)
+        cairo_scaled_font_destroy(m_scaledFont);
+    m_scaledFont = other.m_scaledFont;
+
+    if (other.m_font)
+        g_object_ref(other.m_font);
+    if (m_font)
+        g_object_unref(m_font);
+    m_font = other.m_font;
+
+    if (other.m_context)
+        g_object_ref(other.m_context);
+    if (m_context)
+        g_object_unref(m_context);
+    m_context = other.m_context;
+
+    return *this;
+}
+
+FontPlatformData::FontPlatformData(const FontPlatformData& other)
+    : m_context(0)
+    , m_font(0)
+    , m_scaledFont(0)
+{
+    *this = other;
+}
+
 bool FontPlatformData::operator==(const FontPlatformData& other) const
 {
     if (m_font == other.m_font)
@@ -225,5 +274,12 @@ bool FontPlatformData::operator==(const FontPlatformData& other) const
     pango_font_description_free(thisDesc);
     return result;
 }
+
+#ifndef NDEBUG
+String FontPlatformData::description() const
+{
+    return String();
+}
+#endif
 
 }

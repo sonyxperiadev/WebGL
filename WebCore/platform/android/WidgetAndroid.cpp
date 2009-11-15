@@ -118,9 +118,11 @@ int Widget::screenWidth() const
     }
     if (!widget)
         return 0;
-
-    return android::WebViewCore::getWebViewCore(
-            static_cast<const ScrollView*>(widget))->screenWidth();
+    android::WebViewCore* core = android::WebViewCore::getWebViewCore(
+        static_cast<const ScrollView*>(widget));
+    if (!core)
+        return 0;
+    return core->screenWidth();
 }
 
 } // WebCore namepsace

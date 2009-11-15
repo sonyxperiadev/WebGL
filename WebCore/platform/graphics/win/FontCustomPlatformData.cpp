@@ -65,10 +65,7 @@ FontPlatformData FontCustomPlatformData::fontPlatformData(int size, bool bold, b
     ASSERT(m_fontReference);
     ASSERT(T2embedLibrary());
 
-    static bool canUsePlatformNativeGlyphs = wkCanUsePlatformNativeGlyphs();
-    LOGFONT _logFont;
-
-    LOGFONT& logFont = canUsePlatformNativeGlyphs ? *static_cast<LOGFONT*>(malloc(sizeof(LOGFONT))) : _logFont;
+    LOGFONT& logFont = *static_cast<LOGFONT*>(malloc(sizeof(LOGFONT)));
     if (m_name.isNull())
         TTGetNewFontName(&m_fontReference, logFont.lfFaceName, LF_FACESIZE, 0, 0);
     else
@@ -90,8 +87,7 @@ FontPlatformData FontCustomPlatformData::fontPlatformData(int size, bool bold, b
     logFont.lfWeight = bold ? 700 : 400;
 
     HFONT hfont = CreateFontIndirect(&logFont);
-    if (canUsePlatformNativeGlyphs)
-        wkSetFontPlatformInfo(m_cgFont, &logFont, free);
+    wkSetFontPlatformInfo(m_cgFont, &logFont, free);
     return FontPlatformData(hfont, m_cgFont, size, bold, italic, renderingMode == AlternateRenderingMode);
 }
 
@@ -120,7 +116,7 @@ size_t getBytesWithOffset(void *info, void* buffer, size_t offset, size_t count)
 // Streams the concatenation of a header and font data.
 class EOTStream {
 public:
-    EOTStream(const Vector<UInt8, 512>& eotHeader, const SharedBuffer* fontData, size_t overlayDst, size_t overlaySrc, size_t overlayLength)
+    EOTStream(const EOTHeader& eotHeader, const SharedBuffer* fontData, size_t overlayDst, size_t overlaySrc, size_t overlayLength)
         : m_eotHeader(eotHeader)
         , m_fontData(fontData)
         , m_overlayDst(overlayDst)
@@ -134,7 +130,7 @@ public:
     size_t read(void* buffer, size_t count);
 
 private:
-    const Vector<UInt8, 512>& m_eotHeader;
+    const EOTHeader& m_eotHeader;
     const SharedBuffer* m_fontData;
     size_t m_overlayDst;
     size_t m_overlaySrc;
@@ -210,7 +206,7 @@ FontCustomPlatformData* createFontCustomPlatformData(SharedBuffer* buffer)
 
     // TTLoadEmbeddedFont works only with Embedded OpenType (.eot) data, so we need to create an EOT header
     // and prepend it to the font data.
-    Vector<UInt8, 512> eotHeader;
+    EOTHeader eotHeader;
     size_t overlayDst;
     size_t overlaySrc;
     size_t overlayLength;

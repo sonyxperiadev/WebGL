@@ -24,10 +24,10 @@
  */
 
 /*  Defines the android-specific types and functions as part of npapi
- 
+
     In particular, defines the window and event types that are passed to
     NPN_GetValue, NPP_SetWindow and NPP_HandleEvent.
- 
+
     To minimize what native libraries the plugin links against, some
     functionality is provided via function-ptrs (e.g. time, sound)
  */
@@ -48,6 +48,17 @@ enum ANPBitmapFormats {
     kRGB_565_ANPBitmapFormat    = 2
 };
 typedef int32_t ANPBitmapFormat;
+
+struct ANPPixelPacking {
+    uint8_t AShift;
+    uint8_t ABits;
+    uint8_t RShift;
+    uint8_t RBits;
+    uint8_t GShift;
+    uint8_t GBits;
+    uint8_t BShift;
+    uint8_t BBits;
+};
 
 struct ANPBitmap {
     void*           baseAddr;
@@ -90,10 +101,10 @@ typedef uint32_t ANPMatrixFlag;
 ///////////////////////////////////////////////////////////////////////////////
 // NPN_GetValue
 
-/*  queries for a specific ANPInterface.
- 
+/** queries for a specific ANPInterface.
+
     Maybe called with NULL for the NPP instance
- 
+
     NPN_GetValue(inst, interface_enum, ANPInterface*)
  */
 #define kLogInterfaceV0_ANPGetValue         ((NPNVariable)1000)
@@ -101,27 +112,46 @@ typedef uint32_t ANPMatrixFlag;
 #define kCanvasInterfaceV0_ANPGetValue      ((NPNVariable)1002)
 #define kMatrixInterfaceV0_ANPGetValue      ((NPNVariable)1003)
 #define kPaintInterfaceV0_ANPGetValue       ((NPNVariable)1004)
-#define kTypefaceInterfaceV0_ANPGetValue    ((NPNVariable)1005)
-#define kWindowInterfaceV0_ANPGetValue      ((NPNVariable)1006)
+#define kPathInterfaceV0_ANPGetValue        ((NPNVariable)1005)
+#define kTypefaceInterfaceV0_ANPGetValue    ((NPNVariable)1006)
+#define kWindowInterfaceV0_ANPGetValue      ((NPNVariable)1007)
+#define kBitmapInterfaceV0_ANPGetValue      ((NPNVariable)1008)
+#define kSurfaceInterfaceV0_ANPGetValue     ((NPNVariable)1009)
+#define kSystemInterfaceV0_ANPGetValue      ((NPNVariable)1010)
 
-/*  queries for which drawing model is desired (for the draw event)
- 
+/** queries for which drawing model is desired (for the draw event)
+
     Should be called inside NPP_New(...)
- 
+
     NPN_GetValue(inst, ANPSupportedDrawingModel_EnumValue, uint32_t* bits)
  */
 #define kSupportedDrawingModel_ANPGetValue  ((NPNVariable)2000)
 
 ///////////////////////////////////////////////////////////////////////////////
-// NPN_GetValue
+// NPN_SetValue
 
-/** Reqeust to set the drawing model.
- 
-    NPN_SetValue(inst, ANPRequestDrawingModel_EnumValue, (void*)foo_DrawingModel)
+/** Request to set the drawing model. SetValue will return false if the drawing
+    model is not supported or has insufficient information for configuration.
+
+    NPN_SetValue(inst, kRequestDrawingModel_ANPSetValue, (void*)foo_ANPDrawingModel)
  */
 #define kRequestDrawingModel_ANPSetValue    ((NPPVariable)1000)
 
-/*  These are used as bitfields in ANPSupportedDrawingModels_EnumValue,
+/** Set the name of the Java class found in the plugin's apk that implements the
+    PluginStub interface.  The value provided must be a null terminated char*
+    that contains the fully qualified class name (e.g., your.package.className).
+    A local copy is made of the char* so the caller can safely free the memory
+    as soon as the function returns.
+
+    This value must be set prior to selecting the Surface_ANPDrawingModel or
+    requesting to enter full-screen mode.
+
+    NPN_SetValue(inst, kSetPluginStubJavaClassName_ANPSetValue,
+                (void*)nullTerminatedChar*)
+ */
+#define kSetPluginStubJavaClassName_ANPSetValue ((NPPVariable)1001)
+
+/** These are used as bitfields in ANPSupportedDrawingModels_EnumValue,
     and as-is in ANPRequestDrawingModel_EnumValue. The drawing model determines
     how to interpret the ANPDrawingContext provided in the Draw event and how
     to interpret the NPWindow->window field.
@@ -130,14 +160,43 @@ enum ANPDrawingModels {
     /** Draw into a bitmap from the browser thread in response to a Draw event.
         NPWindow->window is reserved (ignore)
      */
-    kBitmap_ANPDrawingModel = 0,
+    kBitmap_ANPDrawingModel  = 0,
+    /** Draw into a surface (e.g. raster, opengl, etc.)using the surface interface.
+        Unlike the bitmap model a surface model is opaque so no html content behind
+        the plugin will be  visible. Unless the surface needs to be transparent the
+        surface model should be chosen over the bitmap model as it will have faster
+        performance. An example surface is the raster surface where the service
+        interface is used to lock/unlock and draw into bitmap without waiting for
+        draw events. Prior to requesting this drawing model the plugin must provide
+        the name of the Java class that implements the PluginStub interface via
+        kSetJavaClassName_ANPSetValue.
+     */
+    kSurface_ANPDrawingModel = 1,
 };
 typedef int32_t ANPDrawingModel;
 
-/*  Interfaces provide additional functionality to the plugin via function ptrs.
-    Once an interface is retrived, it is valid for the lifetime of the plugin
+/** Request to receive/disable events. If the pointer is NULL then all flags will
+    be disabled. Otherwise, the event type will be enabled iff its corresponding
+    bit in the EventFlags bit field is set.
+
+    NPN_SetValue(inst, ANPAcceptEvents, (void*)EventFlags)
+ */
+#define kAcceptEvents_ANPSetValue           ((NPPVariable)1002)
+
+/** The EventFlags are a set of bits used to determine which types of events the
+    plugin wishes to receive. For example, if the value is 0x03 then both key
+    and touch events will be provided to the plugin.
+ */
+enum ANPEventFlag {
+    kKey_ANPEventFlag               = 0x01,
+    kTouch_ANPEventFlag             = 0x02,
+};
+typedef uint32_t ANPEventFlags;
+
+/** Interfaces provide additional functionality to the plugin via function ptrs.
+    Once an interface is retrieved, it is valid for the lifetime of the plugin
     (just like browserfuncs).
- 
+
     All ANPInterfaces begin with an inSize field, which must be set by the
     caller (plugin) with the number of bytes allocated for the interface.
     e.g. SomeInterface si; si.inSize = sizeof(si); browser->getvalue(..., &si);
@@ -154,16 +213,24 @@ enum ANPLogTypes {
 typedef int32_t ANPLogType;
 
 struct ANPLogInterfaceV0 : ANPInterface {
-    // dumps printf messages to the log file
-    // e.g. interface->log(instance, kWarning_ANPLogType, "value is %d", value);
+    /** dumps printf messages to the log file
+        e.g. interface->log(instance, kWarning_ANPLogType, "value is %d", value);
+     */
     void (*log)(NPP instance, ANPLogType, const char format[], ...);
 };
 
+struct ANPBitmapInterfaceV0 : ANPInterface {
+    /** Returns true if the specified bitmap format is supported, and if packing
+        is non-null, sets it to the packing info for that format.
+     */
+    bool (*getPixelPacking)(ANPBitmapFormat, ANPPixelPacking* packing);
+};
+
 struct ANPMatrixInterfaceV0 : ANPInterface {
-    /*  Return a new identity matrix
+    /** Return a new identity matrix
      */
     ANPMatrix*  (*newMatrix)();
-    /*  Delete a matrix previously allocated by newMatrix()
+    /** Delete a matrix previously allocated by newMatrix()
      */
     void        (*deleteMatrix)(ANPMatrix*);
 
@@ -171,14 +238,14 @@ struct ANPMatrixInterfaceV0 : ANPInterface {
 
     void        (*copy)(ANPMatrix* dst, const ANPMatrix* src);
 
-    /*  Return the matrix values in a float array (allcoated by the caller),
+    /** Return the matrix values in a float array (allcoated by the caller),
         where the values are treated as follows:
         w  = x * [6] + y * [7] + [8];
         x' = (x * [0] + y * [1] + [2]) / w;
         y' = (x * [3] + y * [4] + [5]) / w;
      */
     void        (*get3x3)(const ANPMatrix*, float[9]);
-    /*  Initialize the matrix from values in a float array,
+    /** Initialize the matrix from values in a float array,
         where the values are treated as follows:
          w  = x * [6] + y * [7] + [8];
          x' = (x * [0] + y * [1] + [2]) / w;
@@ -198,12 +265,12 @@ struct ANPMatrixInterfaceV0 : ANPInterface {
     void        (*preConcat)(ANPMatrix*, const ANPMatrix*);
     void        (*postConcat)(ANPMatrix*, const ANPMatrix*);
 
-    /*  Return true if src is invertible, and if so, return its inverse in dst.
+    /** Return true if src is invertible, and if so, return its inverse in dst.
         If src is not invertible, return false and ignore dst.
      */
     bool        (*invert)(ANPMatrix* dst, const ANPMatrix* src);
 
-    /*  Transform the x,y pairs in src[] by this matrix, and store the results
+    /** Transform the x,y pairs in src[] by this matrix, and store the results
         in dst[]. The count parameter is treated as the number of pairs in the
         array. It is legal for src and dst to point to the same memory, but
         illegal for the two arrays to partially overlap.
@@ -212,9 +279,70 @@ struct ANPMatrixInterfaceV0 : ANPInterface {
                              int32_t count);
 };
 
+struct ANPPathInterfaceV0 : ANPInterface {
+    /** Return a new path */
+    ANPPath* (*newPath)();
+
+    /** Delete a path previously allocated by ANPPath() */
+    void (*deletePath)(ANPPath*);
+
+    /** Make a deep copy of the src path, into the dst path (already allocated
+        by the caller).
+     */
+    void (*copy)(ANPPath* dst, const ANPPath* src);
+
+    /** Returns true if the two paths are the same (i.e. have the same points)
+     */
+    bool (*equal)(const ANPPath* path0, const ANPPath* path1);
+
+    /** Remove any previous points, initializing the path back to empty. */
+    void (*reset)(ANPPath*);
+
+    /** Return true if the path is empty (has no lines, quads or cubics). */
+    bool (*isEmpty)(const ANPPath*);
+
+    /** Return the path's bounds in bounds. */
+    void (*getBounds)(const ANPPath*, ANPRectF* bounds);
+
+    void (*moveTo)(ANPPath*, float x, float y);
+    void (*lineTo)(ANPPath*, float x, float y);
+    void (*quadTo)(ANPPath*, float x0, float y0, float x1, float y1);
+    void (*cubicTo)(ANPPath*, float x0, float y0, float x1, float y1,
+                    float x2, float y2);
+    void (*close)(ANPPath*);
+
+    /** Offset the src path by [dx, dy]. If dst is null, apply the
+        change directly to the src path. If dst is not null, write the
+        changed path into dst, and leave the src path unchanged. In that case
+        dst must have been previously allocated by the caller.
+     */
+    void (*offset)(ANPPath* src, float dx, float dy, ANPPath* dst);
+
+    /** Transform the path by the matrix. If dst is null, apply the
+        change directly to the src path. If dst is not null, write the
+        changed path into dst, and leave the src path unchanged. In that case
+        dst must have been previously allocated by the caller.
+     */
+    void (*transform)(ANPPath* src, const ANPMatrix*, ANPPath* dst);
+};
+
+/** ANPColor is always defined to have the same packing on all platforms, and
+    it is always unpremultiplied.
+
+    This is in contrast to 32bit format(s) in bitmaps, which are premultiplied,
+    and their packing may vary depending on the platform, hence the need for
+    ANPBitmapInterface::getPixelPacking()
+ */
 typedef uint32_t ANPColor;
+#define ANPColor_ASHIFT     24
+#define ANPColor_RSHIFT     16
+#define ANPColor_GSHIFT     8
+#define ANPColor_BSHIFT     0
 #define ANP_MAKE_COLOR(a, r, g, b)  \
-                                (((a) << 24) | ((r) << 16) | ((g) << 8) | (b))
+                   (((a) << ANPColor_ASHIFT) |  \
+                    ((r) << ANPColor_RSHIFT) |  \
+                    ((g) << ANPColor_GSHIFT) |  \
+                    ((b) << ANPColor_BSHIFT))
 
 enum ANPPaintFlag {
     kAntiAlias_ANPPaintFlag         = 1 << 0,
@@ -266,16 +394,18 @@ enum ANPTypefaceStyles {
 };
 typedef uint32_t ANPTypefaceStyle;
 
+typedef uint32_t ANPFontTableTag;
+
 struct ANPFontMetrics {
-    //! The greatest distance above the baseline for any glyph (will be <= 0)
+    /** The greatest distance above the baseline for any glyph (will be <= 0) */
     float   fTop;
-    //! The recommended distance above the baseline (will be <= 0)
+    /** The recommended distance above the baseline (will be <= 0) */
     float   fAscent;
-    //! The recommended distance below the baseline (will be >= 0)
+    /** The recommended distance below the baseline (will be >= 0) */
     float   fDescent;
-    //! The greatest distance below the baseline for any glyph (will be >= 0)
+    /** The greatest distance below the baseline for any glyph (will be >= 0) */
     float   fBottom;
-    //! The recommended distance to add between lines of text (will be >= 0)
+    /** The recommended distance to add between lines of text (will be >= 0) */
     float   fLeading;
 };
 
@@ -283,6 +413,10 @@ struct ANPTypefaceInterfaceV0 : ANPInterface {
     /** Return a new reference to the typeface that most closely matches the
         requested name and style. Pass null as the name to return
         the default font for the requested style. Will never return null
+
+        The 5 generic font names "serif", "sans-serif", "monospace", "cursive",
+        "fantasy" are recognized, and will be mapped to their logical font
+        automatically by this call.
 
         @param name     May be NULL. The name of the font family.
         @param style    The style (normal, bold, italic) of the typeface.
@@ -303,7 +437,7 @@ struct ANPTypefaceInterfaceV0 : ANPInterface {
      */
     ANPTypeface* (*createFromTypeface)(const ANPTypeface* family,
                                        ANPTypefaceStyle);
-    
+
     /** Return the owner count of the typeface. A newly created typeface has an
         owner count of 1. When the owner count is reaches 0, the typeface is
         deleted.
@@ -318,29 +452,64 @@ struct ANPTypefaceInterfaceV0 : ANPInterface {
         the typeface is deleted.
      */
     void (*unref)(ANPTypeface*);
-    
+
     /** Return the style bits for the specified typeface
      */
     ANPTypefaceStyle (*getStyle)(const ANPTypeface*);
+
+    /** Some fonts are stored in files. If that is true for the fontID, then
+        this returns the byte length of the full file path. If path is not null,
+        then the full path is copied into path (allocated by the caller), up to
+        length bytes. If index is not null, then it is set to the truetype
+        collection index for this font, or 0 if the font is not in a collection.
+
+        Note: getFontPath does not assume that path is a null-terminated string,
+        so when it succeeds, it only copies the bytes of the file name and
+        nothing else (i.e. it copies exactly the number of bytes returned by the
+        function. If the caller wants to treat path[] as a C string, it must be
+        sure that it is allocated at least 1 byte larger than the returned size,
+        and it must copy in the terminating 0.
+
+        If the fontID does not correspond to a file, then the function returns
+        0, and the path and index parameters are ignored.
+
+        @param fontID  The font whose file name is being queried
+        @param path    Either NULL, or storage for receiving up to length bytes
+                       of the font's file name. Allocated by the caller.
+        @param length  The maximum space allocated in path (by the caller).
+                       Ignored if path is NULL.
+        @param index   Either NULL, or receives the TTC index for this font.
+                       If the font is not a TTC, then will be set to 0.
+        @return The byte length of th font's file name, or 0 if the font is not
+                baked by a file.
+     */
+    int32_t (*getFontPath)(const ANPTypeface*, char path[], int32_t length,
+                           int32_t* index);
+
+    /** Return a UTF8 encoded path name for the font directory, or NULL if not
+        supported. If returned, this string address will be valid for the life
+        of the plugin instance. It will always end with a '/' character.
+     */
+    const char* (*getFontDirectoryPath)();
 };
 
 struct ANPPaintInterfaceV0 : ANPInterface {
-    /*  Return a new paint object, which holds all of the color and style
+    /** Return a new paint object, which holds all of the color and style
         attributes that affect how things (geometry, text, bitmaps) are drawn
         in a ANPCanvas.
-    
+
         The paint that is returned is not tied to any particular plugin
         instance, but it must only be accessed from one thread at a time.
      */
     ANPPaint*   (*newPaint)();
     void        (*deletePaint)(ANPPaint*);
-    
+
     ANPPaintFlags (*getFlags)(const ANPPaint*);
     void        (*setFlags)(ANPPaint*, ANPPaintFlags);
-    
+
     ANPColor    (*getColor)(const ANPPaint*);
     void        (*setColor)(ANPPaint*, ANPColor);
-    
+
     ANPPaintStyle (*getStyle)(const ANPPaint*);
     void        (*setStyle)(ANPPaint*, ANPPaintStyle);
 
@@ -352,7 +521,7 @@ struct ANPPaintInterfaceV0 : ANPInterface {
     void        (*setStrokeMiter)(ANPPaint*, float);
     void        (*setStrokeCap)(ANPPaint*, ANPPaintCap);
     void        (*setStrokeJoin)(ANPPaint*, ANPPaintJoin);
-    
+
     ANPTextEncoding (*getTextEncoding)(const ANPPaint*);
     ANPPaintAlign (*getTextAlign)(const ANPPaint*);
     float       (*getTextSize)(const ANPPaint*);
@@ -380,7 +549,7 @@ struct ANPPaintInterfaceV0 : ANPInterface {
      */
     float (*measureText)(ANPPaint*, const void* text, uint32_t byteLength,
                          ANPRectF* bounds);
-    
+
     /** Return the number of unichars specifed by the text.
         If widths is not null, returns the array of advance widths for each
             unichar.
@@ -388,7 +557,7 @@ struct ANPPaintInterfaceV0 : ANPInterface {
      */
     int (*getTextWidths)(ANPPaint*, const void* text, uint32_t byteLength,
                          float widths[], ANPRectF bounds[]);
-    
+
     /** Return in metrics the spacing values for text, respecting the paint's
         typeface and pointsize, and return the spacing between lines
         (descent - ascent + leading). If metrics is NULL, it will be ignored.
@@ -397,14 +566,14 @@ struct ANPPaintInterfaceV0 : ANPInterface {
 };
 
 struct ANPCanvasInterfaceV0 : ANPInterface {
-    /*  Return a canvas that will draw into the specified bitmap. Note: the
+    /** Return a canvas that will draw into the specified bitmap. Note: the
         canvas copies the fields of the bitmap, so it need not persist after
         this call, but the canvas DOES point to the same pixel memory that the
         bitmap did, so the canvas should not be used after that pixel memory
         goes out of scope. In the case of creating a canvas to draw into the
         pixels provided by kDraw_ANPEventType, those pixels are only while
         handling that event.
-     
+
         The canvas that is returned is not tied to any particular plugin
         instance, but it must only be accessed from one thread at a time.
      */
@@ -421,21 +590,23 @@ struct ANPCanvasInterfaceV0 : ANPInterface {
     void        (*clipRect)(ANPCanvas*, const ANPRectF*);
     void        (*clipPath)(ANPCanvas*, const ANPPath*);
 
-    /*  Return the current matrix on the canvas
+    /** Return the current matrix on the canvas
      */
     void        (*getTotalMatrix)(ANPCanvas*, ANPMatrix*);
-    /*  Return the current clip bounds in local coordinates, expanding it to
+    /** Return the current clip bounds in local coordinates, expanding it to
         account for antialiasing edge effects if aa is true. If the
         current clip is empty, return false and ignore the bounds argument.
      */
     bool        (*getLocalClipBounds)(ANPCanvas*, ANPRectF* bounds, bool aa);
-    /*  Return the current clip bounds in device coordinates in bounds. If the
+    /** Return the current clip bounds in device coordinates in bounds. If the
         current clip is empty, return false and ignore the bounds argument.
      */
     bool        (*getDeviceClipBounds)(ANPCanvas*, ANPRectI* bounds);
-    
+
     void        (*drawColor)(ANPCanvas*, ANPColor);
     void        (*drawPaint)(ANPCanvas*, const ANPPaint*);
+    void        (*drawLine)(ANPCanvas*, float x0, float y0, float x1, float y1,
+                            const ANPPaint*);
     void        (*drawRect)(ANPCanvas*, const ANPRectF*, const ANPPaint*);
     void        (*drawOval)(ANPCanvas*, const ANPRectF*, const ANPPaint*);
     void        (*drawPath)(ANPCanvas*, const ANPPath*, const ANPPaint*);
@@ -455,7 +626,7 @@ struct ANPWindowInterfaceV0 : ANPInterface {
         describing the subset of the window that will be drawn to (may be null)
         return true if the bitmap for that window can be accessed, and if so,
         fill out the specified ANPBitmap to point to the window's pixels.
-     
+
         When drawing is complete, call unlock(window)
      */
     bool    (*lockRect)(void* window, const ANPRectI* inval, ANPBitmap*);
@@ -468,6 +639,31 @@ struct ANPWindowInterfaceV0 : ANPInterface {
         results. If lock returned false, unlock should not be called.
      */
     void    (*unlock)(void* window);
+    /** Registers a set of rectangles that the plugin would like to keep on
+        screen. The rectangles are listed in order of priority with the highest
+        priority rectangle in location rects[0].  The browser will attempt to keep
+        as many of the rectangles on screen as possible and will scroll them into
+        view in response to the invocation of this method and other various events.
+        The count specifies how many rectangles are in the array. If the count is
+        zero it signals the browser that any existing rectangles should be cleared
+        and no rectangles will be tracked.
+     */
+    void (*setVisibleRects)(NPP instance, const ANPRectI rects[], int32_t count);
+    /** Clears any rectangles that are being tracked as a result of a call to
+        setVisibleRects. This call is equivalent to setVisibleRect(inst, NULL, 0).
+     */
+    void    (*clearVisibleRects)(NPP instance);
+    /** Given a boolean value of true the device will be requested to provide
+        a keyboard. A value of false will result in a request to hide the
+        keyboard. Further, the on-screen keyboard will not be displayed if a
+        physical keyboard is active.
+     */
+    void    (*showKeyboard)(NPP instance, bool value);
+    /** Called when a plugin wishes to enter into full screen mode. The plugin's
+        Java class (set using kSetPluginStubJavaClassName_ANPSetValue) will be
+        called asynchronously to provide a View object to be displayed full screen.
+     */
+    void    (*requestFullScreen)(NPP instance);
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -517,11 +713,11 @@ typedef int32_t ANPAudioEvent;
 /** Called to feed sample data to the track. This will be called in a separate
     thread. However, you may call trackStop() from the callback (but you
     cannot delete the track).
- 
+
     For example, when you have written the last chunk of sample data, you can
     immediately call trackStop(). This will take effect after the current
     buffer has been played.
- 
+
     The "user" parameter is the same value that was passed to newTrack()
  */
 typedef void (*ANPAudioCallbackProc)(ANPAudioEvent event, void* user,
@@ -530,13 +726,19 @@ typedef void (*ANPAudioCallbackProc)(ANPAudioEvent event, void* user,
 struct ANPAudioTrack;   // abstract type for audio tracks
 
 struct ANPAudioTrackInterfaceV0 : ANPInterface {
-    /*  Create a new audio track, or NULL on failure.
+    /** Create a new audio track, or NULL on failure. The track is initially in
+        the stopped state and therefore ANPAudioCallbackProc will not be called
+        until the track is started.
      */
     ANPAudioTrack*  (*newTrack)(uint32_t sampleRate,    // sampling rate in Hz
                                 ANPSampleFormat,
                                 int channelCount,       // MONO=1, STEREO=2
                                 ANPAudioCallbackProc,
                                 void* user);
+    /** Deletes a track that was created using newTrack.  The track can be
+        deleted in any state and it waits for the ANPAudioCallbackProc thread
+        to exit before returning.
+     */
     void (*deleteTrack)(ANPAudioTrack*);
 
     void (*start)(ANPAudioTrack*);
@@ -552,10 +754,24 @@ struct ANPAudioTrackInterfaceV0 : ANPInterface {
 // HandleEvent
 
 enum ANPEventTypes {
-    kNull_ANPEventType  = 0,
-    kKey_ANPEventType   = 1,
-    kTouch_ANPEventType = 2,
-    kDraw_ANPEventType  = 3,
+    kNull_ANPEventType          = 0,
+    kKey_ANPEventType           = 1,
+    /** Mouse events are triggered by either clicking with the navigational pad
+        or by tapping the touchscreen (if the kDown_ANPTouchAction is handled by
+        the plugin then no mouse event is generated).  The kKey_ANPEventFlag has
+        to be set to true in order to receive these events.
+     */
+    kMouse_ANPEventType         = 2,
+    /** Touch events are generated when the user touches on the screen. The
+        kTouch_ANPEventFlag has to be set to true in order to receive these
+        events.
+     */
+    kTouch_ANPEventType         = 3,
+    /** Only triggered by a plugin using the kBitmap_ANPDrawingModel. This event
+        signals that the plugin needs to redraw itself into the provided bitmap.
+     */
+    kDraw_ANPEventType          = 4,
+    kLifecycle_ANPEventType     = 5,
 };
 typedef int32_t ANPEventType;
 
@@ -575,21 +791,53 @@ enum ANPKeyModifiers {
 // bit-field containing some number of ANPKeyModifier bits
 typedef uint32_t ANPKeyModifier;
 
+enum ANPMouseActions {
+    kDown_ANPMouseAction  = 0,
+    kUp_ANPMouseAction    = 1,
+};
+typedef int32_t ANPMouseAction;
+
 enum ANPTouchActions {
-    kDown_ANPTouchAction  = 0,
-    kUp_ANPTouchAction    = 1,
+    /** This occurs when the user first touches on the screen. As such, this
+        action will always occur prior to any of the other touch actions. If
+        the plugin chooses to not handle this action then no other events
+        related to that particular touch gesture will be generated.
+     */
+    kDown_ANPTouchAction   = 0,
+    kUp_ANPTouchAction     = 1,
+    kMove_ANPTouchAction   = 2,
+    kCancel_ANPTouchAction = 3,
 };
 typedef int32_t ANPTouchAction;
 
-struct ANPDrawContext {
-    ANPDrawingModel model;
-    // relative to (0,0) in top-left of your plugin
-    ANPRectI        clip;
-    // use based on the value in model
-    union {
-        ANPBitmap   bitmap;
-    } data;
+enum ANPLifecycleActions {
+    /** The web view containing this plugin has been paused.  See documentation
+        on the android activity lifecycle for more information.
+     */
+    kPause_ANPLifecycleAction      = 0,
+    /** The web view containing this plugin has been resumed. See documentation
+        on the android activity lifecycle for more information.
+     */
+    kResume_ANPLifecycleAction     = 1,
+    /** The plugin has focus and is now the recipient of input events (e.g. key,
+        touch, etc.)
+     */
+    kGainFocus_ANPLifecycleAction  = 2,
+    /** The plugin has lost focus and will not receive any input events until it
+        regains focus. This event is always preceded by a GainFocus action.
+     */
+    kLoseFocus_ANPLifecycleAction  = 3,
+    /** The browser is running low on available memory and is requesting that
+        the plugin free any unused/inactive resources to prevent a performance
+        degradation.
+     */
+    kFreeMemory_ANPLifecycleAction = 4,
+    /** The page has finished loading. This happens when the page's top level
+        frame reports that it has completed loading.
+     */
+    kOnLoad_ANPLifecycleAction     = 5,
 };
+typedef uint32_t ANPLifecycleAction;
 
 /* This is what is passed to NPP_HandleEvent() */
 struct ANPEvent {
@@ -606,14 +854,40 @@ struct ANPEvent {
             int32_t         unichar;        // 0 if there is no value
         } key;
         struct {
+            ANPMouseAction  action;
+            int32_t         x;  // relative to your "window" (0...width)
+            int32_t         y;  // relative to your "window" (0...height)
+        } mouse;
+        struct {
             ANPTouchAction  action;
             ANPKeyModifier  modifiers;
             int32_t         x;  // relative to your "window" (0...width)
             int32_t         y;  // relative to your "window" (0...height)
         } touch;
-        ANPDrawContext  drawContext;
-        int32_t         other[8];
+        struct {
+            ANPLifecycleAction  action;
+        } lifecycle;
+        struct {
+            ANPDrawingModel model;
+            // relative to (0,0) in top-left of your plugin
+            ANPRectI        clip;
+            // use based on the value in model
+            union {
+                ANPBitmap   bitmap;
+            } data;
+        } draw;
+        int32_t     other[8];
     } data;
+};
+
+///////////////////////////////////////////////////////////////////////////////
+// System properties
+
+struct ANPSystemInterfaceV0 : ANPInterface {
+    /** Return the path name for the current Application's plugin data directory,
+     *  or NULL if not supported
+     */
+    const char* (*getApplicationDataDirectory)();
 };
 
 #endif

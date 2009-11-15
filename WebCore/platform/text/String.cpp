@@ -1,6 +1,7 @@
 /*
  * (C) 1999 Lars Knoll (knoll@kde.org)
  * Copyright (C) 2004, 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2007-2009 Torch Mobile, Inc.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -85,10 +86,12 @@ void String::append(const String& str)
     // call to fastMalloc every single time.
     if (str.m_impl) {
         if (m_impl) {
-            StringBuffer buffer(m_impl->length() + str.length());
-            memcpy(buffer.characters(), m_impl->characters(), m_impl->length() * sizeof(UChar));
-            memcpy(buffer.characters() + m_impl->length(), str.characters(), str.length() * sizeof(UChar));
-            m_impl = StringImpl::adopt(buffer);
+            UChar* data;
+            RefPtr<StringImpl> newImpl =
+                StringImpl::createUninitialized(m_impl->length() + str.length(), data);
+            memcpy(data, m_impl->characters(), m_impl->length() * sizeof(UChar));
+            memcpy(data + m_impl->length(), str.characters(), str.length() * sizeof(UChar));
+            m_impl = newImpl.release();
         } else
             m_impl = str.m_impl;
     }
@@ -101,10 +104,12 @@ void String::append(char c)
     // one String is pointing at this StringImpl, but even then it's going to require a
     // call to fastMalloc every single time.
     if (m_impl) {
-        StringBuffer buffer(m_impl->length() + 1);
-        memcpy(buffer.characters(), m_impl->characters(), m_impl->length() * sizeof(UChar));
-        buffer[m_impl->length()] = c;
-        m_impl = StringImpl::adopt(buffer);
+        UChar* data;
+        RefPtr<StringImpl> newImpl =
+            StringImpl::createUninitialized(m_impl->length() + 1, data);
+        memcpy(data, m_impl->characters(), m_impl->length() * sizeof(UChar));
+        data[m_impl->length()] = c;
+        m_impl = newImpl.release();
     } else
         m_impl = StringImpl::create(&c, 1);
 }
@@ -116,10 +121,12 @@ void String::append(UChar c)
     // one String is pointing at this StringImpl, but even then it's going to require a
     // call to fastMalloc every single time.
     if (m_impl) {
-        StringBuffer buffer(m_impl->length() + 1);
-        memcpy(buffer.characters(), m_impl->characters(), m_impl->length() * sizeof(UChar));
-        buffer[m_impl->length()] = c;
-        m_impl = StringImpl::adopt(buffer);
+        UChar* data;
+        RefPtr<StringImpl> newImpl =
+            StringImpl::createUninitialized(m_impl->length() + 1, data);
+        memcpy(data, m_impl->characters(), m_impl->length() * sizeof(UChar));
+        data[m_impl->length()] = c;
+        m_impl = newImpl.release();
     } else
         m_impl = StringImpl::create(&c, 1);
 }
@@ -170,10 +177,12 @@ void String::append(const UChar* charactersToAppend, unsigned lengthToAppend)
         return;
 
     ASSERT(charactersToAppend);
-    StringBuffer buffer(length() + lengthToAppend);
-    memcpy(buffer.characters(), characters(), length() * sizeof(UChar));
-    memcpy(buffer.characters() + length(), charactersToAppend, lengthToAppend * sizeof(UChar));
-    m_impl = StringImpl::adopt(buffer);
+    UChar* data;
+    RefPtr<StringImpl> newImpl =
+        StringImpl::createUninitialized(length() + lengthToAppend, data);
+    memcpy(data, characters(), length() * sizeof(UChar));
+    memcpy(data + length(), charactersToAppend, lengthToAppend * sizeof(UChar));
+    m_impl = newImpl.release();
 }
 
 void String::insert(const UChar* charactersToInsert, unsigned lengthToInsert, unsigned position)
@@ -189,11 +198,13 @@ void String::insert(const UChar* charactersToInsert, unsigned lengthToInsert, un
         return;
 
     ASSERT(charactersToInsert);
-    StringBuffer buffer(length() + lengthToInsert);
-    memcpy(buffer.characters(), characters(), position * sizeof(UChar));
-    memcpy(buffer.characters() + position, charactersToInsert, lengthToInsert * sizeof(UChar));
-    memcpy(buffer.characters() + position + lengthToInsert, characters() + position, (length() - position) * sizeof(UChar));
-    m_impl = StringImpl::adopt(buffer);
+    UChar* data;
+    RefPtr<StringImpl> newImpl =
+      StringImpl::createUninitialized(length() + lengthToInsert, data);
+    memcpy(data, characters(), position * sizeof(UChar));
+    memcpy(data + position, charactersToInsert, lengthToInsert * sizeof(UChar));
+    memcpy(data + position + lengthToInsert, characters() + position, (length() - position) * sizeof(UChar));
+    m_impl = newImpl.release();
 }
 
 UChar String::operator[](unsigned i) const
@@ -221,9 +232,10 @@ void String::truncate(unsigned position)
 {
     if (position >= length())
         return;
-    StringBuffer buffer(position);
-    memcpy(buffer.characters(), characters(), position * sizeof(UChar));
-    m_impl = StringImpl::adopt(buffer);
+    UChar* data;
+    RefPtr<StringImpl> newImpl = StringImpl::createUninitialized(position, data);
+    memcpy(data, characters(), position * sizeof(UChar));
+    m_impl = newImpl.release();
 }
 
 void String::remove(unsigned position, int lengthToRemove)
@@ -234,11 +246,13 @@ void String::remove(unsigned position, int lengthToRemove)
         return;
     if (static_cast<unsigned>(lengthToRemove) > length() - position)
         lengthToRemove = length() - position;
-    StringBuffer buffer(length() - lengthToRemove);
-    memcpy(buffer.characters(), characters(), position * sizeof(UChar));
-    memcpy(buffer.characters() + position, characters() + position + lengthToRemove,
+    UChar* data;
+    RefPtr<StringImpl> newImpl =
+        StringImpl::createUninitialized(length() - lengthToRemove, data);
+    memcpy(data, characters(), position * sizeof(UChar));
+    memcpy(data + position, characters() + position + lengthToRemove,
         (length() - lengthToRemove - position) * sizeof(UChar));
-    m_impl = StringImpl::adopt(buffer);
+    m_impl = newImpl.release();
 }
 
 String String::substring(unsigned pos, unsigned len) const
@@ -340,6 +354,29 @@ String String::format(const char *format, ...)
     va_end(args);
 
     return buffer;
+
+#elif PLATFORM(WINCE)
+    va_list args;
+    va_start(args, format);
+
+    Vector<char, 256> buffer;
+
+    int bufferSize = 256;
+    buffer.resize(bufferSize);
+    for (;;) {
+        int written = vsnprintf(buffer.data(), bufferSize, format, args);
+        va_end(args);
+
+        if (written == 0)
+            return String("");
+        if (written > 0)
+            return StringImpl::create(buffer.data(), written);
+        
+        bufferSize <<= 1;
+        buffer.resize(bufferSize);
+        va_start(args, format);
+    }
+
 #else
     va_list args;
     va_start(args, format);
@@ -471,6 +508,17 @@ uint64_t String::toUInt64Strict(bool* ok, int base) const
     return m_impl->toUInt64Strict(ok, base);
 }
 
+intptr_t String::toIntPtrStrict(bool* ok, int base) const
+{
+    if (!m_impl) {
+        if (ok)
+            *ok = false;
+        return 0;
+    }
+    return m_impl->toIntPtrStrict(ok, base);
+}
+
+
 int String::toInt(bool* ok) const
 {
     if (!m_impl) {
@@ -509,6 +557,16 @@ uint64_t String::toUInt64(bool* ok) const
         return 0;
     }
     return m_impl->toUInt64(ok);
+}
+
+intptr_t String::toIntPtr(bool* ok) const
+{
+    if (!m_impl) {
+        if (ok)
+            *ok = false;
+        return 0;
+    }
+    return m_impl->toIntPtr(ok);
 }
 
 double String::toDouble(bool* ok) const
@@ -623,26 +681,35 @@ String String::fromUTF8(const char* string)
     return UTF8Encoding().decode(string, strlen(string));
 }
 
+String String::fromUTF8WithLatin1Fallback(const char* string, size_t size)
+{
+    String result = fromUTF8(string, size);
+    if (!result)
+        result = String(string, size);
+    
+    return result;
+}
+
 #if USE(JSC)
 String::String(const Identifier& str)
 {
     if (str.isNull())
         return;
-    m_impl = StringImpl::create(str.data(), str.size());
+    m_impl = StringImpl::create(str.ustring());
 }
 
 String::String(const UString& str)
 {
     if (str.isNull())
         return;
-    m_impl = StringImpl::create(str.data(), str.size());
+    m_impl = StringImpl::create(str);
 }
 
 String::operator UString() const
 {
     if (!m_impl)
         return UString();
-    return UString(m_impl->characters(), m_impl->length());
+    return m_impl->ustring();
 }
 #endif
 
@@ -782,6 +849,11 @@ uint64_t charactersToUInt64Strict(const UChar* data, size_t length, bool* ok, in
     return toIntegralType<uint64_t>(data, length, ok, base);
 }
 
+intptr_t charactersToIntPtrStrict(const UChar* data, size_t length, bool* ok, int base)
+{
+    return toIntegralType<intptr_t>(data, length, ok, base);
+}
+
 int charactersToInt(const UChar* data, size_t length, bool* ok)
 {
     return toIntegralType<int>(data, lengthOfCharactersAsInteger(data, length), ok, 10);
@@ -800,6 +872,11 @@ int64_t charactersToInt64(const UChar* data, size_t length, bool* ok)
 uint64_t charactersToUInt64(const UChar* data, size_t length, bool* ok)
 {
     return toIntegralType<uint64_t>(data, lengthOfCharactersAsInteger(data, length), ok, 10);
+}
+
+intptr_t charactersToIntPtr(const UChar* data, size_t length, bool* ok)
+{
+    return toIntegralType<intptr_t>(data, lengthOfCharactersAsInteger(data, length), ok, 10);
 }
 
 double charactersToDouble(const UChar* data, size_t length, bool* ok)

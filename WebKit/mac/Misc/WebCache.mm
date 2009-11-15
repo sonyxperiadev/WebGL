@@ -26,12 +26,19 @@
 #import "WebCache.h"
 
 #import "WebPreferences.h"
+#import "WebSystemInterface.h"
 #import "WebView.h"
 #import "WebViewInternal.h"
 #import <WebCore/ApplicationCacheStorage.h>
 #import <WebCore/Cache.h>
+#import <WebCore/CrossOriginPreflightResultCache.h>
 
 @implementation WebCache
+
++ (void)initialize
+{
+    InitWebCoreSystemInterface();   
+}
 
 + (NSArray *)statistics
 {
@@ -107,9 +114,12 @@
     WebCacheModel cacheModel = [WebView _cacheModel];
     [WebView _setCacheModel:WebCacheModelDocumentViewer];
     [WebView _setCacheModel:cacheModel];
-        
+
     // Empty the application cache.
     WebCore::cacheStorage().empty();
+
+    // Empty the Cross-Origin Preflight cache
+    WebCore::CrossOriginPreflightResultCache::shared().empty();
 }
 
 + (void)setDisabled:(BOOL)disabled

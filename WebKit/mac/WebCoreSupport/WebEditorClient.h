@@ -74,6 +74,25 @@ public:
     virtual NSArray* pasteboardTypesForSelection(WebCore::Frame*);
 #endif
     
+#if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
+    virtual void uppercaseWord();
+    virtual void lowercaseWord();
+    virtual void capitalizeWord();
+    virtual void showSubstitutionsPanel(bool show);
+    virtual bool substitutionsPanelIsShowing();
+    virtual void toggleSmartInsertDelete();
+    virtual bool isAutomaticQuoteSubstitutionEnabled();
+    virtual void toggleAutomaticQuoteSubstitution();
+    virtual bool isAutomaticLinkDetectionEnabled();
+    virtual void toggleAutomaticLinkDetection();
+    virtual bool isAutomaticDashSubstitutionEnabled();
+    virtual void toggleAutomaticDashSubstitution();
+    virtual bool isAutomaticTextReplacementEnabled();
+    virtual void toggleAutomaticTextReplacement();
+    virtual bool isAutomaticSpellingCorrectionEnabled();
+    virtual void toggleAutomaticSpellingCorrection();
+#endif
+
     virtual void respondToChangedContents();
     virtual void respondToChangedSelection();
 
@@ -100,7 +119,9 @@ public:
     virtual void ignoreWordInSpellDocument(const WebCore::String&);
     virtual void learnWord(const WebCore::String&);
     virtual void checkSpellingOfString(const UChar*, int length, int* misspellingLocation, int* misspellingLength);
+    virtual WebCore::String getAutoCorrectSuggestionForMisspelledWord(const WebCore::String&);
     virtual void checkGrammarOfString(const UChar*, int length, WTF::Vector<WebCore::GrammarDetail>&, int* badGrammarLocation, int* badGrammarLength);
+    virtual void checkTextOfParagraph(const UChar* text, int length, uint64_t checkingTypes, WTF::Vector<WebCore::TextCheckingResult>& results);
     virtual void updateSpellingUIWithGrammarString(const WebCore::String&, const WebCore::GrammarDetail&);
     virtual void updateSpellingUIWithMisspelledWord(const WebCore::String&);
     virtual void showSpellingUI(bool show);

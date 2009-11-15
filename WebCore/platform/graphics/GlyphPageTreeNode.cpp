@@ -29,6 +29,7 @@
 #include "config.h"
 #include "GlyphPageTreeNode.h"
 
+#include "CString.h"
 #include "CharacterNames.h"
 #include "SegmentedFontData.h"
 #include "SimpleFontData.h"
@@ -218,9 +219,10 @@ void GlyphPageTreeNode::initializePage(const FontData* fontData, unsigned pageNu
                         }
                         haveGlyphs |= pageToFill->fill(from, to - from, buffer + from * (start < 0x10000 ? 1 : 2), (to - from) * (start < 0x10000 ? 1 : 2), range.fontData());
                         if (scratchPage) {
+                            ASSERT(to <=  static_cast<int>(GlyphPage::size));
                             for (int j = from; j < to; j++) {
-                                if (!m_page->m_glyphs[j].glyph && pageToFill->m_glyphs[j].glyph)
-                                    m_page->m_glyphs[j] = pageToFill->m_glyphs[j];
+                                if (!m_page->glyphAt(j) && pageToFill->glyphAt(j))
+                                    m_page->setGlyphDataForIndex(j, pageToFill->glyphDataForIndex(j));
                             }
                         }
                     }
@@ -264,15 +266,13 @@ void GlyphPageTreeNode::initializePage(const FontData* fontData, unsigned pageNu
                 // has added anything.
                 bool newGlyphs = false;
                 for (unsigned i = 0; i < GlyphPage::size; i++) {
-                    if (parentPage->m_glyphs[i].glyph)
-                        m_page->m_glyphs[i] = parentPage->m_glyphs[i];
-                    else  if (fallbackPage->m_glyphs[i].glyph) {
-                        m_page->m_glyphs[i] = fallbackPage->m_glyphs[i];
+                    if (parentPage->glyphAt(i))
+                        m_page->setGlyphDataForIndex(i, parentPage->glyphDataForIndex(i));
+                    else  if (fallbackPage->glyphAt(i)) {
+                        m_page->setGlyphDataForIndex(i, fallbackPage->glyphDataForIndex(i));
                         newGlyphs = true;
-                    } else {
-                        const GlyphData data = { 0, 0 };
-                        m_page->m_glyphs[i] = data;
-                    }
+                    } else
+                        m_page->setGlyphDataForIndex(i, 0, 0);
                 }
 
                 if (!newGlyphs)
@@ -287,12 +287,9 @@ void GlyphPageTreeNode::initializePage(const FontData* fontData, unsigned pageNu
         // ever finds it needs a glyph out of the system fallback page, it will
         // ask the system for the best font to use and fill that glyph in for us.
         if (parentPage)
-            memcpy(m_page->m_glyphs, parentPage->m_glyphs, GlyphPage::size * sizeof(m_page->m_glyphs[0]));
-        else {
-            const GlyphData data = { 0, 0 };
-            for (unsigned i = 0; i < GlyphPage::size; i++)
-                m_page->m_glyphs[i] = data;
-        }
+            m_page->copyFrom(*parentPage);
+        else
+            m_page->clear();
     }
 }
 
@@ -381,4 +378,41 @@ void GlyphPageTreeNode::pruneFontData(const SimpleFontData* fontData, unsigned l
         it->second->pruneFontData(fontData, level);
 }
 
+#ifndef NDEBUG
+    void GlyphPageTreeNode::showSubtree()
+    {
+        Vector<char> indent(level());
+        indent.fill('\t', level());
+        indent.append(0);
+
+        HashMap<const FontData*, GlyphPageTreeNode*>::iterator end = m_children.end();
+        for (HashMap<const FontData*, GlyphPageTreeNode*>::iterator it = m_children.begin(); it != end; ++it) {
+            printf("%s\t%p %s\n", indent.data(), it->first, it->first->description().utf8().data());
+            it->second->showSubtree();
+        }
+        if (m_systemFallbackChild) {
+            printf("%s\t* fallback\n", indent.data());
+            m_systemFallbackChild->showSubtree();
+        }
+    }
+#endif
+
 }
+
+#ifndef NDEBUG
+void showGlyphPageTrees()
+{
+    printf("Page 0:\n");
+    showGlyphPageTree(0);
+    HashMap<int, WebCore::GlyphPageTreeNode*>::iterator end = WebCore::GlyphPageTreeNode::roots->end();
+    for (HashMap<int, WebCore::GlyphPageTreeNode*>::iterator it = WebCore::GlyphPageTreeNode::roots->begin(); it != end; ++it) {
+        printf("\nPage %d:\n", it->first);
+        showGlyphPageTree(it->first);
+    }
+}
+
+void showGlyphPageTree(unsigned pageNumber)
+{
+    WebCore::GlyphPageTreeNode::getRoot(pageNumber)->showSubtree();
+}
+#endif

@@ -120,7 +120,7 @@ static void WebHistoryClose(JNIEnv* env, jobject obj, jint frame)
         while (child) {
             // Use the old history item since the current one may have a
             // deleted parent.
-            WebCore::HistoryItem* item = parent->childItemWithName(child->tree()->name());
+            WebCore::HistoryItem* item = parent->childItemWithTarget(child->tree()->name());
             child->loader()->setCurrentHistoryItem(item);
             // Append the first child to the queue if it exists.
             if (WebCore::Frame* f = child->tree()->firstChild())
@@ -153,7 +153,6 @@ static void WebHistoryRestoreIndex(JNIEnv* env, jobject obj, jint frame, jint in
     // Update the current and previous history item.
     WebCore::FrameLoader* loader = pFrame->loader();
     loader->setCurrentHistoryItem(currentItem);
-    loader->setPreviousHistoryItem(list->backItem());
 
     // load the current page with FrameLoadTypeIndexedBackForward so that it
     // will use cache when it is possible
@@ -303,7 +302,7 @@ void WebHistoryItem::updateHistoryItem(WebCore::HistoryItem* item) {
     // item, try to get the icon using the url without the ref.
     jobject favicon = NULL;
     WebCore::String url = item->urlString();
-    if (item->url().hasRef()) {
+    if (item->url().hasFragmentIdentifier()) {
         int refIndex = url.reverseFind('#');
         url = url.substring(0, refIndex);
     }

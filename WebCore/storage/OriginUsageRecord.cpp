@@ -28,7 +28,9 @@
 #include "config.h"
 #include "OriginUsageRecord.h"
 
-#include "FileSystem.h"
+#if ENABLE(DATABASE)
+
+#include "SQLiteFileSystem.h"
 
 namespace WebCore {
 
@@ -80,13 +82,9 @@ unsigned long long OriginUsageRecord::diskUsage()
         const String& path = m_databaseMap.get(*iUnknown).filename;
         ASSERT(!path.isEmpty());
                 
-        long long size;
-        if (getFileSize(path, size))
-            m_databaseMap.set(*iUnknown, DatabaseEntry(path, size));
-        else {
-            // When we can't determine the file size, we'll just have to assume the file is missing/inaccessible.
-            m_databaseMap.set(*iUnknown, DatabaseEntry(path, 0));
-        }
+        // When we can't determine the file size, we'll just have to assume the file is missing/inaccessible.
+        long long size = SQLiteFileSystem::getDatabaseFileSize(path);
+        m_databaseMap.set(*iUnknown, DatabaseEntry(path, size));
     }
     m_unknownSet.clear();
     
@@ -102,3 +100,5 @@ unsigned long long OriginUsageRecord::diskUsage()
 }
     
 }
+
+#endif

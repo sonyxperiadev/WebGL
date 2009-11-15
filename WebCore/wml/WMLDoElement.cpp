@@ -27,6 +27,7 @@
 #include "EventNames.h"
 #include "HTMLNames.h"
 #include "KeyboardEvent.h"
+#include "MappedAttribute.h"
 #include "Page.h"
 #include "RenderButton.h"
 #include "WMLCardElement.h"
@@ -97,8 +98,6 @@ void WMLDoElement::parseMappedAttribute(MappedAttribute* attr)
         m_type = parseValueForbiddingVariableReferences(attr->value());
     else if (attr->name() == HTMLNames::nameAttr)
         m_name = parseValueForbiddingVariableReferences(attr->value());
-    else if (attr->name() == HTMLNames::labelAttr)
-        m_label = parseValueSubstitutingVariableReferences(attr->value());
     else if (attr->name() == optionalAttr)
         m_isOptional = (attr->value() == "true");
     else
@@ -114,13 +113,34 @@ void WMLDoElement::insertedIntoDocument()
         m_name = m_type;
 
     Node* parent = parentNode();
-    ASSERT(parent);
-
     if (!parent || !parent->isWMLElement())
         return;
 
     if (WMLEventHandlingElement* eventHandlingElement = toWMLEventHandlingElement(static_cast<WMLElement*>(parent)))
         eventHandlingElement->registerDoElement(this, document());
+}
+
+void WMLDoElement::removedFromDocument()
+{
+    Node* parent = parentNode();
+
+    if (parent  && parent->isWMLElement()) {
+        if (WMLEventHandlingElement* eventHandlingElement = toWMLEventHandlingElement(static_cast<WMLElement*>(parent)))
+            eventHandlingElement->deregisterDoElement(this);
+    }
+
+    WMLElement::removedFromDocument();
+}
+
+void WMLDoElement::attach()
+{
+    WMLElement::attach();
+
+    // The call to updateFromElement() needs to go after the call through
+    // to the base class's attach() because that can sometimes do a close
+    // on the renderer.
+    if (renderer())
+        renderer()->updateFromElement();
 }
 
 RenderObject* WMLDoElement::createRenderer(RenderArena* arena, RenderStyle* style)
@@ -142,6 +162,23 @@ void WMLDoElement::recalcStyle(StyleChange change)
 
     if (renderer())
         renderer()->updateFromElement();
+}
+
+void WMLDoElement::registerTask(WMLTaskElement* task)
+{
+    ASSERT(!m_task);
+    m_task = task;
+}
+
+void WMLDoElement::deregisterTask(WMLTaskElement* task)
+{
+    ASSERT(m_task == task);
+    m_task = 0;
+}
+
+String WMLDoElement::label() const
+{
+    return parseValueSubstitutingVariableReferences(getAttribute(HTMLNames::labelAttr));
 }
 
 }

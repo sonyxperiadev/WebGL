@@ -253,8 +253,8 @@ struct SVGTextRunWalker {
         bool haveAltGlyph = false;
         SVGGlyphIdentifier altGlyphIdentifier;
         if (RenderObject* renderObject = run.referencingRenderObject()) {
-            if (renderObject->element() && renderObject->element()->hasTagName(SVGNames::altGlyphTag)) {
-                SVGGlyphElement* glyphElement = static_cast<SVGAltGlyphElement*>(renderObject->element())->glyphElement();
+            if (renderObject->node() && renderObject->node()->hasTagName(SVGNames::altGlyphTag)) {
+                SVGGlyphElement* glyphElement = static_cast<SVGAltGlyphElement*>(renderObject->node())->glyphElement();
                 if (glyphElement) {
                     haveAltGlyph = true;
                     altGlyphIdentifier = glyphElement->buildGlyphIdentifier();
@@ -407,7 +407,7 @@ static float floatWidthOfSubStringUsingSVGFont(const Font* font, const TextRun& 
         if (RenderObject* renderObject = run.referencingRenderObject()) {
             isVerticalText = isVerticalWritingMode(renderObject->style()->svgStyle());
 
-            if (SVGElement* element = static_cast<SVGElement*>(renderObject->element()))
+            if (SVGElement* element = static_cast<SVGElement*>(renderObject->node()))
                 language = element->getAttribute(XMLNames::langAttr);
         }
 
@@ -496,7 +496,7 @@ void Font::drawTextUsingSVGFont(GraphicsContext* context, const TextRun& run,
         if (run.referencingRenderObject()) {
             isVerticalText = isVerticalWritingMode(run.referencingRenderObject()->style()->svgStyle());    
 
-            if (SVGElement* element = static_cast<SVGElement*>(run.referencingRenderObject()->element()))
+            if (SVGElement* element = static_cast<SVGElement*>(run.referencingRenderObject()->node()))
                 language = element->getAttribute(XMLNames::langAttr);
         }
 
@@ -533,6 +533,9 @@ void Font::drawTextUsingSVGFont(GraphicsContext* context, const TextRun& run,
                     context->beginPath();
                     context->addPath(identifier.pathData);
 
+                    // FIXME: setup() tries to get objectBoundingBox() from run.referencingRenderObject()
+                    // which is wrong.  We need to change setup() to take a bounding box instead, or pass
+                    // a RenderObject which would return the bounding box for identifier.pathData
                     if (activePaintServer->setup(context, run.referencingRenderObject(), targetType)) {
                         // Spec: Any properties specified on a text elements which represents a length, such as the
                         // 'stroke-width' property, might produce surprising results since the length value will be

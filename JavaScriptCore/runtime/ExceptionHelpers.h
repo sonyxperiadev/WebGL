@@ -29,27 +29,26 @@
 #ifndef ExceptionHelpers_h
 #define ExceptionHelpers_h
 
-#include "JSImmediate.h"
 
 namespace JSC {
 
     class CodeBlock;
     class ExecState;
     class Identifier;
-    class Instruction;
     class JSGlobalData;
     class JSNotAnObjectErrorStub;
     class JSObject;
-    class JSValuePtr;
+    class JSValue;
     class Node;
-
-    JSValuePtr createInterruptedExecutionException(JSGlobalData*);
-    JSValuePtr createStackOverflowError(ExecState*);
-    JSValuePtr createUndefinedVariableError(ExecState*, const Identifier&, unsigned bytecodeOffset, CodeBlock*);
+    struct Instruction;
+    
+    JSValue createInterruptedExecutionException(JSGlobalData*);
+    JSValue createStackOverflowError(ExecState*);
+    JSValue createUndefinedVariableError(ExecState*, const Identifier&, unsigned bytecodeOffset, CodeBlock*);
     JSNotAnObjectErrorStub* createNotAnObjectErrorStub(ExecState*, bool isNull);
-    JSObject* createInvalidParamError(ExecState*, const char* op, JSValuePtr, unsigned bytecodeOffset, CodeBlock*);
-    JSObject* createNotAConstructorError(ExecState*, JSValuePtr, unsigned bytecodeOffset, CodeBlock*);
-    JSValuePtr createNotAFunctionError(ExecState*, JSValuePtr, unsigned bytecodeOffset, CodeBlock*);
+    JSObject* createInvalidParamError(ExecState*, const char* op, JSValue, unsigned bytecodeOffset, CodeBlock*);
+    JSObject* createNotAConstructorError(ExecState*, JSValue, unsigned bytecodeOffset, CodeBlock*);
+    JSValue createNotAFunctionError(ExecState*, JSValue, unsigned bytecodeOffset, CodeBlock*);
     JSObject* createNotAnObjectError(ExecState*, JSNotAnObjectErrorStub*, unsigned bytecodeOffset, CodeBlock*);
 
 } // namespace JSC

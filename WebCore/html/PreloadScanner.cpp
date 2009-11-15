@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2008 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2009 Torch Mobile, Inc. http://www.torchmobile.com/
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -43,6 +44,7 @@
 #include <wtf/CurrentTime.h>
 #include <wtf/unicode/Unicode.h>
 
+// Use __GNUC__ instead of PLATFORM(GCC) to stay consistent with the gperf generated c file
 #ifdef __GNUC__
 // The main tokenizer includes this too so we are getting two copies of the data. However, this way the code gets inlined.
 #include "HTMLEntityNames.c"
@@ -128,9 +130,13 @@ bool PreloadScanner::scanningBody() const
     
 void PreloadScanner::write(const SegmentedString& source)
 {
+#if PRELOAD_DEBUG
     double startTime = currentTime();
+#endif
     tokenize(source);
+#if PRELOAD_DEBUG
     m_timeUsed += currentTime() - startTime;
+#endif
 }
     
 static inline bool isWhitespace(UChar c)
@@ -220,8 +226,8 @@ unsigned PreloadScanner::consumeEntity(SegmentedString& source, bool& notEnoughC
             else if (cc >= 'A' && cc <= 'F')
                 result = 10 + cc - 'A';
             else {
-                source.push(seenChars[1]);
                 source.push('#');
+                source.push(seenChars[1]);
                 return 0;
             }
             entityState = Hex;
@@ -275,8 +281,8 @@ unsigned PreloadScanner::consumeEntity(SegmentedString& source, bool& notEnoughC
             if (seenChars.size() == 2)
                 source.push(seenChars[0]);
             else if (seenChars.size() == 3) {
-                source.push(seenChars[1]);
                 source.push(seenChars[0]);
+                source.push(seenChars[1]);
             } else
                 source.prepend(SegmentedString(String(seenChars.data(), seenChars.size() - 1)));
             return 0;
@@ -690,19 +696,26 @@ void PreloadScanner::processAttribute()
     String value(m_attributeValue.data(), m_attributeValue.size());
     if (tag == scriptTag || tag == imgTag) {
         if (attribute == srcAttr && m_urlToLoad.isEmpty())
-            m_urlToLoad = parseURL(value);
+            m_urlToLoad = deprecatedParseURL(value);
         else if (attribute == charsetAttr)
             m_charset = value;
     } else if (tag == linkTag) {
         if (attribute == hrefAttr && m_urlToLoad.isEmpty())
-            m_urlToLoad = parseURL(value);
+            m_urlToLoad = deprecatedParseURL(value);
         else if (attribute == relAttr) {
             bool styleSheet = false;
             bool alternate = false;
             bool icon = false;
             bool dnsPrefetch = false;
+#ifdef ANDROID_APPLE_TOUCH_ICON
+            bool touchIcon = false;
+            bool precomposedTouchIcon = false;
+            HTMLLinkElement::tokenizeRelAttribute(value, styleSheet, alternate, icon, touchIcon, precomposedTouchIcon, dnsPrefetch);
+            m_linkIsStyleSheet = styleSheet && !alternate && !icon && !touchIcon && !precomposedTouchIcon && !dnsPrefetch;
+#else
             HTMLLinkElement::tokenizeRelAttribute(value, styleSheet, alternate, icon, dnsPrefetch);
             m_linkIsStyleSheet = styleSheet && !alternate && !icon && !dnsPrefetch;
+#endif
         } else if (attribute == charsetAttr)
             m_charset = value;
     }
@@ -842,7 +855,7 @@ void PreloadScanner::emitCSSRule()
     String rule(m_cssRule.data(), m_cssRule.size());
     if (equalIgnoringCase(rule, "import") && !m_cssRuleValue.isEmpty()) {
         String value(m_cssRuleValue.data(), m_cssRuleValue.size());
-        String url = parseURL(value);
+        String url = deprecatedParseURL(value);
         if (!url.isEmpty())
             m_document->docLoader()->preload(CachedResource::CSSStyleSheet, url, String(), scanningBody());
     }

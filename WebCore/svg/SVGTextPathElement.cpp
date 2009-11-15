@@ -24,14 +24,14 @@
 #if ENABLE(SVG)
 #include "SVGTextPathElement.h"
 
-#include "TransformationMatrix.h"
 #include "FloatRect.h"
+#include "MappedAttribute.h"
 #include "RenderSVGTextPath.h"
 #include "SVGLengthList.h"
 #include "SVGPathElement.h"
 #include "SVGRenderStyle.h"
-#include "SVGTextPathElement.h"
 #include "SVGTransformList.h"
+#include "TransformationMatrix.h"
 
 namespace WebCore {
 
@@ -57,7 +57,7 @@ void SVGTextPathElement::parseMappedAttribute(MappedAttribute* attr)
     else if (attr->name() == SVGNames::methodAttr) {
         if (value == "align")
             setSpacingBaseValue(SVG_TEXTPATH_METHODTYPE_ALIGN);
-        else if(value == "stretch")
+        else if (value == "stretch")
             setSpacingBaseValue(SVG_TEXTPATH_METHODTYPE_STRETCH);
     } else if (attr->name() == SVGNames::spacingAttr) {
         if (value == "auto")

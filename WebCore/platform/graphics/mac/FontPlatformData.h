@@ -1,8 +1,8 @@
 /*
  * This file is part of the internal font implementation.
- * It should not be included by source files outside it.
+ * It should not be included by source files outside of it.
  *
- * Copyright (C) 2006, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -33,7 +33,6 @@ class NSFont;
 #endif
 
 typedef struct CGFont* CGFontRef;
-typedef UInt32 ATSUFontID;
 #ifndef BUILDING_ON_TIGER
 typedef const struct __CTFont* CTFontRef;
 #endif
@@ -42,7 +41,11 @@ typedef const struct __CTFont* CTFontRef;
 #include <objc/objc-auto.h>
 #include <wtf/RetainPtr.h>
 
+typedef UInt32 ATSUFontID;
+
 namespace WebCore {
+
+class String;
 
 #ifndef BUILDING_ON_TIGER
 inline CTFontRef toCTFontRef(NSFont *nsFont) { return reinterpret_cast<CTFontRef>(nsFont); }
@@ -61,10 +64,15 @@ struct FontPlatformData {
     {
     }
 
-    FontPlatformData(NSFont * = 0, bool syntheticBold = false, bool syntheticOblique = false);
+    FontPlatformData(NSFont *nsFont, bool syntheticBold = false, bool syntheticOblique = false);
     
-    FontPlatformData(CGFontRef f, ATSUFontID fontID, float s, bool b , bool o)
-        : m_syntheticBold(b), m_syntheticOblique(o), m_atsuFontID(fontID), m_size(s), m_font(0), m_cgFont(f)
+    FontPlatformData(CGFontRef cgFont, ATSUFontID fontID, float size, bool syntheticBold, bool syntheticOblique)
+        : m_syntheticBold(syntheticBold)
+        , m_syntheticOblique(syntheticOblique)
+        , m_atsuFontID(fontID)
+        , m_size(size)
+        , m_font(0)
+        , m_cgFont(cgFont)
     {
     }
 
@@ -76,6 +84,8 @@ struct FontPlatformData {
     bool isHashTableDeletedValue() const { return m_font == hashTableDeletedFontValue(); }
 
     float size() const { return m_size; }
+    bool syntheticBold() const { return m_syntheticBold; }
+    bool syntheticOblique() const { return m_syntheticOblique; }
 
     bool m_syntheticBold;
     bool m_syntheticOblique;
@@ -108,6 +118,10 @@ struct FontPlatformData {
     CGFontRef cgFont() const { return m_cgFont.get(); }
 #else
     CGFontRef cgFont() const { return m_cgFont; }
+#endif
+
+#ifndef NDEBUG
+    String description() const;
 #endif
 
 private:

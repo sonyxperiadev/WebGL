@@ -57,7 +57,7 @@ void ResourceRequest::doUpdateResourceRequest()
     m_url = [m_nsRequest.get() URL];
     m_cachePolicy = (ResourceRequestCachePolicy)[m_nsRequest.get() cachePolicy];
     m_timeoutInterval = [m_nsRequest.get() timeoutInterval];
-    m_mainDocumentURL = [m_nsRequest.get() mainDocumentURL];
+    m_firstPartyForCookies = [m_nsRequest.get() mainDocumentURL];
     
     if (NSString* method = [m_nsRequest.get() HTTPMethod])
         m_httpMethod = method;
@@ -78,7 +78,7 @@ void ResourceRequest::doUpdateResourceRequest()
         for (NSUInteger i = 0; i < count; ++i) {
             CFStringEncoding encoding = CFStringConvertNSStringEncodingToEncoding([(NSNumber *)[encodingFallbacks objectAtIndex:i] unsignedLongValue]);
             if (encoding != kCFStringEncodingInvalidId)
-                m_responseContentDispositionEncodingFallbackArray.append(CFStringGetNameOfEncoding(encoding));
+                m_responseContentDispositionEncodingFallbackArray.append(CFStringConvertEncodingToIANACharSetName(encoding));
         }
     }
 
@@ -110,7 +110,7 @@ void ResourceRequest::doUpdatePlatformRequest()
     [nsRequest setCachePolicy:(NSURLRequestCachePolicy)cachePolicy()];
     if (timeoutInterval() != unspecifiedTimeoutInterval)
         [nsRequest setTimeoutInterval:timeoutInterval()];
-    [nsRequest setMainDocumentURL:mainDocumentURL()];
+    [nsRequest setMainDocumentURL:firstPartyForCookies()];
     if (!httpMethod().isEmpty())
         [nsRequest setHTTPMethod:httpMethod()];
     [nsRequest setHTTPShouldHandleCookies:allowHTTPCookies()];
@@ -119,8 +119,8 @@ void ResourceRequest::doUpdatePlatformRequest()
     for (HTTPHeaderMap::const_iterator it = httpHeaderFields().begin(); it != end; ++it)
         [nsRequest setValue:it->second forHTTPHeaderField:it->first];
 
-    // The below check can be removed once we require a version of Foundation with -[NSMutableURLRequest setContentDispositionEncodingFallbackArray] method.
-    static bool supportsContentDispositionEncodingFallbackArray = [NSMutableURLRequest instancesRespondToSelector:@selector(setContentDispositionEncodingFallbackArray)];
+    // The below check can be removed once we require a version of Foundation with -[NSMutableURLRequest setContentDispositionEncodingFallbackArray:] method.
+    static bool supportsContentDispositionEncodingFallbackArray = [NSMutableURLRequest instancesRespondToSelector:@selector(setContentDispositionEncodingFallbackArray:)];
     if (supportsContentDispositionEncodingFallbackArray) {
         NSMutableArray *encodingFallbacks = [NSMutableArray array];
         unsigned count = m_responseContentDispositionEncodingFallbackArray.size();
@@ -145,6 +145,12 @@ void ResourceRequest::applyWebArchiveHackForMail()
 {
     // Hack because Mail checks for this property to detect data / archive loads
     [NSURLProtocol setProperty:@"" forKey:@"WebDataRequest" inRequest:(NSMutableURLRequest *)nsURLRequest()];
+}
+    
+unsigned initializeMaximumHTTPConnectionCountPerHost()
+{
+    static const unsigned preferredConnectionCount = 6;
+    return wkInitializeMaximumHTTPConnectionCountPerHost(preferredConnectionCount);
 }
 
 }

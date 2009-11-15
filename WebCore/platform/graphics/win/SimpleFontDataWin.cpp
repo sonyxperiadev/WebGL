@@ -37,10 +37,13 @@
 #include <wtf/MathExtras.h>
 #include <unicode/uchar.h>
 #include <unicode/unorm.h>
-#include <ApplicationServices/ApplicationServices.h>
 #include <mlang.h>
 #include <tchar.h>
+
+#if PLATFORM(CG)
+#include <ApplicationServices/ApplicationServices.h>
 #include <WebKitSystemInterface/WebKitSystemInterface.h>
+#endif
 
 namespace WebCore {
 
@@ -63,7 +66,7 @@ bool SimpleFontData::shouldApplyMacAscentHack()
 void SimpleFontData::initGDIFont()
 {
      HDC hdc = GetDC(0);
-     HGDIOBJ oldFont = SelectObject(hdc, m_font.hfont());
+     HGDIOBJ oldFont = SelectObject(hdc, m_platformData.hfont());
      OUTLINETEXTMETRIC metrics;
      GetOutlineTextMetrics(hdc, sizeof(metrics), &metrics);
      TEXTMETRIC& textMetrics = metrics.otmTextMetrics;
@@ -71,6 +74,8 @@ void SimpleFontData::initGDIFont()
      m_descent = textMetrics.tmDescent;
      m_lineGap = textMetrics.tmExternalLeading;
      m_lineSpacing = m_ascent + m_descent + m_lineGap;
+     m_avgCharWidth = textMetrics.tmAveCharWidth;
+     m_maxCharWidth = textMetrics.tmMaxCharWidth;
      m_xHeight = m_ascent * 0.56f; // Best guess for xHeight if no x glyph is present.
 
      GLYPHMETRICS gm;
@@ -87,7 +92,7 @@ void SimpleFontData::initGDIFont()
      return;
 }
 
-void SimpleFontData::platformCommonDestroy()
+void SimpleFontData::platformDestroy()
 {
     // We don't hash this on Win32, so it's effectively owned by us.
     delete m_smallCapsFontData;
@@ -100,17 +105,17 @@ void SimpleFontData::platformCommonDestroy()
 SimpleFontData* SimpleFontData::smallCapsFontData(const FontDescription& fontDescription) const
 {
     if (!m_smallCapsFontData) {
-        float smallCapsHeight = cSmallCapsFontSizeMultiplier * m_font.size();
+        float smallCapsHeight = cSmallCapsFontSizeMultiplier * m_platformData.size();
         if (isCustomFont()) {
-            FontPlatformData smallCapsFontData(m_font);
+            FontPlatformData smallCapsFontData(m_platformData);
             smallCapsFontData.setSize(smallCapsHeight);
             m_smallCapsFontData = new SimpleFontData(smallCapsFontData, true, false);
         } else {
             LOGFONT winfont;
-            GetObject(m_font.hfont(), sizeof(LOGFONT), &winfont);
-            winfont.lfHeight = -lroundf(smallCapsHeight * (m_font.useGDI() ? 1 : 32));
+            GetObject(m_platformData.hfont(), sizeof(LOGFONT), &winfont);
+            winfont.lfHeight = -lroundf(smallCapsHeight * (m_platformData.useGDI() ? 1 : 32));
             HFONT hfont = CreateFontIndirect(&winfont);
-            m_smallCapsFontData = new SimpleFontData(FontPlatformData(hfont, smallCapsHeight, m_font.syntheticBold(), m_font.syntheticOblique(), m_font.useGDI()));
+            m_smallCapsFontData = new SimpleFontData(FontPlatformData(hfont, smallCapsHeight, m_platformData.syntheticBold(), m_platformData.syntheticOblique(), m_platformData.useGDI()));
         }
     }
     return m_smallCapsFontData;
@@ -135,7 +140,7 @@ bool SimpleFontData::containsCharacters(const UChar* characters, int length) con
     langFontLink->CodePageToCodePages(CP_ACP, &acpCodePages);
 
     DWORD fontCodePages;
-    langFontLink->GetFontCodePages(dc, m_font.hfont(), &fontCodePages);
+    langFontLink->GetFontCodePages(dc, m_platformData.hfont(), &fontCodePages);
 
     DWORD actualCodePages;
     long numCharactersProcessed;
@@ -162,7 +167,7 @@ void SimpleFontData::determinePitch()
     // TEXTMETRICS have this.  Set m_treatAsFixedPitch based off that.
     HDC dc = GetDC(0);
     SaveDC(dc);
-    SelectObject(dc, m_font.hfont());
+    SelectObject(dc, m_platformData.hfont());
 
     // Yes, this looks backwards, but the fixed pitch bit is actually set if the font
     // is *not* fixed pitch.  Unbelievable but true.
@@ -178,7 +183,7 @@ float SimpleFontData::widthForGDIGlyph(Glyph glyph) const
 {
     HDC hdc = GetDC(0);
     SetGraphicsMode(hdc, GM_ADVANCED);
-    HGDIOBJ oldFont = SelectObject(hdc, m_font.hfont());
+    HGDIOBJ oldFont = SelectObject(hdc, m_platformData.hfont());
     int width;
     GetCharWidthI(hdc, glyph, 1, 0, &width);
     SelectObject(hdc, oldFont);
@@ -196,7 +201,7 @@ SCRIPT_FONTPROPERTIES* SimpleFontData::scriptFontProperties() const
         if (result == E_PENDING) {
             HDC dc = GetDC(0);
             SaveDC(dc);
-            SelectObject(dc, m_font.hfont());
+            SelectObject(dc, m_platformData.hfont());
             ScriptGetFontProperties(dc, scriptCache(), m_scriptFontProperties);
             RestoreDC(dc, -1);
             ReleaseDC(0, dc);

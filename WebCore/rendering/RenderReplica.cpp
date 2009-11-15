@@ -35,7 +35,13 @@ namespace WebCore {
 
 RenderReplica::RenderReplica(Node* n)
 : RenderBox(n)
-{}
+{
+    // This is a hack. Replicas are synthetic, and don't pick up the attributes of the
+    // renderers being replicated, so they always report that they are inline, non-replaced.
+    // However, we need transforms to be applied to replicas for reflections, so have to pass
+    // the if (!isInline() || isReplaced()) check before setHasTransform().
+    setReplaced(true);
+}
 
 RenderReplica::~RenderReplica()
 {}
@@ -66,9 +72,8 @@ void RenderReplica::paint(PaintInfo& paintInfo, int tx, int ty)
         // computing using the wrong rootLayer
         layer()->parent()->paintLayer(layer()->transform() ? layer()->parent() : layer()->enclosingTransformedAncestor(),
                                       paintInfo.context, paintInfo.rect,
-                                      true, PaintRestrictionNone, 0,
-                                      true,     // appliedTransform
-                                      true);    // temporaryClipRects
+                                      PaintRestrictionNone, 0, 0,
+                                      RenderLayer::PaintLayerHaveTransparency | RenderLayer::PaintLayerAppliedTransform | RenderLayer::PaintLayerTemporaryClipRects | RenderLayer::PaintLayerPaintingReflection);
     else if (paintInfo.phase == PaintPhaseMask)
         paintMask(paintInfo, tx, ty);
 }

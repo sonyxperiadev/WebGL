@@ -36,7 +36,7 @@
 
 namespace android {
 
-bool CachedFrame::CheckBetween(Direction direction, const WebCore::IntRect& bestRect, 
+bool CachedFrame::CheckBetween(Direction direction, const WebCore::IntRect& bestRect,
         const WebCore::IntRect& prior, WebCore::IntRect* result)
 {
     int left, top, width, height;
@@ -86,7 +86,7 @@ bool CachedFrame::checkBetween(BestData* best, Direction direction)
     do {
         WebCore::IntRect edges;
         Direction check = (Direction) (index & DIRECTION_MASK);
-        if (CheckBetween(check, bestRect, 
+        if (CheckBetween(check, bestRect,
                 history()->priorBounds(), &edges) == false)
             continue;
         WebCore::IntRect clip = mRoot->scrolledBounds();
@@ -96,7 +96,7 @@ bool CachedFrame::checkBetween(BestData* best, Direction direction)
         findClosest(&test, direction, check, &clip);
         if (test.mNode == NULL)
             continue;
-        if (direction == check) 
+        if (direction == check)
             break;
     } while (++index < limit);
     if (test.mNode == NULL)
@@ -105,47 +105,46 @@ bool CachedFrame::checkBetween(BestData* best, Direction direction)
     return true;
 }
 
-bool CachedFrame::checkVisited(const CachedNode* node, Direction direction) const 
-{ 
-    return history()->checkVisited(node, direction); 
-}
-
-void CachedFrame::clearFocus()
+bool CachedFrame::checkVisited(const CachedNode* node, Direction direction) const
 {
-    if (mFocus < 0)
-        return;
-    CachedNode& focus = mCachedNodes[mFocus];
-    focus.clearFocus(this);
-    mFocus = -1;
+    return history()->checkVisited(node, direction);
 }
 
-// the thing that sucks is that when you're on a link, you want to navigate next door to a link just like this one, but can't make it
-// so with all my other sucky compares, maybe there needs to be one that prefers links that are aligned with the current focus...
+void CachedFrame::clearCursor()
+{
+    DBG_NAV_LOGD("mCursorIndex=%d", mCursorIndex);
+    if (mCursorIndex < CURSOR_SET)
+        return;
+    CachedNode& cursor = mCachedNodes[mCursorIndex];
+    cursor.clearCursor(this);
+    mCursorIndex = CURSOR_CLEARED; // initialized and explicitly cleared
+}
 
 // returns 0 if test is preferable to best, 1 if not preferable, or -1 if unknown
-int CachedFrame::compare(BestData& testData, const BestData& bestData, const CachedNode* focus) const
+int CachedFrame::compare(BestData& testData, const BestData& bestData,
+    const CachedNode* cursor) const
 {
     if (testData.mNode->tabIndex() != bestData.mNode->tabIndex()) {
         if (testData.mNode->tabIndex() < bestData.mNode->tabIndex()
-                || (focus && focus->tabIndex() < bestData.mNode->tabIndex())) {
+                || (cursor && cursor->tabIndex() < bestData.mNode->tabIndex())) {
             testData.mNode->setCondition(CachedNode::HIGHER_TAB_INDEX);
             return REJECT_TEST;
         }
         return TEST_IS_BEST;
     }
-//    start here;
-    // if the test minor axis line intersects the line segment between focus center and best center, choose it
+    // if the test minor axis line intersects the line segment between cursor
+    // center and best center, choose it
     // give more weight to exact major axis alignment (rows, columns)
     if (testData.mInNav != bestData.mInNav) {
         if (bestData.mInNav) {
-            testData.mNode->setCondition(CachedNode::IN_FOCUS);
+            testData.mNode->setCondition(CachedNode::IN_CURSOR);
             return REJECT_TEST;
         }
         return TEST_IS_BEST;
     }
     if (testData.mInNav) {
         if (bestData.mMajorDelta < testData.mMajorDelta) {
-            testData.mNode->setCondition(CachedNode::CLOSER_IN_FOCUS);
+            testData.mNode->setCondition(CachedNode::CLOSER_IN_CURSOR);
             return REJECT_TEST;
         }
         if (testData.mMajorDelta < bestData.mMajorDelta)
@@ -157,13 +156,6 @@ int CachedFrame::compare(BestData& testData, const BestData& bestData, const Cac
     }
     if ((testData.mMajorDelta ^ bestData.mMajorDelta) < 0) // one above, one below (or one left, one right)
         return TEST_IS_BEST;
-//    SkFixed focusMultiplier = SK_Fixed1;
-//    if (focus != NULL) {
-//        if (testData.mMajorDelta < bestData.mMajorDelta) {
-//            // use bestData.mMajorDelta, 
-//        } else if (bestData.mMajorDelta < testData.mMajorDelta) {
-//        
-//        }
     bool bestInWorking = bestData.inOrSubsumesWorking();
     bool testInWorking = testData.inOrSubsumesWorking();
     if (bestInWorking && testData.mWorkingOutside && testData.mNavOutside) {
@@ -183,9 +175,9 @@ int CachedFrame::compare(BestData& testData, const BestData& bestData, const Cac
             return TEST_IS_BEST;
     }
 #if 01 // hopefully butt test will remove need for this
-    if (testData.mFocusChild != bestData.mFocusChild) {
-        if (bestData.mFocusChild) {
-            testData.mNode->setCondition(CachedNode::IN_FOCUS_CHILDREN);
+    if (testData.mCursorChild != bestData.mCursorChild) {
+        if (bestData.mCursorChild) {
+            testData.mNode->setCondition(CachedNode::IN_CURSOR_CHILDREN);
             return REJECT_TEST;
         }
         return TEST_IS_BEST;
@@ -210,7 +202,7 @@ int CachedFrame::compare(BestData& testData, const BestData& bestData, const Cac
     }
     if (testOverlap && testData.mMajorDelta < bestData.mMajorDelta)
         return TEST_IS_BEST;
-    if (bestOverlap && bestData.mMajorDelta2 < testData.mMajorDelta2) { 
+    if (bestOverlap && bestData.mMajorDelta2 < testData.mMajorDelta2) {
         testData.mNode->setCondition(CachedNode::CLOSER_TOP);
         return REJECT_TEST;
     }
@@ -218,7 +210,7 @@ int CachedFrame::compare(BestData& testData, const BestData& bestData, const Cac
         return TEST_IS_BEST;
 #if 01
     if (bestOverlap && ((bestData.mSideDistance <= 0 && testData.mSideDistance > 0) ||
-            abs(bestData.mSideDistance) < abs(testData.mSideDistance))) { 
+            abs(bestData.mSideDistance) < abs(testData.mSideDistance))) {
         testData.mNode->setCondition(CachedNode::LEFTMOST);
         return REJECT_TEST;
     }
@@ -240,7 +232,7 @@ int CachedFrame::compare(BestData& testData, const BestData& bestData, const Cac
     // and off by a lot causes sideDistance to have little or no effect
         // try elliptical distance -- lengthen side contribution
         // these ASSERTs should not fire, but do fire on mail.google.com
-        // can't debug yet, won't reproduce 
+        // can't debug yet, won't reproduce
     ASSERT(testDistance >= 0);
     ASSERT(bestDistance >= 0);
     testDistance += testDistance; // multiply by 2
@@ -295,23 +287,36 @@ int CachedFrame::compare(BestData& testData, const BestData& bestData, const Cac
     return UNDECIDED;
 }
 
-const CachedNode* CachedFrame::currentFocus(const CachedFrame** framePtr) const 
+const CachedNode* CachedFrame::currentCursor(const CachedFrame** framePtr) const
 {
     if (framePtr)
         *framePtr = this;
-    if (mFocus < 0)
+    if (mCursorIndex < CURSOR_SET)
         return NULL;
-    const CachedNode* result = &mCachedNodes[mFocus];
+    const CachedNode* result = &mCachedNodes[mCursorIndex];
     const CachedFrame* frame = hasFrame(result);
     if (frame != NULL)
-        return frame->currentFocus(framePtr);
-    (const_cast<CachedNode*>(result))->fixUpFocusRects();
+        return frame->currentCursor(framePtr);
+    (const_cast<CachedNode*>(result))->fixUpCursorRects(mRoot);
     return result;
 }
 
-bool CachedFrame::directionChange() const 
-{ 
-    return history()->directionChange(); 
+const CachedNode* CachedFrame::currentFocus(const CachedFrame** framePtr) const
+{
+    if (framePtr)
+        *framePtr = this;
+    if (mFocusIndex < 0)
+        return NULL;
+    const CachedNode* result = &mCachedNodes[mFocusIndex];
+    const CachedFrame* frame = hasFrame(result);
+    if (frame != NULL)
+        return frame->currentFocus(framePtr);
+    return result;
+}
+
+bool CachedFrame::directionChange() const
+{
+    return history()->directionChange();
 }
 
 #ifdef BROWSER_DEBUG
@@ -320,18 +325,20 @@ CachedNode* CachedFrame::find(WebCore::Node* node) // !!! probably debugging onl
     for (CachedNode* test = mCachedNodes.begin(); test != mCachedNodes.end(); test++)
         if (node == test->webCoreNode())
             return test;
-    for (CachedFrame* frame = mCachedFrames.begin(); frame != mCachedFrames.end(); 
+    for (CachedFrame* frame = mCachedFrames.begin(); frame != mCachedFrames.end();
             frame++) {
         CachedNode* result = frame->find(node);
         if (result != NULL)
             return result;
     }
-    return NULL;    
+    return NULL;
 }
 #endif
 
-const CachedNode* CachedFrame::findBestAt(const WebCore::IntRect& rect, int* best,
-    bool* inside, const CachedNode** directHit, const CachedFrame** framePtr, int* x, int* y) const
+const CachedNode* CachedFrame::findBestAt(const WebCore::IntRect& rect,
+    int* best, bool* inside, const CachedNode** directHit,
+    const CachedFrame** framePtr, int* x, int* y,
+    bool checkForHiddenStart) const
 {
     const CachedNode* result = NULL;
     int rectWidth = rect.width();
@@ -345,13 +352,13 @@ const CachedNode* CachedFrame::findBestAt(const WebCore::IntRect& rect, int* bes
         BestData testData;
         testData.mNode = test;
         testData.mMouseBounds = testData.mNodeBounds = test->getBounds();
-        bool checkForHidden = true;
+        bool checkForHidden = checkForHiddenStart;
         for (size_t part = 0; part < parts; part++) {
-            if (test->focusRings().at(part).intersects(rect)) {
+            if (test->cursorRings().at(part).intersects(rect)) {
                 if (checkForHidden && mRoot->maskIfHidden(&testData) == true)
                     break;
                 checkForHidden = false;
-                WebCore::IntRect testRect = test->focusRings().at(part);
+                WebCore::IntRect testRect = test->cursorRings().at(part);
                 testRect.intersect(testData.mMouseBounds);
                 if (testRect.contains(center)) {
                     // We have a direct hit.
@@ -372,12 +379,12 @@ const CachedNode* CachedFrame::findBestAt(const WebCore::IntRect& rect, int* bes
                     }
                 }
                 if (NULL != *directHit) {
-                    // If we have a direct hit already, there is no need to 
-                    // calculate the distances, or check the other focusring parts
+                    // If we have a direct hit already, there is no need to
+                    // calculate the distances, or check the other parts
                     break;
                 }
                 WebCore::IntRect both = rect;
-                int smaller = testRect.width() < testRect.height() ? 
+                int smaller = testRect.width() < testRect.height() ?
                     testRect.width() : testRect.height();
                 smaller -= rectWidth;
                 int inset = smaller < rectWidth ? smaller : rectWidth;
@@ -390,7 +397,7 @@ const CachedNode* CachedFrame::findBestAt(const WebCore::IntRect& rect, int* bes
                 bool testInside = testRect.contains(center);
                 if (*inside && !testInside)
                     continue;
-                WebCore::IntPoint testCenter = WebCore::IntPoint(testRect.x() + 
+                WebCore::IntPoint testCenter = WebCore::IntPoint(testRect.x() +
                     (testRect.width() >> 1), testRect.y() + (testRect.height() >> 1));
                 int dx = testCenter.x() - center.x();
                 int dy = testCenter.y() - center.y();
@@ -406,10 +413,10 @@ const CachedNode* CachedFrame::findBestAt(const WebCore::IntRect& rect, int* bes
             }
         }
     }
-    for (const CachedFrame* frame = mCachedFrames.begin(); 
+    for (const CachedFrame* frame = mCachedFrames.begin();
             frame != mCachedFrames.end(); frame++) {
-        const CachedNode* frameResult = frame->findBestAt(rect, best, inside, directHit,
-            framePtr, x, y);
+        const CachedNode* frameResult = frame->findBestAt(rect, best, inside,
+            directHit, framePtr, x, y, checkForHiddenStart);
         if (NULL != frameResult)
             result = frameResult;
     }
@@ -424,7 +431,7 @@ const CachedFrame* CachedFrame::findBestFrameAt(int x, int y) const
     if (mLocalViewBounds.contains(x, y) == false)
         return NULL;
     const CachedFrame* result = this;
-    for (const CachedFrame* frame = mCachedFrames.begin(); 
+    for (const CachedFrame* frame = mCachedFrames.begin();
             frame != mCachedFrames.end(); frame++) {
         const CachedFrame* frameResult = frame->findBestFrameAt(x, y);
         if (NULL != frameResult)
@@ -433,7 +440,7 @@ const CachedFrame* CachedFrame::findBestFrameAt(int x, int y) const
     return result;
 }
 
-const CachedNode* CachedFrame::findBestHitAt(const WebCore::IntRect& rect, 
+const CachedNode* CachedFrame::findBestHitAt(const WebCore::IntRect& rect,
     int* best, const CachedFrame** framePtr, int* x, int* y) const
 {
     const CachedNode* result = NULL;
@@ -453,21 +460,21 @@ const CachedNode* CachedFrame::findBestHitAt(const WebCore::IntRect& rect,
         if (mRoot->maskIfHidden(&testData) == true)
             continue;
         const WebCore::IntRect& bounds = testData.mMouseBounds;
-        WebCore::IntPoint testCenter = WebCore::IntPoint(bounds.x() + 
+        WebCore::IntPoint testCenter = WebCore::IntPoint(bounds.x() +
             (bounds.width() >> 1), bounds.y() + (bounds.height() >> 1));
         int dx = testCenter.x() - center.x();
         int dy = testCenter.y() - center.y();
         int distance = dx * dx + dy * dy;
-        if (*best <= distance)  
+        if (*best <= distance)
             continue;
         *best = distance;
         result = test;
         *framePtr = this;
-        const WebCore::IntRect& focusRect = test->focusRings().at(0);
-        *x = focusRect.x() + (focusRect.width() >> 1);
-        *y = focusRect.y() + (focusRect.height() >> 1);
+        const WebCore::IntRect& cursorRect = test->cursorRings().at(0);
+        *x = cursorRect.x() + (cursorRect.width() >> 1);
+        *y = cursorRect.y() + (cursorRect.height() >> 1);
     }
-    for (const CachedFrame* frame = mCachedFrames.begin(); 
+    for (const CachedFrame* frame = mCachedFrames.begin();
             frame != mCachedFrames.end(); frame++) {
         const CachedNode* frameResult = frame->findBestHitAt(rect, best,
             framePtr, x, y);
@@ -478,7 +485,7 @@ const CachedNode* CachedFrame::findBestHitAt(const WebCore::IntRect& rect,
 }
 
 void CachedFrame::findClosest(BestData* bestData, Direction originalDirection,
-    Direction direction, WebCore::IntRect* clip) const 
+    Direction direction, WebCore::IntRect* clip) const
 {
     const CachedNode* test = mCachedNodes.begin();
     while ((test = test->traverseNextNode()) != NULL) {
@@ -491,13 +498,13 @@ void CachedFrame::findClosest(BestData* bestData, Direction originalDirection,
         }
         if (test->noSecondChance())
             continue;
-        if (test->isFocusable(*clip) == false)
+        if (test->isNavable(*clip) == false)
             continue;
         if (checkVisited(test, originalDirection) == false)
             continue;
         size_t partMax = test->navableRects();
         for (size_t part = 0; part < partMax; part++) {
-            WebCore::IntRect testBounds = test->focusRings().at(part);
+            WebCore::IntRect testBounds = test->cursorRings().at(part);
             if (clip->intersects(testBounds) == false)
                 continue;
             if (clip->contains(testBounds) == false) {
@@ -516,7 +523,7 @@ void CachedFrame::findClosest(BestData* bestData, Direction originalDirection,
                     continue;
             }
             int distance;
-            // seems like distance for UP for instance needs to be 'test top closest to 
+            // seems like distance for UP for instance needs to be 'test top closest to
             // clip bottom' -- keep the old code but try this instead
             switch (direction) {
 #if 0
@@ -530,74 +537,75 @@ void CachedFrame::findClosest(BestData* bestData, Direction originalDirection,
                 case UP: distance = clip->bottom() - testBounds.y(); break;
                 case DOWN: distance = testBounds.bottom() - clip->y(); break;
 #endif
-                default: 
+                default:
                     distance = 0; ASSERT(0);
             }
             if (distance < bestData->mDistance) {
                 bestData->mNode = test;
                 bestData->mFrame = this;
                 bestData->mDistance = distance;
-                bestData->mMouseBounds = bestData->mNodeBounds = 
-                    test->focusRings().at(part);
+                bestData->mMouseBounds = bestData->mNodeBounds =
+                    test->cursorRings().at(part);
                 CachedHistory* cachedHistory = history();
                 switch (direction) {
-                    case LEFT: 
-                        bestData->setLeftDirection(cachedHistory); 
+                    case LEFT:
+                        bestData->setLeftDirection(cachedHistory);
                     break;
-                    case RIGHT: 
-                        bestData->setRightDirection(cachedHistory); 
+                    case RIGHT:
+                        bestData->setRightDirection(cachedHistory);
                     break;
-                    case UP: 
-                        bestData->setUpDirection(cachedHistory); 
+                    case UP:
+                        bestData->setUpDirection(cachedHistory);
                     break;
-                    case DOWN: 
-                        bestData->setDownDirection(cachedHistory); 
+                    case DOWN:
+                        bestData->setDownDirection(cachedHistory);
                     break;
-                    default: 
-                        ASSERT(0); 
+                    default:
+                        ASSERT(0);
                 }
             }
         }
     }
 }
 
-bool CachedFrame::finishInit()
+void CachedFrame::finishInit()
 {
     CachedNode* lastCached = lastNode();
     lastCached->setLast();
     CachedFrame* child = mCachedFrames.begin();
     while (child != mCachedFrames.end()) {
         child->mParent = this;
-        if (child->finishInit())
-            setFocusIndex(child->indexInParent());
+        child->finishInit();
         child++;
     }
-    return focusIndex() > 0;
+    CachedFrame* frameParent;
+    if (mFocusIndex >= 0 && (frameParent = parent()))
+        frameParent->setFocusIndex(indexInParent());
 }
 
-const CachedNode* CachedFrame::frameDown(const CachedNode* test, const CachedNode* limit, BestData* bestData, 
-    const CachedNode* focus) const
+const CachedNode* CachedFrame::frameDown(const CachedNode* test, const CachedNode* limit, BestData* bestData,
+    const CachedNode* cursor) const
 {
     BestData originalData = *bestData;
     do {
-        if (moveInFrame(&CachedFrame::frameDown, test, bestData, focus))
+        if (moveInFrame(&CachedFrame::frameDown, test, bestData, cursor))
             continue;
         BestData testData;
-        if (frameNodeCommon(testData, test, bestData, &originalData, focus) == REJECT_TEST)
+        if (frameNodeCommon(testData, test, bestData, &originalData, cursor) == REJECT_TEST)
             continue;
         if (checkVisited(test, DOWN) == false)
             continue;
         size_t parts = test->navableRects();
         for (size_t part = 0; part < parts; part++) {
-            testData.mNodeBounds = test->focusRings().at(part);
+            testData.mNodeBounds = test->cursorRings().at(part);
             if (testData.setDownDirection(history()))
                 continue;
-            int result = framePartCommon(testData, test, bestData, focus);
+            int result = framePartCommon(testData, test, bestData, cursor);
             if (result == REJECT_TEST)
                 continue;
             if (result == 0 && limit == NULL) { // retry all data up to this point, since smaller may have replaced node preferable to larger
                 BestData innerData = testData;
-                frameDown(document(), test, &innerData, focus);
+                frameDown(document(), test, &innerData, cursor);
                 if (checkVisited(innerData.mNode, DOWN)) {
                     *bestData = innerData;
                     continue;
@@ -607,37 +615,37 @@ const CachedNode* CachedFrame::frameDown(const CachedNode* test, const CachedNod
                 *bestData = testData;
         }
     } while ((test = test->traverseNextNode()) != limit);
-    ASSERT(focus == NULL || bestData->mNode != focus);
-    // does the best contain something (or, is it contained by an area which is not the focus?)
+    ASSERT(cursor == NULL || bestData->mNode != cursor);
+    // does the best contain something (or, is it contained by an area which is not the cursor?)
         // if so, is the conainer/containee should have been chosen, but wasn't -- so there's a better choice
         // in the doc list prior to this choice
-    // 
+    //
     return bestData->mNode;
 }
 
-const CachedNode* CachedFrame::frameLeft(const CachedNode* test, const CachedNode* limit, BestData* bestData, 
-    const CachedNode* focus) const
+const CachedNode* CachedFrame::frameLeft(const CachedNode* test, const CachedNode* limit, BestData* bestData,
+    const CachedNode* cursor) const
 {
     BestData originalData = *bestData;
     do {
-        if (moveInFrame(&CachedFrame::frameLeft, test, bestData, focus))
+        if (moveInFrame(&CachedFrame::frameLeft, test, bestData, cursor))
             continue;
         BestData testData;
-        if (frameNodeCommon(testData, test, bestData, &originalData, focus) == REJECT_TEST)
+        if (frameNodeCommon(testData, test, bestData, &originalData, cursor) == REJECT_TEST)
             continue;
         if (checkVisited(test, LEFT) == false)
             continue;
         size_t parts = test->navableRects();
         for (size_t part = 0; part < parts; part++) {
-            testData.mNodeBounds = test->focusRings().at(part);
+            testData.mNodeBounds = test->cursorRings().at(part);
             if (testData.setLeftDirection(history()))
                 continue;
-            int result = framePartCommon(testData, test, bestData, focus);
+            int result = framePartCommon(testData, test, bestData, cursor);
             if (result == REJECT_TEST)
                 continue;
             if (result == 0 && limit == NULL) { // retry all data up to this point, since smaller may have replaced node preferable to larger
                 BestData innerData = testData;
-                frameLeft(document(), test, &innerData, focus);
+                frameLeft(document(), test, &innerData, cursor);
                 if (checkVisited(innerData.mNode, LEFT)) {
                     *bestData = innerData;
                     continue;
@@ -647,12 +655,12 @@ const CachedNode* CachedFrame::frameLeft(const CachedNode* test, const CachedNod
                 *bestData = testData;
         }
     } while ((test = test->traverseNextNode()) != limit);  // FIXME ??? left and up should use traversePreviousNode to choose reverse document order
-    ASSERT(focus == NULL || bestData->mNode != focus);
+    ASSERT(cursor == NULL || bestData->mNode != cursor);
     return bestData->mNode;
 }
 
 int CachedFrame::frameNodeCommon(BestData& testData, const CachedNode* test, BestData* bestData, BestData* originalData,
-    const CachedNode* focus) const
+    const CachedNode* cursor) const
 {
     testData.mFrame = this;
     testData.mNode = test;
@@ -662,34 +670,34 @@ int CachedFrame::frameNodeCommon(BestData& testData, const CachedNode* test, Bes
         return REJECT_TEST;
     }
     if (mRoot->scrolledBounds().intersects(test->bounds()) == false) {
-        testData.mNode->setCondition(CachedNode::FOCUSABLE);
+        testData.mNode->setCondition(CachedNode::NAVABLE);
         return REJECT_TEST;
     }
-//    if (isFocusable(test, &testData.mNodeBounds, walk) == false) {
-//        testData.mNode->setCondition(CachedNode::FOCUSABLE);
+//    if (isNavable(test, &testData.mNodeBounds, walk) == false) {
+//        testData.mNode->setCondition(CachedNode::NAVABLE);
 //        return REJECT_TEST;
 //    }
 //
-    if (test == focus) {
-        testData.mNode->setCondition(CachedNode::NOT_FOCUS_NODE);
+    if (test == cursor) {
+        testData.mNode->setCondition(CachedNode::NOT_CURSOR_NODE);
         return REJECT_TEST;
     }
-//    if (test->bounds().contains(mRoot->focusBounds())) {
-//        testData.mNode->setCondition(CachedNode::NOT_ENCLOSING_FOCUS);
+//    if (test->bounds().contains(mRoot->cursorBounds())) {
+//        testData.mNode->setCondition(CachedNode::NOT_ENCLOSING_CURSOR);
 //        return REJECT_TEST;
 //    }
-    void* par = focus ? focus->parentGroup() : NULL;
-    testData.mFocusChild = test->parentGroup() == par;
+    void* par = cursor ? cursor->parentGroup() : NULL;
+    testData.mCursorChild = test->parentGroup() == par;
 #if 0 // not debugged
-    if (focus && focus->hasMouseOver() && test->hasMouseOver() == false &&
-            focus->bounds().contains(test->bounds()))
+    if (cursor && cursor->hasMouseOver() && test->hasMouseOver() == false &&
+            cursor->bounds().contains(test->bounds()))
         return REJECT_TEST;
 #endif
-    if (bestData->mNode == NULL) 
+    if (bestData->mNode == NULL)
         return TEST_IS_BEST;
 #if 0 // not debugged
-    if (focus && focus->hasMouseOver() && test->hasMouseOver() == false &&
-            focus->bounds().contains(test->bounds()))
+    if (cursor && cursor->hasMouseOver() && test->hasMouseOver() == false &&
+            cursor->bounds().contains(test->bounds()))
         return REJECT_TEST;
     if (test->hasMouseOver() != bestData->mNode->hasMouseOver()) {
         if (test->hasMouseOver()) {
@@ -703,15 +711,15 @@ int CachedFrame::frameNodeCommon(BestData& testData, const CachedNode* test, Bes
                 test->setCondition(CachedNode::ANCHOR_IN_ANCHOR);
                 return REJECT_TEST;
             }
-        }        
-    }            
+        }
+    }
 #endif
-    if (focus && testData.mNode->parentIndex() != bestData->mNode->parentIndex()) {
-        int focusParentIndex = focus->parentIndex();
-        if (focusParentIndex >= 0) {
-            if (bestData->mNode->parentIndex() == focusParentIndex)
+    if (cursor && testData.mNode->parentIndex() != bestData->mNode->parentIndex()) {
+        int cursorParentIndex = cursor->parentIndex();
+        if (cursorParentIndex >= 0) {
+            if (bestData->mNode->parentIndex() == cursorParentIndex)
                 return REJECT_TEST;
-            if (testData.mNode->parentIndex() == focusParentIndex)
+            if (testData.mNode->parentIndex() == cursorParentIndex)
                 return TEST_IS_BEST;
         }
     }
@@ -743,15 +751,15 @@ int CachedFrame::frameNodeCommon(BestData& testData, const CachedNode* test, Bes
 }
 
 int CachedFrame::framePartCommon(BestData& testData,
-    const CachedNode* test, BestData* bestData, const CachedNode* focus) const
+    const CachedNode* test, BestData* bestData, const CachedNode* cursor) const
 {
-    if (testData.mNodeBounds.contains(mRoot->focusBounds())) {
-        testData.mNode->setCondition(CachedNode::NOT_ENCLOSING_FOCUS);
+    if (cursor && testData.mNodeBounds.contains(cursor->bounds())) {
+        testData.mNode->setCondition(CachedNode::NOT_ENCLOSING_CURSOR);
         return REJECT_TEST;
     }
     testData.setDistances();
     if (bestData->mNode != NULL) {
-        int compared = compare(testData, *bestData, focus);
+        int compared = compare(testData, *bestData, cursor);
         if (compared == 0 && test->isArea() == false && bestData->mNode->isArea() == false)
             goto pickTest;
         if (compared >= 0)
@@ -761,29 +769,29 @@ pickTest:
     return -1; // pick test
 }
 
-const CachedNode* CachedFrame::frameRight(const CachedNode* test, const CachedNode* limit, BestData* bestData, 
-    const CachedNode* focus) const
+const CachedNode* CachedFrame::frameRight(const CachedNode* test, const CachedNode* limit, BestData* bestData,
+    const CachedNode* cursor) const
 {
     BestData originalData = *bestData;
     do {
-        if (moveInFrame(&CachedFrame::frameRight, test, bestData, focus))
+        if (moveInFrame(&CachedFrame::frameRight, test, bestData, cursor))
             continue;
         BestData testData;
-        if (frameNodeCommon(testData, test, bestData, &originalData, focus) == REJECT_TEST)
+        if (frameNodeCommon(testData, test, bestData, &originalData, cursor) == REJECT_TEST)
             continue;
         if (checkVisited(test, RIGHT) == false)
             continue;
         size_t parts = test->navableRects();
         for (size_t part = 0; part < parts; part++) {
-            testData.mNodeBounds = test->focusRings().at(part);
+            testData.mNodeBounds = test->cursorRings().at(part);
             if (testData.setRightDirection(history()))
                 continue;
-            int result = framePartCommon(testData, test, bestData, focus);
+            int result = framePartCommon(testData, test, bestData, cursor);
             if (result == REJECT_TEST)
                 continue;
             if (result == 0 && limit == NULL) { // retry all data up to this point, since smaller may have replaced node preferable to larger
                 BestData innerData = testData;
-                frameRight(document(), test, &innerData, focus);
+                frameRight(document(), test, &innerData, cursor);
                 if (checkVisited(innerData.mNode, RIGHT)) {
                     *bestData = innerData;
                     continue;
@@ -793,33 +801,33 @@ const CachedNode* CachedFrame::frameRight(const CachedNode* test, const CachedNo
                 *bestData = testData;
         }
     } while ((test = test->traverseNextNode()) != limit);
-    ASSERT(focus == NULL || bestData->mNode != focus);
+    ASSERT(cursor == NULL || bestData->mNode != cursor);
     return bestData->mNode;
 }
 
-const CachedNode* CachedFrame::frameUp(const CachedNode* test, const CachedNode* limit, BestData* bestData, 
-    const CachedNode* focus) const
+const CachedNode* CachedFrame::frameUp(const CachedNode* test, const CachedNode* limit, BestData* bestData,
+    const CachedNode* cursor) const
 {
     BestData originalData = *bestData;
     do {
-        if (moveInFrame(&CachedFrame::frameUp, test, bestData, focus))
+        if (moveInFrame(&CachedFrame::frameUp, test, bestData, cursor))
             continue;
         BestData testData;
-        if (frameNodeCommon(testData, test, bestData, &originalData, focus) == REJECT_TEST)
+        if (frameNodeCommon(testData, test, bestData, &originalData, cursor) == REJECT_TEST)
             continue;
         if (checkVisited(test, UP) == false)
             continue;
         size_t parts = test->navableRects();
         for (size_t part = 0; part < parts; part++) {
-            testData.mNodeBounds = test->focusRings().at(part);
+            testData.mNodeBounds = test->cursorRings().at(part);
             if (testData.setUpDirection(history()))
                 continue;
-            int result = framePartCommon(testData, test, bestData, focus);
+            int result = framePartCommon(testData, test, bestData, cursor);
             if (result == REJECT_TEST)
                 continue;
             if (result == 0 && limit == NULL) { // retry all data up to this point, since smaller may have replaced node preferable to larger
                 BestData innerData = testData;
-                frameUp(document(), test, &innerData, focus);
+                frameUp(document(), test, &innerData, cursor);
                 if (checkVisited(innerData.mNode, UP)) {
                     *bestData = innerData;
                     continue;
@@ -829,56 +837,94 @@ const CachedNode* CachedFrame::frameUp(const CachedNode* test, const CachedNode*
                 *bestData = testData;
         }
     } while ((test = test->traverseNextNode()) != limit);  // FIXME ??? left and up should use traversePreviousNode to choose reverse document order
-    ASSERT(focus == NULL || bestData->mNode != focus);
+    ASSERT(cursor == NULL || bestData->mNode != cursor);
     return bestData->mNode;
 }
 
 const CachedFrame* CachedFrame::hasFrame(const CachedNode* node) const
-{ 
-    return node->isFrame() ? &mCachedFrames[node->childFrameIndex()] : NULL; 
+{
+    return node->isFrame() ? &mCachedFrames[node->childFrameIndex()] : NULL;
 }
 
-CachedHistory* CachedFrame::history() const 
-{ 
-    return mRoot->rootHistory(); 
+void CachedFrame::hideCursor()
+{
+    DBG_NAV_LOGD("mCursorIndex=%d", mCursorIndex);
+    if (mCursorIndex < CURSOR_SET)
+        return;
+    CachedNode& cursor = mCachedNodes[mCursorIndex];
+    cursor.hideCursor(this);
 }
 
-void CachedFrame::init(const CachedRoot* root, int childFrameIndex, 
+CachedHistory* CachedFrame::history() const
+{
+    return mRoot->rootHistory();
+}
+
+void CachedFrame::init(const CachedRoot* root, int childFrameIndex,
     WebCore::Frame* frame)
 {
     mContents = WebCore::IntRect(0, 0, 0, 0); // fixed up for real in setData()
     mLocalViewBounds = WebCore::IntRect(0, 0, 0, 0);
     mViewBounds = WebCore::IntRect(0, 0, 0, 0);
     mRoot = root;
-    mFocus = -1;
+    mCursorIndex = CURSOR_UNINITIALIZED; // not explicitly cleared
+    mFocusIndex = -1;
     mFrame = frame;
     mParent = NULL; // set up parents after stretchy arrays are set up
-    mIndex = childFrameIndex;
+    mIndexInParent = childFrameIndex;
 }
 
-int CachedFrame::minWorkingHorizontal() const 
-{ 
-    return history()->minWorkingHorizontal(); 
+int CachedFrame::minWorkingHorizontal() const
+{
+    return history()->minWorkingHorizontal();
 }
 
-int CachedFrame::minWorkingVertical() const 
-{ 
+int CachedFrame::minWorkingVertical() const
+{
     return history()->minWorkingVertical();
 }
-    
-int CachedFrame::maxWorkingHorizontal() const 
-{ 
-    return history()->maxWorkingHorizontal(); 
-}
-    
-int CachedFrame::maxWorkingVertical() const 
-{ 
-    return history()->maxWorkingVertical(); 
+
+int CachedFrame::maxWorkingHorizontal() const
+{
+    return history()->maxWorkingHorizontal();
 }
 
-bool CachedFrame::moveInFrame(MoveInDirection moveInDirection, 
+int CachedFrame::maxWorkingVertical() const
+{
+    return history()->maxWorkingVertical();
+}
+
+const CachedNode* CachedFrame::nextTextField(const CachedNode* start,
+        const CachedFrame** framePtr, bool includeTextAreas) const
+{
+    CachedNode* test;
+    if (start) {
+        test = const_cast<CachedNode*>(start);
+        test++;
+    } else {
+        test = const_cast<CachedNode*>(mCachedNodes.begin());
+    }
+    while (test != mCachedNodes.end()) {
+        CachedFrame* frame = const_cast<CachedFrame*>(hasFrame(test));
+        if (frame) {
+            const CachedNode* node
+                    = frame->nextTextField(0, framePtr, includeTextAreas);
+            if (node)
+                return node;
+        } else if (test->isTextField()
+                || (includeTextAreas && test->isTextArea())) {
+            if (framePtr)
+                *framePtr = this;
+            return test;
+        }
+        test++;
+    }
+    return 0;
+}
+
+bool CachedFrame::moveInFrame(MoveInDirection moveInDirection,
     const CachedNode* test, BestData* bestData,
-    const CachedNode* focus) const
+    const CachedNode* cursor) const
 {
     const CachedFrame* frame = hasFrame(test);
     if (frame == NULL)
@@ -886,25 +932,25 @@ bool CachedFrame::moveInFrame(MoveInDirection moveInDirection,
     const CachedNode* childDoc = frame->validDocument();
     if (childDoc == NULL)
         return true;
-    (frame->*moveInDirection)(childDoc, NULL, bestData, focus);
+    (frame->*moveInDirection)(childDoc, NULL, bestData, cursor);
     return true;
 }
 
 const WebCore::IntRect& CachedFrame::_navBounds() const
-{ 
-    return history()->navBounds(); 
+{
+    return history()->navBounds();
 }
 
 void CachedFrame::resetClippedOut()
 {
-    for (CachedNode* test = mCachedNodes.begin(); test != mCachedNodes.end(); test++) 
+    for (CachedNode* test = mCachedNodes.begin(); test != mCachedNodes.end(); test++)
     {
         if (test->clippedOut()) {
             test->setDisabled(false);
             test->setClippedOut(false);
         }
     }
-    for (CachedFrame* frame = mCachedFrames.begin(); frame != mCachedFrames.end(); 
+    for (CachedFrame* frame = mCachedFrames.begin(); frame != mCachedFrames.end();
             frame++) {
         frame->resetClippedOut();
     }
@@ -913,14 +959,14 @@ void CachedFrame::resetClippedOut()
 bool CachedFrame::sameFrame(const CachedFrame* test) const
 {
     ASSERT(test);
-    if (mIndex != test->mIndex)
+    if (mIndexInParent != test->mIndexInParent)
         return false;
-    if (mIndex == -1) // index within parent's array of children, or -1 if root
+    if (mIndexInParent == -1) // index within parent's array of children, or -1 if root
         return true;
     return mParent->sameFrame(test->mParent);
 }
 
-void CachedFrame::setData() 
+void CachedFrame::setData()
 {
     if (this != mRoot) {
         mViewBounds = mLocalViewBounds;
@@ -942,17 +988,17 @@ void CachedFrame::setData()
     }
 }
 
-bool CachedFrame::setFocus(WebCore::Frame* frame, WebCore::Node* node, 
+bool CachedFrame::setCursor(WebCore::Frame* frame, WebCore::Node* node,
     int x, int y)
 {
     if (NULL == node) {
-        const_cast<CachedRoot*>(mRoot)->setCachedFocus(NULL, NULL);
+        const_cast<CachedRoot*>(mRoot)->setCursor(NULL, NULL);
         return true;
     }
     if (mFrame != frame) {
-        for (CachedFrame* testF = mCachedFrames.begin(); testF != mCachedFrames.end(); 
+        for (CachedFrame* testF = mCachedFrames.begin(); testF != mCachedFrames.end();
                 testF++) {
-            if (testF->setFocus(frame, node, x, y))
+            if (testF->setCursor(frame, node, x, y))
                 return true;
         }
         DBG_NAV_LOGD("no frame frame=%p node=%p", frame, node);
@@ -965,17 +1011,17 @@ bool CachedFrame::setFocus(WebCore::Frame* frame, WebCore::Node* node,
             if (test->nodePointer() != node && first)
                 continue;
             size_t partMax = test->navableRects();
-            WTF::Vector<WebCore::IntRect>& focusRings = test->focusRings();
+            WTF::Vector<WebCore::IntRect>& cursorRings = test->cursorRings();
             for (size_t part = 0; part < partMax; part++) {
-                const WebCore::IntRect& testBounds = focusRings.at(part);
+                const WebCore::IntRect& testBounds = cursorRings.at(part);
                 if (testBounds.contains(x, y) == false)
                     continue;
-                if (test->isFocus()) {
-                    DBG_NAV_LOGD("already set? test=%d frame=%p node=%p x=%d y=%d", 
+                if (test->isCursor()) {
+                    DBG_NAV_LOGD("already set? test=%d frame=%p node=%p x=%d y=%d",
                         test->index(), frame, node, x, y);
-                    return true;
+                    return false;
                 }
-                const_cast<CachedRoot*>(mRoot)->setCachedFocus(this, test);
+                const_cast<CachedRoot*>(mRoot)->setCursor(this, test);
                 return true;
             }
         }
@@ -1034,11 +1080,11 @@ int CachedFrame::BestData::isContainer(CachedFrame::BestData* other)
 //            mMouseOver = other->mNode;
         return other->mNode->isArea() ? -1  : 1;
     }
-    return 0; 
+    return 0;
 }
 
 // distance scale factor factor as a 16.16 scalar
-SkFixed CachedFrame::BestData::Overlap(int span, int left, int right) 
+SkFixed CachedFrame::BestData::Overlap(int span, int left, int right)
 {
     unsigned result;
     if (left > 0 && left < span && right > span)
@@ -1077,11 +1123,11 @@ void CachedFrame::BestData::setDistances()
 
 bool CachedFrame::BestData::setDownDirection(const CachedHistory* history)
 {
-    const WebCore::IntRect& navBounds = history->navBounds(); 
+    const WebCore::IntRect& navBounds = history->navBounds();
     mMajorButt = mNodeBounds.y() - navBounds.bottom();
     int testX = mNodeBounds.x();
     int testRight = mNodeBounds.right();
-    setNavOverlap(navBounds.width(), navBounds.right() - testX, 
+    setNavOverlap(navBounds.width(), navBounds.right() - testX,
         testRight - navBounds.x());
     if (canBeReachedByAnotherDirection()) {
         mNode->setCondition(CachedNode::BEST_DIRECTION);
@@ -1089,7 +1135,7 @@ bool CachedFrame::BestData::setDownDirection(const CachedHistory* history)
     }
     int inNavTop = mNodeBounds.y() - navBounds.y();
     mMajorDelta2 = inNavTop;
-    mMajorDelta = mMajorDelta2 + ((mNodeBounds.height() - 
+    mMajorDelta = mMajorDelta2 + ((mNodeBounds.height() -
         navBounds.height()) >> 1);
     if (mMajorDelta2 <= 1 && mMajorDelta <= 1) {
         mNode->setCondition(CachedNode::CENTER_FURTHER); // never move up or sideways
@@ -1099,7 +1145,7 @@ bool CachedFrame::BestData::setDownDirection(const CachedHistory* history)
     setNavInclusion(testRight - navBounds.right(), navBounds.x() - testX);
     bool subsumes = navBounds.height() > 0 && inOrSubsumesNav();
     if (inNavTop <= 0 && inNavBottom <= 0 && subsumes) {
-        mNode->setCondition(CachedNode::NOT_ENCLOSING_FOCUS);
+        mNode->setCondition(CachedNode::NOT_ENCLOSING_CURSOR);
         return REJECT_TEST;
     }
     int maxV = history->maxWorkingVertical();
@@ -1110,18 +1156,18 @@ bool CachedFrame::BestData::setDownDirection(const CachedHistory* history)
         mNode->setCondition(CachedNode::OVERLAP_OR_EDGE_FURTHER);
         return REJECT_TEST;
     }
-    mInNav = history->directionChange() && inNavTop >= 0 && 
-        inNavBottom > 0 && subsumes; 
+    mInNav = history->directionChange() && inNavTop >= 0 &&
+        inNavBottom > 0 && subsumes;
     return false;
 }
 
 bool CachedFrame::BestData::setLeftDirection(const CachedHistory* history)
 {
-    const WebCore::IntRect& navBounds = history->navBounds(); 
+    const WebCore::IntRect& navBounds = history->navBounds();
     mMajorButt = navBounds.x() - mNodeBounds.right();
     int testY = mNodeBounds.y();
     int testBottom = mNodeBounds.bottom();
-    setNavOverlap(navBounds.height(), navBounds.bottom() - testY, 
+    setNavOverlap(navBounds.height(), navBounds.bottom() - testY,
         testBottom - navBounds.y());
     if (canBeReachedByAnotherDirection()) {
         mNode->setCondition(CachedNode::BEST_DIRECTION);
@@ -1129,7 +1175,7 @@ bool CachedFrame::BestData::setLeftDirection(const CachedHistory* history)
     }
     int inNavRight = navBounds.right() - mNodeBounds.right();
     mMajorDelta2 = inNavRight;
-    mMajorDelta = mMajorDelta2 - ((navBounds.width() - 
+    mMajorDelta = mMajorDelta2 - ((navBounds.width() -
         mNodeBounds.width()) >> 1);
     if (mMajorDelta2 <= 1 && mMajorDelta <= 1) {
         mNode->setCondition(CachedNode::CENTER_FURTHER); // never move right or sideways
@@ -1139,7 +1185,7 @@ bool CachedFrame::BestData::setLeftDirection(const CachedHistory* history)
     setNavInclusion(navBounds.y() - testY, testBottom - navBounds.bottom());
     bool subsumes = navBounds.width() > 0 && inOrSubsumesNav();
     if (inNavLeft <= 0 && inNavRight <= 0 && subsumes) {
-        mNode->setCondition(CachedNode::NOT_ENCLOSING_FOCUS);
+        mNode->setCondition(CachedNode::NOT_ENCLOSING_CURSOR);
         return REJECT_TEST;
     }
     int maxH = history->maxWorkingHorizontal();
@@ -1150,18 +1196,18 @@ bool CachedFrame::BestData::setLeftDirection(const CachedHistory* history)
         mNode->setCondition(CachedNode::OVERLAP_OR_EDGE_FURTHER);
         return REJECT_TEST;
     }
-    mInNav = history->directionChange() && inNavLeft >= 0 && 
+    mInNav = history->directionChange() && inNavLeft >= 0 &&
         inNavRight > 0 && subsumes; /* both L/R in or out */
     return false;
 }
 
 bool CachedFrame::BestData::setRightDirection(const CachedHistory* history)
 {
-    const WebCore::IntRect& navBounds = history->navBounds(); 
+    const WebCore::IntRect& navBounds = history->navBounds();
     mMajorButt = mNodeBounds.x() - navBounds.right();
     int testY = mNodeBounds.y();
     int testBottom = mNodeBounds.bottom();
-    setNavOverlap(navBounds.height(), navBounds.bottom() - testY, 
+    setNavOverlap(navBounds.height(), navBounds.bottom() - testY,
         testBottom - navBounds.y());
     if (canBeReachedByAnotherDirection()) {
         mNode->setCondition(CachedNode::BEST_DIRECTION);
@@ -1169,7 +1215,7 @@ bool CachedFrame::BestData::setRightDirection(const CachedHistory* history)
     }
     int inNavLeft = mNodeBounds.x() - navBounds.x();
     mMajorDelta2 = inNavLeft;
-    mMajorDelta = mMajorDelta2 + ((mNodeBounds.width() - 
+    mMajorDelta = mMajorDelta2 + ((mNodeBounds.width() -
         navBounds.width()) >> 1);
     if (mMajorDelta2 <= 1 && mMajorDelta <= 1) {
         mNode->setCondition(CachedNode::CENTER_FURTHER); // never move left or sideways
@@ -1179,7 +1225,7 @@ bool CachedFrame::BestData::setRightDirection(const CachedHistory* history)
     setNavInclusion(testBottom - navBounds.bottom(), navBounds.y() - testY);
     bool subsumes = navBounds.width() > 0 && inOrSubsumesNav();
     if (inNavLeft <= 0 && inNavRight <= 0 && subsumes) {
-        mNode->setCondition(CachedNode::NOT_ENCLOSING_FOCUS);
+        mNode->setCondition(CachedNode::NOT_ENCLOSING_CURSOR);
         return REJECT_TEST;
     }
     int maxH = history->maxWorkingHorizontal();
@@ -1190,18 +1236,18 @@ bool CachedFrame::BestData::setRightDirection(const CachedHistory* history)
         mNode->setCondition(CachedNode::OVERLAP_OR_EDGE_FURTHER);
         return REJECT_TEST;
     }
-    mInNav = history->directionChange() && inNavLeft >= 0 && 
+    mInNav = history->directionChange() && inNavLeft >= 0 &&
         inNavRight > 0 && subsumes; /* both L/R in or out */
     return false;
 }
 
 bool CachedFrame::BestData::setUpDirection(const CachedHistory* history)
 {
-    const WebCore::IntRect& navBounds = history->navBounds(); 
+    const WebCore::IntRect& navBounds = history->navBounds();
     mMajorButt = navBounds.y() - mNodeBounds.bottom();
     int testX = mNodeBounds.x();
     int testRight = mNodeBounds.right();
-    setNavOverlap(navBounds.width(), navBounds.right() - testX, 
+    setNavOverlap(navBounds.width(), navBounds.right() - testX,
         testRight - navBounds.x());
     if (canBeReachedByAnotherDirection()) {
         mNode->setCondition(CachedNode::BEST_DIRECTION);
@@ -1209,7 +1255,7 @@ bool CachedFrame::BestData::setUpDirection(const CachedHistory* history)
     }
     int inNavBottom = navBounds.bottom() - mNodeBounds.bottom();
     mMajorDelta2 = inNavBottom;
-    mMajorDelta = mMajorDelta2 - ((navBounds.height() - 
+    mMajorDelta = mMajorDelta2 - ((navBounds.height() -
         mNodeBounds.height()) >> 1);
     if (mMajorDelta2 <= 1 && mMajorDelta <= 1) {
         mNode->setCondition(CachedNode::CENTER_FURTHER); // never move down or sideways
@@ -1219,7 +1265,7 @@ bool CachedFrame::BestData::setUpDirection(const CachedHistory* history)
     setNavInclusion(navBounds.x() - testX, testRight - navBounds.right());
     bool subsumes = navBounds.height() > 0 && inOrSubsumesNav();
     if (inNavTop <= 0 && inNavBottom <= 0 && subsumes) {
-        mNode->setCondition(CachedNode::NOT_ENCLOSING_FOCUS);
+        mNode->setCondition(CachedNode::NOT_ENCLOSING_CURSOR);
         return REJECT_TEST;
     }
     int maxV = history->maxWorkingVertical();
@@ -1230,36 +1276,38 @@ bool CachedFrame::BestData::setUpDirection(const CachedHistory* history)
         mNode->setCondition(CachedNode::OVERLAP_OR_EDGE_FURTHER);
         return REJECT_TEST;
     }
-    mInNav = history->directionChange() && inNavTop >= 0 && 
+    mInNav = history->directionChange() && inNavTop >= 0 &&
         inNavBottom > 0 && subsumes; /* both L/R in or out */
     return false;
 }
 
 void CachedFrame::BestData::setNavInclusion(int left, int right)
 {
-    // if left and right <= 0, test node is completely in umbra of focus
+    // if left and right <= 0, test node is completely in umbra of cursor
         // prefer leftmost center
-    // if left and right > 0, test node subsumes focus
+    // if left and right > 0, test node subsumes cursor
     mNavDelta = left;
     mNavDelta2 = right;
 }
 
 void CachedFrame::BestData::setNavOverlap(int span, int left, int right)
 {
-    mNavOutside = left < MIN_OVERLAP || right < MIN_OVERLAP; // if left or right < 0, test node is not in umbra of focus
+    // if left or right < 0, test node is not in umbra of cursor
+    mNavOutside = left < MIN_OVERLAP || right < MIN_OVERLAP;
     mNavOverlap = Overlap(span, left, right); // prefer smallest negative left
 }
 
-void CachedFrame::BestData::setWorkingInclusion(int left, int right) 
+void CachedFrame::BestData::setWorkingInclusion(int left, int right)
 {
     mWorkingDelta = left;
     mWorkingDelta2 = right;
 }
 
 // distance scale factor factor as a 16.16 scalar
-void CachedFrame::BestData::setWorkingOverlap(int span, int left, int right) 
+void CachedFrame::BestData::setWorkingOverlap(int span, int left, int right)
 {
-    mWorkingOutside = left < MIN_OVERLAP || right < MIN_OVERLAP; // if left or right < 0, test node is not in umbra of focus
+    // if left or right < 0, test node is not in umbra of cursor
+    mWorkingOutside = left < MIN_OVERLAP || right < MIN_OVERLAP;
     mWorkingOverlap = Overlap(span, left, right);
     mPreferred = left <= 0 ? 0 : left;
 }
@@ -1273,7 +1321,7 @@ void CachedFrame::BestData::setWorkingOverlap(int span, int left, int right)
 
 CachedFrame* CachedFrame::Debug::base() const {
     CachedFrame* nav = (CachedFrame*) ((char*) this - OFFSETOF(CachedFrame, mDebug));
-    return nav; 
+    return nav;
 }
 
 void CachedFrame::Debug::print() const
@@ -1283,12 +1331,12 @@ void CachedFrame::Debug::print() const
     DEBUG_PRINT_RECT("", BOUNDS, mLocalViewBounds);
     DEBUG_PRINT_RECT("//", VIEW, mViewBounds);
     DUMP_NAV_LOGD("// CachedNode mCachedNodes={ // count=%d\n", b->mCachedNodes.size());
-    for (CachedNode* node = b->mCachedNodes.begin(); 
+    for (CachedNode* node = b->mCachedNodes.begin();
             node != b->mCachedNodes.end(); node++)
         node->mDebug.print();
     DUMP_NAV_LOGD("// }; // end of nodes\n");
     DUMP_NAV_LOGD("// CachedFrame mCachedFrames={ // count=%d\n", b->mCachedFrames.size());
-    for (CachedFrame* child = b->mCachedFrames.begin(); 
+    for (CachedFrame* child = b->mCachedFrames.begin();
             child != b->mCachedFrames.end(); child++)
     {
         child->mDebug.print();
@@ -1296,9 +1344,10 @@ void CachedFrame::Debug::print() const
     DUMP_NAV_LOGD("// }; // end of child frames\n");
     DUMP_NAV_LOGD("// void* mFrame=(void*) %p;\n", b->mFrame);
     DUMP_NAV_LOGD("// CachedFrame* mParent=%p;\n", b->mParent);
-    DUMP_NAV_LOGD("// int mIndex=%d;\n", b->mIndex);
+    DUMP_NAV_LOGD("// int mIndexInParent=%d;\n", b->mIndexInParent);
     DUMP_NAV_LOGD("// const CachedRoot* mRoot=%p;\n", b->mRoot);
-    DUMP_NAV_LOGD("// int mFocus=%d;\n", b->mFocus);
+    DUMP_NAV_LOGD("// int mCursorIndex=%d;\n", b->mCursorIndex);
+    DUMP_NAV_LOGD("// int mFocusIndex=%d;\n", b->mFocusIndex);
 }
 
 bool CachedFrame::Debug::validate(const CachedNode* node) const
@@ -1308,7 +1357,7 @@ bool CachedFrame::Debug::validate(const CachedNode* node) const
         return false;
     if (node >= b->mCachedNodes.begin() && node < b->mCachedNodes.end())
         return true;
-    for (const CachedFrame* child = b->mCachedFrames.begin(); 
+    for (const CachedFrame* child = b->mCachedFrames.begin();
             child != b->mCachedFrames.end(); child++)
         if (child->mDebug.validate(node))
             return true;

@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 2006 Apple Computer, Inc.  All rights reserved.
  * Copyright (C) 2008 Google Inc. All rights reserved.
+ * Copyright (C) 2007-2009 Torch Mobile, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -32,21 +33,32 @@
 #include "config.h"
 #include "CurrentTime.h"
 
-#if PLATFORM(MAC)
-#include <CoreFoundation/CFDate.h>
-#elif PLATFORM(GTK)
-#include <glib.h>
-#elif PLATFORM(WX)
-#include <wx/datetime.h>
-#elif PLATFORM(WIN_OS)
+#if PLATFORM(WIN_OS)
+
+// Windows is first since we want to use hires timers, despite PLATFORM(CF)
+// being defined.
 // If defined, WIN32_LEAN_AND_MEAN disables timeBeginPeriod/timeEndPeriod.
 #undef WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <math.h>
 #include <stdint.h>
+#include <time.h>
+
+#if USE(QUERY_PERFORMANCE_COUNTER)
+#if PLATFORM(WINCE)
+extern "C" time_t mktime(struct tm *t);
+#else
 #include <sys/timeb.h>
 #include <sys/types.h>
-#include <time.h>
+#endif
+#endif
+
+#elif PLATFORM(CF)
+#include <CoreFoundation/CFDate.h>
+#elif PLATFORM(GTK)
+#include <glib.h>
+#elif PLATFORM(WX)
+#include <wx/datetime.h>
 #else // Posix systems relying on the gettimeofday()
 #include <sys/time.h>
 #endif
@@ -55,35 +67,9 @@ namespace WTF {
 
 const double msPerSecond = 1000.0;
 
-#if PLATFORM(MAC)
+#if PLATFORM(WIN_OS)
 
-double currentTime()
-{
-    return CFAbsoluteTimeGetCurrent() + kCFAbsoluteTimeIntervalSince1970;
-}
-
-#elif PLATFORM(GTK)
-
-// Note: GTK on Windows will pick up the PLATFORM(WIN) implementation above which provides
-// better accuracy compared with Windows implementation of g_get_current_time:
-// (http://www.google.com/codesearch/p?hl=en#HHnNRjks1t0/glib-2.5.2/glib/gmain.c&q=g_get_current_time).
-// Non-Windows GTK builds could use gettimeofday() directly but for the sake of consistency lets use GTK function.
-double currentTime()
-{
-    GTimeVal now;
-    g_get_current_time(&now);
-    return static_cast<double>(now.tv_sec) + static_cast<double>(now.tv_usec / 1000000.0);
-}
-
-#elif PLATFORM(WX)
-
-double currentTime()
-{
-    wxDateTime now = wxDateTime::UNow();
-    return (double)now.GetTicks() + (double)(now.GetMillisecond() / 1000.0);
-}
-
-#elif PLATFORM(WIN_OS)
+#if USE(QUERY_PERFORMANCE_COUNTER)
 
 static LARGE_INTEGER qpcFrequency;
 static bool syncedTime;
@@ -133,7 +119,7 @@ static double highResUpTime()
 
 static double lowResUTCTime()
 {
-#if PLATFORM(WIN_CE)
+#if PLATFORM(WINCE)
     SYSTEMTIME systemTime;
     GetSystemTime(&systemTime);
     struct tm tmtime;
@@ -146,11 +132,11 @@ static double lowResUTCTime()
     tmtime.tm_sec = systemTime.wSecond;
     time_t timet = mktime(&tmtime);
     return timet * msPerSecond + systemTime.wMilliseconds;
-#else // PLATFORM(WIN_CE)
+#else
     struct _timeb timebuffer;
     _ftime(&timebuffer);
     return timebuffer.time * msPerSecond + timebuffer.millitm;
-#endif // PLATFORM(WIN_CE)
+#endif
 }
 
 static bool qpcAvailable()
@@ -208,6 +194,83 @@ double currentTime()
         return lastUTCTime / 1000.0;
     lastUTCTime = utc;
     return utc / 1000.0;
+}
+
+#else
+
+static double currentSystemTime()
+{
+    FILETIME ft;
+    GetCurrentFT(&ft);
+
+    // As per Windows documentation for FILETIME, copy the resulting FILETIME structure to a
+    // ULARGE_INTEGER structure using memcpy (using memcpy instead of direct assignment can
+    // prevent alignment faults on 64-bit Windows).
+
+    ULARGE_INTEGER t;
+    memcpy(&t, &ft, sizeof(t));
+
+    // Windows file times are in 100s of nanoseconds.
+    // To convert to seconds, we have to divide by 10,000,000, which is more quickly
+    // done by multiplying by 0.0000001.
+
+    // Between January 1, 1601 and January 1, 1970, there were 369 complete years,
+    // of which 89 were leap years (1700, 1800, and 1900 were not leap years).
+    // That is a total of 134774 days, which is 11644473600 seconds.
+
+    return t.QuadPart * 0.0000001 - 11644473600.0;
+}
+
+double currentTime()
+{
+    static bool init = false;
+    static double lastTime;
+    static DWORD lastTickCount;
+    if (!init) {
+        lastTime = currentSystemTime();
+        lastTickCount = GetTickCount();
+        init = true;
+        return lastTime;
+    }
+
+    DWORD tickCountNow = GetTickCount();
+    DWORD elapsed = tickCountNow - lastTickCount;
+    double timeNow = lastTime + (double)elapsed / 1000.;
+    if (elapsed >= 0x7FFFFFFF) {
+        lastTime = timeNow;
+        lastTickCount = tickCountNow;
+    }
+    return timeNow;
+}
+
+#endif // USE(QUERY_PERFORMANCE_COUNTER)
+
+#elif PLATFORM(CF)
+
+double currentTime()
+{
+    return CFAbsoluteTimeGetCurrent() + kCFAbsoluteTimeIntervalSince1970;
+}
+
+#elif PLATFORM(GTK)
+
+// Note: GTK on Windows will pick up the PLATFORM(WIN) implementation above which provides
+// better accuracy compared with Windows implementation of g_get_current_time:
+// (http://www.google.com/codesearch/p?hl=en#HHnNRjks1t0/glib-2.5.2/glib/gmain.c&q=g_get_current_time).
+// Non-Windows GTK builds could use gettimeofday() directly but for the sake of consistency lets use GTK function.
+double currentTime()
+{
+    GTimeVal now;
+    g_get_current_time(&now);
+    return static_cast<double>(now.tv_sec) + static_cast<double>(now.tv_usec / 1000000.0);
+}
+
+#elif PLATFORM(WX)
+
+double currentTime()
+{
+    wxDateTime now = wxDateTime::UNow();
+    return (double)now.GetTicks() + (double)(now.GetMillisecond() / 1000.0);
 }
 
 #else // Other Posix systems rely on the gettimeofday().

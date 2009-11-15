@@ -83,6 +83,7 @@ jstring env_newString(JNIEnv*, const jchar*, jsize) {
 }
 void env_releaseByteArrayElements(JNIEnv*, jbyteArray, jbyte*, jint) {}
 void env_releaseStringChars(JNIEnv*, jstring, const jchar*) {}
+void env_setByteArrayRegion(JNIEnv*, jbyteArray, jsize, jsize, const jbyte*) {}
 void env_setIntField(JNIEnv*, jobject, jfieldID, jint) {}
 
 void InitializeJavaVM() {
@@ -119,6 +120,7 @@ void InitializeJavaVM() {
     n->NewString                = env_newString;
     n->ReleaseByteArrayElements = env_releaseByteArrayElements;
     n->ReleaseStringChars       = env_releaseStringChars;
+    n->SetByteArrayRegion       = env_setByteArrayRegion;
     n->SetIntField              = env_setIntField;
 
     // Tell WebCore about the vm

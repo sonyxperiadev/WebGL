@@ -24,11 +24,10 @@
  */
 
 #include "config.h"
-#include "ResourceResponseCFNet.h"
+#include "ResourceResponse.h"
 
 #include "HTTPParsers.h"
 #include "MIMETypeRegistry.h"
-#include "ResourceResponse.h"
 #include <CFNetwork/CFURLResponsePriv.h>
 #include <wtf/RetainPtr.h>
 
@@ -80,7 +79,6 @@ void ResourceResponse::platformLazyInit()
     m_expectedContentLength = CFURLResponseGetExpectedContentLength(m_cfResponse.get());
     m_textEncodingName = CFURLResponseGetTextEncodingName(m_cfResponse.get());
 
-    m_expirationDate = toTimeT(CFURLResponseGetExpirationTime(m_cfResponse.get()));
     m_lastModifiedDate = toTimeT(CFURLResponseGetLastModifiedDate(m_cfResponse.get()));
 
     RetainPtr<CFStringRef> suggestedFilename(AdoptCF, CFURLResponseCopySuggestedFilename(m_cfResponse.get()));
@@ -92,9 +90,11 @@ void ResourceResponse::platformLazyInit()
 
         RetainPtr<CFStringRef> statusLine(AdoptCF, CFHTTPMessageCopyResponseStatusLine(httpResponse));
         String statusText(statusLine.get());
-        int spacePos = statusText.find(" ");
-        if (spacePos != -1)
-            statusText = statusText.substring(spacePos + 1);
+        int spacePos = statusText.find(' ');
+        // Remove the status code from the status text.
+        spacePos = statusText.find(' ', spacePos + 1);
+        statusText = statusText.substring(spacePos + 1);      
+
         m_httpStatusText = statusText;
 
         RetainPtr<CFDictionaryRef> headers(AdoptCF, CFHTTPMessageCopyAllHeaderFields(httpResponse));

@@ -54,8 +54,6 @@
  * </programlisting></informalexample>
  */
 
-extern "C" {
-
 enum {
     PROP_0,
 
@@ -101,6 +99,8 @@ static void webkit_web_window_features_class_init(WebKitWebWindowFeaturesClass* 
     gobject_class->get_property = webkit_web_window_features_get_property;
 
     GParamFlags flags = (GParamFlags)(WEBKIT_PARAM_READWRITE | G_PARAM_CONSTRUCT);
+
+    webkit_init();
 
     /**
      * WebKitWebWindowFeatures:x:
@@ -437,7 +437,4 @@ gboolean webkit_web_window_features_equal(WebKitWebWindowFeatures* features1, We
        (priv1->fullscreen == priv2->fullscreen))
         return TRUE;
     return FALSE;
-}
-
-
 }

@@ -66,7 +66,7 @@ namespace WebCore {
     void synchronizeProperty(const OwnerElement* ownerElement, const QualifiedName& attributeName, DecoratedType baseValue);
 
     // Abstract base class
-    class SVGAnimatedPropertyBase : Noncopyable {
+    class SVGAnimatedPropertyBase : public Noncopyable {
     public:
         virtual ~SVGAnimatedPropertyBase() { }
         virtual void synchronize() const = 0;
@@ -430,12 +430,12 @@ namespace WebCore {
     {
         AtomicString value(SVGAnimatedTypeValue<DecoratedType>::toString(baseValue));
 
-        NamedAttrMap* namedAttrMap = ownerElement->attributes(false); 
+        NamedNodeMap* namedAttrMap = ownerElement->attributes(false); 
         Attribute* old = namedAttrMap->getAttributeItem(attributeName);
         if (old && value.isNull()) 
             namedAttrMap->removeAttribute(old->name()); 
         else if (!old && !value.isNull()) 
-            namedAttrMap->addAttribute(const_cast<OwnerElement*>(ownerElement)->createAttribute(QualifiedName(nullAtom, attributeName.localName(), nullAtom), value)); 
+            namedAttrMap->addAttribute(const_cast<OwnerElement*>(ownerElement)->createAttribute(attributeName, value));
         else if (old && !value.isNull()) 
             old->setValue(value); 
     }

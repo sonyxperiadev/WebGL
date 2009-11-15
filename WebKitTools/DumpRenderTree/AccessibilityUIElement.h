@@ -27,6 +27,7 @@
 #define AccessibilityUIElement_h
 
 #include <JavaScriptCore/JSObjectRef.h>
+#include <wtf/Platform.h>
 #include <wtf/Vector.h>
 
 #if PLATFORM(MAC)
@@ -43,6 +44,9 @@ typedef struct objc_object* PlatformUIElement;
 #include <WebCore/COMPtr.h>
 
 typedef COMPtr<IAccessible> PlatformUIElement;
+#elif PLATFORM(GTK)
+#include <atk/atk.h>
+typedef AtkObject* PlatformUIElement;
 #else
 typedef void* PlatformUIElement;
 #endif
@@ -60,8 +64,13 @@ public:
     void getLinkedUIElements(Vector<AccessibilityUIElement>&);
     void getDocumentLinks(Vector<AccessibilityUIElement>&);
     void getChildren(Vector<AccessibilityUIElement>&);
+    void getChildrenWithRange(Vector<AccessibilityUIElement>&, unsigned location, unsigned length);
+    
+    AccessibilityUIElement elementAtPoint(int x, int y);
     AccessibilityUIElement getChildAtIndex(unsigned);
+    int childrenCount();
     AccessibilityUIElement titleUIElement();
+    AccessibilityUIElement parentElement();
     
     // Methods - platform-independent implementations
     JSStringRef allAttributes();
@@ -69,19 +78,31 @@ public:
     JSStringRef attributesOfDocumentLinks();
     JSStringRef attributesOfChildren();
     JSStringRef parameterizedAttributeNames();
-    
+    void increment();
+    void decrement();
+
     // Attributes - platform-independent implementations
+    JSStringRef attributeValue(JSStringRef attribute);
+    bool isAttributeSettable(JSStringRef attribute);
+    bool isActionSupported(JSStringRef action);
     JSStringRef role();
     JSStringRef title();
     JSStringRef description();
+    JSStringRef language();
+    double x();
+    double y();
     double width();
     double height();
     double intValue();
     double minValue();
     double maxValue();
+    JSStringRef valueDescription();
     int insertionPointLineNumber();
     JSStringRef selectedTextRange();
-    bool supportsPressAction();
+    bool isEnabled();
+    bool isRequired() const;
+    double clickPointX();
+    double clickPointY();
 
     // Table-specific attributes
     JSStringRef attributesOfColumnHeaders();
@@ -101,7 +122,7 @@ public:
     
     // Table-specific
     AccessibilityUIElement cellForColumnAndRow(unsigned column, unsigned row);
-    
+
 private:
     static JSClassRef getJSClass();
 

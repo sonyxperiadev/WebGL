@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008, Google Inc. All rights reserved.
+ * Copyright (C) 2008 Google Inc. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -29,15 +29,17 @@
  */
 
 /* These styles override the default styling for HTML elements as defined in
-   WebCore/css/html4.css. So far we have used this file exclusively for
+   WebCore/css/html.css. So far we have used this file exclusively for
    making our form elements match Firefox's. */
 
 input:not([type]), 
 input[type="text"],
-input[type="password"],
-input[type="search"] {
-    margin:0;
+input[type="password"] {
     padding:1px 0;
+}
+
+input[type="search"] {
+    padding:1px;
 }
 
 input[type="checkbox"] {
@@ -78,7 +80,6 @@ input[type="search"]::-webkit-search-results-button {
 input[type="button"], input[type="submit"], input[type="reset"], input[type="file"]::-webkit-file-upload-button, button {
     /* Matches Firefox */
     padding: 0 6px;
-    margin: 0;
 }
 
 /* Windows selects are not rounded. Custom borders for them shouldn't be either. */
@@ -87,13 +88,15 @@ select,
 select[size="0"],
 select[size="1"] {
     -webkit-border-radius: 0;
-    margin: 0;
+}
+
+/* Option font must be inherited because we depend on computing the size of the
+   <select> based on the size of the options, and they must use the same font
+   for that computation to be correct */
+option {
+    font: inherit !important;
 }
 
 textarea {
   font-family: monospace;
-  margin: 1px 0;
-
-  /* Matches IE */
-  padding: 2px;
 }

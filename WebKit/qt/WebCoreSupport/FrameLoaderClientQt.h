@@ -59,10 +59,7 @@ namespace WebCore {
 
         friend class ::QWebFrame;
         void callPolicyFunction(FramePolicyFunction function, PolicyAction action);
-    private slots:
-        void slotCallPolicyFunction(int);
     signals:
-        void sigCallPolicyFunction(int);
         void loadStarted();
         void loadProgress(int d);
         void loadFinished(bool);
@@ -98,6 +95,7 @@ namespace WebCore {
         virtual void dispatchDidFinishLoading(WebCore::DocumentLoader*, unsigned long);
         virtual void dispatchDidFailLoading(WebCore::DocumentLoader*, unsigned long, const WebCore::ResourceError&);
         virtual bool dispatchDidLoadResourceFromMemoryCache(WebCore::DocumentLoader*, const WebCore::ResourceRequest&, const WebCore::ResourceResponse&, int);
+        virtual void dispatchDidLoadResourceByXMLHttpRequest(unsigned long identifier, const WebCore::ScriptString& sourceString);
 
         virtual void dispatchDidHandleOnloadEvents();
         virtual void dispatchDidReceiveServerRedirectForProvisionalLoad();
@@ -147,7 +145,7 @@ namespace WebCore {
         virtual void finishedLoading(DocumentLoader*);
 
         virtual void updateGlobalHistory();
-        virtual void updateGlobalHistoryForRedirectWithoutHistoryItem();
+        virtual void updateGlobalHistoryRedirectLinks();
         virtual bool shouldGoToHistoryItem(HistoryItem*) const;
 
         virtual ResourceError cancelledError(const ResourceRequest&);
@@ -187,15 +185,16 @@ namespace WebCore {
 
         virtual PassRefPtr<Frame> createFrame(const KURL& url, const String& name, HTMLFrameOwnerElement* ownerElement,
                                    const String& referrer, bool allowsScrolling, int marginWidth, int marginHeight) ;
-        virtual Widget* createPlugin(const IntSize&, Element*, const KURL&, const Vector<String>&, const Vector<String>&, const String&, bool);
+        virtual PassRefPtr<Widget> createPlugin(const IntSize&, HTMLPlugInElement*, const KURL&, const Vector<String>&, const Vector<String>&, const String&, bool);
         virtual void redirectDataToPlugin(Widget* pluginWidget);
 
-        virtual Widget* createJavaAppletWidget(const IntSize&, Element*, const KURL& baseURL, const Vector<String>& paramNames, const Vector<String>& paramValues);
+        virtual PassRefPtr<Widget> createJavaAppletWidget(const IntSize&, HTMLAppletElement*, const KURL& baseURL, const Vector<String>& paramNames, const Vector<String>& paramValues);
 
         virtual ObjectContentType objectContentType(const KURL& url, const String& mimeType);
         virtual String overrideMediaType() const;
 
         virtual void windowObjectCleared();
+        virtual void documentElementAvailable();
         virtual void didPerformFirstNavigation() const;
 
         virtual void registerForIconNotification(bool);
@@ -207,7 +206,6 @@ namespace WebCore {
         QWebFrame *m_webFrame;
         ResourceResponse m_response;
         bool m_firstData;
-        FramePolicyFunction m_policyFunction;
 
         // Plugin view to redirect data to
         WebCore::PluginView* m_pluginView;

@@ -26,7 +26,7 @@
 #pragma once
 
 #include "resource.h"
-#include "WebKit.h"
+#include <WebKit/WebKit.h>
 
 class WinLauncherWebHost : public IWebFrameLoadDelegate
 {
@@ -98,6 +98,12 @@ public:
         /* [in] */ IWebView *webView,
         /* [in] */ JSContextRef context,
         /* [in] */ JSObjectRef windowScriptObject)  { return S_OK; }
+
+    virtual /* [local] */ HRESULT STDMETHODCALLTYPE didClearWindowObject( 
+        /* [in] */ IWebView *webView,
+        /* [in] */ JSContextRef context,
+        /* [in] */ JSObjectRef windowScriptObject,
+        /* [in] */ IWebFrame *frame) { return S_OK; }
 
     // WinLauncherWebHost
 

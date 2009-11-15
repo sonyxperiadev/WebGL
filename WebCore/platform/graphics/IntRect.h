@@ -50,15 +50,12 @@ QT_END_NAMESPACE
 #elif PLATFORM(GTK)
 typedef struct _GdkRectangle GdkRectangle;
 #endif
-#if PLATFORM(SYMBIAN)
-class TRect;
-#endif
 
 #if PLATFORM(WX)
 class wxRect;
 #endif
 
-#if PLATFORM(SKIA)
+#if (PLATFORM(SKIA) || PLATFORM(SGL))
 struct SkRect;
 struct SkIRect;
 #endif
@@ -148,17 +145,12 @@ public:
     IntRect(const GdkRectangle&);
     operator GdkRectangle() const;
 #endif
-#if PLATFORM(SYMBIAN)
-    IntRect(const TRect&);
-    operator TRect() const;
-    TRect Rect() const;
-#endif
 
 #if PLATFORM(CG)
     operator CGRect() const;
 #endif
 
-#if PLATFORM(SKIA)
+#if (PLATFORM(SKIA) || PLATFORM(SGL))
     IntRect(const SkIRect&);
     operator SkRect() const;
     operator SkIRect() const;

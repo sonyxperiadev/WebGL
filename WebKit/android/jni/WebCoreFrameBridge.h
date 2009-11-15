@@ -54,6 +54,7 @@ class WebFrame : public WebCoreRefObject {
     enum RAW_RES_ID {
         NODOMAIN = 1,
         LOADERROR,
+        DRAWABLEDIR,
     };
     WebFrame(JNIEnv* env, jobject obj, jobject historyList, WebCore::Page* page);
     ~WebFrame();
@@ -63,7 +64,6 @@ class WebFrame : public WebCoreRefObject {
 
     virtual WebCoreResourceLoader* startLoadingResource(WebCore::ResourceHandle*,
             const WebCore::ResourceRequest& request,
-            bool isHighPriority,
             bool synchronous);
 
     void reportError(int errorCode, const WebCore::String& description,
@@ -90,6 +90,8 @@ class WebFrame : public WebCoreRefObject {
     const WebCore::String userAgentForURL(const WebCore::KURL* url);
 
     void didReceiveIcon(WebCore::Image* icon);
+
+    void didReceiveTouchIconURL(const WebCore::String& url, bool precomposed);
     
     void updateVisitedHistory(const WebCore::KURL& url, bool reload);
 
@@ -106,6 +108,8 @@ class WebFrame : public WebCoreRefObject {
     void setUserAgent(WebCore::String userAgent) { mUserAgent = userAgent; }
 
     WebCore::String getRawResourceFilename(RAW_RES_ID) const;
+
+    float density() const;
 
     /**
      * When the user initiates a click (via trackball, enter-press, or touch),

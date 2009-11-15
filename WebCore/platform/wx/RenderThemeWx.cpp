@@ -32,10 +32,10 @@
 #include "NotImplemented.h"
 #include "RenderView.h"
 
-#include "WebKit/wx/WebView.h"
-
-#include <wx/dcgraph.h>
 #include <wx/defs.h>
+
+#include <wx/dc.h>
+#include <wx/dcgraph.h>
 #include <wx/renderer.h>
 #include <wx/dcclient.h>
 #include <wx/scrolwin.h>
@@ -44,8 +44,12 @@
 namespace WebCore {
 
 class RenderThemeWx : public RenderTheme {
-public:
+private:
     RenderThemeWx() : RenderTheme() { }
+    virtual ~RenderThemeWx();
+
+public:
+    static PassRefPtr<RenderTheme> create();
 
     // A method asking if the theme's controls actually care about redrawing when hovered.
     virtual bool supportsHover(const RenderStyle*) const { return true; }
@@ -119,10 +123,19 @@ private:
 #define POPUP_INTERNAL_PADDING_RIGHT 20
 #endif
 
-RenderTheme* theme()
+RenderThemeWx::~RenderThemeWx()
 {
-    static RenderThemeWx rt;
-    return &rt;
+}
+
+PassRefPtr<RenderTheme> RenderThemeWx::create()
+{
+    return adoptRef(new RenderThemeWx());
+}
+
+PassRefPtr<RenderTheme> RenderTheme::themeForPage(Page* page)
+{
+    static RenderTheme* rt = RenderThemeWx::create().releaseRef();
+    return rt;
 }
 
 bool RenderThemeWx::isControlStyled(const RenderStyle* style, const BorderData& border,

@@ -39,7 +39,11 @@
 #include "FrameView.h"
 #include "GraphicsContext.h"
 #include "HistoryItem.h"
+#if USE(JSC)
 #include "InitializeThreading.h"
+#elif USE(V8)
+#include "V8InitializeThreading.h"
+#endif
 #include "InspectorClientAndroid.h"
 #include "Intercept.h"
 #include "IntRect.h"
@@ -75,6 +79,7 @@ public:
     virtual void setSharedTimer(long long timemillis) { m_hasTimer = true; }
     virtual void stopSharedTimer() { m_hasTimer = false; }
     virtual void setSharedTimerCallback(void (*f)()) { m_func = f; }
+    virtual void signalServiceFuncPtrQueue() {}
 
     // Cookie methods that do nothing.
     virtual void setCookies(const KURL&, const KURL&, const String&) {}
@@ -93,26 +98,34 @@ static void historyItemChanged(HistoryItem* i) {
 int main(int argc, char** argv) {
     int width = 800;
     int height = 600;
-    if (argc <= 1) {
-        LOGE("Please supply a file to read\n");
-        return 1;
-    } else {
-        while (true) {
-            int c = getopt(argc, argv, "d:");
-            if (c == -1)
-                break;
-            else if (c == 'd') {
-                char* x = strchr(optarg, 'x');
-                if (x) {
-                    width = atoi(optarg);
-                    height = atoi(x + 1);
-                    LOGD("Rendering page at %dx%d", width, height);
-                }
+    int reloadCount = 0;
+    while (true) {
+        int c = getopt(argc, argv, "d:r:");
+        if (c == -1)
+            break;
+        else if (c == 'd') {
+            char* x = strchr(optarg, 'x');
+            if (x) {
+                width = atoi(optarg);
+                height = atoi(x + 1);
+                LOGD("Rendering page at %dx%d", width, height);
             }
+        } else if (c == 'r') {
+            reloadCount = atoi(optarg);
+            if (reloadCount < 0)
+                reloadCount = 0;
+            LOGD("Reloading %d times", reloadCount);
         }
     }
-
+    if (optind >= argc) {
+        LOGE("Please supply a file to read\n");
+        return 1;
+    }
+#if USE(JSC)
     JSC::initializeThreading();
+#elif USE(V8)
+    V8::initializeThreading();
+#endif
 
     // Setting this allows data: urls to load from a local file.
     FrameLoader::setLocalLoadPolicy(FrameLoader::AllowLocalLoadsForAll);
@@ -163,7 +176,6 @@ int main(int argc, char** argv) {
     // assertion in the Cache code)
     frame->init();
     frame->selection()->setFocused(true);
-    frame->loader()->setUseLowBandwidthDisplay(false);
 
     // Set all the default settings the Browser normally uses.
     Settings* s = frame->settings();
@@ -187,16 +199,25 @@ int main(int argc, char** argv) {
 
     // Finally, load the actual data
     ResourceRequest req(argv[optind]);
-    frame->loader()->load(req);
+    frame->loader()->load(req, false);
 
-    // Layout the page and service the timer
-    frameView->layout();
-    while (client.m_hasTimer)
-        client.m_func();
-
-    // Layout more if needed.
-    while (frameView->needsLayout())
+    do {
+        // Layout the page and service the timer
         frameView->layout();
+        while (client.m_hasTimer) {
+            client.m_func();
+            JavaSharedClient::ServiceFunctionPtrQueue();
+        }
+        JavaSharedClient::ServiceFunctionPtrQueue();
+
+        // Layout more if needed.
+        while (frameView->needsLayout())
+            frameView->layout();
+        JavaSharedClient::ServiceFunctionPtrQueue();
+
+        if (reloadCount)
+            frame->loader()->reload(true);
+    } while (reloadCount--);
 
     // Draw into an offscreen bitmap
     SkBitmap bmp;

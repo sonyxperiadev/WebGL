@@ -2,6 +2,7 @@
 
 # Copyright (C) 2005, 2006, 2007, 2009 Apple Inc. All rights reserved.
 # Copyright (C) 2009, Julien Chaffraix <jchaffraix@webkit.org>
+# Copyright (C) 2009 Torch Mobile Inc. All rights reserved. (http://www.torchmobile.com/)
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -93,7 +94,9 @@ sub initializeTagPropertyHash
             'interfaceName' => defaultInterfaceName($_[0]),
             # By default, the JSInterfaceName is the same as the interfaceName.
             'JSInterfaceName' => defaultInterfaceName($_[0]),
-            'wrapperOnlyIfMediaIsAvailable' => 0);
+            'mapToTagName' => '',
+            'wrapperOnlyIfMediaIsAvailable' => 0,
+            'conditional' => 0);
 }
 
 sub initializeAttrPropertyHash
@@ -217,47 +220,147 @@ sub printMacros
     }
 }
 
+sub usesDefaultWrapper
+{
+    my $tagName = shift;
+    return $tagName eq $parameters{'namespace'} . "Element";
+}
+
+# Build a direct mapping from the tags to the Element to create, excluding
+# Element that have not constructor.
+sub buildConstructorMap
+{
+    my %tagConstructorMap = ();
+    for my $tagName (keys %tags) {
+        my $interfaceName = $tags{$tagName}{'interfaceName'};
+        next if (usesDefaultWrapper($interfaceName));
+
+        if ($tags{$tagName}{'mapToTagName'}) {
+            die "Cannot handle multiple mapToTagName for $tagName\n" if $tags{$tags{$tagName}{'mapToTagName'}}{'mapToTagName'};
+            $interfaceName = $tags{ $tags{$tagName}{'mapToTagName'} }{'interfaceName'};
+        }
+
+        # Chop the string to keep the interesting part.
+        $interfaceName =~ s/$parameters{'namespace'}(.*)Element/$1/;
+        $tagConstructorMap{$tagName} = lc($interfaceName);
+    }
+
+    return %tagConstructorMap;
+}
+
+# Helper method that print the constructor's signature avoiding
+# unneeded arguments.
+sub printConstructorSignature
+{
+    my ($F, $tagName, $constructorName, $constructorTagName) = @_;
+
+    print F "static PassRefPtr<$parameters{'namespace'}Element> ${constructorName}Constructor(const QualifiedName& $constructorTagName, Document* doc";
+    if ($parameters{'namespace'} eq "HTML") {
+        print F ", HTMLFormElement*";
+        if ($tags{$tagName}{'constructorNeedsFormElement'}) {
+            print F " formElement";
+        }
+    }
+    print F ", bool";
+    if ($tags{$tagName}{'constructorNeedsCreatedByParser'}) {
+        print F " createdByParser"; 
+    }
+    print F ")\n{\n";
+}
+
+# Helper method to dump the constructor interior and call the 
+# Element constructor with the right arguments.
+# The variable names should be kept in sync with the previous method.
+sub printConstructorInterior
+{
+    my ($F, $tagName, $interfaceName, $constructorTagName) = @_;
+
+    # Handle media elements.
+    if ($tags{$tagName}{'wrapperOnlyIfMediaIsAvailable'}) {
+        print F <<END
+    if (!MediaPlayer::isAvailable())
+        return new HTMLElement($constructorTagName, doc);
+END
+;
+    }
+
+    # Now call the constructor with the right parameters.
+    print F "    return new ${interfaceName}($constructorTagName, doc";
+    if ($tags{$tagName}{'constructorNeedsFormElement'}) {
+        print F ", formElement";
+    }
+    if ($tags{$tagName}{'constructorNeedsCreatedByParser'}) {
+        print F ", createdByParser";
+    }
+    print F ");\n}\n\n";
+}
+
 sub printConstructors
 {
-    my $F = shift;
+    my ($F, $tagConstructorMapRef) = @_;
+    my %tagConstructorMap = %$tagConstructorMapRef;
 
     print F "#if $parameters{'guardFactoryWith'}\n" if $parameters{'guardFactoryWith'};
-    for my $name (sort keys %tags) {
-        my $ucName = $tags{$name}{'interfaceName'};
 
-        # Print the method signature avoiding unused arguments' name.
-        print F "static PassRefPtr<$parameters{'namespace'}Element> ${name}Constructor(Document* doc";
-        if ($parameters{'namespace'} eq "HTML") {
-            print F ", HTMLFormElement* formElement";
-            if ($tags{$name}{'constructorNeedsFormElement'}) {
-                print F " formElement";
-            }
-        }
-        print F ", bool";
-        if ($tags{$name}{'constructorNeedsCreatedByParser'}) {
-            print F " createdByParser"; 
-        }
-        print F ")\n{\n";
+    # This is to avoid generating the same constructor several times.
+    my %uniqueTags = ();
+    for my $tagName (sort keys %tagConstructorMap) {
+        my $interfaceName = $tags{$tagName}{'interfaceName'};
 
-        # Now call the constructor with the right parameters.
-        print F "    return new ${ucName}($parameters{'namespace'}Names::${name}Tag, doc";
-        if ($tags{$name}{'constructorNeedsFormElement'}) {
-            print F ", formElement";
+        # Ignore the mapped tag
+        # FIXME: It could be moved inside this loop but was split for readibility.
+        next if (defined($uniqueTags{$interfaceName}) || $tags{$tagName}{'mapToTagName'});
+
+        $uniqueTags{$interfaceName} = '1';
+
+        my $conditional = $tags{$tagName}{"conditional"};
+        if ($conditional) {
+            my $conditionalString = "ENABLE(" . join(") && ENABLE(", split(/&/, $conditional)) . ")";
+            print F "#if ${conditionalString}\n\n";
         }
-        if ($tags{$name}{'constructorNeedsCreatedByParser'}) {
-            print F ", createdByParser";
+
+        printConstructorSignature($F, $tagName, $tagConstructorMap{$tagName}, "tagName");
+        printConstructorInterior($F, $tagName, $interfaceName, "tagName");
+
+        if ($conditional) {
+            print F "#endif\n\n";
         }
-        print F ");\n}\n\n";
     }
+
+    # Mapped tag name uses a special wrapper to keep their prefix and namespaceURI while using the mapped localname.
+    for my $tagName (sort keys %tagConstructorMap) {
+        if ($tags{$tagName}{'mapToTagName'}) {
+            my $mappedName = $tags{$tagName}{'mapToTagName'};
+            printConstructorSignature($F, $mappedName, $mappedName . "To" . $tagName, "tagName");
+            printConstructorInterior($F, $mappedName, $tags{$mappedName}{'interfaceName'}, "QualifiedName(tagName.prefix(), ${mappedName}Tag.localName(), tagName.namespaceURI())");
+        }
+    }
+
     print F "#endif\n" if $parameters{'guardFactoryWith'};
 }
 
 sub printFunctionInits
 {
-    my $F = shift;
+    my ($F, $tagConstructorMap) = @_;
+    my %tagConstructorMap = %$tagConstructorMap;
 
-    for my $name (sort keys %tags) {
-        print F "    gFunctionMap->set($parameters{'namespace'}Names::${name}Tag.localName().impl(), ${name}Constructor);\n";
+    for my $tagName (sort keys %tagConstructorMap) {
+
+        my $conditional = $tags{$tagName}{"conditional"};
+        if ($conditional) {
+            my $conditionalString = "ENABLE(" . join(") && ENABLE(", split(/&/, $conditional)) . ")";
+            print F "#if ${conditionalString}\n";
+        }
+
+        if ($tags{$tagName}{'mapToTagName'}) {
+            print F "    addTag(${tagName}Tag, $tags{$tagName}{'mapToTagName'}To${tagName}Constructor);\n";
+        } else {
+            print F "    addTag(${tagName}Tag, $tagConstructorMap{$tagName}Constructor);\n";
+        }
+
+        if ($conditional) {
+            print F "#endif\n\n";
+        }
     }
 }
 
@@ -568,34 +671,40 @@ printElementIncludes($F);
 print F <<END
 #include <wtf/HashMap.h>
 
-using namespace WebCore;
+namespace WebCore {
+
+using namespace $parameters{'namespace'}Names;
 
 END
 ;
 
-print F "typedef PassRefPtr<$parameters{'namespace'}Element> (*ConstructorFunction)(Document*";
+print F "typedef PassRefPtr<$parameters{'namespace'}Element> (*ConstructorFunction)(const QualifiedName&, Document*";
 
 if ($parameters{'namespace'} eq "HTML") {
-    print F ", HTMLFormElement* formElement";
+    print F ", HTMLFormElement*";
 }
 
 print F ", bool createdByParser);\n";
-
 print F <<END
-typedef WTF::HashMap<AtomicStringImpl*, ConstructorFunction> FunctionMap;
+typedef HashMap<AtomicStringImpl*, ConstructorFunction> FunctionMap;
 
 static FunctionMap* gFunctionMap = 0;
-
-namespace WebCore {
 
 END
 ;
 
-printConstructors($F);
+my %tagConstructorMap = buildConstructorMap();
+
+printConstructors($F, \%tagConstructorMap);
 
 print F "#if $parameters{'guardFactoryWith'}\n" if $parameters{'guardFactoryWith'};
 
 print F <<END
+static void addTag(const QualifiedName& tag, ConstructorFunction func)
+{
+    gFunctionMap->set(tag.localName().impl(), func);
+}
+
 static inline void createFunctionMapIfNecessary()
 {
     if (gFunctionMap)
@@ -607,7 +716,7 @@ static inline void createFunctionMapIfNecessary()
 END
 ;
 
-printFunctionInits($F);
+printFunctionInits($F, \%tagConstructorMap);
 
 print F "}\n";
 print F "#endif\n" if $parameters{'guardFactoryWith'};
@@ -627,12 +736,22 @@ print F <<END
     if (!doc)
         return 0;
 
+END
+;
+
+if ($parameters{'namespace'} ne "HTML") {
+print F <<END
 #if ENABLE(DASHBOARD_SUPPORT)
     Settings* settings = doc->settings();
     if (settings && settings->usesDashboardBackwardCompatibilityMode())
         return 0;
 #endif
+END
+;
 
+}
+
+print F <<END
     createFunctionMapIfNecessary();
     ConstructorFunction func = gFunctionMap->get(qName.localName().impl());
     if (func)
@@ -640,9 +759,9 @@ END
 ;
 
 if ($parameters{"namespace"} eq "HTML") {
-    print F "        return func(doc, formElement, createdByParser);\n";
+    print F "        return func(qName, doc, formElement, createdByParser);\n";
 } else {
-    print F "        return func(doc, createdByParser);\n";
+    print F "        return func(qName, doc, createdByParser);\n";
 }
 
 print F "    return new $parameters{'namespace'}Element(qName, doc);\n";
@@ -735,7 +854,7 @@ sub usesDefaultJSWrapper
     my $name = shift;
 
     # A tag reuses the default wrapper if its JSInterfaceName matches the default namespace Element.
-    return $tags{$name}{'JSInterfaceName'} eq $parameters{"namespace"} . "Element";
+    return $tags{$name}{'JSInterfaceName'} eq $parameters{"namespace"} . "Element" || $tags{$name}{'JSInterfaceName'} eq "HTMLNoScriptElement";
 }
 
 sub printWrapperFunctions
@@ -749,27 +868,37 @@ sub printWrapperFunctions
         next if defined($tagsSeen{$JSInterfaceName}) || usesDefaultJSWrapper($tagName);
         $tagsSeen{$JSInterfaceName} = 1;
 
+        my $conditional = $tags{$tagName}{"conditional"};
+        if ($conditional) {
+            my $conditionalString = "ENABLE(" . join(") && ENABLE(", split(/&/, $conditional)) . ")";
+            print F "#if ${conditionalString}\n\n";
+        }
+
         # Hack for the media tags
+        # FIXME: This should have been done via a CustomWrapper attribute and a separate *Custom file.
         if ($tags{$tagName}{"wrapperOnlyIfMediaIsAvailable"}) {
             print F <<END
-static JSNode* create${JSInterfaceName}Wrapper(ExecState* exec, PassRefPtr<$parameters{'namespace'}Element> element)
+static JSNode* create${JSInterfaceName}Wrapper(ExecState* exec, JSDOMGlobalObject* globalObject, PassRefPtr<$parameters{'namespace'}Element> element)
 {
     if (!MediaPlayer::isAvailable())
-        return CREATE_DOM_NODE_WRAPPER(exec, $parameters{'namespace'}Element, element.get());
-    return CREATE_DOM_NODE_WRAPPER(exec, ${JSInterfaceName}, element.get());
+        return CREATE_DOM_NODE_WRAPPER(exec, globalObject, $parameters{'namespace'}Element, element.get());
+    return CREATE_DOM_NODE_WRAPPER(exec, globalObject, ${JSInterfaceName}, element.get());
 }
 
 END
 ;
         } else {
             print F <<END
-static JSNode* create${JSInterfaceName}Wrapper(ExecState* exec, PassRefPtr<$parameters{'namespace'}Element> element)
+static JSNode* create${JSInterfaceName}Wrapper(ExecState* exec, JSDOMGlobalObject* globalObject, PassRefPtr<$parameters{'namespace'}Element> element)
 {
-    return CREATE_DOM_NODE_WRAPPER(exec, ${JSInterfaceName}, element.get());
+    return CREATE_DOM_NODE_WRAPPER(exec, globalObject, ${JSInterfaceName}, element.get());
 }
 
 END
 ;
+        }
+        if ($conditional) {
+            print F "#endif\n\n";
         }
     }
 }
@@ -803,7 +932,7 @@ namespace WebCore {
 
 using namespace $parameters{'namespace'}Names;
 
-typedef JSNode* (*Create$parameters{'namespace'}ElementWrapperFunction)(ExecState*, PassRefPtr<$parameters{'namespace'}Element>);
+typedef JSNode* (*Create$parameters{'namespace'}ElementWrapperFunction)(ExecState*, JSDOMGlobalObject*, PassRefPtr<$parameters{'namespace'}Element>);
 
 END
 ;
@@ -811,7 +940,7 @@ END
     printWrapperFunctions($F);
 
     print F <<END
-JSNode* createJS$parameters{'namespace'}Wrapper(ExecState* exec, PassRefPtr<$parameters{'namespace'}Element> element)
+JSNode* createJS$parameters{'namespace'}Wrapper(ExecState* exec, JSDOMGlobalObject* globalObject, PassRefPtr<$parameters{'namespace'}Element> element)
 {   
     typedef HashMap<WebCore::AtomicStringImpl*, Create$parameters{'namespace'}ElementWrapperFunction> FunctionMap;
     DEFINE_STATIC_LOCAL(FunctionMap, map, ());
@@ -823,16 +952,26 @@ END
         # Do not add the name to the map if it does not have a JS wrapper constructor or uses the default wrapper.
         next if usesDefaultJSWrapper($tag, \%tags);
 
+        my $conditional = $tags{$tag}{"conditional"};
+        if ($conditional) {
+            my $conditionalString = "ENABLE(" . join(") && ENABLE(", split(/&/, $conditional)) . ")";
+            print F "#if ${conditionalString}\n";
+        }
+
         my $ucTag = $tags{$tag}{"JSInterfaceName"};
         print F "       map.set(${tag}Tag.localName().impl(), create${ucTag}Wrapper);\n";
+
+        if ($conditional) {
+            print F "#endif\n";
+        }
     }
 
     print F <<END
     }
     Create$parameters{'namespace'}ElementWrapperFunction createWrapperFunction = map.get(element->localName().impl());
     if (createWrapperFunction)
-        return createWrapperFunction(exec, element);
-    return CREATE_DOM_NODE_WRAPPER(exec, $parameters{'namespace'}Element, element.get());
+        return createWrapperFunction(exec, globalObject, element);
+    return CREATE_DOM_NODE_WRAPPER(exec, globalObject, $parameters{'namespace'}Element, element.get());
 }
 
 }
@@ -868,9 +1007,10 @@ namespace JSC {
 namespace WebCore {
 
     class JSNode;
+    class JSDOMGlobalObject;
     class $parameters{'namespace'}Element;
 
-    JSNode* createJS$parameters{'namespace'}Wrapper(JSC::ExecState*, PassRefPtr<$parameters{'namespace'}Element>);
+    JSNode* createJS$parameters{'namespace'}Wrapper(JSC::ExecState*, JSDOMGlobalObject*, PassRefPtr<$parameters{'namespace'}Element>);
 
 }
  

@@ -32,6 +32,7 @@
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
 
+#include "DOMApplicationCache.h"
 #include "KURL.h"
 #include "PlatformString.h"
 #include "ResourceHandle.h"
@@ -42,7 +43,6 @@ namespace WebCore {
 
 class ApplicationCache;
 class ApplicationCacheResource;
-class DOMApplicationCache;
 class Document;
 class DocumentLoader;
 class Frame;
@@ -52,7 +52,7 @@ enum ApplicationCacheUpdateOption {
     ApplicationCacheUpdateWithoutBrowsingContext
 };
 
-class ApplicationCacheGroup : Noncopyable, ResourceHandleClient {
+class ApplicationCacheGroup : public Noncopyable, ResourceHandleClient {
 public:
     ApplicationCacheGroup(const KURL& manifestURL, bool isCopy = false);    
     ~ApplicationCacheGroup();
@@ -91,10 +91,11 @@ public:
     bool isCopy() const { return m_isCopy; }
 
 private:
-    typedef void (DOMApplicationCache::*ListenerFunction)();
-    void postListenerTask(ListenerFunction, const HashSet<DocumentLoader*>&);
-    void postListenerTask(ListenerFunction, const Vector<RefPtr<DocumentLoader> >& loaders);
-    void postListenerTask(ListenerFunction, DocumentLoader*);
+    static void postListenerTask(ApplicationCacheHost::EventID, const HashSet<DocumentLoader*>&);
+    static void postListenerTask(ApplicationCacheHost::EventID, DocumentLoader*);
+    void scheduleReachedMaxAppCacheSizeCallback();
+
+    PassRefPtr<ResourceHandle> createResourceHandle(const KURL&, ApplicationCacheResource* newestCachedResource);
 
     virtual void didReceiveResponse(ResourceHandle*, const ResourceResponse&);
     virtual void didReceiveData(ResourceHandle*, const char*, int, int lengthReceived);
@@ -104,6 +105,7 @@ private:
     void didReceiveManifestResponse(const ResourceResponse&);
     void didReceiveManifestData(const char*, int);
     void didFinishLoadingManifest();
+    void didReachMaxAppCacheSize();
     
     void startLoadingEntry();
     void deliverDelayedMainResources();
@@ -132,6 +134,8 @@ private:
 
     // List of pending master entries, used during the update process to ensure that new master entries are cached.
     HashSet<DocumentLoader*> m_pendingMasterResourceLoaders;
+    // How many of the above pending master entries have not yet finished downloading.
+    int m_downloadingPendingMasterResourceLoadersCount;
     
     // These are all the document loaders that are associated with a cache in this group.
     HashSet<DocumentLoader*> m_associatedDocumentLoaders;
@@ -159,12 +163,19 @@ private:
 
     // Whether this cache group is a copy that's only used for transferring the cache to another file.
     bool m_isCopy;
+
+    // This flag is set immediately after the ChromeClient::reachedMaxAppCacheSize() callback is invoked as a result of the storage layer failing to save a cache
+    // due to reaching the maximum size of the application cache database file. This flag is used by ApplicationCacheGroup::checkIfLoadIsComplete() to decide
+    // the course of action in case of this failure (i.e. call the ChromeClient callback or run the failure steps).
+    bool m_calledReachedMaxAppCacheSize;
     
     RefPtr<ResourceHandle> m_currentHandle;
     RefPtr<ApplicationCacheResource> m_currentResource;
     
     RefPtr<ApplicationCacheResource> m_manifestResource;
     RefPtr<ResourceHandle> m_manifestHandle;
+
+    friend class ChromeClientCallbackTimer;
 };
 
 } // namespace WebCore

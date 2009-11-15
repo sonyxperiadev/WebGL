@@ -33,13 +33,17 @@
 
 #include "StringImpl.h"
 #include <wtf/RefPtr.h>
+#include <SkPaint.h>
 
-class SkPaint;
 class SkTypeface;
+typedef uint32_t SkFontID;
+
+struct HB_FaceRec_;
 
 namespace WebCore {
 
 class FontDescription;
+class String;
 
 // -----------------------------------------------------------------------------
 // FontPlatformData is the handle which WebKit has on a specific face. A face
@@ -90,6 +94,12 @@ public:
     // -------------------------------------------------------------------------
     void setupPaint(SkPaint*) const;
 
+    // -------------------------------------------------------------------------
+    // Return Skia's unique id for this font. This encodes both the style and
+    // the font's file name so refers to a single face.
+    // -------------------------------------------------------------------------
+    SkFontID uniqueID() const;
+
     unsigned hash() const;
     float size() const { return m_textSize; }
 
@@ -97,12 +107,45 @@ public:
     FontPlatformData& operator=(const FontPlatformData&);
     bool isHashTableDeletedValue() const { return m_typeface == hashTableDeletedFontValue(); }
 
+#ifndef NDEBUG
+    String description() const;
+#endif
+
+    HB_FaceRec_* harfbuzzFace() const;
+
+    // -------------------------------------------------------------------------
+    // Global font preferences...
+
+    static void setHinting(SkPaint::Hinting);
+    static void setAntiAlias(bool on);
+    static void setSubpixelGlyphs(bool on);
+
 private:
+    class RefCountedHarfbuzzFace : public RefCounted<RefCountedHarfbuzzFace> {
+    public:
+        static PassRefPtr<RefCountedHarfbuzzFace> create(HB_FaceRec_* harfbuzzFace)
+        {
+            return adoptRef(new RefCountedHarfbuzzFace(harfbuzzFace));
+        }
+
+        ~RefCountedHarfbuzzFace();
+
+        HB_FaceRec_* face() const { return m_harfbuzzFace; }
+
+    private:
+        RefCountedHarfbuzzFace(HB_FaceRec_* harfbuzzFace) : m_harfbuzzFace(harfbuzzFace)
+        {
+        }
+
+        HB_FaceRec_* m_harfbuzzFace;
+    };
+
     // FIXME: Could SkAutoUnref be used here?
     SkTypeface* m_typeface;
     float m_textSize;
     bool m_fakeBold;
     bool m_fakeItalic;
+    mutable RefPtr<RefCountedHarfbuzzFace> m_harfbuzzFace;
 
     SkTypeface* hashTableDeletedFontValue() const { return reinterpret_cast<SkTypeface*>(-1); }
 };

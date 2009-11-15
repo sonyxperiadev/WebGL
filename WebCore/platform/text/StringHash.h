@@ -47,7 +47,7 @@ namespace WebCore {
             if (aLength != bLength)
                 return false;
 
-#if PLATFORM(ARM)
+#if PLATFORM(ARM) || PLATFORM(SH4)
             return memcmp(a->characters(), b->characters(), sizeof(UChar) * aLength) == 0;
 #else
             const uint32_t* aChars = reinterpret_cast<const uint32_t*>(a->characters());

@@ -31,6 +31,7 @@
 #include "HTMLCanvasElement.h"
 #include "HTMLNames.h"
 #include "RenderView.h"
+#include "FrameView.h"
 
 namespace WebCore {
 

@@ -28,28 +28,26 @@
 #include <config.h>
 #include <wtf/Platform.h>
 
+#include "ApplicationCacheStorage.h"
+#include "DatabaseTracker.h"
+#include "DocLoader.h"
 #include "Document.h"
 #include "Frame.h"
 #include "FrameLoader.h"
 #include "FrameView.h"
-#include "DocLoader.h"
+#include "Geolocation.h"
+#include "GeolocationPermissions.h"
 #include "Page.h"
 #include "RenderTable.h"
-#ifdef ANDROID_PLUGINS
-#include "PlatformString.h"
-#include "PluginDatabase.h"
-#endif
 #include "Settings.h"
 #include "WebCoreFrameBridge.h"
 #include "WebCoreJni.h"
+#if USE(V8)
+#include "WorkerContextExecutionProxy.h"
+#endif
 
 #include <JNIHelp.h>
 #include <utils/misc.h>
-
-namespace WebCore {
-// Defined in FileSystemAndroid.cpp
-extern String sPluginPath;
-}
 
 namespace android {
 
@@ -85,9 +83,27 @@ struct FieldIds {
 #endif
         mJavaScriptEnabled = env->GetFieldID(clazz, "mJavaScriptEnabled", "Z");
         mPluginsEnabled = env->GetFieldID(clazz, "mPluginsEnabled", "Z");
-#ifdef ANDROID_PLUGINS
-        mPluginsPath = env->GetFieldID(clazz, "mPluginsPath", "Ljava/lang/String;");
+#if ENABLE(DATABASE)
+        mDatabaseEnabled = env->GetFieldID(clazz, "mDatabaseEnabled", "Z");
 #endif
+#if ENABLE(DOM_STORAGE)
+        mDomStorageEnabled = env->GetFieldID(clazz, "mDomStorageEnabled", "Z");
+#endif
+#if ENABLE(DATABASE) || ENABLE(DOM_STORAGE)
+        // The databases saved to disk for both the SQL and DOM Storage APIs are stored
+        // in the same base directory.
+        mDatabasePath = env->GetFieldID(clazz, "mDatabasePath", "Ljava/lang/String;");
+#endif
+#if ENABLE(OFFLINE_WEB_APPLICATIONS)
+        mAppCacheEnabled = env->GetFieldID(clazz, "mAppCacheEnabled", "Z");
+        mAppCachePath = env->GetFieldID(clazz, "mAppCachePath", "Ljava/lang/String;");
+        mAppCacheMaxSize = env->GetFieldID(clazz, "mAppCacheMaxSize", "J");
+#endif
+#if ENABLE(WORKERS)
+        mWorkersEnabled = env->GetFieldID(clazz, "mWorkersEnabled", "Z");
+#endif
+        mGeolocationEnabled = env->GetFieldID(clazz, "mGeolocationEnabled", "Z");
+        mGeolocationDatabasePath = env->GetFieldID(clazz, "mGeolocationDatabasePath", "Ljava/lang/String;");
         mJavaScriptCanOpenWindowsAutomatically = env->GetFieldID(clazz,
                 "mJavaScriptCanOpenWindowsAutomatically", "Z");
         mUseWideViewport = env->GetFieldID(clazz, "mUseWideViewport", "Z");
@@ -112,11 +128,16 @@ struct FieldIds {
         LOG_ASSERT(mLoadsImagesAutomatically, "Could not find field mLoadsImagesAutomatically");
 #ifdef ANDROID_BLOCK_NETWORK_IMAGE
         LOG_ASSERT(mBlockNetworkImage, "Could not find field mBlockNetworkImage");
-#endif        
+#endif
         LOG_ASSERT(mJavaScriptEnabled, "Could not find field mJavaScriptEnabled");
         LOG_ASSERT(mPluginsEnabled, "Could not find field mPluginsEnabled");
-#ifdef ANDROID_PLUGINS
-        LOG_ASSERT(mPluginsPath, "Could not find field mPluginsPath");
+#if ENABLE(OFFLINE_WEB_APPLICATIONS)
+        LOG_ASSERT(mAppCacheEnabled, "Could not find field mAppCacheEnabled");
+        LOG_ASSERT(mAppCachePath, "Could not find field mAppCachePath");
+        LOG_ASSERT(mAppCacheMaxSize, "Could not find field mAppCacheMaxSize");
+#endif
+#if ENABLE(WORKERS)
+        LOG_ASSERT(mWorkersEnabled, "Could not find field mWorkersEnabled");
 #endif
         LOG_ASSERT(mJavaScriptCanOpenWindowsAutomatically,
                 "Could not find field mJavaScriptCanOpenWindowsAutomatically");
@@ -155,18 +176,34 @@ struct FieldIds {
 #endif
     jfieldID mJavaScriptEnabled;
     jfieldID mPluginsEnabled;
-#ifdef ANDROID_PLUGINS
-    jfieldID mPluginsPath;
+#if ENABLE(OFFLINE_WEB_APPLICATIONS)
+    jfieldID mAppCacheEnabled;
+    jfieldID mAppCachePath;
+    jfieldID mAppCacheMaxSize;
+#endif
+#if ENABLE(WORKERS)
+    jfieldID mWorkersEnabled;
 #endif
     jfieldID mJavaScriptCanOpenWindowsAutomatically;
     jfieldID mUseWideViewport;
     jfieldID mSupportMultipleWindows;
     jfieldID mShrinksStandaloneImagesToFit;
     jfieldID mUseDoubleTree;
-
     // Ordinal() method and value field for enums
     jmethodID mOrdinal;
     jfieldID  mTextSizeValue;
+
+#if ENABLE(DATABASE)
+    jfieldID mDatabaseEnabled;
+#endif
+#if ENABLE(DOM_STORAGE)
+    jfieldID mDomStorageEnabled;
+#endif
+    jfieldID mGeolocationEnabled;
+    jfieldID mGeolocationDatabasePath;
+#if ENABLE(DATABASE) || ENABLE(DOM_STORAGE)
+    jfieldID mDatabasePath;
+#endif
 };
 
 static struct FieldIds* gFieldIds;
@@ -273,45 +310,18 @@ public:
         flag = env->GetBooleanField(obj, gFieldIds->mPluginsEnabled);
         s->setPluginsEnabled(flag);
 
-#ifdef ANDROID_PLUGINS
-        ::WebCore::PluginDatabase *pluginDatabase =
-                  ::WebCore::PluginDatabase::installedPlugins();
-        str = (jstring)env->GetObjectField(obj, gFieldIds->mPluginsPath);
+#if ENABLE(OFFLINE_WEB_APPLICATIONS)
+        flag = env->GetBooleanField(obj, gFieldIds->mAppCacheEnabled);
+        s->setOfflineWebApplicationCacheEnabled(flag);
+        str = (jstring)env->GetObjectField(obj, gFieldIds->mAppCachePath);
         if (str) {
-            WebCore::String pluginsPath = to_string(env, str);
-            // When a new browser Tab is created, the corresponding
-            // Java WebViewCore object will sync (with the native
-            // side) its associated WebSettings at initialization
-            // time. However, at that point, the WebSettings object's
-            // mPluginsPaths member is set to the empty string. The
-            // real plugin path will be set later by the tab and the
-            // WebSettings will be synced again.
-            //
-            // There is no point in instructing WebCore's
-            // PluginDatabase instance to set the plugin path to the
-            // empty string. Furthermore, if the PluginDatabase
-            // instance is already initialized, setting the path to
-            // the empty string will cause the PluginDatabase to
-            // forget about the plugin files it has already
-            // inspected. When the path is subsequently set to the
-            // correct value, the PluginDatabase will attempt to load
-            // and initialize plugins that are already loaded and
-            // initialized.
-            if (pluginsPath.length()) {
-                s->setPluginsPath(pluginsPath);
-                // Set the plugin directories to this single entry.
-                Vector< ::WebCore::String > paths(1);
-                paths[0] = pluginsPath;
-                pluginDatabase->setPluginDirectories(paths);
-                // Set the home directory for plugin temporary files
-                WebCore::sPluginPath = paths[0];
-                // Reload plugins. We call Page::refreshPlugins() instead
-                // of pluginDatabase->refresh(), as we need to ensure that
-                // the list of mimetypes exposed by the browser are also
-                // updated.
-                WebCore::Page::refreshPlugins(false);
+            WebCore::String path = to_string(env, str);
+            if (path.length() && WebCore::cacheStorage().cacheDirectory().isNull()) {
+                WebCore::cacheStorage().setCacheDirectory(path);
             }
         }
+        jlong maxsize = env->GetIntField(obj, gFieldIds->mAppCacheMaxSize);
+        WebCore::cacheStorage().setMaximumSize(maxsize);
 #endif
 
         flag = env->GetBooleanField(obj, gFieldIds->mJavaScriptCanOpenWindowsAutomatically);
@@ -328,10 +338,31 @@ public:
 #endif
         flag = env->GetBooleanField(obj, gFieldIds->mShrinksStandaloneImagesToFit);
         s->setShrinksStandaloneImagesToFit(flag);
-#if USE(LOW_BANDWIDTH_DISPLAY)
-        flag = env->GetBooleanField(obj, gFieldIds->mUseDoubleTree);
-        pFrame->loader()->setUseLowBandwidthDisplay(flag);
+#if ENABLE(DATABASE)
+        flag = env->GetBooleanField(obj, gFieldIds->mDatabaseEnabled);
+        s->setDatabasesEnabled(flag);
+        str = (jstring)env->GetObjectField(obj, gFieldIds->mDatabasePath);
+        WebCore::DatabaseTracker::tracker().setDatabaseDirectoryPath(to_string(env, str));
 #endif
+#if ENABLE(DOM_STORAGE)
+        flag = env->GetBooleanField(obj, gFieldIds->mDomStorageEnabled);
+        s->setLocalStorageEnabled(flag);
+        str = (jstring)env->GetObjectField(obj, gFieldIds->mDatabasePath);
+        if (str) {
+            WebCore::String localStorageDatabasePath = to_string(env,str);
+            if (localStorageDatabasePath.length()) {
+                s->setLocalStorageDatabasePath(localStorageDatabasePath);
+            }
+        }
+#endif
+
+        flag = env->GetBooleanField(obj, gFieldIds->mGeolocationEnabled);
+        GeolocationPermissions::setAlwaysDeny(!flag);
+        str = (jstring)env->GetObjectField(obj, gFieldIds->mGeolocationDatabasePath);
+        if (str) {
+            GeolocationPermissions::setDatabasePath(to_string(env,str));
+            WebCore::Geolocation::setDatabasePath(to_string(env,str));
+        }
     }
 };
 

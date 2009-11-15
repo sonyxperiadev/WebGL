@@ -49,7 +49,12 @@ void Location::disconnectFrame()
 inline const KURL& Location::url() const
 {
     ASSERT(m_frame);
-    return m_frame->loader()->url();
+
+    const KURL& url = m_frame->loader()->url();
+    if (!url.isValid())
+        return blankURL();  // Use "about:blank" while the page is still loading (before we have a frame).
+
+    return url;
 }
 
 String Location::href() const
@@ -111,7 +116,8 @@ String Location::search() const
     if (!m_frame)
         return String();
 
-    return url().query();
+    const KURL& url = this->url();
+    return url.query().isEmpty() ? "" : "?" + url.query();
 }
 
 String Location::hash() const
@@ -119,8 +125,8 @@ String Location::hash() const
     if (!m_frame)
         return String();
 
-    const KURL& url = this->url();
-    return url.ref().isNull() ? "" : "#" + url.ref();
+    const String& fragmentIdentifier = this->url().fragmentIdentifier();
+    return fragmentIdentifier.isEmpty() ? "" : "#" + fragmentIdentifier;
 }
 
 String Location::toString() const

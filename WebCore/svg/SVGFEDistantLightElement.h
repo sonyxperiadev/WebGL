@@ -20,13 +20,11 @@
 #ifndef SVGFEDistantLightElement_h
 #define SVGFEDistantLightElement_h
 
-#if ENABLE(SVG) && ENABLE(SVG_FILTERS)
+#if ENABLE(SVG) && ENABLE(FILTERS)
 #include "SVGFELightElement.h"
 
-namespace WebCore
-{
-    class SVGFEDistantLightElement : public SVGFELightElement
-    { 
+namespace WebCore {
+    class SVGFEDistantLightElement : public SVGFELightElement {
     public:
         SVGFEDistantLightElement(const QualifiedName&, Document*);
         virtual ~SVGFEDistantLightElement();

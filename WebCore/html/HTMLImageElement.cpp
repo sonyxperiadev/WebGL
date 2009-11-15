@@ -30,7 +30,9 @@
 #include "HTMLDocument.h"
 #include "HTMLFormElement.h"
 #include "HTMLNames.h"
+#include "MappedAttribute.h"
 #include "RenderImage.h"
+#include "ScriptEventListener.h"
 
 using namespace std;
 
@@ -80,7 +82,7 @@ void HTMLImageElement::parseMappedAttribute(MappedAttribute* attr)
     const QualifiedName& attrName = attr->name();
     if (attrName == altAttr) {
         if (renderer() && renderer()->isImage())
-            static_cast<RenderImage*>(renderer())->updateAltText();
+            toRenderImage(renderer())->updateAltText();
     } else if (attrName == srcAttr)
         m_imageLoader.updateFromElementIgnoringPreviousError();
     else if (attrName == widthAttr)
@@ -108,14 +110,14 @@ void HTMLImageElement::parseMappedAttribute(MappedAttribute* attr)
         if (attr->value().string()[0] == '#')
             usemap = attr->value();
         else
-            usemap = document()->completeURL(parseURL(attr->value())).string();
+            usemap = document()->completeURL(deprecatedParseURL(attr->value())).string();
         setIsLink(!attr->isNull());
     } else if (attrName == ismapAttr)
         ismap = true;
     else if (attrName == onabortAttr)
-        setInlineEventListenerForTypeAndAttribute(eventNames().abortEvent, attr);
+        setAttributeEventListener(eventNames().abortEvent, createAttributeEventListener(this, attr));
     else if (attrName == onloadAttr)
-        setInlineEventListenerForTypeAndAttribute(eventNames().loadEvent, attr);
+        setAttributeEventListener(eventNames().loadEvent, createAttributeEventListener(this, attr));
     else if (attrName == compositeAttr) {
         if (!parseCompositeOperator(attr->value(), m_compositeOperator))
             m_compositeOperator = CompositeSourceOver;
@@ -166,7 +168,7 @@ void HTMLImageElement::attach()
     HTMLElement::attach();
 
     if (renderer() && renderer()->isImage()) {
-        RenderImage* imageObj = static_cast<RenderImage*>(renderer());
+        RenderImage* imageObj = toRenderImage(renderer());
         if (imageObj->hasImage())
             return;
         imageObj->setCachedImage(m_imageLoader.image());
@@ -315,6 +317,12 @@ String HTMLImageElement::border() const
 void HTMLImageElement::setBorder(const String& value)
 {
     setAttribute(borderAttr, value);
+}
+
+bool HTMLImageElement::draggable() const
+{
+    // Image elements are draggable by default.
+    return !equalIgnoringCase(getAttribute(draggableAttr), "false");
 }
 
 void HTMLImageElement::setHeight(int value)

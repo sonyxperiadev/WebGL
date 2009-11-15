@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -53,20 +53,23 @@ namespace WebCore {
     class Frame;
     class FrameLoader;
     class HistoryItem;
+    class HTMLAppletElement;
     class HTMLFrameOwnerElement;
+    class HTMLPlugInElement;
     class IntSize;
     class KURL;
     class NavigationAction;
+    class PluginView;
     class ResourceError;
     class ResourceHandle;
     class ResourceLoader;
+    struct ResourceRequest;
     class ResourceResponse;
+    class ScriptString;
     class SharedBuffer;
     class SubstituteData;
     class String;
     class Widget;
-
-    class ResourceRequest;
 
 #ifdef ANDROID_HISTORY_CLIENT
     class BackForwardList;
@@ -76,12 +79,17 @@ namespace WebCore {
 
     class FrameLoaderClient {
     public:
-        virtual ~FrameLoaderClient();
-        virtual void frameLoaderDestroyed() = 0;
-        
-        virtual bool hasWebView() const = 0; // mainly for assertions
+        // An inline function cannot be the first non-abstract virtual function declared
+        // in the class as it results in the vtable being generated as a weak symbol.
+        // This hurts performance (in Mac OS X at least, when loadig frameworks), so we
+        // don't want to do it in WebKit.
+        virtual bool hasHTMLView() const;
 
-        virtual bool hasHTMLView() const { return true; }
+        virtual ~FrameLoaderClient() { }
+
+        virtual void frameLoaderDestroyed() = 0;
+
+        virtual bool hasWebView() const = 0; // mainly for assertions
 
         virtual void makeRepresentation(DocumentLoader*) = 0;
         virtual void forceLayout() = 0;
@@ -103,6 +111,7 @@ namespace WebCore {
         virtual void dispatchDidFinishLoading(DocumentLoader*, unsigned long identifier) = 0;
         virtual void dispatchDidFailLoading(DocumentLoader*, unsigned long identifier, const ResourceError&) = 0;
         virtual bool dispatchDidLoadResourceFromMemoryCache(DocumentLoader*, const ResourceRequest&, const ResourceResponse&, int length) = 0;
+        virtual void dispatchDidLoadResourceByXMLHttpRequest(unsigned long identifier, const ScriptString&) = 0;
 
         virtual void dispatchDidHandleOnloadEvents() = 0;
         virtual void dispatchDidReceiveServerRedirectForProvisionalLoad() = 0;
@@ -155,7 +164,7 @@ namespace WebCore {
         virtual void finishedLoading(DocumentLoader*) = 0;
         
         virtual void updateGlobalHistory() = 0;
-        virtual void updateGlobalHistoryForRedirectWithoutHistoryItem() = 0;
+        virtual void updateGlobalHistoryRedirectLinks() = 0;
 
         virtual bool shouldGoToHistoryItem(HistoryItem*) const = 0;
 #ifdef ANDROID_HISTORY_CLIENT
@@ -201,18 +210,30 @@ namespace WebCore {
 
         virtual PassRefPtr<Frame> createFrame(const KURL& url, const String& name, HTMLFrameOwnerElement* ownerElement,
                                    const String& referrer, bool allowsScrolling, int marginWidth, int marginHeight) = 0;
-        virtual Widget* createPlugin(const IntSize&, Element*, const KURL&, const Vector<String>&, const Vector<String>&, const String&, bool loadManually) = 0;
+        virtual PassRefPtr<Widget> createPlugin(const IntSize&, HTMLPlugInElement*, const KURL&, const Vector<String>&, const Vector<String>&, const String&, bool loadManually) = 0;
         virtual void redirectDataToPlugin(Widget* pluginWidget) = 0;
-        
-        virtual Widget* createJavaAppletWidget(const IntSize&, Element*, const KURL& baseURL, const Vector<String>& paramNames, const Vector<String>& paramValues) = 0;
+
+        virtual PassRefPtr<Widget> createJavaAppletWidget(const IntSize&, HTMLAppletElement*, const KURL& baseURL, const Vector<String>& paramNames, const Vector<String>& paramValues) = 0;
+
+        virtual void dispatchDidFailToStartPlugin(const PluginView*) const { }
 
         virtual ObjectContentType objectContentType(const KURL& url, const String& mimeType) = 0;
         virtual String overrideMediaType() const = 0;
 
         virtual void windowObjectCleared() = 0;
+        virtual void documentElementAvailable() = 0;
         virtual void didPerformFirstNavigation() const = 0; // "Navigation" here means a transition from one page to another that ends up in the back/forward list.
-        
+
+#if USE(V8)
+        virtual void didCreateScriptContextForFrame() = 0;
+        virtual void didDestroyScriptContextForFrame() = 0;
+        virtual void didCreateIsolatedScriptContext() = 0;
+#endif
+
         virtual void registerForIconNotification(bool listen = true) = 0;
+#ifdef ANDROID_APPLE_TOUCH_ICON
+        virtual void dispatchDidReceiveTouchIconURL(const String& url, bool precomposed) = 0;
+#endif
         
 #if PLATFORM(MAC)
 #if ENABLE(MAC_JAVA_BRIDGE)
@@ -220,12 +241,11 @@ namespace WebCore {
 #endif
         virtual NSCachedURLResponse* willCacheResponse(DocumentLoader*, unsigned long identifier, NSCachedURLResponse*) const = 0;
 #endif
+#if USE(CFNETWORK)
+        virtual bool shouldCacheResponse(DocumentLoader*, unsigned long identifier, const ResourceResponse&, const unsigned char* data, unsigned long long length) = 0;
+#endif
 
         virtual bool shouldUsePluginDocument(const String& /*mimeType*/) const { return false; }
-
-    protected:
-        static void transitionToCommittedForNewPage(Frame*, const IntSize&, const Color&, bool, const IntSize &, bool,
-                                                    ScrollbarMode = ScrollbarAuto, ScrollbarMode = ScrollbarAuto);
     };
 
 } // namespace WebCore

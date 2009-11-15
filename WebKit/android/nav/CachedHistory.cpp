@@ -84,8 +84,6 @@ void CachedHistory::reset()
 //    mLastScroll = 0;
     mPriorBounds = WebCore::IntRect(0, 0, 0, 0);
     mDirectionChange = false;
-    mFocusIsInput = false;
-    mPriorIsInput = false;
     mDidFirstLayout = false;
     mPriorMove = mLastMove = CachedFrame::UNINITIALIZED;
     mMinWorkingHorizontal = mMinWorkingVertical = INT_MIN;
@@ -93,24 +91,22 @@ void CachedHistory::reset()
 }
 
 void CachedHistory::setWorking(CachedFrame::Direction newMove, 
-    const CachedNode* focus, const WebCore::IntRect& viewBounds)
+    const CachedNode* cursor, const WebCore::IntRect& viewBounds)
 {
     CachedFrame::Direction lastAxis = (CachedFrame::Direction) (mLastMove & ~CachedFrame::RIGHT_DOWN); // up, left or uninitialized
     CachedFrame::Direction newAxis = (CachedFrame::Direction) (newMove & ~CachedFrame::RIGHT_DOWN); 
     bool change = newAxis != lastAxis;
     mDirectionChange = change && mLastMove != CachedFrame::UNINITIALIZED;
-    if (focus != NULL || mLastMove != CachedFrame::UNINITIALIZED) {
+    if (cursor != NULL || mLastMove != CachedFrame::UNINITIALIZED) {
         mPriorMove = mLastMove;
         mLastMove = newMove;
     }
     const WebCore::IntRect* navBounds = &mNavBounds;
-    if (focus != NULL) {
-        WebCore::IntRect focusBounds;
-        focus->getBounds(&focusBounds);
-        if (focusBounds.isEmpty() == false)
-            mNavBounds = focusBounds;
-        mPriorIsInput = mFocusIsInput;
-        mFocusIsInput = focus->isInput(); // focus->localName() == "input";
+    if (cursor != NULL) {
+        WebCore::IntRect cursorBounds;
+        cursor->getBounds(&cursorBounds);
+        if (cursorBounds.isEmpty() == false)
+            mNavBounds = cursorBounds;
     }
     if (change) {   // uninitialized or change in direction
         if (lastAxis != CachedFrame::LEFT && navBounds->height() > 0) {
@@ -120,18 +116,6 @@ void CachedHistory::setWorking(CachedFrame::Direction newMove,
         if (lastAxis != CachedFrame::UP && navBounds->width() > 0) {
             mMinWorkingVertical = navBounds->x();
             mMaxWorkingVertical = navBounds->right();
-        }
-    } else if (mPriorIsInput) {
-        if (newAxis == CachedFrame::UP_DOWN) {
-            if (mPriorBounds.x() == mMinWorkingVertical && mPriorBounds.right() == mMaxWorkingVertical) {
-                mMinWorkingVertical = navBounds->x();
-                mMaxWorkingVertical = navBounds->right();
-            }
-        } else {
-            if (mPriorBounds.y() == mMinWorkingHorizontal && mPriorBounds.bottom() == mMaxWorkingHorizontal) {
-                mMinWorkingHorizontal = navBounds->y();
-                mMaxWorkingHorizontal = navBounds->bottom();
-            }
         }
     }
     pinMaxMin(viewBounds);
@@ -176,11 +160,11 @@ void CachedHistory::Debug::print(CachedRoot* root) const
     }
     DUMP_NAV_LOGD("// };\n");
 //    DUMP_NAV_LOGD("// int mLastScroll=%d;\n", b->mLastScroll);
+    DEBUG_PRINT_RECT(mMouseBounds);
     DEBUG_PRINT_RECT(mNavBounds);
     DEBUG_PRINT_RECT(mPriorBounds);
     DEBUG_PRINT_BOOL(mDirectionChange);
-    DEBUG_PRINT_BOOL(mFocusIsInput);
-    DEBUG_PRINT_BOOL(mPriorIsInput);
+    DEBUG_PRINT_BOOL(mDidFirstLayout);
     DUMP_NAV_LOGD("// CachedFrame::Direction mLastMove=%s, mPriorMove=%s;\n", 
         direction(b->mLastMove), direction(b->mPriorMove));
     int max = b->mMaxWorkingHorizontal;

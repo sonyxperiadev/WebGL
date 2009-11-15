@@ -35,9 +35,8 @@ namespace JSC {
     extern const double NaN;
     extern const double Inf;
 
-    JSValuePtr jsNumberCell(ExecState*, double);
-
-#if !USE(ALTERNATE_JSIMMEDIATE)
+#if USE(JSVALUE32)
+    JSValue jsNumberCell(ExecState*, double);
 
     class Identifier;
     class JSCell;
@@ -50,13 +49,14 @@ namespace JSC {
 
     class JSNumberCell : public JSCell {
         friend class JIT;
-        friend JSValuePtr jsNumberCell(JSGlobalData*, double);
-        friend JSValuePtr jsNumberCell(ExecState*, double);
+        friend JSValue jsNumberCell(JSGlobalData*, double);
+        friend JSValue jsNumberCell(ExecState*, double);
+
     public:
         double value() const { return m_value; }
 
-        virtual JSValuePtr toPrimitive(ExecState*, PreferredPrimitiveType) const;
-        virtual bool getPrimitiveNumber(ExecState*, double& number, JSValuePtr& value);
+        virtual JSValue toPrimitive(ExecState*, PreferredPrimitiveType) const;
+        virtual bool getPrimitiveNumber(ExecState*, double& number, JSValue& value);
         virtual bool toBoolean(ExecState*) const;
         virtual double toNumber(ExecState*) const;
         virtual UString toString(ExecState*) const;
@@ -64,7 +64,7 @@ namespace JSC {
 
         virtual UString toThisString(ExecState*) const;
         virtual JSObject* toThisObject(ExecState*) const;
-        virtual JSValuePtr getJSNumber();
+        virtual JSValue getJSNumber();
 
         void* operator new(size_t size, ExecState* exec)
         {
@@ -84,7 +84,7 @@ namespace JSC {
     #endif
         }
 
-        static PassRefPtr<Structure> createStructure(JSValuePtr proto) { return Structure::create(proto, TypeInfo(NumberType, NeedsThisConversion)); }
+        static PassRefPtr<Structure> createStructure(JSValue proto) { return Structure::create(proto, TypeInfo(NumberType, NeedsThisConversion)); }
 
     private:
         JSNumberCell(JSGlobalData* globalData, double value)
@@ -100,312 +100,249 @@ namespace JSC {
         }
 
         virtual bool getUInt32(uint32_t&) const;
-        virtual bool getTruncatedInt32(int32_t&) const;
-        virtual bool getTruncatedUInt32(uint32_t&) const;
 
         double m_value;
     };
 
-    JSValuePtr jsNumberCell(JSGlobalData*, double);
+    JSValue jsNumberCell(JSGlobalData*, double);
 
-    inline bool isNumberCell(JSValuePtr v)
+    inline bool isNumberCell(JSValue v)
     {
         return v.isCell() && v.asCell()->isNumber();
     }
 
-    inline JSNumberCell* asNumberCell(JSValuePtr v)
+    inline JSNumberCell* asNumberCell(JSValue v)
     {
         ASSERT(isNumberCell(v));
         return static_cast<JSNumberCell*>(v.asCell());
     }
 
-    ALWAYS_INLINE JSValuePtr jsNumber(ExecState* exec, double d)
+    inline JSValue::JSValue(ExecState* exec, double d)
     {
-        JSValuePtr v = JSImmediate::from(d);
-        return v ? v : jsNumberCell(exec, d);
+        JSValue v = JSImmediate::from(d);
+        *this = v ? v : jsNumberCell(exec, d);
     }
 
-    ALWAYS_INLINE JSValuePtr jsNumber(ExecState* exec, int i)
+    inline JSValue::JSValue(ExecState* exec, int i)
     {
-        JSValuePtr v = JSImmediate::from(i);
-        return v ? v : jsNumberCell(exec, i);
+        JSValue v = JSImmediate::from(i);
+        *this = v ? v : jsNumberCell(exec, i);
     }
 
-    ALWAYS_INLINE JSValuePtr jsNumber(ExecState* exec, unsigned i)
+    inline JSValue::JSValue(ExecState* exec, unsigned i)
     {
-        JSValuePtr v = JSImmediate::from(i);
-        return v ? v : jsNumberCell(exec, i);
+        JSValue v = JSImmediate::from(i);
+        *this = v ? v : jsNumberCell(exec, i);
     }
 
-    ALWAYS_INLINE JSValuePtr jsNumber(ExecState* exec, long i)
+    inline JSValue::JSValue(ExecState* exec, long i)
     {
-        JSValuePtr v = JSImmediate::from(i);
-        return v ? v : jsNumberCell(exec, i);
+        JSValue v = JSImmediate::from(i);
+        *this = v ? v : jsNumberCell(exec, i);
     }
 
-    ALWAYS_INLINE JSValuePtr jsNumber(ExecState* exec, unsigned long i)
+    inline JSValue::JSValue(ExecState* exec, unsigned long i)
     {
-        JSValuePtr v = JSImmediate::from(i);
-        return v ? v : jsNumberCell(exec, i);
+        JSValue v = JSImmediate::from(i);
+        *this = v ? v : jsNumberCell(exec, i);
     }
 
-    ALWAYS_INLINE JSValuePtr jsNumber(ExecState* exec, long long i)
+    inline JSValue::JSValue(ExecState* exec, long long i)
     {
-        JSValuePtr v = JSImmediate::from(i);
-        return v ? v : jsNumberCell(exec, static_cast<double>(i));
+        JSValue v = JSImmediate::from(i);
+        *this = v ? v : jsNumberCell(exec, static_cast<double>(i));
     }
 
-    ALWAYS_INLINE JSValuePtr jsNumber(ExecState* exec, unsigned long long i)
+    inline JSValue::JSValue(ExecState* exec, unsigned long long i)
     {
-        JSValuePtr v = JSImmediate::from(i);
-        return v ? v : jsNumberCell(exec, static_cast<double>(i));
+        JSValue v = JSImmediate::from(i);
+        *this = v ? v : jsNumberCell(exec, static_cast<double>(i));
     }
 
-    ALWAYS_INLINE JSValuePtr jsNumber(JSGlobalData* globalData, double d)
+    inline JSValue::JSValue(JSGlobalData* globalData, double d)
     {
-        JSValuePtr v = JSImmediate::from(d);
-        return v ? v : jsNumberCell(globalData, d);
+        JSValue v = JSImmediate::from(d);
+        *this = v ? v : jsNumberCell(globalData, d);
     }
 
-    ALWAYS_INLINE JSValuePtr jsNumber(JSGlobalData* globalData, int i)
+    inline JSValue::JSValue(JSGlobalData* globalData, int i)
     {
-        JSValuePtr v = JSImmediate::from(i);
-        return v ? v : jsNumberCell(globalData, i);
+        JSValue v = JSImmediate::from(i);
+        *this = v ? v : jsNumberCell(globalData, i);
     }
 
-    ALWAYS_INLINE JSValuePtr jsNumber(JSGlobalData* globalData, unsigned i)
+    inline JSValue::JSValue(JSGlobalData* globalData, unsigned i)
     {
-        JSValuePtr v = JSImmediate::from(i);
-        return v ? v : jsNumberCell(globalData, i);
+        JSValue v = JSImmediate::from(i);
+        *this = v ? v : jsNumberCell(globalData, i);
     }
 
-    ALWAYS_INLINE JSValuePtr jsNumber(JSGlobalData* globalData, long i)
-    {
-        JSValuePtr v = JSImmediate::from(i);
-        return v ? v : jsNumberCell(globalData, i);
-    }
-
-    ALWAYS_INLINE JSValuePtr jsNumber(JSGlobalData* globalData, unsigned long i)
-    {
-        JSValuePtr v = JSImmediate::from(i);
-        return v ? v : jsNumberCell(globalData, i);
-    }
-
-    ALWAYS_INLINE JSValuePtr jsNumber(JSGlobalData* globalData, long long i)
-    {
-        JSValuePtr v = JSImmediate::from(i);
-        return v ? v : jsNumberCell(globalData, static_cast<double>(i));
-    }
-
-    ALWAYS_INLINE JSValuePtr jsNumber(JSGlobalData* globalData, unsigned long long i)
-    {
-        JSValuePtr v = JSImmediate::from(i);
-        return v ? v : jsNumberCell(globalData, static_cast<double>(i));
-    }
-
-    inline bool JSValuePtr::isDoubleNumber() const
+    inline bool JSValue::isDouble() const
     {
         return isNumberCell(asValue());
     }
 
-    inline double JSValuePtr::getDoubleNumber() const
+    inline double JSValue::asDouble() const
     {
         return asNumberCell(asValue())->value();
     }
 
-    inline bool JSValuePtr::isNumber() const
+    inline bool JSValue::isNumber() const
     {
-        return JSImmediate::isNumber(asValue()) || isDoubleNumber();
+        return JSImmediate::isNumber(asValue()) || isDouble();
     }
 
-    inline double JSValuePtr::uncheckedGetNumber() const
+    inline double JSValue::uncheckedGetNumber() const
     {
         ASSERT(isNumber());
-        return JSImmediate::isImmediate(asValue()) ? JSImmediate::toDouble(asValue()) : getDoubleNumber();
+        return JSImmediate::isImmediate(asValue()) ? JSImmediate::toDouble(asValue()) : asDouble();
     }
 
-#else
+#endif // USE(JSVALUE32)
 
-    ALWAYS_INLINE JSValuePtr jsNumber(ExecState*, double d)
+#if USE(JSVALUE64)
+    inline JSValue::JSValue(ExecState*, double d)
     {
-        JSValuePtr v = JSImmediate::from(d);
+        JSValue v = JSImmediate::from(d);
         ASSERT(v);
-        return v;
+        *this = v;
     }
 
-    ALWAYS_INLINE JSValuePtr jsNumber(ExecState*, int i)
+    inline JSValue::JSValue(ExecState*, int i)
     {
-        JSValuePtr v = JSImmediate::from(i);
+        JSValue v = JSImmediate::from(i);
         ASSERT(v);
-        return v;
+        *this = v;
     }
 
-    ALWAYS_INLINE JSValuePtr jsNumber(ExecState*, unsigned i)
+    inline JSValue::JSValue(ExecState*, unsigned i)
     {
-        JSValuePtr v = JSImmediate::from(i);
+        JSValue v = JSImmediate::from(i);
         ASSERT(v);
-        return v;
+        *this = v;
     }
 
-    ALWAYS_INLINE JSValuePtr jsNumber(ExecState*, long i)
+    inline JSValue::JSValue(ExecState*, long i)
     {
-        JSValuePtr v = JSImmediate::from(i);
+        JSValue v = JSImmediate::from(i);
         ASSERT(v);
-        return v;
+        *this = v;
     }
 
-    ALWAYS_INLINE JSValuePtr jsNumber(ExecState*, unsigned long i)
+    inline JSValue::JSValue(ExecState*, unsigned long i)
     {
-        JSValuePtr v = JSImmediate::from(i);
+        JSValue v = JSImmediate::from(i);
         ASSERT(v);
-        return v;
+        *this = v;
     }
 
-    ALWAYS_INLINE JSValuePtr jsNumber(ExecState*, long long i)
+    inline JSValue::JSValue(ExecState*, long long i)
     {
-        JSValuePtr v = JSImmediate::from(static_cast<double>(i));
+        JSValue v = JSImmediate::from(static_cast<double>(i));
         ASSERT(v);
-        return v;
+        *this = v;
     }
 
-    ALWAYS_INLINE JSValuePtr jsNumber(ExecState*, unsigned long long i)
+    inline JSValue::JSValue(ExecState*, unsigned long long i)
     {
-        JSValuePtr v = JSImmediate::from(static_cast<double>(i));
+        JSValue v = JSImmediate::from(static_cast<double>(i));
         ASSERT(v);
-        return v;
+        *this = v;
     }
 
-    ALWAYS_INLINE JSValuePtr jsNumber(JSGlobalData*, double d)
+    inline JSValue::JSValue(JSGlobalData*, double d)
     {
-        JSValuePtr v = JSImmediate::from(d);
+        JSValue v = JSImmediate::from(d);
         ASSERT(v);
-        return v;
+        *this = v;
     }
 
-    ALWAYS_INLINE JSValuePtr jsNumber(JSGlobalData*, int i)
+    inline JSValue::JSValue(JSGlobalData*, int i)
     {
-        JSValuePtr v = JSImmediate::from(i);
+        JSValue v = JSImmediate::from(i);
         ASSERT(v);
-        return v;
+        *this = v;
     }
 
-    ALWAYS_INLINE JSValuePtr jsNumber(JSGlobalData*, unsigned i)
+    inline JSValue::JSValue(JSGlobalData*, unsigned i)
     {
-        JSValuePtr v = JSImmediate::from(i);
+        JSValue v = JSImmediate::from(i);
         ASSERT(v);
-        return v;
+        *this = v;
     }
 
-    ALWAYS_INLINE JSValuePtr jsNumber(JSGlobalData*, long i)
+    inline bool JSValue::isDouble() const
     {
-        JSValuePtr v = JSImmediate::from(i);
-        ASSERT(v);
-        return v;
+        return JSImmediate::isDouble(asValue());
     }
 
-    ALWAYS_INLINE JSValuePtr jsNumber(JSGlobalData*, unsigned long i)
-    {
-        JSValuePtr v = JSImmediate::from(i);
-        ASSERT(v);
-        return v;
-    }
-
-    ALWAYS_INLINE JSValuePtr jsNumber(JSGlobalData*, long long i)
-    {
-        JSValuePtr v = JSImmediate::from(static_cast<double>(i));
-        ASSERT(v);
-        return v;
-    }
-
-    ALWAYS_INLINE JSValuePtr jsNumber(JSGlobalData*, unsigned long long i)
-    {
-        JSValuePtr v = JSImmediate::from(static_cast<double>(i));
-        ASSERT(v);
-        return v;
-    }
-
-    inline bool JSValuePtr::isDoubleNumber() const
-    {
-        return JSImmediate::isDoubleNumber(asValue());
-    }
-
-    inline double JSValuePtr::getDoubleNumber() const
+    inline double JSValue::asDouble() const
     {
         return JSImmediate::doubleValue(asValue());
     }
 
-    inline bool JSValuePtr::isNumber() const
+    inline bool JSValue::isNumber() const
     {
         return JSImmediate::isNumber(asValue());
     }
 
-    inline double JSValuePtr::uncheckedGetNumber() const
+    inline double JSValue::uncheckedGetNumber() const
     {
         ASSERT(isNumber());
         return JSImmediate::toDouble(asValue());
     }
 
-#endif
+#endif // USE(JSVALUE64)
 
-    ALWAYS_INLINE JSValuePtr jsNumber(ExecState*, char i)
+#if USE(JSVALUE32) || USE(JSVALUE64)
+
+    inline JSValue::JSValue(ExecState*, char i)
     {
         ASSERT(JSImmediate::from(i));
-        return JSImmediate::from(i);
+        *this = JSImmediate::from(i);
     }
 
-    ALWAYS_INLINE JSValuePtr jsNumber(ExecState*, unsigned char i)
+    inline JSValue::JSValue(ExecState*, unsigned char i)
     {
         ASSERT(JSImmediate::from(i));
-        return JSImmediate::from(i);
+        *this = JSImmediate::from(i);
     }
 
-    ALWAYS_INLINE JSValuePtr jsNumber(ExecState*, short i)
+    inline JSValue::JSValue(ExecState*, short i)
     {
         ASSERT(JSImmediate::from(i));
-        return JSImmediate::from(i);
+        *this = JSImmediate::from(i);
     }
 
-    ALWAYS_INLINE JSValuePtr jsNumber(ExecState*, unsigned short i)
+    inline JSValue::JSValue(ExecState*, unsigned short i)
     {
         ASSERT(JSImmediate::from(i));
-        return JSImmediate::from(i);
+        *this = JSImmediate::from(i);
     }
 
-    ALWAYS_INLINE JSValuePtr jsNumber(JSGlobalData*, short i)
-    {
-        ASSERT(JSImmediate::from(i));
-        return JSImmediate::from(i);
-    }
-
-    ALWAYS_INLINE JSValuePtr jsNumber(JSGlobalData*, unsigned short i)
-    {
-        ASSERT(JSImmediate::from(i));
-        return JSImmediate::from(i);
-    }
-
-    inline JSValuePtr jsNaN(ExecState* exec)
+    inline JSValue jsNaN(ExecState* exec)
     {
         return jsNumber(exec, NaN);
     }
 
-    inline JSValuePtr jsNaN(JSGlobalData* globalData)
+    inline JSValue jsNaN(JSGlobalData* globalData)
     {
         return jsNumber(globalData, NaN);
     }
 
     // --- JSValue inlines ----------------------------
 
-    ALWAYS_INLINE JSValuePtr JSValuePtr::toJSNumber(ExecState* exec) const
+    ALWAYS_INLINE JSValue JSValue::toJSNumber(ExecState* exec) const
     {
         return isNumber() ? asValue() : jsNumber(exec, this->toNumber(exec));
     }
 
-    inline bool JSValuePtr::getNumber(double &result) const
+    inline bool JSValue::getNumber(double &result) const
     {
-        if (isInt32Fast())
-            result = getInt32Fast();
-        else if (LIKELY(isDoubleNumber()))
-            result = getDoubleNumber();
+        if (isInt32())
+            result = asInt32();
+        else if (LIKELY(isDouble()))
+            result = asDouble();
         else {
             ASSERT(!isNumber());
             return false;
@@ -413,36 +350,7 @@ namespace JSC {
         return true;
     }
 
-    inline bool JSValuePtr::numberToInt32(int32_t& arg)
-    {
-        if (isInt32Fast())
-            arg = getInt32Fast();
-        else if (LIKELY(isDoubleNumber()))
-            arg = JSC::toInt32(getDoubleNumber());
-        else {
-            ASSERT(!isNumber());
-            return false;
-        }
-        return true;
-    }
-
-    inline bool JSValuePtr::numberToUInt32(uint32_t& arg)
-    {
-        if (isUInt32Fast())
-            arg = getUInt32Fast();
-        else if (LIKELY(isDoubleNumber()))
-            arg = JSC::toUInt32(getDoubleNumber());
-        else if (isInt32Fast()) {
-            // FIXME: I think this case can be merged with the uint case; toUInt32SlowCase
-            // on a negative value is equivalent to simple static_casting.
-            bool ignored;
-            arg = toUInt32SlowCase(getInt32Fast(), ignored);
-        } else {
-            ASSERT(!isNumber());
-            return false;
-        }
-        return true;
-    }
+#endif // USE(JSVALUE32) || USE(JSVALUE64)
 
 } // namespace JSC
 

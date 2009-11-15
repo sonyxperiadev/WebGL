@@ -1,5 +1,6 @@
 /*
- * Copyright (C) 2008 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2008, 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2009 Google Inc. All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,29 +31,18 @@
 
 #include "JSWorkerContextBase.h"
 
-#include "Event.h"
-#include "JSDOMBinding.h"
-#include "JSEventListener.h"
-#include "JSMessageChannelConstructor.h"
-#include "JSMessageEvent.h"
-#include "JSMessagePort.h"
-#include "JSWorkerLocation.h"
-#include "JSWorkerNavigator.h"
+#include "JSDedicatedWorkerContext.h"
+#include "JSSharedWorkerContext.h"
+#include "JSWorkerContext.h"
 #include "WorkerContext.h"
-#include "WorkerLocation.h"
 
 using namespace JSC;
 
-/*
-@begin JSWorkerContextBaseTable
-@end
-*/
-
-#include "JSWorkerContextBase.lut.h"
-
 namespace WebCore {
 
-ASSERT_CLASS_FITS_IN_CELL(JSWorkerContextBase)
+ASSERT_CLASS_FITS_IN_CELL(JSWorkerContextBase);
+
+const ClassInfo JSWorkerContextBase::s_info = { "WorkerContext", 0, 0, 0 };
 
 JSWorkerContextBase::JSWorkerContextBase(PassRefPtr<JSC::Structure> structure, PassRefPtr<WorkerContext> impl)
     : JSDOMGlobalObject(structure, new JSDOMGlobalObjectData, this)
@@ -69,16 +59,51 @@ ScriptExecutionContext* JSWorkerContextBase::scriptExecutionContext() const
     return m_impl.get();
 }
 
-static const HashTable* getJSWorkerContextBaseTable(ExecState* exec)
+JSValue toJS(ExecState* exec, JSDOMGlobalObject*, WorkerContext* workerContext)
 {
-    return getHashTableForGlobalData(exec->globalData(), &JSWorkerContextBaseTable);
+    return toJS(exec, workerContext);
 }
 
-const ClassInfo JSWorkerContextBase::s_info = { "WorkerContext", 0, 0, getJSWorkerContextBaseTable };
-
-void JSWorkerContextBase::put(ExecState* exec, const Identifier& propertyName, JSValuePtr value, PutPropertySlot& slot)
+JSValue toJS(ExecState*, WorkerContext* workerContext)
 {
-    lookupPut<JSWorkerContextBase, Base>(exec, propertyName, value, getJSWorkerContextBaseTable(exec), this, slot);
+    if (!workerContext)
+        return jsNull();
+    WorkerScriptController* script = workerContext->script();
+    if (!script)
+        return jsNull();
+    return script->workerContextWrapper();
+}
+
+JSDedicatedWorkerContext* toJSDedicatedWorkerContext(JSValue value)
+{
+    if (!value.isObject())
+        return 0;
+    const ClassInfo* classInfo = asObject(value)->classInfo();
+    if (classInfo == &JSDedicatedWorkerContext::s_info)
+        return static_cast<JSDedicatedWorkerContext*>(asObject(value));
+    return 0;
+}
+
+#if ENABLE(SHARED_WORKERS)
+JSSharedWorkerContext* toJSSharedWorkerContext(JSValue value)
+{
+    if (!value.isObject())
+        return 0;
+    const ClassInfo* classInfo = asObject(value)->classInfo();
+    if (classInfo == &JSSharedWorkerContext::s_info)
+        return static_cast<JSSharedWorkerContext*>(asObject(value));
+    return 0;
+}
+#endif
+
+JSWorkerContext* toJSWorkerContext(JSValue value)
+{
+    JSWorkerContext* context = toJSDedicatedWorkerContext(value);
+#if ENABLE(SHARED_WORKERS)
+    if (!context)
+        context = toJSSharedWorkerContext(value);
+#endif
+    return context;
 }
 
 } // namespace WebCore

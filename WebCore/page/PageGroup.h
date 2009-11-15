@@ -34,17 +34,17 @@
 namespace WebCore {
 
     class KURL;
-    class LocalStorage;
     class Page;
+    class StorageNamespace;
 
-    class PageGroup : Noncopyable {
+    class PageGroup : public Noncopyable {
     public:
         PageGroup(const String& name);
         PageGroup(Page*);
 
         static PageGroup* pageGroup(const String& groupName);
         static void closeLocalStorage();
-        
+
         const HashSet<Page*>& pages() const { return m_pages; }
 
         void addPage(Page*);
@@ -63,12 +63,14 @@ namespace WebCore {
         unsigned identifier() { return m_identifier; }
 
 #if ENABLE(DOM_STORAGE)
-        LocalStorage* localStorage();
+        StorageNamespace* localStorage();
 #endif
 
     private:
         void addVisitedLink(LinkHash stringHash);
-
+#if ENABLE(DOM_STORAGE)
+        bool hasLocalStorage() { return m_localStorage; }
+#endif
         String m_name;
 
         HashSet<Page*> m_pages;
@@ -78,7 +80,7 @@ namespace WebCore {
 
         unsigned m_identifier;
 #if ENABLE(DOM_STORAGE)
-        RefPtr<LocalStorage> m_localStorage;
+        RefPtr<StorageNamespace> m_localStorage;
 #endif
     };
 

@@ -71,6 +71,7 @@ namespace android {
         virtual void dispatchDidFinishLoading(DocumentLoader*, unsigned long identifier);
         virtual void dispatchDidFailLoading(DocumentLoader*, unsigned long identifier, const ResourceError&);
         virtual bool dispatchDidLoadResourceFromMemoryCache(DocumentLoader*, const ResourceRequest&, const ResourceResponse&, int length);
+        virtual void dispatchDidLoadResourceByXMLHttpRequest(unsigned long identifier, const ScriptString&);
 
         virtual void dispatchDidHandleOnloadEvents();
         virtual void dispatchDidReceiveServerRedirectForProvisionalLoad();
@@ -122,7 +123,7 @@ namespace android {
         virtual void finishedLoading(DocumentLoader*);
         
         virtual void updateGlobalHistory();
-        virtual void updateGlobalHistoryForRedirectWithoutHistoryItem();
+        virtual void updateGlobalHistoryRedirectLinks();
 
         virtual bool shouldGoToHistoryItem(HistoryItem*) const;
 #ifdef ANDROID_HISTORY_CLIENT
@@ -168,20 +169,30 @@ namespace android {
 
         virtual WTF::PassRefPtr<Frame> createFrame(const KURL& url, const String& name, HTMLFrameOwnerElement* ownerElement,
                                    const String& referrer, bool allowsScrolling, int marginWidth, int marginHeight);
-       virtual Widget* createPlugin(const IntSize&, Element*, const KURL&, 
-            const WTF::Vector<WebCore::String, 0u>&, const WTF::Vector<String, 0u>&, 
-            const String&, bool);
+       virtual WTF::PassRefPtr<Widget> createPlugin(const IntSize&, HTMLPlugInElement*, const KURL&,
+               const WTF::Vector<String>&, const WTF::Vector<String>&,
+               const String&, bool loadManually);
         virtual void redirectDataToPlugin(Widget* pluginWidget);
-        
-        virtual Widget* createJavaAppletWidget(const IntSize&, Element*, const KURL& baseURL, const Vector<String>& paramNames, const Vector<String>& paramValues);
+
+        virtual WTF::PassRefPtr<Widget> createJavaAppletWidget(const IntSize&, HTMLAppletElement*, const KURL& baseURL, const WTF::Vector<String>& paramNames, const WTF::Vector<String>& paramValues);
 
         virtual ObjectContentType objectContentType(const KURL& url, const String& mimeType);
         virtual String overrideMediaType() const;
 
         virtual void windowObjectCleared();
+        virtual void documentElementAvailable();
         virtual void didPerformFirstNavigation() const;
+
+#if USE(V8)
+        // TODO(benm): Implement
+        virtual void didCreateScriptContextForFrame() { }
+        virtual void didDestroyScriptContextForFrame() { }
+        virtual void didCreateIsolatedScriptContext() { }
+#endif
         
         virtual void registerForIconNotification(bool listen = true);
+
+        virtual void dispatchDidReceiveTouchIconURL(const String& url, bool precomposed);
 
         // WebIconDatabaseClient api
         virtual void didAddIconForPageUrl(const String& pageUrl);

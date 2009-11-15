@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2008, 2009 Apple Inc. All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,12 +31,10 @@ namespace JSC {
 
 ASSERT_CLASS_FITS_IN_CELL(JSStaticScopeObject);
 
-void JSStaticScopeObject::mark()
+void JSStaticScopeObject::markChildren(MarkStack& markStack)
 {
-    JSVariableObject::mark();
-    
-    if (!d()->registerStore.marked())
-        d()->registerStore.mark();
+    JSVariableObject::markChildren(markStack);
+    markStack.append(d()->registerStore.jsValue());
 }
 
 JSObject* JSStaticScopeObject::toThisObject(ExecState* exec) const
@@ -44,7 +42,7 @@ JSObject* JSStaticScopeObject::toThisObject(ExecState* exec) const
     return exec->globalThisValue();
 }
 
-void JSStaticScopeObject::put(ExecState*, const Identifier& propertyName, JSValuePtr value, PutPropertySlot&)
+void JSStaticScopeObject::put(ExecState*, const Identifier& propertyName, JSValue value, PutPropertySlot&)
 {
     if (symbolTablePut(propertyName, value))
         return;
@@ -52,7 +50,7 @@ void JSStaticScopeObject::put(ExecState*, const Identifier& propertyName, JSValu
     ASSERT_NOT_REACHED();
 }
 
-void JSStaticScopeObject::putWithAttributes(ExecState*, const Identifier& propertyName, JSValuePtr value, unsigned attributes)
+void JSStaticScopeObject::putWithAttributes(ExecState*, const Identifier& propertyName, JSValue value, unsigned attributes)
 {
     if (symbolTablePutWithAttributes(propertyName, value, attributes))
         return;
@@ -74,11 +72,6 @@ JSStaticScopeObject::~JSStaticScopeObject()
 inline bool JSStaticScopeObject::getOwnPropertySlot(ExecState*, const Identifier& propertyName, PropertySlot& slot)
 {
     return symbolTableGet(propertyName, slot);
-}
-
-inline bool JSStaticScopeObject::getOwnPropertySlot(ExecState*, const Identifier& propertyName, PropertySlot& slot, bool& slotIsWriteable)
-{
-    return symbolTableGet(propertyName, slot, slotIsWriteable);
 }
 
 }

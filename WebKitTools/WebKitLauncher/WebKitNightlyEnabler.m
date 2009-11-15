@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007 Apple Inc.  All rights reserved.
+ * Copyright (C) 2006, 2007, 2008, 2009 Apple Inc.  All rights reserved.
  * Copyright (C) 2006 Graham Dennis.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -11,7 +11,7 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution. 
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission. 
  *
@@ -28,6 +28,7 @@
  */
 
 #import <Cocoa/Cocoa.h>
+#import "WebKitNightlyEnablerSparkle.h"
 
 static void enableWebKitNightlyBehaviour() __attribute__ ((constructor));
 
@@ -40,15 +41,22 @@ typedef enum {
     RunStateRunning
 } WKNERunStates;
 
+static char *webKitAppPath;
 static bool extensionBundlesWereLoaded = NO;
 static NSSet *extensionPaths = nil;
 
+static int32_t systemVersion()
+{
+    static SInt32 version = 0;
+    if (!version)
+        Gestalt(gestaltSystemVersion, &version);
+
+    return version;
+}
+
+
 static void myBundleDidLoad(CFNotificationCenterRef center, void *observer, CFStringRef name, const void *object, CFDictionaryRef userInfo)
 {
-    // Break out early if we have already detected an extension
-    if (extensionBundlesWereLoaded)
-        return;
-
     NSBundle *bundle = (NSBundle *)object;
     NSString *bundlePath = [[bundle bundlePath] stringByAbbreviatingWithTildeInPath];
     NSString *bundleFileName = [bundlePath lastPathComponent];
@@ -62,11 +70,12 @@ static void myBundleDidLoad(CFNotificationCenterRef center, void *observer, CFSt
     // If the bundle lives inside a known extension path, flag it as an extension
     NSEnumerator *e = [extensionPaths objectEnumerator];
     NSString *path = nil;
-    while (path = [e nextObject]) {
+    while ((path = [e nextObject])) {
         if ([bundlePath length] < [path length])
             continue;
 
         if ([[bundlePath substringToIndex:[path length]] isEqualToString:path]) {
+            NSLog(@"Extension detected: %@", bundlePath);
             extensionBundlesWereLoaded = YES;
             break;
         }
@@ -88,6 +97,8 @@ static void myApplicationWillFinishLaunching(CFNotificationCenterRef center, voi
         NSRunInformationalAlertPanel(@"Safari extensions detected",
                                      @"Safari extensions were detected on your system.  Extensions are incompatible with nightly builds of WebKit, and may cause crashes or incorrect behavior.  Please disable them if you experience such behavior.", @"Continue",
                                      nil, nil);
+
+    initializeSparkle();
 }
 
 static void myApplicationWillTerminate(CFNotificationCenterRef center, void *observer, CFStringRef name, const void *object, CFDictionaryRef userInfo)
@@ -97,30 +108,84 @@ static void myApplicationWillTerminate(CFNotificationCenterRef center, void *obs
     [userDefaults synchronize];
 }
 
+NSBundle *webKitLauncherBundle()
+{
+    NSString *executablePath = [NSString stringWithUTF8String:webKitAppPath];
+    NSRange appLocation = [executablePath rangeOfString:@".app/" options:NSBackwardsSearch];
+    NSString *appPath = [executablePath substringToIndex:appLocation.location + appLocation.length];
+    return [NSBundle bundleWithPath:appPath];
+}
+
 extern char **_CFGetProcessPath() __attribute__((weak));
+extern OSStatus _RegisterApplication(CFDictionaryRef additionalAppInfoRef, ProcessSerialNumber* myPSN) __attribute__((weak));
 
 static void poseAsWebKitApp()
 {
-    char *webKitAppPath = getenv("WebKitAppPath");
-    if (!webKitAppPath || !_CFGetProcessPath)
+    webKitAppPath = strdup(getenv("WebKitAppPath"));
+    if (!webKitAppPath)
         return;
+
+    unsetenv("WebKitAppPath");
 
     // Set up the main bundle early so it points at Safari.app
     CFBundleGetMainBundle();
 
-    // Fiddle with CoreFoundation to have it pick up the executable path as being within WebKit.app
-    char **processPath = _CFGetProcessPath();
-    *processPath = NULL;
-    setenv("CFProcessPath", webKitAppPath, 1);
-    _CFGetProcessPath();
+    if (systemVersion() < 0x1060) {
+        if (!_CFGetProcessPath)
+            return;
 
-    // Clean up
-    unsetenv("CFProcessPath");
-    unsetenv("WebKitAppPath");
+        // Fiddle with CoreFoundation to have it pick up the executable path as being within WebKit.app
+        char **processPath = _CFGetProcessPath();
+        *processPath = NULL;
+        setenv("CFProcessPath", webKitAppPath, 1);
+        _CFGetProcessPath();
+        unsetenv("CFProcessPath");
+    } else {
+        if (!_RegisterApplication)
+            return;
+
+        // Register the application with LaunchServices, passing a customized registration dictionary that
+        // uses the WebKit launcher as the application bundle.
+        NSBundle *bundle = webKitLauncherBundle();
+        NSMutableDictionary *checkInDictionary = [[bundle infoDictionary] mutableCopy];
+        [checkInDictionary setObject:[bundle bundlePath] forKey:@"LSBundlePath"];
+        [checkInDictionary setObject:[checkInDictionary objectForKey:(NSString *)kCFBundleNameKey] forKey:@"LSDisplayName"];
+        _RegisterApplication((CFDictionaryRef)checkInDictionary, 0);
+        [checkInDictionary release];
+    }
+}
+
+static BOOL insideSafari4OnTigerTrampoline()
+{
+    // If we're not on Tiger then we can't be in the trampoline state.
+    if ((systemVersion() & 0xFFF0) != 0x1040)
+        return NO;
+
+    // If we're running Safari < 4.0 then we can't be in the trampoline state.
+    CFBundleRef safariBundle = CFBundleGetMainBundle();
+    CFStringRef safariVersion = CFBundleGetValueForInfoDictionaryKey(safariBundle, CFSTR("CFBundleShortVersionString"));
+    if ([(NSString *)safariVersion intValue] < 4)
+        return NO;
+
+    const char* frameworkPath = getenv("DYLD_FRAMEWORK_PATH");
+    if (!frameworkPath)
+        frameworkPath = "";
+
+    // If the framework search path is empty or otherwise does not contain the Safari
+    // framework's Frameworks directory then we are in the trampoline state.
+    const char safariFrameworkSearchPath[] = "/System/Library/PrivateFrameworks/Safari.framework/Frameworks";
+    return strstr(frameworkPath, safariFrameworkSearchPath) == 0;
 }
 
 static void enableWebKitNightlyBehaviour()
 {
+    // If we're inside Safari in its trampoline state, it will very shortly relaunch itself.
+    // We bail out here so that we'll be called again in the freshly-launched Safari process.
+    if (insideSafari4OnTigerTrampoline())
+        return;
+
+    NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+
     unsetenv("DYLD_INSERT_LIBRARIES");
     poseAsWebKitApp();
 
@@ -129,10 +194,13 @@ static void enableWebKitNightlyBehaviour()
                                                     @"~/Library/Application Enhancers/", @"/Library/Application Enhancers/",
                                                     nil];
 
-    NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+    // As of 2008-11 attempting to load Saft would cause a crash on launch, so prevent it from being loaded.
+    NSArray *disabledInputManagers = [NSArray arrayWithObjects:@"Saft", nil];
+
     NSUserDefaults *userDefaults = [NSUserDefaults standardUserDefaults];
     NSDictionary *defaultPrefs = [NSDictionary dictionaryWithObjectsAndKeys:[NSNumber numberWithBool:RunStateShutDown], WKNERunState,
-                                                                            [NSNumber numberWithBool:YES], WKNEShouldMonitorShutdowns, nil];
+                                                                            [NSNumber numberWithBool:YES], WKNEShouldMonitorShutdowns,
+                                                                            disabledInputManagers, @"NSDisabledInputManagers", nil];
     [userDefaults registerDefaults:defaultPrefs];
     if ([userDefaults boolForKey:WKNEShouldMonitorShutdowns]) {
         WKNERunStates savedState = (WKNERunStates)[userDefaults integerForKey:WKNERunState];
@@ -161,5 +229,8 @@ static void enableWebKitNightlyBehaviour()
     CFNotificationCenterAddObserver(CFNotificationCenterGetLocalCenter(), &myApplicationWillTerminate,
                                     myApplicationWillTerminate, (CFStringRef) NSApplicationWillTerminateNotification,
                                     NULL, CFNotificationSuspensionBehaviorDeliverImmediately);
+
+    NSLog(@"WebKit %@ initialized.", [webKitLauncherBundle() objectForInfoDictionaryKey:@"CFBundleShortVersionString"]);
+
     [pool release];
 }

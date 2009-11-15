@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2006, 2008, 2009 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -21,7 +21,13 @@
 #ifndef EventListener_h
 #define EventListener_h
 
+#include "PlatformString.h"
 #include <wtf/RefCounted.h>
+
+namespace JSC {
+    class JSObject;
+    class MarkStack;
+}
 
 namespace WebCore {
 
@@ -31,9 +37,24 @@ namespace WebCore {
     public:
         virtual ~EventListener() { }
         virtual void handleEvent(Event*, bool isWindowEvent = false) = 0;
-        virtual bool isInline() const { return false; }
+        // Return true to indicate that the error is handled.
+        virtual bool reportError(const String& /*message*/, const String& /*url*/, int /*lineNumber*/) { return false; }
         virtual bool wasCreatedFromMarkup() const { return false; }
+
+#if USE(JSC)
+        virtual JSC::JSObject* jsFunction() const { return 0; }
+        virtual void markJSFunction(JSC::MarkStack&) { }
+#endif
+
+        bool isAttribute() const { return virtualisAttribute(); }
+
+    private:
+        virtual bool virtualisAttribute() const { return false; }
     };
+
+#if USE(JSC)
+    inline void markIfNotNull(JSC::MarkStack& markStack, EventListener* listener) { if (listener) listener->markJSFunction(markStack); }
+#endif
 
 }
 

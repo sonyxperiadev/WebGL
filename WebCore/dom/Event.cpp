@@ -35,8 +35,8 @@ Event::Event()
     , m_defaultPrevented(false)
     , m_defaultHandled(false)
     , m_cancelBubble(false)
-    , m_currentTarget(0)
     , m_eventPhase(0)
+    , m_currentTarget(0)
     , m_createTime(static_cast<DOMTimeStamp>(currentTime() * 1000.0))
 {
 }
@@ -49,8 +49,8 @@ Event::Event(const AtomicString& eventType, bool canBubbleArg, bool cancelableAr
     , m_defaultPrevented(false)
     , m_defaultHandled(false)
     , m_cancelBubble(false)
-    , m_currentTarget(0)
     , m_eventPhase(0)
+    , m_currentTarget(0)
     , m_createTime(static_cast<DOMTimeStamp>(currentTime() * 1000.0))
 {
 }
@@ -160,6 +160,13 @@ bool Event::isStorageEvent() const
 
 #if ENABLE(TOUCH_EVENTS) // Android
 bool Event::isTouchEvent() const
+{
+    return false;
+}
+#endif
+
+#if ENABLE(WORKERS)
+bool Event::isErrorEvent() const
 {
     return false;
 }

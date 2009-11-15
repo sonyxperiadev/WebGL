@@ -26,10 +26,8 @@
 #include "config.h"
 #include "JSCustomPositionCallback.h"
 
-#include "CString.h"
 #include "Frame.h"
 #include "JSGeoposition.h"
-#include "Page.h"
 #include "ScriptController.h"
 #include <runtime/JSLock.h>
 
@@ -43,20 +41,21 @@ JSCustomPositionCallback::JSCustomPositionCallback(JSObject* callback, Frame* fr
 {
 }
 
-void JSCustomPositionCallback::handleEvent(Geoposition* geoposition, bool& raisedException)
+void JSCustomPositionCallback::handleEvent(Geoposition* geoposition)
 {
     ASSERT(m_callback);
     ASSERT(m_frame);
     
     if (!m_frame->script()->isEnabled())
         return;
-    
+
+    // FIXME: This is likely the wrong globalObject (for prototype chains at least)
     JSGlobalObject* globalObject = m_frame->script()->globalObject();
     ExecState* exec = globalObject->globalExec();
     
-    JSC::JSLock lock(false);
+    JSC::JSLock lock(SilenceAssertionsOnly);
     
-    JSValuePtr function = m_callback->get(exec, Identifier(exec, "handleEvent"));
+    JSValue function = m_callback->get(exec, Identifier(exec, "handleEvent"));
     CallData callData;
     CallType callType = function.getCallData(callData);
     if (callType == CallTypeNone) {
@@ -69,18 +68,19 @@ void JSCustomPositionCallback::handleEvent(Geoposition* geoposition, bool& raise
     }
     
     RefPtr<JSCustomPositionCallback> protect(this);
-    
-    ArgList args;
-    args.append(toJS(exec, geoposition));
-    
-    globalObject->startTimeoutCheck();
+
+    MarkedArgumentBuffer args;
+    args.append(toJS(exec, deprecatedGlobalObjectForPrototype(exec), geoposition));
+
+    globalObject->globalData()->timeoutChecker.start();
     call(exec, function, callType, callData, m_callback, args);
-    globalObject->stopTimeoutCheck();
+    globalObject->globalData()->timeoutChecker.stop();
     
     if (exec->hadException()) {
         reportCurrentException(exec);
-        raisedException = true;
     }
+    
+    Document::updateStyleForAllDocuments();
 }
 
 } // namespace WebCore

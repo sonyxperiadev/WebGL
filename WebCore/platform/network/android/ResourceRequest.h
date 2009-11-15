@@ -37,55 +37,36 @@ namespace WebCore {
 
         ResourceRequest(const String& url) 
             : ResourceRequestBase(KURL(url), UseProtocolCachePolicy)
-            , m_cachedResource(0)
-#ifdef ANDROID_USER_GESTURE
-            , m_wasUserGesture(true)
-#endif
+            , m_userGesture(true)
         {
         }
 
         ResourceRequest(const KURL& url) 
             : ResourceRequestBase(url, UseProtocolCachePolicy)
-            , m_cachedResource(0)
-#ifdef ANDROID_USER_GESTURE
-            , m_wasUserGesture(true)
-#endif
+            , m_userGesture(true)
         {
         }
 
         ResourceRequest(const KURL& url, const String& referrer, ResourceRequestCachePolicy policy = UseProtocolCachePolicy) 
             : ResourceRequestBase(url, policy)
-            , m_cachedResource(0)
-#ifdef ANDROID_USER_GESTURE
-            , m_wasUserGesture(true)
-#endif
+            , m_userGesture(true)
         {
             setHTTPReferrer(referrer);
         }
         
         ResourceRequest()
             : ResourceRequestBase(KURL(), UseProtocolCachePolicy)
-            , m_cachedResource(0)
-#ifdef ANDROID_USER_GESTURE
-            , m_wasUserGesture(true)
-#endif
+            , m_userGesture(true)
         {
         }
         
         void doUpdatePlatformRequest() {}
         void doUpdateResourceRequest() {}
-        void setCachedResource(CachedResource* r) { m_cachedResource = r; }
-        CachedResource* getCachedResource() const { return m_cachedResource; }
-#ifdef ANDROID_USER_GESTURE
-        void setUserGesture(bool userGesture)     { m_wasUserGesture = userGesture; }
-        bool userGesture() const                  { return m_wasUserGesture; }
-#endif
+        void setUserGesture(bool userGesture) { m_userGesture = userGesture; }
+        bool getUserGesture() const { return m_userGesture; }
     private:
         friend class ResourceRequestBase;
-        CachedResource* m_cachedResource;
-#ifdef ANDROID_USER_GESTURE
-        bool m_wasUserGesture;
-#endif
+        bool m_userGesture;
     };
 
 } // namespace WebCore

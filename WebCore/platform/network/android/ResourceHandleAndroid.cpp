@@ -54,15 +54,8 @@ ResourceHandle::~ResourceHandle()
 bool ResourceHandle::start(Frame* frame)
 {
     WebCoreResourceLoader* loader;
-    bool highPriority = true;
-    CachedResource* r = d->m_request.getCachedResource();
-    if (r) {
-        CachedResource::Type t = r->type();
-        highPriority = !(t == CachedResource::ImageResource ||
-                       t == CachedResource::FontResource);
-    }
     FrameLoaderClientAndroid* client = static_cast<FrameLoaderClientAndroid*> (frame->loader()->client());
-    loader = client->webFrame()->startLoadingResource(this, d->m_request, highPriority, false);
+    loader = client->webFrame()->startLoadingResource(this, d->m_request, false);
 
     if (loader) {
         Release(d->m_loader);
@@ -100,7 +93,7 @@ void ResourceHandle::setDefersLoading(bool defers)
 * side may be slow, but is only used during a navigation to
 * a POST response.
 */
-bool ResourceHandle::willLoadFromCache(ResourceRequest& request) 
+bool ResourceHandle::willLoadFromCache(ResourceRequest& request, Frame*)
 {
     // set the cache policy correctly, copied from
     // network/mac/ResourceHandleMac.mm
@@ -118,7 +111,7 @@ bool ResourceHandle::loadsBlocked()
 // Class to handle synchronized loading of resources.
 class SyncLoader : public ResourceHandleClient {
 public:
-    SyncLoader(ResourceError& error, ResourceResponse& response, Vector<char>& data) {
+    SyncLoader(ResourceError& error, ResourceResponse& response, WTF::Vector<char>& data) {
         m_error = &error;
         m_response = &response;
         m_data = &data;
@@ -140,18 +133,27 @@ public:
 private:
     ResourceError*    m_error;
     ResourceResponse* m_response;
-    Vector<char>*     m_data;
+    WTF::Vector<char>*     m_data;
 };
 
-void ResourceHandle::loadResourceSynchronously(const ResourceRequest& request, 
-        ResourceError& error, ResourceResponse& response, Vector<char>& data,
+void ResourceHandle::loadResourceSynchronously(const ResourceRequest& request,
+        StoredCredentials /*storedCredentials*/,
+        ResourceError& error, ResourceResponse& response, WTF::Vector<char>& data,
         Frame* frame) 
 {
     SyncLoader s(error, response, data);
     ResourceHandle h(request, &s, false, false, false);
     // This blocks until the load is finished.
     FrameLoaderClientAndroid* client = static_cast<FrameLoaderClientAndroid*> (frame->loader()->client());
-    client->webFrame()->startLoadingResource(&h, request, true, true);
+    client->webFrame()->startLoadingResource(&h, request, true);
+}
+
+unsigned initializeMaximumHTTPConnectionCountPerHost()
+{
+    // This is used by the loader to control the number of parallel load
+    // requests. Our java framework has 4 threads that can each pipeline up to
+    // 5 requests. Use 20 as a maximum number.
+    return 20;
 }
 
 } // namespace WebCore

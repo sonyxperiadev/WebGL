@@ -31,6 +31,7 @@
 #include "StrokeStyleApplier.h"
 #include "TransformationMatrix.h"
 
+#include "SkPaint.h"
 #include "SkPath.h"
 #include "SkRegion.h"
 
@@ -65,6 +66,15 @@ bool Path::isEmpty() const
     return m_path->isEmpty();
 }
 
+bool Path::hasCurrentPoint() const
+{
+    // webkit wants to know if we have any points, including any moveTos.
+    // Skia's empty() will return true if it has just a moveTo, so we need to
+    // call getPoints(NULL), which returns the number of points,
+    // including moveTo.
+    return m_path->getPoints(0, 0) > 0;
+}
+
 bool Path::contains(const FloatPoint& point, WindRule rule) const
 {
     SkRegion    rgn, clip;
@@ -89,9 +99,7 @@ void Path::translate(const FloatSize& size)
 
 FloatRect Path::boundingRect() const
 {
-    SkRect  r;
-    
-    m_path->computeBounds(&r, SkPath::kExact_BoundsType);
+    const SkRect& r = m_path->getBounds();
     return FloatRect(   SkScalarToFloat(r.fLeft),
                         SkScalarToFloat(r.fTop),
                         SkScalarToFloat(r.width()),
@@ -196,18 +204,12 @@ void Path::addArc(const FloatPoint& p, float r, float sa, float ea,
 
 void Path::addRect(const FloatRect& rect)
 {
-    SkRect  r;
-    
-    android_setrect(&r, rect);
-    m_path->addRect(r);
+    m_path->addRect(rect);
 }
 
 void Path::addEllipse(const FloatRect& rect)
 {
-    SkRect  r;
-    
-    android_setrect(&r, rect);
-    m_path->addOval(r);
+    m_path->addOval(rect);
 }
 
 void Path::clear()
@@ -254,7 +256,7 @@ void Path::apply(void* info, PathApplierFunction function) const
             break;
         case SkPath::kClose_Verb:
             elem.type = PathElementCloseSubpath;
-            elem.points = NULL;
+            elem.points = setfpts(fpts, 0, 0);
             break;
         case SkPath::kDone_Verb:
             return;
@@ -268,6 +270,64 @@ void Path::transform(const TransformationMatrix& xform)
     m_path->transform(xform);
 }
     
+#if ENABLE(SVG)
+String Path::debugString() const
+{
+    String result;
+
+    SkPath::Iter iter(*m_path, false);
+    SkPoint pts[4];
+
+    int numPoints = m_path->getPoints(0, 0);
+    SkPath::Verb verb;
+
+    do {
+        verb = iter.next(pts);
+        switch (verb) {
+        case SkPath::kMove_Verb:
+            result += String::format("M%.2f,%.2f ", pts[0].fX, pts[0].fY);
+            numPoints -= 1;
+            break;
+        case SkPath::kLine_Verb:
+          if (!iter.isCloseLine()) {
+                result += String::format("L%.2f,%.2f ", pts[1].fX, pts[1].fY); 
+                numPoints -= 1;
+            }
+            break;
+        case SkPath::kQuad_Verb:
+            result += String::format("Q%.2f,%.2f,%.2f,%.2f ",
+                pts[1].fX, pts[1].fY,
+                pts[2].fX, pts[2].fY);
+            numPoints -= 2;
+            break;
+        case SkPath::kCubic_Verb:
+            result += String::format("C%.2f,%.2f,%.2f,%.2f,%.2f,%.2f ",
+                pts[1].fX, pts[1].fY,
+                pts[2].fX, pts[2].fY,
+                pts[3].fX, pts[3].fY);
+            numPoints -= 3;
+            break;
+        case SkPath::kClose_Verb:
+            result += "Z ";
+            break;
+        case SkPath::kDone_Verb:
+            break;
+        }
+    } while (verb != SkPath::kDone_Verb);
+
+    // If you have a path that ends with an M, Skia will not iterate the
+    // trailing M. That's nice of it, but Apple's paths output the trailing M
+    // and we want out layout dumps to look like theirs
+    if (numPoints) {
+        ASSERT(numPoints==1);
+        m_path->getLastPt(pts);
+        result += String::format("M%.2f,%.2f ", pts[0].fX, pts[0].fY);
+    }
+
+    return result.stripWhiteSpace();
+}
+#endif
+
 ///////////////////////////////////////////////////////////////////////////////
 
 // Computes the bounding box for the stroke and style currently selected into
@@ -283,16 +343,17 @@ static FloatRect boundingBoxForCurrentStroke(GraphicsContext* context)
     context->setupStrokePaint(&paint);
     SkPath fillPath;
     paint.getFillPath(*path, &fillPath);
-    SkRect r;
-    fillPath.computeBounds(&r, SkPath::kExact_BoundsType);
-    return FloatRect(r.fLeft, r.fTop, r.width(), r.height());
+    const SkRect& r = fillPath.getBounds();
+    return FloatRect(SkScalarToFloat(r.fLeft), SkScalarToFloat(r.fTop),
+                     SkScalarToFloat(r.width()), SkScalarToFloat(r.height()));
 }
     
 static GraphicsContext* scratchContext()
 {
     static ImageBuffer* scratch = 0;
+    // TODO(benm): Confirm with reed that it's correct to use the (default) DeviceRGB ColorSpace parameter in the call to create below.
     if (!scratch)
-        scratch = ImageBuffer::create(IntSize(1, 1), false).release();
+        scratch = ImageBuffer::create(IntSize(1, 1)).release();
     // We don't bother checking for failure creating the ImageBuffer, since our
     // ImageBuffer initializer won't fail.
     return scratch->context();
@@ -312,5 +373,31 @@ FloatRect Path::strokeBoundingRect(StrokeStyleApplier* applier)
     scratch->restore();
     return r;
 }
+
+#if ENABLE(SVG)
+bool Path::strokeContains(StrokeStyleApplier* applier, const FloatPoint& point) const
+{
+#if 0
+    ASSERT(applier);
+    GraphicsContext* scratch = scratchContext();
+    scratch->save();
+
+    applier->strokeStyle(scratch);
+
+    SkPaint paint;
+    scratch->platformContext()->setupPaintForStroking(&paint, 0, 0);
+    SkPath strokePath;
+    paint.getFillPath(*platformPath(), &strokePath);
+    bool contains = SkPathContainsPoint(&strokePath, point,
+                                        SkPath::kWinding_FillType);
+
+    scratch->restore();
+    return contains;
+#else
+    // FIXME: 
+    return false;
+#endif
+}
+#endif
 
 }

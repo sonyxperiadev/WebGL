@@ -27,13 +27,15 @@
 #include "RemoveFormatCommand.h"
 
 #include "CSSComputedStyleDeclaration.h"
+#include "CSSMutableStyleDeclaration.h"
 #include "Editor.h"
 #include "Frame.h"
 #include "HTMLNames.h"
-#include "Selection.h"
+#include "VisibleSelection.h"
 #include "SelectionController.h"
 #include "TextIterator.h"
 #include "TypingCommand.h"
+#include "ApplyStyleCommand.h"
 
 namespace WebCore {
 
@@ -49,13 +51,13 @@ void RemoveFormatCommand::doApply()
     Frame* frame = document()->frame();
     
     // Make a plain text string from the selection to remove formatting like tables and lists.
-    String string = plainText(frame->selection()->selection().toRange().get());
+    String string = plainText(frame->selection()->selection().toNormalizedRange().get());
 
     // Get the default style for this editable root, it's the style that we'll give the
     // content that we're operating on.
     Node* root = frame->selection()->rootEditableElement();
-    RefPtr<CSSMutableStyleDeclaration> defaultStyle = computedStyle(root)->copyInheritableProperties();
-    
+    RefPtr<CSSMutableStyleDeclaration> defaultStyle = editingStyleAtPosition(Position(root, 0));
+
     // Delete the selected content.
     // FIXME: We should be able to leave this to insertText, but its delete operation
     // doesn't preserve the style we're about to set.

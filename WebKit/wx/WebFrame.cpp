@@ -36,18 +36,20 @@
 #include "HTMLFrameOwnerElement.h"
 #include "markup.h"
 #include "Page.h"
+#include "PlatformString.h"
 #include "RenderTreeAsText.h"
 #include "RenderObject.h"
 #include "RenderView.h"
-
-#include "EditorClientWx.h"
-#include "FrameLoaderClientWx.h"
-
 #include "ScriptController.h"
 #include "ScriptValue.h"
+#include "TextEncoding.h"
+
 #include "JSDOMBinding.h"
 #include <runtime/JSValue.h>
 #include <runtime/UString.h>
+
+#include "EditorClientWx.h"
+#include "FrameLoaderClientWx.h"
 
 #include "wx/wxprec.h"
 #ifndef WX_PRECOMP
@@ -141,7 +143,7 @@ void wxWebFrame::SetPageSource(const wxString& source, const wxString& baseUrl)
 {
     if (m_impl->frame && m_impl->frame->loader()) {
         WebCore::FrameLoader* loader = m_impl->frame->loader();
-        loader->begin(WebCore::KURL(static_cast<const char*>(baseUrl.mb_str(wxConvUTF8))));
+        loader->begin(WebCore::KURL(WebCore::KURL(), static_cast<const char*>(baseUrl.mb_str(wxConvUTF8)), WebCore::UTF8Encoding()));
         loader->write(static_cast<const WebCore::String>(source));
         loader->end();
     }
@@ -176,7 +178,7 @@ wxString wxWebFrame::RunScript(const wxString& javascript)
 {
     wxString returnValue = wxEmptyString;
     if (m_impl->frame) {
-        JSC::JSValuePtr result = m_impl->frame->loader()->executeScript(javascript, true).jsValue();
+        JSC::JSValue result = m_impl->frame->loader()->executeScript(javascript, true).jsValue();
         if (result)
             returnValue = wxString(result.toString(m_impl->frame->script()->globalObject()->globalExec()).UTF8String().c_str(), wxConvUTF8);        
     }
@@ -194,7 +196,7 @@ bool wxWebFrame::FindString(const wxString& string, bool forward, bool caseSensi
 void wxWebFrame::LoadURL(const wxString& url)
 {
     if (m_impl->frame && m_impl->frame->loader()) {
-        WebCore::KURL kurl = WebCore::KURL(static_cast<const char*>(url.mb_str(wxConvUTF8)));
+        WebCore::KURL kurl = WebCore::KURL(WebCore::KURL(), static_cast<const char*>(url.mb_str(wxConvUTF8)), WebCore::UTF8Encoding());
         // NB: This is an ugly fix, but CURL won't load sub-resources if the
         // protocol is omitted; sadly, it will not emit an error, either, so
         // there's no way for us to catch this problem the correct way yet.
@@ -209,7 +211,7 @@ void wxWebFrame::LoadURL(const wxString& url)
                 kurl.setPath("//" + kurl.path());
             }
         }
-        m_impl->frame->loader()->load(kurl);
+        m_impl->frame->loader()->load(kurl, false);
     }
 }
 
@@ -305,6 +307,13 @@ void wxWebFrame::DecreaseTextSize()
         m_textMagnifier = m_textMagnifier/TextSizeMultiplierRatio;
         m_impl->frame->setZoomFactor(m_textMagnifier, true);
     }
+}
+
+void wxWebFrame::ResetTextSize()
+{
+    m_textMagnifier = 1.0;
+    if (m_impl->frame)
+        m_impl->frame->setZoomFactor(m_textMagnifier, true);
 }
 
 void wxWebFrame::MakeEditable(bool enable)

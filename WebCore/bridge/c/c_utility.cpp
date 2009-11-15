@@ -66,9 +66,9 @@ static String convertUTF8ToUTF16WithLatin1Fallback(const NPUTF8* UTF8Chars, int 
 }
 
 // Variant value must be released with NPReleaseVariantValue()
-void convertValueToNPVariant(ExecState* exec, JSValuePtr value, NPVariant* result)
+void convertValueToNPVariant(ExecState* exec, JSValue value, NPVariant* result)
 {
-    JSLock lock(false);
+    JSLock lock(SilenceAssertionsOnly);
 
     VOID_TO_NPVARIANT(*result);
 
@@ -105,9 +105,9 @@ void convertValueToNPVariant(ExecState* exec, JSValuePtr value, NPVariant* resul
     }
 }
 
-JSValuePtr convertNPVariantToValue(ExecState* exec, const NPVariant* variant, RootObject* rootObject)
+JSValue convertNPVariantToValue(ExecState* exec, const NPVariant* variant, RootObject* rootObject)
 {
-    JSLock lock(false);
+    JSLock lock(SilenceAssertionsOnly);
     
     NPVariantType type = variant->type;
 
@@ -139,7 +139,7 @@ JSValuePtr convertNPVariantToValue(ExecState* exec, const NPVariant* variant, Ro
 
 String convertNPStringToUTF16(const NPString* string)
 {
-    return convertUTF8ToUTF16WithLatin1Fallback(string->UTF8Characters, string->UTF8Length);
+    return String::fromUTF8WithLatin1Fallback(string->UTF8Characters, string->UTF8Length);
 }
 
 Identifier identifierFromNPIdentifier(const NPUTF8* name)

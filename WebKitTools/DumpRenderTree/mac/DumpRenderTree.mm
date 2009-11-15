@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005, 2006, 2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2005, 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
  *           (C) 2007 Graham Dennis (graham.dennis@gmail.com)
  *
  * Redistribution and use in source and binary forms, with or without
@@ -26,11 +26,13 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
- 
+
+#import "config.h"
 #import "DumpRenderTree.h"
 
 #import "AccessibilityController.h"
 #import "CheckedMalloc.h"
+#import "DumpRenderTreeDraggingInfo.h"
 #import "DumpRenderTreePasteboard.h"
 #import "DumpRenderTreeWindow.h"
 #import "EditingDelegate.h"
@@ -49,7 +51,7 @@
 #import "WorkQueueItem.h"
 #import <Carbon/Carbon.h>
 #import <CoreFoundation/CoreFoundation.h>
-#import <WebKit/DOMElementPrivate.h>
+#import <WebKit/DOMElement.h>
 #import <WebKit/DOMExtensions.h>
 #import <WebKit/DOMRange.h>
 #import <WebKit/WebBackForwardList.h>
@@ -64,9 +66,11 @@
 #import <WebKit/WebHistory.h>
 #import <WebKit/WebHistoryItemPrivate.h>
 #import <WebKit/WebInspector.h>
+#import <WebKit/WebKitNSStringExtras.h>
 #import <WebKit/WebPluginDatabase.h>
 #import <WebKit/WebPreferences.h>
 #import <WebKit/WebPreferencesPrivate.h>
+#import <WebKit/WebPreferenceKeysPrivate.h>
 #import <WebKit/WebResourceLoadDelegate.h>
 #import <WebKit/WebTypesInternal.h>
 #import <WebKit/WebViewPrivate.h>
@@ -140,7 +144,7 @@ static void swizzleAllMethods(Class imposter, Class original)
 
         // Attempt to add the method to the original class.  If it fails, the method already exists and we should
         // instead exchange the implementations.
-        if (class_addMethod(original, imposterMethodName, method_getImplementation(originalMethods[i]), method_getTypeEncoding(originalMethods[i])))
+        if (class_addMethod(original, imposterMethodName, method_getImplementation(imposterMethods[i]), method_getTypeEncoding(imposterMethods[i])))
             continue;
 
         unsigned int j = 0;
@@ -200,6 +204,7 @@ static bool shouldIgnoreWebCoreNodeLeaks(const string& URLString)
 
 static void activateFonts()
 {
+#if defined(BUILDING_ON_LEOPARD) || defined(BUILDING_ON_TIGER)
     static const char* fontSectionNames[] = {
         "Ahem",
         "WeightWatcher100",
@@ -230,6 +235,39 @@ static void activateFonts()
             exit(1);
         }
     }
+#else
+
+    // Work around <rdar://problem/6698023> by activating fonts from disk
+    // FIXME: This code can be removed once <rdar://problem/6698023> is addressed.
+
+    static const char* fontFileNames[] = {
+        "AHEM____.TTF",
+        "WebKitWeightWatcher100.ttf",
+        "WebKitWeightWatcher200.ttf",
+        "WebKitWeightWatcher300.ttf",
+        "WebKitWeightWatcher400.ttf",
+        "WebKitWeightWatcher500.ttf",
+        "WebKitWeightWatcher600.ttf",
+        "WebKitWeightWatcher700.ttf",
+        "WebKitWeightWatcher800.ttf",
+        "WebKitWeightWatcher900.ttf",
+        0
+    };
+
+    NSMutableArray *fontURLs = [NSMutableArray array];
+    NSURL *resourcesDirectory = [NSURL URLWithString:@"DumpRenderTree.resources" relativeToURL:[[NSBundle mainBundle] executableURL]];
+    for (unsigned i = 0; fontFileNames[i]; ++i) {
+        NSURL *fontURL = [resourcesDirectory URLByAppendingPathComponent:[NSString stringWithUTF8String:fontFileNames[i]]];
+        [fontURLs addObject:[fontURL absoluteURL]];
+    }
+
+    CFArrayRef errors = 0;
+    if (!CTFontManagerRegisterFontsForURLs((CFArrayRef)fontURLs, kCTFontManagerScopeProcess, &errors)) {
+        NSLog(@"Failed to activate fonts: %@", errors);
+        CFRelease(errors);
+        exit(1);
+    }
+#endif
 }
 
 WebView *createWebViewAndOffscreenWindow()
@@ -253,9 +291,16 @@ WebView *createWebViewAndOffscreenWindow()
     // Put it at -10000, -10000 in "flipped coordinates", since WebCore and the DOM use flipped coordinates.
     NSRect windowRect = NSOffsetRect(rect, -10000, [[[NSScreen screens] objectAtIndex:0] frame].size.height - rect.size.height + 10000);
     DumpRenderTreeWindow *window = [[DumpRenderTreeWindow alloc] initWithContentRect:windowRect styleMask:NSBorderlessWindowMask backing:NSBackingStoreBuffered defer:YES];
+
+#if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
+    [window setColorSpace:[[NSScreen mainScreen] colorSpace]];
+#endif
+
     [[window contentView] addSubview:webView];
     [window orderBack:nil];
     [window setAutodisplay:NO];
+
+    [window startObservingWebView];
     
     // For reasons that are not entirely clear, the following pair of calls makes WebView handle its
     // dynamic scrollbars properly. Without it, every frame will always have scrollbars.
@@ -304,6 +349,11 @@ void testStringByEvaluatingJavaScriptFromString()
     [pool release];
 }
 
+static NSString *libraryPathForDumpRenderTree()
+{
+    return [@"~/Library/Application Support/DumpRenderTree" stringByExpandingTildeInPath];
+}
+
 static void setDefaultsToConsistentValuesForTesting()
 {
     // Give some clear to undocumented defaults values
@@ -317,19 +367,30 @@ static void setDefaultsToConsistentValuesForTesting()
     [defaults setObject:@"0.709800 0.835300 1.000000" forKey:@"AppleHighlightColor"];
     [defaults setObject:@"0.500000 0.500000 0.500000" forKey:@"AppleOtherHighlightColor"];
     [defaults setObject:[NSArray arrayWithObject:@"en"] forKey:@"AppleLanguages"];
+    [defaults setBool:YES forKey:WebKitEnableFullDocumentTeardownPreferenceKey];
 
     // Scrollbars are drawn either using AppKit (which uses NSUserDefaults) or using HIToolbox (which uses CFPreferences / kCFPreferencesAnyApplication / kCFPreferencesCurrentUser / kCFPreferencesAnyHost)
     [defaults setObject:@"DoubleMax" forKey:@"AppleScrollBarVariant"];
     RetainPtr<CFTypeRef> initialValue = CFPreferencesCopyValue(CFSTR("AppleScrollBarVariant"), kCFPreferencesAnyApplication, kCFPreferencesCurrentUser, kCFPreferencesAnyHost);
     CFPreferencesSetValue(CFSTR("AppleScrollBarVariant"), CFSTR("DoubleMax"), kCFPreferencesAnyApplication, kCFPreferencesCurrentUser, kCFPreferencesAnyHost);
+#ifndef __LP64__
+    // See <rdar://problem/6347388>.
     ThemeScrollBarArrowStyle style;
     GetThemeScrollBarArrowStyle(&style); // Force HIToolbox to read from CFPreferences
+#endif
     if (initialValue)
         CFPreferencesSetValue(CFSTR("AppleScrollBarVariant"), initialValue.get(), kCFPreferencesAnyApplication, kCFPreferencesCurrentUser, kCFPreferencesAnyHost);
 
-    NSString *libraryPath = [@"~/Library/Application Support/DumpRenderTree" stringByExpandingTildeInPath];
-    [defaults setObject:[libraryPath stringByAppendingPathComponent:@"Databases"] forKey:WebDatabaseDirectoryDefaultsKey];
-    
+    NSString *path = libraryPathForDumpRenderTree();
+    [defaults setObject:[path stringByAppendingPathComponent:@"Databases"] forKey:WebDatabaseDirectoryDefaultsKey];
+    [defaults setObject:[path stringByAppendingPathComponent:@"LocalCache"] forKey:WebKitLocalCacheDefaultsKey];
+    NSURLCache *sharedCache =
+        [[NSURLCache alloc] initWithMemoryCapacity:1024 * 1024
+                                      diskCapacity:0
+                                          diskPath:[path stringByAppendingPathComponent:@"URLCache"]];
+    [NSURLCache setSharedURLCache:sharedCache];
+    [sharedCache release];
+
     WebPreferences *preferences = [WebPreferences standardPreferences];
 
     [preferences setStandardFontFamily:@"Times"];
@@ -342,11 +403,13 @@ static void setDefaultsToConsistentValuesForTesting()
     [preferences setDefaultFixedFontSize:13];
     [preferences setMinimumFontSize:1];
     [preferences setJavaEnabled:NO];
+    [preferences setJavaScriptEnabled:YES];
     [preferences setEditableLinkBehavior:WebKitEditableLinkOnlyLiveWithShiftKey];
     [preferences setTabsToLinks:NO];
     [preferences setDOMPasteAllowed:YES];
-    [preferences setFullDocumentTeardownEnabled:YES];
     [preferences setShouldPrintBackgrounds:YES];
+    [preferences setCacheModel:WebCacheModelDocumentBrowser];
+    [preferences setXSSAuditorEnabled:NO];
 
     // The back/forward cache is causing problems due to layouts during transition from one page to another.
     // So, turn it off for now, but we might want to turn it back on some day.
@@ -507,6 +570,7 @@ void dumpRenderTree(int argc, const char *argv[])
     if (threaded)
         stopJavaScriptThreads();
 
+    NSWindow *window = [webView window];
     [webView close];
     mainFrame = nil;
 
@@ -514,7 +578,6 @@ void dumpRenderTree(int argc, const char *argv[])
     // "perform selector" on the window, which retains the window. It's a bit
     // inelegant and perhaps dangerous to just blow them all away, but in practice
     // it probably won't cause any trouble (and this is just a test tool, after all).
-    NSWindow *window = [webView window];
     [NSObject cancelPreviousPerformRequestsWithTarget:window];
     
     [window close]; // releases when closed
@@ -559,7 +622,14 @@ static void dumpHistoryItem(WebHistoryItem *item, int indent, BOOL current)
     }
     for (int i = start; i < indent; i++)
         putchar(' ');
-    printf("%s", [[item URLString] UTF8String]);
+    
+    NSString *urlString = [item URLString];
+    if ([[NSURL URLWithString:urlString] isFileURL]) {
+        NSRange range = [urlString rangeOfString:@"/LayoutTests/"];
+        urlString = [@"(file test):" stringByAppendingString:[urlString substringFromIndex:(range.length + range.location)]];
+    }
+    
+    printf("%s", [urlString UTF8String]);
     NSString *target = [item target];
     if (target && [target length] > 0)
         printf(" (in frame \"%s\")", [target UTF8String]);
@@ -629,7 +699,7 @@ static NSData *dumpFrameAsPDF(WebFrame *frame)
     // likewise +[NSView dataWithPDFInsideRect:] also prints to a single continuous page
     // The goal of this function is to test "real" printing across multiple pages.
     // FIXME: It's possible there might be printing SPI to let us print a multi-page PDF to an NSData object
-    NSString *path = @"/tmp/test.pdf";
+    NSString *path = [libraryPathForDumpRenderTree() stringByAppendingPathComponent:@"test.pdf"];
 
     NSMutableDictionary *printInfoDict = [NSMutableDictionary dictionaryWithDictionary:[[NSPrintInfo sharedPrintInfo] dictionary]];
     [printInfoDict setObject:NSPrintSaveJob forKey:NSPrintJobDisposition];
@@ -668,12 +738,40 @@ static void convertWebResourceDataToString(NSMutableDictionary *resource)
 {
     NSMutableString *mimeType = [resource objectForKey:@"WebResourceMIMEType"];
     convertMIMEType(mimeType);
-    
+
     if ([mimeType hasPrefix:@"text/"] || [[WebHTMLRepresentation supportedNonImageMIMETypes] containsObject:mimeType]) {
+        NSString *textEncodingName = [resource objectForKey:@"WebResourceTextEncodingName"];
+        NSStringEncoding stringEncoding;
+        if ([textEncodingName length] > 0)
+            stringEncoding = CFStringConvertEncodingToNSStringEncoding(CFStringConvertIANACharSetNameToEncoding((CFStringRef)textEncodingName));
+        else
+            stringEncoding = NSUTF8StringEncoding;
+
         NSData *data = [resource objectForKey:@"WebResourceData"];
-        NSString *dataAsString = [[[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding] autorelease];
-        [resource setObject:dataAsString forKey:@"WebResourceData"];
+        NSString *dataAsString = [[NSString alloc] initWithData:data encoding:stringEncoding];
+        if (dataAsString)
+            [resource setObject:dataAsString forKey:@"WebResourceData"];
+        [dataAsString release];
     }
+}
+
+static void normalizeHTTPResponseHeaderFields(NSMutableDictionary *fields)
+{
+    // Normalize headers
+    if ([fields objectForKey:@"Date"])
+        [fields setObject:@"Sun, 16 Nov 2008 17:00:00 GMT" forKey:@"Date"];
+    if ([fields objectForKey:@"Last-Modified"])
+        [fields setObject:@"Sun, 16 Nov 2008 16:55:00 GMT" forKey:@"Last-Modified"];
+    if ([fields objectForKey:@"Etag"])
+        [fields setObject:@"\"301925-21-45c7d72d3e780\"" forKey:@"Etag"];
+    if ([fields objectForKey:@"Server"])
+        [fields setObject:@"Apache/2.2.9 (Unix) mod_ssl/2.2.9 OpenSSL/0.9.7l PHP/5.2.6" forKey:@"Server"];
+
+    // Remove headers
+    if ([fields objectForKey:@"Connection"])
+        [fields removeObjectForKey:@"Connection"];
+    if ([fields objectForKey:@"Keep-Alive"])
+        [fields removeObjectForKey:@"Keep-Alive"];
 }
 
 static void normalizeWebResourceURL(NSMutableString *webResourceURL)
@@ -697,14 +795,14 @@ static void convertWebResourceResponseToDictionary(NSMutableDictionary *property
         [unarchiver finishDecoding];
         [unarchiver release];
     }        
-    
+
     NSMutableDictionary *responseDictionary = [[NSMutableDictionary alloc] init];
-    
+
     NSMutableString *urlString = [[[response URL] description] mutableCopy];
     normalizeWebResourceURL(urlString);
     [responseDictionary setObject:urlString forKey:@"URL"];
     [urlString release];
-    
+
     NSMutableString *mimeTypeString = [[response MIMEType] mutableCopy];
     convertMIMEType(mimeTypeString);
     [responseDictionary setObject:mimeTypeString forKey:@"MIMEType"];
@@ -714,14 +812,18 @@ static void convertWebResourceResponseToDictionary(NSMutableDictionary *property
     if (textEncodingName)
         [responseDictionary setObject:textEncodingName forKey:@"textEncodingName"];
     [responseDictionary setObject:[NSNumber numberWithLongLong:[response expectedContentLength]] forKey:@"expectedContentLength"];
-    
+
     if ([response isKindOfClass:[NSHTTPURLResponse class]]) {
         NSHTTPURLResponse *httpResponse = (NSHTTPURLResponse *)response;
-        
-        [responseDictionary setObject:[httpResponse allHeaderFields] forKey:@"allHeaderFields"];
+
+        NSMutableDictionary *allHeaderFields = [[httpResponse allHeaderFields] mutableCopy];
+        normalizeHTTPResponseHeaderFields(allHeaderFields);
+        [responseDictionary setObject:allHeaderFields forKey:@"allHeaderFields"];
+        [allHeaderFields release];
+
         [responseDictionary setObject:[NSNumber numberWithInt:[httpResponse statusCode]] forKey:@"statusCode"];
     }
-    
+
     [propertyList setObject:responseDictionary forKey:@"WebResourceResponse"];
     [responseDictionary release];
 }
@@ -944,16 +1046,20 @@ static void resetWebViewToConsistentStateBeforeTesting()
     [webView resetPageZoom:nil];
     [webView setTabKeyCyclesThroughElements:YES];
     [webView setPolicyDelegate:nil];
+    [policyDelegate setPermissive:NO];
+    [policyDelegate setControllerToNotifyDone:0];
     [webView _setDashboardBehavior:WebDashboardBehaviorUseBackwardCompatibilityMode to:NO];
     [webView _clearMainFrameName];
+    [[webView undoManager] removeAllActions];
 
     WebPreferences *preferences = [webView preferences];
     [preferences setPrivateBrowsingEnabled:NO];
     [preferences setAuthorAndUserStylesEnabled:YES];
     [preferences setJavaScriptCanOpenWindowsAutomatically:YES];
     [preferences setOfflineWebApplicationCacheEnabled:YES];
-    [preferences setFullDocumentTeardownEnabled:YES];
     [preferences setDeveloperExtrasEnabled:NO];
+    [preferences setXSSAuditorEnabled:NO];
+    [preferences setLoadsImagesAutomatically:YES];
 
     if (persistentUserStyleSheetLocation) {
         [preferences setUserStyleSheetLocation:[NSURL URLWithString:(NSString *)(persistentUserStyleSheetLocation.get())]];
@@ -1003,7 +1109,11 @@ static void runTest(const string& testPathOrURL)
 
     gLayoutTestController = new LayoutTestController(testURL, expectedPixelHash);
     topLoadingFrame = nil;
+    ASSERT(!draggingInfo); // the previous test should have called eventSender.mouseUp to drop!
+    releaseAndZero(&draggingInfo);
     done = NO;
+
+    gLayoutTestController->setIconDatabaseEnabled(false);
 
     if (disallowedURLs)
         CFSetRemoveAllValues(disallowedURLs);
@@ -1056,7 +1166,9 @@ static void runTest(const string& testPathOrURL)
             [window close];
         }
     }
-    
+
+    resetWebViewToConsistentStateBeforeTesting();
+
     [mainFrame loadHTMLString:@"<html></html>" baseURL:[NSURL URLWithString:@"about:blank"]];
     [mainFrame stopLoading];
     

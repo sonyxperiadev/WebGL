@@ -31,18 +31,24 @@
 #include "AtomicString.h"
 #include "CachedNode.h"
 #include "CachedRoot.h"
+#include "ChromeClientAndroid.h"
 #include "Color.h"
+#include "DatabaseTracker.h"
 #include "Document.h"
+#include "DOMWindow.h"
 #include "Element.h"
 #include "Editor.h"
 #include "EditorClientAndroid.h"
 #include "EventHandler.h"
 #include "EventNames.h"
+#include "FocusController.h"
 #include "Font.h"
+#include "Frame.h"
 #include "FrameLoader.h"
 #include "FrameLoaderClientAndroid.h"
 #include "FrameTree.h"
 #include "FrameView.h"
+#include "Geolocation.h"
 #include "GraphicsContext.h"
 #include "GraphicsJNI.h"
 #include "HitTestResult.h"
@@ -60,15 +66,19 @@
 #include "InlineTextBox.h"
 #include <JNIHelp.h>
 #include "KeyboardCodes.h"
+#include "Navigator.h"
 #include "Node.h"
 #include "Page.h"
+#include "PageGroup.h"
 #include "PlatformKeyboardEvent.h"
 #include "PlatformString.h"
-#include "PluginInfoStore.h"
 #include "PluginWidgetAndroid.h"
+#include "PluginView.h"
 #include "Position.h"
 #include "ProgressTracker.h"
+#include "RenderBox.h"
 #include "RenderLayer.h"
+#include "RenderPart.h"
 #include "RenderText.h"
 #include "RenderTextControl.h"
 #include "RenderThemeAndroid.h"
@@ -76,6 +86,7 @@
 #include "ResourceRequest.h"
 #include "SelectionController.h"
 #include "Settings.h"
+#include "SkANP.h"
 #include "SkTemplates.h"
 #include "SkTypes.h"
 #include "SkCanvas.h"
@@ -91,6 +102,11 @@
 #include <ui/KeycodeLabels.h>
 #include "jni_utility.h"
 #include <wtf/CurrentTime.h>
+
+#if USE(V8)
+#include "CString.h"
+#include "ScriptController.h"
+#endif
 
 #if DEBUG_NAV_UI
 #include "SkTime.h"
@@ -136,6 +152,7 @@ struct WebViewCoreFields {
     jfieldID    m_viewportMinimumScale;
     jfieldID    m_viewportMaximumScale;
     jfieldID    m_viewportUserScalable;
+    jfieldID    m_viewportDensityDpi;
     jfieldID    m_webView;
 } gWebViewCoreFields;
 
@@ -155,14 +172,25 @@ struct WebViewCore::JavaGlue {
     jmethodID   m_jsUnload;
     jmethodID   m_jsInterrupt;
     jmethodID   m_didFirstLayout;
-    jmethodID   m_sendMarkNodeInvalid;
-    jmethodID   m_sendNotifyFocusSet;
+    jmethodID   m_updateViewport;
     jmethodID   m_sendNotifyProgressFinished;
-    jmethodID   m_sendRecomputeFocus;
     jmethodID   m_sendViewInvalidate;
     jmethodID   m_updateTextfield;
+    jmethodID   m_updateTextSelection;
+    jmethodID   m_clearTextEntry;
     jmethodID   m_restoreScale;
+    jmethodID   m_restoreScreenWidthScale;
     jmethodID   m_needTouchEvents;
+    jmethodID   m_requestKeyboard;
+    jmethodID   m_exceededDatabaseQuota;
+    jmethodID   m_reachedMaxAppCacheSize;
+    jmethodID   m_populateVisitedLinks;
+    jmethodID   m_geolocationPermissionsShowPrompt;
+    jmethodID   m_geolocationPermissionsHidePrompt;
+    jmethodID   m_addMessageToConsole;
+    jmethodID   m_startFullScreenPluginActivity;
+    jmethodID   m_createSurface;
+    jmethodID   m_destroySurface;
     AutoJObject object(JNIEnv* env) {
         return getRealObject(env, m_obj);
     }
@@ -180,9 +208,8 @@ static jmethodID GetJMethod(JNIEnv* env, jclass clazz, const char name[], const 
 }
 
 Mutex WebViewCore::gFrameCacheMutex;
-Mutex WebViewCore::gFrameGenerationMutex;
-Mutex WebViewCore::gRecomputeFocusMutex;
 Mutex WebViewCore::gButtonMutex;
+Mutex WebViewCore::gCursorBoundsMutex;
 Mutex WebViewCore::m_contentMutex;
 
 WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* mainframe)
@@ -191,7 +218,6 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     m_mainFrame = mainframe;
 
     m_popupReply = 0;
-    m_buildGeneration = 0;
     m_moveGeneration = 0;
     m_generation = 0;
     m_lastGeneration = 0;
@@ -202,7 +228,8 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     m_maxYScroll = 240/4;
     m_textGeneration = 0;
     m_screenWidth = 320;
-    m_scale = 100;
+    m_scale = 1;
+    m_screenWidthScale = 1;
 
     LOG_ASSERT(m_mainFrame, "Uh oh, somehow a frameview was made without an initial frame!");
 
@@ -220,19 +247,32 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     m_javaGlue->m_jsPrompt = GetJMethod(env, clazz, "jsPrompt", "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;");
     m_javaGlue->m_jsUnload = GetJMethod(env, clazz, "jsUnload", "(Ljava/lang/String;Ljava/lang/String;)Z");
     m_javaGlue->m_jsInterrupt = GetJMethod(env, clazz, "jsInterrupt", "()Z");
-    m_javaGlue->m_didFirstLayout = GetJMethod(env, clazz, "didFirstLayout", "()V");
-    m_javaGlue->m_sendMarkNodeInvalid = GetJMethod(env, clazz, "sendMarkNodeInvalid", "(I)V");
-    m_javaGlue->m_sendNotifyFocusSet = GetJMethod(env, clazz, "sendNotifyFocusSet", "()V");
+    m_javaGlue->m_didFirstLayout = GetJMethod(env, clazz, "didFirstLayout", "(Z)V");
+    m_javaGlue->m_updateViewport = GetJMethod(env, clazz, "updateViewport", "()V");
     m_javaGlue->m_sendNotifyProgressFinished = GetJMethod(env, clazz, "sendNotifyProgressFinished", "()V");
-    m_javaGlue->m_sendRecomputeFocus = GetJMethod(env, clazz, "sendRecomputeFocus", "()V");
     m_javaGlue->m_sendViewInvalidate = GetJMethod(env, clazz, "sendViewInvalidate", "(IIII)V");
     m_javaGlue->m_updateTextfield = GetJMethod(env, clazz, "updateTextfield", "(IZLjava/lang/String;I)V");
+    m_javaGlue->m_updateTextSelection = GetJMethod(env, clazz, "updateTextSelection", "(IIII)V");
+    m_javaGlue->m_clearTextEntry = GetJMethod(env, clazz, "clearTextEntry", "()V");
     m_javaGlue->m_restoreScale = GetJMethod(env, clazz, "restoreScale", "(I)V");
+    m_javaGlue->m_restoreScreenWidthScale = GetJMethod(env, clazz, "restoreScreenWidthScale", "(I)V");
     m_javaGlue->m_needTouchEvents = GetJMethod(env, clazz, "needTouchEvents", "(Z)V");
+    m_javaGlue->m_requestKeyboard = GetJMethod(env, clazz, "requestKeyboard", "(Z)V");
+    m_javaGlue->m_exceededDatabaseQuota = GetJMethod(env, clazz, "exceededDatabaseQuota", "(Ljava/lang/String;Ljava/lang/String;JJ)V");
+    m_javaGlue->m_reachedMaxAppCacheSize = GetJMethod(env, clazz, "reachedMaxAppCacheSize", "(J)V");
+    m_javaGlue->m_populateVisitedLinks = GetJMethod(env, clazz, "populateVisitedLinks", "()V");
+    m_javaGlue->m_geolocationPermissionsShowPrompt = GetJMethod(env, clazz, "geolocationPermissionsShowPrompt", "(Ljava/lang/String;)V");
+    m_javaGlue->m_geolocationPermissionsHidePrompt = GetJMethod(env, clazz, "geolocationPermissionsHidePrompt", "()V");
+    m_javaGlue->m_addMessageToConsole = GetJMethod(env, clazz, "addMessageToConsole", "(Ljava/lang/String;ILjava/lang/String;)V");
+    m_javaGlue->m_startFullScreenPluginActivity = GetJMethod(env, clazz, "startFullScreenPluginActivity", "(Ljava/lang/String;Ljava/lang/String;I)V");
+    m_javaGlue->m_createSurface = GetJMethod(env, clazz, "createSurface", "(Ljava/lang/String;Ljava/lang/String;IIIII)Landroid/webkit/ViewManager$ChildView;");
+    m_javaGlue->m_destroySurface = GetJMethod(env, clazz, "destroySurface", "(Landroid/webkit/ViewManager$ChildView;)V");
 
     env->SetIntField(javaWebViewCore, gWebViewCoreFields.m_nativeClass, (jint)this);
 
     m_scrollOffsetX = m_scrollOffsetY = 0;
+
+    PageGroup::setShouldTrackVisitedLinks(true);
 
     reset(true);
 }
@@ -260,6 +300,8 @@ WebViewCore* WebViewCore::getWebViewCore(const WebCore::FrameView* view)
 WebViewCore* WebViewCore::getWebViewCore(const WebCore::ScrollView* view)
 {
     WebFrameView* webFrameView = static_cast<WebFrameView*>(view->platformWidget());
+    if (!webFrameView)
+        return 0;
     return webFrameView->webViewCore();
 }
 
@@ -280,16 +322,24 @@ void WebViewCore::reset(bool fromConstructor)
 
     m_lastFocused = 0;
     m_lastFocusedBounds = WebCore::IntRect(0,0,0,0);
+    m_lastFocusedSelStart = 0;
+    m_lastFocusedSelEnd = 0;
+    m_lastMoveGeneration = 0;
     clearContent();
     m_updatedFrameCache = true;
     m_frameCacheOutOfDate = true;
-    m_blockFocusChange = false;
-    m_snapAnchorNode = 0;
-    m_useReplay = false;
     m_skipContentDraw = false;
     m_findIsUp = false;
     m_domtree_version = 0;
     m_check_domtree_version = true;
+    m_progressDone = false;
+    m_hasCursorBounds = false;
+
+    m_scrollOffsetX = 0;
+    m_scrollOffsetY = 0;
+    m_screenWidth = 0;
+    m_screenHeight = 0;
+    m_groupForVisitedLinks = NULL;
 }
 
 static bool layoutIfNeededRecursive(WebCore::Frame* f)
@@ -303,7 +353,7 @@ static bool layoutIfNeededRecursive(WebCore::Frame* f)
 
     if (v->needsLayout())
         v->layout(f->tree()->parent());
-    
+
     WebCore::Frame* child = f->tree()->firstChild();
     bool success = true;
     while (child) {
@@ -314,16 +364,32 @@ static bool layoutIfNeededRecursive(WebCore::Frame* f)
     return success && !v->needsLayout();
 }
 
+CacheBuilder& WebViewCore::cacheBuilder()
+{
+    return FrameLoaderClientAndroid::get(m_mainFrame)->getCacheBuilder();
+}
+
+WebCore::Node* WebViewCore::currentFocus()
+{
+    return cacheBuilder().currentFocus();
+}
+
 void WebViewCore::recordPicture(SkPicture* picture)
 {
     // if there is no document yet, just return
-    if (!m_mainFrame->document())
+    if (!m_mainFrame->document()) {
+        DBG_NAV_LOG("no document");
         return;
+    }
     // Call layout to ensure that the contentWidth and contentHeight are correct
-    if (!layoutIfNeededRecursive(m_mainFrame))
+    if (!layoutIfNeededRecursive(m_mainFrame)) {
+        DBG_NAV_LOG("layout failed");
         return;
+    }
     // draw into the picture's recording canvas
     WebCore::FrameView* view = m_mainFrame->view();
+    DBG_NAV_LOGD("view=(w=%d,h=%d)", view->contentsWidth(),
+        view->contentsHeight());
     SkAutoPictureRecord arp(picture, view->contentsWidth(),
                             view->contentsHeight(), PICT_RECORD_FLAGS);
     SkAutoMemoryUsageProbe mup(__FUNCTION__);
@@ -374,6 +440,71 @@ void WebViewCore::recordPictureSet(PictureSet* content)
     WebCore::FrameView* view = m_mainFrame->view();
     int width = view->contentsWidth();
     int height = view->contentsHeight();
+
+    // Use the contents width and height as a starting point.
+    SkIRect contentRect;
+    contentRect.set(0, 0, width, height);
+    SkIRect total(contentRect);
+
+    // Traverse all the frames and add their sizes if they are in the visible
+    // rectangle.
+    for (WebCore::Frame* frame = m_mainFrame->tree()->traverseNext(); frame;
+            frame = frame->tree()->traverseNext()) {
+        // If the frame doesn't have an owner then it is the top frame and the
+        // view size is the frame size.
+        WebCore::RenderPart* owner = frame->ownerRenderer();
+        if (owner && owner->style()->visibility() == VISIBLE) {
+            int x = owner->x();
+            int y = owner->y();
+
+            // Traverse the tree up to the parent to find the absolute position
+            // of this frame.
+            WebCore::Frame* parent = frame->tree()->parent();
+            while (parent) {
+                WebCore::RenderPart* parentOwner = parent->ownerRenderer();
+                if (parentOwner) {
+                    x += parentOwner->x();
+                    y += parentOwner->y();
+                }
+                parent = parent->tree()->parent();
+            }
+            // Use the owner dimensions so that padding and border are
+            // included.
+            int right = x + owner->width();
+            int bottom = y + owner->height();
+            SkIRect frameRect = {x, y, right, bottom};
+            // Ignore a width or height that is smaller than 1. Some iframes
+            // have small dimensions in order to be hidden. The iframe
+            // expansion code does not expand in that case so we should ignore
+            // them here.
+            if (frameRect.width() > 1 && frameRect.height() > 1
+                    && SkIRect::Intersects(total, frameRect))
+                total.join(x, y, right, bottom);
+        }
+    }
+
+    // If the new total is larger than the content, resize the view to include
+    // all the content.
+    if (!contentRect.contains(total)) {
+        // Resize the view to change the overflow clip.
+        view->resize(total.fRight, total.fBottom);
+
+        // We have to force a layout in order for the clip to change.
+        m_mainFrame->contentRenderer()->setNeedsLayoutAndPrefWidthsRecalc();
+        view->forceLayout();
+
+        // Relayout similar to above
+        m_skipContentDraw = true;
+        bool success = layoutIfNeededRecursive(m_mainFrame);
+        m_skipContentDraw = false;
+        if (!success)
+            return;
+
+        // Set the computed content width
+        width = view->contentsWidth();
+        height = view->contentsHeight();
+    }
+
     content->checkDimensions(width, height, &m_addInval);
 
     // The inval region may replace existing pictures. The existing pictures
@@ -395,33 +526,56 @@ void WebViewCore::recordPictureSet(PictureSet* content)
     if (content->build())
         rebuildPictureSet(content);
     } // WebViewCoreRecordTimeCounter
-    CacheBuilder& builder = FrameLoaderClientAndroid::get(m_mainFrame)->getCacheBuilder();
-    WebCore::Node* oldFocusNode = builder.currentFocus();
+    WebCore::Node* oldFocusNode = currentFocus();
     m_frameCacheOutOfDate = true;
-    WebCore::IntRect oldBounds = oldFocusNode ?
-        oldFocusNode->getRect() : WebCore::IntRect(0,0,0,0);
-    DBG_NAV_LOGD("m_lastFocused=%p oldFocusNode=%p"
-        " m_lastFocusedBounds={%d,%d,%d,%d} oldBounds={%d,%d,%d,%d}",
-        m_lastFocused, oldFocusNode,
-        m_lastFocusedBounds.x(), m_lastFocusedBounds.y(), m_lastFocusedBounds.width(), m_lastFocusedBounds.height(),
-        oldBounds.x(), oldBounds.y(), oldBounds.width(), oldBounds.height());
+    WebCore::IntRect oldBounds;
+    int oldSelStart = 0;
+    int oldSelEnd = 0;
+    if (oldFocusNode) {
+        oldBounds = oldFocusNode->getRect();
+        RenderObject* renderer = oldFocusNode->renderer();
+        if (renderer && (renderer->isTextArea() || renderer->isTextField())) {
+            WebCore::RenderTextControl* rtc =
+                static_cast<WebCore::RenderTextControl*>(renderer);
+            oldSelStart = rtc->selectionStart();
+            oldSelEnd = rtc->selectionEnd();
+        }
+    } else
+        oldBounds = WebCore::IntRect(0,0,0,0);
     unsigned latestVersion = 0;
     if (m_check_domtree_version) {
-        // as domTreeVersion only increment, we can just check the sum to see 
+        // as domTreeVersion only increment, we can just check the sum to see
         // whether we need to update the frame cache
         for (Frame* frame = m_mainFrame; frame; frame = frame->tree()->traverseNext()) {
             latestVersion += frame->document()->domTreeVersion();
         }
     }
-    if (m_lastFocused != oldFocusNode || m_lastFocusedBounds != oldBounds || m_findIsUp 
-            || (m_check_domtree_version && latestVersion != m_domtree_version)) {
-        m_lastFocused = oldFocusNode;
-        m_lastFocusedBounds = oldBounds;
-        DBG_NAV_LOGD("call updateFrameCache m_domtree_version=%d latest=%d",
-            m_domtree_version, latestVersion);
-        m_domtree_version = latestVersion;
-        updateFrameCache();
+    DBG_NAV_LOGD("m_lastFocused=%p oldFocusNode=%p"
+        " m_lastFocusedBounds={%d,%d,%d,%d} oldBounds={%d,%d,%d,%d}"
+        " m_lastFocusedSelection={%d,%d} oldSelection={%d,%d}"
+        " m_check_domtree_version=%s latestVersion=%d m_domtree_version=%d",
+        m_lastFocused, oldFocusNode,
+        m_lastFocusedBounds.x(), m_lastFocusedBounds.y(),
+        m_lastFocusedBounds.width(), m_lastFocusedBounds.height(),
+        oldBounds.x(), oldBounds.y(), oldBounds.width(), oldBounds.height(),
+        m_lastFocusedSelStart, m_lastFocusedSelEnd, oldSelStart, oldSelEnd,
+        m_check_domtree_version ? "true" : "false",
+        latestVersion, m_domtree_version);
+    if (m_lastFocused == oldFocusNode && m_lastFocusedBounds == oldBounds
+            && m_lastFocusedSelStart == oldSelStart
+            && m_lastFocusedSelEnd == oldSelEnd
+            && !m_findIsUp
+            && (!m_check_domtree_version || latestVersion == m_domtree_version))
+    {
+        return;
     }
+    m_lastFocused = oldFocusNode;
+    m_lastFocusedBounds = oldBounds;
+    m_lastFocusedSelStart = oldSelStart;
+    m_lastFocusedSelEnd = oldSelEnd;
+    m_domtree_version = latestVersion;
+    DBG_NAV_LOG("call updateFrameCache");
+    updateFrameCache();
 }
 
 void WebViewCore::updateButtonList(WTF::Vector<Container>* buttons)
@@ -477,7 +631,7 @@ void WebViewCore::copyContentToPicture(SkPicture* picture)
     m_contentMutex.lock();
     PictureSet copyContent = PictureSet(m_content);
     m_contentMutex.unlock();
-    
+
     int w = copyContent.width();
     int h = copyContent.height();
     copyContent.draw(picture->beginRecording(w, h, PICT_RECORD_FLAGS));
@@ -506,6 +660,18 @@ bool WebViewCore::drawContent(SkCanvas* canvas, SkColor color)
     m_contentMutex.unlock();
     DBG_SET_LOG("end");
     return tookTooLong;
+}
+
+bool WebViewCore::pictureReady()
+{
+    bool done;
+    m_contentMutex.lock();
+    PictureSet copyContent = PictureSet(m_content);
+    done = m_progressDone;
+    m_contentMutex.unlock();
+    DBG_NAV_LOGD("done=%s empty=%s", done ? "true" : "false",
+        copyContent.isEmpty() ? "true" : "false");
+    return done || !copyContent.isEmpty();
 }
 
 SkPicture* WebViewCore::rebuildPicture(const SkIRect& inval)
@@ -558,12 +724,13 @@ void WebViewCore::rebuildPictureSet(PictureSet* pictureSet)
 bool WebViewCore::recordContent(SkRegion* region, SkIPoint* point)
 {
     DBG_SET_LOG("start");
+    float progress = (float) m_mainFrame->page()->progress()->estimatedProgress();
     m_contentMutex.lock();
     PictureSet contentCopy(m_content);
+    m_progressDone = progress <= 0.0f || progress >= 1.0f;
     m_contentMutex.unlock();
     recordPictureSet(&contentCopy);
-    float progress = (float) m_mainFrame->page()->progress()->estimatedProgress();
-    if (progress > 0.0f && progress < 1.0f && contentCopy.isEmpty()) {
+    if (!m_progressDone && contentCopy.isEmpty()) {
         DBG_SET_LOGD("empty (progress=%g)", progress);
         return false;
     }
@@ -609,22 +776,6 @@ void WebViewCore::scrollTo(int x, int y, bool animate)
     checkException(env);
 }
 
-void WebViewCore::sendMarkNodeInvalid(WebCore::Node* node)
-{
-    LOG_ASSERT(m_javaGlue->m_obj, "A Java widget was not associated with this view bridge!");
-    JNIEnv* env = JSC::Bindings::getJNIEnv();
-    env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_sendMarkNodeInvalid, (int) node);
-    checkException(env);
-}
-
-void WebViewCore::sendNotifyFocusSet()
-{
-    LOG_ASSERT(m_javaGlue->m_obj, "A Java widget was not associated with this view bridge!");
-    JNIEnv* env = JSC::Bindings::getJNIEnv();
-    env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_sendNotifyFocusSet);
-    checkException(env);
-}
-
 void WebViewCore::sendNotifyProgressFinished()
 {
     LOG_ASSERT(m_javaGlue->m_obj, "A Java widget was not associated with this view bridge!");
@@ -633,16 +784,8 @@ void WebViewCore::sendNotifyProgressFinished()
     checkException(env);
 }
 
-void WebViewCore::sendRecomputeFocus()
-{
-    LOG_ASSERT(m_javaGlue->m_obj, "A Java widget was not associated with this view bridge!");
-    JNIEnv* env = JSC::Bindings::getJNIEnv();
-    env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_sendRecomputeFocus);
-    checkException(env);
-}
-
 void WebViewCore::viewInvalidate(const WebCore::IntRect& rect)
-{    
+{
     LOG_ASSERT(m_javaGlue->m_obj, "A Java widget was not associated with this view bridge!");
     JNIEnv* env = JSC::Bindings::getJNIEnv();
     env->CallVoidMethod(m_javaGlue->object(env).get(),
@@ -656,7 +799,7 @@ void WebViewCore::scrollBy(int dx, int dy, bool animate)
     if (!(dx | dy))
         return;
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_scrollBy, 
+    env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_scrollBy,
         dx, dy, animate);
     checkException(env);
 }
@@ -671,10 +814,8 @@ void WebViewCore::contentDraw()
 void WebViewCore::contentInvalidate(const WebCore::IntRect &r)
 {
     DBG_SET_LOGD("rect={%d,%d,w=%d,h=%d}", r.x(), r.y(), r.width(), r.height());
-    SkIRect rect, max;
-    android_setrect(&rect, r);
-    max.set(0, 0, INT_MAX, INT_MAX);
-    if (!rect.intersect(max))
+    SkIRect rect(r);
+    if (!rect.intersect(0, 0, INT_MAX, INT_MAX))
         return;
     m_addInval.op(rect, SkRegion::kUnion_Op);
     DBG_SET_LOGD("m_addInval={%d,%d,r=%d,b=%d}",
@@ -706,19 +847,37 @@ void WebViewCore::didFirstLayout()
     DEBUG_NAV_UI_LOGD("%s", __FUNCTION__);
     LOG_ASSERT(m_javaGlue->m_obj, "A Java widget was not associated with this view bridge!");
 
-    const WebCore::KURL& url = m_mainFrame->loader()->url();
+    WebCore::FrameLoader* loader = m_mainFrame->loader();
+    const WebCore::KURL& url = loader->url();
     if (url.isEmpty())
         return;
     LOGV("::WebCore:: didFirstLayout %s", url.string().ascii().data());
 
+    WebCore::FrameLoadType loadType = loader->loadType();
+
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_didFirstLayout);
+    env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_didFirstLayout,
+            loadType == WebCore::FrameLoadTypeStandard
+            // When redirect with locked history, we would like to reset the
+            // scale factor. This is important for www.yahoo.com as it is
+            // redirected to www.yahoo.com/?rs=1 on load.
+            || loadType == WebCore::FrameLoadTypeRedirectWithLockedBackForwardList);
     checkException(env);
 
     DBG_NAV_LOG("call updateFrameCache");
     m_check_domtree_version = false;
     updateFrameCache();
     m_history.setDidFirstLayout(true);
+}
+
+void WebViewCore::updateViewport()
+{
+    DEBUG_NAV_UI_LOGD("%s", __FUNCTION__);
+    LOG_ASSERT(m_javaGlue->m_obj, "A Java widget was not associated with this view bridge!");
+
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_updateViewport);
+    checkException(env);
 }
 
 void WebViewCore::restoreScale(int scale)
@@ -731,6 +890,16 @@ void WebViewCore::restoreScale(int scale)
     checkException(env);
 }
 
+void WebViewCore::restoreScreenWidthScale(int scale)
+{
+    DEBUG_NAV_UI_LOGD("%s", __FUNCTION__);
+    LOG_ASSERT(m_javaGlue->m_obj, "A Java widget was not associated with this view bridge!");
+
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_restoreScreenWidthScale, scale);
+    checkException(env);
+}
+
 void WebViewCore::needTouchEvents(bool need)
 {
     DEBUG_NAV_UI_LOGD("%s", __FUNCTION__);
@@ -738,14 +907,24 @@ void WebViewCore::needTouchEvents(bool need)
 
 #if ENABLE(TOUCH_EVENTS) // Android
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_needTouchEvents, need);
-    checkException(env);
+    AutoJObject obj = m_javaGlue->object(env);
+    // if it is called during DESTROY is handled, the real object of WebViewCore
+    // can be gone. Check before using it.
+    if (env && obj.get()) {
+        env->CallVoidMethod(obj.get(), m_javaGlue->m_needTouchEvents, need);
+        checkException(env);
+    }
 #endif
 }
 
-void WebViewCore::notifyFocusSet()
+void WebViewCore::requestKeyboard(bool showKeyboard)
 {
-    sendNotifyFocusSet();
+    DEBUG_NAV_UI_LOGD("%s", __FUNCTION__);
+    LOG_ASSERT(m_javaGlue->m_obj, "A Java widget was not associated with this view bridge!");
+
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_requestKeyboard, showKeyboard);
+    checkException(env);
 }
 
 void WebViewCore::notifyProgressFinished()
@@ -780,9 +959,10 @@ void WebViewCore::doMaxScroll(CacheBuilder::Direction dir)
     this->scrollBy(dx, dy, true);
 }
 
-void WebViewCore::setScrollOffset(int dx, int dy)
+void WebViewCore::setScrollOffset(int moveGeneration, int dx, int dy)
 {
-    DBG_NAV_LOGD("{%d,%d}", dx, dy);
+    DBG_NAV_LOGD("{%d,%d} m_scrollOffset=(%d,%d)", dx, dy,
+        m_scrollOffsetX, m_scrollOffsetY);
     if (m_scrollOffsetX != dx || m_scrollOffsetY != dy) {
         m_scrollOffsetX = dx;
         m_scrollOffsetY = dy;
@@ -791,8 +971,19 @@ void WebViewCore::setScrollOffset(int dx, int dy)
         // testing work correctly.
         m_mainFrame->view()->platformWidget()->setLocation(m_scrollOffsetX,
                 m_scrollOffsetY);
-        m_mainFrame->sendScrollEvent();
+        m_mainFrame->eventHandler()->sendScrollEvent();
+
+        // update the currently visible screen
+        sendPluginVisibleScreen();
     }
+    gCursorBoundsMutex.lock();
+    bool hasCursorBounds = m_hasCursorBounds;
+    Frame* frame = (Frame*) m_cursorFrame;
+    IntPoint location = m_cursorLocation;
+    gCursorBoundsMutex.unlock();
+    if (!hasCursorBounds)
+        return;
+    moveMouseIfLatest(moveGeneration, frame, location.x(), location.y());
 }
 
 void WebViewCore::setGlobalBounds(int x, int y, int h, int v)
@@ -801,23 +992,31 @@ void WebViewCore::setGlobalBounds(int x, int y, int h, int v)
     m_mainFrame->view()->platformWidget()->setWindowBounds(x, y, h, v);
 }
 
-void WebViewCore::setSizeScreenWidthAndScale(int width, int height, 
-    int screenWidth, int scale, int realScreenWidth, int screenHeight)
+void WebViewCore::setSizeScreenWidthAndScale(int width, int height,
+    int screenWidth, float scale, int realScreenWidth, int screenHeight,
+    bool ignoreHeight)
 {
     WebCoreViewBridge* window = m_mainFrame->view()->platformWidget();
     int ow = window->width();
     int oh = window->height();
     window->setSize(width, height);
     int osw = m_screenWidth;
-    DBG_NAV_LOGD("old:(w=%d,h=%d,sw=%d,scale=%d) new:(w=%d,h=%d,sw=%d,scale=%d)",
+    DBG_NAV_LOGD("old:(w=%d,h=%d,sw=%d,scale=%g) new:(w=%d,h=%d,sw=%d,scale=%g)",
         ow, oh, osw, m_scale, width, height, screenWidth, scale);
     m_screenWidth = screenWidth;
-    m_scale = scale;
+    m_screenHeight = screenHeight;
+    if (scale >= 0) { // negative means ignore
+        m_scale = scale;
+        if (screenWidth != realScreenWidth)
+            m_screenWidthScale = realScreenWidth * scale / screenWidth;
+        else
+            m_screenWidthScale = m_scale;
+    }
     m_maxXScroll = screenWidth >> 2;
     m_maxYScroll = (screenWidth * height / width) >> 2;
-    if (ow != width || oh != height || osw != screenWidth) {
+    if (ow != width || (!ignoreHeight && oh != height) || osw != screenWidth) {
         WebCore::RenderObject *r = m_mainFrame->contentRenderer();
-        DBG_NAV_LOGD("renderer=%p view=(w=%d,h=%d)", r, 
+        DBG_NAV_LOGD("renderer=%p view=(w=%d,h=%d)", r,
             realScreenWidth, screenHeight);
         if (r) {
             // get current screen center position
@@ -836,7 +1035,7 @@ void WebViewCore::setSizeScreenWidthAndScale(int width, int height,
                 offset = WebCore::IntPoint(screenCenter.x() - bounds.x(),
                     screenCenter.y() - bounds.y());
                 if (offset.x() < 0 || offset.x() > realScreenWidth ||
-                    offset.y() < 0 || offset.y() > screenHeight) 
+                    offset.y() < 0 || offset.y() > screenHeight)
                 {
                     DBG_NAV_LOGD("offset out of bounds:(x=%d,y=%d)",
                         offset.x(), offset.y());
@@ -844,18 +1043,21 @@ void WebViewCore::setSizeScreenWidthAndScale(int width, int height,
                 }
             }
             r->setNeedsLayoutAndPrefWidthsRecalc();
-            m_mainFrame->forceLayout();
+            m_mainFrame->view()->forceLayout();
             // scroll to restore current screen center
             if (!node)
                 return;
             const WebCore::IntRect& newBounds = node->getRect();
             DBG_NAV_LOGD("nb:(x=%d,y=%d,w=%d,"
-                "h=%d,ns=%d)", newBounds.x(), newBounds.y(), 
+                "h=%d,ns=%d)", newBounds.x(), newBounds.y(),
                 newBounds.width(), newBounds.height());
             scrollBy(newBounds.x() - bounds.x(), newBounds.y() - bounds.y(),
                 false);
         }
     }
+
+    // update the currently visible screen
+    sendPluginVisibleScreen();
 }
 
 void WebViewCore::dumpDomTree(bool useFile)
@@ -901,14 +1103,13 @@ void WebViewCore::dumpRenderTree(bool useFile)
 void WebViewCore::dumpNavTree()
 {
 #if DUMP_NAV_CACHE
-    FrameLoaderClientAndroid::get(m_mainFrame)->getCacheBuilder().mDebug.print();
+    cacheBuilder().mDebug.print();
 #endif
 }
 
 WebCore::String WebViewCore::retrieveHref(WebCore::Frame* frame, WebCore::Node* node)
 {
-    CacheBuilder& builder = FrameLoaderClientAndroid::get(m_mainFrame)->getCacheBuilder();
-    if (!builder.validNode(frame, node))
+    if (!CacheBuilder::validNode(m_mainFrame, frame, node))
         return WebCore::String();
     if (!node->hasTagName(WebCore::HTMLNames::aTag))
         return WebCore::String();
@@ -916,24 +1117,50 @@ WebCore::String WebViewCore::retrieveHref(WebCore::Frame* frame, WebCore::Node* 
     return anchor->href();
 }
 
-bool WebViewCore::prepareFrameCache()
+void WebViewCore::updateCacheOnNodeChange()
+{
+    gCursorBoundsMutex.lock();
+    bool hasCursorBounds = m_hasCursorBounds;
+    Frame* frame = (Frame*) m_cursorFrame;
+    Node* node = (Node*) m_cursorNode;
+    IntRect bounds = m_cursorHitBounds;
+    gCursorBoundsMutex.unlock();
+    if (!hasCursorBounds || !node)
+        return;
+    if (CacheBuilder::validNode(m_mainFrame, frame, node)) {
+        RenderObject* renderer = node->renderer();
+        if (renderer && renderer->style()->visibility() != HIDDEN) {
+            IntRect absBox = renderer->absoluteBoundingBoxRect();
+            int globalX, globalY;
+            CacheBuilder::GetGlobalOffset(frame, &globalX, &globalY);
+            absBox.move(globalX, globalY);
+            if (absBox == bounds)
+                return;
+            DBG_NAV_LOGD("absBox=(%d,%d,%d,%d) bounds=(%d,%d,%d,%d)",
+                absBox.x(), absBox.y(), absBox.width(), absBox.height(),
+                bounds.x(), bounds.y(), bounds.width(), bounds.height());
+        }
+    }
+    DBG_NAV_LOGD("updateFrameCache node=%p", node);
+    updateFrameCache();
+}
+
+void WebViewCore::updateFrameCache()
 {
     if (!m_frameCacheOutOfDate) {
         DBG_NAV_LOG("!m_frameCacheOutOfDate");
-        return false;
+        return;
     }
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::WebViewCoreBuildNavTimeCounter);
 #endif
     m_frameCacheOutOfDate = false;
 #if DEBUG_NAV_UI
-    DBG_NAV_LOG("m_frameCacheOutOfDate was true");
     m_now = SkTime::GetMSecs();
 #endif
     m_temp = new CachedRoot();
     m_temp->init(m_mainFrame, &m_history);
-    m_temp->setGeneration(++m_buildGeneration);
-    CacheBuilder& builder = FrameLoaderClientAndroid::get(m_mainFrame)->getCacheBuilder();
+    CacheBuilder& builder = cacheBuilder();
     WebCore::Settings* settings = m_mainFrame->page()->settings();
     builder.allowAllTextDetection();
 #ifdef ANDROID_META_SUPPORT
@@ -951,15 +1178,9 @@ bool WebViewCore::prepareFrameCache()
     recordPicture(m_tempPict);
     m_temp->setPicture(m_tempPict);
     m_temp->setTextGeneration(m_textGeneration);
-    return true;
-}
-
-void WebViewCore::releaseFrameCache(bool newCache)
-{
-    if (!newCache) {
-        DBG_NAV_LOG("!newCache");
-        return;
-    }
+    WebCoreViewBridge* window = m_mainFrame->view()->platformWidget();
+    m_temp->setVisibleRect(WebCore::IntRect(m_scrollOffsetX,
+        m_scrollOffsetY, window->width(), window->height()));
     gFrameCacheMutex.lock();
     delete m_frameCacheKit;
     delete m_navPictureKit;
@@ -973,70 +1194,12 @@ void WebViewCore::releaseFrameCache(bool newCache)
         cachedFocusNode ? cachedFocusNode->nodePointer() : 0);
 #endif
     gFrameCacheMutex.unlock();
-    notifyFocusSet();
-    // it's tempting to send an invalidate here, but it's a bad idea
-    // the cache is now up to date, but the focus is not -- the event
-    // may need to be recomputed from the prior history. An invalidate
-    // will draw the stale location causing the ring to flash at the wrong place.
 }
 
-void WebViewCore::updateFrameCache()
+void WebViewCore::updateFrameCacheIfLoading()
 {
-    m_useReplay = false;
-    releaseFrameCache(prepareFrameCache());
-}
-
-void WebViewCore::removeFrameGeneration(WebCore::Frame* frame)
-{
-    DBG_NAV_LOGD("frame=%p m_generation=%d", frame, m_generation);
-    gFrameGenerationMutex.lock();
-    int last = m_frameGenerations.size() - 1;
-    for (int index = 0; index <= last; index++) {
-        if (m_frameGenerations[index].m_frame == frame) {
-            DBG_NAV_LOGD("index=%d last=%d", index, last);
-            if (index != last)
-                m_frameGenerations[index] = m_frameGenerations[last];
-            m_frameGenerations.removeLast();
-            break;
-        }
-    }
-    gFrameGenerationMutex.unlock();
-}
-
-void WebViewCore::updateFrameGeneration(WebCore::Frame* frame)
-{
-    DBG_NAV_LOGD("frame=%p m_generation=%d", frame, m_generation);
-    gFrameGenerationMutex.lock();
-    ++m_buildGeneration;
-    for (size_t index = 0; index < m_frameGenerations.size(); index++) {
-        if (m_frameGenerations[index].m_frame == frame) {
-            DBG_NAV_LOG("replace");
-            m_frameGenerations[index].m_generation = m_buildGeneration;
-            goto done;
-        }
-    }
-    {
-        FrameGen frameGen = {frame, m_buildGeneration};
-        m_frameGenerations.append(frameGen);
-        DBG_NAV_LOG("append");
-    }
-done:
-    gFrameGenerationMutex.unlock();
-}
-
-int WebViewCore::retrieveFrameGeneration(WebCore::Frame* frame)
-{
-    int result = INT_MAX;
-    gFrameGenerationMutex.lock();
-    for (size_t index = 0; index < m_frameGenerations.size(); index++) {
-        if (m_frameGenerations[index].m_frame == frame) {
-            result = m_frameGenerations[index].m_generation;
-            break;
-        }
-    }
-    gFrameGenerationMutex.unlock();
-    DBG_NAV_LOGD("frame=%p m_generation=%d result=%d", frame, m_generation, result);
-    return result;
+    if (!m_check_domtree_version)
+        updateFrameCache();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1060,7 +1223,7 @@ void WebViewCore::removePlugin(PluginWidgetAndroid* w)
 
 void WebViewCore::invalPlugin(PluginWidgetAndroid* w)
 {
-    const double PLUGIN_INVAL_DELAY = 0;    // should this be non-zero?
+    const double PLUGIN_INVAL_DELAY = 1.0 / 60;
 
     if (!m_pluginInvalTimer.isActive()) {
         m_pluginInvalTimer.startOneShot(PLUGIN_INVAL_DELAY);
@@ -1078,7 +1241,7 @@ void WebViewCore::drawPlugins()
         SkIRect dirty;
         if (w->isDirty(&dirty)) {
             w->draw();
-            w->localToPageCoords(&dirty);
+            w->localToDocumentCoords(&dirty);
             inval.op(dirty, SkRegion::kUnion_Op);
         }
     }
@@ -1092,89 +1255,143 @@ void WebViewCore::drawPlugins()
     }
 }
 
-///////////////////////////////////////////////////////////////////////////////
-
-void WebViewCore::setFinalFocus(WebCore::Frame* frame, WebCore::Node* node,
-    int x, int y, bool block)
-{
-    DBG_NAV_LOGD("frame=%p node=%p x=%d y=%d", frame, node, x, y);
-    bool result = finalKitFocus(frame, node, x, y, false);
-    if (block) {
-        m_blockFocusChange = true;
-        if (!result && node)
-            touchUp(m_touchGeneration, 0, 0, 0, x, y, 0, true, true);
+void WebViewCore::notifyPluginsOnFrameLoad(const Frame* frame) {
+    // if frame is the parent then notify all plugins
+    if (!frame->tree()->parent()) {
+        // trigger an event notifying the plugins that the page has loaded
+        ANPEvent event;
+        SkANP::InitEvent(&event, kLifecycle_ANPEventType);
+        event.data.lifecycle.action = kOnLoad_ANPLifecycleAction;
+        sendPluginEvent(event);
+    }
+    // else if frame's parent has completed
+    else if (!frame->tree()->parent()->loader()->isLoading()) {
+        // send to all plugins who have this frame in their heirarchy
+        PluginWidgetAndroid** iter = m_plugins.begin();
+        PluginWidgetAndroid** stop = m_plugins.end();
+        for (; iter < stop; ++iter) {
+            Frame* currentFrame = (*iter)->pluginView()->parentFrame();
+            while (currentFrame) {
+                if (frame == currentFrame) {
+                    ANPEvent event;
+                    SkANP::InitEvent(&event, kLifecycle_ANPEventType);
+                    event.data.lifecycle.action = kOnLoad_ANPLifecycleAction;
+                    (*iter)->sendEvent(event);
+                    break;
+                }
+                currentFrame = currentFrame->tree()->parent();
+            }
+        }
     }
 }
 
-void WebViewCore::setKitFocus(int moveGeneration, int buildGeneration,
-    WebCore::Frame* frame, WebCore::Node* node, int x, int y,
-    bool ignoreNullFocus)
+void WebViewCore::sendPluginVisibleScreen()
+{
+    ANPRectI visibleRect;
+    visibleRect.left = m_scrollOffsetX;
+    visibleRect.top = m_scrollOffsetY;
+    visibleRect.right = m_scrollOffsetX + m_screenWidth;
+    visibleRect.bottom = m_scrollOffsetY + m_screenHeight;
+
+    PluginWidgetAndroid** iter = m_plugins.begin();
+    PluginWidgetAndroid** stop = m_plugins.end();
+    for (; iter < stop; ++iter) {
+        (*iter)->setVisibleScreen(visibleRect, m_scale);
+    }
+}
+
+void WebViewCore::sendPluginEvent(const ANPEvent& evt, ANPEventFlag flag)
+{
+    PluginWidgetAndroid** iter = m_plugins.begin();
+    PluginWidgetAndroid** stop = m_plugins.end();
+    for (; iter < stop; ++iter) {
+        if((*iter)->isAcceptingEvent(flag))
+            (*iter)->sendEvent(evt);
+    }
+}
+
+void WebViewCore::sendPluginEvent(const ANPEvent& evt)
+{
+    PluginWidgetAndroid** iter = m_plugins.begin();
+    PluginWidgetAndroid** stop = m_plugins.end();
+    for (; iter < stop; ++iter) {
+        (*iter)->sendEvent(evt);
+    }
+}
+
+static PluginView* nodeIsPlugin(Node* node) {
+    RenderObject* renderer = node->renderer();
+    if (renderer && renderer->isWidget()) {
+        Widget* widget = static_cast<RenderWidget*>(renderer)->widget();
+        if (widget && widget->isPluginView())
+            return static_cast<PluginView*>(widget);
+    }
+    return 0;
+}
+
+Node* WebViewCore::cursorNodeIsPlugin() {
+    gCursorBoundsMutex.lock();
+    bool hasCursorBounds = m_hasCursorBounds;
+    Frame* frame = (Frame*) m_cursorFrame;
+    Node* node = (Node*) m_cursorNode;
+    gCursorBoundsMutex.unlock();
+    if (hasCursorBounds && CacheBuilder::validNode(m_mainFrame, frame, node)
+            && nodeIsPlugin(node)) {
+        return node;
+    }
+    return 0;
+}
+
+
+void WebViewCore::updatePluginState(Frame* frame, Node* node, PluginState state) {
+
+    // check that the node and frame pointers are (still) valid
+    if (!frame || !node || !CacheBuilder::validNode(m_mainFrame, frame, node))
+        return;
+
+    // check that the node is a plugin view
+    PluginView* pluginView = nodeIsPlugin(node);
+    if (!pluginView)
+        return;
+
+    // create the event
+    ANPEvent event;
+    SkANP::InitEvent(&event, kLifecycle_ANPEventType);
+
+    if (state == kLoseFocus_PluginState)
+        event.data.lifecycle.action = kLoseFocus_ANPLifecycleAction;
+    else if (state == kGainFocus_PluginState)
+        event.data.lifecycle.action = kGainFocus_ANPLifecycleAction;
+    else
+        return;
+
+    // send the event
+    pluginView->platformPluginWidget()->sendEvent(event);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+void WebViewCore::moveMouseIfLatest(int moveGeneration,
+    WebCore::Frame* frame, int x, int y)
 {
     DBG_NAV_LOGD("m_moveGeneration=%d moveGeneration=%d"
-        " buildGeneration=%d frame=%p node=%p x=%d y=%d",
-        m_moveGeneration, moveGeneration, buildGeneration, frame, node, x, y);
-    if (m_blockFocusChange) {
-        DBG_NAV_LOG("m_blockFocusChange");
-        return;
-    }
+        " frame=%p x=%d y=%d",
+        m_moveGeneration, moveGeneration, frame, x, y);
     if (m_moveGeneration > moveGeneration) {
         DBG_NAV_LOGD("m_moveGeneration=%d > moveGeneration=%d",
             m_moveGeneration, moveGeneration);
         return; // short-circuit if a newer move has already been generated
     }
-    if (!commonKitFocus(moveGeneration, buildGeneration, frame, node, x, y,
-            ignoreNullFocus))
-        return;
     m_lastGeneration = moveGeneration;
-}
-
-bool WebViewCore::commonKitFocus(int generation, int buildGeneration,
-    WebCore::Frame* frame, WebCore::Node* node, int x, int y,
-    bool ignoreNullFocus)
-{
-    DBG_NAV_LOGD("generation=%d buildGeneration=%d frame=%p"
-        " node=%p x=%d y=%d", generation, buildGeneration, frame, node, x, y);
-    m_useReplay = true;
-    bool newCache = prepareFrameCache(); // must wait for possible recompute before using
-    if (m_moveGeneration > generation) {
-        DBG_NAV_LOGD("m_moveGeneration=%d > generation=%d",
-            m_moveGeneration, generation);
-        releaseFrameCache(newCache);
-        return false; // short-circuit if a newer move has already been generated
-    }
-    // if the nav cache has been rebuilt since this focus request was generated,
-    // send a request back to the UI side to recompute the kit-side focus
-    if (m_buildGeneration > buildGeneration || (node && !FrameLoaderClientAndroid::get(m_mainFrame)->getCacheBuilder().validNode(frame, node))) {
-        DBG_NAV_LOGD("m_buildGeneration=%d > buildGeneration=%d",
-           m_buildGeneration, buildGeneration);
-        gRecomputeFocusMutex.lock();
-        bool first = !m_recomputeEvents.size();
-        m_recomputeEvents.append(generation);
-        gRecomputeFocusMutex.unlock();
-        releaseFrameCache(newCache);
-        if (first)
-            sendRecomputeFocus();
-        return false;
-    }
-    releaseFrameCache(newCache);
-    if (!node && ignoreNullFocus)
-        return true;
-    finalKitFocus(frame, node, x, y, false);
-    return true;
+    moveMouse(frame, x, y);
 }
 
 // Update mouse position and may change focused node.
-// If donotChangeDOMFocus is true, the function does not changed focused node
-// in the DOM tree. Changing the focus in DOM may trigger onblur event
-// handler on the current focused node before firing mouse up and down events.
-bool WebViewCore::finalKitFocus(WebCore::Frame* frame, WebCore::Node* node,
-    int x, int y, bool donotChangeDOMFocus)
+void WebViewCore::moveMouse(WebCore::Frame* frame, int x, int y)
 {
-    CacheBuilder& builder = FrameLoaderClientAndroid::
-        get(m_mainFrame)->getCacheBuilder();
-    if (!frame || builder.validNode(frame, NULL) == false)
+    DBG_NAV_LOGD("frame=%p x=%d y=%d scrollOffset=(%d,%d)", frame,
+        x, y, m_scrollOffsetX, m_scrollOffsetY);
+    if (!frame || CacheBuilder::validNode(m_mainFrame, frame, NULL) == false)
         frame = m_mainFrame;
-    WebCore::Node* oldFocusNode = builder.currentFocus();
     // mouse event expects the position in the window coordinate
     m_mousePos = WebCore::IntPoint(x - m_scrollOffsetX, y - m_scrollOffsetY);
     // validNode will still return true if the node is null, as long as we have
@@ -1183,86 +1400,7 @@ bool WebViewCore::finalKitFocus(WebCore::Frame* frame, WebCore::Node* node,
         WebCore::NoButton, WebCore::MouseEventMoved, 1, false, false, false,
         false, WTF::currentTime());
     frame->eventHandler()->handleMouseMoveEvent(mouseEvent);
-    bool valid = builder.validNode(frame, node);
-    if (!donotChangeDOMFocus) {
-        WebCore::Document* oldDoc = oldFocusNode ? oldFocusNode->document() : 0;
-        if (!node) {
-            if (oldFocusNode)
-                oldDoc->setFocusedNode(0);
-            return false;
-        } else if (!valid) {
-            DBG_NAV_LOGD("sendMarkNodeInvalid node=%p", node);
-            sendMarkNodeInvalid(node);
-            if (oldFocusNode)
-                oldDoc->setFocusedNode(0);
-            return false;
-        }
-        // If we jump frames (docs), kill the focus on the old doc
-        if (oldFocusNode && node->document() != oldDoc) {
-            oldDoc->setFocusedNode(0);
-        }
-        if (!node->isTextNode())
-            static_cast<WebCore::Element*>(node)->focus(false);
-        if (node->document()->focusedNode() != node) {
-            // This happens when Element::focus() fails as we may try to set the
-            // focus to a node which WebCore doesn't recognize as a focusable node.
-            // So we need to do some extra work, as it does in Element::focus(),
-            // besides calling Document::setFocusedNode.
-            if (oldFocusNode) {
-                // copied from clearSelectionIfNeeded in FocusController.cpp
-                WebCore::SelectionController* s = oldDoc->frame()->selection();
-                if (!s->isNone())
-                    s->clear();
-            }
-            //setFocus on things that WebCore doesn't recognize as supporting focus
-            //for instance, if there is an onclick element that does not support focus
-            node->document()->setFocusedNode(node);
-        }
-    } else {   // !donotChangeDOMFocus
-        if (!node || !valid)
-            return false;
-    }
-
-    DBG_NAV_LOGD("setFocusedNode node=%p", node);
-    builder.setLastFocus(node);
-    m_lastFocused = node;
-    m_lastFocusedBounds = node->getRect();
-    return true;
-}
-
-// helper function to find the frame that has focus
-static WebCore::Frame* FocusedFrame(WebCore::Frame* frame)
-{
-    if (!frame)
-        return 0;
-    WebCore::Node* focusNode = FrameLoaderClientAndroid::get(frame)->getCacheBuilder().currentFocus();
-    if (!focusNode)
-        return 0;
-    WebCore::Document* doc = focusNode->document();
-    if (!doc)
-        return 0;
-    return doc->frame();
-}
-
-static WebCore::RenderTextControl* FocusedTextControl(WebCore::Frame* frame)
-{
-    WebCore::Node* focusNode = FrameLoaderClientAndroid::get(frame)->getCacheBuilder().currentFocus();
-    WebCore::RenderObject* renderer = focusNode->renderer();
-    if (renderer && (renderer->isTextField() || renderer->isTextArea())) {
-        return static_cast<WebCore::RenderTextControl*>(renderer);
-    }
-    return 0;
-}
-
-WebCore::Frame* WebViewCore::changedKitFocus(WebCore::Frame* frame,
-    WebCore::Node* node, int x, int y)
-{
-    if (!frame || !node)
-        return m_mainFrame;
-    WebCore::Node* current = FrameLoaderClientAndroid::get(m_mainFrame)->getCacheBuilder().currentFocus();
-    if (current == node)
-        return frame;
-    return finalKitFocus(frame, node, x, y, false) ? frame : m_mainFrame;
+    updateCacheOnNodeChange();
 }
 
 static int findTextBoxIndex(WebCore::Node* node, const WebCore::IntPoint& pt)
@@ -1300,7 +1438,7 @@ static int findTextBoxIndex(WebCore::Node* node, const WebCore::IntPoint& pt)
             "offset=%d pt.x=%d globalX=%d renderX=%d x=%d "
             "textBox->x()=%d textBox->start()=%d prior=%d current=%d next=%d",
             offset, pt.x(), globalX, absPt.x(), x,
-            textBox->xPos(), textBox->start(), prior, current, next
+            textBox->x(), textBox->start(), prior, current, next
             );
 #endif
         return textBox->start() + offset;
@@ -1420,114 +1558,133 @@ WebCore::String WebViewCore::getSelection(SkRegion* selRgn)
     return result;
 }
 
-static void selectInFrame(WebCore::Frame* frame, int start, int end)
+void WebViewCore::setSelection(int start, int end)
 {
-    WebCore::Document* doc = frame->document();
-    if (!doc)
-        return;
-
-    WebCore::Node* focus = doc->focusedNode();
+    WebCore::Node* focus = currentFocus();
     if (!focus)
         return;
-
     WebCore::RenderObject* renderer = focus->renderer();
-    if (renderer && (renderer->isTextField() || renderer->isTextArea())) {
-        WebCore::RenderTextControl* rtc = static_cast<WebCore::RenderTextControl*>(renderer);
-        if (start > end) {
-            int temp = start;
-            start = end;
-            end = temp;
-        }
-        rtc->setSelectionRange(start, end);
-        frame->revealSelection();
+    if (!renderer || (!renderer->isTextField() && !renderer->isTextArea()))
+        return;
+    WebCore::RenderTextControl* rtc = static_cast<WebCore::RenderTextControl*>(renderer);
+    if (start > end) {
+        int temp = start;
+        start = end;
+        end = temp;
     }
+    // Tell our EditorClient that this change was generated from the UI, so it
+    // does not need to echo it to the UI.
+    EditorClientAndroid* client = static_cast<EditorClientAndroid*>(
+            m_mainFrame->editor()->client());
+    client->setUiGeneratedSelectionChange(true);
+    rtc->setSelectionRange(start, end);
+    client->setUiGeneratedSelectionChange(false);
+    focus->document()->frame()->revealSelection();
+    setFocusControllerActive(true);
 }
 
-WebCore::Frame* WebViewCore::setSelection(WebCore::Frame* frame, WebCore::Node* node,
-    int x, int y, int start, int end)
+void WebViewCore::deleteSelection(int start, int end, int textGeneration)
 {
-    // FIXME: Consider using a generation number to avoid doing this many more times than necessary.
-    frame = changedKitFocus(frame, node, x, y);
-    if (!frame)
-        return 0;
-    selectInFrame(frame, start, end);
-    return frame;
+    setSelection(start, end);
+    if (start == end)
+        return;
+    WebCore::Node* focus = currentFocus();
+    if (!focus)
+        return;
+    WebCore::TypingCommand::deleteSelection(focus->document());
+    m_textGeneration = textGeneration;
 }
 
-// Shortcut for no modifier keys
-#define NO_MODIFIER_KEYS (static_cast<WebCore::PlatformKeyboardEvent::ModifierKey>(0))
-
-WebCore::Frame* WebViewCore::deleteSelection(WebCore::Frame* frame, WebCore::Node* node,
-    int x, int y, int start, int end)
+void WebViewCore::replaceTextfieldText(int oldStart,
+        int oldEnd, const WebCore::String& replace, int start, int end,
+        int textGeneration)
 {
-    frame = setSelection(frame, node, x, y, start, end);
-    if (start != end) {
-        WebCore::PlatformKeyboardEvent downEvent(kKeyCodeDel, WebCore::VK_BACK,
-                WebCore::PlatformKeyboardEvent::KeyDown, 0, NO_MODIFIER_KEYS);
-        frame->eventHandler()->keyEvent(downEvent);
-        WebCore::PlatformKeyboardEvent upEvent(kKeyCodeDel, WebCore::VK_BACK,
-                WebCore::PlatformKeyboardEvent::KeyUp, 0, NO_MODIFIER_KEYS);
-        frame->eventHandler()->keyEvent(upEvent);
-    }
-    return frame;
+    WebCore::Node* focus = currentFocus();
+    if (!focus)
+        return;
+    setSelection(oldStart, oldEnd);
+    // Prevent our editor client from passing a message to change the
+    // selection.
+    EditorClientAndroid* client = static_cast<EditorClientAndroid*>(
+            m_mainFrame->editor()->client());
+    client->setUiGeneratedSelectionChange(true);
+    WebCore::TypingCommand::insertText(focus->document(), replace,
+        false);
+    client->setUiGeneratedSelectionChange(false);
+    setSelection(start, end);
+    m_textGeneration = textGeneration;
 }
 
-void WebViewCore::replaceTextfieldText(WebCore::Frame* frame, WebCore::Node* node, int x, int y,
-        int oldStart, int oldEnd, jstring replace, int start, int end)
+void WebViewCore::passToJs(int generation, const WebCore::String& current,
+    const PlatformKeyboardEvent& event)
 {
-    JNIEnv* env = JSC::Bindings::getJNIEnv();
-
-    WebCore::String webcoreString = to_string(env, replace);
-    frame = setSelection(frame, node, x, y, oldStart, oldEnd);
-    WebCore::TypingCommand::insertText(frame->document(), webcoreString, false);
-    selectInFrame(frame, start, end);
-}
-
-void WebViewCore::passToJs(WebCore::Frame* frame, WebCore::Node* node, int x, int y, int generation,
-     jstring currentText, int keyCode, int keyValue, bool down, bool cap, bool fn, bool sym)
-{
-    frame = changedKitFocus(frame, node, x, y);
-    // Construct the ModifierKey value
-    int mods = 0;
-    if (cap) {
-        mods |= WebCore::PlatformKeyboardEvent::ShiftKey;
+    WebCore::Node* focus = currentFocus();
+    if (!focus) {
+        DBG_NAV_LOG("!focus");
+        clearTextEntry();
+        return;
     }
-    if (fn) {
-        mods |= WebCore::PlatformKeyboardEvent::AltKey;
+    WebCore::RenderObject* renderer = focus->renderer();
+    if (!renderer || (!renderer->isTextField() && !renderer->isTextArea())) {
+        DBG_NAV_LOGD("renderer==%p || not text", renderer);
+        clearTextEntry();
+        return;
     }
-    if (sym) {
-        mods |= WebCore::PlatformKeyboardEvent::CtrlKey;
-    }
-    WebCore::PlatformKeyboardEvent event(keyCode, keyValue,
-            down ? WebCore::PlatformKeyboardEvent::KeyDown :
-                   WebCore::PlatformKeyboardEvent::KeyUp,
-            0, static_cast<WebCore::PlatformKeyboardEvent::ModifierKey>(mods));
     // Block text field updates during a key press.
     m_blockTextfieldUpdates = true;
-    frame->eventHandler()->keyEvent(event);
+    // Also prevent our editor client from passing a message to change the
+    // selection.
+    EditorClientAndroid* client = static_cast<EditorClientAndroid*>(
+            m_mainFrame->editor()->client());
+    client->setUiGeneratedSelectionChange(true);
+    key(event);
+    client->setUiGeneratedSelectionChange(false);
     m_blockTextfieldUpdates = false;
     m_textGeneration = generation;
-
-    WebCore::Node* currentFocus = FrameLoaderClientAndroid::get(m_mainFrame)->getCacheBuilder().currentFocus();
-    // Make sure we have the same focus and it is a text field.
-    if (node == currentFocus && currentFocus) {
-        WebCore::RenderObject* renderer = currentFocus->renderer();
-        if (renderer && (renderer->isTextField() || renderer->isTextArea())) {
-            WebCore::RenderTextControl* renderText = static_cast<WebCore::RenderTextControl*>(renderer);
-            JNIEnv* env = JSC::Bindings::getJNIEnv();
-            WebCore::String current = to_string(env, currentText);
-            WebCore::String test = renderText->text();
-            // If the text changed during the key event, update the UI text field.
-            if (test != current)
-                updateTextfield(currentFocus, false, test);
-        }
+    setFocusControllerActive(true);
+    WebCore::RenderTextControl* renderText =
+        static_cast<WebCore::RenderTextControl*>(renderer);
+    WebCore::String test = renderText->text();
+    if (test == current) {
+        DBG_NAV_LOG("test == current");
+        return;
     }
+    // If the text changed during the key event, update the UI text field.
+    updateTextfield(focus, false, test);
+}
+
+void WebViewCore::scrollFocusedTextInput(float xPercent, int y)
+{
+    WebCore::Node* focus = currentFocus();
+    if (!focus) {
+        DBG_NAV_LOG("!focus");
+        clearTextEntry();
+        return;
+    }
+    WebCore::RenderObject* renderer = focus->renderer();
+    if (!renderer || (!renderer->isTextField() && !renderer->isTextArea())) {
+        DBG_NAV_LOGD("renderer==%p || not text", renderer);
+        clearTextEntry();
+        return;
+    }
+    WebCore::RenderTextControl* renderText =
+        static_cast<WebCore::RenderTextControl*>(renderer);
+    int x = (int) (xPercent * (renderText->scrollWidth() -
+        renderText->clientWidth()));
+    DBG_NAV_LOGD("x=%d y=%d xPercent=%g scrollW=%d clientW=%d", x, y,
+        xPercent, renderText->scrollWidth(), renderText->clientWidth());
+    renderText->setScrollLeft(x);
+    renderText->setScrollTop(y);
+}
+
+void WebViewCore::setFocusControllerActive(bool active)
+{
+    m_mainFrame->page()->focusController()->setActive(active);
 }
 
 void WebViewCore::saveDocumentState(WebCore::Frame* frame)
 {
-    if (!FrameLoaderClientAndroid::get(m_mainFrame)->getCacheBuilder()
-            .validNode(frame, 0))
+    if (!CacheBuilder::validNode(m_mainFrame, frame, 0))
         frame = m_mainFrame;
     WebCore::HistoryItem *item = frame->loader()->currentHistoryItem();
 
@@ -1568,45 +1725,57 @@ public:
             // Special value for cancel. Do nothing.
             return;
         }
-        // If the select element no longer exists, do to a page change, etc, silently return.
-        if (!m_select || !FrameLoaderClientAndroid::get(m_viewImpl->m_mainFrame)->getCacheBuilder().validNode(m_frame, m_select))
+        // If the select element no longer exists, due to a page change, etc,
+        // silently return.
+        if (!m_select || !CacheBuilder::validNode(m_viewImpl->m_mainFrame,
+                m_frame, m_select))
             return;
-        if (-1 == index) {
-            if (m_select->selectedIndex() != -1) {
-#ifdef ANDROID_DESELECT_SELECT
-                m_select->deselectItems();
-#endif
-                m_select->onChange();
-                m_viewImpl->contentInvalidate(m_select->getRect());
-            }
-            return;
-        }
-        WebCore::HTMLOptionElement* option = static_cast<WebCore::HTMLOptionElement*>(
-                m_select->item(m_select->listToOptionIndex(index)));
-        if (!option->selected()) {
-            option->setSelected(true);
-            m_select->onChange();
-			m_viewImpl->contentInvalidate(m_select->getRect());
-        }
+        // Use a pointer to HTMLSelectElement's superclass, where
+        // listToOptionIndex is public.
+        SelectElement* selectElement = m_select;
+        int optionIndex = selectElement->listToOptionIndex(index);
+        m_select->setSelectedIndex(optionIndex, true);
+        m_select->dispatchFormControlChangeEvent();
+        m_viewImpl->contentInvalidate(m_select->getRect());
     }
 
     // Response if the listbox allows multiple selection.  array stores the listIndices
     // of selected positions.
     virtual void replyIntArray(const int* array, int count)
     {
-        // If the select element no longer exists, do to a page change, etc, silently return.
-        if (!m_select || !FrameLoaderClientAndroid::get(m_viewImpl->m_mainFrame)->getCacheBuilder().validNode(m_frame, m_select))
+        // If the select element no longer exists, due to a page change, etc,
+        // silently return.
+        if (!m_select || !CacheBuilder::validNode(m_viewImpl->m_mainFrame,
+                m_frame, m_select))
             return;
-#ifdef ANDROID_DESELECT_SELECT
-        m_select->deselectItems();
-#endif
+
+        // If count is 1 or 0, use replyInt.
+        SkASSERT(count > 1);
+
+        const WTF::Vector<Element*>& items = m_select->listItems();
+        int totalItems = static_cast<int>(items.size());
+        // Keep track of the position of the value we are comparing against.
+        int arrayIndex = 0;
+        // The value we are comparing against.
+        int selection = array[arrayIndex];
         WebCore::HTMLOptionElement* option;
-        for (int i = 0; i < count; i++) {
-            option = static_cast<WebCore::HTMLOptionElement*>(
-                    m_select->item(m_select->listToOptionIndex(array[i])));
-            option->setSelected(true);
+        for (int listIndex = 0; listIndex < totalItems; listIndex++) {
+            if (items[listIndex]->hasLocalName(WebCore::HTMLNames::optionTag)) {
+                option = static_cast<WebCore::HTMLOptionElement*>(
+                        items[listIndex]);
+                if (listIndex == selection) {
+                    option->setSelectedState(true);
+                    arrayIndex++;
+                    if (arrayIndex == count)
+                        selection = -1;
+                    else
+                        selection = array[arrayIndex];
+                } else
+                    option->setSelectedState(false);
+            }
         }
-		m_viewImpl->contentInvalidate(m_select->getRect());
+        m_select->dispatchFormControlChangeEvent();
+        m_viewImpl->contentInvalidate(m_select->getRect());
     }
 private:
     // The select element associated with this listbox.
@@ -1685,40 +1854,38 @@ void WebViewCore::listBoxRequest(WebCoreReply* reply, const uint16_t** labels, s
     m_popupReply = reply;
 }
 
-bool WebViewCore::key(int keyCode, UChar32 unichar, int repeatCount, bool isShift, bool isAlt, bool isDown)
+bool WebViewCore::key(const PlatformKeyboardEvent& event)
 {
-    DBG_NAV_LOGD("key: keyCode=%d", keyCode);
-
     WebCore::EventHandler* eventHandler = m_mainFrame->eventHandler();
-    WebCore::Node* focusNode = FrameLoaderClientAndroid::get(m_mainFrame)->getCacheBuilder().currentFocus();
-    if (focusNode) {
+    WebCore::Node* focusNode = currentFocus();
+    if (focusNode)
         eventHandler = focusNode->document()->frame()->eventHandler();
-    }
-
-    int mods = 0; // PlatformKeyboardEvent::ModifierKey
-    if (isShift) {
-        mods |= WebCore::PlatformKeyboardEvent::ShiftKey;
-    }
-    if (isAlt) {
-        mods |= WebCore::PlatformKeyboardEvent::AltKey;
-    }
-    WebCore::PlatformKeyboardEvent evt(keyCode, unichar,
-            isDown ? WebCore::PlatformKeyboardEvent::KeyDown : WebCore::PlatformKeyboardEvent::KeyUp,
-            repeatCount, static_cast<WebCore::PlatformKeyboardEvent::ModifierKey> (mods));
-    return eventHandler->keyEvent(evt);
+    DBG_NAV_LOGD("keyCode=%s unichar=%d focusNode=%p",
+        event.keyIdentifier().utf8().data(), event.unichar(), focusNode);
+    return eventHandler->keyEvent(event);
 }
 
-bool WebViewCore::click() {
-    bool keyHandled = false;
-    WebCore::Node* focusNode = FrameLoaderClientAndroid::get(m_mainFrame)->getCacheBuilder().currentFocus();
-    if (focusNode) {
-        WebFrame::getWebFrame(m_mainFrame)->setUserInitiatedClick(true);
-        keyHandled = handleMouseClick(focusNode->document()->frame(), focusNode);
-        WebFrame::getWebFrame(m_mainFrame)->setUserInitiatedClick(false);
+// For when the user clicks the trackball
+void WebViewCore::click(WebCore::Frame* frame, WebCore::Node* node) {
+    if (!node) {
+        WebCore::IntPoint pt = m_mousePos;
+        pt.move(m_scrollOffsetX, m_scrollOffsetY);
+        WebCore::HitTestResult hitTestResult = m_mainFrame->eventHandler()->
+                hitTestResultAtPoint(pt, false);
+        node = hitTestResult.innerNode();
+        frame = node->document()->frame();
+        DBG_NAV_LOGD("m_mousePos=(%d,%d) m_scrollOffset=(%d,%d) pt=(%d,%d)"
+            " node=%p", m_mousePos.x(), m_mousePos.y(),
+            m_scrollOffsetX, m_scrollOffsetY, pt.x(), pt.y(), node);
     }
-    // match in setFinalFocus()
-    m_blockFocusChange = false;
-    return keyHandled;
+    if (node) {
+        EditorClientAndroid* client
+                = static_cast<EditorClientAndroid*>(
+                m_mainFrame->editor()->client());
+        client->setShouldChangeSelectedRange(false);
+        handleMouseClick(frame, node);
+        client->setShouldChangeSelectedRange(true);
+    }
 }
 
 bool WebViewCore::handleTouchEvent(int action, int x, int y)
@@ -1749,56 +1916,65 @@ bool WebViewCore::handleTouchEvent(int action, int x, int y)
     return preventDefault;
 }
 
-void WebViewCore::touchUp(int touchGeneration, int buildGeneration,
-    WebCore::Frame* frame, WebCore::Node* node, int x, int y, int size,
-    bool isClick, bool retry)
+void WebViewCore::touchUp(int touchGeneration,
+    WebCore::Frame* frame, WebCore::Node* node, int x, int y)
 {
     if (m_touchGeneration > touchGeneration) {
         DBG_NAV_LOGD("m_touchGeneration=%d > touchGeneration=%d"
             " x=%d y=%d", m_touchGeneration, touchGeneration, x, y);
         return; // short circuit if a newer touch has been generated
     }
-    if (retry || isClick)
-        finalKitFocus(frame, node, x, y, true);  // don't change DOM focus
-    else if (!commonKitFocus(touchGeneration, buildGeneration,
-            frame, node, x, y, false)) {
-        return;
-    }
+    moveMouse(frame, x, y);
     m_lastGeneration = touchGeneration;
-    // If this is just a touch and not a click, we have already done the change in focus,
-    // so just leave the function now.
-    if (!isClick)
-        return;
-    if (frame && FrameLoaderClientAndroid::get(m_mainFrame)->getCacheBuilder().validNode(frame, 0)) {
+    if (frame && CacheBuilder::validNode(m_mainFrame, frame, 0)) {
         frame->loader()->resetMultipleFormSubmissionProtection();
     }
-    EditorClientAndroid* client = static_cast<EditorClientAndroid*>(m_mainFrame->editor()->client());
-    client->setFromClick(true);
+    // If the click is on an unselected textfield/area we do not want to allow
+    // the click to change the selection, because we will set it ourselves
+    // elsewhere - beginning for textareas, end for textfields
+    bool needToIgnoreChangesToSelectedRange = true;
+    WebCore::Node* focusNode = currentFocus();
+    if (focusNode) {
+        WebCore::RenderObject* renderer = focusNode->renderer();
+        if (renderer && (renderer->isTextField() || renderer->isTextArea())) {
+            // Now check to see if the click is inside the focused textfield
+            if (focusNode->getRect().contains(x, y))
+                needToIgnoreChangesToSelectedRange = false;
+        }
+    }
+    EditorClientAndroid* client = 0;
+    if (needToIgnoreChangesToSelectedRange) {
+        client = static_cast<EditorClientAndroid*>(
+                m_mainFrame->editor()->client());
+        client->setShouldChangeSelectedRange(false);
+    }
     DBG_NAV_LOGD("touchGeneration=%d handleMouseClick frame=%p node=%p"
         " x=%d y=%d", touchGeneration, frame, node, x, y);
     handleMouseClick(frame, node);
-    client->setFromClick(false);
+    if (needToIgnoreChangesToSelectedRange)
+        client->setShouldChangeSelectedRange(true);
 }
 
+// Common code for both clicking with the trackball and touchUp
 bool WebViewCore::handleMouseClick(WebCore::Frame* framePtr, WebCore::Node* nodePtr)
 {
-    bool valid = framePtr == NULL || FrameLoaderClientAndroid::get(
-            m_mainFrame)->getCacheBuilder().validNode(framePtr, nodePtr);
+    bool valid = framePtr == NULL
+            || CacheBuilder::validNode(m_mainFrame, framePtr, nodePtr);
     WebFrame* webFrame = WebFrame::getWebFrame(m_mainFrame);
     if (valid && nodePtr) {
     // Need to special case area tags because an image map could have an area element in the middle
     // so when attempting to get the default, the point chosen would be follow the wrong link.
         if (nodePtr->hasTagName(WebCore::HTMLNames::areaTag)) {
             webFrame->setUserInitiatedClick(true);
-            WebCore::EventTargetNodeCast(nodePtr)->dispatchSimulatedClick(0,
-                true, true);
+            nodePtr->dispatchSimulatedClick(0, true, true);
             webFrame->setUserInitiatedClick(false);
+            DBG_NAV_LOG("area");
             return true;
         }
         WebCore::RenderObject* renderer = nodePtr->renderer();
-        if (renderer && renderer->isMenuList()) {
+        if (renderer && (renderer->isMenuList() || renderer->isListBox())) {
             WebCore::HTMLSelectElement* select = static_cast<WebCore::HTMLSelectElement*>(nodePtr);
-            const WTF::Vector<WebCore::HTMLElement*>& listItems = select->listItems();
+            const WTF::Vector<WebCore::Element*>& listItems = select->listItems();
             SkTDArray<const uint16_t*> names;
             SkTDArray<int> enabledArray;
             SkTDArray<int> selectedArray;
@@ -1807,7 +1983,7 @@ bool WebViewCore::handleMouseClick(WebCore::Frame* framePtr, WebCore::Node* node
             for (int i = 0; i < size; i++) {
                 if (listItems[i]->hasTagName(WebCore::HTMLNames::optionTag)) {
                     WebCore::HTMLOptionElement* option = static_cast<WebCore::HTMLOptionElement*>(listItems[i]);
-                    *names.append() = stringConverter(option->text());
+                    *names.append() = stringConverter(option->textIndentedToRespectGroupLabel());
                     *enabledArray.append() = option->disabled() ? 0 : 1;
                     if (multiple && option->selected())
                         *selectedArray.append() = i;
@@ -1815,21 +1991,22 @@ bool WebViewCore::handleMouseClick(WebCore::Frame* framePtr, WebCore::Node* node
                     WebCore::HTMLOptGroupElement* optGroup = static_cast<WebCore::HTMLOptGroupElement*>(listItems[i]);
                     *names.append() = stringConverter(optGroup->groupLabelText());
                     *enabledArray.append() = 0;
-                    if (multiple)
-                        *selectedArray.append() = 0;
                 }
             }
             WebCoreReply* reply = new ListBoxReply(select, select->document()->frame(), this);
+            // Use a pointer to HTMLSelectElement's superclass, where
+            // optionToListIndex is public.
+            SelectElement* selectElement = select;
             listBoxRequest(reply, names.begin(), size, enabledArray.begin(), enabledArray.count(),
                     multiple, selectedArray.begin(), multiple ? selectedArray.count() :
-                    select->optionToListIndex(select->selectedIndex()));
+                    selectElement->optionToListIndex(select->selectedIndex()));
+            DBG_NAV_LOG("menu list");
             return true;
         }
     }
     if (!valid || !framePtr)
         framePtr = m_mainFrame;
     webFrame->setUserInitiatedClick(true);
-    DBG_NAV_LOGD("m_mousePos={%d,%d}", m_mousePos.x(), m_mousePos.y());
     WebCore::PlatformMouseEvent mouseDown(m_mousePos, m_mousePos, WebCore::LeftButton,
             WebCore::MouseEventPressed, 1, false, false, false, false,
             WTF::currentTime());
@@ -1840,6 +2017,17 @@ bool WebViewCore::handleMouseClick(WebCore::Frame* framePtr, WebCore::Node* node
             WTF::currentTime());
     bool handled = framePtr->eventHandler()->handleMouseReleaseEvent(mouseUp);
     webFrame->setUserInitiatedClick(false);
+
+    // If the user clicked on a textfield, make the focusController active
+    // so we show the blinking cursor.
+    WebCore::Node* focusNode = currentFocus();
+    DBG_NAV_LOGD("m_mousePos={%d,%d} focusNode=%p handled=%s", m_mousePos.x(),
+        m_mousePos.y(), focusNode, handled ? "true" : "false");
+    if (focusNode) {
+        WebCore::RenderObject* renderer = focusNode->renderer();
+        if (renderer && (renderer->isTextField() || renderer->isTextArea()))
+            setFocusControllerActive(true);
+    }
     return handled;
 }
 
@@ -1861,6 +2049,16 @@ void WebViewCore::popupReply(const int* array, int count)
     }
 }
 
+void WebViewCore::addMessageToConsole(const WebCore::String& message, unsigned int lineNumber, const WebCore::String& sourceID) {
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    jstring jMessageStr = env->NewString((unsigned short *)message.characters(), message.length());
+    jstring jSourceIDStr = env->NewString((unsigned short *)sourceID.characters(), sourceID.length());
+    env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_addMessageToConsole, jMessageStr, lineNumber, jSourceIDStr);
+    env->DeleteLocalRef(jMessageStr);
+    env->DeleteLocalRef(jSourceIDStr);
+    checkException(env);
+}
+
 void WebViewCore::jsAlert(const WebCore::String& url, const WebCore::String& text)
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
@@ -1869,6 +2067,55 @@ void WebViewCore::jsAlert(const WebCore::String& url, const WebCore::String& tex
     env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_jsAlert, jUrlStr, jInputStr);
     env->DeleteLocalRef(jInputStr);
     env->DeleteLocalRef(jUrlStr);
+    checkException(env);
+}
+
+void WebViewCore::exceededDatabaseQuota(const WebCore::String& url, const WebCore::String& databaseIdentifier, const unsigned long long currentQuota, unsigned long long estimatedSize)
+{
+#if ENABLE(DATABASE)
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    jstring jDatabaseIdentifierStr = env->NewString((unsigned short *)databaseIdentifier.characters(), databaseIdentifier.length());
+    jstring jUrlStr = env->NewString((unsigned short *)url.characters(), url.length());
+    env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_exceededDatabaseQuota, jUrlStr, jDatabaseIdentifierStr, currentQuota, estimatedSize);
+    env->DeleteLocalRef(jDatabaseIdentifierStr);
+    env->DeleteLocalRef(jUrlStr);
+    checkException(env);
+#endif
+}
+
+void WebViewCore::reachedMaxAppCacheSize(const unsigned long long spaceNeeded)
+{
+#if ENABLE(OFFLINE_WEB_APPLICATIONS)
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_reachedMaxAppCacheSize, spaceNeeded);
+    checkException(env);
+#endif
+}
+
+void WebViewCore::populateVisitedLinks(WebCore::PageGroup* group)
+{
+    m_groupForVisitedLinks = group;
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_populateVisitedLinks);
+    checkException(env);
+}
+
+void WebViewCore::geolocationPermissionsShowPrompt(const WebCore::String& origin)
+{
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    jstring originString = env->NewString((unsigned short *)origin.characters(), origin.length());
+    env->CallVoidMethod(m_javaGlue->object(env).get(),
+                        m_javaGlue->m_geolocationPermissionsShowPrompt,
+                        originString);
+    env->DeleteLocalRef(originString);
+    checkException(env);
+}
+
+void WebViewCore::geolocationPermissionsHidePrompt()
+{
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    env->CallVoidMethod(m_javaGlue->object(env).get(),
+                        m_javaGlue->m_geolocationPermissionsHidePrompt);
     checkException(env);
 }
 
@@ -1936,6 +2183,21 @@ WebViewCore::getWebViewJavaObject()
     return env->GetObjectField(m_javaGlue->object(env).get(), gWebViewCoreFields.m_webView);
 }
 
+void WebViewCore::updateTextSelection() {
+    WebCore::Node* focusNode = currentFocus();
+    if (!focusNode)
+        return;
+    RenderObject* renderer = focusNode->renderer();
+    if (!renderer || (!renderer->isTextArea() && !renderer->isTextField()))
+        return;
+    RenderTextControl* rtc = static_cast<RenderTextControl*>(renderer);
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    env->CallVoidMethod(m_javaGlue->object(env).get(),
+            m_javaGlue->m_updateTextSelection, reinterpret_cast<int>(focusNode),
+            rtc->selectionStart(), rtc->selectionEnd(), m_textGeneration);
+    checkException(env);
+}
+
 void WebViewCore::updateTextfield(WebCore::Node* ptr, bool changeToPassword,
         const WebCore::String& text)
 {
@@ -1956,39 +2218,11 @@ void WebViewCore::updateTextfield(WebCore::Node* ptr, bool changeToPassword,
     checkException(env);
 }
 
-void WebViewCore::setSnapAnchor(int x, int y)
+void WebViewCore::clearTextEntry()
 {
-    m_snapAnchorNode = 0;
-    if (!x && !y) {
-        return;
-    }
-
-    WebCore::IntPoint point = WebCore::IntPoint(x, y);
-    WebCore::Node* node = m_mainFrame->eventHandler()->hitTestResultAtPoint(point, false).innerNode();
-    if (node) {
-//        LOGD("found focus node name: %s, type %d\n", node->nodeName().utf8().data(), node->nodeType());
-        while (node) {
-            if (node->hasTagName(WebCore::HTMLNames::divTag) ||
-                    node->hasTagName(WebCore::HTMLNames::tableTag)) {
-                m_snapAnchorNode = node;
-                return;
-            }
-//            LOGD("parent node name: %s, type %d\n", node->nodeName().utf8().data(), node->nodeType());
-            node = node->parentNode();
-        }
-    }
-}
-
-void WebViewCore::snapToAnchor()
-{
-    if (m_snapAnchorNode) {
-        if (m_snapAnchorNode->inDocument()) {
-            FloatPoint pt = m_snapAnchorNode->renderer()->localToAbsolute();
-            scrollTo(pt.x(), pt.y());
-        } else {
-            m_snapAnchorNode = 0;
-        }
-    }
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    env->CallVoidMethod(m_javaGlue->object(env).get(),
+        m_javaGlue->m_clearTextEntry);
 }
 
 void WebViewCore::setBackgroundColor(SkColor c)
@@ -2001,6 +2235,41 @@ void WebViewCore::setBackgroundColor(SkColor c)
     WebCore::Color bcolor((int)SkColorGetR(c), (int)SkColorGetG(c),
                           (int)SkColorGetB(c), (int)SkColorGetA(c));
     view->setBaseBackgroundColor(bcolor);
+}
+
+void WebViewCore::startFullScreenPluginActivity(const char* libName,
+                                                const char* className, NPP npp)
+{
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
+
+    jstring libString = env->NewStringUTF(libName);
+    jstring classString = env->NewStringUTF(className);
+    env->CallVoidMethod(m_javaGlue->object(env).get(),
+                        m_javaGlue->m_startFullScreenPluginActivity,
+                        libString, classString, (int) npp);
+    checkException(env);
+}
+
+jobject WebViewCore::createSurface(const char* libName, const char* className,
+                                   NPP npp, int x, int y, int width, int height)
+{
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
+
+    jstring libString = env->NewStringUTF(libName);
+    jstring classString = env->NewStringUTF(className);
+    jobject result = env->CallObjectMethod(m_javaGlue->object(env).get(),
+                                           m_javaGlue->m_createSurface, libString,
+                                           classString,(int) npp, x, y, width, height);
+    checkException(env);
+    return result;
+
+}
+
+void WebViewCore::destroySurface(jobject childView)
+{
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_destroySurface, childView);
+    checkException(env);
 }
 
 //----------------------------------------------------------------------
@@ -2016,8 +2285,14 @@ static jstring WebCoreStringToJString(JNIEnv *env, WebCore::String string)
     return ret;
 }
 
+static void UpdateFrameCacheIfLoading(JNIEnv *env, jobject obj)
+{
+    GET_NATIVE_VIEW(env, obj)->updateFrameCacheIfLoading();
+}
+
 static void SetSize(JNIEnv *env, jobject obj, jint width, jint height,
-        jint screenWidth, jfloat scale, jint realScreenWidth, jint screenHeight)
+        jint screenWidth, jfloat scale, jint realScreenWidth, jint screenHeight,
+        jboolean ignoreHeight)
 {
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
@@ -2025,17 +2300,11 @@ static void SetSize(JNIEnv *env, jobject obj, jint width, jint height,
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
     LOGV("webviewcore::nativeSetSize(%u %u)\n viewImpl: %p", (unsigned)width, (unsigned)height, viewImpl);
     LOG_ASSERT(viewImpl, "viewImpl not set in nativeSetSize");
-    // convert the scale to an int
-    int s = (int) (scale * 100);
-    // a negative value indicates that we should not change the scale
-    if (scale < 0)
-        s = viewImpl->scale();
-
-    viewImpl->setSizeScreenWidthAndScale(width, height, screenWidth, s,
-        realScreenWidth, screenHeight);
+    viewImpl->setSizeScreenWidthAndScale(width, height, screenWidth, scale,
+        realScreenWidth, screenHeight, ignoreHeight);
 }
 
-static void SetScrollOffset(JNIEnv *env, jobject obj, jint dx, jint dy)
+static void SetScrollOffset(JNIEnv *env, jobject obj, jint gen, jint x, jint y)
 {
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
@@ -2043,7 +2312,7 @@ static void SetScrollOffset(JNIEnv *env, jobject obj, jint dx, jint dy)
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
     LOG_ASSERT(viewImpl, "need viewImpl");
 
-    viewImpl->setScrollOffset(dx, dy);
+    viewImpl->setScrollOffset(gen, x, y);
 }
 
 static void SetGlobalBounds(JNIEnv *env, jobject obj, jint x, jint y, jint h,
@@ -2059,18 +2328,17 @@ static void SetGlobalBounds(JNIEnv *env, jobject obj, jint x, jint y, jint h,
 }
 
 static jboolean Key(JNIEnv *env, jobject obj, jint keyCode, jint unichar,
-        jint repeatCount, jboolean isShift, jboolean isAlt, jboolean isDown)
+        jint repeatCount, jboolean isShift, jboolean isAlt, jboolean isSym,
+        jboolean isDown)
 {
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
 #endif
-    WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
-    LOG_ASSERT(viewImpl, "viewImpl not set in Key");
-
-    return viewImpl->key(keyCode, unichar, repeatCount, isShift, isAlt, isDown);
+    return GET_NATIVE_VIEW(env, obj)->key(PlatformKeyboardEvent(keyCode,
+        unichar, repeatCount, isDown, isShift, isAlt, isSym));
 }
 
-static jboolean Click(JNIEnv *env, jobject obj)
+static void Click(JNIEnv *env, jobject obj, int framePtr, int nodePtr)
 {
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
@@ -2078,62 +2346,74 @@ static jboolean Click(JNIEnv *env, jobject obj)
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
     LOG_ASSERT(viewImpl, "viewImpl not set in Click");
 
-    return viewImpl->click();
+    viewImpl->click(reinterpret_cast<WebCore::Frame*>(framePtr),
+        reinterpret_cast<WebCore::Node*>(nodePtr));
 }
 
-static void DeleteSelection(JNIEnv *env, jobject obj,
-                    jint frame, jint node, jint x, jint y, jint start, jint end)
+static void DeleteSelection(JNIEnv *env, jobject obj, jint start, jint end,
+        jint textGeneration)
 {
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
 #endif
-    LOGV("webviewcore::nativeDeleteSelection()\n");
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
-    LOG_ASSERT(viewImpl, "viewImpl not set in nativeDeleteSelection");
-    viewImpl->deleteSelection((WebCore::Frame*) frame, (WebCore::Node*) node,
-        x, y, start, end);
+    viewImpl->deleteSelection(start, end, textGeneration);
 }
 
-static void SetSelection(JNIEnv *env, jobject obj,
-    jint frame, jint node, jint x, jint y, jint start, jint end)
+static void SetSelection(JNIEnv *env, jobject obj, jint start, jint end)
 {
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
 #endif
-    LOGV("webviewcore::nativeSetSelection()\n");
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
-    LOG_ASSERT(viewImpl, "viewImpl not set in nativeDeleteSelection");
-    viewImpl->setSelection((WebCore::Frame*) frame, (WebCore::Node*) node,
-        x, y, start, end);
+    viewImpl->setSelection(start, end);
 }
 
 
 static void ReplaceTextfieldText(JNIEnv *env, jobject obj,
-        jint framePtr, jint nodePtr, jint x, jint y, jint oldStart, jint oldEnd,
-        jstring replace, jint start, jint end)
+    jint oldStart, jint oldEnd, jstring replace, jint start, jint end,
+    jint textGeneration)
 {
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
 #endif
-    LOGV("webviewcore::nativeReplaceTextfieldText()\n");
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
-    LOG_ASSERT(viewImpl, "viewImpl not set in nativeReplaceTextfieldText");
-    viewImpl->replaceTextfieldText((WebCore::Frame*) framePtr, (WebCore::Node*) nodePtr, x, y, oldStart,
-            oldEnd, replace, start, end);
+    WebCore::String webcoreString = to_string(env, replace);
+    viewImpl->replaceTextfieldText(oldStart,
+            oldEnd, webcoreString, start, end, textGeneration);
 }
 
-static void PassToJs(JNIEnv *env, jobject obj, jint frame, jint node,
-    jint x, jint y, jint generation, jstring currentText, jint keyCode,
+static void PassToJs(JNIEnv *env, jobject obj,
+    jint generation, jstring currentText, jint keyCode,
     jint keyValue, jboolean down, jboolean cap, jboolean fn, jboolean sym)
 {
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
 #endif
-    LOGV("webviewcore::nativePassToJs()\n");
+    WebCore::String current = to_string(env, currentText);
+    GET_NATIVE_VIEW(env, obj)->passToJs(generation, current,
+        PlatformKeyboardEvent(keyCode, keyValue, 0, down, cap, fn, sym));
+}
+
+static void ScrollFocusedTextInput(JNIEnv *env, jobject obj, jfloat xPercent,
+    jint y)
+{
+#ifdef ANDROID_INSTRUMENT
+    TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
+#endif
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
-    LOG_ASSERT(viewImpl, "viewImpl not set in nativePassToJs");
-    viewImpl->passToJs((WebCore::Frame*) frame, (WebCore::Node*) node,
-        x, y, generation, currentText, keyCode, keyValue, down, cap, fn, sym);
+    viewImpl->scrollFocusedTextInput(xPercent, y);
+}
+
+static void SetFocusControllerActive(JNIEnv *env, jobject obj, jboolean active)
+{
+#ifdef ANDROID_INSTRUMENT
+    TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
+#endif
+    LOGV("webviewcore::nativeSetFocusControllerActive()\n");
+    WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
+    LOG_ASSERT(viewImpl, "viewImpl not set in nativeSetFocusControllerActive");
+    viewImpl->setFocusControllerActive(active);
 }
 
 static void SaveDocumentState(JNIEnv *env, jobject obj, jint frame)
@@ -2145,6 +2425,12 @@ static void SaveDocumentState(JNIEnv *env, jobject obj, jint frame)
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
     LOG_ASSERT(viewImpl, "viewImpl not set in nativeSaveDocumentState");
     viewImpl->saveDocumentState((WebCore::Frame*) frame);
+}
+
+void WebViewCore::addVisitedLink(const UChar* string, int length)
+{
+    if (m_groupForVisitedLinks)
+        m_groupForVisitedLinks->addVisitedLink(string, length);
 }
 
 static bool RecordContent(JNIEnv *env, jobject obj, jobject region, jobject pt)
@@ -2206,7 +2492,8 @@ static void SendListBoxChoices(JNIEnv* env, jobject obj, jbooleanArray jArray,
     viewImpl->popupReply(array, count);
 }
 
-static jstring FindAddress(JNIEnv *env, jobject obj, jstring addr)
+static jstring FindAddress(JNIEnv *env, jobject obj, jstring addr,
+    jboolean caseInsensitive)
 {
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
@@ -2219,7 +2506,7 @@ static jstring FindAddress(JNIEnv *env, jobject obj, jstring addr)
     const jchar* addrChars = env->GetStringChars(addr, 0);
     int start, end;
     bool success = CacheBuilder::FindAddress(addrChars, length,
-        &start, &end) == CacheBuilder::FOUND_COMPLETE;
+        &start, &end, caseInsensitive) == CacheBuilder::FOUND_COMPLETE;
     jstring ret = 0;
     if (success) {
         ret = env->NewString((jchar*) addrChars + start, end - start);
@@ -2240,16 +2527,15 @@ static jboolean HandleTouchEvent(JNIEnv *env, jobject obj, jint action, jint x, 
 }
 
 static void TouchUp(JNIEnv *env, jobject obj, jint touchGeneration,
-        jint buildGeneration, jint frame, jint node, jint x, jint y, jint size,
-        jboolean isClick, jboolean retry)
+        jint frame, jint node, jint x, jint y)
 {
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
 #endif
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
     LOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);
-    viewImpl->touchUp(touchGeneration, buildGeneration,
-        (WebCore::Frame*) frame, (WebCore::Node*) node, x, y, size, isClick, retry);
+    viewImpl->touchUp(touchGeneration,
+        (WebCore::Frame*) frame, (WebCore::Node*) node, x, y);
 }
 
 static jstring RetrieveHref(JNIEnv *env, jobject obj, jint frame,
@@ -2267,40 +2553,27 @@ static jstring RetrieveHref(JNIEnv *env, jobject obj, jint frame,
     return 0;
 }
 
-static void SetFinalFocus(JNIEnv *env, jobject obj, jint frame, jint node,
-        jint x, jint y, jboolean block)
+static void MoveMouse(JNIEnv *env, jobject obj, jint frame,
+        jint x, jint y)
 {
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
 #endif
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
     LOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);
-    viewImpl->setFinalFocus((WebCore::Frame*) frame, (WebCore::Node*) node, x,
-        y, block);
+    viewImpl->moveMouse((WebCore::Frame*) frame, x, y);
 }
 
-static void SetKitFocus(JNIEnv *env, jobject obj, jint moveGeneration,
-        jint buildGeneration, jint frame, jint node, jint x, jint y,
-        jboolean ignoreNullFocus)
+static void MoveMouseIfLatest(JNIEnv *env, jobject obj, jint moveGeneration,
+        jint frame, jint x, jint y)
 {
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
 #endif
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
     LOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);
-    viewImpl->setKitFocus(moveGeneration, buildGeneration,
-        (WebCore::Frame*) frame, (WebCore::Node*) node, x, y,
-        ignoreNullFocus);
-}
-
-static void UnblockFocus(JNIEnv *env, jobject obj)
-{
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
-#endif
-    WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
-    LOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);
-    viewImpl->unblockFocus();
+    viewImpl->moveMouseIfLatest(moveGeneration,
+        (WebCore::Frame*) frame, x, y);
 }
 
 static void UpdateFrameCache(JNIEnv *env, jobject obj)
@@ -2353,29 +2626,8 @@ static void SetViewportSettingsFromNative(JNIEnv *env, jobject obj)
     env->SetIntField(obj, gWebViewCoreFields.m_viewportMinimumScale, s->viewportMinimumScale());
     env->SetIntField(obj, gWebViewCoreFields.m_viewportMaximumScale, s->viewportMaximumScale());
     env->SetBooleanField(obj, gWebViewCoreFields.m_viewportUserScalable, s->viewportUserScalable());
+    env->SetIntField(obj, gWebViewCoreFields.m_viewportDensityDpi, s->viewportTargetDensityDpi());
 #endif
-}
-
-static void SetSnapAnchor(JNIEnv *env, jobject obj, jint x, jint y)
-{
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
-#endif
-    WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
-    LOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);
-
-    viewImpl->setSnapAnchor(x, y);
-}
-
-static void SnapToAnchor(JNIEnv *env, jobject obj)
-{
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
-#endif
-    WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
-    LOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);
-
-    viewImpl->snapToAnchor();
 }
 
 static void SetBackgroundColor(JNIEnv *env, jobject obj, jint color)
@@ -2427,23 +2679,45 @@ static void DumpNavTree(JNIEnv *env, jobject obj)
     viewImpl->dumpNavTree();
 }
 
-static void RefreshPlugins(JNIEnv *env,
-                                 jobject obj,
-                                 jboolean reloadOpenPages)
+static void SetJsFlags(JNIEnv *env, jobject obj, jstring flags)
 {
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
+#if USE(V8)
+    WebCore::String flagsString = to_string(env, flags);
+    WebCore::CString utf8String = flagsString.utf8();
+    WebCore::ScriptController::setFlags(utf8String.data(), utf8String.length());
 #endif
-    // Refresh the list of plugins, optionally reloading all open
-    // pages.
-    WebCore::refreshPlugins(reloadOpenPages);
+}
+
+
+// Called from the Java side to set a new quota for the origin or new appcache
+// max size in response to a notification that the original quota was exceeded or
+// that the appcache has reached its maximum size.
+static void SetNewStorageLimit(JNIEnv* env, jobject obj, jlong quota) {
+#if ENABLE(DATABASE) || ENABLE(OFFLINE_WEB_APPLICATIONS)
+    WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
+    Frame* frame = viewImpl->mainFrame();
+
+    // The main thread is blocked awaiting this response, so now we can wake it
+    // up.
+    ChromeClientAndroid* chromeC = static_cast<ChromeClientAndroid*>(frame->page()->chrome()->client());
+    chromeC->wakeUpMainThreadWithNewQuota(quota);
+#endif
+}
+
+// Called from Java to provide a Geolocation permission state for the specified origin.
+static void GeolocationPermissionsProvide(JNIEnv* env, jobject obj, jstring origin, jboolean allow, jboolean remember) {
+    WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
+    Frame* frame = viewImpl->mainFrame();
+
+    ChromeClientAndroid* chromeClient = static_cast<ChromeClientAndroid*>(frame->page()->chrome()->client());
+    chromeClient->provideGeolocationPermissions(to_string(env, origin), allow, remember);
 }
 
 static void RegisterURLSchemeAsLocal(JNIEnv* env, jobject obj, jstring scheme) {
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
 #endif
-    WebCore::FrameLoader::registerURLSchemeAsLocal(to_string(env, scheme));
+    WebCore::SecurityOrigin::registerURLSchemeAsLocal(to_string(env, scheme));
 }
 
 static void ClearContent(JNIEnv *env, jobject obj)
@@ -2475,6 +2749,88 @@ static bool DrawContent(JNIEnv *env, jobject obj, jobject canv, jint color)
     return viewImpl->drawContent(canvas, color);
 }
 
+static bool PictureReady(JNIEnv* env, jobject obj)
+{
+    return GET_NATIVE_VIEW(env, obj)->pictureReady();
+}
+
+static void UpdatePluginState(JNIEnv* env, jobject obj, jint framePtr, jint nodePtr, jint state)
+{
+#ifdef ANDROID_INSTRUMENT
+    TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
+#endif
+    WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
+    LOG_ASSERT(viewImpl, "viewImpl not set in nativeUpdatePluginState");
+    viewImpl->updatePluginState((WebCore::Frame*) framePtr, (WebCore::Node*) nodePtr,
+                                (PluginState) state);
+}
+
+static void Pause(JNIEnv* env, jobject obj)
+{
+    // This is called for the foreground tab when the browser is put to the
+    // background (and also for any tab when it is put to the background of the
+    // browser). The browser can only be killed by the system when it is in the
+    // background, so saving the Geolocation permission state now ensures that
+    // is maintained when the browser is killed.
+    ChromeClient* chromeClient = GET_NATIVE_VIEW(env, obj)->mainFrame()->page()->chrome()->client();
+    ChromeClientAndroid* chromeClientAndroid = static_cast<ChromeClientAndroid*>(chromeClient);
+    chromeClientAndroid->storeGeolocationPermissions();
+
+    Frame* mainFrame = GET_NATIVE_VIEW(env, obj)->mainFrame();
+    for (Frame* frame = mainFrame; frame; frame = frame->tree()->traverseNext()) {
+        Geolocation* geolocation = frame->domWindow()->navigator()->optionalGeolocation();
+        if (geolocation)
+            geolocation->suspend();
+    }
+
+    ANPEvent event;
+    SkANP::InitEvent(&event, kLifecycle_ANPEventType);
+    event.data.lifecycle.action = kPause_ANPLifecycleAction;
+    GET_NATIVE_VIEW(env, obj)->sendPluginEvent(event);
+}
+
+static void Resume(JNIEnv* env, jobject obj)
+{
+    Frame* mainFrame = GET_NATIVE_VIEW(env, obj)->mainFrame();
+    for (Frame* frame = mainFrame; frame; frame = frame->tree()->traverseNext()) {
+        Geolocation* geolocation = frame->domWindow()->navigator()->optionalGeolocation();
+        if (geolocation)
+            geolocation->resume();
+    }
+
+    ANPEvent event;
+    SkANP::InitEvent(&event, kLifecycle_ANPEventType);
+    event.data.lifecycle.action = kResume_ANPLifecycleAction;
+    GET_NATIVE_VIEW(env, obj)->sendPluginEvent(event);
+}
+
+static void FreeMemory(JNIEnv* env, jobject obj)
+{
+    ANPEvent event;
+    SkANP::InitEvent(&event, kLifecycle_ANPEventType);
+    event.data.lifecycle.action = kFreeMemory_ANPLifecycleAction;
+    GET_NATIVE_VIEW(env, obj)->sendPluginEvent(event);
+}
+
+static void ProvideVisitedHistory(JNIEnv *env, jobject obj, jobject hist)
+{
+    WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
+    LOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);
+
+    jobjectArray array = static_cast<jobjectArray>(hist);
+
+    jsize len = env->GetArrayLength(array);
+    for (jsize i = 0; i < len; i++) {
+        jstring item = static_cast<jstring>(env->GetObjectArrayElement(array, i));
+        const UChar* str = static_cast<const UChar*>(env->GetStringChars(item, NULL));
+        jsize len = env->GetStringLength(item);
+        viewImpl->addVisitedLink(str, len);
+        env->ReleaseStringChars(item, str);
+        env->DeleteLocalRef(item);
+    }
+    env->DeleteLocalRef(array);
+}
+
 // ----------------------------------------------------------------------------
 
 /*
@@ -2487,44 +2843,48 @@ static JNINativeMethod gJavaWebViewCoreMethods[] = {
         (void*) CopyContentToPicture },
     { "nativeDrawContent", "(Landroid/graphics/Canvas;I)Z",
         (void*) DrawContent } ,
-    { "nativeKey", "(IIIZZZ)Z",
+    { "nativeKey", "(IIIZZZZ)Z",
         (void*) Key },
-    { "nativeClick", "()Z",
+    { "nativeClick", "(II)V",
         (void*) Click },
+    { "nativePictureReady", "()Z",
+        (void*) PictureReady } ,
     { "nativeSendListBoxChoices", "([ZI)V",
         (void*) SendListBoxChoices },
     { "nativeSendListBoxChoice", "(I)V",
         (void*) SendListBoxChoice },
-    { "nativeSetSize", "(IIIFII)V",
+    { "nativeSetSize", "(IIIFIIZ)V",
         (void*) SetSize },
-    { "nativeSetScrollOffset", "(II)V",
+    { "nativeSetScrollOffset", "(III)V",
         (void*) SetScrollOffset },
     { "nativeSetGlobalBounds", "(IIII)V",
         (void*) SetGlobalBounds },
-    { "nativeSetSelection", "(IIIIII)V",
+    { "nativeSetSelection", "(II)V",
         (void*) SetSelection } ,
-    { "nativeDeleteSelection", "(IIIIII)V",
+    { "nativeDeleteSelection", "(III)V",
         (void*) DeleteSelection } ,
-    { "nativeReplaceTextfieldText", "(IIIIIILjava/lang/String;II)V",
+    { "nativeReplaceTextfieldText", "(IILjava/lang/String;III)V",
         (void*) ReplaceTextfieldText } ,
-    { "passToJs", "(IIIIILjava/lang/String;IIZZZZ)V",
-        (void*) PassToJs } ,
+    { "nativeMoveMouse", "(III)V",
+        (void*) MoveMouse },
+    { "nativeMoveMouseIfLatest", "(IIII)V",
+        (void*) MoveMouseIfLatest },
+    { "passToJs", "(ILjava/lang/String;IIZZZZ)V",
+        (void*) PassToJs },
+    { "nativeScrollFocusedTextInput", "(FI)V",
+        (void*) ScrollFocusedTextInput },
+    { "nativeSetFocusControllerActive", "(Z)V",
+        (void*) SetFocusControllerActive },
     { "nativeSaveDocumentState", "(I)V",
         (void*) SaveDocumentState },
-    { "nativeFindAddress", "(Ljava/lang/String;)Ljava/lang/String;",
+    { "nativeFindAddress", "(Ljava/lang/String;Z)Ljava/lang/String;",
         (void*) FindAddress },
     { "nativeHandleTouchEvent", "(III)Z",
             (void*) HandleTouchEvent },
-    { "nativeTouchUp", "(IIIIIIIZZ)V",
+    { "nativeTouchUp", "(IIIII)V",
         (void*) TouchUp },
     { "nativeRetrieveHref", "(II)Ljava/lang/String;",
         (void*) RetrieveHref },
-    { "nativeSetFinalFocus", "(IIIIZ)V",
-        (void*) SetFinalFocus },
-    { "nativeSetKitFocus", "(IIIIIIZ)V",
-        (void*) SetKitFocus },
-    { "nativeUnblockFocus", "()V",
-        (void*) UnblockFocus },
     { "nativeUpdateFrameCache", "()V",
         (void*) UpdateFrameCache },
     { "nativeGetContentMinPrefWidth", "()I",
@@ -2533,18 +2893,12 @@ static JNINativeMethod gJavaWebViewCoreMethods[] = {
         (void*) RecordContent },
     { "setViewportSettingsFromNative", "()V",
         (void*) SetViewportSettingsFromNative },
-    { "nativeSetSnapAnchor", "(II)V",
-        (void*) SetSnapAnchor },
-    { "nativeSnapToAnchor", "()V",
-        (void*) SnapToAnchor },
     { "nativeSplitContent", "()V",
         (void*) SplitContent },
     { "nativeSetBackgroundColor", "(I)V",
         (void*) SetBackgroundColor },
     { "nativeGetSelection", "(Landroid/graphics/Region;)Ljava/lang/String;",
         (void*) GetSelection },
-    { "nativeRefreshPlugins", "(Z)V",
-        (void*) RefreshPlugins },
     { "nativeRegisterURLSchemeAsLocal", "(Ljava/lang/String;)V",
         (void*) RegisterURLSchemeAsLocal },
     { "nativeDumpDomTree", "(Z)V",
@@ -2552,7 +2906,20 @@ static JNINativeMethod gJavaWebViewCoreMethods[] = {
     { "nativeDumpRenderTree", "(Z)V",
         (void*) DumpRenderTree },
     { "nativeDumpNavTree", "()V",
-        (void*) DumpNavTree }
+        (void*) DumpNavTree },
+    { "nativeSetNewStorageLimit", "(J)V",
+        (void*) SetNewStorageLimit },
+    { "nativeGeolocationPermissionsProvide", "(Ljava/lang/String;ZZ)V",
+        (void*) GeolocationPermissionsProvide },
+    { "nativePause", "()V", (void*) Pause },
+    { "nativeResume", "()V", (void*) Resume },
+    { "nativeFreeMemory", "()V", (void*) FreeMemory },
+    { "nativeSetJsFlags", "(Ljava/lang/String;)V", (void*) SetJsFlags },
+    { "nativeUpdatePluginState", "(III)V", (void*) UpdatePluginState },
+    { "nativeUpdateFrameCacheIfLoading", "()V",
+        (void*) UpdateFrameCacheIfLoading },
+    { "nativeProvideVisitedHistory", "([Ljava/lang/String;)V",
+        (void*) ProvideVisitedHistory },
 };
 
 int register_webviewcore(JNIEnv* env)
@@ -2588,6 +2955,10 @@ int register_webviewcore(JNIEnv* env)
             "mViewportUserScalable", "Z");
     LOG_ASSERT(gWebViewCoreFields.m_viewportUserScalable,
             "Unable to find android/webkit/WebViewCore.mViewportUserScalable");
+    gWebViewCoreFields.m_viewportDensityDpi = env->GetFieldID(widget,
+            "mViewportDensityDpi", "I");
+    LOG_ASSERT(gWebViewCoreFields.m_viewportDensityDpi,
+            "Unable to find android/webkit/WebViewCore.mViewportDensityDpi");
     gWebViewCoreFields.m_webView = env->GetFieldID(widget,
             "mWebView", "Landroid/webkit/WebView;");
     LOG_ASSERT(gWebViewCoreFields.m_webView,

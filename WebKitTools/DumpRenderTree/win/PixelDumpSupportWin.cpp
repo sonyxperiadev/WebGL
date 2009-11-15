@@ -27,14 +27,24 @@
  */
 
 #include "config.h"
+
+#if PLATFORM(CG)
 #include "PixelDumpSupportCG.h"
+#elif PLATFORM(CAIRO)
+#include "PixelDumpSupportCairo.h"
+#endif
 
 #include "DumpRenderTree.h"
+
+#if PLATFORM(CG)
+// Note: Must be included *after* DumpRenderTree.h to avoid compile error.
 #include <CoreGraphics/CGBitmapContext.h>
+#endif
+
 #include <wtf/Assertions.h>
 #include <wtf/RetainPtr.h>
 
-PassRefPtr<BitmapContext> getBitmapContextFromWebView(bool onscreen, bool incrementalRepaint, bool sweepHorizontally, bool drawSelectionRect)
+PassRefPtr<BitmapContext> createBitmapContextFromWebView(bool onscreen, bool incrementalRepaint, bool sweepHorizontally, bool drawSelectionRect)
 {
     RECT frame;
     if (!GetWindowRect(webViewWindow, &frame))
@@ -60,9 +70,16 @@ PassRefPtr<BitmapContext> getBitmapContextFromWebView(bool onscreen, bool increm
     GetObject(bitmap, sizeof(info), &info);
     ASSERT(info.bmBitsPixel == 32);
 
+#if PLATFORM(CG)
     RetainPtr<CGColorSpaceRef> colorSpace(AdoptCF, CGColorSpaceCreateDeviceRGB());
     CGContextRef context = CGBitmapContextCreate(info.bmBits, info.bmWidth, info.bmHeight, 8,
                                                 info.bmWidthBytes, colorSpace.get(), kCGBitmapByteOrder32Little | kCGImageAlphaPremultipliedFirst);
+#elif PLATFORM(CAIRO) 
+    cairo_surface_t* image = cairo_image_surface_create_for_data((unsigned char*)info.bmBits, CAIRO_FORMAT_ARGB32, 
+                                                      info.bmWidth, info.bmHeight, info.bmWidthBytes); 
+    cairo_t* context = cairo_create(image); 
+    cairo_surface_destroy(image); 
+#endif 
 
-    return BitmapContext::createByAdoptingBitmapAndContext(bitmap, context);
+   return BitmapContext::createByAdoptingBitmapAndContext(bitmap, context);
 }

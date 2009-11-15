@@ -123,7 +123,7 @@ void WebNetscapePluginEventHandlerCarbon::sendNullEvent()
     sendEvent(&event);
 }
 
-void WebNetscapePluginEventHandlerCarbon::drawRect(const NSRect&)
+void WebNetscapePluginEventHandlerCarbon::drawRect(CGContextRef, const NSRect&)
 {
     EventRecord event;
     
@@ -207,6 +207,17 @@ void WebNetscapePluginEventHandlerCarbon::keyDown(NSEvent *theEvent)
 {
     m_suspendKeyUpEvents = true;
     WKSendKeyEventToTSM(theEvent);
+}
+
+void WebNetscapePluginEventHandlerCarbon::syntheticKeyDownWithCommandModifier(int keyCode, char character)
+{
+    EventRecord event;
+    getCarbonEvent(&event);
+    
+    event.what = ::keyDown;
+    event.modifiers |= cmdKey;
+    event.message = keyCode << 8 | character;
+    sendEvent(&event);
 }
 
 static UInt32 keyMessageForEvent(NSEvent *event)

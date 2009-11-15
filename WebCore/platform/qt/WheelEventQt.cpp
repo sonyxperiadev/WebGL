@@ -21,7 +21,9 @@
 #include "PlatformWheelEvent.h"
 
 #include "PlatformMouseEvent.h"
+#include "Scrollbar.h"
 
+#include <qapplication.h>
 #include <QWheelEvent>
 
 namespace WebCore {
@@ -35,11 +37,7 @@ PlatformWheelEvent::PlatformWheelEvent(QWheelEvent* e)
 #else
     : m_position(e->pos())
     , m_globalPosition(e->globalPos())
-#ifdef QT_MAC_USE_COCOA
     , m_granularity(ScrollByPixelWheelEvent)
-#else
-    , m_granularity(ScrollByLineWheelEvent)
-#endif
     , m_isAccepted(false)
     , m_shiftKey(e->modifiers() & Qt::ShiftModifier)
     , m_ctrlKey(e->modifiers() & Qt::ControlModifier)
@@ -53,10 +51,14 @@ PlatformWheelEvent::PlatformWheelEvent(QWheelEvent* e)
         m_deltaX = 0;
         m_deltaY = (e->delta() / 120);
     }
+    m_wheelTicksX = m_deltaX;
+    m_wheelTicksY = m_deltaY;
 
-    // FIXME: retrieve the user setting for the number of lines to scroll on each wheel event
-    m_deltaX *= horizontalLineMultiplier();
-    m_deltaY *= verticalLineMultiplier();
+    // use the same single scroll step as QTextEdit (in
+    // QTextEditPrivate::init [h,v]bar->setSingleStep )
+    static const float cDefaultQtScrollStep = 20.f;
+    m_deltaX *= QApplication::wheelScrollLines() * cDefaultQtScrollStep;
+    m_deltaY *= QApplication::wheelScrollLines() * cDefaultQtScrollStep;
 }
 #endif // QT_NO_WHEELEVENT
 

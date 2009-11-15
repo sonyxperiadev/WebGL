@@ -43,7 +43,7 @@ struct ObjectImpList {
     CFTypeRef data;
 };
 
-static CFTypeRef KJSValueToCFTypeInternal(JSValuePtr inValue, ExecState *exec, ObjectImpList* inImps);
+static CFTypeRef KJSValueToCFTypeInternal(JSValue inValue, ExecState *exec, ObjectImpList* inImps);
 static JSGlueGlobalObject* getThreadGlobalObject();
 
 //--------------------------------------------------------------------------
@@ -100,7 +100,7 @@ CFStringRef IdentifierToCFString(const Identifier& inIdentifier)
 //--------------------------------------------------------------------------
 // KJSValueToJSObject
 //--------------------------------------------------------------------------
-JSUserObject* KJSValueToJSObject(JSValuePtr inValue, ExecState *exec)
+JSUserObject* KJSValueToJSObject(JSValue inValue, ExecState *exec)
 {
     JSUserObject* result = 0;
 
@@ -126,11 +126,11 @@ JSUserObject* KJSValueToJSObject(JSValuePtr inValue, ExecState *exec)
 //--------------------------------------------------------------------------
 // JSObjectKJSValue
 //--------------------------------------------------------------------------
-JSValuePtr JSObjectKJSValue(JSUserObject* ptr)
+JSValue JSObjectKJSValue(JSUserObject* ptr)
 {
-    JSLock lock(true);
+    JSLock lock(LockForReal);
 
-    JSValuePtr result = jsUndefined();
+    JSValue result = jsUndefined();
     if (ptr)
     {
         bool handled = false;
@@ -196,14 +196,14 @@ JSValuePtr JSObjectKJSValue(JSUserObject* ptr)
 // KJSValueToCFTypeInternal
 //--------------------------------------------------------------------------
 // Caller is responsible for releasing the returned CFTypeRef
-CFTypeRef KJSValueToCFTypeInternal(JSValuePtr inValue, ExecState *exec, ObjectImpList* inImps)
+CFTypeRef KJSValueToCFTypeInternal(JSValue inValue, ExecState *exec, ObjectImpList* inImps)
 {
     if (!inValue)
         return 0;
 
     CFTypeRef result = 0;
 
-    JSLock lock(true);
+    JSLock lock(LockForReal);
 
         if (inValue.isBoolean())
             {
@@ -358,7 +358,7 @@ CFTypeRef KJSValueToCFTypeInternal(JSValuePtr inValue, ExecState *exec, ObjectIm
     return 0;
 }
 
-CFTypeRef KJSValueToCFType(JSValuePtr inValue, ExecState *exec)
+CFTypeRef KJSValueToCFType(JSValue inValue, ExecState *exec)
 {
     return KJSValueToCFTypeInternal(inValue, exec, 0);
 }
@@ -394,7 +394,7 @@ static pthread_once_t globalObjectKeyOnce = PTHREAD_ONCE_INIT;
 
 static void unprotectGlobalObject(void* data) 
 {
-    JSLock lock(true);
+    JSLock lock(LockForReal);
     gcUnprotect(static_cast<JSGlueGlobalObject*>(data));
 }
 

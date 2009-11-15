@@ -97,11 +97,6 @@ DragImageRef Frame::dragImageForSelection() { notImplemented(); return 0; }
 
 void GraphicsContext::addInnerRoundedRectClip(const IntRect& rect, int thickness) { notImplemented(); }
 
-// cookies (we'll need a place to store these
-void WebCore::setCookies(Document* document, const KURL& url, const KURL& policyURL, const String& value) { notImplemented(); }
-String WebCore::cookies(const Document* document, const KURL& url) { notImplemented(); return String(); }
-bool WebCore::cookiesEnabled(const Document* document) { notImplemented(); return false; }
-
 /********************************************************/
 /* Completely empty stubs (mostly to allow DRT to run): */
 /********************************************************/
@@ -123,9 +118,7 @@ void GraphicsContext::setLineJoin(LineJoin) { notImplemented(); }
 void GraphicsContext::setMiterLimit(float) { notImplemented(); }
 void GraphicsContext::setAlpha(float) { notImplemented(); }
 
-Color WebCore::focusRingColor() { return 0xFF0000FF; }
-
-void Image::drawPattern(GraphicsContext*, const FloatRect& srcRect, const AffineTransform& patternTransform, const FloatPoint& phase, CompositeOperator, const FloatRect& destRect) { notImplemented(); } 
+void Image::drawPattern(GraphicsContext*, const FloatRect& srcRect, const TransformationMatrix& patternTransform, const FloatPoint& phase, CompositeOperator, const FloatRect& destRect) { notImplemented(); } 
 
 ScrollbarTheme* ScrollbarTheme::nativeTheme() { notImplemented(); static ScrollbarTheme theme; return &theme; }
 
@@ -175,6 +168,7 @@ namespace WebCore {
 float userIdleTime() { notImplemented(); return FLT_MAX; } // return an arbitrarily high userIdleTime so that releasing pages from the page cache isn't postponed
 void getSupportedKeySizes(Vector<String>&) { notImplemented(); }
 String signedPublicKeyAndChallengeString(unsigned keySizeIndex, const String &challengeString, const KURL &url) { return String(); }
+const char* currentSearchLocaleID() { notImplemented(); return ""; }
 const char* currentTextBreakLocaleID() { notImplemented(); return "en_us"; }
 
 String KURL::fileSystemPath() const { notImplemented(); return String(); }

@@ -29,8 +29,9 @@
 #include "config.h"
 #include "Console.h"
 
-#include "ChromeClient.h"
 #include "CString.h"
+#include "ChromeClient.h"
+#include "ConsoleMessage.h"
 #include "Frame.h"
 #include "FrameLoader.h"
 #include "FrameTree.h"
@@ -39,7 +40,7 @@
 #include "PageGroup.h"
 #include "PlatformString.h"
 
-#if USE(JSC)
+#if ENABLE(JAVASCRIPT_DEBUGGER)
 #include <profiler/Profiler.h>
 #endif
 
@@ -51,6 +52,11 @@ namespace WebCore {
 Console::Console(Frame* frame)
     : m_frame(frame)
 {
+}
+
+Frame* Console::frame() const
+{
+    return m_frame;
 }
 
 void Console::disconnectFrame()
@@ -68,7 +74,7 @@ static void printSourceURLAndLine(const String& sourceURL, unsigned lineNumber)
     }
 }
 
-static bool getFirstArgumentAsString(const ScriptCallFrame& callFrame, String& result, bool checkForNullOrUndefined = false)
+static bool getFirstArgumentAsString(ScriptState* scriptState, const ScriptCallFrame& callFrame, String& result, bool checkForNullOrUndefined = false)
 {
     if (!callFrame.argumentCount())
         return false;
@@ -77,68 +83,71 @@ static bool getFirstArgumentAsString(const ScriptCallFrame& callFrame, String& r
     if (checkForNullOrUndefined && (value.isNull() || value.isUndefined()))
         return false;
 
-    return value.getString(result);
+    result = value.toString(scriptState);
+    return true;
 }
 
 static void printMessageSourceAndLevelPrefix(MessageSource source, MessageLevel level)
 {
     const char* sourceString;
     switch (source) {
-        case HTMLMessageSource:
-            sourceString = "HTML";
-            break;
-        case WMLMessageSource:
-            sourceString = "WML";
-            break;
-        case XMLMessageSource:
-            sourceString = "XML";
-            break;
-        case JSMessageSource:
-            sourceString = "JS";
-            break;
-        case CSSMessageSource:
-            sourceString = "CSS";
-            break;
-        default:
-            ASSERT_NOT_REACHED();
-            // Fall thru.
-        case OtherMessageSource:
-            sourceString = "OTHER";
-            break;
+    case HTMLMessageSource:
+        sourceString = "HTML";
+        break;
+    case WMLMessageSource:
+        sourceString = "WML";
+        break;
+    case XMLMessageSource:
+        sourceString = "XML";
+        break;
+    case JSMessageSource:
+        sourceString = "JS";
+        break;
+    case CSSMessageSource:
+        sourceString = "CSS";
+        break;
+    case OtherMessageSource:
+        sourceString = "OTHER";
+        break;
+    default:
+        ASSERT_NOT_REACHED();
+        sourceString = "UNKNOWN";
+        break;
     }
 
     const char* levelString;
     switch (level) {
-        case TipMessageLevel:
-            levelString = "TIP";
-            break;
-        default:
-            ASSERT_NOT_REACHED();
-            // Fall thru.
-        case LogMessageLevel:
-            levelString = "LOG";
-            break;
-        case WarningMessageLevel:
-            levelString = "WARN";
-            break;
-        case ErrorMessageLevel:
-            levelString = "ERROR";
-            break;
+    case TipMessageLevel:
+        levelString = "TIP";
+        break;
+    case LogMessageLevel:
+        levelString = "LOG";
+        break;
+    case WarningMessageLevel:
+        levelString = "WARN";
+        break;
+    case ErrorMessageLevel:
+        levelString = "ERROR";
+        break;
+    default:
+        ASSERT_NOT_REACHED();
+        levelString = "UNKNOWN";
+        break;
     }
 
     printf("%s %s:", sourceString, levelString);
 }
 
-void Console::addMessage(MessageSource source, MessageLevel level, const String& message, unsigned lineNumber, const String& sourceURL)
+void Console::addMessage(MessageSource source, MessageType type, MessageLevel level, const String& message, unsigned lineNumber, const String& sourceURL)
 {
     Page* page = this->page();
     if (!page)
         return;
 
-    if (source == JSMessageSource || source == WMLMessageSource)
-        page->chrome()->client()->addMessageToConsole(message, lineNumber, sourceURL);
+    if (source == JSMessageSource)
+        page->chrome()->client()->addMessageToConsole(source, type, level, message, lineNumber, sourceURL);
 
-    page->inspectorController()->addMessageToConsole(source, level, message, lineNumber, sourceURL);
+    page->inspectorController()->addMessageToConsole(source, type, level, message, lineNumber, sourceURL);
 
     if (!Console::shouldPrintExceptions())
         return;
@@ -149,7 +158,8 @@ void Console::addMessage(MessageSource source, MessageLevel level, const String&
     printf(" %s\n", message.utf8().data());
 }
 
-void Console::addMessage(MessageLevel level, ScriptCallStack* callStack, bool acceptNoArguments) {
+void Console::addMessage(MessageType type, MessageLevel level, ScriptCallStack* callStack, bool acceptNoArguments)
+{
     Page* page = this->page();
     if (!page)
         return;
@@ -160,10 +170,10 @@ void Console::addMessage(MessageLevel level, ScriptCallStack* callStack, bool ac
         return;
 
     String message;
-    if (getFirstArgumentAsString(lastCaller, message))
-        page->chrome()->client()->addMessageToConsole(message, lastCaller.lineNumber(), lastCaller.sourceURL().prettyURL());
+    if (getFirstArgumentAsString(callStack->state(), lastCaller, message))
+        page->chrome()->client()->addMessageToConsole(JSMessageSource, type, level, message, lastCaller.lineNumber(), lastCaller.sourceURL().prettyURL());
 
-    page->inspectorController()->addMessageToConsole(JSMessageSource, level, callStack);
+    page->inspectorController()->addMessageToConsole(JSMessageSource, type, level, callStack);
 
     if (!Console::shouldPrintExceptions())
         return;
@@ -187,7 +197,7 @@ void Console::debug(ScriptCallStack* callStack)
 
 void Console::error(ScriptCallStack* callStack)
 {
-    addMessage(ErrorMessageLevel, callStack);
+    addMessage(LogMessageType, ErrorMessageLevel, callStack);
 }
 
 void Console::info(ScriptCallStack* callStack)
@@ -197,22 +207,23 @@ void Console::info(ScriptCallStack* callStack)
 
 void Console::log(ScriptCallStack* callStack)
 {
-    addMessage(LogMessageLevel, callStack);
+    addMessage(LogMessageType, LogMessageLevel, callStack);
 }
 
 void Console::dir(ScriptCallStack* callStack)
 {
-    addMessage(ObjectMessageLevel, callStack);
+    addMessage(ObjectMessageType, LogMessageLevel, callStack);
 }
 
 void Console::dirxml(ScriptCallStack* callStack)
 {
-    addMessage(NodeMessageLevel, callStack);
+    // The standard behavior of our console.log will print the DOM tree for nodes.
+    log(callStack);
 }
 
 void Console::trace(ScriptCallStack* callStack)
 {
-    addMessage(TraceMessageLevel, callStack, true);
+    addMessage(TraceMessageType, LogMessageLevel, callStack, true);
 
     if (!shouldPrintExceptions())
         return;
@@ -230,7 +241,7 @@ void Console::assertCondition(bool condition, ScriptCallStack* callStack)
         return;
 
     // FIXME: <https://bugs.webkit.org/show_bug.cgi?id=19135> It would be nice to prefix assertion failures with a message like "Assertion failed: ".
-    addMessage(ErrorMessageLevel, callStack, true);
+    addMessage(LogMessageType, ErrorMessageLevel, callStack, true);
 }
 
 void Console::count(ScriptCallStack* callStack)
@@ -243,12 +254,38 @@ void Console::count(ScriptCallStack* callStack)
     // Follow Firebug's behavior of counting with null and undefined title in
     // the same bucket as no argument
     String title;
-    getFirstArgumentAsString(lastCaller, title);
+    getFirstArgumentAsString(callStack->state(), lastCaller, title);
 
     page->inspectorController()->count(title, lastCaller.lineNumber(), lastCaller.sourceURL().string());
 }
 
-#if USE(JSC)
+#if ENABLE(WML)
+String Console::lastWMLErrorMessage() const
+{
+    Page* page = this->page();
+    if (!page)
+        return String();
+
+    const Vector<ConsoleMessage*>& consoleMessages = page->inspectorController()->consoleMessages();
+    if (consoleMessages.isEmpty())
+        return String();
+
+    Vector<ConsoleMessage*>::const_iterator it = consoleMessages.begin();
+    const Vector<ConsoleMessage*>::const_iterator end = consoleMessages.end();
+
+    for (; it != end; ++it) {
+        ConsoleMessage* message = *it;
+        if (message->source() != WMLMessageSource)
+            continue;
+
+        return message->message();
+    }
+
+    return String();
+}
+#endif
+
+#if ENABLE(JAVASCRIPT_DEBUGGER)
 
 void Console::profile(const JSC::UString& title, ScriptCallStack* callStack)
 {
@@ -256,14 +293,19 @@ void Console::profile(const JSC::UString& title, ScriptCallStack* callStack)
     if (!page)
         return;
 
-    if (title.isNull())
-        return;
-
+    InspectorController* controller = page->inspectorController();
     // FIXME: log a console message when profiling is disabled.
-    if (!page->inspectorController()->profilerEnabled())
+    if (!controller->profilerEnabled())
         return;
 
-    JSC::Profiler::profiler()->startProfiling(callStack->state(), title);
+    JSC::UString resolvedTitle = title;
+    if (title.isNull())   // no title so give it the next user initiated profile title.
+        resolvedTitle = controller->getCurrentUserInitiatedProfileName(true);
+
+    JSC::Profiler::profiler()->startProfiling(callStack->state(), resolvedTitle);
+
+    const ScriptCallFrame& lastCaller = callStack->at(0);
+    controller->addStartProfilingMessageToConsole(resolvedTitle, lastCaller.lineNumber(), lastCaller.sourceURL());
 }
 
 void Console::profileEnd(const JSC::UString& title, ScriptCallStack* callStack)
@@ -272,7 +314,11 @@ void Console::profileEnd(const JSC::UString& title, ScriptCallStack* callStack)
     if (!page)
         return;
 
-    if (!page->inspectorController()->profilerEnabled())
+    if (!this->page())
+        return;
+
+    InspectorController* controller = page->inspectorController();
+    if (!controller->profilerEnabled())
         return;
 
     RefPtr<JSC::Profile> profile = JSC::Profiler::profiler()->stopProfiling(callStack->state(), title);
@@ -281,14 +327,12 @@ void Console::profileEnd(const JSC::UString& title, ScriptCallStack* callStack)
 
     m_profiles.append(profile);
 
-    if (Page* page = this->page()) {
-        const ScriptCallFrame& lastCaller = callStack->at(0);
-        page->inspectorController()->addProfile(profile, lastCaller.lineNumber(), lastCaller.sourceURL());
-    }
+    const ScriptCallFrame& lastCaller = callStack->at(0);
+    controller->addProfile(profile, lastCaller.lineNumber(), lastCaller.sourceURL());
 }
 
 #endif
-    
+
 void Console::time(const String& title)
 {
     Page* page = this->page();
@@ -299,7 +343,7 @@ void Console::time(const String& title)
     // undefined for timing functions
     if (title.isNull())
         return;
-    
+
     page->inspectorController()->startTiming(title);
 }
 
@@ -321,7 +365,7 @@ void Console::timeEnd(const String& title, ScriptCallStack* callStack)
     String message = title + String::format(": %.0fms", elapsed);
 
     const ScriptCallFrame& lastCaller = callStack->at(0);
-    page->inspectorController()->addMessageToConsole(JSMessageSource, LogMessageLevel, message, lastCaller.lineNumber(), lastCaller.sourceURL().string());
+    page->inspectorController()->addMessageToConsole(JSMessageSource, LogMessageType, LogMessageLevel, message, lastCaller.lineNumber(), lastCaller.sourceURL().string());
 }
 
 void Console::group(ScriptCallStack* callStack)
@@ -344,7 +388,7 @@ void Console::groupEnd()
 
 void Console::warn(ScriptCallStack* callStack)
 {
-    addMessage(WarningMessageLevel, callStack);
+    addMessage(LogMessageType, WarningMessageLevel, callStack);
 }
 
 static bool printExceptions = false;

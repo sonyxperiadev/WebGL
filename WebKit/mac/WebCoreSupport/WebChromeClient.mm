@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
  * Copyright (C) 2008 Nokia Corporation and/or its subsidiary(-ies)
  *
  * Redistribution and use in source and binary forms, with or without
@@ -29,26 +29,31 @@
 
 #import "WebChromeClient.h"
 
-#import <Foundation/Foundation.h>
+#import "DOMNodeInternal.h"
 #import "WebDefaultUIDelegate.h"
+#import "WebDelegateImplementationCaching.h"
 #import "WebElementDictionary.h"
 #import "WebFrameInternal.h"
 #import "WebFrameView.h"
+#import "WebGeolocationInternal.h"
 #import "WebHTMLViewInternal.h"
 #import "WebHistoryInternal.h"
-#import "WebKitSystemInterface.h"
 #import "WebKitPrefix.h"
+#import "WebKitSystemInterface.h"
 #import "WebNSURLRequestExtras.h"
 #import "WebPlugin.h"
 #import "WebSecurityOriginInternal.h"
 #import "WebUIDelegatePrivate.h"
 #import "WebView.h"
 #import "WebViewInternal.h"
+#import <Foundation/Foundation.h>
 #import <WebCore/BlockExceptions.h>
+#import <WebCore/Console.h>
 #import <WebCore/FileChooser.h>
 #import <WebCore/FloatRect.h>
 #import <WebCore/Frame.h>
 #import <WebCore/FrameLoadRequest.h>
+#import <WebCore/Geolocation.h>
 #import <WebCore/HitTestResult.h>
 #import <WebCore/IntRect.h>
 #import <WebCore/Page.h>
@@ -60,6 +65,14 @@
 #import <WebCore/WindowFeatures.h>
 #import <wtf/PassRefPtr.h>
 #import <wtf/Vector.h>
+
+#if USE(ACCELERATED_COMPOSITING)
+#import <WebCore/GraphicsLayer.h>
+#endif
+
+#if USE(PLUGIN_HOST_PROCESS)
+#import "NetscapePluginHostManager.h"
+#endif
 
 @interface NSView (WebNSViewDetails)
 - (NSView *)_findLastViewInKeyViewLoop;
@@ -217,6 +230,11 @@ Page* WebChromeClient::createWindow(Frame* frame, const FrameLoadRequest& reques
     } else {
         newWebView = CallUIDelegate(m_webView, @selector(webView:createWebViewWithRequest:), URLRequest);
     }
+
+#if USE(PLUGIN_HOST_PROCESS)
+    if (newWebView)
+        WebKit::NetscapePluginHostManager::shared().didCreateWindow();
+#endif
     
     return core(newWebView);
 }
@@ -283,7 +301,7 @@ void WebChromeClient::setResizable(bool b)
     [[m_webView _UIDelegateForwarder] webView:m_webView setResizable:b];
 }
 
-void WebChromeClient::addMessageToConsole(const String& message, unsigned int lineNumber, const String& sourceURL)
+void WebChromeClient::addMessageToConsole(MessageSource source, MessageType type, MessageLevel level, const String& message, unsigned int lineNumber, const String& sourceURL)
 {
     id delegate = [m_webView UIDelegate];
     SEL selector = @selector(webView:addMessageToConsole:);
@@ -460,16 +478,20 @@ void WebChromeClient::scrollRectIntoView(const IntRect& r, const ScrollView* scr
     // FIXME: This scrolling behavior should be under the control of the embedding client (rather than something
     // we just do ourselves).
     
-    // We have to convert back to document view coordinates in order to let the flipping conversion take place.  It just
-    // doesn't make sense for the scrollRectIntoView API to take document view coordinates.
     IntRect scrollRect = r;
-    scrollRect.move(scrollView->scrollOffset());
+    NSView *startView = m_webView;
+    if ([m_webView _usesDocumentViews]) {
+        // We have to convert back to document view coordinates.
+        // It doesn't make sense for the scrollRectIntoView API to take document view coordinates.
+        scrollRect.move(scrollView->scrollOffset());
+        startView = [[[m_webView mainFrame] frameView] documentView];
+    }
     NSRect rect = scrollRect;
-    for (NSView *view = [[[m_webView mainFrame] frameView] documentView]; view; view = [view superview]) { 
+    for (NSView *view = startView; view; view = [view superview]) { 
         if ([view isKindOfClass:[NSClipView class]]) { 
             NSClipView *clipView = (NSClipView *)view; 
             NSView *documentView = [clipView documentView]; 
-            [documentView scrollRectToVisible:[documentView convertRect:rect fromView:[[[m_webView mainFrame] frameView] documentView]]]; 
+            [documentView scrollRectToVisible:[documentView convertRect:rect fromView:startView]]; 
         } 
     }
 }
@@ -483,17 +505,21 @@ void WebChromeClient::mouseDidMoveOverElement(const HitTestResult& result, unsig
     [element release];
 }
 
-void WebChromeClient::setToolTip(const String& toolTip)
+void WebChromeClient::setToolTip(const String& toolTip, TextDirection)
 {
-    [(WebHTMLView *)[[[m_webView mainFrame] frameView] documentView] _setToolTip:toolTip];
+    [m_webView _setToolTip:toolTip];
 }
 
 void WebChromeClient::print(Frame* frame)
 {
-    WebFrameView* frameView = [kit(frame) frameView];
-    CallUIDelegate(m_webView, @selector(webView:printFrameView:), frameView);
+    WebFrame *webFrame = kit(frame);
+    if ([[m_webView UIDelegate] respondsToSelector:@selector(webView:printFrame:)])
+        CallUIDelegate(m_webView, @selector(webView:printFrame:), webFrame);
+    else if ([m_webView _usesDocumentViews])
+        CallUIDelegate(m_webView, @selector(webView:printFrameView:), [webFrame frameView]);
 }
 
+#if ENABLE(DATABASE)
 void WebChromeClient::exceededDatabaseQuota(Frame* frame, const String& databaseName)
 {
     BEGIN_BLOCK_OBJC_EXCEPTIONS;
@@ -509,6 +535,14 @@ void WebChromeClient::exceededDatabaseQuota(Frame* frame, const String& database
 
     END_BLOCK_OBJC_EXCEPTIONS;
 }
+#endif
+
+#if ENABLE(OFFLINE_WEB_APPLICATIONS)
+void WebChromeClient::reachedMaxAppCacheSize(int64_t spaceNeeded)
+{
+    // FIXME: Free some space.
+}
+#endif
     
 void WebChromeClient::populateVisitedLinks()
 {
@@ -629,18 +663,69 @@ String WebChromeClient::generateReplacementFile(const String& path)
     return [[m_webView _UIDelegateForwarder] webView:m_webView generateReplacementFile:path];
 }
 
-void WebChromeClient::disableSuddenTermination()
+void WebChromeClient::formStateDidChange(const WebCore::Node* node)
 {
-#if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
-    [[NSProcessInfo processInfo] disableSuddenTermination];
-#endif
+    CallUIDelegate(m_webView, @selector(webView:formStateDidChangeForNode:), kit(const_cast<WebCore::Node*>(node)));
 }
 
-void WebChromeClient::enableSuddenTermination()
+void WebChromeClient::formDidFocus(const WebCore::Node* node)
 {
-#if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
-    [[NSProcessInfo processInfo] enableSuddenTermination];
+    CallUIDelegate(m_webView, @selector(webView:formStateDidFocusNode:), kit(const_cast<WebCore::Node*>(node)));
+}
+
+void WebChromeClient::formDidBlur(const WebCore::Node* node)
+{
+    CallUIDelegate(m_webView, @selector(webView:formStateDidBlurNode:), kit(const_cast<WebCore::Node*>(node)));
+}
+
+#if USE(ACCELERATED_COMPOSITING)
+
+void WebChromeClient::attachRootGraphicsLayer(Frame* frame, GraphicsLayer* graphicsLayer)
+{
+    BEGIN_BLOCK_OBJC_EXCEPTIONS;
+
+    NSView *documentView = [[kit(frame) frameView] documentView];
+    if (![documentView isKindOfClass:[WebHTMLView class]]) {
+        // We should never be attaching when we don't have a WebHTMLView.
+        ASSERT(!graphicsLayer);
+        return;
+    }
+
+    WebHTMLView *webHTMLView = (WebHTMLView *)documentView;
+    if (graphicsLayer)
+        [webHTMLView attachRootLayer:graphicsLayer->nativeLayer()];
+    else
+        [webHTMLView detachRootLayer];
+    END_BLOCK_OBJC_EXCEPTIONS;
+}
+
+void WebChromeClient::setNeedsOneShotDrawingSynchronization()
+{
+    BEGIN_BLOCK_OBJC_EXCEPTIONS;
+    [m_webView _setNeedsOneShotDrawingSynchronization:YES];
+    END_BLOCK_OBJC_EXCEPTIONS;
+}
+
+void WebChromeClient::scheduleCompositingLayerSync()
+{
+    BEGIN_BLOCK_OBJC_EXCEPTIONS;
+    [m_webView _scheduleCompositingLayerSync];
+    END_BLOCK_OBJC_EXCEPTIONS;
+}
+
 #endif
+
+void WebChromeClient::requestGeolocationPermissionForFrame(Frame* frame, Geolocation* geolocation)
+{
+    BEGIN_BLOCK_OBJC_EXCEPTIONS;
+
+    WebSecurityOrigin *webOrigin = [[WebSecurityOrigin alloc] _initWithWebCoreSecurityOrigin:frame->document()->securityOrigin()];
+    WebGeolocation *webGeolocation = [[WebGeolocation alloc] _initWithWebCoreGeolocation:geolocation];
+    CallUIDelegate(m_webView, @selector(webView:frame:requestGeolocationPermission:securityOrigin:), kit(frame), webGeolocation, webOrigin);
+    [webOrigin release];
+    [webGeolocation release];
+
+    END_BLOCK_OBJC_EXCEPTIONS;
 }
 
 @implementation WebOpenPanelResultListener

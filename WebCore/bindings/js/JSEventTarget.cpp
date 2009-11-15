@@ -26,30 +26,45 @@
 #include "config.h"
 #include "JSEventTarget.h"
 
+#include "DOMWindow.h"
 #include "Document.h"
+#include "JSDOMWindow.h"
+#include "JSDOMWindowShell.h"
 #include "JSEventListener.h"
-#include "JSEventTargetNode.h"
 #include "JSMessagePort.h"
-#ifdef ANDROID_FIX  // these are generated files, need to check ENABLE(WORKERS)
-#if ENABLE(WORKERS)
-#include "JSWorker.h"
-#include "JSWorkerContext.h"
-#endif
-#endif
+#include "JSNode.h"
+#include "JSSharedWorker.h"
+#include "JSSharedWorkerContext.h"
+#include "JSXMLHttpRequest.h"
 #include "JSXMLHttpRequestUpload.h"
-#include "Worker.h"
-#include "WorkerContext.h"
+#include "MessagePort.h"
+#include "SharedWorker.h"
+#include "SharedWorkerContext.h"
+#include "XMLHttpRequest.h"
+#include "XMLHttpRequestUpload.h"
+
+#if ENABLE(OFFLINE_WEB_APPLICATIONS)
+#include "DOMApplicationCache.h"
+#include "JSDOMApplicationCache.h"
+#endif
 
 #if ENABLE(SVG)
 #include "SVGElementInstance.h"
 #include "JSSVGElementInstance.h"
 #endif
 
+#if ENABLE(WORKERS)
+#include "DedicatedWorkerContext.h"
+#include "JSDedicatedWorkerContext.h"
+#include "JSWorker.h"
+#include "Worker.h"
+#endif
+
 using namespace JSC;
 
 namespace WebCore {
 
-JSValuePtr toJS(ExecState* exec, EventTarget* target)
+JSValue toJS(ExecState* exec, JSDOMGlobalObject* globalObject, EventTarget* target)
 {
     if (!target)
         return jsNull();
@@ -57,38 +72,82 @@ JSValuePtr toJS(ExecState* exec, EventTarget* target)
 #if ENABLE(SVG)
     // SVGElementInstance supports both toSVGElementInstance and toNode since so much mouse handling code depends on toNode returning a valid node.
     if (SVGElementInstance* instance = target->toSVGElementInstance())
-        return toJS(exec, instance);
+        return toJS(exec, globalObject, instance);
 #endif
     
     if (Node* node = target->toNode())
-        return toJS(exec, node);
+        return toJS(exec, globalObject, node);
+
+    if (DOMWindow* domWindow = target->toDOMWindow())
+        return toJS(exec, globalObject, domWindow);
 
     if (XMLHttpRequest* xhr = target->toXMLHttpRequest())
-        // XMLHttpRequest is always created via JS, so we don't need to use cacheDOMObject() here.
-        return getCachedDOMObjectWrapper(exec->globalData(), xhr);
+        return toJS(exec, globalObject, xhr);
 
     if (XMLHttpRequestUpload* upload = target->toXMLHttpRequestUpload())
-        return toJS(exec, upload);
+        return toJS(exec, globalObject, upload);
 
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
     if (DOMApplicationCache* cache = target->toDOMApplicationCache())
-        // DOMApplicationCache is always created via JS, so we don't need to use cacheDOMObject() here.
-        return getCachedDOMObjectWrapper(exec->globalData(), cache);
+        return toJS(exec, globalObject, cache);
 #endif
 
     if (MessagePort* messagePort = target->toMessagePort())
-        return toJS(exec, messagePort);
+        return toJS(exec, globalObject, messagePort);
 
 #if ENABLE(WORKERS)
     if (Worker* worker = target->toWorker())
-        return toJS(exec, worker);
+        return toJS(exec, globalObject, worker);
 
-    if (WorkerContext* workerContext = target->toWorkerContext())
+    if (DedicatedWorkerContext* workerContext = target->toDedicatedWorkerContext())
+        return toJSDOMGlobalObject(workerContext);
+#endif
+
+#if ENABLE(SHARED_WORKERS)
+    if (SharedWorker* sharedWorker = target->toSharedWorker())
+        return toJS(exec, globalObject, sharedWorker);
+
+    if (SharedWorkerContext* workerContext = target->toSharedWorkerContext())
         return toJSDOMGlobalObject(workerContext);
 #endif
 
     ASSERT_NOT_REACHED();
     return jsNull();
+}
+
+EventTarget* toEventTarget(JSC::JSValue value)
+{
+    #define CONVERT_TO_EVENT_TARGET(type) \
+        if (value.isObject(&JS##type::s_info)) \
+            return static_cast<JS##type*>(asObject(value))->impl();
+
+    CONVERT_TO_EVENT_TARGET(Node)
+    CONVERT_TO_EVENT_TARGET(XMLHttpRequest)
+    CONVERT_TO_EVENT_TARGET(XMLHttpRequestUpload)
+    CONVERT_TO_EVENT_TARGET(MessagePort)
+
+    if (value.isObject(&JSDOMWindowShell::s_info))
+        return static_cast<JSDOMWindowShell*>(asObject(value))->impl();
+
+#if ENABLE(OFFLINE_WEB_APPLICATIONS)
+    CONVERT_TO_EVENT_TARGET(DOMApplicationCache)
+#endif
+
+#if ENABLE(SVG)
+    CONVERT_TO_EVENT_TARGET(SVGElementInstance)
+#endif
+
+#if ENABLE(WORKERS)
+    CONVERT_TO_EVENT_TARGET(Worker)
+    CONVERT_TO_EVENT_TARGET(DedicatedWorkerContext)
+#endif
+
+#if ENABLE(SHARED_WORKERS)
+    CONVERT_TO_EVENT_TARGET(SharedWorker)
+    CONVERT_TO_EVENT_TARGET(SharedWorkerContext)
+#endif
+
+    return 0;
 }
 
 } // namespace WebCore

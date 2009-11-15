@@ -36,19 +36,21 @@ namespace JSC {
 
 const ClassInfo RuntimeArray::s_info = { "RuntimeArray", &JSArray::info, 0, 0 };
 
-RuntimeArray::RuntimeArray(ExecState* exec, Bindings::Array* a)
-    : JSObject(getDOMStructure<RuntimeArray>(exec))
-    , _array(a)
+RuntimeArray::RuntimeArray(ExecState* exec, Bindings::Array* array)
+    // FIXME: deprecatedGetDOMStructure uses the prototype off of the wrong global object
+    // We need to pass in the right global object for "array".
+    : JSObject(deprecatedGetDOMStructure<RuntimeArray>(exec))
+    , _array(array)
 {
 }
 
-JSValuePtr RuntimeArray::lengthGetter(ExecState* exec, const Identifier&, const PropertySlot& slot)
+JSValue RuntimeArray::lengthGetter(ExecState* exec, const Identifier&, const PropertySlot& slot)
 {
     RuntimeArray* thisObj = static_cast<RuntimeArray*>(asObject(slot.slotBase()));
     return jsNumber(exec, thisObj->getLength());
 }
 
-JSValuePtr RuntimeArray::indexGetter(ExecState* exec, const Identifier&, const PropertySlot& slot)
+JSValue RuntimeArray::indexGetter(ExecState* exec, const Identifier&, const PropertySlot& slot)
 {
     RuntimeArray* thisObj = static_cast<RuntimeArray*>(asObject(slot.slotBase()));
     return thisObj->getConcreteArray()->valueAt(exec, slot.index());
@@ -83,7 +85,7 @@ bool RuntimeArray::getOwnPropertySlot(ExecState *exec, unsigned index, PropertyS
     return JSObject::getOwnPropertySlot(exec, index, slot);
 }
 
-void RuntimeArray::put(ExecState* exec, const Identifier& propertyName, JSValuePtr value, PutPropertySlot& slot)
+void RuntimeArray::put(ExecState* exec, const Identifier& propertyName, JSValue value, PutPropertySlot& slot)
 {
     if (propertyName == exec->propertyNames().length) {
         throwError(exec, RangeError);
@@ -100,7 +102,7 @@ void RuntimeArray::put(ExecState* exec, const Identifier& propertyName, JSValueP
     JSObject::put(exec, propertyName, value, slot);
 }
 
-void RuntimeArray::put(ExecState* exec, unsigned index, JSValuePtr value)
+void RuntimeArray::put(ExecState* exec, unsigned index, JSValue value)
 {
     if (index >= getLength()) {
         throwError(exec, RangeError);

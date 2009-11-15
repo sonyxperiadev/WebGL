@@ -3,6 +3,7 @@
     Copyright (C) 2001 Dirk Mueller (mueller@kde.org)
     Copyright (C) 2002 Waldo Bastian (bastian@kde.org)
     Copyright (C) 2004, 2005, 2006, 2008 Apple Inc. All rights reserved.
+    Copyright (C) 2009 Torch Mobile Inc. http://www.torchmobile.com/
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -36,6 +37,7 @@
 #include "CString.h"
 #include "Document.h"
 #include "DOMWindow.h"
+#include "HTMLElement.h"
 #include "Frame.h"
 #include "FrameLoader.h"
 #include "loader.h"
@@ -62,11 +64,17 @@ DocLoader::DocLoader(Document* doc)
 
 DocLoader::~DocLoader()
 {
+    if (m_requestCount)
+        m_cache->loader()->cancelRequests(this);
+
     clearPreloads();
     DocumentResourceMap::iterator end = m_documentResources.end();
     for (DocumentResourceMap::iterator it = m_documentResources.begin(); it != end; ++it)
         it->second->setDocLoader(0);
     m_cache->removeDocLoader(this);
+
+    // Make sure no requests still point to this DocLoader
+    ASSERT(m_requestCount == 0);
 }
 
 Frame* DocLoader::frame() const
@@ -246,7 +254,7 @@ void DocLoader::printAccessDeniedMessage(const KURL& url) const
                        m_doc->url().string().utf8().data());
 
     // FIXME: provide a real line number and source URL.
-    frame()->domWindow()->console()->addMessage(OtherMessageSource, ErrorMessageLevel, message, 1, String());
+    frame()->domWindow()->console()->addMessage(OtherMessageSource, LogMessageType, ErrorMessageLevel, message, 1, String());
 }
 
 void DocLoader::setAutoLoadImages(bool enable)
@@ -312,11 +320,16 @@ void DocLoader::setBlockNetworkImage(bool block)
 
 CachePolicy DocLoader::cachePolicy() const
 {
-    return frame() ? frame()->loader()->cachePolicy() : CachePolicyVerify;
+    return frame() ? frame()->loader()->subresourceCachePolicy() : CachePolicyVerify;
 }
 
 void DocLoader::removeCachedResource(CachedResource* resource) const
 {
+#ifndef NDEBUG
+    DocumentResourceMap::iterator it = m_documentResources.find(resource->url());
+    if (it != m_documentResources.end())
+        ASSERT(it->second.get() == resource);
+#endif
     m_documentResources.remove(resource->url());
 }
 
@@ -385,7 +398,9 @@ void DocLoader::checkForPendingPreloads()
         return;
     for (unsigned i = 0; i < count; ++i) {
         PendingPreload& preload = m_pendingPreloads[i];
-        requestPreload(preload.m_type, preload.m_url, preload.m_charset);
+        // Don't request preload if the resource already loaded normally (this will result in double load if the page is being reloaded with cached results ignored).
+        if (!cachedResource(m_doc->completeURL(preload.m_url)))
+            requestPreload(preload.m_type, preload.m_url, preload.m_charset);
     }
     m_pendingPreloads.clear();
 }
@@ -421,6 +436,11 @@ void DocLoader::clearPreloads()
             cache()->remove(res);
     }
     m_preloads.clear();
+}
+
+void DocLoader::clearPendingPreloads()
+{
+    m_pendingPreloads.clear();
 }
 
 #if PRELOAD_DEBUG

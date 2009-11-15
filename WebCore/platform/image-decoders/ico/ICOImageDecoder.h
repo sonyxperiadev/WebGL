@@ -1,49 +1,149 @@
 /*
- * Copyright (C) 2006 Apple Computer, Inc.  All rights reserved.
- *
+ * Copyright (c) 2008, 2009, Google Inc. All rights reserved.
+ * 
  * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in the
- *    documentation and/or other materials provided with the distribution.
- *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
- * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
- * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
- * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
- * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
- * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
- * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * modification, are permitted provided that the following conditions are
+ * met:
+ * 
+ *     * Redistributions of source code must retain the above copyright
+ * notice, this list of conditions and the following disclaimer.
+ *     * Redistributions in binary form must reproduce the above
+ * copyright notice, this list of conditions and the following disclaimer
+ * in the documentation and/or other materials provided with the
+ * distribution.
+ *     * Neither the name of Google Inc. nor the names of its
+ * contributors may be used to endorse or promote products derived from
+ * this software without specific prior written permission.
+ * 
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+ * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef ICO_DECODER_H_
-#define ICO_DECODER_H_
+#ifndef ICOImageDecoder_h
+#define ICOImageDecoder_h
 
-#include "ImageDecoder.h"
+#include "BMPImageReader.h"
 
 namespace WebCore {
 
-class ICOImageReader;
+    class PNGImageDecoder;
 
-// This class decodes the ICO and CUR image formats.
-class ICOImageDecoder : public ImageDecoder
-{
-public:
-    virtual String filenameExtension() const { return "ico"; }
+    // This class decodes the ICO and CUR image formats.
+    class ICOImageDecoder : public ImageDecoder {
+    public:
+        ICOImageDecoder();
+        virtual ~ICOImageDecoder();
 
-    // Whether or not the size information has been decoded yet.
-    virtual bool isSizeAvailable() const;
+        // ImageDecoder
+        virtual String filenameExtension() const { return "ico"; }
+        virtual void setData(SharedBuffer*, bool allDataReceived);
+        virtual bool isSizeAvailable();
+        virtual IntSize size() const;
+        virtual IntSize frameSizeAtIndex(size_t) const;
+        virtual bool setSize(unsigned width, unsigned height);
+        virtual size_t frameCount();
+        virtual RGBA32Buffer* frameBufferAtIndex(size_t);
 
-    virtual RGBA32Buffer* frameBufferAtIndex(size_t index);
-};
+    private:
+        enum ImageType {
+            Unknown,
+            BMP,
+            PNG,
+        };
 
-}
+        struct IconDirectoryEntry {
+            IntSize m_size;
+            uint16_t m_bitCount;
+            uint32_t m_imageOffset;
+        };
+
+        // Returns true if |a| is a preferable icon entry to |b|.
+        // Larger sizes, or greater bitdepths at the same size, are preferable.
+        static bool compareEntries(const IconDirectoryEntry& a,
+                                   const IconDirectoryEntry& b);
+
+        inline uint16_t readUint16(int offset) const
+        {
+            return BMPImageReader::readUint16(m_data.get(),
+                                              m_decodedOffset + offset);
+        }
+
+        inline uint32_t readUint32(int offset) const
+        {
+            return BMPImageReader::readUint32(m_data.get(),
+                                              m_decodedOffset + offset);
+        }
+
+        // If the desired PNGImageDecoder exists, gives it the appropriate data.
+        void setDataForPNGDecoderAtIndex(size_t);
+
+        // Decodes the entry at |index|.  If |onlySize| is true, stops decoding
+        // after calculating the image size.  If decoding fails but there is no
+        // more data coming, sets the "decode failure" flag.
+        //
+        // NOTE: If the desired entry is a PNG, this doesn't actually trigger
+        // decoding, it merely ensures the decoder is created and ready to
+        // decode.  The caller will then call a function on the PNGImageDecoder
+        // that actually triggers decoding.
+        void decodeWithCheckForDataEnded(size_t index, bool onlySize);
+
+        // Decodes the directory and directory entries at the beginning of the
+        // data, and initializes members.  Returns true if all decoding
+        // succeeded.  Once this returns true, all entries' sizes are known.
+        bool decodeDirectory();
+
+        // Decodes the specified entry.
+        bool decodeAtIndex(size_t);
+
+        // Processes the ICONDIR at the beginning of the data.  Returns true if
+        // the directory could be decoded.
+        bool processDirectory();
+
+        // Processes the ICONDIRENTRY records after the directory.  Keeps the
+        // "best" entry as the one we'll decode.  Returns true if the entries
+        // could be decoded.
+        bool processDirectoryEntries();
+
+        // Reads and returns a directory entry from the current offset into
+        // |data|.
+        IconDirectoryEntry readDirectoryEntry();
+
+        // Determines whether the desired entry is a BMP or PNG.  Returns true
+        // if the type could be determined.
+        ImageType imageTypeAtIndex(size_t);
+
+        // True if we've seen all the data.
+        bool m_allDataReceived;
+
+        // An index into |m_data| representing how much we've already decoded.
+        // Note that this only tracks data _this_ class decodes; once the
+        // BMPImageReader takes over this will not be updated further.
+        size_t m_decodedOffset;
+
+        // The headers for the ICO.
+        typedef Vector<IconDirectoryEntry> IconDirectoryEntries;
+        IconDirectoryEntries m_dirEntries;
+
+        // The image decoders for the various frames.
+        typedef Vector<BMPImageReader*> BMPReaders;
+        BMPReaders m_bmpReaders;
+        typedef Vector<PNGImageDecoder*> PNGDecoders;
+        PNGDecoders m_pngDecoders;
+
+        // Valid only while a BMPImageReader is decoding, this holds the size
+        // for the particular entry being decoded.
+        IntSize m_frameSize;
+    };
+
+} // namespace WebCore
 
 #endif

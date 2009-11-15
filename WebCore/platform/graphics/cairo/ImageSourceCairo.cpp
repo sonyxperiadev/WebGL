@@ -34,12 +34,9 @@
 #include "ICOImageDecoder.h"
 #include "JPEGImageDecoder.h"
 #include "PNGImageDecoder.h"
+#include "XBMImageDecoder.h"
 #include "SharedBuffer.h"
 #include <cairo.h>
-
-#if !PLATFORM(WIN)
-#include "XBMImageDecoder.h"
-#endif
 
 namespace WebCore {
 
@@ -80,11 +77,9 @@ ImageDecoder* createDecoder(const Vector<char>& data)
         !memcmp(contents, "\000\000\002\000", 4))
         return new ICOImageDecoder();
 
-#if !PLATFORM(WIN)
     // XBMs require 8 bytes of info.
     if (length >= 8 && strncmp(contents, "#define ", 8) == 0)
         return new XBMImageDecoder();
-#endif
 
     // Give up. We don't know what the heck this is.
     return 0;
@@ -111,7 +106,7 @@ void ImageSource::clear(bool destroyAll, size_t clearBeforeFrame, SharedBuffer* 
     delete m_decoder;
     m_decoder = 0;
     if (data)
-      setData(data, allDataReceived);
+        setData(data, allDataReceived);
 }
 
 bool ImageSource::initialized() const
@@ -158,9 +153,12 @@ IntSize ImageSource::size() const
     return m_decoder->size();
 }
 
-IntSize ImageSource::frameSizeAtIndex(size_t) const
+IntSize ImageSource::frameSizeAtIndex(size_t index) const
 {
-    return size();
+    if (!m_decoder)
+        return IntSize();
+
+    return m_decoder->frameSizeAtIndex(index);
 }
 
 int ImageSource::repetitionCount()
@@ -190,14 +188,10 @@ NativeImagePtr ImageSource::createFrameAtIndex(size_t index)
 
     // Cairo does not like zero height images.
     // If we have a zero height image, just pretend we don't have enough data yet.
-    if (!buffer->height())
+    if (!size().height())
         return 0;
 
-    return cairo_image_surface_create_for_data((unsigned char*)buffer->bytes().data(),
-                                               CAIRO_FORMAT_ARGB32,
-                                               size().width(),
-                                               buffer->height(),
-                                               size().width()*4);
+    return buffer->asNewNativeImage();
 }
 
 bool ImageSource::frameIsCompleteAtIndex(size_t index)

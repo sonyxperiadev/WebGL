@@ -75,6 +75,8 @@ namespace WebCore {
         bool parse4Values(int propId, const int* properties, bool important);
         bool parseContent(int propId, bool important);
 
+        PassRefPtr<CSSValue> parseAttr(CSSParserValueList* args);
+
         PassRefPtr<CSSValue> parseBackgroundColor();
 
         bool parseFillImage(RefPtr<CSSValue>&);
@@ -98,6 +100,7 @@ namespace WebCore {
         PassRefPtr<CSSValue> parseAnimationProperty();
         PassRefPtr<CSSValue> parseAnimationTimingFunction();
 
+        void parseTransformOriginShorthand(RefPtr<CSSValue>&, RefPtr<CSSValue>&, RefPtr<CSSValue>&);
         bool parseTimingFunctionValue(CSSParserValueList*& args, double& result);
         bool parseAnimationProperty(int propId, RefPtr<CSSValue>&);
         bool parseTransitionShorthand(bool important);
@@ -137,6 +140,7 @@ namespace WebCore {
         // CSS3 Parsing Routines (for properties specific to CSS3)
         bool parseShadow(int propId, bool important);
         bool parseBorderImage(int propId, bool important, RefPtr<CSSValue>&);
+        bool parseBorderRadius(int propId, bool important);
         
         bool parseReflect(int propId, bool important);
 
@@ -145,8 +149,8 @@ namespace WebCore {
         bool parseGradient(RefPtr<CSSValue>&);
 
         PassRefPtr<CSSValueList> parseTransform();
-        bool parseTransformOrigin(int propId, int& propId1, int& propId2, RefPtr<CSSValue>&, RefPtr<CSSValue>&);
-
+        bool parseTransformOrigin(int propId, int& propId1, int& propId2, int& propId3, RefPtr<CSSValue>&, RefPtr<CSSValue>&, RefPtr<CSSValue>&);
+        bool parsePerspectiveOrigin(int propId, int& propId1, int& propId2,  RefPtr<CSSValue>&, RefPtr<CSSValue>&);
         bool parseVariable(CSSVariablesDeclaration*, const String& variableName, const String& variableValue);
         void parsePropertyWithResolvedVariables(int propId, bool important, CSSMutableStyleDeclaration*, CSSParserValueList*);
 
@@ -189,7 +193,6 @@ namespace WebCore {
         
         Vector<CSSSelector*>* reusableSelectorVector() { return &m_reusableSelectorVector; }
         
-    public:
         bool m_strict;
         bool m_important;
         int m_id;
@@ -200,8 +203,8 @@ namespace WebCore {
         CSSParserValueList* m_valueList;
         CSSProperty** m_parsedProperties;
         CSSSelectorList* m_selectorListForParseSelector;
-        int m_numParsedProperties;
-        int m_maxParsedProperties;
+        unsigned m_numParsedProperties;
+        unsigned m_maxParsedProperties;
 
         int m_inParseShorthand;
         int m_currentShorthand;
@@ -215,7 +218,6 @@ namespace WebCore {
         AtomicString m_defaultNamespace;
 
         // tokenizer methods and data
-    public:
         int lex(void* yylval);
         int token() { return yyTok; }
         UChar* text(int* length);

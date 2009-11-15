@@ -33,10 +33,13 @@
 #include "ClipboardUtilitiesChromium.h"
 #include "Document.h"
 #include "Element.h"
+#include "FileList.h"
 #include "Frame.h"
 #include "HTMLNames.h"
+#include "NamedAttrMap.h"
 #include "MIMETypeRegistry.h"
 #include "markup.h"
+#include "NamedNodeMap.h"
 #include "PlatformString.h"
 #include "Range.h"
 #include "RenderImage.h"
@@ -173,6 +176,12 @@ HashSet<String> ClipboardChromium::types() const
     return results;
 }
 
+PassRefPtr<FileList> ClipboardChromium::files() const
+{
+    notImplemented();
+    return 0;
+}
+
 void ClipboardChromium::setDragImage(CachedImage* image, Node* node, const IntPoint& loc)
 {
     if (policy() != ClipboardImageWritable && policy() != ClipboardWritable)
@@ -216,7 +225,7 @@ static String imageToMarkup(const String& url, Element* element)
     markup.append("\"");
     // Copy over attributes.  If we are dragging an image, we expect things like
     // the id to be copied as well.
-    NamedAttrMap* attrs = element->attributes();
+    NamedNodeMap* attrs = element->attributes();
     unsigned length = attrs->length();
     for (unsigned i = 0; i < length; ++i) {
         Attribute* attr = attrs->attributeItem(i);
@@ -243,7 +252,7 @@ static CachedImage* getCachedImage(Element* element)
     if (!renderer || !renderer->isImage())
         return 0;
 
-    RenderImage* image = static_cast<RenderImage*>(renderer);
+    RenderImage* image = toRenderImage(renderer);
     if (image->cachedImage() && !image->cachedImage()->errorOccurred())
         return image->cachedImage();
 
@@ -268,15 +277,15 @@ static void writeImageToDataObject(ChromiumDataObject* dataObject, Element* elem
     // use the alt tag if one exists, otherwise we fall back on the suggested
     // filename in the http header, and finally we resort to using the filename
     // in the URL.
-    String extension(".");
-    extension += MIMETypeRegistry::getPreferredExtensionForMIMEType(
+    String extension = MIMETypeRegistry::getPreferredExtensionForMIMEType(
         cachedImage->response().mimeType());
+    dataObject->fileExtension = extension.isEmpty() ? "" : "." + extension;
     String title = element->getAttribute(altAttr);
-    if (title.isEmpty()) {
+    if (title.isEmpty())
         title = cachedImage->response().suggestedFilename();
-        // FIXME: If title is empty, get the filename from the URL.
-    }
-    dataObject->fileContentFilename = title + extension;
+
+    title = ClipboardChromium::validateFileName(title, dataObject);
+    dataObject->fileContentFilename = title + dataObject->fileExtension;
 }
 
 void ClipboardChromium::declareAndWriteDragImage(Element* element, const KURL& url, const String& title, Frame* frame)
@@ -294,7 +303,7 @@ void ClipboardChromium::declareAndWriteDragImage(Element* element, const KURL& u
     if (imageURL.isEmpty())
         return;
 
-    String fullURL = frame->document()->completeURL(parseURL(imageURL));
+    String fullURL = frame->document()->completeURL(deprecatedParseURL(imageURL));
     if (fullURL.isEmpty())
         return;
 
@@ -325,6 +334,9 @@ void ClipboardChromium::writeRange(Range* selectedRange, Frame* frame)
 
     m_dataObject->textHtml = createMarkup(selectedRange, 0,
         AnnotateForInterchange);
+#if PLATFORM(DARWIN)
+    m_dataObject->textHtml = String("<meta charset='utf-8'>") + m_dataObject->textHtml;
+#endif
     m_dataObject->htmlBaseUrl = frame->document()->url();
 
     String str = frame->selectedText();

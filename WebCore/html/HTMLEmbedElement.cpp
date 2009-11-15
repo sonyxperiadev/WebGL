@@ -31,10 +31,12 @@
 #include "HTMLImageLoader.h"
 #include "HTMLNames.h"
 #include "HTMLObjectElement.h"
+#include "MappedAttribute.h"
 #include "RenderImage.h"
 #include "RenderPartObject.h"
 #include "RenderWidget.h"
 #include "ScriptController.h"
+#include "Settings.h"
 
 namespace WebCore {
 
@@ -59,7 +61,7 @@ static inline RenderWidget* findWidgetRenderer(const Node* n)
         while (n && !n->hasTagName(objectTag));
 
     if (n && n->renderer() && n->renderer()->isWidget())
-        return static_cast<RenderWidget*>(n->renderer());
+        return toRenderWidget(n->renderer());
 
     return 0;
 }
@@ -96,9 +98,9 @@ void HTMLEmbedElement::parseMappedAttribute(MappedAttribute* attr)
         if (!isImageType() && m_imageLoader)
             m_imageLoader.clear();
     } else if (attr->name() == codeAttr)
-        m_url = parseURL(value.string());
+        m_url = deprecatedParseURL(value.string());
     else if (attr->name() == srcAttr) {
-        m_url = parseURL(value.string());
+        m_url = deprecatedParseURL(value.string());
         if (renderer() && isImageType()) {
             if (!m_imageLoader)
                 m_imageLoader.set(new HTMLImageLoader(this));
@@ -137,7 +139,15 @@ bool HTMLEmbedElement::rendererIsNeeded(RenderStyle* style)
         return false;
     }
 
-    return true;
+#if ENABLE(DASHBOARD_SUPPORT)
+    // Workaround for <rdar://problem/6642221>. 
+    if (Settings* settings = frame->settings()) {
+        if (settings->usesDashboardBackwardCompatibilityMode())
+            return true;
+    }
+#endif
+
+    return HTMLPlugInElement::rendererIsNeeded(style);
 }
 
 RenderObject* HTMLEmbedElement::createRenderer(RenderArena* arena, RenderStyle*)
@@ -164,15 +174,15 @@ void HTMLEmbedElement::attach()
         m_imageLoader->updateFromElement();
 
         if (renderer())
-            static_cast<RenderImage*>(renderer())->setCachedImage(m_imageLoader->image());
+            toRenderImage(renderer())->setCachedImage(m_imageLoader->image());
     }
 }
 
 void HTMLEmbedElement::updateWidget()
 {
-    document()->updateRendering();
+    document()->updateStyleIfNeeded();
     if (m_needWidgetUpdate && renderer() && !isImageType())
-        static_cast<RenderPartObject*>(renderer())->updateWidget(true);
+        toRenderPartObject(renderer())->updateWidget(true);
 }
 
 void HTMLEmbedElement::insertedIntoDocument()

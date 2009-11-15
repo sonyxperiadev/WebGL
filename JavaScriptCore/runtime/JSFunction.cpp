@@ -1,7 +1,7 @@
 /*
  *  Copyright (C) 1999-2002 Harri Porten (porten@kde.org)
  *  Copyright (C) 2001 Peter Kelly (pmk@post.com)
- *  Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
+ *  Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
  *  Copyright (C) 2007 Cameron Zwarich (cwzwarich@uwaterloo.ca)
  *  Copyright (C) 2007 Maks Orlovich
  *
@@ -45,68 +45,100 @@ ASSERT_CLASS_FITS_IN_CELL(JSFunction);
 
 const ClassInfo JSFunction::info = { "Function", &InternalFunction::info, 0, 0 };
 
+JSFunction::JSFunction(ExecState* exec, PassRefPtr<Structure> structure, int length, const Identifier& name, NativeFunction func)
+    : Base(&exec->globalData(), structure, name)
+#if ENABLE(JIT)
+    , m_body(FunctionBodyNode::createNativeThunk(&exec->globalData()))
+#else
+    , m_body(0)
+#endif
+{
+#if ENABLE(JIT)
+    setNativeFunction(func);
+    putDirect(exec->propertyNames().length, jsNumber(exec, length), DontDelete | ReadOnly | DontEnum);
+#else
+    UNUSED_PARAM(length);
+    UNUSED_PARAM(func);
+    ASSERT_NOT_REACHED();
+#endif
+}
+
 JSFunction::JSFunction(ExecState* exec, const Identifier& name, FunctionBodyNode* body, ScopeChainNode* scopeChainNode)
     : Base(&exec->globalData(), exec->lexicalGlobalObject()->functionStructure(), name)
     , m_body(body)
-    , m_scopeChain(scopeChainNode)
 {
+    setScopeChain(scopeChainNode);
 }
 
 JSFunction::~JSFunction()
 {
-#if ENABLE(JIT) 
     // JIT code for other functions may have had calls linked directly to the code for this function; these links
     // are based on a check for the this pointer value for this JSFunction - which will no longer be valid once
     // this memory is freed and may be reused (potentially for another, different JSFunction).
+#if ENABLE(JIT_OPTIMIZE_CALL)
     if (m_body && m_body->isGenerated())
         m_body->generatedBytecode().unlinkCallers();
 #endif
+    if (!isHostFunction())
+        scopeChain().~ScopeChain(); // FIXME: Don't we need to do this in the interpreter too?
 }
 
-void JSFunction::mark()
+void JSFunction::markChildren(MarkStack& markStack)
 {
-    Base::mark();
-    m_body->mark();
-    m_scopeChain.mark();
+    Base::markChildren(markStack);
+    m_body->markAggregate(markStack);
+    if (!isHostFunction())
+        scopeChain().markAggregate(markStack);
 }
 
 CallType JSFunction::getCallData(CallData& callData)
 {
+    if (isHostFunction()) {
+        callData.native.function = nativeFunction();
+        return CallTypeHost;
+    }
     callData.js.functionBody = m_body.get();
-    callData.js.scopeChain = m_scopeChain.node();
+    callData.js.scopeChain = scopeChain().node();
     return CallTypeJS;
 }
 
-JSValuePtr JSFunction::call(ExecState* exec, JSValuePtr thisValue, const ArgList& args)
+JSValue JSFunction::call(ExecState* exec, JSValue thisValue, const ArgList& args)
 {
-    return exec->interpreter()->execute(m_body.get(), exec, this, thisValue.toThisObject(exec), args, m_scopeChain.node(), exec->exceptionSlot());
+    ASSERT(!isHostFunction());
+    return exec->interpreter()->execute(m_body.get(), exec, this, thisValue.toThisObject(exec), args, scopeChain().node(), exec->exceptionSlot());
 }
 
-JSValuePtr JSFunction::argumentsGetter(ExecState* exec, const Identifier&, const PropertySlot& slot)
+JSValue JSFunction::argumentsGetter(ExecState* exec, const Identifier&, const PropertySlot& slot)
 {
     JSFunction* thisObj = asFunction(slot.slotBase());
+    ASSERT(!thisObj->isHostFunction());
     return exec->interpreter()->retrieveArguments(exec, thisObj);
 }
 
-JSValuePtr JSFunction::callerGetter(ExecState* exec, const Identifier&, const PropertySlot& slot)
+JSValue JSFunction::callerGetter(ExecState* exec, const Identifier&, const PropertySlot& slot)
 {
     JSFunction* thisObj = asFunction(slot.slotBase());
+    ASSERT(!thisObj->isHostFunction());
     return exec->interpreter()->retrieveCaller(exec, thisObj);
 }
 
-JSValuePtr JSFunction::lengthGetter(ExecState* exec, const Identifier&, const PropertySlot& slot)
+JSValue JSFunction::lengthGetter(ExecState* exec, const Identifier&, const PropertySlot& slot)
 {
     JSFunction* thisObj = asFunction(slot.slotBase());
+    ASSERT(!thisObj->isHostFunction());
     return jsNumber(exec, thisObj->m_body->parameterCount());
 }
 
 bool JSFunction::getOwnPropertySlot(ExecState* exec, const Identifier& propertyName, PropertySlot& slot)
 {
+    if (isHostFunction())
+        return Base::getOwnPropertySlot(exec, propertyName, slot);
+
     if (propertyName == exec->propertyNames().prototype) {
-        JSValuePtr* location = getDirectLocation(propertyName);
+        JSValue* location = getDirectLocation(propertyName);
 
         if (!location) {
-            JSObject* prototype = new (exec) JSObject(m_scopeChain.globalObject()->emptyObjectStructure());
+            JSObject* prototype = new (exec) JSObject(scopeChain().globalObject()->emptyObjectStructure());
             prototype->putDirect(exec->propertyNames().constructor, this, DontEnum);
             putDirect(exec->propertyNames().prototype, prototype, DontDelete);
             location = getDirectLocation(propertyName);
@@ -133,8 +165,12 @@ bool JSFunction::getOwnPropertySlot(ExecState* exec, const Identifier& propertyN
     return Base::getOwnPropertySlot(exec, propertyName, slot);
 }
 
-void JSFunction::put(ExecState* exec, const Identifier& propertyName, JSValuePtr value, PutPropertySlot& slot)
+void JSFunction::put(ExecState* exec, const Identifier& propertyName, JSValue value, PutPropertySlot& slot)
 {
+    if (isHostFunction()) {
+        Base::put(exec, propertyName, value, slot);
+        return;
+    }
     if (propertyName == exec->propertyNames().arguments || propertyName == exec->propertyNames().length)
         return;
     Base::put(exec, propertyName, value, slot);
@@ -142,6 +178,8 @@ void JSFunction::put(ExecState* exec, const Identifier& propertyName, JSValuePtr
 
 bool JSFunction::deleteProperty(ExecState* exec, const Identifier& propertyName)
 {
+    if (isHostFunction())
+        return Base::deleteProperty(exec, propertyName);
     if (propertyName == exec->propertyNames().arguments || propertyName == exec->propertyNames().length)
         return false;
     return Base::deleteProperty(exec, propertyName);
@@ -150,22 +188,25 @@ bool JSFunction::deleteProperty(ExecState* exec, const Identifier& propertyName)
 // ECMA 13.2.2 [[Construct]]
 ConstructType JSFunction::getConstructData(ConstructData& constructData)
 {
+    if (isHostFunction())
+        return ConstructTypeNone;
     constructData.js.functionBody = m_body.get();
-    constructData.js.scopeChain = m_scopeChain.node();
+    constructData.js.scopeChain = scopeChain().node();
     return ConstructTypeJS;
 }
 
 JSObject* JSFunction::construct(ExecState* exec, const ArgList& args)
 {
+    ASSERT(!isHostFunction());
     Structure* structure;
-    JSValuePtr prototype = get(exec, exec->propertyNames().prototype);
+    JSValue prototype = get(exec, exec->propertyNames().prototype);
     if (prototype.isObject())
         structure = asObject(prototype)->inheritorID();
     else
         structure = exec->lexicalGlobalObject()->emptyObjectStructure();
     JSObject* thisObj = new (exec) JSObject(structure);
 
-    JSValuePtr result = exec->interpreter()->execute(m_body.get(), exec, this, thisObj, args, m_scopeChain.node(), exec->exceptionSlot());
+    JSValue result = exec->interpreter()->execute(m_body.get(), exec, this, thisObj, args, scopeChain().node(), exec->exceptionSlot());
     if (exec->hadException() || !result.isObject())
         return thisObj;
     return asObject(result);

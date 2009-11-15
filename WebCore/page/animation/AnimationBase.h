@@ -45,7 +45,7 @@ class RenderStyle;
 class TimingFunction;
 
 class AnimationBase : public RefCounted<AnimationBase> {
-    friend class CompositeAnimationPrivate;
+    friend class CompositeAnimation;
 
 public:
     AnimationBase(const Animation* transition, RenderObject* renderer, CompositeAnimation* compAnim);
@@ -94,7 +94,10 @@ public:
     void updateStateMachine(AnimStateInput, double param);
 
     // Animation has actually started, at passed time
-    void onAnimationStartResponse(double startTime);
+    void onAnimationStartResponse(double startTime)
+    {
+        updateStateMachine(AnimationBase::AnimationStateInputStartTimeSet, startTime);
+    }
 
     // Called to change to or from paused state
     void updatePlayState(bool running);
@@ -117,12 +120,12 @@ public:
     // "animating" means that something is running that requires a timer to keep firing
     // (e.g. a software animation)
     void setAnimating(bool inAnimating = true) { m_isAnimating = inAnimating; }
-    double willNeedService() const;
+    virtual double timeToNextService();
 
     double progress(double scale, double offset, const TimingFunction*) const;
 
-    virtual void animate(CompositeAnimation*, RenderObject*, const RenderStyle* /*currentStyle*/, 
-        const RenderStyle* /*targetStyle*/, RefPtr<RenderStyle>& /*animatedStyle*/) { }
+    virtual void animate(CompositeAnimation*, RenderObject*, const RenderStyle* /*currentStyle*/, RenderStyle* /*targetStyle*/, RefPtr<RenderStyle>& /*animatedStyle*/) = 0;
+    virtual void getAnimatedStyle(RefPtr<RenderStyle>& /*animatedStyle*/) = 0;
 
     virtual bool shouldFireEvents() const { return false; }
 
@@ -142,6 +145,9 @@ public:
     virtual bool affectsProperty(int /*property*/) const { return false; }
     bool isAnimatingProperty(int property, bool isRunningNow) const
     {
+        if (m_fallbackAnimating)
+            return false;
+            
         if (isRunningNow)
             return (!waitingToStart() && !postActive()) && affectsProperty(property);
 
@@ -150,7 +156,8 @@ public:
 
     bool isTransformFunctionListValid() const { return m_transformFunctionListValid; }
     
-    void pauseAtTime(double t);
+    // Freeze the animation; used by DumpRenderTree.
+    void freezeAtTime(double t);
     
     double beginAnimationUpdateTime() const;
     
@@ -164,7 +171,11 @@ public:
         ASSERT(waitingForStyleAvailable());
         updateStateMachine(AnimationBase::AnimationStateInputStyleAvailable, -1);
     }
-    
+
+#if USE(ACCELERATED_COMPOSITING)
+    static bool animationOfPropertyIsAccelerated(int prop);
+#endif
+
 protected:
     virtual void overrideAnimations() { }
     virtual void resumeOverriddenAnimations() { }
@@ -180,19 +191,22 @@ protected:
 
     void goIntoEndingOrLoopingState();
 
+    bool isFallbackAnimating() const { return m_fallbackAnimating; }
+
     static bool propertiesEqual(int prop, const RenderStyle* a, const RenderStyle* b);
     static int getPropertyAtIndex(int, bool& isShorthand);
     static int getNumProperties();
 
     // Return true if we need to start software animation timers
     static bool blendProperties(const AnimationBase* anim, int prop, RenderStyle* dst, const RenderStyle* a, const RenderStyle* b, double progress);
+
+    static void setNeedsStyleRecalc(Node*);
     
-    static void setChanged(Node*);
+    void getTimeToNextEvent(double& time, bool& isLooping) const;
 
     AnimState m_animState;
 
     bool m_isAnimating;       // transition/animation requires continual timer firing
-    bool m_waitedForResponse;
     double m_startTime;
     double m_pauseTime;
     double m_requestedStartTime;
@@ -200,6 +214,7 @@ protected:
 
     RefPtr<Animation> m_animation;
     CompositeAnimation* m_compAnim;
+    bool m_fallbackAnimating;       // true when animating an accelerated property but have to fall back to software
     bool m_transformFunctionListValid;
     double m_totalDuration, m_nextIterationDuration;
     

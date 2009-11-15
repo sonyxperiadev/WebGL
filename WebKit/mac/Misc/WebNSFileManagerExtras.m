@@ -28,10 +28,12 @@
 
 #import <WebKit/WebNSFileManagerExtras.h>
 
+#import <WebCore/FoundationExtras.h>
 #import <WebKit/WebKitNSStringExtras.h>
 #import <WebKitSystemInterface.h>
 #import <wtf/Assertions.h>
 
+#import <pthread.h>
 #import <sys/mount.h>
 
 @implementation NSFileManager (WebNSFileManagerExtras)
@@ -144,11 +146,47 @@
     return [carbonPathPieces componentsJoinedByString:@":"];
 }
 
+typedef struct MetaDataInfo
+{
+    NSString *URLString;
+    NSString *referrer;
+    NSString *path;
+} MetaDataInfo;
+
+static void *setMetaData(void* context)
+{
+    MetaDataInfo *info = (MetaDataInfo *)context;
+    WKSetMetadataURL(info->URLString, info->referrer, info->path);
+    
+    HardRelease(info->URLString);
+    HardRelease(info->referrer);
+    HardRelease(info->path);
+    
+    free(info);
+    return 0;
+}
+
 - (void)_webkit_setMetadataURL:(NSString *)URLString referrer:(NSString *)referrer atPath:(NSString *)path
 {
     ASSERT(URLString);
     ASSERT(path);
-    WKSetMetadataURL(URLString, referrer, path);
+ 
+    // Spawn a background thread for WKSetMetadataURL because this function will not return until mds has
+    // journaled the data we're're trying to set. Depending on what other I/O is going on, it can take some
+    // time. 
+    pthread_t tid;
+    pthread_attr_t attr;
+    pthread_attr_init(&attr);
+    pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+
+    MetaDataInfo *info = malloc(sizeof(MetaDataInfo));
+    
+    info->URLString = HardRetainWithNSRelease([URLString copy]);
+    info->referrer = HardRetainWithNSRelease([referrer copy]);
+    info->path = HardRetainWithNSRelease([path copy]);
+
+    pthread_create(&tid, &attr, setMetaData, info);
+    pthread_attr_destroy(&attr);
 }
 
 - (NSString *)_webkit_startupVolumeName
@@ -208,12 +246,28 @@
     return [self directoryContentsAtPath:path];
 }
 
+- (NSString *)destinationOfSymbolicLinkAtPath:(NSString *)path error:(NSError **)error
+{
+    // We don't report errors via the NSError* output parameter, so ensure that the caller does not expect us to do so.
+    ASSERT_ARG(error, !error);
+
+    return [self pathContentOfSymbolicLinkAtPath:path];
+}
+
 - (NSDictionary *)attributesOfFileSystemForPath:(NSString *)path error:(NSError **)error
 {
     // We don't report errors via the NSError* output parameter, so ensure that the caller does not expect us to do so.
     ASSERT_ARG(error, !error);
 
     return [self fileSystemAttributesAtPath:path];
+}
+
+- (NSDictionary *)attributesOfItemAtPath:(NSString *)path error:(NSError **)error
+{
+    // We don't report errors via the NSError* output parameter, so ensure that the caller does not expect us to do so.
+    ASSERT_ARG(error, !error);
+
+    return [self fileAttributesAtPath:path traverseLink:NO];
 }
 
 - (BOOL)moveItemAtPath:(NSString *)srcPath toPath:(NSString *)dstPath error:(NSError **)error

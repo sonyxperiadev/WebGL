@@ -73,18 +73,14 @@ typedef unsigned char   flex_uint8_t;
 #define FLATTEN_FRAMESET
 #define FLATTEN_IFRAME
 
+// not android specific, should be submitted back
+#define ANDROID_FASTER_MATRIX
+
 #define ANDROID_EXPOSE_COLUMN_GAP
 
 #define ANDROID_LAYOUT
 
-// Allows us to select all of the text in a <textarea> in onfocus
-#define ANDROID_SELECT_TEXT_AREAS
-
 #define ANDROID_FIX
-
-// Fix for issue 878095.  Only call onBlur on an element if it has an
-// onBlur event.
-#define ANDROID_IGNORE_BLUR
 
 // Passes the webkit-originated changes of a focused textfield to our UI thread
 #define ANDROID_ACCEPT_CHANGES_TO_FOCUSED_TEXTFIELDS
@@ -94,10 +90,6 @@ typedef unsigned char   flex_uint8_t;
 #define ANDROID_SCROLL_FIX
 
 #define ANDROID_META_SUPPORT
-
-// Give public access to a private method in HTMLSelectElement so that
-// we can use information from the java UI to deselect items of the element.
-#define ANDROID_DESELECT_SELECT
 
 // Converts ListBoxes to dropdown popup lists.
 #define ANDROID_LISTBOX_USES_MENU_LIST
@@ -117,16 +109,6 @@ typedef unsigned char   flex_uint8_t;
 // it may be under a different #define (see: PLUGIN_PLATFORM_SETVALUE,
 // PLUGIN_SCHEDULE_TIMER)
 #define ANDROID_PLUGINS
-
-// Prevent Webkit from drawing the selection in textfields/textareas, since we 
-// draw it ourselves in the UI thread.
-#define ANDROID_DO_NOT_DRAW_TEXTFIELD_SELECTION
-
-// This should possibly be patched back to WebKit since they seem to lose the
-// user gesture hint. If we do decide to patch this back, the user gesture flag
-// should probably be passed in the NavigationAction rather than the
-// ResourceRequest.
-#define ANDROID_USER_GESTURE
 
 // Add support for the orientation window property
 #define ANDROID_ORIENTATION_SUPPORT
@@ -165,3 +147,11 @@ typedef unsigned char   flex_uint8_t;
 
 // Animated GIF support.
 #define ANDROID_ANIMATED_GIF
+
+// apple-touch-icon support in <link> tags
+#define ANDROID_APPLE_TOUCH_ICON
+
+// The user gesture flag is lost during a scheduled location change. We need to
+// maintain that flag until canHandleRequest to determine if a link was clicked
+// or if javascript tried to change the location.
+#define ANDROID_USER_GESTURE

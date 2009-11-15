@@ -236,7 +236,6 @@ sub GetParentInterface
 {
     my ($dataNode) = @_;
     return "I" . $TEMP_PREFIX . "DOMObject" if (@{$dataNode->parents} == 0);
-    return "I" . $TEMP_PREFIX . "DOMNode" if $codeGenerator->StripModule($dataNode->parents(0)) eq "EventTargetNode";
     return GetInterfaceName($codeGenerator->StripModule($dataNode->parents(0)));
 }
 
@@ -244,7 +243,6 @@ sub GetParentClass
 {
     my ($dataNode) = @_;
     return $TEMP_PREFIX . "DOMObject" if (@{$dataNode->parents} == 0);
-    return $TEMP_PREFIX . "DOMNode" if $codeGenerator->StripModule($dataNode->parents(0)) eq "EventTargetNode";
     return GetClassName($codeGenerator->StripModule($dataNode->parents(0)));
 }
 
@@ -316,7 +314,6 @@ sub AddIncludesForTypeInCPPImplementation
     }
 
     # Special casing
-    $CPPImplementationWebCoreIncludes{"EventTargetNode.h"} = 1 if $type eq "Node";
     $CPPImplementationWebCoreIncludes{"NameNodeList.h"} = 1 if $type eq "NodeList";
     $CPPImplementationWebCoreIncludes{"CSSMutableStyleDeclaration.h"} = 1 if $type eq "CSSStyleDeclaration";
 
@@ -599,9 +596,15 @@ sub GenerateCPPAttribute
 
         # FIXME: CHECK EXCEPTION AND DO SOMETHING WITH IT
 
-        my $setterCall = "    impl${implementationClassWithoutNamespace}()->${setterName}(" . join(", ", @setterParams) . ");\n";
-
-        push(@setterImplementation, $setterCall);
+        my $reflect = $attribute->signature->extendedAttributes->{"Reflect"};
+        my $reflectURL = $attribute->signature->extendedAttributes->{"ReflectURL"};
+        if ($reflect || $reflectURL) {
+            $CPPImplementationWebCoreIncludes{"HTMLNames.h"} = 1;
+            my $contentAttributeName = (($reflect || $reflectURL) eq "1") ? $attributeName : ($reflect || $reflectURL);
+            push(@setterImplementation, "    impl${implementationClassWithoutNamespace}()->setAttribute(WebCore::HTMLNames::${contentAttributeName}Attr, " . join(", ", @setterParams) . ");\n");
+        } else {
+            push(@setterImplementation, "    impl${implementationClassWithoutNamespace}()->${setterName}(" . join(", ", @setterParams) . ");\n");
+        }
         push(@setterImplementation, "    return S_OK;\n");
         push(@setterImplementation, "}\n\n");
 
@@ -614,7 +617,17 @@ sub GenerateCPPAttribute
     push(@getterImplementation, "    if (!result)\n");
     push(@getterImplementation, "        return E_POINTER;\n\n");
 
-    my $implementationGetter = "impl${implementationClassWithoutNamespace}()->" . $codeGenerator->WK_lcfirst($attributeName) . "(" . ($hasGetterException ? "ec" : ""). ")";
+    my $implementationGetter;
+    my $reflect = $attribute->signature->extendedAttributes->{"Reflect"};
+    my $reflectURL = $attribute->signature->extendedAttributes->{"ReflectURL"};
+    if ($reflect || $reflectURL) {
+        $implIncludes{"HTMLNames.h"} = 1;
+        my $contentAttributeName = (($reflect || $reflectURL) eq "1") ? $attributeName : ($reflect || $reflectURL);
+        my $getAttributeFunctionName = $reflectURL ? "getURLAttribute" : "getAttribute";
+        $implementationGetter = "impl${implementationClassWithoutNamespace}()->${getAttributeFunctionName}(WebCore::HTMLNames::${contentAttributeName}Attr)";
+    } else {
+        $implementationGetter = "impl${implementationClassWithoutNamespace}()->" . $codeGenerator->WK_lcfirst($attributeName) . "(" . ($hasGetterException ? "ec" : ""). ")";
+    }
 
     push(@getterImplementation, "    WebCore::ExceptionCode ec = 0;\n") if $hasGetterException;
 
@@ -706,7 +719,6 @@ sub GenerateCPPFunction
     my $functionName = $function->signature->name;
     my $returnIDLType = $function->signature->type;
     my $noReturn = ($returnIDLType eq "void");
-    my $requiresEventTargetNodeCast = $function->signature->extendedAttributes->{"EventTargetNodeCast"};
     my $raisesExceptions = @{$function->raisesExceptions};
 
     AddIncludesForTypeInCPPImplementation($returnIDLType);
@@ -756,9 +768,6 @@ sub GenerateCPPFunction
     push(@parameterList, "ec") if $raisesExceptions;
 
     my $implementationGetter = "impl${implementationClassWithoutNamespace}()";
-    if ($requiresEventTargetNodeCast) {
-        $implementationGetter = "WebCore::EventTargetNodeCast(${implementationGetter})";
-    }
 
     my $callSigBegin = "    ";
     my $callSigMiddle = "${implementationGetter}->" . $codeGenerator->WK_lcfirst($functionName) . "(" . join(", ", @parameterList) . ")";
@@ -801,10 +810,6 @@ sub GenerateCPPFunction
     }
     push(@functionImplementation, "    WebCore::ExceptionCode ec = 0;\n") if $raisesExceptions; # FIXME: CHECK EXCEPTION AND DO SOMETHING WITH IT
     push(@functionImplementation, join("\n", @parameterInitialization) . (@parameterInitialization > 0 ? "\n" : ""));
-    if ($requiresEventTargetNodeCast) {
-        push(@functionImplementation, "    if (!impl${implementationClassWithoutNamespace}()->isEventTargetNode())\n");
-        push(@functionImplementation, "        return E_FAIL;\n");
-    }
     push(@functionImplementation, $callSigBegin . $callSigMiddle . $callSigEnd . "\n");
     push(@functionImplementation, "    return S_OK;\n");
     push(@functionImplementation, "}\n\n");
@@ -911,7 +916,7 @@ sub GenerateCPPHeader
                                                                                          "Forwarder" => $parentClassName });
                 push(@CPPHeaderContent, values(%attributes));
             }
-            
+
             # Add attribute names to attribute names set in case other ancestors 
             # also define them.
             $attributeNameSet{$_->signature->name} = 1 foreach @attributeList;

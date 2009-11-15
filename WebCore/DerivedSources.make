@@ -32,6 +32,7 @@ VPATH = \
     $(WebCore)/css \
     $(WebCore)/dom \
     $(WebCore)/html \
+    $(WebCore)/html/canvas \
     $(WebCore)/inspector \
     $(WebCore)/loader/appcache \
     $(WebCore)/page \
@@ -39,11 +40,14 @@ VPATH = \
     $(WebCore)/storage \
     $(WebCore)/xml \
     $(WebCore)/wml \
+    $(WebCore)/workers \
     $(WebCore)/svg \
+    $(WebCore)/websockets \
 #
 
 DOM_CLASSES = \
     AbstractView \
+    AbstractWorker \
     Attr \
     BarInfo \
     CDATASection \
@@ -67,16 +71,21 @@ DOM_CLASSES = \
     CanvasPattern \
     CanvasRenderingContext2D \
     CharacterData \
+    ClientRect \
+    ClientRectList \
     Clipboard \
     Comment \
     Console \
+    Coordinates \
     Counter \
+    DataGridColumn \
+    DataGridColumnList \
+    DedicatedWorkerContext \
     DOMApplicationCache \
     DOMCoreException \
     DOMImplementation \
     DOMParser \
     DOMSelection \
-    DOMStringList \
     DOMWindow \
     Database \
     Document \
@@ -86,11 +95,11 @@ DOM_CLASSES = \
     ElementTimeControl \
     Entity \
     EntityReference \
+    ErrorEvent \
     Event \
     EventException \
     EventListener \
     EventTarget \
-    EventTargetNode \
     File \
     FileList \
     Geolocation \
@@ -107,6 +116,10 @@ DOM_CLASSES = \
     HTMLButtonElement \
     HTMLCanvasElement \
     HTMLCollection \
+    HTMLDataGridElement \
+    HTMLDataGridCellElement \
+    HTMLDataGridColElement \
+    HTMLDataGridRowElement \
     HTMLDListElement \
     HTMLDirectoryElement \
     HTMLDivElement \
@@ -161,8 +174,10 @@ DOM_CLASSES = \
     HTMLVideoElement \
     History \
     ImageData \
+    InspectorBackend \
     KeyboardEvent \
     Location \
+    Media \
     MediaError \
     MediaList \
     MessageChannel \
@@ -182,15 +197,15 @@ DOM_CLASSES = \
     OverflowEvent \
     Plugin \
     PluginArray \
-    PositionCallback \
     PositionError \
-    PositionErrorCallback \
     ProcessingInstruction \
     ProgressEvent \
     RGBColor \
     Range \
     RangeException \
     Rect \
+    SharedWorker \
+    SharedWorkerContext \
     SQLError \
     SQLResultSet \
     SQLResultSetRowList \
@@ -351,13 +366,16 @@ DOM_CLASSES = \
     TimeRanges \
     TreeWalker \
     UIEvent \
+    ValidityState \
     VoidCallback \
     WebKitAnimationEvent \
     WebKitCSSKeyframeRule \
     WebKitCSSKeyframesRule \
     WebKitCSSMatrix \
     WebKitCSSTransformValue \
+    WebKitPoint \
     WebKitTransitionEvent \
+    WebSocket \
     WheelEvent \
     Worker \
     WorkerContext \
@@ -379,11 +397,7 @@ DOM_CLASSES = \
 .PHONY : all
 
 all : \
-    $(filter-out JSEventListener.h JSRGBColor.h,$(DOM_CLASSES:%=JS%.h)) \
-    \
-    JSDOMWindowBase.lut.h \
-    JSRGBColor.lut.h \
-    JSWorkerContextBase.lut.h \
+    $(filter-out JSEventListener.h JSEventTarget.h,$(DOM_CLASSES:%=JS%.h)) \
     \
     JSJavaScriptCallFrame.h \
     \
@@ -392,6 +406,7 @@ all : \
     CSSValueKeywords.h \
     ColorData.c \
     DocTypeStrings.cpp \
+    HTMLElementFactory.cpp \
     HTMLEntityNames.c \
     HTMLNames.cpp \
     WMLElementFactory.cpp \
@@ -438,15 +453,19 @@ ifeq ($(ENABLE_DASHBOARD_SUPPORT), 1)
     WEBCORE_CSS_PROPERTY_NAMES := $(WEBCORE_CSS_PROPERTY_NAMES) $(WebCore)/css/DashboardSupportCSSPropertyNames.in
 endif
 
+# The grep commands below reject output containing anything other than:
+# 1. Lines beginning with '#'
+# 2. Lines containing only whitespace
+# These two types of lines will be ignored by make{prop,values}.pl.
 CSSPropertyNames.h : $(WEBCORE_CSS_PROPERTY_NAMES) css/makeprop.pl
-	if sort $(WEBCORE_CSS_PROPERTY_NAMES) | uniq -d | grep -E '^[^#]'; then echo 'Duplicate value!'; exit 1; fi
+	if sort $(WEBCORE_CSS_PROPERTY_NAMES) | uniq -d | grep -E -v '(^#)|(^[[:space:]]*$)'; then echo 'Duplicate value!'; exit 1; fi
 	cat $(WEBCORE_CSS_PROPERTY_NAMES) > CSSPropertyNames.in
 	perl "$(WebCore)/css/makeprop.pl"
 
 CSSValueKeywords.h : $(WEBCORE_CSS_VALUE_KEYWORDS) css/makevalues.pl
 	# Lower case all the values, as CSS values are case-insensitive
 	perl -ne 'print lc' $(WEBCORE_CSS_VALUE_KEYWORDS) > CSSValueKeywords.in
-	if sort CSSValueKeywords.in | uniq -d | grep -E '^[^#]'; then echo 'Duplicate value!'; exit 1; fi
+	if sort CSSValueKeywords.in | uniq -d | grep -E -v '(^#)|(^[[:space:]]*$)'; then echo 'Duplicate value!'; exit 1; fi
 	perl "$(WebCore)/css/makevalues.pl"
 
 # --------
@@ -511,7 +530,7 @@ XPathGrammar.cpp : xml/XPathGrammar.y $(PROJECT_FILE)
 
 # user agent style sheets
 
-USER_AGENT_STYLE_SHEETS = $(WebCore)/css/html4.css $(WebCore)/css/quirks.css $(WebCore)/css/view-source.css $(WebCore)/css/themeWin.css $(WebCore)/css/themeWinQuirks.css 
+USER_AGENT_STYLE_SHEETS = $(WebCore)/css/html.css $(WebCore)/css/quirks.css $(WebCore)/css/view-source.css $(WebCore)/css/themeWin.css $(WebCore)/css/themeWinQuirks.css 
 
 ifeq ($(findstring ENABLE_SVG,$(FEATURE_DEFINES)), ENABLE_SVG)
     USER_AGENT_STYLE_SHEETS := $(USER_AGENT_STYLE_SHEETS) $(WebCore)/css/svg.css 
@@ -533,32 +552,29 @@ UserAgentStyleSheets.h : css/make-css-file-arrays.pl $(USER_AGENT_STYLE_SHEETS)
 
 # --------
 
-# lookup tables for old-style JavaScript bindings
-
-%.lut.h: %.cpp $(CREATE_HASH_TABLE)
-	$(CREATE_HASH_TABLE) $< -n WebCore > $@
-%Table.cpp: %.cpp $(CREATE_HASH_TABLE)
-	$(CREATE_HASH_TABLE) $< -n WebCore > $@
-
-# --------
-
 # HTML tag and attribute names
 
 ifeq ($(findstring ENABLE_VIDEO,$(FEATURE_DEFINES)), ENABLE_VIDEO)
     HTML_FLAGS := $(HTML_FLAGS) ENABLE_VIDEO=1
 endif
 
+ifeq ($(findstring ENABLE_RUBY,$(FEATURE_DEFINES)), ENABLE_RUBY)
+    HTML_FLAGS := $(HTML_FLAGS) ENABLE_RUBY=1
+endif
+
 ifdef HTML_FLAGS
 
-HTMLNames.cpp : dom/make_names.pl html/HTMLTagNames.in html/HTMLAttributeNames.in
-	perl -I $(WebCore)/bindings/scripts $< --tags $(WebCore)/html/HTMLTagNames.in --attrs $(WebCore)/html/HTMLAttributeNames.in --wrapperFactory --extraDefines "$(HTML_FLAGS)"
+HTMLElementFactory.cpp HTMLNames.cpp : dom/make_names.pl html/HTMLTagNames.in html/HTMLAttributeNames.in
+	perl -I $(WebCore)/bindings/scripts $< --tags $(WebCore)/html/HTMLTagNames.in --attrs $(WebCore)/html/HTMLAttributeNames.in --factory --wrapperFactory --extraDefines "$(HTML_FLAGS)"
 
 else
 
-HTMLNames.cpp : dom/make_names.pl html/HTMLTagNames.in html/HTMLAttributeNames.in
-	perl -I $(WebCore)/bindings/scripts $< --tags $(WebCore)/html/HTMLTagNames.in --attrs $(WebCore)/html/HTMLAttributeNames.in --wrapperFactory
+HTMLElementFactory.cpp HTMLNames.cpp : dom/make_names.pl html/HTMLTagNames.in html/HTMLAttributeNames.in
+	perl -I $(WebCore)/bindings/scripts $< --tags $(WebCore)/html/HTMLTagNames.in --attrs $(WebCore)/html/HTMLAttributeNames.in --factory --wrapperFactory
 
 endif
+
+JSHTMLElementWrapperFactory.cpp : HTMLNames.cpp
 
 XMLNames.cpp : dom/make_names.pl xml/xmlattrs.in
 	perl -I $(WebCore)/bindings/scripts $< --attrs $(WebCore)/xml/xmlattrs.in
@@ -569,7 +585,9 @@ XMLNames.cpp : dom/make_names.pl xml/xmlattrs.in
 
 ifeq ($(findstring ENABLE_SVG,$(FEATURE_DEFINES)), ENABLE_SVG)
 
-WEBCORE_EXPORT_DEPENDENCIES := $(WEBCORE_EXPORT_DEPENDENCIES) WebCore.SVG.exp
+ifeq ($(findstring ENABLE_SVG_DOM_OBJC_BINDINGS,$(FEATURE_DEFINES)), ENABLE_SVG_DOM_OBJC_BINDINGS)
+    WEBCORE_EXPORT_DEPENDENCIES := $(WEBCORE_EXPORT_DEPENDENCIES) WebCore.SVG.exp
+endif
 
 ifeq ($(findstring ENABLE_SVG_USE,$(FEATURE_DEFINES)), ENABLE_SVG_USE)
     SVG_FLAGS := $(SVG_FLAGS) ENABLE_SVG_USE=1
@@ -579,9 +597,11 @@ ifeq ($(findstring ENABLE_SVG_FONTS,$(FEATURE_DEFINES)), ENABLE_SVG_FONTS)
     SVG_FLAGS := $(SVG_FLAGS) ENABLE_SVG_FONTS=1
 endif
 
-ifeq ($(findstring ENABLE_SVG_FILTERS,$(FEATURE_DEFINES)), ENABLE_SVG_FILTERS)
-    SVG_FLAGS := $(SVG_FLAGS) ENABLE_SVG_FILTERS=1
+ifeq ($(findstring ENABLE_FILTERS,$(FEATURE_DEFINES)), ENABLE_FILTERS)
+    SVG_FLAGS := $(SVG_FLAGS) ENABLE_FILTERS=1
+ifeq ($(findstring ENABLE_SVG_DOM_OBJC_BINDINGS,$(FEATURE_DEFINES)), ENABLE_SVG_DOM_OBJC_BINDINGS)
     WEBCORE_EXPORT_DEPENDENCIES := $(WEBCORE_EXPORT_DEPENDENCIES) WebCore.SVG.Filters.exp
+endif
 endif
 
 ifeq ($(findstring ENABLE_SVG_AS_IMAGE,$(FEATURE_DEFINES)), ENABLE_SVG_AS_IMAGE)
@@ -590,12 +610,16 @@ endif
 
 ifeq ($(findstring ENABLE_SVG_ANIMATION,$(FEATURE_DEFINES)), ENABLE_SVG_ANIMATION)
     SVG_FLAGS := $(SVG_FLAGS) ENABLE_SVG_ANIMATION=1
+ifeq ($(findstring ENABLE_SVG_DOM_OBJC_BINDINGS,$(FEATURE_DEFINES)), ENABLE_SVG_DOM_OBJC_BINDINGS)
     WEBCORE_EXPORT_DEPENDENCIES := $(WEBCORE_EXPORT_DEPENDENCIES) WebCore.SVG.Animation.exp
+endif
 endif
 
 ifeq ($(findstring ENABLE_SVG_FOREIGN_OBJECT,$(FEATURE_DEFINES)), ENABLE_SVG_FOREIGN_OBJECT)
     SVG_FLAGS := $(SVG_FLAGS) ENABLE_SVG_FOREIGN_OBJECT=1
+ifeq ($(findstring ENABLE_SVG_DOM_OBJC_BINDINGS,$(FEATURE_DEFINES)), ENABLE_SVG_DOM_OBJC_BINDINGS)
     WEBCORE_EXPORT_DEPENDENCIES := $(WEBCORE_EXPORT_DEPENDENCIES) WebCore.SVG.ForeignObject.exp
+endif
 endif
 
 # SVG tag and attribute names (need to pass an extra flag if svg experimental features are enabled)
@@ -707,6 +731,10 @@ endif
 
 ifeq ($(findstring 10.4,$(MACOSX_DEPLOYMENT_TARGET)), 10.4)
     WEBCORE_EXPORT_DEPENDENCIES := $(WEBCORE_EXPORT_DEPENDENCIES) WebCore.Tiger.exp
+endif
+
+ifeq ($(findstring ENABLE_PLUGIN_PROXY_FOR_VIDEO,$(FEATURE_DEFINES)), ENABLE_PLUGIN_PROXY_FOR_VIDEO)
+     WEBCORE_EXPORT_DEPENDENCIES := $(WEBCORE_EXPORT_DEPENDENCIES) WebCore.VideoProxy.exp
 endif
 
 WebCore.exp : WebCore.base.exp $(WEBCORE_EXPORT_DEPENDENCIES)

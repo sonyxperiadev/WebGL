@@ -31,7 +31,6 @@
 #include "IntRect.h"
 #include "PlatformString.h"
 #include "TextDirection.h"
-#include "wtf/HashMap.h"
 #include "wtf/Vector.h"
 
 #define NAVIGATION_MAX_PHONE_LENGTH 14
@@ -39,7 +38,8 @@
 using namespace WebCore;
 
 namespace WebCore {
-    
+
+class AtomicString;
 class Document;
 class Frame;
 class HTMLAreaElement;
@@ -47,7 +47,6 @@ class InlineTextBox;
 class Node;
 class PlatformGraphicsContext;
 class RenderFlow;
-class RenderImage;
 class RenderObject;
 class RenderLayer;
 class Text;
@@ -89,13 +88,11 @@ public:
         mAllowableTypes & ~EMAIL_CACHEDNODETYPE); }
     void disallowPhoneDetection() { mAllowableTypes = (CachedNodeType) (
         mAllowableTypes & ~PHONE_CACHEDNODETYPE); }
-    static FoundState FindAddress(const UChar* , unsigned length, int* start, int* end);
-    Node* findByCenter(int x, int y) const;
+    static FoundState FindAddress(const UChar* , unsigned length, int* start,
+        int* end, bool caseInsensitive);
     static void GetGlobalOffset(Frame* , int* x, int * y);
     static void GetGlobalOffset(Node* , int* x, int * y);
-    bool outOfDate();
-    void setLastFocus(Node* );
-    bool validNode(void* framePtr, void* nodePtr) const;
+    static bool validNode(Frame* startFrame, void* framePtr, void* nodePtr);
 private:
     enum AddressProgress {
         NO_ADDRESS,
@@ -167,6 +164,7 @@ private:
         bool mOpenParen;
         bool mInitialized;
         bool mContinuationNode;
+        bool mCaseInsensitive;
     };
     struct ClipColumnTracker {
         IntRect mBounds;
@@ -194,6 +192,7 @@ private:
         WTF::Vector<IntRect>* result, IntRect* focusBounds);
     static bool AnyIsClick(Node* node);
     static bool AnyChildIsClick(Node* node);
+    static bool NodeHasEventListeners(Node* node, AtomicString* eventTypes, int length);
     void BuildFrame(Frame* root, Frame* frame,
         CachedRoot* cachedRoot, CachedFrame* cachedFrame);
     bool CleanUpContainedNodes(CachedFrame* cachedFrame, 
@@ -213,7 +212,7 @@ private:
     static Frame* FrameAnd(CacheBuilder* focusNav);
     static Frame* FrameAnd(const CacheBuilder* focusNav);
     static CacheBuilder* Builder(Frame* );
-    IntRect getAreaRect(const HTMLAreaElement* area) const;
+    static IntRect getAreaRect(const HTMLAreaElement* area);
     static Frame* HasFrame(Node* );
     static bool HasOverOrOut(Node* );
     static bool HasTriggerEvent(Node* );
@@ -226,10 +225,7 @@ private:
     bool setData(CachedFrame* );
     Node* tryFocus(Direction direction);
     Node* trySegment(Direction direction, int mainStart, int mainEnd);
-    Node* mLastKnownFocus;
-    IntRect mLastKnownFocusBounds;
     CachedNodeType mAllowableTypes;
-    WTF::HashMap<const HTMLAreaElement* , RenderImage* > m_areaBoundsMap;
 #if DUMP_NAV_CACHE
 public:
     class Debug {
@@ -251,7 +247,6 @@ private:
         void localName(Node* node);
         void newLine(int indent = 0);
         void print(const char* name, unsigned len);
-        void renderTree(RenderObject* , int indent, Node* , int count);
         void setIndent(int );
         void uChar(const UChar* name, unsigned len, bool hex);
         void validateFrame();

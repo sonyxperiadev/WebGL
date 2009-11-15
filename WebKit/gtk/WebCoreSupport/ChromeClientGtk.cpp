@@ -23,6 +23,7 @@
 #include "config.h"
 #include "ChromeClientGtk.h"
 
+#include "Console.h"
 #include "FileSystem.h"
 #include "FileChooser.h"
 #include "FloatRect.h"
@@ -42,7 +43,7 @@
 #endif
 
 #include <glib.h>
-#include <glib/gi18n.h>
+#include <glib/gi18n-lib.h>
 #include <gtk/gtk.h>
 
 using namespace WebCore;
@@ -214,7 +215,18 @@ void ChromeClient::setResizable(bool)
 
 void ChromeClient::closeWindowSoon()
 {
-    notImplemented();
+    webkit_web_view_stop_loading(m_webView);
+
+    gboolean isHandled = false;
+    g_signal_emit_by_name(m_webView, "close-web-view", &isHandled);
+
+    if (isHandled)
+        return;
+
+    // FIXME: should we clear the frame group name here explicitly? Mac does it.
+    // But this gets cleared in Page's destructor anyway.
+    // webkit_web_view_set_group_name(m_webView, "");
+    g_object_unref(m_webView);
 }
 
 bool ChromeClient::canTakeFocus(FocusDirection)
@@ -237,7 +249,7 @@ bool ChromeClient::runBeforeUnloadConfirmPanel(const WebCore::String& message, W
     return runJavaScriptConfirm(frame, message);
 }
 
-void ChromeClient::addMessageToConsole(const WebCore::String& message, unsigned int lineNumber, const WebCore::String& sourceId)
+void ChromeClient::addMessageToConsole(WebCore::MessageSource source, WebCore::MessageType type, WebCore::MessageLevel level, const WebCore::String& message, unsigned int lineNumber, const WebCore::String& sourceId)
 {
     gboolean retval;
     g_signal_emit_by_name(m_webView, "console-message", message.utf8().data(), lineNumber, sourceId.utf8().data(), &retval);
@@ -313,6 +325,9 @@ void ChromeClient::scroll(const IntSize& delta, const IntRect& rectToScroll, con
     if (!window)
         return;
 
+    // We cannot use gdk_window_scroll here because it is only able to
+    // scroll the whole window at once, and we often need to scroll
+    // portions of the window only (think frames).
     GdkRectangle area = clipRect;
     GdkRectangle moveRect;
 
@@ -334,16 +349,38 @@ void ChromeClient::scroll(const IntSize& delta, const IntRect& rectToScroll, con
     gdk_region_destroy(invalidRegion);
 }
 
+// FIXME: this does not take into account the WM decorations
+static IntPoint widgetScreenPosition(GtkWidget* widget)
+{
+    GtkWidget* window = gtk_widget_get_toplevel(widget);
+    int widgetX = 0, widgetY = 0;
+
+    gtk_widget_translate_coordinates(widget, window, 0, 0, &widgetX, &widgetY);
+
+    IntPoint result(widgetX, widgetY);
+    int originX, originY;
+    gdk_window_get_origin(window->window, &originX, &originY);
+    result.move(originX, originY);
+
+    return result;
+}
+
 IntRect ChromeClient::windowToScreen(const IntRect& rect) const
 {
-    notImplemented();
-    return rect;
+    IntRect result(rect);
+    IntPoint screenPosition = widgetScreenPosition(GTK_WIDGET(m_webView));
+    result.move(screenPosition.x(), screenPosition.y());
+
+    return result;
 }
 
 IntPoint ChromeClient::screenToWindow(const IntPoint& point) const
 {
-    notImplemented();
-    return point;
+    IntPoint result(point);
+    IntPoint screenPosition = widgetScreenPosition(GTK_WIDGET(m_webView));
+    result.move(-screenPosition.x(), -screenPosition.y());
+
+    return result;
 }
 
 PlatformWidget ChromeClient::platformWindow() const
@@ -351,19 +388,40 @@ PlatformWidget ChromeClient::platformWindow() const
     return GTK_WIDGET(m_webView);
 }
 
-void ChromeClient::contentsSizeChanged(Frame*, const IntSize&) const
+void ChromeClient::contentsSizeChanged(Frame* frame, const IntSize& size) const
 {
-    notImplemented();
+    // We need to queue a resize request only if the size changed,
+    // otherwise we get into an infinite loop!
+    GtkWidget* widget = GTK_WIDGET(m_webView);
+    if (GTK_WIDGET_REALIZED(widget) &&
+        (widget->requisition.height != size.height()) &&
+        (widget->requisition.width != size.width()))
+        gtk_widget_queue_resize_no_redraw(widget);
 }
 
 void ChromeClient::mouseDidMoveOverElement(const HitTestResult& hit, unsigned modifierFlags)
 {
+    // If a tooltip must be displayed it will be, afterwards, when
+    // setToolTip is called; this is just a work-around to make sure
+    // it updates its location correctly; see
+    // https://bugs.webkit.org/show_bug.cgi?id=15793.
+    g_object_set(m_webView, "has-tooltip", FALSE, NULL);
+
+    GdkDisplay* gdkDisplay;
+    GtkWidget* window = gtk_widget_get_toplevel(GTK_WIDGET(m_webView));
+    if (GTK_WIDGET_TOPLEVEL(window))
+        gdkDisplay = gtk_widget_get_display(window);
+    else
+        gdkDisplay = gdk_display_get_default();
+    gtk_tooltip_trigger_tooltip_query(gdkDisplay);
+
     // check if the element is a link...
     bool isLink = hit.isLiveLink();
     if (isLink) {
         KURL url = hit.absoluteLinkURL();
         if (!url.isEmpty() && url != m_hoveredLinkURL) {
-            CString titleString = hit.title().utf8();
+            TextDirection dir;
+            CString titleString = hit.title(dir).utf8();
             CString urlString = url.prettyURL().utf8();
             g_signal_emit_by_name(m_webView, "hovering-over-link", titleString.data(), urlString.data());
             m_hoveredLinkURL = url;
@@ -374,7 +432,7 @@ void ChromeClient::mouseDidMoveOverElement(const HitTestResult& hit, unsigned mo
     }
 }
 
-void ChromeClient::setToolTip(const String& toolTip)
+void ChromeClient::setToolTip(const String& toolTip, TextDirection)
 {
 #if GTK_CHECK_VERSION(2,12,0)
     if (toolTip.isEmpty())
@@ -390,19 +448,34 @@ void ChromeClient::setToolTip(const String& toolTip)
 
 void ChromeClient::print(Frame* frame)
 {
-    webkit_web_frame_print(kit(frame));
+    WebKitWebFrame* webFrame = kit(frame);
+    gboolean isHandled = false;
+    g_signal_emit_by_name(m_webView, "print-requested", webFrame, &isHandled);
+
+    if (isHandled)
+        return;
+
+    webkit_web_frame_print(webFrame);
 }
 
+#if ENABLE(DATABASE)
 void ChromeClient::exceededDatabaseQuota(Frame* frame, const String&)
 {
-#if ENABLE(DATABASE)
     // Set to 5M for testing
     // FIXME: Make this configurable
     notImplemented();
     const unsigned long long defaultQuota = 5 * 1024 * 1024;
     DatabaseTracker::tracker().setQuota(frame->document()->securityOrigin(), defaultQuota);
-#endif
 }
+#endif
+
+#if ENABLE(OFFLINE_WEB_APPLICATIONS)
+void ChromeClient::reachedMaxAppCacheSize(int64_t spaceNeeded)
+{
+    // FIXME: Free some space.
+    notImplemented();
+}
+#endif
 
 void ChromeClient::runOpenPanel(Frame*, PassRefPtr<FileChooser> prpFileChooser)
 {
@@ -437,6 +510,18 @@ void ChromeClient::runOpenPanel(Frame*, PassRefPtr<FileChooser> prpFileChooser)
         }
     }
     gtk_widget_destroy(dialog);
+}
+
+bool ChromeClient::setCursor(PlatformCursorHandle)
+{
+    notImplemented();
+    return false;
+}
+
+void ChromeClient::requestGeolocationPermissionForFrame(Frame*, Geolocation*)
+{
+    // See the comment in WebCore/page/ChromeClient.h
+    notImplemented();
 }
 
 }

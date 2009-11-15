@@ -39,7 +39,7 @@
 
 #ifdef ANDROID_ANIMATED_GIF
     #include "EmojiFont.h"
-    #include "skia/GIFImageDecoder.h"
+    #include "gif/GIFImageDecoder.h"
 
     using namespace android;
 #endif
@@ -52,7 +52,7 @@ SkPixelRef* SkCreateRLEPixelRef(const SkBitmap& src);
 
 // don't use RLE for images smaller than this, since they incur a drawing cost
 // (and don't work as patterns yet) we only want to use RLE when we must
-#define MIN_RLE_ALLOC_SIZE      (512*1024)
+#define MIN_RLE_ALLOC_SIZE      (2*1024*1024)
 
 /*  Images larger than this should be subsampled. Using ashmem, the decoded
     pixels will be purged as needed, so this value can be pretty large. Making
@@ -329,7 +329,11 @@ SkBitmapRef* ImageSource::createFrameAtIndex(size_t index)
                 m_decoder.m_gifDecoder->frameBufferAtIndex(index);
         if (!buffer || buffer->status() == RGBA32Buffer::FrameEmpty)
             return 0;
-        return new SkBitmapRef(buffer->bitmap());
+        SkBitmap& bitmap = buffer->bitmap();
+        SkPixelRef* pixelRef = bitmap.pixelRef();
+        if (pixelRef)
+            pixelRef->setURI(m_decoder.m_url);
+        return new SkBitmapRef(bitmap);
     }
 #else
     SkASSERT(index == 0);

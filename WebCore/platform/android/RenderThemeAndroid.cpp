@@ -26,28 +26,33 @@
 #include "config.h"
 #include "RenderThemeAndroid.h"
 
+#include "Color.h"
+#include "Element.h"
+#include "GraphicsContext.h"
+#include "PlatformGraphicsContext.h"
 #include "RenderSkinAndroid.h"
 #include "RenderSkinButton.h"
 #include "RenderSkinCombo.h"
 #include "RenderSkinRadio.h"
-
-#include "GraphicsContext.h"
-#include "PlatformGraphicsContext.h"
-
 #include "SkCanvas.h"
 
-#define MAX_COMBO_HEIGHT 20
+namespace WebCore {
 
-// Add a constant amount of padding to the textsize to get the final height of buttons,
-// so that our button images are large enough to properly fit the text.
-#define BUTTON_PADDING 18
+const int MAX_COMBO_HEIGHT = 20;
+
+// Add a constant amount of padding to the textsize to get the final height
+// of buttons, so that our button images are large enough to properly fit
+// the text.
+const int BUTTON_PADDING = 18;
 
 // Add padding to the fontSize of ListBoxes to get their maximum sizes.
-// Listboxes often have a specified size.  Since we change them into dropdowns,
-// we want a much smaller height, which encompasses the text.
-#define LISTBOX_PADDING 5
+// Listboxes often have a specified size.  Since we change them into
+// dropdowns, we want a much smaller height, which encompasses the text.
+const int LISTBOX_PADDING = 5;
 
-namespace WebCore {
+// This is the color of selection in a textfield.  It was obtained by checking
+// the color of selection in TextViews in the system.
+const RGBA32 SELECTION_COLOR = makeRGB(255, 146, 0);
 
 static SkCanvas* getCanvasFromInfo(const RenderObject::PaintInfo& info)
 {
@@ -58,6 +63,12 @@ RenderTheme* theme()
 {
     static RenderThemeAndroid androidTheme;
     return &androidTheme;
+}
+
+PassRefPtr<RenderTheme> RenderTheme::themeForPage(Page* page)
+{
+    RefPtr<RenderThemeAndroid> androidTheme = new RenderThemeAndroid();
+    return androidTheme.release();
 }
 
 RenderThemeAndroid::RenderThemeAndroid()
@@ -72,10 +83,10 @@ void RenderThemeAndroid::close()
 {
 }
 
-bool RenderThemeAndroid::stateChanged(RenderObject* o, ControlState state) const
+bool RenderThemeAndroid::stateChanged(RenderObject* obj, ControlState state) const
 {
     if (CheckedState == state) {
-        o->repaint();
+        obj->repaint();
         return true;
     }
     return false;
@@ -83,12 +94,12 @@ bool RenderThemeAndroid::stateChanged(RenderObject* o, ControlState state) const
 
 Color RenderThemeAndroid::platformActiveSelectionBackgroundColor() const
 {
-    return Color(46, 251, 0);
+    return Color(SELECTION_COLOR);
 }
 
 Color RenderThemeAndroid::platformInactiveSelectionBackgroundColor() const
 {
-    return Color(255, 255, 0, 255);
+    return Color(Color::transparent);
 }
 
 Color RenderThemeAndroid::platformActiveSelectionForegroundColor() const
@@ -103,7 +114,7 @@ Color RenderThemeAndroid::platformInactiveSelectionForegroundColor() const
 
 Color RenderThemeAndroid::platformTextSearchHighlightColor() const
 {
-    return Color(192, 192, 192);
+    return Color(Color::transparent);
 }
 
 int RenderThemeAndroid::baselinePosition(const RenderObject* obj) const
@@ -114,7 +125,7 @@ int RenderThemeAndroid::baselinePosition(const RenderObject* obj) const
     // controls that need to do this.
     //
     // Our checkboxes and radio buttons need to be offset to line up properly.
-    return RenderTheme::baselinePosition(obj) - 5;
+    return RenderTheme::baselinePosition(obj) - 2;
 }
 
 void RenderThemeAndroid::addIntrinsicMargins(RenderStyle* style) const
@@ -145,18 +156,18 @@ void RenderThemeAndroid::addIntrinsicMargins(RenderStyle* style) const
 bool RenderThemeAndroid::supportsFocus(ControlPart appearance)
 {
     switch (appearance) {
-        case PushButtonPart:
-        case ButtonPart:
-        case TextFieldPart:
-            return true;
-        default:
-            return false;
+    case PushButtonPart:
+    case ButtonPart:
+    case TextFieldPart:
+        return true;
+    default:
+        return false;
     }
 
     return false;
 }
 
-void RenderThemeAndroid::adjustButtonStyle(CSSStyleSelector* selector, RenderStyle* style, WebCore::Element* e) const
+void RenderThemeAndroid::adjustButtonStyle(CSSStyleSelector*, RenderStyle* style, WebCore::Element*) const
 {
     // Padding code is taken from RenderThemeSafari.cpp
     // It makes sure we have enough space for the button text.
@@ -166,29 +177,30 @@ void RenderThemeAndroid::adjustButtonStyle(CSSStyleSelector* selector, RenderSty
     style->setMinHeight(Length(style->fontSize() + BUTTON_PADDING, Fixed));
 }
 
-bool RenderThemeAndroid::paintCheckbox(RenderObject* o, const RenderObject::PaintInfo& i, const IntRect& ir)
+bool RenderThemeAndroid::paintCheckbox(RenderObject* obj, const RenderObject::PaintInfo& info, const IntRect& rect)
 {
-    RenderSkinRadio::Draw(getCanvasFromInfo(i), o->element(), ir, true);
+    RenderSkinRadio::Draw(getCanvasFromInfo(info), obj->node(), rect, true);
     return false;
 }
 
-bool RenderThemeAndroid::paintButton(RenderObject* o, const RenderObject::PaintInfo& i, const IntRect& ir)
+bool RenderThemeAndroid::paintButton(RenderObject* obj, const RenderObject::PaintInfo& info, const IntRect& rect)
 {
     // If it is a disabled button, simply paint it to the master picture.
-    Node* element = o->element();
-    if (!element->isEnabled()) {
-        RenderSkinButton::Draw(getCanvasFromInfo(i), ir, RenderSkinAndroid::kDisabled);
-    } else {
+    Node* node = obj->node();
+    Element* formControlElement = static_cast<Element*>(node);
+    if (formControlElement && !formControlElement->isEnabledFormControl())
+        RenderSkinButton::Draw(getCanvasFromInfo(info), rect, RenderSkinAndroid::kDisabled);
+    else
         // Store all the important information in the platform context.
-        i.context->platformContext()->storeButtonInfo(element, ir);
-    }
+        info.context->platformContext()->storeButtonInfo(node, rect);
+
     // We always return false so we do not request to be redrawn.
     return false;
 }
 
-bool RenderThemeAndroid::paintRadio(RenderObject* o, const RenderObject::PaintInfo& i, const IntRect& ir)
+bool RenderThemeAndroid::paintRadio(RenderObject* obj, const RenderObject::PaintInfo& info, const IntRect& rect)
 {
-    RenderSkinRadio::Draw(getCanvasFromInfo(i), o->element(), ir, false);
+    RenderSkinRadio::Draw(getCanvasFromInfo(info), obj->node(), rect, false);
     return false;
 }
 
@@ -204,74 +216,85 @@ void RenderThemeAndroid::setRadioSize(RenderStyle* style) const
     setCheckboxSize(style);
 }
 
-void RenderThemeAndroid::adjustTextFieldStyle(CSSStyleSelector* selector, RenderStyle* style, WebCore::Element* e) const
+void RenderThemeAndroid::adjustTextFieldStyle(CSSStyleSelector*, RenderStyle* style, WebCore::Element*) const
 {
     addIntrinsicMargins(style);
 }
 
-bool RenderThemeAndroid::paintTextField(RenderObject* o, const RenderObject::PaintInfo& i, const IntRect& ir)
+bool RenderThemeAndroid::paintTextField(RenderObject*, const RenderObject::PaintInfo&, const IntRect&)
 {
     return true;    
 }
 
-void RenderThemeAndroid::adjustTextAreaStyle(CSSStyleSelector* selector, RenderStyle* style, WebCore::Element* e) const
+void RenderThemeAndroid::adjustTextAreaStyle(CSSStyleSelector*, RenderStyle* style, WebCore::Element*) const
 {
     addIntrinsicMargins(style);
 }
 
-bool RenderThemeAndroid::paintTextArea(RenderObject* o, const RenderObject::PaintInfo& i, const IntRect& ir)
+bool RenderThemeAndroid::paintTextArea(RenderObject* obj, const RenderObject::PaintInfo& info, const IntRect& rect)
 {
-    if (o->isMenuList()) {
-        return paintCombo(o, i, ir);
-    }
+    if (obj->isMenuList())
+        return paintCombo(obj, info, rect);
     return true;    
 }
 
-void RenderThemeAndroid::adjustSearchFieldStyle(CSSStyleSelector* selector, RenderStyle* style, Element* e) const
+void RenderThemeAndroid::adjustSearchFieldStyle(CSSStyleSelector*, RenderStyle* style, Element*) const
 {
     addIntrinsicMargins(style);
 }
 
-bool RenderThemeAndroid::paintSearchField(RenderObject* o, const RenderObject::PaintInfo& i, const IntRect& ir)
+bool RenderThemeAndroid::paintSearchField(RenderObject*, const RenderObject::PaintInfo&, const IntRect&)
 {
     return true;    
 }
 
-void RenderThemeAndroid::adjustListboxStyle(CSSStyleSelector* selector, RenderStyle* style, Element* e) const
+void RenderThemeAndroid::adjustListboxStyle(CSSStyleSelector*, RenderStyle* style, Element*) const
 {
     style->setPaddingRight(Length(RenderSkinCombo::extraWidth(), Fixed));
     style->setMaxHeight(Length(style->fontSize() + LISTBOX_PADDING, Fixed));
     addIntrinsicMargins(style);
 }
 
-void RenderThemeAndroid::adjustMenuListStyle(CSSStyleSelector* selector, RenderStyle* style, Element* e) const
+static void adjustMenuListStyleCommon(RenderStyle* style, Element* e)
 {
+    // Added to make room for our arrow.
     style->setPaddingRight(Length(RenderSkinCombo::extraWidth(), Fixed));
+    // Code copied from RenderThemeMac.mm
+    // Makes sure that the text shows up on our treatment
+    bool isEnabled = true;
+    if (e)
+        isEnabled = e->isEnabledFormControl();
+    style->setColor(isEnabled ? Color::black : Color::darkGray);
+}
+
+void RenderThemeAndroid::adjustMenuListStyle(CSSStyleSelector*, RenderStyle* style, Element* e) const
+{
+    adjustMenuListStyleCommon(style, e);
     addIntrinsicMargins(style);
 }
 
-bool RenderThemeAndroid::paintCombo(RenderObject* o, const RenderObject::PaintInfo& i,  const IntRect& ir)
+bool RenderThemeAndroid::paintCombo(RenderObject* obj, const RenderObject::PaintInfo& info,  const IntRect& rect)
 {
-    if (o->style() && o->style()->backgroundColor().alpha() == 0)
+    if (obj->style() && !obj->style()->backgroundColor().alpha())
         return true;
-    Node* element = o->element();
-    int height = ir.height();
-    int y = ir.y();
+    Node* node = obj->node();
+    int height = rect.height();
+    int y = rect.y();
     // If the combo box is too large, leave it at its max height, and center it.
     if (height > MAX_COMBO_HEIGHT) {
         y += (height - MAX_COMBO_HEIGHT) >> 1;
         height = MAX_COMBO_HEIGHT;
     }
-    return RenderSkinCombo::Draw(getCanvasFromInfo(i), element, ir.x(), y,
-            ir.width(), height);
+    return RenderSkinCombo::Draw(getCanvasFromInfo(info), node, rect.x(), y,
+            rect.width(), height);
 }
 
-bool RenderThemeAndroid::paintMenuList(RenderObject* o, const RenderObject::PaintInfo& i, const IntRect& ir) 
+bool RenderThemeAndroid::paintMenuList(RenderObject* obj, const RenderObject::PaintInfo& info, const IntRect& rect) 
 { 
-    return paintCombo(o, i, ir);
+    return paintCombo(obj, info, rect);
 }
 
-void RenderThemeAndroid::adjustMenuListButtonStyle(CSSStyleSelector* selector, RenderStyle* style, Element* e) const
+void RenderThemeAndroid::adjustMenuListButtonStyle(CSSStyleSelector*, RenderStyle* style, Element* e) const
 {
     // Copied from RenderThemeSafari.
     const float baseFontSize = 11.0f;
@@ -289,30 +312,29 @@ void RenderThemeAndroid::adjustMenuListButtonStyle(CSSStyleSelector* selector, R
     const int padding = 4;
     style->setPaddingTop(Length(padding, Fixed));
     style->setPaddingLeft(Length(padding, Fixed));
-    // Added to make room for our arrow.
-    style->setPaddingRight(Length(RenderSkinCombo::extraWidth(), Fixed));
+    adjustMenuListStyleCommon(style, e);
 }
 
-bool RenderThemeAndroid::paintMenuListButton(RenderObject* o, const RenderObject::PaintInfo& i, const IntRect& ir) 
+bool RenderThemeAndroid::paintMenuListButton(RenderObject* obj, const RenderObject::PaintInfo& info, const IntRect& rect) 
 {
-    return paintCombo(o, i, ir);
+    return paintCombo(obj, info, rect);
 }
 
 bool RenderThemeAndroid::supportsFocusRing(const RenderStyle* style) const
 {
-    return (style->opacity() > 0 && style->hasAppearance() 
-                    && style->appearance() != TextFieldPart 
-                    && style->appearance() != SearchFieldPart 
-                    && style->appearance() != TextAreaPart 
-                    && style->appearance() != CheckboxPart
-                    && style->appearance() != RadioPart
-                    && style->appearance() != PushButtonPart
-                    && style->appearance() != SquareButtonPart
-                    && style->appearance() != ButtonPart
-                    && style->appearance() != ButtonBevelPart
-                    && style->appearance() != MenulistPart
-                    && style->appearance() != MenulistButtonPart
-                    );
+    return style->opacity() > 0
+        && style->hasAppearance() 
+        && style->appearance() != TextFieldPart 
+        && style->appearance() != SearchFieldPart 
+        && style->appearance() != TextAreaPart 
+        && style->appearance() != CheckboxPart
+        && style->appearance() != RadioPart
+        && style->appearance() != PushButtonPart
+        && style->appearance() != SquareButtonPart
+        && style->appearance() != ButtonPart
+        && style->appearance() != ButtonBevelPart
+        && style->appearance() != MenulistPart
+        && style->appearance() != MenulistButtonPart;
 }
 
-}
+} // namespace WebCore

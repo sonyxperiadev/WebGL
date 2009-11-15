@@ -26,7 +26,6 @@
 #include "HTMLLegendElement.h"
 
 #include "HTMLNames.h"
-#include "RenderLegend.h"
 #include <wtf/StdLibExtras.h>
 
 namespace WebCore {
@@ -48,15 +47,7 @@ bool HTMLLegendElement::isFocusable() const
     return HTMLElement::isFocusable();
 }
 
-RenderObject* HTMLLegendElement::createRenderer(RenderArena* arena, RenderStyle* style)
-{
-    if (style->contentData())
-        return RenderObject::createObject(this, style);
-    
-    return new (arena) RenderLegend(this);
-}
-
-const AtomicString& HTMLLegendElement::type() const
+const AtomicString& HTMLLegendElement::formControlType() const
 {
     DEFINE_STATIC_LOCAL(const AtomicString, legend, ("legend"));
     return legend;

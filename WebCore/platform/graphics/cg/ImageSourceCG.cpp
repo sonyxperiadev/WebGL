@@ -33,10 +33,19 @@
 #include "MIMETypeRegistry.h"
 #include "SharedBuffer.h"
 #include <ApplicationServices/ApplicationServices.h>
+#include <wtf/UnusedParam.h>
 
 namespace WebCore {
 
 static const CFStringRef kCGImageSourceShouldPreferRGB32 = CFSTR("kCGImageSourceShouldPreferRGB32");
+
+#if !PLATFORM(MAC)
+static void sharedBufferDerefCallback(void*, void* info)
+{
+    SharedBuffer* sharedBuffer = static_cast<SharedBuffer*>(info);
+    sharedBuffer->deref();
+}
+#endif
 
 ImageSource::ImageSource()
     : m_decoder(0)
@@ -48,27 +57,41 @@ ImageSource::~ImageSource()
     clear(true);
 }
 
-void ImageSource::clear(bool, size_t, SharedBuffer* data, bool allDataReceived)
+void ImageSource::clear(bool destroyAllFrames, size_t, SharedBuffer* data, bool allDataReceived)
 {
-    // We always destroy the decoder, because there is no API to get it to
-    // selectively release some of the frames it's holding, and if we don't
-    // release any of them, we use too much memory on large images.
+#if PLATFORM(MAC) && !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
+    // Recent versions of ImageIO discard previously decoded image frames if the client
+    // application no longer holds references to them, so there's no need to throw away
+    // the decoder unless we're explicitly asked to destroy all of the frames.
+
+    if (!destroyAllFrames)
+        return;
+#else
+    // Older versions of ImageIO hold references to previously decoded image frames.
+    // There is no API to selectively release some of the frames it is holding, and
+    // if we don't release the frames we use too much memory on large images.
+    // Destroying the decoder is the only way to release previous frames.
+
+    UNUSED_PARAM(destroyAllFrames);
+#endif
+
     if (m_decoder) {
         CFRelease(m_decoder);
         m_decoder = 0;
     }
     if (data)
-      setData(data, allDataReceived);
+        setData(data, allDataReceived);
 }
 
 static CFDictionaryRef imageSourceOptions()
 {
     static CFDictionaryRef options;
-    
+
     if (!options) {
-        const void* keys[2] = { kCGImageSourceShouldCache, kCGImageSourceShouldPreferRGB32 };
-        const void* values[2] = { kCFBooleanTrue, kCFBooleanTrue };
-        options = CFDictionaryCreate(NULL, keys, values, 2, 
+        const unsigned numOptions = 2;
+        const void* keys[numOptions] = { kCGImageSourceShouldCache, kCGImageSourceShouldPreferRGB32 };
+        const void* values[numOptions] = { kCFBooleanTrue, kCFBooleanTrue };
+        options = CFDictionaryCreate(NULL, keys, values, numOptions, 
             &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
     }
     return options;
@@ -89,8 +112,12 @@ void ImageSource::setData(SharedBuffer* data, bool allDataReceived)
     CFDataRef cfData = data->createCFData();
 #else
     // If no NSData is available, then we know SharedBuffer will always just be a vector.  That means no secret changes can occur to it behind the
-    // scenes.  We use CFDataCreateWithBytesNoCopy in that case.
-    CFDataRef cfData = CFDataCreateWithBytesNoCopy(0, reinterpret_cast<const UInt8*>(data->data()), data->size(), kCFAllocatorNull);
+    // scenes.  We use CFDataCreateWithBytesNoCopy in that case. Ensure that the SharedBuffer lives as long as the CFDataRef.
+    data->ref();
+    CFAllocatorContext context = {0, data, 0, 0, 0, 0, 0, &sharedBufferDerefCallback, 0};
+    CFAllocatorRef derefAllocator = CFAllocatorCreate(kCFAllocatorDefault, &context);
+    CFDataRef cfData = CFDataCreateWithBytesNoCopy(0, reinterpret_cast<const UInt8*>(data->data()), data->size(), derefAllocator);
+    CFRelease(derefAllocator);
 #endif
     CGImageSourceUpdateData(m_decoder, cfData, allDataReceived);
     CFRelease(cfData);
@@ -227,9 +254,17 @@ float ImageSource::frameDurationAtIndex(size_t index)
 
 bool ImageSource::frameHasAlphaAtIndex(size_t)
 {
-    // Might be interesting to do this optimization on Mac some day, but for now we're just using this
-    // for the Cairo source, since it uses our decoders, and our decoders can answer this question.
-    // FIXME: Could return false for JPEG and other non-transparent image formats.
+    if (!m_decoder)
+        return false;
+
+    CFStringRef imageType = CGImageSourceGetType(m_decoder);
+
+    // Return false if there is no image type or the image type is JPEG, because
+    // JPEG does not support alpha transparency.
+    if (!imageType || CFEqual(imageType, CFSTR("public.jpeg")))
+        return false;
+
+    // FIXME: Could return false for other non-transparent image formats.
     // FIXME: Could maybe return false for a GIF Frame if we have enough info in the GIF properties dictionary
     // to determine whether or not a transparent color was defined.
     return true;

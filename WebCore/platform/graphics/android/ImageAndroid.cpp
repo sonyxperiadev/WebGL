@@ -42,6 +42,7 @@
 #include "SkShader.h"
 #include "SkString.h"
 #include "SkTemplates.h"
+#include "SkiaUtils.h"
 
 #include <utils/AssetManager.h>
 
@@ -78,6 +79,7 @@ BitmapImage::BitmapImage(SkBitmapRef* ref, ImageObserver* observer)
     , m_frames(0)
     , m_frameTimer(0)
     , m_repetitionCount(0)
+    , m_repetitionCountStatus(Unknown)
     , m_repetitionsComplete(0)
     , m_isSolidColor(false)
     , m_animationFinished(true)
@@ -111,6 +113,7 @@ void BitmapImage::invalidatePlatformData()
 
 void BitmapImage::checkForSolidColor()
 {
+    m_checkedForSolidColor = true;
     m_isSolidColor = false;
     if (frameCount() == 1) {
         SkBitmapRef* ref = frameAtIndex(0);
@@ -148,12 +151,42 @@ void BitmapImage::checkForSolidColor()
                 return;  // keep solid == false
         }
         m_isSolidColor = true;
-        m_solidColor = android_SkPMColorToWebCoreColor(color);
+        m_solidColor = SkPMColorToWebCoreColor(color);
     }
 }
 
+static void round(SkIRect* dst, const WebCore::FloatRect& src)
+{
+    dst->set(SkScalarRound(SkFloatToScalar(src.x())),
+             SkScalarRound(SkFloatToScalar(src.y())),
+             SkScalarRound(SkFloatToScalar((src.x() + src.width()))),
+             SkScalarRound(SkFloatToScalar((src.y() + src.height()))));
+}
+
+static void round_scaled(SkIRect* dst, const WebCore::FloatRect& src,
+                         float sx, float sy)
+{
+    dst->set(SkScalarRound(SkFloatToScalar(src.x() * sx)),
+             SkScalarRound(SkFloatToScalar(src.y() * sy)),
+             SkScalarRound(SkFloatToScalar((src.x() + src.width()) * sx)),
+             SkScalarRound(SkFloatToScalar((src.y() + src.height()) * sy)));
+}
+
+static inline void fixPaintForBitmapsThatMaySeam(SkPaint* paint) {
+    /*  Bitmaps may be drawn to seem next to other images. If we are drawn
+        zoomed, or at fractional coordinates, we may see cracks/edges if
+        we antialias, because that will cause us to draw the same pixels
+        more than once (e.g. from the left and right bitmaps that share
+        an edge).
+
+        Disabling antialiasing fixes this, and since so far we are never
+        rotated at non-multiple-of-90 angles, this seems to do no harm
+     */
+    paint->setAntiAlias(false);
+}
+
 void BitmapImage::draw(GraphicsContext* ctxt, const FloatRect& dstRect,
-                       const FloatRect& srcRect, CompositeOperator compositeOp)
+                   const FloatRect& srcRect, CompositeOperator compositeOp)
 {
     startAnimation();
 
@@ -174,12 +207,11 @@ void BitmapImage::draw(GraphicsContext* ctxt, const FloatRect& dstRect,
     }
 
     SkIRect srcR;
-    SkRect  dstR;    
+    SkRect  dstR(dstRect);
     float invScaleX = (float)bitmap.width() / image->origWidth();
     float invScaleY = (float)bitmap.height() / image->origHeight();
 
-    android_setrect(&dstR, dstRect);
-    android_setrect_scaled(&srcR, srcRect, invScaleX, invScaleY);
+    round_scaled(&srcR, srcRect, invScaleX, invScaleY);
     if (srcR.isEmpty() || dstR.isEmpty()) {
 #ifdef TRACE_SKIPPED_BITMAPS
         SkDebugf("----- skip bitmapimage: [%d %d] src-empty %d dst-empty %d\n",
@@ -194,7 +226,8 @@ void BitmapImage::draw(GraphicsContext* ctxt, const FloatRect& dstRect,
 
     ctxt->setupFillPaint(&paint);   // need global alpha among other things
     paint.setFilterBitmap(true);
-    paint.setPorterDuffXfermode(android_convert_compositeOp(compositeOp));
+    paint.setXfermodeMode(WebCoreCompositeToSkiaComposite(compositeOp));
+    fixPaintForBitmapsThatMaySeam(&paint);
     canvas->drawBitmapRect(bitmap, &srcR, dstR, &paint);
 
 #ifdef TRACE_SUBSAMPLED_BITMAPS
@@ -214,7 +247,7 @@ void BitmapImage::setURL(const String& str)
 
 ///////////////////////////////////////////////////////////////////////////////
 
-void Image::drawPattern(GraphicsContext* ctxt, const FloatRect& tileRect,
+void Image::drawPattern(GraphicsContext* ctxt, const FloatRect& srcRect,
                         const TransformationMatrix& patternTransform,
                         const FloatPoint& phase, CompositeOperator compositeOp,
                         const FloatRect& destRect)
@@ -223,19 +256,40 @@ void Image::drawPattern(GraphicsContext* ctxt, const FloatRect& tileRect,
     if (!image) { // If it's too early we won't have an image yet.
         return;
     }
-    
+
     // in case we get called with an incomplete bitmap
-    const SkBitmap& bitmap = image->bitmap();
-    if (bitmap.getPixels() == NULL && bitmap.pixelRef() == NULL) {
+    const SkBitmap& origBitmap = image->bitmap();
+    if (origBitmap.getPixels() == NULL && origBitmap.pixelRef() == NULL) {
         return;
     }
-    
-    SkRect  dstR;    
-    android_setrect(&dstR, destRect);
+
+    SkRect  dstR(destRect);
     if (dstR.isEmpty()) {
         return;
     }
-    
+
+    SkIRect srcR;
+    // we may have to scale if the image has been subsampled (so save RAM)
+    bool imageIsSubSampled = image->origWidth() != origBitmap.width() ||
+                             image->origHeight() != origBitmap.height();
+    float scaleX = 1;
+    float scaleY = 1;
+    if (imageIsSubSampled) {
+        scaleX = (float)image->origWidth() / origBitmap.width();
+        scaleY = (float)image->origHeight() / origBitmap.height();
+//        SkDebugf("----- subsampled %g %g\n", scaleX, scaleY);
+        round_scaled(&srcR, srcRect, 1 / scaleX, 1 / scaleY);
+    } else {
+        round(&srcR, srcRect);
+    }
+
+    // now extract the proper subset of the src image
+    SkBitmap bitmap;
+    if (!origBitmap.extractSubset(&bitmap, srcR)) {
+        SkDebugf("--- Image::drawPattern calling extractSubset failed\n");
+        return;
+    }
+
     SkCanvas*   canvas = ctxt->platformContext()->mCanvas;
     SkPaint     paint;
     ctxt->setupFillPaint(&paint);   // need global alpha among other things
@@ -245,20 +299,33 @@ void Image::drawPattern(GraphicsContext* ctxt, const FloatRect& tileRect,
                                                     SkShader::kRepeat_TileMode);
     paint.setShader(shader)->unref();
     // now paint is the only owner of shader
-    paint.setPorterDuffXfermode(android_convert_compositeOp(compositeOp));
+    paint.setXfermodeMode(WebCoreCompositeToSkiaComposite(compositeOp));
     paint.setFilterBitmap(true);
-    
+    fixPaintForBitmapsThatMaySeam(&paint);
+
     SkMatrix matrix(patternTransform);
-    
-    float scaleX = (float)image->origWidth() / bitmap.width();
-    float scaleY = (float)image->origHeight() / bitmap.height();
-    matrix.preScale(SkFloatToScalar(scaleX), SkFloatToScalar(scaleY));
-    
-    matrix.postTranslate(SkFloatToScalar(phase.x()),
-                         SkFloatToScalar(phase.y()));
+
+    if (imageIsSubSampled) {
+        matrix.preScale(SkFloatToScalar(scaleX), SkFloatToScalar(scaleY));
+    }
+    // We also need to translate it such that the origin of the pattern is the
+    // origin of the destination rect, which is what WebKit expects. Skia uses
+    // the coordinate system origin as the base for the patter. If WebKit wants
+    // a shifted image, it will shift it from there using the patternTransform.
+    float tx = phase.x() + srcRect.x() * patternTransform.a();
+    float ty = phase.y() + srcRect.y() * patternTransform.d();
+    matrix.postTranslate(SkFloatToScalar(tx), SkFloatToScalar(ty));
     shader->setLocalMatrix(matrix);
+#if 0
+    SkDebugf("--- drawPattern: src [%g %g %g %g] dst [%g %g %g %g] transform [%g %g %g %g %g %g] matrix [%g %g %g %g %g %g]\n",
+             srcRect.x(), srcRect.y(), srcRect.width(), srcRect.height(),
+             destRect.x(), destRect.y(), destRect.width(), destRect.height(),
+             patternTransform.a(), patternTransform.b(), patternTransform.c(),
+             patternTransform.d(), patternTransform.e(), patternTransform.f(),
+             matrix[0], matrix[1], matrix[2], matrix[3], matrix[4], matrix[5]);
+#endif
     canvas->drawRect(dstR, paint);
-    
+
 #ifdef TRACE_SUBSAMPLED_BITMAPS
     if (bitmap.width() != image->origWidth() ||
         bitmap.height() != image->origHeight()) {

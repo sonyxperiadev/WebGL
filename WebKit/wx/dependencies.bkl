@@ -44,12 +44,14 @@ and WebCore. Include this file to use these settings.
     </option>
 
     <template id="sqlite3">
-        <sys-lib>sqlite3</sys-lib>
         <if cond="FORMAT=='gnu'">
-            <ldflags>$(SQLITE3_LIBS)</ldflags>
-            <cxxflags>$(SQLITE3_CFLAGS)</cxxflags>
+        	<set var="SQLITE_LDFLAGS"><if cond="PLATFORM_OS=='mac'">-lWebCoreSQLite3</if><if cond="PLATFORM_OS=='linux'">$(SQLITE3_LIBS)</if></set>
+        	<set var="SQLITE_CFLAGS"><if cond="PLATFORM_OS=='mac'">-I$(WK_ROOT)/WebKitLibraries/WebCoreSQLite3</if><if cond="PLATFORM_OS=='linux'">$(SQLITE3_CFLAGS)</if></set>
+            <ldflags>$(SQLITE_LDFLAGS)</ldflags>
+            <cxxflags>$(SQLITE_CFLAGS)</cxxflags>
         </if>
         <if cond="FORMAT in ['msvc','msvs2005prj']">
+            <sys-lib>sqlite3</sys-lib>
             <include>$(WK_ROOT)/WebKitLibraries/win/include/SQLite</include>
         </if>
     </template>
@@ -139,11 +141,11 @@ and WebCore. Include this file to use these settings.
         <if cond="FORMAT=='gnu'">
             <!-- Mac includes ICU with the system, but doesn't include headers or
                  icu-config, so we have to hardcode settings there. -->
-            <set var="ICU_INCLUDE"><if cond="WX_PORT=='mac'">$(WK_ROOT)/JavaScriptCore/icu</if></set>
-            <set var="ICU_INCLUDE"><if cond="WX_PORT=='mac'">$(WK_ROOT)/WebCore/icu</if></set>
-            <set var="ICU_LIB"><if cond="WX_PORT=='mac'">icucore</if></set>
-            <set var="ICU_LDFLAGS"><if cond="WX_PORT=='gtk2'">$(DOLLAR)(shell icu-config --ldflags)</if></set>
-            <set var="ICU_CFLAGS"><if cond="WX_PORT=='gtk2'">$(DOLLAR)(shell icu-config --cppflags)</if></set>
+            <set var="ICU_INCLUDE"><if cond="PLATFORM_OS=='mac'">$(WK_ROOT)/JavaScriptCore/icu</if></set>
+            <set var="ICU_INCLUDE"><if cond="PLATFORM_OS=='mac'">$(WK_ROOT)/WebCore/icu</if></set>
+            <set var="ICU_LIB"><if cond="PLATFORM_OS=='mac'">icucore</if></set>
+            <set var="ICU_LDFLAGS"><if cond="PLATFORM_OS=='linux'">$(DOLLAR)(shell icu-config --ldflags)</if></set>
+            <set var="ICU_CFLAGS"><if cond="PLATFORM_OS=='linux'">$(DOLLAR)(shell icu-config --cppflags)</if></set>
             
             <include>$(ICU_INCLUDE)</include>
             <sys-lib>$(ICU_LIB)</sys-lib>

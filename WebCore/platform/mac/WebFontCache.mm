@@ -31,7 +31,10 @@
 #import "WebFontCache.h"
 
 #import "FontTraitsMask.h"
+#import <AppKit/AppKit.h>
+#import <Foundation/Foundation.h>
 #import <math.h>
+#import <wtf/UnusedParam.h>
 
 using namespace WebCore;
 
@@ -104,8 +107,13 @@ static BOOL betterChoice(NSFontTraitMask desiredTraits, int desiredWeight,
 // Workaround for <rdar://problem/5781372>.
 static inline void fixUpWeight(NSInteger& weight, NSString *fontName)
 {
+#if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
+    UNUSED_PARAM(weight);
+    UNUSED_PARAM(fontName);
+#else
     if (weight == 3 && [fontName rangeOfString:@"ultralight" options:NSCaseInsensitiveSearch | NSBackwardsSearch | NSLiteralSearch].location != NSNotFound)
         weight = 2;
+#endif
 }
 
 static inline FontTraitsMask toTraitsMask(NSFontTraitMask appKitTraits, NSInteger appKitWeight)
@@ -296,6 +304,12 @@ static inline FontTraitsMask toTraitsMask(NSFontTraitMask appKitTraits, NSIntege
 #endif
 
     return [self internalFontWithFamily:desiredFamily traits:desiredTraits weight:desiredWeight size:size];
+}
+
++ (NSFont *)fontWithFamily:(NSString *)desiredFamily traits:(NSFontTraitMask)desiredTraits size:(float)size
+{
+    int desiredWeight = (desiredTraits & NSBoldFontMask) ? 9 : 5;
+    return [self fontWithFamily:desiredFamily traits:desiredTraits weight:desiredWeight size:size];
 }
 
 @end

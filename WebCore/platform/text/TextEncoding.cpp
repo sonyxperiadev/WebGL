@@ -1,6 +1,7 @@
 /*
- * Copyright (C) 2004, 2006, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2004, 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
  * Copyright (C) 2006 Alexey Proskuryakov <ap@nypop.com>
+ * Copyright (C) 2007-2009 Torch Mobile, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,9 +31,8 @@
 #include "CString.h"
 #include "PlatformString.h"
 #include "TextCodec.h"
-#include "TextDecoder.h"
 #include "TextEncodingRegistry.h"
-#if USE(ICU_UNICODE)
+#if USE(ICU_UNICODE) || USE(GLIB_ICU_UNICODE_HYBRID)
 #include <unicode/unorm.h>
 #elif USE(QT4_UNICODE)
 #include <QString>
@@ -73,7 +73,7 @@ String TextEncoding::decode(const char* data, size_t length, bool stopOnError, b
     if (!m_name)
         return String();
 
-    return TextDecoder(*this).decode(data, length, true, stopOnError, sawError);
+    return newTextCodec(*this)->decode(data, length, true, stopOnError, sawError);
 }
 
 CString TextEncoding::encode(const UChar* characters, size_t length, UnencodableHandling handling) const
@@ -84,7 +84,7 @@ CString TextEncoding::encode(const UChar* characters, size_t length, Unencodable
     if (!length)
         return "";
 
-#if USE(ICU_UNICODE)
+#if USE(ICU_UNICODE) || USE(GLIB_ICU_UNICODE_HYBRID)
     // FIXME: What's the right place to do normalization?
     // It's a little strange to do it inside the encode function.
     // Perhaps normalization should be an explicit step done before calling encode.
@@ -114,7 +114,29 @@ CString TextEncoding::encode(const UChar* characters, size_t length, Unencodable
     QString str(reinterpret_cast<const QChar*>(characters), length);
     str = str.normalized(QString::NormalizationForm_C);
     return newTextCodec(*this)->encode(reinterpret_cast<const UChar *>(str.utf16()), str.length(), handling);
+#elif PLATFORM(WINCE)
+    // normalization will be done by Windows CE API
+    OwnPtr<TextCodec> textCodec = newTextCodec(*this);
+    return textCodec.get() ? textCodec->encode(characters, length, handling) : CString();
 #endif
+}
+
+const char* TextEncoding::domName() const
+{
+    if (noExtendedTextEncodingNameUsed())
+        return m_name;
+
+    // We treat EUC-KR as windows-949 (its superset), but need to expose 
+    // the name 'EUC-KR' because the name 'windows-949' is not recognized by
+    // most Korean web servers even though they do use the encoding
+    // 'windows-949' with the name 'EUC-KR'. 
+    // FIXME: This is not thread-safe. At the moment, this function is
+    // only accessed in a single thread, but eventually has to be made
+    // thread-safe along with usesVisualOrdering().
+    static const char* const a = atomicCanonicalTextEncodingName("windows-949");
+    if (m_name == a)
+        return "EUC-KR";
+    return m_name;
 }
 
 bool TextEncoding::usesVisualOrdering() const
@@ -165,10 +187,23 @@ UChar TextEncoding::backslashAsCurrencySymbol() const
 
 bool TextEncoding::isNonByteBasedEncoding() const
 {
+    if (noExtendedTextEncodingNameUsed()) {
+        return *this == UTF16LittleEndianEncoding()
+            || *this == UTF16BigEndianEncoding();
+    }
+
     return *this == UTF16LittleEndianEncoding()
-           || *this == UTF16BigEndianEncoding()
-           || *this == UTF32BigEndianEncoding()
-           || *this == UTF32LittleEndianEncoding();
+        || *this == UTF16BigEndianEncoding()
+        || *this == UTF32BigEndianEncoding()
+        || *this == UTF32LittleEndianEncoding();
+}
+
+bool TextEncoding::isUTF7Encoding() const
+{
+    if (noExtendedTextEncodingNameUsed())
+        return false;
+
+    return *this == UTF7Encoding();
 }
 
 const TextEncoding& TextEncoding::closestByteBasedEquivalent() const
@@ -185,7 +220,7 @@ const TextEncoding& TextEncoding::closestByteBasedEquivalent() const
 // but it's fraught with problems and we'd rather steer clear of it.
 const TextEncoding& TextEncoding::encodingForFormSubmission() const
 {
-    if (isNonByteBasedEncoding() || *this == UTF7Encoding())
+    if (isNonByteBasedEncoding() || isUTF7Encoding())
         return UTF8Encoding();
     return *this;
 }

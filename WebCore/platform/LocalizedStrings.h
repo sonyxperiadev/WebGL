@@ -88,6 +88,19 @@ namespace WebCore {
     String contextMenuItemTagSpeechMenu();
     String contextMenuItemTagStartSpeaking();
     String contextMenuItemTagStopSpeaking();
+    String contextMenuItemTagCorrectSpellingAutomatically();
+    String contextMenuItemTagSubstitutionsMenu();
+    String contextMenuItemTagShowSubstitutions(bool show);
+    String contextMenuItemTagSmartCopyPaste();
+    String contextMenuItemTagSmartQuotes();
+    String contextMenuItemTagSmartDashes();
+    String contextMenuItemTagSmartLinks();
+    String contextMenuItemTagTextReplacement();
+    String contextMenuItemTagTransformationsMenu();
+    String contextMenuItemTagMakeUpperCase();
+    String contextMenuItemTagMakeLowerCase();
+    String contextMenuItemTagCapitalize();
+    String contextMenuItemTagChangeBack(const String& replacedString);
 #endif
     String contextMenuItemTagInspectElement();
 
@@ -119,6 +132,9 @@ namespace WebCore {
 #endif
 
     String imageTitle(const String& filename, const IntSize& size);
+
+    String mediaElementLoadingStateText();
+    String mediaElementLiveBroadcastStateText();
 }
 
 #endif

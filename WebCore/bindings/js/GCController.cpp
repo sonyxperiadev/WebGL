@@ -44,7 +44,7 @@ namespace WebCore {
 
 static void* collect(void*)
 {
-    JSLock lock(false);
+    JSLock lock(SilenceAssertionsOnly);
     JSDOMWindow::commonJSGlobalData()->heap.collect();
     return 0;
 }
@@ -65,18 +65,18 @@ GCController::GCController()
 void GCController::garbageCollectSoon()
 {
     if (!m_GCTimer.isActive())
-        m_GCTimer.startOneShot(0);
+        m_GCTimer.startOneShot(0.5);
 }
 
 void GCController::gcTimerFired(Timer<GCController>*)
 {
-    JSLock lock(false);
+    JSLock lock(SilenceAssertionsOnly);
     JSDOMWindow::commonJSGlobalData()->heap.collect();
 }
 
 void GCController::garbageCollectNow()
 {
-    JSLock lock(false);
+    JSLock lock(SilenceAssertionsOnly);
     JSDOMWindow::commonJSGlobalData()->heap.collect();
 }
 

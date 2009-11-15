@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2007, 2008 Holger Hans Peter Freyther
+ * Copyright (C) 2009 Gustavo Noronha Silva
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -18,8 +19,24 @@
  */
 
 #include "config.h"
-
 #include "webkitnetworkrequest.h"
+
+#include "CString.h"
+#include "GOwnPtr.h"
+#include "ResourceRequest.h"
+#include "webkitprivate.h"
+
+#include <glib/gi18n-lib.h>
+
+namespace WTF {
+
+template <> void freeOwnedGPtr<SoupMessage>(SoupMessage* soupMessage)
+{
+    if (soupMessage)
+        g_object_unref(soupMessage);
+}
+
+}
 
 /**
  * SECTION:webkitnetworkrequest
@@ -34,15 +51,21 @@
  *
  */
 
-extern "C" {
-
 G_DEFINE_TYPE(WebKitNetworkRequest, webkit_network_request, G_TYPE_OBJECT);
 
 struct _WebKitNetworkRequestPrivate {
     gchar* uri;
+    SoupMessage* message;
 };
 
 #define WEBKIT_NETWORK_REQUEST_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), WEBKIT_TYPE_NETWORK_REQUEST, WebKitNetworkRequestPrivate))
+
+enum {
+    PROP_0,
+
+    PROP_URI,
+    PROP_MESSAGE,
+};
 
 static void webkit_network_request_finalize(GObject* object)
 {
@@ -51,12 +74,84 @@ static void webkit_network_request_finalize(GObject* object)
 
     g_free(priv->uri);
 
+    if (priv->message) {
+        g_object_unref(priv->message);
+        priv->message = NULL;
+    }
+
     G_OBJECT_CLASS(webkit_network_request_parent_class)->finalize(object);
+}
+
+static void webkit_network_request_get_property(GObject* object, guint propertyID, GValue* value, GParamSpec* pspec)
+{
+    WebKitNetworkRequest* request = WEBKIT_NETWORK_REQUEST(object);
+
+    switch(propertyID) {
+    case PROP_URI:
+        g_value_set_string(value, webkit_network_request_get_uri(request));
+        break;
+    case PROP_MESSAGE:
+        g_value_set_object(value, webkit_network_request_get_message(request));
+        break;
+    default:
+        G_OBJECT_WARN_INVALID_PROPERTY_ID(object, propertyID, pspec);
+    }
+}
+
+static void webkit_network_request_set_property(GObject* object, guint propertyID, const GValue* value, GParamSpec* pspec)
+{
+    WebKitNetworkRequest* request = WEBKIT_NETWORK_REQUEST(object);
+    WebKitNetworkRequestPrivate* priv = request->priv;
+
+    switch(propertyID) {
+    case PROP_URI:
+        webkit_network_request_set_uri(request, g_value_get_string(value));
+        break;
+    case PROP_MESSAGE:
+        priv->message = SOUP_MESSAGE(g_value_dup_object(value));
+        break;
+    default:
+        G_OBJECT_WARN_INVALID_PROPERTY_ID(object, propertyID, pspec);
+    }
 }
 
 static void webkit_network_request_class_init(WebKitNetworkRequestClass* requestClass)
 {
-    G_OBJECT_CLASS(requestClass)->finalize = webkit_network_request_finalize;
+    GObjectClass* objectClass = G_OBJECT_CLASS(requestClass);
+
+    objectClass->finalize = webkit_network_request_finalize;
+    objectClass->get_property = webkit_network_request_get_property;
+    objectClass->set_property = webkit_network_request_set_property;
+
+    webkit_init();
+
+    /**
+     * WebKitNetworkRequest:uri:
+     *
+     * The URI to which the request will be made.
+     *
+     * Since: 1.1.10
+     */
+    g_object_class_install_property(objectClass, PROP_URI,
+                                    g_param_spec_string("uri",
+                                                        _("URI"),
+                                                        _("The URI to which the request will be made."),
+                                                        NULL,
+                                                        (GParamFlags)(WEBKIT_PARAM_READWRITE)));
+
+    /**
+     * WebKitNetworkRequest:message:
+     *
+     * The #SoupMessage that backs the request.
+     *
+     * Since: 1.1.10
+     */
+    g_object_class_install_property(objectClass, PROP_MESSAGE,
+                                    g_param_spec_object("message",
+                                                        _("Message"),
+                                                        _("The SoupMessage that backs the request."),
+                                                        SOUP_TYPE_MESSAGE,
+                                                        (GParamFlags)(WEBKIT_PARAM_READWRITE|G_PARAM_CONSTRUCT_ONLY)));
 
     g_type_class_add_private(requestClass, sizeof(WebKitNetworkRequestPrivate));
 }
@@ -67,18 +162,42 @@ static void webkit_network_request_init(WebKitNetworkRequest* request)
     request->priv = priv;
 }
 
+// for internal use only
+WebKitNetworkRequest* webkit_network_request_new_with_core_request(const WebCore::ResourceRequest& resourceRequest)
+{
+    GOwnPtr<SoupMessage> soupMessage(resourceRequest.toSoupMessage());
+    if (soupMessage)
+        return WEBKIT_NETWORK_REQUEST(g_object_new(WEBKIT_TYPE_NETWORK_REQUEST, "message", soupMessage.get(), NULL));
+
+    return WEBKIT_NETWORK_REQUEST(g_object_new(WEBKIT_TYPE_NETWORK_REQUEST, "uri", resourceRequest.url().string().utf8().data(), NULL));
+}
+
+/**
+ * webkit_network_request_new:
+ * @uri: an URI
+ *
+ * Creates a new #WebKitNetworkRequest initialized with an URI.
+ *
+ * Returns: a new #WebKitNetworkRequest, or %NULL if the URI is
+ * invalid.
+ */
 WebKitNetworkRequest* webkit_network_request_new(const gchar* uri)
 {
     g_return_val_if_fail(uri, NULL);
 
-    WebKitNetworkRequest* request = WEBKIT_NETWORK_REQUEST(g_object_new(WEBKIT_TYPE_NETWORK_REQUEST, NULL));
-    WebKitNetworkRequestPrivate* priv = request->priv;
-
-    priv->uri = g_strdup(uri);
-
-    return request;
+    return WEBKIT_NETWORK_REQUEST(g_object_new(WEBKIT_TYPE_NETWORK_REQUEST, "uri", uri, NULL));
 }
 
+/**
+ * webkit_network_request_set_uri:
+ * @request: a #WebKitNetworkRequest
+ * @uri: an URI
+ *
+ * Sets the URI held and used by the given request. When the request
+ * has an associated #SoupMessage, its URI will also be set by this
+ * call.
+ *
+ */
 void webkit_network_request_set_uri(WebKitNetworkRequest* request, const gchar* uri)
 {
     g_return_if_fail(WEBKIT_IS_NETWORK_REQUEST(request));
@@ -86,8 +205,21 @@ void webkit_network_request_set_uri(WebKitNetworkRequest* request, const gchar* 
 
     WebKitNetworkRequestPrivate* priv = request->priv;
 
-    g_free(priv->uri);
+    if (priv->uri)
+        g_free(priv->uri);
     priv->uri = g_strdup(uri);
+
+    if (!priv->message)
+        return;
+
+    SoupURI* soupURI = soup_uri_new(uri);
+    if (!soupURI) {
+        g_warning("Invalid URI: %s", uri);
+        return;
+    }
+
+    soup_message_set_uri(priv->message, soupURI);
+    soup_uri_free(soupURI);
 }
 
 /**
@@ -103,7 +235,32 @@ G_CONST_RETURN gchar* webkit_network_request_get_uri(WebKitNetworkRequest* reque
     g_return_val_if_fail(WEBKIT_IS_NETWORK_REQUEST(request), NULL);
 
     WebKitNetworkRequestPrivate* priv = request->priv;
+
+    if (priv->uri)
+        return priv->uri;
+
+    SoupURI* soupURI = soup_message_get_uri(priv->message);
+    priv->uri = soup_uri_to_string(soupURI, FALSE);
     return priv->uri;
 }
 
+/**
+ * webkit_network_request_get_soup_message:
+ * @request: a #WebKitNetworkRequest
+ *
+ * Obtains the #SoupMessage held and used by the given request. Notice
+ * that modification of the SoupMessage of a request by signal
+ * handlers is only supported (as in, will only affect what is
+ * actually sent to the server) where explicitly documented.
+ *
+ * Returns: the #SoupMessage
+ * Since: 1.1.9
+ */
+SoupMessage* webkit_network_request_get_message(WebKitNetworkRequest* request)
+{
+    g_return_val_if_fail(WEBKIT_IS_NETWORK_REQUEST(request), NULL);
+
+    WebKitNetworkRequestPrivate* priv = request->priv;
+
+    return priv->message;
 }

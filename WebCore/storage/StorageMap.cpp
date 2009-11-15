@@ -26,6 +26,8 @@
 #include "config.h"
 #include "StorageMap.h"
 
+#if ENABLE(DOM_STORAGE)
+
 namespace WebCore {
 
 PassRefPtr<StorageMap> StorageMap::create()
@@ -80,15 +82,13 @@ unsigned StorageMap::length() const
     return m_map.size();
 }
 
-bool StorageMap::key(unsigned index, String& key) const
+String StorageMap::key(unsigned index) const
 {
     if (index >= length())
-        return false;
+        return String();
     
     setIteratorToIndex(index);
-    
-    key = m_iterator->first;
-    return true;
+    return m_iterator->first;
 }
 
 String StorageMap::getItem(const String& key) const
@@ -156,3 +156,6 @@ void StorageMap::importItem(const String& key, const String& value) const
 }
 
 }
+
+#endif // ENABLE(DOM_STORAGE)
+

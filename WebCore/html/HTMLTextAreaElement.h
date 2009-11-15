@@ -28,7 +28,7 @@
 
 namespace WebCore {
 
-class Selection;
+class VisibleSelection;
 
 class HTMLTextAreaElement : public HTMLFormControlElementWithState {
 public:
@@ -43,14 +43,16 @@ public:
 
     virtual bool isEnumeratable() const { return true; }
 
-    virtual const AtomicString& type() const;
+    virtual const AtomicString& formControlType() const;
 
-    virtual bool saveState(String& value) const;
-    virtual void restoreState(const String&);
+    virtual bool saveFormControlState(String& value) const;
+    virtual void restoreFormControlState(const String&);
 
-    bool readOnly() const { return isReadOnlyControl(); }
+    bool readOnly() const { return isReadOnlyFormControl(); }
 
-    virtual bool isTextControl() const { return true; }
+    virtual bool isTextFormControl() const { return true; }
+
+    virtual bool valueMissing() const { return isRequiredFormControl() && !disabled() && !readOnly() && value().isEmpty(); }
 
     int selectionStart();
     int selectionEnd();
@@ -87,7 +89,7 @@ public:
     void setRows(int);
     
     void cacheSelection(int s, int e) { m_cachedSelectionStart = s; m_cachedSelectionEnd = e; };
-    Selection selection() const;
+    VisibleSelection selection() const;
 
     virtual bool shouldUseInputMethod() const;
 
@@ -95,6 +97,9 @@ private:
     enum WrapMethod { NoWrap, SoftWrap, HardWrap };
 
     void updateValue() const;
+
+    virtual bool isOptionalFormControl() const { return !isRequiredFormControl(); }
+    virtual bool isRequiredFormControl() const { return required(); }
 
     int m_rows;
     int m_cols;

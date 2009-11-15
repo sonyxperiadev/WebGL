@@ -44,14 +44,16 @@ use strict;
 use warnings;
 
 use Config;
-use Cwd;
 use File::Basename;
 use File::Spec;
 use File::stat;
+use FindBin;
 use Getopt::Long;
+use lib $FindBin::Bin;
 use MIME::Base64;
 use POSIX qw(:errno_h);
 use Time::gmtime;
+use VCSUtils;
 
 sub binarycmp($$);
 sub canonicalizePath($);
@@ -60,7 +62,7 @@ sub findMimeType($;$);
 sub findModificationType($);
 sub findSourceFileAndRevision($);
 sub fixChangeLogPatch($);
-sub generateDiff($);
+sub generateDiff($$);
 sub generateFileList($\%);
 sub isBinaryMimeType($);
 sub manufacturePatchForAdditionWithHistory($);
@@ -75,6 +77,8 @@ sub testfilecmp($$);
 $ENV{'LC_ALL'} = 'C';
 
 my $showHelp;
+my $svnVersion = `svn --version --quiet`;
+my $devNull = File::Spec->devnull();
 
 my $result = GetOptions(
     "help"       => \$showHelp,
@@ -93,9 +97,12 @@ for my $path (keys %paths) {
     generateFileList($path, %diffFiles);
 }
 
+my $svnRoot = determineSVNRoot();
+my $prefix = chdirReturningRelativePath($svnRoot);
+
 # Generate the diffs, in a order chosen for easy reviewing.
 for my $path (sort patchpathcmp values %diffFiles) {
-    generateDiff($path);
+    generateDiff($path, $prefix);
 }
 
 exit 0;
@@ -151,7 +158,6 @@ sub findBaseUrl($)
     while (<INFO>) {
         if (/^URL: (.+)/) {
             $baseUrl = $1;
-            last;
         }
     }
     close INFO;
@@ -165,7 +171,10 @@ sub findMimeType($;$)
     open PROPGET, "svn propget svn:mime-type $args '$file' |" or die;
     my $mimeType = <PROPGET>;
     close PROPGET;
-    chomp $mimeType if $mimeType;
+    # svn may output a different EOL sequence than $/, so avoid chomp.
+    if ($mimeType) {
+        $mimeType =~ s/[\r\n]+$//g;
+    }
     return $mimeType;
 }
 
@@ -174,7 +183,7 @@ sub findModificationType($)
     my ($stat) = @_;
     my $fileStat = substr($stat, 0, 1);
     my $propertyStat = substr($stat, 1, 1);
-    if ($fileStat eq "A") {
+    if ($fileStat eq "A" || $fileStat eq "R") {
         my $additionWithHistory = substr($stat, 3, 1);
         return $additionWithHistory eq "+" ? "additionWithHistory" : "addition";
     }
@@ -252,10 +261,10 @@ sub fixChangeLogPatch($)
     return $newPatch;
 }
 
-sub generateDiff($)
+sub generateDiff($$)
 {
-    my ($fileData) = @_;
-    my $file = $fileData->{path};
+    my ($fileData, $prefix) = @_;
+    my $file = File::Spec->catdir($prefix, $fileData->{path});
     my $patch;
     if ($fileData->{modificationType} eq "additionWithHistory") {
         manufacturePatchForAdditionWithHistory($fileData);
@@ -279,9 +288,17 @@ sub generateFileList($\%)
     my %testDirectories = map { $_ => 1 } qw(LayoutTests);
     open STAT, "svn stat '$statPath' |" or die;
     while (my $line = <STAT>) {
-        chomp $line;
-        my $stat = substr($line, 0, 7);
-        my $path = substr($line, 7);
+        # svn may output a different EOL sequence than $/, so avoid chomp.
+        $line =~ s/[\r\n]+$//g;
+        my $stat;
+        my $path;
+        if (eval "v$svnVersion" ge v1.6) { 
+            $stat = substr($line, 0, 8);
+            $path = substr($line, 8);
+        } else {
+            $stat = substr($line, 0, 7);
+            $path = substr($line, 7);
+        }
         next if -d $path;
         my $modificationType = findModificationType($stat);
         if ($modificationType) {
@@ -324,7 +341,7 @@ sub manufacturePatchForAdditionWithHistory($)
         my $mimeType = findMimeType($file, $sourceRevision);
         print "svn:mime-type = ${mimeType}\n\n";
     } else {
-        print `svn cat ${sourceFile} | diff -u /dev/null - | tail -n +3`;
+        print `svn cat ${sourceFile} | diff -u $devNull - | tail -n +3`;
     }
 }
 
@@ -440,3 +457,4 @@ sub testfilecmp($$)
     my ($fileDataA, $fileDataB) = @_;
     return $fileDataA->{isTestFile} <=> $fileDataB->{isTestFile};
 }
+

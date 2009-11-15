@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2008, 2009 Apple Inc. All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -25,6 +25,7 @@
 
 #include "config.h"
 #include "RenderScrollbar.h"
+
 #include "RenderScrollbarPart.h"
 #include "RenderScrollbarTheme.h"
 
@@ -117,7 +118,7 @@ ScrollbarPart RenderScrollbar::partForStyleResolve()
     return s_styleResolvePart;
 }
 
-PassRefPtr<RenderStyle> RenderScrollbar::getScrollbarPseudoStyle(ScrollbarPart partType, RenderStyle::PseudoId pseudoId)
+PassRefPtr<RenderStyle> RenderScrollbar::getScrollbarPseudoStyle(ScrollbarPart partType, PseudoId pseudoId)
 {
     s_styleResolvePart = partType;
     s_styleResolveScrollbar = this;
@@ -158,24 +159,29 @@ void RenderScrollbar::updateScrollbarParts(bool destroy)
     }
 }
 
-static RenderStyle::PseudoId pseudoForScrollbarPart(ScrollbarPart part)
+static PseudoId pseudoForScrollbarPart(ScrollbarPart part)
 {
     switch (part) {
         case BackButtonStartPart:
         case ForwardButtonStartPart:
         case BackButtonEndPart:
         case ForwardButtonEndPart:
-            return RenderStyle::SCROLLBAR_BUTTON;
+            return SCROLLBAR_BUTTON;
         case BackTrackPart:
         case ForwardTrackPart:
-            return RenderStyle::SCROLLBAR_TRACK_PIECE;
+            return SCROLLBAR_TRACK_PIECE;
         case ThumbPart:
-            return RenderStyle::SCROLLBAR_THUMB;
+            return SCROLLBAR_THUMB;
         case TrackBGPart:
-            return RenderStyle::SCROLLBAR_TRACK;
-        default:
-            return RenderStyle::SCROLLBAR;
+            return SCROLLBAR_TRACK;
+        case ScrollbarBGPart:
+            return SCROLLBAR;
+        case NoPart:
+        case AllParts:
+            break;
     }
+    ASSERT_NOT_REACHED();
+    return SCROLLBAR;
 }
 
 void RenderScrollbar::updateScrollbarPart(ScrollbarPart partType, bool destroy)

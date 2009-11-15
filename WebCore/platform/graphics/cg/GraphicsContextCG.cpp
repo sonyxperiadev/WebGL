@@ -116,10 +116,9 @@ void GraphicsContext::drawRect(const IntRect& rect)
 
     CGContextRef context = platformContext();
 
-    if (fillColor().alpha())
-        CGContextFillRect(context, rect);
+    CGContextFillRect(context, rect);
 
-    if (strokeStyle() != NoStroke && strokeColor().alpha()) {
+    if (strokeStyle() != NoStroke) {
         // We do a fill of four rects to simulate the stroke of a border.
         Color oldFillColor = fillColor();
         if (oldFillColor != strokeColor())
@@ -142,7 +141,7 @@ void GraphicsContext::drawLine(const IntPoint& point1, const IntPoint& point2)
     if (paintingDisabled())
         return;
 
-    if (strokeStyle() == NoStroke || !strokeColor().alpha())
+    if (strokeStyle() == NoStroke)
         return;
 
     float width = strokeThickness();
@@ -277,7 +276,7 @@ void GraphicsContext::drawEllipse(const IntRect& rect)
 
 void GraphicsContext::strokeArc(const IntRect& rect, int startAngle, int angleSpan)
 { 
-    if (paintingDisabled() || strokeStyle() == NoStroke || strokeThickness() <= 0.0f || !strokeColor().alpha())
+    if (paintingDisabled() || strokeStyle() == NoStroke || strokeThickness() <= 0.0f)
         return;
     
     CGContextRef context = platformContext();
@@ -366,7 +365,7 @@ void GraphicsContext::strokeArc(const IntRect& rect, int startAngle, int angleSp
 
 void GraphicsContext::drawConvexPolygon(size_t npoints, const FloatPoint* points, bool antialiased)
 {
-    if (paintingDisabled() || !fillColor().alpha() && (strokeThickness() <= 0 || strokeStyle() == NoStroke))
+    if (paintingDisabled())
         return;
 
     if (npoints <= 1)
@@ -491,8 +490,7 @@ void GraphicsContext::fillPath()
     CGContextRef context = platformContext();
     switch (m_common->state.fillColorSpace) {
     case SolidColorSpace:
-        if (fillColor().alpha())
-            fillPathWithFillRule(context, fillRule());
+        fillPathWithFillRule(context, fillRule());
         break;
     case PatternColorSpace:
         applyFillPattern();
@@ -504,6 +502,7 @@ void GraphicsContext::fillPath()
             CGContextEOClip(context);
         else
             CGContextClip(context);
+        CGContextConcatCTM(context, m_common->state.fillGradient->gradientSpaceTransform());
         CGContextDrawShading(context, m_common->state.fillGradient->platformGradient());
         CGContextRestoreGState(context);
         break;
@@ -518,8 +517,7 @@ void GraphicsContext::strokePath()
     CGContextRef context = platformContext();
     switch (m_common->state.strokeColorSpace) {
     case SolidColorSpace:
-        if (strokeColor().alpha())
-            CGContextStrokePath(context);
+        CGContextStrokePath(context);
         break;
     case PatternColorSpace:
         applyStrokePattern();
@@ -529,6 +527,7 @@ void GraphicsContext::strokePath()
         CGContextSaveGState(context);
         CGContextReplacePathWithStrokedPath(context);
         CGContextClip(context);
+        CGContextConcatCTM(context, m_common->state.strokeGradient->gradientSpaceTransform());
         CGContextDrawShading(context, m_common->state.strokeGradient->platformGradient());
         CGContextRestoreGState(context);
         break;
@@ -542,8 +541,7 @@ void GraphicsContext::fillRect(const FloatRect& rect)
     CGContextRef context = platformContext();
     switch (m_common->state.fillColorSpace) {
     case SolidColorSpace:
-        if (fillColor().alpha())
-            CGContextFillRect(context, rect);
+        CGContextFillRect(context, rect);
         break;
     case PatternColorSpace:
         applyFillPattern();
@@ -552,6 +550,7 @@ void GraphicsContext::fillRect(const FloatRect& rect)
     case GradientColorSpace:
         CGContextSaveGState(context);
         CGContextClipToRect(context, rect);
+        CGContextConcatCTM(context, m_common->state.fillGradient->gradientSpaceTransform());
         CGContextDrawShading(context, m_common->state.fillGradient->platformGradient());
         CGContextRestoreGState(context);
         break;
@@ -562,20 +561,18 @@ void GraphicsContext::fillRect(const FloatRect& rect, const Color& color)
 {
     if (paintingDisabled())
         return;
-    if (color.alpha()) {
-        CGContextRef context = platformContext();
-        Color oldFillColor = fillColor();
-        if (oldFillColor != color)
-            setCGFillColor(context, color);
-        CGContextFillRect(context, rect);
-        if (oldFillColor != color)
-            setCGFillColor(context, oldFillColor);
-    }
+    CGContextRef context = platformContext();
+    Color oldFillColor = fillColor();
+    if (oldFillColor != color)
+      setCGFillColor(context, color);
+    CGContextFillRect(context, rect);
+    if (oldFillColor != color)
+      setCGFillColor(context, oldFillColor);
 }
 
 void GraphicsContext::fillRoundedRect(const IntRect& rect, const IntSize& topLeft, const IntSize& topRight, const IntSize& bottomLeft, const IntSize& bottomRight, const Color& color)
 {
-    if (paintingDisabled() || !color.alpha())
+    if (paintingDisabled())
         return;
 
     CGContextRef context = platformContext();
@@ -734,7 +731,7 @@ void GraphicsContext::setPlatformShadow(const IntSize& size, int blur, const Col
     if (!color.isValid())
         CGContextSetShadow(context, CGSizeMake(width, height), blurRadius);
     else {
-        CGColorRef colorCG = cgColor(color);
+        CGColorRef colorCG = createCGColor(color);
         CGContextSetShadowWithColor(context,
                                     CGSizeMake(width, height),
                                     blurRadius, 
@@ -779,8 +776,7 @@ void GraphicsContext::strokeRect(const FloatRect& r, float lineWidth)
     CGContextRef context = platformContext();
     switch (m_common->state.strokeColorSpace) {
     case SolidColorSpace:
-        if (strokeColor().alpha())
-            CGContextStrokeRectWithWidth(context, r, lineWidth);
+        CGContextStrokeRectWithWidth(context, r, lineWidth);
         break;
     case PatternColorSpace:
         applyStrokePattern();
@@ -907,7 +903,8 @@ void GraphicsContext::concatCTM(const TransformationMatrix& transform)
 
 TransformationMatrix GraphicsContext::getCTM() const
 {
-    return CGContextGetCTM(platformContext());
+    CGAffineTransform t = CGContextGetCTM(platformContext());
+    return TransformationMatrix(t.a, t.b, t.c, t.d, t.tx, t.ty);
 }
 
 FloatRect GraphicsContext::roundToDevicePixels(const FloatRect& rect)
@@ -1195,4 +1192,3 @@ void GraphicsContext::setCompositeOperation(CompositeOperator mode)
 #endif
 
 }
-

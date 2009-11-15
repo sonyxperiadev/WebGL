@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2007, 2008, 2009 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -40,37 +40,47 @@ public:
 
     void makeWindowObject(JSContextRef context, JSObjectRef windowObject, JSValueRef* exception);
 
-    // Controller Methods - platfrom independant implementations
     void addDisallowedURL(JSStringRef url);
     void clearAllDatabases();
     void clearBackForwardList();
+    void clearPersistentUserStyleSheet();
     JSStringRef copyDecodedHostName(JSStringRef name);
     JSStringRef copyEncodedHostName(JSStringRef name);
-    void execCommand(JSStringRef name, JSStringRef value);
+    void disableImageLoading();
+    void dispatchPendingLoadRequests();
     void display();
+    void execCommand(JSStringRef name, JSStringRef value);
+    bool isCommandEnabled(JSStringRef name);
     void keepWebHistory();
     void notifyDone();
     JSStringRef pathToLocalResource(JSContextRef, JSStringRef url);
     void queueBackNavigation(int howFarBackward);
     void queueForwardNavigation(int howFarForward);
     void queueLoad(JSStringRef url, JSStringRef target);
+    void queueLoadingScript(JSStringRef script);
+    void queueNonLoadingScript(JSStringRef script);
     void queueReload();
-    void queueScript(JSStringRef url);
     void setAcceptsEditing(bool acceptsEditing);
+    void setAppCacheMaximumSize(unsigned long long quota);
     void setAuthorAndUserStylesEnabled(bool);
-    void setCustomPolicyDelegate(bool setDelegate);
+    void setCacheModel(int);
+    void setCustomPolicyDelegate(bool setDelegate, bool permissive);
     void setDatabaseQuota(unsigned long long quota);
-    void setMainFrameIsFirstResponder(bool flag);
-    void setPrivateBrowsingEnabled(bool flag);
-    void setPopupBlockingEnabled(bool flag);
-    void setTabKeyCyclesThroughElements(bool cycles);
-    void setSmartInsertDeleteEnabled(bool flag);
+    void setIconDatabaseEnabled(bool iconDatabaseEnabled);
     void setJavaScriptProfilingEnabled(bool profilingEnabled);
+    void setMainFrameIsFirstResponder(bool flag);
+    void setPersistentUserStyleSheetLocation(JSStringRef path);
+    void setPopupBlockingEnabled(bool flag);
+    void setPrivateBrowsingEnabled(bool flag);
+    void setXSSAuditorEnabled(bool flag);
+    void setSelectTrailingWhitespaceEnabled(bool flag);
+    void setSmartInsertDeleteEnabled(bool flag);
+    void setTabKeyCyclesThroughElements(bool cycles);
     void setUseDashboardCompatibilityMode(bool flag);
     void setUserStyleSheetEnabled(bool flag);
     void setUserStyleSheetLocation(JSStringRef path);
-    void setPersistentUserStyleSheetLocation(JSStringRef path);
-    void clearPersistentUserStyleSheet();
+    void waitForPolicyDelegate();
+    size_t webHistoryItemCount();
     int windowCount();
     
     bool elementDoesAutoCompleteForElementWithId(JSStringRef id);
@@ -113,12 +123,15 @@ public:
 
     bool dumpResourceLoadCallbacks() const { return m_dumpResourceLoadCallbacks; }
     void setDumpResourceLoadCallbacks(bool dumpResourceLoadCallbacks) { m_dumpResourceLoadCallbacks = dumpResourceLoadCallbacks; }
+    
+    bool dumpResourceResponseMIMETypes() const { return m_dumpResourceResponseMIMETypes; }
+    void setDumpResourceResponseMIMETypes(bool dumpResourceResponseMIMETypes) { m_dumpResourceResponseMIMETypes = dumpResourceResponseMIMETypes; }
+
+    bool dumpWillCacheResponse() const { return m_dumpWillCacheResponse; }
+    void setDumpWillCacheResponse(bool dumpWillCacheResponse) { m_dumpWillCacheResponse = dumpWillCacheResponse; }
 
     bool dumpFrameLoadCallbacks() const { return m_dumpFrameLoadCallbacks; }
     void setDumpFrameLoadCallbacks(bool dumpFrameLoadCallbacks) { m_dumpFrameLoadCallbacks = dumpFrameLoadCallbacks; }
-
-    bool addFileToPasteboardOnDrag() const { return m_addFileToPasteboardOnDrag; }
-    void setAddFileToPasteboardOnDrag(bool addFileToPasteboardOnDrag) { m_addFileToPasteboardOnDrag = addFileToPasteboardOnDrag; }
 
     bool callCloseOnWebViews() const { return m_callCloseOnWebViews; }
     void setCallCloseOnWebViews(bool callCloseOnWebViews) { m_callCloseOnWebViews = callCloseOnWebViews; }
@@ -144,6 +157,9 @@ public:
     bool waitToDump() const { return m_waitToDump; }
     void setWaitToDump(bool waitToDump);
 
+    bool willSendRequestReturnsNullOnRedirect() const { return m_willSendRequestReturnsNullOnRedirect; }
+    void setWillSendRequestReturnsNullOnRedirect(bool returnsNull) { m_willSendRequestReturnsNullOnRedirect = returnsNull; }
+
     bool windowIsKey() const { return m_windowIsKey; }
     void setWindowIsKey(bool windowIsKey);
 
@@ -152,6 +168,10 @@ public:
     
     const std::string& testPathOrURL() const { return m_testPathOrURL; }
     const std::string& expectedPixelHash() const { return m_expectedPixelHash; }
+    
+    bool pauseAnimationAtTimeOnElementWithId(JSStringRef animationName, double time, JSStringRef elementId);
+    bool pauseTransitionAtTimeOnElementWithId(JSStringRef propertyName, double time, JSStringRef elementId);
+    unsigned numberOfActiveAnimations() const;
     
 private:
     bool m_dumpAsText;
@@ -167,8 +187,9 @@ private:
     bool m_dumpTitleChanges;
     bool m_dumpEditingCallbacks;
     bool m_dumpResourceLoadCallbacks;
+    bool m_dumpResourceResponseMIMETypes;
+    bool m_dumpWillCacheResponse;
     bool m_dumpFrameLoadCallbacks;
-    bool m_addFileToPasteboardOnDrag;
     bool m_callCloseOnWebViews;
     bool m_canOpenWindows;
     bool m_closeRemainingWindowsWhenComplete;
@@ -177,6 +198,7 @@ private:
     bool m_testRepaint;
     bool m_testRepaintSweepHorizontally;
     bool m_waitToDump; // True if waitUntilDone() has been called, but notifyDone() has not yet been called.
+    bool m_willSendRequestReturnsNullOnRedirect;
     bool m_windowIsKey;
 
     bool m_globalFlag;

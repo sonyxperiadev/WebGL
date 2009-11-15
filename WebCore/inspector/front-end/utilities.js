@@ -37,6 +37,8 @@ Object.type = function(obj, win)
 
     win = win || window;
 
+    if (obj instanceof win.Node)
+        return (obj.nodeType === undefined ? type : "node");
     if (obj instanceof win.String)
         return "string";
     if (obj instanceof win.Array)
@@ -70,6 +72,7 @@ Object.describe = function(obj, abbreviated)
 
     switch (type1) {
     case "object":
+    case "node":
         return type2;
     case "array":
         return "[" + obj.toString() + "]";
@@ -91,13 +94,17 @@ Object.describe = function(obj, abbreviated)
     }
 }
 
-Object.sortedProperties = function(obj)
+Object.properties = function(obj)
 {
     var properties = [];
     for (var prop in obj)
         properties.push(prop);
-    properties.sort();
     return properties;
+}
+
+Object.sortedProperties = function(obj, sortFunc)
+{
+    return Object.properties(obj).sort(sortFunc);
 }
 
 Function.prototype.bind = function(thisObject)
@@ -376,113 +383,6 @@ String.prototype.trimURL = function(baseURLDomain)
     if (baseURLDomain)
         result = result.replace(new RegExp("^" + baseURLDomain.escapeForRegExp(), "i"), "");
     return result;
-}
-
-function getStyleTextWithShorthands(style)
-{
-    var cssText = "";
-    var foundProperties = {};
-    for (var i = 0; i < style.length; ++i) {
-        var individualProperty = style[i];
-        var shorthandProperty = style.getPropertyShorthand(individualProperty);
-        var propertyName = (shorthandProperty || individualProperty);
-
-        if (propertyName in foundProperties)
-            continue;
-
-        if (shorthandProperty) {
-            var value = getShorthandValue(style, shorthandProperty);
-            var priority = getShorthandPriority(style, shorthandProperty);
-        } else {
-            var value = style.getPropertyValue(individualProperty);
-            var priority = style.getPropertyPriority(individualProperty);
-        }
-
-        foundProperties[propertyName] = true;
-
-        cssText += propertyName + ": " + value;
-        if (priority)
-            cssText += " !" + priority;
-        cssText += "; ";
-    }
-
-    return cssText;
-}
-
-function getShorthandValue(style, shorthandProperty)
-{
-    var value = style.getPropertyValue(shorthandProperty);
-    if (!value) {
-        // Some shorthands (like border) return a null value, so compute a shorthand value.
-        // FIXME: remove this when http://bugs.webkit.org/show_bug.cgi?id=15823 is fixed.
-
-        var foundProperties = {};
-        for (var i = 0; i < style.length; ++i) {
-            var individualProperty = style[i];
-            if (individualProperty in foundProperties || style.getPropertyShorthand(individualProperty) !== shorthandProperty)
-                continue;
-
-            var individualValue = style.getPropertyValue(individualProperty);
-            if (style.isPropertyImplicit(individualProperty) || individualValue === "initial")
-                continue;
-
-            foundProperties[individualProperty] = true;
-
-            if (!value)
-                value = "";
-            else if (value.length)
-                value += " ";
-            value += individualValue;
-        }
-    }
-    return value;
-}
-
-function getShorthandPriority(style, shorthandProperty)
-{
-    var priority = style.getPropertyPriority(shorthandProperty);
-    if (!priority) {
-        for (var i = 0; i < style.length; ++i) {
-            var individualProperty = style[i];
-            if (style.getPropertyShorthand(individualProperty) !== shorthandProperty)
-                continue;
-            priority = style.getPropertyPriority(individualProperty);
-            break;
-        }
-    }
-    return priority;
-}
-
-function getLonghandProperties(style, shorthandProperty)
-{
-    var properties = [];
-    var foundProperties = {};
-
-    for (var i = 0; i < style.length; ++i) {
-        var individualProperty = style[i];
-        if (individualProperty in foundProperties || style.getPropertyShorthand(individualProperty) !== shorthandProperty)
-            continue;
-        foundProperties[individualProperty] = true;
-        properties.push(individualProperty);
-    }
-
-    return properties;
-}
-
-function getUniqueStyleProperties(style)
-{
-    var properties = [];
-    var foundProperties = {};
-
-    for (var i = 0; i < style.length; ++i) {
-        var property = style[i];
-        if (property in foundProperties)
-            continue;
-        foundProperties[property] = true;
-        properties.push(property);
-    }
-
-    return properties;
 }
 
 function isNodeWhitespace()
@@ -935,6 +835,41 @@ Array.prototype.remove = function(value, onlyFirst)
         if (this[i] === value)
             this.splice(i, 1);
     }
+}
+
+function insertionIndexForObjectInListSortedByFunction(anObject, aList, aFunction)
+{
+    // indexOf returns (-lowerBound - 1). Taking (-result - 1) works out to lowerBound.
+    return (-indexOfObjectInListSortedByFunction(anObject, aList, aFunction) - 1);
+}
+
+function indexOfObjectInListSortedByFunction(anObject, aList, aFunction)
+{
+    var first = 0;
+    var last = aList.length - 1;
+    var floor = Math.floor;
+    var mid, c;
+
+    while (first <= last) {
+        mid = floor((first + last) / 2);
+        c = aFunction(anObject, aList[mid]);
+
+        if (c > 0)
+            first = mid + 1;
+        else if (c < 0)
+            last = mid - 1;
+        else {
+            // Return the first occurance of an item in the list.
+            while (mid > 0 && aFunction(anObject, aList[mid - 1]) === 0)
+                mid--;
+            first = mid;
+            break;
+        }
+    }
+
+    // By returning 1 less than the negative lower search bound, we can reuse this function
+    // for both indexOf and insertionIndexFor, with some simple arithmetic.
+    return (-first - 1);
 }
 
 String.sprintf = function(format)

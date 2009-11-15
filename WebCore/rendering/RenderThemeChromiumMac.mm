@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
  * Copyright (C) 2008, 2009 Google, Inc.
+ * Copyright (C) 2009 Kenneth Rohde Christiansen
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -31,9 +32,10 @@
 #import <math.h>
 
 #import "BitmapImage.h"
+#import "ChromiumBridge.h"
+#import "ColorMac.h"
 #import "CSSStyleSelector.h"
 #import "CSSValueKeywords.h"
-#import "Document.h"
 #import "Element.h"
 #import "FoundationExtras.h"
 #import "FrameView.h"
@@ -44,6 +46,7 @@
 #import "Image.h"
 #import "LocalCurrentGraphicsContext.h"
 #import "MediaControlElements.h"
+#import "RenderMedia.h"
 #import "RenderSlider.h"
 #import "RenderView.h"
 #import "SharedBuffer.h"
@@ -125,10 +128,15 @@ IntRect NSRectToIntRect(const NSRect & rect)
     return IntRect(rect.origin.x, rect.origin.y, rect.size.width, rect.size.height);
 }
 
-RenderTheme* theme()
+PassRefPtr<RenderTheme> RenderThemeChromiumMac::create()
 {
-    static RenderThemeChromiumMac* macTheme = new RenderThemeChromiumMac;
-    return macTheme;
+    return adoptRef(new RenderThemeChromiumMac);
+}
+
+PassRefPtr<RenderTheme> RenderTheme::themeForPage(Page* page)
+{
+    static RenderTheme* rt = RenderThemeChromiumMac::create().releaseRef();
+    return rt;
 }
 
 RenderThemeChromiumMac::RenderThemeChromiumMac()
@@ -159,10 +167,18 @@ Color RenderThemeChromiumMac::platformInactiveSelectionBackgroundColor() const
     return Color(static_cast<int>(255.0 * [color redComponent]), static_cast<int>(255.0 * [color greenComponent]), static_cast<int>(255.0 * [color blueComponent]));
 }
 
-Color RenderThemeChromiumMac::activeListBoxSelectionBackgroundColor() const
+Color RenderThemeChromiumMac::platformActiveListBoxSelectionBackgroundColor() const
 {
     NSColor* color = [[NSColor alternateSelectedControlColor] colorUsingColorSpaceName:NSDeviceRGBColorSpace];
     return Color(static_cast<int>(255.0 * [color redComponent]), static_cast<int>(255.0 * [color greenComponent]), static_cast<int>(255.0 * [color blueComponent]));
+}
+
+Color RenderThemeChromiumMac::platformFocusRingColor() const
+{
+    if (ChromiumBridge::layoutTestMode())
+        return oldAquaFocusRingColor();
+
+    return systemColor(CSSValueWebkitFocusRingColor);
 }
 
 static FontWeight toFontWeight(NSInteger appKitFontWeight)
@@ -192,7 +208,7 @@ static FontWeight toFontWeight(NSInteger appKitFontWeight)
     return fontWeights[appKitFontWeight - 1];
 }
 
-void RenderThemeChromiumMac::systemFont(int cssValueId, Document* document, FontDescription& fontDescription) const
+void RenderThemeChromiumMac::systemFont(int cssValueId, FontDescription& fontDescription) const
 {
     static FontDescription systemFont;
     static FontDescription smallSystemFont;
@@ -417,6 +433,9 @@ Color RenderThemeChromiumMac::systemColor(int cssValueId) const
     case CSSValueThreedlightshadow:
         color = convertNSColorToColor([NSColor controlLightHighlightColor]);
         break;
+    case CSSValueWebkitFocusRingColor:
+        color = convertNSColorToColor([NSColor keyboardFocusIndicatorColor]);
+        break;
     case CSSValueWindow:
         color = convertNSColorToColor([NSColor windowBackgroundColor]);
         break;
@@ -565,7 +584,7 @@ void RenderThemeChromiumMac::updateFocusedState(NSCell* cell, const RenderObject
 void RenderThemeChromiumMac::updatePressedState(NSCell* cell, const RenderObject* o)
 {
     bool oldPressed = [cell isHighlighted];
-    bool pressed = (o->element() && o->element()->active());
+    bool pressed = (o->node() && o->node()->active());
     if (pressed != oldPressed)
         [cell setHighlighted:pressed];
 }
@@ -573,8 +592,13 @@ void RenderThemeChromiumMac::updatePressedState(NSCell* cell, const RenderObject
 // FIXME: This used to be in the upstream version until it was converted to the new theme API in r37731.
 int RenderThemeChromiumMac::baselinePosition(const RenderObject* o) const
 {
-    if (o->style()->appearance() == CheckboxPart || o->style()->appearance() == RadioPart)
-        return o->marginTop() + o->height() - 2 * o->style()->effectiveZoom(); // The baseline is 2px up from the bottom of the checkbox/radio in AppKit.
+    if (!o->isBox())
+        return 0;
+
+    if (o->style()->appearance() == CheckboxPart || o->style()->appearance() == RadioPart) {
+        const RenderBox* box = toRenderBox(o);
+        return box->marginTop() + box->height() - 2 * o->style()->effectiveZoom(); // The baseline is 2px up from the bottom of the checkbox/radio in AppKit.
+    }
     return RenderTheme::baselinePosition(o);
 }
 
@@ -680,6 +704,8 @@ NSControlSize RenderThemeChromiumMac::controlSizeForSystemFont(RenderStyle* styl
 // FIXME: This used to be in the upstream version until it was converted to the new theme API in r37731.
 bool RenderThemeChromiumMac::paintCheckbox(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
 {
+    LocalCurrentGraphicsContext localContext(paintInfo.context);
+
     // Determine the width and height needed for the control and prepare the cell for painting.
     setCheckboxCellState(o, r);
 
@@ -759,6 +785,8 @@ void RenderThemeChromiumMac::setCheckboxSize(RenderStyle* style) const
 // FIXME: This used to be in the upstream version until it was converted to the new theme API in r37731.
 bool RenderThemeChromiumMac::paintRadio(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
 {
+    LocalCurrentGraphicsContext localContext(paintInfo.context);
+
     // Determine the width and height needed for the control and prepare the cell for painting.
     setRadioCellState(o, r);
 
@@ -1075,6 +1103,8 @@ const int* RenderThemeChromiumMac::popupButtonPadding(NSControlSize size) const
 
 bool RenderThemeChromiumMac::paintMenuList(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
 {
+    LocalCurrentGraphicsContext localContext(paintInfo.context);
+
     setPopupButtonCellState(o, r);
 
     NSPopUpButtonCell* popupButton = this->popupButton();
@@ -1311,7 +1341,7 @@ void RenderThemeChromiumMac::adjustMenuListStyle(CSSStyleSelector* selector, Ren
 
     // Set the foreground color to black or gray when we have the aqua look.
     // Cast to RGB32 is to work around a compiler bug.
-    style->setColor(e->isEnabled() ? static_cast<RGBA32>(Color::black) : Color::darkGray);
+    style->setColor(e && e->isEnabledFormControl() ? static_cast<RGBA32>(Color::black) : Color::darkGray);
 
     // Set the button's vertical size.
     setSizeFromFont(style, menuListButtonSizes());
@@ -1476,7 +1506,7 @@ bool RenderThemeChromiumMac::paintSliderThumb(RenderObject* o, const RenderObjec
     else
         oldPressed = m_isSliderThumbHorizontalPressed;
 
-    bool pressed = static_cast<RenderSlider*>(o->parent())->inDragMode();
+    bool pressed = toRenderSlider(o->parent())->inDragMode();
 
     if (o->style()->appearance() == SliderThumbVerticalPart)
         m_isSliderThumbVerticalPressed = pressed;
@@ -1630,6 +1660,8 @@ void RenderThemeChromiumMac::adjustSearchFieldStyle(CSSStyleSelector* selector, 
 
 bool RenderThemeChromiumMac::paintSearchFieldCancelButton(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
 {
+    LocalCurrentGraphicsContext localContext(paintInfo.context);
+
     Node* input = o->node()->shadowAncestorNode();
     setSearchCellState(input->renderer(), r);
 
@@ -1703,6 +1735,8 @@ void RenderThemeChromiumMac::adjustSearchFieldResultsDecorationStyle(CSSStyleSel
 
 bool RenderThemeChromiumMac::paintSearchFieldResultsDecoration(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
 {
+    LocalCurrentGraphicsContext localContext(paintInfo.context);
+
     Node* input = o->node()->shadowAncestorNode();
     setSearchCellState(input->renderer(), r);
 
@@ -1728,6 +1762,8 @@ void RenderThemeChromiumMac::adjustSearchFieldResultsButtonStyle(CSSStyleSelecto
 
 bool RenderThemeChromiumMac::paintSearchFieldResultsButton(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
 {
+    LocalCurrentGraphicsContext localContext(paintInfo.context);
+
     Node* input = o->node()->shadowAncestorNode();
     setSearchCellState(input->renderer(), r);
 
@@ -1759,15 +1795,30 @@ bool RenderThemeChromiumMac::paintSearchFieldResultsButton(RenderObject* o, cons
     return false;
 }
 
+#if ENABLE(VIDEO)
+// FIXME: This enum is lifted from RenderThemeMac.mm  We need to decide which theme to use for the default controls, or decide to avoid wkDrawMediaUIPart and render our own.
+typedef enum {
+    MediaControllerThemeClassic   = 1,
+    MediaControllerThemeQT        = 2
+} MediaControllerThemeStyle;
+
+enum WKMediaControllerThemeState {
+    MediaUIPartDisabledFlag = 1 << 0,
+    MediaUIPartPressedFlag = 1 << 1,
+    MediaUIPartDrawEndCapsFlag = 1 << 3,
+};
+#endif
+
 bool RenderThemeChromiumMac::paintMediaFullscreenButton(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
 {
 #if ENABLE(VIDEO)
-    Node* node = o->element();
+    Node* node = o->node();
     if (!node)
         return false;
 
     LocalCurrentGraphicsContext localContext(paintInfo.context);
-    wkDrawMediaUIPart(MediaFullscreenButton, paintInfo.context->platformContext(), r, node->active());
+    wkDrawMediaUIPart(MediaFullscreenButton, MediaControllerThemeClassic,  paintInfo.context->platformContext(), r, 
+        node->active() ? MediaUIPartPressedFlag : 0);
 #endif
     return false;
 }
@@ -1775,7 +1826,7 @@ bool RenderThemeChromiumMac::paintMediaFullscreenButton(RenderObject* o, const R
 bool RenderThemeChromiumMac::paintMediaMuteButton(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
 {
 #if ENABLE(VIDEO)
-    Node* node = o->element();
+    Node* node = o->node();
     Node* mediaNode = node ? node->shadowAncestorNode() : 0;
     if (!mediaNode || (!mediaNode->hasTagName(videoTag) && !mediaNode->hasTagName(audioTag)))
         return false;
@@ -1785,7 +1836,8 @@ bool RenderThemeChromiumMac::paintMediaMuteButton(RenderObject* o, const RenderO
         return false;
     
     LocalCurrentGraphicsContext localContext(paintInfo.context);
-    wkDrawMediaUIPart(mediaElement->muted() ? MediaUnMuteButton : MediaMuteButton, paintInfo.context->platformContext(), r, node->active());
+    wkDrawMediaUIPart(mediaElement->muted() ? MediaUnMuteButton : MediaMuteButton, MediaControllerThemeClassic, paintInfo.context->platformContext(), r,
+        node->active() ? MediaUIPartPressedFlag : 0);
 #endif
     return false;
 }
@@ -1793,7 +1845,7 @@ bool RenderThemeChromiumMac::paintMediaMuteButton(RenderObject* o, const RenderO
 bool RenderThemeChromiumMac::paintMediaPlayButton(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
 {
 #if ENABLE(VIDEO)
-    Node* node = o->element();
+    Node* node = o->node();
     Node* mediaNode = node ? node->shadowAncestorNode() : 0;
     if (!mediaNode || (!mediaNode->hasTagName(videoTag) && !mediaNode->hasTagName(audioTag)))
         return false;
@@ -1803,7 +1855,8 @@ bool RenderThemeChromiumMac::paintMediaPlayButton(RenderObject* o, const RenderO
         return false;
 
     LocalCurrentGraphicsContext localContext(paintInfo.context);
-    wkDrawMediaUIPart(mediaElement->canPlay() ? MediaPlayButton : MediaPauseButton, paintInfo.context->platformContext(), r, node->active());
+    wkDrawMediaUIPart(mediaElement->canPlay() ? MediaPlayButton : MediaPauseButton, MediaControllerThemeClassic, paintInfo.context->platformContext(), r,
+        node->active() ? MediaUIPartPressedFlag : 0);
 #endif
     return false;
 }
@@ -1811,12 +1864,13 @@ bool RenderThemeChromiumMac::paintMediaPlayButton(RenderObject* o, const RenderO
 bool RenderThemeChromiumMac::paintMediaSeekBackButton(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
 {
 #if ENABLE(VIDEO)
-    Node* node = o->element();
+    Node* node = o->node();
     if (!node)
         return false;
 
     LocalCurrentGraphicsContext localContext(paintInfo.context);
-    wkDrawMediaUIPart(MediaSeekBackButton, paintInfo.context->platformContext(), r, node->active());
+    wkDrawMediaUIPart(MediaSeekBackButton, MediaControllerThemeClassic, paintInfo.context->platformContext(), r,
+        node->active() ? MediaUIPartPressedFlag : 0);
 #endif
     return false;
 }
@@ -1824,12 +1878,13 @@ bool RenderThemeChromiumMac::paintMediaSeekBackButton(RenderObject* o, const Ren
 bool RenderThemeChromiumMac::paintMediaSeekForwardButton(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
 {
 #if ENABLE(VIDEO)
-    Node* node = o->element();
+    Node* node = o->node();
     if (!node)
         return false;
 
     LocalCurrentGraphicsContext localContext(paintInfo.context);
-    wkDrawMediaUIPart(MediaSeekForwardButton, paintInfo.context->platformContext(), r, node->active());
+    wkDrawMediaUIPart(MediaSeekForwardButton, MediaControllerThemeClassic, paintInfo.context->platformContext(), r,
+        node->active() ? MediaUIPartPressedFlag : 0);
 #endif
     return false;
 }
@@ -1837,7 +1892,7 @@ bool RenderThemeChromiumMac::paintMediaSeekForwardButton(RenderObject* o, const 
 bool RenderThemeChromiumMac::paintMediaSliderTrack(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
 {
 #if ENABLE(VIDEO)
-    Node* node = o->element();
+    Node* node = o->node();
     Node* mediaNode = node ? node->shadowAncestorNode() : 0;
     if (!mediaNode || (!mediaNode->hasTagName(videoTag) && !mediaNode->hasTagName(audioTag)))
         return false;
@@ -1855,7 +1910,8 @@ bool RenderThemeChromiumMac::paintMediaSliderTrack(RenderObject* o, const Render
         currentTime = player->currentTime();
     }
 
-    wkDrawMediaSliderTrack(paintInfo.context->platformContext(), r, timeLoaded, currentTime, duration);
+    bool shouldDrawEndCaps = !toRenderMedia(mediaElement->renderer())->shouldShowTimeDisplayControls();
+    wkDrawMediaSliderTrack(MediaControllerThemeClassic, paintInfo.context->platformContext(), r, timeLoaded, currentTime, duration, shouldDrawEndCaps ? MediaUIPartDrawEndCapsFlag : 0);
 #endif
     return false;
 }
@@ -1863,12 +1919,13 @@ bool RenderThemeChromiumMac::paintMediaSliderTrack(RenderObject* o, const Render
 bool RenderThemeChromiumMac::paintMediaSliderThumb(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
 {
 #if ENABLE(VIDEO)
-    Node* node = o->element();
+    Node* node = o->node();
     if (!node)
         return false;
 
     LocalCurrentGraphicsContext localContext(paintInfo.context);
-    wkDrawMediaUIPart(MediaSliderThumb, paintInfo.context->platformContext(), r, node->active());
+    wkDrawMediaUIPart(MediaSliderThumb, MediaControllerThemeClassic, paintInfo.context->platformContext(), r,
+        node->active() ? MediaUIPartPressedFlag : 0);
 #endif
     return false;
 }

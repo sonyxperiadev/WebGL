@@ -33,10 +33,10 @@
 namespace JSC {
 
     class JSByteArray : public JSObject {
-        friend class Interpreter;
+        friend struct VPtrSet;
     public:
         bool canAccessIndex(unsigned i) { return i < m_storage->length(); }
-        JSValuePtr getIndex(ExecState* exec, unsigned i)
+        JSValue getIndex(ExecState* exec, unsigned i)
         {
             ASSERT(canAccessIndex(i));
             return jsNumber(exec, m_storage->data()[i]);
@@ -64,7 +64,7 @@ namespace JSC {
             m_storage->data()[i] = static_cast<unsigned char>(value + 0.5);
         }
         
-        void setIndex(ExecState* exec, unsigned i, JSValuePtr value)
+        void setIndex(ExecState* exec, unsigned i, JSValue value)
         {
             double byteValue = value.toNumber(exec);
             if (exec->hadException())
@@ -74,12 +74,12 @@ namespace JSC {
         }
 
         JSByteArray(ExecState* exec, PassRefPtr<Structure>, WTF::ByteArray* storage, const JSC::ClassInfo* = &s_defaultInfo);
-        static PassRefPtr<Structure> createStructure(JSValuePtr prototype);
+        static PassRefPtr<Structure> createStructure(JSValue prototype);
         
         virtual bool getOwnPropertySlot(JSC::ExecState*, const JSC::Identifier& propertyName, JSC::PropertySlot&);
         virtual bool getOwnPropertySlot(JSC::ExecState*, unsigned propertyName, JSC::PropertySlot&);
-        virtual void put(JSC::ExecState*, const JSC::Identifier& propertyName, JSC::JSValuePtr, JSC::PutPropertySlot&);
-        virtual void put(JSC::ExecState*, unsigned propertyName, JSC::JSValuePtr);
+        virtual void put(JSC::ExecState*, const JSC::Identifier& propertyName, JSC::JSValue, JSC::PutPropertySlot&);
+        virtual void put(JSC::ExecState*, unsigned propertyName, JSC::JSValue);
 
         virtual void getPropertyNames(JSC::ExecState*, JSC::PropertyNameArray&);
 
@@ -87,6 +87,8 @@ namespace JSC {
         static const ClassInfo s_defaultInfo;
         
         size_t length() const { return m_storage->length(); }
+
+        WTF::ByteArray* storage() const { return m_storage.get(); }
 
     private:
         enum VPtrStealingHackType { VPtrStealingHack };
@@ -100,11 +102,14 @@ namespace JSC {
         const ClassInfo* m_classInfo;
     };
     
-    JSByteArray* asByteArray(JSValuePtr value);
-    inline JSByteArray* asByteArray(JSValuePtr value)
+    JSByteArray* asByteArray(JSValue value);
+    inline JSByteArray* asByteArray(JSValue value)
     {
         return static_cast<JSByteArray*>(asCell(value));
     }
-}
 
-#endif
+    inline bool isJSByteArray(JSGlobalData* globalData, JSValue v) { return v.isCell() && v.asCell()->vptr() == globalData->jsByteArrayVPtr; }
+
+} // namespace JSC
+
+#endif // JSByteArray_h

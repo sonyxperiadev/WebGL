@@ -40,10 +40,10 @@ namespace JSC {
     #define FOR_EACH_OPCODE_ID(macro) \
         macro(op_enter, 1) \
         macro(op_enter_with_activation, 2) \
+        macro(op_init_arguments, 1) \
         macro(op_create_arguments, 1) \
         macro(op_convert_this, 2) \
         \
-        macro(op_unexpected_load, 3) \
         macro(op_new_object, 2) \
         macro(op_new_array, 4) \
         macro(op_new_regexp, 3) \
@@ -67,7 +67,7 @@ namespace JSC {
         macro(op_negate, 3) \
         macro(op_add, 5) \
         macro(op_mul, 5) \
-        macro(op_div, 4) \
+        macro(op_div, 5) \
         macro(op_mod, 4) \
         macro(op_sub, 5) \
         \
@@ -98,7 +98,6 @@ namespace JSC {
         macro(op_put_global_var, 4) \
         macro(op_resolve_base, 3) \
         macro(op_resolve_with_base, 4) \
-        macro(op_resolve_func, 4) \
         macro(op_get_by_id, 8) \
         macro(op_get_by_id_self, 8) \
         macro(op_get_by_id_self_list, 8) \
@@ -125,7 +124,9 @@ namespace JSC {
         macro(op_jfalse, 3) \
         macro(op_jeq_null, 3) \
         macro(op_jneq_null, 3) \
+        macro(op_jneq_ptr, 4) \
         macro(op_jnless, 4) \
+        macro(op_jnlesseq, 4) \
         macro(op_jmp_scopes, 3) \
         macro(op_loop, 2) \
         macro(op_loop_if_true, 3) \
@@ -139,12 +140,17 @@ namespace JSC {
         macro(op_new_func_exp, 3) \
         macro(op_call, 5) \
         macro(op_call_eval, 5) \
+        macro(op_call_varargs, 5) \
+        macro(op_load_varargs, 3) \
         macro(op_tear_off_activation, 2) \
         macro(op_tear_off_arguments, 1) \
         macro(op_ret, 2) \
+        macro(op_method_check, 1) \
         \
         macro(op_construct, 7) \
         macro(op_construct_verify, 3) \
+        macro(op_strcat, 4) \
+        macro(op_to_primitive, 3) \
         \
         macro(op_get_pnames, 3) \
         macro(op_next_pname, 4) \
@@ -174,7 +180,7 @@ namespace JSC {
 
     #define OPCODE_ID_LENGTHS(id, length) const int id##_length = length;
          FOR_EACH_OPCODE_ID(OPCODE_ID_LENGTHS);
-    #undef OPCODE_ID_SIZES
+    #undef OPCODE_ID_LENGTHS
     
     #define OPCODE_LENGTH(opcode) opcode##_length
 

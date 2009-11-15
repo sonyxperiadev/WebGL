@@ -23,15 +23,15 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
+#import "WebPasteboardHelper.h"
+
 #import "WebArchive.h"
 #import "WebHTMLViewInternal.h"
 #import "WebNSPasteboardExtras.h"
 #import "WebNSURLExtras.h"
-#import "WebPasteboardHelper.h"
-
-#import <WebCore/DOMDocument.h>
-#import <WebCore/DOMDocumentFragment.h>
 #import <WebCore/PlatformString.h>
+#import <WebKit/DOMDocument.h>
+#import <WebKit/DOMDocumentFragment.h>
 #import <wtf/RetainPtr.h>
 #import <wtf/StdLibExtras.h>
 
@@ -53,7 +53,7 @@ String WebPasteboardHelper::plainTextFromPasteboard(const NSPasteboard *pasteboa
     NSArray *types = [pasteboard types];
     
     if ([types containsObject:NSStringPboardType])
-        return [pasteboard stringForType:NSStringPboardType];
+        return [[pasteboard stringForType:NSStringPboardType] precomposedStringWithCanonicalMapping];
     
     NSAttributedString *attributedString = nil;
     NSString *string;
@@ -63,15 +63,15 @@ String WebPasteboardHelper::plainTextFromPasteboard(const NSPasteboard *pasteboa
     if (!attributedString && [types containsObject:NSRTFPboardType])
         attributedString = [[NSAttributedString alloc] initWithRTF:[pasteboard dataForType:NSRTFPboardType] documentAttributes:nil];
     if (attributedString) {
-        string = [[attributedString string] copy];
+        string = [[attributedString string] precomposedStringWithCanonicalMapping];
         [attributedString release];
-        return [string autorelease];
+        return string;
     }
     
     if ([types containsObject:NSFilenamesPboardType]) {
         string = [[pasteboard propertyListForType:NSFilenamesPboardType] componentsJoinedByString:@"\n"];
         if (string)
-            return string;
+            return [string precomposedStringWithCanonicalMapping];
     }
     
     NSURL *URL;
@@ -92,7 +92,7 @@ DOMDocumentFragment *WebPasteboardHelper::fragmentFromPasteboard(const NSPastebo
 
 NSArray *WebPasteboardHelper::insertablePasteboardTypes() const
 {
-    DEFINE_STATIC_LOCAL(RetainPtr<NSArray>, types, ([[NSArray alloc] initWithObjects:WebArchivePboardType, NSHTMLPboardType, NSFilenamesPboardType, NSTIFFPboardType,
+    DEFINE_STATIC_LOCAL(RetainPtr<NSArray>, types, ([[NSArray alloc] initWithObjects:WebArchivePboardType, NSHTMLPboardType, NSFilenamesPboardType, NSTIFFPboardType, NSPDFPboardType,
 #if defined(BUILDING_ON_TIGER) || defined(BUILDING_ON_LEOPARD)
            NSPICTPboardType,
 #endif

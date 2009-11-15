@@ -21,7 +21,7 @@
  * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #ifndef PluginPackage_H
@@ -47,7 +47,7 @@ namespace WebCore {
     public:
         ~PluginPackage();
         static PassRefPtr<PluginPackage> createPackage(const String& path, const time_t& lastModified);
-        
+
         const String& name() const { return m_name; }
         const String& description() const { return m_description; }
         const String& path() const { return m_path; }
@@ -65,6 +65,9 @@ namespace WebCore {
         void unload();
         void unloadWithoutShutdown();
 
+        bool isEnabled() const { return m_isEnabled; }
+        void setEnabled(bool);
+
         const NPPluginFuncs* pluginFuncs() const { return &m_pluginFuncs; }
         int compareFileVersion(const PlatformModuleVersion&) const;
         int compare(const PluginPackage&) const;
@@ -78,7 +81,9 @@ namespace WebCore {
         void determineQuirks(const String& mimeType);
 
         void determineModuleVersionFromDescription();
+        void initializeBrowserFuncs();
 
+        bool m_isEnabled;
         bool m_isLoaded;
         int m_loadCount;
 
@@ -109,9 +114,6 @@ namespace WebCore {
 #if defined(ANDROID_PLUGINS)
         // Java Plugin object.
         jobject m_pluginObject;
-        // Called from unloadWithoutShutdown() to remove the object
-        // from the PluginList.
-        void unregisterPluginObject();
 #endif
     };
 

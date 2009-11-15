@@ -36,10 +36,9 @@ using namespace WebCore;
     \brief The QWebSecurityOrigin class defines a security boundary for web sites.
 
     QWebSecurityOrigin provides access to the security domains defined by web sites.
-    An origin consists of a host name, a scheme, and a port number. Web sites with the same
-    security origin can access each other's resources for client-side scripting or databases.
-
-    ### diagram
+    An origin consists of a host name, a scheme, and a port number. Web sites
+    with the same security origin can access each other's resources for client-side
+    scripting or databases.
 
     For example the site \c{http://www.example.com/my/page.html} is allowed to share the same
     database as \c{http://www.example.com/my/overview.html}, or access each other's
@@ -47,7 +46,13 @@ using namespace WebCore;
     \c{http://www.malicious.com/evil.html} from accessing \c{http://www.example.com/}'s resources,
     because they are of a different security origin.
 
-    QWebSecurity also provides access to all databases defined within a security origin.
+    Call QWebFrame::securityOrigin() to get the QWebSecurityOrigin for a frame in a
+    web page, and use host(), scheme() and port() to identify the security origin.
+
+    Use databases() to access the databases defined within a security origin. The
+    disk usage of the origin's databases can be limited with setDatabaseQuota().
+    databaseQuota() and databaseUsage() report the current limit as well as the
+    current usage.
 
     For more information refer to the
     \l{http://en.wikipedia.org/wiki/Same_origin_policy}{"Same origin policy" Wikipedia Article}.
@@ -101,7 +106,11 @@ int QWebSecurityOrigin::port() const
 */
 qint64 QWebSecurityOrigin::databaseUsage() const
 {
+#if ENABLE(DATABASE)
     return DatabaseTracker::tracker().usageForOrigin(d->origin.get());
+#else
+    return 0;
+#endif
 }
 
 /*!
@@ -109,7 +118,11 @@ qint64 QWebSecurityOrigin::databaseUsage() const
 */
 qint64 QWebSecurityOrigin::databaseQuota() const
 {
+#if ENABLE(DATABASE)
     return DatabaseTracker::tracker().quotaForOrigin(d->origin.get());
+#else
+    return 0;
+#endif
 }
 
 /*!
@@ -121,7 +134,9 @@ qint64 QWebSecurityOrigin::databaseQuota() const
 */
 void QWebSecurityOrigin::setDatabaseQuota(qint64 quota)
 {
+#if ENABLE(DATABASE)
     DatabaseTracker::tracker().setQuota(d->origin.get(), quota);
+#endif
 }
 
 /*!
@@ -144,14 +159,18 @@ QWebSecurityOrigin::QWebSecurityOrigin(QWebSecurityOriginPrivate* priv)
 */
 QList<QWebSecurityOrigin> QWebSecurityOrigin::allOrigins()
 {
+    QList<QWebSecurityOrigin> webOrigins;
+
+#if ENABLE(DATABASE)
     Vector<RefPtr<SecurityOrigin> > coreOrigins;
     DatabaseTracker::tracker().origins(coreOrigins);
-    QList<QWebSecurityOrigin> webOrigins;
 
     for (unsigned i = 0; i < coreOrigins.size(); ++i) {
         QWebSecurityOriginPrivate* priv = new QWebSecurityOriginPrivate(coreOrigins[i].get());
         webOrigins.append(priv);
     }
+#endif
+
     return webOrigins;
 }
 
@@ -160,8 +179,11 @@ QList<QWebSecurityOrigin> QWebSecurityOrigin::allOrigins()
 */
 QList<QWebDatabase> QWebSecurityOrigin::databases() const
 {
-    Vector<String> nameVector;
     QList<QWebDatabase> databases;
+
+#if ENABLE(DATABASE)
+    Vector<String> nameVector;
+
     if (!DatabaseTracker::tracker().databaseNamesForOrigin(d->origin.get(), nameVector))
         return databases;
     for (unsigned i = 0; i < nameVector.size(); ++i) {
@@ -171,6 +193,8 @@ QList<QWebDatabase> QWebSecurityOrigin::databases() const
         QWebDatabase webDatabase(priv);
         databases.append(webDatabase);
     }
+#endif
+
     return databases;
 }
 

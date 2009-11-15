@@ -26,6 +26,8 @@
 #ifndef RenderSkinRadio_h
 #define RenderSkinRadio_h
 
+#include "PlatformString.h"
+
 class SkCanvas;
 
 namespace android {
@@ -45,7 +47,7 @@ public:
     /**
      * Initialize the class before use. Uses the AssetManager to initialize any bitmaps the class may use.
      */
-    static void Init(android::AssetManager*);
+    static void Init(android::AssetManager*, String drawableDirectory);
 
     /**
      * Draw the element to the canvas at the specified size and location.

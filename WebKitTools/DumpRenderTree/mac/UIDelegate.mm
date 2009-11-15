@@ -26,16 +26,17 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#import "DumpRenderTree.h"
+#import "config.h"
 #import "UIDelegate.h"
 
+#import "DumpRenderTree.h"
 #import "DumpRenderTreeDraggingInfo.h"
 #import "EventSendingController.h"
 #import "LayoutTestController.h"
 #import <WebKit/WebFramePrivate.h>
 #import <WebKit/WebHTMLViewPrivate.h>
-#import <WebKit/WebView.h>
 #import <WebKit/WebSecurityOriginPrivate.h>
+#import <WebKit/WebView.h>
 #import <wtf/Assertions.h>
 
 DumpRenderTreeDraggingInfo *draggingInfo = nil;
@@ -47,7 +48,7 @@ DumpRenderTreeDraggingInfo *draggingInfo = nil;
     m_frame = frame;
 }
 
-- (NSRect)webViewFrame:(WebView *)sender;
+- (NSRect)webViewFrame:(WebView *)sender
 {
     return m_frame;
 }
@@ -95,11 +96,8 @@ DumpRenderTreeDraggingInfo *draggingInfo = nil;
 - (void)webView:(WebView *)sender dragImage:(NSImage *)anImage at:(NSPoint)viewLocation offset:(NSSize)initialOffset event:(NSEvent *)event pasteboard:(NSPasteboard *)pboard source:(id)sourceObj slideBack:(BOOL)slideFlag forView:(NSView *)view
 {
      assert(!draggingInfo);
-     if (gLayoutTestController->addFileToPasteboardOnDrag()) {
-         [pboard declareTypes:[NSArray arrayWithObject:NSFilenamesPboardType] owner:nil];
-         [pboard setPropertyList:[NSArray arrayWithObject:@"DRTFakeFile"] forType:NSFilenamesPboardType];
-     }
      draggingInfo = [[DumpRenderTreeDraggingInfo alloc] initWithImage:anImage offset:initialOffset pasteboard:pboard source:sourceObj];
+     [sender draggingUpdated:draggingInfo];
      [EventSendingController replaySavedEvents];
 }
 

@@ -45,11 +45,12 @@ namespace WebCore {
 
 ScriptCachedFrameData::ScriptCachedFrameData(Frame* frame)
 {
-    JSLock lock(false);
+    JSLock lock(SilenceAssertionsOnly);
 
     ScriptController* scriptController = frame->script();
     if (scriptController->haveWindowShell()) {
         m_window = scriptController->windowShell()->window();
+        scriptController->attachDebugger(0);
     }
 }
 
@@ -66,7 +67,7 @@ void ScriptCachedFrameData::restore(Frame* frame)
 {
     Page* page = frame->page();
 
-    JSLock lock(false);
+    JSLock lock(SilenceAssertionsOnly);
 
     ScriptController* scriptController = frame->script();
     if (scriptController->haveWindowShell()) {
@@ -83,7 +84,7 @@ void ScriptCachedFrameData::restore(Frame* frame)
 
 void ScriptCachedFrameData::clear()
 {
-    JSLock lock(false);
+    JSLock lock(SilenceAssertionsOnly);
 
     if (!m_window) {
         m_window = 0;

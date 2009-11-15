@@ -88,9 +88,12 @@ using namespace WebCore;
     if (WebCoreObjCScheduleDeallocateOnMainThread([WebDataSourcePrivate class], self))
         return;
 
-    ASSERT(!loader->isLoading());
-    loader->detachDataSource();
-    loader->deref();
+    ASSERT(loader);
+    if (loader) {
+        ASSERT(!loader->isLoading());
+        loader->detachDataSource();
+        loader->deref();
+    }
     
     [representation release];
 
@@ -101,9 +104,12 @@ using namespace WebCore;
 {
     ASSERT_MAIN_THREAD();
 
-    ASSERT(!loader->isLoading());
-    loader->detachDataSource();
-    loader->deref();
+    ASSERT(loader);
+    if (loader) {
+        ASSERT(!loader->isLoading());
+        loader->detachDataSource();
+        loader->deref();
+    }
 
     [super finalize];
 }
@@ -183,7 +189,7 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
 
 - (NSString *)_responseMIMEType
 {
-    return [[self response] _webcore_MIMEType];
+    return [[self response] MIMEType];
 }
 
 - (BOOL)_transferApplicationCache:(NSString*)destinationBundleIdentifier
@@ -192,14 +198,10 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
     
     if (!loader)
         return NO;
-    
-    ApplicationCache* cache = loader->applicationCache();
-    if (!cache)
-        return YES;
-    
+        
     NSString *cacheDir = [NSString _webkit_localCacheDirectoryWithBundleIdentifier:destinationBundleIdentifier];
     
-    return ApplicationCacheStorage::storeCopyOfCache(cacheDir, cache);
+    return ApplicationCacheStorage::storeCopyOfCache(cacheDir, loader->applicationCacheHost());
 }
 
 @end
@@ -218,7 +220,9 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
     RetainPtr<WebDataSource*> protect(self);
     
     [[self representation] receivedData:data withDataSource:self];
-    [[[[self webFrame] frameView] documentView] dataSourceUpdated:self];
+
+    if ([[self _webView] _usesDocumentViews])
+        [[[[self webFrame] frameView] documentView] dataSourceUpdated:self];
 }
 
 - (void)_setMainDocumentError:(NSError *)error
@@ -334,7 +338,7 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
     return [WebView canShowMIMETypeAsHTML:MIMEType];
 }
 
--(void)_makeRepresentation
+- (void)_makeRepresentation
 {
     Class repClass = [[self class] _representationClassForMIMEType:[self _responseMIMEType]];
     
@@ -344,7 +348,7 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
         [self _setRepresentation:(id <WebDocumentRepresentation>)newRep];
         [newRep release];
     }
-    
+
     [_private->representation setDataSource:self];
 }
 
@@ -484,9 +488,14 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
     _private->loader->getSubresources(coreSubresources);
 
     NSMutableArray *subresources = [[NSMutableArray alloc] initWithCapacity:coreSubresources.size()];
-    for (unsigned i = 0; i < coreSubresources.size(); ++i)
-        [subresources addObject:[[[WebResource alloc] _initWithCoreResource:coreSubresources[i]] autorelease]];
-    
+    for (unsigned i = 0; i < coreSubresources.size(); ++i) {
+        WebResource *resource = [[WebResource alloc] _initWithCoreResource:coreSubresources[i]];
+        if (resource) {
+            [subresources addObject:resource];
+            [resource release];
+        }
+    }
+
     return [subresources autorelease];
 }
 

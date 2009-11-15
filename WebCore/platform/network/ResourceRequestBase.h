@@ -46,7 +46,7 @@ namespace WebCore {
 
     const int unspecifiedTimeoutInterval = INT_MAX;
 
-    class ResourceRequest;
+    struct ResourceRequest;
     struct CrossThreadResourceRequestData;
 
     // Do not use this type directly.  Use ResourceRequest instead.
@@ -63,14 +63,16 @@ namespace WebCore {
         const KURL& url() const;
         void setURL(const KURL& url);
 
+        void removeCredentials();
+
         ResourceRequestCachePolicy cachePolicy() const;
         void setCachePolicy(ResourceRequestCachePolicy cachePolicy);
         
         double timeoutInterval() const;
         void setTimeoutInterval(double timeoutInterval);
         
-        const KURL& mainDocumentURL() const;
-        void setMainDocumentURL(const KURL& mainDocumentURL);
+        const KURL& firstPartyForCookies() const;
+        void setFirstPartyForCookies(const KURL& firstPartyForCookies);
         
         const String& httpMethod() const;
         void setHTTPMethod(const String& httpMethod);
@@ -107,12 +109,18 @@ namespace WebCore {
         void setAllowHTTPCookies(bool allowHTTPCookies);
 
         bool isConditional() const;
-        
+
+        // Whether the associated ResourceHandleClient needs to be notified of
+        // upload progress made for that resource.
+        bool reportUploadProgress() const { return m_reportUploadProgress; }
+        void setReportUploadProgress(bool reportUploadProgress) { m_reportUploadProgress = reportUploadProgress; }
+
     protected:
         // Used when ResourceRequest is initialized from a platform representation of the request
         ResourceRequestBase()
             : m_resourceRequestUpdated(false)
             , m_platformRequestUpdated(true)
+            , m_reportUploadProgress(false)
         {
         }
 
@@ -124,6 +132,7 @@ namespace WebCore {
             , m_allowHTTPCookies(true)
             , m_resourceRequestUpdated(true)
             , m_platformRequestUpdated(false)
+            , m_reportUploadProgress(false)
         {
         }
 
@@ -134,7 +143,7 @@ namespace WebCore {
 
         ResourceRequestCachePolicy m_cachePolicy;
         double m_timeoutInterval;
-        KURL m_mainDocumentURL;
+        KURL m_firstPartyForCookies;
         String m_httpMethod;
         HTTPHeaderMap m_httpHeaderFields;
         Vector<String> m_responseContentDispositionEncodingFallbackArray;
@@ -142,6 +151,7 @@ namespace WebCore {
         bool m_allowHTTPCookies;
         mutable bool m_resourceRequestUpdated;
         mutable bool m_platformRequestUpdated;
+        bool m_reportUploadProgress;
 
     private:
         const ResourceRequest& asResourceRequest() const;
@@ -157,7 +167,7 @@ namespace WebCore {
 
         ResourceRequestCachePolicy m_cachePolicy;
         double m_timeoutInterval;
-        KURL m_mainDocumentURL;
+        KURL m_firstPartyForCookies;
 
         String m_httpMethod;
         OwnPtr<CrossThreadHTTPHeaderMapData> m_httpHeaders;
@@ -165,6 +175,8 @@ namespace WebCore {
         RefPtr<FormData> m_httpBody;
         bool m_allowHTTPCookies;
     };
+    
+    unsigned initializeMaximumHTTPConnectionCountPerHost();
 
 } // namespace WebCore
 

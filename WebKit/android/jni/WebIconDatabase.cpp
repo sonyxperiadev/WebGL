@@ -71,28 +71,11 @@ void WebIconDatabase::dispatchDidAddIconForPageURL(const WebCore::String& pageUR
     if (mClients.size() == 0)
         return;
 
-    // Attempt to attach to the current vm.
-    JavaVM* vm = JSC::Bindings::getJavaVM();
-    JavaVMAttachArgs args;
-
-    args.version = JNI_VERSION_1_4;
-    args.name = "IconDatabase";
-    args.group = NULL;
-
-    JNIEnv* env;
-    bool threadIsAttached = true;
-    if (vm->AttachCurrentThread(&env, (void*) &args) != JNI_OK) {
-        LOGE("Could not attach IconDatabase thread to the VM");
-        threadIsAttached = false;
-    }
-
     mNotificationsMutex.lock();
     mNotifications.append(pageURL);
     if (!mDeliveryRequested) {
-        if (threadIsAttached) {
-            mDeliveryRequested = true;
-            JavaSharedClient::EnqueueFunctionPtr(DeliverNotifications, this);
-        }
+        mDeliveryRequested = true;
+        JavaSharedClient::EnqueueFunctionPtr(DeliverNotifications, this);
     }
     mNotificationsMutex.unlock();
 }

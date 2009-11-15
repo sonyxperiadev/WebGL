@@ -49,7 +49,7 @@ RenderListItem::RenderListItem(Node* node)
     setInline(false);
 }
 
-void RenderListItem::styleDidChange(RenderStyle::Diff diff, const RenderStyle* oldStyle)
+void RenderListItem::styleDidChange(StyleDifference diff, const RenderStyle* oldStyle)
 {
     RenderBlock::styleDidChange(diff, oldStyle);
 
@@ -91,20 +91,20 @@ static Node* enclosingList(Node* node)
 
 static RenderListItem* previousListItem(Node* list, const RenderListItem* item)
 {
-    for (Node* n = item->node()->traversePreviousNode(); n != list; n = n->traversePreviousNode()) {
-        RenderObject* o = n->renderer();
-        if (o && o->isListItem()) {
-            Node* otherList = enclosingList(n);
-            // This item is part of our current list, so it's what we're looking for.
-            if (list == otherList)
-                return static_cast<RenderListItem*>(o);
-            // We found ourself inside another list; lets skip the rest of it.
-            // Use traverseNextNode() here because the other list itself may actually
-            // be a list item itself. We need to examine it, so we do this to counteract
-            // the traversePreviousNode() that will be done by the loop.
-            if (otherList)
-                n = otherList->traverseNextNode();
-        }
+    for (Node* node = item->node()->traversePreviousNode(); node != list; node = node->traversePreviousNode()) {
+        RenderObject* renderer = node->renderer();
+        if (!renderer || !renderer->isListItem())
+            continue;
+        Node* otherList = enclosingList(node);
+        // This item is part of our current list, so it's what we're looking for.
+        if (list == otherList)
+            return toRenderListItem(renderer);
+        // We found ourself inside another list; lets skip the rest of it.
+        // Use traverseNextNode() here because the other list itself may actually
+        // be a list item itself. We need to examine it, so we do this to counteract
+        // the traversePreviousNode() that will be done by the loop.
+        if (otherList)
+            node = otherList->traverseNextNode();
     }
     return 0;
 }
@@ -153,11 +153,11 @@ static RenderObject* getParentOfFirstLineBox(RenderBlock* curr, RenderObject* ma
         if (currChild->isTable() || !currChild->isRenderBlock())
             break;
 
-        if (curr->isListItem() && currChild->style()->htmlHacks() && currChild->element() &&
-            (currChild->element()->hasTagName(ulTag)|| currChild->element()->hasTagName(olTag)))
+        if (curr->isListItem() && currChild->style()->htmlHacks() && currChild->node() &&
+            (currChild->node()->hasTagName(ulTag)|| currChild->node()->hasTagName(olTag)))
             break;
 
-        RenderObject* lineBox = getParentOfFirstLineBox(static_cast<RenderBlock*>(currChild), marker);
+        RenderObject* lineBox = getParentOfFirstLineBox(toRenderBlock(currChild), marker);
         if (lineBox)
             return lineBox;
     }
@@ -248,7 +248,7 @@ void RenderListItem::positionListMarker()
         RootInlineBox* root = m_marker->inlineBoxWrapper()->root();
 
         if (style()->direction() == LTR) {
-            int leftLineOffset = leftRelOffset(yOffset, leftOffset(yOffset));
+            int leftLineOffset = leftRelOffset(yOffset, leftOffset(yOffset, false), false);
             markerXPos = leftLineOffset - xOffset - paddingLeft() - borderLeft() + m_marker->marginLeft();
             m_marker->inlineBoxWrapper()->adjustPosition(markerXPos - markerOldX, 0);
             if (markerXPos < root->leftOverflow()) {
@@ -256,7 +256,7 @@ void RenderListItem::positionListMarker()
                 adjustOverflow = true;
             }
         } else {
-            int rightLineOffset = rightRelOffset(yOffset, rightOffset(yOffset));
+            int rightLineOffset = rightRelOffset(yOffset, rightOffset(yOffset, false), false);
             markerXPos = rightLineOffset - xOffset + paddingRight() + borderRight() + m_marker->marginLeft();
             m_marker->inlineBoxWrapper()->adjustPosition(markerXPos - markerOldX, 0);
             if (markerXPos + m_marker->width() > root->rightOverflow()) {
@@ -271,7 +271,7 @@ void RenderListItem::positionListMarker()
             do {
                 o = o->parentBox();
                 if (o->isRenderBlock())
-                    static_cast<RenderBlock*>(o)->addVisualOverflow(markerRect);
+                    toRenderBlock(o)->addVisualOverflow(markerRect);
                 markerRect.move(-o->x(), -o->y());
             } while (o != this);
         }
@@ -302,9 +302,9 @@ void RenderListItem::explicitValueChanged()
     RenderObject* listRenderer = 0;
     if (listNode)
         listRenderer = listNode->renderer();
-    for (RenderObject* r = this; r; r = r->nextInPreOrder(listRenderer))
-        if (r->isListItem()) {
-            RenderListItem* item = static_cast<RenderListItem*>(r);
+    for (RenderObject* renderer = this; renderer; renderer = renderer->nextInPreOrder(listRenderer))
+        if (renderer->isListItem()) {
+            RenderListItem* item = toRenderListItem(renderer);
             if (!item->m_hasExplicitValue) {
                 item->m_isValueUpToDate = false;
                 if (RenderListMarker* marker = item->m_marker)

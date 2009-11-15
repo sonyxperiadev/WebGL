@@ -60,10 +60,10 @@ bool InlineTextBox::isSelected(int startPos, int endPos) const
 
 RenderObject::SelectionState InlineTextBox::selectionState()
 {
-    RenderObject::SelectionState state = object()->selectionState();
+    RenderObject::SelectionState state = renderer()->selectionState();
     if (state == RenderObject::SelectionStart || state == RenderObject::SelectionEnd || state == RenderObject::SelectionBoth) {
         int startPos, endPos;
-        object()->selectionStartEnd(startPos, endPos);
+        renderer()->selectionStartEnd(startPos, endPos);
         // The position after a hard line break is considered to be past its end.
         int lastSelectable = start() + len() - (isLineBreak() ? 1 : 0);
 
@@ -92,7 +92,7 @@ IntRect InlineTextBox::selectionRect(int tx, int ty, int startPos, int endPos)
     if (sPos >= ePos)
         return IntRect();
 
-    RenderText* textObj = textObject();
+    RenderText* textObj = textRenderer();
     int selTop = selectionTop();
     int selHeight = selectionHeight();
     const Font& f = textObj->style(m_firstLine)->font();
@@ -108,7 +108,7 @@ IntRect InlineTextBox::selectionRect(int tx, int ty, int startPos, int endPos)
 
 void InlineTextBox::deleteLine(RenderArena* arena)
 {
-    toRenderText(m_object)->removeTextBox(this);
+    toRenderText(renderer())->removeTextBox(this);
     destroy(arena);
 }
 
@@ -117,7 +117,7 @@ void InlineTextBox::extractLine()
     if (m_extracted)
         return;
 
-    toRenderText(m_object)->extractTextBox(this);
+    toRenderText(renderer())->extractTextBox(this);
 }
 
 void InlineTextBox::attachLine()
@@ -125,48 +125,70 @@ void InlineTextBox::attachLine()
     if (!m_extracted)
         return;
     
-    toRenderText(m_object)->attachTextBox(this);
+    toRenderText(renderer())->attachTextBox(this);
 }
 
-int InlineTextBox::placeEllipsisBox(bool ltr, int blockEdge, int ellipsisWidth, bool& foundBox)
+int InlineTextBox::placeEllipsisBox(bool flowIsLTR, int visibleLeftEdge, int visibleRightEdge, int ellipsisWidth, bool& foundBox)
 {
     if (foundBox) {
         m_truncation = cFullTruncation;
         return -1;
     }
 
-    int ellipsisX = ltr ? blockEdge - ellipsisWidth : blockEdge + ellipsisWidth;
+    // For LTR this is the left edge of the box, for RTL, the right edge in parent coordinates.
+    int ellipsisX = flowIsLTR ? visibleRightEdge - ellipsisWidth : visibleLeftEdge + ellipsisWidth;
     
-    // For LTR, if the left edge of the ellipsis is to the left of our text run, then we are the run that will get truncated.
-    if (ltr) {
-        if (ellipsisX <= m_x) {
-            // Too far.  Just set full truncation, but return -1 and let the ellipsis just be placed at the edge of the box.
-            m_truncation = cFullTruncation;
-            foundBox = true;
-            return -1;
-        }
-
-        if (ellipsisX < m_x + m_width) {
-            if (direction() == RTL)
-                return -1; // FIXME: Support LTR truncation when the last run is RTL someday.
-
-            foundBox = true;
-
-            int offset = offsetForPosition(ellipsisX, false);
-            if (offset == 0) {
-                // No characters should be rendered.  Set ourselves to full truncation and place the ellipsis at the min of our start
-                // and the ellipsis edge.
-                m_truncation = cFullTruncation;
-                return min(ellipsisX, m_x);
-            }
-            
-            // Set the truncation index on the text run.  The ellipsis needs to be placed just after the last visible character.
-            m_truncation = offset;
-            return m_x + toRenderText(m_object)->width(m_start, offset, textPos(), m_firstLine);
-        }
+    // Criteria for full truncation:
+    // LTR: the left edge of the ellipsis is to the left of our text run.
+    // RTL: the right edge of the ellipsis is to the right of our text run.
+    bool ltrFullTruncation = flowIsLTR && ellipsisX <= m_x;
+    bool rtlFullTruncation = !flowIsLTR && ellipsisX >= (m_x + m_width);
+    if (ltrFullTruncation || rtlFullTruncation) {
+        // Too far.  Just set full truncation, but return -1 and let the ellipsis just be placed at the edge of the box.
+        m_truncation = cFullTruncation;
+        foundBox = true;
+        return -1;
     }
-    else {
-        // FIXME: Support RTL truncation someday, including both modes (when the leftmost run on the line is either RTL or LTR)
+
+    bool ltrEllipsisWithinBox = flowIsLTR && (ellipsisX < m_x + m_width);
+    bool rtlEllipsisWithinBox = !flowIsLTR && (ellipsisX > m_x);
+    if (ltrEllipsisWithinBox || rtlEllipsisWithinBox) {
+        foundBox = true;
+
+        // The inline box may have different directionality than it's parent.  Since truncation
+        // behavior depends both on both the parent and the inline block's directionality, we
+        // must keep track of these separately.
+        bool ltr = direction() == LTR;
+        if (ltr != flowIsLTR) {
+          // Width in pixels of the visible portion of the box, excluding the ellipsis.
+          int visibleBoxWidth = visibleRightEdge - visibleLeftEdge  - ellipsisWidth;
+          ellipsisX = ltr ? m_x + visibleBoxWidth : m_x + m_width - visibleBoxWidth;
+        }
+
+        int offset = offsetForPosition(ellipsisX, false);
+        if (offset == 0) {
+            // No characters should be rendered.  Set ourselves to full truncation and place the ellipsis at the min of our start
+            // and the ellipsis edge.
+            m_truncation = cFullTruncation;
+            return min(ellipsisX, m_x);
+        }
+
+        // Set the truncation index on the text run.
+        m_truncation = offset;
+
+        // If we got here that means that we were only partially truncated and we need to return the pixel offset at which
+        // to place the ellipsis.
+        int widthOfVisibleText = toRenderText(renderer())->width(m_start, offset, textPos(), m_firstLine);
+
+        // The ellipsis needs to be placed just after the last visible character.
+        // Where "after" is defined by the flow directionality, not the inline
+        // box directionality.
+        // e.g. In the case of an LTR inline box truncated in an RTL flow then we can
+        // have a situation such as |Hello| -> |...He|
+        if (flowIsLTR)
+            return m_x + widthOfVisibleText;
+        else
+            return (m_x + m_width) - widthOfVisibleText - ellipsisWidth;
     }
     return -1;
 }
@@ -216,7 +238,7 @@ void updateGraphicsContext(GraphicsContext* context, const Color& fillColor, con
 
 bool InlineTextBox::isLineBreak() const
 {
-    return object()->isBR() || (object()->style()->preserveNewline() && len() == 1 && (*textObject()->text())[start()] == '\n');
+    return renderer()->isBR() || (renderer()->style()->preserveNewline() && len() == 1 && (*textRenderer()->text())[start()] == '\n');
 }
 
 bool InlineTextBox::nodeAtPoint(const HitTestRequest&, HitTestResult& result, int x, int y, int tx, int ty)
@@ -224,9 +246,9 @@ bool InlineTextBox::nodeAtPoint(const HitTestRequest&, HitTestResult& result, in
     if (isLineBreak())
         return false;
 
-    IntRect rect(tx + m_x, ty + m_y, m_width, m_height);
+    IntRect rect(tx + m_x, ty + m_y, m_width, height());
     if (m_truncation != cFullTruncation && visibleToHitTesting() && rect.contains(x, y)) {
-        object()->updateHitTestResult(result, IntPoint(x - tx, y - ty));
+        renderer()->updateHitTestResult(result, IntPoint(x - tx, y - ty));
         return true;
     }
     return false;
@@ -234,6 +256,11 @@ bool InlineTextBox::nodeAtPoint(const HitTestRequest&, HitTestResult& result, in
 
 static void paintTextWithShadows(GraphicsContext* context, const Font& font, const TextRun& textRun, int startOffset, int endOffset, const IntPoint& textOrigin, int x, int y, int w, int h, ShadowData* shadow, bool stroked)
 {
+    Color fillColor = context->fillColor();
+    bool opaque = fillColor.alpha() == 255;
+    if (!opaque)
+        context->setFillColor(Color::black);
+
     do {
         IntSize extraOffset;
 
@@ -242,7 +269,7 @@ static void paintTextWithShadows(GraphicsContext* context, const Font& font, con
             int shadowBlur = shadow->blur;
             const Color& shadowColor = shadow->color;
 
-            if (shadow->next || stroked) {
+            if (shadow->next || stroked || !opaque) {
                 IntRect shadowRect(x, y, w, h);
                 shadowRect.inflate(shadowBlur);
                 shadowRect.move(shadowOffset);
@@ -253,7 +280,8 @@ static void paintTextWithShadows(GraphicsContext* context, const Font& font, con
                 shadowOffset -= extraOffset;
             }
             context->setShadow(shadowOffset, shadowBlur, shadowColor);
-        }
+        } else if (!opaque)
+            context->setFillColor(fillColor);
 
         if (startOffset <= endOffset)
             context->drawText(font, textRun, textOrigin + extraOffset, startOffset, endOffset);
@@ -267,21 +295,21 @@ static void paintTextWithShadows(GraphicsContext* context, const Font& font, con
         if (!shadow)
             break;
 
-        if (shadow->next || stroked)
+        if (shadow->next || stroked || !opaque)
             context->restore();
         else
             context->clearShadow();
 
         shadow = shadow->next;
-    } while (shadow || stroked);
+    } while (shadow || stroked || !opaque);
 }
 
 void InlineTextBox::paint(RenderObject::PaintInfo& paintInfo, int tx, int ty)
 {
-    if (isLineBreak() || !object()->shouldPaintWithinRoot(paintInfo) || object()->style()->visibility() != VISIBLE ||
+    if (isLineBreak() || !renderer()->shouldPaintWithinRoot(paintInfo) || renderer()->style()->visibility() != VISIBLE ||
         m_truncation == cFullTruncation || paintInfo.phase == PaintPhaseOutline)
         return;
-    
+
     ASSERT(paintInfo.phase != PaintPhaseSelfOutline && paintInfo.phase != PaintPhaseChildOutlines);
 
     int xPos = tx + m_x - parent()->maxHorizontalVisualOverflow();
@@ -289,7 +317,7 @@ void InlineTextBox::paint(RenderObject::PaintInfo& paintInfo, int tx, int ty)
     if (xPos >= paintInfo.rect.right() || xPos + w <= paintInfo.rect.x())
         return;
 
-    bool isPrinting = textObject()->document()->printing();
+    bool isPrinting = textRenderer()->document()->printing();
     
     // Determine whether or not we're selected.
     bool haveSelection = !isPrinting && paintInfo.phase != PaintPhaseTextClip && selectionState() != RenderObject::SelectionNone;
@@ -297,14 +325,32 @@ void InlineTextBox::paint(RenderObject::PaintInfo& paintInfo, int tx, int ty)
         // When only painting the selection, don't bother to paint if there is none.
         return;
 
+    if (m_truncation != cNoTruncation) {
+        TextDirection flowDirection = renderer()->containingBlock()->style()->direction();
+        if (flowDirection != direction()) {
+            // Make the visible fragment of text hug the edge closest to the rest of the run by moving the origin
+            // at which we start drawing text.
+            // e.g. In the case of LTR text truncated in an RTL Context, the correct behavior is:
+            // |Hello|CBA| -> |...He|CBA|
+            // In order to draw the fragment "He" aligned to the right edge of it's box, we need to start drawing
+            // farther to the right.
+            // NOTE: WebKit's behavior differs from that of IE which appears to just overlay the ellipsis on top of the
+            // truncated string i.e.  |Hello|CBA| -> |...lo|CBA|
+            int widthOfVisibleText = toRenderText(renderer())->width(m_start, m_truncation, textPos(), m_firstLine);
+            int widthOfHiddenText = m_width - widthOfVisibleText;
+            // FIXME: The hit testing logic also needs to take this translation int account.
+            tx += direction() == LTR ? widthOfHiddenText : -widthOfHiddenText;
+        }
+    }
+
     GraphicsContext* context = paintInfo.context;
 
     // Determine whether or not we have composition underlines to draw.
-    bool containsComposition = object()->document()->frame()->editor()->compositionNode() == object()->node();
-    bool useCustomUnderlines = containsComposition && object()->document()->frame()->editor()->compositionUsesCustomUnderlines();
+    bool containsComposition = renderer()->node() && renderer()->document()->frame()->editor()->compositionNode() == renderer()->node();
+    bool useCustomUnderlines = containsComposition && renderer()->document()->frame()->editor()->compositionUsesCustomUnderlines();
 
     // Set our font.
-    RenderStyle* styleToUse = object()->style(m_firstLine);
+    RenderStyle* styleToUse = renderer()->style(m_firstLine);
     int d = styleToUse->textDecorationsInEffect();
     const Font& font = styleToUse->font();
 
@@ -319,8 +365,8 @@ void InlineTextBox::paint(RenderObject::PaintInfo& paintInfo, int tx, int ty)
 
         if (containsComposition && !useCustomUnderlines)
             paintCompositionBackground(context, tx, ty, styleToUse, font,
-                object()->document()->frame()->editor()->compositionStart(),
-                object()->document()->frame()->editor()->compositionEnd());
+                renderer()->document()->frame()->editor()->compositionStart(),
+                renderer()->document()->frame()->editor()->compositionEnd());
 
         paintDocumentMarkers(context, tx, ty, styleToUse, font, true);
 
@@ -367,14 +413,14 @@ void InlineTextBox::paint(RenderObject::PaintInfo& paintInfo, int tx, int ty)
     ShadowData* selectionShadow = textShadow;
     if (haveSelection) {
         // Check foreground color first.
-        Color foreground = paintInfo.forceBlackText ? Color::black : object()->selectionForegroundColor();
+        Color foreground = paintInfo.forceBlackText ? Color::black : renderer()->selectionForegroundColor();
         if (foreground.isValid() && foreground != selectionFillColor) {
             if (!paintSelectedTextOnly)
                 paintSelectedTextSeparately = true;
             selectionFillColor = foreground;
         }
 
-        if (RenderStyle* pseudoStyle = object()->getCachedPseudoStyle(RenderStyle::SELECTION)) {
+        if (RenderStyle* pseudoStyle = renderer()->getCachedPseudoStyle(SELECTION)) {
             ShadowData* shadow = paintInfo.forceBlackText ? 0 : pseudoStyle->textShadow();
             if (shadow != selectionShadow) {
                 if (!paintSelectedTextOnly)
@@ -400,8 +446,9 @@ void InlineTextBox::paint(RenderObject::PaintInfo& paintInfo, int tx, int ty)
         }
     }
 
-    IntPoint textOrigin(m_x + tx, m_y + ty + m_baseline);
-    TextRun textRun(textObject()->text()->characters() + m_start, m_len, textObject()->allowTabs(), textPos(), m_toAdd, direction() == RTL, m_dirOverride || styleToUse->visuallyOrdered());
+    int baseline = renderer()->style(m_firstLine)->font().ascent();
+    IntPoint textOrigin(m_x + tx, m_y + ty + baseline);
+    TextRun textRun(textRenderer()->text()->characters() + m_start, m_len, textRenderer()->allowTabs(), textPos(), m_toAdd, direction() == RTL, m_dirOverride || styleToUse->visuallyOrdered());
 
     int sPos = 0;
     int ePos = 0;
@@ -447,7 +494,7 @@ void InlineTextBox::paint(RenderObject::PaintInfo& paintInfo, int tx, int ty)
         paintDocumentMarkers(context, tx, ty, styleToUse, font, false);
 
         if (useCustomUnderlines) {
-            const Vector<CompositionUnderline>& underlines = object()->document()->frame()->editor()->customCompositionUnderlines();
+            const Vector<CompositionUnderline>& underlines = renderer()->document()->frame()->editor()->customCompositionUnderlines();
             size_t numUnderlines = underlines.size();
 
             for (size_t index = 0; index < numUnderlines; ++index) {
@@ -476,14 +523,14 @@ void InlineTextBox::paint(RenderObject::PaintInfo& paintInfo, int tx, int ty)
 void InlineTextBox::selectionStartEnd(int& sPos, int& ePos)
 {
     int startPos, endPos;
-    if (object()->selectionState() == RenderObject::SelectionInside) {
+    if (renderer()->selectionState() == RenderObject::SelectionInside) {
         startPos = 0;
-        endPos = textObject()->textLength();
+        endPos = textRenderer()->textLength();
     } else {
-        textObject()->selectionStartEnd(startPos, endPos);
-        if (object()->selectionState() == RenderObject::SelectionStart)
-            endPos = textObject()->textLength();
-        else if (object()->selectionState() == RenderObject::SelectionEnd)
+        textRenderer()->selectionStartEnd(startPos, endPos);
+        if (renderer()->selectionState() == RenderObject::SelectionStart)
+            endPos = textRenderer()->textLength();
+        else if (renderer()->selectionState() == RenderObject::SelectionEnd)
             startPos = 0;
     }
 
@@ -498,20 +545,9 @@ void InlineTextBox::paintSelection(GraphicsContext* context, int tx, int ty, Ren
     selectionStartEnd(sPos, ePos);
     if (sPos >= ePos)
         return;
-#ifdef ANDROID_DO_NOT_DRAW_TEXTFIELD_SELECTION
-    Node* element = m_object->element();
-    if (element) {
-        Node* ancestor = element->shadowAncestorNode();
-        if (ancestor && ancestor->renderer()) {
-            RenderObject* renderer = ancestor->renderer();
-            if (renderer->isTextField() || renderer->isTextArea())
-                return;
-        }
-    }
-#endif
 
     Color textColor = style->color();
-    Color c = object()->selectionBackgroundColor();
+    Color c = renderer()->selectionBackgroundColor();
     if (!c.isValid() || c.alpha() == 0)
         return;
 
@@ -525,7 +561,7 @@ void InlineTextBox::paintSelection(GraphicsContext* context, int tx, int ty, Ren
     int y = selectionTop();
     int h = selectionHeight();
     context->clip(IntRect(m_x + tx, y + ty, m_width, h));
-    context->drawHighlightForText(font, TextRun(textObject()->text()->characters() + m_start, m_len, textObject()->allowTabs(), textPos(), m_toAdd, 
+    context->drawHighlightForText(font, TextRun(textRenderer()->text()->characters() + m_start, m_len, textRenderer()->allowTabs(), textPos(), m_toAdd, 
                                   direction() == RTL, m_dirOverride || style->visuallyOrdered()),
                                   IntPoint(m_x + tx, y + ty), h, c, sPos, ePos);
     context->restore();
@@ -548,7 +584,7 @@ void InlineTextBox::paintCompositionBackground(GraphicsContext* context, int tx,
 
     int y = selectionTop();
     int h = selectionHeight();
-    context->drawHighlightForText(font, TextRun(textObject()->text()->characters() + m_start, m_len, textObject()->allowTabs(), textPos(), m_toAdd,
+    context->drawHighlightForText(font, TextRun(textRenderer()->text()->characters() + m_start, m_len, textRenderer()->allowTabs(), textPos(), m_toAdd,
                                   direction() == RTL, m_dirOverride || style->visuallyOrdered()),
                                   IntPoint(m_x + tx, y + ty), h, c, sPos, ePos);
     context->restore();
@@ -558,7 +594,7 @@ void InlineTextBox::paintCompositionBackground(GraphicsContext* context, int tx,
 
 void InlineTextBox::paintCustomHighlight(int tx, int ty, const AtomicString& type)
 {
-    Frame* frame = object()->document()->frame();
+    Frame* frame = renderer()->document()->frame();
     if (!frame)
         return;
     Page* page = frame->page();
@@ -566,10 +602,10 @@ void InlineTextBox::paintCustomHighlight(int tx, int ty, const AtomicString& typ
         return;
 
     RootInlineBox* r = root();
-    FloatRect rootRect(tx + r->xPos(), ty + selectionTop(), r->width(), selectionHeight());
-    FloatRect textRect(tx + xPos(), rootRect.y(), width(), rootRect.height());
+    FloatRect rootRect(tx + r->x(), ty + selectionTop(), r->width(), selectionHeight());
+    FloatRect textRect(tx + x(), rootRect.y(), width(), rootRect.height());
 
-    page->chrome()->client()->paintCustomHighlight(object()->node(), type, textRect, rootRect, true, false);
+    page->chrome()->client()->paintCustomHighlight(renderer()->node(), type, textRect, rootRect, true, false);
 }
 
 #endif
@@ -581,27 +617,33 @@ void InlineTextBox::paintDecoration(GraphicsContext* context, int tx, int ty, in
 
     if (m_truncation == cFullTruncation)
         return;
-    
-    int width = (m_truncation == cNoTruncation) ? m_width
-        : toRenderText(m_object)->width(m_start, m_truncation, textPos(), m_firstLine);
+
+    int width = m_width;
+    if (m_truncation != cNoTruncation) {
+        width = toRenderText(renderer())->width(m_start, m_truncation, textPos(), m_firstLine);
+        if (direction() == RTL)
+            tx += (m_width - width);
+    }
     
     // Get the text decoration colors.
     Color underline, overline, linethrough;
-    object()->getTextDecorationColors(deco, underline, overline, linethrough, true);
+    renderer()->getTextDecorationColors(deco, underline, overline, linethrough, true);
     
     // Use a special function for underlines to get the positioning exactly right.
-    bool isPrinting = textObject()->document()->printing();
+    bool isPrinting = textRenderer()->document()->printing();
     context->setStrokeThickness(1.0f); // FIXME: We should improve this rule and not always just assume 1.
 
     bool linesAreOpaque = !isPrinting && (!(deco & UNDERLINE) || underline.alpha() == 255) && (!(deco & OVERLINE) || overline.alpha() == 255) && (!(deco & LINE_THROUGH) || linethrough.alpha() == 255);
+
+    int baseline = renderer()->style(m_firstLine)->font().ascent();
 
     bool setClip = false;
     int extraOffset = 0;
     if (!linesAreOpaque && shadow && shadow->next) {
         context->save();
-        IntRect clipRect(tx, ty, width, m_baseline + 2);
+        IntRect clipRect(tx, ty, width, baseline + 2);
         for (ShadowData* s = shadow; s; s = s->next) {
-            IntRect shadowRect(tx, ty, width, m_baseline + 2);
+            IntRect shadowRect(tx, ty, width, baseline + 2);
             shadowRect.inflate(s->blur);
             shadowRect.move(s->x, s->y);
             clipRect.unite(shadowRect);
@@ -609,12 +651,13 @@ void InlineTextBox::paintDecoration(GraphicsContext* context, int tx, int ty, in
         }
         context->save();
         context->clip(clipRect);
-        extraOffset += m_baseline + 2;
+        extraOffset += baseline + 2;
         ty += extraOffset;
         setClip = true;
     }
 
     bool setShadow = false;
+    
     do {
         if (shadow) {
             if (!shadow->next) {
@@ -629,16 +672,19 @@ void InlineTextBox::paintDecoration(GraphicsContext* context, int tx, int ty, in
 
         if (deco & UNDERLINE) {
             context->setStrokeColor(underline);
+            context->setStrokeStyle(SolidStroke);
             // Leave one pixel of white between the baseline and the underline.
-            context->drawLineForText(IntPoint(tx, ty + m_baseline + 1), width, isPrinting);
+            context->drawLineForText(IntPoint(tx, ty + baseline + 1), width, isPrinting);
         }
         if (deco & OVERLINE) {
             context->setStrokeColor(overline);
+            context->setStrokeStyle(SolidStroke);
             context->drawLineForText(IntPoint(tx, ty), width, isPrinting);
         }
         if (deco & LINE_THROUGH) {
             context->setStrokeColor(linethrough);
-            context->drawLineForText(IntPoint(tx, ty + 2 * m_baseline / 3), width, isPrinting);
+            context->setStrokeStyle(SolidStroke);
+            context->drawLineForText(IntPoint(tx, ty + 2 * baseline / 3), width, isPrinting);
         }
     } while (shadow);
 
@@ -651,7 +697,7 @@ void InlineTextBox::paintDecoration(GraphicsContext* context, int tx, int ty, in
 void InlineTextBox::paintSpellingOrGrammarMarker(GraphicsContext* pt, int tx, int ty, DocumentMarker marker, RenderStyle* style, const Font& font, bool grammar)
 {
     // Never print spelling/grammar markers (5327887)
-    if (textObject()->document()->printing())
+    if (textRenderer()->document()->printing())
         return;
 
     if (m_truncation == cFullTruncation)
@@ -678,7 +724,7 @@ void InlineTextBox::paintSpellingOrGrammarMarker(GraphicsContext* pt, int tx, in
 
         // Calculate start & width
         IntPoint startPoint(tx + m_x, ty + selectionTop());
-        TextRun run(textObject()->text()->characters() + m_start, m_len, textObject()->allowTabs(), textPos(), m_toAdd, direction() == RTL, m_dirOverride || style->visuallyOrdered());
+        TextRun run(textRenderer()->text()->characters() + m_start, m_len, textRenderer()->allowTabs(), textPos(), m_toAdd, direction() == RTL, m_dirOverride || style->visuallyOrdered());
         int h = selectionHeight();
         
         IntRect markerRect = enclosingIntRect(font.selectionRectForText(run, startPoint, h, startPosition, endPosition));
@@ -688,7 +734,7 @@ void InlineTextBox::paintSpellingOrGrammarMarker(GraphicsContext* pt, int tx, in
         // Store rendered rects for bad grammar markers, so we can hit-test against it elsewhere in order to
         // display a toolTip. We don't do this for misspelling markers.
         if (grammar)
-            object()->document()->setRenderedRectForMarker(object()->node(), marker, markerRect);
+            renderer()->document()->setRenderedRectForMarker(renderer()->node(), marker, markerRect);
     }
     
     // IMPORTANT: The misspelling underline is not considered when calculating the text bounds, so we have to
@@ -698,37 +744,40 @@ void InlineTextBox::paintSpellingOrGrammarMarker(GraphicsContext* pt, int tx, in
     // So, we generally place the underline at the bottom of the text, but in larger fonts that's not so good so
     // we pin to two pixels under the baseline.
     int lineThickness = cMisspellingLineThickness;
-    int descent = m_height - m_baseline;
+    int baseline = renderer()->style(m_firstLine)->font().ascent();
+    int descent = height() - baseline;
     int underlineOffset;
     if (descent <= (2 + lineThickness)) {
-        // place the underline at the very bottom of the text in small/medium fonts
-        underlineOffset = m_height - lineThickness;
+        // Place the underline at the very bottom of the text in small/medium fonts.
+        underlineOffset = height() - lineThickness;
     } else {
-        // in larger fonts, tho, place the underline up near the baseline to prevent big gap
-        underlineOffset = m_baseline + 2;
+        // In larger fonts, though, place the underline up near the baseline to prevent a big gap.
+        underlineOffset = baseline + 2;
     }
     pt->drawLineForMisspellingOrBadGrammar(IntPoint(tx + m_x + start, ty + m_y + underlineOffset), width, grammar);
 }
 
 void InlineTextBox::paintTextMatchMarker(GraphicsContext* pt, int tx, int ty, DocumentMarker marker, RenderStyle* style, const Font& font)
 {
-   // Use same y positioning and height as for selection, so that when the selection and this highlight are on
-   // the same word there are no pieces sticking out.
+    // Use same y positioning and height as for selection, so that when the selection and this highlight are on
+    // the same word there are no pieces sticking out.
     int y = selectionTop();
     int h = selectionHeight();
     
     int sPos = max(marker.startOffset - m_start, (unsigned)0);
     int ePos = min(marker.endOffset - m_start, (unsigned)m_len);    
-    TextRun run(textObject()->text()->characters() + m_start, m_len, textObject()->allowTabs(), textPos(), m_toAdd, direction() == RTL, m_dirOverride || style->visuallyOrdered());
+    TextRun run(textRenderer()->text()->characters() + m_start, m_len, textRenderer()->allowTabs(), textPos(), m_toAdd, direction() == RTL, m_dirOverride || style->visuallyOrdered());
     IntPoint startPoint = IntPoint(m_x + tx, y + ty);
     
     // Always compute and store the rect associated with this marker
     IntRect markerRect = enclosingIntRect(font.selectionRectForText(run, startPoint, h, sPos, ePos));
-    object()->document()->setRenderedRectForMarker(object()->node(), marker, markerRect);
+    renderer()->document()->setRenderedRectForMarker(renderer()->node(), marker, markerRect);
      
     // Optionally highlight the text
-    if (object()->document()->frame()->markedTextMatchesAreHighlighted()) {
-        Color color = theme()->platformTextSearchHighlightColor();
+    if (renderer()->document()->frame()->markedTextMatchesAreHighlighted()) {
+        Color color = marker.activeMatch ?
+            renderer()->theme()->platformActiveTextSearchHighlightColor() :
+            renderer()->theme()->platformInactiveTextSearchHighlightColor();
         pt->save();
         updateGraphicsContext(pt, color, color, 0);  // Don't draw text at all!
         pt->clip(IntRect(tx + m_x, ty + y, m_width, h));
@@ -737,9 +786,28 @@ void InlineTextBox::paintTextMatchMarker(GraphicsContext* pt, int tx, int ty, Do
     }
 }
 
+void InlineTextBox::computeRectForReplacementMarker(int tx, int ty, DocumentMarker marker, RenderStyle* style, const Font& font)
+{
+    // Replacement markers are not actually drawn, but their rects need to be computed for hit testing.
+    int y = selectionTop();
+    int h = selectionHeight();
+    
+    int sPos = max(marker.startOffset - m_start, (unsigned)0);
+    int ePos = min(marker.endOffset - m_start, (unsigned)m_len);    
+    TextRun run(textRenderer()->text()->characters() + m_start, m_len, textRenderer()->allowTabs(), textPos(), m_toAdd, direction() == RTL, m_dirOverride || style->visuallyOrdered());
+    IntPoint startPoint = IntPoint(m_x + tx, y + ty);
+    
+    // Compute and store the rect associated with this marker.
+    IntRect markerRect = enclosingIntRect(font.selectionRectForText(run, startPoint, h, sPos, ePos));
+    renderer()->document()->setRenderedRectForMarker(renderer()->node(), marker, markerRect);
+}
+    
 void InlineTextBox::paintDocumentMarkers(GraphicsContext* pt, int tx, int ty, RenderStyle* style, const Font& font, bool background)
 {
-    Vector<DocumentMarker> markers = object()->document()->markersForNode(object()->node());
+    if (!renderer()->node())
+        return;
+
+    Vector<DocumentMarker> markers = renderer()->document()->markersForNode(renderer()->node());
     Vector<DocumentMarker>::iterator markerIt = markers.begin();
 
     // Give any document markers that touch this run a chance to draw before the text has been drawn.
@@ -751,6 +819,7 @@ void InlineTextBox::paintDocumentMarkers(GraphicsContext* pt, int tx, int ty, Re
         switch (marker.type) {
             case DocumentMarker::Grammar:
             case DocumentMarker::Spelling:
+            case DocumentMarker::Replacement:
                 if (background)
                     continue;
                 break;
@@ -784,6 +853,9 @@ void InlineTextBox::paintDocumentMarkers(GraphicsContext* pt, int tx, int ty, Re
             case DocumentMarker::TextMatch:
                 paintTextMatchMarker(pt, tx, ty, marker, style, font);
                 break;
+            case DocumentMarker::Replacement:
+                computeRectForReplacementMarker(tx, ty, marker, style, font);
+                break;
             default:
                 ASSERT_NOT_REACHED();
         }
@@ -808,7 +880,7 @@ void InlineTextBox::paintCompositionUnderline(GraphicsContext* ctx, int tx, int 
     if (paintStart <= underline.startOffset) {
         paintStart = underline.startOffset;
         useWholeWidth = false;
-        start = toRenderText(m_object)->width(m_start, paintStart - m_start, textPos(), m_firstLine);
+        start = toRenderText(renderer())->width(m_start, paintStart - m_start, textPos(), m_firstLine);
     }
     if (paintEnd != underline.endOffset) {      // end points at the last char, not past it
         paintEnd = min(paintEnd, (unsigned)underline.endOffset);
@@ -819,14 +891,15 @@ void InlineTextBox::paintCompositionUnderline(GraphicsContext* ctx, int tx, int 
         useWholeWidth = false;
     }
     if (!useWholeWidth) {
-        width = toRenderText(m_object)->width(paintStart, paintEnd - paintStart, textPos() + start, m_firstLine);
+        width = toRenderText(renderer())->width(paintStart, paintEnd - paintStart, textPos() + start, m_firstLine);
     }
 
     // Thick marked text underlines are 2px thick as long as there is room for the 2px line under the baseline.
     // All other marked text underlines are 1px thick.
     // If there's not enough space the underline will touch or overlap characters.
     int lineThickness = 1;
-    if (underline.thick && m_height - m_baseline >= 2)
+    int baseline = renderer()->style(m_firstLine)->font().ascent();
+    if (underline.thick && height() - baseline >= 2)
         lineThickness = 2;
 
     // We need to have some space between underlines of subsequent clauses, because some input methods do not use different underline styles for those.
@@ -836,7 +909,7 @@ void InlineTextBox::paintCompositionUnderline(GraphicsContext* ctx, int tx, int 
 
     ctx->setStrokeColor(underline.color);
     ctx->setStrokeThickness(lineThickness);
-    ctx->drawLineForText(IntPoint(tx + start, ty + m_height - lineThickness), width, textObject()->document()->printing());
+    ctx->drawLineForText(IntPoint(tx + start, ty + height() - lineThickness), width, textRenderer()->document()->printing());
 }
 
 int InlineTextBox::caretMinOffset() const
@@ -856,12 +929,12 @@ unsigned InlineTextBox::caretMaxRenderedOffset() const
 
 int InlineTextBox::textPos() const
 {
-    if (xPos() == 0)
+    if (x() == 0)
         return 0;
         
-    RenderBlock *blockElement = object()->containingBlock();
-    return direction() == RTL ? xPos() - blockElement->borderRight() - blockElement->paddingRight()
-                      : xPos() - blockElement->borderLeft() - blockElement->paddingLeft();
+    RenderBlock *blockElement = renderer()->containingBlock();
+    return direction() == RTL ? x() - blockElement->borderRight() - blockElement->paddingRight()
+                      : x() - blockElement->borderLeft() - blockElement->paddingLeft();
 }
 
 int InlineTextBox::offsetForPosition(int _x, bool includePartialGlyphs) const
@@ -869,10 +942,10 @@ int InlineTextBox::offsetForPosition(int _x, bool includePartialGlyphs) const
     if (isLineBreak())
         return 0;
 
-    RenderText* text = toRenderText(m_object);
+    RenderText* text = toRenderText(renderer());
     RenderStyle *style = text->style(m_firstLine);
     const Font* f = &style->font();
-    return f->offsetForPosition(TextRun(textObject()->text()->characters() + m_start, m_len, textObject()->allowTabs(), textPos(), m_toAdd, direction() == RTL, m_dirOverride || style->visuallyOrdered()),
+    return f->offsetForPosition(TextRun(textRenderer()->text()->characters() + m_start, m_len, textRenderer()->allowTabs(), textPos(), m_toAdd, direction() == RTL, m_dirOverride || style->visuallyOrdered()),
                                 _x - m_x, includePartialGlyphs);
 }
 
@@ -884,12 +957,12 @@ int InlineTextBox::positionForOffset(int offset) const
     if (isLineBreak())
         return m_x;
 
-    RenderText* text = toRenderText(m_object);
+    RenderText* text = toRenderText(renderer());
     const Font& f = text->style(m_firstLine)->font();
     int from = direction() == RTL ? offset - m_start : 0;
     int to = direction() == RTL ? m_len : offset - m_start;
     // FIXME: Do we need to add rightBearing here?
-    return enclosingIntRect(f.selectionRectForText(TextRun(text->text()->characters() + m_start, m_len, textObject()->allowTabs(), textPos(), m_toAdd, direction() == RTL, m_dirOverride),
+    return enclosingIntRect(f.selectionRectForText(TextRun(text->text()->characters() + m_start, m_len, textRenderer()->allowTabs(), textPos(), m_toAdd, direction() == RTL, m_dirOverride),
                                                    IntPoint(m_x, 0), 0, from, to)).right();
 }
 
@@ -915,6 +988,32 @@ bool InlineTextBox::containsCaretOffset(int offset) const
 
     // Offsets at the end are "in" for normal boxes (but the caller has to check affinity).
     return true;
+}
+
+typedef HashMap<InlineTextBox*, Vector<const SimpleFontData*> > FallbackFontsMap;
+static FallbackFontsMap* gFallbackFontsMap;
+
+void InlineTextBox::setFallbackFonts(const HashSet<const SimpleFontData*>& fallbackFonts)
+{
+    if (!gFallbackFontsMap)
+        gFallbackFontsMap = new FallbackFontsMap;
+
+    FallbackFontsMap::iterator it = gFallbackFontsMap->set(this, Vector<const SimpleFontData*>()).first;
+    ASSERT(it->second.isEmpty());
+    copyToVector(fallbackFonts, it->second);
+}
+
+void InlineTextBox::takeFallbackFonts(Vector<const SimpleFontData*>& fallbackFonts)
+{
+    if (!gFallbackFontsMap)
+        return;
+
+    FallbackFontsMap::iterator it = gFallbackFontsMap->find(this);
+    if (it == gFallbackFontsMap->end())
+        return;
+
+    fallbackFonts.swap(it->second);
+    gFallbackFontsMap->remove(it);
 }
 
 } // namespace WebCore

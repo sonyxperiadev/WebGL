@@ -1,6 +1,6 @@
 /*
  *  Copyright (C) 2001 Peter Kelly (pmk@post.com)
- *  Copyright (C) 2007, 2008 Apple Inc. All rights reserved.
+ *  Copyright (C) 2007, 2008, 2009 Apple Inc. All rights reserved.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Lesser General Public
@@ -29,22 +29,21 @@ namespace WebCore {
 
 using namespace JSC;
 
-ASSERT_CLASS_FITS_IN_CELL(JSNodeFilterCondition)
+ASSERT_CLASS_FITS_IN_CELL(JSNodeFilterCondition);
 
-JSNodeFilterCondition::JSNodeFilterCondition(JSValuePtr filter)
+JSNodeFilterCondition::JSNodeFilterCondition(JSValue filter)
     : m_filter(filter)
 {
 }
 
-void JSNodeFilterCondition::mark()
+void JSNodeFilterCondition::markAggregate(MarkStack& markStack)
 {
-    if (!m_filter.marked())
-        m_filter.mark();
+    markStack.append(m_filter);
 }
 
 short JSNodeFilterCondition::acceptNode(JSC::ExecState* exec, Node* filterNode) const
 {
-    JSLock lock(false);
+    JSLock lock(SilenceAssertionsOnly);
 
     CallData callData;
     CallType callType = m_filter.getCallData(callData);
@@ -60,12 +59,14 @@ short JSNodeFilterCondition::acceptNode(JSC::ExecState* exec, Node* filterNode) 
     if (!exec)
         return NodeFilter::FILTER_REJECT;
 
-    ArgList args;
-    args.append(toJS(exec, filterNode));
+    MarkedArgumentBuffer args;
+    // FIXME: The node should have the prototype chain that came from its document, not
+    // whatever prototype chain might be on the window this filter came from. Bug 27662
+    args.append(toJS(exec, deprecatedGlobalObjectForPrototype(exec), filterNode));
     if (exec->hadException())
         return NodeFilter::FILTER_REJECT;
 
-    JSValuePtr result = call(exec, m_filter, callType, callData, m_filter, args);
+    JSValue result = call(exec, m_filter, callType, callData, m_filter, args);
     if (exec->hadException())
         return NodeFilter::FILTER_REJECT;
 

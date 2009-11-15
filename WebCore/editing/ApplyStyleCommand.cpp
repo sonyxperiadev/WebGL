@@ -27,11 +27,14 @@
 #include "ApplyStyleCommand.h"
 
 #include "CSSComputedStyleDeclaration.h"
+#include "CSSMutableStyleDeclaration.h"
 #include "CSSParser.h"
 #include "CSSProperty.h"
 #include "CSSPropertyNames.h"
 #include "CSSValueKeywords.h"
 #include "Document.h"
+#include "Editor.h"
+#include "Frame.h"
 #include "HTMLElement.h"
 #include "HTMLInterchange.h"
 #include "HTMLNames.h"
@@ -50,12 +53,7 @@ using namespace HTMLNames;
 
 class StyleChange {
 public:
-    enum ELegacyHTMLStyles { DoNotUseLegacyHTMLStyles, UseLegacyHTMLStyles };
-
-    explicit StyleChange(CSSStyleDeclaration*, ELegacyHTMLStyles usesLegacyStyles=UseLegacyHTMLStyles);
-    StyleChange(CSSStyleDeclaration*, const Position&, ELegacyHTMLStyles usesLegacyStyles=UseLegacyHTMLStyles);
-
-    static ELegacyHTMLStyles styleModeForParseMode(bool);
+    explicit StyleChange(CSSStyleDeclaration*, const Position&);
 
     String cssStyle() const { return m_cssStyle; }
     bool applyBold() const { return m_applyBold; }
@@ -70,8 +68,6 @@ public:
     String fontFace() { return m_applyFontFace; }
     String fontSize() { return m_applyFontSize; }
 
-    bool usesLegacyStyles() const { return m_usesLegacyStyles; }
-
 private:
     void init(PassRefPtr<CSSStyleDeclaration>, const Position&);
     bool checkForLegacyHTMLStyleChange(const CSSProperty*);
@@ -85,37 +81,29 @@ private:
     String m_applyFontColor;
     String m_applyFontFace;
     String m_applyFontSize;
-    bool m_usesLegacyStyles;
 };
 
 
-
-StyleChange::StyleChange(CSSStyleDeclaration* style, ELegacyHTMLStyles usesLegacyStyles)
+StyleChange::StyleChange(CSSStyleDeclaration* style, const Position& position)
     : m_applyBold(false)
     , m_applyItalic(false)
     , m_applySubscript(false)
     , m_applySuperscript(false)
-    , m_usesLegacyStyles(usesLegacyStyles)
-{
-    init(style, Position());
-}
-
-StyleChange::StyleChange(CSSStyleDeclaration* style, const Position& position, ELegacyHTMLStyles usesLegacyStyles)
-    : m_applyBold(false)
-    , m_applyItalic(false)
-    , m_applySubscript(false)
-    , m_applySuperscript(false)
-    , m_usesLegacyStyles(usesLegacyStyles)
 {
     init(style, position);
 }
 
-void StyleChange::init(PassRefPtr<CSSStyleDeclaration> style, const Position &position)
+void StyleChange::init(PassRefPtr<CSSStyleDeclaration> style, const Position& position)
 {
-    RefPtr<CSSMutableStyleDeclaration> mutableStyle = style->makeMutable();
-    
-    String styleText("");
+    Document* document = position.node() ? position.node()->document() : 0;
+    if (!document || !document->frame())
+        return;
 
+    bool useHTMLFormattingTags = !document->frame()->editor()->shouldStyleWithCSS();
+    RefPtr<CSSMutableStyleDeclaration> mutableStyle = style->makeMutable();
+    // We shouldn't have both text-decoration and -webkit-text-decorations-in-effect because that wouldn't make sense.
+    ASSERT(!mutableStyle->getPropertyCSSValue(CSSPropertyTextDecoration) || !mutableStyle->getPropertyCSSValue(CSSPropertyWebkitTextDecorationsInEffect));
+    String styleText("");
     bool addedDirection = false;
     CSSMutableStyleDeclaration::const_iterator end = mutableStyle->end();
     for (CSSMutableStyleDeclaration::const_iterator it = mutableStyle->begin(); it != end; ++it) {
@@ -131,7 +119,7 @@ void StyleChange::init(PassRefPtr<CSSStyleDeclaration> style, const Position &po
             continue;
         
         // If needed, figure out if this change is a legacy HTML style change.
-        if (m_usesLegacyStyles && checkForLegacyHTMLStyleChange(property))
+        if (useHTMLFormattingTags && checkForLegacyHTMLStyleChange(property))
             continue;
 
         if (property->id() == CSSPropertyDirection) {
@@ -141,12 +129,12 @@ void StyleChange::init(PassRefPtr<CSSStyleDeclaration> style, const Position &po
         }
 
         // Add this property
-
-        if (property->id() == CSSPropertyWebkitTextDecorationsInEffect) {
-            // we have to special-case text decorations
-            // FIXME: Why?
+        if (property->id() == CSSPropertyTextDecoration || property->id() == CSSPropertyWebkitTextDecorationsInEffect) {
+            // Always use text-decoration because -webkit-text-decoration-in-effect is internal.
             CSSProperty alteredProperty(CSSPropertyTextDecoration, property->value(), property->isImportant());
-            styleText += alteredProperty.cssText();
+            // We don't add "text-decoration: none" because it doesn't override the existing text decorations; i.e. redundant
+            if (!equalIgnoringCase(alteredProperty.value()->cssText(), "none"))
+                styleText += alteredProperty.cssText();
         } else
             styleText += property->cssText();
 
@@ -158,11 +146,6 @@ void StyleChange::init(PassRefPtr<CSSStyleDeclaration> style, const Position &po
 
     // Save the result for later
     m_cssStyle = styleText.stripWhiteSpace();
-}
-
-StyleChange::ELegacyHTMLStyles StyleChange::styleModeForParseMode(bool isQuirksMode)
-{
-    return isQuirksMode ? UseLegacyHTMLStyles : DoNotUseLegacyHTMLStyles;
 }
 
 // This function is the mapping from CSS styles to styling tags (like font-weight: bold to <b>)
@@ -245,7 +228,14 @@ bool StyleChange::currentlyHasStyle(const Position &pos, const CSSProperty *prop
 {
     ASSERT(pos.isNotNull());
     RefPtr<CSSComputedStyleDeclaration> style = pos.computedStyle();
-    RefPtr<CSSValue> value = style->getPropertyCSSValue(property->id(), DoNotUpdateLayout);
+    RefPtr<CSSValue> value;
+    if (property->id() == CSSPropertyFontSize)
+        value = style->getFontSizeCSSValuePreferringKeyword();
+    // We need to use -webkit-text-decorations-in-effect to take care of text decorations set by u, s, and strike
+    else if (property->id() == CSSPropertyTextDecoration)
+        value = style->getPropertyCSSValue(CSSPropertyWebkitTextDecorationsInEffect);
+    else
+        value = style->getPropertyCSSValue(property->id());
     if (!value)
         return false;
     return equalIgnoringCase(value->cssText(), property->value()->cssText());
@@ -273,7 +263,7 @@ static bool isUnstyledStyleSpan(const Node* node)
 
     const HTMLElement* elem = static_cast<const HTMLElement*>(node);
     CSSMutableStyleDeclaration* inlineStyleDecl = elem->inlineStyleDecl();
-    return (!inlineStyleDecl || inlineStyleDecl->length() == 0) && elem->getAttribute(classAttr) == styleSpanClassString();
+    return (!inlineStyleDecl || inlineStyleDecl->isEmpty()) && elem->getAttribute(classAttr) == styleSpanClassString();
 }
 
 static bool isSpanWithoutAttributesOrUnstyleStyleSpan(const Node* node)
@@ -282,8 +272,8 @@ static bool isSpanWithoutAttributesOrUnstyleStyleSpan(const Node* node)
         return false;
 
     const HTMLElement* elem = static_cast<const HTMLElement*>(node);
-    NamedAttrMap* attributes = elem->attributes(true); // readonly
-    if (attributes->length() == 0)
+    NamedNodeMap* attributes = elem->attributes(true); // readonly
+    if (attributes->isEmpty())
         return true;
 
     return isUnstyledStyleSpan(node);
@@ -295,7 +285,7 @@ static bool isEmptyFontTag(const Node *node)
         return false;
 
     const Element *elem = static_cast<const Element *>(node);
-    NamedAttrMap *map = elem->attributes(true); // true for read-only
+    NamedNodeMap *map = elem->attributes(true); // true for read-only
     return (!map || map->length() == 1) && elem->getAttribute(classAttr) == styleSpanClassString();
 }
 
@@ -312,7 +302,129 @@ PassRefPtr<HTMLElement> createStyleSpanElement(Document* document)
     styleElement->setAttribute(classAttr, styleSpanClassString());
     return styleElement.release();
 }
+    
+RefPtr<CSSMutableStyleDeclaration> getPropertiesNotInComputedStyle(CSSStyleDeclaration* style, CSSComputedStyleDeclaration* computedStyle)
+{
+    ASSERT(style);
+    ASSERT(computedStyle);
+    RefPtr<CSSMutableStyleDeclaration> result = style->copy();
+    computedStyle->diff(result.get());
 
+    // If text decorations in effect is not present in the computed style, then there is nothing to remove from result
+    RefPtr<CSSValue> computedValue = computedStyle->getPropertyCSSValue(CSSPropertyWebkitTextDecorationsInEffect);
+    if (!computedValue || !computedValue->isValueList())
+        return result;
+
+    // Take care of both text-decoration and -webkit-text-decorations-in-effect
+    static const int textDecorationProperties[]={CSSPropertyTextDecoration, CSSPropertyWebkitTextDecorationsInEffect};
+    for (size_t n = 0; n < sizeof(textDecorationProperties)/sizeof(textDecorationProperties[1]); n++) {
+        RefPtr<CSSValue> styleValue = style->getPropertyCSSValue(textDecorationProperties[n]);
+        if (!styleValue || !styleValue->isValueList())
+            continue;
+
+        CSSValueList* desiredValueList = static_cast<CSSValueList*>(styleValue.get());
+        CSSValueList* computedValueList = static_cast<CSSValueList*>(computedValue.get());
+        for (size_t i = 0; i < desiredValueList->length(); i++) {
+            if (!computedValueList->hasValue(desiredValueList->item(i))) {
+                result->removeProperty(textDecorationProperties[n]);
+                break;
+            }
+        }
+    }
+
+    return result;
+}
+
+// Editing style properties must be preserved during editing operation.
+// e.g. when a user inserts a new paragraph, all properties listed here must be copied to the new paragraph.
+// FIXME: The current editingStyleProperties contains all inheritableProperties but we may not need to preserve all inheritable properties
+static const int editingStyleProperties[] = {
+    CSSPropertyBackgroundColor,
+    // CSS inheritable properties
+    CSSPropertyBorderCollapse,
+    CSSPropertyColor,
+    CSSPropertyFontFamily,
+    CSSPropertyFontSize,
+    CSSPropertyFontStyle,
+    CSSPropertyFontVariant,
+    CSSPropertyFontWeight,
+    CSSPropertyLetterSpacing,
+    CSSPropertyLineHeight,
+    CSSPropertyOrphans,
+    CSSPropertyTextAlign,
+    CSSPropertyTextIndent,
+    CSSPropertyTextTransform,
+    CSSPropertyWhiteSpace,
+    CSSPropertyWidows,
+    CSSPropertyWordSpacing,
+    CSSPropertyWebkitBorderHorizontalSpacing,
+    CSSPropertyWebkitBorderVerticalSpacing,
+    CSSPropertyWebkitTextDecorationsInEffect,
+    CSSPropertyWebkitTextFillColor,
+    CSSPropertyWebkitTextSizeAdjust,
+    CSSPropertyWebkitTextStrokeColor,
+    CSSPropertyWebkitTextStrokeWidth,
+};
+size_t numEditingStyleProperties = sizeof(editingStyleProperties)/sizeof(editingStyleProperties[0]);
+
+PassRefPtr<CSSMutableStyleDeclaration> editingStyleAtPosition(Position pos, ShouldIncludeTypingStyle shouldIncludeTypingStyle)
+{
+    RefPtr<CSSComputedStyleDeclaration> computedStyleAtPosition = pos.computedStyle();
+    RefPtr<CSSMutableStyleDeclaration> style = computedStyleAtPosition->copyPropertiesInSet(editingStyleProperties, numEditingStyleProperties);
+
+    if (style && pos.node() && pos.node()->computedStyle()) {
+        RenderStyle* renderStyle = pos.node()->computedStyle();
+        // If a node's text fill color is invalid, then its children use 
+        // their font-color as their text fill color (they don't
+        // inherit it).  Likewise for stroke color.
+        ExceptionCode ec = 0;
+        if (!renderStyle->textFillColor().isValid())
+            style->removeProperty(CSSPropertyWebkitTextFillColor, ec);
+        if (!renderStyle->textStrokeColor().isValid())
+            style->removeProperty(CSSPropertyWebkitTextStrokeColor, ec);
+        ASSERT(ec == 0);
+        if (renderStyle->fontDescription().keywordSize())
+            style->setProperty(CSSPropertyFontSize, computedStyleAtPosition->getFontSizeCSSValuePreferringKeyword()->cssText());
+    }
+
+    if (shouldIncludeTypingStyle == IncludeTypingStyle) {
+        CSSMutableStyleDeclaration* typingStyle = pos.node()->document()->frame()->typingStyle();
+        if (typingStyle)
+            style->merge(typingStyle);
+    }
+
+    return style.release();
+}
+
+void prepareEditingStyleToApplyAt(CSSMutableStyleDeclaration* editingStyle, Position pos)
+{
+    // ReplaceSelectionCommand::handleStyleSpans() requiers that this function only removes the editing style.
+    // If this function was modified in the futureto delete all redundant properties, then add a boolean value to indicate
+    // which one of editingStyleAtPosition or computedStyle is called.
+    RefPtr<CSSMutableStyleDeclaration> style = editingStyleAtPosition(pos);
+    style->diff(editingStyle);
+
+    // if alpha value is zero, we don't add the background color.
+    RefPtr<CSSValue> backgroundColor = editingStyle->getPropertyCSSValue(CSSPropertyBackgroundColor);
+    if (backgroundColor && backgroundColor->isPrimitiveValue()) {
+        CSSPrimitiveValue* primitiveValue = static_cast<CSSPrimitiveValue*>(backgroundColor.get());
+        Color color = Color(primitiveValue->getRGBA32Value());
+        ExceptionCode ec;
+        if (color.alpha() == 0)
+            editingStyle->removeProperty(CSSPropertyBackgroundColor, ec);
+    }
+}
+
+void removeStylesAddedByNode(CSSMutableStyleDeclaration* editingStyle, Node* node)
+{
+    ASSERT(node);
+    ASSERT(node->parentNode());
+    RefPtr<CSSMutableStyleDeclaration> parentStyle = editingStyleAtPosition(Position(node->parentNode(), 0));
+    RefPtr<CSSMutableStyleDeclaration> style = editingStyleAtPosition(Position(node, 0));
+    parentStyle->diff(style.get());
+    style->diff(editingStyle);
+}
+    
 ApplyStyleCommand::ApplyStyleCommand(Document* document, CSSStyleDeclaration* style, EditAction editingAction, EPropertyLevel propertyLevel)
     : CompositeEditCommand(document)
     , m_style(style->makeMutable())
@@ -354,12 +466,12 @@ ApplyStyleCommand::ApplyStyleCommand(PassRefPtr<Element> element, bool removeOnl
 
 void ApplyStyleCommand::updateStartEnd(const Position& newStart, const Position& newEnd)
 {
-    ASSERT(Range::compareBoundaryPoints(newEnd, newStart) >= 0);
+    ASSERT(comparePositions(newEnd, newStart) >= 0);
 
     if (!m_useEndingSelection && (newStart != m_start || newEnd != m_end))
         m_useEndingSelection = true;
 
-    setEndingSelection(Selection(newStart, newEnd, VP_DEFAULT_AFFINITY));
+    setEndingSelection(VisibleSelection(newStart, newEnd, VP_DEFAULT_AFFINITY));
     m_start = newStart;
     m_end = newEnd;
 }
@@ -420,7 +532,7 @@ void ApplyStyleCommand::applyBlockStyle(CSSMutableStyleDeclaration *style)
     // get positions we want to use for applying style
     Position start = startPosition();
     Position end = endPosition();
-    if (Range::compareBoundaryPoints(end, start) < 0) {
+    if (comparePositions(end, start) < 0) {
         Position swap = start;
         start = end;
         end = swap;
@@ -442,8 +554,8 @@ void ApplyStyleCommand::applyBlockStyle(CSSMutableStyleDeclaration *style)
     VisiblePosition nextParagraphStart(endOfParagraph(paragraphStart).next());
     VisiblePosition beyondEnd(endOfParagraph(visibleEnd).next());
     while (paragraphStart.isNotNull() && paragraphStart != beyondEnd) {
-        StyleChange styleChange(style, paragraphStart.deepEquivalent(), StyleChange::styleModeForParseMode(document()->inCompatMode()));
-        if (styleChange.cssStyle().length() > 0 || m_removeOnly) {
+        StyleChange styleChange(style, paragraphStart.deepEquivalent());
+        if (styleChange.cssStyle().length() || m_removeOnly) {
             RefPtr<Node> block = enclosingBlock(paragraphStart.deepEquivalent().node());
             RefPtr<Node> newBlock = moveParagraphContentsToNewBlockIfNecessary(paragraphStart.deepEquivalent());
             if (newBlock)
@@ -496,7 +608,7 @@ void ApplyStyleCommand::applyRelativeFontStyleChange(CSSMutableStyleDeclaration 
     
     Position start = startPosition();
     Position end = endPosition();
-    if (Range::compareBoundaryPoints(end, start) < 0) {
+    if (comparePositions(end, start) < 0) {
         Position swap = start;
         start = end;
         end = swap;
@@ -537,7 +649,7 @@ void ApplyStyleCommand::applyRelativeFontStyleChange(CSSMutableStyleDeclaration 
     
     start = start.upstream(); // Move upstream to ensure we do not add redundant spans.
     Node *startNode = start.node();
-    if (startNode->isTextNode() && start.offset() >= caretMaxOffset(startNode)) // Move out of text node if range does not include its characters.
+    if (startNode->isTextNode() && start.deprecatedEditingOffset() >= caretMaxOffset(startNode)) // Move out of text node if range does not include its characters.
         startNode = startNode->traverseNextNode();
 
     // Store away font size before making any changes to the document.
@@ -581,7 +693,7 @@ void ApplyStyleCommand::applyRelativeFontStyleChange(CSSMutableStyleDeclaration 
             inlineStyleDecl->setProperty(CSSPropertyFontSize, String::number(desiredFontSize) + "px", false, false);
             setNodeAttribute(element.get(), styleAttr, inlineStyleDecl->cssText());
         }
-        if (inlineStyleDecl->length() == 0) {
+        if (inlineStyleDecl->isEmpty()) {
             removeNodeAttribute(element.get(), styleAttr);
             // FIXME: should this be isSpanWithoutAttributesOrUnstyleStyleSpan?  Need a test.
             if (isUnstyledStyleSpan(element.get()))
@@ -731,7 +843,7 @@ void ApplyStyleCommand::applyInlineStyle(CSSMutableStyleDeclaration *style)
     // adjust to the positions we want to use for applying style
     Position start = startPosition();
     Position end = endPosition();
-    if (Range::compareBoundaryPoints(end, start) < 0) {
+    if (comparePositions(end, start) < 0) {
         Position swap = start;
         start = end;
         end = swap;
@@ -792,14 +904,14 @@ void ApplyStyleCommand::applyInlineStyle(CSSMutableStyleDeclaration *style)
         RefPtr<CSSMutableStyleDeclaration> embeddingStyle = CSSMutableStyleDeclaration::create();
         embeddingStyle->setProperty(CSSPropertyUnicodeBidi, CSSValueEmbed);
         embeddingStyle->setProperty(CSSPropertyDirection, static_cast<CSSPrimitiveValue*>(direction.get())->getIdent());
-        if (Range::compareBoundaryPoints(embeddingRemoveStart, embeddingRemoveEnd) <= 0)
+        if (comparePositions(embeddingRemoveStart, embeddingRemoveEnd) <= 0)
             removeInlineStyle(embeddingStyle, embeddingRemoveStart, embeddingRemoveEnd);
 
         RefPtr<CSSMutableStyleDeclaration> styleWithoutEmbedding = style->copy();
         styleWithoutEmbedding->removeProperty(CSSPropertyUnicodeBidi);
         styleWithoutEmbedding->removeProperty(CSSPropertyDirection);
         removeInlineStyle(styleWithoutEmbedding, removeStart, end);
-   } else
+    } else
         removeInlineStyle(style, removeStart, end);
 
     start = startPosition();
@@ -869,7 +981,7 @@ void ApplyStyleCommand::applyInlineStyle(CSSMutableStyleDeclaration *style)
         styleWithoutEmbedding->removeProperty(CSSPropertyUnicodeBidi);
         styleWithoutEmbedding->removeProperty(CSSPropertyDirection);
         applyInlineStyleToRange(styleWithoutEmbedding.get(), start, end);
-   } else
+    } else
         applyInlineStyleToRange(style, start, end);
 
     // Remove dummy style spans created by splitting text elements.
@@ -885,17 +997,17 @@ void ApplyStyleCommand::applyInlineStyleToRange(CSSMutableStyleDeclaration* styl
 
     bool rangeIsEmpty = false;
 
-    if (start.offset() >= caretMaxOffset(start.node())) {
+    if (start.deprecatedEditingOffset() >= caretMaxOffset(start.node())) {
         node = node->traverseNextNode();
         Position newStart = Position(node, 0);
-        if (Range::compareBoundaryPoints(end, newStart) < 0)
+        if (!node || comparePositions(end, newStart) < 0)
             rangeIsEmpty = true;
     }
 
     if (!rangeIsEmpty) {
         // pastEndNode is the node after the last fully selected node.
         Node* pastEndNode = end.node();
-        if (end.offset() >= caretMaxOffset(end.node()))
+        if (end.deprecatedEditingOffset() >= caretMaxOffset(end.node()))
             pastEndNode = end.node()->traverseNextSibling();
         // FIXME: Callers should perform this operation on a Range that includes the br
         // if they want style applied to the empty line.
@@ -913,7 +1025,7 @@ void ApplyStyleCommand::applyInlineStyleToRange(CSSMutableStyleDeclaration* styl
                 // This is a plaintext-only region. Only proceed if it's fully selected.
                 // pastEndNode is the node after the last fully selected node, so if it's inside node then
                 // node isn't fully selected.
-                if (pastEndNode->isDescendantOf(node))
+                if (pastEndNode && pastEndNode->isDescendantOf(node))
                     break;
                 // Add to this element's inline style and skip over its contents.
                 HTMLElement* element = static_cast<HTMLElement*>(node);
@@ -952,13 +1064,17 @@ void ApplyStyleCommand::applyInlineStyleToRange(CSSMutableStyleDeclaration* styl
 
 // This function maps from styling tags to CSS styles.  Used for knowing which
 // styling tags should be removed when toggling styles.
-bool ApplyStyleCommand::isHTMLStyleNode(CSSMutableStyleDeclaration* style, HTMLElement* elem)
+bool ApplyStyleCommand::implicitlyStyledElementShouldBeRemovedWhenApplyingStyle(HTMLElement* elem, CSSMutableStyleDeclaration* style)
 {
     CSSMutableStyleDeclaration::const_iterator end = style->end();
     for (CSSMutableStyleDeclaration::const_iterator it = style->begin(); it != end; ++it) {
-        switch ((*it).id()) {
+        const CSSProperty& property = *it;
+        // FIXME: This should probably be re-written to lookup the tagname in a
+        // hash and match against an expected property/value pair.
+        switch (property.id()) {
         case CSSPropertyFontWeight:
-            if (elem->hasLocalName(bTag))
+            // IE inserts "strong" tags for execCommand("bold"), so we remove them, even though they're not strictly presentational
+            if (elem->hasLocalName(bTag) || elem->hasLocalName(strongTag))
                 return true;
             break;
         case CSSPropertyVerticalAlign:
@@ -966,22 +1082,56 @@ bool ApplyStyleCommand::isHTMLStyleNode(CSSMutableStyleDeclaration* style, HTMLE
                 return true;
             break;
         case CSSPropertyFontStyle:
-            if (elem->hasLocalName(iTag))
+            // IE inserts "em" tags for execCommand("italic"), so we remove them, even though they're not strictly presentational
+            if (elem->hasLocalName(iTag) || elem->hasLocalName(emTag))
                 return true;
+            break;
+        case CSSPropertyTextDecoration:
+        case CSSPropertyWebkitTextDecorationsInEffect:
+                ASSERT(property.value());
+                if (property.value()->isValueList()) {
+                    CSSValueList* valueList = static_cast<CSSValueList*>(property.value());
+                    DEFINE_STATIC_LOCAL(RefPtr<CSSPrimitiveValue>, underline, (CSSPrimitiveValue::createIdentifier(CSSValueUnderline)));
+                    DEFINE_STATIC_LOCAL(RefPtr<CSSPrimitiveValue>, lineThrough, (CSSPrimitiveValue::createIdentifier(CSSValueLineThrough)));
+                    // Because style is new style to be applied, we delete element only if the element is not used in style.
+                    if (!valueList->hasValue(underline.get()) && elem->hasLocalName(uTag))
+                        return true;
+                    if (!valueList->hasValue(lineThrough.get()) && (elem->hasLocalName(strikeTag) || elem->hasLocalName(sTag)))
+                        return true;
+                } else {
+                    // If the value is NOT a list, then it must be "none", in which case we should remove all text decorations.
+                    ASSERT(property.value()->cssText() == "none");
+                    if (elem->hasLocalName(uTag) || elem->hasLocalName(strikeTag) || elem->hasLocalName(sTag))
+                        return true;
+                }
+                break;
         }
     }
-
     return false;
 }
 
-void ApplyStyleCommand::removeHTMLStyleNode(HTMLElement *elem)
+void ApplyStyleCommand::replaceWithSpanOrRemoveIfWithoutAttributes(HTMLElement*& elem)
 {
-    // This node can be removed.
-    // EDIT FIXME: This does not handle the case where the node
-    // has attributes. But how often do people add attributes to <B> tags? 
-    // Not so often I think.
-    ASSERT(elem);
-    removeNodePreservingChildren(elem);
+    bool removeNode = false;
+
+    // Similar to isSpanWithoutAttributesOrUnstyleStyleSpan, but does not look for Apple-style-span.
+    NamedNodeMap* attributes = elem->attributes(true); // readonly
+    if (!attributes || attributes->isEmpty())
+        removeNode = true;
+    else if (attributes->length() == 1 && elem->hasAttribute(styleAttr)) {
+        // Remove the element even if it has just style='' (this might be redundantly checked later too)
+        CSSMutableStyleDeclaration* inlineStyleDecl = elem->inlineStyleDecl();
+        if (!inlineStyleDecl || inlineStyleDecl->isEmpty())
+            removeNode = true;
+    }
+
+    if (removeNode)
+        removeNodePreservingChildren(elem);
+    else {
+        HTMLElement* newSpanElement = replaceNodeWithSpanPreservingChildrenAndAttributes(elem);
+        ASSERT(newSpanElement && newSpanElement->inDocument());
+        elem = newSpanElement;
+    }
 }
 
 void ApplyStyleCommand::removeHTMLFontStyle(CSSMutableStyleDeclaration *style, HTMLElement *elem)
@@ -1050,7 +1200,7 @@ void ApplyStyleCommand::removeCSSStyle(CSSMutableStyleDeclaration* style, HTMLEl
     }
 
     // No need to serialize <foo style=""> if we just removed the last css property
-    if (decl->length() == 0)
+    if (decl->isEmpty())
         removeNodeAttribute(elem, styleAttr);
 
     if (isSpanWithoutAttributesOrUnstyleStyleSpan(elem))
@@ -1068,11 +1218,17 @@ static bool hasTextDecorationProperty(Node *node)
 
 static Node* highestAncestorWithTextDecoration(Node *node)
 {
-    Node *result = NULL;
+    ASSERT(node);
+    Node* result = 0;
+    Node* unsplittableElement = unsplittableElementForPosition(Position(node, 0));
 
     for (Node *n = node; n; n = n->parentNode()) {
         if (hasTextDecorationProperty(n))
             result = n;
+        // Should stop at the editable root (cannot cross editing boundary) and
+        // also stop at the unsplittable element to be consistent with other UAs
+        if (n == unsplittableElement)
+            break;
     }
 
     return result;
@@ -1131,7 +1287,7 @@ void ApplyStyleCommand::applyTextDecorationStyle(Node *node, CSSMutableStyleDecl
 {
     ASSERT(node);
 
-    if (!style || !style->cssText().length())
+    if (!style || style->cssText().isEmpty())
         return;
 
     if (node->isTextNode()) {
@@ -1145,8 +1301,8 @@ void ApplyStyleCommand::applyTextDecorationStyle(Node *node, CSSMutableStyleDecl
 
     HTMLElement *element = static_cast<HTMLElement *>(node);
         
-    StyleChange styleChange(style, Position(element, 0), StyleChange::styleModeForParseMode(document()->inCompatMode()));
-    if (styleChange.cssStyle().length() > 0) {
+    StyleChange styleChange(style, Position(element, 0));
+    if (styleChange.cssStyle().length()) {
         String cssText = styleChange.cssStyle();
         CSSMutableStyleDeclaration *decl = element->inlineStyleDecl();
         if (decl)
@@ -1155,32 +1311,35 @@ void ApplyStyleCommand::applyTextDecorationStyle(Node *node, CSSMutableStyleDecl
     }
 }
 
-void ApplyStyleCommand::pushDownTextDecorationStyleAroundNode(Node* node, bool force)
+void ApplyStyleCommand::pushDownTextDecorationStyleAroundNode(Node* targetNode, bool forceNegate)
 {
-    Node *highestAncestor = highestAncestorWithTextDecoration(node);
-    
-    if (highestAncestor) {
-        Node *nextCurrent;
-        Node *nextChild;
-        for (Node *current = highestAncestor; current != node; current = nextCurrent) {
-            ASSERT(current);
-            
-            nextCurrent = NULL;
-            
-            RefPtr<CSSMutableStyleDeclaration> decoration = force ? extractAndNegateTextDecorationStyle(current) : extractTextDecorationStyle(current);
+    ASSERT(targetNode);
+    Node* highestAncestor = highestAncestorWithTextDecoration(targetNode);
+    if (!highestAncestor)
+        return;
 
-            for (Node *child = current->firstChild(); child; child = nextChild) {
-                nextChild = child->nextSibling();
+    // The outer loop is traversing the tree vertically from highestAncestor to targetNode
+    Node* current = highestAncestor;
+    while (current != targetNode) {
+        ASSERT(current);
+        ASSERT(current->contains(targetNode));
+        RefPtr<CSSMutableStyleDeclaration> decoration = forceNegate ? extractAndNegateTextDecorationStyle(current) : extractTextDecorationStyle(current);
 
-                if (node == child) {
-                    nextCurrent = child;
-                } else if (node->isDescendantOf(child)) {
-                    applyTextDecorationStyle(child, decoration.get());
-                    nextCurrent = child;
-                } else {
-                    applyTextDecorationStyle(child, decoration.get());
-                }
-            }
+        // The inner loop will go through children on each level
+        Node* child = current->firstChild();
+        while (child) {
+            Node* nextChild = child->nextSibling();
+
+            // Apply text decoration to all nodes containing targetNode and their siblings but NOT to targetNode
+            if (child != targetNode)
+                applyTextDecorationStyle(child, decoration.get());
+            
+            // We found the next node for the outer loop (contains targetNode)
+            // When reached targetNode, stop the outer loop upon the completion of the current inner loop
+            if (child == targetNode || child->contains(targetNode))
+                current = child;
+
+            child = nextChild;
         }
     }
 }
@@ -1218,7 +1377,7 @@ void ApplyStyleCommand::removeInlineStyle(PassRefPtr<CSSMutableStyleDeclaration>
     ASSERT(end.isNotNull());
     ASSERT(start.node()->inDocument());
     ASSERT(end.node()->inDocument());
-    ASSERT(Range::compareBoundaryPoints(start, end) <= 0);
+    ASSERT(comparePositions(start, end) <= 0);
     
     RefPtr<CSSValue> textDecorationSpecialProperty = style->getPropertyCSSValue(CSSPropertyWebkitTextDecorationsInEffect);
 
@@ -1234,18 +1393,22 @@ void ApplyStyleCommand::removeInlineStyle(PassRefPtr<CSSMutableStyleDeclaration>
     Position s = start;
     Position e = end;
 
-    Node *node = start.node();
+    Node* node = start.node();
     while (node) {
-        Node *next = node->traverseNextNode();
+        Node* next = node->traverseNextNode();
         if (node->isHTMLElement() && nodeFullySelected(node, start, end)) {
-            HTMLElement *elem = static_cast<HTMLElement *>(node);
-            Node *prev = elem->traversePreviousNodePostOrder();
-            Node *next = elem->traverseNextNode();
+            HTMLElement* elem = static_cast<HTMLElement*>(node);
+            Node* prev = elem->traversePreviousNodePostOrder();
+            Node* next = elem->traverseNextNode();
             if (m_styledInlineElement && elem->hasTagName(m_styledInlineElement->tagQName()))
                 removeNodePreservingChildren(elem);
-            if (isHTMLStyleNode(style.get(), elem))
-                removeHTMLStyleNode(elem);
-            else {
+
+            if (implicitlyStyledElementShouldBeRemovedWhenApplyingStyle(elem, style.get()))
+                replaceWithSpanOrRemoveIfWithoutAttributes(elem);
+
+            // If the node was converted to a span, the span may still contain relevant
+            // styles which must be removed (e.g. <b style='font-weight: bold'>)
+            if (elem->inDocument()) {
                 removeHTMLFontStyle(style.get(), elem);
                 removeHTMLBidiEmbeddingStyle(style.get(), elem);
                 removeCSSStyle(style.get(), elem);
@@ -1254,14 +1417,14 @@ void ApplyStyleCommand::removeInlineStyle(PassRefPtr<CSSMutableStyleDeclaration>
                 if (s.node() == elem) {
                     // Since elem must have been fully selected, and it is at the start
                     // of the selection, it is clear we can set the new s offset to 0.
-                    ASSERT(s.offset() <= caretMinOffset(s.node()));
+                    ASSERT(s.deprecatedEditingOffset() <= caretMinOffset(s.node()));
                     s = Position(next, 0);
                 }
                 if (e.node() == elem) {
                     // Since elem must have been fully selected, and it is at the end
                     // of the selection, it is clear we can set the new e offset to
                     // the max range offset of prev.
-                    ASSERT(e.offset() >= maxRangeOffset(e.node()));
+                    ASSERT(e.deprecatedEditingOffset() >= maxRangeOffset(e.node()));
                     e = Position(prev, maxRangeOffset(prev));
                 }
             }
@@ -1282,8 +1445,7 @@ bool ApplyStyleCommand::nodeFullySelected(Node *node, const Position &start, con
     ASSERT(node->isElementNode());
 
     Position pos = Position(node, node->childNodeCount()).upstream();
-    return Range::compareBoundaryPoints(node, 0, start.node(), start.offset()) >= 0 &&
-        Range::compareBoundaryPoints(pos, end) <= 0;
+    return comparePositions(Position(node, 0), start) >= 0 && comparePositions(pos, end) <= 0;
 }
 
 bool ApplyStyleCommand::nodeFullyUnselected(Node *node, const Position &start, const Position &end) const
@@ -1292,8 +1454,8 @@ bool ApplyStyleCommand::nodeFullyUnselected(Node *node, const Position &start, c
     ASSERT(node->isElementNode());
 
     Position pos = Position(node, node->childNodeCount()).upstream();
-    bool isFullyBeforeStart = Range::compareBoundaryPoints(pos, start) < 0;
-    bool isFullyAfterEnd = Range::compareBoundaryPoints(node, 0, end.node(), end.offset()) > 0;
+    bool isFullyBeforeStart = comparePositions(pos, start) < 0;
+    bool isFullyAfterEnd = comparePositions(Position(node, 0), end) > 0;
 
     return isFullyBeforeStart || isFullyAfterEnd;
 }
@@ -1301,11 +1463,11 @@ bool ApplyStyleCommand::nodeFullyUnselected(Node *node, const Position &start, c
 
 bool ApplyStyleCommand::splitTextAtStartIfNeeded(const Position &start, const Position &end)
 {
-    if (start.node()->isTextNode() && start.offset() > caretMinOffset(start.node()) && start.offset() < caretMaxOffset(start.node())) {
-        int endOffsetAdjustment = start.node() == end.node() ? start.offset() : 0;
+    if (start.node()->isTextNode() && start.deprecatedEditingOffset() > caretMinOffset(start.node()) && start.deprecatedEditingOffset() < caretMaxOffset(start.node())) {
+        int endOffsetAdjustment = start.node() == end.node() ? start.deprecatedEditingOffset() : 0;
         Text *text = static_cast<Text *>(start.node());
-        splitTextNode(text, start.offset());
-        updateStartEnd(Position(start.node(), 0), Position(end.node(), end.offset() - endOffsetAdjustment));
+        splitTextNode(text, start.deprecatedEditingOffset());
+        updateStartEnd(Position(start.node(), 0), Position(end.node(), end.deprecatedEditingOffset() - endOffsetAdjustment));
         return true;
     }
     return false;
@@ -1313,15 +1475,15 @@ bool ApplyStyleCommand::splitTextAtStartIfNeeded(const Position &start, const Po
 
 bool ApplyStyleCommand::splitTextAtEndIfNeeded(const Position &start, const Position &end)
 {
-    if (end.node()->isTextNode() && end.offset() > caretMinOffset(end.node()) && end.offset() < caretMaxOffset(end.node())) {
+    if (end.node()->isTextNode() && end.deprecatedEditingOffset() > caretMinOffset(end.node()) && end.deprecatedEditingOffset() < caretMaxOffset(end.node())) {
         Text *text = static_cast<Text *>(end.node());
-        splitTextNode(text, end.offset());
+        splitTextNode(text, end.deprecatedEditingOffset());
         
         Node *prevNode = text->previousSibling();
         ASSERT(prevNode);
         Node *startNode = start.node() == end.node() ? prevNode : start.node();
         ASSERT(startNode);
-        updateStartEnd(Position(startNode, start.offset()), Position(prevNode, caretMaxOffset(prevNode)));
+        updateStartEnd(Position(startNode, start.deprecatedEditingOffset()), Position(prevNode, caretMaxOffset(prevNode)));
         return true;
     }
     return false;
@@ -1329,12 +1491,12 @@ bool ApplyStyleCommand::splitTextAtEndIfNeeded(const Position &start, const Posi
 
 bool ApplyStyleCommand::splitTextElementAtStartIfNeeded(const Position &start, const Position &end)
 {
-    if (start.node()->isTextNode() && start.offset() > caretMinOffset(start.node()) && start.offset() < caretMaxOffset(start.node())) {
-        int endOffsetAdjustment = start.node() == end.node() ? start.offset() : 0;
+    if (start.node()->isTextNode() && start.deprecatedEditingOffset() > caretMinOffset(start.node()) && start.deprecatedEditingOffset() < caretMaxOffset(start.node())) {
+        int endOffsetAdjustment = start.node() == end.node() ? start.deprecatedEditingOffset() : 0;
         Text *text = static_cast<Text *>(start.node());
-        splitTextNodeContainingElement(text, start.offset());
+        splitTextNodeContainingElement(text, start.deprecatedEditingOffset());
 
-        updateStartEnd(Position(start.node()->parentNode(), start.node()->nodeIndex()), Position(end.node(), end.offset() - endOffsetAdjustment));
+        updateStartEnd(Position(start.node()->parentNode(), start.node()->nodeIndex()), Position(end.node(), end.deprecatedEditingOffset() - endOffsetAdjustment));
         return true;
     }
     return false;
@@ -1342,15 +1504,15 @@ bool ApplyStyleCommand::splitTextElementAtStartIfNeeded(const Position &start, c
 
 bool ApplyStyleCommand::splitTextElementAtEndIfNeeded(const Position &start, const Position &end)
 {
-    if (end.node()->isTextNode() && end.offset() > caretMinOffset(end.node()) && end.offset() < caretMaxOffset(end.node())) {
+    if (end.node()->isTextNode() && end.deprecatedEditingOffset() > caretMinOffset(end.node()) && end.deprecatedEditingOffset() < caretMaxOffset(end.node())) {
         Text *text = static_cast<Text *>(end.node());
-        splitTextNodeContainingElement(text, end.offset());
+        splitTextNodeContainingElement(text, end.deprecatedEditingOffset());
 
         Node *prevNode = text->parent()->previousSibling()->lastChild();
         ASSERT(prevNode);
         Node *startNode = start.node() == end.node() ? prevNode : start.node();
         ASSERT(startNode);
-        updateStartEnd(Position(startNode, start.offset()), Position(prevNode->parent(), prevNode->nodeIndex() + 1));
+        updateStartEnd(Position(startNode, start.deprecatedEditingOffset()), Position(prevNode->parent(), prevNode->nodeIndex() + 1));
         return true;
     }
     return false;
@@ -1372,8 +1534,8 @@ static bool areIdenticalElements(Node *first, Node *second)
     if (!firstElement->tagQName().matches(secondElement->tagQName()))
         return false;
 
-    NamedAttrMap *firstMap = firstElement->attributes();
-    NamedAttrMap *secondMap = secondElement->attributes();
+    NamedNodeMap *firstMap = firstElement->attributes();
+    NamedNodeMap *secondMap = secondElement->attributes();
 
     unsigned firstLength = firstMap->length();
 
@@ -1394,10 +1556,10 @@ static bool areIdenticalElements(Node *first, Node *second)
 bool ApplyStyleCommand::mergeStartWithPreviousIfIdentical(const Position &start, const Position &end)
 {
     Node *startNode = start.node();
-    int startOffset = start.offset();
+    int startOffset = start.deprecatedEditingOffset();
 
     if (isAtomicNode(start.node())) {
-        if (start.offset() != 0)
+        if (start.deprecatedEditingOffset() != 0)
             return false;
 
         // note: prior siblings could be unrendered elements. it's silly to miss the
@@ -1426,7 +1588,7 @@ bool ApplyStyleCommand::mergeStartWithPreviousIfIdentical(const Position &start,
 
         int startOffsetAdjustment = startChild->nodeIndex();
         int endOffsetAdjustment = startNode == end.node() ? startOffsetAdjustment : 0;
-        updateStartEnd(Position(startNode, startOffsetAdjustment), Position(end.node(), end.offset() + endOffsetAdjustment)); 
+        updateStartEnd(Position(startNode, startOffsetAdjustment), Position(end.node(), end.deprecatedEditingOffset() + endOffsetAdjustment)); 
         return true;
     }
 
@@ -1436,7 +1598,7 @@ bool ApplyStyleCommand::mergeStartWithPreviousIfIdentical(const Position &start,
 bool ApplyStyleCommand::mergeEndWithNextIfIdentical(const Position &start, const Position &end)
 {
     Node *endNode = end.node();
-    int endOffset = end.offset();
+    int endOffset = end.deprecatedEditingOffset();
 
     if (isAtomicNode(endNode)) {
         if (endOffset < caretMaxOffset(endNode))
@@ -1466,7 +1628,7 @@ bool ApplyStyleCommand::mergeEndWithNextIfIdentical(const Position &start, const
         ASSERT(startNode);
 
         int endOffset = nextChild ? nextChild->nodeIndex() : nextElement->childNodes()->length();
-        updateStartEnd(Position(startNode, start.offset()), Position(nextElement, endOffset));
+        updateStartEnd(Position(startNode, start.deprecatedEditingOffset()), Position(nextElement, endOffset));
         return true;
     }
 
@@ -1495,7 +1657,7 @@ void ApplyStyleCommand::surroundNodeRangeWithElement(Node* startNode, Node* endN
     }
     // FIXME: We should probably call updateStartEnd if the start or end was in the node
     // range so that the endingSelection() is canonicalized.  See the comments at the end of
-    // Selection::validate().
+    // VisibleSelection::validate().
 }
 
 void ApplyStyleCommand::addBlockStyle(const StyleChange& styleChange, HTMLElement* block)
@@ -1544,7 +1706,7 @@ void ApplyStyleCommand::addInlineStyleIfNeeded(CSSMutableStyleDeclaration *style
     if (m_removeOnly)
         return;
 
-    StyleChange styleChange(style, Position(startNode, 0), StyleChange::styleModeForParseMode(document()->inCompatMode()));
+    StyleChange styleChange(style, Position(startNode, 0));
 
     //
     // Font tags need to go outside of CSS so that CSS font sizes override leagcy font sizes.
@@ -1569,7 +1731,7 @@ void ApplyStyleCommand::addInlineStyleIfNeeded(CSSMutableStyleDeclaration *style
         }
     }
 
-    if (styleChange.cssStyle().length() > 0) {
+    if (styleChange.cssStyle().length()) {
         RefPtr<Element> styleElement = createStyleSpanElement(document());
         styleElement->setAttribute(styleAttr, styleChange.cssStyle());
         surroundNodeRangeWithElement(startNode, endNode, styleElement.release());
@@ -1587,7 +1749,7 @@ void ApplyStyleCommand::addInlineStyleIfNeeded(CSSMutableStyleDeclaration *style
         surroundNodeRangeWithElement(startNode, endNode, createHTMLElement(document(), supTag));
 
     if (m_styledInlineElement)
-        surroundNodeRangeWithElement(startNode, endNode, m_styledInlineElement->cloneElement());
+        surroundNodeRangeWithElement(startNode, endNode, m_styledInlineElement->cloneElementWithoutChildren());
 }
 
 float ApplyStyleCommand::computedFontSize(const Node *node)
@@ -1622,9 +1784,9 @@ void ApplyStyleCommand::joinChildTextNodes(Node *node, const Position &start, co
             Text *childText = static_cast<Text *>(child);
             Text *nextText = static_cast<Text *>(next);
             if (next == start.node())
-                newStart = Position(childText, childText->length() + start.offset());
+                newStart = Position(childText, childText->length() + start.deprecatedEditingOffset());
             if (next == end.node())
-                newEnd = Position(childText, childText->length() + end.offset());
+                newEnd = Position(childText, childText->length() + end.deprecatedEditingOffset());
             String textToMove = nextText->data();
             insertTextIntoNode(childText, childText->length(), textToMove);
             removeNode(next);

@@ -41,10 +41,10 @@
 #include "HTMLPlugInElement.h"
 #include "KeyboardEvent.h"
 #include "MouseEvent.h"
-#include "NotImplemented.h"
 #include "Page.h"
 #include "PlatformMouseEvent.h"
 #include "PluginDebug.h"
+#include "PluginMainThreadScheduler.h"
 #include "PluginPackage.h"
 #include "RenderLayer.h"
 #include "Settings.h"
@@ -82,6 +82,23 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
+bool PluginView::dispatchNPEvent(NPEvent& event)
+{
+    // sanity check
+    if (!m_plugin->pluginFuncs()->event)
+        return false;
+
+    PluginView::setCurrentPluginView(this);
+    JSC::JSLock::DropAllLocks dropAllLocks(JSC::SilenceAssertionsOnly);
+    setCallingPlugin(true);
+
+    bool accepted = m_plugin->pluginFuncs()->event(m_instance, &event);
+
+    setCallingPlugin(false);
+    PluginView::setCurrentPluginView(0);
+    return accepted;
+}
+
 void PluginView::updatePluginWidget()
 {
     if (!parent() || !m_isWindowed)
@@ -97,16 +114,8 @@ void PluginView::updatePluginWidget()
     m_clipRect = windowClipRect();
     m_clipRect.move(-m_windowRect.x(), -m_windowRect.y());
 
-    GtkAllocation allocation = { m_windowRect.x(), m_windowRect.y(), m_windowRect.width(), m_windowRect.height() };
-    if (platformPluginWidget()) {
-        gtk_widget_size_allocate(platformPluginWidget(), &allocation);
-#if PLATFORM(X11)
-        if (!m_needsXEmbed) {
-            gtk_xtbin_set_position(GTK_XTBIN(platformPluginWidget()), m_windowRect.x(), m_windowRect.y());
-            gtk_xtbin_resize(platformPluginWidget(), m_windowRect.width(), m_windowRect.height());
-        }
-#endif
-    }
+    if (platformPluginWidget() && (m_windowRect != oldWindowRect || m_clipRect != oldClipRect))
+        setNPWindowIfNeeded();
 }
 
 void PluginView::setFocus()
@@ -144,7 +153,12 @@ void PluginView::paint(GraphicsContext* context, const IntRect& rect)
         return;
     }
 
-    if (m_isWindowed || context->paintingDisabled())
+    if (context->paintingDisabled())
+        return;
+
+    setNPWindowIfNeeded();
+
+    if (m_isWindowed)
         return;
 
     NPEvent npEvent;
@@ -154,12 +168,8 @@ void PluginView::paint(GraphicsContext* context, const IntRect& rect)
 
     ASSERT(parent()->isFrameView());
 
-    if (m_plugin->pluginFuncs()->event) {
-        JSC::JSLock::DropAllLocks dropAllLocks(false);
-        m_plugin->pluginFuncs()->event(m_instance, &npEvent);
-    }
-
-    setNPWindowRect(frameRect());
+    if (!dispatchNPEvent(npEvent))
+        LOG(Events, "PluginView::paint(): Paint event not accepted");
 }
 
 void PluginView::handleKeyboardEvent(KeyboardEvent* event)
@@ -168,8 +178,8 @@ void PluginView::handleKeyboardEvent(KeyboardEvent* event)
     
     /* FIXME: Synthesize an XEvent to pass through */
 
-    JSC::JSLock::DropAllLocks dropAllLocks(false);
-    if (!m_plugin->pluginFuncs()->event(m_instance, &npEvent))
+    JSC::JSLock::DropAllLocks dropAllLocks(JSC::SilenceAssertionsOnly);
+    if (!dispatchNPEvent(npEvent))
         event->setDefaultHandled();
 }
 
@@ -183,8 +193,8 @@ void PluginView::handleMouseEvent(MouseEvent* event)
     /* FIXME: Synthesize an XEvent to pass through */
     IntPoint p = static_cast<FrameView*>(parent())->contentsToWindow(IntPoint(event->pageX(), event->pageY()));
 
-    JSC::JSLock::DropAllLocks dropAllLocks(false);
-    if (!m_plugin->pluginFuncs()->event(m_instance, &npEvent))
+    JSC::JSLock::DropAllLocks dropAllLocks(JSC::SilenceAssertionsOnly);
+    if (!dispatchNPEvent(npEvent))
         event->setDefaultHandled();
 }
 
@@ -194,46 +204,43 @@ void PluginView::setParent(ScrollView* parent)
 
     if (parent)
         init();
-    else {
-        if (!platformPluginWidget())
-            return;
-    }
 }
 
-void PluginView::setNPWindowRect(const IntRect& rect)
+void PluginView::setNPWindowRect(const IntRect&)
 {
-    if (!m_isStarted || !parent())
+    setNPWindowIfNeeded();
+}
+
+void PluginView::setNPWindowIfNeeded()
+{
+    if (!m_isStarted || !parent() || !m_plugin->pluginFuncs()->setwindow)
         return;
 
-    IntPoint p = static_cast<FrameView*>(parent())->contentsToWindow(rect.location());
-    m_npWindow.x = p.x();
-    m_npWindow.y = p.y();
+    m_npWindow.x = m_windowRect.x();
+    m_npWindow.y = m_windowRect.y();
+    m_npWindow.width = m_windowRect.width();
+    m_npWindow.height = m_windowRect.height();
 
-    m_npWindow.width = rect.width();
-    m_npWindow.height = rect.height();
+    m_npWindow.clipRect.left = m_clipRect.x();
+    m_npWindow.clipRect.top = m_clipRect.y();
+    m_npWindow.clipRect.right = m_clipRect.width();
+    m_npWindow.clipRect.bottom = m_clipRect.height();
 
-    m_npWindow.clipRect.left = 0;
-    m_npWindow.clipRect.top = 0;
-    m_npWindow.clipRect.right = rect.width();
-    m_npWindow.clipRect.bottom = rect.height();
-
-    if (m_npWindow.x < 0 || m_npWindow.y < 0 ||
-        m_npWindow.width <= 0 || m_npWindow.height <= 0)
-        return;
-
-    if (m_plugin->pluginFuncs()->setwindow) {
-        PluginView::setCurrentPluginView(this);
-        JSC::JSLock::DropAllLocks dropAllLocks(false);
-        setCallingPlugin(true);
-        m_plugin->pluginFuncs()->setwindow(m_instance, &m_npWindow);
-        setCallingPlugin(false);
-        PluginView::setCurrentPluginView(0);
-
-        if (!m_isWindowed)
-            return;
-
-        ASSERT(platformPluginWidget());
+    GtkAllocation allocation = { m_windowRect.x(), m_windowRect.y(), m_windowRect.width(), m_windowRect.height() };
+    gtk_widget_size_allocate(platformPluginWidget(), &allocation);
+#if PLATFORM(X11)
+    if (!m_needsXEmbed) {
+        gtk_xtbin_set_position(GTK_XTBIN(platformPluginWidget()), m_windowRect.x(), m_windowRect.y());
+        gtk_xtbin_resize(platformPluginWidget(), m_windowRect.width(), m_windowRect.height());
     }
+#endif
+
+    PluginView::setCurrentPluginView(this);
+    JSC::JSLock::DropAllLocks dropAllLocks(JSC::SilenceAssertionsOnly);
+    setCallingPlugin(true);
+    m_plugin->pluginFuncs()->setwindow(m_instance, &m_npWindow);
+    setCallingPlugin(false);
+    PluginView::setCurrentPluginView(0);
 }
 
 void PluginView::setParentVisible(bool visible)
@@ -249,70 +256,6 @@ void PluginView::setParentVisible(bool visible)
         else
             gtk_widget_hide(platformPluginWidget());
     }
-}
-
-void PluginView::stop()
-{
-    if (!m_isStarted)
-        return;
-
-    HashSet<RefPtr<PluginStream> > streams = m_streams;
-    HashSet<RefPtr<PluginStream> >::iterator end = streams.end();
-    for (HashSet<RefPtr<PluginStream> >::iterator it = streams.begin(); it != end; ++it) {
-        (*it)->stop();
-        disconnectStream((*it).get());
-    }
-
-    ASSERT(m_streams.isEmpty());
-
-    m_isStarted = false;
-    JSC::JSLock::DropAllLocks dropAllLocks(false);
-
-    // Clear the window
-    m_npWindow.window = 0;
-    if (m_plugin->pluginFuncs()->setwindow && !m_plugin->quirks().contains(PluginQuirkDontSetNullWindowHandleOnDestroy)) {
-        PluginView::setCurrentPluginView(this);
-        setCallingPlugin(true);
-        m_plugin->pluginFuncs()->setwindow(m_instance, &m_npWindow);
-        setCallingPlugin(false);
-        PluginView::setCurrentPluginView(0);
-    }
-
-#ifdef XP_UNIX
-    if (m_isWindowed && m_npWindow.ws_info)
-           delete (NPSetWindowCallbackStruct *)m_npWindow.ws_info;
-    m_npWindow.ws_info = 0;
-#endif
-
-    // Destroy the plugin
-    {
-        PluginView::setCurrentPluginView(this);
-        setCallingPlugin(true);
-        m_plugin->pluginFuncs()->destroy(m_instance, 0);
-        setCallingPlugin(false);
-        PluginView::setCurrentPluginView(0);
-    }
-
-    m_instance->pdata = 0;
-}
-
-static const char* MozillaUserAgent = "Mozilla/5.0 (X11; U; Linux i686; en-US; rv:1.8.1) Gecko/20061010 Firefox/2.0";
-
-const char* PluginView::userAgent()
-{
-    if (m_plugin->quirks().contains(PluginQuirkWantsMozillaUserAgent))
-        return MozillaUserAgent;
-
-    if (m_userAgent.isNull())
-        m_userAgent = m_parentFrame->loader()->userAgent(m_url).utf8();
-
-    return m_userAgent.data();
-}
-
-const char* PluginView::userAgentStatic()
-{
-    //FIXME - Lie and say we are Mozilla
-    return MozillaUserAgent;
 }
 
 NPError PluginView::handlePostReadFile(Vector<char>& buffer, uint32 len, const char* buf)
@@ -346,25 +289,27 @@ NPError PluginView::handlePostReadFile(Vector<char>& buffer, uint32 len, const c
 
 NPError PluginView::getValueStatic(NPNVariable variable, void* value)
 {
+    LOG(Plugins, "PluginView::getValueStatic(%s)", prettyNameForNPNVariable(variable).data());
+
     switch (variable) {
     case NPNVToolkit:
 #if PLATFORM(GTK)
-        *((uint32 *)value) = 2;
+        *static_cast<uint32*>(value) = 2;
 #else
-        *((uint32 *)value) = 0;
+        *static_cast<uint32*>(value) = 0;
 #endif
         return NPERR_NO_ERROR;
 
     case NPNVSupportsXEmbedBool:
 #if PLATFORM(X11)
-        *((uint32 *)value) = true;
+        *static_cast<NPBool*>(value) = true;
 #else
-        *((uint32 *)value) = false;
+        *static_cast<NPBool*>(value) = false;
 #endif
         return NPERR_NO_ERROR;
 
     case NPNVjavascriptEnabledBool:
-        *((uint32 *)value) = true;
+        *static_cast<NPBool*>(value) = true;
         return NPERR_NO_ERROR;
 
     default:
@@ -374,6 +319,8 @@ NPError PluginView::getValueStatic(NPNVariable variable, void* value)
 
 NPError PluginView::getValue(NPNVariable variable, void* value)
 {
+    LOG(Plugins, "PluginView::getValue(%s)", prettyNameForNPNVariable(variable).data());
+
     switch (variable) {
     case NPNVxDisplay:
 #if PLATFORM(X11)
@@ -471,6 +418,12 @@ void PluginView::invalidateRect(NPRect* rect)
     invalidateRect(r);
 }
 
+void PluginView::invalidateRegion(NPRegion)
+{
+    // TODO: optimize
+    invalidate();
+}
+
 void PluginView::forceRedraw()
 {
     if (m_isWindowed)
@@ -524,7 +477,7 @@ void PluginView::init()
 
     if (m_plugin->pluginFuncs()->getvalue) {
         PluginView::setCurrentPluginView(this);
-        JSC::JSLock::DropAllLocks dropAllLocks(false);
+        JSC::JSLock::DropAllLocks dropAllLocks(JSC::SilenceAssertionsOnly);
         setCallingPlugin(true);
         m_plugin->pluginFuncs()->getvalue(m_instance, NPPVpluginNeedsXEmbed, &m_needsXEmbed);
         setCallingPlugin(false);
@@ -576,10 +529,16 @@ void PluginView::init()
         m_npWindow.window = 0;
     }
 
+    // TODO remove in favor of null events, like mac port?
     if (!(m_plugin->quirks().contains(PluginQuirkDeferFirstSetWindowCall)))
-        setNPWindowRect(frameRect());
+        updatePluginWidget(); // was: setNPWindowIfNeeded(), but this doesn't produce 0x0 rects at first go
 
     m_status = PluginStatusLoadedSuccessfully;
 }
 
+void PluginView::platformStart()
+{
+}
+
 } // namespace WebCore
+

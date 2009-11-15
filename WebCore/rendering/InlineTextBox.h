@@ -24,7 +24,7 @@
 #define InlineTextBox_h
 
 #include "InlineRunBox.h"
-#include "RenderText.h" // so textObject() can be inline
+#include "RenderText.h" // so textRenderer() can be inline
 
 namespace WebCore {
 
@@ -59,6 +59,9 @@ public:
 
     void offsetRun(int d) { m_start += d; }
 
+    void setFallbackFonts(const HashSet<const SimpleFontData*>&);
+    void takeFallbackFonts(Vector<const SimpleFontData*>&);
+
 private:
     virtual int selectionTop();
     virtual int selectionHeight();
@@ -73,7 +76,7 @@ private:
     virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, int x, int y, int tx, int ty);
 
 public:
-    RenderText* textObject() const;
+    RenderText* textRenderer() const;
 
 private:
     virtual void deleteLine(RenderArena*);
@@ -85,7 +88,7 @@ public:
 
 private:
     virtual void clearTruncation() { m_truncation = cNoTruncation; }
-    virtual int placeEllipsisBox(bool ltr, int blockEdge, int ellipsisWidth, bool& foundBox);
+    virtual int placeEllipsisBox(bool flowIsLTR, int visibleLeftEdge, int visibleRightEdge, int ellipsisWidth, bool& foundBox);
 
 public:
     virtual bool isLineBreak() const;
@@ -96,9 +99,6 @@ private:
     virtual bool isInlineTextBox() { return true; }    
 
 public:
-    virtual bool isText() const { return m_treatAsText; }
-    void setIsText(bool b) { m_treatAsText = b; }
-
     virtual int caretMinOffset() const;
     virtual int caretMaxOffset() const;
 
@@ -133,11 +133,12 @@ private:
     void paintSelection(GraphicsContext*, int tx, int ty, RenderStyle*, const Font&);
     void paintSpellingOrGrammarMarker(GraphicsContext*, int tx, int ty, DocumentMarker, RenderStyle*, const Font&, bool grammar);
     void paintTextMatchMarker(GraphicsContext*, int tx, int ty, DocumentMarker, RenderStyle*, const Font&);
+    void computeRectForReplacementMarker(int tx, int ty, DocumentMarker, RenderStyle*, const Font&);
 };
 
-inline RenderText* InlineTextBox::textObject() const
+inline RenderText* InlineTextBox::textRenderer() const
 {
-    return toRenderText(m_object);
+    return toRenderText(renderer());
 }
 
 } // namespace WebCore

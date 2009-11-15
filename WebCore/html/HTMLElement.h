@@ -45,8 +45,6 @@ public:
     virtual bool mapToEntry(const QualifiedName& attrName, MappedAttributeEntry& result) const;
     virtual void parseMappedAttribute(MappedAttribute*);
 
-    virtual PassRefPtr<Node> cloneNode(bool deep);
-
     PassRefPtr<HTMLCollection> children();
     
     String id() const;
@@ -80,6 +78,9 @@ public:
     virtual String contentEditable() const;
     virtual void setContentEditable(MappedAttribute*);
     virtual void setContentEditable(const String&);
+
+    virtual bool draggable() const;
+    void setDraggable(bool);
 
     void click();
 

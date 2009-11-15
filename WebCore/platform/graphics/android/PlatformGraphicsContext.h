@@ -34,7 +34,6 @@
 #include "SkTDArray.h"
 
 class SkCanvas;
-class WebCore::Node;
 
 class Container {
 public:
@@ -149,9 +148,6 @@ public:
     PlatformGraphicsContext(SkCanvas* canvas, WTF::Vector<Container>* buttons);
     ~PlatformGraphicsContext();
     
-    void setupFillPaint(GraphicsContext*, SkPaint*);
-    void setupStrokePaint(GraphicsContext*, SkPaint*);
-
     SkCanvas*                   mCanvas;
     
     bool deleteUs() const { return m_deleteCanvas; }

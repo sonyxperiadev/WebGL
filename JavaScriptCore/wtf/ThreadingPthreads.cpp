@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2007, 2009 Apple Inc. All rights reserved.
  * Copyright (C) 2007 Justin Haygood (jhaygood@reaktix.com)
  *
  * Redistribution and use in source and binary forms, with or without
@@ -26,10 +26,9 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+
 #include "config.h"
 #include "Threading.h"
-
-#include "StdLibExtras.h"
 
 #if USE(PTHREADS)
 
@@ -37,7 +36,8 @@
 #include "HashMap.h"
 #include "MainThread.h"
 #include "RandomNumberSeed.h"
-
+#include "StdLibExtras.h"
+#include "UnusedParam.h"
 #include <errno.h>
 #include <limits.h>
 #include <sys/time.h>
@@ -52,7 +52,7 @@ typedef HashMap<ThreadIdentifier, pthread_t> ThreadMap;
 
 static Mutex* atomicallyInitializedStaticMutex;
 
-#if !PLATFORM(DARWIN)
+#if !PLATFORM(DARWIN) || PLATFORM(CHROMIUM)
 static ThreadIdentifier mainThreadIdentifier; // The thread that was the first to call initializeThreading(), which must be the main thread.
 #endif
 
@@ -68,7 +68,7 @@ void initializeThreading()
         atomicallyInitializedStaticMutex = new Mutex;
         threadMapMutex();
         initializeRandomNumberGenerator();
-#if !PLATFORM(DARWIN)
+#if !PLATFORM(DARWIN) || PLATFORM(CHROMIUM)
         mainThreadIdentifier = currentThread();
 #endif
         initializeMainThread();
@@ -114,14 +114,14 @@ static ThreadIdentifier establishIdentifierForPthreadHandle(pthread_t& pthreadHa
     static ThreadIdentifier identifierCount = 1;
 
     threadMap().add(identifierCount, pthreadHandle);
-    
+
     return identifierCount++;
 }
 
 static pthread_t pthreadHandleForIdentifier(ThreadIdentifier id)
 {
     MutexLocker locker(threadMapMutex());
-    
+
     return threadMap().get(id);
 }
 
@@ -130,7 +130,7 @@ static void clearPthreadHandleForIdentifier(ThreadIdentifier id)
     MutexLocker locker(threadMapMutex());
 
     ASSERT(threadMap().contains(id));
-    
+
     threadMap().remove(id);
 }
 
@@ -158,7 +158,7 @@ static void* runThreadWithRegistration(void* arg)
 ThreadIdentifier createThreadInternal(ThreadFunction entryPoint, void* data, const char*)
 {
     pthread_t threadHandle;
-    ThreadData* threadData = new ThreadData;
+    ThreadData* threadData = new ThreadData();
     threadData->entryPoint = entryPoint;
     threadData->arg = data;
 
@@ -173,7 +173,7 @@ ThreadIdentifier createThreadInternal(ThreadFunction entryPoint, void* data, con
 ThreadIdentifier createThreadInternal(ThreadFunction entryPoint, void* data, const char*)
 {
     pthread_t threadHandle;
-    if (pthread_create(&threadHandle, NULL, entryPoint, data)) {
+    if (pthread_create(&threadHandle, 0, entryPoint, data)) {
         LOG_ERROR("Failed to create pthread at entry point %p with data %p", entryPoint, data);
         return 0;
     }
@@ -182,16 +182,25 @@ ThreadIdentifier createThreadInternal(ThreadFunction entryPoint, void* data, con
 }
 #endif
 
+void setThreadNameInternal(const char* threadName)
+{
+#if PLATFORM(DARWIN) && !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD) && !PLATFORM(IPHONE)
+    pthread_setname_np(threadName);
+#else
+    UNUSED_PARAM(threadName);
+#endif
+}
+
 int waitForThreadCompletion(ThreadIdentifier threadID, void** result)
 {
     ASSERT(threadID);
-    
+
     pthread_t pthreadHandle = pthreadHandleForIdentifier(threadID);
- 
+
     int joinResult = pthread_join(pthreadHandle, result);
     if (joinResult == EDEADLK)
         LOG_ERROR("ThreadIdentifier %u was found to be deadlocked trying to quit", threadID);
-        
+
     clearPthreadHandleForIdentifier(threadID);
     return joinResult;
 }
@@ -199,11 +208,11 @@ int waitForThreadCompletion(ThreadIdentifier threadID, void** result)
 void detachThread(ThreadIdentifier threadID)
 {
     ASSERT(threadID);
-    
+
     pthread_t pthreadHandle = pthreadHandleForIdentifier(threadID);
-    
+
     pthread_detach(pthreadHandle);
-    
+
     clearPthreadHandleForIdentifier(threadID);
 }
 
@@ -217,7 +226,7 @@ ThreadIdentifier currentThread()
 
 bool isMainThread()
 {
-#if PLATFORM(DARWIN)
+#if PLATFORM(DARWIN) && !PLATFORM(CHROMIUM)
     return pthread_main_np();
 #else
     return currentThread() == mainThreadIdentifier;
@@ -236,28 +245,85 @@ Mutex::~Mutex()
 
 void Mutex::lock()
 {
-    if (pthread_mutex_lock(&m_mutex) != 0)
-        ASSERT(false);
+    int result = pthread_mutex_lock(&m_mutex);
+    ASSERT_UNUSED(result, !result);
 }
-    
+
 bool Mutex::tryLock()
 {
     int result = pthread_mutex_trylock(&m_mutex);
-    
+
     if (result == 0)
         return true;
-    else if (result == EBUSY)
+    if (result == EBUSY)
         return false;
 
-    ASSERT(false);
+    ASSERT_NOT_REACHED();
     return false;
 }
 
 void Mutex::unlock()
 {
-    if (pthread_mutex_unlock(&m_mutex) != 0)
-        ASSERT(false);
+    int result = pthread_mutex_unlock(&m_mutex);
+    ASSERT_UNUSED(result, !result);
 }
+
+#if HAVE(PTHREAD_RWLOCK)
+
+ReadWriteLock::ReadWriteLock()
+{
+    pthread_rwlock_init(&m_readWriteLock, NULL);
+}
+
+ReadWriteLock::~ReadWriteLock()
+{
+    pthread_rwlock_destroy(&m_readWriteLock);
+}
+
+void ReadWriteLock::readLock()
+{
+    int result = pthread_rwlock_rdlock(&m_readWriteLock);
+    ASSERT_UNUSED(result, !result);
+}
+
+bool ReadWriteLock::tryReadLock()
+{
+    int result = pthread_rwlock_tryrdlock(&m_readWriteLock);
+
+    if (result == 0)
+        return true;
+    if (result == EBUSY || result == EAGAIN)
+        return false;
+
+    ASSERT_NOT_REACHED();
+    return false;
+}
+
+void ReadWriteLock::writeLock()
+{
+    int result = pthread_rwlock_wrlock(&m_readWriteLock);
+    ASSERT_UNUSED(result, !result);
+}
+
+bool ReadWriteLock::tryWriteLock()
+{
+    int result = pthread_rwlock_trywrlock(&m_readWriteLock);
+
+    if (result == 0)
+        return true;
+    if (result == EBUSY || result == EAGAIN)
+        return false;
+
+    ASSERT_NOT_REACHED();
+    return false;
+}
+
+void ReadWriteLock::unlock()
+{
+    int result = pthread_rwlock_unlock(&m_readWriteLock);
+    ASSERT_UNUSED(result, !result);
+}
+#endif  // HAVE(PTHREAD_RWLOCK)
 
 ThreadCondition::ThreadCondition()
 { 
@@ -271,8 +337,8 @@ ThreadCondition::~ThreadCondition()
     
 void ThreadCondition::wait(Mutex& mutex)
 {
-    if (pthread_cond_wait(&m_condition, &mutex.impl()) != 0)
-        ASSERT(false);
+    int result = pthread_cond_wait(&m_condition, &mutex.impl());
+    ASSERT_UNUSED(result, !result);
 }
 
 bool ThreadCondition::timedWait(Mutex& mutex, double absoluteTime)
@@ -297,16 +363,16 @@ bool ThreadCondition::timedWait(Mutex& mutex, double absoluteTime)
 
 void ThreadCondition::signal()
 {
-    if (pthread_cond_signal(&m_condition) != 0)
-        ASSERT(false);
+    int result = pthread_cond_signal(&m_condition);
+    ASSERT_UNUSED(result, !result);
 }
 
 void ThreadCondition::broadcast()
 {
-    if (pthread_cond_broadcast(&m_condition) != 0)
-        ASSERT(false);
+    int result = pthread_cond_broadcast(&m_condition);
+    ASSERT_UNUSED(result, !result);
 }
-    
+
 } // namespace WTF
 
 #endif // USE(PTHREADS)

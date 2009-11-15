@@ -37,13 +37,15 @@ public:
     virtual bool mapToEntry(const QualifiedName& attrName, MappedAttributeEntry& result) const;
     virtual void parseMappedAttribute(MappedAttribute*);
 
+    virtual String title() const;
+
     virtual bool rendererIsNeeded(RenderStyle*);
     virtual RenderObject* createRenderer(RenderArena*, RenderStyle*);
 
 protected:
     // Helper function for derived classes
-    String parseValueSubstitutingVariableReferences(const AtomicString&, WMLErrorCode defaultErrorCode = WMLErrorInvalidVariableReference);
-    String parseValueForbiddingVariableReferences(const AtomicString&);
+    String parseValueSubstitutingVariableReferences(const AtomicString&, WMLErrorCode defaultErrorCode = WMLErrorInvalidVariableReference) const;
+    String parseValueForbiddingVariableReferences(const AtomicString&) const;
 };
 
 }

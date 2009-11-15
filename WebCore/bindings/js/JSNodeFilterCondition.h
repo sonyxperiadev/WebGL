@@ -1,6 +1,6 @@
 /*
  *  Copyright (C) 2001 Peter Kelly (pmk@post.com)
- *  Copyright (C) 2007, 2008 Apple Inc. All rights reserved.
+ *  Copyright (C) 2007, 2008, 2009 Apple Inc. All rights reserved.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Lesser General Public
@@ -30,18 +30,18 @@ namespace WebCore {
 
     class JSNodeFilterCondition : public NodeFilterCondition {
     public:
-        static PassRefPtr<JSNodeFilterCondition> create(JSC::JSValuePtr filter)
+        static PassRefPtr<JSNodeFilterCondition> create(JSC::JSValue filter)
         {
             return adoptRef(new JSNodeFilterCondition(filter));
         }
 
     private:
-        JSNodeFilterCondition(JSC::JSValuePtr filter);
+        JSNodeFilterCondition(JSC::JSValue filter);
 
         virtual short acceptNode(ScriptState*, Node*) const;
-        virtual void mark();
+        virtual void markAggregate(JSC::MarkStack&);
 
-        mutable JSC::JSValuePtr m_filter;
+        mutable JSC::JSValue m_filter;
     };
 
 } // namespace WebCore

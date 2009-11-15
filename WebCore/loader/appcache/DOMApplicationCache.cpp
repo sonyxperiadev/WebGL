@@ -28,9 +28,7 @@
 
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
 
-#include "ApplicationCache.h"
-#include "ApplicationCacheGroup.h"
-#include "ApplicationCacheResource.h"
+#include "ApplicationCacheHost.h"
 #include "DocumentLoader.h"
 #include "Event.h"
 #include "EventException.h"
@@ -38,152 +36,58 @@
 #include "EventNames.h"
 #include "Frame.h"
 #include "FrameLoader.h"
-#include "StaticStringList.h"
 
 namespace WebCore {
 
 DOMApplicationCache::DOMApplicationCache(Frame* frame)
     : m_frame(frame)
 {
+    ASSERT(applicationCacheHost());
+    applicationCacheHost()->setDOMApplicationCache(this);
 }
 
 void DOMApplicationCache::disconnectFrame()
 {
+    ApplicationCacheHost* cacheHost = applicationCacheHost();
+    if (cacheHost)
+        cacheHost->setDOMApplicationCache(0);
     m_frame = 0;
 }
 
-ApplicationCache* DOMApplicationCache::associatedCache() const
+ApplicationCacheHost* DOMApplicationCache::applicationCacheHost() const
 {
-    if (!m_frame)
+    if (!m_frame || !m_frame->loader()->documentLoader())
         return 0;
- 
-    return m_frame->loader()->documentLoader()->applicationCache();
+    return m_frame->loader()->documentLoader()->applicationCacheHost();
 }
 
 unsigned short DOMApplicationCache::status() const
 {
-    ApplicationCache* cache = associatedCache();    
-    if (!cache)
-        return UNCACHED;
-
-    switch (cache->group()->updateStatus()) {
-        case ApplicationCacheGroup::Checking:
-            return CHECKING;
-        case ApplicationCacheGroup::Downloading:
-            return DOWNLOADING;
-        case ApplicationCacheGroup::Idle: {
-            if (cache->group()->isObsolete())
-                return OBSOLETE;
-            if (cache != cache->group()->newestCache())
-                return UPDATEREADY;
-            return IDLE;
-        }
-    }
-
-    ASSERT_NOT_REACHED();
-    return 0;
+    ApplicationCacheHost* cacheHost = applicationCacheHost();
+    if (!cacheHost)
+        return ApplicationCacheHost::UNCACHED;
+    return cacheHost->status();
 }
 
 void DOMApplicationCache::update(ExceptionCode& ec)
 {
-    ApplicationCache* cache = associatedCache();
-    if (!cache) {
+    ApplicationCacheHost* cacheHost = applicationCacheHost();
+    if (!cacheHost || !cacheHost->update())
         ec = INVALID_STATE_ERR;
-        return;
-    }
-    
-    cache->group()->update(m_frame, ApplicationCacheUpdateWithoutBrowsingContext);
 }
 
 bool DOMApplicationCache::swapCache()
 {
-    if (!m_frame)
+    ApplicationCacheHost* cacheHost = applicationCacheHost();
+    if (!cacheHost)
         return false;
-    
-    ApplicationCache* cache = m_frame->loader()->documentLoader()->applicationCache();
-    if (!cache)
-        return false;
-
-    // If the group of application caches to which cache belongs has the lifecycle status obsolete, unassociate document from cache.
-    if (cache->group()->isObsolete()) {
-        cache->group()->disassociateDocumentLoader(m_frame->loader()->documentLoader());
-        return true;
-    }
-
-    // If there is no newer cache, raise an INVALID_STATE_ERR exception.
-    ApplicationCache* newestCache = cache->group()->newestCache();
-    if (cache == newestCache)
-        return false;
-    
-    ASSERT(cache->group() == newestCache->group());
-    m_frame->loader()->documentLoader()->setApplicationCache(newestCache);
-    
-    return true;
+    return cacheHost->swapCache();
 }
     
 void DOMApplicationCache::swapCache(ExceptionCode& ec)
 {
     if (!swapCache())
         ec = INVALID_STATE_ERR;
-}
-
-PassRefPtr<DOMStringList> DOMApplicationCache::items()
-{
-    Vector<String> result;
-    if (ApplicationCache* cache = associatedCache()) {
-        unsigned numEntries = cache->numDynamicEntries();
-        result.reserveCapacity(numEntries);
-        for (unsigned i = 0; i < numEntries; ++i)
-            result.append(cache->dynamicEntry(i));
-    }
-    return StaticStringList::adopt(result);
-}
-
-bool DOMApplicationCache::hasItem(const KURL& url, ExceptionCode& ec)
-{
-    ApplicationCache* cache = associatedCache();
-    if (!cache) {
-        ec = INVALID_STATE_ERR;
-        return false;
-    }
-
-    if (!url.isValid()) {
-        ec = SYNTAX_ERR;
-        return false;
-    }
-
-    ApplicationCacheResource* resource = cache->resourceForURL(url.string());
-    return resource && (resource->type() & ApplicationCacheResource::Dynamic);
-}
-    
-void DOMApplicationCache::add(const KURL& url, ExceptionCode& ec)
-{
-    ApplicationCache* cache = associatedCache();
-    if (!cache) {
-        ec = INVALID_STATE_ERR;
-        return;
-    }
- 
-    if (!url.isValid()) {
-        ec = SYNTAX_ERR;
-        return;
-    }
-        
-    if (!cache->addDynamicEntry(url)) {
-        // This should use the (currently not specified) security exceptions in HTML5 4.3.4
-        ec = SECURITY_ERR;
-    }
-}
-
-void DOMApplicationCache::remove(const KURL& url, ExceptionCode& ec)
-{
-    ApplicationCache* cache = associatedCache();
-    if (!cache) {
-        ec = INVALID_STATE_ERR;
-        return;
-    }
-    
-    cache->removeDynamicEntry(url);
 }
 
 ScriptExecutionContext* DOMApplicationCache::scriptExecutionContext() const
@@ -231,7 +135,7 @@ bool DOMApplicationCache::dispatchEvent(PassRefPtr<Event> event, ExceptionCode& 
         ec = EventException::UNSPECIFIED_EVENT_TYPE_ERR;
         return true;
     }
-    
+
     ListenerVector listenersCopy = m_eventListeners.get(event->type());
     for (ListenerVector::const_iterator listenerIter = listenersCopy.begin(); listenerIter != listenersCopy.end(); ++listenerIter) {
         event->setTarget(this);
@@ -258,44 +162,51 @@ void DOMApplicationCache::callListener(const AtomicString& eventType, EventListe
     ASSERT(!ec);    
 }
 
-void DOMApplicationCache::callCheckingListener()
+const AtomicString& DOMApplicationCache::toEventType(ApplicationCacheHost::EventID id)
 {
-    callListener(eventNames().checkingEvent, m_onCheckingListener.get());
+    switch (id) {
+    case ApplicationCacheHost::CHECKING_EVENT:
+        return eventNames().checkingEvent;
+    case ApplicationCacheHost::ERROR_EVENT:
+        return eventNames().errorEvent;
+    case ApplicationCacheHost::NOUPDATE_EVENT:
+        return eventNames().noupdateEvent;
+    case ApplicationCacheHost::DOWNLOADING_EVENT:
+        return eventNames().downloadingEvent;
+    case ApplicationCacheHost::PROGRESS_EVENT:
+        return eventNames().progressEvent;
+    case ApplicationCacheHost::UPDATEREADY_EVENT:
+        return eventNames().updatereadyEvent;
+    case ApplicationCacheHost::CACHED_EVENT:
+        return eventNames().cachedEvent;
+    case ApplicationCacheHost::OBSOLETE_EVENT:            
+        return eventNames().obsoleteEvent;
+    }
+    ASSERT_NOT_REACHED();
+    return eventNames().errorEvent;
 }
 
-void DOMApplicationCache::callErrorListener()
+ApplicationCacheHost::EventID DOMApplicationCache::toEventID(const AtomicString& eventType)
 {
-    callListener(eventNames().errorEvent, m_onErrorListener.get());
-}
-
-void DOMApplicationCache::callNoUpdateListener()
-{
-    callListener(eventNames().noupdateEvent, m_onNoUpdateListener.get());
-}
-
-void DOMApplicationCache::callDownloadingListener()
-{
-    callListener(eventNames().downloadingEvent, m_onDownloadingListener.get());
-}
-
-void DOMApplicationCache::callProgressListener()
-{
-    callListener(eventNames().progressEvent, m_onProgressListener.get());
-}
-
-void DOMApplicationCache::callUpdateReadyListener()
-{
-    callListener(eventNames().updatereadyEvent, m_onUpdateReadyListener.get());
-}
-
-void DOMApplicationCache::callCachedListener()
-{
-    callListener(eventNames().cachedEvent, m_onCachedListener.get());
-}
-
-void DOMApplicationCache::callObsoleteListener()
-{
-    callListener(eventNames().obsoleteEvent, m_onObsoleteListener.get());
+    if (eventType == eventNames().checkingEvent)
+        return ApplicationCacheHost::CHECKING_EVENT;
+    if (eventType == eventNames().errorEvent)
+        return ApplicationCacheHost::ERROR_EVENT;
+    if (eventType == eventNames().noupdateEvent)
+        return ApplicationCacheHost::NOUPDATE_EVENT;
+    if (eventType == eventNames().downloadingEvent)
+        return ApplicationCacheHost::DOWNLOADING_EVENT;
+    if (eventType == eventNames().progressEvent)
+        return ApplicationCacheHost::PROGRESS_EVENT;
+    if (eventType == eventNames().updatereadyEvent)
+        return ApplicationCacheHost::UPDATEREADY_EVENT;
+    if (eventType == eventNames().cachedEvent)
+        return ApplicationCacheHost::CACHED_EVENT;
+    if (eventType == eventNames().obsoleteEvent)
+        return ApplicationCacheHost::OBSOLETE_EVENT;
+  
+    ASSERT_NOT_REACHED();
+    return ApplicationCacheHost::ERROR_EVENT;
 }
 
 } // namespace WebCore

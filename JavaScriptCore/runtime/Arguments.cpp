@@ -1,7 +1,7 @@
 /*
  *  Copyright (C) 1999-2002 Harri Porten (porten@kde.org)
  *  Copyright (C) 2001 Peter Kelly (pmk@post.com)
- *  Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
+ *  Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
  *  Copyright (C) 2007 Cameron Zwarich (cwzwarich@uwaterloo.ca)
  *  Copyright (C) 2007 Maks Orlovich
  *
@@ -43,34 +43,68 @@ Arguments::~Arguments()
         delete [] d->extraArguments;
 }
 
-void Arguments::mark()
+void Arguments::markChildren(MarkStack& markStack)
 {
-    JSObject::mark();
+    JSObject::markChildren(markStack);
 
-    if (d->registerArray) {
-        for (unsigned i = 0; i < d->numParameters; ++i) {
-            if (!d->registerArray[i].marked())
-                d->registerArray[i].mark();
-        }
-    }
+    if (d->registerArray)
+        markStack.appendValues(reinterpret_cast<JSValue*>(d->registerArray.get()), d->numParameters);
 
     if (d->extraArguments) {
         unsigned numExtraArguments = d->numArguments - d->numParameters;
-        for (unsigned i = 0; i < numExtraArguments; ++i) {
-            if (!d->extraArguments[i].marked())
-                d->extraArguments[i].mark();
-        }
+        markStack.appendValues(reinterpret_cast<JSValue*>(d->extraArguments), numExtraArguments);
     }
 
-    if (!d->callee->marked())
-        d->callee->mark();
+    markStack.append(d->callee);
 
-    if (d->activation && !d->activation->marked())
-        d->activation->mark();
+    if (d->activation)
+        markStack.append(d->activation);
 }
 
-void Arguments::fillArgList(ExecState* exec, ArgList& args)
+void Arguments::copyToRegisters(ExecState* exec, Register* buffer, uint32_t maxSize)
 {
+    if (UNLIKELY(d->overrodeLength)) {
+        unsigned length = min(get(exec, exec->propertyNames().length).toUInt32(exec), maxSize);
+        for (unsigned i = 0; i < length; i++)
+            buffer[i] = get(exec, i);
+        return;
+    }
+
+    if (LIKELY(!d->deletedArguments)) {
+        unsigned parametersLength = min(min(d->numParameters, d->numArguments), maxSize);
+        unsigned i = 0;
+        for (; i < parametersLength; ++i)
+            buffer[i] = d->registers[d->firstParameterIndex + i].jsValue();
+        for (; i < d->numArguments; ++i)
+            buffer[i] = d->extraArguments[i - d->numParameters].jsValue();
+        return;
+    }
+    
+    unsigned parametersLength = min(min(d->numParameters, d->numArguments), maxSize);
+    unsigned i = 0;
+    for (; i < parametersLength; ++i) {
+        if (!d->deletedArguments[i])
+            buffer[i] = d->registers[d->firstParameterIndex + i].jsValue();
+        else
+            buffer[i] = get(exec, i);
+    }
+    for (; i < d->numArguments; ++i) {
+        if (!d->deletedArguments[i])
+            buffer[i] = d->extraArguments[i - d->numParameters].jsValue();
+        else
+            buffer[i] = get(exec, i);
+    }
+}
+
+void Arguments::fillArgList(ExecState* exec, MarkedArgumentBuffer& args)
+{
+    if (UNLIKELY(d->overrodeLength)) {
+        unsigned length = get(exec, exec->propertyNames().length).toUInt32(exec); 
+        for (unsigned i = 0; i < length; i++) 
+            args.append(get(exec, i)); 
+        return;
+    }
+
     if (LIKELY(!d->deletedArguments)) {
         if (LIKELY(!d->numParameters)) {
             args.initialize(d->extraArguments, d->numArguments);
@@ -85,9 +119,9 @@ void Arguments::fillArgList(ExecState* exec, ArgList& args)
         unsigned parametersLength = min(d->numParameters, d->numArguments);
         unsigned i = 0;
         for (; i < parametersLength; ++i)
-            args.append(d->registers[d->firstParameterIndex + i].jsValue(exec));
+            args.append(d->registers[d->firstParameterIndex + i].jsValue());
         for (; i < d->numArguments; ++i)
-            args.append(d->extraArguments[i - d->numParameters].jsValue(exec));
+            args.append(d->extraArguments[i - d->numParameters].jsValue());
         return;
     }
 
@@ -95,13 +129,13 @@ void Arguments::fillArgList(ExecState* exec, ArgList& args)
     unsigned i = 0;
     for (; i < parametersLength; ++i) {
         if (!d->deletedArguments[i])
-            args.append(d->registers[d->firstParameterIndex + i].jsValue(exec));
+            args.append(d->registers[d->firstParameterIndex + i].jsValue());
         else
             args.append(get(exec, i));
     }
     for (; i < d->numArguments; ++i) {
         if (!d->deletedArguments[i])
-            args.append(d->extraArguments[i - d->numParameters].jsValue(exec));
+            args.append(d->extraArguments[i - d->numParameters].jsValue());
         else
             args.append(get(exec, i));
     }
@@ -113,7 +147,7 @@ bool Arguments::getOwnPropertySlot(ExecState* exec, unsigned i, PropertySlot& sl
         if (i < d->numParameters) {
             slot.setRegisterSlot(&d->registers[d->firstParameterIndex + i]);
         } else
-            slot.setValue(d->extraArguments[i - d->numParameters].jsValue(exec));
+            slot.setValue(d->extraArguments[i - d->numParameters].jsValue());
         return true;
     }
 
@@ -128,7 +162,7 @@ bool Arguments::getOwnPropertySlot(ExecState* exec, const Identifier& propertyNa
         if (i < d->numParameters) {
             slot.setRegisterSlot(&d->registers[d->firstParameterIndex + i]);
         } else
-            slot.setValue(d->extraArguments[i - d->numParameters].jsValue(exec));
+            slot.setValue(d->extraArguments[i - d->numParameters].jsValue());
         return true;
     }
 
@@ -145,28 +179,28 @@ bool Arguments::getOwnPropertySlot(ExecState* exec, const Identifier& propertyNa
     return JSObject::getOwnPropertySlot(exec, propertyName, slot);
 }
 
-void Arguments::put(ExecState* exec, unsigned i, JSValuePtr value, PutPropertySlot& slot)
+void Arguments::put(ExecState* exec, unsigned i, JSValue value, PutPropertySlot& slot)
 {
     if (i < d->numArguments && (!d->deletedArguments || !d->deletedArguments[i])) {
         if (i < d->numParameters)
-            d->registers[d->firstParameterIndex + i] = JSValuePtr(value);
+            d->registers[d->firstParameterIndex + i] = JSValue(value);
         else
-            d->extraArguments[i - d->numParameters] = JSValuePtr(value);
+            d->extraArguments[i - d->numParameters] = JSValue(value);
         return;
     }
 
     JSObject::put(exec, Identifier(exec, UString::from(i)), value, slot);
 }
 
-void Arguments::put(ExecState* exec, const Identifier& propertyName, JSValuePtr value, PutPropertySlot& slot)
+void Arguments::put(ExecState* exec, const Identifier& propertyName, JSValue value, PutPropertySlot& slot)
 {
     bool isArrayIndex;
     unsigned i = propertyName.toArrayIndex(&isArrayIndex);
     if (isArrayIndex && i < d->numArguments && (!d->deletedArguments || !d->deletedArguments[i])) {
         if (i < d->numParameters)
-            d->registers[d->firstParameterIndex + i] = JSValuePtr(value);
+            d->registers[d->firstParameterIndex + i] = JSValue(value);
         else
-            d->extraArguments[i - d->numParameters] = JSValuePtr(value);
+            d->extraArguments[i - d->numParameters] = JSValue(value);
         return;
     }
 

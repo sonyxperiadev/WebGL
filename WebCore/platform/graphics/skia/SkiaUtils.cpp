@@ -38,42 +38,89 @@
 #include "SkColorPriv.h"
 #include "SkMatrix.h"
 #include "SkRegion.h"
+#include "SkUnPreMultiply.h"
 
 namespace WebCore {
 
-static const struct CompositOpToPorterDuffMode {
+#if PLATFORM(ANDROID)
+static const struct CompositOpToSkiaMode {
     uint8_t mCompositOp;
-    uint8_t mPorterDuffMode;
-} gMapCompositOpsToPorterDuffModes[] = {
-    { CompositeClear,           SkPorterDuff::kClear_Mode },
-    { CompositeCopy,            SkPorterDuff::kSrcOver_Mode },  // TODO
-    { CompositeSourceOver,      SkPorterDuff::kSrcOver_Mode },
-    { CompositeSourceIn,        SkPorterDuff::kSrcIn_Mode },
-    { CompositeSourceOut,       SkPorterDuff::kSrcOut_Mode },
-    { CompositeSourceAtop,      SkPorterDuff::kSrcATop_Mode },
-    { CompositeDestinationOver, SkPorterDuff::kDstOver_Mode },
-    { CompositeDestinationIn,   SkPorterDuff::kDstIn_Mode },
-    { CompositeDestinationOut,  SkPorterDuff::kDstOut_Mode },
-    { CompositeDestinationAtop, SkPorterDuff::kDstATop_Mode },
-    { CompositeXOR,             SkPorterDuff::kXor_Mode },
-    { CompositePlusDarker,      SkPorterDuff::kDarken_Mode },
-    { CompositeHighlight,       SkPorterDuff::kSrcOver_Mode },  // TODO
-    { CompositePlusLighter,     SkPorterDuff::kLighten_Mode }
+    uint8_t mMode;
+} gMapCompositOpsToSkiaModes[] = {
+    { CompositeClear,           SkXfermode::kClear_Mode },
+    { CompositeCopy,            SkXfermode::kSrc_Mode },
+    { CompositeSourceOver,      SkXfermode::kSrcOver_Mode },
+    { CompositeSourceIn,        SkXfermode::kSrcIn_Mode },
+    { CompositeSourceOut,       SkXfermode::kSrcOut_Mode },
+    { CompositeSourceAtop,      SkXfermode::kSrcATop_Mode },
+    { CompositeDestinationOver, SkXfermode::kDstOver_Mode },
+    { CompositeDestinationIn,   SkXfermode::kDstIn_Mode },
+    { CompositeDestinationOut,  SkXfermode::kDstOut_Mode },
+    { CompositeDestinationAtop, SkXfermode::kDstATop_Mode },
+    { CompositeXOR,             SkXfermode::kXor_Mode },
+    // need more details on the composite modes to be sure these are right
+    { CompositePlusDarker,      SkXfermode::kDarken_Mode },
+    { CompositeHighlight,       SkXfermode::kSrcOver_Mode },  // TODO
+    { CompositePlusLighter,     SkXfermode::kPlus_Mode }
 };
 
-SkPorterDuff::Mode WebCoreCompositeToSkiaComposite(CompositeOperator op)
+SkXfermode::Mode WebCoreCompositeToSkiaCOmposite(CompositeOperator op)
 {
-    const CompositOpToPorterDuffMode* table = gMapCompositOpsToPorterDuffModes;
+    const CompositOpToSkiaMode* table = gMapCompositOpsToSkiaModes;
     
-    for (unsigned i = 0; i < SK_ARRAY_COUNT(gMapCompositOpsToPorterDuffModes); i++) {
+    for (unsigned i = 0; i < SK_ARRAY_COUNT(gMapCompositOpsToSkiaModes); i++) {
         if (table[i].mCompositOp == op)
-            return (SkPorterDuff::Mode)table[i].mPorterDuffMode;
+            return (SkXfermode::Mode)table[i].mMode;
+    }
+    
+    SkDEBUGF(("GraphicsContext::setCompositeOperation uknown CompositeOperator %d\n", op));
+    return SkXfermode::kSrcOver_Mode; // fall-back
+}
+
+#endif
+
+static const struct CompositOpToXfermodeMode {
+    uint8_t mCompositOp;
+    uint8_t m_xfermodeMode;
+} gMapCompositOpsToXfermodeModes[] = {
+    { CompositeClear,           SkXfermode::kClear_Mode },
+    { CompositeCopy,            SkXfermode::kSrc_Mode },
+    { CompositeSourceOver,      SkXfermode::kSrcOver_Mode },
+    { CompositeSourceIn,        SkXfermode::kSrcIn_Mode },
+    { CompositeSourceOut,       SkXfermode::kSrcOut_Mode },
+    { CompositeSourceAtop,      SkXfermode::kSrcATop_Mode },
+    { CompositeDestinationOver, SkXfermode::kDstOver_Mode },
+    { CompositeDestinationIn,   SkXfermode::kDstIn_Mode },
+    { CompositeDestinationOut,  SkXfermode::kDstOut_Mode },
+    { CompositeDestinationAtop, SkXfermode::kDstATop_Mode },
+    { CompositeXOR,             SkXfermode::kXor_Mode },
+    { CompositePlusDarker,      SkXfermode::kDarken_Mode },
+    { CompositeHighlight,       SkXfermode::kSrcOver_Mode },  // TODO
+    { CompositePlusLighter,     SkXfermode::kPlus_Mode }
+};
+
+SkXfermode::Mode WebCoreCompositeToSkiaComposite(CompositeOperator op)
+{
+    const CompositOpToXfermodeMode* table = gMapCompositOpsToXfermodeModes;
+    
+    for (unsigned i = 0; i < SK_ARRAY_COUNT(gMapCompositOpsToXfermodeModes); i++) {
+        if (table[i].mCompositOp == op)
+            return (SkXfermode::Mode)table[i].m_xfermodeMode;
     }
 
     SkDEBUGF(("GraphicsContext::setCompositeOperation uknown CompositeOperator %d\n", op));
-    return SkPorterDuff::kSrcOver_Mode; // fall-back
+    return SkXfermode::kSrcOver_Mode; // fall-back
 }
 
+#if PLATFORM(ANDROID)
+Color SkPMColorToWebCoreColor(SkPMColor pm)
+{
+    SkColor c = SkUnPreMultiply::PMColorToColor(pm);
+    // need the cast to find the right constructor
+    return WebCore::Color((int)SkColorGetR(c), (int)SkColorGetG(c),
+                          (int)SkColorGetB(c), (int)SkColorGetA(c));
+}
+#else
 static U8CPU InvScaleByte(U8CPU component, uint32_t scale)
 {
     SkASSERT(component == (uint8_t)component);
@@ -84,10 +131,10 @@ SkColor SkPMColorToColor(SkPMColor pm)
 {
     if (0 == pm)
         return 0;
-    
+
     unsigned a = SkGetPackedA32(pm);
     uint32_t scale = (255 << 16) / a;
-    
+
     return SkColorSetARGB(a,
                           InvScaleByte(SkGetPackedR32(pm), scale),
                           InvScaleByte(SkGetPackedG32(pm), scale),
@@ -98,6 +145,7 @@ Color SkPMColorToWebCoreColor(SkPMColor pm)
 {
     return SkPMColorToColor(pm);
 }
+#endif
 
 void IntersectRectAndRegion(const SkRegion& region, const SkRect& srcRect, SkRect* destRect) {
     // The cliperator requires an int rect, so we round out.
@@ -150,8 +198,7 @@ bool SkPathContainsPoint(SkPath* originalPath, const FloatPoint& point, SkPath::
     SkPath scaledPath;
     int scale = 1;
 
-    SkRect bounds;
-    originalPath->computeBounds(&bounds, SkPath::kFast_BoundsType);
+    SkRect bounds = originalPath->getBounds();
 
     // We can immediately return false if the point is outside the bounding rect
     if (!bounds.contains(SkFloatToScalar(point.x()), SkFloatToScalar(point.y())))
@@ -190,7 +237,7 @@ GraphicsContext* scratchContext()
 {
     static ImageBuffer* scratch = 0;
     if (!scratch)
-        scratch = ImageBuffer::create(IntSize(1, 1), false).release();
+        scratch = ImageBuffer::create(IntSize(1, 1)).release();
     // We don't bother checking for failure creating the ImageBuffer, since our
     // ImageBuffer initializer won't fail.
     return scratch->context();

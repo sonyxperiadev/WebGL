@@ -27,14 +27,17 @@
 
 #include "config.h"
 
+#include "ApplicationCacheStorage.h"
 #include "ChromeClientAndroid.h"
 #include "CString.h"
+#include "DatabaseTracker.h"
 #include "Document.h"
 #include "PlatformString.h"
 #include "FloatRect.h"
 #include "Frame.h"
 #include "FrameLoader.h"
 #include "FrameView.h"
+#include "Geolocation.h"
 #include "Page.h"
 #include "Screen.h"
 #include "ScriptController.h"
@@ -78,8 +81,8 @@ FloatRect ChromeClientAndroid::pageRect() { notImplemented(); return FloatRect()
 
 float ChromeClientAndroid::scaleFactor()
 {
-    // only seems to be used for dashboard regions, so just return 1
-    return 1;
+    ASSERT(m_webFrame);
+    return m_webFrame->density();
 }
 
 void ChromeClientAndroid::focus() {
@@ -142,10 +145,10 @@ bool ChromeClientAndroid::menubarVisible() { notImplemented(); return false; }
 void ChromeClientAndroid::setResizable(bool) { notImplemented(); }
 
 // This function is called by the JavaScript bindings to print usually an error to
-// a message console.
-void ChromeClientAndroid::addMessageToConsole(const String& message, unsigned int lineNumber, const String& sourceID) {
-    notImplemented();
-    LOGD("Console: %s line: %d source: %s\n", message.latin1().data(), lineNumber, sourceID.latin1().data());
+// a message console. Pass the message to the java side so that the client can
+// handle it as it sees fit.
+void ChromeClientAndroid::addMessageToConsole(MessageSource, MessageType, MessageLevel, const String& message, unsigned int lineNumber, const String& sourceID) {
+    android::WebViewCore::getWebViewCore(m_webFrame->page()->mainFrame()->view())->addMessageToConsole(message, lineNumber, sourceID);
 }
 
 bool ChromeClientAndroid::canRunBeforeUnloadConfirmPanel() { return true; }
@@ -167,7 +170,7 @@ void ChromeClientAndroid::closeWindowSoon()
     mainFrame->loader()->stopAllLoaders();
     // Remove all event listeners so that no javascript can execute as a result
     // of mouse/keyboard events.
-    mainFrame->document()->removeAllEventListenersFromAllNodes();
+    mainFrame->document()->removeAllEventListeners();
     // Close the window.
     m_webFrame->closeWindow(android::WebViewCore::getWebViewCore(mainFrame->view()));
 }
@@ -248,25 +251,134 @@ PlatformWidget ChromeClientAndroid::platformWindow() const {
     return viewBridge;
 }
 
-// new to webkit4 (Feb 27, 2009)
 void ChromeClientAndroid::contentsSizeChanged(Frame*, const IntSize&) const
 {
     notImplemented();
 }
 
-// new to webkit4 (Feb 27, 2009)
+void ChromeClientAndroid::scrollRectIntoView(const IntRect&, const ScrollView*) const
+{
+    notImplemented();
+}
+
 void ChromeClientAndroid::formStateDidChange(const Node*)
 {
     notImplemented();
 }
 
 void ChromeClientAndroid::mouseDidMoveOverElement(const HitTestResult&, unsigned int) {}
-void ChromeClientAndroid::setToolTip(const String&) {}
+void ChromeClientAndroid::setToolTip(const String&, TextDirection) {}
 void ChromeClientAndroid::print(Frame*) {}
 
-void ChromeClientAndroid::exceededDatabaseQuota(Frame*, const String&) {}
+/*
+ * This function is called on the main (webcore) thread by SQLTransaction::deliverQuotaIncreaseCallback.
+ * The way that the callback mechanism is designed inside SQLTransaction means that there must be a new quota
+ * (which may be equal to the old quota if the user did not allow more quota) when this function returns. As
+ * we call into the browser thread to ask what to do with the quota, we block here and get woken up when the
+ * browser calls the native WebViewCore::SetDatabaseQuota method with the new quota value.
+ */
+#if ENABLE(DATABASE)
+void ChromeClientAndroid::exceededDatabaseQuota(Frame* frame, const String& name)
+{
+    SecurityOrigin* origin = frame->document()->securityOrigin();
 
-// new to change 38068 (Nov 6, 2008)
+    // We want to wait on a new quota from the UI thread. Reset the m_newQuota variable to represent we haven't received a new quota.
+    m_newQuota = -1;
+
+    // This origin is being tracked and has exceeded it's quota. Call into
+    // the Java side of things to inform the user.
+    unsigned long long currentQuota = 0;
+    if (WebCore::DatabaseTracker::tracker().hasEntryForOrigin(origin)) {
+        currentQuota = WebCore::DatabaseTracker::tracker().quotaForOrigin(origin);
+    }
+
+    unsigned long long estimatedSize = WebCore::DatabaseTracker::tracker().detailsForNameAndOrigin(name, origin).expectedUsage();
+
+    android::WebViewCore::getWebViewCore(frame->view())->exceededDatabaseQuota(frame->document()->documentURI(), name, currentQuota, estimatedSize);
+
+    // We've sent notification to the browser so now wait for it to come back.
+    m_quotaThreadLock.lock();
+    while (m_newQuota == -1) {
+        m_quotaThreadCondition.wait(m_quotaThreadLock);
+    }
+    m_quotaThreadLock.unlock();
+
+    // Update the DatabaseTracker with the new quota value (if the user declined
+    // new quota, this may equal the old quota)
+    DatabaseTracker::tracker().setQuota(origin, m_newQuota);
+}
+#endif
+#if ENABLE(OFFLINE_WEB_APPLICATIONS)
+void ChromeClientAndroid::reachedMaxAppCacheSize(int64_t spaceNeeded)
+{
+    // Set m_newQuota before calling into the Java side. If we do this after,
+    // we could overwrite the result passed from the Java side and deadlock in the
+    // wait call below.
+    m_newQuota = -1;
+    Page* page = m_webFrame->page();
+    Frame* mainFrame = page->mainFrame();
+    FrameView* view = mainFrame->view();
+    android::WebViewCore::getWebViewCore(view)->reachedMaxAppCacheSize(spaceNeeded);
+
+    // We've sent notification to the browser so now wait for it to come back.
+    m_quotaThreadLock.lock();
+    while (m_newQuota == -1) {
+       m_quotaThreadCondition.wait(m_quotaThreadLock);
+    }
+    m_quotaThreadLock.unlock();
+    if (m_newQuota > 0) {
+        WebCore::cacheStorage().setMaximumSize(m_newQuota);
+        // Now the app cache will retry the saving the previously failed cache.
+    }
+}
+#endif
+
+void ChromeClientAndroid::populateVisitedLinks()
+{
+    Page* page = m_webFrame->page();
+    Frame* mainFrame = page->mainFrame();
+    FrameView* view = mainFrame->view();
+    android::WebViewCore::getWebViewCore(view)->populateVisitedLinks(&page->group());
+}
+
+void ChromeClientAndroid::requestGeolocationPermissionForFrame(Frame* frame, Geolocation* geolocation)
+{
+    ASSERT(geolocation);
+    if (!m_geolocationPermissions) {
+        m_geolocationPermissions = new GeolocationPermissions(android::WebViewCore::getWebViewCore(frame->view()),
+                                                              m_webFrame->page()->mainFrame());
+    }
+    m_geolocationPermissions->queryPermissionState(frame);
+}
+
+void ChromeClientAndroid::provideGeolocationPermissions(const String &origin, bool allow, bool remember)
+{
+    ASSERT(m_geolocationPermissions);
+    m_geolocationPermissions->providePermissionState(origin, allow, remember);
+}
+
+void ChromeClientAndroid::storeGeolocationPermissions()
+{
+    GeolocationPermissions::maybeStorePermanentPermissions();
+}
+
+void ChromeClientAndroid::onMainFrameLoadStarted()
+{
+    if (m_geolocationPermissions.get())
+        m_geolocationPermissions->resetTemporaryPermissionStates();
+}
+
 void ChromeClientAndroid::runOpenPanel(Frame*, PassRefPtr<FileChooser>) { notImplemented(); }
+bool ChromeClientAndroid::setCursor(PlatformCursorHandle)
+{
+    notImplemented(); 
+    return false;
+}
+
+void ChromeClientAndroid::wakeUpMainThreadWithNewQuota(long newQuota) {
+    MutexLocker locker(m_quotaThreadLock);
+    m_newQuota = newQuota;
+    m_quotaThreadCondition.signal();
+}
 
 }

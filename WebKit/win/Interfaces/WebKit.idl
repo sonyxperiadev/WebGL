@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -106,9 +106,6 @@ import "ocidl.idl";
 #include "IWebResource.idl"
 #include "IWebResourceLoadDelegate.idl"
 #include "IWebResourceLoadDelegatePrivate.idl"
-#include "IWebScriptCallFrame.idl"
-#include "IWebScriptDebugListener.idl"
-#include "IWebScriptDebugServer.idl"
 #include "IWebScrollBarDelegatePrivate.idl"
 #include "IWebScrollBarPrivate.idl"
 #include "IWebSecurityOrigin.idl"
@@ -331,11 +328,6 @@ library WebKit
         [default] interface IWebScrollBarPrivate;
     }
 
-    [uuid(715636C4-59E7-4b85-BBC5-B555888787D7)]
-    coclass WebScriptDebugServer {
-        [default] interface IWebScriptDebugServer;
-    }
-
     [uuid(AB201196-8DD2-4d45-AEBD-029B6A37AA27)]
     coclass WebURLResponse {
         [default] interface IWebURLResponse;
@@ -366,4 +358,5 @@ library WebKit
         [default] interface IWebCookieManager;
     }
 }
+
 

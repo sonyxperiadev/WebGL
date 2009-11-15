@@ -1,9 +1,10 @@
 #!/usr/bin/perl
 
-# Copyright (C) 2005, 2006, 2007 Apple Inc. All rights reserved.
+# Copyright (C) 2005, 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
 # Copyright (C) 2006 Alexey Proskuryakov (ap@nypop.com)
 # Copyright (C) 2007 Matt Lilek (pewtermoose@gmail.com)
 # Copyright (C) 2007 Eric Seidel <eric@webkit.org>
+# Copyright (C) 2009 Google Inc. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -48,6 +49,7 @@ use strict;
 use warnings;
 
 use Cwd;
+use Data::Dumper;
 use Fcntl qw(F_GETFL F_SETFL O_NONBLOCK);
 use File::Basename;
 use File::Copy;
@@ -65,8 +67,11 @@ use List::Util 'shuffle';
 
 use lib $FindBin::Bin;
 use webkitdirs;
+use VCSUtils;
 use POSIX;
 
+sub launchWithCurrentEnv(@);
+sub openDiffTool();
 sub openDumpTool();
 sub closeDumpTool();
 sub dumpToolDidCrash();
@@ -76,7 +81,7 @@ sub fileNameWithNumber($$);
 sub numericcmp($$);
 sub openHTTPDIfNeeded();
 sub pathcmp($$);
-sub processIgnoreTests($);
+sub processIgnoreTests($$);
 sub slowestcmp($$);
 sub splitpath($);
 sub stripExtension($);
@@ -93,7 +98,8 @@ sub validateSkippedArg($$;$);
 sub htmlForResultsSection(\@$&);
 sub deleteExpectedAndActualResults($);
 sub recordActualResultsAndDiff($$);
-sub buildPlatformHierarchy();
+sub buildPlatformResultHierarchy();
+sub buildPlatformTestHierarchy(@);
 sub epiloguesAndPrologues($$);
 sub parseLeaksandPrintUniqueLeaks();
 sub readFromDumpToolWithTimer(*;$);
@@ -103,7 +109,6 @@ sub writeToFile($$);
 # Argument handling
 my $addPlatformExceptions = 0;
 my $complexText = 0;
-my $configuration = configuration();
 my $guardMalloc = '';
 my $httpdPort = 8000;
 my $httpdSSLPort = 8443;
@@ -126,36 +131,47 @@ my $treatSkipped = "default";
 my $verbose = 0;
 my $useValgrind = 0;
 my $strictTesting = 0;
-my $generateNewResults = 1;
+my $generateNewResults = isAppleMacWebKit() ? 1 : 0;
 my $stripEditingCallbacks = isCygwin();
 my $runSample = 1;
 my $root;
 my $reverseTests = 0;
 my $randomizeTests = 0;
 my $mergeDepth;
+my $timeoutSeconds = 15;
+my $useRemoteLinksToTests = 0;
 my @leaksFilenames;
-my $run64Bit;
 
-# Default to --no-http for Qt, Gtk and wx for now.
-$testHTTP = 0 if (isQt() || isGtk() || isWx());
+# Default to --no-http for Qt, and wx for now.
+$testHTTP = 0 if (isQt() || isWx());
 
 my $expectedTag = "expected";
 my $actualTag = "actual";
+my $prettyDiffTag = "pretty-diff";
 my $diffsTag = "diffs";
 my $errorTag = "stderr";
 
-if (isTiger()) {
-    $platform = "mac-tiger";
-} elsif (isLeopard()) {
-    $platform = "mac-leopard";
-} elsif (isSnowLeopard()) {
-    $platform = "mac-snowleopard";
-} elsif (isOSX()) {
-    $platform = "mac";
+my @macPlatforms = ("mac-tiger", "mac-leopard", "mac-snowleopard", "mac");
+
+if (isAppleMacWebKit()) {
+    if (isTiger()) {
+        $platform = "mac-tiger";
+        $tolerance = 1.0;
+    } elsif (isLeopard()) {
+        $platform = "mac-leopard";
+        $tolerance = 0.1;
+    } elsif (isSnowLeopard()) {
+        $platform = "mac-snowleopard";
+        $tolerance = 0.1;
+    } else {
+        $platform = "mac";
+    }
 } elsif (isQt()) {
     $platform = "qt";
 } elsif (isGtk()) {
     $platform = "gtk";
+} elsif (isWx()) {
+    $platform = "wx";
 } elsif (isCygwin()) {
     $platform = "win";
 }
@@ -184,7 +200,7 @@ Usage: $programName [options] [testdir|testpath ...]
   -l|--leaks                      Enable leaks checking
   --[no-]new-test-results         Generate results for new tests
   -p|--pixel-tests                Enable pixel tests
-  --tolerance t                   Ignore image differences less than this percentage (implies --pixel-tests)
+  --tolerance t                   Ignore image differences less than this percentage (default: $tolerance)
   --platform                      Override the detected platform to use for tests and results (default: $platform)
   --port                          Web server port to use with http tests
   -q|--quiet                      Less verbose output
@@ -203,18 +219,17 @@ Usage: $programName [options] [testdir|testpath ...]
   --strict                        Do a comparison with the output on Mac (Qt only)
   --[no-]strip-editing-callbacks  Remove editing callbacks from expected results
   -t|--threaded                   Run a concurrent JavaScript thead with each test
+  --timeout t                     Sets the number of seconds before a test times out (default: $timeoutSeconds)
   --valgrind                      Run DumpRenderTree inside valgrind (Qt/Linux only)
   -v|--verbose                    More verbose output (overrides --quiet)
   -m|--merge-leak-depth arg       Merges leak callStacks and prints the number of unique leaks beneath a callstack depth of arg.  Defaults to 5.
-  --64-bit                        run in 64bit mode
+  --use-remote-links-to-tests     Link to test files within the SVN repository in the results.
 EOF
 
-# Process @ARGV for configuration switches before calling GetOptions()
-$configuration = passedConfiguration() || configuration();
+setConfiguration();
 
 my $getOptionsResult = GetOptions(
     'complex-text' => \$complexText,
-    'c|configuration=s' => \$configuration,
     'guard-malloc|g' => \$guardMalloc,
     'help' => \$showHelp,
     'http!' => \$testHTTP,
@@ -244,7 +259,8 @@ my $getOptionsResult = GetOptions(
     'root=s' => \$root,
     'add-platform-exceptions' => \$addPlatformExceptions,
     'merge-leak-depth|m:5' => \$mergeDepth,
-    '64-bit!' => \$run64Bit
+    'timeout=i' => \$timeoutSeconds,
+    'use-remote-links-to-tests' => \$useRemoteLinksToTests,
 );
 
 if (!$getOptionsResult || $showHelp) {
@@ -257,11 +273,7 @@ my $skippedOnly = $treatSkipped eq "only";
 
 !$skippedOnly || @ARGV == 0 or die "--skipped=only cannot be used when tests are specified on the command line.";
 
-setConfiguration($configuration);
-
-my $configurationOption = "--" . lc($configuration);
-
-$pixelTests = 1 if $tolerance > 0;
+my $configuration = configuration();
 
 $testsPerDumpTool = 1000 if !$testsPerDumpTool;
 
@@ -274,25 +286,19 @@ if ($shouldCheckLeaks && $testsPerDumpTool > 1000) {
 # Stack logging does not play well with QuickTime on Tiger (rdar://problem/5537157)
 $testMedia = 0 if $shouldCheckLeaks && isTiger();
 
+# Generating remote links causes a lot of unnecessary spew on GTK and Qt build bot
+$useRemoteLinksToTests = 0 if (isGtk() || isQt());
+
 setConfigurationProductDir(Cwd::abs_path($root)) if (defined($root));
 my $productDir = productDir();
 $productDir .= "/bin" if isQt();
 $productDir .= "/Programs" if isGtk();
-setRun64Bit($run64Bit);
 
 chdirWebKit();
 
 if (!defined($root)) {
     # Push the parameters to build-dumprendertree as an array
-    my @args;
-    push(@args, $configurationOption);
-    push(@args, "--qt")  if isQt();
-    push(@args, "--gtk")  if isGtk();
-
-    if (isOSX()) {
-        my $arch = preferredArchitecture();
-        push(@args, "ARCHS=$arch");
-    }
+    my @args = argumentsForConfiguration();
 
     my $buildResult = system "WebKitTools/Scripts/build-dumprendertree", @args;
     if ($buildResult) {
@@ -312,18 +318,38 @@ die "can't find executable $imageDiffTool (looked in $productDir)\n" if $pixelTe
 
 checkFrameworks() unless isCygwin();
 
+if (isAppleMacWebKit()) {
+    push @INC, $productDir;
+    eval 'use DumpRenderTreeSupport;';
+}
+
 my $layoutTestsName = "LayoutTests";
 my $testDirectory = File::Spec->rel2abs($layoutTestsName);
 my $expectedDirectory = $testDirectory;
 my $platformBaseDirectory = catdir($testDirectory, "platform");
 my $platformTestDirectory = catdir($platformBaseDirectory, $platform);
-my @platformHierarchy = buildPlatformHierarchy();
+my @platformResultHierarchy = buildPlatformResultHierarchy();
+my @platformTestHierarchy = buildPlatformTestHierarchy(@platformResultHierarchy);
 
 $expectedDirectory = $ENV{"WebKitExpectedTestResultsDirectory"} if $ENV{"WebKitExpectedTestResultsDirectory"};
 
 my $testResults = catfile($testResultsDirectory, "results.html");
 
 print "Running tests from $testDirectory\n";
+if ($pixelTests) {
+    print "Enabling pixel tests with a tolerance of $tolerance%\n";
+    if (isDarwin()) {
+        print "WARNING: Temporarily changing the main display color profile:\n";
+        print "\tThe colors on your screen will change for the duration of the testing.\n";
+        print "\tThis allows the pixel tests to have consistent color values across all machines.\n";
+        
+        if (isPerianInstalled()) {
+            print "WARNING: Perian's QuickTime component is installed and this may affect pixel test results!\n";
+            print "\tYou should avoid generating new pixel results in this environment.\n";
+            print "\tSee https://bugs.webkit.org/show_bug.cgi?id=22615 for details.\n";
+        }
+    }
+}
 
 my @tests = ();
 my %testType = ();
@@ -334,15 +360,16 @@ my %ignoredFiles = ();
 my %ignoredDirectories = map { $_ => 1 } qw(platform);
 my %ignoredLocalDirectories = map { $_ => 1 } qw(.svn _svn resources);
 my %supportedFileExtensions = map { $_ => 1 } qw(html shtml xml xhtml pl php);
+
+# FIXME: We should fix webkitdirs.pm:hasSVG/WMLSupport() to do the correct feature detection for Cygwin.
 if (checkWebCoreSVGSupport(0)) { 
     $supportedFileExtensions{'svg'} = 1;
 } elsif (isCygwin()) {
-    # FIXME: We should fix webkitdirs.pm:hasSVGSupport() to do the correct
-    # check for Windows instead of forcing this here.
     $supportedFileExtensions{'svg'} = 1;
 } else {
     $ignoredLocalDirectories{'svg'} = 1;
 }
+
 if (!$testHTTP) {
     $ignoredDirectories{'http'} = 1;
 }
@@ -352,14 +379,49 @@ if (!$testMedia) {
     $ignoredDirectories{'http/tests/media'} = 1;
 }
 
+if (!checkWebCoreAcceleratedCompositingSupport(0)) {
+    $ignoredDirectories{'compositing'} = 1;
+}
+
+if (!checkWebCore3DRenderingSupport(0)) {
+    $ignoredDirectories{'animations/3d'} = 1;
+    $ignoredDirectories{'transforms/3d'} = 1;
+}
+
+if (checkWebCoreWMLSupport(0)) { 
+    $supportedFileExtensions{'wml'} = 1;
+} else {
+    $ignoredDirectories{'http/tests/wml'} = 1;
+    $ignoredDirectories{'fast/wml'} = 1;
+    $ignoredDirectories{'wml'} = 1;
+}
+
+if (!checkWebCoreXHTMLMPSupport(0)) {
+    $ignoredDirectories{'fast/xhtmlmp'} = 1;
+}
+
+if (!checkWebCoreWCSSSupport(0)) {
+    $ignoredDirectories{'fast/wcss'} = 1;
+}
+
 if ($ignoreTests) {
-    processIgnoreTests($ignoreTests);
+    processIgnoreTests($ignoreTests, "ignore-tests");
+}
+
+sub fileShouldBeIgnored {
+    my($filePath) = @_;
+    foreach my $ignoredDir (keys %ignoredDirectories) {
+        if ($filePath =~ m/^$ignoredDir/) {
+            return 1;
+        }
+    }
+    return 0;
 }
 
 if (!$ignoreSkipped) {
-    foreach my $level (@platformHierarchy) {
+    foreach my $level (@platformTestHierarchy) {
         if (open SKIPPED, "<", "$level/Skipped") {
-            if ($verbose && !$skippedOnly) {
+            if ($verbose) {
                 my ($dir, $name) = splitpath($level);
                 print "Skipped tests in $name:\n";
             }
@@ -371,12 +433,16 @@ if (!$ignoreSkipped) {
                 $skipped =~ s/[ \n\r]+$//;
                 if ($skipped && $skipped !~ /^#/) {
                     if ($skippedOnly) {
-                        push(@ARGV, $skipped);
+                        if (!&fileShouldBeIgnored($skipped)) {
+                            push(@ARGV, $skipped);
+                        } elsif ($verbose) {
+                            print "    $skipped\n";
+                        }
                     } else {
                         if ($verbose) {
                             print "    $skipped\n";
                         }
-                        processIgnoreTests($skipped);
+                        processIgnoreTests($skipped, "Skipped");
                     }
                 }
             }
@@ -417,7 +483,7 @@ for my $test (@ARGV) {
     } elsif (-d $fullPath) {
         find({ preprocess => $directoryFilter, wanted => $fileFilter }, $fullPath);
 
-        for my $level (@platformHierarchy) {
+        for my $level (@platformTestHierarchy) {
             my $platformPath = catfile($level, $test);
             find({ preprocess => $directoryFilter, wanted => $fileFilter }, $platformPath) if (-d $platformPath);
         }
@@ -428,7 +494,7 @@ for my $test (@ARGV) {
 if (!scalar @ARGV) {
     find({ preprocess => $directoryFilter, wanted => $fileFilter }, $testDirectory);
 
-    for my $level (@platformHierarchy) {
+    for my $level (@platformTestHierarchy) {
         find({ preprocess => $directoryFilter, wanted => $fileFilter }, $level);
     }
 }
@@ -457,17 +523,11 @@ push @diffToolArgs, "--tolerance", $tolerance;
 
 $| = 1;
 
-my $imageDiffToolPID;
-if ($pixelTests) {
-    local %ENV;
-    $ENV{MallocStackLogging} = 1 if $shouldCheckLeaks;
-    $imageDiffToolPID = open2(\*DIFFIN, \*DIFFOUT, $imageDiffTool, @diffToolArgs) or die "unable to open $imageDiffTool\n";
-    $ENV{MallocStackLogging} = 0 if $shouldCheckLeaks;
-}
-
 my $dumpToolPID;
 my $isDumpToolOpen = 0;
 my $dumpToolCrashed = 0;
+my $imageDiffToolPID;
+my $isDiffToolOpen = 0;
 
 my $atLineStart = 1;
 my $lastDirectory = "";
@@ -564,7 +624,7 @@ for my $test (@tests) {
         print OUT "$testPath$suffixExpectedHash\n";
     } else {
         openHTTPDIfNeeded();
-        if ($test !~ /^http\/tests\/local\// && $test !~ /^http\/tests\/ssl\// && $test !~ /^http\/tests\/media\//) {
+        if ($test !~ /^http\/tests\/local\// && $test !~ /^http\/tests\/ssl\// && $test !~ /^http\/tests\/wml\// && $test !~ /^http\/tests\/media\//) {
             my $path = canonpath($test);
             $path =~ s/^http\/tests\///;
             print OUT "http://127.0.0.1:$httpdPort/$path$suffixExpectedHash\n";
@@ -623,7 +683,7 @@ for my $test (@tests) {
         close EXPECTED;
     }
     my $expectedMac;
-    if (!isOSX() && $strictTesting && !$isText) {
+    if (!isAppleMacWebKit() && $strictTesting && !$isText) {
       if (!$resetResults && open EXPECTED, "<", "$testDirectory/platform/mac/$expectedFileName") {
         $expectedMac = "";
         while (<EXPECTED>) {
@@ -678,6 +738,7 @@ for my $test (@tests) {
                 open EXPECTEDPNG, "$expectedPixelDir/$base-$expectedTag.png";
                 read(EXPECTEDPNG, $expectedPNG, $expectedPNGSize);
 
+                openDiffTool();
                 print DIFFOUT "Content-Length: $actualPNGSize\n";
                 print DIFFOUT $actualPNG;
 
@@ -715,7 +776,7 @@ for my $test (@tests) {
         }
     }
 
-    if (!isOSX() && $strictTesting && !$isText) {
+    if (!isAppleMacWebKit() && $strictTesting && !$isText) {
       if (defined $expectedMac) {
         my $simplified_actual;
         $simplified_actual = $actual;
@@ -781,7 +842,8 @@ for my $test (@tests) {
             writeToFile("$expectedDir/$expectedFileName", $actual);
         }
         deleteExpectedAndActualResults($base);
-        unless ($resetResults) {
+        recordActualResultsAndDiff($base, $actual);
+        if (!$resetResults) {
             # Always print the file name for new tests, as they will probably need some manual inspection.
             # in verbose mode we already printed the test case, so no need to do it again.
             unless ($verbose) {
@@ -789,7 +851,11 @@ for my $test (@tests) {
                 print "$test -> ";
             }
             my $resultsDir = catdir($expectedDir, dirname($base));
-            print "new (results generated in $resultsDir)\n";
+            if ($generateNewResults) {
+                print "new (results generated in $resultsDir)\n";
+            } else {
+                print "new\n";
+            }
             $atLineStart = 1;
         }
     } elsif ($actual eq $expected && $diffResult eq "passed") {
@@ -802,17 +868,29 @@ for my $test (@tests) {
     } else {
         $result = "mismatch";
 
-        my $message = $actual eq $expected ? "pixel test failed" : "failed";
+        my $pixelTestFailed = $pixelTests && $diffPNG && $diffPNG ne "";
+        my $testFailed = $actual ne $expected;
 
-        if ($actual ne $expected && $addPlatformExceptions) {
+        my $message = !$testFailed ? "pixel test failed" : "failed";
+
+        if (($testFailed || $pixelTestFailed) && $addPlatformExceptions) {
             my $testBase = catfile($testDirectory, $base);
             my $expectedBase = catfile($expectedDir, $base);
             my $testIsMaximallyPlatformSpecific = $testBase =~ m|^\Q$platformTestDirectory\E/|;
             my $expectedResultIsMaximallyPlatformSpecific = $expectedBase =~ m|^\Q$platformTestDirectory\E/|;
             if (!$testIsMaximallyPlatformSpecific && !$expectedResultIsMaximallyPlatformSpecific) {
                 mkpath catfile($platformTestDirectory, dirname($base));
-                my $expectedFile = catfile($platformTestDirectory, "$expectedFileName");
-                writeToFile("$expectedFile", $actual);
+                if ($testFailed) {
+                    my $expectedFile = catfile($platformTestDirectory, "$expectedFileName");
+                    writeToFile("$expectedFile", $actual);
+                }
+                if ($pixelTestFailed) {
+                    my $expectedFile = catfile($platformTestDirectory, "$base-$expectedTag.checksum");
+                    writeToFile("$expectedFile", $actualHash);
+
+                    $expectedFile = catfile($platformTestDirectory, "$base-$expectedTag.png");
+                    writeToFile("$expectedFile", $actualPNG);
+                }
                 $message .= " (results generated in $platformTestDirectory)";
             }
         }
@@ -827,7 +905,7 @@ for my $test (@tests) {
         deleteExpectedAndActualResults($base);
         recordActualResultsAndDiff($base, $actual);
 
-        if ($pixelTests && $diffPNG && $diffPNG ne "") {
+        if ($pixelTestFailed) {
             $imagesPresent{$base} = 1;
 
             writeToFile("$testResultsDirectory/$base-$actualTag.png", $actualPNG);
@@ -905,7 +983,7 @@ closeHTTPD();
 # system "rm /tmp/LayoutTests";
 
 # FIXME: Do we really want to check the image-comparison tool for leaks every time?
-if ($shouldCheckLeaks && $pixelTests) {
+if ($isDiffToolOpen && $shouldCheckLeaks) {
     $totalLeaks += countAndPrintLeaks("ImageDiff", $imageDiffToolPID, "$testResultsDirectory/ImageDiff-leaks.txt");
 }
 
@@ -975,7 +1053,7 @@ for my $type ("match", "mismatch", "new", "timedout", "crash", "error") {
 
 mkpath $testResultsDirectory;
 
-open HTML, ">", $testResults or die;
+open HTML, ">", $testResults or die "Failed to open $testResults. $!";
 print HTML "<html>\n";
 print HTML "<head>\n";
 print HTML "<title>Layout Test Results</title>\n";
@@ -992,14 +1070,14 @@ print HTML "</body>\n";
 print HTML "</html>\n";
 close HTML;
 
-if (isQt()) {
-  system "WebKitTools/Scripts/run-launcher", "--qt", $configurationOption, $testResults if $launchSafari;
-} elsif (isGtk()) {
-  system "WebKitTools/Scripts/run-launcher", "--gtk", $configurationOption, $testResults if $launchSafari;
+my @configurationArgs = argumentsForConfiguration();
+
+if (isQt() || isGtk()) {
+  system "WebKitTools/Scripts/run-launcher", @configurationArgs, "file://".$testResults if $launchSafari;
 } elsif (isCygwin()) {
   system "cygstart", $testResults if $launchSafari;
 } else {
-  system "WebKitTools/Scripts/run-safari", $configurationOption, "-NSOpen", $testResults if $launchSafari;
+  system "WebKitTools/Scripts/run-safari", @configurationArgs, "-NSOpen", $testResults if $launchSafari;
 }
 
 closeCygpaths() if isCygwin();
@@ -1103,7 +1181,7 @@ sub countAndPrintLeaks($$$)
 sub writeToFile($$)
 {
     my ($filePath, $contents) = @_;
-    open NEWFILE, ">", "$filePath" or die "could not create $filePath\n";
+    open NEWFILE, ">", "$filePath" or die "Could not create $filePath. $!\n";
     print NEWFILE $contents;
     close NEWFILE;
 }
@@ -1171,16 +1249,45 @@ sub slowestcmp($$)
     return pathcmp($testa, $testb);
 }
 
+sub launchWithCurrentEnv(@)
+{
+    my (@args) = @_;
+
+    # Dump the current environment as perl code and then put it in quotes so it is one parameter.
+    my $environmentDumper = Data::Dumper->new([\%ENV], [qw(*ENV)]);
+    $environmentDumper->Indent(0);
+    $environmentDumper->Purity(1);
+    my $allEnvVars = $environmentDumper->Dump();
+    unshift @args, "\"$allEnvVars\"";
+
+    my $execScript = File::Spec->catfile(sourceDir(), qw(WebKitTools Scripts execAppWithEnv));
+    unshift @args, $execScript;
+    return @args;
+}
+
+sub openDiffTool()
+{
+    return if $isDiffToolOpen;
+    return if !$pixelTests;
+
+    local %ENV;
+    $ENV{MallocStackLogging} = 1 if $shouldCheckLeaks;
+    $imageDiffToolPID = open2(\*DIFFIN, \*DIFFOUT, $imageDiffTool, launchWithCurrentEnv(@diffToolArgs)) or die "unable to open $imageDiffTool\n";
+    $ENV{MallocStackLogging} = 0 if $shouldCheckLeaks;
+    $isDiffToolOpen = 1;
+}
+
 sub openDumpTool()
 {
     return if $isDumpToolOpen;
 
-    # Save some requires variables for the linux environment...
+    # Save environment variables required for the linux environment.
     my $homeDir = $ENV{'HOME'};
     my $libraryPath = $ENV{'LD_LIBRARY_PATH'};
     my $dyldLibraryPath = $ENV{'DYLD_LIBRARY_PATH'};
     my $dbusAddress = $ENV{'DBUS_SESSION_BUS_ADDRESS'};
     my $display = $ENV{'DISPLAY'};
+    my $xauthority = $ENV{'XAUTHORITY'};
     my $testfonts = $ENV{'WEBKIT_TESTFONTS'};
 
     my $homeDrive = $ENV{'HOMEDRIVE'};
@@ -1193,6 +1300,9 @@ sub openDumpTool()
         } else {
             $ENV{DISPLAY} = ":1";
         }
+        if (defined $xauthority) {
+            $ENV{XAUTHORITY} = $xauthority;
+        }
         $ENV{'WEBKIT_TESTFONTS'} = $testfonts if defined($testfonts);
         $ENV{HOME} = $homeDir;
         if (defined $libraryPath) {
@@ -1204,6 +1314,9 @@ sub openDumpTool()
         if (defined $dbusAddress) {
             $ENV{DBUS_SESSION_BUS_ADDRESS} = $dbusAddress;
         }
+    }
+    if (isQt()) {
+        $ENV{QTWEBKIT_PLUGIN_PATH} = productDir() . "/lib/plugins";
     }
     $ENV{DYLD_FRAMEWORK_PATH} = $productDir;
     $ENV{XML_CATALOG_FILES} = ""; # work around missing /etc/catalog <rdar://problem/4292995>
@@ -1218,19 +1331,17 @@ sub openDumpTool()
         setPathForRunningWebKitApp(\%ENV) if isCygwin();
     }
 
-    exportArchPreference();
-
-    my @args = @toolArgs;
-    unshift @args, $dumpTool;
-    if (isOSX and !isTiger()) {
-        unshift @args, "arch";
+    my @args = ($dumpTool, @toolArgs);
+    if (isAppleMacWebKit() and !isTiger()) { 
+        unshift @args, "arch", "-" . architecture();             
     }
+
     if ($useValgrind) {
         unshift @args, "valgrind";
     } 
     
     $ENV{MallocStackLogging} = 1 if $shouldCheckLeaks;
-    $dumpToolPID = open3(\*OUT, \*IN, \*ERROR, @args) or die "Failed to start tool: $dumpTool\n";
+    $dumpToolPID = open3(\*OUT, \*IN, \*ERROR, launchWithCurrentEnv(@args)) or die "Failed to start tool: $dumpTool\n";
     $ENV{MallocStackLogging} = 0 if $shouldCheckLeaks;
     $isDumpToolOpen = 1;
     $dumpToolCrashed = 0;
@@ -1263,14 +1374,9 @@ sub dumpToolDidCrash()
     return 1 if ($pid == $dumpToolPID);
 
     # On Mac OS X, crashing may be significantly delayed by crash reporter.
-    return 0 unless isOSX();
+    return 0 unless isAppleMacWebKit();
 
-    my $tryingToExit = 0;
-    open PS, "ps -o state -p $dumpToolPID |";
-    <PS>; # skip header
-    $tryingToExit = 1 if <PS> =~ /E/;
-    close PS;
-    return $tryingToExit;
+    return DumpRenderTreeSupport::processIsCrashing($dumpToolPID);
 }
 
 sub openHTTPDIfNeeded()
@@ -1313,6 +1419,7 @@ sub openHTTPDIfNeeded()
         $httpdConfig = "$testDirectory/http/conf/apache2-httpd.conf" if `$httpdPath -v` =~ m|Apache/2|;
     }
     my $documentRoot = "$testDirectory/http/tests";
+    my $jsTestResourcesDirectory = $testDirectory . "/fast/js/resources";
     my $typesConfig = "$testDirectory/http/conf/mime.types";
     my $listen = "127.0.0.1:$httpdPort";
     my $absTestResultsDirectory = File::Spec->rel2abs(glob $testResultsDirectory);
@@ -1323,6 +1430,8 @@ sub openHTTPDIfNeeded()
     my @args = (
         "-f", "$httpdConfig",
         "-C", "DocumentRoot \"$documentRoot\"",
+        # Setup a link to where the js test templates are stored, use -c so that mod_alias will already be laoded.
+        "-c", "Alias /js-test-resources \"$jsTestResourcesDirectory\"",
         "-C", "Listen $listen",
         "-c", "TypesConfig \"$typesConfig\"",
         "-c", "CustomLog \"$absTestResultsDirectory/access_log.txt\" common",
@@ -1332,6 +1441,7 @@ sub openHTTPDIfNeeded()
     );
 
     # FIXME: Enable this on Windows once <rdar://problem/5345985> is fixed
+    # The version of Apache we use with Cygwin does not support SSL
     push(@args, "-c", "SSLCertificateFile \"$sslCertificate\"") unless isCygwin();
 
     open2(\*HTTPDIN, \*HTTPDOUT, $httpdPath, @args);
@@ -1366,8 +1476,12 @@ sub fileNameWithNumber($$)
     return $base;
 }
 
-sub processIgnoreTests($) {
+sub processIgnoreTests($$) {
     my @ignoreList = split(/\s*,\s*/, shift);
+    my $listName = shift;
+
+    my $disabledSuffix = "-disabled";
+
     my $addIgnoredDirectories = sub {
         return () if exists $ignoredLocalDirectories{basename($File::Find::dir)};
         $ignoredDirectories{File::Spec->abs2rel($File::Find::dir, $testDirectory)} = 1;
@@ -1381,9 +1495,10 @@ sub processIgnoreTests($) {
         }
         elsif (-f $path) {
             $ignoredFiles{$item} = 1;
-        }
-        else {
-            print "ignoring '$item' on ignore-tests list\n";
+        } elsif (-f $path . $disabledSuffix) {
+            # The test is disabled, so do nothing.
+        } else {
+            print "$listName list contained '$item', but no file of that name could be found\n";
         }
     }
 }
@@ -1412,8 +1527,8 @@ sub expectedDirectoryForTest($;$;$)
 {
     my ($base, $isText, $expectedExtension) = @_;
 
-    my @directories = @platformHierarchy;
-    push @directories, map { catdir($platformBaseDirectory, $_) } qw(mac-leopard mac) if isCygwin();
+    my @directories = @platformResultHierarchy;
+    push @directories, map { catdir($platformBaseDirectory, $_) } qw(mac-snowleopard mac) if isCygwin();
     push @directories, $expectedDirectory;
 
     # If we already have expected results, just return their location.
@@ -1421,17 +1536,9 @@ sub expectedDirectoryForTest($;$;$)
         return $directory if (-f "$directory/$base-$expectedTag.$expectedExtension");
     }
 
-    # For platform-specific tests, the results should go right next to the test itself.
-    # Note: The return value of this subroutine will be concatenated with $base
-    # to determine the location of the new results, so returning $expectedDirectory
-    # will put the results right next to the test.
-    # FIXME: We want to allow platform/mac tests with platform/mac-leopard results,
-    # so this needs to be enhanced.
-    return $expectedDirectory if $base =~ /^platform/;
-
     # For cross-platform tests, text-only results should go in the cross-platform directory,
     # while render tree dumps should go in the least-specific platform directory.
-    return $isText ? $expectedDirectory : $platformHierarchy[$#platformHierarchy];
+    return $isText ? $expectedDirectory : $platformResultHierarchy[$#platformResultHierarchy];
 }
 
 sub countFinishedTest($$$$) {
@@ -1555,8 +1662,20 @@ sub toWindowsPath($)
 sub toURL($)
 {
     my ($path) = @_;
+
+    if ($useRemoteLinksToTests) {
+        my $relativePath = File::Spec->abs2rel($path, $testDirectory);
+
+        # If the file is below the test directory then convert it into a link to the file in SVN
+        if ($relativePath !~ /^\.\.\//) {
+            my $revision = svnRevisionForDirectory($testDirectory);
+            my $svnPath = pathRelativeToSVNRepositoryRootForPath($path);
+            return "http://trac.webkit.org/export/$revision/$svnPath";
+        }
+    }
+
     return $path unless isCygwin();
-    
+
     return "file:///" . convertPathUsingCygpath($path, "-m");
 }
 
@@ -1604,7 +1723,8 @@ sub linksForExpectedAndActualResults($)
 
     push @links, { href => "$base-$expectedTag$expectedResultExtension", text => "expected" };
     push @links, { href => "$base-$actualTag$expectedResultExtension", text => "actual" };
-    push @links, { href => "$base-$diffsTag.txt", text => "diffs" };
+    push @links, { href => "$base-$diffsTag.txt", text => "diff" };
+    push @links, { href => "$base-$prettyDiffTag.html", text => "pretty diff" };
 
     return \@links;
 }
@@ -1648,12 +1768,13 @@ sub linksForNewTest
     my @links = ();
 
     my $base = stripExtension($test);
-    my $expectedResultPath = $expectedResultPaths{$base};
-    my $expectedResultPathMinusExtension = stripExtension($expectedResultPath);
 
-    push @links, { href => toURL($expectedResultPath), text => "results" };
-    if ($pixelTests && -f "$expectedResultPathMinusExtension.png") {
-        push @links, { href => toURL("$expectedResultPathMinusExtension.png"), text => "image" };
+    my $expectedResultPath = $expectedResultPaths{$base};
+    my ($expectedResultFileName, $expectedResultsDirectory, $expectedResultExtension) = fileparse($expectedResultPath, qr{\.[^.]+$});
+
+    push @links, { href => "$base-$actualTag$expectedResultExtension", text => "result" };
+    if ($pixelTests && $imagesPresent{$base}) {
+        push @links, { href => "$base-$expectedTag.png", text => "image" };
     }
 
     return \@links;
@@ -1678,24 +1799,59 @@ sub recordActualResultsAndDiff($$)
     my ($expectedResultFileNameMinusExtension, $expectedResultDirectoryPath, $expectedResultExtension) = fileparse($expectedResultPath, qr{\.[^.]+$});
     my $actualResultsPath = "$testResultsDirectory/$base-$actualTag$expectedResultExtension";
     my $copiedExpectedResultsPath = "$testResultsDirectory/$base-$expectedTag$expectedResultExtension";
-    writeToFile("$actualResultsPath", $actualResults);
-    copy("$expectedResultPath", "$copiedExpectedResultsPath");
 
-    system "diff -u \"$copiedExpectedResultsPath\" \"$actualResultsPath\" > \"$testResultsDirectory/$base-$diffsTag.txt\"";
+    mkpath(dirname($actualResultsPath));
+    writeToFile("$actualResultsPath", $actualResults);
+
+    if (-f $expectedResultPath) {
+        copy("$expectedResultPath", "$copiedExpectedResultsPath");
+    } else {
+        open EMPTY, ">$copiedExpectedResultsPath";
+        close EMPTY;
+    }
+
+    my $diffOuputBasePath = "$testResultsDirectory/$base";
+    my $diffOutputPath = "$diffOuputBasePath-$diffsTag.txt";
+    system "diff -u \"$copiedExpectedResultsPath\" \"$actualResultsPath\" > \"$diffOutputPath\"";
+
+    my $prettyDiffOutputPath = "$diffOuputBasePath-$prettyDiffTag.html";
+    my $prettyPatchPath = "BugsSite/PrettyPatch/";
+    my $prettifyPath = "$prettyPatchPath/prettify.rb";
+    system "ruby -I \"$prettyPatchPath\" \"$prettifyPath\" \"$diffOutputPath\" > \"$prettyDiffOutputPath\"";
 }
 
-sub buildPlatformHierarchy()
+sub buildPlatformResultHierarchy()
 {
     mkpath($platformTestDirectory) if ($platform eq "undefined" && !-d "$platformTestDirectory");
 
-    my @platforms = split('-', $platform);
+    my @platforms;
+    if ($platform =~ /^mac-/) {
+        my $i;
+        for ($i = 0; $i < @macPlatforms; $i++) {
+            last if $macPlatforms[$i] eq $platform;
+        }
+        for (; $i < @macPlatforms; $i++) {
+            push @platforms, $macPlatforms[$i];
+        }
+    } else {
+        @platforms = $platform;
+    }
+
     my @hierarchy;
-    for (my $i=0; $i < @platforms; $i++) {
-        my $scoped = catdir($platformBaseDirectory, join('-', @platforms[0..($#platforms - $i)]));
+    for (my $i = 0; $i < @platforms; $i++) {
+        my $scoped = catdir($platformBaseDirectory, $platforms[$i]);
         push(@hierarchy, $scoped) if (-d $scoped);
     }
 
     return @hierarchy;
+}
+
+sub buildPlatformTestHierarchy(@)
+{
+    my (@platformHierarchy) = @_;
+    return @platformHierarchy if (@platformHierarchy < 2);
+
+    return ($platformHierarchy[0], $platformHierarchy[$#platformHierarchy]);
 }
 
 sub epiloguesAndPrologues($$) {
@@ -1715,7 +1871,7 @@ sub epiloguesAndPrologues($$) {
     my $leaving = $lastDirectory;
     foreach (@lastComponents) {
         my $epilogue = $leaving . "/resources/run-webkit-tests-epilogue.html";
-        foreach (@platformHierarchy) {
+        foreach (@platformResultHierarchy) {
             push @result, catdir($_, $epilogue) if (stat(catdir($_, $epilogue)));
         }
         push @result, catdir($testDirectory, $epilogue) if (stat(catdir($testDirectory, $epilogue)));
@@ -1727,7 +1883,7 @@ sub epiloguesAndPrologues($$) {
         $entering .= '/' . $_;
         my $prologue = $entering . "/resources/run-webkit-tests-prologue.html";
         push @result, catdir($testDirectory, $prologue) if (stat(catdir($testDirectory, $prologue)));
-        foreach (reverse @platformHierarchy) {
+        foreach (reverse @platformResultHierarchy) {
             push @result, catdir($_, $prologue) if (stat(catdir($_, $prologue)));
         }
     }
@@ -1776,7 +1932,7 @@ sub readFromDumpToolWithTimer(*;$)
 
     setFileHandleNonBlocking($fh, 1);
 
-    my $maximumSecondsWithoutOutput = 60;
+    my $maximumSecondsWithoutOutput = $timeoutSeconds;
     $maximumSecondsWithoutOutput *= 10 if $guardMalloc;
     my $microsecondsToWaitBeforeReadingAgain = 1000;
 
@@ -1851,7 +2007,7 @@ sub setFileHandleNonBlocking(*$)
 
 sub sampleDumpTool()
 {
-    return unless isOSX();
+    return unless isAppleMacWebKit();
     return unless $runSample;
 
     my $outputDirectory = "$ENV{HOME}/Library/Logs/DumpRenderTree";

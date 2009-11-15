@@ -27,13 +27,15 @@
 #include "qevent.h"
 #include "qpainter.h"
 #include "qprinter.h"
+#include "qdir.h"
+#include "qfile.h"
 
-class QWebViewPrivate
-{
+class QWebViewPrivate {
 public:
     QWebViewPrivate(QWebView *view)
         : view(view)
         , page(0)
+        , renderHints(QPainter::TextAntialiasing)
 #ifndef QT_NO_CURSOR
         , cursorSetByWebCore(false)
         , usesWebCoreCursor(true)
@@ -43,6 +45,7 @@ public:
     QWebView *view;
     QWebPage *page;
 
+    QPainter::RenderHints renderHints;
 
 #ifndef QT_NO_CURSOR
     /*
@@ -83,10 +86,10 @@ public:
     \image qwebview-url.png
 
     A web site can be loaded onto QWebView with the load() function. Like all
-    Qt Widgets, the show() function must be invoked in order to display
+    Qt widgets, the show() function must be invoked in order to display
     QWebView. The snippet below illustrates this:
 
-    \snippet doc/src/snippets/webkit/simple/main.cpp Using QWebView
+    \snippet webkitsnippets/simple/main.cpp Using QWebView
 
     Alternatively, setUrl() can also be used to load a web site. If you have
     the HTML content readily available, you can use setHtml() instead.
@@ -143,7 +146,8 @@ public:
     if you do not require QWidget attributes. Nevertheless, QtWebKit depends
     on QtGui, so you should use a QApplication instead of QCoreApplication.
 
-    \sa {Previewer Example}, {Browser}
+    \sa {Previewer Example}, {Web Browser}, {Form Extractor Example},
+    {Google Chat Example}, {Fancy Browser Example}
 */
 
 /*!
@@ -202,16 +206,15 @@ QWebPage *QWebView::page() const
 
     \sa page()
 */
-void QWebView::setPage(QWebPage *page)
+void QWebView::setPage(QWebPage* page)
 {
     if (d->page == page)
         return;
     if (d->page) {
-        if (d->page->parent() == this) {
+        if (d->page->parent() == this)
             delete d->page;
-        } else {
+        else
             d->page->disconnect(this);
-        }
     }
     d->page = page;
     if (d->page) {
@@ -245,11 +248,84 @@ void QWebView::setPage(QWebPage *page)
 }
 
 /*!
+    Returns a valid URL from a user supplied \a string if one can be deducted.
+    In the case that is not possible, an invalid QUrl() is returned.
+
+    \since 4.6
+
+    Most applications that can browse the web, allow the user to input a URL
+    in the form of a plain string. This string can be manually typed into
+    a location bar, obtained from the clipboard, or passed in via command
+    line arguments.
+
+    When the string is not already a valid URL, a best guess is performed,
+    making various web related assumptions.
+
+    In the case the string corresponds to a valid file path on the system,
+    a file:// URL is constructed, using QUrl::fromLocalFile().
+
+    If that is not the case, an attempt is made to turn the string into a
+    http:// or ftp:// URL. The latter in the case the string starts with
+    'ftp'. The result is then passed through QUrl's tolerant parser, and
+    in the case or success, a valid QUrl is returned, or else a QUrl().
+
+    \section1 Examples:
+
+    \list
+    \o webkit.org becomes http://webkit.org
+    \o ftp.webkit.org becomes ftp://ftp.webkit.org
+    \o localhost becomes http://localhost
+    \o /home/user/test.html becomes file:///home/user/test.html (if exists)
+    \endlist
+
+    \section2 Tips when dealing with URLs and strings:
+
+    \list
+    \o When creating a QString from a QByteArray or a char*, always use
+      QString::fromUtf8().
+    \o Do not use QUrl(string), nor QUrl::toString() anywhere where the URL might
+       be used, such as in the location bar, as those functions loose data.
+       Instead use QUrl::fromEncoded() and QUrl::toEncoded(), respectively.
+    \endlist
+ */
+QUrl QWebView::guessUrlFromString(const QString &string)
+{
+    QString trimmedString = string.trimmed();
+
+    // Check the most common case of a valid url with scheme and host first
+    QUrl url = QUrl::fromEncoded(trimmedString.toUtf8(), QUrl::TolerantMode);
+    if (url.isValid() && !url.scheme().isEmpty() && !url.host().isEmpty())
+        return url;
+
+    // Absolute files that exists
+    if (QDir::isAbsolutePath(trimmedString) && QFile::exists(trimmedString))
+        return QUrl::fromLocalFile(trimmedString);
+
+    // If the string is missing the scheme or the scheme is not valid prepend a scheme
+    QString scheme = url.scheme();
+    if (scheme.isEmpty() || scheme.contains(QLatin1Char('.')) || scheme == QLatin1String("localhost")) {
+        // Do not do anything for strings such as "foo", only "foo.com"
+        int dotIndex = trimmedString.indexOf(QLatin1Char('.'));
+        if (dotIndex != -1 || trimmedString.startsWith(QLatin1String("localhost"))) {
+            const QString hostscheme = trimmedString.left(dotIndex).toLower();
+            QByteArray scheme = (hostscheme == QLatin1String("ftp")) ? "ftp" : "http";
+            trimmedString = QLatin1String(scheme) + QLatin1String("://") + trimmedString;
+        }
+        url = QUrl::fromEncoded(trimmedString.toUtf8(), QUrl::TolerantMode);
+    }
+
+    if (url.isValid())
+        return url;
+
+    return QUrl();
+}
+
+/*!
     Loads the specified \a url and displays it.
 
     \note The view remains the same until enough data has arrived to display the new \a url.
 
-    \sa setUrl(), url(), urlChanged()
+    \sa setUrl(), url(), urlChanged(), guessUrlFromString()
 */
 void QWebView::load(const QUrl &url)
 {
@@ -289,6 +365,8 @@ void QWebView::load(const QNetworkRequest &request,
     External objects such as stylesheets or images referenced in the HTML
     document are located relative to \a baseUrl.
 
+    The \a html is loaded immediately; external objects are loaded asynchronously.
+
     When using this method, WebKit assumes that external resources such as
     JavaScript programs or style sheets are encoded in UTF-8 unless otherwise
     specified. For example, the encoding of an external script can be specified
@@ -309,6 +387,8 @@ void QWebView::setHtml(const QString &html, const QUrl &baseUrl)
 
     External objects referenced in the content are located relative to \a baseUrl.
 
+    The \a data is loaded immediately; external objects are loaded asynchronously.
+
     \sa load(), setHtml(), QWebFrame::toHtml()
 */
 void QWebView::setContent(const QByteArray &data, const QString &mimeType, const QUrl &baseUrl)
@@ -321,7 +401,7 @@ void QWebView::setContent(const QByteArray &data, const QString &mimeType, const
 
     It is equivalent to
 
-    \snippet doc/src/snippets/code/src_3rdparty_webkit_WebKit_qt_Api_qwebview.cpp 0
+    \snippet webkitsnippets/qtwebkit_qwebview_snippet.cpp 0
 */
 QWebHistory *QWebView::history() const
 {
@@ -333,7 +413,7 @@ QWebHistory *QWebView::history() const
 
     It is equivalent to
 
-    \snippet doc/src/snippets/code/src_3rdparty_webkit_WebKit_qt_Api_qwebview.cpp 1
+    \snippet webkitsnippets/qtwebkit_qwebview_snippet.cpp 1
 
     \sa QWebSettings::globalSettings()
 */
@@ -425,7 +505,7 @@ QAction *QWebView::pageAction(QWebPage::WebAction action) const
     The following example triggers the copy action and therefore copies any
     selected text to the clipboard.
 
-    \snippet doc/src/snippets/code/src_3rdparty_webkit_WebKit_qt_Api_qwebview.cpp 2
+    \snippet webkitsnippets/qtwebkit_qwebview_snippet.cpp 2
 
     \sa pageAction()
 */
@@ -529,9 +609,61 @@ qreal QWebView::textSizeMultiplier() const
 }
 
 /*!
-    Finds the next occurrence of the string, \a subString, in the page, using
-    the given \a options. Returns true of \a subString was found and selects
-    the match visually; otherwise returns false.
+    \property QWebView::renderHints
+    \since 4.6
+    \brief the default render hints for the view
+
+    These hints are used to initialize QPainter before painting the web page.
+
+    QPainter::TextAntialiasing is enabled by default.
+
+    \sa QPainter::renderHints()
+*/
+QPainter::RenderHints QWebView::renderHints() const
+{
+    return d->renderHints;
+}
+
+void QWebView::setRenderHints(QPainter::RenderHints hints)
+{
+    if (hints == d->renderHints)
+        return;
+    d->renderHints = hints;
+    update();
+}
+
+/*!
+    If \a enabled is true, the render hint \a hint is enabled; otherwise it
+    is disabled.
+
+    \since 4.6
+    \sa renderHints
+*/
+void QWebView::setRenderHint(QPainter::RenderHint hint, bool enabled)
+{
+    QPainter::RenderHints oldHints = d->renderHints;
+    if (enabled)
+        d->renderHints |= hint;
+    else
+        d->renderHints &= ~hint;
+    if (oldHints != d->renderHints)
+        update();
+}
+
+
+/*!
+    Finds the specified string, \a subString, in the page, using the given \a options.
+
+    If the HighlightAllOccurrences flag is passed, the function will highlight all occurrences
+    that exist in the page. All subsequent calls will extend the highlight, rather than
+    replace it, with occurrences of the new string.
+
+    If the HighlightAllOccurrences flag is not passed, the function will select an occurrence
+    and all subsequent calls will replace the current occurrence with the next one.
+
+    To clear the selection, just pass an empty string.
+
+    Returns true if \a subString was found; otherwise returns false.
 
     \sa selectedText(), selectionChanged()
 */
@@ -577,9 +709,8 @@ bool QWebView::event(QEvent *e)
             }
 #endif
 #endif
-        } else if (e->type() == QEvent::Leave) {
+        } else if (e->type() == QEvent::Leave)
             d->page->event(e);
-        }
     }
 
     return QWidget::event(e);
@@ -602,7 +733,7 @@ void QWebView::print(QPrinter *printer) const
 
     It is equivalent to
 
-    \snippet doc/src/snippets/code/src_3rdparty_webkit_WebKit_qt_Api_qwebview.cpp 3
+    \snippet webkitsnippets/qtwebkit_qwebview_snippet.cpp 3
 
     \sa reload(), pageAction(), loadFinished()
 */
@@ -618,7 +749,7 @@ void QWebView::stop()
 
     It is equivalent to
 
-    \snippet doc/src/snippets/code/src_3rdparty_webkit_WebKit_qt_Api_qwebview.cpp 4
+    \snippet webkitsnippets/qtwebkit_qwebview_snippet.cpp 4
 
     \sa forward(), pageAction()
 */
@@ -634,7 +765,7 @@ void QWebView::back()
 
     It is equivalent to
 
-    \snippet doc/src/snippets/code/src_3rdparty_webkit_WebKit_qt_Api_qwebview.cpp 5
+    \snippet webkitsnippets/qtwebkit_qwebview_snippet.cpp 5
 
     \sa back(), pageAction()
 */
@@ -676,12 +807,13 @@ void QWebView::paintEvent(QPaintEvent *ev)
 
     QWebFrame *frame = d->page->mainFrame();
     QPainter p(this);
+    p.setRenderHints(d->renderHints);
 
     frame->render(&p, ev->region());
 
 #ifdef    QWEBKIT_TIME_RENDERING
     int elapsed = time.elapsed();
-    qDebug()<<"paint event on "<<ev->region()<<", took to render =  "<<elapsed;
+    qDebug() << "paint event on " << ev->region() << ", took to render =  " << elapsed;
 #endif
 }
 
@@ -877,9 +1009,8 @@ void QWebView::inputMethodEvent(QInputMethodEvent *e)
 */
 void QWebView::changeEvent(QEvent *e)
 {
-    if (d->page && e->type() == QEvent::PaletteChange) {
+    if (d->page && e->type() == QEvent::PaletteChange)
         d->page->setPalette(palette());
-    }
     QWidget::changeEvent(e);
 }
 
@@ -910,7 +1041,10 @@ void QWebView::changeEvent(QEvent *e)
 
     This signal is emitted whenever the icon of the page is loaded or changes.
 
-    \sa icon()
+    In order for icons to be loaded, you will need to set an icon database path
+    using QWebSettings::setIconDatabasePath().
+
+    \sa icon(), QWebSettings::setIconDatabasePath()
 */
 
 /*!

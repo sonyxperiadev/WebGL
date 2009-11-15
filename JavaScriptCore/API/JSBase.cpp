@@ -55,15 +55,15 @@ JSValueRef JSEvaluateScript(JSContextRef ctx, JSStringRef script, JSObjectRef th
 
     if (completion.complType() == Throw) {
         if (exception)
-            *exception = toRef(completion.value());
+            *exception = toRef(exec, completion.value());
         return 0;
     }
-    
+
     if (completion.value())
-        return toRef(completion.value());
+        return toRef(exec, completion.value());
     
     // happens, for example, when the only statement is an empty (';') statement
-    return toRef(jsUndefined());
+    return toRef(exec, jsUndefined());
 }
 
 bool JSCheckScriptSyntax(JSContextRef ctx, JSStringRef script, JSStringRef sourceURL, int startingLineNumber, JSValueRef* exception)
@@ -76,7 +76,7 @@ bool JSCheckScriptSyntax(JSContextRef ctx, JSStringRef script, JSStringRef sourc
     Completion completion = checkSyntax(exec->dynamicGlobalObject()->globalExec(), source);
     if (completion.complType() == Throw) {
         if (exception)
-            *exception = toRef(completion.value());
+            *exception = toRef(exec, completion.value());
         return false;
     }
     
@@ -96,7 +96,7 @@ void JSGarbageCollect(JSContextRef ctx)
     ExecState* exec = toJS(ctx);
     JSGlobalData& globalData = exec->globalData();
 
-    JSLock lock(globalData.isSharedInstance);
+    JSLock lock(globalData.isSharedInstance ? LockForReal : SilenceAssertionsOnly);
 
     if (!globalData.heap.isBusy())
         globalData.heap.collect();

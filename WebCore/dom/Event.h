@@ -122,6 +122,9 @@ namespace WebCore {
 #if ENABLE(TOUCH_EVENTS) // Android
         virtual bool isTouchEvent() const;
 #endif
+#if ENABLE(WORKERS)
+        virtual bool isErrorEvent() const;
+#endif
 
         bool propagationStopped() const { return m_propagationStopped; }
 
@@ -160,8 +163,8 @@ namespace WebCore {
         bool m_defaultHandled;
         bool m_cancelBubble;
 
-        EventTarget* m_currentTarget;
         unsigned short m_eventPhase;
+        EventTarget* m_currentTarget;
         RefPtr<EventTarget> m_target;
         DOMTimeStamp m_createTime;
 

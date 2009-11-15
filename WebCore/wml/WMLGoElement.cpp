@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2008 Torch Mobile Inc. All rights reserved. (http://www.torchmobile.com/)
+ * Copyright (C) 2008, 2009 Torch Mobile Inc. All rights reserved. (http://www.torchmobile.com/)
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -28,6 +28,7 @@
 #include "Frame.h"
 #include "FrameLoader.h"
 #include "HTMLNames.h"
+#include "MappedAttribute.h"
 #include "ResourceRequest.h"
 #include "TextEncoding.h"
 #include "WMLCardElement.h"
@@ -49,7 +50,15 @@ WMLGoElement::WMLGoElement(const QualifiedName& tagName, Document* doc)
  
 void WMLGoElement::registerPostfieldElement(WMLPostfieldElement* postfield)
 {
+    ASSERT(m_postfieldElements.find(postfield) == WTF::notFound);
     m_postfieldElements.append(postfield);
+}
+ 
+void WMLGoElement::deregisterPostfieldElement(WMLPostfieldElement* postfield)
+{
+    size_t position = m_postfieldElements.find(postfield);
+    ASSERT(position != WTF::notFound);
+    m_postfieldElements.remove(position);
 }
 
 void WMLGoElement::parseMappedAttribute(MappedAttribute* attr)
@@ -100,11 +109,8 @@ void WMLGoElement::executeTask(Event*)
 
     // FIXME: 'newcontext' handling not implemented for external cards
     bool inSameDeck = doc->url().path() == url.path();
-    if (inSameDeck && url.hasRef()) {
-        // Force frame loader to load the URL with fragment identifier
-        loader->setForceReloadWmlDeck(true);
-
-        if (WMLCardElement* card = WMLCardElement::findNamedCardInDocument(doc, url.ref())) {
+    if (inSameDeck && url.hasFragmentIdentifier()) {
+        if (WMLCardElement* card = WMLCardElement::findNamedCardInDocument(doc, url.fragmentIdentifier())) {
             if (card->isNewContext())
                 pageState->reset();
         }
@@ -131,7 +137,7 @@ void WMLGoElement::executeTask(Event*)
             request.setCachePolicy(ReloadIgnoringCacheData);
     }
 
-    loader->load(request);
+    loader->load(request, false);
 }
 
 void WMLGoElement::preparePOSTRequest(ResourceRequest& request, bool inSameDeck, const String& cacheControl)

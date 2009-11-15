@@ -306,6 +306,7 @@ static WebCacheModel cacheModelForMainBundle(void)
         @"16",                          WebKitDefaultFontSizePreferenceKey,
         @"13",                          WebKitDefaultFixedFontSizePreferenceKey,
         @"ISO-8859-1",                  WebKitDefaultTextEncodingNamePreferenceKey,
+        [NSNumber numberWithBool:NO],   WebKitUsesEncodingDetectorPreferenceKey,
         [NSNumber numberWithBool:NO],   WebKitUserStyleSheetEnabledPreferenceKey,
         @"",                            WebKitUserStyleSheetLocationPreferenceKey,
         [NSNumber numberWithBool:NO],   WebKitShouldPrintBackgroundsPreferenceKey,
@@ -313,6 +314,8 @@ static WebCacheModel cacheModelForMainBundle(void)
         [NSNumber numberWithBool:NO],   WebKitShrinksStandaloneImagesToFitPreferenceKey,
         [NSNumber numberWithBool:YES],  WebKitJavaEnabledPreferenceKey,
         [NSNumber numberWithBool:YES],  WebKitJavaScriptEnabledPreferenceKey,
+        [NSNumber numberWithBool:YES],  WebKitWebSecurityEnabledPreferenceKey,
+        [NSNumber numberWithBool:YES],  WebKitAllowUniversalAccessFromFileURLsPreferenceKey,
         [NSNumber numberWithBool:YES],  WebKitJavaScriptCanOpenWindowsAutomaticallyPreferenceKey,
         [NSNumber numberWithBool:YES],  WebKitPluginsEnabledPreferenceKey,
         [NSNumber numberWithBool:YES],  WebKitDatabasesEnabledPreferenceKey,
@@ -342,13 +345,11 @@ static WebCacheModel cacheModelForMainBundle(void)
         [NSNumber numberWithBool:YES],  WebKitAuthorAndUserStylesEnabledPreferenceKey,
         [NSNumber numberWithBool:NO],   WebKitApplicationChromeModeEnabledPreferenceKey,
         [NSNumber numberWithBool:NO],   WebKitWebArchiveDebugModeEnabledPreferenceKey,
+        [NSNumber numberWithBool:NO],   WebKitLocalFileContentSniffingEnabledPreferenceKey,
         [NSNumber numberWithBool:NO],   WebKitOfflineWebApplicationCacheEnabledPreferenceKey,
         [NSNumber numberWithBool:YES],  WebKitZoomsTextOnlyPreferenceKey,
-#ifndef NDEBUG
-        // In Release and Production we skip a lot of object teardown during quit to speed up shutdown time.  This breaks
-        // our RefCount Leak tracking, and so for Debug we will use the full document teardown.
-        [NSNumber numberWithBool:YES],  WebKitEnableFullDocumentTeardownPreferenceKey,
-#endif
+        [NSNumber numberWithBool:YES],  WebKitXSSAuditorEnabledPreferenceKey,
+        [NSNumber numberWithBool:YES],  WebKitAcceleratedCompositingEnabledPreferenceKey,
         nil];
 
     // This value shouldn't ever change, which is assumed in the initialization of WebKitPDFDisplayModePreferenceKey above
@@ -663,7 +664,7 @@ static WebCacheModel cacheModelForMainBundle(void)
     return [self _boolValueForKey: WebKitAllowAnimatedImagesPreferenceKey];
 }
 
-- (void)setAllowsAnimatedImages:(BOOL)flag;
+- (void)setAllowsAnimatedImages:(BOOL)flag
 {
     [self _setBoolValue: flag forKey: WebKitAllowAnimatedImagesPreferenceKey];
 }
@@ -688,7 +689,7 @@ static WebCacheModel cacheModelForMainBundle(void)
     return [self _boolValueForKey: WebKitDisplayImagesKey];
 }
 
-- (void)setAutosaves:(BOOL)flag;
+- (void)setAutosaves:(BOOL)flag
 {
     _private->autosaves = flag;
 }
@@ -792,6 +793,16 @@ static WebCacheModel cacheModelForMainBundle(void)
     [self _setBoolValue:flag forKey:WebKitWebArchiveDebugModeEnabledPreferenceKey];
 }
 
+- (BOOL)localFileContentSniffingEnabled
+{
+    return [self _boolValueForKey:WebKitLocalFileContentSniffingEnabledPreferenceKey];
+}
+
+- (void)setLocalFileContentSniffingEnabled:(BOOL)flag
+{
+    [self _setBoolValue:flag forKey:WebKitLocalFileContentSniffingEnabledPreferenceKey];
+}
+
 - (BOOL)offlineWebApplicationCacheEnabled
 {
     return [self _boolValueForKey:WebKitOfflineWebApplicationCacheEnabledPreferenceKey];
@@ -810,6 +821,16 @@ static WebCacheModel cacheModelForMainBundle(void)
 - (void)setZoomsTextOnly:(BOOL)flag
 {
     [self _setBoolValue:flag forKey:WebKitZoomsTextOnlyPreferenceKey];
+}
+
+- (BOOL)isXSSAuditorEnabled
+{
+    return [self _boolValueForKey:WebKitXSSAuditorEnabledPreferenceKey];
+}
+
+- (void)setXSSAuditorEnabled:(BOOL)flag
+{
+    [self _setBoolValue:flag forKey:WebKitXSSAuditorEnabledPreferenceKey];
 }
 
 - (BOOL)respectStandardStyleKeyEquivalents
@@ -862,6 +883,36 @@ static WebCacheModel cacheModelForMainBundle(void)
     _private->automaticallyDetectsCacheModel = automaticallyDetectsCacheModel;
 }
 
+- (BOOL)usesEncodingDetector
+{
+    return [self _boolValueForKey: WebKitUsesEncodingDetectorPreferenceKey];
+}
+
+- (void)setUsesEncodingDetector:(BOOL)flag
+{
+    [self _setBoolValue: flag forKey: WebKitUsesEncodingDetectorPreferenceKey];
+}
+
+- (BOOL)isWebSecurityEnabled
+{
+    return [self _boolValueForKey: WebKitWebSecurityEnabledPreferenceKey];
+}
+
+- (void)setWebSecurityEnabled:(BOOL)flag
+{
+    [self _setBoolValue: flag forKey: WebKitWebSecurityEnabledPreferenceKey];
+}
+
+- (BOOL)allowUniversalAccessFromFileURLs
+{
+    return [self _boolValueForKey: WebKitAllowUniversalAccessFromFileURLsPreferenceKey];
+}
+
+- (void)setAllowUniversalAccessFromFileURLs:(BOOL)flag
+{
+    [self _setBoolValue: flag forKey: WebKitAllowUniversalAccessFromFileURLsPreferenceKey];
+}
+
 - (NSTimeInterval)_backForwardCacheExpirationInterval
 {
     // FIXME: There's probably no good reason to read from the standard user defaults instead of self.
@@ -878,7 +929,7 @@ static WebCacheModel cacheModelForMainBundle(void)
     [self _setFloatValue:factor forKey:WebKitPDFScaleFactorPreferenceKey];
 }
 
-- (PDFDisplayMode)PDFDisplayMode;
+- (PDFDisplayMode)PDFDisplayMode
 {
     PDFDisplayMode value = [self _integerValueForKey:WebKitPDFDisplayModePreferenceKey];
     if (value != kPDFDisplaySinglePage && value != kPDFDisplaySinglePageContinuous && value != kPDFDisplayTwoUp && value != kPDFDisplayTwoUpContinuous) {
@@ -999,6 +1050,11 @@ static WebCacheModel cacheModelForMainBundle(void)
 
 - (void)_postPreferencesChangesNotification
 {
+    if (!pthread_main_np()) {
+        [self performSelectorOnMainThread:_cmd withObject:nil waitUntilDone:NO];
+        return;
+    }
+
     [[NSNotificationCenter defaultCenter]
         postNotificationName:WebPreferencesChangedNotification object:self
                     userInfo:nil];
@@ -1013,10 +1069,11 @@ static WebCacheModel cacheModelForMainBundle(void)
 {
     NSString *systemEncodingName = (NSString *)CFStringConvertEncodingToIANACharSetName([self _systemCFStringEncoding]);
 
-    // CFStringConvertEncodingToIANACharSetName() returns CP949 for kTextEncodingDOSKorean AKA "extended EUC-KR" AKA windows-939.
+    // CFStringConvertEncodingToIANACharSetName() returns cp949 for kTextEncodingDOSKorean AKA "extended EUC-KR" AKA windows-939.
     // ICU uses this name for a different encoding, so we need to change the name to a value that actually gives us windows-939.
     // In addition, this value must match what is used in Safari, see <rdar://problem/5579292>.
-    if ([systemEncodingName isEqualToString:@"CP949"])
+    // On some OS versions, the result is CP949 (uppercase).
+    if ([systemEncodingName _webkit_isCaseInsensitiveEqualToString:@"cp949"])
         systemEncodingName = @"ks_c_5601-1987";
     [[NSUserDefaults standardUserDefaults] registerDefaults:
         [NSDictionary dictionaryWithObject:systemEncodingName forKey:WebKitDefaultTextEncodingNamePreferenceKey]];
@@ -1041,11 +1098,6 @@ static NSString *classIBCreatorID = nil;
     [self _setBoolValue:DOMPasteAllowed forKey:WebKitDOMPasteAllowedPreferenceKey];
 }
 
-- (void)_setFTPDirectoryTemplatePath:(NSString *)path
-{
-    [self _setStringValue:[path stringByStandardizingPath] forKey:WebKitFTPDirectoryTemplatePath];
-}
-
 - (NSString *)_localStorageDatabasePath
 {
     return [[self _stringValueForKey:WebKitLocalStorageDatabasePathPreferenceKey] stringByStandardizingPath];
@@ -1061,14 +1113,29 @@ static NSString *classIBCreatorID = nil;
     return [[self _stringValueForKey:WebKitFTPDirectoryTemplatePath] stringByStandardizingPath];
 }
 
-- (void)_setForceFTPDirectoryListings:(BOOL)force
+- (void)_setFTPDirectoryTemplatePath:(NSString *)path
 {
-    [self _setBoolValue:force forKey:WebKitForceFTPDirectoryListings];
+    [self _setStringValue:[path stringByStandardizingPath] forKey:WebKitFTPDirectoryTemplatePath];
 }
 
 - (BOOL)_forceFTPDirectoryListings
 {
     return [self _boolValueForKey:WebKitForceFTPDirectoryListings];
+}
+
+- (void)_setForceFTPDirectoryListings:(BOOL)force
+{
+    [self _setBoolValue:force forKey:WebKitForceFTPDirectoryListings];
+}
+
+- (BOOL)acceleratedCompositingEnabled
+{
+    return [self _boolValueForKey:WebKitAcceleratedCompositingEnabledPreferenceKey];
+}
+
+- (void)setAcceleratedCompositingEnabled:(BOOL)enabled
+{
+    [self _setBoolValue:enabled forKey:WebKitAcceleratedCompositingEnabledPreferenceKey];
 }
 
 - (void)didRemoveFromWebView
@@ -1084,16 +1151,6 @@ static NSString *classIBCreatorID = nil;
 - (void)willAddToWebView
 {
     ++_private->numWebViews;
-}
-
-- (void)setFullDocumentTeardownEnabled:(BOOL)fullDocumentTeardownEnabled
-{
-    [self _setBoolValue:fullDocumentTeardownEnabled forKey:WebKitEnableFullDocumentTeardownPreferenceKey];
-}
-
-- (BOOL)fullDocumentTeardownEnabled
-{
-    return [self _boolValueForKey:WebKitEnableFullDocumentTeardownPreferenceKey];
 }
 @end
 

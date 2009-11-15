@@ -52,21 +52,20 @@ namespace WebCore {
     class ChromeClientQt;
     class EditorClientQt;
     class FrameLoaderClientQt;
-    class FrameLoadRequest;
     class InspectorClientQt;
     class ResourceHandle;
     class HitTestResult;
+
+    struct FrameLoadRequest;
 }
 
-class QWEBKIT_EXPORT QWebPage : public QObject
-{
+class QWEBKIT_EXPORT QWebPage : public QObject {
     Q_OBJECT
 
     Q_PROPERTY(bool modified READ isModified)
     Q_PROPERTY(QString selectedText READ selectedText)
     Q_PROPERTY(QSize viewportSize READ viewportSize WRITE setViewportSize)
-    Q_PROPERTY(QSize fixedLayoutSize READ fixedLayoutSize WRITE setFixedLayoutSize)
-    Q_PROPERTY(bool useFixedLayout READ useFixedLayout WRITE setUseFixedLayout)
+    Q_PROPERTY(QSize fixedContentsSize READ fixedContentsSize WRITE setFixedContentsSize)
     Q_PROPERTY(bool forwardUnsupportedContent READ forwardUnsupportedContent WRITE setForwardUnsupportedContent)
     Q_PROPERTY(LinkDelegationPolicy linkDelegationPolicy READ linkDelegationPolicy WRITE setLinkDelegationPolicy)
     Q_PROPERTY(QPalette palette READ palette WRITE setPalette)
@@ -149,6 +148,23 @@ public:
         InsertLineSeparator,
 
         SelectAll,
+        ReloadAndBypassCache,
+
+        PasteAndMatchStyle,
+        RemoveFormat,
+
+        ToggleStrikethrough,
+        ToggleSubscript,
+        ToggleSuperscript,
+        InsertUnorderedList,
+        InsertOrderedList,
+        Indent,
+        Outdent,
+
+        AlignCenter,
+        AlignJustified,
+        AlignLeft,
+        AlignRight,
 
         WebActionCount
     };
@@ -156,7 +172,8 @@ public:
     enum FindFlag {
         FindBackward = 1,
         FindCaseSensitively = 2,
-        FindWrapsAroundDocument = 4
+        FindWrapsAroundDocument = 4,
+        HighlightAllOccurrences = 8
     };
     Q_DECLARE_FLAGS(FindFlags, FindFlag)
 
@@ -176,6 +193,7 @@ public:
 
     QWebFrame *mainFrame() const;
     QWebFrame *currentFrame() const;
+    QWebFrame* frameAt(const QPoint& pos) const;
 
     QWebHistory *history() const;
     QWebSettings *settings() const;
@@ -217,11 +235,8 @@ public:
     QSize viewportSize() const;
     void setViewportSize(const QSize &size) const;
 
-    QSize fixedLayoutSize() const;
-    void setFixedLayoutSize(const QSize &size) const;
-
-    bool useFixedLayout() const;
-    void setUseFixedLayout(bool useFixedLayout);
+    QSize fixedContentsSize() const;
+    void setFixedContentsSize(const QSize &size) const;
 
     virtual bool event(QEvent*);
     bool focusNextPrevChild(bool next);
@@ -272,6 +287,9 @@ public:
     virtual bool supportsExtension(Extension extension) const;
 
     inline QWebPagePrivate* handle() const { return d; }
+
+public Q_SLOTS:
+    bool shouldInterruptJavaScript();
 
 Q_SIGNALS:
     void loadStarted();
@@ -325,6 +343,9 @@ protected:
 private:
     Q_PRIVATE_SLOT(d, void _q_onLoadProgressChanged(int))
     Q_PRIVATE_SLOT(d, void _q_webActionTriggered(bool checked))
+#ifndef NDEBUG
+    Q_PRIVATE_SLOT(d, void _q_cleanupLeakMessages())
+#endif
     QWebPagePrivate *d;
 
     friend class QWebFrame;

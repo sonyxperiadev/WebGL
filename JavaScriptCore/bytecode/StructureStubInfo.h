@@ -26,25 +26,41 @@
 #ifndef StructureStubInfo_h
 #define StructureStubInfo_h
 
+#if ENABLE(JIT)
+
 #include "Instruction.h"
+#include "MacroAssembler.h"
 #include "Opcode.h"
 #include "Structure.h"
 
 namespace JSC {
 
-#if ENABLE(JIT)
+    enum AccessType {
+        access_get_by_id_self,
+        access_get_by_id_proto,
+        access_get_by_id_chain,
+        access_get_by_id_self_list,
+        access_get_by_id_proto_list,
+        access_put_by_id_transition,
+        access_put_by_id_replace,
+        access_get_by_id,
+        access_put_by_id,
+        access_get_by_id_generic,
+        access_put_by_id_generic,
+        access_get_array_length,
+        access_get_string_length,
+    };
+
     struct StructureStubInfo {
-        StructureStubInfo(OpcodeID opcodeID)
-            : opcodeID(opcodeID)
-            , stubRoutine(0)
-            , callReturnLocation(0)
-            , hotPathBegin(0)
+        StructureStubInfo(AccessType accessType)
+            : accessType(accessType)
+            , seen(false)
         {
         }
 
         void initGetByIdSelf(Structure* baseObjectStructure)
         {
-            opcodeID = op_get_by_id_self;
+            accessType = access_get_by_id_self;
 
             u.getByIdSelf.baseObjectStructure = baseObjectStructure;
             baseObjectStructure->ref();
@@ -52,7 +68,7 @@ namespace JSC {
 
         void initGetByIdProto(Structure* baseObjectStructure, Structure* prototypeStructure)
         {
-            opcodeID = op_get_by_id_proto;
+            accessType = access_get_by_id_proto;
 
             u.getByIdProto.baseObjectStructure = baseObjectStructure;
             baseObjectStructure->ref();
@@ -63,7 +79,7 @@ namespace JSC {
 
         void initGetByIdChain(Structure* baseObjectStructure, StructureChain* chain)
         {
-            opcodeID = op_get_by_id_chain;
+            accessType = access_get_by_id_chain;
 
             u.getByIdChain.baseObjectStructure = baseObjectStructure;
             baseObjectStructure->ref();
@@ -74,7 +90,7 @@ namespace JSC {
 
         void initGetByIdSelfList(PolymorphicAccessStructureList* structureList, int listSize)
         {
-            opcodeID = op_get_by_id_self_list;
+            accessType = access_get_by_id_self_list;
 
             u.getByIdProtoList.structureList = structureList;
             u.getByIdProtoList.listSize = listSize;
@@ -82,7 +98,7 @@ namespace JSC {
 
         void initGetByIdProtoList(PolymorphicAccessStructureList* structureList, int listSize)
         {
-            opcodeID = op_get_by_id_proto_list;
+            accessType = access_get_by_id_proto_list;
 
             u.getByIdProtoList.structureList = structureList;
             u.getByIdProtoList.listSize = listSize;
@@ -92,7 +108,7 @@ namespace JSC {
 
         void initPutByIdTransition(Structure* previousStructure, Structure* structure, StructureChain* chain)
         {
-            opcodeID = op_put_by_id_transition;
+            accessType = access_put_by_id_transition;
 
             u.putByIdTransition.previousStructure = previousStructure;
             previousStructure->ref();
@@ -106,7 +122,7 @@ namespace JSC {
 
         void initPutByIdReplace(Structure* baseObjectStructure)
         {
-            opcodeID = op_put_by_id_replace;
+            accessType = access_put_by_id_replace;
     
             u.putByIdReplace.baseObjectStructure = baseObjectStructure;
             baseObjectStructure->ref();
@@ -114,7 +130,19 @@ namespace JSC {
 
         void deref();
 
-        OpcodeID opcodeID;
+        bool seenOnce()
+        {
+            return seen;
+        }
+
+        void setSeen()
+        {
+            seen = true;
+        }
+
+        int accessType : 31;
+        int seen : 1;
+
         union {
             struct {
                 Structure* baseObjectStructure;
@@ -145,12 +173,13 @@ namespace JSC {
             } putByIdReplace;
         } u;
 
-        void* stubRoutine;
-        void* callReturnLocation;
-        void* hotPathBegin;
+        CodeLocationLabel stubRoutine;
+        CodeLocationCall callReturnLocation;
+        CodeLocationLabel hotPathBegin;
     };
-#endif
 
 } // namespace JSC
+
+#endif
 
 #endif // StructureStubInfo_h

@@ -26,8 +26,8 @@
 #ifndef ByteArray_h
 #define ByteArray_h
 
-#include "wtf/PassRefPtr.h"
-#include "wtf/RefCounted.h"
+#include <wtf/PassRefPtr.h>
+#include <wtf/RefCounted.h>
 
 namespace WTF {
     class ByteArray : public RefCountedBase {
@@ -69,8 +69,7 @@ namespace WTF {
 
     private:
         ByteArray(size_t size)
-            : RefCountedBase(1)
-            , m_size(size)
+            : m_size(size)
         {
         }
         size_t m_size;

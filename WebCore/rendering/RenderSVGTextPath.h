@@ -2,6 +2,7 @@
  * This file is part of the WebKit project.
  *
  * Copyright (C) 2007 Nikolas Zimmermann <zimmermann@kde.org>
+ * Copyright (C) 2009 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -37,11 +38,9 @@ namespace WebCore {
         bool exactAlignment() const;
         bool stretchMethod() const;
 
-        virtual const char* renderName() const { return "RenderSVGTextPath"; }
-        virtual void absoluteRects(Vector<IntRect>& rects, int tx, int ty);
-        virtual void absoluteQuads(Vector<FloatQuad>&, bool topLevel = true);
-
     private:
+        virtual const char* renderName() const { return "RenderSVGTextPath"; }
+
         float m_startOffset;
 
         bool m_exactAlignment : 1;
@@ -49,6 +48,16 @@ namespace WebCore {
 
         Path m_layoutPath;
     };
+
+    inline RenderSVGTextPath* toRenderSVGTextPath(RenderObject* object)
+    { 
+        ASSERT(!object || !strcmp(object->renderName(), "RenderSVGTextPath"));
+        return static_cast<RenderSVGTextPath*>(object);
+    }
+
+    // This will catch anyone doing an unnecessary cast.
+    void toRenderSVGTextPath(const RenderSVGTextPath*);
+
 }
 
 #endif // ENABLE(SVG)

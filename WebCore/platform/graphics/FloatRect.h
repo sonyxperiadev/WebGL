@@ -51,7 +51,7 @@ QT_END_NAMESPACE
 class wxRect2DDouble;
 #endif
 
-#if PLATFORM(SKIA)
+#if (PLATFORM(SKIA) || PLATFORM(SGL))
 struct SkRect;
 #endif
 
@@ -132,18 +132,13 @@ public:
     FloatRect(const QRectF&);
     operator QRectF() const;
 #endif
-#if PLATFORM(SYMBIAN)
-    FloatRect(const TRect&);
-    operator TRect() const;
-    TRect rect() const;
-#endif
 
 #if PLATFORM(WX) && USE(WXGC)
     FloatRect(const wxRect2DDouble&);
     operator wxRect2DDouble() const;
 #endif
 
-#if PLATFORM(SKIA)
+#if (PLATFORM(SKIA) || PLATFORM(SGL))
     FloatRect(const SkRect&);
     operator SkRect() const;
 #endif

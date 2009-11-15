@@ -84,12 +84,9 @@ void WebFrameView::draw(WebCore::GraphicsContext* ctx, const WebCore::IntRect& r
             transRect.move(-bounds.x(), -bounds.y());
 
             // Translate the canvas, add a clip.
-            SkRect r;
-            android_setrect(&r, transRect);
-
             canvas->save();
             canvas->translate(SkIntToScalar(bounds.x()), SkIntToScalar(bounds.y()));
-            canvas->clipRect(r);
+            canvas->clipRect(transRect);
         }
         mFrameView->paintContents(ctx, transRect);
         if (canvas)

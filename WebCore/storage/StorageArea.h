@@ -26,58 +26,38 @@
 #ifndef StorageArea_h
 #define StorageArea_h
 
+#if ENABLE(DOM_STORAGE)
+
 #include "PlatformString.h"
 
-#include <wtf/Forward.h>
 #include <wtf/PassRefPtr.h>
-#include <wtf/RefCounted.h>
-#include <wtf/RefPtr.h>
+#include <wtf/Threading.h>
 
 namespace WebCore {
 
     class Frame;
     class SecurityOrigin;
-    class StorageMap;
+    class StorageSyncManager;
     typedef int ExceptionCode;
+    enum StorageType { LocalStorage, SessionStorage };
 
-    class StorageArea : public RefCounted<StorageArea> {
+    // This interface is required for Chromium since these actions need to be proxied between processes.
+    class StorageArea : public ThreadSafeShared<StorageArea> {
     public:
-        virtual ~StorageArea();
-        
-        virtual unsigned length() const { return internalLength(); }
-        virtual String key(unsigned index, ExceptionCode& ec) const { return internalKey(index, ec); }
-        virtual String getItem(const String& key) const { return internalGetItem(key); }
-        virtual void setItem(const String& key, const String& value, ExceptionCode& ec, Frame* sourceFrame) { internalSetItem(key, value, ec, sourceFrame); }
-        virtual void removeItem(const String& key, Frame* sourceFrame) { internalRemoveItem(key, sourceFrame); }
-        virtual void clear(Frame* sourceFrame) { internalClear(sourceFrame); }
-        virtual bool contains(const String& key) const { return internalContains(key); }
-        
-        SecurityOrigin* securityOrigin() { return m_securityOrigin.get(); }
+        virtual ~StorageArea() { }
 
-    protected:
-        StorageArea(SecurityOrigin*);
-        StorageArea(SecurityOrigin*, StorageArea*);
-                
-        unsigned internalLength() const;
-        String internalKey(unsigned index, ExceptionCode&) const;
-        String internalGetItem(const String&) const;
-        void internalSetItem(const String& key, const String& value, ExceptionCode&, Frame* sourceFrame);
-        void internalRemoveItem(const String&, Frame* sourceFrame);
-        void internalClear(Frame* sourceFrame);
-        bool internalContains(const String& key) const;
-        
-        // This is meant to be called from a background thread for LocalStorageArea's background thread import procedure.
-        void importItem(const String& key, const String& value);
-
-    private:
-        virtual void itemChanged(const String& key, const String& oldValue, const String& newValue, Frame* sourceFrame) = 0;
-        virtual void itemRemoved(const String& key, const String& oldValue, Frame* sourceFrame) = 0;
-        virtual void areaCleared(Frame* sourceFrame) = 0;
-
-        RefPtr<SecurityOrigin> m_securityOrigin;
-        RefPtr<StorageMap> m_storageMap;
+        // The HTML5 DOM Storage API
+        virtual unsigned length() const = 0;
+        virtual String key(unsigned index) const = 0;
+        virtual String getItem(const String& key) const = 0;
+        virtual void setItem(const String& key, const String& value, ExceptionCode& ec, Frame* sourceFrame) = 0;
+        virtual void removeItem(const String& key, Frame* sourceFrame) = 0;
+        virtual void clear(Frame* sourceFrame) = 0;
+        virtual bool contains(const String& key) const = 0;
     };
 
 } // namespace WebCore
+
+#endif // ENABLE(DOM_STORAGE)
 
 #endif // StorageArea_h

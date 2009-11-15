@@ -26,17 +26,18 @@
 #ifndef ProfileGenerator_h
 #define ProfileGenerator_h
 
+#include "Profile.h"
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
 
 namespace JSC {
 
-    class CallIdentifier;
     class ExecState;
     class Profile;
     class ProfileNode;
     class UString;
+    struct CallIdentifier;    
 
     class ProfileGenerator : public RefCounted<ProfileGenerator>  {
     public:

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2005, 2008, 2009 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,11 +28,10 @@
 
 #import <WebKit/WebDOMOperations.h>
 
-@interface DOMNode (WebDOMNodeOperationsPrivate)
-- (NSArray *)_subresourceURLs;
+@interface DOMDocument (WebDOMDocumentOperationsPrivate)
+- (NSArray *)_focusableNodes;
 @end
 
-@interface DOMDocument (WebDOMDocumentOperationsPrivate)
-- (DOMRange *)_createRangeWithNode:(DOMNode *)node;
-- (DOMRange *)_documentRange;
+@interface DOMNode (WebDOMNodeOperationsPendingPublic)
+- (NSString *)markupString;
 @end

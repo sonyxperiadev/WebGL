@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009, Google Inc. All rights reserved.
+ * Copyright (C) 2009 Google Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -31,32 +31,42 @@
 #include "config.h"
 #include "ThreadableLoader.h"
 
-#include "DocumentThreadableLoader.h"
-#include "Document.h"
-#include "Frame.h"
-#include "FrameLoader.h"
 #include "ScriptExecutionContext.h"
+#include "Document.h"
+#include "DocumentThreadableLoader.h"
+#include "WorkerContext.h"
+#include "WorkerRunLoop.h"
+#include "WorkerThreadableLoader.h"
 
 namespace WebCore {
 
-PassRefPtr<ThreadableLoader> ThreadableLoader::create(ScriptExecutionContext* context, ThreadableLoaderClient* client, const ResourceRequest& request, LoadCallbacks callbacksSetting, ContentSniff contentSniff) 
+PassRefPtr<ThreadableLoader> ThreadableLoader::create(ScriptExecutionContext* context, ThreadableLoaderClient* client, const ResourceRequest& request, LoadCallbacks callbacksSetting, ContentSniff contentSniff, StoredCredentials storedCredentials, CrossOriginRedirectPolicy crossOriginRedirectPolicy) 
 {
     ASSERT(client);
     ASSERT(context);
-    ASSERT(context->isDocument());
 
-    return DocumentThreadableLoader::create(static_cast<Document*>(context), client, request, callbacksSetting, contentSniff);
+#if ENABLE(WORKERS)
+    if (context->isWorkerContext())
+        return WorkerThreadableLoader::create(static_cast<WorkerContext*>(context), client, WorkerRunLoop::defaultMode(), request, callbacksSetting, contentSniff, storedCredentials, crossOriginRedirectPolicy);
+#endif // ENABLE(WORKERS)
+
+    ASSERT(context->isDocument());
+    return DocumentThreadableLoader::create(static_cast<Document*>(context), client, request, callbacksSetting, contentSniff, storedCredentials, crossOriginRedirectPolicy);
 }
 
-unsigned long ThreadableLoader::loadResourceSynchronously(ScriptExecutionContext* context, const ResourceRequest& request, ResourceError& error, ResourceResponse& response, Vector<char>& data)
+void ThreadableLoader::loadResourceSynchronously(ScriptExecutionContext* context, const ResourceRequest& request, ThreadableLoaderClient& client, StoredCredentials storedCredentials)
 {
     ASSERT(context);
-    ASSERT(context->isDocument());
 
-    Document* document = static_cast<Document*>(context);
-    if (!document->frame())
-        return std::numeric_limits<unsigned long>::max();
-    return document->frame()->loader()->loadResourceSynchronously(request, error, response, data);
+#if ENABLE(WORKERS)
+    if (context->isWorkerContext()) {
+        WorkerThreadableLoader::loadResourceSynchronously(static_cast<WorkerContext*>(context), request, client, storedCredentials, DenyCrossOriginRedirect);
+        return;
+    }
+#endif // ENABLE(WORKERS)
+
+    ASSERT(context->isDocument());
+    DocumentThreadableLoader::loadResourceSynchronously(static_cast<Document*>(context), request, client, storedCredentials);
 }
 
 } // namespace WebCore

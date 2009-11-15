@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2006, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2009 Holger Hans Peter Freyther
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,7 +28,51 @@
 
 #include "TestObject.h"
 #include <assert.h>
+#include <stdarg.h>
 #include <stdio.h>
+
+#include <string.h>
+#include <stdlib.h>
+
+void pluginLog(NPP instance, const char* format, ...)
+{
+    va_list args;
+    va_start(args, format);
+    char message[2048] = "PLUGIN: ";
+    vsprintf(message + strlen(message), format, args);
+    va_end(args);
+
+    NPObject* windowObject = 0;
+    NPError error = browser->getvalue(instance, NPNVWindowNPObject, &windowObject);
+    if (error != NPERR_NO_ERROR) {
+        fprintf(stderr, "Failed to retrieve window object while logging: %s\n", message);
+        return;
+    }
+
+    NPVariant consoleVariant;
+    if (!browser->getproperty(instance, windowObject, browser->getstringidentifier("console"), &consoleVariant)) {
+        fprintf(stderr, "Failed to retrieve console object while logging: %s\n", message);
+        browser->releaseobject(windowObject);
+        return;
+    }
+
+    NPObject* consoleObject = NPVARIANT_TO_OBJECT(consoleVariant);
+
+    NPVariant messageVariant;
+    STRINGZ_TO_NPVARIANT(message, messageVariant);
+
+    NPVariant result;
+    if (!browser->invoke(instance, consoleObject, browser->getstringidentifier("log"), &messageVariant, 1, &result)) {
+        fprintf(stderr, "Failed to invoke console.log while logging: %s\n", message);
+        browser->releaseobject(consoleObject);
+        browser->releaseobject(windowObject);
+        return;
+    }
+
+    browser->releasevariantvalue(&result);
+    browser->releaseobject(consoleObject);
+    browser->releaseobject(windowObject);
+}
 
 static void pluginInvalidate(NPObject*);
 static bool pluginHasProperty(NPObject*, NPIdentifier name);
@@ -79,23 +124,29 @@ static const NPUTF8 *pluginPropertyIdentifierNames[NUM_PROPERTY_IDENTIFIERS] = {
     "returnErrorFromNewStream",
 };
 
-#define ID_TEST_CALLBACK_METHOD     0
-#define ID_TEST_GETURL              1
-#define ID_REMOVE_DEFAULT_METHOD    2
-#define ID_TEST_DOM_ACCESS          3
-#define ID_TEST_GET_URL_NOTIFY      4
-#define ID_TEST_INVOKE_DEFAULT      5
-#define ID_DESTROY_STREAM           6
-#define ID_TEST_ENUMERATE           7
-#define ID_TEST_GETINTIDENTIFIER    8
-#define ID_TEST_GET_PROPERTY        9
-#define ID_TEST_EVALUATE            10
-#define ID_TEST_GET_PROPERTY_RETURN_VALUE 11
-#define ID_TEST_IDENTIFIER_TO_STRING 12
-#define ID_TEST_IDENTIFIER_TO_INT   13
-#define ID_TEST_POSTURL_FILE        14
-#define ID_TEST_CONSTRUCT           15
-#define NUM_METHOD_IDENTIFIERS      16
+enum {
+    ID_TEST_CALLBACK_METHOD = 0,
+    ID_TEST_GETURL,
+    ID_REMOVE_DEFAULT_METHOD,
+    ID_TEST_DOM_ACCESS,
+    ID_TEST_GET_URL_NOTIFY,
+    ID_TEST_INVOKE_DEFAULT,
+    ID_DESTROY_STREAM,
+    ID_TEST_ENUMERATE,
+    ID_TEST_GETINTIDENTIFIER,
+    ID_TEST_GET_PROPERTY,
+    ID_TEST_HAS_PROPERTY,
+    ID_TEST_HAS_METHOD,
+    ID_TEST_EVALUATE,
+    ID_TEST_GET_PROPERTY_RETURN_VALUE,
+    ID_TEST_IDENTIFIER_TO_STRING,
+    ID_TEST_IDENTIFIER_TO_INT,
+    ID_TEST_POSTURL_FILE,
+    ID_TEST_CONSTRUCT,
+    ID_TEST_THROW_EXCEPTION_METHOD,
+    ID_DESTROY_NULL_STREAM,
+    NUM_METHOD_IDENTIFIERS
+};
 
 static NPIdentifier pluginMethodIdentifiers[NUM_METHOD_IDENTIFIERS];
 static const NPUTF8 *pluginMethodIdentifierNames[NUM_METHOD_IDENTIFIERS] = {
@@ -109,12 +160,16 @@ static const NPUTF8 *pluginMethodIdentifierNames[NUM_METHOD_IDENTIFIERS] = {
     "testEnumerate",
     "testGetIntIdentifier",
     "testGetProperty",
+    "testHasProperty",
+    "testHasMethod",
     "testEvaluate",
     "testGetPropertyReturnValue",
     "testIdentifierToString",
     "testIdentifierToInt",
     "testPostURLFile",
     "testConstruct",
+    "testThrowException",
+    "destroyNullStream"
 };
 
 static NPUTF8* createCStringFromNPVariant(const NPVariant* variant)
@@ -377,6 +432,13 @@ static bool destroyStream(PluginObject* obj, const NPVariant* args, uint32_t arg
     return true;
 }
 
+static bool destroyNullStream(PluginObject* obj, const NPVariant* args, uint32_t argCount, NPVariant* result)
+{
+    NPError npError = browser->destroystream(obj->npp, 0, NPRES_USER_BREAK);
+    INT32_TO_NPVARIANT(npError, *result);
+    return true;
+}
+
 static bool testEnumerate(PluginObject* obj, const NPVariant* args, uint32_t argCount, NPVariant* result)
 {
     if (argCount != 2 || !NPVARIANT_IS_OBJECT(args[0]) || !NPVARIANT_IS_OBJECT(args[1]))
@@ -451,6 +513,36 @@ static bool testGetProperty(PluginObject* obj, const NPVariant* args, uint32_t a
 
     VOID_TO_NPVARIANT(*result);
     return false;
+}
+
+static bool testHasProperty(PluginObject* obj, const NPVariant* args, uint32_t argCount, NPVariant* result)
+{
+    if (argCount != 2 || !NPVARIANT_IS_OBJECT(args[0]) || !NPVARIANT_IS_STRING(args[1]))
+        return false;
+
+    NPUTF8* propertyString = createCStringFromNPVariant(&args[1]);
+    NPIdentifier propertyIdentifier = browser->getstringidentifier(propertyString);
+    free(propertyString);
+
+    bool retval = browser->hasproperty(obj->npp, NPVARIANT_TO_OBJECT(args[0]), propertyIdentifier);
+
+    BOOLEAN_TO_NPVARIANT(retval, *result);
+    return true;
+}
+
+static bool testHasMethod(PluginObject* obj, const NPVariant* args, uint32_t argCount, NPVariant* result)
+{
+    if (argCount != 2 || !NPVARIANT_IS_OBJECT(args[0]) || !NPVARIANT_IS_STRING(args[1]))
+        return false;
+
+    NPUTF8* propertyString = createCStringFromNPVariant(&args[1]);
+    NPIdentifier propertyIdentifier = browser->getstringidentifier(propertyString);
+    free(propertyString);
+
+    bool retval = browser->hasmethod(obj->npp, NPVARIANT_TO_OBJECT(args[0]), propertyIdentifier);
+
+    BOOLEAN_TO_NPVARIANT(retval, *result);
+    return true;
 }
 
 static bool testEvaluate(PluginObject* obj, const NPVariant* args, uint32_t argCount, NPVariant* result)
@@ -562,6 +654,10 @@ static bool pluginInvoke(NPObject* header, NPIdentifier name, const NPVariant* a
         return testGetProperty(plugin, args, argCount, result);
     else if (name == pluginMethodIdentifiers[ID_TEST_GET_PROPERTY_RETURN_VALUE])
         return testGetPropertyReturnValue(plugin, args, argCount, result);
+    else if (name == pluginMethodIdentifiers[ID_TEST_HAS_PROPERTY])
+        return testHasProperty(plugin, args, argCount, result);
+    else if (name == pluginMethodIdentifiers[ID_TEST_HAS_METHOD])
+        return testHasMethod(plugin, args, argCount, result);
     else if (name == pluginMethodIdentifiers[ID_TEST_IDENTIFIER_TO_STRING])
         return testIdentifierToString(plugin, args, argCount, result);
     else if (name == pluginMethodIdentifiers[ID_TEST_IDENTIFIER_TO_INT])
@@ -570,6 +666,11 @@ static bool pluginInvoke(NPObject* header, NPIdentifier name, const NPVariant* a
         return testPostURLFile(plugin, args, argCount, result);
     else if (name == pluginMethodIdentifiers[ID_TEST_CONSTRUCT])
         return testConstruct(plugin, args, argCount, result);
+    else if (name == pluginMethodIdentifiers[ID_TEST_THROW_EXCEPTION_METHOD]) {
+        browser->setexception(header, "plugin object testThrowException SUCCESS");
+        return true;
+    } else if (name == pluginMethodIdentifiers[ID_DESTROY_NULL_STREAM]) 
+        return destroyNullStream(plugin, args, argCount, result);
     
     return false;
 }
@@ -580,8 +681,10 @@ static bool pluginInvokeDefault(NPObject* obj, const NPVariant* args, uint32_t a
     return true;
 }
 
-static void pluginInvalidate(NPObject* obj)
+static void pluginInvalidate(NPObject* header)
 {
+    PluginObject* plugin = reinterpret_cast<PluginObject*>(header);
+    plugin->testObject = 0;
 }
 
 static NPObject *pluginAllocate(NPP npp, NPClass *theClass)
@@ -615,7 +718,8 @@ static NPObject *pluginAllocate(NPP npp, NPClass *theClass)
 static void pluginDeallocate(NPObject* header)
 {
     PluginObject* plugin = reinterpret_cast<PluginObject*>(header);
-    browser->releaseobject(plugin->testObject);
+    if (plugin->testObject)
+        browser->releaseobject(plugin->testObject);
 
     free(plugin->firstUrl);
     free(plugin->firstHeaders);
@@ -673,4 +777,28 @@ void notifyStream(PluginObject* object, const char *url, const char *headers)
         object->lastUrl = (url ? strdup(url) : NULL);
         object->lastHeaders = (headers ? strdup(headers) : NULL);
     }
+}
+
+void testNPRuntime(NPP npp)
+{
+    NPObject* windowScriptObject;
+    browser->getvalue(npp, NPNVWindowNPObject, &windowScriptObject);
+
+    // Invoke
+    NPIdentifier testNPInvoke = browser->getstringidentifier("testNPInvoke");
+    NPVariant args[7];
+    
+    VOID_TO_NPVARIANT(args[0]);
+    NULL_TO_NPVARIANT(args[1]);
+    BOOLEAN_TO_NPVARIANT(true, args[2]);
+    INT32_TO_NPVARIANT(242, args[3]);
+    DOUBLE_TO_NPVARIANT(242.242, args[4]);
+    STRINGZ_TO_NPVARIANT("Hello, World", args[5]);
+    OBJECT_TO_NPVARIANT(windowScriptObject, args[6]);
+    
+    NPVariant result;
+    if (browser->invoke(npp, windowScriptObject, testNPInvoke, args, 7, &result))
+        browser->releasevariantvalue(&result);
+    
+    browser->releaseobject(windowScriptObject);
 }

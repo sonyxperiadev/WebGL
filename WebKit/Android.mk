@@ -21,6 +21,8 @@ LOCAL_SRC_FILES := \
 	android/WebCoreSupport/DragClientAndroid.cpp \
 	android/WebCoreSupport/EditorClientAndroid.cpp \
 	android/WebCoreSupport/FrameLoaderClientAndroid.cpp \
+	android/WebCoreSupport/MediaPlayerPrivateAndroid.cpp \
+	android/WebCoreSupport/GeolocationPermissions.cpp \
 	\
 	android/RenderSkinAndroid.cpp \
 	android/RenderSkinButton.cpp \
@@ -31,8 +33,10 @@ LOCAL_SRC_FILES := \
 	\
 	android/icu/unicode/ucnv.cpp \
 	\
+	android/jni/GeolocationPermissionsBridge.cpp \
 	android/jni/JavaBridge.cpp \
 	android/jni/JavaSharedClient.cpp \
+	android/jni/MockGeolocation.cpp \
 	android/jni/PictureSet.cpp \
 	android/jni/WebCoreFrameBridge.cpp \
 	android/jni/WebCoreJni.cpp \
@@ -40,6 +44,7 @@ LOCAL_SRC_FILES := \
 	android/jni/WebFrameView.cpp \
 	android/jni/WebHistory.cpp \
 	android/jni/WebIconDatabase.cpp \
+	android/jni/WebStorage.cpp \
 	android/jni/WebSettings.cpp \
 	android/jni/WebViewCore.cpp \
 	\
@@ -52,11 +57,15 @@ LOCAL_SRC_FILES := \
 	android/nav/SelectText.cpp \
 	android/nav/WebView.cpp \
 	\
+	android/plugins/ANPBitmapInterface.cpp \
 	android/plugins/ANPCanvasInterface.cpp \
 	android/plugins/ANPLogInterface.cpp \
 	android/plugins/ANPMatrixInterface.cpp \
 	android/plugins/ANPPaintInterface.cpp \
+	android/plugins/ANPPathInterface.cpp \
 	android/plugins/ANPSoundInterface.cpp \
+	android/plugins/ANPSurfaceInterface.cpp \
+	android/plugins/ANPSystemInterface.cpp \
 	android/plugins/ANPTypefaceInterface.cpp \
 	android/plugins/ANPWindowInterface.cpp \
 	android/plugins/PluginTimer.cpp \

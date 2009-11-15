@@ -27,6 +27,7 @@
 #include "RenderSkinCombo.h"
 
 #include "Document.h"
+#include "Element.h"
 #include "Node.h"
 #include "SkCanvas.h"
 #include "SkNinePatch.h"
@@ -58,7 +59,8 @@ bool RenderSkinCombo::Draw(SkCanvas* canvas, Node* element, int x, int y, int wi
 {
     if (!s_decoded)
         return true;
-    State state = element && element->isEnabled() ? kNormal : kDisabled;
+
+    State state = (element->isElementNode() && static_cast<Element*>(element)->isEnabledFormControl()) ? kNormal : kDisabled;
     if (height < (s_margin<<1) + 1) {
         height = (s_margin<<1) + 1;
     }

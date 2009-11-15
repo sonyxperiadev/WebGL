@@ -68,8 +68,8 @@ String WebCore::contextMenuItemTagBold() { return String(LPCTSTR_UI_STRING("Bold
 String WebCore::contextMenuItemTagItalic() { return String(LPCTSTR_UI_STRING("Italic", "Italic context menu item")); }
 String WebCore::contextMenuItemTagUnderline() { return String(LPCTSTR_UI_STRING("Underline", "Underline context menu item")); }
 String WebCore::contextMenuItemTagOutline() { return String(LPCTSTR_UI_STRING("Outline", "Outline context menu item")); }
-String WebCore::contextMenuItemTagWritingDirectionMenu() { return String(LPCTSTR_UI_STRING("Writing Direction", "Writing direction context sub-menu item")); }
-String WebCore::contextMenuItemTagTextDirectionMenu() { return String(LPCTSTR_UI_STRING("Text Direction", "Text direction context sub-menu item")); }
+String WebCore::contextMenuItemTagWritingDirectionMenu() { return String(LPCTSTR_UI_STRING("Paragraph Direction", "Paragraph direction context sub-menu item")); }
+String WebCore::contextMenuItemTagTextDirectionMenu() { return String(LPCTSTR_UI_STRING("Selection Direction", "Selection direction context sub-menu item")); }
 String WebCore::contextMenuItemTagDefaultDirection() { return String(LPCTSTR_UI_STRING("Default", "Default writing direction context menu item")); }
 String WebCore::contextMenuItemTagLeftToRight() { return String(LPCTSTR_UI_STRING("Left to Right", "Left to Right context menu item")); }
 String WebCore::contextMenuItemTagRightToLeft() { return String(LPCTSTR_UI_STRING("Right to Left", "Right to Left context menu item")); }
@@ -94,10 +94,12 @@ String WebCore::AXLinkActionVerb() { return String(LPCTSTR_UI_STRING("jump", "Ve
 String WebCore::unknownFileSizeText() { return String(LPCTSTR_UI_STRING("Unknown", "Unknown filesize FTP directory listing item")); }
 String WebCore::uploadFileText() { return String(LPCTSTR_UI_STRING("Upload file", "(Windows) Form submit file upload dialog title")); }
 String WebCore::allFilesText() { return String(LPCTSTR_UI_STRING("All Files", "(Windows) Form submit file upload all files pop-up")); }
+String WebCore::mediaElementLoadingStateText() { return String(LPCTSTR_UI_STRING("Loading...", "Media controller status message when the media is loading")); }
+String WebCore::mediaElementLiveBroadcastStateText() { return String(LPCTSTR_UI_STRING("Live Broadcast", "Media controller status message when watching a live broadcast")); }
 
 String WebCore::imageTitle(const String& filename, const IntSize& size) 
 { 
-    static RetainPtr<CFStringRef> format(AdoptCF, UI_STRING("%@ %d×%d pixels", "window title for a standalone image (uses multiplication symbol, not x)"));
+    static RetainPtr<CFStringRef> format(AdoptCF, UI_STRING("%@ %d\xC3\x97%d pixels", "window title for a standalone image (uses multiplication symbol, not x)"));
 
     RetainPtr<CFStringRef> filenameCF(AdoptCF, filename.createCFString());
     RetainPtr<CFStringRef> result(AdoptCF, CFStringCreateWithFormat(0, 0, format.get(), filenameCF.get(), size.width(), size.height()));

@@ -33,7 +33,7 @@ namespace WebCore {
 class FileList;
 class HTMLImageLoader;
 class KURL;
-class Selection;
+class VisibleSelection;
 
 class HTMLInputElement : public HTMLFormControlElementWithState, public InputElement {
 public:
@@ -50,7 +50,11 @@ public:
         IMAGE,
         BUTTON,
         SEARCH,
-        RANGE
+        RANGE,
+        EMAIL,
+        NUMBER,
+        TELEPHONE,
+        URL
     };
     
     enum AutoCompleteSetting {
@@ -74,7 +78,7 @@ public:
     virtual void aboutToUnload();
     virtual bool shouldUseInputMethod() const;
 
-    virtual const AtomicString& name() const;
+    virtual const AtomicString& formControlName() const;
  
     bool autoComplete() const;
 
@@ -82,13 +86,16 @@ public:
     virtual bool isChecked() const { return checked() && (inputType() == CHECKBOX || inputType() == RADIO); }
     virtual bool isIndeterminate() const { return indeterminate(); }
     
-    bool readOnly() const { return isReadOnlyControl(); }
+    bool readOnly() const { return isReadOnlyFormControl(); }
 
-    virtual bool isTextControl() const { return isTextField(); }
+    virtual bool isTextFormControl() const { return isTextField(); }
+
+    virtual bool valueMissing() const;
+    virtual bool patternMismatch() const;
 
     bool isTextButton() const { return m_type == SUBMIT || m_type == RESET || m_type == BUTTON; }
     virtual bool isRadioButton() const { return m_type == RADIO; }
-    virtual bool isTextField() const { return m_type == TEXT || m_type == PASSWORD || m_type == SEARCH || m_type == ISINDEX; }
+    virtual bool isTextField() const { return m_type == TEXT || m_type == PASSWORD || m_type == SEARCH || m_type == ISINDEX || m_type == EMAIL || m_type == NUMBER || m_type == TELEPHONE || m_type == URL; }
     virtual bool isSearchField() const { return m_type == SEARCH; }
     virtual bool isInputTypeHidden() const { return m_type == HIDDEN; }
     virtual bool isPasswordField() const { return m_type == PASSWORD; }
@@ -98,13 +105,15 @@ public:
     bool indeterminate() const { return m_indeterminate; }
     void setIndeterminate(bool);
     virtual int size() const;
-    virtual const AtomicString& type() const;
+    virtual const AtomicString& formControlType() const;
     void setType(const String&);
 
     virtual String value() const;
     virtual void setValue(const String&);
 
-    virtual String placeholderValue() const;
+    virtual String placeholder() const;
+    virtual void setPlaceholder(const String&);
+
     virtual bool searchEventsShouldBeDispatched() const;
 
     String valueWithDefault() const;
@@ -112,8 +121,8 @@ public:
     virtual void setValueFromRenderer(const String&);
     void setFileListFromRenderer(const Vector<String>&);
 
-    virtual bool saveState(String& value) const;
-    virtual void restoreState(const String&);
+    virtual bool saveFormControlState(String& value) const;
+    virtual void restoreFormControlState(const String&);
 
     virtual bool canStartSelection() const;
     
@@ -188,10 +197,13 @@ public:
     int maxLength() const;
     void setMaxLength(int);
 
+    bool multiple() const;
+    void setMultiple(bool);
+
     String useMap() const;
     void setUseMap(const String&);
 
-    bool isAutofilled() const { return m_autofilled; }
+    virtual bool isAutofilled() const { return m_autofilled; }
     void setAutofilled(bool value = true);
 
     FileList* files();
@@ -200,7 +212,7 @@ public:
     void addSearchResult();
     void onSearch();
 
-    Selection selection() const;
+    VisibleSelection selection() const;
 
     virtual String constrainValue(const String& proposedValue) const;
 
@@ -216,6 +228,11 @@ protected:
     virtual void willMoveToNewOwnerDocument();
     virtual void didMoveToNewOwnerDocument();
 
+    void updatePlaceholderVisibility()
+    {
+        InputElement::updatePlaceholderVisibility(m_data, this, this, true);
+    }
+
 private:
     bool storesValueSeparateFromAttribute() const;
 
@@ -223,13 +240,16 @@ private:
     void registerForActivationCallbackIfNeeded();
     void unregisterForActivationCallbackIfNeeded();
 
+    virtual bool isOptionalFormControl() const { return !isRequiredFormControl(); }
+    virtual bool isRequiredFormControl() const;
+
     InputElementData m_data;
     int m_xPos;
     int m_yPos;
     short m_maxResults;
     OwnPtr<HTMLImageLoader> m_imageLoader;
     RefPtr<FileList> m_fileList;
-    unsigned m_type : 4; // InputType 
+    unsigned m_type : 5; // InputType 
     bool m_checked : 1;
     bool m_defaultChecked : 1;
     bool m_useDefaultChecked : 1;

@@ -58,7 +58,7 @@ public:
     // Native jni functions
     static void SetResponseHeader(JNIEnv*, jobject, jint, jstring, jstring);
     static jint CreateResponse(JNIEnv*, jobject, jstring, jint, jstring,
-            jstring, jlong, jstring, jlong);
+            jstring, jlong, jstring);
     static void ReceivedResponse(JNIEnv*, jobject, jint);
     static void AddData(JNIEnv*, jobject, jbyteArray, jint);
     static void Finished(JNIEnv*, jobject);

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2005, 2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2004, 2005, 2007, 2009 Apple Inc. All rights reserved.
  *           (C) 2005 Rob Buis <buis@kde.org>
  *           (C) 2006 Alexander Kellett <lypanov@kde.org>
  *
@@ -31,12 +31,15 @@
 #include "SVGRenderTreeAsText.h"
 
 #include "GraphicsTypes.h"
-#include "InlineTextBox.h"
 #include "HTMLNames.h"
+#include "InlineTextBox.h"
+#include "NodeRenderStyle.h"
+#include "RenderImage.h"
+#include "RenderPath.h"
 #include "RenderSVGContainer.h"
 #include "RenderSVGInlineText.h"
-#include "RenderSVGText.h"
 #include "RenderSVGRoot.h"
+#include "RenderSVGText.h"
 #include "RenderTreeAsText.h"
 #include "SVGCharacterLayoutInfo.h"
 #include "SVGInlineTextBox.h"
@@ -76,6 +79,31 @@ TextStream& operator<<(TextStream& ts, TextStreamSeparator& sep)
     else
         sep.m_needToSeparate = true;
     return ts;
+}
+
+template<typename ValueType>
+static void writeNameValuePair(TextStream& ts, const char* name, ValueType value)
+{
+    ts << " [" << name << "=" << value << "]";
+}
+
+template<typename ValueType>
+static void writeNameAndQuotedValue(TextStream& ts, const char* name, ValueType value)
+{
+    ts << " [" << name << "=\"" << value << "\"]";
+}
+
+static void writeIfNotEmpty(TextStream& ts, const char* name, const String& value)
+{
+    if (!value.isEmpty())
+        writeNameValuePair(ts, name, value);
+}
+
+template<typename ValueType>
+static void writeIfNotDefault(TextStream& ts, const char* name, ValueType value, ValueType defaultValue)
+{
+    if (value != defaultValue)
+        writeNameValuePair(ts, name, value);
 }
 
 TextStream& operator<<(TextStream& ts, const IntPoint& p)
@@ -232,13 +260,9 @@ static void writeStyle(TextStream& ts, const RenderObject& object)
     const SVGRenderStyle* svgStyle = style->svgStyle();
 
     if (!object.localTransform().isIdentity())
-        ts << " [transform=" << object.localTransform() << "]";
-    if (svgStyle->imageRendering() != SVGRenderStyle::initialImageRendering()) {
-        unsigned imageRenderingAsInteger = svgStyle->imageRendering();
-        ts << " [image rendering=" << imageRenderingAsInteger << "]";
-    }
-    if (style->opacity() != RenderStyle::initialOpacity())
-        ts << " [opacity=" << style->opacity() << "]";
+        writeNameValuePair(ts, "transform", object.localTransform());
+    writeIfNotDefault(ts, "image rendering", svgStyle->imageRendering(), SVGRenderStyle::initialImageRendering());
+    writeIfNotDefault(ts, "opacity", style->opacity(), RenderStyle::initialOpacity());
     if (object.isRenderPath()) {
         const RenderPath& path = static_cast<const RenderPath&>(object);
         SVGPaintServer* strokePaintServer = SVGPaintServer::strokePaintServer(style, &path);
@@ -249,23 +273,18 @@ static void writeStyle(TextStream& ts, const RenderObject& object)
                 ts << s << *strokePaintServer;
 
             double dashOffset = SVGRenderStyle::cssPrimitiveToLength(&path, svgStyle->strokeDashOffset(), 0.0f);
-            const DashArray& dashArray = dashArrayFromRenderingStyle(style);
+            const DashArray& dashArray = dashArrayFromRenderingStyle(style, object.document()->documentElement()->renderStyle());
             double strokeWidth = SVGRenderStyle::cssPrimitiveToLength(&path, svgStyle->strokeWidth(), 1.0f);
 
-            if (svgStyle->strokeOpacity() != 1.0f)
-                ts << s << "[opacity=" << svgStyle->strokeOpacity() << "]";
-            if (strokeWidth != 1.0f)
-                ts << s << "[stroke width=" << strokeWidth << "]";
-            if (svgStyle->strokeMiterLimit() != 4)
-                ts << s << "[miter limit=" << svgStyle->strokeMiterLimit() << "]";
-            if (svgStyle->capStyle() != 0)
-                ts << s << "[line cap=" << svgStyle->capStyle() << "]";
-            if (svgStyle->joinStyle() != 0)
-                ts << s << "[line join=" << svgStyle->joinStyle() << "]";
-            if (dashOffset != 0.0f)
-                ts << s << "[dash offset=" << dashOffset << "]";
+            writeIfNotDefault(ts, "opacity", svgStyle->strokeOpacity(), 1.0f);
+            writeIfNotDefault(ts, "stroke width", strokeWidth, 1.0);
+            writeIfNotDefault(ts, "miter limit", svgStyle->strokeMiterLimit(), 4.0f);
+            writeIfNotDefault(ts, "line cap", svgStyle->capStyle(), ButtCap);
+            writeIfNotDefault(ts, "line join", svgStyle->joinStyle(), MiterJoin);
+            writeIfNotDefault(ts, "dash offset", dashOffset, 0.0);
             if (!dashArray.isEmpty())
-                ts << s << "[dash array=" << dashArray << "]";
+                writeNameValuePair(ts, "dash array", dashArray);
+
             ts << "}]";
         }
         SVGPaintServer* fillPaintServer = SVGPaintServer::fillPaintServer(style, &path);
@@ -275,68 +294,51 @@ static void writeStyle(TextStream& ts, const RenderObject& object)
             if (fillPaintServer)
                 ts << s << *fillPaintServer;
 
-            if (style->svgStyle()->fillOpacity() != 1.0f)
-                ts << s << "[opacity=" << style->svgStyle()->fillOpacity() << "]";
-            if (style->svgStyle()->fillRule() != RULE_NONZERO)
-                ts << s << "[fill rule=" << style->svgStyle()->fillRule() << "]";
+            writeIfNotDefault(ts, "opacity", svgStyle->fillOpacity(), 1.0f);
+            writeIfNotDefault(ts, "fill rule", svgStyle->fillRule(), RULE_NONZERO);
             ts << "}]";
         }
     }
+
     if (!svgStyle->clipPath().isEmpty())
-        ts << " [clip path=\"" << svgStyle->clipPath() << "\"]";
-    if (!svgStyle->startMarker().isEmpty())
-        ts << " [start marker=" << svgStyle->startMarker() << "]";
-    if (!svgStyle->midMarker().isEmpty())
-        ts << " [middle marker=" << svgStyle->midMarker() << "]";
-    if (!svgStyle->endMarker().isEmpty())
-        ts << " [end marker=" << svgStyle->endMarker() << "]";
-    if (!svgStyle->filter().isEmpty())
-        ts << " [filter=" << svgStyle->filter() << "]";
+        writeNameAndQuotedValue(ts, "clip path", svgStyle->clipPath());
+    writeIfNotEmpty(ts, "start marker", svgStyle->startMarker());
+    writeIfNotEmpty(ts, "middle marker", svgStyle->midMarker());
+    writeIfNotEmpty(ts, "end marker", svgStyle->endMarker());
+    writeIfNotEmpty(ts, "filter", svgStyle->filter());
+}
+
+static TextStream& writePositionAndStyle(TextStream& ts, const RenderObject& object)
+{
+    ts << " " << object.absoluteTransform().mapRect(object.repaintRectInLocalCoordinates());
+    writeStyle(ts, object);
+    return ts;
 }
 
 static TextStream& operator<<(TextStream& ts, const RenderPath& path)
 {
-    ts << " " << path.absoluteTransform().mapRect(path.relativeBBox());
-
-    writeStyle(ts, path);
-
-    ts << " [data=\"" << path.path().debugString() << "\"]";
-
-    return ts;
-}
-
-static TextStream& operator<<(TextStream& ts, const RenderSVGContainer& container)
-{
-    ts << " " << container.absoluteTransform().mapRect(container.relativeBBox());
-
-    writeStyle(ts, container);
-
+    writePositionAndStyle(ts, path);
+    writeNameAndQuotedValue(ts, "data", path.path().debugString());
     return ts;
 }
 
 static TextStream& operator<<(TextStream& ts, const RenderSVGRoot& root)
 {
-    ts << " " << root.absoluteTransform().mapRect(root.relativeBBox());
-
-    writeStyle(ts, root);
-
-    return ts;
+    return writePositionAndStyle(ts, root);
 }
 
-static TextStream& operator<<(TextStream& ts, const RenderSVGText& text)
+static void writeRenderSVGTextBox(TextStream& ts, const RenderBlock& text)
 {
     SVGRootInlineBox* box = static_cast<SVGRootInlineBox*>(text.firstRootBox());
 
     if (!box)
-        return ts;
+        return;
 
     Vector<SVGTextChunk>& chunks = const_cast<Vector<SVGTextChunk>& >(box->svgTextChunks());
     ts << " at (" << text.x() << "," << text.y() << ") size " << box->width() << "x" << box->height() << " contains " << chunks.size() << " chunk(s)";
 
     if (text.parent() && (text.parent()->style()->color() != text.style()->color()))
-        ts << " [color=" << text.style()->color().name() << "]";
-
-    return ts;
+        writeNameValuePair(ts, "color", text.style()->color().name());
 }
 
 static inline bool containsInlineTextBox(SVGTextChunk& chunk, SVGInlineTextBox* box)
@@ -432,7 +434,7 @@ static inline void writeSVGInlineTextBox(TextStream& ts, SVGInlineTextBox* textB
                     ts << " override";
             }
 
-            ts << ": " << quoteAndEscapeNonPrintables(String(textBox->textObject()->text()).substring(textBox->start() + range.startOffset, offset)) << "\n";
+            ts << ": " << quoteAndEscapeNonPrintables(String(textBox->textRenderer()->text()).substring(textBox->start() + range.startOffset, offset)) << "\n";
 
             j++;
         }
@@ -441,99 +443,70 @@ static inline void writeSVGInlineTextBox(TextStream& ts, SVGInlineTextBox* textB
     }
 }
 
-static inline void writeSVGInlineText(TextStream& ts, const RenderSVGInlineText& text, int indent)
+static inline void writeSVGInlineTextBoxes(TextStream& ts, const RenderText& text, int indent)
 {
     for (InlineTextBox* box = text.firstTextBox(); box; box = box->nextTextBox())
         writeSVGInlineTextBox(ts, static_cast<SVGInlineTextBox*>(box), indent);
 }
 
-static String getTagName(SVGStyledElement* elem)
-{
-    if (elem)
-        return elem->nodeName();
-    return "";
-}
-
-void write(TextStream& ts, const RenderSVGContainer& container, int indent)
+static void writeStandardPrefix(TextStream& ts, const RenderObject& object, int indent)
 {
     writeIndent(ts, indent);
-    ts << container.renderName();
+    ts << object.renderName();
 
-    if (container.element()) {
-        String tagName = getTagName(static_cast<SVGStyledElement*>(container.element()));
-        if (!tagName.isEmpty())
-            ts << " {" << tagName << "}";
-    }
+    if (object.node())
+        ts << " {" << object.node()->nodeName() << "}";
+}
 
-    ts << container << "\n";
-
-    for (RenderObject* child = container.firstChild(); child; child = child->nextSibling())
+static void writeChildren(TextStream& ts, const RenderObject& object, int indent)
+{
+    for (RenderObject* child = object.firstChild(); child; child = child->nextSibling())
         write(ts, *child, indent + 1);
+}
+
+void writeSVGContainer(TextStream& ts, const RenderObject& container, int indent)
+{
+    writeStandardPrefix(ts, container, indent);
+    writePositionAndStyle(ts, container);
+    ts << "\n";
+    writeChildren(ts, container, indent);
 }
 
 void write(TextStream& ts, const RenderSVGRoot& root, int indent)
 {
-    writeIndent(ts, indent);
-    ts << root.renderName();
-
-    if (root.element()) {
-        String tagName = getTagName(static_cast<SVGStyledElement*>(root.element()));
-        if (!tagName.isEmpty())
-            ts << " {" << tagName << "}";
-    }
-
+    writeStandardPrefix(ts, root, indent);
     ts << root << "\n";
-
-    for (RenderObject* child = root.firstChild(); child; child = child->nextSibling())
-        write(ts, *child, indent + 1);
+    writeChildren(ts, root, indent);
 }
 
-void write(TextStream& ts, const RenderSVGText& text, int indent)
+void writeSVGText(TextStream& ts, const RenderBlock& text, int indent)
 {
-    writeIndent(ts, indent);
-    ts << text.renderName();
-
-    if (text.element()) {
-        String tagName = getTagName(static_cast<SVGStyledElement*>(text.element()));
-        if (!tagName.isEmpty())
-            ts << " {" << tagName << "}";
-    }
-
-    ts << text << "\n";
-
-    for (RenderObject* child = text.firstChild(); child; child = child->nextSibling())
-        write(ts, *child, indent + 1);
+    writeStandardPrefix(ts, text, indent);
+    writeRenderSVGTextBox(ts, text);
+    ts << "\n";
+    writeChildren(ts, text, indent);
 }
 
-void write(TextStream& ts, const RenderSVGInlineText& text, int indent)
+void writeSVGInlineText(TextStream& ts, const RenderText& text, int indent)
 {
-    writeIndent(ts, indent);
-    ts << text.renderName();
+    writeStandardPrefix(ts, text, indent);
 
-    if (text.element()) {
-        String tagName = getTagName(static_cast<SVGStyledElement*>(text.element()));
-        if (!tagName.isEmpty())
-            ts << " {" << tagName << "}";
-    }
-
-    IntRect linesBox = text.linesBoundingBox();
-
-    ts << " at (" << text.firstRunX() << "," << text.firstRunY() << ") size " << linesBox.width() << "x" << linesBox.height() << "\n";
-    writeSVGInlineText(ts, text, indent);
+    // Why not just linesBoundingBox()?
+    ts << " " << FloatRect(text.firstRunOrigin(), text.linesBoundingBox().size()) << "\n";
+    writeSVGInlineTextBoxes(ts, text, indent);
 }
 
 void write(TextStream& ts, const RenderPath& path, int indent)
 {
-    writeIndent(ts, indent);
-    ts << path.renderName();
-
-    if (path.element()) {
-        String tagName = getTagName(static_cast<SVGStyledElement*>(path.element()));
-        if (!tagName.isEmpty())
-            ts << " {" << tagName << "}";
-    }
-
+    writeStandardPrefix(ts, path, indent);
     ts << path << "\n";
+}
+
+void writeSVGImage(TextStream& ts, const RenderImage& image, int indent)
+{
+    writeStandardPrefix(ts, image, indent);
+    writePositionAndStyle(ts, image);
+    ts << "\n";
 }
 
 void writeRenderResources(TextStream& ts, Node* parent)
@@ -553,6 +526,7 @@ void writeRenderResources(TextStream& ts, Node* parent)
             continue;
 
         String elementId = svgElement->getAttribute(HTMLNames::idAttr);
+        // FIXME: These names are lies!
         if (resource->isPaintServer()) {
             RefPtr<SVGPaintServer> paintServer = WTF::static_pointer_cast<SVGPaintServer>(resource);
             ts << "KRenderingPaintServer {id=\"" << elementId << "\" " << *paintServer << "}" << "\n";

@@ -27,34 +27,40 @@
  */
 
 
-#import <WebKit/WebPluginController.h>
+#import "WebPluginController.h"
 
+#import "DOMNodeInternal.h"
+#import "WebDataSourceInternal.h"
+#import "WebFrameInternal.h"
+#import "WebFrameView.h"
+#import "WebHTMLViewPrivate.h"
+#import "WebKitErrorsPrivate.h"
+#import "WebKitLogging.h"
+#import "WebNSURLExtras.h"
+#import "WebNSViewExtras.h"
+#import "WebPlugin.h"
+#import "WebPluginContainer.h"
+#import "WebPluginContainerCheck.h"
+#import "WebPluginPackage.h"
+#import "WebPluginPrivate.h"
+#import "WebPluginViewFactory.h"
+#import "WebUIDelegate.h"
+#import "WebViewInternal.h"
 #import <Foundation/NSURLRequest.h>
-#import <runtime/JSLock.h>
+#import <WebCore/DocumentLoader.h>
 #import <WebCore/Frame.h>
 #import <WebCore/FrameLoader.h>
-#import <WebCore/ResourceRequest.h>
+#import <WebCore/HTMLMediaElement.h>
+#import <WebCore/HTMLNames.h>
+#import <WebCore/MediaPlayerProxy.h>
 #import <WebCore/PlatformString.h>
-#import <WebCore/DocumentLoader.h>
+#import <WebCore/ResourceRequest.h>
 #import <WebCore/ScriptController.h>
-#import <WebKit/WebDataSourceInternal.h>
-#import <WebKit/WebFrameInternal.h>
-#import <WebKit/WebFrameView.h>
-#import <WebKit/WebHTMLViewPrivate.h>
-#import <WebKit/WebKitErrorsPrivate.h>
-#import <WebKit/WebKitLogging.h>
-#import <WebKit/WebNSURLExtras.h>
-#import <WebKit/WebNSViewExtras.h>
-#import <WebKit/WebPlugin.h>
-#import <WebKit/WebPluginContainer.h>
-#import <WebKit/WebPluginContainerCheck.h>
-#import <WebKit/WebPluginPackage.h>
-#import <WebKit/WebPluginPrivate.h>
-#import <WebKit/WebPluginViewFactory.h>
-#import <WebKit/WebUIDelegate.h>
-#import <WebKit/WebViewInternal.h>
+#import <WebCore/WebCoreURLResponse.h>
+#import <runtime/JSLock.h>
 
 using namespace WebCore;
+using namespace HTMLNames;
 
 @interface NSView (PluginSecrets)
 - (void)setContainingWindow:(NSWindow *)w;
@@ -84,10 +90,10 @@ static NSMutableSet *pluginViews = nil;
     NSView *view = nil;
 
     if ([viewFactory respondsToSelector:@selector(plugInViewWithArguments:)]) {
-        JSC::JSLock::DropAllLocks dropAllLocks(false);
+        JSC::JSLock::DropAllLocks dropAllLocks(JSC::SilenceAssertionsOnly);
         view = [viewFactory plugInViewWithArguments:arguments];
     } else if ([viewFactory respondsToSelector:@selector(pluginViewWithArguments:)]) {
-        JSC::JSLock::DropAllLocks dropAllLocks(false);
+        JSC::JSLock::DropAllLocks dropAllLocks(JSC::SilenceAssertionsOnly);
         view = [viewFactory pluginViewWithArguments:arguments];
     }
     
@@ -141,10 +147,10 @@ static NSMutableSet *pluginViews = nil;
     for (i = 0; i < count; i++) {
         id aView = [_views objectAtIndex:i];
         if ([aView respondsToSelector:@selector(webPlugInStart)]) {
-            JSC::JSLock::DropAllLocks dropAllLocks(false);
+            JSC::JSLock::DropAllLocks dropAllLocks(JSC::SilenceAssertionsOnly);
             [aView webPlugInStart];
         } else if ([aView respondsToSelector:@selector(pluginStart)]) {
-            JSC::JSLock::DropAllLocks dropAllLocks(false);
+            JSC::JSLock::DropAllLocks dropAllLocks(JSC::SilenceAssertionsOnly);
             [aView pluginStart];
         }
     }
@@ -164,10 +170,10 @@ static NSMutableSet *pluginViews = nil;
     for (i = 0; i < count; i++) {
         id aView = [_views objectAtIndex:i];
         if ([aView respondsToSelector:@selector(webPlugInStop)]) {
-            JSC::JSLock::DropAllLocks dropAllLocks(false);
+            JSC::JSLock::DropAllLocks dropAllLocks(JSC::SilenceAssertionsOnly);
             [aView webPlugInStop];
         } else if ([aView respondsToSelector:@selector(pluginStop)]) {
-            JSC::JSLock::DropAllLocks dropAllLocks(false);
+            JSC::JSLock::DropAllLocks dropAllLocks(JSC::SilenceAssertionsOnly);
             [aView pluginStop];
         }
     }
@@ -185,27 +191,34 @@ static NSMutableSet *pluginViews = nil;
         [_views addObject:view];
         [[_documentView _webView] addPluginInstanceView:view];
 
+        BOOL oldDefersCallbacks = [[self webView] defersCallbacks];
+        if (!oldDefersCallbacks)
+            [[self webView] setDefersCallbacks:YES];
+        
         LOG(Plugins, "initializing plug-in %@", view);
         if ([view respondsToSelector:@selector(webPlugInInitialize)]) {
-            JSC::JSLock::DropAllLocks dropAllLocks(false);
+            JSC::JSLock::DropAllLocks dropAllLocks(JSC::SilenceAssertionsOnly);
             [view webPlugInInitialize];
         } else if ([view respondsToSelector:@selector(pluginInitialize)]) {
-            JSC::JSLock::DropAllLocks dropAllLocks(false);
+            JSC::JSLock::DropAllLocks dropAllLocks(JSC::SilenceAssertionsOnly);
             [view pluginInitialize];
         }
 
+        if (!oldDefersCallbacks)
+            [[self webView] setDefersCallbacks:NO];
+        
         if (_started) {
             LOG(Plugins, "starting plug-in %@", view);
             if ([view respondsToSelector:@selector(webPlugInStart)]) {
-                JSC::JSLock::DropAllLocks dropAllLocks(false);
+                JSC::JSLock::DropAllLocks dropAllLocks(JSC::SilenceAssertionsOnly);
                 [view webPlugInStart];
             } else if ([view respondsToSelector:@selector(pluginStart)]) {
-                JSC::JSLock::DropAllLocks dropAllLocks(false);
+                JSC::JSLock::DropAllLocks dropAllLocks(JSC::SilenceAssertionsOnly);
                 [view pluginStart];
             }
             
             if ([view respondsToSelector:@selector(setContainingWindow:)]) {
-                JSC::JSLock::DropAllLocks dropAllLocks(false);
+                JSC::JSLock::DropAllLocks dropAllLocks(JSC::SilenceAssertionsOnly);
                 [view setContainingWindow:[_documentView window]];
             }
         }
@@ -217,24 +230,26 @@ static NSMutableSet *pluginViews = nil;
     if ([_views containsObject:view]) {
         if (_started) {
             if ([view respondsToSelector:@selector(webPlugInStop)]) {
-                JSC::JSLock::DropAllLocks dropAllLocks(false);
+                JSC::JSLock::DropAllLocks dropAllLocks(JSC::SilenceAssertionsOnly);
                 [view webPlugInStop];
             } else if ([view respondsToSelector:@selector(pluginStop)]) {
-                JSC::JSLock::DropAllLocks dropAllLocks(false);
+                JSC::JSLock::DropAllLocks dropAllLocks(JSC::SilenceAssertionsOnly);
                 [view pluginStop];
             }
         }
         
         if ([view respondsToSelector:@selector(webPlugInDestroy)]) {
-            JSC::JSLock::DropAllLocks dropAllLocks(false);
+            JSC::JSLock::DropAllLocks dropAllLocks(JSC::SilenceAssertionsOnly);
             [view webPlugInDestroy];
         } else if ([view respondsToSelector:@selector(pluginDestroy)]) {
-            JSC::JSLock::DropAllLocks dropAllLocks(false);
+            JSC::JSLock::DropAllLocks dropAllLocks(JSC::SilenceAssertionsOnly);
             [view pluginDestroy];
         }
         
+#if ENABLE(NETSCAPE_PLUGIN_API)
         if (Frame* frame = core([self webFrame]))
             frame->script()->cleanupScriptObjectsForPlugin(self);
+#endif
         
         [pluginViews removeObject:view];
         [[_documentView _webView] removePluginInstanceView:view];
@@ -276,15 +291,17 @@ static void cancelOutstandingCheck(const void *item, void *context)
     for (i = 0; i < count; i++) {
         id aView = [_views objectAtIndex:i];
         if ([aView respondsToSelector:@selector(webPlugInDestroy)]) {
-            JSC::JSLock::DropAllLocks dropAllLocks(false);
+            JSC::JSLock::DropAllLocks dropAllLocks(JSC::SilenceAssertionsOnly);
             [aView webPlugInDestroy];
         } else if ([aView respondsToSelector:@selector(pluginDestroy)]) {
-            JSC::JSLock::DropAllLocks dropAllLocks(false);
+            JSC::JSLock::DropAllLocks dropAllLocks(JSC::SilenceAssertionsOnly);
             [aView pluginDestroy];
         }
         
+#if ENABLE(NETSCAPE_PLUGIN_API)
         if (Frame* frame = core([self webFrame]))
             frame->script()->cleanupScriptObjectsForPlugin(self);
+#endif
         
         [pluginViews removeObject:aView];
         [[_documentView _webView] removePluginInstanceView:aView];
@@ -298,7 +315,7 @@ static void cancelOutstandingCheck(const void *item, void *context)
 
 - (id)_webPluginContainerCheckIfAllowedToLoadRequest:(NSURLRequest *)request inFrame:(NSString *)target resultObject:(id)obj selector:(SEL)selector
 {
-    WebPluginContainerCheck *check = [WebPluginContainerCheck checkWithRequest:request target:target resultObject:obj selector:selector controller:self];
+    WebPluginContainerCheck *check = [WebPluginContainerCheck checkWithRequest:request target:target resultObject:obj selector:selector controller:self contextInfo:nil];
     [_checksInProgress addObject:check];
     [check start];
 
@@ -429,5 +446,37 @@ static void cancelOutstandingCheck(const void *item, void *context)
     if ([pluginView respondsToSelector:@selector(webPlugInMainResourceDidFinishLoading)])
         [pluginView webPlugInMainResourceDidFinishLoading];
 }
+
+#if ENABLE(PLUGIN_PROXY_FOR_VIDEO)
+static WebCore::HTMLMediaElement* mediaProxyClient(DOMElement* element)
+{
+    if (!element) {
+        LOG_ERROR("nil element passed");
+        return nil;
+    }
+
+    Element* node = core(element);
+    if (!node || (!node->hasTagName(HTMLNames::videoTag) && !node->hasTagName(HTMLNames::audioTag))) {
+        LOG_ERROR("invalid media element passed");
+        return nil;
+    }
+
+    return static_cast<WebCore::HTMLMediaElement*>(node);
+}
+
+- (void)_webPluginContainerSetMediaPlayerProxy:(WebMediaPlayerProxy *)proxy forElement:(DOMElement *)element
+{
+    WebCore::HTMLMediaElement* client = mediaProxyClient(element);
+    if (client)
+        client->setMediaPlayerProxy(proxy);
+}
+
+- (void)_webPluginContainerPostMediaPlayerNotification:(int)notification forElement:(DOMElement *)element
+{
+    WebCore::HTMLMediaElement* client = mediaProxyClient(element);
+    if (client)
+        client->deliverNotification((MediaPlayerProxyNotificationType)notification);
+}
+#endif
 
 @end

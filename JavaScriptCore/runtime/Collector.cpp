@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
+ *  Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
  *  Copyright (C) 2007 Eric Seidel <eric@webkit.org>
  *
  *  This library is free software; you can redistribute it and/or
@@ -27,24 +27,33 @@
 #include "Interpreter.h"
 #include "JSGlobalObject.h"
 #include "JSLock.h"
+#include "JSONObject.h"
 #include "JSString.h"
 #include "JSValue.h"
+#include "MarkStack.h"
 #include "Nodes.h"
 #include "Tracing.h"
 #include <algorithm>
+#include <limits.h>
 #include <setjmp.h>
 #include <stdlib.h>
 #include <wtf/FastMalloc.h>
 #include <wtf/HashCountedSet.h>
 #include <wtf/UnusedParam.h>
+#include <wtf/VMTags.h>
 
 #if PLATFORM(DARWIN)
 
-#include <mach/mach_port.h>
 #include <mach/mach_init.h>
+#include <mach/mach_port.h>
 #include <mach/task.h>
 #include <mach/thread_act.h>
 #include <mach/vm_map.h>
+
+#elif PLATFORM(SYMBIAN)
+#include <e32std.h>
+#include <e32cmn.h>
+#include <unistd.h>
 
 #elif PLATFORM(WIN_OS)
 
@@ -58,9 +67,7 @@
 
 #if PLATFORM(SOLARIS)
 #include <thread.h>
-#endif
-
-#if PLATFORM(OPENBSD)
+#else
 #include <pthread.h>
 #endif
 
@@ -86,6 +93,11 @@ const size_t ALLOCATIONS_PER_COLLECTION = 4000;
 // This value has to be a macro to be used in max() without introducing
 // a PIC branch in Mach-O binaries, see <rdar://problem/5971391>.
 #define MIN_ARRAY_SIZE (static_cast<size_t>(14))
+
+#if PLATFORM(SYMBIAN)
+const size_t MAX_NUM_BLOCKS = 256; // Max size of collector heap set to 16 MB
+static RHeap* userChunk = 0;
+#endif
 
 static void freeHeap(CollectorHeap*);
 
@@ -128,6 +140,26 @@ Heap::Heap(JSGlobalData* globalData)
 {
     ASSERT(globalData);
 
+#if PLATFORM(SYMBIAN)
+    // Symbian OpenC supports mmap but currently not the MAP_ANON flag.
+    // Using fastMalloc() does not properly align blocks on 64k boundaries
+    // and previous implementation was flawed/incomplete.
+    // UserHeap::ChunkHeap allows allocation of continuous memory and specification
+    // of alignment value for (symbian) cells within that heap.
+    //
+    // Clarification and mapping of terminology:
+    // RHeap (created by UserHeap::ChunkHeap below) is continuos memory chunk,
+    // which can dynamically grow up to 8 MB,
+    // that holds all CollectorBlocks of this session (static).
+    // Each symbian cell within RHeap maps to a 64kb aligned CollectorBlock.
+    // JSCell objects are maintained as usual within CollectorBlocks.
+    if (!userChunk) {
+        userChunk = UserHeap::ChunkHeap(0, 0, MAX_NUM_BLOCKS * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
+        if (!userChunk)
+            CRASH();
+    }
+#endif // PLATFORM(SYMBIAN)
+    
     memset(&primaryHeap, 0, sizeof(CollectorHeap));
     memset(&numberHeap, 0, sizeof(CollectorHeap));
 }
@@ -140,7 +172,7 @@ Heap::~Heap()
 
 void Heap::destroy()
 {
-    JSLock lock(false);
+    JSLock lock(SilenceAssertionsOnly);
 
     if (!m_globalData)
         return;
@@ -183,10 +215,14 @@ static NEVER_INLINE CollectorBlock* allocateBlock()
 #if PLATFORM(DARWIN)
     vm_address_t address = 0;
     // FIXME: tag the region as a JavaScriptCore heap when we get a registered VM tag: <rdar://problem/6054788>.
-    vm_map(current_task(), &address, BLOCK_SIZE, BLOCK_OFFSET_MASK, VM_FLAGS_ANYWHERE, MEMORY_OBJECT_NULL, 0, FALSE, VM_PROT_DEFAULT, VM_PROT_DEFAULT, VM_INHERIT_DEFAULT);
+    vm_map(current_task(), &address, BLOCK_SIZE, BLOCK_OFFSET_MASK, VM_FLAGS_ANYWHERE | VM_TAG_FOR_COLLECTOR_MEMORY, MEMORY_OBJECT_NULL, 0, FALSE, VM_PROT_DEFAULT, VM_PROT_DEFAULT, VM_INHERIT_DEFAULT);
 #elif PLATFORM(SYMBIAN)
-    // no memory map in symbian, need to hack with fastMalloc
-    void* address = fastMalloc(BLOCK_SIZE);
+    // Allocate a 64 kb aligned CollectorBlock
+    unsigned char* mask = reinterpret_cast<unsigned char*>(userChunk->Alloc(BLOCK_SIZE));
+    if (!mask)
+        CRASH();
+    uintptr_t address = reinterpret_cast<uintptr_t>(mask);
+
     memset(reinterpret_cast<void*>(address), 0, BLOCK_SIZE);
 #elif PLATFORM(WIN_OS)
      // windows virtual address granularity is naturally 64k
@@ -231,7 +267,7 @@ static void freeBlock(CollectorBlock* block)
 #if PLATFORM(DARWIN)    
     vm_deallocate(current_task(), reinterpret_cast<vm_address_t>(block), BLOCK_SIZE);
 #elif PLATFORM(SYMBIAN)
-    fastFree(block);
+    userChunk->Free(reinterpret_cast<TAny*>(block));
 #elif PLATFORM(WIN_OS)
     VirtualFree(block, 0, MEM_RELEASE);
 #elif HAVE(POSIX_MEMALIGN)
@@ -349,6 +385,9 @@ collect:
         // didn't find a block, and GC didn't reclaim anything, need to allocate a new block
         size_t numBlocks = heap.numBlocks;
         if (usedBlocks == numBlocks) {
+            static const size_t maxNumBlocks = ULONG_MAX / sizeof(CollectorBlock*) / GROWTH_FACTOR;
+            if (numBlocks > maxNumBlocks)
+                CRASH();
             numBlocks = max(MIN_ARRAY_SIZE, numBlocks * GROWTH_FACTOR);
             heap.numBlocks = numBlocks;
             heap.blocks = static_cast<CollectorBlock**>(fastRealloc(heap.blocks, numBlocks * sizeof(CollectorBlock*)));
@@ -390,6 +429,63 @@ void* Heap::allocateNumber(size_t s)
     return heapAllocate<NumberHeap>(s);
 }
 
+#if PLATFORM(WINCE)
+void* g_stackBase = 0;
+
+inline bool isPageWritable(void* page)
+{
+    MEMORY_BASIC_INFORMATION memoryInformation;
+    DWORD result = VirtualQuery(page, &memoryInformation, sizeof(memoryInformation));
+
+    // return false on error, including ptr outside memory
+    if (result != sizeof(memoryInformation))
+        return false;
+
+    DWORD protect = memoryInformation.Protect & ~(PAGE_GUARD | PAGE_NOCACHE);
+    return protect == PAGE_READWRITE
+        || protect == PAGE_WRITECOPY
+        || protect == PAGE_EXECUTE_READWRITE
+        || protect == PAGE_EXECUTE_WRITECOPY;
+}
+
+static void* getStackBase(void* previousFrame)
+{
+    // find the address of this stack frame by taking the address of a local variable
+    bool isGrowingDownward;
+    void* thisFrame = (void*)(&isGrowingDownward);
+
+    isGrowingDownward = previousFrame < &thisFrame;
+    static DWORD pageSize = 0;
+    if (!pageSize) {
+        SYSTEM_INFO systemInfo;
+        GetSystemInfo(&systemInfo);
+        pageSize = systemInfo.dwPageSize;
+    }
+
+    // scan all of memory starting from this frame, and return the last writeable page found
+    register char* currentPage = (char*)((DWORD)thisFrame & ~(pageSize - 1));
+    if (isGrowingDownward) {
+        while (currentPage > 0) {
+            // check for underflow
+            if (currentPage >= (char*)pageSize)
+                currentPage -= pageSize;
+            else
+                currentPage = 0;
+            if (!isPageWritable(currentPage))
+                return currentPage + pageSize;
+        }
+        return 0;
+    } else {
+        while (true) {
+            // guaranteed to complete because isPageWritable returns false at end of memory
+            currentPage += pageSize;
+            if (!isPageWritable(currentPage))
+                return currentPage;
+        }
+    }
+}
+#endif
+
 static inline void* currentThreadStackBase()
 {
 #if PLATFORM(DARWIN)
@@ -424,6 +520,15 @@ static inline void* currentThreadStackBase()
     stack_t stack;
     pthread_stackseg_np(thread, &stack);
     return stack.ss_sp;
+#elif PLATFORM(SYMBIAN)
+    static void* stackBase = 0;
+    if (stackBase == 0) {
+        TThreadStackInfo info;
+        RThread thread;
+        thread.StackInfo(info);
+        stackBase = (void*)info.iBase;
+    }
+    return (void*)stackBase;
 #elif PLATFORM(UNIX)
     static void* stackBase = 0;
     static size_t stackSize = 0;
@@ -446,15 +551,13 @@ static inline void* currentThreadStackBase()
         stackThread = thread;
     }
     return static_cast<char*>(stackBase) + stackSize;
-#elif PLATFORM(SYMBIAN)
-    static void* stackBase = 0;
-    if (stackBase == 0) {
-        TThreadStackInfo info;
-        RThread thread;
-        thread.StackInfo(info);
-        stackBase = (void*)info.iBase;
+#elif PLATFORM(WINCE)
+    if (g_stackBase)
+        return g_stackBase;
+    else {
+        int dummy;
+        return getStackBase(&dummy);
     }
-    return (void*)stackBase;
 #else
 #error Need a way to get the stack base on this platform
 #endif
@@ -540,7 +643,7 @@ void Heap::registerThread()
 // cell size needs to be a power of two for this to be valid
 #define IS_HALF_CELL_ALIGNED(p) (((intptr_t)(p) & (CELL_MASK >> 1)) == 0)
 
-void Heap::markConservatively(void* start, void* end)
+void Heap::markConservatively(MarkStack& markStack, void* start, void* end)
 {
     if (start > end) {
         void* tmp = start;
@@ -581,9 +684,8 @@ void Heap::markConservatively(void* start, void* end)
             for (size_t block = 0; block < usedPrimaryBlocks; block++) {
                 if ((primaryBlocks[block] == blockAddr) & (offset <= lastCellOffset)) {
                     if (reinterpret_cast<CollectorCell*>(xAsBits)->u.freeCell.zeroIfFree != 0) {
-                        JSCell* imp = reinterpret_cast<JSCell*>(xAsBits);
-                        if (!imp->marked())
-                            imp->mark();
+                        markStack.append(reinterpret_cast<JSCell*>(xAsBits));
+                        markStack.drain();
                     }
                     break;
                 }
@@ -594,15 +696,15 @@ void Heap::markConservatively(void* start, void* end)
     }
 }
 
-void NEVER_INLINE Heap::markCurrentThreadConservativelyInternal()
+void NEVER_INLINE Heap::markCurrentThreadConservativelyInternal(MarkStack& markStack)
 {
     void* dummy;
     void* stackPointer = &dummy;
     void* stackBase = currentThreadStackBase();
-    markConservatively(stackPointer, stackBase);
+    markConservatively(markStack, stackPointer, stackBase);
 }
 
-void Heap::markCurrentThreadConservatively()
+void Heap::markCurrentThreadConservatively(MarkStack& markStack)
 {
     // setjmp forces volatile registers onto the stack
     jmp_buf registers;
@@ -615,7 +717,7 @@ void Heap::markCurrentThreadConservatively()
 #pragma warning(pop)
 #endif
 
-    markCurrentThreadConservativelyInternal();
+    markCurrentThreadConservativelyInternal(markStack);
 }
 
 #if ENABLE(JSC_MULTIPLE_THREADS)
@@ -747,7 +849,7 @@ static inline void* otherThreadStackPointer(const PlatformThreadRegisters& regs)
 #endif
 }
 
-void Heap::markOtherThreadConservatively(Thread* thread)
+void Heap::markOtherThreadConservatively(MarkStack& markStack, Thread* thread)
 {
     suspendThread(thread->platformThread);
 
@@ -755,19 +857,19 @@ void Heap::markOtherThreadConservatively(Thread* thread)
     size_t regSize = getPlatformThreadRegisters(thread->platformThread, regs);
 
     // mark the thread's registers
-    markConservatively(static_cast<void*>(&regs), static_cast<void*>(reinterpret_cast<char*>(&regs) + regSize));
+    markConservatively(markStack, static_cast<void*>(&regs), static_cast<void*>(reinterpret_cast<char*>(&regs) + regSize));
 
     void* stackPointer = otherThreadStackPointer(regs);
-    markConservatively(stackPointer, thread->stackBase);
+    markConservatively(markStack, stackPointer, thread->stackBase);
 
     resumeThread(thread->platformThread);
 }
 
 #endif
 
-void Heap::markStackObjectsConservatively()
+void Heap::markStackObjectsConservatively(MarkStack& markStack)
 {
-    markCurrentThreadConservatively();
+    markCurrentThreadConservatively(markStack);
 
 #if ENABLE(JSC_MULTIPLE_THREADS)
 
@@ -777,7 +879,7 @@ void Heap::markStackObjectsConservatively()
 
 #ifndef NDEBUG
         // Forbid malloc during the mark phase. Marking a thread suspends it, so 
-        // a malloc inside mark() would risk a deadlock with a thread that had been 
+        // a malloc inside markChildren() would risk a deadlock with a thread that had been 
         // suspended while holding the malloc lock.
         fastMallocForbid();
 #endif
@@ -785,7 +887,7 @@ void Heap::markStackObjectsConservatively()
         // and since this is a shared heap, they are real locks.
         for (Thread* thread = m_registeredThreads; thread; thread = thread->next) {
             if (!pthread_equal(thread->posixThread, pthread_self()))
-                markOtherThreadConservatively(thread);
+                markOtherThreadConservatively(markStack, thread);
         }
 #ifndef NDEBUG
         fastMallocAllow();
@@ -804,7 +906,7 @@ void Heap::setGCProtectNeedsLocking()
         m_protectedValuesMutex.set(new Mutex);
 }
 
-void Heap::protect(JSValuePtr k)
+void Heap::protect(JSValue k)
 {
     ASSERT(k);
     ASSERT(JSLock::currentThreadIsHoldingLock() || !m_globalData->isSharedInstance);
@@ -821,7 +923,7 @@ void Heap::protect(JSValuePtr k)
         m_protectedValuesMutex->unlock();
 }
 
-void Heap::unprotect(JSValuePtr k)
+void Heap::unprotect(JSValue k)
 {
     ASSERT(k);
     ASSERT(JSLock::currentThreadIsHoldingLock() || !m_globalData->isSharedInstance);
@@ -838,14 +940,14 @@ void Heap::unprotect(JSValuePtr k)
         m_protectedValuesMutex->unlock();
 }
 
-Heap* Heap::heap(JSValuePtr v)
+Heap* Heap::heap(JSValue v)
 {
     if (!v.isCell())
         return 0;
     return Heap::cellBlock(v.asCell())->heap;
 }
 
-void Heap::markProtectedObjects()
+void Heap::markProtectedObjects(MarkStack& markStack)
 {
     if (m_protectedValuesMutex)
         m_protectedValuesMutex->lock();
@@ -853,8 +955,10 @@ void Heap::markProtectedObjects()
     ProtectCountSet::iterator end = m_protectedValues.end();
     for (ProtectCountSet::iterator it = m_protectedValues.begin(); it != end; ++it) {
         JSCell* val = it->first;
-        if (!val->marked())
-            val->mark();
+        if (!val->marked()) {
+            markStack.append(val);
+            markStack.drain();
+        }
     }
 
     if (m_protectedValuesMutex)
@@ -959,7 +1063,7 @@ template <HeapType heapType> size_t Heap::sweep()
     heap.extraCost = 0;
     return numLiveObjects;
 }
-    
+
 bool Heap::collect()
 {
 #ifndef NDEBUG
@@ -978,18 +1082,22 @@ bool Heap::collect()
     numberHeap.operationInProgress = Collection;
 
     // MARK: first mark all referenced objects recursively starting out from the set of root objects
-
-    markStackObjectsConservatively();
-    markProtectedObjects();
+    MarkStack& markStack = m_globalData->markStack;
+    markStackObjectsConservatively(markStack);
+    markProtectedObjects(markStack);
     if (m_markListSet && m_markListSet->size())
-        ArgList::markLists(*m_markListSet);
+        MarkedArgumentBuffer::markLists(markStack, *m_markListSet);
     if (m_globalData->exception && !m_globalData->exception.marked())
-        m_globalData->exception.mark();
-    m_globalData->interpreter->registerFile().markCallFrames(this);
+        markStack.append(m_globalData->exception);
+    m_globalData->interpreter->registerFile().markCallFrames(markStack, this);
     m_globalData->smallStrings.mark();
     if (m_globalData->scopeNodeBeingReparsed)
-        m_globalData->scopeNodeBeingReparsed->mark();
+        m_globalData->scopeNodeBeingReparsed->markAggregate(markStack);
+    if (m_globalData->firstStringifierToMark)
+        JSONObject::markStringifiers(markStack, m_globalData->firstStringifierToMark);
 
+    markStack.drain();
+    markStack.compact();
     JAVASCRIPTCORE_GC_MARKED();
 
     size_t originalLiveObjects = primaryHeap.numLiveObjects + numberHeap.numLiveObjects;
@@ -1079,8 +1187,10 @@ static const char* typeName(JSCell* cell)
 {
     if (cell->isString())
         return "string";
+#if USE(JSVALUE32)
     if (cell->isNumber())
         return "number";
+#endif
     if (cell->isGetterSetter())
         return "gettersetter";
     ASSERT(cell->isObject());

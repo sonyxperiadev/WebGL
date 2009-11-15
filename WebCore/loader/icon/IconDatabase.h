@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
  * Copyright (C) 2007 Justin Haygood (jhaygood@reaktix.com)
  *
  * Redistribution and use in source and binary forms, with or without
@@ -27,17 +27,15 @@
 #ifndef IconDatabase_h
 #define IconDatabase_h
 
-#if ENABLE(ICONDATABASE)
-#include "SQLiteDatabase.h"
-#endif
-
 #include "StringHash.h"
 #include "Timer.h"
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/OwnPtr.h>
+
 #if ENABLE(ICONDATABASE)
+#include "SQLiteDatabase.h"
 #include <wtf/Threading.h>
 #endif
 
@@ -64,7 +62,7 @@ enum IconLoadDecision {
     IconLoadUnknown
 };
 
-class IconDatabase : Noncopyable {
+class IconDatabase : public Noncopyable {
 
 // *** Main Thread Only ***
 public:
@@ -116,9 +114,9 @@ private:
 
     void wakeSyncThread();
     void scheduleOrDeferSyncTimer();
-    OwnPtr<Timer<IconDatabase> > m_syncTimer;
     void syncTimerFired(Timer<IconDatabase>*);
     
+    Timer<IconDatabase> m_syncTimer;
     ThreadIdentifier m_syncThread;
     bool m_syncThreadRunning;
     
@@ -167,6 +165,7 @@ private:
     HashSet<String> m_pageURLsPendingImport;
     HashSet<String> m_pageURLsInterestedInIcons;
     HashSet<IconRecord*> m_iconsPendingReading;
+#endif // ENABLE(ICONDATABASE)
 
 // *** Sync Thread Only ***
 public:
@@ -176,6 +175,7 @@ public:
     
     bool shouldStopThreadActivity() const;
 
+#if ENABLE(ICONDATABASE)
 private:    
     static void* iconDatabaseSyncThreadStart(void *);
     void* iconDatabaseSyncThread();
@@ -240,4 +240,4 @@ IconDatabase* iconDatabase();
 
 } // namespace WebCore
 
-#endif
+#endif // IconDatabase_h

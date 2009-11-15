@@ -49,6 +49,7 @@
 #import "WebNSWindowExtras.h"
 #import "WebPDFView.h"
 #import "WebPreferenceKeysPrivate.h"
+#import "WebResourceInternal.h"
 #import "WebSystemInterface.h"
 #import "WebViewFactory.h"
 #import "WebViewInternal.h"
@@ -306,17 +307,27 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
         [WebViewFactory createSharedFactory];
         [WebKeyGenerator createSharedGenerator];
 
-        NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
-        
+// FIXME: Remove the NSAppKitVersionNumberWithDeferredWindowDisplaySupport check once
+// once AppKit's Deferred Window Display support is available.
+#if defined(BUILDING_ON_TIGER) || defined(BUILDING_ON_LEOPARD) || !defined(NSAppKitVersionNumberWithDeferredWindowDisplaySupport)
         // CoreGraphics deferred updates are disabled if WebKitEnableCoalescedUpdatesPreferenceKey is NO
-        // or has no value. For compatibility with Mac OS X 10.4.6, deferred updates are off by default.
-        if (![defaults boolForKey:WebKitEnableDeferredUpdatesPreferenceKey])
+        // or has no value. For compatibility with Mac OS X 10.5 and lower, deferred updates are off by default.
+        if (![[NSUserDefaults standardUserDefaults] boolForKey:WebKitEnableDeferredUpdatesPreferenceKey])
             WKDisableCGDeferredUpdates();
-
+#endif
         if (!WebKitLinkedOnOrAfter(WEBKIT_FIRST_VERSION_WITH_MAIN_THREAD_EXCEPTIONS))
-            setDefaultThreadViolationBehavior(LogOnFirstThreadViolation);
+            setDefaultThreadViolationBehavior(LogOnFirstThreadViolation, ThreadViolationRoundOne);
+
+        bool throwExceptionsForRoundTwo = WebKitLinkedOnOrAfter(WEBKIT_FIRST_VERSION_WITH_ROUND_TWO_MAIN_THREAD_EXCEPTIONS);
+#ifdef MAIL_THREAD_WORKAROUND
+        // Even if old Mail is linked with new WebKit, don't throw exceptions.
+        if ([WebResource _needMailThreadWorkaroundIfCalledOffMainThread])
+            throwExceptionsForRoundTwo = false;
+#endif
+        if (!throwExceptionsForRoundTwo)
+            setDefaultThreadViolationBehavior(LogOnFirstThreadViolation, ThreadViolationRoundTwo);
     }
-    
+
     _private = [[WebFrameViewPrivate alloc] init];
 
     WebDynamicScrollBarsView *scrollView = [[WebDynamicScrollBarsView alloc] initWithFrame:NSMakeRect(0.0f, 0.0f, frame.size.width, frame.size.height)];
@@ -482,9 +493,15 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
 
 - (void)setFrameSize:(NSSize)size
 {
-    // See WebFrameLoaderClient::provisionalLoadStarted.
-    if (!NSEqualSizes(size, [self frame].size) && [[[self webFrame] webView] drawsBackground])
-        [[self _scrollView] setDrawsBackground:YES];
+    if (!NSEqualSizes(size, [self frame].size)) {
+        // See WebFrameLoaderClient::provisionalLoadStarted.
+        if ([[[self webFrame] webView] drawsBackground])
+            [[self _scrollView] setDrawsBackground:YES];
+        if (Frame* coreFrame = [self _web_frame]) {
+            if (FrameView* coreFrameView = coreFrame->view())
+                coreFrameView->setNeedsLayout();
+        }
+    }
     [super setFrameSize:size];
 }
 
@@ -508,31 +525,49 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
     return frame->eventHandler()->scrollOverflow(direction, granularity);
 }
 
+- (BOOL)_scrollToBeginningOfDocument
+{
+    if ([self _scrollOverflowInDirection:ScrollUp granularity:ScrollByDocument])
+        return YES;
+    if (![self _hasScrollBars])
+        return NO;
+    NSPoint point = [[[self _scrollView] documentView] frame].origin;
+    return [[self _contentView] _scrollTo:&point animate:YES];
+}
+
+- (BOOL)_scrollToEndOfDocument
+{
+    if ([self _scrollOverflowInDirection:ScrollDown granularity:ScrollByDocument])
+        return YES;
+    if (![self _hasScrollBars])
+        return NO;
+    NSRect frame = [[[self _scrollView] documentView] frame];
+    NSPoint point = NSMakePoint(frame.origin.x, NSMaxY(frame));
+    return [[self _contentView] _scrollTo:&point animate:YES];
+}
+
 - (void)scrollToBeginningOfDocument:(id)sender
 {
-    if (![self _scrollOverflowInDirection:ScrollUp granularity:ScrollByDocument]) {
-
-        if (![self _hasScrollBars]) {
-            [[self _largestChildWithScrollBars] scrollToBeginningOfDocument:sender];
+    if ([self _scrollToBeginningOfDocument])
+        return;
+    
+    if (WebFrameView *child = [self _largestChildWithScrollBars]) {
+        if ([child _scrollToBeginningOfDocument])
             return;
-        }
-
-        [[self _contentView] scrollPoint:[[[self _scrollView] documentView] frame].origin];
     }
+    [[self nextResponder] tryToPerform:@selector(scrollToBeginningOfDocument:) with:sender];
 }
 
 - (void)scrollToEndOfDocument:(id)sender
 {
-    if (![self _scrollOverflowInDirection:ScrollDown granularity:ScrollByDocument]) {
+    if ([self _scrollToEndOfDocument])
+        return;
 
-        if (![self _hasScrollBars]) {
-            [[self _largestChildWithScrollBars] scrollToEndOfDocument:sender];
+    if (WebFrameView *child = [self _largestChildWithScrollBars]) {
+        if ([child _scrollToEndOfDocument])
             return;
-        }
-        
-        NSRect frame = [[[self _scrollView] documentView] frame];
-        [[self _contentView] scrollPoint:NSMakePoint(frame.origin.x, NSMaxY(frame))];
     }
+    [[self nextResponder] tryToPerform:@selector(scrollToEndOfDocument:) with:sender];
 }
 
 - (void)_goBack
@@ -643,12 +678,14 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
 
 - (void)scrollLineUp:(id)sender
 {
-    [self _scrollLineVertically:YES];
+    if (![self _scrollLineVertically:YES])
+        [[self nextResponder] tryToPerform:@selector(scrollLineUp:) with:sender];
 }
 
 - (void)scrollLineDown:(id)sender
 {
-    [self _scrollLineVertically:NO];
+    if (![self _scrollLineVertically:NO])
+        [[self nextResponder] tryToPerform:@selector(scrollLineDown:) with:sender];
 }
 
 - (BOOL)_firstResponderIsFormControl

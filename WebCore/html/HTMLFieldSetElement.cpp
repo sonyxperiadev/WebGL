@@ -34,7 +34,7 @@ namespace WebCore {
 using namespace HTMLNames;
 
 HTMLFieldSetElement::HTMLFieldSetElement(const QualifiedName& tagName, Document *doc, HTMLFormElement *f)
-   : HTMLFormControlElement(tagName, doc, f)
+    : HTMLFormControlElement(tagName, doc, f)
 {
     ASSERT(hasTagName(fieldsetTag));
 }
@@ -53,7 +53,7 @@ bool HTMLFieldSetElement::isFocusable() const
     return HTMLElement::isFocusable();
 }
 
-const AtomicString& HTMLFieldSetElement::type() const
+const AtomicString& HTMLFieldSetElement::formControlType() const
 {
     DEFINE_STATIC_LOCAL(const AtomicString, fieldset, ("fieldset"));
     return fieldset;

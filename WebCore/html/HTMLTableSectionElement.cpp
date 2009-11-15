@@ -99,7 +99,7 @@ PassRefPtr<HTMLElement> HTMLTableSectionElement::insertRow(int index, ExceptionC
     return r.release();
 }
 
-void HTMLTableSectionElement::deleteRow( int index, ExceptionCode& ec)
+void HTMLTableSectionElement::deleteRow(int index, ExceptionCode& ec)
 {
     RefPtr<HTMLCollection> children = rows();
     int numRows = children ? (int)children->length() : 0;
@@ -167,7 +167,7 @@ void HTMLTableSectionElement::setVAlign(const String &value)
 
 PassRefPtr<HTMLCollection> HTMLTableSectionElement::rows()
 {
-    return HTMLCollection::create(this, HTMLCollection::TSectionRows);
+    return HTMLCollection::create(this, TSectionRows);
 }
 
 }

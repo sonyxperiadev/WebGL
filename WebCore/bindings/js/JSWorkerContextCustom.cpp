@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2008, 2009 Apple Inc. All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,14 +30,46 @@
 #include "JSWorkerContext.h"
 
 #include "JSDOMBinding.h"
+#include "JSDOMGlobalObject.h"
 #include "JSEventListener.h"
+#include "JSMessageChannelConstructor.h"
+#include "JSMessagePort.h"
+#include "JSWorkerLocation.h"
+#include "JSWorkerNavigator.h"
+#include "JSXMLHttpRequestConstructor.h"
+#include "ScheduledAction.h"
 #include "WorkerContext.h"
+#include "WorkerLocation.h"
+#include "WorkerNavigator.h"
+#include <interpreter/Interpreter.h>
 
 using namespace JSC;
 
 namespace WebCore {
 
-bool JSWorkerContext::customGetOwnPropertySlot(JSC::ExecState* exec, const JSC::Identifier& propertyName, JSC::PropertySlot& slot)
+void JSWorkerContext::markChildren(MarkStack& markStack)
+{
+    Base::markChildren(markStack);
+
+    JSGlobalData& globalData = *this->globalData();
+
+    markActiveObjectsForContext(markStack, globalData, scriptExecutionContext());
+
+    markDOMObjectWrapper(markStack, globalData, impl()->optionalLocation());
+    markDOMObjectWrapper(markStack, globalData, impl()->optionalNavigator());
+
+    markIfNotNull(markStack, impl()->onerror());
+
+    typedef WorkerContext::EventListenersMap EventListenersMap;
+    typedef WorkerContext::ListenerVector ListenerVector;
+    EventListenersMap& eventListeners = impl()->eventListeners();
+    for (EventListenersMap::iterator mapIter = eventListeners.begin(); mapIter != eventListeners.end(); ++mapIter) {
+        for (ListenerVector::iterator vecIter = mapIter->second.begin(); vecIter != mapIter->second.end(); ++vecIter)
+            (*vecIter)->markJSFunction(markStack);
+    }
+}
+
+bool JSWorkerContext::getOwnPropertySlotDelegate(ExecState* exec, const Identifier& propertyName, PropertySlot& slot)
 {
     // Look for overrides before looking at any of our own properties.
     if (JSGlobalObject::getOwnPropertySlot(exec, propertyName, slot))
@@ -45,53 +77,77 @@ bool JSWorkerContext::customGetOwnPropertySlot(JSC::ExecState* exec, const JSC::
     return false;
 }
 
-void JSWorkerContext::mark()
+JSValue JSWorkerContext::xmlHttpRequest(ExecState* exec) const
 {
-    Base::mark();
+    return getDOMConstructor<JSXMLHttpRequestConstructor>(exec, this);
+}
 
-    markActiveObjectsForContext(*globalData(), scriptExecutionContext());
+JSValue JSWorkerContext::importScripts(ExecState* exec, const ArgList& args)
+{
+    if (!args.size())
+        return jsUndefined();
 
-    if (JSUnprotectedEventListener* listener = static_cast<JSUnprotectedEventListener*>(impl()->onmessage()))
-        listener->mark();
-
-    typedef WorkerContext::EventListenersMap EventListenersMap;
-    typedef WorkerContext::ListenerVector ListenerVector;
-    EventListenersMap& eventListeners = impl()->eventListeners();
-    for (EventListenersMap::iterator mapIter = eventListeners.begin(); mapIter != eventListeners.end(); ++mapIter) {
-        for (ListenerVector::iterator vecIter = mapIter->second.begin(); vecIter != mapIter->second.end(); ++vecIter) {
-            JSUnprotectedEventListener* listener = static_cast<JSUnprotectedEventListener*>(vecIter->get());
-            listener->mark();
-        }
+    Vector<String> urls;
+    for (unsigned i = 0; i < args.size(); i++) {
+        urls.append(args.at(i).toString(exec));
+        if (exec->hadException())
+            return jsUndefined();
     }
-}
+    ExceptionCode ec = 0;
+    int signedLineNumber;
+    intptr_t sourceID;
+    UString sourceURL;
+    JSValue function;
+    exec->interpreter()->retrieveLastCaller(exec, signedLineNumber, sourceID, sourceURL, function);
 
-JSValuePtr JSWorkerContext::self(ExecState*) const
-{
-    return JSValuePtr(this);
-}
-
-void JSWorkerContext::setSelf(ExecState* exec, JSValuePtr value)
-{
-    putDirect(Identifier(exec, "self"), value);
-}
-
-JSValuePtr JSWorkerContext::addEventListener(ExecState* exec, const ArgList& args)
-{
-    RefPtr<JSUnprotectedEventListener> listener = findOrCreateJSUnprotectedEventListener(exec, args.at(exec, 1));
-    if (!listener)
-        return jsUndefined();
-    impl()->addEventListener(args.at(exec, 0).toString(exec), listener.release(), args.at(exec, 2).toBoolean(exec));
+    impl()->importScripts(urls, sourceURL, signedLineNumber >= 0 ? signedLineNumber : 0, ec);
+    setDOMException(exec, ec);
     return jsUndefined();
 }
 
-JSValuePtr JSWorkerContext::removeEventListener(ExecState* exec, const ArgList& args)
+JSValue JSWorkerContext::addEventListener(ExecState* exec, const ArgList& args)
 {
-    JSUnprotectedEventListener* listener = findJSUnprotectedEventListener(exec, args.at(exec, 1));
+    RefPtr<JSEventListener> listener = findOrCreateJSEventListener(args.at(1));
     if (!listener)
         return jsUndefined();
-    impl()->removeEventListener(args.at(exec, 0).toString(exec), listener, args.at(exec, 2).toBoolean(exec));
+    impl()->addEventListener(args.at(0).toString(exec), listener.release(), args.at(2).toBoolean(exec));
     return jsUndefined();
 }
+
+JSValue JSWorkerContext::removeEventListener(ExecState* exec, const ArgList& args)
+{
+    JSEventListener* listener = findJSEventListener(args.at(1));
+    if (!listener)
+        return jsUndefined();
+    impl()->removeEventListener(args.at(0).toString(exec), listener, args.at(2).toBoolean(exec));
+    return jsUndefined();
+}
+
+JSValue JSWorkerContext::setTimeout(ExecState* exec, const ArgList& args)
+{
+    ScheduledAction* action = ScheduledAction::create(exec, args);
+    if (exec->hadException())
+        return jsUndefined();
+    int delay = args.at(1).toInt32(exec);
+    return jsNumber(exec, impl()->setTimeout(action, delay));
+}
+
+JSValue JSWorkerContext::setInterval(ExecState* exec, const ArgList& args)
+{
+    ScheduledAction* action = ScheduledAction::create(exec, args);
+    if (exec->hadException())
+        return jsUndefined();
+    int delay = args.at(1).toInt32(exec);
+    return jsNumber(exec, impl()->setInterval(action, delay));
+}
+
+
+#if ENABLE(CHANNEL_MESSAGING)
+JSValue JSWorkerContext::messageChannel(ExecState* exec) const
+{
+    return getDOMConstructor<JSMessageChannelConstructor>(exec, this);
+}
+#endif
 
 } // namespace WebCore
 

@@ -38,7 +38,6 @@
 #include "SkDashPathEffect.h"
 #include "SkDevice.h"
 #include "SkPaint.h"
-#include "SkPorterDuff.h"
 #include "PlatformGraphicsContext.h"
 #include "TransformationMatrix.h"
 
@@ -46,6 +45,7 @@
 #include "SkGradientShader.h"
 #include "SkBitmapRef.h"
 #include "SkString.h"
+#include "SkiaUtils.h"
 
 using namespace std;
 
@@ -65,7 +65,7 @@ template <typename T> T* deepCopyPtr(const T* src) {
 /*  TODO / questions
 
     mAlpha: how does this interact with the alpha in Color? multiply them together?
-    mPorterDuffMode: do I always respect this? If so, then
+    mMode: do I always respect this? If so, then
                      the rgb() & 0xFF000000 check will abort drawing too often
     Is Color premultiplied or not? If it is, then I can't blindly pass it to paint.setColor()
 */
@@ -84,12 +84,13 @@ public:
 
     struct State {
         SkPath*             mPath;
+        SkPathEffect* mPathEffect;
         float               mMiterLimit;
         float               mAlpha;
         float               mStrokeThickness;
         SkPaint::Cap        mLineCap;
         SkPaint::Join       mLineJoin;
-        SkPorterDuff::Mode  mPorterDuffMode;
+        SkXfermode::Mode    mMode;
         int                 mDashRatio; //ratio of the length of a dash to its width
         ShadowRec           mShadow;
         SkColor             mFillColor;
@@ -98,12 +99,13 @@ public:
         
         State() {
             mPath            = NULL;    // lazily allocated
+            mPathEffect = 0;
             mMiterLimit      = 4;
             mAlpha           = 1;
             mStrokeThickness = 0.0f;  // Same as default in GraphicsContextPrivate.h
             mLineCap         = SkPaint::kDefault_Cap;
             mLineJoin        = SkPaint::kDefault_Join;
-            mPorterDuffMode  = SkPorterDuff::kSrcOver_Mode;
+            mMode            = SkXfermode::kSrcOver_Mode;
             mDashRatio       = 3;
             mUseAA           = true;
             mShadow.mBlur    = 0;
@@ -114,10 +116,12 @@ public:
         State(const State& other) {
             memcpy(this, &other, sizeof(State));
             mPath = deepCopyPtr<SkPath>(other.mPath);
+            mPathEffect->safeRef();
         }
         
         ~State() {
             delete mPath;
+            mPathEffect->safeUnref();
         }
         
         void setShadow(int radius, int dx, int dy, SkColor c) {
@@ -133,7 +137,7 @@ public:
             if (mShadow.mBlur > 0) {
                 paint->setAntiAlias(true);
                 paint->setDither(true);
-                paint->setPorterDuffXfermode(mPorterDuffMode);
+                paint->setXfermodeMode(mMode);
                 paint->setColor(mShadow.mColor);
                 paint->setMaskFilter(SkBlurMaskFilter::Create(mShadow.mBlur,
                                 SkBlurMaskFilter::kNormal_BlurStyle))->unref();
@@ -221,7 +225,7 @@ public:
     void setup_paint_common(SkPaint* paint) const {
         paint->setAntiAlias(mState->mUseAA);
         paint->setDither(true);
-        paint->setPorterDuffXfermode(mState->mPorterDuffMode);
+        paint->setXfermodeMode(mState->mMode);
         if (mState->mShadow.mBlur > 0) {
             SkDrawLooper* looper = new SkBlurDrawLooper(mState->mShadow.mBlur,
                                                         mState->mShadow.mDx,
@@ -269,6 +273,11 @@ public:
             rect->inset(-SK_ScalarHalf, -SK_ScalarHalf);
         }
 
+        SkPathEffect* pe = mState->mPathEffect;
+        if (pe) {
+            paint->setPathEffect(pe);
+            return false;
+        }
         switch (mCG->strokeStyle()) {
             case NoStroke:
             case SolidStroke:
@@ -284,7 +293,7 @@ public:
 
         if (width > 0) {
             SkScalar intervals[] = { width, width };
-            SkPathEffect* pe = new SkDashPathEffect(intervals, 2, 0);
+            pe = new SkDashPathEffect(intervals, 2, 0);
             paint->setPathEffect(pe)->unref();
             // return true if we're basically a dotted dash of squares
             return RoundToInt(width) == RoundToInt(paint->getStrokeWidth());
@@ -315,7 +324,8 @@ static SkShader::TileMode SpreadMethod2TileMode(GradientSpreadMethod sm) {
 }
 
 static void extactShader(SkPaint* paint, ColorSpace cs, Pattern* pat,
-                         Gradient* grad, GradientSpreadMethod sm) {
+                         Gradient* grad)
+{
     switch (cs) {
         case PatternColorSpace:
             // createPlatformPattern() returns a new inst
@@ -324,6 +334,7 @@ static void extactShader(SkPaint* paint, ColorSpace cs, Pattern* pat,
             break;
         case GradientColorSpace: {
             // grad->getShader() returns a cached obj
+            GradientSpreadMethod sm = grad->spreadMethod();
             paint->setShader(grad->getShader(SpreadMethod2TileMode(sm)));
             break;
         }
@@ -400,9 +411,7 @@ void GraphicsContext::drawRect(const IntRect& rect)
         return;
 
     SkPaint paint;
-    SkRect  r;
-
-    android_setrect(&r, rect);
+    SkRect  r(rect);
 
     if (fillColor().alpha()) {
         m_data->setup_paint_fill(&paint);
@@ -488,9 +497,7 @@ void GraphicsContext::drawLine(const IntPoint& point1, const IntPoint& point2)
         canvas->drawPoints(SkCanvas::kPoints_PointMode, count, verts, paint);
         canvas->restore();
     } else {
-        SkPoint pts[2];
-        android_setpt(&pts[0], point1);
-        android_setpt(&pts[1], point2);
+        SkPoint pts[2] = { point1, point2 };
         canvas->drawLine(pts[0].fX, pts[0].fY, pts[1].fX, pts[1].fY, paint);
     }
 }
@@ -546,10 +553,8 @@ void GraphicsContext::drawEllipse(const IntRect& rect)
         return;
 
     SkPaint paint;
-    SkRect  oval;
+    SkRect  oval(rect);
     
-    android_setrect(&oval, rect);
-
     if (fillColor().rgb() & 0xFF000000) {
         m_data->setup_paint_fill(&paint);
         GC2Canvas(this)->drawOval(oval, paint);
@@ -579,10 +584,8 @@ void GraphicsContext::strokeArc(const IntRect& r, int startAngle, int angleSpan)
 
     SkPath  path;
     SkPaint paint;
-    SkRect  oval;
+    SkRect  oval(r);
     
-    android_setrect(&oval, r);
-
     if (strokeStyle() == NoStroke) {
         m_data->setup_paint_fill(&paint);   // we want the fill color
         paint.setStyle(SkPaint::kStroke_Style);
@@ -644,7 +647,6 @@ void GraphicsContext::fillRoundedRect(const IntRect& rect, const IntSize& topLef
     SkPaint paint;
     SkPath  path;
     SkScalar radii[8];
-    SkRect  r;
     
     radii[0] = SkIntToScalar(topLeft.width());
     radii[1] = SkIntToScalar(topLeft.height());
@@ -654,7 +656,7 @@ void GraphicsContext::fillRoundedRect(const IntRect& rect, const IntSize& topLef
     radii[5] = SkIntToScalar(bottomRight.height());
     radii[6] = SkIntToScalar(bottomLeft.width());
     radii[7] = SkIntToScalar(bottomLeft.height());
-    path.addRoundRect(*android_setrect(&r, rect), radii);
+    path.addRoundRect(rect, radii);
     
     m_data->setup_paint_fill(&paint);
     GC2Canvas(this)->drawPath(path, paint);
@@ -663,16 +665,14 @@ void GraphicsContext::fillRoundedRect(const IntRect& rect, const IntSize& topLef
 void GraphicsContext::fillRect(const FloatRect& rect)
 {
     SkPaint paint;
-    SkRect  r;
     
-    android_setrect(&r, rect);
     m_data->setup_paint_fill(&paint);
 
     extactShader(&paint, m_common->state.fillColorSpace,
                  m_common->state.fillPattern.get(),
-                 m_common->state.fillGradient.get(), spreadMethod());
+                 m_common->state.fillGradient.get());
 
-    GC2Canvas(this)->drawRect(r, paint);
+    GC2Canvas(this)->drawRect(rect, paint);
 }
 
 void GraphicsContext::fillRect(const FloatRect& rect, const Color& color)
@@ -682,13 +682,35 @@ void GraphicsContext::fillRect(const FloatRect& rect, const Color& color)
 
     if (color.rgb() & 0xFF000000) {
         SkPaint paint;
-        SkRect  r;
         
-        android_setrect(&r, rect);
         m_data->setup_paint_common(&paint);
         paint.setColor(color.rgb());    // punch in the specified color
         paint.setShader(NULL);          // in case we had one set
-        GC2Canvas(this)->drawRect(r, paint);
+
+        /*  Sometimes we record and draw portions of the page, using clips
+            for each portion. The problem with this is that webkit, sometimes,
+            sees that we're only recording a portion, and they adjust some of
+            their rectangle coordinates accordingly (e.g.
+            RenderBoxModelObject::paintFillLayerExtended() which calls
+            rect.intersect(paintInfo.rect) and then draws the bg with that
+            rect. The result is that we end up drawing rects that are meant to
+            seam together (one for each portion), but if the rects have
+            fractional coordinates (e.g. we are zoomed by a fractional amount)
+            we will double-draw those edges, resulting in visual cracks or
+            artifacts.
+
+            The fix seems to be to just turn off antialasing for rects (this
+            entry-point in GraphicsContext seems to have been sufficient,
+            though perhaps we'll find we need to do this as well in fillRect(r)
+            as well.) Currently setup_paint_common() enables antialiasing.
+
+            Since we never show the page rotated at a funny angle, disabling
+            antialiasing seems to have no real down-side, and it does fix the
+            bug when we're zoomed (and drawing portions that need to seam).
+         */
+        paint.setAntiAlias(false);
+
+        GC2Canvas(this)->drawRect(rect, paint);
     }
 }
 
@@ -697,9 +719,7 @@ void GraphicsContext::clip(const FloatRect& rect)
     if (paintingDisabled())
         return;
     
-    SkRect  r;
-    
-    GC2Canvas(this)->clipRect(*android_setrect(&r, rect));
+    GC2Canvas(this)->clipRect(rect);
 }
 
 void GraphicsContext::clip(const Path& path)
@@ -720,8 +740,8 @@ void GraphicsContext::addInnerRoundedRectClip(const IntRect& rect, int thickness
 //printf("-------- addInnerRoundedRectClip: [%d %d %d %d] thickness=%d\n", rect.x(), rect.y(), rect.width(), rect.height(), thickness);
 
     SkPath  path;
-    SkRect r;
-    android_setrect(&r, rect);
+    SkRect r(rect);
+
     path.addOval(r, SkPath::kCW_Direction);
     // only perform the inset if we won't invert r
     if (2*thickness < rect.width() && 2*thickness < rect.height())
@@ -737,9 +757,7 @@ void GraphicsContext::clipOut(const IntRect& r)
     if (paintingDisabled())
         return;
     
-    SkRect  rect;
-    
-    GC2Canvas(this)->clipRect(*android_setrect(&rect, r), SkRegion::kDifference_Op);
+    GC2Canvas(this)->clipRect(r, SkRegion::kDifference_Op);
 }
 
 void GraphicsContext::clipOutEllipseInRect(const IntRect& r)
@@ -747,12 +765,23 @@ void GraphicsContext::clipOutEllipseInRect(const IntRect& r)
     if (paintingDisabled())
         return;
     
-    SkRect  oval;
-    SkPath  path;
+    SkPath path;
 
-    path.addOval(*android_setrect(&oval, r), SkPath::kCCW_Direction);
+    path.addOval(r, SkPath::kCCW_Direction);
     GC2Canvas(this)->clipPath(path, SkRegion::kDifference_Op);
 }
+
+#if ENABLE(SVG)
+void GraphicsContext::clipPath(WindRule clipRule)
+{
+    if (paintingDisabled())
+        return;
+    const SkPath* oldPath = m_data->getPath();
+    SkPath path(*oldPath);
+    path.setFillType(clipRule == RULE_EVENODD ? SkPath::kEvenOdd_FillType : SkPath::kWinding_FillType);
+    GC2Canvas(this)->clipPath(path);
+}
+#endif
 
 void GraphicsContext::clipOut(const Path& p)
 {
@@ -893,7 +922,7 @@ void GraphicsContext::setAlpha(float alpha)
 
 void GraphicsContext::setCompositeOperation(CompositeOperator op)
 {
-    m_data->mState->mPorterDuffMode = android_convert_compositeOp(op);
+    m_data->mState->mMode = WebCoreCompositeToSkiaComposite(op);
 }
 
 void GraphicsContext::clearRect(const FloatRect& rect)
@@ -902,12 +931,10 @@ void GraphicsContext::clearRect(const FloatRect& rect)
         return;
     
     SkPaint paint;
-    SkRect  r;
     
-    android_setrect(&r, rect);
     m_data->setup_paint_fill(&paint);
-    paint.setPorterDuffXfermode(SkPorterDuff::kClear_Mode);
-    GC2Canvas(this)->drawRect(r, paint);
+    paint.setXfermodeMode(SkXfermode::kClear_Mode);
+    GC2Canvas(this)->drawRect(rect, paint);
 }
 
 void GraphicsContext::strokeRect(const FloatRect& rect, float lineWidth)
@@ -916,13 +943,10 @@ void GraphicsContext::strokeRect(const FloatRect& rect, float lineWidth)
         return;
     
     SkPaint paint;
-    SkRect  r;
-    
-    android_setrect(&r, rect);
 
     m_data->setup_paint_stroke(&paint, NULL);
     paint.setStrokeWidth(SkFloatToScalar(lineWidth));
-    GC2Canvas(this)->drawRect(r, paint);
+    GC2Canvas(this)->drawRect(rect, paint);
 }
 
 void GraphicsContext::setLineCap(LineCap cap)
@@ -942,6 +966,29 @@ void GraphicsContext::setLineCap(LineCap cap)
         break;
     }
 }
+
+#if ENABLE(SVG)
+void GraphicsContext::setLineDash(const DashArray& dashes, float dashOffset)
+{
+    if (paintingDisabled())
+        return;
+
+    size_t dashLength = dashes.size();
+    if (!dashLength)
+        return;
+
+    size_t count = (dashLength % 2) == 0 ? dashLength : dashLength * 2;
+    SkScalar* intervals = new SkScalar[count];
+
+    for (unsigned int i = 0; i < count; i++)
+        intervals[i] = SkFloatToScalar(dashes[i % dashLength]);
+    SkPathEffect **effectPtr = &m_data->mState->mPathEffect;
+    (*effectPtr)->safeUnref();
+    *effectPtr = new SkDashPathEffect(intervals, count, SkFloatToScalar(dashOffset));
+
+    delete[] intervals;
+}
+#endif
 
 void GraphicsContext::setLineJoin(LineJoin join)
 {
@@ -997,8 +1044,7 @@ FloatRect GraphicsContext::roundToDevicePixels(const FloatRect& rect)
         return FloatRect();
     
     const SkMatrix& matrix = GC2Canvas(this)->getTotalMatrix();
-    SkRect r;
-    android_setrect(&r, rect);
+    SkRect r(rect);
     matrix.mapRect(&r);
     FloatRect result(SkScalarToFloat(r.fLeft), SkScalarToFloat(r.fTop), SkScalarToFloat(r.width()), SkScalarToFloat(r.height()));
     return result;
@@ -1041,7 +1087,13 @@ void GraphicsContext::setPlatformShouldAntialias(bool useAA)
 
 TransformationMatrix GraphicsContext::getCTM() const
 {
-    return TransformationMatrix(GC2Canvas(this)->getTotalMatrix());
+    const SkMatrix& m = GC2Canvas(this)->getTotalMatrix();
+    return TransformationMatrix(SkScalarToDouble(m.getScaleX()),      // a
+                                SkScalarToDouble(m.getSkewY()),       // b
+                                SkScalarToDouble(m.getSkewX()),       // c
+                                SkScalarToDouble(m.getScaleY()),      // d
+                                SkScalarToDouble(m.getTranslateX()),  // e
+                                SkScalarToDouble(m.getTranslateY())); // f
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1054,12 +1106,6 @@ void GraphicsContext::beginPath()
 void GraphicsContext::addPath(const Path& p)
 {
     m_data->addPath(*p.platformPath());
-}
-
-void GraphicsContext::drawPath()
-{
-    this->fillPath();
-    this->strokePath();
 }
 
 void GraphicsContext::fillPath()
@@ -1082,7 +1128,7 @@ void GraphicsContext::fillPath()
 
     extactShader(&paint, m_common->state.fillColorSpace,
                  m_common->state.fillPattern.get(),
-                 m_common->state.fillGradient.get(), spreadMethod());
+                 m_common->state.fillGradient.get());
 
     GC2Canvas(this)->drawPath(*path, paint);
 }
@@ -1090,7 +1136,7 @@ void GraphicsContext::fillPath()
 void GraphicsContext::strokePath()
 {
     const SkPath* path = m_data->getPath();
-    if (paintingDisabled() || !path || strokeStyle() == NoStroke)
+    if (paintingDisabled() || !path)
         return;
     
     SkPaint paint;
@@ -1098,7 +1144,7 @@ void GraphicsContext::strokePath()
 
     extactShader(&paint, m_common->state.strokeColorSpace,
                  m_common->state.strokePattern.get(),
-                 m_common->state.strokeGradient.get(), spreadMethod());
+                 m_common->state.strokeGradient.get());
     
     GC2Canvas(this)->drawPath(*path, paint);
 }

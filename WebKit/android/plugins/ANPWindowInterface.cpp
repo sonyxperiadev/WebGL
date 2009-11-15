@@ -26,6 +26,9 @@
 // must include config.h first for webkit to fiddle with new/delete
 #include "config.h"
 #include "SkANP.h"
+#include "WebViewCore.h"
+#include "PluginView.h"
+#include "PluginWidgetAndroid.h"
 
 static bool anp_lockRect(void* window, const ANPRectI* inval,
                          ANPBitmap* bitmap) {
@@ -48,15 +51,46 @@ static bool anp_lockRegion(void* window, const ANPRegion* inval,
 static void anp_unlock(void* window) {
 }
 
+static PluginView* pluginViewForInstance(NPP instance) {
+    if (instance && instance->ndata)
+        return static_cast<PluginView*>(instance->ndata);
+    return PluginView::currentPluginView();
+}
+
+static void anp_setVisibleRects(NPP instance, const ANPRectI rects[], int32_t count) {
+    PluginView* pluginView = pluginViewForInstance(instance);
+    PluginWidgetAndroid* pluginWidget = pluginView->platformPluginWidget();
+    pluginWidget->setVisibleRects(rects, count);
+}
+
+static void anp_clearVisibleRects(NPP instance) {
+    anp_setVisibleRects(instance, NULL, 0);
+}
+
+static void anp_showKeyboard(NPP instance, bool value) {
+    ScrollView* scrollView = pluginViewForInstance(instance)->parent();
+    android::WebViewCore* core = android::WebViewCore::getWebViewCore(scrollView);
+    core->requestKeyboard(value);
+}
+
+static void anp_requestFullScreen(NPP instance) {
+    PluginView* pluginView = pluginViewForInstance(instance);
+    pluginView->platformPluginWidget()->requestFullScreenMode();
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 
 #define ASSIGN(obj, name)   (obj)->name = anp_##name
 
 void ANPWindowInterfaceV0_Init(ANPInterface* value) {
     ANPWindowInterfaceV0* i = reinterpret_cast<ANPWindowInterfaceV0*>(value);
-    
+
     ASSIGN(i, lockRect);
     ASSIGN(i, lockRegion);
+    ASSIGN(i, setVisibleRects);
+    ASSIGN(i, clearVisibleRects);
+    ASSIGN(i, showKeyboard);
     ASSIGN(i, unlock);
+    ASSIGN(i, requestFullScreen);
 }
 

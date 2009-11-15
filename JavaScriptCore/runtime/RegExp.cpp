@@ -1,6 +1,7 @@
 /*
  *  Copyright (C) 1999-2001, 2004 Harri Porten (porten@kde.org)
  *  Copyright (c) 2007, 2008 Apple Inc. All rights reserved.
+ *  Copyright (C) 2009 Torch Mobile, Inc.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Lesser General Public
@@ -20,16 +21,32 @@
 
 #include "config.h"
 #include "RegExp.h"
-
-#include "JIT.h"
 #include "Lexer.h"
-#include "WRECGenerator.h"
-#include <pcre/pcre.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <wtf/Assertions.h>
 #include <wtf/OwnArrayPtr.h>
+
+
+#if ENABLE(YARR)
+
+#include "yarr/RegexCompiler.h"
+#if ENABLE(YARR_JIT)
+#include "yarr/RegexJIT.h"
+#else
+#include "yarr/RegexInterpreter.h"
+#endif
+
+#else
+
+#if ENABLE(WREC)
+#include "JIT.h"
+#include "WRECGenerator.h"
+#endif
+#include <pcre/pcre.h>
+
+#endif
 
 namespace JSC {
 
@@ -40,32 +57,16 @@ using namespace WREC;
 inline RegExp::RegExp(JSGlobalData* globalData, const UString& pattern)
     : m_pattern(pattern)
     , m_flagBits(0)
-    , m_regExp(0)
     , m_constructionError(0)
     , m_numSubpatterns(0)
 {
-#if ENABLE(WREC)
-    m_wrecFunction = Generator::compileRegExp(globalData, pattern, &m_numSubpatterns, &m_constructionError, m_executablePool);
-    if (m_wrecFunction || m_constructionError)
-        return;
-    // Fall through to non-WREC case.
-#else
-    UNUSED_PARAM(globalData);
-#endif
-    m_regExp = jsRegExpCompile(reinterpret_cast<const UChar*>(pattern.data()), pattern.size(),
-        JSRegExpDoNotIgnoreCase, JSRegExpSingleLine, &m_numSubpatterns, &m_constructionError);
-}
-
-PassRefPtr<RegExp> RegExp::create(JSGlobalData* globalData, const UString& pattern)
-{
-    return adoptRef(new RegExp(globalData, pattern));
+    compile(globalData);
 }
 
 inline RegExp::RegExp(JSGlobalData* globalData, const UString& pattern, const UString& flags)
     : m_pattern(pattern)
     , m_flags(flags)
     , m_flagBits(0)
-    , m_regExp(0)
     , m_constructionError(0)
     , m_numSubpatterns(0)
 {
@@ -73,30 +74,24 @@ inline RegExp::RegExp(JSGlobalData* globalData, const UString& pattern, const US
     // String::match and RegExpObject::match.
     if (flags.find('g') != -1)
         m_flagBits |= Global;
-
-    // FIXME: Eliminate duplication by adding a way ask a JSRegExp what its flags are?
-    JSRegExpIgnoreCaseOption ignoreCaseOption = JSRegExpDoNotIgnoreCase;
-    if (flags.find('i') != -1) {
+    if (flags.find('i') != -1)
         m_flagBits |= IgnoreCase;
-        ignoreCaseOption = JSRegExpIgnoreCase;
-    }
-
-    JSRegExpMultilineOption multilineOption = JSRegExpSingleLine;
-    if (flags.find('m') != -1) {
+    if (flags.find('m') != -1)
         m_flagBits |= Multiline;
-        multilineOption = JSRegExpMultiline;
-    }
 
-#if ENABLE(WREC)
-    m_wrecFunction = Generator::compileRegExp(globalData, pattern, &m_numSubpatterns, &m_constructionError, m_executablePool, (m_flagBits & IgnoreCase), (m_flagBits & Multiline));
-    if (m_wrecFunction || m_constructionError)
-        return;
-    // Fall through to non-WREC case.
-#else
-    UNUSED_PARAM(globalData);
+    compile(globalData);
+}
+
+#if !ENABLE(YARR)
+RegExp::~RegExp()
+{
+    jsRegExpFree(m_regExp);
+}
 #endif
-    m_regExp = jsRegExpCompile(reinterpret_cast<const UChar*>(pattern.data()), pattern.size(),
-        ignoreCaseOption, multilineOption, &m_numSubpatterns, &m_constructionError);
+
+PassRefPtr<RegExp> RegExp::create(JSGlobalData* globalData, const UString& pattern)
+{
+    return adoptRef(new RegExp(globalData, pattern));
 }
 
 PassRefPtr<RegExp> RegExp::create(JSGlobalData* globalData, const UString& pattern, const UString& flags)
@@ -104,12 +99,90 @@ PassRefPtr<RegExp> RegExp::create(JSGlobalData* globalData, const UString& patte
     return adoptRef(new RegExp(globalData, pattern, flags));
 }
 
-RegExp::~RegExp()
+#if ENABLE(YARR)
+
+void RegExp::compile(JSGlobalData* globalData)
 {
-    jsRegExpFree(m_regExp);
+#if ENABLE(YARR_JIT)
+    Yarr::jitCompileRegex(globalData, m_regExpJITCode, m_pattern, m_numSubpatterns, m_constructionError, ignoreCase(), multiline());
+#else
+    UNUSED_PARAM(globalData);
+    m_regExpBytecode.set(Yarr::byteCompileRegex(m_pattern, m_numSubpatterns, m_constructionError, ignoreCase(), multiline()));
+#endif
 }
 
-int RegExp::match(const UString& s, int startOffset, OwnArrayPtr<int>* ovector)
+int RegExp::match(const UString& s, int startOffset, Vector<int, 32>* ovector)
+{
+    if (startOffset < 0)
+        startOffset = 0;
+    if (ovector)
+        ovector->clear();
+
+    if (startOffset > s.size() || s.isNull())
+        return -1;
+
+#if ENABLE(YARR_JIT)
+    if (!!m_regExpJITCode) {
+#else
+    if (m_regExpBytecode) {
+#endif
+        int offsetVectorSize = (m_numSubpatterns + 1) * 3; // FIXME: should be 2 - but adding temporary fallback to pcre.
+        int* offsetVector;
+        Vector<int, 32> nonReturnedOvector;
+        if (ovector) {
+            ovector->resize(offsetVectorSize);
+            offsetVector = ovector->data();
+        } else {
+            nonReturnedOvector.resize(offsetVectorSize);
+            offsetVector = nonReturnedOvector.data();
+        }
+
+        ASSERT(offsetVector);
+        for (int j = 0; j < offsetVectorSize; ++j)
+            offsetVector[j] = -1;
+
+
+#if ENABLE(YARR_JIT)
+        int result = Yarr::executeRegex(m_regExpJITCode, s.data(), startOffset, s.size(), offsetVector, offsetVectorSize);
+#else
+        int result = Yarr::interpretRegex(m_regExpBytecode.get(), s.data(), startOffset, s.size(), offsetVector);
+#endif
+
+        if (result < 0) {
+#ifndef NDEBUG
+            // TODO: define up a symbol, rather than magic -1
+            if (result != -1)
+                fprintf(stderr, "jsRegExpExecute failed with result %d\n", result);
+#endif
+            if (ovector)
+                ovector->clear();
+        }
+        return result;
+    }
+
+    return -1;
+}
+
+#else
+
+void RegExp::compile(JSGlobalData* globalData)
+{
+    m_regExp = 0;
+#if ENABLE(WREC)
+    m_wrecFunction = Generator::compileRegExp(globalData, m_pattern, &m_numSubpatterns, &m_constructionError, m_executablePool, ignoreCase(), multiline());
+    if (m_wrecFunction || m_constructionError)
+        return;
+    // Fall through to non-WREC case.
+#else
+    UNUSED_PARAM(globalData);
+#endif
+
+    JSRegExpIgnoreCaseOption ignoreCaseOption = ignoreCase() ? JSRegExpIgnoreCase : JSRegExpDoNotIgnoreCase;
+    JSRegExpMultilineOption multilineOption = multiline() ? JSRegExpMultiline : JSRegExpSingleLine;
+    m_regExp = jsRegExpCompile(reinterpret_cast<const UChar*>(m_pattern.data()), m_pattern.size(), ignoreCaseOption, multilineOption, &m_numSubpatterns, &m_constructionError);
+}
+
+int RegExp::match(const UString& s, int startOffset, Vector<int, 32>* ovector)
 {
     if (startOffset < 0)
         startOffset = 0;
@@ -122,15 +195,18 @@ int RegExp::match(const UString& s, int startOffset, OwnArrayPtr<int>* ovector)
 #if ENABLE(WREC)
     if (m_wrecFunction) {
         int offsetVectorSize = (m_numSubpatterns + 1) * 2;
-        int* offsetVector = new int [offsetVectorSize];
+        int* offsetVector;
+        Vector<int, 32> nonReturnedOvector;
+        if (ovector) {
+            ovector->resize(offsetVectorSize);
+            offsetVector = ovector->data();
+        } else {
+            nonReturnedOvector.resize(offsetVectorSize);
+            offsetVector = nonReturnedOvector.data();
+        }
+        ASSERT(offsetVector);
         for (int j = 0; j < offsetVectorSize; ++j)
             offsetVector[j] = -1;
-
-        OwnArrayPtr<int> nonReturnedOvector;
-        if (!ovector)
-            nonReturnedOvector.set(offsetVector);
-        else
-            ovector->set(offsetVector);
 
         int result = m_wrecFunction(s.data(), startOffset, s.size(), offsetVector);
 
@@ -157,8 +233,8 @@ int RegExp::match(const UString& s, int startOffset, OwnArrayPtr<int>* ovector)
             offsetVector = fixedSizeOffsetVector;
         } else {
             offsetVectorSize = (m_numSubpatterns + 1) * 3;
-            offsetVector = new int [offsetVectorSize];
-            ovector->set(offsetVector);
+            ovector->resize(offsetVectorSize);
+            offsetVector = ovector->data();
         }
 
         int numMatches = jsRegExpExecute(m_regExp, reinterpret_cast<const UChar*>(s.data()), s.size(), startOffset, offsetVector, offsetVectorSize);
@@ -178,5 +254,7 @@ int RegExp::match(const UString& s, int startOffset, OwnArrayPtr<int>* ovector)
 
     return -1;
 }
+
+#endif
 
 } // namespace JSC

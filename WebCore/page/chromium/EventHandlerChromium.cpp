@@ -62,7 +62,7 @@ bool EventHandler::passMousePressEventToSubframe(MouseEventWithHitTestResults& m
     if (m_frame->selection()->contains(p)) {
         VisiblePosition visiblePos(
             mev.targetNode()->renderer()->positionForPoint(mev.localPoint()));
-        Selection newSelection(visiblePos);
+        VisibleSelection newSelection(visiblePos);
         if (m_frame->shouldChangeSelection(newSelection))
             m_frame->selection()->setSelection(newSelection);
     }
@@ -105,8 +105,7 @@ bool EventHandler::passWidgetMouseDownEventToWidget(const MouseEventWithHitTestR
     // Figure out which view to send the event to.
     if (!event.targetNode() || !event.targetNode()->renderer() || !event.targetNode()->renderer()->isWidget())
         return false;
-
-    return passMouseDownEventToWidget(static_cast<RenderWidget*>(event.targetNode()->renderer())->widget());
+    return passMouseDownEventToWidget(toRenderWidget(event.targetNode()->renderer())->widget());
 }
 
 bool EventHandler::passMouseDownEventToWidget(Widget* widget)
@@ -148,7 +147,11 @@ bool EventHandler::passWidgetMouseDownEventToWidget(RenderWidget* renderWidget)
 
 unsigned EventHandler::accessKeyModifiers()
 {
+#if PLATFORM(DARWIN)
+    return PlatformKeyboardEvent::CtrlKey | PlatformKeyboardEvent::AltKey;
+#else
     return PlatformKeyboardEvent::AltKey;
+#endif
 }
 
 } // namespace WebCore

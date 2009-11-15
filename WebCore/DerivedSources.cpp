@@ -25,6 +25,7 @@
 
 // This all-in-one cpp file cuts down on template bloat to allow us to build our Windows release build.
 
+#include "JSAbstractWorker.cpp"
 #include "JSAttr.cpp"
 #include "JSBarInfo.cpp"
 #include "JSCanvasGradient.cpp"
@@ -32,6 +33,8 @@
 #include "JSCanvasRenderingContext2D.cpp"
 #include "JSCDATASection.cpp"
 #include "JSCharacterData.cpp"
+#include "JSClientRect.cpp"
+#include "JSClientRectList.cpp"
 #include "JSClipboard.cpp"
 #include "JSComment.cpp"
 #include "JSConsole.cpp"
@@ -52,6 +55,9 @@
 #include "JSCSSVariablesDeclaration.cpp"
 #include "JSCSSVariablesRule.cpp"
 #include "JSDatabase.cpp"
+#include "JSDataGridColumn.cpp"
+#include "JSDataGridColumnList.cpp"
+#include "JSDedicatedWorkerContext.cpp"
 #include "JSDocument.cpp"
 #include "JSDocumentFragment.cpp"
 #include "JSDocumentType.cpp"
@@ -60,14 +66,13 @@
 #include "JSDOMImplementation.cpp"
 #include "JSDOMParser.cpp"
 #include "JSDOMSelection.cpp"
-#include "JSDOMStringList.cpp"
 #include "JSDOMWindow.cpp"
 #include "JSElement.cpp"
 #include "JSEntity.cpp"
 #include "JSEntityReference.cpp"
+#include "JSErrorEvent.cpp"
 #include "JSEvent.cpp"
 #include "JSEventException.cpp"
-#include "JSEventTargetNode.cpp"
 #include "JSFile.cpp"
 #include "JSFileList.cpp"
 #include "JSHistory.cpp"
@@ -83,6 +88,10 @@
 #include "JSHTMLButtonElement.cpp"
 #include "JSHTMLCanvasElement.cpp"
 #include "JSHTMLCollection.cpp"
+#include "JSHTMLDataGridElement.cpp"
+#include "JSHTMLDataGridCellElement.cpp"
+#include "JSHTMLDataGridColElement.cpp"
+#include "JSHTMLDataGridRowElement.cpp"
 #include "JSHTMLDirectoryElement.cpp"
 #include "JSHTMLDivElement.cpp"
 #include "JSHTMLDListElement.cpp"
@@ -140,6 +149,7 @@
 #include "JSJavaScriptCallFrame.cpp"
 #include "JSKeyboardEvent.cpp"
 #include "JSLocation.cpp"
+#include "JSMedia.cpp"
 #include "JSMediaError.cpp"
 #include "JSMediaList.cpp"
 #include "JSMessageChannel.cpp"
@@ -164,7 +174,10 @@
 #include "JSRange.cpp"
 #include "JSRangeException.cpp"
 #include "JSRect.cpp"
+#include "JSRGBColor.cpp"
 #include "JSScreen.cpp"
+#include "JSSharedWorker.cpp"
+#include "JSSharedWorkerContext.cpp"
 #include "JSSQLError.cpp"
 #include "JSSQLResultSet.cpp"
 #include "JSSQLResultSetRowList.cpp"
@@ -311,12 +324,14 @@
 #include "JSTimeRanges.cpp"
 #include "JSTreeWalker.cpp"
 #include "JSUIEvent.cpp"
+#include "JSValidityState.cpp"
 #include "JSVoidCallback.cpp"
 #include "JSWebKitAnimationEvent.cpp"
 #include "JSWebKitCSSKeyframeRule.cpp"
 #include "JSWebKitCSSKeyframesRule.cpp"
 #include "JSWebKitCSSTransformValue.cpp"
 #include "JSWebKitCSSMatrix.cpp"
+#include "JSWebKitPoint.cpp"
 #include "JSWebKitTransitionEvent.cpp"
 #include "JSWheelEvent.cpp"
 #include "JSWorker.cpp"
@@ -334,7 +349,6 @@
 #include "JSXPathNSResolver.cpp"
 #include "JSXPathResult.cpp"
 #include "JSXSLTProcessor.cpp"
-#include "SVGElementFactory.cpp"
 #include "UserAgentStyleSheetsData.cpp"
 
 // On MSVC, including StaticConstructors.h causes all global objects not to be
@@ -343,5 +357,5 @@
 // want StaticConstructors.h to "pollute" all the source files we #include here
 // accidentally, so we'll throw an error whenever any file includes it.
 #ifdef StaticConstructors_h
-#error Don't include any file in DerivedSources.cpp that includes StaticConstructors.h
+#error Do not include any file in DerivedSources.cpp that includes StaticConstructors.h
 #endif

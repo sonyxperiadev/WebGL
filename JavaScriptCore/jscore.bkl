@@ -48,6 +48,22 @@ JavaScriptCore Bakefile project file.
             $(JSCORE_VM_SOURCES)
             $(JSCORE_WTF_SOURCES)
         </sources>
+
+        <set var="ASSEMBLER_SOURCES">
+            <if cond="WX_PORT=='gtk2'">
+                $(JSCORE_VM_SOURCES_POSIX)
+            </if>
+            <if cond="PLATFORM_OS=='mac'">
+                $(JSCORE_VM_SOURCES_POSIX)
+            </if>
+            <if cond="WX_PORT=='msw'">
+                $(JSCORE_VM_SOURCES_WIN)
+            </if>
+        </set>
+
+        <sources>
+            $(ASSEMBLER_SOURCES)
+        </sources>
         <install-to>$(WKOUTPUTDIR)</install-to>
         <pic>on</pic>
         <threading>multi</threading>
@@ -55,6 +71,7 @@ JavaScriptCore Bakefile project file.
         <include>$(SRCDIR)</include>
         <include>$(SRCDIR)/..</include>
         <include>$(SRCDIR)/API</include>
+        <include>$(SRCDIR)/assembler</include>
         <include>$(SRCDIR)/bytecompiler</include>
         <include>$(SRCDIR)/DerivedSources/JavaScriptCore</include>
         <include>$(SRCDIR)/ForwardingHeaders</include>
@@ -76,7 +93,7 @@ JavaScriptCore Bakefile project file.
             <!-- FIXME: we need proper configure checks -->
             <define>HAVE_FUNC_ISNAN</define>
             <!-- check for undefined symbols for debugging reasons -->
-            <ldflags>-Wl,--no-undefined</ldflags>
+            <ldflags>-Wl</ldflags>
         </if>
 
         <if cond="PLATFORM_WIN32=='1'">
@@ -95,6 +112,7 @@ JavaScriptCore Bakefile project file.
         <depends>jscore</depends>
         <include>$(SRCDIR)</include>
         <include>$(WK_ROOT)/JavaScriptCore</include>
+        <include>$(WK_ROOT)/JavaScriptCore/assembler</include>
         <include>$(WK_ROOT)/JavaScriptCore/bytecompiler</include>
         <include>$(WK_ROOT)/JavaScriptCore/debugger</include>
         <include>$(WK_ROOT)/JavaScriptCore/parser</include>
@@ -108,16 +126,12 @@ JavaScriptCore Bakefile project file.
         <include>$(WK_ROOT)/JavaScriptCore/wtf</include>
         <dirname>$(WKOUTPUTDIR)</dirname>
         <sources>$(SRCDIR)/jsc.cpp</sources>
-        <if cond="FORMAT=='gnu'">
-            <ldflags>$(WKOUTPUTDIR)/libjscore.a</ldflags>
-        </if>
         <set var="READLINE_LIB">
             <if cond="WX_PORT=='mac'">edit</if>
         </set>
         <sys-lib>$(READLINE_LIB)</sys-lib>
         <if cond="FORMAT in ['msvc','msvs2005prj']">
             <include>$(WK_ROOT)/WebKitLibraries/win/include</include>
-            <sys-lib>jscore</sys-lib>
             <sys-lib>winmm</sys-lib> <!-- for timeGetTime -->
             <lib-path>$(WKOUTPUTDIR)</lib-path>
             <lib-path>$(WK_ROOT)/WebKitLibraries/win/lib</lib-path>
