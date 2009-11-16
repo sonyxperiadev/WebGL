@@ -46,6 +46,7 @@ namespace WebCore {
     class AtomicString;
     class Color;
     class FrameView;
+    class HTMLAnchorElement;
     class HTMLSelectElement;
     class RenderPart;
     class RenderText;
@@ -237,7 +238,9 @@ namespace android {
         // Followings support calls from Java to native WebCore
         //
 
+
         WebCore::String retrieveHref(WebCore::Frame* frame, WebCore::Node* node);
+        WebCore::String retrieveAnchorText(WebCore::Frame* frame, WebCore::Node* node);
 
         WebCore::String getSelection(SkRegion* );
 
@@ -500,6 +503,8 @@ namespace android {
         void rebuildPictureSet(PictureSet* );
         void sendNotifyProgressFinished();
         bool handleMouseClick(WebCore::Frame* framePtr, WebCore::Node* nodePtr);
+        WebCore::HTMLAnchorElement* retrieveAnchorElement(WebCore::Frame* frame, WebCore::Node* node);
+
 #if DEBUG_NAV_UI
         uint32_t m_now;
 #endif

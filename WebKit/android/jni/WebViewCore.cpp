@@ -1182,14 +1182,25 @@ void WebViewCore::dumpNavTree()
 #endif
 }
 
-WebCore::String WebViewCore::retrieveHref(WebCore::Frame* frame, WebCore::Node* node)
+WebCore::HTMLAnchorElement* WebViewCore::retrieveAnchorElement(WebCore::Frame* frame, WebCore::Node* node)
 {
     if (!CacheBuilder::validNode(m_mainFrame, frame, node))
-        return WebCore::String();
+        return 0;
     if (!node->hasTagName(WebCore::HTMLNames::aTag))
-        return WebCore::String();
-    WebCore::HTMLAnchorElement* anchor = static_cast<WebCore::HTMLAnchorElement*>(node);
-    return anchor->href();
+        return 0;
+    return static_cast<WebCore::HTMLAnchorElement*>(node);
+}
+
+WebCore::String WebViewCore::retrieveHref(WebCore::Frame* frame, WebCore::Node* node)
+{
+    WebCore::HTMLAnchorElement* anchor = retrieveAnchorElement(frame, node);
+    return anchor ? anchor->href() : WebCore::String();
+}
+
+WebCore::String WebViewCore::retrieveAnchorText(WebCore::Frame* frame, WebCore::Node* node)
+{
+    WebCore::HTMLAnchorElement* anchor = retrieveAnchorElement(frame, node);
+    return anchor ? anchor->text() : WebCore::String();
 }
 
 void WebViewCore::updateCacheOnNodeChange()
@@ -2796,6 +2807,22 @@ static jstring RetrieveHref(JNIEnv *env, jobject obj, jint frame,
     return 0;
 }
 
+static jstring RetrieveAnchorText(JNIEnv *env, jobject obj, jint frame,
+        jint node)
+{
+#ifdef ANDROID_INSTRUMENT
+    TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
+#endif
+    WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
+    LOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);
+    WebCore::String result = viewImpl->retrieveAnchorText((WebCore::Frame*) frame,
+            (WebCore::Node*) node);
+    if (!result.isEmpty())
+        return WebCoreStringToJString(env, result);
+    return 0;
+}
+
+
 static void MoveMouse(JNIEnv *env, jobject obj, jint frame,
         jint x, jint y)
 {
@@ -3124,6 +3151,8 @@ static JNINativeMethod gJavaWebViewCoreMethods[] = {
         (void*) TouchUp },
     { "nativeRetrieveHref", "(II)Ljava/lang/String;",
         (void*) RetrieveHref },
+    { "nativeRetrieveAnchorText", "(II)Ljava/lang/String;",
+        (void*) RetrieveAnchorText },
     { "nativeUpdateFrameCache", "()V",
         (void*) UpdateFrameCache },
     { "nativeGetContentMinPrefWidth", "()I",
