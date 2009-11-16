@@ -65,8 +65,13 @@ RenderTheme* theme()
 
 PassRefPtr<RenderTheme> RenderTheme::themeForPage(Page* page)
 {
-    RefPtr<RenderThemeAndroid> androidTheme = new RenderThemeAndroid();
-    return androidTheme.release();
+    static RenderTheme* rt = RenderThemeAndroid::create().releaseRef();
+    return rt;
+}
+
+PassRefPtr<RenderTheme> RenderThemeAndroid::create()
+{
+    return adoptRef(new RenderThemeAndroid());
 }
 
 RenderThemeAndroid::RenderThemeAndroid()
@@ -269,8 +274,7 @@ bool RenderThemeAndroid::paintCombo(RenderObject* obj, const RenderObject::Paint
 {
     if (obj->style() && !obj->style()->backgroundColor().alpha())
         return true;
-    return RenderSkinCombo::Draw(getCanvasFromInfo(info), obj->node(), rect.x(),
-            rect.y(), rect.width(), rect.height());
+    return RenderSkinCombo::Draw(getCanvasFromInfo(info), obj->node(), rect.x(), rect.y(), rect.width(), rect.height());
 }
 
 bool RenderThemeAndroid::paintMenuList(RenderObject* obj, const RenderObject::PaintInfo& info, const IntRect& rect) 
