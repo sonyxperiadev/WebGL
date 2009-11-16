@@ -62,9 +62,7 @@ class Document;
 class DocumentLoader;
 class GraphicsContext;
 class HitTestResult;
-#if !PLATFORM(ANDROID)
 class InspectorBackend;
-#endif
 class InspectorClient;
 class InspectorDOMAgent;
 class InspectorFrontend;
@@ -166,9 +164,7 @@ public:
     InspectorController(Page*, InspectorClient*);
     ~InspectorController();
 
-#if !PLATFORM(ANDROID)
     InspectorBackend* inspectorBackend() { return m_inspectorBackend.get(); }
-#endif
 
     void inspectedPageDestroyed();
     void pageDestroyed() { m_page = 0; }
@@ -295,9 +291,7 @@ public:
     void evaluateForTestInFrontend(long callId, const String& script);
 
 private:
-#if !PLATFORM(ANDROID)
     friend class InspectorBackend;
-#endif
     // Following are used from InspectorBackend and internally.
     void scriptObjectReady();
     void moveWindowBy(float x, float y) const;
@@ -362,7 +356,6 @@ private:
 
     Page* m_inspectedPage;
     InspectorClient* m_client;
-
     OwnPtr<InspectorFrontend> m_frontend;
     RefPtr<InspectorDOMAgent> m_domAgent;
     OwnPtr<InspectorTimelineAgent> m_timelineAgent;
@@ -392,9 +385,7 @@ private:
     ConsoleMessage* m_previousMessage;
     bool m_resourceTrackingEnabled;
     bool m_resourceTrackingSettingsLoaded;
-#if !PLATFORM(ANDROID)
     RefPtr<InspectorBackend> m_inspectorBackend;
-#endif
     HashMap<String, ScriptValue> m_idToWrappedObject;
     ObjectGroupsMap m_objectGroups;
 
