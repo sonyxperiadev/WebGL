@@ -97,12 +97,9 @@ void ScrollView::platformRepaintContentRectangle(const IntRect &rect, bool now)
 }
 
 #ifdef ANDROID_CAPTURE_OFFSCREEN_PAINTS
-/*
-    Compute the offscreen parts of the drawn rectangle by subtracting
-    vis from rect. This can compute up to four rectangular slices.
-*/
-void ScrollView::platformOffscreenContentRectangle(const IntRect& vis,
-    const IntRect& rect)
+//  Compute the offscreen parts of the drawn rectangle by subtracting
+//  vis from rect. This can compute up to four rectangular slices.
+void ScrollView::platformOffscreenContentRectangle(const IntRect& vis, const IntRect& rect)
 {
     SkRegion rectRgn = SkRegion(rect);
     rectRgn.op(vis, SkRegion::kDifference_Op);
