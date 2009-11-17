@@ -85,7 +85,8 @@ JavaClass::JavaClass(jobject anInstance)
         methodList->append(aMethod);
         env->DeleteLocalRef(aJMethod);
     }    
-#ifdef ANDROID_FIX
+#if PLATFORM(ANDROID)
+    // TODO : Upstream to webkit.org for all platforms.
     env->DeleteLocalRef(fields);
     env->DeleteLocalRef(methods);
     env->DeleteLocalRef(aClass);
