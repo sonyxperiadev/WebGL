@@ -26,11 +26,11 @@
 #include "config.h"
 #include "jni_instance.h"
 
-#ifdef ANDROID
+#if ENABLE(MAC_JAVA_BRIDGE)
+
+#if PLATFORM(ANDROID)
 #include <assert.h>
 #endif
-
-#if ENABLE(MAC_JAVA_BRIDGE)
 
 #include "jni_class.h"
 #include "jni_runtime.h"
