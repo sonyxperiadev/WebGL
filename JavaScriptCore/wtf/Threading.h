@@ -259,15 +259,8 @@ public:
 #if USE(LOCKFREE_THREADSAFESHARED)
         atomicIncrement(&m_refCount);
 #else
-#if defined ANDROID // avoid constructing a class to avoid two mystery crashes
-        m_mutex.lock();
-#else
         MutexLocker locker(m_mutex);
-#endif
         ++m_refCount;
-#if defined ANDROID
-        m_mutex.unlock();
-#endif
 #endif
     }
 
@@ -294,16 +287,9 @@ protected:
 #else
         int refCount;
         {
-#if defined ANDROID // avoid constructing a class to avoid two mystery crashes
-            m_mutex.lock();
-#else
             MutexLocker locker(m_mutex);
-#endif
             --m_refCount;
             refCount = m_refCount;
-#if defined ANDROID
-            m_mutex.unlock();
-#endif
         }
         if (refCount <= 0)
             return true;
