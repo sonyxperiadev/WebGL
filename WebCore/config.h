@@ -81,10 +81,6 @@
 #define WEBCORE_NAVIGATOR_VENDOR "Google Inc."
 #define USE_SYSTEM_MALLOC 1
 #define ANDROID_MOBILE      // change can be merged back to WebKit.org for MOBILE
-#ifdef ANDROID_PLUGINS
-#define WTF_USE_JAVASCRIPTCORE_BINDINGS 1
-#define WTF_USE_NPOBJECT 1
-#endif
 #define LOG_DISABLED 1
 #include <wtf/Assertions.h>
 // center place to handle which option feature ANDROID will enable

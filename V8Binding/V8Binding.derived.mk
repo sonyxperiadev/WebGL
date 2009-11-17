@@ -172,12 +172,6 @@ WEBCORE_SRC_FILES := $(WEBCORE_SRC_FILES) \
 	bindings/v8/custom/V8XMLHttpRequestUploadCustom.cpp \
 	bindings/v8/custom/V8XMLSerializerConstructor.cpp
 
-ifeq ($(ENABLE_XPATH), true)
-WEBCORE_SRC_FILES := $(WEBCORE_SRC_FILES) \
-	bindings/v8/custom/V8XPathEvaluatorConstructor.cpp \
-  bindings/v8/custom/V8XSLTProcessorCustom.cpp
-endif
-
 LOCAL_SRC_FILES := \
 	jni/jni_class.cpp \
 	jni/jni_instance.cpp \
