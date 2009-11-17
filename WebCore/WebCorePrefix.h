@@ -68,9 +68,10 @@
 #define PREFIX_FOR_WEBCORE 1
 #define EXPORT __attribute__((visibility("default")))
 #endif
-// We use a single set of include directories when building WebKit and
-// JavaScriptCore. Since WebCore/ is included before JavaScriptCore/, we include
-// JavaScriptCore/config.h explicitly here to make sure it gets picked up.
+// Android uses a single set of include directories when building WebKit and
+// JavaScriptCore. Since WebCore/ is included before JavaScriptCore/, Android
+// includes JavaScriptCore/config.h explicitly here to make sure it gets picked
+// up.
 #include <JavaScriptCore/config.h>
 #endif
 

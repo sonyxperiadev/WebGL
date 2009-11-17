@@ -1,5 +1,5 @@
 ##
-## Copyright 2007, The Android Open Source Project
+## Copyright 2009, The Android Open Source Project
 ##
 ## Redistribution and use in source and binary forms, with or without
 ## modification, are permitted provided that the following conditions
@@ -23,40 +23,8 @@
 ## OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ##
 
-#LOCAL_CFLAGS += -E -v
-
-# This comment block is read by tools/webkitsync/diff.cpp
-# Don't remove it or move it. 
-#
-# The following files are intentionally not included
-# LOCAL_SRC_FILES_EXCLUDED := \
-#	AllInOneFile.cpp \
-#	jsc.cpp \
-#	parser/Grammar.y \
-#	pcre/ucptable.cpp \
-#	wtf/GOwnPtr.cpp \
-#	wtf/*Gtk.cpp \
-#	wtf/*Qt.cpp \
-#	wtf/*Win.cpp \
-
-# This comment block is read by tools/webkitsync/diff.cpp
-# Don't remove it or move it. 
-#
-# The following directory wildcard matches are intentionally not included
-# If an entry starts with '/', any subdirectory may match
-# If an entry starts with '^', the first directory must match
-# LOCAL_DIR_WILDCARD_EXCLUDED := \
-#	^API/* \
-#	/chromium/* \
-#	/gtk/* \
-#	^jit/* \
-#	/mac/* \
-#	/qt/* \
-#	/win/* \
-#	/wx/* \
-
 LOCAL_SRC_FILES := \
-  API/JSValueRef.cpp \
+	API/JSValueRef.cpp \
 	API/JSCallbackObject.cpp \
 	API/OpaqueJSString.cpp \
 	\
