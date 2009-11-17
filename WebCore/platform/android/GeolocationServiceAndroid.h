@@ -43,7 +43,7 @@ class GeolocationServiceAndroid : public GeolocationService {
 public:
     static GeolocationService* create(GeolocationServiceClient*);
 
-    virtual ~GeolocationServiceAndroid() {};
+    virtual ~GeolocationServiceAndroid() { };
 
     virtual bool startUpdating(PositionOptions*);
     virtual void stopUpdating();
