@@ -1774,7 +1774,7 @@ static void nativeRecordButtons(JNIEnv* env, jobject obj, bool hasFocus,
     view->nativeRecordButtons(hasFocus, pressed, invalidate);
 }
 
-static void nativeSetFindIsDown(JNIEnv *env, jobject obj)
+static void nativeSetFindIsUp(JNIEnv *env, jobject obj)
 {
     WebView* view = GET_NATIVE_VIEW(env, obj);
     LOG_ASSERT(view, "view not set in %s", __FUNCTION__);
@@ -2110,8 +2110,8 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeRecordButtons },
     { "nativeSelectBestAt", "(Landroid/graphics/Rect;)V",
         (void*) nativeSelectBestAt },
-    { "nativeSetFindIsDown", "()V",
-        (void*) nativeSetFindIsDown },
+    { "nativeSetFindIsUp", "()V",
+        (void*) nativeSetFindIsUp },
     { "nativeSetFollowedLink", "(Z)V",
         (void*) nativeSetFollowedLink },
     { "nativeSetHeightCanMeasure", "(Z)V",
