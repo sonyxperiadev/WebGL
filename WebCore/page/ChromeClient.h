@@ -77,7 +77,11 @@ namespace WebCore {
         
         virtual float scaleFactor() = 0;
     
+#ifdef ANDROID_USER_GESTURE
+        virtual void focus(bool userGesture) = 0;
+#else
         virtual void focus() = 0;
+#endif
         virtual void unfocus() = 0;
 
         virtual bool canTakeFocus(FocusDirection) = 0;

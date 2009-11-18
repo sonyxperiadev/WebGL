@@ -262,7 +262,11 @@ Frame* FrameLoader::createWindow(FrameLoader* frameLoaderForFrameLookup, const F
             if (!request.resourceRequest().url().isEmpty())
                 frame->loader()->loadFrameRequest(request, false, false, 0, 0, SendReferrer);
             if (Page* page = frame->page())
+#ifdef ANDROID_USER_GESTURE
+                page->chrome()->focus(isProcessingUserGesture());
+#else
                 page->chrome()->focus();
+#endif
             created = false;
             return frame;
         }
@@ -1882,7 +1886,11 @@ void FrameLoader::loadFrameRequest(const FrameLoadRequest& request, bool lockHis
     Frame* targetFrame = sourceFrame->loader()->findFrameForNavigation(request.frameName());
     if (targetFrame && targetFrame != sourceFrame) {
         if (Page* page = targetFrame->page())
+#ifdef ANDROID_USER_GESTURE
+            page->chrome()->focus(request.resourceRequest().getUserGesture());
+#else
             page->chrome()->focus();
+#endif
     }
 }
 
