@@ -76,28 +76,22 @@
 #endif /* PLATFORM(WIN_OS) */
 
 // ANDROID def should be after all PLATFORM to avoid override.
-// USE_SYSTEM_MALLOC needs to be defined before include FastMalloc.h
 #if PLATFORM(ANDROID)
 #define WEBCORE_NAVIGATOR_VENDOR "Google Inc."
+// This must be defined before we include FastMalloc.h, below.
 #define USE_SYSTEM_MALLOC 1
 #define ANDROID_MOBILE      // change can be merged back to WebKit.org for MOBILE
 #define LOG_DISABLED 1
 #include <wtf/Assertions.h>
-// center place to handle which option feature ANDROID will enable
-#undef ENABLE_CHANNEL_MESSAGING
+// Central place to set which optional features Android uses.
 #define ENABLE_CHANNEL_MESSAGING 1
-#undef ENABLE_DATABASE
-#define ENABLE_DATABASE 1
-#undef ENABLE_DOM_STORAGE
 #define ENABLE_DOM_STORAGE 1
-#undef ENABLE_FTPDIR
+#undef ENABLE_FTPDIR  // Enabled by default in Platform.h
 #define ENABLE_FTPDIR 0
 #ifndef ENABLE_SVG
 #define ENABLE_SVG 0
 #endif
-#undef ENABLE_VIDEO
 #define ENABLE_VIDEO 1
-#undef ENABLE_WORKERS
 #define ENABLE_WORKERS 1
 #if ENABLE_SVG
 #if !defined(ENABLE_SVG_ANIMATION)
@@ -116,15 +110,13 @@
 #define ENABLE_XPATH 0
 #define ENABLE_XSLT 0
 
-#undef ENABLE_ARCHIVE
-#define ENABLE_ARCHIVE 0 // ANDROID addition: allow web archive to be disabled
+#define ENABLE_ARCHIVE 0
 #define ENABLE_OFFLINE_WEB_APPLICATIONS 1
 #define ENABLE_TOUCH_EVENTS 1
-#undef ENABLE_GEOLOCATION
+#undef ENABLE_GEOLOCATION  // Disabled by default in Platform.h
 #define ENABLE_GEOLOCATION 1
-#undef ENABLE_INSPECTOR
+#undef ENABLE_INSPECTOR  // Enabled by default in Platform.h
 #define ENABLE_INSPECTOR 0
-#undef ENABLE_EVENT_SOURCE
 #define ENABLE_EVENT_SOURCE 0
 
 #define FLATTEN_FRAMESET
@@ -197,7 +189,7 @@
 // or if javascript tried to change the location.
 #define ANDROID_USER_GESTURE
 
-#endif  // PLATFORM(ANDROID)
+#endif /* PLATFORM(ANDROID) */
 
 #ifdef __cplusplus
 
