@@ -127,7 +127,8 @@
    || defined(__unix__)    \
    || defined(_AIX)        \
    || defined(__HAIKU__)   \
-   || defined(__QNXNTO__)
+   || defined(__QNXNTO__)  \
+   || defined(ANDROID)
 #define WTF_PLATFORM_UNIX 1
 #endif
 
@@ -177,6 +178,11 @@
 #define WTF_PLATFORM_IPHONE 0
 #endif
 
+/* PLATFORM(ANDROID) */
+#if defined(ANDROID)
+#define WTF_PLATFORM_ANDROID 1
+#endif
+
 /* Graphics engines */
 
 /* PLATFORM(CG) and PLATFORM(CI) */
@@ -200,34 +206,9 @@
 
 /* Makes PLATFORM(WIN) default to PLATFORM(CAIRO) */
 /* FIXME: This should be changed from a blacklist to a whitelist */
-#if !PLATFORM(MAC) && !PLATFORM(QT) && !PLATFORM(WX) && !PLATFORM(CHROMIUM) && !PLATFORM(WINCE) && !PLATFORM(HAIKU)
+#if !PLATFORM(MAC) && !PLATFORM(QT) && !PLATFORM(WX) && !PLATFORM(CHROMIUM) && !PLATFORM(WINCE) && !PLATFORM(HAIKU) && !PLATFORM(ANDROID)
 #define WTF_PLATFORM_CAIRO 1
 #endif
-
-#ifdef ANDROID
-#define WTF_PLATFORM_ANDROID 1
-#define WTF_PLATFORM_LINUX 1
-//due to pthread code in collector.cpp, we need PLATFORM(DARWIN)
-//#undef WTF_PLATFORM_DARWIN
-#undef WTF_PLATFORM_MAC
-#undef WTF_PLATFORM_WIN_OS
-#undef WTF_PLATFORM_WIN
-#undef WTF_PLATFORM_CG
-#undef WTF_PLATFORM_CI
-#undef WTF_PLATFORM_CAIRO
-#define WTF_USE_PTHREADS 1
-
-#define WTF_PLATFORM_SGL 1
-#define WTF_PLATFORM_UNIX 1
-
-#define USE_SYSTEM_MALLOC 1
-#define ENABLE_MAC_JAVA_BRIDGE 1
-#define LOG_DISABLED 1
-// Prevents Webkit from drawing the caret in textfields and textareas
-// This prevents unnecessary invals.
-#define ENABLE_TEXT_CARET 1
-#define ENABLE_JAVASCRIPT_DEBUGGER 0
-#endif // ANDROID
 
 /* CPU */
 
@@ -262,11 +243,10 @@
 
 #elif !defined(__ARM_EABI__) \
    && !defined(__EABI__) \
-   && !defined(__VFP_FP__)
-#if !defined(ANDROID)
+   && !defined(__VFP_FP__) \
+   && !defined(ANDROID)
 #define WTF_PLATFORM_MIDDLE_ENDIAN 1
 
-#endif
 #endif
 
 /* Set ARM_ARCH_VERSION */
@@ -528,6 +508,18 @@
 #define WTF_PLATFORM_CF 1
 #define WTF_USE_PTHREADS 1
 #define HAVE_PTHREAD_RWLOCK 1
+#endif
+
+#if PLATFORM(ANDROID)
+#define WTF_USE_PTHREADS 1
+#define WTF_PLATFORM_SGL 1
+#define USE_SYSTEM_MALLOC 1
+#define ENABLE_MAC_JAVA_BRIDGE 1
+#define LOG_DISABLED 1
+// Prevents Webkit from drawing the caret in textfields and textareas
+// This prevents unnecessary invals.
+#define ENABLE_TEXT_CARET 1
+#define ENABLE_JAVASCRIPT_DEBUGGER 0
 #endif
 
 #if PLATFORM(WIN)
