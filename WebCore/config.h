@@ -94,11 +94,11 @@
 #define ENABLE_FTPDIR 0
 #ifndef ENABLE_SVG
 #define ENABLE_SVG 0
+#endif
 #undef ENABLE_VIDEO
 #define ENABLE_VIDEO 1
 #undef ENABLE_WORKERS
 #define ENABLE_WORKERS 1
-#endif
 #if ENABLE_SVG
 #if !defined(ENABLE_SVG_ANIMATION)
 #define ENABLE_SVG_ANIMATION 0 // to enable:
