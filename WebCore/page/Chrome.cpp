@@ -127,10 +127,17 @@ float Chrome::scaleFactor()
     return m_client->scaleFactor();
 }
 
+#ifdef ANDROID_USER_GESTURE
+void Chrome::focus(bool userGesture) const
+{
+    m_client->focus(userGesture);
+}
+#else
 void Chrome::focus() const
 {
     m_client->focus();
 }
+#endif
 
 void Chrome::unfocus() const
 {

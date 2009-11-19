@@ -1665,7 +1665,13 @@ void Frame::focusWindow()
 
     // If we're a top level window, bring the window to the front.
     if (!tree()->parent())
+#ifdef ANDROID_USER_GESTURE
+        // FrameLoader::isProcessingUserGesture() will be false when a
+        // different frame tries to focus this frame through javascript.
+        page()->chrome()->focus(m_loader.isProcessingUserGesture());
+#else
         page()->chrome()->focus();
+#endif
 
     eventHandler()->focusDocumentView();
 }
