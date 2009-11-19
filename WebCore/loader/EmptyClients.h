@@ -70,7 +70,11 @@ public:
 
     virtual float scaleFactor() { return 1.f; }
 
+#ifdef ANDROID_USER_GESTURE
+    virtual void focus(bool userGesture) { }
+#else
     virtual void focus() { }
+#endif
     virtual void unfocus() { }
 
     virtual bool canTakeFocus(FocusDirection) { return false; }

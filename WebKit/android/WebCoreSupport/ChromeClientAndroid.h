@@ -53,7 +53,11 @@ namespace android {
         
         virtual float scaleFactor();
         
+#ifdef ANDROID_USER_GESTURE
+        virtual void focus(bool userGesture);
+#else
         virtual void focus();
+#endif
         virtual void unfocus();
         
         virtual bool canTakeFocus(FocusDirection);

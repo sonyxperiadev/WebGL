@@ -105,10 +105,19 @@ float ChromeClientAndroid::scaleFactor()
     return 1.0f;
 }
 
+#ifdef ANDROID_USER_GESTURE
+void ChromeClientAndroid::focus(bool userGesture) {
+#else
 void ChromeClientAndroid::focus() {
+    // The old behavior was to always allow javascript to focus a window. If we
+    // turn off ANDROID_USER_GESTURE, go back to the old behavior by forcing
+    // userGesture to be true.
+    bool userGesture = true;
+#endif
     ASSERT(m_webFrame);
     // Ask the application to focus this WebView.
-    m_webFrame->requestFocus();
+    if (userGesture)
+        m_webFrame->requestFocus();
 }
 void ChromeClientAndroid::unfocus() { notImplemented(); }
 
