@@ -45,7 +45,13 @@ namespace android {
 
     class WebViewCore;
 
-    // The GeolocationPermissions class manages permissions for the browser.
+    // The GeolocationPermissions class manages Geolocation permissions for the
+    // browser. Permissions are managed on a per-origin basis, as required by
+    // the Geolocation spec - http://dev.w3.org/geo/api/spec-source.html. An
+    // origin specifies the scheme, host and port of particular frame.  An
+    // origin is represented here as a string, using the output of
+    // WebCore::SecurityOrigin::toString.
+    //
     // Each instance handles permissions for a given main frame. The class
     // enforces the following policy.
     // - Non-remembered permissions last for the dureation of the main frame.
@@ -69,8 +75,10 @@ namespace android {
         // the same origin as the requesting frame.
         void queryPermissionState(WebCore::Frame* frame);
 
-        // Provides this object the given permission state from the user. The
-        // new permission state is recorded and will trigger callbacks to
+        // Provides this object with a permission state set by the user. The
+        // permission is specified by 'allow' and applied to 'origin'. If
+        // 'remember' is set, the permission state is remembered permanently.
+        // The new permission state is recorded and will trigger callbacks to
         // geolocation objects as described above. If any other permission
         // requests are queued, the next is started.
         void providePermissionState(WebCore::String origin, bool allow, bool remember);
@@ -82,12 +90,21 @@ namespace android {
         // Static methods for use from Java. These are used to interact with the
         // browser settings menu and to update the permanent permissions when
         // system settings are changed.
+        // Gets the list of all origins for which permanent permissions are
+        // recorded.
         typedef HashSet<WebCore::String> OriginSet;
         static OriginSet getOrigins();
+        // Gets whether the specified origin is allowed.
         static bool getAllowed(WebCore::String origin);
+        // Clears the permission state for the specified origin.
         static void clear(WebCore::String origin);
+        // Sets the permission state for the specified origin to allowed.
         static void allow(WebCore::String origin);
+        // Clears the permission state for all origins.
         static void clearAll();
+        // Sets whether the GeolocationPermissions object should always deny
+        // permission requests, irrespective of previously recorded permission
+        // states.
         static void setAlwaysDeny(bool deny);
 
         static void setDatabasePath(WebCore::String path);
@@ -96,7 +113,8 @@ namespace android {
         static void maybeStorePermanentPermissions();
 
       private:
-        // Records the permission state for the specified origin.
+        // Records the permission state for the specified origin and whether
+        // this should be remembered.
         void recordPermissionState(WebCore::String origin, bool allow, bool remember);
 
         // Used to make an asynchronous callback to the Geolocation objects.
