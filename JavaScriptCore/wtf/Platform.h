@@ -728,11 +728,6 @@
 #define ENABLE_TEXT_CARET 1
 #endif
 
-// ANDROID addition: allow web archive to be disabled
-#if !defined(ENABLE_ARCHIVE)
-#define ENABLE_ARCHIVE 1
-#endif
-
 #if !defined(ENABLE_ON_FIRST_TEXTAREA_FOCUS_SELECT_ALL)
 #define ENABLE_ON_FIRST_TEXTAREA_FOCUS_SELECT_ALL 0
 #endif
