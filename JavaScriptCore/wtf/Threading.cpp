@@ -28,10 +28,6 @@
 
 #include <string.h>
 
-#if PLATFORM(ANDROID)
-#include <memory>
-#endif
-
 namespace WTF {
 
 struct NewThreadContext : FastAllocBase {
@@ -79,7 +75,7 @@ ThreadIdentifier createThread(ThreadFunction entryPoint, void* data, const char*
 
     NewThreadContext* context = new NewThreadContext(entryPoint, data, name);
 
-    // Prevent the thread body from executing until we've established the thread identifier
+    // Prevent the thread body from executing until we've established the thread identifier.
     MutexLocker locker(context->creationMutex);
 
     return createThreadInternal(threadEntryPoint, context, name);
