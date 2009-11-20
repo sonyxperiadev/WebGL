@@ -48,8 +48,15 @@ namespace WebCore {
                 return false;
 
 #if PLATFORM(ARM) || PLATFORM(SH4)
-            return memcmp(a->characters(), b->characters(), sizeof(UChar) * aLength) == 0;
+            const UChar* aChars = a->characters();
+            const UChar* bChars = b->characters();
+            for (unsigned i = 0; i != aLength; ++i) {
+                if (*aChars++ != *bChars++)
+                    return false;
+            }
+            return true;
 #else
+            /* Do it 4-bytes-at-a-time on architectures where it's safe */
             const uint32_t* aChars = reinterpret_cast<const uint32_t*>(a->characters());
             const uint32_t* bChars = reinterpret_cast<const uint32_t*>(b->characters());
 
