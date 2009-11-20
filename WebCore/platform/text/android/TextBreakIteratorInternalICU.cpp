@@ -30,12 +30,13 @@ namespace WebCore {
 
 const char* currentSearchLocaleID()
 {
-    // TODO(benm): Implement. Should return system locale.
+    // FIXME: Should use system locale.
     return "";
 }
 
 const char* currentTextBreakLocaleID()
 {
+    // FIXME: Should use system locale.
     return "en_us";
 }
 
