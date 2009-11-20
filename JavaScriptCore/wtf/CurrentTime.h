@@ -39,10 +39,6 @@ namespace WTF {
     // than a millisecond.
     double currentTime();
 
-#if PLATFORM(ANDROID)
-    uint32_t get_thread_msec();
-#endif
-
 } // namespace WTF
 
 using WTF::currentTime;
