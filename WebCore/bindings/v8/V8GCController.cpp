@@ -264,12 +264,12 @@ bool operator<(const GrouperItem& a, const GrouperItem& b)
 typedef Vector<GrouperItem> GrouperList;
 
 #if PLATFORM(ANDROID)
-// Sort GrouperList by the group id. Node* is only involved to sort within
-// a group id, so it will be fine.
-// TODO(andreip): used by std::stable_sort function. We can implement
-// the std::sort function and remove this one.
-static bool compareGrouperItem(const GrouperItem& a, const GrouperItem& b) {
-  return a.groupId() < b.groupId();
+// Android's implementation of std::sort seems unable to do the necessary
+// template matching to pick up operator< for GrouperItem, so we have to
+// manually pass a comparison function.
+static bool compareGrouperItem(const GrouperItem& a, const GrouperItem& b)
+{
+    return a < b;
 }
 #endif
 
@@ -311,11 +311,10 @@ public:
 
     void applyGrouping()
     {
-#if PLATFORM(ANDROID)
-  // TODO(andreip): implement std::sort() and get rid of this.
-  std::stable_sort<GrouperItem>(m_grouper.begin(), m_grouper.end(), compareGrouperItem);
-#else
         // Group by sorting by the group id.
+#if PLATFORM(ANDROID)
+        std::sort(m_grouper.begin(), m_grouper.end(), compareGrouperItem);
+#else
         std::sort(m_grouper.begin(), m_grouper.end());
 #endif
 
