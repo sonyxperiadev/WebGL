@@ -26,6 +26,7 @@
 #define LOG_TAG "webcore_test"
 
 #include <stdlib.h>
+#include <string.h>
 #include <getopt.h>
 #include <utils/Log.h>
 
