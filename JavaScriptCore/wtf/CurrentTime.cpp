@@ -290,24 +290,4 @@ double currentTime()
 
 #endif
 
-#if PLATFORM(ANDROID)
-
-uint32_t get_thread_msec()
-{
-#if defined(HAVE_POSIX_CLOCKS)
-    struct timespec tm;
-
-    clock_gettime(CLOCK_THREAD_CPUTIME_ID, &tm);
-    return tm.tv_sec * 1000LL + tm.tv_nsec / 1000000;
-#else
-    struct timeval now;
-    struct timezone zone;
-
-    gettimeofday(&now, &zone);
-    return now.tv_sec * 1000LL + now.tv_usec / 1000;
-#endif
-}
-
-#endif
-
 } // namespace WTF
