@@ -1153,26 +1153,24 @@ void WebViewCore::dumpDomTree(bool useFile)
 void WebViewCore::dumpRenderTree(bool useFile)
 {
 #ifdef ANDROID_DOM_LOGGING
-    if (useFile)
-        gRenderTreeFile = fopen(RENDER_TREE_LOG_FILE, "w");
     WebCore::CString renderDump = WebCore::externalRepresentation(m_mainFrame->contentRenderer()).utf8();
     const char* data = renderDump.data();
-    int length = renderDump.length();
-    int last = 0;
-    for (int i = 0; i < length; i++) {
-        if (data[i] == '\n') {
-            if (i != last) {
-                char* chunk = new char[i - last + 1];
-                strncpy(chunk, (data + last), i - last);
-                chunk[i - last] = '\0';
-                DUMP_RENDER_LOGD("%s", chunk);
-            }
-            last = i + 1;
-        }
-    }
-    if (gRenderTreeFile) {
+    if (useFile) {
+        gRenderTreeFile = fopen(RENDER_TREE_LOG_FILE, "w");
+        DUMP_RENDER_LOGD("%s", data);
         fclose(gRenderTreeFile);
         gRenderTreeFile = 0;
+    } else {
+        // adb log can only output 1024 characters, so write out line by line.
+        // exclude '\n' as adb log adds it for each output.
+        int length = renderDump.length();
+        for (int i = 0, last = 0; i < length; i++) {
+            if (data[i] == '\n') {
+                if (i != last)
+                    DUMP_RENDER_LOGD("%.*s", (i - last), &(data[last]));
+                last = i + 1;
+            }
+        }
     }
 #endif
 }
