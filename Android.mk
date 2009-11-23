@@ -332,7 +332,7 @@ include $(BUILD_SHARED_LIBRARY)
 include $(BASE_PATH)/WebKit/android/wds/client/Android.mk
 
 # Build the performance command line tool.
-#include $(BASE_PATH)/perf/Android.mk
+include $(BASE_PATH)/WebKit/android/benchmark/Android.mk
 
 # Build the webkit merge tool.
 include $(BASE_PATH)/WebKitTools/android/webkitmerge/Android.mk
