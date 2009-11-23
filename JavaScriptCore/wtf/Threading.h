@@ -74,7 +74,7 @@
 #elif PLATFORM(DARWIN)
 #include <libkern/OSAtomic.h>
 #elif PLATFORM(ANDROID)
-#include "cutils/atomic.h"
+#include <cutils/atomic.h>
 #elif COMPILER(GCC)
 #if (__GNUC__ > 4) || ((__GNUC__ == 4) && (__GNUC_MINOR__ >= 2))
 #include <ext/atomicity.h>
