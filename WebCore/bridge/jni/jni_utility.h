@@ -28,12 +28,11 @@
 
 #if ENABLE(MAC_JAVA_BRIDGE)
 
-#include <JavaVM/jni.h>
-#if PLATFORM(ANDROID)
+// TODO: ANDROID we need to merge this file with the V8 version.
 #if USE(JSC)
 #include <runtime/JSValue.h>
 #endif
-#endif
+#include <JavaVM/jni.h>
 
 // The order of these items can not be modified as they are tightly
 // bound with the JVM on Mac OSX. If new types need to be added, they
@@ -57,11 +56,10 @@ typedef enum {
 
 namespace JSC {
 
-#if PLATFORM(ANDROID)
+// TODO: ANDROID we need to merge this file with the V8 version.
 #if USE(JSC)
 class ExecState;
 class JSObject;    
-#endif
 #endif
 
 namespace Bindings {
@@ -80,10 +78,9 @@ JNIType JNITypeFromClassName(const char *name);
 JNIType JNITypeFromPrimitiveType(char type);
 const char *signatureFromPrimitiveType(JNIType type);
 
-#if PLATFORM(ANDROID)
+// TODO: ANDROID we need to merge this file with the V8 version.
 #if USE(JSC)
 jvalue convertValueToJValue(ExecState*, JSValue, JNIType, const char* javaClassName);
-#endif
 #endif
 
 jvalue getJNIField(jobject obj, JNIType type, const char *name, const char *signature);
@@ -228,11 +225,8 @@ static T callJNIMethodV(jobject obj, const char *name, const char *sig, va_list 
             jmethodID mid = env->GetMethodID(cls, name, sig);
             if ( mid != NULL )
             {
-#if PLATFORM(ANDROID)
-                // TODO : Upstream to webkit.org for all platforms.
                 // Avoids references to cls without popping the local frame.
                 env->DeleteLocalRef(cls);
-#endif
                 return JNICaller<T>::callV(obj, mid, args);
             }
             else
@@ -294,10 +288,9 @@ T callJNIStaticMethod(jclass cls, const char* methodName, const char* methodSign
     return result;
 }
     
-#if PLATFORM(ANDROID)
+// TODO: ANDROID we need to merge this file with the V8 version.
 #if USE(JSC)
 bool dispatchJNICall(ExecState*, const void* targetAppletView, jobject obj, bool isStatic, JNIType returnType, jmethodID methodID, jvalue* args, jvalue& result, const char* callingURL, JSValue& exceptionDescription);
-#endif
 #endif
 
 } // namespace Bindings

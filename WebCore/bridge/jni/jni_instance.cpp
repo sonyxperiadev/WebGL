@@ -28,10 +28,6 @@
 
 #if ENABLE(MAC_JAVA_BRIDGE)
 
-#if PLATFORM(ANDROID)
-#include <assert.h>
-#endif
-
 #include "jni_class.h"
 #include "jni_runtime.h"
 #include "jni_utility.h"
@@ -40,6 +36,10 @@
 #include <runtime/ArgList.h>
 #include <runtime/Error.h>
 #include <runtime/JSLock.h>
+
+#if PLATFORM(ANDROID)
+#include <assert.h>
+#endif
 
 #ifdef NDEBUG
 #define JS_LOG(formatAndArgs...) ((void)0)
