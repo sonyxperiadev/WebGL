@@ -34,6 +34,8 @@
 #include "Node.h"
 #include "SystemTime.h"
 #include "StyleBase.h"
+#include <utils/Log.h>
+#include <wtf/CurrentTime.h>
 
 #if USE(JSC)
 #include "JSDOMWindow.h"
@@ -41,13 +43,27 @@
 #include <runtime/JSLock.h>
 #endif
 
-#include <utils/Log.h>
-
 using namespace WebCore;
 using namespace WTF;
 using namespace JSC;
 
 namespace android {
+
+uint32_t getThreadMsec()
+{
+#if defined(HAVE_POSIX_CLOCKS)
+    struct timespec tm;
+
+    clock_gettime(CLOCK_THREAD_CPUTIME_ID, &tm);
+    return tm.tv_sec * 1000LL + tm.tv_nsec / 1000000;
+#else
+    struct timeval now;
+    struct timezone zone;
+
+    gettimeofday(&now, &zone);
+    return now.tv_sec * 1000LL + now.tv_usec / 1000;
+#endif
+}
 
 #ifdef ANDROID_INSTRUMENT
 
@@ -94,7 +110,7 @@ void TimeCounter::record(enum Type type, const char* functionName)
 
 void TimeCounter::recordNoCounter(enum Type type, const char* functionName)
 {
-    uint32_t time = sEndWebCoreThreadTime = get_thread_msec();
+    uint32_t time = sEndWebCoreThreadTime = getThreadMsec();
     uint32_t elapsed = time - sStartTime[type];
     sTotalTimeUsed[type] += elapsed;
     if (elapsed > 1000)
@@ -105,7 +121,7 @@ void TimeCounter::report(const KURL& url, int live, int dead, size_t arenaSize)
 {
     String urlString = url;
     int totalTime = static_cast<int>((currentTime() - sStartTotalTime) * 1000);
-    int threadTime = get_thread_msec() - sStartThreadTime;
+    int threadTime = getThreadMsec() - sStartThreadTime;
     LOGD("*-* Total load time: %d ms, thread time: %d ms for %s\n",
         totalTime, threadTime, urlString.utf8().data());
     for (Type type = (Type) 0; type < TotalTimeCounterCount; type 
@@ -132,7 +148,7 @@ void TimeCounter::report(const KURL& url, int live, int dead, size_t arenaSize)
 void TimeCounter::reportNow()
 {
     double current = currentTime();
-    uint32_t currentThread = get_thread_msec();
+    uint32_t currentThread = getThreadMsec();
     int elapsedTime = static_cast<int>((current - sLastTotalTime) * 1000);
     int elapsedThreadTime = currentThread - sLastThreadTime;
     LOGD("*-* Elapsed time: %d ms, ui thread time: %d ms, webcore thread time:"
@@ -162,12 +178,12 @@ void TimeCounter::reset() {
     bzero(sCounter, sizeof(sCounter));
     LOGD("*-* Start browser instrument\n");
     sStartTotalTime = currentTime();
-    sStartThreadTime = get_thread_msec();
+    sStartThreadTime = getThreadMsec();
 }
 
 void TimeCounter::start(enum Type type)
 {
-    uint32_t time = get_thread_msec();
+    uint32_t time = getThreadMsec();
     if (sRecordWebCoreTime) {
         sStartWebCoreThreadTime = time;
         sRecordWebCoreTime = false;
@@ -175,6 +191,6 @@ void TimeCounter::start(enum Type type)
     sStartTime[type] = time;
 }
 
-#endif
+#endif  // ANDROID_INSTRUMENT
 
 }
