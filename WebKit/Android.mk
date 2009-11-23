@@ -31,6 +31,9 @@ LOCAL_SRC_FILES := \
 	android/TimeCounter.cpp \
 	android/sort.cpp \
 	\
+	android/benchmark/Intercept.cpp \
+	android/benchmark/MyJavaVM.cpp \
+	\
 	android/icu/unicode/ucnv.cpp \
 	\
 	android/jni/GeolocationPermissionsBridge.cpp \
