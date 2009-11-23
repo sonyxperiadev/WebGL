@@ -527,8 +527,9 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/network/SocketStreamHandleBase.cpp \
 	\
 	platform/network/android/Cookie.cpp \
-	platform/network/android/ResourceHandleAndroid.cpp \
 	platform/network/android/NetworkStateNotifierAndroid.cpp \
+	platform/network/android/ResourceHandleAndroid.cpp \
+	platform/network/android/ResourceRequestAndroid.cpp \
 	\
 	platform/posix/FileSystemPOSIX.cpp \
 	\
