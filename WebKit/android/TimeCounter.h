@@ -26,10 +26,7 @@
 #ifndef TIME_COUNTER_H
 #define TIME_COUNTER_H
 
-#ifdef ANDROID_INSTRUMENT
-
 #include "hardware_legacy/qemu_tracing.h"
-#include <wtf/CurrentTime.h>
 
 namespace WebCore {
 
@@ -38,6 +35,10 @@ class KURL;
 }
 
 namespace android {
+
+uint32_t getThreadMsec();
+
+#ifdef ANDROID_INSTRUMENT
 
 class TimeCounter {
 public:
@@ -84,9 +85,9 @@ private:
 class TimeCounterAuto {
 public:
     TimeCounterAuto(TimeCounter::Type type) : 
-        m_type(type), m_startTime(WTF::get_thread_msec()) {}
+        m_type(type), m_startTime(getThreadMsec()) {}
     ~TimeCounterAuto() {
-        uint32_t time = WTF::get_thread_msec();
+        uint32_t time = getThreadMsec();
         TimeCounter::sEndWebCoreThreadTime = time;
         TimeCounter::sTotalTimeUsed[m_type] += time - m_startTime;
         TimeCounter::sCounter[m_type]++;
@@ -112,8 +113,8 @@ public:
 private:
     static int reentry_count;
 };
+#endif  // ANDROID_INSTRUMENT
 
 }
-#endif
 
 #endif
