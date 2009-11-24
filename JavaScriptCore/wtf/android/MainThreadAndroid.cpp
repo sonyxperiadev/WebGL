@@ -1,5 +1,5 @@
 /*
- * Copyright 2008, The Android Open Source Project
+ * Copyright 2009, The Android Open Source Project
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,14 +26,14 @@
 #include "config.h"
 #include "MainThread.h"
 
-#include "jni/JavaSharedClient.h"
+#include "JavaSharedClient.h"
 
 using namespace android;
 
 namespace WTF {
 
 // Callback in the main thread.
-static void timeoutFired(void* )
+static void timeoutFired(void*)
 {
     dispatchFunctionsFromMainThread();
 }
@@ -47,4 +47,4 @@ void scheduleDispatchFunctionsOnMainThread()
     JavaSharedClient::EnqueueFunctionPtr(timeoutFired, 0);
 }
 
-}
+} // namespace WTF
