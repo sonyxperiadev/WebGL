@@ -28,7 +28,6 @@
 #include "Geolocation.h"
 
 #include "Chrome.h"
-#include "CurrentTime.h"
 #include "Document.h"
 #include "DOMWindow.h"
 #include "EventNames.h"
@@ -38,6 +37,7 @@
 #include "SQLiteStatement.h"
 #include "SQLiteTransaction.h"
 #include "SQLValue.h"
+#include <wtf/CurrentTime.h>
 
 namespace WebCore {
 
