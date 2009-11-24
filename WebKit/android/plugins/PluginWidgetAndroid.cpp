@@ -36,6 +36,7 @@
 #include "SkFlipPixelRef.h"
 #include "SkString.h"
 #include "WebViewCore.h"
+#include "jni_utility.h"
 
 #define DEBUG_VISIBLE_RECTS 1 // temporary debug printfs and fixes
 
@@ -52,8 +53,8 @@ PluginWidgetAndroid::PluginWidgetAndroid(WebCore::PluginView* view)
     m_pluginBounds.setEmpty();
     m_hasFocus = false;
     m_zoomLevel = 0;
-    m_javaClassName = NULL;
     m_childView = NULL;
+    m_webkitPlugin = NULL;
 }
 
 PluginWidgetAndroid::~PluginWidgetAndroid() {
@@ -63,15 +64,35 @@ PluginWidgetAndroid::~PluginWidgetAndroid() {
             m_core->destroySurface(m_childView);
         }
     }
-    if (m_javaClassName) {
-        free(m_javaClassName);
+
+    // cleanup any remaining JNI References
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    if (m_childView) {
+        env->DeleteGlobalRef(m_childView);
     }
+    if (m_webkitPlugin) {
+        env->DeleteGlobalRef(m_webkitPlugin);
+    }
+
     m_flipPixelRef->safeUnref();
 }
 
 void PluginWidgetAndroid::init(android::WebViewCore* core) {
     m_core = core;
     m_core->addPlugin(this);
+}
+
+jobject PluginWidgetAndroid::getJavaPluginInstance() {
+    if (m_webkitPlugin == NULL && m_core != NULL) {
+
+        jobject tempObj = m_core->createPluginJavaInstance(m_pluginView->plugin()->path(),
+                                                           m_pluginView->instance());
+        if (tempObj) {
+            JNIEnv* env = JSC::Bindings::getJNIEnv();
+            m_webkitPlugin = env->NewGlobalRef(tempObj);
+        }
+    }
+    return m_webkitPlugin;
 }
 
 static SkBitmap::Config computeConfig(bool isTransparent) {
@@ -105,15 +126,13 @@ void PluginWidgetAndroid::setWindow(NPWindow* window, bool isTransparent) {
 
         // if the surface does not exist then create a new surface
         } else if(!m_childView) {
-
-            const String& libName = m_pluginView->plugin()->path();
-            SkString skLibName;
-            skLibName.setUTF16(libName.characters(), libName.length());
-
-            m_childView = m_core->createSurface(skLibName.c_str(), m_javaClassName,
-                                                m_pluginView->instance(),
-                                                docPoint.x(), docPoint.y(),
-                                                window->width, window->height);
+            jobject tempObj = m_core->createSurface(getJavaPluginInstance(),
+                                                    docPoint.x(), docPoint.y(),
+                                                    window->width, window->height);
+            if (tempObj) {
+                JNIEnv* env = JSC::Bindings::getJNIEnv();
+                m_childView = env->NewGlobalRef(tempObj);
+            }
         }
     } else {
         m_flipPixelRef->safeUnref();
@@ -122,44 +141,17 @@ void PluginWidgetAndroid::setWindow(NPWindow* window, bool isTransparent) {
     }
 }
 
-bool PluginWidgetAndroid::setPluginStubJavaClassName(const char* className) {
-
-    if (m_javaClassName) {
-        free(m_javaClassName);
-    }
-
-    // don't call strdup() if the className is to be set to NULL
-    if (!className) {
-        m_javaClassName = NULL;
-        return true;
-    }
-
-    // make a local copy of the className
-    m_javaClassName = strdup(className);
-    return (m_javaClassName != NULL);
-}
-
 void PluginWidgetAndroid::requestFullScreenMode() {
-
-    if (!m_javaClassName) {
-        return;
-    }
 
     const String& libName = m_pluginView->plugin()->path();
     SkString skLibName;
     skLibName.setUTF16(libName.characters(), libName.length());
 
-    m_core->startFullScreenPluginActivity(skLibName.c_str(), m_javaClassName,
+    m_core->startFullScreenPluginActivity(skLibName.c_str(),
                                           m_pluginView->instance());
 }
 
 bool PluginWidgetAndroid::setDrawingModel(ANPDrawingModel model) {
-
-    // disallow the surface drawing model if no java class name has been given
-    if (model == kSurface_ANPDrawingModel && m_javaClassName == NULL) {
-        return false;
-    }
-
     m_drawingModel = model;
     return true;
 }

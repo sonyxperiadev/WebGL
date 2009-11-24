@@ -190,6 +190,7 @@ struct WebViewCore::JavaGlue {
     jmethodID   m_geolocationPermissionsHidePrompt;
     jmethodID   m_addMessageToConsole;
     jmethodID   m_getPluginClass;
+    jmethodID   m_createPluginJavaInstance;
     jmethodID   m_startFullScreenPluginActivity;
     jmethodID   m_createSurface;
     jmethodID   m_updateSurface;
@@ -269,8 +270,9 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     m_javaGlue->m_geolocationPermissionsHidePrompt = GetJMethod(env, clazz, "geolocationPermissionsHidePrompt", "()V");
     m_javaGlue->m_addMessageToConsole = GetJMethod(env, clazz, "addMessageToConsole", "(Ljava/lang/String;ILjava/lang/String;)V");
     m_javaGlue->m_getPluginClass = GetJMethod(env, clazz, "getPluginClass", "(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/Class;");
-    m_javaGlue->m_startFullScreenPluginActivity = GetJMethod(env, clazz, "startFullScreenPluginActivity", "(Ljava/lang/String;Ljava/lang/String;I)V");
-    m_javaGlue->m_createSurface = GetJMethod(env, clazz, "createSurface", "(Ljava/lang/String;Ljava/lang/String;IIIII)Landroid/webkit/ViewManager$ChildView;");
+    m_javaGlue->m_createPluginJavaInstance = GetJMethod(env, clazz, "createPluginJavaInstance", "(Ljava/lang/String;I)Landroid/webkit/plugin/WebkitPlugin;");
+    m_javaGlue->m_startFullScreenPluginActivity = GetJMethod(env, clazz, "startFullScreenPluginActivity", "(Ljava/lang/String;I)V");
+    m_javaGlue->m_createSurface = GetJMethod(env, clazz, "createSurface", "(Landroid/webkit/plugin/WebkitPlugin;IIII)Landroid/webkit/ViewManager$ChildView;");
     m_javaGlue->m_updateSurface = GetJMethod(env, clazz, "updateSurface", "(Landroid/webkit/ViewManager$ChildView;IIII)V");
     m_javaGlue->m_destroySurface = GetJMethod(env, clazz, "destroySurface", "(Landroid/webkit/ViewManager$ChildView;)V");
     m_javaGlue->m_sendFindAgain = GetJMethod(env, clazz, "sendFindAgain", "()V");
@@ -2438,7 +2440,7 @@ void WebViewCore::setBackgroundColor(SkColor c)
     view->setBaseBackgroundColor(bcolor);
 }
 
-jclass WebViewCore::getPluginClass(const char* libName, const char* className)
+jclass WebViewCore::getPluginClass(const WebCore::String& libName, const char* className)
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
     AutoJObject obj = m_javaGlue->object(env);
@@ -2447,7 +2449,7 @@ jclass WebViewCore::getPluginClass(const char* libName, const char* className)
     if (!obj.get())
         return NULL;
 
-    jstring libString = env->NewStringUTF(libName);
+    jstring libString = env->NewString(libName.characters(), libName.length());
     jstring classString = env->NewStringUTF(className);
     jobject pluginClass = env->CallObjectMethod(obj.get(),
                                            m_javaGlue->m_getPluginClass,
@@ -2461,8 +2463,24 @@ jclass WebViewCore::getPluginClass(const char* libName, const char* className)
     }
 }
 
-void WebViewCore::startFullScreenPluginActivity(const char* libName,
-                                                const char* className, NPP npp)
+jobject WebViewCore::createPluginJavaInstance(const WebCore::String& libName, NPP npp)
+{
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    AutoJObject obj = m_javaGlue->object(env);
+    // if it is called during DESTROY is handled, the real object of WebViewCore
+    // can be gone. Check before using it.
+    if (!obj.get())
+        return 0;
+
+    jstring libString = env->NewString(libName.characters(), libName.length());
+    jobject result = env->CallObjectMethod(obj.get(),
+                                           m_javaGlue->m_createPluginJavaInstance,
+                                           libString, (int) npp);
+    checkException(env);
+    return result;
+}
+
+void WebViewCore::startFullScreenPluginActivity(const char* libName, NPP npp)
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
     AutoJObject obj = m_javaGlue->object(env);
@@ -2472,15 +2490,13 @@ void WebViewCore::startFullScreenPluginActivity(const char* libName,
         return;
 
     jstring libString = env->NewStringUTF(libName);
-    jstring classString = env->NewStringUTF(className);
     env->CallVoidMethod(obj.get(),
                         m_javaGlue->m_startFullScreenPluginActivity,
-                        libString, classString, (int) npp);
+                        libString, (int) npp);
     checkException(env);
 }
 
-jobject WebViewCore::createSurface(const char* libName, const char* className,
-                                   NPP npp, int x, int y, int width, int height)
+jobject WebViewCore::createSurface(jobject webkitPlugin, int x, int y, int width, int height)
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
     AutoJObject obj = m_javaGlue->object(env);
@@ -2489,11 +2505,9 @@ jobject WebViewCore::createSurface(const char* libName, const char* className,
     if (!obj.get())
         return 0;
 
-    jstring libString = env->NewStringUTF(libName);
-    jstring classString = env->NewStringUTF(className);
     jobject result = env->CallObjectMethod(obj.get(),
-                                           m_javaGlue->m_createSurface, libString,
-                                           classString,(int) npp, x, y, width, height);
+                                           m_javaGlue->m_createSurface,
+                                           webkitPlugin, x, y, width, height);
     checkException(env);
     return result;
 
