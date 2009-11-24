@@ -492,17 +492,6 @@ void RenderTextControl::calcPrefWidths()
     m_minPrefWidth += toAdd;
     m_maxPrefWidth += toAdd;
 
-#if !PLATFORM(ANDROID)
-    // FIXME: This causes cnn.com loading way slow. Comment it out for now
-    Frame* frame = document()->frame();
-    if (frame && frame->settings()->layoutAlgorithm() == Settings::kLayoutFitColumnToScreen) {
-        int maxWidth = frame->view()->visibleWidth() - 2 * ANDROID_FCTS_MARGIN_PADDING;
-        if (maxWidth > 0 && maxWidth < m_minPrefWidth)
-            m_minPrefWidth = maxWidth;
-        if (maxWidth > 0 && maxWidth < m_maxPrefWidth)
-            m_maxPrefWidth = maxWidth;
-    }
-#endif
     setPrefWidthsDirty(false);
 }
 
