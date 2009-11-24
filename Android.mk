@@ -326,6 +326,11 @@ LOCAL_C_INCLUDES := $(WEBKIT_C_INCLUDES)
 LOCAL_PATH := $(BASE_PATH)
 LOCAL_SRC_FILES := \
 	WebKit/android/jni/WebCoreJniOnLoad.cpp
+# Do this dependency by hand. The reason we have to do this is because the
+# headers that this file pulls in are generated during the build of webcore.
+# We make all of our object files depend on those files so that they are built
+# before we try to compile the file.
+LOCAL_ADDITIONAL_DEPENDENCIES := $(filter %.h, $(WEBKIT_GENERATED_SOURCES))
 include $(BUILD_SHARED_LIBRARY)
 
 # Build the wds client
