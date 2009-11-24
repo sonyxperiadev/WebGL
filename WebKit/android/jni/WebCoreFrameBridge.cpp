@@ -882,14 +882,6 @@ static void CreateFrame(JNIEnv* env, jobject obj, jobject javaview, jobject jAss
     // css files without explicit MIMETYPE is treated as generic text files in
     // the Java side. So we can't enforce CSS MIMETYPE.
     page->settings()->setEnforceCSSMIMETypeInStrictMode(false);
-    /* TODO: Don't turn on PageCache until we can restore the ScrollView State.
-     * This caused bug http://b/issue?id=1202983
-    page->settings()->setUsesPageCache(true);
-    // 10 is a random number chosen because it is small enough to give the user
-    // a good back/forward page cache without allowing the page cache to get too
-    // big.
-    WebCore::pageCache()->setCapacity(10);
-    */
     editorC->setPage(page);
     page->setGroupName("android.webkit");
 
@@ -1297,6 +1289,14 @@ static void ClearCache(JNIEnv *env, jobject obj)
         WebCore::cache()->setDisabled(true);
         WebCore::cache()->setDisabled(false);
     }
+
+    // clear page cache
+    int pageCapacity = WebCore::pageCache()->capacity();
+    // Setting size to 0, makes all pages be released.
+    WebCore::pageCache()->setCapacity(0);
+    WebCore::pageCache()->releaseAutoreleasedPagesNow();
+    WebCore::pageCache()->setCapacity(pageCapacity);
+
 #if USE(JSC)    
     // force JavaScript to GC when clear cache
     WebCore::gcController().garbageCollectSoon();
