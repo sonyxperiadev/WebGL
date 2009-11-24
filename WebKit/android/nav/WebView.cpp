@@ -905,29 +905,6 @@ void setNavBounds(const WebCore::IntRect& rect)
     root->rootHistory()->setNavBounds(rect);
 }
 
-/**
- * This function is only to be called by WebTextView, when there is a motion up
- * on an already focused text input.  Unlike motionUp which may change our
- * cursor, it simply passes the click, so it can change the selection.
- * Variables are in content space, relative to the page.
- */
-void textInputMotionUp(int x, int y)
-{
-    const CachedRoot* root = getFrameCache(DontAllowNewer);
-    if (!root) {
-        return;
-    }
-    const CachedFrame* frame;
-    const CachedNode* node = root->currentCursor(&frame);
-    if (node) {
-        sendMotionUp(static_cast<WebCore::Frame*>(frame->framePointer()),
-                static_cast<WebCore::Node*>(node->nodePointer()), x, y);
-        if (!node->isReadOnly()) {
-            displaySoftKeyboard(true);
-        }
-    }
-}
-
 bool motionUp(int x, int y, int slop)
 {
     bool pageScrolled = false;
@@ -1733,12 +1710,6 @@ static jint nativeTextGeneration(JNIEnv *env, jobject obj)
     return root ? root->textGeneration() : 0;
 }
 
-static void nativeTextInputMotionUp(JNIEnv *env, jobject obj, int x, int y)
-{
-    WebView* view = GET_NATIVE_VIEW(env, obj);
-    view->textInputMotionUp(x, y);
-}
-
 static bool nativeMotionUp(JNIEnv *env, jobject obj,
     int x, int y, int slop)
 {
@@ -2094,8 +2065,6 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeImageURI },
     { "nativeInstrumentReport", "()V",
         (void*) nativeInstrumentReport },
-    { "nativeTextInputMotionUp", "(II)V",
-        (void*) nativeTextInputMotionUp },
     { "nativeMotionUp", "(III)Z",
         (void*) nativeMotionUp },
     { "nativeMoveCursor", "(IIZ)Z",
