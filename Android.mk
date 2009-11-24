@@ -105,7 +105,6 @@ endif
 ifeq ($(JAVASCRIPT_ENGINE),v8)
 include $(LOCAL_PATH)/Android.derived.v8bindings.mk
 endif
-WEBKIT_SRC_FILES += $(addprefix $d/,$(LOCAL_SRC_FILES))
 
 # Include source files for android WebKit port
 d := WebKit
