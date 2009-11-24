@@ -23,21 +23,31 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "config.h"
-#include "SSLKeyGenerator.h"
+#ifndef PlatformBridge_h
+#define PlatformBridge_h
 
-#include "PlatformBridge.h"
+#include "KURL.h"
+#include "PlatformString.h"
+
+#include <wtf/Vector.h>
 
 namespace WebCore {
 
-void getSupportedKeySizes(Vector<String>& keys)
-{
-    keys = PlatformBridge::getSupportedKeyStrengthList();
+// An interface to the embedding layer, which has the ability to answer
+// questions about the system and so on...
+// This is very similar to ChromiumBridge and the two are likely to converge
+// in the future.
+//
+// The methods in this class all need to reach across a JNI layer to the Java VM
+// where the embedder runs. The JNI machinery is currently all in WebKit/android
+// but the long term plan is to move to the WebKit API and share the bridge and its
+// implementation with Chromium. The JNI machinery will then move outside of WebKit,
+// similarly to how Chromium's IPC layer lives outside of WebKit.
+class PlatformBridge {
+public:
+    // KeyGenerator
+    static WTF::Vector<String> getSupportedKeyStrengthList();
+    static String getSignedPublicKeyAndChallengeString(unsigned index, const String& challenge, const KURL&);
+};
 }
-
-String signedPublicKeyAndChallengeString(unsigned index, const String& challenge, const KURL& url)
-{
-    return PlatformBridge::getSignedPublicKeyAndChallengeString(index, challenge, url);
-}
-
-}
+#endif // PlatformBridge_h
