@@ -342,13 +342,17 @@ private:
     unsigned desiredColumnCount() const;
 #if PLATFORM(ANDROID)
 public:
+#endif
     Vector<IntRect>* columnRects() const;
+#if PLATFORM(ANDROID)
 private:
 #endif
     void setDesiredColumnCountAndWidth(int count, int width);
 #if PLATFORM(ANDROID)
 public:
+#endif
     int columnGap() const;
+#if PLATFORM(ANDROID)
 private:
 #endif
     
