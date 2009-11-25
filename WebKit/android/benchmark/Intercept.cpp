@@ -28,7 +28,6 @@
 
 #include "Base64.h"
 #include "CString.h"
-#include "HashMap.h"
 #include "HTTPParsers.h"
 #include "Intercept.h"
 #include "ResourceHandle.h"
@@ -38,6 +37,7 @@
 #include "StringHash.h"
 #include "TextEncoding.h"
 #include <utils/Log.h>
+#include <wtf/HashMap.h>
 
 void MyResourceLoader::handleRequest() {
     if (protocolIs(m_url, "data"))

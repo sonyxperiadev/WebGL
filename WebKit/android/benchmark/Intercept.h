@@ -30,9 +30,9 @@
 #include "MyJavaVM.h"
 #include "PlatformString.h"
 #include "Timer.h"
-#include "Vector.h"
 #include "WebCoreFrameBridge.h"
 #include "WebCoreResourceLoader.h"
+#include <wtf/Vector.h>
 
 namespace WebCore {
     class Page;

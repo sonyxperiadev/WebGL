@@ -30,11 +30,11 @@
 // We must include this before before HashMap.h, as it provides specalizations
 // for String hash types instantiated there.
 #include "StringHash.h"
-#include "HashMap.h"
-#include "HashSet.h"
 #include "Timer.h"
-#include "Vector.h"
-#include "wtf/RefCounted.h"
+#include <wtf/HashMap.h>
+#include <wtf/HashSet.h>
+#include <wtf/RefCounted.h>
+#include <wtf/Vector.h>
 
 namespace WebCore {
     class Frame;

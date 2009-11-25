@@ -29,8 +29,8 @@
 #include "ChromeClient.h"
 
 #include "GeolocationPermissions.h"
-#include "Threading.h"
 #include "Timer.h"
+#include <wtf/Threading.h>
 
 namespace WebCore {
     class Geolocation;
