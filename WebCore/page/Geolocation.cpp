@@ -178,7 +178,9 @@ class CachedPositionManager {
     }
     static void setDatabasePath(String databasePath)
     {
-        s_databaseFile = databasePath + databaseName;
+        if (!s_databaseFile)
+            s_databaseFile = new String;
+        *s_databaseFile = databasePath + databaseName;
         // If we don't have have a cached position, attempt to read one from the
         // DB at the new path.
         if (s_instances && *s_cachedPosition == 0)
@@ -189,7 +191,7 @@ class CachedPositionManager {
     static PassRefPtr<Geoposition> readFromDB()
     {
         SQLiteDatabase database;
-        if (!database.open(s_databaseFile))
+        if (!s_databaseFile || !database.open(*s_databaseFile))
             return 0;
 
         // Create the table here, such that even if we've just created the
@@ -230,7 +232,7 @@ class CachedPositionManager {
         ASSERT(position);
 
         SQLiteDatabase database;
-        if (!database.open(s_databaseFile))
+        if (!s_databaseFile || !database.open(*s_databaseFile))
             return;
 
         SQLiteTransaction transaction(database);
@@ -278,12 +280,12 @@ class CachedPositionManager {
     }
     static int s_instances;
     static RefPtr<Geoposition>* s_cachedPosition;
-    static String s_databaseFile;
+    static String* s_databaseFile;
 };
 
 int CachedPositionManager::s_instances = 0;
 RefPtr<Geoposition>* CachedPositionManager::s_cachedPosition;
-String CachedPositionManager::s_databaseFile;
+String* CachedPositionManager::s_databaseFile = 0;
 
 
 Geolocation::Geolocation(Frame* frame)
