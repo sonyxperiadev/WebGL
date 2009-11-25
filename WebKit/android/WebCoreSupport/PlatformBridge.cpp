@@ -24,20 +24,31 @@
  */
 
 #include "config.h"
-#include "SSLKeyGenerator.h"
-
 #include "PlatformBridge.h"
+
+#include "JavaSharedClient.h"
+#include "KeyGeneratorClient.h"
+
+using namespace android;
 
 namespace WebCore {
 
-void getSupportedKeySizes(Vector<String>& keys)
+WTF::Vector<String> PlatformBridge::getSupportedKeyStrengthList()
 {
-    keys = PlatformBridge::getSupportedKeyStrengthList();
+    KeyGeneratorClient* client = JavaSharedClient::GetKeyGeneratorClient();
+    if (!client)
+        return Vector<String>();
+
+    return client->getSupportedKeyStrengthList();
 }
 
-String signedPublicKeyAndChallengeString(unsigned index, const String& challenge, const KURL& url)
+String PlatformBridge::getSignedPublicKeyAndChallengeString(unsigned index, const String& challenge, const KURL& url)
 {
-    return PlatformBridge::getSignedPublicKeyAndChallengeString(index, challenge, url);
+    KeyGeneratorClient* client = JavaSharedClient::GetKeyGeneratorClient();
+    if (!client)
+        return String();
+
+    return client->getSignedPublicKeyAndChallengeString(index, challenge, url);
 }
 
 }
