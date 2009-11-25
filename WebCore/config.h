@@ -110,6 +110,7 @@
 #define ENABLE_XPATH 0
 #define ENABLE_XSLT 0
 
+#undef ENABLE_ARCHIVE  // Enabled by default in Platform.h
 #define ENABLE_ARCHIVE 0
 #define ENABLE_OFFLINE_WEB_APPLICATIONS 1
 #define ENABLE_TOUCH_EVENTS 1

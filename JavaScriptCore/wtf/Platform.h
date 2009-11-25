@@ -728,6 +728,13 @@
 #define ENABLE_TEXT_CARET 1
 #endif
 
+// ENABLE_ARCHIVE is an Android addition. We need this default value to allow
+// us to build on Mac.
+// FIXME: Upstream to webkit.org.
+#if !defined(ENABLE_ARCHIVE)
+#define ENABLE_ARCHIVE 1
+#endif
+
 #if !defined(ENABLE_ON_FIRST_TEXTAREA_FOCUS_SELECT_ALL)
 #define ENABLE_ON_FIRST_TEXTAREA_FOCUS_SELECT_ALL 0
 #endif
