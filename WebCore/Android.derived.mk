@@ -23,7 +23,6 @@
 ## OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ##
 
-LOCAL_SRC_FILES :=
 # CSS property names and value keywords
 
 GEN := $(intermediates)/css/CSSPropertyNames.h
