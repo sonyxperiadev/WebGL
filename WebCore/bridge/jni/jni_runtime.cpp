@@ -284,10 +284,7 @@ JavaMethod::JavaMethod (JNIEnv *env, jobject aMethod)
     jclass modifierClass = env->FindClass("java/lang/reflect/Modifier");
     int modifiers = callJNIMethod<jint>(aMethod, "getModifiers", "()I");
     _isStatic = (bool)callJNIStaticMethod<jboolean>(modifierClass, "isStatic", "(I)Z", modifiers);
-#if PLATFORM(ANDROID)
-    // TODO : Upstream to webkit.org for all platforms.
     env->DeleteLocalRef(modifierClass);
-#endif
 }
 
 JavaMethod::~JavaMethod() 
