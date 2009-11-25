@@ -1108,25 +1108,25 @@ protected:
     {
         JNIEnv* env = JSC::Bindings::getJNIEnv();
         // JavaInstance creates a global ref to instance in its constructor.
-        env->DeleteGlobalRef(_instance->_instance);
+        env->DeleteGlobalRef(_instance->instance());
         // Set the object to a weak reference.
-        _instance->_instance = env->NewWeakGlobalRef(instance);
+        _instance->setInstance(env->NewWeakGlobalRef(instance));
     }
     ~WeakJavaInstance() {
         JNIEnv* env = JSC::Bindings::getJNIEnv();
         // Store the weak reference so we can delete it later.
-        jweak weak = _instance->_instance;
+        jweak weak = _instance->instance();
         // The JavaInstance destructor attempts to delete the global ref stored
         // in _instance. Since we replaced it in our constructor with a weak
         // reference, restore the global ref here so the vm will not complain.
-        _instance->_instance = env->NewGlobalRef(
-                getRealObject(env, _instance->_instance).get());
+        _instance->setInstance(env->NewGlobalRef(
+                getRealObject(env, _instance->instance()).get()));
         // Delete the weak reference.
         env->DeleteWeakGlobalRef(weak);
     }
 
     virtual void virtualBegin() {
-        _weakRef = _instance->_instance;
+        _weakRef = _instance->instance();
         JNIEnv* env = JSC::Bindings::getJNIEnv();
         // This is odd. getRealObject returns an AutoJObject which is used to
         // cleanly create and delete a local reference. But, here we need to
@@ -1135,7 +1135,7 @@ protected:
         // and delete the local reference in virtualEnd().
         _realObject = getRealObject(env, _weakRef).release();
         // Point to the real object
-        _instance->_instance = _realObject;
+        _instance->setInstance(_realObject);
         // Call the base class method
         INHERITED::virtualBegin();
     }
@@ -1146,7 +1146,7 @@ protected:
         // Get rid of the local reference to the real object.
         JSC::Bindings::getJNIEnv()->DeleteLocalRef(_realObject);
         // Point back to the WeakReference.
-        _instance->_instance = _weakRef;
+        _instance->setInstance(_weakRef);
     }
 
 private:

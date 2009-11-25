@@ -28,14 +28,13 @@
 
 #if ENABLE(MAC_JAVA_BRIDGE)
 
-#if PLATFORM(ANDROID)
+// TODO: ANDROID We need to merge this file with the V8 version.
 #if USE(JSC)
 #include "jni_runtime.h"
 #include "runtime_array.h"
 #include "runtime_object.h"
 #include <runtime/JSArray.h>
 #include <runtime/JSLock.h>
-#endif
 #endif
 
 #include <dlfcn.h>
@@ -352,7 +351,7 @@ jvalue getJNIField( jobject obj, JNIType type, const char *name, const char *sig
     return result;
 }
 
-#if PLATFORM(ANDROID)
+// TODO: ANDROID we need to merge this file with the V8 version.
 #if USE(JSC)
 static jobject convertArrayInstanceToJavaArray(ExecState* exec, JSArray* jsArray, const char* javaClassName)
 {
@@ -584,7 +583,6 @@ jvalue convertValueToJValue(ExecState* exec, JSValue value, JNIType _JNIType, co
     return result;
 }
 #endif  // USE(JSC)
-#endif  // PLATFORM(ANDROID)
 
 }  // end of namespace Bindings
 
