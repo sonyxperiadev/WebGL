@@ -23,13 +23,13 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#define LOG_TAG "Timers"
-
 #include "config.h"
 #include "SharedTimer.h"
 
-#include "JavaSharedClient.h"
-#include "TimerClient.h"
+#define LOG_TAG "Timers"
+
+#include <TimerClient.h>
+#include <JavaSharedClient.h>
 #include <utils/Log.h>
 #include <wtf/CurrentTime.h>
 
@@ -49,11 +49,11 @@ void setSharedTimerFiredFunction(void (*f)())
 // as the result of currentTime() is.
 void setSharedTimerFireTime(double fireTime)
 {
-    long long timeInMS = (long long)((fireTime - WTF::currentTime()) * 1000);
+    long long timeInMs = static_cast<long long>((fireTime - WTF::currentTime()) * 1000);
 
-    LOGV("setSharedTimerFireTime: in %ld millisec", timeInMS);
+    LOGV("setSharedTimerFireTime: in %ld millisec", timeInMs);
     if (JavaSharedClient::GetTimerClient())
-        JavaSharedClient::GetTimerClient()->setSharedTimer(timeInMS);
+        JavaSharedClient::GetTimerClient()->setSharedTimer(timeInMs);
 }
 
 void stopSharedTimer()
