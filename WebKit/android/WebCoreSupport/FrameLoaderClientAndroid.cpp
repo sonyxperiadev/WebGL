@@ -737,12 +737,11 @@ void FrameLoaderClientAndroid::frameLoadCompleted() {
 }
 
 void FrameLoaderClientAndroid::saveViewStateToItem(HistoryItem* item) {
-#ifdef ANDROID_HISTORY_CLIENT
     ASSERT(m_frame);
     ASSERT(item);
     // We should have added a bridge when the child item was added to its
     // parent.
-    WebHistoryItem* bridge = item->bridge();
+    AndroidWebHistoryBridge* bridge = item->bridge();
     ASSERT(bridge);
     // store the current scale (only) for the top frame
     if (!m_frame->tree()->parent()) {
@@ -752,41 +751,38 @@ void FrameLoaderClientAndroid::saveViewStateToItem(HistoryItem* item) {
     }
 
     WebCore::notifyHistoryItemChanged(item);
-#endif
 }
 
 void FrameLoaderClientAndroid::restoreViewState() {
-#ifdef ANDROID_HISTORY_CLIENT
     WebViewCore* webViewCore = WebViewCore::getWebViewCore(m_frame->view());
     HistoryItem* item = m_frame->loader()->history()->currentItem();
+    AndroidWebHistoryBridge* bridge = item->bridge();
     // restore the scale (only) for the top frame
     if (!m_frame->tree()->parent()) {
-        int scale = item->bridge()->scale();
+        int scale = bridge->scale();
         webViewCore->restoreScale(scale);
-        int screenWidthScale = item->bridge()->screenWidthScale();
+        int screenWidthScale = bridge->screenWidthScale();
         if (screenWidthScale != scale)
             webViewCore->restoreScreenWidthScale(screenWidthScale);
     }
-#endif
 }
 
-#ifdef ANDROID_HISTORY_CLIENT
-void FrameLoaderClientAndroid::dispatchDidAddHistoryItem(HistoryItem* item) const {
+void FrameLoaderClientAndroid::dispatchDidAddBackForwardItem(HistoryItem* item) const {
     ASSERT(m_frame);
     m_webFrame->addHistoryItem(item);
 }
 
-void FrameLoaderClientAndroid::dispatchDidRemoveHistoryItem(HistoryItem* item, int index) const {
+void FrameLoaderClientAndroid::dispatchDidRemoveBackForwardItem(HistoryItem* item) const {
     ASSERT(m_frame);
-    m_webFrame->removeHistoryItem(index);
+    m_webFrame->removeHistoryItem(0);
 }
 
-void FrameLoaderClientAndroid::dispatchDidChangeHistoryIndex(
-        BackForwardList* list) const {
+void FrameLoaderClientAndroid::dispatchDidChangeBackForwardIndex() const {
     ASSERT(m_frame);
+    BackForwardList* list = m_frame->page()->backForwardList();
+    ASSERT(list);
     m_webFrame->updateHistoryIndex(list->backListCount());
 }
-#endif
 
 void FrameLoaderClientAndroid::provisionalLoadStarted() {
     ASSERT(m_frame);
