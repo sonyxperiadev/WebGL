@@ -435,15 +435,14 @@
 #include "V8InspectorBackend.h"
 #endif
 
-#if PLATFORM(ANDROID)
-// TODO: Upstream these guards to webkit.org
-#if ENABLE(GEOLOCATION)
+// Geolocation
 #include "V8Coordinates.h"
 #include "V8Geolocation.h"
 #include "V8Geoposition.h"
 #include "V8PositionError.h"
-#endif
 
+#if PLATFORM(ANDROID)
+// TODO: Upstream these guards to webkit.org
 #if ENABLE(TOUCH_EVENTS)
 #include "V8Touch.h"
 #include "V8TouchList.h"

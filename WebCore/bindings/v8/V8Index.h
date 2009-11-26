@@ -491,15 +491,11 @@ typedef v8::Persistent<v8::FunctionTemplate> (*FunctionTemplateFactory)();
 #define DOM_OBJECT_INSPECTOR_TYPES(V)
 #endif
 
-#if ENABLE(GEOLOCATION)
 #define DOM_OBJECT_GEOLOCATION_TYPES(V)                                 \
     V(COORDINATES, Coordinates)                                         \
     V(GEOLOCATION, Geolocation)                                         \
     V(GEOPOSITION, Geoposition)                                         \
     V(POSITIONERROR, PositionError)
-#else
-#define DOM_OBJECT_GEOLOCATION_TYPES(V)
-#endif
 
 #if PLATFORM(ANDROID)
 // TODO: Upstream this guard.
@@ -531,10 +527,10 @@ typedef v8::Persistent<v8::FunctionTemplate> (*FunctionTemplateFactory)();
     DOM_OBJECT_3D_CANVAS_TYPES(V)                                       \
     DOM_OBJECT_XPATH_TYPES(V)                                           \
     DOM_OBJECT_XSLT_TYPES(V)                                            \
+    DOM_OBJECT_INSPECTOR_TYPES(V)                                       \
     DOM_OBJECT_GEOLOCATION_TYPES(V)                                     \
     DOM_OBJECT_TOUCH_EVENT_TYPES(V)                                     \
-    DOM_OBJECT_VOIDCALLBACK_TYPES(V)                                    \
-    DOM_OBJECT_INSPECTOR_TYPES(V)
+    DOM_OBJECT_VOIDCALLBACK_TYPES(V)
 #endif
 
 #if ENABLE(SVG)
