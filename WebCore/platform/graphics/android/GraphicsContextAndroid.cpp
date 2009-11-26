@@ -871,7 +871,7 @@ void GraphicsContext::endTransparencyLayer()
         m_data->setFillColor(c);
     }
     
-void GraphicsContext::setPlatformShadow(const IntSize& size, int blur, const Color& color)
+void GraphicsContext::setPlatformShadow(const IntSize& size, int blur, const Color& color, ColorSpace)
 {
     if (paintingDisabled())
         return;
