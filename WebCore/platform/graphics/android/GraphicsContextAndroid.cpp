@@ -646,7 +646,7 @@ void GraphicsContext::drawConvexPolygon(size_t numPoints, const FloatPoint* poin
 }
 
 void GraphicsContext::fillRoundedRect(const IntRect& rect, const IntSize& topLeft, const IntSize& topRight,
-                                      const IntSize& bottomLeft, const IntSize& bottomRight, const Color& color)
+                                      const IntSize& bottomLeft, const IntSize& bottomRight, const Color& color, ColorSpace)
 {
     if (paintingDisabled())
         return;
@@ -682,7 +682,7 @@ void GraphicsContext::fillRect(const FloatRect& rect)
     GC2Canvas(this)->drawRect(rect, paint);
 }
 
-void GraphicsContext::fillRect(const FloatRect& rect, const Color& color)
+void GraphicsContext::fillRect(const FloatRect& rect, const Color& color, ColorSpace)
 {
     if (paintingDisabled())
         return;
@@ -859,7 +859,7 @@ void GraphicsContext::endTransparencyLayer()
         return m_data->mState->setupShadowPaint(paint, offset);
     }
 
-    void GraphicsContext::setPlatformStrokeColor(const Color& c) {
+    void GraphicsContext::setPlatformStrokeColor(const Color& c, ColorSpace) {
         m_data->setStrokeColor(c);
     }
     
@@ -867,7 +867,7 @@ void GraphicsContext::endTransparencyLayer()
         m_data->setStrokeThickness(f);
     }
 
-    void GraphicsContext::setPlatformFillColor(const Color& c) {
+    void GraphicsContext::setPlatformFillColor(const Color& c, ColorSpace) {
         m_data->setFillColor(c);
     }
     
