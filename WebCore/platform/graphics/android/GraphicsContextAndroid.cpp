@@ -858,22 +858,6 @@ void GraphicsContext::endTransparencyLayer()
     bool GraphicsContext::setupShadowPaint(SkPaint* paint, SkPoint* offset) {
         return m_data->mState->setupShadowPaint(paint, offset);
     }
-        
-    // referenced from CanvasStyle.cpp
-    void GraphicsContext::setCMYKAFillColor(float c, float m, float y, float k, float a) {
-        float r = 1 - (c + k);
-        float g = 1 - (m + k);
-        float b = 1 - (y + k);
-        return this->setFillColor(Color(r, g, b, a));
-    }
-
-    // referenced from CanvasStyle.cpp
-    void GraphicsContext::setCMYKAStrokeColor(float c, float m, float y, float k, float a) {
-        float r = 1 - (c + k);
-        float g = 1 - (m + k);
-        float b = 1 - (y + k);
-        return this->setStrokeColor(Color(r, g, b, a));
-    }
 
     void GraphicsContext::setPlatformStrokeColor(const Color& c) {
         m_data->setStrokeColor(c);
