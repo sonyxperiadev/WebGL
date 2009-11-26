@@ -330,23 +330,15 @@ static SkShader::TileMode SpreadMethod2TileMode(GradientSpreadMethod sm) {
     return mode;
 }
 
-static void extactShader(SkPaint* paint, ColorSpace cs, Pattern* pat,
-                         Gradient* grad)
+static void extactShader(SkPaint* paint, Pattern* pat, Gradient* grad)
 {
-    switch (cs) {
-        case PatternColorSpace:
-            // createPlatformPattern() returns a new inst
-            paint->setShader(pat->createPlatformPattern(
-                                                        TransformationMatrix()))->safeUnref();
-            break;
-        case GradientColorSpace: {
-            // grad->getShader() returns a cached obj
-            GradientSpreadMethod sm = grad->spreadMethod();
-            paint->setShader(grad->getShader(SpreadMethod2TileMode(sm)));
-            break;
-        }
-        default:
-            break;
+    if (pat) {
+        // createPlatformPattern() returns a new inst
+        paint->setShader(pat->createPlatformPattern(TransformationMatrix()))->safeUnref();
+    } else if (grad) {
+        // grad->getShader() returns a cached obj
+        GradientSpreadMethod sm = grad->spreadMethod();
+        paint->setShader(grad->getShader(SpreadMethod2TileMode(sm)));
     }
 }
     
@@ -675,7 +667,7 @@ void GraphicsContext::fillRect(const FloatRect& rect)
     
     m_data->setup_paint_fill(&paint);
 
-    extactShader(&paint, m_common->state.fillColorSpace,
+    extactShader(&paint,
                  m_common->state.fillPattern.get(),
                  m_common->state.fillGradient.get());
 
@@ -1131,7 +1123,7 @@ void GraphicsContext::fillPath()
     SkPaint paint;
     m_data->setup_paint_fill(&paint);
 
-    extactShader(&paint, m_common->state.fillColorSpace,
+    extactShader(&paint,
                  m_common->state.fillPattern.get(),
                  m_common->state.fillGradient.get());
 
@@ -1147,7 +1139,7 @@ void GraphicsContext::strokePath()
     SkPaint paint;
     m_data->setup_paint_stroke(&paint, NULL);
 
-    extactShader(&paint, m_common->state.strokeColorSpace,
+    extactShader(&paint,
                  m_common->state.strokePattern.get(),
                  m_common->state.strokeGradient.get());
     
