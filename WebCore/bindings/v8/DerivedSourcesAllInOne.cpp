@@ -98,7 +98,6 @@
 #include "bindings/V8File.cpp"
 #include "bindings/V8FileList.cpp"
 #include "bindings/V8History.cpp"
-#include "bindings/V8Geolocation.cpp"
 #include "bindings/V8HTMLAllCollection.cpp"
 #include "bindings/V8HTMLAnchorElement.cpp"
 #include "bindings/V8HTMLAppletElement.cpp"
@@ -188,6 +187,8 @@
 #include "bindings/V8NodeIterator.cpp"
 #include "bindings/V8NodeList.cpp"
 #include "bindings/V8Notation.cpp"
+#include "bindings/V8Notification.cpp"
+#include "bindings/V8NotificationCenter.cpp"
 #include "bindings/V8OverflowEvent.cpp"
 #include "bindings/V8PageTransitionEvent.cpp"
 #include "bindings/V8Plugin.cpp"
@@ -382,12 +383,4 @@
 
 #if ENABLE(INSPECTOR)
 #include "bindings/V8InspectorBackend.cpp"
-#endif
-
-#if PLATFORM(ANDROID)
-// TODO: Upstream NOTIFICATIONS guard.
-#if ENABLE(NOTIFICATIONS)
-#include "bindings/V8Notification.cpp"
-#include "bindings/V8NotificationCenter.cpp"
-#endif
 #endif
