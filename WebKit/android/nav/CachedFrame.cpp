@@ -687,7 +687,7 @@ int CachedFrame::frameNodeCommon(BestData& testData, const CachedNode* test, Bes
 //        return REJECT_TEST;
 //    }
     void* par = cursor ? cursor->parentGroup() : NULL;
-    testData.mCursorChild = test->parentGroup() == par;
+    testData.mCursorChild = par ? test->parentGroup() == par : false;
 #if 0 // not debugged
     if (cursor && cursor->hasMouseOver() && test->hasMouseOver() == false &&
             cursor->bounds().contains(test->bounds()))
