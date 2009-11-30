@@ -316,13 +316,19 @@ void CachedNode::Debug::print() const
     char scratch[256];
     size_t index = snprintf(scratch, sizeof(scratch), "// char* mExport=\"");
     const UChar* ch = b->mExport.characters();
-    while (ch && *ch && index < sizeof(scratch))
-        scratch[index++] = *ch++;
+    while (ch && *ch && index < sizeof(scratch)) {
+        UChar c = *ch++;
+        if (c < ' ' || c >= 0x7f) c = ' ';
+        scratch[index++] = c;
+    }
     DUMP_NAV_LOGD("%.*s\"\n", index, scratch);
     index = snprintf(scratch, sizeof(scratch), "// char* mName=\"");
     ch = b->mName.characters();
-    while (ch && *ch && index < sizeof(scratch))
-        scratch[index++] = *ch++;
+    while (ch && *ch && index < sizeof(scratch)) {
+        UChar c = *ch++;
+        if (c < ' ' || c >= 0x7f) c = ' ';
+        scratch[index++] = c;
+    }
     DUMP_NAV_LOGD("%.*s\"\n", index, scratch);
     DEBUG_PRINT_RECT(mBounds);
     DEBUG_PRINT_RECT(mHitBounds);
