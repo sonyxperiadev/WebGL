@@ -371,15 +371,16 @@ namespace android {
         void requestKeyboard(bool);
 
         // Generates a class loader that contains classes from the plugin's apk
-        jclass getPluginClass(const char* libName, const char* className);
+        jclass getPluginClass(const WebCore::String& libName, const char* className);
+
+        // Creates a new instance of the plugin's java component
+        jobject createPluginJavaInstance(const WebCore::String& libName, NPP npp);
 
         // Creates a full screen surface (i.e. View on an Activity) for a plugin
-        void startFullScreenPluginActivity(const char* libName,
-                                           const char* className, NPP npp);
+        void startFullScreenPluginActivity(const char* libName, NPP npp);
 
         // Creates a Surface (i.e. View) for a plugin
-        jobject createSurface(const char* libName, const char* className,
-                              NPP npp, int x, int y, int width, int height);
+        jobject createSurface(jobject webkitPlugin, int x, int y, int width, int height);
 
         // Updates a Surface coordinates and dimensions for a plugin
         void updateSurface(jobject childView, int x, int y, int width, int height);

@@ -77,12 +77,9 @@ static jclass anp_loadJavaClass(NPP instance, const char* className) {
     WebCore::PluginView* pluginView = pluginViewForInstance(instance);
     PluginWidgetAndroid* pluginWidget = pluginView->platformPluginWidget();
 
-    const WebCore::String& libName = pluginView->plugin()->path();
-    SkString skLibName;
-    skLibName.setUTF16(libName.characters(), libName.length());
-
     jclass result;
-    result = pluginWidget->webViewCore()->getPluginClass(skLibName.c_str(), className);
+    result = pluginWidget->webViewCore()->getPluginClass(pluginView->plugin()->path(),
+                                                         className);
     return result;
 }
 
