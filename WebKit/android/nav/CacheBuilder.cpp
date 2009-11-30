@@ -141,7 +141,9 @@ void CacheBuilder::Debug::flush() {
                     break;
                 len++;
             }
-            while (mBuffer[len] == '\\' || mBuffer[len] == '"')
+            while (len > 0 && mBuffer[len - 1] == '\\')
+                len--;
+            while (mBuffer[len] == '"')
                 len++;
         }
         const char* prefix = mPrefix;
@@ -347,8 +349,11 @@ void CacheBuilder::Debug::groups() {
     } while ((node = node->traverseNextNode()) != NULL);
     int focusIndex = -1;
     if (atLeastOne == false) {
-        DUMP_NAV_LOGD("#define TEST%s_RECTS NULL\n", name);
-        DUMP_NAV_LOGD("static int TEST%s_RECT_COUNT = 0; // no focusable nodes\n", name);
+        DUMP_NAV_LOGD("static DebugTestNode TEST%s_RECTS[] = {\n"
+            "{{0, 0, 0, 0}, \"\", 0, -1, \"\", {0, 0, 0, 0}, false, 0}\n"
+            "};\n\n", name);
+        DUMP_NAV_LOGD("static int TEST%s_RECT_COUNT = 1;"
+            " // no focusable nodes\n", name);
         DUMP_NAV_LOGD("#define TEST%s_RECTPARTS NULL\n", name);
     } else {
         node = doc;
@@ -433,6 +438,7 @@ void CacheBuilder::Debug::groups() {
                 snprintf(scratch, sizeof(scratch), ", {%d, %d, %d, %d}, %s"
                     ", %d},",absB.x(), absB.y(), absB.width(), absB.height(),
                     renderer->hasOverflowClip() ? "true" : "false", tabindex);
+                // TODO: add renderer->style()->visibility()
                 print(scratch);
             } else
                 print(", {0, 0, 0, 0}, false, 0},");
@@ -545,7 +551,7 @@ void CacheBuilder::Debug::groups() {
     int contentsHeight = layer->height();
     DUMP_NAV_LOGD("static int TEST%s_FOCUS = %d;\n", name, focusIndex);        
     DUMP_NAV_LOGD("static int TEST%s_WIDTH = %d;\n", name, contentsWidth);
-    DUMP_NAV_LOGD("static int TEST%s_HEIGHT = %d;\n", name, contentsHeight);
+    DUMP_NAV_LOGD("static int TEST%s_HEIGHT = %d;\n\n", name, contentsHeight);
 }
 
 bool CacheBuilder::Debug::isFocusable(Node* node) {
