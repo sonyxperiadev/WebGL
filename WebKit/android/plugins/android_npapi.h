@@ -149,10 +149,10 @@ enum ANPDrawingModels {
     kBitmap_ANPDrawingModel  = 0,
     /** Draw into a surface (e.g. raster, openGL, etc.) using the Java surface
         interface. When this model is used the browser will invoke the Java
-        class specified by kSetPluginStubJavaClassName_ANPSetValue which will
-        return an instance of a android Java View. The instance is then embedded
-        in the html. The plugin can then manipulate the view as it would any
-        normal Java View in android.
+        class specified in the plugin's apk manifest. From that class the browser
+        will invoke the appropriate method to return an an instance of a android
+        Java View. The instance is then embedded in the html. The plugin can then
+        manipulate the view as it would any normal Java View in android.
 
         Unlike the bitmap model, a surface model is opaque so no html content
         behind the plugin will be  visible. Unless the plugin needs to be
@@ -171,27 +171,13 @@ enum ANPDrawingModels {
 };
 typedef int32_t ANPDrawingModel;
 
-/** Set the name of the Java class found in the plugin's apk that implements the
-    PluginStub interface.  The value provided must be a null terminated char*
-    that contains the fully qualified class name (e.g., your.package.className).
-    A local copy is made of the char* so the caller can safely free the memory
-    as soon as the function returns.
-
-    This value must be set prior to selecting the Surface_ANPDrawingModel or
-    requesting to enter full-screen mode.
-
-    NPN_SetValue(inst, kSetPluginStubJavaClassName_ANPSetValue,
-                (void*)nullTerminatedChar*)
- */
-#define kSetPluginStubJavaClassName_ANPSetValue ((NPPVariable)1001)
-
 /** Request to receive/disable events. If the pointer is NULL then all flags will
     be disabled. Otherwise, the event type will be enabled iff its corresponding
     bit in the EventFlags bit field is set.
 
     NPN_SetValue(inst, ANPAcceptEvents, (void*)EventFlags)
  */
-#define kAcceptEvents_ANPSetValue           ((NPPVariable)1002)
+#define kAcceptEvents_ANPSetValue           ((NPPVariable)1001)
 
 /** The EventFlags are a set of bits used to determine which types of events the
     plugin wishes to receive. For example, if the value is 0x03 then both key
@@ -674,8 +660,8 @@ struct ANPWindowInterfaceV0 : ANPInterface {
      */
     void    (*showKeyboard)(NPP instance, bool value);
     /** Called when a plugin wishes to enter into full screen mode. The plugin's
-        Java class (set using kSetPluginStubJavaClassName_ANPSetValue) will be
-        called asynchronously to provide a View object to be displayed full screen.
+        Java class (defined in the plugin's apk manifest) will be called
+        asynchronously to provide a View object to be displayed full screen.
      */
     void    (*requestFullScreen)(NPP instance);
 };

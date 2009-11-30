@@ -67,12 +67,6 @@ struct PluginWidgetAndroid {
      */
     void setWindow(NPWindow* window, bool isTransparent);
 
-    /* Called to notify us of the plugin's java class that implements the
-     * PluginStub interface. A local copy is made of the className so the caller
-     * can safely free the memory as soon as the function returns.
-     */
-    bool setPluginStubJavaClassName(const char* className);
-
     /*  Called whenever the plugin itself requests a new drawing model. If the
         hardware does not support the requested model then false is returned,
         otherwise true is returned.
@@ -141,6 +135,7 @@ private:
     WebCore::IntPoint frameToDocumentCoords(int frameX, int frameY) const;
     void computeVisibleFrameRect();
     void scrollToVisibleFrameRect();
+    jobject getJavaPluginInstance();
 
     WebCore::PluginView*    m_pluginView;
     android::WebViewCore*   m_core;
@@ -153,8 +148,8 @@ private:
     SkIRect                 m_requestedFrameRect;
     bool                    m_hasFocus;
     float                   m_zoomLevel;
-    char*                   m_javaClassName;
     jobject                 m_childView;
+    jobject                 m_webkitPlugin;
 
     /* We limit the number of rectangles to minimize storage and ensure adequate
        speed.
