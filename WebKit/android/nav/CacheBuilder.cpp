@@ -824,6 +824,16 @@ void CacheBuilder::buildCache(CachedRoot* root)
     setData((CachedFrame*) root);
 }
 
+static Node* ParentWithChildren(Node* node)
+{
+    Node* parent = node;
+    while ((parent = parent->parentNode())) {
+        if (parent->childNodeCount() > 1)
+            return parent;
+    }
+    return 0;
+}
+
 static Node* OneAfter(Node* node) 
 {
     Node* parent = node;
@@ -917,8 +927,6 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
             lastChildIndex = last->mCachedNodeIndex;
             last = &tracker.last();
         }
-        if (node == last->mParentLastChild)
-            last->mParentLastChild = NULL;
         do {
             const ClipColumnTracker* lastClip = &clipTracker.last();
             if (node != lastClip->mLastChild)
@@ -1211,9 +1219,7 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
         cachedNode.setMaxLength(maxLength);
         cachedNode.setName(name);
         cachedNode.setParentIndex(last->mCachedNodeIndex);
-        if (last->mParentLastChild == NULL)
-            last->mParentLastChild = OneAfter(node->parentNode()->lastChild());
-        cachedNode.setParentGroup(last->mParentLastChild);
+        cachedNode.setParentGroup(ParentWithChildren(node));
         cachedNode.setTabIndex(tabIndex);
         cachedNode.setTextSize(textSize);
         cachedNode.setType(type);
@@ -1235,7 +1241,6 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
                 Tracker& working = tracker.last();
                 working.mCachedNodeIndex = lastIndex;
                 working.mLastChild = OneAfter(lastChild);
-                working.mParentLastChild = OneAfter(node->parentNode()->lastChild());
                 last = &tracker.at(tracker.size() - 2);
                 working.mSomeParentTakesFocus = last->mSomeParentTakesFocus | takesFocus;
             } 

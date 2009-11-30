@@ -200,7 +200,6 @@ private:
         int mCachedNodeIndex;
         int mTabIndex;
         Node* mLastChild;
-        Node* mParentLastChild;
         bool mSomeParentTakesFocus;
     };
     void adjustForColumns(const ClipColumnTracker& track, 
