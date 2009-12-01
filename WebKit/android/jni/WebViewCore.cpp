@@ -2330,6 +2330,10 @@ jclass WebViewCore::getPluginClass(const WebCore::String& libName, const char* c
                                            libString, classString);
     checkException(env);
 
+    // cleanup unneeded local JNI references
+    env->DeleteLocalRef(libString);
+    env->DeleteLocalRef(classString);
+
     if (pluginClass != NULL) {
         return static_cast<jclass>(pluginClass);
     } else {
@@ -2350,6 +2354,10 @@ jobject WebViewCore::createPluginJavaInstance(const WebCore::String& libName, NP
     jobject result = env->CallObjectMethod(obj.get(),
                                            m_javaGlue->m_createPluginJavaInstance,
                                            libString, (int) npp);
+
+    //cleanup unneeded local JNI references
+    env->DeleteLocalRef(libString);
+
     checkException(env);
     return result;
 }
