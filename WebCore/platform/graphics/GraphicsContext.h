@@ -204,10 +204,6 @@ namespace WebCore {
 #endif
 
 #if PLATFORM(SGL)
-        /* these should be pused to apple. needed for CanvasStyle.cpp */
-        void setCMYKAFillColor(float c, float m, float y, float k, float a);
-        void setCMYKAStrokeColor(float c, float m, float y, float k, float a);
-        
         // initialize a paint for bitmaps
         void setupBitmapPaint(SkPaint*);
         // initialize a paint for filling
@@ -469,4 +465,3 @@ namespace WebCore {
 } // namespace WebCore
 
 #endif // GraphicsContext_h
-
