@@ -558,10 +558,8 @@ $(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/xml/%.cpp : $(intermediates)/xml/
 
 GEN:= $(intermediates)/HTMLNames.cpp $(intermediates)/HTMLElementFactory.cpp  $(intermediates)/JSHTMLElementWrapperFactory.cpp
 $(GEN): PRIVATE_PATH := $(LOCAL_PATH)
-$(GEN): PRIVATE_CUSTOM_TOOL = perl -I $(PRIVATE_PATH)/bindings/scripts $< --tags $(html_tags) --attrs $(html_attrs)  --extraDefines "$(FEATURE_DEFINES)" --factory --wrapperFactory --output $(dir $@)
-$(GEN): html_tags := $(LOCAL_PATH)/html/HTMLTagNames.in
-$(GEN): html_attrs := $(LOCAL_PATH)/html/HTMLAttributeNames.in
-$(GEN): $(LOCAL_PATH)/dom/make_names.pl $(html_tags) $(html_attrs)
+$(GEN): PRIVATE_CUSTOM_TOOL = perl -I $(PRIVATE_PATH)/bindings/scripts $< --tags $(PRIVATE_PATH)/html/HTMLTagNames.in --attrs $(PRIVATE_PATH)/html/HTMLAttributeNames.in --extraDefines "$(FEATURE_DEFINES)" --factory --wrapperFactory --output $(dir $@)
+$(GEN): $(LOCAL_PATH)/dom/make_names.pl $(LOCAL_PATH)/html/HTMLTagNames.in $(LOCAL_PATH)/html/HTMLAttributeNames.in
 	$(transform-generated-source)
 LOCAL_GENERATED_SOURCES += $(GEN)
 
@@ -571,10 +569,8 @@ ifeq ($(ENABLE_SVG), true)
 GEN:= $(intermediates)/SVGNames.cpp  $(intermediates)/SVGElementFactory.cpp $(intermediates)/JSSVGElementWrapperFactory.cpp
 SVG_FLAGS:=ENABLE_SVG_AS_IMAGE=1 ENABLE_SVG_FILTERS=1 ENABLE_SVG_FONTS=1 ENABLE_SVG_FOREIGN_OBJECT=1 ENABLE_SVG_USE=1
 $(GEN): PRIVATE_PATH := $(LOCAL_PATH)
-$(GEN): PRIVATE_CUSTOM_TOOL = perl -I $(PRIVATE_PATH)/bindings/scripts $< --tags $(svg_tags) --attrs $(svg_attrs) --extraDefines "$(SVG_FLAGS)" --factory --wrapperFactory --output $(dir $@)
-$(GEN): svg_tags := $(LOCAL_PATH)/svg/svgtags.in
-$(GEN): svg_attrs := $(LOCAL_PATH)/svg/svgattrs.in
-$(GEN): $(LOCAL_PATH)/dom/make_names.pl $(svg_tags) $(svg_attrs)
+$(GEN): PRIVATE_CUSTOM_TOOL = perl -I $(PRIVATE_PATH)/bindings/scripts $< --tags $(PRIVATE_PATH)/svg/svgtags.in --attrs $(PRIVATE_PATH)/svg/svgattrs.in --extraDefines "$(SVG_FLAGS)" --factory --wrapperFactory --output $(dir $@)
+$(GEN): $(LOCAL_PATH)/dom/make_names.pl $(LOCAL_PATH)/svg/svgtags.in $(LOCAL_PATH)/svg/svgattrs.in
 	$(transform-generated-source)
 LOCAL_GENERATED_SOURCES += $(GEN)
 endif
