@@ -39,23 +39,48 @@
 
 using namespace android;
 
+// used to cache JNI method and field IDs for Surface Objects
+static struct ANPSurfaceInterfaceJavaGlue {
+    bool        initialized;
+    jmethodID   getSurfaceHolder;
+    jmethodID   getSurface;
+    jfieldID    surfacePointer;
+} gSurfaceJavaGlue;
+
 static inline sp<Surface> getSurface(JNIEnv* env, jobject view) {
     if (!env || !view) {
         return NULL;
     }
 
-    jclass clazz = env->FindClass("android/view/Surface");
-    jfieldID surfaceField = env->GetFieldID(clazz, "mSurface", "I");
+    if (!gSurfaceJavaGlue.initialized) {
 
-    clazz = env->FindClass("android/view/SurfaceView");
-    jmethodID getHolder = env->GetMethodID(clazz, "getHolder", "()Landroid/view/SurfaceHolder;");
+        jclass surfaceViewClass = env->FindClass("android/view/SurfaceView");
+        gSurfaceJavaGlue.getSurfaceHolder = env->GetMethodID(surfaceViewClass, "getHolder",
+                                                             "()Landroid/view/SurfaceHolder;");
 
-    clazz = env->FindClass("android/view/SurfaceHolder");
-    jmethodID getSurface = env->GetMethodID(clazz, "getSurface", "()Landroid/view/Surface;");
+        jclass surfaceHolderClass = env->FindClass("android/view/SurfaceHolder");
+        gSurfaceJavaGlue.getSurface = env->GetMethodID(surfaceHolderClass, "getSurface",
+                                                       "()Landroid/view/Surface;");
 
-    jobject holder = env->CallObjectMethod(view, getHolder);
-    jobject surface = env->CallObjectMethod(holder, getSurface);
-    return sp<Surface>((Surface*) env->GetIntField(surface, surfaceField));
+        jclass surfaceClass = env->FindClass("android/view/Surface");
+        gSurfaceJavaGlue.surfacePointer = env->GetFieldID(surfaceClass,
+                                                          "mSurface", "I");
+
+        env->DeleteLocalRef(surfaceClass);
+        env->DeleteLocalRef(surfaceViewClass);
+        env->DeleteLocalRef(surfaceHolderClass);
+
+        gSurfaceJavaGlue.initialized = true;
+    }
+
+    jobject holder = env->CallObjectMethod(view, gSurfaceJavaGlue.getSurfaceHolder);
+    jobject surface = env->CallObjectMethod(holder, gSurfaceJavaGlue.getSurface);
+    jint surfacePointer = env->GetIntField(surface, gSurfaceJavaGlue.surfacePointer);
+
+    env->DeleteLocalRef(holder);
+    env->DeleteLocalRef(surface);
+
+    return sp<Surface>((Surface*) surfacePointer);
 }
 
 static inline ANPBitmapFormat convertPixelFormat(PixelFormat format) {
@@ -133,4 +158,7 @@ void ANPSurfaceInterfaceV0_Init(ANPInterface* value) {
 
     ASSIGN(i, lock);
     ASSIGN(i, unlock);
+
+    // setup the java glue struct
+    gSurfaceJavaGlue.initialized = false;
 }
