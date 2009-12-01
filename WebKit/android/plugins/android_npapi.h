@@ -216,7 +216,7 @@ struct ANPLogInterfaceV0 : ANPInterface {
     /** dumps printf messages to the log file
         e.g. interface->log(instance, kWarning_ANPLogType, "value is %d", value);
      */
-    void (*log)(NPP instance, ANPLogType, const char format[], ...);
+    void (*log)(ANPLogType, const char format[], ...);
 };
 
 struct ANPBitmapInterfaceV0 : ANPInterface {
@@ -622,23 +622,6 @@ struct ANPCanvasInterfaceV0 : ANPInterface {
 };
 
 struct ANPWindowInterfaceV0 : ANPInterface {
-    /** Given the window field from the NPWindow struct, and an optional rect
-        describing the subset of the window that will be drawn to (may be null)
-        return true if the bitmap for that window can be accessed, and if so,
-        fill out the specified ANPBitmap to point to the window's pixels.
-
-        When drawing is complete, call unlock(window)
-     */
-    bool    (*lockRect)(void* window, const ANPRectI* inval, ANPBitmap*);
-    /** The same as lockRect, but takes a region instead of a rect to specify
-        the area that will be changed/drawn.
-     */
-    bool    (*lockRegion)(void* window, const ANPRegion* inval, ANPBitmap*);
-    /** Given a successful call to lock(window, inval, &bitmap), call unlock
-        to release access to the pixels, and allow the browser to display the
-        results. If lock returned false, unlock should not be called.
-     */
-    void    (*unlock)(void* window);
     /** Registers a set of rectangles that the plugin would like to keep on
         screen. The rectangles are listed in order of priority with the highest
         priority rectangle in location rects[0].  The browser will attempt to keep

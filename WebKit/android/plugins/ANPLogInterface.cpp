@@ -23,13 +23,13 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#define LOG_TAG "plugin"
+#define LOG_TAG "webkitPlugin"
 
 #include "utils/Log.h"
 #include "android_npapi.h"
 #include <stdarg.h>
 
-static void anp_log(NPP inst, ANPLogType logType, const char format[], ...) {
+static void anp_log(ANPLogType logType, const char format[], ...) {
     va_list args;
     va_start(args, format);
 
