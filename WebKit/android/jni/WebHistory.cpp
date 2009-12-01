@@ -122,9 +122,12 @@ static void WebHistoryClose(JNIEnv* env, jobject obj, jint frame)
             // deleted parent.
             WebCore::HistoryItem* item = parent->childItemWithTarget(child->tree()->name());
             child->loader()->history()->setCurrentItem(item);
-            // Append the first child to the queue if it exists.
-            if (WebCore::Frame* f = child->tree()->firstChild())
-                frameQueue.append(f);
+            // Append the first child to the queue if it exists. If there is no
+            // item, then we do not need to traverse the children since there
+            // will be no parent history item.
+            WebCore::Frame* firstChild;
+            if (item && (firstChild = child->tree()->firstChild()))
+                frameQueue.append(firstChild);
             child = child->tree()->nextSibling();
             // If we don't have a sibling for this frame and the queue isn't
             // empty, use the next entry in the queue.
