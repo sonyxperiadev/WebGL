@@ -54,7 +54,8 @@ static void anp_showKeyboard(NPP instance, bool value) {
 
 static void anp_requestFullScreen(NPP instance) {
     PluginView* pluginView = pluginViewForInstance(instance);
-    pluginView->platformPluginWidget()->requestFullScreenMode();
+    PluginWidgetAndroid* pluginWidget = pluginView->platformPluginWidget();
+    pluginWidget->webViewCore()->startFullScreenPluginActivity(instance);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
