@@ -30,27 +30,6 @@
 #include "PluginView.h"
 #include "PluginWidgetAndroid.h"
 
-static bool anp_lockRect(void* window, const ANPRectI* inval,
-                         ANPBitmap* bitmap) {
-    if (window) {
-        // todo
-        return true;
-    }
-    return false;
-}
-
-static bool anp_lockRegion(void* window, const ANPRegion* inval,
-                           ANPBitmap* bitmap) {
-    if (window) {
-        // todo
-        return true;
-    }
-    return false;
-}
-
-static void anp_unlock(void* window) {
-}
-
 static PluginView* pluginViewForInstance(NPP instance) {
     if (instance && instance->ndata)
         return static_cast<PluginView*>(instance->ndata);
@@ -85,11 +64,8 @@ static void anp_requestFullScreen(NPP instance) {
 void ANPWindowInterfaceV0_Init(ANPInterface* value) {
     ANPWindowInterfaceV0* i = reinterpret_cast<ANPWindowInterfaceV0*>(value);
 
-    ASSIGN(i, lockRect);
-    ASSIGN(i, lockRegion);
     ASSIGN(i, setVisibleRects);
     ASSIGN(i, clearVisibleRects);
     ASSIGN(i, showKeyboard);
-    ASSIGN(i, unlock);
     ASSIGN(i, requestFullScreen);
 }
