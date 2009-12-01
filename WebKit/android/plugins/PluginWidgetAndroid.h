@@ -125,17 +125,17 @@ struct PluginWidgetAndroid {
      */
     void setVisibleRects(const ANPRectI rects[], int32_t count);
 
-    /** Called when a plugin wishes to enter into full screen mode. The plugin's
-        Java class (set using setPluginStubJavaClassName(...)) will be called
-        asynchronously to provide a View to be displayed in full screen.
+    /** Returns a java object that implements the WebkitPlugin interface. The 
+        implementation is located in the plugin's apk and is described in the
+        apk's manifest file.  For each plugin instance in webkit there is at
+        most one instance of the java object associated with that plugin.
      */
-    void requestFullScreenMode();
+    jobject getJavaPluginInstance();
 
 private:
     WebCore::IntPoint frameToDocumentCoords(int frameX, int frameY) const;
     void computeVisibleFrameRect();
     void scrollToVisibleFrameRect();
-    jobject getJavaPluginInstance();
 
     WebCore::PluginView*    m_pluginView;
     android::WebViewCore*   m_core;
