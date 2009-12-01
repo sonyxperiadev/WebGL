@@ -141,16 +141,6 @@ void PluginWidgetAndroid::setWindow(NPWindow* window, bool isTransparent) {
     }
 }
 
-void PluginWidgetAndroid::requestFullScreenMode() {
-
-    const String& libName = m_pluginView->plugin()->path();
-    SkString skLibName;
-    skLibName.setUTF16(libName.characters(), libName.length());
-
-    m_core->startFullScreenPluginActivity(skLibName.c_str(),
-                                          m_pluginView->instance());
-}
-
 bool PluginWidgetAndroid::setDrawingModel(ANPDrawingModel model) {
     m_drawingModel = model;
     return true;
