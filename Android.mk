@@ -211,8 +211,12 @@ LOCAL_C_INCLUDES := $(LOCAL_C_INCLUDES) \
 	$(LOCAL_PATH)/WebKit/android/WebCoreSupport \
 	$(LOCAL_PATH)/WebKit/android/jni \
 	$(LOCAL_PATH)/WebKit/android/nav \
-	$(LOCAL_PATH)/WebKit/android/plugins \
+	$(LOCAL_PATH)/WebKit/android/plugins
+
+ifneq ($(TARGET_SIMULATOR),true)
+LOCAL_C_INCLUDES := $(LOCAL_C_INCLUDES) \
 	$(LOCAL_PATH)/WebKit/android/stl
+endif
 
 LOCAL_C_INCLUDES := $(LOCAL_C_INCLUDES) \
 	$(LOCAL_PATH)/JavaScriptCore \
