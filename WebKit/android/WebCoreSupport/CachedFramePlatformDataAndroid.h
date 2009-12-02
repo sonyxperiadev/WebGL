@@ -1,5 +1,5 @@
 /*
- * Copyright 2007, The Android Open Source Project
+ * Copyright 2009, The Android Open Source Project
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -13,7 +13,7 @@
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -23,16 +23,41 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "config.h"
-#include "SystemTime.h"
+#ifndef CachedFramePlatformDatatAndroid_h
+#define CachedFramePlatformDatatAndroid_h
+
+#include "CachedFramePlatformData.h"
 
 namespace WebCore {
-
-float userIdleTime()
-{
-    // return an arbitrarily high userIdleTime so that releasing pages from the
-    // page cache isn't postponed.
-    return 1000.0F;
+    class Settings;
 }
 
-}  // namespace WebCore
+namespace android {
+
+class CachedFramePlatformDataAndroid : public WebCore::CachedFramePlatformData {
+public:
+    CachedFramePlatformDataAndroid(WebCore::Settings* settings);
+
+#ifdef ANDROID_META_SUPPORT
+    void restoreMetadata(WebCore::Settings* settings);
+#endif
+
+private:
+#ifdef ANDROID_META_SUPPORT
+    // meta data of the frame
+    int m_viewport_width;
+    int m_viewport_height;
+    int m_viewport_initial_scale;
+    int m_viewport_minimum_scale;
+    int m_viewport_maximum_scale;
+    int m_viewport_target_densitydpi;
+    bool m_viewport_user_scalable : 1;
+    bool m_format_detection_address : 1;
+    bool m_format_detection_email : 1;
+    bool m_format_detection_telephone : 1;
+#endif
+};
+
+}
+
+#endif

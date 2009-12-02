@@ -521,6 +521,74 @@ void Settings::setMetadataSettings(const String& key, const String& value)
         }
     }
 }
+
+void Settings::setViewportWidth(int width)
+{
+    if (width < 0 || width > 10000)
+        m_viewport_width = -1;
+    else
+        m_viewport_width = width;
+}
+
+void Settings::setViewportHeight(int height)
+{
+    if (height < 0 || height > 10000)
+        m_viewport_height = -1;
+    else
+        m_viewport_height = height;
+}
+
+void Settings::setViewportInitialScale(int scale)
+{
+    if (scale < 1 || scale > 1000)
+        m_viewport_initial_scale = 0;
+    else
+        m_viewport_initial_scale = scale;
+}
+
+void Settings::setViewportMinimumScale(int scale)
+{
+    if (scale < 1 || scale > 1000)
+        m_viewport_minimum_scale = 0;
+    else
+        m_viewport_minimum_scale = scale;
+}
+
+void Settings::setViewportMaximumScale(int scale)
+{
+    if (scale < 1 || scale > 1000)
+        m_viewport_maximum_scale = 0;
+    else
+        m_viewport_maximum_scale = scale;
+}
+
+void Settings::setViewportUserScalable(bool scalable)
+{
+    m_viewport_user_scalable = scalable;
+}
+
+void Settings::setViewportTargetDensityDpi(int dpi)
+{
+    if (dpi < 0 || dpi > 400)
+        m_viewport_target_densitydpi = -1;
+    else
+        m_viewport_target_densitydpi = dpi;
+}
+
+void Settings::setFormatDetectionAddress(bool detect)
+{
+    m_format_detection_address = detect;
+}
+
+void Settings::setFormatDetectionEmail(bool detect)
+{
+    m_format_detection_email = detect;
+}
+
+void Settings::setFormatDetectionTelephone(bool detect)
+{
+    m_format_detection_telephone = detect;
+}
 #endif
 
 void Settings::setAuthorAndUserStylesEnabled(bool authorAndUserStylesEnabled)
