@@ -1194,10 +1194,14 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
                 clip.intersect(parentClip);
             hasClip = true;
         }
-        if (hasClip && !clip.isEmpty() && cachedNode.clip(clip) == false) {
-            cachedNode.setBounds(clip);
-            cachedNode.cursorRings().append(clip);
-            isUnclipped = true;
+        if (hasClip) {
+            if (clip.isEmpty())
+                continue; // skip this node if completely clipped out
+            else if (cachedNode.clip(clip) == false) {
+                cachedNode.setBounds(clip);
+                cachedNode.cursorRings().append(clip);
+                isUnclipped = true;
+            }
         }
         cachedNode.setNavableRects();
         cachedNode.setChildFrameIndex(-1);
