@@ -151,9 +151,6 @@
 // PLUGIN_SCHEDULE_TIMER)
 #define ANDROID_PLUGINS
 
-// Add support for the orientation window property
-#define ANDROID_ORIENTATION_SUPPORT
-
 // This enables a portable implementation of NPN_[Un]ScheduleTimer
 // Will submit this as a patch to apple
 #define PLUGIN_SCHEDULE_TIMER

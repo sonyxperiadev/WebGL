@@ -914,13 +914,6 @@ int DOMWindow::scrollX() const
     return static_cast<int>(view->scrollX() / m_frame->pageZoomFactor());
 }
 
-#ifdef ANDROID_ORIENTATION_SUPPORT
-int DOMWindow::orientation() const
-{
-    return screen()->orientation();
-}
-#endif
-
 int DOMWindow::scrollY() const
 {
     if (!m_frame)

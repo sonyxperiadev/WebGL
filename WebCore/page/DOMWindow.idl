@@ -106,9 +106,6 @@ module window {
         attribute [Replaceable] long scrollY;
         readonly attribute long pageXOffset;
         readonly attribute long pageYOffset;
-#if defined(ANDROID_ORIENTATION_SUPPORT)
-        attribute [Replaceable] long orientation;
-#endif
 
         [RequiresAllArguments] void scrollBy(in long x, in long y);
         [RequiresAllArguments] void scrollTo(in long x, in long y);
