@@ -62,6 +62,7 @@ public:
         IN_UMBRA,
         IN_WORKING,
         LEFTMOST,
+        NOT_ENCLOSING_CURSOR,
         OVERLAP_OR_EDGE_FURTHER,
         PREFERRED, // better overlap measure
         SECOND_CHANCE_END = PREFERRED, // must be last in list
@@ -73,7 +74,6 @@ public:
         HIGHER_TAB_INDEX,
         IN_CURSOR,
         IN_CURSOR_CHILDREN,
-        NOT_ENCLOSING_CURSOR,
         NOT_CURSOR_NODE,
         OUTSIDE_OF_BEST, // containership
         OUTSIDE_OF_ORIGINAL, // containership
