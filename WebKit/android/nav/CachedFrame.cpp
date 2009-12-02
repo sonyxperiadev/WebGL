@@ -753,7 +753,7 @@ int CachedFrame::frameNodeCommon(BestData& testData, const CachedNode* test, Bes
 int CachedFrame::framePartCommon(BestData& testData,
     const CachedNode* test, BestData* bestData, const CachedNode* cursor) const
 {
-    if (cursor && testData.mNodeBounds.contains(cursor->bounds())) {
+    if (cursor && testData.mNodeBounds.contains(cursor->bounds()) && !test->wantsKeyEvents()) {
         testData.mNode->setCondition(CachedNode::NOT_ENCLOSING_CURSOR);
         return REJECT_TEST;
     }
@@ -1144,7 +1144,7 @@ bool CachedFrame::BestData::setDownDirection(const CachedHistory* history)
     int inNavBottom = navBounds.bottom() - mNodeBounds.bottom();
     setNavInclusion(testRight - navBounds.right(), navBounds.x() - testX);
     bool subsumes = navBounds.height() > 0 && inOrSubsumesNav();
-    if (inNavTop <= 0 && inNavBottom <= 0 && subsumes) {
+    if (inNavTop <= 0 && inNavBottom <= 0 && subsumes && !mNode->wantsKeyEvents()) {
         mNode->setCondition(CachedNode::NOT_ENCLOSING_CURSOR);
         return REJECT_TEST;
     }
@@ -1184,7 +1184,7 @@ bool CachedFrame::BestData::setLeftDirection(const CachedHistory* history)
     int inNavLeft = mNodeBounds.x() - navBounds.x();
     setNavInclusion(navBounds.y() - testY, testBottom - navBounds.bottom());
     bool subsumes = navBounds.width() > 0 && inOrSubsumesNav();
-    if (inNavLeft <= 0 && inNavRight <= 0 && subsumes) {
+    if (inNavLeft <= 0 && inNavRight <= 0 && subsumes && !mNode->wantsKeyEvents()) {
         mNode->setCondition(CachedNode::NOT_ENCLOSING_CURSOR);
         return REJECT_TEST;
     }
@@ -1224,7 +1224,7 @@ bool CachedFrame::BestData::setRightDirection(const CachedHistory* history)
     int inNavRight = navBounds.right() - mNodeBounds.right();
     setNavInclusion(testBottom - navBounds.bottom(), navBounds.y() - testY);
     bool subsumes = navBounds.width() > 0 && inOrSubsumesNav();
-    if (inNavLeft <= 0 && inNavRight <= 0 && subsumes) {
+    if (inNavLeft <= 0 && inNavRight <= 0 && subsumes && !mNode->wantsKeyEvents()) {
         mNode->setCondition(CachedNode::NOT_ENCLOSING_CURSOR);
         return REJECT_TEST;
     }
@@ -1264,7 +1264,7 @@ bool CachedFrame::BestData::setUpDirection(const CachedHistory* history)
     int inNavTop = mNodeBounds.y() - navBounds.y();
     setNavInclusion(navBounds.x() - testX, testRight - navBounds.right());
     bool subsumes = navBounds.height() > 0 && inOrSubsumesNav();
-    if (inNavTop <= 0 && inNavBottom <= 0 && subsumes) {
+    if (inNavTop <= 0 && inNavBottom <= 0 && subsumes && !mNode->wantsKeyEvents()) {
         mNode->setCondition(CachedNode::NOT_ENCLOSING_CURSOR);
         return REJECT_TEST;
     }
