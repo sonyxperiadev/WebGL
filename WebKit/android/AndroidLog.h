@@ -42,6 +42,6 @@ extern FILE* gRenderTreeFile;
 #define DUMP_RENDER_LOGD(...) ((void)0)
 #endif /* ANDROID_DOM_LOGGING */
 
-#define DISPLAY_TREE_LOG_FILE "/data/data/com.android.browser/displayTree.txt"
+#define DISPLAY_TREE_LOG_FILE "/sdcard/displayTree.txt"
 
 #endif /* ANDROIDLOG_H_ */
