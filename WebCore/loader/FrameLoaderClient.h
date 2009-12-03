@@ -73,10 +73,6 @@ namespace WebCore {
     class String;
     class Widget;
 
-#ifdef ANDROID_HISTORY_CLIENT
-    class BackForwardList;
-#endif
-
     typedef void (PolicyChecker::*FramePolicyFunction)(PolicyAction);
 
     class FrameLoaderClient {
@@ -169,11 +165,9 @@ namespace WebCore {
         virtual void updateGlobalHistoryRedirectLinks() = 0;
 
         virtual bool shouldGoToHistoryItem(HistoryItem*) const = 0;
-#ifdef ANDROID_HISTORY_CLIENT
-        virtual void dispatchDidAddHistoryItem(HistoryItem*) const = 0;
-        virtual void dispatchDidRemoveHistoryItem(HistoryItem*, int) const = 0;
-        virtual void dispatchDidChangeHistoryIndex(BackForwardList*) const = 0;
-#endif
+        virtual void dispatchDidAddBackForwardItem(HistoryItem*) const = 0;
+        virtual void dispatchDidRemoveBackForwardItem(HistoryItem*) const = 0;
+        virtual void dispatchDidChangeBackForwardIndex() const = 0;
 
         // This frame has displayed inactive content (such as an image) from an
         // insecure source.  Inactive content cannot spread to other frames.

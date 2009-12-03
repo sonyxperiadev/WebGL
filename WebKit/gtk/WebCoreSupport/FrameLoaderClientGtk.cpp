@@ -577,6 +577,18 @@ bool FrameLoaderClient::shouldGoToHistoryItem(HistoryItem* item) const
     return item != 0;
 }
 
+void FrameLoaderClient::dispatchDidAddBackForwardItem(HistoryItem*) const
+{
+}
+
+void FrameLoaderClient::dispatchDidRemoveBackForwardItem(HistoryItem*) const
+{
+}
+
+void FrameLoaderClient::dispatchDidChangeBackForwardIndex() const
+{
+}
+
 void FrameLoaderClient::didDisplayInsecureContent()
 {
     notImplemented();
