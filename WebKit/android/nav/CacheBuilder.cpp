@@ -725,7 +725,7 @@ void CacheBuilder::Debug::wideString(const String& str) {
 
 CacheBuilder::CacheBuilder()
 {
-    mAllowableTypes = ALL_CACHEDNODETYPES;
+    mAllowableTypes = ALL_CACHEDNODE_BITS;
 #ifdef DUMP_NAV_CACHE_USING_PRINTF
     gNavCacheLogFile = NULL;
 #endif
@@ -909,6 +909,7 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
     cachedFrame->add(cachedParentNode);
     Node* node = parent;
     int cacheIndex = 1;
+    int textInputIndex = 0;
     Node* focused = doc->focusedNode();
     if (focused)
         cachedRoot->setFocusBounds(focused->getRect());
@@ -953,7 +954,8 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
             cachedFrame->addFrame(cachedChild);
             cachedNode.init(node);
             cachedNode.setIndex(cacheIndex++);
-            cachedNode.setChildFrameIndex(childFrameIndex);
+            cachedNode.setDataIndex(childFrameIndex);
+            cachedNode.setType(FRAME_CACHEDNODETYPE);
 #if DUMP_NAV_CACHE
             cachedNode.mDebug.mNodeIndex = nodeIndex;
             cachedNode.mDebug.mParentGroupIndex = Debug::ParentIndex(
@@ -993,28 +995,19 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
         bool computeCursorRings = false;
         bool hasClip = false;
         bool hasMouseOver = false;
-        bool isAnchor = false;
-        bool isArea = node->hasTagName(HTMLNames::areaTag);
-        bool isPassword = false;
-        bool isTextArea = false;
-        bool isTextField = false;
-        bool isReadOnly = false;
-        bool isRtlText = false;
         bool isUnclipped = false;
         bool isFocus = node == focused;
         bool takesFocus = false;
-        bool wantsKeyEvents = false;
-        int maxLength = -1;
-        int textSize = 12;
         int columnGap = 0;
         TextDirection direction = LTR;
-        String name;
         String exported;
         CachedNodeType type = NORMAL_CACHEDNODETYPE;
+        CachedInput cachedInput;
         IntRect bounds;
         IntRect absBounds;
         WTF::Vector<IntRect>* columns = NULL;
-        if (isArea) {
+        if (node->hasTagName(HTMLNames::areaTag)) {
+            type = AREA_CACHEDNODETYPE;
             HTMLAreaElement* area = static_cast<HTMLAreaElement*>(node);
             bounds = getAreaRect(area);
             bounds.move(globalOffsetX, globalOffsetY);
@@ -1036,7 +1029,7 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
             bounds = absBounds;
             isUnclipped = true;
             takesFocus = true;
-            wantsKeyEvents = true;
+            type = PLUGIN_CACHEDNODETYPE;
             goto keepNode;
         }
         if (nodeRenderer->isRenderBlock()) {
@@ -1064,7 +1057,7 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
                 clip.mBounds.move(oRect.x(), oRect.y());
             }
         }
-        if (node->isTextNode() && mAllowableTypes != NORMAL_CACHEDNODETYPE) {
+        if (node->isTextNode() && mAllowableTypes != NORMAL_CACHEDNODE_BITS) {
             if (last->mSomeParentTakesFocus) // don't look at text inside focusable node
                 continue;
             CachedNodeType checkType;
@@ -1080,7 +1073,7 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
                 DUMP_NAV_LOGD("%s\n", buffer);
             }
         #endif
-            type = (CachedNodeType) checkType;
+            type = checkType;
             // !!! test ! is the following line correctly needed for frames to work?
             cachedNode.init(node);
             const ClipColumnTracker& clipTrack = clipTracker.last();
@@ -1104,23 +1097,26 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
         }
         if (node->hasTagName(WebCore::HTMLNames::inputTag)) {
             HTMLInputElement* input = (HTMLInputElement*) node;
-
-            isTextField = input->isTextField();
-            if (isTextField) {
-                wantsKeyEvents = true;
-                isReadOnly = input->readOnly();
+            if (input->isTextField()) {
+                type = TEXT_INPUT_CACHEDNODETYPE;
+                cachedInput.init();
+                cachedInput.setIsTextField(true);
+                cachedInput.setIsReadOnly(input->readOnly());
                 exported = input->value().threadsafeCopy();
+                cachedInput.setIsPassword(input->inputType() ==
+                    HTMLInputElement::PASSWORD);
+                cachedInput.setMaxLength(input->maxLength());
+    // If this does not need to be threadsafe, we can use crossThreadString().
+    // See http://trac.webkit.org/changeset/49160.
+                cachedInput.setName(input->name().string().threadsafeCopy());
+    // can't detect if this is drawn on top (example: deviant.com login parts)
+                isUnclipped = isTransparent;
             }
-            isPassword = input->inputType() == HTMLInputElement::PASSWORD;
-            maxLength = input->maxLength();
-            // If this does not need to be threadsafe, we can use crossThreadString().
-            // See http://trac.webkit.org/changeset/49160.
-            name = input->name().string().threadsafeCopy();
-            isUnclipped = isTransparent; // can't detect if this is drawn on top (example: deviant.com login parts)
         } else if (node->hasTagName(HTMLNames::textareaTag)) {
-            isTextArea = wantsKeyEvents = true;
+            cachedInput.init();
+            type = TEXT_INPUT_CACHEDNODETYPE;
             HTMLTextAreaElement* area = static_cast<HTMLTextAreaElement*>(node);
-            isReadOnly = area->readOnly();
+            cachedInput.setIsReadOnly(area->readOnly());
             exported = area->value().threadsafeCopy();
         } else if (node->hasTagName(HTMLNames::aTag)) {
             const HTMLAnchorElement* anchorNode = 
@@ -1130,13 +1126,13 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
             if (node->disabled())
                 continue;
             hasMouseOver = NodeHasEventListeners(node, &eventNames().mouseoverEvent, 1);
-            isAnchor = true;
+            type = ANCHOR_CACHEDNODETYPE;
             KURL href = anchorNode->href();
             if (!href.isEmpty() && !WebCore::protocolIsJavaScript(href.string()))
                 // Set the exported string for all non-javascript anchors.
                 exported = href.string().threadsafeCopy();
         }
-        if (isTextField || isTextArea) {
+        if (type == TEXT_INPUT_CACHEDNODETYPE) {
             RenderTextControl* renderText = 
                 static_cast<RenderTextControl*>(nodeRenderer);
             if (isFocus)
@@ -1146,15 +1142,15 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
             RenderStyle* style = nodeRenderer->style();
             if (style) {
                 isUnclipped |= !style->hasAppearance();
-                textSize = style->fontSize();
-                isRtlText = style->direction() == RTL ||
-                        style->textAlign() == WebCore::RIGHT ||
-                        style->textAlign() == WebCore::WEBKIT_RIGHT;
+                cachedInput.setTextSize(style->fontSize());
+                cachedInput.setIsRtlText(style->direction() == RTL
+                        || style->textAlign() == WebCore::RIGHT
+                        || style->textAlign() == WebCore::WEBKIT_RIGHT);
             }
         }
         takesFocus = true;
         bounds = absBounds;
-        if (!isAnchor) {
+        if (type != ANCHOR_CACHEDNODETYPE) {
             bool isFocusable = node->isKeyboardFocusable(NULL) || 
                 node->isMouseFocusable() || node->isFocusable();
             if (isFocusable == false) {
@@ -1188,7 +1184,7 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
                 continue;
             }
             const IntRect& parentClip = clipTrack.mBounds;
-            if (hasClip == false && isAnchor)
+            if (hasClip == false && type == ANCHOR_CACHEDNODETYPE)
                 clip = parentClip;
             else
                 clip.intersect(parentClip);
@@ -1204,30 +1200,24 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
             }
         }
         cachedNode.setNavableRects();
-        cachedNode.setChildFrameIndex(-1);
         cachedNode.setExport(exported);
         cachedNode.setHasCursorRing(hasCursorRing);
         cachedNode.setHasMouseOver(hasMouseOver);
         cachedNode.setHitBounds(absBounds);
         cachedNode.setIndex(cacheIndex);
-        cachedNode.setIsAnchor(isAnchor);
-        cachedNode.setIsArea(isArea);
         cachedNode.setIsFocus(isFocus);
-        cachedNode.setIsPassword(isPassword);
-        cachedNode.setIsReadOnly(isReadOnly);
-        cachedNode.setIsRtlText(isRtlText);
-        cachedNode.setIsTextArea(isTextArea);
-        cachedNode.setIsTextField(isTextField);
         cachedNode.setIsTransparent(isTransparent);
         cachedNode.setIsUnclipped(isUnclipped);
-        cachedNode.setMaxLength(maxLength);
-        cachedNode.setName(name);
         cachedNode.setParentIndex(last->mCachedNodeIndex);
         cachedNode.setParentGroup(ParentWithChildren(node));
         cachedNode.setTabIndex(tabIndex);
-        cachedNode.setTextSize(textSize);
         cachedNode.setType(type);
-        cachedNode.setWantsKeyEvents(wantsKeyEvents);
+        if (type == TEXT_INPUT_CACHEDNODETYPE) {
+            cachedFrame->add(cachedInput);
+            cachedNode.setDataIndex(textInputIndex);
+            textInputIndex++;
+        } else
+            cachedNode.setDataIndex(-1);
 #if DUMP_NAV_CACHE
         cachedNode.mDebug.mNodeIndex = nodeIndex;
         cachedNode.mDebug.mParentGroupIndex = Debug::ParentIndex(
@@ -2467,9 +2457,9 @@ bool CacheBuilder::isFocusableText(NodeWalk* walk, bool more, Node* node,
     baseStart = start;
     for (CachedNodeType checkType = ADDRESS_CACHEDNODETYPE;
         checkType <= PHONE_CACHEDNODETYPE; 
-        checkType = (CachedNodeType) (checkType << 1))
+        checkType = static_cast<CachedNodeType>(checkType + 1))
     {
-        if ((checkType & mAllowableTypes) == 0)
+        if ((1 << (checkType - 1) & mAllowableTypes) == 0)
             continue;
         InlineTextBox* inlineTextBox = baseInline;
         FindState findState;

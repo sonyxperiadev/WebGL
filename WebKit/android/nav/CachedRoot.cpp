@@ -844,9 +844,9 @@ int CachedRoot::getBlockLeftEdge(int x, int y, float scale) const
     const CachedFrame* frame;
     int fx, fy;
     const CachedNode* node = findAt(rect, &frame, &fx, &fy, true);
-    if (node && (node->isTextArea() || node->isTextField() || node->isPlugin())) {
+    if (node && node->wantsKeyEvents()) {
         DBG_NAV_LOGD("x=%d (%s)", node->bounds().x(),
-            node->isTextArea() || node->isTextField() ? "text" : "plugin");
+            node->isTextInput() ? "text" : "plugin");
         return node->bounds().x();
     }
     int halfW = (int) (mViewBounds.width() * scale * 0.5f);

@@ -76,6 +76,16 @@ bool CachedNode::clip(const WebCore::IntRect& bounds)
     return Clip(bounds, &mBounds, &mCursorRing);
 }
 
+void CachedNode::cursorRingBounds(WebCore::IntRect* bounds) const
+{
+    int partMax = mNavableRects;
+    ASSERT(partMax > 0);
+    *bounds = mCursorRing[0];
+    for (int partIndex = 1; partIndex < partMax; partIndex++)
+        bounds->unite(mCursorRing[partIndex]);
+    bounds->inflate(CURSOR_RING_HIT_TEST_RADIUS);
+}
+
 #define OVERLAP 3
 
 void CachedNode::fixUpCursorRects(const CachedRoot* root)
@@ -194,17 +204,6 @@ tryAgain:
     } while (again);
 }
 
-
-void CachedNode::cursorRingBounds(WebCore::IntRect* bounds) const
-{
-    int partMax = mNavableRects;
-    ASSERT(partMax > 0);
-    *bounds = mCursorRing[0];
-    for (int partIndex = 1; partIndex < partMax; partIndex++)
-        bounds->unite(mCursorRing[partIndex]);
-    bounds->inflate(CURSOR_RING_HIT_TEST_RADIUS);
-}
-
 void CachedNode::hideCursor(CachedFrame* parent)
 {
     if (isFrame()) {
@@ -218,10 +217,15 @@ void CachedNode::init(WebCore::Node* node)
 {
     bzero(this, sizeof(CachedNode));
     mExport = WebCore::String();
-    mName = WebCore::String();
     mNode = node;
-    mParentIndex = mChildFrameIndex = -1;
+    mParentIndex = mDataIndex = -1;
     mType = android::NORMAL_CACHEDNODETYPE;
+}
+
+bool CachedNode::isTextField(const CachedFrame* frame) const
+{
+    const CachedInput* input = frame->textInput(this);
+    return input ? input->isTextField() : false;
 }
 
 void CachedNode::move(int x, int y)
@@ -306,6 +310,11 @@ const char* CachedNode::Debug::type(android::CachedNodeType t) const
         case ADDRESS_CACHEDNODETYPE: return "ADDRESS"; break;
         case EMAIL_CACHEDNODETYPE: return "EMAIL"; break;
         case PHONE_CACHEDNODETYPE: return "PHONE"; break;
+        case ANCHOR_CACHEDNODETYPE: return "ANCHOR"; break;
+        case AREA_CACHEDNODETYPE: return "AREA"; break;
+        case FRAME_CACHEDNODETYPE: return "FRAME"; break;
+        case PLUGIN_CACHEDNODETYPE: return "PLUGIN"; break;
+        case TEXT_INPUT_CACHEDNODETYPE: return "INPUT"; break;
         default: return "???";
     }
 }
@@ -316,14 +325,6 @@ void CachedNode::Debug::print() const
     char scratch[256];
     size_t index = snprintf(scratch, sizeof(scratch), "// char* mExport=\"");
     const UChar* ch = b->mExport.characters();
-    while (ch && *ch && index < sizeof(scratch)) {
-        UChar c = *ch++;
-        if (c < ' ' || c >= 0x7f) c = ' ';
-        scratch[index++] = c;
-    }
-    DUMP_NAV_LOGD("%.*s\"\n", index, scratch);
-    index = snprintf(scratch, sizeof(scratch), "// char* mName=\"");
-    ch = b->mName.characters();
     while (ch && *ch && index < sizeof(scratch)) {
         UChar c = *ch++;
         if (c < ' ' || c >= 0x7f) c = ' ';
@@ -341,12 +342,10 @@ void CachedNode::Debug::print() const
     DUMP_NAV_LOGD("// };\n");
     DUMP_NAV_LOGD("// void* mNode=%p; // (%d) \n", b->mNode, mNodeIndex);
     DUMP_NAV_LOGD("// void* mParentGroup=%p; // (%d) \n", b->mParentGroup, mParentGroupIndex);
-    DUMP_NAV_LOGD("// int mChildFrameIndex=%d;\n", b->mChildFrameIndex);
+    DUMP_NAV_LOGD("// int mDataIndex=%d;\n", b->mDataIndex);
     DUMP_NAV_LOGD("// int mIndex=%d;\n", b->mIndex);
-    DUMP_NAV_LOGD("// int mMaxLength=%d;\n", b->mMaxLength);
     DUMP_NAV_LOGD("// int mNavableRects=%d;\n", b->mNavableRects);
     DUMP_NAV_LOGD("// int mParentIndex=%d;\n", b->mParentIndex);
-    DUMP_NAV_LOGD("// int mTextSize=%d;\n", b->mTextSize);
     DUMP_NAV_LOGD("// int mTabIndex=%d;\n", b->mTabIndex);
     DUMP_NAV_LOGD("// Condition mCondition=%s;\n", condition(b->mCondition));
     DUMP_NAV_LOGD("// Type mType=%s;\n", type(b->mType));
@@ -355,22 +354,15 @@ void CachedNode::Debug::print() const
     DEBUG_PRINT_BOOL(mFixedUpCursorRects);
     DEBUG_PRINT_BOOL(mHasCursorRing);
     DEBUG_PRINT_BOOL(mHasMouseOver);
-    DEBUG_PRINT_BOOL(mIsAnchor);
-    DEBUG_PRINT_BOOL(mIsArea);
     DEBUG_PRINT_BOOL(mIsCursor);
     DEBUG_PRINT_BOOL(mIsFocus);
     DEBUG_PRINT_BOOL(mIsHidden);
     DEBUG_PRINT_BOOL(mIsParentAnchor);
-    DEBUG_PRINT_BOOL(mIsPassword);
-    DEBUG_PRINT_BOOL(mIsRtlText);
-    DEBUG_PRINT_BOOL(mIsTextArea);
-    DEBUG_PRINT_BOOL(mIsTextField);
     DEBUG_PRINT_BOOL(mIsTransparent);
     DEBUG_PRINT_BOOL(mIsUnclipped);
     DEBUG_PRINT_BOOL(mLast);
     DEBUG_PRINT_BOOL(mUseBounds);
     DEBUG_PRINT_BOOL(mUseHitBounds);
-    DEBUG_PRINT_BOOL(mWantsKeyEvents);
     DUMP_NAV_LOGD("\n");
 }
 

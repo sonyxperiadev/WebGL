@@ -1,5 +1,5 @@
 /*
- * Copyright 2007, The Android Open Source Project
+ * Copyright 2009, The Android Open Source Project
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -23,32 +23,40 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef CachedNodeType_H
-#define CachedNodeType_H
+#include "CachedPrefix.h"
+#include "CachedInput.h"
 
 namespace android {
 
-enum CachedNodeType {
-    NORMAL_CACHEDNODETYPE,
-    ADDRESS_CACHEDNODETYPE,
-    EMAIL_CACHEDNODETYPE,
-    PHONE_CACHEDNODETYPE,
-    ANCHOR_CACHEDNODETYPE,
-    AREA_CACHEDNODETYPE,
-    FRAME_CACHEDNODETYPE,
-    PLUGIN_CACHEDNODETYPE,
-    TEXT_INPUT_CACHEDNODETYPE
-};
+#if DUMP_NAV_CACHE
 
-enum CachedNodeBits {
-    NORMAL_CACHEDNODE_BITS = 0,
-    ADDRESS_CACHEDNODE_BIT = 1 << (ADDRESS_CACHEDNODETYPE - 1),
-    EMAIL_CACHEDNODE_BIT = 1 << (EMAIL_CACHEDNODETYPE - 1),
-    PHONE_CACHEDNODE_BIT = 1 << (PHONE_CACHEDNODETYPE - 1),
-    ALL_CACHEDNODE_BITS = ADDRESS_CACHEDNODE_BIT | EMAIL_CACHEDNODE_BIT
-        | PHONE_CACHEDNODE_BIT
-};
+#define DEBUG_PRINT_BOOL(field) \
+    DUMP_NAV_LOGD("// bool " #field "=%s;\n", b->field ? "true" : "false")
 
+CachedInput* CachedInput::Debug::base() const {
+    CachedInput* nav = (CachedInput*) ((char*) this - OFFSETOF(CachedInput, mDebug));
+    return nav;
+}
+
+void CachedInput::Debug::print() const
+{
+    CachedInput* b = base();
+    char scratch[256];
+    size_t index = snprintf(scratch, sizeof(scratch), "// char* mName=\"");
+    const UChar* ch = b->mName.characters();
+    while (ch && *ch && index < sizeof(scratch)) {
+        UChar c = *ch++;
+        if (c < ' ' || c >= 0x7f) c = ' ';
+        scratch[index++] = c;
+    }
+    DUMP_NAV_LOGD("%.*s\"\n", index, scratch);
+    DUMP_NAV_LOGD("// int mMaxLength=%d;\n", b->mMaxLength);
+    DUMP_NAV_LOGD("// int mTextSize=%d;\n", b->mTextSize);
+    DEBUG_PRINT_BOOL(mIsPassword);
+    DEBUG_PRINT_BOOL(mIsRtlText);
+    DEBUG_PRINT_BOOL(mIsTextField);
 }
 
 #endif
+
+}

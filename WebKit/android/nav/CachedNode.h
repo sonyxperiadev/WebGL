@@ -86,7 +86,7 @@ public:
 
     const WebCore::IntRect& bounds() const { return mBounds; }
     WebCore::IntRect* boundsPtr() { return &mBounds; }
-    int childFrameIndex() const { return mChildFrameIndex; }
+    int childFrameIndex() const { return isFrame() ? mDataIndex : -1; }
     void clearCondition() const { mCondition = NOT_REJECTED; }
     void clearCursor(CachedFrame* );
     static bool Clip(const WebCore::IntRect& outer, WebCore::IntRect* inner,
@@ -94,11 +94,11 @@ public:
     bool clip(const WebCore::IntRect& );
     bool clippedOut() { return mClippedOut; }
     void cursorRingBounds(WebCore::IntRect* ) const;
+    WTF::Vector<WebCore::IntRect>& cursorRings() { return mCursorRing; }
+    const WTF::Vector<WebCore::IntRect>& cursorRings() const { return mCursorRing; }
     bool disabled() const { return mDisabled; }
     const CachedNode* document() const { return &this[-mIndex]; }
     void fixUpCursorRects(const CachedRoot* root);
-    WTF::Vector<WebCore::IntRect>& cursorRings() { return mCursorRing; }
-    const WTF::Vector<WebCore::IntRect>& cursorRings() const { return mCursorRing; }
     const WebCore::IntRect& getBounds() const { return mBounds; }
     void getBounds(WebCore::IntRect* bounds) const { *bounds = mBounds; }
     const WebCore::String& getExport() const { return mExport; }
@@ -108,28 +108,24 @@ public:
     const WebCore::IntRect& hitBounds() const { return mHitBounds; }
     int index() const { return mIndex; }
     void init(WebCore::Node* node);
-    bool isAnchor() const { return mIsAnchor; }
+    bool isAnchor() const { return mType == ANCHOR_CACHEDNODETYPE; }
     bool isCursor() const { return mIsCursor; }
-    bool isArea() const { return mIsArea; }
+    bool isArea() const { return mType == AREA_CACHEDNODETYPE; }
     bool isFocus() const { return mIsFocus; }
-    bool isFrame() const { return mChildFrameIndex >= 0 ; }
+    bool isFrame() const { return mType == FRAME_CACHEDNODETYPE; }
     bool isHidden() const { return mIsHidden; }
     bool isNavable(const WebCore::IntRect& clip) const {
         return clip.intersects(mBounds);
     }
-    bool isPassword() const { return mIsPassword; }
-    bool isPlugin() const {
-        return mWantsKeyEvents && !mIsTextArea && !mIsTextField;
+    bool isPlugin() const { return mType == PLUGIN_CACHEDNODETYPE; }
+    bool isSyntheticLink() const {
+        return mType >= ADDRESS_CACHEDNODETYPE && mType <= PHONE_CACHEDNODETYPE;
     }
-    bool isReadOnly() const { return mIsReadOnly; }
-    bool isRtlText() const { return mIsRtlText; }
-    bool isTextArea() const { return mIsTextArea; }
-    bool isTextField() const { return mIsTextField; }
+    bool isTextField(const CachedFrame*) const;
+    bool isTextInput() const { return mType == TEXT_INPUT_CACHEDNODETYPE; }
     bool isTransparent() const { return mIsTransparent; }
     bool isUnclipped() const { return mIsUnclipped; }
-    int maxLength() const { return mMaxLength; };
     void move(int x, int y);
-    const WebCore::String& name() const { return mName; }
     int navableRects() const { return mNavableRects; }
     void* nodePointer() const { return mNode; }
     bool noSecondChance() const { return mCondition > SECOND_CHANCE_END; }
@@ -139,90 +135,66 @@ public:
     bool partRectsContains(const CachedNode* other) const;
     void reset();
     void setBounds(const WebCore::IntRect& bounds) { mBounds = bounds; }
-    void setChildFrameIndex(int index) { mChildFrameIndex = index;  }
     void setClippedOut(bool clipped) { mClippedOut = clipped; }
     void setCondition(Condition condition) const { mCondition = condition; }
+    void setDataIndex(int index) { mDataIndex = index; }
     void setDisabled(bool disabled) { mDisabled = disabled; }
     void setExport(const WebCore::String& exported) { mExport = exported; }
     void setHasCursorRing(bool hasRing) { mHasCursorRing = hasRing; }
     void setHasMouseOver(bool hasMouseOver) { mHasMouseOver = hasMouseOver; }
     void setHitBounds(const WebCore::IntRect& bounds) { mHitBounds = bounds; }
     void setIndex(int index) { mIndex = index; }
-    void setIsAnchor(bool isAnchor) { mIsAnchor = isAnchor; }
-    void setIsArea(bool isArea) { mIsArea = isArea; }
     void setIsCursor(bool isCursor) { mIsCursor = isCursor; }
     void setIsFocus(bool isFocus) { mIsFocus = isFocus; }
     void setIsParentAnchor(bool isAnchor) { mIsParentAnchor = isAnchor; }
-    void setIsPassword(bool isPassword) { mIsPassword = isPassword; }
-    void setIsReadOnly(bool isReadOnly) { mIsReadOnly = isReadOnly; }
-    void setIsRtlText(bool isRtlText) { mIsRtlText = isRtlText; }
-    void setIsTextArea(bool isTextArea) { mIsTextArea = isTextArea; }
-    void setIsTextField(bool isTextField) { mIsTextField = isTextField; }
     void setIsTransparent(bool isTransparent) { mIsTransparent = isTransparent; }
     void setIsUnclipped(bool unclipped) { mIsUnclipped = unclipped; }
     void setLast() { mLast = true; }
-    void setMaxLength(int maxLength) { mMaxLength = maxLength; }
-    void setName(const WebCore::String& name) { mName = name; }
     void setNavableRects() { mNavableRects = mCursorRing.size(); }
     void setParentGroup(void* group) { mParentGroup = group; }
     void setParentIndex(int parent) { mParentIndex = parent; }
     void setTabIndex(int index) { mTabIndex = index; }
-    void setTextSize(int textSize) { mTextSize = textSize; }
     void setType(CachedNodeType type) { mType = type; }
-    void setWantsKeyEvents(bool wantsKeys) { mWantsKeyEvents = wantsKeys; }
     void show() { mIsHidden = false; }
     int tabIndex() const { return mTabIndex; }
+    int textInputIndex() const { return isTextInput() ? mDataIndex : -1; }
     const CachedNode* traverseNextNode() const { return mLast ? NULL : &this[1]; }
-    int textSize() const { return mTextSize; }
-    CachedNodeType type() const { return mType; }
     bool useBounds() const { return mUseBounds; }
     bool useHitBounds() const { return mUseHitBounds; }
-    bool wantsKeyEvents() const { return mWantsKeyEvents; }
+    bool wantsKeyEvents() const { return isTextInput() || isPlugin(); }
 private:
     WebCore::String mExport;
-    WebCore::String mName;
     WebCore::IntRect mBounds;
     WebCore::IntRect mHitBounds;
     WTF::Vector<WebCore::IntRect> mCursorRing;
     void* mNode; // WebCore::Node*, only used to match pointers
     void* mParentGroup; // WebCore::Node*, only used to match pointers
-    int mChildFrameIndex; // set to -1 if node is not a frame
+    int mDataIndex; // child frame if a frame; input data index; or -1
     int mIndex; // index of itself, to find first in array (document)
-    int mMaxLength;
     int mNavableRects; // FIXME: could be bitfield once I limit max number of rects
     int mParentIndex;
-    int mTextSize;
     int mTabIndex;
     mutable Condition mCondition : 5; // why the node was not chosen on the first pass
-    CachedNodeType mType : 3;
+    CachedNodeType mType : 4;
     bool mClippedOut : 1;
     bool mDisabled : 1;
     bool mFixedUpCursorRects : 1;
     bool mHasCursorRing : 1;
     bool mHasMouseOver : 1;
-    bool mIsAnchor : 1;
-    bool mIsArea : 1;
     bool mIsCursor : 1;
     bool mIsFocus : 1;
     bool mIsHidden : 1;
     bool mIsParentAnchor : 1;
-    bool mIsPassword : 1;
-    bool mIsReadOnly : 1;
-    bool mIsRtlText : 1;
-    bool mIsTextArea : 1;
-    bool mIsTextField : 1;
     bool mIsTransparent : 1;
     bool mIsUnclipped : 1;
     bool mLast : 1;             // true if this is the last node in a group
     bool mUseBounds : 1;
     bool mUseHitBounds : 1;
-    bool mWantsKeyEvents : 1;   // true for nodes like plugins
 #ifdef BROWSER_DEBUG
 public:
     WebCore::Node* webCoreNode() const { return (WebCore::Node*) mNode; }
     bool mDisplayMeasure;
     mutable bool mInCompare;
- //   mutable int mCondition;
     int mSideDistance;
     int mSecondSide;
 #endif    
