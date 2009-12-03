@@ -1407,9 +1407,6 @@ static jobject GetFormTextData(JNIEnv *env, jobject obj)
                 "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;");
         LOG_ASSERT(put, "Could not find put method on HashMap");
 
-        static const WebCore::AtomicString text("text");
-        static const WebCore::AtomicString off("off");
-
         WebCore::HTMLFormElement* form;
         WebCore::HTMLInputElement* input;
         for (WebCore::Node* node = collection->firstItem(); node; node = collection->nextItem()) {
@@ -1419,23 +1416,21 @@ static jobject GetFormTextData(JNIEnv *env, jobject obj)
                 size_t size = elements.size();
                 for (size_t i = 0; i < size; i++) {
                     WebCore::HTMLFormControlElement* e = elements[i];
-                    if (e->type() == text) {
-                        if (e->hasAttribute(WebCore::HTMLNames::autocompleteAttr)) {
-                            const WebCore::AtomicString& attr = e->getAttribute(WebCore::HTMLNames::autocompleteAttr);
-                            if (attr == off)
-                                continue;
-                        }
-                        input = (WebCore::HTMLInputElement*) e;
-                        WebCore::String value = input->value();
-                        int len = value.length();
-                        if (len) {
-                            const WebCore::AtomicString& name = input->name();
-                            jstring key = env->NewString((jchar *)name.characters(), name.length());
-                            jstring val = env->NewString((jchar *)value.characters(), len);
-                            LOG_ASSERT(key && val, "name or value not set");
-                            env->CallObjectMethod(hashMap, put, key, val);
-                            env->DeleteLocalRef(key);
-                            env->DeleteLocalRef(val);
+                    if (e->hasTagName(WebCore::HTMLNames::inputTag)) {
+                        input = static_cast<WebCore::HTMLInputElement*>(e);
+                        if (input->isTextField() && !input->isPasswordField()
+                                && input->autoComplete()) {
+                            WebCore::String value = input->value();
+                            int len = value.length();
+                            if (len) {
+                                const WebCore::AtomicString& name = input->name();
+                                jstring key = env->NewString((jchar *)name.characters(), name.length());
+                                jstring val = env->NewString((jchar *)value.characters(), len);
+                                LOG_ASSERT(key && val, "name or value not set");
+                                env->CallObjectMethod(hashMap, put, key, val);
+                                env->DeleteLocalRef(key);
+                                env->DeleteLocalRef(val);
+                            }
                         }
                     }
                 }
