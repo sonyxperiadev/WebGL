@@ -36,14 +36,14 @@
 typedef struct objc_object* id;
 #endif
 
-#ifdef ANDROID_HISTORY_CLIENT
-#include "WebHistory.h"
-#endif
-
 #if PLATFORM(QT)
 #include <QVariant>
 #include <QByteArray>
 #include <QDataStream>
+#endif
+
+#if PLATFORM(ANDROID)
+#include "AndroidWebHistoryBridge.h"
 #endif
 
 namespace WebCore {
@@ -183,14 +183,14 @@ public:
     QDataStream& saveState(QDataStream& out, int version) const;
 #endif
 
+#if PLATFORM(ANDROID)
+    void setBridge(AndroidWebHistoryBridge* bridge);
+    AndroidWebHistoryBridge* bridge() const;
+#endif
+
 #ifndef NDEBUG
     int showTree() const;
     int showTreeWithIndent(unsigned indentLevel) const;
-#endif
-    
-#ifdef ANDROID_HISTORY_CLIENT
-    void setBridge(android::WebHistoryItem* bridge) { m_bridge = adoptRef(bridge); }
-    android::WebHistoryItem* bridge() const { return m_bridge.get(); }
 #endif
 
     void adoptVisitCounts(Vector<int>& dailyCounts, Vector<int>& weeklyCounts);
@@ -252,14 +252,15 @@ private:
     RetainPtr<id> m_viewState;
     OwnPtr<HashMap<String, RetainPtr<id> > > m_transientProperties;
 #endif
-        
-#ifdef ANDROID_HISTORY_CLIENT
-    RefPtr<android::WebHistoryItem> m_bridge;
-#endif
 
 #if PLATFORM(QT)
     QVariant m_userData;
 #endif
+
+#if PLATFORM(ANDROID)
+    RefPtr<AndroidWebHistoryBridge> m_bridge;
+#endif
+
 }; //class HistoryItem
 
 } //namespace WebCore
