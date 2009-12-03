@@ -36,15 +36,11 @@
 
 namespace WebCore {
 
-#ifdef ANDROID_HISTORY_CLIENT
-void (*notifyHistoryItemChanged)(HistoryItem*);
-#else
-static void defaultNotifyHistoryItemChanged()
+static void defaultNotifyHistoryItemChanged(HistoryItem*)
 {
 }
 
-void (*notifyHistoryItemChanged)() = defaultNotifyHistoryItemChanged;
-#endif
+void (*notifyHistoryItemChanged)(HistoryItem*) = defaultNotifyHistoryItemChanged;
 
 HistoryItem::HistoryItem()
     : m_lastVisitedTime(0)
@@ -202,9 +198,7 @@ const String& HistoryItem::parent() const
 void HistoryItem::setAlternateTitle(const String& alternateTitle)
 {
     m_displayTitle = alternateTitle;
-#ifndef ANDROID_HISTORY_CLIENT
-    notifyHistoryItemChanged();
-#endif
+    notifyHistoryItemChanged(this);
 }
 
 void HistoryItem::setURLString(const String& urlString)
@@ -215,11 +209,7 @@ void HistoryItem::setURLString(const String& urlString)
         iconDatabase()->retainIconForPageURL(m_urlString);
     }
     
-#ifdef ANDROID_HISTORY_CLIENT
     notifyHistoryItemChanged(this);
-#else
-    notifyHistoryItemChanged();
-#endif
 }
 
 void HistoryItem::setURL(const KURL& url)
@@ -232,41 +222,25 @@ void HistoryItem::setURL(const KURL& url)
 void HistoryItem::setOriginalURLString(const String& urlString)
 {
     m_originalURLString = urlString;
-#ifdef ANDROID_HISTORY_CLIENT
     notifyHistoryItemChanged(this);
-#else
-    notifyHistoryItemChanged();
-#endif
 }
 
 void HistoryItem::setReferrer(const String& referrer)
 {
     m_referrer = referrer;
-#ifdef ANDROID_HISTORY_CLIENT
     notifyHistoryItemChanged(this);
-#else
-    notifyHistoryItemChanged();
-#endif
 }
 
 void HistoryItem::setTitle(const String& title)
 {
     m_title = title;
-#ifdef ANDROID_HISTORY_CLIENT
     notifyHistoryItemChanged(this);
-#else
-    notifyHistoryItemChanged();
-#endif
 }
 
 void HistoryItem::setTarget(const String& target)
 {
     m_target = target;
-#ifdef ANDROID_HISTORY_CLIENT
     notifyHistoryItemChanged(this);
-#else
-    notifyHistoryItemChanged();
-#endif
 }
 
 void HistoryItem::setParent(const String& parent)
@@ -382,7 +356,7 @@ void HistoryItem::clearScrollPoint()
 void HistoryItem::setDocumentState(const Vector<String>& state)
 {
     m_documentState = state;
-#ifdef ANDROID_HISTORY_CLIENT
+#if PLATFORM(ANDROID)
     notifyHistoryItemChanged(this);
 #endif
 }
@@ -395,7 +369,7 @@ const Vector<String>& HistoryItem::documentState() const
 void HistoryItem::clearDocumentState()
 {
     m_documentState.clear();
-#ifdef ANDROID_HISTORY_CLIENT
+#if PLATFORM(ANDROID)
     notifyHistoryItemChanged(this);
 #endif
 }
@@ -408,7 +382,7 @@ bool HistoryItem::isTargetItem() const
 void HistoryItem::setIsTargetItem(bool flag)
 {
     m_isTargetItem = flag;
-#ifdef ANDROID_HISTORY_CLIENT
+#if PLATFORM(ANDROID)
     notifyHistoryItemChanged(this);
 #endif
 }
@@ -417,7 +391,7 @@ void HistoryItem::addChildItem(PassRefPtr<HistoryItem> child)
 {
     ASSERT(!childItemWithTarget(child->target()));
     m_children.append(child);
-#ifdef ANDROID_HISTORY_CLIENT
+#if PLATFORM(ANDROID)
     notifyHistoryItemChanged(this);
 #endif
 }
@@ -498,7 +472,7 @@ void HistoryItem::setFormInfoFromRequest(const ResourceRequest& request)
         m_formData = 0;
         m_formContentType = String();
     }
-#ifdef ANDROID_HISTORY_CLIENT
+#if PLATFORM(ANDROID)
     notifyHistoryItemChanged(this);
 #endif
 }
