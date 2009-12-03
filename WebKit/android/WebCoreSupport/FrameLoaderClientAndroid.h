@@ -130,11 +130,9 @@ namespace android {
         virtual void didDisplayInsecureContent();
         virtual void didRunInsecureContent(SecurityOrigin*);
 
-#ifdef ANDROID_HISTORY_CLIENT
-        virtual void dispatchDidAddHistoryItem(HistoryItem*) const;
-        virtual void dispatchDidRemoveHistoryItem(HistoryItem*, int) const;
-        virtual void dispatchDidChangeHistoryIndex(BackForwardList*) const;
-#endif
+        virtual void dispatchDidAddBackForwardItem(HistoryItem*) const;
+        virtual void dispatchDidRemoveBackForwardItem(HistoryItem*) const;
+        virtual void dispatchDidChangeBackForwardIndex() const;
 
         virtual ResourceError cancelledError(const ResourceRequest&);
         virtual ResourceError blockedError(const ResourceRequest&);
