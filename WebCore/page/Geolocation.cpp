@@ -136,6 +136,11 @@ void Geolocation::Watchers::remove(GeoNotifier* notifier)
     m_notifierToIdMap.remove(iter);
 }
 
+bool Geolocation::Watchers::contains(GeoNotifier* notifier) const
+{
+    return m_notifierToIdMap.contains(notifier);
+}
+
 void Geolocation::Watchers::clear()
 {
     m_idToNotifierMap.clear();
@@ -403,11 +408,13 @@ void Geolocation::requestReturnedCachedPosition(GeoNotifier* notifier)
         return;
     }
 
-    // Otherwise, start the service to get updates.
-    if (m_service->startUpdating(notifier->m_options.get()))
-        notifier->startTimerIfNeeded();
-    else
-        notifier->setFatalError(PositionError::create(PositionError::UNKNOWN_ERROR, "Failed to start Geolocation service"));
+    // Otherwise, if the watch still exists, start the service to get updates.
+    if (m_watchers.contains(notifier)) {
+        if (m_service->startUpdating(notifier->m_options.get()))
+            notifier->startTimerIfNeeded();
+        else
+            notifier->setFatalError(PositionError::create(PositionError::UNKNOWN_ERROR, "Failed to start Geolocation service"));
+    }
 }
 
 bool Geolocation::haveSuitableCachedPosition(PositionOptions* options)
