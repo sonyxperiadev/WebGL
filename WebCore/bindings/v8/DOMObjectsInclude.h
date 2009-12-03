@@ -184,13 +184,11 @@
 #include "StorageEvent.h"
 #endif // DOM_STORAGE
 
-#if ENABLE(GEOLOCATION)
+// GEOLOCATION
 #include "Coordinates.h"
 #include "Geolocation.h"
 #include "Geoposition.h"
 #include "PositionError.h"
-#include "PositionErrorCallback.h"
-#endif
 
 #if ENABLE(SVG)
 #include "SVGAngle.h"
