@@ -226,15 +226,34 @@ namespace WebCore {
         void resetMetadataSettings();
         void setMetadataSettings(const String& key, const String& value);
 
+        void setViewportWidth(int);
         int viewportWidth() const { return m_viewport_width; }
+
+        void setViewportHeight(int);
         int viewportHeight() const { return m_viewport_height; }
+
+        void setViewportInitialScale(int);
         int viewportInitialScale() const { return m_viewport_initial_scale; }
+
+        void setViewportMinimumScale(int);
         int viewportMinimumScale() const { return m_viewport_minimum_scale; }
+
+        void setViewportMaximumScale(int);
         int viewportMaximumScale() const { return m_viewport_maximum_scale; }
+
+        void setViewportUserScalable(bool);
         bool viewportUserScalable() const { return m_viewport_user_scalable; }
+
+        void setViewportTargetDensityDpi(int);
         int viewportTargetDensityDpi() const { return m_viewport_target_densitydpi; }
+
+        void setFormatDetectionAddress(bool);
         bool formatDetectionAddress() const { return m_format_detection_address; }
+
+        void setFormatDetectionEmail(bool);
         bool formatDetectionEmail() const { return m_format_detection_email; }
+
+        void setFormatDetectionTelephone(bool);
         bool formatDetectionTelephone() const { return m_format_detection_telephone; }
 #endif
 #ifdef ANDROID_MULTIPLE_WINDOWS

@@ -29,6 +29,8 @@
 
 #include "android_graphics.h"
 #include "CString.h"
+#include "CachedFrame.h"
+#include "CachedFramePlatformDataAndroid.h"
 #include "DocumentLoader.h"
 #include "DOMImplementation.h"
 #include "Frame.h"
@@ -817,12 +819,16 @@ String FrameLoaderClientAndroid::userAgent(const KURL& u) {
     return m_webFrame->userAgentForURL(&u);
 }
 
-void FrameLoaderClientAndroid::savePlatformDataToCachedFrame(WebCore::CachedFrame*) {
-    notImplemented();
+void FrameLoaderClientAndroid::savePlatformDataToCachedFrame(WebCore::CachedFrame* cachedFrame) {
+    CachedFramePlatformDataAndroid* platformData = new CachedFramePlatformDataAndroid(m_frame->settings());
+    cachedFrame->setCachedFramePlatformData(platformData);
 }
 
-void FrameLoaderClientAndroid::transitionToCommittedFromCachedFrame(WebCore::CachedFrame*) {
-    notImplemented();
+void FrameLoaderClientAndroid::transitionToCommittedFromCachedFrame(WebCore::CachedFrame* cachedFrame) {
+    CachedFramePlatformDataAndroid* platformData = reinterpret_cast<CachedFramePlatformDataAndroid*>(cachedFrame->cachedFramePlatformData());
+#ifdef ANDROID_META_SUPPORT
+   platformData->restoreMetadata(m_frame->settings());
+#endif
 }
 
 void FrameLoaderClientAndroid::transitionToCommittedForNewPage() {
@@ -834,30 +840,23 @@ void FrameLoaderClientAndroid::transitionToCommittedForNewPage() {
         m_frame->settings()->resetMetadataSettings();
 #endif
 
-    if (m_frame->settings() && !m_frame->settings()->usesPageCache()) {
-        m_webFrame->transitionToCommitted(m_frame);
-        return;
-    }
+    // Save the old WebViewCore before creating a new FrameView. There is one
+    // WebViewCore per page. Each frame, including the main frame and sub frame,
+    // has a 1:1 FrameView and WebFrameView.
+    WebViewCore* webViewCore = WebViewCore::getWebViewCore(m_frame->view());
+    Retain(webViewCore);
 
-    // Remember the old WebFrameView
-    WebFrameView* webFrameView = static_cast<WebFrameView*> (
-            m_frame->view()->platformWidget());
-    Retain(webFrameView);
+    WebFrameView* oldFrameView = static_cast<WebFrameView*> (m_frame->view()->platformWidget());
+    // we only support opaque, white background for now
+    m_frame->createView(oldFrameView->getBounds().size(), Color::white, false, IntSize(), false);
 
-    // Remove the old FrameView
-    m_frame->setView(NULL);
-
-    // Create a new FrameView and associate it with the saved webFrameView
-    RefPtr<FrameView> view = FrameView::create(m_frame);
-    webFrameView->setView(view.get());
-
-    Release(webFrameView);
-
-    // Give the new FrameView to the Frame
-    m_frame->setView(view);
-
-    if (m_frame->ownerRenderer())
-        m_frame->ownerRenderer()->setWidget(view.get());
+    // Create a new WebFrameView for the new FrameView
+    WebFrameView* newFrameView = new WebFrameView(m_frame->view(), webViewCore);
+    // newFrameView attaches itself to FrameView which Retains the reference, so
+    // call Release for newFrameView
+    Release(newFrameView);
+    // WebFrameView Retains webViewCore, so call Release for webViewCore
+    Release(webViewCore);
 
     m_webFrame->transitionToCommitted(m_frame);
 }

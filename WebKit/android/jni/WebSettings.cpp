@@ -38,6 +38,7 @@
 #include "Geolocation.h"
 #include "GeolocationPermissions.h"
 #include "Page.h"
+#include "PageCache.h"
 #include "RenderTable.h"
 #include "Settings.h"
 #include "WebCoreFrameBridge.h"
@@ -110,6 +111,7 @@ struct FieldIds {
         mSupportMultipleWindows = env->GetFieldID(clazz, "mSupportMultipleWindows", "Z");
         mShrinksStandaloneImagesToFit = env->GetFieldID(clazz, "mShrinksStandaloneImagesToFit", "Z");
         mUseDoubleTree = env->GetFieldID(clazz, "mUseDoubleTree", "Z");
+        mPageCacheCapacity = env->GetFieldID(clazz, "mPageCacheCapacity", "I");
 
         LOG_ASSERT(mLayoutAlgorithm, "Could not find field mLayoutAlgorithm");
         LOG_ASSERT(mTextSize, "Could not find field mTextSize");
@@ -145,6 +147,7 @@ struct FieldIds {
         LOG_ASSERT(mSupportMultipleWindows, "Could not find field mSupportMultipleWindows");
         LOG_ASSERT(mShrinksStandaloneImagesToFit, "Could not find field mShrinksStandaloneImagesToFit");
         LOG_ASSERT(mUseDoubleTree, "Could not find field mUseDoubleTree");
+        LOG_ASSERT(mPageCacheCapacity, "Could not find field mPageCacheCapacity");
 
         jclass c = env->FindClass("java/lang/Enum");
         LOG_ASSERT(c, "Could not find Enum class!");
@@ -189,6 +192,7 @@ struct FieldIds {
     jfieldID mSupportMultipleWindows;
     jfieldID mShrinksStandaloneImagesToFit;
     jfieldID mUseDoubleTree;
+    jfieldID mPageCacheCapacity;
     // Ordinal() method and value field for enums
     jmethodID mOrdinal;
     jfieldID  mTextSizeValue;
@@ -364,6 +368,13 @@ public:
             GeolocationPermissions::setDatabasePath(to_string(env,str));
             WebCore::Geolocation::setDatabasePath(to_string(env,str));
         }
+
+        size = env->GetIntField(obj, gFieldIds->mPageCacheCapacity);
+        if (size > 0) {
+            s->setUsesPageCache(true);
+            WebCore::pageCache()->setCapacity(size);
+        } else
+            s->setUsesPageCache(false);
     }
 };
 

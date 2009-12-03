@@ -16,6 +16,7 @@
 ##
 
 LOCAL_SRC_FILES := \
+	android/WebCoreSupport/CachedFramePlatformDataAndroid.cpp \
 	android/WebCoreSupport/ChromeClientAndroid.cpp \
 	android/WebCoreSupport/ContextMenuClientAndroid.cpp \
 	android/WebCoreSupport/DragClientAndroid.cpp \
