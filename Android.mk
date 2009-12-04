@@ -176,6 +176,7 @@ LOCAL_C_INCLUDES := $(LOCAL_C_INCLUDES) \
 	$(LOCAL_PATH)/WebCore/dom \
 	$(LOCAL_PATH)/WebCore/editing \
 	$(LOCAL_PATH)/WebCore/history \
+	$(LOCAL_PATH)/WebCore/history/android \
 	$(LOCAL_PATH)/WebCore/html \
 	$(LOCAL_PATH)/WebCore/html/canvas \
 	$(LOCAL_PATH)/WebCore/inspector \
