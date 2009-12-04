@@ -130,18 +130,14 @@ void TextCodecICU::registerExtendedEncodingNames(EncodingNameRegistrar registrar
     // Additional aliases.
     // These are present in modern versions of ICU, but not in ICU 3.2 (shipped with Mac OS X 10.4).
     registrar("macroman", "macintosh");
-#ifndef ANDROID // Android does not have x-mac-cyrillic in its ICU library
     registrar("maccyrillic", "x-mac-cyrillic");
-#endif
 
     // Additional aliases that historically were present in the encoding
     // table in WebKit on Macintosh that don't seem to be present in ICU.
     // Perhaps we can prove these are not used on the web and remove them.
     // Or perhaps we can get them added to ICU.
     registrar("xmacroman", "macintosh");
-#ifndef ANDROID // Android does not have x-mac-cyrillic in its ICU library
     registrar("xmacukrainian", "x-mac-cyrillic");
-#endif
     registrar("cnbig5", "Big5");
     registrar("xxbig5", "Big5");
     registrar("cngb", "GBK");
