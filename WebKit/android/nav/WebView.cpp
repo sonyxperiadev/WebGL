@@ -36,6 +36,7 @@
 #include "FindCanvas.h"
 #include "Frame.h"
 #include "GraphicsJNI.h"
+#include "HTMLInputElement.h"
 #include "IntPoint.h"
 #include "IntRect.h"
 #include "Node.h"
@@ -1613,7 +1614,7 @@ static jint nativeFocusCandidateFramePointer(JNIEnv *env, jobject obj)
 static bool nativeFocusCandidateIsPassword(JNIEnv *env, jobject obj)
 {
     const CachedInput* input = getInputCandidate(env, obj);
-    return input ? input->isPassword() : false;
+    return input && input->inputType() == WebCore::HTMLInputElement::PASSWORD;
 }
 
 static bool nativeFocusCandidateIsRtlText(JNIEnv *env, jobject obj)

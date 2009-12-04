@@ -27,6 +27,7 @@
 #define CachedInput_H
 
 #include "CachedDebug.h"
+#include "HTMLInputElement.h"
 #include "PlatformString.h"
 
 namespace android {
@@ -41,13 +42,13 @@ public:
         bzero(this, sizeof(CachedInput));
         mName = WebCore::String();
     }
-    bool isPassword() const { return mIsPassword; }
+    WebCore::HTMLInputElement::InputType inputType() const { return mInputType; }
     bool isReadOnly() const { return mIsReadOnly; }
     bool isRtlText() const { return mIsRtlText; }
     bool isTextField() const { return mIsTextField; }
     int maxLength() const { return mMaxLength; };
     const WebCore::String& name() const { return mName; }
-    void setIsPassword(bool isPassword) { mIsPassword = isPassword; }
+    void setInputType(WebCore::HTMLInputElement::InputType type) { mInputType = type; }
     void setIsReadOnly(bool isReadOnly) { mIsReadOnly = isReadOnly; }
     void setIsRtlText(bool isRtlText) { mIsRtlText = isRtlText; }
     void setIsTextField(bool isTextField) { mIsTextField = isTextField; }
@@ -59,7 +60,7 @@ private:
     WebCore::String mName;
     int mMaxLength;
     int mTextSize;
-    bool mIsPassword : 1;
+    WebCore::HTMLInputElement::InputType mInputType;
     bool mIsReadOnly : 1;
     bool mIsRtlText : 1;
     bool mIsTextField : 1;
