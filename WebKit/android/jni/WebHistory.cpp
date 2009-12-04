@@ -242,15 +242,6 @@ WebHistoryItem::~WebHistoryItem() {
     }
 }
 
-void WebHistoryItem::detach(WebCore::HistoryItem* item) {
-/*    if (mHistoryItem == item) {
-        mHistoryItem = NULL;
-    } else if (mHistoryItem) {
-        LOGE("WebHistoryItem::detach doesn't have a matching HistoryItem");
-    }
-    */
-}
-
 void WebHistoryItem::updateHistoryItem(WebCore::HistoryItem* item) {
     // Do not want to update during inflation.
     if (!m_active)

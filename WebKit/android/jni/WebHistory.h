@@ -55,7 +55,6 @@ public:
         , m_object(NULL) { }
     WebHistoryItem(JNIEnv*, jobject, WebCore::HistoryItem*);
     ~WebHistoryItem();
-    void detach(WebCore::HistoryItem* item);
     void updateHistoryItem(WebCore::HistoryItem* item);
     void setParent(WebHistoryItem* parent) { m_parent = parent; }
     WebHistoryItem* parent() const { return m_parent.get(); }
