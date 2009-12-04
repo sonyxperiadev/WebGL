@@ -485,8 +485,8 @@ void drawCursorRing(SkCanvas* canvas)
         return;
     CursorRing::Flavor flavor = CursorRing::NORMAL_FLAVOR;
     if (!isButton) {
-        flavor = node->type() != NORMAL_CACHEDNODETYPE ?
-            CursorRing::FAKE_FLAVOR : CursorRing::NORMAL_FLAVOR;
+        flavor = node->isSyntheticLink()
+            ? CursorRing::FAKE_FLAVOR : CursorRing::NORMAL_FLAVOR;
         if (m_followedLink) {
             flavor = static_cast<CursorRing::Flavor>
                     (flavor + CursorRing::NORMAL_ANIMATING);
@@ -533,9 +533,8 @@ bool cursorIsTextInput(FrameCachePermission allowNewer)
         DBG_NAV_LOG("!cursor");
         return false;
     }
-    DBG_NAV_LOGD("%s",
-        cursor->isTextArea() || cursor->isTextField() ? "true" : "false");
-    return cursor->isTextArea() || cursor->isTextField();
+    DBG_NAV_LOGD("%s", cursor->isTextInput() ? "true" : "false");
+    return cursor->isTextInput();
 }
 
 void cursorRingBounds(WebCore::IntRect* bounds)
@@ -938,22 +937,22 @@ bool motionUp(int x, int y, int slop)
     updateCursorBounds(root, frame, result);
     root->setCursor(const_cast<CachedFrame*>(frame),
         const_cast<CachedNode*>(result));
-    CachedNodeType type = result->type();
-    if (type == NORMAL_CACHEDNODETYPE) {
+    bool syntheticLink = result->isSyntheticLink();
+    if (!syntheticLink) {
         sendMotionUp(
             frame ? (WebCore::Frame*) frame->framePointer() : 0,
             result ? (WebCore::Node*) result->nodePointer() : 0, rx, ry);
     }
     viewInvalidate();
-    if (result->isTextField() || result->isTextArea()) {
+    if (result->isTextInput()) {
         rebuildWebTextView(true);
-        if (!result->isReadOnly()) {
+        if (!frame->textInput(result)->isReadOnly()) {
             displaySoftKeyboard(true);
         }
     } else {
         clearTextEntry();
         setFollowedLink(true);
-        if (type != NORMAL_CACHEDNODETYPE)
+        if (syntheticLink)
             overrideUrlLoading(result->getExport());
     }
     return pageScrolled;
@@ -1388,6 +1387,14 @@ static const CachedNode* getCursorNode(JNIEnv *env, jobject obj)
     return root ? root->currentCursor() : 0;
 }
 
+static const CachedNode* getCursorNode(JNIEnv *env, jobject obj,
+    const CachedFrame** frame)
+{
+    WebView* view = GET_NATIVE_VIEW(env, obj);
+    CachedRoot* root = view->getFrameCache(WebView::DontAllowNewer);
+    return root ? root->currentCursor(frame) : 0;
+}
+
 static const CachedNode* getFocusCandidate(JNIEnv *env, jobject obj)
 {
     WebView* view = GET_NATIVE_VIEW(env, obj);
@@ -1405,6 +1412,19 @@ static const CachedNode* getFocusNode(JNIEnv *env, jobject obj)
     WebView* view = GET_NATIVE_VIEW(env, obj);
     CachedRoot* root = view->getFrameCache(WebView::DontAllowNewer);
     return root ? root->currentFocus() : 0;
+}
+
+static const CachedInput* getInputCandidate(JNIEnv *env, jobject obj)
+{
+    WebView* view = GET_NATIVE_VIEW(env, obj);
+    CachedRoot* root = view->getFrameCache(WebView::DontAllowNewer);
+    if (!root)
+        return 0;
+    const CachedFrame* frame;
+    const CachedNode* cursor = root->currentCursor(&frame);
+    if (!cursor || !cursor->wantsKeyEvents())
+        cursor = root->currentFocus(&frame);
+    return cursor ? frame->textInput(cursor) : 0;
 }
 
 static jboolean nativeCursorMatchesFocus(JNIEnv *env, jobject obj)
@@ -1467,14 +1487,20 @@ static bool nativeCursorIsAnchor(JNIEnv *env, jobject obj)
 
 static bool nativeCursorIsReadOnly(JNIEnv *env, jobject obj)
 {
-    const CachedNode* node = getCursorNode(env, obj);
-    return node ? node->isReadOnly() : false;
+    const CachedFrame* frame;
+    const CachedNode* node = getCursorNode(env, obj, &frame);
+    if (!node)
+        return false;
+    const CachedInput* input = frame->textInput(node);
+    if (!input)
+        return false;
+    return input->isReadOnly();
 }
 
 static bool nativeCursorIsTextInput(JNIEnv *env, jobject obj)
 {
     const CachedNode* node = getCursorNode(env, obj);
-    return node ? node->isTextField() || node->isTextArea() : false;
+    return node ? node->isTextInput() : false;
 }
 
 static jobject nativeCursorText(JNIEnv *env, jobject obj)
@@ -1586,40 +1612,40 @@ static jint nativeFocusCandidateFramePointer(JNIEnv *env, jobject obj)
 
 static bool nativeFocusCandidateIsPassword(JNIEnv *env, jobject obj)
 {
-    const CachedNode* node = getFocusCandidate(env, obj);
-    return node ? node->isPassword() : false;
+    const CachedInput* input = getInputCandidate(env, obj);
+    return input ? input->isPassword() : false;
 }
 
 static bool nativeFocusCandidateIsRtlText(JNIEnv *env, jobject obj)
 {
-    const CachedNode* node = getFocusCandidate(env, obj);
-    return node ? node->isRtlText() : false;
+    const CachedInput* input = getInputCandidate(env, obj);
+    return input ? input->isRtlText() : false;
 }
 
 static bool nativeFocusCandidateIsTextField(JNIEnv *env, jobject obj)
 {
-    const CachedNode* node = getFocusCandidate(env, obj);
-    return node ? node->isTextField() : false;
+    const CachedInput* input = getInputCandidate(env, obj);
+    return input ? input->isTextField() : false;
 }
 
 static bool nativeFocusCandidateIsTextInput(JNIEnv *env, jobject obj)
 {
     const CachedNode* node = getFocusCandidate(env, obj);
-    return node ? node->isTextField() || node->isTextArea() : false;
+    return node ? node->isTextInput() : false;
 }
 
 static jint nativeFocusCandidateMaxLength(JNIEnv *env, jobject obj)
 {
-    const CachedNode* node = getFocusCandidate(env, obj);
-    return node ? node->maxLength() : false;
+    const CachedInput* input = getInputCandidate(env, obj);
+    return input ? input->maxLength() : false;
 }
 
 static jobject nativeFocusCandidateName(JNIEnv *env, jobject obj)
 {
-    const CachedNode* node = getFocusCandidate(env, obj);
-    if (!node)
+    const CachedInput* input = getInputCandidate(env, obj);
+    if (!input)
         return 0;
-    const WebCore::String& name = node->name();
+    const WebCore::String& name = input->name();
     return env->NewString((jchar*)name.characters(), name.length());
 }
 
@@ -1653,8 +1679,8 @@ static jobject nativeFocusCandidateText(JNIEnv *env, jobject obj)
 
 static jint nativeFocusCandidateTextSize(JNIEnv *env, jobject obj)
 {
-    const CachedNode* node = getFocusCandidate(env, obj);
-    return node ? node->textSize() : 0;
+    const CachedInput* input = getInputCandidate(env, obj);
+    return input ? input->textSize() : 0;
 }
 
 static bool nativeFocusCandidateIsPlugin(JNIEnv *env, jobject obj)
@@ -1854,7 +1880,7 @@ static void nativeUpdateCachedTextfield(JNIEnv *env, jobject obj, jstring update
     if (!root)
         return;
     const CachedNode* cachedFocusNode = root->currentFocus();
-    if (!cachedFocusNode || (!cachedFocusNode->isTextField() && !cachedFocusNode->isTextArea()))
+    if (!cachedFocusNode || !cachedFocusNode->isTextInput())
         return;
     WebCore::String webcoreString = to_string(env, updatedText);
     (const_cast<CachedNode*>(cachedFocusNode))->setExport(webcoreString);
