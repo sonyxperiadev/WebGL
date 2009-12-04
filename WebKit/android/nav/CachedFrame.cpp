@@ -1334,10 +1334,9 @@ void CachedFrame::Debug::print() const
     for (CachedNode* node = b->mCachedNodes.begin();
             node != b->mCachedNodes.end(); node++) {
         node->mDebug.print();
-        if (node->isTextInput()) {
-            const CachedInput& input = b->input(node);
-            input.mDebug.print();
-        }
+        const CachedInput* input = b->textInput(node);
+        if (input)
+            input->mDebug.print();
     }
     DUMP_NAV_LOGD("// }; // end of nodes\n");
     DUMP_NAV_LOGD("// CachedFrame mCachedFrames={ // count=%d\n", b->mCachedFrames.size());
