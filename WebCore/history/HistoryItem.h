@@ -58,11 +58,7 @@ struct ResourceRequest;
 
 typedef Vector<RefPtr<HistoryItem> > HistoryItemVector;
 
-#ifdef ANDROID_HISTORY_CLIENT
 extern void (*notifyHistoryItemChanged)(HistoryItem*);
-#else
-extern void (*notifyHistoryItemChanged)();
-#endif
 
 enum VisitCountBehavior {
     IncreaseVisitCount,
