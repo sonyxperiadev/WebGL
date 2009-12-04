@@ -911,8 +911,8 @@ const CachedNode* CachedFrame::nextTextField(const CachedNode* start,
                     = frame->nextTextField(0, framePtr, includeTextAreas);
             if (node)
                 return node;
-        } else if (test->isTextField()
-                || (includeTextAreas && test->isTextArea())) {
+        } else if (test->isTextField(this)
+                || (includeTextAreas && test->isTextInput())) {
             if (framePtr)
                 *framePtr = this;
             return test;
@@ -1332,8 +1332,13 @@ void CachedFrame::Debug::print() const
     DEBUG_PRINT_RECT("//", VIEW, mViewBounds);
     DUMP_NAV_LOGD("// CachedNode mCachedNodes={ // count=%d\n", b->mCachedNodes.size());
     for (CachedNode* node = b->mCachedNodes.begin();
-            node != b->mCachedNodes.end(); node++)
+            node != b->mCachedNodes.end(); node++) {
         node->mDebug.print();
+        if (node->isTextInput()) {
+            const CachedInput& input = b->input(node);
+            input.mDebug.print();
+        }
+    }
     DUMP_NAV_LOGD("// }; // end of nodes\n");
     DUMP_NAV_LOGD("// CachedFrame mCachedFrames={ // count=%d\n", b->mCachedFrames.size());
     for (CachedFrame* child = b->mCachedFrames.begin();

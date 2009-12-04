@@ -26,6 +26,7 @@
 #ifndef CachedFrame_H
 #define CachedFrame_H
 
+#include "CachedInput.h"
 #include "CachedNode.h"
 #include "IntRect.h"
 #include "SkFixed.h"
@@ -66,6 +67,7 @@ public:
         CURSOR_SET = 0
     };
     CachedFrame() {}
+    void add(CachedInput& input) { mCachedTextInputs.append(input); }
     void add(CachedNode& node) { mCachedNodes.append(node); }
     void addFrame(CachedFrame& child) { mCachedFrames.append(child); }
     bool checkVisited(const CachedNode* , CachedFrame::Direction ) const;
@@ -123,6 +125,10 @@ public:
     void setFocusIndex(int index) { mFocusIndex = index; }
     void setLocalViewBounds(const WebCore::IntRect& bounds) { mLocalViewBounds = bounds; }
     int size() { return mCachedNodes.size(); }
+    const CachedInput* textInput(const CachedNode* node) const {
+        return node->isTextInput() ? &mCachedTextInputs[node->textInputIndex()]
+            : 0;
+    }
     const CachedNode* validDocument() const;
 protected:
     struct BestData {
@@ -206,6 +212,7 @@ protected:
     WebCore::IntRect mViewBounds;
     WTF::Vector<CachedNode> mCachedNodes;
     WTF::Vector<CachedFrame> mCachedFrames;
+    WTF::Vector<CachedInput> mCachedTextInputs;
     void* mFrame; // WebCore::Frame*, used only to compare pointers
     CachedFrame* mParent;
     int mCursorIndex;

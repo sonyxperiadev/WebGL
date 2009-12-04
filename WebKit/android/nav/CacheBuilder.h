@@ -77,17 +77,17 @@ public:
         FOUND_COMPLETE
     };
     CacheBuilder();
-    void allowAllTextDetection() { mAllowableTypes = ALL_CACHEDNODETYPES; }
+    void allowAllTextDetection() { mAllowableTypes = ALL_CACHEDNODE_BITS; }
     void buildCache(CachedRoot* root);
     static bool ConstructPartRects(Node* node, const IntRect& bounds, 
         IntRect* focusBounds, int x, int y, WTF::Vector<IntRect>* result);
     Node* currentFocus() const;
-    void disallowAddressDetection() { mAllowableTypes = (CachedNodeType) (
-        mAllowableTypes & ~ADDRESS_CACHEDNODETYPE); }
-    void disallowEmailDetection() { mAllowableTypes = (CachedNodeType) (
-        mAllowableTypes & ~EMAIL_CACHEDNODETYPE); }
-    void disallowPhoneDetection() { mAllowableTypes = (CachedNodeType) (
-        mAllowableTypes & ~PHONE_CACHEDNODETYPE); }
+    void disallowAddressDetection() { mAllowableTypes = (CachedNodeBits) (
+        mAllowableTypes & ~ADDRESS_CACHEDNODE_BIT); }
+    void disallowEmailDetection() { mAllowableTypes = (CachedNodeBits) (
+        mAllowableTypes & ~EMAIL_CACHEDNODE_BIT); }
+    void disallowPhoneDetection() { mAllowableTypes = (CachedNodeBits) (
+        mAllowableTypes & ~PHONE_CACHEDNODE_BIT); }
     static FoundState FindAddress(const UChar* , unsigned length, int* start,
         int* end, bool caseInsensitive);
     static void GetGlobalOffset(Frame* , int* x, int * y);
@@ -126,7 +126,6 @@ private:
         BoundsPart mPart;
         WTF::Vector<BoundsPart> mParts;   
         char mStore[NAVIGATION_MAX_PHONE_LENGTH + 1];
-        CachedNodeType mStoreType;
         int mPartIndex;
         Node* mNode;
         Node* mFinalNode;
@@ -241,7 +240,7 @@ private:
     bool setData(CachedFrame* );
     Node* tryFocus(Direction direction);
     Node* trySegment(Direction direction, int mainStart, int mainEnd);
-    CachedNodeType mAllowableTypes;
+    CachedNodeBits mAllowableTypes;
 #if DUMP_NAV_CACHE
 public:
     class Debug {
