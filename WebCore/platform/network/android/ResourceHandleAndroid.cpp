@@ -29,6 +29,7 @@
 #include "ResourceHandle.h"
 
 #include "DocLoader.h"
+#include "DocumentLoader.h"
 #include "Frame.h"
 #include "FrameLoader.h"
 #include "FrameLoaderClientAndroid.h"
@@ -54,9 +55,12 @@ ResourceHandle::~ResourceHandle()
 
 bool ResourceHandle::start(Frame* frame)
 {
+    DocumentLoader* adl = frame->loader()->activeDocumentLoader();
+    bool isMainResource =
+            ((void*) client()) == ((void*) adl->mainResourceLoader());
     WebCoreResourceLoader* loader;
     FrameLoaderClientAndroid* client = static_cast<FrameLoaderClientAndroid*> (frame->loader()->client());
-    loader = client->webFrame()->startLoadingResource(this, d->m_request, false);
+    loader = client->webFrame()->startLoadingResource(this, d->m_request, isMainResource, false);
 
     if (loader) {
         Release(d->m_loader);
@@ -147,7 +151,7 @@ void ResourceHandle::loadResourceSynchronously(const ResourceRequest& request,
     ResourceHandle h(request, &s, false, false, false);
     // This blocks until the load is finished.
     FrameLoaderClientAndroid* client = static_cast<FrameLoaderClientAndroid*> (frame->loader()->client());
-    client->webFrame()->startLoadingResource(&h, request, true);
+    client->webFrame()->startLoadingResource(&h, request, false, true);
 }
 
 } // namespace WebCore
