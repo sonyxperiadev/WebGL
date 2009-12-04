@@ -99,6 +99,10 @@ void CachedFrameBase::restore()
     for (unsigned i = 0; i < m_childFrames.size(); ++i)
         m_childFrames[i]->open();
 
+#ifdef ANDROID_PAGE_CACHE_UNLOAD
+    // matches pageshowEvent as in Document::implicitClose()
+    m_document->dispatchWindowLoadEvent();
+#endif
     m_document->dispatchWindowEvent(PageTransitionEvent::create(EventNames().pageshowEvent, true), m_document);
 }
 
