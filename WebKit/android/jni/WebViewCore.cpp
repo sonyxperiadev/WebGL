@@ -1047,11 +1047,18 @@ void WebViewCore::setSizeScreenWidthAndScale(int width, int height,
             WebCore::IntPoint screenCenter = WebCore::IntPoint(
                 m_scrollOffsetX + (realScreenWidth >> 1),
                 m_scrollOffsetY + (screenHeight >> 1));
-            WebCore::HitTestResult hitTestResult = m_mainFrame->eventHandler()->
-                hitTestResultAtPoint(screenCenter, false);
-            WebCore::Node* node = hitTestResult.innerNode();
+            WebCore::Node* node = 0;
             WebCore::IntRect bounds;
             WebCore::IntPoint offset;
+            // If the screen width changed, it is probably zoom change or
+            // orientation change. Try to keep the node in the center of the
+            // screen staying at the same place.
+            if (osw != screenWidth) {
+                WebCore::HitTestResult hitTestResult =
+                        m_mainFrame->eventHandler()-> hitTestResultAtPoint(
+                                screenCenter, false);
+                node = hitTestResult.innerNode();
+            }
             if (node) {
                 bounds = node->getRect();
                 DBG_NAV_LOGD("ob:(x=%d,y=%d,w=%d,h=%d)",
