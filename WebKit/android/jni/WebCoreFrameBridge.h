@@ -63,7 +63,7 @@ class WebFrame : public WebCoreRefObject {
     static WebFrame* getWebFrame(const WebCore::Frame* frame);
 
     virtual WebCoreResourceLoader* startLoadingResource(WebCore::ResourceHandle*,
-            const WebCore::ResourceRequest& request,
+            const WebCore::ResourceRequest& request, bool mainResource,
             bool synchronous);
 
     void reportError(int errorCode, const WebCore::String& description,

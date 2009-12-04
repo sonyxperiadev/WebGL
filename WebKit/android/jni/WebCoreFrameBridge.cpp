@@ -170,7 +170,7 @@ WebFrame::WebFrame(JNIEnv* env, jobject obj, jobject historyList, WebCore::Page*
     mJavaFrame->mObj = env->NewWeakGlobalRef(obj);
     mJavaFrame->mHistoryList = env->NewWeakGlobalRef(historyList);
     mJavaFrame->mStartLoadingResource = env->GetMethodID(clazz, "startLoadingResource",
-            "(ILjava/lang/String;Ljava/lang/String;Ljava/util/HashMap;[BJIZ)Landroid/webkit/LoadListener;");
+            "(ILjava/lang/String;Ljava/lang/String;Ljava/util/HashMap;[BJIZZZ)Landroid/webkit/LoadListener;");
     mJavaFrame->mLoadStarted = env->GetMethodID(clazz, "loadStarted",
             "(Ljava/lang/String;Landroid/graphics/Bitmap;IZ)V");
     mJavaFrame->mTransitionToCommitted = env->GetMethodID(clazz, "transitionToCommitted",
@@ -323,6 +323,7 @@ private:
 WebCoreResourceLoader*
 WebFrame::startLoadingResource(WebCore::ResourceHandle* loader,
                                   const WebCore::ResourceRequest& request,
+                                  bool mainResource,
                                   bool synchronous)
 {
 #ifdef ANDROID_INSTRUMENT
@@ -439,7 +440,9 @@ WebFrame::startLoadingResource(WebCore::ResourceHandle* loader,
     jobject jLoadListener =
         env->CallObjectMethod(obj.get(), mJavaFrame->mStartLoadingResource,
                 (int)loader, jUrlStr, jMethodStr, jHeaderMap,
-                jPostDataStr, formdata ? formdata->identifier(): 0, cacheMode, synchronous);
+                jPostDataStr, formdata ? formdata->identifier(): 0,
+                cacheMode, mainResource, request.getUserGesture(),
+                synchronous);
 
     env->DeleteLocalRef(jUrlStr);
     env->DeleteLocalRef(jMethodStr);
