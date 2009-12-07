@@ -941,15 +941,15 @@ bool motionUp(int x, int y, int slop)
     bool syntheticLink = result->isSyntheticLink();
     if (!syntheticLink) {
         sendMotionUp(
-            frame ? (WebCore::Frame*) frame->framePointer() : 0,
-            result ? (WebCore::Node*) result->nodePointer() : 0, rx, ry);
+            (WebCore::Frame*) frame->framePointer(),
+            (WebCore::Node*) result->nodePointer(), rx, ry);
     }
     viewInvalidate();
     if (result->isTextInput()) {
+        bool isReadOnly = frame->textInput(result)->isReadOnly();
         rebuildWebTextView(true);
-        if (!frame->textInput(result)->isReadOnly()) {
+        if (!isReadOnly)
             displaySoftKeyboard(true);
-        }
     } else {
         clearTextEntry();
         setFollowedLink(true);
