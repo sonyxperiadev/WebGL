@@ -97,7 +97,7 @@ HistoryItem::~HistoryItem()
 {
     ASSERT(!m_cachedPage);
     iconDatabase()->releaseIconForPageURL(m_urlString);
-#ifdef ANDROID_HISTORY_CLIENT
+#if PLATFORM(ANDROID)
     if (m_bridge)
         m_bridge->detachHistoryItem();
 #endif
