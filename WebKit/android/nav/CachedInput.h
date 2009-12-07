@@ -38,6 +38,7 @@ public:
         // Initiaized to 0 in its array, so nothing to do in the
         // constructor
     }
+    void* formPointer() const { return mForm; }
     void init() {
         bzero(this, sizeof(CachedInput));
         mName = WebCore::String();
@@ -48,6 +49,7 @@ public:
     bool isTextField() const { return mIsTextField; }
     int maxLength() const { return mMaxLength; };
     const WebCore::String& name() const { return mName; }
+    void setFormPointer(void* form) { mForm = form; }
     void setInputType(WebCore::HTMLInputElement::InputType type) { mInputType = type; }
     void setIsReadOnly(bool isReadOnly) { mIsReadOnly = isReadOnly; }
     void setIsRtlText(bool isRtlText) { mIsRtlText = isRtlText; }
@@ -57,6 +59,7 @@ public:
     void setTextSize(int textSize) { mTextSize = textSize; }
     int textSize() const { return mTextSize; }
 private:
+    void* mForm;
     WebCore::String mName;
     int mMaxLength;
     int mTextSize;
