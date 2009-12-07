@@ -167,6 +167,8 @@ JavaBridge::setSharedTimer(long long timemillis)
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
     AutoJObject obj = getRealObject(env, mJavaObject);
+    if (!obj.get())
+        return;
     env->CallVoidMethod(obj.get(), mSetSharedTimer, timemillis);
 }
 
@@ -175,6 +177,8 @@ JavaBridge::stopSharedTimer()
 {    
     JNIEnv* env = JSC::Bindings::getJNIEnv();
     AutoJObject obj = getRealObject(env, mJavaObject);
+    if (!obj.get())
+        return;
     env->CallVoidMethod(obj.get(), mStopSharedTimer);
 }
 
@@ -182,11 +186,13 @@ void
 JavaBridge::setCookies(WebCore::KURL const& url, WebCore::String const& value)
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
+    AutoJObject obj = getRealObject(env, mJavaObject);
+    if (!obj.get())
+        return;
     const WebCore::String& urlStr = url.string();
     jstring jUrlStr = env->NewString(urlStr.characters(), urlStr.length());
     jstring jValueStr = env->NewString(value.characters(), value.length());
 
-    AutoJObject obj = getRealObject(env, mJavaObject);
     env->CallVoidMethod(obj.get(), mSetCookies, jUrlStr, jValueStr);
     env->DeleteLocalRef(jUrlStr);
     env->DeleteLocalRef(jValueStr);
@@ -197,9 +203,10 @@ JavaBridge::cookies(WebCore::KURL const& url)
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
     const WebCore::String& urlStr = url.string();
-    jstring jUrlStr = env->NewString(urlStr.characters(), urlStr.length());
-
     AutoJObject obj = getRealObject(env, mJavaObject);
+    if (!obj.get())
+        return WebCore::String();
+    jstring jUrlStr = env->NewString(urlStr.characters(), urlStr.length());
     jstring string = (jstring)(env->CallObjectMethod(obj.get(), mCookies, jUrlStr));
     
     WebCore::String ret = to_string(env, string);
@@ -213,6 +220,8 @@ JavaBridge::cookiesEnabled()
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
     AutoJObject obj = getRealObject(env, mJavaObject);
+    if (!obj.get())
+        return false;
     jboolean ret = env->CallBooleanMethod(obj.get(), mCookiesEnabled);
     return (ret != 0);
 }
@@ -223,6 +232,8 @@ JavaBridge::getPluginDirectories()
     WTF::Vector<WebCore::String> directories;
     JNIEnv* env = JSC::Bindings::getJNIEnv();
     AutoJObject obj = getRealObject(env, mJavaObject);
+    if (!obj.get())
+        return directories;
     jobjectArray array = (jobjectArray)
             env->CallObjectMethod(obj.get(), mGetPluginDirectories);
     int count = env->GetArrayLength(array);
@@ -241,6 +252,8 @@ JavaBridge::getPluginSharedDataDirectory()
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
     AutoJObject obj = getRealObject(env, mJavaObject);
+    if (!obj.get())
+        return WebCore::String();
     jstring ret = (jstring)env->CallObjectMethod(obj.get(), mGetPluginSharedDataDirectory);
     WebCore::String path = to_string(env, ret);
     checkException(env);
@@ -263,6 +276,8 @@ void JavaBridge::signalServiceFuncPtrQueue()
     // environment is setup.
     JNIEnv* env = JSC::Bindings::getJNIEnv();
     AutoJObject obj = getRealObject(env, mJavaObject);
+    if (!obj.get())
+        return;
     env->CallVoidMethod(obj.get(), mSignalFuncPtrQueue);
 }
 
@@ -270,6 +285,8 @@ WTF::Vector<WebCore::String>JavaBridge::getSupportedKeyStrengthList() {
     WTF::Vector<WebCore::String> list;
     JNIEnv* env = JSC::Bindings::getJNIEnv();
     AutoJObject obj = getRealObject(env, mJavaObject);
+    if (!obj.get())
+        return list;
     jobjectArray array = (jobjectArray) env->CallObjectMethod(obj.get(),
             mGetKeyStrengthList);
     int count = env->GetArrayLength(array);
