@@ -1097,26 +1097,30 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
         }
         if (node->hasTagName(WebCore::HTMLNames::inputTag)) {
             HTMLInputElement* input = (HTMLInputElement*) node;
+            HTMLInputElement::InputType inputType = input->inputType();
             if (input->isTextField()) {
                 type = TEXT_INPUT_CACHEDNODETYPE;
                 cachedInput.init();
                 cachedInput.setIsTextField(true);
                 cachedInput.setIsReadOnly(input->readOnly());
                 exported = input->value().threadsafeCopy();
-                cachedInput.setIsPassword(input->inputType() ==
-                    HTMLInputElement::PASSWORD);
                 cachedInput.setMaxLength(input->maxLength());
+                cachedInput.setInputType(inputType);
     // If this does not need to be threadsafe, we can use crossThreadString().
     // See http://trac.webkit.org/changeset/49160.
                 cachedInput.setName(input->name().string().threadsafeCopy());
     // can't detect if this is drawn on top (example: deviant.com login parts)
                 isUnclipped = isTransparent;
-            }
+            } else if (inputType == HTMLInputElement::HIDDEN)
+                continue;
         } else if (node->hasTagName(HTMLNames::textareaTag)) {
             cachedInput.init();
             type = TEXT_INPUT_CACHEDNODETYPE;
             HTMLTextAreaElement* area = static_cast<HTMLTextAreaElement*>(node);
             cachedInput.setIsReadOnly(area->readOnly());
+            // Although technically it is not an HTMLInputElement, and therefore
+            // has no InputType, this one is the most appropriate.
+            cachedInput.setInputType(HTMLInputElement::TEXT);
             exported = area->value().threadsafeCopy();
         } else if (node->hasTagName(HTMLNames::aTag)) {
             const HTMLAnchorElement* anchorNode = 
