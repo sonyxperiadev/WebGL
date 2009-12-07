@@ -55,7 +55,14 @@ static void anp_showKeyboard(NPP instance, bool value) {
 static void anp_requestFullScreen(NPP instance) {
     PluginView* pluginView = pluginViewForInstance(instance);
     PluginWidgetAndroid* pluginWidget = pluginView->platformPluginWidget();
-    pluginWidget->webViewCore()->startFullScreenPluginActivity(instance);
+    jobject javaPlugin = pluginWidget->getJavaPluginInstance();
+    pluginWidget->webViewCore()->showFullScreenPlugin(javaPlugin);
+}
+
+static void anp_exitFullScreen(NPP instance) {
+    PluginView* pluginView = pluginViewForInstance(instance);
+    PluginWidgetAndroid* pluginWidget = pluginView->platformPluginWidget();
+    pluginWidget->webViewCore()->hideFullScreenPlugin();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -69,4 +76,5 @@ void ANPWindowInterfaceV0_Init(ANPInterface* value) {
     ASSIGN(i, clearVisibleRects);
     ASSIGN(i, showKeyboard);
     ASSIGN(i, requestFullScreen);
+    ASSIGN(i, exitFullScreen);
 }
