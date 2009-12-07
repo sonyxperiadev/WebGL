@@ -105,6 +105,7 @@ private:
         void set(int id, PassRefPtr<GeoNotifier>);
         void remove(int id);
         void remove(GeoNotifier*);
+        bool contains(GeoNotifier*) const;
         void clear();
         bool isEmpty() const;
         void getNotifiersVector(Vector<RefPtr<GeoNotifier> >&) const;
