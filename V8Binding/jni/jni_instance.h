@@ -27,6 +27,8 @@
 #ifndef _JNI_INSTANCE_H_
 #define _JNI_INSTANCE_H_
 
+#include "jni_utility_private.h"
+
 #include <JavaVM/jni.h>
 #include <wtf/RefPtr.h>
 
