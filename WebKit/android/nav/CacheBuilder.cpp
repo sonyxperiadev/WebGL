@@ -1121,6 +1121,7 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
             // Although technically it is not an HTMLInputElement, and therefore
             // has no InputType, this one is the most appropriate.
             cachedInput.setInputType(HTMLInputElement::TEXT);
+            cachedInput.setIsTextField(false);
             exported = area->value().threadsafeCopy();
         } else if (node->hasTagName(HTMLNames::aTag)) {
             const HTMLAnchorElement* anchorNode = 

@@ -1623,12 +1623,6 @@ static bool nativeFocusCandidateIsRtlText(JNIEnv *env, jobject obj)
     return input ? input->isRtlText() : false;
 }
 
-static bool nativeFocusCandidateIsTextField(JNIEnv *env, jobject obj)
-{
-    const CachedInput* input = getInputCandidate(env, obj);
-    return input ? input->isTextField() : false;
-}
-
 static bool nativeFocusCandidateIsTextInput(JNIEnv *env, jobject obj)
 {
     const CachedNode* node = getFocusCandidate(env, obj);
@@ -1682,6 +1676,41 @@ static jint nativeFocusCandidateTextSize(JNIEnv *env, jobject obj)
 {
     const CachedInput* input = getInputCandidate(env, obj);
     return input ? input->textSize() : 0;
+}
+
+enum type {
+    NONE = -1,
+    NORMAL_TEXT_FIELD = 0,
+    TEXT_AREA = 1,
+    PASSWORD = 2,
+    SEARCH = 3,
+    EMAIL = 4,
+    NUMBER = 5,
+    TELEPHONE = 6,
+    URL = 7
+};
+
+static int nativeFocusCandidateType(JNIEnv *env, jobject obj)
+{
+    const CachedInput* input = getInputCandidate(env, obj);
+    if (!input) return NONE;
+    if (!input->isTextField()) return TEXT_AREA;
+    switch (input->inputType()) {
+    case HTMLInputElement::PASSWORD:
+        return PASSWORD;
+    case HTMLInputElement::SEARCH:
+        return SEARCH;
+    case HTMLInputElement::EMAIL:
+        return EMAIL;
+    case HTMLInputElement::NUMBER:
+        return NUMBER;
+    case HTMLInputElement::TELEPHONE:
+        return TELEPHONE;
+    case HTMLInputElement::URL:
+        return URL;
+    default:
+        return NORMAL_TEXT_FIELD;
+    }
 }
 
 static bool nativeFocusCandidateIsPlugin(JNIEnv *env, jobject obj)
@@ -2058,8 +2087,6 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeFocusCandidateIsPlugin },
     { "nativeFocusCandidateIsRtlText", "()Z",
         (void*) nativeFocusCandidateIsRtlText },
-    { "nativeFocusCandidateIsTextField", "()Z",
-        (void*) nativeFocusCandidateIsTextField },
     { "nativeFocusCandidateIsTextInput", "()Z",
         (void*) nativeFocusCandidateIsTextInput },
     { "nativeFocusCandidateMaxLength", "()I",
@@ -2074,6 +2101,8 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeFocusCandidateText },
     { "nativeFocusCandidateTextSize", "()I",
         (void*) nativeFocusCandidateTextSize },
+    { "nativeFocusCandidateType", "()I",
+        (void*) nativeFocusCandidateType },
     { "nativeFocusIsPlugin", "()Z",
         (void*) nativeFocusIsPlugin },
     { "nativeFocusNodePointer", "()I",
