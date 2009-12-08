@@ -75,6 +75,14 @@ extern const int GeneralDragHysteresis;
 
 enum HitTestScrollbars { ShouldHitTestScrollbars, DontHitTestScrollbars };
 
+#if ENABLE(TOUCH_EVENTS) // Android
+enum TouchResultMask {
+    preventTouch        = 1 << 0,
+    preventLongPress    = 1 << 1,
+    preventDoubleTap    = 1 << 2,
+};
+#endif
+
 class EventHandler : public Noncopyable {
 public:
     EventHandler(Frame*);
@@ -144,7 +152,8 @@ public:
     bool handleWheelEvent(PlatformWheelEvent&);
 
 #if ENABLE(TOUCH_EVENTS) // Android
-    bool handleTouchEvent(const PlatformTouchEvent&);
+    // See TouchResultMask for the return value options
+    int handleTouchEvent(const PlatformTouchEvent&);
 #endif
 
 #if ENABLE(CONTEXT_MENUS)
