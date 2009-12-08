@@ -870,8 +870,7 @@ bool FrameLoaderClientAndroid::canCachePage() const {
 void FrameLoaderClientAndroid::download(ResourceHandle* handle, const ResourceRequest&,
                                 const ResourceRequest&, const ResourceResponse&) {
     // Get the C++ side of the load listener and tell it to handle the download
-    WebCoreResourceLoader* loader = handle->getInternal()->m_loader;
-    loader->downloadFile();
+    handle->getInternal()->m_loader->downloadFile();
 }
 
 WTF::PassRefPtr<WebCore::Frame> FrameLoaderClientAndroid::createFrame(const KURL& url, const String& name,

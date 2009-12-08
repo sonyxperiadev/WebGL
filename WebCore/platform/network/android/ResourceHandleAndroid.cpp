@@ -26,27 +26,23 @@
 #define LOG_TAG "WebCore"
 
 #include "config.h"
+
 #include "ResourceHandle.h"
 
+#include "CString.h"
 #include "DocLoader.h"
 #include "DocumentLoader.h"
 #include "Frame.h"
 #include "FrameLoader.h"
-#include "FrameLoaderClientAndroid.h"
 #include "NotImplemented.h"
 #include "ResourceHandleClient.h"
 #include "ResourceHandleInternal.h"
-#include "WebCoreFrameBridge.h"
-#include "WebCoreResourceLoader.h"
-#include "CString.h"
-
-using namespace android;
+#include "ResourceLoaderAndroid.h"
 
 namespace WebCore {
 
 ResourceHandleInternal::~ResourceHandleInternal()
 {
-    Release(m_loader);
 }
 
 ResourceHandle::~ResourceHandle()
@@ -58,16 +54,15 @@ bool ResourceHandle::start(Frame* frame)
     DocumentLoader* adl = frame->loader()->activeDocumentLoader();
     bool isMainResource =
             ((void*) client()) == ((void*) adl->mainResourceLoader());
-    WebCoreResourceLoader* loader;
-    FrameLoaderClientAndroid* client = static_cast<FrameLoaderClientAndroid*> (frame->loader()->client());
-    loader = client->webFrame()->startLoadingResource(this, d->m_request, isMainResource, false);
+
+    PassRefPtr<ResourceLoaderAndroid> loader = ResourceLoaderAndroid::start(this, d->m_request, frame->loader()->client(), isMainResource, false);
 
     if (loader) {
-        Release(d->m_loader);
         d->m_loader = loader;
+        return true;
     }
 
-    return loader != NULL;
+    return false;
 }
 
 void ResourceHandle::cancel()
@@ -104,7 +99,7 @@ bool ResourceHandle::willLoadFromCache(ResourceRequest& request, Frame*)
     // network/mac/ResourceHandleMac.mm
     request.setCachePolicy(ReturnCacheDataDontLoad);
     FormData* formData = request.httpBody();
-    return WebCoreResourceLoader::willLoadFromCache(request.url(), formData ? formData->identifier() : 0);
+    return ResourceLoaderAndroid::willLoadFromCache(request.url(), formData ? formData->identifier() : 0);
 }
 
 bool ResourceHandle::loadsBlocked() 
@@ -150,8 +145,7 @@ void ResourceHandle::loadResourceSynchronously(const ResourceRequest& request,
     SyncLoader s(error, response, data);
     ResourceHandle h(request, &s, false, false, false);
     // This blocks until the load is finished.
-    FrameLoaderClientAndroid* client = static_cast<FrameLoaderClientAndroid*> (frame->loader()->client());
-    client->webFrame()->startLoadingResource(&h, request, false, true);
+    ResourceLoaderAndroid::start(&h, request, frame->loader()->client(), false, true);
 }
 
 } // namespace WebCore

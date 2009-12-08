@@ -39,14 +39,21 @@
 #include <utils/Log.h>
 #include <wtf/HashMap.h>
 
-void MyResourceLoader::handleRequest() {
+PassRefPtr<MyResourceLoader> MyResourceLoader::create(ResourceHandle* handle, String url)
+{
+    return adoptRef(new MyResourceLoader(handle, url));
+}
+
+void MyResourceLoader::handleRequest()
+{
     if (protocolIs(m_url, "data"))
         loadData(m_url.substring(5)); // 5 for data:
     else if (protocolIs(m_url, "file"))
         loadFile(m_url.substring(7)); // 7 for file://
 }
 
-void MyResourceLoader::loadData(const String& data) {
+void MyResourceLoader::loadData(const String& data)
+{
     LOGD("Loading data (%s) ...", data.latin1().data());
     ResourceHandleClient* client = m_handle->client();
     int index = data.find(',');
@@ -105,7 +112,8 @@ void MyResourceLoader::loadData(const String& data) {
     }
     client->didFinishLoading(m_handle);
 }
-static String mimeTypeForExtension(const String& file) {
+static String mimeTypeForExtension(const String& file)
+{
     static HashMap<String, String, CaseFoldingHash> extensionToMime;
     if (extensionToMime.isEmpty()) {
         extensionToMime.set("txt", "text/plain");
@@ -128,7 +136,8 @@ static String mimeTypeForExtension(const String& file) {
     return mime;
 }
 
-void MyResourceLoader::loadFile(const String& file) {
+void MyResourceLoader::loadFile(const String& file)
+{
     LOGD("Loading file (%s) ...", file.latin1().data());
     FILE* f = fopen(file.latin1().data(), "r");
     ResourceHandleClient* client = m_handle->client();
@@ -152,25 +161,25 @@ void MyResourceLoader::loadFile(const String& file) {
     }
 }
 
-WebCoreResourceLoader* MyWebFrame::startLoadingResource(ResourceHandle* handle,
-        const ResourceRequest& req, bool ignore) {
-    MyResourceLoader* loader = new MyResourceLoader(handle, req.url().string());
-    Retain(loader);
+PassRefPtr<MyResourceLoader> MyWebFrame::startLoadingResource(ResourceHandle* handle,
+        const ResourceRequest& req, bool ignore)
+{
+    RefPtr<MyResourceLoader> loader = MyResourceLoader::create(handle, req.url().string());
     m_requests.append(loader);
     if (!m_timer.isActive())
         m_timer.startOneShot(0);
-    return loader;
+    return loader.release();
 }
 
-void MyWebFrame::timerFired(Timer<MyWebFrame>*) {
+void MyWebFrame::timerFired(Timer<MyWebFrame>*)
+{
     LOGD("Handling requests...");
-    Vector<MyResourceLoader*> reqs;
+    Vector<RefPtr<MyResourceLoader> > reqs;
     reqs.swap(m_requests);
-    Vector<MyResourceLoader*>::iterator i = reqs.begin();
-    Vector<MyResourceLoader*>::iterator end = reqs.end();
-    for (; i != end; i++) {
+    Vector<RefPtr<MyResourceLoader> >::iterator i = reqs.begin();
+    Vector<RefPtr<MyResourceLoader> >::iterator end = reqs.end();
+    for (; i != end; i++)
         (*i)->handleRequest();
-        Release(*i);
-    }
+
     LOGD("...done");
 }
