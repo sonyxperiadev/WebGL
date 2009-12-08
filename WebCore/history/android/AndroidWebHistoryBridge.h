@@ -34,11 +34,11 @@ class HistoryItem;
 
 class AndroidWebHistoryBridge : public RefCounted<AndroidWebHistoryBridge> {
 public:
-    AndroidWebHistoryBridge()
+    AndroidWebHistoryBridge(HistoryItem* item)
         : m_scale(100)
         , m_screenWidthScale(100)
         , m_active(false)
-        , m_historyItem(0) { }
+        , m_historyItem(item) { }
     virtual ~AndroidWebHistoryBridge() { }
     virtual void updateHistoryItem(HistoryItem* item) = 0;
 
