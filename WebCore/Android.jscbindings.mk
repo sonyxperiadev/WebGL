@@ -28,6 +28,7 @@ BINDING_C_INCLUDES := \
 	$(LOCAL_PATH)/bridge \
 	$(LOCAL_PATH)/bridge/c \
 	$(LOCAL_PATH)/bridge/jni \
+	$(LOCAL_PATH)/bridge/jni/jsc \
 	\
 	$(JAVASCRIPTCORE_PATH)/API \
 	$(JAVASCRIPTCORE_PATH)/assembler \
@@ -206,6 +207,7 @@ LOCAL_SRC_FILES += \
 	bridge/jni/jni_instance.cpp \
 	bridge/jni/jni_runtime.cpp \
 	bridge/jni/jni_utility.cpp \
+	bridge/jni/jsc/jni_utility_private.cpp \
 	bridge/npruntime.cpp \
 	bridge/runtime.cpp \
 	bridge/runtime_array.cpp \
