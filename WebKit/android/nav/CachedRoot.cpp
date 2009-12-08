@@ -28,7 +28,6 @@
 #include "CachedHistory.h"
 #include "CachedInput.h"
 #include "CachedNode.h"
-#include "HTMLInputElement.h"
 #include "SkBitmap.h"
 #include "SkBounder.h"
 #include "SkCanvas.h"
@@ -766,10 +765,6 @@ CachedRoot::ImeAction CachedRoot::cursorTextFieldAction() const
         // the cursor
         return FAILURE;
     }
-    const CachedInput* textInput = cursorFrame->textInput(cursor);
-    if (!textInput) return FAILURE;
-    if (textInput->inputType() == WebCore::HTMLInputElement::SEARCH)
-        return SEARCH;
     const CachedNode* firstTextfield = nextTextField(0, 0, false);
     if (!firstTextfield) {
         // Error case.  There are no textfields in this tree.

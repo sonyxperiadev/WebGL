@@ -44,8 +44,7 @@ public:
         FAILURE = -1,
         NEXT    = 0,
         GO      = 1,
-        DONE    = 2,
-        SEARCH  = 3
+        DONE    = 2
     };
     bool adjustForScroll(BestData* , Direction , WebCore::IntPoint* scrollPtr,
         bool findClosest);
