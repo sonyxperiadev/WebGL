@@ -250,6 +250,7 @@ namespace android {
         // Create a set of pictures to represent the drawn DOM, driven by
         // the invalidated region and the time required to draw (used to draw)
         void recordPictureSet(PictureSet* master);
+        void moveFocus(WebCore::Frame* frame, WebCore::Node* node);
         void moveMouse(WebCore::Frame* frame, int x, int y);
         void moveMouseIfLatest(int moveGeneration,
             WebCore::Frame* frame, int x, int y);
