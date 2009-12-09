@@ -771,9 +771,13 @@ CachedRoot::ImeAction CachedRoot::cursorTextFieldAction() const
         return FAILURE;
     }
     // Now find the next textfield/area starting with the cursor
-    if (cursorFrame->nextTextField(cursor, 0, true)) {
-        // There is a textfield/area after the cursor, so the textfield under
-        // the cursor should have the NEXT action
+    const CachedFrame* potentialFrame;
+    const CachedNode* potentialNext
+            = cursorFrame->nextTextField(cursor, &potentialFrame, true);
+    if (potentialNext && cursorFrame->textInput(cursor)->formPointer()
+            == potentialFrame->textInput(potentialNext)->formPointer()) {
+        // There is a textfield/area after the cursor in the same form,
+        // so the textfield under the cursor should have the NEXT action
         return NEXT;
     }
     // If this line is reached, we know that the textfield under the cursor is
