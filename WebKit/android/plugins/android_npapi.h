@@ -647,6 +647,10 @@ struct ANPWindowInterfaceV0 : ANPInterface {
         asynchronously to provide a View object to be displayed full screen.
      */
     void    (*requestFullScreen)(NPP instance);
+    /** Called when a plugin wishes to exit from full screen mode. As a result,
+        the plugin's full screen view will be discarded by the view system.
+     */
+    void    (*exitFullScreen)(NPP instance);
 };
 
 ///////////////////////////////////////////////////////////////////////////////
