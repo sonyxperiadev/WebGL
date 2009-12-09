@@ -60,32 +60,6 @@ bool screenIsMonochrome(Widget* page)
     return false;
 }
 
-#ifdef ANDROID_ORIENTATION_SUPPORT
-int Screen::orientation() const
-{
-    android::DisplayInfo info;
-    android::SurfaceComposerClient::getDisplayInfo(
-            android::DisplayID(0), &info);
-    // getDisplayInfo returns an enum describing the orientation. Map the enum
-    // to the values described here
-    // (http://developer.apple.com/documentation/AppleApplications/Reference/SafariWebContent/HandlingEvents/chapter_8_section_6.html)
-    switch (info.orientation) {
-    case android::ISurfaceComposer::eOrientationDefault:
-        return 0;
-    case android::ISurfaceComposer::eOrientation90:
-        return 90;
-    case android::ISurfaceComposer::eOrientation180:
-        return 180;
-    case android::ISurfaceComposer::eOrientation270:
-        return -90;
-    default:
-        LOGE("Bad orientation returned from getDisplayIndo %d",
-                info.orientation);
-        return 0;
-    }
-}
-#endif
-
 // The only place I have seen these values used is
 // positioning popup windows. If we support multiple windows
 // they will be most likely full screen. Therefore,
