@@ -1197,12 +1197,9 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
         }
         if (hasClip) {
             if (clip.isEmpty())
-                continue; // skip this node if completely clipped out
-            else if (cachedNode.clip(clip) == false) {
-                cachedNode.setBounds(clip);
-                cachedNode.cursorRings().append(clip);
-                isUnclipped = true;
-            }
+                continue; // skip this node if clip prevents all drawing
+            else if (cachedNode.clip(clip) == false)
+                continue; // skip this node if outside of the clip
         }
         cachedNode.setNavableRects();
         cachedNode.setExport(exported);
