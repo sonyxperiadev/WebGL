@@ -186,7 +186,8 @@ static inline void fixPaintForBitmapsThatMaySeam(SkPaint* paint) {
 }
 
 void BitmapImage::draw(GraphicsContext* ctxt, const FloatRect& dstRect,
-                   const FloatRect& srcRect, CompositeOperator compositeOp)
+                   const FloatRect& srcRect, ColorSpace,
+                   CompositeOperator compositeOp)
 {
     startAnimation();
 
@@ -249,8 +250,8 @@ void BitmapImage::setURL(const String& str)
 
 void Image::drawPattern(GraphicsContext* ctxt, const FloatRect& srcRect,
                         const TransformationMatrix& patternTransform,
-                        const FloatPoint& phase, CompositeOperator compositeOp,
-                        const FloatRect& destRect)
+                        const FloatPoint& phase, ColorSpace,
+                        CompositeOperator compositeOp, const FloatRect& destRect)
 {
     SkBitmapRef* image = this->nativeImageForCurrentFrame();
     if (!image) { // If it's too early we won't have an image yet.
