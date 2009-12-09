@@ -103,7 +103,7 @@ void CachedFrameBase::restore()
     // matches pageshowEvent as in Document::implicitClose()
     m_document->dispatchWindowLoadEvent();
 #endif
-    m_document->dispatchWindowEvent(PageTransitionEvent::create(EventNames().pageshowEvent, true), m_document);
+    m_document->dispatchWindowEvent(PageTransitionEvent::create(eventNames().pageshowEvent, true), m_document);
 }
 
 CachedFrame::CachedFrame(Frame* frame)
