@@ -52,7 +52,8 @@ void CachedInput::Debug::print() const
     DUMP_NAV_LOGD("%.*s\"\n", index, scratch);
     DUMP_NAV_LOGD("// int mMaxLength=%d;\n", b->mMaxLength);
     DUMP_NAV_LOGD("// int mTextSize=%d;\n", b->mTextSize);
-    DEBUG_PRINT_BOOL(mIsPassword);
+    DUMP_NAV_LOGD("// int mInputType=%d;\n", b->mInputType);
+    DEBUG_PRINT_BOOL(mIsReadOnly);
     DEBUG_PRINT_BOOL(mIsRtlText);
     DEBUG_PRINT_BOOL(mIsTextField);
 }
