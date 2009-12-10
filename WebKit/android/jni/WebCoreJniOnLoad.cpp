@@ -87,7 +87,6 @@ extern int register_mock_geolocation(JNIEnv*);
 #if ENABLE(VIDEO)
 extern int register_mediaplayer(JNIEnv*);
 #endif
-extern int register_plugin_activity(JNIEnv*);
 
 }
 
@@ -113,7 +112,6 @@ static RegistrationMethod gWebCoreRegMethods[] = {
 #if ENABLE(VIDEO)
     { "HTML5VideoViewProxy", android::register_mediaplayer },
 #endif
-    { "PluginActivity", android::register_plugin_activity },
 };
 
 EXPORT jint JNI_OnLoad(JavaVM* vm, void* reserved)

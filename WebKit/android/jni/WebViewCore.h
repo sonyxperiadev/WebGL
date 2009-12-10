@@ -376,8 +376,11 @@ namespace android {
         // Creates a new instance of the plugin's java component
         jobject createPluginJavaInstance(const WebCore::String& libName, NPP npp);
 
-        // Creates a full screen surface (i.e. View on an Activity) for a plugin
-        void startFullScreenPluginActivity(NPP npp);
+        // Creates a full screen surface for a plugin
+        void showFullScreenPlugin(jobject webkitPlugin);
+
+        // Discards the full screen surface of a plugin
+        void hideFullScreenPlugin();
 
         // Creates a Surface (i.e. View) for a plugin
         jobject createSurface(jobject webkitPlugin, int x, int y, int width, int height);

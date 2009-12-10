@@ -42,7 +42,6 @@ LOCAL_SRC_FILES := \
 	android/jni/JavaSharedClient.cpp \
 	android/jni/MockGeolocation.cpp \
 	android/jni/PictureSet.cpp \
-	android/jni/PluginActivity.cpp \
 	android/jni/WebCoreFrameBridge.cpp \
 	android/jni/WebCoreJni.cpp \
 	android/jni/WebCoreResourceLoader.cpp \
