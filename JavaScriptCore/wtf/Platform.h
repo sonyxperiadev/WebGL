@@ -520,6 +520,7 @@
 // This prevents unnecessary invals.
 #define ENABLE_TEXT_CARET 1
 #define ENABLE_JAVASCRIPT_DEBUGGER 0
+#define ENABLE_ORIENTATION_EVENTS 1
 #endif
 
 #if PLATFORM(WIN)
