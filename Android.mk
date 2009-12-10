@@ -127,11 +127,10 @@ LOCAL_CFLAGS += -include "WebCorePrefix.h"
 LOCAL_CFLAGS += -fvisibility=hidden
 LOCAL_CFLAGS += -D__SGI_STL_INTERNAL_PAIR_H
 
-# remove this warning: "note: the mangling of 'va_list' has changed in GCC 4.4"
-LOCAL_CFLAGS += -Wno-psabi
-
 ifeq ($(TARGET_ARCH),arm)
 LOCAL_CFLAGS += -Darm
+# remove this warning: "note: the mangling of 'va_list' has changed in GCC 4.4"
+LOCAL_CFLAGS += -Wno-psabi
 endif
 
 ifeq ($(ENABLE_SVG),true)
