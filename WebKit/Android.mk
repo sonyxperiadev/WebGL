@@ -65,6 +65,7 @@ LOCAL_SRC_FILES := \
 	\
 	android/plugins/ANPBitmapInterface.cpp \
 	android/plugins/ANPCanvasInterface.cpp \
+	android/plugins/ANPEventInterface.cpp \
 	android/plugins/ANPLogInterface.cpp \
 	android/plugins/ANPMatrixInterface.cpp \
 	android/plugins/ANPPaintInterface.cpp \

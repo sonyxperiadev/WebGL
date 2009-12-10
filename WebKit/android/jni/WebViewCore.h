@@ -347,6 +347,8 @@ namespace android {
          */
         void addPlugin(PluginWidgetAndroid*);
         void removePlugin(PluginWidgetAndroid*);
+        // returns true if the pluginwidgit is in our active list
+        bool isPlugin(PluginWidgetAndroid*) const;
         void invalPlugin(PluginWidgetAndroid*);
         void drawPlugins();
 
@@ -513,6 +515,16 @@ namespace android {
 #if DEBUG_NAV_UI
         uint32_t m_now;
 #endif
+
+    private:
+        // called from constructor, to add this to a global list
+        static void addInstance(WebViewCore*);
+        // called from destructor, to remove this from a global list
+        static void removeInstance(WebViewCore*);
+    public:
+        // call only from webkit thread (like add/remove), return true if inst
+        // is still alive
+        static bool isInstance(WebViewCore*);
     };
 
 }   // namespace android
