@@ -39,6 +39,8 @@ TouchEvent::TouchEvent(TouchList* touches, TouchList* targetTouches,
     , m_touches(touches)
     , m_targetTouches(targetTouches)
     , m_changedTouches(changedTouches)
+    , m_longPressPrevented(false)
+    , m_doubleTapPrevented(false)
 {
 }
 

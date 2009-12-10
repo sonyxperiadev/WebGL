@@ -183,6 +183,7 @@ void PluginView::handleTouchEvent(TouchEvent* event)
     ANPEvent evt;
     SkANP::InitEvent(&evt, kTouch_ANPEventType);
 
+    bool ignoreRet = false;
     const AtomicString& type = event->type();
     if (eventNames().touchstartEvent == type)
         evt.data.touch.action = kDown_ANPTouchAction;
@@ -192,7 +193,13 @@ void PluginView::handleTouchEvent(TouchEvent* event)
         evt.data.touch.action = kMove_ANPTouchAction;
     else if (eventNames().touchcancelEvent == type)
         evt.data.touch.action = kCancel_ANPTouchAction;
-    else
+    else if (eventNames().touchlongpressEvent == type) {
+        evt.data.touch.action = kLongPress_ANPTouchAction;
+        ignoreRet = true;
+    } else if (eventNames().touchdoubletapEvent == type) {
+        evt.data.touch.action = kDoubleTap_ANPTouchAction;
+        ignoreRet = true;
+    } else
         return;
 
     evt.data.touch.modifiers = 0;   // todo
@@ -203,14 +210,22 @@ void PluginView::handleTouchEvent(TouchEvent* event)
     evt.data.touch.x = event->pageX() - m_npWindow.x;
     evt.data.touch.y = event->pageY() - m_npWindow.y;
 
-    if (m_plugin->pluginFuncs()->event(m_instance, &evt)) {
+    int16 ret = m_plugin->pluginFuncs()->event(m_instance, &evt);
+    if (ignoreRet)
+        return;
+    if (ret & kHandleTouch_ANPTouchResult) {
         // The plugin needs focus to receive keyboard events
         if (evt.data.touch.action == kDown_ANPTouchAction) {
             if (Page* page = m_parentFrame->page())
                 page->focusController()->setFocusedFrame(m_parentFrame);
             m_parentFrame->document()->setFocusedNode(m_element);
         }
-        event->setDefaultPrevented(true);
+        event->preventDefault();
+    } else {
+        if (ret & kHandleLongPress_ANPTouchResult)
+            event->preventLongPress();
+        if (ret & kHandleDoubleTap_ANPTouchResult)
+            event->preventDoubleTap();
     }
 }
 

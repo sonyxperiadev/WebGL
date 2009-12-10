@@ -786,12 +786,28 @@ enum ANPTouchActions {
         the plugin chooses to not handle this action then no other events
         related to that particular touch gesture will be generated.
      */
-    kDown_ANPTouchAction   = 0,
-    kUp_ANPTouchAction     = 1,
-    kMove_ANPTouchAction   = 2,
-    kCancel_ANPTouchAction = 3,
+    kDown_ANPTouchAction        = 0,
+    kUp_ANPTouchAction          = 1,
+    kMove_ANPTouchAction        = 2,
+    kCancel_ANPTouchAction      = 3,
+    // The web view will ignore the return value from the following actions
+    kLongPress_ANPTouchAction   = 4,
+    kDoubleTap_ANPTouchAction   = 5,
 };
 typedef int32_t ANPTouchAction;
+
+/**
+ * When a plugin returns from NPP_HandleEvent() for a touch event, it can use
+ * ANPTouchResultMask to tell the web view which touch event it wants to handle.
+ * kHandleTouch_ANPTouchResult will handle all touch event inside the plugin. If
+ * it is not set, a plugin can choose only handle individual event like long
+ * press, or double tap.
+ */
+enum ANPTouchResultMask {
+    kHandleTouch_ANPTouchResult     = 1,
+    kHandleLongPress_ANPTouchResult = 2,
+    kHandleDoubleTap_ANPTouchResult = 4,
+};
 
 enum ANPLifecycleActions {
     /** The web view containing this plugin has been paused.  See documentation

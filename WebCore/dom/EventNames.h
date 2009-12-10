@@ -96,6 +96,8 @@ namespace WebCore {
     macro(touchmove) \
     macro(touchend) \
     macro(touchcancel) \
+    macro(touchlongpress) \
+    macro(touchdoubletap) \
 /* #endif */ \
     macro(unload) \
     macro(updateready) \

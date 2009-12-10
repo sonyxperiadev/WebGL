@@ -1977,9 +1977,9 @@ void WebViewCore::click(WebCore::Frame* frame, WebCore::Node* node) {
     }
 }
 
-bool WebViewCore::handleTouchEvent(int action, int x, int y)
+int WebViewCore::handleTouchEvent(int action, int x, int y)
 {
-    bool preventDefault = false;
+    int preventDefault = 0;
 
 #if ENABLE(TOUCH_EVENTS) // Android
     WebCore::TouchEventType type = WebCore::TouchEventCancel;
@@ -1995,6 +1995,12 @@ bool WebViewCore::handleTouchEvent(int action, int x, int y)
         break;
     case 3: // MotionEvent.ACTION_CANCEL
         type = WebCore::TouchEventCancel;
+        break;
+    case 0x100: // WebViewCore.ACTION_LONGPRESS
+        type = WebCore::TouchEventLongPress;
+        break;
+    case 0x200: // WebViewCore.ACTION_DOUBLETAP
+        type = WebCore::TouchEventDoubleTap;
         break;
     }
     WebCore::IntPoint pt(x - m_scrollOffsetX, y - m_scrollOffsetY);
@@ -2663,7 +2669,7 @@ static jstring FindAddress(JNIEnv *env, jobject obj, jstring addr,
     return ret;
 }
 
-static jboolean HandleTouchEvent(JNIEnv *env, jobject obj, jint action, jint x, jint y)
+static jint HandleTouchEvent(JNIEnv *env, jobject obj, jint action, jint x, jint y)
 {
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
@@ -3037,7 +3043,7 @@ static JNINativeMethod gJavaWebViewCoreMethods[] = {
         (void*) SaveDocumentState },
     { "nativeFindAddress", "(Ljava/lang/String;Z)Ljava/lang/String;",
         (void*) FindAddress },
-    { "nativeHandleTouchEvent", "(III)Z",
+    { "nativeHandleTouchEvent", "(III)I",
             (void*) HandleTouchEvent },
     { "nativeTouchUp", "(IIIII)V",
         (void*) TouchUp },

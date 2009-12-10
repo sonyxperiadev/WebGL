@@ -32,7 +32,7 @@
 
 namespace WebCore {
 
-    enum TouchEventType {TouchEventStart, TouchEventMove, TouchEventEnd, TouchEventCancel};
+    enum TouchEventType {TouchEventStart, TouchEventMove, TouchEventEnd, TouchEventCancel, TouchEventLongPress, TouchEventDoubleTap};
 
     class PlatformTouchEvent {
     public:

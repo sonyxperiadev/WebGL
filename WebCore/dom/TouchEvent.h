@@ -57,6 +57,14 @@ namespace WebCore {
         TouchList* targetTouches() const {return m_targetTouches.get();}
         TouchList* changedTouches() const {return m_changedTouches.get();}
 
+        bool longPressPrevented() const { return m_longPressPrevented; }
+        void preventLongPress() { m_longPressPrevented = true; }
+        void setLongPressPrevented(bool prevented) { m_longPressPrevented = prevented; }
+
+        bool doubleTapPrevented() const { return m_doubleTapPrevented; }
+        void preventDoubleTap() { m_doubleTapPrevented = true; }
+        void setDoubleTapPrevented(bool prevented) { m_doubleTapPrevented = prevented; }
+
     private:
         TouchEvent() {}
         TouchEvent(TouchList* touches, TouchList* targetTouches,
@@ -69,6 +77,9 @@ namespace WebCore {
         RefPtr<TouchList> m_touches;
         RefPtr<TouchList> m_targetTouches;
         RefPtr<TouchList> m_changedTouches;
+
+        bool m_longPressPrevented;
+        bool m_doubleTapPrevented;
     };
 
 } // namespace WebCore
