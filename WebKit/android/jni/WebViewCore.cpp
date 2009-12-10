@@ -88,6 +88,7 @@
 #include "Settings.h"
 #include "SkANP.h"
 #include "SkTemplates.h"
+#include "SkTDArray.h"
 #include "SkTypes.h"
 #include "SkCanvas.h"
 #include "SkPicture.h"
@@ -138,6 +139,24 @@ FILE* gRenderTreeFile = 0;
 ////////////////////////////////////////////////////////////////////////////////////////////////
 
 namespace android {
+
+static SkTDArray<WebViewCore*> gInstanceList;
+
+void WebViewCore::addInstance(WebViewCore* inst) {
+    *gInstanceList.append() = inst;
+}
+
+void WebViewCore::removeInstance(WebViewCore* inst) {
+    int index = gInstanceList.find(inst);
+    LOG_ASSERT(index >= 0, "RemoveInstance inst not found");
+    if (index >= 0) {
+        gInstanceList.removeShuffle(index);
+    }
+}
+
+bool WebViewCore::isInstance(WebViewCore* inst) {
+    return gInstanceList.find(inst) >= 0;
+}
 
 // ----------------------------------------------------------------------------
 
@@ -286,10 +305,14 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     PageGroup::setShouldTrackVisitedLinks(true);
 
     reset(true);
+
+    WebViewCore::addInstance(this);
 }
 
 WebViewCore::~WebViewCore()
 {
+    WebViewCore::removeInstance(this);
+
     // Release the focused view
     Release(m_popupReply);
 
@@ -1261,6 +1284,11 @@ void WebViewCore::removePlugin(PluginWidgetAndroid* w)
     } else {
         m_plugins.removeShuffle(index);
     }
+}
+
+bool WebViewCore::isPlugin(PluginWidgetAndroid* w) const
+{
+    return m_plugins.find(w) >= 0;
 }
 
 void WebViewCore::invalPlugin(PluginWidgetAndroid* w)
