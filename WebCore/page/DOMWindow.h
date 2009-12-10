@@ -154,9 +154,6 @@ namespace WebCore {
         int scrollY() const;
         int pageXOffset() const { return scrollX(); }
         int pageYOffset() const { return scrollY(); }
-#ifdef ANDROID_ORIENTATION_SUPPORT
-        int orientation() const;
-#endif
 
         bool closed() const;
 

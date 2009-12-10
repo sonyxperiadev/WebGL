@@ -52,9 +52,6 @@ namespace WebCore {
         unsigned availTop() const;
         unsigned availHeight() const;
         unsigned availWidth() const;
-#ifdef ANDROID_ORIENTATION_SUPPORT
-        int orientation() const;
-#endif
 
     private:
         Screen(Frame*);
