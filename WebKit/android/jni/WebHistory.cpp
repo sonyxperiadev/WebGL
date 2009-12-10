@@ -226,7 +226,7 @@ jbyteArray WebHistory::Flatten(JNIEnv* env, WTF::Vector<char>& v, WebCore::Histo
 
 WebHistoryItem::WebHistoryItem(JNIEnv* env, jobject obj,
         WebCore::HistoryItem* item) : WebCore::AndroidWebHistoryBridge(item) {
-    m_object = adoptGlobalRef(env, obj);
+    m_object = env->NewWeakGlobalRef(obj);
     m_parent = 0;
 }
 
