@@ -118,6 +118,7 @@ typedef uint32_t ANPMatrixFlag;
 #define kBitmapInterfaceV0_ANPGetValue      ((NPNVariable)1008)
 #define kSurfaceInterfaceV0_ANPGetValue     ((NPNVariable)1009)
 #define kSystemInterfaceV0_ANPGetValue      ((NPNVariable)1010)
+#define kEventInterfaceV0_ANPGetValue       ((NPNVariable)1011)
 
 /** queries for which drawing model is desired (for the draw event)
 
@@ -759,6 +760,21 @@ enum ANPEventTypes {
      */
     kDraw_ANPEventType          = 4,
     kLifecycle_ANPEventType     = 5,
+
+    /** This event type is completely defined by the plugin.
+        When creating an event, the caller must always set the first
+        two fields, the remaining data is optional.
+            ANPEvent evt;
+            evt.inSize = sizeof(ANPEvent);
+            evt.eventType = kCustom_ANPEventType
+            // other data slots are optional
+            evt.other[] = ...;
+        To post a copy of the event, call
+            eventInterface->postEvent(myNPPInstance, &evt);
+        That call makes a copy of the event struct, and post that on the event
+        queue for the plugin.
+     */
+    kCustom_ANPEventType   = 6,
 };
 typedef int32_t ANPEventType;
 
@@ -882,5 +898,15 @@ struct ANPEvent {
         int32_t     other[8];
     } data;
 };
+
+struct ANPEventInterfaceV0 : ANPInterface {
+    /** Post a copy of the specified event to the plugin. The event will be
+        delivered to the plugin in its main thread (the thread that receives
+        other ANPEvents). If, after posting before delivery, the NPP instance
+        is torn down, the event will be discarded.
+     */
+    void (*postEvent)(NPP inst, const ANPEvent* event);
+};
+
 
 #endif
