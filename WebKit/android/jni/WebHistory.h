@@ -50,7 +50,7 @@ public:
 class WebHistoryItem : public WebCore::AndroidWebHistoryBridge {
 public:
     WebHistoryItem(WebHistoryItem* parent)
-        : WebCore::AndroidWebHistoryBridge()
+        : WebCore::AndroidWebHistoryBridge(0)
         , m_parent(parent)
         , m_object(NULL) { }
     WebHistoryItem(JNIEnv*, jobject, WebCore::HistoryItem*);
