@@ -1400,7 +1400,26 @@ void WebViewCore::moveMouseIfLatest(int moveGeneration,
     moveMouse(frame, x, y);
 }
 
-// Update mouse position and may change focused node.
+void WebViewCore::moveFocus(WebCore::Frame* frame, WebCore::Node* node)
+{
+    DBG_NAV_LOGD("frame=%p node=%p", frame, node);
+    if (!node || !CacheBuilder::validNode(m_mainFrame, frame, node)
+            || !node->isElementNode())
+        return;
+    // Code borrowed from FocusController::advanceFocus
+    WebCore::FocusController* focusController
+            = m_mainFrame->page()->focusController();
+    WebCore::Document* oldDoc
+            = focusController->focusedOrMainFrame()->document();
+    if (oldDoc->focusedNode() == node)
+        return;
+    if (node->document() != oldDoc)
+        oldDoc->setFocusedNode(0);
+    focusController->setFocusedFrame(frame);
+    static_cast<WebCore::Element*>(node)->focus(false);
+}
+
+// Update mouse position
 void WebViewCore::moveMouse(WebCore::Frame* frame, int x, int y)
 {
     DBG_NAV_LOGD("frame=%p x=%d y=%d scrollOffset=(%d,%d)", frame,
@@ -2737,6 +2756,16 @@ static jstring RetrieveAnchorText(JNIEnv *env, jobject obj, jint frame,
 }
 
 
+static void MoveFocus(JNIEnv *env, jobject obj, jint framePtr, jint nodePtr)
+{
+#ifdef ANDROID_INSTRUMENT
+    TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
+#endif
+    WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
+    LOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);
+    viewImpl->moveFocus((WebCore::Frame*) framePtr, (WebCore::Node*) nodePtr);
+}
+
 static void MoveMouse(JNIEnv *env, jobject obj, jint frame,
         jint x, jint y)
 {
@@ -3044,6 +3073,8 @@ static JNINativeMethod gJavaWebViewCoreMethods[] = {
         (void*) DeleteSelection } ,
     { "nativeReplaceTextfieldText", "(IILjava/lang/String;III)V",
         (void*) ReplaceTextfieldText } ,
+    { "nativeMoveFocus", "(II)V",
+        (void*) MoveFocus },
     { "nativeMoveMouse", "(III)V",
         (void*) MoveMouse },
     { "nativeMoveMouseIfLatest", "(IIII)V",

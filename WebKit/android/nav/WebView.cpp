@@ -100,6 +100,7 @@ struct JavaGlue {
     jmethodID   m_clearTextEntry;
     jmethodID   m_overrideLoading;
     jmethodID   m_scrollBy;
+    jmethodID   m_sendMoveFocus;
     jmethodID   m_sendMoveMouse;
     jmethodID   m_sendMoveMouseIfLatest;
     jmethodID   m_sendMotionUp;
@@ -129,6 +130,7 @@ WebView(JNIEnv* env, jobject javaWebView, int viewImpl)
     m_javaGlue.m_scrollBy = GetJMethod(env, clazz, "setContentScrollBy", "(IIZ)Z");
     m_javaGlue.m_clearTextEntry = GetJMethod(env, clazz, "clearTextEntry", "()V");
     m_javaGlue.m_overrideLoading = GetJMethod(env, clazz, "overrideLoading", "(Ljava/lang/String;)V");
+    m_javaGlue.m_sendMoveFocus = GetJMethod(env, clazz, "sendMoveFocus", "(II)V");
     m_javaGlue.m_sendMoveMouse = GetJMethod(env, clazz, "sendMoveMouse", "(IIII)V");
     m_javaGlue.m_sendMoveMouseIfLatest = GetJMethod(env, clazz, "sendMoveMouseIfLatest", "(Z)V");
     m_javaGlue.m_sendMotionUp = GetJMethod(env, clazz, "sendMotionUp", "(IIIII)V");
@@ -1074,6 +1076,20 @@ void getSelectionCaret(SkPath* path)
     path->rLineTo(-dist, -dist);
 }
 
+void sendMoveFocus(WebCore::Frame* framePtr, WebCore::Node* nodePtr)
+{
+    DBG_NAV_LOGD("framePtr=%p nodePtr=%p x=%d y=%d", framePtr, nodePtr, x, y);
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    AutoJObject obj = m_javaGlue.object(env);
+    // if it is called during or after DESTROY is handled, the real object of
+    // WebView can be gone. Check before using it.
+    if (!obj.get())
+        return;
+    env->CallVoidMethod(obj.get(), m_javaGlue.m_sendMoveFocus, (jint) framePtr,
+            (jint) nodePtr);
+    checkException(env);
+}
+
 void sendMoveMouse(WebCore::Frame* framePtr, WebCore::Node* nodePtr, int x, int y)
 {
     DBG_NAV_LOGD("framePtr=%p nodePtr=%p x=%d y=%d", framePtr, nodePtr, x, y);
@@ -1888,10 +1904,8 @@ static void nativeMoveCursorToNextTextInput(JNIEnv *env, jobject obj)
     view->updateCursorBounds(root, frame, next);
     root->setCursor(const_cast<CachedFrame*>(frame),
             const_cast<CachedNode*>(next));
-    WebCore::IntPoint pos;
-    root->getSimulatedMousePosition(&pos);
-    view->sendMoveMouse(static_cast<WebCore::Frame*>(frame->framePointer()),
-            static_cast<WebCore::Node*>(next->nodePointer()), pos.x(), pos.y());
+    view->sendMoveFocus(static_cast<WebCore::Frame*>(frame->framePointer()),
+            static_cast<WebCore::Node*>(next->nodePointer()));
     view->scrollRectOnScreen(bounds.x(), bounds.y(), bounds.right(),
             bounds.bottom());
     view->getWebViewCore()->m_moveGeneration++;
