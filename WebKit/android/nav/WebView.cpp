@@ -1080,13 +1080,8 @@ void sendMoveFocus(WebCore::Frame* framePtr, WebCore::Node* nodePtr)
 {
     DBG_NAV_LOGD("framePtr=%p nodePtr=%p x=%d y=%d", framePtr, nodePtr, x, y);
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    AutoJObject obj = m_javaGlue.object(env);
-    // if it is called during or after DESTROY is handled, the real object of
-    // WebView can be gone. Check before using it.
-    if (!obj.get())
-        return;
-    env->CallVoidMethod(obj.get(), m_javaGlue.m_sendMoveFocus, (jint) framePtr,
-            (jint) nodePtr);
+    env->CallVoidMethod(m_javaGlue.object(env).get(),
+        m_javaGlue.m_sendMoveFocus, (jint) framePtr, (jint) nodePtr);
     checkException(env);
 }
 
