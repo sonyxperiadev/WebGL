@@ -2525,7 +2525,7 @@ bool EventHandler::passMousePressEventToScrollbar(MouseEventWithHitTestResults& 
 }
 
 #if ENABLE(TOUCH_EVENTS) // Android
-bool EventHandler::handleTouchEvent(const PlatformTouchEvent& e)
+int EventHandler::handleTouchEvent(const PlatformTouchEvent& e)
 {
     // only handle the touch event in the top frame handler
     if (m_frame->tree()->parent(true))
@@ -2533,17 +2533,17 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& e)
 
     Document* doc = m_frame->document();
     if (!doc)
-        return false;
+        return 0;
 
     RenderObject* docRenderer = doc->renderer();
     if (!docRenderer)
-        return false;
+        return 0;
 
     if (doc->touchEventListeners().size() == 0)
-        return false;
+        return 0;
 
     TouchEventType type = e.eventType();
-    if (type == TouchEventStart) {
+    if (type == TouchEventStart || type == TouchEventLongPress || type == TouchEventDoubleTap) {
         Frame* frame = m_frame;
         IntPoint vPoint = frame->view()->windowToContents(e.pos());
         HitTestRequest request(HitTestRequest::ReadOnly);
@@ -2583,13 +2583,13 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& e)
         if ((type == TouchEventMove) && (e.x() == m_touch->screenX()) &&
                 (e.y() == m_touch->screenY())) {
             // don't trigger the event if it hasn't really moved
-            return false;
+            return 0;
         }
 
         IntPoint vPoint = m_touch->frame()->view()->windowToContents(e.pos());
         m_touch->updateLocation(e.x(), e.y(), vPoint.x(), vPoint.y());
     } else {
-        return false;
+        return 0;
     }
 
     RefPtr<TouchList> touchList = TouchList::create();
@@ -2622,15 +2622,30 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& e)
                     m_touch->screenX(), m_touch->screenY(), m_touch->pageX(), m_touch->pageY());
             break;
 
+        case TouchEventLongPress:
+            te = TouchEvent::create(touchList.get(), touchList.get(), touchList.get(),
+                    eventNames().touchlongpressEvent, m_touch->frame()->document()->defaultView(),
+                    m_touch->screenX(), m_touch->screenY(), m_touch->pageX(), m_touch->pageY());
+            break;
+
+        case TouchEventDoubleTap:
+            te = TouchEvent::create(touchList.get(), touchList.get(), touchList.get(),
+                    eventNames().touchdoubletapEvent, m_touch->frame()->document()->defaultView(),
+                    m_touch->screenX(), m_touch->screenY(), m_touch->pageX(), m_touch->pageY());
+            break;
+
         default:
             return false;
     }
     ExceptionCode ec = 0;
     m_touch->target()->dispatchEvent(te.get(), ec);
-    if (type == TouchEventEnd || type == TouchEventCancel) {
+    if (type == TouchEventEnd || type == TouchEventCancel)
         m_touch = 0;
-    }
-    return te->defaultPrevented();
+    if (type == TouchEventLongPress || type == TouchEventDoubleTap)
+        return 0;
+    return (te->defaultPrevented() ? preventTouch : 0)
+            | (te->longPressPrevented() ? preventLongPress : 0)
+            | (te->doubleTapPrevented() ? preventDoubleTap : 0);
 }
 #endif
 
