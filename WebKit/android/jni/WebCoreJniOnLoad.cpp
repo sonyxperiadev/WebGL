@@ -56,7 +56,6 @@
 #include "TextEncoding.h"
 #include "WebCoreViewBridge.h"
 #include "WebFrameView.h"
-#include "WebHistory.h"
 #include "WebViewCore.h"
 
 #include "SkBitmap.h"
