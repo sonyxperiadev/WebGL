@@ -25,7 +25,6 @@
 
 #include "config.h"
 #include "FileChooser.h"
-
 #include "Font.h"
 
 namespace WebCore {
@@ -44,18 +43,4 @@ String FileChooser::basenameForWidth(const Font& font, int width) const
     return output;
 }
 
-// The following two strings are used for File Upload form control, ie
-// <input type="file">. The first is the text that appears on the button
-// that when pressed, the user can browse for and select a file. The
-// second string is rendered on the screen when no file has been selected.
-String fileButtonChooseFileLabel()
-{
-    return String("Upload a file");
-}
-
-String fileButtonNoFileSelectedLabel()
-{
-    return String("No file selected");
-}
-
-} // namesapce WebCore
+} // namespace WebCore

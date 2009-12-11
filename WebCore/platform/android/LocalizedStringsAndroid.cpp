@@ -31,9 +31,26 @@
 #include "LocalizedStrings.h"
 
 #include "NotImplemented.h"
+#include "PlatformBridge.h"
 #include "PlatformString.h"
 
 namespace WebCore {
+
+// The following two strings are used for File Upload form control, ie
+// <input type="file">. The first is the text that appears on the button
+// that when pressed, the user can browse for and select a file. The
+// second string is rendered on the screen when no file has been selected.
+String fileButtonChooseFileLabel()
+{
+    return *(PlatformBridge::globalLocalizedName(
+            PlatformBridge::FileUploadLabel));
+}
+
+String fileButtonNoFileSelectedLabel()
+{
+    notImplemented();
+    return String();
+}
 
 String contextMenuItemTagInspectElement()
 {
@@ -305,12 +322,14 @@ String searchableIndexIntroduction()
 
 String resetButtonDefaultLabel()
 {
-    return String("Reset");
+    return *(PlatformBridge::globalLocalizedName(
+            PlatformBridge::ResetLabel));
 }
 
 String submitButtonDefaultLabel()
 {
-    return String("Submit");
+    return *(PlatformBridge::globalLocalizedName(
+            PlatformBridge::SubmitLabel));
 }
 
 String inputElementAltText()
