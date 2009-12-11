@@ -32,6 +32,7 @@
 #include "PlatformString.h"
 #include "WebCoreRefObject.h"
 #include <jni.h>
+#include <wtf/RefCounted.h>
 
 namespace WebCore {
     class HistoryItem;
@@ -39,12 +40,12 @@ namespace WebCore {
     class Page;
     class RenderPart;
     class ResourceHandle;
+    class ResourceLoaderAndroid;
     class ResourceRequest;
 }
 
 namespace android {
 
-class WebCoreResourceLoader;
 class WebViewCore;
 
 // one instance of WebFrame per Page for calling into Java's BrowserFrame
@@ -62,7 +63,7 @@ class WebFrame : public WebCoreRefObject {
     // helper function
     static WebFrame* getWebFrame(const WebCore::Frame* frame);
 
-    virtual WebCoreResourceLoader* startLoadingResource(WebCore::ResourceHandle*,
+    virtual PassRefPtr<WebCore::ResourceLoaderAndroid> startLoadingResource(WebCore::ResourceHandle*,
             const WebCore::ResourceRequest& request, bool mainResource,
             bool synchronous);
 

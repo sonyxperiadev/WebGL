@@ -68,6 +68,11 @@ static struct resourceloader_t {
 //-----------------------------------------------------------------------------
 // ResourceLoadHandler
 
+PassRefPtr<WebCore::ResourceLoaderAndroid> WebCoreResourceLoader::create(JNIEnv *env, jobject jLoadListener)
+{
+    return adoptRef<WebCore::ResourceLoaderAndroid>(new WebCoreResourceLoader(env, jLoadListener));
+}
+
 WebCoreResourceLoader::WebCoreResourceLoader(JNIEnv *env, jobject jLoadListener)
 {
     mJLoader = env->NewGlobalRef(jLoadListener);
