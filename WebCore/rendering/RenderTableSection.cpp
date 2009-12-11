@@ -324,8 +324,13 @@ int RenderTableSection::calcRowHeight()
 
     ASSERT(!needsLayout());
 #ifdef ANDROID_LAYOUT
-    if (table()->isSingleColumn())
-        return m_rowPos[m_gridRows];
+    if (table()->isSingleColumn()) {
+        int height = 0;
+        int spacing = table()->vBorderSpacing();
+        for (int r = 0; r < m_gridRows; r++)
+            height += m_grid[r].height.calcMinValue(0) + (m_grid[r].rowRenderer ? spacing : 0);
+        return height;
+    }
 #endif
 
     RenderTableCell* cell;
