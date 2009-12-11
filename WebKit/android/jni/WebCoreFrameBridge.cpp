@@ -320,7 +320,7 @@ private:
     int m_size;
 };
 
-WebCoreResourceLoader*
+PassRefPtr<WebCore::ResourceLoaderAndroid>
 WebFrame::startLoadingResource(WebCore::ResourceHandle* loader,
                                   const WebCore::ResourceRequest& request,
                                   bool mainResource,
@@ -451,9 +451,9 @@ WebFrame::startLoadingResource(WebCore::ResourceHandle* loader,
     if (checkException(env))
         return NULL;
 
-    WebCoreResourceLoader* h = NULL;
+    PassRefPtr<WebCore::ResourceLoaderAndroid> h;
     if (jLoadListener)
-        h = new WebCoreResourceLoader(env, jLoadListener);
+        h = WebCoreResourceLoader::create(env, jLoadListener);
     env->DeleteLocalRef(jLoadListener);
     return h;
 }

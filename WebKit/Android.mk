@@ -25,6 +25,7 @@ LOCAL_SRC_FILES := \
 	android/WebCoreSupport/GeolocationPermissions.cpp \
 	android/WebCoreSupport/MediaPlayerPrivateAndroid.cpp \
 	android/WebCoreSupport/PlatformBridge.cpp \
+	android/WebCoreSupport/ResourceLoaderAndroid.cpp \
 	\
 	android/RenderSkinAndroid.cpp \
 	android/RenderSkinButton.cpp \

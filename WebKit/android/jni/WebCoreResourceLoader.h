@@ -26,29 +26,28 @@
 #ifndef ANDROID_WEBKIT_RESOURCELOADLISTENER_H
 #define ANDROID_WEBKIT_RESOURCELOADLISTENER_H
 
-#include "KURL.h"
-
-#include "WebCoreRefObject.h"
+#include <KURL.h>
+#include <ResourceLoaderAndroid.h>
 #include <jni.h>
 
 namespace android {
 
-class WebCoreResourceLoader : public WebCoreRefObject
+class WebCoreResourceLoader : public WebCore::ResourceLoaderAndroid
 {
 public:
-    WebCoreResourceLoader(JNIEnv *env, jobject jLoadListener);
+    static PassRefPtr<WebCore::ResourceLoaderAndroid> create(JNIEnv *env, jobject jLoadListener);
     virtual ~WebCoreResourceLoader();
 
     /**
      * Call to java to cancel the current load.
      */
-    void cancel();
+    virtual void cancel();
 
     /**
     * Call to java to download the current load rather than feed it
     * back to WebCore
     */
-    void downloadFile();
+    virtual void downloadFile();
 
     /**
     * Call to java to find out if this URL is in the cache
@@ -65,6 +64,8 @@ public:
     static jstring RedirectedToUrl(JNIEnv*, jobject, jstring, jstring, jint);
     static void Error(JNIEnv*, jobject, jint, jstring, jstring);
 
+protected:
+    WebCoreResourceLoader(JNIEnv *env, jobject jLoadListener);
 private:
     jobject     mJLoader;
 };

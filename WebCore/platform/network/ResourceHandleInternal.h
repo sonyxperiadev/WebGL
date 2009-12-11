@@ -69,9 +69,7 @@ class NSURLConnection;
 #endif
 
 #if PLATFORM(ANDROID)
-namespace android {
-    class WebCoreResourceLoader;
-}
+#include "ResourceLoaderAndroid.h"
 #endif
 
 // The allocations and releases in ResourceHandleInternal are
@@ -229,7 +227,7 @@ namespace WebCore {
         CFURLAuthChallengeRef m_currentCFChallenge;
 #endif
 #if PLATFORM(ANDROID)
-        android::WebCoreResourceLoader* m_loader;
+        RefPtr<ResourceLoaderAndroid> m_loader;
 #endif
         AuthenticationChallenge m_currentWebChallenge;
 
