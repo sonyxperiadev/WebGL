@@ -2632,6 +2632,21 @@ void WebViewCore::destroySurface(jobject childView)
     checkException(env);
 }
 
+bool WebViewCore::validNodeAndBounds(Frame* frame, Node* node,
+    const IntRect& originalAbsoluteBounds)
+{
+    bool valid = CacheBuilder::validNode(m_mainFrame, frame, node);
+    if (!valid)
+        return false;
+    RenderObject* renderer = node->renderer();
+    if (!renderer)
+        return false;
+    IntRect absBounds = node->hasTagName(HTMLNames::areaTag)
+        ? CacheBuilder::getAreaRect(static_cast<HTMLAreaElement*>(node))
+        : renderer->absoluteBoundingBoxRect();
+    return absBounds == originalAbsoluteBounds;
+}
+
 //----------------------------------------------------------------------
 // Native JNI methods
 //----------------------------------------------------------------------
@@ -3219,6 +3234,22 @@ static void FullScreenPluginHidden(JNIEnv* env, jobject obj, jint npp)
     plugin->exitFullScreen(false);
 }
 
+static WebCore::IntRect jrect_to_webrect(JNIEnv* env, jobject obj)
+{
+    int L, T, R, B;
+    GraphicsJNI::get_jrect(env, obj, &L, &T, &R, &B);
+    return WebCore::IntRect(L, T, R - L, B - T);
+}
+
+static bool ValidNodeAndBounds(JNIEnv *env, jobject obj, int frame, int node,
+    jobject rect)
+{
+    IntRect nativeRect = jrect_to_webrect(env, rect);
+    return GET_NATIVE_VIEW(env, obj)->validNodeAndBounds(
+            reinterpret_cast<Frame*>(frame),
+            reinterpret_cast<Node*>(node), nativeRect);
+}
+
 // ----------------------------------------------------------------------------
 
 /*
@@ -3315,6 +3346,8 @@ static JNINativeMethod gJavaWebViewCoreMethods[] = {
         (void*) ProvideVisitedHistory },
     { "nativeFullScreenPluginHidden", "(I)V",
         (void*) FullScreenPluginHidden },
+    { "nativeValidNodeAndBounds", "(IILandroid/graphics/Rect;)Z",
+        (void*) ValidNodeAndBounds },
 };
 
 int register_webviewcore(JNIEnv* env)

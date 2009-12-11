@@ -397,6 +397,7 @@ namespace android {
         // Destroys a SurfaceView for a plugin
         void destroySurface(jobject childView);
 
+        bool validNodeAndBounds(Frame* , Node* , const IntRect& );
         // other public functions
     public:
         // Open a file chooser for selecting a file to upload

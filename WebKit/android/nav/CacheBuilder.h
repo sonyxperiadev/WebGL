@@ -90,6 +90,7 @@ public:
         mAllowableTypes & ~PHONE_CACHEDNODE_BIT); }
     static FoundState FindAddress(const UChar* , unsigned length, int* start,
         int* end, bool caseInsensitive);
+    static IntRect getAreaRect(const HTMLAreaElement* area);
     static void GetGlobalOffset(Frame* , int* x, int * y);
     static void GetGlobalOffset(Node* , int* x, int * y);
     static bool validNode(Frame* startFrame, void* framePtr, void* nodePtr);
@@ -227,7 +228,6 @@ private:
     static Frame* FrameAnd(CacheBuilder* focusNav);
     static Frame* FrameAnd(const CacheBuilder* focusNav);
     static CacheBuilder* Builder(Frame* );
-    static IntRect getAreaRect(const HTMLAreaElement* area);
     static Frame* HasFrame(Node* );
     static bool HasOverOrOut(Node* );
     static bool HasTriggerEvent(Node* );
