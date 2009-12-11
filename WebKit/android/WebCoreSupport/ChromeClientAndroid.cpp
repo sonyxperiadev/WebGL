@@ -81,28 +81,8 @@ FloatRect ChromeClientAndroid::pageRect() { notImplemented(); return FloatRect()
 
 float ChromeClientAndroid::scaleFactor()
 {
-    /*  Conceptually, we should return the density of the device's screen,
-        except that we don't really model webkit's notion of drawing. Webkit
-        expects the drawing context's matrix (plus scale-factor) to reflect the
-        actually transformation to the pixels, and thus it uses scaleFactor to
-        perform some pre-rounding in a few places (e.g. HTMLCanvasElement).
-
-        ASSERT(m_webFrame);
-        return m_webFrame->density();
-
-        However, in Android we capture the drawing into a displayList, and then
-        replay that list at various scale factors (sometimes zoomed out, other
-        times zoomed in for "normal" reading, yet other times at arbitrary
-        zoom values based on the user's choice). In all of these cases, we do
-        not re-record the displayList, hence it is usually harmful to perform
-        any pre-rounding, since we just don't know the actual drawing resolution
-        at record time.
-
-        Given Android's device-independent drawing model, we always return 1.0
-        for this function, and we implement roundToDevicePixels() to be a no-op
-        so that we don't introduce pre-rounding artifacts during record.
-     */
-    return 1.0f;
+    ASSERT(m_webFrame);
+    return m_webFrame->density();
 }
 
 #ifdef ANDROID_USER_GESTURE
