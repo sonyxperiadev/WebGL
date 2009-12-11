@@ -277,7 +277,19 @@ IntRect HTMLCanvasElement::convertLogicalToDevice(const FloatRect& logicalRect) 
 
 IntSize HTMLCanvasElement::convertLogicalToDevice(const FloatSize& logicalSize) const
 {
+#if PLATFORM(ANDROID)
+    /*  In Android we capture the drawing into a displayList, and then
+        replay that list at various scale factors (sometimes zoomed out, other
+        times zoomed in for "normal" reading, yet other times at arbitrary
+        zoom values based on the user's choice). In all of these cases, we do
+        not re-record the displayList, hence it is usually harmful to perform
+        any pre-rounding, since we just don't know the actual drawing resolution
+        at record time.
+     */
+    float pageScaleFactor = 1.0f;
+#else
     float pageScaleFactor = document()->frame() ? document()->frame()->page()->chrome()->scaleFactor() : 1.0f;
+#endif
     float wf = ceilf(logicalSize.width() * pageScaleFactor);
     float hf = ceilf(logicalSize.height() * pageScaleFactor);
     
@@ -289,7 +301,19 @@ IntSize HTMLCanvasElement::convertLogicalToDevice(const FloatSize& logicalSize) 
 
 IntPoint HTMLCanvasElement::convertLogicalToDevice(const FloatPoint& logicalPos) const
 {
+#if PLATFORM(ANDROID)
+    /*  In Android we capture the drawing into a displayList, and then
+        replay that list at various scale factors (sometimes zoomed out, other
+        times zoomed in for "normal" reading, yet other times at arbitrary
+        zoom values based on the user's choice). In all of these cases, we do
+        not re-record the displayList, hence it is usually harmful to perform
+        any pre-rounding, since we just don't know the actual drawing resolution
+        at record time.
+     */
+    float pageScaleFactor = 1.0f;
+#else
     float pageScaleFactor = document()->frame() ? document()->frame()->page()->chrome()->scaleFactor() : 1.0f;
+#endif
     float xf = logicalPos.x() * pageScaleFactor;
     float yf = logicalPos.y() * pageScaleFactor;
     
