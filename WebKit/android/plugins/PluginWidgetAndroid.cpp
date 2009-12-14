@@ -52,26 +52,27 @@ PluginWidgetAndroid::PluginWidgetAndroid(WebCore::PluginView* view)
     m_visibleDocRect.setEmpty();
     m_pluginBounds.setEmpty();
     m_hasFocus = false;
+    m_isFullScreen = false;
     m_zoomLevel = 0;
-    m_childView = NULL;
     m_webkitPlugin = NULL;
+    m_embeddedView = NULL;
 }
 
 PluginWidgetAndroid::~PluginWidgetAndroid() {
     if (m_core) {
         m_core->removePlugin(this);
-        if (m_childView) {
-            m_core->destroySurface(m_childView);
+        if (m_embeddedView) {
+            m_core->destroySurface(m_embeddedView);
         }
     }
 
     // cleanup any remaining JNI References
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    if (m_childView) {
-        env->DeleteGlobalRef(m_childView);
-    }
     if (m_webkitPlugin) {
         env->DeleteGlobalRef(m_webkitPlugin);
+    }
+    if (m_embeddedView) {
+        env->DeleteGlobalRef(m_embeddedView);
     }
 
     m_flipPixelRef->safeUnref();
@@ -119,19 +120,19 @@ void PluginWidgetAndroid::setWindow(NPWindow* window, bool isTransparent) {
         IntPoint docPoint = frameToDocumentCoords(window->x, window->y);
 
         // if the surface exists check for changes and update accordingly
-        if (m_childView && m_pluginBounds != oldPluginBounds) {
+        if (m_embeddedView && m_pluginBounds != oldPluginBounds) {
 
-            m_core->updateSurface(m_childView, docPoint.x(), docPoint.y(),
+            m_core->updateSurface(m_embeddedView, docPoint.x(), docPoint.y(),
                                   window->width, window->height);
 
         // if the surface does not exist then create a new surface
-        } else if(!m_childView) {
+        } else if(!m_embeddedView) {
             jobject tempObj = m_core->createSurface(getJavaPluginInstance(),
                                                     docPoint.x(), docPoint.y(),
                                                     window->width, window->height);
             if (tempObj) {
                 JNIEnv* env = JSC::Bindings::getJNIEnv();
-                m_childView = env->NewGlobalRef(tempObj);
+                m_embeddedView = env->NewGlobalRef(tempObj);
             }
         }
     } else {
@@ -429,4 +430,21 @@ IntPoint PluginWidgetAndroid::frameToDocumentCoords(int frameX, int frameY) cons
     }
 
     return docPoint;
+}
+
+void PluginWidgetAndroid::requestFullScreen() {
+    if (m_isFullScreen || !m_webkitPlugin) {
+        return;
+    }
+
+    m_core->showFullScreenPlugin(m_webkitPlugin, m_pluginView->instance());
+    m_isFullScreen = true;
+}
+
+void PluginWidgetAndroid::exitFullScreen(bool pluginInitiated) {
+    if (m_isFullScreen && pluginInitiated) {
+        m_core->hideFullScreenPlugin();
+    }
+
+    m_isFullScreen = false;
 }

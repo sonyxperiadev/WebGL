@@ -364,6 +364,9 @@ namespace android {
         // send this event to all of the plugins who have the given flag set
         void sendPluginEvent(const ANPEvent& evt, ANPEventFlag flag);
 
+        // lookup the plugin widget struct given an NPP
+        PluginWidgetAndroid* getPluginWidget(NPP npp);
+
         // return the cursorNode if it is a plugin
         Node* cursorNodeIsPlugin();
 
@@ -380,9 +383,9 @@ namespace android {
         jobject createPluginJavaInstance(const WebCore::String& libName, NPP npp);
 
         // Creates a full screen surface for a plugin
-        void showFullScreenPlugin(jobject webkitPlugin);
+        void showFullScreenPlugin(jobject webkitPlugin, NPP npp);
 
-        // Discards the full screen surface of a plugin
+        // Instructs the UI thread to discard the plugin's full-screen surface
         void hideFullScreenPlugin();
 
         // Creates a Surface (i.e. View) for a plugin
