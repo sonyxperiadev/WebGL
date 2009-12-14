@@ -44,6 +44,7 @@
 #include "TextEncoding.h"
 #include "WebCoreFrameBridge.h"
 #include "WebCoreJni.h"
+#include "WebIconDatabase.h"
 #include "jni_utility.h"
 
 #include <JNIHelp.h>

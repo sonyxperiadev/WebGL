@@ -67,10 +67,6 @@ static WebIconDatabase* gIconDatabaseClient = new WebIconDatabase();
 // XXX: Called by the IconDatabase thread
 void WebIconDatabase::dispatchDidAddIconForPageURL(const WebCore::String& pageURL)
 {
-    // If there are no clients currently, drop this message.
-    if (mClients.size() == 0)
-        return;
-
     mNotificationsMutex.lock();
     mNotifications.append(pageURL);
     if (!mDeliveryRequested) {
@@ -83,23 +79,25 @@ void WebIconDatabase::dispatchDidAddIconForPageURL(const WebCore::String& pageUR
 // Called in the WebCore thread
 void WebIconDatabase::RegisterForIconNotification(WebIconDatabaseClient* client)
 {
-    gIconDatabaseClient->mClientsMutex.lock();
+    WebIconDatabase* db = gIconDatabaseClient;
+    for (unsigned i = 0; i < db->mClients.size(); ++i) {
+        // Do not add the same client twice.
+        if (db->mClients[i] == client)
+            return;
+    }
     gIconDatabaseClient->mClients.append(client);
-    gIconDatabaseClient->mClientsMutex.unlock();
 }
 
 // Called in the WebCore thread
 void WebIconDatabase::UnregisterForIconNotification(WebIconDatabaseClient* client)
 {
     WebIconDatabase* db = gIconDatabaseClient;
-    db->mClientsMutex.lock();
     for (unsigned i = 0; i < db->mClients.size(); ++i) {
         if (db->mClients[i] == client) {
             db->mClients.remove(i);
             break;
         }
     }
-    db->mClientsMutex.unlock();
 }
 
 // Called in the WebCore thread
@@ -123,9 +121,7 @@ void WebIconDatabase::deliverNotifications()
 
     // Swap the clients queue
     Vector<WebIconDatabaseClient*> clients;
-    mClientsMutex.lock();
     clients.swap(mClients);
-    mClientsMutex.unlock();
 
     for (unsigned i = 0; i < queue.size(); ++i) {
         for (unsigned j = 0; j < clients.size(); ++j) {

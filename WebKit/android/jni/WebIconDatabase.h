@@ -59,9 +59,8 @@ namespace android {
         // Deliver all the icon notifications
         void deliverNotifications();
 
-        // List of clients and a mutex to protect it.
+        // List of clients.
         Vector<WebIconDatabaseClient*> mClients;
-        android::Mutex                 mClientsMutex;
 
         // Queue of page urls that have received an icon.
         Vector<WebCore::String> mNotifications;
