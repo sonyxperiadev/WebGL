@@ -31,17 +31,12 @@
 
 namespace WebCore {
 
-class ResourceError : public ResourceErrorBase
-{
+class ResourceError : public ResourceErrorBase {
 public:
-    ResourceError()
-    {
-    }
+    ResourceError() { }
 
     ResourceError(const String& domain, int errorCode, const String& failingURL, const String& localizedDescription)
-        : ResourceErrorBase(domain, errorCode, failingURL, localizedDescription)
-    {
-    }
+        : ResourceErrorBase(domain, errorCode, failingURL, localizedDescription) { }
 };
 
 }

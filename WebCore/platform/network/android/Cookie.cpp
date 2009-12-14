@@ -23,36 +23,35 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#define LOG_TAG "Cookies"
-
 #include "config.h"
-#include "JavaSharedClient.h"
+
 #include "CookieClient.h"
+#include "JavaSharedClient.h"
 
 using namespace android;
 
 namespace WebCore {
 
-    class Document;
+class Document;
 
-    void setCookies(Document*, const KURL& url, const String& value)
-    {
-        if (JavaSharedClient::GetCookieClient())
-            JavaSharedClient::GetCookieClient()->setCookies(url, value);
-    }
+void setCookies(Document*, const KURL& url, const String& value)
+{
+    if (JavaSharedClient::GetCookieClient())
+        JavaSharedClient::GetCookieClient()->setCookies(url, value);
+}
 
-    String cookies(const Document* , const KURL& url)
-    { 
-        if (JavaSharedClient::GetCookieClient())
-            return JavaSharedClient::GetCookieClient()->cookies(url);
-        return String();
-    }
+String cookies(const Document* , const KURL& url)
+{
+    if (JavaSharedClient::GetCookieClient())
+        return JavaSharedClient::GetCookieClient()->cookies(url);
+    return String();
+}
 
-    bool cookiesEnabled(const Document* )
-    {
-        if (JavaSharedClient::GetCookieClient())
-            return JavaSharedClient::GetCookieClient()->cookiesEnabled();
-        return false;
-    }
+bool cookiesEnabled(const Document* )
+{
+    if (JavaSharedClient::GetCookieClient())
+        return JavaSharedClient::GetCookieClient()->cookiesEnabled();
+    return false;
+}
 
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2007, The Android Open Source Project
+ * Copyright 2009, The Android Open Source Project
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -23,8 +23,6 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#define LOG_TAG "WebCore"
-
 #include "config.h"
 
 #include "ResourceHandle.h"
@@ -34,6 +32,7 @@
 #include "DocumentLoader.h"
 #include "Frame.h"
 #include "FrameLoader.h"
+#include "MainResourceLoader.h"
 #include "NotImplemented.h"
 #include "ResourceHandleClient.h"
 #include "ResourceHandleInternal.h"
@@ -51,9 +50,9 @@ ResourceHandle::~ResourceHandle()
 
 bool ResourceHandle::start(Frame* frame)
 {
-    DocumentLoader* adl = frame->loader()->activeDocumentLoader();
-    bool isMainResource =
-            ((void*) client()) == ((void*) adl->mainResourceLoader());
+    DocumentLoader* docLoader = frame->loader()->activeDocumentLoader();
+    MainResourceLoader* mainLoader = docLoader->mainResourceLoader();
+    bool isMainResource = (mainLoader->handle() == this);
 
     PassRefPtr<ResourceLoaderAndroid> loader = ResourceLoaderAndroid::start(this, d->m_request, frame->loader()->client(), isMainResource, false);
 
@@ -73,12 +72,14 @@ void ResourceHandle::cancel()
 
 PassRefPtr<SharedBuffer> ResourceHandle::bufferedData()
 {
+    notImplemented();
     return 0;
 }
 
 bool ResourceHandle::supportsBufferedData()
 {
     // We don't support buffering data on the native side.
+    notImplemented();
     return false;
 }
 
@@ -87,12 +88,10 @@ void ResourceHandle::setDefersLoading(bool defers)
     notImplemented();
 }
 
-/*
-* This static method is called to check to see if a POST response is in
-* the cache. The JNI call through to the HTTP cache stored on the Java
-* side may be slow, but is only used during a navigation to
-* a POST response.
-*/
+// This static method is called to check to see if a POST response is in
+// the cache. The JNI call through to the HTTP cache stored on the Java
+// side may be slow, but is only used during a navigation to
+// a POST response.
 bool ResourceHandle::willLoadFromCache(ResourceRequest& request, Frame*)
 {
     // set the cache policy correctly, copied from
@@ -112,29 +111,33 @@ bool ResourceHandle::loadsBlocked()
 // Class to handle synchronized loading of resources.
 class SyncLoader : public ResourceHandleClient {
 public:
-    SyncLoader(ResourceError& error, ResourceResponse& response, WTF::Vector<char>& data) {
+    SyncLoader(ResourceError& error, ResourceResponse& response, WTF::Vector<char>& data)
+    {
         m_error = &error;
         m_response = &response;
         m_data = &data;
     }
     ~SyncLoader() {}
 
-    virtual void didReceiveResponse(ResourceHandle*, const ResourceResponse& response) {
+    virtual void didReceiveResponse(ResourceHandle*, const ResourceResponse& response)
+    {
         *m_response = response;
     }
 
-    virtual void didReceiveData(ResourceHandle*, const char* data, int len, int lengthReceived) {
+    virtual void didReceiveData(ResourceHandle*, const char* data, int len, int lengthReceived)
+    {
         m_data->append(data, len);
     }
 
-    virtual void didFail(ResourceHandle*, const ResourceError& error) {
+    virtual void didFail(ResourceHandle*, const ResourceError& error)
+    {
         *m_error = error;
     }
 
 private:
-    ResourceError*    m_error;
+    ResourceError* m_error;
     ResourceResponse* m_response;
-    WTF::Vector<char>*     m_data;
+    WTF::Vector<char>* m_data;
 };
 
 void ResourceHandle::loadResourceSynchronously(const ResourceRequest& request,
