@@ -107,6 +107,7 @@ void InitializeJavaVM() {
     n->CallVoidMethodV          = env_callVoidMethodV;
     n->DeleteLocalRef           = env_deleteRef;
     n->DeleteGlobalRef          = env_deleteRef;
+    n->DeleteWeakGlobalRef      = env_deleteRef;
     n->ExceptionCheck           = env_exceptionCheck;
     n->FindClass                = env_findClass;
     n->GetByteArrayElements     = env_getByteArrayElements;
@@ -115,7 +116,9 @@ void InitializeJavaVM() {
     n->GetStringChars           = env_getStringChars;
     n->GetStringLength          = env_getStringLength;
     n->NewByteArray             = env_newByteArray;
+    n->NewLocalRef              = env_newRef;
     n->NewGlobalRef             = env_newRef;
+    n->NewWeakGlobalRef         = env_newRef;
     n->NewObjectV               = env_newObjectV;
     n->NewString                = env_newString;
     n->ReleaseByteArrayElements = env_releaseByteArrayElements;
