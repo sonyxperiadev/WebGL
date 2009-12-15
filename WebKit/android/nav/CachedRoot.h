@@ -52,11 +52,12 @@ public:
     void checkForJiggle(int* ) const;
     bool checkRings(const WTF::Vector<WebCore::IntRect>& rings,
         const WebCore::IntRect& bounds) const;
-    WebCore::IntPoint cursorLocation() const;
     // This method returns the desired ImeAction for the textfield where the
-    // mouse cursor currently is.  If the mouse cursor is not on a textfield,
+    // mouse cursor currently is, or where the focus is if there is no mouse
+    // cursor.  If the mouse cursor is not on a textfield,
     // it will return FAILURE
-    ImeAction cursorTextFieldAction() const;
+    ImeAction currentTextFieldAction() const;
+    WebCore::IntPoint cursorLocation() const;
     int documentHeight() { return mContents.height(); }
     int documentWidth() { return mContents.width(); }
     const CachedNode* findAt(const WebCore::IntRect& , const CachedFrame** ,
