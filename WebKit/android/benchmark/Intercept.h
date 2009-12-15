@@ -46,7 +46,8 @@ using namespace WTF;
 
 class MyResourceLoader : public WebCoreResourceLoader {
 public:
-    static PassRefPtr<MyResourceLoader> create(ResourceHandle* handle, String url);
+    static PassRefPtr<WebCore::ResourceLoaderAndroid> create(
+            ResourceHandle* handle, String url);
     void handleRequest();
 
 private:
@@ -67,14 +68,14 @@ public:
         : WebFrame(JSC::Bindings::getJNIEnv(), MY_JOBJECT, MY_JOBJECT, page)
         , m_timer(this, &MyWebFrame::timerFired) {}
 
-    virtual PassRefPtr<MyResourceLoader> startLoadingResource(ResourceHandle* handle,
-            const ResourceRequest& req, bool);
+    virtual PassRefPtr<WebCore::ResourceLoaderAndroid> startLoadingResource(
+            ResourceHandle* handle, const ResourceRequest& req, bool, bool);
 
     virtual bool canHandleRequest(const ResourceRequest&) { return true; }
 
 private:
     void timerFired(Timer<MyWebFrame>*);
-    Vector<RefPtr<MyResourceLoader> > m_requests;
+    Vector<RefPtr<WebCore::ResourceLoaderAndroid> > m_requests;
     Timer<MyWebFrame> m_timer;
 };
 
