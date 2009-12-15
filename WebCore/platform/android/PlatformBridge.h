@@ -48,6 +48,16 @@ public:
     // KeyGenerator
     static WTF::Vector<String> getSupportedKeyStrengthList();
     static String getSignedPublicKeyAndChallengeString(unsigned index, const String& challenge, const KURL&);
+    // These ids need to be in sync with the constants in BrowserFrame.java
+    enum rawResId {
+        NoDomain = 1,
+        LoadError,
+        DrawableDir,
+        FileUploadLabel,
+        ResetLabel,
+        SubmitLabel
+    };
+    static String* globalLocalizedName(rawResId resId);
 };
 }
 #endif // PlatformBridge_h

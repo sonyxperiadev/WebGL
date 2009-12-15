@@ -44,6 +44,7 @@
 #include "MIMETypeRegistry.h"
 #include "NotImplemented.h"
 #include "Page.h"
+#include "PlatformBridge.h"
 #include "PlatformGraphicsContext.h"
 #include "PlatformString.h"
 #include "PluginDatabase.h"
@@ -300,11 +301,11 @@ void FrameLoaderClientAndroid::dispatchDidFailProvisionalLoad(const ResourceErro
     AssetManager* am = globalAssetManager();
 
     // Check to see if the error code was not generated internally
-    WebFrame::RAW_RES_ID id = WebFrame::NODOMAIN;
+    WebCore::PlatformBridge::rawResId id = WebCore::PlatformBridge::NoDomain;
     if ((error.errorCode() == ErrorFile ||
             error.errorCode() == ErrorFileNotFound) &&
             (!error.localizedDescription().isEmpty())) {
-        id = WebFrame::LOADERROR;
+        id = WebCore::PlatformBridge::LoadError;
     }
     String filename = m_webFrame->getRawResourceFilename(id);
     if (filename.isEmpty())
