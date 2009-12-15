@@ -129,6 +129,8 @@ public:
     int navableRects() const { return mNavableRects; }
     void* nodePointer() const { return mNode; }
     bool noSecondChance() const { return mCondition > SECOND_CHANCE_END; }
+    const WebCore::IntRect& originalAbsoluteBounds() const {
+        return mOriginalAbsoluteBounds; }
     const CachedNode* parent() const { return document() + mParentIndex; }
     void* parentGroup() const { return mParentGroup; }
     int parentIndex() const { return mParentIndex; }
@@ -143,6 +145,8 @@ public:
     void setHasCursorRing(bool hasRing) { mHasCursorRing = hasRing; }
     void setHasMouseOver(bool hasMouseOver) { mHasMouseOver = hasMouseOver; }
     void setHitBounds(const WebCore::IntRect& bounds) { mHitBounds = bounds; }
+    void setOriginalAbsoluteBounds(const WebCore::IntRect& bounds) {
+        mOriginalAbsoluteBounds = bounds; }
     void setIndex(int index) { mIndex = index; }
     void setIsCursor(bool isCursor) { mIsCursor = isCursor; }
     void setIsFocus(bool isFocus) { mIsFocus = isFocus; }
@@ -166,6 +170,7 @@ private:
     WebCore::String mExport;
     WebCore::IntRect mBounds;
     WebCore::IntRect mHitBounds;
+    WebCore::IntRect mOriginalAbsoluteBounds;
     WTF::Vector<WebCore::IntRect> mCursorRing;
     void* mNode; // WebCore::Node*, only used to match pointers
     void* mParentGroup; // WebCore::Node*, only used to match pointers
