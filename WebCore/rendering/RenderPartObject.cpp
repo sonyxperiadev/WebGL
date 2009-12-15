@@ -322,10 +322,15 @@ void RenderPartObject::layout()
 #ifdef FLATTEN_IFRAME
     RenderPart::calcWidth();
     RenderPart::calcHeight();
+    // Calculate the styled dimensions by subtracting the border and padding.
+    int extraWidth = paddingLeft() + paddingRight() + borderLeft() + borderRight();
+    int extraHeight = paddingTop() + paddingBottom() + borderTop() + borderBottom();
+    int styleWidth = width() - extraWidth;
+    int styleHeight = height() - extraHeight;
     // Some IFrames have a width and/or height of 1 when they are meant to be
     // hidden. If that is the case, do not try to expand.
-    if (node()->hasTagName(iframeTag) && widget() && widget()->isFrameView()
-            && width() > 1 && height() > 1) {
+    if (node()->hasTagName(iframeTag) && widget() && widget()->isFrameView() &&
+            styleWidth > 1 && styleHeight > 1) {
         HTMLIFrameElement* element = static_cast<HTMLIFrameElement*>(node());
         bool scrolling = element->scrollingMode() != ScrollbarAlwaysOff;
         bool widthIsFixed = style()->width().isFixed();
@@ -336,15 +341,11 @@ void RenderPartObject::layout()
         if (scrolling || !widthIsFixed || !heightIsFixed) {
             FrameView* view = static_cast<FrameView*>(widget());
             RenderView* root = view ? view->frame()->contentRenderer() : NULL;
-            RenderPart* owner = view->frame()->ownerRenderer();
-            if (root && style()->visibility() != HIDDEN
-                    && (!owner || owner->style()->visibility() != HIDDEN)) {
+            if (root && style()->visibility() != HIDDEN) {
                 // Update the dimensions to get the correct minimum preferred
                 // width
                 updateWidgetPosition();
 
-                int extraWidth = paddingLeft() + paddingRight() + borderLeft() + borderRight();
-                int extraHeight = paddingTop() + paddingBottom() + borderTop() + borderBottom();
                 // Use the preferred width if it is larger and only if
                 // scrollbars are visible or the width style is not fixed.
                 if (scrolling || !widthIsFixed)
