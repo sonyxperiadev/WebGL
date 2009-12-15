@@ -87,6 +87,10 @@ using namespace std;
 @interface DumpRenderTreeEvent : NSEvent
 @end
 
+@interface NSURLRequest (PrivateThingsWeShouldntReallyUse)
++(void)setAllowsAnyHTTPSCertificate:(BOOL)allow forHost:(NSString *)host;
+@end
+
 static void runTest(const string& testPathOrURL);
 
 // Deciding when it's OK to dump out the state is a bit tricky.  All these must be true:
@@ -302,7 +306,7 @@ WebView *createWebViewAndOffscreenWindow()
     [window orderBack:nil];
     [window setAutodisplay:NO];
 
-    [window startObservingWebView];
+    [window startListeningForAcceleratedCompositingChanges];
     
     // For reasons that are not entirely clear, the following pair of calls makes WebView handle its
     // dynamic scrollbars properly. Without it, every frame will always have scrollbars.
@@ -596,9 +600,17 @@ void dumpRenderTree(int argc, const char *argv[])
     mainFrame = [webView mainFrame];
 
     [[NSURLCache sharedURLCache] removeAllCachedResponses];
-
     [WebCache empty];
-     
+
+    // <http://webkit.org/b/31200> In order to prevent extra frame load delegate logging being generated if the first test to use SSL
+    // is set to log frame load delegate calls we ignore SSL certificate errors on localhost and 127.0.0.1.
+#if BUILDING_ON_TIGER
+    // Initialize internal NSURLRequest data for setAllowsAnyHTTPSCertificate:forHost: to work properly.
+    [[[[NSURLRequest alloc] init] autorelease] HTTPMethod];
+#endif
+    [NSURLRequest setAllowsAnyHTTPSCertificate:YES forHost:@"localhost"];
+    [NSURLRequest setAllowsAnyHTTPSCertificate:YES forHost:@"127.0.0.1"];
+
     // <rdar://problem/5222911>
     testStringByEvaluatingJavaScriptFromString();
 
@@ -1090,6 +1102,11 @@ static bool shouldLogHistoryDelegates(const char* pathOrURL)
     return strstr(pathOrURL, "globalhistory/");
 }
 
+static bool shouldOpenWebInspector(const char* pathOrURL)
+{
+    return strstr(pathOrURL, "inspector/");
+}
+
 static void resetWebViewToConsistentStateBeforeTesting()
 {
     WebView *webView = [mainFrame webView];
@@ -1105,6 +1122,7 @@ static void resetWebViewToConsistentStateBeforeTesting()
     [webView _clearMainFrameName];
     [[webView undoManager] removeAllActions];
     [WebView _removeAllUserContentFromGroup:[webView groupName]];
+    [[webView window] setAutodisplay:NO];
 
     resetDefaultsToConsistentValues();
 
@@ -1166,7 +1184,10 @@ static void runTest(const string& testPathOrURL)
         [[mainFrame webView] setHistoryDelegate:historyDelegate];
     else
         [[mainFrame webView] setHistoryDelegate:nil];
-    
+
+    if (shouldOpenWebInspector(pathOrURL.c_str()))
+        gLayoutTestController->showWebInspector();
+
     if ([WebHistory optionalSharedHistory])
         [WebHistory setOptionalSharedHistory:nil];
     lastMousePosition = NSZeroPoint;
@@ -1190,6 +1211,7 @@ static void runTest(const string& testPathOrURL)
         [[NSRunLoop currentRunLoop] runMode:NSDefaultRunLoopMode beforeDate:[NSDate distantPast]];
         [pool release];
     }
+
     pool = [[NSAutoreleasePool alloc] init];
     [EventSendingController clearSavedEvents];
     [[mainFrame webView] setSelectedDOMRange:nil affinity:NSSelectionAffinityDownstream];
@@ -1214,11 +1236,14 @@ static void runTest(const string& testPathOrURL)
         }
     }
 
+    if (shouldOpenWebInspector(pathOrURL.c_str()))
+        gLayoutTestController->closeWebInspector();
+
     resetWebViewToConsistentStateBeforeTesting();
 
     [mainFrame loadHTMLString:@"<html></html>" baseURL:[NSURL URLWithString:@"about:blank"]];
     [mainFrame stopLoading];
-    
+
     [pool release];
 
     // We should only have our main window left open when we're done

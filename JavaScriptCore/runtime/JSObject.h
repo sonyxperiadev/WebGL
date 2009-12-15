@@ -135,7 +135,6 @@ namespace JSC {
         virtual JSObject* toThisObject(ExecState*) const;
         virtual JSObject* unwrappedObject();
 
-        virtual bool getPropertyAttributes(ExecState*, const Identifier& propertyName, unsigned& attributes) const;
         bool getPropertySpecificValue(ExecState* exec, const Identifier& propertyName, JSCell*& specificFunction) const;
 
         // This get function only looks at the property map.
@@ -210,6 +209,11 @@ namespace JSC {
             return Structure::create(prototype, TypeInfo(ObjectType, StructureFlags));
         }
 
+        void flattenDictionaryObject()
+        {
+            m_structure->flattenDictionaryStructure(this);
+        }
+
     protected:
         static const unsigned StructureFlags = 0;
 
@@ -229,7 +233,7 @@ namespace JSC {
         using JSCell::isGetterSetter;
         using JSCell::toObject;
         void getObject();
-        void getString();
+        void getString(ExecState* exec);
         void isObject();
         void isString();
 #if USE(JSVALUE32)

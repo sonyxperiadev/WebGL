@@ -38,6 +38,7 @@
 #include "HTMLNames.h"
 #include "LocalizedStrings.h"
 #include "MouseEvent.h"
+#include "Page.h"
 #include "RenderMedia.h"
 #include "RenderSlider.h"
 #include "RenderTheme.h"
@@ -347,6 +348,9 @@ MediaControlInputElement::MediaControlInputElement(Document* document, PseudoId 
     case MEDIA_CONTROLS_VOLUME_SLIDER:
         m_displayType = MediaVolumeSlider;
         break;
+    case MEDIA_CONTROLS_TOGGLE_CLOSED_CAPTIONS_BUTTON:
+        m_displayType = MediaShowClosedCaptionsButton;
+        break;
     default:
         ASSERT_NOT_REACHED();
         break;
@@ -577,6 +581,29 @@ void MediaControlReturnToRealtimeButtonElement::defaultEventHandler(Event* event
 
 // ----------------------------
 
+MediaControlToggleClosedCaptionsButtonElement::MediaControlToggleClosedCaptionsButtonElement(Document* doc, HTMLMediaElement* element)
+    : MediaControlInputElement(doc, MEDIA_CONTROLS_TOGGLE_CLOSED_CAPTIONS_BUTTON, "button", element)
+{
+}
+
+void MediaControlToggleClosedCaptionsButtonElement::defaultEventHandler(Event* event)
+{
+    if (event->type() == eventNames().clickEvent) {
+        m_mediaElement->setClosedCaptionsVisible(!m_mediaElement->closedCaptionsVisible());
+        setChecked(m_mediaElement->closedCaptionsVisible());
+        event->setDefaultHandled();
+    }
+    HTMLInputElement::defaultEventHandler(event);
+}
+
+void MediaControlToggleClosedCaptionsButtonElement::updateDisplayType()
+{
+    setDisplayType(m_mediaElement->closedCaptionsVisible() ? MediaHideClosedCaptionsButton : MediaShowClosedCaptionsButton);
+}
+
+
+// ----------------------------
+
 MediaControlTimelineElement::MediaControlTimelineElement(Document* document, HTMLMediaElement* element)
     : MediaControlInputElement(document, MEDIA_CONTROLS_TIMELINE, "range", element)
 {
@@ -649,10 +676,9 @@ void MediaControlVolumeSliderElement::defaultEventHandler(Event* event)
 void MediaControlVolumeSliderElement::update()
 {
     float volume = m_mediaElement->volume();
-    if (value().toFloat() != volume) {
+    if (value().toFloat() != volume)
         setValue(String::number(volume));
-        MediaControlInputElement::update();
-    }
+    MediaControlInputElement::update();
 }
 
 // ----------------------------

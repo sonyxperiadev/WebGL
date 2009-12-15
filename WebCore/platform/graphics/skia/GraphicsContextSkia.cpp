@@ -293,7 +293,10 @@ void GraphicsContext::addInnerRoundedRectClip(const IntRect& rect, int thickness
     path.addOval(r, SkPath::kCW_Direction);
     // only perform the inset if we won't invert r
     if (2 * thickness < rect.width() && 2 * thickness < rect.height()) {
-        r.inset(SkIntToScalar(thickness), SkIntToScalar(thickness));
+        // Adding one to the thickness doesn't make the border too thick as
+        // it's painted over afterwards. But without this adjustment the
+        // border appears a little anemic after anti-aliasing.
+        r.inset(SkIntToScalar(thickness + 1), SkIntToScalar(thickness + 1));
         path.addOval(r, SkPath::kCCW_Direction);
     }
     platformContext()->clipPathAntiAliased(path);
@@ -704,8 +707,6 @@ void GraphicsContext::fillPath()
       return;
 
     const GraphicsContextState& state = m_common->state;
-    ColorSpace colorSpace = state.fillColorSpace;
-
     path.setFillType(state.fillRule == RULE_EVENODD ?
         SkPath::kEvenOdd_FillType : SkPath::kWinding_FillType);
 
@@ -727,14 +728,13 @@ void GraphicsContext::fillRect(const FloatRect& rect)
     }
 
     const GraphicsContextState& state = m_common->state;
-    ColorSpace colorSpace = state.fillColorSpace;
 
     SkPaint paint;
     platformContext()->setupPaintForFilling(&paint);
     platformContext()->canvas()->drawRect(r, paint);
 }
 
-void GraphicsContext::fillRect(const FloatRect& rect, const Color& color)
+void GraphicsContext::fillRect(const FloatRect& rect, const Color& color, ColorSpace colorSpace)
 {
     if (paintingDisabled())
         return;
@@ -765,7 +765,8 @@ void GraphicsContext::fillRoundedRect(const IntRect& rect,
                                       const IntSize& topRight,
                                       const IntSize& bottomLeft,
                                       const IntSize& bottomRight,
-                                      const Color& color)
+                                      const Color& color,
+                                      ColorSpace colorSpace)
 {
     if (paintingDisabled())
         return;
@@ -782,7 +783,7 @@ void GraphicsContext::fillRoundedRect(const IntRect& rect,
         // Not all the radii fit, return a rect. This matches the behavior of
         // Path::createRoundedRectangle. Without this we attempt to draw a round
         // shadow for a square box.
-        fillRect(rect, color);
+        fillRect(rect, color, colorSpace);
         return;
     }
 
@@ -950,7 +951,7 @@ void GraphicsContext::setMiterLimit(float limit)
     platformContext()->setMiterLimit(limit);
 }
 
-void GraphicsContext::setPlatformFillColor(const Color& color)
+void GraphicsContext::setPlatformFillColor(const Color& color, ColorSpace colorSpace)
 {
     if (paintingDisabled())
         return;
@@ -977,7 +978,8 @@ void GraphicsContext::setPlatformFillPattern(Pattern* pattern)
 
 void GraphicsContext::setPlatformShadow(const IntSize& size,
                                         int blurInt,
-                                        const Color& color)
+                                        const Color& color,
+                                        ColorSpace colorSpace)
 {
     if (paintingDisabled())
         return;
@@ -1019,7 +1021,7 @@ void GraphicsContext::setPlatformShadow(const IntSize& size,
     dl->unref();
 }
 
-void GraphicsContext::setPlatformStrokeColor(const Color& strokecolor)
+void GraphicsContext::setPlatformStrokeColor(const Color& strokecolor, ColorSpace colorSpace)
 {
     if (paintingDisabled())
         return;
@@ -1118,7 +1120,6 @@ void GraphicsContext::strokePath()
         return;
 
     const GraphicsContextState& state = m_common->state;
-    ColorSpace colorSpace = state.strokeColorSpace;
 
     SkPaint paint;
     platformContext()->setupPaintForStroking(&paint, 0, 0);
@@ -1135,7 +1136,6 @@ void GraphicsContext::strokeRect(const FloatRect& rect, float lineWidth)
         return;
 
     const GraphicsContextState& state = m_common->state;
-    ColorSpace colorSpace = state.strokeColorSpace;
 
     SkPaint paint;
     platformContext()->setupPaintForStroking(&paint, 0, 0);

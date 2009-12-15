@@ -161,6 +161,12 @@ enum AccessibilityRole {
     AnnotationRole,
     SliderThumbRole,
     IgnoredRole,
+    TabRole,
+    TabListRole,
+    TabPanelRole,
+    TreeRole,
+    TreeItemRole,
+    DirectoryRole,
     
     // ARIA Grouping roles
     LandmarkApplicationRole,
@@ -171,6 +177,9 @@ enum AccessibilityRole {
     LandmarkNavigationRole,
     LandmarkSearchRole,
     
+    ApplicationAlertRole,
+    ApplicationAlertDialogRole,
+    ApplicationDialogRole,
     ApplicationLogRole,
     ApplicationMarqueeRole,
     ApplicationStatusRole,
@@ -178,6 +187,7 @@ enum AccessibilityRole {
     
     DocumentRole,
     DocumentArticleRole,
+    DocumentMathRole,
     DocumentNoteRole,
     DocumentRegionRole,
     
@@ -225,7 +235,7 @@ struct PlainTextRange {
         , length(l)
     { }
     
-    bool isNull() const { return start == 0 && length == 0; }
+    bool isNull() const { return !start && !length; }
 };
 
 class AccessibilityObject : public RefCounted<AccessibilityObject> {
@@ -237,64 +247,75 @@ public:
         
     typedef Vector<RefPtr<AccessibilityObject> > AccessibilityChildrenVector;
     
-    virtual bool isAccessibilityRenderObject() const { return false; };
-    virtual bool isAnchor() const { return false; };
-    virtual bool isAttachment() const { return false; };
-    virtual bool isHeading() const { return false; };
-    virtual bool isLink() const { return false; };
-    virtual bool isImage() const { return false; };
-    virtual bool isNativeImage() const { return false; };
-    virtual bool isImageButton() const { return false; };
-    virtual bool isPasswordField() const { return false; };
-    virtual bool isTextControl() const { return false; };
-    virtual bool isNativeTextControl() const { return false; };
-    virtual bool isWebArea() const { return false; };
-    virtual bool isCheckboxOrRadio() const { return false; };
-    virtual bool isListBox() const { return roleValue() == ListBoxRole; };
+    virtual bool isAccessibilityRenderObject() const { return false; }
+    virtual bool isAnchor() const { return false; }
+    virtual bool isAttachment() const { return false; }
+    virtual bool isHeading() const { return false; }
+    virtual bool isLink() const { return false; }
+    virtual bool isImage() const { return false; }
+    virtual bool isNativeImage() const { return false; }
+    virtual bool isImageButton() const { return false; }
+    virtual bool isPasswordField() const { return false; }
+    virtual bool isTextControl() const { return false; }
+    virtual bool isNativeTextControl() const { return false; }
+    virtual bool isWebArea() const { return false; }
+    virtual bool isCheckboxOrRadio() const { return false; }
+    virtual bool isListBox() const { return roleValue() == ListBoxRole; }
     virtual bool isMediaTimeline() const { return false; }
     virtual bool isMenuRelated() const { return false; }
     virtual bool isMenu() const { return false; }
     virtual bool isMenuBar() const { return false; }
     virtual bool isMenuButton() const { return false; }
     virtual bool isMenuItem() const { return false; }
-    virtual bool isFileUploadButton() const { return false; };
+    virtual bool isFileUploadButton() const { return false; }
     virtual bool isInputImage() const { return false; }
-    virtual bool isProgressIndicator() const { return false; };
-    virtual bool isSlider() const { return false; };
-    virtual bool isControl() const { return false; };
-    virtual bool isList() const { return false; };
-    virtual bool isDataTable() const { return false; };
-    virtual bool isTableRow() const { return false; };
-    virtual bool isTableColumn() const { return false; };
-    virtual bool isTableCell() const { return false; };
-    virtual bool isFieldset() const { return false; };
-    virtual bool isGroup() const { return false; };
+    virtual bool isProgressIndicator() const { return false; }
+    virtual bool isSlider() const { return false; }
+    virtual bool isControl() const { return false; }
+    virtual bool isList() const { return false; }
+    virtual bool isDataTable() const { return false; }
+    virtual bool isTableRow() const { return false; }
+    virtual bool isTableColumn() const { return false; }
+    virtual bool isTableCell() const { return false; }
+    virtual bool isFieldset() const { return false; }
+    virtual bool isGroup() const { return false; }
+    bool isTabList() const { return roleValue() == TabListRole; }
+    bool isTabItem() const { return roleValue() == TabRole; }
     bool isRadioGroup() const { return roleValue() == RadioGroupRole; }
+    bool isComboBox() const { return roleValue() == ComboBoxRole; }
+    bool isTree() const { return roleValue() == TreeRole; }
+    bool isTreeItem() const { return roleValue() == TreeItemRole; }
+    bool isScrollbar() const { return roleValue() == ScrollBarRole; }
+    bool isButton() const { return roleValue() == ButtonRole; }
     
-    virtual bool isChecked() const { return false; };
-    virtual bool isEnabled() const { return false; };
-    virtual bool isSelected() const { return false; };
-    virtual bool isFocused() const { return false; };
-    virtual bool isHovered() const { return false; };
-    virtual bool isIndeterminate() const { return false; };
-    virtual bool isLoaded() const { return false; };
-    virtual bool isMultiSelect() const { return false; };
-    virtual bool isOffScreen() const { return false; };
-    virtual bool isPressed() const { return false; };
-    virtual bool isReadOnly() const { return false; };
-    virtual bool isVisited() const { return false; };
-    virtual bool isRequired() const { return false; };
+    virtual bool isChecked() const { return false; }
+    virtual bool isEnabled() const { return false; }
+    virtual bool isSelected() const { return false; }
+    virtual bool isFocused() const { return false; }
+    virtual bool isHovered() const { return false; }
+    virtual bool isIndeterminate() const { return false; }
+    virtual bool isLoaded() const { return false; }
+    virtual bool isMultiSelect() const { return false; }
+    virtual bool isOffScreen() const { return false; }
+    virtual bool isPressed() const { return false; }
+    virtual bool isReadOnly() const { return false; }
+    virtual bool isVisited() const { return false; }
+    virtual bool isRequired() const { return false; }
+    virtual bool isLinked() const { return false; }
+    virtual bool isExpanded() const { return false; }
+    virtual void setIsExpanded(bool) { }
 
-    virtual bool canSetFocusAttribute() const { return false; };
-    virtual bool canSetTextRangeAttributes() const { return false; };
-    virtual bool canSetValueAttribute() const { return false; };
+    virtual bool canSetFocusAttribute() const { return false; }
+    virtual bool canSetTextRangeAttributes() const { return false; }
+    virtual bool canSetValueAttribute() const { return false; }
     virtual bool canSetSelectedAttribute() const { return false; }
     virtual bool canSetSelectedChildrenAttribute() const { return false; }
+    virtual bool canSetExpandedAttribute() const { return false; }
     
-    virtual bool hasIntValue() const { return false; };
+    virtual bool hasIntValue() const { return false; }
 
-    bool accessibilityShouldUseUniqueId() const { return true; };
-    virtual bool accessibilityIsIgnored() const  { return true; };
+    bool accessibilityShouldUseUniqueId() const { return true; }
+    virtual bool accessibilityIsIgnored() const  { return true; }
 
     virtual int headingLevel() const { return 0; }
     virtual int intValue() const { return 0; }
@@ -303,9 +324,21 @@ public:
     virtual float maxValueForRange() const { return 0.0f; }
     virtual float minValueForRange() const { return 0.0f; }
     virtual AccessibilityObject* selectedRadioButton() { return 0; }
+    virtual AccessibilityObject* selectedTabItem() { return 0; }    
     virtual int layoutCount() const { return 0; }
     static bool isARIAControl(AccessibilityRole);
     static bool isARIAInput(AccessibilityRole);
+    virtual bool supportsARIAOwns() const { return false; }
+    virtual void ariaOwnsElements(AccessibilityChildrenVector&) const { }
+    virtual bool supportsARIAFlowTo() const { return false; }
+    virtual void ariaFlowToElements(AccessibilityChildrenVector&) const { }
+    
+    // ARIA drag and drop
+    virtual bool supportsARIADropping() { return false; }
+    virtual bool supportsARIADragging() { return false; }
+    virtual bool isARIAGrabbed() { return false; }
+    virtual void setARIAGrabbed(bool) { }
+    virtual void determineARIADropEffects(Vector<String>&) { }
     
     virtual AccessibilityObject* doAccessibilityHitTest(const IntPoint&) const { return 0; }
     virtual AccessibilityObject* focusedUIElement() const { return 0; }
@@ -331,7 +364,6 @@ public:
 
     void setRoleValue(AccessibilityRole role) { m_role = role; }
     virtual AccessibilityRole roleValue() const { return m_role; }
-    virtual String ariaAccessibilityName(const String&) const { return String(); }
     virtual String ariaLabeledByAttribute() const { return String(); }
     virtual String ariaDescribedByAttribute() const { return String(); }
     virtual String accessibilityDescription() const { return String(); }
@@ -370,20 +402,22 @@ public:
     virtual FrameView* topDocumentFrameView() const { return 0; }
     virtual FrameView* documentFrameView() const;
     virtual String language() const;
-
+    virtual unsigned hierarchicalLevel() const { return 0; }
+    
     virtual void setFocused(bool) { }
     virtual void setSelectedText(const String&) { }
     virtual void setSelectedTextRange(const PlainTextRange&) { }
     virtual void setValue(const String&) { }
     virtual void setSelected(bool) { }
-
+    virtual void setSelectedRows(AccessibilityChildrenVector&) { }
+    
     virtual void makeRangeVisible(const PlainTextRange&) { }
     virtual bool press() const;
     bool performDefaultAction() const { return press(); }
-
+    
     virtual AccessibilityOrientation orientation() const;
-    virtual void increment() { };
-    virtual void decrement() { };
+    virtual void increment() { }
+    virtual void decrement() { }
 
     virtual void childrenChanged() { }
     virtual const AccessibilityChildrenVector& children() { return m_children; }
@@ -392,10 +426,13 @@ public:
     virtual bool hasChildren() const { return m_haveChildren; }
     virtual void selectedChildren(AccessibilityChildrenVector&) { }
     virtual void visibleChildren(AccessibilityChildrenVector&) { }
+    virtual void tabChildren(AccessibilityChildrenVector&) { }
     virtual bool shouldFocusActiveDescendant() const { return false; }
     virtual AccessibilityObject* activeDescendant() const { return 0; }    
     virtual void handleActiveDescendantChanged() { }
 
+    static AccessibilityRole ariaRoleToWebCoreRole(const String&);
+    
     virtual VisiblePositionRange visiblePositionRange() const { return VisiblePositionRange(); }
     virtual VisiblePositionRange visiblePositionRangeForLine(unsigned) const { return VisiblePositionRange(); }
     
@@ -446,6 +483,18 @@ public:
 
     unsigned doAXLineForIndex(unsigned);
 
+    virtual String stringValueForMSAA() const { return String(); }
+    virtual String stringRoleForMSAA() const { return String(); }
+    virtual String nameForMSAA() const { return String(); }
+    virtual String descriptionForMSAA() const { return String(); }
+    
+    // Used by an ARIA tree to get all its rows.
+    void ariaTreeRows(AccessibilityChildrenVector&);
+    // Used by an ARIA tree item to get all of its direct rows that it can disclose.
+    void ariaTreeItemDisclosedRows(AccessibilityChildrenVector&);
+    // Used by an ARIA tree item to get only its content, and not its child tree items and groups. 
+    void ariaTreeItemContent(AccessibilityChildrenVector&);
+    
 #if HAVE(ACCESSIBILITY)
 #if PLATFORM(GTK)
     AccessibilityObjectWrapper* wrapper() const;

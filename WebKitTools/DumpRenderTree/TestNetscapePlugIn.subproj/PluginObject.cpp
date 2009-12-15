@@ -34,6 +34,45 @@
 #include <string.h>
 #include <stdlib.h>
 
+// Helper function which takes in the plugin window object for logging to the console object.
+static void pluginLogWithWindowObject(NPObject* windowObject, NPP instance, const char* message)
+{
+    NPVariant consoleVariant;
+    if (!browser->getproperty(instance, windowObject, browser->getstringidentifier("console"), &consoleVariant)) {
+        fprintf(stderr, "Failed to retrieve console object while logging: %s\n", message);
+        return;
+    }
+
+    NPObject* consoleObject = NPVARIANT_TO_OBJECT(consoleVariant);
+
+    NPVariant messageVariant;
+    STRINGZ_TO_NPVARIANT(message, messageVariant);
+
+    NPVariant result;
+    if (!browser->invoke(instance, consoleObject, browser->getstringidentifier("log"), &messageVariant, 1, &result)) {
+        fprintf(stderr, "Failed to invoke console.log while logging: %s\n", message);
+        browser->releaseobject(consoleObject);
+        return;
+    }
+
+    browser->releasevariantvalue(&result);
+    browser->releaseobject(consoleObject);
+}
+
+// Helper function which takes in the plugin window object for logging to the console object. This function supports variable
+// arguments.
+static void pluginLogWithWindowObjectVariableArgs(NPObject* windowObject, NPP instance, const char* format, ...)
+{
+    va_list args;
+    va_start(args, format);
+    char message[2048] = "PLUGIN: ";
+    vsprintf(message + strlen(message), format, args);
+    va_end(args);
+
+    pluginLogWithWindowObject(windowObject, instance, message);
+}
+             
+// Helper function to log to the console object.
 void pluginLog(NPP instance, const char* format, ...)
 {
     va_list args;
@@ -49,28 +88,7 @@ void pluginLog(NPP instance, const char* format, ...)
         return;
     }
 
-    NPVariant consoleVariant;
-    if (!browser->getproperty(instance, windowObject, browser->getstringidentifier("console"), &consoleVariant)) {
-        fprintf(stderr, "Failed to retrieve console object while logging: %s\n", message);
-        browser->releaseobject(windowObject);
-        return;
-    }
-
-    NPObject* consoleObject = NPVARIANT_TO_OBJECT(consoleVariant);
-
-    NPVariant messageVariant;
-    STRINGZ_TO_NPVARIANT(message, messageVariant);
-
-    NPVariant result;
-    if (!browser->invoke(instance, consoleObject, browser->getstringidentifier("log"), &messageVariant, 1, &result)) {
-        fprintf(stderr, "Failed to invoke console.log while logging: %s\n", message);
-        browser->releaseobject(consoleObject);
-        browser->releaseobject(windowObject);
-        return;
-    }
-
-    browser->releasevariantvalue(&result);
-    browser->releaseobject(consoleObject);
+    pluginLogWithWindowObject(windowObject, instance, message);
     browser->releaseobject(windowObject);
 }
 
@@ -152,6 +170,8 @@ enum {
     ID_TEST_THROW_EXCEPTION_METHOD,
     ID_TEST_FAIL_METHOD,
     ID_DESTROY_NULL_STREAM,
+    ID_TEST_RELOAD_PLUGINS_NO_PAGES,
+    ID_TEST_RELOAD_PLUGINS_AND_PAGES,
     NUM_METHOD_IDENTIFIERS
 };
 
@@ -177,7 +197,9 @@ static const NPUTF8 *pluginMethodIdentifierNames[NUM_METHOD_IDENTIFIERS] = {
     "testConstruct",
     "testThrowException",
     "testFail",
-    "destroyNullStream"
+    "destroyNullStream",
+    "reloadPluginsNoPages",
+    "reloadPluginsAndPages"
 };
 
 static NPUTF8* createCStringFromNPVariant(const NPVariant* variant)
@@ -643,6 +665,76 @@ static bool testConstruct(PluginObject* obj, const NPVariant* args, uint32_t arg
     return browser->construct(obj->npp, NPVARIANT_TO_OBJECT(args[0]), args + 1, argCount - 1, result);
 }
 
+// Helper function to notify the layout test controller that the test completed.
+void notifyTestCompletion(NPP npp, NPObject* object)
+{
+    NPVariant result;
+    NPString script;
+    script.UTF8Characters = "javascript:window.layoutTestController.notifyDone();";
+    script.UTF8Length = strlen("javascript:window.layoutTestController.notifyDone();");
+    browser->evaluate(npp, object, &script, &result);
+    browser->releasevariantvalue(&result);
+}
+
+bool testDocumentOpen(NPP npp)
+{
+    NPIdentifier documentId = browser->getstringidentifier("document");
+    NPIdentifier openId = browser->getstringidentifier("open");
+
+    NPObject *windowObject = NULL;
+    browser->getvalue(npp, NPNVWindowNPObject, &windowObject);
+    if (!windowObject)
+        return false;
+
+    NPVariant docVariant;
+    browser->getproperty(npp, windowObject, documentId, &docVariant);
+    if (docVariant.type != NPVariantType_Object)
+        return false;
+
+    NPObject *documentObject = NPVARIANT_TO_OBJECT(docVariant);
+
+    NPVariant openArgs[2];
+    STRINGZ_TO_NPVARIANT("text/html", openArgs[0]);
+    STRINGZ_TO_NPVARIANT("_blank", openArgs[1]);
+
+    NPVariant result;
+    browser->invoke(npp, documentObject, openId, openArgs, 2, &result);
+    browser->releaseobject(documentObject);
+
+    if (result.type == NPVariantType_Object) {
+        pluginLogWithWindowObjectVariableArgs(windowObject, npp, "DOCUMENT OPEN SUCCESS");
+        notifyTestCompletion(npp, result.value.objectValue);
+        browser->releaseobject(result.value.objectValue);
+        return true;
+    }
+
+    return false;
+}
+
+bool testWindowOpen(NPP npp)
+{
+    NPIdentifier openId = browser->getstringidentifier("open");
+
+    NPObject *windowObject = NULL;
+    browser->getvalue(npp, NPNVWindowNPObject, &windowObject);
+    if (!windowObject)
+        return false;
+
+    NPVariant openArgs[2];
+    STRINGZ_TO_NPVARIANT("about:blank", openArgs[0]);
+    STRINGZ_TO_NPVARIANT("_blank", openArgs[1]);
+
+    NPVariant result;
+    browser->invoke(npp, windowObject, openId, openArgs, 2, &result);
+    if (result.type == NPVariantType_Object) {
+        pluginLogWithWindowObjectVariableArgs(windowObject, npp, "WINDOW OPEN SUCCESS");
+        notifyTestCompletion(npp, result.value.objectValue);
+        browser->releaseobject(result.value.objectValue);
+        return true;
+    }
+    return false;
+}
+
 static bool pluginInvoke(NPObject* header, NPIdentifier name, const NPVariant* args, uint32_t argCount, NPVariant* result)
 {
     PluginObject* plugin = reinterpret_cast<PluginObject*>(header);
@@ -691,6 +783,13 @@ static bool pluginInvoke(NPObject* header, NPIdentifier name, const NPVariant* a
         browser->invoke(plugin->npp, windowScriptObject, name, args, argCount, result);
     } else if (name == pluginMethodIdentifiers[ID_DESTROY_NULL_STREAM]) 
         return destroyNullStream(plugin, args, argCount, result);
+    else if (name == pluginMethodIdentifiers[ID_TEST_RELOAD_PLUGINS_NO_PAGES]) {
+        browser->reloadplugins(false);
+        return true;
+    } else if (name == pluginMethodIdentifiers[ID_TEST_RELOAD_PLUGINS_AND_PAGES]) {
+        browser->reloadplugins(true);
+        return true;
+    }
     
     return false;
 }
@@ -721,6 +820,7 @@ static NPObject *pluginAllocate(NPP npp, NPClass *theClass)
     newInstance->eventLogging = FALSE;
     newInstance->onStreamLoad = 0;
     newInstance->onStreamDestroy = 0;
+    newInstance->onDestroy = 0;
     newInstance->onURLNotify = 0;
     newInstance->logDestroy = FALSE;
     newInstance->logSetWindow = FALSE;
@@ -731,6 +831,9 @@ static NPObject *pluginAllocate(NPP npp, NPClass *theClass)
     newInstance->firstHeaders = NULL;
     newInstance->lastUrl = NULL;
     newInstance->lastHeaders = NULL;
+
+    newInstance->testDocumentOpenInDestroyStream = FALSE;
+    newInstance->testWindowOpen = FALSE;
 
     return (NPObject*)newInstance;
 }

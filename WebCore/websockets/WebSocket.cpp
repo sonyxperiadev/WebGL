@@ -43,34 +43,10 @@
 #include "Logging.h"
 #include "MessageEvent.h"
 #include "ScriptExecutionContext.h"
-#include "SecurityOrigin.h"
 #include "WebSocketChannel.h"
 #include <wtf/StdLibExtras.h>
 
 namespace WebCore {
-
-class ProcessWebSocketEventTask : public ScriptExecutionContext::Task {
-public:
-    typedef void (WebSocket::*Method)(Event*);
-    static PassRefPtr<ProcessWebSocketEventTask> create(PassRefPtr<WebSocket> webSocket, PassRefPtr<Event> event)
-    {
-        return adoptRef(new ProcessWebSocketEventTask(webSocket, event));
-    }
-    virtual void performTask(ScriptExecutionContext*)
-    {
-        ExceptionCode ec = 0;
-        m_webSocket->dispatchEvent(m_event.get(), ec);
-        ASSERT(!ec);
-    }
-
-  private:
-    ProcessWebSocketEventTask(PassRefPtr<WebSocket> webSocket, PassRefPtr<Event> event)
-        : m_webSocket(webSocket)
-        , m_event(event) { }
-
-    RefPtr<WebSocket> m_webSocket;
-    RefPtr<Event> m_event;
-};
 
 static bool isValidProtocolString(const WebCore::String& protocol)
 {
@@ -80,7 +56,7 @@ static bool isValidProtocolString(const WebCore::String& protocol)
         return false;
     const UChar* characters = protocol.characters();
     for (size_t i = 0; i < protocol.length(); i++) {
-        if (characters[i] < 0x21 || characters[i] > 0x7E)
+        if (characters[i] < 0x20 || characters[i] > 0x7E)
             return false;
     }
     return true;
@@ -110,7 +86,7 @@ WebSocket::WebSocket(ScriptExecutionContext* context)
 
 WebSocket::~WebSocket()
 {
-    if (m_channel.get())
+    if (m_channel)
         m_channel->disconnect();
 }
 
@@ -126,18 +102,29 @@ void WebSocket::connect(const KURL& url, const String& protocol, ExceptionCode& 
     m_protocol = protocol;
 
     if (!m_url.protocolIs("ws") && !m_url.protocolIs("wss")) {
-        LOG_ERROR("Error: wrong url for WebSocket %s", url.string().utf8().data());
+        LOG(Network, "Wrong url scheme for WebSocket %s", url.string().utf8().data());
+        m_state = CLOSED;
+        ec = SYNTAX_ERR;
+        return;
+    }
+    if (m_url.hasFragmentIdentifier()) {
+        LOG(Network, "URL has fragment component %s", url.string().utf8().data());
         m_state = CLOSED;
         ec = SYNTAX_ERR;
         return;
     }
     if (!isValidProtocolString(m_protocol)) {
-        LOG_ERROR("Error: wrong protocol for WebSocket %s", m_protocol.utf8().data());
+        LOG(Network, "Wrong protocol for WebSocket %s", m_protocol.utf8().data());
         m_state = CLOSED;
         ec = SYNTAX_ERR;
         return;
     }
-    // FIXME: if m_url.port() is blocking port, raise SECURITY_ERR.
+    if (!portAllowed(url)) {
+        LOG(Network, "WebSocket port %d blocked", url.port());
+        m_state = CLOSED;
+        ec = SECURITY_ERR;
+        return;
+    }
 
     m_channel = WebSocketChannel::create(scriptExecutionContext(), this, m_url, m_protocol);
     m_channel->connect();
@@ -196,7 +183,7 @@ void WebSocket::didConnect()
         return;
     }
     m_state = OPEN;
-    scriptExecutionContext()->postTask(ProcessWebSocketEventTask::create(this, Event::create(eventNames().openEvent, false, false)));
+    dispatchEvent(Event::create(eventNames().openEvent, false, false));
 }
 
 void WebSocket::didReceiveMessage(const String& msg)
@@ -207,15 +194,14 @@ void WebSocket::didReceiveMessage(const String& msg)
     RefPtr<MessageEvent> evt = MessageEvent::create();
     // FIXME: origin, lastEventId, source, messagePort.
     evt->initMessageEvent(eventNames().messageEvent, false, false, SerializedScriptValue::create(msg), "", "", 0, 0);
-    scriptExecutionContext()->postTask(ProcessWebSocketEventTask::create(this, evt));
+    dispatchEvent(evt);
 }
 
 void WebSocket::didClose()
 {
     LOG(Network, "WebSocket %p didClose", this);
     m_state = CLOSED;
-    if (scriptExecutionContext())
-        scriptExecutionContext()->postTask(ProcessWebSocketEventTask::create(this, Event::create(eventNames().closeEvent, false, false)));
+    dispatchEvent(Event::create(eventNames().closeEvent, false, false));
 }
 
 EventTargetData* WebSocket::eventTargetData()

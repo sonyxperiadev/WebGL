@@ -83,7 +83,7 @@ WebInspector.CPUProfileView = function(profile)
     var self = this;
     function profileCallback(profile)
     {
-        self.profile.representedObject = profile;
+        self.profile = profile;
         self._assignParentsInProfile();
       
         self.profileDataGridTree = self.bottomUpProfileDataGridTree;
@@ -95,7 +95,7 @@ WebInspector.CPUProfileView = function(profile)
     }
 
     var callId = WebInspector.Callback.wrap(profileCallback);
-    InspectorController.getProfile(callId, this.profile.uid);
+    InspectorBackend.getProfile(callId, this.profile.uid);
 }
 
 WebInspector.CPUProfileView.prototype = {
@@ -505,7 +505,7 @@ WebInspector.CPUProfileView.prototype = {
 
     _sortData: function(event)
     {
-        this._sortProfile(this.profile.representedObject);
+        this._sortProfile(this.profile);
     },
 
     _sortProfile: function()
@@ -594,9 +594,9 @@ WebInspector.CPUProfileType.prototype = {
         this._recording = !this._recording;
 
         if (this._recording)
-            InspectorController.startProfiling();
+            InspectorBackend.startProfiling();
         else
-            InspectorController.stopProfiling();
+            InspectorBackend.stopProfiling();
     },
 
     setRecordingProfile: function(isProfiling)
@@ -616,26 +616,3 @@ WebInspector.CPUProfileType.prototype = {
 }
 
 WebInspector.CPUProfileType.prototype.__proto__ = WebInspector.ProfileType.prototype;
-
-WebInspector.CPUProfile = function(profile)
-{
-    this.representedObject = profile;
-    this.typeId = WebInspector.CPUProfileType.TypeId;
-}
-
-WebInspector.CPUProfile.prototype = {
-    get title()
-    {
-        return this.representedObject.title;
-    },
-
-    get uid()
-    {
-        return this.representedObject.uid;
-    },
-
-    get head()
-    {
-        return this.representedObject.head;
-    }
-}

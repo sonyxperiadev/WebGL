@@ -66,7 +66,7 @@
 
 using namespace std;
 
-#ifndef NDEBUG
+#if !defined(NDEBUG) && (!defined(DEBUG_INTERNAL) || defined(DEBUG_ALL))
 const LPWSTR TestPluginDir = L"TestNetscapePlugin_Debug";
 #else
 const LPWSTR TestPluginDir = L"TestNetscapePlugin";
@@ -201,6 +201,43 @@ static const wstring& fontsPath()
     return path;
 }
 
+static void addQTDirToPATH()
+{
+    static LPCWSTR pathEnvironmentVariable = L"PATH";
+    static LPCWSTR quickTimeKeyName = L"Software\\Apple Computer, Inc.\\QuickTime";
+    static LPCWSTR quickTimeSysDir = L"QTSysDir";
+    static bool initialized;
+
+    if (initialized)
+        return;
+    initialized = true;
+
+    // Get the QuickTime dll directory from the registry. The key can be in either HKLM or HKCU.
+    WCHAR qtPath[MAX_PATH];
+    DWORD qtPathBufferLen = sizeof(qtPath);
+    DWORD keyType;
+    HRESULT result = SHGetValue(HKEY_LOCAL_MACHINE, quickTimeKeyName, quickTimeSysDir, &keyType, (LPVOID)qtPath, &qtPathBufferLen);
+    if (result != ERROR_SUCCESS || !qtPathBufferLen || keyType != REG_SZ) {
+        qtPathBufferLen = sizeof(qtPath);
+        result = SHGetValue(HKEY_CURRENT_USER, quickTimeKeyName, quickTimeSysDir, &keyType, (LPVOID)qtPath, &qtPathBufferLen);
+        if (result != ERROR_SUCCESS || !qtPathBufferLen || keyType != REG_SZ)
+            return;
+    }
+
+    // Read the current PATH.
+    DWORD pathSize = GetEnvironmentVariableW(pathEnvironmentVariable, 0, 0);
+    Vector<WCHAR> oldPath(pathSize);
+    if (!GetEnvironmentVariableW(pathEnvironmentVariable, oldPath.data(), oldPath.size()))
+        return;
+
+    // And add the QuickTime dll.
+    wstring newPath;
+    newPath.append(qtPath);
+    newPath.append(L";");
+    newPath.append(oldPath.data(), oldPath.size());
+    SetEnvironmentVariableW(pathEnvironmentVariable, newPath.data());
+}
+
 #ifdef DEBUG_ALL
 #define WEBKITDLL TEXT("WebKit_debug.dll")
 #else
@@ -263,6 +300,10 @@ static void initialize()
         for (int i = 0; i < ARRAYSIZE(fontsToInstall); ++i)
             textRenderer->registerPrivateFont(wstring(resourcesPath + fontsToInstall[i]).c_str());
 
+    // Add the QuickTime dll directory to PATH or QT 7.6 will fail to initialize on systems
+    // linked with older versions of qtmlclientlib.dll.
+    addQTDirToPATH();
+
     // Register a host window
     WNDCLASSEX wcex;
 
@@ -286,7 +327,7 @@ static void initialize()
 void displayWebView()
 {
     ::InvalidateRect(webViewWindow, 0, TRUE);
-    ::UpdateWindow(webViewWindow);
+    ::SendMessage(webViewWindow, WM_PAINT, 0, 0);
 }
 
 void dumpFrameScrollPosition(IWebFrame* frame)
@@ -688,6 +729,11 @@ static bool shouldLogHistoryDelegates(const char* pathOrURL)
     return strstr(pathOrURL, "/globalhistory/") || strstr(pathOrURL, "\\globalhistory\\");
 }
 
+static bool shouldOpenWebInspector(const char* pathOrURL)
+{
+    return strstr(pathOrURL, "/inspector/") || strstr(pathOrURL, "\\inspector\\");
+}
+
 static void resetDefaultsToConsistentValues(IWebPreferences* preferences)
 {
 #ifdef USE_MAC_FONTS
@@ -793,6 +839,12 @@ static void resetWebViewToConsistentStateBeforeTesting()
     webViewPrivate->clearMainFrameName();
     webViewPrivate->resetOriginAccessWhiteLists();
 
+    BSTR groupName;
+    if (SUCCEEDED(webView->groupName(&groupName))) {
+        webViewPrivate->removeAllUserContentFromGroup(groupName);
+        SysFreeString(groupName);
+    }
+
     sharedUIDelegate->resetUndoManager();
 
     sharedFrameLoadDelegate->resetToConsistentState();
@@ -859,6 +911,9 @@ static void runTest(const string& testPathOrURL)
 
     resetWebViewToConsistentStateBeforeTesting();
 
+    if (shouldOpenWebInspector(pathOrURL.c_str()))
+        gLayoutTestController->showWebInspector();
+
     prevTestBFItem = 0;
     if (webView) {
         COMPtr<IWebBackForwardList> bfList;
@@ -892,6 +947,9 @@ static void runTest(const string& testPathOrURL)
         TranslateMessage(&msg);
         DispatchMessage(&msg);
     }
+
+    if (shouldOpenWebInspector(pathOrURL.c_str()))
+        gLayoutTestController->closeWebInspector();
 
     resetWebViewToConsistentStateBeforeTesting();
 

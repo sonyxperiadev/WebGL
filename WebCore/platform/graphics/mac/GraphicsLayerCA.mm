@@ -47,6 +47,7 @@
 #import "WebLayer.h"
 #import "WebTiledLayer.h"
 #import <limits.h>
+#import <objc/objc-auto.h>
 #import <wtf/CurrentTime.h>
 #import <wtf/UnusedParam.h>
 #import <wtf/RetainPtr.h>
@@ -298,6 +299,18 @@ static void clearLayerBackgroundColor(PlatformLayer* layer)
     [layer setBackgroundColor:0];
 }
 
+static void safeSetSublayers(CALayer* layer, NSArray* sublayers)
+{
+    // Workaround for <rdar://problem/7390716>: -[CALayer setSublayers:] crashes if sublayers is an empty array, or nil, under GC.
+    if (objc_collectingEnabled() && ![sublayers count]) {
+        while ([[layer sublayers] count])
+            [[[layer sublayers] objectAtIndex:0] removeFromSuperlayer];
+        return;
+    }
+    
+    [layer setSublayers:sublayers];
+}
+
 static bool caValueFunctionSupported()
 {
     static bool sHaveValueFunction = [CAPropertyAnimation instancesRespondToSelector:@selector(setValueFunction:)];
@@ -313,18 +326,6 @@ static bool forceSoftwareAnimation()
 GraphicsLayer::CompositingCoordinatesOrientation GraphicsLayer::compositingCoordinatesOrientation()
 {
     return CompositingCoordinatesBottomUp;
-}
-
-bool GraphicsLayer::showDebugBorders()
-{
-    static bool showDebugBorders = [[NSUserDefaults standardUserDefaults] boolForKey:@"WebCoreLayerBorders"];
-    return showDebugBorders;
-}
-
-bool GraphicsLayer::showRepaintCounter()
-{
-    static bool showRepaintCounter = [[NSUserDefaults standardUserDefaults] boolForKey:@"WebCoreLayerRepaintCounter"];
-    return showRepaintCounter;
 }
 
 static NSDictionary* nullActionsDictionary()
@@ -352,13 +353,13 @@ PassOwnPtr<GraphicsLayer> GraphicsLayer::create(GraphicsLayerClient* client)
 }
 
 GraphicsLayerCA::GraphicsLayerCA(GraphicsLayerClient* client)
-: GraphicsLayer(client)
-, m_contentsLayerPurpose(NoContentsLayer)
-, m_contentsLayerHasBackgroundColor(false)
-, m_uncommittedChanges(NoChange)
+    : GraphicsLayer(client)
+    , m_contentsLayerPurpose(NoContentsLayer)
+    , m_contentsLayerHasBackgroundColor(false)
+    , m_uncommittedChanges(NoChange)
 #if ENABLE(3D_CANVAS)
-, m_platformGraphicsContext3D(NullPlatformGraphicsContext3D)
-, m_platformTexture(NullPlatform3DObject)
+    , m_platformGraphicsContext3D(NullPlatformGraphicsContext3D)
+    , m_platformTexture(NullPlatform3DObject)
 #endif
 {
     BEGIN_BLOCK_OBJC_EXCEPTIONS
@@ -407,6 +408,15 @@ void GraphicsLayerCA::setName(const String& name)
 NativeLayer GraphicsLayerCA::nativeLayer() const
 {
     return m_layer.get();
+}
+
+bool GraphicsLayerCA::setChildren(const Vector<GraphicsLayer*>& children)
+{
+    bool childrenChanged = GraphicsLayer::setChildren(children);
+    if (childrenChanged)
+        noteLayerPropertyChanged(ChildrenChanged);
+    
+    return childrenChanged;
 }
 
 void GraphicsLayerCA::addChild(GraphicsLayer* childLayer)
@@ -882,17 +892,16 @@ void GraphicsLayerCA::updateSublayerList()
     [newSublayers makeObjectsPerformSelector:@selector(removeFromSuperlayer)];
 
     if (m_transformLayer) {
-        [m_transformLayer.get() setSublayers:newSublayers];
+        safeSetSublayers(m_transformLayer.get(), newSublayers);
 
         if (m_contentsLayer) {
             // If we have a transform layer, then the contents layer is parented in the 
             // primary layer (which is itself a child of the transform layer).
-            [m_layer.get() setSublayers:nil];
+            safeSetSublayers(m_layer.get(), nil);
             [m_layer.get() addSublayer:m_contentsLayer.get()];
         }
-    } else {
-        [m_layer.get() setSublayers:newSublayers];
-    }
+    } else
+        safeSetSublayers(m_layer.get(), newSublayers);
 
     [newSublayers release];
 }
@@ -1757,7 +1766,7 @@ void GraphicsLayerCA::swapFromOrToTiledLayer(bool useTiledLayer)
     }
     
     [m_layer.get() setLayerOwner:this];
-    [m_layer.get() setSublayers:[oldLayer.get() sublayers]];
+    safeSetSublayers(m_layer.get(), [oldLayer.get() sublayers]);
     
     [[oldLayer.get() superlayer] replaceSublayer:oldLayer.get() with:m_layer.get()];
 

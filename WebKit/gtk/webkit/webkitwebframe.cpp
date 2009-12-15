@@ -54,6 +54,7 @@
 #include "JSDOMBinding.h"
 #include "ScriptController.h"
 #include "SubstituteData.h"
+#include "SVGSMILElement.h"
 
 #include <atk/atk.h>
 #include <JavaScriptCore/APICast.h>
@@ -794,7 +795,7 @@ gchar* webkit_web_frame_dump_render_tree(WebKitWebFrame* frame)
     if (view && view->layoutPending())
         view->layout();
 
-    String string = externalRepresentation(coreFrame->contentRenderer());
+    String string = externalRepresentation(coreFrame);
     return g_strdup(string.utf8().data());
 }
 
@@ -957,6 +958,22 @@ bool webkit_web_frame_pause_transition(WebKitWebFrame* frame, const gchar* name,
     if (!coreElement || !coreElement->renderer())
         return false;
     return core(frame)->animation()->pauseTransitionAtTime(coreElement->renderer(), AtomicString(name), time);
+}
+
+bool webkit_web_frame_pause_svg_animation(WebKitWebFrame* frame, const gchar* animationId, double time, const gchar* elementId)
+{
+    ASSERT(core(frame));
+    Document* document = core(frame)->document();
+    if (!document || !document->svgExtensions())
+        return false;
+    Element* coreElement = document->getElementById(AtomicString(animationId));
+    if (!coreElement || !SVGSMILElement::isSMILElement(coreElement))
+        return false;
+#if ENABLE(SVG)
+    return document->accessSVGExtensions()->sampleAnimationAtTime(elementId, static_cast<SVGSMILElement*>(coreElement), time);
+#else
+    return false;
+#endif
 }
 
 unsigned int webkit_web_frame_number_of_active_animations(WebKitWebFrame* frame)
@@ -1123,4 +1140,30 @@ void webkit_web_frame_layout(WebKitWebFrame* frame)
         return;
 
     view->layout();
+}
+
+/**
+ * webkit_web_frame_get_network_response:
+ * @frame: a #WebKitWebFrame
+ *
+ * Returns a #WebKitNetworkResponse object representing the response
+ * that was given to the request for the given frame, or NULL if the
+ * frame was not created by a load. You must unref the object when you
+ * are done with it.
+ *
+ * Return value: a #WebKitNetworkResponse object
+ *
+ * Since: 1.1.18
+ */
+WebKitNetworkResponse* webkit_web_frame_get_network_response(WebKitWebFrame* frame)
+{
+    Frame* coreFrame = core(frame);
+    if (!coreFrame)
+        return NULL;
+
+    WebCore::DocumentLoader* loader = coreFrame->loader()->activeDocumentLoader();
+    if (!loader)
+        return NULL;
+
+    return webkit_network_response_new_with_core_response(loader->response());
 }

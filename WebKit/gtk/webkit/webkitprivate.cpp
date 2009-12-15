@@ -28,6 +28,7 @@
 #include "FrameLoader.h"
 #include "FrameLoaderClientGtk.h"
 #include "HitTestResult.h"
+#include "IconDatabase.h"
 #include <libintl.h>
 #include "Logging.h"
 #include "PageCache.h"
@@ -37,8 +38,11 @@
 #include "ResourceHandle.h"
 #include "ResourceHandleClient.h"
 #include "ResourceHandleInternal.h"
+#include "ResourceResponse.h"
 #include <runtime/InitializeThreading.h>
 #include "SecurityOrigin.h"
+#include <stdlib.h>
+#include "webkitnetworkresponse.h"
 
 #if ENABLE(DATABASE)
 #include "DatabaseTracker.h"
@@ -112,6 +116,15 @@ WebCore::ResourceRequest core(WebKitNetworkRequest* request)
     return ResourceRequest(url);
 }
 
+WebCore::ResourceResponse core(WebKitNetworkResponse* response)
+{
+    SoupMessage* soupMessage = webkit_network_response_get_message(response);
+    if (soupMessage)
+        return ResourceResponse(soupMessage);
+
+    return ResourceResponse();
+}
+
 WebCore::EditingBehavior core(WebKitEditingBehavior type)
 {
     return (WebCore::EditingBehavior)type;
@@ -151,6 +164,12 @@ WebKitHitTestResult* kit(const WebCore::HitTestResult& result)
                                            "media-uri", mediaURI.get(),
                                            "context", context,
                                            NULL));
+}
+
+PasteboardHelperGtk* pasteboardHelperInstance()
+{
+    static PasteboardHelperGtk* helper = new PasteboardHelperGtk();
+    return helper;
 }
 
 } /** end namespace WebKit */
@@ -208,6 +227,11 @@ static GtkWidget* currentToplevelCallback(WebKitSoupAuthDialog* feature, SoupMes
         return NULL;
 }
 
+static void closeIconDatabaseOnExit()
+{
+    iconDatabase()->close();
+}
+
 void webkit_init()
 {
     static bool isInitialized = false;
@@ -237,7 +261,14 @@ void webkit_init()
 
     PageGroup::setShouldTrackVisitedLinks(true);
 
-    Pasteboard::generalPasteboard()->setHelper(new WebKit::PasteboardHelperGtk());
+    Pasteboard::generalPasteboard()->setHelper(WebKit::pasteboardHelperInstance());
+
+    iconDatabase()->setEnabled(true);
+
+    GOwnPtr<gchar> iconDatabasePath(g_build_filename(g_get_user_data_dir(), "webkit", "icondatabase", NULL));
+    iconDatabase()->open(iconDatabasePath.get());
+
+    atexit(closeIconDatabaseOnExit);
 
     SoupSession* session = webkit_get_default_session();
 

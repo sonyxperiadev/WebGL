@@ -79,12 +79,16 @@ bool StringObject::deleteProperty(ExecState* exec, const Identifier& propertyNam
 {
     if (propertyName == exec->propertyNames().length)
         return false;
+    bool isStrictUInt32;
+    unsigned i = propertyName.toStrictUInt32(&isStrictUInt32);
+    if (isStrictUInt32 && internalValue()->canGetIndex(i))
+        return false;
     return JSObject::deleteProperty(exec, propertyName);
 }
 
 void StringObject::getOwnPropertyNames(ExecState* exec, PropertyNameArray& propertyNames)
 {
-    int size = internalValue()->value().size();
+    int size = internalValue()->length();
     for (int i = 0; i < size; ++i)
         propertyNames.add(Identifier(exec, UString::from(i)));
     return JSObject::getOwnPropertyNames(exec, propertyNames);

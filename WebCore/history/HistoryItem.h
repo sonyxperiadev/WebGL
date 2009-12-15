@@ -28,6 +28,7 @@
 
 #include "IntPoint.h"
 #include "PlatformString.h"
+#include "SerializedScriptValue.h"
 #include <wtf/OwnPtr.h>
 #include <wtf/PassOwnPtr.h>
 
@@ -54,7 +55,7 @@ class FormData;
 class HistoryItem;
 class Image;
 class KURL;
-struct ResourceRequest;
+class ResourceRequest;
 
 typedef Vector<RefPtr<HistoryItem> > HistoryItemVector;
 
@@ -131,6 +132,12 @@ public:
     void setParent(const String&);
     void setTitle(const String&);
     void setIsTargetItem(bool);
+    
+    void setStateObject(PassRefPtr<SerializedScriptValue> object);
+    SerializedScriptValue* stateObject() const { return m_stateObject.get(); }
+    void setDocument(Document* document);
+    Document* document() const { return m_document; }
+    void documentDetached(Document*);
     
     void setFormInfoFromRequest(const ResourceRequest&);
     void setFormData(PassRefPtr<FormData>);
@@ -235,6 +242,10 @@ private:
 
     OwnPtr<Vector<String> > m_redirectURLs;
 
+    // Support for HTML5 History
+    RefPtr<SerializedScriptValue> m_stateObject;
+    Document* m_document;
+    
     // info used to repost form data
     RefPtr<FormData> m_formData;
     String m_formContentType;

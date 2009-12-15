@@ -210,8 +210,9 @@ WebInspector.ProfilesPanel.prototype = {
         return escape(text) + '/' + escape(profileTypeId);
     },
 
-    addProfileHeader: function(typeId, profile)
+    addProfileHeader: function(profile)
     {
+        var typeId = profile.typeId;
         var profileType = this.getProfileType(typeId);
         var sidebarParent = profileType.treeElement;
         var small = false;
@@ -361,7 +362,8 @@ WebInspector.ProfilesPanel.prototype = {
 
         var profilesLength = this._profiles.length;
         for (var i = 0; i < profilesLength; ++i) {
-            var view = this._profiles[i].viewForProfile();
+            var profile = this._profiles[i];
+            var view = profile.__profilesPanelProfileType.viewForProfile(profile);
             if (!view.performSearch || view === visibleView)
                 continue;
             views.push(view);
@@ -398,7 +400,7 @@ WebInspector.ProfilesPanel.prototype = {
     _updateInterface: function()
     {
         // FIXME: Replace ProfileType-specific button visibility changes by a single ProfileType-agnostic "combo-button" visibility change.
-        if (InspectorController.profilerEnabled()) {
+        if (InspectorBackend.profilerEnabled()) {
             this.enableToggleButton.title = WebInspector.UIString("Profiling enabled. Click to disable.");
             this.enableToggleButton.toggled = true;
             for (var typeId in this._profileTypeButtonsByIdMap)
@@ -417,26 +419,27 @@ WebInspector.ProfilesPanel.prototype = {
 
     _enableProfiling: function()
     {
-        if (InspectorController.profilerEnabled())
+        if (InspectorBackend.profilerEnabled())
             return;
         this._toggleProfiling(this.panelEnablerView.alwaysEnabled);
     },
 
     _toggleProfiling: function(optionalAlways)
     {
-        if (InspectorController.profilerEnabled())
-            InspectorController.disableProfiler(true);
+        if (InspectorBackend.profilerEnabled())
+            InspectorBackend.disableProfiler(true);
         else
-            InspectorController.enableProfiler(!!optionalAlways);
+            InspectorBackend.enableProfiler(!!optionalAlways);
     },
 
     _populateProfiles: function()
     {
-        // FIXME: This code needs to be adjusted when more profiling types are added.
-        // Currently defaults to CPU profiles.
-        var cpuProfiles = this.getProfileType(WebInspector.CPUProfileType.TypeId).treeElement;
-        if (cpuProfiles.children.length)
-            return;
+        var sidebarTreeChildrenCount = this.sidebarTree.children.length;
+        for (var i = 0; i < sidebarTreeChildrenCount; ++i) {
+            var treeElement = this.sidebarTree.children[i];
+            if (treeElement.children.length)
+                return;
+        }
 
         function populateCallback(profileHeaders) {
             profileHeaders.sort(function(a, b) { return a.uid - b.uid; });
@@ -446,7 +449,7 @@ WebInspector.ProfilesPanel.prototype = {
         }
 
         var callId = WebInspector.Callback.wrap(populateCallback);
-        InspectorController.getProfileHeaders(callId);
+        InspectorBackend.getProfileHeaders(callId);
 
         delete this._shouldPopulateProfiles;
     },

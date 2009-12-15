@@ -76,6 +76,7 @@ sub buildPlatformTestHierarchy(@);
 sub closeCygpaths();
 sub closeDumpTool();
 sub closeHTTPD();
+sub closeWebSocketServer();
 sub countAndPrintLeaks($$$);
 sub countFinishedTest($$$$);
 sub deleteExpectedAndActualResults($);
@@ -86,15 +87,18 @@ sub fileNameWithNumber($$);
 sub htmlForResultsSection(\@$&);
 sub isTextOnlyTest($);
 sub launchWithCurrentEnv(@);
+sub resolveAndMakeTestResultsDirectory();
 sub numericcmp($$);
 sub openDiffTool();
 sub openDumpTool();
 sub openHTTPDIfNeeded();
 sub parseLeaksandPrintUniqueLeaks();
+sub openWebSocketServerIfNeeded();
 sub pathcmp($$);
 sub printFailureMessageForTest($$);
 sub processIgnoreTests($$);
 sub readFromDumpToolWithTimer(**);
+sub readSkippedFiles($);
 sub recordActualResultsAndDiff($$);
 sub sampleDumpTool();
 sub setFileHandleNonBlocking(*$);
@@ -117,6 +121,9 @@ my $guardMalloc = '';
 my $httpdPort = 8000;
 my $httpdSSLPort = 8443;
 my $ignoreMetrics = 0;
+my $webSocketPort = 8880;
+# wss is disabled until all platforms support pyOpenSSL.
+# my $webSocketSecurePort = 9323;
 my $ignoreTests = '';
 my $iterations = 1;
 my $launchSafari = 1;
@@ -185,6 +192,12 @@ if (isAppleMacWebKit()) {
     }
 } elsif (isGtk()) {
     $platform = "gtk";
+    if (!$ENV{"WEBKIT_TESTFONTS"}) {
+        print "The WEBKIT_TESTFONTS environment variable is not defined.\n";
+        print "You must set it before running the tests.\n";
+        print "Use git to grab the actual fonts from http://gitorious.org/qtwebkit/testfonts\n";
+        exit 1;
+    }
 } elsif (isWx()) {
     $platform = "wx";
 } elsif (isCygwin()) {
@@ -292,8 +305,6 @@ if (!$getOptionsResult || $showHelp) {
 my $ignoreSkipped = $treatSkipped eq "ignore";
 my $skippedOnly = $treatSkipped eq "only";
 
-!$skippedOnly || @ARGV == 0 or die "--skipped=only cannot be used when tests are specified on the command line.";
-
 my $configuration = configuration();
 
 $verbose = 1 if $testsPerDumpTool == 1;
@@ -347,12 +358,12 @@ if (!defined($root)) {
 }
 
 my $dumpToolName = "DumpRenderTree";
-$dumpToolName .= "_debug" if isCygwin() && $configuration ne "Release";
+$dumpToolName .= "_debug" if isCygwin() && configurationForVisualStudio() !~ /^Release|Debug_Internal$/;
 my $dumpTool = "$productDir/$dumpToolName";
 die "can't find executable $dumpToolName (looked in $productDir)\n" unless -x $dumpTool;
 
 my $imageDiffTool = "$productDir/ImageDiff";
-$imageDiffTool .= "_debug" if isCygwin() && $configuration ne "Release";
+$imageDiffTool .= "_debug" if isCygwin() && configurationForVisualStudio() !~ /^Release|Debug_Internal$/;
 die "can't find executable $imageDiffTool (looked in $productDir)\n" if $pixelTests && !-x $imageDiffTool;
 
 checkFrameworks() unless isCygwin();
@@ -412,6 +423,7 @@ if (checkWebCoreSVGSupport(0)) {
 
 if (!$testHTTP) {
     $ignoredDirectories{'http'} = 1;
+    $ignoredDirectories{'websocket'} = 1;
 }
 
 if (!$testMedia) {
@@ -449,7 +461,17 @@ if (!checkWebCoreWCSSSupport(0)) {
 }
 
 processIgnoreTests($ignoreTests, "ignore-tests") if $ignoreTests;
-readSkippedFiles() unless $ignoreSkipped;
+if (!$ignoreSkipped) {
+    if (!$skippedOnly || @ARGV == 0) {
+        readSkippedFiles("");
+    } else {
+        # Since readSkippedFiles() appends to @ARGV, we must use a foreach
+        # loop so that we only iterate over the original argument list.
+        foreach my $argnum (0 .. $#ARGV) {
+            readSkippedFiles(shift @ARGV);
+        }
+    }
+}
 
 my @tests = findTestsToRun();
 
@@ -485,6 +507,11 @@ my $atLineStart = 1;
 my $lastDirectory = "";
 
 my $isHttpdOpen = 0;
+my $isWebSocketServerOpen = 0;
+my $webSocketServerPID = 0;
+my $failedToStartWebSocketServer = 0;
+# wss is disabled until all platforms support pyOpenSSL.
+# my $webSocketSecureServerPID = 0;
 
 sub catch_pipe { $dumpToolCrashed = 1; }
 $SIG{"PIPE"} = "catch_pipe";
@@ -577,15 +604,7 @@ for my $test (@tests) {
         }
     }
 
-    if ($test !~ /^http\//) {
-        my $testPath = "$testDirectory/$test";
-        if (isCygwin()) {
-            $testPath = toWindowsPath($testPath);
-        } else {
-            $testPath = canonpath($testPath);
-        }
-        print OUT "$testPath$suffixExpectedHash\n";
-    } else {
+    if ($test =~ /^http\//) {
         openHTTPDIfNeeded();
         if ($test !~ /^http\/tests\/local\// && $test !~ /^http\/tests\/ssl\// && $test !~ /^http\/tests\/wml\// && $test !~ /^http\/tests\/media\//) {
             my $path = canonpath($test);
@@ -604,6 +623,41 @@ for my $test (@tests) {
             }
             print OUT "$testPath$suffixExpectedHash\n";
         }
+    } elsif ($test =~ /^websocket\//) {
+        if ($test =~ /^websocket\/tests\/local\//) {
+            my $testPath = "$testDirectory/$test";
+            if (isCygwin()) {
+                $testPath = toWindowsPath($testPath);
+            } else {
+                $testPath = canonpath($testPath);
+            }
+            print OUT "$testPath\n";
+        } else {
+            if (openWebSocketServerIfNeeded()) {
+                my $path = canonpath($test);
+                if ($test =~ /^websocket\/tests\/ssl\//) {
+                    # wss is disabled until all platforms support pyOpenSSL.
+                    print STDERR "Error: wss is disabled until all platforms support pyOpenSSL.";
+                    # print OUT "https://127.0.0.1:$webSocketSecurePort/$path\n";
+                } else {
+                    print OUT "http://127.0.0.1:$webSocketPort/$path\n";
+                }
+            } else {
+                # We failed to launch the WebSocket server.  Display a useful error message rather than attempting
+                # to run tests that expect the server to be available.
+                my $errorMessagePath = "$testDirectory/websocket/resources/server-failed-to-start.html";
+                $errorMessagePath = isCygwin() ? toWindowsPath($errorMessagePath) : canonpath($errorMessagePath);
+                print OUT "$errorMessagePath\n";
+            }
+        }
+    } else {
+        my $testPath = "$testDirectory/$test";
+        if (isCygwin()) {
+            $testPath = toWindowsPath($testPath);
+        } else {
+            $testPath = canonpath($testPath);
+        }
+        print OUT "$testPath$suffixExpectedHash\n";
     }
 
     # DumpRenderTree is expected to dump two "blocks" to stdout for each test.
@@ -892,6 +946,7 @@ printf "\n%0.2fs total testing time\n", (time - $overallStartTime) . "";
 !$isDumpToolOpen || die "Failed to close $dumpToolName.\n";
 
 closeHTTPD();
+closeWebSocketServer();
 
 # Because multiple instances of this script are running concurrently we cannot 
 # safely delete this symlink.
@@ -966,7 +1021,10 @@ close HTML;
 
 my @configurationArgs = argumentsForConfiguration();
 
-if (isQt() || isGtk()) {
+if (isGtk()) {
+  system "WebKitTools/Scripts/run-launcher", @configurationArgs, "file://".$testResults if $launchSafari;
+} elsif (isQt()) {
+  unshift @configurationArgs, qw(-graphicssystem raster -style windows);
   system "WebKitTools/Scripts/run-launcher", @configurationArgs, "file://".$testResults if $launchSafari;
 } elsif (isCygwin()) {
   system "cygstart", $testResults if $launchSafari;
@@ -1166,6 +1224,13 @@ sub launchWithCurrentEnv(@)
     return @args;
 }
 
+sub resolveAndMakeTestResultsDirectory()
+{
+    my $absTestResultsDirectory = File::Spec->rel2abs(glob $testResultsDirectory);
+    mkpath $absTestResultsDirectory;
+    return $absTestResultsDirectory;
+}
+
 sub openDiffTool()
 {
     return if $isDiffToolOpen;
@@ -1238,7 +1303,7 @@ sub openDumpTool()
     }
 
     if ($useValgrind) {
-        unshift @args, "valgrind";
+        unshift @args, "valgrind", "--suppressions=$platformBaseDirectory/qt/SuppressedValgrindErrors";
     } 
     
     $ENV{MallocStackLogging} = 1 if $shouldCheckLeaks;
@@ -1326,10 +1391,8 @@ sub openHTTPDIfNeeded()
     my $jsTestResourcesDirectory = $testDirectory . "/fast/js/resources";
     my $typesConfig = "$testDirectory/http/conf/mime.types";
     my $listen = "127.0.0.1:$httpdPort";
-    my $absTestResultsDirectory = File::Spec->rel2abs(glob $testResultsDirectory);
+    my $absTestResultsDirectory = resolveAndMakeTestResultsDirectory();
     my $sslCertificate = "$testDirectory/http/conf/webkit-httpd.pem";
-
-    mkpath $absTestResultsDirectory;
 
     my @args = (
         "-f", "$httpdConfig",
@@ -1371,6 +1434,77 @@ sub closeHTTPD()
     kill 15, `cat /tmp/WebKit/httpd.pid` if -f "/tmp/WebKit/httpd.pid";
 
     $isHttpdOpen = 0;
+}
+
+sub openWebSocketServerIfNeeded()
+{
+    return 1 if $isWebSocketServerOpen;
+    return 0 if $failedToStartWebSocketServer;
+
+    my $webSocketServerPath = "/usr/bin/python";
+    my $webSocketPythonPath = "WebKitTools/pywebsocket";
+    my $webSocketHandlerDir = "$testDirectory";
+    my $webSocketHandlerScanDir = "$testDirectory/websocket/tests";
+    my $sslCertificate = "$testDirectory/http/conf/webkit-httpd.pem";
+    my $absTestResultsDirectory = resolveAndMakeTestResultsDirectory();
+    my $logFile = "$absTestResultsDirectory/pywebsocket_log.txt";
+
+    my @args = (
+        "WebKitTools/pywebsocket/mod_pywebsocket/standalone.py",
+        "-p", "$webSocketPort",
+        "-d", "$webSocketHandlerDir",
+        "-s", "$webSocketHandlerScanDir",
+        "-l", "$logFile",
+    );
+    # wss is disabled until all platforms support pyOpenSSL.
+    # my @argsSecure = (
+    #     "WebKitTools/pywebsocket/mod_pywebsocket/standalone.py",
+    #     "-p", "$webSocketSecurePort",
+    #     "-d", "$webSocketHandlerDir",
+    #     "-t",
+    #     "-k", "$sslCertificate",
+    #     "-c", "$sslCertificate",
+    # );
+
+    $ENV{"PYTHONPATH"} = $webSocketPythonPath;
+    $webSocketServerPID = open3(\*WEBSOCKETSERVER_IN, \*WEBSOCKETSERVER_OUT, \*WEBSOCKETSERVER_ERR, $webSocketServerPath, @args);
+    # wss is disabled until all platforms support pyOpenSSL.
+    # $webSocketSecureServerPID = open3(\*WEBSOCKETSECURESERVER_IN, \*WEBSOCKETSECURESERVER_OUT, \*WEBSOCKETSECURESERVER_ERR, $webSocketServerPath, @argsSecure);
+    # my @listen = ("http://127.0.0.1:$webSocketPort", "https://127.0.0.1:$webSocketSecurePort");
+    my @listen = ("http://127.0.0.1:$webSocketPort");
+    for (my $i = 0; $i < @listen; $i++) {
+        my $retryCount = 10;
+        while (system("/usr/bin/curl -k -q --silent --stderr - --output /dev/null $listen[$i]") && $retryCount) {
+            sleep 1;
+            --$retryCount;
+        }
+        unless ($retryCount) {
+            print STDERR "Timed out waiting for WebSocketServer to start.\n";
+            $failedToStartWebSocketServer = 1;
+            return 0;
+        }
+    }
+
+    $isWebSocketServerOpen = 1;
+    return 1;
+}
+
+sub closeWebSocketServer()
+{
+    return if !$isWebSocketServerOpen;
+
+    close WEBSOCKETSERVER_IN;
+    close WEBSOCKETSERVER_OUT;
+    close WEBSOCKETSERVER_ERR;
+    kill 15, $webSocketServerPID;
+
+    # wss is disabled until all platforms support pyOpenSSL.
+    # close WEBSOCKETSECURESERVER_IN;
+    # close WEBSOCKETSECURESERVER_OUT;
+    # close WEBSOCKETSECURESERVER_ERR;
+    # kill 15, $webSocketSecureServerPID;
+
+    $isWebSocketServerOpen = 0;
 }
 
 sub fileNameWithNumber($$)
@@ -1980,8 +2114,10 @@ sub fileShouldBeIgnored
     return 0;
 }
 
-sub readSkippedFiles
+sub readSkippedFiles($)
 {
+    my ($constraintPath) = @_;
+
     foreach my $level (@platformTestHierarchy) {
         if (open SKIPPED, "<", "$level/Skipped") {
             if ($verbose) {
@@ -1996,8 +2132,19 @@ sub readSkippedFiles
                 $skipped =~ s/[ \n\r]+$//;
                 if ($skipped && $skipped !~ /^#/) {
                     if ($skippedOnly) {
-                        if (!&fileShouldBeIgnored($skipped)) {
-                            push(@ARGV, $skipped);
+                        if (!fileShouldBeIgnored($skipped)) {
+                            if (!$constraintPath) {
+                                # Always add $skipped since no constraint path was specified on the command line.
+                                push(@ARGV, $skipped);
+                            } elsif ($skipped =~ /^($constraintPath)/) {
+                                # Add $skipped only if it matches the current path constraint, e.g.,
+                                # "--skipped=only dir1" with "dir1/file1.html" on the skipped list.
+                                push(@ARGV, $skipped);
+                            } elsif ($constraintPath =~ /^($skipped)/) {
+                                # Add current path constraint if it is more specific than the skip list entry,
+                                # e.g., "--skipped=only dir1/dir2/dir3" with "dir1" on the skipped list.
+                                push(@ARGV, $constraintPath);
+                            }
                         } elsif ($verbose) {
                             print "    $skipped\n";
                         }
@@ -2067,6 +2214,9 @@ sub findTestsToRun
             find({ preprocess => \&directoryFilter, wanted => \&fileFilter }, $level);
         }
     }
+
+    # Remove duplicate tests
+    @testsToRun = keys %{{ map { $_ => 1 } @testsToRun }};
 
     @testsToRun = sort pathcmp @testsToRun;
 

@@ -45,6 +45,7 @@
 @class WebFrame;
 @class WebInspector;
 @class WebPreferences;
+@class WebScriptWorld;
 @class WebTextIterator;
 
 @protocol WebFormDelegate;
@@ -65,6 +66,9 @@ extern NSString *WebElementIsContentEditableKey; // NSNumber indicating whether 
 
 // other WebElementDictionary keys
 extern NSString *WebElementLinkIsLiveKey;        // NSNumber of BOOL indictating whether the link is live or not
+
+// One of the subviews of the WebView entered compositing mode.
+extern NSString *_WebViewDidStartAcceleratedCompositingNotification;
 
 #if ENABLE_DASHBOARD_SUPPORT
 typedef enum {
@@ -460,6 +464,8 @@ Could be worth adding to the API.
 + (NSCursor *)_pointingHandCursor;
 
 // SPI for DumpRenderTree
+- (BOOL)_postsAcceleratedCompositingNotifications;
+- (void)_setPostsAcceleratedCompositingNotifications:(BOOL)flag;
 - (BOOL)_isUsingAcceleratedCompositing;
 
 // SPI for PluginHalter
@@ -479,12 +485,12 @@ Could be worth adding to the API.
 // Removes all white list entries created with _whiteListAccessFromOrigin.
 + (void)_resetOriginAccessWhiteLists;
 
-+ (void)_addUserScriptToGroup:(NSString *)groupName worldID:(unsigned)worldID source:(NSString *)source url:(NSURL *)url whitelist:(NSArray *)whitelist blacklist:(NSArray *)blacklist injectionTime:(WebUserScriptInjectionTime)injectionTime;
-+ (void)_addUserStyleSheetToGroup:(NSString *)groupName worldID:(unsigned)worldID source:(NSString *)source url:(NSURL *)url whitelist:(NSArray *)whitelist blacklist:(NSArray *)blacklist;
-+ (void)_removeUserScriptFromGroup:(NSString *)groupName worldID:(unsigned)worldID url:(NSURL *)url;
-+ (void)_removeUserStyleSheetFromGroup:(NSString *)groupName worldID:(unsigned)worldID url:(NSURL *)url;
-+ (void)_removeUserScriptsFromGroup:(NSString *)groupName worldID:(unsigned)worldID;
-+ (void)_removeUserStyleSheetsFromGroup:(NSString *)groupName worldID:(unsigned)worldID;
++ (void)_addUserScriptToGroup:(NSString *)groupName world:(WebScriptWorld *)world source:(NSString *)source url:(NSURL *)url whitelist:(NSArray *)whitelist blacklist:(NSArray *)blacklist injectionTime:(WebUserScriptInjectionTime)injectionTime;
++ (void)_addUserStyleSheetToGroup:(NSString *)groupName world:(WebScriptWorld *)world source:(NSString *)source url:(NSURL *)url whitelist:(NSArray *)whitelist blacklist:(NSArray *)blacklist;
++ (void)_removeUserScriptFromGroup:(NSString *)groupName world:(WebScriptWorld *)world url:(NSURL *)url;
++ (void)_removeUserStyleSheetFromGroup:(NSString *)groupName world:(WebScriptWorld *)world url:(NSURL *)url;
++ (void)_removeUserScriptsFromGroup:(NSString *)groupName world:(WebScriptWorld *)world;
++ (void)_removeUserStyleSheetsFromGroup:(NSString *)groupName world:(WebScriptWorld *)world;
 + (void)_removeAllUserContentFromGroup:(NSString *)groupName;
 
 /*!

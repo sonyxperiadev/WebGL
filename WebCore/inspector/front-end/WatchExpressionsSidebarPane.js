@@ -67,6 +67,8 @@ WebInspector.WatchExpressionsSidebarPane.prototype.__proto__ = WebInspector.Side
 
 WebInspector.WatchExpressionsSection = function()
 {
+    this._watchObjectGroupId = "watch-group";
+
     WebInspector.ObjectPropertiesSection.call(this);
 
     this.watchExpressions = this.loadSavedExpressions();
@@ -75,8 +77,6 @@ WebInspector.WatchExpressionsSection = function()
     this.editable = true;
     this.expanded = true;
     this.propertiesElement.addStyleClass("watch-expressions");
-
-    this._watchObjectGroupId = "watch-group";
 }
 
 WebInspector.WatchExpressionsSection.NewWatchExpression = "\xA0";
@@ -112,11 +112,22 @@ WebInspector.WatchExpressionsSection.prototype = {
             // method to get all the properties refreshed at once.
             properties.push(property);
             
-            if (properties.length == propertyCount)
+            if (properties.length == propertyCount) {
                 this.updateProperties(properties, WebInspector.WatchExpressionTreeElement, WebInspector.WatchExpressionsSection.CompareProperties);
+
+                // check to see if we just added a new watch expression,
+                // which will always be the last property
+                if (this._newExpressionAdded) {
+                    delete this._newExpressionAdded;
+
+                    treeElement = this.findAddedTreeElement();
+                    if (treeElement)
+                        treeElement.startEditing();
+                }
+            }
         }
 
-        InspectorController.releaseWrapperObjectGroup(this._watchObjectGroupId)
+        InspectorBackend.releaseWrapperObjectGroup(this._watchObjectGroupId)
         var properties = [];
 
         // Count the properties, so we known when to call this.updateProperties()
@@ -150,14 +161,9 @@ WebInspector.WatchExpressionsSection.prototype = {
 
     addExpression: function()
     {
+        this._newExpressionAdded = true;
         this.watchExpressions.push(WebInspector.WatchExpressionsSection.NewWatchExpression);
         this.update();
-
-        // After update(), the new empty expression to be edited
-        // will be in the tree, but we have to find it.
-        treeElement = this.findAddedTreeElement();
-        if (treeElement)
-            treeElement.startEditing();
     },
 
     updateExpression: function(element, value)
@@ -177,7 +183,7 @@ WebInspector.WatchExpressionsSection.prototype = {
 
     loadSavedExpressions: function()
     {
-        var json = InspectorController.setting("watchExpressions");
+        var json = InspectorFrontendHost.setting("watchExpressions");
         if (!json)
             return [];
 
@@ -198,7 +204,7 @@ WebInspector.WatchExpressionsSection.prototype = {
                 toSave.push(this.watchExpressions[i]);
 
         var json = JSON.stringify({expressions: toSave});
-        InspectorController.setSetting("watchExpressions", json);
+        InspectorFrontendHost.setSetting("watchExpressions", json);
 
         return toSave.length;
     }

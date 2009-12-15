@@ -757,6 +757,17 @@ void RenderText::calcPrefWidths(int leadWidth, HashSet<const SimpleFontData*>& f
     setPrefWidthsDirty(false);
 }
 
+bool RenderText::isAllCollapsibleWhitespace()
+{
+    int length = textLength();
+    const UChar* text = characters();
+    for (int i = 0; i < length; i++) {
+        if (!style()->isCollapsibleWhiteSpace(text[i]))
+            return false;
+    }
+    return true;
+}
+    
 bool RenderText::containsOnlyWhitespace(unsigned from, unsigned len) const
 {
     unsigned currPos;
@@ -813,7 +824,9 @@ void RenderText::setSelectionState(SelectionState state)
         }
     }
 
-    containingBlock()->setSelectionState(state);
+    // The returned value can be null in case of an orphaned tree.
+    if (RenderBlock* cb = containingBlock())
+        cb->setSelectionState(state);
 }
 
 void RenderText::setTextWithOffset(PassRefPtr<StringImpl> text, unsigned offset, unsigned len, bool force)

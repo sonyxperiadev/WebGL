@@ -190,11 +190,9 @@ HRESULT STDMETHODCALLTYPE AccessibleBase::get_accDescription(VARIANT vChild, BST
     if (FAILED(hr))
         return hr;
 
-    // TODO: Description, for SELECT subitems, should be a string describing
-    // the position of the item in its group and of the group in the list (see
-    // Firefox).
-    if (*description = BString(wrapper(childObj)->description()).release())
+    if (*description = BString(childObj->descriptionForMSAA()).release())
         return S_OK;
+
     return S_FALSE;
 }
 
@@ -210,6 +208,13 @@ HRESULT STDMETHODCALLTYPE AccessibleBase::get_accRole(VARIANT vChild, VARIANT* p
 
     if (FAILED(hr))
         return hr;
+
+    String roleString = childObj->stringRoleForMSAA();
+    if (!roleString.isEmpty()) {
+        V_VT(pvRole) = VT_BSTR;
+        V_BSTR(pvRole) = BString(roleString).release();
+        return S_OK;
+    }
 
     pvRole->vt = VT_I4;
     pvRole->lVal = wrapper(childObj)->role();
@@ -232,7 +237,7 @@ HRESULT STDMETHODCALLTYPE AccessibleBase::get_accState(VARIANT vChild, VARIANT* 
     pvState->vt = VT_I4;
     pvState->lVal = 0;
 
-    if (childObj->isAnchor())
+    if (childObj->isLinked())
         pvState->lVal |= STATE_SYSTEM_LINKED;
 
     if (childObj->isHovered())
@@ -514,26 +519,12 @@ HRESULT STDMETHODCALLTYPE AccessibleBase::accDoDefaultAction(VARIANT vChild)
 // AccessibleBase
 String AccessibleBase::name() const
 {
-    return m_object->title();
+    return m_object->nameForMSAA();
 }
 
 String AccessibleBase::value() const
 {
-    return m_object->stringValue();
-}
-
-String AccessibleBase::description() const
-{
-    String desc = m_object->accessibilityDescription();
-    if (desc.isNull())
-        return desc;
-
-    // From the Mozilla MSAA implementation:
-    // "Signal to screen readers that this description is speakable and is not
-    // a formatted positional information description. Don't localize the
-    // 'Description: ' part of this string, it will be parsed out by assistive
-    // technologies."
-    return "Description: " + desc;
+    return m_object->stringValueForMSAA();
 }
 
 static long MSAARole(AccessibilityRole role)

@@ -50,11 +50,11 @@ static void weakEventListenerCallback(v8::Persistent<v8::Value>, void* parameter
     listener->disposeListenerObject();
 }
 
-V8AbstractEventListener::V8AbstractEventListener(PassRefPtr<V8ListenerGuard> guard, bool isAttribute)
+V8AbstractEventListener::V8AbstractEventListener(bool isAttribute, const WorldContextHandle& worldContext)
     : EventListener(JSEventListenerType)
     , m_isWeak(true)
     , m_isAttribute(isAttribute)
-    , m_guard(guard)
+    , m_worldContext(worldContext)
 {
 }
 
@@ -70,17 +70,13 @@ V8AbstractEventListener::~V8AbstractEventListener()
 
 void V8AbstractEventListener::handleEvent(ScriptExecutionContext* context, Event* event)
 {
-    // EventListener could be disconnected from the frame.
-    if (disconnected())
-        return;
-
     // The callback function on XMLHttpRequest can clear the event listener and destroys 'this' object. Keep a local reference to it.
     // See issue 889829.
     RefPtr<V8AbstractEventListener> protect(this);
 
     v8::HandleScope handleScope;
 
-    v8::Local<v8::Context> v8Context = toV8Context(context);
+    v8::Local<v8::Context> v8Context = toV8Context(context, worldContext());
     if (v8Context.IsEmpty())
         return;
 
@@ -120,7 +116,7 @@ void V8AbstractEventListener::setListenerObject(v8::Handle<v8::Object> listener)
 void V8AbstractEventListener::invokeEventHandler(ScriptExecutionContext* context, Event* event, v8::Handle<v8::Value> jsEvent)
 {
 
-    v8::Local<v8::Context> v8Context = toV8Context(context);
+    v8::Local<v8::Context> v8Context = toV8Context(context, worldContext());
     if (v8Context.IsEmpty())
         return;
 
@@ -146,7 +142,6 @@ void V8AbstractEventListener::invokeEventHandler(ScriptExecutionContext* context
         tryCatch.Reset();
 
         // Call the event handler.
-        tryCatch.SetVerbose(false); // We do not want to report the exception to the inspector console.
         returnValue = callListenerFunction(context, jsEvent, event);
         if (!tryCatch.CanContinue())
             return;
@@ -158,7 +153,6 @@ void V8AbstractEventListener::invokeEventHandler(ScriptExecutionContext* context
         }
 
         // Restore the old event. This must be done for all exit paths through this method.
-        tryCatch.SetVerbose(true);
         if (savedEvent.IsEmpty())
             v8Context->Global()->SetHiddenValue(eventSymbol, v8::Undefined());
         else

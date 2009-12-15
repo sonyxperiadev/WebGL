@@ -69,7 +69,7 @@ WebSocketChannel::~WebSocketChannel()
 void WebSocketChannel::connect()
 {
     LOG(Network, "WebSocketChannel %p connect", this);
-    ASSERT(!m_handle.get());
+    ASSERT(!m_handle);
     m_handshake.reset();
     ref();
     m_handle = SocketStreamHandle::create(m_handshake.url(), this);
@@ -82,7 +82,7 @@ bool WebSocketChannel::send(const String& msg)
     buf.append('\0');  // frame type
     buf.append(msg.utf8().data(), msg.utf8().length());
     buf.append('\xff');  // frame end
-    if (!m_handle.get()) {
+    if (!m_handle) {
         m_unhandledBufferSize += buf.size();
         return false;
     }
@@ -92,7 +92,7 @@ bool WebSocketChannel::send(const String& msg)
 unsigned long WebSocketChannel::bufferedAmount() const
 {
     LOG(Network, "WebSocketChannel %p bufferedAmount", this);
-    if (!m_handle.get())
+    if (!m_handle)
         return m_unhandledBufferSize;
     return m_handle->bufferedAmount();
 }
@@ -100,7 +100,7 @@ unsigned long WebSocketChannel::bufferedAmount() const
 void WebSocketChannel::close()
 {
     LOG(Network, "WebSocketChannel %p close", this);
-    if (m_handle.get())
+    if (m_handle)
         m_handle->close();  // will call didClose()
 }
 
@@ -108,22 +108,14 @@ void WebSocketChannel::disconnect()
 {
     LOG(Network, "WebSocketChannel %p disconnect", this);
     m_client = 0;
-    if (m_handle.get())
+    if (m_handle)
         m_handle->close();
-}
-
-void WebSocketChannel::willOpenStream(SocketStreamHandle*, const KURL&)
-{
-}
-
-void WebSocketChannel::willSendData(SocketStreamHandle*, const char*, int)
-{
 }
 
 void WebSocketChannel::didOpen(SocketStreamHandle* handle)
 {
     LOG(Network, "WebSocketChannel %p didOpen", this);
-    ASSERT(handle == m_handle.get());
+    ASSERT(handle == m_handle);
     const CString& handshakeMessage = m_handshake.clientHandshakeMessage();
     if (!handle->send(handshakeMessage.data(), handshakeMessage.length())) {
         LOG(Network, "Error in sending handshake message.");
@@ -134,8 +126,8 @@ void WebSocketChannel::didOpen(SocketStreamHandle* handle)
 void WebSocketChannel::didClose(SocketStreamHandle* handle)
 {
     LOG(Network, "WebSocketChannel %p didClose", this);
-    ASSERT(handle == m_handle.get() || !m_handle.get());
-    if (m_handle.get()) {
+    ASSERT(handle == m_handle || !m_handle);
+    if (m_handle) {
         m_unhandledBufferSize = handle->bufferedAmount();
         WebSocketChannelClient* client = m_client;
         m_client = 0;
@@ -149,7 +141,7 @@ void WebSocketChannel::didClose(SocketStreamHandle* handle)
 void WebSocketChannel::didReceiveData(SocketStreamHandle* handle, const char* data, int len)
 {
     LOG(Network, "WebSocketChannel %p didReceiveData %d", this, len);
-    ASSERT(handle == m_handle.get());
+    ASSERT(handle == m_handle);
     if (!appendToBuffer(data, len)) {
         handle->close();
         return;
@@ -167,8 +159,10 @@ void WebSocketChannel::didReceiveData(SocketStreamHandle* handle, const char* da
             if (!m_handshake.serverSetCookie().isEmpty()) {
                 if (m_context->isDocument()) {
                     Document* document = static_cast<Document*>(m_context);
-                    if (cookiesEnabled(document))
-                        document->setCookie(m_handshake.serverSetCookie());
+                    if (cookiesEnabled(document)) {
+                        ExceptionCode ec; // Exception (for sandboxed documents) ignored.
+                        document->setCookie(m_handshake.serverSetCookie(), ec);
+                    }
                 }
             }
             // FIXME: handle set-cookie2.
@@ -193,19 +187,23 @@ void WebSocketChannel::didReceiveData(SocketStreamHandle* handle, const char* da
         unsigned char frameByte = static_cast<unsigned char>(*p++);
         if ((frameByte & 0x80) == 0x80) {
             int length = 0;
-            while (p < end && (*p & 0x80) == 0x80) {
+            while (p < end) {
                 if (length > std::numeric_limits<int>::max() / 128) {
                     LOG(Network, "frame length overflow %d", length);
                     handle->close();
                     return;
                 }
-                length = length * 128 + (*p & 0x7f);
+                char msgByte = *p;
+                length = length * 128 + (msgByte & 0x7f);
                 ++p;
+                if (!(msgByte & 0x80))
+                    break;
             }
             if (p + length < end) {
                 p += length;
                 nextFrame = p;
-            }
+            } else
+                break;
         } else {
             const char* msgStart = p;
             while (p < end && *p != '\xff')
@@ -224,8 +222,16 @@ void WebSocketChannel::didReceiveData(SocketStreamHandle* handle, const char* da
 void WebSocketChannel::didFail(SocketStreamHandle* handle, const SocketStreamError&)
 {
     LOG(Network, "WebSocketChannel %p didFail", this);
-    ASSERT(handle == m_handle.get() || !m_handle.get());
+    ASSERT(handle == m_handle || !m_handle);
     handle->close();
+}
+
+void WebSocketChannel::didReceiveAuthenticationChallenge(SocketStreamHandle*, const AuthenticationChallenge&)
+{
+}
+
+void WebSocketChannel::didCancelAuthenticationChallenge(SocketStreamHandle*, const AuthenticationChallenge&)
+{
 }
 
 bool WebSocketChannel::appendToBuffer(const char* data, int len)

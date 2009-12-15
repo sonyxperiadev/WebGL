@@ -131,7 +131,7 @@ namespace WebCore {
         void injectUserScripts(UserScriptInjectionTime);
 
     private:
-        void injectUserScriptsForWorld(unsigned worldID, const UserScriptVector&, UserScriptInjectionTime);
+        void injectUserScriptsForWorld(DOMWrapperWorld*, const UserScriptVector&, UserScriptInjectionTime);
 
     private:
         Frame(Page*, HTMLFrameOwnerElement*, FrameLoaderClient*);
@@ -274,7 +274,8 @@ namespace WebCore {
         void clearTypingStyle();
 
         FloatRect selectionBounds(bool clipToVisibleContent = true) const;
-        void selectionTextRects(Vector<FloatRect>&, bool clipToVisibleContent = true) const;
+        enum SelectionRectRespectTransforms { RespectTransforms = true, IgnoreTransforms = false };
+        void selectionTextRects(Vector<FloatRect>&, SelectionRectRespectTransforms respectTransforms, bool clipToVisibleContent = true) const;
 
         HTMLFormElement* currentForm() const;
 

@@ -35,6 +35,10 @@ LOCAL_SRC_FILES := \
 	bytecode/StructureStubInfo.cpp \
 	\
 	bytecompiler/BytecodeGenerator.cpp \
+<<<<<<< HEAD:JavaScriptCore/Android.mk
+=======
+	bytecompiler/NodesCodegen.cpp \
+>>>>>>> webkit.org at r51976:JavaScriptCore/Android.mk
 	\
 	debugger/Debugger.cpp \
 	debugger/DebuggerActivation.cpp \

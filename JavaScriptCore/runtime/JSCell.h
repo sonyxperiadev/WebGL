@@ -42,6 +42,7 @@ namespace JSC {
         friend class JSString;
         friend class JSValue;
         friend class JSAPIValueWrapper;
+        friend class JSZombie;
         friend struct VPtrSet;
 
     private:
@@ -64,8 +65,8 @@ namespace JSC {
         Structure* structure() const;
 
         // Extracting the value.
-        bool getString(UString&) const;
-        UString getString() const; // null string if not a string
+        bool getString(ExecState* exec, UString&) const;
+        UString getString(ExecState* exec) const; // null string if not a string
         JSObject* getObject(); // NULL if not an object
         const JSObject* getObject() const; // NULL if not an object
         
@@ -90,6 +91,9 @@ namespace JSC {
         void* operator new(size_t, void* placementNewDestination) { return placementNewDestination; }
 
         virtual void markChildren(MarkStack&);
+#if ENABLE(JSC_ZOMBIES)
+        virtual bool isZombie() const { return false; }
+#endif
 
         // Object operations, with the toObject operation included.
         virtual const ClassInfo* classInfo() const;
@@ -175,14 +179,14 @@ namespace JSC {
         return isCell() && asCell()->isObject();
     }
 
-    inline bool JSValue::getString(UString& s) const
+    inline bool JSValue::getString(ExecState* exec, UString& s) const
     {
-        return isCell() && asCell()->getString(s);
+        return isCell() && asCell()->getString(exec, s);
     }
 
-    inline UString JSValue::getString() const
+    inline UString JSValue::getString(ExecState* exec) const
     {
-        return isCell() ? asCell()->getString() : UString();
+        return isCell() ? asCell()->getString(exec) : UString();
     }
 
     inline JSObject* JSValue::getObject() const
@@ -342,7 +346,13 @@ namespace JSC {
     {
         return cellBlock(c)->heap;
     }
-
+    
+#if ENABLE(JSC_ZOMBIES)
+    inline bool JSValue::isZombie() const
+    {
+        return isCell() && asCell() && asCell()->isZombie();
+    }
+#endif
 } // namespace JSC
 
 #endif // JSCell_h

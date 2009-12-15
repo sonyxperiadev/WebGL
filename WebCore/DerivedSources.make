@@ -70,32 +70,34 @@ DOM_CLASSES = \
     CSSValueList \
     CSSVariablesRule \
     CSSVariablesDeclaration \
-    CanvasActiveInfo \
-    CanvasArray \
-    CanvasArrayBuffer \
-    CanvasBuffer \
-    CanvasByteArray \
-    CanvasFloatArray \
-    CanvasFramebuffer \
+    WebGLActiveInfo \
+    WebGLArray \
+    WebGLArrayBuffer \
+    WebGLBuffer \
+    WebGLByteArray \
+    WebGLFloatArray \
+    WebGLFramebuffer \
     CanvasGradient \
-    CanvasIntArray \
+    WebGLIntArray \
     CanvasPattern \
-    CanvasProgram \
-    CanvasRenderbuffer \
+    WebGLProgram \
+    WebGLRenderbuffer \
     CanvasRenderingContext \
     CanvasRenderingContext2D \
-    CanvasRenderingContext3D \
-    CanvasShader \
-    CanvasShortArray \
-    CanvasTexture \
-    CanvasUnsignedByteArray \
-    CanvasUnsignedIntArray \
-    CanvasUnsignedShortArray \
+    WebGLRenderingContext \
+    WebGLShader \
+    WebGLShortArray \
+    WebGLTexture \
+    WebGLUniformLocation \
+    WebGLUnsignedByteArray \
+    WebGLUnsignedIntArray \
+    WebGLUnsignedShortArray \
     CharacterData \
     ClientRect \
     ClientRectList \
     Clipboard \
     Comment \
+    CompositionEvent \
     Console \
     Coordinates \
     Counter \
@@ -198,7 +200,9 @@ DOM_CLASSES = \
     HTMLVideoElement \
     History \
     ImageData \
+    InjectedScriptHost \
     InspectorBackend \
+    InspectorFrontendHost \
     KeyboardEvent \
     Location \
     Media \
@@ -224,6 +228,7 @@ DOM_CLASSES = \
     PageTransitionEvent \
     Plugin \
     PluginArray \
+    PopStateEvent \
     PositionError \
     ProcessingInstruction \
     ProgressEvent \
@@ -616,10 +621,6 @@ ifeq ($(findstring ENABLE_VIDEO,$(FEATURE_DEFINES)), ENABLE_VIDEO)
     HTML_FLAGS := $(HTML_FLAGS) ENABLE_VIDEO=1
 endif
 
-ifeq ($(findstring ENABLE_RUBY,$(FEATURE_DEFINES)), ENABLE_RUBY)
-    HTML_FLAGS := $(HTML_FLAGS) ENABLE_RUBY=1
-endif
-
 ifdef HTML_FLAGS
 
 HTMLElementFactory.cpp HTMLNames.cpp : dom/make_names.pl html/HTMLTagNames.in html/HTMLAttributeNames.in
@@ -806,8 +807,11 @@ ifeq ($(shell gcc -E -P -dM $(FRAMEWORK_FLAGS) WebCore/ForwardingHeaders/wtf/Pla
     WEBCORE_EXPORT_DEPENDENCIES := $(WEBCORE_EXPORT_DEPENDENCIES) WebCore.NPAPI.exp
 endif
 
-ifeq ($(shell gcc -E -P -dM $(FRAMEWORK_FLAGS) WebCore/ForwardingHeaders/wtf/Platform.h | grep WTF_USE_PLUGIN_HOST_PROCESS | cut -d' ' -f3), 1)
+# FIXME: WTF_USE_PLUGIN_HOST_PROCESS is only true when building for x86_64, but we shouldn't have to know about that here.
+ifeq ($(findstring x86_64,$(ARCHS)) $(findstring x86_64,$(VALID_ARCHS)), x86_64 x86_64)
+ifeq ($(shell gcc -arch x86_64 -E -P -dM $(FRAMEWORK_FLAGS) WebCore/ForwardingHeaders/wtf/Platform.h | grep WTF_USE_PLUGIN_HOST_PROCESS | cut -d' ' -f3), 1)
     WEBCORE_EXPORT_DEPENDENCIES := $(WEBCORE_EXPORT_DEPENDENCIES) WebCore.PluginHostProcess.exp
+endif
 endif
 
 ifeq ($(findstring ENABLE_3D_RENDERING,$(FEATURE_DEFINES)), ENABLE_3D_RENDERING)

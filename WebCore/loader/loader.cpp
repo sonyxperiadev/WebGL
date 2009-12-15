@@ -71,6 +71,27 @@ Loader::~Loader()
     ASSERT_NOT_REACHED();
 }
     
+static ResourceRequest::TargetType cachedResourceTypeToTargetType(CachedResource::Type type)
+{
+    switch (type) {
+    case CachedResource::CSSStyleSheet:
+#if ENABLE(XSLT)
+    case CachedResource::XSLStyleSheet:
+#endif
+#if ENABLE(XBL)
+    case CachedResource::XBL:
+#endif
+        return ResourceRequest::TargetIsStyleSheet;
+    case CachedResource::Script: 
+        return ResourceRequest::TargetIsScript;
+    case CachedResource::FontResource:
+        return ResourceRequest::TargetIsFontResource;
+    case CachedResource::ImageResource:
+        return ResourceRequest::TargetIsImage;
+    }
+    return ResourceRequest::TargetIsSubresource;
+}
+
 Loader::Priority Loader::determinePriority(const CachedResource* resource) const
 {
 #if REQUEST_MANAGEMENT_ENABLED
@@ -301,6 +322,7 @@ void Loader::Host::servePendingRequests(RequestQueue& requestsPending, bool& ser
         requestsPending.removeFirst();
         
         ResourceRequest resourceRequest(request->cachedResource()->url());
+        resourceRequest.setTargetType(cachedResourceTypeToTargetType(request->cachedResource()->type()));
         
         if (!request->cachedResource()->accept().isEmpty())
             resourceRequest.setHTTPAccept(request->cachedResource()->accept());
@@ -377,7 +399,7 @@ void Loader::Host::didFinishLoading(SubresourceLoader* loader)
     docLoader->checkForPendingPreloads();
 
 #if REQUEST_DEBUG
-    KURL u(resource->url());
+    KURL u(ParsedURLString, resource->url());
     printf("HOST %s COUNT %d RECEIVED %s\n", u.host().latin1().data(), m_requestsLoading.size(), resource->url().latin1().data());
 #endif
     servePendingRequests();

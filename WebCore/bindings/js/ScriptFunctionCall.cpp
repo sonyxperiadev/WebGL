@@ -72,12 +72,25 @@ void ScriptFunctionCall::appendArgument(const String& argument)
 
 void ScriptFunctionCall::appendArgument(const JSC::UString& argument)
 {
+    JSLock lock(SilenceAssertionsOnly);
+    m_arguments.append(jsString(m_exec, argument));
+}
+
+void ScriptFunctionCall::appendArgument(const char* argument)
+{
+    JSLock lock(SilenceAssertionsOnly);
     m_arguments.append(jsString(m_exec, argument));
 }
 
 void ScriptFunctionCall::appendArgument(JSC::JSValue argument)
 {
     m_arguments.append(argument);
+}
+
+void ScriptFunctionCall::appendArgument(long argument)
+{
+    JSLock lock(SilenceAssertionsOnly);
+    m_arguments.append(jsNumber(m_exec, argument));
 }
 
 void ScriptFunctionCall::appendArgument(long long argument)
@@ -87,6 +100,12 @@ void ScriptFunctionCall::appendArgument(long long argument)
 }
 
 void ScriptFunctionCall::appendArgument(unsigned int argument)
+{
+    JSLock lock(SilenceAssertionsOnly);
+    m_arguments.append(jsNumber(m_exec, argument));
+}
+
+void ScriptFunctionCall::appendArgument(unsigned long argument)
 {
     JSLock lock(SilenceAssertionsOnly);
     m_arguments.append(jsNumber(m_exec, argument));
@@ -123,8 +142,7 @@ ScriptValue ScriptFunctionCall::call(bool& hadException, bool reportExceptions)
     if (callType == CallTypeNone)
         return ScriptValue();
 
-    // FIXME: Should this function take a worldID? - only used by inspector?
-    JSValue result = callInWorld(m_exec, function, callType, callData, thisObject, m_arguments, debuggerWorld());
+    JSValue result = JSC::call(m_exec, function, callType, callData, thisObject, m_arguments);
     if (m_exec->hadException()) {
         if (reportExceptions)
             reportException(m_exec, m_exec->exception());
@@ -162,8 +180,7 @@ ScriptObject ScriptFunctionCall::construct(bool& hadException, bool reportExcept
     if (constructType == ConstructTypeNone)
         return ScriptObject();
 
-    // FIXME: Currently this method constructs objects in debuggerWorld().  We could use the current world, or pass a worldID to this function?
-    JSValue result = constructInWorld(m_exec, constructor, constructType, constructData, m_arguments, debuggerWorld());
+    JSValue result = JSC::construct(m_exec, constructor, constructType, constructData, m_arguments);
     if (m_exec->hadException()) {
         if (reportExceptions)
             reportException(m_exec, m_exec->exception());

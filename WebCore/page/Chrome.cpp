@@ -154,6 +154,11 @@ void Chrome::takeFocus(FocusDirection direction) const
     m_client->takeFocus(direction);
 }
 
+void Chrome::focusedNodeChanged(Node* node) const
+{
+    m_client->focusedNodeChanged(node);
+}
+
 Page* Chrome::createWindow(Frame* frame, const FrameLoadRequest& request, const WindowFeatures& features) const
 {
     Page* newPage = m_client->createWindow(frame, request, features);
@@ -309,6 +314,16 @@ bool Chrome::shouldInterruptJavaScript()
     return m_client->shouldInterruptJavaScript();
 }
 
+void Chrome::registerProtocolHandler(const String& scheme, const String& baseURL, const String& url, const String& title)
+{
+    m_client->registerProtocolHandler(scheme, baseURL, url, title);
+}
+
+void Chrome::registerContentHandler(const String& mimeType, const String& baseURL, const String& url, const String& title)
+{
+    m_client->registerContentHandler(mimeType,  baseURL, url,  title);
+}
+
 IntRect Chrome::windowResizerRect() const
 {
     return m_client->windowResizerRect();
@@ -399,11 +414,6 @@ void Chrome::print(Frame* frame)
 
 void Chrome::requestGeolocationPermissionForFrame(Frame* frame, Geolocation* geolocation)
 {
-    // Defer loads in case the client method runs a new event loop that would
-    // otherwise cause the load to continue while we're in the middle of executing JavaScript.
-    PageGroupLoadDeferrer deferrer(m_page, true);
-
-    ASSERT(frame);
     m_client->requestGeolocationPermissionForFrame(frame, geolocation);
 }
 

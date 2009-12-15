@@ -34,7 +34,7 @@
 #include "JSCanvasRenderingContext.cpp"
 #include "JSCanvasRenderingContext2D.cpp"
 #if ENABLE(3D_CANVAS)    
-#include "JSCanvasRenderingContext3D.cpp"
+#include "JSWebGLRenderingContext.cpp"
 #endif
 #include "JSCDATASection.cpp"
 #include "JSCharacterData.cpp"
@@ -42,6 +42,7 @@
 #include "JSClientRectList.cpp"
 #include "JSClipboard.cpp"
 #include "JSComment.cpp"
+#include "JSCompositionEvent.cpp"
 #include "JSConsole.cpp"
 #include "JSCounter.cpp"
 #include "JSCSSCharsetRule.cpp"
@@ -180,6 +181,7 @@
 #include "JSPageTransitionEvent.cpp"
 #include "JSPlugin.cpp"
 #include "JSPluginArray.cpp"
+#include "JSPopStateEvent.cpp"
 #include "JSProcessingInstruction.cpp"
 #include "JSProgressEvent.cpp"
 #include "JSRange.cpp"

@@ -62,7 +62,7 @@ public:
     static PassRefPtr<AccessibilityRenderObject> create(RenderObject*);
     virtual ~AccessibilityRenderObject();
     
-    bool isAccessibilityRenderObject() const { return true; };
+    bool isAccessibilityRenderObject() const { return true; }
     
     virtual bool isAnchor() const;
     virtual bool isAttachment() const;
@@ -102,12 +102,16 @@ public:
     virtual bool isReadOnly() const;
     virtual bool isVisited() const;        
     virtual bool isRequired() const;
+    virtual bool isLinked() const;
+    virtual bool isExpanded() const;
+    virtual void setIsExpanded(bool);
 
     const AtomicString& getAttribute(const QualifiedName&) const;
     virtual bool canSetFocusAttribute() const;
     virtual bool canSetTextRangeAttributes() const;
     virtual bool canSetValueAttribute() const;
-    
+    virtual bool canSetExpandedAttribute() const;
+
     virtual bool hasIntValue() const;
     
     virtual bool accessibilityIsIgnored() const;
@@ -119,6 +123,7 @@ public:
     virtual float maxValueForRange() const;
     virtual float minValueForRange() const;
     virtual AccessibilityObject* selectedRadioButton();
+    virtual AccessibilityObject* selectedTabItem();
     virtual int layoutCount() const;
     
     virtual AccessibilityObject* doAccessibilityHitTest(const IntPoint&) const;
@@ -136,6 +141,8 @@ public:
     virtual AccessibilityObject* correspondingControlForLabelElement() const;
     virtual AccessibilityObject* correspondingLabelForControlElement() const;
 
+    virtual void ariaOwnsElements(AccessibilityChildrenVector&) const;
+    virtual bool supportsARIAOwns() const;
     virtual AccessibilityRole ariaRoleAttribute() const;
     virtual bool isPresentationalChildOfAriaRole() const;
     virtual bool ariaRoleHasPresentationalChildren() const;
@@ -167,7 +174,6 @@ public:
     virtual PlainTextRange selectedTextRange() const;
     virtual VisibleSelection selection() const;
     virtual String stringValue() const;
-    virtual String ariaAccessibilityName(const String&) const;
     virtual String ariaLabeledByAttribute() const;
     virtual String title() const;
     virtual String ariaDescribedByAttribute() const;
@@ -185,13 +191,17 @@ public:
     virtual void getDocumentLinks(AccessibilityChildrenVector&);
     virtual FrameView* documentFrameView() const;
     virtual String language() const;
-    
+    virtual unsigned hierarchicalLevel() const;
+
     virtual const AccessibilityChildrenVector& children();
     
     virtual void setFocused(bool);
     virtual void setSelectedTextRange(const PlainTextRange&);
     virtual void setValue(const String&);
+    virtual void setSelected(bool);
+    virtual void setSelectedRows(AccessibilityChildrenVector&);
     virtual void changeValueByPercent(float percentChange);
+    virtual AccessibilityOrientation orientation() const;
     virtual void increment();
     virtual void decrement();
     
@@ -201,6 +211,7 @@ public:
     virtual bool canHaveChildren() const;
     virtual void selectedChildren(AccessibilityChildrenVector&);
     virtual void visibleChildren(AccessibilityChildrenVector&);
+    virtual void tabChildren(AccessibilityChildrenVector&);
     virtual bool shouldFocusActiveDescendant() const;
     virtual AccessibilityObject* activeDescendant() const;
     virtual void handleActiveDescendantChanged();
@@ -209,6 +220,14 @@ public:
     virtual VisiblePositionRange visiblePositionRangeForLine(unsigned) const;
     virtual IntRect boundsForVisiblePositionRange(const VisiblePositionRange&) const;
     virtual void setSelectedVisiblePositionRange(const VisiblePositionRange&) const;
+    virtual bool supportsARIAFlowTo() const;
+    virtual void ariaFlowToElements(AccessibilityChildrenVector&) const;
+
+    virtual bool supportsARIADropping();
+    virtual bool supportsARIADragging();
+    virtual bool isARIAGrabbed();
+    virtual void setARIAGrabbed(bool);
+    virtual void determineARIADropEffects(Vector<String>&);
     
     virtual VisiblePosition visiblePositionForPoint(const IntPoint&) const;
     virtual VisiblePosition visiblePositionForIndex(unsigned indexValue, bool lastIndexOK) const;    
@@ -224,13 +243,19 @@ public:
     virtual IntRect doAXBoundsForRange(const PlainTextRange&) const;
     
     virtual void updateBackingStore();
-    
+
+    virtual String stringValueForMSAA() const;
+    virtual String stringRoleForMSAA() const;
+    virtual String nameForMSAA() const;
+    virtual String descriptionForMSAA() const;
+
 protected:
     RenderObject* m_renderer;
     AccessibilityRole m_ariaRole;
     mutable bool m_childrenDirty;
     
     void setRenderObject(RenderObject* renderer) { m_renderer = renderer; }
+    void ariaLabeledByElements(Vector<Element*>& elements) const;
     
     virtual bool isDetached() const { return !m_renderer; }
 
@@ -238,18 +263,30 @@ private:
     void ariaListboxSelectedChildren(AccessibilityChildrenVector&);
     void ariaListboxVisibleChildren(AccessibilityChildrenVector&);
     bool ariaIsHidden() const;
+    bool isDescendantOfBarrenParent() const;
+    bool hasTextAlternative() const;
+    String positionalDescriptionForMSAA() const;
 
     Element* menuElementForMenuButton() const;
     Element* menuItemElementForMenu() const;
     AccessibilityRole determineAccessibilityRole();
     AccessibilityRole determineAriaRoleAttribute() const;
 
+    bool isTabItemSelected() const;
     IntRect checkboxOrRadioRect() const;
     void addRadioButtonGroupMembers(AccessibilityChildrenVector& linkedUIElements) const;
     AccessibilityObject* internalLinkElement() const;
     AccessibilityObject* accessibilityImageMapHitTest(HTMLAreaElement*, const IntPoint&) const;
     AccessibilityObject* accessibilityParentForImageMap(HTMLMapElement* map) const;
 
+    void ariaTreeSelectedRows(AccessibilityChildrenVector&);
+    
+    bool elementAttributeValue(const QualifiedName&);
+    void setElementAttributeValue(const QualifiedName&, bool);
+    
+    String accessibilityDescriptionForElements(Vector<Element*> &elements) const;
+    void elementsFromAttribute(Vector<Element*>& elements, const QualifiedName& name) const;
+    
     void markChildrenDirty() const { m_childrenDirty = true; }
 };
     

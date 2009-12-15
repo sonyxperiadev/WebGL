@@ -67,6 +67,7 @@ public:
     void removeAllVisitedLinks();
     void setAcceptsEditing(bool acceptsEditing);
     void setAppCacheMaximumSize(unsigned long long quota);
+    void setAllowUniversalAccessFromFileURLs(bool);
     void setAuthorAndUserStylesEnabled(bool);
     void setCacheModel(int);
     void setCustomPolicyDelegate(bool setDelegate, bool permissive);
@@ -201,6 +202,7 @@ public:
     
     bool pauseAnimationAtTimeOnElementWithId(JSStringRef animationName, double time, JSStringRef elementId);
     bool pauseTransitionAtTimeOnElementWithId(JSStringRef propertyName, double time, JSStringRef elementId);
+    bool sampleSVGAnimationForElementAtTime(JSStringRef animationId, double time, JSStringRef elementId);
     unsigned numberOfActiveAnimations() const;
 
     void whiteListAccessFromOrigin(JSStringRef sourceOrigin, JSStringRef destinationProtocol, JSStringRef destinationHost, bool allowDestinationSubdomains);
@@ -214,6 +216,7 @@ public:
 
     void showWebInspector();
     void closeWebInspector();
+    void setTimelineProfilingEnabled(bool enabled);
     void evaluateInWebInspector(long callId, JSStringRef script);
     void evaluateScriptInIsolatedWorld(unsigned worldId, JSObjectRef globalObject, JSStringRef script);
 

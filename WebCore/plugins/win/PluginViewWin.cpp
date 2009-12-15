@@ -30,7 +30,9 @@
 #include "PluginView.h"
 
 #include "BitmapImage.h"
+#if !PLATFORM(WX)
 #include "BitmapInfo.h"
+#endif
 #include "Document.h"
 #include "DocumentLoader.h"
 #include "Element.h"
@@ -81,12 +83,21 @@
 #include <QWidget>
 #endif
 
+#if PLATFORM(WX)
+#include <wx/defs.h>
+#include <wx/window.h>
+#endif
+
 static inline HWND windowHandleForPageClient(PlatformPageClient client)
 {
 #if PLATFORM(QT)
     if (!client)
         return 0;
     return client->ownerWidget()->winId();
+#elif PLATFORM(WX)
+    if (!client)
+        return 0;
+    return (HWND)client->GetHandle();
 #else
     return client;
 #endif
@@ -145,7 +156,7 @@ HDC WINAPI PluginView::hookedBeginPaint(HWND hWnd, PAINTSTRUCT* lpPaint)
          "push    %3\n"
          "call    *%4\n"
          : "=a" (result)
-         : "a" (beginPaintSysCall), "g" (lpPaint), "g" (hWnd), "m" (*beginPaint)
+         : "a" (beginPaintSysCall), "g" (lpPaint), "g" (hWnd), "m" (beginPaint)
          : "memory"
         );
     return result;
@@ -175,7 +186,7 @@ BOOL WINAPI PluginView::hookedEndPaint(HWND hWnd, const PAINTSTRUCT* lpPaint)
          "push   %3\n"
          "call   *%4\n"
          : "=a" (result)
-         : "a" (endPaintSysCall), "g" (lpPaint), "g" (hWnd), "m" (*endPaint)
+         : "a" (endPaintSysCall), "g" (lpPaint), "g" (hWnd), "m" (endPaint)
         );
     return result;
 #elif defined (_M_IX86)
@@ -702,7 +713,7 @@ void PluginView::handleMouseEvent(MouseEvent* event)
     if (!dispatchNPEvent(npEvent))
         event->setDefaultHandled();
 
-#if !PLATFORM(QT) && !PLATFORM(WINCE)
+#if !PLATFORM(QT) && !PLATFORM(WX) && !PLATFORM(WINCE)
     // Currently, Widget::setCursor is always called after this function in EventHandler.cpp
     // and since we don't want that we set ignoreNextSetCursor to true here to prevent that.
     ignoreNextSetCursor = true;
@@ -987,7 +998,7 @@ bool PluginView::platformStart()
         HWND window = ::CreateWindowEx(0, kWebPluginViewdowClassName, 0, flags,
                                        0, 0, 0, 0, parentWindowHandle, 0, Page::instanceHandle(), 0);
 
-#if PLATFORM(WIN_OS) && PLATFORM(QT)
+#if PLATFORM(WIN_OS) && (PLATFORM(QT) || PLATFORM(WX))
         m_window = window;
 #else
         setPlatformWidget(window);
@@ -1030,6 +1041,7 @@ void PluginView::platformDestroy()
 
 PassRefPtr<Image> PluginView::snapshot()
 {
+#if !PLATFORM(WX)
     OwnPtr<HDC> hdc(CreateCompatibleDC(0));
 
     if (!m_isWindowed) {
@@ -1059,6 +1071,9 @@ PassRefPtr<Image> PluginView::snapshot()
     SelectObject(hdc.get(), hbmpOld);
 
     return BitmapImage::create(hbmp.get());
+#else
+    return 0;
+#endif
 }
 
 void PluginView::halt()

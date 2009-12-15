@@ -34,6 +34,8 @@ import re
 import subprocess
 
 # Import WebKit-specific modules.
+from modules.changelogs import ChangeLog
+from modules.executive import Executive, run_command, ScriptError
 from modules.logging import error, log
 
 def detect_scm_system(path):
@@ -77,44 +79,16 @@ class CommitMessage:
         return "\n".join(self.message_lines) + "\n"
 
 
-class ScriptError(Exception):
-    def __init__(self, message=None, script_args=None, exit_code=None, output=None, cwd=None):
-        if not message:
-            message = 'Failed to run "%s"' % script_args
-            if exit_code:
-                message += " exit_code: %d" % exit_code
-            if cwd:
-                message += " cwd: %s" % cwd
-
-        Exception.__init__(self, message)
-        self.script_args = script_args # 'args' is already used by Exception
-        self.exit_code = exit_code
-        self.output = output
-        self.cwd = cwd
-
-    def message_with_output(self, output_limit=500):
-        if self.output:
-            if len(self.output) > output_limit:
-                 return "%s\nLast %s characters of output:\n%s" % (self, output_limit, self.output[-output_limit:])
-            return "%s\n%s" % (self, self.output)
-        return str(self)
-
-
 class CheckoutNeedsUpdate(ScriptError):
     def __init__(self, script_args, exit_code, output, cwd):
         ScriptError.__init__(self, script_args=script_args, exit_code=exit_code, output=output, cwd=cwd)
 
 
-def default_error_handler(error):
-    raise error
-
 def commit_error_handler(error):
     if re.search("resource out of date", error.output):
         raise CheckoutNeedsUpdate(script_args=error.script_args, exit_code=error.exit_code, output=error.output, cwd=error.cwd)
-    default_error_handler(error)
+    Executive.default_error_handler(error)
 
-def ignore_error(error):
-    pass
 
 class SCM:
     def __init__(self, cwd, dryrun=False):
@@ -122,33 +96,15 @@ class SCM:
         self.checkout_root = self.find_checkout_root(self.cwd)
         self.dryrun = dryrun
 
-    @staticmethod
-    def run_command(args, cwd=None, input=None, error_handler=default_error_handler, return_exit_code=False):
-        if hasattr(input, 'read'): # Check if the input is a file.
-            stdin = input
-            string_to_communicate = None
-        else:
-            stdin = subprocess.PIPE if input else None
-            string_to_communicate = input
-        process = subprocess.Popen(args, stdin=stdin, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, cwd=cwd)
-        output = process.communicate(string_to_communicate)[0].rstrip()
-        exit_code = process.wait()
-        if exit_code:
-            script_error = ScriptError(script_args=args, exit_code=exit_code, output=output, cwd=cwd)
-            error_handler(script_error)
-        if return_exit_code:
-            return exit_code
-        return output
-
     def scripts_directory(self):
         return os.path.join(self.checkout_root, "WebKitTools", "Scripts")
 
     def script_path(self, script_name):
         return os.path.join(self.scripts_directory(), script_name)
 
-    def ensure_clean_working_directory(self, force):
-        if not force and not self.working_directory_is_clean():
-            print self.run_command(self.status_command(), error_handler=ignore_error)
+    def ensure_clean_working_directory(self, force_clean):
+        if not force_clean and not self.working_directory_is_clean():
+            print run_command(self.status_command(), error_handler=Executive.ignore_error)
             raise ScriptError(message="Working directory has modifications, pass --force-clean or --no-clean to continue.")
         
         log("Cleaning working directory")
@@ -168,15 +124,17 @@ class SCM:
         # It's possible that the patch was not made from the root directory.
         # We should detect and handle that case.
         curl_process = subprocess.Popen(['curl', '--location', '--silent', '--show-error', patch['url']], stdout=subprocess.PIPE)
-        args = [self.script_path('svn-apply'), '--reviewer', patch['reviewer']]
+        args = [self.script_path('svn-apply')]
+        if patch.get('reviewer'):
+            args += ['--reviewer', patch['reviewer']]
         if force:
             args.append('--force')
 
-        self.run_command(args, input=curl_process.stdout)
+        run_command(args, input=curl_process.stdout)
 
     def run_status_and_extract_filenames(self, status_command, status_regexp):
         filenames = []
-        for line in self.run_command(status_command).splitlines():
+        for line in run_command(status_command).splitlines():
             match = re.search(status_regexp, line)
             if not match:
                 continue
@@ -204,6 +162,28 @@ class SCM:
                 changelog_paths.append(path)
         return changelog_paths
 
+    # FIXME: Requires unit test
+    # FIXME: commit_message_for_this_commit and modified_changelogs don't
+    #        really belong here.  We should have a separate module for
+    #        handling ChangeLogs.
+    def commit_message_for_this_commit(self):
+        changelog_paths = self.modified_changelogs()
+        if not len(changelog_paths):
+            raise ScriptError(message="Found no modified ChangeLogs, cannot create a commit message.\n"
+                              "All changes require a ChangeLog.  See:\n"
+                              "http://webkit.org/coding/contributing.html")
+
+        changelog_messages = []
+        for changelog_path in changelog_paths:
+            log("Parsing ChangeLog: %s" % changelog_path)
+            changelog_entry = ChangeLog(changelog_path).latest_entry()
+            if not changelog_entry:
+                raise ScriptError(message="Failed to parse ChangeLog: " + os.path.abspath(changelog_path))
+            changelog_messages.append(changelog_entry)
+
+        # FIXME: We should sort and label the ChangeLog messages like commit-log-editor does.
+        return CommitMessage("".join(changelog_messages).splitlines())
+
     @staticmethod
     def in_working_directory(path):
         raise NotImplementedError, "subclasses must implement"
@@ -220,9 +200,6 @@ class SCM:
         raise NotImplementedError, "subclasses must implement"
 
     def clean_working_directory(self):
-        raise NotImplementedError, "subclasses must implement"
-
-    def update_webkit(self):
         raise NotImplementedError, "subclasses must implement"
 
     def status_command(self):
@@ -295,7 +272,7 @@ class SVN(SCM):
     @classmethod
     def value_from_svn_info(cls, path, field_name):
         svn_info_args = ['svn', 'info', path]
-        info_output = cls.run_command(svn_info_args)
+        info_output = run_command(svn_info_args).rstrip()
         match = re.search("^%s: (?P<value>.+)$" % field_name, info_output, re.MULTILINE)
         if not match:
             raise ScriptError(script_args=svn_info_args, message='svn info did not contain a %s.' % field_name)
@@ -323,18 +300,15 @@ class SVN(SCM):
 
     def svn_version(self):
         if not self.cached_version:
-            self.cached_version = self.run_command(['svn', '--version', '--quiet'])
+            self.cached_version = run_command(['svn', '--version', '--quiet'])
         
         return self.cached_version
 
     def working_directory_is_clean(self):
-        return self.run_command(['svn', 'diff']) == ""
+        return run_command(['svn', 'diff']) == ""
 
     def clean_working_directory(self):
-        self.run_command(['svn', 'revert', '-R', '.'])
-
-    def update_webkit(self):
-        self.run_command(self.script_path("update-webkit"))
+        run_command(['svn', 'revert', '-R', '.'])
 
     def status_command(self):
         return ['svn', 'status']
@@ -354,10 +328,10 @@ class SVN(SCM):
         return "svn"
 
     def create_patch(self):
-        return self.run_command(self.script_path("svn-create-patch"), cwd=self.checkout_root)
+        return run_command(self.script_path("svn-create-patch"), cwd=self.checkout_root, return_stderr=False)
 
     def diff_for_revision(self, revision):
-        return self.run_command(['svn', 'diff', '-c', str(revision)])
+        return run_command(['svn', 'diff', '-c', str(revision)])
 
     def _repository_url(self):
         return self.value_from_svn_info(self.checkout_root, 'URL')
@@ -367,20 +341,20 @@ class SVN(SCM):
         svn_merge_args = ['svn', 'merge', '--non-interactive', '-c', '-%s' % revision, self._repository_url()]
         log("WARNING: svn merge has been known to take more than 10 minutes to complete.  It is recommended you use git for rollouts.")
         log("Running '%s'" % " ".join(svn_merge_args))
-        self.run_command(svn_merge_args)
+        run_command(svn_merge_args)
 
     def revert_files(self, file_paths):
-        self.run_command(['svn', 'revert'] + file_paths)
+        run_command(['svn', 'revert'] + file_paths)
 
     def commit_with_message(self, message):
         if self.dryrun:
             # Return a string which looks like a commit so that things which parse this output will succeed.
             return "Dry run, no commit.\nCommitted revision 0."
-        return self.run_command(['svn', 'commit', '-m', message], error_handler=commit_error_handler)
+        return run_command(['svn', 'commit', '-m', message], error_handler=commit_error_handler)
 
     def svn_commit_log(self, svn_revision):
         svn_revision = self.strip_r_from_svn_revision(str(svn_revision))
-        return self.run_command(['svn', 'log', '--non-interactive', '--revision', svn_revision]);
+        return run_command(['svn', 'log', '--non-interactive', '--revision', svn_revision]);
 
     def last_svn_commit_log(self):
         # BASE is the checkout revision, HEAD is the remote repository revision
@@ -394,12 +368,12 @@ class Git(SCM):
 
     @classmethod
     def in_working_directory(cls, path):
-        return cls.run_command(['git', 'rev-parse', '--is-inside-work-tree'], cwd=path, error_handler=ignore_error) == "true"
+        return run_command(['git', 'rev-parse', '--is-inside-work-tree'], cwd=path, error_handler=Executive.ignore_error).rstrip() == "true"
 
     @classmethod
     def find_checkout_root(cls, path):
         # "git rev-parse --show-cdup" would be another way to get to the root
-        (checkout_root, dot_git) = os.path.split(cls.run_command(['git', 'rev-parse', '--git-dir'], cwd=path))
+        (checkout_root, dot_git) = os.path.split(run_command(['git', 'rev-parse', '--git-dir'], cwd=path))
         # If we were using 2.6 # checkout_root = os.path.relpath(checkout_root, path)
         if not os.path.isabs(checkout_root): # Sometimes git returns relative paths
             checkout_root = os.path.join(path, checkout_root)
@@ -411,28 +385,23 @@ class Git(SCM):
 
 
     def discard_local_commits(self):
-        self.run_command(['git', 'reset', '--hard', 'trunk'])
+        run_command(['git', 'reset', '--hard', 'trunk'])
     
     def local_commits(self):
-        return self.run_command(['git', 'log', '--pretty=oneline', 'HEAD...trunk']).splitlines()
+        return run_command(['git', 'log', '--pretty=oneline', 'HEAD...trunk']).splitlines()
 
     def rebase_in_progress(self):
         return os.path.exists(os.path.join(self.checkout_root, '.git/rebase-apply'))
 
     def working_directory_is_clean(self):
-        return self.run_command(['git', 'diff-index', 'HEAD']) == ""
+        return run_command(['git', 'diff-index', 'HEAD']) == ""
 
     def clean_working_directory(self):
         # Could run git clean here too, but that wouldn't match working_directory_is_clean
-        self.run_command(['git', 'reset', '--hard', 'HEAD'])
+        run_command(['git', 'reset', '--hard', 'HEAD'])
         # Aborting rebase even though this does not match working_directory_is_clean
         if self.rebase_in_progress():
-            self.run_command(['git', 'rebase', '--abort'])
-
-    def update_webkit(self):
-        # FIXME: Call update-webkit once https://bugs.webkit.org/show_bug.cgi?id=27162 is fixed.
-        log("Updating working directory")
-        self.run_command(['git', 'svn', 'rebase'])
+            run_command(['git', 'rebase', '--abort'])
 
     def status_command(self):
         return ['git', 'status']
@@ -450,12 +419,12 @@ class Git(SCM):
         return "git"
 
     def create_patch(self):
-        return self.run_command(['git', 'diff', 'HEAD'])
+        return run_command(['git', 'diff', '--binary', 'HEAD'])
 
     @classmethod
     def git_commit_from_svn_revision(cls, revision):
         # git svn find-rev always exits 0, even when the revision is not found.
-        return cls.run_command(['git', 'svn', 'find-rev', 'r%s' % revision])
+        return run_command(['git', 'svn', 'find-rev', 'r%s' % revision]).rstrip()
 
     def diff_for_revision(self, revision):
         git_commit = self.git_commit_from_svn_revision(revision)
@@ -469,15 +438,15 @@ class Git(SCM):
 
         # I think this will always fail due to ChangeLogs.
         # FIXME: We need to detec specific failure conditions and handle them.
-        self.run_command(['git', 'revert', '--no-commit', git_commit], error_handler=ignore_error)
+        run_command(['git', 'revert', '--no-commit', git_commit], error_handler=Executive.ignore_error)
 
         # Fix any ChangeLogs if necessary.
         changelog_paths = self.modified_changelogs()
         if len(changelog_paths):
-            self.run_command([self.script_path('resolve-ChangeLogs')] + changelog_paths)
+            run_command([self.script_path('resolve-ChangeLogs')] + changelog_paths)
 
     def revert_files(self, file_paths):
-        self.run_command(['git', 'checkout', 'HEAD'] + file_paths)
+        run_command(['git', 'checkout', 'HEAD'] + file_paths)
 
     def commit_with_message(self, message):
         self.commit_locally_with_message(message)
@@ -485,27 +454,27 @@ class Git(SCM):
 
     def svn_commit_log(self, svn_revision):
         svn_revision = self.strip_r_from_svn_revision(svn_revision)
-        return self.run_command(['git', 'svn', 'log', '-r', svn_revision])
+        return run_command(['git', 'svn', 'log', '-r', svn_revision])
 
     def last_svn_commit_log(self):
-        return self.run_command(['git', 'svn', 'log', '--limit=1'])
+        return run_command(['git', 'svn', 'log', '--limit=1'])
 
     # Git-specific methods:
 
     def create_patch_from_local_commit(self, commit_id):
-        return self.run_command(['git', 'diff', commit_id + "^.." + commit_id])
+        return run_command(['git', 'diff', '--binary', commit_id + "^.." + commit_id])
 
     def create_patch_since_local_commit(self, commit_id):
-        return self.run_command(['git', 'diff', commit_id])
+        return run_command(['git', 'diff', '--binary', commit_id])
 
     def commit_locally_with_message(self, message):
-        self.run_command(['git', 'commit', '--all', '-F', '-'], input=message)
+        run_command(['git', 'commit', '--all', '-F', '-'], input=message)
         
     def push_local_commits_to_server(self):
         if self.dryrun:
             # Return a string which looks like a commit so that things which parse this output will succeed.
             return "Dry run, no remote commit.\nCommitted r0"
-        return self.run_command(['git', 'svn', 'dcommit'], error_handler=commit_error_handler)
+        return run_command(['git', 'svn', 'dcommit'], error_handler=commit_error_handler)
 
     # This function supports the following argument formats:
     # no args : rev-list trunk..HEAD
@@ -522,14 +491,14 @@ class Git(SCM):
             if '...' in commitish:
                 raise ScriptError(message="'...' is not supported (found in '%s'). Did you mean '..'?" % commitish)
             elif '..' in commitish:
-                commit_ids += reversed(self.run_command(['git', 'rev-list', commitish]).splitlines())
+                commit_ids += reversed(run_command(['git', 'rev-list', commitish]).splitlines())
             else:
                 # Turn single commits or branch or tag names into commit ids.
-                commit_ids += self.run_command(['git', 'rev-parse', '--revs-only', commitish]).splitlines()
+                commit_ids += run_command(['git', 'rev-parse', '--revs-only', commitish]).splitlines()
         return commit_ids
 
     def commit_message_for_local_commit(self, commit_id):
-        commit_lines = self.run_command(['git', 'cat-file', 'commit', commit_id]).splitlines()
+        commit_lines = run_command(['git', 'cat-file', 'commit', commit_id]).splitlines()
 
         # Skip the git headers.
         first_line_after_headers = 0
@@ -540,4 +509,4 @@ class Git(SCM):
         return CommitMessage(commit_lines[first_line_after_headers:])
 
     def files_changed_summary_for_commit(self, commit_id):
-        return self.run_command(['git', 'diff-tree', '--shortstat', '--no-commit-id', commit_id])
+        return run_command(['git', 'diff-tree', '--shortstat', '--no-commit-id', commit_id])

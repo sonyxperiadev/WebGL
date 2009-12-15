@@ -1976,11 +1976,6 @@ static void _updateMouseoverTimerCallback(CFRunLoopTimerRef timer, void *info)
     // remove tooltips before clearing _private so removeTrackingRect: will work correctly
     [self removeAllToolTips];
 
-#if USE(ACCELERATED_COMPOSITING)
-    if (_private->layerHostingView)
-        [[self _webView] _stoppedAcceleratedCompositingForFrame:[self _frame]];
-#endif
-
     [_private clear];
 
     Page* page = core([self _webView]);
@@ -2666,7 +2661,10 @@ WEBCORE_COMMAND(yankAndSelect)
     
     if (action == @selector(_lookUpInDictionaryFromMenu:))
         return [self _hasSelection];
-    
+
+    if (action == @selector(stopSpeaking:))
+        return [NSApp isSpeaking];
+
 #ifndef BUILDING_ON_TIGER
     if (action == @selector(toggleGrammarChecking:)) {
         // FIXME 4799134: WebView is the bottleneck for this grammar-checking logic, but we must validate 
@@ -2885,6 +2883,14 @@ WEBCORE_COMMAND(yankAndSelect)
 {
     if ([self superview] != nil)
         [self addSuperviewObservers];
+
+#if USE(ACCELERATED_COMPOSITING)
+    if ([self superview] && [self _isUsingAcceleratedCompositing]) {
+        WebView *webView = [self _webView];
+        if ([webView _postsAcceleratedCompositingNotifications])
+            [[NSNotificationCenter defaultCenter] postNotificationName:_WebViewDidStartAcceleratedCompositingNotification object:webView userInfo:nil];
+    }
+#endif
 }
 
 - (void)viewWillMoveToWindow:(NSWindow *)window
@@ -3439,21 +3445,6 @@ done:
         return NSDragOperationNone;
 
     return (NSDragOperation)page->dragController()->sourceDragOperation();
-}
-
-- (void)draggedImage:(NSImage *)image movedTo:(NSPoint)screenLoc
-{
-    ASSERT(![self _webView] || [self _isTopHTMLView]);
-    
-    NSPoint windowImageLoc = [[self window] convertScreenToBase:screenLoc];
-    NSPoint windowMouseLoc = windowImageLoc;
-    
-    if (Page* page = core([self _webView])) {
-        DragController* dragController = page->dragController();
-        NSPoint windowMouseLoc = NSMakePoint(windowImageLoc.x + dragController->dragOffset().x(), windowImageLoc.y + dragController->dragOffset().y());
-    }
-    
-    [[self _frame] _dragSourceMovedTo:windowMouseLoc];
 }
 
 - (void)draggedImage:(NSImage *)anImage endedAt:(NSPoint)aPoint operation:(NSDragOperation)operation
@@ -5425,7 +5416,6 @@ static CGPoint coreGraphicsScreenPointForAppKitScreenPoint(NSPoint point)
         [hostingView release];
         // hostingView is owned by being a subview of self
         _private->layerHostingView = hostingView;
-        [[self _webView] _startedAcceleratedCompositingForFrame:[self _frame]];
     }
 
     // Make a container layer, which will get sized/positioned by AppKit and CA.
@@ -5454,6 +5444,9 @@ static CGPoint coreGraphicsScreenPointForAppKitScreenPoint(NSPoint point)
     // Parent our root layer in the container layer
     [viewLayer addSublayer:layer];
     
+    if ([[self _webView] _postsAcceleratedCompositingNotifications])
+        [[NSNotificationCenter defaultCenter] postNotificationName:_WebViewDidStartAcceleratedCompositingNotification object:[self _webView] userInfo:nil];
+    
 #if defined(BUILDING_ON_LEOPARD)
     [self _updateLayerHostingViewPosition];
 #endif
@@ -5466,7 +5459,6 @@ static CGPoint coreGraphicsScreenPointForAppKitScreenPoint(NSPoint point)
         [_private->layerHostingView setWantsLayer:NO];
         [_private->layerHostingView removeFromSuperview];
         _private->layerHostingView = nil;
-        [[self _webView] _stoppedAcceleratedCompositingForFrame:[self _frame]];
     }
 }
 
@@ -5923,7 +5915,7 @@ static void extractUnderlines(NSAttributedString *string, Vector<CompositionUnde
     
     Vector<FloatRect> list;
     if (Frame* coreFrame = core([self _frame]))
-        coreFrame->selectionTextRects(list);
+        coreFrame->selectionTextRects(list, Frame::RespectTransforms);
 
     unsigned size = list.size();
     NSMutableArray *result = [[[NSMutableArray alloc] initWithCapacity:size] autorelease];

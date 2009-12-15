@@ -69,6 +69,7 @@
 #import "WebPolicyDelegatePrivate.h"
 #import "WebPreferences.h"
 #import "WebResourceLoadDelegate.h"
+#import "WebScriptWorldInternal.h"
 #import "WebSecurityOriginInternal.h"
 #import "WebUIDelegate.h"
 #import "WebUIDelegatePrivate.h"
@@ -128,6 +129,7 @@
 
 using namespace WebCore;
 using namespace HTMLNames;
+using namespace std;
 
 #if ENABLE(MAC_JAVA_BRIDGE)
 @interface NSView (WebJavaPluginDetails)
@@ -534,6 +536,30 @@ void WebFrameLoaderClient::dispatchDidChangeLocationWithinPage()
     WebFrameLoadDelegateImplementationCache* implementations = WebViewGetFrameLoadDelegateImplementations(webView);
     if (implementations->didChangeLocationWithinPageForFrameFunc)
         CallFrameLoadDelegate(implementations->didChangeLocationWithinPageForFrameFunc, webView, @selector(webView:didChangeLocationWithinPageForFrame:), m_webFrame.get());
+}
+
+void WebFrameLoaderClient::dispatchDidPushStateWithinPage()
+{
+    WebView *webView = getWebView(m_webFrame.get());
+    WebFrameLoadDelegateImplementationCache* implementations = WebViewGetFrameLoadDelegateImplementations(webView);
+    if (implementations->didPushStateWithinPageForFrameFunc)
+        CallFrameLoadDelegate(implementations->didPushStateWithinPageForFrameFunc, webView, @selector(webView:didPushStateWithinPageForFrame:), m_webFrame.get());
+}
+
+void WebFrameLoaderClient::dispatchDidReplaceStateWithinPage()
+{
+    WebView *webView = getWebView(m_webFrame.get());
+    WebFrameLoadDelegateImplementationCache* implementations = WebViewGetFrameLoadDelegateImplementations(webView);
+    if (implementations->didReplaceStateWithinPageForFrameFunc)
+        CallFrameLoadDelegate(implementations->didReplaceStateWithinPageForFrameFunc, webView, @selector(webView:didReplaceStateWithinPageForFrame:), m_webFrame.get());
+}
+
+void WebFrameLoaderClient::dispatchDidPopStateWithinPage()
+{
+    WebView *webView = getWebView(m_webFrame.get());
+    WebFrameLoadDelegateImplementationCache* implementations = WebViewGetFrameLoadDelegateImplementations(webView);
+    if (implementations->didPopStateWithinPageForFrameFunc)
+        CallFrameLoadDelegate(implementations->didPopStateWithinPageForFrameFunc, webView, @selector(webView:didPopStateWithinPageForFrame:), m_webFrame.get());
 }
 
 void WebFrameLoaderClient::dispatchWillClose()
@@ -963,7 +989,7 @@ bool WebFrameLoaderClient::canHandleRequest(const ResourceRequest& request) cons
 
 bool WebFrameLoaderClient::canShowMIMEType(const String& MIMEType) const
 {
-    return [WebView canShowMIMEType:MIMEType];
+    return [getWebView(m_webFrame.get()) _canShowMIMEType:MIMEType];
 }
 
 bool WebFrameLoaderClient::representationExistsForURLScheme(const String& URLScheme) const
@@ -1127,7 +1153,7 @@ void WebFrameLoaderClient::transitionToCommittedForNewPage()
 
     if (usesDocumentViews) {
         // FIXME (Viewless): I assume we want the equivalent of this optimization for viewless mode too.
-        bool willProduceHTMLView = [[WebFrameView class] _viewClassForMIMEType:[dataSource _responseMIMEType]] == [WebHTMLView class];
+        bool willProduceHTMLView = [m_webFrame->_private->webFrameView _viewClassForMIMEType:[dataSource _responseMIMEType]] == [WebHTMLView class];
         bool canSkipCreation = core(m_webFrame.get())->loader()->committingFirstRealLoad() && willProduceHTMLView;
         if (canSkipCreation) {
             [[m_webFrame->_private->webFrameView documentView] setDataSource:dataSource];
@@ -1234,7 +1260,7 @@ String WebFrameLoaderClient::userAgent(const KURL& url)
     if (!webView)
         return String("");
 
-    return [webView _userAgentForURL:url];
+    return [webView userAgentForURL:url];
 }
 
 static const MouseEvent* findMouseEvent(const Event* event)
@@ -1375,7 +1401,7 @@ ObjectContentType WebFrameLoaderClient::objectContentType(const KURL& url, const
         return ObjectContentOtherPlugin;
     }
 
-    if ([WebFrameView _viewClassForMIMEType:type])
+    if ([m_webFrame->_private->webFrameView _viewClassForMIMEType:type])
         return ObjectContentFrame;
     
     return ObjectContentNone;
@@ -1701,12 +1727,23 @@ String WebFrameLoaderClient::overrideMediaType() const
 void WebFrameLoaderClient::documentElementAvailable() {
 }
 
-void WebFrameLoaderClient::windowObjectCleared()
+void WebFrameLoaderClient::dispatchDidClearWindowObjectInWorld(DOMWrapperWorld* world)
 {
-    Frame *frame = core(m_webFrame.get());
-    ScriptController *script = frame->script();
     WebView *webView = getWebView(m_webFrame.get());
     WebFrameLoadDelegateImplementationCache* implementations = WebViewGetFrameLoadDelegateImplementations(webView);
+
+    if (implementations->didClearWindowObjectForFrameInScriptWorldFunc) {
+        CallFrameLoadDelegate(implementations->didClearWindowObjectForFrameInScriptWorldFunc,
+            webView, @selector(webView:didClearWindowObjectForFrame:inScriptWorld:), m_webFrame.get(), [WebScriptWorld findOrCreateWorld:world]);
+        return;
+    }
+
+    if (world != mainThreadNormalWorld())
+        return;
+
+    Frame *frame = core(m_webFrame.get());
+    ScriptController *script = frame->script();
+
     if (implementations->didClearWindowObjectForFrameFunc) {
         CallFrameLoadDelegate(implementations->didClearWindowObjectForFrameFunc, webView, @selector(webView:didClearWindowObject:forFrame:),
             script->windowScriptObject(), m_webFrame.get());

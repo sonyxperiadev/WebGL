@@ -46,10 +46,57 @@ var Preferences = {
     resourcesLargeRows: true
 }
 
+function preloadImages()
+{
+    (new Image()).src = "Images/clearConsoleButtonGlyph.png";
+    (new Image()).src = "Images/consoleButtonGlyph.png";
+    (new Image()).src = "Images/dockButtonGlyph.png";
+    (new Image()).src = "Images/enableOutlineButtonGlyph.png";
+    (new Image()).src = "Images/enableSolidButtonGlyph.png";
+    (new Image()).src = "Images/excludeButtonGlyph.png";
+    (new Image()).src = "Images/focusButtonGlyph.png";
+    (new Image()).src = "Images/largerResourcesButtonGlyph.png";
+    (new Image()).src = "Images/nodeSearchButtonGlyph.png";
+    (new Image()).src = "Images/pauseOnExceptionButtonGlyph.png";
+    (new Image()).src = "Images/percentButtonGlyph.png";
+    (new Image()).src = "Images/recordButtonGlyph.png";
+    (new Image()).src = "Images/recordToggledButtonGlyph.png";
+    (new Image()).src = "Images/reloadButtonGlyph.png";
+    (new Image()).src = "Images/undockButtonGlyph.png";
+}
+
+preloadImages();
+
 var WebInspector = {
     resources: {},
     resourceURLMap: {},
+    cookieDomains: {},
     missingLocalizedStrings: {},
+    pendingDispatches: 0,
+
+    // RegExp groups:
+    // 1 - scheme
+    // 2 - hostname
+    // 3 - ?port
+    // 4 - ?path
+    // 5 - ?fragment
+    URLRegExp: /^(http[s]?|file):\/\/([^\/:]+)(?::([\d]+))?(?:(\/[^#]*)(?:#(.*))?)?$/i,
+
+    get platform()
+    {
+        if (!("_platform" in this))
+            this._platform = InspectorFrontendHost.platform();
+
+        return this._platform;
+    },
+
+    get port()
+    {
+        if (!("_port" in this))
+            this._port = InspectorFrontendHost.port();
+
+        return this._port;
+    },
 
     get previousFocusElement()
     {
@@ -126,41 +173,43 @@ var WebInspector = {
 
         for (var panelName in WebInspector.panels) {
             if (WebInspector.panels[panelName] == x)
-                InspectorController.storeLastActivePanel(panelName);
+                InspectorBackend.storeLastActivePanel(panelName);
         }
     },
 
     _createPanels: function()
     {
-        var hiddenPanels = (InspectorController.hiddenPanels() || "").split(',');
+        var hiddenPanels = (InspectorFrontendHost.hiddenPanels() || "").split(',');
         if (hiddenPanels.indexOf("elements") === -1)
             this.panels.elements = new WebInspector.ElementsPanel();
         if (hiddenPanels.indexOf("resources") === -1)
             this.panels.resources = new WebInspector.ResourcesPanel();
         if (hiddenPanels.indexOf("scripts") === -1)
             this.panels.scripts = new WebInspector.ScriptsPanel();
+        if (hiddenPanels.indexOf("timeline") === -1)
+            this.panels.timeline = new WebInspector.TimelinePanel();
         if (hiddenPanels.indexOf("profiles") === -1) {
             this.panels.profiles = new WebInspector.ProfilesPanel();
             this.panels.profiles.registerProfileType(new WebInspector.CPUProfileType());
         }
-        if (hiddenPanels.indexOf("timeline") === -1 && hiddenPanels.indexOf("timeline") === -1)
-            this.panels.timeline = new WebInspector.TimelinePanel();
 
         if (hiddenPanels.indexOf("storage") === -1 && hiddenPanels.indexOf("databases") === -1)
             this.panels.storage = new WebInspector.StoragePanel();
+        if (hiddenPanels.indexOf("console") === -1)
+            this.panels.console = new WebInspector.ConsolePanel();
     },
 
     _loadPreferences: function()
     {
-        var colorFormat = InspectorController.setting("color-format");
+        var colorFormat = InspectorFrontendHost.setting("color-format");
         if (colorFormat)
             Preferences.colorFormat = colorFormat;
 
-        var eventListenersFilter = InspectorController.setting("event-listeners-filter");
+        var eventListenersFilter = InspectorFrontendHost.setting("event-listeners-filter");
         if (eventListenersFilter)
             Preferences.eventListenersFilter = eventListenersFilter;
 
-        var resourcesLargeRows = InspectorController.setting("resources-large-rows");
+        var resourcesLargeRows = InspectorFrontendHost.setting("resources-large-rows");
         if (typeof resourcesLargeRows !== "undefined")
             Preferences.resourcesLargeRows = resourcesLargeRows;
     },
@@ -183,12 +232,12 @@ var WebInspector = {
         var body = document.body;
 
         if (x) {
-            InspectorController.attach();
+            InspectorFrontendHost.attach();
             body.removeStyleClass("detached");
             body.addStyleClass("attached");
             dockToggleButton.title = WebInspector.UIString("Undock into separate window.");
         } else {
-            InspectorController.detach();
+            InspectorFrontendHost.detach();
             body.removeStyleClass("attached");
             body.addStyleClass("detached");
             dockToggleButton.title = WebInspector.UIString("Dock to main window.");
@@ -357,10 +406,10 @@ var WebInspector = {
         }
 
         if (this._hoveredDOMNode) {
-            InspectorController.highlightDOMNode(this._hoveredDOMNode.id);
+            InspectorBackend.highlightDOMNode(this._hoveredDOMNode.id);
             this.showingDOMNodeHighlight = true;
         } else {
-            InspectorController.hideDOMNodeHighlight();
+            InspectorBackend.hideDOMNodeHighlight();
             this.showingDOMNodeHighlight = false;
         }
     }
@@ -368,11 +417,12 @@ var WebInspector = {
 
 WebInspector.loaded = function()
 {
-    var platform = InspectorController.platform();
+    var platform = WebInspector.platform;
     document.body.addStyleClass("platform-" + platform);
+    var port = WebInspector.port;
+    document.body.addStyleClass("port-" + port);
 
     this._loadPreferences();
-    this.pendingDispatches = 0;
 
     this.drawer = new WebInspector.Drawer();
     this.console = new WebInspector.ConsoleView(this.drawer);
@@ -429,11 +479,9 @@ WebInspector.loaded = function()
     document.addEventListener("keyup", this.documentKeyUp.bind(this), true);
     document.addEventListener("beforecopy", this.documentCanCopy.bind(this), true);
     document.addEventListener("copy", this.documentCopy.bind(this), true);
-    document.addEventListener("contextmenu", this.contextMenu.bind(this), true);
+    document.addEventListener("contextmenu", this.contextMenuEventFired.bind(this), true);
 
     var mainPanelsElement = document.getElementById("main-panels");
-    mainPanelsElement.handleKeyEvent = this.mainKeyDown.bind(this);
-    mainPanelsElement.handleKeyUpEvent = this.mainKeyUp.bind(this);
     mainPanelsElement.handleCopyEvent = this.mainCopy.bind(this);
 
     // Focus the mainPanelsElement in a timeout so it happens after the initial focus,
@@ -461,23 +509,24 @@ WebInspector.loaded = function()
 
     var searchField = document.getElementById("search");
     searchField.addEventListener("search", this.performSearch.bind(this), false); // when the search is emptied
+    searchField.addEventListener("mousedown", this.searchFieldManualFocus.bind(this), false); // when the search field is manually selected
 
     toolbarElement.addEventListener("mousedown", this.toolbarDragStart, true);
     document.getElementById("close-button-left").addEventListener("click", this.close, true);
     document.getElementById("close-button-right").addEventListener("click", this.close, true);
 
-    InspectorController.loaded();
+    InspectorFrontendHost.loaded();
 }
 
 var windowLoaded = function()
 {
-    var localizedStringsURL = InspectorController.localizedStringsURL();
+    var localizedStringsURL = InspectorFrontendHost.localizedStringsURL();
     if (localizedStringsURL) {
         var localizedStringsScriptElement = document.createElement("script");
         localizedStringsScriptElement.addEventListener("load", WebInspector.loaded.bind(WebInspector), false);
         localizedStringsScriptElement.type = "text/javascript";
         localizedStringsScriptElement.src = localizedStringsURL;
-        document.getElementsByTagName("head").item(0).appendChild(localizedStringsScriptElement);
+        document.head.appendChild(localizedStringsScriptElement);
     } else
         WebInspector.loaded();
 
@@ -504,13 +553,14 @@ WebInspector.dispatch = function() {
 
 WebInspector.windowUnload = function(event)
 {
-    InspectorController.windowUnloading();
+    InspectorFrontendHost.windowUnloading();
 }
 
 WebInspector.windowResize = function(event)
 {
     if (this.currentPanel && this.currentPanel.resize)
         this.currentPanel.resize();
+    this.drawer.resize();
 }
 
 WebInspector.windowFocused = function(event)
@@ -543,7 +593,7 @@ WebInspector.setAttachedWindow = function(attached)
 
 WebInspector.close = function(event)
 {
-    InspectorController.closeWindow();
+    InspectorFrontendHost.closeWindow();
 }
 
 WebInspector.documentClick = function(event)
@@ -588,20 +638,28 @@ WebInspector.documentClick = function(event)
 
 WebInspector.documentKeyDown = function(event)
 {
-    if (!this.currentFocusElement)
-        return;
-    if (this.currentFocusElement.handleKeyEvent)
-        this.currentFocusElement.handleKeyEvent(event);
-    else if (this.currentFocusElement.id && this.currentFocusElement.id.length && WebInspector[this.currentFocusElement.id + "KeyDown"])
-        WebInspector[this.currentFocusElement.id + "KeyDown"](event);
+    if (this.currentFocusElement) {
+        if (this.currentFocusElement.handleKeyEvent)
+            this.currentFocusElement.handleKeyEvent(event);
+        else if (this.currentFocusElement.id && this.currentFocusElement.id.length && WebInspector[this.currentFocusElement.id + "KeyDown"])
+            WebInspector[this.currentFocusElement.id + "KeyDown"](event);
+        if (event.handled)
+            return;
+    }
+
+    if (this.currentPanel && this.currentPanel.handleKeyEvent)
+        this.currentPanel.handleKeyEvent(event);
 
     if (!event.handled) {
-        var isMac = InspectorController.platform().indexOf("mac-") === 0;
+        var isMac = WebInspector.isMac();
 
         switch (event.keyIdentifier) {
             case "U+001B": // Escape key
-                this.drawer.visible = !this.drawer.visible;
                 event.preventDefault();
+                if (this.drawer.fullPanel)
+                    return;
+
+                this.drawer.visible = !this.drawer.visible;
                 break;
 
             case "U+0046": // F key
@@ -675,9 +733,15 @@ WebInspector.documentKeyDown = function(event)
 
 WebInspector.documentKeyUp = function(event)
 {
-    if (!this.currentFocusElement || !this.currentFocusElement.handleKeyUpEvent)
-        return;
-    this.currentFocusElement.handleKeyUpEvent(event);
+    if (this.currentFocusElement) {
+        if (this.currentFocusElement.handleKeyUpEvent)
+            this.currentFocusElement.handleKeyUpEvent(event);
+        if (event.handled)
+            return;
+    }
+
+    if (this.currentPanel && this.currentPanel.handleKeyUpEvent)
+        this.currentPanel.handleKeyUpEvent(event);
 }
 
 WebInspector.documentCanCopy = function(event)
@@ -701,22 +765,10 @@ WebInspector.documentCopy = function(event)
         WebInspector[this.currentFocusElement.id + "Copy"](event);
 }
 
-WebInspector.contextMenu = function(event)
+WebInspector.contextMenuEventFired = function(event)
 {
     if (event.handled || event.target.hasStyleClass("popup-glasspane"))
         event.preventDefault();
-}
-
-WebInspector.mainKeyDown = function(event)
-{
-    if (this.currentPanel && this.currentPanel.handleKeyEvent)
-        this.currentPanel.handleKeyEvent(event);
-}
-
-WebInspector.mainKeyUp = function(event)
-{
-    if (this.currentPanel && this.currentPanel.handleKeyUpEvent)
-        this.currentPanel.handleKeyUpEvent(event);
 }
 
 WebInspector.mainCopy = function(event)
@@ -725,29 +777,31 @@ WebInspector.mainCopy = function(event)
         this.currentPanel.handleCopyEvent(event);
 }
 
-WebInspector.animateStyle = function(animations, duration, callback, complete)
+WebInspector.animateStyle = function(animations, duration, callback)
 {
-    if (complete === undefined)
-        complete = 0;
-    var slice = (1000 / 30); // 30 frames per second
+    var interval;
+    var complete = 0;
 
-    var defaultUnit = "px";
-    var propertyUnit = {opacity: ""};
+    const intervalDuration = (1000 / 30); // 30 frames per second.
+    const animationsLength = animations.length;
+    const propertyUnit = {opacity: ""};
+    const defaultUnit = "px";
 
-    for (var i = 0; i < animations.length; ++i) {
+    function cubicInOut(t, b, c, d)
+    {
+        if ((t/=d/2) < 1) return c/2*t*t*t + b;
+        return c/2*((t-=2)*t*t + 2) + b;
+    }
+
+    // Pre-process animations.
+    for (var i = 0; i < animationsLength; ++i) {
         var animation = animations[i];
-        var element = null;
-        var start = null;
-        var current = null;
-        var end = null;
-        var key = null;
+        var element = null, start = null, end = null, key = null;
         for (key in animation) {
             if (key === "element")
                 element = animation[key];
             else if (key === "start")
                 start = animation[key];
-            else if (key === "current")
-                current = animation[key];
             else if (key === "end")
                 end = animation[key];
         }
@@ -755,49 +809,54 @@ WebInspector.animateStyle = function(animations, duration, callback, complete)
         if (!element || !end)
             continue;
 
-        var computedStyle = element.ownerDocument.defaultView.getComputedStyle(element);
         if (!start) {
+            var computedStyle = element.ownerDocument.defaultView.getComputedStyle(element);
             start = {};
             for (key in end)
                 start[key] = parseInt(computedStyle.getPropertyValue(key));
             animation.start = start;
-        } else if (complete == 0)
+        } else
             for (key in start)
                 element.style.setProperty(key, start[key] + (key in propertyUnit ? propertyUnit[key] : defaultUnit));
+    }
 
-        if (!current) {
-            current = {};
-            for (key in start)
-                current[key] = start[key];
-            animation.current = current;
-        }
+    function animateLoop()
+    {
+        // Advance forward.
+        complete += intervalDuration;
+        var next = complete + intervalDuration;
 
-        function cubicInOut(t, b, c, d)
-        {
-            if ((t/=d/2) < 1) return c/2*t*t*t + b;
-            return c/2*((t-=2)*t*t + 2) + b;
-        }
+        // Make style changes.
+        for (var i = 0; i < animationsLength; ++i) {
+            var animation = animations[i];
+            var element = animation.element;
+            var start = animation.start;
+            var end = animation.end;
+            if (!element || !end)
+                continue;
 
-        var style = element.style;
-        for (key in end) {
-            var startValue = start[key];
-            var currentValue = current[key];
-            var endValue = end[key];
-            if ((complete + slice) < duration) {
-                var delta = (endValue - startValue) / (duration / slice);
-                var newValue = cubicInOut(complete, startValue, endValue - startValue, duration);
-                style.setProperty(key, newValue + (key in propertyUnit ? propertyUnit[key] : defaultUnit));
-                current[key] = newValue;
-            } else {
-                style.setProperty(key, endValue + (key in propertyUnit ? propertyUnit[key] : defaultUnit));
+            var style = element.style;
+            for (key in end) {
+                var endValue = end[key];
+                if (next < duration) {
+                    var startValue = start[key];
+                    var newValue = cubicInOut(complete, startValue, endValue - startValue, duration);
+                    style.setProperty(key, newValue + (key in propertyUnit ? propertyUnit[key] : defaultUnit));
+                } else
+                    style.setProperty(key, endValue + (key in propertyUnit ? propertyUnit[key] : defaultUnit));
             }
+        }
+
+        // End condition.
+        if (complete >= duration) {
+            clearInterval(interval);
+            if (callback)
+                callback();
         }
     }
 
-    if (complete < duration)
-        setTimeout(WebInspector.animateStyle, slice, animations, duration, callback, complete + slice);
-    else if (callback)
-        callback();
+    interval = setInterval(animateLoop, intervalDuration);
+    return interval;
 }
 
 WebInspector.updateSearchLabel = function()
@@ -817,11 +876,12 @@ WebInspector.updateSearchLabel = function()
 WebInspector.toggleAttach = function()
 {
     this.attached = !this.attached;
+    this.drawer.resize();
 }
 
 WebInspector.toolbarDragStart = function(event)
 {
-    if ((!WebInspector.attached && InspectorController.platform() !== "mac-leopard") || InspectorController.platform() == "qt")
+    if ((!WebInspector.attached && WebInspector.platform !== "mac-leopard") || WebInspector.port == "qt")
         return;
 
     var target = event.target;
@@ -855,14 +915,14 @@ WebInspector.toolbarDrag = function(event)
     if (WebInspector.attached) {
         var height = window.innerHeight - (event.screenY - toolbar.lastScreenY);
 
-        InspectorController.setAttachedWindowHeight(height);
+        InspectorFrontendHost.setAttachedWindowHeight(height);
     } else {
         var x = event.screenX - toolbar.lastScreenX;
         var y = event.screenY - toolbar.lastScreenY;
 
         // We cannot call window.moveBy here because it restricts the movement
         // of the window at the edges.
-        InspectorController.moveByUnrestricted(x, y);
+        InspectorFrontendHost.moveWindowBy(x, y);
     }
 
     toolbar.lastScreenX = event.screenX;
@@ -925,6 +985,11 @@ WebInspector.showScriptsPanel = function()
     this.currentPanel = this.panels.scripts;
 }
 
+WebInspector.showTimelinePanel = function()
+{
+    this.currentPanel = this.panels.timeline;
+}
+
 WebInspector.showProfilesPanel = function()
 {
     this.currentPanel = this.panels.profiles;
@@ -935,11 +1000,17 @@ WebInspector.showStoragePanel = function()
     this.currentPanel = this.panels.storage;
 }
 
+WebInspector.showConsolePanel = function()
+{
+    this.currentPanel = this.panels.console;
+}
+
 WebInspector.addResource = function(identifier, payload)
 {
     var resource = new WebInspector.Resource(
         payload.requestHeaders,
         payload.requestURL,
+        payload.documentURL,
         payload.host,
         payload.path,
         payload.lastPathComponent,
@@ -956,6 +1027,10 @@ WebInspector.addResource = function(identifier, payload)
 
     if (this.panels.resources)
         this.panels.resources.addResource(resource);
+
+    var match = payload.documentURL.match(/^(http[s]?|file):\/\/([\/]*[^\/]+)/i);
+    if (match)
+        this.addCookieDomain(match[1].toLowerCase() === "file" ? "" : match[2]);
 }
 
 WebInspector.clearConsoleMessages = function()
@@ -1021,7 +1096,7 @@ WebInspector.updateResource = function(identifier, payload)
             resource.responseReceivedTime = payload.responseReceivedTime;
         if (payload.endTime)
             resource.endTime = payload.endTime;
-        
+
         if (payload.loadEventTime) {
             // This loadEventTime is for the main resource, and we want to show it
             // for all resources on this page. This means we want to set it as a member
@@ -1029,7 +1104,7 @@ WebInspector.updateResource = function(identifier, payload)
             if (this.panels.resources)
                 this.panels.resources.mainResourceLoadTime = payload.loadEventTime;
         }
-        
+
         if (payload.domContentEventTime) {
             // This domContentEventTime is for the main resource, so it should go in
             // the resources panel for the same reasons as above.
@@ -1055,6 +1130,8 @@ WebInspector.removeResource = function(identifier)
 
 WebInspector.addDatabase = function(payload)
 {
+    if (!this.panels.storage)
+        return;
     var database = new WebInspector.Database(
         payload.id,
         payload.domain,
@@ -1065,12 +1142,20 @@ WebInspector.addDatabase = function(payload)
 
 WebInspector.addCookieDomain = function(domain)
 {
-    if (this.panels.storage)
-        this.panels.storage.addCookieDomain(domain);
+    // Eliminate duplicate domains from the list.
+    if (domain in this.cookieDomains)
+        return;
+    this.cookieDomains[domain] = true;
+
+    if (!this.panels.storage)
+        return;
+    this.panels.storage.addCookieDomain(domain);
 }
 
 WebInspector.addDOMStorage = function(payload)
 {
+    if (!this.panels.storage)
+        return;
     var domStorage = new WebInspector.DOMStorage(
         payload.id,
         payload.host,
@@ -1080,6 +1165,8 @@ WebInspector.addDOMStorage = function(payload)
 
 WebInspector.updateDOMStorage = function(storageId)
 {
+    if (!this.panels.storage)
+        return;
     this.panels.storage.updateDOMStorage(storageId);
 }
 
@@ -1160,6 +1247,7 @@ WebInspector.reset = function()
 
     this.resources = {};
     this.resourceURLMap = {};
+    this.cookieDomains = {};
     this.hoveredDOMNode = null;
 
     delete this.mainResource;
@@ -1202,23 +1290,23 @@ WebInspector.log = function(message)
 {
     // remember 'this' for setInterval() callback
     var self = this;
-    
+
     // return indication if we can actually log a message
     function isLogAvailable()
     {
         return WebInspector.ConsoleMessage && WebInspector.ObjectProxy && self.console;
     }
-    
+
     // flush the queue of pending messages
     function flushQueue()
     {
         var queued = WebInspector.log.queued;
-        if (!queued) 
+        if (!queued)
             return;
-            
+
         for (var i = 0; i < queued.length; ++i)
             logMessage(queued[i]);
-        
+
         delete WebInspector.log.queued;
     }
 
@@ -1228,26 +1316,26 @@ WebInspector.log = function(message)
     {
         if (!isLogAvailable())
             return;
-            
+
         clearInterval(WebInspector.log.interval);
         delete WebInspector.log.interval;
-        
+
         flushQueue();
     }
-    
+
     // actually log the message
     function logMessage(message)
     {
         var repeatCount = 1;
         if (message == WebInspector.log.lastMessage)
             repeatCount = WebInspector.log.repeatCount + 1;
-    
+
         WebInspector.log.lastMessage = message;
         WebInspector.log.repeatCount = repeatCount;
-        
+
         // ConsoleMessage expects a proxy object
         message = new WebInspector.ObjectProxy(null, [], 0, message, false);
-        
+
         // post the message
         var msg = new WebInspector.ConsoleMessage(
             WebInspector.ConsoleMessage.MessageSource.Other,
@@ -1258,20 +1346,20 @@ WebInspector.log = function(message)
             null,
             repeatCount,
             message);
-    
+
         self.console.addMessage(msg);
     }
-    
+
     // if we can't log the message, queue it
     if (!isLogAvailable()) {
         if (!WebInspector.log.queued)
             WebInspector.log.queued = [];
-            
+
         WebInspector.log.queued.push(message);
-        
+
         if (!WebInspector.log.interval)
             WebInspector.log.interval = setInterval(flushQueueIfAvailable, 1000);
-        
+
         return;
     }
 
@@ -1284,7 +1372,7 @@ WebInspector.log = function(message)
 
 WebInspector.addProfileHeader = function(profile)
 {
-    this.panels.profiles.addProfileHeader(WebInspector.CPUProfileType.TypeId, new WebInspector.CPUProfile(profile));
+    this.panels.profiles.addProfileHeader(profile);
 }
 
 WebInspector.setRecordingProfile = function(isProfiling)
@@ -1383,7 +1471,7 @@ WebInspector.showResourceForURL = function(url, line, preferredPanel)
 WebInspector.linkifyStringAsFragment = function(string)
 {
     var container = document.createDocumentFragment();
-    var linkStringRegEx = new RegExp("(?:[a-zA-Z][a-zA-Z0-9+.-]{2,}://|www\\.)[\\w$\\-_+*'=\\|/\\\\(){}[\\]%@&#~,:;.!?]{2,}[\\w$\\-_+*=\\|/\\\\({%@&#~]");
+    var linkStringRegEx = /(?:[a-zA-Z][a-zA-Z0-9+.-]{2,}:\/\/|www\.)[\w$\-_+*'=\|\/\\(){}[\]%@&#~,:;.!?]{2,}[\w$\-_+*=\|\/\\({%@&#~]/;
 
     while (string) {
         var linkString = linkStringRegEx.exec(string);
@@ -1411,12 +1499,13 @@ WebInspector.linkifyStringAsFragment = function(string)
     return container;
 }
 
-WebInspector.showProfileForURL = function(url) {
+WebInspector.showProfileForURL = function(url)
+{
     WebInspector.showProfilesPanel();
     WebInspector.panels.profiles.showProfileForURL(url);
 }
 
-WebInspector.linkifyURLAsNode = function(url, linkText, classes, isExternal)
+WebInspector.linkifyURLAsNode = function(url, linkText, classes, isExternal, tooltipText)
 {
     if (!linkText)
         linkText = url;
@@ -1426,18 +1515,18 @@ WebInspector.linkifyURLAsNode = function(url, linkText, classes, isExternal)
     var a = document.createElement("a");
     a.href = url;
     a.className = classes;
-    a.title = url;
+    a.title = tooltipText || url;
     a.target = "_blank";
     a.textContent = linkText;
 
     return a;
 }
 
-WebInspector.linkifyURL = function(url, linkText, classes, isExternal)
+WebInspector.linkifyURL = function(url, linkText, classes, isExternal, tooltipText)
 {
     // Use the DOM version of this function so as to avoid needing to escape attributes.
     // FIXME:  Get rid of linkifyURL entirely.
-    return WebInspector.linkifyURLAsNode(url, linkText, classes, isExternal).outerHTML;
+    return WebInspector.linkifyURLAsNode(url, linkText, classes, isExternal, tooltipText).outerHTML;
 }
 
 WebInspector.addMainEventListeners = function(doc)
@@ -1447,8 +1536,33 @@ WebInspector.addMainEventListeners = function(doc)
     doc.addEventListener("click", this.documentClick.bind(this), true);
 }
 
+WebInspector.searchFieldManualFocus = function(event)
+{
+    this.currentFocusElement = event.target;
+    this._previousFocusElement = event.target;
+}
+
 WebInspector.searchKeyDown = function(event)
 {
+    // Escape Key will clear the field and clear the search results
+    if (event.keyCode === WebInspector.KeyboardShortcut.KeyCodes.Esc) {
+        event.preventDefault();
+        // When search was selected manually and is currently blank, we'd like Esc stay unhandled
+        // and hit console drawer handler.
+        event.handled = !(this.previousFocusElement === event.target && event.target.value === "");
+        event.target.value = "";
+
+        this.performSearch(event);
+        this.currentFocusElement = this.previousFocusElement;
+        if (this.currentFocusElement === event.target)
+            this.currentFocusElement.select();
+        return false;
+    } else if (event.keyCode === WebInspector.KeyboardShortcut.KeyCodes.Backspace ||
+               event.keyCode === WebInspector.KeyboardShortcut.KeyCodes.Delete) {
+        event.handled = true;
+        return false;
+    }
+
     if (!isEnterKey(event))
         return false;
 
@@ -1558,7 +1672,7 @@ WebInspector.UIString = function(string)
         string = window.localizedStrings[string];
     else {
         if (!(string in this.missingLocalizedStrings)) {
-            if (!WebInspector.InspectorControllerStub)
+            if (!WebInspector.InspectorBackendStub)
                 console.error("Localized string \"" + string + "\" not found.");
             this.missingLocalizedStrings[string] = true;
         }
@@ -1568,6 +1682,14 @@ WebInspector.UIString = function(string)
     }
 
     return String.vsprintf(string, Array.prototype.slice.call(arguments, 1));
+}
+
+WebInspector.isMac = function()
+{
+    if (!("_isMac" in this))
+        this._isMac = WebInspector.platform.indexOf("mac-") === 0;
+
+    return this._isMac;
 }
 
 WebInspector.isBeingEdited = function(element)
@@ -1645,6 +1767,8 @@ WebInspector.startEditing = function(element, committedCallback, cancelledCallba
         if (isEnterKey(event)) {
             editingCommitted.call(element);
             event.preventDefault();
+            event.stopPropagation();
+            event.handled = true;
         } else if (event.keyCode === 27) { // Escape key
             editingCancelled.call(element);
             event.preventDefault();

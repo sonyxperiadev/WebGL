@@ -62,6 +62,9 @@ bool ScriptController::executeIfJavaScriptURL(const KURL& url, bool userGesture,
     if (m_frame->page() && !m_frame->page()->javaScriptURLsAreAllowed())
         return true;
 
+    if (m_frame->inViewSourceMode())
+        return true;
+
     const int javascriptSchemeLength = sizeof("javascript:") - 1;
 
     String script = decodeURLEscapeSequences(url.string().substring(javascriptSchemeLength));
@@ -70,8 +73,15 @@ bool ScriptController::executeIfJavaScriptURL(const KURL& url, bool userGesture,
         result = executeScript(script, userGesture);
 
     String scriptResult;
+#if USE(JSC)
+    JSDOMWindowShell* shell = windowShell(mainThreadNormalWorld());
+    JSC::ExecState* exec = shell->window()->globalExec();
+    if (!result.getString(exec, scriptResult))
+        return true;
+#else
     if (!result.getString(scriptResult))
         return true;
+#endif
 
     // FIXME: We should always replace the document, but doing so
     //        synchronously can cause crashes:

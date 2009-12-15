@@ -27,8 +27,8 @@
 #include "WebKitDLL.h"
 #include "WebKitClassFactory.h"
 
-#include "ForEachCoClass.h"
 #include "CFDictionaryPropertyBag.h"
+#include "ForEachCoClass.h"
 #include "WebArchive.h"
 #include "WebCache.h"
 #include "WebCookieManager.h"
@@ -42,11 +42,12 @@
 #include "WebIconDatabase.h"
 #include "WebJavaScriptCollector.h"
 #include "WebKit.h"
-#include "WebScrollBar.h"
 #include "WebKitStatistics.h"
 #include "WebMutableURLRequest.h"
 #include "WebNotificationCenter.h"
 #include "WebPreferences.h"
+#include "WebScriptWorld.h"
+#include "WebScrollBar.h"
 #include "WebTextRenderer.h"
 #include "WebURLCredential.h"
 #include "WebURLProtectionSpace.h"
@@ -126,6 +127,19 @@ ULONG STDMETHODCALLTYPE WebKitClassFactory::Release(void)
     return newRef;
 }
 
+// FIXME: Remove these functions once all createInstance() functions return COMPtr.
+template <typename T>
+static T* releaseRefFromCreateInstance(T* object)
+{
+    return object;
+}
+
+template <typename T>
+static T* releaseRefFromCreateInstance(COMPtr<T> object)
+{
+    return object.releaseRef();
+}
+
 // IClassFactory --------------------------------------------------------------
 
 HRESULT STDMETHODCALLTYPE WebKitClassFactory::CreateInstance(IUnknown* pUnkOuter, REFIID riid, void** ppvObject)
@@ -138,7 +152,7 @@ HRESULT STDMETHODCALLTYPE WebKitClassFactory::CreateInstance(IUnknown* pUnkOuter
 
 #define INITIALIZE_IF_CLASS(cls) \
     if (IsEqualGUID(m_targetClass, CLSID_##cls)) \
-        unknown = static_cast<I##cls*>(cls::createInstance()); \
+        unknown = static_cast<I##cls*>(releaseRefFromCreateInstance(cls::createInstance())); \
     else \
     // end of macro
 

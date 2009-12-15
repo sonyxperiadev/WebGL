@@ -555,6 +555,12 @@
 
 - (NSString *)AXARIAContentGroupText:(NSString *)ariaType
 {
+    if ([ariaType isEqualToString:@"ARIAApplicationAlert"])
+        return UI_STRING("alert", "An ARIA accessibility group that acts as an alert.");
+    if ([ariaType isEqualToString:@"ARIAApplicationAlertDialog"])
+        return UI_STRING("alert dialog", "An ARIA accessibility group that acts as an alert dialog.");
+    if ([ariaType isEqualToString:@"ARIAApplicationDialog"])
+        return UI_STRING("dialog", "An ARIA accessibility group that acts as an dialog.");
     if ([ariaType isEqualToString:@"ARIAApplicationLog"])
         return UI_STRING("log", "An ARIA accessibility group that acts as a console log.");
     if ([ariaType isEqualToString:@"ARIAApplicationMarquee"])
@@ -587,6 +593,10 @@
         return UI_STRING("search", "An ARIA accessibility group that contains a search feature of a website.");    
     if ([ariaType isEqualToString:@"ARIAUserInterfaceTooltip"])
         return UI_STRING("tooltip", "An ARIA accessibility group that acts as a tooltip.");    
+    if ([ariaType isEqualToString:@"ARIATabPanel"])
+        return UI_STRING("tab panel", "An ARIA accessibility group that contains the content of a tab.");
+    if ([ariaType isEqualToString:@"ARIADocumentMath"])
+        return UI_STRING("math", "An ARIA accessibility group that contains mathematical symbols.");
     return nil;
 }
 
@@ -684,6 +694,11 @@
         return UI_STRING("fast forward", "accessibility role description for fast forward button");
     if ([name isEqualToString:@"SeekBackButton"])
         return UI_STRING("fast reverse", "accessibility role description for fast reverse button");
+    if ([name isEqualToString:@"ShowClosedCaptionsButton"])
+        return UI_STRING("show closed captions", "accessibility role description for show closed captions button");
+    if ([name isEqualToString:@"HideClosedCaptionsButton"])
+        return UI_STRING("hide closed captions", "accessibility role description for hide closed captions button");
+
     ASSERT_NOT_REACHED();
     return @"";
 }
@@ -723,6 +738,10 @@
         return UI_STRING("seek quickly forward", "accessibility help text for fast forward button");
     if ([name isEqualToString:@"FullscreenButton"])
         return UI_STRING("Play movie in fullscreen mode", "accessibility help text for enter fullscreen button");
+    if ([name isEqualToString:@"ShowClosedCaptionsButton"])
+        return UI_STRING("start displaying closed captions", "accessibility help text for show closed captions button");
+    if ([name isEqualToString:@"HideClosedCaptionsButton"])
+        return UI_STRING("stop displaying closed captions", "accessibility help text for hide closed captions button");
     ASSERT_NOT_REACHED();
     return @"";
 }
@@ -730,7 +749,7 @@
 - (NSString*)localizedMediaTimeDescription:(float)time
 {
     if (!isfinite(time))
-        return UI_STRING("indefinite time", "string for an indefinite movie time");
+        return UI_STRING("indefinite time", "accessibility help text for an indefinite media controller time value");
 
     int seconds = (int)fabsf(time); 
     int days = seconds / (60 * 60 * 24);
@@ -739,13 +758,48 @@
     seconds %= 60;
 
     if (days)
-        return [NSString stringWithFormat:UI_STRING("date.format.for.days", "string for days, hours, minutes & seconds"), days, hours, minutes, seconds];
+        return [NSString stringWithFormat:UI_STRING("%1$d days %2$d hours %3$d minutes %4$d seconds", "accessibility help text for media controller time value >= 1 day"), days, hours, minutes, seconds];
     else if (hours)
-        return [NSString stringWithFormat:UI_STRING("date.format.for.hours", "string for hours, minutes & seconds"), hours, minutes, seconds];
+        return [NSString stringWithFormat:UI_STRING("%1$d hours %2$d minutes %3$d seconds", "accessibility help text for media controller time value >= 60 minutes"), hours, minutes, seconds];
     else if (minutes)
-        return [NSString stringWithFormat:UI_STRING("date.format.for.minutes", "string for minutes & seconds"), minutes, seconds];
+        return [NSString stringWithFormat:UI_STRING("%1$d minutes %2$d seconds", "accessibility help text for media controller time value >= 60 seconds"), minutes, seconds];
 
-    return [NSString stringWithFormat:UI_STRING("date.format.for.seconds", "string for seconds"), seconds];
+    return [NSString stringWithFormat:UI_STRING("%1$d seconds", "accessibility help text for media controller time value < 60 seconds"), seconds];
+}
+
+- (NSString *)validationMessageValueMissingText
+{
+    return UI_STRING("value missing", "Validation message for required form control elements that have no value");
+}
+
+- (NSString *)validationMessageTypeMismatchText
+{
+    return UI_STRING("type mismatch", "Validation message for input form controls with a value not matching type");
+}
+
+- (NSString *)validationMessagePatternMismatchText
+{
+    return UI_STRING("pattern mismatch", "Validation message for input form controls requiring a constrained value according to pattern");
+}
+
+- (NSString *)validationMessageTooLongText
+{
+    return UI_STRING("too long", "Validation message for form control elements with a value longer than maximum allowed length");
+}
+
+- (NSString *)validationMessageRangeUnderflowText
+{
+    return UI_STRING("range underflow", "Validation message for input form controls with value lower than allowed minimum");
+}
+
+- (NSString *)validationMessageRangeOverflowText
+{
+    return UI_STRING("range overflow", "Validation message for input form controls with value higher than allowed maximum");
+}
+
+- (NSString *)validationMessageStepMismatchText
+{
+    return UI_STRING("step mismatch", "Validation message for input form controls with value not respecting the step attribute");
 }
 
 @end

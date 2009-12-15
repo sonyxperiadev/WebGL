@@ -76,6 +76,24 @@ void removeHiddenDependency(v8::Handle<v8::Object> object, v8::Local<v8::Value> 
         }
     }
 }
+    
+void transferHiddenDependency(v8::Handle<v8::Object> object,
+                              EventListener* oldValue, 
+                              v8::Local<v8::Value> newValue, 
+                              int cacheIndex)
+{
+    if (oldValue) {
+        V8AbstractEventListener* oldListener = V8AbstractEventListener::cast(oldValue);
+        if (oldListener) {
+            v8::Local<v8::Object> oldListenerObject = oldListener->getExistingListenerObject();
+            if (!oldListenerObject.IsEmpty())
+                removeHiddenDependency(object, oldListenerObject, cacheIndex);
+        }
+    }
+    if (!newValue->IsNull() && !newValue->IsUndefined())
+        createHiddenDependency(object, newValue, cacheIndex);
+}
+    
 
 bool processingUserGesture()
 {
@@ -147,7 +165,12 @@ void reportException(ScriptState* scriptState, v8::TryCatch& exceptionCatcher)
         sourceURL = toWebCoreString(message->GetScriptResourceName());
     }
 
-    getScriptExecutionContext(scriptState)->reportException(errorMessage, lineNumber, sourceURL);
+    // Do not report the exception if the current execution context is Document because we do not want to lead to duplicate error messages in the console.
+    // FIXME (31171): need better design to solve the duplicate error message reporting problem.
+    ScriptExecutionContext* context = getScriptExecutionContext(scriptState);
+    // During the frame teardown, there may not be a valid context.
+    if (context && !context->isDocument())
+      context->reportException(errorMessage, lineNumber, sourceURL);
     exceptionCatcher.Reset();
 }
 

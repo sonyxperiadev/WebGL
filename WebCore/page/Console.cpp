@@ -191,7 +191,7 @@ void Console::addMessage(MessageType type, MessageLevel level, ScriptCallStack* 
 
     for (unsigned i = 0; i < lastCaller.argumentCount(); ++i) {
         String argAsString;
-        if (lastCaller.argumentAt(i).getString(argAsString))
+        if (lastCaller.argumentAt(i).getString(callStack->state(), argAsString))
             printf(" %s", argAsString.utf8().data());
     }
     printf("\n");
@@ -265,6 +265,23 @@ void Console::count(ScriptCallStack* callStack)
     getFirstArgumentAsString(callStack->state(), lastCaller, title);
 
     page->inspectorController()->count(title, lastCaller.lineNumber(), lastCaller.sourceURL().string());
+#else
+    UNUSED_PARAM(callStack);
+#endif
+}
+
+void Console::markTimeline(ScriptCallStack* callStack)
+{
+#if ENABLE(INSPECTOR)
+    Page* page = this->page();
+    if (!page)
+        return;
+
+    const ScriptCallFrame& lastCaller = callStack->at(0);
+    String message;
+    getFirstArgumentAsString(callStack->state(), lastCaller, message);
+
+    page->inspectorController()->markTimeline(message);
 #else
     UNUSED_PARAM(callStack);
 #endif

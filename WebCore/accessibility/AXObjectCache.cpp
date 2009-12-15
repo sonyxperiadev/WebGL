@@ -30,12 +30,12 @@
 #include "AXObjectCache.h"
 
 #include "AccessibilityARIAGrid.h"
-#include "AccessibilityARIAGridRow.h"
 #include "AccessibilityARIAGridCell.h"
+#include "AccessibilityARIAGridRow.h"
+#include "AccessibilityImageMapLink.h"
 #include "AccessibilityList.h"
 #include "AccessibilityListBox.h"
 #include "AccessibilityListBoxOption.h"
-#include "AccessibilityImageMapLink.h"
 #include "AccessibilityMediaControls.h"
 #include "AccessibilityRenderObject.h"
 #include "AccessibilitySlider.h"
@@ -141,7 +141,10 @@ AccessibilityObject* AXObjectCache::getOrCreate(RenderObject* renderer)
         RefPtr<AccessibilityObject> newObj = 0;
         if (renderer->isListBox())
             newObj = AccessibilityListBox::create(renderer);
-        else if (node && (nodeIsAriaType(node, "list") || node->hasTagName(ulTag) || node->hasTagName(olTag) || node->hasTagName(dlTag)))
+
+        // If the node is aria role="list" or the aria role is empty and its a ul/ol/dl type (it shouldn't be a list if aria says otherwise). 
+        else if (node && ((nodeIsAriaType(node, "list") || nodeIsAriaType(node, "directory"))
+                          || (nodeIsAriaType(node, nullAtom) && (node->hasTagName(ulTag) || node->hasTagName(olTag) || node->hasTagName(dlTag)))))
             newObj = AccessibilityList::create(renderer);
         
         // aria tables
@@ -191,23 +194,23 @@ AccessibilityObject* AXObjectCache::getOrCreate(AccessibilityRole role)
     
     // will be filled in...
     switch (role) {
-        case ListBoxOptionRole:
-            obj = AccessibilityListBoxOption::create();
-            break;
-        case ImageMapLinkRole:
-            obj = AccessibilityImageMapLink::create();
-            break;
-        case ColumnRole:
-            obj = AccessibilityTableColumn::create();
-            break;            
-        case TableHeaderContainerRole:
-            obj = AccessibilityTableHeaderContainer::create();
-            break;   
-        case SliderThumbRole:
-            obj = AccessibilitySliderThumb::create();
-            break;
-        default:
-            obj = 0;
+    case ListBoxOptionRole:
+        obj = AccessibilityListBoxOption::create();
+        break;
+    case ImageMapLinkRole:
+        obj = AccessibilityImageMapLink::create();
+        break;
+    case ColumnRole:
+        obj = AccessibilityTableColumn::create();
+        break;            
+    case TableHeaderContainerRole:
+        obj = AccessibilityTableHeaderContainer::create();
+        break;   
+    case SliderThumbRole:
+        obj = AccessibilitySliderThumb::create();
+        break;
+    default:
+        obj = 0;
     }
     
     if (obj)
@@ -235,9 +238,8 @@ void AXObjectCache::remove(AXID axID)
     removeAXID(obj);
     
     // finally remove the object
-    if (!m_objects.take(axID)) {
+    if (!m_objects.take(axID))
         return;
-    }
     
     ASSERT(m_objects.size() >= m_idsInUse.size());    
 }
@@ -261,7 +263,7 @@ AXID AXObjectCache::platformGenerateAXID() const
     AXID objID = lastUsedID;
     do {
         ++objID;
-    } while (objID == 0 || HashTraits<AXID>::isDeletedValue(objID) || m_idsInUse.contains(objID));
+    } while (!objID || HashTraits<AXID>::isDeletedValue(objID) || m_idsInUse.contains(objID));
 
     lastUsedID = objID;
 
@@ -292,7 +294,7 @@ void AXObjectCache::removeAXID(AccessibilityObject* obj)
         return;
     
     AXID objID = obj->axObjectID();
-    if (objID == 0)
+    if (!objID)
         return;
     ASSERT(!HashTraits<AXID>::isDeletedValue(objID));
     ASSERT(m_idsInUse.contains(objID));

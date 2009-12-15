@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2007 Alexey Proskuryakov <ap@nypop.com>.
- * Copyright (C) 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2008, 2009 Apple Inc. All rights reserved.
  * Copyright (C) 2009 Torch Mobile Inc. All rights reserved. (http://www.torchmobile.com/)
  *
  * Redistribution and use in source and binary forms, with or without
@@ -28,6 +28,7 @@
 #ifndef CSSPrimitiveValueMappings_h
 #define CSSPrimitiveValueMappings_h
 
+#include "ColorSpace.h"
 #include "CSSPrimitiveValue.h"
 #include "CSSValueKeywords.h"
 #include "FontSmoothingMode.h"
@@ -228,6 +229,9 @@ template<> inline CSSPrimitiveValue::CSSPrimitiveValue(ControlPart e)
             break;
         case MediaReturnToRealtimeButtonPart:
             m_value.ident = CSSValueMediaReturnToRealtimeButton;
+            break;
+        case MediaToggleClosedCaptionsButtonPart:
+            m_value.ident = CSSValueMediaToggleClosedCaptionsButton;
             break;
         case MediaSliderPart:
             m_value.ident = CSSValueMediaSlider;
@@ -1878,6 +1882,32 @@ template<> inline CSSPrimitiveValue::operator TextRenderingMode() const
         default:
             ASSERT_NOT_REACHED();
             return AutoTextRendering;
+    }
+}
+
+template<> inline CSSPrimitiveValue::CSSPrimitiveValue(ColorSpace space)
+    : m_type(CSS_IDENT)
+{
+    switch (space) {
+        case DeviceColorSpace:
+            m_value.ident = CSSValueDefault;
+            break;
+        case sRGBColorSpace:
+            m_value.ident = CSSValueSrgb;
+            break;
+    }
+}
+
+template<> inline CSSPrimitiveValue::operator ColorSpace() const
+{
+    switch (m_value.ident) {
+        case CSSValueDefault:
+            return DeviceColorSpace;
+        case CSSValueSrgb:
+            return sRGBColorSpace;
+        default:
+            ASSERT_NOT_REACHED();
+            return DeviceColorSpace;
     }
 }
 

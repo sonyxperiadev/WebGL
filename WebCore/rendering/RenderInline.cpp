@@ -56,6 +56,7 @@ void RenderInline::destroy()
     // properly dirty line boxes that they are removed from.  Effects that do :before/:after only on hover could crash otherwise.
     children()->destroyLeftoverChildren();
 
+<<<<<<< HEAD:WebCore/rendering/RenderInline.cpp
     // Destroy our continuation before anything other than anonymous children. 
     // The reason we don't destroy it before anonymous children is that they may 
     // have continuations of their own that are anonymous children of our continuation. 
@@ -64,6 +65,16 @@ void RenderInline::destroy()
         m_continuation = 0; 
     } 
 
+=======
+    // Destroy our continuation before anything other than anonymous children.
+    // The reason we don't destroy it before anonymous children is that they may
+    // have continuations of their own that are anonymous children of our continuation.
+    if (m_continuation) {
+        m_continuation->destroy();
+        m_continuation = 0;
+    }
+    
+>>>>>>> webkit.org at r51976:WebCore/rendering/RenderInline.cpp
     if (!documentBeingDestroyed()) {
         if (firstLineBox()) {
             // We can't wait for RenderBoxModelObject::destroy to clear the selection,

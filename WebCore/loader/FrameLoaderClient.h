@@ -47,6 +47,7 @@ namespace WebCore {
     class AuthenticationChallenge;
     class CachedFrame;
     class Color;
+    class DOMWrapperWorld;
     class DocumentLoader;
     class Element;
     class FormState;
@@ -64,7 +65,7 @@ namespace WebCore {
     class ResourceError;
     class ResourceHandle;
     class ResourceLoader;
-    struct ResourceRequest;
+    class ResourceRequest;
     class ResourceResponse;
     class ScriptString;
     class SecurityOrigin;
@@ -116,6 +117,9 @@ namespace WebCore {
         virtual void dispatchDidCancelClientRedirect() = 0;
         virtual void dispatchWillPerformClientRedirect(const KURL&, double interval, double fireDate) = 0;
         virtual void dispatchDidChangeLocationWithinPage() = 0;
+        virtual void dispatchDidPushStateWithinPage() = 0;
+        virtual void dispatchDidReplaceStateWithinPage() = 0;
+        virtual void dispatchDidPopStateWithinPage() = 0;
         virtual void dispatchWillClose() = 0;
         virtual void dispatchDidReceiveIcon() = 0;
         virtual void dispatchDidStartProvisionalLoad() = 0;
@@ -225,7 +229,7 @@ namespace WebCore {
         virtual ObjectContentType objectContentType(const KURL& url, const String& mimeType) = 0;
         virtual String overrideMediaType() const = 0;
 
-        virtual void windowObjectCleared() = 0;
+        virtual void dispatchDidClearWindowObjectInWorld(DOMWrapperWorld*) = 0;
         virtual void documentElementAvailable() = 0;
         virtual void didPerformFirstNavigation() const = 0; // "Navigation" here means a transition from one page to another that ends up in the back/forward list.
 
@@ -252,6 +256,10 @@ namespace WebCore {
 
         virtual bool shouldUsePluginDocument(const String& /*mimeType*/) const { return false; }
         virtual bool shouldLoadMediaElementURL(const KURL&) const { return true; }
+
+        virtual void didChangeScrollOffset() { }
+
+        virtual bool allowJavaScript(bool enabledPerSettings) { return enabledPerSettings; }
     };
 
 } // namespace WebCore

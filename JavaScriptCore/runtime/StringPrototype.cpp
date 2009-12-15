@@ -224,7 +224,7 @@ static inline int localeCompare(const UString& a, const UString& b)
 JSValue JSC_HOST_CALL stringProtoFuncReplace(ExecState* exec, JSObject*, JSValue thisValue, const ArgList& args)
 {
     JSString* sourceVal = thisValue.toThisJSString(exec);
-    const UString& source = sourceVal->value();
+    const UString& source = sourceVal->value(exec);
 
     JSValue pattern = args.at(0);
 
@@ -281,7 +281,8 @@ JSValue JSC_HOST_CALL stringProtoFuncReplace(ExecState* exec, JSObject*, JSValue
                 cachedCall.setArgument(i++, sourceVal);
                 
                 cachedCall.setThis(exec->globalThisValue());
-                replacements.append(cachedCall.call().toString(cachedCall.newCallFrame()));
+                JSValue result = cachedCall.call();
+                replacements.append(result.toString(cachedCall.newCallFrame(exec)));
                 if (exec->hadException())
                     break;
 
@@ -469,6 +470,11 @@ JSValue JSC_HOST_CALL stringProtoFuncLastIndexOf(ExecState* exec, JSObject*, JSV
         dpos = 0;
     else if (!(dpos <= len)) // true for NaN
         dpos = len;
+#if PLATFORM(SYMBIAN)
+    // Work around for broken NaN compare operator
+    else if (isnan(dpos))
+        dpos = len;
+#endif
     return jsNumber(exec, s.rfind(u2, static_cast<int>(dpos)));
 }
 
@@ -691,7 +697,7 @@ JSValue JSC_HOST_CALL stringProtoFuncSubstring(ExecState* exec, JSObject*, JSVal
 JSValue JSC_HOST_CALL stringProtoFuncToLowerCase(ExecState* exec, JSObject*, JSValue thisValue, const ArgList&)
 {
     JSString* sVal = thisValue.toThisJSString(exec);
-    const UString& s = sVal->value();
+    const UString& s = sVal->value(exec);
 
     int sSize = s.size();
     if (!sSize)
@@ -725,7 +731,7 @@ JSValue JSC_HOST_CALL stringProtoFuncToLowerCase(ExecState* exec, JSObject*, JSV
 JSValue JSC_HOST_CALL stringProtoFuncToUpperCase(ExecState* exec, JSObject*, JSValue thisValue, const ArgList&)
 {
     JSString* sVal = thisValue.toThisJSString(exec);
-    const UString& s = sVal->value();
+    const UString& s = sVal->value(exec);
 
     int sSize = s.size();
     if (!sSize)

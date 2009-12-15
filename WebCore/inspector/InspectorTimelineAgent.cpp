@@ -35,6 +35,9 @@
 
 #include "Event.h"
 #include "InspectorFrontend.h"
+#include "IntRect.h"
+#include "ResourceRequest.h"
+#include "ResourceResponse.h"
 #include "TimelineRecordFactory.h"
 
 #include <wtf/CurrentTime.h>
@@ -51,14 +54,15 @@ InspectorTimelineAgent::~InspectorTimelineAgent()
 {
 }
 
-void InspectorTimelineAgent::willDispatchDOMEvent(const Event& event)
+void InspectorTimelineAgent::willDispatchEvent(const Event& event)
 {
-    pushCurrentRecord(TimelineRecordFactory::createDOMDispatchRecord(m_frontend, currentTimeInMilliseconds(), event), DOMDispatchTimelineRecordType);
+    pushCurrentRecord(TimelineRecordFactory::createEventDispatchRecord(m_frontend, currentTimeInMilliseconds(), event),
+        EventDispatchTimelineRecordType);
 }
 
-void InspectorTimelineAgent::didDispatchDOMEvent()
+void InspectorTimelineAgent::didDispatchEvent()
 {
-    didCompleteCurrentRecord(DOMDispatchTimelineRecordType);
+    didCompleteCurrentRecord(EventDispatchTimelineRecordType);
 }
 
 void InspectorTimelineAgent::willLayout()
@@ -81,9 +85,10 @@ void InspectorTimelineAgent::didRecalculateStyle()
     didCompleteCurrentRecord(RecalculateStylesTimelineRecordType);
 }
 
-void InspectorTimelineAgent::willPaint()
+void InspectorTimelineAgent::willPaint(const IntRect& rect)
 {
-    pushCurrentRecord(TimelineRecordFactory::createGenericRecord(m_frontend, currentTimeInMilliseconds()), PaintTimelineRecordType);
+    pushCurrentRecord(TimelineRecordFactory::createPaintRecord(m_frontend, currentTimeInMilliseconds(), rect),
+        PaintTimelineRecordType);
 }
 
 void InspectorTimelineAgent::didPaint()
@@ -126,7 +131,7 @@ void InspectorTimelineAgent::didFireTimer()
 
 void InspectorTimelineAgent::willChangeXHRReadyState(const String& url, int readyState)
 {
-    pushCurrentRecord(TimelineRecordFactory::createXHRReadyStateChangeTimelineRecord(m_frontend, currentTimeInMilliseconds(), url, readyState),
+    pushCurrentRecord(TimelineRecordFactory::createXHRReadyStateChangeRecord(m_frontend, currentTimeInMilliseconds(), url, readyState),
         XHRReadyStateChangeRecordType);
 }
 
@@ -137,7 +142,7 @@ void InspectorTimelineAgent::didChangeXHRReadyState()
 
 void InspectorTimelineAgent::willLoadXHR(const String& url) 
 {
-    pushCurrentRecord(TimelineRecordFactory::createXHRLoadTimelineRecord(m_frontend, currentTimeInMilliseconds(), url), XHRLoadRecordType);
+    pushCurrentRecord(TimelineRecordFactory::createXHRLoadRecord(m_frontend, currentTimeInMilliseconds(), url), XHRLoadRecordType);
 }
 
 void InspectorTimelineAgent::didLoadXHR()
@@ -145,14 +150,44 @@ void InspectorTimelineAgent::didLoadXHR()
     didCompleteCurrentRecord(XHRLoadRecordType);
 }
 
-void InspectorTimelineAgent::willEvaluateScriptTag(const String& url, int lineNumber)
+void InspectorTimelineAgent::willEvaluateScript(const String& url, int lineNumber)
 {
-    pushCurrentRecord(TimelineRecordFactory::createEvaluateScriptTagTimelineRecord(m_frontend, currentTimeInMilliseconds(), url, lineNumber), EvaluateScriptTagTimelineRecordType);
+    pushCurrentRecord(TimelineRecordFactory::createEvaluateScriptRecord(m_frontend, currentTimeInMilliseconds(), url, lineNumber), EvaluateScriptTimelineRecordType);
 }
     
-void InspectorTimelineAgent::didEvaluateScriptTag()
+void InspectorTimelineAgent::didEvaluateScript()
 {
-    didCompleteCurrentRecord(EvaluateScriptTagTimelineRecordType);
+    didCompleteCurrentRecord(EvaluateScriptTimelineRecordType);
+}
+
+void InspectorTimelineAgent::willSendResourceRequest(unsigned long identifier, bool isMainResource,
+    const ResourceRequest& request)
+{
+    ScriptObject record = TimelineRecordFactory::createResourceSendRequestRecord(m_frontend, currentTimeInMilliseconds(),
+        identifier, isMainResource, request);
+    record.set("type", ResourceSendRequestTimelineRecordType);
+    m_frontend->addRecordToTimeline(record);
+}
+
+void InspectorTimelineAgent::didReceiveResourceResponse(unsigned long identifier, const ResourceResponse& response)
+{
+    ScriptObject record = TimelineRecordFactory::createResourceReceiveResponseRecord(m_frontend, currentTimeInMilliseconds(),
+        identifier, response);
+    record.set("type", ResourceReceiveResponseTimelineRecordType);
+    m_frontend->addRecordToTimeline(record);
+}
+
+void InspectorTimelineAgent::didFinishLoadingResource(unsigned long identifier, bool didFail)
+{
+    ScriptObject record = TimelineRecordFactory::createResourceFinishRecord(m_frontend, currentTimeInMilliseconds(),
+        identifier, didFail);
+    record.set("type", ResourceFinishTimelineRecordType);
+    m_frontend->addRecordToTimeline(record);
+}
+
+void InspectorTimelineAgent::didMarkTimeline(const String& message)
+{
+    addRecordToTimeline(TimelineRecordFactory::createMarkTimelineRecord(m_frontend, currentTimeInMilliseconds(), message), MarkTimelineRecordType);
 }
 
 void InspectorTimelineAgent::reset()
@@ -180,13 +215,16 @@ void InspectorTimelineAgent::addRecordToTimeline(ScriptObject record, TimelineRe
 
 void InspectorTimelineAgent::didCompleteCurrentRecord(TimelineRecordType type)
 {
-    ASSERT(!m_recordStack.isEmpty());
-    TimelineRecordEntry entry = m_recordStack.last();
-    m_recordStack.removeLast();
-    ASSERT(entry.type == type);
-    entry.record.set("children", entry.children);
-    entry.record.set("endTime", currentTimeInMilliseconds());
-    addRecordToTimeline(entry.record, type);
+    // An empty stack could merely mean that the timeline agent was turned on in the middle of
+    // an event.  Don't treat as an error.
+    if (!m_recordStack.isEmpty()) {
+        TimelineRecordEntry entry = m_recordStack.last();
+        m_recordStack.removeLast();
+        ASSERT(entry.type == type);
+        entry.record.set("children", entry.children);
+        entry.record.set("endTime", currentTimeInMilliseconds());
+        addRecordToTimeline(entry.record, type);
+    }
 }
 
 double InspectorTimelineAgent::currentTimeInMilliseconds()

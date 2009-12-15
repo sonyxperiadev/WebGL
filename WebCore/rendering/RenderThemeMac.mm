@@ -913,7 +913,7 @@ bool RenderThemeMac::paintMenuListButton(RenderObject* o, const RenderObject::Pa
     
     paintInfo.context->save();
 
-    paintInfo.context->setFillColor(o->style()->color());
+    paintInfo.context->setFillColor(o->style()->color(), o->style()->colorSpace());
     paintInfo.context->setStrokeStyle(NoStroke);
 
     FloatPoint arrow1[3];
@@ -942,11 +942,11 @@ bool RenderThemeMac::paintMenuListButton(RenderObject* o, const RenderObject::Pa
     // Draw the separator to the left of the arrows
     paintInfo.context->setStrokeThickness(1.0f); // Deliberately ignores zoom since it looks nicer if it stays thin.
     paintInfo.context->setStrokeStyle(SolidStroke);
-    paintInfo.context->setStrokeColor(leftSeparatorColor);
+    paintInfo.context->setStrokeColor(leftSeparatorColor, DeviceColorSpace);
     paintInfo.context->drawLine(IntPoint(leftEdgeOfSeparator, bounds.y()),
                                 IntPoint(leftEdgeOfSeparator, bounds.bottom()));
 
-    paintInfo.context->setStrokeColor(rightSeparatorColor);
+    paintInfo.context->setStrokeColor(rightSeparatorColor, DeviceColorSpace);
     paintInfo.context->drawLine(IntPoint(leftEdgeOfSeparator + separatorSpace, bounds.y()),
                                 IntPoint(leftEdgeOfSeparator + separatorSpace, bounds.bottom()));
 
@@ -1427,8 +1427,6 @@ typedef enum {
 
 static int mediaControllerTheme()
 {
-    static const long minimumQuickTimeVersion = 0x07630000; // 7.6.3
-    static SInt32 quickTimeVersion = 0;
     static int controllerTheme = -1;
     
     if (controllerTheme != -1)
@@ -1436,23 +1434,17 @@ static int mediaControllerTheme()
 
     controllerTheme = MediaControllerThemeClassic;
 
-    if (!quickTimeVersion) {
-        OSErr err;
-        err = Gestalt(gestaltQuickTime, &quickTimeVersion);
-        if (err != noErr)
-            return controllerTheme;
-    }
-    if (quickTimeVersion < minimumQuickTimeVersion)
+    if (!wkMediaControllerThemeAvailable(MediaControllerThemeQuickTime))
         return controllerTheme;
 
     Boolean validKey;
-    Boolean useQTMediaUI = CFPreferencesGetAppBooleanValue(CFSTR("UseQuickTimeMediaUI"), CFSTR("com.apple.WebCore"), &validKey);
+    Boolean useQTMediaUIPref = CFPreferencesGetAppBooleanValue(CFSTR("UseQuickTimeMediaUI"), CFSTR("com.apple.WebCore"), &validKey);
 
 #if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
-    if (validKey && !useQTMediaUI)
+    if (validKey && !useQTMediaUIPref)
         return controllerTheme;
 #else
-    if (!validKey || !useQTMediaUI)
+    if (!validKey || !useQTMediaUIPref)
         return controllerTheme;
 #endif
 
@@ -1652,7 +1644,22 @@ bool RenderThemeMac::paintMediaReturnToRealtimeButton(RenderObject* o, const Ren
     return false;
 }
 
+bool RenderThemeMac::paintMediaToggleClosedCaptionsButton(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
+{
+    HTMLInputElement* node = static_cast<HTMLInputElement*>(o->node());
+    if (!node)
+        return false;
+    
+    MediaControlToggleClosedCaptionsButtonElement* btn = static_cast<MediaControlToggleClosedCaptionsButtonElement*>(node);
+    if (!btn)
+        return false;
 
+    LocalCurrentGraphicsContext localContext(paintInfo.context);
+    wkDrawMediaUIPart(btn->displayType(), mediaControllerTheme(), paintInfo.context->platformContext(), r, getMediaUIPartStateFlags(node));
+
+    return false;
+}
+ 
 bool RenderThemeMac::paintMediaControlsBackground(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
 {
     Node* node = o->node();
@@ -1698,12 +1705,16 @@ String RenderThemeMac::extraMediaControlsStyleSheet()
         return String();
 }
 
-bool RenderThemeMac::shouldRenderMediaControlPart(ControlPart part, Element* e)
+bool RenderThemeMac::shouldRenderMediaControlPart(ControlPart part, Element* element)
 {
-    if (part == MediaFullscreenButtonPart)
-        return mediaControllerTheme() == MediaControllerThemeQuickTime;
+    if (part == MediaToggleClosedCaptionsButtonPart) {
 
-    return RenderTheme::shouldRenderMediaControlPart(part, e);
+        // We rely on QTKit to render captions so don't enable the button unless it will be able to do so.
+        if (!element->hasTagName(videoTag))
+            return false;
+    }
+
+    return RenderTheme::shouldRenderMediaControlPart(part, element);
 }
 
 #endif // ENABLE(VIDEO)

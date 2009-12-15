@@ -151,6 +151,10 @@ String WebCore::localizedMediaControlElementString(const String& name)
         return String(LPCTSTR_UI_STRING("fast forward", "accessibility role description for fast forward button"));
     if (name == "SeekBackButton")
         return String(LPCTSTR_UI_STRING("fast reverse", "accessibility role description for fast reverse button"));
+    if (name == "ShowClosedCaptionsButton")
+        return String(LPCTSTR_UI_STRING("show closed captions", "accessibility role description for show closed captions button"));
+    if (name == "HideClosedCaptionsButton")
+        return String(LPCTSTR_UI_STRING("hide closed captions", "accessibility role description for hide closed captions button"));
 
     ASSERT_NOT_REACHED();
     return String();
@@ -190,6 +194,10 @@ String WebCore::localizedMediaControlElementHelpText(const String& name)
         return String(LPCTSTR_UI_STRING("seek quickly forward", "accessibility help text for fast forward button"));
     if (name == "FullscreenButton")
         return String(LPCTSTR_UI_STRING("Play movie in fullscreen mode", "accessibility help text for enter fullscreen button"));
+    if (name == "ShowClosedCaptionsButton")
+        return String(LPCTSTR_UI_STRING("start displaying closed captions", "accessibility help text for show closed captions button"));
+    if (name == "HideClosedCaptionsButton")
+        return String(LPCTSTR_UI_STRING("stop displaying closed captions", "accessibility help text for hide closed captions button"));
 
     ASSERT_NOT_REACHED();
     return String();
@@ -198,7 +206,7 @@ String WebCore::localizedMediaControlElementHelpText(const String& name)
 String WebCore::localizedMediaTimeDescription(float time)
 {
     if (!isfinite(time))
-        return String(LPCTSTR_UI_STRING("indefinite time", "string for an indefinite movie time"));
+        return String(LPCTSTR_UI_STRING("indefinite time", "accessibility help text for an indefinite media controller time value"));
 
     int seconds = (int)fabsf(time);
     int days = seconds / (60 * 60 * 24);
@@ -207,27 +215,34 @@ String WebCore::localizedMediaTimeDescription(float time)
     seconds %= 60;
 
     if (days) {
-        static RetainPtr<CFStringRef> format(AdoptCF, UI_STRING("date.format.for.days", "string for days, hours, minutes & seconds"));
+        static RetainPtr<CFStringRef> format(AdoptCF, UI_STRING("%1$d days %2$d hours %3$d minutes %4$d seconds", "accessibility help text for media controller time value >= 1 day"));
         RetainPtr<CFStringRef> result(AdoptCF, CFStringCreateWithFormat(0, 0, format.get(), days, hours, minutes, seconds));
         return result.get();
     }
 
     if (hours) {
-        static RetainPtr<CFStringRef> format(AdoptCF, UI_STRING("date.format.for.hours", "string for hours, minutes & seconds"));
+        static RetainPtr<CFStringRef> format(AdoptCF, UI_STRING("%1$d hours %2$d minutes %3$d seconds", "accessibility help text for media controller time value >= 60 minutes"));
         RetainPtr<CFStringRef> result(AdoptCF, CFStringCreateWithFormat(0, 0, format.get(), hours, minutes, seconds));
         return result.get();
     }
 
     if (minutes) {
-        static RetainPtr<CFStringRef> format(AdoptCF, UI_STRING("date.format.for.minutes", "string for minutes & seconds"));
+        static RetainPtr<CFStringRef> format(AdoptCF, UI_STRING("%1$d minutes %2$d seconds", "accessibility help text for media controller time value >= 60 seconds"));
         RetainPtr<CFStringRef> result(AdoptCF, CFStringCreateWithFormat(0, 0, format.get(), minutes, seconds));
         return result.get();
     }
 
-    static RetainPtr<CFStringRef> format(AdoptCF, UI_STRING("date.format.for.seconds", "string for seconds"));
+    static RetainPtr<CFStringRef> format(AdoptCF, UI_STRING("%1$d seconds", "accessibility help text for media controller time value < 60 seconds"));
     RetainPtr<CFStringRef> result(AdoptCF, CFStringCreateWithFormat(0, 0, format.get(), seconds));
     return result.get();
 }
 
 #endif  // ENABLE(VIDEO)
 
+String WebCore::validationMessageValueMissingText() { return String(LPCTSTR_UI_STRING("value missing", "Validation message for required form control elements that have no value")); }
+String WebCore::validationMessageTypeMismatchText() { return String(LPCTSTR_UI_STRING("type mismatch", "Validation message for input form controls with a value not matching type")); }
+String WebCore::validationMessagePatternMismatchText() { return String(LPCTSTR_UI_STRING("pattern mismatch", "Validation message for input form controls requiring a constrained value according to pattern")); }
+String WebCore::validationMessageTooLongText() { return String(LPCTSTR_UI_STRING("too long", "Validation message for form control elements with a value longer than maximum allowed length")); }
+String WebCore::validationMessageRangeUnderflowText() { return String(LPCTSTR_UI_STRING("range underflow", "Validation message for input form controls with value lower than allowed minimum")); }
+String WebCore::validationMessageRangeOverflowText() { return String(LPCTSTR_UI_STRING("range overflow", "Validation message for input form controls with value higher than allowed maximum")); }
+String WebCore::validationMessageStepMismatchText() { return String(LPCTSTR_UI_STRING("step mismatch", "Validation message for input form controls with value not respecting the step attribute")); }

@@ -93,13 +93,12 @@ WebInspector.StylesSidebarPane.prototype = {
             node = this.node;
 
         var body = this.bodyElement;
-        if (!refresh || !node) {
+
+        if (!node) {
             body.removeChildren();
             this.sections = [];
-        }
-
-        if (!node)
             return;
+        }
 
         var self = this;
         function callback(styles)
@@ -335,7 +334,7 @@ WebInspector.StylesSidebarPane.prototype = {
         var selectedOption = this.settingsSelectElement[this.settingsSelectElement.selectedIndex];
         Preferences.colorFormat = selectedOption.value;
 
-        InspectorController.setSetting("color-format", Preferences.colorFormat);
+        InspectorFrontendHost.setSetting("color-format", Preferences.colorFormat);
 
         for (var i = 0; i < this.sections.length; ++i)
             this.sections[i].update(true);
@@ -1099,7 +1098,7 @@ WebInspector.StylePropertyTreeElement.prototype = {
         }
     },
 
-    ondblclick: function(element, event)
+    ondblclick: function(event)
     {
         this.startEditing(event.target);
         event.stopPropagation();
@@ -1354,7 +1353,7 @@ WebInspector.StylePropertyTreeElement.prototype = {
             if (updateInterface)
                 self.updateAll(true);
 
-            if (!self.rule)
+            if (!section.rule)
                 WebInspector.panels.elements.treeOutline.update();
         }
 

@@ -51,7 +51,7 @@ namespace WebCore {
     class Frame;
     class ResourceResponse;
 
-    struct ResourceRequest;
+    class ResourceRequest;
 
     class InspectorResource : public RefCounted<InspectorResource> {
     public:
@@ -68,12 +68,12 @@ namespace WebCore {
             Other
         };
 
-        static PassRefPtr<InspectorResource> create(long long identifier, DocumentLoader* loader)
+        static PassRefPtr<InspectorResource> create(unsigned long identifier, DocumentLoader* loader)
         {
             return adoptRef(new InspectorResource(identifier, loader));
         }
 
-        static PassRefPtr<InspectorResource> createCached(long long identifier, DocumentLoader*, const CachedResource*);
+        static PassRefPtr<InspectorResource> createCached(unsigned long identifier, DocumentLoader*, const CachedResource*);
 
         ~InspectorResource();
 
@@ -91,7 +91,7 @@ namespace WebCore {
 
         bool isSameLoader(DocumentLoader* loader) const { return loader == m_loader; }
         void markMainResource() { m_isMainResource = true; }
-        long long identifier() const { return m_identifier; }
+        unsigned long identifier() const { return m_identifier; }
         String requestURL() const { return m_requestURL.string(); }
         Frame* frame() const { return m_frame.get(); }
         const String& mimeType() const { return m_mimeType; }
@@ -125,10 +125,13 @@ namespace WebCore {
         public:
             Changes() : m_change(NoChange) {}
 
-            inline bool hasChange(ChangeType change) { return (m_change & change) || !(m_change + change); }
+            inline bool hasChange(ChangeType change)
+            {
+                return m_change & change || (m_change == NoChange && change == NoChange);
+            }
             inline void set(ChangeType change)
             {
-                m_change = static_cast<ChangeType>(static_cast<unsigned>(m_change) | static_cast<unsigned>(change));            
+                m_change = static_cast<ChangeType>(static_cast<unsigned>(m_change) | static_cast<unsigned>(change));
             }
             inline void clear(ChangeType change)
             {
@@ -142,12 +145,13 @@ namespace WebCore {
             ChangeType m_change;
         };
 
-        InspectorResource(long long identifier, DocumentLoader*);
+        InspectorResource(unsigned long identifier, DocumentLoader*);
         Type type() const;
 
+        Type cachedResourceType() const;
         CachedResource* cachedResource() const;
 
-        long long m_identifier;
+        unsigned long m_identifier;
         RefPtr<DocumentLoader> m_loader;
         RefPtr<Frame> m_frame;
         KURL m_requestURL;

@@ -213,6 +213,7 @@ void EventHandler::clear()
     m_frameSetBeingResized = 0;
 #if ENABLE(DRAG_SUPPORT)
     m_dragTarget = 0;
+    m_shouldOnlyFireDragOverEvent = false;
 #endif
     m_currentMousePosition = IntPoint();
     m_mousePressNode = 0;
@@ -1520,6 +1521,35 @@ bool EventHandler::dispatchDragEvent(const AtomicString& eventType, Node* dragTa
     return me->defaultPrevented();
 }
 
+bool EventHandler::canHandleDragAndDropForTarget(DragAndDropHandleType type, Node* target, const PlatformMouseEvent& event, Clipboard* clipboard, bool* accepted)
+{
+    bool canHandle = false;
+    bool wasAccepted = false;
+
+    if (target->hasTagName(frameTag) || target->hasTagName(iframeTag)) {
+        Frame* frame = static_cast<HTMLFrameElementBase*>(target)->contentFrame();
+        if (frame) {
+            switch (type) {
+                case UpdateDragAndDrop:
+                    wasAccepted = frame->eventHandler()->updateDragAndDrop(event, clipboard);
+                    break;
+                case CancelDragAndDrop:
+                    frame->eventHandler()->cancelDragAndDrop(event, clipboard);
+                    break;
+                case PerformDragAndDrop:
+                    wasAccepted = frame->eventHandler()->performDragAndDrop(event, clipboard);
+                    break;
+            }
+        }
+    } else
+        canHandle = true;
+
+    if (accepted)
+        *accepted = wasAccepted;
+
+    return canHandle;
+}
+
 bool EventHandler::updateDragAndDrop(const PlatformMouseEvent& event, Clipboard* clipboard)
 {
     bool accept = false;
@@ -1541,28 +1571,34 @@ bool EventHandler::updateDragAndDrop(const PlatformMouseEvent& event, Clipboard*
         // FIXME: this ordering was explicitly chosen to match WinIE. However,
         // it is sometimes incorrect when dragging within subframes, as seen with
         // LayoutTests/fast/events/drag-in-frames.html.
-        if (newTarget) {
-            Frame* frame = (newTarget->hasTagName(frameTag) || newTarget->hasTagName(iframeTag)) ? static_cast<HTMLFrameElementBase*>(newTarget)->contentFrame() : 0;
-            if (frame)
-                accept = frame->eventHandler()->updateDragAndDrop(event, clipboard);
-            else
-                accept = dispatchDragEvent(eventNames().dragenterEvent, newTarget, event, clipboard);
+        //
+        // Moreover, this ordering conforms to section 7.9.4 of the HTML 5 spec. <http://dev.w3.org/html5/spec/Overview.html#drag-and-drop-processing-model>.
+        if (newTarget && canHandleDragAndDropForTarget(UpdateDragAndDrop, newTarget, event, clipboard, &accept)) {
+            // As per section 7.9.4 of the HTML 5 spec., we must always fire a drag event before firing a dragenter, dragleave, or dragover event.
+            if (dragState().m_dragSrc && dragState().m_dragSrcMayBeDHTML) {
+                // for now we don't care if event handler cancels default behavior, since there is none
+                dispatchDragSrcEvent(eventNames().dragEvent, event);
+            }
+            accept = dispatchDragEvent(eventNames().dragenterEvent, newTarget, event, clipboard);
         }
 
-        if (m_dragTarget) {
-            Frame* frame = (m_dragTarget->hasTagName(frameTag) || m_dragTarget->hasTagName(iframeTag)) ? static_cast<HTMLFrameElementBase*>(m_dragTarget.get())->contentFrame() : 0;
-            if (frame)
-                accept = frame->eventHandler()->updateDragAndDrop(event, clipboard);
-            else
-                dispatchDragEvent(eventNames().dragleaveEvent, m_dragTarget.get(), event, clipboard);
+        if (m_dragTarget && canHandleDragAndDropForTarget(UpdateDragAndDrop, m_dragTarget.get(), event, clipboard, &accept))
+            dispatchDragEvent(eventNames().dragleaveEvent, m_dragTarget.get(), event, clipboard);
+        
+        if (newTarget) {
+            // We do not explicitly call dispatchDragEvent here because it could ultimately result in the appearance that
+            // two dragover events fired. So, we mark that we should only fire a dragover event on the next call to this function.
+            m_shouldOnlyFireDragOverEvent = true;
         }
     } else {
-        if (newTarget) {
-            Frame* frame = (newTarget->hasTagName(frameTag) || newTarget->hasTagName(iframeTag)) ? static_cast<HTMLFrameElementBase*>(newTarget)->contentFrame() : 0;
-            if (frame)
-                accept = frame->eventHandler()->updateDragAndDrop(event, clipboard);
-            else
-                accept = dispatchDragEvent(eventNames().dragoverEvent, newTarget, event, clipboard);
+        if (newTarget && canHandleDragAndDropForTarget(UpdateDragAndDrop, newTarget, event, clipboard, &accept)) {
+            // Note, when dealing with sub-frames, we may need to fire only a dragover event as a drag event may have been fired earlier.
+            if (!m_shouldOnlyFireDragOverEvent && dragState().m_dragSrc && dragState().m_dragSrcMayBeDHTML) {
+                // for now we don't care if event handler cancels default behavior, since there is none
+                dispatchDragSrcEvent(eventNames().dragEvent, event);
+            }
+            accept = dispatchDragEvent(eventNames().dragoverEvent, newTarget, event, clipboard);
+            m_shouldOnlyFireDragOverEvent = false;
         }
     }
     m_dragTarget = newTarget;
@@ -1572,13 +1608,10 @@ bool EventHandler::updateDragAndDrop(const PlatformMouseEvent& event, Clipboard*
 
 void EventHandler::cancelDragAndDrop(const PlatformMouseEvent& event, Clipboard* clipboard)
 {
-    if (m_dragTarget) {
-        Frame* frame = (m_dragTarget->hasTagName(frameTag) || m_dragTarget->hasTagName(iframeTag)) 
-                        ? static_cast<HTMLFrameElementBase*>(m_dragTarget.get())->contentFrame() : 0;
-        if (frame)
-            frame->eventHandler()->cancelDragAndDrop(event, clipboard);
-        else
-            dispatchDragEvent(eventNames().dragleaveEvent, m_dragTarget.get(), event, clipboard);
+    if (m_dragTarget && canHandleDragAndDropForTarget(CancelDragAndDrop, m_dragTarget.get(), event, clipboard)) {
+        if (dragState().m_dragSrc && dragState().m_dragSrcMayBeDHTML)
+            dispatchDragSrcEvent(eventNames().dragEvent, event);
+        dispatchDragEvent(eventNames().dragleaveEvent, m_dragTarget.get(), event, clipboard);
     }
     clearDragState();
 }
@@ -1586,14 +1619,8 @@ void EventHandler::cancelDragAndDrop(const PlatformMouseEvent& event, Clipboard*
 bool EventHandler::performDragAndDrop(const PlatformMouseEvent& event, Clipboard* clipboard)
 {
     bool accept = false;
-    if (m_dragTarget) {
-        Frame* frame = (m_dragTarget->hasTagName(frameTag) || m_dragTarget->hasTagName(iframeTag)) 
-                        ? static_cast<HTMLFrameElementBase*>(m_dragTarget.get())->contentFrame() : 0;
-        if (frame)
-            accept = frame->eventHandler()->performDragAndDrop(event, clipboard);
-        else
-            accept = dispatchDragEvent(eventNames().dropEvent, m_dragTarget.get(), event, clipboard);
-    }
+    if (m_dragTarget && canHandleDragAndDropForTarget(PerformDragAndDrop, m_dragTarget.get(), event, clipboard, &accept))
+        dispatchDragEvent(eventNames().dropEvent, m_dragTarget.get(), event, clipboard);
     clearDragState();
     return accept;
 }
@@ -1602,6 +1629,7 @@ void EventHandler::clearDragState()
 {
     m_dragTarget = 0;
     m_capturingMouseEventsNode = 0;
+    m_shouldOnlyFireDragOverEvent = false;
 #if PLATFORM(MAC)
     m_sendingEventToSubview = false;
 #endif
@@ -1775,7 +1803,7 @@ bool EventHandler::dispatchMouseEvent(const AtomicString& eventType, Node* targe
     return swallowEvent;
 }
 
-#if !PLATFORM(GTK)
+#if !PLATFORM(GTK) && !(PLATFORM(CHROMIUM) && PLATFORM(LINUX))
 bool EventHandler::shouldTurnVerticalTicksIntoHorizontal(const HitTestResult&) const
 {
     return false;
@@ -2205,14 +2233,7 @@ bool EventHandler::shouldDragAutoNode(Node* node, const IntPoint& point) const
     Page* page = m_frame->page();
     return page && page->dragController()->mayStartDragAtEventLocation(m_frame, point);
 }
-    
-void EventHandler::dragSourceMovedTo(const PlatformMouseEvent& event)
-{
-    if (dragState().m_dragSrc && dragState().m_dragSrcMayBeDHTML)
-        // for now we don't care if event handler cancels default behavior, since there is none
-        dispatchDragSrcEvent(eventNames().dragEvent, event);
-}
-    
+
 void EventHandler::dragSourceEndedAt(const PlatformMouseEvent& event, DragOperation operation)
 {
     if (dragState().m_dragSrc && dragState().m_dragSrcMayBeDHTML) {
@@ -2338,9 +2359,10 @@ bool EventHandler::handleDrag(const MouseEventWithHitTestResults& event)
             // gather values from DHTML element, if it set any
             dragState().m_dragClipboard->sourceOperation(srcOp);
             
-            // Yuck, dragSourceMovedTo() can be called as a result of kicking off the drag with
-            // dragImage!  Because of that dumb reentrancy, we may think we've not started the
-            // drag when that happens.  So we have to assume it's started before we kick it off.
+            // Yuck, a draggedImage:moveTo: message can be fired as a result of kicking off the
+            // drag with dragImage!  Because of that dumb reentrancy, we may think we've not
+            // started the drag when that happens.  So we have to assume it's started before we
+            // kick it off.
             dragState().m_dragClipboard->setDragHasStarted();
         }
     }

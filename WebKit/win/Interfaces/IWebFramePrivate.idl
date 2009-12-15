@@ -32,6 +32,7 @@ import "IWebFrame.idl";
 interface IWebFrame;
 interface IWebIconFetcher;
 interface IWebIconFetcherDelegate;
+interface IWebScriptWorld;
 
 typedef enum {
     WebFrameLoadTypeStandard,
@@ -57,7 +58,6 @@ typedef enum {
 interface IWebFramePrivate : IUnknown
 {
     HRESULT renderTreeAsExternalRepresentation([out, retval] BSTR* result);
-    HRESULT counterValueForElementById([in] BSTR id, [out, retval] BSTR* result);
     HRESULT scrollOffset([out, retval] SIZE* offset);
 
     // FIXME: This shouldn't be needed once IWebDocumentView is implemented.
@@ -89,13 +89,16 @@ interface IWebFramePrivate : IUnknown
 
     HRESULT pauseAnimation([in] BSTR animationName, [in] IDOMNode* node, [in] double secondsFromNow, [out, retval] BOOL* animationWasRunning);
     HRESULT pauseTransition([in] BSTR propertyName, [in] IDOMNode* node, [in] double secondsFromNow, [out, retval] BOOL* transitionWasRunning);
+    HRESULT pauseSVGAnimation([in] BSTR elementId, [in] IDOMNode* node, [in] double secondsFromNow, [out, retval] BOOL* animationWasRunning);
     HRESULT numberOfActiveAnimations([out, retval] UINT* number);
 
     HRESULT isDisplayingStandaloneImage([out, retval] BOOL* result);
 
     HRESULT allowsFollowingLink([in] BSTR url, [out, retval] BOOL* result);
 
-    HRESULT stringByEvaluatingJavaScriptInIsolatedWorld([in] unsigned worldID, [in] OLE_HANDLE jsGlobalObject, [in] BSTR script, [out, retval] BSTR* result);
+    [local] HRESULT stringByEvaluatingJavaScriptInScriptWorld([in] IWebScriptWorld*, [in] JSObjectRef globalObject, [in] BSTR script, [out, retval] BSTR* result);
 
-    [local] JSGlobalContextRef contextForWorldID([in] unsigned worldID);
+    [local] JSGlobalContextRef globalContextForScriptWorld([in] IWebScriptWorld*);
+
+    HRESULT counterValueForElementById([in] BSTR id, [out, retval] BSTR* result);
 }
