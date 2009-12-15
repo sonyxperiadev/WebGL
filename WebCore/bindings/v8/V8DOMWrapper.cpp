@@ -32,6 +32,7 @@
 #include "V8DOMWrapper.h"
 
 #include "CSSMutableStyleDeclaration.h"
+// ANDROID: Upstream CHROMIUM guard.
 #if PLATFORM(CHROMIUM)
 #include "ChromiumBridge.h"
 #endif
@@ -39,11 +40,9 @@
 #include "DocumentLoader.h"
 #include "FrameLoaderClient.h"
 #include "Notification.h"
-#if PLATFORM(ANDROID)
-// TODO: Upstream SVG guard.
+// ANDROID: Upstream SVG guard.
 #if ENABLE(SVG)
 #include "SVGElementInstance.h"
-#endif
 #endif
 #include "ScriptController.h"
 #include "V8AbstractEventListener.h"
@@ -593,18 +592,20 @@ v8::Persistent<v8::FunctionTemplate> V8DOMWrapper::getTemplate(V8ClassIndex::V8W
         instanceTemplate->SetInternalFieldCount(V8Custom::kXMLHttpRequestInternalFieldCount);
         break;
     }
+// ANDROID: Upstream XPATH guard.
 #if ENABLE(XPATH)
     case V8ClassIndex::XPATHEVALUATOR:
         descriptor->SetCallHandler(USE_CALLBACK(XPathEvaluatorConstructor));
         break;
 #endif
+// ANDROID: Upstream XSLT guard.
 #if ENABLE(XSLT)
     case V8ClassIndex::XSLTPROCESSOR:
         descriptor->SetCallHandler(USE_CALLBACK(XSLTProcessorConstructor));
         break;
 #endif
+// ANDROID: Upstream TOUCH_EVENTS.
 #if ENABLE(TOUCH_EVENTS)
-    // TODO(andreip): upstream touch related changes to Chromium
     case V8ClassIndex::TOUCHLIST: {
         v8::Local<v8::ObjectTemplate> instanceTemplate = descriptor->InstanceTemplate();
         instanceTemplate->SetIndexedPropertyHandler(USE_INDEXED_PROPERTY_GETTER(TouchList));
@@ -1261,8 +1262,8 @@ v8::Handle<v8::Value> V8DOMWrapper::convertEventToV8Object(Event* event)
             type = V8ClassIndex::MOUSEEVENT;
         else if (event->isWheelEvent())
             type = V8ClassIndex::WHEELEVENT;
+// ANDROID: Upstream TOUCH_EVENTS.
 #if ENABLE(TOUCH_EVENTS)
-        // TODO(andreip): upstream touch related changes to WebKit
         else if (event->isTouchEvent())
             type = V8ClassIndex::TOUCHEVENT;
 #endif
