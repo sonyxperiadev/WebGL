@@ -36,15 +36,9 @@
 #include <runtime/JSLock.h>
 
 #if ENABLE(INSPECTOR)
-<<<<<<< HEAD:WebCore/bindings/js/ScriptObject.cpp
-=======
 #include "JSInjectedScriptHost.h"
->>>>>>> webkit.org at r51976:WebCore/bindings/js/ScriptObject.cpp
 #include "JSInspectorBackend.h"
-<<<<<<< HEAD:WebCore/bindings/js/ScriptObject.cpp
-=======
 #include "JSInspectorFrontendHost.h"
->>>>>>> webkit.org at r51976:WebCore/bindings/js/ScriptObject.cpp
 #endif
 
 using namespace JSC;

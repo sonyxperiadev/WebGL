@@ -465,21 +465,16 @@ v8::Local<v8::Value> V8Proxy::evaluate(const ScriptSourceCode& source, Node* nod
         // this based on whether the script source has a URL.
         result = runScript(script, source.url().string().isNull());
     }
-#if PLATFORM(CHROMIUM)
-    // TODO(andreip): ChromeBridge->BrowserBridge?
-    ChromiumBridge::traceEventEnd("v8.run", node, "");
-<<<<<<< HEAD:WebCore/bindings/v8/V8Proxy.cpp
-=======
 
 #if ENABLE(INSPECTOR)
     if (InspectorTimelineAgent* timelineAgent = m_frame->page() ? m_frame->page()->inspectorTimelineAgent() : 0)
         timelineAgent->didEvaluateScript();
->>>>>>> webkit.org at r51976:WebCore/bindings/v8/V8Proxy.cpp
 #endif
-<<<<<<< HEAD:WebCore/bindings/v8/V8Proxy.cpp
-=======
 
->>>>>>> webkit.org at r51976:WebCore/bindings/v8/V8Proxy.cpp
+#if PLATFORM(CHROMIUM)
+    // TODO(andreip): upstream CHROMIUM guards to webkit.org
+    ChromiumBridge::traceEventEnd("v8.run", node, "");
+#endif
     return result;
 }
 
@@ -553,13 +548,10 @@ v8::Local<v8::Value> V8Proxy::runScriptInternal(v8::Handle<v8::Script> script, b
 
 v8::Local<v8::Value> V8Proxy::callFunction(v8::Handle<v8::Function> function, v8::Handle<v8::Object> receiver, int argc, v8::Handle<v8::Value> args[])
 {
-<<<<<<< HEAD:WebCore/bindings/v8/V8Proxy.cpp
 #ifdef ANDROID_INSTRUMENT
     android::TimeCounter::start(android::TimeCounter::JavaScriptExecuteTimeCounter);
 #endif
-=======
     V8GCController::checkMemoryUsage();
->>>>>>> webkit.org at r51976:WebCore/bindings/v8/V8Proxy.cpp
     v8::Local<v8::Value> result;
     {
         V8ConsoleMessage::Scope scope;
@@ -711,63 +703,6 @@ V8Proxy* V8Proxy::retrieve(ScriptExecutionContext* context)
 
 void V8Proxy::disconnectFrame()
 {
-<<<<<<< HEAD:WebCore/bindings/v8/V8Proxy.cpp
-    disconnectEventListeners();
-}
-
-bool V8Proxy::isEnabled()
-{
-    Settings* settings = m_frame->settings();
-    if (!settings)
-        return false;
-
-    // In the common case, JavaScript is enabled and we're done.
-    if (settings->isJavaScriptEnabled())
-        return true;
-
-    // If JavaScript has been disabled, we need to look at the frame to tell
-    // whether this script came from the web or the embedder. Scripts from the
-    // embedder are safe to run, but scripts from the other sources are
-    // disallowed.
-    Document* document = m_frame->document();
-    if (!document)
-        return false;
-
-    SecurityOrigin* origin = document->securityOrigin();
-    if (origin->protocol().isEmpty())
-        return false; // Uninitialized document
-
-    if (origin->protocol() == "http" || origin->protocol() == "https")
-        return false; // Web site
-
-    // FIXME: the following are application decisions, and they should
-    // not be made at this layer. instead, we should bridge out to the
-    // embedder to allow them to override policy here.
-
-#if PLATFORM(CHROMIUM)
-    // TODO(andreip): ChromeBridge->BrowserBridge?
-    if (origin->protocol() == ChromiumBridge::uiResourceProtocol())
-        return true;   // Embedder's scripts are ok to run
-#endif
-
-    // If the scheme is ftp: or file:, an empty file name indicates a directory
-    // listing, which requires JavaScript to function properly.
-    const char* kDirProtocols[] = { "ftp", "file" };
-#if PLATFORM(ANDROID)
-    // TODO(andreip): Port arraysize function to Android. There's one in Gears.
-    for (size_t i = 0; i < 2; ++i) {
-#else
-    for (size_t i = 0; i < arraysize(kDirProtocols); ++i) {
-#endif
-        if (origin->protocol() == kDirProtocols[i]) {
-            const KURL& url = document->url();
-            return url.pathAfterLastSlash() == url.pathEnd();
-        }
-    }
-
-    return false; // Other protocols fall through to here
-=======
->>>>>>> webkit.org at r51976:WebCore/bindings/v8/V8Proxy.cpp
 }
 
 void V8Proxy::updateDocumentWrapper(v8::Handle<v8::Value> wrapper)
@@ -1238,17 +1173,14 @@ void V8Proxy::initContextIfNeeded()
     setSecurityToken();
 
     m_frame->loader()->client()->didCreateScriptContextForFrame();
-<<<<<<< HEAD:WebCore/bindings/v8/V8Proxy.cpp
-    m_frame->loader()->dispatchWindowObjectAvailable();
-#ifdef ANDROID_INSTRUMENT
-    android::TimeCounter::record(android::TimeCounter::JavaScriptInitTimeCounter, __FUNCTION__);
-#endif
-=======
 
     // FIXME: This is wrong. We should actually do this for the proper world once
     // we do isolated worlds the WebCore way.
     m_frame->loader()->dispatchDidClearWindowObjectInWorld(0);
->>>>>>> webkit.org at r51976:WebCore/bindings/v8/V8Proxy.cpp
+
+#ifdef ANDROID_INSTRUMENT
+    android::TimeCounter::record(android::TimeCounter::JavaScriptInitTimeCounter, __FUNCTION__);
+#endif
 }
 
 void V8Proxy::setDOMException(int exceptionCode)
@@ -1430,21 +1362,13 @@ bool V8Proxy::sourceLineNumber(int& result)
     v8::Handle<v8::Function> frameSourceLine;
     frameSourceLine = v8::Local<v8::Function>::Cast(v8UtilityContext->Global()->Get(v8::String::New("frameSourceLine")));
     if (frameSourceLine.IsEmpty())
-<<<<<<< HEAD:WebCore/bindings/v8/V8Proxy.cpp
-        return 0;
-    v8::Handle<v8::Value> result = v8::Debug::Call(frameSourceLine);
-    if (result.IsEmpty())
-        return 0;
-    return result->Int32Value();
-#endif
-=======
         return false;
     v8::Handle<v8::Value> value = v8::Debug::Call(frameSourceLine);
     if (value.IsEmpty())
         return false;
     result = value->Int32Value();
     return true;
->>>>>>> webkit.org at r51976:WebCore/bindings/v8/V8Proxy.cpp
+#endif
 }
 
 bool V8Proxy::sourceName(String& result)
@@ -1460,18 +1384,13 @@ bool V8Proxy::sourceName(String& result)
     v8::Handle<v8::Function> frameSourceName;
     frameSourceName = v8::Local<v8::Function>::Cast(v8UtilityContext->Global()->Get(v8::String::New("frameSourceName")));
     if (frameSourceName.IsEmpty())
-<<<<<<< HEAD:WebCore/bindings/v8/V8Proxy.cpp
-        return String();
-    return toWebCoreString(v8::Debug::Call(frameSourceName));
-#endif
-=======
         return false;
     v8::Handle<v8::Value> value = v8::Debug::Call(frameSourceName);
     if (value.IsEmpty())
         return false;
     result = toWebCoreString(value);
     return true;
->>>>>>> webkit.org at r51976:WebCore/bindings/v8/V8Proxy.cpp
+#endif
 }
 
 void V8Proxy::registerExtensionWithV8(v8::Extension* extension)

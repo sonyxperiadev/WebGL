@@ -393,8 +393,6 @@ void HistoryItem::setIsTargetItem(bool flag)
 #if PLATFORM(ANDROID)
     notifyHistoryItemChanged(this);
 #endif
-<<<<<<< HEAD:WebCore/history/HistoryItem.cpp
-=======
 }
 
 void HistoryItem::setStateObject(PassRefPtr<SerializedScriptValue> object)
@@ -421,7 +419,6 @@ void HistoryItem::documentDetached(Document* document)
     ASSERT_UNUSED(document, m_document == document);
     m_document = 0;
     m_stateObject = 0;
->>>>>>> webkit.org at r51976:WebCore/history/HistoryItem.cpp
 }
 
 void HistoryItem::addChildItem(PassRefPtr<HistoryItem> child)

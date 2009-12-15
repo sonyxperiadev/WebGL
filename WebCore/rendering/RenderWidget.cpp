@@ -305,21 +305,9 @@ void RenderWidget::updateWidgetPosition()
     int w = width() - borderLeft() - borderRight() - paddingLeft() - paddingRight();
     int h = height() - borderTop() - borderBottom() - paddingTop() - paddingBottom();
 
-<<<<<<< HEAD:WebCore/rendering/RenderWidget.cpp
-    IntRect newBounds(absPos.x(), absPos.y(), w, h);
-    IntRect oldBounds(m_widget->frameRect());
-    bool boundsChanged = newBounds != oldBounds;
-    if (boundsChanged) {
-        RenderWidgetProtector protector(this);
-        RefPtr<Node> protectedNode(node());
-        m_widget->setFrameRect(newBounds);
-    }
-    
-#ifndef FLATTEN_IFRAME
-=======
     bool boundsChanged = setWidgetGeometry(IntRect(absPos.x(), absPos.y(), w, h));
 
->>>>>>> webkit.org at r51976:WebCore/rendering/RenderWidget.cpp
+#ifndef FLATTEN_IFRAME
     // if the frame bounds got changed, or if view needs layout (possibly indicating
     // content size is wrong) we have to do a layout to set the right widget size
     if (m_widget->isFrameView()) {

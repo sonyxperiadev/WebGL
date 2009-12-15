@@ -245,18 +245,13 @@ bool ScriptController::processingUserGestureEvent() const
             type == eventNames().clickEvent || type == eventNames().mousedownEvent 
             || type == eventNames().mouseupEvent || type == eventNames().dblclickEvent 
             // keyboard events
-<<<<<<< HEAD:WebCore/bindings/js/ScriptController.cpp
-            type == eventNames().keydownEvent || type == eventNames().keypressEvent ||
-            type == eventNames().keyupEvent ||
-#if ENABLE(TOUCH_EVENTS) // Android
-            // touch events
-            type == eventNames().touchstartEvent || type == eventNames().touchmoveEvent ||
-            type == eventNames().touchendEvent || type == eventNames().touchcancelEvent ||
-#endif
-=======
             || type == eventNames().keydownEvent || type == eventNames().keypressEvent
             || type == eventNames().keyupEvent
->>>>>>> webkit.org at r51976:WebCore/bindings/js/ScriptController.cpp
+#if ENABLE(TOUCH_EVENTS) // Android
+            // touch events
+            || type == eventNames().touchstartEvent || type == eventNames().touchmoveEvent
+            || type == eventNames().touchendEvent || type == eventNames().touchcancelEvent
+#endif
             // other accepted events
             || type == eventNames().selectEvent || type == eventNames().changeEvent
             || type == eventNames().focusEvent || type == eventNames().blurEvent
