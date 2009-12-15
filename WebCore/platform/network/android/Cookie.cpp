@@ -25,10 +25,7 @@
 
 #include "config.h"
 
-#include "CookieClient.h"
-#include "JavaSharedClient.h"
-
-using namespace android;
+#include "PlatformBridge.h"
 
 namespace WebCore {
 
@@ -36,22 +33,17 @@ class Document;
 
 void setCookies(Document*, const KURL& url, const String& value)
 {
-    if (JavaSharedClient::GetCookieClient())
-        JavaSharedClient::GetCookieClient()->setCookies(url, value);
+    PlatformBridge::setCookies(url, value);
 }
 
-String cookies(const Document* , const KURL& url)
+String cookies(const Document*, const KURL& url)
 {
-    if (JavaSharedClient::GetCookieClient())
-        return JavaSharedClient::GetCookieClient()->cookies(url);
-    return String();
+    return PlatformBridge::cookies(url);
 }
 
-bool cookiesEnabled(const Document* )
+bool cookiesEnabled(const Document*)
 {
-    if (JavaSharedClient::GetCookieClient())
-        return JavaSharedClient::GetCookieClient()->cookiesEnabled();
-    return false;
+    return PlatformBridge::cookiesEnabled();
 }
 
 }

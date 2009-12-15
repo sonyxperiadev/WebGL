@@ -24,8 +24,10 @@
  */
 
 #include "config.h"
-#include "PlatformBridge.h"
 
+#include <PlatformBridge.h>
+
+#include "CookieClient.h"
 #include "JavaSharedClient.h"
 #include "KeyGeneratorClient.h"
 
@@ -50,5 +52,33 @@ String PlatformBridge::getSignedPublicKeyAndChallengeString(unsigned index, cons
 
     return client->getSignedPublicKeyAndChallengeString(index, challenge, url);
 }
+
+void PlatformBridge::setCookies(const KURL& url, const String& value)
+{
+    CookieClient* client = JavaSharedClient::GetCookieClient();
+    if (!client)
+        return;
+
+    client->setCookies(url, value);
+}
+
+String PlatformBridge::cookies(const KURL& url)
+{
+    CookieClient* client = JavaSharedClient::GetCookieClient();
+    if (!client)
+        return String();
+
+    return client->cookies(url);
+}
+
+bool PlatformBridge::cookiesEnabled()
+{
+    CookieClient* client = JavaSharedClient::GetCookieClient();
+    if (!client)
+        return false;
+
+    return client->cookiesEnabled();
+}
+
 
 }

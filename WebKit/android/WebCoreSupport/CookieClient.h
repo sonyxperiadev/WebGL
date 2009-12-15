@@ -26,8 +26,8 @@
 #ifndef COOKIE_CLIENT_H
 #define COOKIE_CLIENT_H
 
-#include "KURL.h"
-#include "PlatformString.h"
+#include <KURL.h>
+#include <PlatformString.h>
 
 using namespace WebCore;
 
