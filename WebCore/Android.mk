@@ -104,10 +104,6 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	dom/CharacterData.cpp \
 	dom/CheckedRadioButtons.cpp \
 	dom/ChildNodeList.cpp \
-<<<<<<< HEAD:WebCore/Android.mk
-	dom/ClassNames.cpp \
-=======
->>>>>>> webkit.org at r51976:WebCore/Android.mk
 	dom/ClassNodeList.cpp \
 	dom/ClientRect.cpp \
 	dom/ClientRectList.cpp \
@@ -163,22 +159,16 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	dom/ScriptExecutionContext.cpp \
 	dom/SelectElement.cpp \
 	dom/SelectorNodeList.cpp \
-<<<<<<< HEAD:WebCore/Android.mk
-=======
 	dom/SpaceSplitString.cpp \
->>>>>>> webkit.org at r51976:WebCore/Android.mk
 	dom/StaticNodeList.cpp \
 	dom/StyleElement.cpp \
 	dom/StyledElement.cpp \
 	dom/TagNodeList.cpp \
 	dom/Text.cpp \
 	dom/TextEvent.cpp \
-<<<<<<< HEAD:WebCore/Android.mk
 	dom/Touch.cpp \
 	dom/TouchEvent.cpp \
 	dom/TouchList.cpp \
-=======
->>>>>>> webkit.org at r51976:WebCore/Android.mk
 	dom/Traversal.cpp \
 	dom/TreeWalker.cpp \
 	dom/UIEvent.cpp \
@@ -270,45 +260,30 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	html/TimeRanges.cpp \
 	html/ValidityState.cpp \
 	\
-<<<<<<< HEAD:WebCore/Android.mk
 	html/canvas/CanvasArray.cpp \
 	html/canvas/CanvasArrayBuffer.cpp \
 	html/canvas/CanvasBuffer.cpp \
 	html/canvas/CanvasByteArray.cpp \
 	html/canvas/CanvasFloatArray.cpp \
 	html/canvas/CanvasFramebuffer.cpp \
-=======
->>>>>>> webkit.org at r51976:WebCore/Android.mk
 	html/canvas/CanvasGradient.cpp \
-<<<<<<< HEAD:WebCore/Android.mk
 	html/canvas/CanvasIntArray.cpp \
-=======
->>>>>>> webkit.org at r51976:WebCore/Android.mk
 	html/canvas/CanvasNumberArray.cpp \
 	html/canvas/CanvasObject.cpp \
 	html/canvas/CanvasPattern.cpp \
 	html/canvas/CanvasPixelArray.cpp \
-<<<<<<< HEAD:WebCore/Android.mk
 	html/canvas/CanvasProgram.cpp \
 	html/canvas/CanvasRenderbuffer.cpp \
-=======
->>>>>>> webkit.org at r51976:WebCore/Android.mk
 	html/canvas/CanvasRenderingContext.cpp \
 	html/canvas/CanvasRenderingContext2D.cpp \
-<<<<<<< HEAD:WebCore/Android.mk
 	html/canvas/CanvasRenderingContext3D.cpp \
 	html/canvas/CanvasShader.cpp \
 	html/canvas/CanvasShortArray.cpp \
-=======
->>>>>>> webkit.org at r51976:WebCore/Android.mk
 	html/canvas/CanvasStyle.cpp \
-<<<<<<< HEAD:WebCore/Android.mk
 	html/canvas/CanvasTexture.cpp \
 	html/canvas/CanvasUnsignedByteArray.cpp \
 	html/canvas/CanvasUnsignedIntArray.cpp \
 	html/canvas/CanvasUnsignedShortArray.cpp \
-=======
->>>>>>> webkit.org at r51976:WebCore/Android.mk
 	\
 	loader/Cache.cpp \
 	loader/CachedCSSStyleSheet.cpp \
@@ -485,7 +460,6 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/graphics/SegmentedFontData.cpp \
 	platform/graphics/SimpleFontData.cpp \
 	platform/graphics/StringTruncator.cpp \
-<<<<<<< HEAD:WebCore/Android.mk
 	platform/graphics/WidthIterator.cpp \
 	\
 	platform/graphics/android/BitmapAllocatorAndroid.cpp \
@@ -505,9 +479,6 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/graphics/android/PlatformGraphicsContext.cpp \
 	platform/graphics/android/SharedBufferStream.cpp \
 	platform/graphics/android/android_graphics.cpp \
-=======
-	platform/graphics/WidthIterator.cpp
->>>>>>> webkit.org at r51976:WebCore/Android.mk
 
 ifeq ($(ENABLE_SVG), true)
 LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
@@ -555,15 +526,11 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/network/ResourceHandle.cpp \
 	platform/network/ResourceRequestBase.cpp \
 	platform/network/ResourceResponseBase.cpp \
-<<<<<<< HEAD:WebCore/Android.mk
 	\
 	platform/network/android/Cookie.cpp \
 	platform/network/android/NetworkStateNotifierAndroid.cpp \
 	platform/network/android/ResourceHandleAndroid.cpp \
 	platform/network/android/ResourceRequestAndroid.cpp \
-=======
-	platform/network/SocketStreamHandleBase.cpp \
->>>>>>> webkit.org at r51976:WebCore/Android.mk
 	\
 	platform/posix/FileSystemPOSIX.cpp \
 	\
@@ -583,10 +550,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/text/String.cpp \
 	platform/text/StringBuilder.cpp \
 	platform/text/StringImpl.cpp \
-<<<<<<< HEAD:WebCore/Android.mk
 	platform/text/TextBoundariesICU.cpp \
-=======
->>>>>>> webkit.org at r51976:WebCore/Android.mk
 	platform/text/TextBreakIteratorICU.cpp \
 	platform/text/TextCodec.cpp \
 	platform/text/TextCodecICU.cpp \
@@ -614,13 +578,10 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	plugins/PluginView.cpp \
 	plugins/npapi.cpp \
 	\
-<<<<<<< HEAD:WebCore/Android.mk
 	plugins/android/PluginDataAndroid.cpp \
 	plugins/android/PluginPackageAndroid.cpp \
 	plugins/android/PluginViewAndroid.cpp \
 	\
-=======
->>>>>>> webkit.org at r51976:WebCore/Android.mk
 	rendering/AutoTableLayout.cpp \
 	rendering/CounterNode.cpp \
 	rendering/EllipsisBox.cpp \
