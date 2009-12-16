@@ -348,6 +348,10 @@ void PluginView::handleKeyboardEvent(KeyboardEvent* event)
 
     if (m_plugin->pluginFuncs()->event(m_instance, &evt)) {
         event->setDefaultHandled();
+    } else if (m_window->inFullScreen()){
+        // while in the full screen mode, always consumes the key events and
+        // keeps the document focus
+        event->setDefaultHandled();
     } else {
         // remove the plugin from the document's focus
         m_parentFrame->document()->focusedNodeRemoved();

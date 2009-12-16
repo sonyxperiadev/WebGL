@@ -145,6 +145,8 @@ struct PluginWidgetAndroid {
      */
     void exitFullScreen(bool pluginInitiated);
 
+    bool inFullScreen() { return m_isFullScreen; }
+
 private:
     WebCore::IntPoint frameToDocumentCoords(int frameX, int frameY) const;
     void computeVisibleFrameRect();
