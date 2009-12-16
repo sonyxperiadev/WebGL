@@ -52,6 +52,16 @@ public:
     static void setCookies(const KURL&, const String& value);
     static String cookies(const KURL&);
     static bool cookiesEnabled();
+    // These ids need to be in sync with the constants in BrowserFrame.java
+    enum rawResId {
+        NoDomain = 1,
+        LoadError,
+        DrawableDir,
+        FileUploadLabel,
+        ResetLabel,
+        SubmitLabel
+    };
+    static String* globalLocalizedName(rawResId resId);
 };
 
 }

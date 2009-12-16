@@ -29,7 +29,7 @@
 #define WEBFRAME_H
 
 #include "FrameLoaderClient.h"
-#include "PlatformString.h"
+#include "PlatformBridge.h"
 #include "WebCoreRefObject.h"
 #include <jni.h>
 #include <wtf/RefCounted.h>
@@ -51,12 +51,6 @@ class WebViewCore;
 // one instance of WebFrame per Page for calling into Java's BrowserFrame
 class WebFrame : public WebCoreRefObject {
   public:
-    // these ids need to be in sync with the constants in BrowserFrame.java
-    enum RAW_RES_ID {
-        NODOMAIN = 1,
-        LOADERROR,
-        DRAWABLEDIR,
-    };
     WebFrame(JNIEnv* env, jobject obj, jobject historyList, WebCore::Page* page);
     ~WebFrame();
 
@@ -108,7 +102,7 @@ class WebFrame : public WebCoreRefObject {
 
     void setUserAgent(WebCore::String userAgent) { mUserAgent = userAgent; }
 
-    WebCore::String getRawResourceFilename(RAW_RES_ID) const;
+    WebCore::String getRawResourceFilename(WebCore::PlatformBridge::rawResId) const;
 
     float density() const;
 

@@ -116,6 +116,49 @@
 #include "TimeCounter.h"
 #endif
 
+static String* gUploadFileLabel;
+static String* gResetLabel;
+static String* gSubmitLabel;
+
+String* WebCore::PlatformBridge::globalLocalizedName(
+        WebCore::PlatformBridge::rawResId resId)
+{
+    switch (resId) {
+    case WebCore::PlatformBridge::FileUploadLabel:
+        return gUploadFileLabel;
+    case WebCore::PlatformBridge::ResetLabel:
+        return gResetLabel;
+    case WebCore::PlatformBridge::SubmitLabel:
+        return gSubmitLabel;
+    default:
+        return 0;
+    }
+}
+/**
+ * Instantiate the localized name desired.
+ */
+void initGlobalLocalizedName(WebCore::PlatformBridge::rawResId resId,
+        android::WebFrame* webFrame)
+{
+    String** pointer;
+    switch (resId) {
+    case WebCore::PlatformBridge::FileUploadLabel:
+        pointer = &gUploadFileLabel;
+        break;
+    case WebCore::PlatformBridge::ResetLabel:
+        pointer = &gResetLabel;
+        break;
+    case WebCore::PlatformBridge::SubmitLabel:
+        pointer = &gSubmitLabel;
+        break;
+    default:
+        return;
+    }
+    if (!(*pointer) && webFrame) {
+        (*pointer) = new String(webFrame->getRawResourceFilename(resId).impl());
+    }
+}
+
 namespace android {
 
 // ----------------------------------------------------------------------------
@@ -777,7 +820,7 @@ WebFrame::decidePolicyForFormResubmission(WebCore::FramePolicyFunction func)
 }
 
 WebCore::String
-WebFrame::getRawResourceFilename(RAW_RES_ID id) const
+WebFrame::getRawResourceFilename(WebCore::PlatformBridge::rawResId id) const
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
     jstring ret = (jstring) env->CallObjectMethod(mJavaFrame->frame(env).get(),
@@ -873,7 +916,8 @@ static void CreateFrame(JNIEnv* env, jobject obj, jobject javaview, jobject jAss
     // Set the mNativeFrame field in Frame
     SET_NATIVE_FRAME(env, obj, (int)frame);
 
-    String directory = webFrame->getRawResourceFilename(WebFrame::DRAWABLEDIR);
+    String directory = webFrame->getRawResourceFilename(
+            WebCore::PlatformBridge::DrawableDir);
     if (directory.isEmpty())
         LOGE("Can't find the drawable directory");
     else {
@@ -882,6 +926,10 @@ static void CreateFrame(JNIEnv* env, jobject obj, jobject javaview, jobject jAss
         // Initialize our skinning classes
         WebCore::RenderSkinAndroid::Init(am, directory);
     }
+    for (int i = WebCore::PlatformBridge::FileUploadLabel;
+            i <= WebCore::PlatformBridge::SubmitLabel; i++)
+        initGlobalLocalizedName(
+                static_cast<WebCore::PlatformBridge::rawResId>(i), webFrame);
 }
 
 static void DestroyFrame(JNIEnv* env, jobject obj)
