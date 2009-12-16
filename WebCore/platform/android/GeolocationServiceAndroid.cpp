@@ -92,7 +92,7 @@ bool GeolocationServiceAndroid::startUpdating(PositionOptions* options)
 void GeolocationServiceAndroid::stopUpdating()
 {
     // Called when the Geolocation object has no watches or one shots in
-    // progress.
+    // progress. This may be called repeatedly.
     m_javaBridge.clear();
     // Reset last position and error to make sure that we always try to get a
     // new position from the system service when a request is first made.
