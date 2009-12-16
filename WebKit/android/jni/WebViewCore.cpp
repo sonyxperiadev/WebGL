@@ -212,6 +212,7 @@ struct WebViewCore::JavaGlue {
     jmethodID   m_createPluginJavaInstance;
     jmethodID   m_showFullScreenPlugin;
     jmethodID   m_hideFullScreenPlugin;
+    jmethodID   m_updateFullScreenPlugin;
     jmethodID   m_createSurface;
     jmethodID   m_updateSurface;
     jmethodID   m_destroySurface;
@@ -291,8 +292,9 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     m_javaGlue->m_addMessageToConsole = GetJMethod(env, clazz, "addMessageToConsole", "(Ljava/lang/String;ILjava/lang/String;)V");
     m_javaGlue->m_getPluginClass = GetJMethod(env, clazz, "getPluginClass", "(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/Class;");
     m_javaGlue->m_createPluginJavaInstance = GetJMethod(env, clazz, "createPluginJavaInstance", "(Ljava/lang/String;I)Landroid/webkit/plugin/WebkitPlugin;");
-    m_javaGlue->m_showFullScreenPlugin = GetJMethod(env, clazz, "showFullScreenPlugin", "(Landroid/webkit/plugin/WebkitPlugin;I)V");
+    m_javaGlue->m_showFullScreenPlugin = GetJMethod(env, clazz, "showFullScreenPlugin", "(Landroid/webkit/plugin/WebkitPlugin;IIIII)V");
     m_javaGlue->m_hideFullScreenPlugin = GetJMethod(env, clazz, "hideFullScreenPlugin", "()V");
+    m_javaGlue->m_updateFullScreenPlugin = GetJMethod(env, clazz, "updateFullScreenPlugin", "(IIII)V");
     m_javaGlue->m_createSurface = GetJMethod(env, clazz, "createSurface", "(Landroid/webkit/plugin/WebkitPlugin;IIII)Landroid/webkit/ViewManager$ChildView;");
     m_javaGlue->m_updateSurface = GetJMethod(env, clazz, "updateSurface", "(Landroid/webkit/ViewManager$ChildView;IIII)V");
     m_javaGlue->m_destroySurface = GetJMethod(env, clazz, "destroySurface", "(Landroid/webkit/ViewManager$ChildView;)V");
@@ -2560,7 +2562,8 @@ jobject WebViewCore::createPluginJavaInstance(const WebCore::String& libName, NP
     return result;
 }
 
-void WebViewCore::showFullScreenPlugin(jobject webkitPlugin, NPP npp)
+void WebViewCore::showFullScreenPlugin(jobject webkitPlugin, NPP npp, int x,
+        int y, int width, int height)
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
     AutoJObject obj = m_javaGlue->object(env);
@@ -2571,7 +2574,7 @@ void WebViewCore::showFullScreenPlugin(jobject webkitPlugin, NPP npp)
 
     env->CallVoidMethod(obj.get(),
                         m_javaGlue->m_showFullScreenPlugin,
-                        webkitPlugin, (int)npp);
+                        webkitPlugin, (int)npp, x, y, width, height);
     checkException(env);
 }
 
@@ -2585,6 +2588,20 @@ void WebViewCore::hideFullScreenPlugin()
         return;
 
     env->CallVoidMethod(obj.get(), m_javaGlue->m_hideFullScreenPlugin);
+    checkException(env);
+}
+
+void WebViewCore::updateFullScreenPlugin(int x, int y, int width, int height)
+{
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    AutoJObject obj = m_javaGlue->object(env);
+    // if it is called during DESTROY is handled, the real object of WebViewCore
+    // can be gone. Check before using it.
+    if (!obj.get())
+        return;
+
+    env->CallVoidMethod(obj.get(), m_javaGlue->m_updateFullScreenPlugin, x, y,
+            width, height);
     checkException(env);
 }
 
