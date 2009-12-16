@@ -1005,11 +1005,13 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
         CachedInput cachedInput;
         IntRect bounds;
         IntRect absBounds;
+        IntRect originalAbsBounds;
         WTF::Vector<IntRect>* columns = NULL;
         if (node->hasTagName(HTMLNames::areaTag)) {
             type = AREA_CACHEDNODETYPE;
             HTMLAreaElement* area = static_cast<HTMLAreaElement*>(node);
             bounds = getAreaRect(area);
+            originalAbsBounds = bounds;
             bounds.move(globalOffsetX, globalOffsetY);
             absBounds = bounds;
             isUnclipped = true;  // FIXME: areamaps require more effort to detect
@@ -1022,6 +1024,7 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
 
         // some common setup
         absBounds = nodeRenderer->absoluteBoundingBoxRect();
+        originalAbsBounds = absBounds;
         absBounds.move(globalOffsetX, globalOffsetY);
         hasClip = nodeRenderer->hasOverflowClip();
 
@@ -1212,6 +1215,7 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
         cachedNode.setIsFocus(isFocus);
         cachedNode.setIsTransparent(isTransparent);
         cachedNode.setIsUnclipped(isUnclipped);
+        cachedNode.setOriginalAbsoluteBounds(originalAbsBounds);
         cachedNode.setParentIndex(last->mCachedNodeIndex);
         cachedNode.setParentGroup(ParentWithChildren(node));
         cachedNode.setTabIndex(tabIndex);

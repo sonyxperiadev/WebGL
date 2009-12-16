@@ -887,17 +887,32 @@ void setNavBounds(const WebCore::IntRect& rect)
     root->rootHistory()->setNavBounds(rect);
 }
 
+
+
+const CachedNode* m_cacheHitNode;
+const CachedFrame* m_cacheHitFrame;
+
+bool pointInNavCache(int x, int y, int slop)
+{
+    CachedRoot* root = getFrameCache(AllowNewer);
+    if (!root)
+        return false;
+    IntRect rect = IntRect(x - slop, y - slop, slop * 2, slop * 2);
+    int rx, ry;
+    return (m_cacheHitNode = findAt(root, rect, &m_cacheHitFrame, &rx, &ry));
+}
+
 bool motionUp(int x, int y, int slop)
 {
     bool pageScrolled = false;
     m_followedLink = false;
-    const CachedFrame* frame;
-    WebCore::IntRect rect = WebCore::IntRect(x - slop, y - slop, slop * 2, slop * 2);
+    IntRect rect = IntRect(x - slop, y - slop, slop * 2, slop * 2);
     int rx, ry;
     CachedRoot* root = getFrameCache(AllowNewer);
     if (!root)
-        return false;
-    const CachedNode* result = findAt(root, rect, &frame, &rx, &ry);
+        return 0;
+    const CachedFrame* frame = 0;
+    const CachedNode* result = slop ? findAt(root, rect, &frame, &rx, &ry) : 0;
     if (!result) {
         DBG_NAV_LOGD("no nodes found root=%p", root);
         setNavBounds(rect);
@@ -1299,6 +1314,29 @@ static jstring WebCoreStringToJString(JNIEnv *env, WebCore::String string)
     jstring ret = env->NewString((jchar *)string.characters(), length);
     env->DeleteLocalRef(ret);
     return ret;
+}
+
+static int nativeCacheHitFramePointer(JNIEnv *env, jobject obj)
+{
+    return reinterpret_cast<int>(GET_NATIVE_VIEW(env, obj)
+            ->m_cacheHitFrame->framePointer());
+}
+
+static jobject nativeCacheHitNodeBounds(JNIEnv *env, jobject obj)
+{
+    WebCore::IntRect bounds = GET_NATIVE_VIEW(env, obj)
+        ->m_cacheHitNode->originalAbsoluteBounds();
+    jclass rectClass = env->FindClass("android/graphics/Rect");
+    jmethodID init = env->GetMethodID(rectClass, "<init>", "(IIII)V");
+    jobject rect = env->NewObject(rectClass, init, bounds.x(),
+        bounds.y(), bounds.right(), bounds.bottom());
+    return rect;
+}
+
+static int nativeCacheHitNodePointer(JNIEnv *env, jobject obj)
+{
+    return reinterpret_cast<int>(GET_NATIVE_VIEW(env, obj)
+        ->m_cacheHitNode->nodePointer());
 }
 
 static void nativeClearCursor(JNIEnv *env, jobject obj)
@@ -1711,6 +1749,12 @@ static jint nativeTextGeneration(JNIEnv *env, jobject obj)
     return root ? root->textGeneration() : 0;
 }
 
+static bool nativePointInNavCache(JNIEnv *env, jobject obj,
+    int x, int y, int slop)
+{
+    return GET_NATIVE_VIEW(env, obj)->pointInNavCache(x, y, slop);
+}
+
 static bool nativeMotionUp(JNIEnv *env, jobject obj,
     int x, int y, int slop)
 {
@@ -1978,6 +2022,12 @@ static void nativeDumpDisplayTree(JNIEnv* env, jobject jwebview, jstring jurl)
  * JNI registration
  */
 static JNINativeMethod gJavaWebViewMethods[] = {
+    { "nativeCacheHitFramePointer", "()I",
+        (void*) nativeCacheHitFramePointer },
+    { "nativeCacheHitNodeBounds", "()Landroid/graphics/Rect;",
+        (void*) nativeCacheHitNodeBounds },
+    { "nativeCacheHitNodePointer", "()I",
+        (void*) nativeCacheHitNodePointer },
     { "nativeClearCursor", "()V",
         (void*) nativeClearCursor },
     { "nativeCreate", "(I)V",
@@ -2074,6 +2124,8 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeMoveGeneration },
     { "nativeMoveSelection", "(IIZ)V",
         (void*) nativeMoveSelection },
+    { "nativePointInNavCache", "(III)Z",
+        (void*) nativePointInNavCache },
     { "nativeRecordButtons", "(ZZZ)V",
         (void*) nativeRecordButtons },
     { "nativeSelectBestAt", "(Landroid/graphics/Rect;)V",
