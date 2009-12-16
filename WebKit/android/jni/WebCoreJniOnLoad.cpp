@@ -248,7 +248,7 @@ EXPORT void benchmark(const char* url, int reloadCount, int width, int height) {
 
     do {
         // Layout the page and service the timer
-        frameView->layout();
+        frame->view()->layout();
         while (client.m_hasTimer) {
             client.m_func();
             JavaSharedClient::ServiceFunctionPtrQueue();
@@ -256,8 +256,8 @@ EXPORT void benchmark(const char* url, int reloadCount, int width, int height) {
         JavaSharedClient::ServiceFunctionPtrQueue();
 
         // Layout more if needed.
-        while (frameView->needsLayout())
-            frameView->layout();
+        while (frame->view()->needsLayout())
+            frame->view()->layout();
         JavaSharedClient::ServiceFunctionPtrQueue();
 
         if (reloadCount)
@@ -271,7 +271,7 @@ EXPORT void benchmark(const char* url, int reloadCount, int width, int height) {
     SkCanvas canvas(bmp);
     PlatformGraphicsContext ctx(&canvas, NULL);
     GraphicsContext gc(&ctx);
-    frameView->paintContents(&gc, IntRect(0, 0, width, height));
+    frame->view()->paintContents(&gc, IntRect(0, 0, width, height));
 
     // Write the bitmap to the sdcard
     SkImageEncoder* enc = SkImageEncoder::Create(SkImageEncoder::kPNG_Type);

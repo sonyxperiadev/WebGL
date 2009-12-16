@@ -39,9 +39,11 @@
 #include <utils/Log.h>
 #include <wtf/HashMap.h>
 
-PassRefPtr<MyResourceLoader> MyResourceLoader::create(ResourceHandle* handle, String url)
+PassRefPtr<WebCore::ResourceLoaderAndroid> MyResourceLoader::create(
+        ResourceHandle* handle, String url)
 {
-    return adoptRef(new MyResourceLoader(handle, url));
+    return adoptRef<WebCore::ResourceLoaderAndroid>(
+            new MyResourceLoader(handle, url));
 }
 
 void MyResourceLoader::handleRequest()
@@ -161,10 +163,12 @@ void MyResourceLoader::loadFile(const String& file)
     }
 }
 
-PassRefPtr<MyResourceLoader> MyWebFrame::startLoadingResource(ResourceHandle* handle,
-        const ResourceRequest& req, bool ignore)
+PassRefPtr<WebCore::ResourceLoaderAndroid> MyWebFrame::startLoadingResource(
+        ResourceHandle* handle, const ResourceRequest& req, bool ignore,
+        bool ignore2)
 {
-    RefPtr<MyResourceLoader> loader = MyResourceLoader::create(handle, req.url().string());
+    RefPtr<WebCore::ResourceLoaderAndroid> loader =
+            MyResourceLoader::create(handle, req.url().string());
     m_requests.append(loader);
     if (!m_timer.isActive())
         m_timer.startOneShot(0);
@@ -174,12 +178,12 @@ PassRefPtr<MyResourceLoader> MyWebFrame::startLoadingResource(ResourceHandle* ha
 void MyWebFrame::timerFired(Timer<MyWebFrame>*)
 {
     LOGD("Handling requests...");
-    Vector<RefPtr<MyResourceLoader> > reqs;
+    Vector<RefPtr<WebCore::ResourceLoaderAndroid> > reqs;
     reqs.swap(m_requests);
-    Vector<RefPtr<MyResourceLoader> >::iterator i = reqs.begin();
-    Vector<RefPtr<MyResourceLoader> >::iterator end = reqs.end();
+    Vector<RefPtr<WebCore::ResourceLoaderAndroid> >::iterator i = reqs.begin();
+    Vector<RefPtr<WebCore::ResourceLoaderAndroid> >::iterator end = reqs.end();
     for (; i != end; i++)
-        (*i)->handleRequest();
+        static_cast<MyResourceLoader*>((*i).get())->handleRequest();
 
     LOGD("...done");
 }
