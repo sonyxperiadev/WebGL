@@ -135,6 +135,10 @@ void PluginWidgetAndroid::setWindow(NPWindow* window, bool isTransparent) {
                 m_embeddedView = env->NewGlobalRef(tempObj);
             }
         }
+        if (m_isFullScreen && m_pluginBounds != oldPluginBounds) {
+            m_core->updateFullScreenPlugin(docPoint.x(), docPoint.y(),
+                    window->width, window->height);
+        }
     } else {
         m_flipPixelRef->safeUnref();
         m_flipPixelRef = new SkFlipPixelRef(computeConfig(isTransparent),
@@ -437,7 +441,10 @@ void PluginWidgetAndroid::requestFullScreen() {
         return;
     }
 
-    m_core->showFullScreenPlugin(m_webkitPlugin, m_pluginView->instance());
+    IntPoint docPoint = frameToDocumentCoords(m_pluginWindow->x, m_pluginWindow->y);
+    m_core->showFullScreenPlugin(m_webkitPlugin, m_pluginView->instance(),
+            docPoint.x(), docPoint.y(), m_pluginWindow->width,
+            m_pluginWindow->height);
     m_isFullScreen = true;
 }
 
