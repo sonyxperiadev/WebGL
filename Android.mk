@@ -82,7 +82,6 @@ include $(LOCAL_PATH)/Android.jscbindings.mk
 endif
 ifeq ($(JAVASCRIPT_ENGINE),v8)
 include $(LOCAL_PATH)/Android.v8bindings.mk
-<<<<<<< HEAD:Android.mk
 # TODO: We should use the WebCore JNI code instead.
 JNI_PATH := V8Binding/jni
 # bridge/jni path must be listed after V8Bindings, so files are preferentially
@@ -97,8 +96,6 @@ JNI_SRC_FILES := \
 	jni_npobject.cpp \
 	jni_runtime.cpp
 WEBKIT_SRC_FILES += $(addprefix $(JNI_PATH)/,$(JNI_SRC_FILES))
-=======
->>>>>>> webkit.org at r51976:Android.mk
 endif
 WEBKIT_SRC_FILES += $(addprefix $d/,$(LOCAL_SRC_FILES))
 LOCAL_C_INCLUDES := $(BINDING_C_INCLUDES)
@@ -113,7 +110,6 @@ ifeq ($(JAVASCRIPT_ENGINE),v8)
 include $(LOCAL_PATH)/Android.derived.v8bindings.mk
 endif
 
-<<<<<<< HEAD:Android.mk
 # Include source files for android WebKit port
 d := WebKit
 LOCAL_PATH := $(BASE_PATH)/$d
@@ -121,8 +117,6 @@ intermediates := $(base_intermediates)/$d
 include $(LOCAL_PATH)/Android.mk
 WEBKIT_SRC_FILES += $(addprefix $d/,$(LOCAL_SRC_FILES))
 
-=======
->>>>>>> webkit.org at r51976:Android.mk
 # Redefine LOCAL_PATH here so the build system is not confused
 LOCAL_PATH := $(BASE_PATH)
 
@@ -135,11 +129,8 @@ LOCAL_CFLAGS += -D__SGI_STL_INTERNAL_PAIR_H
 
 ifeq ($(TARGET_ARCH),arm)
 LOCAL_CFLAGS += -Darm
-<<<<<<< HEAD:Android.mk
 # remove this warning: "note: the mangling of 'va_list' has changed in GCC 4.4"
 LOCAL_CFLAGS += -Wno-psabi
-=======
->>>>>>> webkit.org at r51976:Android.mk
 endif
 
 ifeq ($(ENABLE_SVG),true)
@@ -342,7 +333,6 @@ LOCAL_LDFLAGS := -fvisibility=hidden
 LOCAL_CFLAGS := $(WEBKIT_CFLAGS)
 LOCAL_C_INCLUDES := $(WEBKIT_C_INCLUDES)
 LOCAL_PATH := $(BASE_PATH)
-<<<<<<< HEAD:Android.mk
 LOCAL_SRC_FILES := \
 	WebKit/android/jni/WebCoreJniOnLoad.cpp
 # Do this dependency by hand. The reason we have to do this is because the
@@ -350,10 +340,7 @@ LOCAL_SRC_FILES := \
 # We make all of our object files depend on those files so that they are built
 # before we try to compile the file.
 LOCAL_ADDITIONAL_DEPENDENCIES := $(filter %.h, $(WEBKIT_GENERATED_SOURCES))
-=======
->>>>>>> webkit.org at r51976:Android.mk
 include $(BUILD_SHARED_LIBRARY)
-<<<<<<< HEAD:Android.mk
 
 # Build the wds client
 include $(BASE_PATH)/WebKit/android/wds/client/Android.mk
@@ -363,5 +350,3 @@ include $(BASE_PATH)/WebKit/android/benchmark/Android.mk
 
 # Build the webkit merge tool.
 include $(BASE_PATH)/WebKitTools/android/webkitmerge/Android.mk
-=======
->>>>>>> webkit.org at r51976:Android.mk

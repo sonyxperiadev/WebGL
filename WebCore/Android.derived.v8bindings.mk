@@ -30,11 +30,7 @@ js_binding_scripts := \
 	$(LOCAL_PATH)/bindings/scripts/IDLStructure.pm \
 	$(LOCAL_PATH)/bindings/scripts/generate-bindings.pl
 
-<<<<<<< HEAD:WebCore/Android.derived.v8bindings.mk
 FEATURE_DEFINES := ENABLE_ORIENTATION_EVENTS=1 ENABLE_TOUCH_EVENTS=1 V8_BINDING ENABLE_DATABASE=1 ENABLE_OFFLINE_WEB_APPLICATIONS=1 ENABLE_DOM_STORAGE=1 ENABLE_VIDEO=1 ENABLE_WORKERS=1 ENABLE_GEOLOCATION=1
-=======
-FEATURE_DEFINES := ANDROID_ORIENTATION_SUPPORT ENABLE_TOUCH_EVENTS=1 V8_BINDING ENABLE_DATABASE=1 ENABLE_OFFLINE_WEB_APPLICATIONS=1 ENABLE_DOM_STORAGE=1 ENABLE_VIDEO=1 ENABLE_WORKERS=1 ENABLE_GEOLOCATION=1
->>>>>>> webkit.org at r51976:WebCore/Android.derived.v8bindings.mk
 
 # CSS
 GEN := \
@@ -118,12 +114,9 @@ GEN := \
     $(intermediates)/bindings/V8RangeException.h \
     $(intermediates)/bindings/V8Text.h \
     $(intermediates)/bindings/V8TextEvent.h \
-<<<<<<< HEAD:WebCore/Android.derived.v8bindings.mk
     $(intermediates)/bindings/V8Touch.h \
     $(intermediates)/bindings/V8TouchEvent.h \
     $(intermediates)/bindings/V8TouchList.h \
-=======
->>>>>>> webkit.org at r51976:WebCore/Android.derived.v8bindings.mk
     $(intermediates)/bindings/V8TreeWalker.h \
     $(intermediates)/bindings/V8UIEvent.h \
     $(intermediates)/bindings/V8WebKitAnimationEvent.h \
@@ -235,7 +228,6 @@ $(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/bindings/%.cpp : $(intermediates)
 
 # Canvas
 GEN := \
-<<<<<<< HEAD:WebCore/Android.derived.v8bindings.mk
     $(intermediates)/bindings/V8CanvasActiveInfo.h \
     $(intermediates)/bindings/V8CanvasArray.h \
     $(intermediates)/bindings/V8CanvasArrayBuffer.h \
@@ -243,23 +235,14 @@ GEN := \
     $(intermediates)/bindings/V8CanvasByteArray.h \
     $(intermediates)/bindings/V8CanvasFloatArray.h \
     $(intermediates)/bindings/V8CanvasFramebuffer.h \
-=======
->>>>>>> webkit.org at r51976:WebCore/Android.derived.v8bindings.mk
     $(intermediates)/bindings/V8CanvasGradient.h \
-<<<<<<< HEAD:WebCore/Android.derived.v8bindings.mk
     $(intermediates)/bindings/V8CanvasIntArray.h \
-=======
->>>>>>> webkit.org at r51976:WebCore/Android.derived.v8bindings.mk
     $(intermediates)/bindings/V8CanvasNumberArray.h \
     $(intermediates)/bindings/V8CanvasPattern.h \
-<<<<<<< HEAD:WebCore/Android.derived.v8bindings.mk
     $(intermediates)/bindings/V8CanvasPixelArray.h \
     $(intermediates)/bindings/V8CanvasProgram.h \
     $(intermediates)/bindings/V8CanvasRenderbuffer.h \
-=======
->>>>>>> webkit.org at r51976:WebCore/Android.derived.v8bindings.mk
     $(intermediates)/bindings/V8CanvasRenderingContext.h \
-<<<<<<< HEAD:WebCore/Android.derived.v8bindings.mk
     $(intermediates)/bindings/V8CanvasRenderingContext2D.h \
     $(intermediates)/bindings/V8CanvasRenderingContext3D.h \
     $(intermediates)/bindings/V8CanvasShader.h \
@@ -268,9 +251,6 @@ GEN := \
     $(intermediates)/bindings/V8CanvasUnsignedByteArray.h \
     $(intermediates)/bindings/V8CanvasUnsignedIntArray.h \
     $(intermediates)/bindings/V8CanvasUnsignedShortArray.h
-=======
-    $(intermediates)/bindings/V8CanvasRenderingContext2D.h
->>>>>>> webkit.org at r51976:WebCore/Android.derived.v8bindings.mk
 
 $(GEN): PRIVATE_PATH := $(LOCAL_PATH)
 $(GEN): PRIVATE_CUSTOM_TOOL = SOURCE_ROOT=$(PRIVATE_PATH) perl -I$(PRIVATE_PATH)/bindings/scripts $(PRIVATE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator V8 --include dom --include html --include html/canvas --outputdir $(dir $@) $<

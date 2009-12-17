@@ -49,11 +49,7 @@ js_binding_scripts := $(addprefix $(LOCAL_PATH)/,\
 			bindings/scripts/generate-bindings.pl \
 		)
 
-<<<<<<< HEAD:WebCore/Android.derived.jscbindings.mk
 FEATURE_DEFINES := ENABLE_ORIENTATION_EVENTS=1 ENABLE_TOUCH_EVENTS=1 ENABLE_DATABASE=1 ENABLE_OFFLINE_WEB_APPLICATIONS=1 ENABLE_DOM_STORAGE=1 ENABLE_VIDEO=1 ENABLE_WORKERS=1 ENABLE_GEOLOCATION=1 ENABLE_CHANNEL_MESSAGING=1
-=======
-FEATURE_DEFINES := ANDROID_ORIENTATION_SUPPORT ENABLE_TOUCH_EVENTS=1 ENABLE_DATABASE=1 ENABLE_OFFLINE_WEB_APPLICATIONS=1 ENABLE_DOM_STORAGE=1 ENABLE_VIDEO=1 ENABLE_WORKERS=1 ENABLE_GEOLOCATION=1 ENABLE_CHANNEL_MESSAGING=1
->>>>>>> webkit.org at r51976:WebCore/Android.derived.jscbindings.mk
 
 # CSS
 GEN := \
@@ -136,12 +132,9 @@ GEN := \
     $(intermediates)/dom/JSRangeException.h \
     $(intermediates)/dom/JSText.h \
     $(intermediates)/dom/JSTextEvent.h \
-<<<<<<< HEAD:WebCore/Android.derived.jscbindings.mk
     $(intermediates)/dom/JSTouch.h \
     $(intermediates)/dom/JSTouchEvent.h \
     $(intermediates)/dom/JSTouchList.h \
-=======
->>>>>>> webkit.org at r51976:WebCore/Android.derived.jscbindings.mk
     $(intermediates)/dom/JSTreeWalker.h \
     $(intermediates)/dom/JSUIEvent.h \
     $(intermediates)/dom/JSWebKitAnimationEvent.h \
@@ -252,7 +245,6 @@ $(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/html/%.cpp : $(intermediates)/htm
 
 # Canvas
 GEN := \
-<<<<<<< HEAD:WebCore/Android.derived.jscbindings.mk
     $(intermediates)/html/canvas/JSCanvasActiveInfo.h \
     $(intermediates)/html/canvas/JSCanvasArray.h \
     $(intermediates)/html/canvas/JSCanvasArrayBuffer.h \
@@ -260,22 +252,13 @@ GEN := \
     $(intermediates)/html/canvas/JSCanvasByteArray.h \
     $(intermediates)/html/canvas/JSCanvasFloatArray.h \
     $(intermediates)/html/canvas/JSCanvasFramebuffer.h \
-=======
->>>>>>> webkit.org at r51976:WebCore/Android.derived.jscbindings.mk
     $(intermediates)/html/canvas/JSCanvasGradient.h \
-<<<<<<< HEAD:WebCore/Android.derived.jscbindings.mk
     $(intermediates)/html/canvas/JSCanvasIntArray.h \
-=======
->>>>>>> webkit.org at r51976:WebCore/Android.derived.jscbindings.mk
     $(intermediates)/html/canvas/JSCanvasNumberArray.h \
     $(intermediates)/html/canvas/JSCanvasPattern.h \
-<<<<<<< HEAD:WebCore/Android.derived.jscbindings.mk
     $(intermediates)/html/canvas/JSCanvasProgram.h \
     $(intermediates)/html/canvas/JSCanvasRenderbuffer.h \
-=======
->>>>>>> webkit.org at r51976:WebCore/Android.derived.jscbindings.mk
     $(intermediates)/html/canvas/JSCanvasRenderingContext.h \
-<<<<<<< HEAD:WebCore/Android.derived.jscbindings.mk
     $(intermediates)/html/canvas/JSCanvasRenderingContext2D.h \
     $(intermediates)/html/canvas/JSCanvasRenderingContext3D.h \
     $(intermediates)/html/canvas/JSCanvasShader.h \
@@ -284,9 +267,6 @@ GEN := \
     $(intermediates)/html/canvas/JSCanvasUnsignedByteArray.h \
     $(intermediates)/html/canvas/JSCanvasUnsignedIntArray.h \
     $(intermediates)/html/canvas/JSCanvasUnsignedShortArray.h
-=======
-    $(intermediates)/html/canvas/JSCanvasRenderingContext2D.h
->>>>>>> webkit.org at r51976:WebCore/Android.derived.jscbindings.mk
 
 $(GEN): PRIVATE_PATH := $(LOCAL_PATH)
 $(GEN): PRIVATE_CUSTOM_TOOL = perl -I$(PRIVATE_PATH)/bindings/scripts $(PRIVATE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator JS --include dom --include html --outputdir $(dir $@) $<
