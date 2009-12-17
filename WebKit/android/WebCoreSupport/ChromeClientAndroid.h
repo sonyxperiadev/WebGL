@@ -62,7 +62,9 @@ namespace android {
         
         virtual bool canTakeFocus(FocusDirection);
         virtual void takeFocus(FocusDirection);
-        
+
+        virtual void focusedNodeChanged(Node*);
+
         // The Frame pointer provides the ChromeClient with context about which
         // Frame wants to create the new Page.  Also, the newly created window
         // should not be shown to the user until the ChromeClient of the newly
