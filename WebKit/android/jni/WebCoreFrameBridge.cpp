@@ -1107,7 +1107,7 @@ static jstring ExternalRepresentation(JNIEnv *env, jobject obj)
     LOG_ASSERT(pFrame, "android_webcore_nativeExternalRepresentation must take a valid frame pointer!");
 
     // Request external representation of the render tree
-    WebCore::String renderDump = WebCore::externalRepresentation(pFrame->contentRenderer());
+    WebCore::String renderDump = WebCore::externalRepresentation(pFrame);
     unsigned len = renderDump.length();
     if (!len)
         return NULL;
