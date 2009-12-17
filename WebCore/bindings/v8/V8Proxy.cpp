@@ -1374,7 +1374,7 @@ bool V8Proxy::sourceLineNumber(int& result)
 bool V8Proxy::sourceName(String& result)
 {
 #if PLATFORM(ANDROID)
-    return String();
+    return false;
 #else
     v8::HandleScope scope;
     v8::Handle<v8::Context> v8UtilityContext = utilityContext();
