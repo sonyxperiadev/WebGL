@@ -181,7 +181,7 @@ namespace android {
         virtual ObjectContentType objectContentType(const KURL& url, const String& mimeType);
         virtual String overrideMediaType() const;
 
-        virtual void windowObjectCleared();
+        virtual void dispatchDidClearWindowObjectInWorld(DOMWrapperWorld*);
         virtual void documentElementAvailable();
         virtual void didPerformFirstNavigation() const;
 

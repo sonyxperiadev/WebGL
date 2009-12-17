@@ -1059,7 +1059,11 @@ String FrameLoaderClientAndroid::overrideMediaType() const {
 }
 
 // This function is used to re-attach Javascript<->native code classes.
-void FrameLoaderClientAndroid::windowObjectCleared() {
+void FrameLoaderClientAndroid::dispatchDidClearWindowObjectInWorld(DOMWrapperWorld* world)
+{
+    if (world != mainThreadNormalWorld())
+        return;
+
     ASSERT(m_frame);
     LOGV("::WebCore:: windowObjectCleared called on frame %p for %s\n",
     		m_frame, m_frame->loader()->url().string().ascii().data());
