@@ -340,21 +340,11 @@ bool HTMLInputElement::stepMismatch() const
         // double's fractional part size is DBL_MAN_DIG-bit.  If the current
         // value is greater than step*2^DBL_MANT_DIG, the following fmod() makes
         // no sense.
-#if PLATFORM(ANDROID)
-        // TODO: Upstream this change or fix the underlying cause in Android's stl_port
-        if (doubleValue / pow(2, static_cast<double>(DBL_MANT_DIG)) > step)
-#else
-        if (doubleValue / pow(2, DBL_MANT_DIG) > step)
-#endif
+        if (doubleValue / pow(2.0, DBL_MANT_DIG) > step)
             return false;
         double remainder = fmod(doubleValue, step);
         // Accepts errors in lower 7-bit.
-#if PLATFORM(ANDROID)
-        // TODO: Upstream this change or fix the underlying cause in Android's stl_port
-        double acceptableError = step / pow(2, static_cast<double>(DBL_MANT_DIG - 7));
-#else
-        double acceptableError = step / pow(2, DBL_MANT_DIG - 7);
-#endif
+        double acceptableError = step / pow(2.0, DBL_MANT_DIG - 7);
         return acceptableError < remainder && remainder < (step - acceptableError);
     }
     // Non-RANGE types should be rejected by getAllowedValueStep().
