@@ -2391,15 +2391,9 @@ void WebViewCore::setBackgroundColor(SkColor c)
 jclass WebViewCore::getPluginClass(const WebCore::String& libName, const char* className)
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    AutoJObject obj = m_javaGlue->object(env);
-    // if it is called during DESTROY is handled, the real object of WebViewCore
-    // can be gone. Check before using it.
-    if (!obj.get())
-        return NULL;
-
     jstring libString = env->NewString(libName.characters(), libName.length());
     jstring classString = env->NewStringUTF(className);
-    jobject pluginClass = env->CallObjectMethod(obj.get(),
+    jobject pluginClass = env->CallObjectMethod(m_javaGlue->object(env).get(),
                                            m_javaGlue->m_getPluginClass,
                                            libString, classString);
     checkException(env);
@@ -2418,14 +2412,8 @@ jclass WebViewCore::getPluginClass(const WebCore::String& libName, const char* c
 jobject WebViewCore::createPluginJavaInstance(const WebCore::String& libName, NPP npp)
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    AutoJObject obj = m_javaGlue->object(env);
-    // if it is called during DESTROY is handled, the real object of WebViewCore
-    // can be gone. Check before using it.
-    if (!obj.get())
-        return 0;
-
     jstring libString = env->NewString(libName.characters(), libName.length());
-    jobject result = env->CallObjectMethod(obj.get(),
+    jobject result = env->CallObjectMethod(m_javaGlue->object(env).get(),
                                            m_javaGlue->m_createPluginJavaInstance,
                                            libString, (int) npp);
 
@@ -2440,13 +2428,7 @@ void WebViewCore::showFullScreenPlugin(jobject webkitPlugin, NPP npp, int x,
         int y, int width, int height)
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    AutoJObject obj = m_javaGlue->object(env);
-    // if it is called during DESTROY is handled, the real object of WebViewCore
-    // can be gone. Check before using it.
-    if (!obj.get())
-        return;
-
-    env->CallVoidMethod(obj.get(),
+    env->CallVoidMethod(m_javaGlue->object(env).get(),
                         m_javaGlue->m_showFullScreenPlugin,
                         webkitPlugin, (int)npp, x, y, width, height);
     checkException(env);
@@ -2455,26 +2437,16 @@ void WebViewCore::showFullScreenPlugin(jobject webkitPlugin, NPP npp, int x,
 void WebViewCore::hideFullScreenPlugin()
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    AutoJObject obj = m_javaGlue->object(env);
-    // if it is called during DESTROY is handled, the real object of WebViewCore
-    // can be gone. Check before using it.
-    if (!obj.get())
-        return;
-
-    env->CallVoidMethod(obj.get(), m_javaGlue->m_hideFullScreenPlugin);
+    env->CallVoidMethod(m_javaGlue->object(env).get(),
+            m_javaGlue->m_hideFullScreenPlugin);
     checkException(env);
 }
 
 void WebViewCore::updateFullScreenPlugin(int x, int y, int width, int height)
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    AutoJObject obj = m_javaGlue->object(env);
-    // if it is called during DESTROY is handled, the real object of WebViewCore
-    // can be gone. Check before using it.
-    if (!obj.get())
-        return;
-
-    env->CallVoidMethod(obj.get(), m_javaGlue->m_updateFullScreenPlugin, x, y,
+    env->CallVoidMethod(m_javaGlue->object(env).get(),
+            m_javaGlue->m_updateFullScreenPlugin, x, y,
             width, height);
     checkException(env);
 }
@@ -2482,13 +2454,7 @@ void WebViewCore::updateFullScreenPlugin(int x, int y, int width, int height)
 jobject WebViewCore::createSurface(jobject webkitPlugin, int x, int y, int width, int height)
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    AutoJObject obj = m_javaGlue->object(env);
-    // if it is called during DESTROY is handled, the real object of WebViewCore
-    // can be gone. Check before using it.
-    if (!obj.get())
-        return 0;
-
-    jobject result = env->CallObjectMethod(obj.get(),
+    jobject result = env->CallObjectMethod(m_javaGlue->object(env).get(),
                                            m_javaGlue->m_createSurface,
                                            webkitPlugin, x, y, width, height);
     checkException(env);
@@ -2499,14 +2465,8 @@ jobject WebViewCore::createSurface(jobject webkitPlugin, int x, int y, int width
 void WebViewCore::updateSurface(jobject childView, int x, int y, int width, int height)
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    AutoJObject obj = m_javaGlue->object(env);
-    // if it is called during DESTROY is handled, the real object of WebViewCore
-    // can be gone. Check before using it.
-    if (!obj.get())
-        return;
-
-    env->CallVoidMethod(obj.get(), m_javaGlue->m_updateSurface, childView, x,
-                        y, width, height);
+    env->CallVoidMethod(m_javaGlue->object(env).get(),
+            m_javaGlue->m_updateSurface, childView, x, y, width, height);
     checkException(env);
 }
 
