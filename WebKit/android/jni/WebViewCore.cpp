@@ -1134,7 +1134,7 @@ void WebViewCore::dumpDomTree(bool useFile)
 void WebViewCore::dumpRenderTree(bool useFile)
 {
 #ifdef ANDROID_DOM_LOGGING
-    WebCore::CString renderDump = WebCore::externalRepresentation(m_mainFrame->contentRenderer()).utf8();
+    WebCore::CString renderDump = WebCore::externalRepresentation(m_mainFrame).utf8();
     const char* data = renderDump.data();
     if (useFile) {
         gRenderTreeFile = fopen(RENDER_TREE_LOG_FILE, "w");
