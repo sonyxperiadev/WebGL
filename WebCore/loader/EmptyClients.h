@@ -288,13 +288,8 @@ public:
     virtual void updateGlobalHistory() { }
     virtual void updateGlobalHistoryRedirectLinks() { }
     virtual bool shouldGoToHistoryItem(HistoryItem*) const { return false; }
-<<<<<<< HEAD:WebCore/loader/EmptyClients.h
-    virtual void dispatchDidAddBackForwardItem(HistoryItem*) const  { }
-    virtual void dispatchDidRemoveBackForwardItem(HistoryItem*) const { }
-=======
     virtual void dispatchDidAddBackForwardItem(HistoryItem*) const { }
     virtual void dispatchDidRemoveBackForwardItem(HistoryItem*) const { };
->>>>>>> webkit.org at r51976:WebCore/loader/EmptyClients.h
     virtual void dispatchDidChangeBackForwardIndex() const { }
     virtual void saveViewStateToItem(HistoryItem*) { }
     virtual bool canCachePage() const { return false; }

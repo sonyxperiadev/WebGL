@@ -974,23 +974,14 @@ void FrameView::repaintContentRectangle(const IntRect& r, bool immediate)
 
     double delay = adjustedDeferredRepaintDelay();
     if ((m_deferringRepaints || m_deferredRepaintTimer.isActive() || delay) && !immediate) {
-<<<<<<< HEAD:WebCore/page/FrameView.cpp
-        IntRect visibleContent = visibleContentRect();
-#ifdef ANDROID_CAPTURE_OFFSCREEN_PAINTS
-        IntRect fullVis = visibleContent;
-#endif
-        visibleContent.intersect(r);
-#ifdef ANDROID_CAPTURE_OFFSCREEN_PAINTS
-        if (r != visibleContent)
-            ScrollView::platformOffscreenContentRectangle(fullVis, r);
-#endif
-        if (visibleContent.isEmpty())
-=======
         IntRect paintRect = r;
         if (!paintsEntireContents())
             paintRect.intersect(visibleContentRect());
+#ifdef ANDROID_CAPTURE_OFFSCREEN_PAINTS
+        if (r != paintRect)
+            ScrollView::platformOffscreenContentRectangle(visibleContentRect(), r);
+#endif
         if (paintRect.isEmpty())
->>>>>>> webkit.org at r51976:WebCore/page/FrameView.cpp
             return;
         if (m_repaintCount == cRepaintRectUnionThreshold) {
             IntRect unionedRect;
