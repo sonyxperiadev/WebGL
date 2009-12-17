@@ -101,6 +101,7 @@ GEN := \
     $(intermediates)/dom/JSClientRectList.h \
     $(intermediates)/dom/JSClipboard.h \
     $(intermediates)/dom/JSComment.h \
+    $(intermediates)/dom/JSCompositionEvent.h \
     $(intermediates)/dom/JSDOMCoreException.h \
     $(intermediates)/dom/JSDOMImplementation.h \
     $(intermediates)/dom/JSDocument.h \
@@ -126,6 +127,7 @@ GEN := \
     $(intermediates)/dom/JSNotation.h \
     $(intermediates)/dom/JSOverflowEvent.h \
     $(intermediates)/dom/JSPageTransitionEvent.h \
+    $(intermediates)/dom/JSPopStateEvent.h \
     $(intermediates)/dom/JSProcessingInstruction.h \
     $(intermediates)/dom/JSProgressEvent.h \
     $(intermediates)/dom/JSRange.h \
@@ -245,28 +247,20 @@ $(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/html/%.cpp : $(intermediates)/htm
 
 # Canvas
 GEN := \
-    $(intermediates)/html/canvas/JSCanvasActiveInfo.h \
-    $(intermediates)/html/canvas/JSCanvasArray.h \
-    $(intermediates)/html/canvas/JSCanvasArrayBuffer.h \
-    $(intermediates)/html/canvas/JSCanvasBuffer.h \
-    $(intermediates)/html/canvas/JSCanvasByteArray.h \
-    $(intermediates)/html/canvas/JSCanvasFloatArray.h \
-    $(intermediates)/html/canvas/JSCanvasFramebuffer.h \
     $(intermediates)/html/canvas/JSCanvasGradient.h \
-    $(intermediates)/html/canvas/JSCanvasIntArray.h \
     $(intermediates)/html/canvas/JSCanvasNumberArray.h \
     $(intermediates)/html/canvas/JSCanvasPattern.h \
-    $(intermediates)/html/canvas/JSCanvasProgram.h \
-    $(intermediates)/html/canvas/JSCanvasRenderbuffer.h \
     $(intermediates)/html/canvas/JSCanvasRenderingContext.h \
     $(intermediates)/html/canvas/JSCanvasRenderingContext2D.h \
-    $(intermediates)/html/canvas/JSCanvasRenderingContext3D.h \
-    $(intermediates)/html/canvas/JSCanvasShader.h \
-    $(intermediates)/html/canvas/JSCanvasShortArray.h \
-    $(intermediates)/html/canvas/JSCanvasTexture.h \
-    $(intermediates)/html/canvas/JSCanvasUnsignedByteArray.h \
-    $(intermediates)/html/canvas/JSCanvasUnsignedIntArray.h \
-    $(intermediates)/html/canvas/JSCanvasUnsignedShortArray.h
+    $(intermediates)/html/canvas/JSWebGLArrayBuffer.h \
+    $(intermediates)/html/canvas/JSWebGLByteArray.h \
+    $(intermediates)/html/canvas/JSWebGLFloatArray.h \
+    $(intermediates)/html/canvas/JSWebGLIntArray.h \
+    $(intermediates)/html/canvas/JSWebGLRenderingContext.h \
+    $(intermediates)/html/canvas/JSWebGLShortArray.h \
+    $(intermediates)/html/canvas/JSWebGLUnsignedByteArray.h \
+    $(intermediates)/html/canvas/JSWebGLUnsignedIntArray.h \
+    $(intermediates)/html/canvas/JSWebGLUnsignedShortArray.h
 
 $(GEN): PRIVATE_PATH := $(LOCAL_PATH)
 $(GEN): PRIVATE_CUSTOM_TOOL = perl -I$(PRIVATE_PATH)/bindings/scripts $(PRIVATE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator JS --include dom --include html --outputdir $(dir $@) $<

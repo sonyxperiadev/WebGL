@@ -66,26 +66,9 @@ LOCAL_SRC_FILES += \
 	bindings/js/JSCSSStyleDeclarationCustom.cpp \
 	bindings/js/JSCSSValueCustom.cpp \
 	bindings/js/JSCallbackData.cpp \
-	bindings/js/JSCanvasArrayBufferConstructor.cpp \
-	bindings/js/JSCanvasArrayCustom.cpp \
-	bindings/js/JSCanvasByteArrayConstructor.cpp \
-	bindings/js/JSCanvasByteArrayCustom.cpp \
-	bindings/js/JSCanvasFloatArrayConstructor.cpp \
-	bindings/js/JSCanvasFloatArrayCustom.cpp \
-	bindings/js/JSCanvasIntArrayConstructor.cpp \
-	bindings/js/JSCanvasIntArrayCustom.cpp \
 	bindings/js/JSCanvasNumberArrayCustom.cpp \
 	bindings/js/JSCanvasRenderingContext2DCustom.cpp \
-	bindings/js/JSCanvasRenderingContext3DCustom.cpp \
 	bindings/js/JSCanvasRenderingContextCustom.cpp \
-	bindings/js/JSCanvasShortArrayConstructor.cpp \
-	bindings/js/JSCanvasShortArrayCustom.cpp \
-	bindings/js/JSCanvasUnsignedByteArrayConstructor.cpp \
-	bindings/js/JSCanvasUnsignedByteArrayCustom.cpp \
-	bindings/js/JSCanvasUnsignedIntArrayConstructor.cpp \
-	bindings/js/JSCanvasUnsignedIntArrayCustom.cpp \
-	bindings/js/JSCanvasUnsignedShortArrayConstructor.cpp \
-	bindings/js/JSCanvasUnsignedShortArrayCustom.cpp \
 	bindings/js/JSClipboardCustom.cpp \
 	bindings/js/JSConsoleCustom.cpp \
 	bindings/js/JSCoordinatesCustom.cpp \
@@ -153,6 +136,7 @@ LOCAL_SRC_FILES += \
 	bindings/js/JSPluginArrayCustom.cpp \
 	bindings/js/JSPluginCustom.cpp \
 	bindings/js/JSPluginElementFunctions.cpp \
+	bindings/js/JSPopStateEventCustom.cpp \
 	bindings/js/JSSQLResultSetRowListCustom.cpp \
 	bindings/js/JSSQLTransactionCustom.cpp \
 	bindings/js/JSSVGElementInstanceCustom.cpp \

@@ -110,6 +110,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	dom/Clipboard.cpp \
 	dom/ClipboardEvent.cpp \
 	dom/Comment.cpp \
+	dom/CompositionEvent.cpp \
 	dom/ContainerNode.cpp \
 	dom/DOMImplementation.cpp \
 	dom/Document.cpp \
@@ -148,6 +149,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	dom/OptionGroupElement.cpp \
 	dom/OverflowEvent.cpp \
 	dom/PageTransitionEvent.cpp \
+	dom/PopStateEvent.cpp \
 	dom/Position.cpp \
 	dom/PositionIterator.cpp \
 	dom/ProcessingInstruction.cpp \
@@ -256,34 +258,19 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	html/HTMLTokenizer.cpp \
 	html/HTMLViewSourceDocument.cpp \
 	html/ImageData.cpp \
+	html/ISODateTime.cpp \
 	html/PreloadScanner.cpp \
 	html/TimeRanges.cpp \
 	html/ValidityState.cpp \
 	\
-	html/canvas/CanvasArray.cpp \
-	html/canvas/CanvasArrayBuffer.cpp \
-	html/canvas/CanvasBuffer.cpp \
-	html/canvas/CanvasByteArray.cpp \
-	html/canvas/CanvasFloatArray.cpp \
-	html/canvas/CanvasFramebuffer.cpp \
 	html/canvas/CanvasGradient.cpp \
-	html/canvas/CanvasIntArray.cpp \
 	html/canvas/CanvasNumberArray.cpp \
 	html/canvas/CanvasObject.cpp \
 	html/canvas/CanvasPattern.cpp \
 	html/canvas/CanvasPixelArray.cpp \
-	html/canvas/CanvasProgram.cpp \
-	html/canvas/CanvasRenderbuffer.cpp \
 	html/canvas/CanvasRenderingContext.cpp \
 	html/canvas/CanvasRenderingContext2D.cpp \
-	html/canvas/CanvasRenderingContext3D.cpp \
-	html/canvas/CanvasShader.cpp \
-	html/canvas/CanvasShortArray.cpp \
 	html/canvas/CanvasStyle.cpp \
-	html/canvas/CanvasTexture.cpp \
-	html/canvas/CanvasUnsignedByteArray.cpp \
-	html/canvas/CanvasUnsignedIntArray.cpp \
-	html/canvas/CanvasUnsignedShortArray.cpp \
 	\
 	loader/Cache.cpp \
 	loader/CachedCSSStyleSheet.cpp \
@@ -550,7 +537,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/text/String.cpp \
 	platform/text/StringBuilder.cpp \
 	platform/text/StringImpl.cpp \
-	platform/text/TextBoundariesICU.cpp \
+	platform/text/TextBoundaries.cpp \
 	platform/text/TextBreakIteratorICU.cpp \
 	platform/text/TextCodec.cpp \
 	platform/text/TextCodecICU.cpp \
@@ -629,6 +616,10 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	rendering/RenderPath.cpp \
 	rendering/RenderReplaced.cpp \
 	rendering/RenderReplica.cpp \
+	rendering/RenderRuby.cpp \
+	rendering/RenderRubyBase.cpp \
+	rendering/RenderRubyRun.cpp \
+	rendering/RenderRubyText.cpp
 
 ifeq ($(ENABLE_SVG), true)
 LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \

@@ -83,6 +83,7 @@ GEN := \
     $(intermediates)/bindings/V8ClientRectList.h \
     $(intermediates)/bindings/V8Clipboard.h \
     $(intermediates)/bindings/V8Comment.h \
+    $(intermediates)/bindings/V8CompositionEvent.h \
     $(intermediates)/bindings/V8DOMCoreException.h \
     $(intermediates)/bindings/V8DOMImplementation.h \
     $(intermediates)/bindings/V8Document.h \
@@ -228,29 +229,29 @@ $(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/bindings/%.cpp : $(intermediates)
 
 # Canvas
 GEN := \
-    $(intermediates)/bindings/V8CanvasActiveInfo.h \
-    $(intermediates)/bindings/V8CanvasArray.h \
-    $(intermediates)/bindings/V8CanvasArrayBuffer.h \
-    $(intermediates)/bindings/V8CanvasBuffer.h \
-    $(intermediates)/bindings/V8CanvasByteArray.h \
-    $(intermediates)/bindings/V8CanvasFloatArray.h \
-    $(intermediates)/bindings/V8CanvasFramebuffer.h \
     $(intermediates)/bindings/V8CanvasGradient.h \
-    $(intermediates)/bindings/V8CanvasIntArray.h \
     $(intermediates)/bindings/V8CanvasNumberArray.h \
     $(intermediates)/bindings/V8CanvasPattern.h \
     $(intermediates)/bindings/V8CanvasPixelArray.h \
-    $(intermediates)/bindings/V8CanvasProgram.h \
-    $(intermediates)/bindings/V8CanvasRenderbuffer.h \
     $(intermediates)/bindings/V8CanvasRenderingContext.h \
     $(intermediates)/bindings/V8CanvasRenderingContext2D.h \
-    $(intermediates)/bindings/V8CanvasRenderingContext3D.h \
-    $(intermediates)/bindings/V8CanvasShader.h \
-    $(intermediates)/bindings/V8CanvasShortArray.h \
-    $(intermediates)/bindings/V8CanvasTexture.h \
-    $(intermediates)/bindings/V8CanvasUnsignedByteArray.h \
-    $(intermediates)/bindings/V8CanvasUnsignedIntArray.h \
-    $(intermediates)/bindings/V8CanvasUnsignedShortArray.h
+    $(intermediates)/bindings/V8WebGLActiveInfo.h \
+    $(intermediates)/bindings/V8WebGLArray.h \
+    $(intermediates)/bindings/V8WebGLArrayBuffer.h \
+    $(intermediates)/bindings/V8WebGLBuffer.h \
+    $(intermediates)/bindings/V8WebGLByteArray.h \
+    $(intermediates)/bindings/V8WebGLFloatArray.h \
+    $(intermediates)/bindings/V8WebGLFramebuffer.h \
+    $(intermediates)/bindings/V8WebGLIntArray.h \
+    $(intermediates)/bindings/V8WebGLProgram.h \
+    $(intermediates)/bindings/V8WebGLRenderbuffer.h \
+    $(intermediates)/bindings/V8WebGLRenderingContext.h \
+    $(intermediates)/bindings/V8WebGLShader.h \
+    $(intermediates)/bindings/V8WebGLShortArray.h \
+    $(intermediates)/bindings/V8WebGLTexture.h \
+    $(intermediates)/bindings/V8WebGLUnsignedByteArray.h \
+    $(intermediates)/bindings/V8WebGLUnsignedIntArray.h \
+    $(intermediates)/bindings/V8WebGLUnsignedShortArray.h
 
 $(GEN): PRIVATE_PATH := $(LOCAL_PATH)
 $(GEN): PRIVATE_CUSTOM_TOOL = SOURCE_ROOT=$(PRIVATE_PATH) perl -I$(PRIVATE_PATH)/bindings/scripts $(PRIVATE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator V8 --include dom --include html --include html/canvas --outputdir $(dir $@) $<

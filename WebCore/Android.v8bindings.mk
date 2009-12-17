@@ -82,25 +82,17 @@ LOCAL_SRC_FILES += \
 	bindings/v8/V8WorkerContextEventListener.cpp \
 	bindings/v8/WorkerContextExecutionProxy.cpp \
 	bindings/v8/WorkerScriptController.cpp \
+	bindings/v8/WorldContextHandle.cpp \
 	\
 	bindings/v8/npruntime.cpp \
 	\
 	bindings/v8/custom/V8AbstractWorkerCustom.cpp \
 	bindings/v8/custom/V8AttrCustom.cpp \
 	bindings/v8/custom/V8CSSStyleDeclarationCustom.cpp \
-	bindings/v8/custom/V8CanvasArrayBufferCustom.cpp \
-	bindings/v8/custom/V8CanvasByteArrayCustom.cpp \
-	bindings/v8/custom/V8CanvasFloatArrayCustom.cpp \
-	bindings/v8/custom/V8CanvasIntArrayCustom.cpp \
-	bindings/v8/custom/V8CanvasPixelArrayCustom.cpp \
 	bindings/v8/custom/V8CanvasRenderingContext2DCustom.cpp \
-	bindings/v8/custom/V8CanvasRenderingContext3DCustom.cpp \
-	bindings/v8/custom/V8CanvasShortArrayCustom.cpp \
-	bindings/v8/custom/V8CanvasUnsignedByteArrayCustom.cpp \
-	bindings/v8/custom/V8CanvasUnsignedIntArrayCustom.cpp \
-	bindings/v8/custom/V8CanvasUnsignedShortArrayCustom.cpp \
 	bindings/v8/custom/V8ClientRectListCustom.cpp \
 	bindings/v8/custom/V8ClipboardCustom.cpp \
+	bindings/v8/custom/V8ConsoleCustom.cpp \
 	bindings/v8/custom/V8CoordinatesCustom.cpp \
 	bindings/v8/custom/V8CustomBinding.cpp \
 	bindings/v8/custom/V8CustomEventListener.cpp \
@@ -123,6 +115,7 @@ LOCAL_SRC_FILES += \
 	bindings/v8/custom/V8EventCustom.cpp \
 	bindings/v8/custom/V8FileListCustom.cpp \
 	bindings/v8/custom/V8GeolocationCustom.cpp \
+	bindings/v8/custom/V8HistoryCustom.cpp \
 	bindings/v8/custom/V8HTMLAllCollectionCustom.cpp \
 	bindings/v8/custom/V8HTMLAudioElementConstructor.cpp \
 	bindings/v8/custom/V8HTMLCanvasElementCustom.cpp \
