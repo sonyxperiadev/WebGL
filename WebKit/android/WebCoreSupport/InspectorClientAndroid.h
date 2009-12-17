@@ -52,11 +52,9 @@ public:
     virtual void hideHighlight() {}
 
     virtual void inspectedURLChanged(const String& newURL) {}
-    
-    // new as of 38068
-    virtual void populateSetting(const String&, InspectorController::Setting&) {}
- 	virtual void storeSetting(const String&, const InspectorController::Setting&) {}
- 	virtual void removeSetting(const String&) {}
+
+    virtual void populateSetting(const String& key, String* value) {}
+    virtual void storeSetting(const String& key, const String& value) {}
     virtual String hiddenPanels() { return String(); }
     virtual void inspectorWindowObjectCleared() {}
 };
