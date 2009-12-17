@@ -75,26 +75,11 @@ static URLSchemesMap& noAccessSchemes()
     return noAccessSchemes;
 }
 
-bool SecurityOrigin::isDefaultPortForProtocol(unsigned short port, const String& protocol)
-{
-    if (protocol.isEmpty())
-        return false;
-
-    typedef HashMap<String, unsigned> DefaultPortsMap;
-    DEFINE_STATIC_LOCAL(DefaultPortsMap, defaultPorts, ());
-    if (defaultPorts.isEmpty()) {
-        defaultPorts.set("http", 80);
-        defaultPorts.set("https", 443);
-        defaultPorts.set("ftp", 21);
-        defaultPorts.set("ftps", 990);
-    }
-    return defaultPorts.get(protocol) == port;
-}
-
 SecurityOrigin::SecurityOrigin(const KURL& url)
     : m_protocol(url.protocol().isNull() ? "" : url.protocol().lower())
     , m_host(url.host().isNull() ? "" : url.host().lower())
     , m_port(url.port())
+    , m_sandboxFlags(SandboxNone)
     , m_noAccess(false)
     , m_universalAccess(false)
     , m_domainWasSetInDOM(false)
@@ -112,6 +97,11 @@ SecurityOrigin::SecurityOrigin(const KURL& url)
 
     // By default, only local SecurityOrigins can load local resources.
     m_canLoadLocalResources = isLocal();
+    if (m_canLoadLocalResources) {
+        // Directories should never be readable.
+        if (!url.hasPath() || url.path().endsWith("/"))
+            m_noAccess = true;
+    }
 
     if (isDefaultPortForProtocol(m_port, m_protocol))
         m_port = 0;
@@ -122,6 +112,7 @@ SecurityOrigin::SecurityOrigin(const SecurityOrigin* other)
     , m_host(other->m_host.threadsafeCopy())
     , m_domain(other->m_domain.threadsafeCopy())
     , m_port(other->m_port)
+    , m_sandboxFlags(other->m_sandboxFlags)
     , m_noAccess(other->m_noAccess)
     , m_universalAccess(other->m_universalAccess)
     , m_domainWasSetInDOM(other->m_domainWasSetInDOM)
@@ -162,7 +153,7 @@ bool SecurityOrigin::canAccess(const SecurityOrigin* other) const
     if (m_universalAccess)
         return true;
 
-    if (m_noAccess || other->m_noAccess)
+    if (m_noAccess || other->m_noAccess || isSandboxed(SandboxOrigin) || other->isSandboxed(SandboxOrigin))
         return false;
 
     // Here are two cases where we should permit access:
@@ -203,10 +194,12 @@ bool SecurityOrigin::canRequest(const KURL& url) const
     if (m_universalAccess)
         return true;
 
-    if (m_noAccess)
+    if (m_noAccess || isSandboxed(SandboxOrigin))
         return false;
 
     RefPtr<SecurityOrigin> targetOrigin = SecurityOrigin::create(url);
+    if (targetOrigin->m_noAccess)
+        return false;
 
     // We call isSameSchemeHostPort here instead of canAccess because we want
     // to ignore document.domain effects.
@@ -289,7 +282,7 @@ String SecurityOrigin::toString() const
     if (isEmpty())
         return "null";
 
-    if (m_noAccess)
+    if (m_noAccess || isSandboxed(SandboxOrigin))
         return "null";
 
     if (m_protocol == "file")
@@ -399,14 +392,10 @@ void SecurityOrigin::removeURLSchemeRegisteredAsLocal(const String& scheme)
     if (scheme == "applewebdata")
         return;
 #endif
-#if PLATFORM(QT)
-    if (scheme == "qrc")
-        return;
-#endif
     localSchemes().remove(scheme);
 }
 
-const URLSchemesMap&  SecurityOrigin::localURLSchemes()
+const URLSchemesMap& SecurityOrigin::localURLSchemes()
 {
     return localSchemes();
 }

@@ -43,26 +43,78 @@
 #include <wtf/OwnArrayPtr.h>
 #include <wtf/RetainPtr.h>
 
-#if PLATFORM(MAC) && !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
+#if PLATFORM(MAC) || (PLATFORM(CHROMIUM) && PLATFORM(DARWIN))
+
+#if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
+// Building on 10.6 or later: kCGInterpolationMedium is defined in the CGInterpolationQuality enum.
 #define HAVE_CG_INTERPOLATION_MEDIUM 1
+#endif
+
+#if !defined(TARGETING_TIGER) && !defined(TARGETING_LEOPARD)
+// Targeting 10.6 or later: use kCGInterpolationMedium.
+#define WTF_USE_CG_INTERPOLATION_MEDIUM 1
+#endif
+
 #endif
 
 using namespace std;
 
 namespace WebCore {
 
-static void setCGFillColor(CGContextRef context, const Color& color)
+static CGColorRef createCGColorWithColorSpace(const Color& color, ColorSpace colorSpace)
 {
-    CGFloat red, green, blue, alpha;
-    color.getRGBA(red, green, blue, alpha);
-    CGContextSetRGBFillColor(context, red, green, blue, alpha);
+    CGFloat components[4];
+    color.getRGBA(components[0], components[1], components[2], components[3]);
+
+    CGColorRef cgColor = 0;
+    if (colorSpace == sRGBColorSpace)
+        cgColor = CGColorCreate(sRGBColorSpaceRef(), components);
+    else
+        cgColor = CGColorCreate(deviceRGBColorSpaceRef(), components);
+
+    return cgColor;
 }
 
-static void setCGStrokeColor(CGContextRef context, const Color& color)
+static void setCGFillColor(CGContextRef context, const Color& color, ColorSpace colorSpace)
 {
-    CGFloat red, green, blue, alpha;
-    color.getRGBA(red, green, blue, alpha);
-    CGContextSetRGBStrokeColor(context, red, green, blue, alpha);
+    CGColorRef cgColor = createCGColorWithColorSpace(color, colorSpace);
+    CGContextSetFillColorWithColor(context, cgColor);
+    CFRelease(cgColor);
+}
+
+static void setCGStrokeColor(CGContextRef context, const Color& color, ColorSpace colorSpace)
+{
+    CGColorRef cgColor = createCGColorWithColorSpace(color, colorSpace);
+    CGContextSetStrokeColorWithColor(context, cgColor);
+    CFRelease(cgColor);
+}
+
+static void setCGFillColorSpace(CGContextRef context, ColorSpace colorSpace)
+{
+    switch (colorSpace) {
+    case DeviceColorSpace:
+        break;
+    case sRGBColorSpace:
+        CGContextSetFillColorSpace(context, sRGBColorSpaceRef());
+        break;
+    default:
+        ASSERT_NOT_REACHED();
+        break;
+    }
+}
+
+static void setCGStrokeColorSpace(CGContextRef context, ColorSpace colorSpace)
+{
+    switch (colorSpace) {
+    case DeviceColorSpace:
+        break;
+    case sRGBColorSpace:
+        CGContextSetStrokeColorSpace(context, sRGBColorSpaceRef());
+        break;
+    default:
+        ASSERT_NOT_REACHED();
+        break;
+    }
 }
 
 GraphicsContext::GraphicsContext(CGContextRef cgContext)
@@ -72,8 +124,8 @@ GraphicsContext::GraphicsContext(CGContextRef cgContext)
     setPaintingDisabled(!cgContext);
     if (cgContext) {
         // Make sure the context starts in sync with our state.
-        setPlatformFillColor(fillColor());
-        setPlatformStrokeColor(strokeColor());
+        setPlatformFillColor(fillColor(), fillColorSpace());
+        setPlatformStrokeColor(strokeColor(), strokeColorSpace());
     }
 }
 
@@ -123,7 +175,7 @@ void GraphicsContext::drawRect(const IntRect& rect)
         // We do a fill of four rects to simulate the stroke of a border.
         Color oldFillColor = fillColor();
         if (oldFillColor != strokeColor())
-            setCGFillColor(context, strokeColor());
+            setCGFillColor(context, strokeColor(), strokeColorSpace());
         CGRect rects[4] = {
             FloatRect(rect.x(), rect.y(), rect.width(), 1),
             FloatRect(rect.x(), rect.bottom() - 1, rect.width(), 1),
@@ -132,7 +184,7 @@ void GraphicsContext::drawRect(const IntRect& rect)
         };
         CGContextFillRects(context, rects, 4);
         if (oldFillColor != strokeColor())
-            setCGFillColor(context, oldFillColor);
+            setCGFillColor(context, oldFillColor, fillColorSpace());
     }
 }
 
@@ -200,7 +252,7 @@ void GraphicsContext::drawLine(const IntPoint& point1, const IntPoint& point2)
 
         // Do a rect fill of our endpoints.  This ensures we always have the
         // appearance of being a border.  We then draw the actual dotted/dashed line.
-        setCGFillColor(context, strokeColor());  // The save/restore make it safe to mutate the fill color here without setting it back to the old color.
+        setCGFillColor(context, strokeColor(), strokeColorSpace());  // The save/restore make it safe to mutate the fill color here without setting it back to the old color.
         if (isVerticalLine) {
             CGContextFillRect(context, FloatRect(p1.x() - width / 2, p1.y() - width, width, width));
             CGContextFillRect(context, FloatRect(p2.x() - width / 2, p2.y(), width, width));
@@ -392,7 +444,7 @@ void GraphicsContext::applyStrokePattern()
 {
     CGContextRef cgContext = platformContext();
 
-    RetainPtr<CGPatternRef> platformPattern(AdoptCF, m_common->state.strokePattern.get()->createPlatformPattern(getCTM()));
+    RetainPtr<CGPatternRef> platformPattern(AdoptCF, m_common->state.strokePattern->createPlatformPattern(getCTM()));
     if (!platformPattern)
         return;
 
@@ -407,7 +459,7 @@ void GraphicsContext::applyFillPattern()
 {
     CGContextRef cgContext = platformContext();
 
-    RetainPtr<CGPatternRef> platformPattern(AdoptCF, m_common->state.fillPattern.get()->createPlatformPattern(getCTM()));
+    RetainPtr<CGPatternRef> platformPattern(AdoptCF, m_common->state.fillPattern->createPlatformPattern(getCTM()));
     if (!platformPattern)
         return;
 
@@ -420,8 +472,8 @@ void GraphicsContext::applyFillPattern()
 
 static inline bool calculateDrawingMode(const GraphicsContextState& state, CGPathDrawingMode& mode)
 {
-    bool shouldFill = state.fillColorSpace == PatternColorSpace || state.fillColor.alpha();
-    bool shouldStroke = state.strokeColorSpace == PatternColorSpace || (state.strokeStyle != NoStroke && state.strokeColor.alpha());
+    bool shouldFill = state.fillPattern || state.fillColor.alpha();
+    bool shouldStroke = state.strokePattern || (state.strokeStyle != NoStroke && state.strokeColor.alpha());
     bool useEOFill = state.fillRule == RULE_EVENODD;
 
     if (shouldFill) {
@@ -453,16 +505,16 @@ void GraphicsContext::drawPath()
     CGContextRef context = platformContext();
     const GraphicsContextState& state = m_common->state;
 
-    if (state.fillColorSpace == GradientColorSpace || state.strokeColorSpace == GradientColorSpace) {
+    if (state.fillGradient || state.strokeGradient) {
         // We don't have any optimized way to fill & stroke a path using gradients
         fillPath();
         strokePath();
         return;
     }
 
-    if (state.fillColorSpace == PatternColorSpace)
+    if (state.fillPattern)
         applyFillPattern();
-    if (state.strokeColorSpace == PatternColorSpace)
+    if (state.strokePattern)
         applyStrokePattern();
 
     CGPathDrawingMode drawingMode;
@@ -484,15 +536,11 @@ void GraphicsContext::fillPath()
         return;
 
     CGContextRef context = platformContext();
-    switch (m_common->state.fillColorSpace) {
-    case SolidColorSpace:
-        fillPathWithFillRule(context, fillRule());
-        break;
-    case PatternColorSpace:
-        applyFillPattern();
-        fillPathWithFillRule(context, fillRule());
-        break;
-    case GradientColorSpace:
+
+    // FIXME: Is this helpful and correct in the fillPattern and fillGradient cases?
+    setCGFillColorSpace(context, m_common->state.fillColorSpace);
+
+    if (m_common->state.fillGradient) {
         CGContextSaveGState(context);
         if (fillRule() == RULE_EVENODD)
             CGContextEOClip(context);
@@ -501,8 +549,12 @@ void GraphicsContext::fillPath()
         CGContextConcatCTM(context, m_common->state.fillGradient->gradientSpaceTransform());
         CGContextDrawShading(context, m_common->state.fillGradient->platformGradient());
         CGContextRestoreGState(context);
-        break;
+        return;
     }
+
+    if (m_common->state.fillPattern)
+        applyFillPattern();
+    fillPathWithFillRule(context, fillRule());
 }
 
 void GraphicsContext::strokePath()
@@ -511,76 +563,83 @@ void GraphicsContext::strokePath()
         return;
 
     CGContextRef context = platformContext();
-    switch (m_common->state.strokeColorSpace) {
-    case SolidColorSpace:
-        CGContextStrokePath(context);
-        break;
-    case PatternColorSpace:
-        applyStrokePattern();
-        CGContextStrokePath(context);
-        break;
-    case GradientColorSpace:
+
+    // FIXME: Is this helpful and correct in the strokePattern and strokeGradient cases?
+    setCGStrokeColorSpace(context, m_common->state.strokeColorSpace);
+
+    if (m_common->state.strokeGradient) {
         CGContextSaveGState(context);
         CGContextReplacePathWithStrokedPath(context);
         CGContextClip(context);
         CGContextConcatCTM(context, m_common->state.strokeGradient->gradientSpaceTransform());
         CGContextDrawShading(context, m_common->state.strokeGradient->platformGradient());
         CGContextRestoreGState(context);
-        break;
+        return;
     }
+
+    if (m_common->state.strokePattern)
+        applyStrokePattern();
+    CGContextStrokePath(context);
 }
 
 void GraphicsContext::fillRect(const FloatRect& rect)
 {
     if (paintingDisabled())
         return;
+
     CGContextRef context = platformContext();
-    switch (m_common->state.fillColorSpace) {
-    case SolidColorSpace:
-        CGContextFillRect(context, rect);
-        break;
-    case PatternColorSpace:
-        applyFillPattern();
-        CGContextFillRect(context, rect);
-        break;
-    case GradientColorSpace:
+
+    // FIXME: Is this helpful and correct in the fillPattern and fillGradient cases?
+    setCGFillColorSpace(context, m_common->state.fillColorSpace);
+
+    if (m_common->state.fillGradient) {
         CGContextSaveGState(context);
         CGContextClipToRect(context, rect);
         CGContextConcatCTM(context, m_common->state.fillGradient->gradientSpaceTransform());
         CGContextDrawShading(context, m_common->state.fillGradient->platformGradient());
         CGContextRestoreGState(context);
-        break;
+        return;
     }
-}
 
-void GraphicsContext::fillRect(const FloatRect& rect, const Color& color)
-{
-    if (paintingDisabled())
-        return;
-    CGContextRef context = platformContext();
-    Color oldFillColor = fillColor();
-    if (oldFillColor != color)
-      setCGFillColor(context, color);
+    if (m_common->state.fillPattern)
+        applyFillPattern();
     CGContextFillRect(context, rect);
-    if (oldFillColor != color)
-      setCGFillColor(context, oldFillColor);
 }
 
-void GraphicsContext::fillRoundedRect(const IntRect& rect, const IntSize& topLeft, const IntSize& topRight, const IntSize& bottomLeft, const IntSize& bottomRight, const Color& color)
+void GraphicsContext::fillRect(const FloatRect& rect, const Color& color, ColorSpace colorSpace)
+{
+    if (paintingDisabled())
+        return;
+    CGContextRef context = platformContext();
+    Color oldFillColor = fillColor();
+    ColorSpace oldColorSpace = fillColorSpace();
+
+    if (oldFillColor != color || oldColorSpace != colorSpace)
+      setCGFillColor(context, color, colorSpace);
+
+    CGContextFillRect(context, rect);
+
+    if (oldFillColor != color || oldColorSpace != colorSpace)
+      setCGFillColor(context, oldFillColor, oldColorSpace);
+}
+
+void GraphicsContext::fillRoundedRect(const IntRect& rect, const IntSize& topLeft, const IntSize& topRight, const IntSize& bottomLeft, const IntSize& bottomRight, const Color& color, ColorSpace colorSpace)
 {
     if (paintingDisabled())
         return;
 
     CGContextRef context = platformContext();
     Color oldFillColor = fillColor();
-    if (oldFillColor != color)
-        setCGFillColor(context, color);
+    ColorSpace oldColorSpace = fillColorSpace();
+
+    if (oldFillColor != color || oldColorSpace != colorSpace)
+        setCGFillColor(context, color, colorSpace);
 
     addPath(Path::createRoundedRectangle(rect, topLeft, topRight, bottomLeft, bottomRight));
     fillPath();
 
-    if (oldFillColor != color)
-        setCGFillColor(context, oldFillColor);
+    if (oldFillColor != color || oldColorSpace != colorSpace)
+        setCGFillColor(context, oldFillColor, oldColorSpace);
 }
 
 void GraphicsContext::clip(const FloatRect& rect)
@@ -680,7 +739,7 @@ void GraphicsContext::endTransparencyLayer()
     m_data->m_userToDeviceTransformKnownToBeIdentity = false;
 }
 
-void GraphicsContext::setPlatformShadow(const IntSize& size, int blur, const Color& color)
+void GraphicsContext::setPlatformShadow(const IntSize& size, int blur, const Color& color, ColorSpace colorSpace)
 {
     if (paintingDisabled())
         return;
@@ -727,7 +786,7 @@ void GraphicsContext::setPlatformShadow(const IntSize& size, int blur, const Col
     if (!color.isValid())
         CGContextSetShadow(context, CGSizeMake(width, height), blurRadius);
     else {
-        RetainPtr<CGColorRef> colorCG(AdoptCF, createCGColor(color));
+        RetainPtr<CGColorRef> colorCG(AdoptCF, createCGColorWithColorSpace(color, colorSpace));
         CGContextSetShadowWithColor(context,
                                     CGSizeMake(width, height),
                                     blurRadius,
@@ -769,15 +828,11 @@ void GraphicsContext::strokeRect(const FloatRect& r, float lineWidth)
         return;
 
     CGContextRef context = platformContext();
-    switch (m_common->state.strokeColorSpace) {
-    case SolidColorSpace:
-        CGContextStrokeRectWithWidth(context, r, lineWidth);
-        break;
-    case PatternColorSpace:
-        applyStrokePattern();
-        CGContextStrokeRectWithWidth(context, r, lineWidth);
-        break;
-    case GradientColorSpace:
+
+    // FIXME: Is this helpful and correct in the strokePattern and strokeGradient cases?
+    setCGStrokeColorSpace(context, m_common->state.strokeColorSpace);
+
+    if (m_common->state.strokeGradient) {
         CGContextSaveGState(context);
         setStrokeThickness(lineWidth);
         CGContextAddRect(context, r);
@@ -785,8 +840,12 @@ void GraphicsContext::strokeRect(const FloatRect& r, float lineWidth)
         CGContextClip(context);
         CGContextDrawShading(context, m_common->state.strokeGradient->platformGradient());
         CGContextRestoreGState(context);
-        break;
+        return;
     }
+
+    if (m_common->state.strokePattern)
+        applyStrokePattern();
+    CGContextStrokeRectWithWidth(context, r, lineWidth);
 }
 
 void GraphicsContext::setLineCap(LineCap cap)
@@ -986,10 +1045,10 @@ void GraphicsContext::drawLineForText(const IntPoint& point, int width, bool pri
     }
 
     if (fillColor() != strokeColor())
-        setCGFillColor(platformContext(), strokeColor());
+        setCGFillColor(platformContext(), strokeColor(), strokeColorSpace());
     CGContextFillRect(platformContext(), CGRectMake(x, y, lineLength, thickness));
     if (fillColor() != strokeColor())
-        setCGFillColor(platformContext(), fillColor());
+        setCGFillColor(platformContext(), fillColor(), fillColorSpace());
 
     if (restoreAntialiasMode)
         CGContextSetShouldAntialias(platformContext(), true);
@@ -1034,9 +1093,9 @@ void GraphicsContext::setImageInterpolationQuality(InterpolationQuality mode)
         quality = kCGInterpolationLow;
         break;
 
-    // Fall through to InterpolationHigh if kCGInterpolationMedium is not available
+    // Fall through to InterpolationHigh if kCGInterpolationMedium is not usable.
     case InterpolationMedium:
-#if HAVE(CG_INTERPOLATION_MEDIUM)
+#if USE(CG_INTERPOLATION_MEDIUM)
         quality = kCGInterpolationMedium;
         break;
 #endif
@@ -1061,9 +1120,15 @@ InterpolationQuality GraphicsContext::imageInterpolationQuality() const
     case kCGInterpolationLow:
         return InterpolationLow;
 #if HAVE(CG_INTERPOLATION_MEDIUM)
+    // kCGInterpolationMedium is known to be present in the CGInterpolationQuality enum.
     case kCGInterpolationMedium:
+#if USE(CG_INTERPOLATION_MEDIUM)
+        // Only map to InterpolationMedium if targeting a system that understands it.
         return InterpolationMedium;
-#endif
+#else
+        return InterpolationDefault;
+#endif  // USE(CG_INTERPOLATION_MEDIUM)
+#endif  // HAVE(CG_INTERPOLATION_MEDIUM)
     case kCGInterpolationHigh:
         return InterpolationHigh;
     }
@@ -1107,11 +1172,11 @@ void GraphicsContext::setPlatformTextDrawingMode(int mode)
     }
 }
 
-void GraphicsContext::setPlatformStrokeColor(const Color& color)
+void GraphicsContext::setPlatformStrokeColor(const Color& color, ColorSpace colorSpace)
 {
     if (paintingDisabled())
         return;
-    setCGStrokeColor(platformContext(), color);
+    setCGStrokeColor(platformContext(), color, colorSpace);
 }
 
 void GraphicsContext::setPlatformStrokeThickness(float thickness)
@@ -1121,11 +1186,11 @@ void GraphicsContext::setPlatformStrokeThickness(float thickness)
     CGContextSetLineWidth(platformContext(), thickness);
 }
 
-void GraphicsContext::setPlatformFillColor(const Color& color)
+void GraphicsContext::setPlatformFillColor(const Color& color, ColorSpace colorSpace)
 {
     if (paintingDisabled())
         return;
-    setCGFillColor(platformContext(), color);
+    setCGFillColor(platformContext(), color, colorSpace);
 }
 
 void GraphicsContext::setPlatformShouldAntialias(bool enable)

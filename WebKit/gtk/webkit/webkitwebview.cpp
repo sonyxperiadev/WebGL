@@ -59,11 +59,14 @@
 #include "HitTestResult.h"
 #include <glib/gi18n-lib.h>
 #include "GraphicsContext.h"
+#include "IconDatabase.h"
 #include "InspectorClientGtk.h"
 #include "FrameLoader.h"
 #include "FrameView.h"
 #include "MouseEventWithHitTestResults.h"
+#include "Pasteboard.h"
 #include "PasteboardHelper.h"
+#include "PasteboardHelperGtk.h"
 #include "PlatformKeyboardEvent.h"
 #include "PlatformWheelEvent.h"
 #include "ProgressTracker.h"
@@ -71,7 +74,7 @@
 #include "RenderView.h"
 #include "ScriptValue.h"
 #include "Scrollbar.h"
-#include <wtf/GOwnPtr.h>
+#include <wtf/gtk/GOwnPtr.h>
 
 #include <gdk/gdkkeysyms.h>
 
@@ -131,7 +134,7 @@ enum {
     HOVERING_OVER_LINK,
     POPULATE_POPUP,
     STATUS_BAR_TEXT_CHANGED,
-    ICOND_LOADED,
+    ICON_LOADED,
     SELECTION_CHANGED,
     CONSOLE_MESSAGE,
     SCRIPT_ALERT,
@@ -170,7 +173,8 @@ enum {
     PROP_LOAD_STATUS,
     PROP_PROGRESS,
     PROP_ENCODING,
-    PROP_CUSTOM_ENCODING
+    PROP_CUSTOM_ENCODING,
+    PROP_ICON_URI
 };
 
 static guint webkit_web_view_signals[LAST_SIGNAL] = { 0, };
@@ -351,6 +355,9 @@ static void webkit_web_view_get_property(GObject* object, guint prop_id, GValue*
         break;
     case PROP_PROGRESS:
         g_value_set_double(value, webkit_web_view_get_progress(webView));
+        break;
+    case PROP_ICON_URI:
+        g_value_set_string(value, webkit_web_view_get_icon_uri(webView));
         break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -865,7 +872,7 @@ static gboolean webkit_web_view_real_script_prompt(WebKitWebView* webView, WebKi
 
 static gboolean webkit_web_view_real_console_message(WebKitWebView* webView, const gchar* message, unsigned int line, const gchar* sourceId)
 {
-    g_print("console message: %s @%d: %s\n", sourceId, line, message);
+    g_message("console message: %s @%d: %s\n", sourceId, line, message);
     return TRUE;
 }
 
@@ -1001,12 +1008,6 @@ static void webkit_web_view_dispose(GObject* object)
 
         g_object_unref(priv->imContext);
         priv->imContext = NULL;
-
-        gtk_target_list_unref(priv->copy_target_list);
-        priv->copy_target_list = NULL;
-
-        gtk_target_list_unref(priv->paste_target_list);
-        priv->paste_target_list = NULL;
     }
 
     if (priv->mainResource) {
@@ -1030,6 +1031,7 @@ static void webkit_web_view_finalize(GObject* object)
     g_free(priv->mainResourceIdentifier);
     g_free(priv->encoding);
     g_free(priv->customEncoding);
+    g_free(priv->iconURI);
 
     G_OBJECT_CLASS(webkit_web_view_parent_class)->finalize(object);
 }
@@ -1456,11 +1458,14 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
      * Decide whether or not to display the given MIME type.  If this
      * signal is not handled, the default behavior is to show the
      * content of the requested URI if WebKit can show this MIME
-     * type; if WebKit is not able to show the MIME type nothing
-     * happens.
+     * type and the content disposition is not a download; if WebKit
+     * is not able to show the MIME type nothing happens.
      *
      * Notice that if you return TRUE, meaning that you handled the
-     * signal, you are expected to have decided what to do, by calling
+     * signal, you are expected to be aware of the "Content-Disposition"
+     * header. A value of "attachment" usually indicates a download
+     * regardless of the MIME type, see also
+     * soup_message_headers_get_content_disposition(). And you must call
      * webkit_web_policy_decision_ignore(),
      * webkit_web_policy_decision_use(), or
      * webkit_web_policy_decision_download() on the @policy_decision
@@ -1730,14 +1735,24 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
             G_TYPE_NONE, 1,
             G_TYPE_STRING);
 
-    webkit_web_view_signals[ICOND_LOADED] = g_signal_new("icon-loaded",
+    /**
+     * WebKitWebView::icon-loaded:
+     * @web_view: the object on which the signal is emitted
+     * @icon_uri: the URI for the icon
+     *
+     * This signal is emitted when the main frame has got a favicon.
+     *
+     * Since: 1.1.18
+     */
+    webkit_web_view_signals[ICON_LOADED] = g_signal_new("icon-loaded",
             G_TYPE_FROM_CLASS(webViewClass),
             (GSignalFlags)G_SIGNAL_RUN_LAST,
             0,
             NULL,
             NULL,
-            g_cclosure_marshal_VOID__VOID,
-            G_TYPE_NONE, 0);
+            g_cclosure_marshal_VOID__STRING,
+            G_TYPE_NONE, 1,
+            G_TYPE_STRING);
 
     webkit_web_view_signals[SELECTION_CHANGED] = g_signal_new("selection-changed",
             G_TYPE_FROM_CLASS(webViewClass),
@@ -2378,6 +2393,20 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
                                                         0.0, 1.0, 1.0,
                                                         WEBKIT_PARAM_READABLE));
 
+    /**
+     * WebKitWebView:icon-uri:
+     *
+     * The URI for the favicon for the #WebKitWebView.
+     *
+     * Since: 1.1.18
+     */
+    g_object_class_install_property(objectClass, PROP_ICON_URI,
+                                    g_param_spec_string("icon-uri",
+                                                        _("Icon URI"),
+                                                        _("The URI for the favicon for the #WebKitWebView."),
+                                                        NULL,
+                                                        WEBKIT_PARAM_READABLE));
+
     g_type_class_add_private(webViewClass, sizeof(WebKitWebViewPrivate));
 }
 
@@ -2392,7 +2421,7 @@ static void webkit_web_view_update_settings(WebKitWebView* webView)
         enableScripts, enablePlugins, enableDeveloperExtras, resizableTextAreas,
         enablePrivateBrowsing, enableCaretBrowsing, enableHTML5Database, enableHTML5LocalStorage,
         enableXSSAuditor, javascriptCanOpenWindows, enableOfflineWebAppCache,
-        enableUniversalAccessFromFileURI, enableDOMPaste;
+        enableUniversalAccessFromFileURI, enableDOMPaste, tabKeyCyclesThroughElements;
 
     WebKitEditingBehavior editingBehavior;
 
@@ -2422,6 +2451,7 @@ static void webkit_web_view_update_settings(WebKitWebView* webView)
                  "editing-behavior", &editingBehavior,
                  "enable-universal-access-from-file-uris", &enableUniversalAccessFromFileURI,
                  "enable-dom-paste", &enableDOMPaste,
+                 "tab-key-cycles-through-elements", &tabKeyCyclesThroughElements,
                  NULL);
 
     settings->setDefaultTextEncodingName(defaultEncoding);
@@ -2449,6 +2479,10 @@ static void webkit_web_view_update_settings(WebKitWebView* webView)
     settings->setEditingBehavior(core(editingBehavior));
     settings->setAllowUniversalAccessFromFileURLs(enableUniversalAccessFromFileURI);
     settings->setDOMPasteAllowed(enableDOMPaste);
+
+    Page* page = core(webView);
+    if (page)
+        page->setTabKeyCyclesThroughElements(tabKeyCyclesThroughElements);
 
     g_free(defaultEncoding);
     g_free(cursiveFontFamily);
@@ -2537,6 +2571,11 @@ static void webkit_web_view_settings_notify(WebKitWebSettings* webSettings, GPar
         settings->setAllowUniversalAccessFromFileURLs(g_value_get_boolean(&value));
     else if (name == g_intern_string("enable-dom-paste"))
         settings->setDOMPasteAllowed(g_value_get_boolean(&value));
+    else if (name == g_intern_string("tab-key-cycles-through-elements")) {
+        Page* page = core(webView);
+        if (page)
+            page->setTabKeyCyclesThroughElements(g_value_get_boolean(&value));
+    }
     else if (!g_object_class_find_property(G_OBJECT_GET_CLASS(webSettings), name))
         g_warning("Unexpected setting '%s'", name);
     g_value_unset(&value);
@@ -2571,17 +2610,6 @@ static void webkit_web_view_init(WebKitWebView* webView)
     priv->backForwardList = webkit_web_back_forward_list_new_with_web_view(webView);
 
     priv->zoomFullContent = FALSE;
-
-    GdkAtom textHtml = gdk_atom_intern_static_string("text/html");
-    /* Targets for copy */
-    priv->copy_target_list = gtk_target_list_new(NULL, 0);
-    gtk_target_list_add(priv->copy_target_list, textHtml, 0, WEBKIT_WEB_VIEW_TARGET_INFO_HTML);
-    gtk_target_list_add_text_targets(priv->copy_target_list, WEBKIT_WEB_VIEW_TARGET_INFO_TEXT);
-
-    /* Targets for pasting */
-    priv->paste_target_list = gtk_target_list_new(NULL, 0);
-    gtk_target_list_add(priv->paste_target_list, textHtml, 0, WEBKIT_WEB_VIEW_TARGET_INFO_HTML);
-    gtk_target_list_add_text_targets(priv->paste_target_list, WEBKIT_WEB_VIEW_TARGET_INFO_TEXT);
 
     priv->webSettings = webkit_web_settings_new();
     webkit_web_view_update_settings(webView);
@@ -3386,10 +3414,7 @@ void webkit_web_view_set_editable(WebKitWebView* webView, gboolean flag)
  **/
 GtkTargetList* webkit_web_view_get_copy_target_list(WebKitWebView* webView)
 {
-    g_return_val_if_fail(WEBKIT_IS_WEB_VIEW(webView), NULL);
-
-    WebKitWebViewPrivate* priv = webView->priv;
-    return priv->copy_target_list;
+    return pasteboardHelperInstance()->targetList();
 }
 
 /**
@@ -3406,10 +3431,7 @@ GtkTargetList* webkit_web_view_get_copy_target_list(WebKitWebView* webView)
  **/
 GtkTargetList* webkit_web_view_get_paste_target_list(WebKitWebView* webView)
 {
-    g_return_val_if_fail(WEBKIT_IS_WEB_VIEW(webView), NULL);
-
-    WebKitWebViewPrivate* priv = webView->priv;
-    return priv->paste_target_list;
+    return pasteboardHelperInstance()->targetList();
 }
 
 /**
@@ -3972,4 +3994,28 @@ WebKitHitTestResult* webkit_web_view_get_hit_test_result(WebKitWebView* webView,
     MouseEventWithHitTestResults mev = frame->document()->prepareMouseEvent(request, documentPoint, mouseEvent);
 
     return kit(mev.hitTestResult());
+}
+
+/**
+ * webkit_web_view_get_icon_uri:
+ * @web_view: the #WebKitWebView object
+ *
+ * Obtains the URI for the favicon for the given #WebKitWebView, or
+ * %NULL if there is none.
+ *
+ * Return value: the URI for the favicon, or %NULL
+ *
+ * Since: 1.1.18
+ */
+G_CONST_RETURN gchar* webkit_web_view_get_icon_uri(WebKitWebView* webView)
+{
+    g_return_val_if_fail(WEBKIT_IS_WEB_VIEW(webView), NULL);
+
+    Page* corePage = core(webView);
+    String iconURL = iconDatabase()->iconURLForPageURL(corePage->mainFrame()->loader()->url().prettyURL());
+
+    WebKitWebViewPrivate* priv = webView->priv;
+    g_free(priv->iconURI);
+    priv->iconURI = g_strdup(iconURL.utf8().data());
+    return priv->iconURI;
 }

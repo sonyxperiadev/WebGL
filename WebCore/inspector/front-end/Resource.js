@@ -26,7 +26,7 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WebInspector.Resource = function(requestHeaders, url, domain, path, lastPathComponent, identifier, mainResource, cached, requestMethod, requestFormData)
+WebInspector.Resource = function(requestHeaders, url, documentURL, domain, path, lastPathComponent, identifier, mainResource, cached, requestMethod, requestFormData)
 {
     this.identifier = identifier;
 
@@ -35,6 +35,7 @@ WebInspector.Resource = function(requestHeaders, url, domain, path, lastPathComp
     this.mainResource = mainResource;
     this.requestHeaders = requestHeaders;
     this.url = url;
+    this.documentURL = documentURL;
     this.domain = domain;
     this.path = path;
     this.lastPathComponent = lastPathComponent;
@@ -111,7 +112,8 @@ WebInspector.Resource.Type = {
     Font:       3,
     Script:     4,
     XHR:        5,
-    Other:      6,
+    Media:      6,
+    Other:      7,
 
     isTextType: function(type)
     {
@@ -159,6 +161,18 @@ WebInspector.Resource.prototype = {
         WebInspector.resourceURLChanged(this, oldURL);
 
         this.dispatchEventToListeners("url changed");
+    },
+
+    get documentURL()
+    {
+        return this._documentURL;
+    },
+
+    set documentURL(x)
+    {
+        if (this._documentURL === x)
+            return;
+        this._documentURL = x;
     },
 
     get domain()
@@ -587,7 +601,7 @@ WebInspector.Resource.prototype = {
         if (this.mimeType in WebInspector.MIMETypes)
             return this.type in WebInspector.MIMETypes[this.mimeType];
 
-        return true;
+        return false;
     },
 
     _checkWarnings: function()

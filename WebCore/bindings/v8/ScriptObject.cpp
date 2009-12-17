@@ -36,6 +36,8 @@
 
 #include "Document.h"
 #include "Frame.h"
+#include "InspectorBackend.h"
+#include "InspectorFrontendHost.h"
 #include "V8Binding.h"
 #include "V8Proxy.h"
 
@@ -83,6 +85,13 @@ bool ScriptObject::set(const char* name, double value)
     return scope.success();
 }
 
+bool ScriptObject::set(const char* name, long value)
+{
+    ScriptScope scope(m_scriptState);
+    v8Object()->Set(v8::String::New(name), v8::Number::New(value));
+    return scope.success();
+}
+
 bool ScriptObject::set(const char* name, long long value)
 {
     ScriptScope scope(m_scriptState);
@@ -98,6 +107,13 @@ bool ScriptObject::set(const char* name, int value)
 }
 
 bool ScriptObject::set(const char* name, unsigned value)
+{
+    ScriptScope scope(m_scriptState);
+    v8Object()->Set(v8::String::New(name), v8::Number::New(value));
+    return scope.success();
+}
+
+bool ScriptObject::set(const char* name, unsigned long value)
 {
     ScriptScope scope(m_scriptState);
     v8Object()->Set(v8::String::New(name), v8::Number::New(value));
@@ -124,6 +140,7 @@ bool ScriptGlobalObject::set(ScriptState* scriptState, const char* name, const S
     return scope.success();
 }
 
+#if ENABLE(INSPECTOR)
 bool ScriptGlobalObject::set(ScriptState* scriptState, const char* name, InspectorBackend* value)
 {
     ScriptScope scope(scriptState);
@@ -132,6 +149,21 @@ bool ScriptGlobalObject::set(ScriptState* scriptState, const char* name, Inspect
 #endif
     return scope.success();
 }
+
+bool ScriptGlobalObject::set(ScriptState* scriptState, const char* name, InspectorFrontendHost* value)
+{
+    ScriptScope scope(scriptState);
+    scope.global()->Set(v8::String::New(name), V8DOMWrapper::convertToV8Object(V8ClassIndex::INSPECTORFRONTENDHOST, value));
+    return scope.success();
+}
+
+bool ScriptGlobalObject::set(ScriptState* scriptState, const char* name, InjectedScriptHost* value)
+{
+    ScriptScope scope(scriptState);
+    scope.global()->Set(v8::String::New(name), V8DOMWrapper::convertToV8Object(V8ClassIndex::INJECTEDSCRIPTHOST, value));
+    return scope.success();
+}
+#endif
 
 bool ScriptGlobalObject::get(ScriptState* scriptState, const char* name, ScriptObject& value)
 {

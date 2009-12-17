@@ -45,7 +45,7 @@
 #include "Page.h"
 #include "FocusController.h"
 #include "PlatformMouseEvent.h"
-#if PLATFORM(WIN_OS) && !PLATFORM(WX) && ENABLE(NETSCAPE_PLUGIN_API)
+#if PLATFORM(WIN_OS) && ENABLE(NETSCAPE_PLUGIN_API)
 #include "PluginMessageThrottlerWin.h"
 #endif
 #include "PluginPackage.h"
@@ -141,7 +141,7 @@ void PluginView::setFrameRect(const IntRect& rect)
 #if PLATFORM(WIN_OS) || PLATFORM(SYMBIAN)
     // On Windows and Symbian, always call plugin to change geometry.
     setNPWindowRect(rect);
-#elif XP_UNIX
+#elif defined(XP_UNIX)
     // On Unix, multiple calls to setNPWindow() in windowed mode causes Flash to crash
     if (m_mode == NP_FULL || !m_isWindowed)
         setNPWindowRect(rect);
@@ -337,7 +337,6 @@ void PluginView::stop()
 #endif
 
 #if ENABLE(NETSCAPE_PLUGIN_API)
-#if !PLATFORM(WX) // FIXME: Revisit this when implementing plugins for wx
 #ifdef XP_WIN
     // Unsubclass the window
     if (m_isWindowed) {
@@ -354,7 +353,6 @@ void PluginView::stop()
 #endif
     }
 #endif // XP_WIN
-#endif // !PLATFORM(WX)
 #endif // ENABLE(NETSCAPE_PLUGIN_API)
 
 #if !defined(XP_MACOSX)
@@ -877,7 +875,7 @@ PluginView::PluginView(Frame* parentFrame, const IntSize& size, PluginPackage* p
 #if defined(XP_UNIX) || defined(Q_WS_X11)
     , m_needsXEmbed(false)
 #endif
-#if PLATFORM(WIN_OS) && !PLATFORM(WX) && ENABLE(NETSCAPE_PLUGIN_API)
+#if PLATFORM(WIN_OS) && ENABLE(NETSCAPE_PLUGIN_API)
     , m_pluginWndProc(0)
     , m_lastMessage(0)
     , m_isCallingPluginWndProc(false)
@@ -890,9 +888,11 @@ PluginView::PluginView(Frame* parentFrame, const IntSize& size, PluginPackage* p
 #if defined(XP_MACOSX)
     , m_drawingModel(NPDrawingModel(-1))
     , m_eventModel(NPEventModel(-1))
+    , m_contextRef(0)
+    , m_fakeWindow(0)
 #endif
 #if defined(Q_WS_X11) && ENABLE(NETSCAPE_PLUGIN_API)
-    , m_hasPendingGeometryChange(false)
+    , m_hasPendingGeometryChange(true)
     , m_drawable(0)
     , m_visual(0)
     , m_colormap(0)
@@ -1288,7 +1288,7 @@ void PluginView::paintMissingPluginIcon(GraphicsContext* context, const IntRect&
 
     context->save();
     context->clip(windowClipRect());
-    context->drawImage(nullPluginImage.get(), imageRect.location());
+    context->drawImage(nullPluginImage.get(), DeviceColorSpace, imageRect.location());
     context->restore();
 }
 
@@ -1331,6 +1331,11 @@ const char* PluginView::userAgentStatic()
 Node* PluginView::node() const
 {
     return m_element;
+}
+
+String PluginView::pluginName() const
+{
+    return m_plugin->name();
 }
 
 } // namespace WebCore

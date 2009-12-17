@@ -41,7 +41,10 @@ BEGIN {
     @ISA         = qw(Exporter);
     @EXPORT      = qw(
         &canonicalizePath
+        &changeLogEmailAddress
+        &changeLogName
         &chdirReturningRelativePath
+        &decodeGitBinaryPatch
         &determineSVNRoot
         &determineVCSRoot
         &fixChangeLogPatch
@@ -298,6 +301,14 @@ sub canonicalizePath($)
     return ($#dirs >= 0) ? File::Spec->catdir(@dirs) : ".";
 }
 
+sub removeEOL($)
+{
+    my ($line) = @_;
+
+    $line =~ s/[\r\n]+$//g;
+    return $line;
+}
+
 sub svnStatus($)
 {
     my ($fullPath) = @_;
@@ -335,8 +346,6 @@ sub gitdiff2svndiff($)
     $_ = shift @_;
     if (m#^diff --git a/(.+) b/(.+)#) {
         return "Index: $1";
-    } elsif (m/^new file.*/) {
-        return "";
     } elsif (m#^index [0-9a-f]{7}\.\.[0-9a-f]{7} [0-9]{6}#) {
         return "===================================================================";
     } elsif (m#^--- a/(.+)#) {
@@ -347,56 +356,215 @@ sub gitdiff2svndiff($)
     return $_;
 }
 
+# The diff(1) command is greedy when matching lines, so a new ChangeLog entry will
+# have lines of context at the top of a patch when the existing entry has the same
+# date and author as the new entry.  Alter the ChangeLog patch so
+# that the added lines ("+") in the patch always start at the beginning of the
+# patch and there are no initial lines of context.
 sub fixChangeLogPatch($)
 {
-    my $patch = shift;
-    my $contextLineCount = 3;
+    my $patch = shift; # $patch will only contain patch fragments for ChangeLog.
 
-    return $patch if $patch !~ /\n@@ -1,(\d+) \+1,(\d+) @@\n( .*\n)+(\+.*\n)+( .*\n){$contextLineCount}$/m;
-    my ($oldLineCount, $newLineCount) = ($1, $2);
-    return $patch if $oldLineCount <= $contextLineCount;
+    $patch =~ /(\r?\n)/;
+    my $lineEnding = $1;
+    my @patchLines = split(/$lineEnding/, $patch);
 
-    # The diff(1) command is greedy when matching lines, so a new ChangeLog entry will
-    # have lines of context at the top of a patch when the existing entry has the same
-    # date and author as the new entry.  This nifty loop alters a ChangeLog patch so
-    # that the added lines ("+") in the patch always start at the beginning of the
-    # patch and there are no initial lines of context.
-    my $newPatch;
-    my $lineCountInState = 0;
-    my $oldContentLineCountReduction = $oldLineCount - $contextLineCount;
-    my $newContentLineCountWithoutContext = $newLineCount - $oldLineCount - $oldContentLineCountReduction;
-    my ($stateHeader, $statePreContext, $stateNewChanges, $statePostContext) = (1..4);
-    my $state = $stateHeader;
-    foreach my $line (split(/\n/, $patch)) {
-        $lineCountInState++;
-        if ($state == $stateHeader && $line =~ /^@@ -1,$oldLineCount \+1,$newLineCount @\@$/) {
-            $line = "@@ -1,$contextLineCount +1," . ($newLineCount - $oldContentLineCountReduction) . " @@";
-            $lineCountInState = 0;
-            $state = $statePreContext;
-        } elsif ($state == $statePreContext && substr($line, 0, 1) eq " ") {
-            $line = "+" . substr($line, 1);
-            if ($lineCountInState == $oldContentLineCountReduction) {
-                $lineCountInState = 0;
-                $state = $stateNewChanges;
+    # e.g. 2009-06-03  Eric Seidel  <eric@webkit.org>
+    my $dateLineRegexpString = '^\+(\d{4}-\d{2}-\d{2})' # Consume the leading '+' and the date.
+                             . '\s+(.+)\s+' # Consume the name.
+                             . '<([^<>]+)>$'; # And finally the email address.
+
+    # Figure out where the patch contents start and stop.
+    my $patchHeaderIndex;
+    my $firstContentIndex;
+    my $trailingContextIndex;
+    my $dateIndex;
+    my $patchEndIndex = scalar(@patchLines);
+    for (my $index = 0; $index < @patchLines; ++$index) {
+        my $line = $patchLines[$index];
+        if ($line =~ /^\@\@ -\d+,\d+ \+\d+,\d+ \@\@$/) { # e.g. @@ -1,5 +1,18 @@
+            if ($patchHeaderIndex) {
+                $patchEndIndex = $index; # We only bother to fix up the first patch fragment.
+                last;
             }
-        } elsif ($state == $stateNewChanges && substr($line, 0, 1) eq "+") {
-            # No changes to these lines
-            if ($lineCountInState == $newContentLineCountWithoutContext) {
-                $lineCountInState = 0;
-                $state = $statePostContext;
-            }
-        } elsif ($state == $statePostContext) {
-            if (substr($line, 0, 1) eq "+" && $lineCountInState <= $oldContentLineCountReduction) {
-                $line = " " . substr($line, 1);
-            } elsif ($lineCountInState > $contextLineCount && substr($line, 0, 1) eq " ") {
-                next; # Discard
-            }
+            $patchHeaderIndex = $index;
         }
-        $newPatch .= $line . "\n";
+        $firstContentIndex = $index if ($patchHeaderIndex && !$firstContentIndex && $line =~ /^\+[^+]/); # Only match after finding patchHeaderIndex, otherwise we'd match "+++".
+        $dateIndex = $index if ($line =~ /$dateLineRegexpString/);
+        $trailingContextIndex = $index if ($firstContentIndex && !$trailingContextIndex && $line =~ /^ /);
     }
+    my $contentLineCount = $trailingContextIndex - $firstContentIndex;
+    my $trailingContextLineCount = $patchEndIndex - $trailingContextIndex;
 
-    return $newPatch;
+    # If we didn't find a date line in the content then this is not a patch we should try and fix.
+    return $patch if (!$dateIndex);
+
+    # We only need to do anything if the date line is not the first content line.
+    return $patch if ($dateIndex == $firstContentIndex);
+
+    # Write the new patch.
+    my $totalNewContentLines = $contentLineCount + $trailingContextLineCount;
+    $patchLines[$patchHeaderIndex] = "@@ -1,$trailingContextLineCount +1,$totalNewContentLines @@"; # Write a new header.
+    my @repeatedLines = splice(@patchLines, $dateIndex, $trailingContextIndex - $dateIndex); # The date line and all the content after it that diff saw as repeated.
+    splice(@patchLines, $firstContentIndex, 0, @repeatedLines); # Move the repeated content to the top.
+    foreach my $line (@repeatedLines) {
+        $line =~ s/^\+/ /;
+    }
+    splice(@patchLines, $trailingContextIndex, $patchEndIndex, @repeatedLines); # Replace trailing context with the repeated content.
+    splice(@patchLines, $patchHeaderIndex + 1, $firstContentIndex - $patchHeaderIndex - 1); # Remove any leading context.
+
+    return join($lineEnding, @patchLines) . "\n"; # patch(1) expects an extra trailing newline.
 }
 
+sub gitConfig($)
+{
+    return unless $isGit;
+
+    my ($config) = @_;
+
+    my $result = `git config $config`;
+    if (($? >> 8)) {
+        $result = `git repo-config $config`;
+    }
+    chomp $result;
+    return $result;
+}
+
+sub changeLogNameError($)
+{
+    my ($message) = @_;
+    print STDERR "$message\nEither:\n";
+    print STDERR "  set CHANGE_LOG_NAME in your environment\n";
+    print STDERR "  OR pass --name= on the command line\n";
+    print STDERR "  OR set REAL_NAME in your environment";
+    print STDERR "  OR git users can set 'git config user.name'\n";
+    exit(1);
+}
+
+sub changeLogName()
+{
+    my $name = $ENV{CHANGE_LOG_NAME} || $ENV{REAL_NAME} || gitConfig("user.name") || (split /\s*,\s*/, (getpwuid $<)[6])[0];
+
+    changeLogNameError("Failed to determine ChangeLog name.") unless $name;
+    # getpwuid seems to always succeed on windows, returning the username instead of the full name.  This check will catch that case.
+    changeLogNameError("'$name' does not contain a space!  ChangeLogs should contain your full name.") unless ($name =~ /\w \w/);
+
+    return $name;
+}
+
+sub changeLogEmailAddressError($)
+{
+    my ($message) = @_;
+    print STDERR "$message\nEither:\n";
+    print STDERR "  set CHANGE_LOG_EMAIL_ADDRESS in your environment\n";
+    print STDERR "  OR pass --email= on the command line\n";
+    print STDERR "  OR set EMAIL_ADDRESS in your environment\n";
+    print STDERR "  OR git users can set 'git config user.email'\n";
+    exit(1);
+}
+
+sub changeLogEmailAddress()
+{
+    my $emailAddress = $ENV{CHANGE_LOG_EMAIL_ADDRESS} || $ENV{EMAIL_ADDRESS} || gitConfig("user.email");
+
+    changeLogEmailAddressError("Failed to determine email address for ChangeLog.") unless $emailAddress;
+    changeLogEmailAddressError("Email address '$emailAddress' does not contain '\@' and is likely invalid.") unless ($emailAddress =~ /\@/);
+
+    return $emailAddress;
+}
+
+# http://tools.ietf.org/html/rfc1924
+sub decodeBase85($)
+{
+    my ($encoded) = @_;
+    my %table;
+    my @characters = ('0'..'9', 'A'..'Z', 'a'..'z', '!', '#', '$', '%', '&', '(', ')', '*', '+', '-', ';', '<', '=', '>', '?', '@', '^', '_', '`', '{', '|', '}', '~');
+    for (my $i = 0; $i < 85; $i++) {
+        $table{$characters[$i]} = $i;
+    }
+
+    my $decoded = '';
+    my @encodedChars = $encoded =~ /./g;
+
+    for (my $encodedIter = 0; defined($encodedChars[$encodedIter]);) {
+        my $digit = 0;
+        for (my $i = 0; $i < 5; $i++) {
+            $digit *= 85;
+            my $char = $encodedChars[$encodedIter];
+            $digit += $table{$char};
+            $encodedIter++;
+        }
+
+        for (my $i = 0; $i < 4; $i++) {
+            $decoded .= chr(($digit >> (3 - $i) * 8) & 255);
+        }
+    }
+
+    return $decoded;
+}
+
+sub decodeGitBinaryChunk($$)
+{
+    my ($contents, $fullPath) = @_;
+
+    # Load this module lazily in case the user don't have this module
+    # and won't handle git binary patches.
+    require Compress::Zlib;
+
+    my $encoded = "";
+    my $compressedSize = 0;
+    while ($contents =~ /^([A-Za-z])(.*)$/gm) {
+        my $line = $2;
+        next if $line eq "";
+        die "$fullPath: unexpected size of a line: $&" if length($2) % 5 != 0;
+        my $actualSize = length($2) / 5 * 4;
+        my $encodedExpectedSize = ord($1);
+        my $expectedSize = $encodedExpectedSize <= ord("Z") ? $encodedExpectedSize - ord("A") + 1 : $encodedExpectedSize - ord("a") + 27;
+
+        die "$fullPath: unexpected size of a line: $&" if int(($expectedSize + 3) / 4) * 4 != $actualSize;
+        $compressedSize += $expectedSize;
+        $encoded .= $line;
+    }
+
+    my $compressed = decodeBase85($encoded);
+    $compressed = substr($compressed, 0, $compressedSize);
+    return Compress::Zlib::uncompress($compressed);
+}
+
+sub decodeGitBinaryPatch($$)
+{
+    my ($contents, $fullPath) = @_;
+
+    # Git binary patch has two chunks. One is for the normal patching
+    # and another is for the reverse patching.
+    #
+    # Each chunk a line which starts from either "literal" or "delta",
+    # followed by a number which specifies decoded size of the chunk.
+    # The "delta" type chunks aren't supported by this function yet.
+    #
+    # Then, content of the chunk comes. To decode the content, we
+    # need decode it with base85 first, and then zlib.
+    my $gitPatchRegExp = '(literal|delta) ([0-9]+)\n([A-Za-z0-9!#$%&()*+-;<=>?@^_`{|}~\\n]*?)\n\n';
+    if ($contents !~ m"\nGIT binary patch\n$gitPatchRegExp$gitPatchRegExp\Z") {
+        die "$fullPath: unknown git binary patch format"
+    }
+
+    my $binaryChunkType = $1;
+    my $binaryChunkExpectedSize = $2;
+    my $encodedChunk = $3;
+    my $reverseBinaryChunkType = $4;
+    my $reverseBinaryChunkExpectedSize = $5;
+    my $encodedReverseChunk = $6;
+
+    my $binaryChunk = decodeGitBinaryChunk($encodedChunk, $fullPath);
+    my $binaryChunkActualSize = length($binaryChunk);
+    my $reverseBinaryChunk = decodeGitBinaryChunk($encodedReverseChunk, $fullPath);
+    my $reverseBinaryChunkActualSize = length($reverseBinaryChunk);
+
+    die "$fullPath: unexpected size of the first chunk (expected $binaryChunkExpectedSize but was $binaryChunkActualSize" if ($binaryChunkExpectedSize != $binaryChunkActualSize);
+    die "$fullPath: unexpected size of the second chunk (expected $reverseBinaryChunkExpectedSize but was $reverseBinaryChunkActualSize" if ($reverseBinaryChunkExpectedSize != $reverseBinaryChunkActualSize);
+
+    return ($binaryChunkType, $binaryChunk, $reverseBinaryChunkType, $reverseBinaryChunk);
+}
 
 1;

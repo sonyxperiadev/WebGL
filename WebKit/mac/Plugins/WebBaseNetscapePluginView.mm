@@ -64,6 +64,8 @@
 #define LoginWindowDidSwitchFromUserNotification    @"WebLoginWindowDidSwitchFromUserNotification"
 #define LoginWindowDidSwitchToUserNotification      @"WebLoginWindowDidSwitchToUserNotification"
 
+static const NSTimeInterval ClearSubstituteImageDelay = 0.5;
+
 using namespace WebCore;
 
 class WebHaltablePlugin : public HaltablePlugin {
@@ -77,6 +79,8 @@ private:
     virtual void halt();
     virtual void restart();
     virtual Node* node() const;
+    virtual bool isWindowed() const;
+    virtual String pluginName() const;
 
     WebBaseNetscapePluginView* m_view;
 };
@@ -94,6 +98,16 @@ void WebHaltablePlugin::restart()
 Node* WebHaltablePlugin::node() const
 {
     return [m_view element];
+}
+
+bool WebHaltablePlugin::isWindowed() const
+{
+    return false;
+}
+
+String WebHaltablePlugin::pluginName() const
+{
+    return [[m_view pluginPackage] name];
 }
 
 @implementation WebBaseNetscapePluginView
@@ -498,6 +512,19 @@ Node* WebHaltablePlugin::node() const
     _hasBeenHalted = YES;
 }
 
+- (void)_clearSubstituteImage
+{
+    Element* element = [self element];
+    if (!element)
+        return;
+    
+    RenderObject* renderer = element->renderer();
+    if (!renderer)
+        return;
+    
+    toRenderWidget(renderer)->showSubstituteImage(0);
+}
+
 - (void)resumeFromHalt
 {
     ASSERT(_isHalted);
@@ -508,7 +535,9 @@ Node* WebHaltablePlugin::node() const
         _isHalted = NO;
     
     ASSERT([self element]->renderer());
-    toRenderWidget([self element]->renderer())->showSubstituteImage(0);
+    // FIXME 7417484: This is a workaround for plug-ins not drawing immediately. We'd like to detect when the
+    // plug-in actually draws instead of just assuming it will do so within 0.5 seconds of being restarted.
+    [self performSelector:@selector(_clearSubstituteImage) withObject:nil afterDelay:ClearSubstituteImageDelay];
 }
 
 - (BOOL)isHalted

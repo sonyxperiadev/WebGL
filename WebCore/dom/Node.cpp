@@ -415,7 +415,6 @@ Node::Node(Document* document, ConstructionType type)
     , m_hovered(false)
     , m_inActiveChain(false)
     , m_inDetach(false)
-    , m_inSubtreeMark(false)
     , m_hasRareData(false)
     , m_isElement(isElement(type))
     , m_isContainer(isContainer(type))
@@ -1768,23 +1767,22 @@ bool Node::isEqualNode(Node *other) const
     return true;
 }
 
-bool Node::isDefaultNamespace(const AtomicString &namespaceURI) const
+bool Node::isDefaultNamespace(const AtomicString& namespaceURIMaybeEmpty) const
 {
-    // Implemented according to
-    // http://www.w3.org/TR/2004/REC-DOM-Level-3-Core-20040407/namespaces-algorithms.html#isDefaultNamespaceAlgo
-    
+    const AtomicString& namespaceURI = namespaceURIMaybeEmpty.isEmpty() ? nullAtom : namespaceURIMaybeEmpty;
+
     switch (nodeType()) {
         case ELEMENT_NODE: {
-            const Element *elem = static_cast<const Element *>(this);
+            const Element* elem = static_cast<const Element*>(this);
             
             if (elem->prefix().isNull())
                 return elem->namespaceURI() == namespaceURI;
 
             if (elem->hasAttributes()) {
-                NamedNodeMap *attrs = elem->attributes();
+                NamedNodeMap* attrs = elem->attributes();
                 
                 for (unsigned i = 0; i < attrs->length(); i++) {
-                    Attribute *attr = attrs->attributeItem(i);
+                    Attribute* attr = attrs->attributeItem(i);
                     
                     if (attr->localName() == "xmlns")
                         return attr->value() == namespaceURI;
@@ -1806,7 +1804,7 @@ bool Node::isDefaultNamespace(const AtomicString &namespaceURI) const
         case DOCUMENT_FRAGMENT_NODE:
             return false;
         case ATTRIBUTE_NODE: {
-            const Attr *attr = static_cast<const Attr *>(this);
+            const Attr* attr = static_cast<const Attr*>(this);
             if (attr->ownerElement())
                 return attr->ownerElement()->isDefaultNamespace(namespaceURI);
             return false;
@@ -2539,6 +2537,23 @@ bool Node::dispatchEvent(PassRefPtr<Event> prpEvent)
     return dispatchGenericEvent(event.release());
 }
 
+static bool eventHasListeners(const AtomicString& eventType, DOMWindow* window, Node* node, Vector<RefPtr<ContainerNode> >& ancestors)
+{
+    if (window && window->hasEventListeners(eventType))
+        return true;
+
+    if (node->hasEventListeners(eventType))
+        return true;
+
+    for (size_t i = 0; i < ancestors.size(); i++) {
+        ContainerNode* ancestor = ancestors[i].get();
+        if (ancestor->hasEventListeners(eventType))
+            return true;
+    }
+
+   return false;    
+}
+
 bool Node::dispatchGenericEvent(PassRefPtr<Event> prpEvent)
 {
     RefPtr<Event> event(prpEvent);
@@ -2546,12 +2561,6 @@ bool Node::dispatchGenericEvent(PassRefPtr<Event> prpEvent)
     ASSERT(!eventDispatchForbidden());
     ASSERT(event->target());
     ASSERT(!event->type().isNull()); // JavaScript code can create an event with an empty name, but not null.
-
-#if ENABLE(INSPECTOR)
-    InspectorTimelineAgent* timelineAgent = document()->inspectorTimelineAgent();
-    if (timelineAgent)
-        timelineAgent->willDispatchDOMEvent(*event);
-#endif
 
     // Make a vector of ancestors to send the event to.
     // If the node is not in a document just send the event to it.
@@ -2569,6 +2578,13 @@ bool Node::dispatchGenericEvent(PassRefPtr<Event> prpEvent)
         if (topLevelContainer->isDocumentNode())
             targetForWindowEvents = static_cast<Document*>(topLevelContainer)->domWindow();
     }
+
+#if ENABLE(INSPECTOR)
+    InspectorTimelineAgent* timelineAgent = document()->inspectorTimelineAgent();
+    bool timelineAgentIsActive = timelineAgent && eventHasListeners(event->type(), targetForWindowEvents, this, ancestors);
+    if (timelineAgentIsActive)
+        timelineAgent->willDispatchEvent(*event);
+#endif
 
     // Give the target node a chance to do some work before DOM event handlers get a crack.
     void* data = preDispatchEventHandler(event.get());
@@ -2651,8 +2667,8 @@ doneDispatching:
 
 doneWithDefault:
 #if ENABLE(INSPECTOR)
-    if (timelineAgent)
-        timelineAgent->didDispatchDOMEvent();
+    if (timelineAgentIsActive && (timelineAgent = document()->inspectorTimelineAgent()))
+        timelineAgent->didDispatchEvent();
 #endif
 
     Document::updateStyleForAllDocuments();

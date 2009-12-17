@@ -53,7 +53,7 @@ namespace WebCore {
 static const double cInterpolationCutoff = 800. * 800.;
 static const double cLowQualityTimeThreshold = 0.050; // 50 ms
 
-class RenderImageScaleData {
+class RenderImageScaleData : public Noncopyable {
 public:
     RenderImageScaleData(RenderImage* image, const IntSize& size, double time, bool lowQualityScale)
         : m_size(size)
@@ -371,8 +371,8 @@ void RenderImage::paintReplaced(PaintInfo& paintInfo, int tx, int ty)
             context->save();
 #endif
             context->setStrokeStyle(SolidStroke);
-            context->setStrokeColor(Color::lightGray);
-            context->setFillColor(Color::transparent);
+            context->setStrokeColor(Color::lightGray, style()->colorSpace());
+            context->setFillColor(Color::transparent, style()->colorSpace());
             context->drawRect(IntRect(tx + leftBorder + leftPad, ty + topBorder + topPad, cWidth, cHeight));
 #ifdef ANDROID_FIX // see http://b/issue?id=2052757
             context->restore();
@@ -396,13 +396,13 @@ void RenderImage::paintReplaced(PaintInfo& paintInfo, int tx, int ty)
                     centerY = 0;
                 imageX = leftBorder + leftPad + centerX + 1;
                 imageY = topBorder + topPad + centerY + 1;
-                context->drawImage(image(), IntPoint(tx + imageX, ty + imageY));
+                context->drawImage(image(), style()->colorSpace(), IntPoint(tx + imageX, ty + imageY));
                 errorPictureDrawn = true;
             }
 
             if (!m_altText.isEmpty()) {
                 String text = document()->displayStringModifiedByEncoding(m_altText);
-                context->setFillColor(style()->color());
+                context->setFillColor(style()->color(), style()->colorSpace());
                 int ax = tx + leftBorder + leftPad;
                 int ay = ty + topBorder + topPad;
                 const Font& font = style()->font();
@@ -434,7 +434,7 @@ void RenderImage::paintReplaced(PaintInfo& paintInfo, int tx, int ty)
         IntRect rect(IntPoint(tx + leftBorder + leftPad, ty + topBorder + topPad), contentSize);
         HTMLImageElement* imageElt = (node() && node()->hasTagName(imgTag)) ? static_cast<HTMLImageElement*>(node()) : 0;
         CompositeOperator compositeOperator = imageElt ? imageElt->compositeOperator() : CompositeSourceOver;
-        context->drawImage(image(cWidth, cHeight), rect, compositeOperator, useLowQualityScaling);
+        context->drawImage(image(cWidth, cHeight), style()->colorSpace(), rect, compositeOperator, useLowQualityScaling);
     }
 }
 

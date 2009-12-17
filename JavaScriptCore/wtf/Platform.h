@@ -47,6 +47,11 @@
 #elif !defined(MAC_OS_X_VERSION_10_6) || MAC_OS_X_VERSION_MAX_ALLOWED < MAC_OS_X_VERSION_10_6
 #define BUILDING_ON_LEOPARD 1
 #endif
+#if !defined(MAC_OS_X_VERSION_10_5) || MAC_OS_X_VERSION_MIN_REQUIRED < MAC_OS_X_VERSION_10_5
+#define TARGETING_TIGER 1
+#elif !defined(MAC_OS_X_VERSION_10_6) || MAC_OS_X_VERSION_MIN_REQUIRED < MAC_OS_X_VERSION_10_6
+#define TARGETING_LEOPARD 1
+#endif
 #include <TargetConditionals.h>
 #endif
 
@@ -136,19 +141,15 @@
 
 /* PLATFORM(CHROMIUM) */
 /* PLATFORM(QT) */
+/* PLATFORM(WX) */
 /* PLATFORM(GTK) */
+/* PLATFORM(HAIKU) */
 /* PLATFORM(MAC) */
 /* PLATFORM(WIN) */
 #if defined(BUILDING_CHROMIUM__)
 #define WTF_PLATFORM_CHROMIUM 1
 #elif defined(BUILDING_QT__)
 #define WTF_PLATFORM_QT 1
-
-/* PLATFORM(KDE) */
-#if defined(BUILDING_KDE__)
-#define WTF_PLATFORM_KDE 1
-#endif
-
 #elif defined(BUILDING_WX__)
 #define WTF_PLATFORM_WX 1
 #elif defined(BUILDING_GTK__)
@@ -222,6 +223,16 @@
    || defined(__PPC)
 #define WTF_PLATFORM_PPC 1
 #define WTF_PLATFORM_BIG_ENDIAN 1
+#endif
+
+/* PLATFORM(SPARC32) */
+#if defined(__sparc) && !defined(__arch64__) || defined(__sparcv8)
+#define WTF_PLATFORM_SPARC32 1
+#define WTF_PLATFORM_BIG_ENDIAN 1
+#endif
+
+#if PLATFORM(SPARC32) || PLATFORM(SPARC64)
+#define WTF_PLATFORM_SPARC
 #endif
 
 /* PLATFORM(PPC64) */
@@ -354,6 +365,16 @@
 #define WTF_PLATFORM_X86_64 1
 #endif
 
+/* PLATFORM(IA64) */
+#if defined(__ia64__)
+#define WTF_PLATFORM_IA64 1
+#endif
+
+/* PLATFORM(ALPHA) */
+#if defined(__alpha__)
+#define WTF_PLATFORM_ALPHA 1
+#endif
+
 /* PLATFORM(SH4) */
 #if defined(__SH4__)
 #define WTF_PLATFORM_SH4 1
@@ -377,6 +398,8 @@
 #   if Q_BYTE_ORDER == Q_BIG_EDIAN
 #       define WTF_PLATFORM_BIG_ENDIAN 1
 #   endif
+
+#   include <ce_time.h>
 #endif
 
 /* Compiler */
@@ -423,7 +446,7 @@
 #define WTF_COMPILER_WINSCW 1
 #endif
 
-#if (PLATFORM(IPHONE) || PLATFORM(MAC) || PLATFORM(WIN)) && !defined(ENABLE_JSC_MULTIPLE_THREADS)
+#if (PLATFORM(IPHONE) || PLATFORM(MAC) || PLATFORM(WIN) || (PLATFORM(QT) && PLATFORM(DARWIN))) && !defined(ENABLE_JSC_MULTIPLE_THREADS)
 #define ENABLE_JSC_MULTIPLE_THREADS 1
 #endif
 
@@ -459,8 +482,7 @@
 
 #endif  /* PLATFORM(WINCE) && !PLATFORM(QT) */
 
-/* for Unicode, KDE uses Qt */
-#if PLATFORM(KDE) || PLATFORM(QT)
+#if PLATFORM(QT)
 #define WTF_USE_QT4_UNICODE 1
 #elif PLATFORM(WINCE)
 #define WTF_USE_WINCE_UNICODE 1
@@ -493,6 +515,10 @@
 #define HAVE_PTHREAD_RWLOCK 1
 #endif
 
+#if PLATFORM(QT) && PLATFORM(DARWIN)
+#define WTF_PLATFORM_CF 1
+#endif
+
 #if PLATFORM(IPHONE)
 #define ENABLE_CONTEXT_MENUS 0
 #define ENABLE_DRAG_SUPPORT 0
@@ -520,7 +546,10 @@
 // This prevents unnecessary invals.
 #define ENABLE_TEXT_CARET 1
 #define ENABLE_JAVASCRIPT_DEBUGGER 0
+<<<<<<< HEAD:JavaScriptCore/wtf/Platform.h
 #define ENABLE_ORIENTATION_EVENTS 1
+=======
+>>>>>>> webkit.org at r51976:JavaScriptCore/wtf/Platform.h
 #endif
 
 #if PLATFORM(WIN)
@@ -529,6 +558,9 @@
 
 #if PLATFORM(WX)
 #define ENABLE_ASSEMBLER 1
+#if PLATFORM(DARWIN)
+#define WTF_PLATFORM_CF 1
+#endif
 #endif
 
 #if PLATFORM(GTK)
@@ -577,7 +609,7 @@
 #define HAVE_SYS_TIME_H 1
 #define HAVE_SYS_TIMEB_H 1
 
-#if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD) && !PLATFORM(IPHONE)
+#if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD) && !PLATFORM(IPHONE) && !PLATFORM(QT)
 #define HAVE_MADV_FREE_REUSE 1
 #define HAVE_MADV_FREE 1
 #define HAVE_PTHREAD_SETNAME_NP 1
@@ -589,7 +621,6 @@
 
 #elif PLATFORM(WIN_OS)
 
-#define HAVE_FLOAT_H 1
 #if PLATFORM(WINCE)
 #define HAVE_ERRNO_H 0
 #else
@@ -741,7 +772,7 @@
 #endif
 
 #if !defined(WTF_USE_JSVALUE64) && !defined(WTF_USE_JSVALUE32) && !defined(WTF_USE_JSVALUE32_64)
-#if PLATFORM(X86_64) && (PLATFORM(DARWIN) || PLATFORM(LINUX) || PLATFORM(WIN_OS))
+#if (PLATFORM(X86_64) && (PLATFORM(UNIX) || PLATFORM(WIN_OS))) || PLATFORM(IA64) || PLATFORM(ALPHA)
 #define WTF_USE_JSVALUE64 1
 #elif PLATFORM(ARM) || PLATFORM(PPC64)
 #define WTF_USE_JSVALUE32 1
@@ -769,14 +800,18 @@ on MinGW. See https://bugs.webkit.org/show_bug.cgi?id=29268 */
     #define WTF_USE_JIT_STUB_ARGUMENT_VA_LIST 1
 #elif PLATFORM(ARM_THUMB2) && PLATFORM(IPHONE)
     #define ENABLE_JIT 1
-    #define ENABLE_JIT_OPTIMIZE_NATIVE_CALL 0
 /* The JIT is tested & working on x86 Windows */
 #elif PLATFORM(X86) && PLATFORM(WIN)
     #define ENABLE_JIT 1
 #endif
 
 #if PLATFORM(QT)
-#if PLATFORM(X86) && PLATFORM(WIN_OS) && COMPILER(MINGW) && GCC_VERSION >= 40100
+#if PLATFORM(X86_64) && PLATFORM(DARWIN)
+    #define ENABLE_JIT 1
+#elif PLATFORM(X86) && PLATFORM(DARWIN)
+    #define ENABLE_JIT 1
+    #define WTF_USE_JIT_STUB_ARGUMENT_VA_LIST 1
+#elif PLATFORM(X86) && PLATFORM(WIN_OS) && COMPILER(MINGW) && GCC_VERSION >= 40100
     #define ENABLE_JIT 1
     #define WTF_USE_JIT_STUB_ARGUMENT_VA_LIST 1
 #elif PLATFORM(X86) && PLATFORM(WIN_OS) && COMPILER(MSVC)
@@ -787,9 +822,6 @@ on MinGW. See https://bugs.webkit.org/show_bug.cgi?id=29268 */
     #define WTF_USE_JIT_STUB_ARGUMENT_VA_LIST 1
 #elif PLATFORM(ARM_TRADITIONAL) && PLATFORM(LINUX)
     #define ENABLE_JIT 1
-    #if PLATFORM(ARM_THUMB2)
-        #define ENABLE_JIT_OPTIMIZE_NATIVE_CALL 0
-    #endif
 #endif
 #endif /* PLATFORM(QT) */
 
@@ -894,6 +926,10 @@ on MinGW. See https://bugs.webkit.org/show_bug.cgi?id=29268 */
 #define WTF_USE_ACCELERATED_COMPOSITING 1
 #endif
 
+#if PLATFORM(WIN)
+#define WTF_USE_ACCELERATED_COMPOSITING 0
+#endif
+
 #if COMPILER(GCC)
 #define WARN_UNUSED_RETURN __attribute__ ((warn_unused_result))
 #else
@@ -906,5 +942,7 @@ on MinGW. See https://bugs.webkit.org/show_bug.cgi?id=29268 */
 
 /* Set up a define for a common error that is intended to cause a build error -- thus the space after Error. */
 #define WTF_PLATFORM_CFNETWORK Error USE_macro_should_be_used_with_CFNETWORK
+
+#define ENABLE_JSC_ZOMBIES 0
 
 #endif /* WTF_Platform_h */

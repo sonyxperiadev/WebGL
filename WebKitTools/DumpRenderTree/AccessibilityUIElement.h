@@ -61,6 +61,8 @@ public:
 
     static JSObjectRef makeJSAccessibilityUIElement(JSContextRef, const AccessibilityUIElement&);
 
+    bool isEqual(AccessibilityUIElement* otherElement) { return platformUIElement() == otherElement->platformUIElement(); }
+    
     void getLinkedUIElements(Vector<AccessibilityUIElement>&);
     void getDocumentLinks(Vector<AccessibilityUIElement>&);
     void getChildren(Vector<AccessibilityUIElement>&);
@@ -80,16 +82,22 @@ public:
     JSStringRef parameterizedAttributeNames();
     void increment();
     void decrement();
+    void showMenu();
 
     // Attributes - platform-independent implementations
     JSStringRef attributeValue(JSStringRef attribute);
+    bool isAttributeSupported(JSStringRef attribute);
     bool isAttributeSettable(JSStringRef attribute);
     bool isActionSupported(JSStringRef action);
     JSStringRef role();
     JSStringRef subrole();
+    JSStringRef roleDescription();
     JSStringRef title();
     JSStringRef description();
     JSStringRef language();
+    JSStringRef stringValue();
+    JSStringRef accessibilityValue() const;
+    JSStringRef orientation() const;
     double x();
     double y();
     double width();
@@ -102,8 +110,13 @@ public:
     JSStringRef selectedTextRange();
     bool isEnabled();
     bool isRequired() const;
+    bool isSelected() const;
+    bool isExpanded() const;
+    int hierarchicalLevel() const;
     double clickPointX();
     double clickPointY();
+    JSStringRef documentEncoding();
+    JSStringRef documentURI();
 
     // Table-specific attributes
     JSStringRef attributesOfColumnHeaders();
@@ -115,6 +128,20 @@ public:
     int indexInTable();
     JSStringRef rowIndexRange();
     JSStringRef columnIndexRange();
+    
+    // Tree/Outline specific attributes
+    AccessibilityUIElement selectedRowAtIndex(unsigned);
+    AccessibilityUIElement disclosedByRow();
+    AccessibilityUIElement disclosedRowAtIndex(unsigned);
+
+    // ARIA specific
+    AccessibilityUIElement ariaOwnsElementAtIndex(unsigned);
+    AccessibilityUIElement ariaFlowToElementAtIndex(unsigned);
+
+    // ARIA Drag and Drop
+    bool ariaIsGrabbed() const;
+    // A space concatentated string of all the drop effects.
+    JSStringRef ariaDropEffects() const;
     
     // Parameterized attributes
     int lineForIndex(int);

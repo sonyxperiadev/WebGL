@@ -111,8 +111,9 @@ This file contains the list of files needed to build WebCore.
         bindings/js/JSHTMLSelectElementCustom.cpp
         bindings/js/JSImageConstructor.cpp
         bindings/js/JSImageDataCustom.cpp
+        bindings/js/JSInjectedScriptHostCustom.cpp
         bindings/js/JSInspectedObjectWrapper.cpp
-        bindings/js/JSInspectorBackendCustom.cpp
+        bindings/js/JSInspectorFrontendHostCustom.cpp
         bindings/js/JSInspectorCallbackWrapper.cpp
         bindings/js/JSJavaScriptCallFrameCustom.cpp
         bindings/js/JSLocationCustom.cpp
@@ -155,7 +156,6 @@ This file contains the list of files needed to build WebCore.
         bindings/js/ScriptEventListener.cpp
         bindings/js/ScriptFunctionCall.cpp
         bindings/js/ScriptObject.cpp
-        bindings/js/ScriptObjectQuarantine.cpp
         bindings/js/ScriptState.cpp
         bindings/js/ScriptValue.cpp
         bindings/js/ScheduledAction.cpp
@@ -274,6 +274,7 @@ This file contains the list of files needed to build WebCore.
         DerivedSources/WebCore/JSClientRectList.cpp
         DerivedSources/WebCore/JSClipboard.cpp
         DerivedSources/WebCore/JSComment.cpp
+        DerivedSources/WebCore/JSCompositionEvent.cpp
         DerivedSources/WebCore/JSConsole.cpp
         DerivedSources/WebCore/JSCoordinates.cpp
         DerivedSources/WebCore/JSCounter.cpp
@@ -365,7 +366,9 @@ This file contains the list of files needed to build WebCore.
         DerivedSources/WebCore/JSHTMLUListElement.cpp
         DerivedSources/WebCore/JSHistory.cpp
         DerivedSources/WebCore/JSImageData.cpp
+        DerivedSources/WebCore/JSInjectedScriptHost.cpp
         DerivedSources/WebCore/JSInspectorBackend.cpp
+        DerivedSources/WebCore/JSInspectorFrontendHost.cpp
         DerivedSources/WebCore/JSJavaScriptCallFrame.cpp
         DerivedSources/WebCore/JSKeyboardEvent.cpp
         DerivedSources/WebCore/JSLocation.cpp
@@ -447,13 +450,13 @@ This file contains the list of files needed to build WebCore.
         dom/CharacterData.cpp
         dom/CheckedRadioButtons.cpp
         dom/ChildNodeList.cpp
-        dom/ClassNames.cpp
         dom/ClassNodeList.cpp
         dom/ClientRect.cpp
         dom/ClientRectList.cpp
         dom/Clipboard.cpp
         dom/ClipboardEvent.cpp
         dom/Comment.cpp
+        dom/CompositionEvent.cpp
         dom/ContainerNode.cpp
         dom/DOMImplementation.cpp
         dom/Document.cpp
@@ -502,6 +505,7 @@ This file contains the list of files needed to build WebCore.
         dom/ScriptExecutionContext.cpp
         dom/SelectElement.cpp
         dom/SelectorNodeList.cpp
+        dom/SpaceSplitString.cpp
         dom/StaticNodeList.cpp
         dom/StyleElement.cpp
         dom/StyledElement.cpp
@@ -672,6 +676,7 @@ This file contains the list of files needed to build WebCore.
         html/HTMLTokenizer.cpp
         html/HTMLUListElement.cpp
         html/HTMLViewSourceDocument.cpp
+        html/ISODateTime.cpp
         html/ImageData.cpp
         html/PreloadScanner.cpp
         html/ValidityState.cpp
@@ -679,7 +684,9 @@ This file contains the list of files needed to build WebCore.
 
     <set append="1" var="WEBCORE_SOURCES_INSPECTOR">
         inspector/ConsoleMessage.cpp
+        inspector/InjectedScriptHost.cpp
         inspector/InspectorBackend.cpp
+        inspector/InspectorFrontendHost.cpp
         inspector/InspectorDatabaseResource.cpp
         inspector/InspectorDOMAgent.cpp
         inspector/InspectorDOMStorageResource.cpp

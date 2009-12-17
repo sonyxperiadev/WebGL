@@ -45,9 +45,9 @@ namespace WebCore {
     // A V8LazyEventListener is always a HTML event handler.
     class V8LazyEventListener : public V8AbstractEventListener {
     public:
-        static PassRefPtr<V8LazyEventListener> create(const String& functionName, bool isSVGEvent, const String& code, const String& sourceURL, int lineNumber, int columnNumber)
+        static PassRefPtr<V8LazyEventListener> create(const String& functionName, bool isSVGEvent, const String& code, const String& sourceURL, int lineNumber, int columnNumber, const WorldContextHandle& worldContext)
         {
-            return adoptRef(new V8LazyEventListener(functionName, isSVGEvent, code, sourceURL, lineNumber, columnNumber));
+            return adoptRef(new V8LazyEventListener(functionName, isSVGEvent, code, sourceURL, lineNumber, columnNumber, worldContext));
         }
 
         virtual bool isLazy() const { return true; }
@@ -56,7 +56,7 @@ namespace WebCore {
         virtual void prepareListenerObject(ScriptExecutionContext*);
 
     private:
-        V8LazyEventListener(const String& functionName, bool isSVGEvent, const String& code, const String sourceURL, int lineNumber, int columnNumber);
+        V8LazyEventListener(const String& functionName, bool isSVGEvent, const String& code, const String sourceURL, int lineNumber, int columnNumber, const WorldContextHandle& worldContext);
 
         virtual v8::Local<v8::Value> callListenerFunction(ScriptExecutionContext*, v8::Handle<v8::Value> jsEvent, Event*);
 

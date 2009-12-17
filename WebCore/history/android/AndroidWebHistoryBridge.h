@@ -34,11 +34,19 @@ class HistoryItem;
 
 class AndroidWebHistoryBridge : public RefCounted<AndroidWebHistoryBridge> {
 public:
+<<<<<<< HEAD:WebCore/history/android/AndroidWebHistoryBridge.h
     AndroidWebHistoryBridge(HistoryItem* item)
+=======
+    AndroidWebHistoryBridge()
+>>>>>>> webkit.org at r51976:WebCore/history/android/AndroidWebHistoryBridge.h
         : m_scale(100)
         , m_screenWidthScale(100)
         , m_active(false)
+<<<<<<< HEAD:WebCore/history/android/AndroidWebHistoryBridge.h
         , m_historyItem(item) { }
+=======
+        , m_historyItem(0) { }
+>>>>>>> webkit.org at r51976:WebCore/history/android/AndroidWebHistoryBridge.h
     virtual ~AndroidWebHistoryBridge() { }
     virtual void updateHistoryItem(HistoryItem* item) = 0;
 
@@ -46,7 +54,10 @@ public:
     void setScreenWidthScale(int s) { m_screenWidthScale = s; }
     int scale() const { return m_scale; }
     int screenWidthScale() const { return m_screenWidthScale; }
+<<<<<<< HEAD:WebCore/history/android/AndroidWebHistoryBridge.h
     void detachHistoryItem() { m_historyItem = 0; }
+=======
+>>>>>>> webkit.org at r51976:WebCore/history/android/AndroidWebHistoryBridge.h
     HistoryItem* historyItem() const { return m_historyItem; }
     void setActive() { m_active = true; }
 

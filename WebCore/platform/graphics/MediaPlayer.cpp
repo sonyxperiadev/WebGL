@@ -91,6 +91,9 @@ public:
 
     virtual void setVolume(float) { }
 
+    virtual bool hasClosedCaptions() const { return false; }
+    virtual void setClosedCaptionsVisible(bool) { };
+
     virtual MediaPlayer::NetworkState networkState() const { return MediaPlayer::Empty; }
     virtual MediaPlayer::ReadyState readyState() const { return MediaPlayer::HaveNothing; }
 
@@ -126,7 +129,7 @@ static MediaPlayerPrivateInterface* createNullMediaPlayer(MediaPlayer* player)
 
 // engine support
 
-struct MediaPlayerFactory {
+struct MediaPlayerFactory : Noncopyable {
     MediaPlayerFactory(CreateMediaEnginePlayer constructor, MediaEngineSupportedTypes getSupportedTypes, MediaEngineSupportsType supportsTypeAndCodecs) 
         : constructor(constructor)
         , getSupportedTypes(getSupportedTypes)
@@ -375,6 +378,16 @@ void MediaPlayer::setVolume(float volume)
 {
     m_volume = volume;
     m_private->setVolume(volume);   
+}
+
+bool MediaPlayer::hasClosedCaptions() const
+{
+    return m_private->hasClosedCaptions();
+}
+
+void MediaPlayer::setClosedCaptionsVisible(bool closedCaptionsVisible)
+{
+    m_private->setClosedCaptionsVisible(closedCaptionsVisible);
 }
 
 float MediaPlayer::rate() const

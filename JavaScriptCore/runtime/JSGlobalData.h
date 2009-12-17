@@ -38,6 +38,7 @@
 #include "NumericStrings.h"
 #include "SmallStrings.h"
 #include "TimeoutChecker.h"
+#include "WeakRandom.h"
 #include <wtf/Forward.h>
 #include <wtf/HashMap.h>
 #include <wtf/RefCounted.h>
@@ -62,6 +63,26 @@ namespace JSC {
     struct HashTable;
     struct Instruction;    
     struct VPtrSet;
+
+    struct DSTOffsetCache {
+        DSTOffsetCache()
+        {
+            reset();
+        }
+        
+        void reset()
+        {
+            offset = 0.0;
+            start = 0.0;
+            end = -1.0;
+            increment = 0.0;
+        }
+
+        double offset;
+        double start;
+        double end;
+        double increment;
+    };
 
     class JSGlobalData : public RefCounted<JSGlobalData> {
     public:
@@ -153,9 +174,19 @@ namespace JSC {
 
         MarkStack markStack;
 
+        double cachedUTCOffset;
+        DSTOffsetCache dstOffsetCache;
+        
+        UString cachedDateString;
+        double cachedDateStringValue;
+        
+        WeakRandom weakRandom;
+
 #ifndef NDEBUG
         bool mainThreadOnly;
 #endif
+
+        void resetDateCache();
 
         void startSampling();
         void stopSampling();
@@ -165,7 +196,7 @@ namespace JSC {
         static JSGlobalData*& sharedInstanceInternal();
         void createNativeThunk();
     };
-
+    
 } // namespace JSC
 
 #endif // JSGlobalData_h

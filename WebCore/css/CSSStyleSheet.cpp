@@ -28,6 +28,7 @@
 #include "Document.h"
 #include "ExceptionCode.h"
 #include "Node.h"
+#include "SecurityOrigin.h"
 #include "TextEncoding.h"
 #include <wtf/Deque.h>
 
@@ -118,6 +119,8 @@ int CSSStyleSheet::addRule(const String& selector, const String& style, Exceptio
 
 PassRefPtr<CSSRuleList> CSSStyleSheet::cssRules(bool omitCharsetRules)
 {
+    if (doc() && !doc()->securityOrigin()->canRequest(baseURL()))
+        return 0;
     return CSSRuleList::create(this, omitCharsetRules);
 }
 
@@ -135,7 +138,7 @@ void CSSStyleSheet::deleteRule(unsigned index, ExceptionCode& ec)
 
 void CSSStyleSheet::addNamespace(CSSParser* p, const AtomicString& prefix, const AtomicString& uri)
 {
-    if (uri.isEmpty())
+    if (uri.isNull())
         return;
 
     m_namespaces = new CSSNamespace(prefix, uri, m_namespaces);
@@ -148,11 +151,11 @@ void CSSStyleSheet::addNamespace(CSSParser* p, const AtomicString& prefix, const
 
 const AtomicString& CSSStyleSheet::determineNamespace(const AtomicString& prefix)
 {
-    if (prefix.isEmpty())
+    if (prefix.isNull())
         return nullAtom; // No namespace. If an element/attribute has a namespace, we won't match it.
-    else if (prefix == starAtom)
+    if (prefix == starAtom)
         return starAtom; // We'll match any namespace.
-    else if (m_namespaces) {
+    if (m_namespaces) {
         CSSNamespace* ns = m_namespaces->namespaceForPrefix(prefix);
         if (ns)
             return ns->uri();
@@ -227,10 +230,12 @@ void CSSStyleSheet::addSubresourceStyleURLs(ListHashSet<KURL>& urls)
         CSSStyleSheet* styleSheet = styleSheetQueue.first();
         styleSheetQueue.removeFirst();
 
-        RefPtr<CSSRuleList> ruleList = styleSheet->cssRules();
-
-        for (unsigned i = 0; i < ruleList->length(); ++i) {
-            CSSRule* rule = ruleList->item(i);
+        for (unsigned i = 0; i < styleSheet->length(); ++i) {
+            StyleBase* styleBase = styleSheet->item(i);
+            if (!styleBase->isRule())
+                continue;
+            
+            CSSRule* rule = static_cast<CSSRule*>(styleBase);
             if (rule->isImportRule()) {
                 if (CSSStyleSheet* ruleStyleSheet = static_cast<CSSImportRule*>(rule)->styleSheet())
                     styleSheetQueue.append(ruleStyleSheet);

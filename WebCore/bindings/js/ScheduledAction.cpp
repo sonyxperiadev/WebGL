@@ -103,7 +103,7 @@ void ScheduledAction::executeFunctionInContext(JSGlobalObject* globalObject, JSV
         args.append(m_args[i]);
 
     globalObject->globalData()->timeoutChecker.start();
-    callInWorld(exec, m_function, callType, callData, thisValue, args, m_isolatedWorld.get());
+    JSC::call(exec, m_function, callType, callData, thisValue, args);
     globalObject->globalData()->timeoutChecker.stop();
 
     if (exec->hadException())
@@ -126,7 +126,7 @@ void ScheduledAction::execute(Document* document)
         executeFunctionInContext(window, window->shell());
         Document::updateStyleForAllDocuments();
     } else
-        frame->script()->executeScriptInIsolatedWorld(m_isolatedWorld.get(), m_code);
+        frame->script()->executeScriptInWorld(m_isolatedWorld.get(), m_code);
 
     frame->script()->setProcessingTimerCallback(false);
 }

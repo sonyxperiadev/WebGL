@@ -372,6 +372,23 @@ void LayoutTestController::setXSSAuditorEnabled(bool enabled)
     prefsPrivate->setXSSAuditorEnabled(enabled);
 }
 
+void LayoutTestController::setAllowUniversalAccessFromFileURLs(bool enabled)
+{
+    COMPtr<IWebView> webView;
+    if (FAILED(frame->webView(&webView)))
+        return;
+
+    COMPtr<IWebPreferences> preferences;
+    if (FAILED(webView->preferences(&preferences)))
+        return;
+
+    COMPtr<IWebPreferencesPrivate> prefsPrivate(Query, preferences);
+    if (!prefsPrivate)
+        return;
+
+    prefsPrivate->setAllowUniversalAccessFromFileURLs(enabled);
+}
+
 void LayoutTestController::setPopupBlockingEnabled(bool enabled)
 {
     COMPtr<IWebView> webView;
@@ -396,6 +413,23 @@ void LayoutTestController::setTabKeyCyclesThroughElements(bool shouldCycle)
         return;
 
     viewPrivate->setTabKeyCyclesThroughElements(shouldCycle ? TRUE : FALSE);
+}
+
+void LayoutTestController::setTimelineProfilingEnabled(bool flag)
+{
+    COMPtr<IWebView> webView;
+    if (FAILED(frame->webView(&webView)))
+        return;
+
+    COMPtr<IWebViewPrivate> viewPrivate;
+    if (FAILED(webView->QueryInterface(&viewPrivate)))
+        return;
+
+    COMPtr<IWebInspector> inspector;
+    if (FAILED(viewPrivate->inspector(&inspector)))
+        return;
+
+    inspector->setTimelineProfilingEnabled(flag);
 }
 
 void LayoutTestController::setUseDashboardCompatibilityMode(bool flag)
@@ -827,6 +861,31 @@ bool LayoutTestController::pauseTransitionAtTimeOnElementWithId(JSStringRef prop
     return SUCCEEDED(hr) && wasRunning;
 }
 
+bool LayoutTestController::sampleSVGAnimationForElementAtTime(JSStringRef animationId, double time, JSStringRef elementId)
+{
+    COMPtr<IDOMDocument> document;
+    if (FAILED(frame->DOMDocument(&document)))
+        return false;
+
+    BSTR idBSTR = JSStringCopyBSTR(animationId);
+    COMPtr<IDOMElement> element;
+    HRESULT hr = document->getElementById(idBSTR, &element);
+    SysFreeString(idBSTR);
+    if (FAILED(hr))
+        return false;
+
+    COMPtr<IWebFramePrivate> framePrivate(Query, frame);
+    if (!framePrivate)
+        return false;
+
+    BSTR elementIdBSTR = JSStringCopyBSTR(elementId);
+    BOOL wasRunning = FALSE;
+    hr = framePrivate->pauseSVGAnimation(elementIdBSTR, element.get(), time, &wasRunning);
+    SysFreeString(elementIdBSTR);
+
+    return SUCCEEDED(hr) && wasRunning;
+}
+
 unsigned LayoutTestController::numberOfActiveAnimations() const
 {
     COMPtr<IWebFramePrivate> framePrivate(Query, frame);
@@ -861,7 +920,11 @@ void LayoutTestController::addUserScript(JSStringRef source, bool runAtStart)
     if (FAILED(WebKitCreateInstance(__uuidof(WebView), 0, __uuidof(webView), reinterpret_cast<void**>(&webView))))
         return;
 
-    webView->addUserScriptToGroup(_bstr_t(L"org.webkit.DumpRenderTree").GetBSTR(), 1, bstrT(source).GetBSTR(), 0, 0, 0, 0, 0, runAtStart ? WebInjectAtDocumentStart : WebInjectAtDocumentEnd);
+    COMPtr<IWebScriptWorld> world;
+    if (FAILED(WebKitCreateInstance(__uuidof(WebScriptWorld), 0, __uuidof(world), reinterpret_cast<void**>(&world))))
+        return;
+
+    webView->addUserScriptToGroup(_bstr_t(L"org.webkit.DumpRenderTree").GetBSTR(), world.get(), bstrT(source).GetBSTR(), 0, 0, 0, 0, 0, runAtStart ? WebInjectAtDocumentStart : WebInjectAtDocumentEnd);
 }
 
 
@@ -871,7 +934,11 @@ void LayoutTestController::addUserStyleSheet(JSStringRef source)
     if (FAILED(WebKitCreateInstance(__uuidof(WebView), 0, __uuidof(webView), reinterpret_cast<void**>(&webView))))
         return;
 
-    webView->addUserStyleSheetToGroup(_bstr_t(L"org.webkit.DumpRenderTree").GetBSTR(), 1, bstrT(source).GetBSTR(), 0, 0, 0, 0, 0);
+    COMPtr<IWebScriptWorld> world;
+    if (FAILED(WebKitCreateInstance(__uuidof(WebScriptWorld), 0, __uuidof(world), reinterpret_cast<void**>(&world))))
+        return;
+
+    webView->addUserStyleSheetToGroup(_bstr_t(L"org.webkit.DumpRenderTree").GetBSTR(), world.get(), bstrT(source).GetBSTR(), 0, 0, 0, 0, 0);
 }
 
 void LayoutTestController::showWebInspector()
@@ -947,14 +1014,45 @@ void LayoutTestController::evaluateInWebInspector(long callId, JSStringRef scrip
     inspectorPrivate->evaluateInFrontend(callId, bstrT(script).GetBSTR());
 }
 
-void LayoutTestController::evaluateScriptInIsolatedWorld(unsigned worldId, JSObjectRef globalObject, JSStringRef script)
+typedef HashMap<unsigned, COMPtr<IWebScriptWorld> > WorldMap;
+static WorldMap& worldMap()
+{
+    static WorldMap& map = *new WorldMap;
+    return map;
+}
+
+unsigned worldIDForWorld(IWebScriptWorld* world)
+{
+    WorldMap::const_iterator end = worldMap().end();
+    for (WorldMap::const_iterator it = worldMap().begin(); it != end; ++it) {
+        if (it->second == world)
+            return it->first;
+    }
+
+    return 0;
+}
+
+void LayoutTestController::evaluateScriptInIsolatedWorld(unsigned worldID, JSObjectRef globalObject, JSStringRef script)
 {
     COMPtr<IWebFramePrivate> framePrivate(Query, frame);
     if (!framePrivate)
         return;
 
+    // A worldID of 0 always corresponds to a new world. Any other worldID corresponds to a world
+    // that is created once and cached forever.
+    COMPtr<IWebScriptWorld> world;
+    if (!worldID) {
+        if (FAILED(WebKitCreateInstance(__uuidof(WebScriptWorld), 0, __uuidof(world), reinterpret_cast<void**>(&world))))
+            return;
+    } else {
+        COMPtr<IWebScriptWorld>& worldSlot = worldMap().add(worldID, 0).first->second;
+        if (!worldSlot && FAILED(WebKitCreateInstance(__uuidof(WebScriptWorld), 0, __uuidof(worldSlot), reinterpret_cast<void**>(&worldSlot))))
+            return;
+        world = worldSlot;
+    }
+
     BSTR result;
-    if (FAILED(framePrivate->stringByEvaluatingJavaScriptInIsolatedWorld(worldId, reinterpret_cast<OLE_HANDLE>(globalObject), bstrT(script).GetBSTR(), &result)))
+    if (FAILED(framePrivate->stringByEvaluatingJavaScriptInScriptWorld(world.get(), globalObject, bstrT(script).GetBSTR(), &result)))
         return;
     SysFreeString(result);
 }

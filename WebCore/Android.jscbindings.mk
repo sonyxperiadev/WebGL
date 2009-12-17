@@ -66,6 +66,7 @@ LOCAL_SRC_FILES += \
 	bindings/js/JSCSSStyleDeclarationCustom.cpp \
 	bindings/js/JSCSSValueCustom.cpp \
 	bindings/js/JSCallbackData.cpp \
+<<<<<<< HEAD:WebCore/Android.jscbindings.mk
 	bindings/js/JSCanvasArrayBufferConstructor.cpp \
 	bindings/js/JSCanvasArrayCustom.cpp \
 	bindings/js/JSCanvasByteArrayConstructor.cpp \
@@ -74,10 +75,16 @@ LOCAL_SRC_FILES += \
 	bindings/js/JSCanvasFloatArrayCustom.cpp \
 	bindings/js/JSCanvasIntArrayConstructor.cpp \
 	bindings/js/JSCanvasIntArrayCustom.cpp \
+=======
+>>>>>>> webkit.org at r51976:WebCore/Android.jscbindings.mk
 	bindings/js/JSCanvasNumberArrayCustom.cpp \
 	bindings/js/JSCanvasRenderingContext2DCustom.cpp \
+<<<<<<< HEAD:WebCore/Android.jscbindings.mk
 	bindings/js/JSCanvasRenderingContext3DCustom.cpp \
+=======
+>>>>>>> webkit.org at r51976:WebCore/Android.jscbindings.mk
 	bindings/js/JSCanvasRenderingContextCustom.cpp \
+<<<<<<< HEAD:WebCore/Android.jscbindings.mk
 	bindings/js/JSCanvasShortArrayConstructor.cpp \
 	bindings/js/JSCanvasShortArrayCustom.cpp \
 	bindings/js/JSCanvasUnsignedByteArrayConstructor.cpp \
@@ -86,6 +93,8 @@ LOCAL_SRC_FILES += \
 	bindings/js/JSCanvasUnsignedIntArrayCustom.cpp \
 	bindings/js/JSCanvasUnsignedShortArrayConstructor.cpp \
 	bindings/js/JSCanvasUnsignedShortArrayCustom.cpp \
+=======
+>>>>>>> webkit.org at r51976:WebCore/Android.jscbindings.mk
 	bindings/js/JSClipboardCustom.cpp \
 	bindings/js/JSConsoleCustom.cpp \
 	bindings/js/JSCoordinatesCustom.cpp \
@@ -186,7 +195,10 @@ LOCAL_SRC_FILES += \
 	bindings/js/ScriptCallFrame.cpp \
 	bindings/js/ScriptCallStack.cpp \
 	bindings/js/ScriptController.cpp \
+<<<<<<< HEAD:WebCore/Android.jscbindings.mk
 	bindings/js/ScriptControllerAndroid.cpp \
+=======
+>>>>>>> webkit.org at r51976:WebCore/Android.jscbindings.mk
 	bindings/js/ScriptEventListener.cpp \
 	bindings/js/ScriptFunctionCall.cpp \
 	bindings/js/ScriptObject.cpp \

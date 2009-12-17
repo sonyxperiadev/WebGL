@@ -130,6 +130,7 @@ _ERROR_CATEGORIES = '''\
     readability/function
     readability/multiline_comment
     readability/multiline_string
+    readability/naming
     readability/null
     readability/streams
     readability/todo
@@ -243,14 +244,14 @@ _PRIMARY_HEADER = 1
 _OTHER_HEADER = 2
 
 
+# The regexp compilation caching is inlined in all regexp functions for
+# performance reasons; factoring it out into a separate function turns out
+# to be noticeably expensive.
 _regexp_compile_cache = {}
 
 
 def match(pattern, s):
     """Matches the string with the pattern, caching the compiled regexp."""
-    # The regexp compilation caching is inlined in both match and search for
-    # performance reasons; factoring it out into a separate function turns out
-    # to be noticeably expensive.
     if not pattern in _regexp_compile_cache:
         _regexp_compile_cache[pattern] = sre_compile.compile(pattern)
     return _regexp_compile_cache[pattern].match(s)
@@ -261,6 +262,20 @@ def search(pattern, s):
     if not pattern in _regexp_compile_cache:
         _regexp_compile_cache[pattern] = sre_compile.compile(pattern)
     return _regexp_compile_cache[pattern].search(s)
+
+
+def sub(pattern, replacement, s):
+    """Substitutes occurrences of a pattern, caching the compiled regexp."""
+    if not pattern in _regexp_compile_cache:
+        _regexp_compile_cache[pattern] = sre_compile.compile(pattern)
+    return _regexp_compile_cache[pattern].sub(replacement, s)
+
+
+def subn(pattern, replacement, s):
+    """Substitutes occurrences of a pattern, caching the compiled regexp."""
+    if not pattern in _regexp_compile_cache:
+        _regexp_compile_cache[pattern] = sre_compile.compile(pattern)
+    return _regexp_compile_cache[pattern].subn(replacement, s)
 
 
 class _IncludeState(dict):
@@ -868,7 +883,7 @@ def get_header_guard_cpp_variable(filename):
     """
 
     fileinfo = FileInfo(filename)
-    return re.sub(r'[-./\s]', '_', fileinfo.repository_name()).upper() + '_'
+    return sub(r'[-./\s]', '_', fileinfo.repository_name()).upper() + '_'
 
 
 def check_for_header_guard(filename, lines, error):
@@ -1118,6 +1133,16 @@ class _ClassState(object):
                   'Failed to find complete declaration of class %s' %
                   self.classinfo_stack[0].name)
 
+
+class _FileState(object):
+    def __init__(self):
+        self._did_inside_namespace_indent_warning = False
+
+    def set_did_inside_namespace_indent_warning(self):
+        self._did_inside_namespace_indent_warning = True
+
+    def did_inside_namespace_indent_warning(self):
+        return self._did_inside_namespace_indent_warning
 
 def check_for_non_standard_constructs(filename, clean_lines, line_number,
                                       class_state, error):
@@ -1532,10 +1557,10 @@ def check_spacing(filename, clean_lines, line_number, error):
     line = clean_lines.elided[line_number]  # get rid of comments and strings
 
     # Don't try to do spacing checks for operator methods
-    line = re.sub(r'operator(==|!=|<|<<|<=|>=|>>|>)\(', 'operator\(', line)
-    # Don't try to do spacing checks for #include statements at minimum it
-    # messes up checks for spacing around /
-    if match(r'\s*#\s*include', line):
+    line = sub(r'operator(==|!=|<|<<|<=|>=|>>|>)\(', 'operator\(', line)
+    # Don't try to do spacing checks for #include or #import statements at
+    # minimum because it messes up checks for spacing around /
+    if match(r'\s*#\s*(?:include|import)', line):
         return
     if search(r'[\w.]=[\w.]', line):
         error(filename, line_number, 'whitespace/operators', 4,
@@ -1675,7 +1700,7 @@ def get_previous_non_blank_line(clean_lines, line_number):
     return ('', -1)
 
 
-def check_namespace_indentation(filename, clean_lines, line_number, file_extension, error):
+def check_namespace_indentation(filename, clean_lines, line_number, file_extension, file_state, error):
     """Looks for indentation errors inside of namespaces.
 
     Args:
@@ -1683,6 +1708,8 @@ def check_namespace_indentation(filename, clean_lines, line_number, file_extensi
       clean_lines: A CleansedLines instance containing the file.
       line_number: The number of the line to check.
       file_extension: The extension (dot not included) of the file.
+      file_state: A _FileState instance which maintains information about
+                  the state of things in the file.
       error: The function to call with any errors found.
     """
 
@@ -1694,8 +1721,10 @@ def check_namespace_indentation(filename, clean_lines, line_number, file_extensi
 
     current_indentation_level = len(namespace_match.group('namespace_indentation'))
     if current_indentation_level > 0:
-        error(filename, line_number, 'whitespace/indent', 4,
-              'namespace should never be indented.')
+        # Don't warn about an indented namespace if we already warned about indented code.
+        if not file_state.did_inside_namespace_indent_warning():
+            error(filename, line_number, 'whitespace/indent', 4,
+                  'namespace should never be indented.')
         return
     looking_for_semicolon = False;
     line_offset = 0
@@ -1706,7 +1735,8 @@ def check_namespace_indentation(filename, clean_lines, line_number, file_extensi
             continue
         if not current_indentation_level:
             if not (in_preprocessor_directive or looking_for_semicolon):
-                if not match(r'\S', current_line):
+                if not match(r'\S', current_line) and not file_state.did_inside_namespace_indent_warning():
+                    file_state.set_did_inside_namespace_indent_warning()
                     error(filename, line_number + line_offset, 'whitespace/indent', 4,
                           'Code inside a namespace should not be indented.')
             if in_preprocessor_directive or (current_line.strip()[0] == '#'): # This takes care of preprocessor directive syntax.
@@ -1871,7 +1901,8 @@ def check_braces(filename, clean_lines, line_number, error):
                   'This { should be at the end of the previous line')
     elif (search(r'\)\s*(const\s*)?{\s*$', line)
           and line.count('(') == line.count(')')
-          and not search(r'\b(if|for|foreach|while|switch)\b', line)):
+          and not search(r'\b(if|for|foreach|while|switch)\b', line)
+          and not match(r'\s+[A-Z_][A-Z_0-9]+\b', line)):
         error(filename, line_number, 'whitespace/braces', 4,
               'Place brace on its own line for function definitions.')
 
@@ -2124,7 +2155,7 @@ def get_line_width(line):
     return len(line)
 
 
-def check_style(filename, clean_lines, line_number, file_extension, error):
+def check_style(filename, clean_lines, line_number, file_extension, file_state, error):
     """Checks rules from the 'C++ style rules' section of cppguide.html.
 
     Most of these rules are hard to test (naming, comment style), but we
@@ -2136,6 +2167,8 @@ def check_style(filename, clean_lines, line_number, file_extension, error):
       clean_lines: A CleansedLines instance containing the file.
       line_number: The number of the line to check.
       file_extension: The extension (without the dot) of the filename.
+      file_state: A _FileState instance which maintains information about
+                  the state of things in the file.
       error: The function to call with any errors found.
     """
 
@@ -2203,7 +2236,7 @@ def check_style(filename, clean_lines, line_number, file_extension, error):
               'operators on the left side of the line instead of the right side.')
 
     # Some more style checks
-    check_namespace_indentation(filename, clean_lines, line_number, file_extension, error)
+    check_namespace_indentation(filename, clean_lines, line_number, file_extension, file_state, error)
     check_using_std(filename, clean_lines, line_number, error)
     check_max_min_macros(filename, clean_lines, line_number, error)
     check_switch_indentation(filename, clean_lines, line_number, error)
@@ -2309,7 +2342,7 @@ def _classify_include(filename, include, is_system, include_state):
     include_base = FileInfo(include).base_name()
 
     # If we haven't encountered a primary header, then be lenient in checking.
-    if not include_state.visited_primary_section() and target_base.startswith(include_base):
+    if not include_state.visited_primary_section() and target_base.find(include_base) != -1:
         return _PRIMARY_HEADER
     # If we already encountered a primary header, perform a strict comparison.
     # In case the two filename bases are the same then the above lenient check
@@ -2616,6 +2649,109 @@ def check_language(filename, clean_lines, line_number, file_extension, include_s
               'http://google-styleguide.googlecode.com/svn/trunk/cppguide.xml#Namespaces'
               ' for more information.')
 
+    check_identifier_name_in_declaration(filename, line_number, line, error)
+
+
+def check_identifier_name_in_declaration(filename, line_number, line, error):
+    """Checks if identifier names contain any underscores.
+
+    As identifiers in libraries we are using have a bunch of
+    underscores, we only warn about the declarations of identifiers
+    and don't check use of identifiers.
+
+    Args:
+      filename: The name of the current file.
+      line_number: The number of the line to check.
+      line: The line of code to check.
+      error: The function to call with any errors found.
+    """
+    # We don't check a return statement.
+    if match(r'\s*return\b', line):
+        return
+
+    # Basically, a declaration is a type name followed by whitespaces
+    # followed by an identifier. The type name can be complicated
+    # due to type adjectives and templates. We remove them first to
+    # simplify the process to find declarations of identifiers.
+
+    # Convert "long long", "long double", and "long long int" to
+    # simple types, but don't remove simple "long".
+    line = sub(r'long (long )?(?=long|double|int)', '', line)
+    line = sub(r'\b(unsigned|signed|inline|using|static|const|volatile|auto|register|extern|typedef|restrict|struct|class|virtual)(?=\W)', '', line)
+
+    # Remove all template parameters by removing matching < and >.
+    # Loop until no templates are removed to remove nested templates.
+    while True:
+        line, number_of_replacements = subn(r'<([\w\s:]|::)+\s*[*&]*\s*>', '', line)
+        if not number_of_replacements:
+            break
+
+    # Declarations of local variables can be in condition expressions
+    # of control flow statements (e.g., "if (RenderObject* p = o->parent())").
+    # We remove the keywords and the first parenthesis.
+    #
+    # Declarations in "while", "if", and "switch" are different from
+    # other declarations in two aspects:
+    #
+    # - There can be only one declaration between the parentheses.
+    #   (i.e., you cannot write "if (int i = 0, j = 1) {}")
+    # - The variable must be initialized.
+    #   (i.e., you cannot write "if (int i) {}")
+    #
+    # and we will need different treatments for them.
+    line = sub(r'^\s*for\s*\(', '', line)
+    line, control_statement = subn(r'^\s*(while|else if|if|switch)\s*\(', '', line)
+
+    # Detect variable and functions.
+    type_regexp = r'\w([\w]|\s*[*&]\s*|::)+'
+    identifier_regexp = r'(?P<identifier>[\w:]+)'
+    character_after_identifier_regexp = r'(?P<character_after_identifier>[[;()=,])(?!=)'
+    declaration_without_type_regexp = r'\s*' + identifier_regexp + r'\s*' + character_after_identifier_regexp
+    declaration_with_type_regexp = r'\s*' + type_regexp + r'\s' + declaration_without_type_regexp
+    is_function_arguments = False
+    number_of_identifiers = 0
+    while True:
+        # If we are seeing the first identifier or arguments of a
+        # function, there should be a type name before an identifier.
+        if not number_of_identifiers or is_function_arguments:
+            declaration_regexp = declaration_with_type_regexp
+        else:
+            declaration_regexp = declaration_without_type_regexp
+
+        matched = match(declaration_regexp, line)
+        if not matched:
+            return
+        identifier = matched.group('identifier')
+        character_after_identifier = matched.group('character_after_identifier')
+
+        # If we removed a non-for-control statement, the character after
+        # the identifier should be '='. With this rule, we can avoid
+        # warning for cases like "if (val & INT_MAX) {".
+        if control_statement and character_after_identifier != '=':
+            return
+
+        is_function_arguments = is_function_arguments or character_after_identifier == '('
+
+        # Remove "m_" and "s_" to allow them.
+        modified_identifier = sub(r'(^|(?<=::))[ms]_', '', identifier)
+        if modified_identifier.find('_') >= 0:
+            # Various exceptions to the rule: JavaScript op codes functions, const_iterator.
+            if (not (filename.find('JavaScriptCore') >= 0 and modified_identifier.find('_op_') >= 0)
+                and not modified_identifier == "const_iterator"):
+                error(filename, line_number, 'readability/naming', 4, identifier + " is incorrectly named. Don't use underscores in your identifier names.")
+
+        # There can be only one declaration in non-for-control statements.
+        if control_statement:
+            return
+        # We should continue checking if this is a function
+        # declaration because we need to check its arguments.
+        # Also, we need to check multiple declarations.
+        if character_after_identifier != '(' and character_after_identifier != ',':
+            return
+
+        number_of_identifiers += 1
+        line = line[matched.end():]
+
 
 def check_c_style_cast(filename, line_number, line, raw_line, cast_type, pattern,
                        error):
@@ -2914,7 +3050,7 @@ def check_for_include_what_you_use(filename, clean_lines, include_state, error,
 
 def process_line(filename, file_extension,
                  clean_lines, line, include_state, function_state,
-                 class_state, error):
+                 class_state, file_state, error):
     """Processes a single line in the file.
 
     Args:
@@ -2927,6 +3063,8 @@ def process_line(filename, file_extension,
       function_state: A _FunctionState instance which counts function lines, etc.
       class_state: A _ClassState instance which maintains information about
                    the current stack of nested class declarations being parsed.
+      file_state: A _FileState instance which maintains information about
+                  the state of things in the file.
       error: A callable to which errors are reported, which takes 4 arguments:
              filename, line number, error level, and message
 
@@ -2936,7 +3074,7 @@ def process_line(filename, file_extension,
     if search(r'\bNOLINT\b', raw_lines[line]):  # ignore nolint lines
         return
     check_for_multiline_comments_and_strings(filename, clean_lines, line, error)
-    check_style(filename, clean_lines, line, file_extension, error)
+    check_style(filename, clean_lines, line, file_extension, file_state, error)
     check_language(filename, clean_lines, line, file_extension, include_state,
                    error)
     check_for_non_standard_constructs(filename, clean_lines, line,
@@ -2961,6 +3099,7 @@ def process_file_data(filename, file_extension, lines, error):
     include_state = _IncludeState()
     function_state = _FunctionState()
     class_state = _ClassState()
+    file_state = _FileState()
 
     check_for_copyright(filename, lines, error)
 
@@ -2971,7 +3110,7 @@ def process_file_data(filename, file_extension, lines, error):
     clean_lines = CleansedLines(lines)
     for line in xrange(clean_lines.num_lines()):
         process_line(filename, file_extension, clean_lines, line,
-                     include_state, function_state, class_state, error)
+                     include_state, function_state, class_state, file_state, error)
     class_state.check_finished(filename, error)
 
     check_for_include_what_you_use(filename, clean_lines, include_state, error)
@@ -3037,8 +3176,6 @@ def process_file(filename, error=error):
             error(filename, 0, 'whitespace/newline', 1,
                   'One or more unexpected \\r (^M) found;'
                   'better to use only a \\n')
-
-    sys.stderr.write('Done processing %s\n' % filename)
 
 
 def print_usage(message):

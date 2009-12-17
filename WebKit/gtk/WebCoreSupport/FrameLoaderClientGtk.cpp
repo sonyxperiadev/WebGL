@@ -149,6 +149,10 @@ void FrameLoaderClient::committedLoad(WebCore::DocumentLoader* loader, const cha
         frameLoader->setEncoding(encoding, userChosen);
         if (data)
             frameLoader->addData(data, length);
+
+        Frame* coreFrame = loader->frame();
+        if (coreFrame && coreFrame->document() && coreFrame->document()->isMediaDocument())
+            loader->cancelMainResourceLoad(frameLoader->client()->pluginWillHandleLoadError(loader->response()));
     }
 
     if (m_pluginView) {
@@ -301,10 +305,19 @@ void FrameLoaderClient::dispatchDecidePolicyForMIMEType(FramePolicyFunction poli
     if (isHandled)
         return;
 
+    GOwnPtr<WebKitNetworkResponse> networkResponse(webkit_web_frame_get_network_response(m_frame));
+    if (networkResponse) {
+        ResourceResponse response = core(networkResponse.get());
+        if (response.isAttachment()) {
+            webkit_web_policy_decision_download(policyDecision);
+            return;
+        }
+    }
+
     if (canShowMIMEType(mimeType))
-        webkit_web_policy_decision_use (policyDecision);
+        webkit_web_policy_decision_use(policyDecision);
     else
-        webkit_web_policy_decision_ignore (policyDecision);
+        webkit_web_policy_decision_ignore(policyDecision);
 }
 
 static WebKitWebNavigationAction* getNavigationAction(const NavigationAction& action, const char* targetFrame)
@@ -500,8 +513,11 @@ String FrameLoaderClient::overrideMediaType() const
     return String();
 }
 
-void FrameLoaderClient::windowObjectCleared()
+void FrameLoaderClient::dispatchDidClearWindowObjectInWorld(DOMWrapperWorld* world)
 {
+    if (world != mainThreadNormalWorld())
+        return;
+
     // Is this obsolete now?
     g_signal_emit_by_name(m_frame, "cleared");
 
@@ -533,7 +549,7 @@ void FrameLoaderClient::didPerformFirstNavigation() const
 {
 }
 
-void FrameLoaderClient::registerForIconNotification(bool)
+void FrameLoaderClient::registerForIconNotification(bool shouldRegister)
 {
     notImplemented();
 }
@@ -662,6 +678,21 @@ void FrameLoaderClient::dispatchDidChangeLocationWithinPage()
         g_object_notify(G_OBJECT(webView), "uri");
 }
 
+void FrameLoaderClient::dispatchDidPushStateWithinPage()
+{
+    notImplemented();
+}
+
+void FrameLoaderClient::dispatchDidReplaceStateWithinPage()
+{
+    notImplemented();
+}
+
+void FrameLoaderClient::dispatchDidPopStateWithinPage()
+{
+    notImplemented();
+}
+
 void FrameLoaderClient::dispatchWillClose()
 {
     notImplemented();
@@ -671,7 +702,12 @@ void FrameLoaderClient::dispatchDidReceiveIcon()
 {
     WebKitWebView* webView = getViewFromFrame(m_frame);
 
-    g_signal_emit_by_name(webView, "icon-loaded", m_frame);
+    // Avoid reporting favicons for non-main frames.
+    if (m_frame != webkit_web_view_get_main_frame(webView))
+        return;
+
+    g_object_notify(G_OBJECT(webView), "icon-uri");
+    g_signal_emit_by_name(webView, "icon-loaded", webkit_web_view_get_icon_uri(webView));
 }
 
 void FrameLoaderClient::dispatchDidStartProvisionalLoad()
@@ -781,8 +817,10 @@ bool FrameLoaderClient::canHandleRequest(const ResourceRequest&) const
 
 bool FrameLoaderClient::canShowMIMEType(const String& type) const
 {
-    return MIMETypeRegistry::isSupportedImageMIMEType(type) || MIMETypeRegistry::isSupportedNonImageMIMEType(type) ||
-        PluginDatabase::installedPlugins()->isMIMETypeRegistered(type);
+    return (MIMETypeRegistry::isSupportedImageMIMEType(type)
+            || MIMETypeRegistry::isSupportedNonImageMIMEType(type)
+            || MIMETypeRegistry::isSupportedMediaMIMEType(type)
+            || PluginDatabase::installedPlugins()->isMIMETypeRegistered(type));
 }
 
 bool FrameLoaderClient::representationExistsForURLScheme(const String&) const
@@ -993,9 +1031,7 @@ ResourceError FrameLoaderClient::pluginWillHandleLoadError(const ResourceRespons
 
 bool FrameLoaderClient::shouldFallBack(const ResourceError& error)
 {
-    // FIXME: Mac checks for WebKitErrorPlugInWillHandleLoad here to avoid
-    // loading plugin content twice. Do we need it?
-    return !(error.isCancellation() || error.errorCode() == WEBKIT_POLICY_ERROR_FRAME_LOAD_INTERRUPTED_BY_POLICY_CHANGE);
+    return !(error.isCancellation() || error.errorCode() == WEBKIT_POLICY_ERROR_FRAME_LOAD_INTERRUPTED_BY_POLICY_CHANGE || error.errorCode() == WEBKIT_PLUGIN_ERROR_WILL_HANDLE_LOAD);
 }
 
 bool FrameLoaderClient::canCachePage() const

@@ -47,6 +47,7 @@
 #include "NodeRenderStyle.h"
 #include "Page.h"
 #include "RenderView.h"
+#include "RenderWidget.h"
 #include "TextIterator.h"
 #include "XMLNames.h"
 
@@ -134,6 +135,12 @@ void Element::setAttribute(const QualifiedName& name, const AtomicString& value)
 {
     ExceptionCode ec;
     setAttribute(name, value, ec);
+}
+    
+void Element::setCStringAttribute(const QualifiedName& name, const char* cStringValue)
+{
+    ExceptionCode ec;
+    setAttribute(name, AtomicString(cStringValue), ec);
 }
 
 void Element::setBooleanAttribute(const QualifiedName& name, bool b)
@@ -488,8 +495,10 @@ static inline bool shouldIgnoreAttributeCase(const Element* e)
 
 const AtomicString& Element::getAttribute(const String& name) const
 {
-    String localName = shouldIgnoreAttributeCase(this) ? name.lower() : name;
-    if (localName == styleAttr.localName() && !m_isStyleAttributeValid)
+    bool ignoreCase = shouldIgnoreAttributeCase(this);
+    
+    // Update the 'style' attribute if it's invalid and being requested:
+    if (!m_isStyleAttributeValid && equalPossiblyIgnoringCase(name, styleAttr.localName(), ignoreCase))
         updateStyleAttribute();
 
 #if ENABLE(SVG)
@@ -498,8 +507,8 @@ const AtomicString& Element::getAttribute(const String& name) const
 #endif
 
     if (namedAttrMap)
-        if (Attribute* a = namedAttrMap->getAttributeItem(name, shouldIgnoreAttributeCase(this)))
-            return a->value();
+        if (Attribute* attribute = namedAttrMap->getAttributeItem(name, ignoreCase))
+            return attribute->value();
     
     return nullAtom;
 }
@@ -727,6 +736,7 @@ void Element::removedFromDocument()
 void Element::attach()
 {
     suspendPostAttachCallbacks();
+    RenderWidget::suspendWidgetHierarchyUpdates();
 
     createRendererIfNeeded();
     ContainerNode::attach();
@@ -739,20 +749,25 @@ void Element::attach()
         }
     }
 
+    RenderWidget::resumeWidgetHierarchyUpdates();
     resumePostAttachCallbacks();
 }
 
 void Element::detach()
 {
+    RenderWidget::suspendWidgetHierarchyUpdates();
+
     cancelFocusAppearanceUpdate();
     if (hasRareData())
         rareData()->resetComputedStyle();
     ContainerNode::detach();
+
+    RenderWidget::resumeWidgetHierarchyUpdates();
 }
 
 bool Element::pseudoStyleCacheIsInvalid(const RenderStyle* currentStyle, RenderStyle* newStyle)
 {
-    ASSERT(currentStyle = renderStyle());
+    ASSERT(currentStyle == renderStyle());
 
     if (!renderer() || !currentStyle)
         return false;

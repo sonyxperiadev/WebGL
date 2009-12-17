@@ -35,6 +35,7 @@
 #include "HTMLImageLoader.h"
 #include "HTMLNames.h"
 #include "MappedAttribute.h"
+#include "Page.h"
 #include "RenderImage.h"
 #include "RenderVideo.h"
 
@@ -119,9 +120,10 @@ bool HTMLVideoElement::supportsFullscreen() const
     if (!page) 
         return false;
 
-    if (!m_player || !m_player->supportsFullscreen())
+    if (!m_player || !m_player->supportsFullscreen() || !m_player->hasVideo())
         return false;
-    
+
+    // Check with the platform client.
     return page->chrome()->client()->supportsFullscreenForNode(this);
 }
 

@@ -31,6 +31,7 @@
 #include "KURL.h"
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
+#include <wtf/PassOwnPtr.h>
 #include <wtf/PassRefPtr.h>
 #include <wtf/Threading.h>
 
@@ -92,13 +93,13 @@ namespace WebCore {
         void ref() { refScriptExecutionContext(); }
         void deref() { derefScriptExecutionContext(); }
 
-        class Task : public ThreadSafeShared<Task> {
+        class Task : public Noncopyable {
         public:
             virtual ~Task();
             virtual void performTask(ScriptExecutionContext*) = 0;
         };
 
-        virtual void postTask(PassRefPtr<Task>) = 0; // Executes the task on context's thread asynchronously.
+        virtual void postTask(PassOwnPtr<Task>) = 0; // Executes the task on context's thread asynchronously.
 
         void addTimeout(int timeoutId, DOMTimer*);
         void removeTimeout(int timeoutId);

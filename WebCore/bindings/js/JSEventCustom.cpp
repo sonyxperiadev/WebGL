@@ -30,9 +30,11 @@
 #include "JSEvent.h"
 
 #include "Clipboard.h"
+#include "CompositionEvent.h"
 #include "Event.h"
 #include "JSBeforeLoadEvent.h"
 #include "JSClipboard.h"
+#include "JSCompositionEvent.h"
 #include "JSErrorEvent.h"
 #include "JSKeyboardEvent.h"
 #include "JSMessageEvent.h"
@@ -40,6 +42,7 @@
 #include "JSMutationEvent.h"
 #include "JSOverflowEvent.h"
 #include "JSPageTransitionEvent.h"
+#include "JSPopStateEvent.h"
 #include "JSProgressEvent.h"
 #include "JSTextEvent.h"
 #include "JSUIEvent.h"
@@ -55,6 +58,7 @@
 #include "MutationEvent.h"
 #include "OverflowEvent.h"
 #include "PageTransitionEvent.h"
+#include "PopStateEvent.h"
 #include "ProgressEvent.h"
 #include "TextEvent.h"
 #include "UIEvent.h"
@@ -95,7 +99,7 @@ JSValue toJS(ExecState* exec, JSDOMGlobalObject* globalObject, Event* event)
     if (!event)
         return jsNull();
 
-    DOMObject* wrapper = getCachedDOMObjectWrapper(exec->globalData(), event);
+    DOMObject* wrapper = getCachedDOMObjectWrapper(exec, event);
     if (wrapper)
         return wrapper;
 
@@ -112,10 +116,15 @@ JSValue toJS(ExecState* exec, JSDOMGlobalObject* globalObject, Event* event)
         else if (event->isSVGZoomEvent())
             wrapper = CREATE_DOM_OBJECT_WRAPPER(exec, globalObject, SVGZoomEvent, event);
 #endif
+<<<<<<< HEAD:WebCore/bindings/js/JSEventCustom.cpp
 #if ENABLE(TOUCH_EVENTS) // Android
         else if (event->isTouchEvent())
             wrapper = CREATE_DOM_OBJECT_WRAPPER(exec, globalObject, TouchEvent, event);
 #endif
+=======
+        else if (event->isCompositionEvent())
+            wrapper = CREATE_DOM_OBJECT_WRAPPER(exec, globalObject, CompositionEvent, event);
+>>>>>>> webkit.org at r51976:WebCore/bindings/js/JSEventCustom.cpp
         else
             wrapper = CREATE_DOM_OBJECT_WRAPPER(exec, globalObject, UIEvent, event);
     } else if (event->isMutationEvent())
@@ -145,6 +154,8 @@ JSValue toJS(ExecState* exec, JSDOMGlobalObject* globalObject, Event* event)
     else if (event->isErrorEvent())
         wrapper = CREATE_DOM_OBJECT_WRAPPER(exec, globalObject, ErrorEvent, event);
 #endif
+    else if (event->isPopStateEvent())
+        wrapper = CREATE_DOM_OBJECT_WRAPPER(exec, globalObject, PopStateEvent, event);
     else
         wrapper = CREATE_DOM_OBJECT_WRAPPER(exec, globalObject, Event, event);
 

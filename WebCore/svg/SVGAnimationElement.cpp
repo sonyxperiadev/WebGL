@@ -5,8 +5,6 @@
     Copyright (C) 2008 Apple Inc. All rights reserved.
     Copyright (C) 2009 Cameron McCormack <cam@mcc.id.au>
 
-    This file is part of the KDE project
-
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
     License as published by the Free Software Foundation; either
@@ -489,7 +487,7 @@ void SVGAnimationElement::startedActiveInterval()
         m_animationValid = m_values.size() > 1
             && (calcMode == CalcModePaced || !hasAttribute(SVGNames::keyTimesAttr) || hasAttribute(SVGNames::keyPointsAttr) || (m_values.size() == m_keyTimes.size()))
             && (calcMode == CalcModeDiscrete || !m_keyTimes.size() || m_keyTimes.last() == 1.0)
-            && (calcMode != CalcModeSpline || (m_keySplines.size() && (m_keySplines.size() == m_values.size() - 1) || m_keySplines.size() == m_keyPoints.size() - 1))
+            && (calcMode != CalcModeSpline || ((m_keySplines.size() && (m_keySplines.size() == m_values.size() - 1)) || m_keySplines.size() == m_keyPoints.size() - 1))
             && (!hasAttribute(SVGNames::keyPointsAttr) || (m_keyTimes.size() > 1 && m_keyTimes.size() == m_keyPoints.size()));
         if (calcMode == CalcModePaced && m_animationValid)
             calculateKeyTimesForCalcModePaced();

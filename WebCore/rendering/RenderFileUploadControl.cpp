@@ -63,8 +63,13 @@ private:
 RenderFileUploadControl::RenderFileUploadControl(HTMLInputElement* input)
     : RenderBlock(input)
     , m_button(0)
-    , m_fileChooser(FileChooser::create(this, input->value()))
 {
+    FileList* list = input->files();
+    Vector<String> filenames;
+    unsigned length = list ? list->length() : 0;
+    for (unsigned i = 0; i < length; ++i)
+        filenames.append(list->item(i)->path());
+    m_fileChooser = FileChooser::create(this, filenames);
 }
 
 RenderFileUploadControl::~RenderFileUploadControl()
@@ -184,7 +189,7 @@ void RenderFileUploadControl::paintObject(PaintInfo& paintInfo, int tx, int ty)
     }
 
     if (paintInfo.phase == PaintPhaseForeground) {
-        const String& displayedFilename = m_fileChooser->basenameForWidth(style()->font(), maxFilenameWidth());        
+        const String& displayedFilename = fileTextValue();
         unsigned length = displayedFilename.length();
         const UChar* string = displayedFilename.characters();
         TextRun textRun(string, length, false, 0, 0, style()->direction() == RTL, style()->unicodeBidi() == Override);
@@ -204,7 +209,7 @@ void RenderFileUploadControl::paintObject(PaintInfo& paintInfo, int tx, int ty)
             + buttonRenderer->marginTop() + buttonRenderer->borderTop() + buttonRenderer->paddingTop()
             + buttonRenderer->baselinePosition(true, false);
 
-        paintInfo.context->setFillColor(style()->color());
+        paintInfo.context->setFillColor(style()->color(), style()->colorSpace());
         
         // Draw the filename
         paintInfo.context->drawBidiText(style()->font(), textRun, IntPoint(textX, textY));
@@ -284,7 +289,7 @@ String RenderFileUploadControl::buttonValue()
     return m_button->value();
 }
 
-String RenderFileUploadControl::fileTextValue()
+String RenderFileUploadControl::fileTextValue() const
 {
     return m_fileChooser->basenameForWidth(style()->font(), maxFilenameWidth());
 }

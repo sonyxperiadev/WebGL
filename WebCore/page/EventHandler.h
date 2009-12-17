@@ -33,7 +33,7 @@
 #include <wtf/Forward.h>
 #include <wtf/RefPtr.h>
 
-#if PLATFORM(MAC) && !defined(__OBJC__)
+#if PLATFORM(MAC) && !defined(__OBJC__) && !ENABLE(EXPERIMENTAL_SINGLE_VIEW_MODE)
 class NSView;
 #endif
 
@@ -176,7 +176,6 @@ public:
 #if ENABLE(DRAG_SUPPORT)
     bool eventMayStartDrag(const PlatformMouseEvent&) const;
     
-    void dragSourceMovedTo(const PlatformMouseEvent&);
     void dragSourceEndedAt(const PlatformMouseEvent&, DragOperation);
 #endif
 
@@ -187,7 +186,7 @@ public:
     void sendResizeEvent();
     void sendScrollEvent();
     
-#if PLATFORM(MAC) && defined(__OBJC__)
+#if PLATFORM(MAC) && defined(__OBJC__) && !ENABLE(EXPERIMENTAL_SINGLE_VIEW_MODE)
     PassRefPtr<KeyboardEvent> currentKeyboardEvent() const;
 
     void mouseDown(NSEvent *);
@@ -211,7 +210,13 @@ public:
 
 private:
 #if ENABLE(DRAG_SUPPORT)
-    struct EventHandlerDragState {
+    enum DragAndDropHandleType {
+        UpdateDragAndDrop,
+        CancelDragAndDrop,
+        PerformDragAndDrop
+    };
+
+    struct EventHandlerDragState : Noncopyable {
         RefPtr<Node> m_dragSrc; // element that may be a drag source, for the current mouse gesture
         bool m_dragSrcIsLink;
         bool m_dragSrcIsImage;
@@ -223,6 +228,8 @@ private:
     };
     static EventHandlerDragState& dragState();
     static const double TextDragDelay;
+
+    bool canHandleDragAndDropForTarget(DragAndDropHandleType, Node* target, const PlatformMouseEvent&, Clipboard*, bool* accepted = 0);
     
     PassRefPtr<Clipboard> createDraggingClipboard() const;
 #endif // ENABLE(DRAG_SUPPORT)
@@ -328,7 +335,7 @@ private:
 
     bool capturesDragging() const { return m_capturesDragging; }
 
-#if PLATFORM(MAC) && defined(__OBJC__)
+#if PLATFORM(MAC) && defined(__OBJC__) && !ENABLE(EXPERIMENTAL_SINGLE_VIEW_MODE)
     NSView *mouseDownViewIfStillGood();
 
     PlatformMouseEvent currentPlatformMouseEvent() const;
@@ -388,6 +395,7 @@ private:
 
 #if ENABLE(DRAG_SUPPORT)
     RefPtr<Node> m_dragTarget;
+    bool m_shouldOnlyFireDragOverEvent;
 #endif
     
     RefPtr<HTMLFrameSetElement> m_frameSetBeingResized;
@@ -405,7 +413,7 @@ private:
 
     RefPtr<Node> m_previousWheelScrolledNode;
 
-#if PLATFORM(MAC)
+#if PLATFORM(MAC) && !ENABLE(EXPERIMENTAL_SINGLE_VIEW_MODE)
     NSView *m_mouseDownView;
     bool m_sendingEventToSubview;
     int m_activationEventNumber;

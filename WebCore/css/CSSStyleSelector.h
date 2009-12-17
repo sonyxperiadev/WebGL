@@ -23,7 +23,6 @@
 #define CSSStyleSelector_h
 
 #include "CSSFontSelector.h"
-#include "KeyframeList.h"
 #include "LinkHash.h"
 #include "MediaQueryExp.h"
 #include "RenderStyle.h"
@@ -56,6 +55,7 @@ class Element;
 class Frame;
 class FrameView;
 class KURL;
+class KeyframeList;
 class MediaQueryEvaluator;
 class Node;
 class Settings;
@@ -65,7 +65,7 @@ class StyleSheetList;
 class StyledElement;
 class WebKitCSSKeyframesRule;
 
-class MediaQueryResult {
+class MediaQueryResult : public Noncopyable {
 public:
     MediaQueryResult(const MediaQueryExp& expr, bool result)
         : m_expression(expr)
@@ -286,7 +286,7 @@ public:
         HashMap<CSSMutableStyleDeclaration*, RefPtr<CSSMutableStyleDeclaration> > m_resolvedVariablesDeclarations;
     };
 
-    class CSSRuleData {
+    class CSSRuleData : public Noncopyable {
     public:
         CSSRuleData(unsigned pos, CSSStyleRule* r, CSSSelector* sel, CSSRuleData* prev = 0)
             : m_position(pos)
@@ -314,7 +314,7 @@ public:
         CSSRuleData* m_next;
     };
 
-    class CSSRuleDataList {
+    class CSSRuleDataList : public Noncopyable {
     public:
         CSSRuleDataList(unsigned pos, CSSStyleRule* rule, CSSSelector* sel)
             : m_first(new CSSRuleData(pos, rule, sel))

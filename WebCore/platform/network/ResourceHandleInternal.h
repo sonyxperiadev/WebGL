@@ -132,8 +132,6 @@ namespace WebCore {
             , m_startWhenScheduled(false)
             , m_needsSiteSpecificQuirks(false)
             , m_currentMacChallenge(nil)
-#elif USE(CFNETWORK)
-            , m_currentCFChallenge(0)
 #endif
 #if PLATFORM(ANDROID)
             , m_loader(0)
@@ -211,24 +209,24 @@ namespace WebCore {
         Frame* m_frame;
 #endif
 #if PLATFORM(QT)
-#if QT_VERSION < 0x040400
-        QWebNetworkJob* m_job;
-#else
         QNetworkReplyHandler* m_job;
-#endif
         QWebFrame* m_frame;
 #endif
 
-        // FIXME: The platform challenge is almost identical to the one stored in m_currentWebChallenge, but it has a different sender. We only need to store a sender reference here.
 #if PLATFORM(MAC)
+        // We need to keep a reference to the original challenge to be able to cancel it.
+        // It is almost identical to m_currentWebChallenge.nsURLAuthenticationChallenge(), but has a different sender.
         NSURLAuthenticationChallenge *m_currentMacChallenge;
 #endif
+<<<<<<< HEAD:WebCore/platform/network/ResourceHandleInternal.h
 #if USE(CFNETWORK)
         CFURLAuthChallengeRef m_currentCFChallenge;
 #endif
 #if PLATFORM(ANDROID)
         RefPtr<ResourceLoaderAndroid> m_loader;
 #endif
+=======
+>>>>>>> webkit.org at r51976:WebCore/platform/network/ResourceHandleInternal.h
         AuthenticationChallenge m_currentWebChallenge;
 
         ResourceHandle::FailureType m_failureType;

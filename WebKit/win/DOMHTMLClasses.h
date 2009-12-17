@@ -34,6 +34,7 @@
 
 namespace WebCore {
     class HTMLCollection;
+    class HTMLOptionsCollection;
 }
 
 class DOMHTMLCollection : public DOMObject, public IDOMHTMLCollection
@@ -99,6 +100,9 @@ protected:
 
 class DOMHTMLOptionsCollection : public DOMObject, public IDOMHTMLOptionsCollection
 {
+public:
+    static IDOMHTMLOptionsCollection* createInstance(WebCore::HTMLOptionsCollection*);
+
     // IUnknown
     virtual HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void** ppvObject);
     virtual ULONG STDMETHODCALLTYPE AddRef(void) { return DOMObject::AddRef(); }
@@ -149,7 +153,12 @@ class DOMHTMLOptionsCollection : public DOMObject, public IDOMHTMLOptionsCollect
     
     virtual HRESULT STDMETHODCALLTYPE namedItem( 
         /* [in] */ BSTR name,
-        /* [retval][out] */ IDOMNode *result);
+        /* [retval][out] */ IDOMNode **result);
+
+private:
+    DOMHTMLOptionsCollection(WebCore::HTMLOptionsCollection*);
+
+    RefPtr<WebCore::HTMLOptionsCollection> m_collection;
 };
 
 class DOMHTMLDocument : public DOMDocument, public IDOMHTMLDocument
@@ -2011,9 +2020,15 @@ public:
     virtual HRESULT STDMETHODCALLTYPE setAutofilled( 
         /* [in] */ BOOL filled);
 
+    virtual HRESULT STDMETHODCALLTYPE isAutofilled(
+        /* [retval][out] */ BOOL *result);
+    
     // IFormPromptAdditions
     virtual HRESULT STDMETHODCALLTYPE isUserEdited( 
         /* [retval][out] */ BOOL *result);
+
+    virtual HRESULT STDMETHODCALLTYPE setValueForUser(
+        /* [in] */ BSTR value);
 };
 
 class DOMHTMLTextAreaElement : public DOMHTMLElement, public IDOMHTMLTextAreaElement, public IFormPromptAdditions

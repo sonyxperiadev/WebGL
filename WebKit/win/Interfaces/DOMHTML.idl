@@ -800,6 +800,11 @@ interface IDOMHTMLInputElement : IDOMElement
     // attribute long selectionEnd;
     HRESULT setSelectionEnd([in] long end);
     HRESULT selectionEnd([out, retval] long* end);
+
+    /*
+        - (void)setValueForUser:(NSString *)value;
+    */
+    HRESULT setValueForUser([in] BSTR value);
 }
 
 /*

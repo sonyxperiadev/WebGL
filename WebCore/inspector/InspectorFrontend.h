@@ -67,13 +67,11 @@ namespace WebCore {
         void updateConsoleMessageRepeatCount(const int count);
         void clearConsoleMessages();
 
-        bool addResource(long long identifier, const ScriptObject& resourceObj);
-        bool updateResource(long long identifier, const ScriptObject& resourceObj);
-        void removeResource(long long identifier);
+        bool addResource(unsigned long identifier, const ScriptObject& resourceObj);
+        bool updateResource(unsigned long identifier, const ScriptObject& resourceObj);
+        void removeResource(unsigned long identifier);
 
-        void addCookieDomain(String);
-
-        void updateFocusedNode(long long nodeId);
+        void updateFocusedNode(long nodeId);
         void setAttachedWindow(bool attached);
         void showPanel(int panel);
         void populateInterface();
@@ -134,11 +132,13 @@ namespace WebCore {
 
         void addNodesToSearchResult(const String& nodeIds);
 
+        void contextMenuItemSelected(int itemId);
+        void contextMenuCleared();
+
         ScriptState* scriptState() const { return m_scriptState; }
 
         void evaluateForTestInFrontend(int callId, const String& script);
     private:
-        PassOwnPtr<ScriptFunctionCall> newFunctionCall(const String& functionName);
         void callSimpleFunction(const String& functionName);
         InspectorController* m_inspectorController;
         ScriptState* m_scriptState;

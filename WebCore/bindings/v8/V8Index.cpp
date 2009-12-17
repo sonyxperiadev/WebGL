@@ -34,7 +34,7 @@
 #include "V8Attr.h"
 #include "V8BarInfo.h"
 #include "V8BeforeLoadEvent.h"
-#include "V8CanvasActiveInfo.h"
+#include "V8WebGLActiveInfo.h"
 #include "V8CanvasRenderingContext.h"
 #include "V8CanvasRenderingContext2D.h"
 #include "V8CanvasGradient.h"
@@ -46,6 +46,7 @@
 #include "V8ClientRectList.h"
 #include "V8Clipboard.h"
 #include "V8Comment.h"
+#include "V8CompositionEvent.h"
 #include "V8Console.h"
 #include "V8Counter.h"
 #include "V8CSSStyleDeclaration.h"
@@ -219,7 +220,7 @@
 #include "V8SVGSetElement.h"
 #endif
 
-#if ENABLE(SVG_FILTERS)
+#if ENABLE(SVG) && ENABLE(FILTERS)
 #include "V8SVGComponentTransferFunctionElement.h"
 #include "V8SVGFEBlendElement.h"
 #include "V8SVGFEColorMatrixElement.h"
@@ -237,6 +238,7 @@
 #include "V8SVGFEImageElement.h"
 #include "V8SVGFEMergeElement.h"
 #include "V8SVGFEMergeNodeElement.h"
+#include "V8SVGFEMorphologyElement.h"
 #include "V8SVGFEOffsetElement.h"
 #include "V8SVGFEPointLightElement.h"
 #include "V8SVGFESpecularLightingElement.h"
@@ -393,22 +395,23 @@
 #endif
 
 #if ENABLE(3D_CANVAS)
-#include "V8CanvasRenderingContext3D.h"
-#include "V8CanvasArrayBuffer.h"
-#include "V8CanvasArray.h"
-#include "V8CanvasByteArray.h"
-#include "V8CanvasBuffer.h"
-#include "V8CanvasFloatArray.h"
-#include "V8CanvasFramebuffer.h"
-#include "V8CanvasIntArray.h"
-#include "V8CanvasProgram.h"
-#include "V8CanvasRenderbuffer.h"
-#include "V8CanvasShader.h"
-#include "V8CanvasShortArray.h"
-#include "V8CanvasTexture.h"
-#include "V8CanvasUnsignedByteArray.h"
-#include "V8CanvasUnsignedIntArray.h"
-#include "V8CanvasUnsignedShortArray.h"
+#include "V8WebGLRenderingContext.h"
+#include "V8WebGLArrayBuffer.h"
+#include "V8WebGLArray.h"
+#include "V8WebGLByteArray.h"
+#include "V8WebGLBuffer.h"
+#include "V8WebGLFloatArray.h"
+#include "V8WebGLFramebuffer.h"
+#include "V8WebGLIntArray.h"
+#include "V8WebGLProgram.h"
+#include "V8WebGLRenderbuffer.h"
+#include "V8WebGLShader.h"
+#include "V8WebGLShortArray.h"
+#include "V8WebGLTexture.h"
+#include "V8WebGLUniformLocation.h"
+#include "V8WebGLUnsignedByteArray.h"
+#include "V8WebGLUnsignedIntArray.h"
+#include "V8WebGLUnsignedShortArray.h"
 #endif
 
 #if ENABLE(DATABASE)
@@ -432,7 +435,9 @@
 #endif
 
 #if ENABLE(INSPECTOR)
+#include "V8InjectedScriptHost.h"
 #include "V8InspectorBackend.h"
+#include "V8InspectorFrontendHost.h"
 #endif
 
 // Geolocation
@@ -441,6 +446,7 @@
 #include "V8Geoposition.h"
 #include "V8PositionError.h"
 
+<<<<<<< HEAD:WebCore/bindings/v8/V8Index.cpp
 #if PLATFORM(ANDROID)
 // TODO: Upstream these guards to webkit.org
 #if ENABLE(TOUCH_EVENTS)
@@ -452,6 +458,8 @@
 #include "V8VoidCallback.h"
 #endif  // PLATFORM(ANDROID)
 
+=======
+>>>>>>> webkit.org at r51976:WebCore/bindings/v8/V8Index.cpp
 namespace WebCore {
 
 FunctionTemplateFactory V8ClassIndex::GetFactory(V8WrapperType type)

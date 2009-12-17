@@ -87,8 +87,13 @@ void Geolocation::GeoNotifier::timerFired(Timer<GeoNotifier>*)
 {
     m_timer.stop();
 
+<<<<<<< HEAD:WebCore/page/Geolocation.cpp
     // Cache our pointer to the Geolocation object, as this object could be
     // deleted by a call to clearWatch in a callback.
+=======
+    // Cache our pointer to the Geolocation object, as this GeoNotifier object
+    // could be deleted by a call to clearWatch in a callback.
+>>>>>>> webkit.org at r51976:WebCore/page/Geolocation.cpp
     Geolocation* geolocation = m_geolocation;
 
     if (m_fatalError) {
@@ -96,12 +101,15 @@ void Geolocation::GeoNotifier::timerFired(Timer<GeoNotifier>*)
             m_errorCallback->handleEvent(m_fatalError.get());
         // This will cause this notifier to be deleted.
         geolocation->fatalErrorOccurred(this);
+<<<<<<< HEAD:WebCore/page/Geolocation.cpp
         return;
     }
 
     if (m_cachedPosition) {
         m_successCallback->handleEvent(m_cachedPosition.get());
         geolocation->requestReturnedCachedPosition(this);
+=======
+>>>>>>> webkit.org at r51976:WebCore/page/Geolocation.cpp
         return;
     }
 
@@ -112,10 +120,12 @@ void Geolocation::GeoNotifier::timerFired(Timer<GeoNotifier>*)
     geolocation->requestTimedOut(this);
 }
 
-void Geolocation::Watchers::set(int id, PassRefPtr<GeoNotifier> notifier)
+void Geolocation::Watchers::set(int id, PassRefPtr<GeoNotifier> prpNotifier)
 {
-    m_idToNotifierMap.set(id, notifier);
-    m_notifierToIdMap.set(notifier, id);
+    RefPtr<GeoNotifier> notifier = prpNotifier;
+
+    m_idToNotifierMap.set(id, notifier.get());
+    m_notifierToIdMap.set(notifier.release(), id);
 }
 
 void Geolocation::Watchers::remove(int id)
@@ -360,6 +370,7 @@ PassRefPtr<Geolocation::GeoNotifier> Geolocation::startRequest(PassRefPtr<Positi
     if (isDenied())
         notifier->setFatalError(PositionError::create(PositionError::PERMISSION_DENIED, permissionDeniedErrorMessage));
     else {
+<<<<<<< HEAD:WebCore/page/Geolocation.cpp
         if (haveSuitableCachedPosition(notifier->m_options.get())) {
             ASSERT(m_cachedPositionManager->cachedPosition());
             if (isAllowed())
@@ -374,6 +385,12 @@ PassRefPtr<Geolocation::GeoNotifier> Geolocation::startRequest(PassRefPtr<Positi
             else
                 notifier->setFatalError(PositionError::create(PositionError::UNKNOWN_ERROR, "Failed to start Geolocation service"));
         }
+=======
+        if (notifier->hasZeroTimeout() || m_service->startUpdating(notifier->m_options.get()))
+            notifier->startTimerIfNeeded();
+        else
+            notifier->setFatalError(PositionError::create(PositionError::POSITION_UNAVAILABLE, "Failed to start Geolocation service"));
+>>>>>>> webkit.org at r51976:WebCore/page/Geolocation.cpp
     }
 
     return notifier.release();

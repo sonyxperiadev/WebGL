@@ -29,29 +29,30 @@
 #include "WebFrame.h"
 
 #include "CFDictionaryPropertyBag.h"
-#include "COMPtr.h"
 #include "COMPropertyBag.h"
-#include "DefaultPolicyDelegate.h"
+#include "COMPtr.h"
 #include "DOMCoreClasses.h"
+#include "DefaultPolicyDelegate.h"
 #include "HTMLFrameOwnerElement.h"
 #include "MarshallingHelpers.h"
 #include "WebActionPropertyBag.h"
 #include "WebChromeClient.h"
+#include "WebDataSource.h"
 #include "WebDocumentLoader.h"
 #include "WebDownload.h"
-#include "WebError.h"
-#include "WebMutableURLRequest.h"
 #include "WebEditorClient.h"
+#include "WebError.h"
 #include "WebFramePolicyListener.h"
 #include "WebHistory.h"
+#include "WebHistoryItem.h"
 #include "WebIconFetcher.h"
 #include "WebKit.h"
 #include "WebKitStatisticsPrivate.h"
+#include "WebMutableURLRequest.h"
 #include "WebNotificationCenter.h"
-#include "WebView.h"
-#include "WebDataSource.h"
-#include "WebHistoryItem.h"
+#include "WebScriptWorld.h"
 #include "WebURLResponse.h"
+#include "WebView.h"
 #pragma warning( push, 0 )
 #include <WebCore/BString.h>
 #include <WebCore/Cache.h>
@@ -91,6 +92,7 @@
 #include <WebCore/RenderView.h>
 #include <WebCore/RenderTreeAsText.h>
 #include <WebCore/Settings.h>
+#include <WebCore/SVGSMILElement.h>
 #include <WebCore/TextIterator.h>
 #include <WebCore/JSDOMBinding.h>
 #include <WebCore/ScriptController.h>
@@ -118,6 +120,7 @@ extern "C" {
 
 using namespace WebCore;
 using namespace HTMLNames;
+using namespace std;
 
 using JSC::JSGlobalObject;
 using JSC::JSLock;
@@ -490,14 +493,17 @@ JSGlobalContextRef STDMETHODCALLTYPE WebFrame::globalContext()
     return toGlobalRef(coreFrame->script()->globalObject(mainThreadNormalWorld())->globalExec());
 }
 
-JSGlobalContextRef STDMETHODCALLTYPE WebFrame::contextForWorldID(
-    /* [in] */ unsigned worldID)
+JSGlobalContextRef WebFrame::globalContextForScriptWorld(IWebScriptWorld* iWorld)
 {
     Frame* coreFrame = core(this);
     if (!coreFrame)
         return 0;
 
-    return toGlobalRef(coreFrame->script()->globalObject(worldID)->globalExec());
+    COMPtr<WebScriptWorld> world(Query, iWorld);
+    if (!world)
+        return 0;
+
+    return toGlobalRef(coreFrame->script()->globalObject(world->world())->globalExec());
 }
 
 HRESULT STDMETHODCALLTYPE WebFrame::loadRequest( 
@@ -820,7 +826,7 @@ HRESULT STDMETHODCALLTYPE WebFrame::renderTreeAsExternalRepresentation(
     if (!coreFrame)
         return E_FAIL;
 
-    *result = BString(externalRepresentation(coreFrame->contentRenderer())).release();
+    *result = BString(externalRepresentation(coreFrame)).release();
     return S_OK;
 }
 
@@ -980,7 +986,14 @@ HRESULT STDMETHODCALLTYPE WebFrame::selectedString(
 
 HRESULT STDMETHODCALLTYPE WebFrame::selectAll()
 {
-    return E_NOTIMPL;
+    Frame* coreFrame = core(this);
+    if (!coreFrame)
+        return E_FAIL;
+
+    if (!coreFrame->editor()->command("SelectAll").execute())
+        return E_FAIL;
+
+    return S_OK;
 }
 
 HRESULT STDMETHODCALLTYPE WebFrame::deselectAll()
@@ -1148,6 +1161,34 @@ HRESULT WebFrame::pauseTransition(BSTR propertyName, IDOMNode* node, double seco
         return E_FAIL;
 
     *transitionWasRunning = controller->pauseTransitionAtTime(domNode->node()->renderer(), String(propertyName, SysStringLen(propertyName)), secondsFromNow);
+    return S_OK;
+}
+
+HRESULT WebFrame::pauseSVGAnimation(BSTR elementId, IDOMNode* node, double secondsFromNow, BOOL* animationWasRunning)
+{
+    if (!node || !animationWasRunning)
+        return E_POINTER;
+
+    *animationWasRunning = FALSE;
+
+    Frame* frame = core(this);
+    if (!frame)
+        return E_FAIL;
+
+    Document* document = frame->document();
+    if (!document || !document->svgExtensions())
+        return E_FAIL;
+
+    COMPtr<DOMNode> domNode(Query, node);
+    if (!domNode || !SVGSMILElement::isSMILElement(domNode->node()))
+        return E_FAIL;
+
+#if ENABLE(SVG)
+    *animationWasRunning = document->accessSVGExtensions()->sampleAnimationAtTime(String(elementId, SysStringLen(elementId)), static_cast<SVGSMILElement*>(domNode->node()), secondsFromNow);
+#else
+    *animationWasRunning = FALSE;
+#endif
+
     return S_OK;
 }
 
@@ -1691,7 +1732,7 @@ PassRefPtr<Widget> WebFrame::createJavaAppletWidget(const IntSize& pluginSize, H
     if (FAILED(d->webView->resourceLoadDelegate(&resourceLoadDelegate)))
         return pluginView;
 
-    COMPtr<CFDictionaryPropertyBag> userInfoBag(AdoptCOM, CFDictionaryPropertyBag::createInstance());
+    COMPtr<CFDictionaryPropertyBag> userInfoBag = CFDictionaryPropertyBag::createInstance();
 
     ResourceError resourceError(String(WebKitErrorDomain), WebKitErrorJavaUnavailable, String(), String());
     COMPtr<IWebError> error(AdoptCOM, WebError::createInstance(resourceError, userInfoBag.get()));
@@ -1712,7 +1753,7 @@ String WebFrame::overrideMediaType() const
     return String();
 }
 
-void WebFrame::windowObjectCleared()
+void WebFrame::dispatchDidClearWindowObjectInWorld(DOMWrapperWorld* world)
 {
     Frame* coreFrame = core(this);
     ASSERT(coreFrame);
@@ -1722,14 +1763,22 @@ void WebFrame::windowObjectCleared()
         return;
 
     COMPtr<IWebFrameLoadDelegate> frameLoadDelegate;
-    if (SUCCEEDED(d->webView->frameLoadDelegate(&frameLoadDelegate))) {
-        JSContextRef context = toRef(coreFrame->script()->globalObject(mainThreadNormalWorld())->globalExec());
-        JSObjectRef windowObject = toRef(coreFrame->script()->globalObject(mainThreadNormalWorld()));
-        ASSERT(windowObject);
+    if (FAILED(d->webView->frameLoadDelegate(&frameLoadDelegate)))
+        return;
 
-        if (FAILED(frameLoadDelegate->didClearWindowObject(d->webView, context, windowObject, this)))
-            frameLoadDelegate->windowScriptObjectAvailable(d->webView, context, windowObject);
-    }
+    COMPtr<IWebFrameLoadDelegatePrivate2> delegatePrivate(Query, frameLoadDelegate);
+    if (delegatePrivate && delegatePrivate->didClearWindowObjectForFrameInScriptWorld(d->webView, this, WebScriptWorld::findOrCreateWorld(world).get()) != E_NOTIMPL)
+        return;
+
+    if (world != mainThreadNormalWorld())
+        return;
+
+    JSContextRef context = toRef(coreFrame->script()->globalObject(world)->globalExec());
+    JSObjectRef windowObject = toRef(coreFrame->script()->globalObject(world));
+    ASSERT(windowObject);
+
+    if (FAILED(frameLoadDelegate->didClearWindowObject(d->webView, context, windowObject, this)))
+        frameLoadDelegate->windowScriptObjectAvailable(d->webView, context, windowObject);
 }
 
 void WebFrame::documentElementAvailable()
@@ -2169,18 +2218,20 @@ HRESULT STDMETHODCALLTYPE WebFrame::isDescendantOfFrame(
     return S_OK;
 }
 
-HRESULT STDMETHODCALLTYPE WebFrame::stringByEvaluatingJavaScriptInIsolatedWorld(
-    /* [in] */ unsigned int worldID,
-    /* [in] */ OLE_HANDLE jsGlobalObject,
-    /* [in] */ BSTR script,
-    /* [retval][out] */ BSTR* evaluationResult)
+HRESULT WebFrame::stringByEvaluatingJavaScriptInScriptWorld(IWebScriptWorld* iWorld, JSObjectRef globalObjectRef, BSTR script, BSTR* evaluationResult)
 {
     if (!evaluationResult)
         return E_POINTER;
     *evaluationResult = 0;
 
+    if (!iWorld)
+        return E_POINTER;
+
+    COMPtr<WebScriptWorld> world(Query, iWorld);
+    if (!world)
+        return E_INVALIDARG;
+
     Frame* coreFrame = core(this);
-    JSObjectRef globalObjectRef = reinterpret_cast<JSObjectRef>(jsGlobalObject);
     String string = String(script, SysStringLen(script));
 
     // Start off with some guess at a frame and a global object, we'll try to do better...!
@@ -2194,7 +2245,7 @@ HRESULT STDMETHODCALLTYPE WebFrame::stringByEvaluatingJavaScriptInIsolatedWorld(
     // Get the frame frome the global object we've settled on.
     Frame* frame = anyWorldGlobalObject->impl()->frame();
     ASSERT(frame->document());
-    JSValue result = frame->script()->executeScriptInIsolatedWorld(worldID, string, true).jsValue();
+    JSValue result = frame->script()->executeScriptInWorld(world->world(), string, true).jsValue();
 
     if (!frame) // In case the script removed our frame from the page.
         return S_OK;

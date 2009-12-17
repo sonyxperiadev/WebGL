@@ -34,13 +34,14 @@ class FileList;
 class HTMLDataListElement;
 class HTMLImageLoader;
 class HTMLOptionElement;
+class ISODateTime;
 class KURL;
 class VisibleSelection;
 
 class HTMLInputElement : public HTMLTextFormControlElement, public InputElement {
 public:
     enum InputType {
-        TEXT,
+        TEXT = 0, // TEXT must be 0.
         PASSWORD,
         ISINDEX,
         CHECKBOX,
@@ -57,9 +58,17 @@ public:
         NUMBER,
         TELEPHONE,
         URL,
-        COLOR
+        COLOR,
+        DATE,
+        DATETIME,
+        DATETIMELOCAL,
+        MONTH,
+        TIME,
+        WEEK,
+        // If you add new types or change the order of enum values, update numberOfTypes below.
     };
-    
+    static const int numberOfTypes = WEEK + 1;
+
     enum AutoCompleteSetting {
         Uninitialized,
         On,
@@ -97,15 +106,25 @@ public:
     // For ValidityState
     bool rangeUnderflow() const;
     bool rangeOverflow() const;
-    // Returns the minimum value for type=range.  Don't call this for other types.
-    double rangeMinimum() const;
-    // Returns the maximum value for type=range.  Don't call this for other types.
-    // This always returns a value which is <= rangeMinimum().
-    double rangeMaximum() const;
+    // Returns the minimum value for type=number or range.  Don't call this for other types.
+    double minimum() const;
+    // Returns the maximum value for type=number or range.  Don't call this for other types.
+    // This always returns a value which is >= minimum().
+    double maximum() const;
+    // Sets the "allowed value step" defined in the HTML spec to the specified double pointer.
+    // Returns false if there is no "allowed value step."
+    bool getAllowedValueStep(double*) const;
+    // For ValidityState.
+    bool stepMismatch() const;
+    // Implementations of HTMLInputElement::stepUp() and stepDown().
+    void stepUp(int, ExceptionCode&);
+    void stepDown(int, ExceptionCode&);
+    void stepUp(ExceptionCode& ec) { stepUp(1, ec); }
+    void stepDown(ExceptionCode& ec) { stepDown(1, ec); }
 
     bool isTextButton() const { return m_type == SUBMIT || m_type == RESET || m_type == BUTTON; }
     virtual bool isRadioButton() const { return m_type == RADIO; }
-    virtual bool isTextField() const { return m_type == TEXT || m_type == PASSWORD || m_type == SEARCH || m_type == ISINDEX || m_type == EMAIL || m_type == NUMBER || m_type == TELEPHONE || m_type == URL || m_type == COLOR; }
+    virtual bool isTextField() const;
     virtual bool isSearchField() const { return m_type == SEARCH; }
     virtual bool isInputTypeHidden() const { return m_type == HIDDEN; }
     virtual bool isPasswordField() const { return m_type == PASSWORD; }
@@ -119,7 +138,8 @@ public:
     void setType(const String&);
 
     virtual String value() const;
-    virtual void setValue(const String&);
+    virtual void setValue(const String&, bool sendChangeEvent = false);
+    virtual void setValueForUser(const String&);
 
     virtual String placeholder() const;
     virtual void setPlaceholder(const String&);
@@ -234,6 +254,13 @@ public:
     // If the conversion fails, the return value is false. Take care that leading or trailing unnecessary characters make failures.  This returns false for an empty string input.
     // The double* parameter may be 0.
     static bool formStringToDouble(const String&, double*);
+    // Converts the specified number to a string. This is an implementation of
+    // HTML5's "algorithm to convert a number to a string" for NUMBER/RANGE types.
+    static String formStringFromDouble(double);
+    // Parses the specified string as the InputType, and returns true if it is successfully parsed.
+    // An instance pointed by the ISODateTime* parameter will have parsed values and be
+    // modified even if the parsing fails.  The ISODateTime* parameter may be 0.
+    static bool formStringToISODateTime(InputType, const String&, ISODateTime*);
     
 protected:
     virtual void willMoveToNewOwnerDocument();
@@ -257,6 +284,12 @@ private:
     virtual bool isRequiredFormControl() const;
 
     PassRefPtr<HTMLFormElement> createTemporaryFormForIsIndex();
+    // Helper for getAllowedValueStep();
+    bool getStepParameters(double* defaultStep, double* stepScaleFactor) const;
+    // Helper for stepUp()/stepDown().  Adds step value * count to the current number/range value.
+    void applyStepForNumberOrRange(double count, ExceptionCode&);
+    // Helper for applyStepForNumberOrRange().
+    double stepBase() const;
 
 #if ENABLE(DATALIST)
     HTMLDataListElement* dataList() const;

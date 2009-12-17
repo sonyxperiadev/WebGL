@@ -282,6 +282,9 @@ WebKitSoupAuthDialogClass
 WebKitWebInspector
 webkit_web_inspector_get_inspected_uri
 webkit_web_inspector_get_web_view
+webkit_web_inspector_inspect_coordinates
+webkit_web_inspector_show
+webkit_web_inspector_close
 <SUBSECTION Standard>
 WEBKIT_WEB_INSPECTOR
 WEBKIT_IS_WEB_INSPECTOR
@@ -349,6 +352,7 @@ WebKitWebPolicyDecisionPrivate
 <FILE>webkitnetworkrequest</FILE>
 <TITLE>WebKitNetworkRequest</TITLE>
 WebKitNetworkRequest
+webkit_network_request_new
 webkit_network_request_get_uri
 webkit_network_request_get_message
 webkit_network_request_set_uri
@@ -361,7 +365,6 @@ WEBKIT_IS_NETWORK_REQUEST_CLASS
 WEBKIT_NETWORK_REQUEST_GET_CLASS
 <SUBSECTION Private>
 webkit_network_request_get_type
-webkit_network_request_new
 WebKitNetworkRequestPrivate
 WebKitNetworkRequest
 WebKitNetworkRequestClass

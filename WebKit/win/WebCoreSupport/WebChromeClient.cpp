@@ -156,6 +156,10 @@ void WebChromeClient::takeFocus(FocusDirection direction)
     }
 }
 
+void WebChromeClient::focusedNodeChanged(Node*)
+{
+}
+
 static COMPtr<IPropertyBag> createWindowFeaturesPropertyBag(const WindowFeatures& features)
 {
     HashMap<String, COMVariant> map;
@@ -749,6 +753,19 @@ void WebChromeClient::requestGeolocationPermissionForFrame(Frame*, Geolocation*)
     // See the comment in WebCore/page/ChromeClient.h
     notImplemented();
 }
+
+#if USE(ACCELERATED_COMPOSITING)
+void WebChromeClient::attachRootGraphicsLayer(Frame* frame, GraphicsLayer* graphicsLayer)
+{
+    m_webView->setRootChildLayer(graphicsLayer ? graphicsLayer->platformLayer() : 0);
+}
+
+void WebChromeClient::scheduleCompositingLayerSync()
+{
+    m_webView->setRootLayerNeedsDisplay();
+}
+
+#endif
 
 COMPtr<IWebUIDelegate> WebChromeClient::uiDelegate()
 {

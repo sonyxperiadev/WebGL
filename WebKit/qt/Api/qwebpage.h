@@ -208,20 +208,8 @@ public:
     QUndoStack *undoStack() const;
 #endif
 
-#if QT_VERSION < 0x040400 && !defined(qdoc)
-    void setNetworkInterface(QWebNetworkInterface *interface);
-    QWebNetworkInterface *networkInterface() const;
-
-    // #### why is this in the page itself?
-#ifndef QT_NO_NETWORKPROXY
-    void setNetworkProxy(const QNetworkProxy& proxy);
-    QNetworkProxy networkProxy() const;
-#endif
-
-#else
     void setNetworkAccessManager(QNetworkAccessManager *manager);
     QNetworkAccessManager *networkAccessManager() const;
-#endif
 
     void setPluginFactory(QWebPluginFactory *factory);
     QWebPluginFactory *pluginFactory() const;
@@ -329,16 +317,13 @@ Q_SIGNALS:
     void windowCloseRequested();
     void printRequested(QWebFrame *frame);
     void linkClicked(const QUrl &url);
-    void webInspectorTriggered(const QWebElement& inspectedElement);
 
     void toolBarVisibilityChangeRequested(bool visible);
     void statusBarVisibilityChangeRequested(bool visible);
     void menuBarVisibilityChangeRequested(bool visible);
 
-#if QT_VERSION >= 0x040400
     void unsupportedContent(QNetworkReply *reply);
     void downloadRequested(const QNetworkRequest &request);
-#endif
 
     void microFocusChanged();
     void contentsChanged();
@@ -347,17 +332,11 @@ Q_SIGNALS:
     void saveFrameStateRequested(QWebFrame* frame, QWebHistoryItem* item);
     void restoreFrameStateRequested(QWebFrame* frame);
 
-    void networkRequestStarted(QWebFrame* frame, QNetworkRequest* request);
-
 protected:
     virtual QWebPage *createWindow(WebWindowType type);
     virtual QObject *createPlugin(const QString &classid, const QUrl &url, const QStringList &paramNames, const QStringList &paramValues);
 
-#if QT_VERSION >= 0x040400
     virtual bool acceptNavigationRequest(QWebFrame *frame, const QNetworkRequest &request, NavigationType type);
-#else
-    virtual bool acceptNavigationRequest(QWebFrame *frame, const QWebNetworkRequest &request, NavigationType type);
-#endif
     virtual QString chooseFile(QWebFrame *originatingFrame, const QString& oldFile);
     virtual void javaScriptAlert(QWebFrame *originatingFrame, const QString& msg);
     virtual bool javaScriptConfirm(QWebFrame *originatingFrame, const QString& msg);

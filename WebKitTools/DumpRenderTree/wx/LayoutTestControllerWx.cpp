@@ -170,6 +170,11 @@ void LayoutTestController::setXSSAuditorEnabled(bool enabled)
     // FIXME: implement
 }
 
+void LayoutTestController::setAllowUniversalAccessFromFileURLs(bool enabled)
+{
+    // FIXME: implement
+}
+
 void LayoutTestController::setAuthorAndUserStylesEnabled(bool flag)
 {
     // FIXME: implement
@@ -262,6 +267,12 @@ bool LayoutTestController::pauseAnimationAtTimeOnElementWithId(JSStringRef anima
     return false;
 }
 
+bool LayoutTestController::sampleSVGAnimationForElementAtTime(JSStringRef animationId, double time, JSStringRef elementId)
+{
+    // FIXME: implement
+    return false;
+}
+
 void LayoutTestController::setCacheModel(int)
 {
     // FIXME: implement
@@ -317,4 +328,29 @@ void LayoutTestController::evaluateInWebInspector(long callId, JSStringRef scrip
 void LayoutTestController::removeAllVisitedLinks()
 {
     // FIXME: Implement this.
+}
+
+void LayoutTestController::setTimelineProfilingEnabled(bool enabled)
+{
+
+}
+
+void LayoutTestController::evaluateScriptInIsolatedWorld(unsigned worldId, JSObjectRef globalObject, JSStringRef script)
+{
+
+}
+
+void LayoutTestController::disableImageLoading()
+{
+
+}
+
+void LayoutTestController::whiteListAccessFromOrigin(JSStringRef sourceOrigin, JSStringRef destinationProtocol, JSStringRef destinationHost, bool allowDestinationSubdomains)
+{
+
+}
+
+JSRetainPtr<JSStringRef> LayoutTestController::counterValueForElementById(JSStringRef id)
+{
+
 }

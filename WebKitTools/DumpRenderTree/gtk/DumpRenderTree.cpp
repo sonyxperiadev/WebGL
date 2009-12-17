@@ -82,6 +82,7 @@ static GCController* gcController = 0;
 static WebKitWebView* webView;
 static GtkWidget* window;
 static GtkWidget* container;
+static GtkWidget* webInspectorWindow;
 WebKitWebFrame* mainFrame = 0;
 WebKitWebFrame* topLoadingFrame = 0;
 guint waitToDumpWatchdog = 0;
@@ -113,6 +114,11 @@ static bool shouldLogFrameLoadDelegates(const char* pathOrURL)
     return strstr(pathOrURL, "loading/");
 }
 
+static bool shouldOpenWebInspector(const char* pathOrURL)
+{
+    return strstr(pathOrURL, "inspector/");
+}
+
 void dumpFrameScrollPosition(WebKitWebFrame* frame)
 {
 
@@ -120,7 +126,7 @@ void dumpFrameScrollPosition(WebKitWebFrame* frame)
 
 void displayWebView()
 {
-
+    gtk_widget_queue_draw(GTK_WIDGET(webView));
 }
 
 static void appendString(gchar*& target, gchar* string)
@@ -319,7 +325,6 @@ static void resetDefaultsToConsistentValues()
                  "enable-offline-web-application-cache", TRUE,
                  "enable-universal-access-from-file-uris", TRUE,
                  "enable-scripts", TRUE,
-                 "enable-web-sockets", TRUE,
                  "enable-dom-paste", TRUE,
                  "default-font-family", "Times",
                  "monospace-font-family", "Courier",
@@ -400,12 +405,8 @@ void dump()
 
     // FIXME: call displayWebView here when we support --paint
 
-    puts("#EOF"); // terminate the (possibly empty) pixels block
-
-    fflush(stdout);
-    fflush(stderr);
-
     done = true;
+    gtk_main_quit();
 }
 
 static void setDefaultsToConsistentStateValuesForTesting()
@@ -425,6 +426,14 @@ static void setDefaultsToConsistentStateValuesForTesting()
     gchar* databaseDirectory = g_build_filename(g_get_user_data_dir(), "gtkwebkitdrt", "databases", NULL);
     webkit_set_web_database_directory_path(databaseDirectory);
     g_free(databaseDirectory);
+}
+
+static void sendPixelResultsEOF()
+{
+    puts("#EOF");
+
+    fflush(stdout);
+    fflush(stderr);
 }
 
 static void runTest(const string& testPathOrURL)
@@ -455,6 +464,9 @@ static void runTest(const string& testPathOrURL)
     if (shouldLogFrameLoadDelegates(pathOrURL.c_str()))
         gLayoutTestController->setDumpFrameLoadCallbacks(true);
 
+    if (shouldOpenWebInspector(pathOrURL.c_str()))
+        gLayoutTestController->showWebInspector();
+
     WorkQueue::shared()->clear();
     WorkQueue::shared()->setFrozen(false);
 
@@ -484,9 +496,10 @@ static void runTest(const string& testPathOrURL)
     g_free(url);
     url = NULL;
 
-    while (!done)
-        g_main_context_iteration(NULL, TRUE);
+    gtk_main();
 
+    if (shouldOpenWebInspector(pathOrURL.c_str()))
+        gLayoutTestController->closeWebInspector();
 
     // Also check if we still have opened webViews and free them.
     if (gLayoutTestController->closeRemainingWindowsWhenComplete() || webViewList) {
@@ -503,6 +516,9 @@ static void runTest(const string& testPathOrURL)
 
     gLayoutTestController->deref();
     gLayoutTestController = 0;
+
+    // terminate the (possibly empty) pixels block after all the state reset
+    sendPixelResultsEOF();
 }
 
 void webViewLoadStarted(WebKitWebView* view, WebKitWebFrame* frame, void*)
@@ -565,7 +581,7 @@ static void webViewLoadFinished(WebKitWebView* view, WebKitWebFrame* frame, void
 
     if (WorkQueue::shared()->count())
         g_timeout_add(0, processWork, 0);
-     else
+    else
         dump();
 }
 
@@ -708,9 +724,29 @@ static void databaseQuotaExceeded(WebKitWebView* view, WebKitWebFrame* frame, We
 
 static WebKitWebView* webViewCreate(WebKitWebView*, WebKitWebFrame*);
 
+static gboolean webInspectorShowWindow(WebKitWebInspector*, gpointer data)
+{
+    gtk_window_set_default_size(GTK_WINDOW(webInspectorWindow), 800, 600);
+    gtk_widget_show_all(webInspectorWindow);
+    return TRUE;
+}
+
+static gboolean webInspectorCloseWindow(WebKitWebInspector*, gpointer data)
+{
+    gtk_widget_destroy(webInspectorWindow);
+    webInspectorWindow = 0;
+    return TRUE;
+}
+
 static WebKitWebView* webInspectorInspectWebView(WebKitWebInspector*, gpointer data)
 {
-    return WEBKIT_WEB_VIEW(webkit_web_view_new());
+    webInspectorWindow = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+
+    GtkWidget* webView = webkit_web_view_new();
+    gtk_container_add(GTK_CONTAINER(webInspectorWindow),
+                      webView);
+
+    return WEBKIT_WEB_VIEW(webView);
 }
 
 static WebKitWebView* createWebView()
@@ -738,7 +774,11 @@ static WebKitWebView* createWebView()
                      NULL);
 
     WebKitWebInspector* inspector = webkit_web_view_get_inspector(view);
-    g_signal_connect(inspector, "inspect-web-view", G_CALLBACK(webInspectorInspectWebView), 0);
+    g_object_connect(G_OBJECT(inspector),
+                     "signal::inspect-web-view", webInspectorInspectWebView, 0,
+                     "signal::show-window", webInspectorShowWindow, 0,
+                     "signal::close-window", webInspectorCloseWindow, 0,
+                     NULL);
 
     return view;
 }
@@ -793,6 +833,7 @@ int main(int argc, char* argv[])
     gtk_container_add(GTK_CONTAINER(container), GTK_WIDGET(webView));
     gtk_widget_realize(GTK_WIDGET(webView));
     gtk_widget_show_all(container);
+    gtk_widget_grab_focus(GTK_WIDGET(webView));
     mainFrame = webkit_web_view_get_main_frame(webView);
 
     setDefaultsToConsistentStateValuesForTesting();

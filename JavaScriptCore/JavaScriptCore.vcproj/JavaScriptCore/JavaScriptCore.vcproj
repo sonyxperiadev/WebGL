@@ -668,6 +668,14 @@
 				RelativePath="..\..\runtime\DateInstanceCache.h"
 				>
 			</File>
+                        <File
+                                RelativePath="..\..\wtf\DateMath.cpp"
+                                >
+                        </File>
+                        <File
+                                RelativePath="..\..\wtf\DateMath.h"
+                                >
+                        </File>
 			<File
 				RelativePath="..\..\runtime\DatePrototype.cpp"
 				>
@@ -1204,6 +1212,10 @@
 				RelativePath="..\..\runtime\UString.h"
 				>
 			</File>
+			<File
+				RelativePath="..\..\runtime\WeakRandom.h"
+				>
+			</File>
 			<Filter
 				Name="DerivedSources"
 				>
@@ -1534,6 +1546,10 @@
 			</File>
 			<File
 				RelativePath="..\..\bytecompiler\BytecodeGenerator.h"
+				>
+			</File>
+			<File
+				RelativePath="..\..\bytecompiler\NodesCodegen.cpp"
 				>
 			</File>
 			<File

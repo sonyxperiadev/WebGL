@@ -30,18 +30,18 @@
 #include "GraphicsContext3D.h"
 
 #include "CachedImage.h"
-#include "CanvasActiveInfo.h"
-#include "CanvasArray.h"
-#include "CanvasBuffer.h"
-#include "CanvasFramebuffer.h"
-#include "CanvasFloatArray.h"
-#include "CanvasIntArray.h"
+#include "WebGLActiveInfo.h"
+#include "WebGLArray.h"
+#include "WebGLBuffer.h"
+#include "WebGLFramebuffer.h"
+#include "WebGLFloatArray.h"
+#include "WebGLIntArray.h"
 #include "CanvasObject.h"
-#include "CanvasProgram.h"
-#include "CanvasRenderbuffer.h"
-#include "CanvasShader.h"
-#include "CanvasTexture.h"
-#include "CanvasUnsignedByteArray.h"
+#include "WebGLProgram.h"
+#include "WebGLRenderbuffer.h"
+#include "WebGLShader.h"
+#include "WebGLTexture.h"
+#include "WebGLUnsignedByteArray.h"
 #include "CString.h"
 #include "HTMLCanvasElement.h"
 #include "HTMLImageElement.h"
@@ -175,21 +175,12 @@ GraphicsContext3D::~GraphicsContext3D()
     }
 }
 
-void GraphicsContext3D::checkError() const
-{
-    // FIXME: This needs to only be done in the debug context. It will probably throw an exception
-    // on error and print the error message to the debug console
-    GLenum error = ::glGetError();
-    if (error != GL_NO_ERROR)
-        notImplemented();
-}
-
 void GraphicsContext3D::makeContextCurrent()
 {
     CGLSetCurrentContext(m_contextObj);
 }
 
-void GraphicsContext3D::beginPaint(CanvasRenderingContext3D* context)
+void GraphicsContext3D::beginPaint(WebGLRenderingContext* context)
 {
     UNUSED_PARAM(context);
 }
@@ -246,43 +237,42 @@ void GraphicsContext3D::activeTexture(unsigned long texture)
     ::glActiveTexture(texture);
 }
 
-void GraphicsContext3D::attachShader(CanvasProgram* program, CanvasShader* shader)
+void GraphicsContext3D::attachShader(WebGLProgram* program, WebGLShader* shader)
 {
-    if (!program || !shader)
-        return;
+    ASSERT(program);
+    ASSERT(shader);
     ensureContext(m_contextObj);
     ::glAttachShader((GLuint) program->object(), (GLuint) shader->object());
 }
 
-void GraphicsContext3D::bindAttribLocation(CanvasProgram* program, unsigned long index, const String& name)
+void GraphicsContext3D::bindAttribLocation(WebGLProgram* program, unsigned long index, const String& name)
 {
-    if (!program)
-        return;
+    ASSERT(program);
     ensureContext(m_contextObj);
     ::glBindAttribLocation((GLuint) program->object(), index, name.utf8().data());
 }
 
-void GraphicsContext3D::bindBuffer(unsigned long target, CanvasBuffer* buffer)
+void GraphicsContext3D::bindBuffer(unsigned long target, WebGLBuffer* buffer)
 {
     ensureContext(m_contextObj);
     ::glBindBuffer(target, buffer ? (GLuint) buffer->object() : 0);
 }
 
 
-void GraphicsContext3D::bindFramebuffer(unsigned long target, CanvasFramebuffer* buffer)
+void GraphicsContext3D::bindFramebuffer(unsigned long target, WebGLFramebuffer* buffer)
 {
     ensureContext(m_contextObj);
     ::glBindFramebufferEXT(target, buffer ? (GLuint) buffer->object() : m_fbo);
 }
 
-void GraphicsContext3D::bindRenderbuffer(unsigned long target, CanvasRenderbuffer* renderbuffer)
+void GraphicsContext3D::bindRenderbuffer(unsigned long target, WebGLRenderbuffer* renderbuffer)
 {
     ensureContext(m_contextObj);
-    ::glBindBuffer(target, renderbuffer ? (GLuint) renderbuffer->object() : 0);
+    ::glBindRenderbufferEXT(target, renderbuffer ? (GLuint) renderbuffer->object() : 0);
 }
 
 
-void GraphicsContext3D::bindTexture(unsigned long target, CanvasTexture* texture)
+void GraphicsContext3D::bindTexture(unsigned long target, WebGLTexture* texture)
 {
     ensureContext(m_contextObj);
     ::glBindTexture(target, texture ? (GLuint) texture->object() : 0);
@@ -324,22 +314,22 @@ void GraphicsContext3D::bufferData(unsigned long target, int size, unsigned long
     ensureContext(m_contextObj);
     ::glBufferData(target, size, 0, usage);
 }
-void GraphicsContext3D::bufferData(unsigned long target, CanvasArray* array, unsigned long usage)
+void GraphicsContext3D::bufferData(unsigned long target, WebGLArray* array, unsigned long usage)
 {
     if (!array || !array->length())
         return;
     
     ensureContext(m_contextObj);
-    ::glBufferData(target, array->sizeInBytes(), array->baseAddress(), usage);
+    ::glBufferData(target, array->byteLength(), array->baseAddress(), usage);
 }
 
-void GraphicsContext3D::bufferSubData(unsigned long target, long offset, CanvasArray* array)
+void GraphicsContext3D::bufferSubData(unsigned long target, long offset, WebGLArray* array)
 {
     if (!array || !array->length())
         return;
     
     ensureContext(m_contextObj);
-    ::glBufferSubData(target, offset, array->sizeInBytes(), array->baseAddress());
+    ::glBufferSubData(target, offset, array->byteLength(), array->baseAddress());
 }
 
 unsigned long GraphicsContext3D::checkFramebufferStatus(unsigned long target)
@@ -378,11 +368,9 @@ void GraphicsContext3D::colorMask(bool red, bool green, bool blue, bool alpha)
     ::glColorMask(red, green, blue, alpha);
 }
 
-void GraphicsContext3D::compileShader(CanvasShader* shader)
+void GraphicsContext3D::compileShader(WebGLShader* shader)
 {
-    if (!shader)
-        return;
-    
+    ASSERT(shader);
     ensureContext(m_contextObj);
     ::glCompileShader((GLuint) shader->object());
 }
@@ -423,11 +411,10 @@ void GraphicsContext3D::depthRange(double zNear, double zFar)
     ::glDepthRange(zNear, zFar);
 }
 
-void GraphicsContext3D::detachShader(CanvasProgram* program, CanvasShader* shader)
+void GraphicsContext3D::detachShader(WebGLProgram* program, WebGLShader* shader)
 {
-    if (!program || !shader)
-        return;
-    
+    ASSERT(program);
+    ASSERT(shader);
     ensureContext(m_contextObj);
     ::glDetachShader((GLuint) program->object(), (GLuint) shader->object());
 }
@@ -480,22 +467,16 @@ void GraphicsContext3D::flush()
     ::glFlush();
 }
 
-void GraphicsContext3D::framebufferRenderbuffer(unsigned long target, unsigned long attachment, unsigned long renderbuffertarget, CanvasRenderbuffer* buffer)
+void GraphicsContext3D::framebufferRenderbuffer(unsigned long target, unsigned long attachment, unsigned long renderbuffertarget, WebGLRenderbuffer* buffer)
 {
-    if (!buffer)
-        return;
-    
     ensureContext(m_contextObj);
-    ::glFramebufferRenderbufferEXT(target, attachment, renderbuffertarget, (GLuint) buffer->object());
+    ::glFramebufferRenderbufferEXT(target, attachment, renderbuffertarget, buffer ? (GLuint) buffer->object() : 0);
 }
 
-void GraphicsContext3D::framebufferTexture2D(unsigned long target, unsigned long attachment, unsigned long textarget, CanvasTexture* texture, long level)
+void GraphicsContext3D::framebufferTexture2D(unsigned long target, unsigned long attachment, unsigned long textarget, WebGLTexture* texture, long level)
 {
-    if (!texture)
-        return;
-    
     ensureContext(m_contextObj);
-    ::glFramebufferTexture2DEXT(target, attachment, textarget, (GLuint) texture->object(), level);
+    ::glFramebufferTexture2DEXT(target, attachment, textarget, texture ? (GLuint) texture->object() : 0, level);
 }
 
 void GraphicsContext3D::frontFace(unsigned long mode)
@@ -510,10 +491,12 @@ void GraphicsContext3D::generateMipmap(unsigned long target)
     ::glGenerateMipmapEXT(target);
 }
 
-bool GraphicsContext3D::getActiveAttrib(CanvasProgram* program, unsigned long index, ActiveInfo& info)
+bool GraphicsContext3D::getActiveAttrib(WebGLProgram* program, unsigned long index, ActiveInfo& info)
 {
-    if (!program->object())
+    if (!program->object()) {
+        synthesizeGLError(INVALID_VALUE);
         return false;
+    }
     ensureContext(m_contextObj);
     GLint maxAttributeSize = 0;
     ::glGetProgramiv(static_cast<GLuint>(program->object()), GL_ACTIVE_ATTRIBUTE_MAX_LENGTH, &maxAttributeSize);
@@ -530,10 +513,12 @@ bool GraphicsContext3D::getActiveAttrib(CanvasProgram* program, unsigned long in
     return true;
 }
     
-bool GraphicsContext3D::getActiveUniform(CanvasProgram* program, unsigned long index, ActiveInfo& info)
+bool GraphicsContext3D::getActiveUniform(WebGLProgram* program, unsigned long index, ActiveInfo& info)
 {
-    if (!program->object())
+    if (!program->object()) {
+        synthesizeGLError(INVALID_VALUE);
         return false;
+    }
     ensureContext(m_contextObj);
     GLint maxUniformSize = 0;
     ::glGetProgramiv(static_cast<GLuint>(program->object()), GL_ACTIVE_UNIFORM_MAX_LENGTH, &maxUniformSize);
@@ -550,7 +535,7 @@ bool GraphicsContext3D::getActiveUniform(CanvasProgram* program, unsigned long i
     return true;
 }
 
-int GraphicsContext3D::getAttribLocation(CanvasProgram* program, const String& name)
+int GraphicsContext3D::getAttribLocation(WebGLProgram* program, const String& name)
 {
     if (!program)
         return -1;
@@ -561,6 +546,13 @@ int GraphicsContext3D::getAttribLocation(CanvasProgram* program, const String& n
 
 unsigned long GraphicsContext3D::getError()
 {
+    if (m_syntheticErrors.size() > 0) {
+        ListHashSet<unsigned long>::iterator iter = m_syntheticErrors.begin();
+        unsigned long err = *iter;
+        m_syntheticErrors.remove(iter);
+        return err;
+    }
+
     ensureContext(m_contextObj);
     return ::glGetError();
 }
@@ -577,7 +569,7 @@ void GraphicsContext3D::hint(unsigned long target, unsigned long mode)
     ::glHint(target, mode);
 }
 
-bool GraphicsContext3D::isBuffer(CanvasBuffer* buffer)
+bool GraphicsContext3D::isBuffer(WebGLBuffer* buffer)
 {
     if (!buffer)
         return false;
@@ -592,7 +584,7 @@ bool GraphicsContext3D::isEnabled(unsigned long cap)
     return ::glIsEnabled(cap);
 }
 
-bool GraphicsContext3D::isFramebuffer(CanvasFramebuffer* framebuffer)
+bool GraphicsContext3D::isFramebuffer(WebGLFramebuffer* framebuffer)
 {
     if (!framebuffer)
         return false;
@@ -601,7 +593,7 @@ bool GraphicsContext3D::isFramebuffer(CanvasFramebuffer* framebuffer)
     return ::glIsFramebufferEXT((GLuint) framebuffer->object());
 }
 
-bool GraphicsContext3D::isProgram(CanvasProgram* program)
+bool GraphicsContext3D::isProgram(WebGLProgram* program)
 {
     if (!program)
         return false;
@@ -610,7 +602,7 @@ bool GraphicsContext3D::isProgram(CanvasProgram* program)
     return ::glIsProgram((GLuint) program->object());
 }
 
-bool GraphicsContext3D::isRenderbuffer(CanvasRenderbuffer* renderbuffer)
+bool GraphicsContext3D::isRenderbuffer(WebGLRenderbuffer* renderbuffer)
 {
     if (!renderbuffer)
         return false;
@@ -619,7 +611,7 @@ bool GraphicsContext3D::isRenderbuffer(CanvasRenderbuffer* renderbuffer)
     return ::glIsRenderbufferEXT((GLuint) renderbuffer->object());
 }
 
-bool GraphicsContext3D::isShader(CanvasShader* shader)
+bool GraphicsContext3D::isShader(WebGLShader* shader)
 {
     if (!shader)
         return false;
@@ -628,7 +620,7 @@ bool GraphicsContext3D::isShader(CanvasShader* shader)
     return ::glIsShader((GLuint) shader->object());
 }
 
-bool GraphicsContext3D::isTexture(CanvasTexture* texture)
+bool GraphicsContext3D::isTexture(WebGLTexture* texture)
 {
     if (!texture)
         return false;
@@ -643,11 +635,9 @@ void GraphicsContext3D::lineWidth(double width)
     ::glLineWidth(static_cast<float>(width));
 }
 
-void GraphicsContext3D::linkProgram(CanvasProgram* program)
+void GraphicsContext3D::linkProgram(WebGLProgram* program)
 {
-    if (!program)
-        return;
-    
+    ASSERT(program);
     ensureContext(m_contextObj);
     ::glLinkProgram((GLuint) program->object());
 }
@@ -664,7 +654,7 @@ void GraphicsContext3D::polygonOffset(double factor, double units)
     ::glPolygonOffset(static_cast<float>(factor), static_cast<float>(units));
 }
 
-PassRefPtr<CanvasArray> GraphicsContext3D::readPixels(long x, long y, unsigned long width, unsigned long height, unsigned long format, unsigned long type)
+PassRefPtr<WebGLArray> GraphicsContext3D::readPixels(long x, long y, unsigned long width, unsigned long height, unsigned long format, unsigned long type)
 {
     ensureContext(m_contextObj);
     
@@ -675,7 +665,7 @@ PassRefPtr<CanvasArray> GraphicsContext3D::readPixels(long x, long y, unsigned l
     if (type != GL_UNSIGNED_BYTE || format != GL_RGBA)
         return 0;
         
-    RefPtr<CanvasUnsignedByteArray> array = CanvasUnsignedByteArray::create(width * height * 4);
+    RefPtr<WebGLUnsignedByteArray> array = WebGLUnsignedByteArray::create(width * height * 4);
     ::glReadPixels(x, y, width, height, format, type, (GLvoid*) array->data());
     return array;    
 }
@@ -705,10 +695,9 @@ void GraphicsContext3D::scissor(long x, long y, unsigned long width, unsigned lo
     ::glScissor(x, y, width, height);
 }
 
-void GraphicsContext3D::shaderSource(CanvasShader* shader, const String& string)
+void GraphicsContext3D::shaderSource(WebGLShader* shader, const String& string)
 {
-    if (!shader)
-        return;
+    ASSERT(shader);
     
     ensureContext(m_contextObj);
     const CString& cs = string.utf8();
@@ -889,19 +878,17 @@ void GraphicsContext3D::uniformMatrix4fv(long location, bool transpose, float* a
     ::glUniformMatrix4fv(location, size, transpose, array);
 }
 
-void GraphicsContext3D::useProgram(CanvasProgram* program)
+void GraphicsContext3D::useProgram(WebGLProgram* program)
 {
-    if (!program)
-        return;
+    ASSERT(program);
     
     ensureContext(m_contextObj);
     ::glUseProgram((GLuint) program->object());
 }
 
-void GraphicsContext3D::validateProgram(CanvasProgram* program)
+void GraphicsContext3D::validateProgram(WebGLProgram* program)
 {
-    if (!program)
-        return;
+    ASSERT(program);
     
     ensureContext(m_contextObj);
     ::glValidateProgram((GLuint) program->object());
@@ -967,567 +954,156 @@ void GraphicsContext3D::viewport(long x, long y, unsigned long width, unsigned l
     ::glViewport(static_cast<GLint>(x), static_cast<GLint>(y), static_cast<GLsizei>(width), static_cast<GLsizei>(height));
 }
 
-static int sizeForGetParam(unsigned long pname)
-{
-    switch(pname) {
-        case GL_ACTIVE_TEXTURE:                  return 1;
-        case GL_ALIASED_LINE_WIDTH_RANGE:        return 2;
-        case GL_ALIASED_POINT_SIZE_RANGE:        return 2;
-        case GL_ALPHA_BITS:                      return 1;
-        case GL_ARRAY_BUFFER_BINDING:            return 1; // (* actually a CanvasBuffer*)
-        case GL_BLEND:                           return 1;
-        case GL_BLEND_COLOR:                     return 4;
-        case GL_BLEND_DST_ALPHA:                 return 1;
-        case GL_BLEND_DST_RGB:                   return 1;
-        case GL_BLEND_EQUATION_ALPHA:            return 1;
-        case GL_BLEND_EQUATION_RGB:              return 1;
-        case GL_BLEND_SRC_ALPHA:                 return 1;
-        case GL_BLEND_SRC_RGB:                   return 1;
-        case GL_BLUE_BITS:                       return 1;
-        case GL_COLOR_CLEAR_VALUE:               return 4;
-        case GL_COLOR_WRITEMASK:                 return 4;
-        case GL_COMPRESSED_TEXTURE_FORMATS:      return GL_NUM_COMPRESSED_TEXTURE_FORMATS;
-        case GL_CULL_FACE:                       return 1;
-        case GL_CULL_FACE_MODE:                  return 1;
-        case GL_CURRENT_PROGRAM:                 return 1; // (* actually a CanvasProgram*)
-        case GL_DEPTH_BITS:                      return 1;
-        case GL_DEPTH_CLEAR_VALUE:               return 1;
-        case GL_DEPTH_FUNC:                      return 1;
-        case GL_DEPTH_RANGE:                     return 2;
-        case GL_DEPTH_TEST:                      return 1;
-        case GL_DEPTH_WRITEMASK:                 return 1;
-        case GL_DITHER:                          return 1;
-        case GL_ELEMENT_ARRAY_BUFFER_BINDING:    return 1; // (* actually a CanvasBuffer*)
-        case GL_FRAMEBUFFER_BINDING_EXT:         return 1; // (* actually a CanvasFramebuffer*)
-        case GL_FRONT_FACE:                      return 1;
-        case GL_GENERATE_MIPMAP_HINT:            return 1;
-        case GL_GREEN_BITS:                      return 1;
-            //case GL_IMPLEMENTATION_COLOR_READ_FORMAT:return 1;
-            //case GL_IMPLEMENTATION_COLOR_READ_TYPE:  return 1;
-        case GL_LINE_WIDTH:                      return 1;
-        case GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS:return 1;
-        case GL_MAX_CUBE_MAP_TEXTURE_SIZE:       return 1;
-            //case GL_MAX_FRAGMENT_UNIFORM_VECTORS:    return 1;
-        case GL_MAX_RENDERBUFFER_SIZE_EXT:       return 1;
-        case GL_MAX_TEXTURE_IMAGE_UNITS:         return 1;
-        case GL_MAX_TEXTURE_SIZE:                return 1;
-            //case GL_MAX_VARYING_VECTORS:             return 1;
-        case GL_MAX_VERTEX_ATTRIBS:              return 1;
-        case GL_MAX_VERTEX_TEXTURE_IMAGE_UNITS:  return 1;
-            //case GL_MAX_VERTEX_UNIFORM_VECTORS:      return 1;
-        case GL_MAX_VIEWPORT_DIMS:               return 2;
-        case GL_NUM_COMPRESSED_TEXTURE_FORMATS:  return 1;
-            //case GL_NUM_SHADER_BINARY_FORMATS:       return 1;
-        case GL_PACK_ALIGNMENT:                  return 1;
-        case GL_POLYGON_OFFSET_FACTOR:           return 1;
-        case GL_POLYGON_OFFSET_FILL:             return 1;
-        case GL_POLYGON_OFFSET_UNITS:            return 1;
-        case GL_RED_BITS:                        return 1;
-        case GL_RENDERBUFFER_BINDING_EXT:        return 1; // (* actually a CanvasRenderbuffer*)
-        case GL_SAMPLE_BUFFERS:                  return 1;
-        case GL_SAMPLE_COVERAGE_INVERT:          return 1;
-        case GL_SAMPLE_COVERAGE_VALUE:           return 1;
-        case GL_SAMPLES:                         return 1;
-        case GL_SCISSOR_BOX:                     return 4;
-        case GL_SCISSOR_TEST:                    return 1;
-            //case GL_SHADER_BINARY_FORMATS:           return GL_NUM_SHADER_BINARY_FORMATS;
-            //case GL_SHADER_COMPILER:                 return 1;
-        case GL_STENCIL_BACK_FAIL:               return 1;
-        case GL_STENCIL_BACK_FUNC:               return 1;
-        case GL_STENCIL_BACK_PASS_DEPTH_FAIL:    return 1;
-        case GL_STENCIL_BACK_PASS_DEPTH_PASS:    return 1;
-        case GL_STENCIL_BACK_REF:                return 1;
-        case GL_STENCIL_BACK_VALUE_MASK:         return 1;
-        case GL_STENCIL_BACK_WRITEMASK:          return 1;
-        case GL_STENCIL_BITS:                    return 1;
-        case GL_STENCIL_CLEAR_VALUE:             return 1;
-        case GL_STENCIL_FAIL:                    return 1;
-        case GL_STENCIL_FUNC:                    return 1;
-        case GL_STENCIL_PASS_DEPTH_FAIL:         return 1;
-        case GL_STENCIL_PASS_DEPTH_PASS:         return 1;
-        case GL_STENCIL_REF:                     return 1;
-        case GL_STENCIL_TEST:                    return 1;
-        case GL_STENCIL_VALUE_MASK:              return 1;
-        case GL_STENCIL_WRITEMASK:               return 1;
-        case GL_SUBPIXEL_BITS:                   return 1;
-        case GL_TEXTURE_BINDING_2D:              return 1; // (* actually a CanvasTexture*)
-        case GL_TEXTURE_BINDING_CUBE_MAP:        return 1; // (* actually a CanvasTexture*)
-        case GL_UNPACK_ALIGNMENT:                return 1;
-        case GL_VIEWPORT:                        return 4;
-    }
-    
-    return -1;
-}
-
-bool GraphicsContext3D::getBoolean(unsigned long pname)
-{
-    int size = sizeForGetParam(pname);
-    if (size < 1) 
-        return 0;
-    
-    ensureContext(m_contextObj);
-    
-    bool isAlloced = false;
-    GLboolean buf[4];
-    GLboolean* pbuf = buf;
-            
-    if (size > 4) {
-        pbuf = (GLboolean*) malloc(size * sizeof(GLboolean));
-        isAlloced = true;
-    }
-            
-    ::glGetBooleanv(pname, pbuf);
-    
-    bool value = pbuf[0];
-
-    if (isAlloced)
-        free(pbuf);
-    
-    return value;
-}
-
-PassRefPtr<CanvasUnsignedByteArray> GraphicsContext3D::getBooleanv(unsigned long pname)
-{
-    int size = sizeForGetParam(pname);
-    if (size < 1) 
-        return 0;
-    
-    ensureContext(m_contextObj);
-    
-    RefPtr<CanvasUnsignedByteArray> array = CanvasUnsignedByteArray::create(size);
-    bool isAlloced = false;
-    GLboolean buf[4];
-    GLboolean* pbuf = buf;
-            
-    if (size > 4) {
-        pbuf = (GLboolean*) malloc(size * sizeof(GLboolean));
-        isAlloced = true;
-    }
-            
-    ::glGetBooleanv(pname, pbuf);
-            
-    for (int i = 0; i < size; ++i)
-        array->set(i, static_cast<unsigned char>(pbuf[i]));
-            
-    if (isAlloced)
-        free(pbuf);
-    
-    return array;
-}
-
-float GraphicsContext3D::getFloat(unsigned long pname)
-{
-    int size = sizeForGetParam(pname);
-    if (size < 1) 
-        return 0;
-    
-    ensureContext(m_contextObj);
-    
-    bool isAlloced = false;
-    GLfloat buf[4];
-    GLfloat* pbuf = buf;
-            
-    if (size > 4) {
-        pbuf = (GLfloat*) malloc(size * sizeof(GLfloat));
-        isAlloced = true;
-    }
-            
-    ::glGetFloatv(pname, pbuf);
-    
-    float value = pbuf[0];
-
-    if (isAlloced)
-        free(pbuf);
-    
-    return value;
-}
-
-PassRefPtr<CanvasFloatArray> GraphicsContext3D::getFloatv(unsigned long pname)
-{
-    int size = sizeForGetParam(pname);
-    if (size < 1) 
-        return 0;
-    
-    ensureContext(m_contextObj);
-    
-    RefPtr<CanvasFloatArray> array = CanvasFloatArray::create(size);
-    bool isAlloced = false;
-    GLfloat buf[4];
-    GLfloat* pbuf = buf;
-            
-    if (size > 4) {
-        pbuf = (GLfloat*) malloc(size * sizeof(GLfloat));
-        isAlloced = true;
-    }
-            
-    ::glGetFloatv(pname, pbuf);
-            
-    for (int i = 0; i < size; ++i)
-        array->set(i, static_cast<float>(pbuf[i]));
-            
-    if (isAlloced)
-        free(pbuf);
-    
-    return array;
-}
-
-int GraphicsContext3D::getInteger(unsigned long pname)
-{
-    int size = sizeForGetParam(pname);
-    if (size < 1) 
-        return 0;
-    
-    ensureContext(m_contextObj);
-    
-    bool isAlloced = false;
-    GLint buf[4];
-    GLint* pbuf = buf;
-            
-    if (size > 4) {
-        pbuf = (GLint*) malloc(size * sizeof(GLint));
-        isAlloced = true;
-    }
-            
-    ::glGetIntegerv(pname, pbuf);
-    
-    int value = pbuf[0];
-
-    if (isAlloced)
-        free(pbuf);
-    
-    return value;
-}
-
-PassRefPtr<CanvasIntArray> GraphicsContext3D::getIntegerv(unsigned long pname)
-{
-    int size = sizeForGetParam(pname);
-    if (size < 1) 
-        return 0;
-    
-    ensureContext(m_contextObj);
-    
-    RefPtr<CanvasIntArray> array = CanvasIntArray::create(size);
-    bool isAlloced = false;
-    GLint buf[4];
-    GLint* pbuf = buf;
-            
-    if (size > 4) {
-        pbuf = (GLint*) malloc(size * sizeof(GLint));
-        isAlloced = true;
-    }
-            
-    ::glGetIntegerv(pname, pbuf);
-            
-    for (int i = 0; i < size; ++i)
-        array->set(i, static_cast<int>(pbuf[i]));
-            
-    if (isAlloced)
-        free(pbuf);
-    
-    return array;
-}
-
-int GraphicsContext3D::getBufferParameteri(unsigned long target, unsigned long pname)
+void GraphicsContext3D::getBooleanv(unsigned long pname, unsigned char* value)
 {
     ensureContext(m_contextObj);
-    GLint data;
-    ::glGetBufferParameteriv(target, pname, &data);
-    return data;
+    ::glGetBooleanv(pname, value);
 }
 
-PassRefPtr<CanvasIntArray> GraphicsContext3D::getBufferParameteriv(unsigned long target, unsigned long pname)
+void GraphicsContext3D::getBufferParameteriv(unsigned long target, unsigned long pname, int* value)
 {
     ensureContext(m_contextObj);
-    RefPtr<CanvasIntArray> array = CanvasIntArray::create(1);
-    GLint data;
-    ::glGetBufferParameteriv(target, pname, &data);
-    array->set(0, static_cast<int>(data));
-    
-    return array;
+    ::glGetBufferParameteriv(target, pname, value);
 }
 
-int GraphicsContext3D::getFramebufferAttachmentParameteri(unsigned long target, unsigned long attachment, unsigned long pname)
+void GraphicsContext3D::getFloatv(unsigned long pname, float* value)
 {
     ensureContext(m_contextObj);
-    GLint data;
-    ::glGetFramebufferAttachmentParameterivEXT(target, attachment, pname, &data);
-    return data;
+    ::glGetFloatv(pname, value);
 }
 
-PassRefPtr<CanvasIntArray> GraphicsContext3D::getFramebufferAttachmentParameteriv(unsigned long target, unsigned long attachment, unsigned long pname)
+void GraphicsContext3D::getFramebufferAttachmentParameteriv(unsigned long target, unsigned long attachment, unsigned long pname, int* value)
 {
     ensureContext(m_contextObj);
-    RefPtr<CanvasIntArray> array = CanvasIntArray::create(1);
-    GLint data;
-    ::glGetFramebufferAttachmentParameterivEXT(target, attachment, pname, &data);
-    array->set(0, static_cast<int>(data));
-    
-    return array;
+    ::glGetFramebufferAttachmentParameterivEXT(target, attachment, pname, value);
 }
 
-int GraphicsContext3D::getProgrami(CanvasProgram* program, unsigned long pname)
+void GraphicsContext3D::getIntegerv(unsigned long pname, int* value)
 {
     ensureContext(m_contextObj);
-    GLint data;
-    ::glGetProgramiv((GLuint) program->object(), pname, &data);
-    return data;
+    ::glGetIntegerv(pname, value);
 }
 
-PassRefPtr<CanvasIntArray> GraphicsContext3D::getProgramiv(CanvasProgram* program, unsigned long pname)
+void GraphicsContext3D::getProgramiv(WebGLProgram* program, unsigned long pname, int* value)
 {
     ensureContext(m_contextObj);
-    RefPtr<CanvasIntArray> array = CanvasIntArray::create(1);
-    GLint data;
-    ::glGetProgramiv((GLuint) program->object(), pname, &data);
-    array->set(0, static_cast<int>(data));
-    
-    return array;
+    ::glGetProgramiv((GLuint) program->object(), pname, value);
 }
 
-String GraphicsContext3D::getProgramInfoLog(CanvasProgram* program)
+String GraphicsContext3D::getProgramInfoLog(WebGLProgram* program)
 {
-    if (!program)
-        return String();
+    ASSERT(program);
     
     ensureContext(m_contextObj);
     GLint length;
     ::glGetProgramiv((GLuint) program->object(), GL_INFO_LOG_LENGTH, &length);
     
     GLsizei size;
-    GLchar* info = (GLchar*) malloc(length);
+    GLchar* info = (GLchar*) fastMalloc(length);
+    if (!info)
+        return "";
+
     ::glGetProgramInfoLog((GLuint) program->object(), length, &size, info);
     String s(info);
-    free(info);
+    fastFree(info);
     return s;
 }
 
-int GraphicsContext3D::getRenderbufferParameteri(unsigned long target, unsigned long pname)
+void GraphicsContext3D::getRenderbufferParameteriv(unsigned long target, unsigned long pname, int* value)
 {
     ensureContext(m_contextObj);
-    GLint data;
-    ::glGetBufferParameteriv(target, pname, &data);
-    return data;
+    ::glGetRenderbufferParameterivEXT(target, pname, value);
 }
 
-PassRefPtr<CanvasIntArray> GraphicsContext3D::getRenderbufferParameteriv(unsigned long target, unsigned long pname)
+void GraphicsContext3D::getShaderiv(WebGLShader* shader, unsigned long pname, int* value)
 {
-    ensureContext(m_contextObj);
-    RefPtr<CanvasIntArray> array = CanvasIntArray::create(1);
-    GLint data;
-    ::glGetBufferParameteriv(target, pname, &data);
-    array->set(0, static_cast<int>(data));
-    
-    return array;
-}
-
-int GraphicsContext3D::getShaderi(CanvasShader* shader, unsigned long pname)
-{
-    if (!shader)
-        return 0;
+    ASSERT(shader);
     
     ensureContext(m_contextObj);
-    GLint data;
-    ::glGetShaderiv((GLuint) shader->object(), pname, &data);
-    return data;
+    ::glGetShaderiv((GLuint) shader->object(), pname, value);
 }
 
-PassRefPtr<CanvasIntArray> GraphicsContext3D::getShaderiv(CanvasShader* shader, unsigned long pname)
+String GraphicsContext3D::getShaderInfoLog(WebGLShader* shader)
 {
-    if (!shader)
-        return 0;
-    
-    ensureContext(m_contextObj);
-    RefPtr<CanvasIntArray> array = CanvasIntArray::create(1);
-    GLint data;
-    ::glGetShaderiv((GLuint) shader->object(), pname, &data);
-    array->set(0, static_cast<int>(data));
-    
-    return array;
-}
-
-String GraphicsContext3D::getShaderInfoLog(CanvasShader* shader)
-{
-    if (!shader)
-        return String();
+    ASSERT(shader);
     
     ensureContext(m_contextObj);
     GLint length;
     ::glGetShaderiv((GLuint) shader->object(), GL_INFO_LOG_LENGTH, &length);
     
     GLsizei size;
-    GLchar* info = (GLchar*) malloc(length);
+    GLchar* info = (GLchar*) fastMalloc(length);
+    if (!info)
+        return "";
+        
     ::glGetShaderInfoLog((GLuint) shader->object(), length, &size, info);
     String s(info);
-    free(info);
+    fastFree(info);
     return s;
 }
 
-String GraphicsContext3D::getShaderSource(CanvasShader* shader)
+String GraphicsContext3D::getShaderSource(WebGLShader* shader)
 {
-    if (!shader)
-        return String();
-    
+    ASSERT(shader);
+
     ensureContext(m_contextObj);
     GLint length;
     ::glGetShaderiv((GLuint) shader->object(), GL_SHADER_SOURCE_LENGTH, &length);
     
     GLsizei size;
-    GLchar* info = (GLchar*) malloc(length);
+    GLchar* info = (GLchar*) fastMalloc(length);
+    if (!info)
+        return "";
+        
     ::glGetShaderSource((GLuint) shader->object(), length, &size, info);
     String s(info);
-    free(info);
+    fastFree(info);
     return s;
 }
 
 
-float GraphicsContext3D::getTexParameterf(unsigned long target, unsigned long pname)
+void GraphicsContext3D::getTexParameterfv(unsigned long target, unsigned long pname, float* value)
 {
     ensureContext(m_contextObj);
-    GLfloat data;
-    ::glGetTexParameterfv(target, pname, &data);
-    return data;
+    ::glGetTexParameterfv(target, pname, value);
 }
 
-PassRefPtr<CanvasFloatArray> GraphicsContext3D::getTexParameterfv(unsigned long target, unsigned long pname)
+void GraphicsContext3D::getTexParameteriv(unsigned long target, unsigned long pname, int* value)
 {
     ensureContext(m_contextObj);
-    RefPtr<CanvasFloatArray> array = CanvasFloatArray::create(1);
-    GLfloat data;
-    ::glGetTexParameterfv(target, pname, &data);
-    array->set(0, static_cast<float>(data));
-    
-    return array;
+    ::glGetTexParameteriv(target, pname, value);
 }
 
-int GraphicsContext3D::getTexParameteri(unsigned long target, unsigned long pname)
+void GraphicsContext3D::getUniformfv(WebGLProgram* program, long location, float* value)
 {
     ensureContext(m_contextObj);
-    GLint data;
-    ::glGetTexParameteriv(target, pname, &data);
-    return data;
+    ::glGetUniformfv((GLuint) program->object(), location, value);
 }
 
-PassRefPtr<CanvasIntArray> GraphicsContext3D::getTexParameteriv(unsigned long target, unsigned long pname)
+void GraphicsContext3D::getUniformiv(WebGLProgram* program, long location, int* value)
 {
     ensureContext(m_contextObj);
-    RefPtr<CanvasIntArray> array = CanvasIntArray::create(1);
-    GLint data;
-    ::glGetTexParameteriv(target, pname, &data);
-    array->set(0, static_cast<int>(data));
-    
-    return array;
+    ::glGetUniformiv((GLuint) program->object(), location, value);
 }
 
-float GraphicsContext3D::getUniformf(CanvasProgram* program, long location)
+long GraphicsContext3D::getUniformLocation(WebGLProgram* program, const String& name)
 {
-    // FIXME: We need to query glGetUniformLocation to determine the size needed
-    UNUSED_PARAM(program);
-    UNUSED_PARAM(location);
-    notImplemented();
-    return 0;
-}
-
-PassRefPtr<CanvasFloatArray> GraphicsContext3D::getUniformfv(CanvasProgram* program, long location)
-{
-    // FIXME: We need to query glGetUniformLocation to determine the size needed
-    UNUSED_PARAM(program);
-    UNUSED_PARAM(location);
-    notImplemented();
-    return 0;
-}
-
-int GraphicsContext3D::getUniformi(CanvasProgram* program, long location)
-{
-    // FIXME: We need to query glGetUniformLocation to determine the size needed
-    UNUSED_PARAM(program);
-    UNUSED_PARAM(location);
-    notImplemented();
-    return 0;
-}
-
-PassRefPtr<CanvasIntArray> GraphicsContext3D::getUniformiv(CanvasProgram* program, long location)
-{
-    // FIXME: We need to query glGetUniformLocation to determine the size needed
-    UNUSED_PARAM(program);
-    UNUSED_PARAM(location);
-    notImplemented();
-    return 0;
-}
-
-long GraphicsContext3D::getUniformLocation(CanvasProgram* program, const String& name)
-{
-    if (!program)
-        return -1;
+    ASSERT(program);
     
     ensureContext(m_contextObj);
     return ::glGetUniformLocation((GLuint) program->object(), name.utf8().data());
 }
 
-static int sizeForGetVertexAttribParam(unsigned long pname)
-{
-    switch(pname) {
-        case GL_VERTEX_ATTRIB_ARRAY_BUFFER_BINDING:     return 1; // (* actually a CanvasBuffer*)
-        case GL_VERTEX_ATTRIB_ARRAY_ENABLED:            return 1;
-        case GL_VERTEX_ATTRIB_ARRAY_SIZE:               return 1;
-        case GL_VERTEX_ATTRIB_ARRAY_STRIDE:             return 1;
-        case GL_VERTEX_ATTRIB_ARRAY_TYPE:               return 1;
-        case GL_VERTEX_ATTRIB_ARRAY_NORMALIZED:         return 1;
-        case GL_CURRENT_VERTEX_ATTRIB:                  return 4;
-    }
-    
-    return -1;
-}
-
-float GraphicsContext3D::getVertexAttribf(unsigned long index, unsigned long pname)
+void GraphicsContext3D::getVertexAttribfv(unsigned long index, unsigned long pname, float* value)
 {
     ensureContext(m_contextObj);
-    GLfloat buf[4];
-    ::glGetVertexAttribfv(index, pname, buf);
-    return buf[0];
+    ::glGetVertexAttribfv(index, pname, value);
 }
 
-PassRefPtr<CanvasFloatArray> GraphicsContext3D::getVertexAttribfv(unsigned long index, unsigned long pname)
-{
-    int size = sizeForGetVertexAttribParam(pname);
-    if (size < 1) 
-        return 0;
-    
-    ensureContext(m_contextObj);
-    
-    RefPtr<CanvasFloatArray> array = CanvasFloatArray::create(size);
-    GLfloat buf[4];
-    ::glGetVertexAttribfv(index, pname, buf);
-            
-    for (int i = 0; i < size; ++i)
-        array->set(i, static_cast<float>(buf[i]));
-    
-    return array;
-}
-
-int GraphicsContext3D::getVertexAttribi(unsigned long index, unsigned long pname)
+void GraphicsContext3D::getVertexAttribiv(unsigned long index, unsigned long pname, int* value)
 {
     ensureContext(m_contextObj);
-    GLint buf[4];
-    ::glGetVertexAttribiv(index, pname, buf);
-    return buf[0];
-}
-
-PassRefPtr<CanvasIntArray> GraphicsContext3D::getVertexAttribiv(unsigned long index, unsigned long pname)
-{
-    int size = sizeForGetVertexAttribParam(pname);
-    if (size < 1) 
-        return 0;
-    
-    ensureContext(m_contextObj);
-    
-    RefPtr<CanvasIntArray> array = CanvasIntArray::create(size);
-    GLint buf[4];
-    ::glGetVertexAttribiv(index, pname, buf);
-            
-    for (int i = 0; i < size; ++i)
-        array->set(i, static_cast<int>(buf[i]));
-    
-    return array;
+    ::glGetVertexAttribiv(index, pname, value);
 }
 
 long GraphicsContext3D::getVertexAttribOffset(unsigned long index, unsigned long pname)
@@ -1552,18 +1128,21 @@ static void imageToTexture(Image* image, unsigned target, unsigned level)
     size_t textureWidth = CGImageGetWidth(textureImage);
     size_t textureHeight = CGImageGetHeight(textureImage);
     
-    GLubyte* textureData = (GLubyte*) malloc(textureWidth * textureHeight * 4);
+    GLubyte* textureData = (GLubyte*) fastMalloc(textureWidth * textureHeight * 4);
+    if (!textureData)
+        return;
+        
     CGContextRef textureContext = CGBitmapContextCreate(textureData, textureWidth, textureHeight, 8, textureWidth * 4, 
                                                         CGImageGetColorSpace(textureImage), kCGImageAlphaPremultipliedLast);
-    
+    CGContextSetBlendMode(textureContext, kCGBlendModeCopy);
     CGContextDrawImage(textureContext, CGRectMake(0, 0, (CGFloat)textureWidth, (CGFloat)textureHeight), textureImage);
     CGContextRelease(textureContext);
     
     ::glTexImage2D(target, level, GL_RGBA, textureWidth, textureHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, textureData);
-    free(textureData);
+    fastFree(textureData);
 }
 
-int GraphicsContext3D::texImage2D(unsigned target, unsigned level, unsigned internalformat, unsigned width, unsigned height, unsigned border, unsigned format, unsigned type, CanvasArray* pixels)
+int GraphicsContext3D::texImage2D(unsigned target, unsigned level, unsigned internalformat, unsigned width, unsigned height, unsigned border, unsigned format, unsigned type, WebGLArray* pixels)
 {
     // FIXME: Need to do bounds checking on the buffer here.
     ::glTexImage2D(target, level, internalformat, width, height, border, format, type, pixels->baseAddress());
@@ -1585,39 +1164,15 @@ int GraphicsContext3D::texImage2D(unsigned target, unsigned level, unsigned inte
     return -1;
 }
 
-int GraphicsContext3D::texImage2D(unsigned target, unsigned level, HTMLImageElement* image, bool flipY, bool premultiplyAlpha)
+int GraphicsContext3D::texImage2D(unsigned target, unsigned level, Image* image, bool flipY, bool premultiplyAlpha)
 {
     // FIXME: need to support flipY and premultiplyAlpha
     UNUSED_PARAM(flipY);
     UNUSED_PARAM(premultiplyAlpha);
-    
-    if (!image)
-        return -1;
+    ASSERT(image);
     
     ensureContext(m_contextObj);
-    CachedImage* cachedImage = image->cachedImage();
-    if (!cachedImage)
-        return -1;
-    
-    imageToTexture(cachedImage->image(), target, level);
-    return 0;
-}
-
-int GraphicsContext3D::texImage2D(unsigned target, unsigned level, HTMLCanvasElement* canvas, bool flipY, bool premultiplyAlpha)
-{
-    // FIXME: need to support flipY and premultiplyAlpha
-    UNUSED_PARAM(flipY);
-    UNUSED_PARAM(premultiplyAlpha);
-    
-    if (!canvas)
-        return -1;
-    
-    ensureContext(m_contextObj);
-    ImageBuffer* buffer = canvas->buffer();
-    if (!buffer)
-        return -1;
-    
-    imageToTexture(buffer->image(), target, level);
+    imageToTexture(image, target, level);
     return 0;
 }
 
@@ -1634,7 +1189,7 @@ int GraphicsContext3D::texImage2D(unsigned target, unsigned level, HTMLVideoElem
     return -1;
 }
 
-int GraphicsContext3D::texSubImage2D(unsigned target, unsigned level, unsigned xoff, unsigned yoff, unsigned width, unsigned height, unsigned format, unsigned type, CanvasArray* pixels)
+int GraphicsContext3D::texSubImage2D(unsigned target, unsigned level, unsigned xoff, unsigned yoff, unsigned width, unsigned height, unsigned format, unsigned type, WebGLArray* pixels)
 {
     // FIXME: we will need to deal with PixelStore params when dealing with image buffers that differ from the subimage size
     UNUSED_PARAM(target);
@@ -1664,7 +1219,7 @@ int GraphicsContext3D::texSubImage2D(unsigned target, unsigned level, unsigned x
     return -1;
 }
 
-int GraphicsContext3D::texSubImage2D(unsigned target, unsigned level, unsigned xoff, unsigned yoff, unsigned width, unsigned height, HTMLImageElement* image, bool flipY, bool premultiplyAlpha)
+int GraphicsContext3D::texSubImage2D(unsigned target, unsigned level, unsigned xoff, unsigned yoff, unsigned width, unsigned height, Image* image, bool flipY, bool premultiplyAlpha)
 {
     // FIXME: we will need to deal with PixelStore params when dealing with image buffers that differ from the subimage size
     UNUSED_PARAM(target);
@@ -1674,23 +1229,6 @@ int GraphicsContext3D::texSubImage2D(unsigned target, unsigned level, unsigned x
     UNUSED_PARAM(width);
     UNUSED_PARAM(height);
     UNUSED_PARAM(image);
-
-    // FIXME: need to support flipY and premultiplyAlpha    
-    UNUSED_PARAM(flipY);
-    UNUSED_PARAM(premultiplyAlpha);
-    return -1;
-}
-
-int GraphicsContext3D::texSubImage2D(unsigned target, unsigned level, unsigned xoff, unsigned yoff, unsigned width, unsigned height, HTMLCanvasElement* canvas, bool flipY, bool premultiplyAlpha)
-{
-    // FIXME: we will need to deal with PixelStore params when dealing with image buffers that differ from the subimage size
-    UNUSED_PARAM(target);
-    UNUSED_PARAM(level);
-    UNUSED_PARAM(xoff);
-    UNUSED_PARAM(yoff);
-    UNUSED_PARAM(width);
-    UNUSED_PARAM(height);
-    UNUSED_PARAM(canvas);
 
     // FIXME: need to support flipY and premultiplyAlpha    
     UNUSED_PARAM(flipY);
@@ -1745,7 +1283,7 @@ unsigned GraphicsContext3D::createRenderbuffer()
     return o;
 }
 
-unsigned GraphicsContext3D::createShader(ShaderType type)
+unsigned GraphicsContext3D::createShader(unsigned long type)
 {
     ensureContext(m_contextObj);
     return glCreateShader((type == FRAGMENT_SHADER) ? GL_FRAGMENT_SHADER : GL_VERTEX_SHADER);
@@ -1815,6 +1353,11 @@ int GraphicsContext3D::sizeInBytes(int type)
         default:
             return 0;
     }
+}
+
+void GraphicsContext3D::synthesizeGLError(unsigned long error)
+{
+    m_syntheticErrors.add(error);
 }
 
 }

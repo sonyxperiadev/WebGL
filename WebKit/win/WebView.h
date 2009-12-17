@@ -34,6 +34,8 @@
 #include <WebCore/IntRect.h>
 #include <WebCore/Timer.h>
 #include <WebCore/WindowMessageListener.h>
+#include <WebCore/WKCACFLayer.h>
+#include <WebCore/WKCACFLayerRenderer.h>
 #include <wtf/HashSet.h>
 #include <wtf/OwnPtr.h>
 
@@ -740,17 +742,17 @@ public:
     virtual HRESULT STDMETHODCALLTYPE setCanStartPlugins(
         /* [in] */ BOOL canStartPlugins);
 
-    virtual HRESULT STDMETHODCALLTYPE addUserScriptToGroup(BSTR groupName, unsigned worldID, BSTR source, BSTR url,
+    virtual HRESULT STDMETHODCALLTYPE addUserScriptToGroup(BSTR groupName, IWebScriptWorld*, BSTR source, BSTR url,
                                                            unsigned whitelistCount, BSTR* whitelist, 
                                                            unsigned blacklistCount, BSTR* blacklist,
                                                            WebUserScriptInjectionTime);
-    virtual HRESULT STDMETHODCALLTYPE addUserStyleSheetToGroup(BSTR groupName, unsigned worldID, BSTR source, BSTR url,
+    virtual HRESULT STDMETHODCALLTYPE addUserStyleSheetToGroup(BSTR groupName, IWebScriptWorld*, BSTR source, BSTR url,
                                                                unsigned whitelistCount, BSTR* whitelist, 
                                                                unsigned blacklistCount, BSTR* blacklist);
-    virtual HRESULT STDMETHODCALLTYPE removeUserScriptFromGroup(BSTR groupName, unsigned worldID, BSTR url);
-    virtual HRESULT STDMETHODCALLTYPE removeUserStyleSheetFromGroup(BSTR groupName, unsigned worldID, BSTR url);
-    virtual HRESULT STDMETHODCALLTYPE removeUserScriptsFromGroup(BSTR groupName, unsigned worldID);
-    virtual HRESULT STDMETHODCALLTYPE removeUserStyleSheetsFromGroup(BSTR groupName, unsigned worldID);
+    virtual HRESULT STDMETHODCALLTYPE removeUserScriptFromGroup(BSTR groupName, IWebScriptWorld*, BSTR url);
+    virtual HRESULT STDMETHODCALLTYPE removeUserStyleSheetFromGroup(BSTR groupName, IWebScriptWorld*, BSTR url);
+    virtual HRESULT STDMETHODCALLTYPE removeUserScriptsFromGroup(BSTR groupName, IWebScriptWorld*);
+    virtual HRESULT STDMETHODCALLTYPE removeUserStyleSheetsFromGroup(BSTR groupName, IWebScriptWorld*);
     virtual HRESULT STDMETHODCALLTYPE removeAllUserContentFromGroup(BSTR groupName);
 
     virtual HRESULT STDMETHODCALLTYPE setPluginHalterDelegate(IWebPluginHalterDelegate*);
@@ -861,6 +863,11 @@ public:
 
     void downloadURL(const WebCore::KURL&);
 
+#if USE(ACCELERATED_COMPOSITING)
+    void setRootLayerNeedsDisplay() { if (m_layerRenderer) m_layerRenderer->setNeedsDisplay(); }
+    void setRootChildLayer(WebCore::PlatformLayer* layer);
+#endif
+
 private:
     void setZoomMultiplier(float multiplier, bool isTextOnly);
     float zoomMultiplier(bool isTextOnly);
@@ -885,6 +892,9 @@ private:
     DWORD m_lastDropEffect;
 
 protected:
+    static bool registerWebViewWindowClass();
+    static LRESULT CALLBACK WebViewWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
+
     HIMC getIMMContext();
     void releaseIMMContext(HIMC);
     static bool allowSiteSpecificHacks() { return s_allowSiteSpecificHacks; } 
@@ -970,6 +980,17 @@ protected:
     long m_lastPanY;
     long m_xOverpan;
     long m_yOverpan;
+
+#if USE(ACCELERATED_COMPOSITING)
+    bool isAcceleratedCompositing() const { return m_isAcceleratedCompositing; }
+    void setAcceleratedCompositing(bool);
+    void updateRootLayerContents();
+    void resizeLayerRenderer() { m_layerRenderer->resize(); }
+    void layerRendererBecameVisible() { m_layerRenderer->createRenderer(); }
+
+    OwnPtr<WebCore::WKCACFLayerRenderer> m_layerRenderer;
+    bool m_isAcceleratedCompositing;
+#endif
 };
 
 #endif

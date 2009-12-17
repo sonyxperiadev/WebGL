@@ -271,7 +271,9 @@ NSImage* Frame::imageFromRect(NSRect rect) const
     if (![view respondsToSelector:@selector(drawSingleRect:)])
         return nil;
     
-    NSImage* resultImage;
+    PaintBehavior oldPaintBehavior = m_view->paintBehavior();
+    m_view->setPaintBehavior(oldPaintBehavior | PaintBehaviorFlattenCompositingLayers);
+
     BEGIN_BLOCK_OBJC_EXCEPTIONS;
     
     NSRect bounds = [view bounds];
@@ -282,7 +284,7 @@ NSImage* Frame::imageFromRect(NSRect rect) const
     rect.size.width = roundf(rect.size.width);
     rect = [view convertRect:rect fromView:nil];
     
-    resultImage = [[[NSImage alloc] initWithSize:rect.size] autorelease];
+    NSImage* resultImage = [[[NSImage alloc] initWithSize:rect.size] autorelease];
 
     if (rect.size.width != 0 && rect.size.height != 0) {
         [resultImage setFlipped:YES];
@@ -301,19 +303,21 @@ NSImage* Frame::imageFromRect(NSRect rect) const
         [resultImage setFlipped:NO];
     }
 
+    m_view->setPaintBehavior(oldPaintBehavior);
     return resultImage;
 
     END_BLOCK_OBJC_EXCEPTIONS;
     
+    m_view->setPaintBehavior(oldPaintBehavior);
     return nil;
 }
 
 NSImage* Frame::selectionImage(bool forceBlackText) const
 {
-    m_view->setPaintRestriction(forceBlackText ? PaintRestrictionSelectionOnlyBlackText : PaintRestrictionSelectionOnly);
+    m_view->setPaintBehavior(PaintBehaviorSelectionOnly | (forceBlackText ? PaintBehaviorForceBlackText : 0));
     m_doc->updateLayout();
     NSImage* result = imageFromRect(selectionBounds());
-    m_view->setPaintRestriction(PaintRestrictionNone);
+    m_view->setPaintBehavior(PaintBehaviorNormal);
     return result;
 }
 
@@ -457,33 +461,6 @@ NSWritingDirection Frame::baseWritingDirectionForSelectionStart() const
     }
 
     return result;
-}
-
-const short enableRomanKeyboardsOnly = -23;
-void Frame::setUseSecureKeyboardEntry(bool enable)
-{
-    if (enable == IsSecureEventInputEnabled())
-        return;
-    if (enable) {
-        EnableSecureEventInput();
-#ifdef BUILDING_ON_TIGER
-        KeyScript(enableRomanKeyboardsOnly);
-#else
-        // WebKit substitutes nil for input context when in password field, which corresponds to null TSMDocument. So, there is
-        // no need to call TSMGetActiveDocument(), which may return an incorrect result when selection hasn't been yet updated
-        // after focusing a node.
-        CFArrayRef inputSources = TISCreateASCIICapableInputSourceList();
-        TSMSetDocumentProperty(0, kTSMDocumentEnabledInputSourcesPropertyTag, sizeof(CFArrayRef), &inputSources);
-        CFRelease(inputSources);
-#endif
-    } else {
-        DisableSecureEventInput();
-#ifdef BUILDING_ON_TIGER
-        KeyScript(smKeyEnableKybds);
-#else
-        TSMRemoveDocumentProperty(0, kTSMDocumentEnabledInputSourcesPropertyTag);
-#endif
-    }
 }
 
 #if ENABLE(DASHBOARD_SUPPORT)

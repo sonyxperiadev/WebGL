@@ -39,6 +39,7 @@ WebInspector.ResourcesPanel = function()
     this.viewsContainerElement.id = "resource-views";
     this.element.appendChild(this.viewsContainerElement);
 
+    this.createFilterPanel();
     this.createInterface();
 
     this._createStatusbarButtons();
@@ -348,7 +349,7 @@ WebInspector.ResourcesPanel.prototype = {
 
         this.summaryBar.reset();
 
-        if (InspectorController.resourceTrackingEnabled()) {
+        if (InspectorBackend.resourceTrackingEnabled()) {
             this.enableToggleButton.title = WebInspector.UIString("Resource tracking enabled. Click to disable.");
             this.enableToggleButton.toggled = true;
             this.largerResourcesButton.visible = true;
@@ -564,8 +565,8 @@ WebInspector.ResourcesPanel.prototype = {
             loadDividerPadding.style.left = percent + "%";
             loadDividerPadding.title = WebInspector.UIString("Load event fired");
             loadDividerPadding.appendChild(loadDivider);
-            
-            this.eventDividersElement.appendChild(loadDividerPadding);
+
+            this.addEventDivider(loadDividerPadding);
         }
         
         if (this.mainResourceDOMContentTime !== -1) {
@@ -579,8 +580,8 @@ WebInspector.ResourcesPanel.prototype = {
             domContentDividerPadding.style.left = percent + "%";
             domContentDividerPadding.title = WebInspector.UIString("DOMContent event fired");
             domContentDividerPadding.appendChild(domContentDivider);
-            
-            this.eventDividersElement.appendChild(domContentDividerPadding);
+
+            this.addEventDivider(domContentDividerPadding);
         }
     },
 
@@ -615,7 +616,7 @@ WebInspector.ResourcesPanel.prototype = {
 
         this.itemsTreeElement.smallChildren = !this.itemsTreeElement.smallChildren;
         Preferences.resourcesLargeRows = !Preferences.resourcesLargeRows;
-        InspectorController.setSetting("resources-large-rows", Preferences.resourcesLargeRows);
+        InspectorFrontendHost.setSetting("resources-large-rows", Preferences.resourcesLargeRows);
 
         if (this.itemsTreeElement.smallChildren) {
             this.itemsGraphsElement.addStyleClass("small");
@@ -674,27 +675,27 @@ WebInspector.ResourcesPanel.prototype = {
 
     _enableResourceTracking: function()
     {
-        if (InspectorController.resourceTrackingEnabled())
+        if (InspectorBackend.resourceTrackingEnabled())
             return;
         this._toggleResourceTracking(this.panelEnablerView.alwaysEnabled);
     },
 
     _toggleResourceTracking: function(optionalAlways)
     {
-        if (InspectorController.resourceTrackingEnabled()) {
+        if (InspectorBackend.resourceTrackingEnabled()) {
             this.largerResourcesButton.visible = false;
             this.sortingSelectElement.visible = false;
-            InspectorController.disableResourceTracking(true);
+            InspectorBackend.disableResourceTracking(true);
         } else {
             this.largerResourcesButton.visible = true;
             this.sortingSelectElement.visible = true;
-            InspectorController.enableResourceTracking(!!optionalAlways);
+            InspectorBackend.enableResourceTracking(!!optionalAlways);
         }
     },
 
     get _resources()
     {
-        return this._items;
+        return this.items;
     }
 }
 
@@ -958,6 +959,7 @@ WebInspector.ResourceSidebarTreeElement.prototype = {
         // FIXME: should actually add handler to parent, to be resolved via
         // https://bugs.webkit.org/show_bug.cgi?id=30227
         this._listItemNode.addEventListener("dragstart", this.ondragstart.bind(this), false);
+        this.updateErrorsAndWarnings();
     },
 
     onselect: function()
@@ -965,7 +967,7 @@ WebInspector.ResourceSidebarTreeElement.prototype = {
         WebInspector.panels.resources.showResource(this.resource);
     },
     
-    ondblclick: function(treeElement, event)
+    ondblclick: function(event)
     {
         InjectedScriptAccess.openInInspectedWindow(this.resource.url, function() {});
     },
@@ -1041,6 +1043,8 @@ WebInspector.ResourceSidebarTreeElement.prototype = {
 
             this.createIconElement();
         }
+
+        this.tooltip = this.resource.url;
     },
 
     resetBubble: function()

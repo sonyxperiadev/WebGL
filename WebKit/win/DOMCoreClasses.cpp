@@ -150,10 +150,16 @@ HRESULT STDMETHODCALLTYPE DOMNode::parentNode(
 }
 
 HRESULT STDMETHODCALLTYPE DOMNode::childNodes( 
-    /* [retval][out] */ IDOMNodeList** /*result*/)
+    /* [retval][out] */ IDOMNodeList** result)
 {
-    ASSERT_NOT_REACHED();
-    return E_NOTIMPL;
+    if (!m_node)
+        return E_FAIL;
+
+    if (!result)
+        return E_POINTER;
+
+    *result = DOMNodeList::createInstance(m_node->childNodes().get());
+    return *result ? S_OK : E_FAIL;
 }
 
 HRESULT STDMETHODCALLTYPE DOMNode::firstChild( 
@@ -828,10 +834,16 @@ HRESULT STDMETHODCALLTYPE DOMElement::lineBoxRects(
 // IDOMElement ----------------------------------------------------------------
 
 HRESULT STDMETHODCALLTYPE DOMElement::tagName( 
-        /* [retval][out] */ BSTR* /*result*/)
+        /* [retval][out] */ BSTR* result)
 {
-    ASSERT_NOT_REACHED();
-    return E_NOTIMPL;
+    if (!m_element)
+        return E_FAIL;
+
+    if (!result)
+        return E_POINTER;
+
+    *result = BString(m_element->tagName()).release();
+    return S_OK;
 }
     
 HRESULT STDMETHODCALLTYPE DOMElement::getAttribute( 

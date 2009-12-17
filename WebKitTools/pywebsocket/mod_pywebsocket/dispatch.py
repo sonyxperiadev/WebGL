@@ -62,7 +62,7 @@ def _normalize_path(path):
     """
 
     path = path.replace('\\', os.path.sep)
-    path = os.path.abspath(path)
+    path = os.path.realpath(path)
     path = path.replace('\\', '/')
     return path
 
@@ -136,7 +136,8 @@ class Dispatcher(object):
         self._source_warnings = []
         if scan_dir is None:
             scan_dir = root_dir
-        if not os.path.abspath(scan_dir).startswith(os.path.abspath(root_dir)):
+        if not os.path.realpath(scan_dir).startswith(
+                os.path.realpath(root_dir)):
             raise DispatchError('scan_dir:%s must be a directory under '
                                 'root_dir:%s.' % (scan_dir, root_dir))
         self._source_files_in_dir(root_dir, scan_dir)
@@ -159,9 +160,13 @@ class Dispatcher(object):
         do_extra_handshake_, unused_transfer_data = self._handler(request)
         try:
             do_extra_handshake_(request)
-        except Exception:
-            raise DispatchError('%s raised exception: %s' %
-                    (_DO_EXTRA_HANDSHAKE_HANDLER_NAME, util.get_stack_trace()))
+        except Exception, e:
+            util.prepend_message_to_exception(
+                    '%s raised exception for %s: ' % (
+                            _DO_EXTRA_HANDSHAKE_HANDLER_NAME,
+                            request.ws_resource),
+                    e)
+            raise
 
     def transfer_data(self, request):
         """Let a handler transfer_data with a Web Socket client.
@@ -176,19 +181,23 @@ class Dispatcher(object):
         unused_do_extra_handshake, transfer_data_ = self._handler(request)
         try:
             transfer_data_(request)
-        except Exception:
-            raise DispatchError('%s raised exception: %s' %
-                    (_TRANSFER_DATA_HANDLER_NAME, util.get_stack_trace()))
+        except Exception, e:
+            util.prepend_message_to_exception(
+                    '%s raised exception for %s: ' % (
+                            _TRANSFER_DATA_HANDLER_NAME, request.ws_resource),
+                    e)
+            raise
 
     def _handler(self, request):
         try:
-            return self._handlers[request.ws_resource]
+            ws_resource_path = request.ws_resource.split('?', 1)[0]
+            return self._handlers[ws_resource_path]
         except KeyError:
             raise DispatchError('No handler for: %r' % request.ws_resource)
 
     def _source_files_in_dir(self, root_dir, scan_dir):
         """Source all the handler source files in the scan_dir directory.
-        
+
         The resource path is determined relative to root_dir.
         """
 

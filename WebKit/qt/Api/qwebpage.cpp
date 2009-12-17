@@ -78,6 +78,7 @@
 #include "Cache.h"
 #include "runtime/InitializeThreading.h"
 #include "PageGroup.h"
+#include "QWebPageClient.h"
 
 #include <QApplication>
 #include <QBasicTimer>
@@ -101,11 +102,10 @@
 #include <QStyle>
 #include <QSysInfo>
 #include <QTextCharFormat>
-#if QT_VERSION >= 0x040400
 #include <QNetworkAccessManager>
 #include <QNetworkRequest>
-#else
-#include "qwebnetworkinterface.h"
+#if defined(Q_WS_X11)
+#include <QX11Info>
 #endif
 
 using namespace WebCore;
@@ -136,6 +136,102 @@ void QWEBKIT_EXPORT qt_webpage_setGroupName(QWebPage* page, const QString& group
 QString QWEBKIT_EXPORT qt_webpage_groupName(QWebPage* page)
 {
     return page->handle()->page->groupName();
+}
+
+class QWebPageWidgetClient : public QWebPageClient {
+public:
+    QWebPageWidgetClient(QWidget* view)
+        : view(view)
+    {
+        Q_ASSERT(view);
+    }
+
+    virtual void scroll(int dx, int dy, const QRect&);
+    virtual void update(const QRect& dirtyRect);
+    virtual void setInputMethodEnabled(bool enable);
+    virtual bool inputMethodEnabled() const;
+#if QT_VERSION >= 0x040600
+    virtual void setInputMethodHint(Qt::InputMethodHint hint, bool enable);
+#endif
+
+#ifndef QT_NO_CURSOR
+    virtual QCursor cursor() const;
+    virtual void updateCursor(const QCursor& cursor);
+#endif
+
+    virtual QPalette palette() const;
+    virtual int screenNumber() const;
+    virtual QWidget* ownerWidget() const;
+
+    virtual QObject* pluginParent() const;
+
+    QWidget* view;
+};
+
+void QWebPageWidgetClient::scroll(int dx, int dy, const QRect& rectToScroll)
+{
+    view->scroll(qreal(dx), qreal(dy), rectToScroll);
+}
+
+void QWebPageWidgetClient::update(const QRect & dirtyRect)
+{
+    view->update(dirtyRect);
+}
+
+void QWebPageWidgetClient::setInputMethodEnabled(bool enable)
+{
+    view->setAttribute(Qt::WA_InputMethodEnabled, enable);
+}
+
+bool QWebPageWidgetClient::inputMethodEnabled() const
+{
+    return view->testAttribute(Qt::WA_InputMethodEnabled);
+}
+
+#if QT_VERSION >= 0x040600
+void QWebPageWidgetClient::setInputMethodHint(Qt::InputMethodHint hint, bool enable)
+{
+    if (enable)
+        view->setInputMethodHints(view->inputMethodHints() | hint);
+    else
+        view->setInputMethodHints(view->inputMethodHints() & ~hint);
+}
+#endif
+#ifndef QT_NO_CURSOR
+QCursor QWebPageWidgetClient::cursor() const
+{
+    return view->cursor();
+}
+
+void QWebPageWidgetClient::updateCursor(const QCursor& cursor)
+{
+    view->setCursor(cursor);
+}
+#endif
+
+QPalette QWebPageWidgetClient::palette() const
+{
+    return view->palette();
+}
+
+int QWebPageWidgetClient::screenNumber() const
+{
+#if defined(Q_WS_X11)
+    if (view)
+        return view->x11Info().screen();
+#endif
+
+    return 0;
+}
+
+QWidget* QWebPageWidgetClient::ownerWidget() const
+{
+    return view;
+}
+
+QObject* QWebPageWidgetClient::pluginParent() const
+{
+    return view;
 }
 
 // Lookup table mapping QWebPage::WebActions to the associated Editor commands
@@ -266,11 +362,11 @@ QWebPagePrivate::QWebPagePrivate(QWebPage *qq)
 #if QT_VERSION < 0x040600
     , view(0)
 #endif
+    , clickCausedFocus(false)
+    , viewportSize(QSize(0, 0))
     , inspectorFrontend(0)
     , inspector(0)
     , inspectorIsInternalOnly(false)
-    , viewportSize(QSize(0, 0))
-    , clickCausedFocus(false)
 {
     WebCore::InitializeLoggingChannelsIfNecessary();
     JSC::initializeThreading();
@@ -288,11 +384,7 @@ QWebPagePrivate::QWebPagePrivate(QWebPage *qq)
     undoStack = 0;
 #endif
     mainFrame = 0;
-#if QT_VERSION < 0x040400
-    networkInterface = 0;
-#else
     networkManager = 0;
-#endif
     pluginFactory = 0;
     insideOpenCall = false;
     forwardUnsupportedContent = false;
@@ -321,15 +413,6 @@ QWebPagePrivate::~QWebPagePrivate()
     delete page;
 }
 
-#if QT_VERSION < 0x040400
-bool QWebPagePrivate::acceptNavigationRequest(QWebFrame *frame, const QWebNetworkRequest &request, QWebPage::NavigationType type)
-{
-    if (insideOpenCall
-        && frame == mainFrame)
-        return true;
-    return q->acceptNavigationRequest(frame, request, type);
-}
-#else
 bool QWebPagePrivate::acceptNavigationRequest(QWebFrame *frame, const QNetworkRequest &request, QWebPage::NavigationType type)
 {
     if (insideOpenCall
@@ -337,7 +420,6 @@ bool QWebPagePrivate::acceptNavigationRequest(QWebFrame *frame, const QNetworkRe
         return true;
     return q->acceptNavigationRequest(frame, request, type);
 }
-#endif
 
 void QWebPagePrivate::createMainFrame()
 {
@@ -764,13 +846,18 @@ void QWebPagePrivate::mouseReleaseEvent(QGraphicsSceneMouseEvent* ev)
 void QWebPagePrivate::handleSoftwareInputPanel(Qt::MouseButton button)
 {
 #if QT_VERSION >= QT_VERSION_CHECK(4, 6, 0)
-    if (q->view() && q->view()->testAttribute(Qt::WA_InputMethodEnabled)
+    Frame* frame = page->focusController()->focusedFrame();
+    if (!frame)
+        return;
+
+    if (client && client->inputMethodEnabled()
+        && frame->document()->focusedNode()
         && button == Qt::LeftButton && qApp->autoSipEnabled()) {
         QStyle::RequestSoftwareInputPanel behavior = QStyle::RequestSoftwareInputPanel(
-            q->view()->style()->styleHint(QStyle::SH_RequestSoftwareInputPanel));
+            client->ownerWidget()->style()->styleHint(QStyle::SH_RequestSoftwareInputPanel));
         if (!clickCausedFocus || behavior == QStyle::RSIP_OnMouseClick) {
             QEvent event(QEvent::RequestSoftwareInputPanel);
-            QApplication::sendEvent(q->view(), &event);
+            QApplication::sendEvent(client->ownerWidget(), &event);
         }
     }
 
@@ -962,11 +1049,9 @@ void QWebPagePrivate::keyReleaseEvent(QKeyEvent *ev)
 void QWebPagePrivate::focusInEvent(QFocusEvent*)
 {
     FocusController *focusController = page->focusController();
-    Frame *frame = focusController->focusedFrame();
     focusController->setActive(true);
-    if (frame)
-        focusController->setFocused(true);
-    else
+    focusController->setFocused(true);
+    if (!focusController->focusedFrame())
         focusController->setFocusedFrame(QWebFramePrivate::core(mainFrame));
 }
 
@@ -1210,16 +1295,16 @@ bool QWebPagePrivate::handleScrolling(QKeyEvent *ev, Frame *frame)
         granularity = ScrollByPage;
         direction = ScrollDown;
     } else if (ev == QKeySequence::MoveToPreviousPage
-               || (ev->key() == Qt::Key_Space) && (ev->modifiers() & Qt::ShiftModifier)) {
+               || ((ev->key() == Qt::Key_Space) && (ev->modifiers() & Qt::ShiftModifier))) {
         granularity = ScrollByPage;
         direction = ScrollUp;
     } else
 #endif // QT_NO_SHORTCUT
-    if (ev->key() == Qt::Key_Up && ev->modifiers() & Qt::ControlModifier
+    if ((ev->key() == Qt::Key_Up && ev->modifiers() & Qt::ControlModifier)
                || ev->key() == Qt::Key_Home) {
         granularity = ScrollByDocument;
         direction = ScrollUp;
-    } else if (ev->key() == Qt::Key_Down && ev->modifiers() & Qt::ControlModifier
+    } else if ((ev->key() == Qt::Key_Down && ev->modifiers() & Qt::ControlModifier)
                || ev->key() == Qt::Key_End) {
         granularity = ScrollByDocument;
         direction = ScrollDown;
@@ -1378,8 +1463,6 @@ QWebInspector* QWebPagePrivate::getOrCreateInspector()
     if (!inspector) {
         QWebInspector* insp = new QWebInspector;
         insp->setPage(q);
-        insp->connect(q, SIGNAL(webInspectorTriggered(const QWebElement&)), SLOT(show()));
-        insp->show(); // The inspector is expected to be shown on inspection
         inspectorIsInternalOnly = true;
 
         Q_ASSERT(inspector); // Associated through QWebInspector::setPage(q)
@@ -1584,7 +1667,7 @@ InspectorController* QWebPagePrivate::inspectorController()
 */
 
 /*!
-    Constructs an empty QWebView with parent \a parent.
+    Constructs an empty QWebPage with parent \a parent.
 */
 QWebPage::QWebPage(QObject *parent)
     : QObject(parent)
@@ -1607,8 +1690,14 @@ QWebPage::~QWebPage()
     FrameLoader *loader = d->mainFrame->d->frame->loader();
     if (loader)
         loader->detachFromParent();
-    if (d->inspector)
-        d->inspector->setPage(0);
+    if (d->inspector) {
+        // Since we have to delete an internal inspector,
+        // call setInspector(0) directly to prevent potential crashes
+        if (d->inspectorIsInternalOnly)
+            d->setInspector(0);
+        else
+            d->inspector->setPage(0);
+    }
     delete d;
 }
 
@@ -1672,6 +1761,15 @@ void QWebPage::setView(QWidget *view)
 {
     if (this->view() != view) {
         d->view = view;
+        if (!view) {
+            delete d->client;
+            d->client = 0;
+        } else {
+            if (!d->client) 
+                d->client = new QWebPageWidgetClient(view);
+            else
+                static_cast<QWebPageWidgetClient*>(d->client)->view = view;
+        }
         setViewportSize(view ? view->size() : QSize(0, 0));
     }
 }
@@ -1916,11 +2014,9 @@ void QWebPage::triggerAction(WebAction action, bool)
             editor->setBaseWritingDirection(RightToLeftWritingDirection);
             break;
         case InspectElement: {
-            QWebElement inspectedElement(QWebElement::enclosingElement(d->hitTestResult.d->innerNonSharedNode.get()));
-            emit webInspectorTriggered(inspectedElement);
-
             if (!d->hitTestResult.isNull()) {
                 d->getOrCreateInspector(); // Make sure the inspector is created
+                d->inspector->show(); // The inspector is expected to be shown on inspection
                 d->page->inspectorController()->inspect(d->hitTestResult.d->innerNonSharedNode.get());
             }
             break;
@@ -2019,11 +2115,7 @@ void QWebPage::setPreferredContentsSize(const QSize &size) const
 
     \sa createWindow()
 */
-#if QT_VERSION >= 0x040400
 bool QWebPage::acceptNavigationRequest(QWebFrame *frame, const QNetworkRequest &request, QWebPage::NavigationType type)
-#else
-bool QWebPage::acceptNavigationRequest(QWebFrame *frame, const QWebNetworkRequest &request, QWebPage::NavigationType type)
-#endif
 {
     Q_UNUSED(frame)
     if (type == NavigationTypeLinkClicked) {
@@ -2111,27 +2203,19 @@ QAction *QWebPage::action(WebAction action) const
 
         case Back:
             text = contextMenuItemTagGoBack();
-#if QT_VERSION >= 0x040400
             icon = style->standardIcon(QStyle::SP_ArrowBack);
-#endif
             break;
         case Forward:
             text = contextMenuItemTagGoForward();
-#if QT_VERSION >= 0x040400
             icon = style->standardIcon(QStyle::SP_ArrowForward);
-#endif
             break;
         case Stop:
             text = contextMenuItemTagStop();
-#if QT_VERSION >= 0x040400
             icon = style->standardIcon(QStyle::SP_BrowserStop);
-#endif
             break;
         case Reload:
             text = contextMenuItemTagReload();
-#if QT_VERSION >= 0x040400
             icon = style->standardIcon(QStyle::SP_BrowserReload);
-#endif
             break;
 
         case Cut:
@@ -2661,6 +2745,17 @@ void QWebPage::updatePositionDependentActions(const QPoint &pos)
     as a result of the user clicking on a "file upload" button in a HTML form where multiple
     file selection is allowed.
 
+    \omitvalue ErrorPageExtension (introduced in Qt 4.6)
+*/
+
+/*!
+    \enum QWebPage::ErrorDomain
+    \since 4.6
+    \internal
+
+    \value QtNetwork
+    \value Http
+    \value WebKit
 */
 
 /*!
@@ -2708,6 +2803,12 @@ void QWebPage::updatePositionDependentActions(const QPoint &pos)
     \a baseUrl.
 
     \sa QWebPage::ErrorPageExtensionOption, QString::toUtf8()
+*/
+
+/*!
+    \fn QWebPage::ErrorPageExtensionReturn::ErrorPageExtensionReturn()
+
+    Constructs a new error page object.
 */
 
 /*!
@@ -2844,35 +2945,6 @@ QString QWebPage::chooseFile(QWebFrame *parentFrame, const QString& suggestedFil
 #endif
 }
 
-#if QT_VERSION < 0x040400 && !defined qdoc
-
-void QWebPage::setNetworkInterface(QWebNetworkInterface *interface)
-{
-    d->networkInterface = interface;
-}
-
-QWebNetworkInterface *QWebPage::networkInterface() const
-{
-    if (d->networkInterface)
-        return d->networkInterface;
-    else
-        return QWebNetworkInterface::defaultInterface();
-}
-
-#ifndef QT_NO_NETWORKPROXY
-void QWebPage::setNetworkProxy(const QNetworkProxy& proxy)
-{
-    d->networkProxy = proxy;
-}
-
-QNetworkProxy QWebPage::networkProxy() const
-{
-    return d->networkProxy;
-}
-#endif
-
-#else
-
 /*!
     Sets the QNetworkAccessManager \a manager responsible for serving network requests for this
     QWebPage.
@@ -2905,8 +2977,6 @@ QNetworkAccessManager *QWebPage::networkAccessManager() const
     }
     return d->networkManager;
 }
-
-#endif
 
 /*!
     Sets the QWebPluginFactory \a factory responsible for creating plugins embedded into this
@@ -2955,7 +3025,7 @@ QString QWebPage::userAgentForUrl(const QUrl& url) const
     Q_UNUSED(url)
     QString ua = QLatin1String("Mozilla/5.0 ("
 
-    // Plastform
+    // Platform
 #ifdef Q_WS_MAC
     "Macintosh"
 #elif defined Q_WS_QWS
@@ -2964,19 +3034,22 @@ QString QWebPage::userAgentForUrl(const QUrl& url) const
     "Windows"
 #elif defined Q_WS_X11
     "X11"
+#elif defined Q_OS_SYMBIAN
+    "SymbianOS"
 #else
     "Unknown"
 #endif
-    "; "
+    // Placeholder for Platform Version
+    "%1; "
 
     // Placeholder for security strength (N or U)
-    "%1; "
+    "%2; "
 
     // Subplatform"
 #ifdef Q_OS_AIX
     "AIX"
 #elif defined Q_OS_WIN32
-    "%2"
+    "%3"
 #elif defined Q_OS_DARWIN
 #ifdef __i386__ || __x86_64__
     "Intel Mac OS X"
@@ -3028,6 +3101,8 @@ QString QWebPage::userAgentForUrl(const QUrl& url) const
     "Sun Solaris"
 #elif defined Q_OS_ULTRIX
     "DEC Ultrix"
+#elif defined Q_WS_S60
+    "Series60"
 #elif defined Q_OS_UNIX
     "UNIX BSD/SYSV system"
 #elif defined Q_OS_UNIXWARE
@@ -3035,7 +3110,28 @@ QString QWebPage::userAgentForUrl(const QUrl& url) const
 #else
     "Unknown"
 #endif
-    "; ");
+    // Placeholder for SubPlatform Version
+    "%4; ");
+
+    // Platform Version
+    QString osVer;
+#ifdef Q_OS_SYMBIAN
+    QSysInfo::SymbianVersion symbianVersion = QSysInfo::symbianVersion();
+    switch (symbianVersion) {
+    case QSysInfo::SV_9_2:
+        osVer = "/9.2";
+        break;
+    case QSysInfo::SV_9_3:
+        osVer = "/9.3";
+        break;
+    case QSysInfo::SV_9_4:
+        osVer = "/9.4";
+        break;
+    default: 
+        osVer = "Unknown";
+    }
+#endif
+    ua = ua.arg(osVer);
 
     QChar securityStrength(QLatin1Char('N'));
 #if !defined(QT_NO_OPENSSL)
@@ -3099,6 +3195,26 @@ QString QWebPage::userAgentForUrl(const QUrl& url) const
     ua = QString(ua).arg(ver);
 #endif
 
+    // SubPlatform Version
+    QString subPlatformVer;
+#ifdef Q_OS_SYMBIAN
+    QSysInfo::S60Version s60Version = QSysInfo::s60Version();
+    switch (s60Version) {
+    case QSysInfo::SV_S60_3_1:
+        subPlatformVer = "/3.1";
+        break;
+    case QSysInfo::SV_S60_3_2:
+        subPlatformVer = "/3.2";
+        break;
+    case QSysInfo::SV_S60_5_0:
+        subPlatformVer = "/5.0";
+        break;
+    default: 
+        subPlatformVer = " Unknown";
+    }
+#endif
+    ua = ua.arg(subPlatformVer);
+
     // Language
     QLocale locale;
     if (view())
@@ -3116,11 +3232,9 @@ QString QWebPage::userAgentForUrl(const QUrl& url) const
     QString appName = QCoreApplication::applicationName();
     if (!appName.isEmpty()) {
         ua.append(appName);
-#if QT_VERSION >= 0x040400
         QString appVer = QCoreApplication::applicationVersion();
         if (!appVer.isEmpty())
             ua.append(QLatin1Char('/') + appVer);
-#endif
     } else {
         // Qt version
         ua.append(QLatin1String("Qt/"));
@@ -3321,24 +3435,6 @@ quint64 QWebPage::bytesReceived() const
 */
 
 /*!
-    \fn void QWebPage::webInspectorTriggered(const QWebElement& inspectedElement);
-    \since 4.6
-
-    This signal is emitted when the user triggered an inspection through the
-    context menu. If a QWebInspector is associated to this page, it should be
-    visible to the user after this signal has been emitted.
-
-    If still no QWebInspector is associated to this QWebPage after the emission
-    of this signal, a privately owned inspector will be shown to the user.
-
-    \note \a inspectedElement contains the QWebElement under the context menu.
-    It is not garanteed to be the same as the focused element in the web
-    inspector.
-
-    \sa QWebInspector
-*/
-
-/*!
     \fn void QWebPage::toolBarVisibilityChangeRequested(bool visible)
 
     This signal is emitted whenever the visibility of the toolbar in a web browser
@@ -3386,16 +3482,6 @@ quint64 QWebPage::bytesReceived() const
   \fn void QWebPage::restoreFrameStateRequested(QWebFrame* frame);
 
   This signal is emitted when the load of \a frame is finished and the application may now update its state accordingly.
-*/
-
-/*!
-  \since 4.6
-  \fn void QWebPage::networkRequestStarted(QWebFrame* frame, QNetworkRequest* request);
-  \preliminary
-
-  This signal is emitted when a \a frame of the current page requests a web resource. The application
-  may want to associate the \a request with the \a frame that initiated it by storing the \a frame
-  as an attribute of the \a request.
 */
 
 /*!

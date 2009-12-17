@@ -53,14 +53,14 @@
 #endif
 
 #if ENABLE(3D_CANVAS)
-#include "JSCanvasArrayBufferConstructor.h"
-#include "JSCanvasByteArrayConstructor.h"
-#include "JSCanvasUnsignedByteArrayConstructor.h"
-#include "JSCanvasIntArrayConstructor.h"
-#include "JSCanvasUnsignedIntArrayConstructor.h"
-#include "JSCanvasShortArrayConstructor.h"
-#include "JSCanvasUnsignedShortArrayConstructor.h"
-#include "JSCanvasFloatArrayConstructor.h"
+#include "JSWebGLArrayBufferConstructor.h"
+#include "JSWebGLByteArrayConstructor.h"
+#include "JSWebGLUnsignedByteArrayConstructor.h"
+#include "JSWebGLIntArrayConstructor.h"
+#include "JSWebGLUnsignedIntArrayConstructor.h"
+#include "JSWebGLShortArrayConstructor.h"
+#include "JSWebGLUnsignedShortArrayConstructor.h"
+#include "JSWebGLFloatArrayConstructor.h"
 #endif
 #include "JSWebKitCSSMatrixConstructor.h"
 #include "JSWebKitPointConstructor.h"
@@ -297,10 +297,10 @@ bool JSDOMWindow::getOwnPropertySlot(ExecState* exec, const Identifier& property
 
 bool JSDOMWindow::getOwnPropertyDescriptor(ExecState* exec, const Identifier& propertyName, PropertyDescriptor& descriptor)
 {
-    // When accessing a Window cross-domain, functions are always the native built-in ones, and they
-    // are not affected by properties changed on the Window or anything in its prototype chain.
-    // This is consistent with the behavior of Firefox.
-    
+    // Never allow cross-domain getOwnPropertyDescriptor
+    if (!allowsAccessFrom(exec))
+        return false;
+
     const HashEntry* entry;
     
     // We don't want any properties other than "close" and "closed" on a closed window.
@@ -323,11 +323,6 @@ bool JSDOMWindow::getOwnPropertyDescriptor(ExecState* exec, const Identifier& pr
         return true;
     }
 
-    String errorMessage;
-    bool allowsAccess = allowsAccessFrom(exec, errorMessage);
-    if (allowsAccess && JSGlobalObject::getOwnPropertyDescriptor(exec, propertyName, descriptor))
-        return true;
-
     // We need this code here because otherwise JSDOMWindowBase will stop the search before we even get to the
     // prototype due to the blanket same origin (allowsAccessFrom) check at the end of getOwnPropertySlot.
     // Also, it's important to get the implementation straight out of the DOMWindow prototype regardless of
@@ -335,49 +330,11 @@ bool JSDOMWindow::getOwnPropertyDescriptor(ExecState* exec, const Identifier& pr
     entry = JSDOMWindowPrototype::s_info.propHashTable(exec)->entry(exec, propertyName);
     if (entry) {
         if (entry->attributes() & Function) {
-            if (entry->function() == jsDOMWindowPrototypeFunctionBlur) {
-                if (!allowsAccess) {
-                    PropertySlot slot;
-                    slot.setCustom(this, nonCachingStaticFunctionGetter<jsDOMWindowPrototypeFunctionBlur, 0>);
-                    descriptor.setDescriptor(slot.getValue(exec, propertyName), ReadOnly | DontDelete | DontEnum);
-                    return true;
-                }
-            } else if (entry->function() == jsDOMWindowPrototypeFunctionClose) {
-                if (!allowsAccess) {
-                    PropertySlot slot;
-                    slot.setCustom(this, nonCachingStaticFunctionGetter<jsDOMWindowPrototypeFunctionClose, 0>);
-                    descriptor.setDescriptor(slot.getValue(exec, propertyName), ReadOnly | DontDelete | DontEnum);
-                    return true;
-                }
-            } else if (entry->function() == jsDOMWindowPrototypeFunctionFocus) {
-                if (!allowsAccess) {
-                    PropertySlot slot;
-                    slot.setCustom(this, nonCachingStaticFunctionGetter<jsDOMWindowPrototypeFunctionFocus, 0>);
-                    descriptor.setDescriptor(slot.getValue(exec, propertyName), ReadOnly | DontDelete | DontEnum);
-                    return true;
-                }
-            } else if (entry->function() == jsDOMWindowPrototypeFunctionPostMessage) {
-                if (!allowsAccess) {
-                    PropertySlot slot;
-                    slot.setCustom(this, nonCachingStaticFunctionGetter<jsDOMWindowPrototypeFunctionPostMessage, 2>);
-                    descriptor.setDescriptor(slot.getValue(exec, propertyName), ReadOnly | DontDelete | DontEnum);
-                    return true;
-                }
-            } else if (entry->function() == jsDOMWindowPrototypeFunctionShowModalDialog) {
+            if (entry->function() == jsDOMWindowPrototypeFunctionShowModalDialog) {
                 if (!DOMWindow::canShowModalDialog(impl()->frame())) {
                     descriptor.setUndefined();
                     return true;
                 }
-            }
-        }
-    } else {
-        // Allow access to toString() cross-domain, but always Object.prototype.toString.
-        if (propertyName == exec->propertyNames().toString) {
-            if (!allowsAccess) {
-                PropertySlot slot;
-                slot.setCustom(this, objectToStringFunctionGetter);
-                descriptor.setDescriptor(slot.getValue(exec, propertyName), ReadOnly | DontDelete | DontEnum);
-                return true;
             }
         }
     }
@@ -406,13 +363,8 @@ bool JSDOMWindow::getOwnPropertyDescriptor(ExecState* exec, const Identifier& pr
     // precedence over the index and name getters.  
     JSValue proto = prototype();
     if (proto.isObject()) {
-        if (asObject(proto)->getPropertyDescriptor(exec, propertyName, descriptor)) {
-            if (!allowsAccess) {
-                printErrorMessage(errorMessage);
-                descriptor.setUndefined();
-            }
+        if (asObject(proto)->getPropertyDescriptor(exec, propertyName, descriptor))
             return true;
-        }
     }
 
     bool ok;
@@ -482,14 +434,6 @@ void JSDOMWindow::getOwnPropertyNames(ExecState* exec, PropertyNameArray& proper
     Base::getOwnPropertyNames(exec, propertyNames);
 }
 
-bool JSDOMWindow::getPropertyAttributes(ExecState* exec, const Identifier& propertyName, unsigned& attributes) const
-{
-    // Only allow getting property attributes properties by frames in the same origin.
-    if (!allowsAccessFrom(exec))
-        return false;
-    return Base::getPropertyAttributes(exec, propertyName, attributes);
-}
-
 void JSDOMWindow::defineGetter(ExecState* exec, const Identifier& propertyName, JSObject* getterFunction, unsigned attributes)
 {
     // Only allow defining getters by frames in the same origin.
@@ -540,24 +484,24 @@ JSValue JSDOMWindow::lookupSetter(ExecState* exec, const Identifier& propertyNam
 JSValue JSDOMWindow::history(ExecState* exec) const
 {
     History* history = impl()->history();
-    if (DOMObject* wrapper = getCachedDOMObjectWrapper(exec->globalData(), history))
+    if (DOMObject* wrapper = getCachedDOMObjectWrapper(exec, history))
         return wrapper;
 
     JSDOMWindow* window = const_cast<JSDOMWindow*>(this);
     JSHistory* jsHistory = new (exec) JSHistory(getDOMStructure<JSHistory>(exec, window), window, history);
-    cacheDOMObjectWrapper(exec->globalData(), history, jsHistory);
+    cacheDOMObjectWrapper(exec, history, jsHistory);
     return jsHistory;
 }
 
 JSValue JSDOMWindow::location(ExecState* exec) const
 {
     Location* location = impl()->location();
-    if (DOMObject* wrapper = getCachedDOMObjectWrapper(exec->globalData(), location))
+    if (DOMObject* wrapper = getCachedDOMObjectWrapper(exec, location))
         return wrapper;
 
     JSDOMWindow* window = const_cast<JSDOMWindow*>(this);
     JSLocation* jsLocation = new (exec) JSLocation(getDOMStructure<JSLocation>(exec, window), window, location);
-    cacheDOMObjectWrapper(exec->globalData(), location, jsLocation);
+    cacheDOMObjectWrapper(exec, location, jsLocation);
     return jsLocation;
 }
 
@@ -645,44 +589,44 @@ JSValue JSDOMWindow::webKitCSSMatrix(ExecState* exec) const
 }
  
 #if ENABLE(3D_CANVAS)
-JSValue JSDOMWindow::canvasArrayBuffer(ExecState* exec) const
+JSValue JSDOMWindow::webGLArrayBuffer(ExecState* exec) const
 {
-    return getDOMConstructor<JSCanvasArrayBufferConstructor>(exec, this);
+    return getDOMConstructor<JSWebGLArrayBufferConstructor>(exec, this);
 }
  
-JSValue JSDOMWindow::canvasByteArray(ExecState* exec) const
+JSValue JSDOMWindow::webGLByteArray(ExecState* exec) const
 {
-    return getDOMConstructor<JSCanvasByteArrayConstructor>(exec, this);
+    return getDOMConstructor<JSWebGLByteArrayConstructor>(exec, this);
 }
  
-JSValue JSDOMWindow::canvasUnsignedByteArray(ExecState* exec) const
+JSValue JSDOMWindow::webGLUnsignedByteArray(ExecState* exec) const
 {
-    return getDOMConstructor<JSCanvasUnsignedByteArrayConstructor>(exec, this);
+    return getDOMConstructor<JSWebGLUnsignedByteArrayConstructor>(exec, this);
 }
  
-JSValue JSDOMWindow::canvasIntArray(ExecState* exec) const
+JSValue JSDOMWindow::webGLIntArray(ExecState* exec) const
 {
-    return getDOMConstructor<JSCanvasIntArrayConstructor>(exec, this);
+    return getDOMConstructor<JSWebGLIntArrayConstructor>(exec, this);
 }
  
-JSValue JSDOMWindow::canvasUnsignedIntArray(ExecState* exec) const
+JSValue JSDOMWindow::webGLUnsignedIntArray(ExecState* exec) const
 {
-    return getDOMConstructor<JSCanvasUnsignedIntArrayConstructor>(exec, this);
+    return getDOMConstructor<JSWebGLUnsignedIntArrayConstructor>(exec, this);
 }
  
-JSValue JSDOMWindow::canvasShortArray(ExecState* exec) const
+JSValue JSDOMWindow::webGLShortArray(ExecState* exec) const
 {
-    return getDOMConstructor<JSCanvasShortArrayConstructor>(exec, this);
+    return getDOMConstructor<JSWebGLShortArrayConstructor>(exec, this);
 }
  
-JSValue JSDOMWindow::canvasUnsignedShortArray(ExecState* exec) const
+JSValue JSDOMWindow::webGLUnsignedShortArray(ExecState* exec) const
 {
-    return getDOMConstructor<JSCanvasUnsignedShortArrayConstructor>(exec, this);
+    return getDOMConstructor<JSWebGLUnsignedShortArrayConstructor>(exec, this);
 }
  
-JSValue JSDOMWindow::canvasFloatArray(ExecState* exec) const
+JSValue JSDOMWindow::webGLFloatArray(ExecState* exec) const
 {
-    return getDOMConstructor<JSCanvasFloatArrayConstructor>(exec, this);
+    return getDOMConstructor<JSWebGLFloatArrayConstructor>(exec, this);
 }
 #endif
  
@@ -743,6 +687,10 @@ static Frame* createWindow(ExecState* exec, Frame* lexicalFrame, Frame* dynamicF
 {
     ASSERT(lexicalFrame);
     ASSERT(dynamicFrame);
+
+    // Sandboxed iframes cannot open new auxiliary browsing contexts.
+    if (lexicalFrame && lexicalFrame->loader()->isSandboxed(SandboxNavigation))
+        return 0;
 
     ResourceRequest request;
 

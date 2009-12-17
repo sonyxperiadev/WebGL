@@ -87,6 +87,8 @@ namespace WebCore {
         virtual bool canTakeFocus(FocusDirection) = 0;
         virtual void takeFocus(FocusDirection) = 0;
 
+        virtual void focusedNodeChanged(Node*) = 0;
+
         // The Frame pointer provides the ChromeClient with context about which
         // Frame wants to create the new Page.  Also, the newly created window
         // should not be shown to the user until the ChromeClient of the newly
@@ -124,6 +126,9 @@ namespace WebCore {
         virtual void setStatusbarText(const String&) = 0;
         virtual bool shouldInterruptJavaScript() = 0;
         virtual bool tabsToLinks() const = 0;
+
+        virtual void registerProtocolHandler(const String&, const String&, const String&, const String&) { }
+        virtual void registerContentHandler(const String&, const String&, const String&, const String&) { }
 
         virtual IntRect windowResizerRect() const = 0;
 

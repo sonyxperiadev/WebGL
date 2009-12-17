@@ -130,6 +130,7 @@
       '../platform/chromium',
       '../platform/graphics',
       '../platform/graphics/chromium',
+      '../platform/graphics/filters',
       '../platform/graphics/opentype',
       '../platform/graphics/skia',
       '../platform/graphics/transforms',
@@ -148,12 +149,15 @@
       '../platform/sql',
       '../platform/text',
       '../plugins',
+      '../plugins/chromium',
       '../rendering',
       '../rendering/style',
       '../storage',
+      '../storage/chromium',
       '../svg',
       '../svg/animation',
       '../svg/graphics',
+      '../svg/graphics/filters',
       '../websockets',
       '../workers',
       '../xml',
@@ -212,11 +216,6 @@
         # idl rule
         '<@(webcore_bindings_idl_files)',
       ],
-      'sources/': [
-        # SVG_FILTERS only.
-        ['exclude', 'svg/SVG(FE|Filter)[^/]*\\.idl$'],
-
-      ],
       'sources!': [
         # Custom bindings in bindings/v8/custom exist for these.
         '../dom/EventListener.idl',
@@ -226,13 +225,6 @@
         # JSC-only.
         '../inspector/JavaScriptCallFrame.idl',
 
-        # ENABLE_GEOLOCATION only.
-        '../page/Geolocation.idl',
-        '../page/Geoposition.idl',
-        '../page/PositionCallback.idl',
-        '../page/PositionError.idl',
-        '../page/PositionErrorCallback.idl',
-
         # Bindings with custom Objective-C implementations.
         '../page/AbstractView.idl',
 
@@ -240,7 +232,6 @@
         # Extra SVG bindings to exclude.
         '../svg/ElementTimeControl.idl',
         '../svg/SVGAnimatedPathData.idl',
-        '../svg/SVGComponentTransferFunctionElement.idl',
         '../svg/SVGExternalResourcesRequired.idl',
         '../svg/SVGFitToViewBox.idl',
         '../svg/SVGHKernElement.idl',
@@ -272,7 +263,7 @@
           ],
           'action': [
             'python',
-            '<(chromium_src_dir)/webkit/build/action_csspropertynames.py',
+            'scripts/action_csspropertynames.py',
             '<@(_outputs)',
             '--',
             '<@(_inputs)'
@@ -291,7 +282,7 @@
           ],
           'action': [
             'python',
-            '<(chromium_src_dir)/webkit/build/action_cssvaluekeywords.py',
+            'scripts/action_cssvaluekeywords.py',
             '<@(_outputs)',
             '--',
             '<@(_inputs)'
@@ -314,7 +305,7 @@
           ],
           'action': [
             'python',
-            '<(chromium_src_dir)/webkit/build/action_makenames.py',
+            'scripts/action_makenames.py',
             '<@(_outputs)',
             '--',
             '<@(_inputs)',
@@ -341,7 +332,7 @@
           ],
           'action': [
             'python',
-            '<(chromium_src_dir)/webkit/build/action_makenames.py',
+            'scripts/action_makenames.py',
             '<@(_outputs)',
             '--',
             '<@(_inputs)',
@@ -370,7 +361,7 @@
           ],
           'action': [
             'python',
-            '<(chromium_src_dir)/webkit/build/action_useragentstylesheets.py',
+            'scripts/action_useragentstylesheets.py',
             '<@(_outputs)',
             '--',
             '<@(_inputs)'
@@ -388,7 +379,7 @@
           ],
           'action': [
             'python',
-            '<(chromium_src_dir)/webkit/build/action_makenames.py',
+            'scripts/action_makenames.py',
             '<@(_outputs)',
             '--',
             '<@(_inputs)',
@@ -408,7 +399,7 @@
           ],
           'action': [
             'python',
-            '<(chromium_src_dir)/webkit/build/action_makenames.py',
+            'scripts/action_makenames.py',
             '<@(_outputs)',
             '--',
             '<@(_inputs)',
@@ -427,7 +418,7 @@
           ],
           'action': [
             'python',
-            '<(chromium_src_dir)/webkit/build/action_maketokenizer.py',
+            'scripts/action_maketokenizer.py',
             '<@(_outputs)',
             '--',
             '<@(_inputs)'
@@ -445,7 +436,7 @@
           ],
           'action': [
             'python',
-            '<(chromium_src_dir)/webkit/build/rule_bison.py',
+            'scripts/rule_bison.py',
             '<(RULE_INPUT_PATH)',
             '<(SHARED_INTERMEDIATE_DIR)/webkit'
           ],
@@ -468,7 +459,7 @@
           ],
           'action': [
             'python',
-            '<(chromium_src_dir)/webkit/build/rule_gperf.py',
+            'scripts/rule_gperf.py',
             '<(RULE_INPUT_PATH)',
             '<(SHARED_INTERMEDIATE_DIR)/webkit'
           ],
@@ -513,7 +504,7 @@
           # behavior, change the output location.
           'action': [
             'python',
-            '<(chromium_src_dir)/webkit/build/rule_binding.py',
+            'scripts/rule_binding.py',
             '<(RULE_INPUT_PATH)',
             '<(SHARED_INTERMEDIATE_DIR)/webcore/bindings',
             '<(SHARED_INTERMEDIATE_DIR)/webkit/bindings',
@@ -629,6 +620,7 @@
         '<(chromium_src_dir)/third_party/libxml/libxml.gyp:libxml',
         '<(chromium_src_dir)/third_party/libxslt/libxslt.gyp:libxslt',
         '<(chromium_src_dir)/third_party/npapi/npapi.gyp:npapi',
+        '<(chromium_src_dir)/third_party/ots/ots.gyp:ots',
         '<(chromium_src_dir)/third_party/sqlite/sqlite.gyp:sqlite',
       ],
       'defines': [
@@ -655,6 +647,7 @@
         # filenames.
         ['exclude', '(android|cairo|cf|cg|curl|gtk|haiku|linux|mac|opentype|posix|qt|soup|symbian|win|wx)/'],
         ['exclude', '(?<!Chromium)(SVGAllInOne|Android|Cairo|CF|CG|Curl|Gtk|Linux|Mac|OpenType|POSIX|Posix|Qt|Safari|Soup|Symbian|Win|Wx)\\.(cpp|mm?)$'],
+        ['include', 'platform/graphics/opentype/OpenTypeSanitizer\\.cpp$'],
 
         # JSC-only.
         ['exclude', 'inspector/JavaScript[^/]*\\.cpp$'],
@@ -664,13 +657,15 @@
         ['include', 'loader/appcache/ApplicationCacheHost\.h$'],
         ['include', 'loader/appcache/DOMApplicationCache\.(h|cpp)$'],
 
-        # SVG_FILTERS only.
-        ['exclude', '(platform|svg)/graphics/filters/'],
-        ['exclude', 'svg/Filter[^/]*\\.cpp$'],
-        ['exclude', 'svg/SVG(FE|Filter)[^/]*\\.cpp$'],
-
         # Exclude some DB-related files.
         ['exclude', 'platform/sql/SQLiteFileSystem.cpp'],
+        ['exclude', 'storage/DatabaseTracker.cpp'],
+        ['exclude', 'storage/DatabaseTrackerClient.h'],
+        ['exclude', 'storage/OriginQuotaManager.cpp'],
+        ['exclude', 'storage/OriginQuotaManager.h'],
+        ['exclude', 'storage/OriginUsageRecord.cpp'],
+        ['exclude', 'storage/OriginUsageRecord.h'],
+        ['exclude', 'storage/SQLTransactionClient.cpp'],
       ],
       'sources!': [
         # A few things can't be excluded by patterns.  List them individually.
@@ -891,6 +886,7 @@
 
             # Use native Mac font code from WebCore.
             ['include', 'platform/(graphics/)?mac/[^/]*Font[^/]*\\.(cpp|mm?)$'],
+            ['include', 'platform/graphics/mac/ComplexText[^/]*\\.(cpp|h)$'],
 
             # Cherry-pick some files that can't be included by broader regexps.
             # Some of these are used instead of Chromium platform files, see
@@ -906,7 +902,6 @@
             ['include', 'platform/mac/BlockExceptions\\.mm$'],
             ['include', 'platform/mac/LocalCurrentGraphicsContext\\.mm$'],
             ['include', 'platform/mac/PurgeableBufferMac\\.cpp$'],
-            ['include', 'platform/mac/ScrollbarThemeMac\\.mm$'],
             ['include', 'platform/mac/WebCoreSystemInterface\\.mm$'],
             ['include', 'platform/mac/WebCoreTextRenderer\\.mm$'],
             ['include', 'platform/text/mac/ShapeArabic\\.c$'],
@@ -921,8 +916,8 @@
             # platform/graphics/mac, included by regex above, instead.
             '../platform/graphics/chromium/FontCustomPlatformData.cpp',
 
-            # The Mac currently uses ScrollbarThemeMac.mm, included by regex
-            # above, instead of ScrollbarThemeChromium.cpp.
+            # The Mac currently uses ScrollbarThemeChromiumMac.mm, which is not
+            # related to ScrollbarThemeChromium.cpp.
             '../platform/chromium/ScrollbarThemeChromium.cpp',
 
             # The Mac uses ImageSourceCG.cpp from platform/graphics/cg, included

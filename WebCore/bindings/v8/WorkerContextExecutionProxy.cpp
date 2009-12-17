@@ -72,7 +72,6 @@ static void reportFatalErrorInV8(const char* location, const char* message)
 WorkerContextExecutionProxy::WorkerContextExecutionProxy(WorkerContext* workerContext)
     : m_workerContext(workerContext)
     , m_recursion(0)
-    , m_listenerGuard(V8ListenerGuard::create())
 {
     initV8IfNeeded();
 }
@@ -84,8 +83,6 @@ WorkerContextExecutionProxy::~WorkerContextExecutionProxy()
 
 void WorkerContextExecutionProxy::dispose()
 {
-    m_listenerGuard->disconnectListeners();
-
     // Detach all events from their JS wrappers.
     for (size_t eventIndex = 0; eventIndex < m_events.size(); ++eventIndex) {
         Event* event = m_events[eventIndex];
@@ -158,7 +155,12 @@ void WorkerContextExecutionProxy::initContextIfNeeded()
     v8::Handle<v8::String> implicitProtoString = v8::String::New("__proto__");
 
     // Create a new JS object and use it as the prototype for the shadow global object.
-    v8::Handle<v8::Function> workerContextConstructor = V8DOMWrapper::getConstructorForContext(V8ClassIndex::DEDICATEDWORKERCONTEXT, context);
+    V8ClassIndex::V8WrapperType contextType = V8ClassIndex::DEDICATEDWORKERCONTEXT;
+#if ENABLE(SHARED_WORKERS)
+    if (!m_workerContext->isDedicatedWorkerContext())
+        contextType = V8ClassIndex::SHAREDWORKERCONTEXT;
+#endif
+    v8::Handle<v8::Function> workerContextConstructor = V8DOMWrapper::getConstructorForContext(contextType, context);
     v8::Local<v8::Object> jsWorkerContext = SafeAllocation::newInstance(workerContextConstructor);
     // Bail out if allocation failed.
     if (jsWorkerContext.IsEmpty()) {
@@ -167,7 +169,7 @@ void WorkerContextExecutionProxy::initContextIfNeeded()
     }
 
     // Wrap the object.
-    V8DOMWrapper::setDOMWrapper(jsWorkerContext, V8ClassIndex::ToInt(V8ClassIndex::DEDICATEDWORKERCONTEXT), m_workerContext);
+    V8DOMWrapper::setDOMWrapper(jsWorkerContext, V8ClassIndex::ToInt(contextType), m_workerContext);
 
     V8DOMWrapper::setJSWrapperForDOMObject(m_workerContext, v8::Persistent<v8::Object>::New(jsWorkerContext));
     m_workerContext->ref();
@@ -182,7 +184,11 @@ v8::Handle<v8::Value> WorkerContextExecutionProxy::convertToV8Object(V8ClassInde
     if (!impl)
         return v8::Null();
 
-    if (type == V8ClassIndex::DEDICATEDWORKERCONTEXT)
+    if (type == V8ClassIndex::DEDICATEDWORKERCONTEXT
+#if ENABLE(SHARED_WORKERS)
+        || type == V8ClassIndex::SHAREDWORKERCONTEXT
+#endif
+        )
         return convertWorkerContextToV8Object(static_cast<WorkerContext*>(impl));
 
     bool isActiveDomObject = false;
@@ -294,9 +300,21 @@ v8::Handle<v8::Value> WorkerContextExecutionProxy::convertEventTargetToV8Object(
     if (workerContext)
         return convertWorkerContextToV8Object(workerContext);
 
+#if ENABLE(SHARED_WORKERS)
+    SharedWorkerContext* sharedWorkerContext = target->toSharedWorkerContext();
+    if (sharedWorkerContext)
+        return convertWorkerContextToV8Object(sharedWorkerContext);
+#endif
+
     Worker* worker = target->toWorker();
     if (worker)
         return convertToV8Object(V8ClassIndex::WORKER, worker);
+
+#if ENABLE(SHARED_WORKERS)
+    SharedWorker* sharedWorker = target->toSharedWorker();
+    if (sharedWorker)
+        return convertToV8Object(V8ClassIndex::SHAREDWORKER, sharedWorker);
+#endif
 
     XMLHttpRequest* xhr = target->toXMLHttpRequest();
     if (xhr)
@@ -411,7 +429,7 @@ v8::Local<v8::Value> WorkerContextExecutionProxy::runScript(v8::Handle<v8::Scrip
 
 PassRefPtr<V8EventListener> WorkerContextExecutionProxy::findOrCreateEventListener(v8::Local<v8::Value> object, bool isInline, bool findOnly)
 {
-    return findOnly ? V8EventListenerList::findWrapper(object, isInline) : V8EventListenerList::findOrCreateWrapper<V8WorkerContextEventListener>(m_listenerGuard, object, isInline);
+    return findOnly ? V8EventListenerList::findWrapper(object, isInline) : V8EventListenerList::findOrCreateWrapper<V8WorkerContextEventListener>(object, isInline);
 }
 
 void WorkerContextExecutionProxy::trackEvent(Event* event)

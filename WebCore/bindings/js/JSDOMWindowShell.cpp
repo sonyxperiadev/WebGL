@@ -43,9 +43,10 @@ ASSERT_CLASS_FITS_IN_CELL(JSDOMWindowShell);
 
 const ClassInfo JSDOMWindowShell::s_info = { "JSDOMWindowShell", 0, 0, 0 };
 
-JSDOMWindowShell::JSDOMWindowShell(PassRefPtr<DOMWindow> window)
+JSDOMWindowShell::JSDOMWindowShell(PassRefPtr<DOMWindow> window, DOMWrapperWorld* world)
     : Base(JSDOMWindowShell::createStructure(jsNull()))
     , m_window(0)
+    , m_world(world)
 {
     setWindow(window);
 }
@@ -121,11 +122,6 @@ void JSDOMWindowShell::getPropertyNames(ExecState* exec, PropertyNameArray& prop
 void JSDOMWindowShell::getOwnPropertyNames(ExecState* exec, PropertyNameArray& propertyNames)
 {
     m_window->getOwnPropertyNames(exec, propertyNames);
-}
-
-bool JSDOMWindowShell::getPropertyAttributes(JSC::ExecState* exec, const Identifier& propertyName, unsigned& attributes) const
-{
-    return m_window->getPropertyAttributes(exec, propertyName, attributes);
 }
 
 void JSDOMWindowShell::defineGetter(ExecState* exec, const Identifier& propertyName, JSObject* getterFunction, unsigned attributes)

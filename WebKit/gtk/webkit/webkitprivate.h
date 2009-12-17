@@ -70,6 +70,7 @@ class DownloadClient;
 namespace WebKit {
 
     class DocumentLoader;
+    class PasteboardHelperGtk;
 
     WebKitWebView* getViewFromFrame(WebKitWebFrame*);
 
@@ -97,6 +98,8 @@ namespace WebKit {
     WebCore::SecurityOrigin* core(WebKitSecurityOrigin*);
 
     WebKitHitTestResult* kit(const WebCore::HitTestResult&);
+
+    WebKit::PasteboardHelperGtk* pasteboardHelperInstance();
 }
 
 typedef struct {
@@ -129,9 +132,6 @@ extern "C" {
         bool editable;
         GtkIMContext* imContext;
 
-        GtkTargetList* copy_target_list;
-        GtkTargetList* paste_target_list;
-
         gboolean transparent;
 
         GtkAdjustment* horizontalAdjustment;
@@ -141,6 +141,8 @@ extern "C" {
         WebKitLoadStatus loadStatus;
         char* encoding;
         char* customEncoding;
+
+        char* iconURI;
 
         gboolean disposing;
         gboolean usePrimaryForPaste;
@@ -300,6 +302,9 @@ extern "C" {
 
     WEBKIT_API bool
     webkit_web_frame_pause_transition(WebKitWebFrame* frame, const gchar* name, double time, const gchar* element);
+
+    WEBKIT_API bool
+    webkit_web_frame_pause_svg_animation(WebKitWebFrame* frame, const gchar* animationId, double time, const gchar* elementId);
 
     WEBKIT_API unsigned int
     webkit_web_frame_number_of_active_animations(WebKitWebFrame* frame);

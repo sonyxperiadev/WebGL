@@ -46,7 +46,6 @@
 #include "FrameView.h"
 #include "HTMLCollection.h"
 #include "MediaPlayer.h"
-#include "NotificationCenter.h"
 #include "Page.h"
 #include "PlatformScreen.h"
 #include "RuntimeEnabledFeatures.h"
@@ -176,6 +175,9 @@ ACCESSOR_GETTER(DOMWindowEvent)
         return v8::Undefined();
 
     v8::Local<v8::Context> context = V8Proxy::context(frame);
+    if (context.IsEmpty())
+        return v8::Undefined();
+
     v8::Local<v8::String> eventSymbol = v8::String::NewSymbol("event");
     v8::Handle<v8::Value> jsEvent = context->Global()->GetHiddenValue(eventSymbol);
     if (jsEvent.IsEmpty())
@@ -194,6 +196,9 @@ ACCESSOR_SETTER(DOMWindowEvent)
         return;
 
     v8::Local<v8::Context> context = V8Proxy::context(frame);
+    if (context.IsEmpty())
+        return;
+
     v8::Local<v8::String> eventSymbol = v8::String::NewSymbol("event");
     context->Global()->SetHiddenValue(eventSymbol, value);
 }
@@ -306,7 +311,14 @@ ACCESSOR_RUNTIME_ENABLER(DOMWindowSessionStorage)
 #if ENABLE(NOTIFICATIONS)
 ACCESSOR_RUNTIME_ENABLER(DOMWindowWebkitNotifications)
 {
-    return NotificationCenter::isAvailable();
+    return RuntimeEnabledFeatures::notificationsEnabled();
+}
+#endif
+
+#if ENABLE(OFFLINE_WEB_APPLICATIONS)
+ACCESSOR_RUNTIME_ENABLER(DOMWindowApplicationCache)
+{
+    return RuntimeEnabledFeatures::applicationCacheEnabled();
 }
 #endif
 
@@ -538,6 +550,10 @@ static Frame* createWindow(Frame* callingFrame,
     ASSERT(callingFrame);
     ASSERT(enteredFrame);
 
+    // Sandboxed iframes cannot open new auxiliary browsing contexts.
+    if (callingFrame && callingFrame->loader()->isSandboxed(SandboxNavigation))
+        return 0;
+
     ResourceRequest request;
 
     // For whatever reason, Firefox uses the entered frame to determine
@@ -696,13 +712,14 @@ CALLBACK_FUNC_DECL(DOMWindowOpen)
     if (!V8Proxy::canAccessFrame(frame, true))
         return v8::Undefined();
 
-    Frame* callingFrame = V8Proxy::retrieveFrameForCallingContext();
-    if (!callingFrame)
-        return v8::Undefined();
-
     Frame* enteredFrame = V8Proxy::retrieveFrameForEnteredContext();
     if (!enteredFrame)
         return v8::Undefined();
+
+    Frame* callingFrame = V8Proxy::retrieveFrameForCallingContext();
+    // We may not have a calling context if we are invoked by a plugin via NPAPI.
+    if (!callingFrame)
+        callingFrame = enteredFrame;
 
     Page* page = frame->page();
     if (!page)

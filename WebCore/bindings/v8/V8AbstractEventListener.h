@@ -32,8 +32,8 @@
 #define V8AbstractEventListener_h
 
 #include "EventListener.h"
-#include "OwnHandle.h"
-#include "SharedPersistent.h"
+#include "WorldContextHandle.h"
+
 #include <v8.h>
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
@@ -43,29 +43,6 @@ namespace WebCore {
     class Event;
     class Frame;
     class V8Proxy;
-
-    // Shared by listener objects and V8Proxy so that V8Proxy can
-    // silence listeners when needed.
-    class V8ListenerGuard : public RefCounted<V8ListenerGuard> {
-      public:
-        static PassRefPtr<V8ListenerGuard> create()
-        {
-            return adoptRef(new V8ListenerGuard);
-        }
-
-        bool isDisconnected() const { return m_disconnected; }
-
-        void disconnectListeners()
-        {
-            m_disconnected = true;
-        }
-
-      private:
-        V8ListenerGuard()
-            : m_disconnected(false) { }
-
-        bool m_disconnected;
-    };
 
     // There are two kinds of event listeners: HTML or non-HMTL. onload,
     // onfocus, etc (attributes) are always HTML event handler type; Event
@@ -119,10 +96,8 @@ namespace WebCore {
         // Dispose listener object and clear the handle.
         void disposeListenerObject();
 
-        virtual bool disconnected() const { return m_guard && m_guard->isDisconnected(); }
-
     protected:
-        V8AbstractEventListener(PassRefPtr<V8ListenerGuard>, bool isAttribute);
+        V8AbstractEventListener(bool isAttribute, const WorldContextHandle& worldContext);
 
         virtual void prepareListenerObject(ScriptExecutionContext*) { }
 
@@ -132,6 +107,9 @@ namespace WebCore {
 
         // Get the receiver object to use for event listener call.
         v8::Local<v8::Object> getReceiverObject(Event*);
+
+        const WorldContextHandle& worldContext() const { return m_worldContext; }
+
     private:
         // Implementation of EventListener function.
         virtual bool virtualisAttribute() const { return m_isAttribute; }
@@ -146,7 +124,7 @@ namespace WebCore {
         // Indicates if this is an HTML type listener.
         bool m_isAttribute;
 
-        RefPtr<V8ListenerGuard> m_guard;
+        WorldContextHandle m_worldContext;
     };
 
 } // namespace WebCore

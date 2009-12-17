@@ -53,6 +53,12 @@ typedef CALayer* NativeLayer;
 typedef void* PlatformLayer;
 typedef void* NativeLayer;
 #endif
+#elif PLATFORM(WIN)
+namespace WebCore {
+class WKCACFLayer;
+typedef WKCACFLayer PlatformLayer;
+typedef void* NativeLayer;
+}
 #else
 typedef void* PlatformLayer;
 typedef void* NativeLayer;
@@ -176,6 +182,8 @@ public:
     bool hasAncestor(GraphicsLayer*) const;
     
     const Vector<GraphicsLayer*>& children() const { return m_children; }
+    // Returns true if the child list changed.
+    virtual bool setChildren(const Vector<GraphicsLayer*>&);
 
     // Add child layers. If the child is already parented, it will be removed from its old parent.
     virtual void addChild(GraphicsLayer*);
@@ -292,8 +300,8 @@ public:
     virtual void setContentsOrientation(CompositingCoordinatesOrientation orientation) { m_contentsOrientation = orientation; }
     CompositingCoordinatesOrientation contentsOrientation() const { return m_contentsOrientation; }
 
-    static bool showDebugBorders();
-    static bool showRepaintCounter();
+    bool showDebugBorders() { return m_client ? m_client->showDebugBorders() : false; }
+    bool showRepaintCounter() { return m_client ? m_client->showRepaintCounter() : false; }
     
     void updateDebugIndicators();
     

@@ -41,7 +41,7 @@
 #include <wtf/OwnPtr.h>
 #endif
 
-#if PLATFORM(CF) || (PLATFORM(QT) && PLATFORM(DARWIN))
+#if PLATFORM(CF)
 typedef const struct __CFString * CFStringRef;
 #endif
 
@@ -206,7 +206,7 @@ public:
 
     StringImpl* impl() const { return m_impl.get(); }
 
-#if PLATFORM(CF) || (PLATFORM(QT) && PLATFORM(DARWIN))
+#if PLATFORM(CF)
     String(CFStringRef);
     CFStringRef createCFString() const;
 #endif
@@ -285,6 +285,11 @@ inline bool operator!=(const char* a, const String& b) { return !equal(a, b.impl
 inline bool equalIgnoringCase(const String& a, const String& b) { return equalIgnoringCase(a.impl(), b.impl()); }
 inline bool equalIgnoringCase(const String& a, const char* b) { return equalIgnoringCase(a.impl(), b); }
 inline bool equalIgnoringCase(const char* a, const String& b) { return equalIgnoringCase(a, b.impl()); }
+
+inline bool equalPossiblyIgnoringCase(const String& a, const String& b, bool ignoreCase) 
+{
+    return ignoreCase ? equalIgnoringCase(a, b) : (a == b);
+}
 
 inline bool equalIgnoringNullity(const String& a, const String& b) { return equalIgnoringNullity(a.impl(), b.impl()); }
 

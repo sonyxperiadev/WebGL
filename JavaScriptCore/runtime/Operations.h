@@ -35,6 +35,99 @@ namespace JSC {
     bool jsIsObjectType(JSValue);
     bool jsIsFunctionType(JSValue);
 
+    ALWAYS_INLINE JSValue jsString(ExecState* exec, JSString* s1, JSString* s2)
+    {
+        if (!s1->length())
+            return s2;
+        if (!s2->length())
+            return s1;
+
+        unsigned ropeLength = s1->ropeLength() + s2->ropeLength();
+        JSGlobalData* globalData = &exec->globalData();
+
+        if (ropeLength <= JSString::s_maxInternalRopeLength)
+            return new (globalData) JSString(globalData, ropeLength, s1, s2);
+
+        unsigned index = 0;
+        RefPtr<JSString::Rope> rope = JSString::Rope::createOrNull(ropeLength);
+        if (UNLIKELY(!rope))
+            return throwOutOfMemoryError(exec);
+        rope->append(index, s1);
+        rope->append(index, s2);
+        ASSERT(index == ropeLength);
+        return new (globalData) JSString(globalData, rope.release());
+    }
+
+    ALWAYS_INLINE JSValue jsString(ExecState* exec, const UString& u1, JSString* s2)
+    {
+        unsigned ropeLength = 1 + s2->ropeLength();
+        JSGlobalData* globalData = &exec->globalData();
+
+        if (ropeLength <= JSString::s_maxInternalRopeLength)
+            return new (globalData) JSString(globalData, ropeLength, u1, s2);
+
+        unsigned index = 0;
+        RefPtr<JSString::Rope> rope = JSString::Rope::createOrNull(ropeLength);
+        if (UNLIKELY(!rope))
+            return throwOutOfMemoryError(exec);
+        rope->append(index, u1);
+        rope->append(index, s2);
+        ASSERT(index == ropeLength);
+        return new (globalData) JSString(globalData, rope.release());
+    }
+
+    ALWAYS_INLINE JSValue jsString(ExecState* exec, JSString* s1, const UString& u2)
+    {
+        unsigned ropeLength = s1->ropeLength() + 1;
+        JSGlobalData* globalData = &exec->globalData();
+
+        if (ropeLength <= JSString::s_maxInternalRopeLength)
+            return new (globalData) JSString(globalData, ropeLength, s1, u2);
+
+        unsigned index = 0;
+        RefPtr<JSString::Rope> rope = JSString::Rope::createOrNull(ropeLength);
+        if (UNLIKELY(!rope))
+            return throwOutOfMemoryError(exec);
+        rope->append(index, s1);
+        rope->append(index, u2);
+        ASSERT(index == ropeLength);
+        return new (globalData) JSString(globalData, rope.release());
+    }
+
+    ALWAYS_INLINE JSValue jsString(ExecState* exec, Register* strings, unsigned count)
+    {
+        ASSERT(count >= 3);
+
+        unsigned ropeLength = 0;
+        for (unsigned i = 0; i < count; ++i) {
+            JSValue v = strings[i].jsValue();
+            if (LIKELY(v.isString()))
+                ropeLength += asString(v)->ropeLength();
+            else
+                ++ropeLength;
+        }
+
+        JSGlobalData* globalData = &exec->globalData();
+        if (ropeLength == 3)
+            return new (globalData) JSString(exec, strings[0].jsValue(), strings[1].jsValue(), strings[2].jsValue());
+
+        RefPtr<JSString::Rope> rope = JSString::Rope::createOrNull(ropeLength);
+        if (UNLIKELY(!rope))
+            return throwOutOfMemoryError(exec);
+
+        unsigned index = 0;
+        for (unsigned i = 0; i < count; ++i) {
+            JSValue v = strings[i].jsValue();
+            if (LIKELY(v.isString()))
+                rope->append(index, asString(v));
+            else
+                rope->append(index, v.toString(exec));
+        }
+
+        ASSERT(index == ropeLength);
+        return new (globalData) JSString(globalData, rope.release());
+    }
+
     // ECMA 11.9.3
     inline bool JSValue::equal(ExecState* exec, JSValue v1, JSValue v2)
     {
@@ -53,7 +146,7 @@ namespace JSC {
             bool s1 = v1.isString();
             bool s2 = v2.isString();
             if (s1 && s2)
-                return asString(v1)->value() == asString(v2)->value();
+                return asString(v1)->value(exec) == asString(v2)->value(exec);
 
             if (v1.isUndefinedOrNull()) {
                 if (v2.isUndefinedOrNull())
@@ -110,17 +203,17 @@ namespace JSC {
     }
 
     // ECMA 11.9.3
-    ALWAYS_INLINE bool JSValue::strictEqualSlowCaseInline(JSValue v1, JSValue v2)
+    ALWAYS_INLINE bool JSValue::strictEqualSlowCaseInline(ExecState* exec, JSValue v1, JSValue v2)
     {
         ASSERT(v1.isCell() && v2.isCell());
 
         if (v1.asCell()->isString() && v2.asCell()->isString())
-            return asString(v1)->value() == asString(v2)->value();
+            return asString(v1)->value(exec) == asString(v2)->value(exec);
 
         return v1 == v2;
     }
 
-    inline bool JSValue::strictEqual(JSValue v1, JSValue v2)
+    inline bool JSValue::strictEqual(ExecState* exec, JSValue v1, JSValue v2)
     {
         if (v1.isInt32() && v2.isInt32())
             return v1 == v2;
@@ -131,7 +224,7 @@ namespace JSC {
         if (!v1.isCell() || !v2.isCell())
             return v1 == v2;
 
-        return strictEqualSlowCaseInline(v1, v2);
+        return strictEqualSlowCaseInline(exec, v1, v2);
     }
 
     inline bool jsLess(CallFrame* callFrame, JSValue v1, JSValue v2)
@@ -146,7 +239,7 @@ namespace JSC {
 
         JSGlobalData* globalData = &callFrame->globalData();
         if (isJSString(globalData, v1) && isJSString(globalData, v2))
-            return asString(v1)->value() < asString(v2)->value();
+            return asString(v1)->value(callFrame) < asString(v2)->value(callFrame);
 
         JSValue p1;
         JSValue p2;
@@ -156,7 +249,7 @@ namespace JSC {
         if (wasNotString1 | wasNotString2)
             return n1 < n2;
 
-        return asString(p1)->value() < asString(p2)->value();
+        return asString(p1)->value(callFrame) < asString(p2)->value(callFrame);
     }
 
     inline bool jsLessEq(CallFrame* callFrame, JSValue v1, JSValue v2)
@@ -171,7 +264,7 @@ namespace JSC {
 
         JSGlobalData* globalData = &callFrame->globalData();
         if (isJSString(globalData, v1) && isJSString(globalData, v2))
-            return !(asString(v2)->value() < asString(v1)->value());
+            return !(asString(v2)->value(callFrame) < asString(v1)->value(callFrame));
 
         JSValue p1;
         JSValue p2;
@@ -181,7 +274,7 @@ namespace JSC {
         if (wasNotString1 | wasNotString2)
             return n1 <= n2;
 
-        return !(asString(p2)->value() < asString(p1)->value());
+        return !(asString(p2)->value(callFrame) < asString(p1)->value(callFrame));
     }
 
     // Fast-path choices here are based on frequency data from SunSpider:
@@ -195,29 +288,14 @@ namespace JSC {
 
     ALWAYS_INLINE JSValue jsAdd(CallFrame* callFrame, JSValue v1, JSValue v2)
     {
-        double left;
-        double right = 0.0;
-
-        bool rightIsNumber = v2.getNumber(right);
-        if (rightIsNumber && v1.getNumber(left))
+        double left = 0.0, right;
+        if (v1.getNumber(left), v2.getNumber(right))
             return jsNumber(callFrame, left + right);
         
-        bool leftIsString = v1.isString();
-        if (leftIsString && v2.isString()) {
-            RefPtr<UString::Rep> value = concatenate(asString(v1)->value().rep(), asString(v2)->value().rep());
-            if (!value)
-                return throwOutOfMemoryError(callFrame);
-            return jsString(callFrame, value.release());
-        }
-
-        if (rightIsNumber & leftIsString) {
-            RefPtr<UString::Rep> value = v2.isInt32() ?
-                concatenate(asString(v1)->value().rep(), v2.asInt32()) :
-                concatenate(asString(v1)->value().rep(), right);
-
-            if (!value)
-                return throwOutOfMemoryError(callFrame);
-            return jsString(callFrame, value.release());
+        if (v1.isString()) {
+            return v2.isString()
+                ? jsString(callFrame, asString(v1), asString(v2))
+                : jsString(callFrame, asString(v1), v2.toString(callFrame));
         }
 
         // All other cases are pretty uncommon
@@ -243,7 +321,7 @@ namespace JSC {
             // Since we're accessing a prototype in a loop, it's a good bet that it
             // should not be treated as a dictionary.
             if (cell->structure()->isDictionary())
-                asObject(cell)->setStructure(Structure::fromDictionaryTransition(cell->structure()));
+                asObject(cell)->flattenDictionaryObject();
 
             ++count;
         }
@@ -265,7 +343,7 @@ namespace JSC {
             // Since we're accessing a prototype in a loop, it's a good bet that it
             // should not be treated as a dictionary.
             if (base->structure()->isDictionary())
-                asObject(base)->setStructure(Structure::fromDictionaryTransition(base->structure()));
+                asObject(base)->flattenDictionaryObject();
 
             ++count;
         }
@@ -293,52 +371,6 @@ namespace JSC {
         ASSERT_NOT_REACHED();
         return JSValue();
     }
-
-    ALWAYS_INLINE JSValue concatenateStrings(CallFrame* callFrame, Register* strings, unsigned count)
-    {
-        ASSERT(count >= 3);
-
-        // Estimate the amount of space required to hold the entire string.  If all
-        // arguments are strings, we can easily calculate the exact amount of space
-        // required.  For any other arguments, for now let's assume they may require
-        // 11 UChars of storage.  This is enouch to hold any int, and likely is also
-        // reasonable for the other immediates.  We may want to come back and tune
-        // this value at some point.
-        unsigned bufferSize = 0;
-        for (unsigned i = 0; i < count; ++i) {
-            JSValue v = strings[i].jsValue();
-            if (LIKELY(v.isString()))
-                bufferSize += asString(v)->value().size();
-            else
-                bufferSize += 11;
-        }
-
-        // Allocate an output string to store the result.
-        // If the first argument is a String, and if it has the capacity (or can grow
-        // its capacity) to hold the entire result then use this as a base to concatenate
-        // onto.  Otherwise, allocate a new empty output buffer.
-        JSValue firstValue = strings[0].jsValue();
-        RefPtr<UString::Rep> resultRep;
-        if (firstValue.isString() && (resultRep = asString(firstValue)->value().rep())->reserveCapacity(bufferSize)) {
-            // We're going to concatenate onto the first string - remove it from the list of items to be appended.
-            ++strings;
-            --count;
-        } else
-            resultRep = UString::Rep::createEmptyBuffer(bufferSize);
-        UString result(resultRep);
-
-        // Loop over the operands, writing them into the output buffer.
-        for (unsigned i = 0; i < count; ++i) {
-            JSValue v = strings[i].jsValue();
-            if (LIKELY(v.isString()))
-                result.append(asString(v)->value());
-            else
-                result.append(v.toString(callFrame));
-        }
-
-        return jsString(callFrame, result);
-    }
-
 } // namespace JSC
 
 #endif // Operations_h

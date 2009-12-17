@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003, 2004, 2005, 2006 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,10 +26,10 @@
 #ifndef GraphicsContextPrivate_h
 #define GraphicsContextPrivate_h
 
-#include "TransformationMatrix.h"
 #include "Gradient.h"
 #include "GraphicsContext.h"
 #include "Pattern.h"
+#include "TransformationMatrix.h"
 
 namespace WebCore {
 
@@ -38,18 +38,18 @@ namespace WebCore {
             : textDrawingMode(cTextFill)
             , strokeStyle(SolidStroke)
             , strokeThickness(0)
-#if PLATFORM(CAIRO)
-            , globalAlpha(1.0f)
-#endif
-            , strokeColorSpace(SolidColorSpace)
             , strokeColor(Color::black)
+            , strokeColorSpace(DeviceColorSpace)
             , fillRule(RULE_NONZERO)
-            , fillColorSpace(SolidColorSpace)
             , fillColor(Color::black)
+            , fillColorSpace(DeviceColorSpace)
             , shouldAntialias(true)
             , paintingDisabled(false)
             , shadowBlur(0)
             , shadowsIgnoreTransforms(false)
+#if PLATFORM(CAIRO)
+            , globalAlpha(1.0f)
+#endif
         {
         }
 
@@ -57,19 +57,14 @@ namespace WebCore {
         
         StrokeStyle strokeStyle;
         float strokeThickness;
-#if PLATFORM(CAIRO)
-        float globalAlpha;
-#elif PLATFORM(QT)
-        TransformationMatrix pathTransform;
-#endif
-        ColorSpace strokeColorSpace;
         Color strokeColor;
+        ColorSpace strokeColorSpace;
         RefPtr<Gradient> strokeGradient;
         RefPtr<Pattern> strokePattern;
         
         WindRule fillRule;
-        ColorSpace fillColorSpace;
         Color fillColor;
+        ColorSpace fillColorSpace;
         RefPtr<Gradient> fillGradient;
         RefPtr<Pattern> fillPattern;
 
@@ -82,9 +77,14 @@ namespace WebCore {
         Color shadowColor;
 
         bool shadowsIgnoreTransforms;
+#if PLATFORM(CAIRO)
+        float globalAlpha;
+#elif PLATFORM(QT)
+        TransformationMatrix pathTransform;
+#endif
     };
 
-    class GraphicsContextPrivate {
+    class GraphicsContextPrivate : public Noncopyable {
     public:
         GraphicsContextPrivate()
             : m_focusRingWidth(0)

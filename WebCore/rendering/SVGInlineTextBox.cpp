@@ -1,6 +1,4 @@
 /**
- * This file is part of the DOM implementation for KDE.
- *
  * Copyright (C) 2007 Rob Buis <buis@kde.org>
  *           (C) 2007 Nikolas Zimmermann <zimmermann@kde.org>
  *
@@ -384,7 +382,8 @@ void SVGInlineTextBox::paintCharacters(RenderObject::PaintInfo& paintInfo, int t
     bool setShadow = false;
     if (styleToUse->textShadow()) {
         paintInfo.context->setShadow(IntSize(styleToUse->textShadow()->x, styleToUse->textShadow()->y),
-                                     styleToUse->textShadow()->blur, styleToUse->textShadow()->color);
+                                     styleToUse->textShadow()->blur, styleToUse->textShadow()->color,
+                                     styleToUse->colorSpace());
         setShadow = true;
     }
 
@@ -477,7 +476,7 @@ void SVGInlineTextBox::paintSelection(int boxStartOffset, const SVGChar& svgChar
     int adjust = startPos >= boxStartOffset ? boxStartOffset : 0;
     p->drawHighlightForText(font, svgTextRunForInlineTextBox(textRenderer()->text()->characters() + start() + boxStartOffset, length, style, this, svgChar.x),
                             IntPoint((int) svgChar.x, (int) svgChar.y - font.ascent()),
-                            font.ascent() + font.descent(), color, startPos - adjust, endPos - adjust);
+                            font.ascent() + font.descent(), color, style->colorSpace(), startPos - adjust, endPos - adjust);
 
     p->restore();
 }

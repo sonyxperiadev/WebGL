@@ -37,6 +37,7 @@
 #include <wtf/HashSet.h>
 #include <wtf/OwnPtr.h>
 #include <wtf/Noncopyable.h>
+#include <wtf/PassOwnPtr.h>
 
 #ifdef __OBJC__
 @class QTMovie;
@@ -115,7 +116,11 @@ public:
 
 class MediaPlayer : public Noncopyable {
 public:
-    MediaPlayer(MediaPlayerClient*);
+
+    static PassOwnPtr<MediaPlayer> create(MediaPlayerClient* client)
+    {
+        return new MediaPlayer(client);
+    }
     virtual ~MediaPlayer();
 
     // media engine support
@@ -175,7 +180,10 @@ public:
     
     float volume() const;
     void setVolume(float);
-    
+
+    bool hasClosedCaptions() const;
+    void setClosedCaptionsVisible(bool closedCaptionsVisible);
+
     int dataRate() const;
 
     bool autobuffer() const;    
@@ -223,6 +231,8 @@ public:
     bool hasSingleSecurityOrigin() const;
 
 private:
+    MediaPlayer(MediaPlayerClient*);
+
     static void initializeMediaEngines();
 
     MediaPlayerClient* m_mediaPlayerClient;

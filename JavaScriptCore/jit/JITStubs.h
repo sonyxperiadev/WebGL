@@ -187,6 +187,8 @@ namespace JSC {
 #error "JITStackFrame not defined for this platform."
 #endif
 
+#define JITSTACKFRAME_ARGS_INDEX (OBJECT_OFFSETOF(JITStackFrame, args) / sizeof(void*))
+
 #if USE(JIT_STUB_ARGUMENT_VA_LIST)
     #define STUB_ARGS_DECLARATION void* args, ...
     #define STUB_ARGS (reinterpret_cast<void**>(vl_args) - 1)
@@ -333,9 +335,7 @@ extern "C" {
     int JIT_STUB cti_op_jlesseq(STUB_ARGS_DECLARATION);
     int JIT_STUB cti_op_jtrue(STUB_ARGS_DECLARATION);
     int JIT_STUB cti_op_load_varargs(STUB_ARGS_DECLARATION);
-    int JIT_STUB cti_op_loop_if_less(STUB_ARGS_DECLARATION);
     int JIT_STUB cti_op_loop_if_lesseq(STUB_ARGS_DECLARATION);
-    int JIT_STUB cti_op_loop_if_true(STUB_ARGS_DECLARATION);
     int JIT_STUB cti_timeout_check(STUB_ARGS_DECLARATION);
     int JIT_STUB cti_has_property(STUB_ARGS_DECLARATION);
     void JIT_STUB cti_op_create_arguments(STUB_ARGS_DECLARATION);

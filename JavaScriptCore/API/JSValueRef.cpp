@@ -169,7 +169,7 @@ bool JSValueIsStrictEqual(JSContextRef ctx, JSValueRef a, JSValueRef b)
     JSValue jsA = toJS(exec, a);
     JSValue jsB = toJS(exec, b);
 
-    return JSValue::strictEqual(jsA, jsB);
+    return JSValue::strictEqual(exec, jsA, jsB);
 }
 
 bool JSValueIsInstanceOfConstructor(JSContextRef ctx, JSValueRef value, JSObjectRef constructor, JSValueRef* exception)
@@ -307,7 +307,7 @@ void JSValueProtect(JSContextRef ctx, JSValueRef value)
     exec->globalData().heap.registerThread();
     JSLock lock(exec);
 
-    JSValue jsValue = toJS(exec, value);
+    JSValue jsValue = toJSForGC(exec, value);
     gcProtect(jsValue);
 }
 
@@ -317,6 +317,6 @@ void JSValueUnprotect(JSContextRef ctx, JSValueRef value)
     exec->globalData().heap.registerThread();
     JSLock lock(exec);
 
-    JSValue jsValue = toJS(exec, value);
+    JSValue jsValue = toJSForGC(exec, value);
     gcUnprotect(jsValue);
 }

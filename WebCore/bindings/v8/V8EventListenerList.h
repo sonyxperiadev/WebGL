@@ -31,15 +31,14 @@
 #ifndef V8EventListenerList_h
 #define V8EventListenerList_h
 
-#include <v8.h>
-
-#include "PassRefPtr.h"
 #include "V8CustomEventListener.h"
 #include "V8HiddenPropertyName.h"
 
+#include <v8.h>
+#include <wtf/PassRefPtr.h>
+
 namespace WebCore {
     class Frame;
-    class V8EventListener;
 
     // This is a container for V8EventListener objects that uses hidden properties of v8::Object to speed up lookups.
     class V8EventListenerList {
@@ -55,7 +54,7 @@ namespace WebCore {
         }
 
         template<typename WrapperType>
-        static PassRefPtr<V8EventListener> findOrCreateWrapper(PassRefPtr<V8ListenerGuard>, v8::Local<v8::Value>, bool isAttribute);
+        static PassRefPtr<V8EventListener> findOrCreateWrapper(v8::Local<v8::Value>, bool isAttribute);
 
         static void clearWrapper(v8::Handle<v8::Object> listenerObject, bool isAttribute)
         {
@@ -81,7 +80,7 @@ namespace WebCore {
     };
 
     template<typename WrapperType>
-    PassRefPtr<V8EventListener> V8EventListenerList::findOrCreateWrapper(PassRefPtr<V8ListenerGuard> guard, v8::Local<v8::Value> value, bool isAttribute)
+    PassRefPtr<V8EventListener> V8EventListenerList::findOrCreateWrapper(v8::Local<v8::Value> value, bool isAttribute)
     {
         ASSERT(v8::Context::InContext());
         if (!value->IsObject())
@@ -94,7 +93,7 @@ namespace WebCore {
         if (wrapper)
             return wrapper;
 
-        PassRefPtr<V8EventListener> wrapperPtr = WrapperType::create(guard, object, isAttribute);
+        PassRefPtr<V8EventListener> wrapperPtr = WrapperType::create(object, isAttribute, WorldContextHandle(UseCurrentWorld));
         if (wrapperPtr)
             object->SetHiddenValue(wrapperProperty, v8::External::Wrap(wrapperPtr.get()));
 

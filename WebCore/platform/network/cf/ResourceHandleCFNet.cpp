@@ -39,6 +39,7 @@
 #include "FormDataStreamCFNet.h"
 #include "Frame.h"
 #include "FrameLoader.h"
+#include "LoaderRunLoopCF.h"
 #include "Logging.h"
 #include "MIMETypeRegistry.h"
 #include "ResourceError.h"
@@ -322,37 +323,6 @@ CFArrayRef arrayFromFormData(const FormData& d)
     return a;
 }
 
-void emptyPerform(void* unused) 
-{
-}
-
-static CFRunLoopRef loaderRL = 0;
-void* runLoaderThread(void *unused)
-{
-    loaderRL = CFRunLoopGetCurrent();
-
-    // Must add a source to the run loop to prevent CFRunLoopRun() from exiting
-    CFRunLoopSourceContext ctxt = {0, (void *)1 /*must be non-NULL*/, 0, 0, 0, 0, 0, 0, 0, emptyPerform};
-    CFRunLoopSourceRef bogusSource = CFRunLoopSourceCreate(0, 0, &ctxt);
-    CFRunLoopAddSource(loaderRL, bogusSource,kCFRunLoopDefaultMode);
-
-    CFRunLoopRun();
-
-    return 0;
-}
-
-CFRunLoopRef ResourceHandle::loaderRunLoop()
-{
-    if (!loaderRL) {
-        createThread(runLoaderThread, 0, "WebCore: CFNetwork Loader");
-        while (loaderRL == 0) {
-            // FIXME: sleep 10? that can't be right...
-            Sleep(10);
-        }
-    }
-    return loaderRL;
-}
-
 static CFURLRequestRef makeFinalRequest(const ResourceRequest& request, bool shouldContentSniff)
 {
     CFMutableURLRequestRef newRequest = CFURLRequestCreateMutableCopy(kCFAllocatorDefault, request.cfURLRequest());
@@ -479,11 +449,11 @@ bool ResourceHandle::shouldUseCredentialStorage()
 void ResourceHandle::didReceiveAuthenticationChallenge(const AuthenticationChallenge& challenge)
 {
     LOG(Network, "CFNet - didReceiveAuthenticationChallenge()");
-    ASSERT(!d->m_currentCFChallenge);
     ASSERT(d->m_currentWebChallenge.isNull());
     // Since CFURLConnection networking relies on keeping a reference to the original CFURLAuthChallengeRef,
     // we make sure that is actually present
     ASSERT(challenge.cfURLAuthChallengeRef());
+    ASSERT(challenge.authenticationClient() == this); // Should be already set.
 
     if (!d->m_user.isNull() && !d->m_pass.isNull()) {
         RetainPtr<CFStringRef> user(AdoptCF, d->m_user.createCFString());
@@ -513,8 +483,7 @@ void ResourceHandle::didReceiveAuthenticationChallenge(const AuthenticationChall
         }
     }
 
-    d->m_currentCFChallenge = challenge.cfURLAuthChallengeRef();
-    d->m_currentWebChallenge = AuthenticationChallenge(d->m_currentCFChallenge, this);
+    d->m_currentWebChallenge = challenge;
     
     if (client())
         client()->didReceiveAuthenticationChallenge(this, d->m_currentWebChallenge);

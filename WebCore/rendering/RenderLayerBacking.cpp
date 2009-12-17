@@ -28,7 +28,9 @@
 #if USE(ACCELERATED_COMPOSITING)
 
 #include "AnimationController.h"
-#include "CanvasRenderingContext3D.h"
+#if ENABLE(3D_CANVAS)    
+#include "WebGLRenderingContext.h"
+#endif
 #include "CSSPropertyNames.h"
 #include "CSSStyleSelector.h"
 #include "FrameView.h"
@@ -37,11 +39,14 @@
 #include "HTMLCanvasElement.h"
 #include "HTMLElement.h"
 #include "HTMLNames.h"
+#include "InspectorTimelineAgent.h"
+#include "KeyframeList.h"
 #include "RenderBox.h"
 #include "RenderImage.h"
 #include "RenderLayerCompositor.h"
 #include "RenderVideo.h"
 #include "RenderView.h"
+#include "Settings.h"
 
 #include "RenderLayerBacking.h"
 
@@ -192,7 +197,7 @@ bool RenderLayerBacking::updateGraphicsLayerConfiguration()
         else if (renderer()->isCanvas()) {
             HTMLCanvasElement* canvas = static_cast<HTMLCanvasElement*>(renderer()->node());
             if (canvas->is3D()) {
-                CanvasRenderingContext3D* context = static_cast<CanvasRenderingContext3D*>(canvas->renderingContext());
+                WebGLRenderingContext* context = static_cast<WebGLRenderingContext*>(canvas->renderingContext());
                 if (context->graphicsContext3D()->platformGraphicsContext3D())
                     m_graphicsLayer->setContentsToGraphicsContext3D(context->graphicsContext3D());
             }
@@ -849,7 +854,7 @@ static void restoreClip(GraphicsContext* p, const IntRect& paintDirtyRect, const
 // Share this with RenderLayer::paintLayer, which would have to be educated about GraphicsLayerPaintingPhase?
 void RenderLayerBacking::paintIntoLayer(RenderLayer* rootLayer, GraphicsContext* context,
                     const IntRect& paintDirtyRect,      // in the coords of rootLayer
-                    PaintRestriction paintRestriction, GraphicsLayerPaintingPhase paintingPhase,
+                    PaintBehavior paintBehavior, GraphicsLayerPaintingPhase paintingPhase,
                     RenderObject* paintingRoot)
 {
     if (paintingGoesToWindow()) {
@@ -863,7 +868,7 @@ void RenderLayerBacking::paintIntoLayer(RenderLayer* rootLayer, GraphicsContext*
     if (m_owningLayer->hasReflection()) {
         // Mark that we are now inside replica painting.
         m_owningLayer->setPaintingInsideReflection(true);
-        m_owningLayer->reflectionLayer()->paintLayer(rootLayer, context, paintDirtyRect, paintRestriction, paintingRoot, 0, RenderLayer::PaintLayerPaintingReflection);
+        m_owningLayer->reflectionLayer()->paintLayer(rootLayer, context, paintDirtyRect, paintBehavior, paintingRoot, 0, RenderLayer::PaintLayerPaintingReflection);
         m_owningLayer->setPaintingInsideReflection(false);
     }
 
@@ -899,9 +904,9 @@ void RenderLayerBacking::paintIntoLayer(RenderLayer* rootLayer, GraphicsContext*
             
             int rw;
             int rh;
-            if (box->view()->frameView()) {
-                rw = box->view()->frameView()->contentsWidth();
-                rh = box->view()->frameView()->contentsHeight();
+            if (FrameView* frameView = box->view()->frameView()) {
+                rw = frameView->contentsWidth();
+                rh = frameView->contentsHeight();
             } else {
                 rw = box->view()->width();
                 rh = box->view()->height();
@@ -930,8 +935,8 @@ void RenderLayerBacking::paintIntoLayer(RenderLayer* rootLayer, GraphicsContext*
         restoreClip(context, paintDirtyRect, damageRect);
     }
                 
-    bool forceBlackText = paintRestriction == PaintRestrictionSelectionOnlyBlackText;
-    bool selectionOnly  = paintRestriction == PaintRestrictionSelectionOnly || paintRestriction == PaintRestrictionSelectionOnlyBlackText;
+    bool forceBlackText = paintBehavior & PaintBehaviorForceBlackText;
+    bool selectionOnly  = paintBehavior & PaintBehaviorSelectionOnly;
 
     if (shouldPaint && (paintingPhase & GraphicsLayerPaintForeground)) {
         // Now walk the sorted list of children with negative z-indices. Only RenderLayers without compositing layers will paint.
@@ -939,7 +944,7 @@ void RenderLayerBacking::paintIntoLayer(RenderLayer* rootLayer, GraphicsContext*
         Vector<RenderLayer*>* negZOrderList = m_owningLayer->negZOrderList();
         if (negZOrderList) {
             for (Vector<RenderLayer*>::iterator it = negZOrderList->begin(); it != negZOrderList->end(); ++it)
-                it[0]->paintLayer(rootLayer, context, paintDirtyRect, paintRestriction, paintingRoot);
+                it[0]->paintLayer(rootLayer, context, paintDirtyRect, paintBehavior, paintingRoot);
         }
 
         // Set up the clip used when painting our children.
@@ -975,14 +980,14 @@ void RenderLayerBacking::paintIntoLayer(RenderLayer* rootLayer, GraphicsContext*
         Vector<RenderLayer*>* normalFlowList = m_owningLayer->normalFlowList();
         if (normalFlowList) {
             for (Vector<RenderLayer*>::iterator it = normalFlowList->begin(); it != normalFlowList->end(); ++it)
-                it[0]->paintLayer(rootLayer, context, paintDirtyRect, paintRestriction, paintingRoot);
+                it[0]->paintLayer(rootLayer, context, paintDirtyRect, paintBehavior, paintingRoot);
         }
 
         // Now walk the sorted list of children with positive z-indices.
         Vector<RenderLayer*>* posZOrderList = m_owningLayer->posZOrderList();
         if (posZOrderList) {
             for (Vector<RenderLayer*>::iterator it = posZOrderList->begin(); it != posZOrderList->end(); ++it)
-                it[0]->paintLayer(rootLayer, context, paintDirtyRect, paintRestriction, paintingRoot);
+                it[0]->paintLayer(rootLayer, context, paintDirtyRect, paintBehavior, paintingRoot);
         }
     }
     
@@ -1002,9 +1007,25 @@ void RenderLayerBacking::paintIntoLayer(RenderLayer* rootLayer, GraphicsContext*
     ASSERT(!m_owningLayer->m_usedTransparency);
 }
 
+static InspectorTimelineAgent* inspectorTimelineAgent(RenderObject* renderer)
+{
+    Frame* frame = renderer->document()->frame();
+    if (!frame)
+        return 0;
+    Page* page = frame->page();
+    if (!page)
+        return 0;
+    return page->inspectorTimelineAgent();
+}
+
 // Up-call from compositing layer drawing callback.
 void RenderLayerBacking::paintContents(const GraphicsLayer*, GraphicsContext& context, GraphicsLayerPaintingPhase paintingPhase, const IntRect& clip)
 {
+#if ENABLE(INSPECTOR)
+    if (InspectorTimelineAgent* timelineAgent = inspectorTimelineAgent(m_owningLayer->renderer()))
+        timelineAgent->willPaint(clip);
+#endif
+
     // We have to use the same root as for hit testing, because both methods
     // can compute and cache clipRects.
     IntRect enclosingBBox = compositedBounds();
@@ -1021,7 +1042,22 @@ void RenderLayerBacking::paintContents(const GraphicsLayer*, GraphicsContext& co
     IntRect dirtyRect = enclosingBBox;
     dirtyRect.intersect(clipRect);
 
-    paintIntoLayer(m_owningLayer, &context, dirtyRect, PaintRestrictionNone, paintingPhase, renderer());
+    paintIntoLayer(m_owningLayer, &context, dirtyRect, PaintBehaviorNormal, paintingPhase, renderer());
+
+#if ENABLE(INSPECTOR)
+    if (InspectorTimelineAgent* timelineAgent = inspectorTimelineAgent(m_owningLayer->renderer()))
+        timelineAgent->didPaint();
+#endif
+}
+
+bool RenderLayerBacking::showDebugBorders() const
+{
+    return compositor() ? compositor()->showDebugBorders() : false;
+}
+
+bool RenderLayerBacking::showRepaintCounter() const
+{
+    return compositor() ? compositor()->showRepaintCounter() : false;
 }
 
 bool RenderLayerBacking::startAnimation(double beginTime, const Animation* anim, const KeyframeList& keyframes)

@@ -40,7 +40,7 @@ namespace WebCore {
     class JSDOMWindowShell : public DOMObject {
         typedef DOMObject Base;
     public:
-        JSDOMWindowShell(PassRefPtr<DOMWindow>);
+        JSDOMWindowShell(PassRefPtr<DOMWindow>, DOMWrapperWorld* world);
         virtual ~JSDOMWindowShell();
 
         JSDOMWindow* window() const { return m_window; }
@@ -63,6 +63,8 @@ namespace WebCore {
             return JSC::Structure::create(prototype, JSC::TypeInfo(JSC::ObjectType, StructureFlags)); 
         }
 
+        DOMWrapperWorld* world() { return m_world.get(); }
+
     private:
         static const unsigned StructureFlags = JSC::OverridesGetOwnPropertySlot | JSC::OverridesMarkChildren | JSC::OverridesGetPropertyNames | DOMObject::StructureFlags;
 
@@ -75,7 +77,6 @@ namespace WebCore {
         virtual bool deleteProperty(JSC::ExecState*, const JSC::Identifier& propertyName);
         virtual void getPropertyNames(JSC::ExecState*, JSC::PropertyNameArray&);
         virtual void getOwnPropertyNames(JSC::ExecState*, JSC::PropertyNameArray&);
-        virtual bool getPropertyAttributes(JSC::ExecState*, const JSC::Identifier& propertyName, unsigned& attributes) const;
         virtual void defineGetter(JSC::ExecState*, const JSC::Identifier& propertyName, JSC::JSObject* getterFunction, unsigned attributes);
         virtual void defineSetter(JSC::ExecState*, const JSC::Identifier& propertyName, JSC::JSObject* setterFunction, unsigned attributes);
         virtual bool defineOwnProperty(JSC::ExecState*, const JSC::Identifier& propertyName, JSC::PropertyDescriptor&, bool shouldThrow);
@@ -85,6 +86,7 @@ namespace WebCore {
         virtual const JSC::ClassInfo* classInfo() const { return &s_info; }
 
         JSDOMWindow* m_window;
+        RefPtr<DOMWrapperWorld> m_world;
     };
 
     JSC::JSValue toJS(JSC::ExecState*, Frame*);

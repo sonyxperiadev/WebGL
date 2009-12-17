@@ -45,6 +45,12 @@ public:
     static void setSessionStorageEnabled(bool isEnabled) { isSessionStorageEnabled = isEnabled; }
     static bool sessionStorageEnabled() { return isSessionStorageEnabled; }
 
+    static void setNotificationsEnabled(bool isEnabled) { isNotificationsEnabled = isEnabled; }
+    static bool notificationsEnabled() { return isNotificationsEnabled; }
+
+    static void setApplicationCacheEnabled(bool isEnabled) { isApplicationCacheEnabled = isEnabled; }
+    static bool applicationCacheEnabled() { return isApplicationCacheEnabled; }
+
 private:
     // Never instantiate.
     RuntimeEnabledFeatures() { }
@@ -52,6 +58,8 @@ private:
     static bool isDatabaseEnabled;
     static bool isLocalStorageEnabled;
     static bool isSessionStorageEnabled;
+    static bool isNotificationsEnabled;
+    static bool isApplicationCacheEnabled;
 };
 
 } // namespace WebCore

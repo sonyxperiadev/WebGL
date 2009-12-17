@@ -40,6 +40,18 @@
 #define NSAccessibilityValueDescriptionAttribute @"AXValueDescription"
 #endif
 
+#ifndef NSAccessibilityOwnsAttribute
+#define NSAccessibilityOwnsAttribute @"AXOwns"
+#endif
+
+#ifndef NSAccessibilityGrabbedAttribute
+#define NSAccessibilityGrabbedAttribute @"AXGrabbed"
+#endif
+
+#ifndef NSAccessibilityDropEffectsAttribute
+#define NSAccessibilityDropEffectsAttribute @"AXDropEffects"
+#endif
+
 @interface NSObject (WebKitAccessibilityArrayCategory)
 - (NSArray *)accessibilityArrayAttributeValues:(NSString *)attribute index:(NSUInteger)index maxCount:(NSUInteger)maxCount;
 @end
@@ -232,7 +244,43 @@ AccessibilityUIElement AccessibilityUIElement::getChildAtIndex(unsigned index)
 
     if (children.size() == 1)
         return children[0];
-    return nil;
+    return 0;
+}
+
+AccessibilityUIElement AccessibilityUIElement::ariaOwnsElementAtIndex(unsigned index)
+{
+    NSArray* objects = [m_element accessibilityAttributeValue:NSAccessibilityOwnsAttribute];
+    if (index < [objects count])
+        return [objects objectAtIndex:index];
+    
+    return 0;
+}
+
+AccessibilityUIElement AccessibilityUIElement::ariaFlowToElementAtIndex(unsigned index)
+{
+    NSArray* objects = [m_element accessibilityAttributeValue:NSAccessibilityLinkedUIElementsAttribute];
+    if (index < [objects count])
+        return [objects objectAtIndex:index];
+    
+    return 0;
+}
+
+AccessibilityUIElement AccessibilityUIElement::disclosedRowAtIndex(unsigned index)
+{
+    NSArray* rows = [m_element accessibilityAttributeValue:NSAccessibilityDisclosedRowsAttribute];
+    if (index < [rows count])
+        return [rows objectAtIndex:index];
+
+    return 0;
+}
+
+AccessibilityUIElement AccessibilityUIElement::selectedRowAtIndex(unsigned index)
+{
+    NSArray* rows = [m_element accessibilityAttributeValue:NSAccessibilitySelectedRowsAttribute];
+    if (index < [rows count])
+        return [rows objectAtIndex:index];
+    
+    return 0;
 }
 
 AccessibilityUIElement AccessibilityUIElement::titleUIElement()
@@ -241,7 +289,7 @@ AccessibilityUIElement AccessibilityUIElement::titleUIElement()
     if (accessibilityObject)
         return AccessibilityUIElement(accessibilityObject);
     
-    return nil;
+    return 0;
 }
 
 AccessibilityUIElement AccessibilityUIElement::parentElement()
@@ -250,7 +298,16 @@ AccessibilityUIElement AccessibilityUIElement::parentElement()
     if (accessibilityObject)
         return AccessibilityUIElement(accessibilityObject);
     
-    return nil;
+    return 0;
+}
+
+AccessibilityUIElement AccessibilityUIElement::disclosedByRow()
+{
+    id accessibilityObject = [m_element accessibilityAttributeValue:NSAccessibilityDisclosedByRowAttribute];
+    if (accessibilityObject)
+        return AccessibilityUIElement(accessibilityObject);
+    
+    return 0;
 }
 
 JSStringRef AccessibilityUIElement::attributesOfLinkedUIElements()
@@ -293,6 +350,11 @@ bool AccessibilityUIElement::isAttributeSettable(JSStringRef attribute)
     return [m_element accessibilityIsAttributeSettable:[NSString stringWithJSStringRef:attribute]];
 }
 
+bool AccessibilityUIElement::isAttributeSupported(JSStringRef attribute)
+{
+    return [[m_element accessibilityAttributeNames] containsObject:[NSString stringWithJSStringRef:attribute]];
+}
+
 JSStringRef AccessibilityUIElement::parameterizedAttributeNames()
 {
     NSArray* supportedParameterizedAttributes = [m_element accessibilityParameterizedAttributeNames];
@@ -317,6 +379,12 @@ JSStringRef AccessibilityUIElement::subrole()
     return concatenateAttributeAndValue(@"AXSubrole", role);
 }
 
+JSStringRef AccessibilityUIElement::roleDescription()
+{
+    NSString* role = descriptionOfValue([m_element accessibilityAttributeValue:NSAccessibilityRoleDescriptionAttribute], m_element);
+    return concatenateAttributeAndValue(@"AXRoleDescription", role);
+}
+
 JSStringRef AccessibilityUIElement::title()
 {
     NSString* title = descriptionOfValue([m_element accessibilityAttributeValue:NSAccessibilityTitleAttribute], m_element);
@@ -327,6 +395,18 @@ JSStringRef AccessibilityUIElement::description()
 {
     id description = descriptionOfValue([m_element accessibilityAttributeValue:NSAccessibilityDescriptionAttribute], m_element);
     return concatenateAttributeAndValue(@"AXDescription", description);
+}
+
+JSStringRef AccessibilityUIElement::orientation() const
+{
+    id description = descriptionOfValue([m_element accessibilityAttributeValue:NSAccessibilityOrientationAttribute], m_element);
+    return concatenateAttributeAndValue(@"AXOrientation", description);    
+}
+
+JSStringRef AccessibilityUIElement::stringValue()
+{
+    id description = descriptionOfValue([m_element accessibilityAttributeValue:NSAccessibilityValueAttribute], m_element);
+    return concatenateAttributeAndValue(@"AXValue", description);
 }
 
 JSStringRef AccessibilityUIElement::language()
@@ -431,6 +511,55 @@ bool AccessibilityUIElement::isRequired() const
     if ([value isKindOfClass:[NSNumber class]])
         return [value boolValue];
     return false;
+}
+
+bool AccessibilityUIElement::isSelected() const
+{
+    id value = [m_element accessibilityAttributeValue:NSAccessibilitySelectedAttribute];
+    if ([value isKindOfClass:[NSNumber class]])
+        return [value boolValue];
+    return false;
+}
+
+bool AccessibilityUIElement::isExpanded() const
+{
+    id value = [m_element accessibilityAttributeValue:NSAccessibilityExpandedAttribute];
+    if ([value isKindOfClass:[NSNumber class]])
+        return [value boolValue];
+    return false;
+}
+
+int AccessibilityUIElement::hierarchicalLevel() const
+{
+    id value = [m_element accessibilityAttributeValue:NSAccessibilityDisclosureLevelAttribute];
+    if ([value isKindOfClass:[NSNumber class]])
+        return [value intValue];
+    return 0;
+}
+
+bool AccessibilityUIElement::ariaIsGrabbed() const
+{
+    id value = [m_element accessibilityAttributeValue:NSAccessibilityGrabbedAttribute];
+    if ([value isKindOfClass:[NSNumber class]])
+        return [value boolValue];
+    return false;
+}
+
+JSStringRef AccessibilityUIElement::ariaDropEffects() const
+{
+    id value = [m_element accessibilityAttributeValue:NSAccessibilityDropEffectsAttribute];
+    if (![value isKindOfClass:[NSArray class]])
+        return 0;
+
+    NSMutableString* dropEffects = [NSMutableString string];
+    NSInteger length = [value count];
+    for (NSInteger k = 0; k < length; ++k) {
+        [dropEffects appendString:[value objectAtIndex:k]];
+        if (k < length - 1)
+            [dropEffects appendString:@","];
+    }
+    
+    return [dropEffects createJSStringRef];
 }
 
 // parameterized attributes
@@ -570,4 +699,25 @@ void AccessibilityUIElement::increment()
 void AccessibilityUIElement::decrement()
 {
     [m_element accessibilityPerformAction:NSAccessibilityDecrementAction];
+}
+
+void AccessibilityUIElement::showMenu()
+{
+    [m_element accessibilityPerformAction:NSAccessibilityShowMenuAction];
+}
+
+JSStringRef AccessibilityUIElement::accessibilityValue() const
+{
+    // FIXME: implement
+    return JSStringCreateWithCharacters(0, 0);
+}
+
+JSStringRef AccessibilityUIElement::documentEncoding()
+{
+    return JSStringCreateWithCharacters(0, 0);
+}
+
+JSStringRef AccessibilityUIElement::documentURI()
+{
+    return JSStringCreateWithCharacters(0, 0);
 }

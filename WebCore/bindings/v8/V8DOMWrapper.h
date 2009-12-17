@@ -109,7 +109,12 @@ namespace WebCore {
 #endif
 
         // Sets contents of a DOM wrapper.
-        static void setDOMWrapper(v8::Handle<v8::Object>, int type, void* ptr);
+        static void setDOMWrapper(v8::Handle<v8::Object> object, int type, void* cptr)
+        {
+            ASSERT(object->InternalFieldCount() >= 2);
+            object->SetPointerInInternalField(V8Custom::kDOMWrapperObjectIndex, cptr);
+            object->SetInternalField(V8Custom::kDOMWrapperTypeIndex, v8::Integer::New(type));
+        }
 
         static v8::Handle<v8::Object> lookupDOMWrapper(V8ClassIndex::V8WrapperType type, v8::Handle<v8::Object> object)
         {
@@ -147,22 +152,7 @@ namespace WebCore {
             return convertNodeToV8Object(node.get());
         }
 
-        static v8::Handle<v8::Value> convertNodeToV8Object(Node* node)
-        {
-            if (!node)
-                return v8::Null();
-
-            Document* document = node->document();
-            if (node == document)
-                return convertDocumentToV8Object(document);
-
-            DOMWrapperMap<Node>& domNodeMap = getDOMNodeMap();
-            v8::Handle<v8::Object> wrapper = domNodeMap.get(node);
-            if (wrapper.IsEmpty())
-                return convertNewNodeToV8Object(node, 0, domNodeMap);
-
-            return wrapper;
-        }
+        static v8::Handle<v8::Value> convertNodeToV8Object(Node*);
 
         static v8::Handle<v8::Value> convertDocumentToV8Object(Document*);
 
@@ -256,13 +246,13 @@ namespace WebCore {
 // TODO: upstream XPATH guard.
 #if ENABLE(XPATH)
         // XPath-related utilities
-        static RefPtr<XPathNSResolver> getXPathNSResolver(v8::Handle<v8::Value> value)
+        static RefPtr<XPathNSResolver> getXPathNSResolver(v8::Handle<v8::Value> value, V8Proxy* proxy = 0)
         {
             RefPtr<XPathNSResolver> resolver;
             if (V8XPathNSResolver::HasInstance(value))
                 resolver = convertToNativeObject<XPathNSResolver>(V8ClassIndex::XPATHNSRESOLVER, v8::Handle<v8::Object>::Cast(value));
             else if (value->IsObject())
-                resolver = V8CustomXPathNSResolver::create(value->ToObject());
+                resolver = V8CustomXPathNSResolver::create(proxy, value->ToObject());
             return resolver;
         }
 #endif
@@ -284,6 +274,10 @@ namespace WebCore {
 
         // Checks whether a DOM object has a JS wrapper.
         static bool domObjectHasJSWrapper(void*);
+        // Get JS wrapper of an existing DOM object, assuming that the wrapper
+        // exists.
+        static v8::Persistent<v8::Object> jsWrapperForDOMObject(void*);
+        static v8::Persistent<v8::Object> jsWrapperForActiveDOMObject(void*);
         // Set JS wrapper of a DOM object, the caller in charge of increase ref.
         static void setJSWrapperForDOMObject(void*, v8::Persistent<v8::Object>);
         static void setJSWrapperForActiveDOMObject(void*, v8::Persistent<v8::Object>);
@@ -303,10 +297,18 @@ namespace WebCore {
         // Returns the JS wrapper of a window object, initializes the environment
         // of the window frame if needed.
         static v8::Handle<v8::Value> convertWindowToV8Object(DOMWindow*);
+        static v8::Handle<v8::Value> convertNamedNodeMapToV8Object(NamedNodeMap*);
 
 #if ENABLE(SVG)
         static v8::Handle<v8::Value> convertSVGElementInstanceToV8Object(SVGElementInstance*);
         static v8::Handle<v8::Value> convertSVGObjectWithContextToV8Object(V8ClassIndex::V8WrapperType, void*);
+#endif
+
+#if ENABLE(3D_CANVAS)
+        static void setIndexedPropertiesToExternalArray(v8::Handle<v8::Object>,
+                                                        int,
+                                                        void*,
+                                                        int);
 #endif
 
     private:
