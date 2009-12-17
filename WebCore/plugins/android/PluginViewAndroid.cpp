@@ -85,6 +85,7 @@
 extern void ANPAudioTrackInterfaceV0_Init(ANPInterface* value);
 extern void ANPBitmapInterfaceV0_Init(ANPInterface* value);
 extern void ANPCanvasInterfaceV0_Init(ANPInterface* value);
+extern void ANPEventInterfaceV0_Init(ANPInterface* value);
 extern void ANPLogInterfaceV0_Init(ANPInterface* value);
 extern void ANPMatrixInterfaceV0_Init(ANPInterface* value);
 extern void ANPOffscreenInterfaceV0_Init(ANPInterface* value);
@@ -108,6 +109,7 @@ static const VarProcPair gVarProcs[] = {
     { VARPROCLINE(AudioTrackInterfaceV0)    },
     { VARPROCLINE(BitmapInterfaceV0)        },
     { VARPROCLINE(CanvasInterfaceV0)        },
+    { VARPROCLINE(EventInterfaceV0)         },
     { VARPROCLINE(LogInterfaceV0)           },
     { VARPROCLINE(MatrixInterfaceV0)        },
     { VARPROCLINE(PaintInterfaceV0)         },
