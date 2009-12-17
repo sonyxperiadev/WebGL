@@ -215,6 +215,21 @@ void FrameLoaderClientAndroid::dispatchDidChangeLocationWithinPage() {
     notImplemented();
 }
 
+void FrameLoaderClientAndroid::dispatchDidPushStateWithinPage()
+{
+    notImplemented();
+}
+
+void FrameLoaderClientAndroid::dispatchDidReplaceStateWithinPage()
+{
+    notImplemented();
+}
+
+void FrameLoaderClientAndroid::dispatchDidPopStateWithinPage()
+{
+    notImplemented();
+}
+
 void FrameLoaderClientAndroid::dispatchWillClose() {
     notImplemented();
 }
