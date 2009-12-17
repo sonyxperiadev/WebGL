@@ -67,6 +67,7 @@ my $isChromium;
 # Variables for Win32 support
 my $vcBuildPath;
 my $windowsTmpPath;
+my $windowsSourceDir;
 
 sub determineSourceDir
 {
@@ -521,8 +522,18 @@ sub builtDylibPathForName
 {
     my $libraryName = shift;
     determineConfigurationProductDir();
-    if (isQt() or isChromium()) {
+    if (isChromium()) {
         return "$configurationProductDir/$libraryName";
+    }
+    if (isQt()) {
+        $libraryName = "QtWebKit";
+        if (isDarwin() and -d "$configurationProductDir/lib/$libraryName.framework") {
+            return "$configurationProductDir/lib/$libraryName.framework/$libraryName";
+        } elsif (isWindows() or isCygwin()) {
+            return "$configurationProductDir/lib/$libraryName.dll";
+        } else {
+            return "$configurationProductDir/lib/lib$libraryName.so";
+        }
     }
     if (isWx()) {
         return "$configurationProductDir/libwxwebkit.dylib";
@@ -561,7 +572,7 @@ sub libraryContainsSymbol
     my $path = shift;
     my $symbol = shift;
 
-    if (isCygwin()) {
+    if (isCygwin() or isWindows()) {
         # FIXME: Implement this for Windows.
         return 0;
     }
@@ -637,7 +648,8 @@ sub checkWebCoreSVGSupport
 
 sub hasAcceleratedCompositingSupport
 {
-    return 0 if isCygwin() || isQt();
+    # On platforms other than Mac the Skipped files are used to skip compositing tests
+    return 1 if !isAppleMacWebKit();
 
     my $path = shift;
     return libraryContainsSymbol($path, "GraphicsLayer");
@@ -657,7 +669,8 @@ sub checkWebCoreAcceleratedCompositingSupport
 
 sub has3DRenderingSupport
 {
-    return 0 if isQt();
+    # On platforms other than Mac the Skipped files are used to skip 3D tests
+    return 1 if !isAppleMacWebKit();
 
     my $path = shift;
     return libraryContainsSymbol($path, "WebCoreHas3DRendering");
@@ -680,7 +693,7 @@ sub has3DCanvasSupport
     return 0 if isQt();
 
     my $path = shift;
-    return libraryContainsSymbol($path, "CanvasShader");
+    return libraryContainsSymbol($path, "WebGLShader");
 }
 
 sub checkWebCore3DCanvasSupport
@@ -974,6 +987,11 @@ sub isSnowLeopard()
     return isDarwin() && osXVersion()->{"minor"} == 6;
 }
 
+sub isWindowsNT()
+{
+    return $ENV{'OS'} eq 'Windows_NT';
+}
+
 sub relativeScriptsDir()
 {
     my $scriptDir = File::Spec->catpath("", File::Spec->abs2rel(dirname($0), getcwd()), "");
@@ -1025,7 +1043,7 @@ sub checkRequiredSystemConfig
             print "http://developer.apple.com/tools/xcode\n";
             print "*************************************************************\n";
         }
-    } elsif (isGtk() or isQt() or isWx() or isChromium()) {
+    } elsif (isGtk() or isQt() or isWx()) {
         my @cmds = qw(flex bison gperf);
         my @missing = ();
         foreach my $cmd (@cmds) {
@@ -1039,6 +1057,68 @@ sub checkRequiredSystemConfig
         }
     }
     # Win32 and other platforms may want to check for minimum config
+}
+
+sub determineWindowsSourceDir()
+{
+    return if $windowsSourceDir;
+    my $sourceDir = sourceDir();
+    chomp($windowsSourceDir = `cygpath -w $sourceDir`);
+}
+
+sub windowsSourceDir()
+{
+    determineWindowsSourceDir();
+    return $windowsSourceDir;
+}
+
+sub windowsLibrariesDir()
+{
+    return windowsSourceDir() . "\\WebKitLibraries\\win";
+}
+
+sub windowsOutputDir()
+{
+    return windowsSourceDir() . "\\WebKitBuild";
+}
+
+sub setupAppleWinEnv()
+{
+    return unless isAppleWinWebKit();
+
+    if (isWindowsNT()) {
+        my $restartNeeded = 0;
+        my %variablesToSet = ();
+
+        # Setting the environment variable 'CYGWIN' to 'tty' makes cygwin enable extra support (i.e., termios)
+        # for UNIX-like ttys in the Windows console
+        $variablesToSet{CYGWIN} = "tty" unless $ENV{CYGWIN};
+        
+        # Those environment variables must be set to be able to build inside Visual Studio.
+        $variablesToSet{WEBKITLIBRARIESDIR} = windowsLibrariesDir() unless $ENV{WEBKITLIBRARIESDIR};
+        $variablesToSet{WEBKITOUTPUTDIR} = windowsOutputDir() unless $ENV{WEBKITOUTPUTDIR};
+
+        foreach my $variable (keys %variablesToSet) {
+            print "Setting the Environment Variable '" . $variable . "' to '" . $variablesToSet{$variable} . "'\n\n";
+            system qw(regtool -s set), '\\HKEY_CURRENT_USER\\Environment\\' . $variable, $variablesToSet{$variable};
+            $restartNeeded ||= $variable eq "WEBKITLIBRARIESDIR" || $variable eq "WEBKITOUTPUTDIR";
+        }
+
+        if ($restartNeeded) {
+            print "Please restart your computer before attempting to build inside Visual Studio.\n\n";
+        }
+    } else {
+        if (!$ENV{'WEBKITLIBRARIESDIR'}) {
+            print "Warning: You must set the 'WebKitLibrariesDir' environment variable\n";
+            print "         to be able build WebKit from within Visual Studio.\n";
+            print "         Make sure that 'WebKitLibrariesDir' points to the\n";
+            print "         'WebKitLibraries/win' directory, not the 'WebKitLibraries/' directory.\n\n";
+        }
+        if (!$ENV{'WEBKITOUTPUTDIR'}) {
+            print "Warning: You must set the 'WebKitOutputDir' environment variable\n";
+            print "         to be able build WebKit from within Visual Studio.\n\n";
+        }
+    }
 }
 
 sub setupCygwinEnv()
@@ -1119,9 +1199,6 @@ sub buildVisualStudioProject
     }
 
     my $useenv = "/useenv";
-    if (isChromium()) {
-        $useenv = "";
-    }
 
     my @command = ($vcBuildPath, $useenv, $winProjectPath, $action, $config);
 
@@ -1393,6 +1470,46 @@ sub buildGtkProject($$@)
     return buildAutotoolsProject($clean, @buildArgs);
 }
 
+sub buildChromiumMakefile($$$)
+{
+    my ($dir, $target, $clean) = @_;
+    chdir $dir;
+    if ($clean) {
+        return system qw(rm -rf out);
+    }
+    my $config = configuration();
+    my @command = ("make", "-j4", "BUILDTYPE=$config", $target);
+    print join(" ", @command) . "\n";
+    return system @command;
+}
+
+sub buildChromiumVisualStudioProject($$)
+{
+    my ($projectPath, $clean) = @_;
+
+    my $config = configuration();
+    my $action = "/build";
+    $action = "/clean" if $clean;
+
+    # Find Visual Studio installation.
+    my $vsInstallDir;
+    my $programFilesPath = $ENV{'PROGRAMFILES'} || "C:\\Program Files";
+    if ($ENV{'VSINSTALLDIR'}) {
+        $vsInstallDir = $ENV{'VSINSTALLDIR'};
+    } else {
+        $vsInstallDir = "$programFilesPath/Microsoft Visual Studio 8";
+    }
+    $vsInstallDir = `cygpath "$vsInstallDir"` if isCygwin();
+    chomp $vsInstallDir;
+    $vcBuildPath = "$vsInstallDir/Common7/IDE/devenv.com";
+
+    # Create command line and execute it.
+    my @command = ($vcBuildPath, $projectPath, $action, $config);
+    print "Building results into: ", baseProductDir(), "\n";
+    print join(" ", @command), "\n";
+    return system @command;
+}
+
 sub buildChromium($@)
 {
     my ($clean, @options) = @_;
@@ -1400,21 +1517,29 @@ sub buildChromium($@)
     my $result = 1;
     if (isDarwin()) {
         # Mac build - builds the root xcode project.
-        $result = buildXCodeProject("WebKit/chromium/webkit",
-                                    $clean,
-                                    (@options));
-    } elsif (isCygwin()) {
+        $result = buildXCodeProject("WebKit/chromium/WebKit", $clean, (@options));
+    } elsif (isCygwin() || isWindows()) {
         # Windows build - builds the root visual studio solution.
-        $result = buildVisualStudioProject("WebKit/chromium/webkit.sln",
-                                           $clean);
+        $result = buildChromiumVisualStudioProject("WebKit/chromium/WebKit.sln", $clean);
     } elsif (isLinux()) {
-        # Linux build
-        # FIXME support linux.
-        print STDERR "Linux build is not supported. Yet.";
+        # Linux build - build using make.
+        $ result = buildChromiumMakefile("WebKit/chromium/", "webkit", $clean);
     } else {
-        print STDERR "This platform is not supported by chromium.";
+        print STDERR "This platform is not supported by chromium.\n";
     }
     return $result;
+}
+
+sub appleApplicationSupportPath
+{
+    open INSTALL_DIR, "</proc/registry/HKEY_LOCAL_MACHINE/SOFTWARE/Apple\ Inc./Apple\ Application\ Support/InstallDir";
+    my $path = <INSTALL_DIR>;
+    $path =~ s/[\r\n\x00].*//;
+    close INSTALL_DIR;
+
+    my $unixPath = `cygpath -u '$path'`;
+    chomp $unixPath;
+    return $unixPath;
 }
 
 sub setPathForRunningWebKitApp
@@ -1423,7 +1548,7 @@ sub setPathForRunningWebKitApp
 
     return unless isAppleWinWebKit();
 
-    $env->{PATH} = join(':', productDir(), dirname(installedSafariPath()), $env->{PATH} || "");
+    $env->{PATH} = join(':', productDir(), dirname(installedSafariPath()), appleApplicationSupportPath(), $env->{PATH} || "");
 }
 
 sub exitStatus($)

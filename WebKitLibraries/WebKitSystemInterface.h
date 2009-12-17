@@ -188,6 +188,9 @@ typedef enum {
 
 int WKQTMovieGetType(QTMovie* movie);
 
+BOOL WKQTMovieHasClosedCaptions(QTMovie* movie);
+void WKQTMovieSetShowClosedCaptions(QTMovie* movie, BOOL showClosedCaptions);
+
 unsigned WKQTIncludeOnlyModernMediaFileTypes(void);
 int WKQTMovieDataRate(QTMovie* movie);
 float WKQTMovieMaxTimeLoaded(QTMovie* movie);
@@ -207,6 +210,8 @@ typedef enum {
     WKMediaUIPartSliderThumb,
     WKMediaUIPartRewindButton,
     WKMediaUIPartSeekToRealtimeButton,
+    WKMediaUIPartShowClosedCaptionsButton,
+    WKMediaUIPartHideClosedCaptionsButton,
     WKMediaUIPartUnMuteButton,
     WKMediaUIPartPauseButton,
     WKMediaUIPartBackground,
@@ -225,6 +230,7 @@ typedef enum {
     WKMediaControllerFlagDrawEndCaps = 1 << 3,
 } WKMediaControllerThemeState;
 
+BOOL WKMediaControllerThemeAvailable(int themeStyle);
 BOOL WKHitTestMediaUIPart(int part, int themeStyle, CGRect bounds, CGPoint point);
 void WKMeasureMediaUIPart(int part, int themeStyle, CGRect *bounds, CGSize *naturalSize);
 void WKDrawMediaUIPart(int part, int themeStyle, CGContextRef context, CGRect rect, unsigned state);
@@ -272,6 +278,10 @@ UInt8 WKGetNSEventKeyChar(NSEvent *);
 void WKSetCAAnimationValueFunction(CAPropertyAnimation*, NSString* function);
 
 unsigned WKInitializeMaximumHTTPConnectionCountPerHost(unsigned preferredConnectionCount);
+
+void WKSetCONNECTProxyForStream(CFReadStreamRef, CFStringRef proxyHost, CFNumberRef proxyPort);
+void WKSetCONNECTProxyAuthorizationForStream(CFReadStreamRef, CFStringRef proxyAuthorizationString);
+CFHTTPMessageRef WKCopyCONNECTProxyResponse(CFReadStreamRef, CFURLRef responseURL);
 
 BOOL WKIsLatchingWheelEvent(NSEvent *);
 

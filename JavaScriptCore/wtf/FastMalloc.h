@@ -26,19 +26,13 @@
 #include <stdlib.h>
 #include <new>
 
-#if COMPILER(GCC)
-#define WTF_FAST_MALLOC_EXPORT __attribute__((visibility("default")))
-#else
-#define WTF_FAST_MALLOC_EXPORT
-#endif
-
 namespace WTF {
 
     // These functions call CRASH() if an allocation fails.
-    void* fastMalloc(size_t) WTF_FAST_MALLOC_EXPORT;
+    void* fastMalloc(size_t);
     void* fastZeroedMalloc(size_t);
-    void* fastCalloc(size_t numElements, size_t elementSize) WTF_FAST_MALLOC_EXPORT;
-    void* fastRealloc(void*, size_t) WTF_FAST_MALLOC_EXPORT;
+    void* fastCalloc(size_t numElements, size_t elementSize);
+    void* fastRealloc(void*, size_t);
 
     struct TryMallocReturnValue {
         TryMallocReturnValue(void* data)
@@ -77,7 +71,7 @@ namespace WTF {
     TryMallocReturnValue tryFastCalloc(size_t n_elements, size_t element_size);
     TryMallocReturnValue tryFastRealloc(void* p, size_t n);
 
-    void fastFree(void*) WTF_FAST_MALLOC_EXPORT;
+    void fastFree(void*);
 
 #ifndef NDEBUG    
     void fastMallocForbid();
@@ -222,14 +216,21 @@ using WTF::fastMallocAllow;
 // We musn't customize the global operator new and delete for the Qt port.
 #if !PLATFORM(QT)
 
-WTF_PRIVATE_INLINE void* operator new(size_t size) { return fastMalloc(size); }
+#if COMPILER(MSVC)
+#pragma warning(push)
+#pragma warning(disable: 4290) // Disable the C++ exception specification ignored warning.
+#endif
+WTF_PRIVATE_INLINE void* operator new(size_t size) throw (std::bad_alloc) { return fastMalloc(size); }
 WTF_PRIVATE_INLINE void* operator new(size_t size, const std::nothrow_t&) throw() { return fastMalloc(size); }
-WTF_PRIVATE_INLINE void operator delete(void* p) { fastFree(p); }
+WTF_PRIVATE_INLINE void operator delete(void* p) throw() { fastFree(p); }
 WTF_PRIVATE_INLINE void operator delete(void* p, const std::nothrow_t&) throw() { fastFree(p); }
-WTF_PRIVATE_INLINE void* operator new[](size_t size) { return fastMalloc(size); }
+WTF_PRIVATE_INLINE void* operator new[](size_t size) throw (std::bad_alloc) { return fastMalloc(size); }
 WTF_PRIVATE_INLINE void* operator new[](size_t size, const std::nothrow_t&) throw() { return fastMalloc(size); }
-WTF_PRIVATE_INLINE void operator delete[](void* p) { fastFree(p); }
+WTF_PRIVATE_INLINE void operator delete[](void* p) throw() { fastFree(p); }
 WTF_PRIVATE_INLINE void operator delete[](void* p, const std::nothrow_t&) throw() { fastFree(p); }
+#if COMPILER(MSVC)
+#pragma warning(pop)
+#endif
 
 #endif
 

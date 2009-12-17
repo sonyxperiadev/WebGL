@@ -200,6 +200,13 @@ static void restartedCallback(SoupMessage* msg, gpointer data)
     request.setURL(newURL);
     request.setHTTPMethod(msg->method);
     fillResponseFromMessage(msg, &response);
+
+    // Should not set Referer after a redirect from a secure resource to non-secure one.
+    if (!request.url().protocolIs("https") && protocolIs(request.httpReferrer(), "https")) {
+        request.clearHTTPReferrer();
+        soup_message_headers_remove(msg->request_headers, "Referer");
+    }
+
     if (d->client())
         d->client()->willSendRequest(handle, request, response);
 }
@@ -686,6 +693,13 @@ static void closeCallback(GObject* source, GAsyncResult* res, gpointer)
 
     g_input_stream_close_finish(d->m_inputStream, res, 0);
     cleanupGioOperation(handle.get());
+
+    // The load may have been cancelled, the client may have been
+    // destroyed already. In such cases calling didFinishLoading is a
+    // bad idea.
+    if (d->m_cancelled || !client)
+        return;
+
     client->didFinishLoading(handle.get());
 }
 
@@ -866,7 +880,7 @@ static bool startGio(ResourceHandle* handle, KURL url)
     // using GIO internally, and providing URIs instead of file paths
     url.removeFragmentIdentifier();
     url.setQuery(String());
-    url.setPort(0);
+    url.removePort();
 
 #if !PLATFORM(WIN_OS)
     // we avoid the escaping for local files, because

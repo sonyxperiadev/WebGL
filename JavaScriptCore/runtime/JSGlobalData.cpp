@@ -82,26 +82,28 @@ struct VPtrSet {
 
 VPtrSet::VPtrSet()
 {
-    // Bizarrely, calling fastMalloc here is faster than allocating space on the stack.
-    void* storage = fastMalloc(sizeof(CollectorBlock));
+    CollectorCell cell;
+    void* storage = &cell;
 
+    COMPILE_ASSERT(sizeof(JSArray) <= sizeof(CollectorCell), sizeof_JSArray_must_be_less_than_CollectorCell);
     JSCell* jsArray = new (storage) JSArray(JSArray::createStructure(jsNull()));
     jsArrayVPtr = jsArray->vptr();
     jsArray->~JSCell();
 
+    COMPILE_ASSERT(sizeof(JSByteArray) <= sizeof(CollectorCell), sizeof_JSByteArray_must_be_less_than_CollectorCell);
     JSCell* jsByteArray = new (storage) JSByteArray(JSByteArray::VPtrStealingHack);
     jsByteArrayVPtr = jsByteArray->vptr();
     jsByteArray->~JSCell();
 
+    COMPILE_ASSERT(sizeof(JSString) <= sizeof(CollectorCell), sizeof_JSString_must_be_less_than_CollectorCell);
     JSCell* jsString = new (storage) JSString(JSString::VPtrStealingHack);
     jsStringVPtr = jsString->vptr();
     jsString->~JSCell();
 
+    COMPILE_ASSERT(sizeof(JSFunction) <= sizeof(CollectorCell), sizeof_JSFunction_must_be_less_than_CollectorCell);
     JSCell* jsFunction = new (storage) JSFunction(JSFunction::createStructure(jsNull()));
     jsFunctionVPtr = jsFunction->vptr();
     jsFunction->~JSCell();
-
-    fastFree(storage);
 }
 
 JSGlobalData::JSGlobalData(bool isShared, const VPtrSet& vptrSet)
@@ -147,6 +149,8 @@ JSGlobalData::JSGlobalData(bool isShared, const VPtrSet& vptrSet)
     , functionCodeBlockBeingReparsed(0)
     , firstStringifierToMark(0)
     , markStack(vptrSet.jsArrayVPtr)
+    , cachedUTCOffset(NaN)
+    , weakRandom(static_cast<int>(currentTime()))
 #ifndef NDEBUG
     , mainThreadOnly(false)
 #endif
@@ -249,6 +253,14 @@ const Vector<Instruction>& JSGlobalData::numericCompareFunction(ExecState* exec)
 
 JSGlobalData::ClientData::~ClientData()
 {
+}
+
+void JSGlobalData::resetDateCache()
+{
+    cachedUTCOffset = NaN;
+    dstOffsetCache.reset();
+    cachedDateString = UString();
+    dateInstanceCache.reset();
 }
 
 void JSGlobalData::startSampling()

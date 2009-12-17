@@ -121,6 +121,7 @@ namespace JSC {
             MUL = 0x00000090,
             MULL = 0x00c00090,
             FADDD = 0x0e300b00,
+            FDIVD = 0x0e800b00,
             FSUBD = 0x0e300b40,
             FMULD = 0x0e200b00,
             FCMPD = 0x0eb40b40,
@@ -133,11 +134,17 @@ namespace JSC {
             B = 0x0a000000,
             BL = 0x0b000000,
             FMSR = 0x0e000a10,
+            FMRS = 0x0e100a10,
             FSITOD = 0x0eb80bc0,
+            FTOSID = 0x0ebd0b40,
             FMSTAT = 0x0ef1fa10,
 #if ARM_ARCH_VERSION >= 5
             CLZ = 0x016f0f10,
             BKPT = 0xe120070,
+#endif
+#if ARM_ARCH_VERSION >= 7
+            MOVW = 0x03000000,
+            MOVT = 0x03400000,
 #endif
         };
 
@@ -174,6 +181,8 @@ namespace JSC {
             padForAlign16 = 0x0000,
             padForAlign32 = 0xee120070,
         };
+
+        static const ARMWord INVALID_IMM = 0xf0000000;
 
         class JmpSrc {
             friend class ARMAssembler;
@@ -333,6 +342,20 @@ namespace JSC {
             emitInst(static_cast<ARMWord>(cc) | MOV, rd, ARMRegisters::r0, op2);
         }
 
+#if ARM_ARCH_VERSION >= 7
+        void movw_r(int rd, ARMWord op2, Condition cc = AL)
+        {
+            ASSERT((op2 | 0xf0fff) == 0xf0fff);
+            m_buffer.putInt(static_cast<ARMWord>(cc) | MOVW | RD(rd) | op2);
+        }
+
+        void movt_r(int rd, ARMWord op2, Condition cc = AL)
+        {
+            ASSERT((op2 | 0xf0fff) == 0xf0fff);
+            m_buffer.putInt(static_cast<ARMWord>(cc) | MOVT | RD(rd) | op2);
+        }
+#endif
+
         void movs_r(int rd, ARMWord op2, Condition cc = AL)
         {
             emitInst(static_cast<ARMWord>(cc) | MOV | SET_CC, rd, ARMRegisters::r0, op2);
@@ -376,6 +399,11 @@ namespace JSC {
         void faddd_r(int dd, int dn, int dm, Condition cc = AL)
         {
             emitInst(static_cast<ARMWord>(cc) | FADDD, dd, dn, dm);
+        }
+
+        void fdivd_r(int dd, int dn, int dm, Condition cc = AL)
+        {
+            emitInst(static_cast<ARMWord>(cc) | FDIVD, dd, dn, dm);
         }
 
         void fsubd_r(int dd, int dn, int dm, Condition cc = AL)
@@ -482,9 +510,19 @@ namespace JSC {
             emitInst(static_cast<ARMWord>(cc) | FMSR, rn, dd, 0);
         }
 
+        void fmrs_r(int rd, int dn, Condition cc = AL)
+        {
+            emitInst(static_cast<ARMWord>(cc) | FMRS, rd, dn, 0);
+        }
+
         void fsitod_r(int dd, int dm, Condition cc = AL)
         {
             emitInst(static_cast<ARMWord>(cc) | FSITOD, dd, 0, dm);
+        }
+
+        void ftosid_r(int fd, int dm, Condition cc = AL)
+        {
+            emitInst(static_cast<ARMWord>(cc) | FTOSID, fd, 0, dm);
         }
 
         void fmstat(Condition cc = AL)
@@ -708,8 +746,18 @@ namespace JSC {
         }
 
         static ARMWord getOp2(ARMWord imm);
+
+#if ARM_ARCH_VERSION >= 7
+        static ARMWord getImm16Op2(ARMWord imm)
+        {
+            if (imm <= 0xffff)
+                return (imm & 0xf000) << 4 | (imm & 0xfff);
+            return INVALID_IMM;
+        }
+#endif
         ARMWord getImm(ARMWord imm, int tmpReg, bool invert = false);
         void moveImm(ARMWord imm, int dest);
+        ARMWord encodeComplexImm(ARMWord imm, int dest);
 
         // Memory load/store helpers
 

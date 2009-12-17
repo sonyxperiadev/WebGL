@@ -48,6 +48,7 @@ HistoryItem::HistoryItem()
     , m_lastVisitWasFailure(false)
     , m_isTargetItem(false)
     , m_visitCount(0)
+    , m_document(0)
 {
 }
 
@@ -60,6 +61,7 @@ HistoryItem::HistoryItem(const String& urlString, const String& title, double ti
     , m_lastVisitWasFailure(false)
     , m_isTargetItem(false)
     , m_visitCount(0)
+    , m_document(0)
 {    
     iconDatabase()->retainIconForPageURL(m_urlString);
 }
@@ -74,6 +76,7 @@ HistoryItem::HistoryItem(const String& urlString, const String& title, const Str
     , m_lastVisitWasFailure(false)
     , m_isTargetItem(false)
     , m_visitCount(0)
+    , m_document(0)
 {
     iconDatabase()->retainIconForPageURL(m_urlString);
 }
@@ -89,6 +92,7 @@ HistoryItem::HistoryItem(const KURL& url, const String& target, const String& pa
     , m_lastVisitWasFailure(false)
     , m_isTargetItem(false)
     , m_visitCount(0)
+    , m_document(0)
 {    
     iconDatabase()->retainIconForPageURL(m_urlString);
 }
@@ -96,6 +100,7 @@ HistoryItem::HistoryItem(const KURL& url, const String& target, const String& pa
 HistoryItem::~HistoryItem()
 {
     ASSERT(!m_cachedPage);
+    ASSERT(!m_document);
     iconDatabase()->releaseIconForPageURL(m_urlString);
 #if PLATFORM(ANDROID)
     if (m_bridge)
@@ -120,10 +125,9 @@ inline HistoryItem::HistoryItem(const HistoryItem& item)
     , m_visitCount(item.m_visitCount)
     , m_dailyVisitCounts(item.m_dailyVisitCounts)
     , m_weeklyVisitCounts(item.m_weeklyVisitCounts)
+    , m_document(0)
     , m_formContentType(item.m_formContentType)
 {
-    ASSERT(!item.m_cachedPage);
-
     if (item.m_formData)
         m_formData = item.m_formData->copy();
         
@@ -389,6 +393,35 @@ void HistoryItem::setIsTargetItem(bool flag)
 #if PLATFORM(ANDROID)
     notifyHistoryItemChanged(this);
 #endif
+<<<<<<< HEAD:WebCore/history/HistoryItem.cpp
+=======
+}
+
+void HistoryItem::setStateObject(PassRefPtr<SerializedScriptValue> object)
+{
+    ASSERT(m_document);
+    m_stateObject = object;
+}
+
+void HistoryItem::setDocument(Document* document)
+{
+    if (m_document == document)
+        return;
+    
+    if (m_document)
+        m_document->unregisterHistoryItem(this);
+    if (document)
+        document->registerHistoryItem(this);
+        
+    m_document = document;
+}
+
+void HistoryItem::documentDetached(Document* document)
+{
+    ASSERT_UNUSED(document, m_document == document);
+    m_document = 0;
+    m_stateObject = 0;
+>>>>>>> webkit.org at r51976:WebCore/history/HistoryItem.cpp
 }
 
 void HistoryItem::addChildItem(PassRefPtr<HistoryItem> child)

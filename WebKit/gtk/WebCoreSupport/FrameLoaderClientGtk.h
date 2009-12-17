@@ -76,6 +76,9 @@ namespace WebKit {
         virtual void dispatchDidCancelClientRedirect();
         virtual void dispatchWillPerformClientRedirect(const WebCore::KURL&, double, double);
         virtual void dispatchDidChangeLocationWithinPage();
+        virtual void dispatchDidPushStateWithinPage();
+        virtual void dispatchDidReplaceStateWithinPage();
+        virtual void dispatchDidPopStateWithinPage();
         virtual void dispatchWillClose();
         virtual void dispatchDidReceiveIcon();
         virtual void dispatchDidStartProvisionalLoad();
@@ -114,7 +117,7 @@ namespace WebKit {
         virtual void redirectDataToPlugin(WebCore::Widget* pluginWidget);
         virtual PassRefPtr<WebCore::Widget> createJavaAppletWidget(const WebCore::IntSize&, WebCore::HTMLAppletElement*, const WebCore::KURL& baseURL, const WTF::Vector<WebCore::String>& paramNames, const WTF::Vector<WebCore::String>& paramValues);
         virtual WebCore::String overrideMediaType() const;
-        virtual void windowObjectCleared();
+        virtual void dispatchDidClearWindowObjectInWorld(WebCore::DOMWrapperWorld*);
         virtual void documentElementAvailable();
         virtual void didPerformFirstNavigation() const;
 

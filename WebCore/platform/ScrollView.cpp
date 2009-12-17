@@ -50,6 +50,7 @@ ScrollView::ScrollView()
     , m_updateScrollbarsPass(0)
     , m_drawPanScrollIcon(false)
     , m_useFixedLayout(false)
+    , m_paintsEntireContents(false)
 {
     platformInit();
 }
@@ -167,6 +168,11 @@ bool ScrollView::canBlitOnScroll() const
         return platformCanBlitOnScroll();
 
     return m_canBlitOnScroll;
+}
+
+void ScrollView::setPaintsEntireContents(bool paintsEntireContents)
+{
+    m_paintsEntireContents = paintsEntireContents;
 }
 
 #if !PLATFORM(GTK)
@@ -712,6 +718,7 @@ void ScrollView::frameRectsChanged()
 
 void ScrollView::repaintContentRectangle(const IntRect& rect, bool now)
 {
+<<<<<<< HEAD:WebCore/platform/ScrollView.cpp
     IntRect visibleContent = visibleContentRect();
 #ifdef ANDROID_CAPTURE_OFFSCREEN_PAINTS
     IntRect fullVis = visibleContent;
@@ -722,14 +729,20 @@ void ScrollView::repaintContentRectangle(const IntRect& rect, bool now)
         platformOffscreenContentRectangle(fullVis, rect);
 #endif
     if (visibleContent.isEmpty())
+=======
+    IntRect paintRect = rect;
+    if (!paintsEntireContents())
+        paintRect.intersect(visibleContentRect());
+    if (paintRect.isEmpty())
+>>>>>>> webkit.org at r51976:WebCore/platform/ScrollView.cpp
         return;
     if (platformWidget()) {
-        platformRepaintContentRectangle(visibleContent, now);
+        platformRepaintContentRectangle(paintRect, now);
         return;
     }
 
     if (hostWindow())
-        hostWindow()->repaint(contentsToWindow(visibleContent), true, now);
+        hostWindow()->repaint(contentsToWindow(paintRect), true, now);
 }
 
 IntRect ScrollView::scrollCornerRect() const
@@ -775,7 +788,7 @@ void ScrollView::paintScrollbars(GraphicsContext* context, const IntRect& rect)
 void ScrollView::paintPanScrollIcon(GraphicsContext* context)
 {
     DEFINE_STATIC_LOCAL(Image*, panScrollIcon, (Image::loadPlatformResource("panIcon").releaseRef()));
-    context->drawImage(panScrollIcon, m_panScrollIconPoint);
+    context->drawImage(panScrollIcon, DeviceColorSpace, m_panScrollIconPoint);
 }
 
 void ScrollView::paint(GraphicsContext* context, const IntRect& rect)
@@ -970,7 +983,7 @@ void ScrollView::platformDestroy()
 
 #endif
 
-#if !PLATFORM(WX) && !PLATFORM(GTK) && !PLATFORM(QT) && !PLATFORM(MAC)
+#if (!PLATFORM(WX) && !PLATFORM(GTK) && !PLATFORM(QT) && !PLATFORM(MAC)) || ENABLE(EXPERIMENTAL_SINGLE_VIEW_MODE)
 
 void ScrollView::platformAddChild(Widget*)
 {
@@ -982,7 +995,7 @@ void ScrollView::platformRemoveChild(Widget*)
 
 #endif
 
-#if !PLATFORM(MAC)
+#if !PLATFORM(MAC) || ENABLE(EXPERIMENTAL_SINGLE_VIEW_MODE)
 
 void ScrollView::platformSetScrollbarsSuppressed(bool repaintOnUnsuppress)
 {
@@ -990,7 +1003,7 @@ void ScrollView::platformSetScrollbarsSuppressed(bool repaintOnUnsuppress)
 
 #endif
 
-#if !PLATFORM(MAC) && !PLATFORM(WX)
+#if (!PLATFORM(MAC) && !PLATFORM(WX)) || ENABLE(EXPERIMENTAL_SINGLE_VIEW_MODE)
 
 void ScrollView::platformSetScrollbarModes()
 {
@@ -1052,8 +1065,12 @@ bool ScrollView::platformScroll(ScrollDirection, ScrollGranularity)
     return true;
 }
 
+<<<<<<< HEAD:WebCore/platform/ScrollView.cpp
 #if !PLATFORM(ANDROID)
 void ScrollView::platformRepaintContentRectangle(const IntRect&, bool now)
+=======
+void ScrollView::platformRepaintContentRectangle(const IntRect&, bool /*now*/)
+>>>>>>> webkit.org at r51976:WebCore/platform/ScrollView.cpp
 {
 }
 

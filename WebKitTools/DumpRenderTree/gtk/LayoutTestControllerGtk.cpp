@@ -49,6 +49,7 @@
 extern "C" {
 bool webkit_web_frame_pause_animation(WebKitWebFrame* frame, const gchar* name, double time, const gchar* element);
 bool webkit_web_frame_pause_transition(WebKitWebFrame* frame, const gchar* name, double time, const gchar* element);
+bool webkit_web_frame_pause_svg_animation(WebKitWebFrame* frame, const gchar* name, double time, const gchar* element);
 unsigned int webkit_web_frame_number_of_active_animations(WebKitWebFrame* frame);
 void webkit_application_cache_set_maximum_size(unsigned long long size);
 unsigned int webkit_worker_thread_count(void);
@@ -224,7 +225,18 @@ void LayoutTestController::setMainFrameIsFirstResponder(bool flag)
 
 void LayoutTestController::setTabKeyCyclesThroughElements(bool cycles)
 {
-    // FIXME: implement
+    WebKitWebView* webView = webkit_web_frame_get_web_view(mainFrame);
+    WebKitWebSettings* settings = webkit_web_view_get_settings(webView);
+    g_object_set(G_OBJECT(settings), "tab-key-cycles-through-elements", cycles, NULL);
+}
+
+void LayoutTestController::setTimelineProfilingEnabled(bool flag)
+{
+    WebKitWebView* view = webkit_web_frame_get_web_view(mainFrame);
+    ASSERT(view);
+
+    WebKitWebInspector* inspector = webkit_web_view_get_inspector(view);
+    g_object_set(G_OBJECT(inspector), "timeline-profiling-enabled", flag, NULL);
 }
 
 void LayoutTestController::setUseDashboardCompatibilityMode(bool flag)
@@ -303,6 +315,15 @@ void LayoutTestController::setXSSAuditorEnabled(bool flag)
 
     WebKitWebSettings* settings = webkit_web_view_get_settings(view);
     g_object_set(G_OBJECT(settings), "enable-xss-auditor", flag, NULL);
+}
+
+void LayoutTestController::setAllowUniversalAccessFromFileURLs(bool flag)
+{
+    WebKitWebView* view = webkit_web_frame_get_web_view(mainFrame);
+    ASSERT(view);
+
+    WebKitWebSettings* settings = webkit_web_view_get_settings(view);
+    g_object_set(G_OBJECT(settings), "enable-universal-access-from-file-uris", flag, NULL);
 }
 
 void LayoutTestController::setAuthorAndUserStylesEnabled(bool flag)
@@ -428,6 +449,16 @@ bool LayoutTestController::pauseTransitionAtTimeOnElementWithId(JSStringRef prop
     return returnValue;
 }
 
+bool LayoutTestController::sampleSVGAnimationForElementAtTime(JSStringRef animationId, double time, JSStringRef elementId)
+{    
+    gchar* name = JSStringCopyUTF8CString(animationId);
+    gchar* element = JSStringCopyUTF8CString(elementId);
+    bool returnValue = webkit_web_frame_pause_svg_animation(mainFrame, name, time, element);
+    g_free(name);
+    g_free(element);
+    return returnValue;
+}
+
 unsigned LayoutTestController::numberOfActiveAnimations() const
 {
     return webkit_web_frame_number_of_active_animations(mainFrame);
@@ -493,7 +524,7 @@ void LayoutTestController::showWebInspector()
     WebKitWebInspector* inspector = webkit_web_view_get_inspector(webView);
 
     g_object_set(webSettings, "enable-developer-extras", TRUE, NULL);
-    webkit_web_inspector_inspect_coordinates(inspector, 0, 0);
+    webkit_web_inspector_show(inspector);
 }
 
 void LayoutTestController::closeWebInspector()

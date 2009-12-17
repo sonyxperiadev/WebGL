@@ -146,9 +146,9 @@ wxString wxWebFrame::GetPageSource()
 void wxWebFrame::SetPageSource(const wxString& source, const wxString& baseUrl)
 {
     if (m_impl->frame && m_impl->frame->loader()) {
-        WebCore::KURL url(WebCore::KURL(), static_cast<const char*>(baseUrl.mb_str(wxConvUTF8)));
+        WebCore::KURL url(WebCore::KURL(), baseUrl);
 
-        wxCharBuffer charBuffer(source.mb_str(wxConvUTF8));
+        const wxCharBuffer charBuffer(source.utf8_str());
         const char* contents = charBuffer;
 
         WTF::PassRefPtr<WebCore::SharedBuffer> sharedBuffer = WebCore::SharedBuffer::create(contents, strlen(contents));
@@ -181,16 +181,25 @@ wxString wxWebFrame::GetExternalRepresentation()
     if (m_impl->frame->view() && m_impl->frame->view()->layoutPending())
         m_impl->frame->view()->layout();
 
-    return externalRepresentation(m_impl->frame->contentRenderer());
+    return externalRepresentation(m_impl->frame);
 }
 
 wxString wxWebFrame::RunScript(const wxString& javascript)
 {
     wxString returnValue = wxEmptyString;
-    if (m_impl->frame) {
-        JSC::JSValue result = m_impl->frame->script()->executeScript(javascript, true).jsValue();
-        if (result)
-            returnValue = wxString(result.toString(m_impl->frame->script()->globalObject(WebCore::mainThreadNormalWorld())->globalExec()).UTF8String().c_str(), wxConvUTF8);        
+    if (m_impl->frame && m_impl->frame->loader()) {
+        bool hasLoaded = m_impl->frame->loader()->frameHasLoaded();
+        wxASSERT_MSG(hasLoaded, wxT("Document must be loaded before calling RunScript."));
+        if (hasLoaded) {
+            WebCore::ScriptController* controller = m_impl->frame->script();
+            bool jsEnabled = controller->isEnabled(); 
+            wxASSERT_MSG(jsEnabled, wxT("RunScript requires JavaScript to be enabled."));
+            if (jsEnabled) {
+                JSC::JSValue result = controller->executeScript(javascript, true).jsValue();
+                if (result)
+                    returnValue = wxString(result.toString(m_impl->frame->script()->globalObject(WebCore::mainThreadNormalWorld())->globalExec()).UTF8String().c_str(), wxConvUTF8);        
+            }
+        }
     }
     return returnValue;
 }
@@ -206,7 +215,7 @@ bool wxWebFrame::FindString(const wxString& string, bool forward, bool caseSensi
 void wxWebFrame::LoadURL(const wxString& url)
 {
     if (m_impl->frame && m_impl->frame->loader()) {
-        WebCore::KURL kurl = WebCore::KURL(WebCore::KURL(), static_cast<const char*>(url.mb_str(wxConvUTF8)), WebCore::UTF8Encoding());
+        WebCore::KURL kurl = WebCore::KURL(WebCore::KURL(), url, WebCore::UTF8Encoding());
         // NB: This is an ugly fix, but CURL won't load sub-resources if the
         // protocol is omitted; sadly, it will not emit an error, either, so
         // there's no way for us to catch this problem the correct way yet.

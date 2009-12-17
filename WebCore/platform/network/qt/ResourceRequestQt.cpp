@@ -21,24 +21,31 @@
 #include "ResourceRequest.h"
 
 #include <qglobal.h>
-#if QT_VERSION >= 0x040400
 
 #include <QNetworkRequest>
 #include <QUrl>
 
 namespace WebCore {
 
-QNetworkRequest ResourceRequest::toNetworkRequest() const
+QNetworkRequest ResourceRequest::toNetworkRequest(QObject* originatingFrame) const
 {
     QNetworkRequest request;
     request.setUrl(url());
+#if QT_VERSION >= QT_VERSION_CHECK(4, 6, 0)
+    request.setOriginatingObject(originatingFrame);
+#endif
 
     const HTTPHeaderMap &headers = httpHeaderFields();
     for (HTTPHeaderMap::const_iterator it = headers.begin(), end = headers.end();
          it != end; ++it) {
         QByteArray name = QString(it->first).toAscii();
         QByteArray value = QString(it->second).toAscii();
-        request.setRawHeader(name, value);
+        // QNetworkRequest::setRawHeader() would remove the header if the value is null
+        // Make sure to set an empty header instead of null header.
+        if (!value.isNull())
+            request.setRawHeader(name, value);
+        else
+            request.setRawHeader(name, "");
     }
 
     switch (cachePolicy()) {
@@ -62,4 +69,3 @@ QNetworkRequest ResourceRequest::toNetworkRequest() const
 
 }
 
-#endif

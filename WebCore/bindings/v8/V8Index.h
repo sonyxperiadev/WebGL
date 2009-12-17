@@ -197,7 +197,7 @@ typedef v8::Persistent<v8::FunctionTemplate> (*FunctionTemplateFactory)();
 #define SVG_ANIMATION_ELEMENT_TYPES(V)
 #endif
 
-#if ENABLE(SVG_FILTERS)
+#if ENABLE(SVG) && ENABLE(FILTERS)
 #define SVG_FILTERS_ELEMENT_TYPES(V)                                    \
     V(SVGCOMPONENTTRANSFERFUNCTIONELEMENT, SVGComponentTransferFunctionElement)\
     V(SVGFEBLENDELEMENT, SVGFEBlendElement)                             \
@@ -216,6 +216,7 @@ typedef v8::Persistent<v8::FunctionTemplate> (*FunctionTemplateFactory)();
     V(SVGFEIMAGEELEMENT, SVGFEImageElement)                             \
     V(SVGFEMERGEELEMENT, SVGFEMergeElement)                             \
     V(SVGFEMERGENODEELEMENT, SVGFEMergeNodeElement)                     \
+    V(SVGFEMORPHOLOGYELEMENT, SVGFEMorphologyElement)                   \
     V(SVGFEOFFSETELEMENT, SVGFEOffsetElement)                           \
     V(SVGFEPOINTLIGHTELEMENT, SVGFEPointLightElement)                   \
     V(SVGFESPECULARLIGHTINGELEMENT, SVGFESpecularLightingElement)       \
@@ -332,6 +333,7 @@ typedef v8::Persistent<v8::FunctionTemplate> (*FunctionTemplateFactory)();
     V(CLIENTRECTLIST, ClientRectList)                                   \
     V(CLIPBOARD, Clipboard)                                             \
     V(CONSOLE, Console)                                                 \
+    V(COMPOSITIONEVENT, CompositionEvent)                               \
     V(COUNTER, Counter)                                                 \
     V(CSSCHARSETRULE, CSSCharsetRule)                                   \
     V(CSSFONTFACERULE, CSSFontFaceRule)                                 \
@@ -445,23 +447,24 @@ typedef v8::Persistent<v8::FunctionTemplate> (*FunctionTemplateFactory)();
 
 #if ENABLE(3D_CANVAS)
 #define DOM_OBJECT_3D_CANVAS_TYPES(V)                                   \
-    V(CANVASACTIVEINFO, CanvasActiveInfo)                               \
-    V(CANVASARRAY, CanvasArray)                                         \
-    V(CANVASARRAYBUFFER, CanvasArrayBuffer)                             \
-    V(CANVASBUFFER, CanvasBuffer)                                       \
-    V(CANVASBYTEARRAY, CanvasByteArray)                                 \
-    V(CANVASFLOATARRAY, CanvasFloatArray)                               \
-    V(CANVASFRAMEBUFFER, CanvasFramebuffer)                             \
-    V(CANVASINTARRAY, CanvasIntArray)                                   \
-    V(CANVASPROGRAM, CanvasProgram)                                     \
-    V(CANVASRENDERBUFFER, CanvasRenderbuffer)                           \
-    V(CANVASRENDERINGCONTEXT3D, CanvasRenderingContext3D)               \
-    V(CANVASSHADER, CanvasShader)                                       \
-    V(CANVASSHORTARRAY, CanvasShortArray)                               \
-    V(CANVASTEXTURE, CanvasTexture)                                     \
-    V(CANVASUNSIGNEDBYTEARRAY, CanvasUnsignedByteArray)                 \
-    V(CANVASUNSIGNEDINTARRAY, CanvasUnsignedIntArray)                   \
-    V(CANVASUNSIGNEDSHORTARRAY, CanvasUnsignedShortArray)
+    V(WEBGLACTIVEINFO, WebGLActiveInfo)                                 \
+    V(WEBGLARRAY, WebGLArray)                                           \
+    V(WEBGLARRAYBUFFER, WebGLArrayBuffer)                               \
+    V(WEBGLBUFFER, WebGLBuffer)                                         \
+    V(WEBGLBYTEARRAY, WebGLByteArray)                                   \
+    V(WEBGLFLOATARRAY, WebGLFloatArray)                                 \
+    V(WEBGLFRAMEBUFFER, WebGLFramebuffer)                               \
+    V(WEBGLINTARRAY, WebGLIntArray)                                     \
+    V(WEBGLPROGRAM, WebGLProgram)                                       \
+    V(WEBGLRENDERBUFFER, WebGLRenderbuffer)                             \
+    V(WEBGLRENDERINGCONTEXT, WebGLRenderingContext)                     \
+    V(WEBGLSHADER, WebGLShader)                                         \
+    V(WEBGLSHORTARRAY, WebGLShortArray)                                 \
+    V(WEBGLTEXTURE, WebGLTexture)                                       \
+    V(WEBGLUNIFORMLOCATION, WebGLUniformLocation)                       \
+    V(WEBGLUNSIGNEDBYTEARRAY, WebGLUnsignedByteArray)                   \
+    V(WEBGLUNSIGNEDINTARRAY, WebGLUnsignedIntArray)                     \
+    V(WEBGLUNSIGNEDSHORTARRAY, WebGLUnsignedShortArray)
 #else
 #define DOM_OBJECT_3D_CANVAS_TYPES(V)
 #endif
@@ -486,7 +489,9 @@ typedef v8::Persistent<v8::FunctionTemplate> (*FunctionTemplateFactory)();
 
 #if ENABLE(INSPECTOR)
 #define DOM_OBJECT_INSPECTOR_TYPES(V)                                   \
-    V(INSPECTORBACKEND, InspectorBackend)
+    V(INSPECTORBACKEND, InspectorBackend)                               \
+    V(INSPECTORFRONTENDHOST, InspectorFrontendHost)                     \
+    V(INJECTEDSCRIPTHOST, InjectedScriptHost)
 #else
 #define DOM_OBJECT_INSPECTOR_TYPES(V)
 #endif
@@ -497,6 +502,7 @@ typedef v8::Persistent<v8::FunctionTemplate> (*FunctionTemplateFactory)();
     V(GEOPOSITION, Geoposition)                                         \
     V(POSITIONERROR, PositionError)
 
+<<<<<<< HEAD:WebCore/bindings/v8/V8Index.h
 #if PLATFORM(ANDROID)
 // TODO: Upstream this guard.
 #if ENABLE(TOUCH_EVENTS)
@@ -518,6 +524,8 @@ typedef v8::Persistent<v8::FunctionTemplate> (*FunctionTemplateFactory)();
 
 #if PLATFORM(ANDROID)
 // This block is modified, but is not Android-specific.
+=======
+>>>>>>> webkit.org at r51976:WebCore/bindings/v8/V8Index.h
 #define DOM_OBJECT_TYPES(V)                                             \
     DOM_OBJECT_TYPES_1(V)                                               \
     DOM_OBJECT_TYPES_2(V)                                               \
@@ -528,10 +536,14 @@ typedef v8::Persistent<v8::FunctionTemplate> (*FunctionTemplateFactory)();
     DOM_OBJECT_XPATH_TYPES(V)                                           \
     DOM_OBJECT_XSLT_TYPES(V)                                            \
     DOM_OBJECT_INSPECTOR_TYPES(V)                                       \
+<<<<<<< HEAD:WebCore/bindings/v8/V8Index.h
     DOM_OBJECT_GEOLOCATION_TYPES(V)                                     \
     DOM_OBJECT_TOUCH_EVENT_TYPES(V)                                     \
     DOM_OBJECT_VOIDCALLBACK_TYPES(V)
 #endif
+=======
+    DOM_OBJECT_GEOLOCATION_TYPES(V)
+>>>>>>> webkit.org at r51976:WebCore/bindings/v8/V8Index.h
 
 #if ENABLE(SVG)
 // SVG_OBJECT_TYPES are svg non-node, non-pod types.

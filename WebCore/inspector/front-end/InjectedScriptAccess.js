@@ -47,11 +47,11 @@ InjectedScriptAccess._installHandler = function(methodName, async)
                 WebInspector.console.addMessage(new WebInspector.ConsoleTextMessage("Error dispatching: " + methodName));
         }
         var callId = WebInspector.Callback.wrap(myCallback);
-        InspectorController.dispatchOnInjectedScript(callId, methodName, argsString, !!async);
+        InspectorBackend.dispatchOnInjectedScript(callId, methodName, argsString, !!async);
     };
 }
 
-// InjectedScriptAccess message forwarding puts some constraints on the way methods are imlpemented and called:
+// InjectedScriptAccess message forwarding puts some constraints on the way methods are implemented and called:
 // - Make sure corresponding methods in InjectedScript return non-null and non-undefined values,
 // - Make sure last parameter of all the InjectedSriptAccess.* calls is a callback function.
 // We keep these sorted.
@@ -70,6 +70,7 @@ InjectedScriptAccess._installHandler("getStyles");
 InjectedScriptAccess._installHandler("openInInspectedWindow");
 InjectedScriptAccess._installHandler("performSearch");
 InjectedScriptAccess._installHandler("pushNodeToFrontend");
+InjectedScriptAccess._installHandler("nodeByPath");
 InjectedScriptAccess._installHandler("searchCanceled");
 InjectedScriptAccess._installHandler("setPropertyValue");
 InjectedScriptAccess._installHandler("setStyleProperty");

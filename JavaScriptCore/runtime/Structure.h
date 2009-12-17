@@ -74,7 +74,8 @@ namespace JSC {
         static PassRefPtr<Structure> getterSetterTransition(Structure*);
         static PassRefPtr<Structure> toCacheableDictionaryTransition(Structure*);
         static PassRefPtr<Structure> toUncacheableDictionaryTransition(Structure*);
-        static PassRefPtr<Structure> fromDictionaryTransition(Structure*);
+
+        PassRefPtr<Structure> flattenDictionaryStructure(JSObject*);
 
         ~Structure();
 
@@ -306,7 +307,7 @@ namespace JSC {
         TransitionTable* transitionTable = new TransitionTable;
         setTransitionTable(transitionTable);
         if (existingTransition)
-            add(make_pair(existingTransition->m_nameInPrevious.get(), existingTransition->m_attributesInPrevious), existingTransition, existingTransition->m_specificValueInPrevious);
+            add(std::make_pair(existingTransition->m_nameInPrevious.get(), existingTransition->m_attributesInPrevious), existingTransition, existingTransition->m_specificValueInPrevious);
     }
 } // namespace JSC
 

@@ -49,6 +49,7 @@ struct WebResourceDelegateImplementationCache {
 
 struct WebFrameLoadDelegateImplementationCache {
     IMP didClearWindowObjectForFrameFunc;
+    IMP didClearWindowObjectForFrameInScriptWorldFunc;
     IMP didClearInspectorWindowObjectForFrameFunc;
     IMP windowScriptObjectAvailableFunc;
     IMP didHandleOnloadEventsForFrameFunc;
@@ -56,6 +57,9 @@ struct WebFrameLoadDelegateImplementationCache {
     IMP didCancelClientRedirectForFrameFunc;
     IMP willPerformClientRedirectToURLDelayFireDateForFrameFunc;
     IMP didChangeLocationWithinPageForFrameFunc;
+    IMP didPushStateWithinPageForFrameFunc;
+    IMP didReplaceStateWithinPageForFrameFunc;
+    IMP didPopStateWithinPageForFrameFunc;
     IMP willCloseFrameFunc;
     IMP didStartProvisionalLoadForFrameFunc;
     IMP didReceiveTitleForFrameFunc;
@@ -110,6 +114,7 @@ BOOL CallUIDelegateReturningBoolean(BOOL, WebView *, SEL);
 BOOL CallUIDelegateReturningBoolean(BOOL, WebView *, SEL, id);
 BOOL CallUIDelegateReturningBoolean(BOOL, WebView *, SEL, id, id);
 BOOL CallUIDelegateReturningBoolean(BOOL, WebView *, SEL, id, BOOL);
+BOOL CallUIDelegateReturningBoolean(BOOL, WebView *, SEL, id, BOOL, id);
 
 id CallFrameLoadDelegate(IMP, WebView *, SEL);
 id CallFrameLoadDelegate(IMP, WebView *, SEL, id);

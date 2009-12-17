@@ -39,6 +39,7 @@
 @class DOMNode;
 @class WebIconFetcher;
 @class WebScriptObject;
+@class WebScriptWorld;
 
 // Keys for accessing the values in the page cache dictionary.
 extern NSString *WebPageCacheEntryDateKey;
@@ -96,14 +97,18 @@ typedef enum {
 - (void)_recursive_pauseNullEventsForAllNetscapePlugins;
 #endif
 
-- (NSString *)_stringByEvaluatingJavaScriptInIsolatedWorld:(unsigned)worldID WithGlobalObject:(JSObjectRef)globalObject FromString:(NSString *)string;
-- (JSGlobalContextRef)contextForWorldID:(unsigned)worldID;
+- (NSString *)_stringByEvaluatingJavaScriptFromString:(NSString *)string withGlobalObject:(JSObjectRef)globalObject inScriptWorld:(WebScriptWorld *)world;
+- (JSGlobalContextRef)_globalContextForScriptWorld:(WebScriptWorld *)world;
 
 // Pause a given CSS animation or transition on the target node at a specific time.
 // If the animation or transition is already paused, it will update its pause time.
 // This method is only intended to be used for testing the CSS animation and transition system.
 - (BOOL)_pauseAnimation:(NSString*)name onNode:(DOMNode *)node atTime:(NSTimeInterval)time;
 - (BOOL)_pauseTransitionOfProperty:(NSString*)name onNode:(DOMNode*)node atTime:(NSTimeInterval)time;
+
+// Pause a given SVG animation on the target node at a specific time.
+// This method is only intended to be used for testing the SVG animation system.
+- (BOOL)_pauseSVGAnimation:(NSString*)elementId onSMILNode:(DOMNode *)node atTime:(NSTimeInterval)time;
 
 // Returns the total number of currently running animations (includes both CSS transitions and CSS animations).
 - (unsigned) _numberOfActiveAnimations;

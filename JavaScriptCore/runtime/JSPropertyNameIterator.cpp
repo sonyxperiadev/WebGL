@@ -45,7 +45,8 @@ JSPropertyNameIterator* JSPropertyNameIterator::create(ExecState* exec, JSObject
     o->getPropertyNames(exec, propertyNames);
     size_t numCacheableSlots = 0;
     if (!o->structure()->hasNonEnumerableProperties() && !o->structure()->hasAnonymousSlots() &&
-        !o->structure()->isUncacheableDictionary() && !o->structure()->typeInfo().overridesGetPropertyNames())
+        !o->structure()->hasGetterSetterProperties() && !o->structure()->isUncacheableDictionary() &&
+        !o->structure()->typeInfo().overridesGetPropertyNames())
         numCacheableSlots = o->structure()->propertyStorageSize();
 
     JSPropertyNameIterator* jsPropertyNameIterator = new (exec) JSPropertyNameIterator(exec, propertyNames.data(), numCacheableSlots);
@@ -76,7 +77,7 @@ JSValue JSPropertyNameIterator::get(ExecState* exec, JSObject* base, size_t i)
     if (m_cachedStructure == base->structure() && m_cachedPrototypeChain == base->structure()->prototypeChain(exec))
         return identifier;
 
-    if (!base->hasProperty(exec, Identifier(exec, asString(identifier)->value())))
+    if (!base->hasProperty(exec, Identifier(exec, asString(identifier)->value(exec))))
         return JSValue();
     return identifier;
 }

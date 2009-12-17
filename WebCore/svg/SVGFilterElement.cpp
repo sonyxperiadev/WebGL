@@ -4,8 +4,6 @@
     Copyright (C) 2006 Samuel Weinig <sam.weinig@gmail.com>
     Copyright (C) 2009 Dirk Schulze <krit@webkit.org>
 
-    This file is part of the KDE project
-
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
     License as published by the Free Software Foundation; either
@@ -28,12 +26,14 @@
 #include "SVGFilterElement.h"
 
 #include "Attr.h"
-#include "SVGFilterBuilder.h"
+#include "FloatSize.h"
 #include "MappedAttribute.h"
 #include "PlatformString.h"
+#include "SVGFilterBuilder.h"
 #include "SVGFilterPrimitiveStandardAttributes.h"
 #include "SVGLength.h"
 #include "SVGNames.h"
+#include "SVGParserUtilities.h"
 #include "SVGResourceFilter.h"
 #include "SVGUnitTypes.h"
 
@@ -91,7 +91,13 @@ void SVGFilterElement::parseMappedAttribute(MappedAttribute* attr)
         setWidthBaseValue(SVGLength(LengthModeWidth, value));
     else if (attr->name() == SVGNames::heightAttr)
         setHeightBaseValue(SVGLength(LengthModeHeight, value));
-    else {
+    else if (attr->name() == SVGNames::filterResAttr) {
+        float x, y;
+        if (parseNumberOptionalNumber(value, x, y)) {
+            setFilterResXBaseValue(x);
+            setFilterResYBaseValue(y);
+        }
+    } else {
         if (SVGURIReference::parseMappedAttribute(attr))
             return;
         if (SVGLangSpace::parseMappedAttribute(attr))
@@ -131,6 +137,11 @@ void SVGFilterElement::buildFilter(const FloatRect& targetRect) const
     m_filter->setFilterRect(filterBBox);
     m_filter->setEffectBoundingBoxMode(primitiveBBoxMode);
     m_filter->setFilterBoundingBoxMode(filterBBoxMode);
+
+    if (hasAttribute(SVGNames::filterResAttr)) {
+        m_filter->setHasFilterResolution(true);
+        m_filter->setFilterResolution(FloatSize(filterResX(), filterResY()));
+    }
 
     // Add effects to the filter
     m_filter->builder()->clearEffects();

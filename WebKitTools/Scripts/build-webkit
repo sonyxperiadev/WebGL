@@ -50,9 +50,9 @@ my $minimal = 0;
 my $makeArgs;
 my $startTime = time();
 
-my ($threeDCanvasSupport, $threeDRenderingSupport, $channelMessagingSupport, $databaseSupport, $datagridSupport, $domStorageSupport,
-    $eventsourceSupport, $filtersSupport, $geolocationSupport, $iconDatabaseSupport,
-    $javaScriptDebuggerSupport, $mathmlSupport, $offlineWebApplicationSupport, $rubySupport, $sharedWorkersSupport, 
+my ($threeDCanvasSupport, $threeDRenderingSupport, $channelMessagingSupport, $databaseSupport, $datagridSupport, $datalistSupport,
+    $domStorageSupport, $eventsourceSupport, $filtersSupport, $geolocationSupport, $iconDatabaseSupport,
+    $javaScriptDebuggerSupport, $mathmlSupport, $offlineWebApplicationSupport, $sharedWorkersSupport,
     $svgSupport, $svgAnimationSupport, $svgAsImageSupport, $svgDOMObjCBindingsSupport, $svgFontsSupport,
     $svgForeignObjectSupport, $svgUseSupport, $videoSupport, $webSocketsSupport, $wmlSupport, $wcssSupport, $xhtmlmpSupport, $workersSupport,
     $xpathSupport, $xsltSupport, $coverageSupport, $notificationsSupport);
@@ -75,6 +75,9 @@ my @features = (
 
     { option => "datagrid", desc => "Toggle Datagrid Support",
       define => "ENABLE_DATAGRID", default => 1, value => \$datagridSupport },
+      
+    { option => "datalist", desc => "Toggle HTML5 datalist support",
+      define => "ENABLE_DATALIST", default => 1, value => \$datalistSupport },
           
     { option => "dom-storage", desc => "Toggle DOM Storage Support",
       define => "ENABLE_DOM_STORAGE", default => 1, value => \$domStorageSupport },
@@ -83,7 +86,7 @@ my @features = (
       define => "ENABLE_EVENTSOURCE", default => 1, value => \$eventsourceSupport },
 
     { option => "filters", desc => "Toggle Filters support",
-      define => "ENABLE_FILTERS", default => 0, value => \$filtersSupport },
+      define => "ENABLE_FILTERS", default => (isAppleWebKit() || isGtk() || isQt()), value => \$filtersSupport },
 
     { option => "geolocation", desc => "Toggle Geolocation support",
       define => "ENABLE_GEOLOCATION", default => isGtk(), value => \$geolocationSupport },
@@ -102,9 +105,6 @@ my @features = (
 
     { option => "offline-web-applications", desc => "Toggle Offline Web Application Support",
       define => "ENABLE_OFFLINE_WEB_APPLICATIONS", default => 1, value => \$offlineWebApplicationSupport },
-
-    { option => "ruby", desc => "Toggle HTML5 Ruby support",
-      define => "ENABLE_RUBY", default => 1, value => \$rubySupport },
 
     { option => "shared-workers", desc => "Toggle SharedWorkers support",
       define => "ENABLE_SHARED_WORKERS", default => (isAppleWebKit() || isGtk()), value => \$sharedWorkersSupport },
@@ -313,6 +313,7 @@ removeLibraryDependingOnSVG("WebCore", $svgSupport);
 
 if (isWx()) {
     downloadWafIfNeeded();
+    push @projects, 'WebKitTools/DumpRenderTree';
     push @projects, 'WebKitTools/wx/browser';
     push @projects, 'WebKit/wx/bindings/python';
 }
@@ -321,7 +322,7 @@ if (isChromium()) {
     # Chromium doesn't build by project directories.
     @projects = ();
     my $result = buildChromium($clean, @options);
-    exit $result if $result;
+    exit exitStatus($result) if exitStatus($result);
 }
 
 # Build, and abort if the build fails.
@@ -361,7 +362,7 @@ for my $dir (@projects) {
         if (isAppleWinWebKit()) {
             print "\n\n===== BUILD FAILED ======\n\n";
             my $scriptDir = relativeScriptsDir();
-            print "Please ensure you have run $scriptDir/update-webkit to install depenedencies.\n\n";
+            print "Please ensure you have run $scriptDir/update-webkit to install dependencies.\n\n";
             my $baseProductDir = baseProductDir();
             print "You can view build errors by checking the BuildLog.htm files located at:\n$baseProductDir/obj/<project>/<config>.\n";
         }

@@ -236,8 +236,6 @@ javascriptcore_sources += \
 	JavaScriptCore/wtf/Deque.h \
 	JavaScriptCore/wtf/DisallowCType.h \
 	JavaScriptCore/wtf/Forward.h \
-	JavaScriptCore/wtf/GOwnPtr.cpp \
-	JavaScriptCore/wtf/GOwnPtr.h \
 	JavaScriptCore/wtf/GetPtr.h \
 	JavaScriptCore/wtf/HashCountedSet.h \
 	JavaScriptCore/wtf/HashFunctions.h \
@@ -288,6 +286,8 @@ javascriptcore_sources += \
 	JavaScriptCore/wtf/UnusedParam.h \
 	JavaScriptCore/wtf/Vector.h \
 	JavaScriptCore/wtf/VectorTraits.h \
+	JavaScriptCore/wtf/gtk/GOwnPtr.cpp \
+	JavaScriptCore/wtf/gtk/GOwnPtr.h \
 	JavaScriptCore/wtf/gtk/MainThreadGtk.cpp \
 	JavaScriptCore/wtf/gtk/ThreadingGtk.cpp \
 	JavaScriptCore/wtf/unicode/Collator.h \
@@ -342,6 +342,7 @@ javascriptcore_sources += \
 	JavaScriptCore/interpreter/RegisterFile.h \
 	JavaScriptCore/bytecompiler/BytecodeGenerator.cpp \
 	JavaScriptCore/bytecompiler/BytecodeGenerator.h \
+	JavaScriptCore/bytecompiler/NodesCodegen.cpp \
 	JavaScriptCore/bytecompiler/LabelScope.h \
 	JavaScriptCore/debugger/Debugger.cpp \
 	JavaScriptCore/debugger/Debugger.h \
@@ -498,6 +499,7 @@ javascriptcore_sources += \
 	JavaScriptCore/runtime/Tracing.h \
 	JavaScriptCore/runtime/UString.cpp \
 	JavaScriptCore/runtime/UString.h \
+	JavaScriptCore/runtime/WeakRandom.h \
 	JavaScriptCore/wtf/FastAllocBase.h \
 	JavaScriptCore/wtf/FastMalloc.cpp \
 	JavaScriptCore/wtf/FastMalloc.h \

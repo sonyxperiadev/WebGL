@@ -131,7 +131,18 @@ public:
     void setLoop(bool b);
     void play();
     void pause();
-    
+
+// fullscreen
+    void webkitEnterFullScreen(ExceptionCode&);
+    void webkitExitFullScreen();
+    bool webkitSupportsFullscreen();
+    bool webkitDisplayingFullscreen();
+
+// captions
+    bool webkitHasClosedCaptions() const;
+    bool webkitClosedCaptionsVisible() const;
+    void setWebkitClosedCaptionsVisible(bool);
+
 // controls
     bool controls() const;
     void setControls(bool);
@@ -161,6 +172,10 @@ public:
     
     void enterFullscreen();
     void exitFullscreen();
+
+    bool hasClosedCaptions() const;
+    bool closedCaptionsVisible() const;
+    void setClosedCaptionsVisible(bool);
 
 protected:
     float getTimeOffsetAttribute(const QualifiedName&, float valueOnError) const;
@@ -203,7 +218,6 @@ private:
     void addPlayedRange(float start, float end);
     
     void scheduleTimeupdateEvent(bool periodicEvent);
-    void scheduleProgressEvent(const AtomicString& eventName);
     void scheduleEvent(const AtomicString& eventName);
     void enqueueEvent(RefPtr<Event> event);
     
@@ -319,6 +333,7 @@ protected:
     bool m_sendProgressEvents : 1;
 
     bool m_isFullscreen : 1;
+    bool m_closedCaptionsVisible : 1;
 
 #if ENABLE(PLUGIN_PROXY_FOR_VIDEO)
     bool m_needWidgetUpdate : 1;

@@ -140,6 +140,9 @@ public:
     RenderBlock* createAnonymousBlock(bool isFlexibleBox = false) const;
 
 protected:
+    void moveChildTo(RenderObject* to, RenderObjectChildList* toChildList, RenderObject* child);
+    void moveChildTo(RenderObject* to, RenderObjectChildList* toChildList, RenderObject* beforeChild, RenderObject* child);
+
     int maxTopPosMargin() const { return m_maxMargin ? m_maxMargin->m_topPos : MaxMargin::topPosDefault(this); }
     int maxTopNegMargin() const { return m_maxMargin ? m_maxMargin->m_topNeg : MaxMargin::topNegDefault(this); }
     int maxBottomPosMargin() const { return m_maxMargin ? m_maxMargin->m_bottomPos : MaxMargin::bottomPosDefault(this); }
@@ -377,13 +380,13 @@ private:
     void offsetForContents(int& tx, int& ty) const;
 
     void calcColumnWidth();
-    int layoutColumns(int endOfContent = -1);
+    int layoutColumns(int endOfContent = -1, int requestedColumnHeight = -1);
 
     bool expandsToEncloseOverhangingFloats() const;
 
     void updateScrollInfoAfterLayout();
 
-    struct FloatingObject {
+    struct FloatingObject : Noncopyable {
         enum Type {
             FloatLeft,
             FloatRight
@@ -499,7 +502,7 @@ private:
     RenderInline* m_inlineContinuation;
 
     // Allocated only when some of these fields have non-default values
-    struct MaxMargin {
+    struct MaxMargin : Noncopyable {
         MaxMargin(const RenderBlock* o) 
             : m_topPos(topPosDefault(o))
             , m_topNeg(topNegDefault(o))

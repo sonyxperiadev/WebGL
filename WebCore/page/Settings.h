@@ -64,7 +64,7 @@ namespace WebCore {
     // if possible in the future.
     enum EditingBehavior { EditingMacBehavior, EditingWindowsBehavior };
 
-    class Settings {
+    class Settings : public Noncopyable {
     public:
         Settings(Page*);
 
@@ -147,9 +147,6 @@ namespace WebCore {
 
         void setLocalStorageEnabled(bool);
         bool localStorageEnabled() const { return m_localStorageEnabled; }
-
-        void setSessionStorageEnabled(bool);
-        bool sessionStorageEnabled() const { return m_sessionStorageEnabled; }
 
         void setLocalStorageQuota(unsigned);
         unsigned localStorageQuota() const { return m_localStorageQuota; }
@@ -317,6 +314,12 @@ namespace WebCore {
         void setAcceleratedCompositingEnabled(bool);
         bool acceleratedCompositingEnabled() const { return m_acceleratedCompositingEnabled; }
 
+        void setShowDebugBorders(bool);
+        bool showDebugBorders() const { return m_showDebugBorders; }
+
+        void setShowRepaintCounter(bool);
+        bool showRepaintCounter() const { return m_showRepaintCounter; }
+
         void setExperimentalNotificationsEnabled(bool);
         bool experimentalNotificationsEnabled() const { return m_experimentalNotificationsEnabled; }
 
@@ -331,11 +334,8 @@ namespace WebCore {
         void setWebGLEnabled(bool);
         bool webGLEnabled() const { return m_webGLEnabled; }
 
-        void setPrintingMinimumShrinkFactor(float);
-        float printingMinimumShrinkFactor() const { return m_printingMinimumShrinkFactor; }
-
-        void setPrintingMaximumShrinkFactor(float);
-        float printingMaximumShrinkFactor() const { return m_printingMaximumShrinkFactor; }
+        void setGeolocationEnabled(bool);
+        bool geolocationEnabled() const { return m_geolocationEnabled; }
 
     private:
         Page* m_page;
@@ -396,8 +396,6 @@ namespace WebCore {
         size_t m_maximumDecodedImageSize;
         unsigned m_localStorageQuota;
         unsigned m_pluginAllowedRunTime;
-        float m_printingMinimumShrinkFactor;
-        float m_printingMaximumShrinkFactor;
         bool m_isJavaEnabled : 1;
         bool m_loadsImagesAutomatically : 1;
         bool m_privateBrowsingEnabled : 1;
@@ -405,7 +403,6 @@ namespace WebCore {
         bool m_arePluginsEnabled : 1;
         bool m_databasesEnabled : 1;
         bool m_localStorageEnabled : 1;
-        bool m_sessionStorageEnabled : 1;
         bool m_isJavaScriptEnabled : 1;
         bool m_isWebSecurityEnabled : 1;
         bool m_allowUniversalAccessFromFileURLs: 1;
@@ -442,8 +439,11 @@ namespace WebCore {
         bool m_downloadableBinaryFontsEnabled : 1;
         bool m_xssAuditorEnabled : 1;
         bool m_acceleratedCompositingEnabled : 1;
+        bool m_showDebugBorders : 1;
+        bool m_showRepaintCounter : 1;
         bool m_experimentalNotificationsEnabled : 1;
         bool m_webGLEnabled : 1;
+        bool m_geolocationEnabled : 1;
 
 #if USE(SAFARI_THEME)
         static bool gShouldPaintNativeControls;

@@ -55,6 +55,8 @@ public:
     virtual bool canTakeFocus(WebCore::FocusDirection);
     virtual void takeFocus(WebCore::FocusDirection);
 
+    virtual void focusedNodeChanged(WebCore::Node*);
+
     virtual WebCore::Page* createWindow(WebCore::Frame*, const WebCore::FrameLoadRequest&, const WebCore::WindowFeatures&);
     virtual void show();
 
@@ -129,6 +131,17 @@ public:
     virtual void formStateDidChange(const WebCore::Node*) { }
 
     virtual PassOwnPtr<WebCore::HTMLParserQuirks> createHTMLParserQuirks() { return 0; }
+
+#if USE(ACCELERATED_COMPOSITING)
+        // Pass 0 as the GraphicsLayer to detatch the root layer.
+        virtual void attachRootGraphicsLayer(WebCore::Frame*, WebCore::GraphicsLayer*);
+        // Sets a flag to specify that the next time content is drawn to the window,
+        // the changes appear on the screen in synchrony with updates to GraphicsLayers.
+        virtual void setNeedsOneShotDrawingSynchronization() { }
+        // Sets a flag to specify that the view needs to be updated, so we need
+        // to do an eager layout before the drawing.
+        virtual void scheduleCompositingLayerSync();
+#endif
 
     virtual void scrollRectIntoView(const WebCore::IntRect&, const WebCore::ScrollView*) const {}
 

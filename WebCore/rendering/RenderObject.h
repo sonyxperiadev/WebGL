@@ -4,6 +4,7 @@
  *           (C) 2000 Dirk Mueller (mueller@kde.org)
  *           (C) 2004 Allan Sandfeld Jensen (kde@carewolf.com)
  * Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2009 Google Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -76,11 +77,13 @@ enum PaintPhase {
     PaintPhaseMask
 };
 
-enum PaintRestriction {
-    PaintRestrictionNone,
-    PaintRestrictionSelectionOnly,
-    PaintRestrictionSelectionOnlyBlackText
+enum PaintBehaviorFlags {
+    PaintBehaviorNormal = 0,
+    PaintBehaviorSelectionOnly = 1 << 0,
+    PaintBehaviorForceBlackText = 1 << 1,
+    PaintBehaviorFlattenCompositingLayers = 1 << 2
 };
+typedef unsigned PaintBehavior;
 
 enum HitTestFilter {
     HitTestAll,
@@ -228,6 +231,12 @@ private:
 public:
 #ifndef NDEBUG
     void showTreeForThis() const;
+
+    void showRenderObject() const;
+    // We don't make printedCharacters an optional parameter so that
+    // showRenderObject can be called from gdb easily.
+    void showRenderObject(int printedCharacters) const;
+    void showRenderTreeAndMark(const RenderObject* markedObject1 = 0, const char* markedLabel1 = 0, const RenderObject* markedObject2 = 0, const char* markedLabel2 = 0, int depth = 0) const;
 #endif
 
     static RenderObject* createObject(Node*, RenderStyle*);
@@ -252,6 +261,7 @@ public:
     virtual bool isBoxModelObject() const { return false; }
     virtual bool isCounter() const { return false; }
     virtual bool isFieldset() const { return false; }
+    virtual bool isFileUploadControl() const { return false; }
     virtual bool isFrame() const { return false; }
     virtual bool isFrameSet() const { return false; }
     virtual bool isImage() const { return false; }
@@ -267,6 +277,10 @@ public:
     virtual bool isRenderInline() const { return false; }
     virtual bool isRenderPart() const { return false; }
     virtual bool isRenderView() const { return false; }
+    virtual bool isRuby() const { return false; }
+    virtual bool isRubyBase() const { return false; }
+    virtual bool isRubyRun() const { return false; }
+    virtual bool isRubyText() const { return false; }
     virtual bool isSlider() const { return false; }
     virtual bool isTable() const { return false; }
     virtual bool isTableCell() const { return false; }
@@ -1028,6 +1042,10 @@ inline void adjustFloatQuadForAbsoluteZoom(FloatQuad& quad, RenderObject* render
 #ifndef NDEBUG
 // Outside the WebCore namespace for ease of invocation from gdb.
 void showTree(const WebCore::RenderObject*);
+void showRenderTree(const WebCore::RenderObject* object1);
+// We don't make object2 an optional parameter so that showRenderTree
+// can be called from gdb easily.
+void showRenderTree(const WebCore::RenderObject* object1, const WebCore::RenderObject* object2);
 #endif
 
 #endif // RenderObject_h

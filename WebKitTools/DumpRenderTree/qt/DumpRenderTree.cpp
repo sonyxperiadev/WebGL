@@ -29,6 +29,8 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "config.h"
+
 #include "DumpRenderTree.h"
 #include "EventSenderQt.h"
 #include "LayoutTestControllerQt.h"
@@ -41,24 +43,28 @@
 #include <QCryptographicHash>
 #include <QDir>
 #include <QFile>
-#include <QTimer>
-#include <QBoxLayout>
-#include <QScrollArea>
 #include <QApplication>
 #include <QUrl>
+#include <QFileInfo>
 #include <QFocusEvent>
 #include <QFontDatabase>
+#include <QNetworkAccessManager>
+#include <QNetworkReply>
 #include <QNetworkRequest>
+#include <QUndoStack>
 
-#include <qwebpage.h>
-#include <qwebframe.h>
-#include <qwebview.h>
 #include <qwebsettings.h>
 #include <qwebsecurityorigin.h>
+
+#ifndef QT_NO_UITOOLS
+#include <QtUiTools/QUiLoader>
+#endif
 
 #ifdef Q_WS_X11
 #include <fontconfig/fontconfig.h>
 #endif
+
+#include <limits.h>
 
 #include <unistd.h>
 #include <qdebug.h>
@@ -69,6 +75,7 @@ extern void qt_dump_frame_loader(bool b);
 extern void qt_drt_clearFrameName(QWebFrame* qFrame);
 extern void qt_drt_overwritePluginDirectories();
 extern void qt_drt_resetOriginAccessWhiteLists();
+extern bool qt_drt_hasDocumentElement(QWebFrame* qFrame);
 
 namespace WebCore {
 
@@ -76,39 +83,39 @@ namespace WebCore {
 const unsigned int maxViewWidth = 800;
 const unsigned int maxViewHeight = 600;
 
-class WebPage : public QWebPage {
-    Q_OBJECT
-public:
-    WebPage(QWidget *parent, DumpRenderTree *drt);
+NetworkAccessManager::NetworkAccessManager(QObject* parent)
+    : QNetworkAccessManager(parent)
+{
+#ifndef QT_NO_SSL
+    connect(this, SIGNAL(sslErrors(QNetworkReply*, const QList<QSslError>&)),
+            this, SLOT(sslErrorsEncountered(QNetworkReply*, const QList<QSslError>&)));
+#endif
+}
 
-    QWebPage *createWindow(QWebPage::WebWindowType);
+#ifndef QT_NO_SSL
+void NetworkAccessManager::sslErrorsEncountered(QNetworkReply* reply, const QList<QSslError>& errors)
+{
+    if (reply->url().host() == "127.0.0.1" || reply->url().host() == "localhost") {
+        bool ignore = true;
 
-    void javaScriptAlert(QWebFrame *frame, const QString& message);
-    void javaScriptConsoleMessage(const QString& message, int lineNumber, const QString& sourceID);
-    bool javaScriptConfirm(QWebFrame *frame, const QString& msg);
-    bool javaScriptPrompt(QWebFrame *frame, const QString& msg, const QString& defaultValue, QString* result);
+        // Accept any HTTPS certificate.
+        foreach (const QSslError& error, errors) {
+            if (error.error() < QSslError::UnableToGetIssuerCertificate || error.error() > QSslError::HostNameMismatch) {
+                ignore = false;
+                break;
+            }
+        }
 
-    void resetSettings();
-
-public slots:
-    bool shouldInterruptJavaScript() { return false; }
-
-protected:
-    bool acceptNavigationRequest(QWebFrame* frame, const QNetworkRequest& request, NavigationType type);
-
-private slots:
-    void setViewGeometry(const QRect &r)
-    {
-        QWidget *v = view();
-        if (v)
-            v->setGeometry(r);
+        if (ignore)
+            reply->ignoreSslErrors();
     }
-private:
-    DumpRenderTree *m_drt;
-};
+}
+#endif
 
-WebPage::WebPage(QWidget *parent, DumpRenderTree *drt)
-    : QWebPage(parent), m_drt(drt)
+WebPage::WebPage(QObject* parent, DumpRenderTree* drt)
+    : QWebPage(parent)
+    , m_webInspector(0)
+    , m_drt(drt)
 {
     QWebSettings* globalSettings = QWebSettings::globalSettings();
 
@@ -129,7 +136,22 @@ WebPage::WebPage(QWidget *parent, DumpRenderTree *drt)
     connect(this, SIGNAL(geometryChangeRequested(const QRect &)),
             this, SLOT(setViewGeometry(const QRect & )));
 
+    setNetworkAccessManager(new NetworkAccessManager(this));
     setPluginFactory(new TestPlugin(this));
+}
+
+WebPage::~WebPage()
+{
+    delete m_webInspector;
+}
+
+QWebInspector* WebPage::webInspector()
+{
+    if (!m_webInspector) {
+        m_webInspector = new QWebInspector;
+        m_webInspector->setPage(this);
+    }
+    return m_webInspector;
 }
 
 void WebPage::resetSettings()
@@ -138,12 +160,13 @@ void WebPage::resetSettings()
     // layoutTestController.overridePreference() or similar.
 
     settings()->resetFontSize(QWebSettings::DefaultFontSize);
-
     settings()->resetAttribute(QWebSettings::JavascriptCanOpenWindows);
     settings()->resetAttribute(QWebSettings::JavascriptEnabled);
     settings()->resetAttribute(QWebSettings::PrivateBrowsingEnabled);
     settings()->resetAttribute(QWebSettings::LinksIncludedInFocusChain);
     settings()->resetAttribute(QWebSettings::OfflineWebApplicationCacheEnabled);
+    settings()->resetAttribute(QWebSettings::LocalContentCanAccessRemoteUrls);
+    QWebSettings::setMaximumPagesInCache(0); // reset to default
 }
 
 QWebPage *WebPage::createWindow(QWebPage::WebWindowType)
@@ -153,22 +176,52 @@ QWebPage *WebPage::createWindow(QWebPage::WebWindowType)
 
 void WebPage::javaScriptAlert(QWebFrame*, const QString& message)
 {
+    if (!isTextOutputEnabled())
+        return;
+
     fprintf(stdout, "ALERT: %s\n", message.toUtf8().constData());
+}
+
+static QString urlSuitableForTestResult(const QString& url)
+{
+    if (url.isEmpty() || !url.startsWith(QLatin1String("file://")))
+        return url;
+
+    return QFileInfo(url).fileName();
 }
 
 void WebPage::javaScriptConsoleMessage(const QString& message, int lineNumber, const QString&)
 {
-    fprintf (stdout, "CONSOLE MESSAGE: line %d: %s\n", lineNumber, message.toUtf8().constData());
+    if (!isTextOutputEnabled())
+        return;
+
+    QString newMessage;
+    if (!message.isEmpty()) {
+        newMessage = message;
+
+        size_t fileProtocol = newMessage.indexOf(QLatin1String("file://"));
+        if (fileProtocol != -1) {
+            newMessage = newMessage.left(fileProtocol) + urlSuitableForTestResult(newMessage.mid(fileProtocol));
+        }
+    }
+
+    fprintf (stdout, "CONSOLE MESSAGE: line %d: %s\n", lineNumber, newMessage.toUtf8().constData());
 }
 
 bool WebPage::javaScriptConfirm(QWebFrame*, const QString& msg)
 {
+    if (!isTextOutputEnabled())
+        return true;
+
     fprintf(stdout, "CONFIRM: %s\n", msg.toUtf8().constData());
     return true;
 }
 
 bool WebPage::javaScriptPrompt(QWebFrame*, const QString& msg, const QString& defaultValue, QString* result)
 {
+    if (!isTextOutputEnabled())
+        return true;
+
     fprintf(stdout, "PROMPT: %s, default text: %s\n", msg.toUtf8().constData(), defaultValue.toUtf8().constData());
     *result = defaultValue;
     return true;
@@ -203,35 +256,83 @@ bool WebPage::acceptNavigationRequest(QWebFrame* frame, const QNetworkRequest& r
             typeDescription = "illegal value";
         }
 
-        fprintf(stdout, "Policy delegate: attempt to load %s with navigation type '%s'\n",
-                url.toUtf8().constData(), typeDescription.toUtf8().constData());
+        if (isTextOutputEnabled())
+            fprintf(stdout, "Policy delegate: attempt to load %s with navigation type '%s'\n",
+                    url.toUtf8().constData(), typeDescription.toUtf8().constData());
+
         m_drt->layoutTestController()->notifyDone();
     }
     return QWebPage::acceptNavigationRequest(frame, request, type);
+}
+
+bool WebPage::supportsExtension(QWebPage::Extension extension) const
+{
+    if (extension == QWebPage::ErrorPageExtension)
+        return m_drt->layoutTestController()->shouldHandleErrorPages();
+
+    return false;
+}
+
+bool WebPage::extension(Extension extension, const ExtensionOption *option, ExtensionReturn *output)
+{
+    const QWebPage::ErrorPageExtensionOption* info = static_cast<const QWebPage::ErrorPageExtensionOption*>(option);
+
+    // Lets handle error pages for the main frame for now.
+    if (info->frame != mainFrame())
+        return false;
+
+    QWebPage::ErrorPageExtensionReturn* errorPage = static_cast<QWebPage::ErrorPageExtensionReturn*>(output);
+
+    errorPage->content = QString("data:text/html,<body/>").toUtf8();
+
+    return true;
+}
+
+QObject* WebPage::createPlugin(const QString& classId, const QUrl& url, const QStringList& paramNames, const QStringList& paramValues)
+{
+    Q_UNUSED(url);
+    Q_UNUSED(paramNames);
+    Q_UNUSED(paramValues);
+#ifndef QT_NO_UITOOLS
+    QUiLoader loader;
+    return loader.createWidget(classId, view());
+#else
+    Q_UNUSED(classId);
+    return 0;
+#endif
 }
 
 DumpRenderTree::DumpRenderTree()
     : m_dumpPixels(false)
     , m_stdin(0)
     , m_notifier(0)
+    , m_enableTextOutput(false)
 {
     qt_drt_overwritePluginDirectories();
     QWebSettings::enablePersistentStorage();
 
+    // create our primary testing page/view.
+    m_mainView = new QWebView(0);
+    m_mainView->resize(QSize(maxViewWidth, maxViewHeight));
+    m_page = new WebPage(m_mainView, this);
+    m_mainView->setPage(m_page);
+
+    // create out controllers. This has to be done before connectFrame,
+    // as it exports there to the JavaScript DOM window.
     m_controller = new LayoutTestController(this);
     connect(m_controller, SIGNAL(done()), this, SLOT(dump()));
+    m_eventSender = new EventSender(m_page);
+    m_textInputController = new TextInputController(m_page);
+    m_gcController = new GCController(m_page);
 
-    QWebView *view = new QWebView(0);
-    view->resize(QSize(maxViewWidth, maxViewHeight));
-    m_page = new WebPage(view, this);
-    view->setPage(m_page);
-    connect(m_page, SIGNAL(frameCreated(QWebFrame *)), this, SLOT(connectFrame(QWebFrame *)));
+    // now connect our different signals
+    connect(m_page, SIGNAL(frameCreated(QWebFrame *)),
+            this, SLOT(connectFrame(QWebFrame *)));
     connectFrame(m_page->mainFrame());
 
-    connect(m_page->mainFrame(), SIGNAL(loadFinished(bool)), m_controller, SLOT(maybeDump(bool)));
+    connect(m_page, SIGNAL(loadFinished(bool)),
+            m_controller, SLOT(maybeDump(bool)));
 
-    m_page->mainFrame()->setScrollBarPolicy(Qt::Horizontal, Qt::ScrollBarAlwaysOff);
-    m_page->mainFrame()->setScrollBarPolicy(Qt::Vertical, Qt::ScrollBarAlwaysOff);
     connect(m_page->mainFrame(), SIGNAL(titleChanged(const QString&)),
             SLOT(titleChanged(const QString&)));
     connect(m_page, SIGNAL(databaseQuotaExceeded(QWebFrame*,QString)),
@@ -239,20 +340,15 @@ DumpRenderTree::DumpRenderTree()
     connect(m_page, SIGNAL(statusBarMessage(const QString&)),
             this, SLOT(statusBarMessage(const QString&)));
 
-    m_eventSender = new EventSender(m_page);
-    m_textInputController = new TextInputController(m_page);
-    m_gcController = new GCController(m_page);
-
     QObject::connect(this, SIGNAL(quit()), qApp, SLOT(quit()), Qt::QueuedConnection);
     qt_drt_run(true);
     QFocusEvent event(QEvent::FocusIn, Qt::ActiveWindowFocusReason);
-    QApplication::sendEvent(view, &event);
+    QApplication::sendEvent(m_mainView, &event);
 }
 
 DumpRenderTree::~DumpRenderTree()
 {
-    delete m_page;
-
+    delete m_mainView;
     delete m_stdin;
     delete m_notifier;
 }
@@ -270,29 +366,48 @@ void DumpRenderTree::open()
     }
 }
 
+static void clearHistory(QWebPage* page)
+{
+    // QWebHistory::clear() leaves current page, so remove it as well by setting
+    // max item count to 0, and then setting it back to it's original value.
+
+    QWebHistory* history = page->history();
+    int itemCount = history->maximumItemCount();
+
+    history->clear();
+    history->setMaximumItemCount(0);
+    history->setMaximumItemCount(itemCount);
+}
+
 void DumpRenderTree::resetToConsistentStateBeforeTesting()
 {
-    closeRemainingWindows();
-
-    // Reset so that any current loads are stopped
+    // reset so that any current loads are stopped
+    // NOTE: that this has to be done before the layoutTestController is
+    // reset or we get timeouts for some tests.
     m_page->blockSignals(true);
     m_page->triggerAction(QWebPage::Stop);
     m_page->blockSignals(false);
 
-    m_page->mainFrame()->setZoomFactor(1.0);
+    // reset the layoutTestController at this point, so that we under no
+    // circumstance dump (stop the waitUntilDone timer) during the reset
+    // of the DRT.
+    m_controller->reset();
 
-    static_cast<WebPage*>(m_page)->resetSettings();
+    closeRemainingWindows();
+
+    m_page->resetSettings();
+    m_page->undoStack()->clear();
+    m_page->mainFrame()->setZoomFactor(1.0);
+    clearHistory(m_page);
     qt_drt_clearFrameName(m_page->mainFrame());
 
     WorkQueue::shared()->clear();
-    // Causes timeout, why?
-    //WorkQueue::shared()->setFrozen(false);
+    WorkQueue::shared()->setFrozen(false);
 
-    m_controller->reset();
     qt_drt_resetOriginAccessWhiteLists();
 
-    QLocale qlocale;
-    QLocale::setDefault(qlocale); 
+    QLocale::setDefault(QLocale::c());
+    setlocale(LC_ALL, "");
 }
 
 void DumpRenderTree::open(const QUrl& aurl)
@@ -316,7 +431,7 @@ void DumpRenderTree::open(const QUrl& aurl)
     bool isW3CTest = url.toString().contains("svg/W3C-SVG-1.1");
     int width = isW3CTest ? 480 : maxViewWidth;
     int height = isW3CTest ? 360 : maxViewHeight;
-    m_page->view()->resize(QSize(width, height));
+    m_mainView->resize(QSize(width, height));
     m_page->setPreferredContentsSize(QSize());
     m_page->setViewportSize(QSize(width, height));
 
@@ -329,6 +444,7 @@ void DumpRenderTree::open(const QUrl& aurl)
 #endif
 
     qt_dump_frame_loader(url.toString().contains("loading/"));
+    setTextOutputEnabled(true);
     m_page->mainFrame()->load(url);
 }
 
@@ -359,7 +475,7 @@ void DumpRenderTree::setDumpPixels(bool dump)
 
 void DumpRenderTree::closeRemainingWindows()
 {
-    foreach(QWidget *widget, windows)
+    foreach (QObject* widget, windows)
         delete widget;
     windows.clear();
 }
@@ -377,7 +493,7 @@ void DumpRenderTree::initJSObjects()
 
 QString DumpRenderTree::dumpFramesAsText(QWebFrame* frame)
 {
-    if (!frame)
+    if (!frame || !qt_drt_hasDocumentElement(frame))
         return QString();
 
     QString result;
@@ -388,7 +504,8 @@ QString DumpRenderTree::dumpFramesAsText(QWebFrame* frame)
         result.append(QLatin1String("'\n--------\n"));
     }
 
-    result.append(frame->toPlainText());
+    QString innerText = frame->toPlainText();
+    result.append(innerText);
     result.append(QLatin1String("\n"));
 
     if (m_controller->shouldDumpChildrenAsText()) {
@@ -400,11 +517,69 @@ QString DumpRenderTree::dumpFramesAsText(QWebFrame* frame)
     return result;
 }
 
-QString DumpRenderTree::dumpBackForwardList()
+static QString dumpHistoryItem(const QWebHistoryItem& item, int indent, bool current)
 {
     QString result;
+
+    int start = 0;
+    if (current) {
+        result.append(QLatin1String("curr->"));
+        start = 6;
+    }
+    for (int i = start; i < indent; i++)
+        result.append(' ');
+
+    QString url = item.url().toString();
+    if (url.contains("file://")) {
+        static QString layoutTestsString("/LayoutTests/");
+        static QString fileTestString("(file test):");
+
+        QString res = url.mid(url.indexOf(layoutTestsString) + layoutTestsString.length());
+        if (res.isEmpty())
+            return result;
+
+        result.append(fileTestString);
+        result.append(res);
+    } else {
+        result.append(url);
+    }
+
+    // FIXME: Wrong, need (private?) API for determining this.
+    result.append(QLatin1String("  **nav target**"));
+    result.append(QLatin1String("\n"));
+
+    return result;
+}
+
+QString DumpRenderTree::dumpBackForwardList()
+{
+    QWebHistory* history = webPage()->history();
+
+    QString result;
     result.append(QLatin1String("\n============== Back Forward List ==============\n"));
-    result.append(QLatin1String("FIXME: Unimplemented!\n"));
+
+    // FORMAT:
+    // "        (file test):fast/loader/resources/click-fragment-link.html  **nav target**"
+    // "curr->  (file test):fast/loader/resources/click-fragment-link.html#testfragment  **nav target**"
+
+    int maxItems = history->maximumItemCount();
+
+    foreach (const QWebHistoryItem item, history->backItems(maxItems)) {
+        if (!item.isValid())
+            continue;
+        result.append(dumpHistoryItem(item, 8, false));
+    }
+
+    QWebHistoryItem item = history->currentItem();
+    if (item.isValid())
+        result.append(dumpHistoryItem(item, 8, true));
+
+    foreach (const QWebHistoryItem item, history->forwardItems(maxItems)) {
+        if (!item.isValid())
+            continue;
+        result.append(dumpHistoryItem(item, 8, false));
+    }
+
     result.append(QLatin1String("===============================================\n"));
     return result;
 }
@@ -551,25 +726,28 @@ QWebPage *DumpRenderTree::createWindow()
 {
     if (!m_controller->canOpenWindows())
         return 0;
-    QWidget *container = new QWidget(0);
-    container->resize(0, 0);
-    container->move(-1, -1);
-    container->hide();
-    QWebPage *page = new WebPage(container, this);
-    connectFrame(page->mainFrame());
-    connect(m_page, SIGNAL(frameCreated(QWebFrame *)), this, SLOT(connectFrame(QWebFrame *)));
+
+    // Create a dummy container object to track the page in DRT.
+    // QObject is used instead of QWidget to prevent DRT from
+    // showing the main view when deleting the container.
+
+    QObject* container = new QObject(m_mainView);
+    // create a QWebPage we want to return
+    QWebPage* page = static_cast<QWebPage*>(new WebPage(container, this));
+    // gets cleaned up in closeRemainingWindows()
     windows.append(container);
+
+    // connect the needed signals to the page
+    connect(page, SIGNAL(frameCreated(QWebFrame*)), this, SLOT(connectFrame(QWebFrame*)));
+    connectFrame(page->mainFrame());
+    connect(page, SIGNAL(loadFinished(bool)), m_controller, SLOT(maybeDump(bool)));
     return page;
 }
 
 int DumpRenderTree::windowCount() const
 {
-    int count = 0;
-    foreach(QWidget *w, windows) {
-        if (w->children().count())
-            ++count;
-    }
-    return count + 1;
+// include the main view in the count
+    return windows.count() + 1;
 }
 
 #if defined(Q_WS_X11)
@@ -613,5 +791,3 @@ void DumpRenderTree::initializeFonts()
 #endif
 
 }
-
-#include "DumpRenderTree.moc"

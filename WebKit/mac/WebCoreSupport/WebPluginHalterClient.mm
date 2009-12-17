@@ -28,6 +28,7 @@
 #import "DOMNodeInternal.h"
 #import "WebDelegateImplementationCaching.h"
 #import "WebView.h"
+#import <WebCore/PlatformString.h>
 
 using namespace WebCore;
 
@@ -37,10 +38,10 @@ WebPluginHalterClient::WebPluginHalterClient(WebView *webView)
     ASSERT_ARG(webView, webView);
 }
 
-bool WebPluginHalterClient::shouldHaltPlugin(Node* pluginNode) const
+bool WebPluginHalterClient::shouldHaltPlugin(Node* pluginNode, bool isWindowed, const String& pluginName) const
 {
-    ASSERT_ARG(pluginNode, pluginNode);    
-    return CallUIDelegateReturningBoolean(NO, m_webView, @selector(webView:shouldHaltPlugin:), kit(pluginNode));
+    ASSERT_ARG(pluginNode, pluginNode);
+    return CallUIDelegateReturningBoolean(NO, m_webView, @selector(webView:shouldHaltPlugin:isWindowed:pluginName:), kit(pluginNode), isWindowed, (NSString *)pluginName);
 }
 
 bool WebPluginHalterClient::enabled() const

@@ -29,6 +29,7 @@
 
 #include <cairo.h>
 #include <glib.h>
+#include <gst/gst.h>
 
 typedef struct _WebKitVideoSink WebKitVideoSink;
 typedef struct _GstBuffer GstBuffer;
@@ -89,7 +90,6 @@ namespace WebCore {
             void setSize(const IntSize&);
 
             void loadStateChanged();
-            void rateChanged();
             void sizeChanged();
             void timeChanged();
             void volumeChanged();
@@ -109,7 +109,7 @@ namespace WebCore {
 
             static void getSupportedTypes(HashSet<String>&);
             static MediaPlayer::SupportsType supportsType(const String& type, const String& codecs);
-            static bool isAvailable() { return true; }
+            static bool isAvailable();
 
             void updateStates();
             void cancelSeek();
@@ -124,6 +124,8 @@ namespace WebCore {
             GstElement* m_playBin;
             GstElement* m_videoSink;
             GstElement* m_source;
+            GstClockTime m_seekTime;
+            bool m_changingRate;
             float m_endTime;
             bool m_isEndReached;
             MediaPlayer::NetworkState m_networkState;

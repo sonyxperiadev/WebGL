@@ -44,6 +44,7 @@
 #include "RenderView.h"
 #include "SelectionController.h"
 #include "Settings.h"
+#include "TransformState.h"
 #include <wtf/StdLibExtras.h>
 
 #ifdef ANDROID_LAYOUT
@@ -62,13 +63,7 @@ static const int verticalLineClickFudgeFactor = 3;
 
 using namespace HTMLNames;
 
-static void moveChild(RenderObject* to, RenderObjectChildList* toChildList, RenderObject* from, RenderObjectChildList* fromChildList, RenderObject* child)
-{
-    ASSERT(from == child->parent());
-    toChildList->appendChildNode(to, fromChildList->removeChildNode(from, child, false), false);
-}
-
-struct ColumnInfo {
+struct ColumnInfo : public Noncopyable {
     ColumnInfo()
         : m_desiredColumnWidth(0)
         , m_desiredColumnCount(1)
@@ -167,6 +162,7 @@ RenderBlock::~RenderBlock()
 
 void RenderBlock::destroy()
 {
+<<<<<<< HEAD:WebCore/rendering/RenderBlock.cpp
     // Make sure to destroy anonymous children first while they are still connected to the rest of the tree, so that they will 
     // properly dirty line boxes that they are removed from. Effects that do :before/:after only on hover could crash otherwise. 
     children()->destroyLeftoverChildren(); 
@@ -178,7 +174,20 @@ void RenderBlock::destroy()
         m_inlineContinuation->destroy();
         m_inlineContinuation = 0; 
     }
+=======
+    // Make sure to destroy anonymous children first while they are still connected to the rest of the tree, so that they will
+    // properly dirty line boxes that they are removed from. Effects that do :before/:after only on hover could crash otherwise.
+    children()->destroyLeftoverChildren();
+>>>>>>> webkit.org at r51976:WebCore/rendering/RenderBlock.cpp
 
+    // Destroy our continuation before anything other than anonymous children.
+    // The reason we don't destroy it before anonymous children is that they may
+    // have continuations of their own that are anonymous children of our continuation.
+    if (m_inlineContinuation) {
+        m_inlineContinuation->destroy();
+        m_inlineContinuation = 0;
+    }
+    
     if (!documentBeingDestroyed()) {
         if (firstLineBox()) {
             // We can't wait for RenderBox::destroy to clear the selection,
@@ -406,6 +415,19 @@ RootInlineBox* RenderBlock::createAndAppendRootInlineBox()
     m_lineBoxes.appendLineBox(rootBox);
     return rootBox;
 }
+    
+void RenderBlock::moveChildTo(RenderObject* to, RenderObjectChildList* toChildList, RenderObject* child)
+{
+    ASSERT(this == child->parent());
+    toChildList->appendChildNode(to, children()->removeChildNode(this, child, false), false);
+}
+
+void RenderBlock::moveChildTo(RenderObject* to, RenderObjectChildList* toChildList, RenderObject* beforeChild, RenderObject* child)
+{
+    ASSERT(this == child->parent());
+    ASSERT(!beforeChild || to == beforeChild->parent());
+    toChildList->insertChildNode(to, children()->removeChildNode(this, child, false), beforeChild, false);
+}
 
 void RenderBlock::makeChildrenNonInline(RenderObject *insertionPoint)
 {    
@@ -443,9 +465,9 @@ void RenderBlock::makeChildrenNonInline(RenderObject *insertionPoint)
             RenderObject* no = o;
             o = no->nextSibling();
             
-            moveChild(block, block->children(), this, children(), no);
+            moveChildTo(block, block->children(), no);
         }
-        moveChild(block, block->children(), this, children(), inlineRunEnd);
+        moveChildTo(block, block->children(), inlineRunEnd);
     }
 
 #ifndef NDEBUG
@@ -520,7 +542,7 @@ void RenderBlock::removeChild(RenderObject* oldChild)
         while (o) {
             RenderObject* no = o;
             o = no->nextSibling();
-            moveChild(prevBlock, prevBlock->children(), nextBlock, nextBlock->children(), no);
+            nextBlock->moveChildTo(prevBlock, prevBlock->children(), no);
         }
  
         nextBlock->deleteLineBoxTree();
@@ -543,7 +565,7 @@ void RenderBlock::removeChild(RenderObject* oldChild)
         while (o) {
             RenderObject* no = o;
             o = no->nextSibling();
-            moveChild(this, children(), anonBlock, anonBlock->children(), no);
+            anonBlock->moveChildTo(this, children(), no);
         }
 
         // Delete the now-empty block's lines and nuke it.
@@ -613,15 +635,15 @@ void RenderBlock::finishDelayUpdateScrollInfo()
     if (gDelayUpdateScrollInfo == 0) {
         ASSERT(gDelayedUpdateScrollInfoSet);
 
-        for (DelayedUpdateScrollInfoSet::iterator it = gDelayedUpdateScrollInfoSet->begin(); it != gDelayedUpdateScrollInfoSet->end(); ++it) {
+        OwnPtr<DelayedUpdateScrollInfoSet> infoSet(gDelayedUpdateScrollInfoSet);
+        gDelayedUpdateScrollInfoSet = 0;
+
+        for (DelayedUpdateScrollInfoSet::iterator it = infoSet->begin(); it != infoSet->end(); ++it) {
             RenderBlock* block = *it;
             if (block->hasOverflowClip()) {
                 block->layer()->updateScrollInfoAfterLayout();
             }
         }
-
-        delete gDelayedUpdateScrollInfoSet;
-        gDelayedUpdateScrollInfoSet = 0;
     }
 }
 
@@ -876,7 +898,11 @@ void RenderBlock::adjustPositionedBlock(RenderBox* child, const MarginInfo& marg
             }
             y += (collapsedTopPos - collapsedTopNeg) - marginTop;
         }
-        child->layer()->setStaticY(y);
+        RenderLayer* childLayer = child->layer();
+        if (childLayer->staticY() != y) {
+            child->layer()->setStaticY(y);
+            child->setChildNeedsLayout(true, false);
+        }
     }
 }
 
@@ -965,7 +991,7 @@ bool RenderBlock::handleRunInChild(RenderBox* child)
     // Move the nodes from the old child to the new child, but skip any :before/:after content.  It has already
     // been regenerated by the new inline.
     for (RenderObject* runInChild = blockRunIn->firstChild(); runInChild; runInChild = runInChild->nextSibling()) {
-        if (runInIsGenerated || runInChild->style()->styleType() != BEFORE && runInChild->style()->styleType() != AFTER) {
+        if (runInIsGenerated || (runInChild->style()->styleType() != BEFORE && runInChild->style()->styleType() != AFTER)) {
             blockRunIn->children()->removeChildNode(blockRunIn, runInChild, false);
             inlineRunIn->addChild(runInChild); // Use addChild instead of appendChildNode since it handles correct placement of the children relative to :after-generated content.
         }
@@ -1535,7 +1561,7 @@ void RenderBlock::paint(PaintInfo& paintInfo, int tx, int ty)
     // Our scrollbar widgets paint exactly when we tell them to, so that they work properly with
     // z-index.  We paint after we painted the background/border, so that the scrollbars will
     // sit above the background/border.
-    if (hasOverflowClip() && style()->visibility() == VISIBLE && (phase == PaintPhaseBlockBackground || phase == PaintPhaseChildBlockBackground))
+    if (hasOverflowClip() && style()->visibility() == VISIBLE && (phase == PaintPhaseBlockBackground || phase == PaintPhaseChildBlockBackground) && shouldPaintWithinRoot(paintInfo))
         layer()->paintOverflowControls(paintInfo.context, tx, ty, paintInfo.rect);
 }
 
@@ -1919,23 +1945,28 @@ bool RenderBlock::isSelectionRoot() const
     return false;
 }
 
-GapRects RenderBlock::selectionGapRectsForRepaint(RenderBoxModelObject* /*repaintContainer*/)
+GapRects RenderBlock::selectionGapRectsForRepaint(RenderBoxModelObject* repaintContainer)
 {
     ASSERT(!needsLayout());
 
     if (!shouldPaintSelectionGaps())
         return GapRects();
 
-    // FIXME: this is broken with transforms and a non-null repaintContainer
-    FloatPoint absContentPoint = localToAbsolute(FloatPoint());
+    // FIXME: this is broken with transforms
+    TransformState transformState(TransformState::ApplyTransformDirection, FloatPoint());
+    mapLocalToContainer(repaintContainer, false, false, transformState);
+    FloatPoint offsetFromRepaintContainer = transformState.mappedPoint();
+    int x = offsetFromRepaintContainer.x();
+    int y = offsetFromRepaintContainer.y();
+
     if (hasOverflowClip())
-        absContentPoint -= layer()->scrolledContentOffset();
+        layer()->subtractScrolledContentOffset(x, y);
 
     int lastTop = 0;
     int lastLeft = leftSelectionOffset(this, lastTop);
     int lastRight = rightSelectionOffset(this, lastTop);
     
-    return fillSelectionGaps(this, absContentPoint.x(), absContentPoint.y(), absContentPoint.x(), absContentPoint.y(), lastTop, lastLeft, lastRight);
+    return fillSelectionGaps(this, x, y, x, y, lastTop, lastLeft, lastRight);
 }
 
 void RenderBlock::paintSelection(PaintInfo& paintInfo, int tx, int ty)
@@ -1945,7 +1976,14 @@ void RenderBlock::paintSelection(PaintInfo& paintInfo, int tx, int ty)
         int lastLeft = leftSelectionOffset(this, lastTop);
         int lastRight = rightSelectionOffset(this, lastTop);
         paintInfo.context->save();
-        fillSelectionGaps(this, tx, ty, tx, ty, lastTop, lastLeft, lastRight, &paintInfo);
+        IntRect gapRectsBounds = fillSelectionGaps(this, tx, ty, tx, ty, lastTop, lastLeft, lastRight, &paintInfo);
+        if (!gapRectsBounds.isEmpty()) {
+            if (RenderLayer* layer = enclosingLayer()) {
+                IntSize offset = hasLayer() ? IntSize() : offsetFromAncestorContainer(layer->renderer());
+                gapRectsBounds.move(offset - IntSize(tx, ty));
+                layer->addBlockSelectionGapsBounds(gapRectsBounds);
+            }
+        }
         paintInfo.context->restore();
     }
 }
@@ -2132,7 +2170,7 @@ IntRect RenderBlock::fillHorizontalSelectionGap(RenderObject* selObj, int xPos, 
         return IntRect();
     IntRect gapRect(xPos, yPos, width, height);
     if (paintInfo && selObj->style()->visibility() == VISIBLE)
-        paintInfo->context->fillRect(gapRect, selObj->selectionBackgroundColor());
+        paintInfo->context->fillRect(gapRect, selObj->selectionBackgroundColor(), selObj->style()->colorSpace());
     return gapRect;
 }
 
@@ -2153,7 +2191,7 @@ IntRect RenderBlock::fillVerticalSelectionGap(int lastTop, int lastLeft, int las
 
     IntRect gapRect(left, top, width, height);
     if (paintInfo)
-        paintInfo->context->fillRect(gapRect, selectionBackgroundColor());
+        paintInfo->context->fillRect(gapRect, selectionBackgroundColor(), style()->colorSpace());
     return gapRect;
 }
 
@@ -2169,7 +2207,7 @@ IntRect RenderBlock::fillLeftSelectionGap(RenderObject* selObj, int xPos, int yP
 
     IntRect gapRect(left, top, width, height);
     if (paintInfo)
-        paintInfo->context->fillRect(gapRect, selObj->selectionBackgroundColor());
+        paintInfo->context->fillRect(gapRect, selObj->selectionBackgroundColor(), selObj->style()->colorSpace());
     return gapRect;
 }
 
@@ -2185,7 +2223,7 @@ IntRect RenderBlock::fillRightSelectionGap(RenderObject* selObj, int xPos, int y
 
     IntRect gapRect(left, top, width, height);
     if (paintInfo)
-        paintInfo->context->fillRect(gapRect, selObj->selectionBackgroundColor());
+        paintInfo->context->fillRect(gapRect, selObj->selectionBackgroundColor(), selObj->style()->colorSpace());
     return gapRect;
 }
 
@@ -3418,7 +3456,7 @@ VisiblePosition RenderBlock::positionForPointWithInlineChildren(const IntPoint& 
     RootInlineBox* firstRootBoxWithChildren = 0;
     RootInlineBox* lastRootBoxWithChildren = 0;
     for (RootInlineBox* root = firstRootBox(); root; root = root->nextRootBox()) {
-        if (!root->firstChild())
+        if (!root->firstLeafChild())
             continue;
         if (!firstRootBoxWithChildren)
             firstRootBoxWithChildren = root;
@@ -3565,11 +3603,15 @@ void RenderBlock::calcColumnWidth()
             desiredColumnWidth = (availWidth - (desiredColumnCount - 1) * colGap) / desiredColumnCount;
         } else if (colGap < availWidth) {
             desiredColumnCount = availWidth / colGap;
+            if (desiredColumnCount < 1)
+                desiredColumnCount = 1;
             desiredColumnWidth = (availWidth - (desiredColumnCount - 1) * colGap) / desiredColumnCount;
         }
     } else if (style()->hasAutoColumnCount()) {
         if (colWidth < availWidth) {
             desiredColumnCount = (availWidth + colGap) / (colWidth + colGap);
+            if (desiredColumnCount < 1)
+                desiredColumnCount = 1;
             desiredColumnWidth = (availWidth - (desiredColumnCount - 1) * colGap) / desiredColumnCount;
         }
     } else {
@@ -3579,6 +3621,8 @@ void RenderBlock::calcColumnWidth()
             desiredColumnWidth = colWidth;
         } else if (colWidth < availWidth) {
             desiredColumnCount = (availWidth + colGap) / (colWidth + colGap);
+            if (desiredColumnCount < 1)
+                desiredColumnCount = 1;
             desiredColumnWidth = (availWidth - (desiredColumnCount - 1) * colGap) / desiredColumnCount;
         }
     }
@@ -3629,7 +3673,7 @@ Vector<IntRect>* RenderBlock::columnRects() const
     return &gColumnInfoMap->get(this)->m_columnRects;    
 }
 
-int RenderBlock::layoutColumns(int endOfContent)
+int RenderBlock::layoutColumns(int endOfContent, int requestedColumnHeight)
 {
     // Don't do anything if we have no columns
     if (!hasColumns())
@@ -3642,17 +3686,20 @@ int RenderBlock::layoutColumns(int endOfContent)
     
     bool computeIntrinsicHeight = (endOfContent == -1);
 
-    // Fill the columns in to the available height.  Attempt to balance the height of the columns
-    int availableHeight = contentHeight();
-    int colHeight = computeIntrinsicHeight ? availableHeight / desiredColumnCount : availableHeight;
-    
+    // Fill the columns in to the available height.  Attempt to balance the height of the columns.
     // Add in half our line-height to help with best-guess initial balancing.
     int columnSlop = lineHeight(false) / 2;
     int remainingSlopSpace = columnSlop * desiredColumnCount;
+    int availableHeight = contentHeight();
+    int colHeight;
+    if (computeIntrinsicHeight && requestedColumnHeight >= 0)
+        colHeight = requestedColumnHeight;
+    else if (computeIntrinsicHeight)
+        colHeight = availableHeight / desiredColumnCount + columnSlop;
+    else
+        colHeight = availableHeight;
+    int originalColHeight = colHeight;
 
-    if (computeIntrinsicHeight)
-        colHeight += columnSlop;
-                                                                            
     int colGap = columnGap();
 
     // Compute a collection of column rects.
@@ -3668,7 +3715,8 @@ int RenderBlock::layoutColumns(int endOfContent)
     int currY = top;
     unsigned colCount = desiredColumnCount;
     int maxColBottom = borderTop() + paddingTop();
-    int contentBottom = top + availableHeight; 
+    int contentBottom = top + availableHeight;
+    int minimumColumnHeight = -1;
     for (unsigned i = 0; i < colCount; i++) {
         // If we aren't constrained, then the last column can just get all the remaining space.
         if (computeIntrinsicHeight && i == colCount - 1)
@@ -3687,6 +3735,11 @@ int RenderBlock::layoutColumns(int endOfContent)
         setHasColumns(false);
         paintObject(paintInfo, 0, 0);
         setHasColumns(true);
+
+        if (computeIntrinsicHeight && v->minimumColumnHeight() > originalColHeight) {
+            // The initial column height was too small to contain one line of text.
+            minimumColumnHeight = max(minimumColumnHeight, v->minimumColumnHeight());
+        }
 
         int adjustedBottom = v->bestTruncatedAt();
         if (adjustedBottom <= currY)
@@ -3722,6 +3775,11 @@ int RenderBlock::layoutColumns(int endOfContent)
         // Start adding in more columns as long as there's still content left.
         if (currY < endOfContent && i == colCount - 1 && (computeIntrinsicHeight || contentHeight()))
             colCount++;
+    }
+
+    if (minimumColumnHeight >= 0) {
+        // If originalColHeight was too small, we need to try to layout again.
+        return layoutColumns(endOfContent, minimumColumnHeight);
     }
 
     int overflowRight = max(width(), currX - colGap);
@@ -4208,6 +4266,10 @@ void RenderBlock::calcInlinePrefWidths()
                 } else
                     inlineMax += childMax;
             }
+
+            // Ignore spaces after a list marker.
+            if (child->isListMarker())
+                stripFrontSpaces = true;
         } else {
             m_minPrefWidth = max(inlineMin, m_minPrefWidth);
             m_maxPrefWidth = max(inlineMax, m_maxPrefWidth);

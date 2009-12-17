@@ -61,6 +61,7 @@ namespace WebCore {
         // Creates an isolated world. To destroy it, call destroy().
         // This will delete the isolated world when the context it owns is GC'd.
         V8IsolatedWorld(V8Proxy* proxy, int extensionGroup);
+        ~V8IsolatedWorld();
 
         // Call this to destroy the isolated world. It will be deleted sometime
         // after this call, once all script references to the world's context
@@ -84,7 +85,9 @@ namespace WebCore {
             // worlds at all.
             if (!isolatedWorldCount)
                 return 0;
-            return getEnteredImpl();
+            if (!v8::Context::InContext())
+                return 0;
+            return reinterpret_cast<V8IsolatedWorld*>(getGlobalObject(v8::Context::GetEntered())->GetPointerFromInternalField(V8Custom::kDOMWindowEnteredIsolatedWorldIndex));
         }
 
         v8::Handle<v8::Context> context() { return m_context->get(); }
@@ -93,9 +96,10 @@ namespace WebCore {
         DOMDataStore* getDOMDataStore() const { return m_domDataStore.getStore(); }
 
     private:
-        ~V8IsolatedWorld();
-
-        static V8IsolatedWorld* getEnteredImpl();
+        static v8::Handle<v8::Object> getGlobalObject(v8::Handle<v8::Context> context)
+        {
+            return v8::Handle<v8::Object>::Cast(context->Global()->GetPrototype());
+        }
 
         // Called by the garbage collector when our JavaScript context is about
         // to be destroyed.

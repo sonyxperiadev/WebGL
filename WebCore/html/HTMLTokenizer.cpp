@@ -564,12 +564,6 @@ HTMLTokenizer::State HTMLTokenizer::scriptExecution(const ScriptSourceCode& sour
         return state;
     m_executingScript++;
     
-#if ENABLE(INSPECTOR)
-    InspectorTimelineAgent* timelineAgent = m_doc->inspectorTimelineAgent();
-    if (timelineAgent)
-        timelineAgent->willEvaluateScriptTag(sourceCode.url().isNull() ? String() : sourceCode.url().string(), sourceCode.startLine());
-#endif
-    
     SegmentedString* savedPrependingSrc = m_currentPrependingSrc;
     SegmentedString prependingSrc;
     m_currentPrependingSrc = &prependingSrc;
@@ -626,11 +620,6 @@ HTMLTokenizer::State HTMLTokenizer::scriptExecution(const ScriptSourceCode& sour
     }
 
     m_currentPrependingSrc = savedPrependingSrc;
-    
-#if ENABLE(INSPECTOR)
-    if (timelineAgent)
-        timelineAgent->didEvaluateScriptTag();
-#endif
     
     return state;
 }
@@ -1692,8 +1681,7 @@ void HTMLTokenizer::write(const SegmentedString& str, bool appendData)
 #endif
 
 #if ENABLE(INSPECTOR)
-    InspectorTimelineAgent* timelineAgent = m_doc->inspectorTimelineAgent();
-    if (timelineAgent)
+    if (InspectorTimelineAgent* timelineAgent = m_doc->inspectorTimelineAgent())
         timelineAgent->willWriteHTML();
 #endif
   
@@ -1819,7 +1807,7 @@ void HTMLTokenizer::write(const SegmentedString& str, bool appendData)
 #endif
 
 #if ENABLE(INSPECTOR)
-    if (timelineAgent)
+    if (InspectorTimelineAgent* timelineAgent = m_doc->inspectorTimelineAgent())
         timelineAgent->didWriteHTML();
 #endif
 

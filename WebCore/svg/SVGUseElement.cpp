@@ -3,8 +3,6 @@
                   2004, 2005, 2006, 2007 Rob Buis <buis@kde.org>
     Copyright (C) Research In Motion Limited 2009. All rights reserved.
 
-    This file is part of the KDE project
-
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
     License as published by the Free Software Foundation; either
@@ -446,6 +444,9 @@ Path SVGUseElement::toClipPath() const
     if (!m_shadowTreeRootElement)
         const_cast<SVGUseElement*>(this)->buildPendingResource();
 
+    if (!m_shadowTreeRootElement)
+        return Path();
+
     Node* n = m_shadowTreeRootElement->firstChild();
     if (n->isSVGElement() && static_cast<SVGElement*>(n)->isStyledTransformable()) {
         if (!isDirectReference(n))
@@ -772,7 +773,7 @@ void SVGUseElement::transferEventListenersToShadowTree(SVGElementInstance* targe
             EventListenerMap& map = d->eventListenerMap;
             EventListenerMap::iterator end = map.end();
             for (EventListenerMap::iterator it = map.begin(); it != end; ++it) {
-                EventListenerVector& entry = it->second;
+                EventListenerVector& entry = *it->second;
                 for (size_t i = 0; i < entry.size(); ++i) {
                     // Event listeners created from markup have already been transfered to the shadow tree during cloning.
                     if (entry[i].listener->wasCreatedFromMarkup())

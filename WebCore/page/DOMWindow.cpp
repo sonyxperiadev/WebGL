@@ -53,6 +53,7 @@
 #include "HTMLFrameOwnerElement.h"
 #include "History.h"
 #include "InspectorController.h"
+#include "InspectorTimelineAgent.h"
 #include "Location.h"
 #include "Media.h"
 #include "MessageEvent.h"
@@ -459,6 +460,8 @@ void DOMWindow::clear()
 #endif
 
 #if ENABLE(NOTIFICATIONS)
+    if (m_notifications)
+        m_notifications->disconnectFrame();
     m_notifications = 0;
 #endif
 }
@@ -568,12 +571,12 @@ Storage* DOMWindow::sessionStorage() const
     Document* document = this->document();
     if (!document)
         return 0;
+    
+    if (!document->securityOrigin()->canAccessStorage())
+        return 0;
 
     Page* page = document->page();
     if (!page)
-        return 0;
-
-    if (!page->settings()->sessionStorageEnabled())
         return 0;
 
     RefPtr<StorageArea> storageArea = page->sessionStorage()->storageArea(document->securityOrigin());
@@ -592,6 +595,9 @@ Storage* DOMWindow::localStorage() const
     
     Document* document = this->document();
     if (!document)
+        return 0;
+    
+    if (!document->securityOrigin()->canAccessStorage())
         return 0;
         
     Page* page = document->page();
@@ -623,9 +629,6 @@ NotificationCenter* DOMWindow::webkitNotifications() const
     
     Page* page = document->page();
     if (!page)
-        return 0;
-
-    if (!page->settings()->experimentalNotificationsEnabled())
         return 0;
 
     NotificationPresenter* provider = page->chrome()->notificationPresenter();
@@ -1112,13 +1115,15 @@ PassRefPtr<Database> DOMWindow::openDatabase(const String& name, const String& v
     if (!m_frame)
         return 0;
 
-    Document* doc = m_frame->document();
+    Document* document = m_frame->document();
+    if (!document->securityOrigin()->canAccessDatabase())
+        return 0;
 
     Settings* settings = m_frame->settings();
     if (!settings || !settings->databasesEnabled())
         return 0;
 
-    return Database::openDatabase(doc, name, version, displayName, estimatedSize, ec);
+    return Database::openDatabase(document, name, version, displayName, estimatedSize, ec);
 }
 #endif
 
@@ -1304,6 +1309,15 @@ void DOMWindow::dispatchLoadEvent()
 #endif
 }
 
+#if ENABLE(INSPECTOR)
+InspectorTimelineAgent* DOMWindow::inspectorTimelineAgent() 
+{
+    if (frame() && frame()->page())
+        return frame()->page()->inspectorTimelineAgent();
+    return 0;
+}
+#endif
+
 bool DOMWindow::dispatchEvent(PassRefPtr<Event> prpEvent, PassRefPtr<EventTarget> prpTarget)
 {
     RefPtr<EventTarget> protect = this;
@@ -1313,7 +1327,24 @@ bool DOMWindow::dispatchEvent(PassRefPtr<Event> prpEvent, PassRefPtr<EventTarget
     event->setCurrentTarget(this);
     event->setEventPhase(Event::AT_TARGET);
 
-    return fireEventListeners(event.get());
+#if ENABLE(INSPECTOR)
+    InspectorTimelineAgent* timelineAgent = inspectorTimelineAgent();
+    bool timelineAgentIsActive = timelineAgent && hasEventListeners(event->type());
+    if (timelineAgentIsActive)
+        timelineAgent->willDispatchEvent(*event);
+#endif
+
+    bool result = fireEventListeners(event.get());
+
+#if ENABLE(INSPECTOR)
+    if (timelineAgentIsActive) {
+      timelineAgent = inspectorTimelineAgent();
+      if (timelineAgent)
+            timelineAgent->didDispatchEvent();
+    }
+#endif
+
+    return result;
 }
 
 void DOMWindow::removeAllEventListeners()

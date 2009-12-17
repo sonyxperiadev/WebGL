@@ -41,9 +41,10 @@ class Node;
 class String;
 class SVGElementInstance;
 class SVGStyledElement;
+class SVGSMILElement;
 class SVGSVGElement;
 
-class SVGDocumentExtensions {
+class SVGDocumentExtensions : public Noncopyable {
 public:
     SVGDocumentExtensions(Document*);
     ~SVGDocumentExtensions();
@@ -54,6 +55,7 @@ public:
     void startAnimations();
     void pauseAnimations();
     void unpauseAnimations();
+    bool sampleAnimationAtTime(const String& elementId, SVGSMILElement*, double time);
 
     void reportWarning(const String&);
     void reportError(const String&);

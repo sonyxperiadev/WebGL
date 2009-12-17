@@ -35,6 +35,7 @@
 
 #include "AXObjectCache.h"
 #include "AccessibilityListBox.h"
+#include "AccessibilityListBoxOption.h"
 #include "AccessibilityRenderObject.h"
 #include "AccessibilityTable.h"
 #include "AccessibilityTableCell.h"
@@ -43,6 +44,7 @@
 #include "AtomicString.h"
 #include "CString.h"
 #include "Document.h"
+#include "DocumentType.h"
 #include "Editor.h"
 #include "Frame.h"
 #include "FrameView.h"
@@ -106,6 +108,11 @@ static AccessibilityObject* core(AtkAction* action)
     return core(ATK_OBJECT(action));
 }
 
+static AccessibilityObject* core(AtkSelection* selection)
+{
+    return core(ATK_OBJECT(selection));
+}
+
 static AccessibilityObject* core(AtkText* text)
 {
     return core(ATK_OBJECT(text));
@@ -131,38 +138,71 @@ static AccessibilityObject* core(AtkTable* table)
     return core(ATK_OBJECT(table));
 }
 
+static AccessibilityObject* core(AtkDocument* document)
+{
+    return core(ATK_OBJECT(document));
+}
+
+static const gchar* nameFromChildren(AccessibilityObject* object)
+{
+    if (!object)
+        return 0;
+
+    AccessibilityRenderObject::AccessibilityChildrenVector children = object->children();
+    // Currently, object->stringValue() should be an empty String. This might not be the case down the road.
+    String name = object->stringValue();
+    for (unsigned i = 0; i < children.size(); ++i)
+        name += children.at(i).get()->stringValue();
+    return returnString(name);
+}
+
 static const gchar* webkit_accessible_get_name(AtkObject* object)
 {
     AccessibilityObject* coreObject = core(object);
+    if (!coreObject->isAccessibilityRenderObject())
+        return returnString(coreObject->stringValue());
+
+    AccessibilityRenderObject* renderObject = static_cast<AccessibilityRenderObject*>(coreObject);
     if (coreObject->isControl()) {
-        AccessibilityRenderObject* renderObject = static_cast<AccessibilityRenderObject*>(coreObject);
         AccessibilityObject* label = renderObject->correspondingLabelForControlElement();
-        if (label) {
-            AccessibilityRenderObject::AccessibilityChildrenVector children = label->children();
-            // Currently, label->stringValue() should be an empty String. This
-            // might not be the case down the road.
-            String name = label->stringValue();
-            for (unsigned i = 0; i < children.size(); ++i)
-                name += children.at(i).get()->stringValue();
-            return returnString(name);
+        if (label)
+            return returnString(nameFromChildren(label));
+    }
+
+    if (renderObject->isImage() || renderObject->isInputImage()) {
+        Node* node = renderObject->renderer()->node();
+        if (node && node->isHTMLElement()) {
+            // Get the attribute rather than altText String so as not to fall back on title.
+            String alt = static_cast<HTMLElement*>(node)->getAttribute(HTMLNames::altAttr);
+            if (!alt.isEmpty())
+                return returnString(alt);
         }
     }
+
     return returnString(coreObject->stringValue());
 }
 
 static const gchar* webkit_accessible_get_description(AtkObject* object)
 {
     AccessibilityObject* coreObject = core(object);
+    Node* node = 0;
+    if (coreObject->isAccessibilityRenderObject())
+        node = static_cast<AccessibilityRenderObject*>(coreObject)->renderer()->node();
+    if (!node || !node->isHTMLElement() || coreObject->ariaRoleAttribute() != UnknownRole)
+        return returnString(coreObject->accessibilityDescription());
 
     // atk_table_get_summary returns an AtkObject. We have no summary object, so expose summary here.
-    if (coreObject->roleValue() == TableRole && coreObject->ariaRoleAttribute() == UnknownRole) {
-        Node* node = static_cast<AccessibilityRenderObject*>(coreObject)->renderer()->node();
-        if (node && node->isHTMLElement()) {
-            String summary = static_cast<HTMLTableElement*>(node)->summary();
-            if (!summary.isEmpty())
-                return returnString(summary);
-        }
+    if (coreObject->roleValue() == TableRole) {
+        String summary = static_cast<HTMLTableElement*>(node)->summary();
+        if (!summary.isEmpty())
+            return returnString(summary);
     }
+
+    // The title attribute should be reliably available as the object's descripton.
+    // We do not want to fall back on other attributes in its absence. See bug 25524.
+    String title = static_cast<HTMLElement*>(node)->title();
+    if (!title.isEmpty())
+        return returnString(title);
 
     return returnString(coreObject->accessibilityDescription());
 }
@@ -181,9 +221,9 @@ static void setAtkRelationSetFromCoreObject(AccessibilityObject* coreObject, Atk
     }
 }
 
-static gpointer webkit_accessible_parent_class = NULL;
+static gpointer webkit_accessible_parent_class = 0;
 
-static AtkObject* webkit_accessible_get_parent(AtkObject* object)
+static AtkObject* atkParentOfWebView(AtkObject* object)
 {
     AccessibilityObject* coreParent = core(object)->parentObjectUnignored();
 
@@ -203,7 +243,19 @@ static AtkObject* webkit_accessible_get_parent(AtkObject* object)
     }
 
     if (!coreParent)
-        return NULL;
+        return 0;
+
+    return coreParent->wrapper();
+}
+
+static AtkObject* webkit_accessible_get_parent(AtkObject* object)
+{
+    AccessibilityObject* coreParent = core(object)->parentObjectUnignored();
+    if (!coreParent && core(object)->isWebArea())
+        return atkParentOfWebView(object);
+
+    if (!coreParent)
+        return 0;
 
     return coreParent->wrapper();
 }
@@ -216,14 +268,14 @@ static gint webkit_accessible_get_n_children(AtkObject* object)
 static AtkObject* webkit_accessible_ref_child(AtkObject* object, gint index)
 {
     AccessibilityObject* coreObject = core(object);
+    AccessibilityObject::AccessibilityChildrenVector children = coreObject->children();
+    if (index < 0 || static_cast<unsigned>(index) >= children.size())
+        return 0;
 
-    g_return_val_if_fail(index >= 0, NULL);
-    g_return_val_if_fail(static_cast<size_t>(index) < coreObject->children().size(), NULL);
-
-    AccessibilityObject* coreChild = coreObject->children().at(index).get();
+    AccessibilityObject* coreChild = children.at(index).get();
 
     if (!coreChild)
-        return NULL;
+        return 0;
 
     AtkObject* child = coreChild->wrapper();
     atk_object_set_parent(child, object);
@@ -237,7 +289,20 @@ static gint webkit_accessible_get_index_in_parent(AtkObject* object)
     AccessibilityObject* coreObject = core(object);
     AccessibilityObject* parent = coreObject->parentObjectUnignored();
 
-    g_return_val_if_fail(parent, 0);
+    if (!parent && core(object)->isWebArea()) {
+        AtkObject* atkParent = atkParentOfWebView(object);
+        if (!atkParent)
+            return -1;
+
+        unsigned count = atk_object_get_n_accessible_children(atkParent);
+        for (unsigned i = 0; i < count; ++i) {
+            AtkObject* child = atk_object_ref_accessible_child(atkParent, i);
+            bool childIsObject = child == object;
+            g_object_unref(child);
+            if (childIsObject)
+                return i;
+        }
+    }
 
     AccessibilityObject::AccessibilityChildrenVector children = parent->children();
     unsigned count = children.size();
@@ -246,7 +311,7 @@ static gint webkit_accessible_get_index_in_parent(AtkObject* object)
             return i;
     }
 
-    return 0;
+    return -1;
 }
 
 static AtkAttributeSet* addAttributeToSet(AtkAttributeSet* attributeSet, const char* name, const char* value)
@@ -261,7 +326,7 @@ static AtkAttributeSet* addAttributeToSet(AtkAttributeSet* attributeSet, const c
 
 static AtkAttributeSet* webkit_accessible_get_attributes(AtkObject* object)
 {
-    AtkAttributeSet* attributeSet = NULL;
+    AtkAttributeSet* attributeSet = 0;
 
     int headingLevel = core(object)->headingLevel();
     if (headingLevel) {
@@ -361,21 +426,21 @@ static AtkRole atkRole(AccessibilityRole role)
 
 static AtkRole webkit_accessible_get_role(AtkObject* object)
 {
-    AccessibilityObject* AXObject = core(object);
+    AccessibilityObject* axObject = core(object);
 
-    if (!AXObject)
+    if (!axObject)
         return ATK_ROLE_UNKNOWN;
 
     // WebCore does not seem to have a role for list items
-    if (AXObject->isGroup()) {
-        AccessibilityObject* parent = AXObject->parentObjectUnignored();
+    if (axObject->isGroup()) {
+        AccessibilityObject* parent = axObject->parentObjectUnignored();
         if (parent && parent->isList())
             return ATK_ROLE_LIST_ITEM;
     }
 
     // WebCore does not know about paragraph role, label role, or section role
-    if (AXObject->isAccessibilityRenderObject()) {
-        Node* node = static_cast<AccessibilityRenderObject*>(AXObject)->renderer()->node();
+    if (axObject->isAccessibilityRenderObject()) {
+        Node* node = static_cast<AccessibilityRenderObject*>(axObject)->renderer()->node();
         if (node) {
             if (node->hasTagName(HTMLNames::pTag))
                 return ATK_ROLE_PARAGRAPH;
@@ -387,10 +452,10 @@ static AtkRole webkit_accessible_get_role(AtkObject* object)
     }
 
     // Note: Why doesn't WebCore have a password field for this
-    if (AXObject->isPasswordField())
+    if (axObject->isPasswordField())
         return ATK_ROLE_PASSWORD_TEXT;
 
-    return atkRole(AXObject->roleValue());
+    return atkRole(axObject->roleValue());
 }
 
 static void setAtkStateSetFromCoreObject(AccessibilityObject* coreObject, AtkStateSet* stateSet)
@@ -549,15 +614,15 @@ webkit_accessible_get_type(void)
     if (g_once_init_enter(&type_volatile)) {
         static const GTypeInfo tinfo = {
             sizeof(WebKitAccessibleClass),
-            (GBaseInitFunc)NULL,
-            (GBaseFinalizeFunc)NULL,
-            (GClassInitFunc)webkit_accessible_class_init,
-            (GClassFinalizeFunc)NULL,
-            NULL, /* class data */
+            (GBaseInitFunc) 0,
+            (GBaseFinalizeFunc) 0,
+            (GClassInitFunc) webkit_accessible_class_init,
+            (GClassFinalizeFunc) 0,
+            0, /* class data */
             sizeof(WebKitAccessible), /* instance size */
             0, /* nb preallocs */
-            (GInstanceInitFunc)NULL,
-            NULL /* value table */
+            (GInstanceInitFunc) 0,
+            0 /* value table */
         };
 
         GType type = g_type_register_static(ATK_TYPE_OBJECT,
@@ -581,7 +646,7 @@ static gint webkit_accessible_action_get_n_actions(AtkAction* action)
 
 static const gchar* webkit_accessible_action_get_description(AtkAction* action, gint i)
 {
-    g_return_val_if_fail(i == 0, NULL);
+    g_return_val_if_fail(i == 0, 0);
     // TODO: Need a way to provide/localize action descriptions.
     notImplemented();
     return "";
@@ -589,14 +654,14 @@ static const gchar* webkit_accessible_action_get_description(AtkAction* action, 
 
 static const gchar* webkit_accessible_action_get_keybinding(AtkAction* action, gint i)
 {
-    g_return_val_if_fail(i == 0, NULL);
+    g_return_val_if_fail(i == 0, 0);
     // FIXME: Construct a proper keybinding string.
     return returnString(core(action)->accessKey().string());
 }
 
 static const gchar* webkit_accessible_action_get_name(AtkAction* action, gint i)
 {
-    g_return_val_if_fail(i == 0, NULL);
+    g_return_val_if_fail(i == 0, 0);
     return returnString(core(action)->actionVerb());
 }
 
@@ -609,6 +674,145 @@ static void atk_action_interface_init(AtkActionIface* iface)
     iface->get_name = webkit_accessible_action_get_name;
 }
 
+// Selection (for controls)
+
+static AccessibilityObject* optionFromList(AtkSelection* selection, gint i)
+{
+    AccessibilityObject* coreSelection = core(selection);
+    if (!coreSelection || i < 0)
+        return 0;
+
+    AccessibilityRenderObject::AccessibilityChildrenVector options = core(selection)->children();
+    if (i < static_cast<gint>(options.size()))
+        return options.at(i).get();
+
+    return 0;
+}
+
+static AccessibilityObject* optionFromSelection(AtkSelection* selection, gint i)
+{
+    // i is the ith selection as opposed to the ith child.
+
+    AccessibilityObject* coreSelection = core(selection);
+    if (!coreSelection || i < 0)
+        return 0;
+
+    AccessibilityRenderObject::AccessibilityChildrenVector selectedItems;
+    if (coreSelection->isListBox())
+        static_cast<AccessibilityListBox*>(coreSelection)->selectedChildren(selectedItems);
+
+    // TODO: Combo boxes
+
+    if (i < static_cast<gint>(selectedItems.size()))
+        return selectedItems.at(i).get();
+
+    return 0;
+}
+
+static gboolean webkit_accessible_selection_add_selection(AtkSelection* selection, gint i)
+{
+    AccessibilityObject* option = optionFromList(selection, i);
+    if (option && core(selection)->isListBox()) {
+        AccessibilityListBoxOption* listBoxOption = static_cast<AccessibilityListBoxOption*>(option);
+        listBoxOption->setSelected(true);
+        return listBoxOption->isSelected();
+    }
+
+    return false;
+}
+
+static gboolean webkit_accessible_selection_clear_selection(AtkSelection* selection)
+{
+    AccessibilityObject* coreSelection = core(selection);
+    if (!coreSelection)
+        return false;
+
+    AccessibilityRenderObject::AccessibilityChildrenVector selectedItems;
+    if (coreSelection->isListBox()) {
+        // Set the list of selected items to an empty list; then verify that it worked.
+        AccessibilityListBox* listBox = static_cast<AccessibilityListBox*>(coreSelection);
+        listBox->setSelectedChildren(selectedItems);
+        listBox->selectedChildren(selectedItems);
+        return selectedItems.size() == 0;
+    }
+    return false;
+}
+
+static AtkObject* webkit_accessible_selection_ref_selection(AtkSelection* selection, gint i)
+{
+    AccessibilityObject* option = optionFromSelection(selection, i);
+    if (option) {
+        AtkObject* child = option->wrapper();
+        g_object_ref(child);
+        return child;
+    }
+
+    return 0;
+}
+
+static gint webkit_accessible_selection_get_selection_count(AtkSelection* selection)
+{
+    AccessibilityObject* coreSelection = core(selection);
+    if (coreSelection && coreSelection->isListBox()) {
+        AccessibilityRenderObject::AccessibilityChildrenVector selectedItems;
+        static_cast<AccessibilityListBox*>(coreSelection)->selectedChildren(selectedItems);
+        return static_cast<gint>(selectedItems.size());
+    }
+
+    return 0;
+}
+
+static gboolean webkit_accessible_selection_is_child_selected(AtkSelection* selection, gint i)
+{
+    AccessibilityObject* option = optionFromList(selection, i);
+    if (option && core(selection)->isListBox())
+        return static_cast<AccessibilityListBoxOption*>(option)->isSelected();
+
+    return false;
+}
+
+static gboolean webkit_accessible_selection_remove_selection(AtkSelection* selection, gint i)
+{
+    // TODO: This is only getting called if i == 0. What is preventing the rest?
+    AccessibilityObject* option = optionFromSelection(selection, i);
+    if (option && core(selection)->isListBox()) {
+        AccessibilityListBoxOption* listBoxOption = static_cast<AccessibilityListBoxOption*>(option);
+        listBoxOption->setSelected(false);
+        return !listBoxOption->isSelected();
+    }
+
+    return false;
+}
+
+static gboolean webkit_accessible_selection_select_all_selection(AtkSelection* selection)
+{
+    AccessibilityObject* coreSelection = core(selection);
+    if (!coreSelection || !coreSelection->isMultiSelect())
+        return false;
+
+    AccessibilityRenderObject::AccessibilityChildrenVector children = coreSelection->children();
+    if (coreSelection->isListBox()) {
+        AccessibilityListBox* listBox = static_cast<AccessibilityListBox*>(coreSelection);
+        listBox->setSelectedChildren(children);
+        AccessibilityRenderObject::AccessibilityChildrenVector selectedItems;
+        listBox->selectedChildren(selectedItems);
+        return selectedItems.size() == children.size();
+    }
+
+    return false;
+}
+
+static void atk_selection_interface_init(AtkSelectionIface* iface)
+{
+    iface->add_selection = webkit_accessible_selection_add_selection;
+    iface->clear_selection = webkit_accessible_selection_clear_selection;
+    iface->ref_selection = webkit_accessible_selection_ref_selection;
+    iface->get_selection_count = webkit_accessible_selection_get_selection_count;
+    iface->is_child_selected = webkit_accessible_selection_is_child_selected;
+    iface->remove_selection = webkit_accessible_selection_remove_selection;
+    iface->select_all_selection = webkit_accessible_selection_select_all_selection;
+}
+
 // Text
 
 static gchar* webkit_accessible_text_get_text(AtkText* text, gint startOffset, gint endOffset)
@@ -616,6 +820,8 @@ static gchar* webkit_accessible_text_get_text(AtkText* text, gint startOffset, g
     AccessibilityObject* coreObject = core(text);
     String ret;
     unsigned start = startOffset;
+    if (endOffset == -1)
+        endOffset = coreObject->stringValue().length();
     int length = endOffset - startOffset;
 
     if (coreObject->isTextControl())
@@ -656,23 +862,24 @@ static gchar* convertUniCharToUTF8(const UChar* characters, gint length, int fro
 {
     CString stringUTF8 = UTF8Encoding().encode(characters, length, QuestionMarksForUnencodables);
     gchar* utf8String = utf8Substr(stringUTF8.data(), from, to);
-    if (!g_utf8_validate(utf8String, -1, NULL)) {
+    if (!g_utf8_validate(utf8String, -1, 0)) {
         g_free(utf8String);
         return 0;
     }
     gsize len = strlen(utf8String);
-    GString* ret = g_string_new_len(NULL, len);
+    GString* ret = g_string_new_len(0, len);
+    gchar* ptr = utf8String;
 
     // WebCore introduces line breaks in the text that do not reflect
     // the layout you see on the screen, replace them with spaces
     while (len > 0) {
         gint index, start;
-        pango_find_paragraph_boundary(utf8String, len, &index, &start);
-        g_string_append_len(ret, utf8String, index);
+        pango_find_paragraph_boundary(ptr, len, &index, &start);
+        g_string_append_len(ret, ptr, index);
         if (index == start)
             break;
         g_string_append_c(ret, ' ');
-        utf8String += start;
+        ptr += start;
         len -= start;
     }
 
@@ -691,7 +898,7 @@ static PangoLayout* getPangoLayoutForAtk(AtkText* textObject)
     if (!webView)
         return 0;
 
-    GString* str = g_string_new(NULL);
+    GString* str = g_string_new(0);
 
     AccessibilityRenderObject* accObject = static_cast<AccessibilityRenderObject*>(coreObject);
     if (!accObject)
@@ -701,12 +908,30 @@ static PangoLayout* getPangoLayoutForAtk(AtkText* textObject)
         return 0;
 
     // Create a string with the layout as it appears on the screen
-    InlineTextBox* box = renderText->firstTextBox();
-    while (box) {
-        gchar *text = convertUniCharToUTF8(renderText->characters(), renderText->textLength(), box->start(), box->end());
-        g_string_append(str, text);
-        g_string_append(str, "\n");
-        box = box->nextTextBox();
+    if (accObject->isTextControl()) {
+        unsigned textLength = accObject->textLength();
+        int lineNumber = 0;
+        PlainTextRange range = accObject->doAXRangeForLine(lineNumber);
+        while (range.length) {
+            // When a line of text wraps in a text area, the final space is removed.
+            if (range.start + range.length < textLength)
+                range.length -= 1;
+            String lineText = accObject->doAXStringForRange(range);
+            g_string_append(str, lineText.utf8().data());
+            g_string_append(str, "\n");
+            range = accObject->doAXRangeForLine(++lineNumber);
+        }
+    } else {
+        InlineTextBox* box = renderText->firstTextBox();
+        while (box) {
+            gchar* text = convertUniCharToUTF8(renderText->characters(), renderText->textLength(), box->start(), box->end());
+            g_string_append(str, text);
+            // Newline chars in the source result in separate text boxes, so check
+            // before adding a newline in the layout. See bug 25415 comment #78.
+            if (!box->nextOnLineExists())
+                g_string_append(str, "\n");
+            box = box->nextTextBox();
+        }
     }
 
     PangoLayout* layout = gtk_widget_create_pango_layout(static_cast<GtkWidget*>(webView), g_string_free(str, FALSE));
@@ -732,7 +957,7 @@ static gchar* webkit_accessible_text_get_text_before_offset(AtkText* text, gint 
 static gunichar webkit_accessible_text_get_character_at_offset(AtkText* text, gint offset)
 {
     notImplemented();
-    return NULL;
+    return 0;
 }
 
 static gint webkit_accessible_text_get_caret_offset(AtkText* text)
@@ -744,13 +969,13 @@ static gint webkit_accessible_text_get_caret_offset(AtkText* text)
 static AtkAttributeSet* webkit_accessible_text_get_run_attributes(AtkText* text, gint offset, gint* start_offset, gint* end_offset)
 {
     notImplemented();
-    return NULL;
+    return 0;
 }
 
 static AtkAttributeSet* webkit_accessible_text_get_default_attributes(AtkText* text)
 {
     notImplemented();
-    return NULL;
+    return 0;
 }
 
 static void webkit_accessible_text_get_character_extents(AtkText* text, gint offset, gint* x, gint* y, gint* width, gint* height, AtkCoordType coords)
@@ -795,7 +1020,7 @@ static gint webkit_accessible_text_get_offset_at_point(AtkText* text, gint x, gi
     return range.start;
 }
 
-static bool selectionBelongsToObject(AccessibilityObject *coreObject, VisibleSelection& selection)
+static bool selectionBelongsToObject(AccessibilityObject* coreObject, VisibleSelection& selection)
 {
     if (!coreObject->isAccessibilityRenderObject())
         return false;
@@ -830,7 +1055,7 @@ static gchar* webkit_accessible_text_get_selection(AtkText* text, gint selection
     // the global one (the API is a bit confusing)
     if (selection_num != 0 || !selectionBelongsToObject(coreObject, selection)) {
         *start_offset = *end_offset = 0;
-        return NULL;
+        return 0;
     }
 
     *start_offset = selection.start().offsetInContainerNode();
@@ -1016,7 +1241,7 @@ static AtkObject* webkit_accessible_component_ref_accessible_at_point(AtkCompone
     IntPoint pos = atkToContents(core(component), coordType, x, y);
     AccessibilityObject* target = core(component)->doAccessibilityHitTest(pos);
     if (!target)
-        return NULL;
+        return 0;
     g_object_ref(target->wrapper());
     return target->wrapper();
 }
@@ -1033,7 +1258,7 @@ static gboolean webkit_accessible_component_grab_focus(AtkComponent* component)
     return core(component)->isFocused();
 }
 
-static void atk_component_interface_init(AtkComponentIface *iface)
+static void atk_component_interface_init(AtkComponentIface* iface)
 {
     iface->ref_accessible_at_point = webkit_accessible_component_ref_accessible_at_point;
     iface->get_extents = webkit_accessible_component_get_extents;
@@ -1080,32 +1305,68 @@ static AccessibilityTableCell* cell(AtkTable* table, guint row, guint column)
     return 0;
 }
 
-static gint cellIndex(AccessibilityTableCell* AXCell, AccessibilityTable* AXTable)
+static gint cellIndex(AccessibilityTableCell* axCell, AccessibilityTable* axTable)
 {
     // Calculate the cell's index as if we had a traditional Gtk+ table in
     // which cells are all direct children of the table, arranged row-first.
     AccessibilityObject::AccessibilityChildrenVector allCells;
-    AXTable->cells(allCells);
+    axTable->cells(allCells);
     AccessibilityObject::AccessibilityChildrenVector::iterator position;
-    position = std::find(allCells.begin(), allCells.end(), AXCell);
+    position = std::find(allCells.begin(), allCells.end(), axCell);
     if (position == allCells.end())
         return -1;
     return position - allCells.begin();
 }
 
+static AccessibilityTableCell* cellAtIndex(AtkTable* table, gint index)
+{
+    AccessibilityObject* accTable = core(table);
+    if (accTable->isAccessibilityRenderObject()) {
+        AccessibilityObject::AccessibilityChildrenVector allCells;
+        static_cast<AccessibilityTable*>(accTable)->cells(allCells);
+        if (0 <= index && static_cast<unsigned>(index) < allCells.size()) {
+            AccessibilityObject* accCell = allCells.at(index).get();
+            return static_cast<AccessibilityTableCell*>(accCell);
+        }
+    }
+    return 0;
+}
+
 static AtkObject* webkit_accessible_table_ref_at(AtkTable* table, gint row, gint column)
 {
-    AccessibilityTableCell* AXCell = cell(table, row, column);
-    if (!AXCell)
+    AccessibilityTableCell* axCell = cell(table, row, column);
+    if (!axCell)
         return 0;
-    return AXCell->wrapper();
+    return axCell->wrapper();
 }
 
 static gint webkit_accessible_table_get_index_at(AtkTable* table, gint row, gint column)
 {
-    AccessibilityTableCell* AXCell = cell(table, row, column);
-    AccessibilityTable* AXTable = static_cast<AccessibilityTable*>(core(table));
-    return cellIndex(AXCell, AXTable);
+    AccessibilityTableCell* axCell = cell(table, row, column);
+    AccessibilityTable* axTable = static_cast<AccessibilityTable*>(core(table));
+    return cellIndex(axCell, axTable);
+}
+
+static gint webkit_accessible_table_get_column_at_index(AtkTable* table, gint index)
+{
+    AccessibilityTableCell* axCell = cellAtIndex(table, index);
+    if (axCell){
+        pair<int, int> columnRange;
+        axCell->columnIndexRange(columnRange);
+        return columnRange.first;
+    }
+    return -1;
+}
+
+static gint webkit_accessible_table_get_row_at_index(AtkTable* table, gint index)
+{
+    AccessibilityTableCell* axCell = cellAtIndex(table, index);
+    if (axCell){
+        pair<int, int> rowRange;
+        axCell->rowIndexRange(rowRange);
+        return rowRange.first;
+    }
+    return -1;
 }
 
 static gint webkit_accessible_table_get_n_columns(AtkTable* table)
@@ -1126,10 +1387,10 @@ static gint webkit_accessible_table_get_n_rows(AtkTable* table)
 
 static gint webkit_accessible_table_get_column_extent_at(AtkTable* table, gint row, gint column)
 {
-    AccessibilityTableCell* AXCell = cell(table, row, column);
-    if (AXCell) {
+    AccessibilityTableCell* axCell = cell(table, row, column);
+    if (axCell) {
         pair<int, int> columnRange;
-        AXCell->columnIndexRange(columnRange);
+        axCell->columnIndexRange(columnRange);
         return columnRange.second;
     }
     return 0;
@@ -1137,12 +1398,19 @@ static gint webkit_accessible_table_get_column_extent_at(AtkTable* table, gint r
 
 static gint webkit_accessible_table_get_row_extent_at(AtkTable* table, gint row, gint column)
 {
-    AccessibilityTableCell* AXCell = cell(table, row, column);
-    if (AXCell) {
+    AccessibilityTableCell* axCell = cell(table, row, column);
+    if (axCell) {
         pair<int, int> rowRange;
-        AXCell->rowIndexRange(rowRange);
+        axCell->rowIndexRange(rowRange);
         return rowRange.second;
     }
+    return 0;
+}
+
+static AtkObject* webkit_accessible_table_get_column_header(AtkTable* table, gint column)
+{
+    // FIXME: This needs to be implemented.
+    notImplemented();
     return 0;
 }
 
@@ -1163,39 +1431,139 @@ static AtkObject* webkit_accessible_table_get_row_header(AtkTable* table, gint r
     return 0;
 }
 
+static AtkObject* webkit_accessible_table_get_caption(AtkTable* table)
+{
+    AccessibilityObject* accTable = core(table);
+    if (accTable->isAccessibilityRenderObject()) {
+        Node* node = static_cast<AccessibilityRenderObject*>(accTable)->renderer()->node();
+        if (node && node->hasTagName(HTMLNames::tableTag)) {
+            HTMLTableCaptionElement* caption = static_cast<HTMLTableElement*>(node)->caption();
+            if (caption)
+                return AccessibilityObject::firstAccessibleObjectFromNode(caption->renderer()->node())->wrapper();
+        }
+    }
+    return 0;
+}
+
+static const gchar* webkit_accessible_table_get_column_description(AtkTable* table, gint column)
+{
+    AtkObject* columnHeader = atk_table_get_column_header(table, column);
+    if (columnHeader)
+        return returnString(nameFromChildren(core(columnHeader)));
+
+    return 0;
+}
+
+static const gchar* webkit_accessible_table_get_row_description(AtkTable* table, gint row)
+{
+    AtkObject* rowHeader = atk_table_get_row_header(table, row);
+    if (rowHeader)
+        return returnString(nameFromChildren(core(rowHeader)));
+
+    return 0;
+}
+
 static void atk_table_interface_init(AtkTableIface* iface)
 {
     iface->ref_at = webkit_accessible_table_ref_at;
     iface->get_index_at = webkit_accessible_table_get_index_at;
+    iface->get_column_at_index = webkit_accessible_table_get_column_at_index;
+    iface->get_row_at_index = webkit_accessible_table_get_row_at_index;
     iface->get_n_columns = webkit_accessible_table_get_n_columns;
     iface->get_n_rows = webkit_accessible_table_get_n_rows;
     iface->get_column_extent_at = webkit_accessible_table_get_column_extent_at;
     iface->get_row_extent_at = webkit_accessible_table_get_row_extent_at;
+    iface->get_column_header = webkit_accessible_table_get_column_header;
     iface->get_row_header = webkit_accessible_table_get_row_header;
+    iface->get_caption = webkit_accessible_table_get_caption;
+    iface->get_column_description = webkit_accessible_table_get_column_description;
+    iface->get_row_description = webkit_accessible_table_get_row_description;
+}
+
+static const gchar* documentAttributeValue(AtkDocument* document, const gchar* attribute)
+{
+    Document* coreDocument = core(document)->document();
+    if (!coreDocument)
+        return 0;
+
+    String value = String();
+    if (!g_ascii_strcasecmp(attribute, "DocType") && coreDocument->doctype())
+        value = coreDocument->doctype()->name();
+    else if (!g_ascii_strcasecmp(attribute, "Encoding"))
+        value = coreDocument->charset();
+    else if (!g_ascii_strcasecmp(attribute, "URI"))
+        value = coreDocument->documentURI();
+    if (!value.isEmpty())
+        return returnString(value);
+
+    return 0;
+}
+
+static const gchar* webkit_accessible_document_get_attribute_value(AtkDocument* document, const gchar* attribute)
+{
+    return documentAttributeValue(document, attribute);
+}
+
+static AtkAttributeSet* webkit_accessible_document_get_attributes(AtkDocument* document)
+{
+    AtkAttributeSet* attributeSet = 0;
+    const gchar* attributes [] = {"DocType", "Encoding", "URI"};
+
+    for (unsigned i = 0; i < G_N_ELEMENTS(attributes); i++) {
+        const gchar* value = documentAttributeValue(document, attributes[i]);
+        if (value)
+            attributeSet = addAttributeToSet(attributeSet, attributes[i], value);
+    }
+
+    return attributeSet;
+}
+
+static const gchar* webkit_accessible_document_get_locale(AtkDocument* document)
+{
+
+    // TODO: Should we fall back on lang xml:lang when the following comes up empty?
+    String language = static_cast<AccessibilityRenderObject*>(core(document))->language();
+    if (!language.isEmpty())
+        return returnString(language);
+
+    return 0;
+}
+
+static void atk_document_interface_init(AtkDocumentIface* iface)
+{
+    iface->get_document_attribute_value = webkit_accessible_document_get_attribute_value;
+    iface->get_document_attributes = webkit_accessible_document_get_attributes;
+    iface->get_document_locale = webkit_accessible_document_get_locale;
 }
 
 static const GInterfaceInfo AtkInterfacesInitFunctions[] = {
     {(GInterfaceInitFunc)atk_action_interface_init,
-     (GInterfaceFinalizeFunc) NULL, NULL},
+     (GInterfaceFinalizeFunc) 0, 0},
+    {(GInterfaceInitFunc)atk_selection_interface_init,
+     (GInterfaceFinalizeFunc) 0, 0},
     {(GInterfaceInitFunc)atk_editable_text_interface_init,
-     (GInterfaceFinalizeFunc) NULL, NULL},
+     (GInterfaceFinalizeFunc) 0, 0},
     {(GInterfaceInitFunc)atk_text_interface_init,
-     (GInterfaceFinalizeFunc) NULL, NULL},
+     (GInterfaceFinalizeFunc) 0, 0},
     {(GInterfaceInitFunc)atk_component_interface_init,
-     (GInterfaceFinalizeFunc) NULL, NULL},
+     (GInterfaceFinalizeFunc) 0, 0},
     {(GInterfaceInitFunc)atk_image_interface_init,
-     (GInterfaceFinalizeFunc) NULL, NULL},
+     (GInterfaceFinalizeFunc) 0, 0},
     {(GInterfaceInitFunc)atk_table_interface_init,
-     (GInterfaceFinalizeFunc) NULL, NULL}
+     (GInterfaceFinalizeFunc) 0, 0},
+    {(GInterfaceInitFunc)atk_document_interface_init,
+     (GInterfaceFinalizeFunc) 0, 0}
 };
 
 enum WAIType {
     WAI_ACTION,
+    WAI_SELECTION,
     WAI_EDITABLE_TEXT,
     WAI_TEXT,
     WAI_COMPONENT,
     WAI_IMAGE,
-    WAI_TABLE
+    WAI_TABLE,
+    WAI_DOCUMENT
 };
 
 static GType GetAtkInterfaceTypeFromWAIType(WAIType type)
@@ -1203,6 +1571,8 @@ static GType GetAtkInterfaceTypeFromWAIType(WAIType type)
   switch (type) {
   case WAI_ACTION:
       return ATK_TYPE_ACTION;
+  case WAI_SELECTION:
+      return ATK_TYPE_SELECTION;
   case WAI_EDITABLE_TEXT:
       return ATK_TYPE_EDITABLE_TEXT;
   case WAI_TEXT:
@@ -1213,6 +1583,8 @@ static GType GetAtkInterfaceTypeFromWAIType(WAIType type)
       return ATK_TYPE_IMAGE;
   case WAI_TABLE:
       return ATK_TYPE_TABLE;
+  case WAI_DOCUMENT:
+      return ATK_TYPE_DOCUMENT;
   }
 
   return G_TYPE_INVALID;
@@ -1228,6 +1600,10 @@ static guint16 getInterfaceMaskFromObject(AccessibilityObject* coreObject)
     // Action
     if (!coreObject->actionVerb().isEmpty())
         interfaceMask |= 1 << WAI_ACTION;
+
+    // Selection
+    if (coreObject->isListBox())
+        interfaceMask |= 1 << WAI_SELECTION;
 
     // Text & Editable Text
     AccessibilityRole role = coreObject->roleValue();
@@ -1248,6 +1624,10 @@ static guint16 getInterfaceMaskFromObject(AccessibilityObject* coreObject)
     if (role == TableRole)
         interfaceMask |= 1 << WAI_TABLE;
 
+    // Document
+    if (role == WebAreaRole)
+        interfaceMask |= 1 << WAI_DOCUMENT;
+
     return interfaceMask;
 }
 
@@ -1255,10 +1635,10 @@ static const char* getUniqueAccessibilityTypeName(guint16 interfaceMask)
 {
 #define WAI_TYPE_NAME_LEN (30) /* Enough for prefix + 5 hex characters (max) */
     static char name[WAI_TYPE_NAME_LEN + 1];
-    
+
     g_sprintf(name, "WAIType%x", interfaceMask);
     name[WAI_TYPE_NAME_LEN] = '\0';
-    
+
     return name;
 }
 
@@ -1266,15 +1646,15 @@ static GType getAccessibilityTypeFromObject(AccessibilityObject* coreObject)
 {
     static const GTypeInfo typeInfo = {
         sizeof(WebKitAccessibleClass),
-        (GBaseInitFunc) NULL,
-        (GBaseFinalizeFunc) NULL,
-        (GClassInitFunc) NULL,
-        (GClassFinalizeFunc) NULL,
-        NULL, /* class data */
+        (GBaseInitFunc) 0,
+        (GBaseFinalizeFunc) 0,
+        (GClassInitFunc) 0,
+        (GClassFinalizeFunc) 0,
+        0, /* class data */
         sizeof(WebKitAccessible), /* instance size */
         0, /* nb preallocs */
-        (GInstanceInitFunc) NULL,
-        NULL /* value table */
+        (GInstanceInitFunc) 0,
+        0 /* value table */
     };
 
     guint16 interfaceMask = getInterfaceMaskFromObject(coreObject);
@@ -1299,7 +1679,7 @@ static GType getAccessibilityTypeFromObject(AccessibilityObject* coreObject)
 WebKitAccessible* webkit_accessible_new(AccessibilityObject* coreObject)
 {
     GType type = getAccessibilityTypeFromObject(coreObject);
-    AtkObject* object = static_cast<AtkObject*>(g_object_new(type, NULL));
+    AtkObject* object = static_cast<AtkObject*>(g_object_new(type, 0));
 
     atk_object_initialize(object, coreObject);
 

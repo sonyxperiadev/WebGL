@@ -29,6 +29,8 @@
 
 #include "DumpRenderTree.h"
 
+#include <wtf/AlwaysInline.h>
+
 #include <qstringlist.h>
 #include <qapplication.h>
 #include <qurl.h>
@@ -38,6 +40,7 @@
 #include <qwebsettings.h>
 #include <qwebdatabase.h>
 #include <qdesktopservices.h>
+#include <qwindowsstyle.h>
 
 #ifdef Q_WS_X11
 #include <qx11info_x11.h>
@@ -86,7 +89,7 @@ QString get_backtrace() {
     return s;
 }
 
-static void crashHandler(int sig)
+static NO_RETURN void crashHandler(int sig)
 {
     fprintf(stderr, "%s\n", strsignal(sig));
     fprintf(stderr, "%s\n", get_backtrace().toLatin1().constData());
@@ -98,23 +101,25 @@ int main(int argc, char* argv[])
 #ifdef Q_WS_X11
     FcInit();
     WebCore::DumpRenderTree::initializeFonts();
+#endif
+
 #if QT_VERSION >= 0x040500
     QApplication::setGraphicsSystem("raster");
 #endif
-#endif
-    QApplication app(argc, argv);
-#ifdef Q_WS_X11
-    QX11Info::setAppDpiY(0, 96);
-    QX11Info::setAppDpiX(0, 96);
-#endif
+
+    QApplication::setStyle(new QWindowsStyle);
 
     QFont f("Sans Serif");
     f.setPointSize(9);
     f.setWeight(QFont::Normal);
     f.setStyle(QFont::StyleNormal);
-    app.setFont(f);
-    app.setStyle(QLatin1String("Plastique"));
+    QApplication::setFont(f);
 
+    QApplication app(argc, argv);
+#ifdef Q_WS_X11
+    QX11Info::setAppDpiY(0, 96);
+    QX11Info::setAppDpiX(0, 96);
+#endif
 
     signal(SIGILL, crashHandler);    /* 4:   illegal instruction (not reset when caught) */
     signal(SIGTRAP, crashHandler);   /* 5:   trace trap (not reset when caught) */

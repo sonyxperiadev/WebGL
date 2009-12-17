@@ -316,7 +316,14 @@ sub GenerateGetOwnPropertySlotBody
     if ($dataNode->extendedAttributes->{"HasIndexGetter"} || $dataNode->extendedAttributes->{"HasCustomIndexGetter"} || $dataNode->extendedAttributes->{"HasNumericIndexGetter"}) {
         push(@getOwnPropertySlotImpl, "    bool ok;\n");
         push(@getOwnPropertySlotImpl, "    unsigned index = propertyName.toUInt32(&ok, false);\n");
-        push(@getOwnPropertySlotImpl, "    if (ok && index < static_cast<$implClassName*>(impl())->length()) {\n");
+
+        # If the item function returns a string then we let the ConvertNullStringTo handle the cases
+        # where the index is out of range.
+        if (IndexGetterReturnsStrings($implClassName)) {
+            push(@getOwnPropertySlotImpl, "    if (ok) {\n");
+        } else {
+            push(@getOwnPropertySlotImpl, "    if (ok && index < static_cast<$implClassName*>(impl())->length()) {\n");
+        }
         if ($dataNode->extendedAttributes->{"HasCustomIndexGetter"} || $dataNode->extendedAttributes->{"HasNumericIndexGetter"}) {
             push(@getOwnPropertySlotImpl, "        slot.setValue(getByIndex(exec, index));\n");
         } else {
@@ -368,6 +375,14 @@ sub GenerateGetOwnPropertyDescriptorBody
     my $namespaceMaybe = ($inlined ? "JSC::" : "");
     
     my @getOwnPropertyDescriptorImpl = ();
+    if ($dataNode->extendedAttributes->{"CheckDomainSecurity"}) {
+        if ($interfaceName eq "DOMWindow") {
+            push(@implContent, "    if (!static_cast<$className*>(thisObject)->allowsAccessFrom(exec))\n");
+        } else {
+            push(@implContent, "    if (!allowsAccessFromFrame(exec, static_cast<$className*>(thisObject)->impl()->frame()))\n");
+        }
+        push(@implContent, "        return false;\n");
+    }
     
     if ($interfaceName eq "NamedNodeMap" or $interfaceName eq "HTMLCollection" or $interfaceName eq "HTMLAllCollection") {
         push(@getOwnPropertyDescriptorImpl, "    ${namespaceMaybe}JSValue proto = prototype();\n");
@@ -642,9 +657,6 @@ sub GenerateHeader
         push(@headerContent, "    virtual void getOwnPropertyNames(JSC::ExecState*, JSC::PropertyNameArray&);\n");
         $structureFlags{"JSC::OverridesGetPropertyNames"} = 1;       
     }
-
-    # Custom getPropertyAttributes function
-    push(@headerContent, "    virtual bool getPropertyAttributes(JSC::ExecState*, const JSC::Identifier&, unsigned& attributes) const;\n") if $dataNode->extendedAttributes->{"CustomGetPropertyAttributes"};
 
     # Custom defineGetter function
     push(@headerContent, "    virtual void defineGetter(JSC::ExecState*, const JSC::Identifier& propertyName, JSC::JSObject* getterFunction, unsigned attributes);\n") if $dataNode->extendedAttributes->{"CustomDefineGetter"};

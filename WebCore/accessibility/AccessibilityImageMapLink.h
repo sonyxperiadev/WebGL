@@ -47,7 +47,7 @@ public:
     void setHTMLMapElement(HTMLMapElement* element) { m_mapElement = element; }    
     void setParent(AccessibilityObject* parent) { m_parent = parent; }
         
-    virtual AccessibilityRole roleValue() const { return WebCoreLinkRole; }
+    virtual AccessibilityRole roleValue() const;
     virtual bool accessibilityIsIgnored() const { return false; }
     virtual bool isEnabled() const { return true; }
 
@@ -56,9 +56,13 @@ public:
     virtual Element* actionElement() const;
     virtual KURL url() const;
     virtual bool isLink() const { return true; } 
+    virtual bool isLinked() const { return true; }
     virtual String title() const;
     virtual String accessibilityDescription() const;
-    
+
+    virtual String stringValueForMSAA() const;
+    virtual String nameForMSAA() const;
+
     virtual IntSize size() const;
     virtual IntRect elementRect() const;
 

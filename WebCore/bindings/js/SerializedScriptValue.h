@@ -29,7 +29,11 @@
 
 #include "ScriptValue.h"
 
+typedef const struct OpaqueJSContext* JSContextRef;
+typedef const struct OpaqueJSValue* JSValueRef;
+
 namespace WebCore {
+    class File;
     class SerializedObject;
     class SerializedArray;
 
@@ -51,7 +55,8 @@ namespace WebCore {
             ImmediateType,
             ObjectType,
             ArrayType,
-            StringType
+            StringType,
+            FileType
         };
 
         SerializedType type() const { return m_type; }
@@ -74,6 +79,8 @@ namespace WebCore {
             , m_string(string.crossThreadString()) // FIXME: Should be able to just share the Rep
         {
         }
+        
+        explicit SerializedScriptValueData(const File*);
 
         explicit SerializedScriptValueData(JSC::JSValue value)
             : m_type(ImmediateType)
@@ -105,7 +112,7 @@ namespace WebCore {
 
         String asString() const
         {
-            ASSERT(m_type == StringType);
+            ASSERT(m_type == StringType || m_type == FileType);
             return m_string;
         }
 
@@ -150,6 +157,8 @@ namespace WebCore {
             return adoptRef(new SerializedScriptValue(SerializedScriptValueData::serialize(exec, value)));
         }
 
+        static PassRefPtr<SerializedScriptValue> create(JSContextRef, JSValueRef value, JSValueRef* exception);
+
         static PassRefPtr<SerializedScriptValue> create(String string)
         {
             return adoptRef(new SerializedScriptValue(SerializedScriptValueData(string)));
@@ -182,7 +191,8 @@ namespace WebCore {
             return m_value.deserialize(exec, m_mustCopy);
         }
 
-        ~SerializedScriptValue() {}
+        JSValueRef deserialize(JSContextRef, JSValueRef* exception);
+        ~SerializedScriptValue();
 
     private:
         SerializedScriptValue(SerializedScriptValueData value)

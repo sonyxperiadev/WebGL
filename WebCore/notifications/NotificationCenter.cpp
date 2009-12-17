@@ -40,20 +40,6 @@
 
 namespace WebCore {
 
-#if USE(V8)
-static bool notificationCenterAvailable = false;
-
-void NotificationCenter::setIsAvailable(bool available)
-{
-    notificationCenterAvailable = available;
-}
-
-bool NotificationCenter::isAvailable()
-{
-    return notificationCenterAvailable;
-}
-#endif
-
 NotificationCenter::NotificationCenter(ScriptExecutionContext* context, NotificationPresenter* presenter) 
     : ActiveDOMObject(context, this)
     , m_scriptExecutionContext(context)
@@ -61,11 +47,15 @@ NotificationCenter::NotificationCenter(ScriptExecutionContext* context, Notifica
 
 int NotificationCenter::checkPermission() 
 {
+    if (!presenter())
+        return NotificationPresenter::PermissionDenied;
     return m_notificationPresenter->checkPermission(m_scriptExecutionContext->securityOrigin());
 }
 
 void NotificationCenter::requestPermission(PassRefPtr<VoidCallback> callback)
 {
+    if (!presenter())
+        return;
     m_notificationPresenter->requestPermission(m_scriptExecutionContext->securityOrigin(), callback);
 }
 

@@ -72,6 +72,9 @@ public:
     void setMarginWidth(int);
     void setMarginHeight(int);
 
+    virtual void setCanHaveScrollbars(bool);
+    void updateCanHaveScrollbars();
+
     virtual PassRefPtr<Scrollbar> createScrollbar(ScrollbarOrientation);
 
     virtual void setContentsSize(const IntSize&);
@@ -167,7 +170,8 @@ public:
     void removeWidgetToUpdate(RenderPartObject*);
 
     virtual void paintContents(GraphicsContext*, const IntRect& damageRect);
-    void setPaintRestriction(PaintRestriction);
+    void setPaintBehavior(PaintBehavior);
+    PaintBehavior paintBehavior() const { return m_paintBehavior; }
     bool isPainting() const;
     void setNodeToDraw(Node*);
 
@@ -206,6 +210,7 @@ private:
 
     friend class RenderWidget;
     bool useSlowRepaints() const;
+    bool useSlowRepaintsIfNotOverlapped() const;
 
     void applyOverflowToViewport(RenderObject*, ScrollbarMode& hMode, ScrollbarMode& vMode);
 
@@ -257,6 +262,7 @@ private:
 
     bool m_doFullRepaint;
     
+    bool m_canHaveScrollbars;
     bool m_useSlowRepaints;
     bool m_isOverlapped;
     bool m_contentIsOpaque;
@@ -307,7 +313,7 @@ private:
     bool m_setNeedsLayoutWasDeferred;
 
     RefPtr<Node> m_nodeToDraw;
-    PaintRestriction m_paintRestriction;
+    PaintBehavior m_paintBehavior;
     bool m_isPainting;
 
     bool m_isVisuallyNonEmpty;

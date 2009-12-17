@@ -44,6 +44,7 @@ WebInspector.KeyboardShortcut.Modifiers = {
 };
 
 WebInspector.KeyboardShortcut.KeyCodes = {
+    Backspace: 8,
     Esc: 27,
     Space: 32,
     PageUp: 33,      // also NUM_NORTH_EAST
@@ -54,6 +55,7 @@ WebInspector.KeyboardShortcut.KeyCodes = {
     Up: 38,          // also NUM_NORTH
     Right: 39,       // also NUM_EAST
     Down: 40,        // also NUM_SOUTH
+    Delete: 46,
     F1: 112,
     F2: 113,
     F3: 114,
@@ -76,12 +78,14 @@ WebInspector.KeyboardShortcut.KeyCodes = {
 
 /**
  * Creates a number encoding keyCode in the lower 8 bits and modifiers mask in the higher 8 bits.
- * It is usefull for matching pressed keys.
- * @param {number} keyCode Code of the key.
- * @param {number} optModifiers Optional list of modifiers passed as additional paramerters.
+ * It is useful for matching pressed keys.
+ * keyCode is the Code of the key, or a character "a-z" which is converted to a keyCode value.
+ * optModifiers is an Optional list of modifiers passed as additional paramerters.
  */
 WebInspector.KeyboardShortcut.makeKey = function(keyCode, optModifiers)
 {
+    if (typeof keyCode === "string")
+        keyCode = keyCode.charCodeAt(0) - 32;
     var modifiers = WebInspector.KeyboardShortcut.Modifiers.None;
     for (var i = 1; i < arguments.length; i++)
         modifiers |= arguments[i];

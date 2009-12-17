@@ -62,16 +62,18 @@ class Document;
 class DocumentLoader;
 class GraphicsContext;
 class HitTestResult;
+class InjectedScriptHost;
 class InspectorBackend;
 class InspectorClient;
 class InspectorDOMAgent;
 class InspectorFrontend;
+class InspectorFrontendHost;
 class InspectorTimelineAgent;
 class JavaScriptCallFrame;
 class KURL;
 class Node;
 class Page;
-struct ResourceRequest;
+class ResourceRequest;
 class ResourceResponse;
 class ResourceError;
 class ScriptCallStack;
@@ -91,7 +93,7 @@ class InspectorController
 #endif
                                                     {
 public:
-    typedef HashMap<long long, RefPtr<InspectorResource> > ResourcesMap;
+    typedef HashMap<unsigned long, RefPtr<InspectorResource> > ResourcesMap;
     typedef HashMap<RefPtr<Frame>, ResourcesMap*> FrameResourcesMap;
     typedef HashMap<int, RefPtr<InspectorDatabaseResource> > DatabaseResourcesMap;
     typedef HashMap<int, RefPtr<InspectorDOMStorageResource> > DOMStorageResourcesMap;
@@ -101,70 +103,19 @@ public:
         CurrentPanel,
         ConsolePanel,
         ElementsPanel,
-        ProfilesPanel,
         ResourcesPanel,
         ScriptsPanel,
+        TimelinePanel,
+        ProfilesPanel,
         StoragePanel
     } SpecialPanels;
 
-    struct Setting {
-        enum Type {
-            NoType, StringType, StringVectorType, DoubleType, IntegerType, BooleanType
-        };
-
-        Setting()
-            : m_type(NoType)
-        {
-        }
-
-        explicit Setting(bool value)
-            : m_type(BooleanType)
-        {
-            m_simpleContent.m_boolean = value;
-        }
-
-        explicit Setting(unsigned value)
-            : m_type(IntegerType)
-        {
-            m_simpleContent.m_integer = value;
-        }
-
-        explicit Setting(const String& value)
-            : m_type(StringType)
-        {
-            m_string = value;
-        }
-
-        Type type() const { return m_type; }
-
-        String string() const { ASSERT(m_type == StringType); return m_string; }
-        const Vector<String>& stringVector() const { ASSERT(m_type == StringVectorType); return m_stringVector; }
-        double doubleValue() const { ASSERT(m_type == DoubleType); return m_simpleContent.m_double; }
-        long integerValue() const { ASSERT(m_type == IntegerType); return m_simpleContent.m_integer; }
-        bool booleanValue() const { ASSERT(m_type == BooleanType); return m_simpleContent.m_boolean; }
-
-        void set(const String& value) { m_type = StringType; m_string = value; }
-        void set(const Vector<String>& value) { m_type = StringVectorType; m_stringVector = value; }
-        void set(double value) { m_type = DoubleType; m_simpleContent.m_double = value; }
-        void set(long value) { m_type = IntegerType; m_simpleContent.m_integer = value; }
-        void set(bool value) { m_type = BooleanType; m_simpleContent.m_boolean = value; }
-
-    private:
-        Type m_type;
-
-        String m_string;
-        Vector<String> m_stringVector;
-
-        union {
-            double m_double;
-            long m_integer;
-            bool m_boolean;
-        } m_simpleContent;
-    };
     InspectorController(Page*, InspectorClient*);
     ~InspectorController();
 
     InspectorBackend* inspectorBackend() { return m_inspectorBackend.get(); }
+    InspectorFrontendHost* inspectorFrontendHost() { return m_inspectorFrontendHost.get(); }
+    InjectedScriptHost* injectedScriptHost() { return m_injectedScriptHost.get(); }
 
     void inspectedPageDestroyed();
     void pageDestroyed() { m_page = 0; }
@@ -173,8 +124,8 @@ public:
 
     Page* inspectedPage() const { return m_inspectedPage; }
 
-    const Setting& setting(const String& key) const;
-    void setSetting(const String& key, const Setting&);
+    String setting(const String& key) const;
+    void setSetting(const String& key, const String& value);
 
     void inspect(Node*);
     void highlight(Node*);
@@ -215,11 +166,11 @@ public:
     void didLoadResourceFromMemoryCache(DocumentLoader*, const CachedResource*);
 
     void identifierForInitialRequest(unsigned long identifier, DocumentLoader*, const ResourceRequest&);
-    void willSendRequest(DocumentLoader*, unsigned long identifier, ResourceRequest&, const ResourceResponse& redirectResponse);
-    void didReceiveResponse(DocumentLoader*, unsigned long identifier, const ResourceResponse&);
-    void didReceiveContentLength(DocumentLoader*, unsigned long identifier, int lengthReceived);
-    void didFinishLoading(DocumentLoader*, unsigned long identifier);
-    void didFailLoading(DocumentLoader*, unsigned long identifier, const ResourceError&);
+    void willSendRequest(unsigned long identifier, const ResourceRequest&, const ResourceResponse& redirectResponse);
+    void didReceiveResponse(unsigned long identifier, const ResourceResponse&);
+    void didReceiveContentLength(unsigned long identifier, int lengthReceived);
+    void didFinishLoading(unsigned long identifier);
+    void didFailLoading(unsigned long identifier, const ResourceError&);
     void resourceRetrievedByXMLHttpRequest(unsigned long identifier, const ScriptString& sourceString);
     void scriptImported(unsigned long identifier, const String& sourceString);
 
@@ -230,13 +181,12 @@ public:
 
     void startTimelineProfiler();
     void stopTimelineProfiler();
-    bool timelineProfilerEnabled() const;
     InspectorTimelineAgent* timelineAgent() { return m_timelineAgent.get(); }
 
     void mainResourceFiredLoadEvent(DocumentLoader*, const KURL&);
     void mainResourceFiredDOMContentEvent(DocumentLoader*, const KURL&);
                                                         
-    void getCookies(long callId, const String& url);
+    void getCookies(long callId);
 
 #if ENABLE(DATABASE)
     void didOpenDatabase(Database*, const String& domain, const String& name, const String& version);
@@ -260,6 +210,8 @@ public:
 
     void startGroup(MessageSource source, ScriptCallStack* callFrame);
     void endGroup(MessageSource source, unsigned lineNumber, const String& sourceURL);
+
+    void markTimeline(const String& message); 
 
 #if ENABLE(JAVASCRIPT_DEBUGGER)
     void addProfile(PassRefPtr<JSC::Profile>, unsigned lineNumber, const JSC::UString& sourceURL);
@@ -292,6 +244,8 @@ public:
 
 private:
     friend class InspectorBackend;
+    friend class InspectorFrontendHost;
+    friend class InjectedScriptHost;
     // Following are used from InspectorBackend and internally.
     void scriptObjectReady();
     void moveWindowBy(float x, float y) const;
@@ -341,7 +295,7 @@ private:
 
     void addResource(InspectorResource*);
     void removeResource(InspectorResource*);
-    InspectorResource* getTrackedResource(long long identifier);
+    InspectorResource* getTrackedResource(unsigned long identifier);
 
     void pruneResources(ResourcesMap*, DocumentLoader* loaderToKeep = 0);
     void removeAllResources(ResourcesMap* map) { pruneResources(map); }
@@ -378,7 +332,6 @@ private:
     ScriptState* m_scriptState;
     bool m_windowVisible;
     SpecialPanels m_showAfterVisible;
-    long long m_nextIdentifier;
     RefPtr<Node> m_highlightedNode;
     unsigned m_groupLevel;
     bool m_searchingForNode;
@@ -386,10 +339,15 @@ private:
     bool m_resourceTrackingEnabled;
     bool m_resourceTrackingSettingsLoaded;
     RefPtr<InspectorBackend> m_inspectorBackend;
+    RefPtr<InspectorFrontendHost> m_inspectorFrontendHost;
+    RefPtr<InjectedScriptHost> m_injectedScriptHost;
     HashMap<String, ScriptValue> m_idToWrappedObject;
     ObjectGroupsMap m_objectGroups;
-
     long m_lastBoundObjectId;
+
+    typedef HashMap<String, String> Settings;
+    mutable Settings m_settings;
+
     Vector<pair<long, String> > m_pendingEvaluateTestCommands;
 #if ENABLE(JAVASCRIPT_DEBUGGER)
     bool m_debuggerEnabled;

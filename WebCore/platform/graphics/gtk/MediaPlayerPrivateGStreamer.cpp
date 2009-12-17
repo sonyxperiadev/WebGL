@@ -46,7 +46,7 @@
 #include <gst/video/video.h>
 #include <limits>
 #include <math.h>
-#include <wtf/GOwnPtr.h>
+#include <wtf/gtk/GOwnPtr.h>
 
 using namespace std;
 
@@ -66,11 +66,15 @@ gboolean mediaPlayerPrivateMessageCallback(GstBus* bus, GstMessage* message, gpo
         LOG_VERBOSE(Media, "Error: %d, %s", err->code,  err->message);
 
         error = MediaPlayer::Empty;
-        if (err->domain == GST_CORE_ERROR || err->domain == GST_LIBRARY_ERROR)
-            error = MediaPlayer::DecodeError;
-        else if (err->domain == GST_RESOURCE_ERROR)
+        if (err->code == GST_STREAM_ERROR_CODEC_NOT_FOUND
+            || err->code == GST_STREAM_ERROR_WRONG_TYPE
+            || err->code == GST_STREAM_ERROR_FAILED
+            || err->code == GST_CORE_ERROR_MISSING_PLUGIN
+            || err->code == GST_RESOURCE_ERROR_NOT_FOUND)
             error = MediaPlayer::FormatError;
         else if (err->domain == GST_STREAM_ERROR)
+            error = MediaPlayer::DecodeError;
+        else if (err->domain == GST_RESOURCE_ERROR)
             error = MediaPlayer::NetworkError;
 
         if (mp)
@@ -95,6 +99,33 @@ gboolean mediaPlayerPrivateMessageCallback(GstBus* bus, GstMessage* message, gpo
     return true;
 }
 
+static float playbackPosition(GstElement* playbin)
+{
+
+    float ret = 0.0;
+
+    GstQuery* query = gst_query_new_position(GST_FORMAT_TIME);
+    if (!gst_element_query(playbin, query)) {
+        LOG_VERBOSE(Media, "Position query failed...");
+        gst_query_unref(query);
+        return ret;
+    }
+
+    gint64 position;
+    gst_query_parse_position(query, 0, &position);
+
+    // Position is available only if the pipeline is not in NULL or
+    // READY state.
+    if (position !=  static_cast<gint64>(GST_CLOCK_TIME_NONE))
+        ret = static_cast<float>(position) / static_cast<float>(GST_SECOND);
+
+    LOG_VERBOSE(Media, "Position %" GST_TIME_FORMAT, GST_TIME_ARGS(position));
+
+    gst_query_unref(query);
+
+    return ret;
+}
+
 void mediaPlayerPrivateRepaintCallback(WebKitVideoSink*, GstBuffer *buffer, MediaPlayerPrivate* playerPrivate)
 {
     g_return_if_fail(GST_IS_BUFFER(buffer));
@@ -115,16 +146,34 @@ void MediaPlayerPrivate::registerMediaEngine(MediaEngineRegistrar registrar)
 
 static bool gstInitialized = false;
 
-static void do_gst_init()
+static bool do_gst_init()
 {
     // FIXME: We should pass the arguments from the command line
     if (!gstInitialized) {
-        gst_init(0, 0);
-        gstInitialized = true;
-        gst_element_register(0, "webkitmediasrc", GST_RANK_PRIMARY,
-                             WEBKIT_TYPE_DATA_SRC);
+        GOwnPtr<GError> error;
+        gstInitialized = gst_init_check(0, 0, &error.outPtr());
+        if (!gstInitialized)
+            LOG_VERBOSE(Media, "Could not initialize GStreamer: %s",
+                        error ? error->message : "unknown error occurred");
+        else
+            gst_element_register(0, "webkitmediasrc", GST_RANK_PRIMARY,
+                                 WEBKIT_TYPE_DATA_SRC);
 
     }
+    return gstInitialized;
+}
+
+bool MediaPlayerPrivate::isAvailable()
+{
+    if (!do_gst_init())
+        return false;
+
+    GstElementFactory* factory = gst_element_factory_find("playbin2");
+    if (factory) {
+        gst_object_unref(GST_OBJECT(factory));
+        return true;
+    }
+    return false;
 }
 
 MediaPlayerPrivate::MediaPlayerPrivate(MediaPlayer* player)
@@ -132,6 +181,8 @@ MediaPlayerPrivate::MediaPlayerPrivate(MediaPlayer* player)
     , m_playBin(0)
     , m_videoSink(0)
     , m_source(0)
+    , m_seekTime(0)
+    , m_changingRate(false)
     , m_endTime(numeric_limits<float>::infinity())
     , m_networkState(MediaPlayer::Empty)
     , m_readyState(MediaPlayer::HaveNothing)
@@ -181,14 +232,26 @@ void MediaPlayerPrivate::load(const String& url)
 
 void MediaPlayerPrivate::play()
 {
-    LOG_VERBOSE(Media, "Play");
-    gst_element_set_state(m_playBin, GST_STATE_PLAYING);
+    GstState state;
+    GstState pending;
+
+    gst_element_get_state(m_playBin, &state, &pending, 0);
+    if (state != GST_STATE_PLAYING && pending != GST_STATE_PLAYING) {
+        LOG_VERBOSE(Media, "Play");
+        gst_element_set_state(m_playBin, GST_STATE_PLAYING);
+    }
 }
 
 void MediaPlayerPrivate::pause()
 {
-    LOG_VERBOSE(Media, "Pause");
-    gst_element_set_state(m_playBin, GST_STATE_PAUSED);
+    GstState state;
+    GstState pending;
+
+    gst_element_get_state(m_playBin, &state, &pending, 0);
+    if (state != GST_STATE_PAUSED  && pending != GST_STATE_PAUSED) {
+        LOG_VERBOSE(Media, "Pause");
+        gst_element_set_state(m_playBin, GST_STATE_PAUSED);
+    }
 }
 
 float MediaPlayerPrivate::duration() const
@@ -202,7 +265,7 @@ float MediaPlayerPrivate::duration() const
     GstFormat timeFormat = GST_FORMAT_TIME;
     gint64 timeLength = 0;
 
-    if (!gst_element_query_duration(m_playBin, &timeFormat, &timeLength) || timeFormat != GST_FORMAT_TIME || timeLength == GST_CLOCK_TIME_NONE) {
+    if (!gst_element_query_duration(m_playBin, &timeFormat, &timeLength) || timeFormat != GST_FORMAT_TIME || static_cast<guint64>(timeLength) == GST_CLOCK_TIME_NONE) {
         LOG_VERBOSE(Media, "Time duration query failed.");
         return numeric_limits<float>::infinity();
     }
@@ -221,23 +284,11 @@ float MediaPlayerPrivate::currentTime() const
     if (m_errorOccured)
         return 0;
 
-    float ret = 0.0;
+    if (m_seeking)
+        return m_seekTime;
 
-    GstQuery* query = gst_query_new_position(GST_FORMAT_TIME);
-    if (!gst_element_query(m_playBin, query)) {
-        LOG_VERBOSE(Media, "Position query failed...");
-        gst_query_unref(query);
-        return ret;
-    }
+    return playbackPosition(m_playBin);
 
-    gint64 position;
-    gst_query_parse_position(query, 0, &position);
-    ret = (float) (position / 1000000000.0);
-    LOG_VERBOSE(Media, "Position %" GST_TIME_FORMAT, GST_TIME_ARGS(position));
-
-    gst_query_unref(query);
-
-    return ret;
 }
 
 void MediaPlayerPrivate::seek(float time)
@@ -260,8 +311,10 @@ void MediaPlayerPrivate::seek(float time)
             GST_SEEK_TYPE_SET, sec,
             GST_SEEK_TYPE_NONE, GST_CLOCK_TIME_NONE))
         LOG_VERBOSE(Media, "Seek to %f failed", time);
-    else
+    else {
         m_seeking = true;
+        m_seekTime = sec;
+    }
 }
 
 void MediaPlayerPrivate::setEndTime(float time)
@@ -310,10 +363,10 @@ IntSize MediaPlayerPrivate::naturalSize() const
         gfloat pixelAspectRatio;
         gint pixelAspectRatioNumerator, pixelAspectRatioDenominator;
 
-        if (!GST_IS_CAPS(caps) || !gst_caps_is_fixed(caps) ||
-            !gst_video_format_parse_caps(caps, NULL, &width, &height) ||
-            !gst_video_parse_caps_pixel_aspect_ratio(caps, &pixelAspectRatioNumerator,
-                                                           &pixelAspectRatioDenominator)) {
+        if (!GST_IS_CAPS(caps) || !gst_caps_is_fixed(caps)
+            || !gst_video_format_parse_caps(caps, 0, &width, &height)
+            || !gst_video_parse_caps_pixel_aspect_ratio(caps, &pixelAspectRatioNumerator,
+                                                        &pixelAspectRatioDenominator)) {
             gst_object_unref(GST_OBJECT(pad));
             return IntSize();
         }
@@ -353,16 +406,50 @@ void MediaPlayerPrivate::setVolume(float volume)
 
 void MediaPlayerPrivate::setRate(float rate)
 {
-    if (rate == 0.0) {
-        gst_element_set_state(m_playBin, GST_STATE_PAUSED);
+    GstState state;
+    GstState pending;
+
+    gst_element_get_state(m_playBin, &state, &pending, 0);
+    if ((state != GST_STATE_PLAYING && state != GST_STATE_PAUSED)
+        || (pending == GST_STATE_PAUSED))
         return;
-    }
 
     if (m_isStreaming)
         return;
 
+    m_changingRate = true;
+    float currentPosition = playbackPosition(m_playBin) * GST_SECOND;
+    GstSeekFlags flags = (GstSeekFlags)(GST_SEEK_FLAG_FLUSH);
+    gint64 start, end;
+    bool mute = false;
+
     LOG_VERBOSE(Media, "Set Rate to %f", rate);
-    seek(currentTime());
+    if (rate >= 0) {
+        // Mute the sound if the playback rate is too extreme.
+        // TODO: in other cases we should perform pitch adjustments.
+        mute = (bool) (rate < 0.8 || rate > 2);
+        start = currentPosition;
+        end = GST_CLOCK_TIME_NONE;
+    } else {
+        start = 0;
+        mute = true;
+
+        // If we are at beginning of media, start from the end to
+        // avoid immediate EOS.
+        if (currentPosition <= 0)
+            end = duration() * GST_SECOND;
+        else
+            end = currentPosition;
+    }
+
+    LOG_VERBOSE(Media, "Need to mute audio: %d", (int) mute);
+
+    if (!gst_element_seek(m_playBin, rate, GST_FORMAT_TIME, flags,
+                          GST_SEEK_TYPE_SET, start,
+                          GST_SEEK_TYPE_SET, end))
+        LOG_VERBOSE(Media, "Set rate to %f failed", rate);
+    else
+        g_object_set(m_playBin, "mute", mute, NULL);
 }
 
 int MediaPlayerPrivate::dataRate() const
@@ -497,6 +584,11 @@ void MediaPlayerPrivate::updateStates()
         } else
             m_paused = true;
 
+        if (m_changingRate) {
+            m_player->rateChanged();
+            m_changingRate = false;
+        }
+
         if (m_seeking) {
             shouldUpdateAfterSeek = true;
             m_seeking = false;
@@ -560,11 +652,6 @@ void MediaPlayerPrivate::loadStateChanged()
     updateStates();
 }
 
-void MediaPlayerPrivate::rateChanged()
-{
-    updateStates();
-}
-
 void MediaPlayerPrivate::sizeChanged()
 {
     notImplemented();
@@ -624,54 +711,36 @@ void MediaPlayerPrivate::paint(GraphicsContext* context, const IntRect& rect)
         return;
 
     int width = 0, height = 0;
-    int pixelAspectRatioNumerator = 0;
-    int pixelAspectRatioDenominator = 0;
-    double doublePixelAspectRatioNumerator = 0;
-    double doublePixelAspectRatioDenominator = 0;
-    double displayWidth;
-    double displayHeight;
-    double scale, gapHeight, gapWidth;
-
     GstCaps *caps = gst_buffer_get_caps(m_buffer);
+    GstVideoFormat format;
 
-    if (!gst_video_format_parse_caps(caps, NULL, &width, &height) ||
-        !gst_video_parse_caps_pixel_aspect_ratio(caps, &pixelAspectRatioNumerator, &pixelAspectRatioDenominator)) {
+    if (!gst_video_format_parse_caps(caps, &format, &width, &height)) {
       gst_caps_unref(caps);
       return;
     }
 
-    displayWidth = width;
-    displayHeight = height;
-    doublePixelAspectRatioNumerator = pixelAspectRatioNumerator;
-    doublePixelAspectRatioDenominator = pixelAspectRatioDenominator;
+    cairo_format_t cairoFormat;
+    if (format == GST_VIDEO_FORMAT_ARGB || format == GST_VIDEO_FORMAT_BGRA)
+        cairoFormat = CAIRO_FORMAT_ARGB32;
+    else
+        cairoFormat = CAIRO_FORMAT_RGB24;
 
     cairo_t* cr = context->platformContext();
     cairo_surface_t* src = cairo_image_surface_create_for_data(GST_BUFFER_DATA(m_buffer),
-                                                               CAIRO_FORMAT_RGB24,
+                                                               cairoFormat,
                                                                width, height,
                                                                4 * width);
 
     cairo_save(cr);
-    cairo_set_operator(cr, CAIRO_OPERATOR_SOURCE);
 
-    displayWidth *= doublePixelAspectRatioNumerator / doublePixelAspectRatioDenominator;
-    displayHeight *= doublePixelAspectRatioDenominator / doublePixelAspectRatioNumerator;
+    // translate and scale the context to correct size
+    cairo_translate(cr, rect.x(), rect.y());
+    cairo_scale(cr, static_cast<double>(rect.width()) / width, static_cast<double>(rect.height()) / height);
 
-    scale = MIN (rect.width () / displayWidth, rect.height () / displayHeight);
-    displayWidth *= scale;
-    displayHeight *= scale;
-
-    // Calculate gap between border an picture
-    gapWidth = (rect.width() - displayWidth) / 2.0;
-    gapHeight = (rect.height() - displayHeight) / 2.0;
-
-    // paint the rectangle on the context and draw the surface inside.
-    cairo_translate(cr, rect.x() + gapWidth, rect.y() + gapHeight);
-    cairo_rectangle(cr, 0, 0, rect.width(), rect.height());
-    cairo_scale(cr, doublePixelAspectRatioNumerator / doublePixelAspectRatioDenominator,
-                doublePixelAspectRatioDenominator / doublePixelAspectRatioNumerator);
-    cairo_scale(cr, scale, scale);
+    // And paint it.
     cairo_set_source_surface(cr, src, 0, 0);
+    cairo_pattern_set_extend(cairo_get_source(cr), CAIRO_EXTEND_PAD);
+    cairo_rectangle(cr, 0, 0, width, height);
     cairo_fill(cr);
     cairo_restore(cr);
 
@@ -688,76 +757,91 @@ static HashSet<String> mimeTypeCache()
     static bool typeListInitialized = false;
 
     if (!typeListInitialized) {
-        // These subtypes are already beeing supported by WebKit itself
-        HashSet<String> ignoredApplicationSubtypes;
-        ignoredApplicationSubtypes.add(String("javascript"));
-        ignoredApplicationSubtypes.add(String("ecmascript"));
-        ignoredApplicationSubtypes.add(String("x-javascript"));
-        ignoredApplicationSubtypes.add(String("xml"));
-        ignoredApplicationSubtypes.add(String("xhtml+xml"));
-        ignoredApplicationSubtypes.add(String("rss+xml"));
-        ignoredApplicationSubtypes.add(String("atom+xml"));
-        ignoredApplicationSubtypes.add(String("x-ftp-directory"));
-        ignoredApplicationSubtypes.add(String("x-java-applet"));
-        ignoredApplicationSubtypes.add(String("x-java-bean"));
-        ignoredApplicationSubtypes.add(String("x-java-vm"));
-        ignoredApplicationSubtypes.add(String("x-shockwave-flash"));
+        // Build a whitelist of mime-types known to be supported by
+        // GStreamer.
+        HashSet<String> handledApplicationSubtypes;
+        handledApplicationSubtypes.add(String("ogg"));
+        handledApplicationSubtypes.add(String("x-3gp"));
+        handledApplicationSubtypes.add(String("vnd.rn-realmedia"));
+        handledApplicationSubtypes.add(String("x-pn-realaudio"));
 
         GList* factories = gst_type_find_factory_get_list();
         for (GList* iterator = factories; iterator; iterator = iterator->next) {
             GstTypeFindFactory* factory = GST_TYPE_FIND_FACTORY(iterator->data);
             GstCaps* caps = gst_type_find_factory_get_caps(factory);
 
-            // Splitting the capability by comma and taking the first part
-            // as capability can be something like "audio/x-wavpack, framed=(boolean)false"
-            GOwnPtr<gchar> capabilityString(gst_caps_to_string(caps));
-            gchar** capability = g_strsplit(capabilityString.get(), ",", 2);
-            gchar** mimetype = g_strsplit(capability[0], "/", 2);
+            if (!caps)
+                continue;
 
-            // GStreamer plugins can be capable of supporting types which WebKit supports
-            // by default. In that case, we should not consider these types supportable by GStreamer.
-            // Examples of what GStreamer can support but should not be added:
-            // text/plain, text/html, image/jpeg, application/xml
-            if (g_str_equal(mimetype[0], "audio") ||
-                    g_str_equal(mimetype[0], "video") ||
-                    (g_str_equal(mimetype[0], "application") &&
-                        !ignoredApplicationSubtypes.contains(String(mimetype[1])))) {
-                cache.add(String(capability[0]));
+            for (guint structureIndex = 0; structureIndex < gst_caps_get_size(caps); structureIndex++) {
+                GstStructure* structure = gst_caps_get_structure(caps, structureIndex);
+                const gchar* name = gst_structure_get_name(structure);
+                bool cached = false;
 
-                // These formats are supported by GStreamer, but not correctly advertised
-                if (g_str_equal(capability[0], "video/x-h264") ||
-                    g_str_equal(capability[0], "audio/x-m4a")) {
+                // These formats are supported by GStreamer, but not
+                // correctly advertised.
+                if (g_str_equal(name, "video/x-h264")
+                    || g_str_equal(name, "audio/x-m4a")) {
                     cache.add(String("video/mp4"));
                     cache.add(String("audio/aac"));
+                    cached = true;
                 }
 
-                if (g_str_equal(capability[0], "video/x-theora"))
+                if (g_str_equal(name, "video/x-theora")) {
                     cache.add(String("video/ogg"));
+                    cached = true;
+                }
 
-                if (g_str_equal(capability[0], "audio/x-wav"))
+                if (g_str_equal(name, "audio/x-vorbis")) {
+                    cache.add(String("audio/ogg"));
+                    cached = true;
+                }
+
+                if (g_str_equal(name, "audio/x-wav")) {
                     cache.add(String("audio/wav"));
+                    cached = true;
+                }
 
-                if (g_str_equal(capability[0], "audio/mpeg")) {
-                    // This is what we are handling: mpegversion=(int)1, layer=(int)[ 1, 3 ]
-                    gchar** versionAndLayer = g_strsplit(capability[1], ",", 2);
+                if (g_str_equal(name, "audio/mpeg")) {
+                    cache.add(String(name));
+                    cached = true;
 
-                    if (g_str_has_suffix (versionAndLayer[0], "(int)1")) {
-                        for (int i = 0; versionAndLayer[1][i] != '\0'; i++) {
-                            if (versionAndLayer[1][i] == '1')
+                    // This is what we are handling:
+                    // mpegversion=(int)1, layer=(int)[ 1, 3 ]
+                    gint mpegVersion = 0;
+                    if (gst_structure_get_int(structure, "mpegversion", &mpegVersion) && (mpegVersion == 1)) {
+                        const GValue* layer = gst_structure_get_value(structure, "layer");
+                        if (G_VALUE_TYPE(layer) == GST_TYPE_INT_RANGE) {
+                            gint minLayer = gst_value_get_int_range_min(layer);
+                            gint maxLayer = gst_value_get_int_range_max(layer);
+                            if (minLayer <= 1 <= maxLayer)
                                 cache.add(String("audio/mp1"));
-                            else if (versionAndLayer[1][i] == '2')
+                            if (minLayer <= 2 <= maxLayer)
                                 cache.add(String("audio/mp2"));
-                            else if (versionAndLayer[1][i] == '3')
+                            if (minLayer <= 3 <= maxLayer)
                                 cache.add(String("audio/mp3"));
                         }
                     }
+                }
 
-                    g_strfreev(versionAndLayer);
+                if (!cached) {
+                    // GStreamer plugins can be capable of supporting
+                    // types which WebKit supports by default. In that
+                    // case, we should not consider these types
+                    // supportable by GStreamer.  Examples of what
+                    // GStreamer can support but should not be added:
+                    // text/plain, text/html, image/jpeg,
+                    // application/xml
+                    gchar** mimetype = g_strsplit(name, "/", 2);
+                    if (g_str_equal(mimetype[0], "audio")
+                        || g_str_equal(mimetype[0], "video")
+                        || (g_str_equal(mimetype[0], "application")
+                            && handledApplicationSubtypes.contains(String(mimetype[1]))))
+                        cache.add(String(name));
+
+                    g_strfreev(mimetype);
                 }
             }
-
-            g_strfreev(capability);
-            g_strfreev(mimetype);
         }
 
         gst_plugin_feature_list_free(factories);

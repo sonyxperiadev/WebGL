@@ -120,9 +120,10 @@ class CppStyleTestBase(unittest.TestCase):
         function_state = cpp_style._FunctionState()
         ext = file_name[file_name.rfind('.') + 1:]
         class_state = cpp_style._ClassState()
+        file_state = cpp_style._FileState()
         cpp_style.process_line(file_name, ext, clean_lines, 0,
                                include_state, function_state,
-                               class_state, error_collector)
+                               class_state, file_state, error_collector)
         # Single-line lint tests are allowed to fail the 'unlintable function'
         # check.
         error_collector.remove_if_present(
@@ -137,8 +138,9 @@ class CppStyleTestBase(unittest.TestCase):
         lines = cpp_style.CleansedLines(lines)
         ext = file_name[file_name.rfind('.') + 1:]
         class_state = cpp_style._ClassState()
+        file_state = cpp_style._FileState()
         for i in xrange(lines.num_lines()):
-            cpp_style.check_style(file_name, lines, i, ext, error_collector)
+            cpp_style.check_style(file_name, lines, i, ext, file_state, error_collector)
             cpp_style.check_for_non_standard_constructs(file_name, lines, i, class_state,
                                                         error_collector)
         class_state.check_finished(file_name, error_collector)
@@ -934,15 +936,15 @@ class CppStyleTest(CppStyleTestBase):
         self.assert_lint('int doublesize[some_var * 2];', errmsg)
         self.assert_lint('int a[afunction()];', errmsg)
         self.assert_lint('int a[function(kMaxFooBars)];', errmsg)
-        self.assert_lint('bool a_list[items_->size()];', errmsg)
+        self.assert_lint('bool aList[items_->size()];', errmsg)
         self.assert_lint('namespace::Type buffer[len+1];', errmsg)
 
         self.assert_lint('int a[64];', '')
         self.assert_lint('int a[0xFF];', '')
         self.assert_lint('int first[256], second[256];', '')
-        self.assert_lint('int array_name[kCompileTimeConstant];', '')
+        self.assert_lint('int arrayName[kCompileTimeConstant];', '')
         self.assert_lint('char buf[somenamespace::kBufSize];', '')
-        self.assert_lint('int array_name[ALL_CAPS];', '')
+        self.assert_lint('int arrayName[ALL_CAPS];', '')
         self.assert_lint('AClass array1[foo::bar::ALL_CAPS];', '')
         self.assert_lint('int a[kMaxStrLen + 1];', '')
         self.assert_lint('int a[sizeof(foo)];', '')
@@ -1116,6 +1118,12 @@ class CppStyleTest(CppStyleTestBase):
             'if (condition) {',
             '')
         self.assert_multi_line_lint(
+            '    MACRO1(macroArg) {',
+            '')
+        self.assert_multi_line_lint(
+            'ACCESSOR_GETTER(MessageEventPorts) {',
+            'Place brace on its own line for function definitions.  [whitespace/braces] [4]')
+        self.assert_multi_line_lint(
             'int foo() {',
             'Place brace on its own line for function definitions.  [whitespace/braces] [4]')
         self.assert_multi_line_lint(
@@ -1270,6 +1278,8 @@ class CppStyleTest(CppStyleTestBase):
         self.assert_lint('if (a = b == 1)', '')
         self.assert_lint('a = 1 << 20', '')
         self.assert_multi_line_lint('#include "config.h"\n#include <sys/io.h>\n',
+                                    '')
+        self.assert_multi_line_lint('#include "config.h"\n#import <foo/bar.h>\n',
                                     '')
 
     def test_spacing_before_last_semicolon(self):
@@ -1520,14 +1530,14 @@ class CppStyleTest(CppStyleTestBase):
 
     def test_indent(self):
         self.assert_lint('static int noindent;', '')
-        self.assert_lint('    int four_space_indent;', '')
-        self.assert_lint(' int one_space_indent;',
+        self.assert_lint('    int fourSpaceIndent;', '')
+        self.assert_lint(' int oneSpaceIndent;',
                          'Weird number of spaces at line-start.  '
                          'Are you using a 4-space indent?  [whitespace/indent] [3]')
-        self.assert_lint('   int three_space_indent;',
+        self.assert_lint('   int threeSpaceIndent;',
                          'Weird number of spaces at line-start.  '
                          'Are you using a 4-space indent?  [whitespace/indent] [3]')
-        self.assert_lint(' char* one_space_indent = "public:";',
+        self.assert_lint(' char* oneSpaceIndent = "public:";',
                          'Weird number of spaces at line-start.  '
                          'Are you using a 4-space indent?  [whitespace/indent] [3]')
         self.assert_lint(' public:', '')
@@ -1960,7 +1970,7 @@ class CppStyleTest(CppStyleTestBase):
         self.assert_lint('double const static foo = 2.0;',
                          build_storage_class_error_message)
 
-        self.assert_lint('uint64 typedef unsigned_long_long;',
+        self.assert_lint('uint64 typedef unsignedLongLong;',
                          build_storage_class_error_message)
 
         self.assert_lint('int register foo = 0;',
@@ -2043,6 +2053,7 @@ class CppStyleTest(CppStyleTestBase):
         self.assert_lint('*count++;',
                          'Changing pointer instead of value (or unused value of '
                          'operator*).  [runtime/invalid_increment] [5]')
+
 
 class CleansedLinesTest(unittest.TestCase):
     def test_init(self):
@@ -2304,6 +2315,10 @@ class OrderOfIncludesTest(CppStyleTestBase):
         self.assertEqual(cpp_style._PRIMARY_HEADER,
                          classify_include('fooCustom.cpp',
                                           'foo.h',
+                                          False, include_state))
+        self.assertEqual(cpp_style._PRIMARY_HEADER,
+                         classify_include('PrefixFooCustom.cpp',
+                                          'Foo.h',
                                           False, include_state))
         # Tricky example where both includes might be classified as primary.
         self.assert_language_rules_check('ScrollbarThemeWince.cpp',
@@ -2828,7 +2843,16 @@ class WebKitStyleTest(CppStyleTestBase):
             '};\n'
             '};\n'
             '}',
-            ['Code inside a namespace should not be indented.  [whitespace/indent] [4]', 'namespace should never be indented.  [whitespace/indent] [4]'],
+            'Code inside a namespace should not be indented.  [whitespace/indent] [4]',
+            'foo.h')
+        self.assert_multi_line_lint(
+            'namespace OuterNamespace {\n'
+            '    class Document {\n'
+            '    namespace InnerNamespace {\n'
+            '};\n'
+            '};\n'
+            '}',
+            'Code inside a namespace should not be indented.  [whitespace/indent] [4]',
             'foo.h')
         self.assert_multi_line_lint(
             'namespace WebCore {\n'
@@ -3584,8 +3608,104 @@ class WebKitStyleTest(CppStyleTestBase):
             'foo.h')
 
     def test_names(self):
-        # FIXME: Implement this.
-        pass
+        name_error_message = " is incorrectly named. Don't use underscores in your identifier names.  [readability/naming] [4]"
+
+        # Basic cases from WebKit style guide.
+        self.assert_lint('struct Data;', '')
+        self.assert_lint('size_t bufferSize;', '')
+        self.assert_lint('class HTMLDocument;', '')
+        self.assert_lint('String mimeType();', '')
+        self.assert_lint('size_t buffer_size;',
+                         'buffer_size' + name_error_message)
+        self.assert_lint('short m_length;', '')
+        self.assert_lint('short _length;',
+                         '_length' + name_error_message)
+        self.assert_lint('short length_;',
+                         'length_' + name_error_message)
+
+        # Pointers, references, functions, templates, and adjectives.
+        self.assert_lint('char* under_score;',
+                         'under_score' + name_error_message)
+        self.assert_lint('const int UNDER_SCORE;',
+                         'UNDER_SCORE' + name_error_message)
+        self.assert_lint('static inline const char const& const under_score;',
+                         'under_score' + name_error_message)
+        self.assert_lint('WebCore::RenderObject* under_score;',
+                         'under_score' + name_error_message)
+        self.assert_lint('int func_name();',
+                         'func_name' + name_error_message)
+        self.assert_lint('RefPtr<RenderObject*> under_score;',
+                         'under_score' + name_error_message)
+        self.assert_lint('WTF::Vector<WTF::RefPtr<const RenderObject* const> > under_score;',
+                         'under_score' + name_error_message)
+        self.assert_lint('int under_score[];',
+                         'under_score' + name_error_message)
+        self.assert_lint('struct dirent* under_score;',
+                         'under_score' + name_error_message)
+        self.assert_lint('long under_score;',
+                         'under_score' + name_error_message)
+        self.assert_lint('long long under_score;',
+                         'under_score' + name_error_message)
+        self.assert_lint('long double under_score;',
+                         'under_score' + name_error_message)
+        self.assert_lint('long long int under_score;',
+                         'under_score' + name_error_message)
+
+        # Declarations in control statement.
+        self.assert_lint('if (int under_score = 42) {',
+                         'under_score' + name_error_message)
+        self.assert_lint('else if (int under_score = 42) {',
+                         'under_score' + name_error_message)
+        self.assert_lint('for (int under_score = 42; cond; i++) {',
+                         'under_score' + name_error_message)
+        self.assert_lint('while (foo & under_score = bar) {',
+                         'under_score' + name_error_message)
+        self.assert_lint('for (foo * under_score = p; cond; i++) {',
+                         'under_score' + name_error_message)
+        self.assert_lint('for (foo * under_score; cond; i++) {',
+                         'under_score' + name_error_message)
+        self.assert_lint('while (foo & value_in_thirdparty_library) {', '')
+        self.assert_lint('while (foo * value_in_thirdparty_library) {', '')
+        self.assert_lint('if (mli && S_OK == mli->foo()) {', '')
+
+        # More member variables and functions.
+        self.assert_lint('int SomeClass::s_validName', '')
+        self.assert_lint('int m_under_score;',
+                         'm_under_score' + name_error_message)
+        self.assert_lint('int SomeClass::s_under_score = 0;',
+                         'SomeClass::s_under_score' + name_error_message)
+        self.assert_lint('int SomeClass::under_score = 0;',
+                         'SomeClass::under_score' + name_error_message)
+
+        # Other statements.
+        self.assert_lint('return INT_MAX;', '')
+        self.assert_lint('return_t under_score;',
+                         'under_score' + name_error_message)
+        self.assert_lint('goto under_score;',
+                         'under_score' + name_error_message)
+
+        # Multiple variables in one line.
+        self.assert_lint('void myFunction(int variable1, int another_variable);',
+                         'another_variable' + name_error_message)
+        self.assert_lint('int variable1, another_variable;',
+                         'another_variable' + name_error_message)
+        self.assert_lint('int first_variable, secondVariable;',
+                         'first_variable' + name_error_message)
+        self.assert_lint('void my_function(int variable_1, int variable_2);',
+                         ['my_function' + name_error_message,
+                          'variable_1' + name_error_message,
+                          'variable_2' + name_error_message])
+        self.assert_lint('for (int variable_1, variable_2;;) {',
+                         ['variable_1' + name_error_message,
+                          'variable_2' + name_error_message])
+
+        # There is an exception for op code functions but only in the JavaScriptCore directory.
+        self.assert_lint('void this_op_code(int var1, int var2)', '', 'JavaScriptCore/foo.cpp')
+        self.assert_lint('void this_op_code(int var1, int var2)', 'this_op_code' + name_error_message)
+
+        # const_iterator is allowed as well.
+        self.assert_lint('typedef VectorType::const_iterator const_iterator;', '')
+
 
     def test_other(self):
         # FIXME: Implement this.

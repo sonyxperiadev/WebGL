@@ -88,17 +88,23 @@ LOCAL_SRC_FILES += \
 	bindings/v8/custom/V8AbstractWorkerCustom.cpp \
 	bindings/v8/custom/V8AttrCustom.cpp \
 	bindings/v8/custom/V8CSSStyleDeclarationCustom.cpp \
+<<<<<<< HEAD:WebCore/Android.v8bindings.mk
 	bindings/v8/custom/V8CanvasArrayBufferCustom.cpp \
 	bindings/v8/custom/V8CanvasByteArrayCustom.cpp \
 	bindings/v8/custom/V8CanvasFloatArrayCustom.cpp \
 	bindings/v8/custom/V8CanvasIntArrayCustom.cpp \
 	bindings/v8/custom/V8CanvasPixelArrayCustom.cpp \
+=======
+>>>>>>> webkit.org at r51976:WebCore/Android.v8bindings.mk
 	bindings/v8/custom/V8CanvasRenderingContext2DCustom.cpp \
+<<<<<<< HEAD:WebCore/Android.v8bindings.mk
 	bindings/v8/custom/V8CanvasRenderingContext3DCustom.cpp \
 	bindings/v8/custom/V8CanvasShortArrayCustom.cpp \
 	bindings/v8/custom/V8CanvasUnsignedByteArrayCustom.cpp \
 	bindings/v8/custom/V8CanvasUnsignedIntArrayCustom.cpp \
 	bindings/v8/custom/V8CanvasUnsignedShortArrayCustom.cpp \
+=======
+>>>>>>> webkit.org at r51976:WebCore/Android.v8bindings.mk
 	bindings/v8/custom/V8ClientRectListCustom.cpp \
 	bindings/v8/custom/V8ClipboardCustom.cpp \
 	bindings/v8/custom/V8CoordinatesCustom.cpp \
@@ -166,7 +172,10 @@ LOCAL_SRC_FILES += \
 	bindings/v8/custom/V8SharedWorkerCustom.cpp \
 	bindings/v8/custom/V8StorageCustom.cpp \
 	bindings/v8/custom/V8StyleSheetListCustom.cpp \
+<<<<<<< HEAD:WebCore/Android.v8bindings.mk
 	bindings/v8/custom/V8TouchListCustom.cpp \
+=======
+>>>>>>> webkit.org at r51976:WebCore/Android.v8bindings.mk
 	bindings/v8/custom/V8TreeWalkerCustom.cpp \
 	bindings/v8/custom/V8WebKitCSSMatrixConstructor.cpp \
 	bindings/v8/custom/V8WebKitPointConstructor.cpp \
@@ -178,5 +187,9 @@ LOCAL_SRC_FILES += \
 	bindings/v8/custom/V8XMLSerializerConstructor.cpp
 
 LOCAL_SRC_FILES += \
+<<<<<<< HEAD:WebCore/Android.v8bindings.mk
 	bridge/jni/jni_utility.cpp \
 	bridge/jni/v8/jni_utility_private.cpp
+=======
+	bridge/jni/jni_utility.cpp
+>>>>>>> webkit.org at r51976:WebCore/Android.v8bindings.mk

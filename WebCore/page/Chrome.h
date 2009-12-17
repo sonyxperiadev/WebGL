@@ -42,6 +42,7 @@ namespace WebCore {
     class Geolocation;
     class HitTestResult;
     class IntRect;
+    class Node;
     class Page;
     class String;
 #if ENABLE(NOTIFICATIONS)
@@ -86,6 +87,8 @@ namespace WebCore {
         bool canTakeFocus(FocusDirection) const;
         void takeFocus(FocusDirection) const;
 
+        void focusedNodeChanged(Node*) const;
+
         Page* createWindow(Frame*, const FrameLoadRequest&, const WindowFeatures&) const;
         void show() const;
 
@@ -118,6 +121,9 @@ namespace WebCore {
         void setStatusbarText(Frame*, const String&);
         bool shouldInterruptJavaScript();
 
+        void registerProtocolHandler(const String& scheme, const String& baseURL, const String& url, const String& title);
+        void registerContentHandler(const String& mimeType, const String& baseURL, const String& url, const String& title);
+
         IntRect windowResizerRect() const;
 
         void mouseDidMoveOverElement(const HitTestResult&, unsigned modifierFlags);
@@ -132,7 +138,7 @@ namespace WebCore {
 
         bool setCursor(PlatformCursorHandle);
 
-#if PLATFORM(MAC)
+#if PLATFORM(MAC) && !ENABLE(EXPERIMENTAL_SINGLE_VIEW_MODE)
         void focusNSView(NSView*);
 #endif
 

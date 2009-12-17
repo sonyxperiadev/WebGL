@@ -1,3 +1,933 @@
+2009-12-10  Jon Honeycutt  <jhoneycutt@apple.com>
+
+        Mac build fix. Unreviewed.
+
+        Re-adds code that was mistakenly removed from my last patch.
+
+        * WebCoreSupport/WebPluginHalterClient.mm:
+        Add necessary #import.
+
+        * WebView/WebDelegateImplementationCaching.h:
+        Declare a new overload of CallUIDelegateReturningBoolean.
+
+        * WebView/WebDelegateImplementationCaching.mm:
+        (CallDelegateReturningBoolean):
+        Add a new overload with different arguments.
+        (CallUIDelegateReturningBoolean):
+        Ditto.
+
+2009-12-10  Jon Honeycutt  <jhoneycutt@apple.com>
+
+        Pass more information about a plug-in to the PluginHalterDelegate
+
+        Reviewed by Adam Roben.
+
+        * Plugins/WebBaseNetscapePluginView.mm:
+        (WebHaltablePlugin::isWindowed):
+        Return false - the Mac doesn't really have windowed plug-ins.
+        (WebHaltablePlugin::pluginName):
+        Return the name from the plug-in package.
+
+        * WebCoreSupport/WebPluginHalterClient.h:
+        Update for new parameters.
+
+        * WebCoreSupport/WebPluginHalterClient.mm:
+        (WebPluginHalterClient::shouldHaltPlugin):
+        Ditto; pass them when making the delegate call.
+
+        * WebView/WebUIDelegatePrivate.h:
+        Update for new parameters.
+
+2009-12-08  Simon Fraser  <simon.fraser@apple.com>
+
+        Reviewed by Dan Bernstein.
+
+        <rdar://problem/7295070> WebKit video fullscreen keeps playing after closing the window
+        
+        Fix a leak of the QTMovieView when exiting fullscreen video, and remove the
+        old workaround.
+
+        * WebView/WebVideoFullscreenController.mm:
+        (-[WebVideoFullscreenController windowDidLoad]): Set the movie view as the contentView directly.
+        (-[WebVideoFullscreenController setMediaElement:WebCore::]): Cast the contentView to a movie view.
+        (-[WebVideoFullscreenController windowDidExitFullscreen]): Remove the old workaround.
+
+2009-12-08  Dmitry Titov  <dimich@chromium.org>
+
+        Rubber-stamped by David Levin.
+
+        Revert and reopen "Add asserts to RefCounted to make sure ref/deref happens on the right thread."
+        It may have caused massive increase of reported leaks on the bots.
+        https://bugs.webkit.org/show_bug.cgi?id=31639
+
+        * ForwardingHeaders/wtf/ThreadVerifier.h: Removed.
+
+2009-12-08  Dmitry Titov  <dimich@chromium.org>
+
+        Reviewed by Darin Adler.
+
+        Add asserts to RefCounted to make sure ref/deref happens on the right thread.
+        https://bugs.webkit.org/show_bug.cgi?id=31639
+
+        * ForwardingHeaders/wtf/ThreadVerifier.h: Added.
+
+2009-12-07  Dmitry Titov  <dimich@chromium.org>
+
+        Rubber-stamped by Darin Adler.
+
+        Remove ENABLE_SHARED_SCRIPT flags
+        https://bugs.webkit.org/show_bug.cgi?id=32245
+        This patch was obtained by "git revert" command and then un-reverting of ChangeLog files.
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2009-12-07  Simon Fraser  <simon.fraser@apple.com>
+
+        Reviewed by Darin Adler.
+
+        <rdar://problem/7450481> One compositing test keeps DRT in "compositing mode", breaks repaint tests
+
+        The counter that WebView used to keep track of the number of enclosed WebHTMLViews using
+        accelerated compositing was hard to manage, and maintained incorrectly in a number of cases.
+        This caused one compositing test make DumpRenderTree think that all subsequent tests
+        were compositing too.
+        
+        Replace this counter with notifications, which are only fired if a client (DRT) requests them. The
+        notification informs the client that a WebHTMLView entered compositing mode (or an already-
+        compositing WebHTML was added); it does not say when a view becomes uncomposited, or all
+        compositing subviews were removed, since this is tricky to get right.
+        
+        Change -[WebView _isUsingAcceleratedCompositing] to manually walk the frames, and
+        return YES if any document view is composited.
+
+        * WebKit.exp:
+        * WebView/WebHTMLView.mm:
+        (-[WebHTMLView close]):
+        (-[WebHTMLView viewDidMoveToSuperview]):
+        (-[WebHTMLView attachRootLayer:]):
+        (-[WebHTMLView detachRootLayer]):
+        * WebView/WebView.mm:
+        (+[WebView automaticallyNotifiesObserversForKey:]):
+        (-[WebView _postsAcceleratedCompositingNotifications]):
+        (-[WebView _setPostsAcceleratedCompositingNotifications:]):
+        (-[WebView _isUsingAcceleratedCompositing]):
+        * WebView/WebViewData.h:
+        * WebView/WebViewInternal.h:
+        * WebView/WebViewPrivate.h:
+
+2009-12-07  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        https://bugs.webkit.org/show_bug.cgi?id=32184
+        Handle out-of-memory conditions with JSC Ropes with a JS exception, rather than crashing.
+        Switch from using fastMalloc to tryFastMalloc, pass an ExecState to record the exception on.
+
+        * WebView/WebView.mm:
+        (aeDescFromJSValue):
+
+2009-12-07  Nikolas Zimmermann  <nzimmermann@rim.com>
+
+        Reviewed by Holger Hans Peter Freyther.
+
+        Turn on (SVG) Filters support, by default.
+        https://bugs.webkit.org/show_bug.cgi?id=32224
+
+        * Configurations/FeatureDefines.xcconfig: Enable FILTERS build flag.
+
+2009-12-03  Brady Eidson  <beidson@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        <rdar://problem/7214236> and http://webkit.org/b/32052 - Implement HTML5 state object history API
+
+        * WebCoreSupport/WebFrameLoaderClient.h:
+        * WebCoreSupport/WebFrameLoaderClient.mm:
+        (WebFrameLoaderClient::dispatchDidPushStateWithinPage):
+        (WebFrameLoaderClient::dispatchDidReplaceStateWithinPage):
+        (WebFrameLoaderClient::dispatchDidPopStateWithinPage):
+        * WebView/WebDelegateImplementationCaching.h:
+        * WebView/WebFrameLoadDelegatePrivate.h:
+        * WebView/WebView.mm:
+        (-[WebView _cacheFrameLoadDelegateImplementations]):
+
+2009-12-03  Pavel Feldman  <pfeldman@dhcp-172-28-174-220.spb.corp.google.com>
+
+        Reviewed by Timothy Hatcher.
+
+        Web Inspector: Simplify the settings support in inspector controller.
+
+        https://bugs.webkit.org/show_bug.cgi?id=32076
+
+        * WebCoreSupport/WebInspectorClient.h:
+        * WebCoreSupport/WebInspectorClient.mm:
+        (-[WebInspectorWindowController showWindow:]):
+        (-[WebInspectorWindowController attach]):
+        (-[WebInspectorWindowController detach]):
+
+2009-12-03  Ben Murdoch  <benm@google.com>
+
+        Reviewed by Brady Eidson.
+
+        [Android] notifyHistoryItemChanged() should pass a pointer to the HistoryItem that changed.
+        https://bugs.webkit.org/show_bug.cgi?id=31915
+
+        * History/WebHistoryItem.mm:
+        (WKNotifyHistoryItemChanged): Update WKNotifyHistoryItemChanged() to add the new HistoryItem parameter added in the WebCore portion of this patch.
+        * History/WebHistoryItemInternal.h: ditto.
+
+2009-12-03  Ben Murdoch  <benm@google.com>
+
+        Reviewed by Brady Eidson.
+
+        [Android] The FrameLoaderClient is unaware of BackForwardList changes.
+        https://bugs.webkit.org/show_bug.cgi?id=31914
+
+        * WebCoreSupport/WebFrameLoaderClient.h:
+        * WebCoreSupport/WebFrameLoaderClient.mm:
+        (WebFrameLoaderClient::dispatchDidAddBackForwardItem): Add an empty implementation. Method added to FrameLoaderClient by Android (see bug).
+        (WebFrameLoaderClient::dispatchDidRemoveBackForwardItem): ditto.
+        (WebFrameLoaderClient::dispatchDidChangeBackForwardIndex): ditto.
+
+2009-12-02  Dan Bernstein  <mitz@apple.com>
+
+        Reviewed by Mark Rowe.
+
+        Fix a mistake in the previous change
+
+        * WebView/WebView.mm:
+        (+[WebView _viewClass:andRepresentationClass:forMIMEType:allowingPlugins:]):
+        Make sure to include the image types’ view and representation classes
+        even when plug-ins are not allowed.
+
+2009-12-02  Dan Bernstein  <mitz@apple.com>
+
+        Reviewed by Anders Carlsson.
+
+        Fixed <rdar://problem/7254127> WebKit can load plug-ins even when
+        plug-ins are disabled
+
+        Ensure that the shared WebPluginDatabase is not instantiated if no
+        WebViews are used that have plug-ins enabled.
+
+        * DefaultDelegates/WebDefaultPolicyDelegate.m:
+        (-[WebDefaultPolicyDelegate webView:decidePolicyForMIMEType:request:frame:decisionListener:]):
+        Call -[WebView _canShowMIMEType:] on the WebView instead of calling the
+        class method.
+
+        * WebCoreSupport/WebFrameLoaderClient.mm:
+        (WebFrameLoaderClient::canShowMIMEType): Ditto.
+        (WebFrameLoaderClient::transitionToCommittedForNewPage): Call
+        -[WebFrameView _viewClassForMIMEType:] on the WebView instead of calling
+        the class method.
+        (WebFrameLoaderClient::objectContentType): Ditto.
+
+        * WebView/WebDataSource.mm:
+        (+[WebDataSource _representationClassForMIMEType:allowingPlugins:]):
+        Added the allowPlugins parameter, which is passed through to
+        +[WebView _viewClass:andRepresentationClass:forMIMEType:allowingPlugins:].
+        (-[WebDataSource _makeRepresentation]): Pass an allowPlugins value
+        based on the WebView’s preferences.
+
+        * WebView/WebFrameView.mm:
+        (-[WebFrameView _makeDocumentViewForDataSource:]): Call
+        -[WebFrameView _viewClassForMIMEType:] instead of calling the class
+        method.
+        (+[WebFrameView _viewClassForMIMEType:allowingPlugins:]): Added the
+        allowPlugins parameter, which is passed through to
+        +[WebView _viewClass:andRepresentationClass:forMIMEType:allowingPlugins:].
+        (-[WebFrameView _viewClassForMIMEType:]): Added. Passes an allowPlugins
+        value based on the WebView’s preferences.
+
+        * WebView/WebFrameViewInternal.h:
+        * WebView/WebView.mm:
+        (+[WebView _viewClass:andRepresentationClass:forMIMEType:allowingPlugins:]):
+        Added the allowPlugins parameter. If false, skip the instantiation of
+        the shared WebPluginDatabase.
+        (-[WebView _viewClass:andRepresentationClass:forMIMEType:]): Pass an
+        allowPlugins value based on the WebView’s preferences.
+        (+[WebView _canShowMIMEType:allowingPlugins:]): Passes allowPlugins to
+        +_viewClass:andRepresentationClass:forMIMEType:allowingPlugins:.
+        (+[WebView canShowMIMEType:]): Changed to pass YES to
+        +_canShowMIMEType:allowingPlugins:.
+        (-[WebView _canShowMIMEType:]): Added. Passes an allowPlugins value
+        based on the WebView’s preferences.
+        (-[WebView _pluginForMIMEType:]): Return nil if plug-ins are disabled.
+        (-[WebView _pluginForExtension:]): Ditto.
+        (-[WebView _isMIMETypeRegisteredAsPlugin:]): Return NO if plug-ins are
+        disabled.
+        * WebView/WebViewInternal.h:
+
+2009-12-02  Timothy Hatcher  <timothy@apple.com>
+
+        Fixes a crash when scrolling a frame that goes away mid-scroll.
+
+        <rdar://problem/7400263>
+
+        Reviewed by John Sullivan.
+
+        * WebView/WebDynamicScrollBarsView.mm:
+        (-[WebDynamicScrollBarsView scrollWheel:]): Retain self incase the last
+        reference is released when calling super.
+
+2009-11-13  Timothy Hatcher  <timothy@apple.com>
+
+        Migrate DOMHTMLInputElementPrivate.h as a private header.
+
+        Reviewed by Darin Adler.
+
+        * MigrateHeaders.make:
+
+2009-12-01  Nikolas Zimmermann  <nzimmermann@rim.com>
+
+        Reviewed by Simon Fraser.
+
+        Add SVG animation test framework with 'snapshot' functionality
+        https://bugs.webkit.org/show_bug.cgi?id=31897
+
+        Add API used by the new 'sampleSVGAnimationForElementAtTime' DRT method,
+        forwarding the call to SVGDocumentExtensions, if SVG is enabled.
+
+        Implemented just like the existing pauseAnimation* methods for CSS animations.
+
+        * WebView/WebFrame.mm:
+        (-[WebFrame _pauseSVGAnimation:onSMILNode:atTime:]):
+        * WebView/WebFramePrivate.h:
+
+2009-12-01  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Mark Rowe.
+
+        Simplify [WebView userAgentForURL:].  No need to call into helper function.
+
+        * WebCoreSupport/WebFrameLoaderClient.mm:
+        (WebFrameLoaderClient::userAgent):
+        * WebView/WebView.mm:
+        (-[WebView userAgentForURL:]):
+        * WebView/WebViewInternal.h:
+
+2009-11-24  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Geoff Garen.
+
+        Bug 31859 - Make world selection for JSC IsolatedWorlds automagical.
+
+        WebCore presently has to explicitly specify the world before entering into JSC,
+        which is a little fragile (particularly since property access via a
+        getter/setter might invoke execution). Instead derive the current world from
+        the lexical global object.
+
+        Since WebCore no longer needs to explicitly specify the world on entry to JSC DebuggerCallFrame::evaluate can be called directly.
+
+        * WebView/WebScriptDebugDelegate.mm:
+        (-[WebScriptCallFrame evaluateWebScript:]):
+
+2009-11-24  Dmitry Titov  <dimich@chromium.org>
+
+        Reviewed by Eric Seidel.
+
+        Add ENABLE_SHARED_SCRIPT feature define and flag for build-webkit
+        https://bugs.webkit.org/show_bug.cgi?id=31444
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2009-11-24  Alexey Proskuryakov  <ap@apple.com>
+
+        Reviewed by Brady Eidson.
+
+        https://bugs.webkit.org/show_bug.cgi?id=31844
+        SocketStreamHandleCFNet should support CONNECT proxy credentials
+
+        * WebCoreSupport/WebSystemInterface.m: (InitWebCoreSystemInterface): Add WKSI methods.
+
+2009-11-23  Simon Fraser  <simon.fraser@apple.com>
+
+        Reviewed by Dan Bernstein.
+
+        DocumentMarkers need to be educated about transforms
+        https://bugs.webkit.org/show_bug.cgi?id=31751
+        
+        Find highlight is incorrect with transforms
+        <rdar://problem/6358394>
+        
+        Allow callers to specify that Frame::selectionTextRects() takes transforms into account
+        when computing the set of rects that encompass a selection. For transformed elemenets, the
+        selection rect will be the bounding box of the selected content.
+        
+        Fix DocumentMarkers to cache rects in absolute coordinates, rather than painting coordinates.
+        
+        * WebView/WebHTMLView.mm:
+        (-[WebHTMLView selectionTextRects]):
+        Pass RespectTransforms to get a list of rects with transforms taken into account.
+
+2009-11-23  Kevin Decker  <kdecker@apple.com>
+
+        Reviewed by Adam Roben.
+        
+        <rdar://problem/7401503>
+        
+        Added a workaround for plug-ins not drawing immediately.
+        
+        * Plugins/WebBaseNetscapePluginView.mm: Added new constant.
+        (-[WebBaseNetscapePluginView _clearSubstituteImage]): Added.
+        (-[WebBaseNetscapePluginView resumeFromHalt]): Call above new method.
+
+2009-11-20  Dave Hyatt  <hyatt@apple.com>
+
+        Reviewed by Darin Adler.
+
+        Make sure to export WebSerializedJSValue.
+
+        * WebKit.exp:
+
+2009-11-20  Dave Hyatt  <hyatt@apple.com>
+
+        Reviewed by Oliver Hunt and Jon Honeycutt.
+
+        Add support for WebSerializedJSValue to WebKit.  This object wraps the SerializedScriptValue functionality in WebCore
+        and exposes the ability to do JS value serialization/deserialization to WebKit clients.
+
+        * WebView/WebSerializedJSValue.h: Added.
+        * WebView/WebSerializedJSValue.mm: Added.
+        (-[WebSerializedJSValue initWithValue:context:]):
+        (-[WebSerializedJSValue deserialize:]):
+        (-[WebSerializedJSValue dealloc]):
+
+2009-11-20  Chris Fleizach  <cfleizach@apple.com>
+
+        Reviewed by Beth Dakin.
+
+        WAI-ARIA: add support for 'math' role
+        https://bugs.webkit.org/show_bug.cgi?id=31706
+
+        * WebCoreSupport/WebViewFactory.mm:
+        (-[WebViewFactory AXARIAContentGroupText:]):
+
+2009-11-19  Eric Carlson  <eric.carlson@apple.com>
+
+        Reviewed by Dan Bernstein.
+
+        <rdar://problem/7035231>
+        Support closed caption in <video> element
+
+        * WebCoreSupport/WebSystemInterface.m:
+        (InitWebCoreSystemInterface):
+            Add QTMovieHasClosedCaptions and QTMovieSetShowClosedCaptions.
+
+        * WebCoreSupport/WebViewFactory.mm:
+        (-[WebViewFactory localizedMediaControlElementString:]):
+        (-[WebViewFactory localizedMediaControlElementHelpText:]):
+            Add accessibility help strings for media controller closed caption button.
+
+2009-11-18  Michelangelo De Simone  <micdesim@gmail.com>
+
+        Reviewed by Darin Adler.
+
+        Fix for <https://bugs.webkit.org/show_bug.cgi?id=27959>.
+        Support for validationMessage attribute, as per HTML5 specs.
+
+        * WebCoreSupport/WebViewFactory.mm:
+        (-[WebViewFactory validationMessageValueMissingText]):
+        (-[WebViewFactory validationMessageTypeMismatchText]):
+        (-[WebViewFactory validationMessagePatternMismatchText]):
+        (-[WebViewFactory validationMessageTooLongText]):
+        (-[WebViewFactory validationMessageRangeUnderflowText]):
+        (-[WebViewFactory validationMessageRangeOverflowText]):
+        (-[WebViewFactory validationMessageStepMismatchText]):
+
+2009-11-18  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Anders Carlsson.
+
+        Make the Mac Geolocation API async.
+
+        * WebCoreSupport/WebChromeClient.mm:
+        (WebChromeClient::requestGeolocationPermissionForFrame):
+        (-[WebGeolocationPolicyListener initWithGeolocation:]):
+        (-[WebGeolocationPolicyListener allow]):
+        (-[WebGeolocationPolicyListener deny]):
+        Add WebGeolocationPolicyListener implementation of the new WebGeolocationPolicyListener
+        protocol and use if to implement requestGeolocationPermissionForFrame using the new async
+        API.
+        
+        * WebCoreSupport/WebGeolocation.mm: Removed.
+        * WebCoreSupport/WebGeolocationInternal.h: Removed.
+        * WebCoreSupport/WebGeolocationMock.mm: Remove bogus include.
+        * WebCoreSupport/WebGeolocationPrivate.h: Removed.
+        * WebView/WebUIDelegatePrivate.h: Remove requestGeolocationPermission and add
+        WebGeolocationPolicyListener protocol and decidePolicyForGeolocationRequestFromOrigin delegate
+        method.
+
+2009-11-18  Chris Marrin  <cmarrin@apple.com>
+
+        Reviewed by Simon Fraser.
+
+        Add Preferences for WebKitShowDebugBorders and WebKitShowRepaintCounter
+        https://bugs.webkit.org/show_bug.cgi?id=31601
+
+        These are used to debug accelerated compositing layers
+
+        * WebView/WebPreferenceKeysPrivate.h:
+        * WebView/WebPreferences.mm:
+        (+[WebPreferences initialize]):
+        (-[WebPreferences showDebugBorders]):
+        (-[WebPreferences setShowDebugBorders:]):
+        (-[WebPreferences showRepaintCounter]):
+        (-[WebPreferences setShowRepaintCounter:]):
+        * WebView/WebPreferencesPrivate.h:
+        * WebView/WebView.mm:
+        (-[WebView _preferencesChangedNotification:]):
+
+2009-11-17  Pavel Feldman  <pfeldman@chromium.org>
+
+        Reviewed by Timothy Hatcher.
+
+        Web Inspector: Make DRT show web inspector for tests in inspector/ folder.
+        - Updated DRT to show/close inspector for all tests under /inspector
+        - Introduced LayoutTestController::setTimelineProfilingEnabled and
+          WebInspector::setTimelineProfilingEnabled beside setJavaScriptProfilingEnabled
+        - Removed reload on each inspector test
+        - Renamed fast/inspector to fast/inspector-support in order not to trigger
+        inspector for those.
+        - Reimplemented timeline tests in order to get rid of reload there.
+        - Moved tests that don't require harness into the fast group.
+
+        https://bugs.webkit.org/show_bug.cgi?id=31472
+
+        * WebInspector/WebInspector.h:
+        * WebInspector/WebInspector.mm:
+        (-[WebInspector isTimelineProfilingEnabled]):
+        (-[WebInspector setTimelineProfilingEnabled:]):
+
+2009-11-14  Chris Fleizach  <cfleizach@apple.com>
+
+        Reviewed by Darin Adler.
+
+        Need to implement ARIA role="directory"
+        https://bugs.webkit.org/show_bug.cgi?id=31516
+
+        Fix a spelling error in the comment of a localized (accessibility) string.
+
+        * WebCoreSupport/WebViewFactory.mm:
+        (-[WebViewFactory AXARIAContentGroupText:]):
+
+2009-11-14  Eric Carlson  <eric.carlson@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        <rdar://problem/7287487> 
+        Do not use QuickTime version to detect media controller theme
+
+        * WebCoreSupport/WebSystemInterface.m:
+        (InitWebCoreSystemInterface): Initialize wkMediaControllerThemeAvailable.
+
+2009-11-13  Adam Roben  <aroben@apple.com>
+
+        Tell the WebFrameLoadDelegate when window objects in isolated worlds
+        are cleared
+
+        Fixes <http://webkit.org/b/31124>.
+
+        Reviewed by Dave Hyatt.
+
+        * WebCoreSupport/WebFrameLoaderClient.h:
+        * WebCoreSupport/WebFrameLoaderClient.mm:
+        (WebFrameLoaderClient::dispatchDidClearWindowObjectInWorld):
+        Replaced windowObjectCleared with this function. If the delegate
+        implements it, call
+        -webView:didClearWindowObjectForFrame:inScriptWorld:. Otherwise, if
+        the passed-in world is the mainThreadNormalWorld(), call
+        -webView:didClearWindowObject:forFrame:.
+
+        * WebView/WebDelegateImplementationCaching.h: Added a new entry in the
+        frame load delegate implementation cache for the new delegate method.
+
+        * WebView/WebFrameLoadDelegatePrivate.h:
+        * WebView/WebScriptWorld.mm:
+        (allWorlds): Added. Returns a HashMap of all the WebScriptWorlds in
+        existence.
+        (-[WebScriptWorld initWithWorld:]): Add ourselves to allWorlds().
+        (-[WebScriptWorld dealloc]): Remove ourselves from allWorlds().
+        (+[WebScriptWorld findOrCreateWorld:]): Returns the existing
+        WebScriptWorld for this DOMWrapperWorld, or a new one if one doesn't
+        already exist.
+
+        * WebView/WebScriptWorldInternal.h: Declared +findOrCreateWorld:.
+
+        * WebView/WebView.mm:
+        (-[WebView _cacheFrameLoadDelegateImplementations]): Cache the
+        implementation of the new frame load delegate method.
+
+2009-11-13  Adam Roben  <aroben@apple.com>
+
+        Finish replacing worldIDs with world objects
+
+        The only remaining use of worldIDs was in a method only used by DRT
+        for the isolated worlds tests.
+
+        Fixes <http://webkit.org/b/31414> Replace worldIDs with world objects
+
+        Reviewed by Mark Rowe.
+
+        * WebView/WebFrame.mm:
+        (-[WebFrame _stringByEvaluatingJavaScriptFromString:withGlobalObject:inScriptWorld:]):
+        * WebView/WebFramePrivate.h:
+        Renamed from
+        _stringByEvaluatingJavaScriptInIsolatedWorld:WithGobalObject:FromString:.
+        Now takes a WebScriptWorld instead of a worldID, so we don't need to
+        maintain a map of worldID -> world anymore.
+
+2009-11-12  Dan Bernstein  <mitz@apple.com>
+
+        Reviewed by Adele Peterson.
+
+        When exiting full-screen video, rather than resetting the system UI
+        mode, restore it to what it was when full-screen mode was entered.
+
+        * WebView/WebVideoFullscreenController.h: Cleaned up style, removed
+        unnecessary imports, and added _savedUIMode and _savedUIOptions ivars.
+        * WebView/WebVideoFullscreenController.mm:
+        (-[WebVideoFullscreenController delegate]): Cleaned up style.
+        (-[WebVideoFullscreenController setDelegate:]): Ditto.
+        (-[WebVideoFullscreenController windowDidExitFullscreen]): Restore the
+        system UI mode.
+        (-[WebVideoFullscreenController windowDidEnterFullscreen]): Save the
+        system UI mode.
+        * WebView/WebView.mm: Added now-necessary import.
+
+2009-11-12  Shinichiro Hamaji  <hamaji@chromium.org>
+
+        Reviewed by Darin Adler.
+
+        externalRepresentation should take Frame as the argument
+        https://bugs.webkit.org/show_bug.cgi?id=31393
+
+        No new tests as this is just a refactoring.
+
+        * Misc/WebCoreStatistics.mm:
+        (-[WebFrame renderTreeAsExternalRepresentation]):
+
+2009-11-12  Adam Roben  <aroben@apple.com>
+
+        Replace worldIDs with world objects
+
+        WebScriptWorld is the new object that represents a world.  The only
+        place worldID is still used is in -[WebFrame
+        _stringByEvaluatingJavaScriptInIsolatedWorld:WithGlobalObject:FromString:],
+        but that will change soon.
+
+        Part of <http://webkit.org/b/31414> Implement new SPI for dealing with
+        user scripts/stylesheets and isolated worlds
+
+        Reviewed by Sam Weinig.
+
+        * WebKit.exp: Export WebScriptWorld.
+
+        * WebView/WebFrame.mm:
+        (-[WebFrame _stringByEvaluatingJavaScriptInIsolatedWorld:WithGlobalObject:FromString:]):
+        Moved the bizarre world caching/creation logic that DRT depends on
+        here from the findWorld function in ScriptController.cpp. Updated to
+        use ScriptController::executeScriptInWorld instead of
+        ScriptController::executeScriptInIsolatedWorld.
+        (-[WebFrame _contextForWorld:]): Renamed from contextForWorldID:. Now
+        takes a WebScriptWorld.
+
+        * WebView/WebFramePrivate.h: Replaced contextForWorldID: with
+        _contextForWorld:.
+
+        * WebView/WebScriptWorld.h: Added.
+        * WebView/WebScriptWorld.mm: Added.
+        (-[WebScriptWorld initWithWorld:]): Store the passed-in world in our
+        _private member.
+        (-[WebScriptWorld init]): Create a new DOMWrapperWorld and pass it to
+        -initWithWorld:.
+        (-[WebScriptWorld dealloc]): Release _private.
+        (+[WebScriptWorld standardWorld]): Returns a shared instance that
+        represents WebCore's mainThreadNormalWorld().
+        (+[WebScriptWorld world]): Returns a new instance.
+        (core): Returns the DOMWrapperWorld for this WebScriptWorld.
+
+        * WebView/WebScriptWorldInternal.h: Added.
+
+        * WebView/WebView.mm:
+        (+[WebView _addUserScriptToGroup:world:source:url:whitelist:blacklist:injectionTime:]):
+        (+[WebView _addUserStyleSheetToGroup:world:source:url:whitelist:blacklist:]):
+        (+[WebView _removeUserScriptFromGroup:world:url:]):
+        (+[WebView _removeUserStyleSheetFromGroup:world:url:]):
+        (+[WebView _removeUserScriptsFromGroup:world:]):
+        (+[WebView _removeUserStyleSheetsFromGroup:world:]):
+        * WebView/WebViewPrivate.h:
+        Changed these functions to take a WebScriptWorld instead of a worldID.
+
+2009-11-12  Chris Fleizach  <cfleizach@apple.com>
+
+        Reviewed by Darin Adler.
+
+        ARIA: add alert type roles
+        https://bugs.webkit.org/show_bug.cgi?id=31392
+
+        * WebCoreSupport/WebViewFactory.mm:
+        (-[WebViewFactory AXARIAContentGroupText:]):
+
+2009-11-10  Daniel Bates  <dbates@webkit.org>
+
+        Reviewed by Oliver Hunt.
+
+        https://bugs.webkit.org/show_bug.cgi?id=30754
+
+        Removed method draggedImage:movedTo:
+
+        * WebView/WebFrame.mm:
+        * WebView/WebFrameInternal.h:
+        * WebView/WebHTMLView.mm:
+
+2009-11-10  Beth Dakin  <bdakin@apple.com>
+
+        Reviewed by Darin Adler.
+
+        Small WebKit part of:
+        Fix for <rdar://problem/7059710> 
+        -and corresponding-
+        https://bugs.webkit.org/show_bug.cgi?id=31196 Implement -webkit-
+        color-correction for CSS colors
+
+        * Misc/WebKitNSStringExtras.mm:
+        (-[NSString _web_drawAtPoint:font:textColor:]): setFillColor now 
+        requires callers to pass a ColorSpace.
+
+2009-11-10  Dan Bernstein  <mitz@apple.com>
+
+        Reviewed by Eric Carlson and Darin Adler.
+
+        WebKit part of making full-screen video pause during scrubbing.
+
+        * WebView/WebVideoFullscreenHUDWindowController.h: Added _isScrubbing
+        ivar.
+        * WebView/WebVideoFullscreenHUDWindowController.mm:
+        (-[WebVideoFullscreenHUDWindowController dealloc]): Assert that
+        _isScrubbing is NO.
+        (-[WebVideoFullscreenHUDWindowController endScrubbing]): Call
+        HTMLMediaElement::endScrubbing().
+        (-[WebVideoFullscreenHUDWindowController timelinePositionChanged:]):
+        If scrubbing has just begun, call HTMLMediaElement::beginScrubbing()
+        and schedule -endScrubbing to be called when mouse tracking ends.
+
+2009-11-09  Mark Mentovai  <mark@chromium.org>
+
+        Reviewed by Dan Bernstein.
+
+        Track "can have scrollbar" state within FrameView independently of the
+        individual scrollbar states in ScrollView.
+
+        rdar://problem/7215132, https://bugs.webkit.org/show_bug.cgi?id=29167
+        REGRESSION (r48064): mint.com loses scrollbars after coming out of
+        edit mode.
+
+        rdar://problem/7314421, https://bugs.webkit.org/show_bug.cgi?id=30517
+        REGRESSION (r48064): Extra scroll bars in GarageBand Lesson Store.
+
+        Test: fast/overflow/scrollbar-restored.html
+
+        * WebView/WebFrameView.mm:
+        (-[WebFrameView _install]):
+
+2009-11-08  Dan Bernstein  <mitz@apple.com>
+
+        Reviewed by Eric Carlson.
+
+        Made the full-screen video HUD appear when playback stops, such as when
+        the end of the video is reached.
+
+        * WebView/WebVideoFullscreenHUDWindowController.h: Cleaned up.
+        * WebView/WebVideoFullscreenHUDWindowController.mm:
+        (-[WebVideoFullscreenHUDWindowController scheduleTimeUpdate]): Updated
+        for the renaming of -updateRate to -updatePlayButton.
+        (-[WebVideoFullscreenHUDWindowController updatePlayButton]): Renamed
+        -updateRate to this.
+        (-[WebVideoFullscreenHUDWindowController updateRate]): This method now
+        responds to changes to the playback rate by updating the play button
+        and showing or hiding the HUD as necessary.
+        (-[WebVideoFullscreenHUDWindowController togglePlaying:]): Now only
+        toggles playing. UI updates are driven by -updateRate being called.
+        (-[WebVideoFullscreenHUDWindowController playing]): Cleaned up.
+
+2009-11-02  Eric Carlson  <eric.carlson@apple.com>
+
+        Reviewed by John Sullivan and Mark Rowe.
+
+        <rdar://problem/7356733> Voiceover does not read correct media controller time values
+
+        * WebCoreSupport/WebViewFactory.mm:
+        (-[WebViewFactory localizedMediaTimeDescription:]):
+
+2009-11-02  Dan Bernstein  <mitz@apple.com>
+
+        Reviewed by Anders Carlsson.
+
+        Made the remaining time display show negative zero at the end of the
+        video.
+
+        Made other cleanup.
+
+        * WebView/WebVideoFullscreenHUDWindowController.h: Reverted the types of
+        _timeline and _volumeSlider to the more generic NSControl.
+        * WebView/WebVideoFullscreenHUDWindowController.mm:
+        (-[WebVideoFullscreenHUDWindowController scheduleTimeUpdate]): Cleaned
+        up style.
+        (-[WebVideoFullscreenHUDWindowController windowDidLoad]): Added an
+        assertion that the cast to NSButton * is legal. Removed casts.
+        (-[WebVideoFullscreenHUDWindowController updateTime]): Use
+        -setValue:forKey: instead of an NSSlider method.
+        (timeToString): Changed to support only non-negative values and
+        simplified.
+        (-[WebVideoFullscreenHUDWindowController remainingTimeText]): Always
+        prepend a “-” to the time.
+
+2009-11-02  Dan Bernstein  <mitz@apple.com>
+
+        Reviewed by John Sullivan.
+
+        WebKit part of making the appearance of the full-screen video HUD match
+        QuickTime Player X’s HUD.
+
+        * WebView/WebVideoFullscreenHUDWindowController.h: Removed unnecessary
+        #import statements, cleaned up style, and changed _timeline,
+        _volumeSlider and _playButton to have more specific types.
+        * WebView/WebVideoFullscreenHUDWindowController.mm: Updated #import
+        statements.
+        (webkit_CGFloor): Added this helper function.
+        (-[WebVideoFullscreenHUDWindowController init]): Cleaned up style.
+        (createTimeTextField): Changed to use the bold system font.
+        (-[WebVideoFullscreenHUDWindowController windowDidLoad]): Changed the
+        subviews’ metrics and the text fields’ text alignment.
+        (-[WebVideoFullscreenHUDWindowController updateTime]): Avoid conversion
+        from double to float.
+        (stringToTimeTextAttributed): Removed this useless function that
+        returned an NSAttributedString masquerading as an NSString.
+        (-[WebVideoFullscreenHUDWindowController remainingTimeText]): Removed
+        call to stringToTimeTextAttributed().
+        (-[WebVideoFullscreenHUDWindowController elapsedTimeText]): Ditto.
+
+2009-11-02  Chris Fleizach  <cfleizach@apple.com>
+
+        Reviewed by Beth Dakin.
+
+        Support ARIA "tab" roles
+        https://bugs.webkit.org/show_bug.cgi?id=30842
+
+        * WebCoreSupport/WebViewFactory.mm:
+        (-[WebViewFactory AXARIAContentGroupText:]):
+
+2009-11-01  Dan Bernstein  <mitz@apple.com>
+
+        Reviewed by Mark Rowe.
+
+        Made the space bar toggle playing state in full-screen video when
+        modifier keys are down. Made it do so without highlighting the
+        Play/Pause button.
+
+        * WebView/WebVideoFullscreenHUDWindowController.mm:
+        (-[WebVideoFullscreenHUDWindowController keyDown:]):
+
+2009-11-01  Dan Bernstein  <mitz@apple.com>
+
+        Reviewed by Mark Rowe.
+
+        Made the full-screen video HUD respond to the up and down arrow keys by
+        increasing and decreasing the volume by 1/10 of the range or, when
+        combined with the Option key, all the way up or down.
+
+        Made the volume buttons in the full-screen video HUD match the behavior
+        of their equivalents in the QuickTime Player HUD by turning the volume
+        all the way up or down.
+
+        Made the volume slider update immediately when the keyboard or volume
+        buttons are used to change the volume, rather than at the nearest 1/4
+        second interval.
+
+        Made the elapsed and remaining time displays update immediately when the
+        play head is dragged across the timeline, rather than at 1/4 second
+        intervals.
+
+        * WebView/WebVideoFullscreenHUDWindowController.mm:
+        (-[WebVideoFullscreenHUDWindowController keyDown:]): Handle the up and
+        down arrow keys.
+        (-[WebVideoFullscreenHUDWindowController windowDidLoad]): Changed the
+        actions of the volume up and volume down buttons.
+        (-[WebVideoFullscreenHUDWindowController setCurrentTime:]): Call
+        -updateTime.
+        (-[WebVideoFullscreenHUDWindowController setVolumeToZero:]): Added this
+        action for the volume down button.
+        (-[WebVideoFullscreenHUDWindowController setVolumeToMaximum:]): Added
+        this action for the volume up button.
+        (-[WebVideoFullscreenHUDWindowController decrementVolume]): No longer
+        and action method.
+        (-[WebVideoFullscreenHUDWindowController incrementVolume]): Ditto.
+        (-[WebVideoFullscreenHUDWindowController setVolume:]): Call
+        -updateVolume.
+
+2009-10-30  Evan Stade  <estade@chromium.org>
+
+        Reviewed by David Levin.
+
+        Notify the chrome when the focused node has changed.
+        https://bugs.webkit.org/show_bug.cgi?id=30832
+
+        Added stub implementation for new ChromeClient function.
+
+        * WebCoreSupport/WebChromeClient.h:
+        * WebCoreSupport/WebChromeClient.mm:
+        (WebChromeClient::focusedNodeChanged):
+
+2009-10-30  Roland Steiner  <rolandsteiner@chromium.org>
+
+        Reviewed by Eric Seidel.
+
+        Remove ENABLE_RUBY guards as discussed with Dave Hyatt and Maciej Stachowiak.
+
+        Bug 28420 -  Implement HTML5 <ruby> rendering
+        (https://bugs.webkit.org/show_bug.cgi?id=28420)
+
+        No new tests (no functional change).
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2009-10-29  Mark Rowe  <mrowe@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        Validate the stopSpeaking: selector so that is not always enabled when a WebView is first responder.
+
+        * WebView/WebHTMLView.mm:
+        (-[WebHTMLView validateUserInterfaceItemWithoutDelegate:]):
+
+2009-10-29  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        https://bugs.webkit.org/show_bug.cgi?id=30932
+        <rdar://problem/7350269>
+        
+        REGRESSION: Crash when turning on Private Browsing on site with flash.
+        
+        Null check setValue.
+        
+        * Plugins/WebNetscapePluginView.mm:
+        (-[WebNetscapePluginView privateBrowsingModeDidChange]):
+
+2009-10-29  Eric Carlson  <eric.carlson@apple.com>
+
+        Reviewed by Kevin Decker.
+
+        Refactor some duplicate plug-in clean up code into shared functions.
+
+        * Plugins/WebPluginController.mm:
+        (-[WebPluginController stopOnePlugin:]): New, stop a plug-in.
+        (-[WebPluginController destroyOnePlugin:]): New, destroy plug-in.
+        (-[WebPluginController stopAllPlugins]): Call stopOnePlugin.
+        (-[WebPluginController destroyPlugin:]): Call stopOnePlugin and destroyOnePlugin.
+        (-[WebPluginController destroyAllPlugins]): Call destroyOnePlugin.
+
 2009-10-28  Eric Carlson  <eric.carlson@apple.com>
 
         Reviewed by Simon Fraser.

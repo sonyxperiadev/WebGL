@@ -75,8 +75,6 @@ Settings::Settings(Page* page)
     , m_maximumDecodedImageSize(numeric_limits<size_t>::max())
     , m_localStorageQuota(5 * 1024 * 1024)  // Suggested by the HTML5 spec.
     , m_pluginAllowedRunTime(numeric_limits<unsigned>::max())
-    , m_printingMinimumShrinkFactor(0.0f)
-    , m_printingMaximumShrinkFactor(0.0f)
     , m_isJavaEnabled(false)
     , m_loadsImagesAutomatically(false)
     , m_privateBrowsingEnabled(false)
@@ -84,7 +82,6 @@ Settings::Settings(Page* page)
     , m_arePluginsEnabled(false)
     , m_databasesEnabled(false)
     , m_localStorageEnabled(false)
-    , m_sessionStorageEnabled(true)
     , m_isJavaScriptEnabled(false)
     , m_isWebSecurityEnabled(true)
     , m_allowUniversalAccessFromFileURLs(true)
@@ -130,8 +127,11 @@ Settings::Settings(Page* page)
     , m_downloadableBinaryFontsEnabled(true)
     , m_xssAuditorEnabled(false)
     , m_acceleratedCompositingEnabled(true)
+    , m_showDebugBorders(false)
+    , m_showRepaintCounter(false)
     , m_experimentalNotificationsEnabled(false)
     , m_webGLEnabled(false)
+    , m_geolocationEnabled(true)
 {
     // A Frame may not have been created yet, so we initialize the AtomicString 
     // hash before trying to use it.
@@ -276,11 +276,6 @@ void Settings::setDatabasesEnabled(bool databasesEnabled)
 void Settings::setLocalStorageEnabled(bool localStorageEnabled)
 {
     m_localStorageEnabled = localStorageEnabled;
-}
-
-void Settings::setSessionStorageEnabled(bool sessionStorageEnabled)
-{
-    m_sessionStorageEnabled = sessionStorageEnabled;
 }
 
 void Settings::setLocalStorageQuota(unsigned localStorageQuota)
@@ -703,6 +698,24 @@ void Settings::setAcceleratedCompositingEnabled(bool enabled)
     setNeedsReapplyStylesInAllFrames(m_page);
 }
 
+void Settings::setShowDebugBorders(bool enabled)
+{
+    if (m_showDebugBorders == enabled)
+        return;
+        
+    m_showDebugBorders = enabled;
+    setNeedsReapplyStylesInAllFrames(m_page);
+}
+
+void Settings::setShowRepaintCounter(bool enabled)
+{
+    if (m_showRepaintCounter == enabled)
+        return;
+        
+    m_showRepaintCounter = enabled;
+    setNeedsReapplyStylesInAllFrames(m_page);
+}
+
 void Settings::setExperimentalNotificationsEnabled(bool enabled)
 {
     m_experimentalNotificationsEnabled = enabled;
@@ -726,14 +739,9 @@ void Settings::setWebGLEnabled(bool enabled)
     m_webGLEnabled = enabled;
 }
 
-void Settings::setPrintingMinimumShrinkFactor(float printingMinimumShrinkFactor)
+void Settings::setGeolocationEnabled(bool enabled)
 {
-    m_printingMinimumShrinkFactor = printingMinimumShrinkFactor;
-}    
-
-void Settings::setPrintingMaximumShrinkFactor(float printingMaximumShrinkFactor)
-{
-    m_printingMaximumShrinkFactor = printingMaximumShrinkFactor;
-}    
+    m_geolocationEnabled = enabled;
+}
 
 } // namespace WebCore

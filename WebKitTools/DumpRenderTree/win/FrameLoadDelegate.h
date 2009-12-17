@@ -141,7 +141,24 @@ public:
         /* [in] */ IWebView *sender,
         /* [in] */ IWebSecurityOrigin *origin);
 
-protected:
+    virtual HRESULT STDMETHODCALLTYPE didClearWindowObjectForFrameInScriptWorld(IWebView*, IWebFrame*, IWebScriptWorld*);
+
+    virtual HRESULT STDMETHODCALLTYPE didPushStateWithinPageForFrame( 
+        /* [in] */ IWebView *sender,
+        /* [in] */ IWebFrame *frame) { return E_NOTIMPL; } 
+    
+    virtual HRESULT STDMETHODCALLTYPE didReplaceStateWithinPageForFrame( 
+        /* [in] */ IWebView *sender,
+        /* [in] */ IWebFrame *frame) { return E_NOTIMPL; } 
+
+    virtual HRESULT STDMETHODCALLTYPE didPopStateWithinPageForFrame( 
+        /* [in] */ IWebView *sender,
+        /* [in] */ IWebFrame *frame) { return E_NOTIMPL; } 
+
+private:
+    void didClearWindowObjectForFrameInIsolatedWorld(IWebFrame*, IWebScriptWorld*);
+    void didClearWindowObjectForFrameInStandardWorld(IWebFrame*);
+
     void locationChangeDone(IWebError*, IWebFrame*);
 
     ULONG m_refCount;

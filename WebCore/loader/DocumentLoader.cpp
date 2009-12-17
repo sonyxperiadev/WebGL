@@ -203,7 +203,7 @@ const KURL& DocumentLoader::url() const
     return request().url();
 }
 
-void DocumentLoader::replaceRequestURLForAnchorScroll(const KURL& url)
+void DocumentLoader::replaceRequestURLForSameDocumentNavigation(const KURL& url)
 {
     m_originalRequestCopy.setURL(url);
     m_request.setURL(url);

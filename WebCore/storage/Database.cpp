@@ -149,11 +149,12 @@ PassRefPtr<Database> Database::openDatabase(Document* document, const String& na
 
 Database::Database(Document* document, const String& name, const String& expectedVersion, const String& displayName, unsigned long estimatedSize)
     : m_transactionInProgress(false)
+    , m_isTransactionQueueEnabled(true)
     , m_document(document)
     , m_name(name.crossThreadString())
     , m_guid(0)
-    , m_expectedVersion(expectedVersion)
-    , m_displayName(displayName)
+    , m_expectedVersion(expectedVersion.crossThreadString())
+    , m_displayName(displayName.crossThreadString())
     , m_estimatedSize(estimatedSize)
     , m_deleted(false)
     , m_stopped(false)
@@ -190,6 +191,11 @@ Database::Database(Document* document, const String& name, const String& expecte
     m_document->addOpenDatabase(this);
 }
 
+static void derefDocument(void* document)
+{
+    static_cast<Document*>(document)->deref();
+}
+
 Database::~Database()
 {
     if (m_document->databaseThread())
@@ -197,6 +203,9 @@ Database::~Database()
 
     DatabaseTracker::tracker().removeOpenDatabase(this);
     m_document->removeOpenDatabase(this);
+
+    // Deref m_document on the main thread.
+    callOnMainThread(derefDocument, m_document.release().releaseRef());
 }
 
 bool Database::openAndVerifyVersion(ExceptionCode& e)
@@ -205,15 +214,14 @@ bool Database::openAndVerifyVersion(ExceptionCode& e)
         return false;
     m_databaseAuthorizer = DatabaseAuthorizer::create();
 
-    RefPtr<DatabaseOpenTask> task = DatabaseOpenTask::create(this);
+    bool success = false;
+    DatabaseTaskSynchronizer synchronizer;
+    OwnPtr<DatabaseOpenTask> task = DatabaseOpenTask::create(this, &synchronizer, e, success);
 
-    task->lockForSynchronousScheduling();
-    m_document->databaseThread()->scheduleImmediateTask(task);
-    task->waitForSynchronousCompletion();
+    m_document->databaseThread()->scheduleImmediateTask(task.release());
+    synchronizer.waitForTaskCompletion();
 
-    ASSERT(task->isComplete());
-    e = task->exceptionCode();
-    return task->openSuccessful();
+    return success;
 }
 
 
@@ -318,11 +326,11 @@ void Database::markAsDeletedAndClose()
 
     m_document->databaseThread()->unscheduleDatabaseTasks(this);
 
-    RefPtr<DatabaseCloseTask> task = DatabaseCloseTask::create(this);
+    DatabaseTaskSynchronizer synchronizer;
+    OwnPtr<DatabaseCloseTask> task = DatabaseCloseTask::create(this, &synchronizer);
 
-    task->lockForSynchronousScheduling();
-    m_document->databaseThread()->scheduleImmediateTask(task);
-    task->waitForSynchronousCompletion();
+    m_document->databaseThread()->scheduleImmediateTask(task.release());
+    synchronizer.waitForTaskCompletion();
 }
 
 void Database::close()
@@ -362,7 +370,7 @@ void Database::stop()
 
     {
         MutexLocker locker(m_transactionInProgressMutex);
-        m_transactionQueue.kill();
+        m_isTransactionQueueEnabled = false;
         m_transactionInProgress = false;
     }
 }
@@ -497,15 +505,13 @@ bool Database::performOpenAndVerify(ExceptionCode& e)
         currentVersion = "";
     }
 
-    // FIXME: For now, the spec says that if the database has no version, it is valid for any "Expected version" string.  That seems silly and I think it should be
-    // changed, and here's where we would change it
-    if (m_expectedVersion.length()) {
-        if (currentVersion.length() && m_expectedVersion != currentVersion) {
-            LOG(StorageAPI, "page expects version %s from database %s, which actually has version name %s - openDatabase() call will fail", m_expectedVersion.ascii().data(),
-                databaseDebugName().ascii().data(), currentVersion.ascii().data());
-            e = INVALID_STATE_ERR;
-            return false;
-        }
+    // If the expected version isn't the empty string, ensure that the current database version we have matches that version. Otherwise, set an exception.
+    // If the expected version is the empty string, then we always return with whatever version of the database we have.
+    if (m_expectedVersion.length() && m_expectedVersion != currentVersion) {
+        LOG(StorageAPI, "page expects version %s from database %s, which actually has version name %s - openDatabase() call will fail", m_expectedVersion.ascii().data(),
+            databaseDebugName().ascii().data(), currentVersion.ascii().data());
+        e = INVALID_STATE_ERR;
+        return false;
     }
 
     return true;
@@ -534,8 +540,14 @@ void Database::scheduleTransaction()
 {
     ASSERT(!m_transactionInProgressMutex.tryLock()); // Locked by caller.
     RefPtr<SQLTransaction> transaction;
-    if (m_transactionQueue.tryGetMessage(transaction) && m_document->databaseThread()) {
-        RefPtr<DatabaseTransactionTask> task = DatabaseTransactionTask::create(transaction);
+
+    if (m_isTransactionQueueEnabled && !m_transactionQueue.isEmpty()) {
+        transaction = m_transactionQueue.first();
+        m_transactionQueue.removeFirst();
+    }
+
+    if (transaction && m_document->databaseThread()) {
+        OwnPtr<DatabaseTransactionTask> task = DatabaseTransactionTask::create(transaction);
         LOG(StorageAPI, "Scheduling DatabaseTransactionTask %p for transaction %p\n", task.get(), task->transaction());
         m_transactionInProgress = true;
         m_document->databaseThread()->scheduleTask(task.release());
@@ -548,7 +560,7 @@ void Database::scheduleTransactionStep(SQLTransaction* transaction, bool immedia
     if (!m_document->databaseThread())
         return;
 
-    RefPtr<DatabaseTransactionTask> task = DatabaseTransactionTask::create(transaction);
+    OwnPtr<DatabaseTransactionTask> task = DatabaseTransactionTask::create(transaction);
     LOG(StorageAPI, "Scheduling DatabaseTransactionTask %p for the transaction step\n", task.get());
     if (immediately)
         m_document->databaseThread()->scheduleImmediateTask(task.release());
@@ -618,15 +630,19 @@ void Database::deliverPendingCallback(void* context)
 
 Vector<String> Database::tableNames()
 {
+    // FIXME: Not using threadsafeCopy on these strings looks ok since threads take strict turns
+    // in dealing with them. However, if the code changes, this may not be true anymore.
+    Vector<String> result;
     if (!m_document->databaseThread())
-        return Vector<String>();
-    RefPtr<DatabaseTableNamesTask> task = DatabaseTableNamesTask::create(this);
+        return result;
 
-    task->lockForSynchronousScheduling();
-    m_document->databaseThread()->scheduleImmediateTask(task);
-    task->waitForSynchronousCompletion();
+    DatabaseTaskSynchronizer synchronizer;
+    OwnPtr<DatabaseTableNamesTask> task = DatabaseTableNamesTask::create(this, &synchronizer, result);
 
-    return task->tableNames();
+    m_document->databaseThread()->scheduleImmediateTask(task.release());
+    synchronizer.waitForTaskCompletion();
+
+    return result;
 }
 
 void Database::setExpectedVersion(const String& version)

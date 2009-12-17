@@ -38,6 +38,7 @@ namespace WebCore {
 
         HTMLFormControlElement* control() const { return m_control; }
 
+        String validationMessage();
         void setCustomErrorMessage(const String& message) { m_customErrorMessage = message; }
 
         bool valueMissing() { return control()->valueMissing(); }
@@ -46,7 +47,7 @@ namespace WebCore {
         bool tooLong() { return control()->tooLong(); }
         bool rangeUnderflow();
         bool rangeOverflow();
-        bool stepMismatch() { return false; }
+        bool stepMismatch();
         bool customError() { return !m_customErrorMessage.isEmpty(); }
         bool valid();
 

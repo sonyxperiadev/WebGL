@@ -143,7 +143,7 @@ bool WebFrameLoaderClient::shouldUseCredentialStorage(DocumentLoader* loader, un
 void WebFrameLoaderClient::dispatchDidReceiveAuthenticationChallenge(DocumentLoader* loader, unsigned long identifier, const AuthenticationChallenge& challenge)
 {
 #if USE(CFNETWORK)
-    ASSERT(challenge.sourceHandle());
+    ASSERT(challenge.authenticationClient());
 
     WebView* webView = m_webFrame->webView();
     COMPtr<IWebResourceLoadDelegate> resourceLoadDelegate;
@@ -155,7 +155,7 @@ void WebFrameLoaderClient::dispatchDidReceiveAuthenticationChallenge(DocumentLoa
 
     // If the ResourceLoadDelegate doesn't exist or fails to handle the call, we tell the ResourceHandle
     // to continue without credential - this is the best approximation of Mac behavior
-    challenge.sourceHandle()->receivedRequestToContinueWithoutCredential(challenge);
+    challenge.authenticationClient()->receivedRequestToContinueWithoutCredential(challenge);
 #else
    notImplemented();
 #endif
@@ -306,6 +306,47 @@ void WebFrameLoaderClient::dispatchDidChangeLocationWithinPage()
         frameLoadDelegate->didChangeLocationWithinPageForFrame(webView, m_webFrame);
 }
 
+void WebFrameLoaderClient::dispatchDidPushStateWithinPage()
+{
+    WebView* webView = m_webFrame->webView();
+    COMPtr<IWebFrameLoadDelegatePrivate> frameLoadDelegatePriv;
+    if (FAILED(webView->frameLoadDelegatePrivate(&frameLoadDelegatePriv)) || !frameLoadDelegatePriv)
+        return;
+
+    COMPtr<IWebFrameLoadDelegatePrivate2> frameLoadDelegatePriv2(Query, frameLoadDelegatePriv);
+    if (!frameLoadDelegatePriv2)
+        return;
+
+    frameLoadDelegatePriv2->didPushStateWithinPageForFrame(webView, m_webFrame);
+}
+
+void WebFrameLoaderClient::dispatchDidReplaceStateWithinPage()
+{
+    WebView* webView = m_webFrame->webView();
+    COMPtr<IWebFrameLoadDelegatePrivate> frameLoadDelegatePriv;
+    if (FAILED(webView->frameLoadDelegatePrivate(&frameLoadDelegatePriv)) || !frameLoadDelegatePriv)
+        return;
+
+    COMPtr<IWebFrameLoadDelegatePrivate2> frameLoadDelegatePriv2(Query, frameLoadDelegatePriv);
+    if (!frameLoadDelegatePriv2)
+        return;
+
+    frameLoadDelegatePriv2->didReplaceStateWithinPageForFrame(webView, m_webFrame);
+}
+
+void WebFrameLoaderClient::dispatchDidPopStateWithinPage()
+{
+    WebView* webView = m_webFrame->webView();
+    COMPtr<IWebFrameLoadDelegatePrivate> frameLoadDelegatePriv;
+    if (FAILED(webView->frameLoadDelegatePrivate(&frameLoadDelegatePriv)) || !frameLoadDelegatePriv)
+        return;
+
+    COMPtr<IWebFrameLoadDelegatePrivate2> frameLoadDelegatePriv2(Query, frameLoadDelegatePriv);
+    if (!frameLoadDelegatePriv2)
+        return;
+
+    frameLoadDelegatePriv2->didPopStateWithinPageForFrame(webView, m_webFrame);
+}
 void WebFrameLoaderClient::dispatchWillClose()
 {
     WebView* webView = m_webFrame->webView();
@@ -500,14 +541,11 @@ void WebFrameLoaderClient::updateGlobalHistory()
     webView->historyDelegate(&historyDelegate);
 
     if (historyDelegate) {
-        BString url(loader->urlForHistory());
-        BString title(loader->title());
-        BString redirectSource(loader->clientRedirectSourceForHistory());
         COMPtr<IWebURLResponse> urlResponse(AdoptCOM, WebURLResponse::createInstance(loader->response()));
         COMPtr<IWebURLRequest> urlRequest(AdoptCOM, WebMutableURLRequest::createInstance(loader->originalRequestCopy()));
         
         COMPtr<IWebNavigationData> navigationData(AdoptCOM, WebNavigationData::createInstance(
-            url, title, urlRequest.get(), urlResponse.get(), loader->substituteData().isValid(), redirectSource));
+            loader->urlForHistory(), loader->title(), urlRequest.get(), urlResponse.get(), loader->substituteData().isValid(), loader->clientRedirectSourceForHistory()));
 
         historyDelegate->didNavigateWithNavigationData(webView, navigationData.get(), m_webFrame);
         return;
@@ -759,7 +797,7 @@ void WebFrameLoaderClient::dispatchDidFailToStartPlugin(const PluginView* plugin
         }
     }
 
-    COMPtr<CFDictionaryPropertyBag> userInfoBag(AdoptCOM, CFDictionaryPropertyBag::createInstance());
+    COMPtr<CFDictionaryPropertyBag> userInfoBag = CFDictionaryPropertyBag::createInstance();
     userInfoBag->setDictionary(userInfo.get());
  
     int errorCode = 0;

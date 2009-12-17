@@ -26,6 +26,7 @@
 #import "AuthenticationMac.h"
 
 #import "AuthenticationChallenge.h"
+#import "AuthenticationClient.h"
 #import "Credential.h"
 #import "ProtectionSpace.h"
 
@@ -33,6 +34,51 @@
 #import <Foundation/NSURLCredential.h>
 #import <Foundation/NSURLProtectionSpace.h>
 
+using namespace WebCore;
+
+@interface WebCoreAuthenticationClientAsChallengeSender : NSObject <NSURLAuthenticationChallengeSender>
+{
+    AuthenticationClient* m_client;
+}
+- (id)initWithAuthenticationClient:(AuthenticationClient*)client;
+- (void)detachClient;
+@end
+
+@implementation WebCoreAuthenticationClientAsChallengeSender
+
+- (id)initWithAuthenticationClient:(AuthenticationClient*)client
+{
+    self = [self init];
+    if (!self)
+        return nil;
+    m_client = client;
+    return self;
+}
+
+- (void)detachClient
+{
+    m_client = 0;
+}
+
+- (void)useCredential:(NSURLCredential *)credential forAuthenticationChallenge:(NSURLAuthenticationChallenge *)challenge
+{
+    if (m_client)
+        m_client->receivedCredential(core(challenge), core(credential));
+}
+
+- (void)continueWithoutCredentialForAuthenticationChallenge:(NSURLAuthenticationChallenge *)challenge
+{
+    if (m_client)
+        m_client->receivedRequestToContinueWithoutCredential(core(challenge));
+}
+
+- (void)cancelAuthenticationChallenge:(NSURLAuthenticationChallenge *)challenge
+{
+    if (m_client)
+        m_client->receivedCancellation(core(challenge));
+}
+
+@end
 
 namespace WebCore {
 
@@ -49,15 +95,26 @@ AuthenticationChallenge::AuthenticationChallenge(const ProtectionSpace& protecti
 {
 }
 
-AuthenticationChallenge::AuthenticationChallenge(NSURLAuthenticationChallenge *macChallenge)
-    : AuthenticationChallengeBase(core([macChallenge protectionSpace]),
-                                  core([macChallenge proposedCredential]),
-                                  [macChallenge previousFailureCount],
-                                  [macChallenge failureResponse],
-                                  [macChallenge error])
-    , m_sender([macChallenge sender])
-    , m_macChallenge(macChallenge)
+AuthenticationChallenge::AuthenticationChallenge(NSURLAuthenticationChallenge *challenge)
+    : AuthenticationChallengeBase(core([challenge protectionSpace]),
+                                  core([challenge proposedCredential]),
+                                  [challenge previousFailureCount],
+                                  [challenge failureResponse],
+                                  [challenge error])
+    , m_sender([challenge sender])
+    , m_nsChallenge(challenge)
 {
+}
+
+void AuthenticationChallenge::setAuthenticationClient(AuthenticationClient* client)
+{
+    if (client) {
+        m_sender.adoptNS([[WebCoreAuthenticationClientAsChallengeSender alloc] initWithAuthenticationClient:client]);
+        m_nsChallenge.adoptNS([[NSURLAuthenticationChallenge alloc] initWithAuthenticationChallenge:m_nsChallenge.get() sender:m_sender.get()]);
+    } else {
+        if ([m_sender.get() isMemberOfClass:[WebCoreAuthenticationClientAsChallengeSender class]])
+            [(WebCoreAuthenticationClientAsChallengeSender *)m_sender.get() detachClient];
+    }
 }
 
 bool AuthenticationChallenge::platformCompare(const AuthenticationChallenge& a, const AuthenticationChallenge& b)
@@ -131,6 +188,11 @@ NSURLProtectionSpace *mac(const ProtectionSpace& coreSpace)
         case ProtectionSpaceAuthenticationSchemeHTMLForm:
             method = NSURLAuthenticationMethodHTMLForm;
             break;
+#if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
+        case ProtectionSpaceAuthenticationSchemeNTLM:
+            method = NSURLAuthenticationMethodNTLM;
+            break;
+#endif
         default:
             ASSERT_NOT_REACHED();
     }
@@ -166,6 +228,15 @@ NSURLCredential *mac(const Credential& coreCredential)
         default:
             ASSERT_NOT_REACHED();
     }
+
+#if CERTIFICATE_CREDENTIALS_SUPPORTED
+    if (coreCredential.type() == CredentialTypeClientCertificate) {
+        return [[[NSURLCredential alloc] initWithIdentity:coreCredential.identity()
+                                             certificates:(NSArray *)coreCredential.certificates()
+                                              persistence:persistence]
+                                              autorelease];
+    }
+#endif
 
     return [[[NSURLCredential alloc] initWithUser:coreCredential.user()
                                         password:coreCredential.password()
@@ -218,6 +289,10 @@ ProtectionSpace core(NSURLProtectionSpace *macSpace)
         scheme = ProtectionSpaceAuthenticationSchemeHTTPDigest;
     else if ([method isEqualToString:NSURLAuthenticationMethodHTMLForm])
         scheme = ProtectionSpaceAuthenticationSchemeHTMLForm;
+#if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
+    else if ([method isEqualToString:NSURLAuthenticationMethodNTLM])
+        scheme = ProtectionSpaceAuthenticationSchemeNTLM;
+#endif
     else
         ASSERT_NOT_REACHED();
         
@@ -240,6 +315,12 @@ Credential core(NSURLCredential *macCredential)
         default:
             ASSERT_NOT_REACHED();
     }
+
+#if CERTIFICATE_CREDENTIALS_SUPPORTED
+    SecIdentityRef identity = [macCredential identity];
+    if (identity)
+        return Credential(identity, (CFArrayRef)[macCredential certificates], persistence);
+#endif
     
     return Credential([macCredential user], [macCredential password], persistence);
 }

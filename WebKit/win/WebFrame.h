@@ -240,6 +240,7 @@ public:
 
     virtual HRESULT STDMETHODCALLTYPE pauseAnimation(BSTR animationName, IDOMNode*, double secondsFromNow, BOOL* animationWasRunning);
     virtual HRESULT STDMETHODCALLTYPE pauseTransition(BSTR propertyName, IDOMNode*, double secondsFromNow, BOOL* transitionWasRunning);
+    virtual HRESULT STDMETHODCALLTYPE pauseSVGAnimation(BSTR elementId, IDOMNode*, double secondsFromNow, BOOL* animationWasRunning);
     virtual HRESULT STDMETHODCALLTYPE numberOfActiveAnimations(UINT*);
 
     virtual HRESULT STDMETHODCALLTYPE isDisplayingStandaloneImage(BOOL*);
@@ -248,14 +249,8 @@ public:
         /* [in] */ BSTR url,
         /* [retval][out] */ BOOL* result);
 
-    virtual HRESULT STDMETHODCALLTYPE stringByEvaluatingJavaScriptInIsolatedWorld( 
-        /* [in] */ unsigned int worldID,
-        /* [in] */ OLE_HANDLE jsGlobalObject,
-        /* [in] */ BSTR script,
-        /* [retval][out] */ BSTR* evaluationResult);
-
-    virtual /* [local] */ JSGlobalContextRef STDMETHODCALLTYPE contextForWorldID(
-        /* [in] */ unsigned worldID);
+    virtual HRESULT STDMETHODCALLTYPE stringByEvaluatingJavaScriptInScriptWorld(IWebScriptWorld*, JSObjectRef globalObjectRef, BSTR script, BSTR* evaluationResult);
+    virtual JSGlobalContextRef STDMETHODCALLTYPE globalContextForScriptWorld(IWebScriptWorld*);
 
     // IWebDocumentText
     virtual HRESULT STDMETHODCALLTYPE supportsTextEncoding( 
@@ -318,7 +313,7 @@ public:
     virtual WebCore::ObjectContentType objectContentType(const WebCore::KURL& url, const WebCore::String& mimeType);
     virtual WebCore::String overrideMediaType() const;
 
-    virtual void windowObjectCleared();
+    virtual void dispatchDidClearWindowObjectInWorld(WebCore::DOMWrapperWorld*);
     virtual void documentElementAvailable();
     virtual void didPerformFirstNavigation() const;
 

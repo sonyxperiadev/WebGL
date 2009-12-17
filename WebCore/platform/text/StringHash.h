@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2006, 2007, 2008 Apple Inc. All rights reserved
+ * Copyright (C) Research In Motion Limited 2009. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -28,6 +29,10 @@
 #include <wtf/unicode/Unicode.h>
 
 namespace WebCore {
+
+    // The hash() functions on StringHash and CaseFoldingHash do not support
+    // null strings. get(), contains(), and add() on HashMap<String,..., StringHash>
+    // cause a null-pointer dereference when passed null strings.
 
     // FIXME: We should really figure out a way to put the computeHash function that's
     // currently a member function of StringImpl into this file so we can be a little

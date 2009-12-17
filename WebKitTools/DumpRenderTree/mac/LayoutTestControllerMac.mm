@@ -43,25 +43,27 @@
 #import <WebKit/WebApplicationCache.h>
 #import <WebKit/WebBackForwardList.h>
 #import <WebKit/WebCoreStatistics.h>
-#import <WebKit/WebDatabaseManagerPrivate.h>
 #import <WebKit/WebDataSource.h>
+#import <WebKit/WebDatabaseManagerPrivate.h>
 #import <WebKit/WebFrame.h>
 #import <WebKit/WebFrameViewPrivate.h>
-#import <WebKit/WebIconDatabasePrivate.h>
+#import <WebKit/WebGeolocationMockPrivate.h>
 #import <WebKit/WebHTMLRepresentation.h>
 #import <WebKit/WebHTMLViewPrivate.h>
 #import <WebKit/WebHistory.h>
 #import <WebKit/WebHistoryPrivate.h>
+#import <WebKit/WebIconDatabasePrivate.h>
 #import <WebKit/WebInspectorPrivate.h>
-#import <WebKit/WebGeolocationMockPrivate.h>
 #import <WebKit/WebNSURLExtras.h>
 #import <WebKit/WebPreferences.h>
 #import <WebKit/WebPreferencesPrivate.h>
+#import <WebKit/WebScriptWorld.h>
 #import <WebKit/WebSecurityOriginPrivate.h>
 #import <WebKit/WebTypesInternal.h>
 #import <WebKit/WebView.h>
 #import <WebKit/WebViewPrivate.h>
 #import <WebKit/WebWorkersPrivate.h>
+#import <wtf/HashMap.h>
 #import <wtf/RetainPtr.h>
 
 @interface CommandValidationTarget : NSObject <NSValidatedUserInterfaceItem>
@@ -299,6 +301,11 @@ void LayoutTestController::setXSSAuditorEnabled(bool enabled)
     [[[mainFrame webView] preferences] setXSSAuditorEnabled:enabled];
 }
 
+void LayoutTestController::setAllowUniversalAccessFromFileURLs(bool enabled)
+{
+    [[[mainFrame webView] preferences] setAllowUniversalAccessFromFileURLs:enabled];
+}
+
 void LayoutTestController::setPopupBlockingEnabled(bool popupBlockingEnabled)
 {
     [[[mainFrame webView] preferences] setJavaScriptCanOpenWindowsAutomatically:!popupBlockingEnabled];
@@ -307,6 +314,11 @@ void LayoutTestController::setPopupBlockingEnabled(bool popupBlockingEnabled)
 void LayoutTestController::setTabKeyCyclesThroughElements(bool cycles)
 {
     [[mainFrame webView] setTabKeyCyclesThroughElements:cycles];
+}
+
+void LayoutTestController::setTimelineProfilingEnabled(bool enabled)
+{
+    [[[mainFrame webView] inspector] setTimelineProfilingEnabled:enabled];
 }
 
 void LayoutTestController::setUseDashboardCompatibilityMode(bool flag)
@@ -474,6 +486,16 @@ bool LayoutTestController::pauseTransitionAtTimeOnElementWithId(JSStringRef prop
     return [mainFrame _pauseTransitionOfProperty:nameNS onNode:[[mainFrame DOMDocument] getElementById:idNS] atTime:time];
 }
 
+bool LayoutTestController::sampleSVGAnimationForElementAtTime(JSStringRef animationId, double time, JSStringRef elementId)
+{
+    RetainPtr<CFStringRef> animationIDCF(AdoptCF, JSStringCopyCFString(kCFAllocatorDefault, animationId));
+    NSString *animationIDNS = (NSString *)animationIDCF.get();
+    RetainPtr<CFStringRef> elementIDCF(AdoptCF, JSStringCopyCFString(kCFAllocatorDefault, elementId));
+    NSString *elementIDNS = (NSString *)elementIDCF.get();
+
+    return [mainFrame _pauseSVGAnimation:elementIDNS onSMILNode:[[mainFrame DOMDocument] getElementById:animationIDNS] atTime:time];
+}
+
 unsigned LayoutTestController::numberOfActiveAnimations() const
 {
     return [mainFrame _numberOfActiveAnimations];
@@ -501,14 +523,14 @@ void LayoutTestController::addUserScript(JSStringRef source, bool runAtStart)
 {
     RetainPtr<CFStringRef> sourceCF(AdoptCF, JSStringCopyCFString(kCFAllocatorDefault, source));
     NSString *sourceNS = (NSString *)sourceCF.get();
-    [WebView _addUserScriptToGroup:@"org.webkit.DumpRenderTree" worldID:1 source:sourceNS url:nil whitelist:nil blacklist:nil injectionTime:(runAtStart ? WebInjectAtDocumentStart : WebInjectAtDocumentEnd)];
+    [WebView _addUserScriptToGroup:@"org.webkit.DumpRenderTree" world:[WebScriptWorld world] source:sourceNS url:nil whitelist:nil blacklist:nil injectionTime:(runAtStart ? WebInjectAtDocumentStart : WebInjectAtDocumentEnd)];
 }
 
 void LayoutTestController::addUserStyleSheet(JSStringRef source)
 {
     RetainPtr<CFStringRef> sourceCF(AdoptCF, JSStringCopyCFString(kCFAllocatorDefault, source));
     NSString *sourceNS = (NSString *)sourceCF.get();
-    [WebView _addUserStyleSheetToGroup:@"org.webkit.DumpRenderTree" worldID:1 source:sourceNS url:nil whitelist:nil blacklist:nil];
+    [WebView _addUserStyleSheetToGroup:@"org.webkit.DumpRenderTree" world:[WebScriptWorld world] source:sourceNS url:nil whitelist:nil blacklist:nil];
 }
 
 void LayoutTestController::showWebInspector()
@@ -530,9 +552,40 @@ void LayoutTestController::evaluateInWebInspector(long callId, JSStringRef scrip
     [[[mainFrame webView] inspector] evaluateInFrontend:nil callId:callId script:scriptNS];
 }
 
+typedef HashMap<unsigned, RetainPtr<WebScriptWorld> > WorldMap;
+static WorldMap& worldMap()
+{
+    static WorldMap& map = *new WorldMap;
+    return map;
+}
+
+unsigned worldIDForWorld(WebScriptWorld *world)
+{
+    WorldMap::const_iterator end = worldMap().end();
+    for (WorldMap::const_iterator it = worldMap().begin(); it != end; ++it) {
+        if (it->second == world)
+            return it->first;
+    }
+
+    return 0;
+}
+
 void LayoutTestController::evaluateScriptInIsolatedWorld(unsigned worldID, JSObjectRef globalObject, JSStringRef script)
 {
     RetainPtr<CFStringRef> scriptCF(AdoptCF, JSStringCopyCFString(kCFAllocatorDefault, script));
     NSString *scriptNS = (NSString *)scriptCF.get();
-    [mainFrame _stringByEvaluatingJavaScriptInIsolatedWorld:worldID WithGlobalObject:globalObject FromString:scriptNS];
+
+    // A worldID of 0 always corresponds to a new world. Any other worldID corresponds to a world
+    // that is created once and cached forever.
+    WebScriptWorld *world;
+    if (!worldID)
+        world = [WebScriptWorld world];
+    else {
+        RetainPtr<WebScriptWorld>& worldSlot = worldMap().add(worldID, 0).first->second;
+        if (!worldSlot)
+            worldSlot.adoptNS([[WebScriptWorld alloc] init]);
+        world = worldSlot.get();
+    }
+
+    [mainFrame _stringByEvaluatingJavaScriptFromString:scriptNS withGlobalObject:globalObject inScriptWorld:world];
 }

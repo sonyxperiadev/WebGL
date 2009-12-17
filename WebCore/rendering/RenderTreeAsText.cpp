@@ -36,8 +36,10 @@
 #include "HTMLNames.h"
 #include "InlineTextBox.h"
 #include "RenderBR.h"
+#include "RenderFileUploadControl.h"
 #include "RenderInline.h"
 #include "RenderListMarker.h"
+#include "RenderPart.h"
 #include "RenderTableCell.h"
 #include "RenderView.h"
 #include "RenderWidget.h"
@@ -53,6 +55,10 @@
 #include "RenderSVGRoot.h"
 #include "RenderSVGText.h"
 #include "SVGRenderTreeAsText.h"
+#endif
+
+#if PLATFORM(QT)
+#include <QWidget>
 #endif
 
 namespace WebCore {
@@ -217,6 +223,9 @@ static TextStream &operator<<(TextStream& ts, const RenderObject& o)
     ts << " " << r;
 
     if (!(o.isText() && !o.isBR())) {
+        if (o.isFileUploadControl()) {
+            ts << " " << quoteAndEscapeNonPrintables(toRenderFileUploadControl(&o)->fileTextValue());
+        }
         if (o.parent() && (o.parent()->style()->color() != o.style()->color()))
             ts << " [color=" << o.style()->color().name() << "]";
 
@@ -335,6 +344,24 @@ static TextStream &operator<<(TextStream& ts, const RenderObject& o)
             ts << ": " << text;
         }
     }
+
+#if PLATFORM(QT)
+    // Print attributes of embedded QWidgets. E.g. when the WebCore::Widget
+    // is invisible the QWidget should be invisible too.
+    if (o.isRenderPart()) {
+        const RenderPart* part = toRenderPart(const_cast<RenderObject*>(&o));
+        if (part->widget() && part->widget()->platformWidget()) {
+            QWidget* wid = part->widget()->platformWidget();
+
+            ts << " [QT: ";
+            ts << "geometry: {" << wid->geometry() << "} ";
+            ts << "isHidden: " << wid->isHidden() << " ";
+            ts << "isSelfVisible: " << part->widget()->isSelfVisible() << " ";
+            ts << "isParentVisible: " << part->widget()->isParentVisible() << " ";
+            ts << "mask: {" << wid->mask().boundingRect() << "} ] ";
+        }
+    }
+#endif
 
     return ts;
 }
@@ -535,8 +562,11 @@ static void writeSelection(TextStream& ts, const RenderObject* o)
            << "selection end:   position " << selection.end().deprecatedEditingOffset() << " of " << nodePosition(selection.end().node()) << "\n";
 }
 
-String externalRepresentation(RenderObject* o)
+String externalRepresentation(Frame* frame)
 {
+    frame->document()->updateLayout();
+
+    RenderObject* o = frame->contentRenderer();
     if (!o)
         return String();
 
@@ -544,8 +574,6 @@ String externalRepresentation(RenderObject* o)
 #if ENABLE(SVG)
     writeRenderResources(ts, o->document());
 #endif
-    if (o->view()->frameView())
-        o->view()->frameView()->layout();
     if (o->hasLayer()) {
         RenderLayer* l = toRenderBox(o)->layer();
         writeLayers(ts, l, l, IntRect(l->x(), l->y(), l->width(), l->height()));
@@ -554,10 +582,13 @@ String externalRepresentation(RenderObject* o)
     return ts.release();
 }
 
-static void writeCounterValuesFromChildren(TextStream& stream, RenderObject* parent)
+static void writeCounterValuesFromChildren(TextStream& stream, RenderObject* parent, bool& isFirstCounter)
 {
     for (RenderObject* child = parent->firstChild(); child; child = child->nextSibling()) {
         if (child->isCounter()) {
+            if (!isFirstCounter)
+                stream << " ";
+            isFirstCounter = false;
             String str(toRenderText(child)->text());
             stream << str;
         }
@@ -570,12 +601,13 @@ String counterValueForElement(Element* element)
     RefPtr<Element> elementRef(element);
     element->document()->updateLayout();
     TextStream stream;
+    bool isFirstCounter = true;
     // The counter renderers should be children of anonymous children
     // (i.e., :before or :after pseudo-elements).
     if (RenderObject* renderer = element->renderer()) {
         for (RenderObject* child = renderer->firstChild(); child; child = child->nextSibling()) {
             if (child->isAnonymous())
-                writeCounterValuesFromChildren(stream, child);
+                writeCounterValuesFromChildren(stream, child, isFirstCounter);
         }
     }
     return stream.release();

@@ -37,6 +37,7 @@
 #include "CachedImage.h"
 #include "CollapsedBorderValue.h"
 #include "Color.h"
+#include "ColorSpace.h"
 #include "ContentData.h"
 #include "CounterDirectives.h"
 #include "CursorList.h"
@@ -49,6 +50,7 @@
 #include "Length.h"
 #include "LengthBox.h"
 #include "LengthSize.h"
+#include "LineClampValue.h"
 #include "NinePieceImage.h"
 #include "OutlineValue.h"
 #include "Pair.h"
@@ -599,6 +601,7 @@ public:
     const Color& textStrokeColor() const { return rareInheritedData->textStrokeColor; }
     float textStrokeWidth() const { return rareInheritedData->textStrokeWidth; }
     const Color& textFillColor() const { return rareInheritedData->textFillColor; }
+    ColorSpace colorSpace() const { return static_cast<ColorSpace>(rareInheritedData->colorSpace); }
     float opacity() const { return rareNonInheritedData->opacity; }
     ControlPart appearance() const { return static_cast<ControlPart>(rareNonInheritedData->m_appearance); }
     EBoxAlignment boxAlign() const { return static_cast<EBoxAlignment>(rareNonInheritedData->flexibleBox->align); }
@@ -693,7 +696,7 @@ public:
     bool isRunningAcceleratedAnimation() const { return rareNonInheritedData->m_runningAcceleratedAnimation; }
 #endif
 
-    int lineClamp() const { return rareNonInheritedData->lineClamp; }
+    const LineClampValue& lineClamp() const { return rareNonInheritedData->lineClamp; }
     bool textSizeAdjust() const { return rareInheritedData->textSizeAdjust; }
     ETextSecurity textSecurity() const { return static_cast<ETextSecurity>(rareInheritedData->textSecurity); }
 
@@ -934,6 +937,7 @@ public:
     void setTextStrokeColor(const Color& c) { SET_VAR(rareInheritedData, textStrokeColor, c) }
     void setTextStrokeWidth(float w) { SET_VAR(rareInheritedData, textStrokeWidth, w) }
     void setTextFillColor(const Color& c) { SET_VAR(rareInheritedData, textFillColor, c) }
+    void setColorSpace(ColorSpace space) { SET_VAR(rareInheritedData, colorSpace, space) }
     void setOpacity(float f) { SET_VAR(rareNonInheritedData, opacity, f); }
     void setAppearance(ControlPart a) { SET_VAR(rareNonInheritedData, m_appearance, a); }
     void setBoxAlign(EBoxAlignment a) { SET_VAR(rareNonInheritedData.access()->flexibleBox, align, a); }
@@ -1013,7 +1017,7 @@ public:
     void setIsRunningAcceleratedAnimation(bool b = true) { SET_VAR(rareNonInheritedData, m_runningAcceleratedAnimation, b); }
 #endif
 
-    void setLineClamp(int c) { SET_VAR(rareNonInheritedData, lineClamp, c); }
+    void setLineClamp(LineClampValue c) { SET_VAR(rareNonInheritedData, lineClamp, c); }
     void setTextSizeAdjust(bool b) { SET_VAR(rareInheritedData, textSizeAdjust, b); }
     void setTextSecurity(ETextSecurity aTextSecurity) { SET_VAR(rareInheritedData, textSecurity, aTextSecurity); }
 
@@ -1186,9 +1190,10 @@ public:
     static float initialPerspective() { return 0; }
     static Length initialPerspectiveOriginX() { return Length(50.0, Percent); }
     static Length initialPerspectiveOriginY() { return Length(50.0, Percent); }
+    static Color initialBackgroundColor() { return Color::transparent; }
 
     // Keep these at the end.
-    static int initialLineClamp() { return -1; }
+    static LineClampValue initialLineClamp() { return LineClampValue(); }
     static bool initialTextSizeAdjust() { return true; }
     static ETextSecurity initialTextSecurity() { return TSNONE; }
 #if ENABLE(DASHBOARD_SUPPORT)

@@ -45,6 +45,7 @@
 #include "HTMLImageLoader.h"
 #include "HTMLNames.h"
 #include "HTMLOptionElement.h"
+#include "ISODateTime.h"
 #include "ScriptEventListener.h"
 #include "KeyboardEvent.h"
 #include "LocalizedStrings.h"
@@ -59,12 +60,18 @@
 #include "RenderText.h"
 #include "RenderTextControlSingleLine.h"
 #include "RenderTheme.h"
+#include "StringHash.h"
 #include "TextEvent.h"
+<<<<<<< HEAD:WebCore/html/HTMLInputElement.cpp
 #ifdef ANDROID_ACCEPT_CHANGES_TO_FOCUSED_TEXTFIELDS
 #include "WebViewCore.h"
 #endif
+=======
+#include <wtf/HashMap.h>
+>>>>>>> webkit.org at r51976:WebCore/html/HTMLInputElement.cpp
 #include <wtf/MathExtras.h>
 #include <wtf/StdLibExtras.h>
+#include <wtf/dtoa.h>
 
 using namespace std;
 
@@ -73,6 +80,16 @@ namespace WebCore {
 using namespace HTMLNames;
 
 const int maxSavedResults = 256;
+
+// Constant values for getAllowedValueStep().
+static const double numberDefaultStep = 1.0;
+static const double numberStepScaleFactor = 1.0;
+// Constant values for minimum().
+static const double numberDefaultMinimum = -DBL_MAX;
+static const double rangeDefaultMinimum = 0.0;
+// Constant values for maximum().
+static const double numberDefaultMaximum = DBL_MAX;
+static const double rangeDefaultMaximum = 100.0;
 
 HTMLInputElement::HTMLInputElement(const QualifiedName& tagName, Document* doc, HTMLFormElement* f)
     : HTMLTextFormControlElement(tagName, doc, f)
@@ -129,14 +146,20 @@ bool HTMLInputElement::valueMissing() const
         return false;
 
     switch (inputType()) {
-        case TEXT:
-        case SEARCH:
-        case URL:
-        case TELEPHONE:
+        case DATE:
+        case DATETIME:
+        case DATETIMELOCAL:
         case EMAIL:
-        case PASSWORD:
-        case NUMBER:
         case FILE:
+        case MONTH:
+        case NUMBER:
+        case PASSWORD:
+        case SEARCH:
+        case TELEPHONE:
+        case TEXT:
+        case TIME:
+        case URL:
+        case WEEK:
             return value().isEmpty();
         case CHECKBOX:
             return !checked();
@@ -144,13 +167,13 @@ bool HTMLInputElement::valueMissing() const
             return !document()->checkedRadioButtons().checkedButtonForGroup(name());
         case COLOR:
             return false;
-        case HIDDEN:
-        case RANGE:
-        case SUBMIT:
-        case IMAGE:
-        case RESET:
         case BUTTON:
+        case HIDDEN:
+        case IMAGE:
         case ISINDEX:
+        case RANGE:
+        case RESET:
+        case SUBMIT:
             break;
     }
 
@@ -161,25 +184,31 @@ bool HTMLInputElement::valueMissing() const
 bool HTMLInputElement::patternMismatch() const
 {
     switch (inputType()) {
-        case ISINDEX:
+        case BUTTON:
         case CHECKBOX:
-        case RADIO:
-        case SUBMIT:
-        case RESET:
+        case COLOR:
+        case DATE:
+        case DATETIME:
+        case DATETIMELOCAL:
         case FILE:
         case HIDDEN:
         case IMAGE:
-        case BUTTON:
-        case RANGE:
+        case ISINDEX:
+        case MONTH:
         case NUMBER:
-        case COLOR:
+        case RADIO:
+        case RANGE:
+        case RESET:
+        case SUBMIT:
+        case TIME:
+        case WEEK:
             return false;
-        case TEXT:
-        case SEARCH:
-        case URL:
-        case TELEPHONE:
         case EMAIL:
         case PASSWORD:
+        case SEARCH:
+        case TELEPHONE:
+        case TEXT:
+        case URL:
             const AtomicString& pattern = getAttribute(patternAttr);
             String value = this->value();
 
@@ -220,15 +249,21 @@ bool HTMLInputElement::tooLong() const
     case BUTTON:
     case CHECKBOX:
     case COLOR:
+    case DATE:
+    case DATETIME:
+    case DATETIMELOCAL:
     case FILE:
     case HIDDEN:
     case IMAGE:
     case ISINDEX:
+    case MONTH:
     case NUMBER:
     case RADIO:
     case RANGE:
     case RESET:
     case SUBMIT:
+    case TIME:
+    case WEEK:
         return false;
     }
     ASSERT_NOT_REACHED();
@@ -237,58 +272,202 @@ bool HTMLInputElement::tooLong() const
 
 bool HTMLInputElement::rangeUnderflow() const
 {
-    if (inputType() == NUMBER) {
-        double min = 0.0;
-        double doubleValue = 0.0;
-        if (formStringToDouble(getAttribute(minAttr), &min) && formStringToDouble(value(), &doubleValue))
-            return doubleValue < min;
-    } else if (inputType() == RANGE) {
+    if (inputType() == NUMBER || inputType() == RANGE) {
         double doubleValue;
         if (formStringToDouble(value(), &doubleValue))
-            return doubleValue < rangeMinimum();
+            return doubleValue < minimum();
     }
     return false;
 }
 
 bool HTMLInputElement::rangeOverflow() const
 {
-    if (inputType() == NUMBER) {
-        double max = 0.0;
-        double doubleValue = 0.0;
-        if (formStringToDouble(getAttribute(maxAttr), &max) && formStringToDouble(value(), &doubleValue))
-            return doubleValue > max;
-    } else if (inputType() == RANGE) {
+    if (inputType() == NUMBER || inputType() == RANGE) {
         double doubleValue;
         if (formStringToDouble(value(), &doubleValue))
-            return doubleValue > rangeMaximum();
+            return doubleValue > maximum();
     }
     return false;
 }
 
-double HTMLInputElement::rangeMinimum() const
+double HTMLInputElement::minimum() const
 {
-    ASSERT(inputType() == RANGE);
-    // The range type's "default minimum" is 0.
-    double min = 0.0;
+    ASSERT(inputType() == NUMBER || inputType() == RANGE);
+    double min = inputType() == RANGE ? rangeDefaultMinimum : numberDefaultMinimum;
     formStringToDouble(getAttribute(minAttr), &min);
     return min;
 }
 
-double HTMLInputElement::rangeMaximum() const
+double HTMLInputElement::maximum() const
 {
-    ASSERT(inputType() == RANGE);
-    // The range type's "default maximum" is 100.
-    static const double defaultMaximum = 100.0;
+    ASSERT(inputType() == NUMBER || inputType() == RANGE);
+    double defaultMaximum = inputType() == RANGE ? rangeDefaultMaximum : numberDefaultMaximum;
     double max = defaultMaximum;
     formStringToDouble(getAttribute(maxAttr), &max);
-    const double min = rangeMinimum();
-
-    if (max < min) {
-        // A remedy for the inconsistent min/max values.
-        // Sets the maxmimum to the default (100.0) or the minimum value.
-        max = min < defaultMaximum ? defaultMaximum : min;
+    if (inputType() == RANGE) {
+        // A remedy for the inconsistent min/max values for RANGE.
+        // Sets the maxmimum to the default or the minimum value.
+        double min = minimum();
+        if (max < min)
+            max = std::max(min, defaultMaximum);
     }
     return max;
+}
+
+double HTMLInputElement::stepBase() const
+{
+    if (inputType() == RANGE)
+        return minimum();
+    if (inputType() == NUMBER) {
+        static const double defaultStepBase = 0.0;
+        double min = defaultStepBase;
+        formStringToDouble(getAttribute(minAttr), &min);
+        return min;
+    }
+    ASSERT_NOT_REACHED();
+    return 0.0;
+}
+
+bool HTMLInputElement::stepMismatch() const
+{
+    double step;
+    if (!getAllowedValueStep(&step))
+        return false;
+    if (inputType() == NUMBER) {
+        double doubleValue;
+        if (!formStringToDouble(value(), &doubleValue))
+            return false;
+        doubleValue = fabs(doubleValue - stepBase());
+        if (isinf(doubleValue))
+            return false;
+        // double's fractional part size is DBL_MAN_DIG-bit.  If the current
+        // value is greater than step*2^DBL_MANT_DIG, the following fmod() makes
+        // no sense.
+        if (doubleValue / pow(2, DBL_MANT_DIG) > step)
+            return false;
+        double remainder = fmod(doubleValue, step);
+        // Accepts errors in lower 7-bit.
+        double acceptableError = step / pow(2, DBL_MANT_DIG - 7);
+        return acceptableError < remainder && remainder < (step - acceptableError);
+    }
+    // Non-RANGE types should be rejected by getAllowedValueStep().
+    ASSERT(inputType() == RANGE);
+    // stepMismatch doesn't occur for RANGE. RenderSlider guarantees the
+    // value matches to step.
+    return false;
+}
+
+bool HTMLInputElement::getStepParameters(double* defaultStep, double* stepScaleFactor) const
+{
+    ASSERT(defaultStep);
+    ASSERT(stepScaleFactor);
+    switch (inputType()) {
+    case NUMBER:
+    case RANGE:
+        *defaultStep = numberDefaultStep;
+        *stepScaleFactor = numberStepScaleFactor;
+        return true;
+    case DATE:
+    case DATETIME:
+    case DATETIMELOCAL:
+    case MONTH:
+    case TIME:
+    case WEEK:
+        // FIXME: Implement for these types.
+        return false;
+    case BUTTON:
+    case CHECKBOX:
+    case COLOR:
+    case EMAIL:
+    case FILE:
+    case HIDDEN:
+    case IMAGE:
+    case ISINDEX:
+    case PASSWORD:
+    case RADIO:
+    case RESET:
+    case SEARCH:
+    case SUBMIT:
+    case TELEPHONE:
+    case TEXT:
+    case URL:
+        return false;
+    }
+    ASSERT_NOT_REACHED();
+    return false;
+}
+
+bool HTMLInputElement::getAllowedValueStep(double* step) const
+{
+    ASSERT(step);
+    double defaultStep;
+    double stepScaleFactor;
+    if (!getStepParameters(&defaultStep, &stepScaleFactor))
+        return false;
+    const AtomicString& stepString = getAttribute(stepAttr);
+    if (stepString.isEmpty()) {
+        *step = defaultStep * stepScaleFactor;
+        return true;
+    }
+    if (equalIgnoringCase(stepString, "any"))
+        return false;
+    double parsed;
+    if (!formStringToDouble(stepString, &parsed) || parsed <= 0.0) {
+        *step = defaultStep * stepScaleFactor;
+        return true;
+    }
+    *step = parsed * stepScaleFactor;
+    ASSERT(*step > 0);
+    return true;
+}
+
+void HTMLInputElement::applyStepForNumberOrRange(double count, ExceptionCode& ec)
+{
+    ASSERT(inputType() == NUMBER || inputType() == RANGE);
+    double step;
+    if (!getAllowedValueStep(&step)) {
+        ec = INVALID_STATE_ERR;
+        return;
+    }
+    double current;
+    if (!formStringToDouble(value(), &current)) {
+        ec = INVALID_STATE_ERR;
+        return;
+    }
+    double newValue = current + step * count;
+    if (isinf(newValue)) {
+        ec = INVALID_STATE_ERR;
+        return;
+    }
+    if (newValue < minimum()) {
+        ec = INVALID_STATE_ERR;
+        return;
+    }
+    double base = stepBase();
+    newValue = base + round((newValue - base) / step) * step;
+    if (newValue > maximum()) {
+        ec = INVALID_STATE_ERR;
+        return;
+    }
+    setValue(formStringFromDouble(newValue));
+}
+
+void HTMLInputElement::stepUp(int n, ExceptionCode& ec)
+{
+    if (inputType() != NUMBER && inputType() != RANGE) {
+        ec = INVALID_STATE_ERR;
+        return;
+    }
+    applyStepForNumberOrRange(n, ec);
+}
+
+void HTMLInputElement::stepDown(int n, ExceptionCode& ec)
+{
+    if (inputType() != NUMBER && inputType() != RANGE) {
+        ec = INVALID_STATE_ERR;
+        return;
+    }
+    applyStepForNumberOrRange(-n, ec);
 }
 
 static inline CheckedRadioButtons& checkedRadioButtons(const HTMLInputElement *element)
@@ -375,8 +554,40 @@ void HTMLInputElement::setType(const String& t)
         setAttribute(typeAttr, t);
 }
 
+typedef HashMap<String, HTMLInputElement::InputType, CaseFoldingHash> InputTypeMap;
+static const InputTypeMap* createTypeMap()
+{
+    InputTypeMap* map = new InputTypeMap;
+    map->add("button", HTMLInputElement::BUTTON);
+    map->add("checkbox", HTMLInputElement::CHECKBOX);
+    map->add("color", HTMLInputElement::COLOR);
+    map->add("date", HTMLInputElement::DATE);
+    map->add("datetime", HTMLInputElement::DATETIME);
+    map->add("datetime-local", HTMLInputElement::DATETIMELOCAL);
+    map->add("email", HTMLInputElement::EMAIL);
+    map->add("file", HTMLInputElement::FILE);
+    map->add("hidden", HTMLInputElement::HIDDEN);
+    map->add("image", HTMLInputElement::IMAGE);
+    map->add("khtml_isindex", HTMLInputElement::ISINDEX);
+    map->add("month", HTMLInputElement::MONTH);
+    map->add("number", HTMLInputElement::NUMBER);
+    map->add("password", HTMLInputElement::PASSWORD);
+    map->add("radio", HTMLInputElement::RADIO);
+    map->add("range", HTMLInputElement::RANGE);
+    map->add("reset", HTMLInputElement::RESET);
+    map->add("search", HTMLInputElement::SEARCH);
+    map->add("submit", HTMLInputElement::SUBMIT);
+    map->add("tel", HTMLInputElement::TELEPHONE);
+    map->add("time", HTMLInputElement::TIME);
+    map->add("url", HTMLInputElement::URL);
+    map->add("week", HTMLInputElement::WEEK);
+    // No need to register "text" because it is the default type.
+    return map;
+}
+
 void HTMLInputElement::setInputType(const String& t)
 {
+<<<<<<< HEAD:WebCore/html/HTMLInputElement.cpp
     InputType newType;
     
     if (equalIgnoringCase(t, "password"))
@@ -425,6 +636,10 @@ void HTMLInputElement::setInputType(const String& t)
         newType = COLOR;
     else
         newType = TEXT;
+=======
+    static const InputTypeMap* typeMap = createTypeMap();
+    InputType newType = t.isNull() ? TEXT : typeMap->get(t);
+>>>>>>> webkit.org at r51976:WebCore/html/HTMLInputElement.cpp
 
     // IMPORTANT: Don't allow the type to be changed to FILE after the first
     // type change, otherwise a JavaScript programmer would be able to set a text
@@ -495,82 +710,42 @@ void HTMLInputElement::setInputType(const String& t)
         m_imageLoader.clear();
 }
 
+static const AtomicString* createFormControlTypes()
+{
+    AtomicString* types = new AtomicString[HTMLInputElement::numberOfTypes];
+    // The values must be lowercased because they will be the return values of
+    //  input.type and it must be lowercase according to DOM Level 2.
+    types[HTMLInputElement::BUTTON] = "button";
+    types[HTMLInputElement::CHECKBOX] = "checkbox";
+    types[HTMLInputElement::COLOR] = "color";
+    types[HTMLInputElement::DATE] = "date";
+    types[HTMLInputElement::DATETIME] = "datetime";
+    types[HTMLInputElement::DATETIMELOCAL] = "datetime-local";
+    types[HTMLInputElement::EMAIL] = "email";
+    types[HTMLInputElement::FILE] = "file";
+    types[HTMLInputElement::HIDDEN] = "hidden";
+    types[HTMLInputElement::IMAGE] = "image";
+    types[HTMLInputElement::ISINDEX] = emptyAtom;
+    types[HTMLInputElement::MONTH] = "month";
+    types[HTMLInputElement::NUMBER] = "number";
+    types[HTMLInputElement::PASSWORD] = "password";
+    types[HTMLInputElement::RADIO] = "radio";
+    types[HTMLInputElement::RANGE] = "range";
+    types[HTMLInputElement::RESET] = "reset";
+    types[HTMLInputElement::SEARCH] = "search";
+    types[HTMLInputElement::SUBMIT] = "submit";
+    types[HTMLInputElement::TELEPHONE] = "tel";
+    types[HTMLInputElement::TEXT] = "text";
+    types[HTMLInputElement::TIME] = "time";
+    types[HTMLInputElement::URL] = "url";
+    types[HTMLInputElement::WEEK] = "week";
+    return types;
+}
+
 const AtomicString& HTMLInputElement::formControlType() const
 {
-    // needs to be lowercase according to DOM spec
-    switch (inputType()) {
-        case BUTTON: {
-            DEFINE_STATIC_LOCAL(const AtomicString, button, ("button"));
-            return button;
-        }
-        case CHECKBOX: {
-            DEFINE_STATIC_LOCAL(const AtomicString, checkbox, ("checkbox"));
-            return checkbox;
-        }
-        case COLOR: {
-            DEFINE_STATIC_LOCAL(const AtomicString, color, ("color"));
-            return color;
-        }
-        case EMAIL: {
-            DEFINE_STATIC_LOCAL(const AtomicString, email, ("email"));
-            return email;
-        }
-        case FILE: {
-            DEFINE_STATIC_LOCAL(const AtomicString, file, ("file"));
-            return file;
-        }
-        case HIDDEN: {
-            DEFINE_STATIC_LOCAL(const AtomicString, hidden, ("hidden"));
-            return hidden;
-        }
-        case IMAGE: {
-            DEFINE_STATIC_LOCAL(const AtomicString, image, ("image"));
-            return image;
-        }
-        case ISINDEX:
-            return emptyAtom;
-        case NUMBER: {
-            DEFINE_STATIC_LOCAL(const AtomicString, number, ("number"));
-            return number;
-        }
-        case PASSWORD: {
-            DEFINE_STATIC_LOCAL(const AtomicString, password, ("password"));
-            return password;
-        }
-        case RADIO: {
-            DEFINE_STATIC_LOCAL(const AtomicString, radio, ("radio"));
-            return radio;
-        }
-        case RANGE: {
-            DEFINE_STATIC_LOCAL(const AtomicString, range, ("range"));
-            return range;
-        }
-        case RESET: {
-            DEFINE_STATIC_LOCAL(const AtomicString, reset, ("reset"));
-            return reset;
-        }
-        case SEARCH: {
-            DEFINE_STATIC_LOCAL(const AtomicString, search, ("search"));
-            return search;
-        }
-        case SUBMIT: {
-            DEFINE_STATIC_LOCAL(const AtomicString, submit, ("submit"));
-            return submit;
-        }
-        case TELEPHONE: {
-            DEFINE_STATIC_LOCAL(const AtomicString, telephone, ("tel"));
-            return telephone;
-        }
-        case TEXT: {
-            DEFINE_STATIC_LOCAL(const AtomicString, text, ("text"));
-            return text;
-        }
-        case URL: {
-            DEFINE_STATIC_LOCAL(const AtomicString, url, ("url"));
-            return url;
-        }
-    }
-    return emptyAtom;
+    static const AtomicString* formControlTypes = createFormControlTypes();
+    return formControlTypes[inputType()];
 }
 
 bool HTMLInputElement::saveFormControlState(String& result) const
@@ -581,11 +756,15 @@ bool HTMLInputElement::saveFormControlState(String& result) const
     switch (inputType()) {
         case BUTTON:
         case COLOR:
+        case DATE:
+        case DATETIME:
+        case DATETIMELOCAL:
         case EMAIL:
         case FILE:
         case HIDDEN:
         case IMAGE:
         case ISINDEX:
+        case MONTH:
         case NUMBER:
         case RANGE:
         case RESET:
@@ -593,7 +772,9 @@ bool HTMLInputElement::saveFormControlState(String& result) const
         case SUBMIT:
         case TELEPHONE:
         case TEXT:
+        case TIME:
         case URL:
+        case WEEK:
             result = value();
             return true;
         case CHECKBOX:
@@ -613,11 +794,15 @@ void HTMLInputElement::restoreFormControlState(const String& state)
     switch (inputType()) {
         case BUTTON:
         case COLOR:
+        case DATE:
+        case DATETIME:
+        case DATETIMELOCAL:
         case EMAIL:
         case FILE:
         case HIDDEN:
         case IMAGE:
         case ISINDEX:
+        case MONTH:
         case NUMBER:
         case RANGE:
         case RESET:
@@ -625,7 +810,9 @@ void HTMLInputElement::restoreFormControlState(const String& state)
         case SUBMIT:
         case TELEPHONE:
         case TEXT:
+        case TIME:
         case URL:
+        case WEEK:
             setValue(state);
             break;
         case CHECKBOX:
@@ -668,14 +855,20 @@ void HTMLInputElement::accessKeyAction(bool sendToAnyElement)
             // a no-op for this type
             break;
         case COLOR:
+        case DATE:
+        case DATETIME:
+        case DATETIMELOCAL:
         case EMAIL:
         case ISINDEX:
+        case MONTH:
         case NUMBER:
         case PASSWORD:
         case SEARCH:
         case TELEPHONE:
         case TEXT:
+        case TIME:
         case URL:
+        case WEEK:
             // should never restore previous selection here
             focus(false);
             break;
@@ -714,12 +907,15 @@ void HTMLInputElement::parseMappedAttribute(MappedAttribute *attr)
             m_autocomplete = Off;
             registerForActivationCallbackIfNeeded();
         } else {
-            if (m_autocomplete == Off)
-                unregisterForActivationCallbackIfNeeded();
+            bool needsToUnregister = m_autocomplete == Off;
+
             if (attr->isEmpty())
                 m_autocomplete = Uninitialized;
             else
                 m_autocomplete = On;
+
+            if (needsToUnregister)
+                unregisterForActivationCallbackIfNeeded();
         }
     } else if (attr->name() == typeAttr) {
         setInputType(attr->value());
@@ -802,30 +998,9 @@ void HTMLInputElement::parseMappedAttribute(MappedAttribute *attr)
 
 bool HTMLInputElement::rendererIsNeeded(RenderStyle *style)
 {
-    switch (inputType()) {
-        case BUTTON:
-        case CHECKBOX:
-        case COLOR:
-        case EMAIL:
-        case FILE:
-        case IMAGE:
-        case ISINDEX:
-        case NUMBER:
-        case PASSWORD:
-        case RADIO:
-        case RANGE:
-        case RESET:
-        case SEARCH:
-        case SUBMIT:
-        case TELEPHONE:
-        case TEXT:
-        case URL:
-            return HTMLFormControlElementWithState::rendererIsNeeded(style);
-        case HIDDEN:
-            return false;
-    }
-    ASSERT(false);
-    return false;
+    if (inputType() == HIDDEN)
+        return false;
+    return HTMLFormControlElementWithState::rendererIsNeeded(style);
 }
 
 RenderObject *HTMLInputElement::createRenderer(RenderArena *arena, RenderStyle *style)
@@ -847,14 +1022,20 @@ RenderObject *HTMLInputElement::createRenderer(RenderArena *arena, RenderStyle *
         case RANGE:
             return new (arena) RenderSlider(this);
         case COLOR:
+        case DATE:
+        case DATETIME:
+        case DATETIMELOCAL:
         case EMAIL:
         case ISINDEX:
+        case MONTH:
         case NUMBER:
         case PASSWORD:
         case SEARCH:
         case TELEPHONE:
         case TEXT:
+        case TIME:
         case URL:
+        case WEEK:
             return new (arena) RenderTextControlSingleLine(this, placeholderShouldBeVisible());
     }
     ASSERT(false);
@@ -934,16 +1115,22 @@ bool HTMLInputElement::appendFormData(FormDataList& encoding, bool multipart)
 
     switch (inputType()) {
         case COLOR:
+        case DATE:
+        case DATETIME:
+        case DATETIMELOCAL:
         case EMAIL:
         case HIDDEN:
         case ISINDEX:
+        case MONTH:
         case NUMBER:
         case PASSWORD:
         case RANGE:
         case SEARCH:
         case TELEPHONE:
         case TEXT:
+        case TIME:
         case URL:
+        case WEEK:
             // always successful
             encoding.appendData(name(), value());
             return true;
@@ -1019,6 +1206,40 @@ void HTMLInputElement::reset()
 
     setChecked(m_defaultChecked);
     m_useDefaultChecked = true;
+}
+
+bool HTMLInputElement::isTextField() const
+{
+    switch (inputType()) {
+    case COLOR:
+    case DATE:
+    case DATETIME:
+    case DATETIMELOCAL:
+    case EMAIL:
+    case ISINDEX:
+    case MONTH:
+    case NUMBER:
+    case PASSWORD:
+    case SEARCH:
+    case TELEPHONE:
+    case TEXT:
+    case TIME:
+    case URL:
+    case WEEK:
+        return true;
+    case BUTTON:
+    case CHECKBOX:
+    case FILE:
+    case HIDDEN:
+    case IMAGE:
+    case RADIO:
+    case RANGE:
+    case RESET:
+    case SUBMIT:
+        return false;
+    }
+    ASSERT_NOT_REACHED();
+    return false;
 }
 
 void HTMLInputElement::setChecked(bool nowChecked, bool sendChangeEvent)
@@ -1112,11 +1333,15 @@ String HTMLInputElement::valueWithDefault() const
             case BUTTON:
             case CHECKBOX:
             case COLOR:
+            case DATE:
+            case DATETIME:
+            case DATETIMELOCAL:
             case EMAIL:
             case FILE:
             case HIDDEN:
             case IMAGE:
             case ISINDEX:
+            case MONTH:
             case NUMBER:
             case PASSWORD:
             case RADIO:
@@ -1124,7 +1349,9 @@ String HTMLInputElement::valueWithDefault() const
             case SEARCH:
             case TELEPHONE:
             case TEXT:
+            case TIME:
             case URL:
+            case WEEK:
                 break;
             case RESET:
                 v = resetButtonDefaultLabel();
@@ -1137,7 +1364,13 @@ String HTMLInputElement::valueWithDefault() const
     return v;
 }
 
-void HTMLInputElement::setValue(const String& value)
+void HTMLInputElement::setValueForUser(const String& value)
+{
+    // Call setValue and make it send a change event.
+    setValue(value, true);
+}
+
+void HTMLInputElement::setValue(const String& value, bool sendChangeEvent)
 {
     // For security reasons, we don't allow setting the filename, but we do allow clearing it.
     // The HTML5 spec (as of the 10/24/08 working draft) says that the value attribute isn't applicable to the file upload control
@@ -1162,7 +1395,7 @@ void HTMLInputElement::setValue(const String& value)
         setNeedsStyleRecalc();
     } else
         setAttribute(valueAttr, sanitizeValue(value));
-    
+
     if (isTextField()) {
         unsigned max = m_data.value().length();
 #ifdef ANDROID_ACCEPT_CHANGES_TO_FOCUSED_TEXTFIELDS
@@ -1174,6 +1407,12 @@ void HTMLInputElement::setValue(const String& value)
         else
             cacheSelection(max, max);
     }
+
+    // Don't dispatch the change event when focused, it will be dispatched
+    // when the control loses focus.
+    if (sendChangeEvent && document()->focusedNode() != this)
+        dispatchFormControlChangeEvent();
+
     InputElement::notifyFormStateChanged(this);
     updateValidity();
 }
@@ -1226,16 +1465,22 @@ bool HTMLInputElement::storesValueSeparateFromAttribute() const
         case SUBMIT:
             return false;
         case COLOR:
+        case DATE:
+        case DATETIME:
+        case DATETIMELOCAL:
         case EMAIL:
         case FILE:
         case ISINDEX:
+        case MONTH:
         case NUMBER:
         case PASSWORD:
         case RANGE:
         case SEARCH:
         case TELEPHONE:
         case TEXT:
+        case TIME:
         case URL:
+        case WEEK:
             return true;
     }
     return false;
@@ -1402,16 +1647,22 @@ void HTMLInputElement::defaultEventHandler(Event* evt)
             switch (inputType()) {
                 case CHECKBOX:
                 case COLOR:
+                case DATE:
+                case DATETIME:
+                case DATETIMELOCAL:
                 case EMAIL:
                 case HIDDEN:
                 case ISINDEX:
+                case MONTH:
                 case NUMBER:
                 case PASSWORD:
                 case RANGE:
                 case SEARCH:
                 case TELEPHONE:
                 case TEXT:
+                case TIME:
                 case URL:
+                case WEEK:
                     // Simulate mouse click on the default form button for enter for these types of elements.
                     clickDefaultFormButton = true;
                     break;
@@ -1531,16 +1782,22 @@ void HTMLInputElement::defaultEventHandler(Event* evt)
                         clickElement = true;
                     break;
                 case COLOR:
+                case DATE:
+                case DATETIME:
+                case DATETIMELOCAL:
                 case EMAIL:
                 case HIDDEN:
                 case ISINDEX:
+                case MONTH:
                 case NUMBER:
                 case PASSWORD:
                 case RANGE:
                 case SEARCH:
                 case TELEPHONE:
                 case TEXT:
+                case TIME:
                 case URL:
+                case WEEK:
                     break;
             }
         }
@@ -1560,12 +1817,12 @@ void HTMLInputElement::defaultEventHandler(Event* evt)
         }
         // Fire onChange for text fields.
         RenderObject* r = renderer();
-        if (r && r->isTextField() && toRenderTextControl(r)->isEdited()) {
+        if (r && r->isTextField() && toRenderTextControl(r)->wasChangedSinceLastChangeEvent()) {
             dispatchFormControlChangeEvent();
             // Refetch the renderer since arbitrary JS code run during onchange can do anything, including destroying it.
             r = renderer();
             if (r && r->isTextField())
-                toRenderTextControl(r)->setEdited(false);
+                toRenderTextControl(r)->setChangedSinceLastChangeEvent(false);
         }
 
         RefPtr<HTMLFormElement> formForSubmission = form();
@@ -1771,25 +2028,31 @@ bool HTMLInputElement::isRequiredFormControl() const
         return false;
 
     switch (inputType()) {
-        case TEXT:
-        case SEARCH:
-        case URL:
-        case TELEPHONE:
-        case EMAIL:
-        case PASSWORD:
-        case NUMBER:
         case CHECKBOX:
-        case RADIO:
+        case DATE:
+        case DATETIME:
+        case DATETIMELOCAL:
+        case EMAIL:
         case FILE:
+        case MONTH:
+        case NUMBER:
+        case PASSWORD:
+        case RADIO:
+        case SEARCH:
+        case TELEPHONE:
+        case TEXT:
+        case TIME:
+        case URL:
+        case WEEK:
             return true;
-        case HIDDEN:
-        case RANGE:
-        case SUBMIT:
-        case IMAGE:
-        case RESET:
         case BUTTON:
         case COLOR:
+        case HIDDEN:
+        case IMAGE:
         case ISINDEX:
+        case RANGE:
+        case RESET:
+        case SUBMIT:
             return false;
     }
 
@@ -1856,6 +2119,16 @@ bool HTMLInputElement::willValidate() const
            inputType() != BUTTON && inputType() != RESET;
 }
 
+String HTMLInputElement::formStringFromDouble(double number)
+{
+    // According to HTML5, "the best representation of the number n as a floating
+    // point number" is a string produced by applying ToString() to n.
+    DtoaBuffer buffer;
+    unsigned length;
+    doubleToStringInJavaScriptFormat(number, buffer, &length);
+    return String(buffer, length);
+}
+
 bool HTMLInputElement::formStringToDouble(const String& src, double* out)
 {
     // See HTML5 2.4.4.3 `Real numbers.'
@@ -1879,6 +2152,34 @@ bool HTMLInputElement::formStringToDouble(const String& src, double* out)
     return true;
 }
 
+bool HTMLInputElement::formStringToISODateTime(InputType type, const String& formString, ISODateTime* out)
+{
+    ISODateTime ignoredResult;
+    if (!out)
+        out = &ignoredResult;
+    const UChar* characters = formString.characters();
+    unsigned length = formString.length();
+    unsigned end;
+
+    switch (type) {
+    case DATE:
+        return out->parseDate(characters, length, 0, end) && end == length;
+    case DATETIME:
+        return out->parseDateTime(characters, length, 0, end) && end == length;
+    case DATETIMELOCAL:
+        return out->parseDateTimeLocal(characters, length, 0, end) && end == length;
+    case MONTH:
+        return out->parseMonth(characters, length, 0, end) && end == length;
+    case WEEK:
+        return out->parseWeek(characters, length, 0, end) && end == length;
+    case TIME:
+        return out->parseTime(characters, length, 0, end) && end == length;
+    default:
+        ASSERT_NOT_REACHED();
+        return false;
+    }
+}
+
 #if ENABLE(DATALIST)
 HTMLElement* HTMLInputElement::list() const
 {
@@ -1891,29 +2192,35 @@ HTMLDataListElement* HTMLInputElement::dataList() const
         return 0;
 
     switch (inputType()) {
-    case TEXT:
-    case SEARCH:
-    case URL:
-    case TELEPHONE:
+    case COLOR:
+    case DATE:
+    case DATETIME:
+    case DATETIMELOCAL:
     case EMAIL:
+    case MONTH:
     case NUMBER:
     case RANGE:
-    case COLOR: {
+    case SEARCH:
+    case TELEPHONE:
+    case TEXT:
+    case TIME:
+    case URL:
+    case WEEK: {
         Element* element = document()->getElementById(getAttribute(listAttr));
         if (element && element->hasTagName(datalistTag))
             return static_cast<HTMLDataListElement*>(element);
         break;
     }
-    case HIDDEN:
-    case PASSWORD:
-    case CHECKBOX:
-    case RADIO:
-    case FILE:
-    case SUBMIT:
-    case IMAGE:
-    case RESET:
     case BUTTON:
+    case CHECKBOX:
+    case FILE:
+    case HIDDEN:
+    case IMAGE:
     case ISINDEX:
+    case PASSWORD:
+    case RADIO:
+    case RESET:
+    case SUBMIT:
         break;
     }
     return 0;

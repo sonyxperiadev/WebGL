@@ -37,6 +37,8 @@
 #include "PassRefPtr.h"
 #include "PasteboardPrivate.h"
 
+#include <wtf/Vector.h>
+
 typedef struct NPObject NPObject;
 typedef struct _NPP NPP_t;
 typedef NPP_t* NPP;
@@ -58,6 +60,7 @@ namespace WebCore {
     class String;
     class Widget;
 
+    struct Cookie;
     struct PluginInfo;
 
     // An interface to the embedding layer, which has the ability to answer
@@ -82,6 +85,8 @@ namespace WebCore {
         // Cookies ------------------------------------------------------------
         static void setCookies(const KURL& url, const KURL& firstPartyForCookies, const String& value);
         static String cookies(const KURL& url, const KURL& firstPartyForCookies);
+        static bool rawCookies(const KURL& url, const KURL& firstPartyForCookies, Vector<Cookie>*);
+        static void deleteCookie(const KURL& url, const String& cookieName);
 
         // DNS ----------------------------------------------------------------
         static void prefetchDNS(const String& hostname);
@@ -113,13 +118,13 @@ namespace WebCore {
         // HTML5 DB -----------------------------------------------------------
 #if ENABLE(DATABASE)
         // Returns a handle to the DB file and ooptionally a handle to its containing directory
-        static PlatformFileHandle databaseOpenFile(const String& fileName, int desiredFlags, PlatformFileHandle* dirHandle = 0);
+        static PlatformFileHandle databaseOpenFile(const String& vfsFleName, int desiredFlags, PlatformFileHandle* dirHandle = 0);
         // Returns a SQLite code (SQLITE_OK = 0, on success)
-        static int databaseDeleteFile(const String& fileName, bool syncDir = false);
+        static int databaseDeleteFile(const String& vfsFileName, bool syncDir = false);
         // Returns the attributes of the DB file
-        static long databaseGetFileAttributes(const String& fileName);
+        static long databaseGetFileAttributes(const String& vfsFileName);
         // Returns the size of the DB file
-        static long long databaseGetFileSize(const String& fileName);
+        static long long databaseGetFileSize(const String& vfsFileName);
 #endif
 
         // JavaScript ---------------------------------------------------------
@@ -135,6 +140,11 @@ namespace WebCore {
         // LayoutTestMode -----------------------------------------------------
         static bool layoutTestMode();
 
+        // Memory -------------------------------------------------------------
+        // Returns the current space allocated for the pagefile, in MB.
+        // That is committed size for Windows and virtual memory size for POSIX
+        static int memoryUsageMB();
+
         // MimeType -----------------------------------------------------------
         static bool isSupportedImageMIMEType(const String& mimeType);
         static bool isSupportedJavaScriptMIMEType(const String& mimeType);
@@ -147,9 +157,6 @@ namespace WebCore {
         static bool plugins(bool refresh, Vector<PluginInfo*>*);
         static NPObject* pluginScriptableObject(Widget*);
         static bool popupsAllowed(NPP);
-
-        // Protocol -----------------------------------------------------------
-        static String uiResourceProtocol();  // deprecated
 
         // Resources ----------------------------------------------------------
         static PassRefPtr<Image> loadPlatformImageResource(const char* name);

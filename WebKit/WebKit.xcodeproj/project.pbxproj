@@ -326,6 +326,8 @@
 		ABDDF20D08EB0DDC001E1241 /* WebDownloadInternal.h in Headers */ = {isa = PBXBuildFile; fileRef = ABDDF20C08EB0DDC001E1241 /* WebDownloadInternal.h */; };
 		B6CE5C24100BC5CE00219936 /* WebApplicationCache.mm in Sources */ = {isa = PBXBuildFile; fileRef = B68049720FFBCEC1009F7F62 /* WebApplicationCache.mm */; };
 		B6CE5C25100BC5F500219936 /* WebApplicationCache.h in Headers */ = {isa = PBXBuildFile; fileRef = B68049710FFBCEC1009F7F62 /* WebApplicationCache.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		BC26C69E10B743F400B687ED /* WebSerializedJSValue.h in Headers */ = {isa = PBXBuildFile; fileRef = BC26C69D10B743F400B687ED /* WebSerializedJSValue.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		BC26C6A510B7447A00B687ED /* WebSerializedJSValue.mm in Sources */ = {isa = PBXBuildFile; fileRef = BC26C6A410B7447A00B687ED /* WebSerializedJSValue.mm */; };
 		BC2E464D0FD8A96800A9D9DE /* WebViewData.h in Headers */ = {isa = PBXBuildFile; fileRef = BC2E464B0FD8A96800A9D9DE /* WebViewData.h */; };
 		BC2E464E0FD8A96800A9D9DE /* WebViewData.mm in Sources */ = {isa = PBXBuildFile; fileRef = BC2E464C0FD8A96800A9D9DE /* WebViewData.mm */; };
 		BC542C420FD7766F00D8AB5D /* WebDelegateImplementationCaching.h in Headers */ = {isa = PBXBuildFile; fileRef = BC542C400FD7766F00D8AB5D /* WebDelegateImplementationCaching.h */; };
@@ -333,6 +335,10 @@
 		BC97E7E210963D260010D361 /* WebViewEventHandling.mm in Sources */ = {isa = PBXBuildFile; fileRef = BC97E7E110963D260010D361 /* WebViewEventHandling.mm */; };
 		C0167BF80D7F5DD00028696E /* WebScriptDebugger.h in Headers */ = {isa = PBXBuildFile; fileRef = C0167BF60D7F5DD00028696E /* WebScriptDebugger.h */; };
 		C0167BF90D7F5DD00028696E /* WebScriptDebugger.mm in Sources */ = {isa = PBXBuildFile; fileRef = C0167BF70D7F5DD00028696E /* WebScriptDebugger.mm */; };
+		C0B1F7E810AC8E3100C925D9 /* WebScriptWorld.h in Headers */ = {isa = PBXBuildFile; fileRef = C0B1F7E510AC8E3100C925D9 /* WebScriptWorld.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		C0B1F7E910AC8E3100C925D9 /* WebScriptWorld.mm in Sources */ = {isa = PBXBuildFile; fileRef = C0B1F7E610AC8E3100C925D9 /* WebScriptWorld.mm */; };
+		C0B1F7EA10AC8E3100C925D9 /* WebScriptWorldInternal.h in Headers */ = {isa = PBXBuildFile; fileRef = C0B1F7E710AC8E3100C925D9 /* WebScriptWorldInternal.h */; };
+		C0B88E8B10A08F3D00FBB3F5 /* WebFrameLoadDelegatePrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = C0B88E8A10A08F3D00FBB3F5 /* WebFrameLoadDelegatePrivate.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		DD7CDEE70A23BA9E00069928 /* WebTypesInternal.h in Headers */ = {isa = PBXBuildFile; fileRef = DD7CDEE60A23BA9E00069928 /* WebTypesInternal.h */; };
 		DD89682009AA87240097E7F0 /* WebElementDictionary.h in Headers */ = {isa = PBXBuildFile; fileRef = DD89681E09AA87240097E7F0 /* WebElementDictionary.h */; };
 		DD89682109AA87240097E7F0 /* WebElementDictionary.mm in Sources */ = {isa = PBXBuildFile; fileRef = DD89681F09AA87240097E7F0 /* WebElementDictionary.mm */; };
@@ -344,9 +350,6 @@
 		EDE983810BCDF5FE00FDAE28 /* WebNSArrayExtras.m in Sources */ = {isa = PBXBuildFile; fileRef = EDE9837F0BCDF5FE00FDAE28 /* WebNSArrayExtras.m */; };
 		F834AAD70E64B1C700E2737C /* WebTextIterator.h in Headers */ = {isa = PBXBuildFile; fileRef = F834AAD50E64B1C700E2737C /* WebTextIterator.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		F834AAD80E64B1C700E2737C /* WebTextIterator.mm in Sources */ = {isa = PBXBuildFile; fileRef = F834AAD60E64B1C700E2737C /* WebTextIterator.mm */; };
-		FEF52DFA0F6748F200FF70EE /* WebGeolocation.mm in Sources */ = {isa = PBXBuildFile; fileRef = FEF52DF70F6748F200FF70EE /* WebGeolocation.mm */; };
-		FEF52DFB0F6748F200FF70EE /* WebGeolocationInternal.h in Headers */ = {isa = PBXBuildFile; fileRef = FEF52DF80F6748F200FF70EE /* WebGeolocationInternal.h */; };
-		FEF52DFC0F6748F200FF70EE /* WebGeolocationPrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = FEF52DF90F6748F200FF70EE /* WebGeolocationPrivate.h */; settings = {ATTRIBUTES = (Private, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -601,6 +604,8 @@
 		ABDDF20C08EB0DDC001E1241 /* WebDownloadInternal.h */ = {isa = PBXFileReference; fileEncoding = 30; indentWidth = 4; lastKnownFileType = sourcecode.c.h; path = WebDownloadInternal.h; sourceTree = "<group>"; tabWidth = 8; usesTabs = 0; };
 		B68049710FFBCEC1009F7F62 /* WebApplicationCache.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = WebApplicationCache.h; sourceTree = "<group>"; };
 		B68049720FFBCEC1009F7F62 /* WebApplicationCache.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = WebApplicationCache.mm; sourceTree = "<group>"; };
+		BC26C69D10B743F400B687ED /* WebSerializedJSValue.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = WebSerializedJSValue.h; sourceTree = "<group>"; };
+		BC26C6A410B7447A00B687ED /* WebSerializedJSValue.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = WebSerializedJSValue.mm; sourceTree = "<group>"; };
 		BC2E464B0FD8A96800A9D9DE /* WebViewData.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = WebViewData.h; sourceTree = "<group>"; };
 		BC2E464C0FD8A96800A9D9DE /* WebViewData.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = WebViewData.mm; sourceTree = "<group>"; };
 		BC542C400FD7766F00D8AB5D /* WebDelegateImplementationCaching.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = WebDelegateImplementationCaching.h; sourceTree = "<group>"; };
@@ -621,6 +626,10 @@
 		BEE52D4B0473032500CA289C /* WebKitSystemBits.m */ = {isa = PBXFileReference; fileEncoding = 4; indentWidth = 4; lastKnownFileType = sourcecode.c.objc; path = WebKitSystemBits.m; sourceTree = "<group>"; tabWidth = 8; usesTabs = 0; };
 		C0167BF60D7F5DD00028696E /* WebScriptDebugger.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = WebScriptDebugger.h; sourceTree = "<group>"; };
 		C0167BF70D7F5DD00028696E /* WebScriptDebugger.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = WebScriptDebugger.mm; sourceTree = "<group>"; };
+		C0B1F7E510AC8E3100C925D9 /* WebScriptWorld.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = WebScriptWorld.h; sourceTree = "<group>"; };
+		C0B1F7E610AC8E3100C925D9 /* WebScriptWorld.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = WebScriptWorld.mm; sourceTree = "<group>"; };
+		C0B1F7E710AC8E3100C925D9 /* WebScriptWorldInternal.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = WebScriptWorldInternal.h; sourceTree = "<group>"; };
+		C0B88E8A10A08F3D00FBB3F5 /* WebFrameLoadDelegatePrivate.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = WebFrameLoadDelegatePrivate.h; sourceTree = "<group>"; };
 		DD7CDEE60A23BA9E00069928 /* WebTypesInternal.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = WebTypesInternal.h; sourceTree = "<group>"; };
 		DD89681E09AA87240097E7F0 /* WebElementDictionary.h */ = {isa = PBXFileReference; fileEncoding = 4; indentWidth = 4; lastKnownFileType = sourcecode.c.h; path = WebElementDictionary.h; sourceTree = "<group>"; tabWidth = 8; usesTabs = 0; };
 		DD89681F09AA87240097E7F0 /* WebElementDictionary.mm */ = {isa = PBXFileReference; fileEncoding = 4; indentWidth = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = WebElementDictionary.mm; sourceTree = "<group>"; tabWidth = 8; usesTabs = 0; };
@@ -694,9 +703,6 @@
 		F834AAD60E64B1C700E2737C /* WebTextIterator.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = WebTextIterator.mm; sourceTree = "<group>"; };
 		F8CA15B5029A39D901000122 /* WebAuthenticationPanel.h */ = {isa = PBXFileReference; fileEncoding = 30; indentWidth = 4; lastKnownFileType = sourcecode.c.h; path = WebAuthenticationPanel.h; sourceTree = "<group>"; tabWidth = 8; usesTabs = 0; };
 		F8CA15B6029A39D901000122 /* WebAuthenticationPanel.m */ = {isa = PBXFileReference; fileEncoding = 4; indentWidth = 4; lastKnownFileType = sourcecode.c.objc; path = WebAuthenticationPanel.m; sourceTree = "<group>"; tabWidth = 8; usesTabs = 0; };
-		FEF52DF70F6748F200FF70EE /* WebGeolocation.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = WebGeolocation.mm; sourceTree = "<group>"; };
-		FEF52DF80F6748F200FF70EE /* WebGeolocationInternal.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = WebGeolocationInternal.h; sourceTree = "<group>"; };
-		FEF52DF90F6748F200FF70EE /* WebGeolocationPrivate.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = WebGeolocationPrivate.h; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -1103,6 +1109,7 @@
 				F5143A370221DCCE01A80181 /* WebFrame.mm */,
 				930D02BD06275F710076701E /* WebFrameInternal.h */,
 				5152FAE5033FC52200CA2ACD /* WebFrameLoadDelegate.h */,
+				C0B88E8A10A08F3D00FBB3F5 /* WebFrameLoadDelegatePrivate.h */,
 				9CF0E249021361B00ECA16EA /* WebFramePrivate.h */,
 				51A8B52E04282B5900CA2D3A /* WebFrameView.h */,
 				51A8B52F04282B5900CA2D3A /* WebFrameView.mm */,
@@ -1130,6 +1137,11 @@
 				7E6FEF0608985A7200C44C3F /* WebScriptDebugDelegate.mm */,
 				C0167BF60D7F5DD00028696E /* WebScriptDebugger.h */,
 				C0167BF70D7F5DD00028696E /* WebScriptDebugger.mm */,
+				C0B1F7E510AC8E3100C925D9 /* WebScriptWorld.h */,
+				C0B1F7E610AC8E3100C925D9 /* WebScriptWorld.mm */,
+				C0B1F7E710AC8E3100C925D9 /* WebScriptWorldInternal.h */,
+				BC26C6A410B7447A00B687ED /* WebSerializedJSValue.mm */,
+				BC26C69D10B743F400B687ED /* WebSerializedJSValue.h */,
 				936A2DE90FD2D08400D312DB /* WebTextCompletionController.h */,
 				936A2DE70FD2D08000D312DB /* WebTextCompletionController.mm */,
 				F834AAD50E64B1C700E2737C /* WebTextIterator.h */,
@@ -1203,9 +1215,6 @@
 				4BF99F8F0AE050BC00815C2B /* WebEditorClient.mm */,
 				931633EA0AEDFF930062B92D /* WebFrameLoaderClient.h */,
 				931633EE0AEDFFAE0062B92D /* WebFrameLoaderClient.mm */,
-				FEF52DF70F6748F200FF70EE /* WebGeolocation.mm */,
-				FEF52DF80F6748F200FF70EE /* WebGeolocationInternal.h */,
-				FEF52DF90F6748F200FF70EE /* WebGeolocationPrivate.h */,
 				51494CD40C7EBDE0004178C5 /* WebIconDatabaseClient.h */,
 				51494CD50C7EBDE0004178C5 /* WebIconDatabaseClient.mm */,
 				9CE1F8A302A5C6F30ECA2ACD /* WebImageRendererFactory.m */,
@@ -1384,8 +1393,6 @@
 				9398106E0824BF01008DF038 /* WebFrameView.h in Headers */,
 				9398106F0824BF01008DF038 /* WebFrameViewInternal.h in Headers */,
 				939810AF0824BF01008DF038 /* WebFrameViewPrivate.h in Headers */,
-				FEF52DFB0F6748F200FF70EE /* WebGeolocationInternal.h in Headers */,
-				FEF52DFC0F6748F200FF70EE /* WebGeolocationPrivate.h in Headers */,
 				939810120824BF01008DF038 /* WebHistory.h in Headers */,
 				93FDE9330D79CAF30074F029 /* WebHistoryInternal.h in Headers */,
 				939810130824BF01008DF038 /* WebHistoryItem.h in Headers */,
@@ -1513,6 +1520,10 @@
 				0FD3B0F41076C3E900039B96 /* WebVideoFullscreenHUDWindowController.h in Headers */,
 				0FD3B0F81076C3F700039B96 /* WebWindowAnimation.h in Headers */,
 				0A2D87FD107AF52B00CDDEE3 /* WebPluginHalterClient.h in Headers */,
+				C0B1F7E810AC8E3100C925D9 /* WebScriptWorld.h in Headers */,
+				C0B1F7EA10AC8E3100C925D9 /* WebScriptWorldInternal.h in Headers */,
+				C0B88E8B10A08F3D00FBB3F5 /* WebFrameLoadDelegatePrivate.h in Headers */,
+				BC26C69E10B743F400B687ED /* WebSerializedJSValue.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1650,7 +1661,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "# Touch Info.plist to let Xcode know it needs to copy it into the built product\ntouch \"$PROJECT_DIR/mac/Info.plist\"\n";
+			shellScript = "# Touch Info.plist to let Xcode know it needs to copy it into the built product\nif [[ \"${CONFIGURATION}\" != \"Production\" ]]; then\n    touch \"${PROJECT_DIR}/mac/Info.plist\";\nfi;\n";
 		};
 		5DE6D18C0FCF231B002DE28C /* Symlink WebKitPluginHost in to place */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -1764,7 +1775,6 @@
 				939810F20824BF01008DF038 /* WebFrame.mm in Sources */,
 				931633EF0AEDFFAE0062B92D /* WebFrameLoaderClient.mm in Sources */,
 				939811060824BF01008DF038 /* WebFrameView.mm in Sources */,
-				FEF52DFA0F6748F200FF70EE /* WebGeolocation.mm in Sources */,
 				939811130824BF01008DF038 /* WebHistory.mm in Sources */,
 				939810BD0824BF01008DF038 /* WebHistoryItem.mm in Sources */,
 				1AAF5FC00EDE3A92008D883D /* WebHostedNetscapePluginView.mm in Sources */,
@@ -1853,6 +1863,8 @@
 				0FD3B0F91076C3F700039B96 /* WebWindowAnimation.m in Sources */,
 				0A2D87FE107AF52B00CDDEE3 /* WebPluginHalterClient.mm in Sources */,
 				BC97E7E210963D260010D361 /* WebViewEventHandling.mm in Sources */,
+				C0B1F7E910AC8E3100C925D9 /* WebScriptWorld.mm in Sources */,
+				BC26C6A510B7447A00B687ED /* WebSerializedJSValue.mm in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

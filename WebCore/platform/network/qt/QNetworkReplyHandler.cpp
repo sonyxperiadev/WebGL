@@ -21,8 +21,6 @@
 #include "config.h"
 #include "QNetworkReplyHandler.h"
 
-#if QT_VERSION >= 0x040400
-
 #include "HTTPParsers.h"
 #include "MIMETypeRegistry.h"
 #include "ResourceHandle.h"
@@ -140,10 +138,14 @@ QNetworkReplyHandler::QNetworkReplyHandler(ResourceHandle* handle, LoadMode load
         m_method = QNetworkAccessManager::PostOperation;
     else if (r.httpMethod() == "PUT")
         m_method = QNetworkAccessManager::PutOperation;
+#if QT_VERSION >= 0x040600
+    else if (r.httpMethod() == "DELETE")
+        m_method = QNetworkAccessManager::DeleteOperation;
+#endif
     else
         m_method = QNetworkAccessManager::UnknownOperation;
 
-    m_request = r.toNetworkRequest();
+    m_request = r.toNetworkRequest(m_resourceHandle->getInternal()->m_frame);
 
     if (m_loadMode == LoadNormal)
         start();
@@ -255,7 +257,7 @@ void QNetworkReplyHandler::sendResponseIfNeeded()
     if (m_shouldSendResponse)
         return;
 
-    if (m_reply->error())
+    if (m_reply->error() && !ignoreHttpError(m_reply, m_responseDataSent))
         return;
 
     if (m_responseSent || !m_resourceHandle)
@@ -305,9 +307,15 @@ void QNetworkReplyHandler::sendResponseIfNeeded()
         response.setHTTPStatusText(m_reply->attribute(QNetworkRequest::HttpReasonPhraseAttribute).toByteArray().constData());
 
         // Add remaining headers.
+#if QT_VERSION >= QT_VERSION_CHECK(4, 7, 0)
+        foreach (const QNetworkReply::RawHeaderPair& pair, m_reply->rawHeaderPairs()) {
+            response.setHTTPHeaderField(QString::fromAscii(pair.first), QString::fromAscii(pair.second));
+        }
+#else
         foreach (const QByteArray& headerName, m_reply->rawHeaderList()) {
             response.setHTTPHeaderField(QString::fromAscii(headerName), QString::fromAscii(m_reply->rawHeader(headerName)));
         }
+#endif
     }
 
     QUrl redirection = m_reply->attribute(QNetworkRequest::RedirectionTargetAttribute).toUrl();
@@ -321,12 +329,13 @@ void QNetworkReplyHandler::sendResponseIfNeeded()
             newRequest.setHTTPMethod("GET");
         }
 
+        // Should not set Referer after a redirect from a secure resource to non-secure one.
+        if (!newRequest.url().protocolIs("https") && protocolIs(newRequest.httpReferrer(), "https"))
+            newRequest.clearHTTPReferrer();
+
         client->willSendRequest(m_resourceHandle, newRequest, response);
         m_redirected = true;
-        m_request = newRequest.toNetworkRequest();
-
-        ResourceHandleInternal* d = m_resourceHandle->getInternal();
-        emit d->m_frame->page()->networkRequestStarted(d->m_frame, &m_request);
+        m_request = newRequest.toNetworkRequest(m_resourceHandle->getInternal()->m_frame);
         return;
     }
 
@@ -368,8 +377,6 @@ void QNetworkReplyHandler::start()
 
     QNetworkAccessManager* manager = d->m_frame->page()->networkAccessManager();
 
-    emit d->m_frame->page()->networkRequestStarted(d->m_frame, &m_request);
-
     const QUrl url = m_request.url();
     const QString scheme = url.scheme();
     // Post requests on files and data don't really make sense, but for
@@ -398,6 +405,12 @@ void QNetworkReplyHandler::start()
             putDevice->setParent(m_reply);
             break;
         }
+#if QT_VERSION >= 0x040600
+        case QNetworkAccessManager::DeleteOperation: {
+            m_reply = manager->deleteResource(m_request);
+            break;
+        }
+#endif
         case QNetworkAccessManager::UnknownOperation: {
             m_reply = 0;
             ResourceHandleClient* client = m_resourceHandle->client();
@@ -461,5 +474,3 @@ void QNetworkReplyHandler::sendQueuedItems()
 }
 
 #include "moc_QNetworkReplyHandler.cpp"
-
-#endif

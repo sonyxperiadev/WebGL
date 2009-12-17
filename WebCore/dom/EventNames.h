@@ -41,6 +41,9 @@ namespace WebCore {
     macro(checking) \
     macro(click) \
     macro(close) \
+    macro(compositionend) \
+    macro(compositionstart) \
+    macro(compositionupdate) \
     macro(connect) \
     macro(contextmenu) \
     macro(copy) \
@@ -81,6 +84,7 @@ namespace WebCore {
     macro(pagehide) \
     macro(pageshow) \
     macro(paste) \
+    macro(popstate) \
     macro(readystatechange) \
     macro(reset) \
     macro(resize) \
@@ -135,6 +139,9 @@ namespace WebCore {
     macro(volumechange) \
     macro(waiting) \
     \
+    macro(webkitbeginfullscreen) \
+    macro(webkitendfullscreen) \
+    \
     macro(progress) \
     macro(stalled) \
     macro(suspend) \
@@ -149,7 +156,7 @@ namespace WebCore {
     \
 // end of DOM_EVENT_NAMES_FOR_EACH
 
-    class EventNames {
+    class EventNames : public Noncopyable {
         int dummy; // Needed to make initialization macro work.
         // Private to prevent accidental call to EventNames() instead of eventNames()
         EventNames();

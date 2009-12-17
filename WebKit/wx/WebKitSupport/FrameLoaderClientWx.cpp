@@ -37,11 +37,13 @@
 #include "FrameLoaderTypes.h"
 #include "FrameView.h"
 #include "FrameTree.h"
+#include "PluginView.h"
 #include "HTMLFormElement.h"
 #include "HTMLFrameOwnerElement.h"
 #include "NotImplemented.h"
 #include "Page.h"
 #include "PlatformString.h"
+#include "PluginView.h"
 #include "ProgressTracker.h"
 #include "RenderPart.h"
 #include "ResourceError.h"
@@ -80,7 +82,10 @@ inline int wxNavTypeFromWebNavType(NavigationType type){
 }
 
 FrameLoaderClientWx::FrameLoaderClientWx()
-    : m_webFrame(0)
+    : m_frame(0)
+    , m_pluginView(0)
+    , m_hasSentResponseToPlugin(false)
+    , m_webFrame(0)
 {
 }
 
@@ -257,6 +262,20 @@ void FrameLoaderClientWx::dispatchDidChangeLocationWithinPage()
     notImplemented();
 }
 
+void FrameLoaderClientWx::dispatchDidPushStateWithinPage()
+{
+    notImplemented();
+}
+
+void FrameLoaderClientWx::dispatchDidReplaceStateWithinPage()
+{
+    notImplemented();
+}
+
+void FrameLoaderClientWx::dispatchDidPopStateWithinPage()
+{
+    notImplemented();
+}
 
 void FrameLoaderClientWx::dispatchWillClose()
 {
@@ -408,7 +427,11 @@ void FrameLoaderClientWx::didChangeTitle(DocumentLoader *l)
 
 void FrameLoaderClientWx::finishedLoading(DocumentLoader*)
 {
-    notImplemented();
+    if (m_pluginView) {
+        m_pluginView->didFinishLoading();
+        m_pluginView = 0;
+        m_hasSentResponseToPlugin = false;
+    }
 }
 
 
@@ -579,9 +602,25 @@ void FrameLoaderClientWx::committedLoad(WebCore::DocumentLoader* loader, const c
 {
     if (!m_webFrame)
         return;
-    FrameLoader* fl = loader->frameLoader();
-    fl->setEncoding(m_response.textEncodingName(), false);
-    fl->addData(data, length);
+    if (!m_pluginView) {
+        FrameLoader* fl = loader->frameLoader();
+        fl->setEncoding(m_response.textEncodingName(), false);
+        fl->addData(data, length);
+    }
+    
+    // We re-check here as the plugin can have been created
+    if (m_pluginView) {
+        if (!m_hasSentResponseToPlugin) {
+            m_pluginView->didReceiveResponse(loader->response());
+            // didReceiveResponse sets up a new stream to the plug-in. on a full-page plug-in, a failure in
+            // setting up this stream can cause the main document load to be cancelled, setting m_pluginView
+            // to null
+            if (!m_pluginView)
+                return;
+            m_hasSentResponseToPlugin = true;
+        }
+        m_pluginView->didReceiveData(data, length);
+    }
 }
 
 WebCore::ResourceError FrameLoaderClientWx::cancelledError(const WebCore::ResourceRequest& request)
@@ -812,16 +851,21 @@ ObjectContentType FrameLoaderClientWx::objectContentType(const KURL& url, const 
     return ObjectContentType();
 }
 
-PassRefPtr<Widget> FrameLoaderClientWx::createPlugin(const IntSize&, HTMLPlugInElement*, const KURL&, const Vector<String>&, const Vector<String>&, const String&, bool loadManually)
+PassRefPtr<Widget> FrameLoaderClientWx::createPlugin(const IntSize& size, HTMLPlugInElement* element, const KURL& url, const Vector<String>& paramNames, const Vector<String>& paramValues, const String& mimeType, bool loadManually)
 {
-    notImplemented();
+#if __WXMSW__ || __WXMAC__
+    RefPtr<PluginView> pv = PluginView::create(m_frame, size, element, url, paramNames, paramValues, mimeType, loadManually);
+    if (pv->status() == PluginStatusLoadedSuccessfully)
+        return pv;
+#endif
     return 0;
 }
 
 void FrameLoaderClientWx::redirectDataToPlugin(Widget* pluginWidget)
 {
-    notImplemented();
-    return;
+    ASSERT(!m_pluginView);
+    m_pluginView = static_cast<PluginView*>(pluginWidget);
+    m_hasSentResponseToPlugin = false;
 }
 
 ResourceError FrameLoaderClientWx::pluginWillHandleLoadError(const ResourceResponse& response)
@@ -843,8 +887,11 @@ String FrameLoaderClientWx::overrideMediaType() const
     return String();
 }
 
-void FrameLoaderClientWx::windowObjectCleared()
+void FrameLoaderClientWx::dispatchDidClearWindowObjectInWorld(DOMWrapperWorld* world)
 {
+    if (world != mainThreadNormalWorld())
+        return;
+
     if (m_webView) {
         wxWebViewWindowObjectClearedEvent wkEvent(m_webView);
         Frame* coreFrame = m_webView->GetMainFrame()->GetFrame();
@@ -895,6 +942,13 @@ void FrameLoaderClientWx::transitionToCommittedForNewPage()
     
     if (m_frame)
         m_frame->createView(size, backgroundColor, transparent, IntSize(), false); 
+}
+
+bool FrameLoaderClientWx::shouldUsePluginDocument(const String &mimeType) const
+{
+    // NOTE: Plugin Documents are used for viewing PDFs, etc. inline, and should
+    // not be used for pages with plugins in them.
+    return false;
 }
 
 }

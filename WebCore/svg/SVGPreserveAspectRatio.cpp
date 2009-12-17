@@ -2,8 +2,6 @@
     Copyright (C) 2004, 2005, 2008 Nikolas Zimmermann <zimmermann@kde.org>
                   2004, 2005, 2006, 2007 Rob Buis <buis@kde.org>
 
-    This file is part of the KDE project
-
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
     License as published by the Free Software Foundation; either
@@ -180,7 +178,7 @@ TransformationMatrix SVGPreserveAspectRatio::getCTM(double logicX, double logicY
     if (align() == SVG_PRESERVEASPECTRATIO_NONE) {
         temp.scaleNonUniform(physWidth / logicWidth, physHeight / logicHeight);
         temp.translate(-logicX, -logicY);
-    } else if (vpar < svgar && (meetOrSlice() == SVG_MEETORSLICE_MEET) || vpar >= svgar && (meetOrSlice() == SVG_MEETORSLICE_SLICE)) {
+    } else if ((vpar < svgar && (meetOrSlice() == SVG_MEETORSLICE_MEET)) || (vpar >= svgar && (meetOrSlice() == SVG_MEETORSLICE_SLICE))) {
         temp.scaleNonUniform(physHeight / logicHeight, physHeight / logicHeight);
 
         if (align() == SVG_PRESERVEASPECTRATIO_XMINYMIN || align() == SVG_PRESERVEASPECTRATIO_XMINYMID || align() == SVG_PRESERVEASPECTRATIO_XMINYMAX)

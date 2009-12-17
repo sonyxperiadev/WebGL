@@ -80,6 +80,8 @@ public:
     virtual bool canTakeFocus(FocusDirection) { return false; }
     virtual void takeFocus(FocusDirection) { }
 
+    virtual void focusedNodeChanged(Node*) { }
+
     virtual Page* createWindow(Frame*, const FrameLoadRequest&, const WindowFeatures&) { return 0; }
     virtual void show() { }
 
@@ -204,6 +206,9 @@ public:
     virtual void dispatchDidCancelClientRedirect() { }
     virtual void dispatchWillPerformClientRedirect(const KURL&, double, double) { }
     virtual void dispatchDidChangeLocationWithinPage() { }
+    virtual void dispatchDidPushStateWithinPage() { }
+    virtual void dispatchDidReplaceStateWithinPage() { }
+    virtual void dispatchDidPopStateWithinPage() { }
     virtual void dispatchWillClose() { }
     virtual void dispatchDidReceiveIcon() { }
     virtual void dispatchDidStartProvisionalLoad() { }
@@ -283,8 +288,13 @@ public:
     virtual void updateGlobalHistory() { }
     virtual void updateGlobalHistoryRedirectLinks() { }
     virtual bool shouldGoToHistoryItem(HistoryItem*) const { return false; }
+<<<<<<< HEAD:WebCore/loader/EmptyClients.h
     virtual void dispatchDidAddBackForwardItem(HistoryItem*) const  { }
     virtual void dispatchDidRemoveBackForwardItem(HistoryItem*) const { }
+=======
+    virtual void dispatchDidAddBackForwardItem(HistoryItem*) const { }
+    virtual void dispatchDidRemoveBackForwardItem(HistoryItem*) const { };
+>>>>>>> webkit.org at r51976:WebCore/loader/EmptyClients.h
     virtual void dispatchDidChangeBackForwardIndex() const { }
     virtual void saveViewStateToItem(HistoryItem*) { }
     virtual bool canCachePage() const { return false; }
@@ -298,7 +308,7 @@ public:
     virtual String overrideMediaType() const { return String(); }
 
     virtual void redirectDataToPlugin(Widget*) { }
-    virtual void windowObjectCleared() { }
+    virtual void dispatchDidClearWindowObjectInWorld(DOMWrapperWorld*) { }
     virtual void documentElementAvailable() { }
     virtual void didPerformFirstNavigation() const { }
 
@@ -484,18 +494,10 @@ public:
     virtual void hideHighlight() { }
     virtual void inspectedURLChanged(const String&) { }
 
-    virtual void populateSetting(const String&, InspectorController::Setting&) { }
-    virtual void storeSetting(const String&, const InspectorController::Setting&) { }
-    virtual void removeSetting(const String&) { }
+    virtual void populateSetting(const String&, String*) { }
+    virtual void storeSetting(const String&, const String&) { }
 
     virtual void inspectorWindowObjectCleared() { }
-};
-
-class EmptyPluginHalterClient : public PluginHalterClient
-{
-public:
-    virtual bool shouldHaltPlugin(Node*) const { return false; }
-    virtual bool enabled() const { return false; }
 };
 
 }

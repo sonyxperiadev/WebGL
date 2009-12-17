@@ -22,7 +22,7 @@
 
 #include "qwebpage.h"
 #include "qwebpage_p.h"
-#include "qwebplugindatabase.h"
+#include "qwebplugindatabase_p.h"
 
 #include "Cache.h"
 #include "CrossOriginPreflightResultCache.h"
@@ -62,8 +62,6 @@ public:
     QString localStoragePath;
     QString offlineWebApplicationCachePath;
     qint64 offlineStorageDefaultQuota;
-    float printingMinimumShrinkFactor;
-    float printingMaximumShrinkFactor;
 
     void apply();
     WebCore::Settings* settings;
@@ -81,6 +79,7 @@ static WebGraphicHash* graphics()
         hash->insert(QWebSettings::MissingPluginGraphic, QPixmap(QLatin1String(":webkit/resources/nullPlugin.png")));
         hash->insert(QWebSettings::DefaultFrameIconGraphic, QPixmap(QLatin1String(":webkit/resources/urlIcon.png")));
         hash->insert(QWebSettings::TextAreaSizeGripCornerGraphic, QPixmap(QLatin1String(":webkit/resources/textAreaResizeCorner.png")));
+        hash->insert(QWebSettings::DeleteButtonGraphic, QPixmap(QLatin1String(":webkit/resources/deleteButton.png")));
     }
 
     return hash;
@@ -176,12 +175,6 @@ void QWebSettingsPrivate::apply()
         QString storagePath = !localStoragePath.isEmpty() ? localStoragePath : global->localStoragePath;
         settings->setLocalStorageDatabasePath(storagePath);
 
-        float minimumShrinkFactor = printingMinimumShrinkFactor > 0.0f ? printingMinimumShrinkFactor : global->printingMinimumShrinkFactor;
-        settings->setPrintingMinimumShrinkFactor(minimumShrinkFactor);
-
-        float maximumShrinkFactor = printingMaximumShrinkFactor > 0.0f ? printingMaximumShrinkFactor : global->printingMaximumShrinkFactor;
-        settings->setPrintingMaximumShrinkFactor(maximumShrinkFactor);
-
         value = attributes.value(QWebSettings::ZoomTextOnly,
                                  global->attributes.value(QWebSettings::ZoomTextOnly));
         settings->setZoomsTextOnly(value);
@@ -206,10 +199,7 @@ void QWebSettingsPrivate::apply()
         value = attributes.value(QWebSettings::LocalContentCanAccessRemoteUrls,
                                       global->attributes.value(QWebSettings::LocalContentCanAccessRemoteUrls));
         settings->setAllowUniversalAccessFromFileURLs(value);
-
-        value = attributes.value(QWebSettings::SessionStorageEnabled,
-                                    global->attributes.value(QWebSettings::SessionStorageEnabled));
-        settings->setSessionStorageEnabled(value);
+        settings->setUsesPageCache(WebCore::pageCache()->capacity());
     } else {
         QList<QWebSettingsPrivate*> settings = *::allSettings();
         for (int i = 0; i < settings.count(); ++i)
@@ -273,7 +263,7 @@ QWebSettings* QWebSettings::globalSettings()
     setOfflineStoragePath() with an appropriate file path, and can limit the quota
     for each application by calling setOfflineStorageDefaultQuota().
 
-    \sa QWebPage::settings(), QWebView::settings(), {Browser}
+    \sa QWebPage::settings(), QWebView::settings(), {Web Browser}
 */
 
 /*!
@@ -350,9 +340,9 @@ QWebSettings* QWebSettings::globalSettings()
         web application cache feature is enabled or not. Disabled by default.
     \value LocalStorageEnabled Specifies whether support for the HTML 5
         local storage feature is enabled or not. Disabled by default.
+    \value LocalStorageDatabaseEnabled \e{This enum value is deprecated.} Use
+        QWebSettings::LocalStorageEnabled instead.
     \value LocalContentCanAccessRemoteUrls Specifies whether locally loaded documents are allowed to access remote urls.
-    \value SessionStorageEnabled Specifies whether support for the HTML 5
-        session storage feature is enabled or not. Enabled by default.                
 */
 
 /*!
@@ -383,11 +373,8 @@ QWebSettings::QWebSettings()
     d->attributes.insert(QWebSettings::OfflineWebApplicationCacheEnabled, false);
     d->attributes.insert(QWebSettings::LocalStorageEnabled, false);
     d->attributes.insert(QWebSettings::LocalContentCanAccessRemoteUrls, false);
-    d->attributes.insert(QWebSettings::SessionStorageEnabled, true);
     d->offlineStorageDefaultQuota = 5 * 1024 * 1024;
     d->defaultTextEncoding = QLatin1String("iso-8859-1");
-    d->printingMinimumShrinkFactor = 0.0f;
-    d->printingMaximumShrinkFactor = 0.0f;
 }
 
 /*!
@@ -502,60 +489,6 @@ QString QWebSettings::defaultTextEncoding() const
 }
 
 /*!
-    \since 4.7 
-    Specifies minimum shrink fator allowed for printing. If set to 0 a
-    default value is used.
-
-    When printing, content will be shrunk to reduce page usage, it
-    will reduced by a factor between printingMinimumShrinkFactor and
-    printingMaximumShrinkFactor. 
-
-    \sa printingMinimumShrinkFactor()
-    \sa setPrintingMaximumShrinkFactor()
-    \sa printingMaximumShrinkFactor()
-*/
-void QWebSettings::setPrintingMinimumShrinkFactor(float printingMinimumShrinkFactor)
-{
-    d->printingMinimumShrinkFactor = printingMinimumShrinkFactor;
-    d->apply();
-}
-
-/*!
-    \since 4.7 
-    returns the minimum shrink factor used for printing.
-
-    \sa setPrintingMinimumShrinkFactor()
-*/
-float QWebSettings::printingMinimumShrinkFactor() const
-{
-    return d->printingMinimumShrinkFactor;
-}
-
-/*!
-    \since 4.7 
-    Specifies maximum shrink fator allowed for printing. If set to 0 a
-    default value is used.
-
-    \sa setPrintingMinimumShrinkFactor()
-*/
-void QWebSettings::setPrintingMaximumShrinkFactor(float printingMaximumShrinkFactor)
-{
-    d->printingMaximumShrinkFactor = printingMaximumShrinkFactor;
-    d->apply();
-}
-
-/*!
-    \since 4.7 
-    returns the maximum shrink factor used for printing.
-
-    \sa setPrintingMinimumShrinkFactor()
-*/
-float QWebSettings::printingMaximumShrinkFactor() const
-{
-    return d->printingMaximumShrinkFactor;
-}
-
-/*!
     Sets the path of the icon database to \a path. The icon database is used
     to store "favicons" associated with web sites.
 
@@ -625,9 +558,9 @@ QIcon QWebSettings::iconForUrl(const QUrl& url)
     return* icon;
 }
 
-/*!
+/*
     Returns the plugin database object.
-*/
+
 QWebPluginDatabase *QWebSettings::pluginDatabase()
 {
     static QWebPluginDatabase* database = 0;
@@ -635,6 +568,7 @@ QWebPluginDatabase *QWebSettings::pluginDatabase()
         database = new QWebPluginDatabase();
     return database;
 }
+*/
 
 /*!
     Sets \a graphic to be drawn when QtWebKit needs to draw an image of the
@@ -710,7 +644,9 @@ void QWebSettings::clearMemoryCaches()
 */
 void QWebSettings::setMaximumPagesInCache(int pages)
 {
+    QWebSettingsPrivate* global = QWebSettings::globalSettings()->d;
     WebCore::pageCache()->setCapacity(qMax(0, pages));
+    global->apply();
 }
 
 /*!

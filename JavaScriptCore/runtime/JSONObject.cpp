@@ -70,7 +70,23 @@ public:
     void markAggregate(MarkStack&);
 
 private:
-    typedef UString StringBuilder;
+    class StringBuilder : public Vector<UChar> {
+    public:
+        using Vector<UChar>::append;
+
+        inline void append(const char* str)
+        {
+            size_t len = strlen(str);
+            reserveCapacity(size() + len);
+            for (size_t i = 0; i < len; i++)
+                Vector<UChar>::append(str[i]);
+        }
+
+        inline void append(const UString& str)
+        {
+            append(str.data(), str.size());
+        }
+    };
 
     class Holder {
     public:
@@ -156,7 +172,7 @@ static inline UString gap(ExecState* exec, JSValue space)
     }
 
     // If the space value is a string, use it as the gap string, otherwise use no gap string.
-    UString spaces = space.getString();
+    UString spaces = space.getString(exec);
     if (spaces.size() > maxGapLength) {
         spaces = spaces.substr(0, maxGapLength);
     }
@@ -213,7 +229,7 @@ Stringifier::Stringifier(ExecState* exec, JSValue replacer, JSValue space)
                 break;
 
             UString propertyName;
-            if (name.getString(propertyName)) {
+            if (name.getString(exec, propertyName)) {
                 m_arrayReplacerPropertyNames.add(Identifier(exec, propertyName));
                 continue;
             }
@@ -269,7 +285,9 @@ JSValue Stringifier::stringify(JSValue value)
     if (m_exec->hadException())
         return jsNull();
 
-    return jsString(m_exec, result);
+    result.shrinkToFit();
+    size_t length = result.size();
+    return jsString(m_exec, UString(result.releaseBuffer(), length, false));
 }
 
 void Stringifier::appendQuotedString(StringBuilder& builder, const UString& value)
@@ -389,7 +407,7 @@ Stringifier::StringifyResult Stringifier::appendStringifiedValue(StringBuilder& 
     }
 
     UString stringValue;
-    if (value.getString(stringValue)) {
+    if (value.getString(m_exec, stringValue)) {
         appendQuotedString(builder, stringValue);
         return StringifySucceeded;
     }
@@ -586,7 +604,7 @@ bool Stringifier::Holder::appendNextProperty(Stringifier& stringifier, StringBui
             // This only occurs when get an undefined value for an object property.
             // In this case we don't want the separator and property name that we
             // already appended, so roll back.
-            builder = builder.substr(0, rollBackPoint);
+            builder.resize(rollBackPoint);
             break;
     }
 

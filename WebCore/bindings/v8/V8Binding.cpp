@@ -33,8 +33,10 @@
 
 #include "AtomicString.h"
 #include "CString.h"
+#include "Element.h"
 #include "MathExtras.h"
 #include "PlatformString.h"
+#include "QualifiedName.h"
 #include "StdLibExtras.h"
 #include "StringBuffer.h"
 #include "StringHash.h"
@@ -104,10 +106,6 @@ public:
         return m_atomicString;
     }
 
-    // Returns right string type based on a dummy parameter.
-    String string(String) { return webcoreString(); }
-    AtomicString string(AtomicString) { return atomicString(); }
-
     static WebCoreStringResource* toStringResource(v8::Handle<v8::String> v8String)
     {
         return static_cast<WebCoreStringResource*>(v8String->GetExternalStringResource());
@@ -128,17 +126,177 @@ private:
 #endif
 };
 
-enum ExternalMode {
-    Externalize,
-    DoNotExternalize
+
+void* v8DOMWrapperToNative(v8::Handle<v8::Object> object) {
+    return object->GetPointerFromInternalField(V8Custom::kDOMWrapperObjectIndex);
+}
+    
+void* v8DOMWrapperToNative(const v8::AccessorInfo& info) {
+    return info.Holder()->GetPointerFromInternalField(V8Custom::kDOMWrapperObjectIndex);
+}
+    
+
+String v8ValueToWebCoreString(v8::Handle<v8::Value> value)
+{
+    if (value->IsString())
+        return v8StringToWebCoreString(v8::Handle<v8::String>::Cast(value));
+    return v8NonStringValueToWebCoreString(value);
+}
+
+AtomicString v8ValueToAtomicWebCoreString(v8::Handle<v8::Value> value)
+{
+    if (value->IsString())
+        return v8StringToAtomicWebCoreString(v8::Handle<v8::String>::Cast(value));
+    return v8NonStringValueToAtomicWebCoreString(value);
+}
+
+int toInt32(v8::Handle<v8::Value> value, bool& ok)
+{
+    ok = true;
+    
+    // Fast case.  The value is already a 32-bit integer.
+    if (value->IsInt32())
+        return value->Int32Value();
+    
+    // Can the value be converted to a number?
+    v8::Local<v8::Number> numberObject = value->ToNumber();
+    if (numberObject.IsEmpty()) {
+        ok = false;
+        return 0;
+    }
+    
+    // Does the value convert to nan or to an infinity?
+    double numberValue = numberObject->Value();
+    if (isnan(numberValue) || isinf(numberValue)) {
+        ok = false;
+        return 0;
+    }
+    
+    // Can the value be converted to a 32-bit integer?
+    v8::Local<v8::Int32> intValue = value->ToInt32();
+    if (intValue.IsEmpty()) {
+        ok = false;
+        return 0;
+    }
+    
+    // Return the result of the int32 conversion.
+    return intValue->Value();
+}
+    
+String toWebCoreString(const v8::Arguments& args, int index) {
+    return v8ValueToWebCoreString(args[index]);
+}
+
+    
+String toWebCoreStringWithNullCheck(v8::Handle<v8::Value> value)
+{
+    if (value->IsNull()) 
+        return String();
+    return v8ValueToWebCoreString(value);
+}
+
+AtomicString toAtomicWebCoreStringWithNullCheck(v8::Handle<v8::Value> value)
+{
+    if (value->IsNull())
+        return AtomicString();
+    return v8ValueToAtomicWebCoreString(value);
+}
+
+String toWebCoreStringWithNullOrUndefinedCheck(v8::Handle<v8::Value> value)
+{
+    if (value->IsNull() || value->IsUndefined())
+        return String();
+    return toWebCoreString(value);
+}
+
+bool isUndefinedOrNull(v8::Handle<v8::Value> value)
+{
+    return value->IsNull() || value->IsUndefined();
+}
+
+v8::Handle<v8::Boolean> v8Boolean(bool value)
+{
+    return value ? v8::True() : v8::False();
+}
+
+v8::Handle<v8::String> v8UndetectableString(const String& str)
+{
+    return v8::String::NewUndetectable(fromWebCoreString(str), str.length());
+}
+
+v8::Handle<v8::Value> v8StringOrNull(const String& str)
+{
+    return str.isNull() ? v8::Handle<v8::Value>(v8::Null()) : v8::Handle<v8::Value>(v8String(str));
+}
+
+v8::Handle<v8::Value> v8StringOrUndefined(const String& str)
+{
+    return str.isNull() ? v8::Handle<v8::Value>(v8::Undefined()) : v8::Handle<v8::Value>(v8String(str));
+}
+
+v8::Handle<v8::Value> v8StringOrFalse(const String& str)
+{
+    return str.isNull() ? v8::Handle<v8::Value>(v8::False()) : v8::Handle<v8::Value>(v8String(str));
+}
+
+
+template <class S> struct StringTraits
+{
+    static S fromStringResource(WebCoreStringResource* resource);
+
+    static S fromV8String(v8::Handle<v8::String> v8String, int length);
+};
+
+template<>
+struct StringTraits<String>
+{
+    static String fromStringResource(WebCoreStringResource* resource)
+    {
+        return resource->webcoreString();
+    }
+
+    static String fromV8String(v8::Handle<v8::String> v8String, int length)
+    {
+        ASSERT(v8String->Length() == length);
+        // NOTE: as of now, String(const UChar*, int) performs String::createUninitialized
+        // anyway, so no need to optimize like we do for AtomicString below.
+        UChar* buffer;
+        String result = String::createUninitialized(length, buffer);
+        v8String->Write(reinterpret_cast<uint16_t*>(buffer), 0, length);
+        return result;
+    }
+};
+
+template<>
+struct StringTraits<AtomicString>
+{
+    static AtomicString fromStringResource(WebCoreStringResource* resource)
+    {
+        return resource->atomicString();
+    }
+
+    static AtomicString fromV8String(v8::Handle<v8::String> v8String, int length)
+    {
+        ASSERT(v8String->Length() == length);
+        static const int inlineBufferSize = 16;
+        if (length <= inlineBufferSize) {
+            UChar inlineBuffer[inlineBufferSize];
+            v8String->Write(reinterpret_cast<uint16_t*>(inlineBuffer), 0, length);
+            return AtomicString(inlineBuffer, length);
+        }
+        UChar* buffer;
+        String tmp = String::createUninitialized(length, buffer);
+        v8String->Write(reinterpret_cast<uint16_t*>(buffer), 0, length);
+        return AtomicString(tmp);
+    }
 };
 
 template <typename StringType>
-static StringType v8StringToWebCoreString(v8::Handle<v8::String> v8String, ExternalMode external)
+StringType v8StringToWebCoreString(v8::Handle<v8::String> v8String, ExternalMode external)
 {
     WebCoreStringResource* stringResource = WebCoreStringResource::toStringResource(v8String);
     if (stringResource)
-        return stringResource->string(StringType());
+        return StringTraits<StringType>::fromStringResource(stringResource);
 
     int length = v8String->Length();
     if (!length) {
@@ -146,18 +304,7 @@ static StringType v8StringToWebCoreString(v8::Handle<v8::String> v8String, Exter
         return StringImpl::empty();
     }
 
-    StringType result;
-    static const int inlineBufferSize = 16;
-    if (length <= inlineBufferSize) {
-        UChar inlineBuffer[inlineBufferSize];
-        v8String->Write(reinterpret_cast<uint16_t*>(inlineBuffer), 0, length);
-        result = StringType(inlineBuffer, length);
-    } else {
-        UChar* buffer;
-        String tmp = String::createUninitialized(length, buffer);
-        v8String->Write(reinterpret_cast<uint16_t*>(buffer), 0, length);
-        result = StringType(tmp);
-    }
+    StringType result(StringTraits<StringType>::fromV8String(v8String, length));
 
     if (external == Externalize && v8String->CanMakeExternal()) {
         stringResource = new WebCoreStringResource(result);
@@ -168,16 +315,12 @@ static StringType v8StringToWebCoreString(v8::Handle<v8::String> v8String, Exter
     }
     return result;
 }
+    
+// Explicitly instantiate the above template with the expected parameterizations,
+// to ensure the compiler generates the code; otherwise link errors can result in GCC 4.4.
+template String v8StringToWebCoreString<String>(v8::Handle<v8::String>, ExternalMode);
+template AtomicString v8StringToWebCoreString<AtomicString>(v8::Handle<v8::String>, ExternalMode);
 
-String v8StringToWebCoreString(v8::Handle<v8::String> v8String)
-{
-    return v8StringToWebCoreString<String>(v8String, Externalize);
-}
-
-AtomicString v8StringToAtomicWebCoreString(v8::Handle<v8::String> v8String)
-{
-    return v8StringToWebCoreString<AtomicString>(v8String, Externalize);
-}
 
 String v8NonStringValueToWebCoreString(v8::Handle<v8::Value> object)
 {
@@ -254,13 +397,13 @@ static void cachedStringCallback(v8::Persistent<v8::Value> wrapper, void* parame
 
 v8::Local<v8::String> v8ExternalString(const String& string)
 {
-    if (!string.length())
+    StringImpl* stringImpl = string.impl();
+    if (!stringImpl || !stringImpl->length())
         return v8::String::Empty();
 
     if (!stringImplCacheEnabled)
         return makeExternalString(string);
 
-    StringImpl* stringImpl = string.impl();
     StringCache& stringCache = getStringCache();
     v8::String* cachedV8String = stringCache.get(stringImpl);
     if (cachedV8String)
@@ -279,6 +422,66 @@ v8::Local<v8::String> v8ExternalString(const String& string)
     stringCache.set(stringImpl, *wrapper);
 
     return newString;
+}
+    
+v8::Persistent<v8::FunctionTemplate> createRawTemplate()
+{
+    v8::HandleScope scope;
+    v8::Local<v8::FunctionTemplate> result = v8::FunctionTemplate::New(V8Proxy::checkNewLegal);
+    return v8::Persistent<v8::FunctionTemplate>::New(result);
+}        
+
+v8::Local<v8::Signature> configureTemplate(v8::Persistent<v8::FunctionTemplate>desc,
+                                           const char *interfaceName,
+                                           V8ClassIndex::V8WrapperType parentClassIndex,
+                                           int fieldCount,
+                                           const BatchedAttribute* attributes, 
+                                           size_t attributeCount,
+                                           const BatchedCallback* callbacks,
+                                           size_t callbackCount)
+{
+    desc->SetClassName(v8::String::New(interfaceName));
+    v8::Local<v8::ObjectTemplate> instance = desc->InstanceTemplate();
+    instance->SetInternalFieldCount(fieldCount);
+    if (parentClassIndex)
+        desc->Inherit(V8DOMWrapper::getTemplate(parentClassIndex));
+    if (attributeCount)
+        batchConfigureAttributes(instance, desc->PrototypeTemplate(),
+                                 attributes, attributeCount);
+    v8::Local<v8::Signature> defaultSignature = v8::Signature::New(desc);
+    if (callbackCount)
+        batchConfigureCallbacks(desc->PrototypeTemplate(),
+                                defaultSignature,
+                                static_cast<v8::PropertyAttribute>(v8::DontDelete),
+                                callbacks, callbackCount);
+    return defaultSignature;
+}
+
+void createCallback(v8::Local<v8::ObjectTemplate> proto,
+                    const char *name,
+                    v8::InvocationCallback callback,
+                    v8::Handle<v8::Signature> signature,
+                    v8::PropertyAttribute attribute)
+{
+    proto->Set(v8::String::New(name),
+               v8::FunctionTemplate::New(callback, v8::Handle<v8::Value>(), signature),
+               attribute);
+}
+    
+v8::Handle<v8::Value> getElementStringAttr(const v8::AccessorInfo& info,
+                                           const QualifiedName& name) 
+{
+    Element *imp = v8DOMWrapperToNode<Element>(info);
+    return v8ExternalString(imp->getAttribute(name));
+}
+
+void setElementStringAttr(const v8::AccessorInfo& info,
+                          const QualifiedName& name,
+                          v8::Local<v8::Value> value)
+{
+    Element* imp = v8DOMWrapperToNode<Element>(info);
+    AtomicString v = toAtomicWebCoreStringWithNullCheck(value);
+    imp->setAttribute(name, v);
 }
 
 } // namespace WebCore

@@ -256,8 +256,8 @@ GraphicsContext::GraphicsContext(PlatformGraphicsContext* context)
     setPaintingDisabled(!context);
     if (context) {
         // Make sure the context starts in sync with our state.
-        setPlatformFillColor(fillColor());
-        setPlatformStrokeColor(strokeColor());
+        setPlatformFillColor(fillColor(), DeviceColorSpace);
+        setPlatformStrokeColor(strokeColor(), DeviceColorSpace);
     }
 }
 
@@ -639,24 +639,18 @@ void GraphicsContext::fillPath()
     QPainterPath path = m_data->currentPath;
     path.setFillRule(toQtFillRule(fillRule()));
 
-    if ((m_common->state.fillColorSpace != SolidColorSpace)
-            || (fillColor().alpha())) {
+    if (m_common->state.fillPattern || m_common->state.fillGradient || fillColor().alpha()) {
         drawFilledShadowPath(this, p, &path);
-        switch (m_common->state.fillColorSpace) {
-        case SolidColorSpace:
-            if (fillColor().alpha())
-                p->fillPath(path, p->brush());
-            break;
-        case PatternColorSpace: {
+        if (m_common->state.fillPattern) {
             TransformationMatrix affine;
             p->fillPath(path, QBrush(m_common->state.fillPattern->createPlatformPattern(affine)));
-            break;
-        }
-        case GradientColorSpace:
+        } else if (m_common->state.fillGradient) {
             QBrush brush(*m_common->state.fillGradient->platformGradient());
             brush.setTransform(m_common->state.fillGradient->gradientSpaceTransform());
             p->fillPath(path, brush);
-            break;
+        } else {
+            if (fillColor().alpha())
+                p->fillPath(path, p->brush());
         }
     }
     m_data->currentPath = QPainterPath();
@@ -672,8 +666,7 @@ void GraphicsContext::strokePath()
     QPainterPath path = m_data->currentPath;
     path.setFillRule(toQtFillRule(fillRule()));
 
-    if ((m_common->state.strokeColorSpace != SolidColorSpace)
-            || (strokeColor().alpha())) {
+    if (m_common->state.strokePattern || m_common->state.strokeGradient || strokeColor().alpha()) {
         IntSize shadowSize;
         int shadowBlur;
         Color shadowColor;
@@ -685,26 +678,20 @@ void GraphicsContext::strokePath()
             p->strokePath(path, shadowPen);
             p->setWorldTransform(t);
         }
-        switch (m_common->state.strokeColorSpace) {
-        case SolidColorSpace:
-            if (strokeColor().alpha())
-                p->strokePath(path, pen);
-            break;
-        case PatternColorSpace: {
+        if (m_common->state.strokePattern) {
             TransformationMatrix affine;
             pen.setBrush(QBrush(m_common->state.strokePattern->createPlatformPattern(affine)));
             p->setPen(pen);
             p->strokePath(path, pen);
-            break;
-        }
-        case GradientColorSpace: {
+        } else if (m_common->state.strokeGradient) {
             QBrush brush(*m_common->state.strokeGradient->platformGradient());
             brush.setTransform(m_common->state.strokeGradient->gradientSpaceTransform());
             pen.setBrush(brush);
             p->setPen(pen);
             p->strokePath(path, pen);
-            break;
-        }
+        } else {
+            if (strokeColor().alpha())
+                p->strokePath(path, pen);
         }
     }
     m_data->currentPath = QPainterPath();
@@ -729,29 +716,23 @@ void GraphicsContext::fillRect(const FloatRect& rect)
 
     QPainter* p = m_data->p();
 
-    if ((m_common->state.fillColorSpace != SolidColorSpace)
-            || (fillColor().alpha())) {
+    if (m_common->state.fillPattern || m_common->state.fillGradient || fillColor().alpha()) {
         drawBorderlessRectShadow(this, p, rect);
-        switch (m_common->state.fillColorSpace) {
-        case SolidColorSpace:
-            if (fillColor().alpha())
-                p->fillRect(rect, p->brush());
-            break;
-        case PatternColorSpace: {
+        if (m_common->state.fillPattern) {
             TransformationMatrix affine;
             p->fillRect(rect, QBrush(m_common->state.fillPattern->createPlatformPattern(affine)));
-            break;
-        }
-        case GradientColorSpace:
+        } else if (m_common->state.fillGradient) {
             QBrush brush(*m_common->state.fillGradient->platformGradient());
             brush.setTransform(m_common->state.fillGradient->gradientSpaceTransform());
             p->fillRect(rect, brush);
-            break;
+        } else {
+            if (fillColor().alpha())
+                p->fillRect(rect, p->brush());
         }
     }
 }
 
-void GraphicsContext::fillRect(const FloatRect& rect, const Color& c)
+void GraphicsContext::fillRect(const FloatRect& rect, const Color& c, ColorSpace colorSpace)
 {
     if (paintingDisabled())
         return;
@@ -762,7 +743,7 @@ void GraphicsContext::fillRect(const FloatRect& rect, const Color& c)
     p->fillRect(rect, m_data->solidColor);
 }
 
-void GraphicsContext::fillRoundedRect(const IntRect& rect, const IntSize& topLeft, const IntSize& topRight, const IntSize& bottomLeft, const IntSize& bottomRight, const Color& color)
+void GraphicsContext::fillRoundedRect(const IntRect& rect, const IntSize& topLeft, const IntSize& topRight, const IntSize& bottomLeft, const IntSize& bottomRight, const Color& color, ColorSpace colorSpace)
 {
     if (paintingDisabled() || !color.alpha())
         return;
@@ -886,7 +867,7 @@ FloatRect GraphicsContext::roundToDevicePixels(const FloatRect& frect)
     return FloatRect(QRectF(result));
 }
 
-void GraphicsContext::setPlatformShadow(const IntSize& size, int, const Color&)
+void GraphicsContext::setPlatformShadow(const IntSize& size, int, const Color&, ColorSpace)
 {
     // Qt doesn't support shadows natively, they are drawn manually in the draw*
     // functions
@@ -1225,7 +1206,7 @@ void GraphicsContext::setURLForRect(const KURL&, const IntRect&)
     notImplemented();
 }
 
-void GraphicsContext::setPlatformStrokeColor(const Color& color)
+void GraphicsContext::setPlatformStrokeColor(const Color& color, ColorSpace colorSpace)
 {
     if (paintingDisabled())
         return;
@@ -1255,7 +1236,7 @@ void GraphicsContext::setPlatformStrokeThickness(float thickness)
     p->setPen(newPen);
 }
 
-void GraphicsContext::setPlatformFillColor(const Color& color)
+void GraphicsContext::setPlatformFillColor(const Color& color, ColorSpace colorSpace)
 {
     if (paintingDisabled())
         return;

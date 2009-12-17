@@ -32,6 +32,7 @@
 #include "JSONObject.h"
 #include "JSString.h"
 #include "JSValue.h"
+#include "JSZombie.h"
 #include "MarkStack.h"
 #include "Nodes.h"
 #include "Tracing.h"
@@ -118,11 +119,7 @@ static RHeap* userChunk = 0;
 #if PLATFORM(DARWIN)
 typedef mach_port_t PlatformThread;
 #elif PLATFORM(WIN_OS)
-struct PlatformThread {
-    PlatformThread(DWORD _id, HANDLE _handle) : id(_id), handle(_handle) {}
-    DWORD id;
-    HANDLE handle;
-};
+typedef HANDLE PlatformThread;
 #endif
 
 class Heap::Thread {
@@ -198,9 +195,11 @@ void Heap::destroy()
 
     sweep<PrimaryHeap>();
     // No need to sweep number heap, because the JSNumber destructor doesn't do anything.
-
+#if ENABLE(JSC_ZOMBIES)
+    ASSERT(primaryHeap.numLiveObjects == primaryHeap.numZombies);
+#else
     ASSERT(!primaryHeap.numLiveObjects);
-
+#endif
     freeBlocks(&primaryHeap);
     freeBlocks(&numberHeap);
 
@@ -646,8 +645,7 @@ static inline PlatformThread getCurrentPlatformThread()
 #if PLATFORM(DARWIN)
     return pthread_mach_thread_np(pthread_self());
 #elif PLATFORM(WIN_OS)
-    HANDLE threadHandle = pthread_getw32threadhandle_np(pthread_self());
-    return PlatformThread(GetCurrentThreadId(), threadHandle);
+    return pthread_getw32threadhandle_np(pthread_self());
 #endif
 }
 
@@ -811,7 +809,7 @@ static inline void suspendThread(const PlatformThread& platformThread)
 #if PLATFORM(DARWIN)
     thread_suspend(platformThread);
 #elif PLATFORM(WIN_OS)
-    SuspendThread(platformThread.handle);
+    SuspendThread(platformThread);
 #else
 #error Need a way to suspend threads on this platform
 #endif
@@ -822,7 +820,7 @@ static inline void resumeThread(const PlatformThread& platformThread)
 #if PLATFORM(DARWIN)
     thread_resume(platformThread);
 #elif PLATFORM(WIN_OS)
-    ResumeThread(platformThread.handle);
+    ResumeThread(platformThread);
 #else
 #error Need a way to resume threads on this platform
 #endif
@@ -886,7 +884,7 @@ static size_t getPlatformThreadRegisters(const PlatformThread& platformThread, P
 
 #elif PLATFORM(WIN_OS) && PLATFORM(X86)
     regs.ContextFlags = CONTEXT_INTEGER | CONTEXT_CONTROL | CONTEXT_SEGMENTS;
-    GetThreadContext(platformThread.handle, &regs);
+    GetThreadContext(platformThread, &regs);
     return sizeof(CONTEXT);
 #else
 #error Need a way to get thread registers on this platform
@@ -1041,17 +1039,26 @@ template <HeapType heapType> size_t Heap::sweep()
                         // assumes the object has a valid vptr.)
                         if (cell->u.freeCell.zeroIfFree == 0)
                             continue;
-                        
+#if ENABLE(JSC_ZOMBIES)
+                        if (!imp->isZombie()) {
+                            const ClassInfo* info = imp->classInfo();
+                            imp->~JSCell();
+                            new (imp) JSZombie(info, JSZombie::leakedZombieStructure());
+                            heap.numZombies++;
+                        }
+#else
                         imp->~JSCell();
+#endif
                     }
-                    
-                    --usedCells;
                     --numLiveObjects;
+#if !ENABLE(JSC_ZOMBIES)
+                    --usedCells;
                     
                     // put cell on the free list
                     cell->u.freeCell.zeroIfFree = 0;
                     cell->u.freeCell.next = freeList - (cell + 1);
                     freeList = cell;
+#endif
                 }
             }
         } else {
@@ -1064,8 +1071,18 @@ template <HeapType heapType> size_t Heap::sweep()
                     if (!curBlock->marked.get(i >> HeapConstants<heapType>::bitmapShift)) {
                         if (heapType != NumberHeap) {
                             JSCell* imp = reinterpret_cast<JSCell*>(cell);
+#if ENABLE(JSC_ZOMBIES)
+                            if (!imp->isZombie()) {
+                                const ClassInfo* info = imp->classInfo();
+                                imp->~JSCell();
+                                new (imp) JSZombie(info, JSZombie::leakedZombieStructure());
+                                heap.numZombies++;
+                            }
+#else
                             imp->~JSCell();
+#endif
                         }
+#if !ENABLE(JSC_ZOMBIES)
                         --usedCells;
                         --numLiveObjects;
                         
@@ -1073,6 +1090,7 @@ template <HeapType heapType> size_t Heap::sweep()
                         cell->u.freeCell.zeroIfFree = 0;
                         cell->u.freeCell.next = freeList - (cell + 1); 
                         freeList = cell;
+#endif
                     }
                 }
             }
