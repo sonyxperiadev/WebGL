@@ -26,8 +26,7 @@
 
 #include "config.h"
 #include "ImageDecoder.h"
-
-#if PLATFORM(SGL)
+#if PLATFORM(ANDROID)
 #include "SkBitmapRef.h"
 #endif
 
@@ -85,7 +84,7 @@ bool RGBA32Buffer::setSize(int newWidth, int newHeight)
 
 NativeImagePtr RGBA32Buffer::asNewNativeImage() const
 {
-#if PLATFORM(SGL)
+#if PLATFORM(ANDROID)
     return new SkBitmapRef(m_bitmap);
 #else
     return new NativeImageSkia(m_bitmap);

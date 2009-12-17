@@ -39,9 +39,6 @@ QT_BEGIN_NAMESPACE
 class QPainterPath;
 QT_END_NAMESPACE
 typedef QPainterPath PlatformPath;
-#elif PLATFORM(SGL)
-class SkPath;
-typedef SkPath PlatformPath;
 #elif PLATFORM(WX) && USE(WXGC)
 class wxGraphicsPath;
 typedef wxGraphicsPath PlatformPath;

@@ -57,7 +57,7 @@ class BRect;
 class wxRect;
 #endif
 
-#if (PLATFORM(SKIA) || PLATFORM(SGL))
+#if PLATFORM(SKIA)
 struct SkRect;
 struct SkIRect;
 #endif
@@ -155,7 +155,7 @@ public:
     operator CGRect() const;
 #endif
 
-#if (PLATFORM(SKIA) || PLATFORM(SGL))
+#if PLATFORM(SKIA)
     IntRect(const SkIRect&);
     operator SkRect() const;
     operator SkIRect() const;

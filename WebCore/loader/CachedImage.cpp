@@ -252,7 +252,7 @@ inline void CachedImage::createImage()
     }
 #endif
     m_image = BitmapImage::create(this);
-#if PLATFORM(SGL)
+#if PLATFORM(ANDROID)
     m_image->setURL(url());
 #endif
 }

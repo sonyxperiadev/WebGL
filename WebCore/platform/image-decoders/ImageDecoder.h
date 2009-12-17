@@ -36,8 +36,7 @@
 #include <wtf/RefPtr.h>
 #include <wtf/Vector.h>
 
-#if (PLATFORM(SKIA) || PLATFORM(SGL))
-// TODO(benm): ANDROID: Can we define PLATFORM(SKIA) instead of PLATFORM(SGL) before upstreaming?
+#if PLATFORM(SKIA)
 #include "NativeImageSkia.h"
 #elif PLATFORM(QT)
 #include <QImage>
@@ -58,7 +57,7 @@ namespace WebCore {
             DisposeOverwriteBgcolor,   // Clear frame to transparent
             DisposeOverwritePrevious,  // Clear frame to previous framebuffer contents
         };
-#if (PLATFORM(SKIA) || PLATFORM(QT) || PLATFORM(SGL))
+#if PLATFORM(SKIA) || PLATFORM(QT)
         typedef uint32_t PixelData;
 #else
         typedef unsigned PixelData;
@@ -102,7 +101,7 @@ namespace WebCore {
                 memcpy(getAddr(startX, destY), startAddr, rowBytes);
         }
 
-#if (PLATFORM(SKIA) || PLATFORM(SGL))
+#if PLATFORM(ANDROID)
         NativeImageSkia& bitmap() { return m_bitmap; }
         const NativeImageSkia& bitmap() const { return m_bitmap; }
 #endif
@@ -148,7 +147,7 @@ namespace WebCore {
 
         inline PixelData* getAddr(int x, int y)
         {
-#if (PLATFORM(SKIA) || PLATFORM(SGL))
+#if PLATFORM(SKIA)
             return m_bitmap.getAddr32(x, y);
 #elif PLATFORM(QT)
             return reinterpret_cast<QRgb*>(m_image.scanLine(y)) + x;
@@ -173,7 +172,7 @@ namespace WebCore {
             }
         }
 
-#if (PLATFORM(SKIA) || PLATFORM(SGL))
+#if PLATFORM(SKIA)
         NativeImageSkia m_bitmap;
 #elif PLATFORM(QT)
         mutable QImage m_image;

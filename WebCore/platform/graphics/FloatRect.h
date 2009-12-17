@@ -55,7 +55,7 @@ class wxRect2DDouble;
 class BRect;
 #endif
 
-#if (PLATFORM(SKIA) || PLATFORM(SGL))
+#if PLATFORM(SKIA)
 struct SkRect;
 #endif
 
@@ -149,7 +149,7 @@ public:
     operator BRect() const;
 #endif
 
-#if (PLATFORM(SKIA) || PLATFORM(SGL))
+#if PLATFORM(SKIA)
     FloatRect(const SkRect&);
     operator SkRect() const;
 #endif

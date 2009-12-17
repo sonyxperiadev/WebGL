@@ -46,13 +46,15 @@ typedef QGradient* PlatformGradient;
 #elif PLATFORM(CAIRO)
 typedef struct _cairo_pattern cairo_pattern_t;
 typedef cairo_pattern_t* PlatformGradient;
-#elif PLATFORM(ANDROID) && PLATFORM(SGL)
+#elif PLATFORM(SKIA)
+#if PLATFORM(ANDROID)
 #include "SkShader.h"
 typedef class PlatformGradientRec* PlatformGradient;
-#elif PLATFORM(SKIA)
+#else
 class SkShader;
 typedef class SkShader* PlatformGradient;
 typedef class SkShader* PlatformPattern;
+#endif
 #else
 typedef void* PlatformGradient;
 #endif
@@ -86,13 +88,11 @@ namespace WebCore {
         struct ColorStop;
         const Vector<ColorStop>& getStops() const;
 #else
-
-#if PLATFORM(ANDROID) && PLATFORM(SGL)
+#if PLATFORM(ANDROID)
         SkShader* getShader(SkShader::TileMode);
 #endif
         PlatformGradient platformGradient();
 #endif
-
         struct ColorStop {
             float stop;
             float red;

@@ -148,7 +148,7 @@ public:
     virtual bool getHBITMAPOfSize(HBITMAP, LPSIZE);
 #endif
 
-#if PLATFORM(SGL)
+#if PLATFORM(ANDROID)
     virtual void setURL(const String& str);
 #endif
 

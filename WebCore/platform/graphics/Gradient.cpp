@@ -161,7 +161,7 @@ void Gradient::setGradientSpaceTransform(const TransformationMatrix& gradientSpa
     setPlatformGradientSpaceTransform(gradientSpaceTransformation);
 }
 
-#if !PLATFORM(SKIA)
+#if !(PLATFORM(SKIA) && !PLATFORM(ANDROID))
 void Gradient::setPlatformGradientSpaceTransform(const TransformationMatrix&)
 {
 }

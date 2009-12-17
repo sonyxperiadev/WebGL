@@ -45,12 +45,14 @@ QT_END_NAMESPACE
 #elif PLATFORM(CAIRO)
 struct _cairo_surface;
 typedef struct _cairo_surface cairo_surface_t;
-#elif PLATFORM(ANDROID) && PLATFORM(SGL)
+#elif PLATFORM(SKIA)
+#if PLATFORM(ANDROID)
 #include "SkString.h"
 class SkBitmapRef;
 class PrivateAndroidImageSourceRec;
-#elif PLATFORM(SKIA)
+#else
 class NativeImageSkia;
+#endif
 #elif PLATFORM(HAIKU)
 class BBitmap;
 #elif PLATFORM(WINCE)
@@ -70,14 +72,14 @@ typedef CGImageRef NativeImagePtr;
 class ImageDecoderQt;
 typedef ImageDecoderQt* NativeImageSourcePtr;
 typedef QPixmap* NativeImagePtr;
-#elif PLATFORM(ANDROID)
-#if PLATFORM(SGL)
+#elif PLATFORM(SKIA)
+#if PLATFORM(ANDROID)
 class String;
 #ifdef ANDROID_ANIMATED_GIF
 class ImageDecoder;
 #endif
 struct NativeImageSourcePtr {
-    SkString m_url; 
+    SkString m_url;
     PrivateAndroidImageSourceRec* m_image;
 #ifdef ANDROID_ANIMATED_GIF
     ImageDecoder* m_gifDecoder;
@@ -85,7 +87,7 @@ struct NativeImageSourcePtr {
 };
 typedef const Vector<char>* NativeBytePtr;
 typedef SkBitmapRef* NativeImagePtr;
-#elif PLATFORM(SKIA) // ANDROID
+#else
 class ImageDecoder;
 typedef ImageDecoder* NativeImageSourcePtr;
 typedef NativeImageSkia* NativeImagePtr;
@@ -101,8 +103,6 @@ typedef wxBitmap* NativeImagePtr;
 #endif
 #elif PLATFORM(CAIRO)
 typedef cairo_surface_t* NativeImagePtr;
-#elif PLATFORM(SKIA)
-typedef NativeImageSkia* NativeImagePtr;
 #elif PLATFORM(HAIKU)
 typedef BBitmap* NativeImagePtr;
 #elif PLATFORM(WINCE)
@@ -166,10 +166,8 @@ public:
     bool frameIsCompleteAtIndex(size_t); // Whether or not the frame is completely decoded.
 
 #if PLATFORM(ANDROID)
-#if PLATFORM(SGL)
     void clearURL();
     void setURL(const String& url);
-#endif
 #endif
 private:
 #if PLATFORM(ANDROID)

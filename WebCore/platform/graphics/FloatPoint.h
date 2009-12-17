@@ -100,7 +100,7 @@ public:
     operator BPoint() const;
 #endif
 
-#if (PLATFORM(SKIA) || PLATFORM(SGL))
+#if PLATFORM(SKIA)
     operator SkPoint() const;
     FloatPoint(const SkPoint&);
 #endif

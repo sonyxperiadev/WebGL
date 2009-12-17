@@ -38,7 +38,7 @@
 #include "SVGStyledElement.h"
 #include "SVGURIReference.h"
 
-#if PLATFORM(SKIA)
+#if PLATFORM(SKIA) && !PLATFORM(ANDROID)
 #include "PlatformContextSkia.h"
 #endif
 
@@ -184,7 +184,7 @@ void SVGPaintServer::renderPath(GraphicsContext*& context, const RenderObject* p
         context->strokePath();
 }
 
-#if PLATFORM(SKIA)
+#if PLATFORM(SKIA) && !PLATFORM(ANDROID)
 void SVGPaintServer::teardown(GraphicsContext*& context, const RenderObject*, SVGPaintTargetType, bool) const
 {
     // FIXME: Move this into the GraphicsContext

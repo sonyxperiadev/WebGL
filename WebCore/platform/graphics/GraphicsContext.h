@@ -46,12 +46,6 @@ QT_BEGIN_NAMESPACE
 class QPainter;
 QT_END_NAMESPACE
 typedef QPainter PlatformGraphicsContext;
-#elif PLATFORM(SGL)
-namespace WebCore {
-class PlatformGraphicsContext;
-}
-class SkPaint;
-struct SkPoint;
 #elif PLATFORM(WX)
 class wxGCDC;
 class wxWindowDC;
@@ -72,7 +66,15 @@ class wxWindowDC;
     typedef wxWindowDC PlatformGraphicsContext;
 #endif
 #elif PLATFORM(SKIA)
+#if PLATFORM(ANDROID)
+namespace WebCore {
+class PlatformGraphicsContext;
+}
+class SkPaint;
+struct SkPoint;
+#else
 typedef class PlatformContextSkia PlatformGraphicsContext;
+#endif
 #elif PLATFORM(HAIKU)
 class BView;
 typedef BView PlatformGraphicsContext;
@@ -190,7 +192,7 @@ namespace WebCore {
         void applyFillPattern();
 #endif
 
-#if PLATFORM(SGL)
+#if PLATFORM(ANDROID)
         // initialize a paint for bitmaps
         void setupBitmapPaint(SkPaint*);
         // initialize a paint for filling
@@ -204,7 +206,7 @@ namespace WebCore {
         bool willFill() const;
         // returns true if there is a valid (non-transparent) stroke color
         bool willStroke() const;
-        
+
         // may return NULL, since we lazily allocate the path. This is the path
         // that is drawn by drawPath()
         const SkPath* getCurrPath() const;
