@@ -102,24 +102,23 @@ namespace android {
     void JavaSharedClient::ServiceFunctionPtrQueue()
     {
         for (;;) {
-            void (*proc)(void*);
-            void* payload;
+            void (*proc)(void*) = 0;
+            void* payload = 0;
             const FuncPtrRec* rec;
             
             // we have to copy the proc/payload (if present). we do this so we
             // don't call the proc inside the mutex (possible deadlock!)
             gFuncPtrQMutex.acquire();
             rec = (const FuncPtrRec*)gFuncPtrQ.front();
-            if (NULL != rec) {
+            if (rec) {
                 proc = rec->fProc;
                 payload = rec->fPayload;
                 gFuncPtrQ.pop_front();
             }
             gFuncPtrQMutex.release();
             
-            if (NULL == rec) {
+            if (!rec)
                 break;
-            }
             proc(payload);
         }
     }
