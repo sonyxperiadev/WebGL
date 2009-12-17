@@ -481,12 +481,6 @@ void prefetchDNS(const String&)
     notImplemented();
 }
 
-PassRefPtr<Icon> Icon::createIconForFile(const String&)
-{
-    notImplemented();
-    return 0;
-}
-
 PassRefPtr<Icon> Icon::createIconForFiles(const Vector<String>&)
 {
     notImplemented();
