@@ -47,15 +47,11 @@
 #include <wtf/RefPtr.h>
 #include <wtf/Vector.h>
 
-<<<<<<< HEAD:WebCore/plugins/PluginView.h
 #ifdef PLUGIN_SCHEDULE_TIMER
 #include "PluginTimer.h"
 #endif
 
-#if PLATFORM(WIN_OS) && PLATFORM(QT)
-=======
 #if PLATFORM(WIN_OS) && (PLATFORM(QT) || PLATFORM(WX))
->>>>>>> webkit.org at r51976:WebCore/plugins/PluginView.h
 typedef struct HWND__* HWND;
 typedef HWND PlatformPluginWidget;
 #elif defined(ANDROID_PLUGINS)
@@ -354,15 +350,11 @@ namespace WebCore {
         bool m_haveUpdatedPluginWidget;
 #endif
 
-<<<<<<< HEAD:WebCore/plugins/PluginView.h
 #ifdef PLUGIN_SCHEDULE_TIMER
         PluginTimerList m_timerList;
 #endif
 
-#if (PLATFORM(QT) && PLATFORM(WIN_OS)) || defined(XP_MACOSX)
-=======
 #if ((PLATFORM(QT) || PLATFORM(WX)) && PLATFORM(WIN_OS)) || defined(XP_MACOSX)
->>>>>>> webkit.org at r51976:WebCore/plugins/PluginView.h
         // On Mac OSX and Qt/Windows the plugin does not have its own native widget,
         // but is using the containing window as its reference for positioning/painting.
         PlatformPluginWidget m_window;

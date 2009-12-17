@@ -62,13 +62,10 @@
 #include "RenderTheme.h"
 #include "StringHash.h"
 #include "TextEvent.h"
-<<<<<<< HEAD:WebCore/html/HTMLInputElement.cpp
 #ifdef ANDROID_ACCEPT_CHANGES_TO_FOCUSED_TEXTFIELDS
 #include "WebViewCore.h"
 #endif
-=======
 #include <wtf/HashMap.h>
->>>>>>> webkit.org at r51976:WebCore/html/HTMLInputElement.cpp
 #include <wtf/MathExtras.h>
 #include <wtf/StdLibExtras.h>
 #include <wtf/dtoa.h>
@@ -587,59 +584,12 @@ static const InputTypeMap* createTypeMap()
 
 void HTMLInputElement::setInputType(const String& t)
 {
-<<<<<<< HEAD:WebCore/html/HTMLInputElement.cpp
-    InputType newType;
-    
-    if (equalIgnoringCase(t, "password"))
-#ifdef ANDROID_ACCEPT_CHANGES_TO_FOCUSED_TEXTFIELDS
-    {
-        if (document()->focusedNode() == this)
-        {
-            android::WebViewCore::getWebViewCore(document()->view())->updateTextfield(this, true, String());
-        }
-#endif
-        newType = PASSWORD;
-#ifdef ANDROID_ACCEPT_CHANGES_TO_FOCUSED_TEXTFIELDS
-    }
-#endif
-    else if (equalIgnoringCase(t, "checkbox"))
-        newType = CHECKBOX;
-    else if (equalIgnoringCase(t, "radio"))
-        newType = RADIO;
-    else if (equalIgnoringCase(t, "submit"))
-        newType = SUBMIT;
-    else if (equalIgnoringCase(t, "reset"))
-        newType = RESET;
-    else if (equalIgnoringCase(t, "file"))
-        newType = FILE;
-    else if (equalIgnoringCase(t, "hidden"))
-        newType = HIDDEN;
-    else if (equalIgnoringCase(t, "image"))
-        newType = IMAGE;
-    else if (equalIgnoringCase(t, "button"))
-        newType = BUTTON;
-    else if (equalIgnoringCase(t, "khtml_isindex"))
-        newType = ISINDEX;
-    else if (equalIgnoringCase(t, "search"))
-        newType = SEARCH;
-    else if (equalIgnoringCase(t, "range"))
-        newType = RANGE;
-    else if (equalIgnoringCase(t, "email"))
-        newType = EMAIL;
-    else if (equalIgnoringCase(t, "number"))
-        newType = NUMBER;
-    else if (equalIgnoringCase(t, "tel"))
-        newType = TELEPHONE;
-    else if (equalIgnoringCase(t, "url"))
-        newType = URL;
-    else if (equalIgnoringCase(t, "color"))
-        newType = COLOR;
-    else
-        newType = TEXT;
-=======
     static const InputTypeMap* typeMap = createTypeMap();
     InputType newType = t.isNull() ? TEXT : typeMap->get(t);
->>>>>>> webkit.org at r51976:WebCore/html/HTMLInputElement.cpp
+#ifdef ANDROID_ACCEPT_CHANGES_TO_FOCUSED_TEXTFIELDS
+    if (newType == PASSWORD && document()->focusedNode() == this)
+        android::WebViewCore::getWebViewCore(document()->view())->updateTextfield(this, true, String());
+#endif
 
     // IMPORTANT: Don't allow the type to be changed to FILE after the first
     // type change, otherwise a JavaScript programmer would be able to set a text

@@ -27,15 +27,7 @@
 #include "PluginInfoStore.h"
 
 #include "KURL.h"
-<<<<<<< HEAD:WebCore/plugins/PluginInfoStore.cpp
-#if PLATFORM(ANDROID)
-=======
->>>>>>> webkit.org at r51976:WebCore/plugins/PluginInfoStore.cpp
 #include "Page.h"
-<<<<<<< HEAD:WebCore/plugins/PluginInfoStore.cpp
-#endif
-=======
->>>>>>> webkit.org at r51976:WebCore/plugins/PluginInfoStore.cpp
 #include "PluginData.h"
 #include "PluginDatabase.h"
 #include "PluginPackage.h"
@@ -102,21 +94,7 @@ bool PluginInfoStore::supportsMIMEType(const WebCore::String& mimeType)
 
 void refreshPlugins(bool reloadOpenPages)
 {
-<<<<<<< HEAD:WebCore/plugins/PluginInfoStore.cpp
-#if PLATFORM(ANDROID)
-=======
->>>>>>> webkit.org at r51976:WebCore/plugins/PluginInfoStore.cpp
     Page::refreshPlugins(reloadOpenPages);
-<<<<<<< HEAD:WebCore/plugins/PluginInfoStore.cpp
-#else
-    PluginDatabase::installedPlugins()->refresh();
-
-    if (reloadOpenPages) {
-        // FIXME: reload open pages
-    }
-#endif
-=======
->>>>>>> webkit.org at r51976:WebCore/plugins/PluginInfoStore.cpp
 }
 
 }

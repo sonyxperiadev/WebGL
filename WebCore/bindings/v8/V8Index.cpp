@@ -446,7 +446,6 @@
 #include "V8Geoposition.h"
 #include "V8PositionError.h"
 
-<<<<<<< HEAD:WebCore/bindings/v8/V8Index.cpp
 #if PLATFORM(ANDROID)
 // TODO: Upstream these guards to webkit.org
 #if ENABLE(TOUCH_EVENTS)
@@ -458,8 +457,6 @@
 #include "V8VoidCallback.h"
 #endif  // PLATFORM(ANDROID)
 
-=======
->>>>>>> webkit.org at r51976:WebCore/bindings/v8/V8Index.cpp
 namespace WebCore {
 
 FunctionTemplateFactory V8ClassIndex::GetFactory(V8WrapperType type)

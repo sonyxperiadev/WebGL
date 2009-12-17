@@ -75,18 +75,12 @@
 
 #endif /* PLATFORM(WIN_OS) */
 
-<<<<<<< HEAD:WebCore/config.h
 // ANDROID def should be after all PLATFORM to avoid override.
-=======
->>>>>>> webkit.org at r51976:WebCore/config.h
 #if PLATFORM(ANDROID)
 #define WEBCORE_NAVIGATOR_VENDOR "Google Inc."
 // This must be defined before we include FastMalloc.h, below.
 #define USE_SYSTEM_MALLOC 1
-<<<<<<< HEAD:WebCore/config.h
 #define ANDROID_MOBILE      // change can be merged back to WebKit.org for MOBILE
-=======
->>>>>>> webkit.org at r51976:WebCore/config.h
 #define LOG_DISABLED 1
 #include <wtf/Assertions.h>
 // Central place to set which optional features Android uses.
@@ -99,7 +93,7 @@
 #endif
 #define ENABLE_VIDEO 1
 #define ENABLE_WORKERS 1
-<<<<<<< HEAD:WebCore/config.h
+
 #if ENABLE_SVG
 #if !defined(ENABLE_SVG_ANIMATION)
 #define ENABLE_SVG_ANIMATION 0 // to enable:
@@ -113,28 +107,19 @@
 #define ENABLE_SVG_FOREIGN_OBJECT 1
 #define ENABLE_SVG_USE 1
 #endif
-=======
->>>>>>> webkit.org at r51976:WebCore/config.h
+
 #define ENABLE_XBL 0
 #define ENABLE_XPATH 0
 #define ENABLE_XSLT 0
-<<<<<<< HEAD:WebCore/config.h
-
 #undef ENABLE_ARCHIVE  // Enabled by default in Platform.h
-=======
->>>>>>> webkit.org at r51976:WebCore/config.h
 #define ENABLE_ARCHIVE 0
 #define ENABLE_OFFLINE_WEB_APPLICATIONS 1
-<<<<<<< HEAD:WebCore/config.h
 #define ENABLE_TOUCH_EVENTS 1
-=======
->>>>>>> webkit.org at r51976:WebCore/config.h
 #undef ENABLE_GEOLOCATION  // Disabled by default in Platform.h
 #define ENABLE_GEOLOCATION 1
 #undef ENABLE_INSPECTOR  // Enabled by default in Platform.h
 #define ENABLE_INSPECTOR 0
 #define ENABLE_EVENT_SOURCE 0
-<<<<<<< HEAD:WebCore/config.h
 
 #define FLATTEN_FRAMESET
 #define FLATTEN_IFRAME
@@ -211,8 +196,6 @@
 // a page is cached. Invoke loadEvent when a page is restored.
 #define ANDROID_PAGE_CACHE_UNLOAD
 
-=======
->>>>>>> webkit.org at r51976:WebCore/config.h
 #endif /* PLATFORM(ANDROID) */
 
 #ifdef __cplusplus

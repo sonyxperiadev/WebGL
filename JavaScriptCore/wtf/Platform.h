@@ -546,10 +546,7 @@
 // This prevents unnecessary invals.
 #define ENABLE_TEXT_CARET 1
 #define ENABLE_JAVASCRIPT_DEBUGGER 0
-<<<<<<< HEAD:JavaScriptCore/wtf/Platform.h
 #define ENABLE_ORIENTATION_EVENTS 1
-=======
->>>>>>> webkit.org at r51976:JavaScriptCore/wtf/Platform.h
 #endif
 
 #if PLATFORM(WIN)

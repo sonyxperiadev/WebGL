@@ -218,15 +218,9 @@ namespace WebCore {
         // It is almost identical to m_currentWebChallenge.nsURLAuthenticationChallenge(), but has a different sender.
         NSURLAuthenticationChallenge *m_currentMacChallenge;
 #endif
-<<<<<<< HEAD:WebCore/platform/network/ResourceHandleInternal.h
-#if USE(CFNETWORK)
-        CFURLAuthChallengeRef m_currentCFChallenge;
-#endif
 #if PLATFORM(ANDROID)
         RefPtr<ResourceLoaderAndroid> m_loader;
 #endif
-=======
->>>>>>> webkit.org at r51976:WebCore/platform/network/ResourceHandleInternal.h
         AuthenticationChallenge m_currentWebChallenge;
 
         ResourceHandle::FailureType m_failureType;

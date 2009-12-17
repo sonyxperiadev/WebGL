@@ -2182,12 +2182,8 @@ void RenderLayer::paintLayer(RenderLayer* rootLayer, GraphicsContext* p,
 #else
         TransformationMatrix transform;
         transform.translate(x, y);
-<<<<<<< HEAD:WebCore/rendering/RenderLayer.cpp
-        transform = *m_transform * transform;
-#endif
-=======
         transform = layerTransform * transform;
->>>>>>> webkit.org at r51976:WebCore/rendering/RenderLayer.cpp
+#endif
         
         // Apply the transform.
         p->save();

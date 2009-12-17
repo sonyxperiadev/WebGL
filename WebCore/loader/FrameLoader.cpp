@@ -537,10 +537,7 @@ void FrameLoader::stopLoading(UnloadEventPolicy unloadEventPolicy, DatabasePolic
                 if (m_frame->domWindow()) {
                     if (unloadEventPolicy == UnloadEventPolicyUnloadAndPageHide)
                         m_frame->domWindow()->dispatchEvent(PageTransitionEvent::create(eventNames().pagehideEvent, m_frame->document()->inPageCache()), m_frame->document());
-<<<<<<< HEAD:WebCore/loader/FrameLoader.cpp
 #ifndef ANDROID_PAGE_CACHE_UNLOAD
-=======
->>>>>>> webkit.org at r51976:WebCore/loader/FrameLoader.cpp
                     if (!m_frame->document()->inPageCache())
 #endif
                         m_frame->domWindow()->dispatchEvent(Event::create(eventNames().unloadEvent, false, false), m_frame->domWindow()->document());
@@ -1746,7 +1743,12 @@ void FrameLoader::setFirstPartyForCookies(const KURL& url)
 
 // This does the same kind of work that didOpenURL does, except it relies on the fact
 // that a higher level already checked that the URLs match and the scrolling is the right thing to do.
+#if PLATFORM(ANDROID)
+// TODO: Upstream to webkit.org
+void FrameLoader::loadInSameDocument(const KURL& url, SerializedScriptValue* stateObject, bool isNewNavigation, bool suppressAddToHistory)
+#else
 void FrameLoader::loadInSameDocument(const KURL& url, SerializedScriptValue* stateObject, bool isNewNavigation)
+#endif
 {
     // If we have a state object, we cannot also be a new navigation.
     ASSERT(!stateObject || (stateObject && !isNewNavigation));
@@ -1754,7 +1756,12 @@ void FrameLoader::loadInSameDocument(const KURL& url, SerializedScriptValue* sta
     // Update the data source's request with the new URL to fake the URL change
     m_frame->document()->setURL(url);
     documentLoader()->replaceRequestURLForSameDocumentNavigation(url);
+#if PLATFORM(ANDROID)
+    // TODO: Upstream to webkit.org
+    if (isNewNavigation && !shouldTreatURLAsSameAsCurrent(url) && !stateObject && !suppressAddToHistory) {
+#else
     if (isNewNavigation && !shouldTreatURLAsSameAsCurrent(url) && !stateObject) {
+#endif
         // NB: must happen after replaceRequestURLForSameDocumentNavigation(), since we add 
         // based on the current request. Must also happen before we openURL and displace the 
         // scroll position, since adding the BF item will save away scroll state.
@@ -3470,46 +3477,15 @@ void FrameLoader::continueFragmentScrollAfterNavigationPolicy(const ResourceRequ
     if (!shouldContinue)
         return;
 
-<<<<<<< HEAD:WebCore/loader/FrameLoader.cpp
-    KURL url = request.url();
-    
-    m_documentLoader->replaceRequestURLForAnchorScroll(url);
+    bool isRedirect = m_quickRedirectComing || policyChecker()->loadType() == FrameLoadTypeRedirectWithLockedBackForwardList;    
 #ifdef ANDROID_USER_GESTURE
     // Do not add history items for a fragment scroll not initiated by the
     // user. http://bugs.webkit.org/show_bug.cgi?id=30224
-    if (!isRedirect && !shouldTreatURLAsSameAsCurrent(url)
-            && (isProcessingUserGesture() || request.getUserGesture())) {
+    bool isUserInitiated = isProcessingUserGesture() || request.getUserGesture();
+    loadInSameDocument(request.url(), 0, !isRedirect, !isUserInitiated);
 #else
-    if (!isRedirect && !shouldTreatURLAsSameAsCurrent(url)) {
-#endif
-        // NB: must happen after _setURL, since we add based on the current request.
-        // Must also happen before we openURL and displace the scroll position, since
-        // adding the BF item will save away scroll state.
-        
-        // NB2:  If we were loading a long, slow doc, and the user anchor nav'ed before
-        // it was done, currItem is now set the that slow doc, and prevItem is whatever was
-        // before it.  Adding the b/f item will bump the slow doc down to prevItem, even
-        // though its load is not yet done.  I think this all works out OK, for one because
-        // we have already saved away the scroll and doc state for the long slow load,
-        // but it's not an obvious case.
-
-        history()->updateBackForwardListForFragmentScroll();
-    }
-    
-    scrollToAnchor(url);
-    
-    if (!isRedirect)
-        // This will clear previousItem from the rest of the frame tree that didn't
-        // doing any loading. We need to make a pass on this now, since for anchor nav
-        // we'll not go through a real load and reach Completed state.
-        checkLoadComplete();
- 
-    m_client->dispatchDidChangeLocationWithinPage();
-    m_client->didFinishLoad();
-=======
-    bool isRedirect = m_quickRedirectComing || policyChecker()->loadType() == FrameLoadTypeRedirectWithLockedBackForwardList;    
     loadInSameDocument(request.url(), 0, !isRedirect);
->>>>>>> webkit.org at r51976:WebCore/loader/FrameLoader.cpp
+#endif
 }
 
 bool FrameLoader::shouldScrollToAnchor(bool isFormSubmission, FrameLoadType loadType, const KURL& url)
@@ -3797,7 +3773,12 @@ void FrameLoader::navigateWithinDocument(HistoryItem* item)
     history()->setCurrentItem(item);
         
     // loadInSameDocument() actually changes the URL and notifies load delegates of a "fake" load
+#if PLATFORM(ANDROID)
+    // TODO: Upstream to webkit.org
+    loadInSameDocument(item->url(), item->stateObject(), false, false);
+#else
     loadInSameDocument(item->url(), item->stateObject(), false);
+#endif
 
     // Restore user view state from the current history item here since we don't do a normal load.
     // Even though we just manually set the current history item, this ASSERT verifies nothing 

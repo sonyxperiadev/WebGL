@@ -387,14 +387,11 @@ Document::Document(Frame* frame, bool isXHTML)
     m_ignoreAutofocus = false;
 
     m_frame = frame;
-<<<<<<< HEAD:WebCore/dom/Document.cpp
-    m_renderArena = 0;
-#if !PLATFORM(ANDROID)
-=======
 
->>>>>>> webkit.org at r51976:WebCore/dom/Document.cpp
+#if !PLATFORM(ANDROID)
     m_axObjectCache = 0;
-#endif    
+#endif
+    
     m_docLoader = new DocLoader(this);
 
     visuallyOrdered = false;
@@ -1439,6 +1436,7 @@ void Document::attach()
 #if !PLATFORM(ANDROID)    
     ASSERT(!m_axObjectCache);
 #endif
+
     if (!m_renderArena)
         m_renderArena = new RenderArena();
     

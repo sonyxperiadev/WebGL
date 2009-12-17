@@ -116,15 +116,12 @@ JSValue toJS(ExecState* exec, JSDOMGlobalObject* globalObject, Event* event)
         else if (event->isSVGZoomEvent())
             wrapper = CREATE_DOM_OBJECT_WRAPPER(exec, globalObject, SVGZoomEvent, event);
 #endif
-<<<<<<< HEAD:WebCore/bindings/js/JSEventCustom.cpp
+        else if (event->isCompositionEvent())
+            wrapper = CREATE_DOM_OBJECT_WRAPPER(exec, globalObject, CompositionEvent, event);
 #if ENABLE(TOUCH_EVENTS) // Android
         else if (event->isTouchEvent())
             wrapper = CREATE_DOM_OBJECT_WRAPPER(exec, globalObject, TouchEvent, event);
 #endif
-=======
-        else if (event->isCompositionEvent())
-            wrapper = CREATE_DOM_OBJECT_WRAPPER(exec, globalObject, CompositionEvent, event);
->>>>>>> webkit.org at r51976:WebCore/bindings/js/JSEventCustom.cpp
         else
             wrapper = CREATE_DOM_OBJECT_WRAPPER(exec, globalObject, UIEvent, event);
     } else if (event->isMutationEvent())

@@ -502,7 +502,6 @@ typedef v8::Persistent<v8::FunctionTemplate> (*FunctionTemplateFactory)();
     V(GEOPOSITION, Geoposition)                                         \
     V(POSITIONERROR, PositionError)
 
-<<<<<<< HEAD:WebCore/bindings/v8/V8Index.h
 #if PLATFORM(ANDROID)
 // TODO: Upstream this guard.
 #if ENABLE(TOUCH_EVENTS)
@@ -524,8 +523,6 @@ typedef v8::Persistent<v8::FunctionTemplate> (*FunctionTemplateFactory)();
 
 #if PLATFORM(ANDROID)
 // This block is modified, but is not Android-specific.
-=======
->>>>>>> webkit.org at r51976:WebCore/bindings/v8/V8Index.h
 #define DOM_OBJECT_TYPES(V)                                             \
     DOM_OBJECT_TYPES_1(V)                                               \
     DOM_OBJECT_TYPES_2(V)                                               \
@@ -536,14 +533,10 @@ typedef v8::Persistent<v8::FunctionTemplate> (*FunctionTemplateFactory)();
     DOM_OBJECT_XPATH_TYPES(V)                                           \
     DOM_OBJECT_XSLT_TYPES(V)                                            \
     DOM_OBJECT_INSPECTOR_TYPES(V)                                       \
-<<<<<<< HEAD:WebCore/bindings/v8/V8Index.h
     DOM_OBJECT_GEOLOCATION_TYPES(V)                                     \
     DOM_OBJECT_TOUCH_EVENT_TYPES(V)                                     \
     DOM_OBJECT_VOIDCALLBACK_TYPES(V)
 #endif
-=======
-    DOM_OBJECT_GEOLOCATION_TYPES(V)
->>>>>>> webkit.org at r51976:WebCore/bindings/v8/V8Index.h
 
 #if ENABLE(SVG)
 // SVG_OBJECT_TYPES are svg non-node, non-pod types.

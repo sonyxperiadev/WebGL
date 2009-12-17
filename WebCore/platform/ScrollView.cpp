@@ -1,4 +1,3 @@
-
 /*
  * Copyright (C) 2006, 2007, 2008 Apple Inc. All rights reserved.
  *
@@ -718,23 +717,14 @@ void ScrollView::frameRectsChanged()
 
 void ScrollView::repaintContentRectangle(const IntRect& rect, bool now)
 {
-<<<<<<< HEAD:WebCore/platform/ScrollView.cpp
-    IntRect visibleContent = visibleContentRect();
-#ifdef ANDROID_CAPTURE_OFFSCREEN_PAINTS
-    IntRect fullVis = visibleContent;
-#endif
-    visibleContent.intersect(rect);
-#ifdef ANDROID_CAPTURE_OFFSCREEN_PAINTS
-    if (rect != visibleContent)
-        platformOffscreenContentRectangle(fullVis, rect);
-#endif
-    if (visibleContent.isEmpty())
-=======
     IntRect paintRect = rect;
     if (!paintsEntireContents())
         paintRect.intersect(visibleContentRect());
+#ifdef ANDROID_CAPTURE_OFFSCREEN_PAINTS
+    if (rect != paintRect)
+        platformOffscreenContentRectangle(visibleContentRect(), rect);
+#endif
     if (paintRect.isEmpty())
->>>>>>> webkit.org at r51976:WebCore/platform/ScrollView.cpp
         return;
     if (platformWidget()) {
         platformRepaintContentRectangle(paintRect, now);
@@ -1065,12 +1055,8 @@ bool ScrollView::platformScroll(ScrollDirection, ScrollGranularity)
     return true;
 }
 
-<<<<<<< HEAD:WebCore/platform/ScrollView.cpp
 #if !PLATFORM(ANDROID)
-void ScrollView::platformRepaintContentRectangle(const IntRect&, bool now)
-=======
 void ScrollView::platformRepaintContentRectangle(const IntRect&, bool /*now*/)
->>>>>>> webkit.org at r51976:WebCore/platform/ScrollView.cpp
 {
 }
 
