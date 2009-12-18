@@ -101,6 +101,9 @@ void Geolocation::GeoNotifier::timerFired(Timer<GeoNotifier>*)
 
     if (m_cachedPosition) {
         m_successCallback->handleEvent(m_cachedPosition.get());
+        // Clear the cached position in case this is a watch request, which
+        // will continue to run.
+        m_cachedPosition = 0;
         geolocation->requestReturnedCachedPosition(this);
         return;
     }
@@ -403,16 +406,13 @@ void Geolocation::requestTimedOut(GeoNotifier* notifier)
 void Geolocation::requestReturnedCachedPosition(GeoNotifier* notifier)
 {
     // If this is a one-shot request, stop it.
-    if (m_oneShots.contains(notifier)) {
-        m_oneShots.remove(notifier);
-        if (!hasListeners())
-            m_service->stopUpdating();
-        return;
-    }
+    m_oneShots.remove(notifier);
+    if (!hasListeners())
+        m_service->stopUpdating();
 
     // Otherwise, if the watch still exists, start the service to get updates.
     if (m_watchers.contains(notifier)) {
-        if (m_service->startUpdating(notifier->m_options.get()))
+        if (notifier->hasZeroTimeout() || m_service->startUpdating(notifier->m_options.get()))
             notifier->startTimerIfNeeded();
         else
             notifier->setFatalError(PositionError::create(PositionError::POSITION_UNAVAILABLE, "Failed to start Geolocation service"));
@@ -471,8 +471,10 @@ void Geolocation::setIsAllowed(bool allowed)
         makeSuccessCallbacks();
     else {
         GeoNotifierSet::const_iterator end = m_requestsAwaitingCachedPosition.end();
-        for (GeoNotifierSet::const_iterator iter = m_requestsAwaitingCachedPosition.begin(); iter != end; ++iter)
+        for (GeoNotifierSet::const_iterator iter = m_requestsAwaitingCachedPosition.begin(); iter != end; ++iter) {
+            ASSERT(m_cachedPositionManager->cachedPosition());
             (*iter)->setCachedPosition(m_cachedPositionManager->cachedPosition());
+        }
     }
     m_requestsAwaitingCachedPosition.clear();
 }
@@ -622,6 +624,9 @@ void Geolocation::geolocationServiceErrorOccurred(GeolocationService* service)
 {
     ASSERT(service->lastError());
     
+    // Note that we do not stop timers here. For one-shots, the request is
+    // cleared in handleError. For watchers, the spec requires that the timer is
+    // not cleared.
     handleError(service->lastError());
 }
 
