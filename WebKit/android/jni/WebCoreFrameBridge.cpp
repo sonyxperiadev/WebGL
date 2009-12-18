@@ -116,6 +116,8 @@
 #include "TimeCounter.h"
 #endif
 
+using namespace JSC::Bindings;
+
 static String* gUploadFileLabel;
 static String* gResetLabel;
 static String* gSubmitLabel;
@@ -278,7 +280,7 @@ WebFrame::WebFrame(JNIEnv* env, jobject obj, jobject historyList, WebCore::Page*
 WebFrame::~WebFrame()
 {
     if (mJavaFrame->mObj) {
-        JNIEnv* env = JSC::Bindings::getJNIEnv();
+        JNIEnv* env = getJNIEnv();
         env->DeleteGlobalRef(mJavaFrame->mObj);
         env->DeleteGlobalRef(mJavaFrame->mHistoryList);
         mJavaFrame->mObj = 0;
@@ -378,7 +380,7 @@ WebFrame::startLoadingResource(WebCore::ResourceHandle* loader,
     WebCore::String method = request.httpMethod();
     WebCore::HTTPHeaderMap headers = request.httpHeaderFields();
 
-    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    JNIEnv* env = getJNIEnv();
     AutoJObject obj = mJavaFrame->frame(env);
     if (!obj.get())
         return 0;
@@ -512,7 +514,7 @@ WebFrame::reportError(int errorCode, const WebCore::String& description,
     TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
 #endif
     LOGV("::WebCore:: reportError(%d, %s)", errorCode, description.ascii().data());
-    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    JNIEnv* env = getJNIEnv();
     AutoJObject obj = mJavaFrame->frame(env);
     if (!obj.get())
         return;
@@ -544,7 +546,7 @@ WebFrame::loadStarted(WebCore::Frame* frame)
              !isMainFrame))
         return;
 
-    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    JNIEnv* env = getJNIEnv();
     AutoJObject obj = mJavaFrame->frame(env);
     if (!obj.get())
         return;
@@ -584,7 +586,7 @@ WebFrame::transitionToCommitted(WebCore::Frame* frame)
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
 #endif
-    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    JNIEnv* env = getJNIEnv();
     AutoJObject obj = mJavaFrame->frame(env);
     if (!obj.get())
         return;
@@ -601,7 +603,7 @@ WebFrame::didFinishLoad(WebCore::Frame* frame)
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
 #endif
-    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    JNIEnv* env = getJNIEnv();
     AutoJObject obj = mJavaFrame->frame(env);
     if (!obj.get())
         return;
@@ -628,7 +630,7 @@ WebFrame::addHistoryItem(WebCore::HistoryItem* item)
     TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
 #endif
     LOGV("::WebCore:: addHistoryItem");
-    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    JNIEnv* env = getJNIEnv();
     WebHistory::AddItem(mJavaFrame->history(env), item);
 }
 
@@ -639,7 +641,7 @@ WebFrame::removeHistoryItem(int index)
     TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
 #endif
     LOGV("::WebCore:: removeHistoryItem at %d", index);
-    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    JNIEnv* env = getJNIEnv();
     WebHistory::RemoveItem(mJavaFrame->history(env), index);
 }
 
@@ -650,7 +652,7 @@ WebFrame::updateHistoryIndex(int newIndex)
     TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
 #endif
     LOGV("::WebCore:: updateHistoryIndex to %d", newIndex);
-    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    JNIEnv* env = getJNIEnv();
     WebHistory::UpdateHistoryIndex(mJavaFrame->history(env), newIndex);
 }
 
@@ -663,7 +665,7 @@ WebFrame::setTitle(const WebCore::String& title)
 #ifndef NDEBUG
     LOGV("setTitle(%s)", title.ascii().data());
 #endif
-    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    JNIEnv* env = getJNIEnv();
     AutoJObject obj = mJavaFrame->frame(env);
     if (!obj.get())
         return;
@@ -682,7 +684,7 @@ WebFrame::windowObjectCleared(WebCore::Frame* frame)
     TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
 #endif
     LOGV("::WebCore:: windowObjectCleared");
-    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    JNIEnv* env = getJNIEnv();
     AutoJObject obj = mJavaFrame->frame(env);
     if (!obj.get())
         return;
@@ -697,7 +699,7 @@ WebFrame::setProgress(float newProgress)
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
 #endif
-    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    JNIEnv* env = getJNIEnv();
     AutoJObject obj = mJavaFrame->frame(env);
     if (!obj.get())
         return;
@@ -719,7 +721,7 @@ WebFrame::didReceiveIcon(WebCore::Image* icon)
     TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
 #endif
     LOG_ASSERT(icon, "DidReceiveIcon called without an image!");
-    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    JNIEnv* env = getJNIEnv();
     AutoJObject obj = mJavaFrame->frame(env);
     if (!obj.get())
         return;
@@ -738,7 +740,7 @@ WebFrame::didReceiveTouchIconURL(const WebCore::String& url, bool precomposed)
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
 #endif
-    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    JNIEnv* env = getJNIEnv();
     AutoJObject obj = mJavaFrame->frame(env);
     if (!obj.get())
         return;
@@ -757,7 +759,7 @@ WebFrame::updateVisitedHistory(const WebCore::KURL& url, bool reload)
     TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
 #endif
     WebCore::String urlStr(url.string());
-    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    JNIEnv* env = getJNIEnv();
     AutoJObject obj = mJavaFrame->frame(env);
     if (!obj.get())
         return;
@@ -787,7 +789,7 @@ WebFrame::canHandleRequest(const WebCore::ResourceRequest& request)
     // Empty urls should not be sent to java
     if (url.isEmpty())
         return true;
-    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    JNIEnv* env = getJNIEnv();
     AutoJObject obj = mJavaFrame->frame(env);
     if (!obj.get())
         return true;
@@ -806,7 +808,7 @@ WebFrame::createWindow(bool dialog, bool userGesture)
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
 #endif
-    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    JNIEnv* env = getJNIEnv();
     AutoJObject obj = mJavaFrame->frame(env);
     if (!obj.get())
         return NULL;
@@ -825,7 +827,7 @@ WebFrame::requestFocus() const
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
 #endif
-    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    JNIEnv* env = getJNIEnv();
     AutoJObject obj = mJavaFrame->frame(env);
     if (!obj.get())
         return;
@@ -840,7 +842,7 @@ WebFrame::closeWindow(WebViewCore* webViewCore)
     TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
 #endif
     assert(webViewCore);
-    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    JNIEnv* env = getJNIEnv();
     AutoJObject obj = mJavaFrame->frame(env);
     if (!obj.get())
         return;
@@ -858,7 +860,7 @@ WebFrame::decidePolicyForFormResubmission(WebCore::FramePolicyFunction func)
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
 #endif
-    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    JNIEnv* env = getJNIEnv();
     AutoJObject obj = mJavaFrame->frame(env);
     if (!obj.get())
         return;
@@ -870,7 +872,7 @@ WebFrame::decidePolicyForFormResubmission(WebCore::FramePolicyFunction func)
 WebCore::String
 WebFrame::getRawResourceFilename(WebCore::PlatformBridge::rawResId id) const
 {
-    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    JNIEnv* env = getJNIEnv();
     AutoJObject obj = mJavaFrame->frame(env);
     if (!obj.get())
         return WebCore::String();
@@ -883,7 +885,7 @@ WebFrame::getRawResourceFilename(WebCore::PlatformBridge::rawResId id) const
 float
 WebFrame::density() const
 {
-    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    JNIEnv* env = getJNIEnv();
     AutoJObject obj = mJavaFrame->frame(env);
     if (!obj.get())
         return 1.0;
@@ -1197,27 +1199,28 @@ static jobject StringByEvaluatingJavaScriptFromString(JNIEnv *env, jobject obj, 
 // Wrap the JavaInstance used when binding custom javascript interfaces. Use a
 // weak reference so that the gc can collect the WebView. Override virtualBegin
 // and virtualEnd and swap the weak reference for the real object.
-class WeakJavaInstance : public JSC::Bindings::JavaInstance {
+class WeakJavaInstance : public JavaInstance {
 public:
-    static PassRefPtr<WeakJavaInstance> create(jobject obj,
-            PassRefPtr<JSC::Bindings::RootObject> root) {
+    static PassRefPtr<WeakJavaInstance> create(jobject obj, PassRefPtr<RootObject> root)
+    {
         return adoptRef(new WeakJavaInstance(obj, root));
     }
 
 protected:
-    WeakJavaInstance(jobject instance, PassRefPtr<JSC::Bindings::RootObject> rootObject)
-        : JSC::Bindings::JavaInstance(instance, rootObject)
+    WeakJavaInstance(jobject instance, PassRefPtr<RootObject> rootObject)
+        : JavaInstance(instance, rootObject)
     {
-        JNIEnv* env = JSC::Bindings::getJNIEnv();
+        JNIEnv* env = getJNIEnv();
         // JavaInstance creates a global ref to instance in its constructor.
         env->DeleteGlobalRef(_instance->instance());
         // Set the object to our WeakReference wrapper.
         _instance->setInstance(adoptGlobalRef(env, instance));
     }
 
-    virtual void virtualBegin() {
+    virtual void virtualBegin()
+    {
         _weakRef = _instance->instance();
-        JNIEnv* env = JSC::Bindings::getJNIEnv();
+        JNIEnv* env = getJNIEnv();
         // This is odd. getRealObject returns an AutoJObject which is used to
         // cleanly create and delete a local reference. But, here we need to
         // maintain the local reference across calls to virtualBegin() and
@@ -1230,17 +1233,18 @@ protected:
         INHERITED::virtualBegin();
     }
 
-    virtual void virtualEnd() {
+    virtual void virtualEnd()
+    {
         // Call the base class method first to pop the local frame.
         INHERITED::virtualEnd();
         // Get rid of the local reference to the real object.
-        JSC::Bindings::getJNIEnv()->DeleteLocalRef(_realObject);
+        getJNIEnv()->DeleteLocalRef(_realObject);
         // Point back to the WeakReference.
         _instance->setInstance(_weakRef);
     }
 
 private:
-    typedef JSC::Bindings::JavaInstance INHERITED;
+    typedef JavaInstance INHERITED;
     jobject _realObject;
     jobject _weakRef;
 };
@@ -1268,17 +1272,17 @@ static void AddJavascriptInterface(JNIEnv *env, jobject obj, jint nativeFramePoi
     JSC::JSLock lock(false);
     WebCore::JSDOMWindow *window = WebCore::toJSDOMWindow(pFrame, mainThreadNormalWorld());
     if (window) {
-        JSC::Bindings::RootObject *root = pFrame->script()->bindingRootObject();
-        JSC::Bindings::setJavaVM(vm);
+        RootObject *root = pFrame->script()->bindingRootObject();
+        setJavaVM(vm);
         // Add the binding to JS environment
         JSC::ExecState* exec = window->globalExec();
-        JSC::JSObject *addedObject = WeakJavaInstance::create(javascriptObj,
+        JSC::JSObject* addedObject = WeakJavaInstance::create(javascriptObj,
                 root)->createRuntimeObject(exec);
         const jchar* s = env->GetStringChars(interfaceName, NULL);
         if (s) {
             // Add the binding name to the window's table of child objects.
             JSC::PutPropertySlot slot;
-            window->put(exec, JSC::Identifier(exec, (const UChar *)s, 
+            window->put(exec, JSC::Identifier(exec, (const UChar *)s,
                     env->GetStringLength(interfaceName)), addedObject, slot);
             env->ReleaseStringChars(interfaceName, s);
             checkException(env);
@@ -1288,8 +1292,8 @@ static void AddJavascriptInterface(JNIEnv *env, jobject obj, jint nativeFramePoi
 
 #if USE(V8)
     if (pFrame) {
-        const char* name = JSC::Bindings::getCharactersFromJStringInEnv(env, interfaceName);
-        NPObject* obj = JSC::Bindings::JavaInstanceToNPObject(new JSC::Bindings::JavaInstance(javascriptObj));
+        const char* name = getCharactersFromJStringInEnv(env, interfaceName);
+        NPObject* obj = JavaInstanceToNPObject(new JavaInstance(javascriptObj));
         pFrame->script()->bindToWindowObject(pFrame, name, obj);
         // JavaInstanceToNPObject calls NPN_RetainObject on the
         // returned one (see CreateV8ObjectForNPObject in V8NPObject.cpp).
@@ -1303,7 +1307,7 @@ static void AddJavascriptInterface(JNIEnv *env, jobject obj, jint nativeFramePoi
         // WebCore/bridge/npruntime.cpp), so the function is implemented there.
         // TODO: Combine the two versions of these NPAPI files.
         NPN_ReleaseObject(obj);
-        JSC::Bindings::releaseCharactersForJString(interfaceName, name);
+        releaseCharactersForJString(interfaceName, name);
     }
 #endif
 
