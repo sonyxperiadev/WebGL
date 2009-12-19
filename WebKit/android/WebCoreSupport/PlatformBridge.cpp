@@ -24,12 +24,13 @@
  */
 
 #include "config.h"
-
 #include <PlatformBridge.h>
 
 #include "CookieClient.h"
 #include "JavaSharedClient.h"
 #include "KeyGeneratorClient.h"
+#include <wtf/android/AndroidThreading.h>
+#include <wtf/MainThread.h>
 
 using namespace android;
 
@@ -80,5 +81,33 @@ bool PlatformBridge::cookiesEnabled()
     return client->cookiesEnabled();
 }
 
+}  // namespace WebCore
 
+
+// This is the implementation of AndroidThreading, which is declared in
+// JavaScriptCore/wtf/android/AndroidThreading.h. It is provided here, rather
+// than in its own source file, to avoid linker problems.
+//
+// By default, when building a shared library, the linker strips from static
+// libraries any compilation units which do not contain any code referenced from
+// that static library. Since
+// AndroidThreading::scheduleDispatchFunctionsOnMainThread is not referenced
+// from libwebcore.a, implementing it in its own compilation unit results in it
+// being stripped. This stripping can be avoided by using the linker option
+// --whole-archive for libwebcore.a, but this adds considerably to the size of
+// libwebcore.so.
+
+namespace WTF {
+
+// Callback in the main thread.
+static void timeoutFired(void*)
+{
+    dispatchFunctionsFromMainThread();
 }
+
+void AndroidThreading::scheduleDispatchFunctionsOnMainThread()
+{
+    JavaSharedClient::EnqueueFunctionPtr(timeoutFired, 0);
+}
+
+}  // namespace WTF
