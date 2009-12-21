@@ -31,8 +31,6 @@
 
 namespace WebCore {
 
-class ResourceHandle;
-
 class AuthenticationChallenge : public AuthenticationChallengeBase {
 };
 

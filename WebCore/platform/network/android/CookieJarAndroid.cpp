@@ -25,11 +25,11 @@
 
 #include "config.h"
 
+#include "CookieJar.h"
+
 #include "PlatformBridge.h"
 
 namespace WebCore {
-
-class Document;
 
 void setCookies(Document*, const KURL& url, const String& value)
 {

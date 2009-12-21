@@ -514,7 +514,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/network/ResourceRequestBase.cpp \
 	platform/network/ResourceResponseBase.cpp \
 	\
-	platform/network/android/Cookie.cpp \
+	platform/network/android/CookieJarAndroid.cpp \
 	platform/network/android/NetworkStateNotifierAndroid.cpp \
 	platform/network/android/ResourceHandleAndroid.cpp \
 	platform/network/android/ResourceRequestAndroid.cpp \
