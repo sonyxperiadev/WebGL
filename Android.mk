@@ -266,7 +266,7 @@ endif
 ifneq ($(TARGET_SIMULATOR),true)
 LOCAL_SHARED_LIBRARIES += libdl
 LOCAL_C_INCLUDES += \
-	$(LOCAL_PATH)/WebKit/android/stlport
+	external/stlport
 endif
 
 # Build the list of static libraries
