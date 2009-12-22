@@ -1151,11 +1151,7 @@ void FrameView::scheduleRelayout()
         m_frame->ownerRenderer()->setNeedsLayoutAndPrefWidthsRecalc();
 #endif
 
-#ifdef ANDROID_MOBILE
-    int delay = m_frame->document()->minimumLayoutDelay() + m_frame->document()->extraLayoutDelay();
-#else
     int delay = m_frame->document()->minimumLayoutDelay();
-#endif
     if (m_layoutTimer.isActive() && m_delayedLayout && !delay)
         unscheduleRelayout();
     if (m_layoutTimer.isActive())
@@ -1209,11 +1205,7 @@ void FrameView::scheduleRelayoutOfSubtree(RenderObject* relayoutRoot)
             }
         }
     } else {
-#ifdef ANDROID_MOBILE
-        int delay = m_frame->document()->minimumLayoutDelay() + m_frame->document()->extraLayoutDelay();
-#else
         int delay = m_frame->document()->minimumLayoutDelay();
-#endif
         m_layoutRoot = relayoutRoot;
         m_delayedLayout = delay != 0;
         m_layoutTimer.startOneShot(delay * 0.001);
