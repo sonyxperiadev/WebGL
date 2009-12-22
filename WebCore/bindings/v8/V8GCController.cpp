@@ -239,16 +239,6 @@ bool operator<(const GrouperItem& a, const GrouperItem& b)
 
 typedef Vector<GrouperItem> GrouperList;
 
-#if PLATFORM(ANDROID)
-// Android's implementation of std::sort seems unable to do the necessary
-// template matching to pick up operator< for GrouperItem, so we have to
-// manually pass a comparison function.
-static bool compareGrouperItem(const GrouperItem& a, const GrouperItem& b)
-{
-    return a < b;
-}
-#endif
-
 class ObjectGrouperVisitor : public DOMWrapperMap<Node>::Visitor {
 public:
     ObjectGrouperVisitor()
@@ -295,11 +285,7 @@ public:
     void applyGrouping()
     {
         // Group by sorting by the group id.
-#if PLATFORM(ANDROID)
-        std::sort(m_grouper.begin(), m_grouper.end(), compareGrouperItem);
-#else
         std::sort(m_grouper.begin(), m_grouper.end());
-#endif
 
         // FIXME Should probably work in iterators here, but indexes were easier for my simple mind.
         for (size_t i = 0; i < m_grouper.size(); ) {
