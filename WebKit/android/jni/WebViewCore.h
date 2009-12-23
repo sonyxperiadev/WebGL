@@ -247,8 +247,6 @@ namespace android {
         WebCore::String retrieveHref(WebCore::Frame* frame, WebCore::Node* node);
         WebCore::String retrieveAnchorText(WebCore::Frame* frame, WebCore::Node* node);
 
-        WebCore::String getSelection(SkRegion* );
-
         // Create a single picture to represent the drawn DOM (used by navcache)
         void recordPicture(SkPicture* picture);
 
