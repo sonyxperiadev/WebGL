@@ -78,12 +78,12 @@ private:
     HANDLE m_waitHandle;
     OVERLAPPED m_overlapped;
 
-#elif PLATFORM(ANDROID)
-public:
-	void networkStateChange(bool online);
-
 #elif PLATFORM(CHROMIUM)
     NetworkStateNotifierPrivate p;
+
+#elif PLATFORM(ANDROID)
+public:
+    void networkStateChange(bool online);
 #endif
 };
 

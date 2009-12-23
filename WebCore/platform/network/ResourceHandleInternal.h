@@ -133,9 +133,6 @@ namespace WebCore {
             , m_needsSiteSpecificQuirks(false)
             , m_currentMacChallenge(nil)
 #endif
-#if PLATFORM(ANDROID)
-            , m_loader(0)
-#endif
             , m_failureTimer(loader, &ResourceHandle::fireFailure)
         {
             const KURL& url = m_request.url();
