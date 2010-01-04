@@ -104,11 +104,11 @@ struct JavaGlue {
     jmethodID   m_sendMoveMouse;
     jmethodID   m_sendMoveMouseIfLatest;
     jmethodID   m_sendMotionUp;
+    jmethodID   m_domChangedFocus;
     jmethodID   m_getScaledMaxXScroll;
     jmethodID   m_getScaledMaxYScroll;
     jmethodID   m_getVisibleRect;
     jmethodID   m_rebuildWebTextView;
-    jmethodID   m_setOkayToNotMatch;
     jmethodID   m_displaySoftKeyboard;
     jmethodID   m_viewInvalidate;
     jmethodID   m_viewInvalidateRect;
@@ -134,11 +134,11 @@ WebView(JNIEnv* env, jobject javaWebView, int viewImpl)
     m_javaGlue.m_sendMoveMouse = GetJMethod(env, clazz, "sendMoveMouse", "(IIII)V");
     m_javaGlue.m_sendMoveMouseIfLatest = GetJMethod(env, clazz, "sendMoveMouseIfLatest", "(Z)V");
     m_javaGlue.m_sendMotionUp = GetJMethod(env, clazz, "sendMotionUp", "(IIIII)V");
+    m_javaGlue.m_domChangedFocus = GetJMethod(env, clazz, "domChangedFocus", "()V");
     m_javaGlue.m_getScaledMaxXScroll = GetJMethod(env, clazz, "getScaledMaxXScroll", "()I");
     m_javaGlue.m_getScaledMaxYScroll = GetJMethod(env, clazz, "getScaledMaxYScroll", "()I");
     m_javaGlue.m_getVisibleRect = GetJMethod(env, clazz, "sendOurVisibleRect", "()Landroid/graphics/Rect;");
     m_javaGlue.m_rebuildWebTextView = GetJMethod(env, clazz, "rebuildWebTextView", "()V");
-    m_javaGlue.m_setOkayToNotMatch = GetJMethod(env, clazz, "setOkayNotToMatch", "()V");
     m_javaGlue.m_displaySoftKeyboard = GetJMethod(env, clazz, "displaySoftKeyboard", "(Z)V");
     m_javaGlue.m_viewInvalidate = GetJMethod(env, clazz, "viewInvalidate", "()V");
     m_javaGlue.m_viewInvalidateRect = GetJMethod(env, clazz, "viewInvalidate", "(IIII)V");
@@ -613,6 +613,7 @@ CachedRoot* getFrameCache(FrameCachePermission allowNewer)
     }
     DBG_NAV_LOGD("%s", "m_viewImpl->m_updatedFrameCache == true");
     bool hadCursor = m_frameCacheUI && m_frameCacheUI->currentCursor();
+    const CachedNode* oldFocus = m_frameCacheUI ? m_frameCacheUI->currentFocus() : 0;
     m_viewImpl->gFrameCacheMutex.lock();
     delete m_frameCacheUI;
     delete m_navPictureUI;
@@ -623,6 +624,19 @@ CachedRoot* getFrameCache(FrameCachePermission allowNewer)
     m_viewImpl->m_navPictureKit = 0;
     m_viewImpl->gFrameCacheMutex.unlock();
     fixCursor();
+    if (oldFocus && m_frameCacheUI) {
+        const CachedNode* newFocus = m_frameCacheUI->currentFocus();
+        if (newFocus && oldFocus != newFocus && newFocus->isTextInput()
+                && oldFocus->isTextInput()
+                && newFocus != m_frameCacheUI->currentCursor()) {
+            // The focus has changed.  We may need to update things.
+            LOG_ASSERT(m_javaGlue.m_obj, "A java object was not associated with this native WebView!");
+            JNIEnv* env = JSC::Bindings::getJNIEnv();
+            env->CallVoidMethod(m_javaGlue.object(env).get(),
+                    m_javaGlue.m_domChangedFocus);
+            checkException(env);
+        }
+    }
     if (hadCursor && (!m_frameCacheUI || !m_frameCacheUI->currentCursor()))
         viewInvalidate(); // redraw in case cursor ring is still visible
     return m_frameCacheUI;
@@ -839,7 +853,7 @@ bool moveCursor(int keyCode, int count, bool ignoreScroll)
 void notifyProgressFinished()
 {
     DBG_NAV_LOGD("cursorIsTextInput=%d", cursorIsTextInput(DontAllowNewer));
-    rebuildWebTextView(false);
+    rebuildWebTextView();
 #if DEBUG_NAV_UI
     if (m_frameCacheUI) {
         const CachedNode* focus = m_frameCacheUI->currentFocus();
@@ -964,7 +978,7 @@ bool motionUp(int x, int y, int slop)
     viewInvalidate();
     if (result->isTextInput()) {
         bool isReadOnly = frame->textInput(result)->isReadOnly();
-        rebuildWebTextView(true);
+        rebuildWebTextView();
         if (!isReadOnly)
             displaySoftKeyboard(true);
     } else {
@@ -1277,7 +1291,7 @@ bool hasFocusNode()
     return focusNode;
 }
 
-void rebuildWebTextView(bool needNotMatchFocus)
+void rebuildWebTextView()
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
     AutoJObject obj = m_javaGlue.object(env);
@@ -1287,10 +1301,6 @@ void rebuildWebTextView(bool needNotMatchFocus)
         return;
     env->CallVoidMethod(obj.get(), m_javaGlue.m_rebuildWebTextView);
     checkException(env);
-    if (needNotMatchFocus) {
-        env->CallVoidMethod(obj.get(), m_javaGlue.m_setOkayToNotMatch);
-        checkException(env);
-    }
 }
 
 void displaySoftKeyboard(bool isTextView)
@@ -2002,11 +2012,13 @@ static void nativeMoveCursorToNextTextInput(JNIEnv *env, jobject obj)
     CachedRoot* root = view->getFrameCache(WebView::DontAllowNewer);
     if (!root)
         return;
-    const CachedNode* cursor = root->currentCursor();
-    if (!cursor)
+    const CachedNode* current = root->currentCursor();
+    if (!current)
+        current = root->currentFocus();
+    if (!current)
         return;
     const CachedFrame* frame;
-    const CachedNode* next = root->nextTextField(cursor, &frame, true);
+    const CachedNode* next = root->nextTextField(current, &frame, true);
     if (!next)
         return;
     const WebCore::IntRect& bounds = next->bounds();
@@ -2027,7 +2039,7 @@ static jint nativeTextFieldAction(JNIEnv *env, jobject obj)
     CachedRoot* root = view->getFrameCache(WebView::DontAllowNewer);
     if (!root)
         return static_cast<jint>(CachedRoot::FAILURE);
-    return static_cast<jint>(root->cursorTextFieldAction());
+    return static_cast<jint>(root->currentTextFieldAction());
 }
 
 static int nativeMoveGeneration(JNIEnv *env, jobject obj)
