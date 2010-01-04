@@ -130,6 +130,11 @@ FILE* gRenderTreeFile = 0;
 #include "TimeCounter.h"
 #endif
 
+#if USE(ACCELERATED_COMPOSITING)
+#include "GraphicsLayerAndroid.h"
+#include "RenderLayerCompositor.h"
+#endif
+
 /*  We pass this flag when recording the actual content, so that we don't spend
     time actually regionizing complex path clips, when all we really want to do
     is record them.
@@ -195,6 +200,8 @@ struct WebViewCore::JavaGlue {
     jmethodID   m_updateViewport;
     jmethodID   m_sendNotifyProgressFinished;
     jmethodID   m_sendViewInvalidate;
+    jmethodID   m_sendImmediateRepaint;
+    jmethodID   m_setRootLayer;
     jmethodID   m_updateTextfield;
     jmethodID   m_updateTextSelection;
     jmethodID   m_clearTextEntry;
@@ -277,6 +284,8 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     m_javaGlue->m_updateViewport = GetJMethod(env, clazz, "updateViewport", "()V");
     m_javaGlue->m_sendNotifyProgressFinished = GetJMethod(env, clazz, "sendNotifyProgressFinished", "()V");
     m_javaGlue->m_sendViewInvalidate = GetJMethod(env, clazz, "sendViewInvalidate", "(IIII)V");
+    m_javaGlue->m_sendImmediateRepaint = GetJMethod(env, clazz, "sendImmediateRepaint", "()V");
+    m_javaGlue->m_setRootLayer = GetJMethod(env, clazz, "setRootLayer", "(I)V");
     m_javaGlue->m_updateTextfield = GetJMethod(env, clazz, "updateTextfield", "(IZLjava/lang/String;I)V");
     m_javaGlue->m_updateTextSelection = GetJMethod(env, clazz, "updateTextSelection", "(IIII)V");
     m_javaGlue->m_clearTextEntry = GetJMethod(env, clazz, "clearTextEntry", "()V");
@@ -879,6 +888,28 @@ void WebViewCore::scrollBy(int dx, int dy, bool animate)
     checkException(env);
 }
 
+#if USE(ACCELERATED_COMPOSITING)
+
+void WebViewCore::immediateRepaint()
+{
+    LOG_ASSERT(m_javaGlue->m_obj, "A Java widget was not associated with this view bridge!");
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    env->CallVoidMethod(m_javaGlue->object(env).get(),
+                        m_javaGlue->m_sendImmediateRepaint);
+    checkException(env);
+}
+
+void WebViewCore::setRootLayer(int layer)
+{
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    env->CallVoidMethod(m_javaGlue->object(env).get(),
+                        m_javaGlue->m_setRootLayer,
+                        layer);
+    checkException(env);
+}
+
+#endif // USE(ACCELERATED_COMPOSITING)
+
 void WebViewCore::contentDraw()
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
@@ -1267,6 +1298,12 @@ void WebViewCore::updateCacheOnNodeChange()
 
 void WebViewCore::updateFrameCache()
 {
+#if USE(ACCELERATED_COMPOSITING)
+    ChromeClientAndroid* chromeC = static_cast<ChromeClientAndroid*>(
+                                       mainFrame()->page()->chrome()->client());
+    chromeC->scheduleCompositingLayerSync();
+#endif
+
     if (!m_frameCacheOutOfDate) {
         DBG_NAV_LOG("!m_frameCacheOutOfDate");
         return;
@@ -2098,6 +2135,16 @@ int WebViewCore::handleTouchEvent(int action, int x, int y)
 {
     int preventDefault = 0;
 
+#if USE(ACCELERATED_COMPOSITING)
+    RenderView* contentRenderer = m_mainFrame->contentRenderer();
+    GraphicsLayerAndroid* rootLayer = 0;
+    if (contentRenderer)
+      rootLayer = static_cast<GraphicsLayerAndroid*>(
+          contentRenderer->compositor()->rootPlatformLayer());
+    if (rootLayer)
+      rootLayer->pauseDisplay(true);
+#endif
+
 #if ENABLE(TOUCH_EVENTS) // Android
     WebCore::TouchEventType type = WebCore::TouchEventCancel;
     switch (action) {
@@ -2125,6 +2172,10 @@ int WebViewCore::handleTouchEvent(int action, int x, int y)
     preventDefault = m_mainFrame->eventHandler()->handleTouchEvent(te);
 #endif
 
+#if USE(ACCELERATED_COMPOSITING)
+    if (rootLayer)
+      rootLayer->pauseDisplay(false);
+#endif
     return preventDefault;
 }
 

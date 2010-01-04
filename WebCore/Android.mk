@@ -449,6 +449,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/graphics/StringTruncator.cpp \
 	platform/graphics/WidthIterator.cpp \
 	\
+	platform/graphics/android/AndroidAnimation.cpp \
 	platform/graphics/android/BitmapAllocatorAndroid.cpp \
 	platform/graphics/android/FontAndroid.cpp \
 	platform/graphics/android/FontCacheAndroid.cpp \
@@ -458,9 +459,11 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/graphics/android/GlyphMapAndroid.cpp \
 	platform/graphics/android/GradientAndroid.cpp \
 	platform/graphics/android/GraphicsContextAndroid.cpp \
+	platform/graphics/android/GraphicsLayerAndroid.cpp \
 	platform/graphics/android/ImageAndroid.cpp \
 	platform/graphics/android/ImageBufferAndroid.cpp \
 	platform/graphics/android/ImageSourceAndroid.cpp \
+	platform/graphics/android/LayerAndroid.cpp \
 	platform/graphics/android/PathAndroid.cpp \
 	platform/graphics/android/PatternAndroid.cpp \
 	platform/graphics/android/PlatformGraphicsContext.cpp \

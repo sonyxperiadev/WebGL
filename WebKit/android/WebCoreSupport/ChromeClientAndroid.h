@@ -43,7 +43,13 @@ namespace android {
 
     class ChromeClientAndroid : public ChromeClient {
     public:
-        ChromeClientAndroid() : m_webFrame(0), m_geolocationPermissions(0) { }
+        ChromeClientAndroid() : m_webFrame(0), m_geolocationPermissions(0)
+#if USE(ACCELERATED_COMPOSITING)
+                                , m_rootGraphicsLayer(0)
+                                , m_askToDrawAgain(false)
+                                , m_syncTimer(this, &ChromeClientAndroid::syncTimerFired)
+#endif
+                                { }
         virtual void chromeDestroyed();
         
         virtual void setWindowRect(const FloatRect&);
@@ -149,13 +155,27 @@ namespace android {
         // Android-specific
         void setWebFrame(android::WebFrame* webframe);
         void wakeUpMainThreadWithNewQuota(long newQuota);
+
+#if USE(ACCELERATED_COMPOSITING)
+        virtual void attachRootGraphicsLayer(WebCore::Frame*, WebCore::GraphicsLayer* g);
+        virtual void setNeedsOneShotDrawingSynchronization();
+        virtual void scheduleCompositingLayerSync();
+        void compositingLayerSync();
+        void syncTimerFired(Timer<ChromeClientAndroid>*);
+#endif
+
     private:
         android::WebFrame* m_webFrame;
+        // The Geolocation permissions manager.
+        OwnPtr<GeolocationPermissions> m_geolocationPermissions;
+#if USE(ACCELERATED_COMPOSITING)
+        WebCore::GraphicsLayer* m_rootGraphicsLayer;
+        bool m_askToDrawAgain;
+        Timer<ChromeClientAndroid> m_syncTimer;
+#endif
         WTF::ThreadCondition m_quotaThreadCondition;
         WTF::Mutex m_quotaThreadLock;
         long m_newQuota;
-        // The Geolocation permissions manager.
-        OwnPtr<GeolocationPermissions> m_geolocationPermissions;
     };
 
 }

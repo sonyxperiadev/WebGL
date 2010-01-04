@@ -919,6 +919,10 @@ on MinGW. See https://bugs.webkit.org/show_bug.cgi?id=29268 */
 #endif
 #endif
 
+#if PLATFORM(ANDROID)
+#define WTF_USE_ACCELERATED_COMPOSITING 0
+#endif
+
 #if PLATFORM(IPHONE)
 #define WTF_USE_ACCELERATED_COMPOSITING 1
 #endif
