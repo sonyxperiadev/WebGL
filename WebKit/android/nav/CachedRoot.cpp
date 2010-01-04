@@ -756,14 +756,17 @@ bool CachedRoot::checkRings(const WTF::Vector<WebCore::IntRect>& rings,
     return ringCheck.success();
 }
 
-CachedRoot::ImeAction CachedRoot::cursorTextFieldAction() const
+CachedRoot::ImeAction CachedRoot::currentTextFieldAction() const
 {
-    const CachedFrame* cursorFrame;
-    const CachedNode* cursor = currentCursor(&cursorFrame);
-    if (!cursor) {
-        // Error case.  The cursor has no action, because there is no node under
-        // the cursor
-        return FAILURE;
+    const CachedFrame* currentFrame;
+    const CachedNode* current = currentCursor(&currentFrame);
+    if (!current) {
+        // Although the cursor is not on a textfield, a textfield may have
+        // focus.  Find the action for that textfield.
+        current = currentFocus(&currentFrame);
+        if (!current)
+            // Error case.  No cursor and no focus.
+            return FAILURE;
     }
     const CachedNode* firstTextfield = nextTextField(0, 0, false);
     if (!firstTextfield) {
@@ -773,8 +776,8 @@ CachedRoot::ImeAction CachedRoot::cursorTextFieldAction() const
     // Now find the next textfield/area starting with the cursor
     const CachedFrame* potentialFrame;
     const CachedNode* potentialNext
-            = cursorFrame->nextTextField(cursor, &potentialFrame, true);
-    if (potentialNext && cursorFrame->textInput(cursor)->formPointer()
+            = currentFrame->nextTextField(current, &potentialFrame, true);
+    if (potentialNext && currentFrame->textInput(current)->formPointer()
             == potentialFrame->textInput(potentialNext)->formPointer()) {
         // There is a textfield/area after the cursor in the same form,
         // so the textfield under the cursor should have the NEXT action
