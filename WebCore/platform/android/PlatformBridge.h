@@ -33,6 +33,8 @@
 
 namespace WebCore {
 
+class FrameView;
+
 // An interface to the embedding layer, which has the ability to answer
 // questions about the system and so on...
 // This is very similar to ChromiumBridge and the two are likely to converge
@@ -62,6 +64,13 @@ public:
         SubmitLabel
     };
     static String* globalLocalizedName(rawResId resId);
+
+#if USE(ACCELERATED_COMPOSITING)
+    // Those methods are used by the layers system
+    static void setRootLayer(const FrameView* view, int layer);
+    static void immediateRepaint(const FrameView* view);
+#endif // USE(ACCELERATED_COMPOSITING)
+
 };
 
 }

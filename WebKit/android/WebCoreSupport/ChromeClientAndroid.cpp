@@ -38,6 +38,7 @@
 #include "FrameLoader.h"
 #include "FrameView.h"
 #include "Geolocation.h"
+#include "GraphicsLayerAndroid.h"
 #include "Page.h"
 #include "Screen.h"
 #include "ScriptController.h"
@@ -48,6 +49,68 @@
 #include "Settings.h"
 
 namespace android {
+
+#if USE(ACCELERATED_COMPOSITING)
+
+void ChromeClientAndroid::syncTimerFired(Timer<ChromeClientAndroid>* client)
+{
+    m_syncTimer.stop();
+    compositingLayerSync();
+}
+
+void ChromeClientAndroid::compositingLayerSync()
+{
+    if (!m_rootGraphicsLayer) {
+        scheduleCompositingLayerSync();
+        return;
+    }
+
+    if (m_webFrame) {
+        FrameView* frameView = m_webFrame->page()->mainFrame()->view();
+        if (frameView && !frameView->layoutPending() && !frameView->needsLayout()) {
+            frameView->syncCompositingStateRecursive();
+            GraphicsLayerAndroid* androidGraphicsLayer =
+                    static_cast<GraphicsLayerAndroid*>(m_rootGraphicsLayer);
+            if (androidGraphicsLayer)
+                androidGraphicsLayer->sendImmediateRepaint();
+            return;
+        }
+    }
+    if (m_askToDrawAgain) {
+        m_askToDrawAgain = false;
+        scheduleCompositingLayerSync();
+    }
+}
+
+void ChromeClientAndroid::scheduleCompositingLayerSync()
+{
+    if (!m_syncTimer.isActive())
+        m_syncTimer.startOneShot(0.001); // 1ms
+    else
+        m_askToDrawAgain = true;
+}
+
+void ChromeClientAndroid::setNeedsOneShotDrawingSynchronization()
+{
+    // This should not be needed
+}
+
+void ChromeClientAndroid::attachRootGraphicsLayer(WebCore::Frame* frame, WebCore::GraphicsLayer* layer)
+{
+    m_rootGraphicsLayer = layer;
+    if (!layer) {
+        WebViewCore::getWebViewCore(frame->view())->setRootLayer(0);
+        return;
+    }
+    WebCore::GraphicsLayerAndroid* androidGraphicsLayer = static_cast<GraphicsLayerAndroid*>(layer);
+    if (frame && frame->view() && androidGraphicsLayer) {
+        androidGraphicsLayer->setFrame(frame);
+        WebCore::LayerAndroid* androidLayer = new LayerAndroid(androidGraphicsLayer->contentLayer());
+        WebViewCore::getWebViewCore(frame->view())->setRootLayer((int)androidLayer);
+    }
+}
+
+#endif
 
 void ChromeClientAndroid::setWebFrame(android::WebFrame* webframe)
 {

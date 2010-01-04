@@ -126,6 +126,11 @@ namespace android {
          */
         void contentDraw();
 
+#if USE(ACCELERATED_COMPOSITING)
+        void immediateRepaint();
+        void setRootLayer(int layer);
+#endif
+
         /** Invalidate the view/screen, NOT the content/DOM, but expressed in
          *  content/DOM coordinates (i.e. they need to eventually be scaled,
          *  by webview into view.java coordinates

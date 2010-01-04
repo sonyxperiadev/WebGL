@@ -891,6 +891,10 @@ bool RenderLayerCompositor::requiresCompositingLayer(const RenderLayer* layer) c
              requiresCompositingForVideo(layer->renderer()) ||
              requiresCompositingForCanvas(layer->renderer()) ||
              layer->renderer()->style()->backfaceVisibility() == BackfaceVisibilityHidden ||
+#if PLATFORM(ANDROID)
+             (layer->renderer()->isPositioned() &&
+              layer->renderer()->style()->position() == FixedPosition) ||
+#endif
              clipsCompositingDescendants(layer) ||
              requiresCompositingForAnimation(layer->renderer());
 }
@@ -1064,4 +1068,3 @@ bool RenderLayerCompositor::layerHas3DContent(const RenderLayer* layer) const
 } // namespace WebCore
 
 #endif // USE(ACCELERATED_COMPOSITING)
-

@@ -29,12 +29,29 @@
 #include "CookieClient.h"
 #include "JavaSharedClient.h"
 #include "KeyGeneratorClient.h"
+#include "WebViewCore.h"
 #include <wtf/android/AndroidThreading.h>
 #include <wtf/MainThread.h>
 
 using namespace android;
 
 namespace WebCore {
+
+#if USE(ACCELERATED_COMPOSITING)
+
+void PlatformBridge::setRootLayer(const WebCore::FrameView* view, int layer)
+{
+    android::WebViewCore* core = android::WebViewCore::getWebViewCore(view);
+    core->setRootLayer(layer);
+}
+
+void PlatformBridge::immediateRepaint(const WebCore::FrameView* view)
+{
+    android::WebViewCore* core = android::WebViewCore::getWebViewCore(view);
+    core->immediateRepaint();
+}
+
+#endif // USE(ACCELERATED_COMPOSITING)
 
 WTF::Vector<String> PlatformBridge::getSupportedKeyStrengthList()
 {
