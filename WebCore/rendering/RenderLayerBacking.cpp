@@ -1007,6 +1007,7 @@ void RenderLayerBacking::paintIntoLayer(RenderLayer* rootLayer, GraphicsContext*
     ASSERT(!m_owningLayer->m_usedTransparency);
 }
 
+#if ENABLE(INSPECTOR)
 static InspectorTimelineAgent* inspectorTimelineAgent(RenderObject* renderer)
 {
     Frame* frame = renderer->document()->frame();
@@ -1017,6 +1018,7 @@ static InspectorTimelineAgent* inspectorTimelineAgent(RenderObject* renderer)
         return 0;
     return page->inspectorTimelineAgent();
 }
+#endif
 
 // Up-call from compositing layer drawing callback.
 void RenderLayerBacking::paintContents(const GraphicsLayer*, GraphicsContext& context, GraphicsLayerPaintingPhase paintingPhase, const IntRect& clip)

@@ -28,6 +28,7 @@
 #include <config.h>
 
 #include "android_graphics.h"
+#include "AndroidAnimation.h"
 #include "AndroidLog.h"
 #include "AtomicString.h"
 #include "CachedFrame.h"
@@ -39,6 +40,7 @@
 #include "HTMLInputElement.h"
 #include "IntPoint.h"
 #include "IntRect.h"
+#include "LayerAndroid.h"
 #include "Node.h"
 #include "PlatformGraphicsContext.h"
 #include "PlatformString.h"
@@ -1602,6 +1604,86 @@ static void nativeDrawMatches(JNIEnv *env, jobject obj, jobject canv)
     view->drawMatches(canvas);
 }
 
+static void nativeDrawLayers(JNIEnv *env, jobject obj,
+    jint layer, jfloat scrollX, jfloat scrollY,
+    jfloat scale, jobject canv)
+{
+    if (!env)
+        return;
+    if (!layer)
+        return;
+    if (!canv)
+        return;
+
+#if USE(ACCELERATED_COMPOSITING)
+    LayerAndroid* layerImpl = reinterpret_cast<LayerAndroid*>(layer);
+    SkCanvas* canvas = GraphicsJNI::getNativeCanvas(env, canv);
+    if (canvas)
+        layerImpl->paintOn(scrollX, scrollY, scale, canvas);
+#endif
+}
+
+static void nativeUpdateLayers(JNIEnv *env, jobject obj,
+                               jint layer, jint updates)
+{
+    if (!env)
+        return;
+    if (!layer)
+        return;
+    if (!updates)
+        return;
+
+#if USE(ACCELERATED_COMPOSITING)
+    Vector<RefPtr<AndroidAnimationValue> >* updatesImpl =
+        reinterpret_cast<Vector<RefPtr<AndroidAnimationValue> >* >(updates);
+    if (updatesImpl) {
+        for (unsigned int i = 0; i < updatesImpl->size(); i++)
+            (updatesImpl->at(i))->apply();
+        delete updatesImpl;
+    }
+#endif
+}
+
+static bool nativeLayersHaveAnimations(JNIEnv *env, jobject obj, jint layer)
+{
+    if (!env)
+        return false;
+    if (!layer)
+        return false;
+#if USE(ACCELERATED_COMPOSITING)
+    LayerAndroid* layerImpl = reinterpret_cast<LayerAndroid*>(layer);
+    return layerImpl->hasAnimations();
+#else
+    return false;
+#endif
+}
+
+static int nativeEvaluateLayersAnimations(JNIEnv *env, jobject obj, jint layer)
+{
+    if (!env)
+        return 0;
+    if (!layer)
+        return 0;
+#if USE(ACCELERATED_COMPOSITING)
+    LayerAndroid* layerImpl = reinterpret_cast<LayerAndroid*>(layer);
+    return reinterpret_cast<int>(layerImpl->evaluateAnimations());
+#else
+    return 0;
+#endif
+}
+
+static void nativeDestroyLayer(JNIEnv *env, jobject obj, jint layer)
+{
+    if (!env)
+        return;
+    if (!layer)
+        return;
+#if USE(ACCELERATED_COMPOSITING)
+    LayerAndroid* layerImpl = reinterpret_cast<LayerAndroid*>(layer);
+    delete layerImpl;
+#endif
+}
+
 static void nativeDrawCursorRing(JNIEnv *env, jobject obj, jobject canv)
 {
     SkCanvas* canvas = GraphicsJNI::getNativeCanvas(env, canv);
@@ -2143,6 +2225,16 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeDestroy },
     { "nativeDrawCursorRing", "(Landroid/graphics/Canvas;)V",
         (void*) nativeDrawCursorRing },
+    { "nativeDestroyLayer", "(I)V",
+        (void*) nativeDestroyLayer },
+    { "nativeLayersHaveAnimations", "(I)Z",
+        (void*) nativeLayersHaveAnimations },
+    { "nativeEvaluateLayersAnimations", "(I)I",
+        (void*) nativeEvaluateLayersAnimations },
+    { "nativeDrawLayers", "(IFFFLandroid/graphics/Canvas;)V",
+        (void*) nativeDrawLayers },
+    { "nativeUpdateLayers", "(II)V",
+        (void*) nativeUpdateLayers },
     { "nativeDrawMatches", "(Landroid/graphics/Canvas;)V",
         (void*) nativeDrawMatches },
     { "nativeDrawSelectionPointer", "(Landroid/graphics/Canvas;FIIZ)V",

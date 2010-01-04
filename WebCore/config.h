@@ -91,6 +91,7 @@
 #ifndef ENABLE_SVG
 #define ENABLE_SVG 0
 #endif
+#define ENABLE_3D_RENDERING 0
 #define ENABLE_VIDEO 1
 #define ENABLE_WORKERS 1
 
