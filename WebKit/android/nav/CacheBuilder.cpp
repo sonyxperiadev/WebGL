@@ -38,6 +38,7 @@
 #include "HTMLAreaElement.h"
 #include "HTMLImageElement.h"
 #include "HTMLInputElement.h"
+#include "HTMLLabelElement.h"
 #include "HTMLMapElement.h"
 #include "HTMLNames.h"
 #include "HTMLOptionElement.h"
@@ -45,6 +46,7 @@
 #include "HTMLTextAreaElement.h"
 #include "InlineTextBox.h"
 #include "KURL.h"
+#include "NodeList.h"
 #include "PluginView.h"
 #include "RegisteredEventListener.h"
 #include "RenderImage.h"
@@ -860,6 +862,23 @@ static bool checkForPluginViewThatWantsFocus(RenderObject* renderer) {
     return false;
 }
 
+// Code copied from AccessibilityRenderObject.cpp.  If/when Webkit makes this
+// function public, we can use their version.
+static HTMLLabelElement* labelForElement(Element* element)
+{
+    RefPtr<NodeList> list = element->document()->getElementsByTagName("label");
+    unsigned len = list->length();
+    for (unsigned i = 0; i < len; i++) {
+        if (list->item(i)->hasTagName(HTMLNames::labelTag)) {
+            HTMLLabelElement* label = static_cast<HTMLLabelElement*>(list->item(i));
+            if (label->correspondingControl() == element)
+                return label;
+        }
+    }
+
+    return 0;
+}
+
 // when new focus is found, push it's parent on a stack
     // as long as more focii are found with the same (grand) parent, note it
     // (which only requires retrieving the last parent on the stack)
@@ -1099,7 +1118,7 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
             goto keepTextNode;
         }
         if (node->hasTagName(WebCore::HTMLNames::inputTag)) {
-            HTMLInputElement* input = (HTMLInputElement*) node;
+            HTMLInputElement* input = static_cast<HTMLInputElement*>(node);
             HTMLInputElement::InputType inputType = input->inputType();
             if (input->isTextField()) {
                 type = TEXT_INPUT_CACHEDNODETYPE;
@@ -1107,6 +1126,9 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
                 cachedInput.setFormPointer(input->form());
                 cachedInput.setIsTextField(true);
                 cachedInput.setIsReadOnly(input->readOnly());
+                HTMLLabelElement* label = labelForElement(input);
+                if (label)
+                    cachedInput.setLabel(label->innerHTML());
                 exported = input->value().threadsafeCopy();
                 cachedInput.setMaxLength(input->maxLength());
                 cachedInput.setInputType(inputType);

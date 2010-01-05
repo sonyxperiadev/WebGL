@@ -41,12 +41,14 @@ public:
     void* formPointer() const { return mForm; }
     void init() {
         bzero(this, sizeof(CachedInput));
+        mLabel = WebCore::String();
         mName = WebCore::String();
     }
     WebCore::HTMLInputElement::InputType inputType() const { return mInputType; }
     bool isReadOnly() const { return mIsReadOnly; }
     bool isRtlText() const { return mIsRtlText; }
     bool isTextField() const { return mIsTextField; }
+    const WebCore::String& label() const { return mLabel; }
     int maxLength() const { return mMaxLength; };
     const WebCore::String& name() const { return mName; }
     void setFormPointer(void* form) { mForm = form; }
@@ -54,12 +56,14 @@ public:
     void setIsReadOnly(bool isReadOnly) { mIsReadOnly = isReadOnly; }
     void setIsRtlText(bool isRtlText) { mIsRtlText = isRtlText; }
     void setIsTextField(bool isTextField) { mIsTextField = isTextField; }
+    void setLabel(const WebCore::String& label) { mLabel = label; }
     void setMaxLength(int maxLength) { mMaxLength = maxLength; }
     void setName(const WebCore::String& name) { mName = name; }
     void setTextSize(int textSize) { mTextSize = textSize; }
     int textSize() const { return mTextSize; }
 private:
     void* mForm;
+    WebCore::String mLabel;
     WebCore::String mName;
     int mMaxLength;
     int mTextSize;
