@@ -26,6 +26,8 @@
 #ifndef SELECT_TEXT_H
 #define SELECT_TEXT_H
 
+#include "PlatformString.h"
+
 class SkPicture;
 struct SkIRect;
 struct SkIPoint;
@@ -37,6 +39,8 @@ public:
         const SkIRect& selStart, const SkIRect& selEnd, SkRegion* region);
     static SkIRect findClosest(const SkPicture& , const SkIRect& area,
         int x, int y);
+    static WebCore::String text(const SkPicture& ,  const SkIRect& area,
+        const SkRegion& );
 };
 
 #endif

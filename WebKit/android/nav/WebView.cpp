@@ -34,6 +34,7 @@
 #include "CachedFrame.h"
 #include "CachedNode.h"
 #include "CachedRoot.h"
+#include "CString.h"
 #include "FindCanvas.h"
 #include "Frame.h"
 #include "GraphicsJNI.h"
@@ -1032,9 +1033,15 @@ void moveSelection(int x, int y, bool extendSelection)
         m_selEnd.fLeft, m_selEnd.fTop, m_selEnd.fRight, m_selEnd.fBottom);
 }
 
-const SkRegion& getSelection()
+const String getSelection()
 {
-    return m_selRegion;
+    WebCore::IntRect r;
+    getVisibleRect(&r);
+    SkIRect area;
+    area.set(r.x(), r.y(), r.right(), r.bottom());
+    String result = CopyPaste::text(*m_navPictureUI, area, m_selRegion);
+    DBG_NAV_LOGD("text=%s", result.latin1().data());
+    return result;
 }
 
 void drawSelectionRegion(SkCanvas* canvas)
@@ -1109,7 +1116,7 @@ void getSelectionCaret(SkPath* path)
 
 void sendMoveFocus(WebCore::Frame* framePtr, WebCore::Node* nodePtr)
 {
-    DBG_NAV_LOGD("framePtr=%p nodePtr=%p x=%d y=%d", framePtr, nodePtr, x, y);
+    DBG_NAV_LOGD("framePtr=%p nodePtr=%p", framePtr, nodePtr);
     JNIEnv* env = JSC::Bindings::getJNIEnv();
     env->CallVoidMethod(m_javaGlue.object(env).get(),
         m_javaGlue.m_sendMoveFocus, (jint) framePtr, (jint) nodePtr);
@@ -2071,7 +2078,8 @@ static jobject nativeGetSelection(JNIEnv *env, jobject obj)
 {
     WebView* view = GET_NATIVE_VIEW(env, obj);
     LOG_ASSERT(view, "view not set in %s", __FUNCTION__);
-    return GraphicsJNI::createRegion(env, new SkRegion(view->getSelection()));
+    String selection = view->getSelection();
+    return env->NewString((jchar*)selection.characters(), selection.length());
 }
 
 #ifdef ANDROID_DUMP_DISPLAY_TREE
@@ -2205,7 +2213,7 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeFocusNodePointer },
     { "nativeGetCursorRingBounds", "()Landroid/graphics/Rect;",
         (void*) nativeGetCursorRingBounds },
-    { "nativeGetSelection", "()Landroid/graphics/Region;",
+    { "nativeGetSelection", "()Ljava/lang/String;",
         (void*) nativeGetSelection },
     { "nativeHasCursorNode", "()Z",
         (void*) nativeHasCursorNode },

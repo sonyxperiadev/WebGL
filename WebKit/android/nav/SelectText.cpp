@@ -35,14 +35,17 @@
 #include "SkPoint.h"
 #include "SkRect.h"
 #include "SkRegion.h"
+#include "SkUtils.h"
 
 class CommonCheck : public SkBounder {
 public:
     CommonCheck() : mMatrix(NULL), mPaint(NULL) {}
     
-    virtual void setUp(const SkPaint& paint, const SkMatrix& matrix, SkScalar y) {
+    virtual void setUp(const SkPaint& paint, const SkMatrix& matrix, SkScalar y,
+            const void* text) {
         mMatrix = &matrix;
         mPaint = &paint;
+        mText = static_cast<const uint16_t*>(text);
         mY = y;
         mBase = mBottom = mTop = INT_MAX;
     }
@@ -81,10 +84,11 @@ public:
 protected:   
     const SkMatrix* mMatrix;
     const SkPaint* mPaint;
+    const uint16_t* mText;
+    SkScalar mY;
     int mBase;
     int mBottom;
     int mTop;
-    SkScalar mY;
 };
 
 class FirstCheck : public CommonCheck {
@@ -162,6 +166,8 @@ public:
                     full.fRight = mLast.fLeft;
             }
             mSelectRegion->op(full, SkRegion::kUnion_Op);
+            DBG_NAV_LOGD("MultilineBuilder full=(%d,%d,r=%d,b=%d)",
+                full.fLeft, full.fTop, full.fRight, full.fBottom);
             mLast = full;
             mLastBase = base();
             if (mStart == mEnd)
@@ -176,6 +182,66 @@ protected:
     int mLastBase;
     SkRegion* mSelectRegion;
     bool mCapture;
+};
+
+class TextExtractor : public CommonCheck {
+public:
+    TextExtractor(const SkRegion& region) : mSelectRegion(region),
+        mSkipFirstSpace(true) { // don't start with a space
+    }
+
+    virtual void setUp(const SkPaint& paint, const SkMatrix& matrix, SkScalar y,
+            const void* text) {
+        INHERITED::setUp(paint, matrix, y, text);
+        SkPaint charPaint = paint;
+        charPaint.setTextEncoding(SkPaint::kUTF8_TextEncoding);
+        mMinSpaceWidth = charPaint.measureText(" ", 1) * 3 / 4;
+    }
+
+    virtual bool onIRect(const SkIRect& rect, uint16_t glyphID) {
+        SkIRect full;
+        full.set(rect.fLeft, top(), rect.fRight, bottom());
+        if (mSelectRegion.contains(full)) {
+            if (!mSkipFirstSpace
+                    && ((mLast.fTop < top() && mLast.fBottom < top() + 2)
+                    || (mLast.fLeft < rect.fLeft // glyphs are LTR
+                    && mLast.fRight + mMinSpaceWidth < rect.fLeft))) {
+                DBG_NAV_LOGD("TextExtractor [%02x] append space", glyphID);
+                *mSelectText.append() = ' ';
+            } else
+                mSkipFirstSpace = false;
+            DBG_NAV_LOGD("TextExtractor [%02x] append full=(%d,%d,r=%d,b=%d)",
+                glyphID, full.fLeft, full.fTop, full.fRight, full.fBottom);
+            SkUnichar uni;
+            SkPaint utfPaint = *mPaint;
+            utfPaint.setTextEncoding(SkPaint::kUTF16_TextEncoding);
+            utfPaint.glyphsToUnichars(&glyphID, 1, &uni);
+            if (uni) {
+                uint16_t chars[2];
+                size_t count = SkUTF16_FromUnichar(uni, chars);
+                *mSelectText.append() = chars[0];
+                if (count == 2)
+                    *mSelectText.append() = chars[1];
+            }
+            mLast = full;
+        } else
+            DBG_NAV_LOGD("TextExtractor [%02x] skip full=(%d,%d,r=%d,b=%d)",
+                glyphID, full.fLeft, full.fTop, full.fRight, full.fBottom);
+        return false;
+    }
+
+    WebCore::String text() {
+        return WebCore::String(mSelectText.begin(), mSelectText.count());
+    }
+
+protected:
+    const SkRegion& mSelectRegion;
+    SkTDArray<uint16_t> mSelectText;
+    SkIRect mLast;
+    SkScalar mMinSpaceWidth;
+    bool mSkipFirstSpace;
+private:
+    typedef CommonCheck INHERITED;
 };
 
 class TextCanvas : public SkCanvas {
@@ -218,14 +284,14 @@ public:
 
     virtual void drawText(const void* text, size_t byteLength, SkScalar x, 
                           SkScalar y, const SkPaint& paint) {
-        mBounder.setUp(paint, getTotalMatrix(), y);
+        mBounder.setUp(paint, getTotalMatrix(), y, text);
         SkCanvas::drawText(text, byteLength, x, y, paint);
     }
 
     virtual void drawPosTextH(const void* text, size_t byteLength,
                               const SkScalar xpos[], SkScalar constY,
                               const SkPaint& paint) {
-        mBounder.setUp(paint, getTotalMatrix(), constY);
+        mBounder.setUp(paint, getTotalMatrix(), constY, text);
         SkCanvas::drawPosTextH(text, byteLength, xpos, constY, paint);
     }
 
@@ -261,4 +327,18 @@ SkIRect CopyPaste::findClosest(const SkPicture& picture, const SkIRect& area,
     checker.drawPicture(const_cast<SkPicture&>(picture));
     _check.offsetBounds(area.fLeft, area.fTop);
     return _check.bestBounds();
+}
+
+WebCore::String CopyPaste::text(const SkPicture& picture, const SkIRect& area,
+        const SkRegion& region) {
+    SkRegion copy = region;
+    copy.translate(-area.fLeft, -area.fTop);
+    const SkIRect& bounds = copy.getBounds();
+    DBG_NAV_LOGD("area=(%d, %d, %d, %d) region=(%d, %d, %d, %d)",
+        area.fLeft, area.fTop, area.fRight, area.fBottom,
+        bounds.fLeft, bounds.fTop, bounds.fRight, bounds.fBottom);
+    TextExtractor extractor(copy);
+    TextCanvas checker(&extractor, picture, area);
+    checker.drawPicture(const_cast<SkPicture&>(picture));
+    return extractor.text();
 }
