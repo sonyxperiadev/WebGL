@@ -800,7 +800,7 @@ const CachedNode* CachedRoot::findAt(const WebCore::IntRect& rect,
     DBG_NAV_LOGD("node=%d (%p)", node == NULL ? 0 : node->index(),
         node == NULL ? NULL : node->nodePointer());
     if (node == NULL) {
-        node = findBestHitAt(rect, &best, framePtr, x, y);
+        node = findBestHitAt(rect, framePtr, x, y);
         DBG_NAV_LOGD("node=%d (%p)", node == NULL ? 0 : node->index(),
             node == NULL ? NULL : node->nodePointer());
     }

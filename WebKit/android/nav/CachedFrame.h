@@ -85,7 +85,7 @@ public:
         int* y, bool checkForHidden) const;
     const CachedFrame* findBestFrameAt(int x, int y) const;
     const CachedNode* findBestHitAt(const WebCore::IntRect& , 
-        int* best, const CachedFrame** , int* x, int* y) const;
+        const CachedFrame** , int* x, int* y) const;
     void finishInit();
     CachedFrame* firstChild() { return mCachedFrames.begin(); }
     const CachedFrame* firstChild() const { return mCachedFrames.begin(); }
