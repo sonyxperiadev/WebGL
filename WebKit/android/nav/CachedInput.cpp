@@ -38,18 +38,24 @@ CachedInput* CachedInput::Debug::base() const {
     return nav;
 }
 
-void CachedInput::Debug::print() const
-{
-    CachedInput* b = base();
+static void printWebCoreString(const char* label,
+        const WebCore::String& string) {
     char scratch[256];
-    size_t index = snprintf(scratch, sizeof(scratch), "// char* mName=\"");
-    const UChar* ch = b->mName.characters();
+    size_t index = snprintf(scratch, sizeof(scratch), label);
+    const UChar* ch = string.characters();
     while (ch && *ch && index < sizeof(scratch)) {
         UChar c = *ch++;
         if (c < ' ' || c >= 0x7f) c = ' ';
         scratch[index++] = c;
     }
     DUMP_NAV_LOGD("%.*s\"\n", index, scratch);
+}
+
+void CachedInput::Debug::print() const
+{
+    CachedInput* b = base();
+    printWebCoreString("// char* mLabel=\"", b->mLabel);
+    printWebCoreString("// char* mName=\"", b->mName);
     DUMP_NAV_LOGD("// void* mForm=%p;", b->mForm);
     DUMP_NAV_LOGD("// int mMaxLength=%d;\n", b->mMaxLength);
     DUMP_NAV_LOGD("// int mTextSize=%d;\n", b->mTextSize);
