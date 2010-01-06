@@ -441,14 +441,18 @@ const CachedFrame* CachedFrame::findBestFrameAt(int x, int y) const
 }
 
 const CachedNode* CachedFrame::findBestHitAt(const WebCore::IntRect& rect,
-    int* best, const CachedFrame** framePtr, int* x, int* y) const
+    const CachedFrame** framePtr, int* x, int* y) const
 {
-    const CachedNode* result = NULL;
-    int rectWidth = rect.width();
-    WebCore::IntPoint center = WebCore::IntPoint(rect.x() + (rectWidth >> 1),
-        rect.y() + (rect.height() >> 1));
     mRoot->setupScrolledBounds();
-    for (const CachedNode* test = mCachedNodes.begin(); test != mCachedNodes.end(); test++) {
+    for (const CachedFrame* frame = mCachedFrames.end() - 1;
+            frame != mCachedFrames.begin() - 1; frame--) {
+        const CachedNode* frameResult = frame->findBestHitAt(rect,
+            framePtr, x, y);
+        if (NULL != frameResult)
+            return frameResult;
+    }
+    for (const CachedNode* test = mCachedNodes.end() - 1;
+            test != mCachedNodes.begin() - 1; test--) {
         if (test->disabled())
             continue;
         const WebCore::IntRect& testRect = test->hitBounds();
@@ -459,29 +463,19 @@ const CachedNode* CachedFrame::findBestHitAt(const WebCore::IntRect& rect,
         testData.mMouseBounds = testData.mNodeBounds = testRect;
         if (mRoot->maskIfHidden(&testData) == true)
             continue;
-        const WebCore::IntRect& bounds = testData.mMouseBounds;
-        WebCore::IntPoint testCenter = WebCore::IntPoint(bounds.x() +
-            (bounds.width() >> 1), bounds.y() + (bounds.height() >> 1));
-        int dx = testCenter.x() - center.x();
-        int dy = testCenter.y() - center.y();
-        int distance = dx * dx + dy * dy;
-        if (*best < distance)
-            continue;
-        *best = distance;
-        result = test;
-        *framePtr = this;
-        const WebCore::IntRect& cursorRect = test->cursorRings().at(0);
-        *x = cursorRect.x() + (cursorRect.width() >> 1);
-        *y = cursorRect.y() + (cursorRect.height() >> 1);
+        for (unsigned i = 0; i < test->cursorRings().size(); i++) {
+            const WebCore::IntRect& cursorRect = test->cursorRings().at(i);
+            if (cursorRect.intersects(rect)) {
+                WebCore::IntRect intersection(cursorRect);
+                intersection.intersect(rect);
+                *x = intersection.x() + (intersection.width() >> 1);
+                *y = intersection.y() + (intersection.height() >> 1);
+                *framePtr = this;
+                return test;
+            }
+        }
     }
-    for (const CachedFrame* frame = mCachedFrames.begin();
-            frame != mCachedFrames.end(); frame++) {
-        const CachedNode* frameResult = frame->findBestHitAt(rect, best,
-            framePtr, x, y);
-        if (NULL != frameResult)
-            result = frameResult;
-    }
-    return result;
+    return NULL;
 }
 
 void CachedFrame::findClosest(BestData* bestData, Direction originalDirection,
