@@ -1859,12 +1859,6 @@ static int nativeFocusCandidateType(JNIEnv *env, jobject obj)
     }
 }
 
-static bool nativeFocusCandidateIsPlugin(JNIEnv *env, jobject obj)
-{
-    const CachedNode* node = getFocusCandidate(env, obj);
-    return node ? node->isPlugin() : false;
-}
-
 static bool nativeFocusIsPlugin(JNIEnv *env, jobject obj)
 {
     const CachedNode* node = getFocusNode(env, obj);
@@ -2251,8 +2245,6 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeFocusCandidateFramePointer },
     { "nativeFocusCandidateIsPassword", "()Z",
         (void*) nativeFocusCandidateIsPassword },
-    { "nativeFocusCandidateIsPlugin", "()Z",
-        (void*) nativeFocusCandidateIsPlugin },
     { "nativeFocusCandidateIsRtlText", "()Z",
         (void*) nativeFocusCandidateIsRtlText },
     { "nativeFocusCandidateIsTextInput", "()Z",
