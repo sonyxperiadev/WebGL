@@ -852,6 +852,8 @@ void RenderBlock::layoutInlineChildren(bool relayoutChildren, int& repaintTop, i
         // and text align is auto, or justify or left in LTR, or right in RTL, we
         // will wrap text around screen width so that it doesn't need to scroll
         // horizontally when reading a paragraph.
+        // In case the line height is less than the font size, we skip
+        // the text wrapping since this will cause text overlapping.
         const Settings* settings = document()->settings();
         bool doTextWrap = settings && settings->layoutAlgorithm() == Settings::kLayoutFitColumnToScreen;
         if (doTextWrap) {
@@ -862,7 +864,10 @@ void RenderBlock::layoutInlineChildren(bool relayoutChildren, int& repaintTop, i
             // width as it may cause text to overlap.
             bool positioned = isPositioned();
             EFloat cssfloat = style()->floating();
+            const int lineHeight = style()->computedLineHeight();
+            const int fontSize = style()->fontSize();
             doTextWrap = autowrap && !positioned &&
+                    (fontSize <= lineHeight) &&
                     (((dir == LTR && cssfloat != FRIGHT) ||
                     (dir == RTL && cssfloat != FLEFT)) &&
                     ((ta == TAAUTO) || (ta == JUSTIFY) ||
