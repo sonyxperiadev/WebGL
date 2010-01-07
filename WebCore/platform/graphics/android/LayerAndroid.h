@@ -25,6 +25,7 @@
 #include "FloatSize.h"
 #include "GraphicsContext.h"
 #include "GraphicsLayer.h"
+#include "Length.h"
 #include "RefPtr.h"
 #include "StringHash.h"
 #include "Vector.h"
@@ -64,7 +65,7 @@ public:
     void setBackgroundColor(const Color& color);
     void setIsRootLayer(bool isRootLayer) { m_isRootLayer = isRootLayer; }
 
-    void paintOn(float scrollX, float scrollY, float scale, SkCanvas*);
+    void paintOn(int scrollX, int scrollY, int width, int height, float scale, SkCanvas*);
     GraphicsContext* paintContext();
     void removeAllChildren() { m_children.clear(); }
     void addChildren(LayerAndroid* layer) { m_children.append(layer); }
@@ -77,7 +78,7 @@ public:
     FloatPoint translation() { return m_translation; }
     FloatSize size() { return m_size; }
 
-    void setFixedPosition(FloatPoint position);
+    void setFixedPosition(Length left, Length top, Length right, Length bottom);
     void addAnimation(PassRefPtr<AndroidAnimation> anim);
     void removeAnimation(const String& name);
     Vector<RefPtr<AndroidAnimationValue> >* evaluateAnimations() const;
@@ -87,11 +88,13 @@ public:
 
 private:
 
-    void paintChildren(float scrollX, float scrollY,
+    void paintChildren(int scrollX, int scrollY,
+                       int width, int height,
                        float scale, SkCanvas* canvas,
                        float opacity);
 
-    void paintMe(float scrollX, float scrollY,
+    void paintMe(int scrollX, int scrollY,
+                 int width, int height,
                  float scale, SkCanvas* canvas,
                  float opacity);
 
@@ -110,9 +113,13 @@ private:
     FloatSize m_size;
     FloatPoint m_position;
     FloatPoint m_translation;
-    FloatPoint m_fixedPosition;
     FloatPoint3D m_anchorPoint;
     FloatPoint3D m_scale;
+
+    Length m_fixedLeft;
+    Length m_fixedTop;
+    Length m_fixedRight;
+    Length m_fixedBottom;
 
     SkPicture* m_recordingPicture;
     Color m_backgroundColor;
