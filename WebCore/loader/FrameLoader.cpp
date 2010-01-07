@@ -1743,12 +1743,7 @@ void FrameLoader::setFirstPartyForCookies(const KURL& url)
 
 // This does the same kind of work that didOpenURL does, except it relies on the fact
 // that a higher level already checked that the URLs match and the scrolling is the right thing to do.
-#if PLATFORM(ANDROID)
-// TODO: Upstream to webkit.org
-void FrameLoader::loadInSameDocument(const KURL& url, SerializedScriptValue* stateObject, bool isNewNavigation, bool suppressAddToHistory)
-#else
 void FrameLoader::loadInSameDocument(const KURL& url, SerializedScriptValue* stateObject, bool isNewNavigation)
-#endif
 {
     // If we have a state object, we cannot also be a new navigation.
     ASSERT(!stateObject || (stateObject && !isNewNavigation));
@@ -1756,12 +1751,7 @@ void FrameLoader::loadInSameDocument(const KURL& url, SerializedScriptValue* sta
     // Update the data source's request with the new URL to fake the URL change
     m_frame->document()->setURL(url);
     documentLoader()->replaceRequestURLForSameDocumentNavigation(url);
-#if PLATFORM(ANDROID)
-    // TODO: Upstream to webkit.org
-    if (isNewNavigation && !shouldTreatURLAsSameAsCurrent(url) && !stateObject && !suppressAddToHistory) {
-#else
     if (isNewNavigation && !shouldTreatURLAsSameAsCurrent(url) && !stateObject) {
-#endif
         // NB: must happen after replaceRequestURLForSameDocumentNavigation(), since we add 
         // based on the current request. Must also happen before we openURL and displace the 
         // scroll position, since adding the BF item will save away scroll state.
@@ -3478,14 +3468,7 @@ void FrameLoader::continueFragmentScrollAfterNavigationPolicy(const ResourceRequ
         return;
 
     bool isRedirect = m_quickRedirectComing || policyChecker()->loadType() == FrameLoadTypeRedirectWithLockedBackForwardList;    
-#ifdef ANDROID_USER_GESTURE
-    // Do not add history items for a fragment scroll not initiated by the
-    // user. http://bugs.webkit.org/show_bug.cgi?id=30224
-    bool isUserInitiated = isProcessingUserGesture() || request.getUserGesture();
-    loadInSameDocument(request.url(), 0, !isRedirect, !isUserInitiated);
-#else
     loadInSameDocument(request.url(), 0, !isRedirect);
-#endif
 }
 
 bool FrameLoader::shouldScrollToAnchor(bool isFormSubmission, FrameLoadType loadType, const KURL& url)
@@ -3773,12 +3756,7 @@ void FrameLoader::navigateWithinDocument(HistoryItem* item)
     history()->setCurrentItem(item);
         
     // loadInSameDocument() actually changes the URL and notifies load delegates of a "fake" load
-#if PLATFORM(ANDROID)
-    // TODO: Upstream to webkit.org
-    loadInSameDocument(item->url(), item->stateObject(), false, false);
-#else
     loadInSameDocument(item->url(), item->stateObject(), false);
-#endif
 
     // Restore user view state from the current history item here since we don't do a normal load.
     // Even though we just manually set the current history item, this ASSERT verifies nothing 

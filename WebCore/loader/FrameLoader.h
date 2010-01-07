@@ -439,12 +439,7 @@ private:
 
     Frame* loadSubframe(HTMLFrameOwnerElement*, const KURL&, const String& name, const String& referrer);
 
-#if PLATFORM(ANDROID)
-    // TODO: Upstream to webkit.org
-    void loadInSameDocument(const KURL&, SerializedScriptValue* stateObject, bool isNewNavigation, bool suppressAddToHistory);
-#else
     void loadInSameDocument(const KURL&, SerializedScriptValue* stateObject, bool isNewNavigation);
-#endif
 
     void provisionalLoadStarted();
 
