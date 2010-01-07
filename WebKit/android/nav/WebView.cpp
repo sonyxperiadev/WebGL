@@ -1710,15 +1710,6 @@ static bool nativeFocusCandidateIsTextInput(JNIEnv *env, jobject obj)
     return node ? node->isTextInput() : false;
 }
 
-static jobject nativeFocusCandidateLabel(JNIEnv *env, jobject obj)
-{
-    const CachedInput* input = getInputCandidate(env, obj);
-    if (!input)
-        return 0;
-    const WebCore::String& label = input->label();
-    return env->NewString((jchar*)label.characters(), label.length());
-}
-
 static jint nativeFocusCandidateMaxLength(JNIEnv *env, jobject obj)
 {
     const CachedInput* input = getInputCandidate(env, obj);
@@ -2202,8 +2193,6 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeFocusCandidateIsRtlText },
     { "nativeFocusCandidateIsTextInput", "()Z",
         (void*) nativeFocusCandidateIsTextInput },
-    { "nativeFocusCandidateLabel", "()Ljava/lang/String;",
-        (void*) nativeFocusCandidateLabel },
     { "nativeFocusCandidateMaxLength", "()I",
         (void*) nativeFocusCandidateMaxLength },
     { "nativeFocusCandidateName", "()Ljava/lang/String;",

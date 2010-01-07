@@ -57,6 +57,7 @@
 #include "HTMLElement.h"
 #include "HTMLImageElement.h"
 #include "HTMLInputElement.h"
+#include "HTMLLabelElement.h"
 #include "HTMLMapElement.h"
 #include "HTMLNames.h"
 #include "HTMLOptGroupElement.h"
@@ -68,6 +69,7 @@
 #include "KeyboardCodes.h"
 #include "Navigator.h"
 #include "Node.h"
+#include "NodeList.h"
 #include "Page.h"
 #include "PageGroup.h"
 #include "PlatformKeyboardEvent.h"
@@ -1215,6 +1217,22 @@ WebCore::String WebViewCore::retrieveAnchorText(WebCore::Frame* frame, WebCore::
     return anchor ? anchor->text() : WebCore::String();
 }
 
+WebCore::String WebViewCore::requestLabel(WebCore::Frame* frame,
+        WebCore::Node* node)
+{
+    if (CacheBuilder::validNode(m_mainFrame, frame, node)) {
+        RefPtr<WebCore::NodeList> list = node->document()->getElementsByTagName("label");
+        unsigned length = list->length();
+        for (unsigned i = 0; i < length; i++) {
+            WebCore::HTMLLabelElement* label = static_cast<WebCore::HTMLLabelElement*>(
+                    list->item(i));
+            if (label->correspondingControl() == node)
+                return label->innerHTML();
+        }
+    }
+    return WebCore::String();
+}
+
 void WebViewCore::updateCacheOnNodeChange()
 {
     gCursorBoundsMutex.lock();
@@ -2353,6 +2371,13 @@ static jstring WebCoreStringToJString(JNIEnv *env, WebCore::String string)
     return ret;
 }
 
+static jstring RequestLabel(JNIEnv *env, jobject obj, int framePointer,
+        int nodePointer)
+{
+    return WebCoreStringToJString(env, GET_NATIVE_VIEW(env, obj)->requestLabel(
+            (WebCore::Frame*) framePointer, (WebCore::Node*) nodePointer));
+}
+
 static void UpdateFrameCacheIfLoading(JNIEnv *env, jobject obj)
 {
     GET_NATIVE_VIEW(env, obj)->updateFrameCacheIfLoading();
@@ -3016,6 +3041,8 @@ static JNINativeMethod gJavaWebViewCoreMethods[] = {
     { "nativeResume", "()V", (void*) Resume },
     { "nativeFreeMemory", "()V", (void*) FreeMemory },
     { "nativeSetJsFlags", "(Ljava/lang/String;)V", (void*) SetJsFlags },
+    { "nativeRequestLabel", "(II)Ljava/lang/String;",
+        (void*) RequestLabel },
     { "nativeUpdateFrameCacheIfLoading", "()V",
         (void*) UpdateFrameCacheIfLoading },
     { "nativeProvideVisitedHistory", "([Ljava/lang/String;)V",
