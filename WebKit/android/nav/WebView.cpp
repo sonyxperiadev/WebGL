@@ -948,7 +948,9 @@ bool motionUp(int x, int y, int slop)
     }
     DBG_NAV_LOGD("CachedNode:%p (%d) x=%d y=%d rx=%d ry=%d", result,
         result->index(), x, y, rx, ry);
-    setNavBounds(WebCore::IntRect(rx, ry, 1, 1));
+    WebCore::IntRect navBounds = WebCore::IntRect(rx, ry, 1, 1);
+    setNavBounds(navBounds);
+    root->rootHistory()->setMouseBounds(navBounds);
     updateCursorBounds(root, frame, result);
     root->setCursor(const_cast<CachedFrame*>(frame),
         const_cast<CachedNode*>(result));
