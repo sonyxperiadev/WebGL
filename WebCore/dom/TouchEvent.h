@@ -26,61 +26,69 @@
 #ifndef TouchEvent_h
 #define TouchEvent_h
 
-#if ENABLE(TOUCH_EVENTS) // Android
+#if ENABLE(TOUCH_EVENTS)
 
 #include "MouseRelatedEvent.h"
 #include "TouchList.h"
 
 namespace WebCore {
 
-    class TouchEvent : public MouseRelatedEvent {
-    public:
-        static PassRefPtr<TouchEvent> create()
-        {
-            return adoptRef(new TouchEvent);
-        }
-        static PassRefPtr<TouchEvent> create(TouchList* touches, 
-                TouchList* targetTouches, TouchList* changedTouches, 
-                const AtomicString& type, PassRefPtr<AbstractView> view,
-                int screenX, int screenY, int pageX, int pageY)
-        {
-            return adoptRef(new TouchEvent(touches, targetTouches, changedTouches,
-                    type, view, screenX, screenY, pageX, pageY));
-        }
+class TouchEvent : public MouseRelatedEvent {
+public:
+    static PassRefPtr<TouchEvent> create()
+    {
+        return adoptRef(new TouchEvent);
+    }
+    static PassRefPtr<TouchEvent> create(TouchList* touches, 
+            TouchList* targetTouches, TouchList* changedTouches, 
+            const AtomicString& type, PassRefPtr<AbstractView> view,
+            int screenX, int screenY, int pageX, int pageY,
+            bool ctrlKey, bool altKey, bool shiftKey, bool metaKey)
+    {
+        return adoptRef(new TouchEvent(touches, targetTouches, changedTouches,
+                type, view, screenX, screenY, pageX, pageY,
+                ctrlKey, altKey, shiftKey, metaKey));
+    }
 
-        void initTouchEvent(TouchList* touches, TouchList* targetTouches,
-                TouchList* changedTouches, const AtomicString& type, 
-                PassRefPtr<AbstractView> view, int screenX, int screenY, 
-                int clientX, int clientY);
+    void initTouchEvent(TouchList* touches, TouchList* targetTouches,
+            TouchList* changedTouches, const AtomicString& type, 
+            PassRefPtr<AbstractView> view, int screenX, int screenY, 
+            int clientX, int clientY,
+            bool ctrlKey, bool altKey, bool shiftKey, bool metaKey);
 
-        TouchList* touches() const {return m_touches.get();}
-        TouchList* targetTouches() const {return m_targetTouches.get();}
-        TouchList* changedTouches() const {return m_changedTouches.get();}
+    TouchList* touches() const { return m_touches.get(); }
+    TouchList* targetTouches() const { return m_targetTouches.get(); }
+    TouchList* changedTouches() const { return m_changedTouches.get(); }
 
-        bool longPressPrevented() const { return m_longPressPrevented; }
-        void preventLongPress() { m_longPressPrevented = true; }
-        void setLongPressPrevented(bool prevented) { m_longPressPrevented = prevented; }
+#if PLATFORM(ANDROID)
+    bool longPressPrevented() const { return m_longPressPrevented; }
+    void preventLongPress() { m_longPressPrevented = true; }
+    void setLongPressPrevented(bool prevented) { m_longPressPrevented = prevented; }
 
-        bool doubleTapPrevented() const { return m_doubleTapPrevented; }
-        void preventDoubleTap() { m_doubleTapPrevented = true; }
-        void setDoubleTapPrevented(bool prevented) { m_doubleTapPrevented = prevented; }
+    bool doubleTapPrevented() const { return m_doubleTapPrevented; }
+    void preventDoubleTap() { m_doubleTapPrevented = true; }
+    void setDoubleTapPrevented(bool prevented) { m_doubleTapPrevented = prevented; }
+#endif
 
-    private:
-        TouchEvent() {}
-        TouchEvent(TouchList* touches, TouchList* targetTouches,
-                TouchList* changedTouches, const AtomicString& type,
-                PassRefPtr<AbstractView>, int screenX, int screenY, int pageX,
-                int pageY);
+private:
+    TouchEvent() {}
+    TouchEvent(TouchList* touches, TouchList* targetTouches,
+            TouchList* changedTouches, const AtomicString& type,
+            PassRefPtr<AbstractView>, int screenX, int screenY, int pageX,
+            int pageY,
+            bool ctrlKey, bool altKey, bool shiftKey, bool metaKey);
 
-        virtual bool isTouchEvent() const {return true;}
+    virtual bool isTouchEvent() const { return true; }
 
-        RefPtr<TouchList> m_touches;
-        RefPtr<TouchList> m_targetTouches;
-        RefPtr<TouchList> m_changedTouches;
+    RefPtr<TouchList> m_touches;
+    RefPtr<TouchList> m_targetTouches;
+    RefPtr<TouchList> m_changedTouches;
 
-        bool m_longPressPrevented;
-        bool m_doubleTapPrevented;
-    };
+#if PLATFORM(ANDROID)
+    bool m_longPressPrevented;
+    bool m_doubleTapPrevented;
+#endif
+};
 
 } // namespace WebCore
 

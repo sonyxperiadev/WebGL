@@ -180,20 +180,20 @@ bool Event::isStorageEvent() const
 }
 #endif
 
-#if ENABLE(TOUCH_EVENTS) // Android
-bool Event::isTouchEvent() const
-{
-    return false;
-}
-#endif
-
 #if ENABLE(WORKERS)
 bool Event::isErrorEvent() const
 {
     return false;
 }
 #endif
-    
+
+#if ENABLE(TOUCH_EVENTS)
+bool Event::isTouchEvent() const
+{
+    return false;
+}
+#endif
+
 bool Event::storesResultAsString() const
 {
     return false;

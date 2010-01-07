@@ -252,6 +252,12 @@ public:
     DEFINE_ATTRIBUTE_EVENT_LISTENER(reset);
     DEFINE_ATTRIBUTE_EVENT_LISTENER(search);
     DEFINE_ATTRIBUTE_EVENT_LISTENER(selectstart);
+#if ENABLE(TOUCH_EVENTS)
+    DEFINE_ATTRIBUTE_EVENT_LISTENER(touchstart);
+    DEFINE_ATTRIBUTE_EVENT_LISTENER(touchmove);
+    DEFINE_ATTRIBUTE_EVENT_LISTENER(touchend);
+    DEFINE_ATTRIBUTE_EVENT_LISTENER(touchcancel);
+#endif
 
     DocumentType* doctype() const { return m_docType.get(); }
 
@@ -624,7 +630,8 @@ public:
         ANIMATIONSTART_LISTENER              = 0x200,
         ANIMATIONITERATION_LISTENER          = 0x400,
         TRANSITIONEND_LISTENER               = 0x800,
-        BEFORELOAD_LISTENER                  = 0x1000
+        BEFORELOAD_LISTENER                  = 0x1000,
+        TOUCH_LISTENER                       = 0x2000
     };
 
     bool hasListenerType(ListenerType listenerType) const { return (m_listenerTypes & listenerType); }
@@ -937,17 +944,6 @@ protected:
 
     void clearXMLVersion() { m_xmlVersion = String(); }
 
-#if ENABLE(TOUCH_EVENTS) // Android
-public:
-    typedef HashMap<Node*, unsigned > TouchListenerMap;
-
-    void addTouchEventListener(Node*);
-    void removeTouchEventListener(Node*);
-    const TouchListenerMap& touchEventListeners() const { return m_touchEventListeners; }
-
-private:
-    TouchListenerMap m_touchEventListeners;
-#endif  // ENABLE(TOUCH_EVENTS)
 
 private:
     virtual bool isDocument() const { return true; }
@@ -1120,7 +1116,7 @@ private:
 #if ENABLE(XBL)
     OwnPtr<XBLBindingManager> m_bindingManager; // The access point through which documents and elements communicate with XBL.
 #endif
-    
+
     typedef HashMap<AtomicStringImpl*, HTMLMapElement*> ImageMapsByName;
     ImageMapsByName m_imageMapsByName;
 

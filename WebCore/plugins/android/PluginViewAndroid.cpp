@@ -52,7 +52,9 @@
 #include "PlatformKeyboardEvent.h"
 #include "PluginMainThreadScheduler.h"
 #include "PluginPackage.h"
+#include "Touch.h"
 #include "TouchEvent.h"
+#include "TouchList.h"
 #include "android_graphics.h"
 #include "SkCanvas.h"
 #include "npruntime_impl.h"
@@ -206,11 +208,16 @@ void PluginView::handleTouchEvent(TouchEvent* event)
 
     evt.data.touch.modifiers = 0;   // todo
 
-    // convert to coordinates that are relative to the plugin. The pageX / pageY
-    // values are the only values in the event that are consistently in frame
-    // coordinates despite their misleading name.
-    evt.data.touch.x = event->pageX() - m_npWindow.x;
-    evt.data.touch.y = event->pageY() - m_npWindow.y;
+    // In the event of a touchend (up) event, we must ask the changedTouch for the
+    // co-ordinates as there is no touch in touches anymore.
+    TouchList* touches = (evt.data.touch.action == kUp_ANPTouchAction) ?
+                              event->changedTouches() : event->touches();
+
+    // Convert to coordinates that are relative to the plugin.
+    // We only support single touch points at the moment, so we want to look at index 0 only.
+    IntPoint localPos = roundedIntPoint(m_element->renderer()->absoluteToLocal(IntPoint(touches->item(0)->pageX(), touches->item(0)->pageY())));
+    evt.data.touch.x = localPos.x();
+    evt.data.touch.y = localPos.y();
 
     int16 ret = m_plugin->pluginFuncs()->event(m_instance, &evt);
     if (ignoreRet)
@@ -243,11 +250,11 @@ void PluginView::handleMouseEvent(MouseEvent* event)
         SkANP::InitEvent(&evt, kMouse_ANPEventType);
         evt.data.mouse.action = isUp ? kUp_ANPMouseAction : kDown_ANPMouseAction;
 
-        // convert to coordinates that are relative to the plugin. The pageX / pageY
-        // values are the only values in the event that are consistently in frame
-        // coordinates despite their misleading name.
-        evt.data.mouse.x = event->pageX() - m_npWindow.x;
-        evt.data.mouse.y = event->pageY() - m_npWindow.y;
+        // Convert to coordinates that are relative to the plugin.
+        IntPoint localPos = roundedIntPoint(m_element->renderer()->absoluteToLocal(event->absoluteLocation()));
+        evt.data.mouse.x = localPos.x();
+        evt.data.mouse.y = localPos.y();
+
         if (isDown) {
             // The plugin needs focus to receive keyboard events
             if (Page* page = m_parentFrame->page())

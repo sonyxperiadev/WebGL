@@ -266,6 +266,7 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     m_screenWidth = 320;
     m_scale = 1;
     m_screenWidthScale = 1;
+    m_touchEventListenerCount = 0;
 
     LOG_ASSERT(m_mainFrame, "Uh oh, somehow a frameview was made without an initial frame!");
 
@@ -348,6 +349,9 @@ WebViewCore* WebViewCore::getWebViewCore(const WebCore::FrameView* view)
 
 WebViewCore* WebViewCore::getWebViewCore(const WebCore::ScrollView* view)
 {
+    if (!view)
+        return 0;
+
     WebFrameView* webFrameView = static_cast<WebFrameView*>(view->platformWidget());
     if (!webFrameView)
         return 0;
@@ -991,15 +995,28 @@ void WebViewCore::restoreScreenWidthScale(int scale)
     checkException(env);
 }
 
-void WebViewCore::needTouchEvents(bool need)
+void WebViewCore::needTouchEvents(bool need, bool force)
 {
     DEBUG_NAV_UI_LOGD("%s", __FUNCTION__);
     LOG_ASSERT(m_javaGlue->m_obj, "A Java widget was not associated with this view bridge!");
 
 #if ENABLE(TOUCH_EVENTS) // Android
-    JNIEnv* env = JSC::Bindings::getJNIEnv();
-    env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_needTouchEvents, need);
-    checkException(env);
+    bool needToUpdateJava = false;
+    if (need) {
+        if (++m_touchEventListenerCount == 1)
+            needToUpdateJava = true;
+    } else {
+        if (force)
+           m_touchEventListenerCount = 0;
+        else if (--m_touchEventListenerCount == 0)
+            needToUpdateJava = true;
+    }
+
+    if (needToUpdateJava || force) {
+        JNIEnv* env = JSC::Bindings::getJNIEnv();
+        env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_needTouchEvents, need);
+        checkException(env);
+    }
 #endif
 }
 
@@ -1910,29 +1927,47 @@ int WebViewCore::handleTouchEvent(int action, int x, int y)
 #endif
 
 #if ENABLE(TOUCH_EVENTS) // Android
-    WebCore::TouchEventType type = WebCore::TouchEventCancel;
+    WebCore::TouchEventType type = WebCore::TouchStart;
+    WebCore::PlatformTouchPoint::State touchState = WebCore::PlatformTouchPoint::TouchPressed;
     switch (action) {
     case 0: // MotionEvent.ACTION_DOWN
-        type = WebCore::TouchEventStart;
+        type = WebCore::TouchStart;
         break;
     case 1: // MotionEvent.ACTION_UP
-        type = WebCore::TouchEventEnd;
+        type = WebCore::TouchEnd;
+        touchState = WebCore::PlatformTouchPoint::TouchReleased;
         break;
     case 2: // MotionEvent.ACTION_MOVE
-        type = WebCore::TouchEventMove;
+        type = WebCore::TouchMove;
+        touchState = WebCore::PlatformTouchPoint::TouchMoved;
         break;
     case 3: // MotionEvent.ACTION_CANCEL
-        type = WebCore::TouchEventCancel;
+        type = WebCore::TouchCancel;
+        touchState = WebCore::PlatformTouchPoint::TouchCancelled;
         break;
     case 0x100: // WebViewCore.ACTION_LONGPRESS
-        type = WebCore::TouchEventLongPress;
+        type = WebCore::TouchLongPress;
+        touchState = WebCore::PlatformTouchPoint::TouchPressed;
         break;
     case 0x200: // WebViewCore.ACTION_DOUBLETAP
-        type = WebCore::TouchEventDoubleTap;
+        type = WebCore::TouchDoubleTap;
+        touchState = WebCore::PlatformTouchPoint::TouchPressed;
+        break;
+    default:
+        type = WebCore::TouchCancel;
+        touchState = WebCore::PlatformTouchPoint::TouchCancelled;
         break;
     }
+
+    // Track previous touch and if stationary set the state.
     WebCore::IntPoint pt(x - m_scrollOffsetX, y - m_scrollOffsetY);
-    WebCore::PlatformTouchEvent te(pt, pt, type);
+
+    if (type == WebCore::TouchMove && pt == m_lastTouchPoint)
+        touchState = WebCore::PlatformTouchPoint::TouchStationary;
+
+    m_lastTouchPoint = pt;
+
+    WebCore::PlatformTouchEvent te(pt, pt, type, touchState);
     preventDefault = m_mainFrame->eventHandler()->handleTouchEvent(te);
 #endif
 

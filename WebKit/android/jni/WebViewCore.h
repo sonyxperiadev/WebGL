@@ -375,7 +375,7 @@ namespace android {
         Node* cursorNodeIsPlugin();
 
         // Notify the Java side whether it needs to pass down the touch events
-        void needTouchEvents(bool);
+        void needTouchEvents(bool, bool);
 
         // Notify the Java side that webkit is requesting a keyboard
         void requestKeyboard(bool showKeyboard, bool isTextView);
@@ -525,6 +525,11 @@ namespace android {
         void sendNotifyProgressFinished();
         bool handleMouseClick(WebCore::Frame* framePtr, WebCore::Node* nodePtr);
         WebCore::HTMLAnchorElement* retrieveAnchorElement(WebCore::Frame* frame, WebCore::Node* node);
+
+#if ENABLE(TOUCH_EVENTS)
+        int m_touchEventListenerCount;
+        IntPoint m_lastTouchPoint;
+#endif
 
 #if DEBUG_NAV_UI
         uint32_t m_now;

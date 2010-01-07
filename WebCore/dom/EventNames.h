@@ -95,14 +95,6 @@ namespace WebCore {
     macro(storage) \
     macro(submit) \
     macro(textInput) \
-/* #if ENABLE(TOUCH_EVENTS) // Android */ \
-    macro(touchstart) \
-    macro(touchmove) \
-    macro(touchend) \
-    macro(touchcancel) \
-    macro(touchlongpress) \
-    macro(touchdoubletap) \
-/* #endif */ \
     macro(unload) \
     macro(updateready) \
     macro(zoom) \
@@ -153,6 +145,15 @@ namespace WebCore {
     macro(webkitTransitionEnd) \
     \
     macro(orientationchange) \
+    \
+    macro(touchstart) \
+    macro(touchmove) \
+    macro(touchend) \
+    macro(touchcancel) \
+/* #if PLATFORM(ANDROID) */ \
+    macro(touchlongpress) \
+    macro(touchdoubletap) \
+/* #endif */ \
     \
 // end of DOM_EVENT_NAMES_FOR_EACH
 

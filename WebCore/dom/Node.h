@@ -565,13 +565,6 @@ public:
      */
     virtual bool disabled() const;
 
-#if ENABLE(TOUCH_EVENTS) // Android
-    DEFINE_ATTRIBUTE_EVENT_LISTENER(touchstart);
-    DEFINE_ATTRIBUTE_EVENT_LISTENER(touchend);
-    DEFINE_ATTRIBUTE_EVENT_LISTENER(touchmove);
-    DEFINE_ATTRIBUTE_EVENT_LISTENER(touchcancel);
-#endif
-
     using TreeShared<Node>::ref;
     using TreeShared<Node>::deref;
 

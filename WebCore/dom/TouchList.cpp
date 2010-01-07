@@ -25,7 +25,7 @@
 
 #include "config.h"
 
-#if ENABLE(TOUCH_EVENTS) // Android
+#if ENABLE(TOUCH_EVENTS)
 
 #include "TouchList.h"
 

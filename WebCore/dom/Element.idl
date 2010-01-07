@@ -167,12 +167,6 @@ module core {
         attribute [DontEnum] EventListener onscroll;
         attribute [DontEnum] EventListener onselect;
         attribute [DontEnum] EventListener onsubmit;
-#if ENABLE_TOUCH_EVENTS
-        attribute [DontEnum] EventListener ontouchstart;
-        attribute [DontEnum] EventListener ontouchend;
-        attribute [DontEnum] EventListener ontouchmove;
-        attribute [DontEnum] EventListener ontouchcancel;
-#endif
 
         // attribute [DontEnum] EventListener oncanplay;
         // attribute [DontEnum] EventListener oncanplaythrough;
@@ -209,6 +203,12 @@ module core {
         attribute [DontEnum] EventListener onreset;
         attribute [DontEnum] EventListener onsearch;
         attribute [DontEnum] EventListener onselectstart;
+#if defined(ENABLE_TOUCH_EVENTS) && ENABLE_TOUCH_EVENTS
+        attribute [DontEnum] EventListener ontouchstart;
+        attribute [DontEnum] EventListener ontouchmove;
+        attribute [DontEnum] EventListener ontouchend;
+        attribute [DontEnum] EventListener ontouchcancel;
+#endif
 #endif
 #endif
     };

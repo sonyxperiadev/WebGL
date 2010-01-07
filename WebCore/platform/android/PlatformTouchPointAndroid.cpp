@@ -1,5 +1,5 @@
 /*
- * Copyright 2008, The Android Open Source Project
+ * Copyright 2010, The Android Open Source Project
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -13,7 +13,7 @@
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -23,32 +23,15 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-module events {
+#include "config.h"
+#include "PlatformTouchPoint.h"
 
-    interface [
-        Conditional=TOUCH_EVENTS,
-        GenerateConstructor
-    ] TouchEvent : UIEvent {
-        readonly attribute TouchList touches;
-        readonly attribute TouchList targetTouches;
-        readonly attribute TouchList changedTouches;
-        readonly attribute boolean ctrlKey;
-        readonly attribute boolean shiftKey;
-        readonly attribute boolean altKey;
-        readonly attribute boolean metaKey;
+#if ENABLE(TOUCH_EVENTS)
 
-        void initTouchEvent(in TouchList touches,
-                            in TouchList targetTouches,
-                            in TouchList changedTouches,
-                            in DOMString type,
-                            in DOMWindow view,
-                            in long screenX, 
-                            in long screenY, 
-                            in long clientX, 
-                            in long clientY,
-                            in boolean ctrlKey,
-                            in boolean altKey,
-                            in boolean shiftKey,
-                            in boolean metaKey);
-    };
+namespace WebCore {
+
+PlatformTouchPoint::PlatformTouchPoint(const IntPoint& pos, const IntPoint& globalPos, State state) :m_id(0), m_state(state), m_screenPos(pos), m_pos(globalPos) {}
+
 }
+
+#endif

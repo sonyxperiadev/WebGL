@@ -52,6 +52,7 @@ class KeyboardEvent;
 class MouseEventWithHitTestResults;
 class Node;
 class PlatformKeyboardEvent;
+class PlatformTouchEvent;
 class PlatformWheelEvent;
 class RenderLayer;
 class RenderObject;
@@ -60,11 +61,8 @@ class Scrollbar;
 class String;
 class SVGElementInstance;
 class TextEvent;
+class TouchEvent;
 class Widget;
-#if ENABLE(TOUCH_EVENTS) // Android
-class PlatformTouchEvent;
-class Touch;
-#endif
     
 #if ENABLE(DRAG_SUPPORT)
 extern const int LinkDragHysteresis;
@@ -75,12 +73,15 @@ extern const int GeneralDragHysteresis;
 
 enum HitTestScrollbars { ShouldHitTestScrollbars, DontHitTestScrollbars };
 
-#if ENABLE(TOUCH_EVENTS) // Android
+#if PLATFORM(ANDROID)
+// TODO (benm): I think with some Java refactoring we can remove this before upstreaming to webkit.org.
+#if ENABLE(TOUCH_EVENTS)
 enum TouchResultMask {
     preventTouch        = 1 << 0,
     preventLongPress    = 1 << 1,
     preventDoubleTap    = 1 << 2,
 };
+#endif
 #endif
 
 class EventHandler : public Noncopyable {
@@ -151,11 +152,6 @@ public:
     bool handleMouseReleaseEvent(const PlatformMouseEvent&);
     bool handleWheelEvent(PlatformWheelEvent&);
 
-#if ENABLE(TOUCH_EVENTS) // Android
-    // See TouchResultMask for the return value options
-    int handleTouchEvent(const PlatformTouchEvent&);
-#endif
-
 #if ENABLE(CONTEXT_MENUS)
     bool sendContextMenuEvent(const PlatformMouseEvent&);
 #endif
@@ -206,6 +202,14 @@ public:
     void setActivationEventNumber(int num) { m_activationEventNumber = num; }
 
     static NSEvent *currentNSEvent();
+#endif
+
+#if ENABLE(TOUCH_EVENTS)
+#if PLATFORM(ANDROID)
+    int handleTouchEvent(const PlatformTouchEvent&);
+#else
+    bool handleTouchEvent(const PlatformTouchEvent&);
+#endif
 #endif
 
 private:
@@ -389,9 +393,6 @@ private:
 
     int m_clickCount;
     RefPtr<Node> m_clickNode;
-#if ENABLE(TOUCH_EVENTS) // Android
-    RefPtr<Touch> m_touch;
-#endif
 
 #if ENABLE(DRAG_SUPPORT)
     RefPtr<Node> m_dragTarget;
@@ -418,6 +419,12 @@ private:
     bool m_sendingEventToSubview;
     int m_activationEventNumber;
 #endif
+#if ENABLE(TOUCH_EVENTS)
+    RefPtr<Node> m_touchEventTarget;
+    IntPoint m_firstTouchScreenPos;
+    IntPoint m_firstTouchPagePos;
+#endif
+
 };
 
 } // namespace WebCore

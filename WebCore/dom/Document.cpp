@@ -171,11 +171,9 @@
 #include "SVGStyleElement.h"
 #endif
 
-#if ENABLE(TOUCH_EVENTS) // Android
-#include "TouchEvent.h"
 #if PLATFORM(ANDROID)
+// FIXME: We shouldn't be including this from WebCore!
 #include "WebViewCore.h"
-#endif
 #endif
 
 #ifdef ANDROID_META_SUPPORT
@@ -189,6 +187,11 @@
 
 #ifdef ANDROID_INSTRUMENT
 #include "TimeCounter.h"
+#endif
+
+#if ENABLE(TOUCH_EVENTS)
+#include "ChromeClient.h"
+#include "TouchEvent.h"
 #endif
 
 #if ENABLE(WML)
@@ -1484,17 +1487,6 @@ void Document::detach()
         FrameView* view = m_frame->view();
         if (view)
             view->detachCustomScrollbars();
-
-#if ENABLE(TOUCH_EVENTS) // Android
-        // clean up for the top document
-        if (!m_frame->ownerElement()) {
-            m_touchEventListeners.clear();
-#if PLATFORM(ANDROID)
-            if (view)
-                android::WebViewCore::getWebViewCore(view)->needTouchEvents(false);
-#endif
-        }
-#endif
     }
 
     // indicate destruction mode,  i.e. attached() but renderer == 0
@@ -3062,7 +3054,7 @@ PassRefPtr<Event> Document::createEvent(const String& eventType, ExceptionCode& 
     else if (eventType == "SVGZoomEvents")
         event = SVGZoomEvent::create();
 #endif
-#if ENABLE(TOUCH_EVENTS) // Android
+#if ENABLE(TOUCH_EVENTS)
     else if (eventType == "TouchEvent")
         event = TouchEvent::create();
 #endif
@@ -3102,6 +3094,14 @@ void Document::addListenerTypeIfNeeded(const AtomicString& eventType)
         addListenerType(TRANSITIONEND_LISTENER);
     else if (eventType == eventNames().beforeloadEvent)
         addListenerType(BEFORELOAD_LISTENER);
+    else if (eventType == eventNames().touchstartEvent
+             || eventType == eventNames().touchmoveEvent
+             || eventType == eventNames().touchendEvent
+             || eventType == eventNames().touchcancelEvent) {
+         addListenerType(TOUCH_LISTENER);
+         if (Page* page = this->page())
+             page->chrome()->client()->needTouchEvents(true);
+    }
 }
 
 CSSStyleDeclaration* Document::getOverrideStyle(Element*, const String&)
@@ -4672,38 +4672,6 @@ void Document::parseDNSPrefetchControlHeader(const String& dnsPrefetchControl)
     m_isDNSPrefetchEnabled = false;
     m_haveExplicitlyDisabledDNSPrefetch = true;
 }
-
-#if ENABLE(TOUCH_EVENTS) // Android
-void Document::addTouchEventListener(Node* node)
-{
-    // Note: we only keep track of touch listener in the top frame
-    if (m_frame && m_frame->tree()->parent()) {
-        m_frame->page()->mainFrame()->document()->addTouchEventListener(node);
-    } else {
-#if PLATFORM(ANDROID)
-        if (m_frame && m_frame->view() && m_touchEventListeners.isEmpty())
-            android::WebViewCore::getWebViewCore(m_frame->view())->needTouchEvents(true);
-#endif
-        m_touchEventListeners.add(node, 0);
-    }
-}
-
-void Document::removeTouchEventListener(Node* node)
-{
-    // Note: we only keep track of touch listener in the top frame
-    if (m_frame && m_frame->tree()->parent()) {
-        m_frame->page()->mainFrame()->document()->removeTouchEventListener(node);
-    } else {
-#if PLATFORM(ANDROID)
-        if (m_frame && m_frame->view() && m_touchEventListeners.size() == 1 &&
-                m_touchEventListeners.contains(node))
-            android::WebViewCore::getWebViewCore(m_frame->view())->needTouchEvents(false);
-#endif
-        m_touchEventListeners.remove(node);
-    }
-}
-
-#endif
 
 void Document::reportException(const String& errorMessage, int lineNumber, const String& sourceURL)
 {

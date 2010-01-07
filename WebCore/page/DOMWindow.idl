@@ -206,12 +206,6 @@ module window {
             raises(DOMException);
 
         // Events
-#if ENABLE_TOUCH_EVENTS
-        attribute EventListener ontouchstart;
-        attribute EventListener ontouchend;
-        attribute EventListener ontouchmove;
-        attribute EventListener ontouchcancel;
-#endif
 
         attribute EventListener onabort;
         attribute EventListener onbeforeunload;
@@ -295,6 +289,12 @@ module window {
         attribute EventListener onwebkittransitionend;
 #if defined(ENABLE_ORIENTATION_EVENTS) && ENABLE_ORIENTATION_EVENTS
         attribute EventListener onorientationchange;
+#endif
+#if defined(ENABLE_TOUCH_EVENTS) && ENABLE_TOUCH_EVENTS
+        attribute [DontEnum] EventListener ontouchstart;
+        attribute [DontEnum] EventListener ontouchmove;
+        attribute [DontEnum] EventListener ontouchend;
+        attribute [DontEnum] EventListener ontouchcancel;
 #endif
 
         // EventTarget interface
@@ -466,9 +466,6 @@ module window {
         attribute WheelEventConstructor WheelEvent;
         attribute MessageEventConstructor MessageEvent;
         attribute EventExceptionConstructor EventException;
-#if ENABLE_TOUCH_EVENTS
-        attribute TouchEventConstructor TouchEvent;
-#endif
 
         attribute WebKitCSSKeyframeRuleConstructor WebKitCSSKeyframeRule;
         attribute WebKitCSSKeyframesRuleConstructor WebKitCSSKeyframesRule;
@@ -574,6 +571,10 @@ module window {
         attribute SVGFEMorphologyElementConstructor SVGFEMorphologyElement;
         attribute SVGFETurbulenceElementConstructor SVGFETurbulenceElement;
 #endif
+#endif
+
+#if defined(ENABLE_TOUCH_EVENTS) && ENABLE_TOUCH_EVENTS
+        attribute TouchEventConstructor TouchEvent;
 #endif
 
 #endif // defined(LANGUAGE_JAVASCRIPT)

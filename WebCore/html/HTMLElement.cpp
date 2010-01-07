@@ -218,20 +218,18 @@ void HTMLElement::parseMappedAttribute(MappedAttribute *attr)
         setAttributeEventListener(eventNames().webkitAnimationEndEvent, createAttributeEventListener(this, attr));
     } else if (attr->name() == onwebkittransitionendAttr) {
         setAttributeEventListener(eventNames().webkitTransitionEndEvent, createAttributeEventListener(this, attr));
-#if ENABLE(TOUCH_EVENTS) // Android
-    } else if (attr->name() == ontouchstartAttr) {
-        setAttributeEventListener(eventNames().touchstartEvent, createAttributeEventListener(this, attr));
-    } else if (attr->name() == ontouchendAttr) {
-        setAttributeEventListener(eventNames().touchendEvent, createAttributeEventListener(this, attr));
-    } else if (attr->name() == ontouchmoveAttr) {
-        setAttributeEventListener(eventNames().touchmoveEvent, createAttributeEventListener(this, attr));
-    } else if (attr->name() == ontouchcancelAttr) {
-        setAttributeEventListener(eventNames().touchcancelEvent, createAttributeEventListener(this, attr));
-#endif
     } else if (attr->name() == oninputAttr) {
         setAttributeEventListener(eventNames().inputEvent, createAttributeEventListener(this, attr));
     } else if (attr->name() == oninvalidAttr) {
         setAttributeEventListener(eventNames().invalidEvent, createAttributeEventListener(this, attr));
+    } else if (attr->name() == ontouchstartAttr) {
+        setAttributeEventListener(eventNames().touchstartEvent, createAttributeEventListener(this, attr));
+    } else if (attr->name() == ontouchmoveAttr) {
+        setAttributeEventListener(eventNames().touchmoveEvent, createAttributeEventListener(this, attr));
+    } else if (attr->name() == ontouchendAttr) {
+        setAttributeEventListener(eventNames().touchendEvent, createAttributeEventListener(this, attr));
+    } else if (attr->name() == ontouchcancelAttr) {
+        setAttributeEventListener(eventNames().touchcancelEvent, createAttributeEventListener(this, attr));
     }
 }
 

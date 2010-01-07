@@ -101,6 +101,10 @@
 #include "HTMLNoScriptElement.h"
 #endif
 
+#if ENABLE(TOUCH_EVENTS)
+#include "ChromeClient.h"
+#endif
+
 #define DUMP_NODE_STATISTICS 0
 
 using namespace std;
@@ -2422,16 +2426,8 @@ bool Node::addEventListener(const AtomicString& eventType, PassRefPtr<EventListe
 
     if (Document* document = this->document())
         document->addListenerTypeIfNeeded(eventType);
-    updateSVGElementInstancesAfterEventListenerChange(this);
 
-#if ENABLE(TOUCH_EVENTS) // Android
-    if (this->document() &&
-            (eventType == eventNames().touchstartEvent ||
-             eventType == eventNames().touchendEvent ||
-             eventType == eventNames().touchmoveEvent ||
-             eventType == eventNames().touchcancelEvent))
-        this->document()->addTouchEventListener(this);
-#endif
+    updateSVGElementInstancesAfterEventListenerChange(this);
     return true;
 }
 
@@ -2442,13 +2438,17 @@ bool Node::removeEventListener(const AtomicString& eventType, EventListener* lis
 
     updateSVGElementInstancesAfterEventListenerChange(this);
 
-#if ENABLE(TOUCH_EVENTS) // Android
-    if (this->document() &&
-            (eventType == eventNames().touchstartEvent ||
-             eventType == eventNames().touchendEvent ||
-             eventType == eventNames().touchmoveEvent ||
-             eventType == eventNames().touchcancelEvent))
-        this->document()->removeTouchEventListener(this);
+#if ENABLE(TOUCH_EVENTS)
+    if (Document* document = this->document()) {
+        if (document->page()
+            && (eventType == eventNames().touchstartEvent
+                || eventType == eventNames().touchmoveEvent
+                || eventType == eventNames().touchendEvent
+                || eventType == eventNames().touchcancelEvent))
+            // Note the corresponding needTouchEvents(true) is called in Document::addListenerTypeIfNeeded().
+            document->page()->chrome()->client()->needTouchEvents(false);
+
+   }
 #endif
     return true;
 }

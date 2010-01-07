@@ -199,12 +199,10 @@ onstorage
 onsuspend
 onsubmit
 ontimeupdate
-/* #if ENABLE(TOUCH_EVENTS) // Android */
 ontouchstart
 ontouchmove
 ontouchend
 ontouchcancel
-/* #endif */
 onunload
 onvolumechange
 onwaiting

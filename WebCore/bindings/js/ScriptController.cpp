@@ -247,7 +247,7 @@ bool ScriptController::processingUserGestureEvent() const
             // keyboard events
             || type == eventNames().keydownEvent || type == eventNames().keypressEvent
             || type == eventNames().keyupEvent
-#if ENABLE(TOUCH_EVENTS) // Android
+#if ENABLE(TOUCH_EVENTS)
             // touch events
             || type == eventNames().touchstartEvent || type == eventNames().touchmoveEvent
             || type == eventNames().touchendEvent || type == eventNames().touchcancelEvent

@@ -123,11 +123,11 @@ namespace WebCore {
 #if ENABLE(DOM_STORAGE)
         virtual bool isStorageEvent() const;
 #endif
-#if ENABLE(TOUCH_EVENTS) // Android
-        virtual bool isTouchEvent() const;
-#endif
 #if ENABLE(WORKERS)
         virtual bool isErrorEvent() const;
+#endif
+#if ENABLE(TOUCH_EVENTS)
+        virtual bool isTouchEvent() const;
 #endif
         
         bool propagationStopped() const { return m_propagationStopped; }

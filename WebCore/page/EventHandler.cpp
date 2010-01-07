@@ -56,6 +56,7 @@
 #include "Page.h"
 #include "PlatformKeyboardEvent.h"
 #include "PlatformWheelEvent.h"
+#include "PluginView.h"
 #include "RenderFrameSet.h"
 #include "RenderTextControlSingleLine.h"
 #include "RenderView.h"
@@ -74,9 +75,9 @@
 #include "SVGUseElement.h"
 #endif
 
-#if ENABLE(TOUCH_EVENTS) // Android
-#include "TouchEvent.h"
+#if ENABLE(TOUCH_EVENTS)
 #include "PlatformTouchEvent.h"
+#include "TouchEvent.h"
 #endif
 
 #if defined(ANDROID_PLUGINS)
@@ -207,8 +208,16 @@ void EventHandler::clear()
     m_lastScrollbarUnderMouse = 0;
     m_clickCount = 0;
     m_clickNode = 0;
-#if ENABLE(TOUCH_EVENTS) // Android
-    m_touch = 0;
+#if ENABLE(TOUCH_EVENTS)
+    m_touchEventTarget = 0;
+    if (Document* doc = m_frame->document()) {
+        if (Page* page = doc->page()) {
+            // We are clearing event handlers, which includes any touch
+            // event handlers so force webkit to tell the chrome client to
+            // stop forwarding the events.
+            page->chrome()->client()->needTouchEvents(false, true);
+        }
+    }
 #endif
     m_frameSetBeingResized = 0;
 #if ENABLE(DRAG_SUPPORT)
@@ -2546,131 +2555,6 @@ bool EventHandler::passMousePressEventToScrollbar(MouseEventWithHitTestResults& 
     return scrollbar->mouseDown(mev.event());
 }
 
-#if ENABLE(TOUCH_EVENTS) // Android
-int EventHandler::handleTouchEvent(const PlatformTouchEvent& e)
-{
-    // only handle the touch event in the top frame handler
-    if (m_frame->tree()->parent(true))
-        return m_frame->tree()->parent()->eventHandler()->handleTouchEvent(e);
-
-    Document* doc = m_frame->document();
-    if (!doc)
-        return 0;
-
-    RenderObject* docRenderer = doc->renderer();
-    if (!docRenderer)
-        return 0;
-
-    if (doc->touchEventListeners().size() == 0)
-        return 0;
-
-    TouchEventType type = e.eventType();
-    if (type == TouchEventStart || type == TouchEventLongPress || type == TouchEventDoubleTap) {
-        Frame* frame = m_frame;
-        IntPoint vPoint = frame->view()->windowToContents(e.pos());
-        HitTestRequest request(HitTestRequest::ReadOnly);
-        HitTestResult result(vPoint);
-        frame->contentRenderer()->layer()->hitTest(request, result);
-        Node* node = result.innerNode();
-        if (node) {
-            RenderObject* target = node->renderer();
-            while (target && target->isWidget()) {
-                Widget* widget = static_cast<RenderWidget*>(target)->widget();
-                if (widget->isFrameView()) {
-                    frame = static_cast<FrameView*>(widget)->frame();
-                    vPoint = frame->view()->windowToContents(e.pos());
-                    HitTestResult ret(vPoint);
-                    frame->contentRenderer()->layer()->hitTest(request, ret);
-                    node = ret.innerNode();
-                    if (!node)
-                        break;
-                    else
-                        target = node->renderer();
-                } else
-                    // plugin view??
-                    break;
-            }
-        }
-
-        if (!node) {
-            // reset to the top document node
-            node = doc;
-            frame = m_frame;
-            vPoint = frame->view()->windowToContents(e.pos());
-        }
-
-        m_touch = Touch::create(frame, node, 0,
-                e.x(), e.y(), vPoint.x(), vPoint.y());
-    } else if (m_touch) {
-        if ((type == TouchEventMove) && (e.x() == m_touch->screenX()) &&
-                (e.y() == m_touch->screenY())) {
-            // don't trigger the event if it hasn't really moved
-            return 0;
-        }
-
-        IntPoint vPoint = m_touch->frame()->view()->windowToContents(e.pos());
-        m_touch->updateLocation(e.x(), e.y(), vPoint.x(), vPoint.y());
-    } else {
-        return 0;
-    }
-
-    RefPtr<TouchList> touchList = TouchList::create();
-    touchList->append(m_touch);
-    // For TouchEventEnd, touches and targetTouches are empty list
-    RefPtr<TouchList> emptyList = TouchList::create();
-    RefPtr<TouchEvent> te;
-    switch(type) {
-        case TouchEventStart:
-            te = TouchEvent::create(touchList.get(), touchList.get(), touchList.get(),
-                    eventNames().touchstartEvent, m_touch->frame()->document()->defaultView(),
-                    m_touch->screenX(), m_touch->screenY(), m_touch->pageX(), m_touch->pageY());
-            break;
-
-        case TouchEventEnd:
-            te = TouchEvent::create(emptyList.get(), emptyList.get(), touchList.get(),
-                    eventNames().touchendEvent, m_touch->frame()->document()->defaultView(),
-                    m_touch->screenX(), m_touch->screenY(), m_touch->pageX(), m_touch->pageY());
-            break;
-
-        case TouchEventMove:
-            te = TouchEvent::create(touchList.get(), touchList.get(), touchList.get(),
-                    eventNames().touchmoveEvent, m_touch->frame()->document()->defaultView(),
-                    m_touch->screenX(), m_touch->screenY(), m_touch->pageX(), m_touch->pageY());
-            break;
-
-        case TouchEventCancel:
-            te = TouchEvent::create(touchList.get(), touchList.get(), touchList.get(),
-                    eventNames().touchcancelEvent, m_touch->frame()->document()->defaultView(),
-                    m_touch->screenX(), m_touch->screenY(), m_touch->pageX(), m_touch->pageY());
-            break;
-
-        case TouchEventLongPress:
-            te = TouchEvent::create(touchList.get(), touchList.get(), touchList.get(),
-                    eventNames().touchlongpressEvent, m_touch->frame()->document()->defaultView(),
-                    m_touch->screenX(), m_touch->screenY(), m_touch->pageX(), m_touch->pageY());
-            break;
-
-        case TouchEventDoubleTap:
-            te = TouchEvent::create(touchList.get(), touchList.get(), touchList.get(),
-                    eventNames().touchdoubletapEvent, m_touch->frame()->document()->defaultView(),
-                    m_touch->screenX(), m_touch->screenY(), m_touch->pageX(), m_touch->pageY());
-            break;
-
-        default:
-            return false;
-    }
-    ExceptionCode ec = 0;
-    m_touch->target()->dispatchEvent(te.get(), ec);
-    if (type == TouchEventEnd || type == TouchEventCancel)
-        m_touch = 0;
-    if (type == TouchEventLongPress || type == TouchEventDoubleTap)
-        return 0;
-    return (te->defaultPrevented() ? preventTouch : 0)
-            | (te->longPressPrevented() ? preventLongPress : 0)
-            | (te->doubleTapPrevented() ? preventDoubleTap : 0);
-}
-#endif
-
 // If scrollbar (under mouse) is different from last, send a mouse exited. Set
 // last to scrollbar if setLast is true; else set last to 0.
 void EventHandler::updateLastScrollbarUnderMouse(Scrollbar* scrollbar, bool setLast)
@@ -2682,5 +2566,210 @@ void EventHandler::updateLastScrollbarUnderMouse(Scrollbar* scrollbar, bool setL
         m_lastScrollbarUnderMouse = setLast ? scrollbar : 0;
     }
 }
+
+#if ENABLE(TOUCH_EVENTS)
+#if PLATFORM(ANDROID)
+// TODO(benm): On Android we return an int back to Java to signify whether the default actions
+// for longpress/doubletap in the Browser should be prevented. I think that before upstreaming
+// to webkit.org we can refactor the Java side to not require this.
+int EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
+#else
+bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
+#endif
+{
+    RefPtr<TouchList> touches = TouchList::create();
+    RefPtr<TouchList> pressedTouches = TouchList::create();
+    RefPtr<TouchList> releasedTouches = TouchList::create();
+    RefPtr<TouchList> movedTouches = TouchList::create();
+    RefPtr<TouchList> targetTouches = TouchList::create();
+    RefPtr<TouchList> cancelTouches = TouchList::create();
+
+    const Vector<PlatformTouchPoint>& points = event.touchPoints();
+    AtomicString* eventName = 0;
+
+    for (int i = 0; i < points.size(); ++i) {
+        const PlatformTouchPoint& point = points[i];
+        IntPoint framePoint = documentPointForWindowPoint(m_frame, point.pos());
+        HitTestResult result = hitTestResultAtPoint(framePoint, /*allowShadowContent*/ false);
+        Node* target = result.innerNode();
+
+        // Touch events should not go to text nodes
+        if (target && target->isTextNode())
+            target = target->parentNode();
+
+        Document* doc = target->document();
+        if (!doc)
+            continue;
+        if (!doc->hasListenerType(Document::TOUCH_LISTENER))
+            continue;
+
+        int adjustedPageX = lroundf(framePoint.x() / m_frame->pageZoomFactor());
+        int adjustedPageY = lroundf(framePoint.y() / m_frame->pageZoomFactor());
+
+        if ( (event.type() == TouchStart
+#if PLATFORM(ANDROID)
+            || event.type() == TouchDoubleTap
+            || event.type() == TouchLongPress
+#endif
+            ) && !i) {
+            m_touchEventTarget = target;
+            m_firstTouchScreenPos = point.screenPos();
+            m_firstTouchPagePos = framePoint;
+        }
+
+        RefPtr<Touch> touch = Touch::create(m_frame, m_touchEventTarget.get(), point.id(),
+                                            point.screenPos().x(), point.screenPos().y(),
+                                            adjustedPageX, adjustedPageY);
+
+        if (point.state() == PlatformTouchPoint::TouchReleased)
+            releasedTouches->append(touch);
+        else if (point.state() == PlatformTouchPoint::TouchCancelled)
+            cancelTouches->append(touch);
+        else {
+            if (point.state() == PlatformTouchPoint::TouchPressed)
+                pressedTouches->append(touch);
+            else {
+                touches->append(touch);
+                if (m_touchEventTarget == target)
+                    targetTouches->append(touch);
+                if (point.state() == PlatformTouchPoint::TouchMoved)
+                    movedTouches->append(touch);
+            }
+        }
+    }
+
+    if (!m_touchEventTarget)
+#if PLATFORM(ANDROID)
+        return 0;
+#else
+        return false;
+#endif
+
+    bool defaultPrevented = false;
+#if PLATFORM(ANDROID)
+    // TODO (benm): We should be able to remove this prior to upstreaming once Java side refactorings to make
+    // preventDeault work better are complete.
+    bool longPressPrevented = false;
+    bool doubleTapPrevented = false;
+#endif
+
+    if (event.type() == TouchCancel) {
+        eventName = &eventNames().touchcancelEvent;
+        RefPtr<TouchEvent> cancelEv =
+            TouchEvent::create(TouchList::create().get(), TouchList::create().get(), cancelTouches.get(),
+                                                   *eventName, m_touchEventTarget->document()->defaultView(),
+                                                   m_firstTouchScreenPos.x(), m_firstTouchScreenPos.y(),
+                                                   m_firstTouchPagePos.x(), m_firstTouchPagePos.y(),
+                                                   event.ctrlKey(), event.altKey(), event.shiftKey(),
+                                                   event.metaKey());
+
+            ExceptionCode ec = 0;
+            m_touchEventTarget->dispatchEvent(cancelEv.get(), ec);
+            defaultPrevented |= cancelEv->defaultPrevented();
+    }
+
+    if (releasedTouches->length() > 0) {
+        eventName = &eventNames().touchendEvent;
+
+        RefPtr<TouchEvent> endEv =
+            TouchEvent::create(touches.get(), targetTouches.get(), releasedTouches.get(),
+                                                   *eventName, m_touchEventTarget->document()->defaultView(),
+                                                   m_firstTouchScreenPos.x(), m_firstTouchScreenPos.y(),
+                                                   m_firstTouchPagePos.x(), m_firstTouchPagePos.y(),
+                                                   event.ctrlKey(), event.altKey(), event.shiftKey(),
+                                                   event.metaKey());
+
+        ExceptionCode ec = 0;
+        m_touchEventTarget->dispatchEvent(endEv.get(), ec);
+        defaultPrevented |= endEv->defaultPrevented();
+    }
+
+    if (pressedTouches->length() > 0) {
+        // Add pressed touchpoints to touches and targetTouches.
+        for (int i = 0; i < pressedTouches->length(); ++i) {
+            touches->append(pressedTouches->item(i));
+            if (m_touchEventTarget == pressedTouches->item(i)->target())
+                targetTouches->append(pressedTouches->item(i));
+        }
+
+#if PLATFORM(ANDROID)
+        if (event.type() == TouchLongPress) {
+            eventName = &eventNames().touchlongpressEvent;
+            RefPtr<TouchEvent> longpressEv =
+                TouchEvent::create(touches.get(), targetTouches.get(), pressedTouches.get(),
+                                                       *eventName, m_touchEventTarget->document()->defaultView(),
+                                                       m_firstTouchScreenPos.x(), m_firstTouchScreenPos.y(),
+                                                       m_firstTouchPagePos.x(), m_firstTouchPagePos.y(),
+                                                       event.ctrlKey(), event.altKey(), event.shiftKey(),
+                                                       event.metaKey());
+
+            ExceptionCode ec = 0;
+            m_touchEventTarget->dispatchEvent(longpressEv.get(), ec);
+            defaultPrevented |= longpressEv->defaultPrevented();
+        } else if (event.type() == TouchDoubleTap) {
+            eventName = &eventNames().touchdoubletapEvent;
+            RefPtr<TouchEvent> doubleTapEv =
+                TouchEvent::create(touches.get(), targetTouches.get(), pressedTouches.get(),
+                                                       *eventName, m_touchEventTarget->document()->defaultView(),
+                                                       m_firstTouchScreenPos.x(), m_firstTouchScreenPos.y(),
+                                                       m_firstTouchPagePos.x(), m_firstTouchPagePos.y(),
+                                                       event.ctrlKey(), event.altKey(), event.shiftKey(),
+                                                       event.metaKey());
+
+            ExceptionCode ec = 0;
+            m_touchEventTarget->dispatchEvent(doubleTapEv.get(), ec);
+            defaultPrevented |= doubleTapEv->defaultPrevented();
+        } else {
+#endif
+            eventName = &eventNames().touchstartEvent;
+            RefPtr<TouchEvent> startEv =
+                TouchEvent::create(touches.get(), targetTouches.get(), pressedTouches.get(),
+                                                       *eventName, m_touchEventTarget->document()->defaultView(),
+                                                       m_firstTouchScreenPos.x(), m_firstTouchScreenPos.y(),
+                                                       m_firstTouchPagePos.x(), m_firstTouchPagePos.y(),
+                                                       event.ctrlKey(), event.altKey(), event.shiftKey(),
+                                                       event.metaKey());
+            ExceptionCode ec = 0;
+            m_touchEventTarget->dispatchEvent(startEv.get(), ec);
+            defaultPrevented |= startEv->defaultPrevented();
+#if PLATFORM(ANDROID)
+            longPressPrevented |= startEv->longPressPrevented();
+            doubleTapPrevented |= startEv->doubleTapPrevented();
+        }
+#endif
+    }
+
+    if (movedTouches->length() > 0) {
+        eventName = &eventNames().touchmoveEvent;
+        RefPtr<TouchEvent> moveEv =
+            TouchEvent::create(touches.get(), targetTouches.get(), movedTouches.get(),
+                                                   *eventName, m_touchEventTarget->document()->defaultView(),
+                                                   m_firstTouchScreenPos.x(), m_firstTouchScreenPos.y(),
+                                                   m_firstTouchPagePos.x(), m_firstTouchPagePos.y(),
+                                                   event.ctrlKey(), event.altKey(), event.shiftKey(),
+                                                   event.metaKey());
+        ExceptionCode ec = 0;
+        m_touchEventTarget->dispatchEvent(moveEv.get(), ec);
+        defaultPrevented |= moveEv->defaultPrevented();
+    }
+
+
+    if (event.type() == TouchEnd || event.type() == TouchCancel)
+        m_touchEventTarget = 0;
+
+#if PLATFORM(ANDROID)
+    // TODO (benm): We should be able to remove this prior to upstreaming  once Java side refactorings to make
+    // preventDefault work better are complete.
+    if (event.type() == TouchLongPress || event.type() == TouchDoubleTap)
+        return 0;
+
+    return (defaultPrevented ? preventTouch : 0)
+            | (longPressPrevented ? preventLongPress : 0)
+            | (doubleTapPrevented ? preventDoubleTap : 0);
+#else
+    return defaultPrevented;
+#endif
+}
+#endif
 
 }

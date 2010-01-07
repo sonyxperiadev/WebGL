@@ -28,6 +28,7 @@
 #include "Document.h"
 #include "Element.h"
 #include "Frame.h"
+#include "Page.h"
 #include "PluginPackage.h"
 #include "PluginView.h"
 #include "PluginWidgetAndroid.h"
@@ -37,6 +38,10 @@
 #include "SkString.h"
 #include "WebViewCore.h"
 #include "jni_utility.h"
+
+#if ENABLE(TOUCH_EVENTS)
+#include "ChromeClient.h"
+#endif
 
 #define DEBUG_VISIBLE_RECTS 1 // temporary debug printfs and fixes
 
@@ -259,12 +264,18 @@ void PluginWidgetAndroid::updateEventFlags(ANPEventFlags flags) {
     }
 
     Document* doc = m_pluginView->getParentFrame()->document();
+#if ENABLE(TOUCH_EVENTS)
     if((m_eventFlags ^ flags) & kTouch_ANPEventFlag) {
-        if(flags & kTouch_ANPEventFlag)
-            doc->addTouchEventListener(m_pluginView->getElement());
-        else
-            doc->removeTouchEventListener(m_pluginView->getElement());
+        if (flags & kTouch_ANPEventFlag) {
+           if (Page* page = doc->page())
+               page->chrome()->client()->needTouchEvents(true, false);
+               doc->addListenerTypeIfNeeded(eventNames().touchstartEvent);
+       } else {
+           if (Page* page = doc->page())
+               page->chrome()->client()->needTouchEvents(false, false);
+       }
     }
+#endif
 
     m_eventFlags = flags;
 }

@@ -402,6 +402,8 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/android/GeolocationServiceBridge.cpp \
 	platform/android/KeyEventAndroid.cpp \
 	platform/android/LocalizedStringsAndroid.cpp \
+	platform/android/PlatformTouchEventAndroid.cpp \
+	platform/android/PlatformTouchPointAndroid.cpp \
 	platform/android/PopupMenuAndroid.cpp \
 	platform/android/RenderThemeAndroid.cpp \
 	platform/android/ScreenAndroid.cpp \
