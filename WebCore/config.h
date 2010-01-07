@@ -80,7 +80,6 @@
 #define WEBCORE_NAVIGATOR_VENDOR "Google Inc."
 // This must be defined before we include FastMalloc.h, below.
 #define USE_SYSTEM_MALLOC 1
-#define ANDROID_MOBILE      // change can be merged back to WebKit.org for MOBILE
 #define LOG_DISABLED 1
 #include <wtf/Assertions.h>
 // Central place to set which optional features Android uses.

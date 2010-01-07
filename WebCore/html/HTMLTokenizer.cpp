@@ -1849,11 +1849,7 @@ void HTMLTokenizer::timerFired(Timer<HTMLTokenizer>*)
         printf("Beginning timer write at time %d\n", m_doc->elapsedTime());
 #endif
 
-#ifdef ANDROID_MOBILE
-    if (m_doc->view() && m_doc->view()->layoutPending() && !m_doc->minimumLayoutDelay() && !m_doc->extraLayoutDelay()) {
-#else
     if (m_doc->view() && m_doc->view()->layoutPending() && !m_doc->minimumLayoutDelay()) {
-#endif
         // Restart the timer and let layout win.  This is basically a way of ensuring that the layout
         // timer has higher priority than our timer.
         m_timer.startOneShot(0);
