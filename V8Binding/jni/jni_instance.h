@@ -33,10 +33,6 @@
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
 
-namespace android {
-class WeakJavaInstance;
-}
-
 using namespace WTF;
 
 namespace JSC {
@@ -47,7 +43,15 @@ class JavaClass;
 
 class JObjectWrapper
 {
+friend class RefPtr<JObjectWrapper>;
+friend class JavaField;
+friend class JavaInstance;
+
 public:
+    jobject instance() const { return _instance; }
+    void setInstance(jobject instance) { _instance = instance; }
+
+protected:
     JObjectWrapper(jobject instance);    
     ~JObjectWrapper();
     
@@ -58,35 +62,37 @@ public:
             delete this; 
     }
 
-    jobject getLocalRef() const;
+    jobject _instance;
 
 private:
     JNIEnv *_env;
     unsigned int _refCount;
-    jobject _instance;  // it is a global weak reference.
-
-    jmethodID mWeakRefGet;  // cache WeakReference::Get method id
 };
 
 class JavaInstance : public RefCounted<JavaInstance>
 {
 public:
     JavaInstance(jobject instance);
-    ~JavaInstance();
+    virtual ~JavaInstance();
 
     JavaClass* getClass() const;
 
-    bool invokeMethod(const char* name, const NPVariant* args, uint32_t argsCount, NPVariant* result);
+    bool invokeMethod(const char* name, const NPVariant* args, int argsCount, NPVariant* result);
 
-    // Returns a local reference, and the caller must delete
-    // the returned reference after use.
-    jobject getLocalRef() const {
-        return _instance->getLocalRef();
-    }
+    jobject javaInstance() const { return _instance->_instance; }
 
-private:
+    // These functions are called before and after the main entry points into
+    // the native implementations.  They can be used to establish and cleanup
+    // any needed state.
+    void begin() { virtualBegin(); }
+    void end() { virtualEnd(); }
+
+protected:
     RefPtr<JObjectWrapper> _instance;
     mutable JavaClass* _class;
+
+    virtual void virtualBegin() {}
+    virtual void virtualEnd() {}
 };
 
 } // namespace Bindings
