@@ -53,14 +53,12 @@ JavaInstance::~JavaInstance ()
 JavaClass* JavaInstance::getClass() const 
 {
     if (_class == 0) {
-        jobject local_ref = getLocalRef();
-        _class = new JavaClass(local_ref);
-        getJNIEnv()->DeleteLocalRef(local_ref);
+        _class = new JavaClass(javaInstance());
     }
     return _class;
 }
 
-bool JavaInstance::invokeMethod(const char* methodName, const NPVariant* args, uint32_t count, NPVariant* resultValue)
+bool JavaInstance::invokeMethod(const char* methodName, const NPVariant* args, int count, NPVariant* resultValue)
 {
     int i;
     jvalue *jArgs;
@@ -108,7 +106,7 @@ bool JavaInstance::invokeMethod(const char* methodName, const NPVariant* args, u
     // The following code can be conditionally removed once we have a Tiger update that
     // contains the new Java plugin.  It is needed for builds prior to Tiger.
     {    
-        jobject obj = getLocalRef();
+        jobject obj = javaInstance();
         switch (jMethod->JNIReturnType()){
             case void_type:
                 callJNIMethodIDA<void>(obj, jMethod->methodID(obj), jArgs);
@@ -145,7 +143,6 @@ bool JavaInstance::invokeMethod(const char* methodName, const NPVariant* args, u
             default:
                 break;
         }
-        getJNIEnv()->DeleteLocalRef(obj);
     }
     
     convertJValueToNPVariant(result, jMethod->JNIReturnType(), jMethod->returnType(), resultValue);
@@ -163,34 +160,16 @@ JObjectWrapper::JObjectWrapper(jobject instance)
     // It'll be used to delete the reference.
     _env = getJNIEnv();
 
-    jclass localClsRef = _env->FindClass("java/lang/ref/WeakReference");
-    jmethodID weakRefInit = _env->GetMethodID(localClsRef, "<init>",
-                                    "(Ljava/lang/Object;)V");
-    mWeakRefGet = _env->GetMethodID(localClsRef, "get",
-                                   "()Ljava/lang/Object;");
+    _instance = _env->NewGlobalRef(instance);
 
-    jobject weakRef = _env->NewObject(localClsRef, weakRefInit, instance);
-
-    _instance = _env->NewGlobalRef(weakRef);
-    
     LOGV("new global ref %p for %p\n", _instance, instance);
 
     if  (_instance == NULL) {
         fprintf (stderr, "%s:  could not get GlobalRef for %p\n", __PRETTY_FUNCTION__, instance);
     }
-
-    _env->DeleteLocalRef(weakRef);
-    _env->DeleteLocalRef(localClsRef);
 }
 
 JObjectWrapper::~JObjectWrapper() {
     LOGV("deleting global ref %p\n", _instance);
     _env->DeleteGlobalRef(_instance);
-}
-
-jobject JObjectWrapper::getLocalRef() const {
-    jobject real = _env->CallObjectMethod(_instance, mWeakRefGet);
-    if (!real)
-        LOGE("The real object has been deleted");
-    return _env->NewLocalRef(real);
 }

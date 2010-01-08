@@ -93,7 +93,9 @@ bool JavaNPObject_HasMethod(NPObject* obj, NPIdentifier identifier) {
     if (name == 0)
         return false;
 
+    instance->begin();
     bool result = (instance->getClass()->methodsNamed(name).size() > 0);
+    instance->end();
 
     // TODO: use NPN_MemFree
     free(name);
@@ -110,7 +112,9 @@ bool JavaNPObject_Invoke(NPObject* obj, NPIdentifier identifier,
     if (name == 0)
         return false;
 
+    instance->begin();
     bool r = instance->invokeMethod(name, args, argCount, result);
+    instance->end();
 
     // TODO: use NPN_MemFree
     free(name);
@@ -125,7 +129,9 @@ bool JavaNPObject_HasProperty(NPObject* obj, NPIdentifier identifier) {
     NPUTF8* name = _NPN_UTF8FromIdentifier(identifier);
     if (name == 0)
         return false;
+    instance->begin();
     bool result = instance->getClass()->fieldNamed(name) != 0;
+    instance->end();
     free(name);
     return result;
 }
@@ -139,19 +145,19 @@ bool JavaNPObject_GetProperty(NPObject* obj, NPIdentifier identifier, NPVariant*
     if (name == 0)
         return false;
 
+    instance->begin();
     JavaField* field = instance->getClass()->fieldNamed(name);
+    instance->end();
     free(name);  // TODO: use NPN_MemFree
 
     if (field == 0) {
         return false;
     }
 
-    jobject local_ref = instance->getLocalRef();
-    jvalue value = getJNIField(local_ref,
+    jvalue value = getJNIField(instance->javaInstance(),
                                field->getJNIType(),
                                field->name(),
                                field->type());
-    getJNIEnv()->DeleteLocalRef(local_ref);
 
     convertJValueToNPVariant(value, field->getJNIType(), field->type(), result);
 
