@@ -191,6 +191,7 @@ struct WebViewCore::JavaGlue {
     jmethodID   m_startFullScreenPluginActivity;
     jmethodID   m_createSurface;
     jmethodID   m_destroySurface;
+    jmethodID   m_showRect;
     AutoJObject object(JNIEnv* env) {
         return getRealObject(env, m_obj);
     }
@@ -267,6 +268,7 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     m_javaGlue->m_startFullScreenPluginActivity = GetJMethod(env, clazz, "startFullScreenPluginActivity", "(Ljava/lang/String;Ljava/lang/String;I)V");
     m_javaGlue->m_createSurface = GetJMethod(env, clazz, "createSurface", "(Ljava/lang/String;Ljava/lang/String;IIIII)Landroid/webkit/ViewManager$ChildView;");
     m_javaGlue->m_destroySurface = GetJMethod(env, clazz, "destroySurface", "(Landroid/webkit/ViewManager$ChildView;)V");
+    m_javaGlue->m_showRect = GetJMethod(env, clazz, "showRect", "(IIIIIIFFFF)V");
 
     env->SetIntField(javaWebViewCore, gWebViewCoreFields.m_nativeClass, (jint)this);
 
@@ -1043,13 +1045,15 @@ void WebViewCore::setGlobalBounds(int x, int y, int h, int v)
 
 void WebViewCore::setSizeScreenWidthAndScale(int width, int height,
     int screenWidth, float scale, int realScreenWidth, int screenHeight,
-    bool ignoreHeight)
+    int anchorX, int anchorY, bool ignoreHeight)
 {
     WebCoreViewBridge* window = m_mainFrame->view()->platformWidget();
     int ow = window->width();
     int oh = window->height();
     window->setSize(width, height);
     int osw = m_screenWidth;
+    int orsw = m_screenWidth * m_screenWidthScale / m_scale;
+    int osh = m_screenHeight;
     DBG_NAV_LOGD("old:(w=%d,h=%d,sw=%d,scale=%g) new:(w=%d,h=%d,sw=%d,scale=%g)",
         ow, oh, osw, m_scale, width, height, screenWidth, scale);
     m_screenWidth = screenWidth;
@@ -1068,12 +1072,16 @@ void WebViewCore::setSizeScreenWidthAndScale(int width, int height,
         DBG_NAV_LOGD("renderer=%p view=(w=%d,h=%d)", r,
             realScreenWidth, screenHeight);
         if (r) {
-            // get current screen center position
-            WebCore::IntPoint screenCenter = WebCore::IntPoint(
-                m_scrollOffsetX + (realScreenWidth >> 1),
-                m_scrollOffsetY + (screenHeight >> 1));
+            WebCore::IntPoint anchorPoint;
+            if ((anchorX | anchorY) == 0)
+                // get current screen center position
+                anchorPoint = WebCore::IntPoint(m_scrollOffsetX
+                        + (realScreenWidth >> 1), m_scrollOffsetY
+                        + (screenHeight >> 1));
+            else
+                anchorPoint = WebCore::IntPoint(anchorX, anchorY);
             WebCore::HitTestResult hitTestResult = m_mainFrame->eventHandler()->
-                hitTestResultAtPoint(screenCenter, false);
+                hitTestResultAtPoint(anchorPoint, false);
             WebCore::Node* node = hitTestResult.innerNode();
             WebCore::IntRect bounds;
             WebCore::IntPoint offset;
@@ -1081,14 +1089,16 @@ void WebViewCore::setSizeScreenWidthAndScale(int width, int height,
                 bounds = node->getRect();
                 DBG_NAV_LOGD("ob:(x=%d,y=%d,w=%d,h=%d)",
                     bounds.x(), bounds.y(), bounds.width(), bounds.height());
-                offset = WebCore::IntPoint(screenCenter.x() - bounds.x(),
-                    screenCenter.y() - bounds.y());
-                if (offset.x() < 0 || offset.x() > realScreenWidth ||
-                    offset.y() < 0 || offset.y() > screenHeight)
-                {
-                    DBG_NAV_LOGD("offset out of bounds:(x=%d,y=%d)",
-                        offset.x(), offset.y());
-                    node = 0;
+                if ((anchorX | anchorY) == 0) {
+                    offset = WebCore::IntPoint(anchorPoint.x() - bounds.x(),
+                            anchorPoint.y() - bounds.y());
+                    if (offset.x() < 0 || offset.x() > realScreenWidth ||
+                        offset.y() < 0 || offset.y() > screenHeight)
+                    {
+                        DBG_NAV_LOGD("offset out of bounds:(x=%d,y=%d)",
+                            offset.x(), offset.y());
+                        node = 0;
+                    }
                 }
             }
             r->setNeedsLayoutAndPrefWidthsRecalc();
@@ -1100,8 +1110,25 @@ void WebViewCore::setSizeScreenWidthAndScale(int width, int height,
             DBG_NAV_LOGD("nb:(x=%d,y=%d,w=%d,"
                 "h=%d,ns=%d)", newBounds.x(), newBounds.y(),
                 newBounds.width(), newBounds.height());
-            scrollBy(newBounds.x() - bounds.x(), newBounds.y() - bounds.y(),
-                false);
+            if ((anchorX | anchorY) == 0)
+                scrollBy(newBounds.x() - bounds.x(),
+                        newBounds.y() - bounds.y(), false);
+            else if (bounds != newBounds) {
+                WebCore::FrameView* view = m_mainFrame->view();
+                // force left align if width is not changed while height changed.
+                // the anchorPoint is probably at some white space in the node
+                // which is affected by text wrap around the screen width.
+                bool leftAlign = (osw != m_screenWidth)
+                        && (bounds.width() == newBounds.width())
+                        && (bounds.height() != newBounds.height());
+                showRect(newBounds.x(), newBounds.y(), newBounds.width(),
+                        newBounds.height(), view->contentsWidth(),
+                        view->contentsHeight(),
+                        leftAlign ? 0.0 : (float) (anchorX - bounds.x()) / bounds.width(),
+                        leftAlign ? 0.0 : (float) (anchorX - m_scrollOffsetX) / orsw,
+                        (float) (anchorY - bounds.y()) / bounds.height(),
+                        (float) (anchorY - m_scrollOffsetY) / osh);
+            }
         }
     }
 
@@ -2420,6 +2447,23 @@ void WebViewCore::destroySurface(jobject childView)
     checkException(env);
 }
 
+void WebViewCore::showRect(int left, int top, int width, int height,
+        int contentWidth, int contentHeight, float xPercentInDoc,
+        float xPercentInView, float yPercentInDoc, float yPercentInView)
+{
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    AutoJObject obj = m_javaGlue->object(env);
+    // if it is called during DESTROY is handled, the real object of WebViewCore
+    // can be gone. Check before using it.
+    if (!obj.get())
+        return;
+
+    env->CallVoidMethod(obj.get(), m_javaGlue->m_showRect, left, top, width,
+            height, contentWidth, contentHeight, xPercentInDoc, xPercentInView,
+            yPercentInDoc, yPercentInView);
+    checkException(env);
+}
+
 //----------------------------------------------------------------------
 // Native JNI methods
 //----------------------------------------------------------------------
@@ -2440,7 +2484,7 @@ static void UpdateFrameCacheIfLoading(JNIEnv *env, jobject obj)
 
 static void SetSize(JNIEnv *env, jobject obj, jint width, jint height,
         jint screenWidth, jfloat scale, jint realScreenWidth, jint screenHeight,
-        jboolean ignoreHeight)
+        jint anchorX, jint anchorY, jboolean ignoreHeight)
 {
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
@@ -2449,7 +2493,7 @@ static void SetSize(JNIEnv *env, jobject obj, jint width, jint height,
     LOGV("webviewcore::nativeSetSize(%u %u)\n viewImpl: %p", (unsigned)width, (unsigned)height, viewImpl);
     LOG_ASSERT(viewImpl, "viewImpl not set in nativeSetSize");
     viewImpl->setSizeScreenWidthAndScale(width, height, screenWidth, scale,
-        realScreenWidth, screenHeight, ignoreHeight);
+        realScreenWidth, screenHeight, anchorX, anchorY, ignoreHeight);
 }
 
 static void SetScrollOffset(JNIEnv *env, jobject obj, jint gen, jint x, jint y)
@@ -3001,7 +3045,7 @@ static JNINativeMethod gJavaWebViewCoreMethods[] = {
         (void*) SendListBoxChoices },
     { "nativeSendListBoxChoice", "(I)V",
         (void*) SendListBoxChoice },
-    { "nativeSetSize", "(IIIFIIZ)V",
+    { "nativeSetSize", "(IIIFIIIIZ)V",
         (void*) SetSize },
     { "nativeSetScrollOffset", "(III)V",
         (void*) SetScrollOffset },
