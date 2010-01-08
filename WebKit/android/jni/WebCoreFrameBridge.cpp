@@ -1141,20 +1141,30 @@ static jobject StringByEvaluatingJavaScriptFromString(JNIEnv *env, jobject obj, 
     return env->NewString((unsigned short*)result.characters(), len);
 }
 
-#if USE(JSC)
 // Wrap the JavaInstance used when binding custom javascript interfaces. Use a
 // weak reference so that the gc can collect the WebView. Override virtualBegin
 // and virtualEnd and swap the weak reference for the real object.
 class WeakJavaInstance : public JavaInstance {
 public:
+#if USE(JSC)
     static PassRefPtr<WeakJavaInstance> create(jobject obj, PassRefPtr<RootObject> root)
     {
         return adoptRef(new WeakJavaInstance(obj, root));
     }
+#elif USE(V8)
+    static PassRefPtr<WeakJavaInstance> create(jobject obj)
+    {
+        return adoptRef(new WeakJavaInstance(obj));
+    }
+#endif
 
-protected:
+private:
+#if USE(JSC)
     WeakJavaInstance(jobject instance, PassRefPtr<RootObject> rootObject)
         : JavaInstance(instance, rootObject)
+#elif USE(V8)
+    WeakJavaInstance(jobject instance) : JavaInstance(instance)
+#endif
     {
         JNIEnv* env = getJNIEnv();
         // JavaInstance creates a global ref to instance in its constructor.
@@ -1207,7 +1217,6 @@ private:
     jobject _realObject;
     jweak   _weakRef;
 };
-#endif  // USE(JSC)
 
 static void AddJavascriptInterface(JNIEnv *env, jobject obj, jint nativeFramePointer,
         jobject javascriptObj, jstring interfaceName)
@@ -1247,19 +1256,19 @@ static void AddJavascriptInterface(JNIEnv *env, jobject obj, jint nativeFramePoi
             checkException(env);
         }
     }
-#endif  // USE(JSC)
-
-#if USE(V8)
+#elif USE(V8)
     if (pFrame) {
+        PassRefPtr<JavaInstance> addedObject = WeakJavaInstance::create(javascriptObj);
         const char* name = getCharactersFromJStringInEnv(env, interfaceName);
-        NPObject* obj = JavaInstanceToNPObject(new JavaInstance(javascriptObj));
+        // Pass ownership of the added object to bindToWindowObject.
+        NPObject* obj = JavaInstanceToNPObject(addedObject.releaseRef());
         pFrame->script()->bindToWindowObject(pFrame, name, obj);
-        // JavaInstanceToNPObject calls NPN_RetainObject on the
-        // returned one (see CreateV8ObjectForNPObject in V8NPObject.cpp).
-        // BindToWindowObject also increases obj's ref count and decrease
+        // bindToWindowObject calls NPN_RetainObject on the
+        // returned one (see createV8ObjectForNPObject in V8NPObject.cpp).
+        // bindToWindowObject also increases obj's ref count and decreases
         // the ref count when the object is not reachable from JavaScript
         // side. Code here must release the reference count increased by
-        // JavaInstanceToNPObject.
+        // bindToWindowObject.
 
         // Note that while this function is declared in WebCore/bridge/npruntime.h, for V8 builds
         // we use WebCore/bindings/v8/npruntime.cpp (rather than

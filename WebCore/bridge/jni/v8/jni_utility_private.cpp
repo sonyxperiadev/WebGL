@@ -48,7 +48,7 @@ jvalue convertNPVariantToJValue(NPVariant value, JNIType jniType, const char* ja
             if (type == NPVariantType_Object) {
                 NPObject* objectImp = NPVARIANT_TO_OBJECT(value);
                 if (JavaInstance* instance = ExtractJavaInstance(objectImp))
-                    result.l = instance->getLocalRef();
+                    result.l = instance->javaInstance();
             }
 
             // Now convert value to a string if the target type is a java.lang.string, and we're not
