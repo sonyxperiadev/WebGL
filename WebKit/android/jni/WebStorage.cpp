@@ -93,9 +93,9 @@ static unsigned long long GetUsageForOrigin(JNIEnv* env, jobject obj, jstring or
         if (manifestOrigin.get() == 0)
             continue;
         if (manifestOrigin->isSameSchemeHostPort(securityOrigin.get())) {
-            int64_t size = 0;
-            WebCore::cacheStorage().cacheGroupSize(manifestUrls[i].string(), &size);
-            usage += size;
+            int64_t cacheSize = 0;
+            WebCore::cacheStorage().cacheGroupSize(manifestUrls[i].string(), &cacheSize);
+            usage += cacheSize;
         }
     }
     return usage;
