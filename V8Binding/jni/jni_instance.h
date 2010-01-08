@@ -30,6 +30,7 @@
 #include "jni_utility_private.h"
 
 #include <JavaVM/jni.h>
+#include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
 
 namespace android {
@@ -67,18 +68,11 @@ private:
     jmethodID mWeakRefGet;  // cache WeakReference::Get method id
 };
 
-class JavaInstance
+class JavaInstance : public RefCounted<JavaInstance>
 {
 public:
     JavaInstance(jobject instance);
     ~JavaInstance();
-
-    void ref() { _refCount++; }
-    void deref() 
-    { 
-        if (--_refCount == 0) 
-            delete this; 
-    }
 
     JavaClass* getClass() const;
 
@@ -92,7 +86,6 @@ public:
 
 private:
     RefPtr<JObjectWrapper> _instance;
-    unsigned int _refCount;
     mutable JavaClass* _class;
 };
 
