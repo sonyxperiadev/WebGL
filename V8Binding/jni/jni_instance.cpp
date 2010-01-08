@@ -42,7 +42,6 @@ JavaInstance::JavaInstance (jobject instance)
 {
     _instance = new JObjectWrapper(instance);
     _class = 0;
-    _refCount = 0;
 }
 
 JavaInstance::~JavaInstance () 
