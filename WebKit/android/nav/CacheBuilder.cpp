@@ -1106,7 +1106,6 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
                 cachedInput.init();
                 cachedInput.setFormPointer(input->form());
                 cachedInput.setIsTextField(true);
-                cachedInput.setIsReadOnly(input->readOnly());
                 exported = input->value().threadsafeCopy();
                 cachedInput.setMaxLength(input->maxLength());
                 cachedInput.setInputType(inputType);
@@ -1122,7 +1121,6 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
             type = TEXT_INPUT_CACHEDNODETYPE;
             HTMLTextAreaElement* area = static_cast<HTMLTextAreaElement*>(node);
             cachedInput.setFormPointer(area->form());
-            cachedInput.setIsReadOnly(area->readOnly());
             // Although technically it is not an HTMLInputElement, and therefore
             // has no InputType, this one is the most appropriate.
             cachedInput.setInputType(HTMLInputElement::TEXT);
