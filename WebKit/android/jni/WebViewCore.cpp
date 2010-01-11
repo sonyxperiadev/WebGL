@@ -294,7 +294,7 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     m_javaGlue->m_restoreScale = GetJMethod(env, clazz, "restoreScale", "(I)V");
     m_javaGlue->m_restoreScreenWidthScale = GetJMethod(env, clazz, "restoreScreenWidthScale", "(I)V");
     m_javaGlue->m_needTouchEvents = GetJMethod(env, clazz, "needTouchEvents", "(Z)V");
-    m_javaGlue->m_requestKeyboard = GetJMethod(env, clazz, "requestKeyboard", "(Z)V");
+    m_javaGlue->m_requestKeyboard = GetJMethod(env, clazz, "requestKeyboard", "(ZZ)V");
     m_javaGlue->m_exceededDatabaseQuota = GetJMethod(env, clazz, "exceededDatabaseQuota", "(Ljava/lang/String;Ljava/lang/String;JJ)V");
     m_javaGlue->m_reachedMaxAppCacheSize = GetJMethod(env, clazz, "reachedMaxAppCacheSize", "(J)V");
     m_javaGlue->m_populateVisitedLinks = GetJMethod(env, clazz, "populateVisitedLinks", "()V");
@@ -1001,13 +1001,14 @@ void WebViewCore::needTouchEvents(bool need)
 #endif
 }
 
-void WebViewCore::requestKeyboard(bool showKeyboard)
+void WebViewCore::requestKeyboard(bool showKeyboard, bool isTextView)
 {
     DBG_NAV_LOGD("showKeyboard=%d", showKeyboard);
     LOG_ASSERT(m_javaGlue->m_obj, "A Java widget was not associated with this view bridge!");
 
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_requestKeyboard, showKeyboard);
+    env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_requestKeyboard, showKeyboard,
+            isTextView);
     checkException(env);
 }
 
@@ -2037,8 +2038,12 @@ bool WebViewCore::handleMouseClick(WebCore::Frame* framePtr, WebCore::Node* node
         m_mousePos.y(), focusNode, handled ? "true" : "false");
     if (focusNode) {
         WebCore::RenderObject* renderer = focusNode->renderer();
-        if (renderer && (renderer->isTextField() || renderer->isTextArea()))
-            setFocusControllerActive(true);
+        if (renderer && (renderer->isTextField() || renderer->isTextArea())) {
+            bool ime = !(static_cast<WebCore::HTMLInputElement*>(focusNode))
+                    ->readOnly();
+            setFocusControllerActive(ime);
+            requestKeyboard(ime, true);
+        }
     }
     return handled;
 }

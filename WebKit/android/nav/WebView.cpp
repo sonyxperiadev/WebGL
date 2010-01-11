@@ -112,7 +112,6 @@ struct JavaGlue {
     jmethodID   m_getScaledMaxYScroll;
     jmethodID   m_getVisibleRect;
     jmethodID   m_rebuildWebTextView;
-    jmethodID   m_displaySoftKeyboard;
     jmethodID   m_viewInvalidate;
     jmethodID   m_viewInvalidateRect;
     jmethodID   m_postInvalidateDelayed;
@@ -142,7 +141,6 @@ WebView(JNIEnv* env, jobject javaWebView, int viewImpl)
     m_javaGlue.m_getScaledMaxYScroll = GetJMethod(env, clazz, "getScaledMaxYScroll", "()I");
     m_javaGlue.m_getVisibleRect = GetJMethod(env, clazz, "sendOurVisibleRect", "()Landroid/graphics/Rect;");
     m_javaGlue.m_rebuildWebTextView = GetJMethod(env, clazz, "rebuildWebTextView", "()V");
-    m_javaGlue.m_displaySoftKeyboard = GetJMethod(env, clazz, "displaySoftKeyboard", "(Z)V");
     m_javaGlue.m_viewInvalidate = GetJMethod(env, clazz, "viewInvalidate", "()V");
     m_javaGlue.m_viewInvalidateRect = GetJMethod(env, clazz, "viewInvalidate", "(IIII)V");
     m_javaGlue.m_postInvalidateDelayed = GetJMethod(env, clazz,
@@ -961,12 +959,7 @@ bool motionUp(int x, int y, int slop)
             (WebCore::Node*) result->nodePointer(), rx, ry);
     }
     viewInvalidate();
-    if (result->isTextInput()) {
-        bool isReadOnly = frame->textInput(result)->isReadOnly();
-        rebuildWebTextView();
-        if (!isReadOnly)
-            displaySoftKeyboard(true);
-    } else {
+    if (!result->isTextInput()) {
         clearTextEntry();
         setFollowedLink(true);
         if (syntheticLink)
@@ -1262,14 +1255,6 @@ void rebuildWebTextView()
     checkException(env);
 }
 
-void displaySoftKeyboard(bool isTextView)
-{
-    JNIEnv* env = JSC::Bindings::getJNIEnv();
-    env->CallVoidMethod(m_javaGlue.object(env).get(),
-            m_javaGlue.m_displaySoftKeyboard, isTextView);
-    checkException(env);
-}
-
 void viewInvalidate()
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
@@ -1487,18 +1472,6 @@ static bool nativeCursorIsAnchor(JNIEnv *env, jobject obj)
 {
     const CachedNode* node = getCursorNode(env, obj);
     return node ? node->isAnchor() : false;
-}
-
-static bool nativeCursorIsReadOnly(JNIEnv *env, jobject obj)
-{
-    const CachedFrame* frame;
-    const CachedNode* node = getCursorNode(env, obj, &frame);
-    if (!node)
-        return false;
-    const CachedInput* input = frame->textInput(node);
-    if (!input)
-        return false;
-    return input->isReadOnly();
 }
 
 static bool nativeCursorIsTextInput(JNIEnv *env, jobject obj)
@@ -2141,8 +2114,6 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeCursorIntersects },
     { "nativeCursorIsAnchor", "()Z",
         (void*) nativeCursorIsAnchor },
-    { "nativeCursorIsReadOnly", "()Z",
-        (void*) nativeCursorIsReadOnly },
     { "nativeCursorIsTextInput", "()Z",
         (void*) nativeCursorIsTextInput },
     { "nativeCursorPosition", "()Landroid/graphics/Point;",
