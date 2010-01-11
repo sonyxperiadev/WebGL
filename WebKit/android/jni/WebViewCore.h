@@ -379,7 +379,7 @@ namespace android {
         void needTouchEvents(bool);
 
         // Notify the Java side that webkit is requesting a keyboard
-        void requestKeyboard(bool);
+        void requestKeyboard(bool showKeyboard, bool isTextView);
 
         // Generates a class loader that contains classes from the plugin's apk
         jclass getPluginClass(const WebCore::String& libName, const char* className);
