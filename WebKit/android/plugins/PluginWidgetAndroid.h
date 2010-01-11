@@ -125,13 +125,6 @@ struct PluginWidgetAndroid {
      */
     void setVisibleRects(const ANPRectI rects[], int32_t count);
 
-    /** Returns a java object that implements the WebkitPlugin interface. The
-        implementation is located in the plugin's apk and is described in the
-        apk's manifest file.  For each plugin instance in webkit there is at
-        most one instance of the java object associated with that plugin.
-     */
-    jobject getJavaPluginInstance();
-
     /** Called when a plugin wishes to enter into full screen mode. It invokes
         the plugin's Java class (defined in the plugin's apk manifest), which is
         called asynchronously and provides a View to be displayed full screen.
@@ -164,7 +157,6 @@ private:
     bool                    m_hasFocus;
     bool                    m_isFullScreen;
     float                   m_zoomLevel;
-    jobject                 m_webkitPlugin;
     jobject                 m_embeddedView;
 
     /* We limit the number of rectangles to minimize storage and ensure adequate
