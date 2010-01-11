@@ -89,6 +89,7 @@ public:
     void onPrepared(int duration, int width, int height);
     void onEnded();
     void onPosterFetched(SkBitmap*);
+    void onTimeupdate(int position);
 private:
     // Android-specific methods and fields.
     static MediaPlayerPrivateInterface* create(MediaPlayer* player);
@@ -107,6 +108,7 @@ private:
     float m_currentTime;
 
     bool m_paused;
+    bool m_hasVideo;
     MediaPlayer::ReadyState m_readyState;
     MediaPlayer::NetworkState m_networkState;
 
