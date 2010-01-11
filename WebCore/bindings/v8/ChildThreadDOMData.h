@@ -39,9 +39,6 @@ namespace WebCore {
     class ChildThreadDOMData : public DOMData {
     public:
         ChildThreadDOMData();
-#if PLATFORM(ANDROID)
-        virtual ~ChildThreadDOMData() { }
-#endif
 
         DOMDataStore& getStore();
 
