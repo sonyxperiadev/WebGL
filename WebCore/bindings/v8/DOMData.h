@@ -45,9 +45,7 @@ namespace WebCore {
     class DOMData : public Noncopyable {
     public:
         DOMData();
-#if PLATFORM(ANDROID)
-        virtual ~DOMData() { }
-#endif
+        virtual ~DOMData();
 
         static DOMData* getCurrent();
         virtual DOMDataStore& getStore() = 0;
