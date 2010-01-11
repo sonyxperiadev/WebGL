@@ -927,7 +927,7 @@ bool motionUp(int x, int y, int slop)
     if (!root)
         return 0;
     const CachedFrame* frame = 0;
-    const CachedNode* result = slop ? findAt(root, rect, &frame, &rx, &ry) : 0;
+    const CachedNode* result = findAt(root, rect, &frame, &rx, &ry);
     if (!result) {
         DBG_NAV_LOGD("no nodes found root=%p", root);
         setNavBounds(rect);
