@@ -483,7 +483,13 @@ NPError PluginView::getValue(NPNVariable variable, void* value)
 
         case kSupportedDrawingModel_ANPGetValue: {
             uint32_t* bits = reinterpret_cast<uint32_t*>(value);
-            *bits = (1 << kBitmap_ANPDrawingModel);
+            *bits = kBitmap_ANPDrawingModel & kSurface_ANPDrawingModel;
+            return NPERR_NO_ERROR;
+        }
+
+        case kJavaContext_ANPGetValue: {
+            jobject* retObject = static_cast<jobject*>(value);
+            *retObject = android::WebViewCore::getWebViewCore(parent())->getContext();
             return NPERR_NO_ERROR;
         }
 

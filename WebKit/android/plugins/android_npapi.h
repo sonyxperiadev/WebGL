@@ -120,13 +120,17 @@ typedef uint32_t ANPMatrixFlag;
 #define kSystemInterfaceV0_ANPGetValue      ((NPNVariable)1010)
 #define kEventInterfaceV0_ANPGetValue       ((NPNVariable)1011)
 
-/** queries for which drawing model is desired (for the draw event)
+/** queries for the drawing models supported on this device.
 
-    Should be called inside NPP_New(...)
-
-    NPN_GetValue(inst, ANPSupportedDrawingModel_EnumValue, uint32_t* bits)
+    NPN_GetValue(inst, kSupportedDrawingModel_ANPGetValue, uint32_t* bits)
  */
 #define kSupportedDrawingModel_ANPGetValue  ((NPNVariable)2000)
+
+/** queries for the context (android.content.Context) in which the plugin resides
+
+    NPN_GetValue(inst, kJavaContext_ANPGetValue, jobject context)
+ */
+#define kJavaContext_ANPGetValue            ((NPNVariable)2001)
 
 ///////////////////////////////////////////////////////////////////////////////
 // NPN_SetValue
@@ -147,7 +151,7 @@ enum ANPDrawingModels {
     /** Draw into a bitmap from the browser thread in response to a Draw event.
         NPWindow->window is reserved (ignore)
      */
-    kBitmap_ANPDrawingModel  = 0,
+    kBitmap_ANPDrawingModel  = 1 << 0,
     /** Draw into a surface (e.g. raster, openGL, etc.) using the Java surface
         interface. When this model is used the browser will invoke the Java
         class specified in the plugin's apk manifest. From that class the browser
@@ -168,7 +172,7 @@ enum ANPDrawingModels {
         unlock the surface in native code without making JNI calls to the Java
         surface object.
      */
-    kSurface_ANPDrawingModel = 0x01,
+    kSurface_ANPDrawingModel = 1 << 1,
 };
 typedef int32_t ANPDrawingModel;
 
@@ -189,6 +193,16 @@ enum ANPEventFlag {
     kTouch_ANPEventFlag             = 0x02,
 };
 typedef uint32_t ANPEventFlags;
+
+///////////////////////////////////////////////////////////////////////////////
+// NPP_GetValue
+
+/** Requests that the plugin return a java surface to be displayed. This will
+    only be used if the plugin has choosen the kSurface_ANPDrawingModel.
+
+    NPP_GetValue(inst, kJavaSurface_ANPGetValue, jobject surface)
+ */
+#define kJavaSurface_ANPGetValue            ((NPPVariable)2000)
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -833,28 +847,38 @@ enum ANPLifecycleActions {
     /** The web view containing this plugin has been paused.  See documentation
         on the android activity lifecycle for more information.
      */
-    kPause_ANPLifecycleAction      = 0,
+    kPause_ANPLifecycleAction            = 0,
     /** The web view containing this plugin has been resumed. See documentation
         on the android activity lifecycle for more information.
      */
-    kResume_ANPLifecycleAction     = 1,
+    kResume_ANPLifecycleAction          = 1,
     /** The plugin has focus and is now the recipient of input events (e.g. key,
         touch, etc.)
      */
-    kGainFocus_ANPLifecycleAction  = 2,
+    kGainFocus_ANPLifecycleAction       = 2,
     /** The plugin has lost focus and will not receive any input events until it
         regains focus. This event is always preceded by a GainFocus action.
      */
-    kLoseFocus_ANPLifecycleAction  = 3,
+    kLoseFocus_ANPLifecycleAction       = 3,
     /** The browser is running low on available memory and is requesting that
         the plugin free any unused/inactive resources to prevent a performance
         degradation.
      */
-    kFreeMemory_ANPLifecycleAction = 4,
+    kFreeMemory_ANPLifecycleAction      = 4,
     /** The page has finished loading. This happens when the page's top level
         frame reports that it has completed loading.
      */
-    kOnLoad_ANPLifecycleAction     = 5,
+    kOnLoad_ANPLifecycleAction          = 5,
+    /** The browser is honoring the plugin's request to go full screen. Upon
+        returning from this event the browser will resize the plugin's java
+        surface to full-screen coordinates.
+     */
+    kEnterFullScreen_ANPLifecycleAction = 6,
+    /** The browser has exited from full screen mode. Immediately prior to
+        sending this event the browser has resized the plugin's java surface to
+        its original coordinates.
+     */
+    kExitFullScreen_ANPLifecycleAction  = 7,
 };
 typedef uint32_t ANPLifecycleAction;
 
