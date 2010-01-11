@@ -54,7 +54,6 @@ PluginWidgetAndroid::PluginWidgetAndroid(WebCore::PluginView* view)
     m_hasFocus = false;
     m_isFullScreen = false;
     m_zoomLevel = 0;
-    m_webkitPlugin = NULL;
     m_embeddedView = NULL;
 }
 
@@ -68,9 +67,6 @@ PluginWidgetAndroid::~PluginWidgetAndroid() {
 
     // cleanup any remaining JNI References
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    if (m_webkitPlugin) {
-        env->DeleteGlobalRef(m_webkitPlugin);
-    }
     if (m_embeddedView) {
         env->DeleteGlobalRef(m_embeddedView);
     }
@@ -81,19 +77,6 @@ PluginWidgetAndroid::~PluginWidgetAndroid() {
 void PluginWidgetAndroid::init(android::WebViewCore* core) {
     m_core = core;
     m_core->addPlugin(this);
-}
-
-jobject PluginWidgetAndroid::getJavaPluginInstance() {
-    if (m_webkitPlugin == NULL && m_core != NULL) {
-
-        jobject tempObj = m_core->createPluginJavaInstance(m_pluginView->plugin()->path(),
-                                                           m_pluginView->instance());
-        if (tempObj) {
-            JNIEnv* env = JSC::Bindings::getJNIEnv();
-            m_webkitPlugin = env->NewGlobalRef(tempObj);
-        }
-    }
-    return m_webkitPlugin;
 }
 
 static SkBitmap::Config computeConfig(bool isTransparent) {
@@ -127,9 +110,18 @@ void PluginWidgetAndroid::setWindow(NPWindow* window, bool isTransparent) {
 
         // if the surface does not exist then create a new surface
         } else if(!m_embeddedView) {
-            jobject tempObj = m_core->createSurface(getJavaPluginInstance(),
-                                                    docPoint.x(), docPoint.y(),
-                                                    window->width, window->height);
+
+            WebCore::PluginPackage* pkg = m_pluginView->plugin();
+            NPP instance = m_pluginView->instance();
+
+
+            jobject pluginSurface;
+            pkg->pluginFuncs()->getvalue(instance, kJavaSurface_ANPGetValue,
+                                         static_cast<void*>(&pluginSurface));
+
+            jobject tempObj = m_core->addSurface(pluginSurface,
+                                                 docPoint.x(), docPoint.y(),
+                                                 window->width, window->height);
             if (tempObj) {
                 JNIEnv* env = JSC::Bindings::getJNIEnv();
                 m_embeddedView = env->NewGlobalRef(tempObj);
@@ -437,21 +429,47 @@ IntPoint PluginWidgetAndroid::frameToDocumentCoords(int frameX, int frameY) cons
 }
 
 void PluginWidgetAndroid::requestFullScreen() {
-    if (m_isFullScreen || !m_webkitPlugin) {
+    if (m_isFullScreen || !m_embeddedView) {
         return;
     }
 
+    // send event to notify plugin of full screen change
+    ANPEvent event;
+    SkANP::InitEvent(&event, kLifecycle_ANPEventType);
+    event.data.lifecycle.action = kEnterFullScreen_ANPLifecycleAction;
+    sendEvent(event);
+
+    // remove the embedded surface from the view hierarchy
+    m_core->destroySurface(m_embeddedView);
+
+    // add the full screen view
     IntPoint docPoint = frameToDocumentCoords(m_pluginWindow->x, m_pluginWindow->y);
-    m_core->showFullScreenPlugin(m_webkitPlugin, m_pluginView->instance(),
+    m_core->showFullScreenPlugin(m_embeddedView, m_pluginView->instance(),
             docPoint.x(), docPoint.y(), m_pluginWindow->width,
             m_pluginWindow->height);
     m_isFullScreen = true;
 }
 
 void PluginWidgetAndroid::exitFullScreen(bool pluginInitiated) {
-    if (m_isFullScreen && pluginInitiated) {
+    if (!m_isFullScreen || !m_embeddedView) {
+        return;
+    }
+
+    // remove the full screen surface from the view hierarchy
+    if (pluginInitiated) {
         m_core->hideFullScreenPlugin();
     }
+
+    // add the embedded view back
+    IntPoint docPoint = frameToDocumentCoords(m_pluginWindow->x, m_pluginWindow->y);
+    m_core->updateSurface(m_embeddedView, docPoint.x(), docPoint.y(),
+                          m_pluginWindow->width, m_pluginWindow->height);
+
+    // send event to notify plugin of full screen change
+    ANPEvent event;
+    SkANP::InitEvent(&event, kLifecycle_ANPEventType);
+    event.data.lifecycle.action = kExitFullScreen_ANPLifecycleAction;
+    sendEvent(event);
 
     m_isFullScreen = false;
 }

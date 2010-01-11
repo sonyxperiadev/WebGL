@@ -384,9 +384,6 @@ namespace android {
         // Generates a class loader that contains classes from the plugin's apk
         jclass getPluginClass(const WebCore::String& libName, const char* className);
 
-        // Creates a new instance of the plugin's java component
-        jobject createPluginJavaInstance(const WebCore::String& libName, NPP npp);
-
         // Creates a full screen surface for a plugin
         void showFullScreenPlugin(jobject webkitPlugin, NPP npp, int x, int y, int width, int height);
 
@@ -396,14 +393,17 @@ namespace android {
         // Update coordinates and dimensions for a full screen plugin
         void updateFullScreenPlugin(int x, int y, int width, int height);
 
-        // Creates a Surface (i.e. View) for a plugin
-        jobject createSurface(jobject webkitPlugin, int x, int y, int width, int height);
+        // Adds the plugin's view (aka surface) to the view hierarchy
+        jobject addSurface(jobject view, int x, int y, int width, int height);
 
         // Updates a Surface coordinates and dimensions for a plugin
         void updateSurface(jobject childView, int x, int y, int width, int height);
 
         // Destroys a SurfaceView for a plugin
         void destroySurface(jobject childView);
+
+        // Returns the context (android.content.Context) of the WebView
+        jobject getContext();
 
         bool validNodeAndBounds(Frame* , Node* , const IntRect& );
         // other public functions
