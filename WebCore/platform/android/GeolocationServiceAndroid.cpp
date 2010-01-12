@@ -28,6 +28,7 @@
 
 #include "GeolocationServiceBridge.h"
 #include "Geoposition.h"
+#include "PlatformBridge.h"
 #include "PositionError.h"
 #include "PositionOptions.h"
 
@@ -83,8 +84,13 @@ bool GeolocationServiceAndroid::startUpdating(PositionOptions* options)
     if (options->enableHighAccuracy())
         m_javaBridge->setEnableGps(true);
 
-    if (!haveJavaBridge)
-        m_javaBridge->start();
+    // We need only start the service when it's first created.
+    if (!haveJavaBridge) {
+        // If the browser is paused, don't start the service. It will be started
+        // when we get the call to resume.
+        if (!PlatformBridge::isWebViewPaused())
+            m_javaBridge->start();
+    }
 
     return true;
 }

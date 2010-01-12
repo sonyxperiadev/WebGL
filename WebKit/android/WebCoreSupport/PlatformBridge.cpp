@@ -98,6 +98,11 @@ bool PlatformBridge::cookiesEnabled()
     return client->cookiesEnabled();
 }
 
+bool PlatformBridge::isWebViewPaused()
+{
+    return WebViewCore::isPaused();
+}
+
 }  // namespace WebCore
 
 
