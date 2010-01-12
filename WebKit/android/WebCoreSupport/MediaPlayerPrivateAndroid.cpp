@@ -121,7 +121,7 @@ bool MediaPlayerPrivate::hasAudio() const
 
 bool MediaPlayerPrivate::hasVideo() const
 {
-    return false;
+    return m_hasVideo;
 }
 
 void MediaPlayerPrivate::setVisible(bool visible)
@@ -282,6 +282,7 @@ MediaPlayerPrivate::MediaPlayerPrivate(MediaPlayer* player)
     m_duration(6000),
     m_currentTime(0),
     m_paused(true),
+    m_hasVideo(false),
     m_readyState(MediaPlayer::HaveNothing),
     m_networkState(MediaPlayer::Empty),
     m_poster(0),
@@ -352,6 +353,7 @@ void MediaPlayerPrivate::onPrepared(int duration, int width, int height) {
     m_duration = duration / 1000.0f;
     m_naturalSize = IntSize(width, height);
     m_naturalSizeUnknown = false;
+    m_hasVideo = true;
     m_player->durationChanged();
     m_player->sizeChanged();
 }
@@ -361,6 +363,7 @@ void MediaPlayerPrivate::onEnded() {
     m_player->timeChanged();
     m_paused = true;
     m_currentTime = 0;
+    m_hasVideo = false;
     m_networkState = MediaPlayer::Idle;
     m_readyState = MediaPlayer::HaveNothing;
 }
@@ -377,6 +380,11 @@ void MediaPlayerPrivate::onPosterFetched(SkBitmap* poster) {
         m_naturalSize = IntSize(poster->width(), poster->height());
         m_player->sizeChanged();
     }
+}
+
+void MediaPlayerPrivate::onTimeupdate(int position) {
+    m_currentTime = position / 1000.0f;
+    m_player->timeChanged();
 }
 
 }
@@ -408,6 +416,13 @@ static void OnPosterFetched(JNIEnv* env, jobject obj, jobject poster, int pointe
     player->onPosterFetched(posterNative);
 }
 
+static void OnTimeupdate(JNIEnv* env, jobject obj, int position, int pointer) {
+    if (pointer) {
+        WebCore::MediaPlayerPrivate* player = reinterpret_cast<WebCore::MediaPlayerPrivate*>(pointer);
+        player->onTimeupdate(position);
+    }
+}
+
 /*
  * JNI registration
  */
@@ -418,6 +433,8 @@ static JNINativeMethod g_MediaPlayerMethods[] = {
         (void*) OnEnded },
     { "nativeOnPosterFetched", "(Landroid/graphics/Bitmap;I)V",
         (void*) OnPosterFetched },
+    { "nativeOnTimeupdate", "(II)V",
+        (void*) OnTimeupdate },
 };
 
 int register_mediaplayer(JNIEnv* env)
