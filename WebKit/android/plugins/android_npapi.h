@@ -847,7 +847,7 @@ enum ANPLifecycleActions {
     /** The web view containing this plugin has been paused.  See documentation
         on the android activity lifecycle for more information.
      */
-    kPause_ANPLifecycleAction            = 0,
+    kPause_ANPLifecycleAction           = 0,
     /** The web view containing this plugin has been resumed. See documentation
         on the android activity lifecycle for more information.
      */
@@ -879,6 +879,14 @@ enum ANPLifecycleActions {
         its original coordinates.
      */
     kExitFullScreen_ANPLifecycleAction  = 7,
+    /** The plugin is visible to the user on the screen. This event will always
+        occur after a kOffScreen_ANPLifecycleAction event.
+     */
+    kOnScreen_ANPLifecycleAction        = 8,
+    /** The plugin is no longer visible to the user on the screen. This event
+        will always occur prior to an kOnScreen_ANPLifecycleAction event.
+     */
+    kOffScreen_ANPLifecycleAction       = 9,
 };
 typedef uint32_t ANPLifecycleAction;
 
