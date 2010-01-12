@@ -622,8 +622,8 @@ CachedRoot* getFrameCache(FrameCachePermission allowNewer)
     fixCursor();
     if (oldFocus && m_frameCacheUI) {
         const CachedNode* newFocus = m_frameCacheUI->currentFocus();
-        if (newFocus && oldFocus != newFocus && newFocus->isTextInput()
-                && oldFocus->isTextInput()
+        if (newFocus && oldFocus->nodePointer() != newFocus->nodePointer()
+                && oldFocus->isTextInput() && newFocus->isTextInput()
                 && newFocus != m_frameCacheUI->currentCursor()) {
             // The focus has changed.  We may need to update things.
             LOG_ASSERT(m_javaGlue.m_obj, "A java object was not associated with this native WebView!");
