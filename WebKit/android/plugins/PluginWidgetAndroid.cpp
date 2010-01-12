@@ -53,6 +53,7 @@ PluginWidgetAndroid::PluginWidgetAndroid(WebCore::PluginView* view)
     m_pluginBounds.setEmpty();
     m_hasFocus = false;
     m_isFullScreen = false;
+    m_visible = true;
     m_zoomLevel = 0;
     m_embeddedView = NULL;
 }
@@ -283,6 +284,18 @@ void PluginWidgetAndroid::setVisibleScreen(const ANPRectI& visibleDocRect, float
 
     if (oldScreenW != newScreenW || oldScreenH != newScreenH)
         computeVisibleFrameRect();
+
+    bool visible = SkIRect::Intersects(m_visibleDocRect, m_pluginBounds);
+    if(m_visible != visible) {
+        // change the visibility
+        m_visible = visible;
+        // send the event
+        ANPEvent event;
+        SkANP::InitEvent(&event, kLifecycle_ANPEventType);
+        event.data.lifecycle.action = visible ? kOnScreen_ANPLifecycleAction
+                                              : kOffScreen_ANPLifecycleAction;
+        sendEvent(event);
+    }
 }
 
 void PluginWidgetAndroid::setVisibleRects(const ANPRectI rects[], int32_t count) {
