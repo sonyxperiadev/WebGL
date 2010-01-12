@@ -156,6 +156,7 @@ private:
     SkIRect                 m_requestedFrameRect;
     bool                    m_hasFocus;
     bool                    m_isFullScreen;
+    bool                    m_visible;
     float                   m_zoomLevel;
     jobject                 m_embeddedView;
 
