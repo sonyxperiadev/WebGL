@@ -71,6 +71,8 @@ public:
     static void immediateRepaint(const FrameView* view);
 #endif // USE(ACCELERATED_COMPOSITING)
 
+    // Whether the WebView is paused.
+    static bool isWebViewPaused();
 };
 
 }
