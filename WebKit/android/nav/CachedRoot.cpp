@@ -760,11 +760,11 @@ CachedRoot::ImeAction CachedRoot::currentTextFieldAction() const
 {
     const CachedFrame* currentFrame;
     const CachedNode* current = currentCursor(&currentFrame);
-    if (!current) {
+    if (!current || !current->isTextInput()) {
         // Although the cursor is not on a textfield, a textfield may have
         // focus.  Find the action for that textfield.
         current = currentFocus(&currentFrame);
-        if (!current)
+        if (!current || !current->isTextInput())
             // Error case.  No cursor and no focus.
             return FAILURE;
     }
