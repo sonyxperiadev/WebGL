@@ -439,6 +439,8 @@ namespace android {
         // field safely from our respective threads
         static Mutex gButtonMutex;
         WTF::Vector<Container> m_buttons;
+        static bool isPaused() { return s_isPaused; }
+        static void setIsPaused(bool isPaused) { s_isPaused = isPaused; }
         // end of shared members
 
         // internal functions
@@ -495,6 +497,7 @@ namespace android {
         unsigned m_domtree_version;
         bool m_check_domtree_version;
         PageGroup* m_groupForVisitedLinks;
+        static bool s_isPaused;
 
         SkTDArray<PluginWidgetAndroid*> m_plugins;
         WebCore::Timer<WebViewCore> m_pluginInvalTimer;

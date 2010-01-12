@@ -139,6 +139,8 @@ FILE* gRenderTreeFile = 0;
 
 namespace android {
 
+bool WebViewCore::s_isPaused = false;
+
 // ----------------------------------------------------------------------------
 
 #define GET_NATIVE_VIEW(env, obj) ((WebViewCore*)env->GetIntField(obj, gWebViewCoreFields.m_nativeClass))
@@ -2979,6 +2981,8 @@ static void Pause(JNIEnv* env, jobject obj)
     SkANP::InitEvent(&event, kLifecycle_ANPEventType);
     event.data.lifecycle.action = kPause_ANPLifecycleAction;
     GET_NATIVE_VIEW(env, obj)->sendPluginEvent(event);
+
+    WebViewCore::setIsPaused(true);
 }
 
 static void Resume(JNIEnv* env, jobject obj)
@@ -2994,6 +2998,8 @@ static void Resume(JNIEnv* env, jobject obj)
     SkANP::InitEvent(&event, kLifecycle_ANPEventType);
     event.data.lifecycle.action = kResume_ANPLifecycleAction;
     GET_NATIVE_VIEW(env, obj)->sendPluginEvent(event);
+
+    WebViewCore::setIsPaused(false);
 }
 
 static void FreeMemory(JNIEnv* env, jobject obj)
