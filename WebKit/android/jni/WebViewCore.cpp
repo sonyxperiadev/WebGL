@@ -1115,7 +1115,8 @@ void WebViewCore::setSizeScreenWidthAndScale(int width, int height,
             if ((anchorX | anchorY) == 0)
                 scrollBy(newBounds.x() - bounds.x(),
                         newBounds.y() - bounds.y(), false);
-            else if (bounds != newBounds) {
+            else if ((orsw && osh && bounds.width() && bounds.height())
+                    && (bounds != newBounds)) {
                 WebCore::FrameView* view = m_mainFrame->view();
                 // force left align if width is not changed while height changed.
                 // the anchorPoint is probably at some white space in the node
