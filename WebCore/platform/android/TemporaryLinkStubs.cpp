@@ -60,7 +60,6 @@
 #include "KURL.h"
 #include "Language.h"
 #include "LocalizedStrings.h"
-#include "MIMETypeRegistry.h"
 #include "MainResourceLoader.h"
 #include "Node.h"
 #include "NotImplemented.h"
@@ -352,12 +351,6 @@ void systemBeep()
 void* WebCore::Frame::dragImageForSelection()
 {
     return 0;
-}
-
-
-WebCore::String WebCore::MIMETypeRegistry::getMIMETypeForExtension(WebCore::String const&)
-{
-    return WebCore::String();
 }
 
 void WebCore::Pasteboard::writeImage(WebCore::Node*, WebCore::KURL const&, WebCore::String const&) {}
