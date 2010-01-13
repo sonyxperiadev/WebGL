@@ -154,11 +154,11 @@ public:
         }
         if (interestingType == false)
             return false;
-        if (mBoundsSlop.contains(rect) ||
+        if (!mDrawnOver.contains(rect) && (mBoundsSlop.contains(rect) ||
                 (mBounds.fLeft == rect.fLeft && mBounds.fRight == rect.fRight &&
                 mBounds.fTop >= rect.fTop && mBounds.fBottom <= rect.fBottom) ||
                 (mBounds.fTop == rect.fTop && mBounds.fBottom == rect.fBottom &&
-                mBounds.fLeft >= rect.fLeft && mBounds.fRight <= rect.fRight)) {
+                mBounds.fLeft >= rect.fLeft && mBounds.fRight <= rect.fRight))) {
             mDrawnOver.setEmpty();
             mAllDrawnIn.join(rect);
             DBG_NAV_LOGD("BoundsCheck (contains) rect={%d,%d,%d,%d}"
@@ -1125,8 +1125,8 @@ bool CachedRoot::maskIfHidden(BestData* best) const
     checker.drawPicture(*mPicture);
     boundsCheck.checkLast();
     // was it not drawn or clipped out?
+    CachedNode* node = const_cast<CachedNode*>(best->mNode);
     if (boundsCheck.hidden()) { // if hidden, return false so that nav can try again
-        CachedNode* node = const_cast<CachedNode*>(best->mNode);
 #if DEBUG_NAV_UI
         const SkIRect& m = boundsCheck.mBounds;
         const SkIRect& s = boundsCheck.mBoundsSlop;
@@ -1177,12 +1177,14 @@ bool CachedRoot::maskIfHidden(BestData* best) const
 #if DEBUG_NAV_UI
         const SkIRect& modded = boundsCheck.mBounds;
         DBG_NAV_LOGD("partially occluded node:%p (%d) old:{%d,%d,%d,%d}"
-            " new:{%d,%d,%d,%d}", best->mNode, best->mNode->index(),
+            " new:{%d,%d,%d,%d}", node, node->index(),
             orig.fLeft, orig.fTop, orig.fRight, orig.fBottom,
             base.fLeft, base.fTop, base.fRight, base.fBottom);
 #endif
         best->mMouseBounds = WebCore::IntRect(bounds.x() + base.fLeft - kMargin,
             bounds.y() + base.fTop - kMargin, base.width(), base.height());
+        node->clip(best->mMouseBounds);
+        return true;
     }
     return false;
 }
