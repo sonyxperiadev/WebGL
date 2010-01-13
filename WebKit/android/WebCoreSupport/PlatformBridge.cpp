@@ -114,6 +114,11 @@ bool PlatformBridge::isWebViewPaused()
     return WebViewCore::isPaused();
 }
 
+bool PlatformBridge::popupsAllowed(NPP)
+{
+    return false;
+}
+
 }  // namespace WebCore
 
 

@@ -28,10 +28,7 @@
 
 #include "NPV8Object.h"
 
-#if PLATFORM(CHROMIUM)
-// TODO(andreip): upstream
-#include "ChromiumBridge.h"
-#endif
+#include "PlatformBridge.h"
 #include "DOMWindow.h"
 #include "Frame.h"
 #include "OwnArrayPtr.h"
@@ -42,11 +39,6 @@
 #include "V8Helpers.h"
 #include "V8NPUtils.h"
 #include "V8Proxy.h"
-#if PLATFORM(CHROMIUM)
-#include "bindings/npruntime.h"
-#else
-#include "bridge/npruntime.h"
-#endif
 #include "npruntime_impl.h"
 #include "npruntime_priv.h"
 
@@ -242,13 +234,7 @@ bool _NPN_InvokeDefault(NPP npp, NPObject* npObject, const NPVariant* arguments,
 
 bool _NPN_Evaluate(NPP npp, NPObject* npObject, NPString* npScript, NPVariant* result)
 {
-#if PLATFORM(CHROMIUM)
-    bool popupsAllowed = WebCore::ChromiumBridge::popupsAllowed(npp);
-#else
-    // TODO(andreip): Some of the binding code is specific to Chromium
-    // and we don't want it to Android. What is the preferred way to handle this?
-    bool popupsAllowed = false;
-#endif
+    bool popupsAllowed = WebCore::PlatformBridge::popupsAllowed(npp);
     return _NPN_EvaluateHelper(npp, popupsAllowed, npObject, npScript, result);
 }
 
@@ -461,12 +447,7 @@ bool _NPN_Enumerate(NPP npp, NPObject* npObject, NPIdentifier** identifier, uint
         v8::Handle<v8::Value> enumeratorObj = script->Run();
         v8::Handle<v8::Function> enumerator = v8::Handle<v8::Function>::Cast(enumeratorObj);
         v8::Handle<v8::Value> argv[] = { obj };
-#if PLATFORM(ANDROID)
-// TODO(benm): implement an arry size function on android
-        v8::Local<v8::Value> propsObj = enumerator->Call(v8::Handle<v8::Object>::Cast(enumeratorObj), 1, argv);
-#else
         v8::Local<v8::Value> propsObj = enumerator->Call(v8::Handle<v8::Object>::Cast(enumeratorObj), ARRAYSIZE_UNSAFE(argv), argv);
-#endif
         if (propsObj.IsEmpty())
             return false;
 
