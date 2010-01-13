@@ -1033,35 +1033,7 @@ WTF::PassRefPtr<Widget> FrameLoaderClientAndroid::createJavaAppletWidget(const I
 // the contents and work out if it can render it.
 ObjectContentType FrameLoaderClientAndroid::objectContentType(const KURL& url,
                                         const String& mimeType) {
-    if (mimeType.length() == 0)
-    {
-        // Guess the mimeType from the extension
-        if (url.hasPath())
-        {
-            String path = url.path();
-            int lastIndex = path.reverseFind('.');
-            static const String image("image/");
-            if (lastIndex >= 0)
-            {
-                String mime(path.substring(lastIndex + 1));
-                mime.insert(image, 0);
-                if (Image::supportsType(mime))
-                    return ObjectContentImage;
-            }
-        }
-        return ObjectContentFrame;
-    }
-
-    if (Image::supportsType(mimeType))
-        return ObjectContentImage;
-
-    if (PluginDatabase::installedPlugins()->isMIMETypeRegistered(mimeType))
-        return ObjectContentOtherPlugin;
-
-    if (MIMETypeRegistry::isSupportedNonImageMIMEType(mimeType))
-        return ObjectContentFrame;
-
-    return ObjectContentNone;
+    return FrameLoader::defaultObjectContentType(url, mimeType);
 }
 
 // This function allows the application to set the correct CSS media
