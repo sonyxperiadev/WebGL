@@ -1074,32 +1074,35 @@ void WebViewCore::setSizeScreenWidthAndScale(int width, int height,
         DBG_NAV_LOGD("renderer=%p view=(w=%d,h=%d)", r,
             realScreenWidth, screenHeight);
         if (r) {
-            WebCore::IntPoint anchorPoint;
-            if ((anchorX | anchorY) == 0)
-                // get current screen center position
-                anchorPoint = WebCore::IntPoint(m_scrollOffsetX
-                        + (realScreenWidth >> 1), m_scrollOffsetY
-                        + (screenHeight >> 1));
-            else
-                anchorPoint = WebCore::IntPoint(anchorX, anchorY);
-            WebCore::HitTestResult hitTestResult = m_mainFrame->eventHandler()->
-                hitTestResultAtPoint(anchorPoint, false);
-            WebCore::Node* node = hitTestResult.innerNode();
+            WebCore::Node* node = 0;
             WebCore::IntRect bounds;
-            WebCore::IntPoint offset;
-            if (node) {
-                bounds = node->getRect();
-                DBG_NAV_LOGD("ob:(x=%d,y=%d,w=%d,h=%d)",
-                    bounds.x(), bounds.y(), bounds.width(), bounds.height());
-                if ((anchorX | anchorY) == 0) {
-                    offset = WebCore::IntPoint(anchorPoint.x() - bounds.x(),
-                            anchorPoint.y() - bounds.y());
-                    if (offset.x() < 0 || offset.x() > realScreenWidth ||
-                        offset.y() < 0 || offset.y() > screenHeight)
-                    {
-                        DBG_NAV_LOGD("offset out of bounds:(x=%d,y=%d)",
-                            offset.x(), offset.y());
-                        node = 0;
+            if (osw) {
+                WebCore::IntPoint anchorPoint;
+                if ((anchorX | anchorY) == 0)
+                    // get current screen center position
+                    anchorPoint = WebCore::IntPoint(m_scrollOffsetX
+                            + (realScreenWidth >> 1), m_scrollOffsetY
+                            + (screenHeight >> 1));
+                else
+                    anchorPoint = WebCore::IntPoint(anchorX, anchorY);
+                WebCore::HitTestResult hitTestResult = m_mainFrame->eventHandler()->
+                    hitTestResultAtPoint(anchorPoint, false);
+                node = hitTestResult.innerNode();
+                if (node) {
+                    bounds = node->getRect();
+                    DBG_NAV_LOGD("ob:(x=%d,y=%d,w=%d,h=%d)",
+                        bounds.x(), bounds.y(), bounds.width(), bounds.height());
+                    if ((anchorX | anchorY) == 0) {
+                        WebCore::IntPoint offset = WebCore::IntPoint(
+                                anchorPoint.x() - bounds.x(), anchorPoint.y()
+                                        - bounds.y());
+                        if (offset.x() < 0 || offset.x() > realScreenWidth ||
+                            offset.y() < 0 || offset.y() > screenHeight)
+                        {
+                            DBG_NAV_LOGD("offset out of bounds:(x=%d,y=%d)",
+                                offset.x(), offset.y());
+                            node = 0;
+                        }
                     }
                 }
             }
