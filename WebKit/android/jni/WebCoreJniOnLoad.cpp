@@ -189,8 +189,13 @@ EXPORT void benchmark(const char* url, int reloadCount, int width, int height) {
     // Create the page with all the various clients
     ChromeClientAndroid* chrome = new ChromeClientAndroid;
     EditorClientAndroid* editor = new EditorClientAndroid;
-    Page* page = new Page(chrome, new ContextMenuClientAndroid, editor,
-            new DragClientAndroid, new InspectorClientAndroid, NULL);
+    Page* page = new Page(chrome,
+                          new ContextMenuClientAndroid,
+                          editor,
+                          new DragClientAndroid,
+                          new InspectorClientAndroid,
+                          0, // PluginHalterClient
+                          0); // GeolocationControllerClient
     editor->setPage(page);
 
     // Create MyWebFrame that intercepts network requests

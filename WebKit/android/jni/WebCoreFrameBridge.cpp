@@ -871,7 +871,13 @@ static void CreateFrame(JNIEnv* env, jobject obj, jobject javaview, jobject jAss
     WebCore::DragClient*        dragC = new DragClientAndroid;
     InspectorClientAndroid* inspectorC = new InspectorClientAndroid;
     // Create a new page
-    WebCore::Page* page = new WebCore::Page(chromeC, contextMenuC, editorC, dragC, inspectorC, 0);
+    WebCore::Page* page = new WebCore::Page(chromeC,
+                                            contextMenuC,
+                                            editorC,
+                                            dragC,
+                                            inspectorC,
+                                            0, // PluginHalterClient
+                                            0); // GeolocationControllerClient
     // css files without explicit MIMETYPE is treated as generic text files in
     // the Java side. So we can't enforce CSS MIMETYPE.
     page->settings()->setEnforceCSSMIMETypeInStrictMode(false);
