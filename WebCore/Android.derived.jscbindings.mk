@@ -289,6 +289,7 @@ $(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/loader/appcache/%.cpp : $(interme
 # page
 GEN := \
     $(intermediates)/page/JSBarInfo.h \
+    $(intermediates)/page/JSConnection.h \
     $(intermediates)/page/JSConsole.h \
     $(intermediates)/page/JSCoordinates.h \
     $(intermediates)/page/JSDOMSelection.h \

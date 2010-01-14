@@ -27,6 +27,9 @@
 
 namespace WebCore {
 
+#if PLATFORM(ANDROID)
+    class Connection;
+#endif
     class Frame;
     class Geolocation;
     class MimeTypeArray;
@@ -57,6 +60,10 @@ namespace WebCore {
         // This is used for GC marking.
         Geolocation* optionalGeolocation() const { return m_geolocation.get(); }
 
+#if PLATFORM(ANDROID)
+        Connection* connection() const;
+#endif
+
 #if ENABLE(DOM_STORAGE)
         // Relinquishes the storage lock, if one exists.
         void getStorageUpdates();
@@ -71,6 +78,9 @@ namespace WebCore {
         mutable RefPtr<PluginArray> m_plugins;
         mutable RefPtr<MimeTypeArray> m_mimeTypes;
         mutable RefPtr<Geolocation> m_geolocation;
+#if PLATFORM(ANDROID)
+        mutable RefPtr<Connection> m_connection;
+#endif
     };
 
 }

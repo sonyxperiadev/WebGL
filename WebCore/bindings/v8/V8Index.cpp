@@ -447,6 +447,7 @@
 #include "V8PositionError.h"
 
 #if PLATFORM(ANDROID)
+#include "V8Connection.h"
 // TODO: Upstream these guards to webkit.org
 #if ENABLE(TOUCH_EVENTS)
 #include "V8Touch.h"

@@ -326,6 +326,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	\
 	page/BarInfo.cpp \
 	page/Chrome.cpp \
+	page/Connection.cpp \
 	page/Console.cpp \
 	page/ContextMenuController.cpp \
 	page/DOMSelection.cpp \

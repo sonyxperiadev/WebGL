@@ -281,6 +281,7 @@ $(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/bindings/%.cpp : $(intermediates)
 # page
 GEN := \
     $(intermediates)/bindings/V8BarInfo.h \
+    $(intermediates)/bindings/V8Connection.h \
     $(intermediates)/bindings/V8Console.h \
     $(intermediates)/bindings/V8Coordinates.h \
     $(intermediates)/bindings/V8DOMSelection.h \

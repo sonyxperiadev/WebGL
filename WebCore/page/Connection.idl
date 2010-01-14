@@ -1,5 +1,5 @@
 /*
- * Copyright 2008, The Android Open Source Project
+ * Copyright 2010, The Android Open Source Project
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -23,31 +23,16 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "config.h"
-#include "NetworkStateNotifier.h"
+ module core {
 
-namespace WebCore {
+    interface Connection {
+        readonly attribute unsigned short type;
 
-void NetworkStateNotifier::networkStateChange(bool online)
-{   
-    if (m_isOnLine == online)
-        return;
-    
-    m_isOnLine = online;
-
-    if (m_networkStateChangedFunction)
-        m_networkStateChangedFunction();
-}
-
-void NetworkStateNotifier::networkTypeChange(Connection::ConnectionType type)
-{
-    if (m_type == type)
-        return;
-
-    m_type = type;
-
-    if (m_networkStateChangedFunction)
-        m_networkStateChangedFunction();
-}
+        const unsigned short UNKNOWN = 0;
+        const unsigned short ETHERNET = 1;
+        const unsigned short WIFI = 2;
+        const unsigned short CELL_2G = 3;
+        const unsigned short CELL_3G = 4;
+    };
 
 }

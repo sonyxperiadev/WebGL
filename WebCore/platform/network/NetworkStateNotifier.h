@@ -27,6 +27,9 @@
 #define NetworkStateNotifier_h
 
 #include <wtf/Noncopyable.h>
+#if PLATFORM(ANDROID)
+#include "Connection.h"
+#endif
 
 #if PLATFORM(MAC)
 
@@ -54,9 +57,15 @@ public:
     void setNetworkStateChangedFunction(void (*)());
     
     bool onLine() const { return m_isOnLine; }
+#if PLATFORM(ANDROID)
+    Connection::ConnectionType type() const { return m_type; }
+#endif
     
 private:    
     bool m_isOnLine;
+#if PLATFORM(ANDROID)
+    Connection::ConnectionType m_type;
+#endif
     void (*m_networkStateChangedFunction)();
 
     void updateState();
@@ -84,6 +93,7 @@ private:
 #elif PLATFORM(ANDROID)
 public:
     void networkStateChange(bool online);
+    void networkTypeChange(Connection::ConnectionType type);
 #endif
 };
 
@@ -91,6 +101,9 @@ public:
 
 inline NetworkStateNotifier::NetworkStateNotifier()
     : m_isOnLine(true)
+#if PLATFORM(ANDROID)
+    , m_type(Connection::Unknown)
+#endif
     , m_networkStateChangedFunction(0)
 {    
 }

@@ -512,6 +512,8 @@ typedef v8::Persistent<v8::FunctionTemplate> (*FunctionTemplateFactory)();
 #else
 #define DOM_OBJECT_TOUCH_EVENT_TYPES(V)
 #endif
+#define DOM_OBJECT_CONNECTION_TYPES(V)                                  \
+    V(CONNECTION, Connection)
 #endif
 
 #if PLATFORM(ANDROID)
@@ -535,6 +537,7 @@ typedef v8::Persistent<v8::FunctionTemplate> (*FunctionTemplateFactory)();
     DOM_OBJECT_INSPECTOR_TYPES(V)                                       \
     DOM_OBJECT_GEOLOCATION_TYPES(V)                                     \
     DOM_OBJECT_TOUCH_EVENT_TYPES(V)                                     \
+    DOM_OBJECT_CONNECTION_TYPES(V)                                      \
     DOM_OBJECT_VOIDCALLBACK_TYPES(V)
 #endif
 

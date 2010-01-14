@@ -24,6 +24,9 @@
 #include "Navigator.h"
 
 #include "CookieJar.h"
+#if PLATFORM(ANDROID)
+#include "Connection.h"
+#endif
 #include "ExceptionCode.h"
 #include "Frame.h"
 #include "FrameLoader.h"
@@ -154,6 +157,15 @@ Geolocation* Navigator::geolocation() const
         m_geolocation = Geolocation::create(m_frame);
     return m_geolocation.get();
 }
+
+#if PLATFORM(ANDROID)
+Connection* Navigator::connection() const
+{
+    if (!m_connection)
+        m_connection = Connection::create();
+    return m_connection.get();
+}
+#endif
 
 #if ENABLE(DOM_STORAGE)
 void Navigator::getStorageUpdates()

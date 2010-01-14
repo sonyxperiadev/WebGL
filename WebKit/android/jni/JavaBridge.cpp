@@ -27,8 +27,11 @@
 
 #include <config.h>
 #include <wtf/Platform.h>
+#include <wtf/StdLibExtras.h>
 
+#include "AtomicString.h"
 #include "Cache.h"
+#include "Connection.h"
 #include "CookieClient.h"
 #include "JavaSharedClient.h"
 #include "KeyGeneratorClient.h"
@@ -96,6 +99,7 @@ public:
     static void SharedTimerFired(JNIEnv* env, jobject);
     static void SetCacheSize(JNIEnv* env, jobject obj, jint bytes);
     static void SetNetworkOnLine(JNIEnv* env, jobject obj, jboolean online);
+    static void SetNetworkType(JNIEnv* env, jobject obj, jstring type, jstring subtype);
     static void SetDeferringTimers(JNIEnv* env, jobject obj, jboolean defer);
     static void ServiceFuncPtrQueue(JNIEnv*);
     static void UpdatePluginDirectories(JNIEnv* env, jobject obj, jobjectArray array, jboolean reload);
@@ -344,6 +348,29 @@ void JavaBridge::SetNetworkOnLine(JNIEnv* env, jobject obj, jboolean online)
 	WebCore::networkStateNotifier().networkStateChange(online);
 }
 
+void JavaBridge::SetNetworkType(JNIEnv* env, jobject obj, jstring javatype, jstring javasubtype)
+{
+    DEFINE_STATIC_LOCAL(AtomicString, wifi, ("wifi"));
+    DEFINE_STATIC_LOCAL(AtomicString, mobile, ("mobile"));
+    DEFINE_STATIC_LOCAL(AtomicString, mobileSupl, ("mobile_supl"));
+    DEFINE_STATIC_LOCAL(AtomicString, gprs, ("gprs"));
+    DEFINE_STATIC_LOCAL(AtomicString, edge, ("edge"));
+    DEFINE_STATIC_LOCAL(AtomicString, umts, ("umts"));
+
+    String type = to_string(env, javatype);
+    String subtype = to_string(env, javasubtype);
+    Connection::ConnectionType connectionType = Connection::Unknown;
+    if (type == wifi)
+        connectionType = Connection::WiFi;
+    else if (type == mobile || type == mobileSupl) {
+        if (subtype == edge || subtype == gprs)
+            connectionType = Connection::Cell_2G;
+        else if (subtype == umts)
+            connectionType = Connection::Cell_3G;
+    }
+    WebCore::networkStateNotifier().networkTypeChange(connectionType);
+}
+
 void JavaBridge::ServiceFuncPtrQueue(JNIEnv*)
 {
     JavaSharedClient::ServiceFunctionPtrQueue();
@@ -383,6 +410,8 @@ static JNINativeMethod gWebCoreJavaBridgeMethods[] = {
         (void*) JavaBridge::SetCacheSize },
     { "setNetworkOnLine", "(Z)V",
         (void*) JavaBridge::SetNetworkOnLine },
+    { "setNetworkType", "(Ljava/lang/String;Ljava/lang/String;)V",
+        (void*) JavaBridge::SetNetworkType },
     { "nativeServiceFuncPtrQueue", "()V",
         (void*) JavaBridge::ServiceFuncPtrQueue },
     { "nativeUpdatePluginDirectories", "([Ljava/lang/String;Z)V",

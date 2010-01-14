@@ -229,6 +229,7 @@
 #endif // SVG
 
 #if PLATFORM(ANDROID)
+#include "Connection.h"
 // TODO: Upstream TOUCH_EVENTS guard.
 #if ENABLE(TOUCH_EVENTS)
 #include "Touch.h"

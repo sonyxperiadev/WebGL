@@ -1,5 +1,5 @@
 /*
- * Copyright 2008, The Android Open Source Project
+ * Copyright 2010, The Android Open Source Project
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -24,30 +24,16 @@
  */
 
 #include "config.h"
+
+#include "Connection.h"
+
 #include "NetworkStateNotifier.h"
 
 namespace WebCore {
 
-void NetworkStateNotifier::networkStateChange(bool online)
-{   
-    if (m_isOnLine == online)
-        return;
-    
-    m_isOnLine = online;
-
-    if (m_networkStateChangedFunction)
-        m_networkStateChangedFunction();
-}
-
-void NetworkStateNotifier::networkTypeChange(Connection::ConnectionType type)
+Connection::ConnectionType Connection::type() const
 {
-    if (m_type == type)
-        return;
-
-    m_type = type;
-
-    if (m_networkStateChangedFunction)
-        m_networkStateChangedFunction();
+    return networkStateNotifier().type();
 }
 
-}
+};

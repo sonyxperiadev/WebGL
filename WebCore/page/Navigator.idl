@@ -39,6 +39,9 @@ module window {
         
         readonly attribute boolean onLine;
 
+        // ANDROID-only for now, upstreaming in progress.
+        readonly attribute Connection connection;
+
 #if defined(ENABLE_GEOLOCATION) && ENABLE_GEOLOCATION
         readonly attribute Geolocation geolocation;
 #endif

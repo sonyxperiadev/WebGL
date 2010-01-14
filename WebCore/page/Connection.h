@@ -1,5 +1,5 @@
 /*
- * Copyright 2008, The Android Open Source Project
+ * Copyright 2010, The Android Open Source Project
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -23,31 +23,32 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "config.h"
-#include "NetworkStateNotifier.h"
+#ifndef Connection_h
+#define Connection_h
+
+#include <wtf/PassRefPtr.h>
+#include <wtf/RefCounted.h>
 
 namespace WebCore {
 
-void NetworkStateNotifier::networkStateChange(bool online)
-{   
-    if (m_isOnLine == online)
-        return;
-    
-    m_isOnLine = online;
+class Connection : public RefCounted<Connection> {
+public:
+    enum ConnectionType {
+        Unknown = 0,
+        Ethernet = 1,
+        WiFi = 2,
+        Cell_2G = 3,
+        Cell_3G = 4,
+    };
 
-    if (m_networkStateChangedFunction)
-        m_networkStateChangedFunction();
-}
+    static PassRefPtr<Connection> create() { return adoptRef(new Connection()); }
 
-void NetworkStateNotifier::networkTypeChange(Connection::ConnectionType type)
-{
-    if (m_type == type)
-        return;
+    ConnectionType type() const;
 
-    m_type = type;
+private:
+    Connection() { }
+};
 
-    if (m_networkStateChangedFunction)
-        m_networkStateChangedFunction();
-}
+} // namespace WebCore
 
-}
+#endif // Connection_h
