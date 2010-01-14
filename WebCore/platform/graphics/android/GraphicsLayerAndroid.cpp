@@ -121,9 +121,6 @@ GraphicsLayerAndroid::GraphicsLayerAndroid(GraphicsLayerClient* client) :
 
 GraphicsLayerAndroid::~GraphicsLayerAndroid()
 {
-    if (!parent() && m_frame && m_frame->view())
-        PlatformBridge::setRootLayer(m_frame->view(), 0);
-
     gDebugGraphicsLayerAndroidInstances--;
 }
 
