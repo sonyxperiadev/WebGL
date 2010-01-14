@@ -1515,7 +1515,8 @@ static void nativeDrawMatches(JNIEnv *env, jobject obj, jobject canv)
 }
 
 static void nativeDrawLayers(JNIEnv *env, jobject obj,
-    jint layer, jfloat scrollX, jfloat scrollY,
+    jint layer, jint scrollX, jint scrollY,
+    jint width, jint height,
     jfloat scale, jobject canv)
 {
     if (!env)
@@ -1529,7 +1530,7 @@ static void nativeDrawLayers(JNIEnv *env, jobject obj,
     LayerAndroid* layerImpl = reinterpret_cast<LayerAndroid*>(layer);
     SkCanvas* canvas = GraphicsJNI::getNativeCanvas(env, canv);
     if (canvas)
-        layerImpl->paintOn(scrollX, scrollY, scale, canvas);
+        layerImpl->paintOn(scrollX, scrollY, width, height, scale, canvas);
 #endif
 }
 
@@ -2134,7 +2135,7 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeLayersHaveAnimations },
     { "nativeEvaluateLayersAnimations", "(I)I",
         (void*) nativeEvaluateLayersAnimations },
-    { "nativeDrawLayers", "(IFFFLandroid/graphics/Canvas;)V",
+    { "nativeDrawLayers", "(IIIIIFLandroid/graphics/Canvas;)V",
         (void*) nativeDrawLayers },
     { "nativeUpdateLayers", "(II)V",
         (void*) nativeUpdateLayers },

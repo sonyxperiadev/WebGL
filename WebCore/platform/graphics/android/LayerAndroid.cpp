@@ -62,9 +62,12 @@ LayerAndroid::LayerAndroid(bool isRootLayer) :
     m_size(0, 0),
     m_position(0, 0),
     m_translation(0, 0),
-    m_fixedPosition(0, 0),
     m_anchorPoint(0, 0, 0),
     m_scale(1, 1, 1),
+    m_fixedLeft(Auto),
+    m_fixedTop(Auto),
+    m_fixedRight(Auto),
+    m_fixedBottom(Auto),
     m_recordingPicture(0)
 {
     gDebugLayerAndroidInstances++;
@@ -84,9 +87,12 @@ LayerAndroid::LayerAndroid(LayerAndroid* layer) :
     m_size(layer->m_size),
     m_position(layer->m_position),
     m_translation(layer->m_translation),
-    m_fixedPosition(layer->m_fixedPosition),
     m_anchorPoint(layer->m_anchorPoint),
-    m_scale(layer->m_scale)
+    m_scale(layer->m_scale),
+    m_fixedLeft(layer->m_fixedLeft),
+    m_fixedRight(layer->m_fixedRight),
+    m_fixedTop(layer->m_fixedTop),
+    m_fixedBottom(layer->m_fixedBottom)
 {
     if (layer->m_recordingPicture) {
         layer->m_recordingPicture->ref();
@@ -167,9 +173,13 @@ void LayerAndroid::removeAnimation(const String& name)
     m_animations.remove(name);
 }
 
-void LayerAndroid::setFixedPosition(FloatPoint position)
+void LayerAndroid::setFixedPosition(Length left, Length top,
+                                    Length right, Length bottom)
 {
-    m_fixedPosition = position;
+    m_fixedLeft = left;
+    m_fixedTop = top;
+    m_fixedRight = right;
+    m_fixedBottom = bottom;
     m_isFixed = true;
 }
 
@@ -205,10 +215,12 @@ void LayerAndroid::setBackgroundColor(const Color& color)
 
 static int gDebugChildLevel;
 
-void LayerAndroid::paintOn(float scrollX, float scrollY, float scale, SkCanvas* canvas)
+void LayerAndroid::paintOn(int scrollX, int scrollY,
+                           int width, int height,
+                           float scale, SkCanvas* canvas)
 {
     gDebugChildLevel = 0;
-    paintChildren(scrollX, scrollY, scale, canvas, 1);
+    paintChildren(scrollX, scrollY, width, height, scale, canvas, 1);
 }
 
 void LayerAndroid::setClip(SkCanvas* canvas)
@@ -221,7 +233,8 @@ void LayerAndroid::setClip(SkCanvas* canvas)
     canvas->clipRect(clip);
 }
 
-void LayerAndroid::paintChildren(float scrollX, float scrollY,
+void LayerAndroid::paintChildren(int scrollX, int scrollY,
+                                 int width, int height,
                                  float scale, SkCanvas* canvas,
                                  float opacity)
 {
@@ -230,7 +243,7 @@ void LayerAndroid::paintChildren(float scrollX, float scrollY,
     if (m_haveClip)
         setClip(canvas);
 
-    paintMe(scrollX, scrollY, scale, canvas, opacity);
+    paintMe(scrollX, scrollY, width, height, scale, canvas, opacity);
     canvas->translate(m_position.x() + m_translation.x(),
                       m_position.y() + m_translation.y());
 
@@ -238,7 +251,8 @@ void LayerAndroid::paintChildren(float scrollX, float scrollY,
         LayerAndroid* layer = m_children[i].get();
         if (layer) {
             gDebugChildLevel++;
-            layer->paintChildren(scrollX, scrollY, scale, canvas, opacity * m_opacity);
+            layer->paintChildren(scrollX, scrollY, width, height, scale,
+                                 canvas, opacity * m_opacity);
             gDebugChildLevel--;
         }
     }
@@ -246,8 +260,10 @@ void LayerAndroid::paintChildren(float scrollX, float scrollY,
     canvas->restore();
 }
 
-void LayerAndroid::paintMe(float scrollX,
-                           float scrollY,
+void LayerAndroid::paintMe(int scrollX,
+                           int scrollY,
+                           int viewWidth,
+                           int viewHeight,
                            float scale,
                            SkCanvas* canvas,
                            float opacity)
@@ -275,10 +291,24 @@ void LayerAndroid::paintMe(float scrollX,
 
     paintMode.setXfermodeMode(SkXfermode::kSrc_Mode);
 
-    float x, y;
+    float x = 0;
+    float y = 0;
     if (m_isFixed) {
-        x = m_fixedPosition.x() + (scrollX / scale);
-        y = m_fixedPosition.y() + (scrollY / scale);
+        float w = viewWidth / scale;
+        float h = viewHeight / scale;
+        float dx = scrollX / scale;
+        float dy = scrollY / scale;
+
+        if (m_fixedLeft.type())
+            x = dx + m_fixedLeft.calcFloatValue(w);
+        else if (m_fixedRight.type())
+            x = dx + w - m_fixedRight.calcFloatValue(w) - m_size.width();
+
+        if (m_fixedTop.type())
+            y = dy + m_fixedTop.calcFloatValue(h);
+        else if (m_fixedBottom.type())
+            y = dy + h - m_fixedBottom.calcFloatValue(h) - m_size.height();
+
     } else {
         x = m_translation.x() + m_position.x();
         y = m_translation.y() + m_position.y();

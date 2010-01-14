@@ -111,9 +111,10 @@ GraphicsLayerAndroid::GraphicsLayerAndroid(GraphicsLayerClient* client) :
       m_contentLayer->setIsRootLayer(renderLayer->isRootLayer());
       RenderView* view = static_cast<RenderView*>(renderLayer->renderer());
       if (view->isPositioned() && view->style()->position() == FixedPosition) {
-          FloatPoint position(view->style()->left().value(),
-                              view->style()->right().value());
-          m_contentLayer->setFixedPosition(position);
+          m_contentLayer->setFixedPosition(view->style()->left(),
+                                           view->style()->top(),
+                                           view->style()->right(),
+                                           view->style()->bottom());
       }
     }
     gDebugGraphicsLayerAndroidInstances++;
