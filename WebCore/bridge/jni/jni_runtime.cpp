@@ -28,6 +28,8 @@
 
 #if ENABLE(MAC_JAVA_BRIDGE)
 
+#include "CString.h"
+#include "StringBuilder.h"
 #include "jni_utility.h"
 #include "jni_utility_private.h"
 #include "runtime_array.h"
@@ -47,6 +49,7 @@
 
 using namespace JSC;
 using namespace JSC::Bindings;
+using namespace WebCore;
 
 
 JavaParameter::JavaParameter (JNIEnv *env, jstring type)
@@ -296,7 +299,7 @@ JavaMethod::~JavaMethod()
 
 // JNI method signatures use '/' between components of a class name, but
 // we get '.' between components from the reflection API.
-static void appendClassName(UString& aString, const char* className)
+static void appendClassName(StringBuilder& builder, const char* className)
 {
     ASSERT(JSLock::lockCount() > 0);
     
@@ -309,9 +312,9 @@ static void appendClassName(UString& aString, const char* className)
         cp++;
     }
         
-    aString.append(result);
+    builder.append(result);
 
-    free (result);
+    free(result);
 }
 
 const char *JavaMethod::signature() const 
@@ -319,7 +322,8 @@ const char *JavaMethod::signature() const
     if (!_signature) {
         JSLock lock(SilenceAssertionsOnly);
 
-        UString signatureBuilder("(");
+        StringBuilder signatureBuilder;
+        signatureBuilder.append("(");
         for (int i = 0; i < _numParameters; i++) {
             JavaParameter* aParameter = parameterAt(i);
             JNIType _JNIType = aParameter->getJNIType();
@@ -346,7 +350,8 @@ const char *JavaMethod::signature() const
             }
         }
         
-        _signature = strdup(signatureBuilder.ascii());
+        String signatureString = signatureBuilder.toString();
+        _signature = strdup(signatureString.utf8().data());
     }
     
     return _signature;
