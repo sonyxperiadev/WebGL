@@ -29,7 +29,9 @@
 #include "CookieClient.h"
 #include "JavaSharedClient.h"
 #include "KeyGeneratorClient.h"
+#include "PluginView.h"
 #include "WebViewCore.h"
+#include "npruntime.h"
 #include <wtf/android/AndroidThreading.h>
 #include <wtf/MainThread.h>
 
@@ -96,6 +98,15 @@ bool PlatformBridge::cookiesEnabled()
         return false;
 
     return client->cookiesEnabled();
+}
+
+NPObject* PlatformBridge::pluginScriptableObject(Widget* widget)
+{
+    if (!widget->isPluginView())
+        return 0;
+
+    PluginView* pluginView = static_cast<PluginView*>(widget);
+    return pluginView->getNPObject();
 }
 
 bool PlatformBridge::isWebViewPaused()

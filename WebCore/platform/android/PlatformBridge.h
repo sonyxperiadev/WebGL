@@ -31,9 +31,12 @@
 
 #include <wtf/Vector.h>
 
+class NPObject;
+
 namespace WebCore {
 
 class FrameView;
+class Widget;
 
 // An interface to the embedding layer, which has the ability to answer
 // questions about the system and so on...
@@ -54,6 +57,8 @@ public:
     static void setCookies(const KURL&, const String& value);
     static String cookies(const KURL&);
     static bool cookiesEnabled();
+    // Plugin
+    static NPObject* pluginScriptableObject(Widget*);
     // These ids need to be in sync with the constants in BrowserFrame.java
     enum rawResId {
         NoDomain = 1,

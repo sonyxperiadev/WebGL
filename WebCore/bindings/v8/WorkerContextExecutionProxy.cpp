@@ -124,11 +124,6 @@ void WorkerContextExecutionProxy::initV8IfNeeded()
     v8::V8::IgnoreOutOfMemoryException();
     v8::V8::SetFatalErrorHandler(reportFatalErrorInV8);
 
-#if PLATFORM(ANDROID)
-    const int workerThreadPreemptionIntervalMs = 5;
-    v8::Locker::StartPreemption(workerThreadPreemptionIntervalMs);
-#endif
-
     v8::ResourceConstraints resource_constraints;
     uint32_t here;
     resource_constraints.set_stack_limit(&here - kWorkerMaxStackSize / sizeof(uint32_t*));
