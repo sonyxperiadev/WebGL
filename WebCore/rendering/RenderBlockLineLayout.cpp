@@ -40,6 +40,7 @@
 #include "Settings.h"
 #include "Text.h"
 #include "HTMLNames.h"
+#include "WebViewCore.h"
 #endif // ANDROID_LAYOUT
 
 using namespace std;
@@ -861,8 +862,10 @@ void RenderBlock::layoutInlineChildren(bool relayoutChildren, int& repaintTop, i
         // will wrap text around screen width so that it doesn't need to scroll
         // horizontally when reading a paragraph.
         const Settings* settings = document()->settings();
-        bool doTextWrap = settings && settings->viewportWidth() != 0 &&
-                settings->layoutAlgorithm() == Settings::kLayoutFitColumnToScreen;
+        android::WebViewCore* core = android::WebViewCore::getWebViewCore(view()->frameView());
+        bool doTextWrap = settings && (settings->viewportWidth() != 0
+                || fabs(core->scale() - core->screenWidthScale()) > 0.01)
+                && settings->layoutAlgorithm() == Settings::kLayoutFitColumnToScreen;
         if (doTextWrap) {
             int ta = style()->textAlign();
             int dir = style()->direction();
