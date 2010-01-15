@@ -1092,6 +1092,14 @@ void WebViewCore::setSizeScreenWidthAndScale(int width, int height,
                     bounds = node->getRect();
                     DBG_NAV_LOGD("ob:(x=%d,y=%d,w=%d,h=%d)",
                         bounds.x(), bounds.y(), bounds.width(), bounds.height());
+                    // sites like nytimes.com insert a non-standard tag <nyt_text>
+                    // in the html. If it is the HitTestResult, it may have zero
+                    // width and height. In this case, use its parent node.
+                    if (bounds.width() == 0) {
+                        node = node->parent();
+                        if (node)
+                            bounds = node->getRect();
+                    }
                     if ((anchorX | anchorY) == 0) {
                         WebCore::IntPoint offset = WebCore::IntPoint(
                                 anchorPoint.x() - bounds.x(), anchorPoint.y()
