@@ -497,7 +497,6 @@ void Geolocation::sendPosition(Vector<RefPtr<GeoNotifier> >& notifiers, Geoposit
         RefPtr<GeoNotifier> notifier = *it;
         ASSERT(notifier->m_successCallback);
         
-        notifier->m_timer.stop();
         notifier->m_successCallback->handleEvent(position);
     }
 }
