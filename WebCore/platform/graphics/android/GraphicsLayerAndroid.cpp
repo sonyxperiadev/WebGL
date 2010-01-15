@@ -337,6 +337,7 @@ void GraphicsLayerAndroid::setOpacity(float opacity)
     MLOG("(%x) setFinalOpacity: %.2f=>%.2f (%.2f)", this,
         opacity, clampedOpacity, m_opacity);
     GraphicsLayer::setOpacity(clampedOpacity);
+    m_contentLayer->setOpacity(clampedOpacity);
     askForSync();
 }
 
