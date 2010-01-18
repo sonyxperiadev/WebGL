@@ -127,7 +127,7 @@ void PluginView::setFrameRect(const IntRect& rect)
         return;
 
 #if defined(ANDROID_PLUGINS)
-    if (rect != frameRect()) {
+    if (m_isStarted && (rect != frameRect())) {
         Widget::setFrameRect(rect);
         setNPWindowRect(rect);  // only call when it changes
     }
