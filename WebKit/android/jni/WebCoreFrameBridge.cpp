@@ -1524,7 +1524,7 @@ static void OrientationChanged(JNIEnv *env, jobject obj, int orientation)
     TimeCounterAuto counter(TimeCounter::NativeCallbackTimeCounter);
 #endif
     WebCore::Frame* pFrame = GET_NATIVE_FRAME(env, obj);
-    LOGE("Sending orientation: %d", orientation);
+    LOGV("Sending orientation: %d", orientation);
     pFrame->sendOrientationChangeEvent(orientation);
 }
 
