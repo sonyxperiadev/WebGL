@@ -159,6 +159,7 @@ private:
     bool                    m_visible;
     float                   m_zoomLevel;
     jobject                 m_embeddedView;
+    bool                    m_acceptEvents;
 
     /* We limit the number of rectangles to minimize storage and ensure adequate
        speed.
