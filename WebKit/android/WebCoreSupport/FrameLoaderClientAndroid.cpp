@@ -727,7 +727,10 @@ bool FrameLoaderClientAndroid::canShowMIMEType(const String& mimeType) const {
     if (MIMETypeRegistry::isSupportedImageResourceMIMEType(mimeType) ||
             MIMETypeRegistry::isSupportedNonImageMIMEType(mimeType) ||
             MIMETypeRegistry::isSupportedJavaScriptMIMEType(mimeType) ||
-            PluginDatabase::installedPlugins()->isMIMETypeRegistered(mimeType) ||
+            (m_frame && m_frame->settings()
+                    && m_frame->settings()->arePluginsEnabled()
+                    && PluginDatabase::installedPlugins()->isMIMETypeRegistered(
+                            mimeType)) ||
             DOMImplementation::isTextMIMEType(mimeType) ||
             DOMImplementation::isXMLMIMEType(mimeType))
         return true;
