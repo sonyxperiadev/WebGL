@@ -40,13 +40,13 @@ using namespace JSC::Bindings;
 
 JavaInstance::JavaInstance (jobject instance)
 {
-    _instance = new JObjectWrapper(instance);
+    m_instance = new JObjectWrapper(instance);
     _class = 0;
 }
 
 JavaInstance::~JavaInstance () 
 {
-    _instance = 0;
+    m_instance = 0;
     delete _class;
 }
 
