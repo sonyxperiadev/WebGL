@@ -56,12 +56,16 @@ PluginWidgetAndroid::PluginWidgetAndroid(WebCore::PluginView* view)
     m_visible = true;
     m_zoomLevel = 0;
     m_embeddedView = NULL;
+    m_acceptEvents = false;
 }
 
 PluginWidgetAndroid::~PluginWidgetAndroid() {
+    m_acceptEvents = false;
     if (m_core) {
         m_core->removePlugin(this);
-        if (m_embeddedView) {
+        if (m_isFullScreen) {
+            exitFullScreen(true);
+        } else if (m_embeddedView) {
             m_core->destroySurface(m_embeddedView);
         }
     }
@@ -78,6 +82,7 @@ PluginWidgetAndroid::~PluginWidgetAndroid() {
 void PluginWidgetAndroid::init(android::WebViewCore* core) {
     m_core = core;
     m_core->addPlugin(this);
+    m_acceptEvents = true;
 }
 
 static SkBitmap::Config computeConfig(bool isTransparent) {
@@ -223,6 +228,8 @@ void PluginWidgetAndroid::draw(SkCanvas* canvas) {
 }
 
 bool PluginWidgetAndroid::sendEvent(const ANPEvent& evt) {
+    if (!m_acceptEvents)
+        return false;
     WebCore::PluginPackage* pkg = m_pluginView->plugin();
     NPP instance = m_pluginView->instance();
     // "missing" plugins won't have these
