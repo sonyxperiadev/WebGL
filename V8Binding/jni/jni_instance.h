@@ -79,7 +79,7 @@ public:
 
     bool invokeMethod(const char* name, const NPVariant* args, int argsCount, NPVariant* result);
 
-    jobject javaInstance() const { return _instance->_instance; }
+    jobject javaInstance() const { return m_instance->_instance; }
 
     // These functions are called before and after the main entry points into
     // the native implementations.  They can be used to establish and cleanup
@@ -88,7 +88,7 @@ public:
     void end() { virtualEnd(); }
 
 protected:
-    RefPtr<JObjectWrapper> _instance;
+    RefPtr<JObjectWrapper> m_instance;
     mutable JavaClass* _class;
 
     virtual void virtualBegin() {}
