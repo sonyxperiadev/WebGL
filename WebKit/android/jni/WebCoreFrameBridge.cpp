@@ -103,7 +103,7 @@
 #include "jni.h"
 
 #if USE(JSC)
-#include "jni_instance.h"
+#include "JavaInstanceJSC.h"
 #endif  // USE(JSC)
 
 #include <JNIHelp.h>
