@@ -131,15 +131,8 @@ void PluginView::setFrameRect(const IntRect& rect)
     if (m_element->document()->printing())
         return;
 
-#if defined(ANDROID_PLUGINS)
-    if (m_isStarted && (rect != frameRect())) {
-        Widget::setFrameRect(rect);
-        setNPWindowRect(rect);  // only call when it changes
-    }
-#else
     if (rect != frameRect())
         Widget::setFrameRect(rect);
-#endif
 
     updatePluginWidget();
 

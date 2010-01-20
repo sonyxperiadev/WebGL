@@ -206,11 +206,11 @@ void PluginView::handleTouchEvent(TouchEvent* event)
 
     evt.data.touch.modifiers = 0;   // todo
 
-    // convert to coordinates that are relative to the plugin. The pageX / pageY
-    // values are the only values in the event that are consistently in frame
-    // coordinates despite their misleading name.
-    evt.data.touch.x = event->pageX() - m_npWindow.x;
-    evt.data.touch.y = event->pageY() - m_npWindow.y;
+    // convert to coordinates that are relative to the plugin.
+    IntPoint localPos = roundedIntPoint(m_element->renderer()->absoluteToLocal(
+            IntPoint(event->pageX(), event->pageY())));
+    evt.data.touch.x = localPos.x();
+    evt.data.touch.y = localPos.y();
 
     int16 ret = m_plugin->pluginFuncs()->event(m_instance, &evt);
     if (ignoreRet)
@@ -243,11 +243,11 @@ void PluginView::handleMouseEvent(MouseEvent* event)
         SkANP::InitEvent(&evt, kMouse_ANPEventType);
         evt.data.mouse.action = isUp ? kUp_ANPMouseAction : kDown_ANPMouseAction;
 
-        // convert to coordinates that are relative to the plugin. The pageX / pageY
-        // values are the only values in the event that are consistently in frame
-        // coordinates despite their misleading name.
-        evt.data.mouse.x = event->pageX() - m_npWindow.x;
-        evt.data.mouse.y = event->pageY() - m_npWindow.y;
+        // convert to coordinates that are relative to the plugin.
+        IntPoint localPos = roundedIntPoint(m_element->renderer()->absoluteToLocal(
+                IntPoint(event->pageX(), event->pageY())));
+        evt.data.mouse.x = localPos.x();
+        evt.data.mouse.y = localPos.y();
         if (isDown) {
             // The plugin needs focus to receive keyboard events
             if (Page* page = m_parentFrame->page())
@@ -394,21 +394,34 @@ void PluginView::setParent(ScrollView* parent)
     }
 }
 
-void PluginView::setNPWindowRect(const IntRect& rect)
+void PluginView::setNPWindowRect(const IntRect&)
 {
-    if (!m_isStarted)
+    setNPWindowIfNeeded();
+}
+
+void PluginView::setNPWindowIfNeeded()
+{
+    if (!m_isStarted || !parent())
         return;
 
-    // the rect is relative to the frameview's (0,0)
-    m_npWindow.x = rect.x();
-    m_npWindow.y = rect.y();
-    m_npWindow.width = rect.width();
-    m_npWindow.height = rect.height();
+    // in Android, plugin always get the setwindow() in the page coordinate.
+    IntRect pageRect = m_windowRect;
+    ScrollView* top = parent();
+    while (top->parent())
+        top = top->parent();
+    // only the top ScrollView can have the offset
+    pageRect.move(top->scrollOffset());
 
-    m_npWindow.clipRect.left = 0;
-    m_npWindow.clipRect.top = 0;
-    m_npWindow.clipRect.right = rect.width();
-    m_npWindow.clipRect.bottom = rect.height();
+    // the m_npWindow is relative to the page
+    m_npWindow.x = pageRect.x();
+    m_npWindow.y = pageRect.y();
+    m_npWindow.width = pageRect.width();
+    m_npWindow.height = pageRect.height();
+
+    m_npWindow.clipRect.left = pageRect.x();
+    m_npWindow.clipRect.top = pageRect.y();
+    m_npWindow.clipRect.right = pageRect.x() + pageRect.width();
+    m_npWindow.clipRect.bottom = pageRect.y() + pageRect.height();
 
     if (m_plugin->pluginFuncs()->setwindow) {
 #if USE(JSC)
@@ -587,16 +600,22 @@ void PluginView::paint(GraphicsContext* context, const IntRect& rect)
     }
 
     m_window->inval(rect, false);
+    context->save();
+    context->translate(frame.x(), frame.y());
     m_window->draw(android_gc2canvas(context));
+    context->restore();
 }
 
-// new as of SVN 38068, Nov 5 2008
 void PluginView::updatePluginWidget()
 {
-    // I bet/hope we can move all of setNPWindowRect() into here
     FrameView* frameView = static_cast<FrameView*>(parent());
     if (frameView) {
-        m_windowRect = IntRect(frameView->contentsToWindow(frameRect().location()), frameRect().size());
+        IntRect oldWindowRect = m_windowRect;
+
+        m_windowRect = frameView->contentsToWindow(frameRect());
+
+        if (m_windowRect != oldWindowRect)
+            setNPWindowIfNeeded();
     }
 }
 
