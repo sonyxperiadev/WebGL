@@ -27,6 +27,12 @@
 #include "config.h"
 #include "PluginView.h"
 
+// ANDROID
+// Temporary guard required until Bridge.h is script-engine independent
+// See https://bugs.webkit.org/show_bug.cgi?id=32154
+#if USE(JSC)
+#include "Bridge.h"
+#endif
 #include "Document.h"
 #include "DocumentLoader.h"
 #include "Element.h"
@@ -71,7 +77,6 @@
 #include "JSDOMBinding.h"
 #include "c_instance.h"
 #include "runtime_root.h"
-#include "runtime.h"
 #include <runtime/JSLock.h>
 #include <runtime/JSValue.h>
 
