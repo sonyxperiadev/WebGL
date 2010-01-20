@@ -60,11 +60,11 @@ jvalue convertNPVariantToJValue(NPVariant value, JNIType jniType, const char* ja
                     jchar buf[2];
                     jobject javaString = env->functions->NewString (env, buf, 0);
                     result.l = javaString;
-                }
-                else
+                } else
 #else
-                if (type == NPVariantType_String) {
+                if (type == NPVariantType_String)
 #endif
+                {
                     NPString src = NPVARIANT_TO_STRING(value);
                     JNIEnv *env = getJNIEnv();
                     jobject javaString = env->NewStringUTF(src.UTF8Characters);
