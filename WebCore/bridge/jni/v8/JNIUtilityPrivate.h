@@ -23,8 +23,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef _JNI_UTILITY_PRIVATE_H_
-#define _JNI_UTILITY_PRIVATE_H_
+#ifndef JNIUtilityPrivate_h
+#define JNIUtilityPrivate_h
 
 #include "JNIUtility.h"
 #include "npruntime.h"
@@ -40,4 +40,4 @@ void convertJValueToNPVariant(jvalue, JNIType, const char* javaClassName, NPVari
 
 } // namespace JSC
 
-#endif // _JNI_UTILITY_H_
+#endif // JNIUtilityPrivate_h

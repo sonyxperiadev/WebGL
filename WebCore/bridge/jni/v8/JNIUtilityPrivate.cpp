@@ -24,10 +24,10 @@
  */
 
 #include "config.h"
-#include "jni_utility_private.h"
+#include "JNIUtilityPrivate.h"
 
-#include "jni_runtime.h"
 #include "jni_npobject.h"
+#include "jni_runtime.h"
 
 namespace JSC {
 
@@ -42,7 +42,7 @@ jvalue convertNPVariantToJValue(NPVariant value, JNIType jniType, const char* ja
     case array_type:
     case object_type:
         {
-            result.l = (jobject)0;
+            result.l = static_cast<jobject>(0);
 
             // First see if we have a Java instance.
             if (type == NPVariantType_Object) {
@@ -53,12 +53,12 @@ jvalue convertNPVariantToJValue(NPVariant value, JNIType jniType, const char* ja
 
             // Now convert value to a string if the target type is a java.lang.string, and we're not
             // converting from a Null.
-            if (result.l == 0 && strcmp(javaClassName, "java.lang.String") == 0) {
+            if (!result.l && !strcmp(javaClassName, "java.lang.String")) {
 #ifdef CONVERT_NULL_TO_EMPTY_STRING
                 if (type == NPVariantType_Null) {
-                    JNIEnv *env = getJNIEnv();
+                    JNIEnv* env = getJNIEnv();
                     jchar buf[2];
-                    jobject javaString = env->functions->NewString (env, buf, 0);
+                    jobject javaString = env->functions->NewString(env, buf, 0);
                     result.l = javaString;
                 } else
 #else
@@ -66,12 +66,12 @@ jvalue convertNPVariantToJValue(NPVariant value, JNIType jniType, const char* ja
 #endif
                 {
                     NPString src = NPVARIANT_TO_STRING(value);
-                    JNIEnv *env = getJNIEnv();
+                    JNIEnv* env = getJNIEnv();
                     jobject javaString = env->NewStringUTF(src.UTF8Characters);
                     result.l = javaString;
                 }
-            } else if (result.l == 0)
-                bzero (&result, sizeof(jvalue)); // Handle it the same as a void case
+            } else if (!result.l)
+                bzero(&result, sizeof(jvalue)); // Handle it the same as a void case
         }
         break;
 
@@ -80,14 +80,14 @@ jvalue convertNPVariantToJValue(NPVariant value, JNIType jniType, const char* ja
             if (type == NPVariantType_Bool)
                 result.z = NPVARIANT_TO_BOOLEAN(value);
             else
-                bzero(&result, sizeof(jvalue));  // as void case
+                bzero(&result, sizeof(jvalue)); // as void case
         }
         break;
 
     case byte_type:
         {
             if (type == NPVariantType_Int32)
-                result.b = (char)NPVARIANT_TO_INT32(value);
+                result.b = static_cast<char>(NPVARIANT_TO_INT32(value));
             else
                 bzero(&result, sizeof(jvalue));
         }
@@ -96,7 +96,7 @@ jvalue convertNPVariantToJValue(NPVariant value, JNIType jniType, const char* ja
     case char_type:
         {
             if (type == NPVariantType_Int32)
-                result.c = (char)NPVARIANT_TO_INT32(value);
+                result.c = static_cast<char>(NPVARIANT_TO_INT32(value));
             else
                 bzero(&result, sizeof(jvalue));
         }
@@ -105,7 +105,7 @@ jvalue convertNPVariantToJValue(NPVariant value, JNIType jniType, const char* ja
     case short_type:
         {
             if (type == NPVariantType_Int32)
-                result.s = (jshort)NPVARIANT_TO_INT32(value);
+                result.s = static_cast<jshort>(NPVARIANT_TO_INT32(value));
             else
                 bzero(&result, sizeof(jvalue));
         }
@@ -114,7 +114,7 @@ jvalue convertNPVariantToJValue(NPVariant value, JNIType jniType, const char* ja
     case int_type:
         {
             if (type == NPVariantType_Int32)
-                result.i = (jint)NPVARIANT_TO_INT32(value);
+                result.i = static_cast<jint>(NPVARIANT_TO_INT32(value));
             else
                 bzero(&result, sizeof(jvalue));
         }
@@ -123,9 +123,9 @@ jvalue convertNPVariantToJValue(NPVariant value, JNIType jniType, const char* ja
     case long_type:
         {
             if (type == NPVariantType_Int32)
-                result.j = (jlong)NPVARIANT_TO_INT32(value);
+                result.j = static_cast<jlong>(NPVARIANT_TO_INT32(value));
             else if (type == NPVariantType_Double)
-                result.j = (jlong)NPVARIANT_TO_DOUBLE(value);
+                result.j = static_cast<jlong>(NPVARIANT_TO_DOUBLE(value));
             else
                 bzero(&result, sizeof(jvalue));
         }
@@ -134,9 +134,9 @@ jvalue convertNPVariantToJValue(NPVariant value, JNIType jniType, const char* ja
     case float_type:
         {
             if (type == NPVariantType_Int32)
-                result.j = (jfloat)NPVARIANT_TO_INT32(value);
+                result.j = static_cast<jfloat>(NPVARIANT_TO_INT32(value));
             else if (type == NPVariantType_Double)
-                result.j = (jfloat)NPVARIANT_TO_DOUBLE(value);
+                result.j = static_cast<jfloat>(NPVARIANT_TO_DOUBLE(value));
             else
                 bzero(&result, sizeof(jvalue));
         }
@@ -145,9 +145,9 @@ jvalue convertNPVariantToJValue(NPVariant value, JNIType jniType, const char* ja
     case double_type:
         {
             if (type == NPVariantType_Int32)
-                result.j = (jdouble)NPVARIANT_TO_INT32(value);
+                result.j = static_cast<jdouble>(NPVARIANT_TO_INT32(value));
             else if (type == NPVariantType_Double)
-                result.j = (jdouble)NPVARIANT_TO_DOUBLE(value);
+                result.j = static_cast<jdouble>(NPVARIANT_TO_DOUBLE(value));
             else
                 bzero(&result, sizeof(jvalue));
         }
@@ -178,20 +178,18 @@ void convertJValueToNPVariant(jvalue value, JNIType jniType, const char* javaTyp
 
     case object_type:
         {
-            if (value.l != 0) {
-                if (strcmp(javaTypeName, "java.lang.String") == 0) {
-                    const char* v = getCharactersFromJString((jstring)value.l);
+            if (value.l) {
+                if (!strcmp(javaTypeName, "java.lang.String")) {
+                    const char* v = getCharactersFromJString(static_cast<jstring>(value.l));
                     // s is freed in NPN_ReleaseVariantValue (see npruntime.cpp)
                     const char* s = strdup(v);
-                    releaseCharactersForJString((jstring)value.l, v);
+                    releaseCharactersForJString(static_cast<jstring>(value.l), v);
                     STRINGZ_TO_NPVARIANT(s, *result);
-                } else {
+                } else
                     OBJECT_TO_NPVARIANT(JavaInstanceToNPObject(new JavaInstance(value.l)), *result);
-                }
             }
-            else {
+            else
                 VOID_TO_NPVARIANT(*result);
-            }
         }
         break;
 
