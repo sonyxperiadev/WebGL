@@ -26,12 +26,12 @@
 #define LOG_TAG "WebCore"
 
 #include "config.h"
-
 #include "MIMETypeRegistry.h"
+
 #include "PlatformString.h"
-#include "jni_utility.h"
 #include "WebCoreJni.h"
 
+#include <JNIUtility.h>
 #include <jni.h>
 #include <utils/Log.h>
 

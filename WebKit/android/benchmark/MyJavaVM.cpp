@@ -24,10 +24,9 @@
  */
 
 #include "config.h"
-
 #include "MyJavaVM.h"
-#include "jni_utility.h"
 
+#include <JNIUtility.h>
 #include <jni.h>
 
 static JNIEnv* s_env;

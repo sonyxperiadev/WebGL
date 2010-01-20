@@ -42,7 +42,6 @@
 #include "InspectorClientAndroid.h"
 #include "IntRect.h"
 #include "JavaSharedClient.h"
-#include "jni_utility.h"
 #include "Page.h"
 #include "PlatformGraphicsContext.h"
 #include "ResourceRequest.h"
@@ -51,21 +50,19 @@
 #include "SelectionController.h"
 #include "Settings.h"
 #include "SharedBuffer.h"
+#include "SkBitmap.h"
+#include "SkCanvas.h"
+#include "SkImageEncoder.h"
 #include "SubstituteData.h"
 #include "TimerClient.h"
 #include "TextEncoding.h"
 #include "WebCoreViewBridge.h"
 #include "WebFrameView.h"
 #include "WebViewCore.h"
-
-#include "SkBitmap.h"
-#include "SkCanvas.h"
-#include "SkImageEncoder.h"
-
 #include "benchmark/Intercept.h"
 #include "benchmark/MyJavaVM.h"
 
-#include "jni_utility.h"
+#include <JNIUtility.h>
 #include <jni.h>
 #include <utils/Log.h>
 

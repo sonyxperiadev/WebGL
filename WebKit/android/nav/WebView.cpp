@@ -25,9 +25,8 @@
 
 #define LOG_TAG "webviewglue"
 
-#include <config.h>
+#include "config.h"
 
-#include "android_graphics.h"
 #include "AndroidAnimation.h"
 #include "AndroidLog.h"
 #include "AtomicString.h"
@@ -55,13 +54,12 @@
 #include "SkPixelXorXfermode.h"
 #include "SkRect.h"
 #include "SkTime.h"
-#include "WebCoreJni.h"
-#include "WebViewCore.h"
-#include "jni_utility.h"
-
 #ifdef ANDROID_INSTRUMENT
 #include "TimeCounter.h"
 #endif
+#include "WebCoreJni.h"
+#include "WebViewCore.h"
+#include "android_graphics.h"
 
 #ifdef GET_NATIVE_VIEW
 #undef GET_NATIVE_VIEW
@@ -69,9 +67,10 @@
 
 #define GET_NATIVE_VIEW(env, obj) ((WebView*)env->GetIntField(obj, gWebViewField))
 
-#include <ui/KeycodeLabels.h>
+#include <JNIUtility.h>
 #include <JNIHelp.h>
 #include <jni.h>
+#include <ui/KeycodeLabels.h>
 
 namespace android {
 

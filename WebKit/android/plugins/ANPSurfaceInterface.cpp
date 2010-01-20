@@ -25,17 +25,17 @@
 
 // must include config.h first for webkit to fiddle with new/delete
 #include "config.h"
+#include "ANPSurface_npapi.h"
 
 #include "PluginView.h"
 #include "PluginWidgetAndroid.h"
 #include "SkANP.h"
+#include "android_graphics.h"
+#include <JNIUtility.h>
 #include <ui/Surface.h>
 #include <ui/Rect.h>
 #include <ui/Region.h>
-#include "jni_utility.h"
 #include <utils/RefBase.h>
-#include "android_graphics.h"
-#include "ANPSurface_npapi.h"
 
 using namespace android;
 

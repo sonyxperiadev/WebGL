@@ -26,7 +26,7 @@
 #ifndef _JNI_UTILITY_PRIVATE_H_
 #define _JNI_UTILITY_PRIVATE_H_
 
-#include "jni_utility.h"
+#include "JNIUtility.h"
 #include "npruntime.h"
 
 namespace JSC {

@@ -26,12 +26,12 @@
 #ifndef INTERCEPT_H
 #define INTERCEPT_H
 
-#include "jni_utility.h"
 #include "MyJavaVM.h"
 #include "PlatformString.h"
 #include "Timer.h"
 #include "WebCoreFrameBridge.h"
 #include "WebCoreResourceLoader.h"
+#include <JNIUtility.h>
 #include <wtf/Vector.h>
 
 namespace WebCore {

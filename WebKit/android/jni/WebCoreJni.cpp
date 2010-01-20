@@ -26,10 +26,10 @@
 #define LOG_TAG "webcoreglue"
 
 #include "config.h"
+#include "WebCoreJni.h"
 
 #include "NotImplemented.h"
-#include "WebCoreJni.h"
-#include "jni_utility.h"
+#include <JNIUtility.h>
 #include <jni.h>
 #include <utils/Log.h>
 

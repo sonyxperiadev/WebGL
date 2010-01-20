@@ -28,6 +28,7 @@
 
 #include "android_npapi.h"
 #include "IntPoint.h"
+#include "IntRect.h"
 #include "SkRect.h"
 #include <jni.h>
 

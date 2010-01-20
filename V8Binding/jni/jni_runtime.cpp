@@ -25,9 +25,9 @@
  */
 
 #include "config.h"
-
 #include "jni_runtime.h"
-#include "jni_utility.h"
+
+#include "JNIUtility.h"
 
 using namespace JSC::Bindings;
 
@@ -223,5 +223,3 @@ jmethodID JavaMethod::methodID (jobject obj) const
     }
     return _methodID;
 }
-
-

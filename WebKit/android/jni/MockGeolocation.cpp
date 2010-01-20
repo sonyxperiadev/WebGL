@@ -28,14 +28,14 @@
 
 #include "config.h"
 
-#include <JNIHelp.h>
 #include "Coordinates.h"
 #include "GeolocationServiceMock.h"
 #include "Geoposition.h"
 #include "JavaSharedClient.h"
-#include "jni_utility.h"
 #include "PositionError.h"
 #include "WebCoreJni.h"
+#include <JNIHelp.h>
+#include <JNIUtility.h>
 #include <wtf/CurrentTime.h>
 
 using namespace WebCore;

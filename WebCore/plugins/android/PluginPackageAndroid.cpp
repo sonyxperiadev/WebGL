@@ -25,23 +25,22 @@
  */
 
 #include "config.h"
-#include "PluginDatabase.h"
 #include "PluginPackage.h"
 
 #ifdef ANDROID_PLUGINS
 
-#include "Timer.h"
-#include "PlatformString.h"
-#include "PluginMainThreadScheduler.h"
 #include "CString.h"
-#include "jni_utility.h"
-#include "npruntime_impl.h"
-#include "npfunctions.h"
-#include <dlfcn.h>
-#include <errno.h>
-
+#include "JNIUtility.h"
+#include "PlatformString.h"
+#include "PluginDatabase.h"
 #include "PluginDebug.h"
 #include "PluginDebugAndroid.h"
+#include "PluginMainThreadScheduler.h"
+#include "Timer.h"
+#include "npfunctions.h"
+#include "npruntime_impl.h"
+#include <dlfcn.h>
+#include <errno.h>
 
 #define LOG_TAG "WebKit"
 

@@ -24,7 +24,11 @@
  */
 
 #include "config.h"
-#include "android_graphics.h"
+#include "PluginWidgetAndroid.h"
+
+#if ENABLE(TOUCH_EVENTS)
+#include "ChromeClient.h"
+#endif
 #include "Document.h"
 #include "Element.h"
 #include "Frame.h"
@@ -37,11 +41,8 @@
 #include "SkFlipPixelRef.h"
 #include "SkString.h"
 #include "WebViewCore.h"
-#include "jni_utility.h"
-
-#if ENABLE(TOUCH_EVENTS)
-#include "ChromeClient.h"
-#endif
+#include "android_graphics.h"
+#include <JNIUtility.h>
 
 #define DEBUG_VISIBLE_RECTS 1 // temporary debug printfs and fixes
 

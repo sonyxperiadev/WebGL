@@ -25,7 +25,7 @@
 
 #define LOG_TAG "webcoreglue"
 
-#include <config.h>
+#include "config.h"
 #include "WebViewCore.h"
 
 #include "AtomicString.h"
@@ -65,7 +65,6 @@
 #include "HTMLSelectElement.h"
 #include "HTMLTextAreaElement.h"
 #include "InlineTextBox.h"
-#include <JNIHelp.h>
 #include "KeyboardCodes.h"
 #include "Navigator.h"
 #include "Node.h"
@@ -102,8 +101,10 @@
 #include "WebFrameView.h"
 #include "HistoryItem.h"
 #include "android_graphics.h"
+
+#include <JNIHelp.h>
+#include <JNIUtility.h>
 #include <ui/KeycodeLabels.h>
-#include "jni_utility.h"
 #include <wtf/CurrentTime.h>
 
 #if USE(V8)

@@ -25,12 +25,8 @@
 
 #define LOG_TAG "webcoreglue"
 
-#include <config.h>
-#include <wtf/Platform.h>
-
-#include "jni_utility.h"
+#include "config.h"
 #include "WebCoreResourceLoader.h"
-#include "SkUtils.h"
 
 #include "CString.h"
 #include "ResourceError.h"
@@ -38,16 +34,18 @@
 #include "ResourceHandleClient.h"
 #include "ResourceHandleInternal.h"
 #include "ResourceResponse.h"
-#include "WebCoreJni.h"
-
+#include "SkUtils.h"
 #ifdef ANDROID_INSTRUMENT
 #include "TimeCounter.h"
 #endif
+#include "WebCoreJni.h"
 
-#include <utils/misc.h>
 #include <JNIHelp.h>
+#include <JNIUtility.h>
 #include <SkTypes.h>
 #include <stdlib.h>
+#include <utils/misc.h>
+#include <wtf/Platform.h>
 
 namespace android {
   

@@ -25,9 +25,7 @@
 
 #define LOG_TAG "webcoreglue"
 
-#include <config.h>
-#include <wtf/Platform.h>
-#include <wtf/StdLibExtras.h>
+#include "config.h"
 
 #include "AtomicString.h"
 #include "Cache.h"
@@ -42,17 +40,18 @@
 #include "PluginDatabase.h"
 #include "Timer.h"
 #include "TimerClient.h"
-#include "jni_utility.h"
-#include "WebCoreJni.h"
-
 #ifdef ANDROID_INSTRUMENT
 #include "TimeCounter.h"
 #endif
+#include "WebCoreJni.h"
 
-#include <jni.h>
 #include <JNIHelp.h>
+#include <JNIUtility.h>
 #include <SkUtils.h>
+#include <jni.h>
 #include <utils/misc.h>
+#include <wtf/Platform.h>
+#include <wtf/StdLibExtras.h>
 
 namespace android {
 

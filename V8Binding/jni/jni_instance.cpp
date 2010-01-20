@@ -27,11 +27,11 @@
 #define LOG_TAG "v8binding"
 
 #include "config.h"
-
-#include "jni_class.h"
 #include "jni_instance.h"
+
+#include "JNIUtility.h"
+#include "jni_class.h"
 #include "jni_runtime.h"
-#include "jni_utility.h"
 
 #include <assert.h>
 #include <utils/Log.h>

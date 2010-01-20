@@ -24,19 +24,19 @@
  */
 
 #include "config.h"
+#include "MediaPlayerPrivateAndroid.h"
 
 #if ENABLE(VIDEO)
 
 #include "GraphicsContext.h"
-#include "MediaPlayerPrivateAndroid.h"
 #include "SkiaUtils.h"
 #include "TimeRanges.h"
 #include "WebCoreJni.h"
 #include "WebViewCore.h"
-#include "jni_utility.h"
 
 #include <GraphicsJNI.h>
 #include <JNIHelp.h>
+#include <JNIUtility.h>
 #include <SkBitmap.h>
 
 using namespace android;

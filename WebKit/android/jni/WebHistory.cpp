@@ -25,10 +25,7 @@
 
 #define LOG_TAG "webhistory"
 
-#include <config.h>
-#include <wtf/OwnPtr.h>
-#include <wtf/Platform.h>
-
+#include "config.h"
 #include "WebHistory.h"
 
 #include "BackForwardList.h"
@@ -45,11 +42,13 @@
 #include "WebCoreFrameBridge.h"
 #include "WebCoreJni.h"
 #include "WebIconDatabase.h"
-#include "jni_utility.h"
 
 #include <JNIHelp.h>
+#include "JNIUtility.h"
 #include <SkUtils.h>
 #include <utils/misc.h>
+#include <wtf/OwnPtr.h>
+#include <wtf/Platform.h>
 
 namespace android {
 

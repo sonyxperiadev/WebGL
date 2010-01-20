@@ -25,12 +25,12 @@
 
 
 #include "config.h"
-
 #include "jni_npobject.h"
+
+#include "JNIUtility.h"
 #include "jni_class.h"
 #include "jni_instance.h"
 #include "jni_runtime.h"
-#include "jni_utility.h"
 // This source file should be in bridge/jni, so it's OK to use the private
 // NPAPI header from here.
 #include "npruntime_impl.h"

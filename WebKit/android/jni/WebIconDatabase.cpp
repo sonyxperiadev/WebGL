@@ -25,26 +25,25 @@
 
 #define LOG_TAG "favicons"
 
-#include <config.h>
-#include <wtf/Platform.h>
-
+#include "config.h"
 #include "WebIconDatabase.h"
 
+#include "GraphicsJNI.h"
 #include "IconDatabase.h"
 #include "Image.h"
 #include "IntRect.h"
 #include "JavaSharedClient.h"
-#include "jni_utility.h"
 #include "KURL.h"
 #include "WebCoreJni.h"
 
-#include <pthread.h>
-#include "GraphicsJNI.h"
+#include <JNIHelp.h>
+#include <JNIUtility.h>
 #include <SkBitmap.h>
 #include <SkImageDecoder.h>
 #include <SkTemplates.h>
+#include <pthread.h>
 #include <utils/misc.h>
-#include <JNIHelp.h>
+#include <wtf/Platform.h>
 
 namespace android {
 

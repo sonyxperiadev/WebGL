@@ -25,7 +25,7 @@
 
 #define LOG_TAG "webcoreglue"
 
-#include <config.h>
+#include "config.h"
 
 #include <wtf/Platform.h>
 #include <wtf/CurrentTime.h>
@@ -99,7 +99,7 @@
 #include <runtime_object.h>
 #endif  // USE(JSC)
 
-#include <jni_utility.h>
+#include <JNIUtility.h>
 #include "jni.h"
 
 #if USE(JSC)

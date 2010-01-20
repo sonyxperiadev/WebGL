@@ -25,9 +25,9 @@
  */
 
 #include "config.h"
-
 #include "jni_class.h"
-#include "jni_utility.h"
+
+#include "JNIUtility.h"
 #include "jni_runtime.h"
 
 using namespace JSC::Bindings;

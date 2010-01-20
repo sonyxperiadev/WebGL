@@ -27,7 +27,7 @@
 #ifndef _JNI_RUNTIME_H_
 #define _JNI_RUNTIME_H_
 
-#include "jni_utility.h"
+#include "JNIUtility.h"
 #include "jni_instance.h"
 
 #include "CString.h"
