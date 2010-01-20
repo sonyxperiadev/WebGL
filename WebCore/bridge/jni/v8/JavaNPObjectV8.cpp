@@ -153,7 +153,7 @@ bool JavaNPObject_GetProperty(NPObject* obj, NPIdentifier identifier, NPVariant*
 
     jvalue value = getJNIField(instance->javaInstance(),
                                field->getJNIType(),
-                               field->name(),
+                               field->name().UTF8String(),
                                field->type());
 
     convertJValueToNPVariant(value, field->getJNIType(), field->type(), result);

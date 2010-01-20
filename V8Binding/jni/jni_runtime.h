@@ -30,7 +30,9 @@
 #include "JNIUtility.h"
 #include "JavaInstanceV8.h"
 
-#include "CString.h"
+#if USE(V8)
+#include "JavaStringV8.h"
+#endif
 
 namespace JSC
 {
@@ -41,38 +43,28 @@ namespace Bindings
 class JavaString
 {
 public:
-    JavaString() { }
-
-    void _commonInit (JNIEnv *e, jstring s)
+    JavaString()
     {
-        int size = e->GetStringLength(s);
-        const char* cs = getCharactersFromJStringInEnv(e, s);
-        {
-            _utf8String = WebCore::CString(cs, size);
-        }
-        releaseCharactersForJStringInEnv (e, s, cs);
+        m_impl.init();
     }
-    
-    JavaString (JNIEnv *e, jstring s) {
-        _commonInit (e, s);
+
+    JavaString(JNIEnv* e, jstring s)
+    {
+        m_impl.init(e, s);
     }
-    
-    JavaString (jstring s) {
-        _commonInit (getJNIEnv(), s);
+
+    JavaString(jstring s)
+    {
+        m_impl.init(getJNIEnv(), s);
     }
-    
-    ~JavaString() { }
-    
-    int length() const { return _utf8String.length(); }
-    
-    const char* UTF8String() const {
-        return _utf8String.data();
-    }
+
+    const char* UTF8String() const { return m_impl.UTF8String(); }
+    const jchar* uchars() const { return m_impl.uchars(); }
+    int length() const { return m_impl.length(); }
 
 private:
-    WebCore::CString _utf8String;
+    JavaStringImpl m_impl;
 };
-
 
 class JavaParameter
 {
@@ -95,7 +87,7 @@ class JavaField
 public:
     JavaField (JNIEnv *env, jobject aField);
 
-    const char* name() const { return _name.UTF8String(); }
+    const JavaString& name() const { return _name; }
     const char* type() const { return _type.UTF8String(); }
 
     JNIType getJNIType() const { return _JNIType; }
@@ -114,7 +106,7 @@ public:
     JavaMethod(JNIEnv* env, jobject aMethod);
     ~JavaMethod();
 
-    const char* name() const { return _name.UTF8String(); }
+    const JavaString& name() const { return _name; }
     const char* returnType() const { return _returnType.UTF8String(); };
     JavaParameter* parameterAt(int i) const { return &_parameters[i]; };
     int numParameters() const { return _numParameters; };
