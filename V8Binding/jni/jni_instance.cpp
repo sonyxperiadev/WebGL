@@ -30,7 +30,7 @@
 #include "jni_instance.h"
 
 #include "JNIUtility.h"
-#include "jni_class.h"
+#include "JavaClassV8.h"
 #include "jni_runtime.h"
 
 #include <assert.h>

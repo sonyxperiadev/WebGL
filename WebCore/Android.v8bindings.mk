@@ -172,4 +172,5 @@ LOCAL_SRC_FILES += \
 
 LOCAL_SRC_FILES += \
 	bridge/jni/JNIUtility.cpp \
+	bridge/jni/v8/JavaClassV8.cpp \
 	bridge/jni/v8/jni_utility_private.cpp

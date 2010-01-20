@@ -1,31 +1,31 @@
 /*
- * Copyright (C) 2003 Apple Computer, Inc.  All rights reserved.
- * Copyright 2009, The Android Open Source Project
+ * Copyright (C) 2010 Apple Computer, Inc.  All rights reserved.
+ * Copyright 2010, The Android Open Source Project
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
- * 1. Redistributions of source code must retain the above copyright
+ *  * Redistributions of source code must retain the above copyright
  *    notice, this list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright
+ *  * Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
  * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #include "config.h"
-#include "jni_class.h"
+#include "JavaClassV8.h"
 
 #include "JNIUtility.h"
 #include "jni_runtime.h"
@@ -35,28 +35,28 @@ using namespace JSC::Bindings;
 JavaClass::JavaClass(jobject anInstance)
 {
     jobject aClass = callJNIMethod<jobject>(anInstance, "getClass", "()Ljava/lang/Class;");
-    
+
     if (!aClass) {
         fprintf(stderr, "%s:  unable to call getClass on instance %p\n", __PRETTY_FUNCTION__, anInstance);
         return;
     }
-    
+
     jstring className = (jstring)callJNIMethod<jobject>(aClass, "getName", "()Ljava/lang/String;");
-    const char *classNameC = getCharactersFromJString(className);
-    _name = strdup(classNameC);
+    const char* classNameC = getCharactersFromJString(className);
+    m_name = strdup(classNameC);
     releaseCharactersForJString(className, classNameC);
 
     int i;
-    JNIEnv *env = getJNIEnv();
+    JNIEnv* env = getJNIEnv();
 
     // Get the fields
     jarray fields = (jarray)callJNIMethod<jobject>(aClass, "getFields", "()[Ljava/lang/reflect/Field;");
-    int numFields = env->GetArrayLength(fields);    
+    int numFields = env->GetArrayLength(fields);
     for (i = 0; i < numFields; i++) {
         jobject aJField = env->GetObjectArrayElement((jobjectArray)fields, i);
-        JavaField *aField = new JavaField(env, aJField); // deleted in the JavaClass destructor
+        JavaField* aField = new JavaField(env, aJField); // deleted in the JavaClass destructor
         {
-            _fields.set(aField->name(), aField);
+            m_fields.set(aField->name(), aField);
         }
         env->DeleteLocalRef(aJField);
     }
@@ -66,42 +66,43 @@ JavaClass::JavaClass(jobject anInstance)
     int numMethods = env->GetArrayLength(methods);
     for (i = 0; i < numMethods; i++) {
         jobject aJMethod = env->GetObjectArrayElement((jobjectArray)methods, i);
-        JavaMethod *aMethod = new JavaMethod(env, aJMethod); // deleted in the JavaClass destructor
+        JavaMethod* aMethod = new JavaMethod(env, aJMethod); // deleted in the JavaClass destructor
         MethodList* methodList;
         {
-            methodList = _methods.get(aMethod->name());
+            methodList = m_methods.get(aMethod->name());
             if (!methodList) {
                 methodList = new MethodList();
-                _methods.set(aMethod->name(), methodList);
+                m_methods.set(aMethod->name(), methodList);
             }
         }
         methodList->append(aMethod);
         env->DeleteLocalRef(aJMethod);
-    }    
+    }
     env->DeleteLocalRef(fields);
     env->DeleteLocalRef(methods);
     env->DeleteLocalRef(aClass);
 }
 
-JavaClass::~JavaClass() {
-    free((void *)_name);
+JavaClass::~JavaClass()
+{
+    free((void*)m_name);
 
-    deleteAllValues(_fields);
-    _fields.clear();
+    deleteAllValues(m_fields);
+    m_fields.clear();
 
-    MethodListMap::const_iterator end = _methods.end();
-    for (MethodListMap::const_iterator it = _methods.begin(); it != end; ++it) {
+    MethodListMap::const_iterator end = m_methods.end();
+    for (MethodListMap::const_iterator it = m_methods.begin(); it != end; ++it) {
         const MethodList* methodList = it->second;
         deleteAllValues(*methodList);
         delete methodList;
     }
-    _methods.clear();
+    m_methods.clear();
 }
 
 MethodList JavaClass::methodsNamed(const char* name) const
 {
-    MethodList *methodList = _methods.get(name);
-    
+    MethodList* methodList = m_methods.get(name);
+
     if (methodList)
         return *methodList;
     return MethodList();
@@ -109,5 +110,5 @@ MethodList JavaClass::methodsNamed(const char* name) const
 
 JavaField* JavaClass::fieldNamed(const char* name) const
 {
-    return _fields.get(name);
+    return m_fields.get(name);
 }

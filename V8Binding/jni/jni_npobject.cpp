@@ -28,7 +28,7 @@
 #include "jni_npobject.h"
 
 #include "JNIUtility.h"
-#include "jni_class.h"
+#include "JavaClassV8.h"
 #include "jni_instance.h"
 #include "jni_runtime.h"
 // This source file should be in bridge/jni, so it's OK to use the private

@@ -185,7 +185,6 @@ BINDING_C_INCLUDES += \
 	$(LOCAL_PATH)/bridge/jni \
 	$(LOCAL_PATH)/bridge/jni/v8
 JNI_SRC_FILES := \
-	jni_class.cpp \
 	jni_instance.cpp \
 	jni_npobject.cpp \
 	jni_runtime.cpp
