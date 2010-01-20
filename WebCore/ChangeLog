@@ -29,6 +29,18 @@
 
         Reviewed by David Levin.
 
+        Fixes style in WebCore/bridge/JNIUtility
+        https://bugs.webkit.org/show_bug.cgi?id=33870
+
+        No new tests, style fixes only.
+
+        * bridge/jni/JNIUtility.cpp:
+        * bridge/jni/JNIUtility.h:
+
+2010-01-19  Steve Block  <steveblock@google.com>
+
+        Reviewed by David Levin.
+
         Renames jni_utility and jni_utility_private to JNIUtility and JNIUtilityPrivate
         https://bugs.webkit.org/show_bug.cgi?id=33843
 
