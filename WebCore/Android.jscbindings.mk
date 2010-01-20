@@ -181,6 +181,7 @@ LOCAL_SRC_FILES += \
 	\
 	bindings/ScriptControllerBase.cpp \
 	\
+	bridge/Bridge.cpp \
 	bridge/IdentifierRep.cpp \
 	bridge/NP_jsobject.cpp \
 	bridge/c/c_class.cpp \
@@ -193,7 +194,6 @@ LOCAL_SRC_FILES += \
 	bridge/jni/jsc/JavaInstanceJSC.cpp \
 	bridge/jni/jsc/jni_utility_private.cpp \
 	bridge/npruntime.cpp \
-	bridge/runtime.cpp \
 	bridge/runtime_array.cpp \
 	bridge/runtime_method.cpp \
 	bridge/runtime_object.cpp \
