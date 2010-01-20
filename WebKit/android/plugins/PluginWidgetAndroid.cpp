@@ -48,7 +48,7 @@ PluginWidgetAndroid::PluginWidgetAndroid(WebCore::PluginView* view)
     m_eventFlags = 0;
     m_pluginWindow = NULL;
     m_requestedVisibleRectCount = 0;
-    m_requestedFrameRect.setEmpty();
+    m_requestedDocRect.setEmpty();
     m_visibleDocRect.setEmpty();
     m_pluginBounds.setEmpty();
     m_hasFocus = false;
@@ -106,12 +106,10 @@ void PluginWidgetAndroid::setWindow(NPWindow* window, bool isTransparent) {
 
     if (m_drawingModel == kSurface_ANPDrawingModel) {
 
-        IntPoint docPoint = frameToDocumentCoords(window->x, window->y);
-
         // if the surface exists check for changes and update accordingly
         if (m_embeddedView && m_pluginBounds != oldPluginBounds) {
 
-            m_core->updateSurface(m_embeddedView, docPoint.x(), docPoint.y(),
+            m_core->updateSurface(m_embeddedView, window->x, window->y,
                                   window->width, window->height);
 
         // if the surface does not exist then create a new surface
@@ -120,13 +118,12 @@ void PluginWidgetAndroid::setWindow(NPWindow* window, bool isTransparent) {
             WebCore::PluginPackage* pkg = m_pluginView->plugin();
             NPP instance = m_pluginView->instance();
 
-
             jobject pluginSurface;
             pkg->pluginFuncs()->getvalue(instance, kJavaSurface_ANPGetValue,
                                          static_cast<void*>(&pluginSurface));
 
             jobject tempObj = m_core->addSurface(pluginSurface,
-                                                 docPoint.x(), docPoint.y(),
+                                                 window->x, window->y,
                                                  window->width, window->height);
             if (tempObj) {
                 JNIEnv* env = JSC::Bindings::getJNIEnv();
@@ -134,7 +131,7 @@ void PluginWidgetAndroid::setWindow(NPWindow* window, bool isTransparent) {
             }
         }
         if (m_isFullScreen && m_pluginBounds != oldPluginBounds) {
-            m_core->updateFullScreenPlugin(docPoint.x(), docPoint.y(),
+            m_core->updateFullScreenPlugin(window->x, window->y,
                     window->width, window->height);
         }
     } else {
@@ -149,14 +146,7 @@ bool PluginWidgetAndroid::setDrawingModel(ANPDrawingModel model) {
     return true;
 }
 
-void PluginWidgetAndroid::localToDocumentCoords(SkIRect* rect) const {
-    if (m_pluginWindow) {
-        IntPoint pluginDocCoords = frameToDocumentCoords(m_pluginWindow->x,
-                                                         m_pluginWindow->y);
-        rect->offset(pluginDocCoords.x(), pluginDocCoords.y());
-    }
-}
-
+// returned rect is in the page coordinate
 bool PluginWidgetAndroid::isDirty(SkIRect* rect) const {
     // nothing to report if we haven't had setWindow() called yet
     if (NULL == m_flipPixelRef) {
@@ -169,6 +159,7 @@ bool PluginWidgetAndroid::isDirty(SkIRect* rect) const {
     } else {
         if (rect) {
             *rect = dirty.getBounds();
+            rect->offset(m_pluginWindow->x, m_pluginWindow->y);
         }
         return true;
     }
@@ -216,8 +207,7 @@ void PluginWidgetAndroid::draw(SkCanvas* canvas) {
                 if (canvas && m_pluginWindow) {
                     SkBitmap bm(bitmap);
                     bm.setPixelRef(m_flipPixelRef);
-                    canvas->drawBitmap(bm, SkIntToScalar(m_pluginWindow->x),
-                                           SkIntToScalar(m_pluginWindow->y), NULL);
+                    canvas->drawBitmap(bm, 0, 0);
                 }
             }
             break;
@@ -290,7 +280,7 @@ void PluginWidgetAndroid::setVisibleScreen(const ANPRectI& visibleDocRect, float
     int newScreenH = m_visibleDocRect.height();
 
     if (oldScreenW != newScreenW || oldScreenH != newScreenH)
-        computeVisibleFrameRect();
+        computeVisibleDocRect();
 
     bool visible = SkIRect::Intersects(m_visibleDocRect, m_pluginBounds);
     if(m_visible != visible) {
@@ -335,10 +325,10 @@ void PluginWidgetAndroid::setVisibleRects(const ANPRectI rects[], int32_t count)
         }
     }
 #endif
-    computeVisibleFrameRect();
+    computeVisibleDocRect();
 }
 
-void PluginWidgetAndroid::computeVisibleFrameRect() {
+void PluginWidgetAndroid::computeVisibleDocRect() {
 
     // ensure the visibleDocRect has been set (i.e. not equal to zero)
     if (m_visibleDocRect.isEmpty() || !m_pluginWindow)
@@ -352,7 +342,7 @@ void PluginWidgetAndroid::computeVisibleFrameRect() {
 
         ANPRectI* rect = &m_requestedVisibleRect[counter];
 
-        // create skia rect for easier manipulation and convert it to frame coordinates
+        // create skia rect for easier manipulation and convert it to page coordinates
         SkIRect pluginRect;
         pluginRect.set(rect->left, rect->top, rect->right, rect->bottom);
         pluginRect.offset(m_pluginWindow->x, m_pluginWindow->y);
@@ -384,35 +374,27 @@ void PluginWidgetAndroid::computeVisibleFrameRect() {
         visibleRect = pluginRect;
     }
 
-    m_requestedFrameRect = visibleRect;
-    scrollToVisibleFrameRect();
+    m_requestedDocRect = visibleRect;
+    scrollToVisibleDocRect();
 }
 
-void PluginWidgetAndroid::scrollToVisibleFrameRect() {
+void PluginWidgetAndroid::scrollToVisibleDocRect() {
 
-    if (!m_hasFocus || m_requestedFrameRect.isEmpty() || m_visibleDocRect.isEmpty()) {
+    if (!m_hasFocus || m_requestedDocRect.isEmpty() || m_visibleDocRect.isEmpty()) {
 #if DEBUG_VISIBLE_RECTS
-        SkDebugf("%s call m_hasFocus=%d m_requestedFrameRect.isEmpty()=%d"
+        SkDebugf("%s call m_hasFocus=%d m_requestedDocRect.isEmpty()=%d"
             " m_visibleDocRect.isEmpty()=%d", __FUNCTION__, m_hasFocus,
-            m_requestedFrameRect.isEmpty(), m_visibleDocRect.isEmpty());
+            m_requestedDocRect.isEmpty(), m_visibleDocRect.isEmpty());
 #endif
         return;
     }
-    // if the entire rect is already visible then we don't need to scroll, which
-    // requires converting the m_requestedFrameRect from frame to doc coordinates
-    IntPoint pluginDocPoint = frameToDocumentCoords(m_requestedFrameRect.fLeft,
-                                                    m_requestedFrameRect.fTop);
-    SkIRect requestedDocRect;
-    requestedDocRect.set(pluginDocPoint.x(), pluginDocPoint.y(),
-                         pluginDocPoint.x() + m_requestedFrameRect.width(),
-                         pluginDocPoint.y() + m_requestedFrameRect.height());
-
-    if (m_visibleDocRect.contains(requestedDocRect))
+    // if the entire rect is already visible then we don't need to scroll
+    if (m_visibleDocRect.contains(m_requestedDocRect))
         return;
 
     // find the center of the visibleRect in document coordinates
-    int rectCenterX = requestedDocRect.fLeft + requestedDocRect.width()/2;
-    int rectCenterY = requestedDocRect.fTop + requestedDocRect.height()/2;
+    int rectCenterX = m_requestedDocRect.fLeft + m_requestedDocRect.width()/2;
+    int rectCenterY = m_requestedDocRect.fTop + m_requestedDocRect.height()/2;
 
     // find document coordinates for center of the visible screen
     int screenCenterX = m_visibleDocRect.fLeft + m_visibleDocRect.width()/2;
@@ -430,24 +412,6 @@ void PluginWidgetAndroid::scrollToVisibleFrameRect() {
     core->scrollBy(deltaX, deltaY, true);
 }
 
-IntPoint PluginWidgetAndroid::frameToDocumentCoords(int frameX, int frameY) const {
-    IntPoint docPoint = IntPoint(frameX, frameY);
-
-    const ScrollView* currentScrollView = m_pluginView->parent();
-    if (currentScrollView) {
-        const ScrollView* parentScrollView = currentScrollView->parent();
-        while (parentScrollView) {
-
-            docPoint.move(currentScrollView->x(), currentScrollView->y());
-
-            currentScrollView = parentScrollView;
-            parentScrollView = parentScrollView->parent();
-        }
-    }
-
-    return docPoint;
-}
-
 void PluginWidgetAndroid::requestFullScreen() {
     if (m_isFullScreen || !m_embeddedView) {
         return;
@@ -463,9 +427,8 @@ void PluginWidgetAndroid::requestFullScreen() {
     m_core->destroySurface(m_embeddedView);
 
     // add the full screen view
-    IntPoint docPoint = frameToDocumentCoords(m_pluginWindow->x, m_pluginWindow->y);
     m_core->showFullScreenPlugin(m_embeddedView, m_pluginView->instance(),
-            docPoint.x(), docPoint.y(), m_pluginWindow->width,
+            m_pluginWindow->x, m_pluginWindow->y, m_pluginWindow->width,
             m_pluginWindow->height);
     m_isFullScreen = true;
 }
@@ -481,8 +444,7 @@ void PluginWidgetAndroid::exitFullScreen(bool pluginInitiated) {
     }
 
     // add the embedded view back
-    IntPoint docPoint = frameToDocumentCoords(m_pluginWindow->x, m_pluginWindow->y);
-    m_core->updateSurface(m_embeddedView, docPoint.x(), docPoint.y(),
+    m_core->updateSurface(m_embeddedView, m_pluginWindow->x, m_pluginWindow->y,
                           m_pluginWindow->width, m_pluginWindow->height);
 
     // send event to notify plugin of full screen change
