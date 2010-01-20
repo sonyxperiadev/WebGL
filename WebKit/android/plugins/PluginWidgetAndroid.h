@@ -74,14 +74,8 @@ struct PluginWidgetAndroid {
      */
     bool setDrawingModel(ANPDrawingModel);
 
-    /*  Utility method to convert from local (plugin) coordinates to document
-        coordinates. Needed (for instance) to convert the dirty rectangle into
-        document coordinates to inturn inval the screen.
-     */
-    void localToDocumentCoords(SkIRect*) const;
-
-    /*  Returns true (and optionally updates rect with the dirty bounds) if
-        the plugin has invalidate us.
+    /*  Returns true (and optionally updates rect with the dirty bounds in the
+        page coordinate) if the plugin has invalidate us.
      */
     bool isDirty(SkIRect* dirtyBounds = NULL) const;
     /*  Called by PluginView to invalidate a portion of the plugin area (in
@@ -142,9 +136,8 @@ struct PluginWidgetAndroid {
     bool inFullScreen() { return m_isFullScreen; }
 
 private:
-    WebCore::IntPoint frameToDocumentCoords(int frameX, int frameY) const;
-    void computeVisibleFrameRect();
-    void scrollToVisibleFrameRect();
+    void computeVisibleDocRect();
+    void scrollToVisibleDocRect();
 
     WebCore::PluginView*    m_pluginView;
     android::WebViewCore*   m_core;
@@ -152,9 +145,9 @@ private:
     ANPDrawingModel         m_drawingModel;
     ANPEventFlags           m_eventFlags;
     NPWindow*               m_pluginWindow;
-    SkIRect                 m_pluginBounds;
-    SkIRect                 m_visibleDocRect;
-    SkIRect                 m_requestedFrameRect;
+    SkIRect                 m_pluginBounds; // relative to the page
+    SkIRect                 m_visibleDocRect; // relative to the page
+    SkIRect                 m_requestedDocRect; // relative to the page
     bool                    m_hasFocus;
     bool                    m_isFullScreen;
     bool                    m_visible;
