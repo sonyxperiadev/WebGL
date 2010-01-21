@@ -71,7 +71,8 @@ PluginWidgetAndroid::~PluginWidgetAndroid() {
         m_core->removePlugin(this);
         if (m_isFullScreen) {
             exitFullScreen(true);
-        } else if (m_embeddedView) {
+        }
+        if (m_embeddedView) {
             m_core->destroySurface(m_embeddedView);
         }
     }
