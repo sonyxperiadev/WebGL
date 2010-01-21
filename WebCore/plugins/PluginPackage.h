@@ -35,9 +35,6 @@
 #include "npruntime_internal.h"
 #include <wtf/HashMap.h>
 #include <wtf/RefCounted.h>
-#if defined(ANDROID_PLUGINS)
-#include <nativehelper/jni.h>
-#endif
 
 #if PLATFORM(SYMBIAN)
 class QPluginLoader;
@@ -123,11 +120,6 @@ namespace WebCore {
         Timer<PluginPackage> m_freeLibraryTimer;
 
         PluginQuirkSet m_quirks;
-
-#if defined(ANDROID_PLUGINS)
-        // Java Plugin object.
-        jobject m_pluginObject;
-#endif
     };
 
     struct PluginPackageHash {

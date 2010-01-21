@@ -187,45 +187,6 @@ static void initializeExtraBrowserFuncs(NPNetscapeFuncs *funcs)
     funcs->enumerate = _NPN_Enumerate;
 }
 
-static jobject createPluginObject(const char *name,
-                                  const char *path,
-                                  const char *fileName,
-                                  const char *description)
-{
-    JNIEnv *env = JSC::Bindings::getJNIEnv();
-    // Create a Java "class Plugin" object instance
-    jclass pluginClass = env->FindClass("android/webkit/Plugin");
-    if(!pluginClass) {
-        PLUGIN_LOG("Couldn't find class android.webkit.Plugin\n");
-        return 0;
-    }
-    // Get Plugin(String, String, String, String, Context)
-    jmethodID pluginConstructor = env->GetMethodID(
-            pluginClass,
-            "<init>",
-            "(Ljava/lang/String;"
-            "Ljava/lang/String;"
-            "Ljava/lang/String;"
-            "Ljava/lang/String;)V");
-    if(!pluginConstructor) {
-        PLUGIN_LOG("Couldn't get android.webkit.Plugin constructor\n");
-        return 0;
-    }
-    // Make Java strings of name, path, fileName, description
-    jstring javaName = env->NewStringUTF(name);
-    jstring javaPath = env->NewStringUTF(path);
-    jstring javaFileName = env->NewStringUTF(fileName);
-    jstring javaDescription = env->NewStringUTF(description);
-    // Make a plugin instance
-    jobject pluginObject = env->NewObject(pluginClass,
-                                          pluginConstructor,
-                                          javaName,
-                                          javaPath,
-                                          javaFileName,
-                                          javaDescription);
-    return pluginObject;
-}
-
 bool PluginPackage::load()
 {
     PLUGIN_LOG("tid:%d isActive:%d isLoaded:%d loadCount:%d\n",
@@ -283,8 +244,7 @@ bool PluginPackage::load()
     m_pluginFuncs.size = sizeof(m_pluginFuncs);
     if(NP_Initialize(&m_browserFuncs,
                      &m_pluginFuncs,
-                     JSC::Bindings::getJNIEnv(),
-                     m_pluginObject) != NPERR_NO_ERROR) {
+                     JSC::Bindings::getJNIEnv()) != NPERR_NO_ERROR) {
         PLUGIN_LOG("Couldn't initialize plugin\n");
         return false;
     }
@@ -391,22 +351,6 @@ bool PluginPackage::fetchInfo()
         if(!description.isEmpty())
             m_mimeToDescriptions.set(mimeType, description);
     }
-
-    // Create a new Java Plugin object, this object is an instance of
-    // android.os.WebView.Plugin
-    CString path = m_path.utf8();
-    CString filename = m_fileName.utf8();
-    jobject pluginObject = createPluginObject(name,
-                                              path.data(),
-                                              filename.data(),
-                                              description);
-    if(!pluginObject) {
-        PLUGIN_LOG("Couldn't create Java Plugin\n");
-        return false;
-    }
-
-    // Retain the Java Plugin object
-    m_pluginObject = JSC::Bindings::getJNIEnv()->NewGlobalRef(pluginObject);
 
     PLUGIN_LOG("Fetch Info Loaded plugin details ok \"%s\"\n",
             m_path.utf8().data());
