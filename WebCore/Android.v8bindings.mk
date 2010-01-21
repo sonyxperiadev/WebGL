@@ -31,6 +31,7 @@ BINDING_C_INCLUDES := \
 	$(LOCAL_PATH)/bindings/v8 \
 	$(LOCAL_PATH)/bindings/v8/custom \
 	$(LOCAL_PATH)/bridge \
+	$(LOCAL_PATH)/bridge/jsc \
 	\
 	$(base_intermediates)/WebCore/bindings \
 	$(base_intermediates)/WebCore/svg \
