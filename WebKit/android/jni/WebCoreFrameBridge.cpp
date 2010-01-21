@@ -66,7 +66,7 @@
 #include "JSDOMWindow.h"
 #include <runtime/JSLock.h>
 #elif USE(V8)
-#include "jni_npobject.h"
+#include "JavaNPObjectV8.h"
 #include "JavaInstanceV8.h"
 #endif  // USE(JSC)
 

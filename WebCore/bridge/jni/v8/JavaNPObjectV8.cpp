@@ -25,22 +25,22 @@
 
 
 #include "config.h"
-#include "jni_npobject.h"
+#include "JavaNPObjectV8.h"
 
 #include "JNIUtility.h"
 #include "JavaClassV8.h"
 #include "JavaInstanceV8.h"
 #include "jni_runtime.h"
-// This source file should be in bridge/jni, so it's OK to use the private
-// NPAPI header from here.
 #include "npruntime_impl.h"
 
-namespace JSC { namespace Bindings {
+namespace JSC {
+
+namespace Bindings {
+
 static NPObject* AllocJavaNPObject(NPP, NPClass*)
 {
-    JavaNPObject* obj =
-        static_cast<JavaNPObject*>(malloc(sizeof(JavaNPObject)));
-    if (obj == 0)
+    JavaNPObject* obj = static_cast<JavaNPObject*>(malloc(sizeof(JavaNPObject)));
+    if (!obj)
         return 0;
     bzero(obj, sizeof(JavaNPObject));
     return reinterpret_cast<NPObject*>(obj);
@@ -49,7 +49,7 @@ static NPObject* AllocJavaNPObject(NPP, NPClass*)
 static void FreeJavaNPObject(NPObject* npobj)
 {
     JavaNPObject* obj = reinterpret_cast<JavaNPObject*>(npobj);
-    obj->_instance = 0;  // free does not call the destructor
+    obj->m_instance = 0;  // free does not call the destructor
     free(obj);
 }
 
@@ -72,7 +72,7 @@ static NPClass JavaNPObjectClass = {
 
 NPObject* JavaInstanceToNPObject(JavaInstance* instance) {
     JavaNPObject* object = reinterpret_cast<JavaNPObject*>(_NPN_CreateObject(0, &JavaNPObjectClass));
-    object->_instance = instance;
+    object->m_instance = instance;
     return reinterpret_cast<NPObject*>(object);
 }
 
@@ -80,17 +80,17 @@ NPObject* JavaInstanceToNPObject(JavaInstance* instance) {
 // Returns null if obj is not a wrapper of JavaInstance
 JavaInstance* ExtractJavaInstance(NPObject* obj) {
     if (obj->_class == &JavaNPObjectClass) {
-        return reinterpret_cast<JavaNPObject*>(obj)->_instance.get();
+        return reinterpret_cast<JavaNPObject*>(obj)->m_instance.get();
     }
     return 0;
 }
 
 bool JavaNPObject_HasMethod(NPObject* obj, NPIdentifier identifier) {
     JavaInstance* instance = ExtractJavaInstance(obj);
-    if (instance == 0)
+    if (!instance)
         return false;
     NPUTF8* name = _NPN_UTF8FromIdentifier(identifier);
-    if (name == 0)
+    if (!name)
         return false;
 
     instance->begin();
@@ -103,13 +103,12 @@ bool JavaNPObject_HasMethod(NPObject* obj, NPIdentifier identifier) {
     return result;
 }
 
-bool JavaNPObject_Invoke(NPObject* obj, NPIdentifier identifier,
-        const NPVariant* args, uint32_t argCount, NPVariant* result) {
+bool JavaNPObject_Invoke(NPObject* obj, NPIdentifier identifier, const NPVariant* args, uint32_t argCount, NPVariant* result) {
     JavaInstance* instance = ExtractJavaInstance(obj);
-    if (instance == 0)
+    if (!instance)
         return false;
     NPUTF8* name = _NPN_UTF8FromIdentifier(identifier);
-    if (name == 0)
+    if (!name)
         return false;
 
     instance->begin();
@@ -119,18 +118,17 @@ bool JavaNPObject_Invoke(NPObject* obj, NPIdentifier identifier,
     // TODO: use NPN_MemFree
     free(name);
     return r;
-
 }
 
 bool JavaNPObject_HasProperty(NPObject* obj, NPIdentifier identifier) {
     JavaInstance* instance = ExtractJavaInstance(obj);
-    if (instance == 0)
+    if (!instance)
         return false;
     NPUTF8* name = _NPN_UTF8FromIdentifier(identifier);
-    if (name == 0)
+    if (!name)
         return false;
     instance->begin();
-    bool result = instance->getClass()->fieldNamed(name) != 0;
+    bool result = instance->getClass()->fieldNamed(name);
     instance->end();
     free(name);
     return result;
@@ -139,10 +137,10 @@ bool JavaNPObject_HasProperty(NPObject* obj, NPIdentifier identifier) {
 bool JavaNPObject_GetProperty(NPObject* obj, NPIdentifier identifier, NPVariant* result) {
     VOID_TO_NPVARIANT(*result);
     JavaInstance* instance = ExtractJavaInstance(obj);
-    if (instance == 0)
+    if (!instance)
         return false;
     NPUTF8* name = _NPN_UTF8FromIdentifier(identifier);
-    if (name == 0)
+    if (!name)
         return false;
 
     instance->begin();
@@ -150,9 +148,8 @@ bool JavaNPObject_GetProperty(NPObject* obj, NPIdentifier identifier, NPVariant*
     instance->end();
     free(name);  // TODO: use NPN_MemFree
 
-    if (field == 0) {
+    if (!field)
         return false;
-    }
 
     jvalue value = getJNIField(instance->javaInstance(),
                                field->getJNIType(),
@@ -164,4 +161,6 @@ bool JavaNPObject_GetProperty(NPObject* obj, NPIdentifier identifier, NPVariant*
     return true;
 }
 
-}}  // namespace
+}  // namespace Bindings
+
+}  // namespace JSC

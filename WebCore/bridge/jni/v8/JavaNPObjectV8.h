@@ -1,5 +1,5 @@
 /*
- * Copyright 2009, The Android Open Source Project
+ * Copyright 2010, The Android Open Source Project
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -23,30 +23,36 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef JNI_NPOBJECT_H_
-#define JNI_NPOBJECT_H_
+#ifndef JavaNPObjectV8_h
+#define JavaNPObjectV8_h
 
-#include "npruntime.h"
 #include "jni_runtime.h"
-
-#include <wtf/RefPtr.h>
+#include "npruntime.h"
 #include <JavaVM/jni.h>
+#include <wtf/RefPtr.h>
 
-namespace JSC { namespace Bindings {
+
+namespace JSC {
+
+namespace Bindings {
+
+class JavaInstance;
 
 struct JavaNPObject {
-    NPObject _object;
-    RefPtr<JavaInstance> _instance;
+    NPObject m_object;
+    RefPtr<JavaInstance> m_instance;
 };
 
-NPObject* JavaInstanceToNPObject(JavaInstance* instance);
-JavaInstance* ExtractJavaInstance(NPObject* obj);
+NPObject* JavaInstanceToNPObject(JavaInstance*);
+JavaInstance* ExtractJavaInstance(NPObject*);
 
-bool JavaNPObject_HasMethod(NPObject* obj, NPIdentifier name);
-bool JavaNPObject_Invoke(NPObject* obj, NPIdentifier methodName, const NPVariant* args, uint32_t argCount, NPVariant* result);
-bool JavaNPObject_HasProperty(NPObject* obj, NPIdentifier name);
-bool JavaNPObject_GetProperty(NPObject* obj, NPIdentifier name, NPVariant* ressult);
+bool JavaNPObject_HasMethod(NPObject*, NPIdentifier name);
+bool JavaNPObject_Invoke(NPObject*, NPIdentifier methodName, const NPVariant* args, uint32_t argCount, NPVariant* result);
+bool JavaNPObject_HasProperty(NPObject*, NPIdentifier name);
+bool JavaNPObject_GetProperty(NPObject*, NPIdentifier name, NPVariant* result);
 
-} }
+} // namespace Bindings
 
-#endif JNI_NPOBJECT_H_
+} // namespace JSC
+
+#endif // JavaNPObjectV8_h
