@@ -30,7 +30,11 @@
 
 namespace WebCore {
 
-PlatformTouchPoint::PlatformTouchPoint(const IntPoint& pos, const IntPoint& globalPos, State state) :m_id(0), m_state(state), m_screenPos(pos), m_pos(globalPos) {}
+PlatformTouchPoint::PlatformTouchPoint(const IntPoint& absolutePagePos, State state)
+    : m_id(0)
+    , m_state(state)
+    , m_screenPos(absolutePagePos)
+    , m_pos(absolutePagePos) { }
 
 }
 

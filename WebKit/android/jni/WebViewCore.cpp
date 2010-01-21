@@ -1967,7 +1967,7 @@ int WebViewCore::handleTouchEvent(int action, int x, int y)
 
     m_lastTouchPoint = pt;
 
-    WebCore::PlatformTouchEvent te(pt, pt, type, touchState);
+    WebCore::PlatformTouchEvent te(pt, type, touchState);
     preventDefault = m_mainFrame->eventHandler()->handleTouchEvent(te);
 #endif
 

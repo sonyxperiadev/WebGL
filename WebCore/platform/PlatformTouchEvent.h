@@ -60,7 +60,7 @@ public:
 #if PLATFORM(QT)
     PlatformTouchEvent(QTouchEvent*);
 #elif PLATFORM(ANDROID)
-    PlatformTouchEvent(const IntPoint&, const IntPoint&, TouchEventType, PlatformTouchPoint::State);
+    PlatformTouchEvent(const IntPoint& absolutePagePos, TouchEventType, PlatformTouchPoint::State);
 #endif
 
     TouchEventType type() const { return m_type; }

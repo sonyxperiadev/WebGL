@@ -30,8 +30,14 @@
 
 namespace WebCore {
 
-PlatformTouchEvent::PlatformTouchEvent(const IntPoint& pos, const IntPoint& globalPos, TouchEventType type, PlatformTouchPoint::State state) : m_type(type) {
-    m_touchPoints.append(PlatformTouchPoint(pos, globalPos, state));
+PlatformTouchEvent::PlatformTouchEvent(const IntPoint& absolutePagePos, TouchEventType type, PlatformTouchPoint::State state)
+    : m_type(type)
+    , m_ctrlKey(false)
+    , m_altKey(false)
+    , m_shiftKey(false)
+    , m_metaKey(false)
+{
+    m_touchPoints.append(PlatformTouchPoint(absolutePagePos, state));
 }
 
 }
