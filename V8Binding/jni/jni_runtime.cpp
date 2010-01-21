@@ -27,8 +27,10 @@
 #include "jni_runtime.h"
 
 #include "JNIUtility.h"
+#include "StringBuilder.h"
 
 using namespace JSC::Bindings;
+using namespace WebCore;
 
 JavaParameter::JavaParameter(JNIEnv* env, jstring type)
 {
@@ -97,93 +99,38 @@ JavaMethod::~JavaMethod()
     delete[] m_parameters;
 };
 
+// JNI method signatures use '/' between components of a class name, but
+// we get '.' between components from the reflection API.
+static void appendClassName(StringBuilder& builder, const char* className)
+{
+    char* c = strdup(className);
 
-class SignatureBuilder {
-public:
-    explicit SignatureBuilder(int init_size) {
-        if (init_size <= 0)
-            init_size = 16;
-        m_size = init_size;
-        m_length = 0;
-        m_storage = (char*)malloc(m_size * sizeof(char));
+    char* result = c;
+    while (*c) {
+        if (*c == '.')
+            *c = '/';
+        c++;
     }
 
-    ~SignatureBuilder() {
-        free(m_storage);
-    }
+    builder.append(result);
 
-    void append(const char* s) {
-        int l = strlen(s);
-        expandIfNeeded(l);
-        memcpy(m_storage + m_length, s, l);
-        m_length += l;
-    }
-
-    // JNI method signatures use '/' between components of a class name, but
-    // we get '.' between components from the reflection API.
-    void appendClassName(const char* className) {
-       int l = strlen(className);
-       expandIfNeeded(l);
-
-       char* sp = m_storage + m_length;
-       const char* cp = className;
-
-       while (*cp) {
-           if (*cp == '.')
-               *sp = '/';
-           else
-               *sp = *cp;
-
-           cp++;
-           sp++;
-       }
-
-       m_length += l;
-    }
-
-    // make a duplicated copy of the content.
-    char* ascii() {
-        if (m_length == 0)
-            return NULL;
-        m_storage[m_length] = '\0';
-        return strndup(m_storage, m_length);
-    }
-
-private:
-    void expandIfNeeded(int l) {
-        // expand storage if needed
-        if (l + m_length >= m_size) {
-            int new_size = 2 * m_size;
-            if (l + m_length >= new_size)
-                new_size = l + m_length + 1;
-
-            char* new_storage = (char*)malloc(new_size * sizeof(char));
-            memcpy(new_storage, m_storage, m_length);
-            m_size = new_size;
-            free(m_storage);
-            m_storage = new_storage;
-        }
-    }
-
-    int m_size;
-    int m_length;
-    char* m_storage;
-};
+    free(result);
+}
 
 const char* JavaMethod::signature() const
 {
     if (!m_signature) {
-        SignatureBuilder signatureBuilder(64);
+        StringBuilder signatureBuilder;
         signatureBuilder.append("(");
         for (int i = 0; i < m_numParameters; i++) {
             JavaParameter* aParameter = parameterAt(i);
             JNIType type = aParameter->getJNIType();
             if (type == array_type)
-                signatureBuilder.appendClassName(aParameter->type());
+                appendClassName(signatureBuilder, aParameter->type());
             else {
                 signatureBuilder.append(signatureFromPrimitiveType(type));
                 if (type == object_type) {
-                    signatureBuilder.appendClassName(aParameter->type());
+                    appendClassName(signatureBuilder, aParameter->type());
                     signatureBuilder.append(";");
                 }
             }
@@ -192,16 +139,17 @@ const char* JavaMethod::signature() const
 
         const char* returnType = m_returnType.UTF8String();
         if (m_JNIReturnType == array_type)
-            signatureBuilder.appendClassName(returnType);
+            appendClassName(signatureBuilder, returnType);
         else {
             signatureBuilder.append(signatureFromPrimitiveType(m_JNIReturnType));
             if (m_JNIReturnType == object_type) {
-                signatureBuilder.appendClassName(returnType);
+                appendClassName(signatureBuilder, returnType);
                 signatureBuilder.append(";");
             }
         }
 
-        m_signature = signatureBuilder.ascii();
+        String signatureString = signatureBuilder.toString();
+        m_signature = strdup(signatureString.utf8().data());
     }
 
     return m_signature;
