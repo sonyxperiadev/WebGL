@@ -1,5 +1,4 @@
 /*
- * Copyright (C) 2010 Apple Computer, Inc.  All rights reserved.
  * Copyright 2010, The Android Open Source Project
  *
  * Redistribution and use in source and binary forms, with or without
@@ -24,39 +23,22 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef JavaClassV8_h
-#define JavaClassV8_h
-
+#include "config.h"
 #include "JNIBridgeV8.h"
-#include "PlatformString.h"
-#include "StringHash.h"
-#include <wtf/HashMap.h>
-#include <wtf/Vector.h>
 
-namespace JSC {
+using namespace JSC::Bindings;
 
-namespace Bindings {
+JavaField::JavaField(JNIEnv* env, jobject aField)
+{
+    // Get field type
+    jobject fieldType = callJNIMethod<jobject>(aField, "getType", "()Ljava/lang/Class;");
+    jstring fieldTypeName = static_cast<jstring>(callJNIMethod<jobject>(fieldType, "getName", "()Ljava/lang/String;"));
+    m_type = JavaString(env, fieldTypeName);
+    m_JNIType = JNITypeFromClassName(m_type.UTF8String());
 
-typedef Vector<JavaMethod*> MethodList;
-typedef HashMap<WebCore::String, MethodList*> MethodListMap;
-typedef HashMap<WebCore::String, JavaField*> FieldMap;
+    // Get field name
+    jstring fieldName = static_cast<jstring>(callJNIMethod<jobject>(aField, "getName", "()Ljava/lang/String;"));
+    m_name = JavaString(env, fieldName);
 
-class JavaClass {
-public:
-    JavaClass(jobject anInstance);
-    ~JavaClass();
-
-    MethodList methodsNamed(const char* name) const;
-    JavaField* fieldNamed(const char* name) const;
-
-private:
-    const char* m_name;
-    MethodListMap m_methods;
-    FieldMap m_fields;
-};
-
-} // namespace Bindings
-
-} // namespace JSC
-
-#endif // JavaClassV8_h
+    m_field = new JObjectWrapper(aField);
+}

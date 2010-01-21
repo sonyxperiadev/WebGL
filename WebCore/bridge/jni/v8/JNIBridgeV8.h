@@ -1,5 +1,4 @@
 /*
- * Copyright (C) 2010 Apple Computer, Inc.  All rights reserved.
  * Copyright 2010, The Android Open Source Project
  *
  * Redistribution and use in source and binary forms, with or without
@@ -24,39 +23,38 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef JavaClassV8_h
-#define JavaClassV8_h
+#ifndef JNIBridgeV8_h
+#define JNIBridgeV8_h
 
-#include "JNIBridgeV8.h"
-#include "PlatformString.h"
-#include "StringHash.h"
-#include <wtf/HashMap.h>
-#include <wtf/Vector.h>
+#include "JNIUtility.h"
+#include "JavaInstanceV8.h"
+#include "JavaStringV8.h"
+#include "jni_runtime.h"
+
 
 namespace JSC {
 
 namespace Bindings {
 
-typedef Vector<JavaMethod*> MethodList;
-typedef HashMap<WebCore::String, MethodList*> MethodListMap;
-typedef HashMap<WebCore::String, JavaField*> FieldMap;
-
-class JavaClass {
+class JavaField
+{
 public:
-    JavaClass(jobject anInstance);
-    ~JavaClass();
+    JavaField(JNIEnv*, jobject aField);
 
-    MethodList methodsNamed(const char* name) const;
-    JavaField* fieldNamed(const char* name) const;
+    const JavaString& name() const { return m_name; }
+    const char* type() const { return m_type.UTF8String(); }
+
+    JNIType getJNIType() const { return m_JNIType; }
 
 private:
-    const char* m_name;
-    MethodListMap m_methods;
-    FieldMap m_fields;
+    JavaString m_name;
+    JavaString m_type;
+    JNIType m_JNIType;
+    RefPtr<JObjectWrapper> m_field;
 };
 
 } // namespace Bindings
 
 } // namespace JSC
 
-#endif // JavaClassV8_h
+#endif // JNIBridgeV8_h
