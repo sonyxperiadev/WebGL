@@ -185,8 +185,6 @@ BINDING_C_INCLUDES += \
 	$(LOCAL_PATH)/bridge/jni \
 	$(LOCAL_PATH)/bridge/jni/v8
 JNI_SRC_FILES := \
-	jni_instance.cpp \
-	jni_npobject.cpp \
 	jni_runtime.cpp
 WEBKIT_SRC_FILES += $(addprefix $(JNI_PATH)/,$(JNI_SRC_FILES))
 endif

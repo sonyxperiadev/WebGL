@@ -26,7 +26,7 @@
 #include "config.h"
 #include "JNIUtilityPrivate.h"
 
-#include "jni_npobject.h"
+#include "JavaNPObjectV8.h"
 #include "jni_runtime.h"
 
 namespace JSC {

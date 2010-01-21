@@ -1,5 +1,5 @@
 /*
- * Copyright 2009, The Android Open Source Project
+ * Copyright (C) 2010 Apple Computer, Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -13,7 +13,7 @@
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -23,30 +23,41 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef JNI_NPOBJECT_H_
-#define JNI_NPOBJECT_H_
+#ifndef JavaStringV8_h
+#define JavaStringV8_h
 
-#include "npruntime.h"
-#include "jni_runtime.h"
+#include "CString.h"
+#include "JNIUtility.h"
 
-#include <wtf/RefPtr.h>
-#include <JavaVM/jni.h>
 
-namespace JSC { namespace Bindings {
+namespace JSC {
 
-struct JavaNPObject {
-    NPObject _object;
-    RefPtr<JavaInstance> _instance;
+namespace Bindings {
+
+class JavaStringImpl {
+public:
+    void init() {}
+
+    void init(JNIEnv* e, jstring s)
+    {
+        int size = e->GetStringLength(s);
+        const char* cs = getCharactersFromJStringInEnv(e, s);
+        {
+            m_utf8String = WebCore::CString(cs, size);
+        }
+        releaseCharactersForJStringInEnv(e, s, cs);
+    }
+
+    const char* UTF8String() const { return m_utf8String.data(); }
+    const jchar* uchars() const { return 0; } // Not implemented
+    int length() const { return m_utf8String.length(); }
+
+private:
+    WebCore::CString m_utf8String;
 };
 
-NPObject* JavaInstanceToNPObject(JavaInstance* instance);
-JavaInstance* ExtractJavaInstance(NPObject* obj);
+} // namespace Bindings
 
-bool JavaNPObject_HasMethod(NPObject* obj, NPIdentifier name);
-bool JavaNPObject_Invoke(NPObject* obj, NPIdentifier methodName, const NPVariant* args, uint32_t argCount, NPVariant* result);
-bool JavaNPObject_HasProperty(NPObject* obj, NPIdentifier name);
-bool JavaNPObject_GetProperty(NPObject* obj, NPIdentifier name, NPVariant* ressult);
+} // namespace JSC
 
-} }
-
-#endif JNI_NPOBJECT_H_
+#endif // JavaStringV8_h

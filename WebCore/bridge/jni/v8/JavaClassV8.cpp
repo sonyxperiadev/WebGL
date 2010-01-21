@@ -56,7 +56,7 @@ JavaClass::JavaClass(jobject anInstance)
         jobject aJField = env->GetObjectArrayElement((jobjectArray)fields, i);
         JavaField* aField = new JavaField(env, aJField); // deleted in the JavaClass destructor
         {
-            m_fields.set(aField->name(), aField);
+            m_fields.set(aField->name().UTF8String(), aField);
         }
         env->DeleteLocalRef(aJField);
     }
@@ -69,10 +69,10 @@ JavaClass::JavaClass(jobject anInstance)
         JavaMethod* aMethod = new JavaMethod(env, aJMethod); // deleted in the JavaClass destructor
         MethodList* methodList;
         {
-            methodList = m_methods.get(aMethod->name());
+            methodList = m_methods.get(aMethod->name().UTF8String());
             if (!methodList) {
                 methodList = new MethodList();
-                m_methods.set(aMethod->name(), methodList);
+                m_methods.set(aMethod->name().UTF8String(), methodList);
             }
         }
         methodList->append(aMethod);

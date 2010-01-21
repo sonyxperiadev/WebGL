@@ -1,6 +1,5 @@
 /*
- * Copyright (C) 2003 Apple Computer, Inc.  All rights reserved.
- * Copyright 2009, The Android Open Source Project
+ * Copyright 2010, The Android Open Source Project
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -21,11 +20,11 @@
  * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef _JNI_INSTANCE_H_
-#define _JNI_INSTANCE_H_
+#ifndef JavaInstanceV8_h
+#define JavaInstanceV8_h
 
 #include "JNIUtilityPrivate.h"
 
@@ -41,36 +40,34 @@ namespace Bindings {
 
 class JavaClass;
 
-class JObjectWrapper
-{
+class JObjectWrapper {
 friend class RefPtr<JObjectWrapper>;
 friend class JavaField;
 friend class JavaInstance;
 
 public:
-    jobject instance() const { return _instance; }
-    void setInstance(jobject instance) { _instance = instance; }
+    jobject instance() const { return m_instance; }
+    void setInstance(jobject instance) { m_instance = instance; }
 
 protected:
-    JObjectWrapper(jobject instance);    
+    JObjectWrapper(jobject instance);
     ~JObjectWrapper();
-    
-    void ref() { _refCount++; }
-    void deref() 
-    { 
-        if (--_refCount == 0) 
-            delete this; 
+
+    void ref() { m_refCount++; }
+    void deref()
+    {
+        if (!(--m_refCount))
+            delete this;
     }
 
-    jobject _instance;
+    jobject m_instance;
 
 private:
-    JNIEnv *_env;
-    unsigned int _refCount;
+    JNIEnv* m_env;
+    unsigned int m_refCount;
 };
 
-class JavaInstance : public RefCounted<JavaInstance>
-{
+class JavaInstance : public RefCounted<JavaInstance> {
 public:
     JavaInstance(jobject instance);
     virtual ~JavaInstance();
@@ -79,7 +76,7 @@ public:
 
     bool invokeMethod(const char* name, const NPVariant* args, int argsCount, NPVariant* result);
 
-    jobject javaInstance() const { return m_instance->_instance; }
+    jobject javaInstance() const { return m_instance->m_instance; }
 
     // These functions are called before and after the main entry points into
     // the native implementations.  They can be used to establish and cleanup
@@ -89,7 +86,7 @@ public:
 
 protected:
     RefPtr<JObjectWrapper> m_instance;
-    mutable JavaClass* _class;
+    mutable JavaClass* m_class;
 
     virtual void virtualBegin() {}
     virtual void virtualEnd() {}
@@ -99,4 +96,4 @@ protected:
 
 } // namespace JSC
 
-#endif // _JNI_INSTANCE_H_
+#endif // JavaInstanceV8_h
