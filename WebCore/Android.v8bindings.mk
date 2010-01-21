@@ -175,6 +175,7 @@ LOCAL_SRC_FILES += \
 	bindings/v8/custom/V8XMLSerializerConstructor.cpp
 
 LOCAL_SRC_FILES += \
+	bridge/jni/JNIBridge.cpp \
 	bridge/jni/JNIUtility.cpp \
 	bridge/jni/v8/JNIBridgeV8.cpp \
 	bridge/jni/v8/JNIUtilityPrivate.cpp \

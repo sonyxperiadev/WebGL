@@ -171,11 +171,6 @@ include $(LOCAL_PATH)/Android.jscbindings.mk
 endif
 ifeq ($(JAVASCRIPT_ENGINE),v8)
 include $(LOCAL_PATH)/Android.v8bindings.mk
-# TODO: We should use the WebCore JNI code instead.
-JNI_PATH := V8Binding/jni
-JNI_SRC_FILES := \
-	jni_runtime.cpp
-WEBKIT_SRC_FILES += $(addprefix $(JNI_PATH)/,$(JNI_SRC_FILES))
 endif
 WEBKIT_SRC_FILES += $(addprefix $d/,$(LOCAL_SRC_FILES))
 LOCAL_C_INCLUDES += $(BINDING_C_INCLUDES)
