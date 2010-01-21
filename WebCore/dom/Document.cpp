@@ -1489,7 +1489,8 @@ void Document::detach()
 
 #if ENABLE(TOUCH_EVENTS) // Android
         // clean up for the top document
-        if (!m_frame->ownerElement()) {
+        Page* ownerPage = page();
+        if (ownerPage && (m_frame == ownerPage->mainFrame())) {
             m_touchEventListeners.clear();
 #if PLATFORM(ANDROID)
             if (view)
