@@ -26,11 +26,9 @@
 #ifndef JNIBridgeV8_h
 #define JNIBridgeV8_h
 
+#include "JNIBridge.h"
 #include "JNIUtility.h"
 #include "JavaInstanceV8.h"
-#include "JavaStringV8.h"
-#include "jni_runtime.h"
-
 
 namespace JSC {
 

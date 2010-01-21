@@ -173,12 +173,6 @@ ifeq ($(JAVASCRIPT_ENGINE),v8)
 include $(LOCAL_PATH)/Android.v8bindings.mk
 # TODO: We should use the WebCore JNI code instead.
 JNI_PATH := V8Binding/jni
-# bridge/jni path must be listed after V8Bindings, so files are preferentially
-# included from V8bindings.
-BINDING_C_INCLUDES += \
-	$(BASE_PATH)/$(JNI_PATH) \
-	$(LOCAL_PATH)/bridge/jni \
-	$(LOCAL_PATH)/bridge/jni/v8
 JNI_SRC_FILES := \
 	jni_runtime.cpp
 WEBKIT_SRC_FILES += $(addprefix $(JNI_PATH)/,$(JNI_SRC_FILES))

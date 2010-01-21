@@ -30,7 +30,6 @@
 #include "JNIUtility.h"
 #include "JavaClassV8.h"
 #include "JavaInstanceV8.h"
-#include "jni_runtime.h"
 #include "npruntime_impl.h"
 
 namespace JSC {

@@ -26,9 +26,9 @@
 #include "config.h"
 #include "JavaInstanceV8.h"
 
+#include "JNIBridge.h"
 #include "JNIUtility.h"
 #include "JavaClassV8.h"
-#include "jni_runtime.h"
 
 #include <assert.h>
 #include <utils/Log.h>

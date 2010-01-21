@@ -31,6 +31,8 @@ BINDING_C_INCLUDES := \
 	$(LOCAL_PATH)/bindings/v8 \
 	$(LOCAL_PATH)/bindings/v8/custom \
 	$(LOCAL_PATH)/bridge \
+	$(LOCAL_PATH)/bridge/jni \
+	$(LOCAL_PATH)/bridge/jni/v8 \
 	$(LOCAL_PATH)/bridge/jsc \
 	\
 	$(base_intermediates)/WebCore/bindings \

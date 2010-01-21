@@ -26,7 +26,7 @@
 #ifndef JavaNPObjectV8_h
 #define JavaNPObjectV8_h
 
-#include "jni_runtime.h"
+#include "JNIBridge.h"
 #include "npruntime.h"
 #include <JavaVM/jni.h>
 #include <wtf/RefPtr.h>

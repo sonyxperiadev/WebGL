@@ -26,9 +26,9 @@
 #include "config.h"
 #include "JNIUtilityPrivate.h"
 
+#include "JNIBridge.h"
 #include "JavaInstanceV8.h"
 #include "JavaNPObjectV8.h"
-#include "jni_runtime.h"
 
 namespace JSC {
 

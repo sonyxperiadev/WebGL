@@ -27,8 +27,8 @@
 #include "config.h"
 #include "JavaClassV8.h"
 
+#include "JNIBridge.h"
 #include "JNIUtility.h"
-#include "jni_runtime.h"
 
 using namespace JSC::Bindings;
 
