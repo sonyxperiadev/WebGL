@@ -1,6 +1,5 @@
 /*
- * Copyright (C) 2003 Apple Computer, Inc.  All rights reserved.
- * Copyright 2009, The Android Open Source Project
+ * Copyright 2010, The Android Open Source Project
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -21,11 +20,11 @@
  * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef _JNI_RUNTIME_H_
-#define _JNI_RUNTIME_H_
+#ifndef jni_runtime_h
+#define jni_runtime_h
 
 #include "JNIUtility.h"
 #include "JavaInstanceV8.h"
@@ -34,14 +33,11 @@
 #include "JavaStringV8.h"
 #endif
 
-namespace JSC
-{
+namespace JSC {
 
-namespace Bindings
-{
+namespace Bindings {
 
-class JavaString
-{
+class JavaString {
 public:
     JavaString()
     {
@@ -66,71 +62,68 @@ private:
     JavaStringImpl m_impl;
 };
 
-class JavaParameter
-{
+class JavaParameter {
 public:
-    JavaParameter () : _JNIType(invalid_type) {};
-    JavaParameter (JNIEnv *env, jstring type);
+    JavaParameter() : m_JNIType(invalid_type) { }
+    JavaParameter(JNIEnv*, jstring type);
     virtual ~JavaParameter() { }
 
-    const char* type() const { return _type.UTF8String(); }
-    JNIType getJNIType() const { return _JNIType; }
-    
+    const char* type() const { return m_type.UTF8String(); }
+    JNIType getJNIType() const { return m_JNIType; }
+
 private:
-    JavaString _type;
-    JNIType _JNIType;
+    JavaString m_type;
+    JNIType m_JNIType;
 };
 
 
-class JavaField
-{
+class JavaField {
 public:
-    JavaField (JNIEnv *env, jobject aField);
+    JavaField(JNIEnv*, jobject aField);
 
-    const JavaString& name() const { return _name; }
-    const char* type() const { return _type.UTF8String(); }
+    const JavaString& name() const { return m_name; }
+    const char* type() const { return m_type.UTF8String(); }
 
-    JNIType getJNIType() const { return _JNIType; }
-    
+    JNIType getJNIType() const { return m_JNIType; }
+
 private:
-    JavaString _name;
-    JavaString _type;
-    JNIType _JNIType;
-    RefPtr<JObjectWrapper> _field;
+    JavaString m_name;
+    JavaString m_type;
+    JNIType m_JNIType;
+    RefPtr<JObjectWrapper> m_field;
 };
 
 
-class JavaMethod
-{
+class JavaMethod {
 public:
-    JavaMethod(JNIEnv* env, jobject aMethod);
+    JavaMethod(JNIEnv*, jobject aMethod);
     ~JavaMethod();
 
-    const JavaString& name() const { return _name; }
-    const char* returnType() const { return _returnType.UTF8String(); };
-    JavaParameter* parameterAt(int i) const { return &_parameters[i]; };
-    int numParameters() const { return _numParameters; };
-    
-    const char *signature() const;
+    const JavaString& name() const { return m_name; }
+    const char* returnType() const { return m_returnType.UTF8String(); }
+    JavaParameter* parameterAt(int i) const { return &m_parameters[i]; }
+    int numParameters() const { return m_numParameters; }
+
+    const char* signature() const;
     JNIType JNIReturnType() const;
 
-    jmethodID methodID (jobject obj) const;
-    
-    bool isStatic() const { return _isStatic; }
+    jmethodID methodID(jobject obj) const;
+
+    bool isStatic() const { return m_isStatic; }
 
 private:
-    JavaParameter* _parameters;
-    int _numParameters;
-    JavaString _name;
-    mutable char* _signature;
-    JavaString _returnType;
-    JNIType _JNIReturnType;
-    mutable jmethodID _methodID;
-    bool _isStatic;
+    JavaParameter* m_parameters;
+    int m_numParameters;
+    JavaString m_name;
+    mutable char* m_signature;
+    JavaString m_returnType;
+    JNIType m_JNIReturnType;
+    mutable jmethodID m_methodID;
+    bool m_isStatic;
 };
 
 } // namespace Bindings
 
 } // namespace JSC
 
-#endif // _JNI_RUNTIME_H_
+#endif // jni_runtime_h
