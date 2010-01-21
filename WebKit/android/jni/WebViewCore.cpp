@@ -3288,7 +3288,8 @@ static void FullScreenPluginHidden(JNIEnv* env, jobject obj, jint npp)
 {
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
     PluginWidgetAndroid* plugin = viewImpl->getPluginWidget((NPP)npp);
-    plugin->exitFullScreen(false);
+    if (plugin)
+        plugin->exitFullScreen(false);
 }
 
 static WebCore::IntRect jrect_to_webrect(JNIEnv* env, jobject obj)
