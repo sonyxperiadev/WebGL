@@ -67,7 +67,7 @@
 #include <runtime/JSLock.h>
 #elif USE(V8)
 #include "jni_npobject.h"
-#include "jni_instance.h"
+#include "JavaInstanceV8.h"
 #endif  // USE(JSC)
 
 #include "KURL.h"

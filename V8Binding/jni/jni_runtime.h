@@ -28,7 +28,7 @@
 #define _JNI_RUNTIME_H_
 
 #include "JNIUtility.h"
-#include "jni_instance.h"
+#include "JavaInstanceV8.h"
 
 #include "CString.h"
 

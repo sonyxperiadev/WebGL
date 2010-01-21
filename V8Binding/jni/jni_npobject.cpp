@@ -29,7 +29,7 @@
 
 #include "JNIUtility.h"
 #include "JavaClassV8.h"
-#include "jni_instance.h"
+#include "JavaInstanceV8.h"
 #include "jni_runtime.h"
 // This source file should be in bridge/jni, so it's OK to use the private
 // NPAPI header from here.
