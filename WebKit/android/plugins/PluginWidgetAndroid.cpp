@@ -38,7 +38,11 @@
 #include "WebViewCore.h"
 #include "jni_utility.h"
 
+#define PLUGIN_DEBUG_LOCAL 0 // controls the printing of log messages
 #define DEBUG_VISIBLE_RECTS 1 // temporary debug printfs and fixes
+
+// this include statement must follow the declaration of PLUGIN_DEBUG_LOCAL
+#include "PluginDebugAndroid.h"
 
 PluginWidgetAndroid::PluginWidgetAndroid(WebCore::PluginView* view)
         : m_pluginView(view) {
@@ -217,9 +221,9 @@ void PluginWidgetAndroid::draw(SkCanvas* canvas) {
     }
 }
 
-bool PluginWidgetAndroid::sendEvent(const ANPEvent& evt) {
+int16 PluginWidgetAndroid::sendEvent(const ANPEvent& evt) {
     if (!m_acceptEvents)
-        return false;
+        return 0;
     WebCore::PluginPackage* pkg = m_pluginView->plugin();
     NPP instance = m_pluginView->instance();
     // "missing" plugins won't have these
@@ -236,9 +240,11 @@ bool PluginWidgetAndroid::sendEvent(const ANPEvent& evt) {
         // make a localCopy since the actual plugin may not respect its constness,
         // and so we don't want our caller to have its param modified
         ANPEvent localCopy = evt;
-        return pkg->pluginFuncs()->event(instance, &localCopy);
+        int16 result = pkg->pluginFuncs()->event(instance, &localCopy);
+        PLUGIN_LOG_EVENT(instance, &evt, result);
+        return result;
     }
-    return false;
+    return 0;
 }
 
 void PluginWidgetAndroid::updateEventFlags(ANPEventFlags flags) {
@@ -265,8 +271,8 @@ bool PluginWidgetAndroid::isAcceptingEvent(ANPEventFlag flag) {
 
 void PluginWidgetAndroid::setVisibleScreen(const ANPRectI& visibleDocRect, float zoom) {
 #if DEBUG_VISIBLE_RECTS
-    SkDebugf("%s (%d,%d,%d,%d)", __FUNCTION__, visibleDocRect.left,
-        visibleDocRect.top, visibleDocRect.right, visibleDocRect.bottom);
+    PLUGIN_LOG("%s (%d,%d,%d,%d)", __FUNCTION__, visibleDocRect.left,
+               visibleDocRect.top, visibleDocRect.right, visibleDocRect.bottom);
 #endif
     // TODO update the bitmap size based on the zoom? (for kBitmap_ANPDrawingModel)
 
@@ -297,7 +303,7 @@ void PluginWidgetAndroid::setVisibleScreen(const ANPRectI& visibleDocRect, float
 
 void PluginWidgetAndroid::setVisibleRects(const ANPRectI rects[], int32_t count) {
 #if DEBUG_VISIBLE_RECTS
-    SkDebugf("%s count=%d", __FUNCTION__, count);
+    PLUGIN_LOG("%s count=%d", __FUNCTION__, count);
 #endif
     // ensure the count does not exceed our allocated space
     if (count > MAX_REQUESTED_RECTS)
@@ -310,7 +316,7 @@ void PluginWidgetAndroid::setVisibleRects(const ANPRectI rects[], int32_t count)
 #if DEBUG_VISIBLE_RECTS // FIXME: this fixes bad data from the plugin
     // take it out once plugin supplies better data
     for (int index = 0; index < count; index++) {
-        SkDebugf("%s [%d](%d,%d,%d,%d)", __FUNCTION__, index,
+        PLUGIN_LOG("%s [%d](%d,%d,%d,%d)", __FUNCTION__, index,
             m_requestedVisibleRect[index].left,
             m_requestedVisibleRect[index].top,
             m_requestedVisibleRect[index].right,
@@ -350,7 +356,7 @@ void PluginWidgetAndroid::computeVisibleDocRect() {
         // ensure the rect falls within the plugin's bounds
         if (!m_pluginBounds.contains(pluginRect)) {
 #if DEBUG_VISIBLE_RECTS
-            SkDebugf("%s (%d,%d,%d,%d) !contain (%d,%d,%d,%d)", __FUNCTION__,
+            PLUGIN_LOG("%s (%d,%d,%d,%d) !contain (%d,%d,%d,%d)", __FUNCTION__,
                      m_pluginBounds.fLeft, m_pluginBounds.fTop,
                      m_pluginBounds.fRight, m_pluginBounds.fBottom,
                 pluginRect.fLeft, pluginRect.fTop,
@@ -382,9 +388,9 @@ void PluginWidgetAndroid::scrollToVisibleDocRect() {
 
     if (!m_hasFocus || m_requestedDocRect.isEmpty() || m_visibleDocRect.isEmpty()) {
 #if DEBUG_VISIBLE_RECTS
-        SkDebugf("%s call m_hasFocus=%d m_requestedDocRect.isEmpty()=%d"
-            " m_visibleDocRect.isEmpty()=%d", __FUNCTION__, m_hasFocus,
-            m_requestedDocRect.isEmpty(), m_visibleDocRect.isEmpty());
+        PLUGIN_LOG("%s call m_hasFocus=%d m_requestedDocRect.isEmpty()=%d"
+                " m_visibleDocRect.isEmpty()=%d", __FUNCTION__, m_hasFocus,
+                m_requestedDocRect.isEmpty(), m_visibleDocRect.isEmpty());
 #endif
         return;
     }
@@ -407,7 +413,7 @@ void PluginWidgetAndroid::scrollToVisibleDocRect() {
     ScrollView* scrollView = m_pluginView->parent();
     android::WebViewCore* core = android::WebViewCore::getWebViewCore(scrollView);
 #if DEBUG_VISIBLE_RECTS
-    SkDebugf("%s call scrollBy (%d,%d)", __FUNCTION__, deltaX, deltaY);
+    PLUGIN_LOG("%s call scrollBy (%d,%d)", __FUNCTION__, deltaX, deltaY);
 #endif
     core->scrollBy(deltaX, deltaY, true);
 }
