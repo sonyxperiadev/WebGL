@@ -2589,8 +2589,8 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
 
     for (int i = 0; i < points.size(); ++i) {
         const PlatformTouchPoint& point = points[i];
-        IntPoint framePoint = documentPointForWindowPoint(m_frame, point.pos());
-        HitTestResult result = hitTestResultAtPoint(framePoint, /*allowShadowContent*/ false);
+        IntPoint pagePoint = documentPointForWindowPoint(m_frame, point.pos());
+        HitTestResult result = hitTestResultAtPoint(pagePoint, /*allowShadowContent*/ false);
         Node* target = result.innerNode();
 
         // Touch events should not go to text nodes
@@ -2603,8 +2603,13 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
         if (!doc->hasListenerType(Document::TOUCH_LISTENER))
             continue;
 
-        int adjustedPageX = lroundf(framePoint.x() / m_frame->pageZoomFactor());
-        int adjustedPageY = lroundf(framePoint.y() / m_frame->pageZoomFactor());
+        if (m_frame != doc->frame()) {
+            // pagePoint should always be relative to the target elements containing frame.
+            pagePoint = documentPointForWindowPoint(doc->frame(), point.pos());
+        }
+
+        int adjustedPageX = lroundf(pagePoint.x() / m_frame->pageZoomFactor());
+        int adjustedPageY = lroundf(pagePoint.y() / m_frame->pageZoomFactor());
 
         if ( (event.type() == TouchStart
 #if PLATFORM(ANDROID)
@@ -2614,10 +2619,10 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
             ) && !i) {
             m_touchEventTarget = target;
             m_firstTouchScreenPos = point.screenPos();
-            m_firstTouchPagePos = framePoint;
+            m_firstTouchPagePos = pagePoint;
         }
 
-        RefPtr<Touch> touch = Touch::create(m_frame, m_touchEventTarget.get(), point.id(),
+        RefPtr<Touch> touch = Touch::create(doc->frame(), m_touchEventTarget.get(), point.id(),
                                             point.screenPos().x(), point.screenPos().y(),
                                             adjustedPageX, adjustedPageY);
 

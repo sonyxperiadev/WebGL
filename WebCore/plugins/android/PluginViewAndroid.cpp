@@ -208,10 +208,10 @@ void PluginView::handleTouchEvent(TouchEvent* event)
 
     evt.data.touch.modifiers = 0;   // todo
 
-    // In the event of a touchend (up) event, we must ask the changedTouch for the
+    // In the event of a touchend (up) or touchcancel event, we must ask the changedTouch for the
     // co-ordinates as there is no touch in touches anymore.
-    TouchList* touches = (evt.data.touch.action == kUp_ANPTouchAction) ?
-                              event->changedTouches() : event->touches();
+    TouchList* touches = (evt.data.touch.action == kUp_ANPTouchAction
+        || evt.data.touch.action == kCancel_ANPTouchAction) ? event->changedTouches() : event->touches();
 
     // Convert to coordinates that are relative to the plugin.
     // We only support single touch points at the moment, so we want to look at index 0 only.
