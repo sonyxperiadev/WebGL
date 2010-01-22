@@ -73,7 +73,7 @@ public:
 
     void suspend();
     void resume();
-    
+
     void setIsAllowed(bool);
     bool isAllowed() const { return m_allowGeolocation == Yes; }
     bool isDenied() const { return m_allowGeolocation == No; }
