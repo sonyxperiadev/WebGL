@@ -113,14 +113,8 @@ void PluginWidgetAndroid::setWindow(NPWindow* window, bool isTransparent) {
 
     if (m_drawingModel == kSurface_ANPDrawingModel) {
 
-        // if the surface exists check for changes and update accordingly
-        if (m_embeddedView && m_pluginBounds != oldPluginBounds) {
-
-            m_core->updateSurface(m_embeddedView, window->x, window->y,
-                                  window->width, window->height);
-
         // if the surface does not exist then create a new surface
-        } else if(!m_embeddedView) {
+        if (!m_embeddedView) {
 
             WebCore::PluginPackage* pkg = m_pluginView->plugin();
             NPP instance = m_pluginView->instance();
@@ -136,10 +130,15 @@ void PluginWidgetAndroid::setWindow(NPWindow* window, bool isTransparent) {
                 JNIEnv* env = JSC::Bindings::getJNIEnv();
                 m_embeddedView = env->NewGlobalRef(tempObj);
             }
-        }
-        if (m_isFullScreen && m_pluginBounds != oldPluginBounds) {
-            m_core->updateFullScreenPlugin(window->x, window->y,
-                    window->width, window->height);
+        } else if (m_pluginBounds != oldPluginBounds) {
+            // if the surface exists check for changes and update accordingly
+            if (m_isFullScreen) {
+                m_core->updateFullScreenPlugin(window->x, window->y,
+                        window->width, window->height);
+            } else {
+                m_core->updateSurface(m_embeddedView, window->x, window->y,
+                                      window->width, window->height);
+            }
         }
     } else {
         m_flipPixelRef->safeUnref();
