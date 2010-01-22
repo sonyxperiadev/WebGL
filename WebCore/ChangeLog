@@ -1,3 +1,10 @@
+2009-12-14  Sam Weinig  <sam@webkit.org>
+
+        Fix the build.
+
+        * page/Geolocation.cpp:
+        * page/Geolocation.h:
+
 2010-01-21  Steve Block  <steveblock@google.com>
 
         Reviewed by David Levin.
