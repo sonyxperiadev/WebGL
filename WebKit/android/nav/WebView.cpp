@@ -1998,13 +1998,15 @@ static void nativeMoveCursorToNextTextInput(JNIEnv *env, jobject obj)
     CachedRoot* root = view->getFrameCache(WebView::DontAllowNewer);
     if (!root)
         return;
-    const CachedNode* current = root->currentCursor();
+    const CachedFrame* containingFrame;
+    const CachedNode* current = root->currentCursor(&containingFrame);
     if (!current)
-        current = root->currentFocus();
+        current = root->currentFocus(&containingFrame);
     if (!current)
         return;
     const CachedFrame* frame;
-    const CachedNode* next = root->nextTextField(current, &frame, true);
+    const CachedNode* next = containingFrame->nextTextField(current, &frame,
+            true);
     if (!next)
         return;
     const WebCore::IntRect& bounds = next->bounds();
