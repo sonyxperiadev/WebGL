@@ -137,7 +137,7 @@ namespace android {
 	virtual void populateVisitedLinks();
 
 #if ENABLE(TOUCH_EVENTS)
-        virtual void needTouchEvents(bool, bool);
+        virtual void needTouchEvents(bool);
 #endif
 
         // Methods used to request and provide Geolocation permissions.

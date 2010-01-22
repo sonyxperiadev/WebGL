@@ -210,14 +210,6 @@ void EventHandler::clear()
     m_clickNode = 0;
 #if ENABLE(TOUCH_EVENTS)
     m_touchEventTarget = 0;
-    if (Document* doc = m_frame->document()) {
-        if (Page* page = doc->page()) {
-            // We are clearing event handlers, which includes any touch
-            // event handlers so force webkit to tell the chrome client to
-            // stop forwarding the events.
-            page->chrome()->client()->needTouchEvents(false, true);
-        }
-    }
 #endif
     m_frameSetBeingResized = 0;
 #if ENABLE(DRAG_SUPPORT)

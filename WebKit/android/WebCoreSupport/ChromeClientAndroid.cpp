@@ -468,12 +468,12 @@ void ChromeClientAndroid::wakeUpMainThreadWithNewQuota(long newQuota) {
 }
 
 #if ENABLE(TOUCH_EVENTS)
-void ChromeClientAndroid::needTouchEvents(bool needTouchEvents, bool force)
+void ChromeClientAndroid::needTouchEvents(bool needTouchEvents)
 {
     FrameView* frameView = m_webFrame->page()->mainFrame()->view();
     android::WebViewCore* core = android::WebViewCore::getWebViewCore(frameView);
     if (core)
-        core->needTouchEvents(needTouchEvents, force);
+        core->needTouchEvents(needTouchEvents);
 }
 #endif
 

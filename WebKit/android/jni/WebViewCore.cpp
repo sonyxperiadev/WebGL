@@ -268,7 +268,9 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     m_screenWidth = 320;
     m_scale = 1;
     m_screenWidthScale = 1;
-    m_touchEventListenerCount = 0;
+#if ENABLE(TOUCH_EVENTS)
+    m_forwardingTouchEvents = false;
+#endif
 
     LOG_ASSERT(m_mainFrame, "Uh oh, somehow a frameview was made without an initial frame!");
 
@@ -998,28 +1000,20 @@ void WebViewCore::restoreScreenWidthScale(int scale)
     checkException(env);
 }
 
-void WebViewCore::needTouchEvents(bool need, bool force)
+void WebViewCore::needTouchEvents(bool need)
 {
     DEBUG_NAV_UI_LOGD("%s", __FUNCTION__);
     LOG_ASSERT(m_javaGlue->m_obj, "A Java widget was not associated with this view bridge!");
 
-#if ENABLE(TOUCH_EVENTS) // Android
-    bool needToUpdateJava = false;
-    if (need) {
-        if (++m_touchEventListenerCount == 1)
-            needToUpdateJava = true;
-    } else {
-        if (force)
-           m_touchEventListenerCount = 0;
-        else if (--m_touchEventListenerCount == 0)
-            needToUpdateJava = true;
-    }
+#if ENABLE(TOUCH_EVENTS)
+    if (m_forwardingTouchEvents == need)
+        return;
 
-    if (needToUpdateJava || force) {
-        JNIEnv* env = JSC::Bindings::getJNIEnv();
-        env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_needTouchEvents, need);
-        checkException(env);
-    }
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_needTouchEvents, need);
+    checkException(env);
+
+    m_forwardingTouchEvents = need;
 #endif
 }
 

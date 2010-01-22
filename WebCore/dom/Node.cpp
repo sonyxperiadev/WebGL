@@ -2438,18 +2438,6 @@ bool Node::removeEventListener(const AtomicString& eventType, EventListener* lis
 
     updateSVGElementInstancesAfterEventListenerChange(this);
 
-#if ENABLE(TOUCH_EVENTS)
-    if (Document* document = this->document()) {
-        if (document->page()
-            && (eventType == eventNames().touchstartEvent
-                || eventType == eventNames().touchmoveEvent
-                || eventType == eventNames().touchendEvent
-                || eventType == eventNames().touchcancelEvent))
-            // Note the corresponding needTouchEvents(true) is called in Document::addListenerTypeIfNeeded().
-            document->page()->chrome()->client()->needTouchEvents(false);
-
-   }
-#endif
     return true;
 }
 

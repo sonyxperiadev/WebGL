@@ -271,14 +271,8 @@ void PluginWidgetAndroid::updateEventFlags(ANPEventFlags flags) {
     Document* doc = m_pluginView->getParentFrame()->document();
 #if ENABLE(TOUCH_EVENTS)
     if((m_eventFlags ^ flags) & kTouch_ANPEventFlag) {
-        if (flags & kTouch_ANPEventFlag) {
-           if (Page* page = doc->page())
-               page->chrome()->client()->needTouchEvents(true, false);
-               doc->addListenerTypeIfNeeded(eventNames().touchstartEvent);
-       } else {
-           if (Page* page = doc->page())
-               page->chrome()->client()->needTouchEvents(false, false);
-       }
+        if (flags & kTouch_ANPEventFlag)
+           doc->addListenerTypeIfNeeded(eventNames().touchstartEvent);
     }
 #endif
 

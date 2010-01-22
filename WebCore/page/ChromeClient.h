@@ -226,7 +226,7 @@ namespace WebCore {
 #endif
 
 #if ENABLE(TOUCH_EVENTS)
-        virtual void needTouchEvents(bool, bool force = false) = 0;
+        virtual void needTouchEvents(bool) = 0;
 #endif
 
     protected:
