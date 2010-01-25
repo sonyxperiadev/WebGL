@@ -49,7 +49,8 @@ static void anp_clearVisibleRects(NPP instance) {
 static void anp_showKeyboard(NPP instance, bool value) {
     PluginView* pluginView = pluginViewForInstance(instance);
     PluginWidgetAndroid* pluginWidget = pluginView->platformPluginWidget();
-    pluginWidget->webViewCore()->requestKeyboard(value, false);
+    if(pluginWidget->hasFocus())
+        pluginWidget->webViewCore()->requestKeyboard(value, false);
 }
 
 static void anp_requestFullScreen(NPP instance) {

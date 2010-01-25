@@ -134,6 +134,12 @@ struct PluginWidgetAndroid {
 
     bool inFullScreen() { return m_isFullScreen; }
 
+    /** Called to check if a plugin currently has document focus, which is
+        required for certain operations (e.g. show/hide keyboard). It returns
+        true if the plugin currently has focus and false otherwise.
+     */
+    bool hasFocus() const { return m_hasFocus; }
+
 private:
     void computeVisiblePluginRect();
     void scrollToVisiblePluginRect();
