@@ -33,8 +33,6 @@
 #include "JNIUtility.h"
 #include "PlatformString.h"
 #include "PluginDatabase.h"
-#include "PluginDebug.h"
-#include "PluginDebugAndroid.h"
 #include "PluginMainThreadScheduler.h"
 #include "Timer.h"
 #include "npfunctions.h"
@@ -42,7 +40,12 @@
 #include <dlfcn.h>
 #include <errno.h>
 
+// un-comment this to enable logging
+//#define PLUGIN_DEBUG_LOCAL
 #define LOG_TAG "WebKit"
+#include "NotImplemented.h"
+#include "PluginDebug.h"
+#include "PluginDebugAndroid.h"
 
 namespace WebCore {
 
