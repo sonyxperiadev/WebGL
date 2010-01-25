@@ -32,18 +32,11 @@
 #include "V8DOMWrapper.h"
 
 #include "CSSMutableStyleDeclaration.h"
-// ANDROID: Upstream CHROMIUM guard.
-#if PLATFORM(CHROMIUM)
-#include "ChromiumBridge.h"
-#endif
 #include "DOMObjectsInclude.h"
 #include "DocumentLoader.h"
 #include "FrameLoaderClient.h"
 #include "Notification.h"
-// ANDROID: Upstream SVG guard.
-#if ENABLE(SVG)
 #include "SVGElementInstance.h"
-#endif
 #include "ScriptController.h"
 #include "V8AbstractEventListener.h"
 #include "V8Binding.h"
@@ -592,13 +585,11 @@ v8::Persistent<v8::FunctionTemplate> V8DOMWrapper::getTemplate(V8ClassIndex::V8W
         instanceTemplate->SetInternalFieldCount(V8Custom::kXMLHttpRequestInternalFieldCount);
         break;
     }
-// ANDROID: Upstream XPATH guard.
 #if ENABLE(XPATH)
     case V8ClassIndex::XPATHEVALUATOR:
         descriptor->SetCallHandler(USE_CALLBACK(XPathEvaluatorConstructor));
         break;
 #endif
-// ANDROID: Upstream XSLT guard.
 #if ENABLE(XSLT)
     case V8ClassIndex::XSLTPROCESSOR:
         descriptor->SetCallHandler(USE_CALLBACK(XSLTProcessorConstructor));
