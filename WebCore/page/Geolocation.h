@@ -34,11 +34,11 @@
 #include "PositionErrorCallback.h"
 #include "PositionOptions.h"
 #include "Timer.h"
-#include <wtf/Platform.h>
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
 #include <wtf/OwnPtr.h>
 #include <wtf/PassRefPtr.h>
+#include <wtf/Platform.h>
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
 #include <wtf/Vector.h>
@@ -73,7 +73,7 @@ public:
 
     void suspend();
     void resume();
-    
+
     void setIsAllowed(bool);
     bool isAllowed() const { return m_allowGeolocation == Yes; }
     bool isDenied() const { return m_allowGeolocation == No; }

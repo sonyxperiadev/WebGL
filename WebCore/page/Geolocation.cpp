@@ -44,7 +44,6 @@
 #include "GeolocationController.h"
 #include "GeolocationError.h"
 #include "GeolocationPosition.h"
-#include "Geoposition.h"
 #include "PositionError.h"
 #endif
 
@@ -122,15 +121,15 @@ void Geolocation::GeoNotifier::timerFired(Timer<GeoNotifier>*)
 {
     m_timer.stop();
 
-    // Cache our pointer to the Geolocation object, as this GeoNotifier object
+    // Protect this GeoNotifier object, since it
     // could be deleted by a call to clearWatch in a callback.
-    Geolocation* geolocation = m_geolocation;
+    RefPtr<GeoNotifier> protect(this);
 
     if (m_fatalError) {
         if (m_errorCallback)
             m_errorCallback->handleEvent(m_fatalError.get());
         // This will cause this notifier to be deleted.
-        geolocation->fatalErrorOccurred(this);
+        m_geolocation->fatalErrorOccurred(this);
         return;
     }
 
@@ -139,7 +138,7 @@ void Geolocation::GeoNotifier::timerFired(Timer<GeoNotifier>*)
         // Clear the cached position in case this is a watch request, which
         // will continue to run.
         m_cachedPosition = 0;
-        geolocation->requestReturnedCachedPosition(this);
+        m_geolocation->requestReturnedCachedPosition(this);
         return;
     }
 
@@ -147,7 +146,7 @@ void Geolocation::GeoNotifier::timerFired(Timer<GeoNotifier>*)
         RefPtr<PositionError> error = PositionError::create(PositionError::TIMEOUT, "Timeout expired");
         m_errorCallback->handleEvent(error.get());
     }
-    geolocation->requestTimedOut(this);
+    m_geolocation->requestTimedOut(this);
 }
 
 void Geolocation::Watchers::set(int id, PassRefPtr<GeoNotifier> prpNotifier)
@@ -496,14 +495,18 @@ void Geolocation::clearWatch(int watchId)
 
 void Geolocation::suspend()
 {
+#if !ENABLE(CLIENT_BASED_GEOLOCATION)
     if (hasListeners())
         m_service->suspend();
+#endif
 }
 
 void Geolocation::resume()
 {
+#if !ENABLE(CLIENT_BASED_GEOLOCATION)
     if (hasListeners())
         m_service->resume();
+#endif
 }
 
 void Geolocation::setIsAllowed(bool allowed)
