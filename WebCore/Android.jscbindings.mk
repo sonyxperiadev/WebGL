@@ -53,6 +53,7 @@ BINDING_C_INCLUDES := \
 	$(base_intermediates)/WebCore/page \
 	$(base_intermediates)/WebCore/plugins \
 	$(base_intermediates)/WebCore/storage \
+	$(base_intermediates)/WebCore/svg \
 	$(base_intermediates)/WebCore/workers \
 	$(base_intermediates)/WebCore/xml
 

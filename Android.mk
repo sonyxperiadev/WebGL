@@ -110,6 +110,7 @@ LOCAL_C_INCLUDES := $(LOCAL_C_INCLUDES) \
 	$(LOCAL_PATH)/WebCore/platform/animation \
 	$(LOCAL_PATH)/WebCore/platform/graphics \
 	$(LOCAL_PATH)/WebCore/platform/graphics/android \
+	$(LOCAL_PATH)/WebCore/platform/graphics/filters \
 	$(LOCAL_PATH)/WebCore/platform/graphics/network \
 	$(LOCAL_PATH)/WebCore/platform/graphics/skia \
 	$(LOCAL_PATH)/WebCore/platform/graphics/transforms \
@@ -124,6 +125,10 @@ LOCAL_C_INCLUDES := $(LOCAL_C_INCLUDES) \
 	$(LOCAL_PATH)/WebCore/rendering \
 	$(LOCAL_PATH)/WebCore/rendering/style \
 	$(LOCAL_PATH)/WebCore/storage \
+	$(LOCAL_PATH)/WebCore/svg \
+	$(LOCAL_PATH)/WebCore/svg/animation \
+	$(LOCAL_PATH)/WebCore/svg/graphics \
+	$(LOCAL_PATH)/WebCore/svg/graphics/filters \
 	$(LOCAL_PATH)/WebCore/workers \
 	$(LOCAL_PATH)/WebCore/xml
 
@@ -145,16 +150,6 @@ LOCAL_C_INCLUDES := $(LOCAL_C_INCLUDES) \
 	$(base_intermediates)/WebCore/css \
 	$(base_intermediates)/WebCore/html \
 	$(base_intermediates)/WebCore/platform
-
-ifeq ($(ENABLE_SVG), true)
-LOCAL_C_INCLUDES := $(LOCAL_C_INCLUDES) \
-	$(LOCAL_PATH)/WebCore/platform/graphics/filters \
-	$(LOCAL_PATH)/WebCore/svg \
-	$(LOCAL_PATH)/WebCore/svg/animation \
-	$(LOCAL_PATH)/WebCore/svg/graphics \
-	$(LOCAL_PATH)/WebCore/svg/graphics/filters \
-	$(base_intermediates)/WebCore/svg
-endif
 
 ifeq ($(JAVASCRIPT_ENGINE),v8)
 # Include WTF source file.
