@@ -71,8 +71,10 @@ void ChromeClientAndroid::compositingLayerSync()
             frameView->syncCompositingStateRecursive();
             GraphicsLayerAndroid* androidGraphicsLayer =
                     static_cast<GraphicsLayerAndroid*>(m_rootGraphicsLayer);
-            if (androidGraphicsLayer)
+            if (androidGraphicsLayer) {
                 androidGraphicsLayer->sendImmediateRepaint();
+                androidGraphicsLayer->notifyClientAnimationStarted();
+            }
             return;
         }
     }

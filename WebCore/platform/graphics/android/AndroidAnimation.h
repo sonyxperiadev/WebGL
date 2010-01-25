@@ -180,23 +180,6 @@ class AndroidTransformAnimation : public AndroidAnimation {
     float m_toScaleX, m_toScaleY, m_toScaleZ;
 };
 
-class AndroidAnimationTimer : public TimerBase {
-  public:
-
-    AndroidAnimationTimer(GraphicsLayerAndroid* layer, double beginTime)
-    {
-        m_layer = layer;
-        m_notificationSent = false;
-        m_beginTime = beginTime;
-    }
-
-  private:
-    void fired();
-    GraphicsLayerAndroid* m_layer;
-    double m_beginTime;
-    bool m_notificationSent;
-};
-
 } // namespace WebCore
 
 

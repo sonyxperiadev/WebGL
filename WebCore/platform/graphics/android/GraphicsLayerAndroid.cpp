@@ -96,6 +96,7 @@ GraphicsLayerAndroid::GraphicsLayerAndroid(GraphicsLayerClient* client) :
     m_needsSyncMask(false),
     m_needsRepaint(false),
     m_needsDisplay(false),
+    m_needsNotifyClient(false),
     m_haveContents(false),
     m_haveImage(false),
     m_translateX(0),
@@ -536,12 +537,17 @@ bool GraphicsLayerAndroid::createAnimationFromKeyframes(const KeyframeValueList&
             anim->setName(keyframesName);
 
         m_contentLayer->addAnimation(anim.release());
-        AndroidAnimationTimer* timer = new AndroidAnimationTimer(this, WTF::currentTime());
-        timer->startOneShot(0);
+        needsNotifyClient();
         return true;
     } break;
     }
     return false;
+}
+
+void GraphicsLayerAndroid::needsNotifyClient()
+{
+    m_needsNotifyClient = true;
+    askForSync();
 }
 
 bool GraphicsLayerAndroid::createTransformAnimationsFromKeyframes(const KeyframeValueList& valueList,
@@ -725,8 +731,7 @@ bool GraphicsLayerAndroid::createTransformAnimationsFromKeyframes(const Keyframe
                        toScaleX, toScaleY, toScaleZ);
     m_contentLayer->addAnimation(anim.release());
 
-    AndroidAnimationTimer* timer = new AndroidAnimationTimer(this, WTF::currentTime());
-    timer->startOneShot(0);
+    needsNotifyClient();
     return true;
 }
 
@@ -860,6 +865,19 @@ void GraphicsLayerAndroid::syncCompositingState()
         repaintAll();
 }
 
+void GraphicsLayerAndroid::notifyClientAnimationStarted()
+{
+    for (unsigned int i = 0; i < m_children.size(); i++) {
+        GraphicsLayerAndroid* layer = static_cast<GraphicsLayerAndroid*>(m_children[i]);
+        layer->notifyClientAnimationStarted();
+    }
+
+    if (m_needsNotifyClient) {
+        if (client())
+            client()->notifyAnimationStarted(this, WTF::currentTime());
+        m_needsNotifyClient = false;
+    }
+}
 
 } // namespace WebCore
 

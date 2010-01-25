@@ -116,6 +116,7 @@ public:
     void syncMask();
     virtual void syncCompositingState();
     void setFrame(Frame*);
+    void notifyClientAnimationStarted();
 
     void sendImmediateRepaint();
     LayerAndroid* contentLayer() { return m_contentLayer.get(); }
@@ -125,11 +126,13 @@ public:
 private:
 
     bool repaint(const FloatRect& rect);
+    void needsNotifyClient();
 
     bool m_needsSyncChildren;
     bool m_needsSyncMask;
     bool m_needsRepaint;
     bool m_needsDisplay;
+    bool m_needsNotifyClient;
 
     bool m_haveContents;
     bool m_haveImage;

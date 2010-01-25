@@ -42,15 +42,6 @@ void AndroidTransformAnimationValue::apply()
         m_layer->setRotation(m_rotation);
 }
 
-void AndroidAnimationTimer::fired()
-{
-    if (!m_notificationSent) {
-        m_notificationSent = true;
-        if (m_layer && m_layer->client())
-            m_layer->client()->notifyAnimationStarted(m_layer, WTF::currentTime());
-    }
-}
-
 static long gDebugAndroidAnimationInstances;
 
 long AndroidAnimation::instancesCount()
