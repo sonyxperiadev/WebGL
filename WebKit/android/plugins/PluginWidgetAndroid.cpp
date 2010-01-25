@@ -235,12 +235,11 @@ int16 PluginWidgetAndroid::sendEvent(const ANPEvent& evt) {
     // "missing" plugins won't have these
     if (pkg && instance) {
 
-        // keep track of whether or not the plugin currently has focus
-        if (evt.eventType == kLifecycle_ANPEventType) {
-           if (evt.data.lifecycle.action == kLoseFocus_ANPLifecycleAction)
-               m_hasFocus = false;
-           else if (evt.data.lifecycle.action == kGainFocus_ANPLifecycleAction)
-               m_hasFocus = true;
+        // if the plugin is gaining focus then update our state now to allow
+        // the plugin's event handler to perform actions that require focus
+        if (evt.eventType == kLifecycle_ANPEventType &&
+                evt.data.lifecycle.action == kGainFocus_ANPLifecycleAction) {
+            m_hasFocus = true;
         }
 
         // make a localCopy since the actual plugin may not respect its constness,
@@ -248,6 +247,15 @@ int16 PluginWidgetAndroid::sendEvent(const ANPEvent& evt) {
         ANPEvent localCopy = evt;
         int16 result = pkg->pluginFuncs()->event(instance, &localCopy);
         PLUGIN_LOG_EVENT(instance, &evt, result);
+
+        // if the plugin is losing focus then delay the update of our state
+        // until after we notify the plugin and allow them to perform actions
+        // that may require focus
+        if (evt.eventType == kLifecycle_ANPEventType &&
+                evt.data.lifecycle.action == kLoseFocus_ANPLifecycleAction) {
+            m_hasFocus = false;
+        }
+
         return result;
     }
     return 0;
