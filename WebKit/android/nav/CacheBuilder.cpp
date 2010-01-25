@@ -1889,7 +1889,9 @@ CacheBuilder::FoundState CacheBuilder::FindPartialAddress(const UChar* baseChars
                 s->mProgress = ZIP_CODE;
                 // a couple of delimiters is an indication that the state name is good
                 // or, a non-space / non-alpha-digit is also good
-                s->mZipDelimiter = s->mLineCount > 2 || isUnicodeSpace(ch) == false;
+                s->mZipDelimiter = s->mLineCount > 2
+                    || isUnicodeSpace(ch) == false
+                    || chars == s->mEnd;
                 if (WTF::isASCIIDigit(ch))
                     s->mZipStart = chars;
                 goto resetState;
