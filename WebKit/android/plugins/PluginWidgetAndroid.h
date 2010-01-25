@@ -89,10 +89,10 @@ struct PluginWidgetAndroid {
      */
     void draw(SkCanvas* canvas = NULL);
 
-    /*  Send this event to the plugin instance, and return true if the plugin
-        handled it.
+    /*  Send this event to the plugin instance. A non-zero value will be
+        returned if the plugin handled the event.
      */
-    bool sendEvent(const ANPEvent&);
+    int16 sendEvent(const ANPEvent&);
 
     /*  Update the plugins event flags. If a flag is set to true then the plugin
         wants to be notified of events of this type.

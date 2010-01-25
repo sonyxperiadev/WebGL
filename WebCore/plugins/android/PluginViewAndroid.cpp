@@ -219,7 +219,7 @@ void PluginView::handleTouchEvent(TouchEvent* event)
     evt.data.touch.x = localPos.x();
     evt.data.touch.y = localPos.y();
 
-    int16 ret = m_plugin->pluginFuncs()->event(m_instance, &evt);
+    int16 ret = m_window->sendEvent(evt);
     if (ignoreRet)
         return;
     if (ret & kHandleTouch_ANPTouchResult) {
@@ -266,7 +266,7 @@ void PluginView::handleMouseEvent(MouseEvent* event)
       return;
     }
 
-    if (m_plugin->pluginFuncs()->event(m_instance, &evt)) {
+    if (m_window->sendEvent(evt)) {
         event->setDefaultHandled();
     }
 }
@@ -355,7 +355,7 @@ void PluginView::handleKeyboardEvent(KeyboardEvent* event)
     evt.data.key.modifiers = make_modifiers(pke->shiftKey(), pke->altKey());
     evt.data.key.unichar = pke->unichar();
 
-    if (m_plugin->pluginFuncs()->event(m_instance, &evt)) {
+    if (m_window->sendEvent(evt)) {
         event->setDefaultHandled();
     } else if (m_window->inFullScreen()){
         // while in the full screen mode, always consumes the key events and
