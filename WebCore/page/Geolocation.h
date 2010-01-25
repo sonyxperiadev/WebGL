@@ -96,7 +96,8 @@ private:
         
         void setFatalError(PassRefPtr<PositionError>);
         bool hasZeroTimeout() const;
-        void setCachedPosition(Geoposition* cachedPosition);
+        void setUseCachedPosition();
+        void makeSuccessCallback(Geoposition*);
         void startTimerIfNeeded();
         void timerFired(Timer<GeoNotifier>*);
         
@@ -106,7 +107,7 @@ private:
         RefPtr<PositionOptions> m_options;
         Timer<GeoNotifier> m_timer;
         RefPtr<PositionError> m_fatalError;
-        RefPtr<Geoposition> m_cachedPosition;
+        bool m_useCachedPosition;
 
     private:
         GeoNotifier(Geolocation*, PassRefPtr<PositionCallback>, PassRefPtr<PositionErrorCallback>, PassRefPtr<PositionOptions>);
@@ -161,8 +162,9 @@ private:
 
     void fatalErrorOccurred(GeoNotifier*);
     void requestTimedOut(GeoNotifier*);
-    void requestReturnedCachedPosition(GeoNotifier*);
+    void requestUsesCachedPosition(GeoNotifier*);
     bool haveSuitableCachedPosition(PositionOptions*);
+    void makeCachedPositionCallbacks();
 
     typedef HashSet<RefPtr<GeoNotifier> > GeoNotifierSet;
     
