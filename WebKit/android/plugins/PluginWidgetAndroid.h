@@ -136,8 +136,8 @@ struct PluginWidgetAndroid {
     bool inFullScreen() { return m_isFullScreen; }
 
 private:
-    void computeVisibleDocRect();
-    void scrollToVisibleDocRect();
+    void computeVisiblePluginRect();
+    void scrollToVisiblePluginRect();
 
     WebCore::PluginView*    m_pluginView;
     android::WebViewCore*   m_core;
@@ -147,7 +147,7 @@ private:
     NPWindow*               m_pluginWindow;
     SkIRect                 m_pluginBounds; // relative to the page
     SkIRect                 m_visibleDocRect; // relative to the page
-    SkIRect                 m_requestedDocRect; // relative to the page
+    SkIRect                 m_requestedVisibleRect; // relative to the page
     bool                    m_hasFocus;
     bool                    m_isFullScreen;
     bool                    m_visible;
@@ -162,7 +162,7 @@ private:
         MAX_REQUESTED_RECTS = 5,
     };
 
-    ANPRectI                m_requestedVisibleRect[MAX_REQUESTED_RECTS];
+    ANPRectI                m_requestedVisibleRects[MAX_REQUESTED_RECTS];
     int32_t                 m_requestedVisibleRectCount;
 };
 

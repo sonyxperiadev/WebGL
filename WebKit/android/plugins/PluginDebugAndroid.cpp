@@ -69,11 +69,11 @@ void anp_logPluginEvent(void* npp, const ANPEvent* evt, int16 returnVal) {
 
         case kKey_ANPEventType:
             if(evt->data.key.action < ARRAY_COUNT(inputActions)) {
-                PLUGIN_LOG("%p EVENT::KEY[%d] action=%s code=%d vcode=%d unichar=%d repeat=%d mods=%x",
-                          npp, returnVal, inputActions[evt->data.key.action],
-                          evt->data.key.nativeCode, evt->data.key.virtualCode,
-                          evt->data.key.unichar, evt->data.key.repeatCount,
-                          evt->data.key.modifiers);
+                anp_logPlugin("%p EVENT::KEY[%d] action=%s code=%d vcode=%d unichar=%d repeat=%d mods=%x",
+                        npp, returnVal, inputActions[evt->data.key.action],
+                        evt->data.key.nativeCode, evt->data.key.virtualCode,
+                        evt->data.key.unichar, evt->data.key.repeatCount,
+                        evt->data.key.modifiers);
             } else {
                 PLUGIN_LOG("%p EVENT::KEY[%d] unknown action", npp, returnVal);
             }
@@ -81,50 +81,50 @@ void anp_logPluginEvent(void* npp, const ANPEvent* evt, int16 returnVal) {
 
         case kMouse_ANPEventType:
             if(evt->data.mouse.action < ARRAY_COUNT(inputActions)) {
-                PLUGIN_LOG("%p EVENT::MOUSE[%d] action=%s [%d %d]", npp,
-                          returnVal, inputActions[evt->data.mouse.action],
-                          evt->data.touch.x, evt->data.touch.y);
+                anp_logPlugin("%p EVENT::MOUSE[%d] action=%s [%d %d]", npp,
+                        returnVal, inputActions[evt->data.mouse.action],
+                        evt->data.touch.x, evt->data.touch.y);
             } else {
-                PLUGIN_LOG("%p EVENT::MOUSE[%d] unknown action", npp, returnVal);
+                anp_logPlugin("%p EVENT::MOUSE[%d] unknown action", npp, returnVal);
             }
             break;
 
         case kTouch_ANPEventType:
             if(evt->data.touch.action < ARRAY_COUNT(inputActions)) {
-                PLUGIN_LOG("%p EVENT::TOUCH[%d] action=%s [%d %d]", npp,
-                          returnVal, inputActions[evt->data.touch.action],
-                          evt->data.touch.x, evt->data.touch.y);
+                anp_logPlugin("%p EVENT::TOUCH[%d] action=%s [%d %d]", npp,
+                        returnVal, inputActions[evt->data.touch.action],
+                        evt->data.touch.x, evt->data.touch.y);
             } else {
-                PLUGIN_LOG("%p EVENT::TOUCH[%d] unknown action", npp, returnVal);
+                anp_logPlugin("%p EVENT::TOUCH[%d] unknown action", npp, returnVal);
             }
             break;
 
         case kDraw_ANPEventType:
             if (evt->data.draw.model == kBitmap_ANPDrawingModel) {
-                PLUGIN_LOG("%p EVENT::DRAW bitmap format=%d clip=[%d,%d,%d,%d]",
-                          npp, evt->data.draw.data.bitmap.format,
-                          evt->data.draw.clip.left, evt->data.draw.clip.top,
-                          evt->data.draw.clip.right, evt->data.draw.clip.bottom);
+                anp_logPlugin("%p EVENT::DRAW bitmap format=%d clip=[%d,%d,%d,%d]",
+                        npp, evt->data.draw.data.bitmap.format,
+                        evt->data.draw.clip.left, evt->data.draw.clip.top,
+                        evt->data.draw.clip.right, evt->data.draw.clip.bottom);
             } else {
-                PLUGIN_LOG("%p EVENT::DRAW unknown drawing model", npp);
+                anp_logPlugin("%p EVENT::DRAW unknown drawing model", npp);
             }
             break;
 
         case kLifecycle_ANPEventType:
             if(evt->data.lifecycle.action < ARRAY_COUNT(lifecycleActions)) {
-                PLUGIN_LOG("%p EVENT::LIFECYCLE %s", npp,
-                          lifecycleActions[evt->data.lifecycle.action]);
+                anp_logPlugin("%p EVENT::LIFECYCLE %s", npp,
+                        lifecycleActions[evt->data.lifecycle.action]);
             } else {
-                PLUGIN_LOG("%p EVENT::LIFECYCLE unknown action", npp);
+                anp_logPlugin("%p EVENT::LIFECYCLE unknown action", npp);
             }
             break;
 
         case kCustom_ANPEventType:
-            PLUGIN_LOG("%p EVENT::CUSTOM", npp);
+            anp_logPlugin("%p EVENT::CUSTOM", npp);
             break;
 
         default:
-            PLUGIN_LOG("%p EVENT::UNKNOWN", npp);
+            anp_logPlugin("%p EVENT::UNKNOWN", npp);
             break;
     }
 }

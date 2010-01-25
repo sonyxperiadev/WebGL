@@ -58,7 +58,7 @@ PluginWidgetAndroid::PluginWidgetAndroid(WebCore::PluginView* view)
     m_eventFlags = 0;
     m_pluginWindow = NULL;
     m_requestedVisibleRectCount = 0;
-    m_requestedDocRect.setEmpty();
+    m_requestedVisibleRect.setEmpty();
     m_visibleDocRect.setEmpty();
     m_pluginBounds.setEmpty();
     m_hasFocus = false;
@@ -283,22 +283,32 @@ bool PluginWidgetAndroid::isAcceptingEvent(ANPEventFlag flag) {
 
 void PluginWidgetAndroid::setVisibleScreen(const ANPRectI& visibleDocRect, float zoom) {
 #if DEBUG_VISIBLE_RECTS
-    PLUGIN_LOG("%s (%d,%d,%d,%d)", __FUNCTION__, visibleDocRect.left,
-               visibleDocRect.top, visibleDocRect.right, visibleDocRect.bottom);
+    PLUGIN_LOG("%s (%d,%d,%d,%d)[%f]", __FUNCTION__, visibleDocRect.left,
+            visibleDocRect.top, visibleDocRect.right,
+            visibleDocRect.bottom, zoom);
 #endif
     // TODO update the bitmap size based on the zoom? (for kBitmap_ANPDrawingModel)
 
     int oldScreenW = m_visibleDocRect.width();
     int oldScreenH = m_visibleDocRect.height();
 
-    m_visibleDocRect.set(visibleDocRect.left, visibleDocRect.top,
-                         visibleDocRect.right, visibleDocRect.bottom);
+    // make local copies of the parameters
+    m_zoomLevel = zoom;
+    m_visibleDocRect.set(visibleDocRect.left,
+                         visibleDocRect.top,
+                         visibleDocRect.right,
+                         visibleDocRect.bottom);
 
     int newScreenW = m_visibleDocRect.width();
     int newScreenH = m_visibleDocRect.height();
 
-    if (oldScreenW != newScreenW || oldScreenH != newScreenH)
-        computeVisibleDocRect();
+    PLUGIN_LOG("%s VisibleDoc Dimensions old=[%d,%d] new=[%d,%d] ",
+               __FUNCTION__, oldScreenW, oldScreenH, newScreenW, newScreenH);
+
+    // if the screen dimensions have changed by more than 5 pixels in either
+    // direction then recompute the plugin's visible rectangle
+    if (abs(oldScreenW - newScreenW) > 5 || abs(oldScreenH - newScreenH) > 5)
+        computeVisiblePluginRect();
 
     bool visible = SkIRect::Intersects(m_visibleDocRect, m_pluginBounds);
     if(m_visible != visible) {
@@ -323,33 +333,33 @@ void PluginWidgetAndroid::setVisibleRects(const ANPRectI rects[], int32_t count)
 
     // store the values in member variables
     m_requestedVisibleRectCount = count;
-    memcpy(m_requestedVisibleRect, rects, count * sizeof(rects[0]));
+    memcpy(m_requestedVisibleRects, rects, count * sizeof(rects[0]));
 
 #if DEBUG_VISIBLE_RECTS // FIXME: this fixes bad data from the plugin
     // take it out once plugin supplies better data
     for (int index = 0; index < count; index++) {
         PLUGIN_LOG("%s [%d](%d,%d,%d,%d)", __FUNCTION__, index,
-            m_requestedVisibleRect[index].left,
-            m_requestedVisibleRect[index].top,
-            m_requestedVisibleRect[index].right,
-            m_requestedVisibleRect[index].bottom);
-        if (m_requestedVisibleRect[index].left ==
-                m_requestedVisibleRect[index].right) {
-            m_requestedVisibleRect[index].right += 1;
+            m_requestedVisibleRects[index].left,
+            m_requestedVisibleRects[index].top,
+            m_requestedVisibleRects[index].right,
+            m_requestedVisibleRects[index].bottom);
+        if (m_requestedVisibleRects[index].left ==
+                m_requestedVisibleRects[index].right) {
+            m_requestedVisibleRects[index].right += 1;
         }
-        if (m_requestedVisibleRect[index].top ==
-                m_requestedVisibleRect[index].bottom) {
-            m_requestedVisibleRect[index].bottom += 1;
+        if (m_requestedVisibleRects[index].top ==
+                m_requestedVisibleRects[index].bottom) {
+            m_requestedVisibleRects[index].bottom += 1;
         }
     }
 #endif
-    computeVisibleDocRect();
+    computeVisiblePluginRect();
 }
 
-void PluginWidgetAndroid::computeVisibleDocRect() {
+void PluginWidgetAndroid::computeVisiblePluginRect() {
 
     // ensure the visibleDocRect has been set (i.e. not equal to zero)
-    if (m_visibleDocRect.isEmpty() || !m_pluginWindow)
+    if (m_visibleDocRect.isEmpty() || !m_pluginWindow || m_requestedVisibleRectCount < 1)
         return;
 
     // create a rect that will contain as many of the rects that will fit on screen
@@ -358,7 +368,7 @@ void PluginWidgetAndroid::computeVisibleDocRect() {
 
     for (int counter = 0; counter < m_requestedVisibleRectCount; counter++) {
 
-        ANPRectI* rect = &m_requestedVisibleRect[counter];
+        ANPRectI* rect = &m_requestedVisibleRects[counter];
 
         // create skia rect for easier manipulation and convert it to page coordinates
         SkIRect pluginRect;
@@ -369,58 +379,61 @@ void PluginWidgetAndroid::computeVisibleDocRect() {
         if (!m_pluginBounds.contains(pluginRect)) {
 #if DEBUG_VISIBLE_RECTS
             PLUGIN_LOG("%s (%d,%d,%d,%d) !contain (%d,%d,%d,%d)", __FUNCTION__,
-                     m_pluginBounds.fLeft, m_pluginBounds.fTop,
-                     m_pluginBounds.fRight, m_pluginBounds.fBottom,
-                pluginRect.fLeft, pluginRect.fTop,
-                pluginRect.fRight, pluginRect.fBottom);
- // FIXME: assume that the desired outcome is to clamp to the container
-            pluginRect.intersect(m_pluginBounds);
+                       m_pluginBounds.fLeft, m_pluginBounds.fTop,
+                       m_pluginBounds.fRight, m_pluginBounds.fBottom,
+                       pluginRect.fLeft, pluginRect.fTop,
+                       pluginRect.fRight, pluginRect.fBottom);
+            // assume that the desired outcome is to clamp to the container
+            if (pluginRect.intersect(m_pluginBounds)) {
+                visibleRect = pluginRect;
+            }
 #endif
             continue;
         }
+
         // combine this new rect with the higher priority rects
         pluginRect.join(visibleRect);
 
-        // check to see if the new rect fits within the screen bounds. If this
-        // is the highest priority rect then attempt to center even if it doesn't
-        // fit on the screen.
+        // check to see if the new rect could be made to fit within the screen
+        // bounds. If this is the highest priority rect then attempt to center
+        // even if it doesn't fit on the screen.
         if (counter > 0 && (m_visibleDocRect.width() < pluginRect.width() ||
-                               m_visibleDocRect.height() < pluginRect.height()))
+                            m_visibleDocRect.height() < pluginRect.height()))
           break;
 
         // set the new visible rect
         visibleRect = pluginRect;
     }
 
-    m_requestedDocRect = visibleRect;
-    scrollToVisibleDocRect();
+    m_requestedVisibleRect = visibleRect;
+    scrollToVisiblePluginRect();
 }
 
-void PluginWidgetAndroid::scrollToVisibleDocRect() {
+void PluginWidgetAndroid::scrollToVisiblePluginRect() {
 
-    if (!m_hasFocus || m_requestedDocRect.isEmpty() || m_visibleDocRect.isEmpty()) {
+    if (!m_hasFocus || m_requestedVisibleRect.isEmpty() || m_visibleDocRect.isEmpty()) {
 #if DEBUG_VISIBLE_RECTS
-        PLUGIN_LOG("%s call m_hasFocus=%d m_requestedDocRect.isEmpty()=%d"
+        PLUGIN_LOG("%s call m_hasFocus=%d m_requestedVisibleRect.isEmpty()=%d"
                 " m_visibleDocRect.isEmpty()=%d", __FUNCTION__, m_hasFocus,
-                m_requestedDocRect.isEmpty(), m_visibleDocRect.isEmpty());
+                m_requestedVisibleRect.isEmpty(), m_visibleDocRect.isEmpty());
 #endif
         return;
     }
     // if the entire rect is already visible then we don't need to scroll
-    if (m_visibleDocRect.contains(m_requestedDocRect))
+    if (m_visibleDocRect.contains(m_requestedVisibleRect))
         return;
 
     // find the center of the visibleRect in document coordinates
-    int rectCenterX = m_requestedDocRect.fLeft + m_requestedDocRect.width()/2;
-    int rectCenterY = m_requestedDocRect.fTop + m_requestedDocRect.height()/2;
+    int rectCenterX = m_requestedVisibleRect.fLeft + m_requestedVisibleRect.width()/2;
+    int rectCenterY = m_requestedVisibleRect.fTop + m_requestedVisibleRect.height()/2;
 
     // find document coordinates for center of the visible screen
-    int screenCenterX = m_visibleDocRect.fLeft + m_visibleDocRect.width()/2;
-    int screenCenterY = m_visibleDocRect.fTop + m_visibleDocRect.height()/2;
+    int visibleDocCenterX = m_visibleDocRect.fLeft + m_visibleDocRect.width()/2;
+    int visibleDocCenterY = m_visibleDocRect.fTop + m_visibleDocRect.height()/2;
 
-    //compute the delta of the two points
-    int deltaX = rectCenterX - screenCenterX;
-    int deltaY = rectCenterY - screenCenterY;
+    //compute the delta of the two points and scale to screen coordinates
+    int deltaX = rectCenterX - visibleDocCenterX;
+    int deltaY = rectCenterY - visibleDocCenterY;
 
     ScrollView* scrollView = m_pluginView->parent();
     android::WebViewCore* core = android::WebViewCore::getWebViewCore(scrollView);
