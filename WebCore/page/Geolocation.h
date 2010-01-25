@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2008, 2009 Apple Inc. All Rights Reserved.
+ * Copyright 2010, The Android Open Source Project
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,6 +28,7 @@
 #define Geolocation_h
 
 #include "EventListener.h"
+#include "GeolocationPositionCache.h"
 #include "GeolocationService.h"
 #include "Geoposition.h"
 #include "PositionCallback.h"
@@ -46,7 +48,6 @@
 namespace WebCore {
 
 class Frame;
-class CachedPositionManager;
 
 #if ENABLE(CLIENT_BASED_GEOLOCATION)
 class GeolocationPosition;
@@ -85,8 +86,6 @@ public:
     void setPostion(GeolocationPosition*);
     void setError(GeolocationError*);
 #endif
-
-    static void setDatabasePath(String);
 
 private:
     Geolocation(Frame*);
@@ -184,7 +183,7 @@ private:
     } m_allowGeolocation;
     bool m_shouldClearCache;
 
-    CachedPositionManager* m_cachedPositionManager;
+    OwnPtr<GeolocationPositionCache> m_positionCache;
     GeoNotifierSet m_requestsAwaitingCachedPosition;
 };
     
