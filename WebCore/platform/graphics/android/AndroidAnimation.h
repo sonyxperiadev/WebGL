@@ -33,9 +33,6 @@ class AndroidAnimation;
 class GraphicsLayerAndroid;
 class TimingFunction;
 
-typedef Vector<RefPtr<AndroidAnimation> > AnimsVector;
-typedef HashMap<RefPtr<LayerAndroid>, AnimsVector* > LayersAnimsMap;
-
 class AndroidAnimationValue : public RefCounted<AndroidAnimationValue> {
   public:
     AndroidAnimationValue(LayerAndroid* layer) : m_layer(layer) { }
@@ -92,26 +89,23 @@ class AndroidTransformAnimationValue : public AndroidAnimationValue {
 
 class AndroidAnimation : public RefCounted<AndroidAnimation> {
   public:
-    AndroidAnimation(LayerAndroid* contentLayer,
-                     const Animation* animation,
+    AndroidAnimation(const Animation* animation,
                      double beginTime);
     AndroidAnimation(AndroidAnimation* anim);
 
     virtual ~AndroidAnimation();
-    virtual AndroidAnimation* copy() = 0;
+    virtual PassRefPtr<AndroidAnimation> copy() = 0;
     float currentProgress(double time);
     bool checkIterationsAndProgress(double time, float* finalProgress);
     virtual void swapDirection() = 0;
-    virtual bool evaluate(double time) = 0;
-    LayerAndroid* contentLayer() { return m_contentLayer.get(); }
+    virtual bool evaluate(LayerAndroid* layer, double time) = 0;
     static long instancesCount();
-    void setLayer(LayerAndroid* layer) { m_contentLayer = layer; }
     void setName(const String& name) { m_name = name; }
     String name() { return m_name; }
-    virtual PassRefPtr<AndroidAnimationValue> result() = 0;
+    virtual PassRefPtr<AndroidAnimationValue> result();
 
   protected:
-    RefPtr<LayerAndroid> m_contentLayer;
+    RefPtr<AndroidAnimationValue> m_result;
     double m_beginTime;
     double m_elapsedTime;
     double m_duration;
@@ -124,38 +118,33 @@ class AndroidAnimation : public RefCounted<AndroidAnimation> {
 
 class AndroidOpacityAnimation : public AndroidAnimation {
   public:
-    static PassRefPtr<AndroidOpacityAnimation> create(LayerAndroid* contentLayer,
-                                        float fromValue, float toValue,
-                                        const Animation* animation,
-                                        double beginTime);
-    AndroidOpacityAnimation(LayerAndroid* contentLayer,
-                            float fromValue, float toValue,
+    static PassRefPtr<AndroidOpacityAnimation> create(float fromValue,
+                                                     float toValue,
+                                                     const Animation* animation,
+                                                     double beginTime);
+    AndroidOpacityAnimation(float fromValue, float toValue,
                             const Animation* animation,
                             double beginTime);
     AndroidOpacityAnimation(AndroidOpacityAnimation* anim);
-    virtual AndroidAnimation* copy();
-    virtual PassRefPtr<AndroidAnimationValue> result() { return m_result.release(); }
+    virtual PassRefPtr<AndroidAnimation> copy();
 
     virtual void swapDirection();
-    virtual bool evaluate(double time);
+    virtual bool evaluate(LayerAndroid* layer, double time);
 
   private:
-    RefPtr<AndroidOpacityAnimationValue> m_result;
     float m_fromValue;
     float m_toValue;
 };
 
 class AndroidTransformAnimation : public AndroidAnimation {
   public:
-    static PassRefPtr<AndroidTransformAnimation> create(LayerAndroid* contentLayer,
-                                        const Animation* animation,
-                                        double beginTime);
-    AndroidTransformAnimation(LayerAndroid* contentLayer,
-                             const Animation* animation,
-                             double beginTime);
+    static PassRefPtr<AndroidTransformAnimation> create(
+                                                     const Animation* animation,
+                                                     double beginTime);
+    AndroidTransformAnimation(const Animation* animation, double beginTime);
 
     AndroidTransformAnimation(AndroidTransformAnimation* anim);
-    virtual AndroidAnimation* copy();
+    virtual PassRefPtr<AndroidAnimation> copy();
 
     void setOriginalPosition(FloatPoint position) { m_position = position; }
     void setRotation(float fA, float tA);
@@ -164,11 +153,9 @@ class AndroidTransformAnimation : public AndroidAnimation {
     void setScale(float fX, float fY, float fZ,
                   float tX, float tY, float tZ);
     virtual void swapDirection();
-    virtual bool evaluate(double time);
-    virtual PassRefPtr<AndroidAnimationValue> result() { return m_result.release(); }
+    virtual bool evaluate(LayerAndroid* layer, double time);
 
   private:
-    RefPtr<AndroidTransformAnimationValue> m_result;
     bool m_doTranslation;
     bool m_doScaling;
     bool m_doRotation;

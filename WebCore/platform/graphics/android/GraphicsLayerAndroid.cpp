@@ -105,7 +105,7 @@ GraphicsLayerAndroid::GraphicsLayerAndroid(GraphicsLayerClient* client) :
     m_currentTranslateY(0),
     m_currentPosition(0, 0)
 {
-    m_contentLayer = new LayerAndroid(true);
+    m_contentLayer = adoptRef(new LayerAndroid(true));
     if (client) {
       RenderLayerBacking* backing = static_cast<RenderLayerBacking*>(client);
       RenderLayer* renderLayer = backing->owningLayer();
@@ -526,8 +526,7 @@ bool GraphicsLayerAndroid::createAnimationFromKeyframes(const KeyframeValueList&
             static_cast<const FloatAnimationValue*>(valueList.at(0));
         const FloatAnimationValue* endVal =
             static_cast<const FloatAnimationValue*>(valueList.at(1));
-        RefPtr<AndroidOpacityAnimation> anim = AndroidOpacityAnimation::create(m_contentLayer.get(),
-                                                                               startVal->value(),
+        RefPtr<AndroidOpacityAnimation> anim = AndroidOpacityAnimation::create(startVal->value(),
                                                                                endVal->value(),
                                                                                animation,
                                                                                beginTime);
@@ -711,8 +710,7 @@ bool GraphicsLayerAndroid::createTransformAnimationsFromKeyframes(const Keyframe
         }
     }
 
-    RefPtr<AndroidTransformAnimation> anim = AndroidTransformAnimation::create(m_contentLayer.get(),
-                                                                               animation, beginTime);
+    RefPtr<AndroidTransformAnimation> anim = AndroidTransformAnimation::create(animation, beginTime);
 
     if (keyframesName.isEmpty())
         anim->setName(propertyIdToString(valueList.property()));

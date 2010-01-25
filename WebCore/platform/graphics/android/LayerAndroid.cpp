@@ -105,11 +105,7 @@ LayerAndroid::LayerAndroid(LayerAndroid* layer) :
 
     KeyframesMap::const_iterator end = layer->m_animations.end();
     for (KeyframesMap::const_iterator it = layer->m_animations.begin(); it != end; ++it)
-        m_animations.add((it->second)->name(), adoptRef((it->second)->copy()));
-
-    end = m_animations.end();
-    for (KeyframesMap::const_iterator it = m_animations.begin(); it != end; ++it)
-        (it->second)->setLayer(this);
+        m_animations.add((it->second)->name(), (it->second)->copy());
 
     gDebugLayerAndroidInstances++;
 }
@@ -127,10 +123,11 @@ static int gDebugNbAnims = 0;
 Vector<RefPtr<AndroidAnimationValue> >* LayerAndroid::evaluateAnimations() const
 {
     double time = WTF::currentTime();
-    Vector<RefPtr<AndroidAnimationValue> >* result = new Vector<RefPtr<AndroidAnimationValue> >();
+    Vector<RefPtr<AndroidAnimationValue> >* results = new Vector<RefPtr<AndroidAnimationValue> >();
     gDebugNbAnims = 0;
-    if (evaluateAnimations(time, result))
-      return result;
+    if (evaluateAnimations(time, results))
+      return results;
+    delete results;
     return 0;
 }
 
@@ -144,22 +141,25 @@ bool LayerAndroid::hasAnimations() const
 }
 
 bool LayerAndroid::evaluateAnimations(double time,
-                                      Vector<RefPtr<AndroidAnimationValue> >* result) const
+                                      Vector<RefPtr<AndroidAnimationValue> >* results) const
 {
     bool hasRunningAnimations = false;
     for (unsigned int i = 0; i < m_children.size(); i++) {
-        if (m_children[i]->evaluateAnimations(time, result))
+        if (m_children[i]->evaluateAnimations(time, results))
             hasRunningAnimations = true;
     }
     KeyframesMap::const_iterator end = m_animations.end();
     for (KeyframesMap::const_iterator it = m_animations.begin(); it != end; ++it) {
         gDebugNbAnims++;
-        if ((it->second)->evaluate(time)) {
-            result->append((it->second)->result());
+        LayerAndroid* currentLayer = const_cast<LayerAndroid*>(this);
+        if ((it->second)->evaluate(currentLayer, time)) {
+            RefPtr<AndroidAnimationValue> result = (it->second)->result();
+            if (result)
+                results->append(result);
             hasRunningAnimations = true;
         }
     }
-    
+
     return hasRunningAnimations;
 }
 

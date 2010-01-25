@@ -49,10 +49,8 @@ long AndroidAnimation::instancesCount()
     return gDebugAndroidAnimationInstances;
 }
 
-AndroidAnimation::AndroidAnimation(LayerAndroid* contentLayer,
-                 const Animation* animation,
-                 double beginTime) :
-    m_contentLayer(contentLayer),
+AndroidAnimation::AndroidAnimation(const Animation* animation,
+                                   double beginTime) :
     m_beginTime(beginTime),
     m_duration(animation->duration()),
     m_iterationCount(animation->iterationCount()),
@@ -67,7 +65,6 @@ AndroidAnimation::AndroidAnimation(LayerAndroid* contentLayer,
 }
 
 AndroidAnimation::AndroidAnimation(AndroidAnimation* anim) :
-    m_contentLayer(anim->m_contentLayer),
     m_beginTime(anim->m_beginTime),
     m_duration(anim->m_duration),
     m_iterationCount(anim->m_iterationCount),
@@ -128,19 +125,27 @@ bool AndroidAnimation::checkIterationsAndProgress(double time, float* finalProgr
     return true;
 }
 
-PassRefPtr<AndroidOpacityAnimation> AndroidOpacityAnimation::create(LayerAndroid* contentLayer,
-    float fromValue, float toValue,
-    const Animation* animation, double beginTime)
+PassRefPtr<AndroidAnimationValue> AndroidAnimation::result()
 {
-    return adoptRef(new AndroidOpacityAnimation(contentLayer,
-                    fromValue, toValue, animation, beginTime));
+    if (!m_result)
+        return 0;
+    return m_result.release();
 }
 
-AndroidOpacityAnimation::AndroidOpacityAnimation(LayerAndroid* contentLayer,
-                           float fromValue, float toValue,
-                           const Animation* animation,
-                           double beginTime)
-    : AndroidAnimation(contentLayer, animation, beginTime),
+PassRefPtr<AndroidOpacityAnimation> AndroidOpacityAnimation::create(
+                                                float fromValue,
+                                                float toValue,
+                                                const Animation* animation,
+                                                double beginTime)
+{
+    return adoptRef(new AndroidOpacityAnimation(fromValue, toValue,
+                                                animation, beginTime));
+}
+
+AndroidOpacityAnimation::AndroidOpacityAnimation(float fromValue, float toValue,
+                                                 const Animation* animation,
+                                                 double beginTime)
+    : AndroidAnimation(animation, beginTime),
       m_fromValue(fromValue), m_toValue(toValue)
 {
 }
@@ -152,9 +157,9 @@ AndroidOpacityAnimation::AndroidOpacityAnimation(AndroidOpacityAnimation* anim)
 {
 }
 
-AndroidAnimation* AndroidOpacityAnimation::copy()
+PassRefPtr<AndroidAnimation> AndroidOpacityAnimation::copy()
 {
-    return new AndroidOpacityAnimation(this);
+    return adoptRef(new AndroidOpacityAnimation(this));
 }
 
 void AndroidOpacityAnimation::swapDirection()
@@ -164,7 +169,7 @@ void AndroidOpacityAnimation::swapDirection()
     m_fromValue = m_toValue;
 }
 
-bool AndroidOpacityAnimation::evaluate(double time)
+bool AndroidOpacityAnimation::evaluate(LayerAndroid* layer, double time)
 {
     float progress;
     if (!checkIterationsAndProgress(time, &progress))
@@ -174,20 +179,20 @@ bool AndroidOpacityAnimation::evaluate(double time)
         return true;
 
     float value = m_fromValue + ((m_toValue - m_fromValue) * progress);
-    m_result = AndroidOpacityAnimationValue::create(m_contentLayer.get(), value);
+    m_result = AndroidOpacityAnimationValue::create(layer, value);
     return true;
 }
 
-PassRefPtr<AndroidTransformAnimation> AndroidTransformAnimation::create(LayerAndroid* contentLayer,
-    const Animation* animation, double beginTime)
+PassRefPtr<AndroidTransformAnimation> AndroidTransformAnimation::create(
+                                                     const Animation* animation,
+                                                     double beginTime)
 {
-    return adoptRef(new AndroidTransformAnimation(contentLayer, animation, beginTime));
+    return adoptRef(new AndroidTransformAnimation(animation, beginTime));
 }
 
-AndroidTransformAnimation::AndroidTransformAnimation(LayerAndroid* contentLayer,
-                           const Animation* animation,
-                           double beginTime)
-    : AndroidAnimation(contentLayer, animation, beginTime),
+AndroidTransformAnimation::AndroidTransformAnimation(const Animation* animation,
+                                                     double beginTime)
+    : AndroidAnimation(animation, beginTime),
     m_doTranslation(false),
     m_doScaling(false),
     m_doRotation(false)
@@ -208,9 +213,9 @@ AndroidTransformAnimation::AndroidTransformAnimation(AndroidTransformAnimation* 
 {
 }
 
-AndroidAnimation* AndroidTransformAnimation::copy()
+PassRefPtr<AndroidAnimation> AndroidTransformAnimation::copy()
 {
-    return new AndroidTransformAnimation(this);
+    return adoptRef(new AndroidTransformAnimation(this));
 }
 
 void AndroidTransformAnimation::setRotation(float fA, float tA)
@@ -272,7 +277,7 @@ void AndroidTransformAnimation::swapDirection()
     }
 }
 
-bool AndroidTransformAnimation::evaluate(double time)
+bool AndroidTransformAnimation::evaluate(LayerAndroid* layer, double time)
 {
     float progress;
     if (!checkIterationsAndProgress(time, &progress))
@@ -291,11 +296,12 @@ bool AndroidTransformAnimation::evaluate(double time)
 
     FloatPoint translation(x, y);
     FloatPoint3D scale(sx, sy, sz);
-    m_result = AndroidTransformAnimationValue::create(m_contentLayer.get(),
-                                                      translation, scale, a);
-    m_result->setDoTranslation(m_doTranslation);
-    m_result->setDoScaling(m_doScaling);
-    m_result->setDoRotation(m_doRotation);
+    RefPtr<AndroidTransformAnimationValue> result =
+        AndroidTransformAnimationValue::create(layer, translation, scale, a);
+    result->setDoTranslation(m_doTranslation);
+    result->setDoScaling(m_doScaling);
+    result->setDoRotation(m_doRotation);
+    m_result = result.release();
     return true;
 }
 

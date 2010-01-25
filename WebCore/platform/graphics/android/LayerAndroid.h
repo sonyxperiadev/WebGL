@@ -83,7 +83,7 @@ public:
     void removeAnimation(const String& name);
     Vector<RefPtr<AndroidAnimationValue> >* evaluateAnimations() const;
     bool evaluateAnimations(double time,
-             Vector<RefPtr<AndroidAnimationValue> >* result) const;
+             Vector<RefPtr<AndroidAnimationValue> >* results) const;
     bool hasAnimations() const;
 
 private:

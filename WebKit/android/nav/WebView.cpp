@@ -1533,12 +1533,9 @@ static void nativeDrawLayers(JNIEnv *env, jobject obj,
 #endif
 }
 
-static void nativeUpdateLayers(JNIEnv *env, jobject obj,
-                               jint layer, jint updates)
+static void nativeUpdateLayers(JNIEnv *env, jobject obj, jint updates)
 {
     if (!env)
-        return;
-    if (!layer)
         return;
     if (!updates)
         return;
@@ -2138,7 +2135,7 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeEvaluateLayersAnimations },
     { "nativeDrawLayers", "(IIIIIFLandroid/graphics/Canvas;)V",
         (void*) nativeDrawLayers },
-    { "nativeUpdateLayers", "(II)V",
+    { "nativeUpdateLayers", "(I)V",
         (void*) nativeUpdateLayers },
     { "nativeDrawMatches", "(Landroid/graphics/Canvas;)V",
         (void*) nativeDrawMatches },
