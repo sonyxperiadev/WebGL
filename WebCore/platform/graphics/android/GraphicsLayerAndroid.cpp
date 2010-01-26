@@ -588,6 +588,9 @@ bool GraphicsLayerAndroid::createTransformAnimationsFromKeyframes(const Keyframe
     TLOG("(%x) animateTransform, valueList(%d) functionList(%d) duration(%.2f)", this,
         valueList.size(), functionList.size(), animation->duration());
 
+    // FIXME: add support for the translate 3d operations (when
+    // we'll have an OpenGL backend)
+
     for (unsigned int i = 0; i < valueList.size(); i++) {
         const TransformOperations* operation = ((TransformAnimationValue*)valueList.at(i))->value();
         Vector<RefPtr<TransformOperation> > ops = operation->operations();
@@ -596,7 +599,8 @@ bool GraphicsLayerAndroid::createTransformAnimationsFromKeyframes(const Keyframe
             TransformOperation* op = ops[j].get();
             TLOG("(%x) animateTransform, dealing with the %d:%d operation, current op: %d (translate is %d, rotate %d, scale %d)",
                 this, i, j, op->getOperationType(), TransformOperation::TRANSLATE, TransformOperation::ROTATE, TransformOperation::SCALE);
-            if (op->getOperationType() == TransformOperation::TRANSLATE) {
+            if ((op->getOperationType() == TransformOperation::TRANSLATE) ||
+                (op->getOperationType() == TransformOperation::TRANSLATE_3D)) {
                 TranslateTransformOperation* translateOperation = (TranslateTransformOperation*) op;
                 IntSize bounds(m_size.width(), m_size.height());
                 float x = translateOperation->x(bounds);
@@ -635,6 +639,17 @@ bool GraphicsLayerAndroid::createTransformAnimationsFromKeyframes(const Keyframe
                     toTranslateY = y;
                 TLOG("(%x) animateTransform, the %d operation is a translation_y(%.2f)",
                     this, j, y);
+                doTranslation = true;
+            } else if (op->getOperationType() == TransformOperation::TRANSLATE_Z) {
+                TranslateTransformOperation* translateOperation = (TranslateTransformOperation*) op;
+                IntSize bounds(m_size.width(), m_size.height());
+                float z = translateOperation->z(bounds);
+                if (!i)
+                    fromTranslateZ = z;
+                else
+                    toTranslateZ = z;
+                TLOG("(%x) animateTransform, the %d operation is a translation_z(%.2f)",
+                    this, j, z);
                 doTranslation = true;
             } else if ((op->getOperationType() == TransformOperation::ROTATE)
                           || (op->getOperationType() == TransformOperation::ROTATE_X)
