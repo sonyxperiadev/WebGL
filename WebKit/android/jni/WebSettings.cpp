@@ -35,8 +35,8 @@
 #include "Frame.h"
 #include "FrameLoader.h"
 #include "FrameView.h"
-#include "Geolocation.h"
 #include "GeolocationPermissions.h"
+#include "GeolocationPositionCache.h"
 #include "Page.h"
 #include "PageCache.h"
 #include "RenderTable.h"
@@ -366,7 +366,7 @@ public:
         str = (jstring)env->GetObjectField(obj, gFieldIds->mGeolocationDatabasePath);
         if (str) {
             GeolocationPermissions::setDatabasePath(to_string(env,str));
-            WebCore::Geolocation::setDatabasePath(to_string(env,str));
+            WebCore::GeolocationPositionCache::setDatabasePath(to_string(env,str));
         }
 
         size = env->GetIntField(obj, gFieldIds->mPageCacheCapacity);
