@@ -32,7 +32,6 @@
 #include "config.h"
 #include "ScriptController.h"
 
-
 #include "PlatformBridge.h"
 #include "CString.h"
 #include "Document.h"
