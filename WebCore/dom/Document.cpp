@@ -3105,6 +3105,7 @@ void Document::addListenerTypeIfNeeded(const AtomicString& eventType)
         addListenerType(TRANSITIONEND_LISTENER);
     else if (eventType == eventNames().beforeloadEvent)
         addListenerType(BEFORELOAD_LISTENER);
+#if ENABLE(TOUCH_EVENTS)
     else if (eventType == eventNames().touchstartEvent
              || eventType == eventNames().touchmoveEvent
              || eventType == eventNames().touchendEvent
@@ -3113,6 +3114,7 @@ void Document::addListenerTypeIfNeeded(const AtomicString& eventType)
          if (Page* page = this->page())
              page->chrome()->client()->needTouchEvents(true);
     }
+#endif
 }
 
 CSSStyleDeclaration* Document::getOverrideStyle(Element*, const String&)
