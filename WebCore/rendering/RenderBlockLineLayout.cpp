@@ -854,6 +854,8 @@ void RenderBlock::layoutInlineChildren(bool relayoutChildren, int& repaintTop, i
         // horizontally when reading a paragraph.
         // In case the line height is less than the font size, we skip
         // the text wrapping since this will cause text overlapping.
+        // If a text has background image, we ignore text wrapping,
+        // otherwise the background will be potentially messed up.
         const Settings* settings = document()->settings();
         bool doTextWrap = settings && settings->layoutAlgorithm() == Settings::kLayoutFitColumnToScreen;
         if (doTextWrap) {
@@ -867,7 +869,7 @@ void RenderBlock::layoutInlineChildren(bool relayoutChildren, int& repaintTop, i
             const int lineHeight = style()->computedLineHeight();
             const int fontSize = style()->fontSize();
             doTextWrap = autowrap && !positioned &&
-                    (fontSize <= lineHeight) &&
+                    (fontSize <= lineHeight) && !style()->hasBackgroundImage() &&
                     (((dir == LTR && cssfloat != FRIGHT) ||
                     (dir == RTL && cssfloat != FLEFT)) &&
                     ((ta == TAAUTO) || (ta == JUSTIFY) ||
