@@ -35,6 +35,7 @@
 #include "FrameTree.h"
 #include "FrameView.h"
 //#include "GraphicsContext.h"
+#include "GraphicsLayerAndroid.h"
 #include "HTMLAreaElement.h"
 #include "HTMLImageElement.h"
 #include "HTMLInputElement.h"
@@ -49,6 +50,7 @@
 #include "RegisteredEventListener.h"
 #include "RenderImage.h"
 #include "RenderInline.h"
+#include "RenderLayerBacking.h"
 #include "RenderListBox.h"
 #include "RenderSkinCombo.h"
 #include "RenderTextControl.h"
@@ -433,11 +435,17 @@ void CacheBuilder::Debug::groups() {
                 print("\"\"");
             RenderObject* renderer = node->renderer();
             int tabindex = node->isElementNode() ? node->tabIndex() : 0;
+            RenderLayer* layer = 0;
             if (renderer) {
                 const IntRect& absB = renderer->absoluteBoundingBoxRect();
+                bool hasLayer = renderer->hasLayer();
+                layer = hasLayer ? toRenderBoxModelObject(renderer)->layer() : 0;
                 snprintf(scratch, sizeof(scratch), ", {%d, %d, %d, %d}, %s"
-                    ", %d},",absB.x(), absB.y(), absB.width(), absB.height(),
-                    renderer->hasOverflowClip() ? "true" : "false", tabindex);
+                    ", %d, %s, %s},",
+                    absB.x(), absB.y(), absB.width(), absB.height(),
+                    renderer->hasOverflowClip() ? "true" : "false", tabindex,
+                    hasLayer ? "true" : "false",
+                    hasLayer && layer->isComposited() ? "true" : "false");
                 // TODO: add renderer->style()->visibility()
                 print(scratch);
             } else
@@ -463,6 +471,20 @@ void CacheBuilder::Debug::groups() {
             }
             count++;
             newLine();
+#if USE(ACCELERATED_COMPOSITING)
+            if (renderer && layer) {
+                RenderLayerBacking* back = layer->backing();
+                GraphicsLayerAndroid* grLayer = static_cast
+                    <GraphicsLayerAndroid*>(back ? back->graphicsLayer() : 0);
+                LayerAndroid* aLayer = grLayer ? grLayer->contentLayer() : 0;
+                const SkPicture* pict = aLayer ? aLayer->picture() : 0;
+                snprintf(scratch, sizeof(scratch), "// layer:%p back:%p"
+                    " gLayer:%p aLayer:%p pict:%p", layer, back, grLayer,
+                    aLayer, pict);
+                print(scratch);
+                newLine();
+           }
+#endif
         } while ((node = node->traverseNextNode()) != NULL);
         DUMP_NAV_LOGD("}; // focusables = %d\n", count - 1);
         DUMP_NAV_LOGD("\n");
@@ -875,22 +897,18 @@ static bool checkForPluginViewThatWantsFocus(RenderObject* renderer) {
 void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
     CachedRoot* cachedRoot, CachedFrame* cachedFrame)
 {
-    WTF::Vector<Tracker> tracker(1);
+    WTF::Vector<FocusTracker> tracker(1); // sentinel
     {
-        Tracker* baseTracker = tracker.data(); // sentinel
-        bzero(baseTracker, sizeof(Tracker));
+        FocusTracker* baseTracker = tracker.data();
+        bzero(baseTracker, sizeof(FocusTracker));
         baseTracker->mCachedNodeIndex = -1;
     }
-    WTF::Vector<ClipColumnTracker> clipTracker(1);
-    {
-        ClipColumnTracker* baseTracker = clipTracker.data(); // sentinel
-        bzero(baseTracker, sizeof(ClipColumnTracker));
-    }
-    WTF::Vector<TabIndexTracker> tabIndexTracker(1);
-    {
-        TabIndexTracker* baseTracker = tabIndexTracker.data(); // sentinel
-        bzero(baseTracker, sizeof(TabIndexTracker));
-    }
+    WTF::Vector<LayerTracker> layerTracker(1); // sentinel
+    bzero(layerTracker.data(), sizeof(LayerTracker));
+    WTF::Vector<ClipColumnTracker> clipTracker(1); // sentinel
+    bzero(clipTracker.data(), sizeof(ClipColumnTracker));
+    WTF::Vector<TabIndexTracker> tabIndexTracker(1); // sentinel
+    bzero(tabIndexTracker.data(), sizeof(TabIndexTracker));
 #if DUMP_NAV_CACHE
     char* frameNamePtr = cachedFrame->mDebug.mFrameName;
     Builder(frame)->mDebug.frameName(frameNamePtr, frameNamePtr + 
@@ -919,7 +937,7 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
 #if DUMP_NAV_CACHE
         nodeIndex++;
 #endif
-        Tracker* last = &tracker.last();
+        FocusTracker* last = &tracker.last();
         int lastChildIndex = cachedFrame->size() - 1;
         while (node == last->mLastChild) {
             if (CleanUpContainedNodes(cachedFrame, last, lastChildIndex))
@@ -933,6 +951,12 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
             if (node != lastClip->mLastChild)
                 break;
             clipTracker.removeLast();
+        } while (true);
+        do {
+            const LayerTracker* lastLayer = &layerTracker.last();
+            if (node != lastLayer->mLastChild)
+                break;
+            layerTracker.removeLast();
         } while (true);
         do {
             const TabIndexTracker* lastTabIndex = &tabIndexTracker.last();
@@ -987,6 +1011,10 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
             isTransparent = style->hasBackground() == false;
 #ifdef ANDROID_CSS_TAP_HIGHLIGHT_COLOR
             hasCursorRing = style->tapHighlightColor().alpha() > 0;
+#endif
+#if USE(ACCELERATED_COMPOSITING)
+            if (nodeRenderer->hasLayer())
+                TrackLayer(layerTracker, nodeRenderer, lastChild);
 #endif
         }
         bool more = walk.mMore;
@@ -1084,7 +1112,7 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
                 IntRect(0, 0, INT_MAX, INT_MAX);
             if (ConstructTextRects((WebCore::Text*) node, walk.mStart, 
                     (WebCore::Text*) walk.mFinalNode, walk.mEnd, globalOffsetX,
-                    globalOffsetY, &bounds, clip, &cachedNode.cursorRings()) == false)
+                    globalOffsetY, &bounds, clip, cachedNode.cursorRingsPtr()) == false)
                 continue;
             absBounds = bounds;
             cachedNode.setBounds(bounds);
@@ -1176,9 +1204,9 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
         cachedNode.init(node);
         if (computeCursorRings == false) {
             cachedNode.setBounds(bounds);
-            cachedNode.cursorRings().append(bounds);
+            cachedNode.cursorRingsPtr()->append(bounds);
         } else if (ConstructPartRects(node, bounds, cachedNode.boundsPtr(), 
-                globalOffsetX, globalOffsetY, &cachedNode.cursorRings()) == false)
+                globalOffsetX, globalOffsetY, cachedNode.cursorRingsPtr()) == false)
             continue;
     keepTextNode:
         IntRect clip = hasClip ? bounds : absBounds;
@@ -1204,6 +1232,21 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
             else if (cachedNode.clip(clip) == false)
                 continue; // skip this node if outside of the clip
         }
+        bool isInLayer = false;
+#if USE(ACCELERATED_COMPOSITING)
+        // FIXME: does not work for area rects
+        LayerAndroid* layer = layerTracker.last().mLayer;
+        if (layer) {
+            isInLayer = true;
+            isUnclipped = true; // FIXME: add clipping analysis before blindly setting this
+            CachedLayer cachedLayer;
+            cachedLayer.reset();
+            cachedLayer.setCachedNodeIndex(cachedFrame->size());
+            cachedLayer.setOffset(layerTracker.last().mPosition);
+            cachedLayer.setUniqueId(layer->uniqueId());
+            cachedFrame->add(cachedLayer);
+        }
+#endif
         cachedNode.setNavableRects();
         cachedNode.setExport(exported);
         cachedNode.setHasCursorRing(hasCursorRing);
@@ -1211,6 +1254,7 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
         cachedNode.setHitBounds(absBounds);
         cachedNode.setIndex(cacheIndex);
         cachedNode.setIsFocus(isFocus);
+        cachedNode.setIsInLayer(isInLayer);
         cachedNode.setIsTransparent(isTransparent);
         cachedNode.setIsUnclipped(isUnclipped);
         cachedNode.setOriginalAbsoluteBounds(originalAbsBounds);
@@ -1238,7 +1282,7 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
             }
             if (lastChild != NULL) {
                 tracker.grow(tracker.size() + 1);
-                Tracker& working = tracker.last();
+                FocusTracker& working = tracker.last();
                 working.mCachedNodeIndex = lastIndex;
                 working.mLastChild = OneAfter(lastChild);
                 last = &tracker.at(tracker.size() - 2);
@@ -1248,7 +1292,7 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
         cacheIndex++;
     }
     while (tracker.size() > 1) {
-        Tracker* last = &tracker.last();
+        FocusTracker* last = &tracker.last();
         int lastChildIndex = cachedFrame->size() - 1;
         if (CleanUpContainedNodes(cachedFrame, last, lastChildIndex))
             cacheIndex--;
@@ -1257,7 +1301,7 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
 }
 
 bool CacheBuilder::CleanUpContainedNodes(CachedFrame* cachedFrame, 
-    const Tracker* last, int lastChildIndex)
+    const FocusTracker* last, int lastChildIndex)
 {
     // if outer is body, disable outer
     // or if there's more than one inner, disable outer
@@ -1272,7 +1316,7 @@ bool CacheBuilder::CleanUpContainedNodes(CachedFrame* cachedFrame,
             lastNode->hasTagName(HTMLNames::bodyTag) ||
             lastNode->hasTagName(HTMLNames::formTag)) {
         lastCached->setBounds(IntRect(0, 0, 0, 0));
-        lastCached->cursorRings().clear();
+        lastCached->cursorRingsPtr()->clear();
         lastCached->setNavableRects();
         return false;
     }
@@ -2681,6 +2725,31 @@ bool CacheBuilder::setData(CachedFrame* cachedFrame)
     } while (cachedFrame++ != lastCachedFrame);
     return true;
 }
+
+#if USE(ACCELERATED_COMPOSITING)
+void CacheBuilder::TrackLayer(WTF::Vector<LayerTracker>& layerTracker,
+    RenderObject* nodeRenderer, Node* lastChild)
+{
+    RenderLayer* layer = toRenderBoxModelObject(nodeRenderer)->layer();
+    RenderLayerBacking* back = layer->backing();
+    if (!back)
+        return;
+    GraphicsLayerAndroid* grLayer = static_cast
+        <GraphicsLayerAndroid*>(back->graphicsLayer());
+    if (!grLayer)
+        return;
+    LayerAndroid* aLayer = grLayer->contentLayer();
+    if (!aLayer)
+        return;
+    layerTracker.grow(layerTracker.size() + 1);
+    LayerTracker& indexTracker = layerTracker.last();
+    indexTracker.mLayer = aLayer;
+    indexTracker.mPosition = nodeRenderer->absoluteBoundingBoxRect().location();
+    indexTracker.mLastChild = OneAfter(lastChild);
+    DBG_NAV_LOGD("layer=%p [%d] pos=(%d,%d)", aLayer, aLayer->uniqueId(),
+        indexTracker.mPosition.x(), indexTracker.mPosition.y());
+}
+#endif
 
 bool CacheBuilder::validNode(Frame* startFrame, void* matchFrame,
         void* matchNode)

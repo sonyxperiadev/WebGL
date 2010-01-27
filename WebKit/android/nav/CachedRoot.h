@@ -29,9 +29,15 @@
 #include "CachedFrame.h"
 #include "IntRect.h"
 #include "SkPicture.h"
+#include "SkRegion.h"
 #include "wtf/Vector.h"
 
+class FindCanvas;
 class SkRect;
+
+namespace WebCore {
+    class LayerAndroid;
+}
 
 namespace android {
 
@@ -42,18 +48,22 @@ class CachedRoot : public CachedFrame {
 public:
     bool adjustForScroll(BestData* , Direction , WebCore::IntPoint* scrollPtr,
         bool findClosest);
+    const SkRegion& baseUncovered() const { return mBaseUncovered; }
     int checkForCenter(int x, int y) const;
     void checkForJiggle(int* ) const;
-    bool checkRings(const WTF::Vector<WebCore::IntRect>& rings,
+    bool checkRings(SkPicture* , const WTF::Vector<WebCore::IntRect>& rings,
         const WebCore::IntRect& bounds) const;
     WebCore::IntPoint cursorLocation() const;
+    const WebCore::IntRect& cursorBounds() const { return mCursorBounds; } // should only be called by CachedFrame
+    const CachedNode* cursor() const { return mCursor; } // should only be called by CachedFrame
     int documentHeight() { return mContents.height(); }
     int documentWidth() { return mContents.width(); }
+    void draw(FindCanvas& ) const;
     const CachedNode* findAt(const WebCore::IntRect& , const CachedFrame** ,
         int* x, int* y, bool checkForHidden) const;
     const WebCore::IntRect& focusBounds() const { return mFocusBounds; }
     WebCore::IntPoint focusLocation() const;
-    SkPicture* getPicture() { return mPicture; }
+    SkPicture* getPicture() const { return mPicture; } // should only be called by CachedFrame
     int getAndResetSelectionEnd();
     int getAndResetSelectionStart();
     int getBlockLeftEdge(int x, int y, float scale) const;
@@ -68,16 +78,20 @@ public:
     WebCore::String imageURI(int x, int y) const;
     bool maskIfHidden(BestData* ) const;
     const CachedNode* moveCursor(Direction , const CachedFrame** , WebCore::IntPoint* scroll);
+    SkPicture* pictureAt(int x, int y) const;
     void reset();
     CachedHistory* rootHistory() const { return mHistory; }
+    const WebCore::LayerAndroid* rootLayer() const { return mRootLayer; }
     bool scrollDelta(WebCore::IntRect& cursorRingBounds, Direction , int* delta);
     const WebCore::IntRect& scrolledBounds() const { return mScrolledBounds; }
     void setCursor(CachedFrame* , CachedNode* );
+    void setCursorCache(int scrollX, int scrollY) const; // compute cached state used to find next cursor
     void setCachedFocus(CachedFrame* , CachedNode* );
     void setFocusBounds(const WebCore::IntRect& r) { mFocusBounds = r; }
     void setTextGeneration(int textGeneration) { mTextGeneration = textGeneration; }
     void setMaxScroll(int x, int y) { mMaxXScroll = x; mMaxYScroll = y; }
     void setPicture(SkPicture* picture) { mPicture = picture; }
+    void setRootLayer(WebCore::LayerAndroid* layer) { mRootLayer = layer; }
     void setScrollOnly(bool state) { mScrollOnly = state; }
     void setSelection(int start, int end) { mSelectionStart = start; mSelectionEnd = end; }
     void setupScrolledBounds() const { mScrolledBounds = mViewBounds; }
@@ -87,6 +101,7 @@ public:
 private:
     CachedHistory* mHistory;
     SkPicture* mPicture;
+    WebCore::LayerAndroid* mRootLayer;
     WebCore::IntRect mFocusBounds; // dom text input focus node bounds
     mutable WebCore::IntRect mScrolledBounds; // view bounds + amount visible as result of scroll
     int mTextGeneration;
@@ -95,6 +110,10 @@ private:
     // These two are ONLY used when the tree is rebuilt and the focus is a textfield/area
     int mSelectionStart;
     int mSelectionEnd;
+    // these four set up as cache for use by frameDown/Up/Left/Right etc
+    mutable WebCore::IntRect mCursorBounds;
+    mutable const CachedNode* mCursor;
+    mutable SkRegion mBaseUncovered;
     bool mScrollOnly;
 #if DUMP_NAV_CACHE
 public:

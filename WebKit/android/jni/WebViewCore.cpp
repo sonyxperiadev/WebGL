@@ -900,7 +900,6 @@ void WebViewCore::setRootLayer(int layer)
     env->CallVoidMethod(m_javaGlue->object(env).get(),
                         m_javaGlue->m_setRootLayer,
                         layer);
-    mRootLayer = layer;
     checkException(env);
 }
 

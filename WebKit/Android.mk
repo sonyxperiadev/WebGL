@@ -59,6 +59,7 @@ LOCAL_SRC_FILES := \
 	android/nav/CachedFrame.cpp \
 	android/nav/CachedHistory.cpp \
 	android/nav/CachedInput.cpp \
+	android/nav/CachedLayer.cpp \
 	android/nav/CachedNode.cpp \
 	android/nav/CachedRoot.cpp \
 	android/nav/FindCanvas.cpp \

@@ -23,10 +23,17 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#define LOG_TAG "webviewglue"
+
 #include "config.h"
 #include "FindCanvas.h"
-
+#include "LayerAndroid.h"
+#include "IntRect.h"
+#include "SkBlurMaskFilter.h"
+#include "SkCornerPathEffect.h"
 #include "SkRect.h"
+
+#include <utils/Log.h>
 
 // MatchInfo methods
 ////////////////////////////////////////////////////////////////////////////////
@@ -40,13 +47,15 @@ MatchInfo::~MatchInfo() {
 }
 
 MatchInfo::MatchInfo(const MatchInfo& src) {
+    m_layerId = src.m_layerId;
     m_location = src.m_location;
     m_picture = src.m_picture;
     m_picture->safeRef();
 }
 
-void MatchInfo::set(const SkRegion& region, SkPicture* pic) {
+void MatchInfo::set(const SkRegion& region, SkPicture* pic, int layerId) {
     m_picture->safeUnref();
+    m_layerId = layerId;
     m_location = region;
     m_picture = pic;
     SkASSERT(pic);
@@ -216,6 +225,16 @@ SkRect FindCanvas::addMatchPosH(int index,
     canvas->drawPosTextH(glyphs, count * sizeof(uint16_t), xPos, constY, paint);
     canvas->restoreToCount(saveCount);
     return r;
+}
+
+void FindCanvas::drawLayers(WebCore::LayerAndroid* layer) {
+    SkPicture* picture = layer->picture();
+    if (picture) {
+        setLayerId(layer->uniqueId());
+        drawPicture(*picture);
+    }
+    for (int i = 0; i < layer->countChildren(); i++)
+        drawLayers(layer->getChild(i));
 }
 
 void FindCanvas::drawText(const void* text, size_t byteLength, SkScalar x,
@@ -456,7 +475,9 @@ void FindCanvas::insertMatchInfo(const SkRegion& region) {
     mWorkingPicture->endRecording();
     MatchInfo matchInfo;
     mMatches->append(matchInfo);
-    mMatches->last().set(region, mWorkingPicture);
+    LOGD("%s region=%p pict=%p layer=%d", __FUNCTION__,
+        region, mWorkingPicture, mLayerId);
+    mMatches->last().set(region, mWorkingPicture, mLayerId);
 }
 
 void FindCanvas::resetWorkingCanvas() {
@@ -465,3 +486,163 @@ void FindCanvas::resetWorkingCanvas() {
     // Do not need to reset mWorkingCanvas itself because we only access it via
     // getWorkingCanvas.
 }
+
+// This function sets up the paints that are used to draw the matches.
+void FindOnPage::setUpFindPaint() {
+    // Set up the foreground paint
+    m_findPaint.setAntiAlias(true);
+    const SkScalar roundiness = SkIntToScalar(2);
+    SkCornerPathEffect* cornerEffect = new SkCornerPathEffect(roundiness);
+    m_findPaint.setPathEffect(cornerEffect);
+    m_findPaint.setARGB(255, 132, 190, 0);
+
+    // Set up the background blur paint.
+    m_findBlurPaint.setAntiAlias(true);
+    m_findBlurPaint.setARGB(204, 0, 0, 0);
+    m_findBlurPaint.setPathEffect(cornerEffect);
+    cornerEffect->unref();
+    SkMaskFilter* blurFilter = SkBlurMaskFilter::Create(SK_Scalar1,
+            SkBlurMaskFilter::kNormal_BlurStyle);
+    m_findBlurPaint.setMaskFilter(blurFilter)->unref();
+    m_isFindPaintSetUp = true;
+}
+
+WebCore::IntRect FindOnPage::currentMatchBounds() const {
+    if (!m_matches || !m_matches->size())
+        return WebCore::IntRect(0, 0, 0, 0);
+    return (*m_matches)[m_findIndex].getLocation().getBounds();
+}
+
+// This function is only used by findNext and setMatches.  In it, we store
+// upper left corner of the match specified by m_findIndex in
+// m_currentMatchLocation.
+void FindOnPage::storeCurrentMatchLocation() {
+    SkASSERT(m_findIndex < m_matches->size());
+    const SkIRect& bounds = (*m_matches)[m_findIndex].getLocation().getBounds();
+    m_currentMatchLocation.set(bounds.fLeft, bounds.fTop);
+    m_hasCurrentLocation = true;
+}
+
+// Put a cap on the number of matches to draw.  If the current page has more
+// matches than this, only draw the focused match.
+#define MAX_NUMBER_OF_MATCHES_TO_DRAW 101
+
+void FindOnPage::drawLayer(SkCanvas* canvas, const WebCore::IntRect* visRect,
+        int layerId) {
+    if (!m_matches || !m_matches->size())
+        return;
+    if (m_findIndex >= m_matches->size())
+        m_findIndex = 0;
+    const MatchInfo& matchInfo = (*m_matches)[m_findIndex];
+    const SkRegion& currentMatchRegion = matchInfo.getLocation();
+
+    // Set up the paints used for drawing the matches
+    if (!m_isFindPaintSetUp)
+        setUpFindPaint();
+
+    // Draw the current match
+    if (matchInfo.layerId() == layerId) {
+        drawMatch(currentMatchRegion, canvas, true);
+        // Now draw the picture, so that it shows up on top of the rectangle
+        canvas->drawPicture(*matchInfo.getPicture());
+    }
+    // Draw the rest
+    unsigned numberOfMatches = m_matches->size();
+    if (numberOfMatches > 1
+            && numberOfMatches < MAX_NUMBER_OF_MATCHES_TO_DRAW) {
+        for(unsigned i = 0; i < numberOfMatches; i++) {
+            // The current match has already been drawn
+            if (i == m_findIndex)
+                continue;
+            if ((*m_matches)[i].layerId() != layerId)
+                continue;
+            const SkRegion& region = (*m_matches)[i].getLocation();
+            // Do not draw matches which intersect the current one, or if it is
+            // offscreen
+            if (currentMatchRegion.intersects(region)
+                    || (visRect && !region.intersects(*visRect)))
+                continue;
+            drawMatch(region, canvas, false);
+        }
+    }
+}
+
+// Draw the match specified by region to the canvas.
+void FindOnPage::drawMatch(const SkRegion& region, SkCanvas* canvas,
+        bool focused)
+{
+    // For the match which has focus, use a filled paint.  For the others, use
+    // a stroked paint.
+    if (focused) {
+        m_findPaint.setStyle(SkPaint::kFill_Style);
+        m_findBlurPaint.setStyle(SkPaint::kFill_Style);
+    } else {
+        m_findPaint.setStyle(SkPaint::kStroke_Style);
+        m_findPaint.setStrokeWidth(SK_Scalar1);
+        m_findBlurPaint.setStyle(SkPaint::kStroke_Style);
+        m_findBlurPaint.setStrokeWidth(SkIntToScalar(2));
+    }
+    // Find the path for the current match
+    SkPath matchPath;
+    region.getBoundaryPath(&matchPath);
+    // Offset the path for a blurred shadow
+    SkPath blurPath;
+    matchPath.offset(SK_Scalar1, SkIntToScalar(2), &blurPath);
+    int saveCount = 0;
+    if (!focused) {
+        saveCount = canvas->save();
+        canvas->clipPath(matchPath, SkRegion::kDifference_Op);
+    }
+    // Draw the blurred background
+    canvas->drawPath(blurPath, m_findBlurPaint);
+    if (!focused)
+        canvas->restoreToCount(saveCount);
+    // Draw the foreground
+    canvas->drawPath(matchPath, m_findPaint);
+}
+
+void FindOnPage::findNext(bool forward)
+{
+    if (!m_matches || !m_matches->size())
+        return;
+    if (forward) {
+        m_findIndex++;
+        if (m_findIndex == m_matches->size())
+            m_findIndex = 0;
+    } else {
+        if (m_findIndex == 0) {
+            m_findIndex = m_matches->size() - 1;
+        } else {
+            m_findIndex--;
+        }
+    }
+    storeCurrentMatchLocation();
+}
+
+// With this call, WebView takes ownership of matches, and is responsible for
+// deleting it.
+void FindOnPage::setMatches(WTF::Vector<MatchInfo>* matches)
+{
+    if (m_matches)
+        delete m_matches;
+    m_matches = matches;
+    if (m_matches->size()) {
+        if (m_hasCurrentLocation) {
+            for (unsigned i = 0; i < m_matches->size(); i++) {
+                const SkIRect& rect = (*m_matches)[i].getLocation().getBounds();
+                if (rect.fLeft == m_currentMatchLocation.fX
+                        && rect.fTop == m_currentMatchLocation.fY) {
+                    m_findIndex = i;
+                    return;
+                }
+            }
+        }
+        // If we did not have a stored location, or if we were unable to restore
+        // it, store the new one.
+        m_findIndex = 0;
+        storeCurrentMatchLocation();
+    } else {
+        m_hasCurrentLocation = false;
+    }
+}
+

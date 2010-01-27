@@ -4,13 +4,7 @@
 #if USE(ACCELERATED_COMPOSITING)
 
 #include "AndroidAnimation.h"
-#include "CString.h"
-#include "GraphicsLayerAndroid.h"
-#include "PlatformGraphicsContext.h"
-#include "RenderLayer.h"
-#include "RenderLayerBacking.h"
-#include "RenderView.h"
-#include "SkDevice.h"
+#include "FindCanvas.h"
 #include "SkDrawFilter.h"
 #include <wtf/CurrentTime.h>
 
@@ -20,6 +14,8 @@
 namespace WebCore {
 
 static int gDebugLayerAndroidInstances;
+static int gUniqueId;
+
 inline int LayerAndroid::instancesCount()
 {
     return gDebugLayerAndroidInstances;
@@ -49,7 +45,9 @@ LayerAndroid::LayerAndroid(bool isRootLayer) : SkLayer(),
     m_drawsContent(true),
     m_haveImage(false),
     m_haveClip(false),
-    m_recordingPicture(0)
+    m_recordingPicture(0),
+    m_findOnPage(0),
+    m_uniqueId(++gUniqueId)
 {
     gDebugLayerAndroidInstances++;
 }
@@ -59,13 +57,15 @@ LayerAndroid::LayerAndroid(const LayerAndroid& layer) : SkLayer(layer),
     m_haveContents(layer.m_haveContents),
     m_drawsContent(layer.m_drawsContent),
     m_haveImage(layer.m_haveImage),
-    m_haveClip(layer.m_haveClip)
+    m_haveClip(layer.m_haveClip),
+    m_findOnPage(0),
+    m_uniqueId(layer.m_uniqueId)
 {
     m_recordingPicture = layer.m_recordingPicture;
     SkSafeRef(m_recordingPicture);
 
     for (int i = 0; i < layer.countChildren(); i++)
-        addChild(new LayerAndroid(*static_cast<LayerAndroid*>(layer.getChild(i))))->unref();
+        addChild(new LayerAndroid(*layer.getChild(i)))->unref();
 
     KeyframesMap::const_iterator end = layer.m_animations.end();
     for (KeyframesMap::const_iterator it = layer.m_animations.begin(); it != end; ++it)
@@ -94,7 +94,7 @@ bool LayerAndroid::evaluateAnimations() const
 bool LayerAndroid::hasAnimations() const
 {
     for (int i = 0; i < countChildren(); i++) {
-        if (static_cast<LayerAndroid*>(getChild(i))->hasAnimations())
+        if (getChild(i)->hasAnimations())
             return true;
     }
     return !!m_animations.size();
@@ -104,7 +104,7 @@ bool LayerAndroid::evaluateAnimations(double time) const
 {
     bool hasRunningAnimations = false;
     for (int i = 0; i < countChildren(); i++) {
-        if (static_cast<LayerAndroid*>(getChild(i))->evaluateAnimations(time))
+        if (getChild(i)->evaluateAnimations(time))
             hasRunningAnimations = true;
     }
     KeyframesMap::const_iterator end = m_animations.end();
@@ -132,10 +132,8 @@ void LayerAndroid::removeAnimation(const String& name)
 void LayerAndroid::setDrawsContent(bool drawsContent)
 {
     m_drawsContent = drawsContent;
-    for (int i = 0; i < countChildren(); i++) {
-        LayerAndroid* layer = static_cast<LayerAndroid*>(getChild(i));
-        layer->setDrawsContent(drawsContent);
-    }
+    for (int i = 0; i < countChildren(); i++)
+        getChild(i)->setDrawsContent(drawsContent);
 }
 
 // We only use the bounding rect of the layer as mask...
@@ -167,13 +165,64 @@ void LayerAndroid::draw(SkCanvas* canvas, const SkRect* viewPort)
     paintChildren(viewPort, canvas, 1);
 }
 
+void LayerAndroid::bounds(SkRect* rect) const
+{
+    rect->fLeft = m_position.fX + m_translation.fX;
+    rect->fTop = m_position.fY + m_translation.fY;
+    rect->fRight = rect->fLeft + m_size.width();
+    rect->fBottom = rect->fTop + m_size.height();
+}
+
+bool LayerAndroid::boundsIsUnique(SkTDArray<SkRect>* region,
+                                  const SkRect& local) const
+{
+    for (int i = 0; i < region->count(); i++) {
+        if ((*region)[i].contains(local))
+            return false;
+    }
+    return true;
+}
+
+void LayerAndroid::clipArea(SkTDArray<SkRect>* region) const
+{
+    SkRect local;
+    local.set(0, 0, std::numeric_limits<float>::max(),
+        std::numeric_limits<float>::max());
+    clipInner(region, local);
+}
+
+void LayerAndroid::clipInner(SkTDArray<SkRect>* region,
+                             const SkRect& local) const
+{
+    SkRect localBounds;
+    bounds(&localBounds);
+    localBounds.intersect(local);
+    if (localBounds.isEmpty())
+        return;
+    if (m_recordingPicture && boundsIsUnique(region, localBounds))
+        *region->append() = localBounds;
+    for (int i = 0; i < countChildren(); i++)
+        getChild(i)->clipInner(region, m_haveClip ? localBounds : local);
+}
+
+const LayerAndroid* LayerAndroid::find(FloatPoint pos) const
+{
+    for (int i = 0; i < countChildren(); i++) {
+        const LayerAndroid* found = getChild(i)->find(pos);
+        if (found)
+            return found;
+    }
+    SkRect localBounds;
+    bounds(&localBounds);
+    if (localBounds.contains(pos))
+        return this;
+    return 0;
+}
+
 void LayerAndroid::setClip(SkCanvas* canvas)
 {
     SkRect clip;
-    clip.fLeft = m_position.fX + m_translation.fX;
-    clip.fTop = m_position.fY + m_translation.fY;
-    clip.fRight = clip.fLeft + m_size.width();
-    clip.fBottom = clip.fTop + m_size.height();
+    bounds(&clip);
     canvas->clipRect(clip);
 }
 
@@ -190,13 +239,9 @@ void LayerAndroid::paintChildren(const SkRect* viewPort, SkCanvas* canvas,
                       m_position.fY + m_translation.fY);
 
     for (int i = 0; i < countChildren(); i++) {
-        LayerAndroid* layer = static_cast<LayerAndroid*>(getChild(i));
-        if (layer) {
-            gDebugChildLevel++;
-            layer->paintChildren(viewPort,
-                                 canvas, opacity * m_opacity);
-            gDebugChildLevel--;
-        }
+        gDebugChildLevel++;
+        getChild(i)->paintChildren(viewPort, canvas, opacity * m_opacity);
+        gDebugChildLevel--;
     }
 
     canvas->restoreToCount(count);
@@ -222,7 +267,9 @@ bool LayerAndroid::calcPosition(const SkRect* viewPort,
         else if (m_fixedBottom.defined())
             y = dy + h - m_fixedBottom.calcFloatValue(h) - m_size.height();
 
-        matrix->setTranslate(x, y);
+        if (matrix)
+            matrix->setTranslate(x, y);
+        setPosition(x, y);
         return true;
     }
     return false;
@@ -283,6 +330,8 @@ void LayerAndroid::paintMe(const SkRect* viewPort,
 
     m_recordingPicture->draw(canvas);
 
+    if (m_findOnPage)
+        m_findOnPage->drawLayer(canvas, 0, m_uniqueId);
 #ifdef LAYER_DEBUG
     float w = m_size.width();
     float h = m_size.height();
@@ -400,7 +449,7 @@ void writeLength(FILE* file, int indentLevel, const char* str, SkLength length)
     fprintf(file, "%s = { type = %d; value = %.2f; };\n", str, length.type, length.value);
 }
 
-void LayerAndroid::dumpLayers(FILE* file, int indentLevel)
+void LayerAndroid::dumpLayers(FILE* file, int indentLevel) const
 {
     writeln(file, indentLevel, "{");
 
@@ -429,13 +478,30 @@ void LayerAndroid::dumpLayers(FILE* file, int indentLevel)
         for (int i = 0; i < countChildren(); i++) {
             if (i > 0)
                 writeln(file, indentLevel + 1, ", ");
-            LayerAndroid* layer = static_cast<LayerAndroid*>(getChild(i));
-            if (layer)
-                layer->dumpLayers(file, indentLevel + 1);
+            getChild(i)->dumpLayers(file, indentLevel + 1);
         }
         writeln(file, indentLevel + 1, "];");
     }
     writeln(file, indentLevel, "}");
+}
+
+const LayerAndroid* LayerAndroid::findById(int match) const
+{
+    if (m_uniqueId == match)
+        return this;
+    for (int i = 0; i < countChildren(); i++) {
+        const LayerAndroid* result = getChild(i)->findById(match);
+        if (result)
+            return result;
+    }
+    return 0;
+}
+
+void LayerAndroid::setFindOnPage(FindOnPage* findOnPage)
+{
+    m_findOnPage = findOnPage;
+    for (int i = 0; i < countChildren(); i++)
+        getChild(i)->setFindOnPage(findOnPage);
 }
 
 } // namespace WebCore
