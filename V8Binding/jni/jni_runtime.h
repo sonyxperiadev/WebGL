@@ -26,8 +26,8 @@
 #ifndef jni_runtime_h
 #define jni_runtime_h
 
+#include "Bridge.h"
 #include "JNIUtility.h"
-#include "JavaInstanceV8.h"
 
 #if USE(V8)
 #include "JavaStringV8.h"
@@ -36,6 +36,8 @@
 namespace JSC {
 
 namespace Bindings {
+
+typedef const char* RuntimeType;
 
 class JavaString {
 public:
@@ -68,7 +70,7 @@ public:
     JavaParameter(JNIEnv*, jstring type);
     virtual ~JavaParameter() { }
 
-    const char* type() const { return m_type.UTF8String(); }
+    RuntimeType type() const { return m_type.UTF8String(); }
     JNIType getJNIType() const { return m_JNIType; }
 
 private:
@@ -76,13 +78,13 @@ private:
     JNIType m_JNIType;
 };
 
-class JavaMethod {
+class JavaMethod : public Method {
 public:
     JavaMethod(JNIEnv*, jobject aMethod);
     ~JavaMethod();
 
     const JavaString& name() const { return m_name; }
-    const char* returnType() const { return m_returnType.UTF8String(); }
+    RuntimeType returnType() const { return m_returnType.UTF8String(); }
     JavaParameter* parameterAt(int i) const { return &m_parameters[i]; }
     int numParameters() const { return m_numParameters; }
 
