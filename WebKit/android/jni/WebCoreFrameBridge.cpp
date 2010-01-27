@@ -967,7 +967,7 @@ static void DestroyFrame(JNIEnv* env, jobject obj)
 #endif
 }
 
-static void LoadUrl(JNIEnv *env, jobject obj, jstring url)
+static void LoadUrl(JNIEnv *env, jobject obj, jstring url, jobject headers)
 {
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::NativeCallbackTimeCounter);
@@ -978,6 +978,45 @@ static void LoadUrl(JNIEnv *env, jobject obj, jstring url)
     WebCore::String webcoreUrl = to_string(env, url);
     WebCore::KURL kurl(WebCore::KURL(), webcoreUrl);
     WebCore::ResourceRequest request(kurl);
+    if (headers) {
+        // dalvikvm will raise exception if any of these fail
+        jclass mapClass = env->FindClass("java/util/Map");
+        jmethodID entrySet = env->GetMethodID(mapClass, "entrySet",
+                "()Ljava/util/Set;");
+        jobject set = env->CallObjectMethod(headers, entrySet);
+
+        jclass setClass = env->FindClass("java/util/Set");
+        jmethodID iterator = env->GetMethodID(setClass, "iterator",
+                "()Ljava/util/Iterator;");
+        jobject iter = env->CallObjectMethod(set, iterator);
+
+        jclass iteratorClass = env->FindClass("java/util/Iterator");
+        jmethodID hasNext = env->GetMethodID(iteratorClass, "hasNext", "()Z");
+        jmethodID next = env->GetMethodID(iteratorClass, "next",
+                "()Ljava/lang/Object;");
+        jclass entryClass = env->FindClass("java/util/Map$Entry");
+        jmethodID getKey = env->GetMethodID(entryClass, "getKey",
+                "()Ljava/lang/Object;");
+        jmethodID getValue = env->GetMethodID(entryClass, "getValue",
+                "()Ljava/lang/Object;");
+
+        while (env->CallBooleanMethod(iter, hasNext)) {
+            jobject entry = env->CallObjectMethod(iter, next);
+            jstring key = (jstring) env->CallObjectMethod(entry, getKey);
+            jstring value = (jstring) env->CallObjectMethod(entry, getValue);
+            request.setHTTPHeaderField(to_string(env, key), to_string(env, value));
+            env->DeleteLocalRef(entry);
+            env->DeleteLocalRef(key);
+            env->DeleteLocalRef(value);
+        }
+
+        env->DeleteLocalRef(entryClass);
+        env->DeleteLocalRef(iteratorClass);
+        env->DeleteLocalRef(iter);
+        env->DeleteLocalRef(setClass);
+        env->DeleteLocalRef(set);
+        env->DeleteLocalRef(mapClass);
+    }
     LOGV("LoadUrl %s", kurl.string().latin1().data());
     pFrame->loader()->load(request, false);
 }
@@ -1543,7 +1582,7 @@ static JNINativeMethod gBrowserFrameNativeMethods[] = {
         (void*) DestroyFrame },
     { "nativeStopLoading", "()V",
         (void*) StopLoading },
-    { "nativeLoadUrl", "(Ljava/lang/String;)V",
+    { "nativeLoadUrl", "(Ljava/lang/String;Ljava/util/Map;)V",
         (void*) LoadUrl },
     { "nativePostUrl", "(Ljava/lang/String;[B)V",
         (void*) PostUrl },
