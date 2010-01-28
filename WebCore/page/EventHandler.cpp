@@ -2595,6 +2595,20 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
         int adjustedPageX = lroundf(pagePoint.x() / m_frame->pageZoomFactor());
         int adjustedPageY = lroundf(pagePoint.y() / m_frame->pageZoomFactor());
 
+        // ANDROID
+        // The touch event should act on the originating touch target, not the current target
+        // TODO: Upstream this fix to webkit.org (see webkit bug 34585)
+        int touchPointId = point.id();
+        if (point.state() == PlatformTouchPoint::TouchPressed)
+            m_originatingTouchPointTargets.set(touchPointId, target);
+
+        EventTarget* touchTarget = m_originatingTouchPointTargets.get(touchPointId).get();
+        ASSERT(touchTarget);
+
+        RefPtr<Touch> touch = Touch::create(doc->frame(), touchTarget, touchPointId,
+                                            point.screenPos().x(), point.screenPos().y(),
+                                            adjustedPageX, adjustedPageY);
+
         if ((event.type() == TouchStart
 #if PLATFORM(ANDROID)
             || event.type() == TouchDoubleTap
@@ -2605,13 +2619,6 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
             m_firstTouchScreenPos = point.screenPos();
             m_firstTouchPagePos = pagePoint;
         }
-
-        // ANDROID
-        // The touch event should act on m_touchEventTarget, not target
-        // TODO: Upstream this fix to webkit.org
-        RefPtr<Touch> touch = Touch::create(doc->frame(), m_touchEventTarget.get(), point.id(),
-                                            point.screenPos().x(), point.screenPos().y(),
-                                            adjustedPageX, adjustedPageY);
 
         if (point.state() == PlatformTouchPoint::TouchReleased)
             releasedTouches->append(touch);
