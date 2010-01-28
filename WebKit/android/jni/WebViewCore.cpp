@@ -1122,15 +1122,8 @@ void WebViewCore::setSizeScreenWidthAndScale(int width, int height,
         DBG_NAV_LOGD("renderer=%p view=(w=%d,h=%d)", r,
             realScreenWidth, screenHeight);
         if (r) {
-            WebCore::IntPoint anchorPoint;
-            if ((anchorX | anchorY) == 0)
-                // get the current screen center position if anchor is (0, 0)
-                // which implies that it is not defined
-                anchorPoint = WebCore::IntPoint(
-                        m_scrollOffsetX + (realScreenWidth >> 1),
-                        m_scrollOffsetY + (screenHeight >> 1));
-            else
-                anchorPoint = WebCore::IntPoint(anchorX, anchorY);
+            WebCore::IntPoint anchorPoint = WebCore::IntPoint(anchorX, anchorY);
+            DBG_NAV_LOGD("anchorX=%d anchorY=%d", anchorX, anchorY);
             WebCore::Node* node = 0;
             WebCore::IntRect bounds;
             WebCore::IntPoint offset;
@@ -1157,18 +1150,6 @@ void WebViewCore::setSizeScreenWidthAndScale(int width, int height,
                                 bounds.x(), bounds.y(), bounds.width(), bounds.height());
                     }
                 }
-                if ((anchorX | anchorY) == 0) {
-                    // if there is no explicit anchor, ignore if it is offscreen
-                    offset = WebCore::IntPoint(anchorPoint.x() - bounds.x(),
-                            anchorPoint.y() - bounds.y());
-                    if (offset.x() < 0 || offset.x() > realScreenWidth ||
-                        offset.y() < 0 || offset.y() > screenHeight)
-                    {
-                        DBG_NAV_LOGD("offset out of bounds:(x=%d,y=%d)",
-                            offset.x(), offset.y());
-                        node = 0;
-                    }
-                }
             }
             r->setNeedsLayoutAndPrefWidthsRecalc();
             m_mainFrame->view()->forceLayout();
@@ -1179,25 +1160,26 @@ void WebViewCore::setSizeScreenWidthAndScale(int width, int height,
             DBG_NAV_LOGD("nb:(x=%d,y=%d,w=%d,"
                 "h=%d)", newBounds.x(), newBounds.y(),
                 newBounds.width(), newBounds.height());
-            if ((anchorX | anchorY) == 0)
-                scrollBy(newBounds.x() - bounds.x(),
-                        newBounds.y() - bounds.y(), false);
-            else if ((orsw && osh && bounds.width() && bounds.height())
-                    && (bounds != newBounds)) {
+            if ((orsw && osh && bounds.width() && bounds.height())
+                && (bounds != newBounds)) {
                 WebCore::FrameView* view = m_mainFrame->view();
                 // force left align if width is not changed while height changed.
                 // the anchorPoint is probably at some white space in the node
                 // which is affected by text wrap around the screen width.
-                bool leftAlign = (osw != m_screenWidth)
-                        && (bounds.width() == newBounds.width())
-                        && (bounds.height() != newBounds.height());
+                const bool leftAlign = (osw != m_screenWidth)
+                    && (bounds.width() == newBounds.width())
+                    && (bounds.height() != newBounds.height());
+                const float xPercentInDoc =
+                    leftAlign ? 0.0 : (float) (anchorX - bounds.x()) / bounds.width();
+                const float xPercentInView =
+                    leftAlign ? 0.0 : (float) (anchorX - m_scrollOffsetX) / orsw;
+                const float yPercentInDoc = (float) (anchorY - bounds.y()) / bounds.height();
+                const float yPercentInView = (float) (anchorY - m_scrollOffsetY) / osh;
                 showRect(newBounds.x(), newBounds.y(), newBounds.width(),
-                        newBounds.height(), view->contentsWidth(),
-                        view->contentsHeight(),
-                        leftAlign ? 0.0 : (float) (anchorX - bounds.x()) / bounds.width(),
-                        leftAlign ? 0.0 : (float) (anchorX - m_scrollOffsetX) / orsw,
-                        (float) (anchorY - bounds.y()) / bounds.height(),
-                        (float) (anchorY - m_scrollOffsetY) / osh);
+                         newBounds.height(), view->contentsWidth(),
+                         view->contentsHeight(),
+                         xPercentInDoc, xPercentInView,
+                         yPercentInDoc, yPercentInView);
             }
         }
     }
