@@ -237,7 +237,7 @@ namespace android {
          */
         void geolocationPermissionsHidePrompt();
 
-        void addMessageToConsole(const String& message, unsigned int lineNumber, const String& sourceID);
+        void addMessageToConsole(const String& message, unsigned int lineNumber, const String& sourceID, int msgLevel);
 
         //
         // Followings support calls from Java to native WebCore

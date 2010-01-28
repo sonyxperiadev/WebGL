@@ -308,7 +308,7 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     m_javaGlue->m_populateVisitedLinks = GetJMethod(env, clazz, "populateVisitedLinks", "()V");
     m_javaGlue->m_geolocationPermissionsShowPrompt = GetJMethod(env, clazz, "geolocationPermissionsShowPrompt", "(Ljava/lang/String;)V");
     m_javaGlue->m_geolocationPermissionsHidePrompt = GetJMethod(env, clazz, "geolocationPermissionsHidePrompt", "()V");
-    m_javaGlue->m_addMessageToConsole = GetJMethod(env, clazz, "addMessageToConsole", "(Ljava/lang/String;ILjava/lang/String;)V");
+    m_javaGlue->m_addMessageToConsole = GetJMethod(env, clazz, "addMessageToConsole", "(Ljava/lang/String;ILjava/lang/String;I)V");
     m_javaGlue->m_getPluginClass = GetJMethod(env, clazz, "getPluginClass", "(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/Class;");
     m_javaGlue->m_showFullScreenPlugin = GetJMethod(env, clazz, "showFullScreenPlugin", "(Landroid/webkit/ViewManager$ChildView;IIIII)V");
     m_javaGlue->m_hideFullScreenPlugin = GetJMethod(env, clazz, "hideFullScreenPlugin", "()V");
@@ -2120,13 +2120,13 @@ void WebViewCore::popupReply(const int* array, int count)
     }
 }
 
-void WebViewCore::addMessageToConsole(const WebCore::String& message, unsigned int lineNumber, const WebCore::String& sourceID) {
+void WebViewCore::addMessageToConsole(const WebCore::String& message, unsigned int lineNumber, const WebCore::String& sourceID, int msgLevel) {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
     jstring jMessageStr = env->NewString((unsigned short *)message.characters(), message.length());
     jstring jSourceIDStr = env->NewString((unsigned short *)sourceID.characters(), sourceID.length());
     env->CallVoidMethod(m_javaGlue->object(env).get(),
             m_javaGlue->m_addMessageToConsole, jMessageStr, lineNumber,
-            jSourceIDStr);
+            jSourceIDStr, msgLevel);
     env->DeleteLocalRef(jMessageStr);
     env->DeleteLocalRef(jSourceIDStr);
     checkException(env);
