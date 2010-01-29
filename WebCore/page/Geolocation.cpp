@@ -280,7 +280,7 @@ PassRefPtr<Geolocation::GeoNotifier> Geolocation::startRequest(PassRefPtr<Positi
         if (haveSuitableCachedPosition(notifier->m_options.get()))
             notifier->setUseCachedPosition();
         else {
-            if (notifier->hasZeroTimeout() || m_service->startUpdating(notifier->m_options.get()))
+            if (notifier->hasZeroTimeout() || startUpdating(notifier->m_options.get()))
                 notifier->startTimerIfNeeded();
             else
                 notifier->setFatalError(PositionError::create(PositionError::POSITION_UNAVAILABLE, "Failed to start Geolocation service"));
