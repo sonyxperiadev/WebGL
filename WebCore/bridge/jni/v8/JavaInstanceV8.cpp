@@ -1,19 +1,20 @@
 /*
+ * Copyright (C) 2003, 2008, 2010 Apple Inc. All rights reserved.
  * Copyright 2010, The Android Open Source Project
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
- * 1. Redistributions of source code must retain the above copyright
+ *  * Redistributions of source code must retain the above copyright
  *    notice, this list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright
+ *  * Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -27,7 +28,7 @@
 #include "JavaInstanceV8.h"
 
 #include "JNIBridge.h"
-#include "JNIUtility.h"
+#include "JNIUtilityPrivate.h"
 #include "JavaClassV8.h"
 
 #include <assert.h>
@@ -51,9 +52,8 @@ JavaInstance::~JavaInstance()
 
 JavaClass* JavaInstance::getClass() const
 {
-    if (!m_class) {
+    if (!m_class)
         m_class = new JavaClass(javaInstance());
-    }
     return m_class;
 }
 
@@ -66,7 +66,7 @@ bool JavaInstance::invokeMethod(const char* methodName, const NPVariant* args, i
     size_t numMethods = methodList.size();
 
     // Try to find a good match for the overloaded method.  The
-    // fundamental problem is that JavaScript doesn have the
+    // fundamental problem is that JavaScript doesn't have the
     // notion of method overloading and Java does.  We could
     // get a bit more sophisticated and attempt to does some
     // type checking as we as checking the number of parameters.
@@ -88,7 +88,7 @@ bool JavaInstance::invokeMethod(const char* methodName, const NPVariant* args, i
 
     jvalue* jArgs = 0;
     if (count > 0)
-        jArgs = (jvalue*)malloc (count * sizeof(jvalue));
+        jArgs = static_cast<jvalue*>(malloc(count * sizeof(jvalue)));
 
     for (int i = 0; i < count; i++) {
         JavaParameter* aParameter = jMethod->parameterAt(i);
@@ -159,10 +159,11 @@ JObjectWrapper::JObjectWrapper(jobject instance)
     LOGV("new global ref %p for %p\n", m_instance, instance);
 
     if (!m_instance)
-        fprintf (stderr, "%s:  could not get GlobalRef for %p\n", __PRETTY_FUNCTION__, instance);
+        fprintf(stderr, "%s:  could not get GlobalRef for %p\n", __PRETTY_FUNCTION__, instance);
 }
 
-JObjectWrapper::~JObjectWrapper() {
+JObjectWrapper::~JObjectWrapper()
+{
     LOGV("deleting global ref %p\n", m_instance);
     m_env->DeleteGlobalRef(m_instance);
 }

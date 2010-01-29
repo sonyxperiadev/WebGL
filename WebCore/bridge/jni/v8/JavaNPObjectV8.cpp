@@ -1,5 +1,5 @@
 /*
- * Copyright 2009, The Android Open Source Project
+ * Copyright 2010, The Android Open Source Project
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -13,7 +13,7 @@
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -27,7 +27,7 @@
 #include "config.h"
 #include "JavaNPObjectV8.h"
 
-#include "JNIUtility.h"
+#include "JNIUtilityPrivate.h"
 #include "JavaClassV8.h"
 #include "JavaInstanceV8.h"
 #include "npruntime_impl.h"
@@ -48,43 +48,43 @@ static NPObject* AllocJavaNPObject(NPP, NPClass*)
 static void FreeJavaNPObject(NPObject* npobj)
 {
     JavaNPObject* obj = reinterpret_cast<JavaNPObject*>(npobj);
-    obj->m_instance = 0;  // free does not call the destructor
+    obj->m_instance = 0; // free does not call the destructor
     free(obj);
 }
 
 static NPClass JavaNPObjectClass = {
     NP_CLASS_STRUCT_VERSION,
-    AllocJavaNPObject,  // allocate,
-    FreeJavaNPObject,  // free,
-    0,  // invalidate
-    JavaNPObject_HasMethod,
-    JavaNPObject_Invoke,
-    0,  // invokeDefault,
-    JavaNPObject_HasProperty,
-    JavaNPObject_GetProperty,
-    0,  // setProperty
-    0,  // removeProperty
-    0,  // enumerate
-    0   // construct
+    AllocJavaNPObject, // allocate,
+    FreeJavaNPObject, // free,
+    0, // invalidate
+    JavaNPObjectHasMethod,
+    JavaNPObjectInvoke,
+    0, // invokeDefault,
+    JavaNPObjectHasProperty,
+    JavaNPObjectGetProperty,
+    0, // setProperty
+    0, // removeProperty
+    0, // enumerate
+    0 // construct
 };
 
-
-NPObject* JavaInstanceToNPObject(JavaInstance* instance) {
+NPObject* JavaInstanceToNPObject(JavaInstance* instance)
+{
     JavaNPObject* object = reinterpret_cast<JavaNPObject*>(_NPN_CreateObject(0, &JavaNPObjectClass));
     object->m_instance = instance;
     return reinterpret_cast<NPObject*>(object);
 }
 
-
 // Returns null if obj is not a wrapper of JavaInstance
-JavaInstance* ExtractJavaInstance(NPObject* obj) {
-    if (obj->_class == &JavaNPObjectClass) {
+JavaInstance* ExtractJavaInstance(NPObject* obj)
+{
+    if (obj->_class == &JavaNPObjectClass)
         return reinterpret_cast<JavaNPObject*>(obj)->m_instance.get();
-    }
     return 0;
 }
 
-bool JavaNPObject_HasMethod(NPObject* obj, NPIdentifier identifier) {
+bool JavaNPObjectHasMethod(NPObject* obj, NPIdentifier identifier)
+{
     JavaInstance* instance = ExtractJavaInstance(obj);
     if (!instance)
         return false;
@@ -102,7 +102,8 @@ bool JavaNPObject_HasMethod(NPObject* obj, NPIdentifier identifier) {
     return result;
 }
 
-bool JavaNPObject_Invoke(NPObject* obj, NPIdentifier identifier, const NPVariant* args, uint32_t argCount, NPVariant* result) {
+bool JavaNPObjectInvoke(NPObject* obj, NPIdentifier identifier, const NPVariant* args, uint32_t argCount, NPVariant* result)
+{
     JavaInstance* instance = ExtractJavaInstance(obj);
     if (!instance)
         return false;
@@ -119,7 +120,8 @@ bool JavaNPObject_Invoke(NPObject* obj, NPIdentifier identifier, const NPVariant
     return r;
 }
 
-bool JavaNPObject_HasProperty(NPObject* obj, NPIdentifier identifier) {
+bool JavaNPObjectHasProperty(NPObject* obj, NPIdentifier identifier)
+{
     JavaInstance* instance = ExtractJavaInstance(obj);
     if (!instance)
         return false;
@@ -133,7 +135,8 @@ bool JavaNPObject_HasProperty(NPObject* obj, NPIdentifier identifier) {
     return result;
 }
 
-bool JavaNPObject_GetProperty(NPObject* obj, NPIdentifier identifier, NPVariant* result) {
+bool JavaNPObjectGetProperty(NPObject* obj, NPIdentifier identifier, NPVariant* result)
+{
     VOID_TO_NPVARIANT(*result);
     JavaInstance* instance = ExtractJavaInstance(obj);
     if (!instance)
@@ -145,7 +148,7 @@ bool JavaNPObject_GetProperty(NPObject* obj, NPIdentifier identifier, NPVariant*
     instance->begin();
     JavaField* field = instance->getClass()->fieldNamed(name);
     instance->end();
-    free(name);  // TODO: use NPN_MemFree
+    free(name); // TODO: use NPN_MemFree
 
     if (!field)
         return false;
@@ -160,6 +163,6 @@ bool JavaNPObject_GetProperty(NPObject* obj, NPIdentifier identifier, NPVariant*
     return true;
 }
 
-}  // namespace Bindings
+} // namespace Bindings
 
-}  // namespace JSC
+} // namespace JSC

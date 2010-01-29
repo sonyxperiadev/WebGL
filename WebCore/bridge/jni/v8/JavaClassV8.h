@@ -1,5 +1,4 @@
 /*
- * Copyright (C) 2010 Apple Computer, Inc.  All rights reserved.
  * Copyright 2010, The Android Open Source Project
  *
  * Redistribution and use in source and binary forms, with or without

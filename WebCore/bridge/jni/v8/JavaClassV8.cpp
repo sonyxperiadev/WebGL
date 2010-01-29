@@ -1,5 +1,4 @@
 /*
- * Copyright (C) 2010 Apple Computer, Inc.  All rights reserved.
  * Copyright 2010, The Android Open Source Project
  *
  * Redistribution and use in source and binary forms, with or without
@@ -27,8 +26,6 @@
 #include "config.h"
 #include "JavaClassV8.h"
 
-#include "JNIBridge.h"
-#include "JNIUtility.h"
 
 using namespace JSC::Bindings;
 
@@ -41,7 +38,7 @@ JavaClass::JavaClass(jobject anInstance)
         return;
     }
 
-    jstring className = (jstring)callJNIMethod<jobject>(aClass, "getName", "()Ljava/lang/String;");
+    jstring className = static_cast<jstring>(callJNIMethod<jobject>(aClass, "getName", "()Ljava/lang/String;"));
     const char* classNameC = getCharactersFromJString(className);
     m_name = strdup(classNameC);
     releaseCharactersForJString(className, classNameC);
@@ -50,10 +47,10 @@ JavaClass::JavaClass(jobject anInstance)
     JNIEnv* env = getJNIEnv();
 
     // Get the fields
-    jarray fields = (jarray)callJNIMethod<jobject>(aClass, "getFields", "()[Ljava/lang/reflect/Field;");
+    jarray fields = static_cast<jarray>(callJNIMethod<jobject>(aClass, "getFields", "()[Ljava/lang/reflect/Field;"));
     int numFields = env->GetArrayLength(fields);
     for (i = 0; i < numFields; i++) {
-        jobject aJField = env->GetObjectArrayElement((jobjectArray)fields, i);
+        jobject aJField = env->GetObjectArrayElement(static_cast<jobjectArray>(fields), i);
         JavaField* aField = new JavaField(env, aJField); // deleted in the JavaClass destructor
         {
             m_fields.set(aField->name().UTF8String(), aField);
@@ -62,10 +59,10 @@ JavaClass::JavaClass(jobject anInstance)
     }
 
     // Get the methods
-    jarray methods = (jarray)callJNIMethod<jobject>(aClass, "getMethods", "()[Ljava/lang/reflect/Method;");
+    jarray methods = static_cast<jarray>(callJNIMethod<jobject>(aClass, "getMethods", "()[Ljava/lang/reflect/Method;"));
     int numMethods = env->GetArrayLength(methods);
     for (i = 0; i < numMethods; i++) {
-        jobject aJMethod = env->GetObjectArrayElement((jobjectArray)methods, i);
+        jobject aJMethod = env->GetObjectArrayElement(static_cast<jobjectArray>(methods), i);
         JavaMethod* aMethod = new JavaMethod(env, aJMethod); // deleted in the JavaClass destructor
         MethodList* methodList;
         {
@@ -85,7 +82,7 @@ JavaClass::JavaClass(jobject anInstance)
 
 JavaClass::~JavaClass()
 {
-    free((void*)m_name);
+    free(const_cast<char*>(m_name));
 
     deleteAllValues(m_fields);
     m_fields.clear();
