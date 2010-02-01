@@ -2660,9 +2660,9 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
                                                    event.ctrlKey(), event.altKey(), event.shiftKey(),
                                                    event.metaKey());
 
-            ExceptionCode ec = 0;
-            m_touchEventTarget->dispatchEvent(cancelEv.get(), ec);
-            defaultPrevented |= cancelEv->defaultPrevented();
+        ExceptionCode ec = 0;
+        m_touchEventTarget->dispatchEvent(cancelEv.get(), ec);
+        defaultPrevented |= cancelEv->defaultPrevented();
     }
 
     if (releasedTouches->length() > 0) {
