@@ -283,7 +283,7 @@ PassRefPtr<Geolocation::GeoNotifier> Geolocation::startRequest(PassRefPtr<Positi
         if (haveSuitableCachedPosition(notifier->m_options.get()))
             notifier->setUseCachedPosition();
         else {
-            if (notifier->hasZeroTimeout() || startUpdating(notifier->m_options.get()))
+            if (notifier->hasZeroTimeout() || startUpdating(notifier.get()))
                 notifier->startTimerIfNeeded();
             else
                 notifier->setFatalError(PositionError::create(PositionError::POSITION_UNAVAILABLE, "Failed to start Geolocation service"));
@@ -348,7 +348,7 @@ void Geolocation::makeCachedPositionCallbacks()
         if (m_oneShots.contains(notifier))
             m_oneShots.remove(notifier);
         else if (m_watchers.contains(notifier)) {
-            if (notifier->hasZeroTimeout() || startUpdating(notifier->m_options.get()))
+            if (notifier->hasZeroTimeout() || startUpdating(notifier))
                 notifier->startTimerIfNeeded();
             else
                 notifier->setFatalError(PositionError::create(PositionError::POSITION_UNAVAILABLE, "Failed to start Geolocation service"));
@@ -402,6 +402,26 @@ void Geolocation::setIsAllowed(bool allowed)
     // This may be due to either a new position from the service, or a cached
     // position.
     m_allowGeolocation = allowed ? Yes : No;
+    
+#if ENABLE(CLIENT_BASED_GEOLOCATION)
+    if (m_startRequestPermissionNotifier) {
+        if (isAllowed()) {
+            // Permission request was made during the startUpdating process
+            m_startRequestPermissionNotifier = 0;
+            if (!m_frame)
+                return;
+            Page* page = m_frame->page();
+            if (!page)
+                return;
+            page->geolocationController()->addObserver(this);
+        } else {
+            m_startRequestPermissionNotifier->setFatalError(PositionError::create(PositionError::PERMISSION_DENIED, permissionDeniedErrorMessage));
+            m_oneShots.add(m_startRequestPermissionNotifier);
+            m_startRequestPermissionNotifier = 0;
+        }
+        return;
+    }
+#endif
 
     if (!isAllowed()) {
         RefPtr<PositionError> error = PositionError::create(PositionError::PERMISSION_DENIED, permissionDeniedErrorMessage);
@@ -594,12 +614,17 @@ void Geolocation::geolocationServiceErrorOccurred(GeolocationService* service)
 
 #endif
 
-bool Geolocation::startUpdating(PositionOptions* options)
+bool Geolocation::startUpdating(GeoNotifier* notifier)
 {
 #if ENABLE(CLIENT_BASED_GEOLOCATION)
     // FIXME: Pass options to client.
-    UNUSED_PARAM(options);
 
+    if (!isAllowed()) {
+        m_startRequestPermissionNotifier = notifier;
+        requestPermission();
+        return true;
+    }
+    
     if (!m_frame)
         return false;
 
@@ -610,7 +635,7 @@ bool Geolocation::startUpdating(PositionOptions* options)
     page->geolocationController()->addObserver(this);
     return true;
 #else
-    return m_service->startUpdating(options);
+    return m_service->startUpdating(notifier->options);
 #endif
 }
 
