@@ -635,7 +635,7 @@ bool Geolocation::startUpdating(GeoNotifier* notifier)
     page->geolocationController()->addObserver(this);
     return true;
 #else
-    return m_service->startUpdating(notifier->options);
+    return m_service->startUpdating(notifier->m_options.get());
 #endif
 }
 
