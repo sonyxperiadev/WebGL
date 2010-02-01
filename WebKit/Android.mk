@@ -26,6 +26,7 @@ LOCAL_SRC_FILES := \
 	android/WebCoreSupport/MediaPlayerPrivateAndroid.cpp \
 	android/WebCoreSupport/PlatformBridge.cpp \
 	android/WebCoreSupport/ResourceLoaderAndroid.cpp \
+	android/WebCoreSupport/V8Counters.cpp \
 	\
 	android/RenderSkinAndroid.cpp \
 	android/RenderSkinButton.cpp \

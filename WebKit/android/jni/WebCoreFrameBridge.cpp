@@ -68,6 +68,7 @@
 #elif USE(V8)
 #include "JavaNPObjectV8.h"
 #include "JavaInstanceV8.h"
+#include "V8Counters.h"
 #endif  // USE(JSC)
 
 #include "KURL.h"
@@ -863,6 +864,7 @@ static void CreateFrame(JNIEnv* env, jobject obj, jobject javaview, jobject jAss
     ScriptController::initializeThreading();
 
 #ifdef ANDROID_INSTRUMENT
+    V8Counters::initCounters();
     TimeCounterAuto counter(TimeCounter::NativeCallbackTimeCounter);
 #endif
     ChromeClientAndroid*      chromeC = new ChromeClientAndroid;

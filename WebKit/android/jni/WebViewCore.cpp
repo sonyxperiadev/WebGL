@@ -110,6 +110,7 @@
 #if USE(V8)
 #include "CString.h"
 #include "ScriptController.h"
+#include "V8Counters.h"
 #endif
 
 #if DEBUG_NAV_UI
@@ -2851,6 +2852,15 @@ static void DumpNavTree(JNIEnv *env, jobject obj)
     viewImpl->dumpNavTree();
 }
 
+static void DumpV8Counters(JNIEnv*, jobject)
+{
+#if USE(V8)
+#ifdef ANDROID_INSTRUMENT
+    V8Counters::dumpCounters();
+#endif
+#endif
+}
+
 static void SetJsFlags(JNIEnv *env, jobject obj, jstring flags)
 {
 #if USE(V8)
@@ -3105,6 +3115,8 @@ static JNINativeMethod gJavaWebViewCoreMethods[] = {
         (void*) DumpRenderTree },
     { "nativeDumpNavTree", "()V",
         (void*) DumpNavTree },
+    { "nativeDumpV8Counters", "()V",
+        (void*) DumpV8Counters },
     { "nativeSetNewStorageLimit", "(J)V",
         (void*) SetNewStorageLimit },
     { "nativeGeolocationPermissionsProvide", "(Ljava/lang/String;ZZ)V",
