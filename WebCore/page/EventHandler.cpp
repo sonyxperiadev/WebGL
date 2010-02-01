@@ -2603,7 +2603,7 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
         int adjustedPageX = lroundf(pagePoint.x() / m_frame->pageZoomFactor());
         int adjustedPageY = lroundf(pagePoint.y() / m_frame->pageZoomFactor());
 
-        if ( (event.type() == TouchStart
+        if ((event.type() == TouchStart
 #if PLATFORM(ANDROID)
             || event.type() == TouchDoubleTap
             || event.type() == TouchLongPress
@@ -2614,6 +2614,9 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
             m_firstTouchPagePos = pagePoint;
         }
 
+        // ANDROID
+        // The touch event should act on m_touchEventTarget, not target
+        // TODO: Upstream this fix to webkit.org
         RefPtr<Touch> touch = Touch::create(doc->frame(), m_touchEventTarget.get(), point.id(),
                                             point.screenPos().x(), point.screenPos().y(),
                                             adjustedPageX, adjustedPageY);
@@ -2676,7 +2679,11 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
                                                    event.metaKey());
         ExceptionCode ec = 0;
         m_touchEventTarget->dispatchEvent(endEv.get(), ec);
+#if PLATFORM(ANDROID)
         defaultPrevented |= endEv->defaultPrevented();
+#else
+        defaultPrevented = endEv->defaultPrevented();
+#endif
     }
     if (pressedTouches->length() > 0) {
         // Add pressed touchpoints to touches and targetTouches
