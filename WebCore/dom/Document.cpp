@@ -3110,9 +3110,9 @@ void Document::addListenerTypeIfNeeded(const AtomicString& eventType)
              || eventType == eventNames().touchmoveEvent
              || eventType == eventNames().touchendEvent
              || eventType == eventNames().touchcancelEvent) {
-         addListenerType(TOUCH_LISTENER);
-         if (Page* page = this->page())
-             page->chrome()->client()->needTouchEvents(true);
+        addListenerType(TOUCH_LISTENER);
+        if (Page* page = this->page())
+            page->chrome()->client()->needTouchEvents(true);
     }
 #endif
 }
