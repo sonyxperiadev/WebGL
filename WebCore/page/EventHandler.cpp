@@ -2667,22 +2667,19 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
 
     if (releasedTouches->length() > 0) {
         eventName = &eventNames().touchendEvent;
-
-        RefPtr<TouchEvent> endEv =
+        RefPtr<TouchEvent> endEv = 
             TouchEvent::create(touches.get(), targetTouches.get(), releasedTouches.get(),
                                                    *eventName, m_touchEventTarget->document()->defaultView(),
                                                    m_firstTouchScreenPos.x(), m_firstTouchScreenPos.y(),
                                                    m_firstTouchPagePos.x(), m_firstTouchPagePos.y(),
                                                    event.ctrlKey(), event.altKey(), event.shiftKey(),
                                                    event.metaKey());
-
         ExceptionCode ec = 0;
         m_touchEventTarget->dispatchEvent(endEv.get(), ec);
         defaultPrevented |= endEv->defaultPrevented();
     }
-
     if (pressedTouches->length() > 0) {
-        // Add pressed touchpoints to touches and targetTouches.
+        // Add pressed touchpoints to touches and targetTouches
         for (int i = 0; i < pressedTouches->length(); ++i) {
             touches->append(pressedTouches->item(i));
             if (m_touchEventTarget == pressedTouches->item(i)->target())
@@ -2719,7 +2716,7 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
         } else {
 #endif
             eventName = &eventNames().touchstartEvent;
-            RefPtr<TouchEvent> startEv =
+            RefPtr<TouchEvent> startEv = 
                 TouchEvent::create(touches.get(), targetTouches.get(), pressedTouches.get(),
                                                        *eventName, m_touchEventTarget->document()->defaultView(),
                                                        m_firstTouchScreenPos.x(), m_firstTouchScreenPos.y(),
@@ -2738,7 +2735,7 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
 
     if (movedTouches->length() > 0) {
         eventName = &eventNames().touchmoveEvent;
-        RefPtr<TouchEvent> moveEv =
+        RefPtr<TouchEvent> moveEv = 
             TouchEvent::create(touches.get(), targetTouches.get(), movedTouches.get(),
                                                    *eventName, m_touchEventTarget->document()->defaultView(),
                                                    m_firstTouchScreenPos.x(), m_firstTouchScreenPos.y(),
@@ -2749,7 +2746,6 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
         m_touchEventTarget->dispatchEvent(moveEv.get(), ec);
         defaultPrevented |= moveEv->defaultPrevented();
     }
-
 
     if (event.type() == TouchEnd || event.type() == TouchCancel)
         m_touchEventTarget = 0;
