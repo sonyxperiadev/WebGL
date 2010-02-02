@@ -33,7 +33,7 @@
 typedef struct CGRect CGRect;
 #endif
 
-#if PLATFORM(MAC) || (PLATFORM(CHROMIUM) && PLATFORM(DARWIN))
+#if PLATFORM(MAC) || (PLATFORM(CHROMIUM) && OS(DARWIN))
 #ifdef NSGEOMETRY_TYPES_SAME_AS_CGGEOMETRY_TYPES
 typedef struct CGRect NSRect;
 #else
@@ -60,6 +60,10 @@ struct SkRect;
 #endif
 
 namespace WebCore {
+
+#if PLATFORM(OPENVG)
+class VGRect;
+#endif
 
 class IntRect;
 
@@ -129,7 +133,7 @@ public:
 #endif
 
 #if (PLATFORM(MAC) && !defined(NSGEOMETRY_TYPES_SAME_AS_CGGEOMETRY_TYPES)) \
-        || (PLATFORM(CHROMIUM) && PLATFORM(DARWIN))
+        || (PLATFORM(CHROMIUM) && OS(DARWIN))
     FloatRect(const NSRect&);
     operator NSRect() const;
 #endif
@@ -152,6 +156,10 @@ public:
 #if PLATFORM(SKIA)
     FloatRect(const SkRect&);
     operator SkRect() const;
+#endif
+
+#if PLATFORM(OPENVG)
+    operator VGRect() const;
 #endif
 
 private:

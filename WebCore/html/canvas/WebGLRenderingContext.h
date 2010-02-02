@@ -39,6 +39,7 @@ namespace WebCore {
 
 class WebGLActiveInfo;
 class WebGLBuffer;
+class WebGLContextAttributes;
 class WebGLFramebuffer;
 class CanvasObject;
 class WebGLProgram;
@@ -53,7 +54,7 @@ class WebKitCSSMatrix;
 
     class WebGLRenderingContext : public CanvasRenderingContext {
     public:
-        static PassOwnPtr<WebGLRenderingContext> create(HTMLCanvasElement*);
+        static PassOwnPtr<WebGLRenderingContext> create(HTMLCanvasElement*, WebGLContextAttributes*);
         virtual ~WebGLRenderingContext();
 
         virtual bool is3d() const { return true; }
@@ -134,6 +135,8 @@ class WebKitCSSMatrix;
 
         WebGLGetInfo getBufferParameter(unsigned long target, unsigned long pname, ExceptionCode&);
 
+        PassRefPtr<WebGLContextAttributes> getContextAttributes();
+
         unsigned long getError();
 
         WebGLGetInfo getFramebufferAttachmentParameter(unsigned long target, unsigned long attachment, unsigned long pname, ExceptionCode&);
@@ -196,9 +199,8 @@ class WebKitCSSMatrix;
         void texImage2D(unsigned target, unsigned level, unsigned internalformat,
                         unsigned width, unsigned height, unsigned border,
                         unsigned format, unsigned type, WebGLArray* pixels, ExceptionCode&);
-        void texImage2D(unsigned target, unsigned level, unsigned internalformat,
-                        unsigned width, unsigned height, unsigned border,
-                        unsigned format, unsigned type, ImageData* pixels, ExceptionCode&);
+        void texImage2D(unsigned target, unsigned level, ImageData* pixels,
+                        bool flipY, bool premultiplyAlpha, ExceptionCode&);
         void texImage2D(unsigned target, unsigned level, HTMLImageElement* image,
                         bool flipY, bool premultiplyAlpha, ExceptionCode&);
         void texImage2D(unsigned target, unsigned level, HTMLCanvasElement* canvas,
@@ -213,17 +215,13 @@ class WebKitCSSMatrix;
                            unsigned width, unsigned height,
                            unsigned format, unsigned type, WebGLArray* pixels, ExceptionCode&);
         void texSubImage2D(unsigned target, unsigned level, unsigned xoffset, unsigned yoffset,
-                           unsigned width, unsigned height,
-                           unsigned format, unsigned type, ImageData* pixels, ExceptionCode&);
+                           ImageData* pixels, bool flipY, bool premultiplyAlpha, ExceptionCode&);
         void texSubImage2D(unsigned target, unsigned level, unsigned xoffset, unsigned yoffset,
-                           unsigned width, unsigned height, HTMLImageElement* image,
-                           bool flipY, bool premultiplyAlpha, ExceptionCode&);
+                           HTMLImageElement* image, bool flipY, bool premultiplyAlpha, ExceptionCode&);
         void texSubImage2D(unsigned target, unsigned level, unsigned xoffset, unsigned yoffset,
-                           unsigned width, unsigned height, HTMLCanvasElement* canvas,
-                           bool flipY, bool premultiplyAlpha, ExceptionCode&);
+                           HTMLCanvasElement* canvas, bool flipY, bool premultiplyAlpha, ExceptionCode&);
         void texSubImage2D(unsigned target, unsigned level, unsigned xoffset, unsigned yoffset,
-                           unsigned width, unsigned height, HTMLVideoElement* video,
-                           bool flipY, bool premultiplyAlpha, ExceptionCode&);
+                           HTMLVideoElement* video, bool flipY, bool premultiplyAlpha, ExceptionCode&);
 
         void uniform1f(const WebGLUniformLocation* location, float x, ExceptionCode&);
         void uniform1fv(const WebGLUniformLocation* location, WebGLFloatArray* v, ExceptionCode&);
@@ -301,7 +299,14 @@ class WebKitCSSMatrix;
                 markContextChanged();
         }
         
-        bool validateIndexArray(unsigned long count, unsigned long type, long offset, long& numElements);
+        // Basic validation of count and offset against number of elements in element array buffer
+        bool validateElementArraySize(unsigned long count, unsigned long type, long offset);
+
+        // Conservative but quick index validation
+        bool validateIndexArrayConservative(unsigned long type, long& numElementsRequired);
+
+        // Precise but slow index validation -- only done if conservative checks fail
+        bool validateIndexArrayPrecise(unsigned long count, unsigned long type, long offset, long& numElementsRequired);
         bool validateRenderingState(long numElements);
 
         OwnPtr<GraphicsContext3D> m_context;

@@ -333,21 +333,6 @@ String.prototype.collapseWhitespace = function()
     return this.replace(/[\s\xA0]+/g, " ");
 }
 
-String.prototype.trimLeadingWhitespace = function()
-{
-    return this.replace(/^[\s\xA0]+/g, "");
-}
-
-String.prototype.trimTrailingWhitespace = function()
-{
-    return this.replace(/[\s\xA0]+$/g, "");
-}
-
-String.prototype.trimWhitespace = function()
-{
-    return this.replace(/^[\s\xA0]+|[\s\xA0]+$/g, "");
-}
-
 String.prototype.trimURL = function(baseURLDomain)
 {
     var result = this.replace(/^https?:\/\//i, "");
@@ -628,6 +613,14 @@ Array.prototype.remove = function(value, onlyFirst)
     }
 }
 
+Array.prototype.keySet = function()
+{
+    var keys = {};
+    for (var i = 0; i < this.length; ++i)
+        keys[this[i]] = true;
+    return keys;
+}
+
 function insertionIndexForObjectInListSortedByFunction(anObject, aList, aFunction)
 {
     // indexOf returns (-lowerBound - 1). Taking (-result - 1) works out to lowerBound.
@@ -832,8 +825,4 @@ String.format = function(format, substitutions, formatters, initialValue, append
 function isEnterKey(event) {
     // Check if in IME.
     return event.keyCode !== 229 && event.keyIdentifier === "Enter";
-}
-
-function isFnKey(event) {
-    return event.keyCode >= 112 && event.keyCode <= 123;
 }

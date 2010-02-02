@@ -91,4 +91,10 @@ interface IWebPreferencesPrivate : IUnknown
 
     HRESULT setPluginAllowedRunTime([in] UINT allowedRunTime);
     HRESULT pluginAllowedRunTime([out, retval] UINT* allowedRunTime);
+
+    HRESULT setAcceleratedCompositingEnabled([in] BOOL);
+    HRESULT acceleratedCompositingEnabled([out, retval] BOOL*);
+
+    HRESULT setCustomDragCursorsEnabled([in] BOOL);
+    HRESULT customDragCursorsEnabled([out, retval] BOOL*);
 }

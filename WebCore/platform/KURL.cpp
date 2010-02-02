@@ -32,12 +32,16 @@
 #include "CString.h"
 #include "StringHash.h"
 #include "TextEncoding.h"
+#include <wtf/HashMap.h>
 #include <wtf/StdLibExtras.h>
 
 #if USE(ICU_UNICODE)
 #include <unicode/uidna.h>
 #elif USE(QT4_UNICODE)
 #include <QUrl>
+#elif USE(GLIB_UNICODE)
+#include <glib.h>
+#include <wtf/gtk/GOwnPtr.h>
 #endif
 
 #include <stdio.h>
@@ -214,6 +218,7 @@ static const unsigned char characterClassTable[256] = {
 static int copyPathRemovingDots(char* dst, const char* src, int srcStart, int srcEnd);
 static void encodeRelativeString(const String& rel, const TextEncoding&, CharBuffer& ouput);
 static String substituteBackslashes(const String&);
+static bool isValidProtocol(const String&);
 
 static inline bool isSchemeFirstChar(char c) { return characterClassTable[static_cast<unsigned char>(c)] & SchemeFirstChar; }
 static inline bool isSchemeFirstChar(UChar c) { return c <= 0xff && (characterClassTable[c] & SchemeFirstChar); }
@@ -659,17 +664,22 @@ String KURL::path() const
     return decodeURLEscapeSequences(m_string.substring(m_portEnd, m_pathEnd - m_portEnd)); 
 }
 
-void KURL::setProtocol(const String& s)
+bool KURL::setProtocol(const String& s)
 {
-    // FIXME: Non-ASCII characters must be encoded and escaped to match parse() expectations,
-    // and to avoid changing more than just the protocol.
+    // Firefox and IE remove everything after the first ':'.
+    int separatorPosition = s.find(':');
+    String newProtocol = s.substring(0, separatorPosition);
+
+    if (!isValidProtocol(newProtocol))
+        return false;
 
     if (!m_isValid) {
-        parse(s + ":" + m_string);
-        return;
+        parse(newProtocol + ":" + m_string);
+        return true;
     }
 
-    parse(s + m_string.substring(m_schemeEnd));
+    parse(newProtocol + m_string.substring(m_schemeEnd));
+    return true;
 }
 
 void KURL::setHost(const String& s)
@@ -1404,6 +1414,19 @@ static void appendEncodedHostname(UCharBuffer& buffer, const UChar* str, unsigne
 #elif USE(QT4_UNICODE)
     QByteArray result = QUrl::toAce(String(str, strLen));
     buffer.append(result.constData(), result.length());
+#elif USE(GLIB_UNICODE)
+    GOwnPtr<gchar> utf8Hostname;
+    GOwnPtr<GError> utf8Err;
+    utf8Hostname.set(g_utf16_to_utf8(str, strLen, 0, 0, &utf8Err.outPtr()));
+    if (utf8Err)
+        return;
+
+    GOwnPtr<gchar> encodedHostname;
+    encodedHostname.set(g_hostname_to_ascii(utf8Hostname.get()));
+    if (!encodedHostname) 
+        return;
+
+    buffer.append(encodedHostname.get(), strlen(encodedHostname.get()));
 #endif
 }
 
@@ -1630,6 +1653,9 @@ bool protocolIsJavaScript(const String& url)
 
 bool isValidProtocol(const String& protocol)
 {
+    // RFC3986: ALPHA *( ALPHA / DIGIT / "+" / "-" / "." )
+    if (protocol.isEmpty())
+        return false;
     if (!isSchemeFirstChar(protocol[0]))
         return false;
     unsigned protocolLength = protocol.length();

@@ -32,9 +32,13 @@
 #include "CollectionCache.h"
 #include "CollectionType.h"
 #include "Color.h"
+#include "Document.h"
 #include "DocumentMarker.h"
 #include "ScriptExecutionContext.h"
 #include "Timer.h"
+#if USE(JSC)
+#include <runtime/WeakGCMap.h>
+#endif
 #include <wtf/HashCountedSet.h>
 #include <wtf/OwnPtr.h>
 #include <wtf/PassOwnPtr.h>
@@ -60,6 +64,7 @@ namespace WebCore {
     class DocLoader;
     class DocumentFragment;
     class DocumentType;
+    class DocumentWeakReference;
     class EditingText;
     class Element;
     class EntityReference;
@@ -174,11 +179,11 @@ class Document : public ContainerNode, public ScriptExecutionContext {
 public:
     static PassRefPtr<Document> create(Frame* frame)
     {
-        return adoptRef(new Document(frame, false));
+        return adoptRef(new Document(frame, false, false));
     }
     static PassRefPtr<Document> createXHTML(Frame* frame)
     {
-        return adoptRef(new Document(frame, true));
+        return adoptRef(new Document(frame, true, false));
     }
     virtual ~Document();
 
@@ -344,13 +349,14 @@ public:
         ASSERT(type >= FirstUnnamedDocumentCachedType);
         unsigned index = type - FirstUnnamedDocumentCachedType;
         ASSERT(index < NumUnnamedDocumentCachedTypes);
+        m_collectionInfo[index].checkConsistency();
         return &m_collectionInfo[index]; 
     }
 
     CollectionCache* nameCollectionInfo(CollectionType, const AtomicString& name);
 
     // Other methods (not part of DOM)
-    virtual bool isHTMLDocument() const { return false; }
+    bool isHTMLDocument() const { return m_isHTML; }
     virtual bool isImageDocument() const { return false; }
 #if ENABLE(SVG)
     virtual bool isSVGDocument() const { return false; }
@@ -369,7 +375,12 @@ public:
 #endif
     virtual bool isFrameSet() const { return false; }
     
-    CSSStyleSelector* styleSelector() const { return m_styleSelector; }
+    CSSStyleSelector* styleSelector()
+    { 
+        if (!m_styleSelector)
+            createStyleSelector();
+        return m_styleSelector.get();
+    }
 
     Element* getElementByAccessKey(const String& key) const;
     
@@ -473,6 +484,7 @@ public:
     
     // to get visually ordered hebrew and arabic pages right
     void setVisuallyOrdered();
+    bool visuallyOrdered() const { return m_visuallyOrdered; }
 
     void open(Document* ownerDocument = 0);
     void implicitOpen();
@@ -612,6 +624,9 @@ public:
     EventListener* getWindowAttributeEventListener(const AtomicString& eventType);
     void dispatchWindowEvent(PassRefPtr<Event>, PassRefPtr<EventTarget> = 0);
     void dispatchWindowLoadEvent();
+
+    void enqueueStorageEvent(PassRefPtr<Event>);
+    void storageEventTimerFired(Timer<Document>*);
 
     PassRefPtr<Event> createEvent(const String& eventType, ExceptionCode&);
 
@@ -826,7 +841,7 @@ public:
     void updateFocusAppearanceSoon();
     void cancelFocusAppearanceUpdate();
         
-    // FF method for accessing the selection added for compatability.
+    // FF method for accessing the selection added for compatibility.
     DOMSelection* getSelection() const;
     
     // Extension for manipulating canvas drawing contexts for use in CSS
@@ -842,16 +857,13 @@ public:
     virtual void scriptImported(unsigned long, const String&);
     virtual void postTask(PassOwnPtr<Task>); // Executes the task on context's thread asynchronously.
 
-    typedef HashMap<WebCore::Node*, JSNode*> JSWrapperCache;
+#if USE(JSC)
+    typedef JSC::WeakGCMap<WebCore::Node*, JSNode*> JSWrapperCache;
     typedef HashMap<DOMWrapperWorld*, JSWrapperCache*> JSWrapperCacheMap;
     JSWrapperCacheMap& wrapperCacheMap() { return m_wrapperCacheMap; }
-    JSWrapperCache* getWrapperCache(DOMWrapperWorld* world)
-    {
-        if (JSWrapperCache* wrapperCache = m_wrapperCacheMap.get(world))
-            return wrapperCache;
-        return createWrapperCache(world);
-    }
+    JSWrapperCache* getWrapperCache(DOMWrapperWorld* world);
     JSWrapperCache* createWrapperCache(DOMWrapperWorld*);
+#endif
 
     virtual void finishedParsing();
 
@@ -910,21 +922,17 @@ public:
 
     void updateURLForPushOrReplaceState(const KURL&);
     void statePopped(SerializedScriptValue*);
-    void registerHistoryItem(HistoryItem* item);
-    void unregisterHistoryItem(HistoryItem* item);
 
     void updateSandboxFlags(); // Set sandbox flags as determined by the frame.
 
     bool processingLoadEvent() const { return m_processingLoadEvent; }
 
 #if ENABLE(DATABASE)
-    void addOpenDatabase(Database*);
-    void removeOpenDatabase(Database*);
-    DatabaseThread* databaseThread();   // Creates the thread as needed, but not if it has been already terminated.
-    void setHasOpenDatabases() { m_hasOpenDatabases = true; }
-    bool hasOpenDatabases() { return m_hasOpenDatabases; }
-    void stopDatabases();
+    virtual bool isDatabaseReadOnly() const;
+    virtual void databaseExceededQuota(const String& name);
 #endif
+
+    virtual bool isContextThread() const;
 
     void setUsingGeolocation(bool f) { m_usingGeolocation = f; }
     bool usingGeolocation() const { return m_usingGeolocation; };
@@ -936,11 +944,12 @@ public:
     void resetWMLPageState();
     void initializeWMLPageState();
 #endif
+    
+    bool containsValidityStyleRules() const { return m_containsValidityStyleRules; }
+    void setContainsValidityStyleRules() { m_containsValidityStyleRules = true; }
 
 protected:
-    Document(Frame*, bool isXHTML);
-
-    void setStyleSelector(CSSStyleSelector* styleSelector) { m_styleSelector = styleSelector; }
+    Document(Frame*, bool isXHTML, bool isHTML);
 
     void clearXMLVersion() { m_xmlVersion = String(); }
 
@@ -976,7 +985,9 @@ private:
 
     void cacheDocumentElement() const;
 
-    CSSStyleSelector* m_styleSelector;
+    void createStyleSelector();
+
+    OwnPtr<CSSStyleSelector> m_styleSelector;
     bool m_didCalculateStyleSelector;
 
     Frame* m_frame;
@@ -1061,7 +1072,7 @@ private:
     String m_selectedStylesheetSet;
 
     bool m_loadingSheet;
-    bool visuallyOrdered;
+    bool m_visuallyOrdered;
     bool m_bParsing;
     Timer<Document> m_styleRecalcTimer;
     bool m_inStyleRecalc;
@@ -1076,8 +1087,10 @@ private:
     bool m_isDNSPrefetchEnabled;
     bool m_haveExplicitlyDisabledDNSPrefetch;
     bool m_frameElementsShouldIgnoreScrolling;
+    bool m_containsValidityStyleRules;
 
     String m_title;
+    String m_rawTitle;
     bool m_titleSetExplicitly;
     RefPtr<Element> m_titleElement;
 
@@ -1182,23 +1195,25 @@ private:
     bool m_useSecureKeyboardEntryWhenActive;
 
     bool m_isXHTML;
+    bool m_isHTML;
 
     unsigned m_numNodeListCaches;
 
+#if USE(JSC)
     JSWrapperCacheMap m_wrapperCacheMap;
-
-#if ENABLE(DATABASE)
-    RefPtr<DatabaseThread> m_databaseThread;
-    bool m_hasOpenDatabases;    // This never changes back to false, even as the database thread is closed.
-    typedef HashSet<Database*> DatabaseSet;
-    OwnPtr<DatabaseSet> m_openDatabaseSet;
+    JSWrapperCache* m_normalWorldWrapperCache;
 #endif
-    
+
     bool m_usingGeolocation;
+
+    Timer<Document> m_storageEventTimer;
+    Vector<RefPtr<Event> > m_storageEventQueue;
 
 #if ENABLE(WML)
     bool m_containsWMLContent;
 #endif
+
+    RefPtr<DocumentWeakReference> m_weakReference;
 };
 
 inline bool Document::hasElementWithId(AtomicStringImpl* id) const

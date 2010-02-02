@@ -166,7 +166,7 @@ static inline Qt::FillRule toQtFillRule(WindRule rule)
     return Qt::OddEvenFill;
 }
 
-struct TransparencyLayer {
+struct TransparencyLayer : FastAllocBase {
     TransparencyLayer(const QPainter* p, const QRect &rect)
         : pixmap(rect.width(), rect.height())
     {
@@ -198,7 +198,7 @@ private:
     TransparencyLayer & operator=(const TransparencyLayer &) { return *this; }
 };
 
-class GraphicsContextPlatformPrivate {
+class GraphicsContextPlatformPrivate : public Noncopyable {
 public:
     GraphicsContextPlatformPrivate(QPainter* painter);
     ~GraphicsContextPlatformPrivate();
@@ -618,14 +618,14 @@ QPen GraphicsContext::pen()
     return p->pen();
 }
 
-static void inline drawFilledShadowPath(GraphicsContext* context, QPainter* p, const QPainterPath *path)
+static void inline drawFilledShadowPath(GraphicsContext* context, QPainter* p, const QPainterPath& path)
 {
     IntSize shadowSize;
     int shadowBlur;
     Color shadowColor;
     if (context->getShadow(shadowSize, shadowBlur, shadowColor)) {
         p->translate(shadowSize.width(), shadowSize.height());
-        p->fillPath(*path, QBrush(shadowColor));
+        p->fillPath(path, QBrush(shadowColor));
         p->translate(-shadowSize.width(), -shadowSize.height());
     }
 }
@@ -640,7 +640,7 @@ void GraphicsContext::fillPath()
     path.setFillRule(toQtFillRule(fillRule()));
 
     if (m_common->state.fillPattern || m_common->state.fillGradient || fillColor().alpha()) {
-        drawFilledShadowPath(this, p, &path);
+        drawFilledShadowPath(this, p, path);
         if (m_common->state.fillPattern) {
             TransformationMatrix affine;
             p->fillPath(path, QBrush(m_common->state.fillPattern->createPlatformPattern(affine)));
@@ -751,7 +751,7 @@ void GraphicsContext::fillRoundedRect(const IntRect& rect, const IntSize& topLef
     Path path = Path::createRoundedRectangle(rect, topLeft, topRight, bottomLeft, bottomRight);
     QPainter* p = m_data->p();
     drawFilledShadowPath(this, p, path.platformPath());
-    p->fillPath(*path.platformPath(), QColor(color));
+    p->fillPath(path.platformPath(), QColor(color));
 }
 
 void GraphicsContext::beginPath()
@@ -762,7 +762,7 @@ void GraphicsContext::beginPath()
 void GraphicsContext::addPath(const Path& path)
 {
     QPainterPath newPath = m_data->currentPath;
-    newPath.addPath(*(path.platformPath()));
+    newPath.addPath(path.platformPath());
     m_data->currentPath = newPath;
 }
 
@@ -795,17 +795,21 @@ void GraphicsContext::clipPath(WindRule clipRule)
     p->setClipPath(newPath);
 }
 
+void GraphicsContext::drawFocusRing(const Vector<Path>& paths, int width, int offset, const Color& color)
+{
+    // FIXME: implement
+}
+
 /**
  * Focus ring handling is not handled here. Qt style in 
  * RenderTheme handles drawing focus on widgets which 
  * need it.
  */
-void GraphicsContext::drawFocusRing(const Color& color)
+void GraphicsContext::drawFocusRing(const Vector<IntRect>& rects, int /* width */, int /* offset */, const Color& color)
 {
     if (paintingDisabled())
         return;
 
-    const Vector<IntRect>& rects = focusRingRects();
     unsigned rectCount = rects.size();
 
     if (!rects.size())
@@ -1031,7 +1035,7 @@ void GraphicsContext::clip(const Path& path)
     if (paintingDisabled())
         return;
 
-    m_data->p()->setClipPath(*path.platformPath(), Qt::IntersectClip);
+    m_data->p()->setClipPath(path.platformPath(), Qt::IntersectClip);
 }
 
 void GraphicsContext::canvasClip(const Path& path)
@@ -1045,7 +1049,7 @@ void GraphicsContext::clipOut(const Path& path)
         return;
 
     QPainter* p = m_data->p();
-    QPainterPath clippedOut = *path.platformPath();
+    QPainterPath clippedOut = path.platformPath();
     QPainterPath newClip;
     newClip.setFillRule(Qt::OddEvenFill);
     if (p->hasClipping()) {
@@ -1054,7 +1058,7 @@ void GraphicsContext::clipOut(const Path& path)
         p->setClipPath(newClip, Qt::IntersectClip);
     } else {
         newClip.addRect(p->window());
-        newClip.addPath(clippedOut & newClip);
+        newClip.addPath(clippedOut.intersected(newClip));
         p->setClipPath(newClip);
     }
 }
@@ -1293,7 +1297,7 @@ HDC GraphicsContext::getWindowsContext(const IntRect& dstRect, bool supportAlpha
         memset(bmpInfo.bmBits, 0, bufferSize);
     }
 
-#if !PLATFORM(WINCE)
+#if !OS(WINCE)
     // Make sure we can do world transforms.
     SetGraphicsMode(bitmapDC, GM_ADVANCED);
 

@@ -38,6 +38,7 @@
 #include "DOMCoreException.h"
 #include "DedicatedWorkerContext.h"
 #include "Event.h"
+#include "EventSource.h"
 #include "Notification.h"
 #include "NotificationCenter.h"
 #include "EventException.h"
@@ -49,6 +50,7 @@
 #include "V8DOMMap.h"
 #include "V8Index.h"
 #include "V8Proxy.h"
+#include "V8WorkerContext.h"
 #include "V8WorkerContextEventListener.h"
 #if ENABLE(WEB_SOCKETS)
 #include "WebSocket.h"
@@ -109,7 +111,7 @@ WorkerContextExecutionProxy* WorkerContextExecutionProxy::retrieve()
     // Return 0 if the current executing context is not the worker context.
     if (global.IsEmpty())
         return 0;
-    WorkerContext* workerContext = V8DOMWrapper::convertToNativeObject<WorkerContext>(V8ClassIndex::WORKERCONTEXT, global);
+    WorkerContext* workerContext = V8WorkerContext::toNative(global);
     return workerContext->script()->proxy();
 }
 
@@ -318,6 +320,18 @@ v8::Handle<v8::Value> WorkerContextExecutionProxy::convertEventTargetToV8Object(
     MessagePort* mp = target->toMessagePort();
     if (mp)
         return convertToV8Object(V8ClassIndex::MESSAGEPORT, mp);
+
+#if ENABLE(WEB_SOCKETS)
+    WebSocket* webSocket = target->toWebSocket();
+    if (webSocket)
+        return convertToV8Object(V8ClassIndex::WEBSOCKET, webSocket);
+#endif
+
+#if ENABLE(EVENTSOURCE)
+    EventSource* eventSource = target->toEventSource();
+    if (eventSource)
+        return convertToV8Object(V8ClassIndex::EVENTSOURCE, eventSource);
+#endif
 
     ASSERT_NOT_REACHED();
     return v8::Handle<v8::Value>();

@@ -56,7 +56,7 @@
 #include <stdio.h>
 #include <wtf/FastMalloc.h>
 
-#if PLATFORM(WIN_OS)
+#if OS(WINDOWS)
 #include <windows.h>
 #endif
 
@@ -76,11 +76,11 @@
 #include "NativeImageSkia.h"
 #endif
 
-#if PLATFORM(DARWIN)
+#if OS(DARWIN)
 #define USE_TEXTURE_RECTANGLE_FOR_FRAMEBUFFER
 #endif
 
-#if PLATFORM(LINUX)
+#if OS(LINUX)
 #include <dlfcn.h>
 #include "GL/glxew.h"
 #endif
@@ -98,7 +98,7 @@ namespace WebCore {
 
 class GraphicsContext3DInternal {
 public:
-    GraphicsContext3DInternal();
+    GraphicsContext3DInternal(GraphicsContext3D::Attributes attrs);
     ~GraphicsContext3DInternal();
 
     bool makeContextCurrent();
@@ -116,12 +116,15 @@ public:
     void activeTexture(unsigned long texture);
     void bindBuffer(unsigned long target,
                     WebGLBuffer* buffer);
+    void bindFramebuffer(unsigned long target,
+                         WebGLFramebuffer* framebuffer);
     void bindTexture(unsigned long target,
                      WebGLTexture* texture);
     void bufferDataImpl(unsigned long target, int size, const void* data, unsigned long usage);
     void disableVertexAttribArray(unsigned long index);
     void enableVertexAttribArray(unsigned long index);
     unsigned long getError();
+    GraphicsContext3D::Attributes getContextAttributes();
     void vertexAttribPointer(unsigned long indx, int size, int type, bool normalized,
                              unsigned long stride, unsigned long offset);
     void viewportImpl(long x, long y, unsigned long width, unsigned long height);
@@ -129,10 +132,15 @@ public:
     void synthesizeGLError(unsigned long error);
 
 private:
+    GraphicsContext3D::Attributes m_attrs;
+
     unsigned int m_texture;
     unsigned int m_fbo;
     unsigned int m_depthBuffer;
     unsigned int m_cachedWidth, m_cachedHeight;
+
+    // For tracking which FBO is bound
+    unsigned int m_boundFBO;
 
 #ifdef FLIP_FRAMEBUFFER_VERTICALLY
     unsigned char* m_scanline;
@@ -176,7 +184,8 @@ private:
     SkBitmap* m_resizingBitmap;
 #endif
 
-#if PLATFORM(WIN_OS)
+    static bool s_initializedGLEW;
+#if OS(WINDOWS)
     HWND  m_canvasWindow;
     HDC   m_canvasDC;
     HGLRC m_contextObj;
@@ -184,29 +193,169 @@ private:
     CGLPBufferObj m_pbuffer;
     CGLContextObj m_contextObj;
     unsigned char* m_renderOutput;
-    CGContextRef m_cgContext;
-#elif PLATFORM(LINUX)
-    Display* m_display;
+#elif OS(LINUX)
     GLXContext m_contextObj;
     GLXPbuffer m_pbuffer;
+
     // In order to avoid problems caused by linking against libGL, we
     // dynamically look up all the symbols we need.
     // http://code.google.com/p/chromium/issues/detail?id=16800
-    void* m_libGL;
-    PFNGLXCHOOSEFBCONFIGPROC m_glXChooseFBConfig;
-    PFNGLXCREATENEWCONTEXTPROC m_glXCreateNewContext;
-    PFNGLXCREATEPBUFFERPROC m_glXCreatePbuffer;
-    PFNGLXDESTROYPBUFFERPROC m_glXDestroyPbuffer;
-    typedef Bool (* PFNGLXMAKECURRENTPROC)(Display* dpy, GLXDrawable drawable, GLXContext ctx);
-    PFNGLXMAKECURRENTPROC m_glXMakeCurrent;
-    typedef void (* PFNGLXDESTROYCONTEXTPROC)(Display* dpy, GLXContext ctx);
-    PFNGLXDESTROYCONTEXTPROC m_glXDestroyContext;
-    typedef GLXContext (* PFNGLXGETCURRENTCONTEXTPROC)(void);
-    PFNGLXGETCURRENTCONTEXTPROC m_glXGetCurrentContext;
+    class GLConnection {
+      public:
+        ~GLConnection();
+
+        static GLConnection* create();
+
+        GLXFBConfig* chooseFBConfig(int screen, const int *attrib_list, int *nelements)
+        {
+            return m_glXChooseFBConfig(m_display, screen, attrib_list, nelements);
+        }
+
+        GLXContext createNewContext(GLXFBConfig config, int renderType, GLXContext shareList, Bool direct)
+        {
+            return m_glXCreateNewContext(m_display, config, renderType, shareList, direct);
+        }
+
+        GLXPbuffer createPbuffer(GLXFBConfig config, const int *attribList)
+        {
+            return m_glXCreatePbuffer(m_display, config, attribList);
+        }
+
+        void destroyPbuffer(GLXPbuffer pbuf)
+        {
+            m_glXDestroyPbuffer(m_display, pbuf);
+        }
+
+        Bool makeCurrent(GLXDrawable drawable, GLXContext ctx)
+        {
+            return m_glXMakeCurrent(m_display, drawable, ctx);
+        }
+
+        void destroyContext(GLXContext ctx)
+        {
+            m_glXDestroyContext(m_display, ctx);
+        }
+
+        GLXContext getCurrentContext()
+        {
+            return m_glXGetCurrentContext();
+        }
+
+      private:
+        Display* m_display;
+        void* m_libGL;
+        PFNGLXCHOOSEFBCONFIGPROC m_glXChooseFBConfig;
+        PFNGLXCREATENEWCONTEXTPROC m_glXCreateNewContext;
+        PFNGLXCREATEPBUFFERPROC m_glXCreatePbuffer;
+        PFNGLXDESTROYPBUFFERPROC m_glXDestroyPbuffer;
+        typedef Bool (* PFNGLXMAKECURRENTPROC)(Display* dpy, GLXDrawable drawable, GLXContext ctx);
+        PFNGLXMAKECURRENTPROC m_glXMakeCurrent;
+        typedef void (* PFNGLXDESTROYCONTEXTPROC)(Display* dpy, GLXContext ctx);
+        PFNGLXDESTROYCONTEXTPROC m_glXDestroyContext;
+        typedef GLXContext (* PFNGLXGETCURRENTCONTEXTPROC)(void);
+        PFNGLXGETCURRENTCONTEXTPROC m_glXGetCurrentContext;
+
+        GLConnection(Display* display,
+                     void* libGL,
+                     PFNGLXCHOOSEFBCONFIGPROC chooseFBConfig,
+                     PFNGLXCREATENEWCONTEXTPROC createNewContext,
+                     PFNGLXCREATEPBUFFERPROC createPbuffer,
+                     PFNGLXDESTROYPBUFFERPROC destroyPbuffer,
+                     PFNGLXMAKECURRENTPROC makeCurrent,
+                     PFNGLXDESTROYCONTEXTPROC destroyContext,
+                     PFNGLXGETCURRENTCONTEXTPROC getCurrentContext)
+            : m_libGL(libGL)
+            , m_display(display)
+            , m_glXChooseFBConfig(chooseFBConfig)
+            , m_glXCreateNewContext(createNewContext)
+            , m_glXCreatePbuffer(createPbuffer)
+            , m_glXDestroyPbuffer(destroyPbuffer)
+            , m_glXMakeCurrent(makeCurrent)
+            , m_glXDestroyContext(destroyContext)
+            , m_glXGetCurrentContext(getCurrentContext)
+        {
+        }
+
+        static void* tryLoad(const char* libName)
+        {
+            // We use RTLD_GLOBAL semantics so that GLEW initialization works;
+            // GLEW expects to be able to open the current process's handle
+            // and do dlsym's of GL entry points from there.
+            return dlopen(libName, RTLD_LAZY | RTLD_GLOBAL);
+        }
+    };
+
+    static GLConnection* s_gl;
 #else
     #error Must port GraphicsContext3D to your platform
 #endif
 };
+
+bool GraphicsContext3DInternal::s_initializedGLEW = false;
+
+#if OS(LINUX)
+GraphicsContext3DInternal::GLConnection* GraphicsContext3DInternal::s_gl = 0;
+
+GraphicsContext3DInternal::GLConnection* GraphicsContext3DInternal::GLConnection::create()
+{
+    Display* dpy = XOpenDisplay(0);
+    if (!dpy) {
+        printf("GraphicsContext3D: error opening X display\n");
+        return 0;
+    }
+
+    void* libGL = 0;
+    const char* libNames[] = {
+        "/usr/lib/libGL.so.1",
+        "/usr/lib32/libGL.so.1",
+        "/usr/lib64/libGL.so.1",
+    };
+    for (int i = 0; i < sizeof(libNames) / sizeof(const char*); i++) {
+        libGL = tryLoad(libNames[i]);
+        if (libGL)
+            break;
+    }
+    if (!libGL) {
+        printf("GraphicsContext3D: error opening libGL.so.1\n");
+        printf("GraphicsContext3D: tried:\n");
+        for (int i = 0; i < sizeof(libNames) / sizeof(const char*); i++)
+            printf(" %s\n", libNames[i]);
+        return 0;
+    }
+
+    PFNGLXCHOOSEFBCONFIGPROC chooseFBConfig = (PFNGLXCHOOSEFBCONFIGPROC) dlsym(libGL, "glXChooseFBConfig");
+    PFNGLXCREATENEWCONTEXTPROC createNewContext = (PFNGLXCREATENEWCONTEXTPROC) dlsym(libGL, "glXCreateNewContext");
+    PFNGLXCREATEPBUFFERPROC createPbuffer = (PFNGLXCREATEPBUFFERPROC) dlsym(libGL, "glXCreatePbuffer");
+    PFNGLXDESTROYPBUFFERPROC destroyPbuffer = (PFNGLXDESTROYPBUFFERPROC) dlsym(libGL, "glXDestroyPbuffer");
+    PFNGLXMAKECURRENTPROC makeCurrent = (PFNGLXMAKECURRENTPROC) dlsym(libGL, "glXMakeCurrent");
+    PFNGLXDESTROYCONTEXTPROC destroyContext = (PFNGLXDESTROYCONTEXTPROC) dlsym(libGL, "glXDestroyContext");
+    PFNGLXGETCURRENTCONTEXTPROC getCurrentContext = (PFNGLXGETCURRENTCONTEXTPROC) dlsym(libGL, "glXGetCurrentContext");
+    if (!chooseFBConfig || !createNewContext || !createPbuffer
+        || !destroyPbuffer || !makeCurrent || !destroyContext
+        || !getCurrentContext) {
+        XCloseDisplay(dpy);
+        dlclose(libGL);
+        printf("GraphicsContext3D: error looking up bootstrapping entry points\n");
+        return 0;
+    }
+    return new GLConnection(dpy,
+                            libGL,
+                            chooseFBConfig,
+                            createNewContext,
+                            createPbuffer,
+                            destroyPbuffer,
+                            makeCurrent,
+                            destroyContext,
+                            getCurrentContext);
+}
+
+GraphicsContext3DInternal::GLConnection::~GLConnection()
+{
+    XCloseDisplay(m_display);
+    dlclose(m_libGL);
+}
+
+#endif // OS(LINUX)
 
 GraphicsContext3DInternal::VertexAttribPointerState::VertexAttribPointerState()
     : enabled(false)
@@ -220,20 +369,12 @@ GraphicsContext3DInternal::VertexAttribPointerState::VertexAttribPointerState()
 {
 }
 
-#if PLATFORM(LINUX)
-static void* tryLoad(const char* libName)
-{
-    // We use RTLD_GLOBAL semantics so that GLEW initialization works;
-    // GLEW expects to be able to open the current process's handle
-    // and do dlsym's of GL entry points from there.
-    return dlopen(libName, RTLD_LAZY | RTLD_GLOBAL);
-}
-#endif
-
-GraphicsContext3DInternal::GraphicsContext3DInternal()
-    : m_texture(0)
+GraphicsContext3DInternal::GraphicsContext3DInternal(GraphicsContext3D::Attributes attrs)
+    : m_attrs(attrs)
+    , m_texture(0)
     , m_fbo(0)
     , m_depthBuffer(0)
+    , m_boundFBO(0)
 #ifdef FLIP_FRAMEBUFFER_VERTICALLY
     , m_scanline(0)
 #endif
@@ -241,7 +382,7 @@ GraphicsContext3DInternal::GraphicsContext3DInternal()
 #if PLATFORM(SKIA)
     , m_resizingBitmap(0)
 #endif
-#if PLATFORM(WIN_OS)
+#if OS(WINDOWS)
     , m_canvasWindow(0)
     , m_canvasDC(0)
     , m_contextObj(0)
@@ -249,23 +390,24 @@ GraphicsContext3DInternal::GraphicsContext3DInternal()
     , m_pbuffer(0)
     , m_contextObj(0)
     , m_renderOutput(0)
-    , m_cgContext(0)
-#elif PLATFORM(LINUX)
-    , m_display(0)
+#elif OS(LINUX)
     , m_contextObj(0)
     , m_pbuffer(0)
-    , m_glXChooseFBConfig(0)
-    , m_glXCreateNewContext(0)
-    , m_glXCreatePbuffer(0)
-    , m_glXDestroyPbuffer(0)
-    , m_glXMakeCurrent(0)
-    , m_glXDestroyContext(0)
-    , m_glXGetCurrentContext(0)
 #else
 #error Must port to your platform
 #endif
 {
-#if PLATFORM(WIN_OS)
+    // FIXME: we need to take into account the user's requested
+    // context creation attributes, in particular stencil and
+    // antialias, and determine which could and could not be honored
+    // based on the capabilities of the OpenGL implementation.
+    m_attrs.alpha = true;
+    m_attrs.depth = true;
+    m_attrs.stencil = false;
+    m_attrs.antialias = false;
+    m_attrs.premultipliedAlpha = true;
+
+#if OS(WINDOWS)
     WNDCLASS wc;
     if (!GetClassInfo(GetModuleHandle(0), L"CANVASGL", &wc)) {
         ZeroMemory(&wc, sizeof(WNDCLASS));
@@ -377,43 +519,13 @@ GraphicsContext3DInternal::GraphicsContext3DInternal()
     }
     m_pbuffer = pbuffer;
     m_contextObj = context;
-#elif PLATFORM(LINUX)
-    m_display = XOpenDisplay(0);
-    if (!m_display) {
-        printf("GraphicsContext3D: error opening X display\n");
-        return;
+#elif OS(LINUX)
+    if (!s_gl) {
+        s_gl = GLConnection::create();
+        if (!s_gl)
+            return;
     }
 
-    const char* libNames[] = {
-        "/usr/lib/libGL.so.1",
-        "/usr/lib32/libGL.so.1",
-        "/usr/lib64/libGL.so.1",
-    };
-    for (int i = 0; i < sizeof(libNames) / sizeof(const char*); i++) {
-        m_libGL = tryLoad(libNames[i]);
-        if (m_libGL)
-            break;
-    }
-    if (!m_libGL) {
-        printf("GraphicsContext3D: error opening libGL.so.1\n");
-        printf("GraphicsContext3D: tried:");
-        for (int i = 0; i < sizeof(libNames) / sizeof(const char*); i++)
-            printf(" %s", libNames[i]);
-        return;
-    }
-    m_glXChooseFBConfig = (PFNGLXCHOOSEFBCONFIGPROC) dlsym(m_libGL, "glXChooseFBConfig");
-    m_glXCreateNewContext = (PFNGLXCREATENEWCONTEXTPROC) dlsym(m_libGL, "glXCreateNewContext");
-    m_glXCreatePbuffer = (PFNGLXCREATEPBUFFERPROC) dlsym(m_libGL, "glXCreatePbuffer");
-    m_glXDestroyPbuffer = (PFNGLXDESTROYPBUFFERPROC) dlsym(m_libGL, "glXDestroyPbuffer");
-    m_glXMakeCurrent = (PFNGLXMAKECURRENTPROC) dlsym(m_libGL, "glXMakeCurrent");
-    m_glXDestroyContext = (PFNGLXDESTROYCONTEXTPROC) dlsym(m_libGL, "glXDestroyContext");
-    m_glXGetCurrentContext = (PFNGLXGETCURRENTCONTEXTPROC) dlsym(m_libGL, "glXGetCurrentContext");
-    if (!m_glXChooseFBConfig || !m_glXCreateNewContext || !m_glXCreatePbuffer
-        || !m_glXDestroyPbuffer || !m_glXMakeCurrent || !m_glXDestroyContext
-        || !m_glXGetCurrentContext) {
-        printf("GraphicsContext3D: error looking up bootstrapping entry points\n");
-        return;
-    }
     int configAttrs[] = {
         GLX_DRAWABLE_TYPE,
         GLX_PBUFFER_BIT,
@@ -424,7 +536,7 @@ GraphicsContext3DInternal::GraphicsContext3DInternal()
         0
     };
     int nelements = 0;
-    GLXFBConfig* config = m_glXChooseFBConfig(m_display, 0, configAttrs, &nelements);
+    GLXFBConfig* config = s_gl->chooseFBConfig(0, configAttrs, &nelements);
     if (!config) {
         printf("GraphicsContext3D: glXChooseFBConfig failed\n");
         return;
@@ -434,7 +546,7 @@ GraphicsContext3DInternal::GraphicsContext3DInternal()
         XFree(config);
         return;
     }
-    GLXContext context = m_glXCreateNewContext(m_display, config[0], GLX_RGBA_TYPE, 0, True);
+    GLXContext context = s_gl->createNewContext(config[0], GLX_RGBA_TYPE, 0, True);
     if (!context) {
         printf("GraphicsContext3D: glXCreateNewContext failed\n");
         XFree(config);
@@ -447,13 +559,13 @@ GraphicsContext3DInternal::GraphicsContext3DInternal()
         1,
         0
     };
-    GLXPbuffer pbuffer = m_glXCreatePbuffer(m_display, config[0], pbufferAttrs);
+    GLXPbuffer pbuffer = s_gl->createPbuffer(config[0], pbufferAttrs);
     XFree(config);
     if (!pbuffer) {
         printf("GraphicsContext3D: glxCreatePbuffer failed\n");
         return;
     }
-    if (!m_glXMakeCurrent(m_display, pbuffer, context)) {
+    if (!s_gl->makeCurrent(pbuffer, context)) {
         printf("GraphicsContext3D: glXMakeCurrent failed\n");
         return;
     }
@@ -463,8 +575,7 @@ GraphicsContext3DInternal::GraphicsContext3DInternal()
 #error Must port to your platform
 #endif
 
-    static bool initializedGLEW = false;
-    if (!initializedGLEW) {
+    if (!s_initializedGLEW) {
         // Initialize GLEW and check for GL 2.0 support by the drivers.
         GLenum glewInitResult = glewInit();
         if (glewInitResult != GLEW_OK) {
@@ -475,7 +586,7 @@ GraphicsContext3DInternal::GraphicsContext3DInternal()
             printf("GraphicsContext3D: OpenGL 2.0 not supported\n");
             return;
         }
-        initializedGLEW = true;
+        s_initializedGLEW = true;
     }
 }
 
@@ -495,7 +606,7 @@ GraphicsContext3DInternal::~GraphicsContext3DInternal()
     if (m_resizingBitmap)
         delete m_resizingBitmap;
 #endif
-#if PLATFORM(WIN_OS)
+#if OS(WINDOWS)
     wglMakeCurrent(0, 0);
     wglDeleteContext(m_contextObj);
     ReleaseDC(m_canvasWindow, m_canvasDC);
@@ -504,16 +615,12 @@ GraphicsContext3DInternal::~GraphicsContext3DInternal()
     CGLSetCurrentContext(0);
     CGLDestroyContext(m_contextObj);
     CGLDestroyPBuffer(m_pbuffer);
-    if (m_cgContext)
-        CGContextRelease(m_cgContext);
     if (m_renderOutput)
         delete[] m_renderOutput;
-#elif PLATFORM(LINUX)
-    m_glXMakeCurrent(m_display, 0, 0);
-    m_glXDestroyContext(m_display, m_contextObj);
-    m_glXDestroyPbuffer(m_display, m_pbuffer);
-    XCloseDisplay(m_display);
-    dlclose(m_libGL);
+#elif OS(LINUX)
+    s_gl->makeCurrent(0, 0);
+    s_gl->destroyContext(m_contextObj);
+    s_gl->destroyPbuffer(m_pbuffer);
 #else
 #error Must port to your platform
 #endif
@@ -522,7 +629,7 @@ GraphicsContext3DInternal::~GraphicsContext3DInternal()
 
 bool GraphicsContext3DInternal::makeContextCurrent()
 {
-#if PLATFORM(WIN_OS)
+#if OS(WINDOWS)
     if (wglGetCurrentContext() != m_contextObj)
         if (wglMakeCurrent(m_canvasDC, m_contextObj))
             return true;
@@ -530,9 +637,9 @@ bool GraphicsContext3DInternal::makeContextCurrent()
     if (CGLGetCurrentContext() != m_contextObj)
         if (CGLSetCurrentContext(m_contextObj) == kCGLNoError)
             return true;
-#elif PLATFORM(LINUX)
-    if (m_glXGetCurrentContext() != m_contextObj)
-        if (m_glXMakeCurrent(m_display, m_pbuffer, m_contextObj))
+#elif OS(LINUX)
+    if (s_gl->getCurrentContext() != m_contextObj)
+        if (s_gl->makeCurrent(m_pbuffer, m_contextObj))
             return true;
 #else
 #error Must port to your platform
@@ -594,6 +701,7 @@ void GraphicsContext3DInternal::reshape(int width, int height)
     glBindTexture(target, 0);
 
     glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, m_fbo);
+    m_boundFBO = m_fbo;
     glBindRenderbufferEXT(GL_RENDERBUFFER_EXT, m_depthBuffer);
     glRenderbufferStorageEXT(GL_RENDERBUFFER_EXT, GL_DEPTH_COMPONENT, width, height);
     glBindRenderbufferEXT(GL_RENDERBUFFER_EXT, 0);
@@ -623,20 +731,12 @@ void GraphicsContext3DInternal::reshape(int width, int height)
 #if PLATFORM(CG)
     // Need to reallocate the client-side backing store.
     // FIXME: make this more efficient.
-    if (m_cgContext) {
-        CGContextRelease(m_cgContext);
-        m_cgContext = 0;
-    }
     if (m_renderOutput) {
         delete[] m_renderOutput;
         m_renderOutput = 0;
     }
     int rowBytes = width * 4;
     m_renderOutput = new unsigned char[height * rowBytes];
-    CGColorSpaceRef colorSpace = CGColorSpaceCreateWithName(kCGColorSpaceGenericRGB);
-    m_cgContext = CGBitmapContextCreate(m_renderOutput, width, height, 8, rowBytes,
-                                        colorSpace, kCGImageAlphaPremultipliedLast);
-    CGColorSpaceRelease(colorSpace);
 #endif  // PLATFORM(CG)
 }
 
@@ -681,6 +781,9 @@ void GraphicsContext3DInternal::beginPaint(WebGLRenderingContext* context)
     HTMLCanvasElement* canvas = context->canvas();
     ImageBuffer* imageBuffer = canvas->buffer();
     unsigned char* pixels = 0;
+    bool mustRestoreFBO = (m_boundFBO != m_fbo);
+    if (mustRestoreFBO)
+        glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, m_fbo);
 #if PLATFORM(SKIA)
     const SkBitmap* canvasBitmap = imageBuffer->context()->platformContext()->bitmap();
     const SkBitmap* readbackBitmap = 0;
@@ -721,14 +824,15 @@ void GraphicsContext3DInternal::beginPaint(WebGLRenderingContext* context)
     glReadPixels(0, 0, m_cachedWidth, m_cachedHeight, GL_BGRA, GL_UNSIGNED_BYTE, pixels);
 #elif PLATFORM(CG)
     if (m_renderOutput) {
-        ASSERT(CGBitmapContextGetWidth(m_cgContext) == m_cachedWidth);
-        ASSERT(CGBitmapContextGetHeight(m_cgContext) == m_cachedHeight);
         pixels = m_renderOutput;
-        glReadPixels(0, 0, m_cachedWidth, m_cachedHeight, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
+        glReadPixels(0, 0, m_cachedWidth, m_cachedHeight, GL_BGRA, GL_UNSIGNED_INT_8_8_8_8_REV, pixels);
     }
 #else
 #error Must port to your platform
 #endif
+
+    if (mustRestoreFBO)
+        glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, m_boundFBO);
 
 #ifdef FLIP_FRAMEBUFFER_VERTICALLY
     if (pixels)
@@ -745,7 +849,20 @@ void GraphicsContext3DInternal::beginPaint(WebGLRenderingContext* context)
     }
 #elif PLATFORM(CG)
     if (m_renderOutput) {
-        CGImageRef cgImage = CGBitmapContextCreateImage(m_cgContext);
+        int rowBytes = m_cachedWidth * 4;
+        CGDataProviderRef dataProvider = CGDataProviderCreateWithData(0, m_renderOutput, rowBytes * m_cachedHeight, 0);
+        CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceRGB();
+        CGImageRef cgImage = CGImageCreate(m_cachedWidth,
+                                           m_cachedHeight,
+                                           8,
+                                           32,
+                                           rowBytes,
+                                           colorSpace,
+                                           kCGImageAlphaPremultipliedFirst | kCGBitmapByteOrder32Host,
+                                           dataProvider,
+                                           0,
+                                           false,
+                                           kCGRenderingIntentDefault);
         // CSS styling may cause the canvas's content to be resized on
         // the page. Go back to the Canvas to figure out the correct
         // width and height to draw.
@@ -756,9 +873,13 @@ void GraphicsContext3DInternal::beginPaint(WebGLRenderingContext* context)
         // rendering results.
         CGContextSetBlendMode(imageBuffer->context()->platformContext(),
                               kCGBlendModeCopy);
+        CGContextSetInterpolationQuality(imageBuffer->context()->platformContext(),
+                                         kCGInterpolationNone);
         CGContextDrawImage(imageBuffer->context()->platformContext(),
                            rect, cgImage);
         CGImageRelease(cgImage);
+        CGColorSpaceRelease(colorSpace);
+        CGDataProviderRelease(dataProvider);
     }
 #else
 #error Must port to your platform
@@ -786,6 +907,17 @@ void GraphicsContext3DInternal::bindBuffer(unsigned long target,
     if (target == GL_ARRAY_BUFFER)
         m_boundArrayBuffer = bufID;
     glBindBuffer(target, bufID);
+}
+
+void GraphicsContext3DInternal::bindFramebuffer(unsigned long target,
+                                                WebGLFramebuffer* framebuffer)
+{
+    makeContextCurrent();
+    GLuint id = EXTRACT(framebuffer);
+    if (!id)
+        id = m_fbo;
+    glBindFramebufferEXT(target, id);
+    m_boundFBO = id;
 }
 
 // If we didn't have to hack GL_TEXTURE_WRAP_R for cube maps,
@@ -862,6 +994,11 @@ unsigned long GraphicsContext3DInternal::getError()
 
     makeContextCurrent();
     return glGetError();
+}
+
+GraphicsContext3D::Attributes GraphicsContext3DInternal::getContextAttributes()
+{
+    return m_attrs;
 }
 
 void GraphicsContext3DInternal::vertexAttribPointer(unsigned long indx, int size, int type, bool normalized,
@@ -1012,17 +1149,17 @@ void GraphicsContext3D::name(t1 a1, t2 a2, t3 a3, t4 a4, t5 a5, t6 a6, t7 a7, t8
     gl##glname(a1, a2, a3, a4, a5, a6, a7, a8);                                \
 }
 
-PassOwnPtr<GraphicsContext3D> GraphicsContext3D::create()
+PassOwnPtr<GraphicsContext3D> GraphicsContext3D::create(GraphicsContext3D::Attributes attrs)
 {
-    PassOwnPtr<GraphicsContext3D> context = new GraphicsContext3D();
+    PassOwnPtr<GraphicsContext3D> context = new GraphicsContext3D(attrs);
     // FIXME: add error checking
     return context;
 }
 
-GraphicsContext3D::GraphicsContext3D()
+GraphicsContext3D::GraphicsContext3D(GraphicsContext3D::Attributes attrs)
     : m_currentWidth(0)
     , m_currentHeight(0)
-    , m_internal(new GraphicsContext3DInternal())
+    , m_internal(new GraphicsContext3DInternal(attrs))
 {
 }
 
@@ -1190,7 +1327,10 @@ void GraphicsContext3D::bindBuffer(unsigned long target,
     m_internal->bindBuffer(target, buffer);
 }
 
-GL_SAME_METHOD_2_X2(BindFramebufferEXT, bindFramebuffer, unsigned long, WebGLFramebuffer*)
+void GraphicsContext3D::bindFramebuffer(unsigned long target, WebGLFramebuffer* framebuffer)
+{
+    m_internal->bindFramebuffer(target, framebuffer);
+}
 
 GL_SAME_METHOD_2_X2(BindRenderbufferEXT, bindRenderbuffer, unsigned long, WebGLRenderbuffer*)
 
@@ -1446,6 +1586,11 @@ void GraphicsContext3D::getBufferParameteriv(unsigned long target, unsigned long
 {
     makeContextCurrent();
     glGetBufferParameteriv(target, pname, value);
+}
+
+GraphicsContext3D::Attributes GraphicsContext3D::getContextAttributes()
+{
+    return m_internal->getContextAttributes();
 }
 
 unsigned long GraphicsContext3D::getError()
@@ -1735,7 +1880,7 @@ int GraphicsContext3D::texImage2D(unsigned target,
                                   unsigned border,
                                   unsigned format,
                                   unsigned type,
-                                  WebGLArray* pixels)
+                                  void* pixels)
 {
     // FIXME: must do validation similar to JOGL's to ensure that
     // the incoming array is of the appropriate length.
@@ -1747,23 +1892,8 @@ int GraphicsContext3D::texImage2D(unsigned target,
                  border,
                  format,
                  type,
-                 pixels->baseAddress());
+                 pixels);
     return 0;
-}
-
-int GraphicsContext3D::texImage2D(unsigned target,
-                                  unsigned level,
-                                  unsigned internalformat,
-                                  unsigned width,
-                                  unsigned height,
-                                  unsigned border,
-                                  unsigned format,
-                                  unsigned type,
-                                  ImageData* pixels)
-{
-    // FIXME: implement.
-    notImplemented();
-    return -1;
 }
 
 // Remove premultiplied alpha from color channels.
@@ -1926,6 +2056,7 @@ int GraphicsContext3D::texImage2D(unsigned target, unsigned level, Image* image,
                                                     colorSpace,
                                                     kCGImageAlphaPremultipliedLast);
     CGColorSpaceRelease(colorSpace);
+    CGContextSetBlendMode(tmpContext, kCGBlendModeCopy);
     CGContextDrawImage(tmpContext,
                        CGRectMake(0, 0, static_cast<CGFloat>(width), static_cast<CGFloat>(height)),
                        cgImage);
@@ -1937,14 +2068,6 @@ int GraphicsContext3D::texImage2D(unsigned target, unsigned level, Image* image,
 #error Must port to your platform
 #endif
     return res;
-}
-
-int GraphicsContext3D::texImage2D(unsigned target, unsigned level, HTMLVideoElement* video,
-                                  bool flipY, bool premultiplyAlpha)
-{
-    // FIXME: implement.
-    notImplemented();
-    return -1;
 }
 
 GL_SAME_METHOD_3(TexParameterf, texParameterf, unsigned, unsigned, float);
@@ -1959,50 +2082,17 @@ int GraphicsContext3D::texSubImage2D(unsigned target,
                                      unsigned height,
                                      unsigned format,
                                      unsigned type,
-                                     WebGLArray* pixels)
+                                     void* pixels)
 {
-    // FIXME: implement.
-    notImplemented();
-    return -1;
+    glTexSubImage2D(target, level, xoffset, yoffset, width, height, format, type, pixels);
+    return 0;
 }
 
 int GraphicsContext3D::texSubImage2D(unsigned target,
                                      unsigned level,
                                      unsigned xoffset,
                                      unsigned yoffset,
-                                     unsigned width,
-                                     unsigned height,
-                                     unsigned format,
-                                     unsigned type,
-                                     ImageData* pixels)
-{
-    // FIXME: implement.
-    notImplemented();
-    return -1;
-}
-
-int GraphicsContext3D::texSubImage2D(unsigned target,
-                                     unsigned level,
-                                     unsigned xoffset,
-                                     unsigned yoffset,
-                                     unsigned width,
-                                     unsigned height,
                                      Image* image,
-                                     bool flipY,
-                                     bool premultiplyAlpha)
-{
-    // FIXME: implement.
-    notImplemented();
-    return -1;
-}
-
-int GraphicsContext3D::texSubImage2D(unsigned target,
-                                     unsigned level,
-                                     unsigned xoffset,
-                                     unsigned yoffset,
-                                     unsigned width,
-                                     unsigned height,
-                                     HTMLVideoElement* video,
                                      bool flipY,
                                      bool premultiplyAlpha)
 {

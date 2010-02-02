@@ -4,7 +4,7 @@
  *           (C) 2000 Dirk Mueller (mueller@kde.org)
  *           (C) 2006 Allan Sandfeld Jensen (kde@carewolf.com)
  *           (C) 2006 Samuel Weinig (sam.weinig@gmail.com)
- * Copyright (C) 2003, 2004, 2005, 2006, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2003, 2004, 2005, 2006, 2008, 2009, 2010 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -26,14 +26,19 @@
 #include "config.h"
 #include "RenderImage.h"
 
+#include "Frame.h"
 #include "GraphicsContext.h"
+#include "HTMLAreaElement.h"
+#include "HTMLCollection.h"
 #include "HTMLImageElement.h"
 #include "HTMLInputElement.h"
 #include "HTMLMapElement.h"
 #include "HTMLNames.h"
 #include "HitTestResult.h"
 #include "Page.h"
+#include "RenderTheme.h"
 #include "RenderView.h"
+#include "SelectionController.h"
 #include <wtf/CurrentTime.h>
 #include <wtf/UnusedParam.h>
 
@@ -430,12 +435,69 @@ void RenderImage::paintReplaced(PaintInfo& paintInfo, int tx, int ty)
 #endif
 
         IntSize contentSize(cWidth, cHeight);
-        bool useLowQualityScaling = RenderImageScaleObserver::shouldImagePaintAtLowQuality(this, contentSize);
         IntRect rect(IntPoint(tx + leftBorder + leftPad, ty + topBorder + topPad), contentSize);
-        HTMLImageElement* imageElt = (node() && node()->hasTagName(imgTag)) ? static_cast<HTMLImageElement*>(node()) : 0;
-        CompositeOperator compositeOperator = imageElt ? imageElt->compositeOperator() : CompositeSourceOver;
-        context->drawImage(image(cWidth, cHeight), style()->colorSpace(), rect, compositeOperator, useLowQualityScaling);
+        paintIntoRect(context, rect);
     }
+}
+
+void RenderImage::paint(PaintInfo& paintInfo, int tx, int ty)
+{
+    RenderReplaced::paint(paintInfo, tx, ty);
+    
+    if (paintInfo.phase == PaintPhaseOutline)
+        paintFocusRings(paintInfo, style());
+}
+    
+void RenderImage::paintFocusRings(PaintInfo& paintInfo, const RenderStyle* style)
+{
+    // Don't draw focus rings if printing.
+    if (document()->printing() || !document()->frame()->selection()->isFocusedAndActive())
+        return;
+    
+    if (paintInfo.context->paintingDisabled() && !paintInfo.context->updatingControlTints())
+        return;
+
+    HTMLMapElement* mapElement = imageMap();
+    if (!mapElement)
+        return;
+    
+    Document* document = mapElement->document();
+    if (!document)
+        return;
+    
+    Node* focusedNode = document->focusedNode();
+    if (!focusedNode)
+        return;
+    
+    RefPtr<HTMLCollection> areas = mapElement->areas();
+    unsigned numAreas = areas->length();
+    
+    // FIXME: Clip the paths to the image bounding box.
+    for (unsigned k = 0; k < numAreas; ++k) {
+        HTMLAreaElement* areaElement = static_cast<HTMLAreaElement*>(areas->item(k));
+        if (focusedNode != areaElement)
+            continue;
+        
+        Vector<Path> focusRingPaths;
+        focusRingPaths.append(areaElement->getPath(this));
+        paintInfo.context->drawFocusRing(focusRingPaths, style->outlineWidth(), style->outlineOffset(), style->outlineColor());
+        break;
+    }
+}
+    
+void RenderImage::paintIntoRect(GraphicsContext* context, const IntRect& rect)
+{
+    if (!hasImage() || errorOccurred() || rect.width() <= 0 || rect.height() <= 0)
+        return;
+
+    Image* img = image(rect.width(), rect.height());
+    if (!img || img->isNull())
+        return;
+
+    HTMLImageElement* imageElt = (node() && node()->hasTagName(imgTag)) ? static_cast<HTMLImageElement*>(node()) : 0;
+    CompositeOperator compositeOperator = imageElt ? imageElt->compositeOperator() : CompositeSourceOver;
+    bool useLowQualityScaling = RenderImageScaleObserver::shouldImagePaintAtLowQuality(this, rect.size());
+    context->drawImage(image(rect.width(), rect.height()), style()->colorSpace(), rect, compositeOperator, useLowQualityScaling);
 }
 
 int RenderImage::minimumReplacedHeight() const
@@ -443,7 +505,7 @@ int RenderImage::minimumReplacedHeight() const
     return errorOccurred() ? intrinsicSize().height() : 0;
 }
 
-HTMLMapElement* RenderImage::imageMap()
+HTMLMapElement* RenderImage::imageMap() const
 {
     HTMLImageElement* i = node() && node()->hasTagName(imgTag) ? static_cast<HTMLImageElement*>(node()) : 0;
     return i ? i->document()->getImageMap(i->getAttribute(usemapAttr)) : 0;

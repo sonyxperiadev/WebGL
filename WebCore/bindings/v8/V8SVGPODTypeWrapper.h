@@ -51,6 +51,11 @@ public:
     virtual ~V8SVGPODTypeWrapper() { }
     virtual operator PODType() = 0;
     virtual void commitChange(PODType, SVGElement*) = 0;
+
+    static V8SVGPODTypeWrapper<PODType>* toNative(v8::Handle<v8::Object> object)
+    {
+        return reinterpret_cast<V8SVGPODTypeWrapper<PODType>*>(object->GetPointerFromInternalField(v8DOMWrapperObjectIndex));
+    }
 };
 
 template<typename PODType>
@@ -59,7 +64,7 @@ public:
     typedef SVGPODListItem<PODType> PODListItemPtrType;
 
     typedef PODType (SVGPODListItem<PODType>::*GetterMethod)() const;
-    typedef void (SVGPODListItem<PODType>::*SetterMethod)(PODType);
+    typedef void (SVGPODListItem<PODType>::*SetterMethod)(const PODType&);
 
     static PassRefPtr<V8SVGPODTypeWrapperCreatorForList> create(PassRefPtr<PODListItemPtrType> creator, const QualifiedName& attributeName)
     {
@@ -197,7 +202,7 @@ template<typename PODType, typename PODTypeCreator>
 class V8SVGDynamicPODTypeWrapper : public V8SVGPODTypeWrapper<PODType> {
 public:
     typedef PODType (PODTypeCreator::*GetterMethod)() const;
-    typedef void (PODTypeCreator::*SetterMethod)(PODType);
+    typedef void (PODTypeCreator::*SetterMethod)(const PODType&);
     typedef void (*CacheRemovalCallback)(V8SVGPODTypeWrapper<PODType>*);
 
     static PassRefPtr<V8SVGDynamicPODTypeWrapper> create(PassRefPtr<PODTypeCreator> creator, GetterMethod getter, SetterMethod setter, CacheRemovalCallback cacheRemovalCallback)
@@ -247,7 +252,7 @@ private:
 template<typename PODType, typename PODTypeCreator>
 struct PODTypeWrapperCacheInfo {
     typedef PODType (PODTypeCreator::*GetterMethod)() const;
-    typedef void (PODTypeCreator::*SetterMethod)(PODType);
+    typedef void (PODTypeCreator::*SetterMethod)(const PODType&);
 
     // Empty value
     PODTypeWrapperCacheInfo()
@@ -338,7 +343,7 @@ template<typename PODType, typename PODTypeCreator>
 class V8SVGDynamicPODTypeWrapperCache {
 public:
     typedef PODType (PODTypeCreator::*GetterMethod)() const;
-    typedef void (PODTypeCreator::*SetterMethod)(PODType);
+    typedef void (PODTypeCreator::*SetterMethod)(const PODType&);
 
     typedef PODTypeWrapperCacheInfo<PODType, PODTypeCreator> CacheInfo;
     typedef PODTypeWrapperCacheInfoHash<PODType, PODTypeCreator> CacheInfoHash;
@@ -397,14 +402,12 @@ public:
 template <class P>
 P V8SVGPODTypeUtil::toSVGPODType(V8ClassIndex::V8WrapperType type, v8::Handle<v8::Value> object, bool& ok)
 {
-    void *wrapper = V8DOMWrapper::convertToSVGPODTypeImpl(type, object);
-    if (wrapper == NULL) {
+    if (!V8DOMWrapper::isWrapperOfType(object, type)) {
         ok = false;
         return P();
-    } else {
-        ok = true;
-        return *static_cast<V8SVGPODTypeWrapper<P>*>(wrapper);
     }
+    ok = true;
+    return *V8SVGPODTypeWrapper<P>::toNative(v8::Handle<v8::Object>::Cast(object));
 }
 
 } // namespace WebCore

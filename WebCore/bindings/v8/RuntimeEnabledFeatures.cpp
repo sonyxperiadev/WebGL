@@ -33,6 +33,7 @@
 
 namespace WebCore {
 
+<<<<<<< HEAD
 #if PLATFORM(ANDROID)
 // This should default to true, to match the behavior with JSC
 bool RuntimeEnabledFeatures::isDatabaseEnabled = true;
@@ -44,5 +45,13 @@ bool RuntimeEnabledFeatures::isSessionStorageEnabled = true;
 bool RuntimeEnabledFeatures::isNotificationsEnabled = true;
 bool RuntimeEnabledFeatures::isApplicationCacheEnabled = true;
 #endif
+=======
+bool RuntimeEnabledFeatures::isLocalStorageEnabled = true;
+bool RuntimeEnabledFeatures::isSessionStorageEnabled = true;
+bool RuntimeEnabledFeatures::isNotificationsEnabled = false;
+bool RuntimeEnabledFeatures::isApplicationCacheEnabled = false;
+bool RuntimeEnabledFeatures::isGeolocationEnabled = false;
+bool RuntimeEnabledFeatures::isIndexedDatabaseEnabled = false;
+>>>>>>> webkit.org at r54127
 
 } // namespace WebCore

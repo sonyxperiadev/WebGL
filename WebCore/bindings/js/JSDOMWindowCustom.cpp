@@ -22,6 +22,7 @@
 
 #include "AtomicString.h"
 #include "Base64.h"
+#include "Chrome.h"
 #include "DOMWindow.h"
 #include "Document.h"
 #include "ExceptionCode.h"
@@ -112,6 +113,7 @@ void JSDOMWindow::markChildren(MarkStack& markStack)
     markDOMObjectWrapper(markStack, globalData, impl()->optionalStatusbar());
     markDOMObjectWrapper(markStack, globalData, impl()->optionalToolbar());
     markDOMObjectWrapper(markStack, globalData, impl()->optionalLocation());
+    markDOMObjectWrapper(markStack, globalData, impl()->optionalMedia());
 #if ENABLE(DOM_STORAGE)
     markDOMObjectWrapper(markStack, globalData, impl()->optionalSessionStorage());
     markDOMObjectWrapper(markStack, globalData, impl()->optionalLocalStorage());
@@ -265,7 +267,7 @@ bool JSDOMWindow::getOwnPropertySlot(ExecState* exec, const Identifier& property
         }
     }
 
-    // FIXME: Search the whole frame hierachy somewhere around here.
+    // FIXME: Search the whole frame hierarchy somewhere around here.
     // We need to test the correct priority order.
 
     // allow window[1] or parent[1] etc. (#56983)
@@ -323,22 +325,6 @@ bool JSDOMWindow::getOwnPropertyDescriptor(ExecState* exec, const Identifier& pr
         return true;
     }
 
-    // We need this code here because otherwise JSDOMWindowBase will stop the search before we even get to the
-    // prototype due to the blanket same origin (allowsAccessFrom) check at the end of getOwnPropertySlot.
-    // Also, it's important to get the implementation straight out of the DOMWindow prototype regardless of
-    // what prototype is actually set on this object.
-    entry = JSDOMWindowPrototype::s_info.propHashTable(exec)->entry(exec, propertyName);
-    if (entry) {
-        if (entry->attributes() & Function) {
-            if (entry->function() == jsDOMWindowPrototypeFunctionShowModalDialog) {
-                if (!DOMWindow::canShowModalDialog(impl()->frame())) {
-                    descriptor.setUndefined();
-                    return true;
-                }
-            }
-        }
-    }
-    
     entry = JSDOMWindow::s_info.propHashTable(exec)->entry(exec, propertyName);
     if (entry) {
         PropertySlot slot;
@@ -359,14 +345,6 @@ bool JSDOMWindow::getOwnPropertyDescriptor(ExecState* exec, const Identifier& pr
         return true;
     }
     
-    // Do prototype lookup early so that functions and attributes in the prototype can have
-    // precedence over the index and name getters.  
-    JSValue proto = prototype();
-    if (proto.isObject()) {
-        if (asObject(proto)->getPropertyDescriptor(exec, propertyName, descriptor))
-            return true;
-    }
-
     bool ok;
     unsigned i = propertyName.toArrayIndex(&ok);
     if (ok && i < impl()->frame()->tree()->childCount()) {
@@ -418,20 +396,20 @@ bool JSDOMWindow::deleteProperty(ExecState* exec, const Identifier& propertyName
     return Base::deleteProperty(exec, propertyName);
 }
 
-void JSDOMWindow::getPropertyNames(ExecState* exec, PropertyNameArray& propertyNames)
+void JSDOMWindow::getPropertyNames(ExecState* exec, PropertyNameArray& propertyNames, EnumerationMode mode)
 {
     // Only allow the window to enumerated by frames in the same origin.
     if (!allowsAccessFrom(exec))
         return;
-    Base::getPropertyNames(exec, propertyNames);
+    Base::getPropertyNames(exec, propertyNames, mode);
 }
 
-void JSDOMWindow::getOwnPropertyNames(ExecState* exec, PropertyNameArray& propertyNames)
+void JSDOMWindow::getOwnPropertyNames(ExecState* exec, PropertyNameArray& propertyNames, EnumerationMode mode)
 {
     // Only allow the window to enumerated by frames in the same origin.
     if (!allowsAccessFrom(exec))
         return;
-    Base::getOwnPropertyNames(exec, propertyNames);
+    Base::getOwnPropertyNames(exec, propertyNames, mode);
 }
 
 void JSDOMWindow::defineGetter(ExecState* exec, const Identifier& propertyName, JSObject* getterFunction, unsigned attributes)
@@ -928,7 +906,12 @@ JSValue JSDOMWindow::setTimeout(ExecState* exec, const ArgList& args)
     if (exec->hadException())
         return jsUndefined();
     int delay = args.at(1).toInt32(exec);
-    return jsNumber(exec, impl()->setTimeout(action, delay));
+
+    ExceptionCode ec = 0;
+    int result = impl()->setTimeout(action, delay, ec);
+    setDOMException(exec, ec);
+
+    return jsNumber(exec, result);
 }
 
 JSValue JSDOMWindow::setInterval(ExecState* exec, const ArgList& args)
@@ -937,7 +920,12 @@ JSValue JSDOMWindow::setInterval(ExecState* exec, const ArgList& args)
     if (exec->hadException())
         return jsUndefined();
     int delay = args.at(1).toInt32(exec);
-    return jsNumber(exec, impl()->setInterval(action, delay));
+
+    ExceptionCode ec = 0;
+    int result = impl()->setInterval(action, delay, ec);
+    setDOMException(exec, ec);
+
+    return jsNumber(exec, result);
 }
 
 JSValue JSDOMWindow::atob(ExecState* exec, const ArgList& args)

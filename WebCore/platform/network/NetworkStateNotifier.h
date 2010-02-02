@@ -51,16 +51,28 @@ typedef const struct __SCDynamicStore * SCDynamicStoreRef;
 
 namespace WebCore {
 
+#if (PLATFORM(QT) && ENABLE(QT_BEARER))
+class NetworkStateNotifierPrivate;
+#endif
+
 class NetworkStateNotifier : public Noncopyable {
 public:
     NetworkStateNotifier();
     void setNetworkStateChangedFunction(void (*)());
     
     bool onLine() const { return m_isOnLine; }
+<<<<<<< HEAD
 #if PLATFORM(ANDROID)
     Connection::ConnectionType type() const { return m_type; }
 #endif
     
+=======
+
+#if (PLATFORM(QT) && ENABLE(QT_BEARER))
+    void setNetworkAccessAllowed(bool);
+#endif
+
+>>>>>>> webkit.org at r54127
 private:    
     bool m_isOnLine;
 #if PLATFORM(ANDROID)
@@ -93,11 +105,18 @@ private:
 #elif PLATFORM(ANDROID)
 public:
     void networkStateChange(bool online);
+<<<<<<< HEAD
     void networkTypeChange(Connection::ConnectionType type);
+=======
+
+#elif PLATFORM(QT) && ENABLE(QT_BEARER)
+    friend class NetworkStateNotifierPrivate;
+    NetworkStateNotifierPrivate* p;
+>>>>>>> webkit.org at r54127
 #endif
 };
 
-#if !PLATFORM(MAC) && !PLATFORM(WIN) && !PLATFORM(CHROMIUM)
+#if !PLATFORM(MAC) && !PLATFORM(WIN) && !PLATFORM(CHROMIUM) && !(PLATFORM(QT) && ENABLE(QT_BEARER))
 
 inline NetworkStateNotifier::NetworkStateNotifier()
     : m_isOnLine(true)

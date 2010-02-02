@@ -43,6 +43,7 @@ WebInspector.ElementsTreeOutline = function() {
     this.focusedDOMNode = null;
 
     this.element.addEventListener("contextmenu", this._contextMenuEventFired.bind(this), true);
+    this.element.addEventListener("keydown", this._keyDown.bind(this), true);
 }
 
 WebInspector.ElementsTreeOutline.prototype = {
@@ -191,8 +192,11 @@ WebInspector.ElementsTreeOutline.prototype = {
         return element;
     },
     
-    handleKeyEvent: function(event)
+    _keyDown: function(event)
     {
+        if (event.target !== this.treeOutline.element)
+            return;
+
         var selectedElement = this.selectedTreeElement;
         if (!selectedElement)
             return;
@@ -201,12 +205,13 @@ WebInspector.ElementsTreeOutline.prototype = {
                 event.keyCode === WebInspector.KeyboardShortcut.KeyCodes.Delete) {
             selectedElement.remove();
             event.preventDefault();
+            event.stopPropagation();
             return;
         }
 
         // On Enter or Return start editing the first attribute
         // or create a new attribute on the selected element.
-        if (event.keyIdentifier === "Enter") {
+        if (isEnterKey(event)) {
             if (this._editing)
                 return;
 
@@ -214,10 +219,9 @@ WebInspector.ElementsTreeOutline.prototype = {
 
             // prevent a newline from being immediately inserted
             event.preventDefault();
+            event.stopPropagation();
             return;
         }
-
-        TreeOutline.prototype.handleKeyEvent.call(this, event);
     },
 
     _onmousedown: function(event)
@@ -331,15 +335,8 @@ WebInspector.ElementsTreeElement.prototype = {
             if (x) {
                 this.updateSelection();
                 this.listItemElement.addStyleClass("hovered");
-                if (this._canAddAttributes)
-                    this._pendingToggleNewAttribute = setTimeout(this.toggleNewAttributeButton.bind(this, true), 500);
             } else {
                 this.listItemElement.removeStyleClass("hovered");
-                if (this._pendingToggleNewAttribute) {
-                    clearTimeout(this._pendingToggleNewAttribute);
-                    delete this._pendingToggleNewAttribute;
-                }
-                this.toggleNewAttributeButton(false);
             }
         }
     },
@@ -360,32 +357,8 @@ WebInspector.ElementsTreeElement.prototype = {
                 tooltipText = WebInspector.UIString("%d × %d pixels (Natural: %d × %d pixels)", properties.offsetWidth, properties.offsetHeight, properties.naturalWidth, properties.naturalHeight);
             callback(tooltipText);
         }
-        var objectProxy = new WebInspector.ObjectProxy(node.id);
+        var objectProxy = new WebInspector.ObjectProxy(node.injectedScriptId, node.id);
         WebInspector.ObjectProxy.getPropertiesAsync(objectProxy, ["naturalHeight", "naturalWidth", "offsetHeight", "offsetWidth"], createTooltipThenCallback);
-    },
-
-    toggleNewAttributeButton: function(visible)
-    {
-        function removeAddAttributeSpan()
-        {
-            if (this._addAttributeElement && this._addAttributeElement.parentNode)
-                this._addAttributeElement.parentNode.removeChild(this._addAttributeElement);
-            delete this._addAttributeElement;
-
-            this.updateSelection();
-        }
-
-        if (!this._addAttributeElement && visible && !this._editing) {
-            var span = document.createElement("span");
-            span.className = "add-attribute webkit-html-attribute-name";
-            span.textContent = " ?=\"\"";
-            span.addEventListener("dblclick", removeAddAttributeSpan.bind(this), false);
-            this._addAttributeElement = span;
-
-            var tag = this.listItemElement.getElementsByClassName("webkit-html-tag")[0];
-            this._insertInLastAttributePosition(tag, span);
-        } else if (!visible && this._addAttributeElement)
-            removeAddAttributeSpan.call(this);
     },
 
     updateSelection: function()
@@ -421,7 +394,7 @@ WebInspector.ElementsTreeElement.prototype = {
             this.listItemElement.addStyleClass("hovered");
         }
 
-        this._updateTitle();
+        this.updateTitle();
 
         this._preventFollowingLinksOnDoubleClick();
     },
@@ -630,6 +603,8 @@ WebInspector.ElementsTreeElement.prototype = {
         contextMenu.appendSeparator();
 
         // Add node-related actions.
+        contextMenu.appendItem(WebInspector.UIString("Edit as HTML"), this._editAsHTML.bind(this));
+        contextMenu.appendItem(WebInspector.UIString("Copy as HTML"), this._copyHTML.bind(this));
         contextMenu.appendItem(WebInspector.UIString("Delete Node"), this.remove.bind(this));
     },
 
@@ -646,7 +621,6 @@ WebInspector.ElementsTreeElement.prototype = {
         var listItem = this._listItemNode;
 
         if (this._canAddAttributes) {
-            this.toggleNewAttributeButton(false);
             var attribute = listItem.getElementsByClassName("webkit-html-attribute")[0];
             if (attribute)
                 return this._startEditingAttribute(attribute, attribute.getElementsByClassName("webkit-html-attribute-value")[0]);
@@ -746,6 +720,60 @@ WebInspector.ElementsTreeElement.prototype = {
         return true;
     },
 
+    _startEditingAsHTML: function(commitCallback, initialValue)
+    {
+        if (this._htmlEditElement && WebInspector.isBeingEdited(this._htmlEditElement))
+            return true;
+
+        this._editing = true;
+
+        this._htmlEditElement = document.createElement("div");
+        this._htmlEditElement.className = "source-code elements-tree-editor";
+        this._htmlEditElement.textContent = initialValue;
+
+        // Hide header items.
+        var child = this.listItemElement.firstChild;
+        while (child) {
+            child.style.display = "none";
+            child = child.nextSibling;
+        }
+        // Hide children item.
+        if (this._childrenListNode)
+            this._childrenListNode.style.display = "none";
+        // Append editor.
+        this.listItemElement.appendChild(this._htmlEditElement);
+
+        this.updateSelection();
+
+        function commit()
+        {
+            commitCallback(this._htmlEditElement.textContent);
+            dispose.call(this);
+        }
+
+        function dispose()
+        {
+            delete this._editing;
+
+            // Remove editor.
+            this.listItemElement.removeChild(this._htmlEditElement);
+            delete this._htmlEditElement;
+            // Unhide children item.
+            if (this._childrenListNode)
+                this._childrenListNode.style.removeProperty("display");
+            // Unhide header items.
+            var child = this.listItemElement.firstChild;
+            while (child) {
+                child.style.removeProperty("display");
+                child = child.nextSibling;
+            }
+
+            this.updateSelection();
+        }
+
+        WebInspector.startEditing(this._htmlEditElement, commit.bind(this), dispose.bind(this), null, true);
+    },
+
     _attributeEditingCommitted: function(element, newText, oldText, attributeName, moveDirection)
     {
         delete this._editing;
@@ -829,20 +857,22 @@ WebInspector.ElementsTreeElement.prototype = {
 
         textNode.nodeValue = newText;
 
-        // No need to call _updateTitle here, it will be called after the nodeValue is committed.
+        // Need to restore attributes / node structure.
+        this.updateTitle();
     },
 
     _editingCancelled: function(element, context)
     {
         delete this._editing;
 
-        // No need to call _updateTitle here, the editing code will revert to the original text.
+        // Need to restore attributes structure.
+        this.updateTitle();
     },
 
-    _updateTitle: function()
+    updateTitle: function()
     {
         // If we are editing, return early to prevent canceling the edit.
-        // After editing is committed _updateTitle will be called.
+        // After editing is committed updateTitle will be called.
         if (this._editing)
             return;
 
@@ -861,6 +891,40 @@ WebInspector.ElementsTreeElement.prototype = {
             callback();
         else
             this.createTooltipForImageNode(this.representedObject, callback);
+    },
+
+    _rewriteAttrHref: function(node, hrefValue)
+    {
+        if (!hrefValue || hrefValue.indexOf("://") > 0)
+            return hrefValue;
+
+        var match;
+        var documentURL;
+        for (var frameOwnerCandidate = node; frameOwnerCandidate; frameOwnerCandidate = frameOwnerCandidate.parentNode) {
+            if (frameOwnerCandidate.documentURL) {
+                documentURL = frameOwnerCandidate.documentURL;
+                break;
+            }
+        }
+        if (documentURL) {
+            match = documentURL.match(WebInspector.URLRegExp);
+            if (match) {
+                var path = hrefValue;
+                if (path.charAt(0) !== "/") {
+                    var documentPath = match[4] || "/";
+                    path = documentPath.substring(0, documentPath.lastIndexOf("/")) + "/" + path;
+                }
+                return match[1] + "://" + match[2] + (match[3] ? (":" + match[3]) : "") + path;
+            }
+        }
+
+        // documentURL not found or has bad value
+        for (var url in WebInspector.resourceURLMap) {
+            match = url.match(WebInspector.URLRegExp);
+            if (match && match[4] === hrefValue)
+                return url;
+        }
+        return hrefValue;
     },
 
     _nodeTitleInfo: function(node, hasChildren, linkify, tooltipText)
@@ -883,7 +947,7 @@ WebInspector.ElementsTreeElement.prototype = {
                         var value = attr.value;
                         if (linkify && (attr.name === "src" || attr.name === "href")) {
                             var value = value.replace(/([\/;:\)\]\}])/g, "$1\u200B");
-                            info.title += linkify(attr.value, value, "webkit-html-attribute-value", node.nodeName.toLowerCase() == "a", tooltipText);
+                            info.title += linkify(this._rewriteAttrHref(node, attr.value), value, "webkit-html-attribute-value", node.nodeName.toLowerCase() == "a", tooltipText);
                         } else {
                             var value = value.escapeHTML();
                             value = value.replace(/([\/;:\)\]\}])/g, "$1&#8203;");
@@ -915,7 +979,7 @@ WebInspector.ElementsTreeElement.prototype = {
                         var newNode = document.createElement("span");
                         newNode.textContent = node.textContent;
 
-                        var javascriptSyntaxHighlighter = new WebInspector.JavaScriptSourceSyntaxHighlighter(null, null);
+                        var javascriptSyntaxHighlighter = new WebInspector.DOMSyntaxHighlighter("text/javascript");
                         javascriptSyntaxHighlighter.syntaxHighlightNode(newNode);
                         
                         info.title = "<span class=\"webkit-html-text-node webkit-html-js-node\">" + newNode.innerHTML.replace(/^[\n\r]*/, "").replace(/\s*$/, "") + "</span>";
@@ -923,7 +987,7 @@ WebInspector.ElementsTreeElement.prototype = {
                         var newNode = document.createElement("span");
                         newNode.textContent = node.textContent;
                         
-                        var cssSyntaxHighlighter = new WebInspector.CSSSourceSyntaxHighlighter(null, null);
+                        var cssSyntaxHighlighter = new WebInspector.DOMSyntaxHighlighter("text/css");
                         cssSyntaxHighlighter.syntaxHighlightNode(newNode);
                         
                         info.title = "<span class=\"webkit-html-text-node webkit-html-css-node\">" + newNode.innerHTML.replace(/^[\n\r]*/, "").replace(/\s*$/, "") + "</span>";
@@ -985,6 +1049,41 @@ WebInspector.ElementsTreeElement.prototype = {
 
         var callId = WebInspector.Callback.wrap(removeNodeCallback);
         InspectorBackend.removeNode(callId, this.representedObject.id);
+    },
+
+    _editAsHTML: function()
+    {
+        var treeOutline = this.treeOutline;
+        var node = this.representedObject;
+        var wasExpanded = this.expanded;
+
+        function selectNode(nodeId)
+        {
+            if (!nodeId)
+                return;
+
+            // Select it and expand if necessary. We force tree update so that it processes dom events and is up to date.
+            WebInspector.panels.elements.updateModifiedNodes();
+
+            WebInspector.updateFocusedNode(nodeId);
+            if (wasExpanded) {
+                var newTreeItem = treeOutline.findTreeElement(WebInspector.domAgent.nodeForId(nodeId));
+                if (newTreeItem)
+                    newTreeItem.expand();
+            }
+        }
+
+        function commitChange(value)
+        {
+            InjectedScriptAccess.get(node.injectedScriptId).setOuterHTML(node.id, value, wasExpanded, selectNode.bind(this));
+        }
+
+        InjectedScriptAccess.get(node.injectedScriptId).getNodePropertyValue(node.id, "outerHTML", this._startEditingAsHTML.bind(this, commitChange));
+    },
+
+    _copyHTML: function()
+    {
+        InspectorBackend.copyNode(this.representedObject.id);
     }
 }
 

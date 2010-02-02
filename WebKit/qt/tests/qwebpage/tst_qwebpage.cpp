@@ -1,6 +1,7 @@
 /*
     Copyright (C) 2008 Nokia Corporation and/or its subsidiary(-ies)
     Copyright (C) 2009 Girish Ramakrishnan <girish@forwardbias.in>
+    Copyright (C) 2010 Holger Hans Peter Freyther
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -18,72 +19,24 @@
     Boston, MA 02110-1301, USA.
 */
 
-
+#include "../util.h"
+#include <QDir>
+#include <QGraphicsWidget>
+#include <QLineEdit>
+#include <QMenu>
+#include <QPushButton>
 #include <QtTest/QtTest>
-
 #include <qgraphicsscene.h>
 #include <qgraphicsview.h>
 #include <qgraphicswebview.h>
+#include <qnetworkrequest.h>
+#include <qwebdatabase.h>
 #include <qwebelement.h>
-#include <qwebpage.h>
-#include <qwidget.h>
-#include <QGraphicsWidget>
-#include <qwebview.h>
 #include <qwebframe.h>
 #include <qwebhistory.h>
-#include <qnetworkrequest.h>
-#include <QDebug>
-#include <QLineEdit>
-#include <QMenu>
+#include <qwebpage.h>
 #include <qwebsecurityorigin.h>
-#include <qwebdatabase.h>
-#include <QPushButton>
-#include <QDir>
-
-#if defined(Q_OS_SYMBIAN)
-# define SRCDIR ""
-#endif
-
-// Will try to wait for the condition while allowing event processing
-#define QTRY_COMPARE(__expr, __expected) \
-    do { \
-        const int __step = 50; \
-        const int __timeout = 5000; \
-        if ((__expr) != (__expected)) { \
-            QTest::qWait(0); \
-        } \
-        for (int __i = 0; __i < __timeout && ((__expr) != (__expected)); __i+=__step) { \
-            QTest::qWait(__step); \
-        } \
-        QCOMPARE(__expr, __expected); \
-    } while(0)
-
-//TESTED_CLASS=
-//TESTED_FILES=
-
-// Task 160192
-/**
- * Starts an event loop that runs until the given signal is received.
- Optionally the event loop
- * can return earlier on a timeout.
- *
- * \return \p true if the requested signal was received
- *         \p false on timeout
- */
-static bool waitForSignal(QObject* obj, const char* signal, int timeout = 10000)
-{
-    QEventLoop loop;
-    QObject::connect(obj, signal, &loop, SLOT(quit()));
-    QTimer timer;
-    QSignalSpy timeoutSpy(&timer, SIGNAL(timeout()));
-    if (timeout > 0) {
-        QObject::connect(&timer, SIGNAL(timeout()), &loop, SLOT(quit()));
-        timer.setSingleShot(true);
-        timer.start(timeout);
-    }
-    loop.exec();
-    return timeoutSpy.isEmpty();
-}
+#include <qwebview.h>
 
 class EventSpy : public QObject, public QList<QEvent::Type>
 {
@@ -156,6 +109,7 @@ private slots:
     void screenshot();
 
     void originatingObjectInNetworkRequests();
+    void testJSPrompt();
 
 private:
     QWebView* m_view;
@@ -270,10 +224,8 @@ void tst_QWebPage::loadFinished()
                             "<frame src=\"data:text/html,bar\"></frameset>"), QUrl());
     QTRY_COMPARE(spyLoadFinished.count(), 1);
 
-    QTest::qWait(3000);
-
-    QVERIFY(spyLoadStarted.count() > 1);
-    QVERIFY(spyLoadFinished.count() > 1);
+    QTRY_VERIFY(spyLoadStarted.count() > 1);
+    QTRY_VERIFY(spyLoadFinished.count() > 1);
 
     spyLoadFinished.clear();
 
@@ -520,7 +472,6 @@ void tst_QWebPage::database()
     // Remove removed test :-)
     QWebDatabase::removeAllDatabases();
     QVERIFY(!origin.databases().size());
-    QTest::qWait(1000);
 }
 
 class PluginPage : public QWebPage
@@ -1275,7 +1226,7 @@ void tst_QWebPage::backActionUpdate()
     QAction *action = page->action(QWebPage::Back);
     QVERIFY(!action->isEnabled());
     QSignalSpy loadSpy(page, SIGNAL(loadFinished(bool)));
-    QUrl url = QUrl("qrc:///frametest/index.html");
+    QUrl url = QUrl("qrc:///resources/index.html");
     page->mainFrame()->load(url);
     QTRY_COMPARE(loadSpy.count(), 1);
     QVERIFY(!action->isEnabled());
@@ -1306,7 +1257,7 @@ void tst_QWebPage::frameAt()
     QWebView webView;
     QWebPage* webPage = webView.page();
     QSignalSpy loadSpy(webPage, SIGNAL(loadFinished(bool)));
-    QUrl url = QUrl("qrc:///frametest/iframe.html");
+    QUrl url = QUrl("qrc:///resources/iframe.html");
     webPage->mainFrame()->load(url);
     QTRY_COMPARE(loadSpy.count(), 1);
     frameAtHelper(webPage, webPage->mainFrame(), webPage->mainFrame()->pos());
@@ -1373,6 +1324,7 @@ void tst_QWebPage::inputMethods()
     else
         QVERIFY2(false, "Unknown view type");
 
+    page->settings()->setFontFamily(QWebSettings::SerifFont, "FooSerifFont");
     page->mainFrame()->setHtml("<html><body>" \
                                             "<input type='text' id='input1' style='font-family: serif' value='' maxlength='20'/><br>" \
                                             "<input type='password'/>" \
@@ -1408,7 +1360,7 @@ void tst_QWebPage::inputMethods()
     //ImFont
     variant = page->inputMethodQuery(Qt::ImFont);
     QFont font = variant.value<QFont>();
-    QCOMPARE(QString("-webkit-serif"), font.family());
+    QCOMPARE(page->settings()->fontFamily(QWebSettings::SerifFont), font.family());
 
     QList<QInputMethodEvent::Attribute> inputAttributes;
 
@@ -1599,16 +1551,14 @@ void tst_QWebPage::testEnablePersistentStorage()
 
     QWebSettings::enablePersistentStorage();
 
-    // Give it some time to initialize - icon database needs it
-    QTest::qWait(1000);
 
-    QCOMPARE(webPage.settings()->testAttribute(QWebSettings::LocalStorageEnabled), true);
-    QCOMPARE(webPage.settings()->testAttribute(QWebSettings::OfflineStorageDatabaseEnabled), true);
-    QCOMPARE(webPage.settings()->testAttribute(QWebSettings::OfflineWebApplicationCacheEnabled), true);
+    QTRY_COMPARE(webPage.settings()->testAttribute(QWebSettings::LocalStorageEnabled), true);
+    QTRY_COMPARE(webPage.settings()->testAttribute(QWebSettings::OfflineStorageDatabaseEnabled), true);
+    QTRY_COMPARE(webPage.settings()->testAttribute(QWebSettings::OfflineWebApplicationCacheEnabled), true);
 
-    QVERIFY(!webPage.settings()->offlineStoragePath().isEmpty());
-    QVERIFY(!webPage.settings()->offlineWebApplicationCachePath().isEmpty());
-    QVERIFY(!webPage.settings()->iconDatabasePath().isEmpty());
+    QTRY_VERIFY(!webPage.settings()->offlineStoragePath().isEmpty());
+    QTRY_VERIFY(!webPage.settings()->offlineWebApplicationCachePath().isEmpty());
+    QTRY_VERIFY(!webPage.settings()->iconDatabasePath().isEmpty());
 }
 
 void tst_QWebPage::defaultTextEncoding()
@@ -1676,20 +1626,17 @@ void tst_QWebPage::errorPageExtension()
     QCOMPARE(page->history()->canGoForward(), false);
 
     page->triggerAction(QWebPage::Back);
-    QTest::qWait(2000);
-    QCOMPARE(page->history()->canGoBack(), false);
-    QCOMPARE(page->history()->canGoForward(), true);
+    QTRY_COMPARE(page->history()->canGoBack(), false);
+    QTRY_COMPARE(page->history()->canGoForward(), true);
 
     page->triggerAction(QWebPage::Forward);
-    QTest::qWait(2000);
-    QCOMPARE(page->history()->canGoBack(), true);
-    QCOMPARE(page->history()->canGoForward(), false);
+    QTRY_COMPARE(page->history()->canGoBack(), true);
+    QTRY_COMPARE(page->history()->canGoForward(), false);
 
     page->triggerAction(QWebPage::Back);
-    QTest::qWait(2000);
-    QCOMPARE(page->history()->canGoBack(), false);
-    QCOMPARE(page->history()->canGoForward(), true);
-    QCOMPARE(page->history()->currentItem().url(), QUrl("data:text/html,foo"));
+    QTRY_COMPARE(page->history()->canGoBack(), false);
+    QTRY_COMPARE(page->history()->canGoForward(), true);
+    QTRY_COMPARE(page->history()->currentItem().url(), QUrl("data:text/html,foo"));
 
     m_view->setPage(0);
 }
@@ -1716,7 +1663,7 @@ void tst_QWebPage::errorPageExtensionInFrameset()
     ErrorPage* page = new ErrorPage;
     m_view->setPage(page);
 
-    m_view->load(QUrl("qrc:///frametest/index.html"));
+    m_view->load(QUrl("qrc:///resources/index.html"));
 
     QSignalSpy spyLoadFinished(m_view, SIGNAL(loadFinished(bool)));
     QTRY_COMPARE(spyLoadFinished.count(), 1);
@@ -1765,17 +1712,17 @@ void tst_QWebPage::screenshot_data()
 
 void tst_QWebPage::screenshot()
 {
-    QDir::setCurrent(SRCDIR);
+    if (!QDir(TESTS_SOURCE_DIR).exists())
+        QSKIP(QString("This test requires access to resources found in '%1'").arg(TESTS_SOURCE_DIR).toLatin1().constData(), SkipAll);
+
+    QDir::setCurrent(TESTS_SOURCE_DIR);
 
     QFETCH(QString, html);
     QWebPage* page = new QWebPage;
     page->settings()->setAttribute(QWebSettings::PluginsEnabled, true);
     QWebFrame* mainFrame = page->mainFrame();
-    mainFrame->setHtml(html, QUrl::fromLocalFile(QDir::currentPath()));
-    if (html.contains("</embed>")) {
-        // some reasonable time for the PluginStream to feed test.swf to flash and start painting
-        QTest::qWait(2000);
-    }
+    mainFrame->setHtml(html, QUrl::fromLocalFile(TESTS_SOURCE_DIR));
+    ::waitForSignal(mainFrame, SIGNAL(loadFinished(bool)), 2000);
 
     // take screenshot without a view
     takeScreenshot(page);
@@ -1812,6 +1759,73 @@ void tst_QWebPage::originatingObjectInNetworkRequests()
     for (int i = 0; i < 2; ++i)
         QVERIFY(qobject_cast<QWebFrame*>(networkManager->requests.at(i).originatingObject()) == childFrames.at(i));
 #endif
+}
+
+/**
+ * Test fixups for https://bugs.webkit.org/show_bug.cgi?id=30914
+ *
+ * From JS we test the following conditions.
+ *
+ *   OK     + QString() => SUCCESS, empty string (but not null)
+ *   OK     + "text"    => SUCCESS, "text"
+ *   CANCEL + QString() => CANCEL, null string
+ *   CANCEL + "text"    => CANCEL, null string
+ */
+class JSPromptPage : public QWebPage {
+    Q_OBJECT
+public:
+    JSPromptPage()
+    {}
+
+    bool javaScriptPrompt(QWebFrame* frame, const QString& msg, const QString& defaultValue, QString* result)
+    {
+        if (msg == QLatin1String("test1")) {
+            *result = QString();
+            return true;
+        } else if (msg == QLatin1String("test2")) {
+            *result = QLatin1String("text");
+            return true;
+        } else if (msg == QLatin1String("test3")) {
+            *result = QString();
+            return false;
+        } else if (msg == QLatin1String("test4")) {
+            *result = QLatin1String("text");
+            return false;
+        }
+
+        qFatal("Unknown msg.");
+        return QWebPage::javaScriptPrompt(frame, msg, defaultValue, result);
+    }
+};
+
+void tst_QWebPage::testJSPrompt()
+{
+    JSPromptPage page;
+    bool res;
+
+    // OK + QString()
+    res = page.mainFrame()->evaluateJavaScript(
+            "var retval = prompt('test1');"
+            "retval=='' && retval.length == 0;").toBool();
+    QVERIFY(res);
+
+    // OK + "text"
+    res = page.mainFrame()->evaluateJavaScript(
+            "var retval = prompt('test2');"
+            "retval=='text' && retval.length == 4;").toBool();
+    QVERIFY(res);
+
+    // Cancel + QString()
+    res = page.mainFrame()->evaluateJavaScript(
+            "var retval = prompt('test3');"
+            "retval===null;").toBool();
+    QVERIFY(res);
+
+    // Cancel + "text"
+    res = page.mainFrame()->evaluateJavaScript(
+            "var retval = prompt('test4');"
+            "retval===null;").toBool();
+    QVERIFY(res);
 }
 
 QTEST_MAIN(tst_QWebPage)

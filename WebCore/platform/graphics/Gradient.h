@@ -36,8 +36,15 @@
 #include <wtf/Vector.h>
 
 #if PLATFORM(CG)
+
+#ifdef BUILDING_ON_TIGER
 typedef struct CGShading* CGShadingRef;
 typedef CGShadingRef PlatformGradient;
+#else
+typedef struct CGGradient* CGGradientRef;
+typedef CGGradientRef PlatformGradient;
+#endif
+
 #elif PLATFORM(QT)
 QT_BEGIN_NAMESPACE
 class QGradient;
@@ -79,7 +86,7 @@ namespace WebCore {
 
         void getColor(float value, float* r, float* g, float* b, float* a) const;
 
-#if PLATFORM(WINCE) && !PLATFORM(QT)
+#if OS(WINCE) && !PLATFORM(QT)
         const FloatPoint& p0() const { return m_p0; }
         const FloatPoint& p1() const { return m_p1; }
         float r0() const { return m_r0; }
@@ -105,7 +112,7 @@ namespace WebCore {
         };
 
         void setStopsSorted(bool s) { m_stopsSorted = s; }
-
+        
         void setSpreadMethod(GradientSpreadMethod);
         GradientSpreadMethod spreadMethod() { return m_spreadMethod; }
         void setGradientSpaceTransform(const TransformationMatrix& gradientSpaceTransformation);
@@ -113,8 +120,13 @@ namespace WebCore {
         TransformationMatrix gradientSpaceTransform() { return m_gradientSpaceTransformation; }
 
         virtual void fill(GraphicsContext*, const FloatRect&);
+        virtual void adjustParametersForTiledDrawing(IntSize& size, FloatRect& srcRect);
+
         void setPlatformGradientSpaceTransform(const TransformationMatrix& gradientSpaceTransformation);
 
+#if PLATFORM(CG)
+        void paint(GraphicsContext*);
+#endif
     private:
         Gradient(const FloatPoint& p0, const FloatPoint& p1);
         Gradient(const FloatPoint& p0, float r0, const FloatPoint& p1, float r1);
@@ -123,6 +135,7 @@ namespace WebCore {
         void platformDestroy();
 
         int findStop(float value) const;
+        void sortStopsIfNecessary();
 
         bool m_radial;
         FloatPoint m_p0;

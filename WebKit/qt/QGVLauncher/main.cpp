@@ -72,6 +72,8 @@ public:
     WebView(QGraphicsItem* parent = 0)
         : QGraphicsWebView(parent)
     {
+        if (QApplication::instance()->arguments().contains("--cacheWebView"))
+            setCacheMode(QGraphicsItem::DeviceCoordinateCache);
     }
     void setYRotation(qreal angle)
     {
@@ -253,6 +255,12 @@ public:
         setAttribute(Qt::WA_DeleteOnClose);
 
         view->setScene(scene->scene());
+        const QStringList arguments = QApplication::instance()->arguments();
+        const int indexOfViewportUpdateMode = arguments.indexOf("--updateMode");
+        if (indexOfViewportUpdateMode > 1 && indexOfViewportUpdateMode < arguments.count() - 1) {
+            const QString updateMode = arguments[indexOfViewportUpdateMode+1] + "ViewportUpdate";
+            view->setViewportUpdateMode(static_cast<QGraphicsView::ViewportUpdateMode>(QGraphicsView::staticMetaObject.enumerator(QGraphicsView::staticMetaObject.indexOfEnumerator("ViewportUpdateMode")).keysToValue(updateMode.toAscii())));
+        }
 
         setCentralWidget(view);
 
@@ -277,7 +285,7 @@ public:
 
         QState *s2 = new QState(machine);
         s2->assignProperty(scene->webView(), "yRotation", -90);
-        s1->addTransition(s1, SIGNAL(polished()), s2);
+        s1->addTransition(s1, SIGNAL(propertiesAssigned()), s2);
 
         QAbstractTransition *t2 = s2->addTransition(s0);
         t2->addAnimation(yRotationAnim);
@@ -296,9 +304,7 @@ public:
         if (!deducedUrl.isValid())
             deducedUrl = QUrl("http://" + url + "/");
 
-        urlEdit->setText(deducedUrl.toEncoded());
-        scene->webView()->load(deducedUrl);
-        scene->webView()->setFocus(Qt::OtherFocusReason);
+        loadURL(deducedUrl);
     }
 
     QWebPage* page() const
@@ -307,6 +313,23 @@ public:
     }
 
 protected slots:
+
+    void openFile()
+    {
+        static const QString filter("HTML Files (*.htm *.html);;Text Files (*.txt);;Image Files (*.gif *.jpg *.png);;All Files (*)");
+
+        QFileDialog fileDialog(this, tr("Open"), QString(), filter);
+        fileDialog.setAcceptMode(QFileDialog::AcceptOpen);
+        fileDialog.setFileMode(QFileDialog::ExistingFile);
+        fileDialog.setOptions(QFileDialog::ReadOnly);
+
+        if (fileDialog.exec()) {
+            QString selectedFile = fileDialog.selectedFiles()[0];
+            if (!selectedFile.isEmpty())
+                loadURL(QUrl::fromLocalFile(selectedFile));
+        }
+    }
+
     void changeLocation()
     {
         load(urlEdit->text());
@@ -368,6 +391,17 @@ public slots:
     }
 
 private:
+
+    void loadURL(const QUrl& url)
+    {
+        if (!url.isValid())
+            return;
+    
+        urlEdit->setText(url.toString());
+        scene->webView()->load(url);
+        scene->webView()->setFocus(Qt::OtherFocusReason);
+    }
+
     void buildUI()
     {
         QWebPage* page = scene->webView()->page();
@@ -383,9 +417,12 @@ private:
         bar->addWidget(urlEdit);
 
         QMenu* fileMenu = menuBar()->addMenu("&File");
-        fileMenu->addAction("New Window", this, SLOT(newWindow()));
-        fileMenu->addAction("Clone view", this, SLOT(clone()));
-        fileMenu->addAction("Close", this, SLOT(close()));
+        fileMenu->addAction("New Window", this, SLOT(newWindow()), QKeySequence::New);
+        fileMenu->addAction("Open File...", this, SLOT(openFile()), QKeySequence::Open);
+        fileMenu->addAction("Clone Window", this, SLOT(clone()));
+        fileMenu->addAction("Close Window", this, SLOT(close()), QKeySequence::Close);
+        fileMenu->addSeparator();
+        fileMenu->addAction("Quit", QApplication::instance(), SLOT(closeAllWindows()), QKeySequence(Qt::CTRL | Qt::Key_Q));
 
         QMenu* viewMenu = menuBar()->addMenu("&View");
         viewMenu->addAction(page->action(QWebPage::Stop));
@@ -418,6 +455,10 @@ QWebPage* WebPage::createWindow(QWebPage::WebWindowType)
 int main(int argc, char** argv)
 {
     QApplication app(argc, argv);
+    if (app.arguments().contains("--help")) {
+        qDebug() << "Usage: QGVLauncher [--url url] [--compositing] [--updateMode Full|Minimal|Smart|No|BoundingRect] [--cacheWebView]\n";
+        return 0;
+    }
     QString url = QString("file://%1/%2").arg(QDir::homePath()).arg(QLatin1String("index.html"));
 
     app.setApplicationName("GQVLauncher");
@@ -426,17 +467,23 @@ int main(int argc, char** argv)
     QWebSettings::setMaximumPagesInCache(4);
     QWebSettings::globalSettings()->setAttribute(QWebSettings::PluginsEnabled, true);
     QWebSettings::globalSettings()->setAttribute(QWebSettings::DeveloperExtrasEnabled, true);
-    QWebSettings::globalSettings()->setAttribute(QWebSettings::LocalStorageEnabled, true);
+    QWebSettings::enablePersistentStorage();
 
     const QStringList args = app.arguments();
-    if (args.count() > 1)
+    const int indexOfUrl = args.indexOf("--url");
+    if (indexOfUrl > 0 && indexOfUrl < args.count() - 1)
+        url = args.at(indexOfUrl+1);
+    else if (args.count() > 1)
         url = args.at(1);
+    if (args.contains("--compositing"))
+        QWebSettings::globalSettings()->setAttribute(QWebSettings::AcceleratedCompositingEnabled, true);
 
     MainWindow* window = new MainWindow;
     window->load(url);
 
-    for (int i = 2; i < args.count(); i++)
-        window->newWindow(args.at(i));
+    for (int i = 2; i < args.count(); ++i)
+        if (!args.at(i).startsWith("-") && !args.at(i - 1).startsWith("-"))
+            window->newWindow(args.at(i));
 
     window->show();
     return app.exec();

@@ -8,6 +8,8 @@
  *  Copyright (C) 2008 Nuanti Ltd.
  *  Copyright (C) 2008, 2009 Collabora Ltd.
  *  Copyright (C) 2009 Igalia S.L.
+ *  Copyright (C) 2009 Movial Creative Technologies Inc.
+ *  Copyright (C) 2009 Bobby Powers
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Lesser General Public
@@ -40,6 +42,7 @@
 #include "AXObjectCache.h"
 #include "NotImplemented.h"
 #include "BackForwardList.h"
+#include "Cache.h"
 #include "CString.h"
 #include "ChromeClientGtk.h"
 #include "ContextMenu.h"
@@ -64,6 +67,7 @@
 #include "FrameLoader.h"
 #include "FrameView.h"
 #include "MouseEventWithHitTestResults.h"
+#include "PageCache.h"
 #include "Pasteboard.h"
 #include "PasteboardHelper.h"
 #include "PasteboardHelperGtk.h"
@@ -112,6 +116,7 @@
  */
 
 static const double defaultDPI = 96.0;
+static WebKitCacheModel cacheModel;
 
 using namespace WebKit;
 using namespace WebCore;
@@ -174,7 +179,8 @@ enum {
     PROP_PROGRESS,
     PROP_ENCODING,
     PROP_CUSTOM_ENCODING,
-    PROP_ICON_URI
+    PROP_ICON_URI,
+    PROP_IM_CONTEXT
 };
 
 static guint webkit_web_view_signals[LAST_SIGNAL] = { 0, };
@@ -183,6 +189,8 @@ G_DEFINE_TYPE(WebKitWebView, webkit_web_view, GTK_TYPE_CONTAINER)
 
 static void webkit_web_view_settings_notify(WebKitWebSettings* webSettings, GParamSpec* pspec, WebKitWebView* webView);
 static void webkit_web_view_set_window_features(WebKitWebView* webView, WebKitWebWindowFeatures* webWindowFeatures);
+
+static GtkIMContext* webkit_web_view_get_im_context(WebKitWebView*);
 
 static void destroy_menu_cb(GtkObject* object, gpointer data)
 {
@@ -207,8 +215,28 @@ static gboolean webkit_web_view_forward_context_menu_event(WebKitWebView* webVie
     if (!handledEvent)
         return FALSE;
 
+    // If coreMenu is NULL, this means WebCore decided to not create
+    // the default context menu; this may still mean that the frame
+    // wants to consume the event - this happens when the page is
+    // handling the right-click for reasons other than a context menu,
+    // so we give it to it.
     ContextMenu* coreMenu = page->contextMenuController()->contextMenu();
-    if (!coreMenu)
+    if (!coreMenu) {
+        Frame* frame = core(webView)->mainFrame();
+        if (frame->view() && frame->eventHandler()->handleMousePressEvent(PlatformMouseEvent(event)))
+            return TRUE;
+
+        return FALSE;
+    }
+
+    // If we reach here, it's because WebCore is going to show the
+    // default context menu. We check our setting to figure out
+    // whether we want it or not.
+    WebKitWebSettings* settings = webkit_web_view_get_settings(webView);
+    gboolean enableDefaultContextMenu;
+    g_object_get(settings, "enable-default-context-menu", &enableDefaultContextMenu, NULL);
+
+    if (!enableDefaultContextMenu)
         return FALSE;
 
     GtkMenu* menu = GTK_MENU(coreMenu->platformDescription());
@@ -358,6 +386,9 @@ static void webkit_web_view_get_property(GObject* object, guint prop_id, GValue*
         break;
     case PROP_ICON_URI:
         g_value_set_string(value, webkit_web_view_get_icon_uri(webView));
+        break;
+    case PROP_IM_CONTEXT:
+        g_value_set_object(value, webkit_web_view_get_im_context(webView));
         break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -625,7 +656,11 @@ static gboolean webkit_web_view_focus_in_event(GtkWidget* widget, GdkEventFocus*
     // TODO: Improve focus handling as suggested in
     // http://bugs.webkit.org/show_bug.cgi?id=16910
     GtkWidget* toplevel = gtk_widget_get_toplevel(widget);
+#if GTK_CHECK_VERSION(2, 18, 0)
+    if (gtk_widget_is_toplevel(toplevel) && gtk_window_has_toplevel_focus(GTK_WINDOW(toplevel))) {
+#else
     if (GTK_WIDGET_TOPLEVEL(toplevel) && gtk_window_has_toplevel_focus(GTK_WINDOW(toplevel))) {
+#endif
         WebKitWebView* webView = WEBKIT_WEB_VIEW(widget);
         FocusController* focusController = core(webView)->focusController();
 
@@ -814,7 +849,11 @@ static gboolean webkit_web_view_script_dialog(WebKitWebView* webView, WebKitWebF
     }
 
     window = gtk_widget_get_toplevel(GTK_WIDGET(webView));
+#if GTK_CHECK_VERSION(2, 18, 0)
+    dialog = gtk_message_dialog_new(gtk_widget_is_toplevel(window) ? GTK_WINDOW(window) : 0, GTK_DIALOG_DESTROY_WITH_PARENT, messageType, buttons, "%s", message);
+#else
     dialog = gtk_message_dialog_new(GTK_WIDGET_TOPLEVEL(window) ? GTK_WINDOW(window) : 0, GTK_DIALOG_DESTROY_WITH_PARENT, messageType, buttons, "%s", message);
+#endif
     gchar* title = g_strconcat("JavaScript - ", webkit_web_frame_get_uri(frame), NULL);
     gtk_window_set_title(GTK_WINDOW(dialog), title);
     g_free(title);
@@ -1028,6 +1067,7 @@ static void webkit_web_view_finalize(GObject* object)
     WebKitWebView* webView = WEBKIT_WEB_VIEW(object);
     WebKitWebViewPrivate* priv = webView->priv;
 
+    g_free(priv->tooltipText);
     g_free(priv->mainResourceIdentifier);
     g_free(priv->encoding);
     g_free(priv->customEncoding);
@@ -1249,6 +1289,26 @@ static void webkit_web_view_drag_data_get(GtkWidget* widget, GdkDragContext* con
 
     gtk_clipboard_request_contents(gtk_clipboard_get(selection_atom), target_atom,
                                    clipboard_contents_received, contents_request);
+}
+
+#if GTK_CHECK_VERSION(2, 12, 0)
+static gboolean webkit_web_view_query_tooltip(GtkWidget *widget, gint x, gint y, gboolean keyboard_mode, GtkTooltip *tooltip)
+{
+    WebKitWebViewPrivate* priv = WEBKIT_WEB_VIEW_GET_PRIVATE(widget);
+
+    if (priv->tooltipText) {
+        gtk_tooltip_set_text(tooltip, priv->tooltipText);
+        return TRUE;
+    }
+
+    return FALSE;
+}
+#endif
+
+static GtkIMContext* webkit_web_view_get_im_context(WebKitWebView* webView)
+{
+    g_return_val_if_fail(WEBKIT_IS_WEB_VIEW(webView), 0);
+    return GTK_IM_CONTEXT(webView->priv->imContext);
 }
 
 static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
@@ -1521,9 +1581,10 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
      * @return: %TRUE if the download should be performed, %FALSE to cancel it.
      *
      * A new Download is being requested. By default, if the signal is
-     * not handled, the download is cancelled. Notice that while
-     * handling this signal you must set the target URI using
-     * webkit_download_set_target_uri().
+     * not handled, the download is cancelled. If you handle the download
+     * and call webkit_download_set_destination_uri(), it will be
+     * started for you. If you need to set the destination asynchronously
+     * you are responsible for starting or cancelling it yourself.
      *
      * If you intend to handle downloads yourself rather than using
      * the #WebKitDownload helper object you must handle this signal,
@@ -1558,6 +1619,8 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
      * @frame: the frame going to do the load
      *
      * When a #WebKitWebFrame begins to load this signal is emitted.
+     *
+     * Deprecated: Use the "load-status" property instead.
      */
     webkit_web_view_signals[LOAD_STARTED] = g_signal_new("load-started",
             G_TYPE_FROM_CLASS(webViewClass),
@@ -1575,6 +1638,8 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
      * @frame: the main frame that received the first data
      *
      * When a #WebKitWebFrame loaded the first data this signal is emitted.
+     *
+     * Deprecated: Use the "load-status" property instead.
      */
     webkit_web_view_signals[LOAD_COMMITTED] = g_signal_new("load-committed",
             G_TYPE_FROM_CLASS(webViewClass),
@@ -1591,6 +1656,8 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
      * WebKitWebView::load-progress-changed:
      * @web_view: the #WebKitWebView
      * @progress: the global progress
+     *
+     * Deprecated: Use the "progress" property instead.
      */
     webkit_web_view_signals[LOAD_PROGRESS_CHANGED] = g_signal_new("load-progress-changed",
             G_TYPE_FROM_CLASS(webViewClass),
@@ -1627,6 +1694,13 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
             G_TYPE_STRING,
             G_TYPE_POINTER);
 
+    /**
+     * WebKitWebView::load-finished:
+     * @web_view: the #WebKitWebView
+     * @frame: the #WebKitWebFrame
+     *
+     * Deprecated: Use the "load-status" property instead.
+     */
     webkit_web_view_signals[LOAD_FINISHED] = g_signal_new("load-finished",
             G_TYPE_FROM_CLASS(webViewClass),
             (GSignalFlags)G_SIGNAL_RUN_LAST,
@@ -2106,6 +2180,9 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
     widgetClass->screen_changed = webkit_web_view_screen_changed;
     widgetClass->drag_end = webkit_web_view_drag_end;
     widgetClass->drag_data_get = webkit_web_view_drag_data_get;
+#if GTK_CHECK_VERSION(2, 12, 0)
+    widgetClass->query_tooltip = webkit_web_view_query_tooltip;
+#endif
 
     GtkContainerClass* containerClass = GTK_CONTAINER_CLASS(webViewClass);
     containerClass->add = webkit_web_view_container_add;
@@ -2369,6 +2446,16 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
     *
     * Determines the current status of the load.
     *
+    * Connect to "notify::load-status" to monitor loading.
+    *
+    * Some versions of WebKitGTK+ emitted this signal for the default
+    * error page, while loading it. This behavior was considered bad,
+    * because it was essentially exposing an implementation
+    * detail. From 1.1.19 onwards this signal is no longer emitted for
+    * the default error pages, but keep in mind that if you override
+    * the error pages by using webkit_web_frame_load_alternate_string()
+    * the signals will be emitted.
+    *
     * Since: 1.1.7
     */
     g_object_class_install_property(objectClass, PROP_LOAD_STATUS,
@@ -2406,6 +2493,23 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
                                                         _("The URI for the favicon for the #WebKitWebView."),
                                                         NULL,
                                                         WEBKIT_PARAM_READABLE));
+    /**
+    * WebKitWebView:im-context:
+    *
+    * The GtkIMMulticontext for the #WebKitWebView.
+    *
+    * This is the input method context used for all text entry widgets inside
+    * the #WebKitWebView. It can be used to generate context menu items for
+    * controlling the active input method.
+    *
+    * Since: 1.1.20
+    */
+    g_object_class_install_property(objectClass, PROP_IM_CONTEXT,
+                                    g_param_spec_object("im-context",
+                                                        "IM Context",
+                                                        "The GtkIMMultiContext for the #WebKitWebView.",
+                                                        GTK_TYPE_IM_CONTEXT,
+                                                        WEBKIT_PARAM_READABLE));
 
     g_type_class_add_private(webViewClass, sizeof(WebKitWebViewPrivate));
 }
@@ -2421,7 +2525,8 @@ static void webkit_web_view_update_settings(WebKitWebView* webView)
         enableScripts, enablePlugins, enableDeveloperExtras, resizableTextAreas,
         enablePrivateBrowsing, enableCaretBrowsing, enableHTML5Database, enableHTML5LocalStorage,
         enableXSSAuditor, javascriptCanOpenWindows, enableOfflineWebAppCache,
-        enableUniversalAccessFromFileURI, enableDOMPaste, tabKeyCyclesThroughElements;
+        enableUniversalAccessFromFileURI, enableDOMPaste, tabKeyCyclesThroughElements,
+        enableSiteSpecificQuirks, usePageCache;
 
     WebKitEditingBehavior editingBehavior;
 
@@ -2452,6 +2557,8 @@ static void webkit_web_view_update_settings(WebKitWebView* webView)
                  "enable-universal-access-from-file-uris", &enableUniversalAccessFromFileURI,
                  "enable-dom-paste", &enableDOMPaste,
                  "tab-key-cycles-through-elements", &tabKeyCyclesThroughElements,
+                 "enable-site-specific-quirks", &enableSiteSpecificQuirks,
+                 "enable-page-cache", &usePageCache,
                  NULL);
 
     settings->setDefaultTextEncodingName(defaultEncoding);
@@ -2479,6 +2586,8 @@ static void webkit_web_view_update_settings(WebKitWebView* webView)
     settings->setEditingBehavior(core(editingBehavior));
     settings->setAllowUniversalAccessFromFileURLs(enableUniversalAccessFromFileURI);
     settings->setDOMPasteAllowed(enableDOMPaste);
+    settings->setNeedsSiteSpecificQuirks(enableSiteSpecificQuirks);
+    settings->setUsesPageCache(usePageCache);
 
     Page* page = core(webView);
     if (page)
@@ -2575,7 +2684,10 @@ static void webkit_web_view_settings_notify(WebKitWebSettings* webSettings, GPar
         Page* page = core(webView);
         if (page)
             page->setTabKeyCyclesThroughElements(g_value_get_boolean(&value));
-    }
+    } else if (name == g_intern_string("enable-site-specific-quirks"))
+        settings->setNeedsSiteSpecificQuirks(g_value_get_boolean(&value));
+    else if (name == g_intern_string("enable-page-cache"))
+        settings->setUsesPageCache(g_value_get_boolean(&value));
     else if (!g_object_class_find_property(G_OBJECT_GET_CLASS(webSettings), name))
         g_warning("Unexpected setting '%s'", name);
     g_value_unset(&value);
@@ -2618,6 +2730,8 @@ static void webkit_web_view_init(WebKitWebView* webView)
     priv->webWindowFeatures = webkit_web_window_features_new();
 
     priv->subResources = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_object_unref);
+
+    priv->tooltipText = 0;
 }
 
 GtkWidget* webkit_web_view_new(void)
@@ -2656,7 +2770,10 @@ void webkit_web_view_request_download(WebKitWebView* webView, WebKitNetworkReque
         return;
     }
 
-    webkit_download_start(download);
+    /* Start the download now if it has a destination URI, otherwise it
+        may be handled asynchronously by the application. */
+    if (webkit_download_get_destination_uri(download))
+        webkit_download_start(download);
 }
 
 bool webkit_web_view_use_primary_for_paste(WebKitWebView* webView)
@@ -3969,6 +4086,27 @@ static IntPoint documentPointForWindowPoint(Frame* frame, const IntPoint& window
     return view ? view->windowToContents(windowPoint) : windowPoint;
 }
 
+void webkit_web_view_set_tooltip_text(WebKitWebView* webView, const char* tooltip)
+{
+#if GTK_CHECK_VERSION(2, 12, 0)
+    WebKitWebViewPrivate* priv = webView->priv;
+    g_free(priv->tooltipText);
+    if (tooltip && *tooltip != '\0') {
+        priv->tooltipText = g_strdup(tooltip);
+        gtk_widget_set_has_tooltip(GTK_WIDGET(webView), TRUE);
+    } else {
+        priv->tooltipText = 0;
+        gtk_widget_set_has_tooltip(GTK_WIDGET(webView), FALSE);
+    }
+
+    gtk_widget_trigger_tooltip_query(GTK_WIDGET(webView));
+#else
+    // TODO: Support older GTK+ versions
+    // See http://bugs.webkit.org/show_bug.cgi?id=15793
+    notImplemented();
+#endif
+}
+
 /**
  * webkit_web_view_get_hit_test_result:
  * @webView: a #WebKitWebView
@@ -4018,4 +4156,82 @@ G_CONST_RETURN gchar* webkit_web_view_get_icon_uri(WebKitWebView* webView)
     g_free(priv->iconURI);
     priv->iconURI = g_strdup(iconURL.utf8().data());
     return priv->iconURI;
+}
+
+/**
+ * webkit_set_cache_model:
+ * @cache_model: a #WebKitCacheModel
+ *
+ * Specifies a usage model for WebViews, which WebKit will use to
+ * determine its caching behavior. All web views follow the cache
+ * model. This cache model determines the RAM and disk space to use
+ * for caching previously viewed content .
+ *
+ * Research indicates that users tend to browse within clusters of
+ * documents that hold resources in common, and to revisit previously
+ * visited documents. WebKit and the frameworks below it include
+ * built-in caches that take advantage of these patterns,
+ * substantially improving document load speed in browsing
+ * situations. The WebKit cache model controls the behaviors of all of
+ * these caches, including various WebCore caches.
+ *
+ * Browsers can improve document load speed substantially by
+ * specifying WEBKIT_CACHE_MODEL_WEB_BROWSER. Applications without a
+ * browsing interface can reduce memory usage substantially by
+ * specifying WEBKIT_CACHE_MODEL_DOCUMENT_VIEWER. Default value is
+ * WEBKIT_CACHE_MODEL_WEB_BROWSER.
+ *
+ * Since: 1.1.18
+ */
+void webkit_set_cache_model(WebKitCacheModel model)
+{
+    if (cacheModel == model)
+        return;
+
+    // FIXME: Add disk cache handling when soup has the API
+    guint cacheTotalCapacity;
+    guint cacheMinDeadCapacity;
+    guint cacheMaxDeadCapacity;
+    gdouble deadDecodedDataDeletionInterval;
+    guint pageCacheCapacity;
+
+    switch (model) {
+    case WEBKIT_CACHE_MODEL_DOCUMENT_VIEWER:
+        pageCacheCapacity = 0;
+        cacheTotalCapacity = 0;
+        cacheMinDeadCapacity = 0;
+        cacheMaxDeadCapacity = 0;
+        deadDecodedDataDeletionInterval = 0;
+        break;
+    case WEBKIT_CACHE_MODEL_WEB_BROWSER:
+        pageCacheCapacity = 3;
+        cacheTotalCapacity = 32 * 1024 * 1024;
+        cacheMinDeadCapacity = cacheTotalCapacity / 4;
+        cacheMaxDeadCapacity = cacheTotalCapacity / 2;
+        deadDecodedDataDeletionInterval = 60;
+        break;
+    default:
+        g_return_if_reached();
+    }
+
+    cache()->setCapacities(cacheMinDeadCapacity, cacheMaxDeadCapacity, cacheTotalCapacity);
+    cache()->setDeadDecodedDataDeletionInterval(deadDecodedDataDeletionInterval);
+    pageCache()->setCapacity(pageCacheCapacity);
+    cacheModel = model;
+}
+
+/**
+ * webkit_get_cache_model:
+ *
+ * Returns the current cache model. For more information about this
+ * value check the documentation of the function
+ * webkit_set_cache_model().
+ *
+ * Return value: the current #WebKitCacheModel
+ *
+ * Since: 1.1.18
+ */
+WebKitCacheModel webkit_get_cache_model()
+{
+    return cacheModel;
 }

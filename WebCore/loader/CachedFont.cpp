@@ -27,7 +27,11 @@
 #include "config.h"
 #include "CachedFont.h"
 
+<<<<<<< HEAD
 #if PLATFORM(ANDROID) || PLATFORM(CG) || PLATFORM(QT) || PLATFORM(GTK) || (PLATFORM(CHROMIUM) && (PLATFORM(WIN_OS) || PLATFORM(LINUX))) || PLATFORM(HAIKU) || PLATFORM(WINCE)
+=======
+#if PLATFORM(CG) || PLATFORM(QT) || PLATFORM(GTK) || (PLATFORM(CHROMIUM) && (OS(WINDOWS) || OS(LINUX))) || PLATFORM(HAIKU) || OS(WINCE)
+>>>>>>> webkit.org at r54127
 #define STORE_FONT_CUSTOM_PLATFORM_DATA
 #endif
 
@@ -165,7 +169,7 @@ SVGFontElement* CachedFont::getSVGFontById(const String& fontName) const
         Node* node = list->item(i);
         ASSERT(node);
 
-        if (static_cast<Element*>(node)->getAttribute(HTMLNames::idAttr) != fontName)
+        if (static_cast<Element*>(node)->getAttribute(static_cast<Element*>(node)->idAttributeName()) != fontName)
             continue;
 
         ASSERT(node->hasTagName(SVGNames::fontTag));

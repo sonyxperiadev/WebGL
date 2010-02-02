@@ -22,6 +22,7 @@
 
 #include "CString.h"
 #include <glib/gi18n-lib.h>
+#include "GRefPtr.h"
 #include "Noncopyable.h"
 #include "NotImplemented.h"
 #include "ResourceHandleClient.h"
@@ -853,22 +854,24 @@ static void webkit_download_received_data(WebKitDownload* download, const gchar*
     if (priv->currentSize > webkit_download_get_total_size(download))
         g_object_notify(G_OBJECT(download), "total-size");
 
-    gdouble lastProgress = webkit_download_get_progress(download);
-
     // Throttle progress notification to not consume high amounts of
-    // CPU on fast links, except when the progress is >= 3%, or we
-    // reached the end.
+    // CPU on fast links, except when the last notification occured
+    // in more then 0.7 secs from now, or the last notified progress
+    // is passed in 1% or we reached the end.
+    static gdouble lastProgress = 0;
     static gdouble lastElapsed = 0;
     gdouble currentElapsed = g_timer_elapsed(priv->timer, NULL);
+    gdouble currentProgress = webkit_download_get_progress(download);
 
     if (lastElapsed
-        && (currentElapsed - lastElapsed) < 0.1
-        && (webkit_download_get_progress(download) - lastProgress) < 0.03
-        && webkit_download_get_progress(download) < 1.0) {
-        lastElapsed = currentElapsed;
+        && lastProgress
+        && (currentElapsed - lastElapsed) < 0.7
+        && (currentProgress - lastProgress) < 0.01
+        && currentProgress < 1.0) {
         return;
     }
     lastElapsed = currentElapsed;
+    lastProgress = currentProgress;
 
     g_object_notify(G_OBJECT(download), "progress");
 }
@@ -890,6 +893,7 @@ static void webkit_download_error(WebKitDownload* download, const ResourceError&
     webkit_download_close_stream(download);
 
     WebKitDownloadPrivate* priv = download->priv;
+    GRefPtr<WebKitDownload> protect(download);
 
     g_timer_stop(priv->timer);
     webkit_download_set_status(download, WEBKIT_DOWNLOAD_STATUS_ERROR);

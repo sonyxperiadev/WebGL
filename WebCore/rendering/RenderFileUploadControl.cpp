@@ -21,6 +21,7 @@
 #include "config.h"
 #include "RenderFileUploadControl.h"
 
+#include "Chrome.h"
 #include "FileList.h"
 #include "Frame.h"
 #include "FrameView.h"
@@ -106,6 +107,11 @@ bool RenderFileUploadControl::allowsMultipleFiles()
 {
     HTMLInputElement* input = static_cast<HTMLInputElement*>(node());
     return !input->getAttribute(multipleAttr).isNull();
+}
+
+String RenderFileUploadControl::acceptTypes()
+{
+    return static_cast<HTMLInputElement*>(node())->accept();
 }
 
 void RenderFileUploadControl::click()

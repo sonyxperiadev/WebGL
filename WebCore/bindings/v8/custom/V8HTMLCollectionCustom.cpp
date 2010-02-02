@@ -29,8 +29,9 @@
  */
 
 #include "config.h"
-#include "HTMLCollection.h"
+#include "V8HTMLCollection.h"
 
+#include "HTMLCollection.h"
 #include "V8Binding.h"
 #include "V8CustomBinding.h"
 #include "V8NamedNodesCollection.h"
@@ -69,7 +70,7 @@ static v8::Handle<v8::Value> getItem(HTMLCollection* collection, v8::Handle<v8::
     return V8DOMWrapper::convertNodeToV8Object(result.release());
 }
 
-NAMED_PROPERTY_GETTER(HTMLCollection)
+v8::Handle<v8::Value> V8HTMLCollection::namedPropertyGetter(v8::Local<v8::String> name, const v8::AccessorInfo& info)
 {
     INC_STATS("DOM.HTMLCollection.NamedPropertyGetter");
     // Search the prototype chain first.
@@ -84,21 +85,21 @@ NAMED_PROPERTY_GETTER(HTMLCollection)
         return v8::Handle<v8::Value>();
 
     // Finally, search the DOM structure.
-    HTMLCollection* imp = V8DOMWrapper::convertToNativeObject<HTMLCollection>(V8ClassIndex::HTMLCOLLECTION, info.Holder());
+    HTMLCollection* imp = V8HTMLCollection::toNative(info.Holder());
     return getNamedItems(imp, v8StringToAtomicWebCoreString(name));
 }
 
-CALLBACK_FUNC_DECL(HTMLCollectionItem)
+v8::Handle<v8::Value> V8HTMLCollection::itemCallback(const v8::Arguments& args)
 {
     INC_STATS("DOM.HTMLCollection.item()");
-    HTMLCollection* imp = V8DOMWrapper::convertToNativeObject<HTMLCollection>(V8ClassIndex::HTMLCOLLECTION, args.Holder());
+    HTMLCollection* imp = V8HTMLCollection::toNative(args.Holder());
     return getItem(imp, args[0]);
 }
 
-CALLBACK_FUNC_DECL(HTMLCollectionNamedItem)
+v8::Handle<v8::Value> V8HTMLCollection::namedItemCallback(const v8::Arguments& args)
 {
     INC_STATS("DOM.HTMLCollection.namedItem()");
-    HTMLCollection* imp = V8DOMWrapper::convertToNativeObject<HTMLCollection>(V8ClassIndex::HTMLCOLLECTION, args.Holder());
+    HTMLCollection* imp = V8HTMLCollection::toNative(args.Holder());
     v8::Handle<v8::Value> result = getNamedItems(imp, toWebCoreString(args[0]));
 
     if (result.IsEmpty())
@@ -107,13 +108,13 @@ CALLBACK_FUNC_DECL(HTMLCollectionNamedItem)
     return result;
 }
 
-CALLBACK_FUNC_DECL(HTMLCollectionCallAsFunction)
+v8::Handle<v8::Value> V8HTMLCollection::callAsFunctionCallback(const v8::Arguments& args)
 {
     INC_STATS("DOM.HTMLCollection.callAsFunction()");
     if (args.Length() < 1)
         return v8::Undefined();
 
-    HTMLCollection* imp = V8DOMWrapper::convertToNativeObject<HTMLCollection>(V8ClassIndex::HTMLCOLLECTION, args.Holder());
+    HTMLCollection* imp = V8HTMLCollection::toNative(args.Holder());
 
     if (args.Length() == 1)
         return getItem(imp, args[0]);

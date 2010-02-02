@@ -48,6 +48,7 @@ typedef struct _NSRect NSRect;
 @class NSFont;
 @class NSImage;
 @class NSMenu;
+@class NSMutableArray;
 @class NSMutableURLRequest;
 @class NSString;
 @class NSTextFieldCell;
@@ -66,6 +67,7 @@ typedef struct NSEvent NSEvent;
 typedef struct NSFont NSFont;
 typedef struct NSImage NSImage;
 typedef struct NSMenu NSMenu;
+typedef struct NSMutableArray NSMutableArray;
 typedef struct NSMutableURLRequest NSMutableURLRequest;
 typedef struct NSURLRequest NSURLRequest;
 typedef struct NSString NSString;
@@ -134,6 +136,7 @@ extern void (*wkSetNSURLConnectionDefersCallbacks)(NSURLConnection *, BOOL);
 extern void (*wkSetNSURLRequestShouldContentSniff)(NSMutableURLRequest *, BOOL);
 extern void (*wkSetPatternBaseCTM)(CGContextRef, CGAffineTransform);
 extern void (*wkSetPatternPhaseInUserSpace)(CGContextRef, CGPoint);
+extern CGAffineTransform (*wkGetUserToBaseCTM)(CGContextRef);
 extern void (*wkSetUpFontCache)();
 extern void (*wkSignalCFReadStreamEnd)(CFReadStreamRef stream);
 extern void (*wkSignalCFReadStreamError)(CFReadStreamRef stream, CFStreamError *error);
@@ -165,6 +168,12 @@ extern BOOL (*wkSupportsMultipartXMixedReplace)(NSMutableURLRequest *);
 #endif
 
 extern BOOL (*wkUseSharedMediaUI)();
+
+#if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD)
+extern NSMutableArray *(*wkNoteOpenPanelFiles)(NSArray *);
+#else
+extern void* wkNoteOpenPanelFiles;
+#endif
 
 #ifdef __cplusplus
 }

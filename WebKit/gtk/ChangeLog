@@ -1,3 +1,572 @@
+<<<<<<< HEAD
+=======
+2010-01-27  Martin Robinson  <mrobinson@webkit.org>
+
+        Reviewed by Gustavo Noronha Silva.
+
+        [GTK] Expose the IM context via the API
+        https://bugs.webkit.org/show_bug.cgi?id=33327
+
+        Expose the GtkIMMultiContext as a property of WebKitWebView. This will
+        allow embedders to generate the input method context menu entries and
+        make testing certain IM context behavior possible.
+
+        * webkit/webkitwebview.cpp:
+        (webkit_web_view_get_property):
+        (DNDContentsRequest::webkit_web_view_get_im_context):
+        (DNDContentsRequest::webkit_web_view_class_init):
+
+2010-01-19  Joanmarie Diggs  <joanmarie.diggs@gmail.com>
+
+        Reviewed by Xan Lopez.
+
+        https://bugs.webkit.org/show_bug.cgi?id=30883
+        [Gtk] Implement AtkText for HTML elements which contain text
+
+        Adds two news tests.
+
+        * tests/testatk.c
+        (testWebkitAtkGetTextInParagraphAndBodySimple):
+        (testWebkitAtkGetTextInParagraphAndBodyModerate):
+        (main):
+
+2010-01-19  Gustavo Noronha Silva  <gns@gnome.org>
+
+        Unreviewed. Changes to the test I forgot to make after a last
+        minute change before landing 53294 - this causes make distcheck to
+        fail.
+
+        * tests/testloading.c:
+        (load_error_status_changed_cb):
+        (test_loading_error):
+
+2010-01-19  Gustavo Noronha Silva  <gns@gnome.org>
+
+        Reviewed by Xan Lopez.
+
+        News items for 1.1.19.
+
+        * NEWS:
+
+2010-01-19  Gustavo Noronha Silva  <gns@gnome.org>
+
+        Reviewed by Xan Lopez.
+
+        [GTK] More crashes related to the clipboard management
+        https://bugs.webkit.org/show_bug.cgi?id=33746
+
+        Pass the WebKitWebView object (which is a GObject, thus
+        ref-counted) to the clipboard functions instead of passing the
+        Page - this allows us to explicitely protect the object inbetween
+        the clipboard call and its callbacks, which fixes the crash.
+
+        * WebCoreSupport/EditorClientGtk.cpp:
+        (WebKit::EditorClient::respondToChangedSelection):
+        * WebCoreSupport/PasteboardHelperGtk.cpp:
+        (WebKit::getClipboardContentsCallback):
+        (WebKit::clearClipboardContentsCallback):
+        (WebKit::PasteboardHelperGtk::writeClipboardContents):
+
+2010-01-15  Alejandro G. Castro  <alex@igalia.com>
+
+        Reviewed by Xan Lopez.
+
+        Original patch by David Ronis <david.ronis@mcgill.ca>
+
+        Upgrade 1.1.17->1.1.18 fails: GTK_WIDGET_TOPLEVEL' was not declared in this scope
+        https://bugs.webkit.org/show_bug.cgi?id=33486
+
+        Deprecated symbols replaced for gtk+ versions over 2.18.
+
+        * WebCoreSupport/ChromeClientGtk.cpp:
+        (WebKit::ChromeClient::windowRect):
+        * webkit/webkitprivate.cpp:
+        (currentToplevelCallback):
+        * webkit/webkitwebframe.cpp:
+        (webkit_web_frame_print_full):
+        (webkit_web_frame_print):
+        * webkit/webkitwebview.cpp:
+        (webkit_web_view_focus_in_event):
+
+2010-01-14  Gustavo Noronha Silva  <gns@gnome.org>
+
+        Reviewed by Eric Seidel.
+
+        [GTK] Crashes cleaning clipboard contents, with page cache enabled
+        https://bugs.webkit.org/show_bug.cgi?id=32900
+
+        Null-check the focus controller to avoid crashing. Could not find
+        a way to reproduce this consistently, thus no test.
+
+        * WebCoreSupport/PasteboardHelperGtk.cpp:
+        (WebKit::clearClipboardContentsCallback):
+
+2010-01-14  Gustavo Noronha Silva  <gns@gnome.org>
+
+        Reviewed by Oliver Hunter.
+
+        [GTK] couple fixes for signal emissions, and property notifications
+        https://bugs.webkit.org/show_bug.cgi?id=33428
+
+        Do not emit signals and property notifications for error
+        pages. The notifications are not really useful for anything, you
+        can get them back by overriding the error pages, and it avoids a
+        number of hacks.
+
+        * WebCoreSupport/FrameLoaderClientGtk.cpp:
+        (WebKit::FrameLoaderClient::FrameLoaderClient):
+        (WebKit::FrameLoaderClient::dispatchDidFinishLoad):
+        (WebKit::FrameLoaderClient::dispatchDidReceiveIcon):
+        (WebKit::FrameLoaderClient::dispatchDidStartProvisionalLoad):
+        (WebKit::FrameLoaderClient::dispatchDidReceiveTitle):
+        (WebKit::FrameLoaderClient::dispatchDidCommitLoad):
+        (WebKit::FrameLoaderClient::dispatchDidFirstVisuallyNonEmptyLayout):
+        (WebKit::FrameLoaderClient::dispatchDidFailLoad):
+        * WebCoreSupport/FrameLoaderClientGtk.h:
+        * tests/testloading.c:
+        (load_error_status_changed_cb):
+        (test_loading_error):
+
+2010-01-14  Martin Robinson  <martin.james.robinson@gmail.com>
+
+        Reviewed by Xan Lopez.
+
+        [GTK] Enable DOM clipboard and drag-and-drop access
+        https://bugs.webkit.org/show_bug.cgi?id=30623
+
+        Use DataObjectGtk when setting and clearing pasteboard data on
+        the GDK_SELECTION_PRIMARY clipboard.
+
+        * WebCoreSupport/EditorClientGtk.cpp:
+        (WebKit::EditorClient::respondToChangedSelection):
+        (WebKit::EditorClient::EditorClient):
+        * WebCoreSupport/EditorClientGtk.h:
+        * WebCoreSupport/PasteboardHelperGtk.cpp:
+        (WebKit::fillSelectionData):
+        (WebKit::targetListForDataObject):
+        (WebKit::getClipboardContentsCallback):
+        (WebKit::clearClipboardContentsCallback):
+        (WebKit::PasteboardHelperGtk::writeClipboardContents):
+        * WebCoreSupport/PasteboardHelperGtk.h:
+
+2010-01-14  Alejandro G. Castro  <alex@igalia.com>
+
+        Reviewed by Xan Lopez.
+
+        Review the tooltip implementation
+        https://bugs.webkit.org/show_bug.cgi?id=32819
+
+        Change the GTK tooltip implementation to avoid the workaround that
+        we are currently using. Now we use a new private API to set the
+        text and all the tooltip handling is done in the webview widget.
+
+        * WebCoreSupport/ChromeClientGtk.cpp:
+        * webkit/webkitprivate.h:
+        * webkit/webkitwebview.cpp:
+        (webkit_web_view_set_tooltip_text): Added, new private API.
+        (webkit_web_view_query_tooltip): Added
+
+2010-01-09  Gustavo Noronha Silva  <gns@gnome.org>
+
+        Reviewed by Xan Lopez.
+
+        [GTK] couple fixes for signal emissions, and property notifications
+        https://bugs.webkit.org/show_bug.cgi?id=33428
+
+        Fix commitedLoad being called where it should not, causing it to
+        be called one time too many in some cases. We now match Qt's and
+        Mac's behavior here.
+
+        * WebCoreSupport/FrameLoaderClientGtk.cpp:
+        (WebKit::FrameLoaderClient::finishedLoading):
+        * tests/testloading.c:
+        (load_error_status_changed_cb):
+
+2010-01-08  Gustavo Noronha Silva  <gns@gnome.org>
+
+        Reviewed by Xan Lopez.
+
+        [GTK] loading test should use SoupServer instead of actual sites
+        https://bugs.webkit.org/show_bug.cgi?id=33353
+
+        Make all the loading tests use SoupServer, instead of fetching
+        stuff from the Internet.
+
+        * tests/testloading.c:
+        (server_callback):
+        (get_uri_for_path):
+        (test_loading_status):
+        (test_loading_error):
+        (test_loading_cancelled):
+        (load_wentback_status_changed_cb):
+        (load_error_test):
+        (test_loading_goback):
+        (main):
+
+2010-01-06  Joanmarie Diggs  <joanmarie.diggs@gmail.com>
+
+        Reviewed by Xan Lopez.
+
+        https://bugs.webkit.org/show_bug.cgi?id=30883
+        [Gtk] Implement AtkText for HTML elements which contain text
+
+        * tests/testatk.c
+        (test_webkit_atk_get_text_at_offset):
+        (test_webkit_atk_get_text_at_offset_forms):
+        (test_webkit_atk_get_text_at_offset_newlines):
+
+2010-01-05  Gustavo Noronha Silva  <gns@gnome.org>
+
+        Updated docs for 1.1.18 release.
+
+        * docs/webkitgtk-docs.sgml:
+        * docs/webkitgtk-sections.txt:
+
+2010-01-05  Xan Lopez  <xlopez@igalia.com>
+
+        Update for 1.1.18 release.
+
+        * NEWS:
+
+2010-01-04  Maciej Stachowiak  <mjs@apple.com>
+
+        Reviewed by Darin Fisher.
+
+        Reorganize, document and rename OS() platform macros.
+        https://bugs.webkit.org/show_bug.cgi?id=33198
+
+        Adapt to name changes.
+
+        * webkit/webkitwebsettings.cpp:
+        (webkit_get_user_agent):
+
+2010-01-04  Maciej Stachowiak  <mjs@apple.com>
+
+        Reviewed by Adam Barth.
+
+        Reorganize, document and rename CPU() platform macros.
+        https://bugs.webkit.org/show_bug.cgi?id=33145
+
+        * webkit/webkitwebsettings.cpp:
+        (webkit_get_user_agent):
+
+2009-12-20  Gustavo Noronha Silva  <gustavo.noronha@collabora.co.uk>
+
+        Reviewed by Xan Lopez.
+
+        Remove emission of signal that does not exist.
+
+        * WebCoreSupport/InspectorClientGtk.cpp:
+        (WebKit::InspectorClient::inspectorDestroyed):
+        (WebKit::InspectorClient::webViewDestroyed):
+
+2009-12-20  Xan Lopez  <xlopez@igalia.com>
+
+        Reviewed by Gustavo Noronha.
+
+        Unset the adjustments in our FrameView when detaching from
+        parent. Fixes some crashers when transitioning to a new page from
+        a scrolled page.
+
+        * WebCoreSupport/FrameLoaderClientGtk.cpp:
+        (WebKit::FrameLoaderClient::detachedFromParent2):
+
+2009-12-20  Xan Lopez  <xlopez@igalia.com>
+
+        Rubber-stamped by Gustavo Noronha.
+
+        Disable the page cache by default since:
+
+        - It was previously off by default.
+        - There are still some issues when enabling it.
+
+        * webkit/webkitwebsettings.cpp:
+        (webkit_web_settings_class_init):
+
+2009-12-20  Gustavo Noronha Silva  <gustavo.noronha@collabora.co.uk>
+
+        Reviewed by Xan Lopez.
+
+        Provides a new API to copy WebKitWebHistoryItem objects.
+
+        * webkit/webkitwebhistoryitem.cpp:
+        (webkit_web_history_item_copy):
+        * webkit/webkitwebhistoryitem.h:
+
+2009-12-20  Gustavo Noronha Silva  <gustavo.noronha@collabora.co.uk>
+
+        Reviewed by Xan Lopez.
+
+        Make sure we get the URI that is being loaded when updating
+        WebKitWebFrame's knowledge of it. This was causing problems now
+        that page cache is enabled.
+
+        * WebCoreSupport/FrameLoaderClientGtk.cpp:
+        (WebKit::FrameLoaderClient::dispatchDidCommitLoad):
+        * tests/testloading.c:
+        (load_goback_status_changed_cb):
+        (load_wentback_status_changed_cb):
+        (test_loading_goback):
+        (main):
+
+2009-12-20  Alejandro G. Castro  <alex@igalia.com>
+
+        Reviewed by Xan Lopez.
+
+        [GTK] Cache control APIs
+        https://bugs.webkit.org/show_bug.cgi?id=24001
+
+        Original patch by Bobby Powers <bobby@laptop.org>
+
+        Added new API to specify cache models for GTK port.
+
+        * webkit/webkitprivate.cpp:
+        (webkit_init): set a default cache model.
+        * webkit/webkitwebview.cpp:
+        * webkit/webkitwebview.h:
+        (webkit_set_cache_model): Added function.
+        (webkit_get_cache_model): Added function.
+
+2009-12-20  Xan Lopez  <xlopez@igalia.com>
+
+        Revert the previous patch, it introduces some failures in the
+        bots.
+
+        * WebCoreSupport/FrameLoaderClientGtk.cpp:
+        (WebKit::FrameLoaderClient::committedLoad):
+        (WebKit::FrameLoaderClient::transitionToCommittedForNewPage):
+
+2009-12-20  Xan Lopez  <xlopez@igalia.com>
+
+        Reviewed by Gustavo Noronha.
+
+        [GTK] crash when loading new page
+        https://bugs.webkit.org/show_bug.cgi?id=32752
+
+        Wait until the document is attached to adjust our alignments,
+        since we need to make sure the FrameView in the document content
+        render object matches the newly created FrameView for the new
+        page, otherwise we'll try to relayout the wrong view.
+
+        * WebCoreSupport/FrameLoaderClientGtk.cpp:
+        (WebKit::FrameLoaderClient::committedLoad):
+        (WebKit::FrameLoaderClient::transitionToCommittedForNewPage):
+
+2009-12-20  Gustavo Noronha Silva  <gustavo.noronha@collabora.co.uk>
+
+        Reviewed by Xan Lopez.
+
+        Create a new WebKitDataSource object when attaching to a frame, if
+        one does not exist. This may happen when we are fetching data from
+        the page cache.
+
+        * WebCoreSupport/DocumentLoaderGtk.cpp:
+        (WebKit::DocumentLoader::attachToFrame):
+        (WebKit::DocumentLoader::unrefDataSource):
+
+2009-12-20  Gustavo Noronha Silva  <gustavo.noronha@collabora.co.uk>
+
+        Rubber-stamped by Xan Lopez.
+
+        Make sure the text encoding machinery is initialized from the main
+        frame, before opening the icon database.
+
+        * webkit/webkitprivate.cpp:
+        (webkit_init):
+
+2009-12-19  Alejandro G. Castro  <alex@igalia.com>
+
+        Reviewed by Xan Lopez.
+
+        Fixed the problem when pasting in the same window with the
+        middle-button, now we store a reference to the range instead of
+        requesting it every time, and we do not release it until the
+        clipboard is requested.
+        https://bugs.webkit.org/show_bug.cgi?id=28153
+
+        * WebKit/gtk/WebCoreSupport/EditorClientGtk.cpp:
+        * WebKit/gtk/WebCoreSupport/EditorClientGtk.h:
+
+2009-12-19  Gustavo Noronha Silva  <gustavo.noronha@collabora.co.uk>
+
+        Reviewed by Xan Lopez.
+
+        Protect download objects when reporting errors, to make sure the
+        download stays alive between the status change notification, and
+        the error signal emission.
+
+        * webkit/webkitdownload.cpp:
+        (webkit_download_error):
+
+2009-12-18  Xan Lopez  <xlopez@igalia.com>
+
+        Reviewed by Gustavo Noronha.
+
+        Fix gtk-doc of webkit_web_resource_new.
+
+        * webkit/webkitwebresource.cpp:
+
+2009-12-18  Adam Roben  <aroben@apple.com>
+
+        GTK build fix
+
+        * webkit/webkitprivate.cpp: Added #include.
+
+2009-12-18  Kalle Vahlman  <kalle.vahlman@movial.com> and Alejandro G. Castro  <alex@igalia.com>
+
+        Reviewed by Gustavo Noronha Silva.
+
+        [GTK] Add enable-page-cache property to WebSettings for disabling the Page Cache
+
+        * webkit/webkitwebsettings.cpp:
+        (_WebKitWebSettingsPrivate::):
+        (_WebKitWebSettingsPrivate::webkit_web_settings_class_init):
+        (_WebKitWebSettingsPrivate::webkit_web_settings_set_property):
+        (_WebKitWebSettingsPrivate::webkit_web_settings_get_property):
+        (_WebKitWebSettingsPrivate::webkit_web_settings_copy):
+        * webkit/webkitwebview.cpp:
+
+2009-12-17  Gustavo Noronha Silva  <gustavo.noronha@collabora.co.uk>
+
+        Reviewed by Xan Lopez.
+
+        More make distcheck fixes. Use a more robust solution to making
+        sure we are in the correct directory for running these tests.
+
+        * tests/testmimehandling.c:
+        (main):
+        * tests/testwebview.c:
+        (main):
+
+2009-12-17  Christian Dywan  <christian@twotoasts.de>
+
+        Reviewed by Gustavo Noronha Silva.
+
+        [GTK] Don't assume downloads are always synchronous
+        http://bugs.webkit.org/show_bug.cgi?id=32359
+
+        * tests/testdownload.c:
+        (download_requested_cb):
+        (set_filename):
+        (test_webkit_download_perform):
+        (test_webkit_download_synch):
+        (test_webkit_download_asynch):
+        (main): Test downloads synchronously and asynchronously.
+        * webkit/webkitwebview.cpp:
+        (webkit_web_view_class_init):
+        (webkit_web_view_request_download): Only try to start a requested
+        download if the destination URI is set and clarify the documentation.
+
+2009-12-17  Christian Dywan  <christian@twotoasts.de>
+
+        Reviewed by Xan Lopez.
+
+        Deprecate the title-changed signal of WebKitWebFrame.
+
+        * webkit/webkitwebframe.cpp:
+        (webkit_web_frame_class_init):
+
+2009-12-17  Martin Robinson  <martin.james.robinson@gmail.com>
+
+        Reviewed by Gustavo Noronha Silva.
+
+        [GTK] WebKit GTK needs a wrapper for ref counted glib/gobject structs
+        https://bugs.webkit.org/show_bug.cgi?id=21599
+
+        Convert a use of GOwnPtr for a reference counted type to GRefPtr.
+
+        * WebCoreSupport/FrameLoaderClientGtk.cpp:
+        (WebKit::FrameLoaderClient::createPlugin):
+
+2009-12-17  Evan Martin  <evan@chromium.org>
+
+        Reviewed by Xan Lopez.
+
+        Expose the page workarounds ("quirks") setting to the GTK+ WebKit API.
+
+        * webkit/webkitwebsettings.cpp:
+        (webkit_web_settings_class_init):
+        (webkit_web_settings_set_property):
+        (webkit_web_settings_get_property):
+        (webkit_web_settings_copy):
+        * webkit/webkitwebview.cpp:
+        (webkit_web_view_update_settings):
+
+2009-12-16  Dan Winship  <danw@gnome.org>
+
+        Reviewed by Gustavo Noronha Silva.
+
+        Content-Encoding support
+
+        https://bugs.webkit.org/show_bug.cgi?id=522772
+
+        * webkit/webkitprivate.cpp:
+        (webkit_init): add a SoupContentDecoder feature to the session
+
+2009-12-16  Christian Dywan  <christian@twotoasts.de>
+
+        Reviewed by Gustavo Noronha Silva.
+
+        Deprecate the old loading signals load-started, load-committed,
+        load-finished, load-progress-changed and change unit tests to use
+        load-status instead.
+
+        * tests/testmimehandling.c:
+        (idle_quit_loop_cb):
+        (test_mime_type): use notify::load-status
+        * tests/testwebdatasource.c:
+        (notify_load_status_unreachable_cb):
+        (notify_load_status_cb):
+        (test_webkit_web_data_source):
+        (test_webkit_web_data_source_unreachable_uri): Remove uses of
+        g_main_loop_is_running. It's an error if the loop is wrongly terminated.
+        * tests/testwebresource.c:
+        (notify_load_status_cb):
+        (test_web_resource_loading):
+        (notify_load_status_sub_cb):
+        (test_web_resource_sub_resource_loading): use notify::load-status
+        * tests/testwebview.c:
+        (idle_quit_loop_cb):
+        (test_webkit_web_view_icon_uri):
+        * tests/testwindow.c:
+        (notify_load_status_cb):
+        (test_webkit_window_scrollbar_policy): use notify::load-status
+        * webkit/webkitwebframe.cpp:
+        (webkit_web_frame_class_init):
+        * webkit/webkitwebview.cpp:
+        (webkit_web_view_class_init): Deprecate old load signals.
+
+2009-12-16  Christian Dywan  <christian@twotoasts.de>
+
+        Reviewed by Gustavo Noronha Silva.
+
+        Take into account favicon.ico in the webresource test.
+
+        * tests/testwebresource.c:
+        (test_web_resource_sub_resource_loading):
+
+2009-12-16  Gustavo Noronha Silva  <gustavo.noronha@collabora.co.uk>
+
+        Rubber-stamped by Xan Lopez.
+
+        Add tab_key_cycles_through_elements to copies of
+        WebKitWebSettings.
+
+        * webkit/webkitwebsettings.cpp:
+        (webkit_web_settings_copy):
+
+2009-12-16  Martin Robinson  <martin.james.robinson@gmail.com>
+
+        Reviewed by Gustavo Noronha Silva.
+
+        [GTK] webkit_web_navigation_action_get_button() documentation
+        https://bugs.webkit.org/show_bug.cgi?id=25555
+
+        Small documentation improvement for webkit_web_navigation_action_get_button.
+
+        * webkit/webkitwebnavigationaction.cpp:
+
+>>>>>>> webkit.org at r54127
 2009-12-13  Sam Weinig  <sam@webkit.org>
 
         Reviewed by Dan Bernstein.
@@ -13,6 +582,61 @@
         * webkit/webkitwebview.cpp:
         (webkit_web_view_init):
 
+<<<<<<< HEAD
+=======
+2009-12-14  Gustavo Noronha Silva  <gustavo.noronha@collabora.co.uk>
+
+        Reviewed by Xan Lopez.
+
+        New setting to allow applications to completely suppress the
+        default context menu that is generated by WebKit. This allows them
+        to still pass the event to the default handler without needing to
+        use ugly hacks such as handling populate-popup, and removing all
+        the items from the default context menu.
+
+        * webkit/webkitwebsettings.cpp:
+        (webkit_web_settings_class_init):
+        (webkit_web_settings_set_property):
+        (webkit_web_settings_get_property):
+        (webkit_web_settings_copy):
+        * webkit/webkitwebview.cpp:
+        (webkit_web_view_forward_context_menu_event):
+
+2009-12-13  Gustavo Noronha Silva  <gustavo.noronha@collabora.co.uk>
+
+        Reviewed by Xan Lopez.
+
+        Also give the right click event to the frame's event handler, if
+        there WebCore decides to not generate the default context
+        menu. This fixes some pages that handle right-button clicks for
+        things other than context menu creation.
+
+        * webkit/webkitwebview.cpp:
+        (webkit_web_view_forward_context_menu_event):
+
+2009-12-13  Christian Dywan  <christian@twotoasts.de>
+
+        Reviewed by Holger Freyther.
+
+        http://bugs.webkit.org/show_bug.cgi?id=31014
+        [Gtk] Build fails with gtk+-2.10 (no tested with older releases)
+
+        Guard GTK+ 2.12 specific tooltip code with #ifdef.
+
+        * WebCoreSupport/ChromeClientGtk.cpp:
+        (WebKit::ChromeClient::mouseDidMoveOverElement):
+
+2009-12-11  Christian Dywan  <christian@twotoasts.de>
+
+        Reviewed by Eric Seidel.
+
+        [GTK] Build with --disable-svg is broken
+        http://bugs.webkit.org/show_bug.cgi?id=32361
+
+        * webkit/webkitwebframe.cpp:
+        (webkit_web_frame_pause_svg_animation): Fix ENABLE(SVG) guards.
+
+>>>>>>> webkit.org at r54127
 2009-12-10  Gustavo Noronha Silva  <gustavo.noronha@collabora.co.uk>
 
         Reviewed by Xan Lopez.

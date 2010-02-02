@@ -43,12 +43,14 @@
 #include "Logging.h"
 #include "MessageEvent.h"
 #include "ScriptExecutionContext.h"
+#include "StringBuilder.h"
+#include "ThreadableWebSocketChannel.h"
 #include "WebSocketChannel.h"
 #include <wtf/StdLibExtras.h>
 
 namespace WebCore {
 
-static bool isValidProtocolString(const WebCore::String& protocol)
+static bool isValidProtocolString(const String& protocol)
 {
     if (protocol.isNull())
         return true;
@@ -60,6 +62,20 @@ static bool isValidProtocolString(const WebCore::String& protocol)
             return false;
     }
     return true;
+}
+
+static String encodeProtocolString(const String& protocol)
+{
+    StringBuilder builder;
+    for (size_t i = 0; i < protocol.length(); i++) {
+        if (protocol[i] < 0x20 || protocol[i] > 0x7E)
+            builder.append(String::format("\\u%04X", protocol[i]));
+        else if (protocol[i] == 0x5c)
+            builder.append("\\\\");
+        else
+            builder.append(protocol[i]);
+    }
+    return builder.toString();
 }
 
 #if USE(V8)
@@ -101,32 +117,39 @@ void WebSocket::connect(const KURL& url, const String& protocol, ExceptionCode& 
     m_url = url;
     m_protocol = protocol;
 
+    if (!m_url.isValid()) {
+        scriptExecutionContext()->addMessage(ConsoleDestination, JSMessageSource, LogMessageType, ErrorMessageLevel, "Invalid url for WebSocket " + url.string(), 0, scriptExecutionContext()->securityOrigin()->toString());
+        m_state = CLOSED;
+        ec = SYNTAX_ERR;
+        return;
+    }
+
     if (!m_url.protocolIs("ws") && !m_url.protocolIs("wss")) {
-        LOG(Network, "Wrong url scheme for WebSocket %s", url.string().utf8().data());
+        scriptExecutionContext()->addMessage(ConsoleDestination, JSMessageSource, LogMessageType, ErrorMessageLevel, "Wrong url scheme for WebSocket " + url.string(), 0, scriptExecutionContext()->securityOrigin()->toString());
         m_state = CLOSED;
         ec = SYNTAX_ERR;
         return;
     }
     if (m_url.hasFragmentIdentifier()) {
-        LOG(Network, "URL has fragment component %s", url.string().utf8().data());
+        scriptExecutionContext()->addMessage(ConsoleDestination, JSMessageSource, LogMessageType, ErrorMessageLevel, "URL has fragment component " + url.string(), 0, scriptExecutionContext()->securityOrigin()->toString());
         m_state = CLOSED;
         ec = SYNTAX_ERR;
         return;
     }
     if (!isValidProtocolString(m_protocol)) {
-        LOG(Network, "Wrong protocol for WebSocket %s", m_protocol.utf8().data());
+        scriptExecutionContext()->addMessage(ConsoleDestination, JSMessageSource, LogMessageType, ErrorMessageLevel, "Wrong protocol for WebSocket '" + encodeProtocolString(m_protocol) + "'", 0, scriptExecutionContext()->securityOrigin()->toString());
         m_state = CLOSED;
         ec = SYNTAX_ERR;
         return;
     }
     if (!portAllowed(url)) {
-        LOG(Network, "WebSocket port %d blocked", url.port());
+        scriptExecutionContext()->addMessage(ConsoleDestination, JSMessageSource, LogMessageType, ErrorMessageLevel, String::format("WebSocket port %d blocked", url.port()), 0, scriptExecutionContext()->securityOrigin()->toString());
         m_state = CLOSED;
         ec = SECURITY_ERR;
         return;
     }
 
-    m_channel = WebSocketChannel::create(scriptExecutionContext(), this, m_url, m_protocol);
+    m_channel = ThreadableWebSocketChannel::create(scriptExecutionContext(), this, m_url, m_protocol);
     m_channel->connect();
 }
 
@@ -192,7 +215,6 @@ void WebSocket::didReceiveMessage(const String& msg)
     if (m_state != OPEN || !scriptExecutionContext())
         return;
     RefPtr<MessageEvent> evt = MessageEvent::create();
-    // FIXME: origin, lastEventId, source, messagePort.
     evt->initMessageEvent(eventNames().messageEvent, false, false, SerializedScriptValue::create(msg), "", "", 0, 0);
     dispatchEvent(evt);
 }

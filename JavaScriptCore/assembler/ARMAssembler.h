@@ -29,7 +29,7 @@
 
 #include <wtf/Platform.h>
 
-#if ENABLE(ASSEMBLER) && PLATFORM(ARM_TRADITIONAL)
+#if ENABLE(ASSEMBLER) && CPU(ARM_TRADITIONAL)
 
 #include "AssemblerBufferWithConstantPool.h"
 #include <wtf/Assertions.h>
@@ -138,11 +138,11 @@ namespace JSC {
             FSITOD = 0x0eb80bc0,
             FTOSID = 0x0ebd0b40,
             FMSTAT = 0x0ef1fa10,
-#if ARM_ARCH_VERSION >= 5
+#if WTF_ARM_ARCH_AT_LEAST(5)
             CLZ = 0x016f0f10,
             BKPT = 0xe120070,
 #endif
-#if ARM_ARCH_VERSION >= 7
+#if WTF_ARM_ARCH_AT_LEAST(7)
             MOVW = 0x03000000,
             MOVT = 0x03400000,
 #endif
@@ -183,6 +183,7 @@ namespace JSC {
         };
 
         static const ARMWord INVALID_IMM = 0xf0000000;
+        static const int DefaultPrefetching = 2;
 
         class JmpSrc {
             friend class ARMAssembler;
@@ -342,7 +343,7 @@ namespace JSC {
             emitInst(static_cast<ARMWord>(cc) | MOV, rd, ARMRegisters::r0, op2);
         }
 
-#if ARM_ARCH_VERSION >= 7
+#if WTF_ARM_ARCH_AT_LEAST(7)
         void movw_r(int rd, ARMWord op2, Condition cc = AL)
         {
             ASSERT((op2 | 0xf0fff) == 0xf0fff);
@@ -530,7 +531,7 @@ namespace JSC {
             m_buffer.putInt(static_cast<ARMWord>(cc) | FMSTAT);
         }
 
-#if ARM_ARCH_VERSION >= 5
+#if WTF_ARM_ARCH_AT_LEAST(5)
         void clz_r(int rd, int rm, Condition cc = AL)
         {
             m_buffer.putInt(static_cast<ARMWord>(cc) | CLZ | RD(rd) | RM(rm));
@@ -539,7 +540,7 @@ namespace JSC {
 
         void bkpt(ARMWord value)
         {
-#if ARM_ARCH_VERSION >= 5
+#if WTF_ARM_ARCH_AT_LEAST(5)
             m_buffer.putInt(BKPT | ((value & 0xff0) << 4) | (value & 0xf));
 #else
             // Cannot access to Zero memory address
@@ -632,15 +633,32 @@ namespace JSC {
 
         // Patching helpers
 
-        static ARMWord* getLdrImmAddress(ARMWord* insn, uint32_t* constPool = 0);
-        static void linkBranch(void* code, JmpSrc from, void* to, int useConstantPool = 0);
+        static ARMWord* getLdrImmAddress(ARMWord* insn)
+        {
+            // Must be an ldr ..., [pc +/- imm]
+            ASSERT((*insn & 0x0f7f0000) == 0x051f0000);
+
+            ARMWord addr = reinterpret_cast<ARMWord>(insn) + DefaultPrefetching * sizeof(ARMWord);
+            if (*insn & DT_UP)
+                return reinterpret_cast<ARMWord*>(addr + (*insn & SDT_OFFSET_MASK));
+            return reinterpret_cast<ARMWord*>(addr - (*insn & SDT_OFFSET_MASK));
+        }
+
+        static ARMWord* getLdrImmAddressOnPool(ARMWord* insn, uint32_t* constPool)
+        {
+            // Must be an ldr ..., [pc +/- imm]
+            ASSERT((*insn & 0x0f7f0000) == 0x051f0000);
+
+            if (*insn & 0x1)
+                return reinterpret_cast<ARMWord*>(constPool + ((*insn & SDT_OFFSET_MASK) >> 1));
+            return getLdrImmAddress(insn);
+        }
 
         static void patchPointerInternal(intptr_t from, void* to)
         {
             ARMWord* insn = reinterpret_cast<ARMWord*>(from);
             ARMWord* addr = getLdrImmAddress(insn);
             *addr = reinterpret_cast<ARMWord>(to);
-            ExecutableAllocator::cacheFlush(addr, sizeof(ARMWord));
         }
 
         static ARMWord patchConstantPoolLoad(ARMWord load, ARMWord value)
@@ -685,12 +703,13 @@ namespace JSC {
         void linkJump(JmpSrc from, JmpDst to)
         {
             ARMWord* insn = reinterpret_cast<ARMWord*>(m_buffer.data()) + (from.m_offset / sizeof(ARMWord));
-            *getLdrImmAddress(insn, m_buffer.poolAddress()) = static_cast<ARMWord>(to.m_offset);
+            ARMWord* addr = getLdrImmAddressOnPool(insn, m_buffer.poolAddress());
+            *addr = static_cast<ARMWord>(to.m_offset);
         }
 
         static void linkJump(void* code, JmpSrc from, void* to)
         {
-            linkBranch(code, from, to);
+            patchPointerInternal(reinterpret_cast<intptr_t>(code) + from.m_offset, to);
         }
 
         static void relinkJump(void* from, void* to)
@@ -700,12 +719,12 @@ namespace JSC {
 
         static void linkCall(void* code, JmpSrc from, void* to)
         {
-            linkBranch(code, from, to, true);
+            patchPointerInternal(reinterpret_cast<intptr_t>(code) + from.m_offset, to);
         }
 
         static void relinkCall(void* from, void* to)
         {
-            relinkJump(from, to);
+            patchPointerInternal(reinterpret_cast<intptr_t>(from) - sizeof(ARMWord), to);
         }
 
         // Address operations
@@ -747,7 +766,7 @@ namespace JSC {
 
         static ARMWord getOp2(ARMWord imm);
 
-#if ARM_ARCH_VERSION >= 7
+#if WTF_ARM_ARCH_AT_LEAST(7)
         static ARMWord getImm16Op2(ARMWord imm)
         {
             if (imm <= 0xffff)
@@ -812,6 +831,6 @@ namespace JSC {
 
 } // namespace JSC
 
-#endif // ENABLE(ASSEMBLER) && PLATFORM(ARM_TRADITIONAL)
+#endif // ENABLE(ASSEMBLER) && CPU(ARM_TRADITIONAL)
 
 #endif // ARMAssembler_h

@@ -33,6 +33,7 @@
 
 #include "AtomicString.h"
 #include "DOMTimer.h"
+#include "Logging.h"
 #include "Page.h"
 #include "RuntimeEnabledFeatures.h"
 #include "TextEncoding.h"
@@ -92,6 +93,13 @@ void setLayoutTestMode(bool value)
 bool layoutTestMode()
 {
     return s_layoutTestMode;
+}
+
+void enableLogChannel(const char* name)
+{
+    WTFLogChannel* channel = WebCore::getChannelFromName(name);
+    if (channel)
+        channel->state = WTFLogChannelOn;
 }
 
 void resetPluginCache(bool reloadPages)

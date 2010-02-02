@@ -29,10 +29,12 @@
 #include "config.h"
 #include "LayoutTestControllerQt.h"
 
-#include "DumpRenderTree.h"
+#include "DumpRenderTreeQt.h"
 #include "WorkQueue.h"
-#include "WorkQueueItem.h"
+#include "WorkQueueItemQt.h"
 #include <QDir>
+#include <QLocale>
+#include <qwebsettings.h>
 
 extern void qt_dump_editing_callbacks(bool b);
 extern void qt_dump_resource_load_callbacks(bool b);
@@ -41,9 +43,11 @@ extern bool qt_drt_pauseAnimation(QWebFrame*, const QString& name, double time, 
 extern bool qt_drt_pauseTransitionOfProperty(QWebFrame*, const QString& name, double time, const QString& elementId);
 extern bool qt_drt_pauseSVGAnimation(QWebFrame*, const QString& animationId, double time, const QString& elementId);
 extern int qt_drt_numberOfActiveAnimations(QWebFrame*);
+extern void qt_drt_setDomainRelaxationForbiddenForURLScheme(bool forbidden, const QString& scheme);
 
 extern void qt_drt_whiteListAccessFromOrigin(const QString& sourceOrigin, const QString& destinationProtocol, const QString& destinationHost, bool allowDestinationSubdomains);
 extern QString qt_drt_counterValueForElementById(QWebFrame* qFrame, const QString& id);
+extern int qt_drt_workerThreadCount();
 
 LayoutTestController::LayoutTestController(WebCore::DumpRenderTree* drt)
     : QObject()
@@ -54,7 +58,8 @@ LayoutTestController::LayoutTestController(WebCore::DumpRenderTree* drt)
 
 void LayoutTestController::reset()
 {
-    m_isLoading = true;
+    m_hasDumped = false;
+    m_loadFinished = false;
     m_textDump = false;
     m_dumpBackForwardList = false;
     m_dumpChildrenAsText = false;
@@ -67,8 +72,10 @@ void LayoutTestController::reset()
     m_topLoadingFrame = 0;
     m_waitForPolicy = false;
     m_handleErrorPages = false;
+    m_webHistory = 0;
     qt_dump_editing_callbacks(false);
     qt_dump_resource_load_callbacks(false);
+    emit hidePage();
 }
 
 void LayoutTestController::processWork()
@@ -78,32 +85,40 @@ void LayoutTestController::processWork()
     // if we didn't start a new load, then we finished all the commands, so we're ready to dump state
     if (WorkQueue::shared()->processWork() && !shouldWaitUntilDone()) {
         emit done();
-        m_isLoading = false;
+        m_hasDumped = true;
     }
 }
 
-// Called on loadFinished on mainFrame.
+// Called on loadFinished on WebPage
 void LayoutTestController::maybeDump(bool success)
 {
-    Q_ASSERT(sender() == m_topLoadingFrame->page());
 
+    // This can happen on any of the http/tests/security/window-events-*.html tests, where the test opens
+    // a new window, calls the unload and load event handlers on the window's page, and then immediately
+    // issues a notifyDone. Needs investigation.
+    if (!m_topLoadingFrame)
+        return;
+
+    // It is possible that we get called by windows created from the main page that have finished
+    // loading, so we don't ASSERT here. At the moment we do not gather results from such windows,
+    // but may need to in future.
+    if (sender() != m_topLoadingFrame->page())
+        return;
+
+    m_loadFinished = true;
     // as the function is called on loadFinished, the test might
     // already have dumped and thus no longer be active, thus
     // bail out here.
-    if (!m_isLoading)
+    if (m_hasDumped)
         return;
 
-    m_topLoadingFrame = 0;
     WorkQueue::shared()->setFrozen(true); // first complete load freezes the queue for the rest of this test
-
-    if (!shouldWaitUntilDone()) {
-        if (WorkQueue::shared()->count())
-            QTimer::singleShot(0, this, SLOT(processWork()));
-        else {
-            if (success)
-                emit done();
-            m_isLoading = false;
-        }
+    if (WorkQueue::shared()->count())
+        QTimer::singleShot(0, this, SLOT(processWork()));
+    else if (!shouldWaitUntilDone()) {
+        if (success)
+            emit done();
+        m_hasDumped = true;
     }
 }
 
@@ -119,9 +134,19 @@ QString LayoutTestController::counterValueForElementById(const QString& id)
     return qt_drt_counterValueForElementById(m_drt->webPage()->mainFrame(), id);
 }
 
+int LayoutTestController::webHistoryItemCount()
+{
+    if (!m_webHistory)
+        return -1;
+
+    // Subtract one here as our QWebHistory::count() includes the actual page,
+    // which is not considered in the DRT tests.
+    return m_webHistory->count() - 1;
+}
+
 void LayoutTestController::keepWebHistory()
 {
-    // FIXME: implement
+    m_webHistory = m_drt->webPage()->history();
 }
 
 void LayoutTestController::notifyDone()
@@ -132,17 +157,30 @@ void LayoutTestController::notifyDone()
         return;
 
     m_timeoutTimer.stop();
+    m_waitForDone = false;
+
+    // If the page has not finished loading (i.e. loadFinished() has not been emitted) then
+    // content created by the likes of document.write() JS methods will not be available yet.
+    // When the page has finished loading, maybeDump above will dump the results now that we have
+    // just set shouldWaitUntilDone to false.
+    if (!m_loadFinished)
+        return;
+
     emit done();
 
     // FIXME: investigate why always resetting these result in timeouts
-    m_isLoading = false;
-    m_waitForDone = false;
+    m_hasDumped = true;
     m_waitForPolicy = false;
 }
 
 int LayoutTestController::windowCount()
 {
     return m_drt->windowCount();
+}
+
+void LayoutTestController::display()
+{
+    emit showPage();
 }
 
 void LayoutTestController::clearBackForwardList()
@@ -153,7 +191,7 @@ void LayoutTestController::clearBackForwardList()
 QString LayoutTestController::pathToLocalResource(const QString& url)
 {
     // Function introduced in r28690.
-    return QLatin1String("file://") + QUrl(url).toLocalFile();
+    return QDir::toNativeSeparators(url);
 }
 
 void LayoutTestController::dumpEditingCallbacks()
@@ -208,7 +246,7 @@ void LayoutTestController::queueNonLoadingScript(const QString& script)
 void LayoutTestController::provisionalLoad()
 {
     QWebFrame* frame = qobject_cast<QWebFrame*>(sender());
-    if (!m_topLoadingFrame && m_isLoading)
+    if (!m_topLoadingFrame && !m_hasDumped)
         m_topLoadingFrame = frame;
 }
 
@@ -279,6 +317,26 @@ void LayoutTestController::setPOSIXLocale(const QString& locale)
     QLocale qlocale(locale);
     QLocale::setDefault(qlocale);
 } 
+
+void LayoutTestController::setWindowIsKey(bool isKey)
+{
+    m_drt->switchFocus(isKey);
+}
+
+void LayoutTestController::setMainFrameIsFirstResponder(bool isFirst)
+{
+    //FIXME: only need this for the moment: https://bugs.webkit.org/show_bug.cgi?id=32990
+}
+
+void LayoutTestController::setXSSAuditorEnabled(bool enable)
+{
+    // Set XSSAuditorEnabled globally so that windows created by the test inherit it too.
+    // resetSettings() will call this to reset the page and global setting to false again.
+    // Needed by http/tests/security/xssAuditor/link-opens-new-window.html
+    QWebSettings* globalSettings = QWebSettings::globalSettings();
+    globalSettings->setAttribute(QWebSettings::XSSAuditorEnabled, enable);
+    m_drt->webPage()->settings()->setAttribute(QWebSettings::XSSAuditorEnabled, enable);
+}
 
 bool LayoutTestController::pauseAnimationAtTimeOnElementWithId(const QString& animationName,
                                                                double time,
@@ -362,4 +420,27 @@ void LayoutTestController::overridePreference(const QString& name, const QVarian
         settings->setFontSize(QWebSettings::DefaultFontSize, value.toInt());
     else if (name == "WebKitUsesPageCachePreferenceKey")
         QWebSettings::setMaximumPagesInCache(value.toInt());
+}
+
+void LayoutTestController::setUserStyleSheetLocation(const QString& url)
+{
+    m_userStyleSheetLocation = QUrl(url);
+}
+
+void LayoutTestController::setUserStyleSheetEnabled(bool enabled)
+{
+    if (enabled)
+        m_drt->webPage()->settings()->setUserStyleSheetUrl(m_userStyleSheetLocation);
+    else
+        m_drt->webPage()->settings()->setUserStyleSheetUrl(QUrl());
+}
+
+void LayoutTestController::setDomainRelaxationForbiddenForURLScheme(bool forbidden, const QString& scheme)
+{
+    qt_drt_setDomainRelaxationForbiddenForURLScheme(forbidden, scheme);
+}
+
+int LayoutTestController::workerThreadCount()
+{
+    return qt_drt_workerThreadCount();
 }

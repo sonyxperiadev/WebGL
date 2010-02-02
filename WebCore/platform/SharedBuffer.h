@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2006 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) Research In Motion Limited 2009-2010. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -76,6 +77,7 @@ public:
     static PassRefPtr<SharedBuffer> wrapCFData(CFDataRef);
 #endif
 
+<<<<<<< HEAD
 #if PLATFORM(ANDROID)
     virtual
 #endif
@@ -83,12 +85,23 @@ public:
 #if PLATFORM(ANDROID)
     virtual
 #endif
+=======
+    // Calling this function will force internal segmented buffers
+    // to be merged into a flat buffer. Use getSomeData() whenever possible
+    // for better performance.
+    const char* data() const;
+
+>>>>>>> webkit.org at r54127
     unsigned size() const;
-    const Vector<char> &buffer() { return m_buffer; }
 
-    bool isEmpty() const { return size() == 0; }
+    // Calling this function will force internal segmented buffers
+    // to be merged into a flat buffer. Use getSomeData() whenever possible
+    // for better performance.
+    const Vector<char>& buffer() const;
 
-    void append(const char*, int);
+    bool isEmpty() const { return !size(); }
+
+    void append(const char*, unsigned);
     void clear();
     const char* platformData() const;
     unsigned platformDataSize() const;
@@ -99,7 +112,21 @@ public:
 
     // Ensure this buffer has no other clients before calling this.
     PurgeableBuffer* releasePurgeableBuffer();
-    
+
+    // Return the number of consecutive bytes after "position". "data"
+    // points to the first byte.
+    // Return 0 when no more data left.
+    // When extracting all data with getSomeData(), the caller should
+    // repeat calling it until it returns 0.
+    // Usage:
+    //      const char* segment;
+    //      unsigned pos = 0;
+    //      while (unsigned length = sharedBuffer->getSomeData(segment, pos)) {
+    //          // Use the data. for example: decoder->decode(segment, length);
+    //          pos += length;
+    //      }
+    unsigned getSomeData(const char*& data, unsigned position = 0) const;
+
 private:
     SharedBuffer();
     SharedBuffer(const char*, int);
@@ -109,7 +136,9 @@ private:
     void maybeTransferPlatformData();
     bool hasPlatformData() const;
     
-    Vector<char> m_buffer;
+    unsigned m_size;
+    mutable Vector<char> m_buffer;
+    mutable Vector<char*> m_segments;
     OwnPtr<PurgeableBuffer> m_purgeableBuffer;
 #if PLATFORM(CF)
     SharedBuffer(CFDataRef);
@@ -119,4 +148,4 @@ private:
     
 }
 
-#endif
+#endif // SharedBuffer_h

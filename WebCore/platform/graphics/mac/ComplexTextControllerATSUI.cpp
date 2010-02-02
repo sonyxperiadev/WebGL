@@ -45,7 +45,7 @@ OSStatus ComplexTextController::ComplexTextRun::overrideLayoutOperation(ATSULayo
     ComplexTextRun* complexTextRun = reinterpret_cast<ComplexTextRun*>(refCon);
     OSStatus status;
     ItemCount count;
-    ATSLayoutRecord *layoutRecords;
+    ATSLayoutRecord* layoutRecords;
 
     status = ATSUDirectGetLayoutDataArrayPtrFromLineRef(atsuLineRef, kATSUDirectDataLayoutRecordATSLayoutRecordCurrent, true, reinterpret_cast<void**>(&layoutRecords), &count);
     if (status != noErr) {
@@ -66,7 +66,7 @@ OSStatus ComplexTextController::ComplexTextRun::overrideLayoutOperation(ATSULayo
     complexTextRun->m_glyphCount = count;
     complexTextRun->m_glyphsVector.reserveCapacity(count);
     complexTextRun->m_advancesVector.reserveCapacity(count);
-    complexTextRun->m_indices.reserveCapacity(count);
+    complexTextRun->m_atsuiIndices.reserveCapacity(count);
 
     bool atBeginning = true;
     CGFloat lastX = 0;
@@ -77,7 +77,7 @@ OSStatus ComplexTextController::ComplexTextRun::overrideLayoutOperation(ATSULayo
             continue;
         }
         complexTextRun->m_glyphsVector.uncheckedAppend(layoutRecords[j].glyphID);
-        complexTextRun->m_indices.uncheckedAppend(layoutRecords[j].originalOffset / 2 + indexOffset);
+        complexTextRun->m_atsuiIndices.uncheckedAppend(layoutRecords[j].originalOffset / 2 + indexOffset);
         CGFloat x = FixedToFloat(layoutRecords[j].realPos);
         if (!atBeginning)
             complexTextRun->m_advancesVector.uncheckedAppend(CGSizeMake(x - lastX, 0));
@@ -219,33 +219,29 @@ ComplexTextController::ComplexTextRun::ComplexTextRun(ATSUTextLayout atsuTextLay
     status = ATSUDisposeTextLayout(atsuTextLayout);
 }
 
-ComplexTextController::ComplexTextRun::ComplexTextRun(const SimpleFontData* fontData, const UChar* characters, unsigned stringLocation, size_t stringLength, bool ltr)
-    : m_fontData(fontData)
-    , m_characters(characters)
-    , m_stringLocation(stringLocation)
-    , m_stringLength(stringLength)
+void ComplexTextController::ComplexTextRun::createTextRunFromFontDataATSUI(bool ltr)
 {
-    m_indices.reserveCapacity(stringLength);
+    m_atsuiIndices.reserveCapacity(m_stringLength);
     unsigned r = 0;
-    while (r < stringLength) {
-        m_indices.uncheckedAppend(r);
-        if (U_IS_SURROGATE(characters[r])) {
-            ASSERT(r + 1 < stringLength);
-            ASSERT(U_IS_SURROGATE_LEAD(characters[r]));
-            ASSERT(U_IS_TRAIL(characters[r + 1]));
+    while (r < m_stringLength) {
+        m_atsuiIndices.uncheckedAppend(r);
+        if (U_IS_SURROGATE(m_characters[r])) {
+            ASSERT(r + 1 < m_stringLength);
+            ASSERT(U_IS_SURROGATE_LEAD(m_characters[r]));
+            ASSERT(U_IS_TRAIL(m_characters[r + 1]));
             r += 2;
         } else
             r++;
     }
-    m_glyphCount = m_indices.size();
+    m_glyphCount = m_atsuiIndices.size();
     if (!ltr) {
         for (unsigned r = 0, end = m_glyphCount - 1; r < m_glyphCount / 2; ++r, --end)
-            std::swap(m_indices[r], m_indices[end]);
+            std::swap(m_atsuiIndices[r], m_atsuiIndices[end]);
     }
 
     m_glyphsVector.fill(0, m_glyphCount);
     m_glyphs = m_glyphsVector.data();
-    m_advancesVector.fill(CGSizeMake(fontData->widthForGlyph(0), 0), m_glyphCount);
+    m_advancesVector.fill(CGSizeMake(m_fontData->widthForGlyph(0), 0), m_glyphCount);
     m_advances = m_advancesVector.data();
 }
 
@@ -261,33 +257,37 @@ static bool fontHasMirroringInfo(ATSUFontID fontID)
     return false;
 }
 
-static void disableLigatures(const SimpleFontData* fontData, TextRenderingMode textMode)
+static void disableLigatures(const SimpleFontData* fontData, ATSUStyle atsuStyle, TypesettingFeatures typesettingFeatures)
 {
     // Don't be too aggressive: if the font doesn't contain 'a', then assume that any ligatures it contains are
     // in characters that always go through ATSUI, and therefore allow them. Geeza Pro is an example.
     // See bugzilla 5166.
-    if (textMode == OptimizeLegibility || textMode == GeometricPrecision || fontData->platformData().allowsLigatures())
+    if ((typesettingFeatures & Ligatures) || fontData->platformData().allowsLigatures())
         return;
 
     ATSUFontFeatureType featureTypes[] = { kLigaturesType };
     ATSUFontFeatureSelector featureSelectors[] = { kCommonLigaturesOffSelector };
-    OSStatus status = ATSUSetFontFeatures(fontData->m_ATSUStyle, 1, featureTypes, featureSelectors);
+    OSStatus status = ATSUSetFontFeatures(atsuStyle, 1, featureTypes, featureSelectors);
     if (status != noErr)
         LOG_ERROR("ATSUSetFontFeatures failed (%d) -- ligatures remain enabled", static_cast<int>(status));
 }
 
-static void initializeATSUStyle(const SimpleFontData* fontData, TextRenderingMode textMode)
+static ATSUStyle initializeATSUStyle(const SimpleFontData* fontData, TypesettingFeatures typesettingFeatures)
 {
-    if (fontData->m_ATSUStyleInitialized)
-        return;
+    unsigned key = typesettingFeatures + 1;
+    pair<HashMap<unsigned, ATSUStyle>::iterator, bool> addResult = fontData->m_ATSUStyleMap.add(key, 0);
+    ATSUStyle& atsuStyle = addResult.first->second;
+    if (!addResult.second)
+        return atsuStyle;
 
     ATSUFontID fontID = fontData->platformData().m_atsuFontID;
     if (!fontID) {
         LOG_ERROR("unable to get ATSUFontID for %p", fontData->platformData().font());
-        return;
+        fontData->m_ATSUStyleMap.remove(addResult.first);
+        return 0;
     }
 
-    OSStatus status = ATSUCreateStyle(&fontData->m_ATSUStyle);
+    OSStatus status = ATSUCreateStyle(&atsuStyle);
     if (status != noErr)
         LOG_ERROR("ATSUCreateStyle failed (%d)", static_cast<int>(status));
 
@@ -299,19 +299,18 @@ static void initializeATSUStyle(const SimpleFontData* fontData, TextRenderingMod
     ATSUAttributeTag styleTags[4] = { kATSUSizeTag, kATSUFontTag, kATSUFontMatrixTag, kATSUKerningInhibitFactorTag };
     ATSUAttributeValuePtr styleValues[4] = { &fontSize, &fontID, &verticalFlip, &kerningInhibitFactor };
 
-    bool allowKerning = textMode == OptimizeLegibility || textMode == GeometricPrecision;
-    status = ATSUSetAttributes(fontData->m_ATSUStyle, allowKerning ? 3 : 4, styleTags, styleSizes, styleValues);
+    bool allowKerning = typesettingFeatures & Kerning;
+    status = ATSUSetAttributes(atsuStyle, allowKerning ? 3 : 4, styleTags, styleSizes, styleValues);
     if (status != noErr)
         LOG_ERROR("ATSUSetAttributes failed (%d)", static_cast<int>(status));
 
     fontData->m_ATSUMirrors = fontHasMirroringInfo(fontID);
 
-    disableLigatures(fontData, textMode);
-
-    fontData->m_ATSUStyleInitialized = true;
+    disableLigatures(fontData, atsuStyle, typesettingFeatures);
+    return atsuStyle;
 }
 
-void ComplexTextController::collectComplexTextRunsForCharacters(const UChar* cp, unsigned length, unsigned stringLocation, const SimpleFontData* fontData)
+void ComplexTextController::collectComplexTextRunsForCharactersATSUI(const UChar* cp, unsigned length, unsigned stringLocation, const SimpleFontData* fontData)
 {
     if (!fontData) {
         // Create a run of missing glyphs from the primary font.
@@ -322,13 +321,13 @@ void ComplexTextController::collectComplexTextRunsForCharacters(const UChar* cp,
     if (m_fallbackFonts && fontData != m_font.primaryFont())
         m_fallbackFonts->add(fontData);
 
-    initializeATSUStyle(fontData, m_font.fontDescription().textRenderingMode());
+    ATSUStyle atsuStyle = initializeATSUStyle(fontData, m_font.typesettingFeatures());
 
     OSStatus status;
     ATSUTextLayout atsuTextLayout;
     UniCharCount runLength = length;
 
-    status = ATSUCreateTextLayoutWithTextPtr(cp, 0, length, length, 1, &runLength, &fontData->m_ATSUStyle, &atsuTextLayout);
+    status = ATSUCreateTextLayoutWithTextPtr(cp, 0, length, length, 1, &runLength, &atsuStyle, &atsuTextLayout);
     if (status != noErr) {
         LOG_ERROR("ATSUCreateTextLayoutWithTextPtr failed with error %d", static_cast<int>(status));
         return;

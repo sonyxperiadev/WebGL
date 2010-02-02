@@ -31,6 +31,7 @@
 #include "config.h"
 
 #if ENABLE(NOTIFICATIONS)
+#include "V8NotificationCenter.h"
 
 #include "NotImplemented.h"
 #include "Notification.h"
@@ -39,6 +40,7 @@
 #include "V8CustomBinding.h"
 #include "V8CustomEventListener.h"
 #include "V8CustomVoidCallback.h"
+#include "V8Notification.h"
 #include "V8Proxy.h"
 #include "V8Utilities.h"
 #include "WorkerContext.h"
@@ -46,42 +48,42 @@
 
 namespace WebCore {
 
-CALLBACK_FUNC_DECL(NotificationAddEventListener)
+v8::Handle<v8::Value> V8Notification::addEventListenerCallback(const v8::Arguments& args)
 {
     INC_STATS("DOM.Notification.addEventListener()");
-    Notification* notification = V8DOMWrapper::convertToNativeObject<Notification>(V8ClassIndex::NOTIFICATION, args.Holder());
+    Notification* notification = V8Notification::toNative(args.Holder());
 
     RefPtr<EventListener> listener = V8DOMWrapper::getEventListener(notification, args[1], false, ListenerFindOrCreate);
     if (listener) {
         String type = toWebCoreString(args[0]);
         bool useCapture = args[2]->BooleanValue();
         notification->addEventListener(type, listener, useCapture);
-        createHiddenDependency(args.Holder(), args[1], V8Custom::kNotificationRequestCacheIndex);
+        createHiddenDependency(args.Holder(), args[1], cacheIndex);
     }
 
     return v8::Undefined();
 }
 
-CALLBACK_FUNC_DECL(NotificationRemoveEventListener)
+v8::Handle<v8::Value> V8Notification::removeEventListenerCallback(const v8::Arguments& args)
 {
     INC_STATS("DOM.Notification.removeEventListener()");
-    Notification* notification = V8DOMWrapper::convertToNativeObject<Notification>(V8ClassIndex::NOTIFICATION, args.Holder());
+    Notification* notification = V8Notification::toNative(args.Holder());
 
     RefPtr<EventListener> listener = V8DOMWrapper::getEventListener(notification, args[1], false, ListenerFindOnly);
     if (listener) {
         String type = toWebCoreString(args[0]);
         bool useCapture = args[2]->BooleanValue();
         notification->removeEventListener(type, listener.get(), useCapture);
-        removeHiddenDependency(args.Holder(), args[1], V8Custom::kNotificationRequestCacheIndex);
+        removeHiddenDependency(args.Holder(), args[1], cacheIndex);
     }
 
     return v8::Undefined();
 }
 
-CALLBACK_FUNC_DECL(NotificationCenterCreateHTMLNotification)
+v8::Handle<v8::Value> V8NotificationCenter::createHTMLNotificationCallback(const v8::Arguments& args)
 {
     INC_STATS(L"DOM.NotificationCenter.CreateHTMLNotification()");
-    NotificationCenter* notificationCenter = V8DOMWrapper::convertToNativeObject<NotificationCenter>(V8ClassIndex::NOTIFICATIONCENTER, args.Holder());
+    NotificationCenter* notificationCenter = V8NotificationCenter::toNative(args.Holder());
 
     ExceptionCode ec = 0;
     String url = toWebCoreString(args[0]);
@@ -96,10 +98,10 @@ CALLBACK_FUNC_DECL(NotificationCenterCreateHTMLNotification)
     return V8DOMWrapper::convertToV8Object(V8ClassIndex::NOTIFICATION, notification.get());
 }
 
-CALLBACK_FUNC_DECL(NotificationCenterCreateNotification)
+v8::Handle<v8::Value> V8NotificationCenter::createNotificationCallback(const v8::Arguments& args)
 {
     INC_STATS(L"DOM.NotificationCenter.CreateNotification()");
-    NotificationCenter* notificationCenter = V8DOMWrapper::convertToNativeObject<NotificationCenter>(V8ClassIndex::NOTIFICATIONCENTER, args.Holder());
+    NotificationCenter* notificationCenter = V8NotificationCenter::toNative(args.Holder());
 
     ExceptionCode ec = 0;
     RefPtr<Notification> notification = notificationCenter->createNotification(toWebCoreString(args[0]), toWebCoreString(args[1]), toWebCoreString(args[2]), ec);
@@ -113,10 +115,10 @@ CALLBACK_FUNC_DECL(NotificationCenterCreateNotification)
     return V8DOMWrapper::convertToV8Object(V8ClassIndex::NOTIFICATION, notification.get());
 }
 
-CALLBACK_FUNC_DECL(NotificationCenterRequestPermission)
+v8::Handle<v8::Value> V8NotificationCenter::requestPermissionCallback(const v8::Arguments& args)
 {
     INC_STATS(L"DOM.NotificationCenter.RequestPermission()");
-    NotificationCenter* notificationCenter = V8DOMWrapper::convertToNativeObject<NotificationCenter>(V8ClassIndex::NOTIFICATIONCENTER, args.Holder());
+    NotificationCenter* notificationCenter = V8NotificationCenter::toNative(args.Holder());
     ScriptExecutionContext* context = notificationCenter->context();
 
     // Requesting permission is only valid from a page context.

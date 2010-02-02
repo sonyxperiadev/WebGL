@@ -32,7 +32,7 @@
 
 #if ENABLE(3D_CANVAS)
 
-#include "WebGLRenderingContext.h"
+#include "V8WebGLRenderingContext.h"
 
 #include "ExceptionCode.h"
 
@@ -54,7 +54,10 @@
 #include "V8WebGLUnsignedShortArray.h"
 #include "V8HTMLCanvasElement.h"
 #include "V8HTMLImageElement.h"
+#include "V8HTMLVideoElement.h"
+#include "V8ImageData.h"
 #include "V8Proxy.h"
+#include "WebGLRenderingContext.h"
 
 namespace WebCore {
 
@@ -98,7 +101,7 @@ static int* jsArrayToIntArray(v8::Handle<v8::Array> array, uint32_t len)
     return data;
 }
 
-CALLBACK_FUNC_DECL(WebGLRenderingContextBufferData)
+v8::Handle<v8::Value> V8WebGLRenderingContext::bufferDataCallback(const v8::Arguments& args)
 {
     INC_STATS("DOM.WebGLRenderingContext.bufferData()");
 
@@ -112,8 +115,7 @@ CALLBACK_FUNC_DECL(WebGLRenderingContextBufferData)
         return notHandledByInterceptor();
     }
 
-    WebGLRenderingContext* context =
-        V8DOMWrapper::convertDOMWrapperToNative<WebGLRenderingContext>(args.Holder());
+    WebGLRenderingContext* context = V8WebGLRenderingContext::toNative(args.Holder());
     bool ok;
     int target = toInt32(args[0], ok);
     if (!ok) {
@@ -130,7 +132,7 @@ CALLBACK_FUNC_DECL(WebGLRenderingContextBufferData)
         ExceptionCode exceptionCode;
         context->bufferData(target, size, usage, exceptionCode);
     } else if (V8WebGLArray::HasInstance(args[1])) {
-        WebGLArray* array = V8DOMWrapper::convertToNativeObject<WebGLArray>(V8ClassIndex::WEBGLARRAY, args[1]->ToObject());
+        WebGLArray* array = V8WebGLArray::toNative(args[1]->ToObject());
         ExceptionCode exceptionCode;
         context->bufferData(target, array, usage, exceptionCode);
     } else {
@@ -140,7 +142,7 @@ CALLBACK_FUNC_DECL(WebGLRenderingContextBufferData)
     return v8::Undefined();
 }
 
-CALLBACK_FUNC_DECL(WebGLRenderingContextBufferSubData)
+v8::Handle<v8::Value> V8WebGLRenderingContext::bufferSubDataCallback(const v8::Arguments& args)
 {
     INC_STATS("DOM.WebGLRenderingContext.bufferSubData()");
 
@@ -151,8 +153,7 @@ CALLBACK_FUNC_DECL(WebGLRenderingContextBufferSubData)
         return notHandledByInterceptor();
     }
 
-    WebGLRenderingContext* context =
-        V8DOMWrapper::convertDOMWrapperToNative<WebGLRenderingContext>(args.Holder());
+    WebGLRenderingContext* context = V8WebGLRenderingContext::toNative(args.Holder());
     bool ok;
     int target = toInt32(args[0], ok);
     if (!ok) {
@@ -168,7 +169,7 @@ CALLBACK_FUNC_DECL(WebGLRenderingContextBufferSubData)
         V8Proxy::setDOMException(SYNTAX_ERR);
         return notHandledByInterceptor();
     }
-    WebGLArray* array = V8DOMWrapper::convertToNativeObject<WebGLArray>(V8ClassIndex::WEBGLARRAY, args[2]->ToObject());
+    WebGLArray* array = V8WebGLArray::toNative(args[2]->ToObject());
     ExceptionCode exceptionCode;
     context->bufferSubData(target, offset, array, exceptionCode);
     return v8::Undefined();
@@ -225,8 +226,7 @@ static v8::Handle<v8::Value> getObjectParameter(const v8::Arguments& args, Objec
     }
 
     ExceptionCode ec = 0;
-    WebGLRenderingContext* context =
-        V8DOMWrapper::convertDOMWrapperToNative<WebGLRenderingContext>(args.Holder());
+    WebGLRenderingContext* context = V8WebGLRenderingContext::toNative(args.Holder());
     bool ok;
     unsigned target = toInt32(args[0], ok);
     if (!ok) {
@@ -269,8 +269,7 @@ static WebGLUniformLocation* toWebGLUniformLocation(v8::Handle<v8::Value> value,
     ok = false;
     WebGLUniformLocation* location = 0;
     if (V8WebGLUniformLocation::HasInstance(value)) {
-        location = V8DOMWrapper::convertToNativeObject<WebGLUniformLocation>(
-            V8ClassIndex::WEBGLUNIFORMLOCATION, value->ToObject());
+        location = V8WebGLUniformLocation::toNative(value->ToObject());
         ok = true;
     }
     return location;
@@ -280,13 +279,13 @@ enum WhichProgramCall {
     kProgramParameter, kUniform
 };
 
-CALLBACK_FUNC_DECL(WebGLRenderingContextGetBufferParameter)
+v8::Handle<v8::Value> V8WebGLRenderingContext::getBufferParameterCallback(const v8::Arguments& args)
 {
     INC_STATS("DOM.WebGLRenderingContext.getBufferParameter()");
     return getObjectParameter(args, kBuffer);
 }
 
-CALLBACK_FUNC_DECL(WebGLRenderingContextGetFramebufferAttachmentParameter)
+v8::Handle<v8::Value> V8WebGLRenderingContext::getFramebufferAttachmentParameterCallback(const v8::Arguments& args)
 {
     INC_STATS("DOM.WebGLRenderingContext.getFramebufferAttachmentParameter()");
 
@@ -296,8 +295,7 @@ CALLBACK_FUNC_DECL(WebGLRenderingContextGetFramebufferAttachmentParameter)
     }
 
     ExceptionCode ec = 0;
-    WebGLRenderingContext* context =
-        V8DOMWrapper::convertDOMWrapperToNative<WebGLRenderingContext>(args.Holder());
+    WebGLRenderingContext* context = V8WebGLRenderingContext::toNative(args.Holder());
     bool ok;
     unsigned target = toInt32(args[0], ok);
     if (!ok) {
@@ -322,7 +320,7 @@ CALLBACK_FUNC_DECL(WebGLRenderingContextGetFramebufferAttachmentParameter)
     return toV8(info);
 }
 
-CALLBACK_FUNC_DECL(WebGLRenderingContextGetParameter)
+v8::Handle<v8::Value> V8WebGLRenderingContext::getParameterCallback(const v8::Arguments& args)
 {
     INC_STATS("DOM.WebGLRenderingContext.getParameter()");
 
@@ -332,8 +330,7 @@ CALLBACK_FUNC_DECL(WebGLRenderingContextGetParameter)
     }
 
     ExceptionCode ec = 0;
-    WebGLRenderingContext* context =
-        V8DOMWrapper::convertDOMWrapperToNative<WebGLRenderingContext>(args.Holder());
+    WebGLRenderingContext* context = V8WebGLRenderingContext::toNative(args.Holder());
     bool ok;
     unsigned pname = toInt32(args[0], ok);
     if (!ok) {
@@ -348,7 +345,7 @@ CALLBACK_FUNC_DECL(WebGLRenderingContextGetParameter)
     return toV8(info);
 }
 
-CALLBACK_FUNC_DECL(WebGLRenderingContextGetProgramParameter)
+v8::Handle<v8::Value> V8WebGLRenderingContext::getProgramParameterCallback(const v8::Arguments& args)
 {
     INC_STATS("DOM.WebGLRenderingContext.getProgramParameter()");
 
@@ -358,9 +355,8 @@ CALLBACK_FUNC_DECL(WebGLRenderingContextGetProgramParameter)
     }
 
     ExceptionCode ec = 0;
-    WebGLRenderingContext* context =
-        V8DOMWrapper::convertDOMWrapperToNative<WebGLRenderingContext>(args.Holder());
-    WebGLProgram* program = V8WebGLProgram::HasInstance(args[0]) ? v8DOMWrapperTo<WebGLProgram>(V8ClassIndex::WEBGLPROGRAM, v8::Handle<v8::Object>::Cast(args[0])) : 0;
+    WebGLRenderingContext* context = V8WebGLRenderingContext::toNative(args.Holder());
+    WebGLProgram* program = V8WebGLProgram::HasInstance(args[0]) ? V8WebGLProgram::toNative(v8::Handle<v8::Object>::Cast(args[0])) : 0;
     bool ok;
     unsigned pname = toInt32(args[1], ok);
     if (!ok) {
@@ -375,13 +371,13 @@ CALLBACK_FUNC_DECL(WebGLRenderingContextGetProgramParameter)
     return toV8(info);
 }
 
-CALLBACK_FUNC_DECL(WebGLRenderingContextGetRenderbufferParameter)
+v8::Handle<v8::Value> V8WebGLRenderingContext::getRenderbufferParameterCallback(const v8::Arguments& args)
 {
     INC_STATS("DOM.WebGLRenderingContext.getRenderbufferParameter()");
     return getObjectParameter(args, kRenderbuffer);
 }
 
-CALLBACK_FUNC_DECL(WebGLRenderingContextGetShaderParameter)
+v8::Handle<v8::Value> V8WebGLRenderingContext::getShaderParameterCallback(const v8::Arguments& args)
 {
     INC_STATS("DOM.WebGLRenderingContext.getShaderParameter()");
 
@@ -391,9 +387,8 @@ CALLBACK_FUNC_DECL(WebGLRenderingContextGetShaderParameter)
     }
 
     ExceptionCode ec = 0;
-    WebGLRenderingContext* context =
-        V8DOMWrapper::convertDOMWrapperToNative<WebGLRenderingContext>(args.Holder());
-    WebGLShader* shader = V8WebGLShader::HasInstance(args[0]) ? v8DOMWrapperTo<WebGLShader>(V8ClassIndex::WEBGLSHADER, v8::Handle<v8::Object>::Cast(args[0])) : 0;
+    WebGLRenderingContext* context = V8WebGLRenderingContext::toNative(args.Holder());
+    WebGLShader* shader = V8WebGLShader::HasInstance(args[0]) ? V8WebGLShader::toNative(v8::Handle<v8::Object>::Cast(args[0])) : 0;
     bool ok;
     unsigned pname = toInt32(args[1], ok);
     if (!ok) {
@@ -408,13 +403,13 @@ CALLBACK_FUNC_DECL(WebGLRenderingContextGetShaderParameter)
     return toV8(info);
 }
 
-CALLBACK_FUNC_DECL(WebGLRenderingContextGetTexParameter)
+v8::Handle<v8::Value> V8WebGLRenderingContext::getTexParameterCallback(const v8::Arguments& args)
 {
     INC_STATS("DOM.WebGLRenderingContext.getTexParameter()");
     return getObjectParameter(args, kTexture);
 }
 
-CALLBACK_FUNC_DECL(WebGLRenderingContextGetUniform)
+v8::Handle<v8::Value> V8WebGLRenderingContext::getUniformCallback(const v8::Arguments& args)
 {
     INC_STATS("DOM.WebGLRenderingContext.getUniform()");
 
@@ -424,9 +419,8 @@ CALLBACK_FUNC_DECL(WebGLRenderingContextGetUniform)
     }
 
     ExceptionCode ec = 0;
-    WebGLRenderingContext* context =
-        V8DOMWrapper::convertDOMWrapperToNative<WebGLRenderingContext>(args.Holder());
-    WebGLProgram* program = V8WebGLProgram::HasInstance(args[0]) ? v8DOMWrapperTo<WebGLProgram>(V8ClassIndex::WEBGLPROGRAM, v8::Handle<v8::Object>::Cast(args[0])) : 0;
+    WebGLRenderingContext* context = V8WebGLRenderingContext::toNative(args.Holder());
+    WebGLProgram* program = V8WebGLProgram::HasInstance(args[0]) ? V8WebGLProgram::toNative(v8::Handle<v8::Object>::Cast(args[0])) : 0;
 
     bool ok = false;
     WebGLUniformLocation* location = toWebGLUniformLocation(args[1], ok);
@@ -443,13 +437,13 @@ CALLBACK_FUNC_DECL(WebGLRenderingContextGetUniform)
     return toV8(info);
 }
 
-CALLBACK_FUNC_DECL(WebGLRenderingContextGetVertexAttrib)
+v8::Handle<v8::Value> V8WebGLRenderingContext::getVertexAttribCallback(const v8::Arguments& args)
 {
     INC_STATS("DOM.WebGLRenderingContext.getVertexAttrib()");
     return getObjectParameter(args, kVertexAttrib);
 }
 
-CALLBACK_FUNC_DECL(WebGLRenderingContextTexImage2D)
+v8::Handle<v8::Value> V8WebGLRenderingContext::texImage2DCallback(const v8::Arguments& args)
 {
     INC_STATS("DOM.WebGLRenderingContext.texImage2D()");
 
@@ -458,9 +452,13 @@ CALLBACK_FUNC_DECL(WebGLRenderingContextTexImage2D)
     //                   in GLint internalformat,
     //                   in GLsizei width, in GLsizei height, in GLint border,
     //                   in GLenum format, in GLenum type, in WebGLArray pixels);
+    // * void texImage2D(in GLenum target, in GLint level, in ImageData pixels,
+    //                   [Optional] in GLboolean flipY, [Optional] in GLboolean premulitplyAlpha);
     // * void texImage2D(in GLenum target, in GLint level, in HTMLImageElement image,
     //                   [Optional] in GLboolean flipY, [Optional] in GLboolean premultiplyAlpha);
     // * void texImage2D(in GLenum target, in GLint level, in HTMLCanvasElement image,
+    //                   [Optional] in GLboolean flipY, [Optional] in GLboolean premultiplyAlpha);
+    // * void texImage2D(in GLenum target, in GLint level, in HTMLVideoElement image,
     //                   [Optional] in GLboolean flipY, [Optional] in GLboolean premultiplyAlpha);
     if (args.Length() != 3 &&
         args.Length() != 4 &&
@@ -470,8 +468,7 @@ CALLBACK_FUNC_DECL(WebGLRenderingContextTexImage2D)
         return notHandledByInterceptor();
     }
 
-    WebGLRenderingContext* context =
-        V8DOMWrapper::convertDOMWrapperToNative<WebGLRenderingContext>(args.Holder());
+    WebGLRenderingContext* context = V8WebGLRenderingContext::toNative(args.Holder());
     bool ok;
     int target = toInt32(args[0], ok);
     if (!ok) {
@@ -488,21 +485,28 @@ CALLBACK_FUNC_DECL(WebGLRenderingContextTexImage2D)
     if (args.Length() == 3 ||
         args.Length() == 4 ||
         args.Length() == 5) {
-        v8::Handle<v8::Value> arg = args[2];
         bool flipY = false;
         bool premultiplyAlpha = false;
         if (args.Length() >= 4)
             flipY = args[3]->BooleanValue();
         if (args.Length() >= 5)
             premultiplyAlpha = args[4]->BooleanValue();
+
+        v8::Handle<v8::Value> arg = args[2];
         if (V8HTMLImageElement::HasInstance(arg)) {
-            HTMLImageElement* element = V8DOMWrapper::convertDOMWrapperToNode<HTMLImageElement>(v8::Handle<v8::Object>::Cast(arg));
+            HTMLImageElement* element = V8HTMLImageElement::toNative(v8::Handle<v8::Object>::Cast(arg));
             context->texImage2D(target, level, element, flipY, premultiplyAlpha, ec);
         } else if (V8HTMLCanvasElement::HasInstance(arg)) {
-            HTMLCanvasElement* element = V8DOMWrapper::convertDOMWrapperToNode<HTMLCanvasElement>(v8::Handle<v8::Object>::Cast(arg));
+            HTMLCanvasElement* element = V8HTMLCanvasElement::toNative(v8::Handle<v8::Object>::Cast(arg));
             context->texImage2D(target, level, element, flipY, premultiplyAlpha, ec);
-        } else {
-            // FIXME: support HTMLVideoElement and ImageData.
+        } else if(V8ImageData::HasInstance(arg)) {
+            ImageData* imageElement = V8ImageData::toNative(v8::Handle<v8::Object>::Cast(arg));
+            context->texImage2D(target, level, imageElement, flipY, premultiplyAlpha, ec);
+        } else if (V8HTMLVideoElement::HasInstance(arg)) {
+            HTMLVideoElement* element = V8HTMLVideoElement::toNative(v8::Handle<v8::Object>::Cast(arg));
+            context->texImage2D(target, level, element, flipY, premultiplyAlpha, ec);
+        }
+        else {
             // FIXME: consider different / better exception type.
             V8Proxy::setDOMException(SYNTAX_ERR);
             return notHandledByInterceptor();
@@ -540,10 +544,20 @@ CALLBACK_FUNC_DECL(WebGLRenderingContextTexImage2D)
             return notHandledByInterceptor();
         }
         v8::Handle<v8::Value> arg = args[8];
-        if (V8WebGLArray::HasInstance(arg)) {
-            WebGLArray* array = V8DOMWrapper::convertToNativeObject<WebGLArray>(V8ClassIndex::WEBGLARRAY, arg->ToObject());
-            // FIXME: must do validation similar to JOGL's to ensure that
-            // the incoming array is of the appropriate length and type
+        if (!arg->IsObject())
+        // Assume that the user is passing null for texture
+            context->texImage2D(target,
+                                level,
+                                internalformat,
+                                width,
+                                height,
+                                border,
+                                format,
+                                type,
+                                0,
+                                ec);
+     else if (V8WebGLArray::HasInstance(arg)) {
+            WebGLArray* array = V8WebGLArray::toNative(arg->ToObject());
             context->texImage2D(target,
                                 level,
                                 internalformat,
@@ -571,13 +585,145 @@ CALLBACK_FUNC_DECL(WebGLRenderingContextTexImage2D)
     return v8::Undefined();
 }
 
-CALLBACK_FUNC_DECL(WebGLRenderingContextTexSubImage2D)
+v8::Handle<v8::Value> V8WebGLRenderingContext::texSubImage2DCallback(const v8::Arguments& args)
 {
     INC_STATS("DOM.WebGLRenderingContext.texSubImage2D()");
 
-    // FIXME: implement
-    notImplemented();
+    // Currently supported forms:
+    // * void texSubImage2D(in GLenum target, in GLint level, in GLint xoffset, in GLint yoffset, 
+    //                      in GLsizei width, in GLsizei height, 
+    //                      in GLenum format, in GLenum type, in WebGLArray pixels);
+    // * void texSubImage2D(in GLenum target, in GLint level, in GLint xoffset, in GLint yoffset,
+    //                      in ImageData pixels, [Optional] GLboolean flipY, [Optional] in premultiplyAlpha);
+    // * void texSubImage2D(in GLenum target, in GLint level, in GLint xoffset, in GLint yoffset, 
+    //                      in HTMLImageElement image, [Optional] GLboolean flipY, [Optional] in premultiplyAlpha);
+    // * void texSubImage2D(in GLenum target, in GLint level, in GLint xoffset, in GLint yoffset, 
+    //                      in HTMLCanvasElement canvas, [Optional] GLboolean flipY, [Optional] in premultiplyAlpha);
+    // * void texSubImage2D(in GLenum target, in GLint level, in GLint xoffset, in GLint yoffset, 
+    //                      in HTMLVideoElement video, [Optional] GLboolean flipY, [Optional] in premultiplyAlpha);
 
+    if (args.Length() != 5 &&
+        args.Length() != 6 &&
+        args.Length() != 7 &&
+        args.Length() != 9) {
+        V8Proxy::setDOMException(SYNTAX_ERR);
+        return notHandledByInterceptor();
+    }
+
+    WebGLRenderingContext* context = V8WebGLRenderingContext::toNative(args.Holder());
+    bool ok;
+    int target = toInt32(args[0], ok);
+    if (!ok) {
+        V8Proxy::setDOMException(SYNTAX_ERR);
+        return notHandledByInterceptor();
+    }
+    int level = toInt32(args[1], ok);
+    if (!ok) {
+        V8Proxy::setDOMException(SYNTAX_ERR);
+        return notHandledByInterceptor();
+    }
+    int xoff = toInt32(args[2], ok);
+    if (!ok) {
+        V8Proxy::setDOMException(SYNTAX_ERR);
+        return notHandledByInterceptor();
+    }
+    int yoff = toInt32(args[3], ok);
+    if (!ok) {
+        V8Proxy::setDOMException(SYNTAX_ERR);
+        return notHandledByInterceptor();
+    }
+
+    ExceptionCode ec = 0;
+    if (args.Length() == 5 ||
+        args.Length() == 6 ||
+        args.Length() == 7) {
+        bool flipY = false;
+        bool premultiplyAlpha = false;
+        if (args.Length() >= 6)
+            flipY = args[5]->BooleanValue();
+        if (args.Length() >= 7)
+            premultiplyAlpha = args[6]->BooleanValue();
+
+        v8::Handle<v8::Value> arg = args[4];
+        if (V8HTMLImageElement::HasInstance(arg)) {
+            HTMLImageElement* element = V8HTMLImageElement::toNative(v8::Handle<v8::Object>::Cast(arg));
+            context->texSubImage2D(target, level, xoff, yoff, element, flipY, premultiplyAlpha, ec);
+        } else if (V8HTMLCanvasElement::HasInstance(arg)) {
+            HTMLCanvasElement* element = V8HTMLCanvasElement::toNative(v8::Handle<v8::Object>::Cast(arg));
+            context->texSubImage2D(target, level, xoff, yoff, element, flipY, premultiplyAlpha, ec);
+        } else if(V8ImageData::HasInstance(arg)) {
+            ImageData* imageElement = V8ImageData::toNative(v8::Handle<v8::Object>::Cast(arg));
+            context->texSubImage2D(target, level, xoff, yoff, imageElement, flipY, premultiplyAlpha, ec);
+        } else if (V8HTMLVideoElement::HasInstance(arg)) {
+            HTMLVideoElement* element = V8HTMLVideoElement::toNative(v8::Handle<v8::Object>::Cast(arg));
+            context->texSubImage2D(target, level, xoff, yoff, element, flipY, premultiplyAlpha, ec);
+        }
+        else {
+            // FIXME: consider different / better exception type.
+            V8Proxy::setDOMException(SYNTAX_ERR);
+            return notHandledByInterceptor();
+        }
+        // Fall through
+    } else if (args.Length() == 9) {
+        int width = toInt32(args[4], ok);
+        if (!ok) {
+            V8Proxy::setDOMException(SYNTAX_ERR);
+            return notHandledByInterceptor();
+        }
+        int height = toInt32(args[5], ok);
+        if (!ok) {
+            V8Proxy::setDOMException(SYNTAX_ERR);
+            return notHandledByInterceptor();
+        }
+        int format = toInt32(args[6], ok);
+        if (!ok) {
+            V8Proxy::setDOMException(SYNTAX_ERR);
+            return notHandledByInterceptor();
+        }
+        int type = toInt32(args[7], ok);
+        if (!ok) {
+            V8Proxy::setDOMException(SYNTAX_ERR);
+            return notHandledByInterceptor();
+        }
+        v8::Handle<v8::Value> arg = args[8];
+        if (!arg->IsObject())
+        // Assume that the user is passing null for texture
+            context->texSubImage2D(target,
+                                   level,
+                                   xoff,
+                                   yoff,
+                                   width,
+                                   height,
+                                   format,
+                                   type,
+                                   0,
+                                   ec);
+     else if (V8WebGLArray::HasInstance(arg)) {
+            WebGLArray* array = V8WebGLArray::toNative(arg->ToObject());
+            context->texSubImage2D(target,
+                                   level,
+                                   xoff,
+                                   yoff,
+                                   width,
+                                   height,
+                                   format,
+                                   type,
+                                   array,
+                                   ec);
+            // Fall through
+        } else {
+            V8Proxy::setDOMException(SYNTAX_ERR);
+            return notHandledByInterceptor();
+        }
+    } else {
+        ASSERT_NOT_REACHED();
+        V8Proxy::setDOMException(SYNTAX_ERR);
+        return notHandledByInterceptor();
+    }
+    if (ec) {
+        V8Proxy::setDOMException(ec);
+        return v8::Handle<v8::Value>();
+    }
     return v8::Undefined();
 }
 
@@ -634,16 +780,14 @@ static v8::Handle<v8::Value> vertexAttribAndUniformHelperf(const v8::Arguments& 
     else
         location = toWebGLUniformLocation(args[0], ok);
 
-    WebGLRenderingContext* context =
-        V8DOMWrapper::convertDOMWrapperToNative<WebGLRenderingContext>(args.Holder());
+    WebGLRenderingContext* context = V8WebGLRenderingContext::toNative(args.Holder());
 
     if (!ok) {
         V8Proxy::setDOMException(SYNTAX_ERR);
         return notHandledByInterceptor();
     }
     if (V8WebGLFloatArray::HasInstance(args[1])) {
-        WebGLFloatArray* array = 
-            V8DOMWrapper::convertToNativeObject<WebGLFloatArray>(V8ClassIndex::WEBGLFLOATARRAY, args[1]->ToObject());
+        WebGLFloatArray* array = V8WebGLFloatArray::toNative(args[1]->ToObject());
         ASSERT(array != NULL);
         ExceptionCode ec = 0;
         switch (functionToCall) {
@@ -710,8 +854,7 @@ static v8::Handle<v8::Value> uniformHelperi(const v8::Arguments& args,
         return notHandledByInterceptor();
     }
 
-    WebGLRenderingContext* context =
-        V8DOMWrapper::convertDOMWrapperToNative<WebGLRenderingContext>(args.Holder());
+    WebGLRenderingContext* context = V8WebGLRenderingContext::toNative(args.Holder());
     bool ok = false;
     WebGLUniformLocation* location = toWebGLUniformLocation(args[0], ok);
 
@@ -720,8 +863,7 @@ static v8::Handle<v8::Value> uniformHelperi(const v8::Arguments& args,
         return notHandledByInterceptor();
     }
     if (V8WebGLIntArray::HasInstance(args[1])) {
-        WebGLIntArray* array = 
-            V8DOMWrapper::convertToNativeObject<WebGLIntArray>(V8ClassIndex::WEBGLINTARRAY, args[1]->ToObject());
+        WebGLIntArray* array = V8WebGLIntArray::toNative(args[1]->ToObject());
         ASSERT(array != NULL);
         ExceptionCode ec = 0;
         switch (functionToCall) {
@@ -763,49 +905,49 @@ static v8::Handle<v8::Value> uniformHelperi(const v8::Arguments& args,
     return v8::Undefined();
 }
 
-CALLBACK_FUNC_DECL(WebGLRenderingContextUniform1fv)
+v8::Handle<v8::Value> V8WebGLRenderingContext::uniform1fvCallback(const v8::Arguments& args)
 {
     INC_STATS("DOM.WebGLRenderingContext.uniform1fv()");
     return vertexAttribAndUniformHelperf(args, kUniform1v);
 }
 
-CALLBACK_FUNC_DECL(WebGLRenderingContextUniform1iv)
+v8::Handle<v8::Value> V8WebGLRenderingContext::uniform1ivCallback(const v8::Arguments& args)
 {
     INC_STATS("DOM.WebGLRenderingContext.uniform1iv()");
     return uniformHelperi(args, kUniform1v);
 }
 
-CALLBACK_FUNC_DECL(WebGLRenderingContextUniform2fv)
+v8::Handle<v8::Value> V8WebGLRenderingContext::uniform2fvCallback(const v8::Arguments& args)
 {
     INC_STATS("DOM.WebGLRenderingContext.uniform2fv()");
     return vertexAttribAndUniformHelperf(args, kUniform2v);
 }
 
-CALLBACK_FUNC_DECL(WebGLRenderingContextUniform2iv)
+v8::Handle<v8::Value> V8WebGLRenderingContext::uniform2ivCallback(const v8::Arguments& args)
 {
     INC_STATS("DOM.WebGLRenderingContext.uniform2iv()");
     return uniformHelperi(args, kUniform2v);
 }
 
-CALLBACK_FUNC_DECL(WebGLRenderingContextUniform3fv)
+v8::Handle<v8::Value> V8WebGLRenderingContext::uniform3fvCallback(const v8::Arguments& args)
 {
     INC_STATS("DOM.WebGLRenderingContext.uniform3fv()");
     return vertexAttribAndUniformHelperf(args, kUniform3v);
 }
 
-CALLBACK_FUNC_DECL(WebGLRenderingContextUniform3iv)
+v8::Handle<v8::Value> V8WebGLRenderingContext::uniform3ivCallback(const v8::Arguments& args)
 {
     INC_STATS("DOM.WebGLRenderingContext.uniform3iv()");
     return uniformHelperi(args, kUniform3v);
 }
 
-CALLBACK_FUNC_DECL(WebGLRenderingContextUniform4fv)
+v8::Handle<v8::Value> V8WebGLRenderingContext::uniform4fvCallback(const v8::Arguments& args)
 {
     INC_STATS("DOM.WebGLRenderingContext.uniform4fv()");
     return vertexAttribAndUniformHelperf(args, kUniform4v);
 }
 
-CALLBACK_FUNC_DECL(WebGLRenderingContextUniform4iv)
+v8::Handle<v8::Value> V8WebGLRenderingContext::uniform4ivCallback(const v8::Arguments& args)
 {
     INC_STATS("DOM.WebGLRenderingContext.uniform4iv()");
     return uniformHelperi(args, kUniform4v);
@@ -828,8 +970,7 @@ static v8::Handle<v8::Value> uniformMatrixHelper(const v8::Arguments& args,
         return notHandledByInterceptor();
     }
 
-    WebGLRenderingContext* context =
-        V8DOMWrapper::convertDOMWrapperToNative<WebGLRenderingContext>(args.Holder());
+    WebGLRenderingContext* context = V8WebGLRenderingContext::toNative(args.Holder());
 
     bool ok = false;
     WebGLUniformLocation* location = toWebGLUniformLocation(args[0], ok);
@@ -840,8 +981,7 @@ static v8::Handle<v8::Value> uniformMatrixHelper(const v8::Arguments& args,
     }
     bool transpose = args[1]->BooleanValue();
     if (V8WebGLFloatArray::HasInstance(args[2])) {
-        WebGLFloatArray* array = 
-            V8DOMWrapper::convertToNativeObject<WebGLFloatArray>(V8ClassIndex::WEBGLFLOATARRAY, args[2]->ToObject());
+        WebGLFloatArray* array = V8WebGLFloatArray::toNative(args[2]->ToObject());
         ASSERT(array != NULL);
         ExceptionCode ec = 0;
         switch (matrixSize) {
@@ -881,43 +1021,43 @@ static v8::Handle<v8::Value> uniformMatrixHelper(const v8::Arguments& args,
     return v8::Undefined();
 }
 
-CALLBACK_FUNC_DECL(WebGLRenderingContextUniformMatrix2fv)
+v8::Handle<v8::Value> V8WebGLRenderingContext::uniformMatrix2fvCallback(const v8::Arguments& args)
 {
     INC_STATS("DOM.WebGLRenderingContext.uniformMatrix2fv()");
     return uniformMatrixHelper(args, 2);
 }
 
-CALLBACK_FUNC_DECL(WebGLRenderingContextUniformMatrix3fv)
+v8::Handle<v8::Value> V8WebGLRenderingContext::uniformMatrix3fvCallback(const v8::Arguments& args)
 {
     INC_STATS("DOM.WebGLRenderingContext.uniformMatrix3fv()");
     return uniformMatrixHelper(args, 3);
 }
 
-CALLBACK_FUNC_DECL(WebGLRenderingContextUniformMatrix4fv)
+v8::Handle<v8::Value> V8WebGLRenderingContext::uniformMatrix4fvCallback(const v8::Arguments& args)
 {
     INC_STATS("DOM.WebGLRenderingContext.uniformMatrix4fv()");
     return uniformMatrixHelper(args, 4);
 }
 
-CALLBACK_FUNC_DECL(WebGLRenderingContextVertexAttrib1fv)
+v8::Handle<v8::Value> V8WebGLRenderingContext::vertexAttrib1fvCallback(const v8::Arguments& args)
 {
     INC_STATS("DOM.WebGLRenderingContext.vertexAttrib1fv()");
     return vertexAttribAndUniformHelperf(args, kVertexAttrib1v);
 }
 
-CALLBACK_FUNC_DECL(WebGLRenderingContextVertexAttrib2fv)
+v8::Handle<v8::Value> V8WebGLRenderingContext::vertexAttrib2fvCallback(const v8::Arguments& args)
 {
     INC_STATS("DOM.WebGLRenderingContext.vertexAttrib2fv()");
     return vertexAttribAndUniformHelperf(args, kVertexAttrib2v);
 }
 
-CALLBACK_FUNC_DECL(WebGLRenderingContextVertexAttrib3fv)
+v8::Handle<v8::Value> V8WebGLRenderingContext::vertexAttrib3fvCallback(const v8::Arguments& args)
 {
     INC_STATS("DOM.WebGLRenderingContext.vertexAttrib3fv()");
     return vertexAttribAndUniformHelperf(args, kVertexAttrib3v);
 }
 
-CALLBACK_FUNC_DECL(WebGLRenderingContextVertexAttrib4fv)
+v8::Handle<v8::Value> V8WebGLRenderingContext::vertexAttrib4fvCallback(const v8::Arguments& args)
 {
     INC_STATS("DOM.WebGLRenderingContext.vertexAttrib4fv()");
     return vertexAttribAndUniformHelperf(args, kVertexAttrib4v);

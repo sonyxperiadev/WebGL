@@ -1,10 +1,10 @@
 /*
- * Copyright (C) 2007-2009 Google Inc. All rights reserved.
- *
+ * Copyright (C) 2010 Google Inc. All rights reserved.
+ * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
  * met:
- *
+ * 
  *     * Redistributions of source code must retain the above copyright
  * notice, this list of conditions and the following disclaimer.
  *     * Redistributions in binary form must reproduce the above
@@ -14,7 +14,7 @@
  *     * Neither the name of Google Inc. nor the names of its
  * contributors may be used to endorse or promote products derived from
  * this software without specific prior written permission.
- *
+ * 
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
  * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
@@ -29,20 +29,17 @@
  */
 
 #include "config.h"
-#include "Navigator.h"
+#include "V8Navigator.h"
 
-#include "V8Binding.h"
-#include "V8CustomBinding.h"
-#include "V8Proxy.h"
+#include "RuntimeEnabledFeatures.h"
 
 namespace WebCore {
 
-ACCESSOR_GETTER(NavigatorAppVersion)
+#if ENABLE(GEOLOCATION)
+bool V8Navigator::GeolocationEnabled()
 {
-    INC_STATS("DOM.Navigator.appVersion");
-    v8::Handle<v8::Object> holder = info.Holder();
-    Navigator* navigator = V8DOMWrapper::convertToNativeObject<Navigator>(V8ClassIndex::NAVIGATOR, holder);
-    return v8StringOrUndefined(navigator->appVersion());
+    return RuntimeEnabledFeatures::geolocationEnabled();
 }
+#endif
 
 } // namespace WebCore

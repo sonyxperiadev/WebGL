@@ -34,6 +34,7 @@
 
 #include "ConsoleMessage.h"
 #include "Frame.h"
+#include "InjectedScriptHost.h"
 #include "InspectorController.h"
 #include "Node.h"
 #include "ScriptFunctionCall.h"
@@ -77,23 +78,52 @@ void InspectorFrontend::didCommitLoad()
     callSimpleFunction("didCommitLoad");
 }
 
-void InspectorFrontend::addConsoleMessage(const ScriptObject& messageObj, const Vector<ScriptString>& frames, const Vector<ScriptValue> wrappedArguments, const String& message)
+void InspectorFrontend::populateFrontendSettings(const String& settings)
+{
+    ScriptFunctionCall function(m_scriptState, m_webInspector, "dispatch");
+    function.appendArgument("populateFrontendSettings");
+    function.appendArgument(settings);
+    function.call();
+}
+
+void InspectorFrontend::updateConsoleMessageExpiredCount(unsigned count)
+{
+    ScriptFunctionCall function(m_scriptState, m_webInspector, "dispatch"); 
+    function.appendArgument("updateConsoleMessageExpiredCount");
+    function.appendArgument(count);
+    function.call();
+}
+
+void InspectorFrontend::addConsoleMessage(const ScriptObject& messageObj, const Vector<ScriptString>& frames, ScriptState* scriptState, const Vector<ScriptValue> arguments, const String& message)
 {
     ScriptFunctionCall function(m_scriptState, m_webInspector, "dispatch"); 
     function.appendArgument("addConsoleMessage");
     function.appendArgument(messageObj);
     if (!frames.isEmpty()) {
+        function.appendArgument(false);
         for (unsigned i = 0; i < frames.size(); ++i)
             function.appendArgument(frames[i]);
-    } else if (!wrappedArguments.isEmpty()) {
-        for (unsigned i = 0; i < wrappedArguments.size(); ++i)
-            function.appendArgument(m_inspectorController->wrapObject(wrappedArguments[i], "console"));
-    } else
+    } else if (!arguments.isEmpty()) {
+        function.appendArgument(true);
+        ScriptObject injectedScript = m_inspectorController->injectedScriptHost()->injectedScriptFor(scriptState);
+        for (unsigned i = 0; i < arguments.size(); ++i) {
+            ScriptFunctionCall wrapFunction(scriptState, injectedScript, "wrapAndStringifyObject");
+            wrapFunction.appendArgument(arguments[i]);
+            wrapFunction.appendArgument("console");
+            ScriptValue r = wrapFunction.call();
+            if (r.hasNoValue())
+                return;
+            String s = r.toString(scriptState);
+            function.appendArgument(s);
+        }
+    } else {
+        function.appendArgument(false);
         function.appendArgument(message);
+    }
     function.call();
 }
 
-void InspectorFrontend::updateConsoleMessageRepeatCount(const int count)
+void InspectorFrontend::updateConsoleMessageRepeatCount(unsigned count)
 {
     ScriptFunctionCall function(m_scriptState, m_webInspector, "dispatch"); 
     function.appendArgument("updateConsoleMessageRepeatCount");
@@ -104,17 +134,6 @@ void InspectorFrontend::updateConsoleMessageRepeatCount(const int count)
 void InspectorFrontend::clearConsoleMessages()
 {
     callSimpleFunction("clearConsoleMessages");
-}
-
-bool InspectorFrontend::addResource(unsigned long identifier, const ScriptObject& resourceObj)
-{
-    ScriptFunctionCall function(m_scriptState, m_webInspector, "dispatch"); 
-    function.appendArgument("addResource");
-    function.appendArgument(identifier);
-    function.appendArgument(resourceObj);
-    bool hadException = false;
-    function.call(hadException);
-    return !hadException;
 }
 
 bool InspectorFrontend::updateResource(unsigned long identifier, const ScriptObject& resourceObj)
@@ -133,6 +152,15 @@ void InspectorFrontend::removeResource(unsigned long identifier)
     ScriptFunctionCall function(m_scriptState, m_webInspector, "dispatch"); 
     function.appendArgument("removeResource");
     function.appendArgument(identifier);
+    function.call();
+}
+
+void InspectorFrontend::didGetResourceContent(int callId, const String& content)
+{
+    ScriptFunctionCall function(m_scriptState, m_webInspector, "dispatch");
+    function.appendArgument("didGetResourceContent");
+    function.appendArgument(callId);
+    function.appendArgument(content);
     function.call();
 }
 
@@ -307,7 +335,7 @@ void InspectorFrontend::didGetProfile(int callId, const ScriptValue& profile)
     function.call();
 }
 
-void InspectorFrontend::pausedScript(const ScriptValue& callFrames)
+void InspectorFrontend::pausedScript(const String& callFrames)
 {
     ScriptFunctionCall function(m_scriptState, m_webInspector, "dispatch"); 
     function.appendArgument("pausedScript");

@@ -26,8 +26,9 @@
  */
  
 // webkit includes
-#include "WebView.h"
 #include "WebBrowserShell.h"
+#include "WebSettings.h"
+#include "WebView.h"
 
 #include "wx/wxprec.h"
 #ifndef WX_PRECOMP
@@ -55,6 +56,13 @@ bool MyApp::OnInit()
 #ifndef NDEBUG
     frame->ShowDebugMenu(true);
 #endif
+
+    wxWebSettings settings = frame->webview->GetWebSettings();
+#if __WXMSW__ || __WXMAC__
+    settings.SetPluginsEnabled(true);
+#endif
+    settings.SetDatabasesEnabled(true);
+    settings.SetEditableLinkBehavior(wxEditableLinkOnlyLiveWithShiftKey);
     frame->CentreOnScreen();
     frame->Show(true);
 

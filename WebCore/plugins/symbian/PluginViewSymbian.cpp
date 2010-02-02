@@ -32,6 +32,7 @@
 #include "GraphicsContext.h"
 #include "HTMLNames.h"
 #include "HTMLPlugInElement.h"
+#include "HostWindow.h"
 #include "Image.h"
 #include "JSDOMBinding.h"
 #include "KeyboardEvent.h"
@@ -280,8 +281,6 @@ void PluginView::setNPWindowIfNeeded()
 
     m_npWindow.width = m_windowRect.width();
     m_npWindow.height = m_windowRect.height();
-    if (m_npWindow.x < 0 || m_npWindow.y < 0 || m_npWindow.width <= 0 || m_npWindow.height <= 0)
-        return;
     
     PluginView::setCurrentPluginView(this);
     JSC::JSLock::DropAllLocks dropAllLocks(JSC::SilenceAssertionsOnly);

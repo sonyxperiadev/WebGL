@@ -43,6 +43,7 @@
 #include "qobject.h"
 #include "qstringlist.h"
 #include "qt_instance.h"
+#include "qt_pixmapruntime.h"
 #include "qvarlengtharray.h"
 #include <JSFunction.h>
 #include <limits.h>
@@ -304,7 +305,7 @@ QVariant convertValueToQVariant(ExecState* exec, JSValue value, QMetaType::Type 
                 return QString();
             } else {
                 UString ustring = value.toString(exec);
-                ret = QVariant(QString::fromUtf16((const ushort*)ustring.rep()->data(),ustring.size()));
+                ret = QVariant(QString((const QChar*)ustring.rep()->data(), ustring.size()));
                 if (type == String)
                     dist = 0;
                 else
@@ -328,7 +329,7 @@ QVariant convertValueToQVariant(ExecState* exec, JSValue value, QMetaType::Type 
                         QVariant v = convertValueToQVariant(exec, val, QMetaType::Void, &objdist, visitedObjects);
                         if (objdist >= 0) {
                             UString ustring = (*it).ustring();
-                            QString id = QString::fromUtf16((const ushort*)ustring.rep()->data(),ustring.size());
+                            QString id = QString((const QChar*)ustring.rep()->data(), ustring.size());
                             result.insert(id, v);
                         }
                     }
@@ -403,7 +404,7 @@ QVariant convertValueToQVariant(ExecState* exec, JSValue value, QMetaType::Type 
                 for (int i = 0; i < len; ++i) {
                     JSValue val = rtarray->getConcreteArray()->valueAt(exec, i);
                     UString ustring = val.toString(exec);
-                    QString qstring = QString::fromUtf16((const ushort*)ustring.rep()->data(),ustring.size());
+                    QString qstring = QString((const QChar*)ustring.rep()->data(), ustring.size());
 
                     result.append(qstring);
                 }
@@ -417,7 +418,7 @@ QVariant convertValueToQVariant(ExecState* exec, JSValue value, QMetaType::Type 
                 for (int i = 0; i < len; ++i) {
                     JSValue val = array->get(exec, i);
                     UString ustring = val.toString(exec);
-                    QString qstring = QString::fromUtf16((const ushort*)ustring.rep()->data(),ustring.size());
+                    QString qstring = QString((const QChar*)ustring.rep()->data(), ustring.size());
 
                     result.append(qstring);
                 }
@@ -426,7 +427,7 @@ QVariant convertValueToQVariant(ExecState* exec, JSValue value, QMetaType::Type 
             } else {
                 // Make a single length array
                 UString ustring = value.toString(exec);
-                QString qstring = QString::fromUtf16((const ushort*)ustring.rep()->data(),ustring.size());
+                QString qstring = QString((const QChar*)ustring.rep()->data(), ustring.size());
                 QStringList result;
                 result.append(qstring);
                 ret = QVariant(result);
@@ -442,7 +443,7 @@ QVariant convertValueToQVariant(ExecState* exec, JSValue value, QMetaType::Type 
                 dist = 0;
             } else {
                 UString ustring = value.toString(exec);
-                ret = QVariant(QString::fromUtf16((const ushort*)ustring.rep()->data(),ustring.size()).toLatin1());
+                ret = QVariant(QString((const QChar*)ustring.rep()->data(), ustring.size()).toLatin1());
                 if (type == String)
                     dist = 5;
                 else
@@ -484,7 +485,7 @@ QVariant convertValueToQVariant(ExecState* exec, JSValue value, QMetaType::Type 
                 }
             } else if (type == String) {
                 UString ustring = value.toString(exec);
-                QString qstring = QString::fromUtf16((const ushort*)ustring.rep()->data(),ustring.size());
+                QString qstring = QString((const QChar*)ustring.rep()->data(), ustring.size());
 
                 if (hint == QMetaType::QDateTime) {
                     QDateTime dt = QDateTime::fromString(qstring, Qt::ISODate);
@@ -533,7 +534,7 @@ QVariant convertValueToQVariant(ExecState* exec, JSValue value, QMetaType::Type 
 */
                 // Attempt to convert.. a bit risky
                 UString ustring = value.toString(exec);
-                QString qstring = QString::fromUtf16((const ushort*)ustring.rep()->data(),ustring.size());
+                QString qstring = QString((const QChar*)ustring.rep()->data(), ustring.size());
 
                 // this is of the form '/xxxxxx/i'
                 int firstSlash = qstring.indexOf(QLatin1Char('/'));
@@ -553,7 +554,7 @@ QVariant convertValueToQVariant(ExecState* exec, JSValue value, QMetaType::Type 
                 }
             } else if (type == String) {
                 UString ustring = value.toString(exec);
-                QString qstring = QString::fromUtf16((const ushort*)ustring.rep()->data(),ustring.size());
+                QString qstring = QString((const QChar*)ustring.rep()->data(), ustring.size());
 
                 QRegExp re(qstring);
                 if (re.isValid()) {
@@ -719,6 +720,8 @@ QVariant convertValueToQVariant(ExecState* exec, JSValue value, QMetaType::Type 
                     }
                 }
                 break;
+            } else if (QtPixmapInstance::canHandle(static_cast<QMetaType::Type>(hint))) {
+                ret = QtPixmapInstance::variantFromObject(object, static_cast<QMetaType::Type>(hint));
             } else if (hint == (QMetaType::Type) qMetaTypeId<QVariant>()) {
                 if (value.isUndefinedOrNull()) {
                     if (distance)
@@ -847,6 +850,9 @@ JSValue convertQVariantToValue(ExecState* exec, PassRefPtr<RootObject> root, con
         QObject* obj = variant.value<QObject*>();
         return QtInstance::getQtInstance(obj, root, QScriptEngine::QtOwnership)->createRuntimeObject(exec);
     }
+
+    if (QtPixmapInstance::canHandle(static_cast<QMetaType::Type>(variant.type())))
+        return QtPixmapInstance::createRuntimeObject(exec, root, variant);
 
     if (type == QMetaType::QVariantMap) {
         // create a new object, and stuff properties into it
@@ -1394,6 +1400,43 @@ bool QtRuntimeMetaMethod::getOwnPropertySlot(ExecState* exec, const Identifier& 
     return QtRuntimeMethod::getOwnPropertySlot(exec, propertyName, slot);
 }
 
+bool QtRuntimeMetaMethod::getOwnPropertyDescriptor(ExecState* exec, const Identifier& propertyName, PropertyDescriptor& descriptor)
+{
+    if (propertyName == "connect") {
+        PropertySlot slot;
+        slot.setCustom(this, connectGetter);
+        descriptor.setDescriptor(slot.getValue(exec, propertyName), DontDelete | ReadOnly | DontEnum);
+        return true;
+    }
+
+    if (propertyName == "disconnect") {
+        PropertySlot slot;
+        slot.setCustom(this, disconnectGetter);
+        descriptor.setDescriptor(slot.getValue(exec, propertyName), DontDelete | ReadOnly | DontEnum);
+        return true;
+    }
+
+    if (propertyName == exec->propertyNames().length) {
+        PropertySlot slot;
+        slot.setCustom(this, lengthGetter);
+        descriptor.setDescriptor(slot.getValue(exec, propertyName), DontDelete | ReadOnly | DontEnum);
+        return true;
+    }
+
+    return QtRuntimeMethod::getOwnPropertyDescriptor(exec, propertyName, descriptor);
+}
+
+void QtRuntimeMetaMethod::getOwnPropertyNames(ExecState* exec, PropertyNameArray& propertyNames, EnumerationMode mode)
+{
+    if (mode == IncludeDontEnumProperties) {
+        propertyNames.add(Identifier(exec, "connect"));
+        propertyNames.add(Identifier(exec, "disconnect"));
+        propertyNames.add(exec->propertyNames().length);
+    }
+
+    QtRuntimeMethod::getOwnPropertyNames(exec, propertyNames, mode);
+}
+
 JSValue QtRuntimeMetaMethod::lengthGetter(ExecState* exec, const Identifier&, const PropertySlot&)
 {
     // QtScript always returns 0
@@ -1578,6 +1621,26 @@ bool QtRuntimeConnectionMethod::getOwnPropertySlot(ExecState* exec, const Identi
     }
 
     return QtRuntimeMethod::getOwnPropertySlot(exec, propertyName, slot);
+}
+
+bool QtRuntimeConnectionMethod::getOwnPropertyDescriptor(ExecState* exec, const Identifier& propertyName, PropertyDescriptor& descriptor)
+{
+    if (propertyName == exec->propertyNames().length) {
+        PropertySlot slot;
+        slot.setCustom(this, lengthGetter);
+        descriptor.setDescriptor(slot.getValue(exec, propertyName), DontDelete | ReadOnly | DontEnum);
+        return true;
+    }
+
+    return QtRuntimeMethod::getOwnPropertyDescriptor(exec, propertyName, descriptor);
+}
+
+void QtRuntimeConnectionMethod::getOwnPropertyNames(ExecState* exec, PropertyNameArray& propertyNames, EnumerationMode mode)
+{
+    if (mode == IncludeDontEnumProperties)
+        propertyNames.add(exec->propertyNames().length);
+
+    QtRuntimeMethod::getOwnPropertyNames(exec, propertyNames, mode);
 }
 
 JSValue QtRuntimeConnectionMethod::lengthGetter(ExecState* exec, const Identifier&, const PropertySlot&)

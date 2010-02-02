@@ -265,20 +265,76 @@ sub GenerateHeader
     push(@headerContent, "#include <v8.h>\n");
     push(@headerContent, "#include <wtf/HashMap.h>\n");
     push(@headerContent, "#include \"StringHash.h\"\n");
-
-    push(@headerContent, "\nnamespace WebCore {\n\n");
-    push(@headerContent, "class V8ClassIndex;\n");
+    push(@headerContent, "#include \"V8Index.h\"\n");
+    push(@headerContent, GetHeaderClassInclude($implClassName));
+    push(@headerContent, "\nnamespace WebCore {\n");
     push(@headerContent, "\nclass $className {\n");
+    
+    my $toNativeReturnType = GetReturnTypeForToNative($interfaceName);
     push(@headerContent, <<END);
 
  public:
   static bool HasInstance(v8::Handle<v8::Value> value);
   static v8::Persistent<v8::FunctionTemplate> GetRawTemplate();
+  static ${toNativeReturnType}* toNative(v8::Handle<v8::Object>);
 END
 
     if ($implClassName eq "DOMWindow") {
       push(@headerContent, <<END);
   static v8::Persistent<v8::ObjectTemplate> GetShadowObjectTemplate();
+END
+    }
+
+    my @enabledAtRuntime;
+    foreach my $function (@{$dataNode->functions}) {
+        my $name = $function->signature->name;
+        my $attrExt = $function->signature->extendedAttributes;
+
+        # FIXME: We should only be generating callback declarations for functions labeled [Custom] or [V8Custom],
+        # but we can't do that due to some mislabeled functions in the idl's (https://bugs.webkit.org/show_bug.cgi?id=33066).
+        push(@headerContent, <<END);
+  static v8::Handle<v8::Value> ${name}Callback(const v8::Arguments&);
+END
+        if ($attrExt->{"EnabledAtRuntime"}) {
+            push(@enabledAtRuntime, $function);
+        }
+    }
+
+    if ($dataNode->extendedAttributes->{"CustomConstructor"} || $dataNode->extendedAttributes->{"CanBeConstructed"}) {
+        push(@headerContent, <<END);
+  static v8::Handle<v8::Value> constructorCallback(const v8::Arguments& args);
+END
+    }
+    
+    foreach my $attribute (@{$dataNode->attributes}) {
+        my $name = $attribute->signature->name;
+        my $attrExt = $attribute->signature->extendedAttributes;
+        if ($attrExt->{"V8CustomGetter"} || $attrExt->{"CustomGetter"}
+            || $attrExt->{"V8Custom"} || $attrExt->{"Custom"}) {
+            push(@headerContent, <<END);
+  static v8::Handle<v8::Value> ${name}AccessorGetter(v8::Local<v8::String> name, const v8::AccessorInfo& info);
+END
+        }
+        if ($attrExt->{"V8CustomSetter"} || $attrExt->{"CustomSetter"}
+            || $attrExt->{"V8Custom"} || $attrExt->{"Custom"}) {
+            push(@headerContent, <<END);
+  static void ${name}AccessorSetter(v8::Local<v8::String> name, v8::Local<v8::Value> value, const v8::AccessorInfo& info);
+END
+        }
+        if ($attrExt->{"EnabledAtRuntime"}) {
+            push(@enabledAtRuntime, $attribute);
+        }
+    }
+
+    GenerateHeaderRuntimeEnablerDeclarations(@enabledAtRuntime);
+    GenerateHeaderNamedAndIndexedPropertyAccessors($dataNode);
+    GenerateHeaderCustomCall($dataNode);
+    GenerateHeaderCustomInternalFieldIndices($dataNode);
+    
+    if ($dataNode->extendedAttributes->{"CheckDomainSecurity"}) {
+        push(@headerContent, <<END);
+  static bool namedSecurityCheck(v8::Local<v8::Object> host, v8::Local<v8::Value> key, v8::AccessType, v8::Local<v8::Value> data);
+  static bool indexedSecurityCheck(v8::Local<v8::Object> host, uint32_t index, v8::AccessType, v8::Local<v8::Value> data);
 END
     }
 
@@ -298,6 +354,172 @@ END
     push(@headerContent, "#endif // ${conditionalString}\n\n") if $conditionalString;
 }
 
+sub GetInternalFields
+{
+    my $dataNode = shift;
+    my $name = $dataNode->name;
+    
+    # FIXME: I am hideous and hard-coded.  Make me beautiful.
+    return ("cacheIndex", "implementationIndex") if ($name eq "Document") || ($name eq "SVGDocument");
+    return ("cacheIndex", "implementationIndex", "markerIndex", "shadowIndex") if $name eq "HTMLDocument";
+    return ("cacheIndex") if IsNodeSubType($dataNode);
+    return ("cacheIndex") if $name eq "EventSource";
+    return ("cacheIndex") if $name eq "XMLHttpRequest";
+    return ("cacheIndex") if $name eq "XMLHttpRequestUpload";
+    return ("cacheIndex") if $name eq "MessagePort";
+    return ("port1Index", "port2Index") if ($name eq "MessageChannel");
+    return ("cacheIndex") if $name eq "AbstractWorker";
+    return ("abstractWorkerCacheIndex", "cacheIndex") if $name eq "Worker";
+    return ("abstractWorkerCacheIndex", "cacheIndex") if $name eq "WorkerContext";
+    return ("abstractWorkerCacheIndex", "workerContextCacheIndex", "cacheIndex") if $name eq "DedicatedWorkerContext";
+    return ("abstractWorkerCacheIndex", "cacheIndex") if $name eq "SharedWorker";
+    return ("abstractWorkerCacheIndex", "workerContextCacheIndex", "cacheIndex") if $name eq "SharedWorkerContext";
+    return ("cacheIndex") if $name eq "Notification";
+    return ("cacheIndex") if $name eq "IDBRequest";
+    return ("cacheIndex") if $name eq "SVGElementInstance";
+    return ("consoleIndex", "historyIndex", "locationbarIndex", "menubarIndex", "navigatorIndex", "personalbarIndex",
+        "screenIndex", "scrollbarsIndex", "selectionIndex", "statusbarIndex", "toolbarIndex", "locationIndex",
+        "domSelectionIndex", "cacheIndex", "enteredIsolatedWorldIndex") if $name eq "DOMWindow";
+    return ("cacheIndex") if $name eq "DOMApplicationCache";
+    return ("cacheIndex") if $name eq "WebSocket";
+    return ("ownerNodeIndex") if ($name eq "StyleSheet") || ($name eq "CSSStyleSheet");
+    return ("ownerNodeIndex") if ($name eq "NamedNodeMap");
+    return ();
+}
+
+sub GetHeaderClassInclude
+{
+    my $className = shift;
+    if ($className =~ /SVGPathSeg/) {
+        $className =~ s/Abs|Rel//;
+    }
+    return "" if (AvoidInclusionOfType($className));
+    return "#include \"SVGAnimatedTemplate.h\"\n" if ($codeGenerator->IsSVGAnimatedType($className));
+    return "#include \"${className}.h\"\n";
+}
+
+sub GenerateHeaderCustomInternalFieldIndices
+{
+    my $dataNode = shift;
+    my @customInternalFields = GetInternalFields($dataNode);
+    my $customFieldCounter = 0;
+    foreach my $customInternalField (@customInternalFields) {
+        push(@headerContent, <<END);
+  static const int ${customInternalField} = v8DefaultWrapperInternalFieldCount + ${customFieldCounter};
+END
+        $customFieldCounter++;
+    }
+    push(@headerContent, <<END);
+  static const int internalFieldCount = v8DefaultWrapperInternalFieldCount + ${customFieldCounter};
+END
+}
+
+sub GenerateHeaderRuntimeEnablerDeclarations
+{
+    my @enabledAtRuntime = @_;
+    
+    foreach my $runtime_attr (@enabledAtRuntime) {
+        my $enabledAtRuntimeConditionalString = GenerateConditionalString($runtime_attr->signature);
+        my $enabler = $codeGenerator->WK_ucfirst($runtime_attr->signature->name);
+        if ($enabledAtRuntimeConditionalString) {
+            push(@headerContent, "\n#if ${enabledAtRuntimeConditionalString}\n");
+        }
+        push(@headerContent, <<END);
+  static bool ${enabler}Enabled();
+END
+        if ($enabledAtRuntimeConditionalString) {
+            push(@headerContent, "#endif\n");
+        }
+    }
+}
+
+my %indexerSpecialCases = (
+    "Storage" => 1,
+    "HTMLAppletElement" => 1,
+    "HTMLDocument" => 1,
+    "HTMLEmbedElement" => 1,
+    "HTMLObjectElement" => 1
+);
+
+sub GenerateHeaderNamedAndIndexedPropertyAccessors
+{
+    my $dataNode = shift;
+    my $interfaceName = $dataNode->name;
+    my $hasCustomIndexedGetter = $dataNode->extendedAttributes->{"HasIndexGetter"} || $dataNode->extendedAttributes->{"CustomGetOwnPropertySlot"};
+    my $hasCustomIndexedSetter = $dataNode->extendedAttributes->{"HasCustomIndexSetter"} && !$dataNode->extendedAttributes->{"HasNumericIndexGetter"};
+    my $hasCustomNamedGetter = $dataNode->extendedAttributes->{"HasNameGetter"} || $dataNode->extendedAttributes->{"HasOverridingNameGetter"} || $dataNode->extendedAttributes->{"CustomGetOwnPropertySlot"};
+    my $hasCustomNamedSetter = $dataNode->extendedAttributes->{"DelegatingPutFunction"};
+    my $hasCustomDeleters = $dataNode->extendedAttributes->{"CustomDeleteProperty"};
+    my $hasCustomEnumerator = $dataNode->extendedAttributes->{"CustomGetPropertyNames"};
+    if ($interfaceName eq "HTMLOptionsCollection") {
+        $interfaceName = "HTMLCollection";
+        $hasCustomIndexedGetter = 1;
+        $hasCustomNamedGetter = 1;
+    }
+    if ($interfaceName eq "DOMWindow") {
+        $hasCustomDeleterr = 0;
+        $hasEnumerator = 0;
+    }
+    if ($interfaceName eq "HTMLSelectElement") {
+        $hasCustomNamedGetter = 1;
+    }
+    my $isIndexerSpecialCase = exists $indexerSpecialCases{$interfaceName};
+
+    if ($hasCustomIndexedGetter || $isIndexerSpecialCase) {
+        push(@headerContent, <<END);
+  static v8::Handle<v8::Value> indexedPropertyGetter(uint32_t index, const v8::AccessorInfo& info);
+END
+    }
+      
+    if ($isIndexerSpecialCase || $hasCustomIndexedSetter) {
+        push(@headerContent, <<END);
+  static v8::Handle<v8::Value> indexedPropertySetter(uint32_t index, v8::Local<v8::Value> value, const v8::AccessorInfo& info);
+END
+    }
+    if ($hasCustomDeleters) {
+        push(@headerContent, <<END);
+  static v8::Handle<v8::Boolean> indexedPropertyDeleter(uint32_t index, const v8::AccessorInfo& info);
+END
+    }
+    if ($hasCustomNamedGetter) {
+        push(@headerContent, <<END);
+  static v8::Handle<v8::Value> namedPropertyGetter(v8::Local<v8::String> name, const v8::AccessorInfo& info);
+END
+    }
+    if ($hasCustomNamedSetter) {
+        push(@headerContent, <<END);
+  static v8::Handle<v8::Value> namedPropertySetter(v8::Local<v8::String> name, v8::Local<v8::Value> value, const v8::AccessorInfo& info);
+END
+    }
+    if ($hasCustomDeleters || $interfaceName eq "HTMLDocument") {
+        push(@headerContent, <<END);
+  static v8::Handle<v8::Boolean> namedPropertyDeleter(v8::Local<v8::String> name, const v8::AccessorInfo& info);
+END
+    }
+    if ($hasCustomEnumerator) {
+        push(@headerContent, <<END);
+  static v8::Handle<v8::Array> namedPropertyEnumerator(const v8::AccessorInfo& info);
+END
+    }
+}
+
+sub GenerateHeaderCustomCall
+{
+    my $dataNode = shift;
+    
+    if ($dataNode->extendedAttributes->{"CustomCall"}) {
+        push(@headerContent, "  static v8::Handle<v8::Value> callAsFunctionCallback(const v8::Arguments&);\n");
+    }
+    if ($dataNode->name eq "Event") {
+        push(@headerContent, "  static v8::Handle<v8::Value> dataTransferAccessorGetter(v8::Local<v8::String> name, const v8::AccessorInfo& info);\n");
+        push(@headerContent, "  static void valueAccessorSetter(v8::Local<v8::String> name, v8::Local<v8::Value> value, const v8::AccessorInfo& info);\n");
+    }
+    if ($dataNode->name eq "Location") {
+        push(@headerContent, "  static v8::Handle<v8::Value> assignAccessorGetter(v8::Local<v8::String> name, const v8::AccessorInfo& info);\n");
+        push(@headerContent, "  static v8::Handle<v8::Value> reloadAccessorGetter(v8::Local<v8::String> name, const v8::AccessorInfo& info);\n");
+        push(@headerContent, "  static v8::Handle<v8::Value> replaceAccessorGetter(v8::Local<v8::String> name, const v8::AccessorInfo& info);\n");
+    }
+}
 
 sub GenerateSetDOMException
 {
@@ -323,48 +545,6 @@ sub IsNodeSubType
     return 0;
 }
 
-sub GetHiddenDependencyIndex
-{
-    my $dataNode = shift;
-    my $attribute = shift;
-    my $name = $dataNode->name;
-    return "V8Custom::kNodeEventListenerCacheIndex" if IsNodeSubType($dataNode);
-    return "V8Custom::kSVGElementInstanceEventListenerCacheIndex" if $name eq "SVGElementInstance";
-    return "V8Custom::kAbstractWorkerRequestCacheIndex" if $name eq "AbstractWorker";
-    return "V8Custom::kWorkerRequestCacheIndex" if $name eq "Worker";
-    return "V8Custom::kDedicatedWorkerContextRequestCacheIndex" if $name eq "DedicatedWorkerContext";
-    return "V8Custom::kWorkerContextRequestCacheIndex" if $name eq "WorkerContext";
-    return "V8Custom::kWorkerContextRequestCacheIndex" if $name eq "SharedWorkerContext";
-    return "V8Custom::kMessagePortRequestCacheIndex" if $name eq "MessagePort";
-    return "V8Custom::kWebSocketCacheIndex" if $name eq "WebSocket";
-    return "V8Custom::kXMLHttpRequestCacheIndex" if $name eq "XMLHttpRequest";
-    return "V8Custom::kXMLHttpRequestCacheIndex" if $name eq "XMLHttpRequestUpload";
-    return "V8Custom::kDOMApplicationCacheCacheIndex" if $name eq "DOMApplicationCache";
-    return "V8Custom::kNotificationRequestCacheIndex" if $name eq "Notification";
-    return "V8Custom::kDOMWindowEventListenerCacheIndex" if $name eq "DOMWindow";
-    die "Unexpected name " . $name . " when generating " . $attribute;
-}
-
-sub HolderToNative
-{
-    my $dataNode = shift;
-    my $implClassName = shift;
-    my $classIndex = shift;
-    my $holder = shift || "holder";   # optional param
-
-    if (IsNodeSubType($dataNode)) {
-        push(@implContentDecls, <<END);
-    $implClassName* imp = v8DOMWrapperToNode<$implClassName>($holder);
-END
-
-    } else {
-        push(@implContentDecls, <<END);
-    $implClassName* imp = v8DOMWrapperTo<$implClassName>(V8ClassIndex::$classIndex, $holder);
-END
-
-  }
-}
-
 sub GenerateDomainSafeFunctionGetter
 {
     my $function = shift;
@@ -382,8 +562,6 @@ sub GenerateDomainSafeFunctionGetter
 
     my $newTemplateString = GenerateNewFunctionTemplate($function, $dataNode, $signature);
 
-    $implIncludes{"V8Proxy.h"} = 1;
-
     push(@implContentDecls, <<END);
   static v8::Handle<v8::Value> ${funcName}AttrGetter(v8::Local<v8::String> name, const v8::AccessorInfo& info) {
     INC_STATS(\"DOM.$implClassName.$funcName._get\");
@@ -393,15 +571,10 @@ sub GenerateDomainSafeFunctionGetter
     if (holder.IsEmpty()) {
       // can only reach here by 'object.__proto__.func', and it should passed
       // domain security check already
-
       return private_template->GetFunction();
     }
-END
-
-    HolderToNative($dataNode, $implClassName, $classIndex);
-
-    push(@implContentDecls, <<END);
-    if (!V8Proxy::canAccessFrame(imp->frame(), false)) {
+    ${implClassName}* imp = ${className}::toNative(holder);
+    if (!V8BindingSecurity::canAccessFrame(V8BindingState::Only(), imp->frame(), false)) {
       static v8::Persistent<v8::FunctionTemplate> shared_template =
         v8::Persistent<v8::FunctionTemplate>::New($newTemplateString);
       return shared_template->GetFunction();
@@ -429,17 +602,15 @@ END
 
     if ($classIndex eq "DOMWINDOW") {
         push(@implContentDecls, <<END);
-    DOMWindow* window = v8DOMWrapperTo<DOMWindow>(V8ClassIndex::DOMWINDOW, info.Holder());
     // Get the proxy corresponding to the DOMWindow if possible to
     // make sure that the constructor function is constructed in the
     // context of the DOMWindow and not in the context of the caller.
-    return V8DOMWrapper::getConstructor(type, window);
+    return V8DOMWrapper::getConstructor(type, V8DOMWindow::toNative(info.Holder()));
 END
     } elsif ($classIndex eq "DEDICATEDWORKERCONTEXT" or $classIndex eq "WORKERCONTEXT" or $classIndex eq "SHAREDWORKERCONTEXT") {
         $implIncludes{"WorkerContextExecutionProxy.h"} = 1;
         push(@implContentDecls, <<END);
-    WorkerContext* workerContext = v8DOMWrapperTo<WorkerContext>(V8ClassIndex::WORKERCONTEXT, info.Holder());
-    return V8DOMWrapper::getConstructor(type, workerContext);
+    return V8DOMWrapper::getConstructor(type, V8WorkerContext::toNative(info.Holder()));
 END
     } else {
         push(@implContentDecls, "    return v8::Handle<v8::Value>();");
@@ -463,7 +634,6 @@ sub GenerateNormalAttrGetter
     my $attrExt = $attribute->signature->extendedAttributes;
 
     my $attrName = $attribute->signature->name;
-    $implIncludes{"V8Proxy.h"} = 1;
 
     my $attrType = GetTypeFromSignature($attribute->signature);
     my $attrIsPodType = IsPodType($attrType);
@@ -505,7 +675,7 @@ END
 
     if ($isPodType) {
         push(@implContentDecls, <<END);
-    V8SVGPODTypeWrapper<$implClassName>* imp_wrapper = v8DOMWrapperTo<V8SVGPODTypeWrapper<$implClassName> >(V8ClassIndex::$classIndex, info.Holder());
+    V8SVGPODTypeWrapper<$implClassName>* imp_wrapper = V8SVGPODTypeWrapper<$implClassName>::toNative(info.Holder());
     $implClassName imp_instance = *imp_wrapper;
 END
         if ($getterStringUsesImp) {
@@ -526,7 +696,9 @@ END
     if (holder.IsEmpty()) return v8::Handle<v8::Value>();
 END
       }
-        HolderToNative($dataNode, $implClassName, $classIndex, "info");
+    push(@implContentDecls, <<END);
+    ${implClassName}* imp = V8${implClassName}::toNative(holder);
+END
     } else {
         my $reflect = $attribute->signature->extendedAttributes->{"Reflect"};
         if ($getterStringUsesImp && $reflect && IsNodeSubType($dataNode) && $codeGenerator->IsStringType($attrType)) {
@@ -539,18 +711,16 @@ END
             return;
             # Skip the rest of the function!
         }
-        
         push(@implContentDecls, <<END);
-    v8::Handle<v8::Object> holder = info.Holder();
+    ${implClassName}* imp = V8${implClassName}::toNative(info.Holder());
 END
-        HolderToNative($dataNode, $implClassName, $classIndex, "info");
     }
 
     # Generate security checks if necessary
     if ($attribute->signature->extendedAttributes->{"CheckNodeSecurity"}) {
-        push(@implContentDecls, "    if (!V8Proxy::checkNodeSecurity(imp->$attrName())) return v8::Handle<v8::Value>();\n\n");
+        push(@implContentDecls, "    if (!V8BindingSecurity::checkNodeSecurity(V8BindingState::Only(), imp->$attrName())) return v8::Handle<v8::Value>();\n\n");
     } elsif ($attribute->signature->extendedAttributes->{"CheckFrameSecurity"}) {
-        push(@implContentDecls, "    if (!V8Proxy::checkNodeSecurity(imp->contentDocument())) return v8::Handle<v8::Value>();\n\n");
+        push(@implContentDecls, "    if (!V8BindingSecurity::checkNodeSecurity(V8BindingState::Only(), imp->contentDocument())) return v8::Handle<v8::Value>();\n\n");
     }
 
     my $useExceptions = 1 if @{$attribute->getterExceptions} and !($isPodType);
@@ -670,8 +840,6 @@ sub GenerateReplaceableAttrSetter
 {
     my $implClassName = shift;
 
-    $implIncludes{"V8Proxy.h"} = 1;
-
     push(@implContentDecls,
        "  static void ${attrName}AttrSetter(v8::Local<v8::String> name," .
        " v8::Local<v8::Value> value, const v8::AccessorInfo& info) {\n");
@@ -695,8 +863,6 @@ sub GenerateNormalAttrSetter
 
     my $attrExt = $attribute->signature->extendedAttributes;
 
-    $implIncludes{"V8Proxy.h"} = 1;
-
     push(@implContentDecls,
        "  static void ${attrName}AttrSetter(v8::Local<v8::String> name," .
        " v8::Local<v8::Value> value, const v8::AccessorInfo& info) {\n");
@@ -708,7 +874,7 @@ sub GenerateNormalAttrSetter
     if ($isPodType) {
         $implClassName = GetNativeType($implClassName);
         $implIncludes{"V8SVGPODTypeWrapper.h"} = 1;
-        push(@implContentDecls, "    V8SVGPODTypeWrapper<$implClassName>* wrapper = v8DOMWrapperTo<V8SVGPODTypeWrapper<$implClassName> >(V8ClassIndex::$classIndex, info.Holder());\n");
+        push(@implContentDecls, "    V8SVGPODTypeWrapper<$implClassName>* wrapper = V8SVGPODTypeWrapper<$implClassName>::toNative(info.Holder());\n");
         push(@implContentDecls, "    $implClassName imp_instance = *wrapper;\n");
         push(@implContentDecls, "    $implClassName* imp = &imp_instance;\n");
 
@@ -724,7 +890,9 @@ END
     if (holder.IsEmpty()) return;
 END
       }
-        HolderToNative($dataNode, $implClassName, $classIndex, "info");
+    push(@implContentDecls, <<END);
+    ${implClassName}* imp = V8${implClassName}::toNative(holder);
+END
     } else {
         my $attrType = GetTypeFromSignature($attribute->signature);
         my $reflect = $attribute->signature->extendedAttributes->{"Reflect"};
@@ -741,9 +909,8 @@ END
         }
 
         push(@implContentDecls, <<END);
-    v8::Handle<v8::Object> holder = info.Holder();
+    ${implClassName}* imp = V8${implClassName}::toNative(info.Holder());
 END
-        HolderToNative($dataNode, $implClassName, $classIndex, "info");
     }
 
     my $nativeType = GetNativeTypeFromSignature($attribute->signature, 0);
@@ -790,8 +957,7 @@ END
         } elsif ($attribute->signature->type eq "EventListener") {
             $implIncludes{"V8AbstractEventListener.h"} = 1;
             $implIncludes{"V8CustomBinding.h"} = 1;
-            $cacheIndex = GetHiddenDependencyIndex($dataNode, $attrName);
-            push(@implContentDecls, "    transferHiddenDependency(holder, imp->$attrName(), value, $cacheIndex);\n");
+            push(@implContentDecls, "    transferHiddenDependency(info.Holder(), imp->$attrName(), value, V8${interfaceName}::cacheIndex);\n");
             push(@implContentDecls, "    imp->set$implSetterFunctionName(V8DOMWrapper::getEventListener(imp, value, true, ListenerFindOrCreate)");
         } else {
             push(@implContentDecls, "    imp->set$implSetterFunctionName($result");
@@ -838,12 +1004,7 @@ sub GetFunctionTemplateCallbackName
             $function->signature->extendedAttributes->{"V8Custom"}) {
             die "Custom and V8Custom should be mutually exclusive!"
         }
-        my $customFunc = $function->signature->extendedAttributes->{"Custom"} ||
-                         $function->signature->extendedAttributes->{"V8Custom"};
-        if ($customFunc eq 1) {
-            $customFunc = $interfaceName . $codeGenerator->WK_ucfirst($name);
-        }
-        return "V8Custom::v8${customFunc}Callback";
+        return "V8${interfaceName}::${name}Callback";
     } else {
         return "${interfaceName}Internal::${name}Callback";
     }
@@ -882,14 +1043,13 @@ sub GenerateFunctionCallback
 
     if (IsPodType($implClassName)) {
         my $nativeClassName = GetNativeType($implClassName);
-        push(@implContentDecls, "    V8SVGPODTypeWrapper<$nativeClassName>* imp_wrapper = v8DOMWrapperTo<V8SVGPODTypeWrapper<$nativeClassName> >(V8ClassIndex::$classIndex, args.Holder());\n");
+        push(@implContentDecls, "    V8SVGPODTypeWrapper<$nativeClassName>* imp_wrapper = V8SVGPODTypeWrapper<$nativeClassName>::toNative(args.Holder());\n");
         push(@implContentDecls, "    $nativeClassName imp_instance = *imp_wrapper;\n");
         push(@implContentDecls, "    $nativeClassName* imp = &imp_instance;\n");
     } else {
         push(@implContentDecls, <<END);
-    v8::Handle<v8::Object> holder = args.Holder();
+    ${implClassName}* imp = V8${implClassName}::toNative(args.Holder());
 END
-        HolderToNative($dataNode, $implClassName, $classIndex);
     }
 
   # Check domain security if needed
@@ -898,7 +1058,7 @@ END
        && !$function->signature->extendedAttributes->{"DoNotCheckDomainSecurity"}) {
     # We have not find real use cases yet.
     push(@implContentDecls,
-"    if (!V8Proxy::canAccessFrame(imp->frame(), true)) {\n".
+"    if (!V8BindingSecurity::canAccessFrame(V8BindingState::Only(), imp->frame(), true)) {\n".
 "      return v8::Handle<v8::Value>();\n" .
 "    }\n");
     }
@@ -930,7 +1090,7 @@ END
     }
     if ($function->signature->extendedAttributes->{"SVGCheckSecurityDocument"}) {
         push(@implContentDecls,
-"    if (!V8Proxy::checkNodeSecurity(imp->getSVGDocument(ec)))\n" .
+"    if (!V8BindingSecurity::checkNodeSecurity(V8BindingState::Only(), imp->getSVGDocument(ec)))\n" .
 "      return v8::Handle<v8::Value>();\n");
     }
 
@@ -1040,7 +1200,7 @@ sub GenerateSingleBatchedAttribute
         "";
     if ($customAccessor eq 1) {
         # use the naming convension, interface + (capitalize) attr name
-        $customAccessor = $interfaceName . $codeGenerator->WK_ucfirst($attrName);
+        $customAccessor = $interfaceName . "::" . $attrName;
     }
 
     my $getter;
@@ -1065,7 +1225,7 @@ sub GenerateSingleBatchedAttribute
         $constructorType =~ s/Constructor$//;
         my $constructorIndex = uc($constructorType);
         if ($customAccessor) {
-            $getter = "V8Custom::v8${customAccessor}AccessorGetter";
+            $getter = "V8${customAccessor}AccessorGetter";
         } else {
             $data = "V8ClassIndex::${constructorIndex}";
             $getter = "${interfaceName}Internal::${interfaceName}ConstructorGetter";
@@ -1081,12 +1241,12 @@ sub GenerateSingleBatchedAttribute
         # Custom Setter
         if ($attrExt->{"CustomSetter"} || $attrExt->{"V8CustomSetter"} || $attrExt->{"Custom"} || $attrExt->{"V8Custom"}) {
             $hasCustomSetter = 1;
-            $setter = "V8Custom::v8${customAccessor}AccessorSetter";
+            $setter = "V8${customAccessor}AccessorSetter";
         }
 
         # Custom Getter
-        if ($attrExt->{"CustomGetter"} || $attrExt->{"Custom"} || $attrExt->{"V8Custom"}) {
-            $getter = "V8Custom::v8${customAccessor}AccessorGetter";
+        if ($attrExt->{"CustomGetter"} || $attrExt->{"V8CustomGetter"} || $attrExt->{"Custom"} || $attrExt->{"V8Custom"}) {
+            $getter = "V8${customAccessor}AccessorGetter";
         }
     }
 
@@ -1127,6 +1287,172 @@ sub GenerateSingleBatchedAttribute
 END
 }
 
+sub GenerateImplementationIndexer
+{
+    my $dataNode = shift;
+    my $indexer = shift;
+    my $interfaceName = $dataNode->name;
+
+    # FIXME: Figure out what HasNumericIndexGetter is really supposed to do. Right now, it's only set on WebGL-related files.
+    my $hasCustomSetter = $dataNode->extendedAttributes->{"HasCustomIndexSetter"} && !$dataNode->extendedAttributes->{"HasNumericIndexGetter"};
+    my $hasGetter = $dataNode->extendedAttributes->{"HasIndexGetter"} || $dataNode->extendedAttributes->{"CustomGetOwnPropertySlot"};
+
+    # FIXME: Find a way to not have to special-case HTMLOptionsCollection.
+    if ($interfaceName eq "HTMLOptionsCollection") {
+        $hasGetter = 1;
+    }
+    # FIXME: If the parent interface of $dataNode already has
+    # HasIndexGetter, we don't need to handle the getter here.
+    if ($interfaceName eq "WebKitCSSTransformValue") {
+        $hasGetter = 0;
+    }
+
+    # FIXME: Investigate and remove this nastinesss. In V8, named property handling and indexer handling are apparently decoupled,
+    # which means that object[X] where X is a number doesn't reach named property indexer. So we need to provide
+    # simplistic, mirrored indexer handling in addition to named property handling.
+    my $isSpecialCase = exists $indexerSpecialCases{$interfaceName};
+    if ($isSpecialCase) {
+        $hasGetter = 1;
+        if ($dataNode->extendedAttributes->{"DelegatingPutFunction"}) {
+            $hasCustomSetter = 1;
+        }
+    }
+
+    if (!$hasGetter) {
+        return;
+    }
+
+    $implIncludes{"V8Collection.h"} = 1;
+
+    my $indexerType = $indexer ? $indexer->type : 0;
+
+    # FIXME: Remove this once toV8 helper methods are implemented (see https://bugs.webkit.org/show_bug.cgi?id=32563).
+    if ($interfaceName eq "WebKitCSSKeyframesRule") {
+        $indexerType = "WebKitCSSKeyframeRule";
+    }
+
+    if ($indexerType && !$hasCustomSetter) {
+        if ($indexerType eq "DOMString") {
+            my $conversion = $indexer->extendedAttributes->{"ConvertNullStringTo"};
+            if ($conversion && $conversion eq "Null") {
+                push(@implContent, <<END);
+  setCollectionStringOrNullIndexedGetter<${interfaceName}>(desc);
+END
+            } else {
+                push(@implContent, <<END);
+  setCollectionStringIndexedGetter<${interfaceName}>(desc);
+END
+            }
+        } else {
+            my $indexerClassIndex = uc($indexerType);
+            push(@implContent, <<END);
+  setCollectionIndexedGetter<${interfaceName}, ${indexerType}>(desc, V8ClassIndex::${indexerClassIndex});
+END
+        }
+
+        return;
+    }
+
+    my $hasDeleter = $dataNode->extendedAttributes->{"CustomDeleteProperty"};
+    my $hasEnumerator = !$isSpecialCase && IsNodeSubType($dataNode);
+    my $setOn = "Instance";
+
+    # V8 has access-check callback API (see ObjectTemplate::SetAccessCheckCallbacks) and it's used on DOMWindow
+    # instead of deleters or enumerators. In addition, the getter should be set on prototype template, to
+    # get implementation straight out of the DOMWindow prototype regardless of what prototype is actually set
+    # on the object.
+    if ($interfaceName eq "DOMWindow") {
+        $setOn = "Prototype";
+        $hasDeleter = 0;
+    }
+
+    push(@implContent, "  desc->${setOn}Template()->SetIndexedPropertyHandler(V8${interfaceName}::indexedPropertyGetter");
+    push(@implContent, $hasCustomSetter ? ", V8${interfaceName}::indexedPropertySetter" : ", 0");
+    push(@implContent, ", 0"); # IndexedPropertyQuery -- not being used at the moment.
+    push(@implContent, $hasDeleter ? ", V8${interfaceName}::indexedPropertyDeleter" : ", 0");
+    push(@implContent, ", nodeCollectionIndexedPropertyEnumerator<${interfaceName}>, v8::Integer::New(V8ClassIndex::NODE)") if $hasEnumerator;
+    push(@implContent, ");\n");
+}
+
+sub GenerateImplementationNamedPropertyGetter
+{
+    my $dataNode = shift;
+    my $namedPropertyGetter = shift;
+    my $interfaceName = $dataNode->name;
+    my $hasCustomGetter = $dataNode->extendedAttributes->{"HasOverridingNameGetter"} || $dataNode->extendedAttributes->{"CustomGetOwnPropertySlot"};
+
+    # FIXME: Remove hard-coded HTMLOptionsCollection reference by changing HTMLOptionsCollection to not inherit
+    # from HTMLCollection per W3C spec (http://www.w3.org/TR/2003/REC-DOM-Level-2-HTML-20030109/html.html#HTMLOptionsCollection).
+    if ($interfaceName eq "HTMLOptionsCollection") {
+        $interfaceName = "HTMLCollection";
+        $hasCustomGetter = 1;
+    }
+
+    my $hasGetter = $dataNode->extendedAttributes->{"HasNameGetter"} || $hasCustomGetter || $namedPropertyGetter;
+    if (!$hasGetter) {
+        return;
+    }
+
+    if ($namedPropertyGetter && $namedPropertyGetter->type ne "Node" && !$namedPropertyGetter->extendedAttributes->{"Custom"} && !$hasCustomGetter) {
+        $implIncludes{"V8Collection.h"} = 1;
+        my $type = $namedPropertyGetter->type;
+        my $classIndex = uc($type);
+        push(@implContent, <<END);
+  setCollectionNamedGetter<${interfaceName}, ${type}>(desc, V8ClassIndex::${classIndex});
+END
+        return;
+    }
+
+    my $hasSetter = $dataNode->extendedAttributes->{"DelegatingPutFunction"};
+    # FIXME: Try to remove hard-coded HTMLDocument reference by aligning handling of document.all with JSC bindings.
+    my $hasDeleter = $dataNode->extendedAttributes->{"CustomDeleteProperty"} || $interfaceName eq "HTMLDocument";
+    my $hasEnumerator = $dataNode->extendedAttributes->{"CustomGetPropertyNames"};
+    my $setOn = "Instance";
+
+    # V8 has access-check callback API (see ObjectTemplate::SetAccessCheckCallbacks) and it's used on DOMWindow
+    # instead of deleters or enumerators. In addition, the getter should be set on prototype template, to
+    # get implementation straight out of the DOMWindow prototype regardless of what prototype is actually set
+    # on the object.
+    if ($interfaceName eq "DOMWindow") {
+        $setOn = "Prototype";
+        $hasDeleter = 0;
+        $hasEnumerator = 0;
+    }
+
+    push(@implContent, "  desc->${setOn}Template()->SetNamedPropertyHandler(V8${interfaceName}::namedPropertyGetter, ");
+    push(@implContent, $hasSetter ? "V8${interfaceName}::namedPropertySetter, " : "0, ");
+    push(@implContent, "0, "); # NamedPropertyQuery -- not being used at the moment.
+    push(@implContent, $hasDeleter ? "V8${interfaceName}::namedPropertyDeleter, " : "0, ");
+    push(@implContent, $hasEnumerator ? "V8${interfaceName}::namedPropertyEnumerator" : "0");
+    push(@implContent, ");\n");
+}
+
+sub GenerateImplementationCustomCall
+{
+    my $dataNode = shift;
+    my $interfaceName = $dataNode->name;
+    my $hasCustomCall = $dataNode->extendedAttributes->{"CustomCall"};
+
+    # FIXME: Remove hard-coded HTMLOptionsCollection reference.
+    if ($interfaceName eq "HTMLOptionsCollection") {
+        $interfaceName = "HTMLCollection";
+        $hasCustomCall = 1;
+    }
+
+    if ($hasCustomCall) {
+        push(@implContent, "  desc->InstanceTemplate()->SetCallAsFunctionHandler(V8${interfaceName}::callAsFunctionCallback);\n");
+    }
+}
+
+sub GenerateImplementationMasqueradesAsUndefined
+{
+    my $dataNode = shift;
+    if ($dataNode->extendedAttributes->{"MasqueradesAsUndefined"})
+    {
+        push(@implContent, "  desc->InstanceTemplate()->MarkAsUndetectable();\n");
+    }
+}
+
 sub GenerateImplementation
 {
     my $object = shift;
@@ -1145,7 +1471,8 @@ sub GenerateImplementation
     push(@implFixedHeader,
          "#include \"config.h\"\n" .
          "#include \"V8Proxy.h\"\n" .
-         "#include \"V8Binding.h\"\n\n" .
+         "#include \"V8Binding.h\"\n" .
+         "#include \"V8BindingState.h\"\n\n" .
          "#undef LOG\n\n");
 
     push(@implFixedHeader, "\n#if ${conditionalString}\n\n") if $conditionalString;
@@ -1157,14 +1484,12 @@ sub GenerateImplementation
     $implIncludes{"${className}.h"} = 1;
 
     AddIncludesForType($interfaceName);
-    $implIncludes{"V8Proxy.h"} = 1;
 
     push(@implContentDecls, "namespace WebCore {\n");
     push(@implContentDecls, "namespace ${interfaceName}Internal {\n\n");
     push(@implContentDecls, "template <typename T> void V8_USE(T) { }\n\n");
 
     my $hasConstructors = 0;
-
     # Generate property accessors for attributes.
     for ($index = 0; $index < @{$dataNode->attributes}; $index++) {
         $attribute = @{$dataNode->attributes}[$index];
@@ -1173,7 +1498,8 @@ sub GenerateImplementation
 
         # Generate special code for the constructor attributes.
         if ($attrType =~ /Constructor$/) {
-            if ($attribute->signature->extendedAttributes->{"CustomGetter"}) {
+            if ($attribute->signature->extendedAttributes->{"CustomGetter"} ||
+                $attribute->signature->extendedAttributes->{"V8CustomGetter"}) {
                 $implIncludes{"V8CustomBinding.h"} = 1;
             } else {
                 $hasConstructors = 1;
@@ -1195,7 +1521,8 @@ sub GenerateImplementation
         }
 
         # Generate the accessor.
-        if ($attribute->signature->extendedAttributes->{"CustomGetter"}) {
+        if ($attribute->signature->extendedAttributes->{"CustomGetter"} ||
+            $attribute->signature->extendedAttributes->{"V8CustomGetter"}) {
             $implIncludes{"V8CustomBinding.h"} = 1;
         } else {
             GenerateNormalAttrGetter($attribute, $dataNode, $classIndex, $implClassName, $interfaceName);
@@ -1214,7 +1541,9 @@ sub GenerateImplementation
     if ($hasConstructors) {
         GenerateConstructorGetter($implClassName, $classIndex);
     }
-
+   
+    my $indexer;
+    my $namedPropertyGetter;
     # Generate methods for functions.
     foreach my $function (@{$dataNode->functions}) {
         # hack for addEventListener/RemoveEventListener
@@ -1223,6 +1552,14 @@ sub GenerateImplementation
                 $implIncludes{"V8CustomBinding.h"} = 1;
         } else {
             GenerateFunctionCallback($function, $dataNode, $classIndex, $implClassName);
+        }
+
+        if ($function->signature->name eq "item") {
+            $indexer = $function->signature;
+        }
+
+        if ($function->signature->name eq "namedItem") {
+            $namedPropertyGetter = $function->signature;
         }
 
         # If the function does not need domain security check, we need to
@@ -1243,6 +1580,7 @@ sub GenerateImplementation
     my @enabledAtRuntime;
     my @normal;
     foreach my $attribute (@$attributes) {
+
         if ($interfaceName eq "DOMWindow" && $attribute->signature->extendedAttributes->{"V8DisallowShadowing"}) {
             push(@disallowsShadowing, $attribute);
         } elsif ($attribute->signature->extendedAttributes->{"EnabledAtRuntime"}) {
@@ -1321,9 +1659,20 @@ END
 
     push(@implContentDecls, "} // namespace ${interfaceName}Internal\n\n");
 
+    # In namespace WebCore, add generated implementation for 'CanBeConstructed'.
+    if ($dataNode->extendedAttributes->{"CanBeConstructed"} && !$dataNode->extendedAttributes->{"CustomConstructor"}) {
+        push(@implContent, <<END);
+ v8::Handle<v8::Value> ${className}::constructorCallback(const v8::Arguments& args)
+  {
+    INC_STATS("DOM.${interfaceName}.Contructor");
+    return V8Proxy::constructDOMObject<V8ClassIndex::${classIndex}, $interfaceName>(args);
+  }
+END
+   }
+
     my $access_check = "";
     if ($dataNode->extendedAttributes->{"CheckDomainSecurity"} && !($interfaceName eq "DOMWindow")) {
-        $access_check = "instance->SetAccessCheckCallbacks(V8Custom::v8${interfaceName}NamedSecurityCheck, V8Custom::v8${interfaceName}IndexedSecurityCheck, v8::Integer::New(V8ClassIndex::ToInt(V8ClassIndex::${classIndex})));";
+        $access_check = "instance->SetAccessCheckCallbacks(V8${interfaceName}::namedSecurityCheck, V8${interfaceName}::indexedSecurityCheck, v8::Integer::New(V8ClassIndex::ToInt(V8ClassIndex::${classIndex})));";
     }
 
     # For the DOMWindow interface, generate the shadow object template
@@ -1335,6 +1684,10 @@ static v8::Persistent<v8::ObjectTemplate> ConfigureShadowObjectTemplate(v8::Pers
                            v8::Handle<v8::ObjectTemplate>(),
                            shadow_attrs,
                            sizeof(shadow_attrs)/sizeof(*shadow_attrs));
+
+  // Install a security handler with V8.
+  templ->SetAccessCheckCallbacks(V8DOMWindow::namedSecurityCheck, V8DOMWindow::indexedSecurityCheck, v8::Integer::New(V8ClassIndex::DOMWINDOW));
+  templ->SetInternalFieldCount(V8DOMWindow::internalFieldCount);
   return templ;
 }
 END
@@ -1349,20 +1702,13 @@ END
         $parentClassIndex = uc($codeGenerator->StripModule($parent));
         last;
     }
-
-    # find the field count
-    my $fieldCount = "V8Custom::kDefaultWrapperInternalFieldCount";
-    if (IsNodeSubType($dataNode)) {
-        $fieldCount = "V8Custom::kNodeMinimumInternalFieldCount";
-    }
     
     # Generate the template configuration method
     push(@implContent,  <<END);
 static v8::Persistent<v8::FunctionTemplate> Configure${className}Template(v8::Persistent<v8::FunctionTemplate> desc) {
   v8::Local<v8::Signature> default_signature = configureTemplate(desc, \"${interfaceName}\",
-      V8ClassIndex::$parentClassIndex, $fieldCount,
+      V8ClassIndex::$parentClassIndex, V8${interfaceName}::internalFieldCount,
 END
-
     # Set up our attributes if we have them
     if ($has_attributes) {
         push(@implContent, <<END);
@@ -1384,6 +1730,12 @@ END
 END
     }
 
+    if ($dataNode->extendedAttributes->{"CustomConstructor"} || $dataNode->extendedAttributes->{"CanBeConstructed"}) {
+        push(@implContent, <<END);
+      desc->SetCallHandler(V8${interfaceName}::constructorCallback);
+END
+    }
+
     if ($access_check or @enabledAtRuntime or @{$dataNode->functions} or $has_constants) {
     push(@implContent,  <<END);
   v8::Local<v8::ObjectTemplate> instance = desc->InstanceTemplate();
@@ -1395,10 +1747,10 @@ END
     
     # Setup the enable-at-runtime attrs if we have them
     foreach my $runtime_attr (@enabledAtRuntime) {
-        $enable_function = $interfaceName . $codeGenerator->WK_ucfirst($runtime_attr->signature->name);
+        $enable_function = $interfaceName . "::" . $codeGenerator->WK_ucfirst($runtime_attr->signature->name);
         my $conditionalString = GenerateConditionalString($runtime_attr->signature);
         push(@implContent, "\n#if ${conditionalString}\n") if $conditionalString;
-        push(@implContent, "    if (V8Custom::v8${enable_function}Enabled()) {\n");
+        push(@implContent, "    if (V8${enable_function}Enabled()) {\n");
         push(@implContent, "        static const BatchedAttribute attrData =\\\n");
         GenerateSingleBatchedAttribute($interfaceName, $runtime_attr, ";", "    ");
         push(@implContent, <<END);
@@ -1407,6 +1759,11 @@ END
 END
         push(@implContent, "\n#endif // ${conditionalString}\n") if $conditionalString;
     }
+
+    GenerateImplementationIndexer($dataNode, $indexer);
+    GenerateImplementationNamedPropertyGetter($dataNode, $namedPropertyGetter);
+    GenerateImplementationCustomCall($dataNode);
+    GenerateImplementationMasqueradesAsUndefined($dataNode);
 
     # Define our functions with Set() or SetAccessor()
     $total_functions = 0;
@@ -1433,8 +1790,8 @@ END
         my $conditional = "";
         if ($attrExt->{"EnabledAtRuntime"}) {
             # Only call Set()/SetAccessor() if this method should be enabled
-            $enable_function = $interfaceName . $codeGenerator->WK_ucfirst($function->signature->name);
-            $conditional = "if (V8Custom::v8${enable_function}Enabled())\n";
+            $enable_function = $interfaceName . "::" . $codeGenerator->WK_ucfirst($function->signature->name);
+            $conditional = "if (V8${enable_function}Enabled())\n";
         }
 
         if ($attrExt->{"DoNotCheckDomainSecurity"} &&
@@ -1494,7 +1851,7 @@ END
       }
       
       push(@implContent, <<END);
-  ${conditional}createCallback($template, "$name", $callback, ${signature}$property_attributes);
+  ${conditional}$template->Set(v8::String::New("$name"), v8::FunctionTemplate::New($callback, v8::Handle<v8::Value>(), ${signature})$property_attributes);
 END
       $num_callbacks++;
     }
@@ -1506,8 +1863,36 @@ END
   batchConfigureConstants(desc, proto, ${interfaceName}_consts, sizeof(${interfaceName}_consts)/sizeof(*${interfaceName}_consts));
 END
     }
+    
+    # Special cases
+    if ($interfaceName eq "DOMWindow") {
+        push(@implContent, <<END);
+ 
+  proto->SetInternalFieldCount(V8DOMWindow::internalFieldCount);
+  desc->SetHiddenPrototype(true);
+  instance->SetInternalFieldCount(V8DOMWindow::internalFieldCount);
+  // Set access check callbacks, but turned off initially.
+  // When a context is detached from a frame, turn on the access check.
+  // Turning on checks also invalidates inline caches of the object.
+  instance->SetAccessCheckCallbacks(V8DOMWindow::namedSecurityCheck, V8DOMWindow::indexedSecurityCheck, v8::Integer::New(V8ClassIndex::DOMWINDOW), false);
+END
+    }
+    if ($interfaceName eq "Location") {
+        push(@implContent, <<END);
+ 
+  // For security reasons, these functions are on the instance instead 
+  // of on the prototype object to insure that they cannot be overwritten.
+  instance->SetAccessor(v8::String::New("reload"), V8Location::reloadAccessorGetter, 0, v8::Handle<v8::Value>(), v8::ALL_CAN_READ, static_cast<v8::PropertyAttribute>(v8::DontDelete | v8::ReadOnly));
+  instance->SetAccessor(v8::String::New("replace"), V8Location::replaceAccessorGetter, 0, v8::Handle<v8::Value>(), v8::ALL_CAN_READ, static_cast<v8::PropertyAttribute>(v8::DontDelete | v8::ReadOnly));
+  instance->SetAccessor(v8::String::New("assign"), V8Location::assignAccessorGetter, 0, v8::Handle<v8::Value>(), v8::ALL_CAN_READ, static_cast<v8::PropertyAttribute>(v8::DontDelete | v8::ReadOnly));
+END
+    }
 
+    $toNativeReturnType = GetReturnTypeForToNative($interfaceName);
     push(@implContent, <<END);
+  
+  // Custom toString template
+  desc->Set(getToStringName(), getToStringTemplate());
   return desc;
 }
 
@@ -1519,6 +1904,10 @@ v8::Persistent<v8::FunctionTemplate> ${className}::GetRawTemplate() {
 v8::Persistent<v8::FunctionTemplate> ${className}::GetTemplate() {
   static v8::Persistent<v8::FunctionTemplate> ${className}_cache_ = Configure${className}Template(GetRawTemplate());
   return ${className}_cache_;
+}
+
+${toNativeReturnType}* ${className}::toNative(v8::Handle<v8::Object> object) {
+  return reinterpret_cast<${toNativeReturnType}*>(object->GetPointerFromInternalField(v8DOMWrapperObjectIndex)); 
 }
 
 bool ${className}::HasInstance(v8::Handle<v8::Value> value) {
@@ -1547,6 +1936,15 @@ END
     push(@implContent, "\n#endif // ${conditionalString}\n") if $conditionalString;
 }
 
+sub GetReturnTypeForToNative
+{
+    my $type = shift;
+    return "FloatRect" if $type eq "SVGRect";
+    return "FloatPoint" if $type eq "SVGPoint";
+    return "TransformationMatrix" if $type eq "SVGMatrix";
+    return "float" if $type eq "SVGNumber";
+    return $type;
+}
 
 sub GenerateFunctionCallString()
 {
@@ -1757,101 +2155,20 @@ sub GetNativeTypeFromSignature
 sub IsRefPtrType
 {
     my $type = shift;
-    return 1 if $type eq "Attr";
-    return 1 if $type eq "CanvasBooleanArray";
-    return 1 if $type eq "CanvasGradient";
-    return 1 if $type eq "CanvasObject";
-    return 1 if $type eq "ClientRect";
-    return 1 if $type eq "ClientRectList";
-    return 1 if $type eq "CDATASection";
-    return 1 if $type eq "Comment";
-    return 1 if $type eq "CSSRule";
-    return 1 if $type eq "CSSStyleRule";
-    return 1 if $type eq "CSSCharsetRule";
-    return 1 if $type eq "CSSImportRule";
-    return 1 if $type eq "CSSMediaRule";
-    return 1 if $type eq "CSSFontFaceRule";
-    return 1 if $type eq "CSSPageRule";
-    return 1 if $type eq "CSSPrimitiveValue";
-    return 1 if $type eq "CSSStyleSheet";
-    return 1 if $type eq "CSSStyleDeclaration";
-    return 1 if $type eq "CSSValue";
-    return 1 if $type eq "CSSRuleList";
-    return 1 if $type eq "Database";
-    return 1 if $type eq "Document";
-    return 1 if $type eq "DocumentFragment";
-    return 1 if $type eq "DocumentType";
-    return 1 if $type eq "Element";
-    return 1 if $type eq "EntityReference";
-    return 1 if $type eq "Event";
-    return 1 if $type eq "EventListener";
-    return 1 if $type eq "FileList";
-    return 1 if $type eq "HTMLCollection";
-    return 1 if $type eq "HTMLAllCollection";
-    return 1 if $type eq "HTMLDocument";
-    return 1 if $type eq "HTMLElement";
-    return 1 if $type eq "HTMLOptionsCollection";
-    return 1 if $type eq "ImageData";
-    return 1 if $type eq "Media";
-    return 1 if $type eq "MediaError";
-    return 1 if $type eq "MimeType";
-    return 1 if $type eq "Node";
-    return 1 if $type eq "NodeList";
-    return 1 if $type eq "NodeFilter";
-    return 1 if $type eq "NodeIterator";
-    return 1 if $type eq "NSResolver";
-    return 1 if $type eq "Plugin";
-    return 1 if $type eq "ProcessingInstruction";
-    return 1 if $type eq "Range";
-    return 1 if $type eq "RGBColor";
-    return 1 if $type eq "Text";
-    return 1 if $type eq "TextMetrics";
-    return 1 if $type eq "TimeRanges";
-    return 1 if $type eq "TreeWalker";
-    return 1 if $type eq "WebGLActiveInfo";
-    return 1 if $type eq "WebGLArray";
-    return 1 if $type eq "WebGLArrayBuffer";
-    return 1 if $type eq "WebGLByteArray";
-    return 1 if $type eq "WebGLBuffer";
-    return 1 if $type eq "WebGLFloatArray";
-    return 1 if $type eq "WebGLFramebuffer";
-    return 1 if $type eq "WebGLIntArray";
-    return 1 if $type eq "WebGLProgram";
-    return 1 if $type eq "WebGLRenderbuffer";
-    return 1 if $type eq "WebGLShader";
-    return 1 if $type eq "WebGLShortArray";
-    return 1 if $type eq "WebGLTexture";
-    return 1 if $type eq "WebGLUniformLocation";
-    return 1 if $type eq "WebGLUnsignedByteArray";
-    return 1 if $type eq "WebGLUnsignedIntArray";
-    return 1 if $type eq "WebGLUnsignedShortArray";
-    return 1 if $type eq "WebKitCSSMatrix";
-    return 1 if $type eq "WebKitPoint";
-    return 1 if $type eq "XPathExpression";
-    return 1 if $type eq "XPathNSResolver";
-    return 1 if $type eq "XPathResult";
 
-    return 1 if $type eq "SVGAngle";
-    return 1 if $type eq "SVGElementInstance";
-    return 1 if $type eq "SVGElementInstanceList";
-    return 1 if $type =~ /^SVGPathSeg/;
+    return 0 if $type eq "boolean";
+    return 0 if $type eq "float";
+    return 0 if $type eq "int";
+    return 0 if $type eq "Date";
+    return 0 if $type eq "DOMString";
+    return 0 if $type eq "double";
+    return 0 if $type eq "short";
+    return 0 if $type eq "long";
+    return 0 if $type eq "unsigned";
+    return 0 if $type eq "unsigned long";
+    return 0 if $type eq "unsigned short";
 
-    return 1 if $type =~ /^SVGAnimated/;
-
-    return 0;
-}
-
-sub IsVideoClassName
-{
-    my $class = shift;
-    return 1 if $class eq "V8HTMLAudioElement";
-    return 1 if $class eq "V8HTMLMediaElement";
-    return 1 if $class eq "V8HTMLSourceElement";
-    return 1 if $class eq "V8HTMLVideoElement";
-    return 1 if $class eq "V8MediaError";
-    return 1 if $class eq "V8TimeRanges";
-
-    return 0;
+    return 1;
 }
 
 sub IsWorkerClassName
@@ -1879,6 +2196,7 @@ sub GetNativeType
     return "int" if $type eq "short" or $type eq "unsigned short";
     return "unsigned" if $type eq "unsigned long";
     return "int" if $type eq "long";
+    return "long long" if $type eq "long long";
     return "unsigned long long" if $type eq "unsigned long long";
     return "bool" if $type eq "boolean";
     return "String" if $type eq "DOMString";
@@ -1888,11 +2206,14 @@ sub GetNativeType
     return "TransformationMatrix" if $type eq "SVGMatrix";
     return "SVGTransform" if $type eq "SVGTransform";
     return "SVGLength" if $type eq "SVGLength";
+    return "SVGAngle" if $type eq "SVGAngle";
     return "double" if $type eq "SVGNumber";
+    return "SVGPreserveAspectRatio" if $type eq "SVGPreserveAspectRatio";
     return "SVGPaint::SVGPaintType" if $type eq "SVGPaintType";
     return "DOMTimeStamp" if $type eq "DOMTimeStamp";
     return "unsigned" if $type eq "unsigned int";
     return "Node*" if $type eq "EventTarget" and $isParameter;
+    return "double" if $type eq "Date";
 
     return "String" if $type eq "DOMUserData";  # FIXME: Temporary hack?
 
@@ -1914,6 +2235,8 @@ my %typeCanFailConversion = (
     "WebGLArray" => 0,
     "WebGLBuffer" => 0,
     "WebGLByteArray" => 0,
+    "WebGLUnsignedByteArray" => 0,
+    "WebGLContextAttributes" => 0,
     "WebGLFloatArray" => 0,
     "WebGLFramebuffer" => 0,
     "CanvasGradient" => 0,
@@ -1946,7 +2269,7 @@ my %typeCanFailConversion = (
     "Range" => 0,
     "SQLResultSet" => 0,
     "Storage" => 0,
-    "SVGAngle" => 0,
+    "SVGAngle" => 1,
     "SVGElement" => 0,
     "SVGLength" => 1,
     "SVGMatrix" => 1,
@@ -1954,6 +2277,7 @@ my %typeCanFailConversion = (
     "SVGPaintType" => 0,
     "SVGPathSeg" => 0,
     "SVGPoint" => 1,
+    "SVGPreserveAspectRatio" => 1,
     "SVGRect" => 1,
     "SVGTransform" => 1,
     "TouchList" => 0,
@@ -1969,6 +2293,8 @@ my %typeCanFailConversion = (
     "long" => 0,
     "unsigned long" => 0,
     "unsigned short" => 0,
+    "long long" => 0,
+    "unsigned long long" => 0
 );
 
 
@@ -1987,9 +2313,11 @@ sub BasicTypeCanFailConversion
     my $signature = shift;
     my $type = GetTypeFromSignature($signature);
 
+    return 1 if $type eq "SVGAngle";
     return 1 if $type eq "SVGLength";
     return 1 if $type eq "SVGMatrix";
     return 1 if $type eq "SVGPoint";
+    return 1 if $type eq "SVGPreserveAspectRatio";
     return 1 if $type eq "SVGRect";
     return 1 if $type eq "SVGTransform";
     return 0;
@@ -2023,8 +2351,10 @@ sub JSValueToNative
     return "$value->NumberValue()" if $type eq "SVGNumber";
 
     return "toInt32($value${maybeOkParam})" if $type eq "unsigned long" or $type eq "unsigned short" or $type eq "long";
+    return "toInt64($value)" if $type eq "unsigned long long" or $type eq "long long";
     return "static_cast<Range::CompareHow>($value->Int32Value())" if $type eq "CompareHow";
     return "static_cast<SVGPaint::SVGPaintType>($value->ToInt32()->Int32Value())" if $type eq "SVGPaintType";
+    return "toWebCoreDate($value)" if $type eq "Date";
 
     if ($type eq "DOMString" or $type eq "DOMUserData") {
         return $value;
@@ -2048,12 +2378,11 @@ sub JSValueToNative
     }
 
     # Default, assume autogenerated type conversion routines
-    $implIncludes{"V8Proxy.h"} = 1;
     if ($type eq "EventTarget") {
         $implIncludes{"V8Node.h"} = 1;
 
         # EventTarget is not in DOM hierarchy, but all Nodes are EventTarget.
-        return "V8Node::HasInstance($value) ? v8DOMWrapperToNode<Node>(v8::Handle<v8::Object>::Cast($value)) : 0";
+        return "V8Node::HasInstance($value) ? V8Node::toNative(v8::Handle<v8::Object>::Cast($value)) : 0";
     }
 
     if ($type eq "XPathNSResolver") {
@@ -2061,14 +2390,13 @@ sub JSValueToNative
     }
 
     AddIncludesForType($type);
-    # $implIncludes{"$type.h"} = 1 unless AvoidInclusionOfType($type);
 
     if (IsDOMNodeType($type)) {
         $implIncludes{"V8${type}.h"} = 1;
 
         # Perform type checks on the parameter, if it is expected Node type,
         # return NULL.
-        return "V8${type}::HasInstance($value) ? v8DOMWrapperToNode<${type}>(v8::Handle<v8::Object>::Cast($value)) : 0";
+        return "V8${type}::HasInstance($value) ? V8${type}::toNative(v8::Handle<v8::Object>::Cast($value)) : 0";
     } else {
         # TODO: Temporary to avoid Window name conflict.
         my $classIndex = uc($type);
@@ -2087,7 +2415,7 @@ sub JSValueToNative
 
         # Perform type checks on the parameter, if it is expected Node type,
         # return NULL.
-        return "V8${type}::HasInstance($value) ? v8DOMWrapperTo<${implClassName}>(V8ClassIndex::${classIndex}, v8::Handle<v8::Object>::Cast($value)) : 0";
+        return "V8${type}::HasInstance($value) ? V8${type}::toNative(v8::Handle<v8::Object>::Cast($value)) : 0";
     }
 }
 
@@ -2157,10 +2485,14 @@ my %non_wrapper_types = (
     'long' => 1,
     'unsigned long' => 1,
     'boolean' => 1,
+    'long long' => 1,
+    'unsigned long long' => 1,
     'DOMString' => 1,
     'CompareHow' => 1,
+    'SVGAngle' => 1,
     'SVGRect' => 1,
     'SVGPoint' => 1,
+    'SVGPreserveAspectRatio' => 1,
     'SVGMatrix' => 1,
     'SVGTransform' => 1,
     'SVGLength' => 1,
@@ -2228,6 +2560,7 @@ sub ReturnNativeToJSValue
     return "return v8::Integer::New($value)" if $nativeType eq "int";
     return "return v8::Integer::NewFromUnsigned($value)" if $nativeType eq "unsigned";
 
+    return "return v8DateOrNull($value);" if $type eq "Date";
     return "return v8::Number::New($value)" if $codeGenerator->IsPrimitiveType($type) or $type eq "SVGPaintType";
 
     if ($codeGenerator->IsStringType($type)) {
@@ -2245,7 +2578,6 @@ sub ReturnNativeToJSValue
     # V8 specific.
     my $implClassName = $type;
     AddIncludesForType($type);
-    # $implIncludes{GetImplementationFileName($type)} = 1 unless AvoidInclusionOfType($type);
 
     # special case for non-DOM node interfaces
     if (IsDOMNodeType($type)) {
@@ -2270,7 +2602,7 @@ sub ReturnNativeToJSValue
 
     if ($type eq "SerializedScriptValue") {
         $implIncludes{"$type.h"} = 1;
-        return "return v8String($value->toString())";
+        return "return $value->deserialize()";
     }
 
     if ($type eq "DedicatedWorkerContext" or $type eq "WorkerContext" or $type eq "SharedWorkerContext") {

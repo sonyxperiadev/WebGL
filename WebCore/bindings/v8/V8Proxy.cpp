@@ -42,6 +42,7 @@
 #include "ScriptController.h"
 #include "StorageNamespace.h"
 #include "V8Binding.h"
+#include "V8BindingState.h"
 #include "V8Collection.h"
 #include "V8ConsoleMessage.h"
 #include "V8CustomBinding.h"
@@ -49,7 +50,7 @@
 #include "V8DOMWindow.h"
 #include "V8HiddenPropertyName.h"
 #include "V8Index.h"
-#include "V8IsolatedWorld.h"
+#include "V8IsolatedContext.h"
 #include "WorkerContextExecutionProxy.h"
 
 #include <algorithm>
@@ -174,7 +175,7 @@ enum DelayReporting {
     ReportNow
 };
 
-static void reportUnsafeAccessTo(Frame* target, DelayReporting delay)
+void V8Proxy::reportUnsafeAccessTo(Frame* target, DelayReporting delay)
 {
     ASSERT(target);
     Document* targetDocument = target->document();
@@ -214,13 +215,6 @@ static void reportUnsafeAccessTo(Frame* target, DelayReporting delay)
     }
 }
 
-static void reportUnsafeJavaScriptAccess(v8::Local<v8::Object> host, v8::AccessType type, v8::Local<v8::Value> data)
-{
-    Frame* target = V8Custom::GetTargetFrame(host, data);
-    if (target)
-        reportUnsafeAccessTo(target, ReportLater);
-}
-
 static void handleFatalErrorInV8()
 {
     // FIXME: We temporarily deal with V8 internal error situations
@@ -228,17 +222,9 @@ static void handleFatalErrorInV8()
     CRASH();
 }
 
-static void reportFatalErrorInV8(const char* location, const char* message)
-{
-    // V8 is shutdown, we cannot use V8 api.
-    // The only thing we can do is to disable JavaScript.
-    // FIXME: clean up V8Proxy and disable JavaScript.
-    printf("V8 error: %s (%s)\n", message, location);
-    handleFatalErrorInV8();
-}
-
 V8Proxy::V8Proxy(Frame* frame)
     : m_frame(frame)
+    , m_windowShell(V8DOMWindowShell::create(frame))
     , m_inlineCode(false)
     , m_timerCallback(false)
     , m_recursion(0)
@@ -248,18 +234,7 @@ V8Proxy::V8Proxy(Frame* frame)
 V8Proxy::~V8Proxy()
 {
     clearForClose();
-    destroyGlobal();
-}
-
-void V8Proxy::destroyGlobal()
-{
-    if (!m_global.IsEmpty()) {
-#ifndef NDEBUG
-        V8GCController::unregisterGlobalHandle(this, m_global);
-#endif
-        m_global.Dispose();
-        m_global.Clear();
-    }
+    windowShell()->destroyGlobal();
 }
 
 v8::Handle<v8::Script> V8Proxy::compileScript(v8::Handle<v8::String> code, const String& fileName, int baseLine)
@@ -297,7 +272,7 @@ bool V8Proxy::handleOutOfMemory()
         // Clean m_context, and event handlers.
         proxy->clearForClose();
 
-        proxy->destroyGlobal();
+        proxy->windowShell()->destroyGlobal();
     }
 
 #if PLATFORM(CHROMIUM)
@@ -315,104 +290,58 @@ bool V8Proxy::handleOutOfMemory()
 
 void V8Proxy::evaluateInIsolatedWorld(int worldID, const Vector<ScriptSourceCode>& sources, int extensionGroup)
 {
-    initContextIfNeeded();
+    // FIXME: This will need to get reorganized once we have a windowShell for the isolated world.
+    windowShell()->initContextIfNeeded();
 
     v8::HandleScope handleScope;
-    V8IsolatedWorld* world = 0;
+    V8IsolatedContext* isolatedContext = 0;
 
     if (worldID > 0) {
         IsolatedWorldMap::iterator iter = m_isolatedWorlds.find(worldID);
         if (iter != m_isolatedWorlds.end()) {
-            world = iter->second;
+            isolatedContext = iter->second;
         } else {
-            world = new V8IsolatedWorld(this, extensionGroup);
-            if (world->context().IsEmpty()) {
-                delete world;
+            isolatedContext = new V8IsolatedContext(this, extensionGroup);
+            if (isolatedContext->context().IsEmpty()) {
+                delete isolatedContext;
                 return;
             }
 
-            m_isolatedWorlds.set(worldID, world);
+            // FIXME: We should change this to using window shells to match JSC.
+            m_isolatedWorlds.set(worldID, isolatedContext);
 
             // Setup context id for JS debugger.
-            if (!setInjectedScriptContextDebugId(world->context())) {
+            if (!setInjectedScriptContextDebugId(isolatedContext->context())) {
                 m_isolatedWorlds.take(worldID);
-                delete world;
+                delete isolatedContext;
                 return;
             }
         }
     } else {
-        world = new V8IsolatedWorld(this, extensionGroup);
-        if (world->context().IsEmpty()) {
-            delete world;
+        isolatedContext = new V8IsolatedContext(this, extensionGroup);
+        if (isolatedContext->context().IsEmpty()) {
+            delete isolatedContext;
             return;
         }
     }
 
-    v8::Local<v8::Context> context = v8::Local<v8::Context>::New(world->context());
+    v8::Local<v8::Context> context = v8::Local<v8::Context>::New(isolatedContext->context());
     v8::Context::Scope context_scope(context);
     for (size_t i = 0; i < sources.size(); ++i)
       evaluate(sources[i], 0);
 
     if (worldID == 0)
-      world->destroy();
-}
-
-void V8Proxy::evaluateInNewContext(const Vector<ScriptSourceCode>& sources, int extensionGroup)
-{
-    initContextIfNeeded();
-
-    v8::HandleScope handleScope;
-
-    // Set up the DOM window as the prototype of the new global object.
-    v8::Handle<v8::Context> windowContext = m_context;
-    v8::Handle<v8::Object> windowGlobal = windowContext->Global();
-    v8::Handle<v8::Object> windowWrapper = V8DOMWrapper::lookupDOMWrapper(V8ClassIndex::DOMWINDOW, windowGlobal);
-
-    ASSERT(V8DOMWrapper::convertDOMWrapperToNative<DOMWindow>(windowWrapper) == m_frame->domWindow());
-
-    v8::Persistent<v8::Context> context = createNewContext(v8::Handle<v8::Object>(), extensionGroup);
-    if (context.IsEmpty())
-        return;
-
-    v8::Context::Scope contextScope(context);
-
-    // Setup context id for JS debugger.
-    if (!setInjectedScriptContextDebugId(context)) {
-        context.Dispose();
-        return;
-    }
-
-    v8::Handle<v8::Object> global = context->Global();
-
-    v8::Handle<v8::String> implicitProtoString = v8::String::New("__proto__");
-    global->Set(implicitProtoString, windowWrapper);
-
-    // Give the code running in the new context a way to get access to the
-    // original context.
-    global->Set(v8::String::New("contentWindow"), windowGlobal);
-
-    m_frame->loader()->client()->didCreateIsolatedScriptContext();
-
-    // Run code in the new context.
-    for (size_t i = 0; i < sources.size(); ++i)
-        evaluate(sources[i], 0);
-
-    // Using the default security token means that the canAccess is always
-    // called, which is slow.
-    // FIXME: Use tokens where possible. This will mean keeping track of all
-    // created contexts so that they can all be updated when the document domain
-    // changes.
-    context->UseDefaultSecurityToken();
-    context.Dispose();
+      isolatedContext->destroy();
 }
 
 bool V8Proxy::setInjectedScriptContextDebugId(v8::Handle<v8::Context> targetContext)
 {
     // Setup context id for JS debugger.
     v8::Context::Scope contextScope(targetContext);
-    if (m_context.IsEmpty())
+    v8::Handle<v8::Context> context = windowShell()->context();
+    if (context.IsEmpty())
         return false;
-    int debugId = contextDebugId(m_context);
+    int debugId = contextDebugId(context);
 
     char buffer[32];
     if (debugId == -1)
@@ -611,37 +540,13 @@ v8::Local<v8::Value> V8Proxy::newInstance(v8::Handle<v8::Function> constructor, 
     return result;
 }
 
-v8::Local<v8::Object> V8Proxy::createWrapperFromCacheSlowCase(V8ClassIndex::V8WrapperType type)
-{
-    // Not in cache.
-    int classIndex = V8ClassIndex::ToInt(type);
-    initContextIfNeeded();
-    v8::Context::Scope scope(m_context);
-    v8::Local<v8::Function> function = V8DOMWrapper::getConstructor(type, getHiddenObjectPrototype(m_context));
-    v8::Local<v8::Object> instance = SafeAllocation::newInstance(function);
-    if (!instance.IsEmpty()) {
-        m_wrapperBoilerplates->Set(v8::Integer::New(classIndex), instance);
-        return instance->Clone();
-    }
-    return notHandledByInterceptor();
-}
-
-bool V8Proxy::isContextInitialized()
-{
-    // m_context, m_global, and m_wrapperBoilerplates should
-    // all be non-empty if if m_context is non-empty.
-    ASSERT(m_context.IsEmpty() || !m_global.IsEmpty());
-    ASSERT(m_context.IsEmpty() || !m_wrapperBoilerplates.IsEmpty());
-    return !m_context.IsEmpty();
-}
-
 DOMWindow* V8Proxy::retrieveWindow(v8::Handle<v8::Context> context)
 {
     v8::Handle<v8::Object> global = context->Global();
     ASSERT(!global.IsEmpty());
     global = V8DOMWrapper::lookupDOMWrapper(V8ClassIndex::DOMWINDOW, global);
     ASSERT(!global.IsEmpty());
-    return V8DOMWrapper::convertToNativeObject<DOMWindow>(V8ClassIndex::DOMWINDOW, global);
+    return V8DOMWindow::toNative(global);
 }
 
 Frame* V8Proxy::retrieveFrame(v8::Handle<v8::Context> context)
@@ -691,91 +596,18 @@ V8Proxy* V8Proxy::retrieve(Frame* frame)
 {
     if (!frame)
         return 0;
-    return frame->script()->isEnabled() ? frame->script()->proxy() : 0;
+    return frame->script()->canExecuteScripts() ? frame->script()->proxy() : 0;
 }
 
 V8Proxy* V8Proxy::retrieve(ScriptExecutionContext* context)
 {
-    if (!context->isDocument())
+    if (!context || !context->isDocument())
         return 0;
     return retrieve(static_cast<Document*>(context)->frame());
 }
 
 void V8Proxy::disconnectFrame()
 {
-}
-
-void V8Proxy::updateDocumentWrapper(v8::Handle<v8::Value> wrapper)
-{
-    clearDocumentWrapper();
-
-    ASSERT(m_document.IsEmpty());
-    m_document = v8::Persistent<v8::Value>::New(wrapper);
-#ifndef NDEBUG
-    V8GCController::registerGlobalHandle(PROXY, this, m_document);
-#endif
-}
-
-void V8Proxy::clearDocumentWrapper()
-{
-    if (!m_document.IsEmpty()) {
-#ifndef NDEBUG
-        V8GCController::unregisterGlobalHandle(this, m_document);
-#endif
-        m_document.Dispose();
-        m_document.Clear();
-    }
-}
-
-void V8Proxy::updateDocumentWrapperCache()
-{
-    v8::HandleScope handleScope;
-    v8::Context::Scope contextScope(m_context);
-
-    // If the document has no frame, NodeToV8Object might get the
-    // document wrapper for a document that is about to be deleted.
-    // If the ForceSet below causes a garbage collection, the document
-    // might get deleted and the global handle for the document
-    // wrapper cleared. Using the cleared global handle will lead to
-    // crashes. In this case we clear the cache and let the DOMWindow
-    // accessor handle access to the document.
-    if (!m_frame->document()->frame()) {
-        clearDocumentWrapperCache();
-        return;
-    }
-
-    v8::Handle<v8::Value> documentWrapper = V8DOMWrapper::convertNodeToV8Object(m_frame->document());
-
-    // If instantiation of the document wrapper fails, clear the cache
-    // and let the DOMWindow accessor handle access to the document.
-    if (documentWrapper.IsEmpty()) {
-        clearDocumentWrapperCache();
-        return;
-    }
-    m_context->Global()->ForceSet(v8::String::New("document"), documentWrapper, static_cast<v8::PropertyAttribute>(v8::ReadOnly | v8::DontDelete));
-}
-
-void V8Proxy::clearDocumentWrapperCache()
-{
-    ASSERT(!m_context.IsEmpty());
-    m_context->Global()->ForceDelete(v8::String::New("document"));
-}
-
-void V8Proxy::disposeContextHandles()
-{
-    if (!m_context.IsEmpty()) {
-        m_frame->loader()->client()->didDestroyScriptContextForFrame();
-        m_context.Dispose();
-        m_context.Clear();
-    }
-
-    if (!m_wrapperBoilerplates.IsEmpty()) {
-#ifndef NDEBUG
-        V8GCController::unregisterGlobalHandle(this, m_wrapperBoilerplates);
-#endif
-        m_wrapperBoilerplates.Dispose();
-        m_wrapperBoilerplates.Clear();
-    }
 }
 
 void V8Proxy::releaseStorageMutex()
@@ -804,18 +636,13 @@ void V8Proxy::resetIsolatedWorlds()
 void V8Proxy::clearForClose()
 {
     resetIsolatedWorlds();
-
-    if (!m_context.IsEmpty()) {
-        v8::HandleScope handleScope;
-
-        clearDocumentWrapper();
-        disposeContextHandles();
-    }
+    windowShell()->clearForClose();
 }
 
 void V8Proxy::clearForNavigation()
 {
     resetIsolatedWorlds();
+<<<<<<< HEAD
 
     if (!m_context.IsEmpty()) {
         v8::HandleScope handle;
@@ -1181,6 +1008,9 @@ void V8Proxy::initContextIfNeeded()
 #ifdef ANDROID_INSTRUMENT
     android::TimeCounter::record(android::TimeCounter::JavaScriptInitTimeCounter, __FUNCTION__);
 #endif
+=======
+    windowShell()->clearForNavigation();
+>>>>>>> webkit.org at r54127
 }
 
 void V8Proxy::setDOMException(int exceptionCode)
@@ -1246,8 +1076,8 @@ v8::Local<v8::Context> V8Proxy::context(Frame* frame)
     if (context.IsEmpty())
         return v8::Local<v8::Context>();
 
-    if (V8IsolatedWorld* world = V8IsolatedWorld::getEntered()) {
-        context = v8::Local<v8::Context>::New(world->context());
+    if (V8IsolatedContext* isolatedContext = V8IsolatedContext::getEntered()) {
+        context = v8::Local<v8::Context>::New(isolatedContext->context());
         if (frame != V8Proxy::retrieveFrame(context))
             return v8::Local<v8::Context>();
     }
@@ -1257,8 +1087,8 @@ v8::Local<v8::Context> V8Proxy::context(Frame* frame)
 
 v8::Local<v8::Context> V8Proxy::context()
 {
-    if (V8IsolatedWorld* world = V8IsolatedWorld::getEntered()) {
-        RefPtr<SharedPersistent<v8::Context> > context = world->sharedContext();
+    if (V8IsolatedContext* isolatedContext = V8IsolatedContext::getEntered()) {
+        RefPtr<SharedPersistent<v8::Context> > context = isolatedContext->sharedContext();
         if (m_frame != V8Proxy::retrieveFrame(context->get()))
             return v8::Local<v8::Context>();
         return v8::Local<v8::Context>::New(context->get());
@@ -1268,8 +1098,8 @@ v8::Local<v8::Context> V8Proxy::context()
 
 v8::Local<v8::Context> V8Proxy::mainWorldContext()
 {
-    initContextIfNeeded();
-    return v8::Local<v8::Context>::New(m_context);
+    windowShell()->initContextIfNeeded();
+    return v8::Local<v8::Context>::New(windowShell()->context());
 }
 
 v8::Local<v8::Context> V8Proxy::mainWorldContext(Frame* frame)
@@ -1427,17 +1257,18 @@ void V8Proxy::registerExtension(v8::Extension* extension, int extensionGroup)
 bool V8Proxy::setContextDebugId(int debugId)
 {
     ASSERT(debugId > 0);
-    if (m_context.IsEmpty())
-        return false;
     v8::HandleScope scope;
-    if (!m_context->GetData()->IsUndefined())
+    v8::Handle<v8::Context> context = windowShell()->context();
+    if (context.IsEmpty())
+        return false;
+    if (!context->GetData()->IsUndefined())
         return false;
 
-    v8::Context::Scope contextScope(m_context);
+    v8::Context::Scope contextScope(context);
 
     char buffer[32];
     snprintf(buffer, sizeof(buffer), "page,%d", debugId);
-    m_context->SetData(v8::String::New(buffer));
+    context->SetData(v8::String::New(buffer));
 
     return true;
 }
@@ -1452,26 +1283,6 @@ int V8Proxy::contextDebugId(v8::Handle<v8::Context> context)
     if (!comma)
         return -1;
     return atoi(comma + 1);
-}
-
-v8::Handle<v8::Value> V8Proxy::getHiddenObjectPrototype(v8::Handle<v8::Context> context)
-{
-    return context->Global()->GetHiddenValue(V8HiddenPropertyName::objectPrototype());
-}
-
-void V8Proxy::installHiddenObjectPrototype(v8::Handle<v8::Context> context)
-{
-    v8::Handle<v8::String> objectString = v8::String::New("Object");
-    v8::Handle<v8::String> prototypeString = v8::String::New("prototype");
-    v8::Handle<v8::String> hiddenObjectPrototypeString = V8HiddenPropertyName::objectPrototype();
-    // Bail out if allocation failed.
-    if (objectString.IsEmpty() || prototypeString.IsEmpty() || hiddenObjectPrototypeString.IsEmpty())
-        return;
-
-    v8::Handle<v8::Object> object = v8::Handle<v8::Object>::Cast(context->Global()->Get(objectString));
-    v8::Handle<v8::Value> objectPrototype = object->Get(prototypeString);
-
-    context->Global()->SetHiddenValue(hiddenObjectPrototypeString, objectPrototype);
 }
 
 v8::Local<v8::Context> toV8Context(ScriptExecutionContext* context, const WorldContextHandle& worldContext)

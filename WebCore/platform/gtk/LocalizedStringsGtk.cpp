@@ -38,6 +38,7 @@
 
 #include <glib/gi18n-lib.h>
 #include <gtk/gtk.h>
+#include <math.h>
 
 namespace WebCore {
 
@@ -323,6 +324,16 @@ String AXUncheckedCheckBoxActionVerb()
 String AXLinkActionVerb()
 {
     return String::fromUTF8(_("jump"));
+}
+
+String AXMenuListPopupActionVerb()
+{
+    return String();
+}
+
+String AXMenuListActionVerb()
+{
+    return String();
 }
 
 String multipleFileUploadText(unsigned numberOfFiles)

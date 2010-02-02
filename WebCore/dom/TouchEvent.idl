@@ -26,8 +26,12 @@
 module events {
 
     interface [
+<<<<<<< HEAD
         Conditional=TOUCH_EVENTS,
         GenerateConstructor
+=======
+        Conditional=TOUCH_EVENTS
+>>>>>>> webkit.org at r54127
     ] TouchEvent : UIEvent {
         readonly attribute TouchList touches;
         readonly attribute TouchList targetTouches;

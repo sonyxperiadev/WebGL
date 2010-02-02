@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2008, 2009, 2010 Apple Inc. All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,12 +26,14 @@
 #ifndef AccessibilityController_h
 #define AccessibilityController_h
 
+#include "AccessibilityUIElement.h"
 #include <JavaScriptCore/JSObjectRef.h>
+#include <string>
+#include <wtf/HashMap.h>
+#include <wtf/Platform.h>
 #if PLATFORM(WIN)
 #include <windows.h>
 #endif
-
-class AccessibilityUIElement;
 
 class AccessibilityController {
 public:
@@ -45,16 +47,24 @@ public:
     AccessibilityUIElement focusedElement();
 
     void setLogFocusEvents(bool);
+    void setLogValueChangeEvents(bool);
     void setLogScrollingStartEvents(bool);
 
     void resetToConsistentState();
+
+    void addNotificationListener(PlatformUIElement, JSObjectRef functionCallback);
+    void notificationReceived(PlatformUIElement, const std::string& eventName);
 
 private:
     static JSClassRef getJSClass();
 
 #if PLATFORM(WIN)
     HWINEVENTHOOK m_focusEventHook;
+    HWINEVENTHOOK m_valueChangeEventHook;
     HWINEVENTHOOK m_scrollingStartEventHook;
+
+    HWINEVENTHOOK m_allEventsHook;
+    HashMap<PlatformUIElement, JSObjectRef> m_notificationListeners;
 #endif
 };
 

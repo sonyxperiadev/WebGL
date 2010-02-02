@@ -31,6 +31,8 @@
 
 //#include <QtDebug>
 
+#include <QtTest/QtTest>
+
 #define KEYCODE_DEL         127
 #define KEYCODE_BACKSPACE   8
 #define KEYCODE_LEFTARROW   0xf702
@@ -38,11 +40,34 @@
 #define KEYCODE_UPARROW     0xf700
 #define KEYCODE_DOWNARROW   0xf701
 
+// Ports like Gtk and Windows expose a different approach for their zooming
+// API if compared to Qt: they have specific methods for zooming in and out,
+// as well as a settable zoom factor, while Qt has only a 'setZoomValue' method.
+// Hence Qt DRT adopts a fixed zoom-factor (1.2) for compatibility.
+#define ZOOM_STEP           1.2
+
+#define DRT_MESSAGE_DONE (QEvent::User + 1)
+
+struct DRTEventQueue {
+    QEvent* m_event;
+    int m_delay;
+};
+
+static DRTEventQueue eventQueue[1024];
+static unsigned endOfQueue;
+static unsigned startOfQueue;
 
 EventSender::EventSender(QWebPage* parent)
     : QObject(parent)
 {
     m_page = parent;
+    m_mouseButtonPressed = false;
+    m_drag = false;
+    memset(eventQueue, 0, sizeof(eventQueue));
+    endOfQueue = 0;
+    startOfQueue = 0;
+    m_eventLoop = 0;
+    m_page->view()->installEventFilter(this);
 }
 
 void EventSender::mouseDown(int button)
@@ -67,9 +92,11 @@ void EventSender::mouseDown(int button)
         break;
     }
 
+    m_mouseButtons |= mouseButton;
+
 //     qDebug() << "EventSender::mouseDown" << frame;
-    QMouseEvent event(QEvent::MouseButtonPress, m_mousePos, mouseButton, mouseButton, Qt::NoModifier);
-    QApplication::sendEvent(m_page, &event);
+    QMouseEvent* event = new QMouseEvent(QEvent::MouseButtonPress, m_mousePos, m_mousePos, mouseButton, m_mouseButtons, Qt::NoModifier);
+    sendOrQueueEvent(event);
 }
 
 void EventSender::mouseUp(int button)
@@ -94,26 +121,28 @@ void EventSender::mouseUp(int button)
         break;
     }
 
+    m_mouseButtons &= ~mouseButton;
+
 //     qDebug() << "EventSender::mouseUp" << frame;
-    QMouseEvent event(QEvent::MouseButtonRelease, m_mousePos, mouseButton, mouseButton, Qt::NoModifier);
-    QApplication::sendEvent(m_page, &event);
+    QMouseEvent* event = new QMouseEvent(QEvent::MouseButtonRelease, m_mousePos, m_mousePos, mouseButton, m_mouseButtons, Qt::NoModifier);
+    sendOrQueueEvent(event);
 }
 
 void EventSender::mouseMoveTo(int x, int y)
 {
 //     qDebug() << "EventSender::mouseMoveTo" << x << y;
     m_mousePos = QPoint(x, y);
-    QMouseEvent event(QEvent::MouseMove, m_mousePos, Qt::NoButton, Qt::NoButton, Qt::NoModifier);
-    QApplication::sendEvent(m_page, &event);
+    QMouseEvent* event = new QMouseEvent(QEvent::MouseMove, m_mousePos, m_mousePos, Qt::NoButton, m_mouseButtons, Qt::NoModifier);
+    sendOrQueueEvent(event);
 }
 
 void EventSender::leapForward(int ms)
 {
-    m_timeLeap += ms;
+    eventQueue[endOfQueue].m_delay = ms;
     //qDebug() << "EventSender::leapForward" << ms;
 }
 
-void EventSender::keyDown(const QString& string, const QStringList& modifiers)
+void EventSender::keyDown(const QString& string, const QStringList& modifiers, unsigned int location)
 {
     QString s = string;
     Qt::KeyboardModifiers modifs = 0;
@@ -128,12 +157,16 @@ void EventSender::keyDown(const QString& string, const QStringList& modifiers)
         else if (m == "metaKey")
             modifs |= Qt::MetaModifier;
     }
+    if (location == 3)
+        modifs |= Qt::KeypadModifier;
     int code = 0;
     if (string.length() == 1) {
         code = string.unicode()->unicode();
         //qDebug() << ">>>>>>>>> keyDown" << code << (char)code;
         // map special keycodes used by the tests to something that works for Qt/X11
-        if (code == '\t') {
+        if (code == '\r') {
+            code = Qt::Key_Return;
+        } else if (code == '\t') {
             code = Qt::Key_Tab;
             if (modifs == Qt::ShiftModifier)
                 code = Qt::Key_Backtab;
@@ -251,6 +284,131 @@ void EventSender::scheduleAsynchronousClick()
     QApplication::postEvent(m_page, event2);
 }
 
+void EventSender::addTouchPoint(int x, int y)
+{
+#if QT_VERSION >= QT_VERSION_CHECK(4, 6, 0)
+    int id = m_touchPoints.count();
+    QTouchEvent::TouchPoint point(id);
+    m_touchPoints.append(point);
+    updateTouchPoint(id, x, y);
+    m_touchPoints[id].setState(Qt::TouchPointPressed);
+#endif
+}
+
+void EventSender::updateTouchPoint(int index, int x, int y)
+{
+#if QT_VERSION >= QT_VERSION_CHECK(4, 6, 0)
+    if (index < 0 || index >= m_touchPoints.count())
+        return;
+
+    QTouchEvent::TouchPoint &p = m_touchPoints[index];
+    p.setPos(QPointF(x, y));
+    p.setState(Qt::TouchPointMoved);
+#endif
+}
+
+void EventSender::setTouchModifier(const QString &modifier, bool enable)
+{
+#if QT_VERSION >= QT_VERSION_CHECK(4, 6, 0)
+    Qt::KeyboardModifier mod = Qt::NoModifier;
+    if (!modifier.compare(QLatin1String("shift"), Qt::CaseInsensitive))
+        mod = Qt::ShiftModifier;
+    else if (!modifier.compare(QLatin1String("alt"), Qt::CaseInsensitive))
+        mod = Qt::AltModifier;
+    else if (!modifier.compare(QLatin1String("meta"), Qt::CaseInsensitive))
+        mod = Qt::MetaModifier;
+    else if (!modifier.compare(QLatin1String("ctrl"), Qt::CaseInsensitive))
+        mod = Qt::ControlModifier;
+
+    if (enable)
+        m_touchModifiers |= mod;
+    else
+        m_touchModifiers &= ~mod;
+#endif
+}
+
+void EventSender::touchStart()
+{
+#if QT_VERSION >= QT_VERSION_CHECK(4, 6, 0)
+    if (!m_touchActive) {
+        sendTouchEvent(QEvent::TouchBegin);
+        m_touchActive = true;
+    } else
+        sendTouchEvent(QEvent::TouchUpdate);
+#endif
+}
+
+void EventSender::touchMove()
+{
+#if QT_VERSION >= QT_VERSION_CHECK(4, 6, 0)
+    sendTouchEvent(QEvent::TouchUpdate);
+#endif
+}
+
+void EventSender::touchEnd()
+{
+#if QT_VERSION >= QT_VERSION_CHECK(4, 6, 0)
+    for (int i = 0; i < m_touchPoints.count(); ++i)
+        if (m_touchPoints[i].state() != Qt::TouchPointReleased) {
+            sendTouchEvent(QEvent::TouchUpdate);
+            return;
+        }
+    sendTouchEvent(QEvent::TouchEnd);
+    m_touchActive = false;
+#endif
+}
+
+void EventSender::clearTouchPoints()
+{
+#if QT_VERSION >= QT_VERSION_CHECK(4, 6, 0)
+    m_touchPoints.clear();
+    m_touchModifiers = Qt::KeyboardModifiers();
+    m_touchActive = false;
+#endif
+}
+
+void EventSender::releaseTouchPoint(int index)
+{
+#if QT_VERSION >= QT_VERSION_CHECK(4, 6, 0)
+    if (index < 0 || index >= m_touchPoints.count())
+        return;
+
+    m_touchPoints[index].setState(Qt::TouchPointReleased);
+#endif
+}
+
+void EventSender::sendTouchEvent(QEvent::Type type)
+{
+#if QT_VERSION >= QT_VERSION_CHECK(4, 6, 0)
+    QTouchEvent event(type, QTouchEvent::TouchScreen, m_touchModifiers);
+    event.setTouchPoints(m_touchPoints);
+    QApplication::sendEvent(m_page, &event);
+    QList<QTouchEvent::TouchPoint>::Iterator it = m_touchPoints.begin();
+    while (it != m_touchPoints.end()) {
+        if (it->state() == Qt::TouchPointReleased)
+            it = m_touchPoints.erase(it);
+        else {
+            it->setState(Qt::TouchPointStationary);
+            ++it;
+        }
+    }
+#endif
+}
+
+void EventSender::zoomPageIn()
+{
+    QWebFrame* frame = m_page->mainFrame();
+    if (frame)
+        frame->setZoomFactor(frame->zoomFactor() * ZOOM_STEP);
+}
+
+void EventSender::zoomPageOut()
+{
+    QWebFrame* frame = m_page->mainFrame();
+    if (frame)
+        frame->setZoomFactor(frame->zoomFactor() / ZOOM_STEP);
+}
+
 QWebFrame* EventSender::frameUnderMouse() const
 {
     QWebFrame* frame = m_page->mainFrame();
@@ -266,4 +424,77 @@ redo:
     if (frame->geometry().contains(m_mousePos))
         return frame;
     return 0;
+}
+
+void EventSender::sendOrQueueEvent(QEvent* event)
+{
+    // Mouse move events are queued if 
+    // 1. A previous event was queued.
+    // 2. A delay was set-up by leapForward().
+    // 3. A call to mouseMoveTo while the mouse button is pressed could initiate a drag operation, and that does not return until mouseUp is processed. 
+    // To be safe and avoid a deadlock, this event is queued.
+    if (endOfQueue == startOfQueue && !eventQueue[endOfQueue].m_delay && (!(m_mouseButtonPressed && (m_eventLoop && event->type() == QEvent::MouseButtonRelease)))) {
+        QApplication::sendEvent(m_page->view(), event);
+        delete event;
+        return;
+    }
+    eventQueue[endOfQueue++].m_event = event;
+    eventQueue[endOfQueue].m_delay = 0;
+    replaySavedEvents(event->type() != QEvent::MouseMove);
+}
+
+void EventSender::replaySavedEvents(bool flush)
+{
+    if (startOfQueue < endOfQueue) {
+        // First send all the events that are ready to be sent
+        while (!eventQueue[startOfQueue].m_delay && startOfQueue < endOfQueue) {
+            QEvent* ev = eventQueue[startOfQueue++].m_event;
+            QApplication::postEvent(m_page->view(), ev); // ev deleted by the system
+        }
+        if (startOfQueue == endOfQueue) {
+            // Reset the queue
+            startOfQueue = 0;
+            endOfQueue = 0;
+        } else {
+            QTest::qWait(eventQueue[startOfQueue].m_delay);
+            eventQueue[startOfQueue].m_delay = 0;
+        }
+    }
+    if (!flush)
+        return;
+
+    // Send a marker event, it will tell us when it is safe to exit the new event loop
+    QEvent* drtEvent = new QEvent((QEvent::Type)DRT_MESSAGE_DONE);
+    QApplication::postEvent(m_page->view(), drtEvent);
+
+    // Start an event loop for async handling of Drag & Drop
+    m_eventLoop = new QEventLoop;
+    m_eventLoop->exec();
+    delete m_eventLoop;
+    m_eventLoop = 0;
+}
+
+bool EventSender::eventFilter(QObject* watched, QEvent* event)
+{
+    if (watched != m_page->view())
+        return false;
+    switch (event->type()) {
+    case QEvent::Leave:
+        return true;
+    case QEvent::MouseButtonPress:
+        m_mouseButtonPressed = true;
+        break;
+    case QEvent::MouseMove:
+        if (m_mouseButtonPressed)
+            m_drag = true;
+        break;
+    case QEvent::MouseButtonRelease:
+        m_mouseButtonPressed = false;
+        m_drag = false;
+        break;
+    case DRT_MESSAGE_DONE:
+        m_eventLoop->exit();
+        return true;
+    }
+    return false;
 }

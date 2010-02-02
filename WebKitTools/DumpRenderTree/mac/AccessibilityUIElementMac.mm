@@ -28,6 +28,7 @@
 #import "AccessibilityUIElement.h"
 
 #import <Foundation/Foundation.h>
+#import <JavaScriptCore/JSRetainPtr.h>
 #import <JavaScriptCore/JSStringRef.h>
 #import <JavaScriptCore/JSStringRefCF.h>
 #import <WebKit/WebFrame.h>
@@ -52,24 +53,33 @@
 #define NSAccessibilityDropEffectsAttribute @"AXDropEffects"
 #endif
 
-@interface NSObject (WebKitAccessibilityArrayCategory)
+typedef void (*AXPostedNotificationCallback)(id element, NSString* notification, void* context);
+
+@interface NSObject (WebKitAccessibilityAdditions)
 - (NSArray *)accessibilityArrayAttributeValues:(NSString *)attribute index:(NSUInteger)index maxCount:(NSUInteger)maxCount;
+- (void)accessibilitySetPostedNotificationCallback:(AXPostedNotificationCallback)function withContext:(void*)context;
+- (NSUInteger)accessibilityIndexOfChild:(id)child;
 @end
 
 AccessibilityUIElement::AccessibilityUIElement(PlatformUIElement element)
     : m_element(element)
+    , m_notificationFunctionCallback(0)
 {
     [m_element retain];
 }
 
 AccessibilityUIElement::AccessibilityUIElement(const AccessibilityUIElement& other)
     : m_element(other.m_element)
+    , m_notificationFunctionCallback(0)
 {
     [m_element retain];
 }
 
 AccessibilityUIElement::~AccessibilityUIElement()
 {
+    // Make sure that our notification callback does not stick around.
+    if (m_notificationFunctionCallback)
+        [m_element accessibilitySetPostedNotificationCallback:0 withContext:0];
     [m_element release];
 }
 
@@ -237,6 +247,11 @@ AccessibilityUIElement AccessibilityUIElement::elementAtPoint(int x, int y)
     return AccessibilityUIElement(element); 
 }
 
+unsigned AccessibilityUIElement::indexOfChild(AccessibilityUIElement* element)
+{
+    return [m_element accessibilityIndexOfChild:element->platformUIElement()];
+}
+
 AccessibilityUIElement AccessibilityUIElement::getChildAtIndex(unsigned index)
 {
     Vector<AccessibilityUIElement> children;
@@ -337,12 +352,21 @@ JSStringRef AccessibilityUIElement::allAttributes()
     return [attributes createJSStringRef];
 }
 
-JSStringRef AccessibilityUIElement::attributeValue(JSStringRef attribute)
+JSStringRef AccessibilityUIElement::stringAttributeValue(JSStringRef attribute)
 {
     id value = [m_element accessibilityAttributeValue:[NSString stringWithJSStringRef:attribute]];
     if (![value isKindOfClass:[NSString class]])
         return NULL;
     return [value createJSStringRef];
+}
+
+bool AccessibilityUIElement::boolAttributeValue(JSStringRef attribute)
+{
+    id value = [m_element accessibilityAttributeValue:[NSString stringWithJSStringRef:attribute]];
+    if (![value isKindOfClass:[NSNumber class]])
+        return NULL;
+    
+    return [value boolValue];
 }
 
 bool AccessibilityUIElement::isAttributeSettable(JSStringRef attribute)
@@ -451,7 +475,7 @@ double AccessibilityUIElement::clickPointY()
     return static_cast<double>([positionValue pointValue].y);
 }
 
-double AccessibilityUIElement::intValue()
+double AccessibilityUIElement::intValue() const
 {
     id value = [m_element accessibilityAttributeValue:NSAccessibilityValueAttribute];
     if ([value isKindOfClass:[NSNumber class]])
@@ -527,6 +551,12 @@ bool AccessibilityUIElement::isExpanded() const
     if ([value isKindOfClass:[NSNumber class]])
         return [value boolValue];
     return false;
+}
+
+bool AccessibilityUIElement::isChecked() const
+{
+    // On the Mac, intValue()==1 if a a checkable control is checked.
+    return intValue() == 1;
 }
 
 int AccessibilityUIElement::hierarchicalLevel() const
@@ -720,4 +750,88 @@ JSStringRef AccessibilityUIElement::documentEncoding()
 JSStringRef AccessibilityUIElement::documentURI()
 {
     return JSStringCreateWithCharacters(0, 0);
+}
+
+JSStringRef AccessibilityUIElement::url()
+{
+    NSURL *url = [m_element accessibilityAttributeValue:NSAccessibilityURLAttribute];
+    return [[url absoluteString] createJSStringRef];    
+}
+
+static void _accessibilityNotificationCallback(id element, NSString* notification, void* context)
+{
+    if (!context)
+        return;
+
+    JSObjectRef functionCallback = static_cast<JSObjectRef>(context);
+
+    JSRetainPtr<JSStringRef> jsNotification(Adopt, [notification createJSStringRef]);
+    JSValueRef argument = JSValueMakeString([mainFrame globalContext], jsNotification.get());
+    JSObjectCallAsFunction([mainFrame globalContext], functionCallback, NULL, 1, &argument, NULL);
+}
+
+bool AccessibilityUIElement::addNotificationListener(JSObjectRef functionCallback)
+{
+    if (!functionCallback)
+        return false;
+ 
+    m_notificationFunctionCallback = functionCallback;
+    [platformUIElement() accessibilitySetPostedNotificationCallback:_accessibilityNotificationCallback withContext:reinterpret_cast<void*>(m_notificationFunctionCallback)];
+    return true;
+}
+
+bool AccessibilityUIElement::isSelectable() const
+{
+    // FIXME: implement
+    return false;
+}
+
+bool AccessibilityUIElement::isMultiSelectable() const
+{
+    // FIXME: implement
+    return false;
+}
+
+bool AccessibilityUIElement::isVisible() const
+{
+    // FIXME: implement
+    return false;
+}
+
+bool AccessibilityUIElement::isOffScreen() const
+{
+    // FIXME: implement
+    return false;
+}
+
+bool AccessibilityUIElement::isCollapsed() const
+{
+    // FIXME: implement
+    return false;
+}
+
+bool AccessibilityUIElement::hasPopup() const
+{
+    // FIXME: implement
+    return false;
+}
+
+void AccessibilityUIElement::takeFocus()
+{
+    // FIXME: implement
+}
+
+void AccessibilityUIElement::takeSelection()
+{
+    // FIXME: implement
+}
+
+void AccessibilityUIElement::addSelection()
+{
+    // FIXME: implement
+}
+
+void AccessibilityUIElement::removeSelection()
+{
+    // FIXME: implement
 }

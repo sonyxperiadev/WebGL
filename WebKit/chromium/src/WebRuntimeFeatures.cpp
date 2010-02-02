@@ -31,6 +31,7 @@
 #include "config.h"
 #include "WebRuntimeFeatures.h"
 
+#include "Database.h"
 #include "RuntimeEnabledFeatures.h"
 #include "WebMediaPlayerClientImpl.h"
 #include "WebSocket.h"
@@ -42,14 +43,14 @@ namespace WebKit {
 void WebRuntimeFeatures::enableDatabase(bool enable)
 {
 #if ENABLE(DATABASE)
-    RuntimeEnabledFeatures::setDatabaseEnabled(enable);
+    Database::setIsAvailable(enable);
 #endif
 }
 
 bool WebRuntimeFeatures::isDatabaseEnabled()
 {
 #if ENABLE(DATABASE)
-    return RuntimeEnabledFeatures::databaseEnabled();
+    return Database::isAvailable();
 #else
     return false;
 #endif
@@ -146,6 +147,38 @@ bool WebRuntimeFeatures::isApplicationCacheEnabled()
 {
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
     return RuntimeEnabledFeatures::applicationCacheEnabled();
+#else
+    return false;
+#endif
+}
+
+void WebRuntimeFeatures::enableGeolocation(bool enable)
+{
+#if ENABLE(GEOLOCATION)
+    RuntimeEnabledFeatures::setGeolocationEnabled(enable);
+#endif
+}
+
+bool WebRuntimeFeatures::isGeolocationEnabled()
+{
+#if ENABLE(GEOLOCATION)
+    return RuntimeEnabledFeatures::geolocationEnabled();
+#else
+    return false;
+#endif
+}
+
+void WebRuntimeFeatures::enableIndexedDatabase(bool enable)
+{
+#if ENABLE(INDEXED_DATABASE)
+    RuntimeEnabledFeatures::setIndexedDatabaseEnabled(enable);
+#endif
+}
+
+bool WebRuntimeFeatures::isIndexedDatabaseEnabled()
+{
+#if ENABLE(INDEXED_DATABASE)
+    return RuntimeEnabledFeatures::indexedDatabaseEnabled();
 #else
     return false;
 #endif

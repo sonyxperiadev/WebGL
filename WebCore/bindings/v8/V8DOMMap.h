@@ -41,12 +41,36 @@ namespace WebCore {
     class SVGElementInstance;
 #endif
 
+    template <class KeyType, class ValueType> class AbstractWeakReferenceMap {
+    public:
+        AbstractWeakReferenceMap(v8::WeakReferenceCallback callback) : m_weakReferenceCallback(callback) { }
+
+        class Visitor {
+        public:
+            virtual void visitDOMWrapper(KeyType* key, v8::Persistent<ValueType> object) = 0;
+        };
+
+        virtual v8::Persistent<ValueType> get(KeyType* obj) = 0;
+        virtual void set(KeyType* obj, v8::Persistent<ValueType> wrapper) = 0;
+        virtual bool contains(KeyType* obj) = 0;
+        virtual void visit(Visitor* visitor) = 0;
+        virtual bool removeIfPresent(KeyType* key, v8::Persistent<v8::Data> value) = 0;
+        virtual void clear() = 0;
+
+        v8::WeakReferenceCallback weakReferenceCallback() { return m_weakReferenceCallback; }
+    private:
+        v8::WeakReferenceCallback m_weakReferenceCallback;
+    };
+
+    typedef AbstractWeakReferenceMap<Node, v8::Object> DOMNodeMapping;
+
     // A table of wrappers with weak pointers.
     // This table allows us to avoid track wrapped objects for debugging
     // and for ensuring that we don't double wrap the same object.
-    template<class KeyType, class ValueType> class WeakReferenceMap {
+    template<class KeyType, class ValueType> class WeakReferenceMap : public AbstractWeakReferenceMap<KeyType, ValueType> {
     public:
-        WeakReferenceMap(v8::WeakReferenceCallback callback) : m_weakReferenceCallback(callback) { }
+        typedef AbstractWeakReferenceMap<KeyType, ValueType> Parent;
+        WeakReferenceMap(v8::WeakReferenceCallback callback) : Parent(callback) { }
         virtual ~WeakReferenceMap()
         {
     #ifndef NDEBUG
@@ -65,7 +89,7 @@ namespace WebCore {
         virtual void set(KeyType* obj, v8::Persistent<ValueType> wrapper)
         {
             ASSERT(!m_map.contains(obj));
-            wrapper.MakeWeak(obj, m_weakReferenceCallback);
+            wrapper.MakeWeak(obj, Parent::weakReferenceCallback());
             m_map.set(obj, *wrapper);
         }
 
@@ -81,9 +105,30 @@ namespace WebCore {
             handle.Clear();
         }
 
+        bool removeIfPresent(KeyType* key, v8::Persistent<v8::Data> value)
+        {
+            typename HashMap<KeyType*, ValueType*>::iterator it = m_map.find(key);
+            if (it == m_map.end() || it->second != *value)
+                return false;
+
+            m_map.remove(it);
+            value.Dispose();
+            return true;
+        }
+
+        void clear()
+        {
+            m_map.clear();
+        }
+
         bool contains(KeyType* obj) { return m_map.contains(obj); }
 
-        HashMap<KeyType*, ValueType*>& impl() { return m_map; }
+        virtual void visit(typename Parent::Visitor* visitor)
+        {
+            typename HashMap<KeyType*, ValueType*>::iterator it = m_map.begin();
+            for (; it != m_map.end(); ++it)
+                visitor->visitDOMWrapper(it->first, v8::Persistent<ValueType>(it->second));
+        }
 
     protected:
         HashMap<KeyType*, ValueType*> m_map;
@@ -93,12 +138,15 @@ namespace WebCore {
     template <class KeyType> class DOMWrapperMap : public WeakReferenceMap<KeyType, v8::Object> {
     public:
         DOMWrapperMap(v8::WeakReferenceCallback callback) : WeakReferenceMap<KeyType, v8::Object>(callback) { }
+<<<<<<< HEAD
 
         class Visitor {
         public:
           virtual void visitDOMWrapper(KeyType* key, v8::Persistent<v8::Object> object) = 0;
           virtual ~Visitor() { }
         };
+=======
+>>>>>>> webkit.org at r54127
     };
 
     // An opaque class that represents a set of DOM wrappers.
@@ -117,7 +165,7 @@ namespace WebCore {
     };
 
     // A map from DOM node to its JS wrapper.
-    DOMWrapperMap<Node>& getDOMNodeMap();
+    DOMNodeMapping& getDOMNodeMap();
     void visitDOMNodesInCurrentThread(DOMWrapperMap<Node>::Visitor*);
 
     // A map from a DOM object (non-node) to its JS wrapper. This map does not contain the DOM objects which can have pending activity (active dom objects).

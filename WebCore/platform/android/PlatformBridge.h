@@ -1,5 +1,5 @@
 /*
- * Copyright 2009, The Android Open Source Project
+ * Copyright 2009, 2010, The Android Open Source Project
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -81,7 +81,10 @@ class NPObject;
 
 namespace WebCore {
 
+<<<<<<< HEAD
 class FrameView;
+=======
+>>>>>>> webkit.org at r54127
 class Widget;
 
 // An interface to the embedding layer, which has the ability to answer
@@ -105,6 +108,7 @@ public:
     static bool cookiesEnabled();
     // Plugin
     static NPObject* pluginScriptableObject(Widget*);
+<<<<<<< HEAD
     // Popups
     static bool popupsAllowed(NPP);
 
@@ -127,6 +131,8 @@ public:
 
     // Whether the WebView is paused.
     static bool isWebViewPaused();
+=======
+>>>>>>> webkit.org at r54127
 };
 
 }

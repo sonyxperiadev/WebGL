@@ -31,22 +31,19 @@
  */
 
 module core {
-    interface [
-        GenerateConstructor
-    ] InjectedScriptHost {
-        [Custom] DOMWindow inspectedWindow();
-        [Custom] DOMObject wrapCallback(in DOMObject callback);
+    interface [Conditional=INSPECTOR] InjectedScriptHost {
+        void clearConsoleMessages();
+
         void copyText(in DOMString text);
         [Custom] DOMObject nodeForId(in long nodeId);
-        [Custom] long wrapObject(in DOMObject object, in DOMString objectGroup);
-        [Custom] DOMObject unwrapObject(in long objectId);
-        [Custom] int pushNodePathToFrontend(in DOMObject node, in boolean selectInUI);
+        [Custom] int pushNodePathToFrontend(in DOMObject node, in boolean withChildren, in boolean selectInUI);
 
         void addNodesToSearchResult(in DOMString nodeIds);
         long pushNodeByPathToFrontend(in DOMString path);
 
 #if defined(ENABLE_JAVASCRIPT_DEBUGGER) && ENABLE_JAVASCRIPT_DEBUGGER
         [Custom] DOMObject currentCallFrame();
+        [Custom] boolean isActivation(in DOMObject object);
 #endif
 
 #if defined(ENABLE_DATABASE) && ENABLE_DATABASE

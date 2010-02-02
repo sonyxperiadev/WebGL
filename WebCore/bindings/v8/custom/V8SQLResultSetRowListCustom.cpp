@@ -31,6 +31,7 @@
 #include "config.h"
 
 #if ENABLE(DATABASE)
+#include "V8SQLResultSetRowList.h"
 
 #include "SQLResultSetRowList.h"
 #include "V8Binding.h"
@@ -39,7 +40,7 @@
 
 namespace WebCore {
 
-CALLBACK_FUNC_DECL(SQLResultSetRowListItem)
+v8::Handle<v8::Value> V8SQLResultSetRowList::itemCallback(const v8::Arguments& args)
 {
     INC_STATS("DOM.SQLResultSetRowList.item()");
 
@@ -53,7 +54,7 @@ CALLBACK_FUNC_DECL(SQLResultSetRowListItem)
         return v8::Undefined();
     }
 
-    SQLResultSetRowList* rowList = V8DOMWrapper::convertToNativeObject<SQLResultSetRowList>(V8ClassIndex::SQLRESULTSETROWLIST, args.Holder());
+    SQLResultSetRowList* rowList = V8SQLResultSetRowList::toNative(args.Holder());
 
     unsigned long index = args[0]->IntegerValue();
     if (index < 0 || index >= rowList->length()) {

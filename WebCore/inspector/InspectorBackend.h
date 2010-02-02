@@ -58,7 +58,8 @@ public:
     InspectorController* inspectorController() { return m_inspectorController; }
     void disconnectController() { m_inspectorController = 0; }
 
-    void clearMessages(bool clearUI);
+    void saveFrontendSettings(const String&);
+
     void storeLastActivePanel(const String& panelName);
 
     void toggleNodeSearch();
@@ -67,6 +68,7 @@ public:
     void enableResourceTracking(bool always);
     void disableResourceTracking(bool always);
     bool resourceTrackingEnabled() const;
+    void getResourceContent(long callId, unsigned long identifier);
 
     void startTimelineProfiler();
     void stopTimelineProfiler();
@@ -83,8 +85,8 @@ public:
     void pauseInDebugger();
     void resumeDebugger();
 
-    bool pauseOnExceptions();
-    void setPauseOnExceptions(bool pause);
+    long pauseOnExceptionsState();
+    void setPauseOnExceptionsState(long pauseState);
 
     void stepOverStatementInDebugger();
     void stepIntoStatementInDebugger();
@@ -103,7 +105,8 @@ public:
     JavaScriptCallFrame* currentCallFrame() const;
 #endif
 
-    void dispatchOnInjectedScript(long callId, const String& methodName, const String& arguments, bool async);
+    void setInjectedScriptSource(const String& source);
+    void dispatchOnInjectedScript(long callId, long injectedScriptId, const String& methodName, const String& arguments, bool async);
     void getChildNodes(long callId, long nodeId);
     void setAttribute(long callId, long elementId, const String& name, const String& value);
     void removeAttribute(long callId, long elementId, const String& name);
@@ -118,7 +121,7 @@ public:
     void deleteCookie(const String& cookieName, const String& domain);
 
     // Generic code called from custom implementations.
-    void releaseWrapperObjectGroup(const String& objectGroup);
+    void releaseWrapperObjectGroup(long injectedScriptId, const String& objectGroup);
     void didEvaluateForTestInFrontend(long callId, const String& jsonResult);
 
 #if ENABLE(DATABASE)

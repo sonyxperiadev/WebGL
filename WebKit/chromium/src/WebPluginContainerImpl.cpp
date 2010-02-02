@@ -31,6 +31,7 @@
 #include "config.h"
 #include "WebPluginContainerImpl.h"
 
+#include "Chrome.h"
 #include "ChromeClientImpl.h"
 #include "WebCursorInfo.h"
 #include "WebDataSourceImpl.h"
@@ -353,7 +354,7 @@ void WebPluginContainerImpl::handleMouseEvent(MouseEvent* event)
 
     WebCursorInfo cursorInfo;
     bool handled = m_webPlugin->handleInputEvent(webEvent, cursorInfo);
-#if !PLATFORM(DARWIN)
+#if !OS(DARWIN)
     // TODO(pkasting): http://b/1119691 This conditional seems exactly
     // backwards, but if I reverse it, giving focus to a transparent
     // (windowless) plugin fails.
@@ -389,7 +390,7 @@ void WebPluginContainerImpl::handleKeyboardEvent(KeyboardEvent* event)
 
     WebCursorInfo cursor_info;
     bool handled = m_webPlugin->handleInputEvent(webEvent, cursor_info);
-#if !PLATFORM(DARWIN)
+#if !OS(DARWIN)
     // TODO(pkasting): http://b/1119691 See above.
     handled = !handled;
 #endif

@@ -19,7 +19,7 @@
 			Name="Debug|Win32"
 			OutputDirectory="$(WebKitOutputDir)\include\WebKit"
 			ConfigurationType="4"
-			InheritedPropertySheets="$(WebKitLibrariesDir)\tools\vsprops\common.vsprops;$(WebKitLibrariesDir)\tools\vsprops\debug.vsprops"
+			InheritedPropertySheets="$(WebKitLibrariesDir)\tools\vsprops\FeatureDefines.vsprops;$(WebKitLibrariesDir)\tools\vsprops\common.vsprops;$(WebKitLibrariesDir)\tools\vsprops\debug.vsprops"
 			CharacterSet="1"
 			>
 			<Tool
@@ -86,7 +86,7 @@
 			Name="Release|Win32"
 			OutputDirectory="$(WebKitOutputDir)\include\WebKit"
 			ConfigurationType="4"
-			InheritedPropertySheets="$(WebKitLibrariesDir)\tools\vsprops\common.vsprops;$(WebKitLibrariesDir)\tools\vsprops\release.vsprops"
+			InheritedPropertySheets="$(WebKitLibrariesDir)\tools\vsprops\FeatureDefines.vsprops;$(WebKitLibrariesDir)\tools\vsprops\common.vsprops;$(WebKitLibrariesDir)\tools\vsprops\release.vsprops"
 			CharacterSet="1"
 			WholeProgramOptimization="1"
 			>
@@ -151,6 +151,26 @@
 	<References>
 	</References>
 	<Files>
+		<File
+			RelativePath="..\Interfaces\AccessibleComparable.idl"
+			>
+			<FileConfiguration
+				Name="Debug|Win32"
+				ExcludedFromBuild="true"
+				>
+				<Tool
+					Name="VCMIDLTool"
+				/>
+			</FileConfiguration>
+			<FileConfiguration
+				Name="Release|Win32"
+				ExcludedFromBuild="true"
+				>
+				<Tool
+					Name="VCMIDLTool"
+				/>
+			</FileConfiguration>
+		</File>
 		<File
 			RelativePath="..\Interfaces\DOMCore.idl"
 			>
@@ -745,6 +765,66 @@
 		</File>
 		<File
 			RelativePath="..\Interfaces\IWebFrameView.idl"
+			>
+			<FileConfiguration
+				Name="Debug|Win32"
+				ExcludedFromBuild="true"
+				>
+				<Tool
+					Name="VCMIDLTool"
+				/>
+			</FileConfiguration>
+			<FileConfiguration
+				Name="Release|Win32"
+				ExcludedFromBuild="true"
+				>
+				<Tool
+					Name="VCMIDLTool"
+				/>
+			</FileConfiguration>
+		</File>
+		<File
+			RelativePath="..\Interfaces\IWebGeolocationPolicyListener.idl"
+			>
+			<FileConfiguration
+				Name="Debug|Win32"
+				ExcludedFromBuild="true"
+				>
+				<Tool
+					Name="VCMIDLTool"
+				/>
+			</FileConfiguration>
+			<FileConfiguration
+				Name="Release|Win32"
+				ExcludedFromBuild="true"
+				>
+				<Tool
+					Name="VCMIDLTool"
+				/>
+			</FileConfiguration>
+		</File>
+		<File
+			RelativePath="..\Interfaces\IWebGeolocationPosition.idl"
+			>
+			<FileConfiguration
+				Name="Debug|Win32"
+				ExcludedFromBuild="true"
+				>
+				<Tool
+					Name="VCMIDLTool"
+				/>
+			</FileConfiguration>
+			<FileConfiguration
+				Name="Release|Win32"
+				ExcludedFromBuild="true"
+				>
+				<Tool
+					Name="VCMIDLTool"
+				/>
+			</FileConfiguration>
+		</File>
+		<File
+			RelativePath="..\Interfaces\IWebGeolocationProvider.idl"
 			>
 			<FileConfiguration
 				Name="Debug|Win32"
@@ -1644,6 +1724,26 @@
 			</FileConfiguration>
 		</File>
 		<File
+			RelativePath="..\Interfaces\JavaScriptCoreAPITypes.idl"
+			>
+			<FileConfiguration
+				Name="Debug|Win32"
+				ExcludedFromBuild="true"
+				>
+				<Tool
+					Name="VCMIDLTool"
+				/>
+			</FileConfiguration>
+			<FileConfiguration
+				Name="Release|Win32"
+				ExcludedFromBuild="true"
+				>
+				<Tool
+					Name="VCMIDLTool"
+				/>
+			</FileConfiguration>
+		</File>
+		<File
 			RelativePath="..\Interfaces\WebKit.idl"
 			>
 			<FileConfiguration
@@ -1665,26 +1765,6 @@
 		</File>
 		<File
 			RelativePath="..\Interfaces\WebScrollbarTypes.idl"
-			>
-			<FileConfiguration
-				Name="Debug|Win32"
-				ExcludedFromBuild="true"
-				>
-				<Tool
-					Name="VCMIDLTool"
-				/>
-			</FileConfiguration>
-			<FileConfiguration
-				Name="Release|Win32"
-				ExcludedFromBuild="true"
-				>
-				<Tool
-					Name="VCMIDLTool"
-				/>
-			</FileConfiguration>
-		</File>
-        <File
-			RelativePath="..\Interfaces\JavaScriptCoreAPITypes.idl"
 			>
 			<FileConfiguration
 				Name="Debug|Win32"

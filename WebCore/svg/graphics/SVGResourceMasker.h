@@ -29,6 +29,8 @@
 #if ENABLE(SVG)
 
 #include "GraphicsContext.h"
+#include "RenderObject.h"
+#include "SVGMaskElement.h"
 #include "SVGResource.h"
 
 #include <memory>
@@ -52,8 +54,8 @@ namespace WebCore {
         virtual SVGResourceType resourceType() const { return MaskerResourceType; }
         virtual TextStream& externalRepresentation(TextStream&) const;
 
-        // To be implemented by the specific rendering devices
-        void applyMask(GraphicsContext*, const FloatRect& boundingBox);
+        FloatRect maskerBoundingBox(const FloatRect&) const;
+        bool applyMask(GraphicsContext*, const RenderObject*);
 
     private:
         SVGResourceMasker(const SVGMaskElement*);
@@ -62,9 +64,10 @@ namespace WebCore {
         
         OwnPtr<ImageBuffer> m_mask;
         FloatRect m_maskRect;
+        bool m_emptyMask;
     };
 
-    SVGResourceMasker* getMaskerById(Document*, const AtomicString&);
+    SVGResourceMasker* getMaskerById(Document*, const AtomicString&, const RenderObject* object);
 
 } // namespace WebCore
 

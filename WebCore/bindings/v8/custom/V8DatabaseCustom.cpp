@@ -31,6 +31,7 @@
 #include "config.h"
 
 #if ENABLE(DATABASE)
+#include "V8Database.h"
 
 #include "Database.h"
 #include "V8Binding.h"
@@ -42,7 +43,7 @@
 
 namespace WebCore {
 
-CALLBACK_FUNC_DECL(DatabaseChangeVersion)
+v8::Handle<v8::Value> V8Database::changeVersionCallback(const v8::Arguments& args)
 {
     INC_STATS("DOM.Database.changeVersion()");
 
@@ -52,7 +53,7 @@ CALLBACK_FUNC_DECL(DatabaseChangeVersion)
     if (!(args[0]->IsString() && args[1]->IsString()))
         return throwError("The old and new versions must be strings.");
 
-    Database* database = V8DOMWrapper::convertToNativeObject<Database>(V8ClassIndex::DATABASE, args.Holder());
+    Database* database = V8Database::toNative(args.Holder());
 
     Frame* frame = V8Proxy::retrieveFrameForCurrentContext();
     if (!frame)
@@ -95,7 +96,7 @@ static v8::Handle<v8::Value> createTransaction(const v8::Arguments& args, bool r
     if (!args[0]->IsObject())
         return throwError("Transaction callback must be of valid type.");
 
-    Database* database = V8DOMWrapper::convertToNativeObject<Database>(V8ClassIndex::DATABASE, args.Holder());
+    Database* database = V8Database::toNative(args.Holder());
 
     Frame* frame = V8Proxy::retrieveFrameForCurrentContext();
     if (!frame)
@@ -123,13 +124,13 @@ static v8::Handle<v8::Value> createTransaction(const v8::Arguments& args, bool r
     return v8::Undefined();
 }
 
-CALLBACK_FUNC_DECL(DatabaseTransaction)
+v8::Handle<v8::Value> V8Database::transactionCallback(const v8::Arguments& args)
 {
     INC_STATS("DOM.Database.transaction()");
     return createTransaction(args, false);
 }
 
-CALLBACK_FUNC_DECL(DatabaseReadTransaction)
+v8::Handle<v8::Value> V8Database::readTransactionCallback(const v8::Arguments& args)
 {
     INC_STATS("DOM.Database.readTransaction()");
     return createTransaction(args, true);

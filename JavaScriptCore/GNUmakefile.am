@@ -45,6 +45,7 @@ javascriptcore_built_nosources += \
 
 javascriptcore_sources += \
 	JavaScriptCore/API/APICast.h \
+	JavaScriptCore/API/APIShims.h \
 	JavaScriptCore/API/JSBase.cpp \
 	JavaScriptCore/API/JSBasePrivate.h \
 	JavaScriptCore/API/JSCallbackConstructor.cpp \
@@ -161,8 +162,6 @@ javascriptcore_sources += \
 	JavaScriptCore/pcre/pcre_xclass.cpp \
 	JavaScriptCore/pcre/ucpinternal.h \
 	JavaScriptCore/profiler/CallIdentifier.h \
-	JavaScriptCore/profiler/HeavyProfile.cpp \
-	JavaScriptCore/profiler/HeavyProfile.h \
 	JavaScriptCore/profiler/Profile.cpp \
 	JavaScriptCore/profiler/Profile.h \
 	JavaScriptCore/profiler/ProfileGenerator.cpp \
@@ -171,8 +170,6 @@ javascriptcore_sources += \
 	JavaScriptCore/profiler/ProfileNode.h \
 	JavaScriptCore/profiler/Profiler.cpp \
 	JavaScriptCore/profiler/Profiler.h \
-	JavaScriptCore/profiler/TreeProfile.cpp \
-	JavaScriptCore/profiler/TreeProfile.h \
 	JavaScriptCore/interpreter/CachedCall.h \
 	JavaScriptCore/interpreter/CallFrame.cpp \
 	JavaScriptCore/interpreter/CallFrame.h \
@@ -195,6 +192,7 @@ javascriptcore_sources += \
 	JavaScriptCore/runtime/JSONObject.h \
 	JavaScriptCore/runtime/JSPropertyNameIterator.cpp \
 	JavaScriptCore/runtime/JSPropertyNameIterator.h \
+	JavaScriptCore/runtime/JSZombie.h \
 	JavaScriptCore/runtime/LiteralParser.cpp \
 	JavaScriptCore/runtime/LiteralParser.h \
 	JavaScriptCore/runtime/MarkStack.cpp \
@@ -204,6 +202,7 @@ javascriptcore_sources += \
 	JavaScriptCore/runtime/PropertyDescriptor.cpp \
 	JavaScriptCore/runtime/SmallStrings.cpp \
 	JavaScriptCore/runtime/SmallStrings.h \
+	JavaScriptCore/runtime/StringBuilder.h \
 	JavaScriptCore/runtime/Structure.cpp \
 	JavaScriptCore/runtime/Structure.h \
 	JavaScriptCore/runtime/StructureChain.cpp \
@@ -212,6 +211,8 @@ javascriptcore_sources += \
 	JavaScriptCore/runtime/TimeoutChecker.cpp \
 	JavaScriptCore/runtime/TimeoutChecker.h \
 	JavaScriptCore/runtime/JSTypeInfo.h \
+	JavaScriptCore/runtime/WeakGCMap.h \
+	JavaScriptCore/runtime/WeakGCPtr.h \
 	JavaScriptCore/wrec/CharacterClass.h \
 	JavaScriptCore/wrec/CharacterClassConstructor.h \
 	JavaScriptCore/wrec/Escapes.h \
@@ -228,7 +229,6 @@ javascriptcore_sources += \
 	JavaScriptCore/wtf/ByteArray.cpp \
 	JavaScriptCore/wtf/ByteArray.h \
 	JavaScriptCore/wtf/CrossThreadRefCounted.h \
-	JavaScriptCore/wtf/OwnFastMallocPtr.h \
 	JavaScriptCore/wtf/CurrentTime.cpp \
 	JavaScriptCore/wtf/CurrentTime.h \
 	JavaScriptCore/wtf/DateMath.cpp \
@@ -255,6 +255,7 @@ javascriptcore_sources += \
 	JavaScriptCore/wtf/Noncopyable.h \
 	JavaScriptCore/wtf/NotFound.h \
 	JavaScriptCore/wtf/OwnArrayPtr.h \
+	JavaScriptCore/wtf/OwnFastMallocPtr.h \
 	JavaScriptCore/wtf/OwnPtr.h \
 	JavaScriptCore/wtf/OwnPtrCommon.h \
 	JavaScriptCore/wtf/PassOwnPtr.h \
@@ -274,13 +275,16 @@ javascriptcore_sources += \
 	JavaScriptCore/wtf/SegmentedVector.h \
 	JavaScriptCore/wtf/StdLibExtras.h \
 	JavaScriptCore/wtf/StringExtras.h \
+	JavaScriptCore/wtf/StringHashFunctions.h \
 	JavaScriptCore/wtf/TCPackedCache.h \
 	JavaScriptCore/wtf/TCPageMap.h \
 	JavaScriptCore/wtf/TCSpinLock.h \
-	JavaScriptCore/wtf/ThreadSpecific.h \
-	JavaScriptCore/wtf/Threading.h \
+	JavaScriptCore/wtf/ThreadIdentifierDataPthreads.cpp \
+	JavaScriptCore/wtf/ThreadIdentifierDataPthreads.h \
 	JavaScriptCore/wtf/Threading.cpp \
+	JavaScriptCore/wtf/Threading.h \
 	JavaScriptCore/wtf/ThreadingPthreads.cpp \
+	JavaScriptCore/wtf/ThreadSpecific.h \
 	JavaScriptCore/wtf/TypeTraits.cpp \
 	JavaScriptCore/wtf/TypeTraits.h \
 	JavaScriptCore/wtf/UnusedParam.h \
@@ -288,6 +292,8 @@ javascriptcore_sources += \
 	JavaScriptCore/wtf/VectorTraits.h \
 	JavaScriptCore/wtf/gtk/GOwnPtr.cpp \
 	JavaScriptCore/wtf/gtk/GOwnPtr.h \
+	JavaScriptCore/wtf/gtk/GRefPtr.cpp \
+	JavaScriptCore/wtf/gtk/GRefPtr.h \
 	JavaScriptCore/wtf/gtk/MainThreadGtk.cpp \
 	JavaScriptCore/wtf/gtk/ThreadingGtk.cpp \
 	JavaScriptCore/wtf/unicode/Collator.h \
@@ -499,6 +505,8 @@ javascriptcore_sources += \
 	JavaScriptCore/runtime/Tracing.h \
 	JavaScriptCore/runtime/UString.cpp \
 	JavaScriptCore/runtime/UString.h \
+	JavaScriptCore/runtime/UStringImpl.cpp \
+	JavaScriptCore/runtime/UStringImpl.h \
 	JavaScriptCore/runtime/WeakRandom.h \
 	JavaScriptCore/wtf/FastAllocBase.h \
 	JavaScriptCore/wtf/FastMalloc.cpp \

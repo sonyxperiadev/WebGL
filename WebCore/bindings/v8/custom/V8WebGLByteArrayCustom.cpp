@@ -44,48 +44,20 @@
 
 namespace WebCore {
 
-CALLBACK_FUNC_DECL(WebGLByteArrayConstructor)
+v8::Handle<v8::Value> V8WebGLByteArray::constructorCallback(const v8::Arguments& args)
 {
     INC_STATS("DOM.WebGLByteArray.Contructor");
 
     return constructWebGLArray<WebGLByteArray>(args, V8ClassIndex::ToInt(V8ClassIndex::WEBGLBYTEARRAY));
 }
 
-// Get the specified value from the byte buffer and return it wrapped as a JavaScript Number object to V8. Accesses outside the valid byte buffer range return "undefined".
-INDEXED_PROPERTY_GETTER(WebGLByteArray)
-{
-    INC_STATS("DOM.WebGLByteArray.IndexedPropertyGetter");
-    WebGLByteArray* byteBuffer = V8DOMWrapper::convertToNativeObject<WebGLByteArray>(V8ClassIndex::WEBGLBYTEARRAY, info.Holder());
-
-    if ((index < 0) || (index >= byteBuffer->length()))
-        return v8::Undefined();
-    signed char result;
-    if (!byteBuffer->get(index, result))
-        return v8::Undefined();
-    return v8::Number::New(result);
-}
-
-// Set the specified value in the byte buffer. Accesses outside the valid byte buffer range are silently ignored.
-INDEXED_PROPERTY_SETTER(WebGLByteArray)
-{
-    INC_STATS("DOM.WebGLByteArray.IndexedPropertySetter");
-    WebGLByteArray* array = V8DOMWrapper::convertToNativeObject<WebGLByteArray>(V8ClassIndex::WEBGLBYTEARRAY, info.Holder());
-
-    if ((index >= 0) && (index < array->length())) {
-        if (!value->IsNumber())
-            return throwError("Could not convert value argument to a number");
-        array->set(index, value->NumberValue());
-    }
-    return value;
-}
-
-CALLBACK_FUNC_DECL(WebGLByteArrayGet)
+v8::Handle<v8::Value> V8WebGLByteArray::getCallback(const v8::Arguments& args)
 {
     INC_STATS("DOM.WebGLByteArray.get()");
     return getWebGLArrayElement<WebGLByteArray, signed char>(args, V8ClassIndex::WEBGLBYTEARRAY);
 }
 
-CALLBACK_FUNC_DECL(WebGLByteArraySet)
+v8::Handle<v8::Value> V8WebGLByteArray::setCallback(const v8::Arguments& args)
 {
     INC_STATS("DOM.WebGLByteArray.set()");
     return setWebGLArray<WebGLByteArray, V8WebGLByteArray>(args, V8ClassIndex::WEBGLBYTEARRAY);

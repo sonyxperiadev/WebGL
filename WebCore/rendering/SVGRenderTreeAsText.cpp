@@ -521,11 +521,11 @@ void writeRenderResources(TextStream& ts, Node* parent)
             continue;
 
         SVGStyledElement* styled = static_cast<SVGStyledElement*>(svgElement);
-        RefPtr<SVGResource> resource(styled->canvasResource());
+        RefPtr<SVGResource> resource(styled->canvasResource(node->renderer()));
         if (!resource)
             continue;
 
-        String elementId = svgElement->getAttribute(HTMLNames::idAttr);
+        String elementId = svgElement->getAttribute(svgElement->idAttributeName());
         // FIXME: These names are lies!
         if (resource->isPaintServer()) {
             RefPtr<SVGPaintServer> paintServer = WTF::static_pointer_cast<SVGPaintServer>(resource);

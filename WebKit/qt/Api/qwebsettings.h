@@ -67,7 +67,9 @@ public:
         LocalStorageDatabaseEnabled = LocalStorageEnabled,
 #endif
         LocalContentCanAccessRemoteUrls,
-        DnsPrefetchEnabled
+        DnsPrefetchEnabled,
+        XSSAuditorEnabled,
+        AcceleratedCompositingEnabled
     };
     enum WebGraphic {
         MissingImageGraphic,

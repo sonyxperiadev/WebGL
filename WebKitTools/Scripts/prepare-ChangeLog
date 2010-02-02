@@ -257,7 +257,11 @@ if ($bugNumber) {
     my $bugXMLURL = "$bugURL&ctype=xml";
     # Perl has no built in XML processing, so we'll fetch and parse with curl and grep
     my $descriptionLine = `curl --silent "$bugXMLURL" | grep short_desc`;
-    $descriptionLine =~ /<short_desc>(.*)<\/short_desc>/;
+    if ($descriptionLine !~ /<short_desc>(.*)<\/short_desc>/) {
+        print STDERR "  Bug $bugNumber has no bug description. Maybe you set wrong bug ID?\n";
+        print STDERR "  The bug URL: $bugXMLURL\n";
+        exit 1;
+    }
     $bugDescription = decodeEntities($1);
     print STDERR "  Description from bug $bugNumber:\n    \"$bugDescription\".\n";
 }
@@ -1606,6 +1610,7 @@ sub reviewerAndDescriptionForGitCommit($)
         $description .= "\n" if $commitLogCount;
         $commitLogCount++;
         my $inHeader = 1;
+        my $commitLogIndent; 
         my @lines = split(/\n/, $commitLog);
         shift @lines; # Remove initial blank line
         foreach my $line (@lines) {
@@ -1620,11 +1625,18 @@ sub reviewerAndDescriptionForGitCommit($)
                 } else {
                     $reviewer .= ", " . $1;
                 }
-            } elsif (length $line == 0) {
+            } elsif ($line =~ /^\s*$/) {
                 $description = $description . "\n";
             } else {
-                $line =~ s/^\s*//;
-                $description = $description . "        " . $line . "\n";
+                if (!defined($commitLogIndent)) {
+                    # Let the first line with non-white space determine
+                    # the global indent.
+                    $line =~ /^(\s*)\S/;
+                    $commitLogIndent = length($1);
+                }
+                # Strip at most the indent to preserve relative indents.
+                $line =~ s/^\s{0,$commitLogIndent}//;
+                $description = $description . (" " x 8) . $line . "\n";
             }
         }
     }

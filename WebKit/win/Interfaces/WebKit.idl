@@ -45,7 +45,7 @@ cpp_quote(" * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
 cpp_quote(" * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY")
 cpp_quote(" * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT")
 cpp_quote(" * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE")
-cpp_quote(" * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. ")
+cpp_quote(" * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.")
 cpp_quote(" */")
 
 #include "autoversion.h"
@@ -55,6 +55,7 @@ cpp_quote(" */")
 import "oaidl.idl";
 import "ocidl.idl";
 
+#include "AccessibleComparable.idl"
 #include "WebScrollbarTypes.idl"
 #include "JavaScriptCoreAPITypes.idl"
 #include "IWebScriptObject.idl"
@@ -88,6 +89,9 @@ import "ocidl.idl";
 #include "IWebFrameLoadDelegatePrivate2.idl"
 #include "IWebFramePrivate.idl"
 #include "IWebFrameView.idl"
+#include "IWebGeolocationPolicyListener.idl"
+#include "IWebGeolocationPosition.idl"
+#include "IWebGeolocationProvider.idl"
 #include "IWebHTMLRepresentation.idl"
 #include "IWebHTTPURLResponse.idl"
 #include "IWebHistory.idl"
@@ -284,4 +288,10 @@ library WebKit
     coclass WebSerializedJSValue {
         [default] interface IWebSerializedJSValue;
     }
+
+    [uuid(67712611-83CF-4703-89FC-07A0E2A19C0D)]
+    coclass WebGeolocationPosition {
+        [default] interface IWebGeolocationPosition;
+    }
 }
+

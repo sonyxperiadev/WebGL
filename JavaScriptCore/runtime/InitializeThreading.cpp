@@ -41,7 +41,7 @@ using namespace WTF;
 
 namespace JSC {
 
-#if PLATFORM(DARWIN) && ENABLE(JSC_MULTIPLE_THREADS)
+#if OS(DARWIN) && ENABLE(JSC_MULTIPLE_THREADS)
 static pthread_once_t initializeThreadingKeyOnce = PTHREAD_ONCE_INIT;
 #endif
 
@@ -49,6 +49,7 @@ static void initializeThreadingOnce()
 {
     WTF::initializeThreading();
     initializeUString();
+    JSGlobalData::storeVPtrs();
 #if ENABLE(JSC_MULTIPLE_THREADS)
     s_dtoaP5Mutex = new Mutex;
     initializeDates();
@@ -57,7 +58,7 @@ static void initializeThreadingOnce()
 
 void initializeThreading()
 {
-#if PLATFORM(DARWIN) && ENABLE(JSC_MULTIPLE_THREADS)
+#if OS(DARWIN) && ENABLE(JSC_MULTIPLE_THREADS)
     pthread_once(&initializeThreadingKeyOnce, initializeThreadingOnce);
 #else
     static bool initializedThreading = false;

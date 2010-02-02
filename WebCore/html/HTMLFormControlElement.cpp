@@ -25,6 +25,7 @@
 #include "config.h"
 #include "HTMLFormControlElement.h"
 
+#include "Chrome.h"
 #include "ChromeClient.h"
 #include "Document.h"
 #include "Event.h"
@@ -233,12 +234,23 @@ void HTMLFormControlElement::setRequired(bool b)
     setAttribute(requiredAttr, b ? "required" : 0);
 }
 
+static void updateFromElementCallback(Node* node)
+{
+    ASSERT_ARG(node, node->isElementNode());
+    ASSERT_ARG(node, static_cast<Element*>(node)->isFormControlElement());
+    ASSERT(node->renderer());
+    if (RenderObject* renderer = node->renderer())
+        renderer->updateFromElement();
+}
+
 void HTMLFormControlElement::recalcStyle(StyleChange change)
 {
     HTMLElement::recalcStyle(change);
 
+    // updateFromElement() can cause the selection to change, and in turn
+    // trigger synchronous layout, so it must not be called during style recalc.
     if (renderer())
-        renderer()->updateFromElement();
+        queuePostAttachCallback(updateFromElementCallback, this);
 }
 
 bool HTMLFormControlElement::supportsFocus() const

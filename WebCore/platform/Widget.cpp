@@ -105,7 +105,7 @@ IntPoint Widget::convertToContainingWindow(const IntPoint& localPoint) const
     return convertFromRootToContainingWindow(this, localPoint);
 }
 
-#if !PLATFORM(MAC) || ENABLE(EXPERIMENTAL_SINGLE_VIEW_MODE)
+#if !PLATFORM(MAC)
 IntRect Widget::convertFromRootToContainingWindow(const Widget*, const IntRect& rect)
 {
     return rect;
@@ -127,7 +127,11 @@ IntPoint Widget::convertFromContainingWindowToRoot(const Widget*, const IntPoint
 }
 #endif
 
+<<<<<<< HEAD
 #if (!PLATFORM(MAC) && !PLATFORM(GTK) && !PLATFORM(ANDROID)) || ENABLE(EXPERIMENTAL_SINGLE_VIEW_MODE)
+=======
+#if !PLATFORM(MAC) && !PLATFORM(GTK)
+>>>>>>> webkit.org at r54127
 void Widget::releasePlatformWidget()
 {
 }

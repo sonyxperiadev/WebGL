@@ -66,6 +66,7 @@ void (*wkSetCGFontRenderingMode)(CGContextRef, NSFont*);
 void (*wkSetDragImage)(NSImage*, NSPoint offset);
 void (*wkSetPatternBaseCTM)(CGContextRef, CGAffineTransform);
 void (*wkSetPatternPhaseInUserSpace)(CGContextRef, CGPoint point);
+CGAffineTransform (*wkGetUserToBaseCTM)(CGContextRef);
 void (*wkSetUpFontCache)();
 void (*wkSignalCFReadStreamEnd)(CFReadStreamRef stream);
 void (*wkSignalCFReadStreamHasBytes)(CFReadStreamRef stream);
@@ -105,4 +106,10 @@ OSStatus (*wkInitializeGlyphVector)(int count, void* glyphs);
 void (*wkReleaseStyleGroup)(void* group);
 ATSUFontID (*wkGetNSFontATSUFontId)(NSFont*);
 BOOL (*wkSupportsMultipartXMixedReplace)(NSMutableURLRequest *);
+#endif
+
+#if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD)
+NSMutableArray *(*wkNoteOpenPanelFiles)(NSArray *);
+#else
+void* wkNoteOpenPanelFiles;
 #endif

@@ -442,6 +442,10 @@ void DOMWindow::clear()
     if (m_location)
         m_location->disconnectFrame();
     m_location = 0;
+
+    if (m_media)
+        m_media->disconnectFrame();
+    m_media = 0;
     
 #if ENABLE(DOM_STORAGE)
     if (m_sessionStorage)
@@ -636,6 +640,13 @@ NotificationCenter* DOMWindow::webkitNotifications() const
         m_notifications = NotificationCenter::create(document, provider);    
       
     return m_notifications.get();
+}
+#endif
+
+#if ENABLE(INDEXED_DATABASE)
+IndexedDatabaseRequest* DOMWindow::indexedDB() const
+{
+    return 0;
 }
 #endif
 
@@ -1053,7 +1064,9 @@ Document* DOMWindow::document() const
 
 PassRefPtr<Media> DOMWindow::media() const
 {
-    return Media::create(const_cast<DOMWindow*>(this));
+    if (!m_media)
+        m_media = Media::create(m_frame);
+    return m_media.get();
 }
 
 PassRefPtr<CSSStyleDeclaration> DOMWindow::getComputedStyle(Element* elt, const String&) const
@@ -1081,7 +1094,9 @@ PassRefPtr<WebKitPoint> DOMWindow::webkitConvertPointFromNodeToPage(Node* node, 
 {
     if (!node || !p)
         return 0;
-        
+
+    m_frame->document()->updateLayoutIgnorePendingStylesheets();
+
     FloatPoint pagePoint(p->x(), p->y());
     pagePoint = node->convertToPage(pagePoint);
     return WebKitPoint::create(pagePoint.x(), pagePoint.y());
@@ -1091,7 +1106,9 @@ PassRefPtr<WebKitPoint> DOMWindow::webkitConvertPointFromPageToNode(Node* node, 
 {
     if (!node || !p)
         return 0;
-        
+
+    m_frame->document()->updateLayoutIgnorePendingStylesheets();
+
     FloatPoint nodePoint(p->x(), p->y());
     nodePoint = node->convertFromPage(nodePoint);
     return WebKitPoint::create(nodePoint.x(), nodePoint.y());
@@ -1237,24 +1254,40 @@ void DOMWindow::resizeTo(float width, float height) const
     page->chrome()->setWindowRect(fr);
 }
 
-int DOMWindow::setTimeout(ScheduledAction* action, int timeout)
+int DOMWindow::setTimeout(ScheduledAction* action, int timeout, ExceptionCode& ec)
 {
-    return DOMTimer::install(scriptExecutionContext(), action, timeout, true);
+    ScriptExecutionContext* context = scriptExecutionContext();
+    if (!context) {
+        ec = INVALID_ACCESS_ERR;
+        return -1;
+    }
+    return DOMTimer::install(context, action, timeout, true);
 }
 
 void DOMWindow::clearTimeout(int timeoutId)
 {
-    DOMTimer::removeById(scriptExecutionContext(), timeoutId);
+    ScriptExecutionContext* context = scriptExecutionContext();
+    if (!context)
+        return;
+    DOMTimer::removeById(context, timeoutId);
 }
 
-int DOMWindow::setInterval(ScheduledAction* action, int timeout)
+int DOMWindow::setInterval(ScheduledAction* action, int timeout, ExceptionCode& ec)
 {
-    return DOMTimer::install(scriptExecutionContext(), action, timeout, false);
+    ScriptExecutionContext* context = scriptExecutionContext();
+    if (!context) {
+        ec = INVALID_ACCESS_ERR;
+        return -1;
+    }
+    return DOMTimer::install(context, action, timeout, false);
 }
 
 void DOMWindow::clearInterval(int timeoutId)
 {
-    DOMTimer::removeById(scriptExecutionContext(), timeoutId);
+    ScriptExecutionContext* context = scriptExecutionContext();
+    if (!context)
+        return;
+    DOMTimer::removeById(context, timeoutId);
 }
 
 bool DOMWindow::addEventListener(const AtomicString& eventType, PassRefPtr<EventListener> listener, bool useCapture)

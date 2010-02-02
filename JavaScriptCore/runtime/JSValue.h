@@ -158,6 +158,7 @@ namespace JSC {
         double toNumber(ExecState*) const;
         JSValue toJSNumber(ExecState*) const; // Fast path for when you expect that the value is an immediate number.
         UString toString(ExecState*) const;
+        UString toPrimitiveString(ExecState*) const;
         JSObject* toObject(ExecState*) const;
 
         // Integer conversions.
@@ -234,7 +235,7 @@ namespace JSC {
         union {
             EncodedJSValue asEncodedJSValue;
             double asDouble;
-#if PLATFORM(BIG_ENDIAN)
+#if CPU(BIG_ENDIAN)
             struct {
                 int32_t tag;
                 int32_t payload;

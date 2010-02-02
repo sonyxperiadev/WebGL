@@ -2,6 +2,9 @@
 <qresource prefix="/webkit/inspector">
     <file>inspector.html</file>
     <file>AbstractTimelinePanel.js</file>
+    <file>AuditLauncherView.js</file>
+    <file>AuditResultView.js</file>
+    <file>AuditsPanel.js</file>
     <file>BottomUpProfileDataGridTree.js</file>
     <file>Breakpoint.js</file>
     <file>BreakpointsSidebarPane.js</file>
@@ -20,6 +23,7 @@
     <file>DOMAgent.js</file>
     <file>DOMStorage.js</file>
     <file>DOMStorageItemsView.js</file>
+    <file>DOMSyntaxHighlighter.js</file>
     <file>Drawer.js</file>
     <file>ElementsPanel.js</file>
     <file>ElementsTreeOutline.js</file>
@@ -33,6 +37,7 @@
     <file>InspectorFrontendHostStub.js</file>
     <file>KeyboardShortcut.js</file>
     <file>MetricsSidebarPane.js</file>
+    <file>NativeTextViewer.js</file>
     <file>Object.js</file>
     <file>ObjectPropertiesSection.js</file>
     <file>ObjectProxy.js</file>
@@ -53,15 +58,24 @@
     <file>Script.js</file>
     <file>ScriptsPanel.js</file>
     <file>ScriptView.js</file>
+    <file>Section.js</file>
+    <file>Settings.js</file>
     <file>SidebarPane.js</file>
     <file>SidebarTreeElement.js</file>
+    <file>SourceCSSTokenizer.js</file>
     <file>SourceFrame.js</file>
+    <file>SourceHTMLTokenizer.js</file>
+    <file>SourceJavaScriptTokenizer.js</file>
+    <file>SourceTokenizer.js</file>
     <file>SourceView.js</file>
     <file>StatusBarButton.js</file>
     <file>StoragePanel.js</file>
     <file>StylesSidebarPane.js</file>
     <file>SummaryBar.js</file>
     <file>TestController.js</file>
+    <file>TextEditor.js</file>
+    <file>TextEditorHighlighter.js</file>
+    <file>TextEditorModel.js</file>
     <file>TextPrompt.js</file>
     <file>TimelineAgent.js</file>
     <file>TimelineGrid.js</file>
@@ -72,8 +86,11 @@
     <file>utilities.js</file>
     <file>View.js</file>
     <file>WatchExpressionsSidebarPane.js</file>
+    <file>WelcomeView.js</file>
+    <file>audits.css</file>
     <file>inspector.css</file>
     <file>inspectorSyntaxHighlight.css</file>
+    <file>textEditor.css</file>
     <file>Images/back.png</file>
     <file>Images/checker.png</file>
     <file>Images/clearConsoleButtonGlyph.png</file>
@@ -191,10 +208,6 @@
     <file>Images/timelinePillPurple.png</file>
     <file>Images/timelinePillRed.png</file>
     <file>Images/timelinePillYellow.png</file>
-    <file>Images/tipBalloon.png</file>
-    <file>Images/tipBalloonBottom.png</file>
-    <file>Images/tipIcon.png</file>
-    <file>Images/tipIconPressed.png</file>
     <file>Images/toolbarItemSelected.png</file>
     <file>Images/treeDownTriangleBlack.png</file>
     <file>Images/treeDownTriangleWhite.png</file>

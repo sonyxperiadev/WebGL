@@ -76,6 +76,8 @@ public:
     WEBKIT_API void assign(const WebString&);
     WEBKIT_API void assign(const WebUChar* data, size_t len);
 
+    WEBKIT_API bool equals(const WebString& s) const;
+
     WEBKIT_API size_t length() const;
     WEBKIT_API const WebUChar* data() const;
 
@@ -87,6 +89,18 @@ public:
     WEBKIT_API static WebString fromUTF8(const char* data, size_t length);
     WEBKIT_API static WebString fromUTF8(const char* data);
 
+    template <int N> WebString(const char (&data)[N])
+        : m_private(0)
+    {
+        assign(fromUTF8(data, N - 1));
+    }
+
+    template <int N> WebString& operator=(const char (&data)[N])
+    {
+        assign(fromUTF8(data, N - 1));
+        return *this;
+    }
+
 #if WEBKIT_IMPLEMENTATION
     WebString(const WebCore::String&);
     WebString& operator=(const WebCore::String&);
@@ -96,6 +110,7 @@ public:
     WebString& operator=(const WebCore::AtomicString&);
     operator WebCore::AtomicString() const;
 #else
+
     WebString(const string16& s) : m_private(0)
     {
         assign(s.data(), s.length());
@@ -149,6 +164,16 @@ private:
     void assign(WebStringPrivate*);
     WebStringPrivate* m_private;
 };
+
+inline bool operator==(const WebString& a, const WebString& b)
+{
+    return a.equals(b);
+}
+
+inline bool operator!=(const WebString& a, const WebString& b)
+{
+    return !(a == b);
+}
 
 } // namespace WebKit
 

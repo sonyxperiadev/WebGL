@@ -164,6 +164,22 @@ bool FrameLoaderClientImpl::allowJavaScript(bool enabledPerSettings)
     return enabledPerSettings;
 }
 
+bool FrameLoaderClientImpl::allowPlugins(bool enabledPerSettings)
+{
+    if (m_webFrame->client())
+        return m_webFrame->client()->allowPlugins(m_webFrame, enabledPerSettings);
+
+    return enabledPerSettings;
+}
+
+bool FrameLoaderClientImpl::allowImages(bool enabledPerSettings)
+{
+    if (m_webFrame->client())
+        return m_webFrame->client()->allowImages(m_webFrame, enabledPerSettings);
+
+    return enabledPerSettings;
+}
+
 bool FrameLoaderClientImpl::hasWebView() const
 {
     return m_webFrame->viewImpl();
@@ -1325,7 +1341,7 @@ PassRefPtr<Widget> FrameLoaderClientImpl::createPlugin(
     const String& mimeType,
     bool loadManually)
 {
-#if !PLATFORM(WIN_OS)
+#if !OS(WINDOWS)
     // WebCore asks us to make a plugin even if we don't have a
     // registered handler, with a comment saying it's so we can display
     // the broken plugin icon.  In Chromium, we normally register a

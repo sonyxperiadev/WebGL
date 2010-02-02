@@ -36,24 +36,18 @@ WebInspector.StylesSidebarPane = function()
     var option = document.createElement("option");
     option.value = "hex";
     option.action = this._changeColorFormat.bind(this);
-    if (Preferences.colorFormat === "hex")
-        option.selected = true;
     option.label = WebInspector.UIString("Hex Colors");
     this.settingsSelectElement.appendChild(option);
 
     option = document.createElement("option");
     option.value = "rgb";
     option.action = this._changeColorFormat.bind(this);
-    if (Preferences.colorFormat === "rgb")
-        option.selected = true;
     option.label = WebInspector.UIString("RGB Colors");
     this.settingsSelectElement.appendChild(option);
 
     option = document.createElement("option");
     option.value = "hsl";
     option.action = this._changeColorFormat.bind(this);
-    if (Preferences.colorFormat === "hsl")
-        option.selected = true;
     option.label = WebInspector.UIString("HSL Colors");
     this.settingsSelectElement.appendChild(option);
 
@@ -66,11 +60,23 @@ WebInspector.StylesSidebarPane = function()
 
     this.settingsSelectElement.addEventListener("click", function(event) { event.stopPropagation() }, false);
     this.settingsSelectElement.addEventListener("change", this._changeSetting.bind(this), false);
-
+    WebInspector.settings.addEventListener("loaded", this._settingsLoaded, this);        
+    
     this.titleElement.appendChild(this.settingsSelectElement);
 }
 
 WebInspector.StylesSidebarPane.prototype = {
+    _settingsLoaded: function()
+    {
+        var format = WebInspector.settings.colorFormat;
+        if (format === "hex")
+            this.settingsSelectElement[0].selected = true;
+        if (format === "rgb")
+            this.settingsSelectElement[1].selected = true;
+        if (format === "hsl")
+            this.settingsSelectElement[2].selected = true;
+    },
+
     update: function(node, editedSection, forceUpdate)
     {
         var refresh = false;
@@ -109,7 +115,7 @@ WebInspector.StylesSidebarPane.prototype = {
             self._update(refresh, body, node, editedSection, forceUpdate);
         }
 
-        InjectedScriptAccess.getStyles(node.id, !Preferences.showUserAgentStyles, callback);
+        InjectedScriptAccess.get(node.injectedScriptId).getStyles(node.id, !WebInspector.settings.showUserAgentStyles, callback);
     },
 
     _update: function(refresh, body, node, editedSection, forceUpdate)
@@ -156,7 +162,7 @@ WebInspector.StylesSidebarPane.prototype = {
                 styleRules.push(inlineStyle);
             }
 
-            var matchedStyleRules = node.ownerDocument.defaultView.getMatchedCSSRules(node, "", !Preferences.showUserAgentStyles);
+            var matchedStyleRules = node.ownerDocument.defaultView.getMatchedCSSRules(node, "", !WebInspector.settings.showUserAgentStyles);
             if (matchedStyleRules) {
                 // Add rules in reverse order to match the cascade order.
                 for (var i = (matchedStyleRules.length - 1); i >= 0; --i) {
@@ -320,7 +326,7 @@ WebInspector.StylesSidebarPane.prototype = {
         // Select the correct color format setting again, since it needs to be selected.
         var selectedIndex = 0;
         for (var i = 0; i < options.length; ++i) {
-            if (options[i].value === Preferences.colorFormat) {
+            if (options[i].value === WebInspector.settings.colorFormat) {
                 selectedIndex = i;
                 break;
             }
@@ -332,9 +338,7 @@ WebInspector.StylesSidebarPane.prototype = {
     _changeColorFormat: function(event)
     {
         var selectedOption = this.settingsSelectElement[this.settingsSelectElement.selectedIndex];
-        Preferences.colorFormat = selectedOption.value;
-
-        InspectorFrontendHost.setSetting("color-format", Preferences.colorFormat);
+        WebInspector.settings.colorFormat = selectedOption.value;
 
         for (var i = 0; i < this.sections.length; ++i)
             this.sections[i].update(true);
@@ -397,18 +401,18 @@ WebInspector.StylePropertiesSection = function(styleRule, subtitle, computedStyl
     if (computedStyle) {
         this.element.addStyleClass("computed-style");
 
-        if (Preferences.showInheritedComputedStyleProperties)
+        if (WebInspector.settings.showInheritedComputedStyleProperties)
             this.element.addStyleClass("show-inherited");
 
         var showInheritedLabel = document.createElement("label");
         var showInheritedInput = document.createElement("input");
         showInheritedInput.type = "checkbox";
-        showInheritedInput.checked = Preferences.showInheritedComputedStyleProperties;
+        showInheritedInput.checked = WebInspector.settings.showInheritedComputedStyleProperties;
 
         var computedStyleSection = this;
         var showInheritedToggleFunction = function(event) {
-            Preferences.showInheritedComputedStyleProperties = showInheritedInput.checked;
-            if (Preferences.showInheritedComputedStyleProperties)
+            WebInspector.settings.showInheritedComputedStyleProperties = showInheritedInput.checked;
+            if (WebInspector.settings.showInheritedComputedStyleProperties)
                 computedStyleSection.element.addStyleClass("show-inherited");
             else
                 computedStyleSection.element.removeStyleClass("show-inherited");
@@ -688,7 +692,7 @@ WebInspector.StylePropertiesSection.prototype = {
             moveToNextIfNeeded.call(self);
         }
 
-        InjectedScriptAccess.applyStyleRuleText(this.rule.id, newContent, this.pane.node.id, callback);
+        InjectedScriptAccess.get(this.rule.injectedScriptId).applyStyleRuleText(this.rule.id, newContent, this.pane.node.id, callback);
     },
 
     editingSelectorCancelled: function()
@@ -742,7 +746,7 @@ WebInspector.BlankStylePropertiesSection.prototype = {
             self.addNewBlankProperty().startEditing();
         }
 
-        InjectedScriptAccess.addStyleSelector(newContent, this.pane.node.id, callback);
+        InjectedScriptAccess.get(this.pane.node.injectedScriptId).addStyleSelector(newContent, this.pane.node.id, callback);
     },
 
     editingSelectorCancelled: function()
@@ -916,9 +920,9 @@ WebInspector.StylePropertyTreeElement.prototype = {
                 var format;
                 if (Preferences.showColorNicknames && color.nickname)
                     format = "nickname";
-                else if (Preferences.colorFormat === "rgb")
+                else if (WebInspector.settings.colorFormat === "rgb")
                     format = (color.simple ? "rgb" : "rgba");
-                else if (Preferences.colorFormat === "hsl")
+                else if (WebInspector.settings.colorFormat === "hsl")
                     format = (color.simple ? "hsl" : "hsla");
                 else if (color.simple)
                     format = (color.hasShortHex() ? "shorthex" : "hex");
@@ -1049,7 +1053,7 @@ WebInspector.StylePropertyTreeElement.prototype = {
             self.updateAll(true);
         }
 
-        InjectedScriptAccess.toggleStyleEnabled(this.style.id, this.name, disabled, callback);
+        InjectedScriptAccess.get(this.style.injectedScriptId).toggleStyleEnabled(this.style.id, this.name, disabled, callback);
     },
 
     updateState: function()
@@ -1212,7 +1216,7 @@ WebInspector.StylePropertyTreeElement.prototype = {
         } else {
             // Restore the original CSS text before applying user changes. This is needed to prevent
             // new properties from sticking around if the user adds one, then removes it.
-            InjectedScriptAccess.setStyleText(this.style.id, this.originalCSSText);
+            InjectedScriptAccess.get(this.style.injectedScriptId).setStyleText(this.style.id, this.originalCSSText);
         }
 
         this.applyStyleText(this.listItemElement.textContent);
@@ -1232,7 +1236,7 @@ WebInspector.StylePropertyTreeElement.prototype = {
         if (this._newProperty)
             this.treeOutline.removeChild(this);
         else if (this.originalCSSText) {
-            InjectedScriptAccess.setStyleText(this.style.id, this.originalCSSText);
+            InjectedScriptAccess.get(this.style.injectedScriptId).setStyleText(this.style.id, this.originalCSSText);
 
             if (this.treeOutline.section && this.treeOutline.section.pane)
                 this.treeOutline.section.pane.dispatchEventToListeners("style edited");
@@ -1306,7 +1310,7 @@ WebInspector.StylePropertyTreeElement.prototype = {
     {
         var section = this.treeOutline.section;
         var elementsPanel = WebInspector.panels.elements;
-        var styleTextLength = styleText.trimWhitespace().length;
+        var styleTextLength = styleText.trim().length;
         if (!styleTextLength && updateInterface) {
             if (this._newProperty) {
                 // The user deleted everything, so remove the tree element and update.
@@ -1357,7 +1361,7 @@ WebInspector.StylePropertyTreeElement.prototype = {
                 WebInspector.panels.elements.treeOutline.update();
         }
 
-        InjectedScriptAccess.applyStyleText(this.style.id, styleText.trimWhitespace(), this.name, callback);
+        InjectedScriptAccess.get(this.style.injectedScriptId).applyStyleText(this.style.id, styleText.trim(), this.name, callback);
     }
 }
 

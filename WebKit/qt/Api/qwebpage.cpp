@@ -32,6 +32,8 @@
 #include "qwebsettings.h"
 #include "qwebkitversion.h"
 
+#include "Chrome.h"
+#include "ContextMenuController.h"
 #include "Frame.h"
 #include "FrameTree.h"
 #include "FrameLoader.h"
@@ -79,6 +81,7 @@
 #include "runtime/InitializeThreading.h"
 #include "PageGroup.h"
 #include "QWebPageClient.h"
+#include "WorkerThread.h"
 
 #include <QApplication>
 #include <QBasicTimer>
@@ -108,6 +111,11 @@
 #include <QX11Info>
 #endif
 
+#if QT_VERSION >= QT_VERSION_CHECK(4, 6, 0)
+#include <QTouchEvent>
+#include "PlatformTouchEvent.h"
+#endif
+
 using namespace WebCore;
 
 void QWEBKIT_EXPORT qt_drt_overwritePluginDirectories()
@@ -120,6 +128,15 @@ void QWEBKIT_EXPORT qt_drt_overwritePluginDirectories()
 
     db->setPluginDirectories(paths);
     db->refresh();
+}
+
+int QWEBKIT_EXPORT qt_drt_workerThreadCount()
+{
+#if ENABLE(WORKERS)
+    return WebCore::WorkerThread::workerThreadCount();
+#else
+    return 0;
+#endif
 }
 
 bool QWebPagePrivate::drtRun = false;
@@ -164,6 +181,8 @@ public:
     virtual QWidget* ownerWidget() const;
 
     virtual QObject* pluginParent() const;
+
+    virtual QStyle* style() const;
 
     QWidget* view;
 };
@@ -232,6 +251,11 @@ QWidget* QWebPageWidgetClient::ownerWidget() const
 QObject* QWebPageWidgetClient::pluginParent() const
 {
     return view;
+}
+
+QStyle* QWebPageWidgetClient::style() const
+{
+    return view->style();
 }
 
 // Lookup table mapping QWebPage::WebActions to the associated Editor commands
@@ -337,8 +361,10 @@ static inline DragOperation dropActionToDragOp(Qt::DropActions actions)
     unsigned result = 0;
     if (actions & Qt::CopyAction)
         result |= DragOperationCopy;
+    // DragOperationgeneric represents InternetExplorer's equivalent of Move operation,
+    // hence it should be considered as "move"
     if (actions & Qt::MoveAction)
-        result |= DragOperationMove;
+        result |= (DragOperationMove | DragOperationGeneric);
     if (actions & Qt::LinkAction)
         result |= DragOperationLink;
     return (DragOperation)result;
@@ -350,6 +376,10 @@ static inline Qt::DropAction dragOpToDropAction(unsigned actions)
     if (actions & DragOperationCopy)
         result = Qt::CopyAction;
     else if (actions & DragOperationMove)
+        result = Qt::MoveAction;
+    // DragOperationgeneric represents InternetExplorer's equivalent of Move operation,
+    // hence it should be considered as "move"
+    else if (actions & DragOperationGeneric)
         result = Qt::MoveAction;
     else if (actions & DragOperationLink)
         result = Qt::LinkAction;
@@ -455,7 +485,9 @@ static QWebPage::WebAction webActionForContextMenuAction(WebCore::ContextMenuAct
         case WebCore::ContextMenuItemTagBold: return QWebPage::ToggleBold;
         case WebCore::ContextMenuItemTagItalic: return QWebPage::ToggleItalic;
         case WebCore::ContextMenuItemTagUnderline: return QWebPage::ToggleUnderline;
+#if ENABLE(INSPECTOR)
         case WebCore::ContextMenuItemTagInspectElement: return QWebPage::InspectElement;
+#endif
         default: break;
     }
     return QWebPage::NoWebAction;
@@ -1061,8 +1093,9 @@ void QWebPagePrivate::focusOutEvent(QFocusEvent*)
     // and the focus frame. But don't tell the focus controller so that upon
     // focusInEvent() we can re-activate the frame.
     FocusController *focusController = page->focusController();
-    focusController->setActive(false);
+    // Call setFocused first so that window.onblur doesn't get called twice
     focusController->setFocused(false);
+    focusController->setActive(false);
 }
 
 void QWebPagePrivate::dragEnterEvent(QGraphicsSceneDragDropEvent* ev)
@@ -1084,8 +1117,9 @@ void QWebPagePrivate::dragEnterEvent(QDragEnterEvent* ev)
                       dropActionToDragOp(ev->possibleActions()));
     Qt::DropAction action = dragOpToDropAction(page->dragController()->dragEntered(&dragData));
     ev->setDropAction(action);
-    if (action != Qt::IgnoreAction)
-        ev->accept();
+    // We must accept this event in order to receive the drag move events that are sent
+    // while the drag and drop action is in progress.
+    ev->accept();
 #endif
 }
 
@@ -1125,9 +1159,11 @@ void QWebPagePrivate::dragMoveEvent(QDragMoveEvent* ev)
     DragData dragData(ev->mimeData(), ev->pos(), QCursor::pos(),
                       dropActionToDragOp(ev->possibleActions()));
     Qt::DropAction action = dragOpToDropAction(page->dragController()->dragUpdated(&dragData));
+    m_lastDropAction = action;
     ev->setDropAction(action);
-    if (action != Qt::IgnoreAction)
-        ev->accept();
+    // We must accept this event in order to receive the drag move events that are sent
+    // while the drag and drop action is in progress.
+    ev->accept();
 #endif
 }
 
@@ -1136,8 +1172,7 @@ void QWebPagePrivate::dropEvent(QGraphicsSceneDragDropEvent* ev)
 #ifndef QT_NO_DRAGANDDROP
     DragData dragData(ev->mimeData(), ev->pos().toPoint(),
             QCursor::pos(), dropActionToDragOp(ev->possibleActions()));
-    Qt::DropAction action = dragOpToDropAction(page->dragController()->performDrag(&dragData));
-    if (action != Qt::IgnoreAction)
+    if (page->dragController()->performDrag(&dragData))
         ev->accept();
 #endif
 }
@@ -1145,10 +1180,11 @@ void QWebPagePrivate::dropEvent(QGraphicsSceneDragDropEvent* ev)
 void QWebPagePrivate::dropEvent(QDropEvent* ev)
 {
 #ifndef QT_NO_DRAGANDDROP
+    // Overwrite the defaults set by QDragManager::defaultAction()
+    ev->setDropAction(m_lastDropAction);
     DragData dragData(ev->mimeData(), ev->pos(), QCursor::pos(),
-                      dropActionToDragOp(ev->possibleActions()));
-    Qt::DropAction action = dragOpToDropAction(page->dragController()->performDrag(&dragData));
-    if (action != Qt::IgnoreAction)
+                      dropActionToDragOp(Qt::DropAction(ev->dropAction())));
+    if (page->dragController()->performDrag(&dragData))
         ev->accept();
 #endif
 }
@@ -1217,7 +1253,7 @@ void QWebPagePrivate::inputMethodEvent(QInputMethodEvent *ev)
             break;
         }
         case QInputMethodEvent::Cursor: {
-            frame->setCaretVisible(a.length); //if length is 0 cursor is invisible
+            frame->selection()->setCaretVisible(a.length); //if length is 0 cursor is invisible
             if (a.length > 0) {
                 RenderObject* caretRenderer = frame->selection()->caretRenderer();
                 if (caretRenderer) {
@@ -1334,6 +1370,18 @@ bool QWebPagePrivate::handleScrolling(QKeyEvent *ev, Frame *frame)
     return frame->eventHandler()->scrollRecursively(direction, granularity);
 }
 
+#if QT_VERSION >= QT_VERSION_CHECK(4, 6, 0)
+void QWebPagePrivate::touchEvent(QTouchEvent* event)
+{
+    WebCore::Frame* frame = QWebFramePrivate::core(mainFrame);
+    if (!frame->view())
+        return;
+
+    bool accepted = frame->eventHandler()->handleTouchEvent(PlatformTouchEvent(event));
+    event->setAccepted(accepted);
+}
+#endif
+
 /*!
   This method is used by the input method to query a set of properties of the page
   to be able to support complex input method operations as support for surrounding
@@ -1362,6 +1410,11 @@ QVariant QWebPage::inputMethodQuery(Qt::InputMethodQuery property) const
 
     switch (property) {
         case Qt::ImMicroFocus: {
+            WebCore::FrameView* view = frame->view();
+            if (view && view->needsLayout()) {
+                // We can't access absoluteCaretBounds() while the view needs to layout.
+                return QVariant();
+            }
             return QVariant(frame->selection()->absoluteCaretBounds());
         }
         case Qt::ImFont: {
@@ -1460,6 +1513,7 @@ void QWebPagePrivate::setInspector(QWebInspector* insp)
 */
 QWebInspector* QWebPagePrivate::getOrCreateInspector()
 {
+#if ENABLE(INSPECTOR)
     if (!inspector) {
         QWebInspector* insp = new QWebInspector;
         insp->setPage(q);
@@ -1467,13 +1521,18 @@ QWebInspector* QWebPagePrivate::getOrCreateInspector()
 
         Q_ASSERT(inspector); // Associated through QWebInspector::setPage(q)
     }
+#endif
     return inspector;
 }
 
 /*! \internal */
 InspectorController* QWebPagePrivate::inspectorController()
 {
+#if ENABLE(INSPECTOR)
     return page->inspectorController();
+#else
+    return 0;
+#endif
 }
 
 
@@ -1837,7 +1896,8 @@ bool QWebPage::javaScriptConfirm(QWebFrame *frame, const QString& msg)
     The program may provide an optional message, \a msg, as well as a default value for the input in \a defaultValue.
 
     If the prompt was cancelled by the user the implementation should return false; otherwise the
-    result should be written to \a result and true should be returned.
+    result should be written to \a result and true should be returned. If the prompt was not cancelled by the
+    user, the implementation should return true and the result string must not be null.
 
     The default implementation uses QInputDialog::getText.
 */
@@ -2014,11 +2074,13 @@ void QWebPage::triggerAction(WebAction action, bool)
             editor->setBaseWritingDirection(RightToLeftWritingDirection);
             break;
         case InspectElement: {
+#if ENABLE(INSPECTOR)
             if (!d->hitTestResult.isNull()) {
                 d->getOrCreateInspector(); // Make sure the inspector is created
                 d->inspector->show(); // The inspector is expected to be shown on inspection
                 d->page->inspectorController()->inspect(d->hitTestResult.d->innerNonSharedNode.get());
             }
+#endif
             break;
         }
         default:
@@ -2548,6 +2610,13 @@ bool QWebPage::event(QEvent *ev)
     case QEvent::Leave:
         d->leaveEvent(ev);
         break;
+#if QT_VERSION >= QT_VERSION_CHECK(4, 6, 0)
+    case QEvent::TouchBegin:
+    case QEvent::TouchUpdate:
+    case QEvent::TouchEnd:
+        d->touchEvent(static_cast<QTouchEvent*>(ev));
+        break;
+#endif
     default:
         return QObject::event(ev);
     }
@@ -2705,8 +2774,11 @@ void QWebPage::updatePositionDependentActions(const QPoint &pos)
         d->hitTestResult = QWebHitTestResult(new QWebHitTestResultPrivate(result));
     WebCore::ContextMenu menu(result);
     menu.populate();
+    
+#if ENABLE(INSPECTOR)
     if (d->page->inspectorController()->enabled())
         menu.addInspectElementItem();
+#endif
 
     QBitArray visitedWebActions(QWebPage::WebActionCount);
 
@@ -3396,9 +3468,9 @@ quint64 QWebPage::bytesReceived() const
 /*!
     \fn void QWebPage::unsupportedContent(QNetworkReply *reply)
 
-    This signals is emitted when webkit cannot handle a link the user navigated to.
+    This signal is emitted when WebKit cannot handle a link the user navigated to.
 
-    At signal emissions time the meta data of the QNetworkReply \a reply is available.
+    At signal emission time the meta-data of the QNetworkReply \a reply is available.
 
     \note This signal is only emitted if the forwardUnsupportedContent property is set to true.
 

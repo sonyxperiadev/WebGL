@@ -38,11 +38,13 @@
 #include "bindings/V8Attr.cpp"
 #include "bindings/V8BarInfo.cpp"
 #include "bindings/V8BeforeLoadEvent.cpp"
+#include "bindings/V8Blob.cpp"
 #include "bindings/V8WebGLActiveInfo.cpp"
 #include "bindings/V8WebGLArray.cpp"
 #include "bindings/V8WebGLArrayBuffer.cpp"
 #include "bindings/V8WebGLBuffer.cpp"
 #include "bindings/V8WebGLByteArray.cpp"
+#include "bindings/V8WebGLContextAttributes.cpp"
 #include "bindings/V8WebGLFloatArray.cpp"
 #include "bindings/V8WebGLFramebuffer.cpp"
 #include "bindings/V8CanvasGradient.cpp"
@@ -202,6 +204,7 @@
 #include "bindings/V8PageTransitionEvent.cpp"
 #include "bindings/V8Plugin.cpp"
 #include "bindings/V8PluginArray.cpp"
+#include "bindings/V8PopStateEvent.cpp"
 #include "bindings/V8PositionError.cpp"
 #include "bindings/V8ProcessingInstruction.cpp"
 #include "bindings/V8ProgressEvent.cpp"
@@ -252,6 +255,13 @@
 #include "bindings/V8SQLResultSet.cpp"
 #include "bindings/V8SQLResultSetRowList.cpp"
 #include "bindings/V8SQLTransaction.cpp"
+#endif
+
+#if ENABLE(INDEXED_DATABASE)
+#include "bindings/V8IDBDatabaseError.cpp"
+#include "bindings/V8IDBDatabaseException.cpp"
+#include "bindings/V8IDBRequest.cpp"
+#include "bindings/V8IndexedDatabaseRequest.cpp"
 #endif
 
 #if ENABLE(WORKERS)
@@ -420,4 +430,8 @@
 #include "bindings/V8InjectedScriptHost.cpp"
 #include "bindings/V8InspectorBackend.cpp"
 #include "bindings/V8InspectorFrontendHost.cpp"
+#endif
+
+#if ENABLE(EVENTSOURCE)
+#include "bindings/V8EventSource.cpp"
 #endif

@@ -32,9 +32,12 @@
 #define V8Index_h
 
 #include <v8.h>
-#include "PlatformString.h"  // for WebCore::String
 
 namespace WebCore {
+
+static const int v8DOMWrapperTypeIndex = 0;
+static const int v8DOMWrapperObjectIndex = 1;
+static const int v8DefaultWrapperInternalFieldCount = 2;
 
 typedef v8::Persistent<v8::FunctionTemplate> (*FunctionTemplateFactory)();
 
@@ -80,6 +83,13 @@ typedef v8::Persistent<v8::FunctionTemplate> (*FunctionTemplateFactory)();
 #else
 #define WORKER_ACTIVE_OBJECT_WRAPPER_TYPES(V)
 #define WORKER_NONNODE_WRAPPER_TYPES(V)
+#endif
+
+#if ENABLE(EVENTSOURCE)
+#define EVENTSOURCE_ACTIVE_OBJECT_WRAPPER_TYPES(V)                      \
+    V(EVENTSOURCE, EventSource)
+#else
+#define EVENTSOURCE_ACTIVE_OBJECT_WRAPPER_TYPES(V)
 #endif
 
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
@@ -230,11 +240,13 @@ typedef v8::Persistent<v8::FunctionTemplate> (*FunctionTemplateFactory)();
 
 #if ENABLE(SVG_FONTS)
 #define SVG_FONTS_ELEMENT_TYPES(V)                                      \
+    V(SVGFONTELEMENT, SVGFontElement)                                   \
     V(SVGFONTFACEELEMENT, SVGFontFaceElement)                           \
     V(SVGFONTFACEFORMATELEMENT, SVGFontFaceFormatElement)               \
     V(SVGFONTFACENAMEELEMENT, SVGFontFaceNameElement)                   \
     V(SVGFONTFACESRCELEMENT, SVGFontFaceSrcElement)                     \
-    V(SVGFONTFACEURIELEMENT, SVGFontFaceUriElement)
+    V(SVGFONTFACEURIELEMENT, SVGFontFaceUriElement)                     \
+    V(SVGMISSINGGLYPHELEMENT, SVGMissingGlyphElement)
 #else
 #define SVG_FONTS_ELEMENT_TYPES(V)
 #endif
@@ -316,7 +328,8 @@ typedef v8::Persistent<v8::FunctionTemplate> (*FunctionTemplateFactory)();
     V(XMLHTTPREQUEST, XMLHttpRequest)                                   \
     WORKER_ACTIVE_OBJECT_WRAPPER_TYPES(V)                               \
     SHARED_WORKER_ACTIVE_OBJECT_WRAPPER_TYPES(V)                        \
-    WEBSOCKET_ACTIVE_OBJECT_WRAPPER_TYPES(V)
+    WEBSOCKET_ACTIVE_OBJECT_WRAPPER_TYPES(V)                            \
+    EVENTSOURCE_ACTIVE_OBJECT_WRAPPER_TYPES(V)
 
 // NOTE: DOM_OBJECT_TYPES is split into two halves because
 //       Visual Studio's Intellinonsense crashes when macros get
@@ -325,6 +338,7 @@ typedef v8::Persistent<v8::FunctionTemplate> (*FunctionTemplateFactory)();
 #define DOM_OBJECT_TYPES_1(V)                                           \
     V(BARINFO, BarInfo)                                                 \
     V(BEFORELOADEVENT, BeforeLoadEvent)                                 \
+    V(BLOB, Blob)                                                       \
     V(CANVASGRADIENT, CanvasGradient)                                   \
     V(CANVASPATTERN, CanvasPattern)                                     \
     V(CANVASRENDERINGCONTEXT, CanvasRenderingContext)                   \
@@ -386,6 +400,7 @@ typedef v8::Persistent<v8::FunctionTemplate> (*FunctionTemplateFactory)();
     V(PAGETRANSITIONEVENT, PageTransitionEvent)                         \
     V(PLUGIN, Plugin)                                                   \
     V(PLUGINARRAY, PluginArray)                                         \
+    V(POPSTATEEVENT, PopStateEvent)                                     \
     V(PROGRESSEVENT, ProgressEvent)                                     \
     V(RANGE, Range)                                                     \
     V(RANGEEXCEPTION, RangeException)                                   \
@@ -438,6 +453,16 @@ typedef v8::Persistent<v8::FunctionTemplate> (*FunctionTemplateFactory)();
 #define DOM_OBJECT_STORAGE_TYPES(V)
 #endif
 
+#if ENABLE(INDEXED_DATABASE)
+#define DOM_OBJECT_INDEXED_DATABASE_TYPES(V)                            \
+    V(IDBDATABASEERROR, IDBDatabaseError)                               \
+    V(IDBDATABASEEXCEPTION, IDBDatabaseException)                       \
+    V(IDBREQUEST, IDBRequest)                                           \
+    V(INDEXEDDATABASEREQUEST, IndexedDatabaseRequest)
+#else
+#define DOM_OBJECT_INDEXED_DATABASE_TYPES(V)
+#endif
+
 #if ENABLE(WORKERS)
 #define DOM_OBJECT_WORKERS_TYPES(V)                                     \
     V(ERROREVENT, ErrorEvent)
@@ -452,6 +477,7 @@ typedef v8::Persistent<v8::FunctionTemplate> (*FunctionTemplateFactory)();
     V(WEBGLARRAYBUFFER, WebGLArrayBuffer)                               \
     V(WEBGLBUFFER, WebGLBuffer)                                         \
     V(WEBGLBYTEARRAY, WebGLByteArray)                                   \
+    V(WEBGLCONTEXTATTRIBUTES, WebGLContextAttributes)                   \
     V(WEBGLFLOATARRAY, WebGLFloatArray)                                 \
     V(WEBGLFRAMEBUFFER, WebGLFramebuffer)                               \
     V(WEBGLINTARRAY, WebGLIntArray)                                     \
@@ -530,6 +556,7 @@ typedef v8::Persistent<v8::FunctionTemplate> (*FunctionTemplateFactory)();
     DOM_OBJECT_TYPES_2(V)                                               \
     DOM_OBJECT_DATABASE_TYPES(V)                                        \
     DOM_OBJECT_STORAGE_TYPES(V)                                         \
+    DOM_OBJECT_INDEXED_DATABASE_TYPES(V)                                \
     DOM_OBJECT_WORKERS_TYPES(V)                                         \
     DOM_OBJECT_3D_CANVAS_TYPES(V)                                       \
     DOM_OBJECT_XPATH_TYPES(V)                                           \
@@ -544,7 +571,6 @@ typedef v8::Persistent<v8::FunctionTemplate> (*FunctionTemplateFactory)();
 #if ENABLE(SVG)
 // SVG_OBJECT_TYPES are svg non-node, non-pod types.
 #define SVG_OBJECT_TYPES(V)                                             \
-    V(SVGANGLE, SVGAngle)                                               \
     V(SVGANIMATEDANGLE, SVGAnimatedAngle)                               \
     V(SVGANIMATEDBOOLEAN, SVGAnimatedBoolean)                           \
     V(SVGANIMATEDENUMERATION, SVGAnimatedEnumeration)                   \
@@ -586,7 +612,6 @@ typedef v8::Persistent<v8::FunctionTemplate> (*FunctionTemplateFactory)();
     V(SVGPATHSEGMOVETOABS, SVGPathSegMovetoAbs)                         \
     V(SVGPATHSEGMOVETOREL, SVGPathSegMovetoRel)                         \
     V(SVGPOINTLIST, SVGPointList)                                       \
-    V(SVGPRESERVEASPECTRATIO, SVGPreserveAspectRatio)                   \
     V(SVGRENDERINGINTENT, SVGRenderingIntent)                           \
     V(SVGSTRINGLIST, SVGStringList)                                     \
     V(SVGTRANSFORMLIST, SVGTransformList)                               \
@@ -595,7 +620,9 @@ typedef v8::Persistent<v8::FunctionTemplate> (*FunctionTemplateFactory)();
 
 // SVG POD types should list all types whose IDL has PODType declaration.
 #define SVG_POD_TYPES(V)                                                \
+    V(SVGANGLE, SVGAngle)                                               \
     V(SVGLENGTH, SVGLength)                                             \
+    V(SVGPRESERVEASPECTRATIO, SVGPreserveAspectRatio)                   \
     V(SVGTRANSFORM, SVGTransform)                                       \
     V(SVGMATRIX, SVGMatrix)                                             \
     V(SVGNUMBER, SVGNumber)                                             \
@@ -604,7 +631,9 @@ typedef v8::Persistent<v8::FunctionTemplate> (*FunctionTemplateFactory)();
 
 // POD types can have different implementation names, see CodeGenerateV8.pm.
 #define SVG_POD_NATIVE_TYPES(V)                                         \
+    V(SVGANGLE, SVGAngle)                                               \
     V(SVGLENGTH, SVGLength)                                             \
+    V(SVGPRESERVEASPECTRATIO, SVGPreserveAspectRatio)                   \
     V(SVGTRANSFORM, SVGTransform)                                       \
     V(SVGMATRIX, TransformationMatrix)                                  \
     V(SVGNUMBER, float)                                                 \

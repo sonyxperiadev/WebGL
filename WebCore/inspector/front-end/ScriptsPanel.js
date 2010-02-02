@@ -56,7 +56,6 @@ WebInspector.ScriptsPanel = function()
     this.filesSelectElement.className = "status-bar-item";
     this.filesSelectElement.id = "scripts-files";
     this.filesSelectElement.addEventListener("change", this._changeVisibleFile.bind(this), false);
-    this.filesSelectElement.handleKeyEvent = this.handleKeyEvent.bind(this);
     this.topStatusBar.appendChild(this.filesSelectElement);
 
     this.functionsSelectElement = document.createElement("select");
@@ -155,7 +154,7 @@ WebInspector.ScriptsPanel = function()
     this.enableToggleButton = new WebInspector.StatusBarButton("", "enable-toggle-status-bar-item");
     this.enableToggleButton.addEventListener("click", this._toggleDebugging.bind(this), false);
 
-    this.pauseOnExceptionButton = new WebInspector.StatusBarButton("", "scripts-pause-on-exceptions-status-bar-item");
+    this.pauseOnExceptionButton = new WebInspector.StatusBarButton("", "scripts-pause-on-exceptions-status-bar-item", 3);
     this.pauseOnExceptionButton.addEventListener("click", this._togglePauseOnExceptions.bind(this), false);
 
     this._breakpointsURLMap = {};
@@ -195,6 +194,13 @@ WebInspector.ScriptsPanel = function()
     this.reset();
 }
 
+// Keep these in sync with WebCore::JavaScriptDebugServer
+WebInspector.ScriptsPanel.PauseOnExceptionsState = {
+    DontPauseOnExceptions : 0,
+    PauseOnAllExceptions : 1,
+    PauseOnUncaughtExceptions: 2
+};
+
 WebInspector.ScriptsPanel.prototype = {
     toolbarItemClass: "scripts",
 
@@ -206,6 +212,11 @@ WebInspector.ScriptsPanel.prototype = {
     get statusBarItems()
     {
         return [this.enableToggleButton.element, this.pauseOnExceptionButton.element];
+    },
+
+    get defaultFocusedElement()
+    {
+        return this.filesSelectElement;
     },
 
     get paused()
@@ -223,7 +234,6 @@ WebInspector.ScriptsPanel.prototype = {
                 this.visibleView.headersVisible = false;
             this.visibleView.show(this.viewsContainerElement);
         }
-
         // Hide any views that are visible that are not this panel's current visible view.
         // This can happen when a ResourceView is visible in the Resources panel then switched
         // to the this panel.
@@ -304,6 +314,11 @@ WebInspector.ScriptsPanel.prototype = {
     scriptOrResourceForID: function(id)
     {
         return this._sourceIDMap[id];
+    },
+
+    scriptForURL: function(url)
+    {
+        return this._scriptsForURLsInFilesSelect[url];
     },
 
     addBreakpoint: function(breakpoint)
@@ -391,7 +406,7 @@ WebInspector.ScriptsPanel.prototype = {
             if (result)
                 callback(result.value, result.isException);
         }
-        InjectedScriptAccess.evaluateInCallFrame(callFrame.id, code, objectGroup, evalCallback);
+        InjectedScriptAccess.get(callFrame.injectedScriptId).evaluateInCallFrame(callFrame.id, code, objectGroup, evalCallback);
     },
 
     debuggerPaused: function(callFrames)
@@ -493,9 +508,19 @@ WebInspector.ScriptsPanel.prototype = {
             x.show(this.viewsContainerElement);
     },
 
-    canShowResource: function(resource)
+    canShowSourceLineForURL: function(url)
     {
-        return resource && resource.scripts.length && InspectorBackend.debuggerEnabled();
+        return InspectorBackend.debuggerEnabled() &&
+            !!(WebInspector.resourceForURL(url) || this.scriptForURL(url));
+    },
+
+    showSourceLineForURL: function(url, line)
+    {
+        var resource = WebInspector.resourceForURL(url);
+        if (resource)
+            this.showResource(resource, line);
+        else
+            this.showScript(this.scriptForURL(url), line);
     },
 
     showScript: function(script, line)
@@ -515,17 +540,15 @@ WebInspector.ScriptsPanel.prototype = {
         this._showScriptOrResource((view.resource || view.script));
     },
 
-    handleKeyEvent: function(event)
+    handleShortcut: function(event)
     {
         var shortcut = WebInspector.KeyboardShortcut.makeKeyFromEvent(event);
         var handler = this._shortcuts[shortcut];
         if (handler) {
             handler(event);
-            event.preventDefault();
             event.handled = true;
-        } else {
-            this.sidebarPanes.callstack.handleKeyEvent(event);
-        }
+        } else
+            this.sidebarPanes.callstack.handleShortcut(event);
     },
 
     scriptViewForScript: function(script)
@@ -587,7 +610,7 @@ WebInspector.ScriptsPanel.prototype = {
             if (!WebInspector.panels.resources)
                 return null;
             view = WebInspector.panels.resources.resourceViewForResource(scriptOrResource);
-            view.headersVisible = false;
+            view.headersVisible = false; 
 
             if (scriptOrResource.url in this._breakpointsURLMap) {
                 var sourceFrame = this._sourceFrameForScriptOrResource(scriptOrResource);
@@ -606,7 +629,7 @@ WebInspector.ScriptsPanel.prototype = {
 
         var url = scriptOrResource.url || scriptOrResource.sourceURL;
         if (url && !options.initialLoad)
-            InspectorFrontendHost.setSetting("LastViewedScriptFile", url);
+            WebInspector.settings.lastViewedScriptFile = url;
 
         if (!options.fromBackForwardAction) {
             var oldIndex = this._currentBackForwardIndex;
@@ -649,7 +672,7 @@ WebInspector.ScriptsPanel.prototype = {
 
             console.assert(option);
         } else {
-            var script = this._scriptsForURLsInFilesSelect[url];
+            var script = this.scriptForURL(url);
             if (script)
                option = script.filesSelectOption;
         }
@@ -709,7 +732,7 @@ WebInspector.ScriptsPanel.prototype = {
         else {
             // if not first item, check to see if this was the last viewed
             var url = option.representedObject.url || option.representedObject.sourceURL;
-            var lastURL = InspectorFrontendHost.setting("LastViewedScriptFile");
+            var lastURL = WebInspector.settings.lastViewedScriptFile;
             if (url && url === lastURL)
                 this._showScriptOrResource(option.representedObject, {initialLoad: true});
         }
@@ -776,18 +799,21 @@ WebInspector.ScriptsPanel.prototype = {
         this.sidebarResizeWidgetElement.style.right = newWidth + "px";
         this.sidebarResizeElement.style.right = (newWidth - 3) + "px";
 
+        this.resize();
         event.preventDefault();
     },
-
+    
     _updatePauseOnExceptionsButton: function()
     {
-        if (InspectorBackend.pauseOnExceptions()) {
-            this.pauseOnExceptionButton.title = WebInspector.UIString("Don't pause on exceptions.");
-            this.pauseOnExceptionButton.toggled = true;
-        } else {
-            this.pauseOnExceptionButton.title = WebInspector.UIString("Pause on exceptions.");
-            this.pauseOnExceptionButton.toggled = false;
-        }
+        if (InspectorBackend.pauseOnExceptionsState() == WebInspector.ScriptsPanel.PauseOnExceptionsState.DontPauseOnExceptions)
+            this.pauseOnExceptionButton.title = WebInspector.UIString("Don't pause on exceptions.\nClick to Pause on all exceptions.");
+        else if (InspectorBackend.pauseOnExceptionsState() == WebInspector.ScriptsPanel.PauseOnExceptionsState.PauseOnAllExceptions)
+            this.pauseOnExceptionButton.title = WebInspector.UIString("Pause on all exceptions.\nClick to Pause on uncaught exceptions.");
+        else if (InspectorBackend.pauseOnExceptionsState() == WebInspector.ScriptsPanel.PauseOnExceptionsState.PauseOnUncaughtExceptions)
+            this.pauseOnExceptionButton.title = WebInspector.UIString("Pause on uncaught exceptions.\nClick to Not pause on exceptions.");
+        
+        this.pauseOnExceptionButton.state = InspectorBackend.pauseOnExceptionsState();
+        
     },
 
     _updateDebuggerButtons: function()
@@ -890,7 +916,7 @@ WebInspector.ScriptsPanel.prototype = {
 
     _togglePauseOnExceptions: function()
     {
-        InspectorBackend.setPauseOnExceptions(!InspectorBackend.pauseOnExceptions());
+        InspectorBackend.setPauseOnExceptionsState((InspectorBackend.pauseOnExceptionsState() + 1) % this.pauseOnExceptionButton.states);
         this._updatePauseOnExceptionsButton();
     },
 

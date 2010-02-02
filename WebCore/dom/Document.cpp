@@ -36,6 +36,8 @@
 #include "CSSValueKeywords.h"
 #include "CString.h"
 #include "CachedCSSStyleSheet.h"
+#include "Chrome.h"
+#include "ChromeClient.h"
 #include "Comment.h"
 #include "Console.h"
 #include "CookieJar.h"
@@ -67,6 +69,7 @@
 #include "HTMLElementFactory.h"
 #include "HTMLFrameOwnerElement.h"
 #include "HTMLHeadElement.h"
+#include "HTMLIFrameElement.h"
 #include "HTMLInputElement.h"
 #include "HTMLLinkElement.h"
 #include "HTMLMapElement.h"
@@ -113,6 +116,7 @@
 #include "SegmentedString.h"
 #include "SelectionController.h"
 #include "Settings.h"
+#include "StringBuffer.h"
 #include "StyleSheetList.h"
 #include "TextEvent.h"
 #include "TextIterator.h"
@@ -126,6 +130,7 @@
 #include "WebKitTransitionEvent.h"
 #include "WheelEvent.h"
 #include "XMLHttpRequest.h"
+#include "XMLNSNames.h"
 #include "XMLNames.h"
 #include "XMLTokenizer.h"
 #include "htmlediting.h"
@@ -134,11 +139,6 @@
 #include <wtf/MainThread.h>
 #include <wtf/PassRefPtr.h>
 #include <wtf/StdLibExtras.h>
-
-#if ENABLE(DATABASE)
-#include "Database.h"
-#include "DatabaseThread.h"
-#endif
 
 #if ENABLE(SHARED_WORKERS)
 #include "SharedWorkerRepository.h"
@@ -171,6 +171,7 @@
 #include "SVGStyleElement.h"
 #endif
 
+<<<<<<< HEAD
 #if PLATFORM(ANDROID)
 // FIXME: We shouldn't be including this from WebCore!
 #include "WebViewCore.h"
@@ -191,6 +192,9 @@
 
 #if ENABLE(TOUCH_EVENTS)
 #include "ChromeClient.h"
+=======
+#if ENABLE(TOUCH_EVENTS)
+>>>>>>> webkit.org at r54127
 #include "TouchEvent.h"
 #endif
 
@@ -338,15 +342,49 @@ static bool disableRangeMutation(Page* page)
 
 static HashSet<Document*>* documentsThatNeedStyleRecalc = 0;
 
-Document::Document(Frame* frame, bool isXHTML)
+class DocumentWeakReference : public ThreadSafeShared<DocumentWeakReference> {
+public:
+    static PassRefPtr<DocumentWeakReference> create(Document* document)
+    {
+        return adoptRef(new DocumentWeakReference(document));
+    }
+
+    Document* document()
+    {
+        ASSERT(isMainThread());
+        return m_document;
+    }
+
+    void clear()
+    {
+        ASSERT(isMainThread());
+        m_document = 0;
+    }
+
+private:
+    DocumentWeakReference(Document* document)
+        : m_document(document)
+    {
+        ASSERT(isMainThread());
+    }
+
+    Document* m_document;
+};
+
+Document::Document(Frame* frame, bool isXHTML, bool isHTML)
     : ContainerNode(0)
     , m_domtree_version(0)
     , m_styleSheets(StyleSheetList::create(this))
     , m_styleRecalcTimer(this, &Document::styleRecalcTimerFired)
     , m_frameElementsShouldIgnoreScrolling(false)
+    , m_containsValidityStyleRules(false)
     , m_title("")
+    , m_rawTitle("")
     , m_titleSetExplicitly(false)
     , m_updateFocusAppearanceTimer(this, &Document::updateFocusAppearanceTimerFired)
+    , m_startTime(currentTime())
+    , m_overMinimumLayoutThreshold(false)
+    , m_extraLayoutDelay(0)
     , m_executeScriptSoonTimer(this, &Document::executeScriptSoonTimerFired)
     , m_xmlVersion("1.0")
     , m_xmlStandalone(false)
@@ -369,14 +407,17 @@ Document::Document(Frame* frame, bool isXHTML)
     , m_inPageCache(false)
     , m_useSecureKeyboardEntryWhenActive(false)
     , m_isXHTML(isXHTML)
+    , m_isHTML(isHTML)
     , m_numNodeListCaches(0)
-#if ENABLE(DATABASE)
-    , m_hasOpenDatabases(false)
+#if USE(JSC)
+    , m_normalWorldWrapperCache(0)
 #endif
     , m_usingGeolocation(false)
+    , m_storageEventTimer(this, &Document::storageEventTimerFired)
 #if ENABLE(WML)
     , m_containsWMLContent(false)
 #endif
+    , m_weakReference(DocumentWeakReference::create(this))
 {
     m_document = this;
 
@@ -394,7 +435,7 @@ Document::Document(Frame* frame, bool isXHTML)
     
     m_docLoader = new DocLoader(this);
 
-    visuallyOrdered = false;
+    m_visuallyOrdered = false;
     m_bParsing = false;
     m_wellFormed = false;
 
@@ -415,7 +456,6 @@ Document::Document(Frame* frame, bool isXHTML)
 
     m_gotoAnchorNeededAfterStylesheetsLoad = false;
  
-    m_styleSelector = 0;
     m_didCalculateStyleSelector = false;
     m_pendingStylesheets = 0;
     m_ignorePendingStylesheets = false;
@@ -429,9 +469,12 @@ Document::Document(Frame* frame, bool isXHTML)
     resetActiveLinkColor();
 
     m_processingLoadEvent = false;
+<<<<<<< HEAD
     m_startTime = currentTime();
     m_overMinimumLayoutThreshold = false;
     m_extraLayoutDelay = 0;
+=======
+>>>>>>> webkit.org at r54127
     
     initSecurityContext();
     initDNSPrefetch();
@@ -461,6 +504,9 @@ void Document::removedLastRef()
         m_activeNode = 0;
         m_titleElement = 0;
         m_documentElement = 0;
+
+        // removeAllChildren() doesn't always unregister IDs, do it upfront to avoid having stale references in the map.
+        m_elementsById.clear();
 
         removeAllChildren();
 
@@ -503,7 +549,6 @@ Document::~Document()
 
     m_tokenizer.clear();
     m_document = 0;
-    delete m_styleSelector;
     m_docLoader.clear();
 
     m_renderArena.clear();
@@ -522,26 +567,25 @@ Document::~Document()
     for (unsigned i = 0; i < count; i++)
         deleteAllValues(m_nameCollectionInfo[i]);
 
-#if ENABLE(DATABASE)
-    if (m_databaseThread) {
-        ASSERT(m_databaseThread->terminationRequested());
-        m_databaseThread = 0;
-    }
-#endif
-
     if (m_styleSheets)
         m_styleSheets->documentDestroyed();
+
+    m_weakReference->clear();
 }
 
+#if USE(JSC)
 Document::JSWrapperCache* Document::createWrapperCache(DOMWrapperWorld* world)
 {
     JSWrapperCache* wrapperCache = new JSWrapperCache();
     m_wrapperCacheMap.set(world, wrapperCache);
-#if USE(JSC)
+    if (world->isNormal()) {
+        ASSERT(!m_normalWorldWrapperCache);
+        m_normalWorldWrapperCache = wrapperCache;
+    }
     world->rememberDocument(this);
-#endif
     return wrapperCache;
 }
+#endif
 
 void Document::resetLinkColor()
 {
@@ -796,6 +840,9 @@ PassRefPtr<Node> Document::adoptNode(PassRefPtr<Node> source, ExceptionCode& ec)
             break;
         }       
         default:
+            if (source->hasTagName(iframeTag))
+                static_cast<HTMLIFrameElement*>(source.get())->setRemainsAliveOnRemovalFromTree(attached());
+
             if (source->parentNode())
                 source->parentNode()->removeChild(source.get(), ec);
     }
@@ -808,21 +855,17 @@ PassRefPtr<Node> Document::adoptNode(PassRefPtr<Node> source, ExceptionCode& ec)
 
 bool Document::hasPrefixNamespaceMismatch(const QualifiedName& qName)
 {
-    DEFINE_STATIC_LOCAL(const AtomicString, xmlnsNamespaceURI, ("http://www.w3.org/2000/xmlns/"));
-    DEFINE_STATIC_LOCAL(const AtomicString, xmlns, ("xmlns"));
-    DEFINE_STATIC_LOCAL(const AtomicString, xml, ("xml"));
-
     // These checks are from DOM Core Level 2, createElementNS
     // http://www.w3.org/TR/DOM-Level-2-Core/core.html#ID-DocCrElNS
     if (!qName.prefix().isEmpty() && qName.namespaceURI().isNull()) // createElementNS(null, "html:div")
         return true;
-    if (qName.prefix() == xml && qName.namespaceURI() != XMLNames::xmlNamespaceURI) // createElementNS("http://www.example.com", "xml:lang")
+    if (qName.prefix() == xmlAtom && qName.namespaceURI() != XMLNames::xmlNamespaceURI) // createElementNS("http://www.example.com", "xml:lang")
         return true;
 
     // Required by DOM Level 3 Core and unspecified by DOM Level 2 Core:
     // http://www.w3.org/TR/2004/REC-DOM-Level-3-Core-20040407/core.html#ID-DocCrElNS
     // createElementNS("http://www.w3.org/2000/xmlns/", "foo:bar"), createElementNS(null, "xmlns:bar")
-    if ((qName.prefix() == xmlns && qName.namespaceURI() != xmlnsNamespaceURI) || (qName.prefix() != xmlns && qName.namespaceURI() == xmlnsNamespaceURI))
+    if ((qName.prefix() == xmlnsAtom && qName.namespaceURI() != XMLNSNames::xmlnsNamespaceURI) || (qName.prefix() != xmlnsAtom && qName.namespaceURI() == XMLNSNames::xmlnsNamespaceURI))
         return true;
 
     return false;
@@ -883,6 +926,8 @@ Element* Document::getElementById(const AtomicString& elementId) const
     if (elementId.isEmpty())
         return 0;
 
+    m_elementsById.checkConsistency();
+
     Element* element = m_elementsById.get(elementId.impl());
     if (element)
         return element;
@@ -892,7 +937,7 @@ Element* Document::getElementById(const AtomicString& elementId) const
         for (Node *n = traverseNextNode(); n != 0; n = n->traverseNextNode()) {
             if (n->isElementNode()) {
                 element = static_cast<Element*>(n);
-                if (element->hasID() && element->getAttribute(idAttr) == elementId) {
+                if (element->hasID() && element->getAttribute(element->idAttributeName()) == elementId) {
                     m_duplicateIds.remove(elementId.impl());
                     m_elementsById.set(elementId.impl(), element);
                     return element;
@@ -1074,6 +1119,8 @@ void Document::addElementById(const AtomicString& elementId, Element* element)
 
 void Document::removeElementById(const AtomicString& elementId, Element* element)
 {
+    m_elementsById.checkConsistency();
+
     if (m_elementsById.get(elementId.impl()) == element)
         m_elementsById.remove(elementId.impl());
     else
@@ -1098,8 +1145,67 @@ Element* Document::getElementByAccessKey(const String& key) const
     return m_elementsByAccessKey.get(key.impl());
 }
 
+/*
+ * Performs three operations:
+ *  1. Convert control characters to spaces
+ *  2. Trim leading and trailing spaces
+ *  3. Collapse internal whitespace.
+ */
+static inline String canonicalizedTitle(Document* document, const String& title)
+{
+    const UChar* characters = title.characters();
+    unsigned length = title.length();
+    unsigned i;
+
+    StringBuffer buffer(length);
+    unsigned builderIndex = 0;
+
+    // Skip leading spaces and leading characters that would convert to spaces
+    for (i = 0; i < length; ++i) {
+        UChar c = characters[i];
+        if (!(c <= 0x20 || c == 0x7F))
+            break;
+    }
+
+    if (i == length)
+        return "";
+
+    // Replace control characters with spaces, and backslashes with currency symbols, and collapse whitespace.
+    bool previousCharWasWS = false;
+    for (; i < length; ++i) {
+        UChar c = characters[i];
+        if (c <= 0x20 || c == 0x7F || (WTF::Unicode::category(c) & (WTF::Unicode::Separator_Line | WTF::Unicode::Separator_Paragraph))) {
+            if (previousCharWasWS)
+                continue;
+            buffer[builderIndex++] = ' ';
+            previousCharWasWS = true;
+        } else {
+            buffer[builderIndex++] = c;
+            previousCharWasWS = false;
+        }
+    }
+
+    // Strip trailing spaces
+    while (builderIndex > 0) {
+        --builderIndex;
+        if (buffer[builderIndex] != ' ')
+            break;
+    }
+
+    if (!builderIndex && buffer[builderIndex] == ' ')
+        return "";
+
+    buffer.shrink(builderIndex + 1);
+
+    // Replace the backslashes with currency symbols if the encoding requires it.
+    document->displayBufferModifiedByEncoding(buffer.characters(), buffer.length());
+    
+    return String::adopt(buffer);
+}
+
 void Document::updateTitle()
 {
+    m_title = canonicalizedTitle(this, m_rawTitle);
     if (Frame* f = frame())
         f->loader()->setTitle(m_title);
 }
@@ -1126,10 +1232,10 @@ void Document::setTitle(const String& title, Element* titleElement)
         m_titleElement = titleElement;
     }
 
-    if (m_title == title)
+    if (m_rawTitle == title)
         return;
 
-    m_title = title;
+    m_rawTitle = title;
     updateTitle();
 
     if (m_titleSetExplicitly && m_titleElement && m_titleElement->hasTagName(titleTag))
@@ -1154,8 +1260,8 @@ void Document::removeTitle(Element* titleElement)
             }
     }
 
-    if (!m_titleElement && !m_title.isEmpty()) {
-        m_title = "";
+    if (!m_titleElement && !m_rawTitle.isEmpty()) {
+        m_rawTitle = "";
         updateTitle();
     }
 }
@@ -1284,32 +1390,7 @@ void Document::recalcStyle(StyleChange change)
         // style selector may set this again during recalc
         m_hasNodesWithPlaceholderStyle = false;
         
-        RefPtr<RenderStyle> documentStyle = RenderStyle::create();
-        documentStyle->setDisplay(BLOCK);
-        documentStyle->setVisuallyOrdered(visuallyOrdered);
-        documentStyle->setZoom(frame()->pageZoomFactor());
-        m_styleSelector->setStyle(documentStyle);
-    
-        FontDescription fontDescription;
-        fontDescription.setUsePrinterFont(printing());
-        if (Settings* settings = this->settings()) {
-            fontDescription.setRenderingMode(settings->fontRenderingMode());
-            if (printing() && !settings->shouldPrintBackgrounds())
-                documentStyle->setForceBackgroundsToWhite(true);
-            const AtomicString& stdfont = settings->standardFontFamily();
-            if (!stdfont.isEmpty()) {
-                fontDescription.firstFamily().setFamily(stdfont);
-                fontDescription.firstFamily().appendFamily(0);
-            }
-            fontDescription.setKeywordSize(CSSValueMedium - CSSValueXxSmall + 1);
-            m_styleSelector->setFontSize(fontDescription, m_styleSelector->fontSizeForKeyword(CSSValueMedium, inCompatMode(), false));
-        }
-
-        documentStyle->setFontDescription(fontDescription);
-        documentStyle->font().update(m_styleSelector->fontSelector());
-        if (inCompatMode())
-            documentStyle->setHtmlHacks(true); // enable html specific rendering tricks
-
+        RefPtr<RenderStyle> documentStyle = CSSStyleSelector::styleForDocument(this);
         StyleChange ch = diff(documentStyle.get(), renderer()->style());
         if (renderer() && ch != NoChange)
             renderer()->setStyle(documentStyle.release());
@@ -1421,13 +1502,22 @@ void Document::updateLayoutIgnorePendingStylesheets()
         } else if (m_hasNodesWithPlaceholderStyle)
             // If new nodes have been added or style recalc has been done with style sheets still pending, some nodes 
             // may not have had their real style calculated yet. Normally this gets cleaned when style sheets arrive 
-            // but here we need up-to-date style immediatly.
+            // but here we need up-to-date style immediately.
             recalcStyle(Force);
     }
 
     updateLayout();
 
     m_ignorePendingStylesheets = oldIgnore;
+}
+
+void Document::createStyleSelector()
+{
+    bool matchAuthorAndUserStyles = true;
+    if (Settings* docSettings = settings())
+        matchAuthorAndUserStyles = docSettings->authorAndUserStylesEnabled();
+    m_styleSelector.set(new CSSStyleSelector(this, m_styleSheets.get(), m_mappedElementSheet.get(), pageUserSheet(), pageGroupUserSheets(), 
+                                             !inCompatMode(), matchAuthorAndUserStyles));
 }
 
 void Document::attach()
@@ -1446,14 +1536,6 @@ void Document::attach()
 #if USE(ACCELERATED_COMPOSITING)
     renderView()->didMoveOnscreen();
 #endif
-
-    if (!m_styleSelector) {
-        bool matchAuthorAndUserStyles = true;
-        if (Settings* docSettings = settings())
-            matchAuthorAndUserStyles = docSettings->authorAndUserStylesEnabled();
-        m_styleSelector = new CSSStyleSelector(this, m_styleSheets.get(), m_mappedElementSheet.get(), pageUserSheet(), pageGroupUserSheets(), 
-                                               !inCompatMode(), matchAuthorAndUserStyles);
-    }
 
     recalcStyle(Force);
 
@@ -1514,14 +1596,8 @@ void Document::detach()
     if (render)
         render->destroy();
     
-    HashSet<RefPtr<HistoryItem> > associatedHistoryItems;
-    associatedHistoryItems.swap(m_associatedHistoryItems);
-    HashSet<RefPtr<HistoryItem> >::iterator end = associatedHistoryItems.end();
-    for (HashSet<RefPtr<HistoryItem> >::iterator i = associatedHistoryItems.begin(); i != end; ++i)
-        (*i)->documentDetached(this);
-    
     // This is required, as our Frame might delete itself as soon as it detaches
-    // us. However, this violates Node::detach() symantics, as it's never
+    // us. However, this violates Node::detach() semantics, as it's never
     // possible to re-attach. Eventually Document::detach() should be renamed,
     // or this setting of the frame to 0 could be made explicit in each of the
     // callers of Document::detach().
@@ -1606,7 +1682,7 @@ AXObjectCache* Document::axObjectCache() const
 
 void Document::setVisuallyOrdered()
 {
-    visuallyOrdered = true;
+    m_visuallyOrdered = true;
     if (renderer())
         renderer()->style()->setVisuallyOrdered(true);
 }
@@ -1789,7 +1865,8 @@ void Document::implicitClose()
     if (f)
         f->animation()->resumeAnimations(this);
 
-    ImageLoader::dispatchPendingEvents();
+    ImageLoader::dispatchPendingBeforeLoadEvents();
+    ImageLoader::dispatchPendingLoadEvents();
     dispatchWindowLoadEvent();
     dispatchWindowEvent(PageTransitionEvent::create(eventNames().pageshowEvent, false), this);
     if (m_pendingStateObject)
@@ -1983,9 +2060,9 @@ void Document::updateBaseURL()
         m_baseURL = KURL();
 
     if (m_elemSheet)
-        m_elemSheet->setHref(m_baseURL.string());
+        m_elemSheet->setBaseURL(m_baseURL);
     if (m_mappedElementSheet)
-        m_mappedElementSheet->setHref(m_baseURL.string());
+        m_mappedElementSheet->setBaseURL(m_baseURL);
 }
 
 String Document::userAgent(const KURL& url) const
@@ -2007,7 +2084,7 @@ CSSStyleSheet* Document::pageUserSheet()
         return 0;
     
     // Parse the sheet and cache it.
-    m_pageUserSheet = CSSStyleSheet::create(this, settings()->userStyleSheetLocation());
+    m_pageUserSheet = CSSStyleSheet::createInline(this, settings()->userStyleSheetLocation());
     m_pageUserSheet->setIsUserStyleSheet(true);
     m_pageUserSheet->parseString(userSheetText, !inCompatMode());
     return m_pageUserSheet.get();
@@ -2042,7 +2119,7 @@ const Vector<RefPtr<CSSStyleSheet> >* Document::pageGroupUserSheets() const
             const UserStyleSheet* sheet = sheets->at(i).get();
             if (!UserContentURLPattern::matchesPatterns(url(), sheet->whitelist(), sheet->blacklist()))
                 continue;
-            RefPtr<CSSStyleSheet> parsedSheet = CSSStyleSheet::create(const_cast<Document*>(this), sheet->url());
+            RefPtr<CSSStyleSheet> parsedSheet = CSSStyleSheet::createInline(const_cast<Document*>(this), sheet->url());
             parsedSheet->setIsUserStyleSheet(true);
             parsedSheet->parseString(sheet->source(), !inCompatMode());
             if (!m_pageGroupUserSheets)
@@ -2064,14 +2141,14 @@ void Document::clearPageGroupUserSheets()
 CSSStyleSheet* Document::elementSheet()
 {
     if (!m_elemSheet)
-        m_elemSheet = CSSStyleSheet::create(this, m_baseURL.string());
+        m_elemSheet = CSSStyleSheet::createInline(this, m_baseURL);
     return m_elemSheet.get();
 }
 
 CSSStyleSheet* Document::mappedElementSheet()
 {
     if (!m_mappedElementSheet)
-        m_mappedElementSheet = CSSStyleSheet::create(this, m_baseURL.string());
+        m_mappedElementSheet = CSSStyleSheet::createInline(this, m_baseURL);
     return m_mappedElementSheet.get();
 }
 
@@ -2681,10 +2758,7 @@ void Document::recalcStyleSelector()
 
     m_styleSheets->swap(sheets);
 
-    // Create a new style selector
-    delete m_styleSelector;
-    m_styleSelector = new CSSStyleSelector(this, m_styleSheets.get(), m_mappedElementSheet.get(), 
-                                           pageUserSheet(), pageGroupUserSheets(), !inCompatMode(), matchAuthorAndUserStyles);
+    m_styleSelector.clear();
     m_didCalculateStyleSelector = true;
 }
 
@@ -3026,6 +3100,25 @@ void Document::dispatchWindowLoadEvent()
     domWindow->dispatchLoadEvent();
 }
 
+void Document::enqueueStorageEvent(PassRefPtr<Event> storageEvent)
+{
+    m_storageEventQueue.append(storageEvent);
+    if (!m_storageEventTimer.isActive())
+        m_storageEventTimer.startOneShot(0);
+}
+
+void Document::storageEventTimerFired(Timer<Document>*)
+{
+    ASSERT(!m_storageEventTimer.isActive());
+    Vector<RefPtr<Event> > storageEventQueue;
+    storageEventQueue.swap(m_storageEventQueue);
+
+    typedef Vector<RefPtr<Event> >::const_iterator Iterator;
+    Iterator end = storageEventQueue.end();
+    for (Iterator it = storageEventQueue.begin(); it != end; ++it)
+        dispatchWindowEvent(*it);
+}
+
 PassRefPtr<Event> Document::createEvent(const String& eventType, ExceptionCode& ec)
 {
     RefPtr<Event> event;
@@ -3138,7 +3231,7 @@ String Document::cookie(ExceptionCode& ec) const
     // INVALID_STATE_ERR exception on getting if the Document has no
     // browsing context.
 
-    if (securityOrigin()->isSandboxed(SandboxOrigin)) {
+    if (!securityOrigin()->canAccessCookies()) {
         ec = SECURITY_ERR;
         return String();
     }
@@ -3159,7 +3252,7 @@ void Document::setCookie(const String& value, ExceptionCode& ec)
     // INVALID_STATE_ERR exception on setting if the Document has no
     // browsing context.
 
-    if (securityOrigin()->isSandboxed(SandboxOrigin)) {
+    if (!securityOrigin()->canAccessCookies()) {
         ec = SECURITY_ERR;
         return;
     }
@@ -3185,6 +3278,11 @@ String Document::domain() const
 
 void Document::setDomain(const String& newDomain, ExceptionCode& ec)
 {
+    if (SecurityOrigin::isDomainRelaxationForbiddenForURLScheme(securityOrigin()->protocol())) {
+        ec = SECURITY_ERR;
+        return;
+    }
+
     // Both NS and IE specify that changing the domain is only allowed when
     // the new domain is a suffix of the old domain.
 
@@ -3365,6 +3463,8 @@ void Document::removeImageMap(HTMLMapElement* imageMap)
     if (!name.impl())
         return;
 
+    m_imageMapsByName.checkConsistency();
+
     ImageMapsByName::iterator it = m_imageMapsByName.find(name.impl());
     if (it != m_imageMapsByName.end() && it->second == imageMap)
         m_imageMapsByName.remove(it);
@@ -3377,6 +3477,7 @@ HTMLMapElement *Document::getImageMap(const String& url) const
     int hashPos = url.find('#');
     String name = (hashPos < 0 ? url : url.substring(hashPos + 1)).impl();
     AtomicString mapName = isHTMLDocument() ? name.lower() : name;
+    m_imageMapsByName.checkConsistency();
     return m_imageMapsByName.get(mapName.impl());
 }
 
@@ -4087,7 +4188,7 @@ PassRefPtr<Attr> Document::createAttributeNS(const String& namespaceURI, const S
     }
 
     // Spec: DOM Level 2 Core: http://www.w3.org/TR/DOM-Level-2-Core/core.html#ID-DocCrAttrNS
-    if (!shouldIgnoreNamespaceChecks && qName.localName() == "xmlns" && qName.namespaceURI() != "http://www.w3.org/2000/xmlns/") {
+    if (!shouldIgnoreNamespaceChecks && qName.localName() == xmlnsAtom && qName.namespaceURI() != XMLNSNames::xmlnsNamespaceURI) {
         ec = NAMESPACE_ERR;
         return 0;
     }
@@ -4182,6 +4283,7 @@ CollectionCache* Document::nameCollectionInfo(CollectionType type, const AtomicS
     NamedCollectionMap::iterator iter = map.find(name.impl());
     if (iter == map.end())
         iter = map.add(name.impl(), new CollectionCache).first;
+    iter->second->checkConsistency();
     return iter->second;
 }
 
@@ -4410,10 +4512,8 @@ void Document::initSecurityContext()
     // loading URL.
     const KURL& url = m_frame->loader()->url();
     m_cookieURL = url;
-    ScriptExecutionContext::setSecurityOrigin(SecurityOrigin::create(url));
+    ScriptExecutionContext::setSecurityOrigin(SecurityOrigin::create(url, m_frame->loader()->sandboxFlags()));
 
-    updateSandboxFlags();
- 
     if (SecurityOrigin::allowSubstituteDataAccessToLocal()) {
         // If this document was loaded with substituteData, then the document can
         // load local resources.  See https://bugs.webkit.org/show_bug.cgi?id=16756
@@ -4464,6 +4564,29 @@ void Document::setSecurityOrigin(SecurityOrigin* securityOrigin)
     initDNSPrefetch();
 }
 
+#if ENABLE(DATABASE)
+
+bool Document::isDatabaseReadOnly() const
+{
+    if (!page() || page()->settings()->privateBrowsingEnabled())
+        return true;
+    return false;
+}
+
+void Document::databaseExceededQuota(const String& name)
+{
+    Page* currentPage = page();
+    if (currentPage)
+        currentPage->chrome()->client()->exceededDatabaseQuota(document()->frame(), name);
+}
+
+#endif
+
+bool Document::isContextThread() const
+{
+    return isMainThread();
+}
+
 void Document::updateURLForPushOrReplaceState(const KURL& url)
 {
     Frame* f = frame();
@@ -4484,18 +4607,6 @@ void Document::statePopped(SerializedScriptValue* stateObject)
         dispatchWindowEvent(PopStateEvent::create(stateObject));
     else
         m_pendingStateObject = stateObject;
-}
-
-void Document::registerHistoryItem(HistoryItem* item)
-{
-    ASSERT(!m_associatedHistoryItems.contains(item));
-    m_associatedHistoryItems.add(item);
-}
-
-void Document::unregisterHistoryItem(HistoryItem* item)
-{
-    ASSERT(m_associatedHistoryItems.contains(item) || m_associatedHistoryItems.isEmpty());
-    m_associatedHistoryItems.remove(item);
 }
 
 void Document::updateSandboxFlags()
@@ -4558,62 +4669,11 @@ void Document::executeScriptSoon(ScriptElementData* data, CachedResourceHandle<C
         m_executeScriptSoonTimer.startOneShot(0);
 }
 
-// FF method for accessing the selection added for compatability.
+// FF method for accessing the selection added for compatibility.
 DOMSelection* Document::getSelection() const
 {
     return frame() ? frame()->domWindow()->getSelection() : 0;
 }
-
-#if ENABLE(DATABASE)
-
-void Document::addOpenDatabase(Database* database)
-{
-    if (!m_openDatabaseSet)
-        m_openDatabaseSet.set(new DatabaseSet);
-
-    ASSERT(!m_openDatabaseSet->contains(database));
-    m_openDatabaseSet->add(database);
-}
-
-void Document::removeOpenDatabase(Database* database)
-{
-    ASSERT(m_openDatabaseSet && m_openDatabaseSet->contains(database));
-    if (!m_openDatabaseSet)
-        return;
-        
-    m_openDatabaseSet->remove(database);
-}
-
-DatabaseThread* Document::databaseThread()
-{
-    if (!m_databaseThread && !m_hasOpenDatabases) {
-        // Create the database thread on first request - but not if at least one database was already opened,
-        // because in that case we already had a database thread and terminated it and should not create another.
-        m_databaseThread = DatabaseThread::create();
-        if (!m_databaseThread->start())
-            m_databaseThread = 0;
-    }
-
-    return m_databaseThread.get();
-}
-
-void Document::stopDatabases()
-{
-    if (m_openDatabaseSet) {
-        DatabaseSet::iterator i = m_openDatabaseSet->begin();
-        DatabaseSet::iterator end = m_openDatabaseSet->end();
-        for (; i != end; ++i) {
-            (*i)->stop();
-            if (m_databaseThread)
-                m_databaseThread->unscheduleDatabaseTasks(*i);
-        }
-    }
-    
-    if (m_databaseThread)
-        m_databaseThread->requestTermination();
-}
-
-#endif
 
 #if ENABLE(WML)
 void Document::resetWMLPageState()
@@ -4753,21 +4813,27 @@ private:
 };
 
 struct PerformTaskContext : Noncopyable {
-    PerformTaskContext(ScriptExecutionContext* scriptExecutionContext, PassOwnPtr<ScriptExecutionContext::Task> task)
-        : scriptExecutionContext(scriptExecutionContext)
+    PerformTaskContext(PassRefPtr<DocumentWeakReference> documentReference, PassOwnPtr<ScriptExecutionContext::Task> task)
+        : documentReference(documentReference)
         , task(task)
     {
     }
 
-    ScriptExecutionContext* scriptExecutionContext; // The context should exist until task execution.
+    RefPtr<DocumentWeakReference> documentReference;
     OwnPtr<ScriptExecutionContext::Task> task;
 };
 
 static void performTask(void* ctx)
 {
-    PerformTaskContext* ptctx = reinterpret_cast<PerformTaskContext*>(ctx);
-    ptctx->task->performTask(ptctx->scriptExecutionContext);
-    delete ptctx;
+    ASSERT(isMainThread());
+
+    PerformTaskContext* context = reinterpret_cast<PerformTaskContext*>(ctx);
+    ASSERT(context);
+
+    if (Document* document = context->documentReference->document())
+        context->task->performTask(document);
+
+    delete context;
 }
 
 void Document::postTask(PassOwnPtr<Task> task)
@@ -4776,7 +4842,7 @@ void Document::postTask(PassOwnPtr<Task> task)
         ScriptExecutionContextTaskTimer* timer = new ScriptExecutionContextTaskTimer(static_cast<Document*>(this), task);
         timer->startOneShot(0);
     } else {
-        callOnMainThread(performTask, new PerformTaskContext(this, task));
+        callOnMainThread(performTask, new PerformTaskContext(m_weakReference, task));
     }
 }
 

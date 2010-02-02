@@ -29,11 +29,12 @@
  */
 
 #include "config.h"
-#include "DOMApplicationCache.h"
+#include "V8DOMApplicationCache.h"
 
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
 
 #include "ApplicationCacheHost.h"
+#include "DOMApplicationCache.h"
 #include "V8Binding.h"
 #include "V8CustomBinding.h"
 #include "V8Document.h"
@@ -44,14 +45,14 @@
 namespace WebCore {
 
 // Handles appcache.addEventListner(name, func, capture) method calls
-CALLBACK_FUNC_DECL(DOMApplicationCacheAddEventListener)
+v8::Handle<v8::Value> V8DOMApplicationCache::addEventListenerCallback(const v8::Arguments& args)
 {
     INC_STATS("DOMApplicationCache.addEventListener()");
-    DOMApplicationCache* appcache = V8DOMWrapper::convertToNativeObject<DOMApplicationCache>(V8ClassIndex::DOMAPPLICATIONCACHE, args.Holder());
+    DOMApplicationCache* appcache = V8DOMApplicationCache::toNative(args.Holder());
 
     RefPtr<EventListener> listener = V8DOMWrapper::getEventListener(appcache, args[1], false, ListenerFindOrCreate);
     if (listener) {
-        createHiddenDependency(args.Holder(), args[1], V8Custom::kDOMApplicationCacheCacheIndex);
+        createHiddenDependency(args.Holder(), args[1], cacheIndex);
         String eventType = toWebCoreString(args[0]);
         bool useCapture = args[2]->BooleanValue();
         appcache->addEventListener(eventType, listener, useCapture);
@@ -60,14 +61,14 @@ CALLBACK_FUNC_DECL(DOMApplicationCacheAddEventListener)
 }
 
 // Handles appcache.removeEventListner(name, func, capture) method calls
-CALLBACK_FUNC_DECL(DOMApplicationCacheRemoveEventListener)
+v8::Handle<v8::Value> V8DOMApplicationCache::removeEventListenerCallback(const v8::Arguments& args)
 {
     INC_STATS("DOMApplicationCache.removeEventListener()");
-    DOMApplicationCache* appcache = V8DOMWrapper::convertToNativeObject<DOMApplicationCache>(V8ClassIndex::DOMAPPLICATIONCACHE, args.Holder());
+    DOMApplicationCache* appcache = V8DOMApplicationCache::toNative(args.Holder());
 
     RefPtr<EventListener> listener = V8DOMWrapper::getEventListener(appcache, args[1], false, ListenerFindOnly);
     if (listener) {
-        removeHiddenDependency(args.Holder(), args[1], V8Custom::kDOMApplicationCacheCacheIndex);
+        removeHiddenDependency(args.Holder(), args[1], cacheIndex);
         String eventType = toWebCoreString(args[0]);
         bool useCapture = args[2]->BooleanValue();
         appcache->removeEventListener(eventType, listener.get(), useCapture);

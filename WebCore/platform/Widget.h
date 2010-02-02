@@ -168,6 +168,8 @@ public:
 
     virtual bool isFrameView() const { return false; }
     virtual bool isPluginView() const { return false; }
+    // FIXME: The Mac plug-in code should inherit from PluginView. When this happens PluginWidget and PluginView can become one class. 
+    virtual bool isPluginWidget() const { return false; }
     virtual bool isScrollbar() const { return false; }
 
     void removeFromParent();
@@ -189,7 +191,7 @@ public:
 
     virtual void frameRectsChanged() {}
 
-#if PLATFORM(MAC) && !ENABLE(EXPERIMENTAL_SINGLE_VIEW_MODE)
+#if PLATFORM(MAC)
     NSView* getOuterView() const;
     
     static void beforeMouseDown(NSView*, Widget*);
@@ -226,7 +228,7 @@ private:
     
     IntRect m_frame; // Not used when a native widget exists.
 
-#if PLATFORM(MAC) && !ENABLE(EXPERIMENTAL_SINGLE_VIEW_MODE)
+#if PLATFORM(MAC)
     WidgetPrivate* m_data;
 #endif
 #if PLATFORM(ANDROID)

@@ -88,7 +88,7 @@
 #include <errno.h>
 #endif
 
-#if PLATFORM(WINCE)
+#if OS(WINCE)
 extern "C" size_t strftime(char * const s, const size_t maxsize, const char * const format, const struct tm * const t);
 extern "C" struct tm * localtime(const time_t *timer);
 #endif
@@ -120,6 +120,10 @@ static const double secondsPerYear = 24.0 * 60.0 * 60.0 * 365.0;
 static const double usecPerSec = 1000000.0;
 
 static const double maxUnixTime = 2145859200.0; // 12/31/2037
+// ECMAScript asks not to support for a date of which total
+// millisecond value is larger than the following value.
+// See 15.9.1.14 of ECMA-262 5th edition.
+static const double maxECMAScriptTime = 8.64E15;
 
 // Day of year for the first day of each month, where index 0 is January, and day 0 is January 1.
 // First for non-leap years, then for leap years.
@@ -168,7 +172,7 @@ static inline double msToDays(double ms)
     return floor(ms / msPerDay);
 }
 
-static inline int msToYear(double ms)
+int msToYear(double ms)
 {
     int approxYear = static_cast<int>(floor(ms / (msPerDay * 365.2425)) + 1970);
     double msFromApproxYearTo1970 = msPerDay * daysFrom1970ToYear(approxYear);
@@ -179,7 +183,7 @@ static inline int msToYear(double ms)
     return approxYear;
 }
 
-static inline int dayInYear(double ms, int year)
+int dayInYear(double ms, int year)
 {
     return static_cast<int>(msToDays(ms) - daysFrom1970ToYear(year));
 }
@@ -225,7 +229,7 @@ static inline int msToHours(double ms)
     return static_cast<int>(result);
 }
 
-static inline int monthFromDayInYear(int dayInYear, bool leapYear)
+int monthFromDayInYear(int dayInYear, bool leapYear)
 {
     const int d = dayInYear;
     int step;
@@ -263,7 +267,7 @@ static inline bool checkMonth(int dayInYear, int& startDayOfThisMonth, int& star
     return (dayInYear <= startDayOfNextMonth);
 }
 
-static inline int dayInMonthFromDayInYear(int dayInYear, bool leapYear)
+int dayInMonthFromDayInYear(int dayInYear, bool leapYear)
 {
     const int d = dayInYear;
     int step;
@@ -306,7 +310,7 @@ static inline double timeToMS(double hour, double min, double sec, double ms)
     return (((hour * minutesPerHour + min) * secondsPerMinute + sec) * msPerSecond + ms);
 }
 
-static int dateToDayInYear(int year, int month, int day)
+double dateToDaysFrom1970(int year, int month, int day)
 {
     year += month / 12;
 
@@ -316,7 +320,8 @@ static int dateToDayInYear(int year, int month, int day)
         --year;
     }
 
-    int yearday = static_cast<int>(floor(daysFrom1970ToYear(year)));
+    double yearday = floor(daysFrom1970ToYear(year));
+    ASSERT((year >= 1970 && yearday >= 0) || (year < 1970 && yearday < 0));
     int monthday = monthToDayInYear(month, isLeapYear(year));
 
     return yearday + monthday + day - 1;
@@ -374,7 +379,11 @@ int equivalentYearForDST(int year)
 
 static int32_t calculateUTCOffset()
 {
+#if PLATFORM(BREWMP)
+    time_t localTime = static_cast<time_t>(currentTime());
+#else
     time_t localTime = time(0);
+#endif
     tm localt;
     getLocalTime(&localTime, &localt);
 
@@ -452,7 +461,7 @@ static double calculateDSTOffset(double ms, double utcOffset)
         int dayInYearLocal = dayInYear(ms, year);
         int dayInMonth = dayInMonthFromDayInYear(dayInYearLocal, leapYear);
         int month = monthFromDayInYear(dayInYearLocal, leapYear);
-        int day = dateToDayInYear(equivalentYear, month, dayInMonth);
+        double day = dateToDaysFrom1970(equivalentYear, month, dayInMonth);
         ms = (day * msPerDay) + msToMilliseconds(ms);
     }
 
@@ -483,7 +492,7 @@ static inline double ymdhmsToSeconds(long year, int mon, int day, int hour, int 
 // We follow the recommendation of RFC 2822 to consider all
 // obsolete time zones not listed here equivalent to "-0000".
 static const struct KnownZone {
-#if !PLATFORM(WIN_OS)
+#if !OS(WINDOWS)
     const
 #endif
         char tzName[4];
@@ -841,7 +850,7 @@ double timeClip(double t)
 {
     if (!isfinite(t))
         return NaN;
-    if (fabs(t) > 8.64E15)
+    if (fabs(t) > maxECMAScriptTime)
         return NaN;
     return trunc(t);
 }
@@ -927,7 +936,7 @@ double getUTCOffset(ExecState* exec)
 
 double gregorianDateTimeToMS(ExecState* exec, const GregorianDateTime& t, double milliSeconds, bool inputIsUTC)
 {
-    int day = dateToDayInYear(t.year + 1900, t.month, t.monthDay);
+    double day = dateToDaysFrom1970(t.year + 1900, t.month, t.monthDay);
     double ms = timeToMS(t.hour, t.minute, t.second, milliSeconds);
     double result = (day * WTF::msPerDay) + ms;
 

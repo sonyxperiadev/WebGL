@@ -80,6 +80,12 @@ public:
     // This frame is about to be closed.
     virtual void willClose(WebFrame*) { }
 
+    // Controls whether plugins are allowed for this frame.
+    virtual bool allowPlugins(WebFrame*, bool enabledPerSettings) { return enabledPerSettings; }
+
+    // Controls whether images are allowed for this frame.
+    virtual bool allowImages(WebFrame*, bool enabledPerSettings) { return enabledPerSettings; }
+
 
     // Load commands -------------------------------------------------------
 

@@ -34,6 +34,7 @@
 
 #include "CString.h"
 #include "CachedResource.h"
+#include "Chrome.h"
 #include "Console.h"
 #include "ConsoleMessage.h"
 #include "Cookie.h"
@@ -100,6 +101,7 @@
 #include <profiler/Profile.h>
 #include <profiler/Profiler.h>
 #include <runtime/JSLock.h>
+#include <runtime/StringBuilder.h>
 #include <runtime/UString.h>
 
 using namespace JSC;
@@ -115,10 +117,13 @@ static const char* const debuggerEnabledSettingName = "debuggerEnabled";
 static const char* const profilerEnabledSettingName = "profilerEnabled";
 static const char* const inspectorAttachedHeightName = "inspectorAttachedHeight";
 static const char* const lastActivePanelSettingName = "lastActivePanel";
+const char* const InspectorController::FrontendSettingsSettingName = "frontendSettings";
 
 static const unsigned defaultAttachedHeight = 300;
 static const float minimumAttachedHeight = 250.0f;
 static const float maximumAttachedHeightRatio = 0.75f;
+static const unsigned maximumConsoleMessages = 1000;
+static const unsigned expireConsoleMessagesStep = 100;
 
 static unsigned s_inspectorControllerCount;
 
@@ -126,6 +131,7 @@ InspectorController::InspectorController(Page* page, InspectorClient* client)
     : m_inspectedPage(page)
     , m_client(client)
     , m_page(0)
+    , m_expiredConsoleMessageCount(0)
     , m_scriptState(0)
     , m_windowVisible(false)
     , m_showAfterVisible(CurrentPanel)
@@ -137,7 +143,6 @@ InspectorController::InspectorController(Page* page, InspectorClient* client)
     , m_inspectorBackend(InspectorBackend::create(this))
     , m_inspectorFrontendHost(InspectorFrontendHost::create(this, client))
     , m_injectedScriptHost(InjectedScriptHost::create(this))
-    , m_lastBoundObjectId(1)
 #if ENABLE(JAVASCRIPT_DEBUGGER)
     , m_debuggerEnabled(false)
     , m_attachDebuggerWhenShown(false)
@@ -223,7 +228,7 @@ static bool canPassNodeToJavaScript(Node* node)
     if (!node)
         return false;
     Frame* frame = node->document()->frame();
-    return frame && frame->script()->isEnabled();
+    return frame && frame->script()->canExecuteScripts();
 }
 
 void InspectorController::inspect(Node* node)
@@ -353,18 +358,26 @@ void InspectorController::addConsoleMessage(ScriptState* scriptState, ConsoleMes
         if (windowVisible())
             m_previousMessage->addToConsole(m_frontend.get());
     }
+
+    if (!windowVisible() && m_consoleMessages.size() >= maximumConsoleMessages) {
+        m_expiredConsoleMessageCount += expireConsoleMessagesStep;
+        for (size_t i = 0; i < expireConsoleMessagesStep; ++i)
+            delete m_consoleMessages[i];
+        m_consoleMessages.remove(0, expireConsoleMessagesStep);
+    }
 }
 
-void InspectorController::clearConsoleMessages(bool clearUI)
+void InspectorController::clearConsoleMessages()
 {
     deleteAllValues(m_consoleMessages);
     m_consoleMessages.clear();
+    m_expiredConsoleMessageCount = 0;
     m_previousMessage = 0;
     m_groupLevel = 0;
-    releaseWrapperObjectGroup("console");
+    m_injectedScriptHost->releaseWrapperObjectGroup(0 /* release the group in all scripts */, "console");
     if (m_domAgent)
         m_domAgent->releaseDanglingNodes();
-    if (clearUI && m_frontend)
+    if (m_frontend)
         m_frontend->clearConsoleMessages();
 }
 
@@ -486,7 +499,7 @@ void InspectorController::inspectedWindowScriptObjectCleared(Frame* frame)
 {
     if (!enabled() || !m_frontend || frame != m_inspectedPage->mainFrame())
         return;
-    resetInjectedScript();
+    m_injectedScriptHost->discardInjectedScripts();
 }
 
 void InspectorController::windowScriptObjectAvailable()
@@ -499,7 +512,6 @@ void InspectorController::windowScriptObjectAvailable()
     m_scriptState = scriptStateFromPage(debuggerWorld(), m_page);
     ScriptGlobalObject::set(m_scriptState, "InspectorBackend", m_inspectorBackend.get());
     ScriptGlobalObject::set(m_scriptState, "InspectorFrontendHost", m_inspectorFrontendHost.get());
-    ScriptGlobalObject::set(m_scriptState, "InjectedScriptHost", m_injectedScriptHost.get());
 }
 
 void InspectorController::scriptObjectReady()
@@ -512,8 +524,6 @@ void InspectorController::scriptObjectReady()
     if (!ScriptGlobalObject::get(m_scriptState, "WebInspector", webInspectorObj))
         return;
     ScriptObject injectedScriptObj;
-    if (!ScriptGlobalObject::get(m_scriptState, "InjectedScript", injectedScriptObj))
-        return;
     setFrontendProxyObject(m_scriptState, webInspectorObj, injectedScriptObj);
 
 #if ENABLE(JAVASCRIPT_DEBUGGER)
@@ -531,10 +541,9 @@ void InspectorController::scriptObjectReady()
     m_client->inspectorWindowObjectCleared();
 }
 
-void InspectorController::setFrontendProxyObject(ScriptState* scriptState, ScriptObject webInspectorObj, ScriptObject injectedScriptObj)
+void InspectorController::setFrontendProxyObject(ScriptState* scriptState, ScriptObject webInspectorObj, ScriptObject)
 {
     m_scriptState = scriptState;
-    m_injectedScriptObj = injectedScriptObj;
     m_frontend.set(new InspectorFrontend(this, scriptState, webInspectorObj));
     releaseDOMAgent();
     m_domAgent = InspectorDOMAgent::create(m_frontend.get());
@@ -592,7 +601,6 @@ void InspectorController::close()
 #endif
     closeWindow();
 
-    m_injectedScriptObj = ScriptObject();
     releaseDOMAgent();
     m_frontend.set(0);
     m_timelineAgent = 0;
@@ -644,12 +652,15 @@ void InspectorController::populateScriptObjects()
     if (!m_frontend)
         return;
 
+    m_frontend->populateFrontendSettings(setting(FrontendSettingsSettingName));
     m_domAgent->setDocument(m_inspectedPage->mainFrame()->document());
 
     ResourcesMap::iterator resourcesEnd = m_resources.end();
     for (ResourcesMap::iterator it = m_resources.begin(); it != resourcesEnd; ++it)
-        it->second->createScriptObject(m_frontend.get());
+        it->second->updateScriptObject(m_frontend.get());
 
+    if (m_expiredConsoleMessageCount)
+        m_frontend->updateConsoleMessageExpiredCount(m_expiredConsoleMessageCount);
     unsigned messageCount = m_consoleMessages.size();
     for (unsigned i = 0; i < messageCount; ++i)
         m_consoleMessages[i]->addToConsole(m_frontend.get());
@@ -698,8 +709,6 @@ void InspectorController::resetScriptObjects()
 
     m_frontend->reset();
     m_domAgent->reset();
-    m_objectGroups.clear();
-    m_idToWrappedObject.clear();
 }
 
 void InspectorController::pruneResources(ResourcesMap* resourceMap, DocumentLoader* loaderToKeep)
@@ -731,7 +740,8 @@ void InspectorController::didCommitLoad(DocumentLoader* loader)
     if (loader->frame() == m_inspectedPage->mainFrame()) {
         m_client->inspectedURLChanged(loader->url().string());
 
-        clearConsoleMessages(false);
+        m_injectedScriptHost->discardInjectedScripts();
+        clearConsoleMessages();
 
         m_times.clear();
         m_counts.clear();
@@ -758,7 +768,7 @@ void InspectorController::didCommitLoad(DocumentLoader* loader)
                 // needed to keep the load for a user-entered URL from showing up in the
                 // list of resources for the page they are navigating away from.
                 if (windowVisible())
-                    m_mainResource->createScriptObject(m_frontend.get());
+                    m_mainResource->updateScriptObject(m_frontend.get());
             } else {
                 // Pages loaded from the page cache are committed before
                 // m_mainResource is the right resource for this load, so we
@@ -853,7 +863,7 @@ void InspectorController::didLoadResourceFromMemoryCache(DocumentLoader* loader,
     if (!isMainResource && !m_resourceTrackingEnabled)
         return;
 
-    RefPtr<InspectorResource> resource = InspectorResource::createCached(m_inspectedPage->progress()->createUniqueIdentifier() , loader, cachedResource);
+    RefPtr<InspectorResource> resource = InspectorResource::createCached(m_inspectedPage->progress()->createUniqueIdentifier(), loader, cachedResource);
 
     if (isMainResource) {
         m_mainResource = resource;
@@ -863,7 +873,7 @@ void InspectorController::didLoadResourceFromMemoryCache(DocumentLoader* loader,
     addResource(resource.get());
 
     if (windowVisible())
-        resource->createScriptObject(m_frontend.get());
+        resource->updateScriptObject(m_frontend.get());
 }
 
 void InspectorController::identifierForInitialRequest(unsigned long identifier, DocumentLoader* loader, const ResourceRequest& request)
@@ -877,9 +887,7 @@ void InspectorController::identifierForInitialRequest(unsigned long identifier, 
     if (!isMainResource && !m_resourceTrackingEnabled)
         return;
 
-    RefPtr<InspectorResource> resource = InspectorResource::create(identifier, loader);
-
-    resource->updateRequest(request);
+    RefPtr<InspectorResource> resource = InspectorResource::create(identifier, loader, request.url());
 
     if (isMainResource) {
         m_mainResource = resource;
@@ -889,7 +897,7 @@ void InspectorController::identifierForInitialRequest(unsigned long identifier, 
     addResource(resource.get());
 
     if (windowVisible() && loader->frameLoader()->isLoadingFromCachedPage() && resource == m_mainResource)
-        resource->createScriptObject(m_frontend.get());
+        resource->updateScriptObject(m_frontend.get());
 }
 
 void InspectorController::mainResourceFiredDOMContentEvent(DocumentLoader* loader, const KURL& url)
@@ -931,15 +939,28 @@ void InspectorController::willSendRequest(unsigned long identifier, const Resour
     if (!resource)
         return;
 
-    resource->startTiming();
-
     if (!redirectResponse.isNull()) {
-        resource->updateRequest(request);
+        resource->markResponseReceivedTime();
+        resource->endTiming();
         resource->updateResponse(redirectResponse);
+
+        // We always store last redirect by the original id key. Rest of the redirects are stored within the last one.
+        unsigned long id = m_inspectedPage->progress()->createUniqueIdentifier();
+        RefPtr<InspectorResource> withRedirect = resource->appendRedirect(id, request.url());
+        removeResource(resource.get());
+        addResource(withRedirect.get());
+        if (isMainResource) {
+            m_mainResource = withRedirect;
+            withRedirect->markMainResource();
+        }
+        resource = withRedirect;
     }
 
+    resource->startTiming();
+    resource->updateRequest(request);
+
     if (resource != m_mainResource && windowVisible())
-        resource->createScriptObject(m_frontend.get());
+        resource->updateScriptObject(m_frontend.get());
 }
 
 void InspectorController::didReceiveResponse(unsigned long identifier, const ResourceResponse& response)
@@ -954,7 +975,7 @@ void InspectorController::didReceiveResponse(unsigned long identifier, const Res
     resource->updateResponse(response);
     resource->markResponseReceivedTime();
 
-    if (windowVisible())
+    if (resource != m_mainResource && windowVisible())
         resource->updateScriptObject(m_frontend.get());
 }
 
@@ -966,7 +987,7 @@ void InspectorController::didReceiveContentLength(unsigned long identifier, int 
 
     resource->addLength(lengthReceived);
 
-    if (windowVisible())
+    if (resource != m_mainResource && windowVisible())
         resource->updateScriptObject(m_frontend.get());
 }
 
@@ -979,13 +1000,9 @@ void InspectorController::didFinishLoading(unsigned long identifier)
     if (!resource)
         return;
 
-    removeResource(resource.get());
-
     resource->endTiming();
 
-    addResource(resource.get());
-
-    if (windowVisible())
+    if (resource != m_mainResource && windowVisible())
         resource->updateScriptObject(m_frontend.get());
 }
 
@@ -998,14 +1015,10 @@ void InspectorController::didFailLoading(unsigned long identifier, const Resourc
     if (!resource)
         return;
 
-    removeResource(resource.get());
-
     resource->markFailed();
     resource->endTiming();
 
-    addResource(resource.get());
-
-    if (windowVisible())
+    if (resource != m_mainResource && windowVisible())
         resource->updateScriptObject(m_frontend.get());
 }
 
@@ -1036,7 +1049,7 @@ void InspectorController::scriptImported(unsigned long identifier, const String&
     // FIXME: imported script and XHR response are currently viewed as the same
     // thing by the Inspector. They should be made into distinct types.
     resource->setXMLHttpResponseText(ScriptString(sourceString));
-    
+
     if (windowVisible())
         resource->updateScriptObject(m_frontend.get());
 }
@@ -1352,24 +1365,26 @@ void InspectorController::addProfileFinishedMessageToConsole(PassRefPtr<Profile>
 {
     RefPtr<Profile> profile = prpProfile;
 
-    UString message = "Profile \"webkit-profile://";
-    message += encodeWithURLEscapeSequences(CPUProfileType);
-    message += "/";
-    message += encodeWithURLEscapeSequences(profile->title());
-    message += "#";
-    message += UString::from(profile->uid());
-    message += "\" finished.";
-    addMessageToConsole(JSMessageSource, LogMessageType, LogMessageLevel, message, lineNumber, sourceURL);
+    JSC::StringBuilder message;
+    message.append("Profile \"webkit-profile://");
+    message.append((UString)encodeWithURLEscapeSequences(CPUProfileType));
+    message.append("/");
+    message.append((UString)encodeWithURLEscapeSequences(profile->title()));
+    message.append("#");
+    message.append(UString::from(profile->uid()));
+    message.append("\" finished.");
+    addMessageToConsole(JSMessageSource, LogMessageType, LogMessageLevel, message.release(), lineNumber, sourceURL);
 }
 
 void InspectorController::addStartProfilingMessageToConsole(const UString& title, unsigned lineNumber, const UString& sourceURL)
 {
-    UString message = "Profile \"webkit-profile://";
-    message += encodeWithURLEscapeSequences(CPUProfileType);
-    message += "/";
-    message += encodeWithURLEscapeSequences(title);
-    message += "#0\" started.";
-    addMessageToConsole(JSMessageSource, LogMessageType, LogMessageLevel, message, lineNumber, sourceURL);
+    JSC::StringBuilder message;
+    message.append("Profile \"webkit-profile://");
+    message.append(encodeWithURLEscapeSequences(CPUProfileType));
+    message.append("/");
+    message.append(encodeWithURLEscapeSequences(title));
+    message.append("#0\" started.");
+    addMessageToConsole(JSMessageSource, LogMessageType, LogMessageLevel, message.release(), lineNumber, sourceURL);
 }
 
 void InspectorController::getProfileHeaders(long callId)
@@ -1407,11 +1422,12 @@ UString InspectorController::getCurrentUserInitiatedProfileName(bool incrementPr
     if (incrementProfileNumber)
         m_currentUserInitiatedProfileNumber = m_nextUserInitiatedProfileNumber++;        
 
-    UString title = UserInitiatedProfileName;
-    title += ".";
-    title += UString::from(m_currentUserInitiatedProfileNumber);
+    JSC::StringBuilder title;
+    title.append(UserInitiatedProfileName);
+    title.append(".");
+    title.append(UString::from(m_currentUserInitiatedProfileNumber));
     
-    return title;
+    return title.release();
 }
 
 void InspectorController::startUserInitiatedProfilingSoon()
@@ -1568,8 +1584,14 @@ void InspectorController::failedToParseSource(ExecState*, const SourceCode& sour
 
 void InspectorController::didPause()
 {
-    ScriptFunctionCall function(m_scriptState, m_injectedScriptObj, "getCallFrames");
-    ScriptValue callFrames = function.call();
+    JavaScriptCallFrame* callFrame = m_injectedScriptHost->currentCallFrame();
+    ScriptState* scriptState = callFrame->scopeChain()->globalObject->globalExec();
+    ASSERT(scriptState);
+    ScriptObject injectedScriptObj = m_injectedScriptHost->injectedScriptFor(scriptState);
+    ScriptFunctionCall function(scriptState, injectedScriptObj, "getCallFrames");
+    ScriptValue callFramesValue = function.call();
+    String callFrames = callFramesValue.toString(scriptState);
+
     m_frontend->pausedScript(callFrames);
 }
 
@@ -1797,50 +1819,6 @@ InspectorController::SpecialPanels InspectorController::specialPanelForJSName(co
         return ElementsPanel;
 }
 
-ScriptValue InspectorController::wrapObject(const ScriptValue& quarantinedObject, const String& objectGroup)
-{
-    ScriptFunctionCall function(m_scriptState, m_injectedScriptObj, "createProxyObject");
-    function.appendArgument(quarantinedObject);
-    if (quarantinedObject.isObject()) {
-        long id = m_lastBoundObjectId++;
-        String objectId = String::format("object#%ld", id);
-        m_idToWrappedObject.set(objectId, quarantinedObject);
-        ObjectGroupsMap::iterator it = m_objectGroups.find(objectGroup);
-        if (it == m_objectGroups.end())
-            it = m_objectGroups.set(objectGroup, Vector<String>()).first;
-        it->second.append(objectId);
-        function.appendArgument(objectId);
-    }
-    ScriptValue wrapper = function.call();
-    return wrapper;
-}
-
-ScriptValue InspectorController::unwrapObject(const String& objectId)
-{
-    HashMap<String, ScriptValue>::iterator it = m_idToWrappedObject.find(objectId);
-    if (it != m_idToWrappedObject.end())
-        return it->second;
-    return ScriptValue();
-}
-
-void InspectorController::releaseWrapperObjectGroup(const String& objectGroup)
-{
-    ObjectGroupsMap::iterator groupIt = m_objectGroups.find(objectGroup);
-    if (groupIt == m_objectGroups.end())
-        return;
-
-    Vector<String>& groupIds = groupIt->second;
-    for (Vector<String>::iterator it = groupIds.begin(); it != groupIds.end(); ++it)
-        m_idToWrappedObject.remove(*it);
-    m_objectGroups.remove(groupIt);
-}
-
-void InspectorController::resetInjectedScript()
-{
-    ScriptFunctionCall function(m_scriptState, m_injectedScriptObj, "reset");
-    function.call();
-}
-
 void InspectorController::deleteCookie(const String& cookieName, const String& domain)
 {
     ResourcesMap::iterator resourcesEnd = m_resources.end();
@@ -1849,6 +1827,27 @@ void InspectorController::deleteCookie(const String& cookieName, const String& d
         if (document->url().host() == domain)
             WebCore::deleteCookie(document, document->cookieURL(), cookieName);
     }
+}
+
+ScriptObject InspectorController::injectedScriptForNodeId(long id)
+{
+
+    Frame* frame = 0;
+    if (id) {
+        ASSERT(m_domAgent);
+        Node* node = m_domAgent->nodeForId(id);
+        if (node) {
+            Document* document = node->ownerDocument();
+            if (document)
+                frame = document->frame();
+        }
+    } else
+        frame = m_inspectedPage->mainFrame();
+
+    if (frame)
+        return m_injectedScriptHost->injectedScriptFor(mainWorldScriptState(frame));
+
+    return ScriptObject();
 }
 
 } // namespace WebCore

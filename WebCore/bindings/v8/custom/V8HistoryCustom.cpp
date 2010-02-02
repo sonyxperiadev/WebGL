@@ -29,18 +29,21 @@
  */
 
 #include "config.h"
-#include "History.h"
+#include "V8History.h"
 
 #include "ExceptionCode.h"
+#include "History.h"
 #include "SerializedScriptValue.h"
 #include "V8Binding.h"
+#include "V8BindingState.h"
 #include "V8CustomBinding.h"
 #include "V8Proxy.h"
 
 namespace WebCore {
-CALLBACK_FUNC_DECL(HistoryPushState)
+
+v8::Handle<v8::Value> V8History::pushStateCallback(const v8::Arguments& args)
 {
-    RefPtr<SerializedScriptValue> historyState = SerializedScriptValue::create(toWebCoreString(args[0]));
+    RefPtr<SerializedScriptValue> historyState = SerializedScriptValue::create(args[0]);
 
     v8::TryCatch tryCatch;
     String title = toWebCoreStringWithNullOrUndefinedCheck(args[1]);
@@ -54,14 +57,14 @@ CALLBACK_FUNC_DECL(HistoryPushState)
     }
 
     ExceptionCode ec = 0;
-    History* history = V8DOMWrapper::convertToNativeObject<History>(V8ClassIndex::HISTORY, args.Holder());
+    History* history = V8History::toNative(args.Holder());
     history->stateObjectAdded(historyState.release(), title, url, History::StateObjectPush, ec);
     return throwError(ec);
 }
 
-CALLBACK_FUNC_DECL(HistoryReplaceState)
+v8::Handle<v8::Value> V8History::replaceStateCallback(const v8::Arguments& args)
 {
-    RefPtr<SerializedScriptValue> historyState = SerializedScriptValue::create(toWebCoreString(args[0]));
+    RefPtr<SerializedScriptValue> historyState = SerializedScriptValue::create(args[0]);
 
     v8::TryCatch tryCatch;
     String title = toWebCoreStringWithNullOrUndefinedCheck(args[1]);
@@ -75,9 +78,25 @@ CALLBACK_FUNC_DECL(HistoryReplaceState)
     }
 
     ExceptionCode ec = 0;
-    History* history = V8DOMWrapper::convertToNativeObject<History>(V8ClassIndex::HISTORY, args.Holder());
+    History* history = V8History::toNative(args.Holder());
     history->stateObjectAdded(historyState.release(), title, url, History::StateObjectReplace, ec);
     return throwError(ec);
+}
+
+bool V8History::indexedSecurityCheck(v8::Local<v8::Object> host, uint32_t index, v8::AccessType type, v8::Local<v8::Value> data)
+{
+    ASSERT(V8ClassIndex::FromInt(data->Int32Value()) == V8ClassIndex::HISTORY);
+    // Only allow same origin access.
+    History* history = V8History::toNative(host);
+    return V8BindingSecurity::canAccessFrame(V8BindingState::Only(), history->frame(), false);
+}
+
+bool V8History::namedSecurityCheck(v8::Local<v8::Object> host, v8::Local<v8::Value> key, v8::AccessType type, v8::Local<v8::Value> data)
+{
+    ASSERT(V8ClassIndex::FromInt(data->Int32Value()) == V8ClassIndex::HISTORY);
+    // Only allow same origin access.
+    History* history = V8History::toNative(host);
+    return V8BindingSecurity::canAccessFrame(V8BindingState::Only(), history->frame(), false);
 }
 
 } // namespace WebCore

@@ -34,6 +34,7 @@
 #include "WebDragOperation.h"
 #include "WebEditingAction.h"
 #include "WebFileChooserCompletion.h"
+#include "WebFileChooserParams.h"
 #include "WebString.h"
 #include "WebTextAffinity.h"
 #include "WebTextDirection.h"
@@ -48,6 +49,7 @@ class WebFrame;
 class WebNode;
 class WebNotificationPresenter;
 class WebRange;
+class WebStorageNamespace;
 class WebURL;
 class WebView;
 class WebWidget;
@@ -63,7 +65,9 @@ class WebViewClient : virtual public WebWidgetClient {
 public:
     // Factory methods -----------------------------------------------------
 
-    // Create a new related WebView.
+    // Create a new related WebView.  This method must clone its session storage
+    // so any subsequent calls to createSessionStorageNamespace conform to the
+    // WebStorage specification.
     virtual WebView* createView(WebFrame* creator) { return 0; }
 
     // Create a new WebPopupMenu.  In the second form, the client is
@@ -71,6 +75,8 @@ public:
     virtual WebWidget* createPopupMenu(bool activatable) { return 0; }
     virtual WebWidget* createPopupMenu(const WebPopupMenuInfo&) { return 0; }
 
+    // Create a session storage namespace object associated with this WebView.
+    virtual WebStorageNamespace* createSessionStorageNamespace() { return 0; }
 
     // Misc ----------------------------------------------------------------
 
@@ -161,9 +167,8 @@ public:
     // dialog is closed, it should call the WebFileChooserCompletion to
     // pass the results of the dialog. Returns false if
     // WebFileChooseCompletion will never be called.
-    virtual bool runFileChooser(
-        bool multiSelect, const WebString& title,
-        const WebString& initialValue, WebFileChooserCompletion*) { return false; }
+    virtual bool runFileChooser(const WebFileChooserParams&,
+                                WebFileChooserCompletion*) { return false; }
 
     // Displays a modal alert dialog containing the given message.  Returns
     // once the user dismisses the dialog.

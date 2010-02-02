@@ -333,12 +333,16 @@ static void resetDefaultsToConsistentValues()
                  "default-font-size", 16,
                  "default-monospace-font-size", 13,
                  "minimum-font-size", 1,
+                 "enable-caret-browsing", FALSE,
+                 "enable-page-cache", FALSE,
                  NULL);
 
     webkit_web_frame_clear_main_frame_name(mainFrame);
 
     WebKitWebInspector* inspector = webkit_web_view_get_inspector(webView);
     g_object_set(G_OBJECT(inspector), "javascript-profiling-enabled", FALSE, NULL);
+
+    webkit_web_view_set_zoom_level(webView, 1.0);
 
     webkit_reset_origin_access_white_lists();
 
@@ -779,6 +783,11 @@ static WebKitWebView* createWebView()
                      "signal::show-window", webInspectorShowWindow, 0,
                      "signal::close-window", webInspectorCloseWindow, 0,
                      NULL);
+
+    if (webView) {
+        WebKitWebSettings* settings = webkit_web_view_get_settings(webView);
+        webkit_web_view_set_settings(view, settings);
+    }
 
     return view;
 }

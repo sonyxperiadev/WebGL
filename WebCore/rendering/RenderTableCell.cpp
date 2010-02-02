@@ -237,7 +237,7 @@ void RenderTableCell::computeRectForRepaint(RenderBoxModelObject* repaintContain
         return;
     r.setY(r.y());
     RenderView* v = view();
-    if ((!v || !v->layoutStateEnabled()) && parent())
+    if ((!v || !v->layoutStateEnabled() || repaintContainer) && parent())
         r.move(-parentBox()->x(), -parentBox()->y()); // Rows are in the same coordinate space, so don't add their offset in.
     RenderBlock::computeRectForRepaint(repaintContainer, r, fixed);
 }
@@ -845,7 +845,7 @@ void RenderTableCell::paintBackgroundsBehindCell(PaintInfo& paintInfo, int tx, i
             paintInfo.context->save();
             paintInfo.context->clip(clipRect);
         }
-        paintFillLayers(paintInfo, c, bgLayer, tx, ty, w, h);
+        paintFillLayers(paintInfo, c, bgLayer, tx, ty, w, h, CompositeSourceOver, backgroundObject);
         if (shouldClip)
             paintInfo.context->restore();
     }

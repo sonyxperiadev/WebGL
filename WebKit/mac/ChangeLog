@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 2010-01-19  Steve Block  <steveblock@google.com>
 
         Reviewed by Adam Barth.
@@ -22570,3 +22571,6 @@
         (-[WebView initWithCoder:]):
 
 == Rolled over to ChangeLog-2007-10-14 ==
+=======
+== Rolled over to ChangeLog-2010-01-29 ==
+>>>>>>> webkit.org at r54127

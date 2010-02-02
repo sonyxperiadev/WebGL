@@ -33,12 +33,10 @@
 
 namespace WebCore {
 
-char SVGStyledTransformableElementIdentifier[] = "SVGStyledTransformableElement";
-
 SVGStyledTransformableElement::SVGStyledTransformableElement(const QualifiedName& tagName, Document* doc)
     : SVGStyledLocatableElement(tagName, doc)
     , SVGTransformable()
-    , m_transform(this, SVGNames::transformAttr, SVGTransformList::create(SVGNames::transformAttr))
+    , m_transform(SVGTransformList::create(SVGNames::transformAttr))
 {
 }
 
@@ -70,18 +68,22 @@ TransformationMatrix* SVGStyledTransformableElement::supplementalTransform()
 
 void SVGStyledTransformableElement::parseMappedAttribute(MappedAttribute* attr)
 {
-    if (attr->name() == SVGNames::transformAttr) {
+    if (SVGTransformable::isKnownAttribute(attr->name())) {
         SVGTransformList* localTransforms = transformBaseValue();
-
-        ExceptionCode ec = 0;
-        localTransforms->clear(ec);
- 
-        if (!SVGTransformable::parseTransformAttribute(localTransforms, attr->value()))
+        if (!SVGTransformable::parseTransformAttribute(localTransforms, attr->value())) {
+            ExceptionCode ec = 0;
             localTransforms->clear(ec);
-        else
-            setTransformBaseValue(localTransforms);
-    } else
+        }
+    } else 
         SVGStyledLocatableElement::parseMappedAttribute(attr);
+}
+
+void SVGStyledTransformableElement::synchronizeProperty(const QualifiedName& attrName)
+{
+    SVGStyledLocatableElement::synchronizeProperty(attrName);
+
+    if (attrName == anyQName() || SVGTransformable::isKnownAttribute(attrName))
+        synchronizeTransform();
 }
 
 bool SVGStyledTransformableElement::isKnownAttribute(const QualifiedName& attrName)

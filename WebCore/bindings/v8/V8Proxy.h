@@ -35,6 +35,7 @@
 #include "SecurityOrigin.h" // for WebCore::SecurityOrigin
 #include "SharedPersistent.h"
 #include "V8AbstractEventListener.h"
+#include "V8DOMWindowShell.h"
 #include "V8DOMWrapper.h"
 #include "V8GCController.h"
 #include "V8Index.h"
@@ -58,7 +59,7 @@ namespace WebCore {
     class ScriptExecutionContext;
     class String;
     class V8EventListener;
-    class V8IsolatedWorld;
+    class V8IsolatedContext;
     class WorldContextHandle;
 
     // FIXME: use standard logging facilities in WebCore.
@@ -139,27 +140,20 @@ namespace WebCore {
             GeneralError
         };
 
+        // When to report errors.
+        enum DelayReporting {
+            ReportLater,
+            ReportNow
+        };
+
         explicit V8Proxy(Frame*);
 
         ~V8Proxy();
 
         Frame* frame() { return m_frame; }
 
-        // Clear page-specific data, but keep the global object identify.
         void clearForNavigation();
-
-        // Clear page-specific data before shutting down the proxy object.
         void clearForClose();
-
-        // Update document object of the frame.
-        void updateDocument();
-
-        // Update the security origin of a document
-        // (e.g., after setting docoument.domain).
-        void updateSecurityOrigin();
-
-        // Destroy the global object.
-        void destroyGlobal();
 
         // FIXME: Need comment. User Gesture related.
         bool inlineCode() const { return m_inlineCode; }
@@ -167,9 +161,6 @@ namespace WebCore {
 
         bool timerCallback() const { return m_timerCallback; }
         void setTimerCallback(bool value) { m_timerCallback = value; }
-
-        // Has the context for this proxy been initialized?
-        bool isContextInitialized();
 
         // Disconnects the proxy from its owner frame,
         // and clears all timeouts on the DOM window.
@@ -216,11 +207,6 @@ namespace WebCore {
         // constructors.
         void evaluateInIsolatedWorld(int worldId, const Vector<ScriptSourceCode>& sources, int extensionGroup);
 
-        // Evaluate JavaScript in a new context. The script gets its own global scope
-        // and its own prototypes for intrinsic JavaScript objects (String, Array,
-        // and so-on). It shares the wrappers for all DOM nodes and DOM constructors.
-        void evaluateInNewContext(const Vector<ScriptSourceCode>&, int extensionGroup);
-
         // Evaluate a script file in the current execution environment.
         // The caller must hold an execution context.
         // If cannot evalute the script, it returns an error.
@@ -238,16 +224,6 @@ namespace WebCore {
 
         // Call the function as constructor with the given arguments.
         v8::Local<v8::Value> newInstance(v8::Handle<v8::Function>, int argc, v8::Handle<v8::Value> argv[]);
-
-        // To create JS Wrapper objects, we create a cache of a 'boiler plate'
-        // object, and then simply Clone that object each time we need a new one.
-        // This is faster than going through the full object creation process.
-        v8::Local<v8::Object> createWrapperFromCache(V8ClassIndex::V8WrapperType type)
-        {
-            int classIndex = V8ClassIndex::ToInt(type);
-            v8::Local<v8::Object> clone(m_wrapperBoilerplates->CloneElementAt(classIndex));
-            return clone.IsEmpty() ? createWrapperFromCacheSlowCase(type) : clone;
-        }
 
         // Returns the window object associated with a context.
         static DOMWindow* retrieveWindow(v8::Handle<v8::Context>);
@@ -305,13 +281,6 @@ namespace WebCore {
         // is disabled and it returns true.
         static bool handleOutOfMemory();
 
-        // Check if the active execution context can access the target frame.
-        static bool canAccessFrame(Frame*, bool reportError);
-
-        // Check if it is safe to access the given node from the
-        // current security context.
-        static bool checkNodeSecurity(Node*);
-
         static v8::Handle<v8::Value> checkNewLegal(const v8::Arguments&);
 
         static v8::Handle<v8::Script> compileScript(v8::Handle<v8::String> code, const String& fileName, int baseLine);
@@ -350,12 +319,11 @@ namespace WebCore {
         v8::Local<v8::Context> context();
         v8::Local<v8::Context> mainWorldContext();
 
+        // FIXME: This should eventually take DOMWrapperWorld argument!
+        V8DOMWindowShell* windowShell() const { return m_windowShell.get(); }
+
         bool setContextDebugId(int id);
         static int contextDebugId(v8::Handle<v8::Context>);
-
-        static v8::Handle<v8::Value> getHiddenObjectPrototype(v8::Handle<v8::Context>);
-        // WARNING: Call |installHiddenObjectPrototype| only on fresh contexts!
-        static void installHiddenObjectPrototype(v8::Handle<v8::Context>);
 
         // Registers a v8 extension to be available on webpages. The two forms
         // offer various restrictions on what types of contexts the extension is
@@ -367,27 +335,15 @@ namespace WebCore {
         static void registerExtension(v8::Extension*, const String& schemeRestriction);
         static void registerExtension(v8::Extension*, int extensionGroup);
 
-        // FIXME: Separate these concerns from V8Proxy?
-        v8::Persistent<v8::Context> createNewContext(v8::Handle<v8::Object> global, int extensionGroup);
-        static bool installDOMWindow(v8::Handle<v8::Context> context, DOMWindow* window);
+        static void registerExtensionWithV8(v8::Extension*);
+        static bool registeredExtensionWithV8(v8::Extension*);
 
-        void initContextIfNeeded();
-        void updateDocumentWrapper(v8::Handle<v8::Value> wrapper);
+        static const V8Extensions& extensions() { return m_extensions; }
+
+        // Report an unsafe attempt to access the given frame on the console.
+        static void reportUnsafeAccessTo(Frame* target, DelayReporting delay);
 
     private:
-        void setSecurityToken();
-        void clearDocumentWrapper();
-
-        // The JavaScript wrapper for the document object is cached on the global
-        // object for fast access. UpdateDocumentWrapperCache sets the wrapper
-        // for the current document on the global object. ClearDocumentWrapperCache
-        // deletes the document wrapper from the global object.
-        void updateDocumentWrapperCache();
-        void clearDocumentWrapperCache();
-
-        // Dispose global handles of m_contexts and friends.
-        void disposeContextHandles();
-
         // If m_recursionCount is 0, let LocalStorage know so we can release
         // the storage mutex.
         void releaseStorageMutex();
@@ -396,8 +352,6 @@ namespace WebCore {
 
         // Returns false when we're out of memory in V8.
         bool setInjectedScriptContextDebugId(v8::Handle<v8::Context> targetContext);
-
-        static bool canAccessPrivate(DOMWindow*);
 
         static const char* rangeExceptionName(int exceptionCode);
         static const char* eventExceptionName(int exceptionCode);
@@ -422,24 +376,11 @@ namespace WebCore {
             return v8::Local<v8::Context>::New(m_utilityContext);
         }
 
-        v8::Local<v8::Object> createWrapperFromCacheSlowCase(V8ClassIndex::V8WrapperType);
-
-        static void registerExtensionWithV8(v8::Extension*);
-        static bool registeredExtensionWithV8(v8::Extension*);
-
         Frame* m_frame;
 
-        v8::Persistent<v8::Context> m_context;
-
-        // For each possible type of wrapper, we keep a boilerplate object.
-        // The boilerplate is used to create additional wrappers of the same
-        // type.  We keep a single persistent handle to an array of the
-        // activated boilerplates.
-        v8::Persistent<v8::Array> m_wrapperBoilerplates;
-
-        v8::Persistent<v8::Object> m_global;
-        v8::Persistent<v8::Value> m_document;
-
+        // For the moment, we have one of these.  Soon we will have one per DOMWrapperWorld.
+        RefPtr<V8DOMWindowShell> m_windowShell;
+        
         // Utility context holding JavaScript functions used internally.
         static v8::Persistent<v8::Context> m_utilityContext;
 
@@ -468,7 +409,10 @@ namespace WebCore {
         // Note: although the pointer is raw, the instance is kept alive by a strong
         // reference to the v8 context it contains, which is not made weak until we
         // call world->destroy().
-        typedef HashMap<int, V8IsolatedWorld*> IsolatedWorldMap;
+        //
+        // FIXME: We want to eventually be holding window shells instead of the
+        //        IsolatedContext directly.
+        typedef HashMap<int, V8IsolatedContext*> IsolatedWorldMap;
         IsolatedWorldMap m_isolatedWorlds;
     };
 

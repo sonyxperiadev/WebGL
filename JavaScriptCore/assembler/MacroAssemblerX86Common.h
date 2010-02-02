@@ -542,7 +542,7 @@ public:
             m_assembler.movl_i32r(imm.m_value, dest);
     }
 
-#if PLATFORM(X86_64)
+#if CPU(X86_64)
     void move(RegisterID src, RegisterID dest)
     {
         // Note: on 64-bit this is is a full register move; perhaps it would be
@@ -944,8 +944,8 @@ private:
     // x86_64, and clients & subclasses of MacroAssembler should be using 'supportsFloatingPoint()'.
     friend class MacroAssemblerX86;
 
-#if PLATFORM(X86)
-#if PLATFORM(MAC)
+#if CPU(X86)
+#if OS(MAC_OS_X)
 
     // All X86 Macs are guaranteed to support at least SSE2,
     static bool isSSE2Present()
@@ -953,7 +953,7 @@ private:
         return true;
     }
 
-#else // PLATFORM(MAC)
+#else // OS(MAC_OS_X)
 
     enum SSE2CheckState {
         NotCheckedSSE2,
@@ -996,8 +996,8 @@ private:
     
     static SSE2CheckState s_sse2CheckState;
 
-#endif // PLATFORM(MAC)
-#elif !defined(NDEBUG) // PLATFORM(X86)
+#endif // OS(MAC_OS_X)
+#elif !defined(NDEBUG) // CPU(X86)
 
     // On x86-64 we should never be checking for SSE2 in a non-debug build,
     // but non debug add this method to keep the asserts above happy.

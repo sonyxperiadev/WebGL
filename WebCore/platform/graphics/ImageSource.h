@@ -55,7 +55,7 @@ class NativeImageSkia;
 #endif
 #elif PLATFORM(HAIKU)
 class BBitmap;
-#elif PLATFORM(WINCE)
+#elif OS(WINCE)
 #include "SharedBitmap.h"
 #endif
 
@@ -105,7 +105,7 @@ typedef wxBitmap* NativeImagePtr;
 typedef cairo_surface_t* NativeImagePtr;
 #elif PLATFORM(HAIKU)
 typedef BBitmap* NativeImagePtr;
-#elif PLATFORM(WINCE)
+#elif OS(WINCE)
 typedef RefPtr<SharedBitmap> NativeImagePtr;
 #endif
 #endif

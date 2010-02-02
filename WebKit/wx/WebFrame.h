@@ -33,6 +33,8 @@
     #include "wx/wx.h"
 #endif
 
+#include "WebKitDefines.h"
+
 class WebFramePrivate;
 class WebViewFrameData;
 class wxWebView;
@@ -43,20 +45,6 @@ namespace WebCore {
     class EditorClientWx;
     class Frame;
 }
-
-#ifndef SWIG
-
-#if !wxCHECK_VERSION(2,9,0) && wxCHECK_GCC_VERSION(4,0)
-#define WXDLLIMPEXP_WEBKIT __attribute__ ((visibility("default")))
-#elif WXMAKINGDLL_WEBKIT
-#define WXDLLIMPEXP_WEBKIT WXEXPORT
-#elif defined(WXUSINGDLL_WEBKIT)
-#define WXDLLIMPEXP_WEBKIT WXIMPORT
-#endif
-
-#else
-#define WXDLLIMPEXP_WEBKIT
-#endif // SWIG
 
 class WXDLLIMPEXP_WEBKIT wxWebViewDOMElementInfo
 {
@@ -88,6 +76,9 @@ private:
     wxString m_imageSrc;
     wxString m_link;
 };
+
+// based on enums in WebCore/dom/Document.h
+enum wxWebKitParseMode { Compat, AlmostStrict, Strict, NoDocument };
 
 class WXDLLIMPEXP_WEBKIT wxWebFrame
 {
@@ -152,6 +143,8 @@ public:
     wxWebViewDOMElementInfo HitTest(const wxPoint& post) const;
     
     bool ShouldClose() const;
+    
+    wxWebKitParseMode GetParseMode() const;
     
 private:
     float m_textMagnifier;

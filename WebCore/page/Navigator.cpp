@@ -23,6 +23,7 @@
 #include "config.h"
 #include "Navigator.h"
 
+#include "Chrome.h"
 #include "CookieJar.h"
 #if PLATFORM(ANDROID)
 #include "Connection.h"

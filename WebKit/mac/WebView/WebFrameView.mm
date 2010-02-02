@@ -55,6 +55,7 @@
 #import "WebViewInternal.h"
 #import "WebViewPrivate.h"
 #import <Foundation/NSURLRequest.h>
+#import <WebCore/BackForwardList.h>
 #import <WebCore/DragController.h>
 #import <WebCore/EventHandler.h>
 #import <WebCore/Frame.h>
@@ -199,9 +200,8 @@ enum {
 
 - (float)_verticalPageScrollDistance
 {
-    float overlap = [self _verticalKeyboardScrollDistance];
     float height = [[self _contentView] bounds].size.height;
-    return (height < overlap) ? height / 2 : height - overlap;
+    return max(height * cFractionToStepWhenPaging, 1.f);
 }
 
 static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCClass, NSArray *supportTypes)
@@ -342,7 +342,7 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
     [scrollView setHasVerticalScroller:NO];
     [scrollView setHasHorizontalScroller:NO];
     [scrollView setAutoresizingMask:NSViewWidthSizable | NSViewHeightSizable];
-    [scrollView setLineScroll:40.0f];
+    [scrollView setLineScroll:cScrollbarPixelsPerLineStep];
     [self addSubview:scrollView];
 
     // Don't call our overridden version of setNextKeyView here; we need to make the standard NSView
@@ -612,9 +612,8 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
 
 - (float)_horizontalPageScrollDistance
 {
-    float overlap = [self _horizontalKeyboardScrollDistance];
     float width = [[self _contentView] bounds].size.width;
-    return (width < overlap) ? width / 2 : width - overlap;
+    return max(width * cFractionToStepWhenPaging, 1.f);
 }
 
 - (BOOL)_pageVertically:(BOOL)up

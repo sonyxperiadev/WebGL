@@ -158,6 +158,7 @@ sub parseExtendedAttributes
         # Attributes with no value are set to be true
         $value = 1 unless defined $value;
         $attrs{$name} = $value;
+        die("Invalid extended attribute name: '$name'\n") if $name =~ /\s/;
     }
 
     return \%attrs;
@@ -370,7 +371,9 @@ sub DetermineParseMode
         $mode = MODE_INTERFACE;
     } elsif ($_ =~ /exception/) {
         $mode = MODE_EXCEPTION;
-    } elsif ($_ =~ /alias/) {
+    } elsif ($_ =~ /(\A|\b)alias/) {
+        # The (\A|\b) above is needed so we don't match attributes
+        # whose names contain the substring "alias".
         $mode = MODE_ALIAS;
     }
 

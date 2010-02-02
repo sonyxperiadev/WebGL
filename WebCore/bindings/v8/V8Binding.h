@@ -32,6 +32,7 @@
 #define V8Binding_h
 
 #include "AtomicString.h"
+#include "BindingSecurity.h"
 #include "MathExtras.h"
 #include "PlatformString.h"
 #include "V8DOMWrapper.h"
@@ -43,72 +44,15 @@ namespace WebCore {
     
     class EventListener;
     class EventTarget;
-    
-    // A helper function extract native object pointer from a DOM wrapper
-    // and cast to the specified type.
-    void* v8DOMWrapperToNative(v8::Handle<v8::Object>);
-    
-    template <class C>
-    C* v8DOMWrapperTo(v8::Handle<v8::Object> object)
-    {
-        ASSERT(V8DOMWrapper::maybeDOMWrapper(object));
-        return reinterpret_cast<C*>(v8DOMWrapperToNative(object));
-    }
-    template <class C>
-    C* v8DOMWrapperToNode(v8::Handle<v8::Object> object)
-    {
-        ASSERT(V8DOMWrapper::maybeDOMWrapper(object));
-        ASSERT(V8DOMWrapper::domWrapperType(object) == V8ClassIndex::NODE);
-        return reinterpret_cast<C*>(v8DOMWrapperToNative(object));
-    }
-    
-    void* v8DOMWrapperToNative(const v8::AccessorInfo&);
-    
-    template <class C>
-    C* v8DOMWrapperTo(const v8::AccessorInfo& info) {
-        ASSERT(V8DOMWrapper::maybeDOMWrapper(info.Holder()));
-        return reinterpret_cast<C*>(v8DOMWrapperToNative(info));
-    }
-    template <class C>
-    C* v8DOMWrapperToNode(const v8::AccessorInfo& info) {
-        ASSERT(V8DOMWrapper::domWrapperType(info.Holder()) == V8ClassIndex::NODE);
-        return reinterpret_cast<C*>(v8DOMWrapperToNative(info));
-    }
-    
-    template <class C>
-    C* v8DOMWrapperTo(V8ClassIndex::V8WrapperType type, v8::Handle<v8::Object> object)
-    {
-        // Native event listener is per frame, it cannot be handled by this generic function.
-        ASSERT(type != V8ClassIndex::EVENTLISTENER);
-        ASSERT(type != V8ClassIndex::EVENTTARGET);
-        
-        ASSERT(V8DOMWrapper::maybeDOMWrapper(object));
-        
-#ifndef NDEBUG
-        const bool typeIsValid =
-#define MAKE_CASE(TYPE, NAME) (type != V8ClassIndex::TYPE) &&
-        DOM_NODE_TYPES(MAKE_CASE)
-#if ENABLE(SVG)
-        SVG_NODE_TYPES(MAKE_CASE)
-#endif
-#undef MAKE_CASE
-        true;
-        ASSERT(typeIsValid);
-#endif
-        
-        return v8DOMWrapperTo<C>(object);
-    }
-    
-    template <class C>
-    C* v8DOMWrapperTo(V8ClassIndex::V8WrapperType type, const v8::AccessorInfo& info)
-    {
-#ifndef NDEBUG
-        return v8DOMWrapperTo<C>(type, info.Holder());
-#else
-        return reinterpret_cast<C*>(v8DOMWrapperToNative(info));
-#endif
-    }
+    class V8BindingDOMWindow;
 
+    // Instantiate binding template classes for V8.
+    class V8Binding {
+    public:
+        typedef v8::Handle<v8::Value> Value;
+        typedef V8BindingDOMWindow DOMWindow;
+    };
+    typedef BindingSecurity<V8Binding> V8BindingSecurity;
     
     enum ExternalMode {
         Externalize,
@@ -168,6 +112,11 @@ namespace WebCore {
         return static_cast<float>(value->NumberValue());
     }
 
+    inline long long toInt64(v8::Local<v8::Value> value)
+    {
+        return static_cast<long long>(value->IntegerValue());
+    }
+
     // FIXME: Drop this in favor of the type specific v8ValueToWebCoreString when we rework the code generation.
     inline String toWebCoreString(v8::Handle<v8::Value> object)
     {
@@ -200,6 +149,10 @@ namespace WebCore {
     v8::Handle<v8::Value> v8StringOrUndefined(const String& str);
 
     v8::Handle<v8::Value> v8StringOrFalse(const String& str);
+
+    double toWebCoreDate(v8::Handle<v8::Value> object);
+
+    v8::Handle<v8::Value> v8DateOrNull(double value);
     
     v8::Persistent<v8::FunctionTemplate> createRawTemplate();
 
@@ -215,20 +168,15 @@ namespace WebCore {
                                                const BatchedCallback*,
                                                size_t callbackCount);
     
-    void createCallback(v8::Local<v8::ObjectTemplate> proto,
-                        const char *name,
-                        v8::InvocationCallback,
-                        v8::Handle<v8::Signature>,
-                        v8::PropertyAttribute attributes = v8::DontDelete);
-    
     v8::Handle<v8::Value> getElementStringAttr(const v8::AccessorInfo&,
                                                const QualifiedName&);
     void setElementStringAttr(const v8::AccessorInfo&,
                               const QualifiedName&,
                               v8::Local<v8::Value>);
 
-    v8::Handle<v8::Value> getElementEventHandlerAttr(const v8::AccessorInfo&,
-                                                     const AtomicString&);
+    
+    v8::Persistent<v8::String> getToStringName();
+    v8::Persistent<v8::FunctionTemplate> getToStringTemplate();
     
     // V8Parameter is an adapter class that converts V8 values to Strings
     // or AtomicStrings as appropriate, using multiple typecast operators.

@@ -137,6 +137,8 @@ void HTMLOptionElement::setValue(const String& value)
 
 bool HTMLOptionElement::selected() const
 {
+    if (HTMLSelectElement* select = ownerSelectElement())
+        select->recalcListItemsIfNeeded();
     return m_data.selected();
 }
 
@@ -217,14 +219,15 @@ String HTMLOptionElement::textIndentedToRespectGroupLabel() const
 
 bool HTMLOptionElement::disabled() const
 { 
-    return HTMLFormControlElement::disabled() || (parentNode() && static_cast<HTMLFormControlElement*>(parentNode())->disabled()); 
+    return ownElementDisabled() || (parentNode() && static_cast<HTMLFormControlElement*>(parentNode())->disabled()); 
 }
 
 void HTMLOptionElement::insertedIntoTree(bool deep)
 {
     if (HTMLSelectElement* select = ownerSelectElement()) {
         select->setRecalcListItems();
-        if (selected())
+        // Avoid our selected() getter since it will recalculate list items incorrectly for us.
+        if (m_data.selected())
             select->setSelectedIndex(index(), false);
         select->scrollToSelection();
     }

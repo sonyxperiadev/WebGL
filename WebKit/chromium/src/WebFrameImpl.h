@@ -39,6 +39,8 @@
 #include <wtf/OwnPtr.h>
 #include <wtf/RefCounted.h>
 
+#include "WebAnimationControllerImpl.h"
+
 namespace WebCore {
 class HistoryItem;
 class KURL;
@@ -62,9 +64,11 @@ class WebFrameImpl : public WebFrame, public RefCounted<WebFrameImpl> {
 public:
     // WebFrame methods:
     virtual WebString name() const;
+    virtual void clearName();
     virtual WebURL url() const;
     virtual WebURL favIconURL() const;
     virtual WebURL openSearchDescriptionURL() const;
+    virtual WebString encoding() const;
     virtual WebSize scrollOffset() const;
     virtual WebSize contentsSize() const;
     virtual int contentsPreferredWidth() const;
@@ -82,14 +86,14 @@ public:
     virtual WebFrame* traversePrevious(bool wrap) const;
     virtual WebFrame* findChildByName(const WebString&) const;
     virtual WebFrame* findChildByExpression(const WebString&) const;
+    virtual WebDocument document() const;
     virtual void forms(WebVector<WebFormElement>&) const;
+    virtual WebAnimationController* animationController(); 
     virtual WebSecurityOrigin securityOrigin() const;
     virtual void grantUniversalAccess();
     virtual NPObject* windowObject() const;
     virtual void bindToWindowObject(const WebString& name, NPObject*);
     virtual void executeScript(const WebScriptSource&);
-    virtual void executeScriptInNewContext(
-        const WebScriptSource* sources, unsigned numSources, int extensionGroup);
     virtual void executeScriptInIsolatedWorld(
         int worldId, const WebScriptSource* sources, unsigned numSources,
         int extensionGroup);
@@ -157,11 +161,11 @@ public:
     virtual WebURL completeURL(const WebString& url) const;
     virtual WebString contentAsText(size_t maxChars) const;
     virtual WebString contentAsMarkup() const;
+    virtual WebString renderTreeAsText() const;
+    virtual WebString counterValueForElementById(const WebString& id) const;
 
     static PassRefPtr<WebFrameImpl> create(WebFrameClient* client);
     ~WebFrameImpl();
-
-    static int liveObjectCount() { return m_liveObjectCount; }
 
     // Called by the WebViewImpl to initialize its main frame:
     void initializeAsMainFrame(WebViewImpl*);
@@ -174,6 +178,7 @@ public:
     void createFrameView();
 
     static WebFrameImpl* fromFrame(WebCore::Frame* frame);
+    static WebFrameImpl* fromFrameOwnerElement(WebCore::Element* element);
 
     WebViewImpl* viewImpl() const;
 
@@ -276,9 +281,6 @@ private:
 
     void loadJavaScriptURL(const WebCore::KURL&);
 
-    // Used to check for leaks of this object.
-    static int m_liveObjectCount;
-
     FrameLoaderClientImpl m_frameLoaderClient;
 
     WebFrameClient* m_client;
@@ -348,6 +350,9 @@ private:
     typedef HashMap<RefPtr<WebCore::HTMLInputElement>,
                     WebPasswordAutocompleteListener*> PasswordListenerMap;
     PasswordListenerMap m_passwordListeners;
+
+    // Keeps a reference to the frame's WebAnimationController.
+    WebAnimationControllerImpl m_animationController;
 };
 
 } // namespace WebKit

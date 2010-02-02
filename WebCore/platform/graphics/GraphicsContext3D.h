@@ -33,7 +33,7 @@
 #include <wtf/PassOwnPtr.h>
 
 // FIXME: Find a better way to avoid the name confliction for NO_ERROR.
-#if PLATFORM(CHROMIUM) && PLATFORM(WIN_OS)
+#if PLATFORM(CHROMIUM) && OS(WINDOWS)
 #undef NO_ERROR
 #endif
 
@@ -65,9 +65,6 @@ namespace WebCore {
     class WebGLShader;
     class WebGLTexture;
     class Image;
-    class HTMLVideoElement;
-    class ImageData;
-    class WebKitCSSMatrix;
 
     struct ActiveInfo {
         String name;
@@ -385,7 +382,25 @@ namespace WebCore {
             INVALID_FRAMEBUFFER_OPERATION = 0x0506
         };
         
-        static PassOwnPtr<GraphicsContext3D> create();
+        // Context creation attributes.
+        struct Attributes {
+            Attributes()
+                : alpha(true)
+                , depth(true)
+                , stencil(true)
+                , antialias(true)
+                , premultipliedAlpha(true)
+            {
+            }
+
+            bool alpha;
+            bool depth;
+            bool stencil;
+            bool antialias;
+            bool premultipliedAlpha;
+        };
+
+        static PassOwnPtr<GraphicsContext3D> create(Attributes attrs);
         virtual ~GraphicsContext3D();
 
 #if PLATFORM(MAC)
@@ -462,6 +477,8 @@ namespace WebCore {
 
         void getBufferParameteriv(unsigned long target, unsigned long pname, int* value);
 
+        Attributes getContextAttributes();
+
         unsigned long getError();
 
         void getFloatv(unsigned long pname, float* value);
@@ -528,32 +545,14 @@ namespace WebCore {
 
         // These next several functions return an error code (0 if no errors) rather than using an ExceptionCode.
         // Currently they return -1 on any error.
-        int texImage2D(unsigned target, unsigned level, unsigned internalformat,
-                       unsigned width, unsigned height, unsigned border,
-                       unsigned format, unsigned type, WebGLArray* pixels);
-        int texImage2D(unsigned target, unsigned level, unsigned internalformat,
-                       unsigned width, unsigned height, unsigned border,
-                       unsigned format, unsigned type, ImageData* pixels);
-        int texImage2D(unsigned target, unsigned level, Image* image,
-                       bool flipY, bool premultiplyAlpha);
-        int texImage2D(unsigned target, unsigned level, HTMLVideoElement* video,
-                       bool flipY, bool premultiplyAlpha);
+        int texImage2D(unsigned target, unsigned level, unsigned internalformat, unsigned width, unsigned height, unsigned border, unsigned format, unsigned type, void* pixels);
+        int texImage2D(unsigned target, unsigned level, Image* image, bool flipY, bool premultiplyAlpha);
 
         void texParameterf(unsigned target, unsigned pname, float param);
         void texParameteri(unsigned target, unsigned pname, int param);
 
-        int texSubImage2D(unsigned target, unsigned level, unsigned xoffset, unsigned yoffset,
-                          unsigned width, unsigned height,
-                          unsigned format, unsigned type, WebGLArray* pixels);
-        int texSubImage2D(unsigned target, unsigned level, unsigned xoffset, unsigned yoffset,
-                          unsigned width, unsigned height,
-                          unsigned format, unsigned type, ImageData* pixels);
-        int texSubImage2D(unsigned target, unsigned level, unsigned xoffset, unsigned yoffset,
-                          unsigned width, unsigned height, Image* image,
-                          bool flipY, bool premultiplyAlpha);
-        int texSubImage2D(unsigned target, unsigned level, unsigned xoffset, unsigned yoffset,
-                          unsigned width, unsigned height, HTMLVideoElement* video,
-                          bool flipY, bool premultiplyAlpha);
+        int texSubImage2D(unsigned target, unsigned level, unsigned xoffset, unsigned yoffset, unsigned width, unsigned height, unsigned format, unsigned type, void* pixels);
+        int texSubImage2D(unsigned target, unsigned level, unsigned xoffset, unsigned yoffset, Image* image, bool flipY, bool premultiplyAlpha);
 
         void uniform1f(long location, float x);
         void uniform1fv(long location, float* v, int size);
@@ -623,11 +622,12 @@ namespace WebCore {
         void synthesizeGLError(unsigned long error);
 
     private:        
-        GraphicsContext3D();
+        GraphicsContext3D(Attributes attrs);
 
         int m_currentWidth, m_currentHeight;
         
 #if PLATFORM(MAC)
+        Attributes m_attrs;
         Vector<Vector<float> > m_vertexArray;
         
         CGLContextObj m_contextObj;

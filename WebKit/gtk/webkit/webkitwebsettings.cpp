@@ -4,6 +4,8 @@
  * Copyright (C) 2008 Collabora Ltd.
  * Copyright (C) 2008 Holger Hans Peter Freyther
  * Copyright (C) 2009 Jan Michael Alonzo
+ * Copyright (C) 2009 Movial Creative Technologies Inc.
+ * Copyright (C) 2009 Igalia S.L.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -35,7 +37,7 @@
 #include "PlatformString.h"
 
 #include <glib/gi18n-lib.h>
-#if PLATFORM(UNIX)
+#if OS(UNIX)
 #include <sys/utsname.h>
 #endif
 
@@ -98,6 +100,9 @@ struct _WebKitWebSettingsPrivate {
     gboolean enable_universal_access_from_file_uris;
     gboolean enable_dom_paste;
     gboolean tab_key_cycles_through_elements;
+    gboolean enable_default_context_menu;
+    gboolean enable_site_specific_quirks;
+    gboolean enable_page_cache;
 };
 
 #define WEBKIT_WEB_SETTINGS_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), WEBKIT_TYPE_WEB_SETTINGS, WebKitWebSettingsPrivate))
@@ -139,7 +144,10 @@ enum {
     PROP_EDITING_BEHAVIOR,
     PROP_ENABLE_UNIVERSAL_ACCESS_FROM_FILE_URIS,
     PROP_ENABLE_DOM_PASTE,
-    PROP_TAB_KEY_CYCLES_THROUGH_ELEMENTS
+    PROP_TAB_KEY_CYCLES_THROUGH_ELEMENTS,
+    PROP_ENABLE_DEFAULT_CONTEXT_MENU,
+    PROP_ENABLE_SITE_SPECIFIC_QUIRKS,
+    PROP_ENABLE_PAGE_CACHE
 };
 
 // Create a default user agent string
@@ -152,7 +160,7 @@ static String webkit_get_user_agent()
 
 #if PLATFORM(X11)
     platform = g_strdup("X11");
-#elif PLATFORM(WIN_OS)
+#elif OS(WINDOWS)
     platform = g_strdup("Windows");
 #elif PLATFORM(MAC)
     platform = g_strdup("Macintosh");
@@ -163,22 +171,22 @@ static String webkit_get_user_agent()
 #endif
 
    // FIXME: platform/version detection can be shared.
-#if PLATFORM(DARWIN)
+#if OS(DARWIN)
 
-#if PLATFORM(X86)
+#if CPU(X86)
     osVersion = g_strdup("Intel Mac OS X");
 #else
     osVersion = g_strdup("PPC Mac OS X");
 #endif
 
-#elif PLATFORM(UNIX)
+#elif OS(UNIX)
     struct utsname name;
     if (uname(&name) != -1)
         osVersion = g_strdup_printf("%s %s", name.sysname, name.machine);
     else
         osVersion = g_strdup("Unknown");
 
-#elif PLATFORM(WIN_OS)
+#elif OS(WINDOWS)
     // FIXME: Compute the Windows version
     osVersion = g_strdup("Windows");
 
@@ -686,6 +694,71 @@ static void webkit_web_settings_class_init(WebKitWebSettingsClass* klass)
                                                          TRUE,
                                                          flags));
 
+    /**
+     * WebKitWebSettings:enable-default-context-menu:
+     *
+     * Whether right-clicks should be handled automatically to create,
+     * and display the context menu. Turning this off will make
+     * WebKitGTK+ not emit the populate-popup signal. Notice that the
+     * default button press event handler may still handle right
+     * clicks for other reasons, such as in-page context menus, or
+     * right-clicks that are handled by the page itself.
+     *
+     * Since: 1.1.18
+     */
+    g_object_class_install_property(gobject_class,
+                                    PROP_ENABLE_DEFAULT_CONTEXT_MENU,
+                                    g_param_spec_boolean(
+                                    "enable-default-context-menu",
+                                    _("Enable Default Context Menu"),
+                                    _("Enables the handling of right-clicks for the creation of the default context menu"),
+                                    TRUE,
+                                    flags));
+
+    /**
+     * WebKitWebSettings::enable-site-specific-quirks
+     *
+     * Whether to turn on site-specific hacks.  Turning this on will
+     * tell WebKitGTK+ to use some site-specific workarounds for
+     * better web compatibility.  For example, older versions of
+     * MediaWiki will incorrectly send WebKit a css file with KHTML
+     * workarounds.  By turning on site-specific quirks, WebKit will
+     * special-case this and other cases to make the sites work.
+     *
+     * Since: 1.1.18
+     */
+    g_object_class_install_property(gobject_class,
+                                    PROP_ENABLE_SITE_SPECIFIC_QUIRKS,
+                                    g_param_spec_boolean(
+                                    "enable-site-specific-quirks",
+                                    _("Enable Site Specific Quirks"),
+                                    _("Enables the site-specific compatibility workarounds"),
+                                    FALSE,
+                                    flags));
+
+    /**
+    * WebKitWebSettings:enable-page-cache:
+    *
+    * Enable or disable the page cache. Disabling the page cache is
+    * generally only useful for special circumstances like low-memory
+    * scenarios or special purpose applications like static HTML
+    * viewers. This setting only controls the Page Cache, this cache
+    * is different than the disk-based or memory-based traditional
+    * resource caches, its point is to make going back and forth
+    * between pages much faster. For details about the different types
+    * of caches and their purposes see:
+    * http://webkit.org/blog/427/webkit-page-cache-i-the-basics/
+    *
+    * Since: 1.1.18
+    */
+    g_object_class_install_property(gobject_class,
+                                    PROP_ENABLE_PAGE_CACHE,
+                                    g_param_spec_boolean("enable-page-cache",
+                                                         _("Enable page cache"),
+                                                         _("Whether the page cache should be used"),
+                                                         FALSE,
+                                                         flags));
+
     g_type_class_add_private(klass, sizeof(WebKitWebSettingsPrivate));
 }
 
@@ -883,7 +956,16 @@ static void webkit_web_settings_set_property(GObject* object, guint prop_id, con
         priv->enable_dom_paste = g_value_get_boolean(value);
         break;
     case PROP_TAB_KEY_CYCLES_THROUGH_ELEMENTS:
-        priv->tab_key_cycles_through_elements =  g_value_get_boolean(value);
+        priv->tab_key_cycles_through_elements = g_value_get_boolean(value);
+        break;
+    case PROP_ENABLE_DEFAULT_CONTEXT_MENU:
+        priv->enable_default_context_menu = g_value_get_boolean(value);
+        break;
+    case PROP_ENABLE_SITE_SPECIFIC_QUIRKS:
+        priv->enable_site_specific_quirks = g_value_get_boolean(value);
+        break;
+    case PROP_ENABLE_PAGE_CACHE:
+        priv->enable_page_cache = g_value_get_boolean(value);
         break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -1002,7 +1084,16 @@ static void webkit_web_settings_get_property(GObject* object, guint prop_id, GVa
     case PROP_TAB_KEY_CYCLES_THROUGH_ELEMENTS:
         g_value_set_boolean(value, priv->tab_key_cycles_through_elements);
         break;
-   default:
+    case PROP_ENABLE_DEFAULT_CONTEXT_MENU:
+        g_value_set_boolean(value, priv->enable_default_context_menu);
+        break;
+    case PROP_ENABLE_SITE_SPECIFIC_QUIRKS:
+        g_value_set_boolean(value, priv->enable_site_specific_quirks);
+        break;
+    case PROP_ENABLE_PAGE_CACHE:
+        g_value_set_boolean(value, priv->enable_page_cache);
+        break;
+    default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
         break;
     }
@@ -1067,6 +1158,10 @@ WebKitWebSettings* webkit_web_settings_copy(WebKitWebSettings* web_settings)
                  "editing-behavior", priv->editing_behavior,
                  "enable-universal-access-from-file-uris", priv->enable_universal_access_from_file_uris,
                  "enable-dom-paste", priv->enable_dom_paste,
+                 "tab-key-cycles-through-elements", priv->tab_key_cycles_through_elements,
+                 "enable-default-context-menu", priv->enable_default_context_menu,
+                 "enable-site-specific-quirks", priv->enable_site_specific_quirks,
+                 "enable-page-cache", priv->enable_page_cache,
                  NULL));
 
     return copy;

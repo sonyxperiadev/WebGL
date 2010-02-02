@@ -82,7 +82,7 @@ namespace WebCore {
         //
         // all cases. All tasks posted from the worker context's thread are ok because
         //    the last task posted always is "mainThreadDestroy", so MainThreadBridge is
-        //    around for all tasks that use it on the mian thread.
+        //    around for all tasks that use it on the main thread.
         //
         // case 1. worker.terminate is called.
         //    In this case, no more tasks are posted from the worker object's thread to the worker
@@ -124,7 +124,7 @@ namespace WebCore {
 
             // ThreadableLoaderClientWrapper is to be used on the worker context thread.
             // The ref counting is done on either thread.
-            RefPtr<ThreadSafeShared<ThreadableLoaderClientWrapper> > m_workerClientWrapper;
+            RefPtr<ThreadableLoaderClientWrapper> m_workerClientWrapper;
 
             // May be used on either thread.
             WorkerLoaderProxy& m_loaderProxy;

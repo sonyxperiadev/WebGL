@@ -98,6 +98,7 @@ public:
     Node* mousePressNode() const;
     void setMousePressNode(PassRefPtr<Node>);
 
+    void startPanScrolling(RenderObject*);
     bool panScrollInProgress() { return m_panScrollInProgress; }
     void setPanScrollInProgress(bool inProgress) { m_panScrollInProgress = inProgress; }
 
@@ -205,12 +206,17 @@ public:
 #endif
 
 #if ENABLE(TOUCH_EVENTS)
+<<<<<<< HEAD
 #if PLATFORM(ANDROID)
     int handleTouchEvent(const PlatformTouchEvent&);
 #else
     bool handleTouchEvent(const PlatformTouchEvent&);
 #endif
 #endif
+=======
+    bool handleTouchEvent(const PlatformTouchEvent&);
+#endif
+>>>>>>> webkit.org at r54127
 
 private:
 #if ENABLE(DRAG_SUPPORT)
@@ -424,7 +430,10 @@ private:
     IntPoint m_firstTouchScreenPos;
     IntPoint m_firstTouchPagePos;
 #endif
+<<<<<<< HEAD
 
+=======
+>>>>>>> webkit.org at r54127
 };
 
 } // namespace WebCore

@@ -34,6 +34,7 @@
 #include "Attr.h"
 #include "BarInfo.h"
 #include "BeforeLoadEvent.h"
+#include "Blob.h"
 #include "WebGLActiveInfo.h"
 #include "WebGLArray.h"
 #include "WebGLArrayBuffer.h"
@@ -128,6 +129,7 @@
 #include "PageTransitionEvent.h"
 #include "Plugin.h"
 #include "PluginArray.h"
+#include "PopStateEvent.h"
 #include "ProcessingInstruction.h"
 #include "ProgressEvent.h"
 #include "Range.h"
@@ -186,11 +188,22 @@
 #include "StorageEvent.h"
 #endif // DOM_STORAGE
 
+#if ENABLE(EVENTSOURCE)
+#include "EventSource.h"
+#endif // EVENTSOURCE
+
 // GEOLOCATION
 #include "Coordinates.h"
 #include "Geolocation.h"
 #include "Geoposition.h"
 #include "PositionError.h"
+
+#if ENABLE(INDEXED_DATABASE)
+#include "IDBDatabaseError.h"
+#include "IDBDatabaseException.h"
+#include "IDBRequest.h"
+#include "IndexedDatabaseRequest.h"
+#endif // DATABASE
 
 #if ENABLE(SVG)
 #include "SVGAngle.h"

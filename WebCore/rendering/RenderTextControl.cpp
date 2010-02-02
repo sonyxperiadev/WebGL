@@ -195,7 +195,7 @@ void RenderTextControl::setInnerTextValue(const String& innerTextValue)
             ASSERT(!ec);
         }
 
-        // We set m_lastChangeWasUserEdit to false since this change was not explicty made by the user (say, via typing on the keyboard), see <rdar://problem/5359921>.
+        // We set m_lastChangeWasUserEdit to false since this change was not explicitly made by the user (say, via typing on the keyboard), see <rdar://problem/5359921>.
         m_lastChangeWasUserEdit = false;
     }
 
@@ -505,9 +505,10 @@ void RenderTextControl::selectionChanged(bool userTriggered)
     }
 }
 
-void RenderTextControl::addFocusRingRects(GraphicsContext* graphicsContext, int tx, int ty)
+void RenderTextControl::addFocusRingRects(Vector<IntRect>& rects, int tx, int ty)
 {
-    graphicsContext->addFocusRingRect(IntRect(tx, ty, width(), height()));
+    if (width() && height())
+        rects.append(IntRect(tx, ty, width(), height()));
 }
 
 HTMLElement* RenderTextControl::innerTextElement() const

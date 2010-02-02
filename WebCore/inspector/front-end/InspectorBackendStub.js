@@ -38,7 +38,6 @@ WebInspector.InspectorBackendStub = function()
     this._profilerEnabled = true;
     this._resourceTrackingEnabled = false;
     this._timelineEnabled = false;
-    this._settings = {};
 }
 
 WebInspector.InspectorBackendStub.prototype = {
@@ -101,19 +100,9 @@ WebInspector.InspectorBackendStub.prototype = {
     {
     },
 
-
-    addResourceSourceToFrame: function(identifier, element)
+    getResourceContent: function(callId, identifier)
     {
-    },
-
-    addSourceToFrame: function(mimeType, source, element)
-    {
-        return false;
-    },
-
-    getResourceDocumentNode: function(identifier)
-    {
-        return undefined;
+        WebInspector.didGetResourceContent(callId, "");
     },
 
     highlightDOMNode: function(node)
@@ -196,12 +185,12 @@ WebInspector.InspectorBackendStub.prototype = {
     {
     },
 
-    pauseOnExceptions: function()
+    pauseOnExceptionsState: function()
     {
-        return false;
+        return 0;
     },
 
-    setPauseOnExceptions: function(value)
+    setPauseOnExceptionsState: function(value)
     {
     },
 
@@ -266,9 +255,8 @@ WebInspector.InspectorBackendStub.prototype = {
     {
     },
 
-    setSetting: function(setting, value)
+    saveFrontendSettings: function()
     {
-        this._settings[setting] = value;
     },
 
     dispatchOnInjectedScript: function()
@@ -279,9 +267,8 @@ WebInspector.InspectorBackendStub.prototype = {
     {
     },
 
-    setting: function(setting)
+    setInjectedScriptSource: function()
     {
-        return this._settings[setting];
     }
 }
 

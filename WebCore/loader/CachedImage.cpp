@@ -30,6 +30,7 @@
 #include "CachedResourceClientWalker.h"
 #include "DocLoader.h"
 #include "Frame.h"
+#include "FrameLoaderTypes.h"
 #include "FrameView.h"
 #include "Request.h"
 #include "Settings.h"
@@ -84,8 +85,12 @@ void CachedImage::load(DocLoader* docLoader)
     if (!docLoader || (docLoader->autoLoadImages() && !docLoader->shouldBlockNetworkImage(m_url)))
 #else
     if (!docLoader || docLoader->autoLoadImages())
+<<<<<<< HEAD
 #endif
         CachedResource::load(docLoader, true, false, true);
+=======
+        CachedResource::load(docLoader, true, DoSecurityCheck, true);
+>>>>>>> webkit.org at r54127
     else
         m_loading = false;
 }

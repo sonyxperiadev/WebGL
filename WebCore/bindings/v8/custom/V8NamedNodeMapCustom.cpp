@@ -29,8 +29,9 @@
  */
 
 #include "config.h"
-#include "NamedNodeMap.h"
+#include "V8NamedNodeMap.h"
 
+#include "NamedNodeMap.h"
 #include "V8Binding.h"
 #include "V8CustomBinding.h"
 #include "V8Proxy.h"
@@ -39,10 +40,10 @@
 
 namespace WebCore {
 
-INDEXED_PROPERTY_GETTER(NamedNodeMap)
+v8::Handle<v8::Value> V8NamedNodeMap::indexedPropertyGetter(uint32_t index, const v8::AccessorInfo& info)
 {
     INC_STATS("DOM.NamedNodeMap.IndexedPropertyGetter");
-    NamedNodeMap* imp = V8DOMWrapper::convertToNativeObject<NamedNodeMap>(V8ClassIndex::NAMEDNODEMAP, info.Holder());
+    NamedNodeMap* imp = V8NamedNodeMap::toNative(info.Holder());
     RefPtr<Node> result = imp->item(index);
     if (!result)
         return notHandledByInterceptor();
@@ -50,7 +51,7 @@ INDEXED_PROPERTY_GETTER(NamedNodeMap)
     return V8DOMWrapper::convertNodeToV8Object(result.release());
 }
 
-NAMED_PROPERTY_GETTER(NamedNodeMap)
+v8::Handle<v8::Value> V8NamedNodeMap::namedPropertyGetter(v8::Local<v8::String> name, const v8::AccessorInfo& info)
 {
     INC_STATS("DOM.NamedNodeMap.NamedPropertyGetter");
     // Search the prototype chain first.
@@ -63,7 +64,7 @@ NAMED_PROPERTY_GETTER(NamedNodeMap)
         return notHandledByInterceptor();
 
     // Finally, search the DOM.
-    NamedNodeMap* imp = V8DOMWrapper::convertToNativeObject<NamedNodeMap>(V8ClassIndex::NAMEDNODEMAP, info.Holder());
+    NamedNodeMap* imp = V8NamedNodeMap::toNative(info.Holder());
     RefPtr<Node> result = imp->getNamedItem(toWebCoreString(name));
     if (!result)
         return notHandledByInterceptor();

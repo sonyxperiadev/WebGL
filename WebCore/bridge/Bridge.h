@@ -28,7 +28,10 @@
 #define Bridge_h
 
 #include "BridgeJSC.h"
+<<<<<<< HEAD
 #include <wtf/Noncopyable.h>
+=======
+>>>>>>> webkit.org at r54127
 
 namespace JSC  {
 

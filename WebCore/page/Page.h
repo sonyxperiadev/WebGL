@@ -21,20 +21,17 @@
 #ifndef Page_h
 #define Page_h
 
-#include "BackForwardList.h"
-#include "Chrome.h"
-#include "ContextMenuController.h"
 #include "FrameLoaderTypes.h"
-#include "LinkHash.h"
 #include "PlatformString.h"
+#include <wtf/Forward.h>
 #include <wtf/HashSet.h>
-#include <wtf/OwnPtr.h>
+#include <wtf/Noncopyable.h>
 
 #if PLATFORM(MAC)
 #include "SchedulePair.h"
 #endif
 
-#if PLATFORM(WIN) || (PLATFORM(WX) && PLATFORM(WIN_OS)) || (PLATFORM(QT) && defined(Q_WS_WIN))
+#if PLATFORM(WIN) || (PLATFORM(WX) && OS(WINDOWS)) || (PLATFORM(QT) && defined(Q_WS_WIN))
 typedef struct HINSTANCE__* HINSTANCE;
 #endif
 
@@ -44,6 +41,7 @@ namespace JSC {
 
 namespace WebCore {
 
+    class BackForwardList;
     class Chrome;
     class ChromeClient;
     class ContextMenuClient;
@@ -57,6 +55,7 @@ namespace WebCore {
     class GeolocationController;
     class GeolocationControllerClient;
     class HaltablePlugin;
+    class HistoryItem;
     class InspectorClient;
     class InspectorController;
     class InspectorTimelineAgent;
@@ -80,6 +79,8 @@ namespace WebCore {
 #if ENABLE(NOTIFICATIONS)
     class NotificationPresenter;
 #endif
+
+    typedef uint64_t LinkHash;
 
     enum FindDirection { FindDirectionForward, FindDirectionBackward };
 
@@ -131,8 +132,8 @@ namespace WebCore {
         PageGroup* groupPtr() { return m_group; } // can return 0
 
         void incrementFrameCount() { ++m_frameCount; }
-        void decrementFrameCount() { --m_frameCount; }
-        int frameCount() const { return m_frameCount; }
+        void decrementFrameCount() { ASSERT(m_frameCount); --m_frameCount; }
+        int frameCount() const { checkFrameCountConsistency(); return m_frameCount; }
 
         Chrome* chrome() const { return m_chrome.get(); }
         SelectionController* dragCaretController() const { return m_dragCaretController.get(); }
@@ -203,7 +204,7 @@ namespace WebCore {
         void setDebugger(JSC::Debugger*);
         JSC::Debugger* debugger() const { return m_debugger; }
 
-#if PLATFORM(WIN) || (PLATFORM(WX) && PLATFORM(WIN_OS)) || (PLATFORM(QT) && defined(Q_WS_WIN))
+#if PLATFORM(WIN) || (PLATFORM(WX) && OS(WINDOWS)) || (PLATFORM(QT) && defined(Q_WS_WIN))
         // The global DLL or application instance used for all windows.
         static void setInstanceHandle(HINSTANCE instanceHandle) { s_instanceHandle = instanceHandle; }
         static HINSTANCE instanceHandle() { return s_instanceHandle; }
@@ -242,6 +243,12 @@ namespace WebCore {
 #endif
     private:
         void initGroup();
+
+#if ASSERT_DISABLED
+        void checkFrameCountConsistency() const { }
+#else
+        void checkFrameCountConsistency() const;
+#endif
 
         OwnPtr<Chrome> m_chrome;
         OwnPtr<SelectionController> m_dragCaretController;

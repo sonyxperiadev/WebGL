@@ -45,7 +45,7 @@ class Node;
 class PlatformMouseEvent;
 class RenderLayer;
 class RenderObject;
-class RenderPartObject;
+class RenderEmbeddedObject;
 class ScheduledEvent;
 class String;
 
@@ -90,7 +90,6 @@ public:
     RenderObject* layoutRoot(bool onlyDuringLayout = false) const;
     int layoutCount() const { return m_layoutCount; }
 
-    // These two helper functions just pass through to the RenderView.
     bool needsLayout() const;
     void setNeedsLayout();
 
@@ -166,8 +165,8 @@ public:
     bool wasScrolledByUser() const;
     void setWasScrolledByUser(bool);
 
-    void addWidgetToUpdate(RenderPartObject*);
-    void removeWidgetToUpdate(RenderPartObject*);
+    void addWidgetToUpdate(RenderEmbeddedObject*);
+    void removeWidgetToUpdate(RenderEmbeddedObject*);
 
     virtual void paintContents(GraphicsContext*, const IntRect& damageRect);
     void setPaintBehavior(PaintBehavior);
@@ -257,7 +256,9 @@ private:
 
     IntSize m_size;
     IntSize m_margins;
-    OwnPtr<HashSet<RenderPartObject*> > m_widgetUpdateSet;
+    
+    typedef HashSet<RenderEmbeddedObject*> RenderEmbeddedObjectSet;
+    OwnPtr<RenderEmbeddedObjectSet> m_widgetUpdateSet;
     RefPtr<Frame> m_frame;
 
     bool m_doFullRepaint;

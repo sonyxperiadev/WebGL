@@ -38,17 +38,27 @@ RenderSVGViewportContainer::RenderSVGViewportContainer(SVGStyledElement* node)
 {
 }
 
-void RenderSVGViewportContainer::paint(PaintInfo& paintInfo, int parentX, int parentY)
+FloatRect RenderSVGViewportContainer::markerBoundaries(const TransformationMatrix& markerTransformation) const
 {
-    // FIXME: The if statement here evaluates to false. isEmpty() is exactly the same
-    // as what is on the right side, so it's basically !isEmpty && isEmpty. So this
-    // function does nothing.
+    FloatRect coordinates = repaintRectInLocalCoordinates();
 
-    // A value of zero disables rendering of the element. 
-    if (!m_viewport.isEmpty() && (m_viewport.width() <= 0. || m_viewport.height() <= 0.))
-        return;
+    // Map repaint rect into parent coordinate space, in which the marker boundaries have to be evaluated
+    coordinates = localToParentTransform().mapRect(coordinates);
 
-    RenderSVGContainer::paint(paintInfo, parentX, parentY);
+    return markerTransformation.mapRect(coordinates);
+}
+
+TransformationMatrix RenderSVGViewportContainer::markerContentTransformation(const TransformationMatrix& contentTransformation, const FloatPoint& origin, float strokeWidth) const
+{
+    // The 'origin' coordinate maps to SVGs refX/refY, given in coordinates relative to the viewport established by the marker
+    FloatPoint mappedOrigin = viewportTransform().mapPoint(origin);
+
+    TransformationMatrix transformation = contentTransformation;
+    if (strokeWidth != -1)
+        transformation.scaleNonUniform(strokeWidth, strokeWidth);
+
+    transformation.translate(-mappedOrigin.x(), -mappedOrigin.y());
+    return transformation;
 }
 
 void RenderSVGViewportContainer::applyViewportClip(PaintInfo& paintInfo)
@@ -95,11 +105,12 @@ TransformationMatrix RenderSVGViewportContainer::viewportTransform() const
     return TransformationMatrix();
 }
 
-TransformationMatrix RenderSVGViewportContainer::localToParentTransform() const
+const TransformationMatrix& RenderSVGViewportContainer::localToParentTransform() const
 {
     TransformationMatrix viewportTranslation;
     viewportTranslation.translate(m_viewport.x(), m_viewport.y());
-    return viewportTransform() * viewportTranslation;
+    m_localToParentTransform = viewportTransform() * viewportTranslation;
+    return m_localToParentTransform;
     // If this class were ever given a localTransform(), then the above would read:
     // return viewportTransform() * localTransform() * viewportTranslation;
 }
@@ -125,5 +136,3 @@ bool RenderSVGViewportContainer::pointIsInsideViewportClip(const FloatPoint& poi
 }
 
 #endif // ENABLE(SVG)
-
-// vim:ts=4:noet

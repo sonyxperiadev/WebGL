@@ -28,6 +28,10 @@
 #include "PluginView.h"
 
 #include "Bridge.h"
+<<<<<<< HEAD
+=======
+#include "Chrome.h"
+>>>>>>> webkit.org at r54127
 #include "Document.h"
 #include "DocumentLoader.h"
 #include "Element.h"
@@ -46,7 +50,7 @@
 #include "Page.h"
 #include "FocusController.h"
 #include "PlatformMouseEvent.h"
-#if PLATFORM(WIN_OS) && ENABLE(NETSCAPE_PLUGIN_API)
+#if OS(WINDOWS) && ENABLE(NETSCAPE_PLUGIN_API)
 #include "PluginMessageThrottlerWin.h"
 #endif
 #include "PluginPackage.h"
@@ -61,6 +65,7 @@
 #include "RenderObject.h"
 #include "npruntime_impl.h"
 #include "Settings.h"
+<<<<<<< HEAD
 #include <wtf/ASCIICType.h>
 
 #if defined(ANDROID_PLUGINS)
@@ -72,6 +77,8 @@
 #include "JSDOMBinding.h"
 #include "c_instance.h"
 #include "runtime_root.h"
+=======
+>>>>>>> webkit.org at r54127
 #include <runtime/JSLock.h>
 #include <runtime/JSValue.h>
 
@@ -131,7 +138,7 @@ void PluginView::setFrameRect(const IntRect& rect)
 
     updatePluginWidget();
 
-#if PLATFORM(WIN_OS) || PLATFORM(SYMBIAN)
+#if OS(WINDOWS) || OS(SYMBIAN)
     // On Windows and Symbian, always call plugin to change geometry.
     setNPWindowRect(rect);
 #elif defined(XP_UNIX)
@@ -151,10 +158,14 @@ void PluginView::handleEvent(Event* event)
     if (!m_plugin || m_isWindowed)
         return;
 
+    // Protect the plug-in from deletion while dispatching the event.
+    RefPtr<PluginView> protect(this);
+
     if (event->isMouseEvent())
         handleMouseEvent(static_cast<MouseEvent*>(event));
     else if (event->isKeyboardEvent())
         handleKeyboardEvent(static_cast<KeyboardEvent*>(event));
+<<<<<<< HEAD
 #if defined(ANDROID_PLUGINS)
     else if (event->isTouchEvent())
         handleTouchEvent(static_cast<TouchEvent*>(event));
@@ -164,6 +175,9 @@ void PluginView::handleEvent(Event* event)
         handleFocusEvent(true);
 #endif
 #if defined(Q_WS_X11) && ENABLE(NETSCAPE_PLUGIN_API)
+=======
+#if defined(XP_UNIX) && ENABLE(NETSCAPE_PLUGIN_API)
+>>>>>>> webkit.org at r54127
     else if (event->type() == eventNames().DOMFocusOutEvent)
         handleFocusOutEvent();
     else if (event->type() == eventNames().DOMFocusInEvent)
@@ -333,7 +347,7 @@ void PluginView::stop()
 #ifdef XP_WIN
     // Unsubclass the window
     if (m_isWindowed) {
-#if PLATFORM(WINCE)
+#if OS(WINCE)
         WNDPROC currentWndProc = (WNDPROC)GetWindowLong(platformPluginWidget(), GWL_WNDPROC);
 
         if (currentWndProc == PluginViewWndProc)
@@ -854,6 +868,7 @@ PluginView::PluginView(Frame* parentFrame, const IntSize& size, PluginPackage* p
     , m_requestTimer(this, &PluginView::requestTimerFired)
     , m_invalidateTimer(this, &PluginView::invalidateTimerFired)
     , m_popPopupsStateTimer(this, &PluginView::popPopupsStateTimerFired)
+    , m_mode(loadManually ? NP_FULL : NP_EMBED)
     , m_paramNames(0)
     , m_paramValues(0)
     , m_mimeType(mimeType)
@@ -865,17 +880,17 @@ PluginView::PluginView(Frame* parentFrame, const IntSize& size, PluginPackage* p
     , m_isTransparent(false)
     , m_haveInitialized(false)
     , m_isWaitingToStart(false)
-#if defined(XP_UNIX) || defined(Q_WS_X11)
+#if defined(XP_UNIX)
     , m_needsXEmbed(false)
 #endif
-#if PLATFORM(WIN_OS) && ENABLE(NETSCAPE_PLUGIN_API)
+#if OS(WINDOWS) && ENABLE(NETSCAPE_PLUGIN_API)
     , m_pluginWndProc(0)
     , m_lastMessage(0)
     , m_isCallingPluginWndProc(false)
     , m_wmPrintHDC(0)
     , m_haveUpdatedPluginWidget(false)
 #endif
-#if (PLATFORM(QT) && PLATFORM(WIN_OS)) || defined(XP_MACOSX)
+#if (PLATFORM(QT) && OS(WINDOWS)) || defined(XP_MACOSX)
     , m_window(0)
 #endif
 #if defined(XP_MACOSX)
@@ -884,7 +899,7 @@ PluginView::PluginView(Frame* parentFrame, const IntSize& size, PluginPackage* p
     , m_contextRef(0)
     , m_fakeWindow(0)
 #endif
-#if defined(Q_WS_X11) && ENABLE(NETSCAPE_PLUGIN_API)
+#if defined(XP_UNIX) && ENABLE(NETSCAPE_PLUGIN_API)
     , m_hasPendingGeometryChange(true)
     , m_drawable(0)
     , m_visual(0)
@@ -916,8 +931,6 @@ PluginView::PluginView(Frame* parentFrame, const IntSize& size, PluginPackage* p
 #if defined(XP_MACOSX)
     memset(&m_npCgContext, 0, sizeof(m_npCgContext));
 #endif
-
-    m_mode = m_loadManually ? NP_FULL : NP_EMBED;
 
     resize(size);
 }
@@ -1292,7 +1305,7 @@ static const char* MozillaUserAgent = "Mozilla/5.0 ("
         "Windows; U; Windows NT 5.1;"
 #elif defined(XP_UNIX)
 // The Gtk port uses X11 plugins in Mac.
-#if PLATFORM(DARWIN) && PLATFORM(GTK)
+#if OS(DARWIN) && PLATFORM(GTK)
     "X11; U; Intel Mac OS X;"
 #else
     "X11; U; Linux i686;"

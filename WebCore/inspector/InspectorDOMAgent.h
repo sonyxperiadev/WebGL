@@ -98,9 +98,14 @@ namespace WebCore {
         void setDocument(Document* document);
         void releaseDanglingNodes();
 
+        void didInsertDOMNode(Node*);
+        void didRemoveDOMNode(Node*);
+        void didModifyDOMAttr(Element*);
+
         Node* nodeForId(long nodeId);
         Node* nodeForPath(const String& path);
         long pushNodePathToFrontend(Node* node);
+        void pushChildNodesToFrontend(long nodeId);
 
    private:
         void startListening(Document* document);
@@ -113,7 +118,6 @@ namespace WebCore {
         void unbind(Node* node, NodeToIdMap* nodesMap);
 
         bool pushDocumentToFrontend();
-        void pushChildNodesToFrontend(long nodeId);
 
         ScriptObject buildObjectForNode(Node* node, int depth, NodeToIdMap* nodesMap);
         ScriptArray buildArrayForElementAttributes(Element* element);
@@ -131,6 +135,7 @@ namespace WebCore {
         bool isWhitespace(Node* node);
 
         Document* mainFrameDocument() const;
+        String documentURLString(Document* document) const;
         void discardBindings();
 
         InspectorFrontend* m_frontend;

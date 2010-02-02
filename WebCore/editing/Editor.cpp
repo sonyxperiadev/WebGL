@@ -1077,6 +1077,8 @@ void Editor::paste()
 
 void Editor::pasteAsPlainText()
 {
+    if (tryDHTMLPaste())
+        return;
     if (!canPaste())
         return;
     pasteAsPlainTextWithPasteboard(Pasteboard::generalPasteboard());
@@ -1391,8 +1393,11 @@ void Editor::confirmComposition(const String& text, bool preserveSelection)
 
     insertText(text, 0);
 
-    if (preserveSelection)
+    if (preserveSelection) {
         m_frame->selection()->setSelection(oldSelection, false, false);
+        // An open typing command that disagrees about current selection would cause issues with typing later on.
+        TypingCommand::closeTyping(m_lastEditCommand.get());
+    }
 
     setIgnoreCompositionSelectionChange(false);
 }
@@ -1497,7 +1502,7 @@ void Editor::learnSpelling()
     if (!client())
         return;
         
-    // FIXME: We don't call this on the Mac, and it should remove misppelling markers around the 
+    // FIXME: We don't call this on the Mac, and it should remove misspelling markers around the 
     // learned word, see <rdar://problem/5396072>.
 
     String text = frame()->selectedText();

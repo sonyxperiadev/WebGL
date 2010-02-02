@@ -29,19 +29,19 @@
  */
 
 #include "config.h"
+#include "V8XMLHttpRequest.h"
 
 #include "Frame.h"
 #include "V8Binding.h"
 #include "V8CustomBinding.h"
 #include "V8Proxy.h"
 #include "V8Utilities.h"
-#include "XMLHttpRequest.h"
 #include "WorkerContext.h"
 #include "WorkerContextExecutionProxy.h"
 
 namespace WebCore {
 
-CALLBACK_FUNC_DECL(XMLHttpRequestConstructor)
+v8::Handle<v8::Value> V8XMLHttpRequest::constructorCallback(const v8::Arguments& args)
 {
     INC_STATS("DOM.XMLHttpRequest.Constructor");
 

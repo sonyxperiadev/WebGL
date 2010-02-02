@@ -114,6 +114,10 @@ public:
     void handleSoftwareInputPanel(Qt::MouseButton);
     bool handleScrolling(QKeyEvent*, WebCore::Frame*);
 
+#if QT_VERSION >= QT_VERSION_CHECK(4, 6, 0)
+    void touchEvent(QTouchEvent*);
+#endif
+
     void setInspector(QWebInspector*);
     QWebInspector* getOrCreateInspector();
     WebCore::InspectorController* inspectorController();
@@ -176,6 +180,7 @@ public:
     QWidget* inspectorFrontend;
     QWebInspector* inspector;
     bool inspectorIsInternalOnly; // True if created through the Inspect context menu action
+    Qt::DropAction m_lastDropAction;
 
     static bool drtRun;
 };

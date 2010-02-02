@@ -32,11 +32,13 @@
 #define DOMUtilitiesPrivate_h
 
 namespace WebCore {
+class Element;
 class HTMLInputElement;
 class HTMLLinkElement;
 class HTMLMetaElement;
 class HTMLOptionElement;
 class Node;
+class QualifiedName;
 class String;
 }
 
@@ -52,6 +54,16 @@ WebCore::HTMLOptionElement* toHTMLOptionElement(WebCore::Node*);
 
 // FIXME: Deprecate. Use WebInputElement::nameForAutofill instead.
 WebCore::String nameOfInputElement(WebCore::HTMLInputElement*);
+
+// For img, script, iframe, frame element, when attribute name is src,
+// for link, a, area element, when attribute name is href,
+// for form element, when attribute name is action,
+// for input, type=image, when attribute name is src,
+// for body, table, tr, td, when attribute name is background,
+// for blockquote, q, del, ins, when attribute name is cite,
+// we can consider the attribute value has legal link.
+bool elementHasLegalLinkAttribute(const WebCore::Element* element,
+                                  const WebCore::QualifiedName& attrName);
 
 } // namespace WebKit
 

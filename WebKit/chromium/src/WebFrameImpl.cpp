@@ -84,7 +84,6 @@
 #include "Editor.h"
 #include "EventHandler.h"
 #include "FormState.h"
-#include "FrameChromium.h"
 #include "FrameLoader.h"
 #include "FrameLoadRequest.h"
 #include "FrameTree.h"
@@ -104,6 +103,7 @@
 #include "PlatformContextSkia.h"
 #include "PrintContext.h"
 #include "RenderFrame.h"
+#include "RenderTreeAsText.h"
 #include "RenderView.h"
 #include "RenderWidget.h"
 #include "ReplaceSelectionCommand.h"
@@ -120,8 +120,10 @@
 #include "SubstituteData.h"
 #include "TextAffinity.h"
 #include "TextIterator.h"
+#include "WebAnimationControllerImpl.h"
 #include "WebConsoleMessage.h"
 #include "WebDataSourceImpl.h"
+#include "WebDocument.h"
 #include "WebFindOptions.h"
 #include "WebFormElement.h"
 #include "WebFrameClient.h"
@@ -142,17 +144,19 @@
 #include <wtf/CurrentTime.h>
 
 
-#if PLATFORM(DARWIN)
+#if OS(DARWIN)
 #include "LocalCurrentGraphicsContext.h"
 #endif
 
-#if PLATFORM(LINUX)
+#if OS(LINUX)
 #include <gdk/gdk.h>
 #endif
 
 using namespace WebCore;
 
 namespace WebKit {
+
+static int frameCount = 0;
 
 // Key for a StatsCounter tracking how many WebFrames are active.
 static const char* const webFrameActiveCount = "WebFrameActiveCount";
@@ -329,6 +333,11 @@ private:
 
 // WebFrame -------------------------------------------------------------------
 
+int WebFrame::instanceCount()
+{
+    return frameCount;
+}
+
 WebFrame* WebFrame::frameForEnteredContext()
 {
     Frame* frame =
@@ -343,9 +352,20 @@ WebFrame* WebFrame::frameForCurrentContext()
     return WebFrameImpl::fromFrame(frame);
 }
 
+WebFrame* WebFrame::fromFrameOwnerElement(const WebElement& element)
+{
+    return WebFrameImpl::fromFrameOwnerElement(
+        PassRefPtr<Element>(element).get());
+}
+
 WebString WebFrameImpl::name() const
 {
     return m_frame->tree()->name();
+}
+
+void WebFrameImpl::clearName()
+{
+    m_frame->tree()->clearName();
 }
 
 WebURL WebFrameImpl::url() const
@@ -389,6 +409,11 @@ WebURL WebFrameImpl::openSearchDescriptionURL() const
         }
     }
     return WebURL();
+}
+
+WebString WebFrameImpl::encoding() const
+{
+    return frame()->loader()->encoding();
 }
 
 WebSize WebFrameImpl::scrollOffset() const
@@ -515,6 +540,13 @@ WebFrame* WebFrameImpl::findChildByExpression(const WebString& xpath) const
     return fromFrame(frameElement->contentFrame());
 }
 
+WebDocument WebFrameImpl::document() const
+{
+    if (!m_frame || !m_frame->document())
+        return WebDocument();
+    return WebDocument(m_frame->document());
+}
+
 void WebFrameImpl::forms(WebVector<WebFormElement>& results) const
 {
     if (!m_frame)
@@ -531,6 +563,11 @@ void WebFrameImpl::forms(WebVector<WebFormElement>& results) const
             temp[i] = static_cast<HTMLFormElement*>(node);
     }
     results.swap(temp);
+}
+
+WebAnimationController* WebFrameImpl::animationController()
+{
+    return &m_animationController;
 }
 
 WebSecurityOrigin WebFrameImpl::securityOrigin() const
@@ -559,7 +596,7 @@ NPObject* WebFrameImpl::windowObject() const
 void WebFrameImpl::bindToWindowObject(const WebString& name, NPObject* object)
 {
     ASSERT(m_frame);
-    if (!m_frame || !m_frame->script()->isEnabled())
+    if (!m_frame || !m_frame->script()->canExecuteScripts())
         return;
 
     String key = name;
@@ -574,19 +611,6 @@ void WebFrameImpl::executeScript(const WebScriptSource& source)
 {
     m_frame->script()->executeScript(
         ScriptSourceCode(source.code, source.url, source.startLine));
-}
-
-void WebFrameImpl::executeScriptInNewContext(
-    const WebScriptSource* sourcesIn, unsigned numSources, int extensionGroup)
-{
-    Vector<ScriptSourceCode> sources;
-
-    for (unsigned i = 0; i < numSources; ++i) {
-        sources.append(ScriptSourceCode(
-            sourcesIn[i].code, sourcesIn[i].url, sourcesIn[i].startLine));
-    }
-
-    m_frame->script()->evaluateInNewContext(sources, extensionGroup);
 }
 
 void WebFrameImpl::executeScriptInIsolatedWorld(
@@ -1037,7 +1061,7 @@ WebString WebFrameImpl::selectionAsText() const
         return WebString();
 
     String text = range->text();
-#if PLATFORM(WIN_OS)
+#if OS(WINDOWS)
     replaceNewlinesWithWindowsStyleNewlines(text);
 #endif
     replaceNBSPWithSpace(text);
@@ -1087,10 +1111,10 @@ float WebFrameImpl::printPage(int page, WebCanvas* canvas)
         return 0;
     }
 
-#if PLATFORM(WIN_OS) || PLATFORM(LINUX) || PLATFORM(FREEBSD)
+#if OS(WINDOWS) || OS(LINUX) || OS(FREEBSD)
     PlatformContextSkia context(canvas);
     GraphicsContext spool(&context);
-#elif PLATFORM(DARWIN)
+#elif OS(DARWIN)
     GraphicsContext spool(canvas);
     LocalCurrentGraphicsContext localContext(&spool);
 #endif
@@ -1212,8 +1236,7 @@ void WebFrameImpl::stopFinding(bool clearSelection)
     cancelPendingScopingEffort();
 
     // Remove all markers for matches found and turn off the highlighting.
-    if (!parent())
-        frame()->document()->removeMarkers(DocumentMarker::TextMatch);
+    frame()->document()->removeMarkers(DocumentMarker::TextMatch);
     frame()->setMarkedTextMatchesAreHighlighted(false);
 
     // Let the frame know that we don't want tickmarks or highlighting anymore.
@@ -1456,9 +1479,24 @@ WebString WebFrameImpl::contentAsMarkup() const
     return createFullMarkup(m_frame->document());
 }
 
-// WebFrameImpl public ---------------------------------------------------------
+WebString WebFrameImpl::renderTreeAsText() const
+{
+    return externalRepresentation(m_frame);
+}
 
-int WebFrameImpl::m_liveObjectCount = 0;
+WebString WebFrameImpl::counterValueForElementById(const WebString& id) const
+{
+    if (!m_frame)
+        return WebString();
+
+    Element* element = m_frame->document()->getElementById(id);
+    if (!element)
+        return WebString();
+
+    return counterValueForElement(element);
+}
+
+// WebFrameImpl public ---------------------------------------------------------
 
 PassRefPtr<WebFrameImpl> WebFrameImpl::create(WebFrameClient* client)
 {
@@ -1477,15 +1515,16 @@ WebFrameImpl::WebFrameImpl(WebFrameClient* client)
     , m_framesScopingCount(-1)
     , m_scopingComplete(false)
     , m_nextInvalidateAfter(0)
+    , m_animationController(this)
 {
     ChromiumBridge::incrementStatsCounter(webFrameActiveCount);
-    m_liveObjectCount++;
+    frameCount++;
 }
 
 WebFrameImpl::~WebFrameImpl()
 {
     ChromiumBridge::decrementStatsCounter(webFrameActiveCount);
-    m_liveObjectCount--;
+    frameCount--;
 
     cancelPendingScopingEffort();
     clearPasswordListeners();
@@ -1631,6 +1670,19 @@ WebFrameImpl* WebFrameImpl::fromFrame(Frame* frame)
     return static_cast<FrameLoaderClientImpl*>(frame->loader()->client())->webFrame();
 }
 
+WebFrameImpl* WebFrameImpl::fromFrameOwnerElement(Element* element)
+{
+    if (!element
+        || !element->isFrameOwnerElement()
+        || (!element->hasTagName(HTMLNames::iframeTag)
+            && !element->hasTagName(HTMLNames::frameTag)))
+        return 0;
+
+    HTMLFrameOwnerElement* frameElement =
+        static_cast<HTMLFrameOwnerElement*>(element);
+    return fromFrame(frameElement->contentFrame());
+}
+    
 WebViewImpl* WebFrameImpl::viewImpl() const
 {
     if (!m_frame)

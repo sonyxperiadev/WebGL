@@ -44,6 +44,7 @@
 #include "Frame.h"
 #include "FrameView.h"
 #include "GraphicsContext.h"
+#include "HostWindow.h"
 #include "Image.h"
 #include "HTMLNames.h"
 #include "HTMLPlugInElement.h"
@@ -71,11 +72,15 @@
 #include <runtime/JSValue.h>
 #include <wtf/ASCIICType.h>
 
-#if PLATFORM(WINCE)
+#if OS(WINCE)
 #undef LOG_NPERROR
 #define LOG_NPERROR(x)
 #undef LOG_PLUGIN_NET_ERROR
 #define LOG_PLUGIN_NET_ERROR()
+#endif
+
+#if PLATFORM(CAIRO)
+#include <cairo-win32.h>
 #endif
 
 #if PLATFORM(QT)
@@ -93,7 +98,9 @@ static inline HWND windowHandleForPageClient(PlatformPageClient client)
 #if PLATFORM(QT)
     if (!client)
         return 0;
-    return client->ownerWidget()->winId();
+    if (QWidget* pluginParent = qobject_cast<QWidget*>(client->pluginParent()))
+        return pluginParent->winId();
+    return 0;
 #elif PLATFORM(WX)
     if (!client)
         return 0;
@@ -119,7 +126,7 @@ using namespace HTMLNames;
 const LPCWSTR kWebPluginViewdowClassName = L"WebPluginView";
 const LPCWSTR kWebPluginViewProperty = L"WebPluginViewProperty";
 
-#if !PLATFORM(WINCE)
+#if !OS(WINCE)
 // The code used to hook BeginPaint/EndPaint originally came from
 // <http://www.fengyuan.com/article/wmprint.html>.
 // Copyright (C) 2000 by Feng Yuan (www.fengyuan.com).
@@ -133,7 +140,7 @@ static BYTE* endPaint;
 typedef HDC (WINAPI *PtrBeginPaint)(HWND, PAINTSTRUCT*);
 typedef BOOL (WINAPI *PtrEndPaint)(HWND, const PAINTSTRUCT*);
 
-#if PLATFORM(WIN_OS) && PLATFORM(X86_64) && COMPILER(MSVC)
+#if OS(WINDOWS) && PLATFORM(X86_64) && COMPILER(MSVC)
 extern "C" HDC __stdcall _HBeginPaint(HWND hWnd, LPPAINTSTRUCT lpPaint);
 extern "C" BOOL __stdcall _HEndPaint(HWND hWnd, const PAINTSTRUCT* lpPaint);
 #endif
@@ -287,7 +294,7 @@ static bool registerPluginView()
 
     ASSERT(Page::instanceHandle());
 
-#if PLATFORM(WINCE)
+#if OS(WINCE)
     WNDCLASS wcex = { 0 };
 #else
     WNDCLASSEX wcex;
@@ -296,7 +303,7 @@ static bool registerPluginView()
 #endif
 
     wcex.style          = CS_DBLCLKS;
-#if PLATFORM(WINCE)
+#if OS(WINCE)
     wcex.style          |= CS_PARENTDC;
 #endif
     wcex.lpfnWndProc    = DefWindowProc;
@@ -309,7 +316,7 @@ static bool registerPluginView()
     wcex.lpszMenuName   = 0;
     wcex.lpszClassName  = kWebPluginViewdowClassName;
 
-#if PLATFORM(WINCE)
+#if OS(WINCE)
     return !!RegisterClass(&wcex);
 #else
     return !!RegisterClassEx(&wcex);
@@ -385,7 +392,7 @@ PluginView::wndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         m_popPopupsStateTimer.startOneShot(0);
     }
 
-#if !PLATFORM(WINCE)
+#if !OS(WINCE)
     if (message == WM_PRINTCLIENT) {
         // Most (all?) windowed plugins don't respond to WM_PRINTCLIENT, so we
         // change the message to WM_PAINT and rely on our hooked versions of
@@ -416,7 +423,7 @@ void PluginView::updatePluginWidget()
     IntRect oldWindowRect = m_windowRect;
     IntRect oldClipRect = m_clipRect;
 
-#if PLATFORM(WINCE)
+#if OS(WINCE)
     m_windowRect = frameView->contentsToWindow(frameRect());
 #else
     m_windowRect = IntRect(frameView->contentsToWindow(frameRect().location()), frameRect().size());
@@ -519,7 +526,7 @@ void PluginView::paintIntoTransformedContext(HDC hdc)
 
     WINDOWPOS windowpos = { 0 };
 
-#if PLATFORM(WINCE)
+#if OS(WINCE)
     IntRect r = static_cast<FrameView*>(parent())->contentsToWindow(frameRect());
 
     windowpos.x = r.x();
@@ -556,7 +563,7 @@ void PluginView::paintIntoTransformedContext(HDC hdc)
 
 void PluginView::paintWindowedPluginIntoContext(GraphicsContext* context, const IntRect& rect)
 {
-#if !PLATFORM(WINCE)
+#if !OS(WINCE)
     ASSERT(m_isWindowed);
     ASSERT(context->shouldIncludeChildWindows());
 
@@ -565,14 +572,22 @@ void PluginView::paintWindowedPluginIntoContext(GraphicsContext* context, const 
 
     HDC hdc = context->getWindowsContext(frameRect(), false);
 
+#if PLATFORM(CAIRO)
+    // Must flush drawings up to this point to the backing metafile, otherwise the
+    // plugin region will be overwritten with any clear regions specified in the
+    // cairo-controlled portions of the rendering.
+    PlatformGraphicsContext* ctx = context->platformContext();
+    cairo_show_page(ctx);
+#endif
+
     XFORM originalTransform;
     GetWorldTransform(hdc, &originalTransform);
 
     // The plugin expects the DC to be in client coordinates, so we translate
     // the DC to make that so.
-    XFORM transform = originalTransform;
-    transform.eDx = locationInWindow.x();
-    transform.eDy = locationInWindow.y();
+    TransformationMatrix ctm = context->getCTM();
+    ctm.translate(locationInWindow.x(), locationInWindow.y());
+    XFORM transform = static_cast<XFORM>(ctm);
 
     SetWorldTransform(hdc, &transform);
 
@@ -596,7 +611,7 @@ void PluginView::paint(GraphicsContext* context, const IntRect& rect)
         return;
 
     if (m_isWindowed) {
-#if !PLATFORM(WINCE)
+#if !OS(WINCE)
         if (context->shouldIncludeChildWindows())
             paintWindowedPluginIntoContext(context, rect);
 #endif
@@ -611,7 +626,7 @@ void PluginView::paint(GraphicsContext* context, const IntRect& rect)
     // of the window and the plugin expects that the passed in DC has window coordinates.
     // In the Qt port we always draw in an offscreen buffer and therefore need to preserve
     // the translation set in getWindowsContext.
-#if !PLATFORM(QT) && !PLATFORM(WINCE)
+#if !PLATFORM(QT) && !OS(WINCE)
     if (!context->inTransparencyLayer()) {
         XFORM transform;
         GetWorldTransform(hdc, &transform);
@@ -645,7 +660,7 @@ void PluginView::handleKeyboardEvent(KeyboardEvent* event)
         event->setDefaultHandled();
 }
 
-#if !PLATFORM(WINCE)
+#if !OS(WINCE)
 extern HCURSOR lastSetCursor;
 extern bool ignoreNextSetCursor;
 #endif
@@ -713,7 +728,7 @@ void PluginView::handleMouseEvent(MouseEvent* event)
     if (!dispatchNPEvent(npEvent))
         event->setDefaultHandled();
 
-#if !PLATFORM(QT) && !PLATFORM(WX) && !PLATFORM(WINCE)
+#if !PLATFORM(QT) && !PLATFORM(WX) && !OS(WINCE)
     // Currently, Widget::setCursor is always called after this function in EventHandler.cpp
     // and since we don't want that we set ignoreNextSetCursor to true here to prevent that.
     ignoreNextSetCursor = true;
@@ -725,7 +740,7 @@ void PluginView::setParent(ScrollView* parent)
 {
     Widget::setParent(parent);
 
-#if PLATFORM(WINCE)
+#if OS(WINCE)
     if (parent) {
         init();
         if (parent->isVisible())
@@ -770,7 +785,7 @@ void PluginView::setNPWindowRect(const IntRect& rect)
     if (!m_isStarted)
         return;
 
-#if PLATFORM(WINCE)
+#if OS(WINCE)
     IntRect r = static_cast<FrameView*>(parent())->contentsToWindow(rect);
     m_npWindow.x = r.x();
     m_npWindow.y = r.y();
@@ -805,7 +820,7 @@ void PluginView::setNPWindowRect(const IntRect& rect)
 
         ASSERT(platformPluginWidget());
 
-#if PLATFORM(WINCE)
+#if OS(WINCE)
         if (!m_pluginWndProc) {
             WNDPROC currentWndProc = (WNDPROC)GetWindowLong(platformPluginWidget(), GWL_WNDPROC);
             if (currentWndProc != PluginViewWndProc)
@@ -986,7 +1001,7 @@ bool PluginView::platformStart()
 
     if (m_isWindowed) {
         registerPluginView();
-#if !PLATFORM(WINCE)
+#if !OS(WINCE)
         setUpOffscreenPaintingHooks(hookedBeginPaint, hookedEndPaint);
 #endif
 
@@ -998,7 +1013,7 @@ bool PluginView::platformStart()
         HWND window = ::CreateWindowEx(0, kWebPluginViewdowClassName, 0, flags,
                                        0, 0, 0, 0, parentWindowHandle, 0, Page::instanceHandle(), 0);
 
-#if PLATFORM(WIN_OS) && (PLATFORM(QT) || PLATFORM(WX))
+#if OS(WINDOWS) && (PLATFORM(QT) || PLATFORM(WX))
         m_window = window;
 #else
         setPlatformWidget(window);
@@ -1006,9 +1021,9 @@ bool PluginView::platformStart()
 
         // Calling SetWindowLongPtrA here makes the window proc ASCII, which is required by at least
         // the Shockwave Director plug-in.
-#if PLATFORM(WIN_OS) && PLATFORM(X86_64) && COMPILER(MSVC)
+#if OS(WINDOWS) && PLATFORM(X86_64) && COMPILER(MSVC)
         ::SetWindowLongPtrA(platformPluginWidget(), GWLP_WNDPROC, (LONG_PTR)DefWindowProcA);
-#elif PLATFORM(WINCE)
+#elif OS(WINCE)
         ::SetWindowLong(platformPluginWidget(), GWL_WNDPROC, (LONG)DefWindowProc);
 #else
         ::SetWindowLongPtrA(platformPluginWidget(), GWL_WNDPROC, (LONG)DefWindowProcA);

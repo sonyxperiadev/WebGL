@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007, 2008, 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2007, 2008, 2009, 2010 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -32,10 +32,17 @@
 #include "Timer.h"
 #include <QTMovieWin.h>
 #include <wtf/OwnPtr.h>
+#include <wtf/RetainPtr.h>
+
+#if USE(ACCELERATED_COMPOSITING)
+#include "GraphicsLayerClient.h"
+#endif 
 
 #ifndef DRAW_FRAME_RATE
 #define DRAW_FRAME_RATE 0
 #endif
+
+typedef struct CGImage *CGImageRef;
 
 namespace WebCore {
 
@@ -44,14 +51,31 @@ class IntSize;
 class IntRect;
 class String;
 
-class MediaPlayerPrivate : public MediaPlayerPrivateInterface, public QTMovieWinClient {
+class MediaPlayerPrivate : public MediaPlayerPrivateInterface, public QTMovieWinClient 
+#if USE(ACCELERATED_COMPOSITING)
+        , public GraphicsLayerClient
+#endif 
+{
 public:
     static void registerMediaEngine(MediaEngineRegistrar);
 
     ~MediaPlayerPrivate();
 
 private:
+
+#if USE(ACCELERATED_COMPOSITING)
+    // GraphicsLayerClient methods
+    virtual void paintContents(const GraphicsLayer*, GraphicsContext&, GraphicsLayerPaintingPhase, const IntRect& inClip);
+    virtual void notifyAnimationStarted(const GraphicsLayer*, double time) { }
+    virtual void notifySyncRequired(const GraphicsLayer*);
+    virtual bool showDebugBorders() const { return false; }
+    virtual bool showRepaintCounter() const { return false; }
+#endif 
+
     MediaPlayerPrivate(MediaPlayer*);
+
+    virtual bool supportsFullscreen() const;
+    virtual PlatformMedia platformMedia() const;
 
     IntSize naturalSize() const;
     bool hasVideo() const;
@@ -69,13 +93,10 @@ private:
     float duration() const;
     float currentTime() const;
     void seek(float time);
-    void setEndTime(float);
     
     void setRate(float);
     void setVolume(float);
     void setPreservesPitch(bool);
-    
-    int dataRate() const;
     
     MediaPlayer::NetworkState networkState() const { return m_networkState; }
     MediaPlayer::ReadyState readyState() const { return m_readyState; }
@@ -83,7 +104,6 @@ private:
     PassRefPtr<TimeRanges> buffered() const;
     float maxTimeSeekable() const;
     unsigned bytesLoaded() const;
-    bool totalBytesKnown() const;
     unsigned totalBytes() const;
     
     void setVisible(bool);
@@ -93,7 +113,8 @@ private:
     void didEnd();
     
     void paint(GraphicsContext*, const IntRect&);
-    
+    void paintCompleted(GraphicsContext&, const IntRect&);
+
     bool hasSingleSecurityOrigin() const;
 
     bool hasClosedCaptions() const;
@@ -117,11 +138,31 @@ private:
     static MediaPlayer::SupportsType supportsType(const String& type, const String& codecs);
     static bool isAvailable();
 
+#if USE(ACCELERATED_COMPOSITING)
+    virtual bool supportsAcceleratedRendering() const;
+    virtual void acceleratedRenderingStateChanged();
+#endif
+
+    enum MediaRenderingMode { MediaRenderingNone, MediaRenderingSoftwareRenderer, MediaRenderingMovieLayer };
+    MediaRenderingMode currentRenderingMode() const;
+    MediaRenderingMode preferredRenderingMode() const;
+    bool isReadyForRendering() const;
+
+    void setUpVideoRendering();
+    void tearDownVideoRendering();
+    bool hasSetUpVideoRendering() const;
+
+    void createLayerForMovie();
+    void destroyLayerForMovie();
+
     MediaPlayer* m_player;
     OwnPtr<QTMovieWin> m_qtMovie;
+#if USE(ACCELERATED_COMPOSITING)
+    OwnPtr<GraphicsLayer> m_qtVideoLayer;
+#endif
     float m_seekTo;
-    float m_endTime;
     Timer<MediaPlayerPrivate> m_seekTimer;
+    IntSize m_size;
     MediaPlayer::NetworkState m_networkState;
     MediaPlayer::ReadyState m_readyState;
     unsigned m_enabledTrackCount;
@@ -129,10 +170,12 @@ private:
     bool m_hasUnsupportedTracks;
     bool m_startedPlaying;
     bool m_isStreaming;
+    bool m_visible;
+    bool m_newFrameAvailable;
 #if DRAW_FRAME_RATE
-    int m_frameCountWhilePlaying;
-    int m_timeStartedPlaying;
-    int m_timeStoppedPlaying;
+    double m_frameCountWhilePlaying;
+    double m_timeStartedPlaying;
+    double m_timeStoppedPlaying;
 #endif
 };
 

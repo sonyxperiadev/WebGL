@@ -59,7 +59,7 @@
 #include <CoreFoundation/CoreFoundation.h>
 #endif
 
-#if PLATFORM(WINCE) && !PLATFORM(QT)
+#if OS(WINCE) && !PLATFORM(QT)
 extern "C" size_t strftime(char * const s, const size_t maxsize, const char * const format, const struct tm * const t); //provided by libce
 #endif
 
@@ -197,7 +197,7 @@ static JSCell* formatLocaleDate(ExecState* exec, const GregorianDateTime& gdt, L
 {
 #if HAVE(LANGINFO_H)
     static const nl_item formats[] = { D_T_FMT, D_FMT, T_FMT };
-#elif (PLATFORM(WINCE) && !PLATFORM(QT)) || PLATFORM(SYMBIAN)
+#elif (OS(WINCE) && !PLATFORM(QT)) || OS(SYMBIAN)
      // strftime() does not support '#' on WinCE or Symbian
     static const char* const formatStrings[] = { "%c", "%x", "%X" };
 #else
@@ -423,7 +423,11 @@ JSValue JSC_HOST_CALL dateProtoFuncToString(ExecState* exec, JSObject*, JSValue 
     const GregorianDateTime* gregorianDateTime = thisDateObj->gregorianDateTime(exec);
     if (!gregorianDateTime)
         return jsNontrivialString(exec, "Invalid Date");
-    return jsNontrivialString(exec, formatDate(*gregorianDateTime) + " " + formatTime(*gregorianDateTime));
+    DateConversionBuffer date;
+    DateConversionBuffer time;
+    formatDate(*gregorianDateTime, date);
+    formatTime(*gregorianDateTime, time);
+    return jsNontrivialString(exec, makeString(date, " ", time));
 }
 
 JSValue JSC_HOST_CALL dateProtoFuncToUTCString(ExecState* exec, JSObject*, JSValue thisValue, const ArgList&)
@@ -436,7 +440,11 @@ JSValue JSC_HOST_CALL dateProtoFuncToUTCString(ExecState* exec, JSObject*, JSVal
     const GregorianDateTime* gregorianDateTime = thisDateObj->gregorianDateTimeUTC(exec);
     if (!gregorianDateTime)
         return jsNontrivialString(exec, "Invalid Date");
-    return jsNontrivialString(exec, formatDateUTCVariant(*gregorianDateTime) + " " + formatTimeUTC(*gregorianDateTime));
+    DateConversionBuffer date;
+    DateConversionBuffer time;
+    formatDateUTCVariant(*gregorianDateTime, date);
+    formatTimeUTC(*gregorianDateTime, time);
+    return jsNontrivialString(exec, makeString(date, " ", time));
 }
 
 JSValue JSC_HOST_CALL dateProtoFuncToISOString(ExecState* exec, JSObject*, JSValue thisValue, const ArgList&)
@@ -467,7 +475,9 @@ JSValue JSC_HOST_CALL dateProtoFuncToDateString(ExecState* exec, JSObject*, JSVa
     const GregorianDateTime* gregorianDateTime = thisDateObj->gregorianDateTime(exec);
     if (!gregorianDateTime)
         return jsNontrivialString(exec, "Invalid Date");
-    return jsNontrivialString(exec, formatDate(*gregorianDateTime));
+    DateConversionBuffer date;
+    formatDate(*gregorianDateTime, date);
+    return jsNontrivialString(exec, date);
 }
 
 JSValue JSC_HOST_CALL dateProtoFuncToTimeString(ExecState* exec, JSObject*, JSValue thisValue, const ArgList&)
@@ -480,7 +490,9 @@ JSValue JSC_HOST_CALL dateProtoFuncToTimeString(ExecState* exec, JSObject*, JSVa
     const GregorianDateTime* gregorianDateTime = thisDateObj->gregorianDateTime(exec);
     if (!gregorianDateTime)
         return jsNontrivialString(exec, "Invalid Date");
-    return jsNontrivialString(exec, formatTime(*gregorianDateTime));
+    DateConversionBuffer time;
+    formatTime(*gregorianDateTime, time);
+    return jsNontrivialString(exec, time);
 }
 
 JSValue JSC_HOST_CALL dateProtoFuncToLocaleString(ExecState* exec, JSObject*, JSValue thisValue, const ArgList& args)
@@ -554,7 +566,11 @@ JSValue JSC_HOST_CALL dateProtoFuncToGMTString(ExecState* exec, JSObject*, JSVal
     const GregorianDateTime* gregorianDateTime = thisDateObj->gregorianDateTimeUTC(exec);
     if (!gregorianDateTime)
         return jsNontrivialString(exec, "Invalid Date");
-    return jsNontrivialString(exec, formatDateUTCVariant(*gregorianDateTime) + " " + formatTimeUTC(*gregorianDateTime));
+    DateConversionBuffer date;
+    DateConversionBuffer time;
+    formatDateUTCVariant(*gregorianDateTime, date);
+    formatTimeUTC(*gregorianDateTime, time);
+    return jsNontrivialString(exec, makeString(date, " ", time));
 }
 
 JSValue JSC_HOST_CALL dateProtoFuncGetMonth(ExecState* exec, JSObject*, JSValue thisValue, const ArgList&)

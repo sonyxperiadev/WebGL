@@ -43,7 +43,7 @@ typedef struct NPObject NPObject;
 typedef struct _NPP NPP_t;
 typedef NPP_t* NPP;
 
-#if PLATFORM(WIN_OS)
+#if OS(WINDOWS)
 typedef struct HFONT__* HFONT;
 #endif
 
@@ -87,6 +87,7 @@ namespace WebCore {
         static String cookies(const KURL& url, const KURL& firstPartyForCookies);
         static bool rawCookies(const KURL& url, const KURL& firstPartyForCookies, Vector<Cookie>*);
         static void deleteCookie(const KURL& url, const String& cookieName);
+        static bool cookiesEnabled(const KURL& url, const KURL& firstPartyForCookies);
 
         // DNS ----------------------------------------------------------------
         static void prefetchDNS(const String& hostname);
@@ -105,10 +106,10 @@ namespace WebCore {
         static KURL filePathToURL(const String&);
 
         // Font ---------------------------------------------------------------
-#if PLATFORM(WIN_OS)
+#if OS(WINDOWS)
         static bool ensureFontLoaded(HFONT font);
 #endif
-#if PLATFORM(LINUX)
+#if OS(LINUX)
         static String getFontFamilyForCharacters(const UChar*, size_t numCharacters);
 #endif
 
@@ -187,7 +188,7 @@ namespace WebCore {
         static double currentTime();
 
         // Theming ------------------------------------------------------------
-#if PLATFORM(WIN_OS)
+#if OS(WINDOWS)
         static void paintButton(
             GraphicsContext*, int part, int state, int classicState, const IntRect&);
         static void paintMenuList(

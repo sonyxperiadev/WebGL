@@ -68,16 +68,16 @@ namespace WebCore {
             Other
         };
 
-        static PassRefPtr<InspectorResource> create(unsigned long identifier, DocumentLoader* loader)
+        static PassRefPtr<InspectorResource> create(unsigned long identifier, DocumentLoader* loader, const KURL& requestURL)
         {
-            return adoptRef(new InspectorResource(identifier, loader));
+            return adoptRef(new InspectorResource(identifier, loader, requestURL));
         }
 
         static PassRefPtr<InspectorResource> createCached(unsigned long identifier, DocumentLoader*, const CachedResource*);
 
         ~InspectorResource();
 
-        void createScriptObject(InspectorFrontend* frontend);
+        PassRefPtr<InspectorResource> appendRedirect(unsigned long identifier, const KURL& redirectURL);
         void updateScriptObject(InspectorFrontend* frontend);
         void releaseScriptObject(InspectorFrontend* frontend, bool callRemoveResource);
 
@@ -118,7 +118,8 @@ namespace WebCore {
             TypeChange = 4,
             LengthChange = 8,
             CompletionChange = 16,
-            TimingChange = 32
+            TimingChange = 32,
+            RedirectsChange = 64
         };
 
         class Changes {
@@ -138,14 +139,14 @@ namespace WebCore {
                 m_change = static_cast<ChangeType>(static_cast<unsigned>(m_change) & ~static_cast<unsigned>(change));
             }
 
-            inline void setAll() { m_change = static_cast<ChangeType>(63); }
+            inline void setAll() { m_change = static_cast<ChangeType>(127); }
             inline void clearAll() { m_change = NoChange; }
 
         private:
             ChangeType m_change;
         };
 
-        InspectorResource(unsigned long identifier, DocumentLoader*);
+        InspectorResource(unsigned long identifier, DocumentLoader*, const KURL& requestURL);
         Type type() const;
 
         Type cachedResourceType() const;
@@ -159,7 +160,6 @@ namespace WebCore {
         HTTPHeaderMap m_responseHeaderFields;
         String m_mimeType;
         String m_suggestedFilename;
-        bool m_scriptObjectCreated;
         long long m_expectedContentLength;
         bool m_cached;
         bool m_finished;
@@ -176,6 +176,7 @@ namespace WebCore {
         bool m_isMainResource;
         String m_requestMethod;
         String m_requestFormData;
+        Vector<RefPtr<InspectorResource> > m_redirects;
     };
 
 } // namespace WebCore

@@ -22,10 +22,11 @@
 #include "config.h"
 #include "qwebview.h"
 
+#include "Page.h"
 #include "QWebPageClient.h"
+#include "Settings.h"
 #include "qwebframe.h"
 #include "qwebpage_p.h"
-
 #include "qbitmap.h"
 #include "qevent.h"
 #include "qpainter.h"
@@ -56,6 +57,106 @@ void QWebViewPrivate::_q_pageDestroyed()
     page = 0;
     view->setPage(0);
 }
+
+#ifdef Q_WS_MAEMO_5
+#include "qabstractkineticscroller.h"
+
+class QWebViewKineticScroller : public QAbstractKineticScroller {
+public:
+    QWebViewKineticScroller() : QAbstractKineticScroller() {}
+    // remember the frame where the button was pressed
+    bool eventFilter(QObject* o, QEvent* ev)
+    {
+        switch (ev->type()) {
+        case QEvent::MouseButtonPress: {
+            QWebFrame* hitFrame = scrollingFrameAt(static_cast<QMouseEvent*>(ev)->pos());
+            if (hitFrame)
+                m_frame = hitFrame;
+            break;
+        }
+        default:
+            break;
+        }
+        return QAbstractKineticScroller::eventFilter(o, ev);
+    }
+
+protected:
+    QWebFrame* currentFrame() const
+    {
+        if (!m_frame.isNull())
+            return m_frame.data();
+
+        QWebView* view = static_cast<QWebView*>(widget());
+        QWebFrame* frame = view->page()->mainFrame();
+        return frame;
+    }
+
+    // Returns the innermost frame at the given position that can scroll.
+    QWebFrame* scrollingFrameAt(const QPoint& pos) const
+    {
+        QWebView* view = static_cast<QWebView*>(widget());
+        QWebFrame* mainFrame = view->page()->mainFrame();
+        QWebFrame* hitFrame = mainFrame->hitTestContent(pos).frame();
+        QSize range = hitFrame->contentsSize() - hitFrame->geometry().size();
+
+        while (hitFrame && range.width() <= 1 && range.height() <= 1)
+            hitFrame = hitFrame->parentFrame();
+
+        return hitFrame;
+    }
+
+    void attachToWidget()
+    {
+        QWebView* view = static_cast<QWebView*>(widget());
+        QWebFrame* mainFrame = view->page()->mainFrame();
+        m_oldHorizontalScrollBarPolicy = mainFrame->scrollBarPolicy(Qt::Horizontal);
+        m_oldVerticalScrollBarPolicy = mainFrame->scrollBarPolicy(Qt::Vertical);
+        mainFrame->setScrollBarPolicy(Qt::Vertical, Qt::ScrollBarAlwaysOff);
+        mainFrame->setScrollBarPolicy(Qt::Horizontal, Qt::ScrollBarAlwaysOff);
+        view->installEventFilter(this);
+    }
+
+    void removeFromWidget()
+    {
+        QWebView* view = static_cast<QWebView*>(widget());
+        view->removeEventFilter(this);
+        QWebFrame* mainFrame = view->page()->mainFrame();
+        mainFrame->setScrollBarPolicy(Qt::Vertical, m_oldVerticalScrollBarPolicy);
+        mainFrame->setScrollBarPolicy(Qt::Horizontal, m_oldHorizontalScrollBarPolicy);
+    }
+
+    QRect positionRange() const
+    {
+        QRect r;
+        QWebFrame* frame = currentFrame();
+        r.setSize(frame->contentsSize() - frame->geometry().size());
+        return r;
+    }
+
+    QPoint position() const
+    {
+        QWebFrame* frame = currentFrame();
+        return frame->scrollPosition();
+    }
+
+    QSize viewportSize() const
+    {
+        return static_cast<QWebView*>(widget())->page()->viewportSize();
+    }
+
+    void setPosition(const QPoint& point, const QPoint& /* overShootDelta */)
+    {
+        QWebFrame* frame = currentFrame();
+        frame->setScrollPosition(point);
+    }
+
+    QPointer<QWebFrame> m_frame;
+    Qt::ScrollBarPolicy m_oldVerticalScrollBarPolicy;
+    Qt::ScrollBarPolicy m_oldHorizontalScrollBarPolicy;
+};
+
+#endif // Q_WS_MAEMO_5
+
 
 /*!
     \class QWebView
@@ -153,6 +254,14 @@ QWebView::QWebView(QWidget *parent)
     setAttribute(Qt::WA_InputMethodEnabled);
 #endif
 
+#if QT_VERSION >= QT_VERSION_CHECK(4, 6, 0)
+    setAttribute(Qt::WA_AcceptTouchEvents);
+#endif
+#if defined(Q_WS_MAEMO_5)
+    QAbstractKineticScroller* scroller = new QWebViewKineticScroller();
+    scroller->setWidget(this);
+    setProperty("kineticScroller", QVariant::fromValue(scroller));
+#endif
     setAcceptDrops(true);
 
     setMouseTracking(true);
@@ -243,6 +352,9 @@ void QWebView::setPage(QWebPage* page)
                 this, SLOT(_q_pageDestroyed()));
     }
     setAttribute(Qt::WA_OpaquePaintEvent, d->page);
+#if USE(ACCELERATED_COMPOSITING)
+    d->page->d->page->settings()->setAcceleratedCompositingEnabled(false);
+#endif
     update();
 }
 
@@ -639,6 +751,14 @@ bool QWebView::event(QEvent *e)
             // FIXME: Add a QEvent::CursorUnset or similar to Qt.
             if (cursor().shape() == Qt::ArrowCursor)
                 d->page->d->client->resetCursor();
+#endif
+#if QT_VERSION >= QT_VERSION_CHECK(4, 6, 0)
+        } else if (e->type() == QEvent::TouchBegin 
+                   || e->type() == QEvent::TouchEnd 
+                   || e->type() == QEvent::TouchUpdate) {
+            d->page->event(e);
+            if (e->isAccepted())
+                return true;
 #endif
         } else if (e->type() == QEvent::Leave)
             d->page->event(e);

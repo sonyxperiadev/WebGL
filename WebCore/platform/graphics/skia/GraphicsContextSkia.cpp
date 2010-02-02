@@ -86,7 +86,10 @@ inline float square(float n)
 // Ideally, all of these would be fixed in the graphics layer and we would not
 // have to do any checking. You can uncomment the ENSURE_VALUE_SAFETY_FOR_SKIA
 // flag to check the graphics layer.
-#define ENSURE_VALUE_SAFETY_FOR_SKIA
+
+// Disabling these checks (20/01/2010), since we think we've fixed all the Skia
+// bugs.  Leaving the code in for now, so we can revert easily if necessary.
+// #define ENSURE_VALUE_SAFETY_FOR_SKIA
 
 static bool isCoordinateSkiaSafe(float coord)
 {
@@ -431,7 +434,7 @@ void GraphicsContext::clipToImageBuffer(const FloatRect& rect,
     if (paintingDisabled())
         return;
 
-#if defined(__linux__) || PLATFORM(WIN_OS)
+#if OS(LINUX) || OS(WINDOWS)
     platformContext()->beginLayerClippedToImage(rect, imageBuffer);
 #endif
 }
@@ -498,12 +501,16 @@ void GraphicsContext::drawEllipse(const IntRect& elipseRect)
     }
 }
 
-void GraphicsContext::drawFocusRing(const Color& color)
+void GraphicsContext::drawFocusRing(const Vector<Path>& paths, int width, int offset, const Color& color)
+{
+    // FIXME: implement
+}
+
+void GraphicsContext::drawFocusRing(const Vector<IntRect>& rects, int /* width */, int /* offset */, const Color& color)
 {
     if (paintingDisabled())
         return;
 
-    const Vector<IntRect>& rects = focusRingRects();
     unsigned rectCount = rects.size();
     if (!rectCount)
         return;

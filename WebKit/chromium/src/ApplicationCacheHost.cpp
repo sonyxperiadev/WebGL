@@ -33,14 +33,11 @@
 
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
 
+#include "ApplicationCacheHostInternal.h"
 #include "DocumentLoader.h"
 #include "DOMApplicationCache.h"
 #include "Frame.h"
 #include "Settings.h"
-#include "WebApplicationCacheHost.h"
-#include "WebApplicationCacheHostClient.h"
-#include "WebKit.h"
-#include "WebKitClient.h"
 #include "WebURL.h"
 #include "WebURLError.h"
 #include "WebURLResponse.h"
@@ -51,27 +48,6 @@ using namespace WebKit;
 
 namespace WebCore {
 
-// ApplicationCacheHostInternal -----------------------------------------------
-
-class ApplicationCacheHostInternal : public WebApplicationCacheHostClient {
-public:
-    ApplicationCacheHostInternal(ApplicationCacheHost* host)
-        : m_innerHost(host)
-    {
-        m_outerHost.set(WebKit::webKitClient()->createApplicationCacheHost(this));
-    }
-
-    virtual void notifyEventListener(WebApplicationCacheHost::EventID eventID)
-    {
-        m_innerHost->notifyDOMApplicationCache(
-            static_cast<ApplicationCacheHost::EventID>(eventID));
-    }
-
-    ApplicationCacheHost* m_innerHost;
-    OwnPtr<WebApplicationCacheHost> m_outerHost;
-};
-
-// ApplicationCacheHost -------------------------------------------------------
 // We provide a custom implementation of this class that calls out to the
 // embedding application instead of using WebCore's built in appcache system.
 // This file replaces webcore/appcache/ApplicationCacheHost.cpp in our build.
@@ -79,6 +55,7 @@ public:
 ApplicationCacheHost::ApplicationCacheHost(DocumentLoader* documentLoader)
     : m_domApplicationCache(0)
     , m_documentLoader(documentLoader)
+    , m_defersEvents(true)
 {
     ASSERT(m_documentLoader);
 }
@@ -220,13 +197,30 @@ void ApplicationCacheHost::setDOMApplicationCache(DOMApplicationCache* domApplic
 
 void ApplicationCacheHost::notifyDOMApplicationCache(EventID id)
 {
+    if (m_defersEvents) {
+        m_deferredEvents.append(id);
+        return;
+    }
     if (m_domApplicationCache) {
         ExceptionCode ec = 0;
-        m_domApplicationCache->dispatchEvent(
-            Event::create(DOMApplicationCache::toEventType(id), false, false),
-            ec);
+        m_domApplicationCache->dispatchEvent(Event::create(DOMApplicationCache::toEventType(id), false, false), ec);
         ASSERT(!ec);
     }
+}
+
+void ApplicationCacheHost::stopDeferringEvents()
+{
+    RefPtr<DocumentLoader> protect(documentLoader());
+    for (unsigned i = 0; i < m_deferredEvents.size(); ++i) {
+        EventID id = m_deferredEvents[i];
+        if (m_domApplicationCache) {
+            ExceptionCode ec = 0;
+            m_domApplicationCache->dispatchEvent(Event::create(DOMApplicationCache::toEventType(id), false, false), ec);
+            ASSERT(!ec);
+        }
+    }
+    m_deferredEvents.clear();
+    m_defersEvents = false;
 }
 
 ApplicationCacheHost::Status ApplicationCacheHost::status() const

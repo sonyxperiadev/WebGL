@@ -42,6 +42,7 @@ namespace WebCore {
     class FloatRect;
     class Page;
     struct FrameLoadRequest;
+    class QtAbstractWebPopup;
 
     class ChromeClientQt : public ChromeClient
     {
@@ -122,6 +123,19 @@ namespace WebCore {
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
         virtual void reachedMaxAppCacheSize(int64_t spaceNeeded);
 #endif
+
+#if USE(ACCELERATED_COMPOSITING)
+        // see ChromeClient.h
+        // this is a hook for WebCore to tell us what we need to do with the GraphicsLayers
+        virtual void attachRootGraphicsLayer(Frame*, GraphicsLayer*);
+        virtual void setNeedsOneShotDrawingSynchronization();
+        virtual void scheduleCompositingLayerSync();
+#endif
+
+#if ENABLE(TOUCH_EVENTS)
+        virtual void needTouchEvents(bool) { }
+#endif
+
         virtual void runOpenPanel(Frame*, PassRefPtr<FileChooser>);
 
         virtual void formStateDidChange(const Node*) { }
@@ -133,6 +147,8 @@ namespace WebCore {
         virtual void scrollRectIntoView(const IntRect&, const ScrollView*) const {}
 
         virtual void requestGeolocationPermissionForFrame(Frame*, Geolocation*);
+
+        QtAbstractWebPopup* createSelectPopup();
 
         QWebPage* m_webPage;
         WebCore::KURL lastHoverURL;

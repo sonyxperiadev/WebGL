@@ -102,6 +102,12 @@ AccessibilityUIElement AccessibilityUIElement::getChildAtIndex(unsigned index)
     return 0;
 }
 
+unsigned AccessibilityUIElement::indexOfChild(AccessibilityUIElement* element)
+{ 
+    // FIXME: implement
+    return 0;
+}
+
 JSStringRef AccessibilityUIElement::allAttributes()
 {
     // FIXME: implement
@@ -249,7 +255,7 @@ JSStringRef AccessibilityUIElement::orientation() const
     return 0;
 }
 
-double AccessibilityUIElement::intValue()
+double AccessibilityUIElement::intValue() const
 {
     GValue value = { 0, { { 0 } } };
 
@@ -359,6 +365,11 @@ bool AccessibilityUIElement::isExpanded() const
     return false;
 }
 
+bool AccessibilityUIElement::isChecked() const
+{
+    return intValue();
+}
+
 JSStringRef AccessibilityUIElement::attributesOfColumnHeaders()
 {
     // FIXME: implement
@@ -448,10 +459,16 @@ void AccessibilityUIElement::setSelectedTextRange(unsigned location, unsigned le
     // FIXME: implement
 }
 
-JSStringRef AccessibilityUIElement::attributeValue(JSStringRef attribute)
+JSStringRef AccessibilityUIElement::stringAttributeValue(JSStringRef attribute)
 {
     // FIXME: implement
     return JSStringCreateWithCharacters(0, 0);
+}
+
+bool AccessibilityUIElement::boolAttributeValue(JSStringRef attribute)
+{
+    // FIXME: implement
+    return false;
 }
 
 bool AccessibilityUIElement::isAttributeSettable(JSStringRef attribute)
@@ -527,4 +544,72 @@ JSStringRef AccessibilityUIElement::documentURI()
         return JSStringCreateWithCharacters(0, 0);
 
     return JSStringCreateWithUTF8CString(atk_document_get_attribute_value(ATK_DOCUMENT(m_element), "URI"));
+}
+
+JSStringRef AccessibilityUIElement::url()
+{
+    // FIXME: implement
+    return JSStringCreateWithCharacters(0, 0);
+}
+
+bool AccessibilityUIElement::addNotificationListener(JSObjectRef functionCallback)
+{
+    // FIXME: implement
+    return false;
+}
+
+bool AccessibilityUIElement::isSelectable() const
+{
+    // FIXME: implement
+    return false;
+}
+
+bool AccessibilityUIElement::isMultiSelectable() const
+{
+    // FIXME: implement
+    return false;
+}
+
+bool AccessibilityUIElement::isVisible() const
+{
+    // FIXME: implement
+    return false;
+}
+
+bool AccessibilityUIElement::isOffScreen() const
+{
+    // FIXME: implement
+    return false;
+}
+
+bool AccessibilityUIElement::isCollapsed() const
+{
+    // FIXME: implement
+    return false;
+}
+
+bool AccessibilityUIElement::hasPopup() const
+{
+    // FIXME: implement
+    return false;
+}
+
+void AccessibilityUIElement::takeFocus()
+{
+    // FIXME: implement
+}
+
+void AccessibilityUIElement::takeSelection()
+{
+    // FIXME: implement
+}
+
+void AccessibilityUIElement::addSelection()
+{
+    // FIXME: implement
+}
+
+void AccessibilityUIElement::removeSelection()
+{
+    // FIXME: implement
 }

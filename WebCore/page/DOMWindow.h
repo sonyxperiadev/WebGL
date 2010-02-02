@@ -52,6 +52,7 @@ namespace WebCore {
     class FloatRect;
     class Frame;
     class History;
+    class IndexedDatabaseRequest;
     class InspectorTimelineAgent;
     class Location;
     class Media;
@@ -216,6 +217,10 @@ namespace WebCore {
         NotificationCenter* webkitNotifications() const;
 #endif
 
+#if ENABLE(INDEXED_DATABASE)
+        IndexedDatabaseRequest* indexedDB() const;
+#endif
+
         void postMessage(PassRefPtr<SerializedScriptValue> message, const MessagePortArray*, const String& targetOrigin, DOMWindow* source, ExceptionCode&);
         // FIXME: remove this when we update the ObjC bindings (bug #28774).
         void postMessage(PassRefPtr<SerializedScriptValue> message, MessagePort*, const String& targetOrigin, DOMWindow* source, ExceptionCode&);
@@ -232,9 +237,9 @@ namespace WebCore {
         void resizeTo(float width, float height) const;
 
         // Timers
-        int setTimeout(ScheduledAction*, int timeout);
+        int setTimeout(ScheduledAction*, int timeout, ExceptionCode&);
         void clearTimeout(int timeoutId);
-        int setInterval(ScheduledAction*, int timeout);
+        int setInterval(ScheduledAction*, int timeout, ExceptionCode&);
         void clearInterval(int timeoutId);
 
         // Events
@@ -345,6 +350,7 @@ namespace WebCore {
         Console* optionalConsole() const { return m_console.get(); }
         Navigator* optionalNavigator() const { return m_navigator.get(); }
         Location* optionalLocation() const { return m_location.get(); }
+        Media* optionalMedia() const { return m_media.get(); }
 #if ENABLE(DOM_STORAGE)
         Storage* optionalSessionStorage() const { return m_sessionStorage.get(); }
         Storage* optionalLocalStorage() const { return m_localStorage.get(); }
@@ -381,6 +387,7 @@ namespace WebCore {
         mutable RefPtr<Console> m_console;
         mutable RefPtr<Navigator> m_navigator;
         mutable RefPtr<Location> m_location;
+        mutable RefPtr<Media> m_media;
 #if ENABLE(DOM_STORAGE)
         mutable RefPtr<Storage> m_sessionStorage;
         mutable RefPtr<Storage> m_localStorage;

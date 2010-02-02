@@ -97,7 +97,7 @@ static int cssyylex(YYSTYPE* yylval, void* parser)
 
 %}
 
-%expect 48
+%expect 54
 
 %nonassoc LOWEST_PREC
 
@@ -386,7 +386,9 @@ valid_rule:
   ;
 
 rule:
-    valid_rule
+    valid_rule {
+        static_cast<CSSParser*>(parser)->m_hadSyntacticallyValidCSSRule = true;
+    }
   | invalid_rule
   | invalid_at
   ;
@@ -1107,11 +1109,11 @@ pseudo:
         }
     }
     // used by :nth-*(ax+b)
-    | ':' FUNCTION NTH ')' {
+    | ':' FUNCTION maybe_space NTH maybe_space ')' {
         CSSParser *p = static_cast<CSSParser*>(parser);
         $$ = p->createFloatingSelector();
         $$->m_match = CSSSelector::PseudoClass;
-        $$->setArgument($3);
+        $$->setArgument($4);
         $$->m_value = $2;
         CSSSelector::PseudoType type = $$->pseudoType();
         if (type == CSSSelector::PseudoUnknown)
@@ -1125,11 +1127,11 @@ pseudo:
         }
     }
     // used by :nth-*
-    | ':' FUNCTION INTEGER ')' {
+    | ':' FUNCTION maybe_space INTEGER maybe_space ')' {
         CSSParser *p = static_cast<CSSParser*>(parser);
         $$ = p->createFloatingSelector();
         $$->m_match = CSSSelector::PseudoClass;
-        $$->setArgument(String::number($3));
+        $$->setArgument(String::number($4));
         $$->m_value = $2;
         CSSSelector::PseudoType type = $$->pseudoType();
         if (type == CSSSelector::PseudoUnknown)
@@ -1143,11 +1145,11 @@ pseudo:
         }
     }
     // used by :nth-*(odd/even) and :lang
-    | ':' FUNCTION IDENT ')' {
+    | ':' FUNCTION maybe_space IDENT maybe_space ')' {
         CSSParser *p = static_cast<CSSParser*>(parser);
         $$ = p->createFloatingSelector();
         $$->m_match = CSSSelector::PseudoClass;
-        $$->setArgument($3);
+        $$->setArgument($4);
         $2.lower();
         $$->m_value = $2;
         CSSSelector::PseudoType type = $$->pseudoType();
@@ -1205,6 +1207,9 @@ declaration_list:
 decl_list:
     declaration ';' maybe_space {
         $$ = $1;
+    }
+    | declaration invalid_block_list maybe_space {
+        $$ = false;
     }
     | declaration invalid_block_list ';' maybe_space {
         $$ = false;
@@ -1322,6 +1327,12 @@ expr:
             }
             $$->addValue(p->sinkFloatingValue($3));
         }
+    }
+    | expr invalid_block_list {
+        $$ = 0;
+    }
+    | expr invalid_block_list error {
+        $$ = 0;
     }
     | expr error {
         $$ = 0;
@@ -1477,8 +1488,12 @@ invalid_rule:
     ;
 
 invalid_block:
-    '{' error invalid_block_list error closing_brace
-  | '{' error closing_brace
+    '{' error invalid_block_list error closing_brace {
+        static_cast<CSSParser*>(parser)->invalidBlockHit();
+    }
+  | '{' error closing_brace {
+        static_cast<CSSParser*>(parser)->invalidBlockHit();
+    }
     ;
 
 invalid_block_list:

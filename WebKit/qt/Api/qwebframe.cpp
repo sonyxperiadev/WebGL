@@ -220,6 +220,22 @@ QString QWEBKIT_EXPORT qt_drt_counterValueForElementById(QWebFrame* qFrame, cons
     return QString();
 }
 
+// Suspend active DOM objects in this frame.
+void QWEBKIT_EXPORT qt_suspendActiveDOMObjects(QWebFrame* qFrame)
+{
+    Frame* frame = QWebFramePrivate::core(qFrame);
+    if (frame->document())
+        frame->document()->suspendActiveDOMObjects();
+}
+            
+// Resume active DOM objects in this frame.
+void QWEBKIT_EXPORT qt_resumeActiveDOMObjects(QWebFrame* qFrame)
+{
+    Frame* frame = QWebFramePrivate::core(qFrame);
+    if (frame->document())
+        frame->document()->resumeActiveDOMObjects();
+}                        
+
 QWebFrameData::QWebFrameData(WebCore::Page* parentPage, WebCore::Frame* parentFrame,
                              WebCore::HTMLFrameOwnerElement* ownerFrameElement,
                              const WebCore::String& frameName)
@@ -359,6 +375,45 @@ void QWebFramePrivate::renderRelativeCoords(GraphicsContext* context, QWebFrame:
 
         painter->restore();
     }
+}
+
+bool QWebFramePrivate::scrollOverflow(int dx, int dy)
+{
+    if (!frame || !frame->document() || !frame->eventHandler())
+        return false;
+
+    Node* node = frame->document()->focusedNode();
+    if (!node)
+        node = frame->document()->elementFromPoint(frame->eventHandler()->currentMousePosition().x(),
+                                                   frame->eventHandler()->currentMousePosition().y());
+    if (!node)
+        return false;
+
+    RenderObject* renderer = node->renderer();
+    if (!renderer)
+        return false;
+
+    if (renderer->isListBox())
+        return false;
+
+    RenderLayer* renderLayer = renderer->enclosingLayer();
+    if (!renderLayer)
+        return false;
+
+    bool scrolledHorizontal = false;
+    bool scrolledVertical = false;
+
+    if (dx > 0)
+        scrolledHorizontal = renderLayer->scroll(ScrollRight, ScrollByPixel, dx);
+    else if (dx < 0)
+        scrolledHorizontal = renderLayer->scroll(ScrollLeft, ScrollByPixel, qAbs(dx));
+
+    if (dy > 0)
+        scrolledVertical = renderLayer->scroll(ScrollDown, ScrollByPixel, dy);
+    else if (dy < 0)
+        scrolledVertical = renderLayer->scroll(ScrollUp, ScrollByPixel, qAbs(dy));
+
+    return (scrolledHorizontal || scrolledVertical);
 }
 
 /*!
@@ -1000,6 +1055,55 @@ void QWebFrame::scroll(int dx, int dy)
 }
 
 /*!
+  \since 4.7
+  Scrolls nested frames starting at this frame, \a dx pixels to the right 
+  and \a dy pixels downward. Both \a dx and \a dy may be negative. First attempts
+  to scroll elements with CSS overflow followed by this frame. If this 
+  frame doesn't scroll, attempts to scroll the parent
+
+  \sa QWebFrame::scroll
+*/
+bool QWebFrame::scrollRecursively(int dx, int dy)
+{
+    bool scrolledHorizontal = false;
+    bool scrolledVertical = false;
+    bool scrolledOverflow = d->scrollOverflow(dx, dy);
+
+    if (!scrolledOverflow) {
+        Frame* frame = d->frame;
+        if (!frame || !frame->view())
+            return false;
+
+        do {
+            IntSize scrollOffset = frame->view()->scrollOffset();
+            IntPoint maxScrollOffset = frame->view()->maximumScrollPosition();
+
+            if (dx > 0) // scroll right
+                scrolledHorizontal = scrollOffset.width() < maxScrollOffset.x();
+            else if (dx < 0) // scroll left
+                scrolledHorizontal = scrollOffset.width() > 0;
+
+            if (dy > 0) // scroll down
+                scrolledVertical = scrollOffset.height() < maxScrollOffset.y();
+            else if (dy < 0) //scroll up
+                scrolledVertical = scrollOffset.height() > 0;
+
+            if (scrolledHorizontal || scrolledVertical) {
+                frame->view()->scrollBy(IntSize(dx, dy));
+                return true;
+            }
+            frame = frame->tree()->parent(); 
+        } while (frame && frame->view());
+    }
+    return (scrolledHorizontal || scrolledVertical || scrolledOverflow);
+}
+
+bool QWEBKIT_EXPORT qtwebkit_webframe_scrollRecursively(QWebFrame* qFrame, int dx, int dy)
+{
+    return qFrame->scrollRecursively(dx, dy);
+}
+
+/*!
   \property QWebFrame::scrollPosition
   \since 4.5
   \brief the position the frame is currently scrolled to.
@@ -1289,6 +1393,11 @@ void QWebFrame::print(QPrinter *printer) const
     // paranoia check
     fromPage = qMax(1, fromPage);
     toPage = qMin(printContext.pageCount(), toPage);
+    if (toPage < fromPage) {
+        // if the user entered a page range outside the actual number
+        // of printable pages, just return
+        return;
+    }
 
     if (printer->pageOrder() == QPrinter::LastPageFirst) {
         int tmp = fromPage;

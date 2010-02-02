@@ -29,6 +29,8 @@
  */
 
 #include "config.h"
+#include "V8MessageEvent.h"
+
 #include "MessageEvent.h"
 #include "SerializedScriptValue.h"
 
@@ -40,10 +42,10 @@
 
 namespace WebCore {
 
-ACCESSOR_GETTER(MessageEventPorts)
+v8::Handle<v8::Value> V8MessageEvent::portsAccessorGetter(v8::Local<v8::String> name, const v8::AccessorInfo& info)
 {
     INC_STATS("DOM.MessageEvent.ports");
-    MessageEvent* event = V8DOMWrapper::convertToNativeObject<MessageEvent>(V8ClassIndex::MESSAGEEVENT, info.Holder());
+    MessageEvent* event = V8MessageEvent::toNative(info.Holder());
 
     MessagePortArray* ports = event->ports();
     if (!ports || ports->isEmpty())
@@ -56,17 +58,24 @@ ACCESSOR_GETTER(MessageEventPorts)
     return portArray;
 }
 
-CALLBACK_FUNC_DECL(MessageEventInitMessageEvent)
+v8::Handle<v8::Value> V8MessageEvent::initMessageEventCallback(const v8::Arguments& args)
 {
     INC_STATS("DOM.MessageEvent.initMessageEvent");
-    MessageEvent* event = V8DOMWrapper::convertToNativeObject<MessageEvent>(V8ClassIndex::MESSAGEEVENT, args.Holder());
+    MessageEvent* event = V8MessageEvent::toNative(args.Holder());
     String typeArg = v8ValueToWebCoreString(args[0]);
     bool canBubbleArg = args[1]->BooleanValue();
     bool cancelableArg = args[2]->BooleanValue();
-    RefPtr<SerializedScriptValue> dataArg = SerializedScriptValue::create(v8ValueToWebCoreString(args[3]));
+    RefPtr<SerializedScriptValue> dataArg = SerializedScriptValue::create(args[3]);
     String originArg = v8ValueToWebCoreString(args[4]);
     String lastEventIdArg = v8ValueToWebCoreString(args[5]);
-    DOMWindow* sourceArg = V8DOMWindow::HasInstance(args[6]) ? V8DOMWrapper::convertToNativeObject<DOMWindow>(V8ClassIndex::DOMWINDOW, v8::Handle<v8::Object>::Cast(args[6])) : 0;
+
+    DOMWindow* sourceArg = 0;
+    if (args[6]->IsObject()) {
+        v8::Handle<v8::Object> wrapper = v8::Handle<v8::Object>::Cast(args[6]);
+        v8::Handle<v8::Object> window = V8DOMWrapper::lookupDOMWrapper(V8ClassIndex::DOMWINDOW, wrapper);
+        if (!window.IsEmpty())
+            sourceArg = V8DOMWindow::toNative(window);
+    }
     OwnPtr<MessagePortArray> portArray;
 
     if (!isUndefinedOrNull(args[7])) {

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2008, 2009, 2010 Apple Inc. All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,6 +28,7 @@
 #include "AXObjectCache.h"
 
 #include "AccessibilityObject.h"
+#include "Chrome.h"
 #include "Document.h"
 #include "Page.h"
 #include "RenderObject.h"
@@ -80,6 +81,11 @@ void AXObjectCache::postPlatformNotification(AccessibilityObject* obj, AXNotific
 
         case AXScrolledToAnchor:
             msaaEvent = EVENT_SYSTEM_SCROLLINGSTART;
+            break;
+
+        case AXValueChanged:
+        case AXMenuListValueChanged:
+            msaaEvent = EVENT_OBJECT_VALUECHANGE;
             break;
 
         default:

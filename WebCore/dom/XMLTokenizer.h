@@ -136,6 +136,7 @@ bool parseXMLDocumentFragment(const String&, DocumentFragment*, Element* parent 
 
 #include "CachedResourceClient.h"
 #include "CachedResourceHandle.h"
+#include "MappedAttributeEntry.h"
 #include "SegmentedString.h"
 #include "StringHash.h"
 #include "Tokenizer.h"
@@ -143,7 +144,7 @@ bool parseXMLDocumentFragment(const String&, DocumentFragment*, Element* parent 
 #include <wtf/OwnPtr.h>
 
 #if USE(QXMLSTREAM)
-#include <QtXml/qxmlstream.h>
+#include <qxmlstream.h>
 #else
 #include <libxml/tree.h>
 #include <libxml/xmlstring.h>
@@ -181,7 +182,7 @@ namespace WebCore {
     class XMLTokenizer : public Tokenizer, public CachedResourceClient {
     public:
         XMLTokenizer(Document*, FrameView* = 0);
-        XMLTokenizer(DocumentFragment*, Element*);
+        XMLTokenizer(DocumentFragment*, Element*, FragmentScriptingPermission);
         ~XMLTokenizer();
 
         enum ErrorType { warning, nonFatal, fatal };
@@ -247,7 +248,7 @@ public:
         void endDocument();
 #endif
     private:
-        friend bool parseXMLDocumentFragment(const String& chunk, DocumentFragment* fragment, Element* parent);
+        friend bool parseXMLDocumentFragment(const String&, DocumentFragment*, Element*, FragmentScriptingPermission);
 
         void initializeParserContext(const char* chunk = 0);
 
@@ -308,6 +309,7 @@ public:
         typedef HashMap<String, String> PrefixForNamespaceMap;
         PrefixForNamespaceMap m_prefixToNamespaceMap;
         SegmentedString m_pendingSrc;
+        FragmentScriptingPermission m_scriptingPermission;
     };
 
 #if ENABLE(XSLT)
@@ -315,7 +317,7 @@ void* xmlDocPtrForString(DocLoader*, const String& source, const String& url);
 #endif
 
 HashMap<String, String> parseAttributes(const String&, bool& attrsOK);
-bool parseXMLDocumentFragment(const String&, DocumentFragment*, Element* parent = 0);
+bool parseXMLDocumentFragment(const String&, DocumentFragment*, Element* parent = 0, FragmentScriptingPermission = FragmentScriptingAllowed);
 
 } // namespace WebCore
 

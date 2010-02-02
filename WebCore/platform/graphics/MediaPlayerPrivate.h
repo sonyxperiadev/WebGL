@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2009, 2010 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -67,8 +67,6 @@ public:
 
     virtual float startTime() const { return 0; }
 
-    virtual void setEndTime(float) = 0;
-
     virtual void setRate(float) = 0;
     virtual void setPreservesPitch(bool) { }
 
@@ -85,10 +83,6 @@ public:
     virtual float maxTimeSeekable() const = 0;
     virtual PassRefPtr<TimeRanges> buffered() const = 0;
 
-    virtual int dataRate() const = 0;
-
-    virtual bool totalBytesKnown() const { return totalBytes() > 0; }
-    virtual unsigned totalBytes() const = 0;
     virtual unsigned bytesLoaded() const = 0;
 
     virtual void setSize(const IntSize&) = 0;
@@ -98,6 +92,8 @@ public:
     virtual void paintCurrentFrameInContext(GraphicsContext* c, const IntRect& r) { paint(c, r); }
 
     virtual void setAutobuffer(bool) { };
+
+    virtual bool hasAvailableVideoFrame() const { return readyState() >= MediaPlayer::HaveCurrentData; }
 
     virtual bool canLoadPoster() const { return false; }
     virtual void setPoster(const String&) { }

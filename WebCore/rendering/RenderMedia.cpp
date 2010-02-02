@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007, 2008, 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2007, 2008, 2009, 2010 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -45,32 +45,30 @@ using namespace HTMLNames;
 
 static const double cTimeUpdateRepeatDelay = 0.2;
 static const double cOpacityAnimationRepeatDelay = 0.05;
-// FIXME get this from style
-static const double cOpacityAnimationDurationFadeIn = 0.1;
-static const double cOpacityAnimationDurationFadeOut = 0.3;
 
 RenderMedia::RenderMedia(HTMLMediaElement* video)
-    : RenderReplaced(video)
+    : RenderImage(video)
     , m_timeUpdateTimer(this, &RenderMedia::timeUpdateTimerFired)
     , m_opacityAnimationTimer(this, &RenderMedia::opacityAnimationTimerFired)
     , m_mouseOver(false)
     , m_opacityAnimationStartTime(0)
-    , m_opacityAnimationDuration(cOpacityAnimationDurationFadeIn)
+    , m_opacityAnimationDuration(0)
     , m_opacityAnimationFrom(0)
     , m_opacityAnimationTo(1.0f)
 {
 }
 
 RenderMedia::RenderMedia(HTMLMediaElement* video, const IntSize& intrinsicSize)
-    : RenderReplaced(video, intrinsicSize)
+    : RenderImage(video)
     , m_timeUpdateTimer(this, &RenderMedia::timeUpdateTimerFired)
     , m_opacityAnimationTimer(this, &RenderMedia::opacityAnimationTimerFired)
     , m_mouseOver(false)
     , m_opacityAnimationStartTime(0)
-    , m_opacityAnimationDuration(cOpacityAnimationDurationFadeIn)
+    , m_opacityAnimationDuration(0)
     , m_opacityAnimationFrom(0)
     , m_opacityAnimationTo(1.0f)
 {
+    setIntrinsicSize(intrinsicSize);
 }
 
 RenderMedia::~RenderMedia()
@@ -89,7 +87,7 @@ void RenderMedia::destroy()
         m_controlsShadowRoot->detach();
         m_controlsShadowRoot = 0;
     }
-    RenderReplaced::destroy();
+    RenderImage::destroy();
 }
 
 HTMLMediaElement* RenderMedia::mediaElement() const
@@ -104,7 +102,7 @@ MediaPlayer* RenderMedia::player() const
 
 void RenderMedia::styleDidChange(StyleDifference diff, const RenderStyle* oldStyle)
 {
-    RenderReplaced::styleDidChange(diff, oldStyle);
+    RenderImage::styleDidChange(diff, oldStyle);
 
     if (m_controlsShadowRoot) {
         if (m_panel)
@@ -146,7 +144,7 @@ void RenderMedia::layout()
 {
     IntSize oldSize = contentBoxRect().size();
 
-    RenderReplaced::layout();
+    RenderImage::layout();
 
     RenderBox* controlsRenderer = m_controlsShadowRoot ? m_controlsShadowRoot->renderBox() : 0;
     if (!controlsRenderer)
@@ -452,9 +450,9 @@ void RenderMedia::updateControlVisibility()
     }
 
     if (animateFrom < animateTo)
-        m_opacityAnimationDuration = cOpacityAnimationDurationFadeIn;
+        m_opacityAnimationDuration = m_panel->renderer()->theme()->mediaControlsFadeInDuration();
     else
-        m_opacityAnimationDuration = cOpacityAnimationDurationFadeOut;
+        m_opacityAnimationDuration = m_panel->renderer()->theme()->mediaControlsFadeOutDuration();
 
     m_opacityAnimationFrom = animateFrom;
     m_opacityAnimationTo = animateTo;
@@ -573,7 +571,7 @@ void RenderMedia::forwardEvent(Event* event)
 
 int RenderMedia::lowestPosition(bool includeOverflowInterior, bool includeSelf) const
 {
-    int bottom = RenderReplaced::lowestPosition(includeOverflowInterior, includeSelf);
+    int bottom = RenderImage::lowestPosition(includeOverflowInterior, includeSelf);
     if (!m_controlsShadowRoot || !m_controlsShadowRoot->renderer())
         return bottom;
     
@@ -582,7 +580,7 @@ int RenderMedia::lowestPosition(bool includeOverflowInterior, bool includeSelf) 
 
 int RenderMedia::rightmostPosition(bool includeOverflowInterior, bool includeSelf) const
 {
-    int right = RenderReplaced::rightmostPosition(includeOverflowInterior, includeSelf);
+    int right = RenderImage::rightmostPosition(includeOverflowInterior, includeSelf);
     if (!m_controlsShadowRoot || !m_controlsShadowRoot->renderer())
         return right;
     
@@ -591,7 +589,7 @@ int RenderMedia::rightmostPosition(bool includeOverflowInterior, bool includeSel
 
 int RenderMedia::leftmostPosition(bool includeOverflowInterior, bool includeSelf) const
 {
-    int left = RenderReplaced::leftmostPosition(includeOverflowInterior, includeSelf);
+    int left = RenderImage::leftmostPosition(includeOverflowInterior, includeSelf);
     if (!m_controlsShadowRoot || !m_controlsShadowRoot->renderer())
         return left;
     

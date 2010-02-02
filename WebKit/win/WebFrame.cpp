@@ -1278,13 +1278,17 @@ HRESULT WebFrame::elementIsPassword(IDOMElement *element, bool *result)
     return S_OK;
 }
 
-HRESULT WebFrame::searchForLabelsBeforeElement(const BSTR* labels, int cLabels, IDOMElement* beforeElement, BSTR* result)
+HRESULT WebFrame::searchForLabelsBeforeElement(const BSTR* labels, unsigned cLabels, IDOMElement* beforeElement, unsigned* outResultDistance, BOOL* outResultIsInCellAbove, BSTR* result)
 {
     if (!result) {
         ASSERT_NOT_REACHED();
         return E_POINTER;
     }
 
+    if (outResultDistance)
+        *outResultDistance = 0;
+    if (outResultIsInCellAbove)
+        *outResultIsInCellAbove = FALSE;
     *result = 0;
 
     if (!cLabels)
@@ -1303,11 +1307,18 @@ HRESULT WebFrame::searchForLabelsBeforeElement(const BSTR* labels, int cLabels, 
     if (!coreElement)
         return E_FAIL;
 
-    String label = coreFrame->searchForLabelsBeforeElement(labelStrings, coreElement);
+    size_t resultDistance;
+    bool resultIsInCellAbove;
+    String label = coreFrame->searchForLabelsBeforeElement(labelStrings, coreElement, &resultDistance, &resultIsInCellAbove);
     
     *result = SysAllocStringLen(label.characters(), label.length());
     if (label.length() && !*result)
         return E_OUTOFMEMORY;
+    if (outResultDistance)
+        *outResultDistance = resultDistance;
+    if (outResultIsInCellAbove)
+        *outResultIsInCellAbove = resultIsInCellAbove;
+
     return S_OK;
 }
 
@@ -1952,6 +1963,7 @@ HRESULT STDMETHODCALLTYPE WebFrame::getPrintedPageCount(
     return S_OK;
 }
 
+#if PLATFORM(CG)
 void WebFrame::drawHeader(PlatformGraphicsContext* pctx, IWebUIDelegate* ui, const IntRect& pageRect, float headerHeight)
 {
     int x = pageRect.x();
@@ -1968,7 +1980,6 @@ void WebFrame::drawFooter(PlatformGraphicsContext* pctx, IWebUIDelegate* ui, con
     ui->drawFooterInRect(d->webView, &footerRect, static_cast<OLE_HANDLE>(reinterpret_cast<LONG64>(pctx)), page+1, pageCount);
 }
 
-#if PLATFORM(CG)
 void WebFrame::spoolPage(PlatformGraphicsContext* pctx, GraphicsContext* spoolCtx, HDC printDC, IWebUIDelegate* ui, float headerHeight, float footerHeight, UINT page, UINT pageCount)
 {
     Frame* coreFrame = core(this);
@@ -1985,7 +1996,6 @@ void WebFrame::spoolPage(PlatformGraphicsContext* pctx, GraphicsContext* spoolCt
 
     CGContextBeginPage(pctx, &mediaBox);
 
-    // FIXME: Could some of this coordinate space manipulation be shared with Cairo?
     CGFloat scale = static_cast<float>(mediaBox.size.width)/static_cast<float>(pageRect.width());
     CGAffineTransform ctm = CGContextGetBaseCTM(pctx);
     ctm = CGAffineTransformScale(ctm, -scale, -scale);
@@ -2008,29 +2018,72 @@ void WebFrame::spoolPage(PlatformGraphicsContext* pctx, GraphicsContext* spoolCt
     CGContextRestoreGState(pctx);
 }
 #elif PLATFORM(CAIRO)
+static float scaleFactor(HDC printDC, const IntRect& pageRect)
+{
+    const IntRect& printRect = printerRect(printDC);
+
+    float scale = static_cast<float>(printRect.width()) / static_cast<float>(pageRect.width());
+    if (!scale)
+       scale = 1.0;
+
+    return scale;
+}
+
+static HDC hdcFromContext(PlatformGraphicsContext* pctx)
+{
+    cairo_surface_t* surface = cairo_get_target(pctx);
+    return cairo_win32_surface_get_dc(surface);
+}
+
+void WebFrame::drawHeader(PlatformGraphicsContext* pctx, IWebUIDelegate* ui, const IntRect& pageRect, float headerHeight)
+{
+    HDC hdc = hdcFromContext(pctx);
+
+    const float scale = scaleFactor(hdc, pageRect);
+    int x = static_cast<int>(scale * pageRect.x());
+    int y = 0;
+    RECT headerRect = {x, y, x + static_cast<int>(scale * pageRect.width()), y + static_cast<int>(scale * headerHeight)};
+
+    ui->drawHeaderInRect(d->webView, &headerRect, static_cast<OLE_HANDLE>(reinterpret_cast<LONG64>(hdc)));
+}
+
+void WebFrame::drawFooter(PlatformGraphicsContext* pctx, IWebUIDelegate* ui, const IntRect& pageRect, UINT page, UINT pageCount, float headerHeight, float footerHeight)
+{
+    HDC hdc = hdcFromContext(pctx);
+
+    const float scale = scaleFactor(hdc, pageRect);
+    int x = static_cast<int>(scale * pageRect.x());
+    int y = static_cast<int>(scale * max(static_cast<int>(headerHeight) + pageRect.height(), m_pageHeight-static_cast<int>(footerHeight)));
+    RECT footerRect = {x, y, x + static_cast<int>(scale * pageRect.width()), y + static_cast<int>(scale * footerHeight)};
+
+    ui->drawFooterInRect(d->webView, &footerRect, static_cast<OLE_HANDLE>(reinterpret_cast<LONG64>(hdc)), page+1, pageCount);
+}
+
 void WebFrame::spoolPage(PlatformGraphicsContext* pctx, GraphicsContext* spoolCtx, HDC printDC, IWebUIDelegate* ui, float headerHeight, float footerHeight, UINT page, UINT pageCount)
 {
     Frame* coreFrame = core(this);
 
-    IntRect pageRect = m_pageRects[page];
+    const IntRect& pageRect = m_pageRects[page];
+    IntRect marginRect = printerMarginRect(printDC);
 
     cairo_save(pctx);
-
-    IntRect printRect = printerRect(printDC);
-    IntRect mediaBox(0, 0, printRect.width(), printRect.height());
-
-    ::StartPage(printDC);
-
-    // FIXME: Could some of this coordinate space manipulation be shared with CG?
-    float scale = static_cast<float>(mediaBox.size().width())/static_cast<float>(pageRect.width());
-    cairo_scale(pctx, -scale, -scale);
-    cairo_translate(pctx, -pageRect.x(), -pageRect.y()+headerHeight);
+    float scale = scaleFactor(printDC, pageRect);
     cairo_scale(pctx, scale, scale);
-    cairo_translate(pctx, -pageRect.x(), -pageRect.y()+headerHeight);   // reserves space for header
 
+    cairo_translate(pctx, -pageRect.x() + marginRect.x(), -pageRect.y() + marginRect.y() + headerHeight);
     coreFrame->view()->paintContents(spoolCtx, pageRect);
 
-    cairo_translate(pctx, pageRect.x(), pageRect.y()-headerHeight);
+    cairo_translate(pctx, pageRect.x() - marginRect.x(), pageRect.y() - marginRect.y() - headerHeight);
+
+    XFORM originalWorld;
+    ::GetWorldTransform(printDC, &originalWorld);
+
+    // Position world transform to account for margin
+    XFORM newWorld = originalWorld;
+    newWorld.eDx = scale * marginRect.x();
+    newWorld.eDy = scale * marginRect.y();
+
+    ::SetWorldTransform(printDC, &newWorld);
 
     if (headerHeight)
         drawHeader(pctx, ui, pageRect, headerHeight);
@@ -2038,8 +2091,10 @@ void WebFrame::spoolPage(PlatformGraphicsContext* pctx, GraphicsContext* spoolCt
     if (footerHeight)
         drawFooter(pctx, ui, pageRect, page, pageCount, headerHeight, footerHeight);
 
+    ::SetWorldTransform(printDC, &originalWorld);
+
     cairo_show_page(pctx);
-    ::EndPage(printDC);
+    ASSERT(!cairo_status(pctx));
     cairo_restore(pctx);
 }
 #endif
@@ -2050,10 +2105,25 @@ HRESULT STDMETHODCALLTYPE WebFrame::spoolPages(
     /* [in] */ UINT endPage,
     /* [retval][out] */ void* ctx)
 {
+#if PLATFORM(CG)
     if (!printDC || !ctx) {
         ASSERT_NOT_REACHED();
         return E_POINTER;
     }
+#elif PLATFORM(CAIRO)
+    if (!printDC) {
+        ASSERT_NOT_REACHED();
+        return E_POINTER;
+    }
+
+    cairo_surface_t* printSurface = cairo_win32_printing_surface_create(printDC);
+    ctx = cairo_create(printSurface);
+    if (!ctx) {
+        cairo_surface_destroy(printSurface);    
+        return E_FAIL;
+    }
+    cairo_surface_set_fallback_resolution(printSurface, 72.0, 72.0);
+#endif
 
     if (!m_inPrintingMode) {
         ASSERT_NOT_REACHED();
@@ -2089,7 +2159,14 @@ HRESULT STDMETHODCALLTYPE WebFrame::spoolPages(
 
     for (UINT ii = startPage; ii < endPage; ii++)
         spoolPage(pctx, &spoolCtx, printDC, ui.get(), headerHeight, footerHeight, ii, pageCount);
- 
+
+#if PLATFORM(CAIRO)
+    cairo_destroy(pctx);
+    cairo_surface_finish(printSurface);
+    ASSERT(!cairo_surface_status(printSurface));
+    cairo_surface_destroy(printSurface);
+#endif
+
     return S_OK;
 }
 

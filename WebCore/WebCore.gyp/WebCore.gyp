@@ -106,8 +106,11 @@
       '../',
       '../accessibility',
       '../accessibility/chromium',
+      '../bindings',
+      '../bindings/generic',
       '../bindings/v8',
       '../bindings/v8/custom',
+      '../bindings/v8/specialization',
       '../bridge',
       '../css',
       '../dom',
@@ -388,6 +391,26 @@
           ],
         },
         {
+          'action_name': 'XMLNSNames',
+          'inputs': [
+            '../dom/make_names.pl',
+            '../xml/xmlnsattrs.in',
+          ],
+          'outputs': [
+            '<(SHARED_INTERMEDIATE_DIR)/webkit/XMLNSNames.cpp',
+            '<(SHARED_INTERMEDIATE_DIR)/webkit/XMLNSNames.h',
+          ],
+          'action': [
+            'python',
+            'scripts/action_makenames.py',
+            '<@(_outputs)',
+            '--',
+            '<@(_inputs)',
+            '--',
+            '--extraDefines', '<(feature_defines)'
+          ],
+        },
+        {
           'action_name': 'XMLNames',
           'inputs': [
             '../dom/make_names.pl',
@@ -564,6 +587,7 @@
         '<(SHARED_INTERMEDIATE_DIR)/webkit/SVGNames.cpp',
         '<(SHARED_INTERMEDIATE_DIR)/webkit/UserAgentStyleSheetsData.cpp',
         '<(SHARED_INTERMEDIATE_DIR)/webkit/XLinkNames.cpp',
+        '<(SHARED_INTERMEDIATE_DIR)/webkit/XMLNSNames.cpp',
         '<(SHARED_INTERMEDIATE_DIR)/webkit/XMLNames.cpp',
 
         # Additional .cpp files from the webcore_bindings_sources rules.
@@ -646,8 +670,12 @@
         # of their enclosing directories and tags at the ends of their
         # filenames.
         ['exclude', '(android|cairo|cf|cg|curl|gtk|haiku|linux|mac|opentype|posix|qt|soup|symbian|win|wx)/'],
-        ['exclude', '(?<!Chromium)(SVGAllInOne|Android|Cairo|CF|CG|Curl|Gtk|Linux|Mac|OpenType|POSIX|Posix|Qt|Safari|Soup|Symbian|Win|Wx)\\.(cpp|mm?)$'],
+        ['exclude', '(?<!Chromium)(Android|Cairo|CF|CG|Curl|Gtk|Linux|Mac|OpenType|POSIX|Posix|Qt|Safari|Soup|Symbian|Win|Wx)\\.(cpp|mm?)$'],
         ['include', 'platform/graphics/opentype/OpenTypeSanitizer\\.cpp$'],
+        # Exclude everything in svg/ directly but not in subdirectories.
+        # Everything in svg/*.cpp is included in svg/SVGAllInOne.cpp.
+        ['exclude', 'svg/[^/]+\\.cpp$'],
+        ['include', 'svg/SVGAllInOne\\.cpp$'],
 
         # JSC-only.
         ['exclude', 'inspector/JavaScript[^/]*\\.cpp$'],

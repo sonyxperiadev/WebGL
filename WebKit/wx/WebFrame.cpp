@@ -24,6 +24,7 @@
  */
 
 #include "config.h"
+#include "BackForwardList.h"
 #include "CString.h"
 #include "Document.h"
 #include "Editor.h"
@@ -33,6 +34,7 @@
 #include "FrameLoader.h"
 #include "FrameView.h"
 #include "HitTestResult.h"
+#include "HostWindow.h"
 #include "HTMLFrameOwnerElement.h"
 #include "markup.h"
 #include "Page.h"
@@ -90,6 +92,13 @@ wxWebFrame::wxWebFrame(wxWebView* container, wxWebFrame* parent, WebViewFrameDat
 
     m_impl->frame = newFrame.get();
 
+    if (data)
+        newFrame->tree()->setName(data->name);
+
+    // Subframes expect to be added to the FrameTree before init is called.
+    if (parentFrame)
+        parentFrame->document()->frame()->tree()->appendChild(newFrame.get());
+    
     loaderClient->setFrame(this);
     loaderClient->setWebView(container);
     
@@ -192,7 +201,7 @@ wxString wxWebFrame::RunScript(const wxString& javascript)
         wxASSERT_MSG(hasLoaded, wxT("Document must be loaded before calling RunScript."));
         if (hasLoaded) {
             WebCore::ScriptController* controller = m_impl->frame->script();
-            bool jsEnabled = controller->isEnabled(); 
+            bool jsEnabled = controller->canExecuteScripts(); 
             wxASSERT_MSG(jsEnabled, wxT("RunScript requires JavaScript to be enabled."));
             if (jsEnabled) {
                 JSC::JSValue result = controller->executeScript(javascript, true).jsValue();
@@ -408,4 +417,12 @@ bool wxWebFrame::ShouldClose() const
         return m_impl->frame->shouldClose();
 
     return true;
+}
+
+wxWebKitParseMode wxWebFrame::GetParseMode() const
+{
+    if (m_impl->frame && m_impl->frame->document())
+        return (wxWebKitParseMode)m_impl->frame->document()->parseMode();
+
+    return NoDocument;
 }

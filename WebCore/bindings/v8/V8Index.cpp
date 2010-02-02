@@ -34,6 +34,7 @@
 #include "V8Attr.h"
 #include "V8BarInfo.h"
 #include "V8BeforeLoadEvent.h"
+#include "V8Blob.h"
 #include "V8WebGLActiveInfo.h"
 #include "V8CanvasRenderingContext.h"
 #include "V8CanvasRenderingContext2D.h"
@@ -154,6 +155,7 @@
 #include "V8NodeList.h"
 #include "V8NodeFilter.h"
 #include "V8Notation.h"
+#include "V8PopStateEvent.h"
 #include "V8ProcessingInstruction.h"
 #include "V8ProgressEvent.h"
 #include "V8StyleSheet.h"
@@ -249,11 +251,13 @@
 #endif
 
 #if ENABLE(SVG_FONTS)
+#include "V8SVGFontElement.h"
 #include "V8SVGFontFaceElement.h"
 #include "V8SVGFontFaceFormatElement.h"
 #include "V8SVGFontFaceNameElement.h"
 #include "V8SVGFontFaceSrcElement.h"
 #include "V8SVGFontFaceUriElement.h"
+#include "V8SVGMissingGlyphElement.h"
 #endif
 
 #if ENABLE(SVG_FOREIGN_OBJECT)
@@ -400,6 +404,7 @@
 #include "V8WebGLArray.h"
 #include "V8WebGLByteArray.h"
 #include "V8WebGLBuffer.h"
+#include "V8WebGLContextAttributes.h"
 #include "V8WebGLFloatArray.h"
 #include "V8WebGLFramebuffer.h"
 #include "V8WebGLIntArray.h"
@@ -422,6 +427,13 @@
 #include "V8SQLTransaction.h"
 #endif
 
+#if ENABLE(INDEXED_DATABASE)
+#include "V8IDBDatabaseError.h"
+#include "V8IDBDatabaseException.h"
+#include "V8IDBRequest.h"
+#include "V8IndexedDatabaseRequest.h"
+#endif
+
 #if ENABLE(XPATH)
 #include "V8XPathResult.h"
 #include "V8XPathException.h"
@@ -438,6 +450,10 @@
 #include "V8InjectedScriptHost.h"
 #include "V8InspectorBackend.h"
 #include "V8InspectorFrontendHost.h"
+#endif
+
+#if ENABLE(EVENTSOURCE)
+#include "V8EventSource.h"
 #endif
 
 // Geolocation

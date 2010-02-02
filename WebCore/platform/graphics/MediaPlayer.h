@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007, 2008, 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2007, 2008, 2009, 2010 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -163,8 +163,6 @@ public:
 
     float startTime() const;
     
-    void setEndTime(float time);
-    
     float rate() const;
     void setRate(float);
 
@@ -175,16 +173,12 @@ public:
     float maxTimeSeekable();
 
     unsigned bytesLoaded();
-    bool totalBytesKnown();
-    unsigned totalBytes();
     
     float volume() const;
     void setVolume(float);
 
     bool hasClosedCaptions() const;
     void setClosedCaptionsVisible(bool closedCaptionsVisible);
-
-    int dataRate() const;
 
     bool autobuffer() const;    
     void setAutobuffer(bool);
@@ -212,6 +206,8 @@ public:
     void repaint();
 
     MediaPlayerClient* mediaPlayerClient() const { return m_mediaPlayerClient; }
+
+    bool hasAvailableVideoFrame() const;
 
     bool canLoadPoster() const;
     void setPoster(const String&);

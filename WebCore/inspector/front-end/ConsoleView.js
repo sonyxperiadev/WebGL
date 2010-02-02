@@ -45,7 +45,8 @@ WebInspector.ConsoleView = function(drawer)
     this.messagesElement.addEventListener("click", this._messagesClicked.bind(this), true);
 
     this.promptElement = document.getElementById("console-prompt");
-    this.promptElement.handleKeyEvent = this._promptKeyDown.bind(this);
+    this.promptElement.className = "source-code";
+    this.promptElement.addEventListener("keydown", this._promptKeyDown.bind(this), true);
     this.prompt = new WebInspector.TextPrompt(this.promptElement, this.completions.bind(this), ExpressionStopCharacters + ".");
 
     this.topGroup = new WebInspector.ConsoleGroup(null, 0);
@@ -91,18 +92,25 @@ WebInspector.ConsoleView = function(drawer)
     this._shortcuts = {};
 
     var shortcut;
-    var handler = this.clearMessages.bind(this, true);
+    var clearConsoleHandler = this.requestClearMessages.bind(this);
 
     shortcut = WebInspector.KeyboardShortcut.makeKey("k", WebInspector.KeyboardShortcut.Modifiers.Meta);
-    this._shortcuts[shortcut] = handler;
+    this._shortcuts[shortcut] = clearConsoleHandler;
     this._shortcuts[shortcut].isMacOnly = true;
     shortcut = WebInspector.KeyboardShortcut.makeKey("l", WebInspector.KeyboardShortcut.Modifiers.Ctrl);
-    this._shortcuts[shortcut] = handler;
+    this._shortcuts[shortcut] = clearConsoleHandler;
 
+    // Since the Context Menu for the Console View will always be the same, we can create it in
+    // the constructor.
+    this._contextMenu = new WebInspector.ContextMenu();
+    this._contextMenu.appendItem(WebInspector.UIString("Clear Console"), clearConsoleHandler);
+    this.messagesElement.addEventListener("contextmenu", this._handleContextMenuEvent.bind(this), true);
+    
     this._customFormatters = {
         "object": this._formatobject,
         "array":  this._formatarray,
-        "node":   this._formatnode
+        "node":   this._formatnode,
+        "string": this._formatstring
     };
 }
 
@@ -282,10 +290,13 @@ WebInspector.ConsoleView.prototype = {
         }
     },
 
-    clearMessages: function(clearInspectorController)
+    requestClearMessages: function()
     {
-        if (clearInspectorController)
-            InspectorBackend.clearMessages(false);
+        InjectedScriptAccess.getDefault().clearConsoleMessages(function() {});
+    },
+
+    clearMessages: function()
+    {
         if (WebInspector.panels.resources)
             WebInspector.panels.resources.clearMessages();
 
@@ -323,9 +334,14 @@ WebInspector.ConsoleView.prototype = {
         // Collect comma separated object properties for the completion.
 
         var includeInspectorCommandLineAPI = (!dotNotation && !bracketNotation);
-        if (WebInspector.panels.scripts && WebInspector.panels.scripts.paused)
-            var callFrameId = WebInspector.panels.scripts.selectedCallFrameId();
-        InjectedScriptAccess.getCompletions(expressionString, includeInspectorCommandLineAPI, callFrameId, reportCompletions);
+        var callFrameId = WebInspector.panels.scripts.selectedCallFrameId();
+        var injectedScriptAccess;
+        if (WebInspector.panels.scripts && WebInspector.panels.scripts.paused) {
+            var selectedCallFrame = WebInspector.panels.scripts.sidebarPanes.callstack.selectedCallFrame;
+            injectedScriptAccess = InjectedScriptAccess.get(selectedCallFrame.injectedScriptId);
+        } else
+            injectedScriptAccess = InjectedScriptAccess.getDefault();
+        injectedScriptAccess.getCompletions(expressionString, includeInspectorCommandLineAPI, callFrameId, reportCompletions);
     },
 
     _reportCompletions: function(bestMatchOnly, completionsReadyCallback, dotNotation, bracketNotation, prefix, result, isException) {
@@ -368,7 +384,18 @@ WebInspector.ConsoleView.prototype = {
 
     _clearButtonClicked: function()
     {
-        this.clearMessages(true);
+        this.requestClearMessages();
+    },
+
+    _handleContextMenuEvent: function(event)
+    {
+        if (!window.getSelection().isCollapsed) {
+            // If there is a selection, we want to show our normal context menu
+            // (with Copy, etc.), and not Clear Console.
+            return;
+        }
+
+        this._contextMenu.show(event);
     },
 
     _messagesSelectStart: function(event)
@@ -407,13 +434,6 @@ WebInspector.ConsoleView.prototype = {
             return;
         }
 
-        if (isFnKey(event)) {
-            if (WebInspector.currentPanel && WebInspector.currentPanel.handleKeyEvent) {
-                WebInspector.currentPanel.handleKeyEvent(event);
-                return;
-            }
-        }
-
         var shortcut = WebInspector.KeyboardShortcut.makeKeyFromEvent(event);
         var handler = this._shortcuts[shortcut];
         if (handler) {
@@ -423,8 +443,6 @@ WebInspector.ConsoleView.prototype = {
                 return;
             }
         }
-
-        this.prompt.handleKeyEvent(event);
     },
 
     evalInInspectedWindow: function(expression, objectGroup, callback)
@@ -447,7 +465,7 @@ WebInspector.ConsoleView.prototype = {
         {
             callback(result.value, result.isException);
         };
-        InjectedScriptAccess.evaluate(expression, objectGroup, evalCallback);
+        InjectedScriptAccess.getDefault().evaluate(expression, objectGroup, evalCallback);
     },
 
     _enterKeyPressed: function(event)
@@ -487,11 +505,10 @@ WebInspector.ConsoleView.prototype = {
         if (!formatter || !isProxy) {
             formatter = this._formatvalue;
             output = output.description || output;
-            type = "undecorated";
         }
 
         var span = document.createElement("span");
-        span.addStyleClass("console-formatted-" + type);
+        span.className = "console-formatted-" + type + " source-code";
         formatter.call(this, output, span);
         return span;
     },
@@ -521,12 +538,25 @@ WebInspector.ConsoleView.prototype = {
             elem.appendChild(treeOutline.element);
         }
 
-        InjectedScriptAccess.pushNodeToFrontend(object, printNode);
+        InjectedScriptAccess.get(object.injectedScriptId).pushNodeToFrontend(object, printNode);
     },
 
     _formatarray: function(arr, elem)
     {
-        InjectedScriptAccess.getProperties(arr, false, this._printArray.bind(this, elem));
+        InjectedScriptAccess.get(arr.injectedScriptId).getProperties(arr, false, false, this._printArray.bind(this, elem));
+    },
+
+    _formatstring: function(output, elem)
+    {
+        var span = document.createElement("span");
+        span.className = "console-formatted-string source-code";
+        span.appendChild(WebInspector.linkifyStringAsFragment(output.description));
+
+        // Make black quotes.
+        elem.removeStyleClass("console-formatted-string");
+        elem.appendChild(document.createTextNode("\""));
+        elem.appendChild(span);
+        elem.appendChild(document.createTextNode("\""));
     },
 
     _printArray: function(elem, properties)
@@ -579,7 +609,7 @@ WebInspector.ConsoleMessage.prototype = {
         switch (this.type) {
             case WebInspector.ConsoleMessage.MessageType.Trace:
                 var span = document.createElement("span");
-                span.addStyleClass("console-formatted-trace");
+                span.className = "console-formatted-trace source-code";
                 var stack = Array.prototype.slice.call(args);
                 var funcNames = stack.map(function(f) {
                     return f || WebInspector.UIString("(anonymous function)");
@@ -606,7 +636,7 @@ WebInspector.ConsoleMessage.prototype = {
 
     _format: function(parameters)
     {
-        // This node is used like a Builder. Values are contintually appended onto it.
+        // This node is used like a Builder. Values are continually appended onto it.
         var formattedResult = document.createElement("span");
         if (!parameters.length)
             return formattedResult;
@@ -617,9 +647,13 @@ WebInspector.ConsoleMessage.prototype = {
             if (typeof parameters[i] !== "object" && typeof parameters[i] !== "function")
                 parameters[i] = WebInspector.ObjectProxy.wrapPrimitiveValue(parameters[i]);
 
+        // There can be string log and string eval result. We distinguish between them based on message type.
+        var shouldFormatMessage = Object.proxyType(parameters[0]) === "string" && this.type !== WebInspector.ConsoleMessage.MessageType.Result;
+
         // Multiple parameters with the first being a format string. Save unused substitutions.
-        if (parameters.length > 1 && Object.proxyType(parameters[0]) === "string") {
-            var result = this._formatWithSubstitutionString(parameters, formattedResult)
+        if (shouldFormatMessage) {
+            // Multiple parameters with the first being a format string. Save unused substitutions.
+            var result = this._formatWithSubstitutionString(parameters, formattedResult);
             parameters = result.unusedSubstitutions;
             if (parameters.length)
                 formattedResult.appendChild(document.createTextNode(" "));
@@ -627,11 +661,14 @@ WebInspector.ConsoleMessage.prototype = {
 
         // Single parameter, or unused substitutions from above.
         for (var i = 0; i < parameters.length; ++i) {
-            this._formatIndividualValue(parameters[i], formattedResult);
+            // Inline strings when formatting.
+            if (shouldFormatMessage && parameters[i].type === "string")
+                formattedResult.appendChild(document.createTextNode(parameters[i].description));
+            else
+                formattedResult.appendChild(WebInspector.console._format(parameters[i]));
             if (i < parameters.length - 1)
                 formattedResult.appendChild(document.createTextNode(" "));
         }
-
         return formattedResult;
     },
 
@@ -652,7 +689,7 @@ WebInspector.ConsoleMessage.prototype = {
         formatters.o = consoleFormatWrapper();
         // Firebug allows both %i and %d for formatting integers.
         formatters.i = formatters.d;
-        // Support %O to force object formating, instead of the type-based %o formatting.
+        // Support %O to force object formatting, instead of the type-based %o formatting.
         formatters.O = consoleFormatWrapper(true);
 
         function append(a, b)
@@ -666,18 +703,6 @@ WebInspector.ConsoleMessage.prototype = {
 
         // String.format does treat formattedResult like a Builder, result is an object.
         return String.format(parameters[0].description, parameters.slice(1), formatters, formattedResult, append);
-    },
-
-    _formatIndividualValue: function(param, formattedResult)
-    {
-        if (Object.proxyType(param) === "string") {
-            if (this.originatingCommand && this.level === WebInspector.ConsoleMessage.MessageLevel.Log) {
-                var quotedString = "\"" + param.description.replace(/"/g, "\\\"") + "\"";
-                formattedResult.appendChild(WebInspector.linkifyStringAsFragment(quotedString));
-            } else
-                formattedResult.appendChild(WebInspector.linkifyStringAsFragment(param.description));
-        } else
-            formattedResult.appendChild(WebInspector.console._format(param));
     },
 
     toMessageElement: function()
@@ -757,7 +782,7 @@ WebInspector.ConsoleMessage.prototype = {
         }
 
         var messageTextElement = document.createElement("span");
-        messageTextElement.className = "console-message-text";
+        messageTextElement.className = "console-message-text source-code";
         if (this.type === WebInspector.ConsoleMessage.MessageType.Assert)
             messageTextElement.appendChild(document.createTextNode(WebInspector.UIString("Assertion failed: ")));
         messageTextElement.appendChild(this.formattedMessage);
@@ -824,6 +849,9 @@ WebInspector.ConsoleMessage.prototype = {
             case WebInspector.ConsoleMessage.MessageType.Assert:
                 typeString = "Assert";
                 break;
+            case WebInspector.ConsoleMessage.MessageType.Result:
+                typeString = "Result";
+                break;
         }
         
         var levelString;
@@ -880,7 +908,8 @@ WebInspector.ConsoleMessage.MessageType = {
     Trace: 2,
     StartGroup: 3,
     EndGroup: 4,
-    Assert: 5
+    Assert: 5,
+    Result: 6
 }
 
 WebInspector.ConsoleMessage.MessageLevel = {
@@ -904,7 +933,7 @@ WebInspector.ConsoleCommand.prototype = {
         element.className = "console-user-command";
 
         var commandTextElement = document.createElement("span");
-        commandTextElement.className = "console-message-text";
+        commandTextElement.className = "console-message-text source-code";
         commandTextElement.textContent = this.command;
         element.appendChild(commandTextElement);
 
@@ -924,12 +953,17 @@ WebInspector.ConsoleCommandResult = function(result, exception, originatingComma
 {
     var level = (exception ? WebInspector.ConsoleMessage.MessageLevel.Error : WebInspector.ConsoleMessage.MessageLevel.Log);
     var message = result;
+    if (exception) {
+        // Distinguish between strings and errors (no need to quote latter).
+        message = WebInspector.ObjectProxy.wrapPrimitiveValue(result);
+        message.type = "error";
+    }
     var line = (exception ? result.line : -1);
     var url = (exception ? result.sourceURL : null);
 
     this.originatingCommand = originatingCommand;
 
-    WebInspector.ConsoleMessage.call(this, WebInspector.ConsoleMessage.MessageSource.JS, WebInspector.ConsoleMessage.MessageType.Log, level, line, url, null, 1, message);
+    WebInspector.ConsoleMessage.call(this, WebInspector.ConsoleMessage.MessageSource.JS, WebInspector.ConsoleMessage.MessageType.Result, level, line, url, null, 1, message);
 }
 
 WebInspector.ConsoleCommandResult.prototype = {

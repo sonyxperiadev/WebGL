@@ -33,8 +33,9 @@
 #import "GraphicsLayer.h"
 #import <QuartzCore/QuartzCore.h>
 #import <OpenGL/OpenGL.h>
+#import <wtf/FastMalloc.h>
 #import <wtf/RetainPtr.h>
-#include <wtf/FastMalloc.h>
+#import <wtf/UnusedParam.h>
 
 using namespace WebCore;
 
@@ -138,6 +139,13 @@ static void freeData(void *, const void *data, size_t /* size */)
                                                  kCGRenderingIntentDefault);
     CGDataProviderRelease(provider);
     return image;
+}
+
+- (void)display
+{
+    [super display];
+    if (m_layerOwner)
+        m_layerOwner->didDisplay(self);
 }
 
 @end

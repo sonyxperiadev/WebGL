@@ -53,6 +53,7 @@ DOM_CLASSES = \
     Attr \
     BarInfo \
     BeforeLoadEvent \
+    Blob \
     CDATASection \
     CSSCharsetRule \
     CSSFontFaceRule \
@@ -75,6 +76,7 @@ DOM_CLASSES = \
     WebGLArrayBuffer \
     WebGLBuffer \
     WebGLByteArray \
+    WebGLContextAttributes \
     WebGLFloatArray \
     WebGLFramebuffer \
     CanvasGradient \
@@ -449,6 +451,7 @@ all : \
     SVGNames.cpp \
     UserAgentStyleSheets.h \
     XLinkNames.cpp \
+    XMLNSNames.cpp \
     XMLNames.cpp \
     MathMLElementFactory.cpp \
     MathMLNames.cpp \
@@ -635,6 +638,9 @@ endif
 
 JSHTMLElementWrapperFactory.cpp : HTMLNames.cpp
 
+XMLNSNames.cpp : dom/make_names.pl xml/xmlnsattrs.in
+	perl -I $(WebCore)/bindings/scripts $< --attrs $(WebCore)/xml/xmlnsattrs.in
+
 XMLNames.cpp : dom/make_names.pl xml/xmlattrs.in
 	perl -I $(WebCore)/bindings/scripts $< --attrs $(WebCore)/xml/xmlattrs.in
 
@@ -742,8 +748,8 @@ endif
 
 ifeq ($(findstring ENABLE_MATHML,$(FEATURE_DEFINES)), ENABLE_MATHML)
 
-MathMLElementFactory.cpp MathMLNames.cpp : dom/make_names.pl mathml/mathtags.in
-	perl -I $(WebCore)/bindings/scripts $< --tags $(WebCore)/mathml/mathtags.in --factory --wrapperFactory
+MathMLElementFactory.cpp MathMLNames.cpp : dom/make_names.pl mathml/mathtags.in mathml/mathattrs.in
+	perl -I $(WebCore)/bindings/scripts $< --tags $(WebCore)/mathml/mathtags.in --attrs $(WebCore)/mathml/mathattrs.in --factory --wrapperFactory
 
 else
 
@@ -848,6 +854,11 @@ endif
 
 ifeq ($(findstring ENABLE_VIDEO,$(FEATURE_DEFINES)), ENABLE_VIDEO)
      WEBCORE_EXPORT_DEPENDENCIES := $(WEBCORE_EXPORT_DEPENDENCIES) WebCore.Video.exp
+endif
+
+
+ifeq ($(findstring ENABLE_CLIENT_BASED_GEOLOCATION,$(FEATURE_DEFINES)), ENABLE_CLIENT_BASED_GEOLOCATION)
+    WEBCORE_EXPORT_DEPENDENCIES := $(WEBCORE_EXPORT_DEPENDENCIES) WebCore.ClientBasedGeolocation.exp
 endif
 
 WebCore.exp : WebCore.base.exp $(WEBCORE_EXPORT_DEPENDENCIES)

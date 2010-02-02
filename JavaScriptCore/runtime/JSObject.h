@@ -122,8 +122,8 @@ namespace JSC {
 
         virtual bool hasInstance(ExecState*, JSValue, JSValue prototypeProperty);
 
-        virtual void getPropertyNames(ExecState*, PropertyNameArray&);
-        virtual void getOwnPropertyNames(ExecState*, PropertyNameArray&);
+        virtual void getPropertyNames(ExecState*, PropertyNameArray&, EnumerationMode mode = ExcludeDontEnumProperties);
+        virtual void getOwnPropertyNames(ExecState*, PropertyNameArray&, EnumerationMode mode = ExcludeDontEnumProperties);
 
         virtual JSValue toPrimitive(ExecState*, PreferredPrimitiveType = NoPreference) const;
         virtual bool getPrimitiveNumber(ExecState*, double& number, JSValue& value);
@@ -206,7 +206,7 @@ namespace JSC {
 
         static PassRefPtr<Structure> createStructure(JSValue prototype)
         {
-            return Structure::create(prototype, TypeInfo(ObjectType, StructureFlags));
+            return Structure::create(prototype, TypeInfo(ObjectType, StructureFlags), AnonymousSlotCount);
         }
 
         void flattenDictionaryObject()
@@ -217,13 +217,14 @@ namespace JSC {
     protected:
         static const unsigned StructureFlags = 0;
 
-        void addAnonymousSlots(unsigned count);
         void putAnonymousValue(unsigned index, JSValue value)
         {
+            ASSERT(index < m_structure->anonymousSlotCount());
             *locationForOffset(index) = value;
         }
-        JSValue getAnonymousValue(unsigned index)
+        JSValue getAnonymousValue(unsigned index) const
         {
+            ASSERT(index < m_structure->anonymousSlotCount());
             return *locationForOffset(index);
         }
 
@@ -381,7 +382,7 @@ ALWAYS_INLINE bool JSCell::fastGetOwnPropertySlot(ExecState* exec, const Identif
 
 // It may seem crazy to inline a function this large but it makes a big difference
 // since this is function very hot in variable lookup
-inline bool JSObject::getPropertySlot(ExecState* exec, const Identifier& propertyName, PropertySlot& slot)
+ALWAYS_INLINE bool JSObject::getPropertySlot(ExecState* exec, const Identifier& propertyName, PropertySlot& slot)
 {
     JSObject* object = this;
     while (true) {
@@ -394,7 +395,7 @@ inline bool JSObject::getPropertySlot(ExecState* exec, const Identifier& propert
     }
 }
 
-inline bool JSObject::getPropertySlot(ExecState* exec, unsigned propertyName, PropertySlot& slot)
+ALWAYS_INLINE bool JSObject::getPropertySlot(ExecState* exec, unsigned propertyName, PropertySlot& slot)
 {
     JSObject* object = this;
     while (true) {
@@ -526,17 +527,6 @@ inline void JSObject::putDirectInternal(JSGlobalData& globalData, const Identifi
 {
     PutPropertySlot slot;
     putDirectInternal(propertyName, value, attributes, false, slot, getJSFunction(globalData, value));
-}
-
-inline void JSObject::addAnonymousSlots(unsigned count)
-{
-    size_t currentCapacity = m_structure->propertyStorageCapacity();
-    RefPtr<Structure> structure = Structure::addAnonymousSlotsTransition(m_structure, count);
-
-    if (currentCapacity != structure->propertyStorageCapacity())
-        allocatePropertyStorage(currentCapacity, structure->propertyStorageCapacity());
-
-    setStructure(structure.release());
 }
 
 inline void JSObject::putDirect(const Identifier& propertyName, JSValue value, unsigned attributes, bool checkReadOnly, PutPropertySlot& slot)

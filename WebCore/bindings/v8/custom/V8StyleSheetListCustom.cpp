@@ -29,16 +29,17 @@
  */
 
 #include "config.h"
+#include "V8StyleSheetList.h"
+
 #include "HTMLStyleElement.h"
 #include "StyleSheetList.h"
-
 #include "V8Binding.h"
 #include "V8CustomBinding.h"
 #include "V8Proxy.h"
 
 namespace WebCore {
 
-NAMED_PROPERTY_GETTER(StyleSheetList)
+v8::Handle<v8::Value> V8StyleSheetList::namedPropertyGetter(v8::Local<v8::String> name, const v8::AccessorInfo& info)
 {
     INC_STATS("DOM.StyleSheetList.NamedPropertyGetter");
 
@@ -46,7 +47,7 @@ NAMED_PROPERTY_GETTER(StyleSheetList)
         return notHandledByInterceptor();
 
     // Search style sheet.
-    StyleSheetList* imp = V8DOMWrapper::convertToNativeObject<StyleSheetList>(V8ClassIndex::STYLESHEETLIST, info.Holder());
+    StyleSheetList* imp = V8StyleSheetList::toNative(info.Holder());
     HTMLStyleElement* item = imp->getNamedItem(toWebCoreString(name));
     if (!item)
         return notHandledByInterceptor();

@@ -31,6 +31,7 @@
 #include "config.h"
 
 #if ENABLE(WORKERS)
+#include "V8WorkerContext.h"
 
 #include "DOMTimer.h"
 #include "ExceptionCode.h"
@@ -41,28 +42,29 @@
 #include "V8Proxy.h"
 #include "V8Utilities.h"
 #include "V8WorkerContextEventListener.h"
+#include "WebSocket.h"
 #include "WorkerContext.h"
 #include "WorkerContextExecutionProxy.h"
 
 namespace WebCore {
 
 #if ENABLE(NOTIFICATIONS)
-ACCESSOR_RUNTIME_ENABLER(WorkerContextWebkitNotifications)
+bool V8WorkerContext::WebkitNotificationsEnabled()
 {
     return RuntimeEnabledFeatures::notificationsEnabled();
 }
 #endif
 
-ACCESSOR_GETTER(WorkerContextSelf)
+#if ENABLE(WEB_SOCKETS)
+bool V8WorkerContext::WebSocketEnabled()
 {
-    INC_STATS(L"DOM.WorkerContext.self._get");
-    WorkerContext* workerContext = V8DOMWrapper::convertDOMWrapperToNative<WorkerContext>(info.Holder());
-    return WorkerContextExecutionProxy::convertWorkerContextToV8Object(workerContext);
+    return WebSocket::isAvailable();
 }
+#endif
 
 v8::Handle<v8::Value> SetTimeoutOrInterval(const v8::Arguments& args, bool singleShot)
 {
-    WorkerContext* workerContext = V8DOMWrapper::convertDOMWrapperToNative<WorkerContext>(args.Holder());
+    WorkerContext* workerContext = V8WorkerContext::toNative(args.Holder());
 
     int argumentCount = args.Length();
     if (argumentCount < 1)
@@ -94,7 +96,7 @@ v8::Handle<v8::Value> SetTimeoutOrInterval(const v8::Arguments& args, bool singl
     return v8::Integer::New(timerId);
 }
 
-CALLBACK_FUNC_DECL(WorkerContextImportScripts)
+v8::Handle<v8::Value> V8WorkerContext::importScriptsCallback(const v8::Arguments& args)
 {
     INC_STATS(L"DOM.WorkerContext.importScripts()");
     if (!args.Length())
@@ -117,7 +119,7 @@ CALLBACK_FUNC_DECL(WorkerContextImportScripts)
         urls.append(toWebCoreString(scriptUrl));
     }
 
-    WorkerContext* workerContext = V8DOMWrapper::convertDOMWrapperToNative<WorkerContext>(args.Holder());
+    WorkerContext* workerContext = V8WorkerContext::toNative(args.Holder());
 
     ExceptionCode ec = 0;
     workerContext->importScripts(urls, callerURL, callerLine, ec);
@@ -128,22 +130,22 @@ CALLBACK_FUNC_DECL(WorkerContextImportScripts)
     return v8::Undefined();
 }
 
-CALLBACK_FUNC_DECL(WorkerContextSetTimeout)
+v8::Handle<v8::Value> V8WorkerContext::setTimeoutCallback(const v8::Arguments& args)
 {
     INC_STATS(L"DOM.WorkerContext.setTimeout()");
     return SetTimeoutOrInterval(args, true);
 }
 
-CALLBACK_FUNC_DECL(WorkerContextSetInterval)
+v8::Handle<v8::Value> V8WorkerContext::setIntervalCallback(const v8::Arguments& args)
 {
     INC_STATS(L"DOM.WorkerContext.setInterval()");
     return SetTimeoutOrInterval(args, false);
 }
 
-CALLBACK_FUNC_DECL(WorkerContextAddEventListener)
+v8::Handle<v8::Value> V8WorkerContext::addEventListenerCallback(const v8::Arguments& args)
 {
     INC_STATS(L"DOM.WorkerContext.addEventListener()");
-    WorkerContext* workerContext = V8DOMWrapper::convertDOMWrapperToNative<WorkerContext>(args.Holder());
+    WorkerContext* workerContext = V8WorkerContext::toNative(args.Holder());
 
     RefPtr<EventListener> listener = V8DOMWrapper::getEventListener(workerContext, args[1], false, ListenerFindOrCreate);
     if (listener) {
@@ -151,15 +153,15 @@ CALLBACK_FUNC_DECL(WorkerContextAddEventListener)
         bool useCapture = args[2]->BooleanValue();
         workerContext->addEventListener(type, listener, useCapture);
 
-        createHiddenDependency(args.Holder(), args[1], V8Custom::kWorkerContextRequestCacheIndex);
+        createHiddenDependency(args.Holder(), args[1], cacheIndex);
     }
     return v8::Undefined();
 }
 
-CALLBACK_FUNC_DECL(WorkerContextRemoveEventListener)
+v8::Handle<v8::Value> V8WorkerContext::removeEventListenerCallback(const v8::Arguments& args)
 {
     INC_STATS(L"DOM.WorkerContext.removeEventListener()");
-    WorkerContext* workerContext = V8DOMWrapper::convertDOMWrapperToNative<WorkerContext>(args.Holder());
+    WorkerContext* workerContext = V8WorkerContext::toNative(args.Holder());
 
     RefPtr<EventListener> listener = V8DOMWrapper::getEventListener(workerContext, args[1], false, ListenerFindOnly);
     if (listener) {
@@ -167,7 +169,7 @@ CALLBACK_FUNC_DECL(WorkerContextRemoveEventListener)
         bool useCapture = args[2]->BooleanValue();
         workerContext->removeEventListener(type, listener.get(), useCapture);
 
-        removeHiddenDependency(args.Holder(), args[1], V8Custom::kWorkerContextRequestCacheIndex);
+        removeHiddenDependency(args.Holder(), args[1], cacheIndex);
     }
     return v8::Undefined();
 }

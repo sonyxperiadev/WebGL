@@ -19,8 +19,8 @@
  * Boston, MA 02110-1301, USA.
  *
  */
-#ifndef RenderThemeQt_H
-#define RenderThemeQt_H
+#ifndef RenderThemeQt_h
+#define RenderThemeQt_h
 
 #include "RenderTheme.h"
 
@@ -35,6 +35,7 @@ namespace WebCore {
 
 class RenderStyle;
 class HTMLMediaElement;
+class ScrollbarThemeQt;
 
 class RenderThemeQt : public RenderTheme {
 private:
@@ -75,6 +76,8 @@ public:
     virtual String extraMediaControlsStyleSheet();
 #endif
 
+    QStyle* qStyle() const;
+
 protected:
     virtual bool paintCheckbox(RenderObject* o, const RenderObject::PaintInfo& i, const IntRect& r);
     virtual void setCheckboxSize(RenderStyle*) const;
@@ -99,7 +102,10 @@ protected:
     virtual void adjustMenuListButtonStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
 
     virtual bool paintSliderTrack(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
+    virtual void adjustSliderTrackStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
+
     virtual bool paintSliderThumb(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
+    virtual void adjustSliderThumbStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
 
     virtual bool paintSearchField(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
     virtual void adjustSearchFieldStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
@@ -132,12 +138,13 @@ private:
 private:
     bool supportsFocus(ControlPart) const;
 
-    ControlPart applyTheme(QStyleOption&, RenderObject*) const;
+    ControlPart initializeCommonQStyleOptions(QStyleOption&, RenderObject*) const;
 
     void setButtonPadding(RenderStyle*) const;
     void setPopupPadding(RenderStyle*) const;
 
-    QStyle* qStyle() const;
+    void setPaletteFromPageClientIfExists(QPalette&) const;
+
     QStyle* fallbackStyle();
 
     Page* m_page;
@@ -152,8 +159,8 @@ private:
 
 class StylePainter {
 public:
-    explicit StylePainter(const RenderObject::PaintInfo& paintInfo);
-    explicit StylePainter(GraphicsContext* context);
+    explicit StylePainter(RenderThemeQt*, const RenderObject::PaintInfo&);
+    explicit StylePainter(ScrollbarThemeQt*, GraphicsContext*);
     ~StylePainter();
 
     bool isValid() const { return painter && style; }
@@ -170,7 +177,7 @@ public:
     { style->drawComplexControl(cc, &opt, painter, widget); }
 
 private:
-    void init(GraphicsContext* context);
+    void init(GraphicsContext* context, QStyle*);
 
     QBrush oldBrush;
     bool oldAntialiasing;
@@ -180,4 +187,4 @@ private:
 
 }
 
-#endif
+#endif // RenderThemeQt_h

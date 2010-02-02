@@ -39,6 +39,8 @@ WebInspector.DataGrid = function(columns, editCallback, deleteCallback)
     this._dataTable.addEventListener("mousedown", this._mouseDownInDataTable.bind(this), true);
     this._dataTable.addEventListener("click", this._clickInDataTable.bind(this), true);
     
+    this._dataTable.addEventListener("contextmenu", this._contextMenuInDataTable.bind(this), true);
+    
     // FIXME: Add a createCallback which is different from editCallback and has different
     // behavior when creating a new node.
     if (editCallback) {
@@ -469,10 +471,11 @@ WebInspector.DataGrid.prototype = {
         this.children = [];
     },
 
-    handleKeyEvent: function(event)
+
+    _keyDown: function(event)
     {
         if (!this.selectedNode || event.shiftKey || event.metaKey || event.ctrlKey || this._editing)
-            return false;
+            return;
 
         var handled = false;
         var nextSelectedNode;
@@ -540,8 +543,6 @@ WebInspector.DataGrid.prototype = {
             event.preventDefault();
             event.stopPropagation();
         }
-
-        return handled;
     },
 
     expand: function()
@@ -570,11 +571,6 @@ WebInspector.DataGrid.prototype = {
         var node = this._dataTable.ownerDocument.elementFromPoint(x, y);
         var rowElement = node.enclosingNodeOrSelfWithNodeName("tr");
         return rowElement._dataGridNode;
-    },
-
-    _keyDown: function(event)
-    {
-        this.handleKeyEvent(event);
     },
 
     _clickInHeaderCell: function(event)
@@ -620,6 +616,30 @@ WebInspector.DataGrid.prototype = {
                 gridNode.select();
         } else
             gridNode.select();
+    },
+    
+    _contextMenuInDataTable: function(event)
+    {
+        var gridNode = this.dataGridNodeFromNode(event.target);
+        if (!gridNode || !gridNode.selectable)
+            return;
+        
+        if (gridNode.isEventWithinDisclosureTriangle(event))
+            return;
+      
+        var contextMenu = new WebInspector.ContextMenu();
+        
+        // FIXME: Use the column names for Editing, instead of just "Edit".
+        if (this.dataGrid._editCallback) {
+            if (gridNode === this.creationNode)
+                contextMenu.appendItem(WebInspector.UIString("Add New"), this._startEditing.bind(this, event.target));
+            else
+                contextMenu.appendItem(WebInspector.UIString("Edit"), this._startEditing.bind(this, event.target));
+        }
+        if (this.dataGrid._deleteCallback && gridNode !== this.creationNode)
+            contextMenu.appendItem(WebInspector.UIString("Delete"), this._deleteCallback.bind(this, gridNode));
+        
+        contextMenu.show(event);
     },
 
     _clickInDataTable: function(event)

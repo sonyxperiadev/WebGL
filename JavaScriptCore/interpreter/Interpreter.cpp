@@ -321,7 +321,13 @@ Interpreter::Interpreter()
     : m_sampleEntryDepth(0)
     , m_reentryDepth(0)
 {
+#if HAVE(COMPUTED_GOTO)
     privateExecute(InitializeAndReturn, 0, 0, 0);
+
+    for (int i = 0; i < numOpcodeIDs; ++i)
+        m_opcodeIDTable.add(m_opcodeTable[i], static_cast<OpcodeID>(i));
+#endif // HAVE(COMPUTED_GOTO)
+
 #if ENABLE(OPCODE_SAMPLING)
     enableSampler();
 #endif
@@ -527,7 +533,8 @@ NEVER_INLINE HandlerInfo* Interpreter::throwException(CallFrame*& callFrame, JSV
 
     if (Debugger* debugger = callFrame->dynamicGlobalObject()->debugger()) {
         DebuggerCallFrame debuggerCallFrame(callFrame, exceptionValue);
-        debugger->exception(debuggerCallFrame, codeBlock->ownerExecutable()->sourceID(), codeBlock->lineNumberForBytecodeOffset(callFrame, bytecodeOffset));
+        bool hasHandler = codeBlock->handlerForBytecodeOffset(bytecodeOffset);
+        debugger->exception(debuggerCallFrame, codeBlock->ownerExecutable()->sourceID(), codeBlock->lineNumberForBytecodeOffset(callFrame, bytecodeOffset), hasHandler);
     }
 
     // If we throw in the middle of a call instruction, we need to notify
@@ -1038,23 +1045,27 @@ NEVER_INLINE void Interpreter::tryCacheGetByID(CallFrame* callFrame, CodeBlock* 
         ASSERT(slot.slotBase().isObject());
 
         JSObject* baseObject = asObject(slot.slotBase());
+        size_t offset = slot.cachedOffset();
 
         // Since we're accessing a prototype in a loop, it's a good bet that it
         // should not be treated as a dictionary.
-        if (baseObject->structure()->isDictionary())
+        if (baseObject->structure()->isDictionary()) {
             baseObject->flattenDictionaryObject();
+            offset = baseObject->structure()->get(propertyName);
+        }
 
         ASSERT(!baseObject->structure()->isUncacheableDictionary());
 
         vPC[0] = getOpcode(op_get_by_id_proto);
         vPC[5] = baseObject->structure();
-        vPC[6] = slot.cachedOffset();
+        vPC[6] = offset;
 
         codeBlock->refStructures(vPC);
         return;
     }
 
-    size_t count = normalizePrototypeChain(callFrame, baseValue, slot.slotBase());
+    size_t offset = slot.cachedOffset();
+    size_t count = normalizePrototypeChain(callFrame, baseValue, slot.slotBase(), propertyName, offset);
     if (!count) {
         vPC[0] = getOpcode(op_get_by_id_generic);
         return;
@@ -1064,7 +1075,7 @@ NEVER_INLINE void Interpreter::tryCacheGetByID(CallFrame* callFrame, CodeBlock* 
     vPC[4] = structure;
     vPC[5] = structure->prototypeChain(callFrame);
     vPC[6] = count;
-    vPC[7] = slot.cachedOffset();
+    vPC[7] = offset;
     codeBlock->refStructures(vPC);
 }
 
@@ -1081,16 +1092,13 @@ JSValue Interpreter::privateExecute(ExecutionFlag flag, RegisterFile* registerFi
 {
     // One-time initialization of our address tables. We have to put this code
     // here because our labels are only in scope inside this function.
-    if (flag == InitializeAndReturn) {
+    if (UNLIKELY(flag == InitializeAndReturn)) {
         #if HAVE(COMPUTED_GOTO)
-            #define ADD_BYTECODE(id, length) m_opcodeTable[id] = &&id;
-                FOR_EACH_OPCODE_ID(ADD_BYTECODE);
-            #undef ADD_BYTECODE
-
-            #define ADD_OPCODE_ID(id, length) m_opcodeIDTable.add(&&id, id);
-                FOR_EACH_OPCODE_ID(ADD_OPCODE_ID);
-            #undef ADD_OPCODE_ID
-            ASSERT(m_opcodeIDTable.size() == numOpcodeIDs);
+            #define LIST_OPCODE_LABEL(id, length) &&id,
+                static Opcode labels[] = { FOR_EACH_OPCODE_ID(LIST_OPCODE_LABEL) };
+                for (size_t i = 0; i < sizeof(labels) / sizeof(Opcode); ++i)
+                    m_opcodeTable[i] = labels[i];
+            #undef LIST_OPCODE_LABEL
         #endif // HAVE(COMPUTED_GOTO)
         return JSValue();
     }

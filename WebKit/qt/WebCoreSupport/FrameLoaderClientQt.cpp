@@ -331,8 +331,6 @@ void FrameLoaderClientQt::dispatchDidPopStateWithinPage()
 
 void FrameLoaderClientQt::dispatchWillClose()
 {
-    if (dumpFrameLoaderCallbacks)
-        printf("%s - willCloseFrame\n", qPrintable(drtDescriptionSuitableForTestResult(m_frame)));
 }
 
 
@@ -599,9 +597,6 @@ String FrameLoaderClientQt::userAgent(const KURL& url)
 
 void FrameLoaderClientQt::dispatchDidReceiveIcon()
 {
-    if (dumpFrameLoaderCallbacks)
-        printf("%s - didReceiveIconForFrame\n", qPrintable(drtDescriptionSuitableForTestResult(m_frame)));
-
     if (m_webFrame) {
         emit m_webFrame->iconChanged();
     }
@@ -625,9 +620,6 @@ void FrameLoaderClientQt::dispatchDidClearWindowObjectInWorld(DOMWrapperWorld* w
 {
     if (world != mainThreadNormalWorld())
         return;
-
-    if (dumpFrameLoaderCallbacks)
-        printf("%s - didClearWindowObjectForFrame\n", qPrintable(drtDescriptionSuitableForTestResult(m_frame)));
 
     if (m_webFrame)
         emit m_webFrame->javaScriptWindowObjectCleared();
@@ -1036,7 +1028,12 @@ PassRefPtr<Frame> FrameLoaderClientQt::createFrame(const KURL& url, const String
         return 0;
 
     QWebFrameData frameData(m_frame->page(), m_frame, ownerElement, name);
-    frameData.url = url;
+
+    if (url.isEmpty())
+        frameData.url = blankURL();
+    else
+        frameData.url = url;
+
     frameData.referrer = referrer;
     frameData.allowsScrolling = allowsScrolling;
     frameData.marginWidth = marginWidth;

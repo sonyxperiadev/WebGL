@@ -33,7 +33,6 @@ if (!window.InspectorFrontendHost) {
 WebInspector.InspectorFrontendHostStub = function()
 {
     this._attachedWindowHeight = 0;
-    this._settings = {};
 }
 
 WebInspector.InspectorFrontendHostStub.prototype = {
@@ -72,15 +71,6 @@ WebInspector.InspectorFrontendHostStub.prototype = {
     {
     },
 
-    addResourceSourceToFrame: function(identifier, element)
-    {
-    },
-
-    addSourceToFrame: function(mimeType, source, element)
-    {
-        return false;
-    },
-
     loaded: function()
     {
     },
@@ -95,14 +85,12 @@ WebInspector.InspectorFrontendHostStub.prototype = {
         return "";
     },
 
-    setSetting: function(setting, value)
+    windowUnloading: function()
     {
-        this._settings[setting] = value;
     },
 
-    setting: function(setting)
+    copyText: function()
     {
-        return this._settings[setting];
     }
 }
 

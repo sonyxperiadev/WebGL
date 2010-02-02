@@ -39,10 +39,9 @@
 
 #include "config.h"
 #include "JPEGImageDecoder.h"
-#include <assert.h>
 #include <stdio.h>  // Needed by jpeglib.h for FILE.
 
-#if PLATFORM(WINCE)
+#if OS(WINCE)
 // Remove warning: 'FAR' macro redefinition
 #undef FAR
 
@@ -271,7 +270,7 @@ public:
                         return true; /* I/O suspension */
       
                     /* If we've completed image output ... */
-                    assert(m_info.output_scanline == m_info.output_height);
+                    ASSERT(m_info.output_scanline == m_info.output_height);
                     m_state = JPEG_DONE;
                 }
             }
@@ -401,12 +400,11 @@ void term_source (j_decompress_ptr jd)
 }
 
 JPEGImageDecoder::JPEGImageDecoder()
-: m_reader(0)
-{}
+{
+}
 
 JPEGImageDecoder::~JPEGImageDecoder()
 {
-    delete m_reader;
 }
 
 // Take the data and store it.
@@ -420,7 +418,7 @@ void JPEGImageDecoder::setData(SharedBuffer* data, bool allDataReceived)
 
     // Create the JPEG reader.
     if (!m_reader && !m_failed)
-        m_reader = new JPEGImageReader(this);
+        m_reader.set(new JPEGImageReader(this));
 }
 
 // Whether or not the size information has been decoded yet.
@@ -430,6 +428,14 @@ bool JPEGImageDecoder::isSizeAvailable()
          decode(true);
 
     return ImageDecoder::isSizeAvailable();
+}
+
+bool JPEGImageDecoder::setSize(unsigned width, unsigned height)
+{
+    if (!ImageDecoder::setSize(width, height))
+        return false;
+    prepareScaleDataIfNecessary();
+    return true;
 }
 
 RGBA32Buffer* JPEGImageDecoder::frameBufferAtIndex(size_t index)
@@ -455,82 +461,8 @@ void JPEGImageDecoder::decode(bool sizeOnly)
 
     m_failed = !m_reader->decode(m_data->buffer(), sizeOnly);
 
-    if (m_failed || (!m_frameBufferCache.isEmpty() && m_frameBufferCache[0].status() == RGBA32Buffer::FrameComplete)) {
-        delete m_reader;
-        m_reader = 0;
-    }
-}
-
-static void convertCMYKToRGBA(RGBA32Buffer& dest, int destY, JSAMPROW src, JDIMENSION srcWidth
-#if ENABLE(IMAGE_DECODER_DOWN_SAMPLING)
-                              , bool scaled, const Vector<int>& scaledColumns
-#endif
-                              )
-{
-#if ENABLE(IMAGE_DECODER_DOWN_SAMPLING)
-    if (scaled) {
-        int numColumns = scaledColumns.size();
-        for (int x = 0; x < numColumns; ++x) {
-            JSAMPLE* jsample = src + scaledColumns[x] * 3;
-            unsigned c = jsample[0];
-            unsigned m = jsample[1];
-            unsigned y = jsample[2];
-            unsigned k = jsample[3];
-            dest.setRGBA(x, destY, c * k / 255, m * k / 255, y * k / 255, 0xFF);
-        }
-        return;
-    }
-#endif
-    for (JDIMENSION x = 0; x < srcWidth; ++x) {
-        unsigned c = *src++;
-        unsigned m = *src++;
-        unsigned y = *src++;
-        unsigned k = *src++;
-
-        // Source is 'Inverted CMYK', output is RGB.
-        // See: http://www.easyrgb.com/math.php?MATH=M12#text12
-        // Or:  http://www.ilkeratalay.com/colorspacesfaq.php#rgb
-
-        // From CMYK to CMY
-        // C = C * ( 1 - K ) + K
-        // M = M * ( 1 - K ) + K
-        // Y = Y * ( 1 - K ) + K
-
-        // From Inverted CMYK to CMY is thus:
-        // C = (1-iC) * (1 - (1-iK)) + (1-iK) => 1 - iC*iK
-        // Same for M and Y
-
-        // Convert from CMY (0..1) to RGB (0..1)
-        // R = 1 - C => 1 - (1 - iC*iK) => iC*iK
-        // G = 1 - M => 1 - (1 - iM*iK) => iM*iK
-        // B = 1 - Y => 1 - (1 - iY*iK) => iY*iK
-
-        dest.setRGBA(x, destY, c * k / 255, m * k / 255, y * k / 255, 0xFF);
-    }
-}
-
-static void convertRGBToRGBA(RGBA32Buffer& dest, int destY, JSAMPROW src, JDIMENSION srcWidth
-#if ENABLE(IMAGE_DECODER_DOWN_SAMPLING)
-                              , bool scaled, const Vector<int>& scaledColumns
-#endif
-                              )
-{
-#if ENABLE(IMAGE_DECODER_DOWN_SAMPLING)
-    if (scaled) {
-        int numColumns = scaledColumns.size();
-        for (int x = 0; x < numColumns; ++x) {
-            JSAMPLE* jsample = src + scaledColumns[x] * 3;
-            dest.setRGBA(x, destY, jsample[0], jsample[1], jsample[2], 0xFF);
-        }
-        return;
-    }
-#endif
-    for (JDIMENSION x = 0; x < srcWidth; ++x) {
-        unsigned r = *src++;
-        unsigned g = *src++;
-        unsigned b = *src++;
-        dest.setRGBA(x, destY, r, g, b, 0xFF);
-    }
+    if (m_failed || (!m_frameBufferCache.isEmpty() && m_frameBufferCache[0].status() == RGBA32Buffer::FrameComplete))
+        m_reader.clear();
 }
 
 bool JPEGImageDecoder::outputScanlines()
@@ -541,17 +473,7 @@ bool JPEGImageDecoder::outputScanlines()
     // Initialize the framebuffer if needed.
     RGBA32Buffer& buffer = m_frameBufferCache[0];
     if (buffer.status() == RGBA32Buffer::FrameEmpty) {
-        int bufferWidth = size().width();
-        int bufferHeight = size().height();
-#if ENABLE(IMAGE_DECODER_DOWN_SAMPLING)
-        // Let's resize our buffer now to the correct width/height.
-        if (m_scaled) {
-            bufferWidth = m_scaledColumns.size();
-            bufferHeight = m_scaledRows.size();
-        }
-#endif
-
-        if (!buffer.setSize(bufferWidth, bufferHeight)) {
+        if (!buffer.setSize(scaledSize().width(), scaledSize().height())) {
             m_failed = true;
             return false;
         }
@@ -573,27 +495,32 @@ bool JPEGImageDecoder::outputScanlines()
         if (jpeg_read_scanlines(info, samples, 1) != 1)
             return false;
 
-        int destY = sourceY;
-#if ENABLE(IMAGE_DECODER_DOWN_SAMPLING)
-        if (m_scaled) {
-            destY = scaledY(sourceY);
-            if (destY < 0)
-                continue;
+        int destY = scaledY(sourceY);
+        if (destY < 0)
+            continue;
+        int width = m_scaled ? m_scaledColumns.size() : info->output_width;
+        for (int x = 0; x < width; ++x) {
+            JSAMPLE* jsample = *samples + (m_scaled ? m_scaledColumns[x] : x) * ((info->out_color_space == JCS_RGB) ? 3 : 4);
+            if (info->out_color_space == JCS_RGB)
+                buffer.setRGBA(x, destY, jsample[0], jsample[1], jsample[2], 0xFF);
+            else if (info->out_color_space == JCS_CMYK) {
+                // Source is 'Inverted CMYK', output is RGB.
+                // See: http://www.easyrgb.com/math.php?MATH=M12#text12
+                // Or:  http://www.ilkeratalay.com/colorspacesfaq.php#rgb
+                // From CMYK to CMY:
+                // X =   X    * (1 -   K   ) +   K  [for X = C, M, or Y]
+                // Thus, from Inverted CMYK to CMY is:
+                // X = (1-iX) * (1 - (1-iK)) + (1-iK) => 1 - iX*iK
+                // From CMY (0..1) to RGB (0..1):
+                // R = 1 - C => 1 - (1 - iC*iK) => iC*iK  [G and B similar]
+                unsigned k = jsample[3];
+                buffer.setRGBA(x, destY, jsample[0] * k / 255, jsample[1] * k / 255, jsample[2] * k / 255, 0xFF);
+            } else {
+                ASSERT_NOT_REACHED();
+                m_failed = true;
+                return false;
+            }
         }
-        if (info->out_color_space == JCS_RGB)
-            convertRGBToRGBA(buffer, destY, *samples, info->output_width, m_scaled, m_scaledColumns);
-        else if (info->out_color_space == JCS_CMYK)
-            convertCMYKToRGBA(buffer, destY, *samples, info->output_width, m_scaled, m_scaledColumns);
-        else
-            return false;
-#else
-        if (info->out_color_space == JCS_RGB)
-            convertRGBToRGBA(buffer, destY, *samples, info->output_width);
-        else if (info->out_color_space == JCS_CMYK)
-            convertCMYKToRGBA(buffer, destY, *samples, info->output_width);
-        else
-            return false;
-#endif
     }
 
     return true;

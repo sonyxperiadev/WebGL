@@ -54,7 +54,7 @@ namespace WebCore {
     class ScriptString;
     class Storage;
 
-    class InspectorFrontend {
+    class InspectorFrontend : public Noncopyable {
     public:
         InspectorFrontend(InspectorController* inspectorController, ScriptState*, ScriptObject webInspector);
         ~InspectorFrontend();
@@ -63,13 +63,17 @@ namespace WebCore {
         ScriptObject newScriptObject();
 
         void didCommitLoad();
-        void addConsoleMessage(const ScriptObject& messageObj, const Vector<ScriptString>& frames, const Vector<ScriptValue> wrappedArguments, const String& message);
-        void updateConsoleMessageRepeatCount(const int count);
+
+        void populateFrontendSettings(const String& settings);
+
+        void updateConsoleMessageExpiredCount(unsigned count);
+        void addConsoleMessage(const ScriptObject& messageObj, const Vector<ScriptString>& frames, ScriptState*, const Vector<ScriptValue> arguments, const String& message);
+        void updateConsoleMessageRepeatCount(unsigned count);
         void clearConsoleMessages();
 
-        bool addResource(unsigned long identifier, const ScriptObject& resourceObj);
         bool updateResource(unsigned long identifier, const ScriptObject& resourceObj);
         void removeResource(unsigned long identifier);
+        void didGetResourceContent(int callId, const String& content);
 
         void updateFocusedNode(long nodeId);
         void setAttachedWindow(bool attached);
@@ -92,7 +96,7 @@ namespace WebCore {
         void setRecordingProfile(bool isProfiling);
         void didGetProfileHeaders(int callId, const ScriptArray& headers);
         void didGetProfile(int callId, const ScriptValue& profile);
-        void pausedScript(const ScriptValue& callFrames);
+        void pausedScript(const String& callFrames);
         void resumedScript();
 #endif
 

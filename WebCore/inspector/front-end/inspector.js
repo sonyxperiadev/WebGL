@@ -28,24 +28,6 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-var Preferences = {
-    showUserAgentStyles: true,
-    maxInlineTextChildLength: 80,
-    minConsoleHeight: 75,
-    minSidebarWidth: 100,
-    minElementsSidebarWidth: 200,
-    minScriptsSidebarWidth: 200,
-    showInheritedComputedStyleProperties: false,
-    styleRulesExpandedState: {},
-    showMissingLocalizedStrings: false,
-    heapProfilerPresent: false,
-    samplingCPUProfiler: false,
-    showColorNicknames: true,
-    colorFormat: "hex",
-    eventListenersFilter: "all",
-    resourcesLargeRows: true
-}
-
 function preloadImages()
 {
     (new Image()).src = "Images/clearConsoleButtonGlyph.png";
@@ -80,14 +62,42 @@ var WebInspector = {
     // 3 - ?port
     // 4 - ?path
     // 5 - ?fragment
-    URLRegExp: /^(http[s]?|file):\/\/([^\/:]+)(?::([\d]+))?(?:(\/[^#]*)(?:#(.*))?)?$/i,
+    URLRegExp: /^(http[s]?|file):\/\/([^\/:]*)(?::([\d]+))?(?:(\/[^#]*)(?:#(.*))?)?$/i,
 
     get platform()
     {
         if (!("_platform" in this))
-            this._platform = InspectorFrontendHost.platform();
+            this._platform = this._detectPlatform();
 
         return this._platform;
+    },
+
+    _detectPlatform: function()
+    {
+        const userAgent = navigator.userAgent;
+        var nativePlatform = InspectorFrontendHost.platform();
+
+        if (nativePlatform === "windows") {
+            var match = userAgent.match(/Windows NT (\d+)\.(?:\d+)/);
+            if (match && match[1] >= 6)
+                return WebInspector.OS.WindowsVistaOrLater;
+            return WebInspector.OS.Windows;
+        } else if (nativePlatform === "mac") {
+            var match = userAgent.match(/Mac OS X\s*(?:(\d+)_(\d+))?/);
+            if (!match || match[1] != 10)
+                return WebInspector.OS.MacSnowLeopard;
+            switch (Number(match[2])) {
+                case 4:
+                    return WebInspector.OS.MacTiger;
+                case 5:
+                    return WebInspector.OS.MacLeopard;
+                case 6:
+                default:
+                    return WebInspector.OS.MacSnowLeopard;
+            }
+        }
+
+        return nativePlatform;
     },
 
     get port()
@@ -195,23 +205,13 @@ var WebInspector = {
 
         if (hiddenPanels.indexOf("storage") === -1 && hiddenPanels.indexOf("databases") === -1)
             this.panels.storage = new WebInspector.StoragePanel();
+
+        // FIXME: Uncomment when ready.
+        // if (hiddenPanels.indexOf("audits") === -1)
+        //    this.panels.audits = new WebInspector.AuditsPanel();
+
         if (hiddenPanels.indexOf("console") === -1)
             this.panels.console = new WebInspector.ConsolePanel();
-    },
-
-    _loadPreferences: function()
-    {
-        var colorFormat = InspectorFrontendHost.setting("color-format");
-        if (colorFormat)
-            Preferences.colorFormat = colorFormat;
-
-        var eventListenersFilter = InspectorFrontendHost.setting("event-listeners-filter");
-        if (eventListenersFilter)
-            Preferences.eventListenersFilter = eventListenersFilter;
-
-        var resourcesLargeRows = InspectorFrontendHost.setting("resources-large-rows");
-        if (typeof resourcesLargeRows !== "undefined")
-            Preferences.resourcesLargeRows = resourcesLargeRows;
     },
 
     get attached()
@@ -415,14 +415,24 @@ var WebInspector = {
     }
 }
 
+WebInspector.OS = {
+    Windows: "windows",
+    WindowsVistaOrLater: "windows-vista-or-later",
+    MacTiger: "mac-tiger",
+    MacLeopard: "mac-leopard",
+    MacSnowLeopard: "mac-snowleopard"
+}
+
 WebInspector.loaded = function()
 {
+    InspectorBackend.setInjectedScriptSource("(" + injectedScriptConstructor + ");");
+
     var platform = WebInspector.platform;
     document.body.addStyleClass("platform-" + platform);
     var port = WebInspector.port;
     document.body.addStyleClass("port-" + port);
 
-    this._loadPreferences();
+    this.settings = new WebInspector.Settings();
 
     this.drawer = new WebInspector.Drawer();
     this.console = new WebInspector.ConsoleView(this.drawer);
@@ -475,19 +485,10 @@ WebInspector.loaded = function()
     window.addEventListener("resize", this.windowResize.bind(this), true);
 
     document.addEventListener("focus", this.focusChanged.bind(this), true);
-    document.addEventListener("keydown", this.documentKeyDown.bind(this), true);
-    document.addEventListener("keyup", this.documentKeyUp.bind(this), true);
+    document.addEventListener("keydown", this.documentKeyDown.bind(this), false);
     document.addEventListener("beforecopy", this.documentCanCopy.bind(this), true);
     document.addEventListener("copy", this.documentCopy.bind(this), true);
     document.addEventListener("contextmenu", this.contextMenuEventFired.bind(this), true);
-
-    var mainPanelsElement = document.getElementById("main-panels");
-    mainPanelsElement.handleCopyEvent = this.mainCopy.bind(this);
-
-    // Focus the mainPanelsElement in a timeout so it happens after the initial focus,
-    // so it doesn't get reset to the first toolbar button. This initial focus happens
-    // on Mac when the window is made key and the WebHTMLView becomes the first responder.
-    setTimeout(function() { WebInspector.currentFocusElement = mainPanelsElement }, 0);
 
     var dockToggleButton = document.getElementById("dock-status-bar-item");
     dockToggleButton.addEventListener("click", this.toggleAttach.bind(this), false);
@@ -509,7 +510,8 @@ WebInspector.loaded = function()
 
     var searchField = document.getElementById("search");
     searchField.addEventListener("search", this.performSearch.bind(this), false); // when the search is emptied
-    searchField.addEventListener("mousedown", this.searchFieldManualFocus.bind(this), false); // when the search field is manually selected
+    searchField.addEventListener("mousedown", this._searchFieldManualFocus.bind(this), false); // when the search field is manually selected
+    searchField.addEventListener("keydown", this._searchKeyDown.bind(this), true);
 
     toolbarElement.addEventListener("mousedown", this.toolbarDragStart, true);
     document.getElementById("close-button-left").addEventListener("click", this.close, true);
@@ -558,7 +560,7 @@ WebInspector.windowUnload = function(event)
 
 WebInspector.windowResize = function(event)
 {
-    if (this.currentPanel && this.currentPanel.resize)
+    if (this.currentPanel)
         this.currentPanel.resize();
     this.drawer.resize();
 }
@@ -608,13 +610,13 @@ WebInspector.documentClick = function(event)
     function followLink()
     {
         // FIXME: support webkit-html-external-link links here.
-        if (anchor.href in WebInspector.resourceURLMap) {
+        if (WebInspector.canShowSourceLineForURL(anchor.href, anchor.preferredPanel)) {
             if (anchor.hasStyleClass("webkit-html-external-link")) {
                 anchor.removeStyleClass("webkit-html-external-link");
                 anchor.addStyleClass("webkit-html-resource-link");
             }
 
-            WebInspector.showResourceForURL(anchor.href, anchor.lineNumber, anchor.preferredPanel);
+            WebInspector.showSourceLineForURL(anchor.href, anchor.lineNumber, anchor.preferredPanel);
         } else {
             var profileString = WebInspector.ProfileType.URLRegExp.exec(anchor.href);
             if (profileString)
@@ -638,143 +640,131 @@ WebInspector.documentClick = function(event)
 
 WebInspector.documentKeyDown = function(event)
 {
-    if (this.currentFocusElement) {
-        if (this.currentFocusElement.handleKeyEvent)
-            this.currentFocusElement.handleKeyEvent(event);
-        else if (this.currentFocusElement.id && this.currentFocusElement.id.length && WebInspector[this.currentFocusElement.id + "KeyDown"])
-            WebInspector[this.currentFocusElement.id + "KeyDown"](event);
-        if (event.handled)
+    if (this.currentFocusElement && this.currentFocusElement.handleKeyEvent) {
+        this.currentFocusElement.handleKeyEvent(event);
+        if (event.handled) {
+            event.preventDefault();
             return;
-    }
-
-    if (this.currentPanel && this.currentPanel.handleKeyEvent)
-        this.currentPanel.handleKeyEvent(event);
-
-    if (!event.handled) {
-        var isMac = WebInspector.isMac();
-
-        switch (event.keyIdentifier) {
-            case "U+001B": // Escape key
-                event.preventDefault();
-                if (this.drawer.fullPanel)
-                    return;
-
-                this.drawer.visible = !this.drawer.visible;
-                break;
-
-            case "U+0046": // F key
-                if (isMac)
-                    var isFindKey = event.metaKey && !event.ctrlKey && !event.altKey && !event.shiftKey;
-                else
-                    var isFindKey = event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey;
-
-                if (isFindKey) {
-                    var searchField = document.getElementById("search");
-                    searchField.focus();
-                    searchField.select();
-                    event.preventDefault();
-                }
-
-                break;
-
-            case "U+0047": // G key
-                if (isMac)
-                    var isFindAgainKey = event.metaKey && !event.ctrlKey && !event.altKey;
-                else
-                    var isFindAgainKey = event.ctrlKey && !event.metaKey && !event.altKey;
-
-                if (isFindAgainKey) {
-                    if (event.shiftKey) {
-                        if (this.currentPanel.jumpToPreviousSearchResult)
-                            this.currentPanel.jumpToPreviousSearchResult();
-                    } else if (this.currentPanel.jumpToNextSearchResult)
-                        this.currentPanel.jumpToNextSearchResult();
-                    event.preventDefault();
-                }
-
-                break;
-
-            // Windows and Mac have two different definitions of [, so accept both.
-            case "U+005B":
-            case "U+00DB": // [ key
-                if (isMac)
-                    var isRotateLeft = event.metaKey && !event.shiftKey && !event.ctrlKey && !event.altKey;
-                else
-                    var isRotateLeft = event.ctrlKey && !event.shiftKey && !event.metaKey && !event.altKey;
-
-                if (isRotateLeft) {
-                    var index = this.panelOrder.indexOf(this.currentPanel);
-                    index = (index === 0) ? this.panelOrder.length - 1 : index - 1;
-                    this.panelOrder[index].toolbarItem.click();
-                    event.preventDefault();
-                }
-
-                break;
-
-            // Windows and Mac have two different definitions of ], so accept both.
-            case "U+005D":
-            case "U+00DD":  // ] key
-                if (isMac)
-                    var isRotateRight = event.metaKey && !event.shiftKey && !event.ctrlKey && !event.altKey;
-                else
-                    var isRotateRight = event.ctrlKey && !event.shiftKey && !event.metaKey && !event.altKey;
-
-                if (isRotateRight) {
-                    var index = this.panelOrder.indexOf(this.currentPanel);
-                    index = (index + 1) % this.panelOrder.length;
-                    this.panelOrder[index].toolbarItem.click();
-                    event.preventDefault();
-                }
-
-                break;
         }
     }
-}
 
-WebInspector.documentKeyUp = function(event)
-{
-    if (this.currentFocusElement) {
-        if (this.currentFocusElement.handleKeyUpEvent)
-            this.currentFocusElement.handleKeyUpEvent(event);
-        if (event.handled)
+    if (this.currentPanel && this.currentPanel.handleShortcut) {
+        this.currentPanel.handleShortcut(event);
+        if (event.handled) {
+            event.preventDefault();
             return;
+        }
     }
 
-    if (this.currentPanel && this.currentPanel.handleKeyUpEvent)
-        this.currentPanel.handleKeyUpEvent(event);
+    var isMac = WebInspector.isMac();
+
+    switch (event.keyIdentifier) {
+        case "U+001B": // Escape key
+            event.preventDefault();
+            if (this.drawer.fullPanel)
+                return;
+
+            this.drawer.visible = !this.drawer.visible;
+            break;
+
+        case "U+0046": // F key
+            if (isMac)
+                var isFindKey = event.metaKey && !event.ctrlKey && !event.altKey && !event.shiftKey;
+            else
+                var isFindKey = event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey;
+
+            if (isFindKey) {
+                var searchField = document.getElementById("search");
+                searchField.focus();
+                searchField.select();
+                event.preventDefault();
+            }
+
+            break;
+
+        case "U+0047": // G key
+            if (isMac)
+                var isFindAgainKey = event.metaKey && !event.ctrlKey && !event.altKey;
+            else
+                var isFindAgainKey = event.ctrlKey && !event.metaKey && !event.altKey;
+
+            if (isFindAgainKey) {
+                if (event.shiftKey) {
+                    if (this.currentPanel.jumpToPreviousSearchResult)
+                        this.currentPanel.jumpToPreviousSearchResult();
+                } else if (this.currentPanel.jumpToNextSearchResult)
+                    this.currentPanel.jumpToNextSearchResult();
+                event.preventDefault();
+            }
+
+            break;
+
+        // Windows and Mac have two different definitions of [, so accept both.
+        case "U+005B":
+        case "U+00DB": // [ key
+            if (isMac)
+                var isRotateLeft = event.metaKey && !event.shiftKey && !event.ctrlKey && !event.altKey;
+            else
+                var isRotateLeft = event.ctrlKey && !event.shiftKey && !event.metaKey && !event.altKey;
+
+            if (isRotateLeft) {
+                var index = this.panelOrder.indexOf(this.currentPanel);
+                index = (index === 0) ? this.panelOrder.length - 1 : index - 1;
+                this.panelOrder[index].toolbarItem.click();
+                event.preventDefault();
+            }
+
+            break;
+
+        // Windows and Mac have two different definitions of ], so accept both.
+        case "U+005D":
+        case "U+00DD":  // ] key
+            if (isMac)
+                var isRotateRight = event.metaKey && !event.shiftKey && !event.ctrlKey && !event.altKey;
+            else
+                var isRotateRight = event.ctrlKey && !event.shiftKey && !event.metaKey && !event.altKey;
+
+            if (isRotateRight) {
+                var index = this.panelOrder.indexOf(this.currentPanel);
+                index = (index + 1) % this.panelOrder.length;
+                this.panelOrder[index].toolbarItem.click();
+                event.preventDefault();
+            }
+
+            break;
+
+        case "U+0041": // A key
+            if (isMac)
+                var shouldShowAuditsPanel = event.metaKey && !event.shiftKey && !event.ctrlKey && event.altKey;
+            else
+                var shouldShowAuditsPanel = event.ctrlKey && !event.shiftKey && !event.metaKey && event.altKey;
+
+            if (shouldShowAuditsPanel) {
+                if (!this.panels.audits)
+                    this.panels.audits = new WebInspector.AuditsPanel();
+                this.currentPanel = this.panels.audits;
+            }
+
+            break;
+    }
 }
 
 WebInspector.documentCanCopy = function(event)
 {
-    if (!this.currentFocusElement)
-        return;
-    // Calling preventDefault() will say "we support copying, so enable the Copy menu".
-    if (this.currentFocusElement.handleCopyEvent)
-        event.preventDefault();
-    else if (this.currentFocusElement.id && this.currentFocusElement.id.length && WebInspector[this.currentFocusElement.id + "Copy"])
+    if (this.currentPanel && this.currentPanel.handleCopyEvent)
         event.preventDefault();
 }
 
 WebInspector.documentCopy = function(event)
 {
-    if (!this.currentFocusElement)
-        return;
-    if (this.currentFocusElement.handleCopyEvent)
-        this.currentFocusElement.handleCopyEvent(event);
-    else if (this.currentFocusElement.id && this.currentFocusElement.id.length && WebInspector[this.currentFocusElement.id + "Copy"])
-        WebInspector[this.currentFocusElement.id + "Copy"](event);
+    if (this.currentPanel && this.currentPanel.handleCopyEvent)
+        this.currentPanel.handleCopyEvent(event);
 }
 
 WebInspector.contextMenuEventFired = function(event)
 {
     if (event.handled || event.target.hasStyleClass("popup-glasspane"))
         event.preventDefault();
-}
-
-WebInspector.mainCopy = function(event)
-{
-    if (this.currentPanel && this.currentPanel.handleCopyEvent)
-        this.currentPanel.handleCopyEvent(event);
 }
 
 WebInspector.animateStyle = function(animations, duration, callback)
@@ -1005,37 +995,9 @@ WebInspector.showConsolePanel = function()
     this.currentPanel = this.panels.console;
 }
 
-WebInspector.addResource = function(identifier, payload)
-{
-    var resource = new WebInspector.Resource(
-        payload.requestHeaders,
-        payload.requestURL,
-        payload.documentURL,
-        payload.host,
-        payload.path,
-        payload.lastPathComponent,
-        identifier,
-        payload.isMainResource,
-        payload.cached,
-        payload.requestMethod,
-        payload.requestFormData);
-    this.resources[identifier] = resource;
-    this.resourceURLMap[resource.url] = resource;
-
-    if (resource.mainResource)
-        this.mainResource = resource;
-
-    if (this.panels.resources)
-        this.panels.resources.addResource(resource);
-
-    var match = payload.documentURL.match(/^(http[s]?|file):\/\/([\/]*[^\/]+)/i);
-    if (match)
-        this.addCookieDomain(match[1].toLowerCase() === "file" ? "" : match[2]);
-}
-
 WebInspector.clearConsoleMessages = function()
 {
-    WebInspector.console.clearMessages(false);
+    WebInspector.console.clearMessages();
 }
 
 WebInspector.selectDatabase = function(o)
@@ -1053,18 +1015,34 @@ WebInspector.selectDOMStorage = function(o)
 WebInspector.updateResource = function(identifier, payload)
 {
     var resource = this.resources[identifier];
-    if (!resource)
-        return;
+    if (!resource) {
+        resource = new WebInspector.Resource(identifier, payload.url);
+        this.resources[identifier] = resource;
+        this.resourceURLMap[resource.url] = resource;
+        if (this.panels.resources)
+            this.panels.resources.addResource(resource);
+    }
 
     if (payload.didRequestChange) {
-        resource.url = payload.url;
-        resource.domain = payload.domain;
+        resource.domain = payload.host;
         resource.path = payload.path;
         resource.lastPathComponent = payload.lastPathComponent;
         resource.requestHeaders = payload.requestHeaders;
         resource.mainResource = payload.mainResource;
         resource.requestMethod = payload.requestMethod;
         resource.requestFormData = payload.requestFormData;
+        resource.cached = payload.cached;
+        resource.documentURL = payload.documentURL;
+
+        if (resource.mainResource)
+            this.mainResource = resource;
+
+        var match = payload.documentURL.match(WebInspector.URLRegExp);
+        if (match) {
+            var protocol = match[1].toLowerCase();
+            if (protocol.indexOf("http") === 0 || protocol === "file")
+                this.addCookieDomain(protocol === "file" ? "" : match[2]);
+        }
     }
 
     if (payload.didResponseChange) {
@@ -1103,6 +1081,8 @@ WebInspector.updateResource = function(identifier, payload)
             // of the resources panel instead of the individual resource.
             if (this.panels.resources)
                 this.panels.resources.mainResourceLoadTime = payload.loadEventTime;
+            if (this.panels.audits)
+                this.panels.audits.mainResourceLoadTime = payload.loadEventTime;
         }
 
         if (payload.domContentEventTime) {
@@ -1110,6 +1090,8 @@ WebInspector.updateResource = function(identifier, payload)
             // the resources panel for the same reasons as above.
             if (this.panels.resources)
                 this.panels.resources.mainResourceDOMContentTime = payload.domContentEventTime;
+            if (this.panels.audits)
+                this.panels.audits.mainResourceDOMContentTime = payload.domContentEventTime;
         }
     }
 }
@@ -1217,6 +1199,7 @@ WebInspector.failedToParseScriptSource = function(sourceURL, source, startingLin
 
 WebInspector.pausedScript = function(callFrames)
 {
+    callFrames = JSON.parse(callFrames);
     this.panels.scripts.debuggerPaused(callFrames);
 }
 
@@ -1267,7 +1250,13 @@ WebInspector.didCommitLoad = function()
     WebInspector.setDocument(null);
 }
 
-WebInspector.addConsoleMessage = function(payload)
+WebInspector.updateConsoleMessageExpiredCount = function(count)
+{
+    var message = String.sprintf(WebInspector.UIString("%d console messages are not shown."), count);
+    WebInspector.console.addMessage(new WebInspector.ConsoleTextMessage(message, WebInspector.ConsoleMessage.MessageLevel.Warning));
+}
+
+WebInspector.addConsoleMessage = function(payload, argumentsStringified, opt_args)
 {
     var consoleMessage = new WebInspector.ConsoleMessage(
         payload.source,
@@ -1277,7 +1266,14 @@ WebInspector.addConsoleMessage = function(payload)
         payload.url,
         payload.groupLevel,
         payload.repeatCount);
-    consoleMessage.setMessageBody(Array.prototype.slice.call(arguments, 1));
+    var parsedArguments = [];
+    for (var i = 2; i < arguments.length; i++) {
+        if (argumentsStringified)
+            parsedArguments.push(JSON.parse(arguments[i]));
+        else
+            parsedArguments.push(arguments[i]);
+    }
+    consoleMessage.setMessageBody(parsedArguments);
     this.console.addMessage(consoleMessage);
 }
 
@@ -1334,7 +1330,7 @@ WebInspector.log = function(message)
         WebInspector.log.repeatCount = repeatCount;
 
         // ConsoleMessage expects a proxy object
-        message = new WebInspector.ObjectProxy(null, [], 0, message, false);
+        message = new WebInspector.ObjectProxy(null, null, [], 0, message, false);
 
         // post the message
         var msg = new WebInspector.ConsoleMessage(
@@ -1447,24 +1443,27 @@ WebInspector.resourceForURL = function(url)
     return null;
 }
 
-WebInspector.showResourceForURL = function(url, line, preferredPanel)
+WebInspector._choosePanelToShowSourceLineForURL = function(url, preferredPanel)
 {
-    var resource = this.resourceForURL(url);
-    if (!resource)
-        return false;
+    preferredPanel = preferredPanel || "resources";
+    var panel = this.panels[preferredPanel];
+    if (panel && panel.canShowSourceLineForURL(url))
+        return panel;
+    panel = this.panels.resources;
+    return panel.canShowSourceLineForURL(url) ? panel : null;
+}
 
-    if (preferredPanel && preferredPanel in WebInspector.panels) {
-        var panel = this.panels[preferredPanel];
-        if (!("showResource" in panel))
-            panel = null;
-        else if ("canShowResource" in panel && !panel.canShowResource(resource))
-            panel = null;
-    }
+WebInspector.canShowSourceLineForURL = function(url, preferredPanel)
+{
+    return !!this._choosePanelToShowSourceLineForURL(url, preferredPanel);
+}
 
-    this.currentPanel = panel || this.panels.resources;
+WebInspector.showSourceLineForURL = function(url, line, preferredPanel)
+{
+    this.currentPanel = this._choosePanelToShowSourceLineForURL(url, preferredPanel);
     if (!this.currentPanel)
         return false;
-    this.currentPanel.showResource(resource, line);
+    this.currentPanel.showSourceLineForURL(url, line);
     return true;
 }
 
@@ -1536,30 +1535,29 @@ WebInspector.addMainEventListeners = function(doc)
     doc.addEventListener("click", this.documentClick.bind(this), true);
 }
 
-WebInspector.searchFieldManualFocus = function(event)
+WebInspector._searchFieldManualFocus = function(event)
 {
     this.currentFocusElement = event.target;
     this._previousFocusElement = event.target;
 }
 
-WebInspector.searchKeyDown = function(event)
+WebInspector._searchKeyDown = function(event)
 {
     // Escape Key will clear the field and clear the search results
     if (event.keyCode === WebInspector.KeyboardShortcut.KeyCodes.Esc) {
+        // If focus belongs here and text is empty - nothing to do, return unhandled.
+        if (event.target.value === "" && this.currentFocusElement === this.previousFocusElement)
+            return;
         event.preventDefault();
+        event.stopPropagation();
         // When search was selected manually and is currently blank, we'd like Esc stay unhandled
         // and hit console drawer handler.
-        event.handled = !(this.previousFocusElement === event.target && event.target.value === "");
         event.target.value = "";
 
         this.performSearch(event);
         this.currentFocusElement = this.previousFocusElement;
         if (this.currentFocusElement === event.target)
             this.currentFocusElement.select();
-        return false;
-    } else if (event.keyCode === WebInspector.KeyboardShortcut.KeyCodes.Backspace ||
-               event.keyCode === WebInspector.KeyboardShortcut.KeyCodes.Delete) {
-        event.handled = true;
         return false;
     }
 
@@ -1697,14 +1695,13 @@ WebInspector.isBeingEdited = function(element)
     return element.__editing;
 }
 
-WebInspector.startEditing = function(element, committedCallback, cancelledCallback, context)
+WebInspector.startEditing = function(element, committedCallback, cancelledCallback, context, multiline)
 {
     if (element.__editing)
         return;
     element.__editing = true;
 
     var oldText = getContent(element);
-    var oldHandleKeyEvent = element.handleKeyEvent;
     var moveDirection = "";
 
     element.addStyleClass("editing");
@@ -1732,8 +1729,8 @@ WebInspector.startEditing = function(element, committedCallback, cancelledCallba
         this.scrollTop = 0;
         this.scrollLeft = 0;
 
-        this.handleKeyEvent = oldHandleKeyEvent;
         element.removeEventListener("blur", blurEventListener, false);
+        element.removeEventListener("keydown", keyDownEventListener, true);
 
         if (element === WebInspector.currentFocusElement || element.isAncestor(WebInspector.currentFocusElement))
             WebInspector.currentFocusElement = WebInspector.previousFocusElement;
@@ -1758,26 +1755,24 @@ WebInspector.startEditing = function(element, committedCallback, cancelledCallba
             committedCallback(this, getContent(this), oldText, context, moveDirection);
     }
 
-    element.handleKeyEvent = function(event) {
-        if (oldHandleKeyEvent)
-            oldHandleKeyEvent(event);
-        if (event.handled)
-            return;
-
-        if (isEnterKey(event)) {
+    function keyDownEventListener(event) {
+        var isMetaOrCtrl = WebInspector.isMac() ?
+            event.metaKey && !event.shiftKey && !event.ctrlKey && !event.altKey :
+            event.ctrlKey && !event.shiftKey && !event.metaKey && !event.altKey;
+        if (isEnterKey(event) && (!multiline || isMetaOrCtrl)) {
             editingCommitted.call(element);
             event.preventDefault();
             event.stopPropagation();
-            event.handled = true;
-        } else if (event.keyCode === 27) { // Escape key
+        } else if (event.keyCode === WebInspector.KeyboardShortcut.KeyCodes.Esc) {
             editingCancelled.call(element);
             event.preventDefault();
-            event.handled = true;
+            event.stopPropagation();
         } else if (event.keyIdentifier === "U+0009") // Tab key
             moveDirection = (event.shiftKey ? "backward" : "forward");
     }
 
     element.addEventListener("blur", blurEventListener, false);
+    element.addEventListener("keydown", keyDownEventListener, true);
 
     WebInspector.currentFocusElement = element;
 }

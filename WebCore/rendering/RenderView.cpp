@@ -664,6 +664,17 @@ void RenderView::pushLayoutState(RenderObject* root)
     m_layoutState = new (renderArena()) LayoutState(root);
 }
 
+bool RenderView::shouldDisableLayoutStateForSubtree(RenderObject* renderer) const
+{
+    RenderObject* o = renderer;
+    while (o) {
+        if (o->hasColumns() || o->hasTransform() || o->hasReflection())
+            return true;
+        o = o->container();
+    }
+    return false;
+}
+
 void RenderView::updateHitTestResult(HitTestResult& result, const IntPoint& point)
 {
     if (result.innerNode())

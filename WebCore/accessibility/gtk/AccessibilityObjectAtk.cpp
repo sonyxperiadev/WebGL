@@ -38,6 +38,9 @@ AccessibilityObjectPlatformInclusion AccessibilityObject::accessibilityPlatformI
     if (!parent)
         return DefaultBehavior;
 
+    if (isMenuListPopup() || isMenuListOption())
+        return IgnoreObject;
+
     // When a list item is made up entirely of children (e.g. paragraphs)
     // the list item gets ignored. We need it.
     if (isGroup() && parent->isList())
@@ -45,6 +48,10 @@ AccessibilityObjectPlatformInclusion AccessibilityObject::accessibilityPlatformI
 
     // Entries and password fields have extraneous children which we want to ignore.
     if (parent->isPasswordField() || parent->isTextControl())
+        return IgnoreObject;
+
+    // The object containing the text should implement AtkText itself.
+    if (roleValue() == StaticTextRole)
         return IgnoreObject;
 
     return DefaultBehavior;

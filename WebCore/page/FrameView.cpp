@@ -29,6 +29,7 @@
 
 #include "AXObjectCache.h"
 #include "CSSStyleSelector.h"
+#include "Chrome.h"
 #include "ChromeClient.h"
 #include "DocLoader.h"
 #include "EventHandler.h"
@@ -45,8 +46,8 @@
 #include "HTMLNames.h"
 #include "InspectorTimelineAgent.h"
 #include "OverflowEvent.h"
+#include "RenderEmbeddedObject.h"
 #include "RenderPart.h"
-#include "RenderPartObject.h"
 #include "RenderScrollbar.h"
 #include "RenderScrollbarPart.h"
 #include "RenderTheme.h"
@@ -354,7 +355,7 @@ PassRefPtr<Scrollbar> FrameView::createScrollbar(ScrollbarOrientation orientatio
     // Try the <body> element first as a scrollbar source.
     Element* body = doc ? doc->body() : 0;
     if (body && body->renderer() && body->renderer()->style()->hasPseudoStyle(SCROLLBAR))
-        return RenderScrollbar::createCustomScrollbar(this, orientation, body->renderBox());
+        return RenderScrollbar::createCustomScrollbar(this, orientation, body->renderer()->enclosingBox());
     
     // If the <body> didn't have a custom style, then the root element might.
     Element* docElement = doc ? doc->documentElement() : 0;
@@ -452,7 +453,7 @@ void FrameView::updateCompositingLayers()
     if (!view->usesCompositing())
         return;
 
-    view->compositor()->updateCompositingLayers();
+    view->compositor()->updateCompositingLayers(CompositingUpdateAfterLayoutOrStyleChange);
 }
 
 void FrameView::setNeedsOneShotDrawingSynchronization()
@@ -610,7 +611,8 @@ void FrameView::layout(bool allowSubtree)
     }
 
     if (!subtree) {
-        RenderObject* rootRenderer = document->documentElement() ? document->documentElement()->renderer() : 0;
+        Node* documentElement = document->documentElement();
+        RenderObject* rootRenderer = documentElement ? documentElement->renderer() : 0;
         Node* body = document->body();
         if (body && body->renderer()) {
             if (body->hasTagName(framesetTag)) {
@@ -618,16 +620,22 @@ void FrameView::layout(bool allowSubtree)
                 vMode = ScrollbarAlwaysOff;
                 hMode = ScrollbarAlwaysOff;
             } else if (body->hasTagName(bodyTag)) {
-                if (!m_firstLayout && m_size.height() != layoutHeight()
-                        && toRenderBox(body->renderer())->stretchesToViewHeight())
+                if (!m_firstLayout && m_size.height() != layoutHeight() && body->renderer()->enclosingBox()->stretchesToViewHeight())
                     body->renderer()->setChildNeedsLayout(true);
                 // It's sufficient to just check the X overflow,
                 // since it's illegal to have visible in only one direction.
                 RenderObject* o = rootRenderer->style()->overflowX() == OVISIBLE && document->documentElement()->hasTagName(htmlTag) ? body->renderer() : rootRenderer;
                 applyOverflowToViewport(o, hMode, vMode);
             }
-        } else if (rootRenderer)
+        } else if (rootRenderer) {
+#if ENABLE(SVG)
+            if (documentElement->isSVGElement()) {
+                if (!m_firstLayout && (m_size.width() != layoutWidth() || m_size.height() != layoutHeight()))
+                    rootRenderer->setChildNeedsLayout(true);
+            }
+#endif
             applyOverflowToViewport(rootRenderer, hMode, vMode);
+        }
 #ifdef INSTRUMENT_LAYOUT_SCHEDULING
         if (m_firstLayout && !document->ownerElement())
             printf("Elapsed time before first layout: %d\n", document->elapsedTime());
@@ -672,8 +680,14 @@ void FrameView::layout(bool allowSubtree)
 
     pauseScheduledEvents();
 
-    if (subtree)
-        root->view()->pushLayoutState(root);
+    bool disableLayoutState = false;
+    if (subtree) {
+        RenderView* view = root->view();
+        disableLayoutState = view->shouldDisableLayoutStateForSubtree(root);
+        view->pushLayoutState(root);
+        if (disableLayoutState)
+            view->disableLayoutState();
+    }
         
     m_midLayout = true;
     beginDeferredRepaints();
@@ -681,11 +695,16 @@ void FrameView::layout(bool allowSubtree)
     endDeferredRepaints();
     m_midLayout = false;
 
-    if (subtree)
-        root->view()->popLayoutState();
+    if (subtree) {
+        RenderView* view = root->view();
+        view->popLayoutState();
+        if (disableLayoutState)
+            view->enableLayoutState();
+    }
     m_layoutRoot = 0;
 
-    m_frame->invalidateSelection();
+    m_frame->selection()->setNeedsLayout();
+    m_frame->selection()->updateAppearance();
    
     m_layoutSchedulingEnabled = true;
 
@@ -751,15 +770,15 @@ void FrameView::layout(bool allowSubtree)
     m_nestedLayoutCount--;
 }
 
-void FrameView::addWidgetToUpdate(RenderPartObject* object)
+void FrameView::addWidgetToUpdate(RenderEmbeddedObject* object)
 {
     if (!m_widgetUpdateSet)
-        m_widgetUpdateSet.set(new HashSet<RenderPartObject*>);
+        m_widgetUpdateSet.set(new RenderEmbeddedObjectSet);
 
     m_widgetUpdateSet->add(object);
 }
 
-void FrameView::removeWidgetToUpdate(RenderPartObject* object)
+void FrameView::removeWidgetToUpdate(RenderEmbeddedObject* object)
 {
     if (!m_widgetUpdateSet)
         return;
@@ -946,16 +965,18 @@ void FrameView::scrollPositionChanged()
 {
     frame()->eventHandler()->sendScrollEvent();
 
+    // For fixed position elements, update widget positions and compositing layers after scrolling,
+    // but only if we're not inside of layout.
+    // FIXME: we could skip this if we knew the page had no fixed position elements.
+    if (!m_nestedLayoutCount) {
+        if (RenderView* root = m_frame->contentRenderer()) {
+            root->updateWidgetPositions();
 #if USE(ACCELERATED_COMPOSITING)
-    // We need to update layer positions after scrolling to account for position:fixed layers.
-    Document* document = m_frame->document();
-    if (!document)
-        return;
-
-    RenderLayer* layer = document->renderer() ? document->renderer()->enclosingLayer() : 0;
-    if (layer)
-        layer->updateLayerPositions(RenderLayer::UpdateCompositingLayers);
+            if (root->usesCompositing())
+                root->compositor()->updateCompositingLayers(CompositingUpdateOnScroll);
 #endif
+        }
+    }
 }
 
 HostWindow* FrameView::hostWindow() const
@@ -1360,11 +1381,11 @@ bool FrameView::updateWidgets()
     if (m_nestedLayoutCount > 1 || !m_widgetUpdateSet || m_widgetUpdateSet->isEmpty())
         return true;
     
-    Vector<RenderPartObject*> objectVector;
+    Vector<RenderEmbeddedObject*> objectVector;
     copyToVector(*m_widgetUpdateSet, objectVector);
     size_t size = objectVector.size();
     for (size_t i = 0; i < size; ++i) {
-        RenderPartObject* object = objectVector[i];
+        RenderEmbeddedObject* object = objectVector[i];
         object->updateWidget(false);
         
         // updateWidget() can destroy the RenderPartObject, so we need to make sure it's

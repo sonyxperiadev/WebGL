@@ -57,8 +57,6 @@ NSView *ScrollView::documentView() const
     return nil;
 }
 
-#if !ENABLE(EXPERIMENTAL_SINGLE_VIEW_MODE)
-
 void ScrollView::platformAddChild(Widget* child)
 {
     BEGIN_BLOCK_OBJC_EXCEPTIONS;
@@ -109,13 +107,12 @@ bool ScrollView::platformCanBlitOnScroll() const
 
 IntRect ScrollView::platformVisibleContentRect(bool includeScrollbars) const
 {
-    BEGIN_BLOCK_OBJC_EXCEPTIONS; 
-    if (includeScrollbars) {
-        if (NSView* documentView = this->documentView())
-            return enclosingIntRect([documentView visibleRect]);
-    }
-    return enclosingIntRect([scrollView() documentVisibleRect]); 
-    END_BLOCK_OBJC_EXCEPTIONS; 
+    BEGIN_BLOCK_OBJC_EXCEPTIONS;
+    IntRect result = enclosingIntRect([scrollView() documentVisibleRect]);
+    if (includeScrollbars)
+        result.setSize(IntSize([scrollView() frame].size));
+    return result;
+    END_BLOCK_OBJC_EXCEPTIONS;
     return IntRect();
 }
 
@@ -204,7 +201,5 @@ bool ScrollView::platformIsOffscreen() const
 {
     return ![platformWidget() window] || ![[platformWidget() window] isVisible];
 }
-
-#endif // !ENABLE(EXPERIMENTAL_SINGLE_VIEW_MODE)
 
 } // namespace WebCore

@@ -52,6 +52,9 @@ static const String& eventParameterName(bool isSVGEvent)
 PassRefPtr<JSLazyEventListener> createAttributeEventListener(Node* node, Attribute* attr)
 {
     ASSERT(node);
+    ASSERT(attr);
+    if (attr->isNull())
+        return 0;
 
     int lineNumber = 1;
     String sourceURL;
@@ -59,7 +62,7 @@ PassRefPtr<JSLazyEventListener> createAttributeEventListener(Node* node, Attribu
     // FIXME: We should be able to provide accurate source information for frameless documents, too (e.g. for importing nodes from XMLHttpRequest.responseXML).
     if (Frame* frame = node->document()->frame()) {
         ScriptController* scriptController = frame->script();
-        if (!scriptController->isEnabled())
+        if (!scriptController->canExecuteScripts())
             return 0;
 
         if (!scriptController->xssAuditor()->canCreateInlineEventListener(attr->localName().string(), attr->value())) {
@@ -79,11 +82,15 @@ PassRefPtr<JSLazyEventListener> createAttributeEventListener(Frame* frame, Attri
     if (!frame)
         return 0;
 
+    ASSERT(attr);
+    if (attr->isNull())
+        return 0;
+
     int lineNumber = 1;
     String sourceURL;
     
     ScriptController* scriptController = frame->script();
-    if (!scriptController->isEnabled())
+    if (!scriptController->canExecuteScripts())
         return 0;
 
     if (!scriptController->xssAuditor()->canCreateInlineEventListener(attr->localName().string(), attr->value())) {

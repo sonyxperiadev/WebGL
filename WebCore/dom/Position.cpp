@@ -498,7 +498,7 @@ Position Position::upstream(EditingBoundaryCrossingRule rule) const
             lastNode = currentNode;
         }
 
-        // If we've moved to a position that is visually disinct, return the last saved position. There 
+        // If we've moved to a position that is visually distinct, return the last saved position. There 
         // is code below that terminates early if we're *about* to move to a visually distinct position.
         if (endsOfNodeAreVisuallyDistinctPositions(currentNode) && currentNode != boundary)
             return lastVisible;
@@ -744,13 +744,17 @@ bool Position::isCandidate() const
     if (isTableElement(node()) || editingIgnoresContent(node()))
         return (atFirstEditingPositionForNode() || atLastEditingPositionForNode()) && !nodeIsUserSelectNone(node()->parent());
 
-    if (!m_anchorNode->hasTagName(htmlTag) && renderer->isBlockFlow()) {
+    if (m_anchorNode->hasTagName(htmlTag))
+        return false;
+        
+    if (renderer->isBlockFlow()) {
         if (toRenderBlock(renderer)->height() || m_anchorNode->hasTagName(bodyTag)) {
             if (!Position::hasRenderedNonAnonymousDescendantsWithHeight(renderer))
                 return atFirstEditingPositionForNode() && !Position::nodeIsUserSelectNone(node());
             return m_anchorNode->isContentEditable() && !Position::nodeIsUserSelectNone(node()) && atEditingBoundary();
         }
-    }
+    } else
+        return m_anchorNode->isContentEditable() && !Position::nodeIsUserSelectNone(node()) && atEditingBoundary();
 
     return false;
 }
@@ -995,7 +999,7 @@ void Position::getInlineBoxAndOffset(EAffinity affinity, TextDirection primaryDi
     RenderObject* renderer = node()->renderer();
           
     if (!renderer->isText()) {
-        if (renderer->isBlockFlow() && hasRenderedNonAnonymousDescendantsWithHeight(renderer)) {
+        if (!renderer->isRenderButton() && renderer->isBlockFlow() && hasRenderedNonAnonymousDescendantsWithHeight(renderer)) {
             bool lastPosition = caretOffset == lastOffsetInNode(node());
             Node* startNode = lastPosition ? node()->childNode(caretOffset - 1) : node()->childNode(caretOffset);
             while (startNode && (!startNode->renderer() || (startNode->isTextNode() && toRenderText(startNode->renderer())->isAllCollapsibleWhitespace())))
@@ -1009,9 +1013,16 @@ void Position::getInlineBoxAndOffset(EAffinity affinity, TextDirection primaryDi
                 return;
             }
         }
-        inlineBox = renderer->isBox() ? toRenderBox(renderer)->inlineBoxWrapper() : 0;
-        if (!inlineBox || (caretOffset > inlineBox->caretMinOffset() && caretOffset < inlineBox->caretMaxOffset()))
+        inlineBox = 0;
+        if (renderer->isBox()) {
+            inlineBox = toRenderBox(renderer)->inlineBoxWrapper();
+            if (!inlineBox || (caretOffset > inlineBox->caretMinOffset() && caretOffset < inlineBox->caretMaxOffset()))
+                return;
+        } else if (node()->isContentEditable()) {
+            Position pos = positionInParentBeforeNode(node()).upstream();
+            pos.getInlineBoxAndOffset(DOWNSTREAM, primaryDirection, inlineBox, caretOffset);
             return;
+        }
     } else {
         RenderText* textRenderer = toRenderText(renderer);
 
@@ -1165,8 +1176,10 @@ void Position::formatForDebugger(char* buffer, unsigned length) const
 
 void Position::showTreeForThis() const
 {
-    if (node())
+    if (node()) {
         node()->showTreeForThis();
+        fprintf(stderr, "offset: %d\n", m_offset);
+    }
 }
 
 #endif

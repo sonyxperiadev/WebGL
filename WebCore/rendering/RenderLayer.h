@@ -205,6 +205,7 @@ public:
     void beginTransparencyLayers(GraphicsContext*, const RenderLayer* rootLayer, PaintBehavior);
 
     bool hasReflection() const { return renderer()->hasReflection(); }
+    bool isReflection() const { return renderer()->isReplica(); }
     RenderReplica* reflection() const { return m_reflection; }
     RenderLayer* reflectionLayer() const;
 
@@ -262,6 +263,7 @@ public:
     int verticalScrollbarWidth() const;
     int horizontalScrollbarHeight() const;
 
+    bool hasOverflowControls() const;
     void positionOverflowControls(int tx, int ty);
     bool isPointInResizeControl(const IntPoint& absolutePoint) const;
     bool hitTestOverflowControls(HitTestResult&, const IntPoint& localPoint);
@@ -661,5 +663,10 @@ private:
 };
 
 } // namespace WebCore
+
+#ifndef NDEBUG
+// Outside the WebCore namespace for ease of invocation from gdb.
+void showLayerTree(const WebCore::RenderLayer* layer);
+#endif
 
 #endif // RenderLayer_h

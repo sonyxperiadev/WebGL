@@ -32,6 +32,7 @@ namespace JSC {
     class DateInstance : public JSWrapperObject {
     public:
         DateInstance(ExecState*, double);
+        DateInstance(ExecState*, NonNullPassRefPtr<Structure>, double);
         explicit DateInstance(ExecState*, NonNullPassRefPtr<Structure>);
 
         double internalNumber() const { return internalValue().uncheckedGetNumber(); }
@@ -54,7 +55,7 @@ namespace JSC {
 
         static PassRefPtr<Structure> createStructure(JSValue prototype)
         {
-            return Structure::create(prototype, TypeInfo(ObjectType, StructureFlags));
+            return Structure::create(prototype, TypeInfo(ObjectType, StructureFlags), AnonymousSlotCount);
         }
 
     protected:

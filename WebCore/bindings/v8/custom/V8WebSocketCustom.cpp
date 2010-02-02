@@ -32,22 +32,23 @@
 
 #if ENABLE(WEB_SOCKETS)
 
-#include "WebSocket.h"
+#include "V8WebSocket.h"
 
 #include "Frame.h"
 #include "Settings.h"
 #include "V8Binding.h"
 #include "V8Proxy.h"
 #include "V8Utilities.h"
+#include "WebSocket.h"
 #include "WorkerContext.h"
 #include "WorkerContextExecutionProxy.h"
 
 namespace WebCore {
 
-CALLBACK_FUNC_DECL(WebSocketAddEventListener)
+v8::Handle<v8::Value> V8WebSocket::addEventListenerCallback(const v8::Arguments& args)
 {
     INC_STATS("DOM.WebSocket.addEventListener()");
-    WebSocket* webSocket = V8DOMWrapper::convertToNativeObject<WebSocket>(V8ClassIndex::WEBSOCKET, args.Holder());
+    WebSocket* webSocket = V8WebSocket::toNative(args.Holder());
 
     RefPtr<EventListener> listener = V8DOMWrapper::getEventListener(webSocket, args[1], false, ListenerFindOrCreate);
     if (listener) {
@@ -55,27 +56,27 @@ CALLBACK_FUNC_DECL(WebSocketAddEventListener)
         bool useCapture = args[2]->BooleanValue();
         webSocket->addEventListener(type, listener, useCapture);
 
-        createHiddenDependency(args.Holder(), args[1], V8Custom::kWebSocketCacheIndex);
+        createHiddenDependency(args.Holder(), args[1], cacheIndex);
     }
     return v8::Undefined();
 }
 
-CALLBACK_FUNC_DECL(WebSocketRemoveEventListener)
+v8::Handle<v8::Value> V8WebSocket::removeEventListenerCallback(const v8::Arguments& args)
 {
     INC_STATS("DOM.WebSocket.removeEventListener()");
-    WebSocket* webSocket = V8DOMWrapper::convertToNativeObject<WebSocket>(V8ClassIndex::WEBSOCKET, args.Holder());
+    WebSocket* webSocket = V8WebSocket::toNative(args.Holder());
 
     RefPtr<EventListener> listener = V8DOMWrapper::getEventListener(webSocket, args[1], false, ListenerFindOnly);
     if (listener) {
         String type = toWebCoreString(args[0]);
         bool useCapture = args[2]->BooleanValue();
         webSocket->removeEventListener(type, listener.get(), useCapture);
-        removeHiddenDependency(args.Holder(), args[1], V8Custom::kWebSocketCacheIndex);
+        removeHiddenDependency(args.Holder(), args[1], cacheIndex);
     }
     return v8::Undefined();
 }
 
-CALLBACK_FUNC_DECL(WebSocketConstructor)
+v8::Handle<v8::Value> V8WebSocket::constructorCallback(const v8::Arguments& args)
 {
     INC_STATS("DOM.WebSocket.Constructor");
 
@@ -92,14 +93,9 @@ CALLBACK_FUNC_DECL(WebSocketConstructor)
         return throwError("Empty URL", V8Proxy::SyntaxError);
 
     // Get the script execution context.
-    ScriptExecutionContext* context = 0;
-    // TODO: Workers
-    if (!context) {
-        Frame* frame = V8Proxy::retrieveFrameForCurrentContext();
-        if (!frame)
-            return throwError("WebSocket constructor's associated frame is not available", V8Proxy::ReferenceError);
-        context = frame->document();
-    }
+    ScriptExecutionContext* context = getScriptExecutionContext();
+    if (!context)
+        return throwError("WebSocket constructor's associated frame is not available", V8Proxy::ReferenceError);
 
     const KURL& url = context->completeURL(toWebCoreString(urlstring));
 
@@ -128,10 +124,10 @@ CALLBACK_FUNC_DECL(WebSocketConstructor)
     return args.Holder();
 }
 
-CALLBACK_FUNC_DECL(WebSocketSend)
+v8::Handle<v8::Value> V8WebSocket::sendCallback(const v8::Arguments& args)
 {
     INC_STATS("DOM.WebSocket.send()");
-    WebSocket* webSocket = V8DOMWrapper::convertToNativeObject<WebSocket>(V8ClassIndex::WEBSOCKET, args.Holder());
+    WebSocket* webSocket = V8WebSocket::toNative(args.Holder());
 
     ExceptionCode ec = 0;
     bool ret = false;
@@ -144,15 +140,6 @@ CALLBACK_FUNC_DECL(WebSocketSend)
     if (ec)
         return throwError(ec);
     return v8Boolean(ret);
-}
-
-CALLBACK_FUNC_DECL(WebSocketClose)
-{
-    INC_STATS("DOM.WebSocket.close()");
-    WebSocket* webSocket = V8DOMWrapper::convertToNativeObject<WebSocket>(V8ClassIndex::WEBSOCKET, args.Holder());
-
-    webSocket->close();
-    return v8::Undefined();
 }
 
 }  // namespace WebCore

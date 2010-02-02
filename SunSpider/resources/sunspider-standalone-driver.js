@@ -30,7 +30,7 @@ var times = [];
 times.length = tests.length;
 
 for (var j = 0; j < tests.length; j++) {
-    var testName = "tests/" + tests[j] + ".js";
+    var testName = "tests/" + suiteName + "/" + tests[j] + ".js";
     var startTime = new Date;
     if (testName.indexOf('parse-only') >= 0)
         checkSyntax(testName);

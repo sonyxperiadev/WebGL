@@ -50,8 +50,8 @@ my $minimal = 0;
 my $makeArgs;
 my $startTime = time();
 
-my ($threeDCanvasSupport, $threeDRenderingSupport, $channelMessagingSupport, $databaseSupport, $datagridSupport, $datalistSupport,
-    $domStorageSupport, $eventsourceSupport, $filtersSupport, $geolocationSupport, $iconDatabaseSupport,
+my ($threeDCanvasSupport, $threeDRenderingSupport, $channelMessagingSupport, $clientBasedGeolocationSupport, $databaseSupport, $datagridSupport, $datalistSupport,
+    $domStorageSupport, $eventsourceSupport, $filtersSupport, $geolocationSupport, $iconDatabaseSupport, $indexedDatabaseSupport,
     $javaScriptDebuggerSupport, $mathmlSupport, $offlineWebApplicationSupport, $sharedWorkersSupport,
     $svgSupport, $svgAnimationSupport, $svgAsImageSupport, $svgDOMObjCBindingsSupport, $svgFontsSupport,
     $svgForeignObjectSupport, $svgUseSupport, $videoSupport, $webSocketsSupport, $wmlSupport, $wcssSupport, $xhtmlmpSupport, $workersSupport,
@@ -67,6 +67,9 @@ my @features = (
     { option => "channel-messaging", desc => "Toggle MessageChannel and MessagePort support",
       define => "ENABLE_CHANNEL_MESSAGING", default => 1, value => \$channelMessagingSupport },
 
+    { option => "client-based-geolocation", desc => "Toggle client-based Geolocation support",
+      define => "ENABLE_CLIENT_BASED_GEOLOCATION", default => isAppleWebKit(), value => \$clientBasedGeolocationSupport },
+
     { option => "coverage", desc => "Toggle code coverage support",
       define => "", default => 0, value => \$coverageSupport },
 
@@ -74,7 +77,7 @@ my @features = (
       define => "ENABLE_DATABASE", default => 1, value => \$databaseSupport },
 
     { option => "datagrid", desc => "Toggle Datagrid Support",
-      define => "ENABLE_DATAGRID", default => 1, value => \$datagridSupport },
+      define => "ENABLE_DATAGRID", default => 0, value => \$datagridSupport },
       
     { option => "datalist", desc => "Toggle HTML5 datalist support",
       define => "ENABLE_DATALIST", default => 1, value => \$datalistSupport },
@@ -89,10 +92,13 @@ my @features = (
       define => "ENABLE_FILTERS", default => (isAppleWebKit() || isGtk() || isQt()), value => \$filtersSupport },
 
     { option => "geolocation", desc => "Toggle Geolocation support",
-      define => "ENABLE_GEOLOCATION", default => isGtk(), value => \$geolocationSupport },
+      define => "ENABLE_GEOLOCATION", default => (isAppleWebKit() || isGtk()), value => \$geolocationSupport },
 
     { option => "icon-database", desc => "Toggle Icon database support",
       define => "ENABLE_ICONDATABASE", default => 1, value => \$iconDatabaseSupport },
+
+    { option => "indexed-database", desc => "Toggle Indexed Database API support",
+      define => "ENABLE_INDEXED_DATABASE", default => 0, value => \$indexedDatabaseSupport },
 
     { option => "javascript-debugger", desc => "Toggle JavaScript Debugger/Profiler support",
       define => "ENABLE_JAVASCRIPT_DEBUGGER", default => 1, value => \$javaScriptDebuggerSupport },
@@ -191,6 +197,7 @@ Usage: $programName [options] [options to pass to build system]
   --chromium                        Build the Chromium port on Mac/Win/Linux
   --gtk                             Build the GTK+ port
   --qt                              Build the Qt port
+  --inspector-frontend              Copy changes to the inspector front-end files to the build directory
 
   --makeargs=<arguments>            Optional Makefile flags
 
@@ -310,6 +317,10 @@ if (isGtk()) {
 
 # Force re-link of existing libraries if different than expected
 removeLibraryDependingOnSVG("WebCore", $svgSupport);
+
+if (isInspectorFrontend()) {
+    exit exitStatus(copyInspectorFrontendFiles());
+}
 
 if (isWx()) {
     downloadWafIfNeeded();

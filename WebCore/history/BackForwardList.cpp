@@ -59,17 +59,12 @@ BackForwardList::~BackForwardList()
 
 void BackForwardList::addItem(PassRefPtr<HistoryItem> prpItem)
 {
-    insertItemAfterCurrent(prpItem, true);
-}
-
-void BackForwardList::insertItemAfterCurrent(PassRefPtr<HistoryItem> prpItem, bool removeForwardList)
-{
     ASSERT(prpItem);
     if (m_capacity == 0 || !m_enabled)
         return;
     
     // Toss anything in the forward list    
-    if (removeForwardList && m_current != NoCurrentItemIndex) {
+    if (m_current != NoCurrentItemIndex) {
         unsigned targetSize = m_current + 1;
         while (m_entries.size() > targetSize) {
             RefPtr<HistoryItem> item = m_entries.last();
@@ -244,25 +239,15 @@ HistoryItemVector& BackForwardList::entries()
 void BackForwardList::pushStateItem(PassRefPtr<HistoryItem> newItem)
 {
     ASSERT(newItem);
-    ASSERT(newItem->document());
     ASSERT(newItem->stateObject());
     
     RefPtr<HistoryItem> current = currentItem();
     ASSERT(current);
 
-    Document* newItemDocument = newItem->document();
-    while (HistoryItem* item = forwardItem()) {
-        if (item->document() != newItemDocument)
-            break;
-        removeItem(item);
-    }
-
-    insertItemAfterCurrent(newItem, false);
+    addItem(newItem);
     
-    if (!current->document()) {
-        current->setDocument(newItemDocument);
+    if (!current->stateObject())
         current->setStateObject(SerializedScriptValue::create());
-    }
 }
 
 void BackForwardList::close()

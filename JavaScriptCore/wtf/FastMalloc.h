@@ -33,6 +33,7 @@ namespace WTF {
     void* fastZeroedMalloc(size_t);
     void* fastCalloc(size_t numElements, size_t elementSize);
     void* fastRealloc(void*, size_t);
+    char* fastStrDup(const char*);
 
     struct TryMallocReturnValue {
         TryMallocReturnValue(void* data)
@@ -188,17 +189,18 @@ using WTF::tryFastZeroedMalloc;
 using WTF::tryFastCalloc;
 using WTF::tryFastRealloc;
 using WTF::fastFree;
+using WTF::fastStrDup;
 
 #ifndef NDEBUG    
 using WTF::fastMallocForbid;
 using WTF::fastMallocAllow;
 #endif
 
-#if COMPILER(GCC) && PLATFORM(DARWIN)
+#if COMPILER(GCC) && OS(DARWIN)
 #define WTF_PRIVATE_INLINE __private_extern__ inline __attribute__((always_inline))
 #elif COMPILER(GCC)
 #define WTF_PRIVATE_INLINE inline __attribute__((always_inline))
-#elif COMPILER(MSVC)
+#elif COMPILER(MSVC) || COMPILER(RVCT)
 #define WTF_PRIVATE_INLINE __forceinline
 #else
 #define WTF_PRIVATE_INLINE inline

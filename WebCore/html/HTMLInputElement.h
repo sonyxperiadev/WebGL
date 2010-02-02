@@ -30,11 +30,11 @@
 
 namespace WebCore {
 
+class DateComponents;
 class FileList;
 class HTMLDataListElement;
 class HTMLImageLoader;
 class HTMLOptionElement;
-class ISODateTime;
 class KURL;
 class VisibleSelection;
 
@@ -106,9 +106,9 @@ public:
     // For ValidityState
     bool rangeUnderflow() const;
     bool rangeOverflow() const;
-    // Returns the minimum value for type=number or range.  Don't call this for other types.
+    // Returns the minimum value for type=date, number, or range.  Don't call this for other types.
     double minimum() const;
-    // Returns the maximum value for type=number or range.  Don't call this for other types.
+    // Returns the maximum value for type=date, number, or range.  Don't call this for other types.
     // This always returns a value which is >= minimum().
     double maximum() const;
     // Sets the "allowed value step" defined in the HTML spec to the specified double pointer.
@@ -137,9 +137,18 @@ public:
     virtual const AtomicString& formControlType() const;
     void setType(const String&);
 
+    virtual const String& suggestedValue() const;
+    void setSuggestedValue(const String&);
+
     virtual String value() const;
     virtual void setValue(const String&, bool sendChangeEvent = false);
     virtual void setValueForUser(const String&);
+
+    double valueAsDate() const;
+    void setValueAsDate(double, ExceptionCode&);
+
+    double valueAsNumber() const;
+    void setValueAsNumber(double, ExceptionCode&);
 
     virtual String placeholder() const;
     virtual void setPlaceholder(const String&);
@@ -258,9 +267,9 @@ public:
     // HTML5's "algorithm to convert a number to a string" for NUMBER/RANGE types.
     static String formStringFromDouble(double);
     // Parses the specified string as the InputType, and returns true if it is successfully parsed.
-    // An instance pointed by the ISODateTime* parameter will have parsed values and be
-    // modified even if the parsing fails.  The ISODateTime* parameter may be 0.
-    static bool formStringToISODateTime(InputType, const String&, ISODateTime*);
+    // An instance pointed by the DateComponents* parameter will have parsed values and be
+    // modified even if the parsing fails.  The DateComponents* parameter may be 0.
+    static bool formStringToDateComponents(InputType, const String&, DateComponents*);
     
 protected:
     virtual void willMoveToNewOwnerDocument();
@@ -290,6 +299,12 @@ private:
     void applyStepForNumberOrRange(double count, ExceptionCode&);
     // Helper for applyStepForNumberOrRange().
     double stepBase() const;
+
+    // Parses the specified string for the current type, and return
+    // the double value for the parsing result if the parsing
+    // succeeds; Returns defaultValue otherwise. This function can
+    // return NaN or Infinity only if defaultValue is NaN or Infinity.
+    double parseToDouble(const String&, double defaultValue) const;
 
 #if ENABLE(DATALIST)
     HTMLDataListElement* dataList() const;

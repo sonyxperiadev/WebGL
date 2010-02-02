@@ -32,6 +32,7 @@
 #include "SVGFilter.h"
 #include "SVGFilterBuilder.h"
 #include "SVGFilterElement.h"
+#include "SVGRenderSupport.h"
 #include "SVGRenderTreeAsText.h"
 #include "SVGFilterPrimitiveStandardAttributes.h"
 
@@ -52,17 +53,21 @@ SVGResourceFilter::SVGResourceFilter(const SVGFilterElement* ownerElement)
     , m_savedContext(0)
     , m_sourceGraphicBuffer(0)
 {
-    m_filterBuilder.set(new SVGFilterBuilder());
+    m_filterBuilder.set(new SVGFilterBuilder());    
 }
 
 SVGResourceFilter::~SVGResourceFilter()
 {
 }
 
-static inline bool shouldProcessFilter(SVGResourceFilter* filter)
+FloatRect SVGResourceFilter::filterBoundingBox(const FloatRect& obb) const
 {
-    return (!filter->scaleX() || !filter->scaleY() || !filter->filterBoundingBox().width()
-            || !filter->filterBoundingBox().height());
+    return m_ownerElement->filterBoundingBox(obb);
+}
+
+static inline bool shouldProcessFilter(SVGResourceFilter* filter, const FloatRect& filterRect)
+{
+    return (!filter->scaleX() || !filter->scaleY() || !filterRect.width() || !filterRect.height());
 }
 
 void SVGResourceFilter::addFilterEffect(SVGFilterPrimitiveStandardAttributes* effectAttributes, PassRefPtr<FilterEffect> effect)
@@ -86,16 +91,21 @@ bool SVGResourceFilter::fitsInMaximumImageSize(const FloatSize& size)
     return matchesFilterSize;
 }
 
-void SVGResourceFilter::prepareFilter(GraphicsContext*& context, const RenderObject* object)
+bool SVGResourceFilter::prepareFilter(GraphicsContext*& context, const RenderObject* object)
 {
-    FloatRect targetRect = object->objectBoundingBox();
-    m_ownerElement->buildFilter(targetRect);
+    m_ownerElement->buildFilter(object->objectBoundingBox());
+    const SVGRenderBase* renderer = object->toSVGRenderBase();
+    if (!renderer)
+        return false;
 
-    if (shouldProcessFilter(this))
-        return;
+    FloatRect paintRect = renderer->strokeBoundingBox();
+    paintRect.unite(renderer->markerBoundingBox());
+
+    if (shouldProcessFilter(this, m_filterBBox))
+        return false;
 
     // clip sourceImage to filterRegion
-    FloatRect clippedSourceRect = targetRect;
+    FloatRect clippedSourceRect = paintRect;
     clippedSourceRect.intersect(m_filterBBox);
 
     // scale filter size to filterRes
@@ -110,7 +120,7 @@ void SVGResourceFilter::prepareFilter(GraphicsContext*& context, const RenderObj
     fitsInMaximumImageSize(tempSourceRect.size());
 
     // prepare Filters
-    m_filter = SVGFilter::create(targetRect, m_filterBBox, m_effectBBoxMode);
+    m_filter = SVGFilter::create(paintRect, m_filterBBox, m_effectBBoxMode);
     m_filter->setFilterResolution(FloatSize(m_scaleX, m_scaleY));
 
     FilterEffect* lastEffect = m_filterBuilder->lastEffect();
@@ -122,7 +132,8 @@ void SVGResourceFilter::prepareFilter(GraphicsContext*& context, const RenderObj
             m_filter->setFilterResolution(FloatSize(m_scaleX, m_scaleY));
             lastEffect->calculateEffectRect(m_filter.get());
         }
-    }
+    } else
+        return false;
 
     clippedSourceRect.scale(m_scaleX, m_scaleY);
 
@@ -132,23 +143,21 @@ void SVGResourceFilter::prepareFilter(GraphicsContext*& context, const RenderObj
     OwnPtr<ImageBuffer> sourceGraphic(ImageBuffer::create(bufferRect.size(), LinearRGB));
     
     if (!sourceGraphic.get())
-        return;
+        return false;
 
     GraphicsContext* sourceGraphicContext = sourceGraphic->context();
+    sourceGraphicContext->translate(-clippedSourceRect.x(), -clippedSourceRect.y());
     sourceGraphicContext->scale(FloatSize(m_scaleX, m_scaleY));
-    sourceGraphicContext->translate(-targetRect.x(), -targetRect.y());
-    sourceGraphicContext->clearRect(FloatRect(FloatPoint(), targetRect.size()));
+    sourceGraphicContext->clearRect(FloatRect(FloatPoint(), paintRect.size()));
     m_sourceGraphicBuffer.set(sourceGraphic.release());
     m_savedContext = context;
 
     context = sourceGraphicContext;
+    return true;
 }
 
 void SVGResourceFilter::applyFilter(GraphicsContext*& context, const RenderObject* object)
 {
-    if (shouldProcessFilter(this))
-        return;
-
     if (!m_savedContext)
         return;
 
@@ -204,9 +213,9 @@ TextStream& SVGResourceFilter::externalRepresentation(TextStream& ts) const
     return ts;
 }
 
-SVGResourceFilter* getFilterById(Document* document, const AtomicString& id)
+SVGResourceFilter* getFilterById(Document* document, const AtomicString& id, const RenderObject* object)
 {
-    SVGResource* resource = getResourceById(document, id);
+    SVGResource* resource = getResourceById(document, id, object);
     if (resource && resource->isFilter())
         return static_cast<SVGResourceFilter*>(resource);
 

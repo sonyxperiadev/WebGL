@@ -29,6 +29,10 @@
 #if ENABLE(CLIENT_BASED_GEOLOCATION)
 
 #include <wtf/PassRefPtr.h>
+<<<<<<< HEAD
+=======
+#include <wtf/RefCounted.h>
+>>>>>>> webkit.org at r54127
 #include <wtf/RefPtr.h>
 
 namespace WebCore {

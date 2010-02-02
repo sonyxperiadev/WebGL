@@ -73,7 +73,7 @@ enum PseudoId {
     MEDIA_CONTROLS_SEEK_BACK_BUTTON, MEDIA_CONTROLS_SEEK_FORWARD_BUTTON, MEDIA_CONTROLS_FULLSCREEN_BUTTON, MEDIA_CONTROLS_REWIND_BUTTON, 
     MEDIA_CONTROLS_RETURN_TO_REALTIME_BUTTON, MEDIA_CONTROLS_TOGGLE_CLOSED_CAPTIONS_BUTTON,
     MEDIA_CONTROLS_STATUS_DISPLAY, SCROLLBAR_THUMB, SCROLLBAR_BUTTON, SCROLLBAR_TRACK, SCROLLBAR_TRACK_PIECE, SCROLLBAR_CORNER, RESIZER,
-    INPUT_LIST_BUTTON,
+    INPUT_LIST_BUTTON, INNER_SPIN_BUTTON, OUTER_SPIN_BUTTON,
 
     FIRST_INTERNAL_PSEUDOID = FILE_UPLOAD_BUTTON
 };
@@ -203,12 +203,63 @@ enum EResize {
     RESIZE_NONE, RESIZE_BOTH, RESIZE_HORIZONTAL, RESIZE_VERTICAL
 };
 
+// The order of this enum must match the order of the list style types in CSSValueKeywords.in. 
 enum EListStyleType {
-     DISC, CIRCLE, SQUARE, LDECIMAL, DECIMAL_LEADING_ZERO,
-     LOWER_ROMAN, UPPER_ROMAN, LOWER_GREEK,
-     LOWER_ALPHA, LOWER_LATIN, UPPER_ALPHA, UPPER_LATIN,
-     HEBREW, ARMENIAN, GEORGIAN, CJK_IDEOGRAPHIC,
-     HIRAGANA, KATAKANA, HIRAGANA_IROHA, KATAKANA_IROHA, LNONE
+     Disc,
+     Circle,
+     Square,
+     DecimalListStyle,
+     DecimalLeadingZero,
+     LowerRoman,
+     UpperRoman,
+     LowerGreek,
+     LowerAlpha,
+     LowerLatin,
+     UpperAlpha,
+     UpperLatin,
+     Afar,
+     EthiopicHalehameAaEt,
+     EthiopicHalehameAaEr,
+     Amharic,
+     EthiopicHalehameAmEt,
+     AmharicAbegede,
+     EthiopicAbegedeAmEt,
+     CjkEarthlyBranch,
+     CjkHeavenlyStem,
+     Ethiopic,
+     EthiopicHalehameGez,
+     EthiopicAbegede,
+     EthiopicAbegedeGez,
+     HangulConsonant,
+     Hangul,
+     LowerNorwegian,
+     Oromo,
+     EthiopicHalehameOmEt,
+     Sidama,
+     EthiopicHalehameSidEt,
+     Somali,
+     EthiopicHalehameSoEt,
+     Tigre,
+     EthiopicHalehameTig,
+     TigrinyaEr,
+     EthiopicHalehameTiEr,
+     TigrinyaErAbegede,
+     EthiopicAbegedeTiEr,
+     TigrinyaEt,
+     EthiopicHalehameTiEt,
+     TigrinyaEtAbegede,
+     EthiopicAbegedeTiEt,
+     UpperGreek,
+     UpperNorwegian,
+     Hebrew,
+     Armenian,
+     Georgian,
+     CJKIdeographic,
+     Hiragana,
+     Katakana,
+     HiraganaIroha,
+     KatakanaIroha,
+     NoneListStyle
 };
 
 enum StyleContentType {

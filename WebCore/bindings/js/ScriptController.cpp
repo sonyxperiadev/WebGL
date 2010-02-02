@@ -102,7 +102,7 @@ ScriptValue ScriptController::evaluateInWorld(const ScriptSourceCode& sourceCode
     }
 
     // evaluate code. Returns the JS return value or 0
-    // if there was none, an error occured or the type couldn't be converted.
+    // if there was none, an error occurred or the type couldn't be converted.
 
     // inlineCode is true for <a href="javascript:doSomething()">
     // and false for <script>doSomething()</script>. Check if it has the
@@ -156,7 +156,7 @@ ScriptValue ScriptController::evaluate(const ScriptSourceCode& sourceCode)
 class IsolatedWorld : public DOMWrapperWorld {
 public:
     IsolatedWorld(JSGlobalData* globalData)
-        : DOMWrapperWorld(globalData)
+        : DOMWrapperWorld(globalData, false)
     {
         JSGlobalData::ClientData* clientData = globalData->clientData;
         ASSERT(clientData);
@@ -183,19 +183,17 @@ void ScriptController::clearWindowShell()
 
     JSLock lock(SilenceAssertionsOnly);
 
-    // Clear the debugger from the current window before setting the new window.
-    DOMWrapperWorld* debugWorld = debuggerWorld();
-    attachDebugger(0);
-
     for (ShellMap::iterator iter = m_windowShells.begin(); iter != m_windowShells.end(); ++iter) {
-        DOMWrapperWorld* world = iter->first.get();
         JSDOMWindowShell* windowShell = iter->second;
+
+        // Clear the debugger from the current window before setting the new window.
+        attachDebugger(windowShell, 0);
+
         windowShell->window()->willRemoveFromWindowShell();
         windowShell->setWindow(m_frame->domWindow());
 
         if (Page* page = m_frame->page()) {
-            if (world == debugWorld)
-                attachDebugger(page->debugger());
+            attachDebugger(windowShell, page->debugger());
             windowShell->window()->setProfileGroup(page->group().identifier());
         }
     }
@@ -215,8 +213,7 @@ JSDOMWindowShell* ScriptController::initScript(DOMWrapperWorld* world)
     windowShell->window()->updateDocument();
 
     if (Page* page = m_frame->page()) {
-        if (world == debuggerWorld())
-            attachDebugger(page->debugger());
+        attachDebugger(windowShell, page->debugger());
         windowShell->window()->setProfileGroup(page->group().identifier());
     }
 
@@ -291,16 +288,14 @@ bool ScriptController::anyPageIsProcessingUserGesture() const
     return false;
 }
 
-bool ScriptController::isEnabled()
-{
-    Settings* settings = m_frame->settings();
-    return m_frame->loader()->client()->allowJavaScript(settings && settings->isJavaScriptEnabled() && !m_frame->loader()->isSandboxed(SandboxScripts));
-}
-
 void ScriptController::attachDebugger(JSC::Debugger* debugger)
 {
-    // FIXME: Should be able to debug isolated worlds.
-    JSDOMWindowShell* shell = existingWindowShell(debuggerWorld());
+    for (ShellMap::iterator iter = m_windowShells.begin(); iter != m_windowShells.end(); ++iter)
+        attachDebugger(iter->second, debugger);
+}
+
+void ScriptController::attachDebugger(JSDOMWindowShell* shell, JSC::Debugger* debugger)
+{
     if (!shell)
         return;
 
@@ -328,7 +323,7 @@ void ScriptController::updateSecurityOrigin()
 
 Bindings::RootObject* ScriptController::bindingRootObject()
 {
-    if (!isEnabled())
+    if (!canExecuteScripts())
         return 0;
 
     if (!m_bindingRootObject) {
@@ -355,7 +350,7 @@ PassRefPtr<Bindings::RootObject> ScriptController::createRootObject(void* native
 NPObject* ScriptController::windowScriptNPObject()
 {
     if (!m_windowScriptNPObject) {
-        if (isEnabled()) {
+        if (canExecuteScripts()) {
             // JavaScript is enabled, so there is a JavaScript window object.
             // Return an NPObject bound to the window object.
             JSC::JSLock lock(SilenceAssertionsOnly);
@@ -388,7 +383,7 @@ NPObject* ScriptController::createScriptObjectForPluginElement(HTMLPlugInElement
 JSObject* ScriptController::jsObjectForPluginElement(HTMLPlugInElement* plugin)
 {
     // Can't create JSObjects when JavaScript is disabled
-    if (!isEnabled())
+    if (!canExecuteScripts())
         return 0;
 
     // Create a JSObject bound to this element
@@ -455,7 +450,7 @@ ScriptValue ScriptController::executeScriptInWorld(DOMWrapperWorld* world, const
 {
     ScriptSourceCode sourceCode(script, forceUserGesture ? KURL() : m_frame->loader()->url());
 
-    if (!isEnabled() || isPaused())
+    if (!canExecuteScripts() || isPaused())
         return ScriptValue();
 
     bool wasInExecuteScript = m_inExecuteScript;

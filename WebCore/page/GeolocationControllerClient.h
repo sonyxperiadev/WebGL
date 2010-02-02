@@ -32,6 +32,11 @@ class GeolocationPosition;
 
 class GeolocationControllerClient {
 public:
+<<<<<<< HEAD
+=======
+    virtual void geolocationDestroyed() = 0;
+
+>>>>>>> webkit.org at r54127
     virtual void startUpdating() = 0;
     virtual void stopUpdating() = 0;
     virtual GeolocationPosition* lastPosition() = 0;

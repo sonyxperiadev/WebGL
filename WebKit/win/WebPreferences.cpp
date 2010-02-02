@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007, 2008, 2009 Apple Inc.  All rights reserved.
+ * Copyright (C) 2006, 2007, 2008, 2009, 2010 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -32,14 +32,13 @@
 #include "WebNotificationCenter.h"
 #include "WebPreferenceKeysPrivate.h"
 
-#pragma warning( push, 0 )
 #include <WebCore/CString.h>
 #include <WebCore/FileSystem.h>
 #include <WebCore/Font.h>
 #include <WebCore/PlatformString.h>
 #include <WebCore/StringHash.h>
+#include <WebCore/WKCACFLayerRenderer.h>
 #include "WebLocalizableStrings.h"
-#pragma warning( pop )
 
 #include <CoreFoundation/CoreFoundation.h>
 #include <limits>
@@ -213,6 +212,7 @@ void WebPreferences::initializeDefaultSettings()
     CFDictionaryAddValue(defaults, CFSTR(WebKitDatabasesEnabledPreferenceKey), kCFBooleanTrue);
     CFDictionaryAddValue(defaults, CFSTR(WebKitLocalStorageEnabledPreferenceKey), kCFBooleanTrue);
     CFDictionaryAddValue(defaults, CFSTR(WebKitExperimentalNotificationsEnabledPreferenceKey), kCFBooleanFalse);
+    CFDictionaryAddValue(defaults, CFSTR(WebKitZoomsTextOnlyPreferenceKey), kCFBooleanTrue);
     CFDictionaryAddValue(defaults, CFSTR(WebKitAllowAnimatedImagesPreferenceKey), kCFBooleanTrue);
     CFDictionaryAddValue(defaults, CFSTR(WebKitAllowAnimatedImageLoopingPreferenceKey), kCFBooleanTrue);
     CFDictionaryAddValue(defaults, CFSTR(WebKitDisplayImagesKey), kCFBooleanTrue);
@@ -254,6 +254,8 @@ void WebPreferences::initializeDefaultSettings()
 
     RetainPtr<CFStringRef> pluginAllowedRunTime(AdoptCF, CFStringCreateWithFormat(0, 0, CFSTR("%u"), numeric_limits<unsigned>::max()));
     CFDictionaryAddValue(defaults, CFSTR(WebKitPluginAllowedRunTimePreferenceKey), pluginAllowedRunTime.get());
+
+    CFDictionaryAddValue(defaults, CFSTR(WebKitAcceleratedCompositingEnabledPreferenceKey), kCFBooleanTrue);
 
     defaultSettings = defaults;
 }
@@ -1353,6 +1355,34 @@ HRESULT WebPreferences::setPreferenceForTest(BSTR key, BSTR value)
     RetainPtr<CFStringRef> valueString(AdoptCF, CFStringCreateWithCharacters(0, reinterpret_cast<UniChar*>(value), SysStringLen(value)));
     setValueForKey(keyString.get(), valueString.get());
     postPreferencesChangesNotification();
+    return S_OK;
+}
+
+HRESULT WebPreferences::setAcceleratedCompositingEnabled(BOOL enabled)
+{
+    setBoolValue(CFSTR(WebKitAcceleratedCompositingEnabledPreferenceKey), enabled);
+    return S_OK;
+}
+
+HRESULT WebPreferences::acceleratedCompositingEnabled(BOOL* enabled)
+{
+#if USE(ACCELERATED_COMPOSITING)
+    *enabled = WKCACFLayerRenderer::acceleratedCompositingAvailable() && boolValueForKey(CFSTR(WebKitAcceleratedCompositingEnabledPreferenceKey));
+#else
+    *enabled = FALSE;
+#endif
+    return S_OK;
+}
+
+HRESULT WebPreferences::setCustomDragCursorsEnabled(BOOL enabled)
+{
+    setBoolValue(CFSTR(WebKitCustomDragCursorsEnabledPreferenceKey), enabled);
+    return S_OK;
+}
+
+HRESULT WebPreferences::customDragCursorsEnabled(BOOL* enabled)
+{
+    *enabled = boolValueForKey(CFSTR(WebKitCustomDragCursorsEnabledPreferenceKey));
     return S_OK;
 }
 

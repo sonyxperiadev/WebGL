@@ -39,16 +39,19 @@ typedef struct _GstBus GstBus;
 
 namespace WebCore {
 
-    class GraphicsContext;
-    class IntSize;
-    class IntRect;
-    class String;
+class GraphicsContext;
+class IntSize;
+class IntRect;
+class String;
 
-    gboolean mediaPlayerPrivateMessageCallback(GstBus* bus, GstMessage* message, gpointer data);
+gboolean mediaPlayerPrivateMessageCallback(GstBus* bus, GstMessage* message, gpointer data);
+void mediaPlayerPrivateVolumeChangedCallback(GObject* element, GParamSpec* pspec, gpointer data);
+void mediaPlayerPrivateSourceChangedCallback(GObject* element, GParamSpec* pspec, gpointer data);
 
-    class MediaPlayerPrivate : public MediaPlayerPrivateInterface {
+class MediaPlayerPrivate : public MediaPlayerPrivateInterface {
         friend gboolean mediaPlayerPrivateMessageCallback(GstBus* bus, GstMessage* message, gpointer data);
-        friend void mediaPlayerPrivateRepaintCallback(WebKitVideoSink*, GstBuffer *buffer, MediaPlayerPrivate* playerPrivate);
+        friend void mediaPlayerPrivateRepaintCallback(WebKitVideoSink*, GstBuffer* buffer, MediaPlayerPrivate* playerPrivate);
+        friend void mediaPlayerPrivateSourceChangedCallback(GObject* element, GParamSpec* pspec, gpointer data);
 
         public:
             static void registerMediaEngine(MediaEngineRegistrar);
@@ -60,6 +63,7 @@ namespace WebCore {
 
             void load(const String &url);
             void cancelLoad();
+            bool loadNextLocation();
 
             void play();
             void pause();
@@ -70,12 +74,10 @@ namespace WebCore {
             float duration() const;
             float currentTime() const;
             void seek(float);
-            void setEndTime(float);
 
             void setRate(float);
             void setVolume(float);
-
-            int dataRate() const;
+            void volumeChanged();
 
             MediaPlayer::NetworkState networkState() const;
             MediaPlayer::ReadyState readyState() const;
@@ -83,17 +85,17 @@ namespace WebCore {
             PassRefPtr<TimeRanges> buffered() const;
             float maxTimeSeekable() const;
             unsigned bytesLoaded() const;
-            bool totalBytesKnown() const;
             unsigned totalBytes() const;
 
             void setVisible(bool);
             void setSize(const IntSize&);
 
+            void mediaLocationChanged(GstMessage*);
             void loadStateChanged();
             void sizeChanged();
             void timeChanged();
-            void volumeChanged();
             void didEnd();
+            void durationChanged();
             void loadingFailed(MediaPlayer::NetworkState);
 
             void repaint();
@@ -102,6 +104,8 @@ namespace WebCore {
             bool hasSingleSecurityOrigin() const;
 
             bool supportsFullscreen() const;
+
+            bool pipelineReset() const { return m_resetPipeline; }
 
         private:
             MediaPlayerPrivate(MediaPlayer*);
@@ -118,11 +122,13 @@ namespace WebCore {
             void startEndPointTimerIfNeeded();
 
             void createGSTPlayBin(String url);
+            bool changePipelineState(GstState state);
 
         private:
             MediaPlayer* m_player;
             GstElement* m_playBin;
             GstElement* m_videoSink;
+            GstElement* m_fpsSink;
             GstElement* m_source;
             GstClockTime m_seekTime;
             bool m_changingRate;
@@ -134,10 +140,15 @@ namespace WebCore {
             mutable bool m_isStreaming;
             IntSize m_size;
             GstBuffer* m_buffer;
-
+            GstStructure* m_mediaLocations;
+            gint m_mediaLocationCurrentIndex;
+            bool m_resetPipeline;
             bool m_paused;
             bool m_seeking;
+            float m_playbackRate;
             bool m_errorOccured;
+            guint m_volumeIdleId;
+            gfloat m_mediaDuration;
     };
 }
 

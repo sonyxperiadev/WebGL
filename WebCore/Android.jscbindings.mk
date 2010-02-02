@@ -119,7 +119,6 @@ LOCAL_SRC_FILES += \
 	bindings/js/JSHistoryCustom.cpp \
 	bindings/js/JSImageConstructor.cpp \
 	bindings/js/JSImageDataCustom.cpp \
-	bindings/js/JSInspectedObjectWrapper.cpp \
 	bindings/js/JSLazyEventListener.cpp \
 	bindings/js/JSLocationCustom.cpp \
 	bindings/js/JSMessageChannelConstructor.cpp \
@@ -146,8 +145,6 @@ LOCAL_SRC_FILES += \
 	bindings/js/JSSVGMatrixCustom.cpp \
 	bindings/js/JSSVGPathSegCustom.cpp \
 	bindings/js/JSSVGPathSegListCustom.cpp \
-	bindings/js/JSSVGPointListCustom.cpp \
-	bindings/js/JSSVGTransformListCustom.cpp \
 	bindings/js/JSSharedWorkerConstructor.cpp \
 	bindings/js/JSSharedWorkerCustom.cpp \
 	bindings/js/JSStorageCustom.cpp \

@@ -84,12 +84,14 @@ FloatRect RenderForeignObject::repaintRectInLocalCoordinates() const
 void RenderForeignObject::computeRectForRepaint(RenderBoxModelObject* repaintContainer, IntRect& rect, bool fixed)
 {
     rect = localToParentTransform().mapRect(rect);
+    style()->svgStyle()->inflateForShadow(rect);
     RenderBlock::computeRectForRepaint(repaintContainer, rect, fixed);
 }
 
-TransformationMatrix RenderForeignObject::localToParentTransform() const
+const TransformationMatrix& RenderForeignObject::localToParentTransform() const
 {
-    return localTransform() * translationForAttributes();
+    m_localToParentTransform = localTransform() * translationForAttributes();
+    return m_localToParentTransform;
 }
 
 void RenderForeignObject::layout()
@@ -116,6 +118,11 @@ bool RenderForeignObject::nodeAtPoint(const HitTestRequest&, HitTestResult&, int
 {
     ASSERT_NOT_REACHED();
     return false;
+}
+
+void RenderForeignObject::mapLocalToContainer(RenderBoxModelObject* repaintContainer, bool fixed , bool useTransforms, TransformState& transformState) const
+{
+    SVGRenderBase::mapLocalToContainer(this, repaintContainer, fixed, useTransforms, transformState);
 }
 
 } // namespace WebCore

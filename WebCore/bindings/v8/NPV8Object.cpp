@@ -37,6 +37,7 @@
 #include "V8CustomBinding.h"
 #include "V8GCController.h"
 #include "V8Helpers.h"
+#include "V8Index.h"
 #include "V8NPUtils.h"
 #include "V8Proxy.h"
 #include "npruntime_impl.h"
@@ -46,6 +47,7 @@
 #include <v8.h>
 #include <wtf/StringExtras.h>
 
+using WebCore::npObjectInternalFieldCount;
 using WebCore::toV8Context;
 using WebCore::toV8Proxy;
 using WebCore::V8ClassIndex;
@@ -92,6 +94,11 @@ static v8::Local<v8::String> npIdentifierToV8Identifier(NPIdentifier name)
     return v8::String::New(buffer);
 }
 
+NPObject* v8ObjectToNPObject(v8::Handle<v8::Object> object)
+{
+    return reinterpret_cast<NPObject*>(object->GetPointerFromInternalField(WebCore::v8DOMWrapperObjectIndex)); 
+}
+
 static NPClass V8NPObjectClass = { NP_CLASS_STRUCT_VERSION,
                                    allocV8NPObject,
                                    freeV8NPObject,
@@ -103,11 +110,11 @@ NPClass* npScriptObjectClass = &V8NPObjectClass;
 NPObject* npCreateV8ScriptObject(NPP npp, v8::Handle<v8::Object> object, WebCore::DOMWindow* root)
 {
     // Check to see if this object is already wrapped.
-    if (object->InternalFieldCount() == V8Custom::kNPObjectInternalFieldCount) {
-        v8::Local<v8::Value> typeIndex = object->GetInternalField(V8Custom::kDOMWrapperTypeIndex);
+    if (object->InternalFieldCount() == npObjectInternalFieldCount) {
+        v8::Local<v8::Value> typeIndex = object->GetInternalField(WebCore::v8DOMWrapperTypeIndex);
         if (typeIndex->IsNumber() && typeIndex->Uint32Value() == V8ClassIndex::NPOBJECT) {
 
-            NPObject* returnValue = V8DOMWrapper::convertToNativeObject<NPObject>(V8ClassIndex::NPOBJECT, object);
+            NPObject* returnValue = v8ObjectToNPObject(object);
             _NPN_RetainObject(returnValue);
             return returnValue;
         }

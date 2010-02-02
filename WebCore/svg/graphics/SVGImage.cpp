@@ -30,6 +30,7 @@
 
 #include "CachedPage.h"
 #include "DocumentLoader.h"
+#include "FileChooser.h"
 #include "FloatRect.h"
 #include "Frame.h"
 #include "FrameLoader.h"
@@ -54,7 +55,7 @@
 
 namespace WebCore {
 
-class SVGImageChromeClient : public EmptyChromeClient {
+class SVGImageChromeClient : public EmptyChromeClient, public Noncopyable {
 public:
     SVGImageChromeClient(SVGImage* image)
         : m_image(image)
@@ -192,7 +193,7 @@ void SVGImage::draw(GraphicsContext* context, const FloatRect& dstRect, const Fl
 
     if (view->needsLayout())
         view->layout();
-    view->paint(context, enclosingIntRect(srcRect));
+    view->paint(context, IntRect(0, 0, view->width(), view->height()));
 
     if (compositeOp != CompositeSourceOver)
         context->endTransparencyLayer();
@@ -265,6 +266,11 @@ bool SVGImage::dataChanged(bool allDataReceived)
     }
 
     return m_page;
+}
+
+String SVGImage::filenameExtension() const
+{
+    return "svg";
 }
 
 }

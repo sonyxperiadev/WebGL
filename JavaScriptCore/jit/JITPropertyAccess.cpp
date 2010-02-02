@@ -730,7 +730,7 @@ void JIT::privateCompileGetByIdProto(StructureStubInfo* stubInfo, Structure* str
 
     // Check the prototype object's Structure had not changed.
     Structure** prototypeStructureAddress = &(protoObject->m_structure);
-#if PLATFORM(X86_64)
+#if CPU(X86_64)
     move(ImmPtr(prototypeStructure), regT3);
     Jump failureCases2 = branchPtr(NotEqual, AbsoluteAddress(prototypeStructureAddress), regT3);
 #else
@@ -810,7 +810,7 @@ void JIT::privateCompileGetByIdProtoList(StructureStubInfo* stubInfo, Polymorphi
 
     // Check the prototype object's Structure had not changed.
     Structure** prototypeStructureAddress = &(protoObject->m_structure);
-#if PLATFORM(X86_64)
+#if CPU(X86_64)
     move(ImmPtr(prototypeStructure), regT3);
     Jump failureCases2 = branchPtr(NotEqual, AbsoluteAddress(prototypeStructureAddress), regT3);
 #else
@@ -863,7 +863,7 @@ void JIT::privateCompileGetByIdChainList(StructureStubInfo* stubInfo, Polymorphi
 
         // Check the prototype object's Structure had not changed.
         Structure** prototypeStructureAddress = &(protoObject->m_structure);
-#if PLATFORM(X86_64)
+#if CPU(X86_64)
         move(ImmPtr(currStructure), regT3);
         bucketsOfFail.append(branchPtr(NotEqual, AbsoluteAddress(prototypeStructureAddress), regT3));
 #else
@@ -918,7 +918,7 @@ void JIT::privateCompileGetByIdChain(StructureStubInfo* stubInfo, Structure* str
 
         // Check the prototype object's Structure had not changed.
         Structure** prototypeStructureAddress = &(protoObject->m_structure);
-#if PLATFORM(X86_64)
+#if CPU(X86_64)
         move(ImmPtr(currStructure), regT3);
         bucketsOfFail.append(branchPtr(NotEqual, AbsoluteAddress(prototypeStructureAddress), regT3));
 #else
@@ -1049,6 +1049,20 @@ void JIT::emit_op_get_by_val(Instruction* currentInstruction)
     addSlowCase(branchTestPtr(Zero, regT0));
 
     emitPutVirtualRegister(dst);
+}
+
+void JIT::compileGetDirectOffset(RegisterID base, RegisterID result, RegisterID structure, RegisterID offset, RegisterID scratch)
+{
+    ASSERT(sizeof(((Structure*)0)->m_propertyStorageCapacity) == sizeof(int32_t));
+    ASSERT(sizeof(JSObject::inlineStorageCapacity) == sizeof(int32_t));
+
+    Jump notUsingInlineStorage = branch32(NotEqual, Address(structure, OBJECT_OFFSETOF(Structure, m_propertyStorageCapacity)), Imm32(JSObject::inlineStorageCapacity));
+    loadPtr(BaseIndex(base, offset, ScalePtr, OBJECT_OFFSETOF(JSObject, m_inlineStorage)), result);
+    Jump finishedLoad = jump();
+    notUsingInlineStorage.link(this);
+    loadPtr(Address(base, OBJECT_OFFSETOF(JSObject, m_externalStorage)), scratch);
+    loadPtr(BaseIndex(scratch, offset, ScalePtr, 0), result);
+    finishedLoad.link(this);
 }
 
 void JIT::emit_op_get_by_pname(Instruction* currentInstruction)
@@ -1477,20 +1491,6 @@ void JIT::compileGetDirectOffset(JSObject* base, RegisterID temp, RegisterID res
     } 
 }
 
-void JIT::compileGetDirectOffset(RegisterID base, RegisterID result, RegisterID structure, RegisterID offset, RegisterID scratch)
-{
-    ASSERT(sizeof(((Structure*)0)->m_propertyStorageCapacity) == sizeof(int32_t));
-    ASSERT(sizeof(JSObject::inlineStorageCapacity) == sizeof(int32_t));
-
-    Jump notUsingInlineStorage = branch32(NotEqual, Address(structure, OBJECT_OFFSETOF(Structure, m_propertyStorageCapacity)), Imm32(JSObject::inlineStorageCapacity));
-    loadPtr(BaseIndex(base, offset, ScalePtr, OBJECT_OFFSETOF(JSObject, m_inlineStorage)), result);
-    Jump finishedLoad = jump();
-    notUsingInlineStorage.link(this);
-    loadPtr(Address(base, OBJECT_OFFSETOF(JSObject, m_externalStorage)), scratch);
-    loadPtr(BaseIndex(scratch, offset, ScalePtr, 0), result);    
-    finishedLoad.link(this);
-}
-
 void JIT::testPrototype(Structure* structure, JumpList& failureCases)
 {
     if (structure->m_prototype.isNull())
@@ -1676,7 +1676,7 @@ void JIT::privateCompileGetByIdProto(StructureStubInfo* stubInfo, Structure* str
 
     // Check the prototype object's Structure had not changed.
     Structure** prototypeStructureAddress = &(protoObject->m_structure);
-#if PLATFORM(X86_64)
+#if CPU(X86_64)
     move(ImmPtr(prototypeStructure), regT3);
     Jump failureCases2 = branchPtr(NotEqual, AbsoluteAddress(prototypeStructureAddress), regT3);
 #else
@@ -1751,7 +1751,7 @@ void JIT::privateCompileGetByIdProtoList(StructureStubInfo* stubInfo, Polymorphi
 
     // Check the prototype object's Structure had not changed.
     Structure** prototypeStructureAddress = &(protoObject->m_structure);
-#if PLATFORM(X86_64)
+#if CPU(X86_64)
     move(ImmPtr(prototypeStructure), regT3);
     Jump failureCases2 = branchPtr(NotEqual, AbsoluteAddress(prototypeStructureAddress), regT3);
 #else
@@ -1804,7 +1804,7 @@ void JIT::privateCompileGetByIdChainList(StructureStubInfo* stubInfo, Polymorphi
 
         // Check the prototype object's Structure had not changed.
         Structure** prototypeStructureAddress = &(protoObject->m_structure);
-#if PLATFORM(X86_64)
+#if CPU(X86_64)
         move(ImmPtr(currStructure), regT3);
         bucketsOfFail.append(branchPtr(NotEqual, AbsoluteAddress(prototypeStructureAddress), regT3));
 #else
@@ -1857,7 +1857,7 @@ void JIT::privateCompileGetByIdChain(StructureStubInfo* stubInfo, Structure* str
 
         // Check the prototype object's Structure had not changed.
         Structure** prototypeStructureAddress = &(protoObject->m_structure);
-#if PLATFORM(X86_64)
+#if CPU(X86_64)
         move(ImmPtr(currStructure), regT3);
         bucketsOfFail.append(branchPtr(NotEqual, AbsoluteAddress(prototypeStructureAddress), regT3));
 #else

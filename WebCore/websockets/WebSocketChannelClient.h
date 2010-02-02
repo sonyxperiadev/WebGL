@@ -46,8 +46,8 @@ namespace WebCore {
         WebSocketChannelClient() { }
     };
 
-}  // namespace WebCore
+} // namespace WebCore
 
-#endif  // ENABLE(WEB_SOCKETS)
+#endif // ENABLE(WEB_SOCKETS)
 
-#endif  // WebSocketChannelClient_h
+#endif // WebSocketChannelClient_h

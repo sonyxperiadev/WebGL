@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 <?xml version="1.0" ?>
 <!--
 
@@ -1105,3 +1106,5 @@ This file contains the list of files needed to build WebCore.
     </set>
 
 </makefile>
+=======
+>>>>>>> webkit.org at r54127

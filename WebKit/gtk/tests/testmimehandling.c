@@ -23,6 +23,7 @@
 #include <libsoup/soup.h>
 #include <string.h>
 #include <webkit/webkit.h>
+#include <unistd.h>
 
 #if GLIB_CHECK_VERSION(2, 16, 0) && GTK_CHECK_VERSION(2, 14, 0)
 
@@ -87,10 +88,11 @@ server_callback(SoupServer *server, SoupMessage *msg,
     soup_message_body_complete(msg->response_body);
 }
 
-static gboolean idle_quit_loop_cb(gpointer data)
+static void idle_quit_loop_cb(WebKitWebView* web_view, GParamSpec* pspec, gpointer data)
 {
-    g_main_loop_quit(loop);
-    return FALSE;
+    if (webkit_web_view_get_load_status(web_view) == WEBKIT_LOAD_FINISHED ||
+        webkit_web_view_get_load_status(web_view) == WEBKIT_LOAD_FAILED)
+        g_main_loop_quit(loop);
 }
 
 static gboolean mime_type_policy_decision_requested_cb(WebKitWebView* view, WebKitWebFrame* frame,
@@ -138,7 +140,7 @@ static void test_mime_type(const char* name)
     loop = g_main_loop_new(NULL, TRUE);
 
     g_object_connect(G_OBJECT(view),
-                     "signal::load-finished", idle_quit_loop_cb, NULL,
+                     "signal::notify::load-status", idle_quit_loop_cb, NULL,
                      "signal::mime-type-policy-decision-requested", mime_type_policy_decision_requested_cb, g_strdup(name),
                      NULL);
 
@@ -175,22 +177,20 @@ int main(int argc, char** argv)
 {
     SoupServer* server;
     SoupURI* soup_uri;
-    char* test_dir;
-    char* resources_dir;
 
     g_thread_init(NULL);
     gtk_test_init(&argc, &argv, NULL);
 
     /* Hopefully make test independent of the path it's called from. */
-    test_dir = g_path_get_dirname(argv[0]);
-    resources_dir = g_build_path(G_DIR_SEPARATOR_S, test_dir,
-                                 "..", "..", "..", "..",
-                                 "WebKit", "gtk", "tests", "resources",
-                                 NULL);
-    g_free(test_dir);
+    while (!g_file_test ("WebKit/gtk/tests/resources/test.html", G_FILE_TEST_EXISTS)) {
+        char path_name[PATH_MAX];
 
-    g_chdir(resources_dir);
-    g_free(resources_dir);
+        g_chdir("..");
+
+        g_assert(!g_str_equal(getcwd(path_name, PATH_MAX), "/"));
+    }
+
+    g_chdir("WebKit/gtk/tests/resources/");
 
     server = soup_server_new(SOUP_SERVER_PORT, 0, NULL);
     soup_server_run_async(server);

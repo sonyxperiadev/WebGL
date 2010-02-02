@@ -53,6 +53,7 @@
 #include "HitTestResult.h"
 #include "LocalizedStrings.h"
 #include "NodeList.h"
+#include "ProgressTracker.h"
 #include "RenderButton.h"
 #include "RenderFieldset.h"
 #include "RenderFileUploadControl.h"
@@ -64,6 +65,7 @@
 #include "RenderMenuList.h"
 #include "RenderText.h"
 #include "RenderTextControl.h"
+#include "RenderTextFragment.h"
 #include "RenderTheme.h"
 #include "RenderView.h"
 #include "RenderWidget.h"
@@ -85,6 +87,7 @@ AccessibilityRenderObject::AccessibilityRenderObject(RenderObject* renderer)
     , m_renderer(renderer)
     , m_ariaRole(UnknownRole)
     , m_childrenDirty(false)
+    , m_roleForMSAA(UnknownRole)
 {
     updateAccessibilityRole();
 #ifndef NDEBUG
@@ -362,11 +365,21 @@ bool AccessibilityRenderObject::isChecked() const
     if (!m_renderer->node() || !m_renderer->node()->isElementNode())
         return false;
 
+    // First test for native checkedness semantics
     InputElement* inputElement = toInputElement(static_cast<Element*>(m_renderer->node()));
-    if (!inputElement)
-        return false;
+    if (inputElement)
+        return inputElement->isChecked();
 
-    return inputElement->isChecked();
+    // Else, if this is an ARIA checkbox or radio, respect the aria-checked attribute
+    AccessibilityRole ariaRole = ariaRoleAttribute();
+    if (ariaRole == RadioButtonRole || ariaRole == CheckBoxRole) {
+        if (equalIgnoringCase(getAttribute(aria_checkedAttr), "true"))
+            return true;
+        return false;
+    }
+
+    // Otherwise it's not checked
+    return false;
 }
 
 bool AccessibilityRenderObject::isHovered() const
@@ -375,9 +388,16 @@ bool AccessibilityRenderObject::isHovered() const
     return m_renderer->node() && m_renderer->node()->hovered();
 }
 
-bool AccessibilityRenderObject::isMultiSelect() const
+bool AccessibilityRenderObject::isMultiSelectable() const
 {
     ASSERT(m_renderer);
+    
+    const AtomicString& ariaMultiSelectable = getAttribute(aria_multiselectableAttr);
+    if (equalIgnoringCase(ariaMultiSelectable, "true"))
+        return true;
+    if (equalIgnoringCase(ariaMultiSelectable, "false"))
+        return false;
+    
     if (!m_renderer->isListBox())
         return false;
     return m_renderer->node() && static_cast<HTMLSelectElement*>(m_renderer->node())->multiple();
@@ -597,6 +617,10 @@ Element* AccessibilityRenderObject::actionElement() const
     if (m_renderer->isMenuList())
         return static_cast<Element*>(m_renderer->node());
 
+    AccessibilityRole role = roleValue();
+    if (role == ButtonRole || role == PopUpButtonRole)
+        return static_cast<Element*>(m_renderer->node()); 
+    
     Element* elt = anchorElement();
     if (!elt)
         elt = mouseButtonListener();
@@ -781,6 +805,14 @@ String AccessibilityRenderObject::textUnderElement() const
                 return String();
             return plainText(rangeOfContents(node).get());
         }
+    }
+    
+    // Sometimes text fragments don't have Node's associated with them (like when
+    // CSS content is used to insert text).
+    if (m_renderer->isText()) {
+        RenderText* renderTextObject = toRenderText(m_renderer);
+        if (renderTextObject->isTextFragment())
+            return String(static_cast<RenderTextFragment*>(m_renderer)->contentString());
     }
     
     // return the null string for anonymous text because it is non-trivial to get
@@ -1131,7 +1163,10 @@ IntRect AccessibilityRenderObject::boundingBoxRect() const
         obj = obj->node()->renderer();
     
     Vector<FloatQuad> quads;
-    obj->absoluteQuads(quads);
+    if (obj->isText())
+        obj->absoluteQuads(quads);
+    else
+        obj->absoluteFocusRingQuads(quads);
     const size_t n = quads.size();
     if (!n)
         return IntRect();
@@ -1399,6 +1434,28 @@ bool AccessibilityRenderObject::isDescendantOfBarrenParent() const
     return false;
 }
     
+bool AccessibilityRenderObject::isAllowedChildOfTree() const
+{
+    // Determine if this is in a tree. If so, we apply special behavior to make it work like an AXOutline.
+    AccessibilityObject* axObj = parentObject();
+    bool isInTree = false;
+    while (axObj) {
+        if (axObj->isTree()) {
+            isInTree = true;
+            break;
+        }
+        axObj = axObj->parentObject();
+    }
+    
+    // If the object is in a tree, only tree items should be exposed (and the children of tree items).
+    if (isInTree) {
+        AccessibilityRole role = roleValue();
+        if (role != TreeItemRole && role != StaticTextRole)
+            return false;
+    }
+    return true;
+}
+    
 bool AccessibilityRenderObject::accessibilityIsIgnored() const
 {
     // Is the platform interested in this object?
@@ -1424,6 +1481,10 @@ bool AccessibilityRenderObject::accessibilityIsIgnored() const
         return true;    
     
     if (roleValue() == IgnoredRole)
+        return true;
+    
+    // An ARIA tree can only have tree items and static text as children.
+    if (!isAllowedChildOfTree())
         return true;
     
     // ignore popup menu items because AppKit does
@@ -1468,10 +1529,23 @@ bool AccessibilityRenderObject::accessibilityIsIgnored() const
     if (isControl())
         return false;
     
+    if (ariaRole != UnknownRole)
+        return false;
+    
     // don't ignore labels, because they serve as TitleUIElements
     Node* node = m_renderer->node();
     if (node && node->hasTagName(labelTag))
         return false;
+    
+    // Anything that is content editable should not be ignored.
+    // However, one cannot just call node->isContentEditable() since that will ask if its parents
+    // are also editable. Only the top level content editable region should be exposed.
+    if (node && node->isElementNode()) {
+        Element* element = static_cast<Element*>(node);
+        const AtomicString& contentEditable = element->getAttribute(contenteditableAttr);
+        if (equalIgnoringCase(contentEditable, "true"))
+            return false;
+    }
     
     if (m_renderer->isBlockFlow() && m_renderer->childrenInline())
         return !toRenderBlock(m_renderer)->firstLineBox() && !mouseButtonListener();
@@ -1511,9 +1585,6 @@ bool AccessibilityRenderObject::accessibilityIsIgnored() const
         return false;
     }
     
-    if (ariaRole != UnknownRole)
-        return false;
-    
     // make a platform-specific decision
     if (isAttachment())
         return accessibilityIgnoreAttachment();
@@ -1526,6 +1597,21 @@ bool AccessibilityRenderObject::isLoaded() const
     return !m_renderer->document()->tokenizer();
 }
 
+double AccessibilityRenderObject::estimatedLoadingProgress() const
+{
+    if (!m_renderer)
+        return 0;
+    
+    if (isLoaded())
+        return 1.0;
+    
+    Page* page = m_renderer->document()->page();
+    if (!page)
+        return 0;
+    
+    return page->progress()->estimatedProgress();
+}
+    
 int AccessibilityRenderObject::layoutCount() const
 {
     if (!m_renderer->isRenderView())
@@ -1717,23 +1803,28 @@ void AccessibilityRenderObject::setElementAttributeValue(const QualifiedName& at
     element->setAttribute(attributeName, (value) ? "true" : "false");        
 }
     
-bool AccessibilityRenderObject::elementAttributeValue(const QualifiedName& attributeName)
+bool AccessibilityRenderObject::elementAttributeValue(const QualifiedName& attributeName) const
 {
     if (!m_renderer)
         return false;
     
-    return equalIgnoringCase(getAttribute(attributeName).string(), "true");
+    return equalIgnoringCase(getAttribute(attributeName), "true");
 }
     
 void AccessibilityRenderObject::setIsExpanded(bool isExpanded)
 {
-    // Combo boxes and tree items can be expanded (in different ways on different platforms).
+    // Combo boxes, tree items and rows can be expanded (in different ways on different platforms).
     // That action translates into setting the aria-expanded attribute to true.
     AccessibilityRole role = roleValue();
-    if (role != ComboBoxRole && role != TreeItemRole)
-        return;
-    
-    setElementAttributeValue(aria_expandedAttr, isExpanded);
+    switch (role) {
+    case ComboBoxRole:
+    case TreeItemRole:
+    case RowRole:
+        setElementAttributeValue(aria_expandedAttr, isExpanded);
+        break;
+    default:
+        break;
+    }
 }
     
 bool AccessibilityRenderObject::isRequired() const
@@ -1858,13 +1949,14 @@ void AccessibilityRenderObject::setSelected(bool enabled)
 
 void AccessibilityRenderObject::setSelectedRows(AccessibilityChildrenVector& selectedRows)
 {
-    // Setting selected rows only works on trees for now.
-    if (roleValue() != TreeRole)
+    // Setting selected only makes sense in trees and tables (and tree-tables).
+    AccessibilityRole role = roleValue();
+    if (role != TreeRole && role != TreeGridRole && role != TableRole)
         return;
     
-    bool isMultiselectable = elementAttributeValue(aria_multiselectableAttr);
+    bool isMulti = isMultiSelectable();
     unsigned count = selectedRows.size();
-    if (count > 1 && !isMultiselectable)
+    if (count > 1 && !isMulti)
         count = 1;
     
     for (unsigned k = 0; k < count; ++k)
@@ -1934,6 +2026,8 @@ RenderView* AccessibilityRenderObject::topRenderer() const
 
 Document* AccessibilityRenderObject::document() const
 {
+    if (!m_renderer)
+        return 0;
     return m_renderer->document();
 }
 
@@ -1957,24 +2051,14 @@ AXObjectCache* AccessibilityRenderObject::axObjectCache() const
 AccessibilityObject* AccessibilityRenderObject::accessibilityParentForImageMap(HTMLMapElement* map) const
 {
     // find an image that is using this map
-    if (!m_renderer || !map)
+    if (!map)
         return 0;
 
-    String mapName = map->getName().string().lower();
-    RefPtr<HTMLCollection> coll = m_renderer->document()->images();
-    for (Node* curr = coll->firstItem(); curr; curr = coll->nextItem()) {
-        RenderObject* obj = curr->renderer();
-        if (!obj || !curr->hasTagName(imgTag))
-            continue;
-        
-        // The HTMLImageElement's useMap() value includes the '#' symbol at the beginning,
-        // which has to be stripped off
-        String useMapName = static_cast<HTMLImageElement*>(curr)->getAttribute(usemapAttr).string().substring(1).lower();
-        if (useMapName == mapName)
-            return axObjectCache()->getOrCreate(obj);
-    }
+    HTMLImageElement* imageElement = map->imageElement();
+    if (!imageElement)
+        return 0;
     
-    return 0;
+    return axObjectCache()->getOrCreate(imageElement->renderer());
 }
     
 void AccessibilityRenderObject::getDocumentLinks(AccessibilityChildrenVector& result)
@@ -2538,6 +2622,10 @@ AccessibilityRole AccessibilityRenderObject::determineAriaRoleAttribute() const
         return UnknownRole;
     
     AccessibilityRole role = ariaRoleToWebCoreRole(ariaRole);
+
+    if (role == ButtonRole && elementAttributeValue(aria_haspopupAttr))
+        role = PopUpButtonRole;
+    
     if (role)
         return role;
     // selects and listboxes both have options as child roles, but they map to different roles within WebCore
@@ -2722,10 +2810,9 @@ bool AccessibilityRenderObject::canSetValueAttribute() const
     if (equalIgnoringCase(getAttribute(aria_readonlyAttr).string(), "true"))
         return false;
 
-    if (isWebArea() || isTextControl()) 
-        return !isReadOnly();
-
-    return isProgressIndicator() || isSlider();
+    // Any node could be contenteditable, so isReadOnly should be relied upon
+    // for this information for all elements.
+    return isProgressIndicator() || isSlider() || !isReadOnly();
 }
 
 bool AccessibilityRenderObject::canSetTextRangeAttributes() const
@@ -2733,22 +2820,50 @@ bool AccessibilityRenderObject::canSetTextRangeAttributes() const
     return isTextControl();
 }
 
+void AccessibilityRenderObject::contentChanged()
+{
+    // If this element supports ARIA live regions, then notify the AT of changes.
+    for (RenderObject* renderParent = m_renderer->parent(); renderParent; renderParent = renderParent->parent()) {
+        AccessibilityObject* parent = m_renderer->document()->axObjectCache()->get(renderParent);
+        if (!parent)
+            continue;
+        
+        // If we find a parent that has ARIA live region on, send the notification and stop processing.
+        // The spec does not talk about nested live regions.
+        if (parent->supportsARIALiveRegion()) {
+            axObjectCache()->postNotification(renderParent, AXObjectCache::AXLiveRegionChanged, true);
+            break;
+        }
+    }
+}
+    
 void AccessibilityRenderObject::childrenChanged()
 {
     // this method is meant as a quick way of marking dirty
     // a portion of the accessibility tree
-    
-    markChildrenDirty();
     
     if (!m_renderer)
         return;
     
     // Go up the render parent chain, marking children as dirty.
     // We can't rely on the accessibilityParent() because it may not exist and we must not create an AX object here either
-    for (RenderObject* renderParent = m_renderer->parent(); renderParent; renderParent = renderParent->parent()) {
+    // At the same time, process ARIA live region changes.
+    for (RenderObject* renderParent = m_renderer; renderParent; renderParent = renderParent->parent()) {
         AccessibilityObject* parent = m_renderer->document()->axObjectCache()->get(renderParent);
-        if (parent && parent->isAccessibilityRenderObject())
-            static_cast<AccessibilityRenderObject *>(parent)->markChildrenDirty();
+        if (!parent || !parent->isAccessibilityRenderObject())
+            continue;
+        
+        AccessibilityRenderObject* axParent = static_cast<AccessibilityRenderObject*>(parent);
+        // Only do work if the children haven't been marked dirty. This has the effect of blocking
+        // future live region change notifications until the AX tree has been accessed again. This
+        // is a good performance win for all parties.
+        if (!axParent->needsToUpdateChildren()) {
+            axParent->setNeedsToUpdateChildren();
+            
+            // If this element supports ARIA live regions, then notify the AT of changes.
+            if (axParent->supportsARIALiveRegion())
+                axObjectCache()->postNotification(renderParent, AXObjectCache::AXLiveRegionChanged, true);
+        }
     }
 }
     
@@ -2833,21 +2948,69 @@ void AccessibilityRenderObject::addChildren()
         }
     }
 }
+        
+const AtomicString& AccessibilityRenderObject::ariaLiveRegionStatus() const
+{
+    DEFINE_STATIC_LOCAL(const AtomicString, liveRegionStatusAssertive, ("assertive"));
+    DEFINE_STATIC_LOCAL(const AtomicString, liveRegionStatusPolite, ("polite"));
+    DEFINE_STATIC_LOCAL(const AtomicString, liveRegionStatusOff, ("off"));
+    
+    const AtomicString& liveRegionStatus = getAttribute(aria_liveAttr);
+    // These roles have implicit live region status.
+    if (liveRegionStatus.isEmpty()) {
+        switch (roleValue()) {
+        case ApplicationAlertDialogRole:
+        case ApplicationAlertRole:
+            return liveRegionStatusAssertive;
+        case ApplicationLogRole:
+        case ApplicationStatusRole:
+            return liveRegionStatusPolite;
+        case ApplicationTimerRole:
+            return liveRegionStatusOff;
+        default:
+            break;
+        }
+    }
 
-void AccessibilityRenderObject::ariaTreeSelectedRows(AccessibilityChildrenVector& result)
+    return liveRegionStatus;
+}
+
+const AtomicString& AccessibilityRenderObject::ariaLiveRegionRelevant() const
+{
+    DEFINE_STATIC_LOCAL(const AtomicString, defaultLiveRegionRelevant, ("additions text"));
+    const AtomicString& relevant = getAttribute(aria_relevantAttr);
+
+    // Default aria-relevant = "additions text".
+    if (relevant.isEmpty())
+        return defaultLiveRegionRelevant;
+    
+    return relevant;
+}
+
+bool AccessibilityRenderObject::ariaLiveRegionAtomic() const
+{
+    return elementAttributeValue(aria_atomicAttr);    
+}
+
+bool AccessibilityRenderObject::ariaLiveRegionBusy() const
+{
+    return elementAttributeValue(aria_busyAttr);    
+}
+    
+void AccessibilityRenderObject::ariaSelectedRows(AccessibilityChildrenVector& result)
 {
     // Get all the rows. 
     AccessibilityChildrenVector allRows;
     ariaTreeRows(allRows);
 
     // Determine which rows are selected.
-    bool isMultiselectable = elementAttributeValue(aria_multiselectableAttr);
+    bool isMulti = isMultiSelectable();
 
     // Prefer active descendant over aria-selected.
     AccessibilityObject* activeDesc = activeDescendant();
-    if (activeDesc && activeDesc->isTreeItem()) {
+    if (activeDesc && (activeDesc->isTreeItem() || activeDesc->isTableRow())) {
         result.append(activeDesc);    
-        if (!isMultiselectable)
+        if (!isMulti)
             return;
     }
 
@@ -2855,7 +3018,7 @@ void AccessibilityRenderObject::ariaTreeSelectedRows(AccessibilityChildrenVector
     for (unsigned k = 0; k < count; ++k) {
         if (allRows[k]->isSelected()) {
             result.append(allRows[k]);
-            if (!isMultiselectable)
+            if (!isMulti)
                 break;
         }
     }
@@ -2869,7 +3032,7 @@ void AccessibilityRenderObject::ariaListboxSelectedChildren(AccessibilityChildre
     if (!element || !element->isElementNode()) // do this check to ensure safety of static_cast above
         return;
 
-    bool isMultiselectable = elementAttributeValue(aria_multiselectableAttr);
+    bool isMulti = isMultiSelectable();
     
     while (child) {
         // every child should have aria-role option, and if so, check for selected attribute/state
@@ -2883,7 +3046,7 @@ void AccessibilityRenderObject::ariaListboxSelectedChildren(AccessibilityChildre
                 String selectedAttrString = childElement->getAttribute(aria_selectedAttr).string();
                 if (equalIgnoringCase(selectedAttrString, "true")) {
                     result.append(child);
-                    if (isMultiselectable)
+                    if (isMulti)
                         return;
                 }
             }
@@ -2900,8 +3063,8 @@ void AccessibilityRenderObject::selectedChildren(AccessibilityChildrenVector& re
     AccessibilityRole role = roleValue();
     if (role == ListBoxRole) // native list boxes would be AccessibilityListBoxes, so only check for aria list boxes
         ariaListboxSelectedChildren(result);
-    else if (role == TreeRole)
-        ariaTreeSelectedRows(result);
+    else if (role == TreeRole || role == TreeGridRole || role == TableRole)
+        ariaSelectedRows(result);
 }
 
 void AccessibilityRenderObject::ariaListboxVisibleChildren(AccessibilityChildrenVector& result)      
@@ -3072,6 +3235,33 @@ String AccessibilityRenderObject::descriptionForMSAA() const
     }
 
     return String();
+}
+
+static AccessibilityRole msaaRoleForRenderer(const RenderObject* renderer)
+{
+    if (!renderer)
+        return UnknownRole;
+
+    if (renderer->isText())
+        return EditableTextRole;
+
+    if (renderer->isListItem())
+        return ListItemRole;
+
+    return UnknownRole;
+}
+
+AccessibilityRole AccessibilityRenderObject::roleValueForMSAA() const
+{
+    if (m_roleForMSAA != UnknownRole)
+        return m_roleForMSAA;
+
+    m_roleForMSAA = msaaRoleForRenderer(m_renderer);
+
+    if (m_roleForMSAA == UnknownRole)
+        m_roleForMSAA = roleValue();
+
+    return m_roleForMSAA;
 }
 
 } // namespace WebCore

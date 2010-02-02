@@ -38,11 +38,26 @@ namespace WebCore {
     // all SVG renderers inherit from RenderSVGModelObject.
     class SVGRenderBase {
     public:
+        virtual ~SVGRenderBase();
+
+        virtual const SVGRenderBase* toSVGRenderBase() const { return this; }
+
         // FIXME: These are only public for SVGRootInlineBox.
         // It's unclear if these should be exposed or not.  SVGRootInlineBox may
         // pass the wrong RenderObject* and boundingBox to these functions.
-        static void prepareToRenderSVGContent(RenderObject*, RenderObject::PaintInfo&, const FloatRect& boundingBox, SVGResourceFilter*&, SVGResourceFilter* rootFilter = 0);
+        static bool prepareToRenderSVGContent(RenderObject*, RenderObject::PaintInfo&, const FloatRect& boundingBox, SVGResourceFilter*&, SVGResourceFilter* rootFilter = 0);
         static void finishRenderSVGContent(RenderObject*, RenderObject::PaintInfo&, SVGResourceFilter*&, GraphicsContext* savedContext);
+
+        // Layout all children of the passed render object
+        static void layoutChildren(RenderObject*, bool selfNeedsLayout);
+
+        virtual FloatRect strokeBoundingBox() const { return FloatRect(); }
+        virtual FloatRect markerBoundingBox() const { return FloatRect(); }
+
+        // returns the bounding box of filter, clipper, marker and masker (or the empty rect if no filter) in local coordinates
+        FloatRect filterBoundingBoxForRenderer(const RenderObject*) const;
+        FloatRect clipperBoundingBoxForRenderer(const RenderObject*) const;
+        FloatRect maskerBoundingBoxForRenderer(const RenderObject*) const;
 
     protected:
         static IntRect clippedOverflowRectForRepaint(RenderObject*, RenderBoxModelObject* repaintContainer);
@@ -53,9 +68,6 @@ namespace WebCore {
         // Used to share the "walk all the children" logic between objectBoundingBox
         // and repaintRectInLocalCoordinates in RenderSVGRoot and RenderSVGContainer
         static FloatRect computeContainerBoundingBox(const RenderObject* container, bool includeAllPaintedContent);
-
-        // returns the filter bounding box (or the empty rect if no filter) in local coordinates
-        static FloatRect filterBoundingBoxForRenderer(const RenderObject*);
     };
 
     // FIXME: This should move to RenderObject or PaintInfo

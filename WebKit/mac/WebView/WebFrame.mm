@@ -56,6 +56,7 @@
 #import <WebCore/AccessibilityObject.h>
 #import <WebCore/AnimationController.h>
 #import <WebCore/CSSMutableStyleDeclaration.h>
+#import <WebCore/Chrome.h>
 #import <WebCore/ColorMac.h>
 #import <WebCore/DOMImplementation.h>
 #import <WebCore/DocLoader.h>
@@ -847,7 +848,7 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
     if (!_private->coreFrame || !_private->coreFrame->document())
         return nil;
 
-    return kit(createFragmentFromMarkup(_private->coreFrame->document(), markupString, baseURLString).get());
+    return kit(createFragmentFromMarkup(_private->coreFrame->document(), markupString, baseURLString, FragmentScriptingNotAllowed).get());
 }
 
 - (DOMDocumentFragment *)_documentFragmentWithNodesAsParagraphs:(NSArray *)nodes
@@ -1190,13 +1191,17 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
         if (domWindow->hasEventListeners(eventNames().unloadEvent))
             [result setObject:[NSNumber numberWithBool:YES] forKey:WebFrameHasUnloadListener];
             
+#if ENABLE(OFFLINE_WEB_APPLICATIONS)
         if (domWindow->optionalApplicationCache())
             [result setObject:[NSNumber numberWithBool:YES] forKey:WebFrameUsesApplicationCache];
+#endif
     }
     
     if (Document* document = _private->coreFrame->document()) {
+#if ENABLE(DATABASE)
         if (document->hasOpenDatabases())
             [result setObject:[NSNumber numberWithBool:YES] forKey:WebFrameUsesDatabases];
+#endif
             
         if (document->usingGeolocation())
             [result setObject:[NSNumber numberWithBool:YES] forKey:WebFrameUsesGeolocation];
@@ -1355,7 +1360,10 @@ static bool needsMicrosoftMessengerDOMDocumentWorkaround()
 
 - (void)loadRequest:(NSURLRequest *)request
 {
-    _private->coreFrame->loader()->load(request, false);
+    Frame* coreFrame = _private->coreFrame;
+    if (!coreFrame)
+        return;
+    coreFrame->loader()->load(request, false);
 }
 
 static NSURL *createUniqueWebDataURL()

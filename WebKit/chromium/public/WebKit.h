@@ -55,6 +55,9 @@ WEBKIT_API WebKitClient* webKitClient();
 WEBKIT_API void setLayoutTestMode(bool);
 WEBKIT_API bool layoutTestMode();
 
+// Enables the named log channel.  See WebCore/platform/Logging.h for details.
+WEBKIT_API void enableLogChannel(const char*);
+
 // Purge the plugin list cache. If |reloadPages| is true, any pages
 // containing plugins will be reloaded after refreshing the plugin list.
 WEBKIT_API void resetPluginCache(bool reloadPages);

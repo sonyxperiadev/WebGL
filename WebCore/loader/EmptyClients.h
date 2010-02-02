@@ -175,7 +175,7 @@ public:
 #endif
 };
 
-class EmptyFrameLoaderClient : public FrameLoaderClient {
+class EmptyFrameLoaderClient : public FrameLoaderClient, public Noncopyable {
 public:
     virtual ~EmptyFrameLoaderClient() {  }
     virtual void frameLoaderDestroyed() { }
@@ -328,7 +328,7 @@ public:
 
 };
 
-class EmptyEditorClient : public EditorClient {
+class EmptyEditorClient : public EditorClient, public Noncopyable {
 public:
     virtual ~EmptyEditorClient() { }
     virtual void pageDestroyed() { }
@@ -433,7 +433,7 @@ public:
 };
 
 #if ENABLE(CONTEXT_MENUS)
-class EmptyContextMenuClient : public ContextMenuClient {
+class EmptyContextMenuClient : public ContextMenuClient, public Noncopyable {
 public:
     virtual ~EmptyContextMenuClient() {  }
     virtual void contextMenuDestroyed() { }
@@ -456,7 +456,7 @@ public:
 #endif // ENABLE(CONTEXT_MENUS)
 
 #if ENABLE(DRAG_SUPPORT)
-class EmptyDragClient : public DragClient {
+class EmptyDragClient : public DragClient, public Noncopyable {
 public:
     virtual ~EmptyDragClient() {}
     virtual void willPerformDragDestinationAction(DragDestinationAction, DragData*) { }
@@ -469,7 +469,7 @@ public:
 };
 #endif // ENABLE(DRAG_SUPPORT)
 
-class EmptyInspectorClient : public InspectorClient {
+class EmptyInspectorClient : public InspectorClient, public Noncopyable {
 public:
     virtual ~EmptyInspectorClient() { }
 

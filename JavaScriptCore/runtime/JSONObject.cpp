@@ -32,6 +32,7 @@
 #include "JSArray.h"
 #include "LiteralParser.h"
 #include "PropertyNameArray.h"
+#include "StringBuilder.h"
 #include <wtf/MathExtras.h>
 
 namespace JSC {
@@ -70,24 +71,6 @@ public:
     void markAggregate(MarkStack&);
 
 private:
-    class StringBuilder : public Vector<UChar> {
-    public:
-        using Vector<UChar>::append;
-
-        inline void append(const char* str)
-        {
-            size_t len = strlen(str);
-            reserveCapacity(size() + len);
-            for (size_t i = 0; i < len; i++)
-                Vector<UChar>::append(str[i]);
-        }
-
-        inline void append(const UString& str)
-        {
-            append(str.data(), str.size());
-        }
-    };
-
     class Holder {
     public:
         Holder(JSObject*);
@@ -285,9 +268,7 @@ JSValue Stringifier::stringify(JSValue value)
     if (m_exec->hadException())
         return jsNull();
 
-    result.shrinkToFit();
-    size_t length = result.size();
-    return jsString(m_exec, UString(result.releaseBuffer(), length, false));
+    return jsString(m_exec, result.release());
 }
 
 void Stringifier::appendQuotedString(StringBuilder& builder, const UString& value)
@@ -477,7 +458,7 @@ inline void Stringifier::indent()
     // Use a single shared string, m_repeatedGap, so we don't keep allocating new ones as we indent and unindent.
     int newSize = m_indent.size() + m_gap.size();
     if (newSize > m_repeatedGap.size())
-        m_repeatedGap.append(m_gap);
+        m_repeatedGap = makeString(m_repeatedGap, m_gap);
     ASSERT(newSize <= m_repeatedGap.size());
     m_indent = m_repeatedGap.substr(0, newSize);
 }
@@ -520,7 +501,7 @@ bool Stringifier::Holder::appendNextProperty(Stringifier& stringifier, StringBui
                 m_propertyNames = stringifier.m_arrayReplacerPropertyNames.data();
             else {
                 PropertyNameArray objectPropertyNames(exec);
-                m_object->getPropertyNames(exec, objectPropertyNames);
+                m_object->getOwnPropertyNames(exec, objectPropertyNames);
                 m_propertyNames = objectPropertyNames.releaseData();
             }
             m_size = m_propertyNames->propertyNameVector().size();
@@ -765,7 +746,7 @@ NEVER_INLINE JSValue Walker::walk(JSValue unfiltered)
                 objectStack.append(object);
                 indexStack.append(0);
                 propertyStack.append(PropertyNameArray(m_exec));
-                object->getPropertyNames(m_exec, propertyStack.last());
+                object->getOwnPropertyNames(m_exec, propertyStack.last());
                 // fallthrough
             }
             objectStartVisitMember:

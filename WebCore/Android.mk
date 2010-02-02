@@ -239,6 +239,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	\
 	history/android/HistoryItemAndroid.cpp \
 	\
+	html/Blob.cpp \
 	html/CollectionCache.cpp \
 	html/File.cpp \
 	html/FileList.cpp \
@@ -596,6 +597,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	rendering/RenderBoxModelObject.cpp \
 	rendering/RenderButton.cpp \
 	rendering/RenderCounter.cpp \
+	rendering/RenderEmbeddedObject.cpp \
 	rendering/RenderFieldset.cpp \
 	rendering/RenderFileUploadControl.cpp \
 	rendering/RenderFlexibleBox.cpp \
@@ -639,6 +641,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	rendering/RenderSVGInlineText.cpp \
 	rendering/RenderSVGModelObject.cpp \
 	rendering/RenderSVGRoot.cpp \
+	rendering/RenderSVGShadowTreeRootContainer.cpp \
 	rendering/RenderSVGTSpan.cpp \
 	rendering/RenderSVGText.cpp \
 	rendering/RenderSVGTextPath.cpp \
@@ -674,9 +677,11 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	rendering/SVGCharacterLayoutInfo.cpp \
 	rendering/SVGInlineFlowBox.cpp \
 	rendering/SVGInlineTextBox.cpp \
+	rendering/SVGMarkerLayoutInfo.cpp \
 	rendering/SVGRenderSupport.cpp \
 	rendering/SVGRenderTreeAsText.cpp \
-	rendering/SVGRootInlineBox.cpp
+	rendering/SVGRootInlineBox.cpp \
+	rendering/SVGShadowTreeElements.cpp
 endif
 
 LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \

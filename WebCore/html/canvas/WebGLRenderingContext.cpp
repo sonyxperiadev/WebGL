@@ -29,8 +29,17 @@
 
 #include "WebGLRenderingContext.h"
 
+#include "CanvasPixelArray.h"
+#include "HTMLCanvasElement.h"
+#include "HTMLImageElement.h"
+#include "ImageBuffer.h"
+#include "ImageData.h"
+#include "NotImplemented.h"
+#include "RenderBox.h"
+#include "RenderLayer.h"
 #include "WebGLActiveInfo.h"
 #include "WebGLBuffer.h"
+#include "WebGLContextAttributes.h"
 #include "WebGLFramebuffer.h"
 #include "WebGLProgram.h"
 #include "WebGLRenderbuffer.h"
@@ -43,6 +52,8 @@
 #include "NotImplemented.h"
 #include "RenderBox.h"
 #include "RenderLayer.h"
+
+#include <wtf/ByteArray.h>
 
 namespace WebCore {
 
@@ -65,9 +76,9 @@ private:
     bool m_changed;
 };
 
-PassOwnPtr<WebGLRenderingContext> WebGLRenderingContext::create(HTMLCanvasElement* canvas)
+PassOwnPtr<WebGLRenderingContext> WebGLRenderingContext::create(HTMLCanvasElement* canvas, WebGLContextAttributes* attrs)
 {
-    OwnPtr<GraphicsContext3D> context(GraphicsContext3D::create());
+    OwnPtr<GraphicsContext3D> context(GraphicsContext3D::create(attrs->attributes()));
     if (!context)
         return 0;
         
@@ -574,43 +585,98 @@ void WebGLRenderingContext::disableVertexAttribArray(unsigned long index, Except
     cleanupAfterGraphicsCall(false);
 }
 
-bool WebGLRenderingContext::validateIndexArray(unsigned long count, unsigned long type, long offset, long& numElements)
+bool WebGLRenderingContext::validateElementArraySize(unsigned long count, unsigned long type, long offset)
 {
-    long lastIndex = -1;
     if (!m_boundElementArrayBuffer)
         return false;
-        
+
     if (offset < 0)
         return false;
-        
-    // The GL spec says that count must be "greater
-    
+
     unsigned long uoffset = static_cast<unsigned long>(offset);
-    
+
     if (type == GraphicsContext3D::UNSIGNED_SHORT) {
         // For an unsigned short array, offset must be divisible by 2 for alignment reasons.
         if (uoffset & 1)
             return false;
-        
+
         // Make uoffset an element offset.
         uoffset /= 2;
-    
+
         unsigned long n = m_boundElementArrayBuffer->byteLength(GraphicsContext3D::ELEMENT_ARRAY_BUFFER) / 2;
         if (uoffset > n || count > n - uoffset)
             return false;
-            
-        const unsigned short* p = static_cast<const unsigned short*>(m_boundElementArrayBuffer->elementArrayBuffer()->data());
+    } else if (type == GraphicsContext3D::UNSIGNED_BYTE) {
+        unsigned long n = m_boundElementArrayBuffer->byteLength(GraphicsContext3D::ELEMENT_ARRAY_BUFFER);
+        if (uoffset > n || count > n - uoffset)
+            return false;
+    }
+    return true;
+}
+
+bool WebGLRenderingContext::validateIndexArrayConservative(unsigned long type, long& numElementsRequired)
+{
+    // Performs conservative validation by caching a maximum index of
+    // the given type per element array buffer. If all of the bound
+    // array buffers have enough elements to satisfy that maximum
+    // index, skips the expensive per-draw-call iteration in
+    // validateIndexArrayPrecise.
+
+    long maxIndex = m_boundElementArrayBuffer->getCachedMaxIndex(type);
+    if (maxIndex < 0) {
+        // Compute the maximum index in the entire buffer for the given type of index.
+        switch (type) {
+        case GraphicsContext3D::UNSIGNED_BYTE: {
+            unsigned numElements = m_boundElementArrayBuffer->byteLength(GraphicsContext3D::ELEMENT_ARRAY_BUFFER);
+            const unsigned char* p = static_cast<const unsigned char*>(m_boundElementArrayBuffer->elementArrayBuffer()->data());
+            for (unsigned i = 0; i < numElements; i++)
+                maxIndex = max(maxIndex, static_cast<long>(p[i]));
+            break;
+        }
+        case GraphicsContext3D::UNSIGNED_SHORT: {
+            unsigned numElements = m_boundElementArrayBuffer->byteLength(GraphicsContext3D::ELEMENT_ARRAY_BUFFER) / sizeof(unsigned short);
+            const unsigned short* p = static_cast<const unsigned short*>(m_boundElementArrayBuffer->elementArrayBuffer()->data());
+            for (unsigned i = 0; i < numElements; i++)
+                maxIndex = max(maxIndex, static_cast<long>(p[i]));
+            break;
+        }
+        default:
+            return false;
+        }
+        m_boundElementArrayBuffer->setCachedMaxIndex(type, maxIndex);
+    }
+
+    if (maxIndex >= 0) {
+        // The number of required elements is one more than the maximum
+        // index that will be accessed.
+        numElementsRequired = maxIndex + 1;
+        return true;
+    }
+
+    return false;
+}
+
+bool WebGLRenderingContext::validateIndexArrayPrecise(unsigned long count, unsigned long type, long offset, long& numElementsRequired)
+{
+    long lastIndex = -1;
+
+    if (!m_boundElementArrayBuffer)
+        return false;
+
+    unsigned long uoffset = static_cast<unsigned long>(offset);
+    unsigned long n = count;
+
+    if (type == GraphicsContext3D::UNSIGNED_SHORT) {
+        // Make uoffset an element offset.
+        uoffset /= 2;
+        const unsigned short* p = static_cast<const unsigned short*>(m_boundElementArrayBuffer->elementArrayBuffer()->data()) + uoffset;
         while (n-- > 0) {
             if (*p > lastIndex)
                 lastIndex = *p;
             ++p;
         }
     } else if (type == GraphicsContext3D::UNSIGNED_BYTE) {
-        unsigned long n = m_boundElementArrayBuffer->byteLength(GraphicsContext3D::ELEMENT_ARRAY_BUFFER);
-        if (uoffset > n || count > n - uoffset)
-            return false;
-            
-        const unsigned char* p = static_cast<const unsigned char*>(m_boundElementArrayBuffer->elementArrayBuffer()->data());
+        const unsigned char* p = static_cast<const unsigned char*>(m_boundElementArrayBuffer->elementArrayBuffer()->data()) + uoffset;
         while (n-- > 0) {
             if (*p > lastIndex)
                 lastIndex = *p;
@@ -619,11 +685,11 @@ bool WebGLRenderingContext::validateIndexArray(unsigned long count, unsigned lon
     }    
         
     // Then set the last index in the index array and make sure it is valid.
-    numElements = lastIndex + 1;
-    return numElements > 0;
+    numElementsRequired = lastIndex + 1;
+    return numElementsRequired > 0;
 }
 
-bool WebGLRenderingContext::validateRenderingState(long numElements)
+bool WebGLRenderingContext::validateRenderingState(long numElementsRequired)
 {
     // Look in each enabled vertex attrib and find the smallest buffer size
     long smallestNumElements = LONG_MAX;
@@ -636,7 +702,7 @@ bool WebGLRenderingContext::validateRenderingState(long numElements)
     if (smallestNumElements == LONG_MAX)
         smallestNumElements = 0;
     
-    return numElements <= smallestNumElements;
+    return numElementsRequired <= smallestNumElements;
 }
 
 void WebGLRenderingContext::drawArrays(unsigned long mode, long first, long count, ExceptionCode& ec)
@@ -658,10 +724,16 @@ void WebGLRenderingContext::drawElements(unsigned long mode, unsigned long count
     // Ensure we have a valid rendering state
     long numElements;
     
-    if (offset < 0 || !validateIndexArray(count, type, offset, numElements) || !validateRenderingState(numElements)) {
+    if (offset < 0 || !validateElementArraySize(count, type, offset)) {
         m_context->synthesizeGLError(GraphicsContext3D::INVALID_OPERATION);
         return;
     }
+
+    if (!validateIndexArrayConservative(type, numElements) || !validateRenderingState(numElements))
+        if (!validateIndexArrayPrecise(count, type, offset, numElements) || !validateRenderingState(numElements)) {
+            m_context->synthesizeGLError(GraphicsContext3D::INVALID_OPERATION);
+            return;
+        }
     
     m_context->drawElements(mode, count, type, offset);
     cleanupAfterGraphicsCall(true);
@@ -710,6 +782,13 @@ void WebGLRenderingContext::framebufferRenderbuffer(unsigned long target, unsign
         m_context->synthesizeGLError(GraphicsContext3D::INVALID_OPERATION);
         return;
     }       
+    // Don't allow the default framebuffer to be mutated; all current
+    // implementations use an FBO internally in place of the default
+    // FBO.
+    if (!m_framebufferBinding || !m_framebufferBinding->object()) {
+        m_context->synthesizeGLError(GraphicsContext3D::INVALID_OPERATION);
+        return;
+    }
     m_context->framebufferRenderbuffer(target, attachment, renderbuffertarget, buffer);
     cleanupAfterGraphicsCall(false);
 }
@@ -718,6 +797,13 @@ void WebGLRenderingContext::framebufferTexture2D(unsigned long target, unsigned 
 {
     UNUSED_PARAM(ec);
     if (texture && texture->context() != this) {
+        m_context->synthesizeGLError(GraphicsContext3D::INVALID_OPERATION);
+        return;
+    }
+    // Don't allow the default framebuffer to be mutated; all current
+    // implementations use an FBO internally in place of the default
+    // FBO.
+    if (!m_framebufferBinding || !m_framebufferBinding->object()) {
         m_context->synthesizeGLError(GraphicsContext3D::INVALID_OPERATION);
         return;
     }
@@ -790,6 +876,13 @@ WebGLGetInfo WebGLRenderingContext::getBufferParameter(unsigned long target, uns
         return WebGLGetInfo(static_cast<long>(value));
     else
         return WebGLGetInfo(static_cast<unsigned long>(value));
+}
+
+PassRefPtr<WebGLContextAttributes> WebGLRenderingContext::getContextAttributes()
+{
+    // We always need to return a new WebGLContextAttributes object to
+    // prevent the user from mutating any cached version.
+    return WebGLContextAttributes::create(m_context->getContextAttributes());
 }
 
 unsigned long WebGLRenderingContext::getError()
@@ -1530,25 +1623,28 @@ void WebGLRenderingContext::texImage2D(unsigned target, unsigned level, unsigned
                                           unsigned format, unsigned type, WebGLArray* pixels, ExceptionCode& ec)
 {
     // FIXME: For now we ignore any errors returned
+    // FIXME: Need to make sure passed buffer has enough bytes to define the texture
     ec = 0;
     m_context->texImage2D(target, level, internalformat, width, height,
-                         border, format, type, pixels);
+                          border, format, type, pixels ? pixels->baseAddress() : 0);
     cleanupAfterGraphicsCall(false);
 }
 
-void WebGLRenderingContext::texImage2D(unsigned target, unsigned level, unsigned internalformat,
-                                          unsigned width, unsigned height, unsigned border,
-                                          unsigned format, unsigned type, ImageData* pixels, ExceptionCode& ec)
+void WebGLRenderingContext::texImage2D(unsigned target, unsigned level, ImageData* pixels,
+                                       bool flipY, bool premultiplyAlpha, ExceptionCode& ec)
 {
     // FIXME: For now we ignore any errors returned
+    // FIXME: Need a form of this call that can take both a pixel buffer and flipY and premultiplyAlpha flags
+    UNUSED_PARAM(flipY);
+    UNUSED_PARAM(premultiplyAlpha);
     ec = 0;
-    m_context->texImage2D(target, level, internalformat, width, height,
-                         border, format, type, pixels);
+    m_context->texImage2D(target, level, GraphicsContext3D::RGBA, pixels->width(), pixels->height(), 0, GraphicsContext3D::RGBA, GraphicsContext3D::UNSIGNED_BYTE, pixels->data()->data()->data());
+    //RLP: m_context->texImage2D(target, level, pixels, flipY, premultiplyAlpha);
     cleanupAfterGraphicsCall(false);
 }
 
 void WebGLRenderingContext::texImage2D(unsigned target, unsigned level, HTMLImageElement* image,
-                                          bool flipY, bool premultiplyAlpha, ExceptionCode& ec)
+                                       bool flipY, bool premultiplyAlpha, ExceptionCode& ec)
 {
     ec = 0;
     if (!image) {
@@ -1590,9 +1686,14 @@ void WebGLRenderingContext::texImage2D(unsigned target, unsigned level, HTMLCanv
 void WebGLRenderingContext::texImage2D(unsigned target, unsigned level, HTMLVideoElement* video,
                                           bool flipY, bool premultiplyAlpha, ExceptionCode& ec)
 {
-    // FIXME: For now we ignore any errors returned
+    // FIXME: Need implement this call
+    UNUSED_PARAM(target);
+    UNUSED_PARAM(level);
+    UNUSED_PARAM(video);
+    UNUSED_PARAM(flipY);
+    UNUSED_PARAM(premultiplyAlpha);
+    
     ec = 0;
-    m_context->texImage2D(target, level, video, flipY, premultiplyAlpha);
     cleanupAfterGraphicsCall(false);
 }
 
@@ -1613,24 +1714,26 @@ void WebGLRenderingContext::texSubImage2D(unsigned target, unsigned level, unsig
                                              unsigned format, unsigned type, WebGLArray* pixels, ExceptionCode& ec)
 {
     // FIXME: For now we ignore any errors returned
+    // FIXME: Need to make sure passed buffer has enough bytes to define the texture
     ec = 0;
-    m_context->texSubImage2D(target, level, xoffset, yoffset, width, height, format, type, pixels);
+    m_context->texSubImage2D(target, level, xoffset, yoffset, width, height, format, type, pixels ? pixels->baseAddress() : 0);
     cleanupAfterGraphicsCall(false);
 }
 
 void WebGLRenderingContext::texSubImage2D(unsigned target, unsigned level, unsigned xoffset, unsigned yoffset,
-                                             unsigned width, unsigned height,
-                                             unsigned format, unsigned type, ImageData* pixels, ExceptionCode& ec)
+                                          ImageData* pixels, bool flipY, bool premultiplyAlpha, ExceptionCode& ec)
 {
     // FIXME: For now we ignore any errors returned
+    UNUSED_PARAM(flipY);
+    UNUSED_PARAM(premultiplyAlpha);
     ec = 0;
-    m_context->texSubImage2D(target, level, xoffset, yoffset, width, height, format, type, pixels);
+    m_context->texSubImage2D(target, level, xoffset, yoffset, pixels->width(), pixels->height(), GraphicsContext3D::RGBA, GraphicsContext3D::UNSIGNED_BYTE, pixels->data()->data()->data());
+    //RLP: m_context->texSubImage2D(target, level, xoffset, yoffset, pixels, flipY, premultiplyAlpha);
     cleanupAfterGraphicsCall(false);
 }
 
 void WebGLRenderingContext::texSubImage2D(unsigned target, unsigned level, unsigned xoffset, unsigned yoffset,
-                                             unsigned width, unsigned height, HTMLImageElement* image,
-                                             bool flipY, bool premultiplyAlpha, ExceptionCode& ec)
+                                          HTMLImageElement* image, bool flipY, bool premultiplyAlpha, ExceptionCode& ec)
 {
     // FIXME: For now we ignore any errors returned
     ec = 0;
@@ -1645,13 +1748,12 @@ void WebGLRenderingContext::texSubImage2D(unsigned target, unsigned level, unsig
         return;
     }
 
-    m_context->texSubImage2D(target, level, xoffset, yoffset, width, height, cachedImage->image(), flipY, premultiplyAlpha);
+    m_context->texSubImage2D(target, level, xoffset, yoffset, cachedImage->image(), flipY, premultiplyAlpha);
     cleanupAfterGraphicsCall(false);
 }
 
 void WebGLRenderingContext::texSubImage2D(unsigned target, unsigned level, unsigned xoffset, unsigned yoffset,
-                                             unsigned width, unsigned height, HTMLCanvasElement* canvas,
-                                             bool flipY, bool premultiplyAlpha, ExceptionCode& ec)
+                                          HTMLCanvasElement* canvas, bool flipY, bool premultiplyAlpha, ExceptionCode& ec)
 {
     ec = 0;
     if (!canvas) {
@@ -1666,17 +1768,22 @@ void WebGLRenderingContext::texSubImage2D(unsigned target, unsigned level, unsig
     }
     
     // FIXME: For now we ignore any errors returned
-    m_context->texSubImage2D(target, level, xoffset, yoffset, width, height, buffer->image(), flipY, premultiplyAlpha);
+    m_context->texSubImage2D(target, level, xoffset, yoffset, buffer->image(), flipY, premultiplyAlpha);
     cleanupAfterGraphicsCall(false);
 }
 
 void WebGLRenderingContext::texSubImage2D(unsigned target, unsigned level, unsigned xoffset, unsigned yoffset,
-                                             unsigned width, unsigned height, HTMLVideoElement* video,
-                                             bool flipY, bool premultiplyAlpha, ExceptionCode& ec)
+                                          HTMLVideoElement* video, bool flipY, bool premultiplyAlpha, ExceptionCode& ec)
 {
-    // FIXME: For now we ignore any errors returned
+    // FIXME: Need to implement this call
+    UNUSED_PARAM(target);
+    UNUSED_PARAM(level);
+    UNUSED_PARAM(xoffset);
+    UNUSED_PARAM(yoffset);
+    UNUSED_PARAM(video);
+    UNUSED_PARAM(flipY);
+    UNUSED_PARAM(premultiplyAlpha);
     ec = 0;
-    m_context->texSubImage2D(target, level, xoffset, yoffset, width, height, video, flipY, premultiplyAlpha);
     cleanupAfterGraphicsCall(false);
 }
 

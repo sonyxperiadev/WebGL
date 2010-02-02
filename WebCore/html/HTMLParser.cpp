@@ -28,6 +28,7 @@
 #include "CharacterNames.h"
 #include "CSSPropertyNames.h"
 #include "CSSValueKeywords.h"
+#include "Chrome.h"
 #include "ChromeClient.h"
 #include "Comment.h"
 #include "Console.h"
@@ -64,6 +65,8 @@ using namespace HTMLNames;
 
 static const unsigned cMaxRedundantTagDepth = 20;
 static const unsigned cResidualStyleMaxDepth = 200;
+static const unsigned cResidualStyleIterationLimit = 5;
+
 
 static const int minBlockLevelTagPriority = 3;
 
@@ -137,11 +140,12 @@ HTMLParser::HTMLParser(HTMLDocument* doc, bool reportErrors)
     , m_reportErrors(reportErrors)
     , m_handlingResidualStyleAcrossBlocks(false)
     , m_inStrayTableContent(0)
+    , m_scriptingPermission(FragmentScriptingAllowed)
     , m_parserQuirks(m_document->page() ? m_document->page()->chrome()->client()->createHTMLParserQuirks() : 0)
 {
 }
 
-HTMLParser::HTMLParser(DocumentFragment* frag)
+HTMLParser::HTMLParser(DocumentFragment* frag, FragmentScriptingPermission scriptingPermission)
     : m_document(frag->document())
     , m_current(frag)
     , m_didRefCurrent(true)
@@ -155,6 +159,7 @@ HTMLParser::HTMLParser(DocumentFragment* frag)
     , m_reportErrors(false)
     , m_handlingResidualStyleAcrossBlocks(false)
     , m_inStrayTableContent(0)
+    , m_scriptingPermission(scriptingPermission)
     , m_parserQuirks(m_document->page() ? m_document->page()->chrome()->client()->createHTMLParserQuirks() : 0)
 {
     if (frag)
@@ -274,7 +279,8 @@ PassRefPtr<Node> HTMLParser::parseToken(Token* t)
     // set attributes
     if (n->isHTMLElement()) {
         HTMLElement* e = static_cast<HTMLElement*>(n.get());
-        e->setAttributeMap(t->attrs.get());
+        if (m_scriptingPermission == FragmentScriptingAllowed || t->tagName != scriptTag)
+            e->setAttributeMap(t->attrs.get(), m_scriptingPermission);
 
         // take care of optional close tags
         if (e->endTagRequirement() == TagStatusOptional)
@@ -652,7 +658,7 @@ bool HTMLParser::handleError(Node* n, bool flat, const AtomicString& localName, 
             reportError(MisplacedContentRetryError, &localName, &currentTagName);
             popBlock(objectTag);
             handled = true;
-        } else if (h->hasLocalName(pTag) || isHeaderTag(currentTagName)) {
+        } else if (h->hasLocalName(pTag) || isHeadingTag(currentTagName)) {
             if (!isInline(n)) {
                 popBlock(currentTagName);
                 handled = true;
@@ -907,6 +913,8 @@ PassRefPtr<Node> HTMLParser::getNode(Token* t)
     if (gFunctionMap.isEmpty()) {
         gFunctionMap.set(aTag.localName().impl(), &HTMLParser::nestedCreateErrorCheck);
         gFunctionMap.set(addressTag.localName().impl(), &HTMLParser::pCloserCreateErrorCheck);
+        gFunctionMap.set(articleTag.localName().impl(), &HTMLParser::pCloserCreateErrorCheck);
+        gFunctionMap.set(asideTag.localName().impl(), &HTMLParser::pCloserCreateErrorCheck);
         gFunctionMap.set(bTag.localName().impl(), &HTMLParser::nestedStyleCreateErrorCheck);
         gFunctionMap.set(bigTag.localName().impl(), &HTMLParser::nestedStyleCreateErrorCheck);
         gFunctionMap.set(blockquoteTag.localName().impl(), &HTMLParser::pCloserCreateErrorCheck);
@@ -921,6 +929,7 @@ PassRefPtr<Node> HTMLParser::getNode(Token* t)
         gFunctionMap.set(dtTag.localName().impl(), &HTMLParser::dtCreateErrorCheck);
         gFunctionMap.set(formTag.localName().impl(), &HTMLParser::formCreateErrorCheck);
         gFunctionMap.set(fieldsetTag.localName().impl(), &HTMLParser::pCloserCreateErrorCheck);
+        gFunctionMap.set(footerTag.localName().impl(), &HTMLParser::pCloserCreateErrorCheck);
         gFunctionMap.set(framesetTag.localName().impl(), &HTMLParser::framesetCreateErrorCheck);
         gFunctionMap.set(h1Tag.localName().impl(), &HTMLParser::pCloserCreateErrorCheck);
         gFunctionMap.set(h2Tag.localName().impl(), &HTMLParser::pCloserCreateErrorCheck);
@@ -929,6 +938,7 @@ PassRefPtr<Node> HTMLParser::getNode(Token* t)
         gFunctionMap.set(h5Tag.localName().impl(), &HTMLParser::pCloserCreateErrorCheck);
         gFunctionMap.set(h6Tag.localName().impl(), &HTMLParser::pCloserCreateErrorCheck);
         gFunctionMap.set(headTag.localName().impl(), &HTMLParser::headCreateErrorCheck);
+        gFunctionMap.set(headerTag.localName().impl(), &HTMLParser::pCloserCreateErrorCheck);
         gFunctionMap.set(hrTag.localName().impl(), &HTMLParser::pCloserCreateErrorCheck);
         gFunctionMap.set(iTag.localName().impl(), &HTMLParser::nestedStyleCreateErrorCheck);
         gFunctionMap.set(isindexTag.localName().impl(), &HTMLParser::isindexCreateErrorCheck);
@@ -940,9 +950,7 @@ PassRefPtr<Node> HTMLParser::getNode(Token* t)
         gFunctionMap.set(nobrTag.localName().impl(), &HTMLParser::nestedCreateErrorCheck);
         gFunctionMap.set(noembedTag.localName().impl(), &HTMLParser::noembedCreateErrorCheck);
         gFunctionMap.set(noframesTag.localName().impl(), &HTMLParser::noframesCreateErrorCheck);
-#if !ENABLE(XHTMLMP)
         gFunctionMap.set(noscriptTag.localName().impl(), &HTMLParser::noscriptCreateErrorCheck);
-#endif
         gFunctionMap.set(olTag.localName().impl(), &HTMLParser::pCloserCreateErrorCheck);
         gFunctionMap.set(pTag.localName().impl(), &HTMLParser::pCloserCreateErrorCheck);
         gFunctionMap.set(plaintextTag.localName().impl(), &HTMLParser::pCloserCreateErrorCheck);
@@ -950,6 +958,7 @@ PassRefPtr<Node> HTMLParser::getNode(Token* t)
         gFunctionMap.set(rpTag.localName().impl(), &HTMLParser::rpCreateErrorCheck);
         gFunctionMap.set(rtTag.localName().impl(), &HTMLParser::rtCreateErrorCheck);
         gFunctionMap.set(sTag.localName().impl(), &HTMLParser::nestedStyleCreateErrorCheck);
+        gFunctionMap.set(sectionTag.localName().impl(), &HTMLParser::pCloserCreateErrorCheck);
         gFunctionMap.set(selectTag.localName().impl(), &HTMLParser::selectCreateErrorCheck);
         gFunctionMap.set(smallTag.localName().impl(), &HTMLParser::nestedStyleCreateErrorCheck);
         gFunctionMap.set(strikeTag.localName().impl(), &HTMLParser::nestedStyleCreateErrorCheck);
@@ -1017,19 +1026,19 @@ void HTMLParser::processCloseTag(Token* t)
     }
 }
 
-bool HTMLParser::isHeaderTag(const AtomicString& tagName)
+bool HTMLParser::isHeadingTag(const AtomicString& tagName)
 {
-    DEFINE_STATIC_LOCAL(HashSet<AtomicStringImpl*>, headerTags, ());
-    if (headerTags.isEmpty()) {
-        headerTags.add(h1Tag.localName().impl());
-        headerTags.add(h2Tag.localName().impl());
-        headerTags.add(h3Tag.localName().impl());
-        headerTags.add(h4Tag.localName().impl());
-        headerTags.add(h5Tag.localName().impl());
-        headerTags.add(h6Tag.localName().impl());
+    DEFINE_STATIC_LOCAL(HashSet<AtomicStringImpl*>, headingTags, ());
+    if (headingTags.isEmpty()) {
+        headingTags.add(h1Tag.localName().impl());
+        headingTags.add(h2Tag.localName().impl());
+        headingTags.add(h3Tag.localName().impl());
+        headingTags.add(h4Tag.localName().impl());
+        headingTags.add(h5Tag.localName().impl());
+        headingTags.add(h6Tag.localName().impl());
     }
     
-    return headerTags.contains(tagName.impl());
+    return headingTags.contains(tagName.impl());
 }
 
 bool HTMLParser::isInline(Node* node) const
@@ -1121,8 +1130,10 @@ void HTMLParser::handleResidualStyleCloseTagAcrossBlocks(HTMLStackElem* elem)
     bool finished = false;
     bool strayTableContent = elem->strayTableContent;
 
+    unsigned iterationCount = 0;
+
     m_handlingResidualStyleAcrossBlocks = true;
-    while (!finished) {
+    while (!finished && (iterationCount++ < cResidualStyleIterationLimit)) {
         // Find the outermost element that crosses over to a higher level. If there exists another higher-level
         // element, we will do another pass, until we have corrected the innermost one.
         ExceptionCode ec = 0;
@@ -1290,7 +1301,8 @@ void HTMLParser::handleResidualStyleCloseTagAcrossBlocks(HTMLStackElem* elem)
             prevMaxElem->next = elem;
             ASSERT(newNodePtr);
             prevMaxElem->node = newNodePtr;
-            prevMaxElem->didRefNode = false;
+            newNodePtr->ref();
+            prevMaxElem->didRefNode = true;
         } else
             delete elem;
     }

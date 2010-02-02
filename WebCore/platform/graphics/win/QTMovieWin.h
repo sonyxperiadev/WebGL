@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007, 2008, 2009 Apple, Inc.  All rights reserved.
+ * Copyright (C) 2007, 2008, 2009, 2010 Apple, Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,6 +27,7 @@
 #define QTMovieWin_h
 
 #include <Unicode.h>
+#include <windows.h>
 
 #ifdef QTMOVIEWIN_EXPORTS
 #define QTMOVIEWIN_API __declspec(dllexport)
@@ -43,6 +44,11 @@ public:
     virtual void movieLoadStateChanged(QTMovieWin*) = 0;
     virtual void movieTimeChanged(QTMovieWin*) = 0;
     virtual void movieNewImageAvailable(QTMovieWin*) = 0;
+};
+
+class QTMovieWinFullscreenClient {
+public:
+    virtual LRESULT fullscreenClientWndProc(HWND, UINT message, WPARAM, LPARAM) = 0;
 };
 
 enum {
@@ -91,6 +97,7 @@ public:
 
     void setVisible(bool);
     void paint(HDC, int x, int y);
+    void getCurrentFrameInfo(void*& buffer, unsigned& bitsPerPixel, unsigned& rowBytes, unsigned& width, unsigned& height);
 
     void disableUnsupportedTracks(unsigned& enabledTrackCount, unsigned& totalTrackCount);
     void setDisabled(bool);
@@ -104,8 +111,13 @@ public:
     static unsigned countSupportedTypes();
     static void getSupportedType(unsigned index, const UChar*& str, unsigned& len);
 
+    // Returns the full-screen window created
+    HWND enterFullscreen(QTMovieWinFullscreenClient*);
+    void exitFullscreen();
+
 private:
     void load(CFURLRef, bool preservesPitch);
+    static LRESULT fullscreenWndProc(HWND, UINT message, WPARAM, LPARAM);
 
     QTMovieWinPrivate* m_private;
     bool m_disabled;

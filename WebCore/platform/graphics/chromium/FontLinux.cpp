@@ -312,7 +312,8 @@ public:
 private:
     const TextRun& getTextRun(const TextRun& originalRun)
     {
-        // Convert the |originalRun| to NFC normalized form if combining diacritical marks
+        // Normalize the text run in two ways:
+        // 1) Convert the |originalRun| to NFC normalized form if combining diacritical marks
         // (U+0300..) are used in the run. This conversion is necessary since most OpenType
         // fonts (e.g., Arial) don't have substitution rules for the diacritical marks in
         // their GSUB tables.
@@ -321,9 +322,12 @@ private:
         // the API returns FALSE (= not normalized) for complex runs that don't require NFC
         // normalization (e.g., Arabic text). Unless the run contains the diacritical marks,
         // Harfbuzz will do the same thing for us using the GSUB table.
+        // 2) Convert spacing characters into plain spaces, as some fonts will provide glyphs
+        // for characters like '\n' otherwise.
         for (unsigned i = 0; i < originalRun.length(); ++i) {
-            UBlockCode block = ::ublock_getCode(originalRun[i]);
-            if (block == UBLOCK_COMBINING_DIACRITICAL_MARKS) {
+            UChar ch = originalRun[i];
+            UBlockCode block = ::ublock_getCode(ch);
+            if (block == UBLOCK_COMBINING_DIACRITICAL_MARKS || (Font::treatAsSpace(ch) && ch != ' ')) {
                 return getNormalizedTextRun(originalRun);
             }
         }
@@ -341,6 +345,11 @@ private:
         m_normalizedBuffer.set(new UChar[normalizedString.length() + 1]);
         normalizedString.extract(m_normalizedBuffer.get(), normalizedString.length() + 1, error);
         ASSERT(U_SUCCESS(error));
+
+        for (unsigned i = 0; i < normalizedString.length(); ++i) {
+            if (Font::treatAsSpace(m_normalizedBuffer[i]))
+                m_normalizedBuffer[i] = ' ';
+        }
 
         m_normalizedRun.set(new TextRun(originalRun));
         m_normalizedRun->setText(m_normalizedBuffer.get(), normalizedString.length());
@@ -391,6 +400,8 @@ private:
         m_item.attributes = new HB_GlyphAttributes[m_maxGlyphs];
         m_item.advances = new HB_Fixed[m_maxGlyphs];
         m_item.offsets = new HB_FixedPoint[m_maxGlyphs];
+        // HB_FixedPoint is a struct, so we must use memset to clear it.
+        memset(m_item.offsets, 0, m_maxGlyphs * sizeof(HB_FixedPoint));
         m_glyphs16 = new uint16_t[m_maxGlyphs];
         m_xPositions = new SkScalar[m_maxGlyphs];
 
@@ -427,18 +438,19 @@ private:
 
     void setGlyphXPositions(bool isRTL)
     {
-        m_pixelWidth = 0;
-        for (unsigned i = 0; i < m_item.num_glyphs; ++i) {
-            int index;
-            if (isRTL)
-                index = m_item.num_glyphs - (i + 1);
-            else
-                index = i;
+        double position = 0;
+        for (int iter = 0; iter < m_item.num_glyphs; ++iter) {
+            // Glyphs are stored in logical order, but for layout purposes we always go left to right.
+            int i = isRTL ? m_item.num_glyphs - iter - 1 : iter;
 
             m_glyphs16[i] = m_item.glyphs[i];
-            m_xPositions[index] = m_offsetX + m_pixelWidth;
-            m_pixelWidth += truncateFixedPointToInteger(m_item.advances[index]);
+            double offsetX = truncateFixedPointToInteger(m_item.offsets[i].x);
+            m_xPositions[i] = m_offsetX + position + offsetX;
+
+            double advance = truncateFixedPointToInteger(m_item.advances[i]);
+            position += advance;
         }
+        m_pixelWidth = position;
         m_offsetX += m_pixelWidth;
     }
 

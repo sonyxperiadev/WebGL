@@ -53,7 +53,7 @@ FontCache::FontCache()
 {
 }
 
-struct FontPlatformDataCacheKey {
+struct FontPlatformDataCacheKey : FastAllocBase {
     FontPlatformDataCacheKey(const AtomicString& family = AtomicString(), unsigned size = 0, unsigned weight = 0, bool italic = false,
                              bool isPrinterFont = false, FontRenderingMode renderingMode = NormalRenderingMode)
         : m_family(family)
@@ -139,7 +139,7 @@ static const AtomicString& alternateFamilyName(const AtomicString& familyName)
     DEFINE_STATIC_LOCAL(AtomicString, courierNew, ("Courier New"));
     if (equalIgnoringCase(familyName, courier))
         return courierNew;
-#if !PLATFORM(WIN_OS)
+#if !OS(WINDOWS)
     // On Windows, Courier New (truetype font) is always present and
     // Courier is a bitmap font. So, we don't want to map Courier New to
     // Courier.
@@ -163,7 +163,7 @@ static const AtomicString& alternateFamilyName(const AtomicString& familyName)
     if (equalIgnoringCase(familyName, helvetica))
         return arial;
 
-#if PLATFORM(WIN_OS)
+#if OS(WINDOWS)
     // On Windows, bitmap fonts are blocked altogether so that we have to 
     // alias MS Sans Serif (bitmap font) -> Microsoft Sans Serif (truetype font)
     DEFINE_STATIC_LOCAL(AtomicString, msSans, ("MS Sans Serif"));

@@ -24,21 +24,20 @@
 #include "SVGTextPositioningElement.h"
 
 #include "MappedAttribute.h"
+#include "RenderObject.h"
 #include "SVGLengthList.h"
 #include "SVGNames.h"
 #include "SVGNumberList.h"
 
 namespace WebCore {
 
-char SVGTextPositioningElementIdentifier[] = "SVGTextPositioningElement";
-
 SVGTextPositioningElement::SVGTextPositioningElement(const QualifiedName& tagName, Document* doc)
     : SVGTextContentElement(tagName, doc)
-    , m_x(this, SVGNames::xAttr, SVGLengthList::create(SVGNames::xAttr))
-    , m_y(this, SVGNames::yAttr, SVGLengthList::create(SVGNames::yAttr))
-    , m_dx(this, SVGNames::dxAttr, SVGLengthList::create(SVGNames::dxAttr))
-    , m_dy(this, SVGNames::dyAttr, SVGLengthList::create(SVGNames::dyAttr))
-    , m_rotate(this, SVGNames::rotateAttr, SVGNumberList::create(SVGNames::rotateAttr))
+    , m_x(SVGLengthList::create(SVGNames::xAttr))
+    , m_y(SVGLengthList::create(SVGNames::yAttr))
+    , m_dx(SVGLengthList::create(SVGNames::dxAttr))
+    , m_dy(SVGLengthList::create(SVGNames::dyAttr))
+    , m_rotate(SVGNumberList::create(SVGNames::rotateAttr))
 {
 }
 
@@ -60,6 +59,42 @@ void SVGTextPositioningElement::parseMappedAttribute(MappedAttribute* attr)
         rotateBaseValue()->parse(attr->value());
     else
         SVGTextContentElement::parseMappedAttribute(attr);
+}
+
+void SVGTextPositioningElement::svgAttributeChanged(const QualifiedName& attrName)
+{
+    SVGTextContentElement::svgAttributeChanged(attrName);
+
+    if (!renderer())
+        return;
+
+    if (isKnownAttribute(attrName))
+        renderer()->setNeedsLayout(true);
+}
+
+void SVGTextPositioningElement::synchronizeProperty(const QualifiedName& attrName)
+{
+    SVGTextContentElement::synchronizeProperty(attrName);
+
+    if (attrName == anyQName()) {
+        synchronizeX();
+        synchronizeY();
+        synchronizeDx();
+        synchronizeDy();
+        synchronizeRotate();
+        return;
+    }
+
+    if (attrName == SVGNames::xAttr)
+        synchronizeX();
+    else if (attrName == SVGNames::yAttr)
+        synchronizeY();
+    else if (attrName == SVGNames::dxAttr)
+        synchronizeDx();
+    else if (attrName == SVGNames::dyAttr)
+        synchronizeDy();
+    else if (attrName == SVGNames::rotateAttr)
+        synchronizeRotate();
 }
 
 bool SVGTextPositioningElement::isKnownAttribute(const QualifiedName& attrName)

@@ -40,6 +40,7 @@
 #include "Frame.h"
 #include "FrameLoader.h"
 #include "HTMLFrameOwnerElement.h"
+#include "InjectedScriptHost.h"
 #include "InspectorClient.h"
 #include "InspectorController.h"
 #include "InspectorDOMAgent.h"
@@ -77,10 +78,10 @@ InspectorBackend::~InspectorBackend()
 {
 }
 
-void InspectorBackend::clearMessages(bool clearUI)
+void InspectorBackend::saveFrontendSettings(const String& settings)
 {
     if (m_inspectorController)
-        m_inspectorController->clearConsoleMessages(clearUI);
+        m_inspectorController->setSetting(InspectorController::FrontendSettingsSettingName, settings);
 }
 
 void InspectorBackend::storeLastActivePanel(const String& panelName)
@@ -119,6 +120,19 @@ void InspectorBackend::disableResourceTracking(bool always)
 {
     if (m_inspectorController)
         m_inspectorController->disableResourceTracking(always);
+}
+
+void InspectorBackend::getResourceContent(long callId, unsigned long identifier)
+{
+    InspectorFrontend* frontend = inspectorFrontend();
+    if (!frontend)
+        return;
+
+    RefPtr<InspectorResource> resource = m_inspectorController->resources().get(identifier);
+    if (resource)
+        frontend->didGetResourceContent(callId, resource->sourceString());
+    else
+        frontend->didGetResourceContent(callId, "");
 }
 
 void InspectorBackend::startTimelineProfiler()
@@ -197,14 +211,14 @@ void InspectorBackend::stepOutOfFunctionInDebugger()
     JavaScriptDebugServer::shared().stepOutOfFunction();
 }
 
-bool InspectorBackend::pauseOnExceptions()
+long InspectorBackend::pauseOnExceptionsState()
 {
-    return JavaScriptDebugServer::shared().pauseOnExceptions();
+    return JavaScriptDebugServer::shared().pauseOnExceptionsState();
 }
 
-void InspectorBackend::setPauseOnExceptions(bool pause)
+void InspectorBackend::setPauseOnExceptionsState(long pauseState)
 {
-    JavaScriptDebugServer::shared().setPauseOnExceptions(pause);
+    JavaScriptDebugServer::shared().setPauseOnExceptionsState(static_cast<JavaScriptDebugServer::PauseOnExceptionsState>(pauseState));
 }
 
 bool InspectorBackend::profilerEnabled()
@@ -256,13 +270,31 @@ JavaScriptCallFrame* InspectorBackend::currentCallFrame() const
 }
 #endif
 
-void InspectorBackend::dispatchOnInjectedScript(long callId, const String& methodName, const String& arguments, bool async)
+void InspectorBackend::setInjectedScriptSource(const String& source)
+{
+    if (m_inspectorController)
+        m_inspectorController->injectedScriptHost()->setInjectedScriptSource(source);
+}
+
+void InspectorBackend::dispatchOnInjectedScript(long callId, long injectedScriptId, const String& methodName, const String& arguments, bool async)
 {
     InspectorFrontend* frontend = inspectorFrontend();
     if (!frontend)
         return;
 
-    ScriptFunctionCall function(m_inspectorController->m_scriptState, m_inspectorController->m_injectedScriptObj, "dispatch");
+    // FIXME: explicitly pass injectedScriptId along with node id to the frontend.
+    bool injectedScriptIdIsNodeId = injectedScriptId <= 0;
+
+    ScriptObject injectedScript;
+    if (injectedScriptIdIsNodeId)
+        injectedScript = m_inspectorController->injectedScriptForNodeId(-injectedScriptId);
+    else
+        injectedScript = m_inspectorController->injectedScriptHost()->injectedScriptForId(injectedScriptId);
+
+    if (injectedScript.hasNoValue())
+        return;
+
+    ScriptFunctionCall function(injectedScript.scriptState(), injectedScript, "dispatch");
     function.appendArgument(methodName);
     function.appendArgument(arguments);
     if (async)
@@ -274,7 +306,7 @@ void InspectorBackend::dispatchOnInjectedScript(long callId, const String& metho
     if (hadException)
         frontend->didDispatchOnInjectedScript(callId, "", true);
     else
-        frontend->didDispatchOnInjectedScript(callId, result.toString(m_inspectorController->m_scriptState), false);
+        frontend->didDispatchOnInjectedScript(callId, result.toString(injectedScript.scriptState()), false);
 }
 
 void InspectorBackend::getChildNodes(long callId, long nodeId)
@@ -371,10 +403,11 @@ void InspectorBackend::deleteCookie(const String& cookieName, const String& doma
     m_inspectorController->deleteCookie(cookieName, domain);
 }
 
-void InspectorBackend::releaseWrapperObjectGroup(const String& objectGroup)
+void InspectorBackend::releaseWrapperObjectGroup(long injectedScriptId, const String& objectGroup)
 {
-    if (m_inspectorController)
-        m_inspectorController->releaseWrapperObjectGroup(objectGroup);
+    if (!m_inspectorController)
+        return;
+    m_inspectorController->injectedScriptHost()->releaseWrapperObjectGroup(injectedScriptId, objectGroup);
 }
 
 void InspectorBackend::didEvaluateForTestInFrontend(long callId, const String& jsonResult)

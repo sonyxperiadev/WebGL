@@ -29,6 +29,7 @@
 
 #include "AXObjectCache.h"
 #include "CachedImage.h"
+#include "Chrome.h"
 #include "ChromeClient.h"
 #include "Cursor.h"
 #include "Document.h"
@@ -80,10 +81,13 @@
 #include "TouchEvent.h"
 #endif
 
+<<<<<<< HEAD
 #if defined(ANDROID_PLUGINS)
 #include "WebViewCore.h"
 #endif
 
+=======
+>>>>>>> webkit.org at r54127
 namespace WebCore {
 
 using namespace HTMLNames;
@@ -130,7 +134,7 @@ static inline void scrollAndAcceptEvent(float delta, ScrollDirection positiveDir
         e.accept();
 }
 
-#if !PLATFORM(MAC)
+#if !PLATFORM(MAC) || ENABLE(EXPERIMENTAL_SINGLE_VIEW_MODE)
 
 inline bool EventHandler::eventLoopHandleMouseUp(const MouseEventWithHitTestResults&)
 {
@@ -174,7 +178,7 @@ EventHandler::EventHandler(Frame* frame)
     , m_mouseDownTimestamp(0)
     , m_useLatchedWheelEventNode(false)
     , m_widgetIsLatched(false)
-#if PLATFORM(MAC)
+#if PLATFORM(MAC) && !ENABLE(EXPERIMENTAL_SINGLE_VIEW_MODE)
     , m_mouseDownView(nil)
     , m_sendingEventToSubview(false)
     , m_activationEventNumber(0)
@@ -702,6 +706,14 @@ void EventHandler::autoscrollTimerFired(Timer<EventHandler>*)
 
 #if ENABLE(PAN_SCROLLING)
 
+void EventHandler::startPanScrolling(RenderObject* renderer)
+{
+    m_panScrollInProgress = true;
+    m_panScrollButtonPressed = true;
+    handleAutoscroll(renderer);
+    invalidateClick();
+}
+
 void EventHandler::updatePanScrollState()
 {
     FrameView* view = m_frame->view();
@@ -1201,25 +1213,6 @@ bool EventHandler::handleMousePressEvent(const PlatformMouseEvent& mouseEvent)
         invalidateClick();
         return true;
     }
-
-    if (mouseEvent.button() == MiddleButton && !mev.isOverLink()) {
-        RenderObject* renderer = mev.targetNode()->renderer();
-
-        while (renderer && (!renderer->isBox() || !toRenderBox(renderer)->canBeScrolledAndHasScrollableArea())) {
-            if (!renderer->parent() && renderer->node() == renderer->document() && renderer->document()->ownerElement())
-                renderer = renderer->document()->ownerElement()->renderer();
-            else
-                renderer = renderer->parent();
-        }
-
-        if (renderer) {
-            m_panScrollInProgress = true;
-            m_panScrollButtonPressed = true;
-            handleAutoscroll(renderer);
-            invalidateClick();
-            return true;
-        }
-    }
 #endif
 
     m_clickCount = mouseEvent.clickCount();
@@ -1631,7 +1624,7 @@ void EventHandler::clearDragState()
     m_dragTarget = 0;
     m_capturingMouseEventsNode = 0;
     m_shouldOnlyFireDragOverEvent = false;
-#if PLATFORM(MAC)
+#if PLATFORM(MAC) && !ENABLE(EXPERIMENTAL_SINGLE_VIEW_MODE)
     m_sendingEventToSubview = false;
 #endif
 }
@@ -1804,7 +1797,7 @@ bool EventHandler::dispatchMouseEvent(const AtomicString& eventType, Node* targe
     return swallowEvent;
 }
 
-#if !PLATFORM(GTK) && !(PLATFORM(CHROMIUM) && PLATFORM(LINUX))
+#if !PLATFORM(GTK) && !(PLATFORM(CHROMIUM) && OS(LINUX))
 bool EventHandler::shouldTurnVerticalTicksIntoHorizontal(const HitTestResult&) const
 {
     return false;
@@ -2317,9 +2310,11 @@ bool EventHandler::handleDrag(const MouseEventWithHitTestResults& event)
         return !mouseDownMayStartSelect() && !m_mouseDownMayStartAutoscroll;
     
     // We are starting a text/image/url drag, so the cursor should be an arrow
-    if (FrameView* view = m_frame->view())
+    if (FrameView* view = m_frame->view()) {
+        // FIXME <rdar://7577595>: Custom cursors aren't supported during drag and drop (default to pointer).
         view->setCursor(pointerCursor());
-    
+    }
+
     if (!dragHysteresisExceeded(event.event().pos())) 
         return true;
     
@@ -2358,7 +2353,7 @@ bool EventHandler::handleDrag(const MouseEventWithHitTestResults& event)
         
         if (m_mouseDownMayStartDrag) {
             // gather values from DHTML element, if it set any
-            dragState().m_dragClipboard->sourceOperation(srcOp);
+            srcOp = dragState().m_dragClipboard->sourceOperation();
             
             // Yuck, a draggedImage:moveTo: message can be fired as a result of kicking off the
             // drag with dragImage!  Because of that dumb reentrancy, we may think we've not
@@ -2560,6 +2555,7 @@ void EventHandler::updateLastScrollbarUnderMouse(Scrollbar* scrollbar, bool setL
 }
 
 #if ENABLE(TOUCH_EVENTS)
+<<<<<<< HEAD
 #if PLATFORM(ANDROID)
 // TODO(benm): On Android we return an int back to Java to signify whether the default actions
 // for longpress/doubletap in the Browser should be prevented. I think that before upstreaming
@@ -2568,6 +2564,9 @@ int EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
 #else
 bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
 #endif
+=======
+bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
+>>>>>>> webkit.org at r54127
 {
     RefPtr<TouchList> touches = TouchList::create();
     RefPtr<TouchList> pressedTouches = TouchList::create();
@@ -2603,17 +2602,26 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
         int adjustedPageX = lroundf(pagePoint.x() / m_frame->pageZoomFactor());
         int adjustedPageY = lroundf(pagePoint.y() / m_frame->pageZoomFactor());
 
+<<<<<<< HEAD
         if ((event.type() == TouchStart
 #if PLATFORM(ANDROID)
             || event.type() == TouchDoubleTap
             || event.type() == TouchLongPress
 #endif
             ) && !i) {
+=======
+        RefPtr<Touch> touch = Touch::create(doc->frame(), target, point.id(),
+                                            point.screenPos().x(), point.screenPos().y(),
+                                            adjustedPageX, adjustedPageY);
+
+        if (event.type() == TouchStart && !i) {
+>>>>>>> webkit.org at r54127
             m_touchEventTarget = target;
             m_firstTouchScreenPos = point.screenPos();
             m_firstTouchPagePos = pagePoint;
         }
 
+<<<<<<< HEAD
         // ANDROID
         // The touch event should act on m_touchEventTarget, not target
         // TODO: Upstream this fix to webkit.org
@@ -2621,6 +2629,8 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
                                             point.screenPos().x(), point.screenPos().y(),
                                             adjustedPageX, adjustedPageY);
 
+=======
+>>>>>>> webkit.org at r54127
         if (point.state() == PlatformTouchPoint::TouchReleased)
             releasedTouches->append(touch);
         else if (point.state() == PlatformTouchPoint::TouchCancelled)
@@ -2639,6 +2649,7 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
     }
 
     if (!m_touchEventTarget)
+<<<<<<< HEAD
 #if PLATFORM(ANDROID)
         return 0;
 #else
@@ -2652,6 +2663,11 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
     bool longPressPrevented = false;
     bool doubleTapPrevented = false;
 #endif
+=======
+        return false;
+
+    bool defaultPrevented = false;
+>>>>>>> webkit.org at r54127
 
     if (event.type() == TouchCancel) {
         eventName = &eventNames().touchcancelEvent;
@@ -2662,9 +2678,13 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
                                                    m_firstTouchPagePos.x(), m_firstTouchPagePos.y(),
                                                    event.ctrlKey(), event.altKey(), event.shiftKey(),
                                                    event.metaKey());
+<<<<<<< HEAD
 #if PLATFORM(ANDROID)
         cancelEv->setCreateTime(static_cast<DOMTimeStamp>(event.eventTime()));
 #endif
+=======
+
+>>>>>>> webkit.org at r54127
         ExceptionCode ec = 0;
         m_touchEventTarget->dispatchEvent(cancelEv.get(), ec);
         defaultPrevented |= cancelEv->defaultPrevented();
@@ -2679,6 +2699,7 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
                                                    m_firstTouchPagePos.x(), m_firstTouchPagePos.y(),
                                                    event.ctrlKey(), event.altKey(), event.shiftKey(),
                                                    event.metaKey());
+<<<<<<< HEAD
 #if PLATFORM(ANDROID)
         endEv->setCreateTime(static_cast<DOMTimeStamp>(event.eventTime()));
 #endif
@@ -2689,6 +2710,11 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
 #else
         defaultPrevented = endEv->defaultPrevented();
 #endif
+=======
+        ExceptionCode ec = 0;
+        m_touchEventTarget->dispatchEvent(endEv.get(), ec);
+        defaultPrevented = endEv->defaultPrevented();
+>>>>>>> webkit.org at r54127
     }
     if (pressedTouches->length() > 0) {
         // Add pressed touchpoints to touches and targetTouches
@@ -2698,6 +2724,7 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
                 targetTouches->append(pressedTouches->item(i));
         }
 
+<<<<<<< HEAD
 #if PLATFORM(ANDROID)
         if (event.type() == TouchLongPress) {
             eventName = &eventNames().touchlongpressEvent;
@@ -2750,6 +2777,20 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
 #endif
     }
 
+=======
+        eventName = &eventNames().touchstartEvent;
+        RefPtr<TouchEvent> startEv = 
+            TouchEvent::create(touches.get(), targetTouches.get(), pressedTouches.get(),
+                                                   *eventName, m_touchEventTarget->document()->defaultView(),
+                                                   m_firstTouchScreenPos.x(), m_firstTouchScreenPos.y(),
+                                                   m_firstTouchPagePos.x(), m_firstTouchPagePos.y(),
+                                                   event.ctrlKey(), event.altKey(), event.shiftKey(),
+                                                   event.metaKey());
+        ExceptionCode ec = 0;
+        m_touchEventTarget->dispatchEvent(startEv.get(), ec);
+        defaultPrevented |= startEv->defaultPrevented();
+    }
+>>>>>>> webkit.org at r54127
     if (movedTouches->length() > 0) {
         eventName = &eventNames().touchmoveEvent;
         RefPtr<TouchEvent> moveEv = 
@@ -2759,9 +2800,12 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
                                                    m_firstTouchPagePos.x(), m_firstTouchPagePos.y(),
                                                    event.ctrlKey(), event.altKey(), event.shiftKey(),
                                                    event.metaKey());
+<<<<<<< HEAD
 #if PLATFORM(ANDROID)
         moveEv->setCreateTime(static_cast<DOMTimeStamp>(event.eventTime()));
 #endif
+=======
+>>>>>>> webkit.org at r54127
         ExceptionCode ec = 0;
         m_touchEventTarget->dispatchEvent(moveEv.get(), ec);
         defaultPrevented |= moveEv->defaultPrevented();
@@ -2770,6 +2814,7 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
     if (event.type() == TouchEnd || event.type() == TouchCancel)
         m_touchEventTarget = 0;
 
+<<<<<<< HEAD
 #if PLATFORM(ANDROID)
     // TODO (benm): We should be able to remove this prior to upstreaming  once Java side refactorings to make
     // preventDefault work better are complete.
@@ -2782,6 +2827,9 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
 #else
     return defaultPrevented;
 #endif
+=======
+    return defaultPrevented;
+>>>>>>> webkit.org at r54127
 }
 #endif
 

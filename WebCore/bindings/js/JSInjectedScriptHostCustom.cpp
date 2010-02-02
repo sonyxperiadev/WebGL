@@ -47,8 +47,6 @@
 #include "InspectorController.h"
 #include "InspectorResource.h"
 #include "JSDOMWindow.h"
-#include "JSInspectedObjectWrapper.h"
-#include "JSInspectorCallbackWrapper.h"
 #include "JSNode.h"
 #include "JSRange.h"
 #include "Node.h"
@@ -59,6 +57,7 @@
 #endif
 #include "TextIterator.h"
 #include "VisiblePosition.h"
+#include <parser/SourceCode.h>
 #include <runtime/JSArray.h>
 #include <runtime/JSLock.h>
 #include <wtf/Vector.h>
@@ -73,6 +72,31 @@ using namespace JSC;
 
 namespace WebCore {
 
+static ScriptObject createInjectedScript(const String& source, InjectedScriptHost* injectedScriptHost, ScriptState* scriptState, long id)
+{
+    SourceCode sourceCode = makeSource(source);
+    JSLock lock(SilenceAssertionsOnly);
+    JSDOMGlobalObject* globalObject = static_cast<JSDOMGlobalObject*>(scriptState->lexicalGlobalObject());
+    JSValue globalThisValue = scriptState->globalThisValue();
+    Completion comp = JSC::evaluate(scriptState, globalObject->globalScopeChain(), sourceCode, globalThisValue);
+    if (comp.complType() != JSC::Normal && comp.complType() != JSC::ReturnValue)
+        return ScriptObject();
+    JSValue functionValue = comp.value();
+    CallData callData;
+    CallType callType = functionValue.getCallData(callData);
+    if (callType == CallTypeNone)
+        return ScriptObject();
+
+    MarkedArgumentBuffer args;
+    args.append(toJS(scriptState, globalObject, injectedScriptHost));
+    args.append(globalThisValue);
+    args.append(jsNumber(scriptState, id));
+    JSValue result = JSC::call(scriptState, functionValue, callType, callData, globalThisValue, args);
+    if (result.isObject())
+        return ScriptObject(scriptState, result.getObject());
+    return ScriptObject();
+}
+
 #if ENABLE(DATABASE)
 JSValue JSInjectedScriptHost::databaseForId(ExecState* exec, const ArgList& args)
 {
@@ -86,28 +110,9 @@ JSValue JSInjectedScriptHost::databaseForId(ExecState* exec, const ArgList& args
     Database* database = impl()->databaseForId(args.at(0).toInt32(exec));
     if (!database)
         return jsUndefined();
-    // Could use currentWorld(exec) ... but which exec!  The following mixed use of exec & inspectedWindow->globalExec() scares me!
-    JSDOMWindow* inspectedWindow = toJSDOMWindow(ic->inspectedPage()->mainFrame(), debuggerWorld());
-    return JSInspectedObjectWrapper::wrap(inspectedWindow->globalExec(), toJS(exec, database));
+    return toJS(exec, database);
 }
 #endif
-
-JSValue JSInjectedScriptHost::inspectedWindow(ExecState*, const ArgList&)
-{
-    InspectorController* ic = impl()->inspectorController();
-    if (!ic)
-        return jsUndefined();
-    JSDOMWindow* inspectedWindow = toJSDOMWindow(ic->inspectedPage()->mainFrame(), debuggerWorld());
-    return JSInspectedObjectWrapper::wrap(inspectedWindow->globalExec(), inspectedWindow);
-}
-
-JSValue JSInjectedScriptHost::wrapCallback(ExecState* exec, const ArgList& args)
-{
-    if (args.size() < 1)
-        return jsUndefined();
-
-    return JSInspectorCallbackWrapper::wrap(exec, args.at(0));
-}
 
 #if ENABLE(JAVASCRIPT_DEBUGGER)
 
@@ -117,11 +122,14 @@ JSValue JSInjectedScriptHost::currentCallFrame(ExecState* exec, const ArgList&)
     if (!callFrame || !callFrame->isValid())
         return jsUndefined();
 
-    // FIXME: I am not sure if this is actually needed. Can we just use exec?
-    ExecState* globalExec = callFrame->scopeChain()->globalObject->globalExec();
-
     JSLock lock(SilenceAssertionsOnly);
-    return JSInspectedObjectWrapper::wrap(globalExec, toJS(exec, callFrame));
+    return toJS(exec, callFrame);
+}
+
+JSValue JSInjectedScriptHost::isActivation(ExecState*, const ArgList& args)
+{
+    JSObject* object = args.at(0).getObject();
+    return jsBoolean(object && object->isActivationObject());
 }
 
 #endif
@@ -140,41 +148,21 @@ JSValue JSInjectedScriptHost::nodeForId(ExecState* exec, const ArgList& args)
         return jsUndefined();
 
     JSLock lock(SilenceAssertionsOnly);
-    JSDOMWindow* inspectedWindow = toJSDOMWindow(ic->inspectedPage()->mainFrame(), debuggerWorld());
-    return JSInspectedObjectWrapper::wrap(inspectedWindow->globalExec(), toJS(exec, deprecatedGlobalObjectForPrototype(inspectedWindow->globalExec()), node));
-}
-
-JSValue JSInjectedScriptHost::wrapObject(ExecState* exec, const ArgList& args)
-{
-    if (args.size() < 2)
-        return jsUndefined();
-
-    return impl()->wrapObject(ScriptValue(args.at(0)), args.at(1).toString(exec)).jsValue();
-}
-
-JSValue JSInjectedScriptHost::unwrapObject(ExecState* exec, const ArgList& args)
-{
-    if (args.size() < 1)
-        return jsUndefined();
-
-    return impl()->unwrapObject(args.at(0).toString(exec)).jsValue();
+    return toJS(exec, node);
 }
 
 JSValue JSInjectedScriptHost::pushNodePathToFrontend(ExecState* exec, const ArgList& args)
 {
-    if (args.size() < 2)
+    if (args.size() < 3)
         return jsUndefined();
 
-    JSQuarantinedObjectWrapper* wrapper = JSQuarantinedObjectWrapper::asWrapper(args.at(0));
-    if (!wrapper)
-        return jsUndefined();
-
-    Node* node = toNode(wrapper->unwrappedObject());
+    Node* node = toNode(args.at(0));
     if (!node)
         return jsUndefined();
 
-    bool selectInUI = args.at(1).toBoolean(exec);
-    return jsNumber(exec, impl()->pushNodePathToFrontend(node, selectInUI));
+    bool withChildren = args.at(1).toBoolean(exec);
+    bool selectInUI = args.at(2).toBoolean(exec);
+    return jsNumber(exec, impl()->pushNodePathToFrontend(node, withChildren, selectInUI));
 }
 
 #if ENABLE(DATABASE)
@@ -183,11 +171,7 @@ JSValue JSInjectedScriptHost::selectDatabase(ExecState*, const ArgList& args)
     if (args.size() < 1)
         return jsUndefined();
 
-    JSQuarantinedObjectWrapper* wrapper = JSQuarantinedObjectWrapper::asWrapper(args.at(0));
-    if (!wrapper)
-        return jsUndefined();
-
-    Database* database = toDatabase(wrapper->unwrappedObject());
+    Database* database = toDatabase(args.at(0));
     if (database)
         impl()->selectDatabase(database);
     return jsUndefined();
@@ -203,16 +187,28 @@ JSValue JSInjectedScriptHost::selectDOMStorage(ExecState*, const ArgList& args)
     if (!ic)
         return jsUndefined();
 
-    JSQuarantinedObjectWrapper* wrapper = JSQuarantinedObjectWrapper::asWrapper(args.at(0));
-    if (!wrapper)
-        return jsUndefined();
-
-    Storage* storage = toStorage(wrapper->unwrappedObject());
+    Storage* storage = toStorage(args.at(0));
     if (storage)
         impl()->selectDOMStorage(storage);
     return jsUndefined();
 }
 #endif
+
+ScriptObject InjectedScriptHost::injectedScriptFor(ScriptState* scriptState)
+{
+    JSLock lock(SilenceAssertionsOnly);
+    JSDOMGlobalObject* globalObject = static_cast<JSDOMGlobalObject*>(scriptState->lexicalGlobalObject());
+    JSObject* injectedScript = globalObject->injectedScript();
+    if (injectedScript)
+        return ScriptObject(scriptState, injectedScript);
+
+    ASSERT(!m_injectedScriptSource.isEmpty());
+    ScriptObject injectedScriptObject = createInjectedScript(m_injectedScriptSource, this, scriptState, m_nextInjectedScriptId);
+    globalObject->setInjectedScript(injectedScriptObject.jsObject());
+    m_idToInjectedScript.set(m_nextInjectedScriptId, injectedScriptObject);
+    m_nextInjectedScriptId++;
+    return injectedScriptObject;
+}
 
 } // namespace WebCore
 

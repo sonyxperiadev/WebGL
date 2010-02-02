@@ -41,6 +41,11 @@
 typedef struct CGContext PlatformGraphicsContext;
 #elif PLATFORM(CAIRO)
 typedef struct _cairo PlatformGraphicsContext;
+#elif PLATFORM(OPENVG)
+namespace WebCore {
+class SurfaceOpenVG;
+}
+typedef class WebCore::SurfaceOpenVG PlatformGraphicsContext;
 #elif PLATFORM(QT)
 QT_BEGIN_NAMESPACE
 class QPainter;
@@ -79,7 +84,7 @@ typedef class PlatformContextSkia PlatformGraphicsContext;
 class BView;
 typedef BView PlatformGraphicsContext;
 struct pattern;
-#elif PLATFORM(WINCE)
+#elif OS(WINCE)
 typedef struct HDC__ PlatformGraphicsContext;
 #else
 typedef void PlatformGraphicsContext;
@@ -104,7 +109,7 @@ typedef unsigned char UInt8;
 
 namespace WebCore {
 
-#if PLATFORM(WINCE) && !PLATFORM(QT)
+#if OS(WINCE) && !PLATFORM(QT)
     class SharedBitmap;
     class SimpleFontData;
     class GlyphBuffer;
@@ -152,7 +157,7 @@ namespace WebCore {
         GraphicsContext(PlatformGraphicsContext*);
         ~GraphicsContext();
 
-#if !PLATFORM(WINCE) || PLATFORM(QT)
+#if !OS(WINCE) || PLATFORM(QT)
         PlatformGraphicsContext* platformContext() const;
 #endif
 
@@ -255,10 +260,10 @@ namespace WebCore {
         void drawImage(Image*, ColorSpace styleColorSpace, const FloatRect& destRect, const FloatRect& srcRect = FloatRect(0, 0, -1, -1),
                        CompositeOperator = CompositeSourceOver, bool useLowQualityScale = false);
         void drawTiledImage(Image*, ColorSpace styleColorSpace, const IntRect& destRect, const IntPoint& srcPoint, const IntSize& tileSize,
-                       CompositeOperator = CompositeSourceOver);
+                       CompositeOperator = CompositeSourceOver, bool useLowQualityScale = false);
         void drawTiledImage(Image*, ColorSpace styleColorSpace, const IntRect& destRect, const IntRect& srcRect,
                             Image::TileRule hRule = Image::StretchTile, Image::TileRule vRule = Image::StretchTile,
-                            CompositeOperator = CompositeSourceOver);
+                            CompositeOperator = CompositeSourceOver, bool useLowQualityScale = false);
 
         void setImageInterpolationQuality(InterpolationQuality);
         InterpolationQuality imageInterpolationQuality() const;
@@ -297,11 +302,8 @@ namespace WebCore {
         bool getShadow(IntSize&, int&, Color&) const;
         void clearShadow();
 
-        void initFocusRing(int width, int offset);
-        void addFocusRingRect(const IntRect&);
-        void drawFocusRing(const Color&);
-        void clearFocusRing();
-        IntRect focusRingBoundingRect();
+        void drawFocusRing(const Vector<IntRect>&, int width, int offset, const Color&);
+        void drawFocusRing(const Vector<Path>&, int width, int offset, const Color&);
 
         void setLineCap(LineCap);
         void setLineDash(const DashArray&, float dashOffset);
@@ -330,6 +332,7 @@ namespace WebCore {
 
         void scale(const FloatSize&);
         void rotate(float angleInRadians);
+        void translate(const FloatSize& size) { translate(size.width(), size.height()); }
         void translate(float x, float y);
         IntPoint origin();
 
@@ -338,7 +341,7 @@ namespace WebCore {
         void concatCTM(const TransformationMatrix&);
         TransformationMatrix getCTM() const;
 
-#if PLATFORM(WINCE) && !PLATFORM(QT)
+#if OS(WINCE) && !PLATFORM(QT)
         void setBitmap(PassRefPtr<SharedBitmap>);
         const TransformationMatrix& affineTransform() const;
         TransformationMatrix& affineTransform();
@@ -396,7 +399,7 @@ namespace WebCore {
         void drawWindowsBitmap(WindowsBitmap*, const IntPoint&);
 #endif
 
-#if (PLATFORM(QT) && defined(Q_WS_WIN)) || (PLATFORM(WX) && PLATFORM(WIN_OS))
+#if (PLATFORM(QT) && defined(Q_WS_WIN)) || (PLATFORM(WX) && OS(WINDOWS))
         HDC getWindowsContext(const IntRect&, bool supportAlphaBlend = true, bool mayCreateBitmap = true);
         void releaseWindowsContext(HDC, const IntRect&, bool supportAlphaBlend = true, bool mayCreateBitmap = true);
         bool shouldIncludeChildWindows() const { return false; }
@@ -445,10 +448,6 @@ namespace WebCore {
         void clearPlatformShadow();
 
         static void adjustLineToPixelBoundaries(FloatPoint& p1, FloatPoint& p2, float strokeWidth, const StrokeStyle&);
-
-        int focusRingWidth() const;
-        int focusRingOffset() const;
-        const Vector<IntRect>& focusRingRects() const;
 
         static GraphicsContextPrivate* createGraphicsContextPrivate();
         static void destroyGraphicsContextPrivate(GraphicsContextPrivate*);

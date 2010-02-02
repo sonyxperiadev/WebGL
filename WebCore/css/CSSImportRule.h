@@ -63,7 +63,7 @@ private:
     virtual unsigned short type() const { return IMPORT_RULE; }
 
     // from CachedResourceClient
-    virtual void setCSSStyleSheet(const String& url, const String& charset, const CachedCSSStyleSheet*);
+    virtual void setCSSStyleSheet(const String& href, const KURL& baseURL, const String& charset, const CachedCSSStyleSheet*);
 
 #ifdef ANDROID_INSTRUMENT
     // Overridden to resolve the ambiguous

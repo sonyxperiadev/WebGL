@@ -25,6 +25,7 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+
 #include "config.h"
 #include "ChromeClientQt.h"
 
@@ -38,8 +39,13 @@
 #include "NotImplemented.h"
 #include "WindowFeatures.h"
 #include "DatabaseTracker.h"
-#include "SecurityOrigin.h"
+#include "QtFallbackWebPopup.h"
 #include "QWebPageClient.h"
+#include "SecurityOrigin.h"
+
+#include <qdebug.h>
+#include <qtextdocument.h>
+#include <qtooltip.h>
 
 #include "qwebpage.h"
 #include "qwebpage_p.h"
@@ -48,12 +54,11 @@
 #include "qwebsecurityorigin_p.h"
 #include "qwebview.h"
 
-#include <qtooltip.h>
-#include <qtextdocument.h>
+#if USE(ACCELERATED_COMPOSITING)
+#include "GraphicsLayerQt.h"
+#endif
 
-namespace WebCore
-{
-
+namespace WebCore {
 
 ChromeClientQt::ChromeClientQt(QWebPage* webPage)
     : m_webPage(webPage)
@@ -283,7 +288,14 @@ bool ChromeClientQt::runJavaScriptPrompt(Frame* f, const String& message, const 
     QString x = result;
     FrameLoaderClientQt *fl = static_cast<FrameLoaderClientQt*>(f->loader()->client());
     bool rc = m_webPage->javaScriptPrompt(fl->webFrame(), (QString)message, (QString)defaultValue, &x);
-    result = x;
+
+    // Fix up a quirk in the QInputDialog class. If no input happened the string should be empty
+    // but it is null. See https://bugs.webkit.org/show_bug.cgi?id=30914.
+    if (rc && x.isNull())
+        result = String("");
+    else
+        result = x;
+
     return rc;
 }
 
@@ -456,6 +468,33 @@ void ChromeClientQt::requestGeolocationPermissionForFrame(Frame*, Geolocation*)
 {
     // See the comment in WebCore/page/ChromeClient.h
     notImplemented();
+}
+
+#if USE(ACCELERATED_COMPOSITING)
+void ChromeClientQt::attachRootGraphicsLayer(Frame* frame, GraphicsLayer* graphicsLayer)
+{    
+    if (platformPageClient())
+        platformPageClient()->setRootGraphicsLayer(graphicsLayer ? graphicsLayer->nativeLayer() : 0);
+}
+
+void ChromeClientQt::setNeedsOneShotDrawingSynchronization()
+{
+    // we want the layers to synchronize next time we update the screen anyway
+    if (platformPageClient())
+        platformPageClient()->markForSync(false);
+}
+
+void ChromeClientQt::scheduleCompositingLayerSync()
+{
+    // we want the layers to synchronize ASAP
+    if (platformPageClient())
+        platformPageClient()->markForSync(true);
+}
+#endif
+
+QtAbstractWebPopup* ChromeClientQt::createSelectPopup()
+{
+    return new QtFallbackWebPopup;
 }
 
 }

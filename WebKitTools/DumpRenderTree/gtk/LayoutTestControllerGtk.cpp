@@ -68,6 +68,8 @@ static gchar* copyWebSettingKey(gchar* preferenceKey)
         keyTable = g_hash_table_new(g_str_hash, g_str_equal);
         g_hash_table_insert(keyTable, g_strdup("WebKitJavaScriptEnabled"), g_strdup("enable-scripts"));
         g_hash_table_insert(keyTable, g_strdup("WebKitDefaultFontSize"), g_strdup("default-font-size"));
+        g_hash_table_insert(keyTable, g_strdup("WebKitEnableCaretBrowsing"), g_strdup("enable-caret-browsing"));
+        g_hash_table_insert(keyTable, g_strdup("WebKitUsesPageCachePreferenceKey"), g_strdup("enable-page-cache"));
     }
 
     return g_strdup(static_cast<gchar*>(g_hash_table_lookup(keyTable, preferenceKey)));
@@ -424,6 +426,11 @@ void LayoutTestController::setDatabaseQuota(unsigned long long quota)
     webkit_security_origin_set_web_database_quota(origin, quota);
 }
 
+void LayoutTestController::setDomainRelaxationForbiddenForURLScheme(bool, JSStringRef)
+{
+    // FIXME: implement
+}
+
 void LayoutTestController::setAppCacheMaximumSize(unsigned long long size)
 {
     webkit_application_cache_set_maximum_size(size);
@@ -489,9 +496,12 @@ void LayoutTestController::overridePreference(JSStringRef key, JSStringRef value
             g_value_transform(const_cast<GValue*>(&stringValue), &propValue);
             g_object_set_property(G_OBJECT(settings), webSettingKey, const_cast<GValue*>(&propValue));
         } else if (G_VALUE_HOLDS_BOOLEAN(&propValue)) {
+            char* lowered = g_utf8_strdown(strValue, -1);
             g_object_set(G_OBJECT(settings), webSettingKey,
-                         g_str_equal(g_utf8_strdown(strValue, -1), "true"),
+                         g_str_equal(lowered, "true")
+                         || g_str_equal(strValue, "1"),
                          NULL);
+            g_free(lowered);
         } else if (G_VALUE_HOLDS_INT(&propValue)) {
             std::string str(strValue);
             std::stringstream ss(str);

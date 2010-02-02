@@ -54,12 +54,13 @@ private:
     virtual void layout();
     virtual void paint(PaintInfo&, int parentX, int parentY);
 
-    virtual TransformationMatrix localToParentTransform() const;
+    virtual const TransformationMatrix& localToParentTransform() const;
 
     bool fillContains(const FloatPoint&) const;
     bool strokeContains(const FloatPoint&) const;
 
     virtual FloatRect objectBoundingBox() const;
+    virtual FloatRect strokeBoundingBox() const { return computeContainerBoundingBox(this, true); }
     virtual FloatRect repaintRectInLocalCoordinates() const;
 
     // FIXME: Both of these overrides should be removed.
@@ -84,6 +85,7 @@ private:
 
     RenderObjectChildList m_children;
     FloatSize m_viewportSize;
+    mutable TransformationMatrix m_localToParentTransform;
 };
 
 inline RenderSVGRoot* toRenderSVGRoot(RenderObject* object)

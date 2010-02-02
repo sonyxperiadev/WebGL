@@ -63,15 +63,13 @@ SVGSVGElement::SVGSVGElement(const QualifiedName& tagName, Document* doc)
     , SVGExternalResourcesRequired()
     , SVGFitToViewBox()
     , SVGZoomAndPan()
-    , m_x(this, SVGNames::xAttr, LengthModeWidth)
-    , m_y(this, SVGNames::yAttr, LengthModeHeight)
-    , m_width(this, SVGNames::widthAttr, LengthModeWidth, "100%")
-    , m_height(this, SVGNames::heightAttr, LengthModeHeight, "100%") 
-    , m_externalResourcesRequired(this, SVGNames::externalResourcesRequiredAttr, false)
-    , m_viewBox(this, SVGNames::viewBoxAttr)
-    , m_preserveAspectRatio(this, SVGNames::preserveAspectRatioAttr, SVGPreserveAspectRatio::create())
+    , m_x(LengthModeWidth)
+    , m_y(LengthModeHeight)
+    , m_width(LengthModeWidth, "100%")
+    , m_height(LengthModeHeight, "100%") 
     , m_useCurrentView(false)
     , m_timeContainer(SMILTimeContainer::create(this))
+    , m_scale(1)
     , m_viewSpec(0)
     , m_containerSize(300, 150)
     , m_hasSetContainerSize(false)
@@ -85,12 +83,6 @@ SVGSVGElement::~SVGSVGElement()
     // There are cases where removedFromDocument() is not called.
     // see ContainerNode::removeAllChildren, called by its destructor.
     document()->accessSVGExtensions()->removeTimeContainer(this);
-
-    // Call detach() here because if we wait until ~Node() calls it, we crash during
-    // RenderSVGViewportContainer destruction, as the renderer assumes that the element
-    // is still fully constructed. See <https://bugs.webkit.org/show_bug.cgi?id=21293>.
-    if (renderer())
-        detach();
 }
 
 const AtomicString& SVGSVGElement::contentScriptType() const
@@ -195,15 +187,22 @@ SVGViewSpec* SVGSVGElement::currentView() const
 
 float SVGSVGElement::currentScale() const
 {
-    if (document() && document()->frame())
-        return document()->frame()->zoomFactor();
-    return 1.0f;
+    if (document() && parentNode() == document())
+        return document()->frame() ? document()->frame()->zoomFactor() : 1;
+    return m_scale;
 }
 
 void SVGSVGElement::setCurrentScale(float scale)
 {
-    if (document() && document()->frame())
-        document()->frame()->setZoomFactor(scale, true);
+    if (document() && parentNode() == document()) {
+        if (document()->frame())
+            document()->frame()->setZoomFactor(scale, true);
+        return;
+    }
+
+    m_scale = scale;
+    if (renderer())
+        renderer()->setNeedsLayout(true);
 }
 
 FloatPoint SVGSVGElement::currentTranslate() const
@@ -310,6 +309,37 @@ void SVGSVGElement::svgAttributeChanged(const QualifiedName& attrName)
         renderer()->setNeedsLayout(true);
 }
 
+void SVGSVGElement::synchronizeProperty(const QualifiedName& attrName)
+{
+    SVGStyledElement::synchronizeProperty(attrName);
+
+    if (attrName == anyQName()) {
+        synchronizeX();
+        synchronizeY();
+        synchronizeWidth();
+        synchronizeHeight();
+        synchronizeExternalResourcesRequired();
+        synchronizeViewBox();
+        synchronizePreserveAspectRatio();
+        return;
+    }
+
+    if (attrName == SVGNames::xAttr)
+        synchronizeX();
+    else if (attrName == SVGNames::yAttr)
+        synchronizeY();
+    else if (attrName == SVGNames::widthAttr)
+        synchronizeWidth();
+    else if (attrName == SVGNames::heightAttr)
+        synchronizeHeight();
+    else if (SVGExternalResourcesRequired::isKnownAttribute(attrName))
+        synchronizeExternalResourcesRequired();
+    else if (SVGFitToViewBox::isKnownAttribute(attrName)) {
+        synchronizeViewBox();
+        synchronizePreserveAspectRatio();
+    }
+}
+
 unsigned SVGSVGElement::suspendRedraw(unsigned /* maxWaitMilliseconds */)
 {
     // FIXME: Implement me (see bug 11275)
@@ -374,9 +404,9 @@ SVGLength SVGSVGElement::createSVGLength()
     return SVGLength();
 }
 
-PassRefPtr<SVGAngle> SVGSVGElement::createSVGAngle()
+SVGAngle SVGSVGElement::createSVGAngle()
 {
-    return SVGAngle::create();
+    return SVGAngle();
 }
 
 FloatPoint SVGSVGElement::createSVGPoint()
@@ -531,13 +561,14 @@ void SVGSVGElement::inheritViewAttributes(SVGViewElement* viewElement)
         currentView()->setViewBox(viewElement->viewBox());
     else
         currentView()->setViewBox(viewBox());
-    if (viewElement->hasAttribute(SVGNames::preserveAspectRatioAttr)) {
-        currentView()->preserveAspectRatio()->setAlign(viewElement->preserveAspectRatio()->align());
-        currentView()->preserveAspectRatio()->setMeetOrSlice(viewElement->preserveAspectRatio()->meetOrSlice());
-    } else {
-        currentView()->preserveAspectRatio()->setAlign(preserveAspectRatio()->align());
-        currentView()->preserveAspectRatio()->setMeetOrSlice(preserveAspectRatio()->meetOrSlice());
-    }
+
+    SVGPreserveAspectRatio aspectRatio;
+    if (viewElement->hasAttribute(SVGNames::preserveAspectRatioAttr))
+        aspectRatio = viewElement->preserveAspectRatioBaseValue();
+    else
+        aspectRatio = preserveAspectRatioBaseValue();
+    currentView()->setPreserveAspectRatioBaseValue(aspectRatio);
+
     if (viewElement->hasAttribute(SVGNames::zoomAndPanAttr))
         currentView()->setZoomAndPan(viewElement->zoomAndPan());
     renderer()->setNeedsLayout(true);

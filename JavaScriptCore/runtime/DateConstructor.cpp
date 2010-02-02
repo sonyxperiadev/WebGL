@@ -35,7 +35,7 @@
 #include <wtf/DateMath.h>
 #include <wtf/MathExtras.h>
 
-#if PLATFORM(WINCE) && !PLATFORM(QT)
+#if OS(WINCE) && !PLATFORM(QT)
 extern "C" time_t time(time_t* timer); // Provided by libce.
 #endif
 
@@ -133,7 +133,11 @@ static JSValue JSC_HOST_CALL callDate(ExecState* exec, JSObject*, JSValue, const
     tm localTM;
     getLocalTime(&localTime, &localTM);
     GregorianDateTime ts(exec, localTM);
-    return jsNontrivialString(exec, formatDate(ts) + " " + formatTime(ts));
+    DateConversionBuffer date;
+    DateConversionBuffer time;
+    formatDate(ts, date);
+    formatTime(ts, time);
+    return jsNontrivialString(exec, makeString(date, " ", time));
 }
 
 CallType DateConstructor::getCallData(CallData& callData)

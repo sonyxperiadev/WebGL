@@ -26,6 +26,9 @@
 #include "config.h"
 #include "AccessibilityUIElement.h"
 
+#include "AccessibilityController.h"
+#include "DumpRenderTree.h"
+#include "FrameLoadDelegate.h"
 #include <JavaScriptCore/JSStringRef.h>
 #include <tchar.h>
 #include <string>
@@ -98,6 +101,12 @@ AccessibilityUIElement AccessibilityUIElement::getChildAtIndex(unsigned index)
     return COMPtr<IAccessible>(Query, child);
 }
 
+unsigned AccessibilityUIElement::indexOfChild(AccessibilityUIElement* element)
+{ 
+    // FIXME: implement
+    return 0;
+}
+
 JSStringRef AccessibilityUIElement::allAttributes()
 {
     return JSStringCreateWithCharacters(0, 0);
@@ -120,7 +129,11 @@ AccessibilityUIElement AccessibilityUIElement::titleUIElement()
 
 AccessibilityUIElement AccessibilityUIElement::parentElement()
 {
-    return 0;
+    COMPtr<IDispatch> parent;
+    m_element->get_accParent(&parent);
+
+    COMPtr<IAccessible> parentAccessible(Query, parent);
+    return parentAccessible;
 }
 
 JSStringRef AccessibilityUIElement::attributesOfChildren()
@@ -257,9 +270,24 @@ JSStringRef AccessibilityUIElement::valueDescription()
 {
     return 0;
 }
+
+static DWORD accessibilityState(COMPtr<IAccessible> element)
+{
+    VARIANT state;
+    element->get_accState(self(), &state);
+
+    ASSERT(V_VT(&state) == VT_I4);
+
+    DWORD result = state.lVal;
+    VariantClear(&state);
+
+    return result;
+}
+
 bool AccessibilityUIElement::isSelected() const
 {
-    return false;
+    DWORD state = accessibilityState(m_element);
+    return (state & STATE_SYSTEM_SELECTED) == STATE_SYSTEM_SELECTED;
 }
 
 int AccessibilityUIElement::hierarchicalLevel() const
@@ -282,12 +310,21 @@ bool AccessibilityUIElement::isExpanded() const
     return false;
 }
 
+bool AccessibilityUIElement::isChecked() const
+{
+    VARIANT vState;
+    if (FAILED(m_element->get_accState(self(), &vState)))
+        return false;
+
+    return vState.lVal & STATE_SYSTEM_CHECKED;
+}
+
 JSStringRef AccessibilityUIElement::orientation() const
 {
     return 0;
 }
 
-double AccessibilityUIElement::intValue()
+double AccessibilityUIElement::intValue() const
 {
     BSTR valueBSTR;
     if (FAILED(m_element->get_accValue(self(), &valueBSTR)) || !valueBSTR)
@@ -315,7 +352,8 @@ bool AccessibilityUIElement::isActionSupported(JSStringRef action)
 
 bool AccessibilityUIElement::isEnabled()
 {
-    return false;
+    DWORD state = accessibilityState(m_element);
+    return (state & STATE_SYSTEM_UNAVAILABLE) != STATE_SYSTEM_UNAVAILABLE;
 }
 
 bool AccessibilityUIElement::isRequired() const
@@ -403,9 +441,16 @@ void AccessibilityUIElement::setSelectedTextRange(unsigned location, unsigned le
 {
 }
 
-JSStringRef AccessibilityUIElement::attributeValue(JSStringRef attribute)
+JSStringRef AccessibilityUIElement::stringAttributeValue(JSStringRef attribute)
 {
+    // FIXME: implement
     return JSStringCreateWithCharacters(0, 0);
+}
+
+bool AccessibilityUIElement::boolAttributeValue(JSStringRef attribute)
+{
+    // FIXME: implement
+    return false;
 }
 
 bool AccessibilityUIElement::isAttributeSettable(JSStringRef attribute)
@@ -428,6 +473,8 @@ void AccessibilityUIElement::decrement()
 
 void AccessibilityUIElement::showMenu()
 {
+    ASSERT(hasPopup());
+    m_element->accDoDefaultAction(self());
 }
 
 AccessibilityUIElement AccessibilityUIElement::disclosedRowAtIndex(unsigned index)
@@ -476,4 +523,76 @@ JSStringRef AccessibilityUIElement::documentEncoding()
 JSStringRef AccessibilityUIElement::documentURI()
 {
     return JSStringCreateWithCharacters(0, 0);
+}
+
+JSStringRef AccessibilityUIElement::url()
+{
+    // FIXME: implement
+    return JSStringCreateWithCharacters(0, 0);
+}
+
+bool AccessibilityUIElement::addNotificationListener(JSObjectRef functionCallback)
+{
+    if (!functionCallback)
+        return false;
+
+    sharedFrameLoadDelegate->accessibilityController()->addNotificationListener(m_element, functionCallback);
+    return true;
+}
+
+bool AccessibilityUIElement::isSelectable() const
+{
+    DWORD state = accessibilityState(m_element);
+    return (state & STATE_SYSTEM_SELECTABLE) == STATE_SYSTEM_SELECTABLE;
+}
+
+bool AccessibilityUIElement::isMultiSelectable() const
+{
+    DWORD multiSelectable = STATE_SYSTEM_EXTSELECTABLE | STATE_SYSTEM_MULTISELECTABLE;
+    DWORD state = accessibilityState(m_element);
+    return (state & multiSelectable) == multiSelectable;
+}
+
+bool AccessibilityUIElement::isVisible() const
+{
+    DWORD state = accessibilityState(m_element);
+    return (state & STATE_SYSTEM_INVISIBLE) != STATE_SYSTEM_INVISIBLE;
+}
+
+bool AccessibilityUIElement::isOffScreen() const
+{
+    DWORD state = accessibilityState(m_element);
+    return (state & STATE_SYSTEM_OFFSCREEN) == STATE_SYSTEM_OFFSCREEN;
+}
+
+bool AccessibilityUIElement::isCollapsed() const
+{
+    DWORD state = accessibilityState(m_element);
+    return (state & STATE_SYSTEM_COLLAPSED) == STATE_SYSTEM_COLLAPSED;
+}
+
+bool AccessibilityUIElement::hasPopup() const
+{
+    DWORD state = accessibilityState(m_element);
+    return (state & STATE_SYSTEM_HASPOPUP) == STATE_SYSTEM_HASPOPUP;
+}
+
+void AccessibilityUIElement::takeFocus()
+{
+    m_element->accSelect(SELFLAG_TAKEFOCUS, self());
+}
+
+void AccessibilityUIElement::takeSelection()
+{
+    m_element->accSelect(SELFLAG_TAKESELECTION, self());
+}
+
+void AccessibilityUIElement::addSelection()
+{
+    m_element->accSelect(SELFLAG_ADDSELECTION, self());
+}
+
+void AccessibilityUIElement::removeSelection()
+{
+    m_element->accSelect(SELFLAG_REMOVESELECTION, self());
 }

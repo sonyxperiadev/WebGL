@@ -35,7 +35,7 @@
 #include "ContextMenu.h"
 #include "ContextMenuItem.h"
 #include "ContextMenuController.h"
-#include "ContextMenuSelectionHandler.h"
+#include "ContextMenuProvider.h"
 #include "Element.h"
 #include "Frame.h"
 #include "FrameLoader.h"
@@ -45,6 +45,7 @@
 #include "InspectorFrontend.h"
 #include "InspectorResource.h"
 #include "Page.h"
+#include "Pasteboard.h"
 
 #include <wtf/RefPtr.h>
 #include <wtf/StdLibExtras.h>
@@ -56,13 +57,13 @@ namespace WebCore {
 InspectorFrontendHost::InspectorFrontendHost(InspectorController* inspectorController, InspectorClient* client)
     : m_inspectorController(inspectorController)
     , m_client(client)
-    , m_menuSelectionHandler(MenuSelectionHandler::create(this))
 {
 }
 
 InspectorFrontendHost::~InspectorFrontendHost()
 {
-    m_menuSelectionHandler->disconnect();
+    if (m_menuProvider)
+        m_menuProvider->disconnect();
 }
 
 void InspectorFrontendHost::loaded()
@@ -120,19 +121,16 @@ String InspectorFrontendHost::hiddenPanels()
 const String& InspectorFrontendHost::platform() const
 {
 #if PLATFORM(MAC)
-#ifdef BUILDING_ON_TIGER
-    DEFINE_STATIC_LOCAL(const String, platform, ("mac-tiger"));
-#else
-    DEFINE_STATIC_LOCAL(const String, platform, ("mac-leopard"));
-#endif
-#elif PLATFORM(WIN_OS)
+    DEFINE_STATIC_LOCAL(const String, platform, ("mac"));
+#elif OS(WINDOWS)
     DEFINE_STATIC_LOCAL(const String, platform, ("windows"));
+#elif OS(LINUX)
+    DEFINE_STATIC_LOCAL(const String, platform, ("linux"));
 #else
     DEFINE_STATIC_LOCAL(const String, platform, ("unknown"));
 #endif
     return platform;
 }
-
 
 const String& InspectorFrontendHost::port() const
 {
@@ -149,74 +147,22 @@ const String& InspectorFrontendHost::port() const
     return port;
 }
 
-void InspectorFrontendHost::addResourceSourceToFrame(long identifier, Node* frame)
+void InspectorFrontendHost::copyText(const String& text)
 {
-    if (!m_inspectorController)
-        return;
-    RefPtr<InspectorResource> resource = m_inspectorController->resources().get(identifier);
-    if (resource) {
-        String sourceString = resource->sourceString();
-        if (!sourceString.isEmpty())
-            addSourceToFrame(resource->mimeType(), sourceString, frame);
-    }
+    Pasteboard::generalPasteboard()->writePlainText(text);
 }
 
-bool InspectorFrontendHost::addSourceToFrame(const String& mimeType, const String& source, Node* frameNode)
-{
-    ASSERT_ARG(frameNode, frameNode);
-
-    if (!frameNode)
-        return false;
-
-    if (!frameNode->attached()) {
-        ASSERT_NOT_REACHED();
-        return false;
-    }
-
-    ASSERT(frameNode->isElementNode());
-    if (!frameNode->isElementNode())
-        return false;
-
-    Element* element = static_cast<Element*>(frameNode);
-    ASSERT(element->isFrameOwnerElement());
-    if (!element->isFrameOwnerElement())
-        return false;
-
-    HTMLFrameOwnerElement* frameOwner = static_cast<HTMLFrameOwnerElement*>(element);
-    ASSERT(frameOwner->contentFrame());
-    if (!frameOwner->contentFrame())
-        return false;
-
-    FrameLoader* loader = frameOwner->contentFrame()->loader();
-
-    loader->setResponseMIMEType(mimeType);
-    loader->begin();
-    loader->write(source);
-    loader->end();
-
-    return true;
-}
-
-String InspectorFrontendHost::setting(const String& key)
-{
-    return m_inspectorController ? m_inspectorController->setting(key) : "";
-}
-
-void InspectorFrontendHost::setSetting(const String& key, const String& value)
-{
-    if (m_inspectorController)
-        m_inspectorController->setSetting(key, value);
-}
-
-void InspectorFrontendHost::showContextMenu(Event* event, Vector<ContextMenuItem>& items)
+void InspectorFrontendHost::showContextMenu(Event* event, const Vector<ContextMenuItem*>& items)
 {
     if (!m_inspectorController)
         return;
     if (!m_inspectorController->windowVisible())
         return;
 
+
+    m_menuProvider = MenuProvider::create(this, items);
     ContextMenuController* menuController = m_inspectorController->m_page->contextMenuController();
-    menuController->showContextMenu(event, items, m_menuSelectionHandler);
+    menuController->showContextMenu(event, m_menuProvider);
 }
 
 void InspectorFrontendHost::contextMenuItemSelected(ContextMenuItem* item)
@@ -229,6 +175,7 @@ void InspectorFrontendHost::contextMenuItemSelected(ContextMenuItem* item)
 
 void InspectorFrontendHost::contextMenuCleared()
 {
+    m_menuProvider = 0;
     if (m_inspectorController && m_inspectorController->windowVisible())
         m_inspectorController->m_frontend->contextMenuCleared();
 }

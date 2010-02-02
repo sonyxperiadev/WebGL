@@ -809,6 +809,8 @@ const String& AccessibilityObject::actionVerb() const
     DEFINE_STATIC_LOCAL(const String, checkedCheckBoxAction, (AXCheckedCheckBoxActionVerb()));
     DEFINE_STATIC_LOCAL(const String, uncheckedCheckBoxAction, (AXUncheckedCheckBoxActionVerb()));
     DEFINE_STATIC_LOCAL(const String, linkAction, (AXLinkActionVerb()));
+    DEFINE_STATIC_LOCAL(const String, menuListAction, (AXMenuListActionVerb()));
+    DEFINE_STATIC_LOCAL(const String, menuListPopupAction, (AXMenuListPopupActionVerb()));
     DEFINE_STATIC_LOCAL(const String, noAction, ());
 
     switch (roleValue()) {
@@ -824,6 +826,10 @@ const String& AccessibilityObject::actionVerb() const
     case LinkRole:
     case WebCoreLinkRole:
         return linkAction;
+    case PopUpButtonRole:
+        return menuListAction;
+    case MenuListPopupRole:
+        return menuListPopupAction;
     default:
         return noAction;
     }
@@ -912,6 +918,7 @@ static ARIARoleMap* createARIARoleMap()
         { "toolbar", ToolbarRole },
         { "tooltip", UserInterfaceTooltipRole },
         { "tree", TreeRole },
+        { "treegrid", TreeGridRole },
         { "treeitem", TreeItemRole }
     };
     ARIARoleMap* roleMap = new ARIARoleMap;
@@ -928,5 +935,25 @@ AccessibilityRole AccessibilityObject::ariaRoleToWebCoreRole(const String& value
     static const ARIARoleMap* roleMap = createARIARoleMap();
     return roleMap->get(value);
 }
+
+bool AccessibilityObject::isInsideARIALiveRegion() const
+{
+    if (supportsARIALiveRegion())
+        return true;
+    
+    for (AccessibilityObject* axParent = parentObject(); axParent; axParent = axParent->parentObject()) {
+        if (axParent->supportsARIALiveRegion())
+            return true;
+    }
+    
+    return false;
+}
+
+bool AccessibilityObject::supportsARIALiveRegion() const
+{
+    const AtomicString& liveRegion = ariaLiveRegionStatus();
+    return equalIgnoringCase(liveRegion, "polite") || equalIgnoringCase(liveRegion, "assertive");
+}
+
     
 } // namespace WebCore

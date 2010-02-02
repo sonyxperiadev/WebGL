@@ -36,9 +36,6 @@ namespace WebCore {
 // A class that stores static enablers for all experimental features
 class RuntimeEnabledFeatures {
 public:
-    static void setDatabaseEnabled(bool isEnabled) { isDatabaseEnabled = isEnabled; }
-    static bool databaseEnabled() { return isDatabaseEnabled; }
-
     static void setLocalStorageEnabled(bool isEnabled) { isLocalStorageEnabled = isEnabled; }
     static bool localStorageEnabled() { return isLocalStorageEnabled; }
 
@@ -51,15 +48,22 @@ public:
     static void setApplicationCacheEnabled(bool isEnabled) { isApplicationCacheEnabled = isEnabled; }
     static bool applicationCacheEnabled() { return isApplicationCacheEnabled; }
 
+    static void setGeolocationEnabled(bool isEnabled) { isGeolocationEnabled = isEnabled; }
+    static bool geolocationEnabled() { return isGeolocationEnabled; }
+
+    static void setIndexedDatabaseEnabled(bool isEnabled) { isIndexedDatabaseEnabled = isEnabled; }
+    static bool indexedDatabaseEnabled() { return isIndexedDatabaseEnabled; }
+
 private:
     // Never instantiate.
     RuntimeEnabledFeatures() { }
 
-    static bool isDatabaseEnabled;
     static bool isLocalStorageEnabled;
     static bool isSessionStorageEnabled;
     static bool isNotificationsEnabled;
     static bool isApplicationCacheEnabled;
+    static bool isGeolocationEnabled;
+    static bool isIndexedDatabaseEnabled;
 };
 
 } // namespace WebCore

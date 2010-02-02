@@ -26,6 +26,7 @@
 #include "config.h"
 #include "Settings.h"
 
+#include "BackForwardList.h"
 #include "Frame.h"
 #include "FrameTree.h"
 #include "FrameView.h"
@@ -48,7 +49,7 @@ static void setNeedsReapplyStylesInAllFrames(Page* page)
 bool Settings::gShouldPaintNativeControls = true;
 #endif
 
-#if PLATFORM(WIN) || (PLATFORM(WIN_OS) && PLATFORM(WX))
+#if PLATFORM(WIN) || (OS(WINDOWS) && PLATFORM(WX))
 bool Settings::gShouldUseHighResolutionTimers = true;
 #endif
 
@@ -79,6 +80,7 @@ Settings::Settings(Page* page)
     , m_loadsImagesAutomatically(false)
     , m_privateBrowsingEnabled(false)
     , m_caretBrowsingEnabled(false)
+    , m_areImagesEnabled(true)
     , m_arePluginsEnabled(false)
     , m_databasesEnabled(false)
     , m_localStorageEnabled(false)
@@ -115,7 +117,7 @@ Settings::Settings(Page* page)
     , m_usesEncodingDetector(false)
     , m_allowScriptsToCloseWindows(false)
     , m_editingBehavior(
-#if PLATFORM(MAC) || (PLATFORM(CHROMIUM) && PLATFORM(DARWIN))
+#if PLATFORM(MAC) || (PLATFORM(CHROMIUM) && OS(DARWIN))
         // (PLATFORM(MAC) is always false in Chromium, hence the extra condition.)
         EditingMacBehavior
 #else
@@ -132,6 +134,7 @@ Settings::Settings(Page* page)
     , m_experimentalNotificationsEnabled(false)
     , m_webGLEnabled(false)
     , m_geolocationEnabled(true)
+    , m_loadDeferringEnabled(true)
 {
     // A Frame may not have been created yet, so we initialize the AtomicString 
     // hash before trying to use it.
@@ -261,6 +264,11 @@ void Settings::setAllowUniversalAccessFromFileURLs(bool allowUniversalAccessFrom
 void Settings::setJavaEnabled(bool isJavaEnabled)
 {
     m_isJavaEnabled = isJavaEnabled;
+}
+
+void Settings::setImagesEnabled(bool areImagesEnabled)
+{
+    m_areImagesEnabled = areImagesEnabled;
 }
 
 void Settings::setPluginsEnabled(bool arePluginsEnabled)
@@ -727,7 +735,7 @@ void Settings::setPluginAllowedRunTime(unsigned runTime)
     m_page->pluginAllowedRunTimeChanged();
 }
 
-#if PLATFORM(WIN) || (PLATFORM(WIN_OS) && PLATFORM(WX))
+#if PLATFORM(WIN) || (OS(WINDOWS) && PLATFORM(WX))
 void Settings::setShouldUseHighResolutionTimers(bool shouldUseHighResolutionTimers)
 {
     gShouldUseHighResolutionTimers = shouldUseHighResolutionTimers;
@@ -742,6 +750,11 @@ void Settings::setWebGLEnabled(bool enabled)
 void Settings::setGeolocationEnabled(bool enabled)
 {
     m_geolocationEnabled = enabled;
+}
+
+void Settings::setLoadDeferringEnabled(bool enabled)
+{
+    m_loadDeferringEnabled = enabled;
 }
 
 } // namespace WebCore

@@ -43,7 +43,15 @@
 #include <wtf/OwnArrayPtr.h>
 #include <wtf/RetainPtr.h>
 
-#if PLATFORM(MAC) || (PLATFORM(CHROMIUM) && PLATFORM(DARWIN))
+#if PLATFORM(MAC) || PLATFORM(CHROMIUM)
+#include "WebCoreSystemInterface.h"
+#endif
+
+#if PLATFORM(WIN)
+#include <WebKitSystemInterface/WebKitSystemInterface.h>
+#endif
+
+#if PLATFORM(MAC) || (PLATFORM(CHROMIUM) && OS(DARWIN))
 
 #if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
 // Building on 10.6 or later: kCGInterpolationMedium is defined in the CGInterpolationQuality enum.
@@ -490,7 +498,7 @@ static inline bool calculateDrawingMode(const GraphicsContextState& state, CGPat
         }
     } else {
         // Setting mode to kCGPathStroke even if shouldStroke is false. In that case, we return false and mode will not be used,
-        // but the compiler will not compain about an uninitialized variable.
+        // but the compiler will not complain about an uninitialized variable.
         mode = kCGPathStroke;
     }
 
@@ -547,7 +555,7 @@ void GraphicsContext::fillPath()
         else
             CGContextClip(context);
         CGContextConcatCTM(context, m_common->state.fillGradient->gradientSpaceTransform());
-        CGContextDrawShading(context, m_common->state.fillGradient->platformGradient());
+        m_common->state.fillGradient->paint(this);
         CGContextRestoreGState(context);
         return;
     }
@@ -572,7 +580,7 @@ void GraphicsContext::strokePath()
         CGContextReplacePathWithStrokedPath(context);
         CGContextClip(context);
         CGContextConcatCTM(context, m_common->state.strokeGradient->gradientSpaceTransform());
-        CGContextDrawShading(context, m_common->state.strokeGradient->platformGradient());
+        m_common->state.strokeGradient->paint(this);
         CGContextRestoreGState(context);
         return;
     }
@@ -596,7 +604,7 @@ void GraphicsContext::fillRect(const FloatRect& rect)
         CGContextSaveGState(context);
         CGContextClipToRect(context, rect);
         CGContextConcatCTM(context, m_common->state.fillGradient->gradientSpaceTransform());
-        CGContextDrawShading(context, m_common->state.fillGradient->platformGradient());
+        m_common->state.fillGradient->paint(this);
         CGContextRestoreGState(context);
         return;
     }
@@ -739,56 +747,55 @@ void GraphicsContext::endTransparencyLayer()
     m_data->m_userToDeviceTransformKnownToBeIdentity = false;
 }
 
-void GraphicsContext::setPlatformShadow(const IntSize& size, int blur, const Color& color, ColorSpace colorSpace)
+void GraphicsContext::setPlatformShadow(const IntSize& offset, int blur, const Color& color, ColorSpace colorSpace)
 {
     if (paintingDisabled())
         return;
-    CGFloat width = size.width();
-    CGFloat height = size.height();
+    CGFloat xOffset = offset.width();
+    CGFloat yOffset = offset.height();
     CGFloat blurRadius = blur;
     CGContextRef context = platformContext();
 
     if (!m_common->state.shadowsIgnoreTransforms) {
-        CGAffineTransform transform = CGContextGetCTM(context);
+        CGAffineTransform userToBaseCTM = wkGetUserToBaseCTM(context);
 
-        CGFloat A = transform.a * transform.a + transform.b * transform.b;
-        CGFloat B = transform.a * transform.c + transform.b * transform.d;
+        CGFloat A = userToBaseCTM.a * userToBaseCTM.a + userToBaseCTM.b * userToBaseCTM.b;
+        CGFloat B = userToBaseCTM.a * userToBaseCTM.c + userToBaseCTM.b * userToBaseCTM.d;
         CGFloat C = B;
-        CGFloat D = transform.c * transform.c + transform.d * transform.d;
+        CGFloat D = userToBaseCTM.c * userToBaseCTM.c + userToBaseCTM.d * userToBaseCTM.d;
 
         CGFloat smallEigenvalue = narrowPrecisionToCGFloat(sqrt(0.5 * ((A + D) - sqrt(4 * B * C + (A - D) * (A - D)))));
 
         // Extreme "blur" values can make text drawing crash or take crazy long times, so clamp
         blurRadius = min(blur * smallEigenvalue, narrowPrecisionToCGFloat(1000.0));
 
-        CGSize sizeInDeviceSpace = CGSizeApplyAffineTransform(size, transform);
+        CGSize offsetInBaseSpace = CGSizeApplyAffineTransform(offset, userToBaseCTM);
 
-        width = sizeInDeviceSpace.width;
-        height = sizeInDeviceSpace.height;
-
+        xOffset = offsetInBaseSpace.width;
+        yOffset = offsetInBaseSpace.height;
     }
 
     // Work around <rdar://problem/5539388> by ensuring that the offsets will get truncated
     // to the desired integer.
     static const CGFloat extraShadowOffset = narrowPrecisionToCGFloat(1.0 / 128);
-    if (width > 0)
-        width += extraShadowOffset;
-    else if (width < 0)
-        width -= extraShadowOffset;
+    if (xOffset > 0)
+        xOffset += extraShadowOffset;
+    else if (xOffset < 0)
+        xOffset -= extraShadowOffset;
 
-    if (height > 0)
-        height += extraShadowOffset;
-    else if (height < 0)
-        height -= extraShadowOffset;
+    if (yOffset > 0)
+        yOffset += extraShadowOffset;
+    else if (yOffset < 0)
+        yOffset -= extraShadowOffset;
 
     // Check for an invalid color, as this means that the color was not set for the shadow
     // and we should therefore just use the default shadow color.
     if (!color.isValid())
-        CGContextSetShadow(context, CGSizeMake(width, height), blurRadius);
+        CGContextSetShadow(context, CGSizeMake(xOffset, yOffset), blurRadius);
     else {
         RetainPtr<CGColorRef> colorCG(AdoptCF, createCGColorWithColorSpace(color, colorSpace));
         CGContextSetShadowWithColor(context,
-                                    CGSizeMake(width, height),
+                                    CGSizeMake(xOffset, yOffset),
                                     blurRadius,
                                     colorCG.get());
     }
@@ -838,7 +845,7 @@ void GraphicsContext::strokeRect(const FloatRect& r, float lineWidth)
         CGContextAddRect(context, r);
         CGContextReplacePathWithStrokedPath(context);
         CGContextClip(context);
-        CGContextDrawShading(context, m_common->state.strokeGradient->platformGradient());
+        m_common->state.strokeGradient->paint(this);
         CGContextRestoreGState(context);
         return;
     }

@@ -34,6 +34,7 @@
 #include "Editor.h"
 #include "EmptyClients.h"
 #include "EventHandler.h"
+#include "FileChooser.h"
 #include "FocusController.h"
 #include "Frame.h"
 #include "FrameLoader.h"
@@ -317,7 +318,7 @@ bool wxWebView::Create(wxWindow* parent, int id, const wxPoint& position,
     WebCore::HTMLFrameOwnerElement* parentFrame = 0;
 
     WebCore::EditorClientWx* editorClient = new WebCore::EditorClientWx();
-    m_impl->page = new WebCore::Page(new WebCore::ChromeClientWx(this), new WebCore::ContextMenuClientWx(), editorClient, new WebCore::DragClientWx(), new WebCore::InspectorClientWx(), new WebCore::EmptyPluginHalterClient());
+    m_impl->page = new WebCore::Page(new WebCore::ChromeClientWx(this), new WebCore::ContextMenuClientWx(), editorClient, new WebCore::DragClientWx(), new WebCore::InspectorClientWx(), 0, 0);
     editorClient->setPage(m_impl->page);
     
     m_mainFrame = new wxWebFrame(this);
@@ -336,10 +337,6 @@ bool wxWebView::Create(wxWindow* parent, int id, const wxPoint& position,
 
 #if ENABLE(DATABASE)
     settings->setDatabasesEnabled(true);
-#endif
-
-#if __WXMSW__ || __WXMAC__
-    settings->setPluginsEnabled(true);
 #endif
 
     m_isInitialized = true;
@@ -824,11 +821,11 @@ void wxWebView::OnKeyEvents(wxKeyEvent& event)
             return;
         case WXK_PAGEUP:
         case WXK_NUMPAD_PAGEUP:
-            frame->view()->scrollBy(WebCore::IntSize(0, -frame->view()->visibleHeight() + WebCore::cAmountToKeepWhenPaging));
+            frame->view()->scrollBy(WebCore::IntSize(0, -frame->view()->visibleHeight() * WebCore::cFractionToStepWhenPaging));
             return;
         case WXK_PAGEDOWN:
         case WXK_NUMPAD_PAGEDOWN:
-            frame->view()->scrollBy(WebCore::IntSize(0, frame->view()->visibleHeight() - WebCore::cAmountToKeepWhenPaging));
+            frame->view()->scrollBy(WebCore::IntSize(0, frame->view()->visibleHeight() * WebCore::cFractionToStepWhenPaging));
             return;
         //These we don't want turning into char events, stuff 'em
         case WXK_ESCAPE:
@@ -965,4 +962,21 @@ void wxWebView::SetProxyInfo(const wxString& host,
     using WebCore::ResourceHandleManager;
     if (ResourceHandleManager* mgr = ResourceHandleManager::sharedInstance())
         mgr->setProxyInfo(host, port, curlProxyType(type), username, password);
+}
+
+wxWebSettings wxWebView::GetWebSettings()
+{
+    ASSERT(m_impl->page);
+    if (m_impl->page)
+        return wxWebSettings(m_impl->page->settings());
+    
+    return wxWebSettings();
+}
+
+wxWebKitParseMode wxWebView::GetParseMode() const
+{
+    if (m_mainFrame)
+        return m_mainFrame->GetParseMode();
+
+    return NoDocument;
 }

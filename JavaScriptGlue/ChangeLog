@@ -1,3 +1,111 @@
+2010-01-28  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Gavin Barraclough.
+
+        Simplify anonymous slot implementation
+        https://bugs.webkit.org/show_bug.cgi?id=34282
+
+        Update JSGlue Structure usage to pass the anonymous slot count.
+
+        * UserObjectImp.h:
+        (UserObjectImp::createStructure):
+
+2010-01-12  Kent Hansen  <kent.hansen@nokia.com>
+
+        Reviewed by Geoffrey Garen.
+
+        [ES5] Implement Object.getOwnPropertyNames
+        https://bugs.webkit.org/show_bug.cgi?id=32242
+
+        Add new argument to the reimplementation of getOwnPropertyNames().
+
+        * UserObjectImp.cpp:
+        (UserObjectImp::getOwnPropertyNames):
+        * UserObjectImp.h:
+
+2010-01-07  Alexey Proskuryakov  <ap@apple.com>
+
+        Mac build fix.
+
+        * config.h: Define JS_EXPORTCLASS for JavaScriptGlue.
+
+2010-01-05  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        https://bugs.webkit.org/show_bug.cgi?id=33236
+        Remove m_identifierTable pointer from UString
+
+        Add API shims similar to those used in the JSC API to track the current identifierTable.
+
+        * JSBase.cpp:
+        (JSBase::Release):
+        * JSUtils.cpp:
+        (JSObjectKJSValue):
+        (KJSValueToCFTypeInternal):
+        (unprotectGlobalObject):
+        (JSGlueAPIEntry::JSGlueAPIEntry):
+        (JSGlueAPIEntry::~JSGlueAPIEntry):
+        (JSGlueAPICallback::JSGlueAPICallback):
+        (JSGlueAPICallback::~JSGlueAPICallback):
+        * JSUtils.h:
+        * JSValueWrapper.cpp:
+        (JSValueWrapper::JSObjectCopyPropertyNames):
+        (JSValueWrapper::JSObjectCopyProperty):
+        (JSValueWrapper::JSObjectSetProperty):
+        (JSValueWrapper::JSObjectCallFunction):
+        (JSValueWrapper::JSObjectCopyCFValue):
+        * JavaScriptGlue.cpp:
+        (JSRunCreate):
+        (JSRunEvaluate):
+        (JSRunCheckSyntax):
+        (JSCollect):
+        * JavaScriptGlue.xcodeproj/project.pbxproj:
+        * UserObjectImp.cpp:
+        (UserObjectImp::callAsFunction):
+
+2010-01-04  Gavin Barraclough <barraclough@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Add a forwarding header so that StringHashFunctions.h can be found.
+
+        * ForwardingHeaders/wtf/StringHashFunctions.h: Added.
+
+2010-01-04  Dan Bernstein  <mitz@apple.com>
+
+        Reviewed by Ada Chan and Mark Rowe.
+
+        Updated copyright string
+
+        * Info.plist:
+
+2009-12-21  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Darin Adler.
+
+        https://bugs.webkit.org/show_bug.cgi?id=32831
+        Replace UString::Rep implementation, following introduction of ropes to JSC.
+
+        * ForwardingHeaders/wtf/PossiblyNull.h: Added.
+            - add forwarding header.
+
+2009-12-16  Mark Rowe  <mrowe@apple.com>
+
+        Build fix.  Disable debug variants of WebKit frameworks.
+
+        * JavaScriptGlue.xcodeproj/project.pbxproj:
+
+2009-12-13  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Sam Weinig.
+        
+        Changed GC from mark-sweep to mark-allocate.
+        
+        * JavaScriptGlue.cpp:
+        (JSCollect): Updated for rename. Fixed a bug where JSGlue would not check
+        to avoid nested GC calls.
+
 2009-12-08  Dmitry Titov  <dimich@chromium.org>
 
         Rubber-stamped by David Levin.

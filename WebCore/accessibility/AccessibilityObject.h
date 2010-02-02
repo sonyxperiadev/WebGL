@@ -40,7 +40,7 @@
 
 #if PLATFORM(MAC)
 #include <wtf/RetainPtr.h>
-#elif PLATFORM(WIN) && !PLATFORM(WINCE)
+#elif PLATFORM(WIN) && !OS(WINCE)
 #include "AccessibilityObjectWrapperWin.h"
 #include "COMPtr.h"
 #elif PLATFORM(CHROMIUM)
@@ -165,9 +165,14 @@ enum AccessibilityRole {
     TabListRole,
     TabPanelRole,
     TreeRole,
+    TreeGridRole,
     TreeItemRole,
     DirectoryRole,
-    
+    EditableTextRole,
+    ListItemRole,
+    MenuListPopupRole,
+    MenuListOptionRole,
+
     // ARIA Grouping roles
     LandmarkApplicationRole,
     LandmarkBannerRole,
@@ -279,6 +284,11 @@ public:
     virtual bool isTableCell() const { return false; }
     virtual bool isFieldset() const { return false; }
     virtual bool isGroup() const { return false; }
+    virtual bool isARIATreeGridRow() const { return false; }
+    virtual bool isImageMapLink() const { return false; }
+    virtual bool isMenuList() const { return false; }
+    virtual bool isMenuListPopup() const { return false; }
+    virtual bool isMenuListOption() const { return false; }
     bool isTabList() const { return roleValue() == TabListRole; }
     bool isTabItem() const { return roleValue() == TabRole; }
     bool isRadioGroup() const { return roleValue() == RadioGroupRole; }
@@ -295,7 +305,7 @@ public:
     virtual bool isHovered() const { return false; }
     virtual bool isIndeterminate() const { return false; }
     virtual bool isLoaded() const { return false; }
-    virtual bool isMultiSelect() const { return false; }
+    virtual bool isMultiSelectable() const { return false; }
     virtual bool isOffScreen() const { return false; }
     virtual bool isPressed() const { return false; }
     virtual bool isReadOnly() const { return false; }
@@ -303,6 +313,8 @@ public:
     virtual bool isRequired() const { return false; }
     virtual bool isLinked() const { return false; }
     virtual bool isExpanded() const { return false; }
+    virtual bool isVisible() const { return true; }
+    virtual bool isCollapsed() const { return false; }
     virtual void setIsExpanded(bool) { }
 
     virtual bool canSetFocusAttribute() const { return false; }
@@ -326,6 +338,7 @@ public:
     virtual AccessibilityObject* selectedRadioButton() { return 0; }
     virtual AccessibilityObject* selectedTabItem() { return 0; }    
     virtual int layoutCount() const { return 0; }
+    virtual double estimatedLoadingProgress() const { return 0; }
     static bool isARIAControl(AccessibilityRole);
     static bool isARIAInput(AccessibilityRole);
     virtual bool supportsARIAOwns() const { return false; }
@@ -420,6 +433,7 @@ public:
     virtual void decrement() { }
 
     virtual void childrenChanged() { }
+    virtual void contentChanged() { }
     virtual const AccessibilityChildrenVector& children() { return m_children; }
     virtual void addChildren() { }
     virtual bool canHaveChildren() const { return true; }
@@ -487,13 +501,22 @@ public:
     virtual String stringRoleForMSAA() const { return String(); }
     virtual String nameForMSAA() const { return String(); }
     virtual String descriptionForMSAA() const { return String(); }
-    
+    virtual AccessibilityRole roleValueForMSAA() const { return roleValue(); }
+
     // Used by an ARIA tree to get all its rows.
     void ariaTreeRows(AccessibilityChildrenVector&);
     // Used by an ARIA tree item to get all of its direct rows that it can disclose.
     void ariaTreeItemDisclosedRows(AccessibilityChildrenVector&);
     // Used by an ARIA tree item to get only its content, and not its child tree items and groups. 
     void ariaTreeItemContent(AccessibilityChildrenVector&);
+    
+    // ARIA live-region features.
+    bool supportsARIALiveRegion() const;
+    bool isInsideARIALiveRegion() const;
+    virtual const AtomicString& ariaLiveRegionStatus() const { return nullAtom; }
+    virtual const AtomicString& ariaLiveRegionRelevant() const { return nullAtom; }
+    virtual bool ariaLiveRegionAtomic() const { return false; }
+    virtual bool ariaLiveRegionBusy() const { return false; }
     
 #if HAVE(ACCESSIBILITY)
 #if PLATFORM(GTK)
@@ -538,7 +561,7 @@ protected:
     
 #if PLATFORM(MAC)
     RetainPtr<AccessibilityObjectWrapper> m_wrapper;
-#elif PLATFORM(WIN) && !PLATFORM(WINCE)
+#elif PLATFORM(WIN) && !OS(WINCE)
     COMPtr<AccessibilityObjectWrapper> m_wrapper;
 #elif PLATFORM(GTK)
     AtkObject* m_wrapper;

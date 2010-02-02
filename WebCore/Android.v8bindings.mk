@@ -98,7 +98,6 @@ LOCAL_SRC_FILES += \
 	bindings/v8/custom/V8ClipboardCustom.cpp \
 	bindings/v8/custom/V8ConsoleCustom.cpp \
 	bindings/v8/custom/V8CoordinatesCustom.cpp \
-	bindings/v8/custom/V8CustomBinding.cpp \
 	bindings/v8/custom/V8CustomEventListener.cpp \
 	bindings/v8/custom/V8CustomPositionCallback.cpp \
 	bindings/v8/custom/V8CustomPositionErrorCallback.cpp \
@@ -108,7 +107,6 @@ LOCAL_SRC_FILES += \
 	bindings/v8/custom/V8CustomSQLTransactionErrorCallback.cpp \
 	bindings/v8/custom/V8CustomVoidCallback.cpp \
 	bindings/v8/custom/V8DOMApplicationCacheCustom.cpp \
-	bindings/v8/custom/V8DOMParserConstructor.cpp \
 	bindings/v8/custom/V8DOMWindowCustom.cpp \
 	bindings/v8/custom/V8DataGridColumnListCustom.cpp \
 	bindings/v8/custom/V8DatabaseCustom.cpp \
@@ -117,6 +115,8 @@ LOCAL_SRC_FILES += \
 	bindings/v8/custom/V8DocumentLocationCustom.cpp \
 	bindings/v8/custom/V8ElementCustom.cpp \
 	bindings/v8/custom/V8EventCustom.cpp \
+	bindings/v8/custom/V8EventSourceConstructor.cpp \
+	bindings/v8/custom/V8EventSourceCustom.cpp \
 	bindings/v8/custom/V8FileListCustom.cpp \
 	bindings/v8/custom/V8GeolocationCustom.cpp \
 	bindings/v8/custom/V8HistoryCustom.cpp \
@@ -143,7 +143,6 @@ LOCAL_SRC_FILES += \
 	bindings/v8/custom/V8MessageEventCustom.cpp \
 	bindings/v8/custom/V8NamedNodeMapCustom.cpp \
 	bindings/v8/custom/V8NamedNodesCollection.cpp \
-	bindings/v8/custom/V8NavigatorCustom.cpp \
 	bindings/v8/custom/V8NodeCustom.cpp \
 	bindings/v8/custom/V8NodeFilterCustom.cpp \
 	bindings/v8/custom/V8NodeIteratorCustom.cpp \
@@ -171,10 +170,10 @@ LOCAL_SRC_FILES += \
 	bindings/v8/custom/V8WorkerCustom.cpp \
 	bindings/v8/custom/V8XMLHttpRequestConstructor.cpp \
 	bindings/v8/custom/V8XMLHttpRequestCustom.cpp \
-	bindings/v8/custom/V8XMLHttpRequestUploadCustom.cpp \
-	bindings/v8/custom/V8XMLSerializerConstructor.cpp
+	bindings/v8/custom/V8XMLHttpRequestUploadCustom.cpp
 
 LOCAL_SRC_FILES += \
+<<<<<<< HEAD
 	bridge/jni/JNIBridge.cpp \
 	bridge/jni/JNIUtility.cpp \
 	bridge/jni/v8/JNIBridgeV8.cpp \
@@ -182,3 +181,6 @@ LOCAL_SRC_FILES += \
 	bridge/jni/v8/JavaClassV8.cpp \
 	bridge/jni/v8/JavaInstanceV8.cpp \
 	bridge/jni/v8/JavaNPObjectV8.cpp
+=======
+	bridge/jni/JNIUtility.cpp
+>>>>>>> webkit.org at r54127

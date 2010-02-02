@@ -87,6 +87,43 @@ namespace JSC {
         return new (globalData) JSString(globalData, rope.release());
     }
 
+    ALWAYS_INLINE JSValue jsString(ExecState* exec, JSValue thisValue, const ArgList& args)
+    {
+        unsigned ropeLength = 0;
+        if (LIKELY(thisValue.isString()))
+            ropeLength += asString(thisValue)->ropeLength();
+        else
+            ++ropeLength;
+        for (unsigned i = 0; i < args.size(); ++i) {
+            JSValue v = args.at(i);
+            if (LIKELY(v.isString()))
+                ropeLength += asString(v)->ropeLength();
+            else
+                ++ropeLength;
+        }
+
+        RefPtr<JSString::Rope> rope = JSString::Rope::createOrNull(ropeLength);
+        if (UNLIKELY(!rope))
+            return throwOutOfMemoryError(exec);
+
+        unsigned index = 0;
+        if (LIKELY(thisValue.isString()))
+            rope->append(index, asString(thisValue));
+        else
+            rope->append(index, thisValue.toString(exec));
+        for (unsigned i = 0; i < args.size(); ++i) {
+            JSValue v = args.at(i);
+            if (LIKELY(v.isString()))
+                rope->append(index, asString(v));
+            else
+                rope->append(index, v.toString(exec));
+        }
+        ASSERT(index == ropeLength);
+
+        JSGlobalData* globalData = &exec->globalData();
+        return new (globalData) JSString(globalData, rope.release());
+    }
+
     // ECMA 11.9.3
     inline bool JSValue::equal(ExecState* exec, JSValue v1, JSValue v2)
     {
@@ -186,7 +223,7 @@ namespace JSC {
         return strictEqualSlowCaseInline(exec, v1, v2);
     }
 
-    inline bool jsLess(CallFrame* callFrame, JSValue v1, JSValue v2)
+    ALWAYS_INLINE bool jsLess(CallFrame* callFrame, JSValue v1, JSValue v2)
     {
         if (v1.isInt32() && v2.isInt32())
             return v1.asInt32() < v2.asInt32();
@@ -247,6 +284,7 @@ namespace JSC {
 
     ALWAYS_INLINE JSValue jsAdd(CallFrame* callFrame, JSValue v1, JSValue v2)
     {
+<<<<<<< HEAD
         double left;
         double right = 0.0;
 
@@ -271,13 +309,23 @@ namespace JSC {
             if (!value)
                 return throwOutOfMemoryError(callFrame);
             return jsString(callFrame, value.release());
+=======
+        double left = 0.0, right;
+        if (v1.getNumber(left) && v2.getNumber(right))
+            return jsNumber(callFrame, left + right);
+        
+        if (v1.isString()) {
+            return v2.isString()
+                ? jsString(callFrame, asString(v1), asString(v2))
+                : jsString(callFrame, asString(v1), v2.toPrimitiveString(callFrame));
+>>>>>>> webkit.org at r54127
         }
 
         // All other cases are pretty uncommon
         return jsAddSlowCase(callFrame, v1, v2);
     }
 
-    inline size_t normalizePrototypeChain(CallFrame* callFrame, JSValue base, JSValue slotBase)
+    inline size_t normalizePrototypeChain(CallFrame* callFrame, JSValue base, JSValue slotBase, const Identifier& propertyName, size_t& slotOffset)
     {
         JSCell* cell = asCell(base);
         size_t count = 0;
@@ -295,8 +343,11 @@ namespace JSC {
 
             // Since we're accessing a prototype in a loop, it's a good bet that it
             // should not be treated as a dictionary.
-            if (cell->structure()->isDictionary())
+            if (cell->structure()->isDictionary()) {
                 asObject(cell)->flattenDictionaryObject();
+                if (slotBase == cell)
+                    slotOffset = cell->structure()->get(propertyName); 
+            }
 
             ++count;
         }

@@ -56,6 +56,8 @@
 #import "WebFormDelegatePrivate.h"
 #import "WebFrameInternal.h"
 #import "WebFrameViewInternal.h"
+#import "WebGeolocationControllerClient.h"
+#import "WebGeolocationPositionInternal.h"
 #import "WebHTMLRepresentation.h"
 #import "WebHTMLViewInternal.h"
 #import "WebHistoryItemInternal.h"
@@ -100,6 +102,7 @@
 #import <CoreFoundation/CFSet.h>
 #import <Foundation/NSURLConnection.h>
 #import <WebCore/ApplicationCacheStorage.h>
+#import <WebCore/BackForwardList.h>
 #import <WebCore/Cache.h>
 #import <WebCore/ColorMac.h>
 #import <WebCore/Cursor.h>
@@ -160,6 +163,11 @@
 
 #if ENABLE(DASHBOARD_SUPPORT)
 #import <WebKit/WebDashboardRegion.h>
+#endif
+
+#if ENABLE(CLIENT_BASED_GEOLOCATION)
+#import <WebCore/GeolocationController.h>
+#import <WebCore/GeolocationError.h>
 #endif
 
 @interface NSSpellChecker (WebNSSpellCheckerDetails)
@@ -369,6 +377,7 @@ NSString *WebElementLinkURLKey =            @"WebElementLinkURL";
 NSString *WebElementSpellingToolTipKey =    @"WebElementSpellingToolTip";
 NSString *WebElementTitleKey =              @"WebElementTitle";
 NSString *WebElementLinkIsLiveKey =         @"WebElementLinkIsLive";
+NSString *WebElementIsInScrollBarKey =      @"WebElementIsInScrollBar";
 NSString *WebElementIsContentEditableKey =  @"WebElementIsContentEditableKey";
 
 NSString *WebViewProgressStartedNotification =          @"WebProgressStartedNotification";
@@ -515,6 +524,7 @@ static NSString *createUserVisibleWebKitVersionString()
 
 static void WebKitInitializeApplicationCachePathIfNecessary()
 {
+#if ENABLE(OFFLINE_WEB_APPLICATIONS)
     static BOOL initialized = NO;
     if (initialized)
         return;
@@ -529,6 +539,7 @@ static void WebKitInitializeApplicationCachePathIfNecessary()
 
     cacheStorage().setCacheDirectory(cacheDir);
     initialized = YES;
+#endif
 }
 
 static bool runningLeopardMail()
@@ -545,6 +556,11 @@ static bool runningTigerMail()
     return applicationIsAppleMail();
 #endif
     return NO;    
+}
+
+static bool shouldEnableLoadDeferring()
+{
+    return !applicationIsAdobeInstaller();
 }
 
 - (void)_dispatchPendingLoadRequests
@@ -607,7 +623,16 @@ static bool runningTigerMail()
         didOneTimeInitialization = true;
     }
 
+<<<<<<< HEAD
     _private->page = new Page(new WebChromeClient(self), new WebContextMenuClient(self), new WebEditorClient(self), new WebDragClient(self), new WebInspectorClient(self), new WebPluginHalterClient(self), 0);
+=======
+#if ENABLE(CLIENT_BASED_GEOLOCATION)
+    WebGeolocationControllerClient* geolocationControllerClient = new WebGeolocationControllerClient(self);
+#else
+    WebGeolocationControllerClient* geolocationControllerClient = 0;
+#endif
+    _private->page = new Page(new WebChromeClient(self), new WebContextMenuClient(self), new WebEditorClient(self), new WebDragClient(self), new WebInspectorClient(self), new WebPluginHalterClient(self), geolocationControllerClient);
+>>>>>>> webkit.org at r54127
 
     _private->page->settings()->setLocalStorageDatabasePath([[self preferences] _localStorageDatabasePath]);
 
@@ -987,7 +1012,9 @@ static bool fastDocumentTeardownEnabled()
         return;
     }
 
+#if ENABLE(VIDEO)
     [self _exitFullscreen];
+#endif
 
     if (Frame* mainFrame = [self _mainCoreFrame])
         mainFrame->loader()->detachFromParent();
@@ -1288,6 +1315,8 @@ static bool fastDocumentTeardownEnabled()
     settings->setApplicationChromeMode([preferences applicationChromeModeEnabled]);
     if ([preferences userStyleSheetEnabled]) {
         NSString* location = [[preferences userStyleSheetLocation] _web_originalDataAsString];
+        if ([location isEqualToString:@"apple-dashboard://stylesheet"])
+            location = @"file:///System/Library/PrivateFrameworks/DashboardClient.framework/Resources/widget.css";
         settings->setUserStyleSheetLocation([NSURL URLWithString:(location ? location : @"")]);
     } else
         settings->setUserStyleSheetLocation([NSURL URLWithString:@""]);
@@ -1308,6 +1337,7 @@ static bool fastDocumentTeardownEnabled()
     settings->setShowRepaintCounter([preferences showRepaintCounter]);
     settings->setPluginAllowedRunTime([preferences pluginAllowedRunTime]);
     settings->setWebGLEnabled([preferences webGLEnabled]);
+    settings->setLoadDeferringEnabled(shouldEnableLoadDeferring());
 }
 
 static inline IMP getMethod(id o, SEL s)
@@ -2317,6 +2347,11 @@ static PassOwnPtr<Vector<String> > toStringVector(NSArray* patterns)
         frame->animation()->suspendAnimations(frame->document());
     else
         frame->animation()->resumeAnimations(frame->document());
+}
+
++ (void)_setDomainRelaxationForbidden:(BOOL)forbidden forURLScheme:(NSString *)scheme
+{
+    SecurityOrigin::setDomainRelaxationForbiddenForURLScheme(forbidden, scheme);
 }
 
 @end
@@ -5574,6 +5609,41 @@ static void layerSyncRunLoopObserverCallBack(CFRunLoopObserverRef, CFRunLoopActi
 }
 
 #endif
+
+@end
+
+@implementation WebView (WebViewGeolocation)
+
+- (void)_setGeolocationProvider:(id<WebGeolocationProvider>)geolocationProvider
+{
+    if (_private)
+        _private->_geolocationProvider = geolocationProvider;
+}
+
+- (id<WebGeolocationProvider>)_geolocationProvider
+{
+    if (_private)
+        return _private->_geolocationProvider;
+    return nil;
+}
+
+- (void)_geolocationDidChangePosition:(WebGeolocationPosition *)position;
+{
+#if ENABLE(CLIENT_BASED_GEOLOCATION)
+    if (_private && _private->page)
+        _private->page->geolocationController()->positionChanged(core(position));
+#endif
+}
+
+- (void)_geolocationDidFailWithError:(NSError *)error
+{
+#if ENABLE(CLIENT_BASED_GEOLOCATION)
+    if (_private && _private->page) {
+        RefPtr<GeolocationError> geolocatioError = GeolocationError::create(GeolocationError::PositionUnavailable, [error localizedDescription]);
+        _private->page->geolocationController()->errorOccurred(geolocatioError.get());
+    }
+#endif
+}
 
 @end
 

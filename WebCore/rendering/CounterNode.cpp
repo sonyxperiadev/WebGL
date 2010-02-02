@@ -22,20 +22,14 @@
 #include "config.h"
 #include "CounterNode.h"
 
+#include "RenderCounter.h"
 #include "RenderObject.h"
 #include <stdio.h>
 
-// FIXME: There's currently no strategy for getting the counter tree updated when new
-// elements with counter-reset and counter-increment styles are added to the render tree.
-// Also, the code can't handle changes where an existing node needs to change into a
-// "reset" node, or from a "reset" node back to not a "reset" node. As of this writing,
-// at least some of these problems manifest as failures in the t1204-increment and
-// t1204-reset tests in the CSS 2.1 test suite.
-
 namespace WebCore {
 
-CounterNode::CounterNode(RenderObject* o, bool isReset, int value)
-    : m_isReset(isReset)
+CounterNode::CounterNode(RenderObject* o, bool hasResetType, int value)
+    : m_hasResetType(hasResetType)
     , m_value(value)
     , m_countInParent(0)
     , m_renderer(o)
@@ -52,18 +46,14 @@ CounterNode* CounterNode::nextInPreOrderAfterChildren(const CounterNode* stayWit
     if (this == stayWithin)
         return 0;
 
-    CounterNode* next = m_nextSibling;
-    if (next)
-        return next;
-    next = m_parent;
-    while (next && !next->m_nextSibling) {
-        if (next == stayWithin)
+    const CounterNode* current = this;
+    CounterNode* next;
+    while (!(next = current->m_nextSibling)) {
+        current = current->m_parent;
+        if (!current || current == stayWithin)
             return 0;
-        next = next->m_parent;
     }
-    if (next)
-        return next->m_nextSibling;
-    return 0;
+    return next;
 }
 
 CounterNode* CounterNode::nextInPreOrder(const CounterNode* stayWithin) const
@@ -100,13 +90,12 @@ CounterNode* CounterNode::previousInPreOrder() const
 
 int CounterNode::computeCountInParent() const
 {
-    int increment = m_isReset ? 0 : m_value;
+    int increment = actsAsReset() ? 0 : m_value;
     if (m_previousSibling)
         return m_previousSibling->m_countInParent + increment;
     ASSERT(m_parent->m_firstChild == this);
     return m_parent->m_value + increment;
 }
-
 
 void CounterNode::resetRenderer(const AtomicString& identifier) const
 {
@@ -145,6 +134,11 @@ void CounterNode::insertAfter(CounterNode* newChild, CounterNode* refChild, cons
     ASSERT(!newChild->m_nextSibling);
     ASSERT(!refChild || refChild->m_parent == this);
 
+    if (newChild->m_hasResetType) {
+        while (m_lastChild != refChild)
+            RenderCounter::destroyCounterNode(m_lastChild->renderer(), identifier);
+    }
+
     CounterNode* next;
 
     if (refChild) {
@@ -155,21 +149,57 @@ void CounterNode::insertAfter(CounterNode* newChild, CounterNode* refChild, cons
         m_firstChild = newChild;
     }
 
-    if (next) {
-        ASSERT(next->m_previousSibling == refChild);
-        next->m_previousSibling = newChild;
-    } else {
-        ASSERT(m_lastChild == refChild);
-        m_lastChild = newChild;
-    }
-
     newChild->m_parent = this;
     newChild->m_previousSibling = refChild;
-    newChild->m_nextSibling = next;
 
-    newChild->m_countInParent = newChild->computeCountInParent();
+    if (!newChild->m_firstChild || newChild->m_hasResetType) {
+        newChild->m_nextSibling = next;
+        if (next) {
+            ASSERT(next->m_previousSibling == refChild);
+            next->m_previousSibling = newChild;
+        } else {
+            ASSERT(m_lastChild == refChild);
+            m_lastChild = newChild;
+        }
+
+        newChild->m_countInParent = newChild->computeCountInParent();
+        newChild->resetRenderers(identifier);
+        if (next)
+            next->recount(identifier);
+        return;
+    }
+
+    // The code below handles the case when a formerly root increment counter is loosing its root position
+    // and therefore its children become next siblings.
+    CounterNode* last = newChild->m_lastChild;
+    CounterNode* first = newChild->m_firstChild;
+
+    newChild->m_nextSibling = first;
+    first->m_previousSibling = newChild;
+    // The case when the original next sibling of the inserted node becomes a child of
+    // one of the former children of the inserted node is not handled as it is believed
+    // to be impossible since:
+    // 1. if the increment counter node lost it's root position as a result of another
+    //    counter node being created, it will be inserted as the last child so next is null.
+    // 2. if the increment counter node lost it's root position as a result of a renderer being
+    //    inserted into the document's render tree, all its former children counters are attached
+    //    to children of the inserted renderer and hence cannot be in scope for counter nodes
+    //    attached to renderers that were already in the document's render tree.
+    last->m_nextSibling = next;
     if (next)
-        next->recount(identifier);
+        next->m_previousSibling = last;
+    else
+        m_lastChild = last;
+    for (next = first; ; next = next->m_nextSibling) {
+        next->m_parent = this;
+        if (last == next)
+            break;
+    }
+    newChild->m_firstChild = 0;
+    newChild->m_lastChild = 0;
+    newChild->m_countInParent = newChild->computeCountInParent();
+    newChild->resetRenderer(identifier);
+    first->recount(identifier);
 }
 
 void CounterNode::removeChild(CounterNode* oldChild, const AtomicString& identifier)
@@ -216,7 +246,7 @@ static void showTreeAndMark(const CounterNode* node)
         for (const CounterNode* parent = current; parent && parent != root; parent = parent->parent())
             fwrite("  ", 1, 2, stderr);
         fprintf(stderr, "%p %s: %d %d P:%p PS:%p NS:%p R:%p\n",
-            current, current->isReset() ? "reset____" : "increment", current->value(),
+            current, current->actsAsReset() ? "reset____" : "increment", current->value(),
             current->countInParent(), current->parent(), current->previousSibling(),
             current->nextSibling(), current->renderer());
     }

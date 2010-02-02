@@ -31,6 +31,9 @@
 #import <WebCore/WebCoreSystemInterface.h>
 #import <WebKitSystemInterface.h>
 
+// Needed for builds not using PCH to expose BUILDING_ macros, see bug 32753.
+#include <wtf/Platform.h>
+
 #define INIT(function) wk##function = WK##function
 
 void InitWebCoreSystemInterface(void)
@@ -73,6 +76,7 @@ void InitWebCoreSystemInterface(void)
     INIT(SetNSURLRequestShouldContentSniff);
     INIT(SetPatternBaseCTM);
     INIT(SetPatternPhaseInUserSpace);
+    INIT(GetUserToBaseCTM);
     INIT(SetUpFontCache);
     INIT(SignalCFReadStreamEnd);
     INIT(SignalCFReadStreamError);
@@ -103,6 +107,10 @@ void InitWebCoreSystemInterface(void)
     INIT(InitializeGlyphVector);
     INIT(ReleaseStyleGroup);
     INIT(SupportsMultipartXMixedReplace);
+#endif
+
+#if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD)
+    INIT(NoteOpenPanelFiles);
 #endif
 
     didInit = true;

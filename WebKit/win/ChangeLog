@@ -1,3 +1,785 @@
+<<<<<<< HEAD
+=======
+2010-01-29  Brian Weinstein  <bweinstein@apple.com>
+
+        Reviewed by Adam Roben.
+
+        Drag and Drop: Windows uses "stop" sign as cursor when dragging
+        https://bugs.webkit.org/show_bug.cgi?id=34305
+        <rdar://problem/7589672>
+        
+        Add a preference in WebKit (that defaults to false), for whether or not
+        we should show the custom cursors during drag and drop. However, this is
+        currently only used on Windows, and only used to hide the "drop not allowed"
+        icon inside the WebView is the preference is set to true.
+
+        This will be off by default, so no change in behavior.
+
+        * Interfaces/IWebPreferencesPrivate.idl: Added new functions.
+        * Interfaces/WebKit.idl: Touched to force Interfaces build.
+        * WebDropSource.cpp:
+        (WebDropSource::GiveFeedback): Implementation of conditional showing cursor
+            logic.
+        * WebPreferenceKeysPrivate.h: Added new preference key.
+        * WebPreferences.cpp: Added new functions.
+        (WebPreferences::setCustomDragCursorsEnabled):
+        (WebPreferences::customDragCursorsEnabled):
+        * WebPreferences.h: Added new functions.
+
+2010-01-28  Jon Honeycutt  <jhoneycutt@apple.com>
+
+        MSAA: Crash when posting a notification for a detached object
+
+        https://bugs.webkit.org/show_bug.cgi?id=34309
+        <rdar://problem/7409759>
+
+        Reviewed by Darin Adler.
+
+        * AccessibleBase.cpp:
+        (AccessibleBase::QueryService):
+        If an unrecognized service ID is passed, return early. Otherwise, return
+        the result of QueryInterface.
+        (AccessibleBase::QueryInterface):
+        Add static_casts. Check for new UUIDs.
+        (AccessibleBase::isSameObject):
+        Query the object for AccessibleBase. Return whether the pointers or the
+        wrapped objects match.
+
+        * AccessibleBase.h:
+        Give the class a UUID so we can query for it in isSameObject(). Inherit
+        from IAccessibleComparable; inherit from IServiceProvider so clients can
+        use QueryService to query for a custom interface.
+
+        * Interfaces/AccessibleComparable.idl: Added. Declares a function that
+        can be called to compare to accessible objects.
+
+        * Interfaces/WebKit.idl:
+        Include the new IDL.
+
+        * WebKit.vcproj/Interfaces.vcproj:
+        Add the new IDL to the project.
+
+2010-01-27  Aaron Boodman  <aa@chromium.org>
+
+        Expand NotificationCenter::checkPermission() interface.
+        It now passes the full URL instead of just the origin.
+
+        https://bugs.webkit.org/show_bug.cgi?id=34238
+
+        * WebCoreSupport/WebDesktopNotificationsDelegate.cpp:
+        (WebDesktopNotificationsDelegate::checkPermission):
+        * WebCoreSupport/WebDesktopNotificationsDelegate.h:
+
+2010-01-27  Adam Roben  <aroben@apple.com>
+
+        Make it possible to instantiate WebSerializedJSValue using
+        WebKitCreateInstance
+
+        Reviewed by Dave Hyatt.
+
+        * ForEachCoClass.h:
+        * WebKitClassFactory.cpp:
+        Added WebSerializedJSValue.
+
+2010-01-26  Steve Falkenburg  <sfalken@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        Windows build references non-existent include paths
+        https://bugs.webkit.org/show_bug.cgi?id=34175
+
+        * WebKit.vcproj/WebKit.vcproj:
+
+2010-01-25  Steve Falkenburg  <sfalken@apple.com>
+
+        Reviewed by Simon Fraser.
+
+        A WebGeolocationControllerClient is leaked for every WebView
+        https://bugs.webkit.org/show_bug.cgi?id=34145
+
+        * WebCoreSupport/WebGeolocationControllerClient.cpp:
+        (WebGeolocationControllerClient::geolocationDestroyed): Added.
+        * WebCoreSupport/WebGeolocationControllerClient.h:
+
+2010-01-23  Dan Bernstein  <mitz@apple.com>
+
+        Reviewed by Maciej Stachowiak.
+
+        <rdar://problem/7569820> svg/custom/text-zoom.xhtml fails on Windows
+        https://bugs.webkit.org/show_bug.cgi?id=34006
+
+        * WebPreferences.cpp:
+        (WebPreferences::initializeDefaultSettings): Added WebKitZoomsTextOnlyPreferenceKey
+        with a default value of true.
+
+2010-01-20  Steve Falkenburg  <sfalken@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Add missing implementation for WebGeolocationPosition::initWithTimestamp.
+
+        * WebGeolocationPosition.cpp:
+        (WebGeolocationPosition::initWithTimestamp): Implemented.
+
+2010-01-20  Jon Honeycutt  <jhoneycutt@apple.com>
+
+        MSAA: accSelect() is not implemented
+
+        https://bugs.webkit.org/show_bug.cgi?id=33918
+        <rdar://problem/7436861>
+
+        Reviewed by Darin Adler.
+
+        * AccessibleBase.cpp:
+        (AccessibleBase::accSelect):
+        If there is an invalid combination of state flags, return early. If the
+        caller passed the "take focus" flag, focus the object. If the "take
+        selection" flag was passed, check whether the parent object is an
+        AccessibilityListBox; if so, call the object's setSelectedChildren()
+        function. If the parent is an AccessibilityMenuListPopup, call the
+        child object's setSelected() function. Otherwise, if the parent is some
+        other, unsupported object, return early.
+        If the selection flags include "add", "remove", or "extend" selection,
+        and the parent object is not multi-selectable, return early. Otherwise,
+        set or unset the child's selected flag based on the passed flag.
+
+2010-01-20  Steve Falkenburg  <sfalken@apple.com>
+
+        Reviewed by Darin Adler and Adam Roben.
+
+        Feature defines are difficult to maintain on Windows builds
+        https://bugs.webkit.org/show_bug.cgi?id=33883
+
+        FeatureDefines.vsprops are now maintained in a way similar to
+        Configurations/FeatureDefines.xcconfig, with the added advantage
+        of having a single FeatureDefines file across all projects.
+
+        * WebKit.vcproj/Interfaces.vcproj: Add FeatureDefines.vsprops inherited property sheet.
+        * WebKit.vcproj/WebKit.sln: Set up Cairo configuration for WebCoreGenerated.
+        * WebKit.vcproj/WebKit.vcproj: Remove ENABLE_ preprocessor definitions.
+        Add FeatureDefines.vsprops inherited property sheet.
+        * WebKit.vcproj/WebKitGUID.vcproj: Add FeatureDefines.vsprops inherited property sheet.
+
+2010-01-17  Jon Honeycutt  <jhoneycutt@apple.com>
+
+        MSAA: The child <option> elements of a non-multiple <select> are not
+        exposed
+
+        https://bugs.webkit.org/show_bug.cgi?id=33773
+        <rdar://problem/7550556>
+
+        Reviewed by Alice Liu.
+
+        * AccessibleBase.cpp:
+        (AccessibleBase::get_accState):
+        If the object is invisible, set the invisible state flag. If the object
+        is collapsed, set the collapsed state. If the object is a combo box,
+        set the has popup flag, and if it's not collapsed, set the expanded
+        flag.
+        (MSAARole):
+        Add new WebCore to MSAA role mappings.
+
+        * WebCoreLocalizedStrings.cpp:
+        (WebCore::AXMenuListActionVerb):
+        Return the action verb that Firefox uses for <select> elements with
+        popups.
+        (WebCore::AXMenuListPopupActionVerb):
+        Return the verb that Firefox uses for a popup list.
+
+2010-01-19  John Sullivan  <sullivan@apple.com>
+
+        https://bugs.webkit.org/show_bug.cgi?id=33854
+        Would like a variant of WebHTMLRepresentation's searchForLabelsBeforeElement that returns 
+        more info about where the result was found
+
+        Reviewed by Darin Adler
+
+        * Interfaces/IWebHTMLRepresentation.idl:
+        Created variant of searchForLabels that includes additional in/out parameters resultDistance and resultIsInCellAbove.
+        
+        * Interfaces/WebKit.idl:
+        Touched in order to get other idl change to propagate correctly.
+
+        * WebHTMLRepresentation.cpp:
+        (WebHTMLRepresentation::deprecatedSearchForLabels):
+        Renamed since iDL doesn't support two functions with the same name but different signatures.
+        (WebHTMLRepresentation::searchForLabels):
+        Implemented variant of searchForLabels that includes additional in/out parameters resultDistance and resultIsInCellAbove.
+
+        * WebHTMLRepresentation.h:
+        Declared variant of searchForLabels that includes additional in/out parameters resultDistance and resultIsInCellAbove.
+
+2010-01-19  Adam Roben  <aroben@apple.com>
+
+        Windows build fix
+
+        * WebScriptWorld.cpp: Added missing #include.
+
+2010-01-19  Dave Hyatt  <hyatt@apple.com>
+
+        Build bustage fix. Make sure the newly added scriptWorldForGlobalContext function is [local] in the IDL.
+
+        * Interfaces/IWebScriptWorld.idl:
+
+2010-01-19  Dave Hyatt  <hyatt@apple.com>
+
+        Reviewed by Adam Roben.
+
+        Add an API to obtain a WebScriptWorld from a JSGlobalContextRef.
+
+        * Interfaces/IWebScriptWorld.idl:
+        * WebScriptWorld.cpp:
+        (WebScriptWorld::scriptWorldForGlobalContext):
+        * WebScriptWorld.h:
+
+2010-01-18  Adam Roben  <aroben@apple.com>
+
+        Add IWebViewPrivate::setDomainRelaxationForbiddenForURLScheme
+
+        WebKit/win part of fixing <http://webkit.org/b/33806>
+        <rdar://problem/7552837> Would like API to disallow setting of
+        document.domain for pages with certain URL schemes
+
+        Reviewed by Sam Weinig.
+
+        * Interfaces/IWebViewPrivate.idl: Added
+        setDomainRelaxationForbiddenForURLScheme.
+
+        * Interfaces/WebKit.idl: Touched to force a build.
+
+        * WebView.cpp:
+        (WebView::setDomainRelaxationForbiddenForURLScheme):
+        * WebView.h:
+        Added. Calls through to SecurityOrigin.
+
+2010-01-18  Chris Marrin  <cmarrin@apple.com>
+
+        Reviewed by Darin Adler.
+
+        Use new setScrollFrame API
+        https://bugs.webkit.org/show_bug.cgi?id=32279
+
+        * WebView.cpp:
+        (WebView::updateRootLayerContents):
+
+2010-01-15  Jon Honeycutt  <jhoneycutt@apple.com>
+
+        MSAA: Screen rect for <option> elements is always the zero rect
+
+        https://bugs.webkit.org/show_bug.cgi?id=33758
+
+        Reviewed by Oliver Hunt.
+
+        * AccessibleBase.cpp:
+        (AccessibleBase::accLocation):
+        Use elementRect() rather than boundingBoxRect(), which
+        AccessibilityListBoxOption overrides.
+
+2010-01-15  Jon Honeycutt  <jhoneycutt@apple.com>
+
+        get_accParent should try to retrieve parent AccessibilityObject, before
+        calling upon window
+
+        https://bugs.webkit.org/show_bug.cgi?id=22893
+
+        Reviewed by Darin Adler.
+
+        * AccessibleBase.cpp:
+        (AccessibleBase::get_accParent):
+        If the object has a parent object, return it. If not, return the
+        accessible for the WebView window.
+
+2010-01-12  Jon Honeycutt  <jhoneycutt@apple.com>
+
+        MSAA: selected, selectable, extended selectable, and multiple
+        selectable states are not reported
+
+        https://bugs.webkit.org/show_bug.cgi?id=33574
+        <rdar://problem/7536826>
+
+        Reviewed by Darin Adler.
+
+        * AccessibleBase.cpp:
+        (AccessibleBase::get_accState):
+        Remove the call to isMultiSelect(). Call the correctly-named
+        isMultiSelectable(), and if it returns true, set both the "extended
+        selectable" and "multiple selectable" states. Check whether the object
+        is selected or selectable, and report those states.
+
+2010-01-13  Steve Falkenburg  <sfalken@apple.com>
+
+        Reviewed by Adam Roben.
+
+        Add additional Geolocation interfaces in WebKit for Windows.
+
+        * Interfaces/IWebGeolocationPolicyListener.idl: Added.
+        * Interfaces/IWebUIDelegatePrivate.idl: Add decidePolicyForGeolocationRequest to IWebUIDelegatePrivate2.
+        Append since this version hasn't shipped.
+        * Interfaces/WebKit.idl: Add include of IWebGeolocationPolicyListener.idl.
+        * WebCoreSupport/WebChromeClient.cpp:
+        (WebChromeClient::requestGeolocationPermissionForFrame): Call into decidePolicyForGeolocationRequest.
+        * WebCoreSupport/WebGeolocationControllerClient.cpp:
+        (WebGeolocationControllerClient::WebGeolocationControllerClient): Moved *.
+        * WebGeolocationPolicyListener.cpp: Added.
+        * WebGeolocationPolicyListener.h: Added.
+        * WebKit.vcproj/Interfaces.vcproj: Added IWebGeolocationPolicyListener.
+        * WebKit.vcproj/WebKit.vcproj: Added WebGeolocationPolicyListener, WebGeolocationPolicyListener.
+        * WebView.cpp:
+        (WebView::setGeolocationProvider): Removed extraneous STDMETHODCALLTYPE.
+        (WebView::geolocationProvider): Removed extraneous STDMETHODCALLTYPE.
+        (WebView::geolocationDidChangePosition): Removed extraneous STDMETHODCALLTYPE.
+        (WebView::geolocationDidFailWithError): Removed extraneous STDMETHODCALLTYPE.
+
+2010-01-12  Steve Falkenburg  <sfalken@apple.com>
+
+        Reviewed by Adam Roben, Sam Weinig.
+
+        Add Geolocation interfaces in WebKit for Windows.
+
+        * ForEachCoClass.h: Added WebGeolocationPosition.
+        * Interfaces/IWebError.idl:
+        * Interfaces/IWebGeolocationPosition.idl: Added.
+        * Interfaces/IWebGeolocationProvider.idl: Added.
+        * Interfaces/IWebViewPrivate.idl:
+        * Interfaces/WebKit.idl:
+        * WebCoreSupport/WebGeolocationControllerClient.cpp: Added.
+        (WebGeolocationControllerClient::WebGeolocationControllerClient):
+        (WebGeolocationControllerClient::startUpdating):
+        (WebGeolocationControllerClient::stopUpdating):
+        (WebGeolocationControllerClient::lastPosition):
+        * WebCoreSupport/WebGeolocationControllerClient.h: Added.
+        * WebGeolocationPosition.cpp: Added IWebGeolocationPosition implementation.
+        * WebGeolocationPosition.h: Added IWebGeolocationPosition implementation.
+        * WebKit.vcproj/Interfaces.vcproj: Added IWebGeolocationPosition.idl, IWebGeolocationProvider.idl,
+        relocated JavaScriptCoreAPITypes.idl, WebScrollbarTypes.idl
+        * WebKit.vcproj/WebKit.vcproj: Added WebGeolocationPosition.h/.cpp, WebGeolocationControllerClient.h/cpp,        
+        * WebKitClassFactory.cpp: Add WebGeolocationPosition include.
+        * WebView.cpp:
+        (WebView::initWithFrame): Create WebGeolocationControllerClient if Geolocation is enabled.
+        (WebView::setGeolocationProvider): Added Geolocation-specific method.
+        (WebView::geolocationProvider): Added Geolocation-specific method.
+        (WebView::geolocationDidChangePosition): Added Geolocation-specific method.
+        (WebView::geolocationDidFailWithError): Added Geolocation-specific method.
+        * WebView.h: Added setGeolocationProvider, geolocationProvider, geolocationDidChangePosition, geolocationDidFailWithError.
+
+2010-01-11  Jon Honeycutt  <jhoneycutt@apple.com>
+
+        MSAA: Accessibility role of <select multiple> elements is wrong
+
+        https://bugs.webkit.org/show_bug.cgi?id=33522
+
+        Reviewed by Darin Adler.
+
+        * AccessibleBase.cpp:
+        (MSAARole):
+        Map the WebCore::ListBox and WebCore::ListBoxOption roles to the MSAA
+        "list" and "list item" roles.
+
+2010-01-08  Brent Fulgham  <bfulgham@webkit.org>
+
+        Build fix, no review.
+
+        Protect video control logic inside ENABLE(VIDEO).
+
+        * WebView.cpp:
+        (WebView::enterFullscreenForNode):
+        (WebView::exitFullscreen):
+        * WebView.h:
+
+2010-01-08  Chris Marrin  <cmarrin@apple.com>
+
+        Reviewed by Adam Roben.
+
+        Implement full-screen video for Windows
+        https://bugs.webkit.org/show_bug.cgi?id=31318
+        
+        This adds a full-screen controller, FullscreenVideoController, 
+        which manages going in and out of full-screen. The actual 
+        full-screen window is created and managed by logic added 
+        to QTMovieWin. FullscreenVideoController also creates and
+        manages a HUD. The HUD renders and manages events to
+        control the playing video. Movie controller events go to 
+        FullscreenVideoController which then sends them to HTMLMediaElement, 
+        which is passed to the controller by WebView, which gets the call 
+        to go into full-screen mode from HTMLMediaElement via 
+        ChromeClient.
+        
+        I've also updated the icons so the related sets (Play/Pause and
+        volume high/volume low/exit fullscreen) are the same size. This 
+        allows me to position them using common code.
+
+        * WebCoreSupport/WebChromeClient.cpp:
+        (WebChromeClient::supportsFullscreenForNode):
+        (WebChromeClient::enterFullscreenForNode):
+        (WebChromeClient::exitFullscreenForNode):
+        * WebCoreSupport/WebChromeClient.h:
+        * WebKit.vcproj/WebKit.vcproj:
+        * WebKit.vcproj/fsVideoAudioVolumeHigh.png:
+        * WebKit.vcproj/fsVideoAudioVolumeLow.png:
+        * WebKit.vcproj/fsVideoExitFullscreen.png:
+        * WebKit.vcproj/fsVideoPause.png:
+        * WebKit.vcproj/fsVideoPlay.png:
+        * WebKitDLL.cpp:
+        (loadResourceIntoBuffer):
+        * FullscreenVideoController.cpp: Added.
+        * FullscreenVideoController.h: Added.
+        * WebView.cpp:
+        (WebView::enterFullscreenForNode):
+        (WebView::exitFullscreen):
+        * WebView.h:
+
+2010-01-08  Brent Fulgham  <bfulgham@webkit.org>
+
+        Unreviewed correction. 
+
+        Accidentally left unnecessary modification to hdcFromContext
+        in when landing r52995.
+
+        * WebFrame.cpp:
+        (hdcFromContext): Back out unneeded modification.
+
+2010-01-08  Brent Fulgham  <bfulgham@webkit.org>
+
+        Reviewed by Adam Roben.
+
+        Use correct cairo surface data type for handling print operations.
+        https://bugs.webkit.org/show_bug.cgi?id=33022.
+
+        * WebFrame.cpp:
+        (scaleFactor): Handle 'scale = 0' case.
+        (WebFrame::spoolPage): Use scaleFactor helper function.  Account for
+         margin size in region passed to header/footer routines.
+        (WebFrame::spoolPages): Properly clean up Cairo surface.
+
+2010-01-07  Kent Tamura  <tkent@chromium.org>
+
+        Reviewed by Maciej Stachowiak.
+
+        Remove COM code generation files.
+        https://bugs.webkit.org/show_bug.cgi?id=32854
+
+        * WebKit.vcproj/DerivedSources.make: Removed.
+        * WebKit.vcproj/build-generated-files.sh: Removed.
+
+2010-01-05  Adam Roben  <aroben@apple.com>
+
+        Make IWebView::close and destroying a WebView's HWND optional for
+        WebKit clients
+
+        WebView will now take care of these operations itself when its last
+        reference is released, if they haven't already been done.
+
+        IWebView::close now also destroys the WebView's HWND. All WebKit
+        clients were already performing these operations in succession anyway,
+        or were attempting to by calling IWebView::close then destroying the
+        WebView's host window (which actually resulted in the WebView's HWND
+        leaking, and the crash in the below bug).
+
+        Fixes <rdar://problem/7374218> <http://webkit.org/b/32827> Crash when
+        calling IWebView::close, then releasing the WebView, without calling
+        DestroyWindow
+
+        Fixes a few WebViewDestruction tests, too.
+
+        Reviewed by Steve Falkenburg.
+
+        * WebView.cpp:
+        (WebView::~WebView): Don't try to destroy m_viewWindow here. That
+        should already have happened. Assert that this is the case.
+        (WebView::close): If m_viewWindow isn't already being destroyed,
+        destroy it now. Moved the call to revokeDragDrop() here from our
+        WM_DESTROY handler because it needs to be done before m_viewWindow is
+        nulled out.
+        (WebView::WebViewWndProc): Removed call to revokeDragDrop() that
+        close() now performs.
+        (WebView::Release): If our last reference is being released, call
+        close() so that clients don't have to. (It's harmless to call close()
+        multiple times.) We do this here instead of in the destructor because
+        close() can cause AddRef() and Release() to be called, and calling
+        those from within the destructor leads to double-destruction.
+        (WebView::setHostWindow): Removed an unnecessary (and now harmful)
+        null-check.
+        (WebView::revokeDragDrop): Changed an assertion into a run-time check,
+        since this will now sometimes be called when m_viewWindow hasn't been
+        created yet. Changed the IsWindow call to a null-check because we
+        never hold onto a destroyed m_viewWindow.
+        (WebView::windowAncestryDidChange): If we don't have a view window,
+        stop tracking changes to our parent's active state.
+
+2010-01-05  Adam Roben  <aroben@apple.com>
+
+        Make it safe to call IWebView::close when IWebView::initWithFrame
+        hasn't been called
+
+        Part of <rdar://problem/7374218> <http://webkit.org/b/32827> Crash
+        when IWebView::close, then releasing the WebView, without calling
+        DestroyWindow
+
+        Reviewed by Steve Falkenburg.
+
+        * WebView.cpp:
+        (WebView::close): Null-check m_page and m_preferences before using
+        them. They will be null if initWithFrame was never called.
+
+2010-01-05  Adam Roben  <aroben@apple.com>
+
+        Add assertions to catch double-destruction of WebViews earlier
+
+        I basically copied the m_deletionHasBegun logic from WTF::RefCounted.
+
+        Fixes <http://webkit.org/b/33219>.
+
+        Reviewed by Darin Adler.
+
+        * WebView.cpp:
+        (WebView::WebView): Initialize m_deletionHasBegun
+        (WebView::AddRef): Assert that deletion hasn't already begun.
+        (WebView::Release): Assert that deletion hasn't already begun, then
+        record when deletion *does* begin.
+
+        * WebView.h: Added m_deletionHasBegun.
+
+2010-01-05  Adam Roben  <aroben@apple.com>
+
+        Remove dead code in WebViewWndProc
+
+        Fixes <http://webkit.org/b/33218>.
+
+        Reviewed by Darin Adler.
+
+        * WebView.cpp:
+        (WebView::WebViewWndProc): Removed a redundant isBeingDestroyed check.
+        We bail out much earlier in this function if isBeingDestroyed is true.
+
+2010-01-04  Jon Honeycutt  <jhoneycutt@apple.com>
+
+        MSAA: Accessibility role of <select> elements is wrong
+
+        https://bugs.webkit.org/show_bug.cgi?id=33192
+
+        Reviewed by Sam Weinig.
+
+        * AccessibleBase.cpp:
+        (MSAARole):
+        Map WebCore::PopUpButtonRole to MSAA's ROLE_SYSTEM_COMBOBOX.
+
+2010-01-04  Alexey Proskuryakov  <ap@apple.com>
+
+        Reviewed by Darin Adler.
+
+        https://bugs.webkit.org/show_bug.cgi?id=33181
+        The first letter is not removed properly from inline input hole
+
+        * WebView.cpp: (WebView::onIMEEndComposition): If composition is ended before it was
+        confirmed, cancel it.
+
+2010-01-04  Alexey Proskuryakov  <ap@apple.com>
+
+        Reviewed by Darin Adler.
+
+        https://bugs.webkit.org/show_bug.cgi?id=33161
+        Assertion failure in WebView when using Chinese Simplified IME
+
+        * WebView.cpp: (WebView::onIMERequestCharPosition): Changed the assertion into release mode
+        check. We can't make assertions about arguments passed from outside WebKit.
+
+2010-01-04  Alexey Proskuryakov  <ap@apple.com>
+
+        Reviewed by Darin Adler.
+
+        https://bugs.webkit.org/show_bug.cgi?id=33157
+        Implement TextInput logging channel on Windows
+
+        * WebKitLogging.cpp: (WebKitInitializeLoggingChannelsIfNecessary):
+        * WebKitLogging.h:
+        Added a TextInput channel in place of unused Network one.
+
+        * WebView.cpp:
+        (WebView::WebViewWndProc): Changed onIMERequest to return result directly. We never forward
+        it to DefWindowProc, so there is no need to return an unused boolean result for "handled".
+        (WebView::onIMEStartComposition): Added logging.
+        (imeCompositionArgumentNames): A helper function for detailed logging in onIMEComposition.
+        (imeNotificationName): A helper function for detailed logging in onIMENotify.
+        (imeRequestName): A helper function for detailed logging in onIMERequest.
+        (WebView::onIMEComposition): Added logging.
+        (WebView::onIMEEndComposition): Ditto.
+        (WebView::onIMEChar): Ditto.
+        (WebView::onIMENotify): Ditto.
+        (WebView::onIMERequestCharPosition): Changed to return result directly.
+        (WebView::onIMERequestReconvertString): Ditto.
+        (WebView::onIMERequest): Changed to return result directly. Added logging.
+        (WebView::onIMESelect): Added logging.
+        (WebView::onIMESetContext): Added logging.
+
+        * WebView.h: onIMERequest functions now return result directly.
+
+
+2010-01-04  Adam Roben  <aroben@apple.com>
+
+        Add WebKitAPITest
+
+        Fixes <http://webkit.org/b/33167>.
+
+        Reviewed by Sam Weinig.
+
+        * WebKit.vcproj/WebKit.sln: Added WebKitAPITest.vcproj. It builds just
+        after DumpRenderTree.vcproj.
+
+2010-01-04  Dan Bernstein  <mitz@apple.com>
+
+        Reviewed by Ada Chan and Mark Rowe.
+
+        Updated copyright string
+
+        * WebKit.vcproj/WebKit.rc:
+
+2009-12-22  Darin Adler  <darin@apple.com>
+
+        Another try at fixing Windows build.
+
+        * WebKitPrefix.cpp: Touch it.
+
+2009-12-22  Darin Adler  <darin@apple.com>
+
+        Reviewed by Mark Rowe.
+
+        Turn off datagrid by default, at least for all platforms Apple ships.
+        The datagrid implementation isn't ready for general web use yet.
+
+        * WebKit.vcproj/WebKit.vcproj: Turn off datagrid by default.
+
+2009-12-21  Adam Roben  <aroben@apple.com>
+
+        Fix non-ACCELERATED_COMPOSITING builds
+
+        * WebPreferences.cpp:
+        (WebPreferences::acceleratedCompositingEnabled): Guard use of
+        WKCACFLayerRenderer with USE(ACCELERATED_COMPOSITING).
+
+2009-12-18  Adam Roben  <aroben@apple.com>
+
+        Add IWebPreferencesPrivate::[set]AcceleratedCompositingEnabled
+
+        Fixes <http://webkit.org/b/32745>.
+
+        Reviewed by Ada Chan.
+
+        * Interfaces/IWebPreferencesPrivate.idl: Added
+        [set]AcceleratedCompositingEnabled.
+
+        * Interfaces/WebKit.idl: Touched to force a build.
+
+        * WebPreferenceKeysPrivate.h: Added
+        WebKitAcceleratedCompositingEnabledPreferenceKey.
+
+        * WebPreferences.cpp:
+        (WebPreferences::initializeDefaultSettings): Make accelerated
+        compositing be on by default.
+        (WebPreferences::setAcceleratedCompositingEnabled): Store the new
+        value.
+        (WebPreferences::acceleratedCompositingEnabled): If accelerated
+        compositing isn't available, return false. Otherwise, return the value
+        stored in preferences.
+
+        * WebPreferences.h: Added [set]AcceleratedCompositingAvailable.
+
+        * WebView.cpp:
+        (WebView::notifyPreferencesChanged): Just pass the value from
+        WebPreferences on down.
+
+2009-12-17  Jon Honeycutt  <jhoneycutt@apple.com>
+
+        MSAA: Accessibility role of list items is wrong
+
+        https://bugs.webkit.org/show_bug.cgi?id=32688
+
+        Reviewed by Adam Roben.
+
+        * AccessibleBase.cpp:
+        (MSAARole):
+        Make the WebCore list item role map to the MSAA list item role.
+
+2009-12-17  Jon Honeycutt  <jhoneycutt@apple.com>
+
+        MSAA: Accessibility role of list markers is wrong
+
+        https://bugs.webkit.org/show_bug.cgi?id=32687
+
+        Reviewed by Adam Roben.
+
+        * AccessibleBase.cpp:
+        (MSAARole):
+        Make the WebCore list marker role map to the MSAA static text role.
+
+2009-12-18  Adam Roben  <aroben@apple.com>
+
+        Add #includes needed after WebCore clean-up
+
+        Rubber-stamped by Anders Carlsson.
+
+        Fixes <http://webkit.org/b/32718>.
+
+        * WebCoreSupport/WebContextMenuClient.cpp:
+        * WebDataSource.cpp:
+        * WebHTMLRepresentation.cpp:
+        * WebView.cpp:
+        * WebView.h:
+
+2009-12-17  Benjamin Otte  <otte@gnome.org>
+
+        Reviewed by Adam Roben.
+
+        Don't include all JSC headers everywhere
+        https://bugs.webkit.org/show_bug.cgi?id=32663
+
+        * WebCoreLocalizedStrings.cpp: Added now-needed #include of
+        MathExtras.h.
+
+2009-12-17  Adam Roben  <aroben@apple.com>
+
+        Remove WebKit.sln's Debug_All and Debug_Internal configurations
+
+        These configurations aren't buildable by people outside of Apple, and
+        Apple doesn't use this solution file.
+
+        Fixes <http://webkit.org/b/31000> Windows WebKit Build Configuration
+        should default to Debug instead of Debug_all.
+
+        Rubber-stamped by Dan Bernstein.
+
+        * WebKit.vcproj/WebKit.sln:
+
+2009-12-16  Jon Honeycutt  <jhoneycutt@apple.com>
+
+        MSAA: Accessibility role of text nodes is wrong
+
+        https://bugs.webkit.org/show_bug.cgi?id=32631
+        <rdar://problem/7369084>
+
+        Reviewed by Alice Liu.
+
+        * AccessibleBase.cpp:
+        (MSAARole):
+        If the role is WebCore::EditableTextRole, return ROLE_SYSTEM_TEXT.
+        (AccessibleBase::role):
+        Call roleValueForMSAA().
+
+2009-12-14  Brent Fulgham  <bfulgham@webkit.org>
+
+        Reviewed by Adam Roben.
+
+        Provide working printing support for WinCairo port.
+
+        * WebFrame.cpp:
+        (WebFrame::spoolPage): Conditionalize initialization of
+          PlatformGraphicsContext handling for CG vs. Cairo.
+        (scaleFactor): Add helper function.
+        (hdcFromContext): Add helper function.
+        (WebFrame::drawHeader): Correct Cairo variation.
+        (WebFrame::drawFooter): Correct Cairo variation.
+        (WebFrame::spoolPages): Correct Cairo variation.
+
+>>>>>>> webkit.org at r54127
 2009-12-13  Sam Weinig  <sam@webkit.org>
 
         Reviewed by Dan Bernstein.
@@ -13,6 +795,59 @@
         * WebView.cpp:
         (WebView::initWithFrame):
 
+<<<<<<< HEAD
+=======
+2009-12-14  Adam Roben  <aroben@apple.com>
+
+        Change IWebFramePrivate's vtable to be compatible with Safari 4.0.4
+
+        Reviewed by Steve Falkenburg.
+
+        Fixes <http://webkit.org/b/32433> REGRESSION (r51567): Right click on
+        a link element crashes WebKit nightly
+
+        * Interfaces/IWebFramePrivate.idl: Moved pauseSVGAnimation to the end
+        of the interface so the vtable that Safari 4.0.4 sees is unchanged.
+
+2009-12-14  Adam Roben  <aroben@apple.com>
+
+        Build fix
+
+        * WebKit.vcproj/WebKit.vcproj: Added $(DXSDK_DIR)\Lib\x86 to the
+        libpath for all non-Cairo configurations (it was missing from most of
+        them).
+
+2009-12-11  Chris Marrin  <cmarrin@apple.com>
+
+        Reviewed by Jon Honeycutt.
+
+        Added icons for full-screen video on Windows
+        https://bugs.webkit.org/show_bug.cgi?id=31318
+
+        * WebKit.vcproj/WebKit.rc:
+        * WebKit.vcproj/WebKit.vcproj:
+        * WebKit.vcproj/fsVideoAudioVolumeHigh.png: Added.
+        * WebKit.vcproj/fsVideoAudioVolumeLow.png: Added.
+        * WebKit.vcproj/fsVideoExitFullscreen.png: Added.
+        * WebKit.vcproj/fsVideoPause.png: Added.
+        * WebKit.vcproj/fsVideoPlay.png: Added.
+        * WebKit.vcproj/resource.h:
+
+2009-12-11  Chris Marrin  <cmarrin@apple.com>
+
+        Reviewed by Adam Roben.
+
+        Delay load DLLs for accelerated compositing
+        https://bugs.webkit.org/show_bug.cgi?id=31856
+        
+        If the DLLs (d3d9 and QuartzCore). are not present it
+        turns off accelerated compositing and avoids calling 
+        any of the functions in the DLLs.
+
+        * WebView.cpp:
+        (WebView::notifyPreferencesChanged):
+
+>>>>>>> webkit.org at r54127
 2009-12-10  Jon Honeycutt  <jhoneycutt@apple.com>
 
         Pass more information about a plug-in to the PluginHalterDelegate

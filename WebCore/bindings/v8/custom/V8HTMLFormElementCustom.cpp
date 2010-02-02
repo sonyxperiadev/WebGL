@@ -29,9 +29,10 @@
  */
 
 #include "config.h"
-#include "HTMLFormElement.h"
+#include "V8HTMLFormElement.h"
 
 #include "HTMLCollection.h"
+#include "HTMLFormElement.h"
 #include "V8Binding.h"
 #include "V8CustomBinding.h"
 #include "V8NamedNodesCollection.h"
@@ -39,10 +40,10 @@
 
 namespace WebCore {
 
-INDEXED_PROPERTY_GETTER(HTMLFormElement)
+v8::Handle<v8::Value> V8HTMLFormElement::indexedPropertyGetter(uint32_t index, const v8::AccessorInfo& info)
 {
     INC_STATS("DOM.HTMLFormElement.IndexedPropertyGetter");
-    HTMLFormElement* form = V8DOMWrapper::convertDOMWrapperToNode<HTMLFormElement>(info.Holder());
+    HTMLFormElement* form = V8HTMLFormElement::toNative(info.Holder());
 
     RefPtr<Node> formElement = form->elements()->item(index);
     if (!formElement)
@@ -50,11 +51,10 @@ INDEXED_PROPERTY_GETTER(HTMLFormElement)
     return V8DOMWrapper::convertNodeToV8Object(formElement.release());
 }
 
-
-NAMED_PROPERTY_GETTER(HTMLFormElement)
+v8::Handle<v8::Value> V8HTMLFormElement::namedPropertyGetter(v8::Local<v8::String> name, const v8::AccessorInfo& info)
 {
     INC_STATS("DOM.HTMLFormElement.NamedPropertyGetter");
-    HTMLFormElement* imp = V8DOMWrapper::convertDOMWrapperToNode<HTMLFormElement>(info.Holder());
+    HTMLFormElement* imp = V8HTMLFormElement::toNative(info.Holder());
     AtomicString v = v8StringToAtomicWebCoreString(name);
 
     // Call getNamedElements twice, first time check if it has a value
@@ -80,10 +80,15 @@ NAMED_PROPERTY_GETTER(HTMLFormElement)
     return V8DOMWrapper::convertToV8Object(V8ClassIndex::NODELIST, collection);
 }
 
-CALLBACK_FUNC_DECL(HTMLFormElementSubmit) {
+v8::Handle<v8::Value> V8HTMLFormElement::submitCallback(const v8::Arguments& args)
+{
     INC_STATS("DOM.HTMLFormElement.submit()");
-    HTMLFormElement* form = V8DOMWrapper::convertDOMWrapperToNative<HTMLFormElement>(args.Holder());
-    form->submit(0, false, false);
+    HTMLFormElement* form = V8HTMLFormElement::toNative(args.Holder());
+    Frame* frame = V8Proxy::retrieveFrameForEnteredContext();
+    if (!frame)
+        return v8::Undefined();
+
+    form->submit(frame);
     return v8::Undefined();
 }
 

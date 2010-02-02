@@ -46,11 +46,11 @@
 
 namespace WebCore {
 
-InspectorResource::InspectorResource(unsigned long identifier, DocumentLoader* loader)
+InspectorResource::InspectorResource(unsigned long identifier, DocumentLoader* loader, const KURL& requestURL)
     : m_identifier(identifier)
     , m_loader(loader)
     , m_frame(loader->frame())
-    , m_scriptObjectCreated(false)
+    , m_requestURL(requestURL)
     , m_expectedContentLength(0)
     , m_cached(false)
     , m_finished(false)
@@ -70,13 +70,27 @@ InspectorResource::~InspectorResource()
 {
 }
 
+PassRefPtr<InspectorResource> InspectorResource::appendRedirect(unsigned long identifier, const KURL& redirectURL)
+{
+    // Last redirect is always a container of all previous ones. Pass this container here.
+    RefPtr<InspectorResource> redirect = InspectorResource::create(m_identifier, m_loader.get(), redirectURL);
+    redirect->m_redirects = m_redirects;
+    redirect->m_redirects.append(this);
+    redirect->m_changes.set(RedirectsChange);
+
+    m_identifier = identifier;
+    // Re-send request info with new id.
+    m_changes.set(RequestChange);
+    m_redirects.clear();
+    return redirect;
+}
+
 PassRefPtr<InspectorResource> InspectorResource::createCached(unsigned long identifier, DocumentLoader* loader, const CachedResource* cachedResource)
 {
-    PassRefPtr<InspectorResource> resource = create(identifier, loader);
+    PassRefPtr<InspectorResource> resource = create(identifier, loader, KURL(ParsedURLString, cachedResource->url()));
 
     resource->m_finished = true;
 
-    resource->m_requestURL = KURL(ParsedURLString, cachedResource->url());
     resource->updateResponse(cachedResource->response());
 
     resource->m_length = cachedResource->encodedSize();
@@ -93,7 +107,6 @@ PassRefPtr<InspectorResource> InspectorResource::createCached(unsigned long iden
 void InspectorResource::updateRequest(const ResourceRequest& request)
 {
     m_requestHeaderFields = request.httpHeaderFields();
-    m_requestURL = request.url();
     m_requestMethod = request.httpMethod();
     if (request.httpBody() && !request.httpBody()->isEmpty())
         m_requestFormData = request.httpBody()->flattenToString();
@@ -126,36 +139,9 @@ static void populateHeadersObject(ScriptObject* object, const HTTPHeaderMap& hea
     }
 }
 
-void InspectorResource::createScriptObject(InspectorFrontend* frontend)
-{
-    if (!m_scriptObjectCreated) {
-        ScriptObject jsonObject = frontend->newScriptObject();
-        ScriptObject requestHeaders = frontend->newScriptObject();
-        populateHeadersObject(&requestHeaders, m_requestHeaderFields);
-        jsonObject.set("requestHeaders", requestHeaders);
-        jsonObject.set("documentURL", m_frame->document()->url().string());
-        jsonObject.set("requestURL", requestURL());
-        jsonObject.set("host", m_requestURL.host());
-        jsonObject.set("path", m_requestURL.path());
-        jsonObject.set("lastPathComponent", m_requestURL.lastPathComponent());
-        jsonObject.set("isMainResource", m_isMainResource);
-        jsonObject.set("cached", m_cached);
-        jsonObject.set("requestMethod", m_requestMethod);
-        jsonObject.set("requestFormData", m_requestFormData);
-        if (!frontend->addResource(m_identifier, jsonObject))
-            return;
-
-        m_scriptObjectCreated = true;
-        m_changes.clear(RequestChange);
-    }
-    updateScriptObject(frontend);
-}
 
 void InspectorResource::updateScriptObject(InspectorFrontend* frontend)
 {
-    if (!m_scriptObjectCreated)
-        return;
-
     if (m_changes.hasChange(NoChange))
         return;
 
@@ -163,7 +149,7 @@ void InspectorResource::updateScriptObject(InspectorFrontend* frontend)
     if (m_changes.hasChange(RequestChange)) {
         jsonObject.set("url", requestURL());
         jsonObject.set("documentURL", m_frame->document()->url().string());
-        jsonObject.set("domain", m_requestURL.host());
+        jsonObject.set("host", m_requestURL.host());
         jsonObject.set("path", m_requestURL.path());
         jsonObject.set("lastPathComponent", m_requestURL.lastPathComponent());
         ScriptObject requestHeaders = frontend->newScriptObject();
@@ -173,6 +159,7 @@ void InspectorResource::updateScriptObject(InspectorFrontend* frontend)
         jsonObject.set("requestMethod", m_requestMethod);
         jsonObject.set("requestFormData", m_requestFormData);
         jsonObject.set("didRequestChange", true);
+        jsonObject.set("cached", m_cached);
     }
 
     if (m_changes.hasChange(ResponseChange)) {
@@ -216,18 +203,22 @@ void InspectorResource::updateScriptObject(InspectorFrontend* frontend)
             jsonObject.set("domContentEventTime", m_domContentEventTime);
         jsonObject.set("didTimingChange", true);
     }
-    if (!frontend->updateResource(m_identifier, jsonObject))
-        return;
-    m_changes.clearAll();
+
+    if (m_changes.hasChange(RedirectsChange)) {
+        for (size_t i = 0; i < m_redirects.size(); ++i)
+            m_redirects[i]->updateScriptObject(frontend);
+    }
+
+    if (frontend->updateResource(m_identifier, jsonObject))
+        m_changes.clearAll();
 }
 
 void InspectorResource::releaseScriptObject(InspectorFrontend* frontend, bool callRemoveResource)
 {
-    if (!m_scriptObjectCreated)
-        return;
-
-    m_scriptObjectCreated = false;
     m_changes.setAll();
+
+    for (size_t i = 0; i < m_redirects.size(); ++i)
+        m_redirects[i]->releaseScriptObject(frontend, callRemoveResource);
 
     if (!callRemoveResource)
         return;
@@ -288,7 +279,6 @@ InspectorResource::Type InspectorResource::type() const
         return Image;
 
     return cachedResourceType();
-
 }
 
 void InspectorResource::setXMLHttpResponseText(const ScriptString& data)

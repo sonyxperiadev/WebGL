@@ -29,15 +29,10 @@
  */
 
 #include "config.h"
-#include "InspectorFrontendHost.h"
+#include "V8InspectorFrontendHost.h"
 
-#include "ExceptionCode.h"
 #include "InspectorController.h"
-#include "Node.h"
-#include "Range.h"
-#include "Page.h"
-#include "TextIterator.h"
-#include "VisiblePosition.h"
+#include "InspectorFrontendHost.h"
 
 #include "V8Binding.h"
 #include "V8CustomBinding.h"
@@ -45,46 +40,7 @@
 
 namespace WebCore {
 
-CALLBACK_FUNC_DECL(InspectorFrontendHostSearch)
-{
-    INC_STATS("InspectorFrontendHost.search()");
-
-    if (args.Length() < 2)
-        return v8::Undefined();
-
-    Node* node = V8DOMWrapper::convertDOMWrapperToNode<Node>(v8::Handle<v8::Object>::Cast(args[0]));
-    if (!node)
-        return v8::Undefined();
-
-    String target = toWebCoreStringWithNullCheck(args[1]);
-    if (target.isEmpty())
-        return v8::Undefined();
-
-    v8::Local<v8::Array> result = v8::Array::New();
-    RefPtr<Range> searchRange(rangeOfContents(node));
-
-    ExceptionCode ec = 0;
-    int index = 0;
-    do {
-        RefPtr<Range> resultRange(findPlainText(searchRange.get(), target, true, false));
-        if (resultRange->collapsed(ec))
-            break;
-
-        // A non-collapsed result range can in some funky whitespace cases still not
-        // advance the range's start position (4509328). Break to avoid infinite loop.
-        VisiblePosition newStart = endVisiblePosition(resultRange.get(), DOWNSTREAM);
-        if (newStart == startVisiblePosition(searchRange.get(), DOWNSTREAM))
-            break;
-
-        result->Set(v8::Number::New(index++), V8DOMWrapper::convertToV8Object(V8ClassIndex::RANGE, resultRange.release()));
-
-        setStart(searchRange.get(), newStart);
-    } while (true);
-
-    return result;
-}
-
-CALLBACK_FUNC_DECL(InspectorFrontendHostShowContextMenu)
+v8::Handle<v8::Value> V8InspectorFrontendHost::showContextMenuCallback(const v8::Arguments& args)
 {
     return v8::Undefined();
 }

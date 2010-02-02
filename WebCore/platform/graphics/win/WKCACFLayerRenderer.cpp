@@ -34,15 +34,20 @@
 #include <CoreGraphics/CGSRegion.h>
 #include <QuartzCore/CACFContext.h>
 #include <QuartzCore/CARenderOGL.h>
+#include <QuartzCoreInterface/QuartzCoreInterface.h>
 #include <wtf/HashMap.h>
 #include <wtf/OwnArrayPtr.h>
+#include <wtf/StdLibExtras.h>
 #include <d3d9.h>
 #include <d3dx9.h>
-#include <dxerr9.h>
 
 #pragma comment(lib, "d3d9")
 #pragma comment(lib, "d3dx9")
+#ifdef DEBUG_ALL
+#pragma comment(lib, "QuartzCore_debug")
+#else
 #pragma comment(lib, "QuartzCore")
+#endif
 
 static IDirect3D9* s_d3d = 0;
 static IDirect3D9* d3d()
@@ -135,8 +140,7 @@ WKCACFLayerRenderer::WKCACFLayerRenderer()
     , m_renderer(0)
     , m_hostWindow(0)
     , m_renderTimer(this, &WKCACFLayerRenderer::renderTimerFired)
-    , m_scrollFrameWidth(1) // Default to 1 to avoid 0 size frames
-    , m_scrollFrameHeight(1) // Default to 1 to avoid 0 size frames
+    , m_scrollFrame(0, 0, 1, 1) // Default to 1 to avoid 0 size frames
 {
 }
 
@@ -145,19 +149,15 @@ WKCACFLayerRenderer::~WKCACFLayerRenderer()
     destroyRenderer();
 }
 
-void WKCACFLayerRenderer::setScrollFrame(int width, int height, int scrollX, int scrollY)
+void WKCACFLayerRenderer::setScrollFrame(const IntRect& scrollFrame)
 {
-    m_scrollFrameWidth = width;
-    m_scrollFrameHeight = height;
+    m_scrollFrame = scrollFrame;
+    CGRect frameBounds = bounds();
+    m_scrollLayer->setBounds(CGRectMake(0, 0, m_scrollFrame.width(), m_scrollFrame.height()));
+    m_scrollLayer->setPosition(CGPointMake(0, frameBounds.size.height));
 
-    CGRect contentsRect = CGRectMake(scrollX, scrollY, width, height);
-    m_scrollLayer->setFrame(contentsRect);
-
-    if (m_rootChildLayer) {
-        contentsRect.origin.x = 0;
-        contentsRect.origin.y = 0;
-        m_rootChildLayer->setFrame(contentsRect);
-    }
+    if (m_rootChildLayer)
+        m_rootChildLayer->setPosition(CGPointMake(m_scrollFrame.x(), m_scrollFrame.height() + m_scrollFrame.y()));
 }
 
 void WKCACFLayerRenderer::setRootContents(CGImageRef image)
@@ -177,7 +177,8 @@ void WKCACFLayerRenderer::setRootChildLayer(WebCore::PlatformLayer* layer)
         m_scrollLayer->addSublayer(layer);
 
         // Set the frame
-        layer->setFrame(CGRectMake(0, 0, m_scrollFrameWidth, m_scrollFrameHeight));
+        layer->setAnchorPoint(CGPointMake(0, 1));
+        setScrollFrame(m_scrollFrame);
     }
 
     m_rootChildLayer = layer;
@@ -225,14 +226,15 @@ void WKCACFLayerRenderer::createRenderer()
     windowsForContexts().set(m_context.get(), this);
 
     m_renderContext = static_cast<CARenderContext*>(CACFContextGetRenderContext(m_context.get()));
-    m_renderer = CARenderOGLNew(&kCARenderDX9Callbacks, m_d3dDevice.get(), 0);
+    m_renderer = CARenderOGLNew(wkqcCARenderOGLCallbacks(wkqckCARenderDX9Callbacks), m_d3dDevice.get(), 0);
 
     // Create the root hierarchy
-    m_rootLayer = WKCACFLayer::create(kCACFLayer);
-    m_scrollLayer = WKCACFLayer::create(kCACFLayer);
+    m_rootLayer = WKCACFLayer::create(WKCACFLayer::Layer);
+    m_scrollLayer = WKCACFLayer::create(WKCACFLayer::Layer);
 
     m_rootLayer->addSublayer(m_scrollLayer);
     m_scrollLayer->setMasksToBounds(true);
+    m_scrollLayer->setAnchorPoint(CGPointMake(0, 1));
 
 #ifndef NDEBUG
     CGColorRef debugColor = createCGColor(Color(255, 0, 0, 204));
@@ -240,13 +242,8 @@ void WKCACFLayerRenderer::createRenderer()
     CGColorRelease(debugColor);
 #endif
 
-    if (IsWindow(m_hostWindow)) {
+    if (IsWindow(m_hostWindow))
         m_rootLayer->setFrame(bounds());
-
-        // For now this will include the scroll bars. Later in the setScrollFrame
-        // we will fix it
-        m_scrollLayer->setFrame(bounds());
-    }
 
     if (m_context)
         m_rootLayer->becomeRootLayerForContext(m_context.get());
@@ -284,6 +281,7 @@ void WKCACFLayerRenderer::resize()
     if (m_rootLayer) {
         m_rootLayer->setFrame(bounds());
         WKCACFContextFlusher::shared().flushAllContexts();
+        setScrollFrame(m_scrollFrame);
     }
 }
 

@@ -31,6 +31,7 @@
 
 #include "Console.h"
 #include "Cookie.h"
+#include "InspectorDOMAgent.h"
 #include "PlatformString.h"
 #include "ScriptArray.h"
 #include "ScriptObject.h"
@@ -60,12 +61,12 @@ class CachedResource;
 class Database;
 class Document;
 class DocumentLoader;
+class Element;
 class GraphicsContext;
 class HitTestResult;
 class InjectedScriptHost;
 class InspectorBackend;
 class InspectorClient;
-class InspectorDOMAgent;
 class InspectorFrontend;
 class InspectorFrontendHost;
 class InspectorTimelineAgent;
@@ -89,7 +90,9 @@ class InspectorResource;
 
 class InspectorController
 #if ENABLE(JAVASCRIPT_DEBUGGER)
-                          : JavaScriptDebugListener
+                          : JavaScriptDebugListener, public Noncopyable
+#else
+                          : public Noncopyable
 #endif
                                                     {
 public:
@@ -97,7 +100,6 @@ public:
     typedef HashMap<RefPtr<Frame>, ResourcesMap*> FrameResourcesMap;
     typedef HashMap<int, RefPtr<InspectorDatabaseResource> > DatabaseResourcesMap;
     typedef HashMap<int, RefPtr<InspectorDOMStorageResource> > DOMStorageResourcesMap;
-    typedef HashMap<String, Vector<String> > ObjectGroupsMap;
 
     typedef enum {
         CurrentPanel,
@@ -140,7 +142,7 @@ public:
 
     void addMessageToConsole(MessageSource, MessageType, MessageLevel, ScriptCallStack*);
     void addMessageToConsole(MessageSource, MessageType, MessageLevel, const String& message, unsigned lineNumber, const String& sourceID);
-    void clearConsoleMessages(bool clearUI);
+    void clearConsoleMessages();
     const Vector<ConsoleMessage*>& consoleMessages() const { return m_consoleMessages; }
 
     void attachWindow();
@@ -185,6 +187,10 @@ public:
 
     void mainResourceFiredLoadEvent(DocumentLoader*, const KURL&);
     void mainResourceFiredDOMContentEvent(DocumentLoader*, const KURL&);
+    
+    void didInsertDOMNode(Node*);
+    void didRemoveDOMNode(Node*);
+    void didModifyDOMAttr(Element*);
                                                         
     void getCookies(long callId);
 
@@ -242,7 +248,10 @@ public:
 
     void evaluateForTestInFrontend(long callId, const String& script);
 
+    ScriptObject injectedScriptForNodeId(long id);
+
 private:
+    static const char* const FrontendSettingsSettingName;
     friend class InspectorBackend;
     friend class InspectorFrontendHost;
     friend class InjectedScriptHost;
@@ -255,16 +264,6 @@ private:
     void closeWindow();
     InspectorDOMAgent* domAgent() { return m_domAgent.get(); }
     void releaseDOMAgent();
-
-    friend class InspectorFrontend;
-    // Following are used from InspectorFrontend only. We don't want to expose them to the
-    // rest of the InspectorController clients.
-    // TODO: extract these into a separate interface.
-    ScriptValue wrapObject(const ScriptValue& object, const String& objectGroup);
-    ScriptValue unwrapObject(const String& objectId);
-    void releaseWrapperObjectGroup(const String& objectGroup);
-    
-    void resetInjectedScript();
 
     void deleteCookie(const String& cookieName, const String& domain);
 
@@ -313,7 +312,6 @@ private:
     OwnPtr<InspectorFrontend> m_frontend;
     RefPtr<InspectorDOMAgent> m_domAgent;
     OwnPtr<InspectorTimelineAgent> m_timelineAgent;
-    ScriptObject m_injectedScriptObj;
     Page* m_page;
     RefPtr<Node> m_nodeToFocus;
     RefPtr<InspectorResource> m_mainResource;
@@ -321,6 +319,7 @@ private:
     HashSet<String> m_knownResources;
     FrameResourcesMap m_frameResources;
     Vector<ConsoleMessage*> m_consoleMessages;
+    unsigned m_expiredConsoleMessageCount;
     HashMap<String, double> m_times;
     HashMap<String, unsigned> m_counts;
 #if ENABLE(DATABASE)
@@ -341,9 +340,6 @@ private:
     RefPtr<InspectorBackend> m_inspectorBackend;
     RefPtr<InspectorFrontendHost> m_inspectorFrontendHost;
     RefPtr<InjectedScriptHost> m_injectedScriptHost;
-    HashMap<String, ScriptValue> m_idToWrappedObject;
-    ObjectGroupsMap m_objectGroups;
-    long m_lastBoundObjectId;
 
     typedef HashMap<String, String> Settings;
     mutable Settings m_settings;
@@ -360,6 +356,24 @@ private:
     ProfilesMap m_profiles;
 #endif
 };
+
+inline void InspectorController::didInsertDOMNode(Node* node)
+{
+    if (m_domAgent)
+        m_domAgent->didInsertDOMNode(node);
+}
+
+inline void InspectorController::didRemoveDOMNode(Node* node)
+{
+    if (m_domAgent)
+        m_domAgent->didRemoveDOMNode(node);
+}
+
+inline void InspectorController::didModifyDOMAttr(Element* element)
+{
+    if (m_domAgent)
+        m_domAgent->didModifyDOMAttr(element);
+}
 
 } // namespace WebCore
 

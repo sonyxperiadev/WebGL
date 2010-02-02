@@ -47,11 +47,15 @@
 #include <wtf/RefPtr.h>
 #include <wtf/Vector.h>
 
+<<<<<<< HEAD
 #ifdef PLUGIN_SCHEDULE_TIMER
 #include "PluginTimer.h"
 #endif
 
 #if PLATFORM(WIN_OS) && (PLATFORM(QT) || PLATFORM(WX))
+=======
+#if OS(WINDOWS) && (PLATFORM(QT) || PLATFORM(WX))
+>>>>>>> webkit.org at r54127
 typedef struct HWND__* HWND;
 typedef HWND PlatformPluginWidget;
 #elif defined(ANDROID_PLUGINS)
@@ -83,7 +87,7 @@ namespace WebCore {
     class TouchEvent;
 #endif
     class KURL;
-#if PLATFORM(WIN_OS) && ENABLE(NETSCAPE_PLUGIN_API)
+#if OS(WINDOWS) && ENABLE(NETSCAPE_PLUGIN_API)
     class PluginMessageThrottlerWin;
 #endif
     class PluginPackage;
@@ -210,7 +214,7 @@ namespace WebCore {
         const String& mimeType() const { return m_mimeType; }
         const KURL& url() const { return m_url; }
 
-#if PLATFORM(WIN_OS) && ENABLE(NETSCAPE_PLUGIN_API)
+#if OS(WINDOWS) && ENABLE(NETSCAPE_PLUGIN_API)
         static LRESULT CALLBACK PluginViewWndProc(HWND, UINT, WPARAM, LPARAM);
         LRESULT wndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
         WNDPROC pluginWndProc() const { return m_pluginWndProc; }
@@ -260,7 +264,7 @@ namespace WebCore {
 
         void invalidateWindowlessPluginRect(const IntRect&);
 
-#if PLATFORM(WIN_OS) && ENABLE(NETSCAPE_PLUGIN_API)
+#if OS(WINDOWS) && ENABLE(NETSCAPE_PLUGIN_API)
         void paintWindowedPluginIntoContext(GraphicsContext*, const IntRect&);
         static HDC WINAPI hookedBeginPaint(HWND, PAINTSTRUCT*);
         static BOOL WINAPI hookedEndPaint(HWND, const PAINTSTRUCT*);
@@ -293,12 +297,12 @@ namespace WebCore {
 
         void handleKeyboardEvent(KeyboardEvent*);
         void handleMouseEvent(MouseEvent*);
-#if defined(Q_WS_X11) && ENABLE(NETSCAPE_PLUGIN_API)
+#if defined(XP_UNIX) && ENABLE(NETSCAPE_PLUGIN_API)
         void handleFocusInEvent();
         void handleFocusOutEvent();
 #endif
 
-#if PLATFORM(WIN_OS)
+#if OS(WINDOWS)
         void paintIntoTransformedContext(HDC);
         PassRefPtr<Image> snapshot();
 #endif
@@ -337,11 +341,11 @@ namespace WebCore {
         bool m_haveInitialized;
         bool m_isWaitingToStart;
 
-#if defined(XP_UNIX) || defined(Q_WS_X11)
+#if defined(XP_UNIX)
         bool m_needsXEmbed;
 #endif
 
-#if PLATFORM(WIN_OS) && ENABLE(NETSCAPE_PLUGIN_API)
+#if OS(WINDOWS) && ENABLE(NETSCAPE_PLUGIN_API)
         OwnPtr<PluginMessageThrottlerWin> m_messageThrottler;
         WNDPROC m_pluginWndProc;
         unsigned m_lastMessage;
@@ -350,11 +354,15 @@ namespace WebCore {
         bool m_haveUpdatedPluginWidget;
 #endif
 
+<<<<<<< HEAD
 #ifdef PLUGIN_SCHEDULE_TIMER
         PluginTimerList m_timerList;
 #endif
 
 #if ((PLATFORM(QT) || PLATFORM(WX)) && PLATFORM(WIN_OS)) || defined(XP_MACOSX)
+=======
+#if ((PLATFORM(QT) || PLATFORM(WX)) && OS(WINDOWS)) || defined(XP_MACOSX)
+>>>>>>> webkit.org at r54127
         // On Mac OSX and Qt/Windows the plugin does not have its own native widget,
         // but is using the containing window as its reference for positioning/painting.
         PlatformPluginWidget m_window;
@@ -373,7 +381,11 @@ public:
 
 private:
 
+<<<<<<< HEAD
 #if defined(XP_UNIX) || defined(Q_WS_X11) || PLATFORM(SYMBIAN) || defined(ANDROID_PLUGINS)
+=======
+#if defined(XP_UNIX) || PLATFORM(SYMBIAN)
+>>>>>>> webkit.org at r54127
         void setNPWindowIfNeeded();
 #elif defined(XP_MACOSX)
         NP_CGContext m_npCgContext;
@@ -389,7 +401,7 @@ private:
         Point globalMousePosForPlugin() const;
 #endif
 
-#if defined(Q_WS_X11) && ENABLE(NETSCAPE_PLUGIN_API)
+#if defined(XP_UNIX) && ENABLE(NETSCAPE_PLUGIN_API)
         bool m_hasPendingGeometryChange;
         Pixmap m_drawable;
         Visual* m_visual;

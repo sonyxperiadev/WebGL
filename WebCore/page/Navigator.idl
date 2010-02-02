@@ -20,7 +20,8 @@
 module window {
 
     interface [
-        CustomMarkFunction
+        CustomMarkFunction,
+        OmitConstructor
     ] Navigator {
         readonly attribute DOMString appCodeName;
         readonly attribute DOMString appName;
@@ -45,7 +46,7 @@ module window {
 #endif
 
 #if defined(ENABLE_GEOLOCATION) && ENABLE_GEOLOCATION
-        readonly attribute Geolocation geolocation;
+        readonly attribute [EnabledAtRuntime] Geolocation geolocation;
 #endif
 
 #if defined(ENABLE_DOM_STORAGE) && ENABLE_DOM_STORAGE

@@ -36,6 +36,7 @@
 #include "CSSProperty.h"
 #include "CSSPropertyNames.h"
 #include "CachedCSSStyleSheet.h"
+#include "Chrome.h"
 #include "DOMWindow.h"
 #include "DocLoader.h"
 #include "DocumentType.h"
@@ -74,6 +75,7 @@
 #include "TextIterator.h"
 #include "TextResourceDecoder.h"
 #include "UserContentURLPattern.h"
+#include "XMLNSNames.h"
 #include "XMLNames.h"
 #include "htmlediting.h"
 #include "markup.h"
@@ -82,7 +84,7 @@
 #include <wtf/RefCountedLeakCounter.h>
 #include <wtf/StdLibExtras.h>
 
-#if PLATFORM(MAC) || (PLATFORM(CHROMIUM) && PLATFORM(DARWIN))
+#if PLATFORM(MAC) || (PLATFORM(CHROMIUM) && OS(DARWIN))
 #import <Carbon/Carbon.h>
 #endif
 
@@ -136,7 +138,6 @@ Frame::Frame(Page* page, HTMLFrameOwnerElement* ownerElement, FrameLoaderClient*
     , m_script(this)
     , m_selectionGranularity(CharacterGranularity)
     , m_selectionController(this)
-    , m_caretBlinkTimer(this, &Frame::caretBlinkTimerFired)
     , m_editor(this)
     , m_eventHandler(this)
     , m_animationController(this)
@@ -144,8 +145,6 @@ Frame::Frame(Page* page, HTMLFrameOwnerElement* ownerElement, FrameLoaderClient*
 #if ENABLE(ORIENTATION_EVENTS)
     , m_orientation(0)
 #endif
-    , m_caretVisible(false)
-    , m_caretPaint(true)
     , m_highlightTextMatches(false)
     , m_inViewSourceMode(false)
     , m_needsReapplyStyles(false)
@@ -173,6 +172,7 @@ Frame::Frame(Page* page, HTMLFrameOwnerElement* ownerElement, FrameLoaderClient*
     MathMLNames::init();
 #endif
 
+    XMLNSNames::init();
     XMLNames::init();
 
     if (!ownerElement)
@@ -419,7 +419,7 @@ static RegularExpression* createRegExpForLabels(const Vector<String>& labels)
     return new RegularExpression(pattern, TextCaseInsensitive);
 }
 
-String Frame::searchForLabelsAboveCell(RegularExpression* regExp, HTMLTableCellElement* cell)
+String Frame::searchForLabelsAboveCell(RegularExpression* regExp, HTMLTableCellElement* cell, size_t* resultDistanceFromStartOfCell)
 {
     RenderObject* cellRenderer = cell->renderer();
 
@@ -433,23 +433,30 @@ String Frame::searchForLabelsAboveCell(RegularExpression* regExp, HTMLTableCellE
 
             if (aboveCell) {
                 // search within the above cell we found for a match
+                size_t lengthSearched = 0;    
                 for (Node* n = aboveCell->firstChild(); n; n = n->traverseNextNode(aboveCell)) {
                     if (n->isTextNode() && n->renderer() && n->renderer()->style()->visibility() == VISIBLE) {
                         // For each text chunk, run the regexp
                         String nodeString = n->nodeValue();
                         int pos = regExp->searchRev(nodeString);
-                        if (pos >= 0)
+                        if (pos >= 0) {
+                            if (resultDistanceFromStartOfCell)
+                                *resultDistanceFromStartOfCell = lengthSearched;
                             return nodeString.substring(pos, regExp->matchedLength());
+                        }
+                        lengthSearched += nodeString.length();
                     }
                 }
             }
         }
     }
     // Any reason in practice to search all cells in that are above cell?
+    if (resultDistanceFromStartOfCell)
+        *resultDistanceFromStartOfCell = notFound;
     return String();
 }
 
-String Frame::searchForLabelsBeforeElement(const Vector<String>& labels, Element* element)
+String Frame::searchForLabelsBeforeElement(const Vector<String>& labels, Element* element, size_t* resultDistance, bool* resultIsInCellAbove)
 {
     OwnPtr<RegularExpression> regExp(createRegExpForLabels(labels));
     // We stop searching after we've seen this many chars
@@ -461,6 +468,11 @@ String Frame::searchForLabelsBeforeElement(const Vector<String>& labels, Element
     HTMLTableCellElement* startingTableCell = 0;
     bool searchedCellAbove = false;
 
+    if (resultDistance)
+        *resultDistance = notFound;
+    if (resultIsInCellAbove)
+        *resultIsInCellAbove = false;
+    
     // walk backwards in the node tree, until another element, or form, or end of tree
     int unsigned lengthSearched = 0;
     Node* n;
@@ -476,9 +488,12 @@ String Frame::searchForLabelsBeforeElement(const Vector<String>& labels, Element
         } else if (n->hasTagName(tdTag) && !startingTableCell) {
             startingTableCell = static_cast<HTMLTableCellElement*>(n);
         } else if (n->hasTagName(trTag) && startingTableCell) {
-            String result = searchForLabelsAboveCell(regExp.get(), startingTableCell);
-            if (!result.isEmpty())
+            String result = searchForLabelsAboveCell(regExp.get(), startingTableCell, resultDistance);
+            if (!result.isEmpty()) {
+                if (resultIsInCellAbove)
+                    *resultIsInCellAbove = true;
                 return result;
+            }
             searchedCellAbove = true;
         } else if (n->isTextNode() && n->renderer() && n->renderer()->style()->visibility() == VISIBLE) {
             // For each text chunk, run the regexp
@@ -487,38 +502,48 @@ String Frame::searchForLabelsBeforeElement(const Vector<String>& labels, Element
             if (lengthSearched + nodeString.length() > maxCharsSearched)
                 nodeString = nodeString.right(charsSearchedThreshold - lengthSearched);
             int pos = regExp->searchRev(nodeString);
-            if (pos >= 0)
+            if (pos >= 0) {
+                if (resultDistance)
+                    *resultDistance = lengthSearched;
                 return nodeString.substring(pos, regExp->matchedLength());
+            }
             lengthSearched += nodeString.length();
         }
     }
 
     // If we started in a cell, but bailed because we found the start of the form or the
     // previous element, we still might need to search the row above us for a label.
-    if (startingTableCell && !searchedCellAbove)
-         return searchForLabelsAboveCell(regExp.get(), startingTableCell);
+    if (startingTableCell && !searchedCellAbove) {
+         String result = searchForLabelsAboveCell(regExp.get(), startingTableCell, resultDistance);
+        if (!result.isEmpty()) {
+            if (resultIsInCellAbove)
+                *resultIsInCellAbove = true;
+            return result;
+        }
+    }
     return String();
 }
 
-String Frame::matchLabelsAgainstElement(const Vector<String>& labels, Element* element)
+static String matchLabelsAgainstString(const Vector<String>& labels, const String& stringToMatch)
 {
-    String name = element->getAttribute(nameAttr);
-    if (name.isEmpty())
+    if (stringToMatch.isEmpty())
         return String();
 
-    // Make numbers and _'s in field names behave like word boundaries, e.g., "address2"
-    replace(name, RegularExpression("\\d", TextCaseSensitive), " ");
-    name.replace('_', ' ');
+    String mutableStringToMatch = stringToMatch;
 
+    // Make numbers and _'s in field names behave like word boundaries, e.g., "address2"
+    replace(mutableStringToMatch, RegularExpression("\\d", TextCaseSensitive), " ");
+    mutableStringToMatch.replace('_', ' ');
+    
     OwnPtr<RegularExpression> regExp(createRegExpForLabels(labels));
-    // Use the largest match we can find in the whole name string
+    // Use the largest match we can find in the whole string
     int pos;
     int length;
     int bestPos = -1;
     int bestLength = -1;
     int start = 0;
     do {
-        pos = regExp->match(name, start);
+        pos = regExp->match(mutableStringToMatch, start);
         if (pos != -1) {
             length = regExp->matchedLength();
             if (length >= bestLength) {
@@ -528,10 +553,23 @@ String Frame::matchLabelsAgainstElement(const Vector<String>& labels, Element* e
             start = pos + 1;
         }
     } while (pos != -1);
-
+    
     if (bestPos != -1)
-        return name.substring(bestPos, bestLength);
+        return mutableStringToMatch.substring(bestPos, bestLength);
     return String();
+}
+    
+String Frame::matchLabelsAgainstElement(const Vector<String>& labels, Element* element)
+{
+    // Match against the name element, then against the id element if no match is found for the name element.
+    // See 7538330 for one popular site that benefits from the id element check.
+    // FIXME: This code is mirrored in FrameMac.mm. It would be nice to make the Mac code call the platform-agnostic
+    // code, which would require converting the NSArray of NSStrings to a Vector of Strings somewhere along the way.
+    String resultFromNameAttribute = matchLabelsAgainstString(labels, element->getAttribute(nameAttr));
+    if (!resultFromNameAttribute.isEmpty())
+        return resultFromNameAttribute;
+    
+    return matchLabelsAgainstString(labels, element->getAttribute(idAttr));
 }
 
 const VisibleSelection& Frame::mark() const
@@ -558,31 +596,6 @@ void Frame::notifyRendererOfSelectionChange(bool userTriggered)
     // If the current selection is in a textfield or textarea, notify the renderer that the selection has changed
     if (renderer && renderer->isTextControl())
         toRenderTextControl(renderer)->selectionChanged(userTriggered);
-}
-
-void Frame::invalidateSelection()
-{
-    selection()->setNeedsLayout();
-    selectionLayoutChanged();
-}
-
-void Frame::setCaretVisible(bool flag)
-{
-    if (m_caretVisible == flag)
-        return;
-    clearCaretRectIfNeeded();
-    m_caretVisible = flag;
-    selectionLayoutChanged();
-}
-
-void Frame::clearCaretRectIfNeeded()
-{
-#if ENABLE(TEXT_CARET)
-    if (m_caretPaint) {
-        m_caretPaint = false;
-        selection()->invalidateCaretRect();
-    }
-#endif
 }
 
 // Helper function that tells whether a particular node is an element that has an entire
@@ -635,87 +648,6 @@ void Frame::setFocusedNodeIfNeeded()
 
     if (caretBrowsing)
         page()->focusController()->setFocusedNode(0, this);
-}
-
-void Frame::selectionLayoutChanged()
-{
-    bool caretRectChanged = selection()->recomputeCaretRect();
-
-#if ENABLE(TEXT_CARET)
-    bool caretBrowsing = settings() && settings()->caretBrowsingEnabled();
-    bool shouldBlink = m_caretVisible
-        && selection()->isCaret() && (selection()->isContentEditable() || caretBrowsing);
-
-    // If the caret moved, stop the blink timer so we can restart with a
-    // black caret in the new location.
-    if (caretRectChanged || !shouldBlink)
-        m_caretBlinkTimer.stop();
-
-    // Start blinking with a black caret. Be sure not to restart if we're
-    // already blinking in the right location.
-    if (shouldBlink && !m_caretBlinkTimer.isActive()) {
-        if (double blinkInterval = page()->theme()->caretBlinkInterval())
-            m_caretBlinkTimer.startRepeating(blinkInterval);
-
-        if (!m_caretPaint) {
-            m_caretPaint = true;
-            selection()->invalidateCaretRect();
-        }
-    }
-#else
-    if (!caretRectChanged)
-        return;
-#endif
-
-    RenderView* view = contentRenderer();
-    if (!view)
-        return;
-
-    VisibleSelection selection = this->selection()->selection();
-
-    if (!selection.isRange())
-        view->clearSelection();
-    else {
-        // Use the rightmost candidate for the start of the selection, and the leftmost candidate for the end of the selection.
-        // Example: foo <a>bar</a>.  Imagine that a line wrap occurs after 'foo', and that 'bar' is selected.   If we pass [foo, 3]
-        // as the start of the selection, the selection painting code will think that content on the line containing 'foo' is selected
-        // and will fill the gap before 'bar'.
-        Position startPos = selection.start();
-        if (startPos.downstream().isCandidate())
-            startPos = startPos.downstream();
-        Position endPos = selection.end();
-        if (endPos.upstream().isCandidate())
-            endPos = endPos.upstream();
-
-        // We can get into a state where the selection endpoints map to the same VisiblePosition when a selection is deleted
-        // because we don't yet notify the SelectionController of text removal.
-        if (startPos.isNotNull() && endPos.isNotNull() && selection.visibleStart() != selection.visibleEnd()) {
-            RenderObject *startRenderer = startPos.node()->renderer();
-            RenderObject *endRenderer = endPos.node()->renderer();
-            view->setSelection(startRenderer, startPos.deprecatedEditingOffset(), endRenderer, endPos.deprecatedEditingOffset());
-        }
-    }
-}
-
-void Frame::caretBlinkTimerFired(Timer<Frame>*)
-{
-#if ENABLE(TEXT_CARET)
-    ASSERT(m_caretVisible);
-    ASSERT(selection()->isCaret());
-    bool caretPaint = m_caretPaint;
-    if (selection()->isCaretBlinkingSuspended() && caretPaint)
-        return;
-    m_caretPaint = !caretPaint;
-    selection()->invalidateCaretRect();
-#endif
-}
-
-void Frame::paintCaret(GraphicsContext* p, int tx, int ty, const IntRect& clipRect) const
-{
-#if ENABLE(TEXT_CARET)
-    if (m_caretPaint && m_caretVisible)
-        selection()->paintCaret(p, tx, ty, clipRect);
-#endif
 }
 
 void Frame::paintDragCaret(GraphicsContext* p, int tx, int ty, const IntRect& clipRect) const
@@ -778,6 +710,13 @@ void Frame::setZoomFactor(float percent, bool isTextOnly)
         return;
     }
 #endif
+
+    if (!isTextOnly) {
+        // Update the scroll position when doing a full page zoom, so the content stays in relatively the same position.
+        IntPoint scrollPosition = view()->scrollPosition();
+        float percentDifference = (percent / m_zoomFactor);
+        view()->setScrollPosition(IntPoint(scrollPosition.x() * percentDifference, scrollPosition.y() * percentDifference));
+    }
 
     m_zoomFactor = percent;
     m_page->settings()->setZoomsTextOnly(isTextOnly);
@@ -922,12 +861,12 @@ bool Frame::isContentEditable() const
     return m_doc->inDesignMode();
 }
 
-#if PLATFORM(MAC) || (PLATFORM(CHROMIUM) && PLATFORM(DARWIN))
+#if PLATFORM(MAC) || (PLATFORM(CHROMIUM) && OS(DARWIN))
 const short enableRomanKeyboardsOnly = -23;
 #endif
 void Frame::setUseSecureKeyboardEntry(bool enable)
 {
-#if PLATFORM(MAC) || (PLATFORM(CHROMIUM) && PLATFORM(DARWIN))
+#if PLATFORM(MAC) || (PLATFORM(CHROMIUM) && OS(DARWIN))
     if (enable == IsSecureEventInputEnabled())
         return;
     if (enable) {
@@ -1570,12 +1509,6 @@ unsigned Frame::markAllMatchesForText(const String& target, bool caseFlag, unsig
             continue;
         }
 
-        // A non-collapsed result range can in some funky whitespace cases still not
-        // advance the range's start position (4509328). Break to avoid infinite loop.
-        VisiblePosition newStart = endVisiblePosition(resultRange.get(), DOWNSTREAM);
-        if (newStart == startVisiblePosition(searchRange.get(), DOWNSTREAM))
-            break;
-
         // Only treat the result as a match if it is visible
         if (editor()->insideVisibleArea(resultRange.get())) {
             ++matchCount;
@@ -1586,7 +1519,12 @@ unsigned Frame::markAllMatchesForText(const String& target, bool caseFlag, unsig
         if (limit > 0 && matchCount >= limit)
             break;
 
-        setStart(searchRange.get(), newStart);
+        // Set the new start for the search range to be the end of the previous
+        // result range. There is no need to use a VisiblePosition here,
+        // since findPlainText will use a TextIterator to go over the visible
+        // text nodes. 
+        searchRange->setStart(resultRange->endContainer(exception), resultRange->endOffset(exception), exception);
+
         Node* shadowTreeRoot = searchRange->shadowTreeRootNode();
         if (searchRange->collapsed(exception) && shadowTreeRoot)
             searchRange->setEnd(shadowTreeRoot, shadowTreeRoot->childNodeCount(), exception);

@@ -31,6 +31,7 @@
 #include "config.h"
 #include "HistoryController.h"
 
+#include "BackForwardList.h"
 #include "CachedPage.h"
 #include "CString.h"
 #include "DocumentLoader.h"
@@ -105,6 +106,10 @@ void HistoryController::restoreScrollPositionAndViewState()
 void HistoryController::updateBackForwardListForFragmentScroll()
 {
     updateBackForwardListClippedAtTarget(false);
+    
+    // Since the document isn't changed as a result of a fragment scroll, we should
+    // preserve the DocumentSequenceNumber of the previous item.
+    m_currentItem->setDocumentSequenceNumber(m_previousItem->documentSequenceNumber());
 }
 
 void HistoryController::saveDocumentState()
@@ -631,14 +636,16 @@ void HistoryController::pushState(PassRefPtr<SerializedScriptValue> stateObject,
 
     // Get a HistoryItem tree for the current frame tree.
     RefPtr<HistoryItem> item = createItemTree(m_frame, false);
+    ASSERT(item->isTargetItem());
     
     // Override data in the target item to reflect the pushState() arguments.
-    HistoryItem* targetItem = item->targetItem();
-    ASSERT(targetItem->isTargetItem());
-    targetItem->setDocument(m_frame->document());
-    targetItem->setTitle(title);
-    targetItem->setStateObject(stateObject);
-    targetItem->setURLString(urlString);
+    item->setTitle(title);
+    item->setStateObject(stateObject);
+    item->setURLString(urlString);
+
+    // Since the document isn't changed as a result of a pushState call, we
+    // should preserve the DocumentSequenceNumber of the previous item.
+    item->setDocumentSequenceNumber(m_previousItem->documentSequenceNumber());
     
     page->backForwardList()->pushStateItem(item.release());
 }
@@ -649,10 +656,7 @@ void HistoryController::replaceState(PassRefPtr<SerializedScriptValue> stateObje
     ASSERT(page);
     HistoryItem* current = page->backForwardList()->currentItem();
     ASSERT(current);
-    
-    ASSERT(!current->document() || current->document() == m_frame->document());
-    current->setDocument(m_frame->document());
-    
+
     if (!urlString.isEmpty())
         current->setURLString(urlString);
     current->setTitle(title);

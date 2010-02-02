@@ -399,7 +399,7 @@ static int CALLBACK matchImprovingEnumProc(CONST LOGFONT* candidate, CONST TEXTM
     return 1;
 }
 
-static HFONT createGDIFont(const AtomicString& family, LONG desiredWeight, bool desiredItalic, int size)
+static HFONT createGDIFont(const AtomicString& family, LONG desiredWeight, bool desiredItalic, int size, bool synthesizeItalic)
 {
     HDC hdc = GetDC(0);
 
@@ -432,6 +432,9 @@ static HFONT createGDIFont(const AtomicString& family, LONG desiredWeight, bool 
 #endif
     matchData.m_chosen.lfQuality = DEFAULT_QUALITY;
     matchData.m_chosen.lfPitchAndFamily = DEFAULT_PITCH | FF_DONTCARE;
+
+   if (desiredItalic && !matchData.m_chosen.lfItalic && synthesizeItalic)
+       matchData.m_chosen.lfItalic = 1;
 
     HFONT result = CreateFontIndirect(&matchData.m_chosen);
     if (!result)
@@ -514,8 +517,14 @@ FontPlatformData* FontCache::createFontPlatformData(const FontDescription& fontD
     // This masks rounding errors related to the HFONT metrics being  different from the CGFont metrics.
     // FIXME: We will eventually want subpixel precision for GDI mode, but the scaled rendering doesn't
     // look as nice. That may be solvable though.
+#if PLATFORM(CG)
+    bool canCreateCGFontWithLOGFONT = wkCanCreateCGFontWithLOGFONT();
+#else
+    bool canCreateCGFontWithLOGFONT = true;
+#endif
     LONG weight = adjustedGDIFontWeight(toGDIFontWeight(fontDescription.weight()), family);
-    HFONT hfont = createGDIFont(family, weight, fontDescription.italic(), fontDescription.computedPixelSize() * (useGDI ? 1 : 32));
+    HFONT hfont = createGDIFont(family, weight, fontDescription.italic(),
+                                fontDescription.computedPixelSize() * (useGDI ? 1 : 32), useGDI && canCreateCGFontWithLOGFONT);
 
     if (!hfont)
         return 0;

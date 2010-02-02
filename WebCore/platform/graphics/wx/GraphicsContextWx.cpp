@@ -270,7 +270,12 @@ void GraphicsContext::fillRoundedRect(const IntRect& rect, const IntSize& topLef
     notImplemented();
 }
 
-void GraphicsContext::drawFocusRing(const Color& color)
+void GraphicsContext::drawFocusRing(const Vector<Path>& paths, int width, int offset, const Color& color)
+{
+    // FIXME: implement
+}
+
+void GraphicsContext::drawFocusRing(const Vector<IntRect>& rects, int width, int offset, const Color& color)
 {
     if (paintingDisabled())
         return;
@@ -566,7 +571,7 @@ void GraphicsContext::addInnerRoundedRectClip(const IntRect& rect, int thickness
     notImplemented();
 }
 
-#if PLATFORM(WIN_OS)
+#if OS(WINDOWS)
 HDC GraphicsContext::getWindowsContext(const IntRect& dstRect, bool supportAlphaBlend, bool mayCreateBitmap)
 {
     if (dstRect.isEmpty())

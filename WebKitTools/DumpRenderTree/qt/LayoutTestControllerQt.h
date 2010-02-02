@@ -51,11 +51,10 @@ namespace WebCore {
 }
 class LayoutTestController : public QObject {
     Q_OBJECT
+    Q_PROPERTY(int webHistoryItemCount READ webHistoryItemCount)
+    Q_PROPERTY(int workerThreadCount READ workerThreadCount)
 public:
     LayoutTestController(WebCore::DumpRenderTree* drt);
-
-    bool isLoading() const { return m_isLoading; }
-    void setLoading(bool loading) { m_isLoading = loading; }
 
     bool shouldDumpAsText() const { return m_textDump; }
     bool shouldDumpBackForwardList() const { return m_dumpBackForwardList; }
@@ -76,6 +75,9 @@ protected:
 signals:
     void done();
 
+    void showPage();
+    void hidePage();
+
 public slots:
     void maybeDump(bool ok);
     void dumpAsText() { m_textDump = true; }
@@ -85,6 +87,7 @@ public slots:
     void setCanOpenWindows() { m_canOpenWindows = true; }
     void waitUntilDone();
     QString counterValueForElementById(const QString& id);
+    int webHistoryItemCount();
     void keepWebHistory();
     void notifyDone();
     void dumpBackForwardList() { m_dumpBackForwardList = true; }
@@ -100,7 +103,7 @@ public slots:
     void provisionalLoad();
     void setCloseRemainingWindowsWhenComplete(bool = false) {}
     int windowCount();
-    void display() {}
+    void display();
     void clearBackForwardList();
     QString pathToLocalResource(const QString& url);
     void dumpTitleChanges() { m_dumpTitleChanges = true; }
@@ -115,6 +118,10 @@ public slots:
     void setPrivateBrowsingEnabled(bool enable);
     void setPopupBlockingEnabled(bool enable);
     void setPOSIXLocale(const QString& locale);
+    void resetLoadFinished() { m_loadFinished = false; }
+    void setWindowIsKey(bool isKey);
+    void setMainFrameIsFirstResponder(bool isFirst);
+    void setXSSAuditorEnabled(bool enable);
 
     bool pauseAnimationAtTimeOnElementWithId(const QString& animationName, double time, const QString& elementId);
     bool pauseTransitionAtTimeOnElementWithId(const QString& propertyName, double time, const QString& elementId);
@@ -132,12 +139,16 @@ public slots:
 
     void waitForPolicyDelegate();
     void overridePreference(const QString& name, const QVariant& value);
+    void setUserStyleSheetLocation(const QString& url);
+    void setUserStyleSheetEnabled(bool enabled);
+    void setDomainRelaxationForbiddenForURLScheme(bool forbidden, const QString& scheme);
+    int workerThreadCount();
 
 private slots:
     void processWork();
 
 private:
-    bool m_isLoading;
+    bool m_hasDumped;
     bool m_textDump;
     bool m_dumpBackForwardList;
     bool m_dumpChildrenAsText;
@@ -148,10 +159,13 @@ private:
     bool m_dumpStatusCallbacks;
     bool m_waitForPolicy;
     bool m_handleErrorPages;
+    bool m_loadFinished;
 
+    QUrl m_userStyleSheetLocation;
     QBasicTimer m_timeoutTimer;
     QWebFrame* m_topLoadingFrame;
     WebCore::DumpRenderTree* m_drt;
+    QWebHistory* m_webHistory;
 };
 
 #endif // LayoutTestControllerQt_h

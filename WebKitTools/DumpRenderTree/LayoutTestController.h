@@ -72,6 +72,7 @@ public:
     void setCacheModel(int);
     void setCustomPolicyDelegate(bool setDelegate, bool permissive);
     void setDatabaseQuota(unsigned long long quota);
+    void setDomainRelaxationForbiddenForURLScheme(bool forbidden, JSStringRef scheme);
     void setMockGeolocationPosition(double latitude, double longitude, double accuracy);
     void setMockGeolocationError(int code, JSStringRef message);
     void setIconDatabaseEnabled(bool iconDatabaseEnabled);
@@ -176,6 +177,9 @@ public:
     void setWaitToDump(bool waitToDump);
     void waitToDumpWatchdogTimerFired();
 
+    bool willSendRequestReturnsNull() const { return m_willSendRequestReturnsNull; }
+    void setWillSendRequestReturnsNull(bool returnsNull) { m_willSendRequestReturnsNull = returnsNull; }
+
     bool willSendRequestReturnsNullOnRedirect() const { return m_willSendRequestReturnsNullOnRedirect; }
     void setWillSendRequestReturnsNullOnRedirect(bool returnsNull) { m_willSendRequestReturnsNullOnRedirect = returnsNull; }
 
@@ -249,6 +253,7 @@ private:
     bool m_testRepaint;
     bool m_testRepaintSweepHorizontally;
     bool m_waitToDump; // True if waitUntilDone() has been called, but notifyDone() has not yet been called.
+    bool m_willSendRequestReturnsNull;
     bool m_willSendRequestReturnsNullOnRedirect;
     bool m_windowIsKey;
     bool m_alwaysAcceptCookies;

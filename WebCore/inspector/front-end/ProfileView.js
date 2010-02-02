@@ -233,7 +233,7 @@ WebInspector.CPUProfileView.prototype = {
         // Call searchCanceled since it will reset everything we need before doing a new search.
         this.searchCanceled();
 
-        query = query.trimWhitespace();
+        query = query.trim();
 
         if (!query.length)
             return;
@@ -597,6 +597,11 @@ WebInspector.CPUProfileType.prototype = {
             InspectorBackend.startProfiling();
         else
             InspectorBackend.stopProfiling();
+    },
+
+    get welcomeMessage()
+    {
+        return WebInspector.UIString("Start CPU profiling by pressing<br>the %s button on the status bar.");
     },
 
     setRecordingProfile: function(isProfiling)

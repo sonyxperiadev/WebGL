@@ -28,6 +28,7 @@
 #include "RenderObject.h"
 
 #include "AXObjectCache.h"
+#include "Chrome.h"
 #include "CSSStyleSelector.h"
 #include "FloatQuad.h"
 #include "Frame.h"
@@ -65,6 +66,10 @@
 
 #if ENABLE(WML)
 #include "WMLNames.h"
+#endif
+
+#if ENABLE(SVG)
+#include "SVGRenderSupport.h"
 #endif
 
 using namespace std;
@@ -307,7 +312,7 @@ void RenderObject::addChild(RenderObject* newChild, RenderObject* beforeChild)
         // Just add it...
         children->insertChildNode(this, newChild, beforeChild);
     }
-    
+    RenderCounter::rendererSubtreeAttached(newChild);
     if (newChild->isText() && newChild->style()->textTransform() == CAPITALIZE) {
         RefPtr<StringImpl> textToTransform = toRenderText(newChild)->originalText();
         if (textToTransform)
@@ -366,19 +371,14 @@ RenderObject* RenderObject::nextInPreOrderAfterChildren(RenderObject* stayWithin
     if (this == stayWithin)
         return 0;
 
-    RenderObject* o;
-    if (!(o = nextSibling())) {
-        o = parent();
-        while (o && !o->nextSibling()) {
-            if (o == stayWithin)
-                return 0;
-            o = o->parent();
-        }
-        if (o)
-            o = o->nextSibling();
+    const RenderObject* current = this;
+    RenderObject* next;
+    while (!(next = current->nextSibling())) {
+        current = current->parent();
+        if (!current || current == stayWithin)
+            return 0;
     }
-
-    return o;
+    return next;
 }
 
 RenderObject* RenderObject::previousInPreOrder() const
@@ -1011,13 +1011,12 @@ void RenderObject::paintOutline(GraphicsContext* graphicsContext, int tx, int ty
     if (style->outlineStyleIsAuto() || hasOutlineAnnotation()) {
         if (!theme()->supportsFocusRing(style)) {
             // Only paint the focus ring by hand if the theme isn't able to draw the focus ring.
-            graphicsContext->initFocusRing(ow, offset);
-            addFocusRingRects(graphicsContext, tx, ty);
+            Vector<IntRect> focusRingRects;
+            addFocusRingRects(focusRingRects, tx, ty);
             if (style->outlineStyleIsAuto())
-                graphicsContext->drawFocusRing(oc);
+                graphicsContext->drawFocusRing(focusRingRects, ow, offset, oc);
             else
-                addPDFURLRect(graphicsContext, graphicsContext->focusRingBoundingRect());
-            graphicsContext->clearFocusRing();
+                addPDFURLRect(graphicsContext, unionRect(focusRingRects));
         }
     }
 
@@ -1073,6 +1072,23 @@ IntRect RenderObject::absoluteBoundingBoxRect(bool useTransforms)
     for (size_t i = 1; i < n; ++i)
         result.unite(rects[i]);
     return result;
+}
+
+void RenderObject::absoluteFocusRingQuads(Vector<FloatQuad>& quads)
+{
+    Vector<IntRect> rects;
+    // FIXME: addFocusRingRects() needs to be passed this transform-unaware
+    // localToAbsolute() offset here because RenderInline::addFocusRingRects()
+    // implicitly assumes that. This doesn't work correctly with transformed
+    // descendants.
+    FloatPoint absolutePoint = localToAbsolute();
+    addFocusRingRects(rects, absolutePoint.x(), absolutePoint.y());
+    size_t count = rects.size();
+    for (size_t i = 0; i < count; ++i) {
+        IntRect rect = rects[i];
+        rect.move(-absolutePoint.x(), -absolutePoint.y());
+        quads.append(localToAbsoluteQuad(FloatQuad(rect)));
+    }
 }
 
 void RenderObject::addAbsoluteRectForLayer(IntRect& result)
@@ -1637,8 +1653,20 @@ void RenderObject::styleWillChange(StyleDifference diff, const RenderStyle* newS
     if (view()->frameView()) {
         // FIXME: A better solution would be to only invalidate the fixed regions when scrolling.  It's overkill to
         // prevent the entire view from blitting on a scroll.
-        bool newStyleSlowScroll = newStyle && (newStyle->position() == FixedPosition || newStyle->hasFixedBackgroundImage());
-        bool oldStyleSlowScroll = m_style && (m_style->position() == FixedPosition || m_style->hasFixedBackgroundImage());
+
+        bool shouldBlitOnFixedBackgroundImage = false;
+#if ENABLE(FAST_MOBILE_SCROLLING)
+        // On low-powered/mobile devices, preventing blitting on a scroll can cause noticeable delays
+        // when scrolling a page with a fixed background image. As an optimization, assuming there are
+        // no fixed positoned elements on the page, we can acclerate scrolling (via blitting) if we
+        // ignore the CSS property "background-attachment: fixed".
+        shouldBlitOnFixedBackgroundImage = true;
+#endif
+
+        bool newStyleSlowScroll = newStyle && (newStyle->position() == FixedPosition
+                                               || (!shouldBlitOnFixedBackgroundImage && newStyle->hasFixedBackgroundImage()));
+        bool oldStyleSlowScroll = m_style && (m_style->position() == FixedPosition
+                                               || (!shouldBlitOnFixedBackgroundImage && m_style->hasFixedBackgroundImage()));
         if (oldStyleSlowScroll != newStyleSlowScroll) {
             if (oldStyleSlowScroll)
                 view()->frameView()->removeSlowRepaintObject();
@@ -1648,7 +1676,7 @@ void RenderObject::styleWillChange(StyleDifference diff, const RenderStyle* newS
     }
 }
 
-void RenderObject::styleDidChange(StyleDifference diff, const RenderStyle*)
+void RenderObject::styleDidChange(StyleDifference diff, const RenderStyle* oldStyle)
 {
     if (s_affectsParentBlock)
         handleDynamicFloatPositionChange();
@@ -1656,9 +1684,10 @@ void RenderObject::styleDidChange(StyleDifference diff, const RenderStyle*)
     if (!m_parent)
         return;
     
-    if (diff == StyleDifferenceLayout)
+    if (diff == StyleDifferenceLayout) {
+        RenderCounter::rendererStyleChanged(this, oldStyle, m_style.get());
         setNeedsLayoutAndPrefWidthsRecalc();
-    else if (diff == StyleDifferenceLayoutPositionedMovementOnly)
+    } else if (diff == StyleDifferenceLayoutPositionedMovementOnly)
         setNeedsPositionedMovementLayout();
 
     // Don't check for repaint here; we need to wait until the layer has been
@@ -1912,7 +1941,7 @@ void RenderObject::destroy()
 
     // If this renderer is being autoscrolled, stop the autoscroll timer
     
-    // FIXME: RenderObject::destroy should not get called with a renderar whose document
+    // FIXME: RenderObject::destroy should not get called with a renderer whose document
     // has a null frame, so we assert this. However, we don't want release builds to crash which is why we
     // check that the frame is not null.
     ASSERT(document()->frame());
@@ -2474,6 +2503,11 @@ VisiblePosition RenderObject::createVisiblePosition(const Position& position)
 }
 
 #if ENABLE(SVG)
+const SVGRenderBase* RenderObject::toSVGRenderBase() const
+{
+    ASSERT_NOT_REACHED();
+    return 0;
+}
 
 FloatRect RenderObject::objectBoundingBox() const
 {
@@ -2491,14 +2525,14 @@ FloatRect RenderObject::repaintRectInLocalCoordinates() const
 
 TransformationMatrix RenderObject::localTransform() const
 {
-    return TransformationMatrix();
+    static const TransformationMatrix identity;
+    return identity;
 }
 
-TransformationMatrix RenderObject::localToParentTransform() const
+const TransformationMatrix& RenderObject::localToParentTransform() const
 {
-    // FIXME: This double virtual call indirection is temporary until I can land the
-    // rest of the of the localToParentTransform() support for SVG.
-    return localTransform();
+    static const TransformationMatrix identity;
+    return identity;
 }
 
 TransformationMatrix RenderObject::absoluteTransform() const

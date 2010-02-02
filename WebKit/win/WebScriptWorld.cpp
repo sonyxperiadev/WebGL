@@ -26,6 +26,7 @@
 #include "WebKitDLL.h"
 #include "WebScriptWorld.h"
 
+#include <JavaScriptCore/APICast.h>
 #include <WebCore/JSDOMBinding.h>
 #include <WebCore/ScriptController.h>
 
@@ -127,4 +128,11 @@ HRESULT WebScriptWorld::standardWorld(IWebScriptWorld** outWorld)
     *outWorld = standardWorld();
     (*outWorld)->AddRef();
     return S_OK;
+}
+
+HRESULT WebScriptWorld::scriptWorldForGlobalContext(JSGlobalContextRef context, IWebScriptWorld** outWorld)
+{
+    if (!outWorld)
+        return E_POINTER;
+    return findOrCreateWorld(currentWorld(toJS(context))).copyRefTo(outWorld);
 }

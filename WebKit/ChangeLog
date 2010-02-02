@@ -1,3 +1,76 @@
+2010-01-29  Mark Rowe  <mrowe@apple.com>
+
+        Sort Xcode projects.
+
+        * WebKit.xcodeproj/project.pbxproj:
+
+2010-01-19  Dan Bernstein  <mitz@apple.com>
+
+        Redo DumpRenderTree build fix without making WebTypesInternal.h a private header
+
+        * WebKit.xcodeproj/project.pbxproj:
+
+2010-01-19  Simon Fraser  <simon.fraser@apple.com>
+
+        Build fix, no review.
+
+        Fix build of DumpRenderTree by making the header WebTypesInternal.h Private
+        in WebKit.
+
+        * WebKit.xcodeproj/project.pbxproj:
+
+2010-01-19  Jon Honeycutt  <jhoneycutt@apple.com>
+
+        MSAA: The child <option> elements of a non-multiple <select> are not
+        exposed
+
+        https://bugs.webkit.org/show_bug.cgi?id=33773
+        <rdar://problem/7550556>
+
+        Reviewed by Alice Liu.
+
+        * English.lproj/Localizable.strings:
+        Add new localized strings.
+
+2010-01-13  Kevin Decker  <kdecker@apple.com>
+
+        Reviewed by Mark Rowe.
+
+        https://bugs.webkit.org/show_bug.cgi?id=33610
+        <rdar://problem/7288546> Silverlight full screen performance problem seen on Snow Leopard.
+
+         * WebKit.xcodeproj/project.pbxproj: Link the project against OpenGL.
+
+2009-12-25  Darin Adler  <darin@apple.com>
+
+        * StringsNotToBeLocalized.txt: Updated for recent changes.
+
+2009-12-18  Dan Bernstein  <mitz@apple.com>
+
+        Updated localizable strings after r52368
+
+        * English.lproj/Localizable.strings:
+
+2009-12-18  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Dan Bernstein.
+
+        Add Mac WebKit side of the client based geolocation provider.
+
+        * WebKit.xcodeproj/project.pbxproj:
+
+2009-12-16  Mark Rowe  <mrowe@apple.com>
+
+        Build fix.  Disable debug variants of WebKit frameworks.
+
+        * WebKit.xcodeproj/project.pbxproj:
+
+2009-12-16  John Sullivan  <sullivan@apple.com>
+
+        Brought this file up to date, sans review.
+
+        * StringsNotToBeLocalized.txt:
+
 2009-11-30  Mark Rowe  <mrowe@apple.com>
 
         Use the correct path to Info.plist to avoid creating an empty file at the top of the WebKit directory.

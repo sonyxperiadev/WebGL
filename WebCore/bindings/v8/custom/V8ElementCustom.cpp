@@ -29,11 +29,12 @@
  */
 
 #include "config.h"
-#include "Element.h"
+#include "V8Element.h"
 
 #include "Attr.h"
 #include "CSSHelper.h"
 #include "Document.h"
+#include "Element.h"
 #include "ExceptionCode.h"
 #include "HTMLFrameElementBase.h"
 #include "HTMLNames.h"
@@ -41,6 +42,7 @@
 
 #include "V8Attr.h"
 #include "V8Binding.h"
+#include "V8BindingState.h"
 #include "V8CustomBinding.h"
 #include "V8Proxy.h"
 
@@ -48,14 +50,14 @@
 
 namespace WebCore {
 
-CALLBACK_FUNC_DECL(ElementSetAttribute)
+v8::Handle<v8::Value> V8Element::setAttributeCallback(const v8::Arguments& args)
 {
     INC_STATS("DOM.Element.setAttribute()");
-    Element* element = V8DOMWrapper::convertDOMWrapperToNode<Element>(args.Holder());
+    Element* element = V8Element::toNative(args.Holder());
     String name = toWebCoreString(args[0]);
     String value = toWebCoreString(args[1]);
 
-    if (!allowSettingSrcToJavascriptURL(element, name, value))
+    if (!V8BindingSecurity::allowSettingSrcToJavascriptURL(V8BindingState::Only(), element, name, value))
         return v8::Undefined();
 
     ExceptionCode ec = 0;
@@ -66,16 +68,16 @@ CALLBACK_FUNC_DECL(ElementSetAttribute)
     return v8::Undefined();
 }
 
-CALLBACK_FUNC_DECL(ElementSetAttributeNode)
+v8::Handle<v8::Value> V8Element::setAttributeNodeCallback(const v8::Arguments& args)
 {
     INC_STATS("DOM.Element.setAttributeNode()");
     if (!V8Attr::HasInstance(args[0]))
         return throwError(TYPE_MISMATCH_ERR);
 
-    Attr* newAttr = V8DOMWrapper::convertDOMWrapperToNode<Attr>(v8::Handle<v8::Object>::Cast(args[0]));
-    Element* element = V8DOMWrapper::convertDOMWrapperToNode<Element>(args.Holder());
+    Attr* newAttr = V8Attr::toNative(v8::Handle<v8::Object>::Cast(args[0]));
+    Element* element = V8Element::toNative(args.Holder());
 
-    if (!allowSettingSrcToJavascriptURL(element, newAttr->name(), newAttr->value()))
+    if (!V8BindingSecurity::allowSettingSrcToJavascriptURL(V8BindingState::Only(), element, newAttr->name(), newAttr->value()))
         return v8::Undefined();
 
     ExceptionCode ec = 0;
@@ -86,15 +88,15 @@ CALLBACK_FUNC_DECL(ElementSetAttributeNode)
     return V8DOMWrapper::convertNodeToV8Object(result.release());
 }
 
-CALLBACK_FUNC_DECL(ElementSetAttributeNS)
+v8::Handle<v8::Value> V8Element::setAttributeNSCallback(const v8::Arguments& args)
 {
     INC_STATS("DOM.Element.setAttributeNS()");
-    Element* element = V8DOMWrapper::convertDOMWrapperToNode<Element>(args.Holder());
+    Element* element = V8Element::toNative(args.Holder());
     String namespaceURI = toWebCoreStringWithNullCheck(args[0]);
     String qualifiedName = toWebCoreString(args[1]);
     String value = toWebCoreString(args[2]);
 
-    if (!allowSettingSrcToJavascriptURL(element, qualifiedName, value))
+    if (!V8BindingSecurity::allowSettingSrcToJavascriptURL(V8BindingState::Only(), element, qualifiedName, value))
         return v8::Undefined();
 
     ExceptionCode ec = 0;
@@ -105,16 +107,16 @@ CALLBACK_FUNC_DECL(ElementSetAttributeNS)
     return v8::Undefined();
 }
 
-CALLBACK_FUNC_DECL(ElementSetAttributeNodeNS)
+v8::Handle<v8::Value> V8Element::setAttributeNodeNSCallback(const v8::Arguments& args)
 {
     INC_STATS("DOM.Element.setAttributeNodeNS()");
     if (!V8Attr::HasInstance(args[0]))
         return throwError(TYPE_MISMATCH_ERR);
 
-    Attr* newAttr = V8DOMWrapper::convertDOMWrapperToNode<Attr>(v8::Handle<v8::Object>::Cast(args[0]));
-    Element* element = V8DOMWrapper::convertDOMWrapperToNode<Element>(args.Holder());
+    Attr* newAttr = V8Attr::toNative(v8::Handle<v8::Object>::Cast(args[0]));
+    Element* element = V8Element::toNative(args.Holder());
 
-    if (!allowSettingSrcToJavascriptURL(element, newAttr->name(), newAttr->value()))
+    if (!V8BindingSecurity::allowSettingSrcToJavascriptURL(V8BindingState::Only(), element, newAttr->name(), newAttr->value()))
         return v8::Undefined();
 
     ExceptionCode ec = 0;

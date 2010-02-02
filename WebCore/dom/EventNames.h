@@ -150,10 +150,15 @@ namespace WebCore {
     macro(touchmove) \
     macro(touchend) \
     macro(touchcancel) \
+<<<<<<< HEAD
 /* #if PLATFORM(ANDROID) */ \
     macro(touchlongpress) \
     macro(touchdoubletap) \
 /* #endif */ \
+=======
+    \
+    macro(success) \
+>>>>>>> webkit.org at r54127
     \
 // end of DOM_EVENT_NAMES_FOR_EACH
 

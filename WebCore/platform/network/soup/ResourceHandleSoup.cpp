@@ -548,12 +548,6 @@ static bool startHttp(ResourceHandle* handle)
     // balanced by a deref() in finishedCallback, which should always run
     handle->ref();
 
-    // FIXME: For now, we cannot accept content encoded in anything
-    // other than identity, so force servers to do it our way. When
-    // libsoup gets proper Content-Encoding support we will want to
-    // use it here instead.
-    soup_message_headers_replace(d->m_msg->request_headers, "Accept-Encoding", "identity");
-
     // Balanced in ResourceHandleInternal's destructor; we need to
     // keep our own ref, because after queueing the message, the
     // session owns the initial reference.
@@ -882,7 +876,7 @@ static bool startGio(ResourceHandle* handle, KURL url)
     url.setQuery(String());
     url.removePort();
 
-#if !PLATFORM(WIN_OS)
+#if !OS(WINDOWS)
     // we avoid the escaping for local files, because
     // g_filename_from_uri (used internally by GFile) has problems
     // decoding strings with arbitrary percent signs

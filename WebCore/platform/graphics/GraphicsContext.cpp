@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003, 2004, 2005, 2006 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2003, 2004, 2005, 2006, 2009 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -10,17 +10,17 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
- * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
- * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
- * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
- * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
- * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
- * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. AND ITS CONTRIBUTORS ``AS IS''
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
+ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL APPLE INC. OR ITS CONTRIBUTORS
+ * BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
+ * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #include "config.h"
@@ -328,7 +328,7 @@ void GraphicsContext::drawImage(Image* image, ColorSpace styleColorSpace, const 
     drawImage(image, styleColorSpace, FloatRect(dest), srcRect, op, useLowQualityScale);
 }
 
-#if !PLATFORM(WINCE) || PLATFORM(QT)
+#if !OS(WINCE) || PLATFORM(QT)
 void GraphicsContext::drawText(const Font& font, const TextRun& run, const IntPoint& point, int from, int to)
 {
     if (paintingDisabled())
@@ -382,55 +382,6 @@ void GraphicsContext::drawHighlightForText(const Font& font, const TextRun& run,
     fillRect(font.selectionRectForText(run, point, h, from, to), backgroundColor, colorSpace);
 }
 
-void GraphicsContext::initFocusRing(int width, int offset)
-{
-    if (paintingDisabled())
-        return;
-    clearFocusRing();
-
-    m_common->m_focusRingWidth = width;
-    m_common->m_focusRingOffset = offset;
-}
-
-void GraphicsContext::clearFocusRing()
-{
-    m_common->m_focusRingRects.clear();
-}
-
-IntRect GraphicsContext::focusRingBoundingRect()
-{
-    IntRect result = IntRect(0, 0, 0, 0);
-
-    const Vector<IntRect>& rects = focusRingRects();
-    unsigned rectCount = rects.size();
-    for (unsigned i = 0; i < rectCount; i++)
-        result.unite(rects[i]);
-
-    return result;
-}
-
-void GraphicsContext::addFocusRingRect(const IntRect& rect)
-{
-    if (paintingDisabled() || rect.isEmpty())
-        return;
-    m_common->m_focusRingRects.append(rect);
-}
-
-int GraphicsContext::focusRingWidth() const
-{
-    return m_common->m_focusRingWidth;
-}
-
-int GraphicsContext::focusRingOffset() const
-{
-    return m_common->m_focusRingOffset;
-}
-
-const Vector<IntRect>& GraphicsContext::focusRingRects() const
-{
-    return m_common->m_focusRingRects;
-}
-
 void GraphicsContext::drawImage(Image* image, ColorSpace styleColorSpace, const FloatRect& dest, const FloatRect& src, CompositeOperator op, bool useLowQualityScale)
 {
     if (paintingDisabled() || !image)
@@ -460,24 +411,35 @@ void GraphicsContext::drawImage(Image* image, ColorSpace styleColorSpace, const 
         restore();
 }
 
-void GraphicsContext::drawTiledImage(Image* image, ColorSpace styleColorSpace, const IntRect& rect, const IntPoint& srcPoint, const IntSize& tileSize, CompositeOperator op)
+void GraphicsContext::drawTiledImage(Image* image, ColorSpace styleColorSpace, const IntRect& rect, const IntPoint& srcPoint, const IntSize& tileSize, CompositeOperator op, bool useLowQualityScale)
 {
     if (paintingDisabled() || !image)
         return;
-
+    if (useLowQualityScale) {
+        save();
+        setImageInterpolationQuality(InterpolationLow);
+    }
     image->drawTiled(this, rect, srcPoint, tileSize, styleColorSpace, op);
+    if (useLowQualityScale)
+        restore();
 }
 
-void GraphicsContext::drawTiledImage(Image* image, ColorSpace styleColorSpace, const IntRect& dest, const IntRect& srcRect, Image::TileRule hRule, Image::TileRule vRule, CompositeOperator op)
+void GraphicsContext::drawTiledImage(Image* image, ColorSpace styleColorSpace, const IntRect& dest, const IntRect& srcRect, Image::TileRule hRule, Image::TileRule vRule, CompositeOperator op, bool useLowQualityScale)
 {
     if (paintingDisabled() || !image)
         return;
 
+    if (useLowQualityScale) {
+        save();
+        setImageInterpolationQuality(InterpolationLow);
+    }
     if (hRule == Image::StretchTile && vRule == Image::StretchTile)
         // Just do a scale.
-        return drawImage(image, styleColorSpace, dest, srcRect, op);
-
-    image->drawTiled(this, dest, srcRect, hRule, vRule, styleColorSpace, op);
+        drawImage(image, styleColorSpace, dest, srcRect, op);
+    else
+        image->drawTiled(this, dest, srcRect, hRule, vRule, styleColorSpace, op);
+    if (useLowQualityScale)
+        restore();
 }
 
 void GraphicsContext::addRoundedRectClip(const IntRect& rect, const IntSize& topLeft, const IntSize& topRight,
@@ -544,7 +506,11 @@ void GraphicsContext::setPlatformTextDrawingMode(int mode)
 }
 #endif
 
+<<<<<<< HEAD
 #if !PLATFORM(QT) && !PLATFORM(CAIRO) && !(PLATFORM(SKIA) && !PLATFORM(ANDROID)) && !PLATFORM(HAIKU)
+=======
+#if !PLATFORM(QT) && !PLATFORM(CAIRO) && !PLATFORM(SKIA) && !PLATFORM(HAIKU) && !PLATFORM(OPENVG)
+>>>>>>> webkit.org at r54127
 void GraphicsContext::setPlatformStrokeStyle(const StrokeStyle&)
 {
 }

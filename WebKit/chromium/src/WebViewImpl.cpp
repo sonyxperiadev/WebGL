@@ -33,6 +33,7 @@
 
 #include "AutocompletePopupMenuClient.h"
 #include "AXObjectCache.h"
+#include "Chrome.h"
 #include "ContextMenu.h"
 #include "ContextMenuController.h"
 #include "ContextMenuItem.h"
@@ -65,6 +66,7 @@
 #include "NodeRenderStyle.h"
 #include "Page.h"
 #include "PageGroup.h"
+#include "PageGroupLoadDeferrer.h"
 #include "Pasteboard.h"
 #include "PlatformContextSkia.h"
 #include "PlatformKeyboardEvent.h"
@@ -96,11 +98,11 @@
 #include "WebVector.h"
 #include "WebViewClient.h"
 
-#if PLATFORM(WIN_OS)
+#if OS(WINDOWS)
 #include "KeyboardCodesWin.h"
 #include "RenderThemeChromiumWin.h"
 #else
-#if PLATFORM(LINUX)
+#if OS(LINUX)
 #include "RenderThemeChromiumLinux.h"
 #endif
 #include "KeyboardCodesPosix.h"
@@ -128,6 +130,10 @@ static const double maxTextSizeMultiplier = 3.0;
 // web pages to the user (so shouldn't have visited link coloring).  We only use
 // one page group.
 const char* pageGroupName = "default";
+
+// Used to defer all page activity in cases where the embedder wishes to run
+// a nested event loop.
+static PageGroupLoadDeferrer* pageGroupLoadDeferrer;
 
 // Ensure that the WebDragOperation enum values stay in sync with the original
 // DragOperation constants.
@@ -172,6 +178,28 @@ void WebView::updateVisitedLinkState(unsigned long long linkHash)
 void WebView::resetVisitedLinkState()
 {
     Page::allVisitedStateChanged(PageGroup::pageGroup(pageGroupName));
+}
+
+void WebView::willEnterModalLoop()
+{
+    // It is not valid to nest more than once.
+    ASSERT(!pageGroupLoadDeferrer);
+
+    PageGroup* pageGroup = PageGroup::pageGroup(pageGroupName);
+    ASSERT(pageGroup);
+    ASSERT(!pageGroup->pages().isEmpty());
+
+    // Pick any page in the page group since we are deferring all pages.
+    pageGroupLoadDeferrer = new PageGroupLoadDeferrer(*pageGroup->pages().begin(), true);
+}
+
+void WebView::didExitModalLoop()
+{
+    // The embedder must have called willEnterNestedEventLoop.
+    ASSERT(pageGroupLoadDeferrer);
+
+    delete pageGroupLoadDeferrer;
+    pageGroupLoadDeferrer = 0;
 }
 
 void WebViewImpl::initializeMainFrame(WebFrameClient* frameClient)
@@ -327,12 +355,12 @@ void WebViewImpl::mouseDown(const WebMouseEvent& event)
 
     // Dispatch the contextmenu event regardless of if the click was swallowed.
     // On Windows, we handle it on mouse up, not down.
-#if PLATFORM(DARWIN)
+#if OS(DARWIN)
     if (event.button == WebMouseEvent::ButtonRight
         || (event.button == WebMouseEvent::ButtonLeft
             && event.modifiers & WebMouseEvent::ControlKey))
         mouseContextMenu(event);
-#elif PLATFORM(LINUX)
+#elif OS(LINUX)
     if (event.button == WebMouseEvent::ButtonRight)
         mouseContextMenu(event);
 #endif
@@ -355,7 +383,7 @@ void WebViewImpl::mouseContextMenu(const WebMouseEvent& event)
     else
         targetFrame = m_page->focusController()->focusedOrMainFrame();
 
-#if PLATFORM(WIN_OS)
+#if OS(WINDOWS)
     targetFrame->view()->setCursor(pointerCursor());
 #endif
 
@@ -371,7 +399,7 @@ void WebViewImpl::mouseUp(const WebMouseEvent& event)
     if (!mainFrameImpl() || !mainFrameImpl()->frameView())
         return;
 
-#if PLATFORM(LINUX)
+#if OS(LINUX)
     // If the event was a middle click, attempt to copy text into the focused
     // frame. We execute this before we let the page have a go at the event
     // because the page may change what is focused during in its event handler.
@@ -390,14 +418,14 @@ void WebViewImpl::mouseUp(const WebMouseEvent& event)
     // handleMouseReleaseEvent() earlier in this function
     if (event.button == WebMouseEvent::ButtonMiddle) {
         Frame* focused = focusedWebCoreFrame();
+        FrameView* view = m_page->mainFrame()->view();
         IntPoint clickPoint(m_lastMouseDownPoint.x, m_lastMouseDownPoint.y);
-        clickPoint = m_page->mainFrame()->view()->windowToContents(clickPoint);
-        HitTestResult hitTestResult =
-            focused->eventHandler()->hitTestResultAtPoint(clickPoint, false, false,
-                                                          ShouldHitTestScrollbars);
+        IntPoint contentPoint = view->windowToContents(clickPoint);
+        HitTestResult hitTestResult = focused->eventHandler()->hitTestResultAtPoint(contentPoint, false, false, ShouldHitTestScrollbars);
         // We don't want to send a paste when middle clicking a scroll bar or a
-        // link (which will navigate later in the code).
-        if (!hitTestResult.scrollbar() && !hitTestResult.isLiveLink() && focused) {
+        // link (which will navigate later in the code).  The main scrollbars 
+        // have to be handled separately.
+        if (!hitTestResult.scrollbar() && !hitTestResult.isLiveLink() && focused && !view->scrollbarAtPoint(clickPoint)) {
             Editor* editor = focused->editor();
             Pasteboard* pasteboard = Pasteboard::generalPasteboard();
             bool oldSelectionMode = pasteboard->isSelectionMode();
@@ -412,7 +440,7 @@ void WebViewImpl::mouseUp(const WebMouseEvent& event)
     mainFrameImpl()->frame()->eventHandler()->handleMouseReleaseEvent(
         PlatformMouseEventBuilder(mainFrameImpl()->frameView(), event));
 
-#if PLATFORM(WIN_OS)
+#if OS(WINDOWS)
     // Dispatch the contextmenu event regardless of if the click was swallowed.
     // On Mac/Linux, we handle it on mouse down, not up.
     if (event.button == WebMouseEvent::ButtonRight)
@@ -452,9 +480,17 @@ bool WebViewImpl::keyEvent(const WebKeyboardEvent& event)
     if (!handler)
         return keyEventDefault(event);
 
-#if PLATFORM(WIN_OS) || PLATFORM(LINUX)
-    if ((!event.modifiers && (event.windowsKeyCode == VKEY_APPS))
-        || ((event.modifiers == WebInputEvent::ShiftKey) && (event.windowsKeyCode == VKEY_F10))) {
+#if OS(WINDOWS) || OS(LINUX)
+    const WebInputEvent::Type contextMenuTriggeringEventType =
+#if OS(WINDOWS)
+        WebInputEvent::KeyUp;
+#elif OS(LINUX)
+        WebInputEvent::RawKeyDown;
+#endif
+
+    if (((!event.modifiers && (event.windowsKeyCode == VKEY_APPS))
+        || ((event.modifiers == WebInputEvent::ShiftKey) && (event.windowsKeyCode == VKEY_F10)))
+        && event.type == contextMenuTriggeringEventType) {
         sendContextMenuEvent(event);
         return true;
     }
@@ -574,7 +610,7 @@ bool WebViewImpl::charEvent(const WebKeyboardEvent& event)
 //
 // This function is an ugly copy/paste and should be cleaned up when the
 // WebKitWin version is cleaned: https://bugs.webkit.org/show_bug.cgi?id=20438
-#if PLATFORM(WIN_OS) || PLATFORM(LINUX)
+#if OS(WINDOWS) || OS(LINUX)
 // FIXME: implement on Mac
 bool WebViewImpl::sendContextMenuEvent(const WebKeyboardEvent& event)
 {
@@ -585,22 +621,19 @@ bool WebViewImpl::sendContextMenuEvent(const WebKeyboardEvent& event)
         return false;
 
     IntPoint coords(-1, -1);
-#if PLATFORM(WIN_OS)
+#if OS(WINDOWS)
     int rightAligned = ::GetSystemMetrics(SM_MENUDROPALIGNMENT);
 #else
     int rightAligned = 0;
 #endif
     IntPoint location;
 
-    // The context menu event was generated from the keyboard, so show the
-    // context menu by the current selection.
-    Position start = mainFrameImpl->selection()->selection().start();
-    Position end = mainFrameImpl->selection()->selection().end();
 
     Frame* focusedFrame = page()->focusController()->focusedOrMainFrame();
     Node* focusedNode = focusedFrame->document()->focusedNode();
+    Position start = mainFrameImpl->selection()->selection().start();
 
-    if (start.node() && end.node()) {
+    if (focusedFrame->editor() && focusedFrame->editor()->canEdit() && start.node()) {
         RenderObject* renderer = start.node()->renderer();
         if (!renderer)
             return false;
@@ -1641,10 +1674,23 @@ bool WebViewImpl::isActive() const
 void WebViewImpl::setScrollbarColors(unsigned inactiveColor,
                                      unsigned activeColor,
                                      unsigned trackColor) {
-#if PLATFORM(LINUX)
+#if OS(LINUX)
     RenderThemeChromiumLinux::setScrollbarColors(inactiveColor,
                                                  activeColor,
                                                  trackColor);
+#endif
+}
+
+void WebViewImpl::setSelectionColors(unsigned activeBackgroundColor,
+                                     unsigned activeForegroundColor,
+                                     unsigned inactiveBackgroundColor,
+                                     unsigned inactiveForegroundColor) {
+#if OS(LINUX)
+    RenderThemeChromiumLinux::setSelectionColors(activeBackgroundColor,
+                                                 activeForegroundColor,
+                                                 inactiveBackgroundColor,
+                                                 inactiveForegroundColor);
+    theme()->platformColorsDidChange();
 #endif
 }
 
@@ -1666,9 +1712,9 @@ bool WebViewImpl::navigationPolicyFromMouseEvent(unsigned short button,
                                                  bool alt, bool meta,
                                                  WebNavigationPolicy* policy)
 {
-#if PLATFORM(WIN_OS) || PLATFORM(LINUX) || PLATFORM(FREEBSD)
+#if OS(WINDOWS) || OS(LINUX) || OS(FREEBSD)
     const bool newTabModifier = (button == 1) || ctrl;
-#elif PLATFORM(DARWIN)
+#elif OS(DARWIN)
     const bool newTabModifier = (button == 1) || meta;
 #endif
     if (!newTabModifier && !shift && !alt)

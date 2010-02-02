@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003, 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2003, 2006, 2007, 2008, 2009, 2010 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -42,6 +42,7 @@ class WebCoreTextMarker;
 
 namespace WebCore {
 
+class HTMLAreaElement;
 class Node;
 class Page;
 class RenderObject;
@@ -54,6 +55,8 @@ struct TextMarkerData {
     int offset;
     EAffinity affinity;
 };
+
+enum PostType { PostSynchronously, PostAsynchronously };
 
 class AXObjectCache : public Noncopyable {
 public:
@@ -78,6 +81,9 @@ public:
     void attachWrapper(AccessibilityObject*);
     void childrenChanged(RenderObject*);
     void selectedChildrenChanged(RenderObject*);
+    // Called by a node when text or a text equivalent (e.g. alt) attribute is changed.
+    void contentChanged(RenderObject*);
+    
     void handleActiveDescendantChanged(RenderObject*);
     void handleAriaRoleChanged(RenderObject*);
     void handleFocusedUIElementChanged(RenderObject* oldFocusedRenderer, RenderObject* newFocusedRenderer);
@@ -108,9 +114,12 @@ public:
         AXSelectedTextChanged,
         AXValueChanged,
         AXScrolledToAnchor,
+        AXLiveRegionChanged,
+        AXMenuListValueChanged,
     };
-    
-    void postNotification(RenderObject*, AXNotification, bool postToElement);
+
+    void postNotification(RenderObject*, AXNotification, bool postToElement, PostType = PostAsynchronously);
+    void postNotification(AccessibilityObject*, Document*, AXNotification, bool postToElement, PostType = PostAsynchronously);
 
 protected:
     void postPlatformNotification(AccessibilityObject*, AXNotification);
@@ -127,6 +136,8 @@ private:
     Vector<pair<RefPtr<AccessibilityObject>, AXNotification> > m_notificationsToPost;
     void notificationPostTimerFired(Timer<AXObjectCache>*);
     
+    static AccessibilityObject* focusedImageMapUIElement(HTMLAreaElement*);
+    
     AXID getAXID(AccessibilityObject*);
     bool nodeIsAriaType(Node*, String role);
 };
@@ -137,10 +148,11 @@ inline void AXObjectCache::handleAriaRoleChanged(RenderObject*) { }
 inline void AXObjectCache::detachWrapper(AccessibilityObject*) { }
 inline void AXObjectCache::attachWrapper(AccessibilityObject*) { }
 inline void AXObjectCache::selectedChildrenChanged(RenderObject*) { }
-inline void AXObjectCache::postNotification(RenderObject*, AXNotification, bool postToElement) { }
+inline void AXObjectCache::postNotification(RenderObject*, AXNotification, bool postToElement, PostType) { }
 inline void AXObjectCache::postPlatformNotification(AccessibilityObject*, AXNotification) { }
 inline void AXObjectCache::handleFocusedUIElementChanged(RenderObject*, RenderObject*) { }
 inline void AXObjectCache::handleScrolledToAnchor(const Node*) { }
+inline void AXObjectCache::contentChanged(RenderObject*) { }
 #endif
 
 }

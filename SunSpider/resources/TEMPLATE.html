@@ -1,5 +1,8 @@
 <!DOCTYPE html>
 <head>
+
+<meta charset=utf8>
+
 <!--
  Copyright (C) 2007 Apple Inc.  All rights reserved.
 
@@ -26,15 +29,20 @@
 -->
 
 <title>SunSpider @NAME@</title>
-<link rel="stylesheet" href="sunspider.css"></link>
+<link rel="stylesheet" href="../sunspider.css">
 </head>
 
 <body>
 <h3>@NAME@</h3>
 <div id="console">
 </div>
-<script src="sunspider-record-result.js"></script>
 <script>
+function record(time) {
+    document.getElementById("console").innerHTML = time + "ms";
+    if (window.parent) {
+        parent.recordResult(time);
+    }
+}
 
 var _sunSpiderStartDate = new Date();
 

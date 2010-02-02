@@ -46,13 +46,17 @@ namespace WebCore {
 PassRefPtr<V8LazyEventListener> createAttributeEventListener(Node* node, Attribute* attr)
 {
     ASSERT(node);
+    ASSERT(attr);
+    if (attr->isNull())
+        return 0;
+
     int lineNumber = 1;
     int columnNumber = 0;
     String sourceURL;
 
     if (Frame* frame = node->document()->frame()) {
         ScriptController* scriptController = frame->script();
-        if (!scriptController->isEnabled())
+        if (!scriptController->canExecuteScripts())
             return 0;
 
         if (!scriptController->xssAuditor()->canCreateInlineEventListener(attr->localName().string(), attr->value())) {
@@ -76,12 +80,16 @@ PassRefPtr<V8LazyEventListener> createAttributeEventListener(Frame* frame, Attri
     if (!frame)
         return 0;
 
+    ASSERT(attr);
+    if (attr->isNull())
+        return 0;
+
     int lineNumber = 1;
     int columnNumber = 0;
     String sourceURL;
 
     ScriptController* scriptController = frame->script();
-    if (!scriptController->isEnabled())
+    if (!scriptController->canExecuteScripts())
         return 0;
 
     if (!scriptController->xssAuditor()->canCreateInlineEventListener(attr->localName().string(), attr->value())) {

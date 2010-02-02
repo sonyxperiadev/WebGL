@@ -51,13 +51,26 @@ namespace JSC {
     class PropertyNameArray;
     class PropertyNameArrayData;
 
+    enum EnumerationMode {
+        ExcludeDontEnumProperties,
+        IncludeDontEnumProperties
+    };
+
     class Structure : public RefCounted<Structure> {
     public:
         friend class JIT;
         friend class StructureTransitionTable;
-        static PassRefPtr<Structure> create(JSValue prototype, const TypeInfo& typeInfo)
+        static PassRefPtr<Structure> create(JSValue prototype, const TypeInfo& typeInfo, unsigned anonymousSlotCount)
         {
-            return adoptRef(new Structure(prototype, typeInfo));
+            Structure* structure = (new Structure(prototype, typeInfo));
+            if (anonymousSlotCount) {
+                structure->materializePropertyMap();
+                structure->m_isPinnedPropertyTable = true;
+                structure->m_propertyTable->anonymousSlotCount = anonymousSlotCount;
+                // Currently we don't allow more anonymous slots than fit in the inline capacity
+                ASSERT(structure->propertyStorageSize() <= structure->propertyStorageCapacity());
+            }
+            return adoptRef(structure);
         }
 
         static void startIgnoringLeaks();
@@ -70,7 +83,6 @@ namespace JSC {
         static PassRefPtr<Structure> removePropertyTransition(Structure*, const Identifier& propertyName, size_t& offset);
         static PassRefPtr<Structure> changePrototypeTransition(Structure*, JSValue prototype);
         static PassRefPtr<Structure> despecifyFunctionTransition(Structure*, const Identifier&);
-        static PassRefPtr<Structure> addAnonymousSlotsTransition(Structure*, unsigned count);
         static PassRefPtr<Structure> getterSetterTransition(Structure*);
         static PassRefPtr<Structure> toCacheableDictionaryTransition(Structure*);
         static PassRefPtr<Structure> toUncacheableDictionaryTransition(Structure*);
@@ -123,17 +135,23 @@ namespace JSC {
         bool hasNonEnumerableProperties() const { return m_hasNonEnumerableProperties; }
 
         bool hasAnonymousSlots() const { return m_propertyTable && m_propertyTable->anonymousSlotCount; }
+        unsigned anonymousSlotCount() const { return m_propertyTable ? m_propertyTable->anonymousSlotCount : 0; }
         
         bool isEmpty() const { return m_propertyTable ? !m_propertyTable->keyCount : m_offset == noOffset; }
 
-        JSCell* specificValue() { return m_specificValueInPrevious; }
         void despecifyDictionaryFunction(const Identifier& propertyName);
+        void disableSpecificFunctionTracking() { m_specificFunctionThrashCount = maxSpecificFunctionThrashCount; }
 
         void setEnumerationCache(JSPropertyNameIterator* enumerationCache); // Defined in JSPropertyNameIterator.h.
         JSPropertyNameIterator* enumerationCache() { return m_enumerationCache.get(); }
-        void getEnumerablePropertyNames(PropertyNameArray&);
-
+        void getPropertyNames(PropertyNameArray&, EnumerationMode mode);
+        
     private:
+        static PassRefPtr<Structure> create(JSValue prototype, const TypeInfo& typeInfo)
+        {
+            return adoptRef(new Structure(prototype, typeInfo));
+        }
+
         Structure(JSValue prototype, const TypeInfo&);
         
         typedef enum { 
@@ -145,7 +163,6 @@ namespace JSC {
 
         size_t put(const Identifier& propertyName, unsigned attributes, JSCell* specificValue);
         size_t remove(const Identifier& propertyName);
-        void addAnonymousSlots(unsigned slotCount);
 
         void expandPropertyMapHashTable();
         void rehashPropertyMapHashTable();
@@ -156,6 +173,7 @@ namespace JSC {
         void checkConsistency();
 
         bool despecifyFunction(const Identifier&);
+        void despecifyAllFunctions();
 
         PropertyMapHashTable* copyPropertyTable();
         void materializePropertyMap();
@@ -179,6 +197,8 @@ namespace JSC {
         static const signed char s_maxTransitionLength = 64;
 
         static const signed char noOffset = -1;
+
+        static const unsigned maxSpecificFunctionThrashCount = 3;
 
         TypeInfo m_typeInfo;
 
@@ -210,7 +230,8 @@ namespace JSC {
 #else
         unsigned m_attributesInPrevious : 7;
 #endif
-        unsigned m_anonymousSlotsInPrevious : 6;
+        unsigned m_specificFunctionThrashCount : 2;
+        // 10 free bits
     };
 
     inline size_t Structure::get(const Identifier& propertyName)
@@ -223,7 +244,7 @@ namespace JSC {
 
         UString::Rep* rep = propertyName._ustring.rep();
 
-        unsigned i = rep->computedHash();
+        unsigned i = rep->existingHash();
 
 #if DUMP_PROPERTYMAP_STATS
         ++numProbes;
@@ -240,7 +261,7 @@ namespace JSC {
         ++numCollisions;
 #endif
 
-        unsigned k = 1 | WTF::doubleHash(rep->computedHash());
+        unsigned k = 1 | WTF::doubleHash(rep->existingHash());
 
         while (1) {
             i += k;

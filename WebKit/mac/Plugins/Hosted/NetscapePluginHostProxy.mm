@@ -94,6 +94,7 @@ NetscapePluginHostProxy::NetscapePluginHostProxy(mach_port_t clientPort, mach_po
     , m_pluginHostPort(pluginHostPort)
     , m_isModal(false)
     , m_menuBarIsVisible(true)
+    , m_fullScreenWindowIsShowing(false)
     , m_pluginHostPSN(pluginHostPSN)
     , m_processingRequests(0)
     , m_shouldCacheMissingPropertiesAndMethods(shouldCacheMissingPropertiesAndMethods)
@@ -196,14 +197,42 @@ void NetscapePluginHostProxy::deadNameNotificationCallback(CFMachPortRef port, v
 void NetscapePluginHostProxy::setMenuBarVisible(bool visible)
 {
     m_menuBarIsVisible = visible;
-    
+
     [NSMenu setMenuBarVisible:visible];
-    if (visible) {
-        // Make ourselves the front app
-        ProcessSerialNumber psn;
-        GetCurrentProcess(&psn);
-        SetFrontProcess(&psn);
-    }
+}
+
+void NetscapePluginHostProxy::didEnterFullScreen() const
+{
+    SetFrontProcess(&m_pluginHostPSN);
+}
+
+void NetscapePluginHostProxy::didExitFullScreen() const
+{
+    // If the plug-in host is the current application then we should bring ourselves to the front when it exits full-screen mode.
+
+    ProcessSerialNumber frontProcess;
+    GetFrontProcess(&frontProcess);
+    Boolean isSameProcess = 0;
+    SameProcess(&frontProcess, &m_pluginHostPSN, &isSameProcess);
+    if (!isSameProcess)
+        return;
+
+    ProcessSerialNumber currentProcess;
+    GetCurrentProcess(&currentProcess);
+    SetFrontProcess(&currentProcess);
+}
+
+void NetscapePluginHostProxy::setFullScreenWindowIsShowing(bool isShowing)
+{
+    if (m_fullScreenWindowIsShowing == isShowing)
+        return;
+
+    m_fullScreenWindowIsShowing = isShowing;
+    if (m_fullScreenWindowIsShowing)
+        didEnterFullScreen();
+    else
+        didExitFullScreen();
+
 }
 
 void NetscapePluginHostProxy::applicationDidBecomeActive()
@@ -875,7 +904,18 @@ kern_return_t WKPCSetMenuBarVisible(mach_port_t clientPort, boolean_t menuBarVis
         return KERN_FAILURE;
 
     hostProxy->setMenuBarVisible(menuBarVisible);
-    
+
+    return KERN_SUCCESS;
+}
+
+kern_return_t WKPCSetFullScreenWindowIsShowing(mach_port_t clientPort, boolean_t fullScreenWindowIsShowing)
+{
+    NetscapePluginHostProxy* hostProxy = pluginProxyMap().get(clientPort);
+    if (!hostProxy)
+        return KERN_FAILURE;
+
+    hostProxy->setFullScreenWindowIsShowing(fullScreenWindowIsShowing);
+
     return KERN_SUCCESS;
 }
 
@@ -1057,5 +1097,56 @@ kern_return_t WKPCResolveURL(mach_port_t clientPort, uint32_t pluginID, data_t u
     instanceProxy->resolveURL(urlData, targetData, *resolvedURLData, *resolvedURLLength);
     return KERN_SUCCESS;
 }
+
+#if !defined(BUILDING_ON_SNOW_LEOPARD)
+kern_return_t WKPCRunSyncOpenPanel(mach_port_t clientPort, data_t panelData, mach_msg_type_number_t panelDataLength)
+{
+    DataDeallocator panelDataDeallocator(panelData, panelDataLength);
+
+    NetscapePluginHostProxy* hostProxy = pluginProxyMap().get(clientPort);
+    if (!hostProxy)
+        return KERN_FAILURE;
+    
+    NSOpenPanel *sheet = [NSOpenPanel openPanel];
+    NSDictionary *panelState = [NSPropertyListSerialization propertyListFromData:[NSData dataWithBytes:panelData length:panelDataLength]
+                                                                mutabilityOption:NSPropertyListImmutable
+                                                                          format:NULL
+                                                                errorDescription:nil];
+    
+    [sheet setCanChooseFiles:[[panelState objectForKey:@"canChooseFiles"] boolValue]];
+    [sheet setCanChooseDirectories:[[panelState objectForKey:@"canChooseDirectories"] boolValue]];
+    [sheet setResolvesAliases:[[panelState objectForKey:@"resolvesAliases"] boolValue]];
+    [sheet setAllowsMultipleSelection:[[panelState objectForKey:@"allowsMultipleSelection"] boolValue]];
+    [sheet setCanCreateDirectories:[[panelState objectForKey:@"canCreateDirectories"] boolValue]];
+    [sheet setShowsHiddenFiles:[[panelState objectForKey:@"showsHiddenFiles"] boolValue]];
+    [sheet setExtensionHidden:[[panelState objectForKey:@"isExtensionHidden"] boolValue]];
+    [sheet setCanSelectHiddenExtension:[[panelState objectForKey:@"canSelectHiddenExtension"] boolValue]];
+    [sheet setAllowsOtherFileTypes:[[panelState objectForKey:@"allowsOtherFileTypes"] boolValue]];
+    [sheet setTreatsFilePackagesAsDirectories:[[panelState objectForKey:@"treatsFilePackagesAsDirectories"] boolValue]];
+    [sheet setPrompt:[panelState objectForKey:@"prompt"]];
+    [sheet setNameFieldLabel:[panelState objectForKey:@"nameFieldLabel"]];
+    [sheet setMessage:[panelState objectForKey:@"message"]];
+    [sheet setAllowedFileTypes:[panelState objectForKey:@"allowedFileTypes"]];
+    [sheet setRequiredFileType:[panelState objectForKey:@"requiredFileType"]];    
+    [sheet setTitle:[panelState objectForKey:@"title"]];
+    [sheet runModal];
+    
+    NSDictionary *ret = [NSDictionary dictionaryWithObjectsAndKeys:
+                         [sheet filenames], @"filenames",
+                         WKNoteOpenPanelFiles([sheet filenames]), @"extensions",
+                         nil];
+    
+    RetainPtr<NSData*> data = [NSPropertyListSerialization dataFromPropertyList:ret format:NSPropertyListBinaryFormat_v1_0 errorDescription:0];
+    ASSERT(data);
+
+    _WKPHSyncOpenPanelReply(hostProxy->port(), const_cast<char *>(static_cast<const char*>([data.get() bytes])), [data.get() length]);
+    return KERN_SUCCESS;
+}
+#else
+kern_return_t WKPCRunSyncOpenPanel(mach_port_t clientPort, data_t panelData, mach_msg_type_number_t panelDataLength)
+{
+    return KERN_FAILURE;
+}
+#endif // !defined(BUILDING_ON_SNOW_LEOPARD)
 
 #endif // USE(PLUGIN_HOST_PROCESS)

@@ -1,3 +1,125 @@
+2010-01-27  Kevin Watters  <kevinwatters@gmail.com>
+
+        Reviewed by Kevin Ollivier.
+
+        Add a way to get the parse mode to wxWebKit API.
+        
+        https://bugs.webkit.org/show_bug.cgi?id=34341
+
+        * WebFrame.cpp:
+        (wxWebFrame::GetParseMode):
+        * WebFrame.h:
+        * WebView.cpp:
+        (wxWebView::GetParseMode):
+        * WebView.h:
+
+2010-01-22  Kevin Watters  <kevinwatters@gmail.com>
+
+        Reviewed by Kevin Ollivier.
+
+        [wx] Remove the Bakefile build system, which is no longer being used.
+        
+        https://bugs.webkit.org/show_bug.cgi?id=34022
+
+        * bindings/python/wxwebkit-py.bkl: Removed.
+        * dependencies.bkl: Removed.
+        * presets/wxwebkit.bkl: Removed.
+        * wxwebkit.bkl: Removed.
+        * wxwk-settings.bkl: Removed.
+
+2010-01-22  Kevin Ollivier  <kevino@theolliviers.com>
+
+        Build fix after r53718.
+
+        * WebView.cpp:
+        (wxWebView::OnKeyEvents):
+
+2010-01-15  Kevin Ollivier  <kevino@theolliviers.com>
+
+        Reviewed by Alexey Proskuryakov.
+
+        Move the code adding the child frame to the FrameTree into wxWebFrame constructor
+        so that it happens before we call init() on the new frame. Fixes asserts checking
+        frame count consistency.
+
+        * WebFrame.cpp:
+        (wxWebFrame::wxWebFrame):
+        * WebKitSupport/FrameLoaderClientWx.cpp:
+        (WebCore::FrameLoaderClientWx::createFrame):
+
+2010-01-14  Kevin Ollivier  <kevino@theolliviers.com>
+
+        [wx] Build fix, missing header.
+
+        * WebView.cpp:
+
+2010-01-09  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Darin Adler.
+
+        ScriptController::isEnabled needs to be renamed
+        https://bugs.webkit.org/show_bug.cgi?id=32063
+
+        Rename ScriptController::isEnabled to
+        ScriptController::canExecuteScripts.
+
+        * WebFrame.cpp:
+        (wxWebFrame::RunScript):
+
+2009-12-30  Kevin Watters  <kevinwatters@gmail.com>
+
+        Reviewed by Kevin Ollivier.
+
+        Introduce wxWebSettings API interface for editing wxWebView / page settings.
+        
+        https://bugs.webkit.org/show_bug.cgi?id=32956
+
+        * WebBrowserShell.h:
+        * WebFrame.h:
+        * WebKitDefines.h: Added.
+        * WebSettings.cpp: Added.
+        (wxWebSettings::SetDefaultFixedFontSize):
+        (wxWebSettings::GetDefaultFixedFontSize):
+        (wxWebSettings::SetDefaultFontSize):
+        (wxWebSettings::GetDefaultFontSize):
+        (wxWebSettings::SetMinimumFontSize):
+        (wxWebSettings::GetMinimumFontSize):
+        (wxWebSettings::SetLoadsImagesAutomatically):
+        (wxWebSettings::LoadsImagesAutomatically):
+        (wxWebSettings::SetJavaScriptEnabled):
+        (wxWebSettings::IsJavaScriptEnabled):
+        (wxWebSettings::SetDatabasesEnabled):
+        (wxWebSettings::AreDatabasesEnabled):
+        (wxWebSettings::SetLocalStoragePath):
+        (wxWebSettings::GetLocalStoragePath):
+        (wxWebSettings::SetEditableLinkBehavior):
+        (wxWebSettings::GetEditableLinkBehavior):
+        (wxWebSettings::SetPluginsEnabled):
+        (wxWebSettings::ArePluginsEnabled):
+        * WebSettings.h: Added.
+        * WebView.cpp:
+        (wxWebView::Create):
+        (wxWebView::GetWebSettings):
+        * WebView.h:
+        * bindings/python/webview.i:
+
+2009-12-28  Patrick Gansterer  <paroga@paroga.com>
+
+        Reviewed by Maciej Stachowiak.
+
+        Use JS_NO_EXPORT for JSBase.h.
+
+        * wxwk-settings.bkl:
+
+2009-12-20  Kevin Ollivier  <kevino@theolliviers.com>
+
+        [wx] build fixes after recent changes.
+
+        * WebFrame.cpp: Added missing header.
+        * WebKitSupport/EditorClientWx.cpp: Added missing header.
+        * WebView.cpp: Updated Page constructor call.
+        (wxWebView::Create):
+
 2009-12-08  Kevin Watters  <kevinwatters@gmail.com>
 
         Reviewed by Kevin Ollivier.

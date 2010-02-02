@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005, 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2005, 2006, 2007, 2008, 2009, 2010 Apple Inc. All rights reserved.
  *           (C) 2006, 2007 Graham Dennis (graham.dennis@gmail.com)
  *
  * Redistribution and use in source and binary forms, with or without
@@ -103,6 +103,7 @@
 #import <WebCore/Page.h>
 #import <WebCore/PlatformKeyboardEvent.h>
 #import <WebCore/Range.h>
+#import <WebCore/RuntimeApplicationChecks.h>
 #import <WebCore/SelectionController.h>
 #import <WebCore/SharedBuffer.h>
 #import <WebCore/SimpleFontData.h>
@@ -796,10 +797,26 @@ static NSURL* uniqueURLWithRelativePart(NSString *relativePart)
     [webView _setInsertionPasteboard:pasteboard];
 
     DOMRange *range = [self _selectedRange];
+    
+#if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD)
     DOMDocumentFragment *fragment = [self _documentFragmentFromPasteboard:pasteboard inContext:range allowPlainText:allowPlainText];
     if (fragment && [self _shouldInsertFragment:fragment replacingDOMRange:range givenAction:WebViewInsertActionPasted])
         [[self _frame] _replaceSelectionWithFragment:fragment selectReplacement:NO smartReplace:[self _canSmartReplaceWithPasteboard:pasteboard] matchStyle:NO];
-
+#else
+    // Mail is ignoring the frament passed to the delegate and creates a new one.
+    // We want to avoid creating the fragment twice.
+    if (applicationIsAppleMail()) {
+        if ([self _shouldInsertFragment:nil replacingDOMRange:range givenAction:WebViewInsertActionPasted]) {
+            DOMDocumentFragment *fragment = [self _documentFragmentFromPasteboard:pasteboard inContext:range allowPlainText:allowPlainText];
+            if (fragment)
+                [[self _frame] _replaceSelectionWithFragment:fragment selectReplacement:NO smartReplace:[self _canSmartReplaceWithPasteboard:pasteboard] matchStyle:NO];
+        }        
+    } else {
+        DOMDocumentFragment *fragment = [self _documentFragmentFromPasteboard:pasteboard inContext:range allowPlainText:allowPlainText];
+        if (fragment && [self _shouldInsertFragment:fragment replacingDOMRange:range givenAction:WebViewInsertActionPasted])
+            [[self _frame] _replaceSelectionWithFragment:fragment selectReplacement:NO smartReplace:[self _canSmartReplaceWithPasteboard:pasteboard] matchStyle:NO];
+    }
+#endif
     [webView _setInsertionPasteboard:nil];
     [webView release];
 }
@@ -3309,6 +3326,12 @@ WEBCORE_COMMAND(yankAndSelect)
     return [[[self elementAtPoint:point allowShadowContent:YES] objectForKey:WebElementIsSelectedKey] boolValue];
 }
 
+- (BOOL)_isScrollBarEvent:(NSEvent *)event
+{
+    NSPoint point = [self convertPoint:[event locationInWindow] fromView:nil];
+    return [[[self elementAtPoint:point allowShadowContent:YES] objectForKey:WebElementIsInScrollBarKey] boolValue];
+}
+
 - (BOOL)acceptsFirstMouse:(NSEvent *)event
 {
     // There's a chance that responding to this event will run a nested event loop, and
@@ -3331,6 +3354,8 @@ WEBCORE_COMMAND(yankAndSelect)
             [hitHTMLView _setMouseDownEvent:event];
             if ([hitHTMLView _isSelectionEvent:event])
                 result = coreFrame->eventHandler()->eventMayStartDrag(event);
+            else if ([hitHTMLView _isScrollBarEvent:event])
+                result = true;
             [hitHTMLView _setMouseDownEvent:nil];
         }
         return result;

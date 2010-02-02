@@ -560,22 +560,20 @@ void ChromeClientImpl::runOpenPanel(Frame* frame, PassRefPtr<FileChooser> fileCh
     if (!client)
         return;
 
-    bool multipleFiles = fileChooser->allowsMultipleFiles();
-
-    WebString suggestion;
-    if (fileChooser->filenames().size() > 0)
-        suggestion = fileChooser->filenames()[0];
-
+    WebFileChooserParams params;
+    params.multiSelect = fileChooser->allowsMultipleFiles();
+    params.acceptTypes = fileChooser->acceptTypes();
+    params.selectedFiles = fileChooser->filenames();
+    if (params.selectedFiles.size() > 0)
+        params.initialValue = params.selectedFiles[0];
     WebFileChooserCompletionImpl* chooserCompletion =
         new WebFileChooserCompletionImpl(fileChooser);
-    bool ok = client->runFileChooser(multipleFiles,
-                                     WebString(),
-                                     suggestion,
-                                     chooserCompletion);
-    if (!ok) {
-        // Choosing failed, so do callback with an empty list.
-        chooserCompletion->didChooseFile(WebVector<WebString>());
-    }
+
+    if (client->runFileChooser(params, chooserCompletion))
+        return;
+
+    // Choosing failed, so do callback with an empty list.
+    chooserCompletion->didChooseFile(WebVector<WebString>());
 }
 
 void ChromeClientImpl::popupOpened(PopupContainer* popupContainer,

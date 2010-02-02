@@ -666,7 +666,7 @@ PassRefPtr<DocumentFragment> Range::processContents(ActionType action, Exception
     }
 
     // Complex case: Start and end containers are different.
-    // There are three possiblities here:
+    // There are three possibilities here:
     // 1. Start container == commonRoot (End container must be a descendant)
     // 2. End container == commonRoot (Start container must be a descendant)
     // 3. Neither is commonRoot, they are both descendants
@@ -1417,7 +1417,7 @@ void Range::surroundContents(PassRefPtr<Node> passNewParent, ExceptionCode& ec)
     // although this will fail below for another reason).
     if (parentOfNewParent->isCharacterDataNode())
         parentOfNewParent = parentOfNewParent->parentNode();
-    if (!parentOfNewParent->childTypeAllowed(newParent->nodeType())) {
+    if (!parentOfNewParent || !parentOfNewParent->childTypeAllowed(newParent->nodeType())) {
         ec = HIERARCHY_REQUEST_ERR;
         return;
     }
@@ -1930,3 +1930,17 @@ void Range::getBorderAndTextQuads(Vector<FloatQuad>& quads) const
 }
 
 } // namespace WebCore
+
+#ifndef NDEBUG
+
+void showTree(const WebCore::Range* range)
+{
+    if (range && range->boundaryPointsValid()) {
+        WebCore::Position start = range->startPosition();
+        WebCore::Position end = range->endPosition();
+        start.node()->showTreeAndMark(start.node(), "S", end.node(), "E");
+        fprintf(stderr, "start offset: %d, end offset: %d\n", start.deprecatedEditingOffset(), end.deprecatedEditingOffset());
+    }
+}
+
+#endif

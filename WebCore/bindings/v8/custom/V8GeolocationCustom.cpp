@@ -24,6 +24,8 @@
  */
 
 #include "config.h"
+#include "V8Geolocation.h"
+
 #include "Geolocation.h"
 
 #include "V8Binding.h"
@@ -165,7 +167,7 @@ static PassRefPtr<PositionOptions> createPositionOptions(v8::Local<v8::Value> va
     return options.release();
 }
 
-CALLBACK_FUNC_DECL(GeolocationGetCurrentPosition)
+v8::Handle<v8::Value> V8Geolocation::getCurrentPositionCallback(const v8::Arguments& args)
 {
     INC_STATS("DOM.Geolocation.getCurrentPosition()");
 
@@ -185,12 +187,12 @@ CALLBACK_FUNC_DECL(GeolocationGetCurrentPosition)
         return v8::Undefined();
     ASSERT(positionOptions);
 
-    Geolocation* geolocation = V8DOMWrapper::convertToNativeObject<Geolocation>(V8ClassIndex::GEOLOCATION, args.Holder());
+    Geolocation* geolocation = V8Geolocation::toNative(args.Holder());
     geolocation->getCurrentPosition(positionCallback.release(), positionErrorCallback.release(), positionOptions.release());
     return v8::Undefined();
 }
 
-CALLBACK_FUNC_DECL(GeolocationWatchPosition)
+v8::Handle<v8::Value> V8Geolocation::watchPositionCallback(const v8::Arguments& args)
 {
     INC_STATS("DOM.Geolocation.watchPosition()");
 
@@ -210,7 +212,7 @@ CALLBACK_FUNC_DECL(GeolocationWatchPosition)
         return v8::Undefined();
     ASSERT(positionOptions);
 
-    Geolocation* geolocation = V8DOMWrapper::convertToNativeObject<Geolocation>(V8ClassIndex::GEOLOCATION, args.Holder());
+    Geolocation* geolocation = V8Geolocation::toNative(args.Holder());
     int watchId = geolocation->watchPosition(positionCallback.release(), positionErrorCallback.release(), positionOptions.release());
     return v8::Number::New(watchId);
 }

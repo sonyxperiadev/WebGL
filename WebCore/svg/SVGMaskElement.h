@@ -21,17 +21,20 @@
 #define SVGMaskElement_h
 
 #if ENABLE(SVG)
+#include "RenderObject.h"
 #include "SVGResourceMasker.h"
 #include "SVGExternalResourcesRequired.h"
 #include "SVGLangSpace.h"
 #include "SVGStyledLocatableElement.h"
 #include "SVGTests.h"
 #include "SVGURIReference.h"
+#include <wtf/HashMap.h>
 #include <wtf/PassOwnPtr.h>
 
 namespace WebCore {
 
     class SVGLength;
+    class SVGResourceMasker;
 
     class SVGMaskElement : public SVGStyledLocatableElement,
                            public SVGURIReference,
@@ -43,32 +46,32 @@ namespace WebCore {
         virtual ~SVGMaskElement();
         virtual bool isValid() const { return SVGTests::isValid(); }
 
+        FloatRect maskBoundingBox(const FloatRect&) const;
         virtual void parseMappedAttribute(MappedAttribute*);
         virtual void svgAttributeChanged(const QualifiedName&);
+        virtual void synchronizeProperty(const QualifiedName&);
         virtual void childrenChanged(bool changedByParser = false, Node* beforeChange = 0, Node* afterChange = 0, int childCountDelta = 0);
 
         virtual RenderObject* createRenderer(RenderArena*, RenderStyle*);
-        virtual SVGResource* canvasResource();
+        virtual SVGResource* canvasResource(const RenderObject*);
 
-        PassOwnPtr<ImageBuffer> drawMaskerContent(const FloatRect& targetRect, FloatRect& maskRect) const;
+        PassOwnPtr<ImageBuffer> drawMaskerContent(const RenderObject*, FloatRect& maskRect, bool& emptyMask) const;
 
     private:
-        ANIMATED_PROPERTY_DECLARATIONS(SVGMaskElement, SVGNames::maskTagString, SVGNames::maskUnitsAttrString, int, MaskUnits, maskUnits)
-        ANIMATED_PROPERTY_DECLARATIONS(SVGMaskElement, SVGNames::maskTagString, SVGNames::maskContentUnitsAttrString, int, MaskContentUnits, maskContentUnits)
-        ANIMATED_PROPERTY_DECLARATIONS(SVGMaskElement, SVGNames::maskTagString, SVGNames::xAttrString, SVGLength, X, x)
-        ANIMATED_PROPERTY_DECLARATIONS(SVGMaskElement, SVGNames::maskTagString, SVGNames::yAttrString, SVGLength, Y, y)
-        ANIMATED_PROPERTY_DECLARATIONS(SVGMaskElement, SVGNames::maskTagString, SVGNames::widthAttrString, SVGLength, Width, width)
-        ANIMATED_PROPERTY_DECLARATIONS(SVGMaskElement, SVGNames::maskTagString, SVGNames::heightAttrString, SVGLength, Height, height)
+        DECLARE_ANIMATED_PROPERTY(SVGMaskElement, SVGNames::maskUnitsAttr, int, MaskUnits, maskUnits)
+        DECLARE_ANIMATED_PROPERTY(SVGMaskElement, SVGNames::maskContentUnitsAttr, int, MaskContentUnits, maskContentUnits)
+        DECLARE_ANIMATED_PROPERTY(SVGMaskElement, SVGNames::xAttr, SVGLength, X, x)
+        DECLARE_ANIMATED_PROPERTY(SVGMaskElement, SVGNames::yAttr, SVGLength, Y, y)
+        DECLARE_ANIMATED_PROPERTY(SVGMaskElement, SVGNames::widthAttr, SVGLength, Width, width)
+        DECLARE_ANIMATED_PROPERTY(SVGMaskElement, SVGNames::heightAttr, SVGLength, Height, height)
 
         // SVGURIReference
-        ANIMATED_PROPERTY_DECLARATIONS(SVGMaskElement, SVGURIReferenceIdentifier, XLinkNames::hrefAttrString, String, Href, href)
+        DECLARE_ANIMATED_PROPERTY(SVGMaskElement, XLinkNames::hrefAttr, String, Href, href)
 
         // SVGExternalResourcesRequired
-        ANIMATED_PROPERTY_DECLARATIONS(SVGMaskElement, SVGExternalResourcesRequiredIdentifier,
-                                       SVGNames::externalResourcesRequiredAttrString, bool,
-                                       ExternalResourcesRequired, externalResourcesRequired)
+        DECLARE_ANIMATED_PROPERTY(SVGMaskElement, SVGNames::externalResourcesRequiredAttr, bool, ExternalResourcesRequired, externalResourcesRequired)
 
-        RefPtr<SVGResourceMasker> m_masker;
+        HashMap<const RenderObject*, RefPtr<SVGResourceMasker> > m_masker;
     };
 
 } // namespace WebCore

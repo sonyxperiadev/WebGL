@@ -74,7 +74,7 @@ ports = [
 ]
 
 port_uses = {
-    'wx': ['CURL','PTHREADS', 'WXGC'],
+    'wx': ['CURL', 'WXGC'],
 }
 
 jscore_dirs = [
@@ -99,7 +99,8 @@ webcore_dirs = [
     'bindings',
     'bindings/js',
     'bridge', 
-    'bridge/c', 
+    'bridge/c',
+    'bridge/jsc',
     'css',
     'DerivedSources',
     'dom',
@@ -125,9 +126,7 @@ webcore_dirs = [
     'platform/image-decoders/gif', 
     'platform/image-decoders/ico', 
     'platform/image-decoders/jpeg', 
-    'platform/image-decoders/png', 
-    'platform/image-decoders/xbm', 
-    'platform/image-decoders/zlib',
+    'platform/image-decoders/png',
     'platform/mock',
     'platform/network', 
     'platform/sql', 
@@ -256,14 +255,11 @@ def common_configure(conf):
 
         # This one also occurs in C code, so disable it there as well.
         conf.env.append_value('CCFLAGS', ['/wd4996'])
-    
-    for use in port_uses[build_port]:
-       conf.env.append_value('CXXDEFINES', ['WTF_USE_%s' % use])
 
     if build_port == "wx":
         update_wx_deps(conf, wk_root, msvc_version)
     
-        conf.env.append_value('CXXDEFINES', ['BUILDING_WX__=1'])
+        conf.env.append_value('CXXDEFINES', ['BUILDING_WX__=1', 'JS_NO_EXPORT'])
 
         if building_on_win32:
             conf.env.append_value('LIBPATH', os.path.join(msvclibs_dir, 'lib'))
@@ -356,6 +352,7 @@ def common_configure(conf):
         conf.env['LIB_XSLT'] = ['libxslt']
     else:    
         if build_port == 'wx':
+            port_uses['wx'].append('PTHREADS')
             conf.env.append_value('LIB', ['jpeg', 'png', 'pthread'])
             conf.env.append_value('LIBPATH', os.path.join(wklibs_dir, 'unix', 'lib'))
             conf.env.append_value('CPPPATH', os.path.join(wklibs_dir, 'unix', 'include'))
@@ -376,3 +373,6 @@ def common_configure(conf):
             conf.check_cfg(package='gtk+-2.0', args='--cflags --libs', uselib_store='WX', mandatory=True)
             conf.check_cfg(package='sqlite3', args='--cflags --libs', uselib_store='SQLITE3', mandatory=True)
             conf.check_cfg(path='icu-config', args='--cflags --ldflags', package='', uselib_store='ICU', mandatory=True)
+
+    for use in port_uses[build_port]:
+       conf.env.append_value('CXXDEFINES', ['WTF_USE_%s' % use])

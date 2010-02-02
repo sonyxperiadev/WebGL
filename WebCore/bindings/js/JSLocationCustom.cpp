@@ -24,6 +24,7 @@
 #include "JSLocationCustom.h"
 
 #include "DOMWindow.h"
+#include "ExceptionCode.h"
 #include "Frame.h"
 #include "FrameLoader.h"
 #include "JSDOMBinding.h"
@@ -168,12 +169,12 @@ bool JSLocation::deleteProperty(ExecState* exec, const Identifier& propertyName)
     return Base::deleteProperty(exec, propertyName);
 }
 
-void JSLocation::getOwnPropertyNames(ExecState* exec, PropertyNameArray& propertyNames)
+void JSLocation::getOwnPropertyNames(ExecState* exec, PropertyNameArray& propertyNames, EnumerationMode mode)
 {
     // Only allow the location object to enumerated by frames in the same origin.
     if (!allowsAccessFromFrame(exec, impl()->frame()))
         return;
-    Base::getOwnPropertyNames(exec, propertyNames);
+    Base::getOwnPropertyNames(exec, propertyNames, mode);
 }
 
 void JSLocation::defineGetter(ExecState* exec, const Identifier& propertyName, JSObject* getterFunction, unsigned attributes)
@@ -214,7 +215,10 @@ void JSLocation::setProtocol(ExecState* exec, JSValue value)
     ASSERT(frame);
 
     KURL url = frame->loader()->url();
-    url.setProtocol(value.toString(exec));
+    if (!url.setProtocol(value.toString(exec))) {
+        setDOMException(exec, SYNTAX_ERR);
+        return;
+    }
 
     navigateIfAllowed(exec, frame, url, !frame->script()->anyPageIsProcessingUserGesture(), false);
 }

@@ -41,9 +41,11 @@
 #include "HTMLNames.h"
 #include "InspectorTimelineAgent.h"
 #include "KeyframeList.h"
+#include "PluginWidget.h"
 #include "RenderBox.h"
 #include "RenderImage.h"
 #include "RenderLayerCompositor.h"
+#include "RenderEmbeddedObject.h"
 #include "RenderVideo.h"
 #include "RenderView.h"
 #include "Settings.h"
@@ -57,12 +59,22 @@ namespace WebCore {
 using namespace HTMLNames;
 
 static bool hasBorderOutlineOrShadow(const RenderStyle*);
-static bool hasBoxDecorations(const RenderStyle*);
-static bool hasBoxDecorationsWithBackgroundImage(const RenderStyle*);
+static bool hasBoxDecorationsOrBackground(const RenderStyle*);
+static bool hasBoxDecorationsOrBackgroundImage(const RenderStyle*);
+
+static inline bool is3DCanvas(RenderObject* renderer)
+{
+#if ENABLE(3D_CANVAS)    
+    if (renderer->isCanvas())
+        return static_cast<HTMLCanvasElement*>(renderer->node())->is3D();
+#else
+    UNUSED_PARAM(renderer);
+#endif
+    return false;
+}
 
 RenderLayerBacking::RenderLayerBacking(RenderLayer* layer)
     : m_owningLayer(layer)
-    , m_hasDirectlyCompositedContent(false)
     , m_artificiallyInflatedBounds(false)
 {
     createGraphicsLayer();
@@ -86,11 +98,13 @@ void RenderLayerBacking::createGraphicsLayer()
             m_graphicsLayer->setName("Document Node");
         else {
             if (renderer()->node()->isHTMLElement() && renderer()->node()->hasID())
-                m_graphicsLayer->setName(renderer()->renderName() + String(" ") + static_cast<HTMLElement*>(renderer()->node())->getAttribute(idAttr));
+                m_graphicsLayer->setName(renderer()->renderName() + String(" ") + static_cast<HTMLElement*>(renderer()->node())->getIDAttribute());
             else
                 m_graphicsLayer->setName(renderer()->renderName());
         }
-    } else
+    } else if (m_owningLayer->isReflection())
+        m_graphicsLayer->setName("Reflection");
+    else
         m_graphicsLayer->setName("Anonymous Node");
 #endif  // NDEBUG
 
@@ -186,29 +200,30 @@ bool RenderLayerBacking::updateGraphicsLayerConfiguration()
     if (updateMaskLayer(m_owningLayer->renderer()->hasMask()))
         m_graphicsLayer->setMaskLayer(m_maskLayer.get());
 
-    m_hasDirectlyCompositedContent = false;
-    if (canUseDirectCompositing()) {
-        if (renderer()->isImage()) {
-            updateImageContents();
-            m_hasDirectlyCompositedContent = true;
-            m_graphicsLayer->setDrawsContent(false);
+    if (m_owningLayer->hasReflection()) {
+        if (m_owningLayer->reflectionLayer()->backing()) {
+            GraphicsLayer* reflectionLayer = m_owningLayer->reflectionLayer()->backing()->graphicsLayer();
+            m_graphicsLayer->setReplicatedByLayer(reflectionLayer);
         }
-#if ENABLE(3D_CANVAS)    
-        else if (renderer()->isCanvas()) {
-            HTMLCanvasElement* canvas = static_cast<HTMLCanvasElement*>(renderer()->node());
-            if (canvas->is3D()) {
-                WebGLRenderingContext* context = static_cast<WebGLRenderingContext*>(canvas->renderingContext());
-                if (context->graphicsContext3D()->platformGraphicsContext3D())
-                    m_graphicsLayer->setContentsToGraphicsContext3D(context->graphicsContext3D());
-            }
-        }
-#endif
+    } else
+        m_graphicsLayer->setReplicatedByLayer(0);
 
-        if (rendererHasBackground())
-            m_graphicsLayer->setBackgroundColor(rendererBackgroundColor());
-        else
-            m_graphicsLayer->clearBackgroundColor();
+    if (isDirectlyCompositedImage())
+        updateImageContents();
+
+    if (renderer()->isEmbeddedObject() && toRenderEmbeddedObject(renderer())->allowsAcceleratedCompositing()) {
+        PluginWidget* pluginWidget = static_cast<PluginWidget*>(toRenderEmbeddedObject(renderer())->widget());
+        m_graphicsLayer->setContentsToMedia(pluginWidget->platformLayer());
     }
+
+#if ENABLE(3D_CANVAS)    
+    if (is3DCanvas(renderer())) {
+        HTMLCanvasElement* canvas = static_cast<HTMLCanvasElement*>(renderer()->node());
+        WebGLRenderingContext* context = static_cast<WebGLRenderingContext*>(canvas->renderingContext());
+        if (context->graphicsContext3D()->platformGraphicsContext3D())
+            m_graphicsLayer->setContentsToGraphicsContext3D(context->graphicsContext3D());
+    }
+#endif
 
     return layerConfigChanged;
 }
@@ -229,7 +244,7 @@ void RenderLayerBacking::updateGraphicsLayerGeometry()
         updateLayerOpacity(renderer()->style());
     
     RenderStyle* style = renderer()->style();
-    m_graphicsLayer->setPreserves3D(style->transformStyle3D() == TransformStyle3DPreserve3D);
+    m_graphicsLayer->setPreserves3D(style->transformStyle3D() == TransformStyle3DPreserve3D && !renderer()->hasReflection());
     m_graphicsLayer->setBackfaceVisibility(style->backfaceVisibility() == BackfaceVisibilityVisible);
 
     RenderLayer* compAncestor = m_owningLayer->ancestorCompositingLayer();
@@ -350,9 +365,19 @@ void RenderLayerBacking::updateGraphicsLayerGeometry()
         m_foregroundLayer->setOffsetFromRenderer(foregroundOffset);
     }
 
+    if (m_owningLayer->reflectionLayer() && m_owningLayer->reflectionLayer()->isComposited()) {
+        RenderLayerBacking* reflectionBacking = m_owningLayer->reflectionLayer()->backing();
+        reflectionBacking->updateGraphicsLayerGeometry();
+        
+        // The reflection layer has the bounds of m_owningLayer->reflectionLayer(),
+        // but the reflected layer is the bounds of this layer, so we need to position it appropriately.
+        FloatRect layerBounds = compositedBounds();
+        FloatRect reflectionLayerBounds = reflectionBacking->compositedBounds();
+        reflectionBacking->graphicsLayer()->setReplicatedLayerPosition(FloatPoint() + (layerBounds.location() - reflectionLayerBounds.location()));
+    }
+
     m_graphicsLayer->setContentsRect(contentsBox());
-    if (!m_hasDirectlyCompositedContent)
-        m_graphicsLayer->setDrawsContent(!isSimpleContainerCompositingLayer() && !paintingGoesToWindow() && !m_artificiallyInflatedBounds);
+    m_graphicsLayer->setDrawsContent(containsPaintedContent());
 }
 
 void RenderLayerBacking::updateInternalHierarchy()
@@ -498,12 +523,12 @@ static bool hasBorderOutlineOrShadow(const RenderStyle* style)
     return style->hasBorder() || style->hasBorderRadius() || style->hasOutline() || style->hasAppearance() || style->boxShadow();
 }
 
-static bool hasBoxDecorations(const RenderStyle* style)
+static bool hasBoxDecorationsOrBackground(const RenderStyle* style)
 {
     return hasBorderOutlineOrShadow(style) || style->hasBackground();
 }
 
-static bool hasBoxDecorationsWithBackgroundImage(const RenderStyle* style)
+static bool hasBoxDecorationsOrBackgroundImage(const RenderStyle* style)
 {
     return hasBorderOutlineOrShadow(style) || style->hasBackgroundImage();
 }
@@ -563,7 +588,7 @@ bool RenderLayerBacking::isSimpleContainerCompositingLayer() const
     // Reject anything that has a border, a border-radius or outline,
     // or any background (color or image).
     // FIXME: we could optimize layers for simple backgrounds.
-    if (hasBoxDecorations(style))
+    if (hasBoxDecorationsOrBackground(style))
         return false;
 
     // If we have got this far and the renderer has no children, then we're ok.
@@ -580,7 +605,7 @@ bool RenderLayerBacking::isSimpleContainerCompositingLayer() const
         
         // Reject anything that has a border, a border-radius or outline,
         // or is not a simple background (no background, or solid color).
-        if (hasBoxDecorationsWithBackgroundImage(style))
+        if (hasBoxDecorationsOrBackgroundImage(style))
             return false;
         
         // Now look at the body's renderer.
@@ -591,7 +616,7 @@ bool RenderLayerBacking::isSimpleContainerCompositingLayer() const
         
         style = bodyObject->style();
         
-        if (hasBoxDecorationsWithBackgroundImage(style))
+        if (hasBoxDecorationsOrBackgroundImage(style))
             return false;
 
         // Ceck to see if all the body's children are compositing layers.
@@ -608,9 +633,11 @@ bool RenderLayerBacking::isSimpleContainerCompositingLayer() const
     return true;
 }
 
+// Conservative test for having no rendered children.
 bool RenderLayerBacking::hasNonCompositingContent() const
 {
-    // Conservative test for having no rendered children.
+    if (m_owningLayer->hasOverflowControls())
+        return true;
     
     // Some HTML can cause whitespace text nodes to have renderers, like:
     // <div>
@@ -627,7 +654,6 @@ bool RenderLayerBacking::hasNonCompositingContent() const
         }
     }
 
-    // FIXME: test for overflow controls.
     if (m_owningLayer->isStackingContext()) {
         // Use the m_hasCompositingDescendant bit to optimize?
         if (Vector<RenderLayer*>* negZOrderList = m_owningLayer->negZOrderList()) {
@@ -661,51 +687,43 @@ bool RenderLayerBacking::hasNonCompositingContent() const
     return false;
 }
 
-// A layer can use direct compositing if the render layer's object is a replaced object and has no children.
-// This allows the GraphicsLayer to display the RenderLayer contents directly; it's used for images.
-bool RenderLayerBacking::canUseDirectCompositing() const
+bool RenderLayerBacking::containsPaintedContent() const
+{
+    if (isSimpleContainerCompositingLayer() || paintingGoesToWindow() || m_artificiallyInflatedBounds || m_owningLayer->isReflection())
+        return false;
+
+    if (isDirectlyCompositedImage())
+        return false;
+
+    // FIXME: we could optimize cases where the image, video or canvas is known to fill the border box entirely,
+    // and set background color on the layer in that case, instead of allocating backing store and painting.
+    if (renderer()->isVideo() || is3DCanvas(renderer()))
+        return hasBoxDecorationsOrBackground(renderer()->style());
+
+    return true;
+}
+
+// An image can be directly compositing if it's the sole content of the layer, and has no box decorations
+// that require painting. Direct compositing saves backing store.
+bool RenderLayerBacking::isDirectlyCompositedImage() const
 {
     RenderObject* renderObject = renderer();
-    
-    // Canvas3D is always direct composited
-#if ENABLE(3D_CANVAS)    
-    if (renderer()->isCanvas()) {
-        HTMLCanvasElement* canvas = static_cast<HTMLCanvasElement*>(renderer()->node());
-        return canvas->is3D();
-    }
-#endif
-
-    // Reject anything that isn't an image
-    if (!renderObject->isImage() && !renderObject->isVideo())
-        return false;
-    
-    if (renderObject->hasMask() || renderObject->hasReflection())
-        return false;
-
-    // Video can use an inner layer even if it has box decorations; we draw those into another layer.
-    if (renderObject->isVideo())
-        return true;
-    
-    // Reject anything that would require the image to be drawn via the GraphicsContext,
-    // like border, shadows etc. Solid background color is OK.
-    return !hasBoxDecorationsWithBackgroundImage(renderObject->style());
+    return renderObject->isImage() && !hasBoxDecorationsOrBackground(renderObject->style());
 }
-    
+
 void RenderLayerBacking::rendererContentChanged()
 {
-    if (canUseDirectCompositing()) {
-        if (renderer()->isImage())
-            updateImageContents();
-        else {
-#if ENABLE(3D_CANVAS)    
-            if (renderer()->isCanvas()) {
-                HTMLCanvasElement* canvas = static_cast<HTMLCanvasElement*>(renderer()->node());
-                if (canvas->is3D())
-                    m_graphicsLayer->setGraphicsContext3DNeedsDisplay();
-            }
-#endif
-        }
+    if (isDirectlyCompositedImage()) {
+        updateImageContents();
+        return;
     }
+
+#if ENABLE(3D_CANVAS)    
+    if (is3DCanvas(renderer())) {
+        m_graphicsLayer->setGraphicsContext3DNeedsDisplay();
+        return;
+    }
+#endif
 }
 
 void RenderLayerBacking::updateImageContents()
@@ -864,14 +882,6 @@ void RenderLayerBacking::paintIntoLayer(RenderLayer* rootLayer, GraphicsContext*
     
     m_owningLayer->updateLayerListsIfNeeded();
     
-    // Paint the reflection first if we have one.
-    if (m_owningLayer->hasReflection()) {
-        // Mark that we are now inside replica painting.
-        m_owningLayer->setPaintingInsideReflection(true);
-        m_owningLayer->reflectionLayer()->paintLayer(rootLayer, context, paintDirtyRect, paintBehavior, paintingRoot, 0, RenderLayer::PaintLayerPaintingReflection);
-        m_owningLayer->setPaintingInsideReflection(false);
-    }
-
     // Calculate the clip rects we should use.
     IntRect layerBounds, damageRect, clipRectToApply, outlineRect;
     m_owningLayer->calculateRects(rootLayer, paintDirtyRect, layerBounds, damageRect, clipRectToApply, outlineRect);
@@ -1062,7 +1072,7 @@ bool RenderLayerBacking::showRepaintCounter() const
     return compositor() ? compositor()->showRepaintCounter() : false;
 }
 
-bool RenderLayerBacking::startAnimation(double beginTime, const Animation* anim, const KeyframeList& keyframes)
+bool RenderLayerBacking::startAnimation(double timeOffset, const Animation* anim, const KeyframeList& keyframes)
 {
     bool hasOpacity = keyframes.containsProperty(CSSPropertyOpacity);
     bool hasTransform = keyframes.containsProperty(CSSPropertyWebkitTransform);
@@ -1093,10 +1103,10 @@ bool RenderLayerBacking::startAnimation(double beginTime, const Animation* anim,
     bool didAnimateTransform = !hasTransform;
     bool didAnimateOpacity = !hasOpacity;
     
-    if (hasTransform && m_graphicsLayer->addAnimation(transformVector, toRenderBox(renderer())->borderBoxRect().size(), anim, keyframes.animationName(), beginTime))
+    if (hasTransform && m_graphicsLayer->addAnimation(transformVector, toRenderBox(renderer())->borderBoxRect().size(), anim, keyframes.animationName(), timeOffset))
         didAnimateTransform = true;
 
-    if (hasOpacity && m_graphicsLayer->addAnimation(opacityVector, IntSize(), anim, keyframes.animationName(), beginTime))
+    if (hasOpacity && m_graphicsLayer->addAnimation(opacityVector, IntSize(), anim, keyframes.animationName(), timeOffset))
         didAnimateOpacity = true;
     
     bool runningAcceleratedAnimation = didAnimateTransform && didAnimateOpacity;
@@ -1106,7 +1116,7 @@ bool RenderLayerBacking::startAnimation(double beginTime, const Animation* anim,
     return runningAcceleratedAnimation;
 }
 
-bool RenderLayerBacking::startTransition(double beginTime, int property, const RenderStyle* fromStyle, const RenderStyle* toStyle)
+bool RenderLayerBacking::startTransition(double timeOffset, int property, const RenderStyle* fromStyle, const RenderStyle* toStyle)
 {
     bool didAnimate = false;
     ASSERT(property != cAnimateAll);
@@ -1118,7 +1128,7 @@ bool RenderLayerBacking::startTransition(double beginTime, int property, const R
             opacityVector.insert(new FloatAnimationValue(0, compositingOpacity(fromStyle->opacity())));
             opacityVector.insert(new FloatAnimationValue(1, compositingOpacity(toStyle->opacity())));
             // The boxSize param is only used for transform animations (which can only run on RenderBoxes), so we pass an empty size here.
-            if (m_graphicsLayer->addAnimation(opacityVector, IntSize(), opacityAnim, String(), beginTime)) {
+            if (m_graphicsLayer->addAnimation(opacityVector, IntSize(), opacityAnim, String(), timeOffset)) {
                 // To ensure that the correct opacity is visible when the animation ends, also set the final opacity.
                 updateLayerOpacity(toStyle);
                 didAnimate = true;
@@ -1132,7 +1142,7 @@ bool RenderLayerBacking::startTransition(double beginTime, int property, const R
             KeyframeValueList transformVector(AnimatedPropertyWebkitTransform);
             transformVector.insert(new TransformAnimationValue(0, &fromStyle->transform()));
             transformVector.insert(new TransformAnimationValue(1, &toStyle->transform()));
-            if (m_graphicsLayer->addAnimation(transformVector, toRenderBox(renderer())->borderBoxRect().size(), transformAnim, String(), beginTime)) {
+            if (m_graphicsLayer->addAnimation(transformVector, toRenderBox(renderer())->borderBoxRect().size(), transformAnim, String(), timeOffset)) {
                 // To ensure that the correct transform is visible when the animation ends, also set the final opacity.
                 updateLayerTransform(toStyle);
                 didAnimate = true;
@@ -1162,9 +1172,9 @@ void RenderLayerBacking::animationFinished(const String& animationName)
     m_graphicsLayer->removeAnimationsForKeyframes(animationName);
 }
 
-void RenderLayerBacking::animationPaused(const String& animationName)
+void RenderLayerBacking::animationPaused(double timeOffset, const String& animationName)
 {
-    m_graphicsLayer->pauseAnimation(animationName);
+    m_graphicsLayer->pauseAnimation(animationName, timeOffset);
 }
 
 void RenderLayerBacking::transitionFinished(int property)

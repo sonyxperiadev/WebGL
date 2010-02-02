@@ -1,3 +1,395 @@
+<<<<<<< HEAD
+=======
+2010-01-29  Ben Murdoch  <benm@google.com>
+
+        Reviewed by Dimitri Glazkov.
+
+        [Android] Android needs functionality in the ChromeClient to be informed when touch events are and are not needed by the webpage.
+        https://bugs.webkit.org/show_bug.cgi?id=34215
+
+        Add needTouchEvents() to the ChromeClient which is called when the page decides it needs or no longer needs to be informed of touch events.
+
+        * WebCoreSupport/ChromeClientQt.h:
+        (WebCore::ChromeClientQt::needTouchEvents): Add an empty implementation.
+
+2010-01-29  Kenneth Rohde Christiansen  <kenneth@webkit.org>
+
+        Reviewed by Simon Hausmann
+
+        Disable auto-uppercase and predictive text on Maemo5, just like the
+        build-in MicroB Browser.
+
+        * WebCoreSupport/EditorClientQt.cpp:
+        (WebCore::EditorClientQt::setInputMethodState):
+
+2010-01-28  Andreas Kling  <andreas.kling@nokia.com>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt] Support kinetic scrolling on Maemo 5
+
+        https://bugs.webkit.org/show_bug.cgi?id=34267
+
+        Patch by Ralf Engels <ralf.engels@nokia.com> and
+        Robert Griebl <rgriebl@trolltech.com>
+
+        * Api/qwebview.cpp:
+        (QWebViewKineticScroller::QWebViewKineticScroller):
+        (QWebViewKineticScroller::eventFilter):
+        (QWebViewKineticScroller::currentFrame):
+        (QWebViewKineticScroller::scrollingFrameAt):
+        (QWebViewKineticScroller::attachToWidget):
+        (QWebViewKineticScroller::removeFromWidget):
+        (QWebViewKineticScroller::positionRange):
+        (QWebViewKineticScroller::position):
+        (QWebViewKineticScroller::viewportSize):
+        (QWebViewKineticScroller::setPosition):
+        (QWebView::QWebView):
+
+2010-01-28  Kenneth Rohde Christiansen  <kenneth@webkit.org>
+
+        Reviewed by Simon Hausmann.
+
+        Do not set the combobox font on Maemo5 and S60; use the
+        default instead.
+
+        * WebCoreSupport/QtFallbackWebPopup.cpp:
+        (WebCore::QtFallbackWebPopup::populate):
+
+2010-01-28  Trond Kjernåsen <trond@trolltech.com>
+
+        Reviewed by Simon Hausmann.
+
+        [Qt] Fix for endless print loop when printing web pages
+
+        * Api/qwebframe.cpp:
+        (QWebFrame::print):
+
+2010-01-27  Diego Gonzalez  <diego.gonzalez@openbossa.org>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt] DRT Provide worker thread ability to track counters
+        https://bugs.webkit.org/show_bug.cgi?id=34221
+
+        Implement workerThreadCount() in LayoutTestController of Qt DRT
+
+        Tests:
+        fast/workers/dedicated-worker-lifecycle.html
+        fast/workers/shared-worker-frame-lifecycle.html
+        fast/workers/shared-worker-lifecycle.html
+        fast/workers/worker-lifecycle.html
+
+        * Api/qwebpage.cpp:
+        (qt_drt_workerThreadCount):
+
+2010-01-27  Simon Hausmann  <simon.hausmann@nokia.com>
+
+        Reviewed by Laszlo Gombos.
+
+        [Qt] Update the .def files with exported symbols
+
+        * symbian/eabi/QtWebKitu.def: Add two mangled missing new symbols for arm eabi.
+
+2010-01-27  Kent Hansen  <kent.hansen@nokia.com>
+
+        Reviewed by Simon Hausmann.
+
+        [Qt] Meta-methods can't be introspected using ES5 API
+        https://bugs.webkit.org/show_bug.cgi?id=34087
+
+        Test that Object.getOwnPropertyDescriptor and
+        Object.getOwnPropertyNames work with meta-methods.
+
+        * tests/qwebframe/tst_qwebframe.cpp:
+
+2010-01-26  Simon Hausmann  <simon.hausmann@nokia.com>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt] Show comboboxes on Maemo 5
+        https://bugs.webkit.org/show_bug.cgi?id=34088
+
+        Don't try to show the combobox by simulating a mouse event from QCursor::pos() to
+        get the combobox position right. The position on Maemo 5 is independent from the mouse
+        and there's no QCursor::pos().
+
+        * WebCoreSupport/QtFallbackWebPopup.cpp:
+        (WebCore::QtFallbackWebPopup::show):
+
+2010-01-26  Jedrzej Nowacki  <jedrzej.nowacki@nokia.com>
+
+        Reviewed by Simon Hausmann.
+
+        First steps of the QtScript API.
+        
+        Two new classes were created; QScriptEngine and QScriptValue.
+        The first should encapsulate a javascript context and the second a script
+        value.
+        
+        This API is still in development, so it isn't compiled by default.
+        To trigger compilation, pass --qmakearg="CONFIG+=build-qtscript" to
+        build-webkit.
+
+        https://bugs.webkit.org/show_bug.cgi?id=32565
+
+        * docs/qtwebkit.qdocconf:
+
+2010-01-26  Holger Hans Peter Freyther  <zecke@selfish.org>
+
+        Reviewed by Simon Hausmann.
+
+        [Qt] JavaScript prompt is currently broken
+        https://bugs.webkit.org/show_bug.cgi?id=30914
+
+        In r52152 a patch was landed to convert a null QString
+        to an empty WebCore::String in case the prompt was accepted
+        but the default implementation returned the null QString.
+
+        The patch tried to avoid assign to result twice and
+        was not checking the QString if it is null but the default
+        value. This lead to always returning an empty string on
+        successful prompts. Fix it by checking the variable 'x'
+        for isNull.
+
+        The manual test case used didn't cover the case of non
+        empty input, replace it with an automatic test case that
+        should cover all cases.
+
+        * WebCoreSupport/ChromeClientQt.cpp:
+        (WebCore::ChromeClientQt::runJavaScriptPrompt): Fix the bug.
+        * tests/qwebpage/tst_qwebpage.cpp: Add automatic test case
+        (JSPromptPage::JSPromptPage):
+        (JSPromptPage::javaScriptPrompt):
+        (tst_QWebPage::testJSPrompt):
+
+2010-01-25  Simon Hausmann  <hausmann@webkit.org>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt] In RenderThemeQt determine the QStyle from the page client instead of the page's view
+        https://bugs.webkit.org/show_bug.cgi?id=34053
+
+        * Api/qgraphicswebview.cpp:
+        (QGraphicsWebViewPrivate::style): Implement QWebPageClient::style() and return the graphics
+        widget's style.
+        * Api/qwebpage.cpp:
+        (QWebPageWidgetClient::style): Implement QWebPageClient::style() and return the widget's style.
+
+2010-01-25  Janne Koskinen  <janne.p.koskinen@digia.com>
+
+        Reviewed by Simon Hausmann.
+
+        [Qt] Phone backup support for QtWebkit for Symbian devices.
+        https://bugs.webkit.org/show_bug.cgi?id=34077
+
+        * symbian/backup_registration.xml: Added.
+
+2010-01-23  Girish Ramakrishnan  <girish@forwardbias.in>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt] Fix positioning of ComboBox popup in QGraphicsWebView.
+        
+        Wrap the popup in a QGraphicsProxyWidget, so that the popup
+        transforms with the item.
+        
+        https://bugs.webkit.org/show_bug.cgi?id=33887
+
+        * WebCoreSupport/QtFallbackWebPopup.cpp:
+        (WebCore::QtFallbackWebPopupCombo::hidePopup):
+        (WebCore::QtFallbackWebPopup::QtFallbackWebPopup):
+        (WebCore::QtFallbackWebPopup::~QtFallbackWebPopup):
+        (WebCore::QtFallbackWebPopup::show):
+        * WebCoreSupport/QtFallbackWebPopup.h:
+
+2010-01-22  Peter Kasting  <pkasting@google.com>
+
+        Not reviewed, backout.
+
+        Back out r52673, which caused several regressions.
+        https://bugs.webkit.org/show_bug.cgi?id=32533
+
+        * WebCoreSupport/QtFallbackWebPopup.cpp:
+        (WebCore::QtFallbackWebPopupCombo::hidePopup):
+
+2010-01-22  Girish Ramakrishnan  <girish@forwardbias.in>
+
+        Reviewed by Simon Hausmann.
+
+        [Qt] Save the QWebPageClient instead of the ownerWidget in QtAbstractWebPopup
+        
+        The QWebPageClient is required for the QtFallbackWebPopup. QtFallbackWebPopup will
+        need it to create a QGraphicsProxyWidget (in a future commit) for the 
+        QGraphicsWebView's web popup.
+
+        * WebCoreSupport/QtFallbackWebPopup.cpp:
+        (WebCore::QtFallbackWebPopup::show):
+
+2010-01-22  Girish Ramakrishnan  <girish@forwardbias.in>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        QState::polished() was renamed to QState::propertiesAssigned() when
+        Qt 4.6.0 was released.
+
+        * QGVLauncher/main.cpp:
+        (MainWindow::init):
+
+2010-01-21  Diego Gonzalez  <diego.gonzalez@openbossa.org>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt] add setDomainRelaxationForbiddenForURLScheme in Qt DRT
+        https://bugs.webkit.org/show_bug.cgi?id=33945
+
+        * Api/qwebsecurityorigin.cpp:
+        (qt_drt_setDomainRelaxationForbiddenForURLScheme):
+
+2010-01-21  No'am Rosenthal  <noam.rosenthal@nokia.com>
+
+        Reviewed by Antti Koivisto.
+
+        [Qt] Implement GraphicsLayer for accelerated layer compositing
+        https://bugs.webkit.org/show_bug.cgi?id=33514
+
+        Here we have the QGraphicsWebView support for accelerated compositing
+
+        * Api/qgraphicswebview.cpp:
+        (QGraphicsWebViewOverlay::q): access to container object
+        (QGraphicsWebViewOverlay::boundingRect): overlay has same rect as the
+        webview
+        (QGraphicsWebViewOverlay::paint): paint everything but the contents
+        (QGraphicsWebViewPrivate::QGraphicsWebViewPrivate): some vars needed
+        for accelerated compositing
+        (QGraphicsWebViewPrivate::):
+        (QGraphicsWebViewPrivate::~QGraphicsWebViewPrivate):
+        (QGraphicsWebViewPrivate::setRootGraphicsLayer): make sure we have a
+        scrollbar overlay, and that the new graphics layer is parented by the
+        web-view
+        (QGraphicsWebViewPrivate::markForSync): flush changes at earliest
+        convenience or during the next draw
+
+        (QGraphicsWebViewPrivate::updateCompositingScrollPosition): sync the
+        position of the compositing layer with the scroll position
+        (QGraphicsWebViewPrivate::syncLayers): flush changes now
+        (QGraphicsWebViewPrivate::scroll): make sure we also move the
+        compositing layer
+        (QGraphicsWebViewPrivate::update): also update the overlay if needed
+        (QGraphicsWebView::QGraphicsWebView): initialize overlay with 0
+        (QGraphicsWebView::paint): paint only contents if we have an overlay,
+        sync the compositing layers now if needed
+        (QGraphicsWebView::setPage): also clean up the compositing
+        (QGraphicsWebView::updateGeometry): also update overlay geo
+        (QGraphicsWebView::setGeometry): also update overlay geo
+        * Api/qgraphicswebview.h: reimp compositing stuff from QWebPageClient
+        * Api/qwebsettings.cpp: init new settings flag for compositing as
+        false
+        (QWebSettingsPrivate::apply): apply new settings flag for compositing
+        (QWebSettings::QWebSettings):
+        * Api/qwebsettings.h: new settings flag for compositing
+        * Api/qwebview.cpp: 
+        (QWebView::setPage): qwebview doesn't support compositing: always false
+        * QGVLauncher/main.cpp:
+        (WebView::WebView): some more cmdline arguments + compositing
+        (MainWindow::init): some more cmdline arguments
+        (main): ditto
+        * WebCoreSupport/ChromeClientQt.cpp:
+        (WebCore::ChromeClientQt::attachRootGraphicsLayer): reimp for
+        accel-compositing
+        (WebCore::ChromeClientQt::setNeedsOneShotDrawingSynchronization):
+        reimp for accel compositing
+        (WebCore::ChromeClientQt::scheduleCompositingLayerSync): reimp for
+        accel compositing
+        * WebCoreSupport/ChromeClientQt.h: reimps for accel compositing
+
+2010-01-21  Benjamin Poulain  <benjamin.poulain@nokia.com>
+
+        Reviewed by Simon Hausmann.
+
+        [Qt] Improve the autotests of QtWebkit
+        https://bugs.webkit.org/show_bug.cgi?id=32216
+
+        Remove qWait() of the test when possible.
+
+        * tests/qwebpage/tst_qwebpage.cpp:
+        (tst_QWebPage::loadFinished):
+        (tst_QWebPage::database):
+        (tst_QWebPage::testEnablePersistentStorage):
+        (tst_QWebPage::errorPageExtension):
+        (tst_QWebPage::screenshot):
+
+2010-01-21  Simon Hausmann  <simon.hausmann@nokia.com>
+
+        Prospective build fix for the Qt build.
+
+        Fix compilation against Qt without WebKit support by not including QtWebKit/QWebView
+        but widget.h instead and instantiating QWebView through a typedef, to ensure we're using
+        our locally built WebKit.
+
+        * tests/hybridPixmap/widget.h:
+        * tests/hybridPixmap/widget.ui:
+
+2010-01-21  No'am Rosenthal  <noam.rosenthal@nokia.com>
+
+        Reviewed by Simon Hausmann.
+
+        [Qt] Adding QPixmap/QImage support for the Qt hybrid layer
+        https://bugs.webkit.org/show_bug.cgi?id=32461
+
+        * tests/hybridPixmap: Added.
+        * tests/hybridPixmap/hybridPixmap.pro: Added.
+        * tests/hybridPixmap/resources.qrc: Added.
+        * tests/hybridPixmap/test.html: Added.
+        * tests/hybridPixmap/tst_hybridPixmap.cpp: Added.
+        (tst_hybridPixmap::tst_hybridPixmap): tests most of the use cases for
+        hybrid pixmap/image manipulation 
+        (tst_hybridPixmap::init): QTestLib initialization
+        (tst_hybridPixmap::cleanup): QTestLib cleanup
+        (tst_hybridPixmap::hybridPixmap): run the html file
+        * tests/hybridPixmap/widget.cpp: Added.
+        (Widget::Widget):
+        (Widget::refreshJS):
+        (Widget::start):
+        (Widget::completeTest):
+        (Widget::setPixmap):
+        (Widget::pixmap):
+        (Widget::setImage):
+        (Widget::image):
+        (Widget::~Widget):
+        (Widget::changeEvent):
+        (Widget::compare):
+        (Widget::imageSlot):
+        (Widget::pixmapSlot):
+        (Widget::randomSlot):
+        * tests/hybridPixmap/widget.h: Added.
+        * tests/hybridPixmap/widget.ui: Added.
+        * tests/tests.pro:
+
+2010-01-21  Luiz Agostini  <luiz.agostini@openbossa.org>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt] Custom select popups.
+        https://bugs.webkit.org/show_bug.cgi?id=33418
+
+        Adjusting QtFallbackWebPopupCombo to the changes in WebCore layer.
+
+        * WebCoreSupport/ChromeClientQt.cpp:
+        (WebCore::ChromeClientQt::createSelectPopup):
+        * WebCoreSupport/ChromeClientQt.h:
+        * WebCoreSupport/QtFallbackWebPopup.cpp:
+        (WebCore::QtFallbackWebPopupCombo::QtFallbackWebPopupCombo):
+        (WebCore::QtFallbackWebPopupCombo::showPopup):
+        (WebCore::QtFallbackWebPopupCombo::hidePopup):
+        (WebCore::QtFallbackWebPopup::QtFallbackWebPopup):
+        (WebCore::QtFallbackWebPopup::~QtFallbackWebPopup):
+        (WebCore::QtFallbackWebPopup::show):
+        (WebCore::QtFallbackWebPopup::hide):
+        (WebCore::QtFallbackWebPopup::populate):
+        * WebCoreSupport/QtFallbackWebPopup.h:
+
+>>>>>>> webkit.org at r54127
 2010-01-19  Steve Block  <steveblock@google.com>
 
         Reviewed by Adam Barth.
@@ -7,6 +399,580 @@
 
         * Api/qwebframe.cpp:
 
+<<<<<<< HEAD
+=======
+2010-01-14  Brian Weinstein  <bweinstein@apple.com>
+
+        Reviewed by Adam Roben.
+
+        Drag and Drop source/destination code needs cleanup.
+        <https://bugs.webkit.org/show_bug.cgi?id=33691>.
+        
+        Update to new way of calling sourceOperation.
+
+        * WebCoreSupport/DragClientQt.cpp:
+        (WebCore::DragClientQt::startDrag):
+
+2010-01-14  Simon Hausmann  <simon.hausmann@nokia.com>
+
+        Reviewed by Tor Arne Vestbø.
+
+        [Qt] Symbian build fixes.
+
+        * tests/qwebpage/tst_qwebpage.cpp: Include util.h
+        * tests/tests.pri: Don't define TESTS_SOURCE_DIR, it doesn't work.
+        * tests/util.h: Define TESTS_SOURCE_DIR here, just like it's done in Qt.
+
+2010-01-14  Simon Hausmann  <simon.hausmann@nokia.com>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt] Update Symbian .def symbol export files after private API additions.
+
+        * symbian/bwins/QtWebKitu.def:
+        * symbian/eabi/QtWebKitu.def:
+
+2010-01-13  Darin Adler  <darin@apple.com>
+
+        Reviewed by Dan Bernstein.
+
+        Move more of the selection and caret painting code from Frame to SelectionController.
+        https://bugs.webkit.org/show_bug.cgi?id=33619
+
+        * Api/qwebpage.cpp:
+        (QWebPagePrivate::inputMethodEvent): Seems possibly wrong to be directly invoking this
+        setCaretVisible here, but I updated it to call it in its new location.
+
+2010-01-11  Simon Hausmann  <simon.hausmann@nokia.com>
+
+        Reviewed by Holger Freyther.
+
+        [Qt] Add private API for QWebFrame scrolling, to maintain binary compatibility with Qt 4.6.
+
+        This is just a temporary addition until we have introduced #ifdefs to allow
+        safely removing the private API again.
+
+        * Api/qwebframe.cpp:
+        (qtwebkit_webframe_scrollRecursively):
+
+2010-01-10  Robert Hogan  <robert@roberthogan.net>
+
+        Reviewed by Adam Barth.
+
+        [Qt] Add enableXSSAuditor support to QWebSettings and DRT.
+
+        https://bugs.webkit.org/show_bug.cgi?id=33419
+
+        * Api/qwebsettings.cpp:
+        (QWebSettingsPrivate::apply):
+        * Api/qwebsettings.h:
+
+2010-01-09  Daniel Bates  <dbates@webkit.org>
+
+        No review, rolling out r53044.
+        http://trac.webkit.org/changeset/53044
+        https://bugs.webkit.org/show_bug.cgi?id=33419
+        
+        We need to look into this some more because the Qt
+        bot is failing the XSSAuditor tests. See bug #33419
+        for more details.
+
+        * Api/qwebsettings.cpp:
+        * Api/qwebsettings.h:
+
+2010-01-09  Daniel Bates  <dbates@webkit.org>
+
+        Reviewed by Adam Barth.
+
+        https://bugs.webkit.org/show_bug.cgi?id=33419
+
+        Adds support for the XSSAuditor to the Qt DRT.
+
+        * Api/qwebsettings.cpp: Updated comment to reflect added key XSSAuditorEnabled.
+        * Api/qwebsettings.h: Adds settings key XSSAuditorEnabled.
+
+2010-01-08  Luiz Agostini  <luiz.agostini@openbossa.org>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt] Delegation client
+        https://bugs.webkit.org/show_bug.cgi?id=32826
+
+        Added method createPopup to ChromeClientQt used to create popups.
+        QtFallbackWebPopup moved from WebCore/platform/qt to
+        WebKit/qt/WebCoreSupport.
+
+        * WebCoreSupport/ChromeClientQt.cpp:
+        (WebCore::ChromeClientQt::createPopup):
+        * WebCoreSupport/ChromeClientQt.h:
+        * WebCoreSupport/QtFallbackWebPopup.cpp: Added.
+        (WebCore::QtFallbackWebPopup::QtFallbackWebPopup):
+        (WebCore::QtFallbackWebPopup::show):
+        (WebCore::QtFallbackWebPopup::populate):
+        (WebCore::QtFallbackWebPopup::showPopup):
+        (WebCore::QtFallbackWebPopup::hidePopup):
+        (WebCore::QtFallbackWebPopup::activeChanged):
+        (WebCore::QtFallbackWebPopup::setParent):
+        * WebCoreSupport/QtFallbackWebPopup.h: Added.
+        (WebCore::QtFallbackWebPopup::hide):
+
+2010-01-07  Yael Aharon  <yael.aharon@nokia.com>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt] Allow the application to override online/offline network status
+        https://bugs.webkit.org/show_bug.cgi?id=32684
+
+        Add a setting so that applications can overide the network status.
+        Applications that use this setting still need to block network access
+        through QNAM.
+
+        * Api/qwebsettings.cpp:
+        (qt_networkAccessAllowed):
+
+2010-01-07  Yongjun Zhang  <yongjun.zhang@nokia.com>, Laszlo Gombos  <laszlo.1.gombos@nokia.com>
+
+        Reviewed by Simon Hausmann.
+
+        [Qt] need an API to suspend and resume active Javascript DOM objects.
+        https://bugs.webkit.org/show_bug.cgi?id=31673
+
+        Add suspend and resume DOM objects private API to QWebFrame.
+
+        * Api/qwebframe.cpp:
+        (qt_suspendActiveDOMObjects):
+        (qt_resumeActiveDOMObjects):
+
+2010-01-06  Andreas Kling  <andreas.kling@nokia.com>
+
+        Reviewed by Simon Hausmann.
+
+        [Qt] Return an invalid Qt::ImMicroFocus if queried while the view needs to layout.
+
+        https://bugs.webkit.org/show_bug.cgi?id=33204
+
+        * Api/qwebpage.cpp:
+        (QWebPage::inputMethodQuery):
+
+2010-01-05  Yael Aharon  <yael.aharon@nokia.com>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        Drag & drop layout tests fail even when run manually
+        https://bugs.webkit.org/show_bug.cgi?id=33055
+
+        No new tests. Fix 3 layout tests when run manually.
+        fast/events/drag-and-drop.html
+        fast/events/drag-and-drop-dataTransfer-types-nocrash.html
+        fast/events/drag-and-drop-fire-drag-dragover.html
+        Running these tests in DRT will be fixed in 31332.
+
+        * Api/qwebpage.cpp:
+        (dropActionToDragOp):
+        (dragOpToDropAction):
+        (QWebPagePrivate::dragEnterEvent):
+        (QWebPagePrivate::dragMoveEvent):
+        (QWebPagePrivate::dropEvent):
+        Accept drag events even if they are not over a drop target. 
+        This is to ensure that drag events will continue to be delivered.
+
+        * Api/qwebpage_p.h:
+        * WebCoreSupport/DragClientQt.cpp:
+        (WebCore::dragOperationToDropActions):
+        (WebCore::dropActionToDragOperation):
+        (WebCore::DragClientQt::startDrag):
+        Send dragEnd event.
+
+2010-01-04  Daniel Bates  <dbates@webkit.org>
+
+        Reviewed by Eric Seidel.
+
+        https://bugs.webkit.org/show_bug.cgi?id=33097
+
+        Cleans up the File menu to better conform to the File menu in Safari
+        both in terms of options and keyboard shortcuts. Adds a "Quit" menu
+        options to close all open windows.
+
+        * QGVLauncher/main.cpp:
+        (MainWindow::buildUI):
+
+2009-12-31  Laszlo Gombos  <laszlo.1.gombos@nokia.com>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt] Enable all HTML5 persistent features for QGVLauncher
+        https://bugs.webkit.org/show_bug.cgi?id=33086
+
+        * QGVLauncher/main.cpp: Call enablePersistentStorage()
+        (main):
+
+2009-12-30  Laszlo Gombos  <laszlo.1.gombos@nokia.com>
+
+        Reviewed by Simon Hausmann.
+
+        [Qt] It should be possible to disable inspector
+        https://bugs.webkit.org/show_bug.cgi?id=32724
+
+        This change fixes the build break. Some QtWebKit interfaces
+        will not be fully functional (most notable QWebInspector) if
+        INSPECTOR is disabled.
+
+        * Api/qwebinspector.cpp:
+        (QWebInspector::showEvent):
+        (QWebInspector::closeEvent):
+        * Api/qwebpage.cpp:
+        (webActionForContextMenuAction):
+        (QWebPagePrivate::getOrCreateInspector):
+        (QWebPagePrivate::inspectorController):
+        (QWebPage::triggerAction):
+        (QWebPage::updatePositionDependentActions):
+        * WebCoreSupport/InspectorClientQt.cpp:
+        (WebCore::InspectorClientQt::showWindow):
+        (WebCore::InspectorClientQt::closeWindow):
+
+2009-12-30  Janne Koskinen  <janne.p.koskinen@digia.com>
+
+        Reviewed by Simon Hausmann.
+
+        Upstream Symbian def files from Qt 4.6.
+
+        These files define the ABI of QtWebKit on Symbian.
+
+        * symbian/bwins/QtWebKitu.def: Added.
+        * symbian/eabi/QtWebKitu.def: Added.
+
+2009-12-29  Daniel Bates  <dbates@webkit.org>
+
+        Reviewed by Ariya Hidayat.
+
+        https://bugs.webkit.org/show_bug.cgi?id=32925
+
+        Adds an Open File dialog to make it convenient to open a file
+        to view in the browser.
+
+        * QGVLauncher/main.cpp:
+        (MainWindow::load): Modified to call loadURL.
+        (MainWindow::openFile): Added.
+        (MainWindow::loadURL): Added.
+        (MainWindow::buildUI): Added menu item Open File.
+
+2009-12-29  Robert Hogan  <robert@roberthogan.net>
+
+        Reviewed by Eric Seidel.
+
+        [Qt] Fix crash on LayoutTests/fast/loader/empty-embed-src-attribute.html
+        
+        Related to https://bugs.webkit.org/show_bug.cgi?id=23806
+        
+        If an embedded document is loaded within a page and it has an empty
+        URL, use a blank URL for the load request.
+        
+        https://bugs.webkit.org/show_bug.cgi?id=33017
+
+        * WebCoreSupport/FrameLoaderClientQt.cpp:
+        (WebCore::FrameLoaderClientQt::createFrame):
+
+2009-12-29  Laszlo Gombos  <laszlo.1.gombos@nokia.com>
+
+        Rubber-stamped by Simon Hausmann and Holger Freyther.
+
+        [Qt] Remove WebKit/qt/WebKitPart empty directory
+
+        The content of the directory has been removed by r34888.
+
+        * WebKitPart: Removed.
+
+2009-12-29  Jakub Wieczorek  <faw217@gmail.com>
+
+        Reviewed by Eric Seidel.
+
+        [Qt] DRT: Frame loader callbacks differ from the Mac port
+        https://bugs.webkit.org/show_bug.cgi?id=32989
+
+        Remove messages from the callbacks that should not dump them to match
+        the expected results for the http/loading tests.
+
+        Unskip some http/loading tests which succeed now.
+
+        * WebCoreSupport/FrameLoaderClientQt.cpp:
+        (WebCore::FrameLoaderClientQt::dispatchDidPopStateWithinPage):
+        (WebCore::FrameLoaderClientQt::dispatchWillClose):
+        (WebCore::FrameLoaderClientQt::dispatchDidReceiveIcon):
+        (WebCore::FrameLoaderClientQt::dispatchDidClearWindowObjectInWorld):
+
+2009-12-29  Robert Hogan  <robert@roberthogan.net>
+
+        Reviewed by Eric Seidel.
+
+        [Qt] fix fast/dom/Window/window-onFocus.html
+        
+        Add support for layouttestcontroller.windowIsKey to Qt DRT and fix issue where
+        window.onblur was getting dispatched twice from QtWebKit.
+        
+        https://bugs.webkit.org/show_bug.cgi?id=32990
+
+        * Api/qwebpage.cpp:
+        (QWebPagePrivate::focusOutEvent):
+
+2009-12-24  Girish Ramakrishnan  <girish@forwardbias.in>
+
+        Reviewed by Gustavo Noronha.
+
+        Doc : QGraphicsWebView::zoomFactor was introduced in 4.6.
+        
+        * Api/qgraphicswebview.cpp:
+
+2009-12-22  Simon Hausmann  <simon.hausmann@nokia.com>
+
+        Rubber-stamped by Holger Freyther.
+
+        Moved QtLauncher to WebKitTools/
+
+        * QtLauncher: Removed.
+        * QtLauncher/QtLauncher.pro: Removed.
+        * QtLauncher/main.cpp: Removed.
+
+2009-12-21  David Boddie  <dboddie@trolltech.com>
+
+        Reviewed by Simon Hausmann.
+
+        Doc: Minor fixes to language.
+
+        * Api/qwebpage.cpp:
+
+2009-12-21  Tor Arne Vestbø  <tor.arne.vestbo@nokia.com>
+
+        Reviewed by Simon Hausmann.
+
+        [Qt] Clean up the WebKit layer unit-tests
+
+            - Use tests.pri for common options
+            - Standardize file naming
+            - Move all resources to 'resources' subdir
+            - Standardize how TESTS_SOURCE_DIR is used
+            - Get rid of UID3 for symbian (autogenerated)
+            - Don't build app bundles on Mac OS X
+
+        * tests/benchmarks/loading/loading.pro: Added.
+        * tests/benchmarks/loading/tst_loading.pro: Removed.
+        * tests/benchmarks/painting/painting.pro: Added.
+        * tests/benchmarks/painting/tst_painting.pro: Removed.
+        * tests/qgraphicswebview/qgraphicswebview.pro:
+        * tests/qwebelement/qwebelement.pro:
+        * tests/qwebelement/qwebelement.qrc: Removed.
+        * tests/qwebelement/resources/image.png: Renamed from WebKit/qt/tests/qwebelement/image.png.
+        * tests/qwebelement/resources/style.css: Renamed from WebKit/qt/tests/qwebelement/style.css.
+        * tests/qwebelement/resources/style2.css: Renamed from WebKit/qt/tests/qwebelement/style2.css.
+        * tests/qwebelement/tst_qwebelement.qrc: Added.
+        * tests/qwebframe/qwebframe.pro:
+        * tests/qwebframe/qwebframe.qrc: Removed.
+        * tests/qwebframe/resources/image.png: Renamed from WebKit/qt/tests/qwebframe/image.png.
+        * tests/qwebframe/resources/style.css: Renamed from WebKit/qt/tests/qwebframe/style.css.
+        * tests/qwebframe/resources/test1.html: Renamed from WebKit/qt/tests/qwebframe/test1.html.
+        * tests/qwebframe/resources/test2.html: Renamed from WebKit/qt/tests/qwebframe/test2.html.
+        * tests/qwebframe/resources/testiframe.html: Renamed from WebKit/qt/tests/qwebframe/testiframe.html.
+        * tests/qwebframe/resources/testiframe2.html: Renamed from WebKit/qt/tests/qwebframe/testiframe2.html.
+        * tests/qwebframe/tst_qwebframe.cpp:
+        * tests/qwebframe/tst_qwebframe.qrc: Added.
+        * tests/qwebhistory/qwebhistory.pro:
+        * tests/qwebhistory/resources/page1.html: Renamed from WebKit/qt/tests/qwebhistory/data/page1.html.
+        * tests/qwebhistory/resources/page2.html: Renamed from WebKit/qt/tests/qwebhistory/data/page2.html.
+        * tests/qwebhistory/resources/page3.html: Renamed from WebKit/qt/tests/qwebhistory/data/page3.html.
+        * tests/qwebhistory/resources/page4.html: Renamed from WebKit/qt/tests/qwebhistory/data/page4.html.
+        * tests/qwebhistory/resources/page5.html: Renamed from WebKit/qt/tests/qwebhistory/data/page5.html.
+        * tests/qwebhistory/resources/page6.html: Renamed from WebKit/qt/tests/qwebhistory/data/page6.html.
+        * tests/qwebhistory/tst_qwebhistory.cpp:
+        (tst_QWebHistory::):
+        * tests/qwebhistory/tst_qwebhistory.qrc:
+        * tests/qwebhistoryinterface/qwebhistoryinterface.pro:
+        * tests/qwebinspector/qwebinspector.pro:
+        * tests/qwebpage/qwebpage.pro:
+        * tests/qwebpage/resources/frame_a.html: Renamed from WebKit/qt/tests/qwebpage/frametest/frame_a.html.
+        * tests/qwebpage/resources/iframe.html: Renamed from WebKit/qt/tests/qwebpage/frametest/iframe.html.
+        * tests/qwebpage/resources/iframe2.html: Renamed from WebKit/qt/tests/qwebpage/frametest/iframe2.html.
+        * tests/qwebpage/resources/iframe3.html: Renamed from WebKit/qt/tests/qwebpage/frametest/iframe3.html.
+        * tests/qwebpage/resources/index.html: Renamed from WebKit/qt/tests/qwebpage/frametest/index.html.
+        * tests/qwebpage/tst_qwebpage.cpp:
+        (tst_QWebPage::backActionUpdate):
+        (tst_QWebPage::frameAt):
+        (tst_QWebPage::errorPageExtensionInFrameset):
+        (tst_QWebPage::screenshot):
+        * tests/qwebpage/tst_qwebpage.qrc:
+        * tests/qwebplugindatabase/qwebplugindatabase.pro:
+        * tests/qwebview/qwebview.pro:
+        * tests/qwebview/resources/frame_a.html: Renamed from WebKit/qt/tests/qwebview/data/frame_a.html.
+        * tests/qwebview/resources/index.html: Renamed from WebKit/qt/tests/qwebview/data/index.html.
+        * tests/qwebview/tst_qwebview.cpp:
+        (tst_QWebView::reusePage):
+        (tst_QWebView::crashTests):
+        * tests/qwebview/tst_qwebview.qrc:
+        * tests/resources/image2.png: Renamed from WebKit/qt/tests/qwebframe/resources/image2.png.
+        * tests/tests.pri: Added.
+        * tests/tests.pro:
+
+2009-12-18  Ariya Hidayat  <ariya.hidayat@gmail.com>
+
+        Build fix, not reviewed.
+
+        * QtLauncher/main.cpp:
+        (MainWindow::setTouchMocking): Leave setTouchMocking as an empty
+        function for Qt < 4.6 so that moc still creates a slot for that.
+        Otherwise, it would have generated a linker error.
+
+2009-12-18  Adam Roben  <aroben@apple.com>
+
+        Qt build fix
+
+        * Api/qwebpage.cpp: Added #include.
+
+2009-12-18  Adam Roben  <aroben@apple.com>
+
+        Qt build fix
+
+        * Api/qwebpage.cpp:
+        Added #includes.
+
+2009-12-18  Joe Ligman  <joseph.ligman@nokia.com>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt] Add new API to QWebFrame to scrollRecursively starting with any css overflow 
+        then checking current frame and then ancestors
+        https://bugs.webkit.org/show_bug.cgi?id=32668
+
+        * Api/qwebframe.cpp:
+        (QWebFramePrivate::scrollOverflow):
+        (QWebFrame::scrollRecursively):
+        * Api/qwebframe.h:
+        * Api/qwebframe_p.h:
+        * tests/qwebframe/qwebframe.qrc:
+        * tests/qwebframe/testiframe.html: Added.
+        * tests/qwebframe/testiframe2.html: Added.
+        * tests/qwebframe/tst_qwebframe.cpp:
+
+2009-12-18  Simon Hausmann  <simon.hausmann@nokia.com>
+
+        Reviewed by Tor Arne Vestbø.
+
+        [Qt] Fix infinite recursion in touch mocking.
+
+        Don't send the fake touch events to the view, as that'll trigger the
+        event filter again.
+
+        * QtLauncher/main.cpp:
+        (MainWindow::sendTouchEvent):
+
+2009-12-17  Benjamin Poulain  <benjamin.poulain@nokia.com>
+
+        Reviewed by Simon Hausmann.
+
+        [Qt] Add support for mocking touch events with Q(GV)Launcher
+        https://bugs.webkit.org/show_bug.cgi?id=32434
+
+        The event delivery should go through QCoreApplication::sendEvent()
+
+        * QtLauncher/main.cpp:
+        (MainWindow::sendTouchEvent):
+
+2009-12-17  Kim Grönholm  <kim.gronholm@nomovok.com>
+
+        Reviewed by Simon Hausmann.
+
+        [Qt] Add support for touch events in QWebView and QGraphicsWebView
+        https://bugs.webkit.org/show_bug.cgi?id=32432
+
+        * Api/qgraphicswebview.cpp:
+        (QGraphicsWebView::QGraphicsWebView):
+        (QGraphicsWebView::sceneEvent):
+        * Api/qwebview.cpp:
+        (QWebView::QWebView):
+        (QWebView::event):
+
+2009-12-17  Kim Grönholm  <kim.gronholm@nomovok.com>
+
+        Reviewed by Simon Hausmann.
+
+        [Qt] Add support for mocking touch events with QtLauncher
+        https://bugs.webkit.org/show_bug.cgi?id=32434
+
+        * QtLauncher/main.cpp:
+        (MainWindow::MainWindow):
+        (MainWindow::sendTouchEvent):
+        (MainWindow::eventFilter):
+        (MainWindow::setTouchMocking):
+        (MainWindow::setupUI):
+
+2009-12-14  Holger Hans Peter Freyther  <zecke@selfish.org>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt] Fix JavaScript prompt behavior for empty/null strings.
+        https://bugs.webkit.org/show_bug.cgi?id=30914
+
+        The patch is based on the work done by Gupta Manish.
+
+        In the default implementation of the JavaScript prompt
+        we are using a QInputDialog to get the text and this has
+        one quirk with regard to not entering any text.
+
+        In other WebKit ports and in Firefox an empty string is
+        returned but in the Qt case it is a null string.
+
+        Change the API documentation in QWebPage to mention we want to
+        have a non null string but do the fixup in the ChromeClientQt
+        to support existing code.
+
+        * Api/qwebpage.cpp:
+        (QWebPage::javaScriptPrompt): Change API documentation
+        * WebCoreSupport/ChromeClientQt.cpp:
+        (WebCore::ChromeClientQt::runJavaScriptPrompt): Fixup null QString
+
+2009-11-24  Holger Hans Peter Freyther  <zecke@selfish.org>
+
+        Reviewed by Simon Hausmann.
+
+        [Qt] Do not disable the inspector on show and hide
+        https://bugs.webkit.org/show_bug.cgi?id=31851
+
+        On Qt/X11 with some window managers the window will be
+        hidden when switching windows. In this case all the results
+        are gone when coming back to the window.
+
+        Attempt to use the CloseEvent to figure out if the window
+        was closed and withdrawn as this is more friendly to the
+        user of the inspector client.
+
+        * Api/qwebinspector.cpp:
+        (QWebInspector::hideEvent):
+        (QWebInspector::closeEvent):
+        * Api/qwebinspector.h:
+
+2009-12-14  Benjamin Poulain  <benjamin.poulain@nokia.com>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt] Improve the autotests of QtWebkit
+        https://bugs.webkit.org/show_bug.cgi?id=32216
+
+        Refactor tst_qwebelement to remove the qWait()
+
+        * tests/qwebelement/tst_qwebelement.cpp:
+        (tst_QWebElement::style):
+
+2009-12-14  Andreas Kling  <andreas.kling@nokia.com>
+
+        Reviewed by Simon Hausmann.
+
+        Fix the QWebPage inputMethods() autotest after r51758
+        to compare the Qt::ImFont property's family against an explicitly
+        previously configured family.
+
+        https://bugs.webkit.org/show_bug.cgi?id=32491
+
+        * tests/qwebpage/tst_qwebpage.cpp:
+        (tst_QWebPage::inputMethods):
+
+>>>>>>> webkit.org at r54127
 2009-12-13  Sam Weinig  <sam@webkit.org>
 
         Reviewed by Dan Bernstein.
@@ -22,6 +988,63 @@
         * Api/qwebpage.cpp:
         (QWebPagePrivate::QWebPagePrivate):
 
+<<<<<<< HEAD
+=======
+2009-12-13  Benjamin Poulain  <benjamin.poulain@nokia.com>
+
+        Reviewed by Simon Hausmann.
+
+        Add a test in Qt for https://bugs.webkit.org/show_bug.cgi?id=29005
+        https://bugs.webkit.org/show_bug.cgi?id=29008
+
+        * tests/qwebframe/tst_qwebframe.cpp:
+
+2009-12-13  Simon Hausmann  <hausmann@webkit.org>
+
+        Reviewed by Holger Freyther.
+
+        [Qt] Re-enable QWebView::renderHints property for Qt for Symbian
+
+        https://bugs.webkit.org/show_bug.cgi?id=28273
+
+        The bug in Qt's moc that triggered a linking error when declaring this
+        property has been fixed and we can remove the workaround.
+
+        * Api/qwebview.h:
+
+2009-12-11  Yael Aharon  <yael.aharon@nokia.com>
+
+        Unreviewed build fix for Qt versions < 4.6.
+
+        * tests/qwebframe/tst_qwebframe.cpp:
+        * tests/qwebview/tst_qwebview.cpp:
+        (tst_QWebView::reusePage):
+
+2009-12-11  Girish Ramakrishnan  <girish@forwardbias.in>
+
+        Reviewed by Tor Arne Vestbø.
+
+        [Qt] Updated QWebElement documentation
+        
+        findAll() returns a QWebElementCollection, not QList<QWebElement>.
+
+        * docs/webkitsnippets/webelement/main.cpp:
+        (findAll):
+
+2009-12-11  Simon Hausmann  <hausmann@webkit.org>, Kim Grönholm  <kim.gronholm@nomovok.com>
+
+        Reviewed by Antti Koivisto.
+
+        Forward Qt touch events to the event handler as platform touch events.
+
+        https://bugs.webkit.org/show_bug.cgi?id=32114
+
+        * Api/qwebpage.cpp:
+        (QWebPagePrivate::touchEvent):
+        (QWebPage::event):
+        * Api/qwebpage_p.h:
+
+>>>>>>> webkit.org at r54127
 2009-12-07  Benjamin Poulain  <benjamin.poulain@nokia.com>
 
         Reviewed by Kenneth Rohde Christiansen.

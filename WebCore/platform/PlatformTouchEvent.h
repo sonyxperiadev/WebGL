@@ -42,10 +42,13 @@ enum TouchEventType {
     , TouchMove
     , TouchEnd
     , TouchCancel
+<<<<<<< HEAD
 #if PLATFORM(ANDROID)
     , TouchLongPress
     , TouchDoubleTap
 #endif
+=======
+>>>>>>> webkit.org at r54127
 };
 
 class PlatformTouchEvent {
@@ -60,8 +63,12 @@ public:
 #if PLATFORM(QT)
     PlatformTouchEvent(QTouchEvent*);
 #elif PLATFORM(ANDROID)
+<<<<<<< HEAD
     // TODO (benm): eventTime is new and needs to be upstream
     PlatformTouchEvent(const IntPoint& windowPos, TouchEventType, PlatformTouchPoint::State, long eventTime);
+=======
+    PlatformTouchEvent(const IntPoint& windowPos, TouchEventType, PlatformTouchPoint::State);
+>>>>>>> webkit.org at r54127
 #endif
 
     TouchEventType type() const { return m_type; }
@@ -72,8 +79,11 @@ public:
     bool shiftKey() const { return m_shiftKey; }
     bool metaKey() const { return m_metaKey; }
 
+<<<<<<< HEAD
     long eventTime() const { return m_eventTime; }
 
+=======
+>>>>>>> webkit.org at r54127
 private:
     TouchEventType m_type;
     Vector<PlatformTouchPoint> m_touchPoints;
@@ -81,7 +91,10 @@ private:
     bool m_altKey;
     bool m_shiftKey;
     bool m_metaKey;
+<<<<<<< HEAD
     long m_eventTime;
+=======
+>>>>>>> webkit.org at r54127
 };
 
 }

@@ -29,28 +29,24 @@
 
 #include "GraphicsContext3D.h"
 
-#include "CachedImage.h"
+#include "CanvasObject.h"
+#include "CString.h"
+#include "ImageBuffer.h"
+#include "NotImplemented.h"
 #include "WebGLActiveInfo.h"
 #include "WebGLArray.h"
 #include "WebGLBuffer.h"
 #include "WebGLFramebuffer.h"
 #include "WebGLFloatArray.h"
 #include "WebGLIntArray.h"
-#include "CanvasObject.h"
 #include "WebGLProgram.h"
 #include "WebGLRenderbuffer.h"
 #include "WebGLShader.h"
 #include "WebGLTexture.h"
 #include "WebGLUnsignedByteArray.h"
-#include "CString.h"
-#include "HTMLCanvasElement.h"
-#include "HTMLImageElement.h"
-#include "ImageBuffer.h"
-#include "NotImplemented.h"
-#include "WebKitCSSMatrix.h"
-
 #include <CoreGraphics/CGBitmapContext.h>
 #include <OpenGL/CGLRenderers.h>
+#include <wtf/UnusedParam.h>
 
 namespace WebCore {
 
@@ -79,18 +75,29 @@ static void setPixelFormat(Vector<CGLPixelFormatAttribute>& attribs, int colorBi
     attribs.append(static_cast<CGLPixelFormatAttribute>(0));
 }
 
-PassOwnPtr<GraphicsContext3D> GraphicsContext3D::create()
+PassOwnPtr<GraphicsContext3D> GraphicsContext3D::create(GraphicsContext3D::Attributes attrs)
 {
-    OwnPtr<GraphicsContext3D> context(new GraphicsContext3D());
+    OwnPtr<GraphicsContext3D> context(new GraphicsContext3D(attrs));
     return context->m_contextObj ? context.release() : 0;
 }
 
-GraphicsContext3D::GraphicsContext3D()
-    : m_contextObj(0)
+GraphicsContext3D::GraphicsContext3D(GraphicsContext3D::Attributes attrs)
+    : m_attrs(attrs)
+    , m_contextObj(0)
     , m_texture(0)
     , m_fbo(0)
     , m_depthBuffer(0)
 {
+    // FIXME: we need to take into account the user's requested
+    // context creation attributes, in particular stencil and
+    // antialias, and determine which could and could not be honored
+    // based on the capabilities of the OpenGL implementation.
+    m_attrs.alpha = true;
+    m_attrs.depth = true;
+    m_attrs.stencil = false;
+    m_attrs.antialias = false;
+    m_attrs.premultipliedAlpha = true;
+
     Vector<CGLPixelFormatAttribute> attribs;
     CGLPixelFormatObj pixelFormatObj = 0;
     GLint numPixelFormats = 0;
@@ -262,7 +269,7 @@ void GraphicsContext3D::bindBuffer(unsigned long target, WebGLBuffer* buffer)
 void GraphicsContext3D::bindFramebuffer(unsigned long target, WebGLFramebuffer* buffer)
 {
     ensureContext(m_contextObj);
-    ::glBindFramebufferEXT(target, buffer ? (GLuint) buffer->object() : m_fbo);
+    ::glBindFramebufferEXT(target, (buffer && buffer->object()) ? (GLuint) buffer->object() : m_fbo);
 }
 
 void GraphicsContext3D::bindRenderbuffer(unsigned long target, WebGLRenderbuffer* renderbuffer)
@@ -542,6 +549,11 @@ int GraphicsContext3D::getAttribLocation(WebGLProgram* program, const String& na
     
     ensureContext(m_contextObj);
     return ::glGetAttribLocation((GLuint) program->object(), name.utf8().data());
+}
+
+GraphicsContext3D::Attributes GraphicsContext3D::getContextAttributes()
+{
+    return m_attrs;
 }
 
 unsigned long GraphicsContext3D::getError()
@@ -1115,53 +1127,36 @@ long GraphicsContext3D::getVertexAttribOffset(unsigned long index, unsigned long
     return reinterpret_cast<long>(pointer);
 }
 
-// Assumes the texture you want to go into is bound
-static void imageToTexture(Image* image, unsigned target, unsigned level)
+// Returned pointer must be freed by fastFree()
+static bool imageToTexture(Image* image, GLubyte*& buffer, size_t& width, size_t& height)
 {
     if (!image)
-        return;
+        return false;
     
     CGImageRef textureImage = image->getCGImageRef();
     if (!textureImage)
-        return;
+        return false;
     
-    size_t textureWidth = CGImageGetWidth(textureImage);
-    size_t textureHeight = CGImageGetHeight(textureImage);
+    width = CGImageGetWidth(textureImage);
+    height = CGImageGetHeight(textureImage);
     
-    GLubyte* textureData = (GLubyte*) fastMalloc(textureWidth * textureHeight * 4);
-    if (!textureData)
-        return;
+    buffer = (GLubyte*) fastMalloc(width * height * 4);
+    if (!buffer)
+        return false;
         
-    CGContextRef textureContext = CGBitmapContextCreate(textureData, textureWidth, textureHeight, 8, textureWidth * 4, 
+    CGContextRef textureContext = CGBitmapContextCreate(buffer, width, height, 8, width * 4, 
                                                         CGImageGetColorSpace(textureImage), kCGImageAlphaPremultipliedLast);
     CGContextSetBlendMode(textureContext, kCGBlendModeCopy);
-    CGContextDrawImage(textureContext, CGRectMake(0, 0, (CGFloat)textureWidth, (CGFloat)textureHeight), textureImage);
+    CGContextDrawImage(textureContext, CGRectMake(0, 0, (CGFloat)width, (CGFloat)height), textureImage);
     CGContextRelease(textureContext);
-    
-    ::glTexImage2D(target, level, GL_RGBA, textureWidth, textureHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, textureData);
-    fastFree(textureData);
+    return true;
 }
 
-int GraphicsContext3D::texImage2D(unsigned target, unsigned level, unsigned internalformat, unsigned width, unsigned height, unsigned border, unsigned format, unsigned type, WebGLArray* pixels)
+int GraphicsContext3D::texImage2D(unsigned target, unsigned level, unsigned internalformat, unsigned width, unsigned height, unsigned border, unsigned format, unsigned type, void* pixels)
 {
     // FIXME: Need to do bounds checking on the buffer here.
-    ::glTexImage2D(target, level, internalformat, width, height, border, format, type, pixels->baseAddress());
+    ::glTexImage2D(target, level, internalformat, width, height, border, format, type, pixels);
     return 0;
-}
-
-int GraphicsContext3D::texImage2D(unsigned target, unsigned level, unsigned internalformat, unsigned width, unsigned height, unsigned border, unsigned format, unsigned type, ImageData* pixels)
-{
-    // FIXME: need to implement this form
-    UNUSED_PARAM(target);
-    UNUSED_PARAM(level);
-    UNUSED_PARAM(internalformat);
-    UNUSED_PARAM(width);
-    UNUSED_PARAM(height);
-    UNUSED_PARAM(border);
-    UNUSED_PARAM(format);
-    UNUSED_PARAM(type);
-    UNUSED_PARAM(pixels);
-    return -1;
 }
 
 int GraphicsContext3D::texImage2D(unsigned target, unsigned level, Image* image, bool flipY, bool premultiplyAlpha)
@@ -1172,85 +1167,43 @@ int GraphicsContext3D::texImage2D(unsigned target, unsigned level, Image* image,
     ASSERT(image);
     
     ensureContext(m_contextObj);
-    imageToTexture(image, target, level);
+    GLubyte* buffer;
+    size_t width;
+    size_t height;
+    if (!imageToTexture(image, buffer, width, height))
+        return -1;
+    
+    ::glTexImage2D(target, level, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, buffer);
+    fastFree(buffer);
+    return 0;
+}
+    
+int GraphicsContext3D::texSubImage2D(unsigned target, unsigned level, unsigned xoff, unsigned yoff, unsigned width, unsigned height, unsigned format, unsigned type, void* pixels)
+{
+    // FIXME: we will need to deal with PixelStore params when dealing with image buffers that differ from the subimage size
+    // FIXME: Need to do bounds checking on the buffer here.
+    ::glTexSubImage2D(target, level, xoff, yoff, width, height, format, type, pixels);
     return 0;
 }
 
-int GraphicsContext3D::texImage2D(unsigned target, unsigned level, HTMLVideoElement* video, bool flipY, bool premultiplyAlpha)
+int GraphicsContext3D::texSubImage2D(unsigned target, unsigned level, unsigned xoff, unsigned yoff, Image* image, bool flipY, bool premultiplyAlpha)
 {
-    // FIXME: need to implement this form
-    UNUSED_PARAM(target);
-    UNUSED_PARAM(level);
-    UNUSED_PARAM(video);
-
+    // FIXME: we will need to deal with PixelStore params when dealing with image buffers that differ from the subimage size
     // FIXME: need to support flipY and premultiplyAlpha
     UNUSED_PARAM(flipY);
     UNUSED_PARAM(premultiplyAlpha);
-    return -1;
-}
-
-int GraphicsContext3D::texSubImage2D(unsigned target, unsigned level, unsigned xoff, unsigned yoff, unsigned width, unsigned height, unsigned format, unsigned type, WebGLArray* pixels)
-{
-    // FIXME: we will need to deal with PixelStore params when dealing with image buffers that differ from the subimage size
-    UNUSED_PARAM(target);
-    UNUSED_PARAM(level);
-    UNUSED_PARAM(xoff);
-    UNUSED_PARAM(yoff);
-    UNUSED_PARAM(width);
-    UNUSED_PARAM(height);
-    UNUSED_PARAM(format);
-    UNUSED_PARAM(type);
-    UNUSED_PARAM(pixels);
-    return -1;
-}
-
-int GraphicsContext3D::texSubImage2D(unsigned target, unsigned level, unsigned xoff, unsigned yoff, unsigned width, unsigned height, unsigned format, unsigned type, ImageData* pixels)
-{
-    // FIXME: we will need to deal with PixelStore params when dealing with image buffers that differ from the subimage size
-    UNUSED_PARAM(target);
-    UNUSED_PARAM(level);
-    UNUSED_PARAM(xoff);
-    UNUSED_PARAM(yoff);
-    UNUSED_PARAM(width);
-    UNUSED_PARAM(height);
-    UNUSED_PARAM(format);
-    UNUSED_PARAM(type);
-    UNUSED_PARAM(pixels);
-    return -1;
-}
-
-int GraphicsContext3D::texSubImage2D(unsigned target, unsigned level, unsigned xoff, unsigned yoff, unsigned width, unsigned height, Image* image, bool flipY, bool premultiplyAlpha)
-{
-    // FIXME: we will need to deal with PixelStore params when dealing with image buffers that differ from the subimage size
-    UNUSED_PARAM(target);
-    UNUSED_PARAM(level);
-    UNUSED_PARAM(xoff);
-    UNUSED_PARAM(yoff);
-    UNUSED_PARAM(width);
-    UNUSED_PARAM(height);
-    UNUSED_PARAM(image);
-
-    // FIXME: need to support flipY and premultiplyAlpha    
-    UNUSED_PARAM(flipY);
-    UNUSED_PARAM(premultiplyAlpha);
-    return -1;
-}
-
-int GraphicsContext3D::texSubImage2D(unsigned target, unsigned level, unsigned xoff, unsigned yoff, unsigned width, unsigned height, HTMLVideoElement* video, bool flipY, bool premultiplyAlpha)
-{
-    // FIXME: we will need to deal with PixelStore params when dealing with image buffers that differ from the subimage size
-    UNUSED_PARAM(target);
-    UNUSED_PARAM(level);
-    UNUSED_PARAM(xoff);
-    UNUSED_PARAM(yoff);
-    UNUSED_PARAM(width);
-    UNUSED_PARAM(height);
-    UNUSED_PARAM(video);
-
-    // FIXME: need to support flipY and premultiplyAlpha    
-    UNUSED_PARAM(flipY);
-    UNUSED_PARAM(premultiplyAlpha);
-    return -1;
+    ASSERT(image);
+    
+    ensureContext(m_contextObj);
+    GLubyte* buffer;
+    size_t width;
+    size_t height;
+    if (!imageToTexture(image, buffer, width, height))
+        return -1;
+    
+    ::glTexSubImage2D(target, level, xoff, yoff, width, height, GL_RGBA, GL_UNSIGNED_BYTE, buffer);
+    fastFree(buffer);
+    return 0;
 }
 
 unsigned GraphicsContext3D::createBuffer()

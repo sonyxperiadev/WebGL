@@ -29,6 +29,7 @@
 #include "JSArray.h"
 #include "JSFunction.h"
 #include "ObjectPrototype.h"
+#include "Operations.h"
 #include "PropertyNameArray.h"
 #include "RegExpConstructor.h"
 #include "RegExpObject.h"
@@ -148,12 +149,11 @@ bool StringPrototype::getOwnPropertyDescriptor(ExecState* exec, const Identifier
 
 // ------------------------------ Functions --------------------------
 
-static inline UString substituteBackreferences(const UString& replacement, const UString& source, const int* ovector, RegExp* reg)
+static NEVER_INLINE UString substituteBackreferencesSlow(const UString& replacement, const UString& source, const int* ovector, RegExp* reg, int i)
 {
-    UString substitutedReplacement;
+    Vector<UChar> substitutedReplacement;
     int offset = 0;
-    int i = -1;
-    while ((i = replacement.find('$', i + 1)) != -1) {
+    do {
         if (i + 1 == replacement.size())
             break;
 
@@ -205,15 +205,21 @@ static inline UString substituteBackreferences(const UString& replacement, const
         i += 1 + advance;
         offset = i + 1;
         substitutedReplacement.append(source.data() + backrefStart, backrefLength);
-    }
-
-    if (!offset)
-        return replacement;
+    } while ((i = replacement.find('$', i + 1)) != -1);
 
     if (replacement.size() - offset)
         substitutedReplacement.append(replacement.data() + offset, replacement.size() - offset);
 
-    return substitutedReplacement;
+    substitutedReplacement.shrinkToFit();
+    return UString::adopt(substitutedReplacement);
+}
+
+static inline UString substituteBackreferences(const UString& replacement, const UString& source, const int* ovector, RegExp* reg)
+{
+    int i = replacement.find('$', 0);
+    if (UNLIKELY(i != -1))
+        return substituteBackreferencesSlow(replacement, source, ovector, reg, i);
+    return replacement;
 }
 
 static inline int localeCompare(const UString& a, const UString& b)
@@ -423,12 +429,14 @@ JSValue JSC_HOST_CALL stringProtoFuncCharCodeAt(ExecState* exec, JSObject*, JSVa
 
 JSValue JSC_HOST_CALL stringProtoFuncConcat(ExecState* exec, JSObject*, JSValue thisValue, const ArgList& args)
 {
-    UString s = thisValue.toThisString(exec);
+    if (thisValue.isString() && (args.size() == 1)) {
+        JSValue v = args.at(0);
+        return v.isString()
+            ? jsString(exec, asString(thisValue), asString(v))
+            : jsString(exec, asString(thisValue), v.toString(exec));
+    }
 
-    ArgList::const_iterator end = args.end();
-    for (ArgList::const_iterator it = args.begin(); it != end; ++it)
-        s += (*it).toString(exec);
-    return jsString(exec, s);
+    return jsString(exec, thisValue, args);
 }
 
 JSValue JSC_HOST_CALL stringProtoFuncIndexOf(ExecState* exec, JSObject*, JSValue thisValue, const ArgList& args)
@@ -470,7 +478,7 @@ JSValue JSC_HOST_CALL stringProtoFuncLastIndexOf(ExecState* exec, JSObject*, JSV
         dpos = 0;
     else if (!(dpos <= len)) // true for NaN
         dpos = len;
-#if PLATFORM(SYMBIAN)
+#if OS(SYMBIAN)
     // Work around for broken NaN compare operator
     else if (isnan(dpos))
         dpos = len;
@@ -713,7 +721,7 @@ JSValue JSC_HOST_CALL stringProtoFuncToLowerCase(ExecState* exec, JSObject*, JSV
         buffer[i] = toASCIILower(c);
     }
     if (!(ored & ~0x7f))
-        return jsString(exec, UString(buffer.releaseBuffer(), sSize, false));
+        return jsString(exec, UString::adopt(buffer));
 
     bool error;
     int length = Unicode::toLower(buffer.data(), sSize, sData, sSize, &error);
@@ -723,9 +731,12 @@ JSValue JSC_HOST_CALL stringProtoFuncToLowerCase(ExecState* exec, JSObject*, JSV
         if (error)
             return sVal;
     }
-    if (length == sSize && memcmp(buffer.data(), sData, length * sizeof(UChar)) == 0)
-        return sVal;
-    return jsString(exec, UString(buffer.releaseBuffer(), length, false));
+    if (length == sSize) {
+        if (memcmp(buffer.data(), sData, length * sizeof(UChar)) == 0)
+            return sVal;
+    } else
+        buffer.resize(length);
+    return jsString(exec, UString::adopt(buffer));
 }
 
 JSValue JSC_HOST_CALL stringProtoFuncToUpperCase(ExecState* exec, JSObject*, JSValue thisValue, const ArgList&)
@@ -747,7 +758,7 @@ JSValue JSC_HOST_CALL stringProtoFuncToUpperCase(ExecState* exec, JSObject*, JSV
         buffer[i] = toASCIIUpper(c);
     }
     if (!(ored & ~0x7f))
-        return jsString(exec, UString(buffer.releaseBuffer(), sSize, false));
+        return jsString(exec, UString::adopt(buffer));
 
     bool error;
     int length = Unicode::toUpper(buffer.data(), sSize, sData, sSize, &error);
@@ -757,9 +768,12 @@ JSValue JSC_HOST_CALL stringProtoFuncToUpperCase(ExecState* exec, JSObject*, JSV
         if (error)
             return sVal;
     }
-    if (length == sSize && memcmp(buffer.data(), sData, length * sizeof(UChar)) == 0)
-        return sVal;
-    return jsString(exec, UString(buffer.releaseBuffer(), length, false));
+    if (length == sSize) {
+        if (memcmp(buffer.data(), sData, length * sizeof(UChar)) == 0)
+            return sVal;
+    } else
+        buffer.resize(length);
+    return jsString(exec, UString::adopt(buffer));
 }
 
 JSValue JSC_HOST_CALL stringProtoFuncLocaleCompare(ExecState* exec, JSObject*, JSValue thisValue, const ArgList& args)
@@ -775,62 +789,62 @@ JSValue JSC_HOST_CALL stringProtoFuncLocaleCompare(ExecState* exec, JSObject*, J
 JSValue JSC_HOST_CALL stringProtoFuncBig(ExecState* exec, JSObject*, JSValue thisValue, const ArgList&)
 {
     UString s = thisValue.toThisString(exec);
-    return jsNontrivialString(exec, "<big>" + s + "</big>");
+    return jsNontrivialString(exec, makeString("<big>", s, "</big>"));
 }
 
 JSValue JSC_HOST_CALL stringProtoFuncSmall(ExecState* exec, JSObject*, JSValue thisValue, const ArgList&)
 {
     UString s = thisValue.toThisString(exec);
-    return jsNontrivialString(exec, "<small>" + s + "</small>");
+    return jsNontrivialString(exec, makeString("<small>", s, "</small>"));
 }
 
 JSValue JSC_HOST_CALL stringProtoFuncBlink(ExecState* exec, JSObject*, JSValue thisValue, const ArgList&)
 {
     UString s = thisValue.toThisString(exec);
-    return jsNontrivialString(exec, "<blink>" + s + "</blink>");
+    return jsNontrivialString(exec, makeString("<blink>", s, "</blink>"));
 }
 
 JSValue JSC_HOST_CALL stringProtoFuncBold(ExecState* exec, JSObject*, JSValue thisValue, const ArgList&)
 {
     UString s = thisValue.toThisString(exec);
-    return jsNontrivialString(exec, "<b>" + s + "</b>");
+    return jsNontrivialString(exec, makeString("<b>", s, "</b>"));
 }
 
 JSValue JSC_HOST_CALL stringProtoFuncFixed(ExecState* exec, JSObject*, JSValue thisValue, const ArgList&)
 {
     UString s = thisValue.toThisString(exec);
-    return jsString(exec, "<tt>" + s + "</tt>");
+    return jsString(exec, makeString("<tt>", s, "</tt>"));
 }
 
 JSValue JSC_HOST_CALL stringProtoFuncItalics(ExecState* exec, JSObject*, JSValue thisValue, const ArgList&)
 {
     UString s = thisValue.toThisString(exec);
-    return jsNontrivialString(exec, "<i>" + s + "</i>");
+    return jsNontrivialString(exec, makeString("<i>", s, "</i>"));
 }
 
 JSValue JSC_HOST_CALL stringProtoFuncStrike(ExecState* exec, JSObject*, JSValue thisValue, const ArgList&)
 {
     UString s = thisValue.toThisString(exec);
-    return jsNontrivialString(exec, "<strike>" + s + "</strike>");
+    return jsNontrivialString(exec, makeString("<strike>", s, "</strike>"));
 }
 
 JSValue JSC_HOST_CALL stringProtoFuncSub(ExecState* exec, JSObject*, JSValue thisValue, const ArgList&)
 {
     UString s = thisValue.toThisString(exec);
-    return jsNontrivialString(exec, "<sub>" + s + "</sub>");
+    return jsNontrivialString(exec, makeString("<sub>", s, "</sub>"));
 }
 
 JSValue JSC_HOST_CALL stringProtoFuncSup(ExecState* exec, JSObject*, JSValue thisValue, const ArgList&)
 {
     UString s = thisValue.toThisString(exec);
-    return jsNontrivialString(exec, "<sup>" + s + "</sup>");
+    return jsNontrivialString(exec, makeString("<sup>", s, "</sup>"));
 }
 
 JSValue JSC_HOST_CALL stringProtoFuncFontcolor(ExecState* exec, JSObject*, JSValue thisValue, const ArgList& args)
 {
     UString s = thisValue.toThisString(exec);
     JSValue a0 = args.at(0);
-    return jsNontrivialString(exec, "<font color=\"" + a0.toString(exec) + "\">" + s + "</font>");
+    return jsNontrivialString(exec, makeString("<font color=\"", a0.toString(exec), "\">", s, "</font>"));
 }
 
 JSValue JSC_HOST_CALL stringProtoFuncFontsize(ExecState* exec, JSObject*, JSValue thisValue, const ArgList& args)
@@ -843,7 +857,8 @@ JSValue JSC_HOST_CALL stringProtoFuncFontsize(ExecState* exec, JSObject*, JSValu
         unsigned stringSize = s.size();
         unsigned bufferSize = 22 + stringSize;
         UChar* buffer;
-        if (!tryFastMalloc(bufferSize * sizeof(UChar)).getValue(buffer))
+        PassRefPtr<UStringImpl> impl = UStringImpl::tryCreateUninitialized(bufferSize, buffer);
+        if (!impl)
             return jsUndefined();
         buffer[0] = '<';
         buffer[1] = 'f';
@@ -868,17 +883,17 @@ JSValue JSC_HOST_CALL stringProtoFuncFontsize(ExecState* exec, JSObject*, JSValu
         buffer[19 + stringSize] = 'n';
         buffer[20 + stringSize] = 't';
         buffer[21 + stringSize] = '>';
-        return jsNontrivialString(exec, UString(buffer, bufferSize, false));
+        return jsNontrivialString(exec, impl);
     }
 
-    return jsNontrivialString(exec, "<font size=\"" + a0.toString(exec) + "\">" + s + "</font>");
+    return jsNontrivialString(exec, makeString("<font size=\"", a0.toString(exec), "\">", s, "</font>"));
 }
 
 JSValue JSC_HOST_CALL stringProtoFuncAnchor(ExecState* exec, JSObject*, JSValue thisValue, const ArgList& args)
 {
     UString s = thisValue.toThisString(exec);
     JSValue a0 = args.at(0);
-    return jsNontrivialString(exec, "<a name=\"" + a0.toString(exec) + "\">" + s + "</a>");
+    return jsNontrivialString(exec, makeString("<a name=\"", a0.toString(exec), "\">", s, "</a>"));
 }
 
 JSValue JSC_HOST_CALL stringProtoFuncLink(ExecState* exec, JSObject*, JSValue thisValue, const ArgList& args)
@@ -891,7 +906,8 @@ JSValue JSC_HOST_CALL stringProtoFuncLink(ExecState* exec, JSObject*, JSValue th
     unsigned stringSize = s.size();
     unsigned bufferSize = 15 + linkTextSize + stringSize;
     UChar* buffer;
-    if (!tryFastMalloc(bufferSize * sizeof(UChar)).getValue(buffer))
+    PassRefPtr<UStringImpl> impl = UStringImpl::tryCreateUninitialized(bufferSize, buffer);
+    if (!impl)
         return jsUndefined();
     buffer[0] = '<';
     buffer[1] = 'a';
@@ -910,7 +926,7 @@ JSValue JSC_HOST_CALL stringProtoFuncLink(ExecState* exec, JSObject*, JSValue th
     buffer[12 + linkTextSize + stringSize] = '/';
     buffer[13 + linkTextSize + stringSize] = 'a';
     buffer[14 + linkTextSize + stringSize] = '>';
-    return jsNontrivialString(exec, UString(buffer, bufferSize, false));
+    return jsNontrivialString(exec, impl);
 }
 
 enum {

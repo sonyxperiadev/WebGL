@@ -103,7 +103,9 @@ static inline bool equal(StringImpl* string, const UChar* characters, unsigned l
     if (string->length() != length)
         return false;
 
-#if PLATFORM(ARM) || PLATFORM(SH4)
+    // FIXME: perhaps we should have a more abstract macro that indicates when
+    // going 4 bytes at a time is unsafe
+#if CPU(ARM) || CPU(SH4)
     const UChar* stringCharacters = string->characters();
     for (unsigned i = 0; i != length; ++i) {
         if (*stringCharacters++ != *characters++)
@@ -250,7 +252,7 @@ PassRefPtr<StringImpl> AtomicString::add(const JSC::Identifier& identifier)
     if (!length)
         return StringImpl::empty();
 
-    HashAndCharacters buffer = { string->computedHash(), string->data(), length }; 
+    HashAndCharacters buffer = { string->existingHash(), string->data(), length }; 
     pair<HashSet<StringImpl*>::iterator, bool> addResult = stringTable().add<HashAndCharacters, HashAndCharactersTranslator>(buffer);
     if (!addResult.second)
         return *addResult.first;
@@ -284,7 +286,7 @@ AtomicStringImpl* AtomicString::find(const JSC::Identifier& identifier)
     if (!length)
         return static_cast<AtomicStringImpl*>(StringImpl::empty());
 
-    HashAndCharacters buffer = { string->computedHash(), string->data(), length }; 
+    HashAndCharacters buffer = { string->existingHash(), string->data(), length }; 
     HashSet<StringImpl*>::iterator iterator = stringTable().find<HashAndCharacters, HashAndCharactersTranslator>(buffer);
     if (iterator == stringTable().end())
         return 0;
@@ -302,6 +304,8 @@ DEFINE_GLOBAL(AtomicString, emptyAtom, "")
 DEFINE_GLOBAL(AtomicString, textAtom, "#text")
 DEFINE_GLOBAL(AtomicString, commentAtom, "#comment")
 DEFINE_GLOBAL(AtomicString, starAtom, "*")
+DEFINE_GLOBAL(AtomicString, xmlAtom, "xml")
+DEFINE_GLOBAL(AtomicString, xmlnsAtom, "xmlns")
 
 void AtomicString::init()
 {
@@ -316,6 +320,8 @@ void AtomicString::init()
         new ((void*)&textAtom) AtomicString("#text");
         new ((void*)&commentAtom) AtomicString("#comment");
         new ((void*)&starAtom) AtomicString("*");
+        new ((void*)&xmlAtom) AtomicString("xml");
+        new ((void*)&xmlnsAtom) AtomicString("xmlns");
 
         initialized = true;
     }

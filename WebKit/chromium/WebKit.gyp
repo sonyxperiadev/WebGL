@@ -33,32 +33,22 @@
         'features.gypi',
     ],
     'variables': {
+        'webkit_target_type': 'static_library',
         'conditions': [
             # Location of the chromium src directory and target type is different
             # if webkit is built inside chromium or as standalone project.
             ['inside_chromium_build==0', {
                 # Webkit is being built outside of the full chromium project.
                 # e.g. via build-webkit --chromium
-                'chromium_src_dir': '.',
-                # FIXME: To enable shared_library in linux all code (including
-                # dependencies) must be complied with -fPIC flag. That is
-                # pending on changes in gyp.
-                'webkit_target_type': 'shared_library',
+                'chromium_src_dir': '../../WebKit/chromium',
             },{
                 # WebKit is checked out in src/chromium/third_party/WebKit
                 'chromium_src_dir': '../../../..',
-                'webkit_target_type': 'static_library',
             }],
             # We can't turn on warnings on Windows and Linux until we upstream the
             # WebKit API.
             ['OS=="mac"', {
                 'chromium_code': 1,
-            }],
-            # FIXME: To enable shared_library in linux all code (including
-            # dependencies) must be complied with -fPIC flag. That is
-            # pending on changes in gyp.
-            ['OS=="linux" or OS=="freebsd"', {
-              'webkit_target_type': 'static_library',
             }],
         ],
     },
@@ -86,6 +76,7 @@
                 'public/WebAccessibilityCache.h',
                 'public/WebAccessibilityObject.h',
                 'public/WebAccessibilityRole.h',
+                'public/WebAnimationController.h',
                 'public/WebApplicationCacheHost.h',
                 'public/WebApplicationCacheHostClient.h',
                 'public/WebBindings.h',
@@ -112,15 +103,20 @@
                 'public/WebDevToolsFrontend.h',
                 'public/WebDevToolsFrontendClient.h',
                 'public/WebDevToolsMessageData.h',
+                'public/WebDocument.h',
                 'public/WebDragData.h',
                 'public/WebEditingAction.h',
                 'public/WebElement.h',
+                'public/WebEvent.h',
+                'public/WebEventListener.h',
                 'public/WebFileChooserCompletion.h',
+                'public/WebFileChooserParams.h',
                 'public/WebFindOptions.h',
                 'public/WebFrame.h',
                 'public/WebFrameClient.h',
                 'public/WebFontCache.h',
                 'public/WebFormElement.h',
+                'public/WebGlyphCache.h',
                 'public/WebHistoryItem.h',
                 'public/WebHTTPBody.h',
                 'public/WebImage.h',
@@ -136,12 +132,17 @@
                 'public/WebMessagePortChannel.h',
                 'public/WebMessagePortChannelClient.h',
                 'public/WebMimeRegistry.h',
+                'public/WebMutationEvent.h',
                 'public/WebNavigationType.h',
                 'public/WebNode.h',
+                'public/WebNodeCollection.h',
+                'public/WebNodeList.h',
                 'public/WebNonCopyable.h',
                 'public/WebNotification.h',
                 'public/WebNotificationPresenter.h',
                 'public/WebNotificationPermissionCallback.h',
+                'public/WebPageSerializer.h',
+                'public/WebPageSerializerClient.h',
                 'public/WebPasswordAutocompleteListener.h',
                 'public/WebPasswordFormData.h',
                 'public/WebPlugin.h',
@@ -192,6 +193,7 @@
                 'public/win/WebScreenInfoFactory.h',
                 'public/win/WebScreenInfoFactory.h',
                 'src/ApplicationCacheHost.cpp',
+                'src/ApplicationCacheHostInternal.h',
                 'src/AssertMatchingEnums.cpp',
                 'src/AutocompletePopupMenuClient.cpp',
                 'src/AutocompletePopupMenuClient.h',
@@ -211,6 +213,8 @@
                 'src/DragClientImpl.h',
                 'src/EditorClientImpl.cpp',
                 'src/EditorClientImpl.h',
+                'src/EventListenerWrapper.cpp',
+                'src/EventListenerWrapper.h',
                 'src/FrameLoaderClientImpl.cpp',
                 'src/FrameLoaderClientImpl.h',
                 'src/gtk/WebFontInfo.cpp',
@@ -243,6 +247,8 @@
                 'src/WebAccessibilityCacheImpl.cpp',
                 'src/WebAccessibilityCacheImpl.h',
                 'src/WebAccessibilityObject.cpp',
+                'src/WebAnimationControllerImpl.cpp',
+                'src/WebAnimationControllerImpl.h',
                 'src/WebBindings.cpp',
                 'src/WebCache.cpp',
                 'src/WebColor.cpp',
@@ -253,14 +259,22 @@
                 'src/WebDatabase.cpp',
                 'src/WebDataSourceImpl.cpp',
                 'src/WebDataSourceImpl.h',
+                'src/WebDocument.cpp',
                 'src/WebDragData.cpp',
                 'src/WebElement.cpp',
+                'src/WebEntities.cpp',
+                'src/WebEntities.h',
+                'src/WebEvent.cpp',
+                'src/WebEventListener.cpp',
+                'src/WebEventListenerPrivate.cpp',
+                'src/WebEventListenerPrivate.h',
                 'src/WebFileChooserCompletionImpl.cpp',
                 'src/WebFileChooserCompletionImpl.h',
                 'src/WebFontCache.cpp',
                 'src/WebFormElement.cpp',
                 'src/WebFrameImpl.cpp',
                 'src/WebFrameImpl.h',
+                'src/WebGlyphCache.cpp',
                 'src/WebHistoryItem.cpp',
                 'src/WebHTTPBody.cpp',
                 'src/WebImageCG.cpp',
@@ -272,8 +286,14 @@
                 'src/WebKit.cpp',
                 'src/WebMediaPlayerClientImpl.cpp',
                 'src/WebMediaPlayerClientImpl.h',
+                'src/WebMutationEvent.cpp',
                 'src/WebNode.cpp',
+                'src/WebNodeCollection.cpp',
+                'src/WebNodeList.cpp',
                 'src/WebNotification.cpp',
+                'src/WebPageSerializer.cpp',
+                'src/WebPageSerializerImpl.cpp',
+                'src/WebPageSerializerImpl.h',
                 'src/WebPasswordFormData.cpp',
                 'src/WebPasswordFormUtils.cpp',
                 'src/WebPasswordFormUtils.h',
@@ -391,6 +411,27 @@
                         }],
                     ],
                 }],
+            ],
+        },
+        {
+            'target_name': 'webkit_unit_tests',
+            'type': 'executable',
+            'msvs_guid': '7CEFE800-8403-418A-AD6A-2D52C6FC3EAD',
+            'dependencies': [
+                'webkit',
+                '../../WebCore/WebCore.gyp/WebCore.gyp:webcore',
+                '<(chromium_src_dir)/testing/gtest.gyp:gtest',
+                '<(chromium_src_dir)/base/base.gyp:base',
+                '<(chromium_src_dir)/base/base.gyp:base_i18n',
+            ],
+            'include_dirs': [
+                'public',
+                'src',
+            ],
+            'sources': [
+                'tests/KeyboardTest.cpp',
+                'tests/KURLTest.cpp',
+                'tests/RunAllTests.cpp',
             ],
         },
     ], # targets

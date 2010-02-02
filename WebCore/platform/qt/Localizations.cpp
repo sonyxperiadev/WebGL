@@ -32,6 +32,7 @@
 #include "LocalizedStrings.h"
 #include "NotImplemented.h"
 #include "PlatformString.h"
+#include <wtf/MathExtras.h>
 
 #include <QCoreApplication>
 #include <QLocale>
@@ -336,6 +337,16 @@ String AXUncheckedCheckBoxActionVerb()
 }
 
 String AXLinkActionVerb()
+{
+    return String();
+}
+
+String AXMenuListPopupActionVerb()
+{
+    return String();
+}
+
+String AXMenuListActionVerb()
 {
     return String();
 }

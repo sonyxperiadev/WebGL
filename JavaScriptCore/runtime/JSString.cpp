@@ -66,20 +66,6 @@ JSString::Rope::~Rope()
     destructNonRecursive();
 }
 
-#define ROPE_COPY_CHARS_INLINE_CUTOFF 20
-
-static inline void copyChars(UChar* destination, const UChar* source, unsigned numCharacters)
-{
-#ifdef ROPE_COPY_CHARS_INLINE_CUTOFF
-    if (numCharacters <= ROPE_COPY_CHARS_INLINE_CUTOFF) {
-        for (unsigned i = 0; i < numCharacters; ++i)
-            destination[i] = source[i];
-        return;
-    }
-#endif
-    memcpy(destination, source, numCharacters * sizeof(UChar));
-}
-
 // Overview: this methods converts a JSString from holding a string in rope form
 // down to a simple UString representation.  It does so by building up the string
 // backwards, since we want to avoid recursion, we expect that the tree structure
@@ -96,13 +82,16 @@ void JSString::resolveRope(ExecState* exec) const
 
     // Allocate the buffer to hold the final string, position initially points to the end.
     UChar* buffer;
-    if (!tryFastMalloc(m_stringLength * sizeof(UChar)).getValue(buffer)) {
-        for (unsigned i = 0; i < m_ropeLength; ++i)
+    if (PassRefPtr<UStringImpl> newImpl = UStringImpl::tryCreateUninitialized(m_stringLength, buffer))
+        m_value = newImpl;
+    else {
+        for (unsigned i = 0; i < m_ropeLength; ++i) {
             m_fibers[i].deref();
+            m_fibers[i] = static_cast<void*>(0);
+        }
         m_ropeLength = 0;
         ASSERT(!isRope());
         ASSERT(m_value == UString());
-
         throwOutOfMemoryError(exec);
         return;
     }
@@ -125,17 +114,18 @@ void JSString::resolveRope(ExecState* exec) const
             currentFiber = rope->fibers(ropeLengthMinusOne);
         } else {
             UString::Rep* string = currentFiber.string();
-            unsigned length = string->len;
+            unsigned length = string->size();
             position -= length;
-            copyChars(position, string->data(), length);
+            UStringImpl::copyChars(position, string->data(), length);
 
             // Was this the last item in the work queue?
             if (workQueue.isEmpty()) {
                 // Create a string from the UChar buffer, clear the rope RefPtr.
                 ASSERT(buffer == position);
-                m_value = UString::Rep::create(buffer, m_stringLength);
-                for (unsigned i = 0; i < m_ropeLength; ++i)
+                for (unsigned i = 0; i < m_ropeLength; ++i) {
                     m_fibers[i].deref();
+                    m_fibers[i] = static_cast<void*>(0);
+                }
                 m_ropeLength = 0;
 
                 ASSERT(!isRope());

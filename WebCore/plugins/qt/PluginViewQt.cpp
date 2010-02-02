@@ -42,6 +42,7 @@
 #include "GraphicsContext.h"
 #include "HTMLNames.h"
 #include "HTMLPlugInElement.h"
+#include "HostWindow.h"
 #include "Image.h"
 #include "JSDOMBinding.h"
 #include "KeyboardEvent.h"
@@ -127,6 +128,10 @@ void PluginView::updatePluginWidget()
     // scroll, we need to move/resize immediately.
     if (!m_windowRect.intersects(frameView->frameRect()))
         setNPWindowIfNeeded();
+
+    // Make sure we get repainted afterwards. This is necessary for downward
+    // scrolling to move the plugin widget properly.
+    invalidate();
 }
 
 void PluginView::setFocus()
@@ -529,18 +534,16 @@ NPError PluginView::handlePostReadFile(Vector<char>& buffer, uint32 len, const c
     if (filename.startsWith("file:///"))
         filename = filename.substring(8);
 
-    if (!fileExists(filename))
+    long long size;
+    if (!getFileSize(filename, size))
         return NPERR_FILE_NOT_FOUND;
 
-    // FIXME - read the file data into buffer
     FILE* fileHandle = fopen((filename.utf8()).data(), "r");
-
     if (!fileHandle)
         return NPERR_FILE_NOT_FOUND;
 
-    //buffer.resize();
-
-    int bytesRead = fread(buffer.data(), 1, 0, fileHandle);
+    buffer.resize(size);
+    int bytesRead = fread(buffer.data(), 1, size, fileHandle);
 
     fclose(fileHandle);
 
@@ -646,7 +649,8 @@ NPError PluginView::getValue(NPNVariable variable, void* value)
 void PluginView::invalidateRect(const IntRect& rect)
 {
     if (m_isWindowed) {
-        platformWidget()->update(rect);
+        if (platformWidget())
+            platformWidget()->update(rect);
         return;
     }
 

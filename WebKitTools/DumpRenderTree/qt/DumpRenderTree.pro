@@ -17,29 +17,32 @@ INCLUDEPATH += ../../../JavaScriptCore/ForwardingHeaders
 INCLUDEPATH += $$BASEDIR
 DESTDIR = ../../../bin
 
-CONFIG += link_pkgconfig
-PKGCONFIG += fontconfig
+!win32 {
+    CONFIG += link_pkgconfig
+    PKGCONFIG += fontconfig
+}
 
-QT = core gui network
+QT = core gui network testlib
 macx: QT += xml
 
 HEADERS = $$BASEDIR/WorkQueue.h \
-    WorkQueueItem.h \
-    DumpRenderTree.h \
+    DumpRenderTreeQt.h \
     EventSenderQt.h \
     TextInputControllerQt.h \
+    WorkQueueItemQt.h \
     LayoutTestControllerQt.h \
-    jsobjects.h \
+    GCControllerQt.h \
     testplugin.h
-SOURCES = $$BASEDIR/WorkQueue.cpp \
-    DumpRenderTree.cpp \
+SOURCES = ../../../JavaScriptCore/wtf/Assertions.cpp \
+    $$BASEDIR/WorkQueue.cpp \
+    DumpRenderTreeQt.cpp \
     EventSenderQt.cpp \
     TextInputControllerQt.cpp \
     WorkQueueItemQt.cpp \
     LayoutTestControllerQt.cpp \
-    main.cpp \
-    jsobjects.cpp \
-    testplugin.cpp
+    GCControllerQt.cpp \
+    testplugin.cpp \
+    main.cpp
 
 unix:!mac {
     QMAKE_RPATHDIR = $$OUTPUT_DIR/lib $$QMAKE_RPATHDIR
