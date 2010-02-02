@@ -1929,7 +1929,7 @@ void WebViewCore::click(WebCore::Frame* frame, WebCore::Node* node) {
     }
 }
 
-int WebViewCore::handleTouchEvent(int action, int x, int y, long time)
+int WebViewCore::handleTouchEvent(int action, int x, int y, long time, int metaState)
 {
     int preventDefault = 0;
 
@@ -1984,7 +1984,7 @@ int WebViewCore::handleTouchEvent(int action, int x, int y, long time)
 
     m_lastTouchPoint = pt;
 
-    WebCore::PlatformTouchEvent te(pt, type, touchState, time);
+    WebCore::PlatformTouchEvent te(pt, type, touchState, time, metaState);
     preventDefault = m_mainFrame->eventHandler()->handleTouchEvent(te);
 #endif
 
@@ -2677,14 +2677,14 @@ static jstring FindAddress(JNIEnv *env, jobject obj, jstring addr,
     return ret;
 }
 
-static jint HandleTouchEvent(JNIEnv *env, jobject obj, jint action, jint x, jint y, jlong time)
+static jint HandleTouchEvent(JNIEnv *env, jobject obj, jint action, jint x, jint y, jlong time, jint metaState)
 {
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
 #endif
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
     LOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);
-    return viewImpl->handleTouchEvent(action, x, y, time);
+    return viewImpl->handleTouchEvent(action, x, y, time, metaState);
 }
 
 static void TouchUp(JNIEnv *env, jobject obj, jint touchGeneration,
@@ -3087,7 +3087,7 @@ static JNINativeMethod gJavaWebViewCoreMethods[] = {
         (void*) SaveDocumentState },
     { "nativeFindAddress", "(Ljava/lang/String;Z)Ljava/lang/String;",
         (void*) FindAddress },
-    { "nativeHandleTouchEvent", "(IIIJ)I",
+    { "nativeHandleTouchEvent", "(IIIJI)I",
             (void*) HandleTouchEvent },
     { "nativeTouchUp", "(IIIII)V",
         (void*) TouchUp },

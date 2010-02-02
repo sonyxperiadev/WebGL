@@ -30,16 +30,26 @@
 
 namespace WebCore {
 
-// TODO (benm): eventTime is new and needs to be upstream
-PlatformTouchEvent::PlatformTouchEvent(const IntPoint& windowPos, TouchEventType type, PlatformTouchPoint::State state, long eventTime)
+// TODO(benm): This enum needs upstreaming.
+// These values should be kept in sync with those defined in the android.view.KeyEvent class from the Android SDK.
+enum AndroidMetaKeyState {
+    META_SHIFT_ON = 0x01,
+    META_ALT_ON = 0x02,
+    META_SYM_ON = 0x04
+};
+
+// TODO (benm): eventTime and metaState are new and needs to be upstreamed.
+PlatformTouchEvent::PlatformTouchEvent(const IntPoint& windowPos, TouchEventType type, PlatformTouchPoint::State state, long eventTime, int metaState)
     : m_type(type)
-    , m_ctrlKey(false)
-    , m_altKey(false)
-    , m_shiftKey(false)
     , m_metaKey(false)
     , m_eventTime(eventTime)
 {
     m_touchPoints.append(PlatformTouchPoint(windowPos, state));
+
+    // TODO(benm): metaState needs upstreaming.
+    m_altKey = metaState & META_ALT_ON;
+    m_shiftKey = metaState & META_SHIFT_ON;
+    m_ctrlKey = metaState & META_SYM_ON;
 }
 
 }
