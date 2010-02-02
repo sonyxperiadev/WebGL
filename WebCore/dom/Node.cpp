@@ -2481,16 +2481,9 @@ static inline bool tryRemoveEventListener(Node* targetNode, const AtomicString& 
     if (!targetNode->EventTarget::removeEventListener(eventType, listener, useCapture))
         return false;
 
-<<<<<<< HEAD
-    if (Document* document = this->document())
-        document->addListenerTypeIfNeeded(eventType);
-
-    updateSVGElementInstancesAfterEventListenerChange(this);
-=======
     // FIXME: Notify Document that the listener has vanished. We need to keep track of a number of
     // listeners for each type, not just a bool - see https://bugs.webkit.org/show_bug.cgi?id=33861
 
->>>>>>> webkit.org at r54127
     return true;
 }
 
@@ -2517,9 +2510,6 @@ bool Node::removeEventListener(const AtomicString& eventType, EventListener* lis
     if (!tryRemoveEventListener(this, eventType, listener, useCapture))
         return false;
 
-<<<<<<< HEAD
-    updateSVGElementInstancesAfterEventListenerChange(this);
-=======
     // Remove event listener from all shadow tree DOM element instances
     const HashSet<SVGElementInstance*>::const_iterator end = instances.end();
     for (HashSet<SVGElementInstance*>::const_iterator it = instances.begin(); it != end; ++it) {
@@ -2571,7 +2561,6 @@ bool Node::removeEventListener(const AtomicString& eventType, EventListener* lis
             data->eventListenerMap.remove(result);
         }
     }
->>>>>>> webkit.org at r54127
 
     return true;
 #endif
