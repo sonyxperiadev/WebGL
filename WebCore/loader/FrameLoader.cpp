@@ -37,11 +37,8 @@
 #if ENABLE(ARCHIVE) // ANDROID extension: disabled to reduce code size
 #include "Archive.h"
 #include "ArchiveFactory.h"
-<<<<<<< HEAD
 #endif
-=======
 #include "BackForwardList.h"
->>>>>>> webkit.org at r54127
 #include "CString.h"
 #include "Cache.h"
 #include "CachedPage.h"
