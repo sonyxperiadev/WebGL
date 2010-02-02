@@ -248,6 +248,10 @@ void V8DOMWindowShell::initContextIfNeeded()
     if (!m_context.IsEmpty())
         return;
 
+#ifdef ANDROID_INSTRUMENT
+    android::TimeCounter::start(android::TimeCounter::JavaScriptInitTimeCounter);
+#endif
+
     // Create a handle scope for all local handles.
     v8::HandleScope handleScope;
 
@@ -314,6 +318,10 @@ void V8DOMWindowShell::initContextIfNeeded()
     // FIXME: This is wrong. We should actually do this for the proper world once
     // we do isolated worlds the WebCore way.
     m_frame->loader()->dispatchDidClearWindowObjectInWorld(0);
+
+#ifdef ANDROID_INSTRUMENT
+    android::TimeCounter::record(android::TimeCounter::JavaScriptInitTimeCounter, __FUNCTION__);
+#endif
 }
 
 v8::Persistent<v8::Context> V8DOMWindowShell::createNewContext(v8::Handle<v8::Object> global, int extensionGroup)
