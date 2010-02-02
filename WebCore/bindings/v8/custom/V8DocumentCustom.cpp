@@ -44,7 +44,8 @@
 #include "V8CustomXPathNSResolver.h"
 #include "V8Node.h"
 #include "V8Proxy.h"
-
+// ANDROID
+// TODO: Upstream to webkit.org
 #if ENABLE(XPATH)
 #include "V8XPathNSResolver.h"
 #include "V8XPathResult.h"
@@ -54,16 +55,14 @@
 
 namespace WebCore {
 
+// ANDROID
+// TODO: Upstream to webkit.org
+#if ENABLE(XPATH)
 v8::Handle<v8::Value> V8Document::evaluateCallback(const v8::Arguments& args)
 {
     INC_STATS("DOM.Document.evaluate()");
-<<<<<<< HEAD
-#if ENABLE(XPATH)
-    RefPtr<Document> document = V8DOMWrapper::convertDOMWrapperToNode<Document>(args.Holder());
-=======
 
     RefPtr<Document> document = V8Document::toNative(args.Holder());
->>>>>>> webkit.org at r54127
     ExceptionCode ec = 0;
     String expression = toWebCoreString(args[0]);
     RefPtr<Node> contextNode;
@@ -88,11 +87,8 @@ v8::Handle<v8::Value> V8Document::evaluateCallback(const v8::Arguments& args)
         return throwError(ec);
 
     return V8DOMWrapper::convertToV8Object(V8ClassIndex::XPATHRESULT, result.release());
-#else
-    return throwError(NOT_SUPPORTED_ERR);
-#endif
-
 }
+#endif
 
 v8::Handle<v8::Value> V8Document::getCSSCanvasContextCallback(const v8::Arguments& args)
 {
