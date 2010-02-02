@@ -204,6 +204,9 @@ MediaPlayer::MediaPlayer(MediaPlayerClient* client)
     , m_muted(false)
     , m_preservesPitch(true)
     , m_autobuffer(false)
+#if PLATFORM(ANDROID)
+    , m_mediaElementType(Video)
+#endif
 #if ENABLE(PLUGIN_PROXY_FOR_VIDEO)
     , m_playerProxy(0)
 #endif

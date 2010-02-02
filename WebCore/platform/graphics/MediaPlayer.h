@@ -143,6 +143,11 @@ public:
     IntSize naturalSize();
     bool hasVideo() const;
     bool hasAudio() const;
+#if PLATFORM(ANDROID)
+    enum MediaElementType { Video, Audio };
+    void setMediaElementType(MediaElementType type) { m_mediaElementType = type; }
+    MediaElementType mediaElementType() { return m_mediaElementType; }
+#endif
     
     void setFrameView(FrameView* frameView) { m_frameView = frameView; }
     FrameView* frameView() { return m_frameView; }
@@ -254,6 +259,9 @@ private:
     bool m_muted;
     bool m_preservesPitch;
     bool m_autobuffer;
+#if PLATFORM(ANDROID)
+    MediaElementType m_mediaElementType;
+#endif
 #if ENABLE(PLUGIN_PROXY_FOR_VIDEO)
     WebMediaPlayerProxy* m_playerProxy;    // not owned or used, passed to m_private
 #endif
