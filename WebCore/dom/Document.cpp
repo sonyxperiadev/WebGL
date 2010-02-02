@@ -171,7 +171,6 @@
 #include "SVGStyleElement.h"
 #endif
 
-<<<<<<< HEAD
 #if PLATFORM(ANDROID)
 // FIXME: We shouldn't be including this from WebCore!
 #include "WebViewCore.h"
@@ -191,10 +190,6 @@
 #endif
 
 #if ENABLE(TOUCH_EVENTS)
-#include "ChromeClient.h"
-=======
-#if ENABLE(TOUCH_EVENTS)
->>>>>>> webkit.org at r54127
 #include "TouchEvent.h"
 #endif
 

@@ -43,10 +43,7 @@
 #endif
 
 #if ENABLE(TOUCH_EVENTS)
-<<<<<<< HEAD
-=======
 #include "Chrome.h"
->>>>>>> webkit.org at r54127
 #include "ChromeClient.h"
 #include "Page.h"
 #endif

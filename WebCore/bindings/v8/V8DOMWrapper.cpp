@@ -32,10 +32,7 @@
 #include "V8DOMWrapper.h"
 
 #include "CSSMutableStyleDeclaration.h"
-<<<<<<< HEAD
-=======
 #include "DOMDataStore.h"
->>>>>>> webkit.org at r54127
 #include "DOMObjectsInclude.h"
 #include "DocumentLoader.h"
 #include "FrameLoaderClient.h"

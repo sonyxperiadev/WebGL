@@ -62,20 +62,19 @@
 #include "RenderObject.h"
 #include "npruntime_impl.h"
 #include "Settings.h"
-<<<<<<< HEAD
 #include <wtf/ASCIICType.h>
 
 #if defined(ANDROID_PLUGINS)
 #include "TouchEvent.h"
 #endif
 
+// ANDROID
+// TODO: Upstream to webkit.org
 #if USE(JSC)
 #include "JSDOMWindow.h"
 #include "JSDOMBinding.h"
 #include "c_instance.h"
 #include "runtime_root.h"
-=======
->>>>>>> webkit.org at r54127
 #include <runtime/JSLock.h>
 #include <runtime/JSValue.h>
 
@@ -162,7 +161,6 @@ void PluginView::handleEvent(Event* event)
         handleMouseEvent(static_cast<MouseEvent*>(event));
     else if (event->isKeyboardEvent())
         handleKeyboardEvent(static_cast<KeyboardEvent*>(event));
-<<<<<<< HEAD
 #if defined(ANDROID_PLUGINS)
     else if (event->isTouchEvent())
         handleTouchEvent(static_cast<TouchEvent*>(event));
@@ -171,10 +169,7 @@ void PluginView::handleEvent(Event* event)
     else if (event->type() == eventNames().DOMFocusInEvent)
         handleFocusEvent(true);
 #endif
-#if defined(Q_WS_X11) && ENABLE(NETSCAPE_PLUGIN_API)
-=======
 #if defined(XP_UNIX) && ENABLE(NETSCAPE_PLUGIN_API)
->>>>>>> webkit.org at r54127
     else if (event->type() == eventNames().DOMFocusOutEvent)
         handleFocusOutEvent();
     else if (event->type() == eventNames().DOMFocusInEvent)

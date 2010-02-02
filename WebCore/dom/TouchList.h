@@ -28,15 +28,9 @@
 
 #if ENABLE(TOUCH_EVENTS)
 
-<<<<<<< HEAD
-#include <wtf/RefCounted.h>
-#include <wtf/Vector.h>
-#include "Touch.h"
-=======
 #include "Touch.h"
 #include <wtf/RefCounted.h>
 #include <wtf/Vector.h>
->>>>>>> webkit.org at r54127
 
 namespace WebCore {
 

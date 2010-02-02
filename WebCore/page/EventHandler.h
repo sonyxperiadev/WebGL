@@ -425,10 +425,6 @@ private:
     IntPoint m_firstTouchScreenPos;
     IntPoint m_firstTouchPagePos;
 #endif
-<<<<<<< HEAD
-
-=======
->>>>>>> webkit.org at r54127
 };
 
 } // namespace WebCore

@@ -81,13 +81,10 @@
 #include "TouchEvent.h"
 #endif
 
-<<<<<<< HEAD
 #if defined(ANDROID_PLUGINS)
 #include "WebViewCore.h"
 #endif
 
-=======
->>>>>>> webkit.org at r54127
 namespace WebCore {
 
 using namespace HTMLNames;
@@ -2609,7 +2606,6 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
             m_firstTouchPagePos = pagePoint;
         }
 
-<<<<<<< HEAD
         // ANDROID
         // The touch event should act on m_touchEventTarget, not target
         // TODO: Upstream this fix to webkit.org
@@ -2617,8 +2613,6 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
                                             point.screenPos().x(), point.screenPos().y(),
                                             adjustedPageX, adjustedPageY);
 
-=======
->>>>>>> webkit.org at r54127
         if (point.state() == PlatformTouchPoint::TouchReleased)
             releasedTouches->append(touch);
         else if (point.state() == PlatformTouchPoint::TouchCancelled)

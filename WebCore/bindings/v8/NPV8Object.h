@@ -30,10 +30,7 @@
 #ifndef NPV8Object_h
 #define NPV8Object_h
 
-<<<<<<< HEAD
-=======
 #include "V8Index.h"
->>>>>>> webkit.org at r54127
 #if PLATFORM(CHROMIUM)
 // FIXME: Chromium uses a different npruntime.h, which is in
 // the Chromium source repository under third_party/npapi/bindings.

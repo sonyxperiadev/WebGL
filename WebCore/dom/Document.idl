@@ -311,10 +311,6 @@ module core {
         attribute [DontEnum] EventListener ontouchmove;
         attribute [DontEnum] EventListener ontouchend;
         attribute [DontEnum] EventListener ontouchcancel;
-<<<<<<< HEAD
-#endif
-=======
->>>>>>> webkit.org at r54127
 #endif
 #endif
     };

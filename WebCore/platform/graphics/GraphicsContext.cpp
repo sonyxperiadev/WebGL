@@ -506,11 +506,7 @@ void GraphicsContext::setPlatformTextDrawingMode(int mode)
 }
 #endif
 
-<<<<<<< HEAD
-#if !PLATFORM(QT) && !PLATFORM(CAIRO) && !(PLATFORM(SKIA) && !PLATFORM(ANDROID)) && !PLATFORM(HAIKU)
-=======
-#if !PLATFORM(QT) && !PLATFORM(CAIRO) && !PLATFORM(SKIA) && !PLATFORM(HAIKU) && !PLATFORM(OPENVG)
->>>>>>> webkit.org at r54127
+#if !PLATFORM(QT) && !PLATFORM(CAIRO) && !(PLATFORM(SKIA) && !PLATFORM(ANDROID)) && !PLATFORM(HAIKU) && !PLATFORM(OPENVG)
 void GraphicsContext::setPlatformStrokeStyle(const StrokeStyle&)
 {
 }
