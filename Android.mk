@@ -90,6 +90,7 @@ LOCAL_C_INCLUDES := \
 LOCAL_C_INCLUDES := $(LOCAL_C_INCLUDES) \
 	$(LOCAL_PATH)/WebCore \
 	$(LOCAL_PATH)/WebCore/accessibility \
+	$(LOCAL_PATH)/WebCore/bindings/generic \
 	$(LOCAL_PATH)/WebCore/css \
 	$(LOCAL_PATH)/WebCore/dom \
 	$(LOCAL_PATH)/WebCore/editing \
@@ -129,6 +130,7 @@ LOCAL_C_INCLUDES := $(LOCAL_C_INCLUDES) \
 	$(LOCAL_PATH)/WebCore/svg/animation \
 	$(LOCAL_PATH)/WebCore/svg/graphics \
 	$(LOCAL_PATH)/WebCore/svg/graphics/filters \
+	$(LOCAL_PATH)/WebCore/websockets \
 	$(LOCAL_PATH)/WebCore/workers \
 	$(LOCAL_PATH)/WebCore/xml
 

@@ -30,6 +30,7 @@ BINDING_C_INCLUDES := \
 	\
 	$(LOCAL_PATH)/bindings/v8 \
 	$(LOCAL_PATH)/bindings/v8/custom \
+	$(LOCAL_PATH)/bindings/v8/specialization \
 	$(LOCAL_PATH)/bridge \
 	$(LOCAL_PATH)/bridge/jni \
 	$(LOCAL_PATH)/bridge/jni/v8 \
@@ -46,6 +47,8 @@ LOCAL_SRC_FILES += \
 	bindings/v8/DateExtension.cpp \
 	bindings/v8/DOMData.cpp \
 	bindings/v8/DOMDataStore.cpp \
+	bindings/v8/DOMWrapperWorld.cpp \
+	bindings/v8/IsolatedWorld.cpp \
 	bindings/v8/MainThreadDOMData.cpp \
 	bindings/v8/NPV8Object.cpp \
 	bindings/v8/RuntimeEnabledFeatures.cpp \
@@ -63,20 +66,22 @@ LOCAL_SRC_FILES += \
 	bindings/v8/ScriptState.cpp \
 	bindings/v8/ScriptStringImpl.cpp \
 	bindings/v8/ScriptValue.cpp \
+	bindings/v8/SerializedScriptValue.cpp \
 	bindings/v8/StaticDOMDataStore.cpp \
 	bindings/v8/V8AbstractEventListener.cpp \
 	bindings/v8/V8Binding.cpp \
 	bindings/v8/V8Collection.cpp \
 	bindings/v8/V8ConsoleMessage.cpp \
 	bindings/v8/V8DOMMap.cpp \
+	bindings/v8/V8DOMWindowShell.cpp \
 	bindings/v8/V8DOMWrapper.cpp \
 	bindings/v8/V8DataGridDataSource.cpp \
 	bindings/v8/V8EventListenerList.cpp \
 	bindings/v8/V8GCController.cpp \
 	bindings/v8/V8Helpers.cpp \
 	bindings/v8/V8HiddenPropertyName.cpp \
+	bindings/v8/V8IsolatedContext.cpp \
 	bindings/v8/V8Index.cpp \
-	bindings/v8/V8IsolatedWorld.cpp \
 	bindings/v8/V8LazyEventListener.cpp \
 	bindings/v8/V8NPObject.cpp \
 	bindings/v8/V8NPUtils.cpp \
@@ -94,7 +99,6 @@ LOCAL_SRC_FILES += \
 	bindings/v8/custom/V8AttrCustom.cpp \
 	bindings/v8/custom/V8CSSStyleDeclarationCustom.cpp \
 	bindings/v8/custom/V8CanvasRenderingContext2DCustom.cpp \
-	bindings/v8/custom/V8ClientRectListCustom.cpp \
 	bindings/v8/custom/V8ClipboardCustom.cpp \
 	bindings/v8/custom/V8ConsoleCustom.cpp \
 	bindings/v8/custom/V8CoordinatesCustom.cpp \
@@ -117,7 +121,6 @@ LOCAL_SRC_FILES += \
 	bindings/v8/custom/V8EventCustom.cpp \
 	bindings/v8/custom/V8EventSourceConstructor.cpp \
 	bindings/v8/custom/V8EventSourceCustom.cpp \
-	bindings/v8/custom/V8FileListCustom.cpp \
 	bindings/v8/custom/V8GeolocationCustom.cpp \
 	bindings/v8/custom/V8HistoryCustom.cpp \
 	bindings/v8/custom/V8HTMLAllCollectionCustom.cpp \
@@ -135,7 +138,6 @@ LOCAL_SRC_FILES += \
 	bindings/v8/custom/V8HTMLOptionElementConstructor.cpp \
 	bindings/v8/custom/V8HTMLOptionsCollectionCustom.cpp \
 	bindings/v8/custom/V8HTMLPlugInElementCustom.cpp \
-	bindings/v8/custom/V8HTMLSelectElementCollectionCustom.cpp \
 	bindings/v8/custom/V8HTMLSelectElementCustom.cpp \
 	bindings/v8/custom/V8LocationCustom.cpp \
 	bindings/v8/custom/V8MessageChannelConstructor.cpp \
@@ -143,10 +145,12 @@ LOCAL_SRC_FILES += \
 	bindings/v8/custom/V8MessageEventCustom.cpp \
 	bindings/v8/custom/V8NamedNodeMapCustom.cpp \
 	bindings/v8/custom/V8NamedNodesCollection.cpp \
+	bindings/v8/custom/V8NavigatorCustom.cpp \
 	bindings/v8/custom/V8NodeCustom.cpp \
 	bindings/v8/custom/V8NodeFilterCustom.cpp \
 	bindings/v8/custom/V8NodeIteratorCustom.cpp \
 	bindings/v8/custom/V8NodeListCustom.cpp \
+	bindings/v8/custom/V8PopStateEventCustom.cpp \
 	bindings/v8/custom/V8SQLResultSetRowListCustom.cpp \
 	bindings/v8/custom/V8SQLTransactionCustom.cpp \
 	bindings/v8/custom/V8WebSocketCustom.cpp
@@ -169,7 +173,9 @@ LOCAL_SRC_FILES += \
 	bindings/v8/custom/V8WorkerCustom.cpp \
 	bindings/v8/custom/V8XMLHttpRequestConstructor.cpp \
 	bindings/v8/custom/V8XMLHttpRequestCustom.cpp \
-	bindings/v8/custom/V8XMLHttpRequestUploadCustom.cpp
+	bindings/v8/custom/V8XMLHttpRequestUploadCustom.cpp \
+	\
+	bindings/v8/specialization/V8BindingState.cpp
 
 LOCAL_SRC_FILES += \
 	bridge/jni/JNIBridge.cpp \

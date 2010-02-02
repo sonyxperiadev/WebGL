@@ -1120,6 +1120,8 @@
 		550A0BCA085F6039007353D6 /* QualifiedName.h in Headers */ = {isa = PBXBuildFile; fileRef = 550A0BC8085F6039007353D6 /* QualifiedName.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		5913953B110758450083EC55 /* JNIBridge.h in Headers */ = {isa = PBXBuildFile; fileRef = 5913953A110758450083EC55 /* JNIBridge.h */; };
 		5913953D1107584E0083EC55 /* JNIBridge.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5913953C1107584E0083EC55 /* JNIBridge.cpp */; };
+		599ABBC51119761C0083897F /* GeolocationPositionCache.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 599ABBC41119761C0083897F /* GeolocationPositionCache.cpp */; };
+		599ABBC91119762B0083897F /* GeolocationPositionCache.h in Headers */ = {isa = PBXBuildFile; fileRef = 599ABBC81119762B0083897F /* GeolocationPositionCache.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		599E759011055A1F00D904FA /* Bridge.h in Headers */ = {isa = PBXBuildFile; fileRef = 599E758F11055A1F00D904FA /* Bridge.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		59A9E7B01104758800DFB4C1 /* JavaInstanceJSC.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 59A9E7AF1104758800DFB4C1 /* JavaInstanceJSC.cpp */; };
 		59A9E7B21104759400DFB4C1 /* JavaInstanceJSC.h in Headers */ = {isa = PBXBuildFile; fileRef = 59A9E7B11104759400DFB4C1 /* JavaInstanceJSC.h */; };
@@ -6501,6 +6503,8 @@
 		550A0BC8085F6039007353D6 /* QualifiedName.h */ = {isa = PBXFileReference; fileEncoding = 30; indentWidth = 4; lastKnownFileType = sourcecode.c.h; path = QualifiedName.h; sourceTree = "<group>"; tabWidth = 8; usesTabs = 0; };
 		5913953A110758450083EC55 /* JNIBridge.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = JNIBridge.h; sourceTree = "<group>"; };
 		5913953C1107584E0083EC55 /* JNIBridge.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = JNIBridge.cpp; sourceTree = "<group>"; };
+		599ABBC41119761C0083897F /* GeolocationPositionCache.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = GeolocationPositionCache.cpp; sourceTree = "<group>"; };
+		599ABBC81119762B0083897F /* GeolocationPositionCache.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = GeolocationPositionCache.h; sourceTree = "<group>"; };
 		599E758F11055A1F00D904FA /* Bridge.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = Bridge.h; path = bridge/Bridge.h; sourceTree = "<group>"; };
 		59A9E7AF1104758800DFB4C1 /* JavaInstanceJSC.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = JavaInstanceJSC.cpp; path = jsc/JavaInstanceJSC.cpp; sourceTree = "<group>"; };
 		59A9E7B11104759400DFB4C1 /* JavaInstanceJSC.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = JavaInstanceJSC.h; path = jsc/JavaInstanceJSC.h; sourceTree = "<group>"; };
@@ -11382,6 +11386,8 @@
 		65BF02180974806300C43196 /* page */ = {
 			isa = PBXGroup;
 			children = (
+				599ABBC81119762B0083897F /* GeolocationPositionCache.h */,
+				599ABBC41119761C0083897F /* GeolocationPositionCache.cpp */,
 				316FE1060E6E1D8400BF6088 /* animation */,
 				93C09A820B064F05005ABD4D /* mac */,
 				8538F0000AD71770006A81D1 /* AbstractView.idl */,
@@ -18465,6 +18471,7 @@
 				93F199ED08245E59001E9ABC /* XSLTProcessor.h in Headers */,
 				E1BE512E0CF6C512002EA959 /* XSLTUnicodeSort.h in Headers */,
 				97DD4D870FDF4D6E00ECF9A4 /* XSSAuditor.h in Headers */,
+				599ABBC91119762B0083897F /* GeolocationPositionCache.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -20639,6 +20646,7 @@
 				93F19B0508245E59001E9ABC /* XSLTProcessorLibxslt.cpp in Sources */,
 				E1BE512D0CF6C512002EA959 /* XSLTUnicodeSort.cpp in Sources */,
 				97DD4D860FDF4D6E00ECF9A4 /* XSSAuditor.cpp in Sources */,
+				599ABBC51119761C0083897F /* GeolocationPositionCache.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

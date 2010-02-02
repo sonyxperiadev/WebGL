@@ -110,6 +110,7 @@ GEN := \
     $(intermediates)/bindings/V8Notation.h \
     $(intermediates)/bindings/V8OverflowEvent.h \
     $(intermediates)/bindings/V8PageTransitionEvent.h \
+    $(intermediates)/bindings/V8PopStateEvent.h \
     $(intermediates)/bindings/V8ProcessingInstruction.h \
     $(intermediates)/bindings/V8ProgressEvent.h \
     $(intermediates)/bindings/V8Range.h \

@@ -141,6 +141,7 @@ LOCAL_SRC_FILES := \
 	runtime/StructureChain.cpp \
 	runtime/TimeoutChecker.cpp \
 	runtime/UString.cpp \
+	runtime/UStringImpl.cpp \
 	\
 	wrec/CharacterClass.cpp \
 	wrec/CharacterClassConstructor.cpp \

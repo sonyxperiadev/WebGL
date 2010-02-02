@@ -24,6 +24,8 @@
 ##
 
 LOCAL_SRC_FILES := \
+	bindings/generic/BindingSecurityBase.cpp \
+	\
 	css/CSSBorderImageValue.cpp \
 	css/CSSCanvasValue.cpp \
 	css/CSSCharsetRule.cpp \
@@ -241,6 +243,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	\
 	html/Blob.cpp \
 	html/CollectionCache.cpp \
+	html/DateComponents.cpp \
 	html/File.cpp \
 	html/FileList.cpp \
 	html/FormDataList.cpp \
@@ -259,7 +262,6 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	html/HTMLTokenizer.cpp \
 	html/HTMLViewSourceDocument.cpp \
 	html/ImageData.cpp \
-	html/ISODateTime.cpp \
 	html/PreloadScanner.cpp \
 	html/TimeRanges.cpp \
 	html/ValidityState.cpp \
