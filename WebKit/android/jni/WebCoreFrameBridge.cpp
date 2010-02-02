@@ -1168,11 +1168,7 @@ static jobject StringByEvaluatingJavaScriptFromString(JNIEnv *env, jobject obj, 
     WebCore::ScriptValue value =
             pFrame->script()->executeScript(to_string(env, script), true);
     WebCore::String result = WebCore::String();
-#if USE(JSC)
-    ScriptState* scriptState = pFrame->script()->globalObject(mainThreadNormalWorld())->globalExec();
-#elif USE(V8)
-    ScriptState* scriptState = pFrame->script()->mainWorldScriptState();
-#endif
+    ScriptState* scriptState = mainWorldScriptState(pFrame);
     if (!value.getString(scriptState, result))
         return NULL;
     unsigned len = result.length();
