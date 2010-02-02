@@ -31,6 +31,7 @@
 #include "AtomicString.h"
 #include "CachedNode.h"
 #include "CachedRoot.h"
+#include "Chrome.h"
 #include "ChromeClientAndroid.h"
 #include "Color.h"
 #include "DatabaseTracker.h"
@@ -51,7 +52,6 @@
 #include "Geolocation.h"
 #include "GraphicsContext.h"
 #include "GraphicsJNI.h"
-#include "HitTestResult.h"
 #include "HTMLAnchorElement.h"
 #include "HTMLAreaElement.h"
 #include "HTMLElement.h"
@@ -64,6 +64,8 @@
 #include "HTMLOptionElement.h"
 #include "HTMLSelectElement.h"
 #include "HTMLTextAreaElement.h"
+#include "HistoryItem.h"
+#include "HitTestResult.h"
 #include "InlineTextBox.h"
 #include "KeyboardCodes.h"
 #include "Navigator.h"
@@ -99,7 +101,6 @@
 #include "TypingCommand.h"
 #include "WebCoreFrameBridge.h"
 #include "WebFrameView.h"
-#include "HistoryItem.h"
 #include "android_graphics.h"
 
 #include <JNIHelp.h>

@@ -26,17 +26,16 @@
 #define LOG_TAG "webcoreglue"
 
 #include "config.h"
+#include "WebCoreFrameBridge.h"
 
-#include <wtf/Platform.h>
-#include <wtf/CurrentTime.h>
-
-#include "android_graphics.h"
 #include "Arena.h"
 #include "AtomicString.h"
+#include "BackForwardList.h"
 #include "Cache.h"
+#include "CString.h"
+#include "Chrome.h"
 #include "ChromeClientAndroid.h"
 #include "ContextMenuClientAndroid.h"
-#include "CString.h"
 #include "Document.h"
 #include "DocumentLoader.h"
 #include "DragClientAndroid.h"
@@ -60,17 +59,6 @@
 #include "IconDatabase.h"
 #include "Image.h"
 #include "InspectorClientAndroid.h"
-
-#if USE(JSC)
-#include "GCController.h"
-#include "JSDOMWindow.h"
-#include <runtime/JSLock.h>
-#elif USE(V8)
-#include "JavaNPObjectV8.h"
-#include "JavaInstanceV8.h"
-#include "V8Counters.h"
-#endif  // USE(JSC)
-
 #include "KURL.h"
 #include "Page.h"
 #include "PageCache.h"
@@ -86,32 +74,37 @@
 #include "SelectionController.h"
 #include "Settings.h"
 #include "SubstituteData.h"
-#include "WebCoreFrameBridge.h"
 #include "WebCoreJni.h"
 #include "WebCoreResourceLoader.h"
 #include "WebHistory.h"
 #include "WebIconDatabase.h"
 #include "WebFrameView.h"
 #include "WebViewCore.h"
+#include "android_graphics.h"
+#include "jni.h"
 #include "wds/DebugServer.h"
 
-#if USE(JSC)
-#include <runtime_root.h>
-#include <runtime_object.h>
-#endif  // USE(JSC)
-
 #include <JNIUtility.h>
-#include "jni.h"
-
-#if USE(JSC)
-#include "JavaInstanceJSC.h"
-#endif  // USE(JSC)
-
 #include <JNIHelp.h>
 #include <SkGraphics.h>
+#include <android_runtime/android_util_AssetManager.h>
 #include <utils/misc.h>
 #include <utils/AssetManager.h>
-#include <android_runtime/android_util_AssetManager.h>
+#include <wtf/CurrentTime.h>
+#include <wtf/Platform.h>
+
+#if USE(JSC)
+#include "GCController.h"
+#include "JSDOMWindow.h"
+#include "JavaInstanceJSC.h"
+#include <runtime_object.h>
+#include <runtime_root.h>
+#include <runtime/JSLock.h>
+#elif USE(V8)
+#include "JavaNPObjectV8.h"
+#include "JavaInstanceV8.h"
+#include "V8Counters.h"
+#endif  // USE(JSC)
 
 #ifdef ANDROID_INSTRUMENT
 #include "TimeCounter.h"
