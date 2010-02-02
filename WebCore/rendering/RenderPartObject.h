@@ -32,13 +32,15 @@ class RenderPartObject : public RenderPart {
 public:
     RenderPartObject(Element*);
 
-private:
-    virtual const char* renderName() const { return "RenderPartObject"; }
-
 #ifdef FLATTEN_IFRAME
+protected:
     virtual void calcWidth();
     virtual void calcHeight();
 #endif
+
+private:
+    virtual const char* renderName() const { return "RenderPartObject"; }
+
     virtual void layout();
 
     virtual void viewCleared();
