@@ -469,12 +469,6 @@ Document::Document(Frame* frame, bool isXHTML, bool isHTML)
     resetActiveLinkColor();
 
     m_processingLoadEvent = false;
-<<<<<<< HEAD
-    m_startTime = currentTime();
-    m_overMinimumLayoutThreshold = false;
-    m_extraLayoutDelay = 0;
-=======
->>>>>>> webkit.org at r54127
     
     initSecurityContext();
     initDNSPrefetch();
