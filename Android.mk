@@ -116,6 +116,11 @@ LOCAL_C_INCLUDES := $(LOCAL_C_INCLUDES) \
 	$(LOCAL_PATH)/WebCore/platform/graphics/skia \
 	$(LOCAL_PATH)/WebCore/platform/graphics/transforms \
 	$(LOCAL_PATH)/WebCore/platform/image-decoders \
+	$(LOCAL_PATH)/WebCore/platform/image-decoders/bmp \
+	$(LOCAL_PATH)/WebCore/platform/image-decoders/gif \
+	$(LOCAL_PATH)/WebCore/platform/image-decoders/ico \
+	$(LOCAL_PATH)/WebCore/platform/image-decoders/jpeg \
+	$(LOCAL_PATH)/WebCore/platform/image-decoders/png \
 	$(LOCAL_PATH)/WebCore/platform/mock \
 	$(LOCAL_PATH)/WebCore/platform/network \
 	$(LOCAL_PATH)/WebCore/platform/network/android \

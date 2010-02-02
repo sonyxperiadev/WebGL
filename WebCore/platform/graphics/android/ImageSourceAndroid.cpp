@@ -45,7 +45,7 @@
 
 #ifdef ANDROID_ANIMATED_GIF
     #include "EmojiFont.h"
-    #include "gif/GIFImageDecoder.h"
+    #include "GIFImageDecoder.h"
 
     using namespace android;
 #endif
