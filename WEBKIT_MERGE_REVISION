@@ -1,4 +1,4 @@
-We sync with Chromium release revision, which has both webkit revision and V8 revision.
+We use a WebKit revision that has been used for a Chromium release.
 
-http://src.chromium.org/svn/releases/4.0.269.0/DEPS
-http://svn.webkit.org/repository/webkit/trunk@51976
+http://src.chromium.org/svn/releases/5.0.313.0/DEPS
+http://svn.webkit.org/repository/webkit/trunk@54127
