@@ -896,6 +896,11 @@ void GraphicsContext::drawFocusRing(const Vector<IntRect>&, int, int, const Colo
     // Do nothing, since we draw the focus ring independently.
 }
 
+void GraphicsContext::drawFocusRing(const Vector<Path>&, int, int, const Color&)
+{
+    // Do nothing, since we draw the focus ring independently.
+}
+
 PlatformGraphicsContext* GraphicsContext::platformContext() const
 {
     ASSERT(!paintingDisabled());
