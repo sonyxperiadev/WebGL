@@ -206,17 +206,12 @@ public:
 #endif
 
 #if ENABLE(TOUCH_EVENTS)
-<<<<<<< HEAD
 #if PLATFORM(ANDROID)
     int handleTouchEvent(const PlatformTouchEvent&);
 #else
     bool handleTouchEvent(const PlatformTouchEvent&);
 #endif
 #endif
-=======
-    bool handleTouchEvent(const PlatformTouchEvent&);
-#endif
->>>>>>> webkit.org at r54127
 
 private:
 #if ENABLE(DRAG_SUPPORT)

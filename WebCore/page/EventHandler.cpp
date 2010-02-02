@@ -2555,7 +2555,6 @@ void EventHandler::updateLastScrollbarUnderMouse(Scrollbar* scrollbar, bool setL
 }
 
 #if ENABLE(TOUCH_EVENTS)
-<<<<<<< HEAD
 #if PLATFORM(ANDROID)
 // TODO(benm): On Android we return an int back to Java to signify whether the default actions
 // for longpress/doubletap in the Browser should be prevented. I think that before upstreaming
@@ -2564,9 +2563,6 @@ int EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
 #else
 bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
 #endif
-=======
-bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
->>>>>>> webkit.org at r54127
 {
     RefPtr<TouchList> touches = TouchList::create();
     RefPtr<TouchList> pressedTouches = TouchList::create();
@@ -2649,13 +2645,13 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
     }
 
     if (!m_touchEventTarget)
-<<<<<<< HEAD
 #if PLATFORM(ANDROID)
         return 0;
 #else
         return false;
 #endif
 
+<<<<<<< HEAD
     bool defaultPrevented = false;
 #if PLATFORM(ANDROID)
     // TODO (benm): We should be able to remove this prior to upstreaming once Java side refactorings to make
@@ -2664,8 +2660,6 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
     bool doubleTapPrevented = false;
 #endif
 =======
-        return false;
-
     bool defaultPrevented = false;
 >>>>>>> webkit.org at r54127
 
