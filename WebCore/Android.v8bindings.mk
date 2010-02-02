@@ -173,7 +173,6 @@ LOCAL_SRC_FILES += \
 	bindings/v8/custom/V8XMLHttpRequestUploadCustom.cpp
 
 LOCAL_SRC_FILES += \
-<<<<<<< HEAD
 	bridge/jni/JNIBridge.cpp \
 	bridge/jni/JNIUtility.cpp \
 	bridge/jni/v8/JNIBridgeV8.cpp \
@@ -181,6 +180,3 @@ LOCAL_SRC_FILES += \
 	bridge/jni/v8/JavaClassV8.cpp \
 	bridge/jni/v8/JavaInstanceV8.cpp \
 	bridge/jni/v8/JavaNPObjectV8.cpp
-=======
-	bridge/jni/JNIUtility.cpp
->>>>>>> webkit.org at r54127
