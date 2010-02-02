@@ -54,11 +54,7 @@ class GeolocationPosition;
 class GeolocationError;
 #endif
 
-<<<<<<< HEAD
 class Geolocation : public EventListener
-=======
-class Geolocation : public RefCounted<Geolocation>
->>>>>>> webkit.org at r54127
 #if !ENABLE(CLIENT_BASED_GEOLOCATION)
     , public GeolocationServiceClient
 #endif
@@ -87,11 +83,7 @@ public:
     bool shouldClearCache() const { return m_shouldClearCache; }
 
 #if ENABLE(CLIENT_BASED_GEOLOCATION)
-<<<<<<< HEAD
-    void setPostion(GeolocationPosition*);
-=======
     void setPosition(GeolocationPosition*);
->>>>>>> webkit.org at r54127
     void setError(GeolocationError*);
 #endif
 

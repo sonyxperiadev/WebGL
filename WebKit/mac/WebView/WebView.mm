@@ -623,16 +623,12 @@ static bool shouldEnableLoadDeferring()
         didOneTimeInitialization = true;
     }
 
-<<<<<<< HEAD
-    _private->page = new Page(new WebChromeClient(self), new WebContextMenuClient(self), new WebEditorClient(self), new WebDragClient(self), new WebInspectorClient(self), new WebPluginHalterClient(self), 0);
-=======
 #if ENABLE(CLIENT_BASED_GEOLOCATION)
     WebGeolocationControllerClient* geolocationControllerClient = new WebGeolocationControllerClient(self);
 #else
     WebGeolocationControllerClient* geolocationControllerClient = 0;
 #endif
     _private->page = new Page(new WebChromeClient(self), new WebContextMenuClient(self), new WebEditorClient(self), new WebDragClient(self), new WebInspectorClient(self), new WebPluginHalterClient(self), geolocationControllerClient);
->>>>>>> webkit.org at r54127
 
     _private->page->settings()->setLocalStorageDatabasePath([[self preferences] _localStorageDatabasePath]);
 

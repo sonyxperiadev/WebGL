@@ -142,7 +142,6 @@ void Geolocation::GeoNotifier::timerFired(Timer<GeoNotifier>*)
             m_errorCallback->handleEvent(m_fatalError.get());
         // This will cause this notifier to be deleted.
         m_geolocation->fatalErrorOccurred(this);
-<<<<<<< HEAD
         return;
     }
 
@@ -151,8 +150,6 @@ void Geolocation::GeoNotifier::timerFired(Timer<GeoNotifier>*)
         // will continue to run.
         m_useCachedPosition = false;
         m_geolocation->requestUsesCachedPosition(this);
-=======
->>>>>>> webkit.org at r54127
         return;
     }
 
@@ -211,12 +208,8 @@ void Geolocation::Watchers::getNotifiersVector(Vector<RefPtr<GeoNotifier> >& cop
 }
 
 Geolocation::Geolocation(Frame* frame)
-<<<<<<< HEAD
     : EventListener(GeolocationEventListenerType)
     , m_frame(frame)
-=======
-    : m_frame(frame)
->>>>>>> webkit.org at r54127
 #if !ENABLE(CLIENT_BASED_GEOLOCATION)
     , m_service(GeolocationService::create(this))
 #endif
@@ -237,10 +230,6 @@ Geolocation::~Geolocation()
 {
     if (m_frame && m_frame->domWindow())
         m_frame->domWindow()->removeEventListener(eventNames().unloadEvent, this, false);
-}
-
-Geolocation::~Geolocation()
-{
 }
 
 void Geolocation::disconnectFrame()
@@ -299,7 +288,6 @@ PassRefPtr<Geolocation::GeoNotifier> Geolocation::startRequest(PassRefPtr<Positi
     if (isDenied())
         notifier->setFatalError(PositionError::create(PositionError::PERMISSION_DENIED, permissionDeniedErrorMessage));
     else {
-<<<<<<< HEAD
         if (haveSuitableCachedPosition(notifier->m_options.get()))
             notifier->setUseCachedPosition();
         else {
@@ -312,16 +300,6 @@ PassRefPtr<Geolocation::GeoNotifier> Geolocation::startRequest(PassRefPtr<Positi
             } else
                 notifier->setFatalError(PositionError::create(PositionError::POSITION_UNAVAILABLE, "Failed to start Geolocation service"));
         }
-=======
-        if (notifier->hasZeroTimeout() || startUpdating(notifier.get())) {
-#if ENABLE(CLIENT_BASED_GEOLOCATION)
-            // Only start timer if we're not waiting for user permission.
-            if (!m_startRequestPermissionNotifier)
-#endif            
-                notifier->startTimerIfNeeded();
-        } else
-            notifier->setFatalError(PositionError::create(PositionError::POSITION_UNAVAILABLE, "Failed to start Geolocation service"));
->>>>>>> webkit.org at r54127
     }
 
     return notifier.release();
@@ -344,7 +322,6 @@ void Geolocation::requestTimedOut(GeoNotifier* notifier)
 
     if (!hasListeners())
         stopUpdating();
-<<<<<<< HEAD
 }
 
 void Geolocation::requestUsesCachedPosition(GeoNotifier* notifier)
@@ -406,8 +383,6 @@ bool Geolocation::haveSuitableCachedPosition(PositionOptions* options)
         return false;
     DOMTimeStamp currentTimeMillis = currentTime() * 1000.0;
     return m_positionCache->cachedPosition()->timestamp() > currentTimeMillis - options->maximumAge();
-=======
->>>>>>> webkit.org at r54127
 }
 
 void Geolocation::clearWatch(int watchId)
@@ -460,15 +435,8 @@ void Geolocation::setIsAllowed(bool allowed)
         return;
     }
 #endif
-<<<<<<< HEAD
 
     if (!isAllowed()) {
-=======
-    
-    if (isAllowed())
-        makeSuccessCallbacks();
-    else {
->>>>>>> webkit.org at r54127
         RefPtr<PositionError> error = PositionError::create(PositionError::PERMISSION_DENIED, permissionDeniedErrorMessage);
         error->setIsFatal(true);
         handleError(error.get());
@@ -583,11 +551,8 @@ void Geolocation::requestPermission()
 void Geolocation::positionChanged(PassRefPtr<Geoposition> newPosition)
 {
     m_currentPosition = newPosition;
-<<<<<<< HEAD
 
     m_positionCache->setCachedPosition(m_currentPosition.get());
-=======
->>>>>>> webkit.org at r54127
 
     // Stop all currently running timers.
     stopTimers();
@@ -654,12 +619,9 @@ void Geolocation::geolocationServiceErrorOccurred(GeolocationService* service)
 {
     ASSERT(service->lastError());
 
-<<<<<<< HEAD
     // Note that we do not stop timers here. For one-shots, the request is
     // cleared in handleError. For watchers, the spec requires that the timer is
     // not cleared.
-=======
->>>>>>> webkit.org at r54127
     handleError(service->lastError());
 }
 
@@ -707,7 +669,6 @@ void Geolocation::stopUpdating()
 
 }
 
-<<<<<<< HEAD
 bool Geolocation::operator==(const EventListener& listener)
 {
     if (listener.type() != GeolocationEventListenerType)
@@ -726,6 +687,4 @@ void Geolocation::handleEvent(ScriptExecutionContext*, Event* event)
     m_watchers.clear();
 }
 
-=======
->>>>>>> webkit.org at r54127
 } // namespace WebCore

@@ -2434,11 +2434,7 @@ HRESULT STDMETHODCALLTYPE WebView::initWithFrame(
     if (SUCCEEDED(m_preferences->shouldUseHighResolutionTimers(&useHighResolutionTimer)))
         Settings::setShouldUseHighResolutionTimers(useHighResolutionTimer);
 
-<<<<<<< HEAD
-    m_page = new Page(new WebChromeClient(this), new WebContextMenuClient(this), new WebEditorClient(this), new WebDragClient(this), new WebInspectorClient(this), new WebPluginHalterClient(this), 0);
-=======
     m_page = new Page(new WebChromeClient(this), new WebContextMenuClient(this), new WebEditorClient(this), new WebDragClient(this), new WebInspectorClient(this), new WebPluginHalterClient(this), geolocationControllerClient);
->>>>>>> webkit.org at r54127
 
     BSTR localStoragePath;
     if (SUCCEEDED(m_preferences->localStorageDatabasePath(&localStoragePath))) {

@@ -40,11 +40,8 @@ GeolocationController::GeolocationController(Page* page, GeolocationControllerCl
 
 GeolocationController::~GeolocationController()
 {
-<<<<<<< HEAD
-=======
     if (m_client)
         m_client->geolocationDestroyed();
->>>>>>> webkit.org at r54127
 }
 
 void GeolocationController::addObserver(Geolocation* observer)
@@ -53,11 +50,7 @@ void GeolocationController::addObserver(Geolocation* observer)
 
     bool wasEmpty = m_observers.isEmpty();
     m_observers.add(observer);
-<<<<<<< HEAD
-    if (wasEmpty)
-=======
     if (wasEmpty && m_client)
->>>>>>> webkit.org at r54127
         m_client->startUpdating();
 }
 
@@ -67,50 +60,31 @@ void GeolocationController::removeObserver(Geolocation* observer)
         return;
 
     m_observers.remove(observer);
-<<<<<<< HEAD
-    if (m_observers.isEmpty())
-=======
     if (m_observers.isEmpty() && m_client)
->>>>>>> webkit.org at r54127
         m_client->stopUpdating();
 }
 
 void GeolocationController::positionChanged(GeolocationPosition* position)
 {
-<<<<<<< HEAD
-    HashSet<RefPtr<Geolocation> >::const_iterator end = m_observers.end();
-    for (HashSet<RefPtr<Geolocation> >::const_iterator it = m_observers.begin(); it != end; ++it)
-        (*it)->setPosition(position);
-=======
     Vector<RefPtr<Geolocation> > observersVector;
     copyToVector(m_observers, observersVector);
     for (size_t i = 0; i < observersVector.size(); ++i)
         observersVector[i]->setPosition(position);
->>>>>>> webkit.org at r54127
 }
 
 void GeolocationController::errorOccurred(GeolocationError* error)
 {
-<<<<<<< HEAD
-    HashSet<RefPtr<Geolocation> >::const_iterator end = m_observers.end();
-    for (HashSet<RefPtr<Geolocation> >::const_iterator it = m_observers.begin(); it != end; ++it)
-        (*it)->setError(error);
-=======
     Vector<RefPtr<Geolocation> > observersVector;
     copyToVector(m_observers, observersVector);
     for (size_t i = 0; i < observersVector.size(); ++i)
         observersVector[i]->setError(error);
->>>>>>> webkit.org at r54127
 }
 
 GeolocationPosition* GeolocationController::lastPosition()
 {
-<<<<<<< HEAD
-=======
     if (!m_client)
         return 0;
 
->>>>>>> webkit.org at r54127
     return m_client->lastPosition();
 }
 

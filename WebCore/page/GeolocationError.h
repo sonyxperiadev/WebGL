@@ -30,10 +30,7 @@
 
 #include "PlatformString.h"
 #include <wtf/PassRefPtr.h>
-<<<<<<< HEAD
-=======
 #include <wtf/RefCounted.h>
->>>>>>> webkit.org at r54127
 #include <wtf/RefPtr.h>
 
 namespace WebCore {
@@ -51,15 +48,11 @@ public:
     const String& message() const { return m_message; }
 
 private:
-<<<<<<< HEAD
-    GeolocationError(ErrorCode code, const String& message);
-=======
     GeolocationError(ErrorCode code, const String& message)
         : m_code(code)
         , m_message(message)
     {
     }
->>>>>>> webkit.org at r54127
 
     ErrorCode m_code;
     String m_message; 
