@@ -127,11 +127,7 @@ IntPoint Widget::convertFromContainingWindowToRoot(const Widget*, const IntPoint
 }
 #endif
 
-<<<<<<< HEAD
-#if (!PLATFORM(MAC) && !PLATFORM(GTK) && !PLATFORM(ANDROID)) || ENABLE(EXPERIMENTAL_SINGLE_VIEW_MODE)
-=======
-#if !PLATFORM(MAC) && !PLATFORM(GTK)
->>>>>>> webkit.org at r54127
+#if !PLATFORM(MAC) && !PLATFORM(GTK) && !OS(ANDROID)
 void Widget::releasePlatformWidget()
 {
 }

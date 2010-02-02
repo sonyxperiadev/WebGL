@@ -47,13 +47,8 @@
 #include <sys/time.h>
 #endif
 
-<<<<<<< HEAD
-#if PLATFORM(ANDROID)
-#include "JNIUtility.h"
-=======
 #if OS(ANDROID)
-#include "jni_utility.h"
->>>>>>> webkit.org at r54127
+#include "JNIUtility.h"
 #endif
 
 namespace WTF {

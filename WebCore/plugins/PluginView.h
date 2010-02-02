@@ -47,15 +47,13 @@
 #include <wtf/RefPtr.h>
 #include <wtf/Vector.h>
 
-<<<<<<< HEAD
+// ANDROID
+// TODO: Upstream to webkit.org
 #ifdef PLUGIN_SCHEDULE_TIMER
 #include "PluginTimer.h"
 #endif
 
-#if PLATFORM(WIN_OS) && (PLATFORM(QT) || PLATFORM(WX))
-=======
 #if OS(WINDOWS) && (PLATFORM(QT) || PLATFORM(WX))
->>>>>>> webkit.org at r54127
 typedef struct HWND__* HWND;
 typedef HWND PlatformPluginWidget;
 #elif defined(ANDROID_PLUGINS)
@@ -354,15 +352,13 @@ namespace WebCore {
         bool m_haveUpdatedPluginWidget;
 #endif
 
-<<<<<<< HEAD
+// ANDROID
+// TODO: Upstream to webkit.org
 #ifdef PLUGIN_SCHEDULE_TIMER
         PluginTimerList m_timerList;
 #endif
 
-#if ((PLATFORM(QT) || PLATFORM(WX)) && PLATFORM(WIN_OS)) || defined(XP_MACOSX)
-=======
 #if ((PLATFORM(QT) || PLATFORM(WX)) && OS(WINDOWS)) || defined(XP_MACOSX)
->>>>>>> webkit.org at r54127
         // On Mac OSX and Qt/Windows the plugin does not have its own native widget,
         // but is using the containing window as its reference for positioning/painting.
         PlatformPluginWidget m_window;
@@ -381,11 +377,7 @@ public:
 
 private:
 
-<<<<<<< HEAD
-#if defined(XP_UNIX) || defined(Q_WS_X11) || PLATFORM(SYMBIAN) || defined(ANDROID_PLUGINS)
-=======
-#if defined(XP_UNIX) || PLATFORM(SYMBIAN)
->>>>>>> webkit.org at r54127
+#if defined(XP_UNIX) || PLATFORM(SYMBIAN) || defined(ANDROID_PLUGINS)
         void setNPWindowIfNeeded();
 #elif defined(XP_MACOSX)
         NP_CGContext m_npCgContext;
