@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 Apple Computer, Inc.  All rights reserved.
+ * Copyright 2010, The Android Open Source Project
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -42,9 +42,7 @@ public:
     {
         int size = e->GetStringLength(s);
         const char* cs = getCharactersFromJStringInEnv(e, s);
-        {
-            m_utf8String = WebCore::CString(cs, size);
-        }
+        m_utf8String = WebCore::CString(cs, size);
         releaseCharactersForJStringInEnv(e, s, cs);
     }
 

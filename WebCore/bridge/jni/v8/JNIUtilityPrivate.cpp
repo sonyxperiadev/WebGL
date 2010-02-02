@@ -1,5 +1,5 @@
 /*
- * Copyright 2009, The Android Open Source Project
+ * Copyright 2010, The Android Open Source Project
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,7 +26,6 @@
 #include "config.h"
 #include "JNIUtilityPrivate.h"
 
-#include "JNIBridge.h"
 #include "JavaInstanceV8.h"
 #include "JavaNPObjectV8.h"
 
@@ -188,8 +187,7 @@ void convertJValueToNPVariant(jvalue value, JNIType jniType, const char* javaTyp
                     STRINGZ_TO_NPVARIANT(s, *result);
                 } else
                     OBJECT_TO_NPVARIANT(JavaInstanceToNPObject(new JavaInstance(value.l)), *result);
-            }
-            else
+            } else
                 VOID_TO_NPVARIANT(*result);
         }
         break;
@@ -252,6 +250,6 @@ void convertJValueToNPVariant(jvalue value, JNIType jniType, const char* javaTyp
     }
 }
 
-}  // end of namespace Bindings
+} // end of namespace Bindings
 
 } // end of namespace JSC

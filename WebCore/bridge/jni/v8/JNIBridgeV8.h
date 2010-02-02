@@ -26,16 +26,14 @@
 #ifndef JNIBridgeV8_h
 #define JNIBridgeV8_h
 
-#include "JNIBridge.h"
-#include "JNIUtility.h"
-#include "JavaInstanceV8.h"
+#include "JNIBridge.h" // For JavaString
+#include "JavaInstanceV8.h" // For JObjectWrapper
 
 namespace JSC {
 
 namespace Bindings {
 
-class JavaField
-{
+class JavaField {
 public:
     JavaField(JNIEnv*, jobject aField);
 

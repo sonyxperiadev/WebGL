@@ -32,8 +32,6 @@
 #include "Bridge.h"
 #include "JNIUtility.h"
 
-// ANDROID
-// Upstream the V8 ifdef to webkit.org
 #if USE(JSC)
 #include "JavaStringJSC.h"
 #elif USE(V8)

@@ -13,7 +13,7 @@
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -26,9 +26,7 @@
 #ifndef JavaNPObjectV8_h
 #define JavaNPObjectV8_h
 
-#include "JNIBridge.h"
 #include "npruntime.h"
-#include <JavaVM/jni.h>
 #include <wtf/RefPtr.h>
 
 
@@ -46,10 +44,10 @@ struct JavaNPObject {
 NPObject* JavaInstanceToNPObject(JavaInstance*);
 JavaInstance* ExtractJavaInstance(NPObject*);
 
-bool JavaNPObject_HasMethod(NPObject*, NPIdentifier name);
-bool JavaNPObject_Invoke(NPObject*, NPIdentifier methodName, const NPVariant* args, uint32_t argCount, NPVariant* result);
-bool JavaNPObject_HasProperty(NPObject*, NPIdentifier name);
-bool JavaNPObject_GetProperty(NPObject*, NPIdentifier name, NPVariant* result);
+bool JavaNPObjectHasMethod(NPObject*, NPIdentifier name);
+bool JavaNPObjectInvoke(NPObject*, NPIdentifier methodName, const NPVariant* args, uint32_t argCount, NPVariant* result);
+bool JavaNPObjectHasProperty(NPObject*, NPIdentifier name);
+bool JavaNPObjectGetProperty(NPObject*, NPIdentifier name, NPVariant* result);
 
 } // namespace Bindings
 
