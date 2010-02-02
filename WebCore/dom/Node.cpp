@@ -2336,7 +2336,19 @@ ContainerNode* Node::eventParentNode()
     return static_cast<ContainerNode*>(parent);
 }
 
-<<<<<<< HEAD
+Node* Node::enclosingLinkEventParentOrSelf()
+{
+    for (Node* node = this; node; node = node->eventParentNode()) {
+        // For imagemaps, the enclosing link node is the associated area element not the image itself.
+        // So we don't let images be the enclosingLinkNode, even though isLink sometimes returns true
+        // for them.
+        if (node->isLink() && !node->hasTagName(imgTag))
+            return node;
+    }
+
+    return 0;
+}
+
 #ifdef ANDROID_INSTRUMENT
 static size_t nodeSize = 0;
 
@@ -2369,20 +2381,6 @@ size_t Node::reportDOMNodesSize()
     return nodeSize;
 }
 #endif
-=======
-Node* Node::enclosingLinkEventParentOrSelf()
-{
-    for (Node* node = this; node; node = node->eventParentNode()) {
-        // For imagemaps, the enclosing link node is the associated area element not the image itself.
-        // So we don't let images be the enclosingLinkNode, even though isLink sometimes returns true
-        // for them.
-        if (node->isLink() && !node->hasTagName(imgTag))
-            return node;
-    }
-
-    return 0;
-}
->>>>>>> webkit.org at r54127
 
 // --------
 
