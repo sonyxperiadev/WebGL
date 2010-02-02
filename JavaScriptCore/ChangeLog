@@ -1,5 +1,3 @@
-<<<<<<< HEAD
-=======
 2010-01-31  Patrick Gansterer  <paroga@paroga.com>
 
         Reviewed by Darin Adler.
@@ -3740,7 +3738,6 @@ The very last cell in the block is not allocated -- should not be marked.
         (WTF::timeClip): Use maxECMAScriptTime.
         (JSC::gregorianDateTimeToMS): Follow the dateToDaysFrom1970() change.
 
->>>>>>> webkit.org at r54127
 2009-12-10  Adam Barth  <abarth@webkit.org>
 
         No review, rolling out r51975.

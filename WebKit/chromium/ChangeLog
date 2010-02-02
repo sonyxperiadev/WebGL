@@ -1,5 +1,3 @@
-<<<<<<< HEAD
-=======
 2010-01-31  Kent Tamura  <tkent@chromium.org>
 
         Reviewed by Jeremy Orlow.
@@ -1352,7 +1350,6 @@
         (WebKit::WebViewImpl::keyEvent):
         (WebKit::WebViewImpl::sendContextMenuEvent):
 
->>>>>>> webkit.org at r54127
 2009-12-13  Sam Weinig  <sam@webkit.org>
 
         Reviewed by Dan Bernstein.
@@ -1368,8 +1365,6 @@
         * src/WebViewImpl.cpp:
         (WebKit::WebViewImpl::WebViewImpl):
 
-<<<<<<< HEAD
-=======
 2009-12-13  Charles Reis  <creis@chromium.org>
 
         Reviewed by Adam Barth.
@@ -1415,7 +1410,6 @@
         * public/WebDevToolsFrontend.h:
         * public/WebDevToolsFrontendClient.h:
 
->>>>>>> webkit.org at r54127
 2009-12-10  Mike Belshe  <mike@belshe.com>
 
         Unreviewed, build fix for chromium.

@@ -1,5 +1,3 @@
-<<<<<<< HEAD
-=======
 2010-01-27  Martin Robinson  <mrobinson@webkit.org>
 
         Reviewed by Gustavo Noronha Silva.
@@ -566,7 +564,6 @@
 
         * webkit/webkitwebnavigationaction.cpp:
 
->>>>>>> webkit.org at r54127
 2009-12-13  Sam Weinig  <sam@webkit.org>
 
         Reviewed by Dan Bernstein.
@@ -582,8 +579,6 @@
         * webkit/webkitwebview.cpp:
         (webkit_web_view_init):
 
-<<<<<<< HEAD
-=======
 2009-12-14  Gustavo Noronha Silva  <gustavo.noronha@collabora.co.uk>
 
         Reviewed by Xan Lopez.
@@ -636,7 +631,6 @@
         * webkit/webkitwebframe.cpp:
         (webkit_web_frame_pause_svg_animation): Fix ENABLE(SVG) guards.
 
->>>>>>> webkit.org at r54127
 2009-12-10  Gustavo Noronha Silva  <gustavo.noronha@collabora.co.uk>
 
         Reviewed by Xan Lopez.

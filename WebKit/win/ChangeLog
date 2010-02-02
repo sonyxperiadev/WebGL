@@ -1,5 +1,3 @@
-<<<<<<< HEAD
-=======
 2010-01-29  Brian Weinstein  <bweinstein@apple.com>
 
         Reviewed by Adam Roben.
@@ -779,7 +777,6 @@
         (WebFrame::drawFooter): Correct Cairo variation.
         (WebFrame::spoolPages): Correct Cairo variation.
 
->>>>>>> webkit.org at r54127
 2009-12-13  Sam Weinig  <sam@webkit.org>
 
         Reviewed by Dan Bernstein.
@@ -795,8 +792,6 @@
         * WebView.cpp:
         (WebView::initWithFrame):
 
-<<<<<<< HEAD
-=======
 2009-12-14  Adam Roben  <aroben@apple.com>
 
         Change IWebFramePrivate's vtable to be compatible with Safari 4.0.4
@@ -847,7 +842,6 @@
         * WebView.cpp:
         (WebView::notifyPreferencesChanged):
 
->>>>>>> webkit.org at r54127
 2009-12-10  Jon Honeycutt  <jhoneycutt@apple.com>
 
         Pass more information about a plug-in to the PluginHalterDelegate
