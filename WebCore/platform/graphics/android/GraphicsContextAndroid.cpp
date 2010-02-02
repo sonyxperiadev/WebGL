@@ -891,7 +891,7 @@ void GraphicsContext::clearPlatformShadow()
 
 ///////////////////////////////////////////////////////////////////////////////
 
-void GraphicsContext::drawFocusRing(const Color& color)
+void GraphicsContext::drawFocusRing(const Vector<IntRect>&, int, int, const Color&)
 {
     // Do nothing, since we draw the focus ring independently.
 }
