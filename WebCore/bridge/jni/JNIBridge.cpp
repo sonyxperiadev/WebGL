@@ -55,14 +55,6 @@ JavaParameter::JavaParameter(JNIEnv* env, jstring type)
 
 JavaMethod::JavaMethod(JNIEnv* env, jobject aMethod)
 {
-<<<<<<< HEAD
-    // Get return type
-    jobject returnType = callJNIMethod<jobject>(aMethod, "getReturnType", "()Ljava/lang/Class;");
-    jstring returnTypeName = static_cast<jstring>(callJNIMethod<jobject>(returnType, "getName", "()Ljava/lang/String;"));
-    m_returnType = JavaString(env, returnTypeName);
-    m_JNIReturnType = JNITypeFromClassName(m_returnType.UTF8String());
-    env->DeleteLocalRef(returnType);
-=======
     // Get return type name
     jstring returnTypeName = 0;
     if (jobject returnType = callJNIMethod<jobject>(aMethod, "getReturnType", "()Ljava/lang/Class;")) {
@@ -73,34 +65,16 @@ JavaMethod::JavaMethod(JNIEnv* env, jobject aMethod)
     }
     m_returnType = JavaString(env, returnTypeName);
     m_JNIReturnType = JNITypeFromClassName(m_returnType.UTF8String());
->>>>>>> webkit.org at r54127
     env->DeleteLocalRef(returnTypeName);
 
     // Get method name
     jstring methodName = static_cast<jstring>(callJNIMethod<jobject>(aMethod, "getName", "()Ljava/lang/String;"));
-<<<<<<< HEAD
-=======
     if (!returnTypeName)
         returnTypeName = env->NewStringUTF("<Unknown>");
->>>>>>> webkit.org at r54127
     m_name = JavaString(env, methodName);
     env->DeleteLocalRef(methodName);
 
     // Get parameters
-<<<<<<< HEAD
-    jarray jparameters = static_cast<jarray>(callJNIMethod<jobject>(aMethod, "getParameterTypes", "()[Ljava/lang/Class;"));
-    m_numParameters = env->GetArrayLength(jparameters);
-    m_parameters = new JavaParameter[m_numParameters];
-
-    for (int i = 0; i < m_numParameters; i++) {
-        jobject aParameter = env->GetObjectArrayElement(static_cast<jobjectArray>(jparameters), i);
-        jstring parameterName = static_cast<jstring>(callJNIMethod<jobject>(aParameter, "getName", "()Ljava/lang/String;"));
-        m_parameters[i] = JavaParameter(env, parameterName);
-        env->DeleteLocalRef(aParameter);
-        env->DeleteLocalRef(parameterName);
-    }
-    env->DeleteLocalRef(jparameters);
-=======
     if (jarray jparameters = static_cast<jarray>(callJNIMethod<jobject>(aMethod, "getParameterTypes", "()[Ljava/lang/Class;"))) {
         m_numParameters = env->GetArrayLength(jparameters);
         m_parameters = new JavaParameter[m_numParameters];
@@ -119,7 +93,6 @@ JavaMethod::JavaMethod(JNIEnv* env, jobject aMethod)
         m_numParameters = 0;
         m_parameters = 0;
     }
->>>>>>> webkit.org at r54127
 
     // Created lazily.
     m_signature = 0;

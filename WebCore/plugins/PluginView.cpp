@@ -28,10 +28,7 @@
 #include "PluginView.h"
 
 #include "Bridge.h"
-<<<<<<< HEAD
-=======
 #include "Chrome.h"
->>>>>>> webkit.org at r54127
 #include "Document.h"
 #include "DocumentLoader.h"
 #include "Element.h"

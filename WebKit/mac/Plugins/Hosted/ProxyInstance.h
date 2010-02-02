@@ -28,18 +28,11 @@
 #ifndef ProxyInstance_h
 #define ProxyInstance_h
 
-<<<<<<< HEAD
-#include <WebCore/Bridge.h>
-#include <WebCore/runtime_root.h>
-#include <wtf/OwnPtr.h>
-#include "WebKitPluginHostTypes.h"
-=======
 #import "NetscapePluginInstanceProxy.h"
 #import "WebKitPluginHostTypes.h"
 #import <WebCore/Bridge.h>
 #import <WebCore/runtime_root.h>
 #import <wtf/OwnPtr.h>
->>>>>>> webkit.org at r54127
 
 namespace WebKit {
 

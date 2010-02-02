@@ -49,12 +49,6 @@ using namespace JSC::Bindings;
 
 JavaField::JavaField(JNIEnv* env, jobject aField)
 {
-<<<<<<< HEAD
-    // Get field type
-    jobject fieldType = callJNIMethod<jobject>(aField, "getType", "()Ljava/lang/Class;");
-    jstring fieldTypeName = static_cast<jstring>(callJNIMethod<jobject>(fieldType, "getName", "()Ljava/lang/String;"));
-    m_type = JavaString(env, fieldTypeName);
-=======
     // Get field type name
     jstring fieldTypeName = 0;
     if (jobject fieldType = callJNIMethod<jobject>(aField, "getType", "()Ljava/lang/Class;"))
@@ -63,16 +57,12 @@ JavaField::JavaField(JNIEnv* env, jobject aField)
         fieldTypeName = env->NewStringUTF("<Unknown>");
     m_type = JavaString(env, fieldTypeName);
 
->>>>>>> webkit.org at r54127
     m_JNIType = JNITypeFromClassName(m_type.UTF8String());
 
     // Get field name
     jstring fieldName = static_cast<jstring>(callJNIMethod<jobject>(aField, "getName", "()Ljava/lang/String;"));
-<<<<<<< HEAD
-=======
     if (!fieldName)
         fieldName = env->NewStringUTF("<Unknown>");
->>>>>>> webkit.org at r54127
     m_name = JavaString(env, fieldName);
 
     m_field = new JObjectWrapper(aField);

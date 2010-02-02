@@ -29,19 +29,13 @@
 
 #if ENABLE(MAC_JAVA_BRIDGE)
 
-<<<<<<< HEAD
 #include "Bridge.h"
-=======
->>>>>>> webkit.org at r54127
 #include "JNIUtility.h"
 
 #if USE(JSC)
 #include "JavaStringJSC.h"
-<<<<<<< HEAD
 #elif USE(V8)
 #include "JavaStringV8.h"
-=======
->>>>>>> webkit.org at r54127
 #endif
 
 namespace JSC {

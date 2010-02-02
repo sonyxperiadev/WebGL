@@ -90,14 +90,11 @@ JSValue JavaInstance::stringValue(ExecState* exec) const
     JSLock lock(SilenceAssertionsOnly);
 
     jstring stringValue = (jstring)callJNIMethod<jobject>(m_instance->m_instance, "toString", "()Ljava/lang/String;");
-<<<<<<< HEAD
-=======
 
     // Should throw a JS exception, rather than returning ""? - but better than a null dereference.
     if (!stringValue)
         return jsString(exec, UString());
 
->>>>>>> webkit.org at r54127
     JNIEnv* env = getJNIEnv();
     const jchar* c = getUCharactersFromJStringInEnv(env, stringValue);
     UString u((const UChar*)c, (int)env->GetStringLength(stringValue));
@@ -126,11 +123,7 @@ JSValue JavaInstance::invokeMethod(ExecState* exec, const MethodList& methodList
     size_t numMethods = methodList.size();
 
     // Try to find a good match for the overloaded method.  The
-<<<<<<< HEAD
     // fundamental problem is that JavaScript doesn't have the
-=======
-    // fundamental problem is that JavaScript doesn have the
->>>>>>> webkit.org at r54127
     // notion of method overloading and Java does.  We could
     // get a bit more sophisticated and attempt to does some
     // type checking as we as checking the number of parameters.
