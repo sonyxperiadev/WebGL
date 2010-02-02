@@ -26,12 +26,7 @@
 module events {
 
     interface [
-<<<<<<< HEAD
-        Conditional=TOUCH_EVENTS,
-        GenerateConstructor
-=======
         Conditional=TOUCH_EVENTS
->>>>>>> webkit.org at r54127
     ] Touch {
         readonly attribute long             clientX;
         readonly attribute long             clientY;

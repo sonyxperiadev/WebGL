@@ -27,10 +27,6 @@ module events {
 
     interface [
         Conditional=TOUCH_EVENTS,
-<<<<<<< HEAD
-        GenerateConstructor,
-=======
->>>>>>> webkit.org at r54127
         HasIndexGetter
     ] TouchList {
         readonly attribute unsigned long length;
