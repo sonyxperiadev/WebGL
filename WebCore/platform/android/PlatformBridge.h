@@ -81,10 +81,7 @@ class NPObject;
 
 namespace WebCore {
 
-<<<<<<< HEAD
 class FrameView;
-=======
->>>>>>> webkit.org at r54127
 class Widget;
 
 // An interface to the embedding layer, which has the ability to answer
@@ -108,7 +105,6 @@ public:
     static bool cookiesEnabled();
     // Plugin
     static NPObject* pluginScriptableObject(Widget*);
-<<<<<<< HEAD
     // Popups
     static bool popupsAllowed(NPP);
 
@@ -131,8 +127,6 @@ public:
 
     // Whether the WebView is paused.
     static bool isWebViewPaused();
-=======
->>>>>>> webkit.org at r54127
 };
 
 }
