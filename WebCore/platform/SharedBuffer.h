@@ -77,21 +77,16 @@ public:
     static PassRefPtr<SharedBuffer> wrapCFData(CFDataRef);
 #endif
 
-<<<<<<< HEAD
 #if PLATFORM(ANDROID)
     virtual
 #endif
-    const char* data() const;
-#if PLATFORM(ANDROID)
-    virtual
-#endif
-=======
     // Calling this function will force internal segmented buffers
     // to be merged into a flat buffer. Use getSomeData() whenever possible
     // for better performance.
     const char* data() const;
-
->>>>>>> webkit.org at r54127
+#if PLATFORM(ANDROID)
+    virtual
+#endif
     unsigned size() const;
 
     // Calling this function will force internal segmented buffers
