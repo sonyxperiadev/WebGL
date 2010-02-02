@@ -39,7 +39,7 @@ void NetworkStateNotifier::networkStateChange(bool online)
         m_networkStateChangedFunction();
 }
 
-<<<<<<< HEAD
+// TODO: Upstream to webkit.org
 void NetworkStateNotifier::networkTypeChange(Connection::ConnectionType type)
 {
     if (m_type == type)
@@ -51,6 +51,4 @@ void NetworkStateNotifier::networkTypeChange(Connection::ConnectionType type)
         m_networkStateChangedFunction();
 }
 
-=======
->>>>>>> webkit.org at r54127
 }

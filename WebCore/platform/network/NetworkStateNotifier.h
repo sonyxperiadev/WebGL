@@ -28,6 +28,7 @@
 
 #include <wtf/Noncopyable.h>
 #if PLATFORM(ANDROID)
+// TODO: Upstream to webkit.org
 #include "Connection.h"
 #endif
 
@@ -61,21 +62,20 @@ public:
     void setNetworkStateChangedFunction(void (*)());
     
     bool onLine() const { return m_isOnLine; }
-<<<<<<< HEAD
-#if PLATFORM(ANDROID)
-    Connection::ConnectionType type() const { return m_type; }
-#endif
-    
-=======
 
 #if (PLATFORM(QT) && ENABLE(QT_BEARER))
     void setNetworkAccessAllowed(bool);
 #endif
 
->>>>>>> webkit.org at r54127
+#if PLATFORM(ANDROID)
+    // TODO: Upstream to webkit.org
+    Connection::ConnectionType type() const { return m_type; }
+#endif
+
 private:    
     bool m_isOnLine;
 #if PLATFORM(ANDROID)
+    // TODO: Upstream to webkit.org
     Connection::ConnectionType m_type;
 #endif
     void (*m_networkStateChangedFunction)();
@@ -105,14 +105,12 @@ private:
 #elif PLATFORM(ANDROID)
 public:
     void networkStateChange(bool online);
-<<<<<<< HEAD
+    // TODO: Upstream to webkit.org
     void networkTypeChange(Connection::ConnectionType type);
-=======
 
 #elif PLATFORM(QT) && ENABLE(QT_BEARER)
     friend class NetworkStateNotifierPrivate;
     NetworkStateNotifierPrivate* p;
->>>>>>> webkit.org at r54127
 #endif
 };
 
@@ -121,6 +119,7 @@ public:
 inline NetworkStateNotifier::NetworkStateNotifier()
     : m_isOnLine(true)
 #if PLATFORM(ANDROID)
+    // TODO: Upstream to webkit.org
     , m_type(Connection::Unknown)
 #endif
     , m_networkStateChangedFunction(0)
