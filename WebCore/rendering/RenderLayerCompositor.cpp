@@ -943,22 +943,14 @@ bool RenderLayerCompositor::requiresCompositingLayer(const RenderLayer* layer) c
     }
     // The root layer always has a compositing layer, but it may not have backing.
     return (inCompositingMode() && layer->isRootLayer()) ||
-<<<<<<< HEAD
-             requiresCompositingForTransform(layer->renderer()) ||
-             requiresCompositingForVideo(layer->renderer()) ||
-             requiresCompositingForCanvas(layer->renderer()) ||
-             layer->renderer()->style()->backfaceVisibility() == BackfaceVisibilityHidden ||
-#if PLATFORM(ANDROID)
-             (layer->renderer()->isPositioned() &&
-              layer->renderer()->style()->position() == FixedPosition) ||
-#endif
-=======
              requiresCompositingForTransform(renderer) ||
              requiresCompositingForVideo(renderer) ||
              requiresCompositingForCanvas(renderer) ||
              requiresCompositingForPlugin(renderer) ||
              renderer->style()->backfaceVisibility() == BackfaceVisibilityHidden ||
->>>>>>> webkit.org at r54127
+#if PLATFORM(ANDROID)
+             (renderer->isPositioned() && renderer->style()->position() == FixedPosition) ||
+#endif
              clipsCompositingDescendants(layer) ||
              requiresCompositingForAnimation(renderer);
 }
