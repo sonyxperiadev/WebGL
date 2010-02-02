@@ -1,5 +1,5 @@
 /*
- * Copyright 2009, The Android Open Source Project
+ * Copyright 2009,2010 The Android Open Source Project
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,73 +31,75 @@
 class SkBitmap;
 
 #include "MediaPlayerPrivate.h"
+#include "TimeRanges.h"
 
 namespace WebCore {
 
 class MediaPlayerPrivate : public MediaPlayerPrivateInterface {
 public:
-    ~MediaPlayerPrivate();
+    virtual ~MediaPlayerPrivate();
 
     static void registerMediaEngine(MediaEngineRegistrar);
 
-    virtual void load(const String& url);
-    virtual void cancelLoad();
+    virtual void load(const String& url) = 0;
+    virtual void cancelLoad() { }
 
-    virtual void play();
+    virtual void play() = 0;
     virtual void pause();
 
-    virtual IntSize naturalSize() const;
+    virtual IntSize naturalSize() const { return m_naturalSize; }
 
-    virtual bool hasAudio() const;
-    virtual bool hasVideo() const;
+    virtual bool hasAudio() const { return false; }
+    virtual bool hasVideo() const { return false; }
 
     virtual void setVisible(bool);
 
-    virtual float duration() const;
+    virtual float duration() const { return m_duration; }
 
-    virtual float currentTime() const;
+    virtual float currentTime() const { return m_currentTime; };
     virtual void seek(float time);
-    virtual bool seeking() const;
+    virtual bool seeking() const { return false; }
 
-    virtual void setEndTime(float time);
+    virtual void setEndTime(float time) { }
 
-    virtual void setRate(float);
-    virtual bool paused() const;
+    virtual void setRate(float) { }
+    virtual bool paused() const { return m_paused; }
 
-    virtual void setVolume(float);
+    virtual void setVolume(float) { }
 
-    virtual MediaPlayer::NetworkState networkState() const;
-    virtual MediaPlayer::ReadyState readyState() const;
+    virtual MediaPlayer::NetworkState networkState() const { return m_networkState; }
+    virtual MediaPlayer::ReadyState readyState() const { return m_readyState; }
 
-    virtual float maxTimeSeekable() const;
-    virtual PassRefPtr<TimeRanges> buffered() const;
+    virtual float maxTimeSeekable() const { return 0; }
+    virtual PassRefPtr<TimeRanges> buffered() const { return TimeRanges::create(); }
 
-    virtual int dataRate() const;
+    virtual int dataRate() const { return 0; }
 
     virtual bool totalBytesKnown() const { return totalBytes() > 0; }
-    virtual unsigned totalBytes() const;
-    virtual unsigned bytesLoaded() const;
+    virtual unsigned totalBytes() const { return 0; }
+    virtual unsigned bytesLoaded() const { return 0; }
 
-    virtual void setSize(const IntSize&);
+    virtual void setSize(const IntSize&) { }
 
-    virtual bool canLoadPoster() const { return true; }
-    virtual void setPoster(const String&);
+    virtual bool canLoadPoster() const { return false; }
+    virtual void setPoster(const String&) { }
     virtual void prepareToPlay();
 
-    virtual void paint(GraphicsContext*, const IntRect&);
+    virtual void paint(GraphicsContext*, const IntRect&) { }
 
-    void onPrepared(int duration, int width, int height);
+    virtual void onPrepared(int duration, int width, int height) { }
     void onEnded();
-    void onPosterFetched(SkBitmap*);
+    virtual void onPosterFetched(SkBitmap*) { }
+    void onBuffering(int percent);
     void onTimeupdate(int position);
-private:
+protected:
     // Android-specific methods and fields.
     static MediaPlayerPrivateInterface* create(MediaPlayer* player);
-    static void getSupportedTypes(HashSet<String>&);
+    static void getSupportedTypes(HashSet<String>&) { }
     static MediaPlayer::SupportsType supportsType(const String& type, const String& codecs);
 
     MediaPlayerPrivate(MediaPlayer *);
-    void createJavaPlayerIfNeeded();
+    virtual void createJavaPlayerIfNeeded() { }
 
     MediaPlayer* m_player;
     String m_url;

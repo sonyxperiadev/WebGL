@@ -29,6 +29,7 @@
 #include "RenderSkinAndroid.h"
 #include "RenderSkinButton.h"
 #include "RenderSkinCombo.h"
+#include "RenderSkinMediaButton.h"
 #include "RenderSkinRadio.h"
 #include "SkImageDecoder.h"
 
@@ -45,7 +46,8 @@ RenderSkinAndroid::RenderSkinAndroid()
 void RenderSkinAndroid::Init(android::AssetManager* am, String drawableDirectory)
 {
     RenderSkinButton::Init(am, drawableDirectory);
-    RenderSkinCombo::Init(am);
+    RenderSkinCombo::Init(am, drawableDirectory);
+    RenderSkinMediaButton::Init(am, drawableDirectory);
     RenderSkinRadio::Init(am, drawableDirectory);
 }
 

@@ -34,11 +34,16 @@
 #include "HTMLSelectElement.h"
 #include "Node.h"
 #include "PlatformGraphicsContext.h"
+#if ENABLE(VIDEO)
+#include "RenderMediaControls.h"
+#endif
 #include "RenderSkinAndroid.h"
 #include "RenderSkinButton.h"
 #include "RenderSkinCombo.h"
+#include "RenderSkinMediaButton.h"
 #include "RenderSkinRadio.h"
 #include "SkCanvas.h"
+#include "UserAgentStyleSheets.h"
 
 namespace WebCore {
 
@@ -224,6 +229,95 @@ bool RenderThemeAndroid::paintButton(RenderObject* obj, const RenderObject::Pain
     // We always return false so we do not request to be redrawn.
     return false;
 }
+
+#if ENABLE(VIDEO)
+
+String RenderThemeAndroid::extraMediaControlsStyleSheet()
+{
+      return String(mediaControlsAndroidUserAgentStyleSheet, sizeof(mediaControlsAndroidUserAgentStyleSheet));
+}
+
+bool RenderThemeAndroid::shouldRenderMediaControlPart(ControlPart part, Element* e)
+{
+      HTMLMediaElement* mediaElement = static_cast<HTMLMediaElement*>(e);
+      switch (part) {
+      case MediaMuteButtonPart:
+          return false;
+      case MediaSeekBackButtonPart:
+      case MediaSeekForwardButtonPart:
+          return true;
+      case MediaRewindButtonPart:
+          return mediaElement->movieLoadType() != MediaPlayer::LiveStream;
+      case MediaReturnToRealtimeButtonPart:
+          return mediaElement->movieLoadType() == MediaPlayer::LiveStream;
+      case MediaFullscreenButtonPart:
+          return mediaElement->supportsFullscreen();
+      case MediaToggleClosedCaptionsButtonPart:
+          return mediaElement->hasClosedCaptions();
+      default:
+          return true;
+      }
+}
+
+bool RenderThemeAndroid::paintMediaMuteButton(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& rect)
+{
+      RenderSkinMediaButton::Draw(getCanvasFromInfo(paintInfo), rect, RenderSkinMediaButton::MUTE);
+      return false;
+}
+
+bool RenderThemeAndroid::paintMediaPlayButton(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& rect)
+{
+      if (MediaControlPlayButtonElement* btn = static_cast<MediaControlPlayButtonElement*>(o->node())) {
+          if (btn->displayType() == MediaPlayButton)
+              RenderSkinMediaButton::Draw(getCanvasFromInfo(paintInfo), rect, RenderSkinMediaButton::PLAY);
+          else
+              RenderSkinMediaButton::Draw(getCanvasFromInfo(paintInfo), rect, RenderSkinMediaButton::PAUSE);
+          return false;
+      }
+      return true;
+}
+
+bool RenderThemeAndroid::paintMediaSeekBackButton(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& rect)
+{
+      RenderSkinMediaButton::Draw(getCanvasFromInfo(paintInfo), rect, RenderSkinMediaButton::REWIND);
+      return false;
+}
+
+bool RenderThemeAndroid::paintMediaSeekForwardButton(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& rect)
+{
+      RenderSkinMediaButton::Draw(getCanvasFromInfo(paintInfo), rect, RenderSkinMediaButton::FORWARD);
+      return false;
+}
+
+bool RenderThemeAndroid::paintMediaControlsBackground(RenderObject* object, const RenderObject::PaintInfo& paintInfo, const IntRect& rect)
+{
+      RenderSkinMediaButton::Draw(getCanvasFromInfo(paintInfo), rect, RenderSkinMediaButton::BACKGROUND_SLIDER);
+      return false;
+}
+
+bool RenderThemeAndroid::paintMediaSliderTrack(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& rect)
+{
+      RenderSkinMediaButton::Draw(getCanvasFromInfo(paintInfo), rect, RenderSkinMediaButton::SLIDER_TRACK);
+      return false;
+}
+
+bool RenderThemeAndroid::paintMediaSliderThumb(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& rect)
+{
+      RenderSkinMediaButton::Draw(getCanvasFromInfo(paintInfo), rect, RenderSkinMediaButton::SLIDER_THUMB);
+      return false;
+}
+
+void RenderThemeAndroid::adjustSliderThumbSize(RenderObject* o) const
+{
+    static const int sliderThumbWidth = RenderSkinMediaButton::sliderThumbWidth();
+    static const int sliderThumbHeight = RenderSkinMediaButton::sliderThumbHeight();
+    if (o->style()->appearance() == MediaSliderThumbPart) {
+        o->style()->setWidth(Length(sliderThumbWidth, Fixed));
+        o->style()->setHeight(Length(sliderThumbHeight, Fixed));
+    }
+}
+
+#endif
 
 bool RenderThemeAndroid::paintRadio(RenderObject* obj, const RenderObject::PaintInfo& info, const IntRect& rect)
 {

@@ -31,6 +31,7 @@ LOCAL_SRC_FILES := \
 	android/RenderSkinAndroid.cpp \
 	android/RenderSkinButton.cpp \
 	android/RenderSkinCombo.cpp \
+	android/RenderSkinMediaButton.cpp \
 	android/RenderSkinRadio.cpp \
 	android/TimeCounter.cpp \
 	\
