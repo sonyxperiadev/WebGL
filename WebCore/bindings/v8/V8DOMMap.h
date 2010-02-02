@@ -138,15 +138,6 @@ namespace WebCore {
     template <class KeyType> class DOMWrapperMap : public WeakReferenceMap<KeyType, v8::Object> {
     public:
         DOMWrapperMap(v8::WeakReferenceCallback callback) : WeakReferenceMap<KeyType, v8::Object>(callback) { }
-<<<<<<< HEAD
-
-        class Visitor {
-        public:
-          virtual void visitDOMWrapper(KeyType* key, v8::Persistent<v8::Object> object) = 0;
-          virtual ~Visitor() { }
-        };
-=======
->>>>>>> webkit.org at r54127
     };
 
     // An opaque class that represents a set of DOM wrappers.
