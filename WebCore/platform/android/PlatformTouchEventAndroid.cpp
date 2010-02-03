@@ -30,12 +30,14 @@
 
 namespace WebCore {
 
-PlatformTouchEvent::PlatformTouchEvent(const IntPoint& windowPos, TouchEventType type, PlatformTouchPoint::State state)
+// TODO (benm): eventTime is new and needs to be upstream
+PlatformTouchEvent::PlatformTouchEvent(const IntPoint& windowPos, TouchEventType type, PlatformTouchPoint::State state, long eventTime)
     : m_type(type)
     , m_ctrlKey(false)
     , m_altKey(false)
     , m_shiftKey(false)
     , m_metaKey(false)
+    , m_eventTime(eventTime)
 {
     m_touchPoints.append(PlatformTouchPoint(windowPos, state));
 }

@@ -185,7 +185,7 @@ void PluginView::handleTouchEvent(TouchEvent* event)
         return;
 
     ANPEvent evt;
-    SkANP::InitEvent(&evt, kTouch_ANPEventType);
+    SkANP::InitEvent(&evt, kTouch_ANPEventType, event->timeStamp());
 
     bool ignoreRet = false;
     const AtomicString& type = event->type();
@@ -247,7 +247,7 @@ void PluginView::handleMouseEvent(MouseEvent* event)
     ANPEvent    evt;
 
     if (isUp || isDown) {
-        SkANP::InitEvent(&evt, kMouse_ANPEventType);
+        SkANP::InitEvent(&evt, kMouse_ANPEventType, event->timeStamp());
         evt.data.mouse.action = isUp ? kUp_ANPMouseAction : kDown_ANPMouseAction;
 
         // Convert to coordinates that are relative to the plugin.
@@ -309,7 +309,7 @@ void PluginView::handleKeyboardEvent(KeyboardEvent* event)
     bool ignoreEvent = false;
 
     ANPEvent evt;
-    SkANP::InitEvent(&evt, kKey_ANPEventType);
+    SkANP::InitEvent(&evt, kKey_ANPEventType, event->timeStamp());
 
     switch (pke->type()) {
         case PlatformKeyboardEvent::KeyDown:

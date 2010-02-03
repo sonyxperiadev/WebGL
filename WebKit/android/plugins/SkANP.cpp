@@ -26,6 +26,7 @@
 // must include config.h first for webkit to fiddle with new/delete
 #include "config.h"
 #include "SkANP.h"
+#include <wtf/CurrentTime.h>
 
 SkRect* SkANP::SetRect(SkRect* dst, const ANPRectF& src) {
     dst->set(SkFloatToScalar(src.left),
@@ -102,4 +103,11 @@ bool SkANP::SetBitmap(ANPBitmap* dst, const SkBitmap& src) {
 void SkANP::InitEvent(ANPEvent* event, ANPEventType et) {
     event->inSize = sizeof(ANPEvent);
     event->eventType = et;
+    event->timeStamp = currentTime() * 1000.0;
+}
+
+void SkANP::InitEvent(ANPEvent* event, ANPEventType et, long time) {
+    event->inSize = sizeof(ANPEvent);
+    event->eventType = et;
+    event->timeStamp = time;
 }

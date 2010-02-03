@@ -60,7 +60,8 @@ public:
 #if PLATFORM(QT)
     PlatformTouchEvent(QTouchEvent*);
 #elif PLATFORM(ANDROID)
-    PlatformTouchEvent(const IntPoint& windowPos, TouchEventType, PlatformTouchPoint::State);
+    // TODO (benm): eventTime is new and needs to be upstream
+    PlatformTouchEvent(const IntPoint& windowPos, TouchEventType, PlatformTouchPoint::State, long eventTime);
 #endif
 
     TouchEventType type() const { return m_type; }
@@ -71,6 +72,8 @@ public:
     bool shiftKey() const { return m_shiftKey; }
     bool metaKey() const { return m_metaKey; }
 
+    long eventTime() const { return m_eventTime; }
+
 private:
     TouchEventType m_type;
     Vector<PlatformTouchPoint> m_touchPoints;
@@ -78,6 +81,7 @@ private:
     bool m_altKey;
     bool m_shiftKey;
     bool m_metaKey;
+    long m_eventTime;
 };
 
 }

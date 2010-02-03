@@ -2662,7 +2662,9 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
                                                    m_firstTouchPagePos.x(), m_firstTouchPagePos.y(),
                                                    event.ctrlKey(), event.altKey(), event.shiftKey(),
                                                    event.metaKey());
-
+#if PLATFORM(ANDROID)
+        cancelEv->setCreateTime(static_cast<DOMTimeStamp>(event.eventTime()));
+#endif
         ExceptionCode ec = 0;
         m_touchEventTarget->dispatchEvent(cancelEv.get(), ec);
         defaultPrevented |= cancelEv->defaultPrevented();
@@ -2677,6 +2679,9 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
                                                    m_firstTouchPagePos.x(), m_firstTouchPagePos.y(),
                                                    event.ctrlKey(), event.altKey(), event.shiftKey(),
                                                    event.metaKey());
+#if PLATFORM(ANDROID)
+        endEv->setCreateTime(static_cast<DOMTimeStamp>(event.eventTime()));
+#endif
         ExceptionCode ec = 0;
         m_touchEventTarget->dispatchEvent(endEv.get(), ec);
 #if PLATFORM(ANDROID)
@@ -2703,6 +2708,7 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
                                                        m_firstTouchPagePos.x(), m_firstTouchPagePos.y(),
                                                        event.ctrlKey(), event.altKey(), event.shiftKey(),
                                                        event.metaKey());
+            longpressEv->setCreateTime(static_cast<DOMTimeStamp>(event.eventTime()));
 
             ExceptionCode ec = 0;
             m_touchEventTarget->dispatchEvent(longpressEv.get(), ec);
@@ -2716,6 +2722,7 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
                                                        m_firstTouchPagePos.x(), m_firstTouchPagePos.y(),
                                                        event.ctrlKey(), event.altKey(), event.shiftKey(),
                                                        event.metaKey());
+            doubleTapEv->setCreateTime(static_cast<DOMTimeStamp>(event.eventTime()));
 
             ExceptionCode ec = 0;
             m_touchEventTarget->dispatchEvent(doubleTapEv.get(), ec);
@@ -2730,6 +2737,9 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
                                                        m_firstTouchPagePos.x(), m_firstTouchPagePos.y(),
                                                        event.ctrlKey(), event.altKey(), event.shiftKey(),
                                                        event.metaKey());
+#if PLATFORM(ANDROID)
+            startEv->setCreateTime(static_cast<DOMTimeStamp>(event.eventTime()));
+#endif
             ExceptionCode ec = 0;
             m_touchEventTarget->dispatchEvent(startEv.get(), ec);
             defaultPrevented |= startEv->defaultPrevented();
@@ -2749,6 +2759,9 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
                                                    m_firstTouchPagePos.x(), m_firstTouchPagePos.y(),
                                                    event.ctrlKey(), event.altKey(), event.shiftKey(),
                                                    event.metaKey());
+#if PLATFORM(ANDROID)
+        moveEv->setCreateTime(static_cast<DOMTimeStamp>(event.eventTime()));
+#endif
         ExceptionCode ec = 0;
         m_touchEventTarget->dispatchEvent(moveEv.get(), ec);
         defaultPrevented |= moveEv->defaultPrevented();

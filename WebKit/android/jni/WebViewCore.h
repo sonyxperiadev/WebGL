@@ -282,7 +282,7 @@ namespace android {
         /**
          * Handle touch event
          */
-        int handleTouchEvent(int action, int x, int y);
+        int handleTouchEvent(int action, int x, int y, long time);
 
         /**
          * Handle motionUp event from the UI thread (called touchUp in the
