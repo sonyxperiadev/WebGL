@@ -2654,13 +2654,10 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
                                                    m_firstTouchPagePos.x(), m_firstTouchPagePos.y(),
                                                    event.ctrlKey(), event.altKey(), event.shiftKey(),
                                                    event.metaKey());
-<<<<<<< HEAD
+
 #if PLATFORM(ANDROID)
         cancelEv->setCreateTime(static_cast<DOMTimeStamp>(event.eventTime()));
 #endif
-=======
-
->>>>>>> webkit.org at r54127
         ExceptionCode ec = 0;
         m_touchEventTarget->dispatchEvent(cancelEv.get(), ec);
         defaultPrevented |= cancelEv->defaultPrevented();
@@ -2675,12 +2672,9 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
                                                    m_firstTouchPagePos.x(), m_firstTouchPagePos.y(),
                                                    event.ctrlKey(), event.altKey(), event.shiftKey(),
                                                    event.metaKey());
-<<<<<<< HEAD
 #if PLATFORM(ANDROID)
         endEv->setCreateTime(static_cast<DOMTimeStamp>(event.eventTime()));
 #endif
-=======
->>>>>>> webkit.org at r54127
         ExceptionCode ec = 0;
         m_touchEventTarget->dispatchEvent(endEv.get(), ec);
 #if PLATFORM(ANDROID)
@@ -2758,12 +2752,9 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
                                                    m_firstTouchPagePos.x(), m_firstTouchPagePos.y(),
                                                    event.ctrlKey(), event.altKey(), event.shiftKey(),
                                                    event.metaKey());
-<<<<<<< HEAD
 #if PLATFORM(ANDROID)
         moveEv->setCreateTime(static_cast<DOMTimeStamp>(event.eventTime()));
 #endif
-=======
->>>>>>> webkit.org at r54127
         ExceptionCode ec = 0;
         m_touchEventTarget->dispatchEvent(moveEv.get(), ec);
         defaultPrevented |= moveEv->defaultPrevented();
