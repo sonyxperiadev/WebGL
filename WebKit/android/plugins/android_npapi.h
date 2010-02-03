@@ -893,6 +893,7 @@ typedef uint32_t ANPLifecycleAction;
 /* This is what is passed to NPP_HandleEvent() */
 struct ANPEvent {
     uint32_t        inSize;  // size of this struct in bytes
+    uint32_t        timeStamp;
     ANPEventType    eventType;
     // use based on the value in eventType
     union {
