@@ -41,10 +41,11 @@ namespace WebCore {
         {
         }
 
-        PlatformTouchEvent(const IntPoint& pos, const IntPoint& globalPos, TouchEventType eventType)
+        PlatformTouchEvent(const IntPoint& pos, const IntPoint& globalPos, TouchEventType eventType, long eventTime)
             : m_position(pos)
             , m_globalPosition(globalPos)
             , m_eventType(eventType)
+            , m_eventTime(eventTime)
         {
         }
 
@@ -54,11 +55,13 @@ namespace WebCore {
         int globalX() const { return m_globalPosition.x(); }
         int globalY() const { return m_globalPosition.y(); }
         TouchEventType eventType() const { return m_eventType; }
+        long eventTime() const { return m_eventTime; }
 
     private:
         IntPoint m_position;
         IntPoint m_globalPosition;
         TouchEventType m_eventType;
+        long m_eventTime;
     };
 
 } // namespace WebCore

@@ -2659,6 +2659,7 @@ int EventHandler::handleTouchEvent(const PlatformTouchEvent& e)
         default:
             return false;
     }
+    te->setCreateTime(static_cast<DOMTimeStamp>(e.eventTime()));
     ExceptionCode ec = 0;
     m_touch->target()->dispatchEvent(te.get(), ec);
     if (type == TouchEventEnd || type == TouchEventCancel)

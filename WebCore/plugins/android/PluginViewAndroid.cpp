@@ -183,7 +183,7 @@ void PluginView::handleTouchEvent(TouchEvent* event)
         return;
 
     ANPEvent evt;
-    SkANP::InitEvent(&evt, kTouch_ANPEventType);
+    SkANP::InitEvent(&evt, kTouch_ANPEventType, event->timeStamp());
 
     bool ignoreRet = false;
     const AtomicString& type = event->type();
