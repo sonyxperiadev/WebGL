@@ -40,13 +40,10 @@ TouchEvent::TouchEvent(TouchList* touches, TouchList* targetTouches,
     , m_touches(touches)
     , m_targetTouches(targetTouches)
     , m_changedTouches(changedTouches)
-<<<<<<< HEAD
 #if PLATFORM(ANDROID)
     , m_longPressPrevented(false)
     , m_doubleTapPrevented(false)
 #endif
-=======
->>>>>>> webkit.org at r54127
 {
 }
 

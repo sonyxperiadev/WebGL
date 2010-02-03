@@ -42,13 +42,10 @@ enum TouchEventType {
     , TouchMove
     , TouchEnd
     , TouchCancel
-<<<<<<< HEAD
 #if PLATFORM(ANDROID)
     , TouchLongPress
     , TouchDoubleTap
 #endif
-=======
->>>>>>> webkit.org at r54127
 };
 
 class PlatformTouchEvent {

@@ -2598,20 +2598,12 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
         int adjustedPageX = lroundf(pagePoint.x() / m_frame->pageZoomFactor());
         int adjustedPageY = lroundf(pagePoint.y() / m_frame->pageZoomFactor());
 
-<<<<<<< HEAD
         if ((event.type() == TouchStart
 #if PLATFORM(ANDROID)
             || event.type() == TouchDoubleTap
             || event.type() == TouchLongPress
 #endif
             ) && !i) {
-=======
-        RefPtr<Touch> touch = Touch::create(doc->frame(), target, point.id(),
-                                            point.screenPos().x(), point.screenPos().y(),
-                                            adjustedPageX, adjustedPageY);
-
-        if (event.type() == TouchStart && !i) {
->>>>>>> webkit.org at r54127
             m_touchEventTarget = target;
             m_firstTouchScreenPos = point.screenPos();
             m_firstTouchPagePos = pagePoint;
@@ -2651,7 +2643,6 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
         return false;
 #endif
 
-<<<<<<< HEAD
     bool defaultPrevented = false;
 #if PLATFORM(ANDROID)
     // TODO (benm): We should be able to remove this prior to upstreaming once Java side refactorings to make
@@ -2659,9 +2650,6 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
     bool longPressPrevented = false;
     bool doubleTapPrevented = false;
 #endif
-=======
-    bool defaultPrevented = false;
->>>>>>> webkit.org at r54127
 
     if (event.type() == TouchCancel) {
         eventName = &eventNames().touchcancelEvent;
@@ -2697,6 +2685,8 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
 #if PLATFORM(ANDROID)
         endEv->setCreateTime(static_cast<DOMTimeStamp>(event.eventTime()));
 #endif
+=======
+>>>>>>> webkit.org at r54127
         ExceptionCode ec = 0;
         m_touchEventTarget->dispatchEvent(endEv.get(), ec);
 #if PLATFORM(ANDROID)
@@ -2704,11 +2694,6 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
 #else
         defaultPrevented = endEv->defaultPrevented();
 #endif
-=======
-        ExceptionCode ec = 0;
-        m_touchEventTarget->dispatchEvent(endEv.get(), ec);
-        defaultPrevented = endEv->defaultPrevented();
->>>>>>> webkit.org at r54127
     }
     if (pressedTouches->length() > 0) {
         // Add pressed touchpoints to touches and targetTouches
@@ -2718,7 +2703,6 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
                 targetTouches->append(pressedTouches->item(i));
         }
 
-<<<<<<< HEAD
 #if PLATFORM(ANDROID)
         if (event.type() == TouchLongPress) {
             eventName = &eventNames().touchlongpressEvent;
@@ -2771,20 +2755,6 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
 #endif
     }
 
-=======
-        eventName = &eventNames().touchstartEvent;
-        RefPtr<TouchEvent> startEv = 
-            TouchEvent::create(touches.get(), targetTouches.get(), pressedTouches.get(),
-                                                   *eventName, m_touchEventTarget->document()->defaultView(),
-                                                   m_firstTouchScreenPos.x(), m_firstTouchScreenPos.y(),
-                                                   m_firstTouchPagePos.x(), m_firstTouchPagePos.y(),
-                                                   event.ctrlKey(), event.altKey(), event.shiftKey(),
-                                                   event.metaKey());
-        ExceptionCode ec = 0;
-        m_touchEventTarget->dispatchEvent(startEv.get(), ec);
-        defaultPrevented |= startEv->defaultPrevented();
-    }
->>>>>>> webkit.org at r54127
     if (movedTouches->length() > 0) {
         eventName = &eventNames().touchmoveEvent;
         RefPtr<TouchEvent> moveEv = 
@@ -2808,7 +2778,6 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
     if (event.type() == TouchEnd || event.type() == TouchCancel)
         m_touchEventTarget = 0;
 
-<<<<<<< HEAD
 #if PLATFORM(ANDROID)
     // TODO (benm): We should be able to remove this prior to upstreaming  once Java side refactorings to make
     // preventDefault work better are complete.
@@ -2821,9 +2790,6 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
 #else
     return defaultPrevented;
 #endif
-=======
-    return defaultPrevented;
->>>>>>> webkit.org at r54127
 }
 #endif
 
