@@ -1099,6 +1099,8 @@
 		59B597731108656B007159E8 /* BridgeJSC.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 59B597721108656B007159E8 /* BridgeJSC.cpp */; };
 		59B5977511086579007159E8 /* BridgeJSC.h in Headers */ = {isa = PBXBuildFile; fileRef = 59B5977411086579007159E8 /* BridgeJSC.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		59BC393F11054A1300FD85DB /* JavaStringJSC.h in Headers */ = {isa = PBXBuildFile; fileRef = 59BC393E11054A1300FD85DB /* JavaStringJSC.h */; };
+		59BD83BA11199B9000E1B6A9 /* GeolocationPositionCache.h in Headers */ = {isa = PBXBuildFile; fileRef = 59BD83B911199B9000E1B6A9 /* GeolocationPositionCache.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		59BD83BC11199B9C00E1B6A9 /* GeolocationPositionCache.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 59BD83BB11199B9C00E1B6A9 /* GeolocationPositionCache.cpp */; };
 		59C77F2A10545B3B00506104 /* GeolocationServiceMock.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 59C77F2810545B3B00506104 /* GeolocationServiceMock.cpp */; };
 		59C77F2B10545B3B00506104 /* GeolocationServiceMock.h in Headers */ = {isa = PBXBuildFile; fileRef = 59C77F2910545B3B00506104 /* GeolocationServiceMock.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		59E560A71105336600AA1258 /* JavaClassJSC.h in Headers */ = {isa = PBXBuildFile; fileRef = 59E560A61105336600AA1258 /* JavaClassJSC.h */; };
@@ -6432,6 +6434,8 @@
 		59B597721108656B007159E8 /* BridgeJSC.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = BridgeJSC.cpp; path = bridge/jsc/BridgeJSC.cpp; sourceTree = "<group>"; };
 		59B5977411086579007159E8 /* BridgeJSC.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = BridgeJSC.h; path = bridge/jsc/BridgeJSC.h; sourceTree = "<group>"; };
 		59BC393E11054A1300FD85DB /* JavaStringJSC.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = JavaStringJSC.h; path = jsc/JavaStringJSC.h; sourceTree = "<group>"; };
+		59BD83B911199B9000E1B6A9 /* GeolocationPositionCache.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = GeolocationPositionCache.h; sourceTree = "<group>"; };
+		59BD83BB11199B9C00E1B6A9 /* GeolocationPositionCache.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = GeolocationPositionCache.cpp; sourceTree = "<group>"; };
 		59C77F2810545B3B00506104 /* GeolocationServiceMock.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = GeolocationServiceMock.cpp; path = mock/GeolocationServiceMock.cpp; sourceTree = "<group>"; };
 		59C77F2910545B3B00506104 /* GeolocationServiceMock.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = GeolocationServiceMock.h; path = mock/GeolocationServiceMock.h; sourceTree = "<group>"; };
 		59E560A61105336600AA1258 /* JavaClassJSC.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = JavaClassJSC.h; path = jsc/JavaClassJSC.h; sourceTree = "<group>"; };
@@ -11256,6 +11260,8 @@
 		65BF02180974806300C43196 /* page */ = {
 			isa = PBXGroup;
 			children = (
+				59BD83BB11199B9C00E1B6A9 /* GeolocationPositionCache.cpp */,
+				59BD83B911199B9000E1B6A9 /* GeolocationPositionCache.h */,
 				316FE1060E6E1D8400BF6088 /* animation */,
 				93C09A820B064F05005ABD4D /* mac */,
 				8538F0000AD71770006A81D1 /* AbstractView.idl */,
@@ -18288,6 +18294,7 @@
 				5913953B110758450083EC55 /* JNIBridge.h in Headers */,
 				59E842661109E5A2000305AD /* JNIBridgeJSC.h in Headers */,
 				59B5977511086579007159E8 /* BridgeJSC.h in Headers */,
+				59BD83BA11199B9000E1B6A9 /* GeolocationPositionCache.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -20447,6 +20454,7 @@
 				5913953D1107584E0083EC55 /* JNIBridge.cpp in Sources */,
 				59E842681109E5AE000305AD /* JNIBridgeJSC.cpp in Sources */,
 				59B597731108656B007159E8 /* BridgeJSC.cpp in Sources */,
+				59BD83BC11199B9C00E1B6A9 /* GeolocationPositionCache.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
