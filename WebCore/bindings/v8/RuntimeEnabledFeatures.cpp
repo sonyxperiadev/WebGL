@@ -33,10 +33,16 @@
 
 namespace WebCore {
 
-bool RuntimeEnabledFeatures::isDatabaseEnabled = false;
+#if PLATFORM(ANDROID)
+// This should default to true, to match the behavior with JSC
+bool RuntimeEnabledFeatures::isDatabaseEnabled = true;
+#endif
 bool RuntimeEnabledFeatures::isLocalStorageEnabled = true;
 bool RuntimeEnabledFeatures::isSessionStorageEnabled = true;
-bool RuntimeEnabledFeatures::isNotificationsEnabled = false;
-bool RuntimeEnabledFeatures::isApplicationCacheEnabled = false;
+#if PLATFORM(ANDROID)
+// These should default to true, to match the behavior with JSC
+bool RuntimeEnabledFeatures::isNotificationsEnabled = true;
+bool RuntimeEnabledFeatures::isApplicationCacheEnabled = true;
+#endif
 
 } // namespace WebCore
