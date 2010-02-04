@@ -1308,8 +1308,8 @@ static void AddJavascriptInterface(JNIEnv *env, jobject obj, jint nativeFramePoi
         PassRefPtr<JavaInstance> addedObject = WeakJavaInstance::create(javascriptObj);
         const char* name = getCharactersFromJStringInEnv(env, interfaceName);
         // Pass ownership of the added object to bindToWindowObject.
-        NPObject* obj = JavaInstanceToNPObject(addedObject.releaseRef());
-        pFrame->script()->bindToWindowObject(pFrame, name, obj);
+        NPObject* npObject = JavaInstanceToNPObject(addedObject.releaseRef());
+        pFrame->script()->bindToWindowObject(pFrame, name, npObject);
         // bindToWindowObject calls NPN_RetainObject on the
         // returned one (see createV8ObjectForNPObject in V8NPObject.cpp).
         // bindToWindowObject also increases obj's ref count and decreases
@@ -1321,7 +1321,7 @@ static void AddJavascriptInterface(JNIEnv *env, jobject obj, jint nativeFramePoi
         // we use WebCore/bindings/v8/npruntime.cpp (rather than
         // WebCore/bridge/npruntime.cpp), so the function is implemented there.
         // TODO: Combine the two versions of these NPAPI files.
-        NPN_ReleaseObject(obj);
+        NPN_ReleaseObject(npObject);
         releaseCharactersForJString(interfaceName, name);
     }
 #endif
