@@ -103,11 +103,8 @@ LOCAL_SRC_FILES += \
 	bindings/v8/custom/V8CSSStyleSheetCustom.cpp \
 	bindings/v8/custom/V8CSSValueCustom.cpp \
 	bindings/v8/custom/V8CanvasRenderingContext2DCustom.cpp \
-<<<<<<< HEAD
-=======
 	bindings/v8/custom/V8CanvasPixelArrayCustom.cpp \
 	bindings/v8/custom/V8ClientRectListCustom.cpp \
->>>>>>> webkit.org at r54340
 	bindings/v8/custom/V8ClipboardCustom.cpp \
 	bindings/v8/custom/V8ConsoleCustom.cpp \
 	bindings/v8/custom/V8CoordinatesCustom.cpp \
@@ -162,11 +159,8 @@ LOCAL_SRC_FILES += \
 	bindings/v8/custom/V8NodeFilterCustom.cpp \
 	bindings/v8/custom/V8NodeIteratorCustom.cpp \
 	bindings/v8/custom/V8NodeListCustom.cpp \
-<<<<<<< HEAD
 	bindings/v8/custom/V8PopStateEventCustom.cpp \
-=======
 	bindings/v8/custom/V8ScreenCustom.cpp \
->>>>>>> webkit.org at r54340
 	bindings/v8/custom/V8SQLResultSetRowListCustom.cpp \
 	bindings/v8/custom/V8SQLTransactionCustom.cpp \
 	bindings/v8/custom/V8WebSocketCustom.cpp
@@ -177,8 +171,8 @@ LOCAL_SRC_FILES += \
 	bindings/v8/custom/V8SVGElementCustom.cpp \
 	bindings/v8/custom/V8SVGElementInstanceCustom.cpp \
 	bindings/v8/custom/V8SVGLengthCustom.cpp \
-	bindings/v8/custom/V8SVGMatrixCustom.cpp
-	bindings/v8/custom/V8SVGPathSegCustom.cpp \
+	bindings/v8/custom/V8SVGMatrixCustom.cpp \
+	bindings/v8/custom/V8SVGPathSegCustom.cpp
 endif
 
 LOCAL_SRC_FILES += \
@@ -204,8 +198,4 @@ LOCAL_SRC_FILES += \
 	bridge/jni/v8/JNIUtilityPrivate.cpp \
 	bridge/jni/v8/JavaClassV8.cpp \
 	bridge/jni/v8/JavaInstanceV8.cpp \
-<<<<<<< HEAD
 	bridge/jni/v8/JavaNPObjectV8.cpp
-=======
-	bridge/jni/v8/JavaNPObject.cpp
->>>>>>> webkit.org at r54340

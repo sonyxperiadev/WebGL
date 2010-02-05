@@ -1,5 +1,3 @@
-<<<<<<< HEAD
-=======
 2010-02-04  Holger Hans Peter Freyther  <zecke@selfish.org>
 
         Reviewed by Xan Lopez.
@@ -1309,7 +1307,6 @@
         (WebCore::IntPoint::IntPoint):
         (WebCore::IntPoint::operator AEEPoint):
 
->>>>>>> webkit.org at r54340
 2010-02-02  Steve Block  <steveblock@google.com>
 
         Reviewed by Adam Barth.
@@ -1323,8 +1320,6 @@
         (WebCore::AbstractWeakReferenceMap::~AbstractWeakReferenceMap): Added.
         (WebCore::AbstractWeakReferenceMap::Visitor::~Visitor): Added.
 
-<<<<<<< HEAD
-=======
 2010-02-02  Avi Drissman  <avi@chromium.org>
 
         Reviewed by Eric Seidel.
@@ -2277,7 +2272,6 @@
         (WebCore::RenderMathMLBlock::paint):
         * mathml/RenderMathMLBlock.h:
 
->>>>>>> webkit.org at r54340
 2010-02-01  Philippe Normand  <pnormand@igalia.com>
 
         Rubber stamped by Xan Lopez.

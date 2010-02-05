@@ -46,14 +46,12 @@
 #include "V8IsolatedContext.h"
 #include "V8Node.h"
 #include "V8Proxy.h"
-<<<<<<< HEAD
+#include "V8SVGDocument.h"
+#include "V8WebGLRenderingContext.h"
+
 // ANDROID
 // TODO: Upstream to webkit.org
 #if ENABLE(XPATH)
-=======
-#include "V8SVGDocument.h"
-#include "V8WebGLRenderingContext.h"
->>>>>>> webkit.org at r54340
 #include "V8XPathNSResolver.h"
 #include "V8XPathResult.h"
 #endif

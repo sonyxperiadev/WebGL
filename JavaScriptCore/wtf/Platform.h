@@ -929,13 +929,9 @@ on MinGW. See https://bugs.webkit.org/show_bug.cgi?id=29268 */
 #if (CPU(X86) && PLATFORM(MAC)) \
     || (CPU(X86_64) && PLATFORM(MAC)) \
     || (CPU(ARM_THUMB2) && PLATFORM(IPHONE)) \
-<<<<<<< HEAD
     || (CPU(ARM_THUMB2) && PLATFORM(ANDROID) && ENABLE(ANDROID_JSC_JIT)) \
-    || (CPU(X86) && PLATFORM(WIN))
-=======
     || (CPU(X86) && PLATFORM(WIN)) \
     || (CPU(X86) && PLATFORM(WX))
->>>>>>> webkit.org at r54340
 #define ENABLE_YARR 1
 #define ENABLE_YARR_JIT 1
 #endif

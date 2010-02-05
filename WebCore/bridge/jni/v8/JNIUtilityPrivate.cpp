@@ -134,15 +134,9 @@ jvalue convertNPVariantToJValue(NPVariant value, JNIType jniType, const char* ja
     case float_type:
         {
             if (type == NPVariantType_Int32)
-<<<<<<< HEAD
                 result.f = static_cast<jfloat>(NPVARIANT_TO_INT32(value));
             else if (type == NPVariantType_Double)
                 result.f = static_cast<jfloat>(NPVARIANT_TO_DOUBLE(value));
-=======
-                result.j = static_cast<jfloat>(NPVARIANT_TO_INT32(value));
-            else if (type == NPVariantType_Double)
-                result.j = static_cast<jfloat>(NPVARIANT_TO_DOUBLE(value));
->>>>>>> webkit.org at r54340
             else
                 bzero(&result, sizeof(jvalue));
         }
@@ -151,15 +145,9 @@ jvalue convertNPVariantToJValue(NPVariant value, JNIType jniType, const char* ja
     case double_type:
         {
             if (type == NPVariantType_Int32)
-<<<<<<< HEAD
                 result.d = static_cast<jdouble>(NPVARIANT_TO_INT32(value));
             else if (type == NPVariantType_Double)
                 result.d = static_cast<jdouble>(NPVARIANT_TO_DOUBLE(value));
-=======
-                result.j = static_cast<jdouble>(NPVARIANT_TO_INT32(value));
-            else if (type == NPVariantType_Double)
-                result.j = static_cast<jdouble>(NPVARIANT_TO_DOUBLE(value));
->>>>>>> webkit.org at r54340
             else
                 bzero(&result, sizeof(jvalue));
         }

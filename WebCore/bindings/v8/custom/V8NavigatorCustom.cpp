@@ -33,17 +33,13 @@
 
 #include "ExceptionCode.h"
 #include "RuntimeEnabledFeatures.h"
-<<<<<<< HEAD
-#include "V8Binding.h"
-#include "V8Proxy.h"
+#include "V8DOMWindow.h"
+#include "V8DOMWrapper.h"
 
 #if PLATFORM(ANDROID)
 #include "V8CustomApplicationInstalledCallback.h"
+#include "V8Proxy.h"
 #endif
-=======
-#include "V8DOMWindow.h"
-#include "V8DOMWrapper.h"
->>>>>>> webkit.org at r54340
 
 namespace WebCore {
 
@@ -54,7 +50,19 @@ bool V8Navigator::GeolocationEnabled()
 }
 #endif
 
-<<<<<<< HEAD
+v8::Handle<v8::Value> toV8(Navigator* impl)
+{
+    if (!impl)
+        return v8::Null();
+    v8::Handle<v8::Object> wrapper = getDOMObjectMap().get(impl);
+    if (wrapper.IsEmpty()) {
+        wrapper = V8Navigator::wrap(impl);
+        if (!wrapper.IsEmpty())
+            V8DOMWrapper::setHiddenWindowReference(impl->frame(), V8DOMWindow::navigatorIndex, wrapper);
+    }
+    return wrapper;
+}
+
 #if PLATFORM(ANDROID) && ENABLE(APPLICATION_INSTALLED)
 
 static PassRefPtr<ApplicationInstalledCallback> createApplicationInstalledCallback(
@@ -99,19 +107,4 @@ v8::Handle<v8::Value> V8Navigator::isApplicationInstalledCallback(const v8::Argu
 
 #endif // PLATFORM(ANDROID) && ENABLE(APPLICATION_INSTALLED)
 
-=======
-v8::Handle<v8::Value> toV8(Navigator* impl)
-{
-    if (!impl)
-        return v8::Null();
-    v8::Handle<v8::Object> wrapper = getDOMObjectMap().get(impl);
-    if (wrapper.IsEmpty()) {
-        wrapper = V8Navigator::wrap(impl);
-        if (!wrapper.IsEmpty())
-            V8DOMWrapper::setHiddenWindowReference(impl->frame(), V8DOMWindow::navigatorIndex, wrapper);
-    }
-    return wrapper;
-}
-
->>>>>>> webkit.org at r54340
 } // namespace WebCore
