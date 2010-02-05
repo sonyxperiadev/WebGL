@@ -857,7 +857,9 @@ static void CreateFrame(JNIEnv* env, jobject obj, jobject javaview, jobject jAss
     ScriptController::initializeThreading();
 
 #ifdef ANDROID_INSTRUMENT
+#if USE(V8)
     V8Counters::initCounters();
+#endif
     TimeCounterAuto counter(TimeCounter::NativeCallbackTimeCounter);
 #endif
     ChromeClientAndroid*      chromeC = new ChromeClientAndroid;
