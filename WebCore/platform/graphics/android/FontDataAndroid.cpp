@@ -81,30 +81,13 @@ SimpleFontData* SimpleFontData::smallCapsFontData(const FontDescription& fontDes
     return m_smallCapsFontData;
 }
 
-#define kMaxBufferCount     64
-
 bool SimpleFontData::containsCharacters(const UChar* characters, int length) const
 {
     SkPaint     paint;
-    uint16_t    glyphs[kMaxBufferCount];
 
     m_platformData.setupPaint(&paint);
     paint.setTextEncoding(SkPaint::kUTF16_TextEncoding);
-
-    while (length > 0) {
-        int n = SkMin32(length, SK_ARRAY_COUNT(glyphs));
-        
-        int count = paint.textToGlyphs(characters, n << 1, glyphs);
-        for (int i = 0; i < count; i++) {
-            if (0 == glyphs[i]) {
-                return false;       // missing glyph
-            }
-        }
-        
-        characters += n;
-        length -= n;
-    }
-    return true;
+    return paint.containsText(characters, length << 1);
 }
 
 void SimpleFontData::determinePitch()
