@@ -32,6 +32,10 @@
 #include "PositionError.h"
 #include "PositionOptions.h"
 
+#if PLATFORM(ANDROID)
+// Required for sim-eng build
+#include <math.h>
+#endif
 #include <wtf/CurrentTime.h>
 
 using JSC::Bindings::getJNIEnv;
