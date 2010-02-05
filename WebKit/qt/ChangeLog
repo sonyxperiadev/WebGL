@@ -1,3 +1,78 @@
+2010-02-03  Andras Becsi  <abecsi@webkit.org>
+
+        Unreviewed build fix.
+
+        [Qt] Roll-out r54281 because it broke the build on the Qt Release bot.
+
+        * Api/qgraphicswebview.cpp:
+        (QGraphicsWebViewPrivate::QGraphicsWebViewPrivate):
+        (QGraphicsWebViewPrivate::markForSync):
+        (QGraphicsWebViewPrivate::update):
+        (QGraphicsWebView::paint):
+
+2010-02-02  Kenneth Rohde Christiansen  <kenneth@webkit.org>
+
+        Reviewed by Ariya Hidayat.
+
+        Do not use a proxy widget for the QComboBox on Maemo 5, as it
+        is not working properly and it is not needed at all, as the
+        comboboxes comes up in their full width on the screen and
+        do not depend on view.
+
+        * WebCoreSupport/QtFallbackWebPopup.cpp:
+        (WebCore::QtFallbackWebPopup::show):
+
+2010-02-02  Jessie Berlin  <jberlin@webkit.org>
+
+        Rubber Stamped by Holger Freyther.
+
+        [Qt] Fix style issue identified in bug:
+        https://bugs.webkit.org/show_bug.cgi?id=34329
+
+        * WebCoreSupport/InspectorClientQt.cpp:
+        (WebCore::InspectorClientWebPage::InspectorClientWebPage):
+        Fix indentation.
+
+2010-02-01  Jessie Berlin  <jberlin@webkit.org>
+
+        Reviewed by Holger Freyther.
+
+        [Qt] Enable inspecting the Web Inspector in QtLauncher
+
+        https://bugs.webkit.org/show_bug.cgi?id=34329
+
+        * WebCoreSupport/InspectorClientQt.cpp:
+        (WebCore::InspectorClientWebPage::InspectorClientWebPage):
+        Allow the DeveloperExtrasEnabled setting to default to true for the page containing the Web Inspector.
+
+2010-02-02  Andreas Kling  <andreas.kling@nokia.com>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt] Display HTML tags verbatim in JS alert/confirm/prompt boxes
+
+        https://bugs.webkit.org/show_bug.cgi?id=34429
+
+        * Api/qwebpage.cpp:
+        (QWebPage::javaScriptAlert):
+        (QWebPage::javaScriptConfirm):
+        (QWebPage::javaScriptPrompt):
+
+2010-02-02  Noam Rosenthal  <noam.rosenthal@nokia.com>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt] Enable a way to measure FPS in QGVLauncher
+        run QGVLauncher with --show-fps to see ongoing fps measurements
+        This is not meant as accurate FPS, but rather as a way to find
+        improvements/regressions
+        https://bugs.webkit.org/show_bug.cgi?id=34450
+
+        * QGVLauncher/main.cpp:
+        (MainView::MainView): initialize FPS values
+        (MainView::paintEvent): count a painted frame here
+        (MainView::printFps): we print the fps with qDebug every 5 seconds.
+
 2010-01-29  Ben Murdoch  <benm@google.com>
 
         Reviewed by Dimitri Glazkov.

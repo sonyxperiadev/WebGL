@@ -1316,9 +1316,9 @@ void WebViewImpl::performMediaPlayerAction(const WebMediaPlayerAction& action,
     switch (action.type) {
     case WebMediaPlayerAction::Play:
         if (action.enable)
-            mediaElement->play();
+            mediaElement->play(mediaElement->processingUserGesture());
         else
-            mediaElement->pause();
+            mediaElement->pause(mediaElement->processingUserGesture());
         break;
     case WebMediaPlayerAction::Mute:
         mediaElement->setMuted(action.enable);
@@ -1692,6 +1692,20 @@ void WebViewImpl::setSelectionColors(unsigned activeBackgroundColor,
                                                  inactiveForegroundColor);
     theme()->platformColorsDidChange();
 #endif
+}
+
+void WebViewImpl::addUserScript(const WebString& sourceCode, bool runAtStart)
+{
+    PageGroup* pageGroup = PageGroup::pageGroup(pageGroupName);
+    RefPtr<DOMWrapperWorld> world(DOMWrapperWorld::create());
+    pageGroup->addUserScriptToWorld(world.get(), sourceCode, WebURL(), 0, 0,
+                                    runAtStart ? InjectAtDocumentStart : InjectAtDocumentEnd);
+}
+
+void WebViewImpl::removeAllUserContent()
+{
+    PageGroup* pageGroup = PageGroup::pageGroup(pageGroupName);
+    pageGroup->removeAllUserContent();
 }
 
 void WebViewImpl::didCommitLoad(bool* isNewNavigation)

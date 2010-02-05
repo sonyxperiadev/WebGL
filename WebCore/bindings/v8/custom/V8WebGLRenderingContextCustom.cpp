@@ -42,12 +42,16 @@
 
 #include "V8Binding.h"
 #include "V8WebGLArray.h"
+#include "V8WebGLBuffer.h"
 #include "V8WebGLByteArray.h"
 #include "V8WebGLFloatArray.h"
+#include "V8WebGLFramebuffer.h"
 #include "V8WebGLIntArray.h"
 #include "V8WebGLProgram.h"
+#include "V8WebGLRenderbuffer.h"
 #include "V8WebGLShader.h"
 #include "V8WebGLShortArray.h"
+#include "V8WebGLTexture.h"
 #include "V8WebGLUniformLocation.h"
 #include "V8WebGLUnsignedByteArray.h"
 #include "V8WebGLUnsignedIntArray.h"
@@ -175,7 +179,7 @@ v8::Handle<v8::Value> V8WebGLRenderingContext::bufferSubDataCallback(const v8::A
     return v8::Undefined();
 }
 
-static v8::Handle<v8::Value> toV8(const WebGLGetInfo& info)
+static v8::Handle<v8::Value> toV8Object(const WebGLGetInfo& info)
 {
     switch (info.getType()) {
     case WebGLGetInfo::kTypeBool:
@@ -191,23 +195,23 @@ static v8::Handle<v8::Value> toV8(const WebGLGetInfo& info)
     case WebGLGetInfo::kTypeUnsignedLong:
         return v8::Integer::NewFromUnsigned(info.getUnsignedLong());
     case WebGLGetInfo::kTypeWebGLBuffer:
-        return V8DOMWrapper::convertToV8Object(V8ClassIndex::WEBGLBUFFER, info.getWebGLBuffer());
+        return toV8(info.getWebGLBuffer());
     case WebGLGetInfo::kTypeWebGLFloatArray:
-        return V8DOMWrapper::convertToV8Object(V8ClassIndex::WEBGLFLOATARRAY, info.getWebGLFloatArray());
+        return toV8(info.getWebGLFloatArray());
     case WebGLGetInfo::kTypeWebGLFramebuffer:
-        return V8DOMWrapper::convertToV8Object(V8ClassIndex::WEBGLFRAMEBUFFER, info.getWebGLFramebuffer());
+        return toV8(info.getWebGLFramebuffer());
     case WebGLGetInfo::kTypeWebGLIntArray:
-        return V8DOMWrapper::convertToV8Object(V8ClassIndex::WEBGLINTARRAY, info.getWebGLIntArray());
+        return toV8(info.getWebGLIntArray());
     // FIXME: implement WebGLObjectArray
     // case WebGLGetInfo::kTypeWebGLObjectArray:
     case WebGLGetInfo::kTypeWebGLProgram:
-        return V8DOMWrapper::convertToV8Object(V8ClassIndex::WEBGLPROGRAM, info.getWebGLProgram());
+        return toV8(info.getWebGLProgram());
     case WebGLGetInfo::kTypeWebGLRenderbuffer:
-        return V8DOMWrapper::convertToV8Object(V8ClassIndex::WEBGLRENDERBUFFER, info.getWebGLRenderbuffer());
+        return toV8(info.getWebGLRenderbuffer());
     case WebGLGetInfo::kTypeWebGLTexture:
-        return V8DOMWrapper::convertToV8Object(V8ClassIndex::WEBGLTEXTURE, info.getWebGLTexture());
+        return toV8(info.getWebGLTexture());
     case WebGLGetInfo::kTypeWebGLUnsignedByteArray:
-        return V8DOMWrapper::convertToV8Object(V8ClassIndex::WEBGLUNSIGNEDBYTEARRAY, info.getWebGLUnsignedByteArray());
+        return toV8(info.getWebGLUnsignedByteArray());
     default:
         notImplemented();
         return v8::Undefined();
@@ -261,7 +265,7 @@ static v8::Handle<v8::Value> getObjectParameter(const v8::Arguments& args, Objec
         V8Proxy::setDOMException(ec);
         return v8::Undefined();
     }
-    return toV8(info);
+    return toV8Object(info);
 }
 
 static WebGLUniformLocation* toWebGLUniformLocation(v8::Handle<v8::Value> value, bool& ok)
@@ -317,7 +321,7 @@ v8::Handle<v8::Value> V8WebGLRenderingContext::getFramebufferAttachmentParameter
         V8Proxy::setDOMException(ec);
         return v8::Undefined();
     }
-    return toV8(info);
+    return toV8Object(info);
 }
 
 v8::Handle<v8::Value> V8WebGLRenderingContext::getParameterCallback(const v8::Arguments& args)
@@ -342,7 +346,7 @@ v8::Handle<v8::Value> V8WebGLRenderingContext::getParameterCallback(const v8::Ar
         V8Proxy::setDOMException(ec);
         return v8::Undefined();
     }
-    return toV8(info);
+    return toV8Object(info);
 }
 
 v8::Handle<v8::Value> V8WebGLRenderingContext::getProgramParameterCallback(const v8::Arguments& args)
@@ -368,7 +372,7 @@ v8::Handle<v8::Value> V8WebGLRenderingContext::getProgramParameterCallback(const
         V8Proxy::setDOMException(ec);
         return v8::Undefined();
     }
-    return toV8(info);
+    return toV8Object(info);
 }
 
 v8::Handle<v8::Value> V8WebGLRenderingContext::getRenderbufferParameterCallback(const v8::Arguments& args)
@@ -400,7 +404,7 @@ v8::Handle<v8::Value> V8WebGLRenderingContext::getShaderParameterCallback(const 
         V8Proxy::setDOMException(ec);
         return v8::Undefined();
     }
-    return toV8(info);
+    return toV8Object(info);
 }
 
 v8::Handle<v8::Value> V8WebGLRenderingContext::getTexParameterCallback(const v8::Arguments& args)
@@ -434,7 +438,7 @@ v8::Handle<v8::Value> V8WebGLRenderingContext::getUniformCallback(const v8::Argu
         V8Proxy::setDOMException(ec);
         return v8::Undefined();
     }
-    return toV8(info);
+    return toV8Object(info);
 }
 
 v8::Handle<v8::Value> V8WebGLRenderingContext::getVertexAttribCallback(const v8::Arguments& args)

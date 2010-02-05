@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# Copyright (C) 2010 The Chromium Authors. All rights reserved.
+# Copyright (C) 2010 Google Inc. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are
@@ -11,7 +11,7 @@
 # copyright notice, this list of conditions and the following disclaimer
 # in the documentation and/or other materials provided with the
 # distribution.
-#     * Neither the Chromium name nor the names of its
+#     * Neither the name of Google Inc. nor the names of its
 # contributors may be used to endorse or promote products derived from
 # this software without specific prior written permission.
 #
@@ -54,7 +54,7 @@ import urllib
 import webbrowser
 import zipfile
 
-from layout_package import path_utils
+from port import path_utils
 from layout_package import test_expectations
 from test_types import image_diff
 from test_types import text_diff

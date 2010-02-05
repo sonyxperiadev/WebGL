@@ -50,7 +50,7 @@ void RenderTextControlMultiLine::subtreeHasChanged()
     RenderTextControl::subtreeHasChanged();
     HTMLTextAreaElement* textArea = static_cast<HTMLTextAreaElement*>(node());
     textArea->setFormControlValueMatchesRenderer(false);
-    textArea->updateValidity();
+    textArea->setNeedsValidityCheck();
 
     if (!node()->focused())
         return;

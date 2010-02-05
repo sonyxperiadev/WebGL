@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# Copyright (C) 2010 The Chromium Authors. All rights reserved.
+# Copyright (C) 2010 Google Inc. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are
@@ -11,7 +11,7 @@
 # copyright notice, this list of conditions and the following disclaimer
 # in the documentation and/or other materials provided with the
 # distribution.
-#     * Neither the Chromium name nor the names of its
+#     * Neither the name of Google Inc. nor the names of its
 # contributors may be used to endorse or promote products derived from
 # this software without specific prior written permission.
 #
@@ -27,24 +27,41 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-"""Platform-specific utilities and pseudo-constants
+"""Base class with common routines between the Apache and Lighttpd servers."""
 
-Any functions whose implementations or values differ from one platform to
-another should be defined in their respective platform_utils_<platform>.py
-modules. The appropriate one of those will be imported into this module to
-provide callers with a common, platform-independent interface.
+import logging
+import time
+import urllib
 
-This file should only ever be imported by layout_package.path_utils.
-"""
 
-import sys
+class HttpServerBase(object):
 
-# We may not support the version of Python that a user has installed (Cygwin
-# especially has had problems), but we'll allow the platform utils to be
-# included in any case so we don't get an import error.
-if sys.platform in ('cygwin', 'win32'):
-    from platform_utils_win import *
-elif sys.platform == 'darwin':
-    from platform_utils_mac import *
-elif sys.platform in ('linux', 'linux2', 'freebsd7', 'openbsd4'):
-    from platform_utils_linux import *
+    def wait_for_action(self, action):
+        """Repeat the action for 20 seconds or until it succeeds. Returns
+        whether it succeeded."""
+        start_time = time.time()
+        while time.time() - start_time < 20:
+            if action():
+                return True
+            time.sleep(1)
+
+        return False
+
+    def is_server_running_on_all_ports(self):
+        """Returns whether the server is running on all the desired ports."""
+        for mapping in self.mappings:
+            if 'sslcert' in mapping:
+                http_suffix = 's'
+            else:
+                http_suffix = ''
+
+            url = 'http%s://127.0.0.1:%d/' % (http_suffix, mapping['port'])
+
+            try:
+                response = urllib.urlopen(url)
+                logging.debug("Server running at %s" % url)
+            except IOError:
+                logging.debug("Server NOT running at %s" % url)
+                return False
+
+        return True

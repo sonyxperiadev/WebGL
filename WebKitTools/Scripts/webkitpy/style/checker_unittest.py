@@ -37,66 +37,12 @@
 import unittest
 
 import checker as style
-from checker import CategoryFilter
 from checker import ProcessorDispatcher
 from checker import ProcessorOptions
 from checker import StyleChecker
+from filter import CategoryFilter
 from processors.cpp import CppProcessor
 from processors.text import TextProcessor
-
-class CategoryFilterTest(unittest.TestCase):
-
-    """Tests CategoryFilter class."""
-
-    def test_init(self):
-        """Test __init__ constructor."""
-        self.assertRaises(ValueError, CategoryFilter, ["no_prefix"])
-        CategoryFilter() # No ValueError: works
-        CategoryFilter(["+"]) # No ValueError: works
-        CategoryFilter(["-"]) # No ValueError: works
-
-    def test_str(self):
-        """Test __str__ "to string" operator."""
-        filter = CategoryFilter(["+a", "-b"])
-        self.assertEquals(str(filter), "+a,-b")
-
-    def test_eq(self):
-        """Test __eq__ equality function."""
-        filter1 = CategoryFilter(["+a", "+b"])
-        filter2 = CategoryFilter(["+a", "+b"])
-        filter3 = CategoryFilter(["+b", "+a"])
-
-        # == calls __eq__.
-        self.assertTrue(filter1 == filter2)
-        self.assertFalse(filter1 == filter3) # Cannot test with assertNotEqual.
-
-    def test_ne(self):
-        """Test __ne__ inequality function."""
-        # != calls __ne__.
-        # By default, __ne__ always returns true on different objects.
-        # Thus, just check the distinguishing case to verify that the
-        # code defines __ne__.
-        self.assertFalse(CategoryFilter() != CategoryFilter())
-
-    def test_should_check(self):
-        """Test should_check() method."""
-        filter = CategoryFilter()
-        self.assertTrue(filter.should_check("everything"))
-        # Check a second time to exercise cache.
-        self.assertTrue(filter.should_check("everything"))
-
-        filter = CategoryFilter(["-"])
-        self.assertFalse(filter.should_check("anything"))
-        # Check a second time to exercise cache.
-        self.assertFalse(filter.should_check("anything"))
-
-        filter = CategoryFilter(["-", "+ab"])
-        self.assertTrue(filter.should_check("abc"))
-        self.assertFalse(filter.should_check("a"))
-
-        filter = CategoryFilter(["+", "-ab"])
-        self.assertFalse(filter.should_check("abc"))
-        self.assertTrue(filter.should_check("a"))
 
 
 class ProcessorOptionsTest(unittest.TestCase):
@@ -110,6 +56,7 @@ class ProcessorOptionsTest(unittest.TestCase):
         self.assertEquals(options.extra_flag_values, {})
         self.assertEquals(options.filter, CategoryFilter())
         self.assertEquals(options.git_commit, None)
+        self.assertEquals(options.max_reports_per_category, {})
         self.assertEquals(options.output_format, "emacs")
         self.assertEquals(options.verbosity, 1)
 
@@ -126,11 +73,13 @@ class ProcessorOptionsTest(unittest.TestCase):
         options = ProcessorOptions(extra_flag_values={"extra_value" : 2},
                                    filter=CategoryFilter(["+"]),
                                    git_commit="commit",
+                                   max_reports_per_category={"category": 3},
                                    output_format="vs7",
                                    verbosity=3)
         self.assertEquals(options.extra_flag_values, {"extra_value" : 2})
         self.assertEquals(options.filter, CategoryFilter(["+"]))
         self.assertEquals(options.git_commit, "commit")
+        self.assertEquals(options.max_reports_per_category, {"category": 3})
         self.assertEquals(options.output_format, "vs7")
         self.assertEquals(options.verbosity, 3)
 
@@ -143,11 +92,14 @@ class ProcessorOptionsTest(unittest.TestCase):
         options = ProcessorOptions(extra_flag_values={"extra_value" : 1},
                                    filter=CategoryFilter(["+"]),
                                    git_commit="commit",
+                                   max_reports_per_category={"category": 3},
                                    output_format="vs7",
                                    verbosity=1)
         self.assertFalse(options == ProcessorOptions(extra_flag_values={"extra_value" : 2}))
         self.assertFalse(options == ProcessorOptions(filter=CategoryFilter(["-"])))
         self.assertFalse(options == ProcessorOptions(git_commit="commit2"))
+        self.assertFalse(options == ProcessorOptions(max_reports_per_category=
+                                                     {"category": 2}))
         self.assertFalse(options == ProcessorOptions(output_format="emacs"))
         self.assertFalse(options == ProcessorOptions(verbosity=2))
 
@@ -173,9 +125,9 @@ class ProcessorOptionsTest(unittest.TestCase):
         self.assertFalse(options.is_reportable("xyz", 3))
 
 
-class WebKitArgumentDefaultsTest(unittest.TestCase):
+class GlobalVariablesTest(unittest.TestCase):
 
-    """Tests validity of default arguments used by check-webkit-style."""
+    """Tests validity of the global variables."""
 
     def defaults(self):
         return style.webkit_argument_defaults()
@@ -206,6 +158,13 @@ class WebKitArgumentDefaultsTest(unittest.TestCase):
         # on valid arguments elsewhere.
         parser.parse([]) # arguments valid: no error or SystemExit
 
+    def test_max_reports_per_category(self):
+        """Check that MAX_REPORTS_PER_CATEGORY is valid."""
+        categories = style.style_categories()
+        for category in style.MAX_REPORTS_PER_CATEGORY.iterkeys():
+            self.assertTrue(category in categories,
+                            'Key "%s" is not a category' % category)
+
 
 class ArgumentPrinterTest(unittest.TestCase):
 
@@ -217,8 +176,11 @@ class ArgumentPrinterTest(unittest.TestCase):
                         filter_rules=[], git_commit=None,
                         extra_flag_values={}):
         filter = CategoryFilter(filter_rules)
-        return style.ProcessorOptions(output_format, verbosity, filter,
-                                      git_commit, extra_flag_values)
+        return style.ProcessorOptions(extra_flag_values=extra_flag_values,
+                                      filter=filter,
+                                      git_commit=git_commit,
+                                      output_format=output_format,
+                                      verbosity=verbosity)
 
     def test_to_flag_string(self):
         options = self._create_options('vs7', 5, ['+foo', '-bar'], 'git',

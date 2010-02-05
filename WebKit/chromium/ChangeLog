@@ -1,3 +1,322 @@
+2010-02-04  Yury Semikhatsky  <yurys@chromium.org>
+
+        Unreviewed. Revert 54333 which broke Chromium build.
+
+        * WebKit.gyp:
+        * tests/TransparencyWinTest.cpp: Removed.
+        * tests/UniscribeHelperTest.cpp: Removed.
+
+2010-02-04  Yaar Schnitman  <yaar@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        Upstreaming gtests from chromium: UniscribeHelper and TransparencyWin.
+        https://bugs.webkit.org/show_bug.cgi?id=34509
+
+        * WebKit.gyp:
+        * tests/TransparencyWinTest.cpp: Added.
+        (WebCore::RECTToFloatRect):
+        (WebCore::drawNativeRect):
+        (WebCore::getPixelAt):
+        (WebCore::clearTopLayerAlphaChannel):
+        (WebCore::clearTopLayerAlphaPixel):
+        (WebCore::operator<<):
+        (WebCore::TEST):
+        * tests/UniscribeHelperTest.cpp: Added.
+        (WebCore::UniscribeTest::UniscribeTest):
+        (WebCore::UniscribeTest::MakeFont):
+        (WebCore::UniscribeTest::SetUp):
+        (WebCore::UniscribeTest::TearDown):
+        (WebCore::TEST_F):
+
+2010-02-04  Jeremy Moskovich  <jeremy@chromium.org>
+
+        Reviewed by David Levin.
+
+        [Chromium] WebKit side of "Writing direction" context menu on OS X.
+        https://bugs.webkit.org/show_bug.cgi?id=34524
+
+        * public/WebContextMenuData.h:
+        (WebKit::WebContextMenuData::):
+        * src/ContextMenuClientImpl.cpp:
+        (WebKit::ContextMenuClientImpl::getCustomMenuFromDefaultItems):
+
+2010-02-03  Drew Wilson  <atwilson@chromium.org>
+
+        Reviewed by Alexey Proskuryakov.
+
+        SharedWorkerScriptLoader should not be an ActiveDOMObject
+        https://bugs.webkit.org/show_bug.cgi?id=34513
+
+        * src/SharedWorkerRepository.cpp:
+        (WebCore::SharedWorkerScriptLoader::SharedWorkerScriptLoader):
+        Changed SharedWorkerScriptLoader to manage its own lifecycle without using ActiveDOMObject.
+        (WebCore::SharedWorkerScriptLoader::parentContext):
+        (WebCore::pendingLoaders):
+        Now we manually track pending loads so we can shut them down when the parent context shuts down.
+        (WebCore::SharedWorkerScriptLoader::contextDetached):
+        Shuts down/frees any pending worker loads.
+        (WebCore::SharedWorkerScriptLoader::~SharedWorkerScriptLoader):
+        Marks the SharedWorker object as not having pending activity if there was a load active (handles case where load was pending when parent document exits).
+        (WebCore::SharedWorkerScriptLoader::load):
+        (WebCore::SharedWorkerRepository::documentDetached):
+        Now calls SharedWorkerScriptLoader::contextDetached() to shutdown any pending worker loads.
+
+2010-02-03  Alexander Pavlov  <apavlov@chromium.org>
+
+        Reviewed by Timothy Hatcher.
+
+        [Chromium] Return a consistent set of platforms from WebDevToolsFrontendImpl
+        https://bugs.webkit.org/show_bug.cgi?id=34523
+
+        * src/WebDevToolsFrontendImpl.cpp:
+        (WebKit::WebDevToolsFrontendImpl::jsPlatform):
+
+2010-02-02  Joel Stanley  <joel@jms.id.au>
+
+        Reviewed by David Levin.
+
+        [Chromium] Add API method for setting caret blink frequency.
+        https://bugs.webkit.org/show_bug.cgi?id=31704
+
+        This enables the RenderThemeChromiumLinux::setCaretBlinkInterval method
+        to be called Chromium's API.  The API is linux-only as it is currently
+        the only port to implement RenderTheme::setCaretBlinkInterval.
+
+        * WebKit.gyp:  Add WebRenderTheme.{h,cpp}
+        * public/linux/WebRenderTheme.h: Added.
+        * src/linux/WebRenderTheme.cpp: Added.
+        (WebKit::setCaretBlinkInterval): Exposed API
+
+2010-02-02  Shinichiro Hamaji  <hamaji@chromium.org>
+
+        Reviewed by Dimitri Glazkov.
+
+        [Chromium] Implement WebFrameImpl::pageNumberForElementById
+        https://bugs.webkit.org/show_bug.cgi?id=34471
+
+        * public/WebFrame.h:
+        * src/WebFrameImpl.cpp:
+        (WebKit::WebFrameImpl::pageNumberForElementById):
+        * src/WebFrameImpl.h:
+
+2010-02-02  Yury Semikhatsky  <yurys@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        Upstream DevTools code.
+
+        https://bugs.webkit.org/show_bug.cgi?id=34326
+
+        * WebKit.gyp:
+        * src/APUAgentDelegate.h: Added.
+        * src/BoundObject.cpp: Added.
+        (WebKit::BoundObject::BoundObject):
+        (WebKit::BoundObject::~BoundObject):
+        (WebKit::BoundObject::addProtoFunction):
+        (WebKit::BoundObject::build):
+        * src/BoundObject.h: Added.
+        * src/DebuggerAgent.h: Added.
+        * src/DebuggerAgentImpl.cpp: Added.
+        (WebKit::DebuggerAgentImpl::DebuggerAgentImpl):
+        (WebKit::DebuggerAgentImpl::~DebuggerAgentImpl):
+        (WebKit::DebuggerAgentImpl::getContextId):
+        (WebKit::DebuggerAgentImpl::debuggerOutput):
+        (WebKit::DebuggerAgentImpl::createUtilityContext):
+        (WebKit::DebuggerAgentImpl::executeUtilityFunction):
+        (WebKit::DebuggerAgentImpl::executeVoidJavaScript):
+        (WebKit::DebuggerAgentImpl::page):
+        * src/DebuggerAgentImpl.h: Added.
+        (WebKit::DebuggerAgentImpl::setAutoContinueOnException):
+        (WebKit::DebuggerAgentImpl::autoContinueOnException):
+        (WebKit::DebuggerAgentImpl::webdevtoolsAgent):
+        (WebKit::DebuggerAgentImpl::webView):
+        * src/DebuggerAgentManager.cpp: Added.
+        (WebKit::DebuggerAgentManager::debugHostDispatchHandler):
+        (WebKit::DebuggerAgentManager::debugAttach):
+        (WebKit::DebuggerAgentManager::debugDetach):
+        (WebKit::DebuggerAgentManager::onV8DebugMessage):
+        (WebKit::DebuggerAgentManager::pauseScript):
+        (WebKit::DebuggerAgentManager::executeDebuggerCommand):
+        (WebKit::DebuggerAgentManager::setMessageLoopDispatchHandler):
+        (WebKit::DebuggerAgentManager::setHostId):
+        (WebKit::DebuggerAgentManager::onWebViewClosed):
+        (WebKit::DebuggerAgentManager::onNavigate):
+        (WebKit::DebuggerAgentManager::sendCommandToV8):
+        (WebKit::DebuggerAgentManager::sendContinueCommandToV8):
+        (WebKit::DebuggerAgentManager::findAgentForCurrentV8Context):
+        (WebKit::DebuggerAgentManager::debuggerAgentForHostId):
+        * src/DebuggerAgentManager.h: Added.
+        (WebKit::DebuggerAgentManager::UtilityContextScope::UtilityContextScope):
+        (WebKit::DebuggerAgentManager::UtilityContextScope::~UtilityContextScope):
+        * src/DevToolsRPC.h: Added.
+        (WebKit::):
+        (WebKit::DevToolsRPC::Delegate::Delegate):
+        (WebKit::DevToolsRPC::Delegate::~Delegate):
+        (WebKit::DevToolsRPC::DevToolsRPC):
+        (WebKit::DevToolsRPC::~DevToolsRPC):
+        (WebKit::DevToolsRPC::sendRpcMessage):
+        * src/DevToolsRPCJS.h: Added.
+        * src/ProfilerAgent.h: Added.
+        * src/ProfilerAgentImpl.cpp: Added.
+        (WebKit::ProfilerAgentImpl::getActiveProfilerModules):
+        (WebKit::ProfilerAgentImpl::getLogLines):
+        * src/ProfilerAgentImpl.h: Added.
+        (WebKit::ProfilerAgentImpl::ProfilerAgentImpl):
+        (WebKit::ProfilerAgentImpl::~ProfilerAgentImpl):
+        * src/ToolsAgent.h: Added.
+        * src/WebDevToolsAgentImpl.cpp: Added.
+        (WebKit::):
+        (WebKit::WebDevToolsAgentImpl::WebDevToolsAgentImpl):
+        (WebKit::WebDevToolsAgentImpl::~WebDevToolsAgentImpl):
+        (WebKit::WebDevToolsAgentImpl::disposeUtilityContext):
+        (WebKit::WebDevToolsAgentImpl::unhideResourcesPanelIfNecessary):
+        (WebKit::WebDevToolsAgentImpl::attach):
+        (WebKit::WebDevToolsAgentImpl::detach):
+        (WebKit::WebDevToolsAgentImpl::didNavigate):
+        (WebKit::WebDevToolsAgentImpl::didCommitProvisionalLoad):
+        (WebKit::WebDevToolsAgentImpl::didClearWindowObject):
+        (WebKit::WebDevToolsAgentImpl::forceRepaint):
+        (WebKit::WebDevToolsAgentImpl::dispatchOnInspectorController):
+        (WebKit::WebDevToolsAgentImpl::dispatchOnInjectedScript):
+        (WebKit::WebDevToolsAgentImpl::executeVoidJavaScript):
+        (WebKit::WebDevToolsAgentImpl::dispatchMessageFromFrontend):
+        (WebKit::WebDevToolsAgentImpl::inspectElementAt):
+        (WebKit::WebDevToolsAgentImpl::setRuntimeFeatureEnabled):
+        (WebKit::WebDevToolsAgentImpl::sendRpcMessage):
+        (WebKit::WebDevToolsAgentImpl::compileUtilityScripts):
+        (WebKit::WebDevToolsAgentImpl::initDevToolsAgentHost):
+        (WebKit::WebDevToolsAgentImpl::createInspectorBackendV8Wrapper):
+        (WebKit::WebDevToolsAgentImpl::resetInspectorFrontendProxy):
+        (WebKit::WebDevToolsAgentImpl::setApuAgentEnabled):
+        (WebKit::WebDevToolsAgentImpl::jsDispatchOnClient):
+        (WebKit::WebDevToolsAgentImpl::jsDispatchToApu):
+        (WebKit::WebDevToolsAgentImpl::jsEvaluateOnSelf):
+        (WebKit::WebDevToolsAgentImpl::jsOnRuntimeFeatureStateChanged):
+        (WebKit::WebDevToolsAgentImpl::inspectorController):
+        (WebKit::WebDevToolsAgentImpl::identifierForInitialRequest):
+        (WebKit::WebDevToolsAgentImpl::willSendRequest):
+        (WebKit::WebDevToolsAgentImpl::didReceiveData):
+        (WebKit::WebDevToolsAgentImpl::didReceiveResponse):
+        (WebKit::WebDevToolsAgentImpl::didFinishLoading):
+        (WebKit::WebDevToolsAgentImpl::didFailLoading):
+        (WebKit::WebDevToolsAgentImpl::evaluateInWebInspector):
+        (WebKit::WebDevToolsAgentImpl::setTimelineProfilingEnabled):
+        (WebKit::WebDevToolsAgent::create):
+        (WebKit::WebDevToolsAgent::executeDebuggerCommand):
+        (WebKit::WebDevToolsAgent::debuggerPauseScript):
+        (WebKit::WebDevToolsAgent::setMessageLoopDispatchHandler):
+        (WebKit::WebDevToolsAgent::dispatchMessageFromFrontendOnIOThread):
+        * src/WebDevToolsAgentImpl.h: Added.
+        (WebKit::WebDevToolsAgentImpl::hostId):
+        * src/WebDevToolsFrontendImpl.cpp: Added.
+        (WebKit::ToV8String):
+        (WebKit::WebDevToolsFrontend::create):
+        (WebKit::WebDevToolsFrontendImpl::WebDevToolsFrontendImpl):
+        (WebKit::WebDevToolsFrontendImpl::~WebDevToolsFrontendImpl):
+        (WebKit::WebDevToolsFrontendImpl::dispatchMessageFromAgent):
+        (WebKit::WebDevToolsFrontendImpl::executeScript):
+        (WebKit::WebDevToolsFrontendImpl::dispatchOnWebInspector):
+        (WebKit::WebDevToolsFrontendImpl::sendRpcMessage):
+        (WebKit::WebDevToolsFrontendImpl::contextMenuItemSelected):
+        (WebKit::WebDevToolsFrontendImpl::contextMenuCleared):
+        (WebKit::WebDevToolsFrontendImpl::jsLoaded):
+        (WebKit::WebDevToolsFrontendImpl::jsPlatform):
+        (WebKit::WebDevToolsFrontendImpl::jsPort):
+        (WebKit::WebDevToolsFrontendImpl::jsCopyText):
+        (WebKit::WebDevToolsFrontendImpl::jsActivateWindow):
+        (WebKit::WebDevToolsFrontendImpl::jsCloseWindow):
+        (WebKit::WebDevToolsFrontendImpl::jsDockWindow):
+        (WebKit::WebDevToolsFrontendImpl::jsUndockWindow):
+        (WebKit::WebDevToolsFrontendImpl::jsLocalizedStringsURL):
+        (WebKit::WebDevToolsFrontendImpl::jsHiddenPanels):
+        (WebKit::WebDevToolsFrontendImpl::jsDebuggerCommand):
+        (WebKit::WebDevToolsFrontendImpl::jsSetting):
+        (WebKit::WebDevToolsFrontendImpl::jsSetSetting):
+        (WebKit::WebDevToolsFrontendImpl::jsDebuggerPauseScript):
+        (WebKit::WebDevToolsFrontendImpl::jsWindowUnloading):
+        (WebKit::WebDevToolsFrontendImpl::jsShowContextMenu):
+        * src/WebDevToolsFrontendImpl.h: Added.
+        (WebKit::WebDevToolsFrontendImpl::MenuProvider::create):
+        (WebKit::WebDevToolsFrontendImpl::MenuProvider::~MenuProvider):
+        (WebKit::WebDevToolsFrontendImpl::MenuProvider::disconnect):
+        (WebKit::WebDevToolsFrontendImpl::MenuProvider::populateContextMenu):
+        (WebKit::WebDevToolsFrontendImpl::MenuProvider::contextMenuItemSelected):
+        (WebKit::WebDevToolsFrontendImpl::MenuProvider::contextMenuCleared):
+        (WebKit::WebDevToolsFrontendImpl::MenuProvider::MenuProvider):
+
+2010-02-01  Jeremy Orlow  <jorlow@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        [Chromium] Add WebSecurityOrigin::createFromString factory
+        https://bugs.webkit.org/show_bug.cgi?id=34460
+
+        * public/WebSecurityOrigin.h:
+        * src/WebSecurityOrigin.cpp:
+        (WebKit::WebSecurityOrigin::createFromString):
+
+2010-02-02  Kent Tamura  <tkent@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        [Chromium] Should not select a word on right-click.
+        https://bugs.webkit.org/show_bug.cgi?id=33364
+
+        For non-Mac platforms, do not select a word around the caret when
+        a context menu is opening. This behavior is not common in non-Mac
+        platforms, and it prevents pasting with a context menu.
+
+        In order that the spell checker works without the selection, we
+        introduce WebFrame::selectWordAroundCaret(). We can replace a word
+        around the caret with selectWordAroundCaret() + replaceSelection().
+
+        * public/WebFrame.h: Add pure selectWordAroundCaret() declaration.
+        * src/ContextMenuClientImpl.cpp:
+        (WebKit::selectMisspelledWord): Move word-selection code to
+        WebFrameImpl::selectWordAroundPosition(), and clear the selection
+        on non-Mac.
+        * src/WebFrameImpl.cpp:
+        (WebKit::WebFrameImpl::selectWordAroundPosition):
+        (WebKit::WebFrameImpl::selectWordAroundCaret):
+        * src/WebFrameImpl.h: Add selectWordAroundCaret() declaration.
+
+2010-02-01  Shinichiro Hamaji  <hamaji@chromium.org>
+
+        Unreviewed attempt to fix the broken build.
+
+        This was introduced in http://trac.webkit.org/changeset/54182
+
+        * src/WebViewImpl.cpp:
+        (WebKit::WebViewImpl::performMediaPlayerAction):
+
+2010-01-27  Matt Perry  <mpcomplete@chromium.org>
+
+        Reviewed by Eric Seidel.
+
+        Add support for addUserScript to chromium port.
+
+        * public/WebView.h:
+        * src/WebViewImpl.cpp:
+        (WebKit::WebViewImpl::addUserScript):
+        (WebKit::WebViewImpl::removeAllUserContent):
+        * src/WebViewImpl.h:
+
+2010-01-29  Philippe Normand  <pnormand@igalia.com>
+
+        Reviewed by Eric Carlson.
+
+        [GTK] set playbin mute property depending on volume value
+        https://bugs.webkit.org/show_bug.cgi?id=31586
+
+        New API in MediaPlayer for mute control
+
+        * public/WebMediaPlayerClient.h:
+        * src/WebMediaPlayerClientImpl.cpp:
+        (WebKit::WebMediaPlayerClientImpl::volumeChanged):
+        (WebKit::WebMediaPlayerClientImpl::muteChanged):
+        * src/WebMediaPlayerClientImpl.h:
+
 2010-01-31  Kent Tamura  <tkent@chromium.org>
 
         Reviewed by Jeremy Orlow.
@@ -9,6 +328,17 @@
         * src/ContextMenuClientImpl.cpp:
         (WebKit::isASingleWord): Use wordBreakIterator(), and correctly check
         the return value of textBreakNext().
+
+2010-01-29  Jeremy Orlow  <jorlow@chromium.org>
+
+        Reviewed by Eric Seidel.
+
+        [Chromium] Clean up WebStorageArea
+        https://bugs.webkit.org/show_bug.cgi?id=34353
+
+        Get rid of legacy glue code and fix a typo.
+
+        * public/WebStorageArea.h:
 
 2010-01-29  Jeremy Orlow  <jorlow@chromium.org>
 

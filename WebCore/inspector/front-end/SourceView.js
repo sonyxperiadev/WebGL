@@ -41,7 +41,6 @@ WebInspector.SourceView.prototype = {
     show: function(parentElement)
     {
         WebInspector.ResourceView.prototype.show.call(this, parentElement);
-        this.setupSourceFrameIfNeeded();
         this.sourceFrame.visible = true;
         this.resize();
     },
@@ -79,10 +78,15 @@ WebInspector.SourceView.prototype = {
         delete this._frameNeedsSetup;
         WebInspector.getResourceContent(this.resource.identifier, this._contentLoaded.bind(this));
     },
-    
+
+    contentTabSelected: function()
+    {
+        this.setupSourceFrameIfNeeded();
+    },
+
     _contentLoaded: function(content)
     {
-        this.sourceFrame.setContent(this.resource.mimeType, content);
+        this.sourceFrame.setContent(this.resource.mimeType, content, this.resource.url);
         this._sourceFrameSetupFinished();
     },
 

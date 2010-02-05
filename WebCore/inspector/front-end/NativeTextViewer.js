@@ -28,13 +28,14 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WebInspector.NativeTextViewer = function(textModel, platform)
+WebInspector.NativeTextViewer = function(textModel, platform, url)
 {
     WebInspector.TextEditor.call(this, textModel, platform);
-    this._sheet.className = "monospace";
     this._sheet.tabIndex = 0;
     this._canvas.style.zIndex = 0;
     this._createLineDivs();
+    this._url = url;
+    this._selectionColor = "rgb(241, 234, 0)";
 }
 
 WebInspector.NativeTextViewer.prototype = {
@@ -52,9 +53,13 @@ WebInspector.NativeTextViewer.prototype = {
         for (var i = 0; i < this._textModel.linesCount; ++i) {
             var lineDiv = document.createElement("div");
             lineDiv.className = "native-text-editor-line";
-            lineDiv.textContent = this._textModel.line(i);
+            var text = this._textModel.line(i);
+            lineDiv.textContent = text;
+            if (!text)
+                lineDiv.style.minHeight = this._textLineHeight + "px";
             this._sheet.appendChild(lineDiv);
             this._textModel.setAttribute(i, "line-div", lineDiv);
+            this._textModel.removeAttribute(i, "div-highlighted");
         }
         this._container.appendChild(this._sheet);
     },
@@ -68,7 +73,7 @@ WebInspector.NativeTextViewer.prototype = {
         var newLineNumberDigits = this._decimalDigits(this._textModel.linesCount);
         this._lineNumberWidth = (newLineNumberDigits + 2) * this._digitWidth;
 
-        this._sheet.style.paddingLeft = this._textWidth + this._lineNumberWidth + "px";
+        this._container.style.left = this._lineNumberWidth + "px";
 
         this._lineNumberDigits = newLineNumberDigits;
         this.repaintAll();
@@ -86,7 +91,8 @@ WebInspector.NativeTextViewer.prototype = {
 
     _registerMouseListeners: function()
     {
-        this._sheet.addEventListener("mousedown", this._mouseDown.bind(this), false);
+        this.element.addEventListener("contextmenu", this._contextMenu.bind(this), false);
+        this.element.addEventListener("mousedown", this._mouseDown.bind(this), false);
     },
 
     _registerKeyboardListeners: function()
@@ -99,44 +105,48 @@ WebInspector.NativeTextViewer.prototype = {
         // Noop - let browser take care of this.
     },
 
-    _paintSelection: function()
-    {
-        // Noop - let browser take care of this.
-    },
-
     _positionDivDecoration: function()
     {
         // Div decorations have fixed positions in our case.
     },
 
+    _registerShortcuts: function()
+    {
+        // Noop.
+    },
+
     _mouseDown: function(e)
     {
-        if (e.offsetX + e.target.offsetTop >= this._lineNumberWidth && this._lineNumberDecorator)
+        if (e.target !== this.element || e.button === 2 || (this._isMac && e.ctrlKey))
             return;
-
-        if (e.button === 2 || (this._isMac && e.ctrlKey))
-            return;
-
-        var location = this._caretForMouseEvent(e);
-        this._lineNumberDecorator.mouseDown(location.line, e);
+        this._lineNumberDecorator.mouseDown(this._lineForMouseEvent(e), e);
     },
 
     _contextMenu: function(e)
     {
-        // Override editor's implementation to add the line's offsets.
-        if (e.offsetX + e.target.offsetTop >= this._lineNumberWidth && this._lineNumberDecorator)
+        if (e.target !== this.element)
             return;
-
-        var location = this._caretForMouseEvent(e);
-        this._lineNumberDecorator.contextMenu(location.line, e);
+        this._lineNumberDecorator.contextMenu(this._lineForMouseEvent(e), e);
     },
 
-    _caretForMouseEvent: function(e)
+    _lineForMouseEvent: function(e)
     {
-        // Override editor's implementation to add the line's offsets.
-        var lineNumber = Math.max(0, this._offsetToLine(e.offsetY + e.target.offsetTop) - 1);
-        var offset = e.offsetX + e.target.offsetLeft + this._scrollLeft - this._lineNumberWidth;
-        return { line: lineNumber, column: this._columnForOffset(lineNumber, offset) };
+        return Math.max(0, this._offsetToLine(e.offsetY + this._scrollTop) - 1);
+    },
+
+    _lineHeight: function(lineNumber)
+    {
+        // Use cached value first.
+        if (this._lineOffsetsCache[lineNumber + 1])
+            return this._lineOffsetsCache[lineNumber + 1] - this._lineOffsetsCache[lineNumber];
+
+        // Get metrics from the browser.
+        var element = this._textModel.getAttribute(lineNumber, "line-div");
+        if (lineNumber + 1 < this._textModel.linesCount) {
+            var nextElement = this._textModel.getAttribute(lineNumber + 1, "line-div");
+            return nextElement.offsetTop - element.offsetTop;
+        }
+        return element.parentElement.offsetHeight - element.offsetTop;
     },
 
     _paintLine: function(lineNumber, lineOffset)
@@ -181,10 +191,39 @@ WebInspector.NativeTextViewer.prototype = {
 
     _createSpan: function(content, className)
     {
+        if (className === "html-resource-link" || className === "html-external-link")
+            return this._createLink(content, className === "html-external-link");
+
         var span = document.createElement("span");
         span.className = "webkit-" + className;
         span.appendChild(document.createTextNode(content));
         return span;
+    },
+
+    _createLink: function(content, isExternal)
+    {
+        var quote = content.charAt(0);
+        if (content.length > 1 && (quote === "\"" ||   quote === "'"))
+            content = content.substring(1, content.length - 1);
+        else
+            quote = null;
+
+        var a = WebInspector.linkifyURLAsNode(this._rewriteHref(content), content, null, isExternal);
+        var span = document.createElement("span");
+        span.className = "webkit-html-attribute-value";
+        if (quote)
+            span.appendChild(document.createTextNode(quote));
+        span.appendChild(a);
+        if (quote)
+            span.appendChild(document.createTextNode(quote));
+        return span;
+    },
+
+    _rewriteHref: function(hrefValue, isExternal)
+    {
+        if (!this._url || !hrefValue || hrefValue.indexOf("://") > 0)
+            return hrefValue;
+        return WebInspector.completeURL(this._url, hrefValue);
     },
 
     setDivDecoration: function(lineNumber, element)
@@ -203,6 +242,16 @@ WebInspector.NativeTextViewer.prototype = {
             this._textModel.setAttribute(lineNumber, "div-decoration", element);
         }
         this.revalidateDecorationsAndPaint();
+    },
+
+    initFontMetrics: function()
+    {
+        WebInspector.TextEditor.prototype.initFontMetrics.call(this);
+        for (var i = 0; i < this._textModel.linesCount; ++i) {
+            var lineDiv = this._textModel.getAttribute(i, "line-div");
+            if (!this._textModel.line(i))
+                lineDiv.style.minHeight = this._textLineHeight + "px";
+        }
     }
 }
 

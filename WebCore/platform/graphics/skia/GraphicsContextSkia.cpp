@@ -31,6 +31,7 @@
 #include "config.h"
 #include "GraphicsContext.h"
 
+#include "AffineTransform.h"
 #include "Color.h"
 #include "FloatRect.h"
 #include "Gradient.h"
@@ -439,6 +440,13 @@ void GraphicsContext::clipToImageBuffer(const FloatRect& rect,
 #endif
 }
 
+void GraphicsContext::concatCTM(const AffineTransform& affine)
+{
+    if (paintingDisabled())
+        return;
+    platformContext()->canvas()->concat(affine);
+}
+
 void GraphicsContext::concatCTM(const TransformationMatrix& xform)
 {
     if (paintingDisabled())
@@ -805,6 +813,17 @@ void GraphicsContext::fillRoundedRect(const IntRect& rect,
     platformContext()->canvas()->drawPath(path, paint);
 }
 
+AffineTransform GraphicsContext::getAffineCTM() const
+{
+    const SkMatrix& m = platformContext()->canvas()->getTotalMatrix();
+    return AffineTransform(SkScalarToDouble(m.getScaleX()),      // a
+                           SkScalarToDouble(m.getSkewY()),       // b
+                           SkScalarToDouble(m.getSkewX()),       // c
+                           SkScalarToDouble(m.getScaleY()),      // d
+                           SkScalarToDouble(m.getTranslateX()),  // e
+                           SkScalarToDouble(m.getTranslateY())); // f
+}
+
 TransformationMatrix GraphicsContext::getCTM() const
 {
     const SkMatrix& m = platformContext()->canvas()->getTotalMatrix();
@@ -978,9 +997,7 @@ void GraphicsContext::setPlatformFillPattern(Pattern* pattern)
     if (paintingDisabled())
         return;
 
-    SkShader* pat = pattern->createPlatformPattern(getCTM());
-    platformContext()->setFillShader(pat);
-    pat->safeUnref();
+    platformContext()->setFillShader(pattern->platformPattern(getCTM()));
 }
 
 void GraphicsContext::setPlatformShadow(const IntSize& size,
@@ -1065,9 +1082,7 @@ void GraphicsContext::setPlatformStrokePattern(Pattern* pattern)
     if (paintingDisabled())
         return;
 
-    SkShader* pat = pattern->createPlatformPattern(getCTM());
-    platformContext()->setStrokeShader(pat);
-    pat->safeUnref();
+    platformContext()->setStrokeShader(pattern->platformPattern(getCTM()));
 }
 
 void GraphicsContext::setPlatformTextDrawingMode(int mode)

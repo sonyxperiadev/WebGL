@@ -422,9 +422,9 @@ void KURL::init(const KURL& base, const String& relative, const TextEncoding& en
 
         switch (str[0]) {
         case '\0':
-            // the reference must be empty - the RFC says this is a
-            // reference to the same document
+            // The reference is empty, so this is a reference to the same document with any fragment identifier removed.
             *this = base;
+            removeFragmentIdentifier();
             break;
         case '#': {
             // must be fragment-only reference
@@ -1752,6 +1752,12 @@ bool portAllowed(const KURL& url)
         3659, // apple-sasl / PasswordServer [Apple addition]
         4045, // lockd
         6000, // X11
+        6665, // Alternate IRC [Apple addition]
+        6666, // Alternate IRC [Apple addition]
+        6667, // Standard IRC [Apple addition]
+        6668, // Alternate IRC [Apple addition]
+        6669, // Alternate IRC [Apple addition]
+
     };
     const unsigned short* const blockedPortListEnd = blockedPortList + sizeof(blockedPortList) / sizeof(blockedPortList[0]);
 

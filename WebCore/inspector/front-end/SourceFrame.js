@@ -123,11 +123,12 @@ WebInspector.SourceFrame.prototype = {
             this._editor.revalidateDecorationsAndPaint();
     },
 
-    setContent: function(mimeType, content)
+    setContent: function(mimeType, content, url)
     {
         this._loaded = true;
         this._textModel.setText(null, content);
         this._mimeType = mimeType;
+        this._url = url;
         this._createEditorIfNeeded();
     },
 
@@ -137,13 +138,14 @@ WebInspector.SourceFrame.prototype = {
             return;
 
         var editorConstructor = Preferences.useCanvasBasedEditor ? WebInspector.TextEditor : WebInspector.NativeTextViewer;
-        this._editor = new editorConstructor(this._textModel, WebInspector.platform);
+        this._editor = new editorConstructor(this._textModel, WebInspector.platform, this._url);
         this._editor.lineNumberDecorator = new WebInspector.BreakpointLineNumberDecorator(this, this._editor.textModel);
         this._editor.lineDecorator = new WebInspector.ExecutionLineDecorator(this);
         this._editor.readOnly = true;
         this._element = this._editor.element;
         this._element.addEventListener("keydown", this._keyDown.bind(this), true);
         this._parentElement.appendChild(this._element);
+        this._editor.initFontMetrics();
 
         this._editor.mimeType = this._mimeType;
 

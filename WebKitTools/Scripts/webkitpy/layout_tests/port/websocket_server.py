@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# Copyright (C) 2010 The Chromium Authors. All rights reserved.
+# Copyright (C) 2010 Google Inc. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are
@@ -11,7 +11,7 @@
 # copyright notice, this list of conditions and the following disclaimer
 # in the documentation and/or other materials provided with the
 # distribution.
-#     * Neither the Chromium name nor the names of its
+#     * Neither the name of Google Inc. nor the names of its
 # contributors may be used to endorse or promote products derived from
 # this software without specific prior written permission.
 #
@@ -40,7 +40,7 @@ import time
 import urllib
 
 import path_utils
-import platform_utils
+import port
 import http_server
 
 _WS_LOG_PREFIX = 'pywebsocket.ws.log-'
@@ -255,7 +255,7 @@ class PyWebSocket(http_server.Lighttpd):
                 'Failed to find %s server pid.' % self._server_name)
 
         logging.debug('Shutting down %s server %d.' % (self._server_name, pid))
-        platform_utils.kill_process(pid)
+        port.kill_process(pid)
 
         if self._process:
             self._process.wait()

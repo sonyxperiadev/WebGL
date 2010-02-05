@@ -1,3 +1,402 @@
+2010-01-22  Tor Arne Vestbø  <tor.arne.vestbo@nokia.com>
+
+        Reviewed by Simon Hausmann.
+
+        Make run-webkit-tests work under Cygwin for the Qt port
+
+        setPathForRunningWebKitApp() is implemented for the Qt port
+        by using qmake to query for the location of the Qt libraries.
+
+        This requires the original environment (%ENV) to be untouched,
+        so launchWithCurrentEnv() was refactored to launchWithEnv(),
+        and the code in openDumpTool() to not use %ENV but a %CLEAN_ENV
+        instead. This has the added benefit of getting rid of the temp
+        variables used for storing the current env.
+
+        openDumpTool() is also refactored a bit into platform-spesific,
+        port-spesific, and generic environment variables.
+
+        Checks for undef was added a few places to fix Perl concat
+        warnings when run-webkit-tests is aborted.
+
+        https://bugs.webkit.org/show_bug.cgi?id=33895
+
+        * Scripts/run-webkit-tests:
+        * Scripts/webkitdirs.pm:
+
+2010-02-04  Yuzo Fujishima  <yuzo@google.com>
+
+        Unreviewed.
+
+        Add Yuzo to the committers list.
+
+        * Scripts/webkitpy/committers.py:
+
+2010-02-03  Dirk Pranke  <dpranke@chromium.org>
+
+        Rubber-stamped by Eric Seidel.
+
+        Change "the Chromium name" to "the name of Google Inc." in the licenses
+
+        https://bugs.webkit.org/show_bug.cgi?id=34511
+
+        * Scripts/webkitpy/layout_tests/layout_package/json_layout_results_generator.py:
+        * Scripts/webkitpy/layout_tests/layout_package/json_results_generator.py:
+        * Scripts/webkitpy/layout_tests/layout_package/metered_stream.py:
+        * Scripts/webkitpy/layout_tests/layout_package/test_expectations.py:
+        * Scripts/webkitpy/layout_tests/layout_package/test_failures.py:
+        * Scripts/webkitpy/layout_tests/layout_package/test_files.py:
+        * Scripts/webkitpy/layout_tests/layout_package/test_shell_thread.py:
+        * Scripts/webkitpy/layout_tests/port/__init__.py:
+        * Scripts/webkitpy/layout_tests/port/apache_http_server.py:
+        * Scripts/webkitpy/layout_tests/port/chromium_linux.py:
+        * Scripts/webkitpy/layout_tests/port/chromium_mac.py:
+        * Scripts/webkitpy/layout_tests/port/chromium_win.py:
+        * Scripts/webkitpy/layout_tests/port/http_server.py:
+        * Scripts/webkitpy/layout_tests/port/http_server_base.py:
+        * Scripts/webkitpy/layout_tests/port/path_utils.py:
+        * Scripts/webkitpy/layout_tests/port/websocket_server.py:
+        * Scripts/webkitpy/layout_tests/rebaseline_chromium_webkit_tests.py:
+        * Scripts/webkitpy/layout_tests/run_chromium_webkit_tests.py:
+        * Scripts/webkitpy/layout_tests/test_types/fuzzy_image_diff.py:
+        * Scripts/webkitpy/layout_tests/test_types/image_diff.py:
+        * Scripts/webkitpy/layout_tests/test_types/test_type_base.py:
+        * Scripts/webkitpy/layout_tests/test_types/text_diff.py:
+
+2010-02-03  Dirk Pranke  <dpranke@chromium.org>
+
+        Rubber-stamped by Eric Siedel.
+
+        Rename files as part of refactoring the layout_tests package. All
+        the platform_utils* module, the path_utils.py module, and
+        the http server and web socket server modules are moved into a new
+        port/ package.
+
+        https://bugs.webkit.org/show_bug.cgi?id=34511
+
+        * Scripts/webkitpy/layout_tests/layout_package/apache_http_server.py: Removed.
+        * Scripts/webkitpy/layout_tests/layout_package/http_server.py: Removed.
+        * Scripts/webkitpy/layout_tests/layout_package/http_server_base.py: Removed.
+        * Scripts/webkitpy/layout_tests/layout_package/httpd2.pem: Removed.
+        * Scripts/webkitpy/layout_tests/layout_package/json_layout_results_generator.py:
+        * Scripts/webkitpy/layout_tests/layout_package/json_results_generator.py:
+        * Scripts/webkitpy/layout_tests/layout_package/lighttpd.conf: Removed.
+        * Scripts/webkitpy/layout_tests/layout_package/path_utils.py: Removed.
+        * Scripts/webkitpy/layout_tests/layout_package/platform_utils.py: Removed.
+        * Scripts/webkitpy/layout_tests/layout_package/platform_utils_linux.py: Removed.
+        * Scripts/webkitpy/layout_tests/layout_package/platform_utils_mac.py: Removed.
+        * Scripts/webkitpy/layout_tests/layout_package/platform_utils_win.py: Removed.
+        * Scripts/webkitpy/layout_tests/layout_package/test_expectations.py:
+        * Scripts/webkitpy/layout_tests/layout_package/test_files.py:
+        * Scripts/webkitpy/layout_tests/layout_package/test_shell_thread.py:
+        * Scripts/webkitpy/layout_tests/layout_package/websocket_server.py: Removed.
+        * Scripts/webkitpy/layout_tests/port: Added.
+        * Scripts/webkitpy/layout_tests/port/__init__.py: Copied from Scripts/webkitpy/layout_tests/layout_package/platform_utils.py.
+        * Scripts/webkitpy/layout_tests/port/apache_http_server.py: Copied from Scripts/webkitpy/layout_tests/layout_package/apache_http_server.py.
+        * Scripts/webkitpy/layout_tests/port/chromium_linux.py: Copied from Scripts/webkitpy/layout_tests/layout_package/platform_utils_linux.py.
+        * Scripts/webkitpy/layout_tests/port/chromium_mac.py: Copied from Scripts/webkitpy/layout_tests/layout_package/platform_utils_mac.py.
+        * Scripts/webkitpy/layout_tests/port/chromium_win.py: Copied from Scripts/webkitpy/layout_tests/layout_package/platform_utils_win.py.
+        * Scripts/webkitpy/layout_tests/port/http_server.py: Copied from Scripts/webkitpy/layout_tests/layout_package/http_server.py.
+        * Scripts/webkitpy/layout_tests/port/http_server_base.py: Copied from Scripts/webkitpy/layout_tests/layout_package/http_server_base.py.
+        * Scripts/webkitpy/layout_tests/port/httpd2.pem: Copied from Scripts/webkitpy/layout_tests/layout_package/httpd2.pem.
+        * Scripts/webkitpy/layout_tests/port/lighttpd.conf: Copied from Scripts/webkitpy/layout_tests/layout_package/lighttpd.conf.
+        * Scripts/webkitpy/layout_tests/port/path_utils.py: Copied from Scripts/webkitpy/layout_tests/layout_package/path_utils.py.
+        * Scripts/webkitpy/layout_tests/port/websocket_server.py: Copied from Scripts/webkitpy/layout_tests/layout_package/websocket_server.py.
+        * Scripts/webkitpy/layout_tests/rebaseline_chromium_webkit_tests.py:
+        * Scripts/webkitpy/layout_tests/run_chromium_webkit_tests.py:
+        * Scripts/webkitpy/layout_tests/test_types/fuzzy_image_diff.py:
+        * Scripts/webkitpy/layout_tests/test_types/image_diff.py:
+        * Scripts/webkitpy/layout_tests/test_types/test_type_base.py:
+        * Scripts/webkitpy/layout_tests/test_types/text_diff.py:
+
+
+2010-02-03  Csaba Osztrogonác  <ossy@webkit.org>
+
+        Rubber-stamped by Eric Seidel.
+
+        Roll back r53559 and r54084 again, because roll out didn't solve flakeyness on the Windows Test bots
+        https://bugs.webkit.org/show_bug.cgi?id=34399
+
+        * Scripts/run-iexploder-tests:
+        * Scripts/run-webkit-httpd:
+        * Scripts/run-webkit-tests:
+        * Scripts/webkitperl/httpd.pm: Added.
+
+2010-02-03  Csaba Osztrogonác  <ossy@webkit.org>
+
+        Rubber-stamped by Eric Seidel.
+
+        Roll out r53559 and r54084, because it might caused flakeyness on the Windows Test bots
+
+        * Scripts/run-iexploder-tests:
+        * Scripts/run-webkit-httpd:
+        * Scripts/run-webkit-tests:
+        * Scripts/webkitperl/httpd.pm: Removed.
+
+2010-02-03  Csaba Osztrogonác  <ossy@webkit.org>
+
+        Rubber-stamped by Ariya Hidayat.
+
+        Roll back r53889 again, because roll out didn't solve flakeyness on the Windows Test bots
+        https://bugs.webkit.org/show_bug.cgi?id=34399
+
+        * DumpRenderTree/win/EventSender.cpp:
+        (buildModifierFlags):
+        (mouseDownCallback):
+        (mouseUpCallback):
+        (keyDownCallback):
+
+2010-02-03  Eric Seidel  <eric@webkit.org>
+
+        No review, just fixing copyrights.
+
+        Concerns were expressed about "The Chromium Authors" being
+        a valid legal entity for copyright assignment in the WebKit repository,
+        so this change removes all "The Chromium Authors".
+
+        I looked at the svn logs in src.chromium.org and failed to find any
+        non-google contributions to these files, so they are all now
+        marked as copyright "Google Inc" as all Google contributers assign
+        copyright to "Google Inc" as part of their employment agreement.
+
+        * Scripts/rebaseline-chromium-webkit-tests:
+        * Scripts/run-chromium-webkit-tests:
+        * Scripts/webkitpy/layout_tests/layout_package/apache_http_server.py:
+        * Scripts/webkitpy/layout_tests/layout_package/http_server.py:
+        * Scripts/webkitpy/layout_tests/layout_package/http_server_base.py:
+        * Scripts/webkitpy/layout_tests/layout_package/json_layout_results_generator.py:
+        * Scripts/webkitpy/layout_tests/layout_package/json_results_generator.py:
+        * Scripts/webkitpy/layout_tests/layout_package/metered_stream.py:
+        * Scripts/webkitpy/layout_tests/layout_package/path_utils.py:
+        * Scripts/webkitpy/layout_tests/layout_package/platform_utils.py:
+        * Scripts/webkitpy/layout_tests/layout_package/platform_utils_linux.py:
+        * Scripts/webkitpy/layout_tests/layout_package/platform_utils_mac.py:
+        * Scripts/webkitpy/layout_tests/layout_package/platform_utils_win.py:
+        * Scripts/webkitpy/layout_tests/layout_package/test_expectations.py:
+        * Scripts/webkitpy/layout_tests/layout_package/test_failures.py:
+        * Scripts/webkitpy/layout_tests/layout_package/test_files.py:
+        * Scripts/webkitpy/layout_tests/layout_package/test_shell_thread.py:
+        * Scripts/webkitpy/layout_tests/layout_package/websocket_server.py:
+        * Scripts/webkitpy/layout_tests/rebaseline_chromium_webkit_tests.py:
+        * Scripts/webkitpy/layout_tests/run_chromium_webkit_tests.py:
+        * Scripts/webkitpy/layout_tests/test_types/fuzzy_image_diff.py:
+        * Scripts/webkitpy/layout_tests/test_types/image_diff.py:
+        * Scripts/webkitpy/layout_tests/test_types/test_type_base.py:
+        * Scripts/webkitpy/layout_tests/test_types/text_diff.py:
+
+2010-02-03  Kenneth Rohde Christiansen  <kenneth@webkit.org>
+
+        Reviewed by Ariya Hidayat.
+
+        [Qt] QtLauncher, refactor argument handling in preparation of merge
+        with QGVLauncher
+
+        * QtLauncher/main.cpp:
+        (LauncherApplication::urls):
+        (LauncherApplication::isRobotized):
+        (LauncherApplication::applyDefaultSettings):
+        (LauncherApplication::LauncherApplication):
+        (LauncherApplication::formatKeys):
+        (LauncherApplication::enumToKeys):
+        (fail):
+        (LauncherApplication::handleUserOptions):
+        (main):
+
+2010-02-03  Csaba Osztrogonác  <ossy@webkit.org>
+
+        Rubber-stamped by Ariya Hidayat.
+
+        Rolling out r53889, because it might caused flakeyness on the Windows Test bots
+        https://bugs.webkit.org/show_bug.cgi?id=34399
+
+        * DumpRenderTree/win/EventSender.cpp:
+        (mouseDownCallback):
+        (mouseUpCallback):
+        (keyDownCallback):
+
+2010-02-03  Csaba Osztrogonác  <ossy@webkit.org>
+
+        Reviewed by Ariya Hidayat.
+
+        [Qt] Fix pixel tests support.
+        https://bugs.webkit.org/show_bug.cgi?id=27813
+
+        * DumpRenderTree/qt/DumpRenderTreeQt.cpp:
+        (WebCore::DumpRenderTree::open):
+        (WebCore::DumpRenderTree::processLine):
+         - Hash processing mechanism moved from DumpRenderTree::open to DumpRenderTree::processLine.
+        (WebCore::DumpRenderTree::dump): Fixed and renamed variables.
+
+2010-02-03  Kevin Watters  <kevinwatters@gmail.com>
+
+        Reviewed by Kevin Ollivier.
+
+        [wx] Enable JIT compilation for wx.
+        
+        https://bugs.webkit.org/show_bug.cgi?id=34536
+
+        * wx/build/settings.py:
+
+2010-02-02  Kevin Ollivier  <kevino@theolliviers.com>
+
+        [wx] Build fix after introduction of pageNumberForElementById.
+
+        * DumpRenderTree/wx/LayoutTestControllerWx.cpp:
+        (LayoutTestController::pageNumberForElementById):
+
+2010-02-02  Shu Chang  <Chang.Shu@nokia.com>
+
+        Unreviewed.
+
+        Add myself to list of committers.
+
+        * Scripts/webkitpy/committers.py:
+
+2010-02-02  Chris Jerdonek  <cjerdonek@webkit.org>
+
+        Reviewed by Shinichiro Hamaji.
+
+        Moved filter-related check-webkit-style code into a separate
+        filter module.
+
+        https://bugs.webkit.org/show_bug.cgi?id=34408
+
+        This is preparatory refactoring for Bug 33684, which will allow
+        file and folder-specific filter rules.
+
+        * Scripts/webkitpy/style/checker.py:
+          - Removed CategoryFilter class (moved to filter.py).
+
+        * Scripts/webkitpy/style/checker_unittest.py:
+          - Removed CategoryFilter unit tests (moved to filter_unittest.py).
+
+        * Scripts/webkitpy/style/filter.py: Added.
+          - Added CategoryFilter class (moved from checker.py).
+
+        * Scripts/webkitpy/style/filter_unittest.py: Added.
+          - Added CategoryFilter unit tests (moved from checker_unittest.py).
+
+        * Scripts/webkitpy/style/unittests.py:
+          - Added reference to filter_unittest.py.
+
+2010-02-01  Chris Jerdonek  <cjerdonek@webkit.org>
+
+        Reviewed by Shinichiro Hamaji.
+
+        Addressed FIXME in check-webkit-style so that the carriage-return
+        check will work for patches.
+
+        https://bugs.webkit.org/show_bug.cgi?id=34260
+
+        Also added support for limiting the number of errors reported
+        per category, per file.
+
+        * Scripts/webkitpy/style/checker.py:
+          - Added new "whitespace/carriage_return" category from common.py.
+          - Added MAX_REPORTS_PER_CATEGORY dictionary.
+          - Added max_reports_per_category attribute to ProcessorOptions class.
+          - Refactored StyleChecker._process_file().
+
+        * Scripts/webkitpy/style/checker_unittest.py:
+          - Updated ProcessorOptionsTest tests.
+          - Added test to check MAX_REPORTS_PER_CATEGORY.
+
+        * Scripts/webkitpy/style/error_handlers.py:
+          - Added support for suppressing the display of errors after
+            reaching a per-category maximum (from max_reports_per_category).
+
+        * Scripts/webkitpy/style/error_handlers_unittest.py:
+          - Added test for suppressing error display.
+
+        * Scripts/webkitpy/style/processors/common.py: Added.
+          - Moved carriage-return check to new file.
+
+        * Scripts/webkitpy/style/processors/common_unittest.py: Added.
+          - Added unit tests for carriage-return check.
+
+        * Scripts/webkitpy/style/unittests.py:
+          - Added reference to common_unittest.py.
+
+2010-02-01  Shinichiro Hamaji  <hamaji@chromium.org>
+
+        Reviewed by Eric Seidel.
+
+        Provide a way to get page number with layoutTestController
+        https://bugs.webkit.org/show_bug.cgi?id=33840
+
+        * DumpRenderTree/LayoutTestController.cpp:
+        (pageNumberForElementByIdCallback):
+        (LayoutTestController::staticFunctions):
+        * DumpRenderTree/LayoutTestController.h:
+        * DumpRenderTree/gtk/LayoutTestControllerGtk.cpp:
+        (LayoutTestController::pageNumberForElementById):
+        * DumpRenderTree/mac/LayoutTestControllerMac.mm:
+        (LayoutTestController::pageNumberForElementById):
+        * DumpRenderTree/win/LayoutTestControllerWin.cpp:
+        (LayoutTestController::pageNumberForElementById):
+
+2010-02-01  Shinichiro Hamaji  <hamaji@chromium.org>
+
+        Unreviewed fix for an invalid function call.
+
+        check-webkit-style: Remove filename parameter from all functions where no longer used
+        https://bugs.webkit.org/show_bug.cgi?id=34249
+
+        * Scripts/webkitpy/style/checker.py:
+
+2010-02-01  Diego Gonzalez  <diego.gonzalez@openbossa.org>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt] DRT Provide global flag ability
+        https://bugs.webkit.org/show_bug.cgi?id=34418
+
+        Add the globalFlag property to the Qt LayoutTestController to allow
+        cross-domain indications.
+
+        * DumpRenderTree/qt/LayoutTestControllerQt.cpp:
+        (LayoutTestController::reset):
+        * DumpRenderTree/qt/LayoutTestControllerQt.h:
+        (LayoutTestController::globalFlag):
+        (LayoutTestController::setGlobalFlag):
+
+2010-02-01  Brady Eidson  <beidson@apple.com>
+
+        Reviewed by Adele Peterson.
+
+        Crash in Safari opening new tabs to "same page"
+        <rdar://problem/7593857> and https://bugs.webkit.org/show_bug.cgi?id=34444
+
+        Add a mode (Mac-only for now) that exercises the WebView SPI _loadBackForwardListFromOtherView:
+
+        * DumpRenderTree/LayoutTestController.cpp:
+        (LayoutTestController::LayoutTestController):
+        (setNewWindowsCopyBackForwardListCallback):
+        (LayoutTestController::staticFunctions):
+
+        * DumpRenderTree/LayoutTestController.h:
+        (LayoutTestController::newWindowsCopyBackForwardList):
+        (LayoutTestController::setNewWindowsCopyBackForwardList):
+
+        * DumpRenderTree/mac/UIDelegate.mm:
+        (-[UIDelegate webView:createWebViewWithRequest:]):
+
+2010-02-01  Carol Szabo  <carol.szabo@nokia.com>
+
+        Unreviewed.
+
+        Add myself to list of committers.
+
+        * Scripts/webkitpy/committers.py:
+
+2010-02-01  Nate Chapin  <japhet@chromium.org>
+
+        Rubber-stamped by David Levin.
+
+        Add myself to reviewer list.
+
+        * Scripts/webkitpy/committers.py:
+
 2010-01-31  Chris Jerdonek  <cjerdonek@webkit.org>
 
         Reviewed by Shinichiro Hamaji.

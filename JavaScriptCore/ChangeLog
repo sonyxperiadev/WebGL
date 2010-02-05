@@ -1,3 +1,335 @@
+2010-02-04  Jedrzej Nowacki  <jedrzej.nowacki@nokia.com>
+
+        Reviewed by Simon Hausmann.
+
+        Increase test coverage for the QScriptValue.
+
+        https://bugs.webkit.org/show_bug.cgi?id=34533
+
+        * qt/tests/qscriptvalue/qscriptvalue.pro:
+        * qt/tests/qscriptvalue/tst_qscriptvalue.cpp:
+        (tst_QScriptValue::tst_QScriptValue):
+        (tst_QScriptValue::~tst_QScriptValue):
+        (tst_QScriptValue::dataHelper):
+        (tst_QScriptValue::newRow):
+        (tst_QScriptValue::testHelper):
+        (tst_QScriptValue::ctor):
+        * qt/tests/qscriptvalue/tst_qscriptvalue.h: Added.
+        * qt/tests/qscriptvalue/tst_qscriptvalue_generated.cpp: Added.
+        (tst_QScriptValue::initScriptValues):
+        (tst_QScriptValue::isValid_initData):
+        (tst_QScriptValue::isValid_makeData):
+        (tst_QScriptValue::isValid_test):
+        (tst_QScriptValue::isBool_initData):
+        (tst_QScriptValue::isBool_makeData):
+        (tst_QScriptValue::isBool_test):
+        (tst_QScriptValue::isBoolean_initData):
+        (tst_QScriptValue::isBoolean_makeData):
+        (tst_QScriptValue::isBoolean_test):
+        (tst_QScriptValue::isFunction_initData):
+        (tst_QScriptValue::isFunction_makeData):
+        (tst_QScriptValue::isFunction_test):
+        (tst_QScriptValue::isNull_initData):
+        (tst_QScriptValue::isNull_makeData):
+        (tst_QScriptValue::isNull_test):
+        (tst_QScriptValue::isString_initData):
+        (tst_QScriptValue::isString_makeData):
+        (tst_QScriptValue::isString_test):
+        (tst_QScriptValue::isUndefined_initData):
+        (tst_QScriptValue::isUndefined_makeData):
+        (tst_QScriptValue::isUndefined_test):
+        (tst_QScriptValue::isObject_initData):
+        (tst_QScriptValue::isObject_makeData):
+        (tst_QScriptValue::isObject_test):
+
+2010-02-03  Kwang Yul Seo  <skyul@company100.net>
+
+        Reviewed by Eric Seidel.
+
+        [BREWMP] Define WTF_PLATFORM_BREWMP_SIMULATOR when AEE_SIMULATOR is defined
+        https://bugs.webkit.org/show_bug.cgi?id=34514
+
+        PLATFORM(BREWMP_SIMULATOR) guard is needed to make distinction between BREWMP
+        and BREWMP simulator.
+
+        * wtf/Platform.h:
+
+2010-02-03  Kwang Yul Seo  <skyul@company100.net>
+
+        Reviewed by Eric Seidel.
+
+        [BREWMP] Remove COMPILE_ASSERT conflict with the underlying PLATFORM
+        https://bugs.webkit.org/show_bug.cgi?id=34190
+
+        COMPILE_ASSERT conflicts with the underlying PLATFORM because it is defined
+        both in WTF's Assertions.h and BREWMP's AEEClassIDs.h. Include AEEClassIDs.h
+        in Assertions.h and undef COMPILE_ASSERT to avoid redefining COMPILE_ASSERT.
+
+        * wtf/Assertions.h:
+
+2010-02-03  Kwang Yul Seo  <skyul@company100.net>
+
+        Reviewed by Eric Seidel.
+
+        [BREWMP] Implement OwnPtrBrew to make sure BREW instances are freed.
+        https://bugs.webkit.org/show_bug.cgi?id=34518
+
+        Add OwnPtrBrew to release IFile, IFileMgr and IBitmap instances.
+
+        * wtf/brew/OwnPtrBrew.cpp: Added.
+        (WTF::IFileMgr):
+        (WTF::IFile):
+        (WTF::IBitmap):
+        (WTF::freeOwnedPtrBrew):
+        * wtf/brew/OwnPtrBrew.h: Added.
+        (WTF::OwnPtrBrew::OwnPtrBrew):
+        (WTF::OwnPtrBrew::~OwnPtrBrew):
+        (WTF::OwnPtrBrew::get):
+        (WTF::OwnPtrBrew::release):
+        (WTF::OwnPtrBrew::outPtr):
+        (WTF::OwnPtrBrew::set):
+        (WTF::OwnPtrBrew::clear):
+        (WTF::OwnPtrBrew::operator*):
+        (WTF::OwnPtrBrew::operator->):
+        (WTF::OwnPtrBrew::operator!):
+        (WTF::OwnPtrBrew::operator UnspecifiedBoolType):
+        (WTF::OwnPtrBrew::swap):
+        (WTF::swap):
+        (WTF::operator==):
+        (WTF::operator!=):
+        (WTF::getPtr):
+
+2010-02-03  Kwang Yul Seo  <skyul@company100.net>
+
+        Reviewed by Darin Adler.
+
+        Export WTF::fastStrDup symbol
+        https://bugs.webkit.org/show_bug.cgi?id=34526
+
+        * JavaScriptCore.exp:
+
+2010-02-03  Kevin Watters  <kevinwatters@gmail.com>
+
+        Reviewed by Kevin Ollivier.
+
+        [wx] Enable JIT compilation for wx.
+        
+        https://bugs.webkit.org/show_bug.cgi?id=34536
+
+        * wtf/Platform.h:
+
+2010-02-02  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Geoffrey Garen.
+
+        Crash in CollectorBitmap::get at nbcolympics.com
+        https://bugs.webkit.org/show_bug.cgi?id=34504
+
+        This was caused by the use of m_offset to determine the offset of
+        a new property into the property storage.  This patch corrects
+        the effected cases by incorporating the anonymous slot count. It
+        also removes the duplicate copy of anonymous slot count from the
+        property table as keeping this up to date merely increased the
+        chance of a mismatch.  Finally I've added a large number of
+        assertions in an attempt to prevent such a bug from happening
+        again.
+
+        With the new assertions in place the existing anonymous slot tests
+        all fail without the m_offset fixes.
+
+        * runtime/PropertyMapHashTable.h:
+        * runtime/Structure.cpp:
+        (JSC::Structure::materializePropertyMap):
+        (JSC::Structure::addPropertyTransitionToExistingStructure):
+        (JSC::Structure::addPropertyTransition):
+        (JSC::Structure::removePropertyTransition):
+        (JSC::Structure::flattenDictionaryStructure):
+        (JSC::Structure::addPropertyWithoutTransition):
+        (JSC::Structure::removePropertyWithoutTransition):
+        (JSC::Structure::copyPropertyTable):
+        (JSC::Structure::get):
+        (JSC::Structure::put):
+        (JSC::Structure::remove):
+        (JSC::Structure::insertIntoPropertyMapHashTable):
+        (JSC::Structure::createPropertyMapHashTable):
+        (JSC::Structure::rehashPropertyMapHashTable):
+        (JSC::Structure::checkConsistency):
+
+2010-02-02  Steve Falkenburg  <sfalken@apple.com>
+
+        Reviewed by Darin Adler.
+
+        Copyright year updating for Windows version resources should be automatic
+        https://bugs.webkit.org/show_bug.cgi?id=34503
+
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.rc:
+
+2010-02-02  Kwang Yul Seo  <skyul@company100.net>
+
+        Reviewed by Eric Seidel.
+
+        [BREWMP] Add dummy main thread functions
+        https://bugs.webkit.org/show_bug.cgi?id=33569
+
+        Add dummy initializeMainThreadPlatform and
+        scheduleDispatchFunctionsOnMainThread.
+
+        * wtf/brew/MainThreadBrew.cpp: Added.
+        (WTF::initializeMainThreadPlatform):
+        (WTF::scheduleDispatchFunctionsOnMainThread):
+
+2010-02-02  Kwang Yul Seo  <skyul@company100.net>
+
+        Reviewed by Darin Adler.
+
+        Add using WTF::getLocalTime to CurrentTime.h
+        https://bugs.webkit.org/show_bug.cgi?id=34493
+
+        * wtf/CurrentTime.h:
+
+2010-02-02  Kwang Yul Seo  <skyul@company100.net>
+
+        Reviewed by Eric Seidel.
+
+        [BREWMP] Add HAVE_XXX definitions
+        https://bugs.webkit.org/show_bug.cgi?id=34414
+
+        Add HAVE_ERRNO_H=1
+
+        * wtf/Platform.h:
+
+2010-02-02  Kwang Yul Seo  <skyul@company100.net>
+
+        Reviewed by Eric Seidel.
+
+        [BREWMP] Don't define HAVE_TM_GMTOFF, HAVE_TM_ZONE and HAVE_TIMEGM
+        https://bugs.webkit.org/show_bug.cgi?id=34388
+
+        BREWMP does not have these features.
+
+        * wtf/Platform.h:
+
+2010-02-02  Kwang Yul Seo  <skyul@company100.net>
+
+        Reviewed by Eric Seidel.
+
+        [BREWMP] Define WTF_PLATFORM_BREWMP=1 when BUILDING_BREWMP is defined
+        https://bugs.webkit.org/show_bug.cgi?id=34386
+
+        Define WTF_PLATFORM_BREWMP=1 so that PLATFORM(BREWMP) guard can be used.
+
+        * wtf/Platform.h:
+
+2010-02-01  Kent Tamura  <tkent@chromium.org>
+
+        Reviewed by Darin Adler.
+
+        Date.UTC() should apply TimeClip operation.
+        https://bugs.webkit.org/show_bug.cgi?id=34461
+
+        ECMAScript 5 15.9.4.3:
+        > 9 Return TimeClip(MakeDate(MakeDay(yr, m, dt), MakeTime(h, min, s, milli))).
+
+        * runtime/DateConstructor.cpp:
+        (JSC::dateUTC): Calls WTF::timeClip().
+
+2010-02-01  Kent Tamura  <tkent@chromium.org>
+
+        Reviewed by Darin Adler.
+
+        Fix a bug that Math.round() retunrs incorrect results for huge integers
+        https://bugs.webkit.org/show_bug.cgi?id=34462
+
+        * runtime/MathObject.cpp:
+        (JSC::mathProtoFuncRound): Avoid "arg + 0.5".
+
+2010-02-01  Kwang Yul Seo  <skyul@company100.net>
+
+        Reviewed by Eric Seidel.
+
+        [BREWMP] Port WTF's currentTime
+        https://bugs.webkit.org/show_bug.cgi?id=33567
+
+        Combine GETUTCSECONDS and GETTIMEMS to calculate the number
+        of milliseconds since 1970/01/01 00:00:00 UTC.
+
+        * wtf/CurrentTime.cpp:
+        (WTF::currentTime):
+
+2010-02-01  Patrick Gansterer  <paroga@paroga.com>
+
+        Reviewed by Darin Adler.
+
+        [Qt] WinCE buildfix after r52729 and fix for Q_BIG_ENDIAN typo.
+        https://bugs.webkit.org/show_bug.cgi?id=34378
+
+        * wtf/Platform.h:
+
+2010-02-01  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Gavin Barraclough.
+
+        Structure not accounting for anonymous slots when computing property storage size
+        https://bugs.webkit.org/show_bug.cgi?id=34441
+
+        Previously any Structure with anonymous storage would have a property map, so we
+        were only including anonymous slot size if there was a property map.  Given this
+        is no longer the case we should always include the anonymous slot count in the
+        property storage size.
+
+        * runtime/Structure.h:
+        (JSC::Structure::propertyStorageSize):
+
+2010-02-01  Oliver Hunt  <oliver@apple.com>
+
+        Windows build fix, update exports file (again)
+
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.def:
+
+2010-02-01  Oliver Hunt  <oliver@apple.com>
+
+        Windows build fix, update exports file
+
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.def:
+
+2010-01-31  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Maciej Stachowiak.
+
+        JSC is failing to propagate anonymous slot count on some transitions
+        https://bugs.webkit.org/show_bug.cgi?id=34321
+
+        Remove secondary Structure constructor, and make Structure store a copy
+        of the number of anonymous slots directly so saving an immediate allocation
+        of a property map for all structures with anonymous storage, which also
+        avoids the leaked property map on new property transition in the original
+        version of this patch.
+
+        We need to propagate the the anonymous slot count otherwise we can end up
+        with a structure recording incorrect information about the available and
+        needed space for property storage, or alternatively incorrectly reusing
+        some slots.
+
+        * JavaScriptCore.exp:
+        * runtime/Structure.cpp:
+        (JSC::Structure::Structure):
+        (JSC::Structure::materializePropertyMap):
+        (JSC::Structure::addPropertyTransition):
+        (JSC::Structure::changePrototypeTransition):
+        (JSC::Structure::despecifyFunctionTransition):
+        (JSC::Structure::getterSetterTransition):
+        (JSC::Structure::toDictionaryTransition):
+        (JSC::Structure::flattenDictionaryStructure):
+        (JSC::Structure::copyPropertyTable):
+        (JSC::Structure::put):
+        (JSC::Structure::remove):
+        (JSC::Structure::insertIntoPropertyMapHashTable):
+        (JSC::Structure::createPropertyMapHashTable):
+        * runtime/Structure.h:
+        (JSC::Structure::create):
+        (JSC::Structure::hasAnonymousSlots):
+        (JSC::Structure::anonymousSlotCount):
+
 2010-01-31  Patrick Gansterer  <paroga@paroga.com>
 
         Reviewed by Darin Adler.

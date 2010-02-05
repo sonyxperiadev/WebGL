@@ -814,6 +814,9 @@ void RenderTableCell::paintCollapsedBorder(GraphicsContext* graphicsContext, int
 
 void RenderTableCell::paintBackgroundsBehindCell(PaintInfo& paintInfo, int tx, int ty, RenderObject* backgroundObject)
 {
+    if (!shouldPaintWithinRoot(paintInfo))
+        return;
+
     if (!backgroundObject)
         return;
 
@@ -853,6 +856,9 @@ void RenderTableCell::paintBackgroundsBehindCell(PaintInfo& paintInfo, int tx, i
 
 void RenderTableCell::paintBoxDecorations(PaintInfo& paintInfo, int tx, int ty)
 {
+    if (!shouldPaintWithinRoot(paintInfo))
+        return;
+
     RenderTable* tableElt = table();
     if (!tableElt->collapseBorders() && style()->emptyCells() == HIDE && !firstChild())
         return;

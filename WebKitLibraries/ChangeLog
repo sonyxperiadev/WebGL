@@ -1,3 +1,28 @@
+2010-02-03  Dan Bernstein  <mitz@apple.com>
+
+        Reviewed by Anders Carlsson.
+
+        Fixed a bug where WKSetNSURLConnectionDefersCallbacks(true) did not defer callbacks during modal dialogs.
+
+        * libWebKitSystemInterfaceLeopard.a:
+
+2010-02-02  Steve Falkenburg  <sfalken@apple.com>
+
+        Reviewed by Darin Adler.
+
+        Copyright year updating for Windows version resources should be automatic
+        https://bugs.webkit.org/show_bug.cgi?id=34503
+
+        * win/tools/scripts/auto-version.sh:
+
+2010-02-02  Martin Robinson  <mrobinson@webkit.org>
+
+        Unreviewed build fix.
+
+        The WinCairo build requires this script to be executable.
+
+        * win/tools/scripts/feature-defines.sh: Added property svn:executable.
+
 2010-01-29  Mark Rowe  <mrowe@apple.com>
 
         Keep the Windows feature defines in sync with FeatureDefines.xcconfig.

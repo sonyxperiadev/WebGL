@@ -141,6 +141,7 @@ public:
     virtual WebRange selectionRange() const;
     virtual WebString selectionAsText() const;
     virtual WebString selectionAsMarkup() const;
+    virtual bool selectWordAroundCaret();
     virtual int printBegin(const WebSize& pageSize);
     virtual float printPage(int pageToPrint, WebCanvas*);
     virtual float getPrintPageShrink(int page);
@@ -163,6 +164,9 @@ public:
     virtual WebString contentAsMarkup() const;
     virtual WebString renderTreeAsText() const;
     virtual WebString counterValueForElementById(const WebString& id) const;
+    virtual int pageNumberForElementById(const WebString& id,
+                                         float pageWidthInPixels,
+                                         float pageHeightInPixels) const;
 
     static PassRefPtr<WebFrameImpl> create(WebFrameClient* client);
     ~WebFrameImpl();
@@ -218,6 +222,8 @@ public:
 
     WebFrameClient* client() const { return m_client; }
     void dropClient() { m_client = 0; }
+
+    static void selectWordAroundPosition(WebCore::Frame*, WebCore::VisiblePosition);
 
 private:
     class DeferredScopeStringMatches;

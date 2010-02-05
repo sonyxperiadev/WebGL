@@ -20953,6 +20953,14 @@
 				>
 			</File>
 			<File
+				RelativePath="..\page\PrintContext.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\page\PrintContext.h"
+				>
+			</File>
+			<File
 				RelativePath="..\page\Screen.cpp"
 				>
 			</File>
@@ -24126,6 +24134,14 @@
 				<Filter
 					Name="transforms"
 					>
+					<File
+						RelativePath="..\platform\graphics\transforms\AffineTransform.cpp"
+						>
+					</File>
+					<File
+						RelativePath="..\platform\graphics\transforms\AffineTransform.h"
+						>
+					</File>
 					<File
 						RelativePath="..\platform\graphics\transforms\IdentityTransformOperation.h"
 						>
@@ -42558,6 +42574,14 @@
 			</File>
 			<File
 				RelativePath="..\inspector\ConsoleMessage.h"
+				>
+			</File>
+			<File
+				RelativePath="..\inspector\InjectedScript.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\inspector\InjectedScript.h"
 				>
 			</File>
 			<File

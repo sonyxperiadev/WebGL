@@ -34,6 +34,7 @@
 
 #include "ConsoleMessage.h"
 #include "Frame.h"
+#include "InjectedScript.h"
 #include "InjectedScriptHost.h"
 #include "InspectorController.h"
 #include "Node.h"
@@ -43,7 +44,7 @@
 #include "ScriptString.h"
 #include <wtf/OwnPtr.h>
 
-#if ENABLE(JAVASCRIPT_DEBUGGER)
+#if ENABLE(JAVASCRIPT_DEBUGGER) && USE(JSC)
 #include <parser/SourceCode.h>
 #include <runtime/JSValue.h>
 #include <runtime/UString.h>
@@ -105,15 +106,9 @@ void InspectorFrontend::addConsoleMessage(const ScriptObject& messageObj, const 
             function.appendArgument(frames[i]);
     } else if (!arguments.isEmpty()) {
         function.appendArgument(true);
-        ScriptObject injectedScript = m_inspectorController->injectedScriptHost()->injectedScriptFor(scriptState);
+        InjectedScript injectedScript = m_inspectorController->injectedScriptHost()->injectedScriptFor(scriptState);
         for (unsigned i = 0; i < arguments.size(); ++i) {
-            ScriptFunctionCall wrapFunction(scriptState, injectedScript, "wrapAndStringifyObject");
-            wrapFunction.appendArgument(arguments[i]);
-            wrapFunction.appendArgument("console");
-            ScriptValue r = wrapFunction.call();
-            if (r.hasNoValue())
-                return;
-            String s = r.toString(scriptState);
+            String s = injectedScript.wrapAndStringifyForConsole(arguments[i]);
             function.appendArgument(s);
         }
     } else {
@@ -252,7 +247,7 @@ void InspectorFrontend::addRecordToTimeline(const ScriptObject& record)
     function.call();
 }
 
-#if ENABLE(JAVASCRIPT_DEBUGGER)
+#if ENABLE(JAVASCRIPT_DEBUGGER) && USE(JSC)
 void InspectorFrontend::attachDebuggerWhenShown()
 {
     callSimpleFunction("attachDebuggerWhenShown");

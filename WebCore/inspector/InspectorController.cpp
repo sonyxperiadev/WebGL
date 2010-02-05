@@ -39,9 +39,9 @@
 #include "ConsoleMessage.h"
 #include "Cookie.h"
 #include "CookieJar.h"
+#include "DOMWindow.h"
 #include "Document.h"
 #include "DocumentLoader.h"
-#include "DOMWindow.h"
 #include "Element.h"
 #include "FloatConversion.h"
 #include "FloatQuad.h"
@@ -53,16 +53,17 @@
 #include "GraphicsContext.h"
 #include "HTMLFrameOwnerElement.h"
 #include "HitTestResult.h"
-#include "InspectorBackend.h"
 #include "InjectedScriptHost.h"
+#include "InjectedScript.h"
+#include "InspectorBackend.h"
 #include "InspectorClient.h"
-#include "InspectorFrontend.h"
-#include "InspectorFrontendHost.h"
-#include "InspectorDatabaseResource.h"
 #include "InspectorDOMAgent.h"
 #include "InspectorDOMStorageResource.h"
-#include "InspectorTimelineAgent.h"
+#include "InspectorDatabaseResource.h"
+#include "InspectorFrontend.h"
+#include "InspectorFrontendHost.h"
 #include "InspectorResource.h"
+#include "InspectorTimelineAgent.h"
 #include "JavaScriptProfile.h"
 #include "Page.h"
 #include "ProgressTracker.h"
@@ -73,6 +74,8 @@
 #include "ScriptCallStack.h"
 #include "ScriptFunctionCall.h"
 #include "ScriptObject.h"
+#include "ScriptProfile.h"
+#include "ScriptProfiler.h"
 #include "ScriptString.h"
 #include "SecurityOrigin.h"
 #include "Settings.h"
@@ -93,15 +96,12 @@
 #include "StorageArea.h"
 #endif
 
-#if ENABLE(JAVASCRIPT_DEBUGGER)
+#if ENABLE(JAVASCRIPT_DEBUGGER) && USE(JSC)
+#include "JSJavaScriptCallFrame.h"
 #include "JavaScriptCallFrame.h"
 #include "JavaScriptDebugServer.h"
-#include "JSJavaScriptCallFrame.h"
 
-#include <profiler/Profile.h>
-#include <profiler/Profiler.h>
 #include <runtime/JSLock.h>
-#include <runtime/StringBuilder.h>
 #include <runtime/UString.h>
 
 using namespace JSC;
@@ -132,7 +132,7 @@ InspectorController::InspectorController(Page* page, InspectorClient* client)
     , m_client(client)
     , m_page(0)
     , m_expiredConsoleMessageCount(0)
-    , m_scriptState(0)
+    , m_frontendScriptState(0)
     , m_windowVisible(false)
     , m_showAfterVisible(CurrentPanel)
     , m_groupLevel(0)
@@ -143,7 +143,7 @@ InspectorController::InspectorController(Page* page, InspectorClient* client)
     , m_inspectorBackend(InspectorBackend::create(this))
     , m_inspectorFrontendHost(InspectorFrontendHost::create(this, client))
     , m_injectedScriptHost(InjectedScriptHost::create(this))
-#if ENABLE(JAVASCRIPT_DEBUGGER)
+#if ENABLE(JAVASCRIPT_DEBUGGER) && USE(JSC)
     , m_debuggerEnabled(false)
     , m_attachDebuggerWhenShown(false)
     , m_profilerEnabled(false)
@@ -162,7 +162,7 @@ InspectorController::~InspectorController()
 {
     // These should have been cleared in inspectedPageDestroyed().
     ASSERT(!m_client);
-    ASSERT(!m_scriptState);
+    ASSERT(!m_frontendScriptState);
     ASSERT(!m_inspectedPage);
     ASSERT(!m_page || (m_page && !m_page->parentInspectorController()));
 
@@ -183,10 +183,9 @@ void InspectorController::inspectedPageDestroyed()
 {
     close();
 
-    if (m_scriptState) {
-        ScriptGlobalObject::remove(m_scriptState, "InspectorBackend");
-        ScriptGlobalObject::remove(m_scriptState, "InspectorFrontendHost");
-        ScriptGlobalObject::remove(m_scriptState, "InjectedScriptHost");
+    if (m_frontendScriptState) {
+        ScriptGlobalObject::remove(m_frontendScriptState, "InspectorBackend");
+        ScriptGlobalObject::remove(m_frontendScriptState, "InspectorFrontendHost");
     }
     ASSERT(m_inspectedPage);
     m_inspectedPage = 0;
@@ -303,13 +302,13 @@ void InspectorController::setWindowVisible(bool visible, bool attached)
 
         if (m_nodeToFocus)
             focusNode();
-#if ENABLE(JAVASCRIPT_DEBUGGER)
+#if ENABLE(JAVASCRIPT_DEBUGGER) && USE(JSC)
         if (m_attachDebuggerWhenShown)
             enableDebugger();
 #endif
         showPanel(m_showAfterVisible);
     } else {
-#if ENABLE(JAVASCRIPT_DEBUGGER)
+#if ENABLE(JAVASCRIPT_DEBUGGER) && USE(JSC)
         // If the window is being closed with the debugger enabled,
         // remember this state to re-enable debugger on the next window
         // opening.
@@ -390,7 +389,7 @@ void InspectorController::startGroup(MessageSource source, ScriptCallStack* call
 
 void InspectorController::endGroup(MessageSource source, unsigned lineNumber, const String& sourceURL)
 {
-    if (m_groupLevel == 0)
+    if (!m_groupLevel)
         return;
 
     --m_groupLevel;
@@ -509,24 +508,23 @@ void InspectorController::windowScriptObjectAvailable()
 
     // Grant the inspector the ability to script the inspected page.
     m_page->mainFrame()->document()->securityOrigin()->grantUniversalAccess();
-    m_scriptState = scriptStateFromPage(debuggerWorld(), m_page);
-    ScriptGlobalObject::set(m_scriptState, "InspectorBackend", m_inspectorBackend.get());
-    ScriptGlobalObject::set(m_scriptState, "InspectorFrontendHost", m_inspectorFrontendHost.get());
+    m_frontendScriptState = scriptStateFromPage(debuggerWorld(), m_page);
+    ScriptGlobalObject::set(m_frontendScriptState, "InspectorBackend", m_inspectorBackend.get());
+    ScriptGlobalObject::set(m_frontendScriptState, "InspectorFrontendHost", m_inspectorFrontendHost.get());
 }
 
 void InspectorController::scriptObjectReady()
 {
-    ASSERT(m_scriptState);
-    if (!m_scriptState)
+    ASSERT(m_frontendScriptState);
+    if (!m_frontendScriptState)
         return;
 
     ScriptObject webInspectorObj;
-    if (!ScriptGlobalObject::get(m_scriptState, "WebInspector", webInspectorObj))
+    if (!ScriptGlobalObject::get(m_frontendScriptState, "WebInspector", webInspectorObj))
         return;
-    ScriptObject injectedScriptObj;
-    setFrontendProxyObject(m_scriptState, webInspectorObj, injectedScriptObj);
+    setFrontendProxyObject(m_frontendScriptState, webInspectorObj);
 
-#if ENABLE(JAVASCRIPT_DEBUGGER)
+#if ENABLE(JAVASCRIPT_DEBUGGER) && USE(JSC)
     String debuggerEnabled = setting(debuggerEnabledSettingName);
     if (debuggerEnabled == "true")
         enableDebugger();
@@ -543,7 +541,7 @@ void InspectorController::scriptObjectReady()
 
 void InspectorController::setFrontendProxyObject(ScriptState* scriptState, ScriptObject webInspectorObj, ScriptObject)
 {
-    m_scriptState = scriptState;
+    m_frontendScriptState = scriptState;
     m_frontend.set(new InspectorFrontend(this, scriptState, webInspectorObj));
     releaseDOMAgent();
     m_domAgent = InspectorDOMAgent::create(m_frontend.get());
@@ -558,7 +556,7 @@ void InspectorController::show()
     
     if (!m_page) {
         if (m_frontend)
-            return;  // We are using custom frontend - no need to create page.
+            return; // We are using custom frontend - no need to create page.
 
         m_page = m_client->createPage();
         if (!m_page)
@@ -595,7 +593,7 @@ void InspectorController::close()
     if (!enabled())
         return;
 
-#if ENABLE(JAVASCRIPT_DEBUGGER)
+#if ENABLE(JAVASCRIPT_DEBUGGER) && USE(JSC)
     stopUserInitiatedProfiling();
     disableDebugger();
 #endif
@@ -604,7 +602,7 @@ void InspectorController::close()
     releaseDOMAgent();
     m_frontend.set(0);
     m_timelineAgent = 0;
-    m_scriptState = 0;
+    m_frontendScriptState = 0;
     if (m_page) {
         if (!m_page->mainFrame() || !m_page->mainFrame()->loader() || !m_page->mainFrame()->loader()->isLoading()) {
             m_page->setParentInspectorController(0);
@@ -745,7 +743,7 @@ void InspectorController::didCommitLoad(DocumentLoader* loader)
 
         m_times.clear();
         m_counts.clear();
-#if ENABLE(JAVASCRIPT_DEBUGGER)
+#if ENABLE(JAVASCRIPT_DEBUGGER) && USE(JSC)
         m_profiles.clear();
         m_currentUserInitiatedProfileNumber = 1;
         m_nextUserInitiatedProfileNumber = 1;
@@ -1306,7 +1304,7 @@ void InspectorController::setDOMStorageItem(long callId, long storageId, const S
     if (storageResource) {
         ExceptionCode exception = 0;
         storageResource->domStorage()->setItem(key, value, exception);
-        success = (exception == 0);
+        success = !exception;
     }
     m_frontend->didSetDOMStorageItem(callId, success);
 }
@@ -1344,13 +1342,13 @@ void InspectorController::moveWindowBy(float x, float y) const
     m_page->chrome()->setWindowRect(frameRect);
 }
 
-#if ENABLE(JAVASCRIPT_DEBUGGER)
-void InspectorController::addProfile(PassRefPtr<Profile> prpProfile, unsigned lineNumber, const UString& sourceURL)
+#if ENABLE(JAVASCRIPT_DEBUGGER) && USE(JSC)
+void InspectorController::addProfile(PassRefPtr<ScriptProfile> prpProfile, unsigned lineNumber, const String& sourceURL)
 {
     if (!enabled())
         return;
 
-    RefPtr<Profile> profile = prpProfile;
+    RefPtr<ScriptProfile> profile = prpProfile;
     m_profiles.add(profile->uid(), profile);
 
     if (m_frontend) {
@@ -1361,30 +1359,18 @@ void InspectorController::addProfile(PassRefPtr<Profile> prpProfile, unsigned li
     addProfileFinishedMessageToConsole(profile, lineNumber, sourceURL);
 }
 
-void InspectorController::addProfileFinishedMessageToConsole(PassRefPtr<Profile> prpProfile, unsigned lineNumber, const UString& sourceURL)
+void InspectorController::addProfileFinishedMessageToConsole(PassRefPtr<ScriptProfile> prpProfile, unsigned lineNumber, const String& sourceURL)
 {
-    RefPtr<Profile> profile = prpProfile;
+    RefPtr<ScriptProfile> profile = prpProfile;
 
-    JSC::StringBuilder message;
-    message.append("Profile \"webkit-profile://");
-    message.append((UString)encodeWithURLEscapeSequences(CPUProfileType));
-    message.append("/");
-    message.append((UString)encodeWithURLEscapeSequences(profile->title()));
-    message.append("#");
-    message.append(UString::from(profile->uid()));
-    message.append("\" finished.");
-    addMessageToConsole(JSMessageSource, LogMessageType, LogMessageLevel, message.release(), lineNumber, sourceURL);
+    String message = String::format("Profile \"webkit-profile://%s/%s#%d\" finished.", CPUProfileType, encodeWithURLEscapeSequences(profile->title()).utf8().data(), profile->uid());
+    addMessageToConsole(JSMessageSource, LogMessageType, LogMessageLevel, message, lineNumber, sourceURL);
 }
 
-void InspectorController::addStartProfilingMessageToConsole(const UString& title, unsigned lineNumber, const UString& sourceURL)
+void InspectorController::addStartProfilingMessageToConsole(const String& title, unsigned lineNumber, const String& sourceURL)
 {
-    JSC::StringBuilder message;
-    message.append("Profile \"webkit-profile://");
-    message.append(encodeWithURLEscapeSequences(CPUProfileType));
-    message.append("/");
-    message.append(encodeWithURLEscapeSequences(title));
-    message.append("#0\" started.");
-    addMessageToConsole(JSMessageSource, LogMessageType, LogMessageLevel, message.release(), lineNumber, sourceURL);
+    String message = String::format("Profile \"webkit-profile://%s/%s#0\" started.", CPUProfileType, encodeWithURLEscapeSequences(title).utf8().data());
+    addMessageToConsole(JSMessageSource, LogMessageType, LogMessageLevel, message, lineNumber, sourceURL);
 }
 
 void InspectorController::getProfileHeaders(long callId)
@@ -1405,29 +1391,24 @@ void InspectorController::getProfile(long callId, unsigned uid)
         return;
     ProfilesMap::iterator it = m_profiles.find(uid);
     if (it != m_profiles.end())
-        m_frontend->didGetProfile(callId, toJS(m_scriptState, it->second.get()));
+        m_frontend->didGetProfile(callId, toJS(m_frontendScriptState, it->second.get()));
 }
 
-ScriptObject InspectorController::createProfileHeader(const JSC::Profile& profile)
+ScriptObject InspectorController::createProfileHeader(const ScriptProfile& profile)
 {
     ScriptObject header = m_frontend->newScriptObject();
     header.set("title", profile.title());
     header.set("uid", profile.uid());
-    header.set("typeId", UString(CPUProfileType));
+    header.set("typeId", String(CPUProfileType));
     return header;
 }
 
-UString InspectorController::getCurrentUserInitiatedProfileName(bool incrementProfileNumber = false)
+String InspectorController::getCurrentUserInitiatedProfileName(bool incrementProfileNumber = false)
 {
     if (incrementProfileNumber)
         m_currentUserInitiatedProfileNumber = m_nextUserInitiatedProfileNumber++;        
 
-    JSC::StringBuilder title;
-    title.append(UserInitiatedProfileName);
-    title.append(".");
-    title.append(UString::from(m_currentUserInitiatedProfileNumber));
-    
-    return title.release();
+    return String::format("%s.%d", UserInitiatedProfileName, m_currentUserInitiatedProfileNumber);
 }
 
 void InspectorController::startUserInitiatedProfilingSoon()
@@ -1447,12 +1428,12 @@ void InspectorController::startUserInitiatedProfiling(Timer<InspectorController>
 
     m_recordingUserInitiatedProfile = true;
 
-    UString title = getCurrentUserInitiatedProfileName(true);
+    String title = getCurrentUserInitiatedProfileName(true);
 
     ExecState* scriptState = toJSDOMWindow(m_inspectedPage->mainFrame(), debuggerWorld())->globalExec();
-    Profiler::profiler()->startProfiling(scriptState, title);
+    ScriptProfiler::start(scriptState, title);
 
-    addStartProfilingMessageToConsole(title, 0, UString());
+    addStartProfilingMessageToConsole(title, 0, String());
 
     toggleRecordButton(true);
 }
@@ -1464,12 +1445,12 @@ void InspectorController::stopUserInitiatedProfiling()
 
     m_recordingUserInitiatedProfile = false;
 
-    UString title = getCurrentUserInitiatedProfileName();
+    String title = getCurrentUserInitiatedProfileName();
 
     ExecState* scriptState = toJSDOMWindow(m_inspectedPage->mainFrame(), debuggerWorld())->globalExec();
-    RefPtr<Profile> profile = Profiler::profiler()->stopProfiling(scriptState, title);
+    RefPtr<ScriptProfile> profile = ScriptProfiler::stop(scriptState, title);
     if (profile)
-        addProfile(profile, 0, UString());
+        addProfile(profile, 0, String());
 
     toggleRecordButton(false);
 }
@@ -1536,9 +1517,9 @@ void InspectorController::enableDebugger()
     if (m_debuggerEnabled)
         return;
 
-    if (!m_scriptState || !m_frontend) {
+    if (!m_frontendScriptState || !m_frontend)
         m_attachDebuggerWhenShown = true;
-    } else {
+    else {
         m_frontend->attachDebuggerWhenShown();
         m_attachDebuggerWhenShown = false;
     }
@@ -1587,11 +1568,8 @@ void InspectorController::didPause()
     JavaScriptCallFrame* callFrame = m_injectedScriptHost->currentCallFrame();
     ScriptState* scriptState = callFrame->scopeChain()->globalObject->globalExec();
     ASSERT(scriptState);
-    ScriptObject injectedScriptObj = m_injectedScriptHost->injectedScriptFor(scriptState);
-    ScriptFunctionCall function(scriptState, injectedScriptObj, "getCallFrames");
-    ScriptValue callFramesValue = function.call();
-    String callFrames = callFramesValue.toString(scriptState);
-
+    InjectedScript injectedScript = m_injectedScriptHost->injectedScriptFor(scriptState);
+    String callFrames = injectedScript.callFrames();
     m_frontend->pausedScript(callFrames);
 }
 
@@ -1803,20 +1781,19 @@ InspectorController::SpecialPanels InspectorController::specialPanelForJSName(co
 {
     if (panelName == "elements")
         return ElementsPanel;
-    else if (panelName == "resources")
+    if (panelName == "resources")
         return ResourcesPanel;
-    else if (panelName == "scripts")
+    if (panelName == "scripts")
         return ScriptsPanel;
-    else if (panelName == "timeline")
+    if (panelName == "timeline")
         return TimelinePanel;
-    else if (panelName == "profiles")
+    if (panelName == "profiles")
         return ProfilesPanel;
-    else if (panelName == "storage" || panelName == "databases")
+    if (panelName == "storage" || panelName == "databases")
         return StoragePanel;
-    else if (panelName == "console")
+    if (panelName == "console")
         return ConsolePanel;
-    else
-        return ElementsPanel;
+    return ElementsPanel;
 }
 
 void InspectorController::deleteCookie(const String& cookieName, const String& domain)
@@ -1829,7 +1806,7 @@ void InspectorController::deleteCookie(const String& cookieName, const String& d
     }
 }
 
-ScriptObject InspectorController::injectedScriptForNodeId(long id)
+InjectedScript InspectorController::injectedScriptForNodeId(long id)
 {
 
     Frame* frame = 0;
@@ -1847,7 +1824,7 @@ ScriptObject InspectorController::injectedScriptForNodeId(long id)
     if (frame)
         return m_injectedScriptHost->injectedScriptFor(mainWorldScriptState(frame));
 
-    return ScriptObject();
+    return InjectedScript();
 }
 
 } // namespace WebCore

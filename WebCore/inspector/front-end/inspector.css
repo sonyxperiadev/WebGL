@@ -246,13 +246,11 @@ body.attached.port-qt .toolbar-item.close-left, body.attached.port-qt .toolbar-i
     display: none;
 }
 
-body.platform-mac-tiger .toolbar-item.close-right,
-body.platform-mac-leopard .toolbar-item.close-right,
-body.platform-mac-snowleopard .toolbar-item.close-right {
+body.platform-mac .toolbar-item.close-right {
     display: none;
 }
 
-body:not(.platform-mac-tiger):not(.platform-mac-leopard):not(.platform-mac-snowleopard) .toolbar-item.close-left {
+body:not(.platform-mac) .toolbar-item.close-left {
     display: none;
 }
 
@@ -503,20 +501,18 @@ body.drawer-visible #drawer {
     font-family: monospace;
 }
 
-body.platform-mac-tiger .monospace, body.platform-mac-leopard .monospace,
-body.platform-mac-tiger .source-code, body.platform-mac-leopard .source-code {
-    font-size: 10px;
+body.platform-mac .monospace, body.platform-mac .source-code {
     font-family: Monaco, monospace;
 }
 
-body.platform-mac-snowleopard .monospace,
-body.platform-mac-snowleopard .source-code {
+/* Keep .platform-mac to make the rule more specific than the general one above. */
+body.platform-mac.platform-mac-snowleopard .monospace,
+body.platform-mac.platform-mac-snowleopard .source-code {
     font-size: 11px;
     font-family: Menlo, monospace;
 }
 
-body.platform-windows .monospace, body.platform-windows-vista-or-later .monospace,
-body.platform-windows .source-code, body.platform-windows-vista-or-later .source-code {
+body.platform-windows .monospace, body.platform-windows .source-code {
     font-size: 12px;
     font-family: Consolas, Lucida Console, monospace;
 }
@@ -1186,46 +1182,6 @@ body.platform-windows .source-code, body.platform-windows-vista-or-later .source
 
 .outline-disclosure ol.children.expanded {
     display: block;
-}
-
-.webkit-html-comment {
-    /* Keep this in sync with view-source.css (.webkit-html-comment) */
-    color: rgb(35, 110, 37);
-}
-
-.webkit-html-tag {
-    /* Keep this in sync with view-source.css (.webkit-html-tag) */
-    color: rgb(136, 18, 128);
-}
-
-.webkit-html-doctype {
-    /* Keep this in sync with view-source.css (.webkit-html-doctype) */
-    color: rgb(192, 192, 192);
-}
-
-.webkit-html-attribute-name {
-    /* Keep this in sync with view-source.css (.webkit-html-attribute-name) */
-    color: rgb(153, 69, 0);
-}
-
-.webkit-html-attribute-value {
-    /* Keep this in sync with view-source.css (.webkit-html-attribute-value) */
-    color: rgb(26, 26, 166);
-}
-
-.webkit-html-external-link, .webkit-html-resource-link {
-    /* Keep this in sync with view-source.css (.webkit-html-external-link, .webkit-html-resource-link) */
-    color: #00e;
-}
-
-.webkit-html-external-link {
-    /* Keep this in sync with view-source.css (.webkit-html-external-link) */
-    text-decoration: none;
-}
-
-.webkit-html-external-link:hover {
-    /* Keep this in sync with view-source.css (.webkit-html-external-link:hover) */
-    text-decoration: underline;
 }
 
 .add-attribute {

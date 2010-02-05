@@ -415,6 +415,13 @@
 #define WTF_PLATFORM_GTK 1
 #elif defined(BUILDING_HAIKU__)
 #define WTF_PLATFORM_HAIKU 1
+#elif defined(BUILDING_BREWMP__)
+#define WTF_PLATFORM_BREWMP 1
+#if defined(AEE_SIMULATOR)
+#define WTF_PLATFORM_BREWMP_SIMULATOR 1
+#else
+#define WTF_PLATFORM_BREWMP_SIMULATOR 0
+#endif
 #elif OS(DARWIN)
 #define WTF_PLATFORM_MAC 1
 #elif OS(WINDOWS)
@@ -481,10 +488,10 @@
 */
 #if OS(WINCE) && PLATFORM(QT)
 #   include <QtGlobal>
-#   undef WTF_PLATFORM_BIG_ENDIAN
-#   undef WTF_PLATFORM_MIDDLE_ENDIAN
-#   if Q_BYTE_ORDER == Q_BIG_EDIAN
-#       define WTF_PLATFORM_BIG_ENDIAN 1
+#   undef WTF_CPU_BIG_ENDIAN
+#   undef WTF_CPU_MIDDLE_ENDIAN
+#   if Q_BYTE_ORDER == Q_BIG_ENDIAN
+#       define WTF_CPU_BIG_ENDIAN 1
 #   endif
 
 #   include <ce_time.h>
@@ -632,7 +639,7 @@
 
 #if !OS(WINDOWS) && !OS(SOLARIS) && !OS(QNX) \
     && !OS(SYMBIAN) && !OS(HAIKU) && !OS(RVCT) \
-    && !OS(ANDROID)
+    && !OS(ANDROID) && !PLATFORM(BREWMP)
 #define HAVE_TM_GMTOFF 1
 #define HAVE_TM_ZONE 1
 #define HAVE_TIMEGM 1
@@ -687,6 +694,10 @@
 #if !COMPILER(RVCT)
 #define HAVE_SYS_PARAM_H 1
 #endif
+
+#elif PLATFORM(BREWMP)
+
+#define HAVE_ERRNO_H 1
 
 #elif OS(QNX)
 
@@ -854,7 +865,7 @@ on MinGW. See https://bugs.webkit.org/show_bug.cgi?id=29268 */
     #define ENABLE_JIT 1
 #endif
 
-#if PLATFORM(QT)
+#if PLATFORM(QT) || PLATFORM(WX)
 #if CPU(X86_64) && OS(DARWIN)
     #define ENABLE_JIT 1
 #elif CPU(X86) && OS(DARWIN)
@@ -918,8 +929,13 @@ on MinGW. See https://bugs.webkit.org/show_bug.cgi?id=29268 */
 #if (CPU(X86) && PLATFORM(MAC)) \
     || (CPU(X86_64) && PLATFORM(MAC)) \
     || (CPU(ARM_THUMB2) && PLATFORM(IPHONE)) \
+<<<<<<< HEAD
     || (CPU(ARM_THUMB2) && PLATFORM(ANDROID) && ENABLE(ANDROID_JSC_JIT)) \
     || (CPU(X86) && PLATFORM(WIN))
+=======
+    || (CPU(X86) && PLATFORM(WIN)) \
+    || (CPU(X86) && PLATFORM(WX))
+>>>>>>> webkit.org at r54340
 #define ENABLE_YARR 1
 #define ENABLE_YARR_JIT 1
 #endif

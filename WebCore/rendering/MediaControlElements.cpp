@@ -504,7 +504,7 @@ void MediaControlSeekButtonElement::defaultEventHandler(Event* event)
             m_capturing = true;
             frame->eventHandler()->setCapturingMouseEventsNode(this);
         }
-        m_mediaElement->pause();
+        m_mediaElement->pause(event->fromUserGesture());
         m_seekTimer.startRepeating(cSeekRepeatDelay);
         event->setDefaultHandled();
     } else if (event->type() == eventNames().mouseupEvent) {
@@ -731,30 +731,9 @@ void MediaControlTimeDisplayElement::setVisible(bool visible)
     renderer()->setStyle(style.get());
 }
 
-String MediaControlTimeDisplayElement::formatTime(float time)
-{
-    if (!isfinite(time))
-        time = 0;
-    int seconds = (int)fabsf(time);
-    int hours = seconds / (60 * 60);
-    int minutes = (seconds / 60) % 60;
-    seconds %= 60;
-    if (hours) {
-        if (hours > 9)
-            return String::format("%s%02d:%02d:%02d", (time < 0 ? "-" : ""), hours, minutes, seconds);
-
-        return String::format("%s%01d:%02d:%02d", (time < 0 ? "-" : ""), hours, minutes, seconds);
-    }
-
-    return String::format("%s%02d:%02d", (time < 0 ? "-" : ""), minutes, seconds);
-}
-
 void MediaControlTimeDisplayElement::setCurrentValue(float time)
 {
     m_currentValue = time;
-
-    ExceptionCode ec;
-    setInnerText(formatTime(m_currentValue), ec);
 }
 
 

@@ -57,7 +57,9 @@
 #include "V8BindingState.h"
 #include "V8CustomBinding.h"
 #include "V8CustomEventListener.h"
+#include "V8HTMLCollection.h"
 #include "V8MessagePortCustom.h"
+#include "V8Node.h"
 #include "V8Proxy.h"
 #include "V8Utilities.h"
 #if ENABLE(WEB_SOCKETS)
@@ -78,8 +80,15 @@ v8::Handle<v8::Value> WindowSetTimeoutImpl(const v8::Arguments& args, bool singl
     if (argumentCount < 1)
         return v8::Undefined();
 
-    v8::Handle<v8::Value> function = args[0];
+    DOMWindow* imp = V8DOMWindow::toNative(args.Holder());
+    ScriptExecutionContext* scriptContext = static_cast<ScriptExecutionContext*>(imp->document());
 
+    if (!scriptContext) {
+        V8Proxy::setDOMException(INVALID_ACCESS_ERR);
+        return v8::Undefined();
+    }
+
+    v8::Handle<v8::Value> function = args[0];
     WebCore::String functionString;
     if (!function->IsFunction()) {
         if (function->IsString())
@@ -104,14 +113,7 @@ v8::Handle<v8::Value> WindowSetTimeoutImpl(const v8::Arguments& args, bool singl
     if (argumentCount >= 2)
         timeout = args[1]->Int32Value();
 
-    DOMWindow* imp = V8DOMWindow::toNative(args.Holder());
-
     if (!V8BindingSecurity::canAccessFrame(V8BindingState::Only(), imp->frame(), true))
-        return v8::Undefined();
-
-    ScriptExecutionContext* scriptContext = static_cast<ScriptExecutionContext*>(imp->document());
-
-    if (!scriptContext)
         return v8::Undefined();
 
     int id;
@@ -708,7 +710,7 @@ v8::Handle<v8::Value> V8DOMWindow::openCallback(const v8::Arguments& args)
 
             frame->redirectScheduler()->scheduleLocationChange(completedUrl, referrer, false, userGesture);
         }
-        return V8DOMWrapper::convertToV8Object(V8ClassIndex::DOMWINDOW, frame->domWindow());
+        return toV8(frame->domWindow());
     }
 
     // In the case of a named frame or a new window, we'll use the
@@ -768,7 +770,7 @@ v8::Handle<v8::Value> V8DOMWindow::openCallback(const v8::Arguments& args)
     if (!frame)
         return v8::Undefined();
 
-    return V8DOMWrapper::convertToV8Object(V8ClassIndex::DOMWINDOW, frame->domWindow());
+    return toV8(frame->domWindow());
 }
 
 
@@ -786,7 +788,7 @@ v8::Handle<v8::Value> V8DOMWindow::indexedPropertyGetter(uint32_t index, const v
 
     Frame* child = frame->tree()->child(index);
     if (child)
-        return V8DOMWrapper::convertToV8Object(V8ClassIndex::DOMWINDOW, child->domWindow());
+        return toV8(child->domWindow());
 
     return notHandledByInterceptor();
 }
@@ -809,7 +811,7 @@ v8::Handle<v8::Value> V8DOMWindow::namedPropertyGetter(v8::Local<v8::String> nam
     AtomicString propName = v8StringToAtomicWebCoreString(name);
     Frame* child = frame->tree()->child(propName);
     if (child)
-        return V8DOMWrapper::convertToV8Object(V8ClassIndex::DOMWINDOW, child->domWindow());
+        return toV8(child->domWindow());
 
     // Search IDL functions defined in the prototype
     v8::Handle<v8::Value> result = info.Holder()->GetRealNamedProperty(name);
@@ -824,8 +826,8 @@ v8::Handle<v8::Value> V8DOMWindow::namedPropertyGetter(v8::Local<v8::String> nam
             RefPtr<HTMLCollection> items = doc->windowNamedItems(propName);
             if (items->length() >= 1) {
                 if (items->length() == 1)
-                    return V8DOMWrapper::convertNodeToV8Object(items->firstItem());
-                return V8DOMWrapper::convertToV8Object(V8ClassIndex::HTMLCOLLECTION, items.release());
+                    return toV8(items->firstItem());
+                return toV8(items.release());
             }
         }
     }
@@ -923,6 +925,39 @@ bool V8DOMWindow::indexedSecurityCheck(v8::Local<v8::Object> host, uint32_t inde
         return true;
 
     return V8BindingSecurity::canAccessFrame(V8BindingState::Only(), target, false);
+}
+
+v8::Handle<v8::Value> toV8(DOMWindow* window)
+{
+    if (!window)
+        return v8::Null();
+    // Initializes environment of a frame, and return the global object
+    // of the frame.
+    Frame* frame = window->frame();
+    if (!frame)
+        return v8::Handle<v8::Object>();
+
+    // Special case: Because of evaluateInIsolatedWorld() one DOMWindow can have
+    // multiple contexts and multiple global objects associated with it. When
+    // code running in one of those contexts accesses the window object, we
+    // want to return the global object associated with that context, not
+    // necessarily the first global object associated with that DOMWindow.
+    v8::Handle<v8::Context> currentContext = v8::Context::GetCurrent();
+    v8::Handle<v8::Object> currentGlobal = currentContext->Global();
+    v8::Handle<v8::Object> windowWrapper = V8DOMWrapper::lookupDOMWrapper(V8ClassIndex::DOMWINDOW, currentGlobal);
+    if (!windowWrapper.IsEmpty()) {
+        if (V8DOMWindow::toNative(windowWrapper) == window)
+            return currentGlobal;
+    }
+
+    // Otherwise, return the global object associated with this frame.
+    v8::Handle<v8::Context> context = V8Proxy::context(frame);
+    if (context.IsEmpty())
+        return v8::Handle<v8::Object>();
+
+    v8::Handle<v8::Object> global = context->Global();
+    ASSERT(!global.IsEmpty());
+    return global;
 }
 
 } // namespace WebCore

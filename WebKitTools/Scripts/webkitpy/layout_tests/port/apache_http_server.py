@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# Copyright (C) 2010 The Chromium Authors. All rights reserved.
+# Copyright (C) 2010 Google Inc. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are
@@ -11,7 +11,7 @@
 # copyright notice, this list of conditions and the following disclaimer
 # in the documentation and/or other materials provided with the
 # distribution.
-#     * Neither the Chromium name nor the names of its
+#     * Neither the name of Google Inc. nor the names of its
 # contributors may be used to endorse or promote products derived from
 # this software without specific prior written permission.
 #
@@ -38,7 +38,7 @@ import sys
 
 import http_server_base
 import path_utils
-import platform_utils
+import port
 
 
 class LayoutTestApacheHttpd(http_server_base.HttpServerBase):
@@ -78,7 +78,7 @@ class LayoutTestApacheHttpd(http_server_base.HttpServerBase):
         error_log = self._cygwin_safe_join(output_dir, "error_log.txt")
         document_root = self._cygwin_safe_join(test_dir, "http", "tests")
 
-        executable = platform_utils.apache_executable_path()
+        executable = port.apache_executable_path()
         if self._is_cygwin():
             executable = self._get_cygwin_path(executable)
 
@@ -146,7 +146,7 @@ class LayoutTestApacheHttpd(http_server_base.HttpServerBase):
           test_dir: absolute path to the LayoutTests directory.
           output_dir: absolute path to the layout test results directory.
         """
-        httpd_config = platform_utils.apache_config_file_path()
+        httpd_config = port.apache_config_file_path()
         httpd_config_copy = os.path.join(output_dir, "httpd.conf")
         httpd_conf = open(httpd_config).read()
         if self._is_cygwin():

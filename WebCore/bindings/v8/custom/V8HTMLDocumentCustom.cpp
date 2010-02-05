@@ -38,6 +38,11 @@
 #include "HTMLIFrameElement.h"
 #include "HTMLNames.h"
 #include "V8Binding.h"
+#include "V8DOMWindow.h"
+#include "V8HTMLAllCollection.h"
+#include "V8HTMLCollection.h"
+#include "V8IsolatedContext.h"
+#include "V8Node.h"
 #include "V8Proxy.h"
 #include <wtf/RefPtr.h>
 #include <wtf/StdLibExtras.h>
@@ -91,12 +96,12 @@ v8::Handle<v8::Value> V8HTMLDocument::namedPropertyGetter(v8::Local<v8::String> 
         Node* node = items->firstItem();
         Frame* frame = 0;
         if (node->hasTagName(HTMLNames::iframeTag) && (frame = static_cast<HTMLIFrameElement*>(node)->contentFrame()))
-            return V8DOMWrapper::convertToV8Object(V8ClassIndex::DOMWINDOW, frame->domWindow());
+            return toV8(frame->domWindow());
 
-        return V8DOMWrapper::convertNodeToV8Object(node);
+        return toV8(node);
     }
 
-    return V8DOMWrapper::convertToV8Object(V8ClassIndex::HTMLCOLLECTION, items.release());
+    return toV8(items.release());
 }
 
 v8::Handle<v8::Value> V8HTMLDocument::indexedPropertyGetter(uint32_t index, const v8::AccessorInfo &info) 
@@ -181,10 +186,9 @@ v8::Handle<v8::Value> V8HTMLDocument::openCallback(const v8::Arguments& args)
 v8::Handle<v8::Value> V8HTMLDocument::allAccessorGetter(v8::Local<v8::String> name, const v8::AccessorInfo& info)
 {
     INC_STATS("DOM.HTMLDocument.all._get");
-    v8::HandleScope scope;
     v8::Handle<v8::Object> holder = info.Holder();
     HTMLDocument* htmlDocument = V8HTMLDocument::toNative(holder);
-    return V8DOMWrapper::convertToV8Object(V8ClassIndex::HTMLCOLLECTION, htmlDocument->all());
+    return toV8(htmlDocument->all());
 }
 
 void V8HTMLDocument::allAccessorSetter(v8::Local<v8::String> name, v8::Local<v8::Value> value, const v8::AccessorInfo& info)
@@ -193,6 +197,24 @@ void V8HTMLDocument::allAccessorSetter(v8::Local<v8::String> name, v8::Local<v8:
     v8::Handle<v8::Object> holder = info.Holder();
     ASSERT(info.Holder()->InternalFieldCount() == V8HTMLDocument::internalFieldCount);
     info.Holder()->SetInternalField(V8HTMLDocument::shadowIndex, value);
+}
+
+v8::Handle<v8::Value> toV8(HTMLDocument* impl, bool forceNewObject)
+{
+    if (!impl)
+        return v8::Null();
+    v8::Handle<v8::Object> wrapper = V8HTMLDocument::wrap(impl, forceNewObject);
+    if (!V8IsolatedContext::getEntered()) {
+        if (V8Proxy* proxy = V8Proxy::retrieve(impl->frame()))
+            proxy->windowShell()->updateDocumentWrapper(wrapper);
+    }
+    // Create marker object and insert it in two internal fields.
+    // This is used to implement temporary shadowing of document.all.
+    ASSERT(wrapper->InternalFieldCount() == V8HTMLDocument::internalFieldCount);
+    v8::Local<v8::Object> marker = v8::Object::New();
+    wrapper->SetInternalField(V8HTMLDocument::markerIndex, marker);
+    wrapper->SetInternalField(V8HTMLDocument::shadowIndex, marker);
+    return wrapper;
 }
 
 } // namespace WebCore

@@ -61,6 +61,7 @@ LayoutTestController::LayoutTestController(const std::string& testPathOrURL, con
     , m_callCloseOnWebViews(true)
     , m_canOpenWindows(false)
     , m_closeRemainingWindowsWhenComplete(true)
+    , m_newWindowsCopyBackForwardList(false)
     , m_stopProvisionalFrameLoads(false)
     , m_testOnscreen(false)
     , m_testRepaint(false)
@@ -464,6 +465,36 @@ static JSValueRef notifyDoneCallback(JSContextRef context, JSObjectRef function,
     return JSValueMakeUndefined(context);
 }
 
+static JSValueRef pageNumberForElementByIdCallback(JSContextRef context, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
+{
+    // FIXME: These values should sync with maxViewWidth/Height in
+    //        DumpRenderTree.mm. Factor these values out to somewhere.
+    float pageWidthInPixels = 800;
+    float pageHeightInPixels = 600;
+    switch (argumentCount) {
+    case 1:
+        break;
+    case 3:
+        pageWidthInPixels = static_cast<float>(JSValueToNumber(context, arguments[1], exception));
+        if (*exception)
+            return JSValueMakeUndefined(context);
+        pageHeightInPixels = static_cast<float>(JSValueToNumber(context, arguments[2], exception));
+        if (*exception)
+            return JSValueMakeUndefined(context);
+        break;
+    default:
+        return JSValueMakeUndefined(context);
+    }
+
+    JSRetainPtr<JSStringRef> elementId(Adopt, JSValueToStringCopy(context, arguments[0], exception));
+    if (*exception)
+        return JSValueMakeUndefined(context);
+
+    LayoutTestController* controller = static_cast<LayoutTestController*>(JSObjectGetPrivate(thisObject));
+    int pageNumber = controller->pageNumberForElementById(elementId.get(), pageWidthInPixels, pageHeightInPixels);
+    return JSValueMakeNumber(context, pageNumber);
+}
+
 static JSValueRef queueBackNavigationCallback(JSContextRef context, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
 {
     // Has mac & windows implementation
@@ -739,6 +770,18 @@ static JSValueRef setMockGeolocationErrorCallback(JSContextRef context, JSObject
 
     LayoutTestController* controller = reinterpret_cast<LayoutTestController*>(JSObjectGetPrivate(thisObject));
     controller->setMockGeolocationError(code, message.get());
+
+    return JSValueMakeUndefined(context);
+}
+
+static JSValueRef setNewWindowsCopyBackForwardListCallback(JSContextRef context, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
+{
+    // Has mac implementation
+    if (argumentCount < 1)
+        return JSValueMakeUndefined(context);
+    
+    LayoutTestController* controller = static_cast<LayoutTestController*>(JSObjectGetPrivate(thisObject));
+    controller->setNewWindowsCopyBackForwardList(JSValueToBoolean(context, arguments[0]));
 
     return JSValueMakeUndefined(context);
 }
@@ -1289,6 +1332,7 @@ JSStaticFunction* LayoutTestController::staticFunctions()
         { "notifyDone", notifyDoneCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { "numberOfActiveAnimations", numberOfActiveAnimationsCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { "overridePreference", overridePreferenceCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
+        { "pageNumberForElementById", pageNumberForElementByIdCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { "pathToLocalResource", pathToLocalResourceCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { "pauseAnimationAtTimeOnElementWithId", pauseAnimationAtTimeOnElementWithIdCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { "pauseTransitionAtTimeOnElementWithId", pauseTransitionAtTimeOnElementWithIdCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
@@ -1324,6 +1368,7 @@ JSStaticFunction* LayoutTestController::staticFunctions()
         { "setMainFrameIsFirstResponder", setMainFrameIsFirstResponderCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { "setMockGeolocationPosition", setMockGeolocationPositionCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { "setMockGeolocationError", setMockGeolocationErrorCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
+        { "setNewWindowsCopyBackForwardList", setNewWindowsCopyBackForwardListCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { "setPersistentUserStyleSheetLocation", setPersistentUserStyleSheetLocationCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { "setPopupBlockingEnabled", setPopupBlockingEnabledCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { "setPrivateBrowsingEnabled", setPrivateBrowsingEnabledCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },

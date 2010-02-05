@@ -1501,7 +1501,7 @@ bool FrameLoader::isProcessingUserGesture()
     Frame* frame = m_frame->tree()->top();
     if (!frame->script()->canExecuteScripts())
         return true; // If JavaScript is disabled, a user gesture must have initiated the navigation.
-    return frame->script()->processingUserGesture(); // FIXME: Use pageIsProcessingUserGesture.
+    return frame->script()->processingUserGesture(mainThreadNormalWorld()); // FIXME: Use pageIsProcessingUserGesture.
 }
 
 void FrameLoader::resetMultipleFormSubmissionProtection()
@@ -3579,7 +3579,7 @@ void FrameLoader::continueLoadAfterNavigationPolicy(const ResourceRequest&, Pass
     if (!m_frame->page())
         return;
 
-#if ENABLE(JAVASCRIPT_DEBUGGER) && ENABLE(INSPECTOR)
+#if ENABLE(JAVASCRIPT_DEBUGGER) && ENABLE(INSPECTOR) && USE(JSC)
     if (Page* page = m_frame->page()) {
         if (page->mainFrame() == m_frame)
             page->inspectorController()->resumeDebugger();
@@ -3900,7 +3900,9 @@ void FrameLoader::loadItem(HistoryItem* item, FrameLoadType loadType)
     // - The HistoryItem has a history state object
     // - Navigating to an anchor within the page, with no form data stored on the target item or the current history entry,
     //   and the URLs in the frame tree match the history item for fragment scrolling.
-    bool sameDocumentNavigation = (!item->formData() && !(history()->currentItem() && history()->currentItem()->formData()) && history()->urlsMatchItem(item)) || item->documentSequenceNumber() == history()->currentItem()->documentSequenceNumber();
+    HistoryItem* currentItem = history()->currentItem();
+    bool sameDocumentNavigation = (!item->formData() && !(currentItem && currentItem->formData()) && history()->urlsMatchItem(item))
+                                  || (currentItem && item->documentSequenceNumber() == currentItem->documentSequenceNumber());
 
 #if ENABLE(WML)
     // All WML decks should go through the real load mechanism, not the scroll-to-anchor code

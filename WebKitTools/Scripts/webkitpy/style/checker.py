@@ -37,6 +37,9 @@ import sys
 from .. style_references import parse_patch
 from error_handlers import DefaultStyleErrorHandler
 from error_handlers import PatchStyleErrorHandler
+from filter import CategoryFilter
+from processors.common import check_no_carriage_return
+from processors.common import categories as CommonCategories
 from processors.cpp import CppProcessor
 from processors.text import TextProcessor
 
@@ -106,10 +109,17 @@ SKIPPED_FILES_WITHOUT_WARNING = [
     ]
 
 
+# The maximum number of errors to report per file, per category.
+# If a category is not a key, then it has no maximum.
+MAX_REPORTS_PER_CATEGORY = {
+    "whitespace/carriage_return": 1
+}
+
+
 def style_categories():
     """Return the set of all categories used by check-webkit-style."""
-    # If other processors had categories, we would take their union here.
-    return CppProcessor.categories
+    # Take the union across all processors.
+    return CommonCategories.union(CppProcessor.categories)
 
 
 def webkit_argument_defaults():
@@ -191,79 +201,6 @@ Syntax: %(program_name)s [--verbose=#] [--git-commit=<SingleCommit>] [--output=v
     return usage
 
 
-class CategoryFilter(object):
-
-    """Filters whether to check style categories."""
-
-    def __init__(self, filter_rules=None):
-        """Create a category filter.
-
-        This method performs argument validation but does not strip
-        leading or trailing white space.
-
-        Args:
-          filter_rules: A list of strings that are filter rules, which
-                        are strings beginning with the plus or minus
-                        symbol (+/-). The list should include any
-                        default filter rules at the beginning.
-                        Defaults to the empty list.
-
-        Raises:
-          ValueError: Invalid filter rule if a rule does not start with
-                      plus ("+") or minus ("-").
-
-        """
-        if filter_rules is None:
-            filter_rules = []
-
-        for rule in filter_rules:
-            if not (rule.startswith('+') or rule.startswith('-')):
-                raise ValueError('Invalid filter rule "%s": every rule '
-                                 'rule in the --filter flag must start '
-                                 'with + or -.' % rule)
-
-        self._filter_rules = filter_rules
-        self._should_check_category = {} # Cached dictionary of category to True/False
-
-    def __str__(self):
-        return ",".join(self._filter_rules)
-
-    # Useful for unit testing.
-    def __eq__(self, other):
-        """Return whether this CategoryFilter instance is equal to another."""
-        return self._filter_rules == other._filter_rules
-
-    # Useful for unit testing.
-    def __ne__(self, other):
-        # Python does not automatically deduce from __eq__().
-        return not (self == other)
-
-    def should_check(self, category):
-        """Return whether the category should be checked.
-
-        The rules for determining whether a category should be checked
-        are as follows. By default all categories should be checked.
-        Then apply the filter rules in order from first to last, with
-        later flags taking precedence.
-
-        A filter rule applies to a category if the string after the
-        leading plus/minus (+/-) matches the beginning of the category
-        name. A plus (+) means the category should be checked, while a
-        minus (-) means the category should not be checked.
-
-        """
-        if category in self._should_check_category:
-            return self._should_check_category[category]
-
-        should_check = True # All categories checked by default.
-        for rule in self._filter_rules:
-            if not category.startswith(rule[1:]):
-                continue
-            should_check = rule.startswith('+')
-        self._should_check_category[category] = should_check # Update cache.
-        return should_check
-
-
 # This class should not have knowledge of the flag key names.
 class ProcessorOptions(object):
 
@@ -290,12 +227,19 @@ class ProcessorOptions(object):
 
     """
 
-    def __init__(self, output_format="emacs", verbosity=1, filter=None,
-                 git_commit=None, extra_flag_values=None):
-        if filter is None:
-            filter = CategoryFilter()
+    def __init__(self,
+                 output_format="emacs",
+                 verbosity=1,
+                 filter=None,
+                 max_reports_per_category=None,
+                 git_commit=None,
+                 extra_flag_values=None):
         if extra_flag_values is None:
             extra_flag_values = {}
+        if filter is None:
+            filter = CategoryFilter()
+        if max_reports_per_category is None:
+            max_reports_per_category = {}
 
         if output_format not in ("emacs", "vs7"):
             raise ValueError('Invalid "output_format" parameter: '
@@ -307,24 +251,27 @@ class ProcessorOptions(object):
                              "value must be an integer between 1-5 inclusive. "
                              'Value given: "%s".' % verbosity)
 
-        self.output_format = output_format
-        self.verbosity = verbosity
+        self.extra_flag_values = extra_flag_values
         self.filter = filter
         self.git_commit = git_commit
-        self.extra_flag_values = extra_flag_values
+        self.max_reports_per_category = max_reports_per_category
+        self.output_format = output_format
+        self.verbosity = verbosity
 
     # Useful for unit testing.
     def __eq__(self, other):
         """Return whether this ProcessorOptions instance is equal to another."""
-        if self.output_format != other.output_format:
-            return False
-        if self.verbosity != other.verbosity:
+        if self.extra_flag_values != other.extra_flag_values:
             return False
         if self.filter != other.filter:
             return False
         if self.git_commit != other.git_commit:
             return False
-        if self.extra_flag_values != other.extra_flag_values:
+        if self.max_reports_per_category != other.max_reports_per_category:
+            return False
+        if self.output_format != other.output_format:
+            return False
+        if self.verbosity != other.verbosity:
             return False
 
         return True
@@ -568,8 +515,12 @@ class ArgumentParser(object):
 
         filter = CategoryFilter(filter_rules)
 
-        options = ProcessorOptions(output_format, verbosity, filter,
-                                   git_commit, extra_flag_values)
+        options = ProcessorOptions(extra_flag_values=extra_flag_values,
+                      filter=filter,
+                      git_commit=git_commit,
+                      max_reports_per_category=MAX_REPORTS_PER_CATEGORY,
+                      output_format=output_format,
+                      verbosity=verbosity)
 
         return (filenames, options)
 
@@ -720,35 +671,36 @@ class StyleChecker(object):
             # '\r\n' as in Windows), a warning is issued below if this file
             # is processed.
             if file_path == '-':
-                lines = codecs.StreamReaderWriter(sys.stdin,
-                                                  codecs.getreader('utf8'),
-                                                  codecs.getwriter('utf8'),
-                                                  'replace').read().split('\n')
+                file = codecs.StreamReaderWriter(sys.stdin,
+                                                 codecs.getreader('utf8'),
+                                                 codecs.getwriter('utf8'),
+                                                 'replace')
             else:
-                lines = codecs.open(file_path, 'r', 'utf8', 'replace').read().split('\n')
+                file = codecs.open(file_path, 'r', 'utf8', 'replace')
 
-            carriage_return_found = False
-            # Remove trailing '\r'.
-            for line_number in range(len(lines)):
-                if lines[line_number].endswith('\r'):
-                    lines[line_number] = lines[line_number].rstrip('\r')
-                    carriage_return_found = True
+            contents = file.read()
 
         except IOError:
             self._stderr_write("Skipping input '%s': Can't open for reading\n" % file_path)
             return
 
-        processor.process(lines)
+        lines = contents.split("\n")
 
-        if carriage_return_found and os.linesep != '\r\n':
-            # FIXME: Make sure this error also shows up when checking
-            #        patches, if appropriate.
+        for line_number in range(len(lines)):
+            # FIXME: We should probably use the SVN "eol-style" property
+            #        or a white list to decide whether or not to do
+            #        the carriage-return check. Originally, we did the
+            #        check only if (os.linesep != '\r\n').
             #
-            # Use 0 for line_number since outputting only one error for
-            # potentially several lines.
-            handle_style_error(file_path, 0, 'whitespace/newline', 1,
-                               'One or more unexpected \\r (^M) found;'
-                               'better to use only a \\n')
+            # FIXME: As a minor optimization, we can have
+            #        check_no_carriage_return() return whether
+            #        the line ends with "\r".
+            check_no_carriage_return(lines[line_number], line_number,
+                                     handle_style_error)
+            if lines[line_number].endswith("\r"):
+                lines[line_number] = lines[line_number].rstrip("\r")
+
+        processor.process(lines)
 
     def check_file(self, file_path, handle_style_error=None, process_file=None):
         """Check style in the given file.

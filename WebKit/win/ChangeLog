@@ -1,3 +1,67 @@
+2010-02-03  Brian Weinstein  <bweinstein@apple.com>
+
+        Reviewed by Steve Falkenburg.
+
+        Scroll does not work with IBM Thinkpad.
+        <https://bugs.webkit.org/show_bug.cgi?id=14227>
+        <rdar://7142545>
+        
+        When initializing the WebView, add two scrollbar Windows inside of
+        our WebView, to allow it to receive WM_VSCROLL and WM_HSCROLL events.
+        (similar to what Firefox did in: <https://bugzilla.mozilla.org/show_bug.cgi?id=507222>.
+        
+        Only do this if the user has installed some kind of Trackpoint driver, using an algorithm
+        like <https://bugzilla.mozilla.org/show_bug.cgi?id=514927>.
+        
+        Also, add code to handle WM_HSCROLL and WM_VSCROLL messages to scroll
+        the WebView.
+
+        * WebView.cpp:
+        (WebView::verticalScroll): Handle the WM_VSCROLL messages, and scroll up and down
+            by lines or pages.
+        (WebView::horizontalScroll): Handle the WM_HSCROLL messages, and scroll left or right
+            by lines or pages.
+        (WebView::WebViewWndProc): Add cases for WM_VSCROLL and WM_HSCROLL.
+        (WebView::initWithFrame): Call shouldInitializeTrackPointHack, and if we should, create
+            vertical and horizontal scrollbars to receive WM_VSCROLL and WM_HSCROLL messages.
+        (WebView::shouldInitializeTrackPointHack): Check if there is a registry key for
+            the some kind of IBM Trackpoint driver.
+        * WebView.h:
+
+2010-02-02  Steve Falkenburg  <sfalken@apple.com>
+
+        Reviewed by Darin Adler.
+
+        Copyright year updating for Windows version resources should be automatic
+        https://bugs.webkit.org/show_bug.cgi?id=34503
+
+        * WebKit.vcproj/WebKit.rc:
+
+2010-02-02  Adam Roben  <aroben@apple.com>
+
+        Stop copying WebCore's IDL files from SRCROOT to OBJROOT
+
+        WebKit doesn't use these anymore (as of r52921).
+
+        Part of Bug 34496: Clean up WebCore's IDL/script copying
+        <https://bugs.webkit.org/show_bug.cgi?id=34496>
+
+        Reviewed by Steve Falkenburg.
+
+        * WebKit.vcproj/WebKit.make:
+
+2010-01-29  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Sam Weinig + Oliver Hunt.
+
+        Bug 34346 - With JSC bindings, make processingUserGesture work with events in Isolated Worlds
+
+        Pass processeing user gensture flag to media play/pause methods.
+
+        * FullscreenVideoController.cpp:
+        (FullscreenVideoController::play):
+        (FullscreenVideoController::pause):
+
 2010-01-29  Brian Weinstein  <bweinstein@apple.com>
 
         Reviewed by Adam Roben.

@@ -357,6 +357,11 @@ public:
     virtual WebString selectionAsText() const = 0;
     virtual WebString selectionAsMarkup() const = 0;
 
+    // Expands the selection to a word around the caret and returns
+    // true. Does nothing and returns false if there is no caret or
+    // there is ranged selection.
+    virtual bool selectWordAroundCaret() = 0;
+
 
     // Printing ------------------------------------------------------------
 
@@ -477,6 +482,13 @@ public:
     // Returns the counter value for the specified element.  This method is
     // used to support layout tests.
     virtual WebString counterValueForElementById(const WebString& id) const = 0;
+
+
+    // Returns the number of page where the specified element will be put.
+    // This method is used to support layout tests.
+    virtual int pageNumberForElementById(const WebString& id,
+                                         float pageWidthInPixels,
+                                         float pageHeightInPixels) const = 0;
 
 protected:
     ~WebFrame() { }

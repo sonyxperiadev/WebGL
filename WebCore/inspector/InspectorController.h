@@ -35,6 +35,7 @@
 #include "PlatformString.h"
 #include "ScriptArray.h"
 #include "ScriptObject.h"
+#include "ScriptProfile.h"
 #include "ScriptState.h"
 #include "ScriptValue.h"
 #include "StringHash.h"
@@ -46,12 +47,11 @@
 #include <wtf/RefCounted.h>
 #include <wtf/Vector.h>
 
-#if ENABLE(JAVASCRIPT_DEBUGGER)
+#if ENABLE(JAVASCRIPT_DEBUGGER) && USE(JSC)
 #include "JavaScriptDebugListener.h"
 
 namespace JSC {
-    class Profile;
-    class UString;
+class UString;
 }
 #endif
 
@@ -64,6 +64,7 @@ class DocumentLoader;
 class Element;
 class GraphicsContext;
 class HitTestResult;
+class InjectedScript;
 class InjectedScriptHost;
 class InspectorBackend;
 class InspectorClient;
@@ -89,7 +90,7 @@ class InspectorDOMStorageResource;
 class InspectorResource;
 
 class InspectorController
-#if ENABLE(JAVASCRIPT_DEBUGGER)
+#if ENABLE(JAVASCRIPT_DEBUGGER) && USE(JSC)
                           : JavaScriptDebugListener, public Noncopyable
 #else
                           : public Noncopyable
@@ -149,7 +150,7 @@ public:
     void detachWindow();
 
     void toggleSearchForNodeInPage();
-    bool searchingForNodeInPage() { return m_searchingForNode; };
+    bool searchingForNodeInPage() const { return m_searchingForNode; }
     void mouseDidMoveOverElement(const HitTestResult&, unsigned modifierFlags);
     void handleMousePressOnNode(Node*);
 
@@ -157,7 +158,7 @@ public:
     void windowScriptObjectAvailable();
 
     void setFrontendProxyObject(ScriptState* state, ScriptObject webInspectorObj, ScriptObject injectedScriptObj = ScriptObject());
-    ScriptState* frontendScriptState() const { return m_scriptState; }
+    ScriptState* frontendScriptState() const { return m_frontendScriptState; }
 
     void populateScriptObjects();
     void resetScriptObjects();
@@ -219,14 +220,14 @@ public:
 
     void markTimeline(const String& message); 
 
-#if ENABLE(JAVASCRIPT_DEBUGGER)
-    void addProfile(PassRefPtr<JSC::Profile>, unsigned lineNumber, const JSC::UString& sourceURL);
-    void addProfileFinishedMessageToConsole(PassRefPtr<JSC::Profile>, unsigned lineNumber, const JSC::UString& sourceURL);
-    void addStartProfilingMessageToConsole(const JSC::UString& title, unsigned lineNumber, const JSC::UString& sourceURL);
+#if ENABLE(JAVASCRIPT_DEBUGGER) && USE(JSC)
+    void addProfile(PassRefPtr<ScriptProfile>, unsigned lineNumber, const String& sourceURL);
+    void addProfileFinishedMessageToConsole(PassRefPtr<ScriptProfile>, unsigned lineNumber, const String& sourceURL);
+    void addStartProfilingMessageToConsole(const String& title, unsigned lineNumber, const String& sourceURL);
 
     bool isRecordingUserInitiatedProfile() const { return m_recordingUserInitiatedProfile; }
 
-    JSC::UString getCurrentUserInitiatedProfileName(bool incrementProfileNumber);
+    String getCurrentUserInitiatedProfileName(bool incrementProfileNumber);
     void startUserInitiatedProfiling(Timer<InspectorController>* = 0);
     void stopUserInitiatedProfiling();
 
@@ -248,7 +249,7 @@ public:
 
     void evaluateForTestInFrontend(long callId, const String& script);
 
-    ScriptObject injectedScriptForNodeId(long id);
+    InjectedScript injectedScriptForNodeId(long id);
 
 private:
     static const char* const FrontendSettingsSettingName;
@@ -267,15 +268,15 @@ private:
 
     void deleteCookie(const String& cookieName, const String& domain);
 
-#if ENABLE(JAVASCRIPT_DEBUGGER)
-    typedef HashMap<unsigned int, RefPtr<JSC::Profile> > ProfilesMap;
+#if ENABLE(JAVASCRIPT_DEBUGGER) && USE(JSC)
+    typedef HashMap<unsigned int, RefPtr<ScriptProfile> > ProfilesMap;
 
     void startUserInitiatedProfilingSoon();
     void toggleRecordButton(bool);
     void enableDebuggerFromFrontend(bool always);
     void getProfileHeaders(long callId);
     void getProfile(long callId, unsigned uid);
-    ScriptObject createProfileHeader(const JSC::Profile& profile);
+    ScriptObject createProfileHeader(const ScriptProfile& profile);
 #endif
 #if ENABLE(DATABASE)
     void selectDatabase(Database* database);
@@ -328,7 +329,7 @@ private:
 #if ENABLE(DOM_STORAGE)
     DOMStorageResourcesMap m_domStorageResources;
 #endif
-    ScriptState* m_scriptState;
+    ScriptState* m_frontendScriptState;
     bool m_windowVisible;
     SpecialPanels m_showAfterVisible;
     RefPtr<Node> m_highlightedNode;
@@ -345,7 +346,7 @@ private:
     mutable Settings m_settings;
 
     Vector<pair<long, String> > m_pendingEvaluateTestCommands;
-#if ENABLE(JAVASCRIPT_DEBUGGER)
+#if ENABLE(JAVASCRIPT_DEBUGGER) && USE(JSC)
     bool m_debuggerEnabled;
     bool m_attachDebuggerWhenShown;
     bool m_profilerEnabled;

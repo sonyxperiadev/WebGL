@@ -37,16 +37,23 @@
 #include "Node.h"
 #include "XPathNSResolver.h"
 #include "XPathResult.h"
-#include "CanvasRenderingContext.h"
 
 #include "V8Binding.h"
-#include "V8CustomBinding.h"
+#include "V8CanvasRenderingContext2D.h"
 #include "V8CustomXPathNSResolver.h"
+#include "V8DOMImplementation.h"
+#include "V8HTMLDocument.h"
+#include "V8IsolatedContext.h"
 #include "V8Node.h"
 #include "V8Proxy.h"
+<<<<<<< HEAD
 // ANDROID
 // TODO: Upstream to webkit.org
 #if ENABLE(XPATH)
+=======
+#include "V8SVGDocument.h"
+#include "V8WebGLRenderingContext.h"
+>>>>>>> webkit.org at r54340
 #include "V8XPathNSResolver.h"
 #include "V8XPathResult.h"
 #endif
@@ -86,7 +93,7 @@ v8::Handle<v8::Value> V8Document::evaluateCallback(const v8::Arguments& args)
     if (ec)
         return throwError(ec);
 
-    return V8DOMWrapper::convertToV8Object(V8ClassIndex::XPATHRESULT, result.release());
+    return toV8(result.release());
 }
 #endif
 
@@ -103,10 +110,10 @@ v8::Handle<v8::Value> V8Document::getCSSCanvasContextCallback(const v8::Argument
     if (!result)
         return v8::Undefined();
     if (result->is2d())
-        return V8DOMWrapper::convertToV8Object(V8ClassIndex::CANVASRENDERINGCONTEXT2D, result);
+        return toV8(static_cast<CanvasRenderingContext2D*>(result));
 #if ENABLE(3D_CANVAS)
     else if (result->is3d())
-        return V8DOMWrapper::convertToV8Object(V8ClassIndex::WEBGLRENDERINGCONTEXT, result);
+        return toV8(static_cast<WebGLRenderingContext*>(result));
 #endif // ENABLE(3D_CANVAS)
     ASSERT_NOT_REACHED();
     return v8::Undefined();
@@ -132,11 +139,27 @@ v8::Handle<v8::Value> V8Document::implementationAccessorGetter(v8::Local<v8::Str
 
     // Generate a wrapper.
     Document* document = V8Document::toNative(info.Holder());
-    v8::Handle<v8::Value> wrapper = V8DOMWrapper::convertDOMImplementationToV8Object(document->implementation());
+    v8::Handle<v8::Value> wrapper = toV8(document->implementation());
 
     // Store the wrapper in the internal field.
     info.Holder()->SetInternalField(implementationIndex, wrapper);
 
+    return wrapper;
+}
+
+v8::Handle<v8::Value> toV8(Document* impl, bool forceNewObject)
+{
+    if (!impl)
+        return v8::Null();
+    if (impl->isHTMLDocument())
+        return toV8(static_cast<HTMLDocument*>(impl), forceNewObject);
+    if (impl->isSVGDocument())
+        return toV8(static_cast<SVGDocument*>(impl), forceNewObject);
+    v8::Handle<v8::Value> wrapper = V8Document::wrap(impl, forceNewObject);
+    if (!V8IsolatedContext::getEntered()) {
+        if (V8Proxy* proxy = V8Proxy::retrieve(impl->frame()))
+            proxy->windowShell()->updateDocumentWrapper(wrapper);
+    }
     return wrapper;
 }
 

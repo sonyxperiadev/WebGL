@@ -33,7 +33,8 @@
 
 #include "NamedNodeMap.h"
 #include "V8Binding.h"
-#include "V8CustomBinding.h"
+#include "V8Element.h"
+#include "V8Node.h"
 #include "V8Proxy.h"
 
 #include <wtf/RefPtr.h>
@@ -48,7 +49,7 @@ v8::Handle<v8::Value> V8NamedNodeMap::indexedPropertyGetter(uint32_t index, cons
     if (!result)
         return notHandledByInterceptor();
 
-    return V8DOMWrapper::convertNodeToV8Object(result.release());
+    return toV8(result.release());
 }
 
 v8::Handle<v8::Value> V8NamedNodeMap::namedPropertyGetter(v8::Local<v8::String> name, const v8::AccessorInfo& info)
@@ -69,7 +70,21 @@ v8::Handle<v8::Value> V8NamedNodeMap::namedPropertyGetter(v8::Local<v8::String> 
     if (!result)
         return notHandledByInterceptor();
 
-    return V8DOMWrapper::convertNodeToV8Object(result.release());
+    return toV8(result.release());
+}
+
+v8::Handle<v8::Value> toV8(NamedNodeMap* impl)
+{
+    if (!impl)
+        return v8::Null();
+    v8::Handle<v8::Object> wrapper = V8NamedNodeMap::wrap(impl);
+    // Add a hidden reference from named node map to its owner node.
+    Element* element = impl->element();
+    if (!wrapper.IsEmpty() && element) {
+        v8::Handle<v8::Value> owner = toV8(element);
+        wrapper->SetInternalField(V8NamedNodeMap::ownerNodeIndex, owner);
+    }
+    return wrapper;
 }
 
 } // namespace WebCore

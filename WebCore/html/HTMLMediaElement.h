@@ -102,7 +102,7 @@ public:
     void setAutobuffer(bool);
 
     PassRefPtr<TimeRanges> buffered() const;
-    void load(ExceptionCode&);
+    void load(bool isUserGesture, ExceptionCode&);
     String canPlayType(const String& mimeType) const;
 
 // ready state
@@ -129,14 +129,8 @@ public:
     void setAutoplay(bool b);
     bool loop() const;    
     void setLoop(bool b);
-    void play();
-    void pause();
-
-// fullscreen
-    void webkitEnterFullScreen(ExceptionCode&);
-    void webkitExitFullScreen();
-    bool webkitSupportsFullscreen();
-    bool webkitDisplayingFullscreen();
+    void play(bool isUserGesture);
+    void pause(bool isUserGesture);
 
 // captions
     bool webkitHasClosedCaptions() const;
@@ -177,6 +171,8 @@ public:
     bool closedCaptionsVisible() const;
     void setClosedCaptionsVisible(bool);
 
+    bool processingUserGesture() const;
+
 protected:
     float getTimeOffsetAttribute(const QualifiedName&, float valueOnError) const;
     void setTimeOffsetAttribute(const QualifiedName&, float value);
@@ -196,6 +192,7 @@ private: // MediaPlayerClient
     virtual void mediaPlayerReadyStateChanged(MediaPlayer*);
     virtual void mediaPlayerTimeChanged(MediaPlayer*);
     virtual void mediaPlayerVolumeChanged(MediaPlayer*);
+    virtual void mediaPlayerMuteChanged(MediaPlayer*);
     virtual void mediaPlayerDurationChanged(MediaPlayer*);
     virtual void mediaPlayerRateChanged(MediaPlayer*);
     virtual void mediaPlayerSawUnsupportedTracks(MediaPlayer*);
@@ -246,7 +243,6 @@ private:
 
     void prepareForLoad();
     
-    bool processingUserGesture() const;
     bool processingMediaPlayerCallback() const { return m_processingMediaPlayerCallback > 0; }
     void beginProcessingMediaPlayerCallback() { ++m_processingMediaPlayerCallback; }
     void endProcessingMediaPlayerCallback() { ASSERT(m_processingMediaPlayerCallback); --m_processingMediaPlayerCallback; }

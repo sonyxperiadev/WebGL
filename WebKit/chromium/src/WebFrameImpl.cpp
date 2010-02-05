@@ -1077,6 +1077,28 @@ WebString WebFrameImpl::selectionAsMarkup() const
     return createMarkup(range.get(), 0);
 }
 
+void WebFrameImpl::selectWordAroundPosition(Frame* frame, VisiblePosition pos)
+{
+    VisibleSelection selection(pos);
+    selection.expandUsingGranularity(WordGranularity);
+
+    if (selection.isRange())
+        frame->setSelectionGranularity(WordGranularity);
+
+    if (frame->shouldChangeSelection(selection))
+        frame->selection()->setSelection(selection);
+}
+
+bool WebFrameImpl::selectWordAroundCaret()
+{
+    SelectionController* controller = frame()->selection();
+    ASSERT(!controller->isNone());
+    if (controller->isNone() || controller->isRange())
+        return false;
+    selectWordAroundPosition(frame(), controller->selection().visibleStart());
+    return true;
+}
+
 int WebFrameImpl::printBegin(const WebSize& pageSize)
 {
     ASSERT(!frame()->document()->isFrameSet());
@@ -1494,6 +1516,21 @@ WebString WebFrameImpl::counterValueForElementById(const WebString& id) const
         return WebString();
 
     return counterValueForElement(element);
+}
+
+int WebFrameImpl::pageNumberForElementById(const WebString& id,
+                                           float pageWidthInPixels,
+                                           float pageHeightInPixels) const
+{
+    if (!m_frame)
+        return -1;
+
+    Element* element = m_frame->document()->getElementById(id);
+    if (!element)
+        return -1;
+
+    FloatSize pageSize(pageWidthInPixels, pageHeightInPixels);
+    return PrintContext::pageNumberForElement(element, pageSize);
 }
 
 // WebFrameImpl public ---------------------------------------------------------

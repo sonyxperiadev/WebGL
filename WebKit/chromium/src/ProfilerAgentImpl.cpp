@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009 Google Inc. All rights reserved.
+ * Copyright (C) 2010 Google Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -29,29 +29,24 @@
  */
 
 #include "config.h"
-#include "V8Console.h"
+#include "ProfilerAgentImpl.h"
 
-#include "V8Binding.h"
-#include "V8CustomBinding.h"
-#include "V8Proxy.h"
 #include <v8.h>
 
-namespace WebCore {
+namespace WebKit {
 
-v8::Handle<v8::Value> V8Console::profileCallback(const v8::Arguments& args)
+void ProfilerAgentImpl::getActiveProfilerModules()
 {
-    INC_STATS("console.profile()");
-    v8::HandleScope scope;
-    v8::Context::Scope context_scope(v8::Context::GetCurrent());
-    v8::V8::ResumeProfiler();
-    return v8::Undefined();
+    m_delegate->didGetActiveProfilerModules(v8::V8::GetActiveProfilerModules());
 }
 
-v8::Handle<v8::Value> V8Console::profileEndCallback(const v8::Arguments& args)
+void ProfilerAgentImpl::getLogLines(int position)
 {
-    INC_STATS("console.profileEnd()");
-    v8::V8::PauseProfiler();
-    return v8::Undefined();
+    static char buffer[65536];
+    const int readSize = v8::V8::GetLogLines(position, buffer, sizeof(buffer) - 1);
+    buffer[readSize] = '\0';
+    position += readSize;
+    m_delegate->didGetLogLines(position, buffer);
 }
 
-} // namespace WebCore
+} // namespace WebKit

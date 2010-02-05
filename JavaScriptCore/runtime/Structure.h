@@ -62,15 +62,7 @@ namespace JSC {
         friend class StructureTransitionTable;
         static PassRefPtr<Structure> create(JSValue prototype, const TypeInfo& typeInfo, unsigned anonymousSlotCount)
         {
-            Structure* structure = (new Structure(prototype, typeInfo));
-            if (anonymousSlotCount) {
-                structure->materializePropertyMap();
-                structure->m_isPinnedPropertyTable = true;
-                structure->m_propertyTable->anonymousSlotCount = anonymousSlotCount;
-                // Currently we don't allow more anonymous slots than fit in the inline capacity
-                ASSERT(structure->propertyStorageSize() <= structure->propertyStorageCapacity());
-            }
-            return adoptRef(structure);
+            return adoptRef(new Structure(prototype, typeInfo, anonymousSlotCount));
         }
 
         static void startIgnoringLeaks();
@@ -109,7 +101,7 @@ namespace JSC {
 
         void growPropertyStorageCapacity();
         unsigned propertyStorageCapacity() const { return m_propertyStorageCapacity; }
-        unsigned propertyStorageSize() const { return m_propertyTable ? m_propertyTable->keyCount + m_propertyTable->anonymousSlotCount + (m_propertyTable->deletedOffsets ? m_propertyTable->deletedOffsets->size() : 0) : m_offset + 1; }
+        unsigned propertyStorageSize() const { return m_anonymousSlotCount + (m_propertyTable ? m_propertyTable->keyCount + (m_propertyTable->deletedOffsets ? m_propertyTable->deletedOffsets->size() : 0) : m_offset + 1); }
         bool isUsingInlineStorage() const;
 
         size_t get(const Identifier& propertyName);
@@ -134,8 +126,8 @@ namespace JSC {
 
         bool hasNonEnumerableProperties() const { return m_hasNonEnumerableProperties; }
 
-        bool hasAnonymousSlots() const { return m_propertyTable && m_propertyTable->anonymousSlotCount; }
-        unsigned anonymousSlotCount() const { return m_propertyTable ? m_propertyTable->anonymousSlotCount : 0; }
+        bool hasAnonymousSlots() const { return !!m_anonymousSlotCount; }
+        unsigned anonymousSlotCount() const { return m_anonymousSlotCount; }
         
         bool isEmpty() const { return m_propertyTable ? !m_propertyTable->keyCount : m_offset == noOffset; }
 
@@ -147,12 +139,8 @@ namespace JSC {
         void getPropertyNames(PropertyNameArray&, EnumerationMode mode);
         
     private:
-        static PassRefPtr<Structure> create(JSValue prototype, const TypeInfo& typeInfo)
-        {
-            return adoptRef(new Structure(prototype, typeInfo));
-        }
 
-        Structure(JSValue prototype, const TypeInfo&);
+        Structure(JSValue prototype, const TypeInfo&, unsigned anonymousSlotCount);
         
         typedef enum { 
             NoneDictionaryKind = 0,
@@ -216,6 +204,8 @@ namespace JSC {
         PropertyMapHashTable* m_propertyTable;
 
         uint32_t m_propertyStorageCapacity;
+
+        // m_offset does not account for anonymous slots
         signed char m_offset;
 
         unsigned m_dictionaryKind : 2;
@@ -231,7 +221,8 @@ namespace JSC {
         unsigned m_attributesInPrevious : 7;
 #endif
         unsigned m_specificFunctionThrashCount : 2;
-        // 10 free bits
+        unsigned m_anonymousSlotCount : 5;
+        // 5 free bits
     };
 
     inline size_t Structure::get(const Identifier& propertyName)
