@@ -40,16 +40,31 @@ static SkShader::TileMode toTileMode(bool doRepeat) {
     return doRepeat ? SkShader::kRepeat_TileMode : SkShader::kClamp_TileMode;
 }
 
-SkShader* Pattern::createPlatformPattern(const TransformationMatrix& ) const
+void Pattern::platformDestroy()
 {
+    m_pattern->safeUnref();
+    m_pattern = 0;
+}
+
+SkShader* Pattern::platformPattern(const TransformationMatrix& )
+{
+    if (m_pattern)
+        return m_pattern;
+
     SkBitmapRef* ref = tileImage()->nativeImageForCurrentFrame();
     if (!ref)
         return 0;
-    SkShader* s = SkShader::CreateBitmapShader(ref->bitmap(),
-                                               toTileMode(m_repeatX),
-                                               toTileMode(m_repeatY));
-    s->setLocalMatrix(m_patternSpaceTransformation);
-    return s;
+    m_pattern = SkShader::CreateBitmapShader(ref->bitmap(),
+                                             toTileMode(m_repeatX),
+                                             toTileMode(m_repeatY));
+    m_pattern->setLocalMatrix(m_patternSpaceTransformation);
+    return m_pattern;
+}
+
+void Pattern::setPlatformPatternSpaceTransform()
+{
+    if (m_pattern)
+        m_pattern->setLocalMatrix(m_patternSpaceTransformation);
 }
 
 } //namespace

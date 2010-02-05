@@ -333,8 +333,8 @@ static SkShader::TileMode SpreadMethod2TileMode(GradientSpreadMethod sm) {
 static void extactShader(SkPaint* paint, Pattern* pat, Gradient* grad)
 {
     if (pat) {
-        // createPlatformPattern() returns a new inst
-        paint->setShader(pat->createPlatformPattern(TransformationMatrix()))->safeUnref();
+        // platformPattern() returns a cached obj
+        paint->setShader(pat->platformPattern(TransformationMatrix()));
     } else if (grad) {
         // grad->getShader() returns a cached obj
         GradientSpreadMethod sm = grad->spreadMethod();
