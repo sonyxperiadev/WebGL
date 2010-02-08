@@ -75,7 +75,6 @@ include $(BASE_PATH)/bison_check.mk
 LOCAL_C_INCLUDES := \
 	$(JNI_H_INCLUDE) \
 	$(LOCAL_PATH)/WebKit/android/icu \
-	bionic/ \
 	external/ \
 	external/icu4c/common \
 	external/icu4c/i18n \
@@ -210,7 +209,6 @@ LOCAL_CFLAGS += -Wno-endif-labels -Wno-import -Wno-format
 LOCAL_CFLAGS += -fno-strict-aliasing
 LOCAL_CFLAGS += -include "WebCorePrefix.h"
 LOCAL_CFLAGS += -fvisibility=hidden
-LOCAL_CFLAGS += -D__SGI_STL_INTERNAL_PAIR_H
 
 # Enable JSC JIT if JSC is used and ENABLE_ANDROID_JSC_JIT environment
 # variable is set to true
@@ -264,9 +262,8 @@ endif
 
 # We have to use the android version of libdl when we are not on the simulator
 ifneq ($(TARGET_SIMULATOR),true)
-LOCAL_SHARED_LIBRARIES += libdl
-LOCAL_C_INCLUDES += \
-	external/stlport
+LOCAL_SHARED_LIBRARIES += libdl libstlport
+include external/stlport/libstlport.mk
 endif
 
 # Build the list of static libraries
