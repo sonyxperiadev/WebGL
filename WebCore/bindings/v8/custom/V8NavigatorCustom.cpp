@@ -32,6 +32,12 @@
 #include "V8Navigator.h"
 
 #include "RuntimeEnabledFeatures.h"
+#include "V8Binding.h"
+#include "V8Proxy.h"
+
+#if PLATFORM(ANDROID)
+#include "V8CustomApplicationInstalledCallback.h"
+#endif
 
 namespace WebCore {
 
@@ -41,5 +47,47 @@ bool V8Navigator::GeolocationEnabled()
     return RuntimeEnabledFeatures::geolocationEnabled();
 }
 #endif
+
+#if PLATFORM(ANDROID) && ENABLE(APPLICATION_INSTALLED)
+
+static PassRefPtr<ApplicationInstalledCallback> createApplicationInstalledCallback(
+        v8::Local<v8::Value> value, bool& succeeded)
+{
+    succeeded = true;
+
+    if (!value->IsFunction()) {
+        succeeded = false;
+        throwError("The second argument should be a function");
+        return 0;
+    }
+
+    Frame* frame = V8Proxy::retrieveFrameForCurrentContext();
+    return V8CustomApplicationInstalledCallback::create(value, frame);
+}
+
+v8::Handle<v8::Value> V8Navigator::isApplicationInstalledCallback(const v8::Arguments& args)
+{
+    INC_STATS("DOM.isApplicationInstalled()");
+    bool succeeded = false;
+
+    if (args.Length() < 2)
+        return throwError("Two arguments required: an application name and a callback.", V8Proxy::SyntaxError);
+
+    if (!args[0]->IsString())
+        return throwError("The first argument should be a string.");
+
+    RefPtr<ApplicationInstalledCallback> callback =
+        createApplicationInstalledCallback(args[1], succeeded);
+    if (!succeeded)
+        return v8::Undefined();
+
+    ASSERT(callback);
+
+    Navigator* navigator = V8Navigator::toNative(args.Holder());
+    navigator->isApplicationInstalled(toWebCoreString(args[0]), callback.release());
+    return v8::Undefined();
+}
+
+#endif // PLATFORM(ANDROID) && ENABLE(APPLICATION_INSTALLED)
 
 } // namespace WebCore

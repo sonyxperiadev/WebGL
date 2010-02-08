@@ -45,6 +45,11 @@ module window {
         readonly attribute Connection connection;
 #endif
 
+#if defined(ENABLE_APPLICATION_INSTALLED) && ENABLE_APPLICATION_INSTALLED
+        // ANDROID-only for now.
+        [Custom] void isApplicationInstalled(in DOMString applicationName, in ApplicationInstalledCallback callback);
+#endif
+
 #if defined(ENABLE_GEOLOCATION) && ENABLE_GEOLOCATION
         readonly attribute [EnabledAtRuntime] Geolocation geolocation;
 #endif

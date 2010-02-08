@@ -25,9 +25,6 @@
 
 #include "Chrome.h"
 #include "CookieJar.h"
-#if PLATFORM(ANDROID)
-#include "Connection.h"
-#endif
 #include "ExceptionCode.h"
 #include "Frame.h"
 #include "FrameLoader.h"
@@ -44,6 +41,11 @@
 #include "ScriptController.h"
 #include "Settings.h"
 #include "StorageNamespace.h"
+
+#if PLATFORM(ANDROID)
+#include "ApplicationInstalledCallback.h"
+#include "Connection.h"
+#endif
 
 namespace WebCore {
 
@@ -165,6 +167,14 @@ Connection* Navigator::connection() const
     if (!m_connection)
         m_connection = Connection::create();
     return m_connection.get();
+}
+#endif
+
+#if PLATFORM(ANDROID) && ENABLE(APPLICATION_INSTALLED)
+void Navigator::isApplicationInstalled(const String& name, PassRefPtr<ApplicationInstalledCallback> callback)
+{
+    //TODO(implement);
+    callback->handleEvent(false);
 }
 #endif
 
