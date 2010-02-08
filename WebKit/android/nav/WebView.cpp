@@ -2018,15 +2018,6 @@ static void nativeMoveCursorToNextTextInput(JNIEnv *env, jobject obj)
     view->getWebViewCore()->m_moveGeneration++;
 }
 
-static jint nativeTextFieldAction(JNIEnv *env, jobject obj)
-{
-    WebView* view = GET_NATIVE_VIEW(env, obj);
-    CachedRoot* root = view->getFrameCache(WebView::DontAllowNewer);
-    if (!root)
-        return static_cast<jint>(CachedRoot::FAILURE);
-    return static_cast<jint>(root->currentTextFieldAction());
-}
-
 static int nativeMoveGeneration(JNIEnv *env, jobject obj)
 {
     WebView* view = GET_NATIVE_VIEW(env, obj);
@@ -2211,8 +2202,6 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeSetFollowedLink },
     { "nativeSetHeightCanMeasure", "(Z)V",
         (void*) nativeSetHeightCanMeasure },
-    { "nativeTextFieldAction", "()I",
-        (void*) nativeTextFieldAction },
     { "nativeTextGeneration", "()I",
         (void*) nativeTextGeneration },
     { "nativeUpdateCachedTextfield", "(Ljava/lang/String;I)V",

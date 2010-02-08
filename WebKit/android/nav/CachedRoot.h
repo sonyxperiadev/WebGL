@@ -40,23 +40,12 @@ class CachedNode;
 
 class CachedRoot : public CachedFrame {
 public:
-    enum ImeAction {
-        FAILURE = -1,
-        NEXT    = 0,
-        GO      = 1,
-        DONE    = 2
-    };
     bool adjustForScroll(BestData* , Direction , WebCore::IntPoint* scrollPtr,
         bool findClosest);
     int checkForCenter(int x, int y) const;
     void checkForJiggle(int* ) const;
     bool checkRings(const WTF::Vector<WebCore::IntRect>& rings,
         const WebCore::IntRect& bounds) const;
-    // This method returns the desired ImeAction for the textfield where the
-    // mouse cursor currently is, or where the focus is if there is no mouse
-    // cursor.  If the mouse cursor is not on a textfield,
-    // it will return FAILURE
-    ImeAction currentTextFieldAction() const;
     WebCore::IntPoint cursorLocation() const;
     int documentHeight() { return mContents.height(); }
     int documentWidth() { return mContents.width(); }

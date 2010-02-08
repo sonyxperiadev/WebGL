@@ -756,38 +756,6 @@ bool CachedRoot::checkRings(const WTF::Vector<WebCore::IntRect>& rings,
     return ringCheck.success();
 }
 
-CachedRoot::ImeAction CachedRoot::currentTextFieldAction() const
-{
-    const CachedFrame* currentFrame;
-    const CachedNode* current = currentCursor(&currentFrame);
-    if (!current || !current->isTextInput()) {
-        // Although the cursor is not on a textfield, a textfield may have
-        // focus.  Find the action for that textfield.
-        current = currentFocus(&currentFrame);
-        if (!current || !current->isTextInput())
-            // Error case.  No cursor and no focus.
-            return FAILURE;
-    }
-    const CachedNode* firstTextfield = nextTextField(0, 0, false);
-    if (!firstTextfield) {
-        // Error case.  There are no textfields in this tree.
-        return FAILURE;
-    }
-    // Now find the next textfield/area starting with the cursor
-    const CachedFrame* potentialFrame;
-    const CachedNode* potentialNext
-            = currentFrame->nextTextField(current, &potentialFrame, true);
-    if (potentialNext && currentFrame->textInput(current)->formPointer()
-            == potentialFrame->textInput(potentialNext)->formPointer()) {
-        // There is a textfield/area after the cursor in the same form,
-        // so the textfield under the cursor should have the NEXT action
-        return NEXT;
-    }
-    // If this line is reached, we know that the textfield under the cursor is
-    // the last one.  Make it GO to allow a submit
-    return GO;
-}
-
 const CachedNode* CachedRoot::findAt(const WebCore::IntRect& rect,
     const CachedFrame** framePtr, int* x, int* y, bool checkForHidden) const
 {
