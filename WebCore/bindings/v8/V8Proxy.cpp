@@ -811,11 +811,6 @@ void V8Proxy::createUtilityContext()
 
 bool V8Proxy::sourceLineNumber(int& result)
 {
-#if PLATFORM(ANDROID)
-    // TODO(andreip): consider V8's DEBUG flag here, rather than PLATFORM(ANDROID)
-    // or, even better, the WEBKIT inspector flag.
-    return 0;
-#else
     v8::HandleScope scope;
     v8::Handle<v8::Context> v8UtilityContext = V8Proxy::utilityContext();
     if (v8UtilityContext.IsEmpty())
@@ -830,14 +825,10 @@ bool V8Proxy::sourceLineNumber(int& result)
         return false;
     result = value->Int32Value();
     return true;
-#endif
 }
 
 bool V8Proxy::sourceName(String& result)
 {
-#if PLATFORM(ANDROID)
-    return false;
-#else
     v8::HandleScope scope;
     v8::Handle<v8::Context> v8UtilityContext = utilityContext();
     if (v8UtilityContext.IsEmpty())
@@ -852,7 +843,6 @@ bool V8Proxy::sourceName(String& result)
         return false;
     result = toWebCoreString(value);
     return true;
-#endif
 }
 
 void V8Proxy::registerExtensionWithV8(v8::Extension* extension)
