@@ -27,15 +27,17 @@
 
 namespace WebCore {
 
-#if PLATFORM(ANDROID)
-    class Connection;
-#endif
     class Frame;
     class Geolocation;
     class MimeTypeArray;
     class PluginData;
     class PluginArray;
     class String;
+#if PLATFORM(ANDROID)
+    class ApplicationInstalledCallback;
+    class Connection;
+#endif
+
 
     typedef int ExceptionCode;
 
@@ -62,6 +64,10 @@ namespace WebCore {
 
 #if PLATFORM(ANDROID)
         Connection* connection() const;
+#endif
+
+#if PLATFORM(ANDROID) && ENABLE(APPLICATION_INSTALLED)
+        void isApplicationInstalled(const String& name, PassRefPtr<ApplicationInstalledCallback> callback);
 #endif
 
 #if ENABLE(DOM_STORAGE)
