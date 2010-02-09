@@ -74,6 +74,7 @@ LOCAL_SRC_FILES += \
 	bindings/js/JSClipboardCustom.cpp \
 	bindings/js/JSConsoleCustom.cpp \
 	bindings/js/JSCoordinatesCustom.cpp \
+	bindings/js/JSCustomApplicationInstalledCallback.cpp \
 	bindings/js/JSCustomPositionCallback.cpp \
 	bindings/js/JSCustomPositionErrorCallback.cpp \
 	bindings/js/JSCustomSQLStatementCallback.cpp \
