@@ -64,7 +64,6 @@ GEN := \
     $(intermediates)/css/JSCSSStyleDeclaration.h \
     $(intermediates)/css/JSCSSStyleRule.h \
     $(intermediates)/css/JSCSSStyleSheet.h \
-    $(intermediates)/css/JSCSSUnknownRule.h \
     $(intermediates)/css/JSCSSValue.h \
     $(intermediates)/css/JSCSSValueList.h \
     $(intermediates)/css/JSCSSVariablesDeclaration.h \
