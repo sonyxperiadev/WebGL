@@ -188,7 +188,7 @@ FloatRect Font::selectionRectForComplexText(const TextRun& run,
     SkScalar spacing = paint.getFontMetrics(&metrics);
     
     return FloatRect(point.x(),
-					 point.y() - floorf(SkScalarToFloat(-metrics.fAscent)),
+                     point.y(),
                      roundf(SkScalarToFloat(width)),
                      roundf(SkScalarToFloat(spacing)));
 }
