@@ -244,7 +244,8 @@ LOCAL_SHARED_LIBRARIES := \
 	libicuuc \
 	libicudata \
 	libicui18n \
-	libmedia
+	libmedia \
+	libsurfaceflinger_client
 
 ifeq ($(WEBCORE_INSTRUMENTATION),true)
 LOCAL_SHARED_LIBRARIES += libhardware_legacy

@@ -35,9 +35,9 @@
 
 #include "FloatRect.h"
 #include "Widget.h"
-#include "ui/DisplayInfo.h"
-#include "ui/PixelFormat.h"
-#include "ui/SurfaceComposerClient.h"
+#include <ui/DisplayInfo.h>
+#include <ui/PixelFormat.h>
+#include <surfaceflinger/SurfaceComposerClient.h>
 
 namespace WebCore {
 

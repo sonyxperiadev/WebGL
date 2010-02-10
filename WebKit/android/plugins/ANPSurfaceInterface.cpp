@@ -32,7 +32,7 @@
 #include "SkANP.h"
 #include "android_graphics.h"
 #include <JNIUtility.h>
-#include <ui/Surface.h>
+#include <surfaceflinger/Surface.h>
 #include <ui/Rect.h>
 #include <ui/Region.h>
 #include <utils/RefBase.h>
