@@ -24,28 +24,28 @@
  */
 
 #include "config.h"
-#include "Gradient.h"
 #include "GraphicsContext.h"
+
+#include "AffineTransform.h"
+#include "Gradient.h"
 #include "GraphicsContextPrivate.h"
 #include "NotImplemented.h"
 #include "Path.h"
 #include "Pattern.h"
-
+#include "PlatformGraphicsContext.h"
+#include "SkBitmapRef.h"
 #include "SkBlurDrawLooper.h"
 #include "SkBlurMaskFilter.h"
 #include "SkCanvas.h"
 #include "SkColorPriv.h"
 #include "SkDashPathEffect.h"
 #include "SkDevice.h"
-#include "SkPaint.h"
-#include "PlatformGraphicsContext.h"
-#include "TransformationMatrix.h"
-
-#include "android_graphics.h"
 #include "SkGradientShader.h"
-#include "SkBitmapRef.h"
+#include "SkPaint.h"
 #include "SkString.h"
 #include "SkiaUtils.h"
+#include "TransformationMatrix.h"
+#include "android_graphics.h"
 
 using namespace std;
 
@@ -1024,6 +1024,13 @@ void GraphicsContext::translate(float x, float y)
     if (paintingDisabled())
         return;
     GC2Canvas(this)->translate(SkFloatToScalar(x), SkFloatToScalar(y));
+}
+
+void GraphicsContext::concatCTM(const AffineTransform& affine)
+{
+    if (paintingDisabled())
+        return;
+    GC2Canvas(this)->concat(affine);
 }
 
 void GraphicsContext::concatCTM(const TransformationMatrix& xform)

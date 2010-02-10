@@ -25,16 +25,16 @@
 
 #include "config.h"
 #include "Path.h"
+
+#include "AffineTransform.h"
 #include "FloatRect.h"
 #include "GraphicsContext.h"
 #include "ImageBuffer.h"
-#include "StrokeStyleApplier.h"
-#include "TransformationMatrix.h"
-
 #include "SkPaint.h"
 #include "SkPath.h"
 #include "SkRegion.h"
-
+#include "StrokeStyleApplier.h"
+#include "TransformationMatrix.h"
 #include "android_graphics.h"
 
 namespace WebCore {
@@ -263,6 +263,11 @@ void Path::apply(void* info, PathApplierFunction function) const
         }
         function(info, &elem);
     }
+}
+
+void Path::transform(const AffineTransform& xform)
+{
+    m_path->transform(xform);
 }
 
 void Path::transform(const TransformationMatrix& xform)
