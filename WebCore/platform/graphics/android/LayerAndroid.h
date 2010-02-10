@@ -23,13 +23,11 @@
 #include "FloatPoint.h"
 #include "FloatPoint3D.h"
 #include "FloatSize.h"
-#include "GraphicsContext.h"
-#include "GraphicsLayer.h"
 #include "Length.h"
 #include "RefPtr.h"
 #include "StringHash.h"
 #include "Vector.h"
-#include <wtf/HashSet.h>
+#include <wtf/HashMap.h>
 
 class SkCanvas;
 class SkPicture;
@@ -66,7 +64,6 @@ public:
     void setIsRootLayer(bool isRootLayer) { m_isRootLayer = isRootLayer; }
 
     void paintOn(int scrollX, int scrollY, int width, int height, float scale, SkCanvas*);
-    GraphicsContext* paintContext();
     void removeAllChildren() { m_children.clear(); }
     void addChildren(LayerAndroid* layer) { m_children.append(layer); }
     bool prepareContext(bool force = false);

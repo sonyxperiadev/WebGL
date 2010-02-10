@@ -21,6 +21,7 @@
 
 #include "FloatPoint.h"
 #include "FloatPoint3D.h"
+#include "GraphicsLayer.h"
 #include "HashMap.h"
 #include "LayerAndroid.h"
 #include "RefPtr.h"
@@ -30,7 +31,6 @@
 namespace WebCore {
 
 class AndroidAnimation;
-class GraphicsLayerAndroid;
 class TimingFunction;
 
 class AndroidAnimationValue : public RefCounted<AndroidAnimationValue> {
