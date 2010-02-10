@@ -104,9 +104,7 @@ LOCAL_SRC_FILES += \
 	bindings/v8/custom/V8CSSValueCustom.cpp \
 	bindings/v8/custom/V8CanvasRenderingContext2DCustom.cpp \
 	bindings/v8/custom/V8CanvasPixelArrayCustom.cpp \
-	bindings/v8/custom/V8ClientRectListCustom.cpp \
 	bindings/v8/custom/V8ClipboardCustom.cpp \
-	bindings/v8/custom/V8ConsoleCustom.cpp \
 	bindings/v8/custom/V8CoordinatesCustom.cpp \
 	bindings/v8/custom/V8CustomApplicationInstalledCallback.cpp \
 	bindings/v8/custom/V8CustomEventListener.cpp \
