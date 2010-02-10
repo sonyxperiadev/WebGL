@@ -552,9 +552,9 @@ $(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/bindings/%.cpp : $(intermediates)
 
 # HTML tag and attribute names
 
-GEN:= $(intermediates)/HTMLNames.cpp $(intermediates)/HTMLNames.h $(intermediates)/HTMLElementFactory.cpp $(intermediates)/HTMLElementFactory.h
+GEN:= $(intermediates)/HTMLNames.cpp $(intermediates)/HTMLNames.h $(intermediates)/HTMLElementFactory.cpp $(intermediates)/HTMLElementFactory.h $(intermediates)/V8HTMLElementWrapperFactory.cpp $(intermediates)/V8HTMLElementWrapperFactory.h
 $(GEN): PRIVATE_PATH := $(LOCAL_PATH)
-$(GEN): PRIVATE_CUSTOM_TOOL = perl -I $(PRIVATE_PATH)/bindings/scripts $< --tags $(PRIVATE_PATH)/html/HTMLTagNames.in --attrs $(PRIVATE_PATH)/html/HTMLAttributeNames.in --factory --output $(dir $@)
+$(GEN): PRIVATE_CUSTOM_TOOL = perl -I $(PRIVATE_PATH)/bindings/scripts $< --tags $(PRIVATE_PATH)/html/HTMLTagNames.in --attrs $(PRIVATE_PATH)/html/HTMLAttributeNames.in --factory --wrapperFactoryV8 --output $(dir $@)
 $(GEN): $(LOCAL_PATH)/dom/make_names.pl $(LOCAL_PATH)/html/HTMLTagNames.in $(LOCAL_PATH)/html/HTMLAttributeNames.in
 	$(transform-generated-source)
 LOCAL_GENERATED_SOURCES += $(GEN)
@@ -562,10 +562,10 @@ LOCAL_GENERATED_SOURCES += $(GEN)
 # SVG tag and attribute names
 
 ifeq ($(ENABLE_SVG), true)
-GEN:= $(intermediates)/SVGNames.cpp $(intermediates)/SVGNames.h $(intermediates)/SVGElementFactory.cpp $(intermediates)/SVGElementFactory.h
+GEN:= $(intermediates)/SVGNames.cpp $(intermediates)/SVGNames.h $(intermediates)/SVGElementFactory.cpp $(intermediates)/SVGElementFactory.h $(intermediates)/V8SVGElementWrapperFactory.cpp $(intermediates)/V8SVGElementWrapperFactory.h
 SVG_FLAGS:=ENABLE_SVG_AS_IMAGE=1 ENABLE_SVG_FILTERS=1 ENABLE_SVG_FONTS=1 ENABLE_SVG_FOREIGN_OBJECT=1 ENABLE_SVG_USE=1
 $(GEN): PRIVATE_PATH := $(LOCAL_PATH)
-$(GEN): PRIVATE_CUSTOM_TOOL = perl -I $(PRIVATE_PATH)/bindings/scripts $< --tags $(PRIVATE_PATH)/svg/svgtags.in --attrs $(PRIVATE_PATH)/svg/svgattrs.in --extraDefines "$(SVG_FLAGS)" --factory --output $(dir $@)
+$(GEN): PRIVATE_CUSTOM_TOOL = perl -I $(PRIVATE_PATH)/bindings/scripts $< --tags $(PRIVATE_PATH)/svg/svgtags.in --attrs $(PRIVATE_PATH)/svg/svgattrs.in --extraDefines "$(SVG_FLAGS)" --factory --wrapperFactoryV8 --output $(dir $@)
 $(GEN): $(LOCAL_PATH)/dom/make_names.pl $(LOCAL_PATH)/svg/svgtags.in $(LOCAL_PATH)/svg/svgattrs.in
 	$(transform-generated-source)
 LOCAL_GENERATED_SOURCES += $(GEN)
