@@ -133,29 +133,23 @@ jvalue convertNPVariantToJValue(NPVariant value, JNIType jniType, const char* ja
 
     case float_type:
         {
-#if PLATFORM(ANDROID)
-            // TODO: Upstream this fix to webkit.org
             if (type == NPVariantType_Int32)
                 result.f = static_cast<jfloat>(NPVARIANT_TO_INT32(value));
             else if (type == NPVariantType_Double)
                 result.f = static_cast<jfloat>(NPVARIANT_TO_DOUBLE(value));
             else
                 bzero(&result, sizeof(jvalue));
-#endif
         }
         break;
 
     case double_type:
         {
-#if PLATFORM(ANDROID)
-            // TODO: Upstream this fix to webkit.org
             if (type == NPVariantType_Int32)
                 result.d = static_cast<jdouble>(NPVARIANT_TO_INT32(value));
             else if (type == NPVariantType_Double)
                 result.d = static_cast<jdouble>(NPVARIANT_TO_DOUBLE(value));
             else
                 bzero(&result, sizeof(jvalue));
-#endif
         }
         break;
 
