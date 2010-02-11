@@ -69,9 +69,8 @@ public:
 
     void addAnimation(PassRefPtr<AndroidAnimation> anim);
     void removeAnimation(const String& name);
-    Vector<RefPtr<AndroidAnimationValue> >* evaluateAnimations() const;
-    bool evaluateAnimations(double time,
-             Vector<RefPtr<AndroidAnimationValue> >* results) const;
+    bool evaluateAnimations() const;
+    bool evaluateAnimations(double time) const;
     bool hasAnimations() const;
 
 private:

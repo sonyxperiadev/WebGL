@@ -1533,25 +1533,7 @@ static void nativeDrawLayers(JNIEnv *env, jobject obj,
 #endif
 }
 
-static void nativeUpdateLayers(JNIEnv *env, jobject obj, jint updates)
-{
-    if (!env)
-        return;
-    if (!updates)
-        return;
-
-#if USE(ACCELERATED_COMPOSITING)
-    Vector<RefPtr<AndroidAnimationValue> >* updatesImpl =
-        reinterpret_cast<Vector<RefPtr<AndroidAnimationValue> >* >(updates);
-    if (updatesImpl) {
-        for (unsigned int i = 0; i < updatesImpl->size(); i++)
-            (updatesImpl->at(i))->apply();
-        delete updatesImpl;
-    }
-#endif
-}
-
-static bool nativeLayersHaveAnimations(JNIEnv *env, jobject obj, jint layer)
+static bool nativeEvaluateLayersAnimations(JNIEnv *env, jobject obj, jint layer)
 {
     if (!env)
         return false;
@@ -1559,23 +1541,9 @@ static bool nativeLayersHaveAnimations(JNIEnv *env, jobject obj, jint layer)
         return false;
 #if USE(ACCELERATED_COMPOSITING)
     LayerAndroid* layerImpl = reinterpret_cast<LayerAndroid*>(layer);
-    return layerImpl->hasAnimations();
+    return layerImpl->evaluateAnimations();
 #else
     return false;
-#endif
-}
-
-static int nativeEvaluateLayersAnimations(JNIEnv *env, jobject obj, jint layer)
-{
-    if (!env)
-        return 0;
-    if (!layer)
-        return 0;
-#if USE(ACCELERATED_COMPOSITING)
-    LayerAndroid* layerImpl = reinterpret_cast<LayerAndroid*>(layer);
-    return reinterpret_cast<int>(layerImpl->evaluateAnimations());
-#else
-    return 0;
 #endif
 }
 
@@ -2120,14 +2088,10 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeDrawCursorRing },
     { "nativeDestroyLayer", "(I)V",
         (void*) nativeDestroyLayer },
-    { "nativeLayersHaveAnimations", "(I)Z",
-        (void*) nativeLayersHaveAnimations },
-    { "nativeEvaluateLayersAnimations", "(I)I",
-        (void*) nativeEvaluateLayersAnimations },
     { "nativeDrawLayers", "(IIIIIFLandroid/graphics/Canvas;)V",
         (void*) nativeDrawLayers },
-    { "nativeUpdateLayers", "(I)V",
-        (void*) nativeUpdateLayers },
+    { "nativeEvaluateLayersAnimations", "(I)Z",
+        (void*) nativeEvaluateLayersAnimations },
     { "nativeDrawMatches", "(Landroid/graphics/Canvas;)V",
         (void*) nativeDrawMatches },
     { "nativeDrawSelectionPointer", "(Landroid/graphics/Canvas;FIIZ)V",

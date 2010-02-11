@@ -17,12 +17,6 @@
 #define LAYER_DEBUG // Add diagonals for debugging
 #undef LAYER_DEBUG
 
-#include <cutils/log.h>
-#include <wtf/CurrentTime.h>
-
-#undef LOG
-#define LOG(...) android_printLog(ANDROID_LOG_DEBUG, "LayerAndroid", __VA_ARGS__)
-
 namespace WebCore {
 
 static int gDebugLayerAndroidInstances;
@@ -95,15 +89,11 @@ LayerAndroid::~LayerAndroid()
 
 static int gDebugNbAnims = 0;
 
-Vector<RefPtr<AndroidAnimationValue> >* LayerAndroid::evaluateAnimations() const
+bool LayerAndroid::evaluateAnimations() const
 {
     double time = WTF::currentTime();
-    Vector<RefPtr<AndroidAnimationValue> >* results = new Vector<RefPtr<AndroidAnimationValue> >();
     gDebugNbAnims = 0;
-    if (evaluateAnimations(time, results))
-      return results;
-    delete results;
-    return 0;
+    return evaluateAnimations(time);
 }
 
 bool LayerAndroid::hasAnimations() const
@@ -115,12 +105,11 @@ bool LayerAndroid::hasAnimations() const
     return !!m_animations.size();
 }
 
-bool LayerAndroid::evaluateAnimations(double time,
-                                      Vector<RefPtr<AndroidAnimationValue> >* results) const
+bool LayerAndroid::evaluateAnimations(double time) const
 {
     bool hasRunningAnimations = false;
     for (unsigned int i = 0; i < m_children.size(); i++) {
-        if (m_children[i]->evaluateAnimations(time, results))
+        if (m_children[i]->evaluateAnimations(time))
             hasRunningAnimations = true;
     }
     KeyframesMap::const_iterator end = m_animations.end();
@@ -128,9 +117,6 @@ bool LayerAndroid::evaluateAnimations(double time,
         gDebugNbAnims++;
         LayerAndroid* currentLayer = const_cast<LayerAndroid*>(this);
         if ((it->second)->evaluate(currentLayer, time)) {
-            RefPtr<AndroidAnimationValue> result = (it->second)->result();
-            if (result)
-                results->append(result);
             hasRunningAnimations = true;
         }
     }
@@ -196,7 +182,6 @@ void LayerAndroid::paintOn(SkPoint offset, SkSize size, SkScalar scale, SkCanvas
     int scrollY = offset.fY;
     int width = size.width();
     int height = size.height();
-    LOG("(%x) PaintOn (scroll(%d,%d) width(%d) height(%d)", this, scrollX, scrollY, width, height);
     paintChildren(scrollX, scrollY, width, height, scale, canvas, 1);
 }
 
@@ -245,8 +230,6 @@ void LayerAndroid::paintMe(int scrollX,
                            SkCanvas* canvas,
                            float opacity)
 {
-    LOG("(%x) A - paint me (width: %.2f height: %.2f), anchor(%.2f, %.2f), translate(%.2f, %.2f), position(%.2f, %.2f) angle(%.2f) fixed(%d) rotation(%d)",
-        this, m_size.width(), m_size.height(), m_anchorPoint.fX, m_anchorPoint.fY, m_translation.fX, m_translation.fY, m_position.fX, m_position.fY, m_angleTransform, m_isFixed, m_doRotation);
     if (!prepareContext())
         return;
 
@@ -310,9 +293,6 @@ void LayerAndroid::paintMe(int scrollX,
         canvas->translate(-dx / 2.0f, -dy / 2.0f);
         canvas->scale(sx, sy);
     }
-
-    LOG("(%x) B - paint me (width: %.2f height: %.2f) with x(%.2f) y(%.2f), scale (%.2f, %.2f), anchor(%.2f, %.2f), translate(%.2f, %.2f), position(%.2f, %.2f) angle(%.2f) fixed(%d) rotation(%d)",
-        this, m_size.width(), m_size.height(), x, y, sx, sy, m_anchorPoint.fX, m_anchorPoint.fY, m_translation.fX, m_translation.fY, m_position.fX, m_position.fY, m_angleTransform, m_isFixed, m_doRotation);
 
     m_recordingPicture->draw(canvas);
 

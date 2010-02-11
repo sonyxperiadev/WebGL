@@ -30,18 +30,6 @@
 
 namespace WebCore {
 
-void AndroidTransformAnimationValue::apply()
-{
-    if (m_doTranslation)
-        m_layer->setTranslation(m_translation.x(), m_translation.y());
-
-    if (m_doScaling)
-        m_layer->setScale(m_scale.x(), m_scale.y());
-
-    if (m_doRotation)
-        m_layer->setRotation(m_rotation);
-}
-
 static long gDebugAndroidAnimationInstances;
 
 long AndroidAnimation::instancesCount()
@@ -125,13 +113,6 @@ bool AndroidAnimation::checkIterationsAndProgress(double time, float* finalProgr
     return true;
 }
 
-PassRefPtr<AndroidAnimationValue> AndroidAnimation::result()
-{
-    if (!m_result)
-        return 0;
-    return m_result.release();
-}
-
 PassRefPtr<AndroidOpacityAnimation> AndroidOpacityAnimation::create(
                                                 float fromValue,
                                                 float toValue,
@@ -179,7 +160,7 @@ bool AndroidOpacityAnimation::evaluate(LayerAndroid* layer, double time)
         return true;
 
     float value = m_fromValue + ((m_toValue - m_fromValue) * progress);
-    m_result = AndroidOpacityAnimationValue::create(layer, value);
+    layer->setOpacity(value);
     return true;
 }
 
@@ -294,14 +275,15 @@ bool AndroidTransformAnimation::evaluate(LayerAndroid* layer, double time)
     float sz = m_fromScaleZ + (m_toScaleZ - m_fromScaleZ) * progress;
     float a = m_fromAngle + (m_toAngle - m_fromAngle) * progress;
 
-    FloatPoint translation(x, y);
-    FloatPoint3D scale(sx, sy, sz);
-    RefPtr<AndroidTransformAnimationValue> result =
-        AndroidTransformAnimationValue::create(layer, translation, scale, a);
-    result->setDoTranslation(m_doTranslation);
-    result->setDoScaling(m_doScaling);
-    result->setDoRotation(m_doRotation);
-    m_result = result.release();
+    if (m_doTranslation)
+        layer->setTranslation(x, y);
+
+    if (m_doScaling)
+        layer->setScale(sx, sy);
+
+    if (m_doRotation)
+        layer->setRotation(a);
+
     return true;
 }
 

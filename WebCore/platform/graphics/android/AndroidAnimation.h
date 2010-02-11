@@ -30,62 +30,7 @@
 
 namespace WebCore {
 
-class AndroidAnimation;
 class TimingFunction;
-
-class AndroidAnimationValue : public RefCounted<AndroidAnimationValue> {
-  public:
-    AndroidAnimationValue(LayerAndroid* layer) : m_layer(layer) { }
-    virtual ~AndroidAnimationValue() { }
-    virtual void apply() = 0;
-  protected:
-    RefPtr<LayerAndroid> m_layer;
-};
-
-class AndroidOpacityAnimationValue : public AndroidAnimationValue {
-  public:
-    static PassRefPtr<AndroidOpacityAnimationValue> create(
-                                   LayerAndroid* layer, float value) {
-        return adoptRef(new AndroidOpacityAnimationValue(layer, value));
-    }
-    AndroidOpacityAnimationValue(LayerAndroid* layer, float value) :
-      AndroidAnimationValue(layer), m_value(value) { }
-    virtual void apply() { m_layer->setOpacity(m_value); }
-  private:
-    float m_value;
-};
-
-class AndroidTransformAnimationValue : public AndroidAnimationValue {
-  public:
-    static PassRefPtr<AndroidTransformAnimationValue> create(
-                                   LayerAndroid* layer,
-                                   FloatPoint translation,
-                                   FloatPoint3D scale,
-                                   float rotation) {
-        return adoptRef(new AndroidTransformAnimationValue(layer, translation, scale, rotation));
-    }
-
-    AndroidTransformAnimationValue(LayerAndroid* layer,
-                                   FloatPoint translation,
-                                   FloatPoint3D scale,
-                                   float rotation) :
-      AndroidAnimationValue(layer),
-       m_doTranslation(false), m_doScaling(false), m_doRotation(false),
-       m_translation(translation), m_scale(scale), m_rotation(rotation) { }
-    void setDoTranslation(bool doTranslation) { m_doTranslation = doTranslation; }
-    void setDoScaling(bool doScaling) { m_doScaling = doScaling; }
-    void setDoRotation(bool doRotation) { m_doRotation = doRotation; }
-
-    virtual void apply();
-
-  private:
-    bool m_doTranslation;
-    bool m_doScaling;
-    bool m_doRotation;
-    FloatPoint m_translation;
-    FloatPoint3D m_scale;
-    float m_rotation;
-};
 
 class AndroidAnimation : public RefCounted<AndroidAnimation> {
   public:
@@ -102,10 +47,8 @@ class AndroidAnimation : public RefCounted<AndroidAnimation> {
     static long instancesCount();
     void setName(const String& name) { m_name = name; }
     String name() { return m_name; }
-    virtual PassRefPtr<AndroidAnimationValue> result();
 
   protected:
-    RefPtr<AndroidAnimationValue> m_result;
     double m_beginTime;
     double m_elapsedTime;
     double m_duration;
