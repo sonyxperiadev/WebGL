@@ -90,8 +90,8 @@ LayerAndroid::LayerAndroid(LayerAndroid* layer) :
     m_anchorPoint(layer->m_anchorPoint),
     m_scale(layer->m_scale),
     m_fixedLeft(layer->m_fixedLeft),
-    m_fixedRight(layer->m_fixedRight),
     m_fixedTop(layer->m_fixedTop),
+    m_fixedRight(layer->m_fixedRight),
     m_fixedBottom(layer->m_fixedBottom)
 {
     if (layer->m_recordingPicture) {
