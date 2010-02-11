@@ -68,7 +68,6 @@ $(GEN): $(intermediates)/bindings/V8%.h : $(LOCAL_PATH)/css/%.idl $(js_binding_s
 	$(transform-generated-source)
 LOCAL_GENERATED_SOURCES += $(GEN) $(GEN:%.h=%.cpp)
 
-
 # We also need the .cpp files, which are generated as side effects of the
 # above rules.  Specifying this explicitly makes -j2 work.
 $(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/bindings/%.cpp : $(intermediates)/bindings/%.h
@@ -279,7 +278,7 @@ LOCAL_GENERATED_SOURCES += $(GEN) $(GEN:%.h=%.cpp)
 # above rules.  Specifying this explicitly makes -j2 work.
 $(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/bindings/%.cpp : $(intermediates)/bindings/%.h
 
-# page
+# Page
 GEN := \
     $(intermediates)/bindings/V8BarInfo.h \
     $(intermediates)/bindings/V8Connection.h \
@@ -356,24 +355,30 @@ LOCAL_GENERATED_SOURCES += $(GEN) $(GEN:%.h=%.cpp)
 $(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/bindings/%.cpp : $(intermediates)/bindings/%.h
 
 # SVG
-ifeq ($(ENABLE_SVG), true)
+# These headers are required by the V8 bindings even when SVG is disabled
 GEN := \
+    $(intermediates)/bindings/V8SVGColor.h \
+    $(intermediates)/bindings/V8SVGDocument.h \
+    $(intermediates)/bindings/V8SVGElement.h \
+    $(intermediates)/bindings/V8SVGElementInstance.h \
+    $(intermediates)/bindings/V8SVGException.h \
+    $(intermediates)/bindings/V8SVGPaint.h \
+    $(intermediates)/bindings/V8SVGZoomEvent.h
+
+ifeq ($(ENABLE_SVG), true)
+GEN += \
     $(intermediates)/bindings/V8SVGAElement.h \
     $(intermediates)/bindings/V8SVGAltGlyphElement.h \
     $(intermediates)/bindings/V8SVGAngle.h \
     $(intermediates)/bindings/V8SVGCircleElement.h \
     $(intermediates)/bindings/V8SVGClipPathElement.h \
-    $(intermediates)/bindings/V8SVGColor.h \
     $(intermediates)/bindings/V8SVGComponentTransferFunctionElement.h \
     $(intermediates)/bindings/V8SVGCursorElement.h \
     $(intermediates)/bindings/V8SVGDefsElement.h \
     $(intermediates)/bindings/V8SVGDescElement.h \
-    $(intermediates)/bindings/V8SVGDocument.h \
     $(intermediates)/bindings/V8SVGElement.h \
-    $(intermediates)/bindings/V8SVGElementInstance.h \
     $(intermediates)/bindings/V8SVGElementInstanceList.h \
     $(intermediates)/bindings/V8SVGEllipseElement.h \
-    $(intermediates)/bindings/V8SVGException.h \
     $(intermediates)/bindings/V8SVGFEBlendElement.h \
     $(intermediates)/bindings/V8SVGFEColorMatrixElement.h \
     $(intermediates)/bindings/V8SVGFEComponentTransferElement.h \
@@ -420,7 +425,6 @@ GEN := \
     $(intermediates)/bindings/V8SVGMissingGlyphElement.h \
     $(intermediates)/bindings/V8SVGNumber.h \
     $(intermediates)/bindings/V8SVGNumberList.h \
-    $(intermediates)/bindings/V8SVGPaint.h \
     $(intermediates)/bindings/V8SVGPathElement.h \
     $(intermediates)/bindings/V8SVGPathSeg.h \
     $(intermediates)/bindings/V8SVGPathSegArcAbs.h \
@@ -473,7 +477,6 @@ GEN := \
     $(intermediates)/bindings/V8SVGUnitTypes.h \
     $(intermediates)/bindings/V8SVGUseElement.h \
     $(intermediates)/bindings/V8SVGViewElement.h \
-    $(intermediates)/bindings/V8SVGZoomEvent.h \
     \
     $(intermediates)/bindings/V8SVGAnimatedAngle.h \
     $(intermediates)/bindings/V8SVGAnimatedEnumeration.h \
@@ -488,6 +491,7 @@ GEN := \
     $(intermediates)/bindings/V8SVGAnimatedRect.h \
     $(intermediates)/bindings/V8SVGAnimatedString.h \
     $(intermediates)/bindings/V8SVGAnimatedTransformList.h
+endif
 
 ifeq ($(ENABLE_SVG_ANIMATION), true)
 GEN += \
@@ -507,7 +511,6 @@ LOCAL_GENERATED_SOURCES += $(GEN) $(GEN:%.h=%.cpp)
 # We also need the .cpp files, which are generated as side effects of the
 # above rules.  Specifying this explicitly makes -j2 work.
 $(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/bindings/%.cpp : $(intermediates)/bindings/%.h
-endif
 
 # Workers
 GEN := \
@@ -551,7 +554,6 @@ $(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/bindings/%.cpp : $(intermediates)
 #end
 
 # HTML tag and attribute names
-
 GEN:= $(intermediates)/HTMLNames.cpp $(intermediates)/HTMLNames.h $(intermediates)/HTMLElementFactory.cpp $(intermediates)/HTMLElementFactory.h $(intermediates)/V8HTMLElementWrapperFactory.cpp $(intermediates)/V8HTMLElementWrapperFactory.h
 $(GEN): PRIVATE_PATH := $(LOCAL_PATH)
 $(GEN): PRIVATE_CUSTOM_TOOL = perl -I $(PRIVATE_PATH)/bindings/scripts $< --tags $(PRIVATE_PATH)/html/HTMLTagNames.in --attrs $(PRIVATE_PATH)/html/HTMLAttributeNames.in --factory --wrapperFactoryV8 --output $(dir $@)
@@ -560,7 +562,6 @@ $(GEN): $(LOCAL_PATH)/dom/make_names.pl $(LOCAL_PATH)/html/HTMLTagNames.in $(LOC
 LOCAL_GENERATED_SOURCES += $(GEN)
 
 # SVG tag and attribute names
-
 ifeq ($(ENABLE_SVG), true)
 GEN:= $(intermediates)/SVGNames.cpp $(intermediates)/SVGNames.h $(intermediates)/SVGElementFactory.cpp $(intermediates)/SVGElementFactory.h $(intermediates)/V8SVGElementWrapperFactory.cpp $(intermediates)/V8SVGElementWrapperFactory.h
 SVG_FLAGS:=ENABLE_SVG_AS_IMAGE=1 ENABLE_SVG_FILTERS=1 ENABLE_SVG_FONTS=1 ENABLE_SVG_FOREIGN_OBJECT=1 ENABLE_SVG_USE=1
