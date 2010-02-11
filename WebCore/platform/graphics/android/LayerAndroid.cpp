@@ -17,6 +17,12 @@
 #define LAYER_DEBUG // Add diagonals for debugging
 #undef LAYER_DEBUG
 
+#include <cutils/log.h>
+#include <wtf/CurrentTime.h>
+
+#undef LOG
+#define LOG(...) android_printLog(ANDROID_LOG_DEBUG, "LayerAndroid", __VA_ARGS__)
+
 namespace WebCore {
 
 static int gDebugLayerAndroidInstances;
@@ -48,57 +54,26 @@ PassRefPtr<LayerAndroid> LayerAndroid::create(bool isRootLayer)
     return adoptRef(new LayerAndroid(isRootLayer));
 }
 
-LayerAndroid::LayerAndroid(bool isRootLayer) :
-    m_doRotation(false),
+LayerAndroid::LayerAndroid(bool isRootLayer) : SkLayer(),
     m_isRootLayer(isRootLayer),
-    m_isFixed(false),
     m_haveContents(false),
     m_drawsContent(true),
     m_haveImage(false),
     m_haveClip(false),
-    m_backgroundColorSet(false),
-    m_angleTransform(0),
-    m_opacity(1),
-    m_size(0, 0),
-    m_position(0, 0),
-    m_translation(0, 0),
-    m_anchorPoint(0, 0, 0),
-    m_scale(1, 1, 1),
-    m_fixedLeft(Auto),
-    m_fixedTop(Auto),
-    m_fixedRight(Auto),
-    m_fixedBottom(Auto),
     m_recordingPicture(0)
 {
     gDebugLayerAndroidInstances++;
 }
 
-LayerAndroid::LayerAndroid(LayerAndroid* layer) :
-    m_doRotation(layer->m_doRotation),
+LayerAndroid::LayerAndroid(LayerAndroid* layer) : SkLayer(layer),
     m_isRootLayer(layer->m_isRootLayer),
-    m_isFixed(layer->m_isFixed),
     m_haveContents(layer->m_haveContents),
     m_drawsContent(layer->m_drawsContent),
     m_haveImage(layer->m_haveImage),
-    m_haveClip(layer->m_haveClip),
-    m_backgroundColorSet(layer->m_backgroundColorSet),
-    m_angleTransform(layer->m_angleTransform),
-    m_opacity(layer->m_opacity),
-    m_size(layer->m_size),
-    m_position(layer->m_position),
-    m_translation(layer->m_translation),
-    m_anchorPoint(layer->m_anchorPoint),
-    m_scale(layer->m_scale),
-    m_fixedLeft(layer->m_fixedLeft),
-    m_fixedTop(layer->m_fixedTop),
-    m_fixedRight(layer->m_fixedRight),
-    m_fixedBottom(layer->m_fixedBottom)
+    m_haveClip(layer->m_haveClip)
 {
-    if (layer->m_recordingPicture) {
-        layer->m_recordingPicture->ref();
-        m_recordingPicture = layer->m_recordingPicture;
-    } else
-        m_recordingPicture = 0;
+    m_recordingPicture = layer->m_recordingPicture;
+    SkSafeRef(m_recordingPicture);
 
     for (unsigned int i = 0; i < layer->m_children.size(); i++)
         m_children.append(adoptRef(new LayerAndroid(layer->m_children[i].get())));
@@ -173,16 +148,6 @@ void LayerAndroid::removeAnimation(const String& name)
     m_animations.remove(name);
 }
 
-void LayerAndroid::setFixedPosition(Length left, Length top,
-                                    Length right, Length bottom)
-{
-    m_fixedLeft = left;
-    m_fixedTop = top;
-    m_fixedRight = right;
-    m_fixedBottom = bottom;
-    m_isFixed = true;
-}
-
 void LayerAndroid::setDrawsContent(bool drawsContent)
 {
     m_drawsContent = drawsContent;
@@ -205,7 +170,7 @@ void LayerAndroid::setMasksToBounds(bool masksToBounds)
     m_haveClip = masksToBounds;
 }
 
-void LayerAndroid::setBackgroundColor(const Color& color)
+void LayerAndroid::setBackgroundColor(SkColor color)
 {
     m_backgroundColor = color;
     m_backgroundColorSet = true;
@@ -219,15 +184,27 @@ void LayerAndroid::paintOn(int scrollX, int scrollY,
                            int width, int height,
                            float scale, SkCanvas* canvas)
 {
+  SkSize size;
+  size.set(width, height);
+  paintOn(SkPoint::Make(scrollX, scrollY), size, scale, canvas);
+}
+
+void LayerAndroid::paintOn(SkPoint offset, SkSize size, SkScalar scale, SkCanvas* canvas)
+{
     gDebugChildLevel = 0;
+    int scrollX = offset.fX;
+    int scrollY = offset.fY;
+    int width = size.width();
+    int height = size.height();
+    LOG("(%x) PaintOn (scroll(%d,%d) width(%d) height(%d)", this, scrollX, scrollY, width, height);
     paintChildren(scrollX, scrollY, width, height, scale, canvas, 1);
 }
 
 void LayerAndroid::setClip(SkCanvas* canvas)
 {
     SkRect clip;
-    clip.fLeft = m_position.x() + m_translation.x();
-    clip.fTop = m_position.y() + m_translation.y();
+    clip.fLeft = m_position.fX + m_translation.fX;
+    clip.fTop = m_position.fY + m_translation.fY;
     clip.fRight = clip.fLeft + m_size.width();
     clip.fBottom = clip.fTop + m_size.height();
     canvas->clipRect(clip);
@@ -244,8 +221,8 @@ void LayerAndroid::paintChildren(int scrollX, int scrollY,
         setClip(canvas);
 
     paintMe(scrollX, scrollY, width, height, scale, canvas, opacity);
-    canvas->translate(m_position.x() + m_translation.x(),
-                      m_position.y() + m_translation.y());
+    canvas->translate(m_position.fX + m_translation.fX,
+                      m_position.fY + m_translation.fY);
 
     for (unsigned int i = 0; i < m_children.size(); i++) {
         LayerAndroid* layer = m_children[i].get();
@@ -268,6 +245,8 @@ void LayerAndroid::paintMe(int scrollX,
                            SkCanvas* canvas,
                            float opacity)
 {
+    LOG("(%x) A - paint me (width: %.2f height: %.2f), anchor(%.2f, %.2f), translate(%.2f, %.2f), position(%.2f, %.2f) angle(%.2f) fixed(%d) rotation(%d)",
+        this, m_size.width(), m_size.height(), m_anchorPoint.fX, m_anchorPoint.fY, m_translation.fX, m_translation.fY, m_position.fX, m_position.fY, m_angleTransform, m_isFixed, m_doRotation);
     if (!prepareContext())
         return;
 
@@ -280,16 +259,15 @@ void LayerAndroid::paintMe(int scrollX,
     if (canvasOpacity != 255)
         canvas->setDrawFilter(new OpacityDrawFilter(canvasOpacity));
 
+    /* FIXME
     SkPaint paintMode;
     if (m_backgroundColorSet) {
-        paintMode.setARGB(m_backgroundColor.alpha(),
-            m_backgroundColor.red(),
-            m_backgroundColor.green(),
-            m_backgroundColor.blue());
+        paintMode.setColor(m_backgroundColor);
     } else
         paintMode.setARGB(0, 0, 0, 0);
 
     paintMode.setXfermodeMode(SkXfermode::kSrc_Mode);
+    */
 
     float x = 0;
     float y = 0;
@@ -299,39 +277,42 @@ void LayerAndroid::paintMe(int scrollX,
         float dx = scrollX / scale;
         float dy = scrollY / scale;
 
-        if (m_fixedLeft.type())
+        if (m_fixedLeft.defined())
             x = dx + m_fixedLeft.calcFloatValue(w);
-        else if (m_fixedRight.type())
+        else if (m_fixedRight.defined())
             x = dx + w - m_fixedRight.calcFloatValue(w) - m_size.width();
 
-        if (m_fixedTop.type())
+        if (m_fixedTop.defined())
             y = dy + m_fixedTop.calcFloatValue(h);
-        else if (m_fixedBottom.type())
+        else if (m_fixedBottom.defined())
             y = dy + h - m_fixedBottom.calcFloatValue(h) - m_size.height();
 
     } else {
-        x = m_translation.x() + m_position.x();
-        y = m_translation.y() + m_position.y();
+        x = m_translation.fX + m_position.fX;
+        y = m_translation.fY + m_position.fY;
     }
 
     canvas->translate(x, y);
 
     if (m_doRotation) {
-        float anchorX = m_anchorPoint.x() * m_size.width();
-        float anchorY = m_anchorPoint.y() * m_size.height();
+        float anchorX = m_anchorPoint.fX * m_size.width();
+        float anchorY = m_anchorPoint.fY * m_size.height();
         canvas->translate(anchorX, anchorY);
         canvas->rotate(m_angleTransform);
         canvas->translate(-anchorX, -anchorY);
     }
 
-    float sx = m_scale.x();
-    float sy = m_scale.y();
+    float sx = m_scale.fX;
+    float sy = m_scale.fY;
     if (sx > 1.0f || sy > 1.0f) {
         float dx = (sx * m_size.width()) - m_size.width();
         float dy = (sy * m_size.height()) - m_size.height();
         canvas->translate(-dx / 2.0f, -dy / 2.0f);
         canvas->scale(sx, sy);
     }
+
+    LOG("(%x) B - paint me (width: %.2f height: %.2f) with x(%.2f) y(%.2f), scale (%.2f, %.2f), anchor(%.2f, %.2f), translate(%.2f, %.2f), position(%.2f, %.2f) angle(%.2f) fixed(%d) rotation(%d)",
+        this, m_size.width(), m_size.height(), x, y, sx, sy, m_anchorPoint.fX, m_anchorPoint.fY, m_translation.fX, m_translation.fY, m_position.fX, m_position.fY, m_angleTransform, m_isFixed, m_doRotation);
 
     m_recordingPicture->draw(canvas);
 

@@ -33,10 +33,10 @@ namespace WebCore {
 void AndroidTransformAnimationValue::apply()
 {
     if (m_doTranslation)
-        m_layer->setTranslation(m_translation);
+        m_layer->setTranslation(m_translation.x(), m_translation.y());
 
     if (m_doScaling)
-        m_layer->setScale(m_scale);
+        m_layer->setScale(m_scale.x(), m_scale.y());
 
     if (m_doRotation)
         m_layer->setRotation(m_rotation);

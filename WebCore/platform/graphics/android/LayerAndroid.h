@@ -25,6 +25,7 @@
 #include "FloatSize.h"
 #include "Length.h"
 #include "RefPtr.h"
+#include "SkLayer.h"
 #include "StringHash.h"
 #include "Vector.h"
 #include <wtf/HashMap.h>
@@ -38,32 +39,26 @@ namespace WebCore {
 class AndroidAnimation;
 class AndroidAnimationValue;
 
-class LayerAndroid : public RefCounted<LayerAndroid> {
+class LayerAndroid : public SkLayer, public RefCounted<LayerAndroid> {
 
 public:
     static PassRefPtr<LayerAndroid> create(bool isRootLayer);
     LayerAndroid(bool isRootLayer);
     LayerAndroid(LayerAndroid* layer);
-    ~LayerAndroid();
+    virtual ~LayerAndroid();
 
     static int instancesCount();
 
-    void setSize(FloatSize size) { m_size = size; }
-    void setOpacity(float opacity) { m_opacity = opacity; }
-    void setTranslation(FloatPoint translation) { m_translation = translation; }
-    void setRotation(float a) { m_angleTransform = a; m_doRotation = true; }
-    void setScale(FloatPoint3D scale) { m_scale = scale; }
-    void setPosition(FloatPoint position) { m_position = position; }
-    void setAnchorPoint(FloatPoint3D point) { m_anchorPoint = point; }
     void setHaveContents(bool haveContents) { m_haveContents = haveContents; }
     void setHaveImage(bool haveImage) { m_haveImage = haveImage; }
     void setDrawsContent(bool drawsContent);
     void setMaskLayer(LayerAndroid*);
     void setMasksToBounds(bool);
-    void setBackgroundColor(const Color& color);
+    virtual void setBackgroundColor(SkColor color);
     void setIsRootLayer(bool isRootLayer) { m_isRootLayer = isRootLayer; }
 
     void paintOn(int scrollX, int scrollY, int width, int height, float scale, SkCanvas*);
+    void paintOn(SkPoint offset, SkSize size, SkScalar scale, SkCanvas*);
     void removeAllChildren() { m_children.clear(); }
     void addChildren(LayerAndroid* layer) { m_children.append(layer); }
     bool prepareContext(bool force = false);
@@ -71,11 +66,7 @@ public:
     void stopRecording();
     SkPicture* recordContext();
     void setClip(SkCanvas* clip);
-    FloatPoint position() { return m_position; }
-    FloatPoint translation() { return m_translation; }
-    FloatSize size() { return m_size; }
 
-    void setFixedPosition(Length left, Length top, Length right, Length bottom);
     void addAnimation(PassRefPtr<AndroidAnimation> anim);
     void removeAnimation(const String& name);
     Vector<RefPtr<AndroidAnimationValue> >* evaluateAnimations() const;
@@ -95,31 +86,13 @@ private:
                  float scale, SkCanvas* canvas,
                  float opacity);
 
-    bool m_doRotation;
     bool m_isRootLayer;
-    bool m_isFixed;
     bool m_haveContents;
     bool m_drawsContent;
     bool m_haveImage;
     bool m_haveClip;
-    bool m_backgroundColorSet;
-
-    float m_angleTransform;
-    float m_opacity;
-
-    FloatSize m_size;
-    FloatPoint m_position;
-    FloatPoint m_translation;
-    FloatPoint3D m_anchorPoint;
-    FloatPoint3D m_scale;
-
-    Length m_fixedLeft;
-    Length m_fixedTop;
-    Length m_fixedRight;
-    Length m_fixedBottom;
 
     SkPicture* m_recordingPicture;
-    Color m_backgroundColor;
 
     Vector<RefPtr<LayerAndroid> > m_children;
     typedef HashMap<String, RefPtr<AndroidAnimation> > KeyframesMap;

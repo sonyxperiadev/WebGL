@@ -25,6 +25,8 @@
 #include "FloatRect.h"
 #include "GraphicsContext.h"
 #include "Image.h"
+#include "Length.h"
+#include "SkLayer.h"
 #include "PlatformBridge.h"
 #include "PlatformGraphicsContext.h"
 #include "RenderLayerBacking.h"
@@ -90,6 +92,20 @@ PassOwnPtr<GraphicsLayer> GraphicsLayer::create(GraphicsLayerClient* client)
     return new GraphicsLayerAndroid(client);
 }
 
+SkLength convertLength(Length l) {
+  SkLength length;
+  length.type = SkLength::Undefined;
+  length.value = 0;
+  if (l.type() == WebCore::Percent) {
+    length.type = SkLength::Percent;
+    length.value = l.percent();
+  } if (l.type() == WebCore::Fixed) {
+    length.type = SkLength::Fixed;
+    length.value = l.value();
+  }
+  return length;
+}
+
 GraphicsLayerAndroid::GraphicsLayerAndroid(GraphicsLayerClient* client) :
     GraphicsLayer(client),
     m_needsSyncChildren(false),
@@ -107,16 +123,18 @@ GraphicsLayerAndroid::GraphicsLayerAndroid(GraphicsLayerClient* client) :
 {
     m_contentLayer = adoptRef(new LayerAndroid(true));
     if (client) {
-      RenderLayerBacking* backing = static_cast<RenderLayerBacking*>(client);
-      RenderLayer* renderLayer = backing->owningLayer();
-      m_contentLayer->setIsRootLayer(renderLayer->isRootLayer());
-      RenderView* view = static_cast<RenderView*>(renderLayer->renderer());
-      if (view->isPositioned() && view->style()->position() == FixedPosition) {
-          m_contentLayer->setFixedPosition(view->style()->left(),
-                                           view->style()->top(),
-                                           view->style()->right(),
-                                           view->style()->bottom());
-      }
+        RenderLayerBacking* backing = static_cast<RenderLayerBacking*>(client);
+        RenderLayer* renderLayer = backing->owningLayer();
+        m_contentLayer->setIsRootLayer(renderLayer->isRootLayer());
+        RenderView* view = static_cast<RenderView*>(renderLayer->renderer());
+        if (view->isPositioned() && view->style()->position() == FixedPosition) {
+            SkLength left, top, right, bottom;
+            left = convertLength(view->style()->left());
+            top = convertLength(view->style()->top());
+            right = convertLength(view->style()->right());
+            bottom = convertLength(view->style()->bottom());
+            m_contentLayer->setFixedPosition(left, top, right, bottom);
+        }
     }
     gDebugGraphicsLayerAndroidInstances++;
 }
@@ -223,7 +241,7 @@ void GraphicsLayerAndroid::setPosition(const FloatPoint& point)
 void GraphicsLayerAndroid::setAnchorPoint(const FloatPoint3D& point)
 {
     GraphicsLayer::setAnchorPoint(point);
-    m_contentLayer->setAnchorPoint(point);
+    m_contentLayer->setAnchorPoint(point.x(), point.y());
     askForSync();
 }
 
@@ -233,7 +251,7 @@ void GraphicsLayerAndroid::setSize(const FloatSize& size)
           || (size.height() != m_size.height())) {
         MLOG("(%x) setSize (%.2f,%.2f)", this, size.width(), size.height());
         GraphicsLayer::setSize(size);
-        m_contentLayer->setSize(size);
+        m_contentLayer->setSize(size.width(), size.height());
         askForSync();
     }
 }
@@ -305,7 +323,8 @@ void GraphicsLayerAndroid::setBackgroundColor(const Color& color)
 {
     LOG("(%x) setBackgroundColor", this);
     GraphicsLayer::setBackgroundColor(color);
-    m_contentLayer->setBackgroundColor(color);
+    SkColor c = SkColorSetARGB(color.alpha(), color.red(), color.green(), color.blue());
+    m_contentLayer->setBackgroundColor(c);
     m_haveContents = true;
     askForSync();
 }
@@ -841,9 +860,8 @@ void GraphicsLayerAndroid::syncPositionState()
          m_translateX = m_currentTranslateX;
          m_translateY = m_currentTranslateY;
          m_position = m_currentPosition;
-         FloatPoint translation(m_currentTranslateX, m_currentTranslateY);
-         m_contentLayer->setTranslation(translation);
-         m_contentLayer->setPosition(m_currentPosition);
+         m_contentLayer->setTranslation(m_currentTranslateX, m_currentTranslateY);
+         m_contentLayer->setPosition(m_currentPosition.x(), m_currentPosition.y());
          m_needsDisplay = false;
      }
 }
