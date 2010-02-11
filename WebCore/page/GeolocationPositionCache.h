@@ -42,11 +42,11 @@ class GeolocationPositionCache {
 
     void setCachedPosition(Geoposition*);
     Geoposition* cachedPosition();
-    static void setDatabasePath(String);
+    static void setDatabasePath(const String&);
 
   private:
     static PassRefPtr<Geoposition> readFromDB();
-    static void writeToDB(Geoposition*);
+    static void writeToDB(const Geoposition*);
 
     static int s_instances;
     static RefPtr<Geoposition>* s_cachedPosition;
