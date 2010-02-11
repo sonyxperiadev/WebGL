@@ -334,7 +334,7 @@ static void extactShader(SkPaint* paint, Pattern* pat, Gradient* grad)
 {
     if (pat) {
         // platformPattern() returns a cached obj
-        paint->setShader(pat->platformPattern(TransformationMatrix()));
+        paint->setShader(pat->platformPattern(AffineTransform()));
     } else if (grad) {
         // grad->getShader() returns a cached obj
         GradientSpreadMethod sm = grad->spreadMethod();
@@ -1033,15 +1033,6 @@ void GraphicsContext::concatCTM(const AffineTransform& affine)
     GC2Canvas(this)->concat(affine);
 }
 
-void GraphicsContext::concatCTM(const TransformationMatrix& xform)
-{
-    if (paintingDisabled())
-        return;
-    
-//printf("-------------- GraphicsContext::concatCTM\n");
-    GC2Canvas(this)->concat((SkMatrix) xform);
-}
-
 /*  This is intended to round the rect to device pixels (through the CTM)
     and then invert the result back into source space, with the hope that when
     it is drawn (through the matrix), it will land in the "right" place (i.e.
@@ -1094,15 +1085,15 @@ void GraphicsContext::setPlatformShouldAntialias(bool useAA)
     m_data->mState->mUseAA = useAA;
 }
 
-TransformationMatrix GraphicsContext::getCTM() const
+AffineTransform GraphicsContext::getCTM() const
 {
     const SkMatrix& m = GC2Canvas(this)->getTotalMatrix();
-    return TransformationMatrix(SkScalarToDouble(m.getScaleX()),      // a
-                                SkScalarToDouble(m.getSkewY()),       // b
-                                SkScalarToDouble(m.getSkewX()),       // c
-                                SkScalarToDouble(m.getScaleY()),      // d
-                                SkScalarToDouble(m.getTranslateX()),  // e
-                                SkScalarToDouble(m.getTranslateY())); // f
+    return AffineTransform(SkScalarToDouble(m.getScaleX()),      // a
+                           SkScalarToDouble(m.getSkewY()),       // b
+                           SkScalarToDouble(m.getSkewX()),       // c
+                           SkScalarToDouble(m.getScaleY()),      // d
+                           SkScalarToDouble(m.getTranslateX()),  // e
+                           SkScalarToDouble(m.getTranslateY())); // f
 }
 
 ///////////////////////////////////////////////////////////////////////////////

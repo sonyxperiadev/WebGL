@@ -249,7 +249,7 @@ void BitmapImage::setURL(const String& str)
 ///////////////////////////////////////////////////////////////////////////////
 
 void Image::drawPattern(GraphicsContext* ctxt, const FloatRect& srcRect,
-                        const TransformationMatrix& patternTransform,
+                        const AffineTransform& patternTransform,
                         const FloatPoint& phase, ColorSpace,
                         CompositeOperator compositeOp, const FloatRect& destRect)
 {

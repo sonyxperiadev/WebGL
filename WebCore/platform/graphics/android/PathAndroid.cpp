@@ -270,11 +270,6 @@ void Path::transform(const AffineTransform& xform)
     m_path->transform(xform);
 }
 
-void Path::transform(const TransformationMatrix& xform)
-{
-    m_path->transform(xform);
-}
-    
 #if ENABLE(SVG)
 String Path::debugString() const
 {

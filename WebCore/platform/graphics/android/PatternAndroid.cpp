@@ -46,7 +46,7 @@ void Pattern::platformDestroy()
     m_pattern = 0;
 }
 
-SkShader* Pattern::platformPattern(const TransformationMatrix& )
+SkShader* Pattern::platformPattern(const AffineTransform&)
 {
     if (m_pattern)
         return m_pattern;
