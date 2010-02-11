@@ -21,6 +21,7 @@
 #define Navigator_h
 
 #include "NavigatorBase.h"
+#include "PlatformString.h"
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
@@ -32,7 +33,6 @@ namespace WebCore {
     class MimeTypeArray;
     class PluginData;
     class PluginArray;
-    class String;
 #if PLATFORM(ANDROID)
     class ApplicationInstalledCallback;
     class Connection;
@@ -67,7 +67,8 @@ namespace WebCore {
 #endif
 
 #if PLATFORM(ANDROID) && ENABLE(APPLICATION_INSTALLED)
-        void isApplicationInstalled(const String& name, PassRefPtr<ApplicationInstalledCallback> callback);
+        bool isApplicationInstalled(const String& name, PassRefPtr<ApplicationInstalledCallback> callback);
+        void onPackageResult();
 #endif
 
 #if ENABLE(DOM_STORAGE)
@@ -86,6 +87,11 @@ namespace WebCore {
         mutable RefPtr<Geolocation> m_geolocation;
 #if PLATFORM(ANDROID)
         mutable RefPtr<Connection> m_connection;
+#endif
+
+#if PLATFORM(ANDROID) && ENABLE(APPLICATION_INSTALLED)
+        RefPtr<ApplicationInstalledCallback> m_applicationInstalledCallback;
+        String m_applicationNameQuery;
 #endif
     };
 

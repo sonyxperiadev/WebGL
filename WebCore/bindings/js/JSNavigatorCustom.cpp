@@ -69,7 +69,8 @@ JSC::JSValue  WebCore::JSNavigator::isApplicationInstalled(JSC::ExecState* exec,
     RefPtr<ApplicationInstalledCallback> callback(JSCustomApplicationInstalledCallback::create(
             object, static_cast<JSDOMGlobalObject*>(exec->dynamicGlobalObject())));
 
-    m_impl->isApplicationInstalled(appName, callback.release());
+    if (!m_impl->isApplicationInstalled(appName, callback.release()))
+        setDOMException(exec, INVALID_STATE_ERR);
     return jsUndefined();
 }
 

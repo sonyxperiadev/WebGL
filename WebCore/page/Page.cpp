@@ -81,6 +81,10 @@
 #include "GeolocationController.h"
 #endif
 
+#if PLATFORM(ANDROID) && ENABLE(APPLICATION_INSTALLED)
+#include "PackageNotifier.h"
+#endif
+
 namespace WebCore {
 
 static HashSet<Page*>* allPages;
@@ -104,6 +108,17 @@ static void networkStateChanged()
     for (unsigned i = 0; i < frames.size(); i++)
         frames[i]->document()->dispatchWindowEvent(Event::create(eventName, false, false));
 }
+
+#if PLATFORM(ANDROID) && ENABLE(APPLICATION_INSTALLED)
+static void onPackageResultAvailable()
+{
+    HashSet<Page*>::iterator end = allPages->end();
+    for (HashSet<Page*>::iterator it = allPages->begin(); it != end; ++it) {
+        for (Frame* frame = (*it)->mainFrame(); frame; frame = frame->tree()->traverseNext())
+            frame->domWindow()->navigator()->onPackageResult();
+    }
+}
+#endif
 
 Page::Page(ChromeClient* chromeClient, ContextMenuClient* contextMenuClient, EditorClient* editorClient, DragClient* dragClient, InspectorClient* inspectorClient, PluginHalterClient* pluginHalterClient, GeolocationControllerClient* geolocationControllerClient)
     : m_chrome(new Chrome(this, chromeClient))
@@ -163,6 +178,9 @@ Page::Page(ChromeClient* chromeClient, ContextMenuClient* contextMenuClient, Edi
         allPages = new HashSet<Page*>;
         
         networkStateNotifier().setNetworkStateChangedFunction(networkStateChanged);
+#if PLATFORM(ANDROID) && ENABLE(APPLICATION_INSTALLED)
+        packageNotifier().setOnResultAvailable(onPackageResultAvailable);
+#endif
     }
 
     ASSERT(!allPages->contains(this));

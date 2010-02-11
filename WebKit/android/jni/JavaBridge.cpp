@@ -35,6 +35,7 @@
 #include "KeyGeneratorClient.h"
 #include "KURL.h"
 #include "NetworkStateNotifier.h"
+#include "PackageNotifier.h"
 #include "Page.h"
 #include "PluginClient.h"
 #include "PluginDatabase.h"
@@ -102,6 +103,10 @@ public:
     static void SetDeferringTimers(JNIEnv* env, jobject obj, jboolean defer);
     static void ServiceFuncPtrQueue(JNIEnv*);
     static void UpdatePluginDirectories(JNIEnv* env, jobject obj, jobjectArray array, jboolean reload);
+    static void AddPackageNames(JNIEnv* env, jobject obj, jobject packageNames);
+    static void AddPackageName(JNIEnv* env, jobject obj, jstring packageName);
+    static void RemovePackageName(JNIEnv* env, jobject obj, jstring packageName);
+
 
 private:
     jweak       mJavaObject;
@@ -392,6 +397,46 @@ void JavaBridge::UpdatePluginDirectories(JNIEnv* env, jobject obj,
     WebCore::Page::refreshPlugins(reload);
 }
 
+void JavaBridge::AddPackageNames(JNIEnv* env, jobject obj, jobject packageNames)
+{
+    if (!packageNames)
+        return;
+
+    // dalvikvm will raise exception if any of these fail
+    jclass setClass = env->FindClass("java/util/Set");
+    jmethodID iterator = env->GetMethodID(setClass, "iterator",
+            "()Ljava/util/Iterator;");
+    jobject iter = env->CallObjectMethod(packageNames, iterator);
+
+    jclass iteratorClass = env->FindClass("java/util/Iterator");
+    jmethodID hasNext = env->GetMethodID(iteratorClass, "hasNext", "()Z");
+    jmethodID next = env->GetMethodID(iteratorClass, "next", "()Ljava/lang/Object;");
+
+    HashSet<WebCore::String> namesSet;
+    while (env->CallBooleanMethod(iter, hasNext)) {
+        jstring name = static_cast<jstring>(env->CallObjectMethod(iter, next));
+        namesSet.add(to_string(env, name));
+        env->DeleteLocalRef(name);
+    }
+
+    packageNotifier().addPackageNames(namesSet);
+
+    env->DeleteLocalRef(iteratorClass);
+    env->DeleteLocalRef(iter);
+    env->DeleteLocalRef(setClass);
+}
+
+void JavaBridge::AddPackageName(JNIEnv* env, jobject obj, jstring packageName)
+{
+    packageNotifier().addPackageName(to_string(env, packageName));
+}
+
+void JavaBridge::RemovePackageName(JNIEnv* env, jobject obj, jstring packageName)
+{
+    packageNotifier().removePackageName(to_string(env, packageName));
+}
+
+
 // ----------------------------------------------------------------------------
 
 /*
@@ -414,7 +459,13 @@ static JNINativeMethod gWebCoreJavaBridgeMethods[] = {
     { "nativeServiceFuncPtrQueue", "()V",
         (void*) JavaBridge::ServiceFuncPtrQueue },
     { "nativeUpdatePluginDirectories", "([Ljava/lang/String;Z)V",
-        (void*) JavaBridge::UpdatePluginDirectories }
+        (void*) JavaBridge::UpdatePluginDirectories },
+    { "addPackageNames", "(Ljava/util/Set;)V",
+        (void*) JavaBridge::AddPackageNames },
+    { "addPackageName", "(Ljava/lang/String;)V",
+        (void*) JavaBridge::AddPackageName },
+    { "removePackageName", "(Ljava/lang/String;)V",
+        (void*) JavaBridge::RemovePackageName }
 };
 
 int register_javabridge(JNIEnv* env)

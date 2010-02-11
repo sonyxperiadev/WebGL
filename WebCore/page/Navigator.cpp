@@ -45,6 +45,7 @@
 #if PLATFORM(ANDROID)
 #include "ApplicationInstalledCallback.h"
 #include "Connection.h"
+#include "PackageNotifier.h"
 #endif
 
 namespace WebCore {
@@ -171,10 +172,26 @@ Connection* Navigator::connection() const
 #endif
 
 #if PLATFORM(ANDROID) && ENABLE(APPLICATION_INSTALLED)
-void Navigator::isApplicationInstalled(const String& name, PassRefPtr<ApplicationInstalledCallback> callback)
+
+bool Navigator::isApplicationInstalled(const String& name, PassRefPtr<ApplicationInstalledCallback> callback)
 {
-    //TODO(implement);
-    callback->handleEvent(false);
+    if (m_applicationInstalledCallback)
+        return false;
+
+    m_applicationInstalledCallback = callback;
+    m_applicationNameQuery = name;
+
+    packageNotifier().requestPackageResult();
+
+    return true;
+}
+
+void Navigator::onPackageResult()
+{
+    if (m_applicationInstalledCallback) {
+        m_applicationInstalledCallback->handleEvent(packageNotifier().isPackageInstalled(m_applicationNameQuery));
+        m_applicationInstalledCallback = 0;
+    }
 }
 #endif
 

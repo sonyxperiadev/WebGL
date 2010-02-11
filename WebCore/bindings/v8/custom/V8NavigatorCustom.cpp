@@ -84,7 +84,9 @@ v8::Handle<v8::Value> V8Navigator::isApplicationInstalledCallback(const v8::Argu
     ASSERT(callback);
 
     Navigator* navigator = V8Navigator::toNative(args.Holder());
-    navigator->isApplicationInstalled(toWebCoreString(args[0]), callback.release());
+    if (!navigator->isApplicationInstalled(toWebCoreString(args[0]), callback.release()))
+        return throwError(INVALID_STATE_ERR);
+
     return v8::Undefined();
 }
 
