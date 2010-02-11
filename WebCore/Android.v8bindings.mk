@@ -43,6 +43,8 @@ BINDING_C_INCLUDES := \
 LOCAL_SRC_FILES += \
 	bindings/ScriptControllerBase.cpp \
 	\
+	bindings/generic/RuntimeEnabledFeatures.cpp \
+	\
 	bindings/v8/ChildThreadDOMData.cpp \
 	bindings/v8/DateExtension.cpp \
 	bindings/v8/DOMData.cpp \
@@ -51,7 +53,6 @@ LOCAL_SRC_FILES += \
 	bindings/v8/IsolatedWorld.cpp \
 	bindings/v8/MainThreadDOMData.cpp \
 	bindings/v8/NPV8Object.cpp \
-	bindings/v8/RuntimeEnabledFeatures.cpp \
 	bindings/v8/ScheduledAction.cpp \
 	bindings/v8/ScopedDOMDataStore.cpp \
 	bindings/v8/ScriptArray.cpp \
