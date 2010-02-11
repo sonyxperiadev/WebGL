@@ -34,6 +34,9 @@ LOCAL_PATH := $(call my-dir)
 #    can be set to true, so that two builds can be different but without
 #    specifying which JS engine to use.
 
+# To control if JSC JIT is used, please set ENABLE_ANDROID_JSC_JIT environment
+# variable to true.
+
 # Read JS_ENGINE environment variable
 JAVASCRIPT_ENGINE = $(JS_ENGINE)
 
@@ -208,6 +211,14 @@ LOCAL_CFLAGS += -fno-strict-aliasing
 LOCAL_CFLAGS += -include "WebCorePrefix.h"
 LOCAL_CFLAGS += -fvisibility=hidden
 LOCAL_CFLAGS += -D__SGI_STL_INTERNAL_PAIR_H
+
+# Enable JSC JIT if JSC is used and ENABLE_ANDROID_JSC_JIT environment
+# variable is set to true
+ifeq ($(JAVASCRIPT_ENGINE),jsc)
+ifeq ($(ENABLE_ANDROID_JSC_JIT),true)
+LOCAL_CFLAGS += -DENABLE_ANDROID_JSC_JIT=1
+endif
+endif
 
 ifeq ($(TARGET_ARCH),arm)
 LOCAL_CFLAGS += -Darm
