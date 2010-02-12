@@ -43,11 +43,6 @@ class OpacityDrawFilter : public SkDrawFilter {
     int m_previousOpacity;
 };
 
-PassRefPtr<LayerAndroid> LayerAndroid::create(bool isRootLayer)
-{
-    return adoptRef(new LayerAndroid(isRootLayer));
-}
-
 LayerAndroid::LayerAndroid(bool isRootLayer) : SkLayer(),
     m_isRootLayer(isRootLayer),
     m_haveContents(false),
@@ -59,21 +54,21 @@ LayerAndroid::LayerAndroid(bool isRootLayer) : SkLayer(),
     gDebugLayerAndroidInstances++;
 }
 
-LayerAndroid::LayerAndroid(LayerAndroid* layer) : SkLayer(layer),
-    m_isRootLayer(layer->m_isRootLayer),
-    m_haveContents(layer->m_haveContents),
-    m_drawsContent(layer->m_drawsContent),
-    m_haveImage(layer->m_haveImage),
-    m_haveClip(layer->m_haveClip)
+LayerAndroid::LayerAndroid(const LayerAndroid& layer) : SkLayer(layer),
+    m_isRootLayer(layer.m_isRootLayer),
+    m_haveContents(layer.m_haveContents),
+    m_drawsContent(layer.m_drawsContent),
+    m_haveImage(layer.m_haveImage),
+    m_haveClip(layer.m_haveClip)
 {
-    m_recordingPicture = layer->m_recordingPicture;
+    m_recordingPicture = layer.m_recordingPicture;
     SkSafeRef(m_recordingPicture);
 
-    for (unsigned int i = 0; i < layer->m_children.size(); i++)
-        m_children.append(adoptRef(new LayerAndroid(layer->m_children[i].get())));
+    for (int i = 0; i < layer.countChildren(); i++)
+        addChild(new LayerAndroid(*static_cast<LayerAndroid*>(layer.getChild(i))))->unref();
 
-    KeyframesMap::const_iterator end = layer->m_animations.end();
-    for (KeyframesMap::const_iterator it = layer->m_animations.begin(); it != end; ++it)
+    KeyframesMap::const_iterator end = layer.m_animations.end();
+    for (KeyframesMap::const_iterator it = layer.m_animations.begin(); it != end; ++it)
         m_animations.add((it->second)->name(), (it->second)->copy());
 
     gDebugLayerAndroidInstances++;
@@ -81,8 +76,8 @@ LayerAndroid::LayerAndroid(LayerAndroid* layer) : SkLayer(layer),
 
 LayerAndroid::~LayerAndroid()
 {
+    removeChildren();
     m_recordingPicture->safeUnref();
-    m_children.clear();
     m_animations.clear();
     gDebugLayerAndroidInstances--;
 }
@@ -98,8 +93,8 @@ bool LayerAndroid::evaluateAnimations() const
 
 bool LayerAndroid::hasAnimations() const
 {
-    for (unsigned int i = 0; i < m_children.size(); i++) {
-        if (m_children[i]->hasAnimations())
+    for (int i = 0; i < countChildren(); i++) {
+        if (static_cast<LayerAndroid*>(getChild(i))->hasAnimations())
             return true;
     }
     return !!m_animations.size();
@@ -108,8 +103,8 @@ bool LayerAndroid::hasAnimations() const
 bool LayerAndroid::evaluateAnimations(double time) const
 {
     bool hasRunningAnimations = false;
-    for (unsigned int i = 0; i < m_children.size(); i++) {
-        if (m_children[i]->evaluateAnimations(time))
+    for (int i = 0; i < countChildren(); i++) {
+        if (static_cast<LayerAndroid*>(getChild(i))->evaluateAnimations(time))
             hasRunningAnimations = true;
     }
     KeyframesMap::const_iterator end = m_animations.end();
@@ -137,8 +132,8 @@ void LayerAndroid::removeAnimation(const String& name)
 void LayerAndroid::setDrawsContent(bool drawsContent)
 {
     m_drawsContent = drawsContent;
-    for (unsigned int i = 0; i < m_children.size(); i++) {
-        LayerAndroid* layer = m_children[i].get();
+    for (int i = 0; i < countChildren(); i++) {
+        LayerAndroid* layer = static_cast<LayerAndroid*>(getChild(i));
         layer->setDrawsContent(drawsContent);
     }
 }
@@ -209,8 +204,8 @@ void LayerAndroid::paintChildren(int scrollX, int scrollY,
     canvas->translate(m_position.fX + m_translation.fX,
                       m_position.fY + m_translation.fY);
 
-    for (unsigned int i = 0; i < m_children.size(); i++) {
-        LayerAndroid* layer = m_children[i].get();
+    for (int i = 0; i < countChildren(); i++) {
+        LayerAndroid* layer = static_cast<LayerAndroid*>(getChild(i));
         if (layer) {
             gDebugChildLevel++;
             layer->paintChildren(scrollX, scrollY, width, height, scale,

@@ -121,7 +121,7 @@ GraphicsLayerAndroid::GraphicsLayerAndroid(GraphicsLayerClient* client) :
     m_currentTranslateY(0),
     m_currentPosition(0, 0)
 {
-    m_contentLayer = adoptRef(new LayerAndroid(true));
+    m_contentLayer = new LayerAndroid(true);
     if (client) {
         RenderLayerBacking* backing = static_cast<RenderLayerBacking*>(client);
         RenderLayer* renderLayer = backing->owningLayer();
@@ -141,6 +141,7 @@ GraphicsLayerAndroid::GraphicsLayerAndroid(GraphicsLayerClient* client) :
 
 GraphicsLayerAndroid::~GraphicsLayerAndroid()
 {
+    m_contentLayer->unref();
     gDebugGraphicsLayerAndroidInstances--;
 }
 
@@ -406,7 +407,7 @@ void GraphicsLayerAndroid::sendImmediateRepaint()
 
     if (rootGraphicsLayer->m_frame
         && rootGraphicsLayer->m_frame->view()) {
-        LayerAndroid* copyLayer = new LayerAndroid(m_contentLayer.get());
+        LayerAndroid* copyLayer = new LayerAndroid(*m_contentLayer);
         TLOG("(%x) sendImmediateRepaint, copy the layer, (%.2f,%.2f => %.2f,%.2f)",
             this, m_contentLayer->size().width(), m_contentLayer->size().height(),
             copyLayer->size().width(), copyLayer->size().height());
@@ -801,7 +802,7 @@ void GraphicsLayerAndroid::setContentsToImage(Image* image)
 PlatformLayer* GraphicsLayerAndroid::platformLayer() const
 {
     LOG("platformLayer");
-    return (PlatformLayer*) m_contentLayer.get();
+    return (PlatformLayer*) m_contentLayer;
 }
 
 #ifndef NDEBUG
@@ -830,9 +831,9 @@ void GraphicsLayerAndroid::askForSync()
 void GraphicsLayerAndroid::syncChildren()
 {
     if (m_needsSyncChildren) {
-        m_contentLayer->removeAllChildren();
+        m_contentLayer->removeChildren();
         for (unsigned int i = 0; i < m_children.size(); i++) {
-            m_contentLayer->addChildren(
+            m_contentLayer->addChild(
                 (static_cast<GraphicsLayerAndroid*>(m_children[i]))->contentLayer());
         }
         m_needsSyncChildren = false;
