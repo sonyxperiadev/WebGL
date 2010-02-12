@@ -418,6 +418,7 @@ void writeSize(FILE* file, int indentLevel, const char* str, SkSize size)
 void writeLength(FILE* file, int indentLevel, const char* str, SkLength length)
 {
     if (!length.defined()) return;
+    writeIndent(file, indentLevel);
     fprintf(file, "%s = { type = %d; value = %.2f; };\n", str, length.type, length.value);
 }
 
