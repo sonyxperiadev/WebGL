@@ -31,6 +31,7 @@
 #include "config.h"
 #include "V8Navigator.h"
 
+#include "ExceptionCode.h"
 #include "RuntimeEnabledFeatures.h"
 #include "V8Binding.h"
 #include "V8Proxy.h"
