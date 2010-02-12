@@ -43,5 +43,6 @@ extern FILE* gRenderTreeFile;
 #endif /* ANDROID_DOM_LOGGING */
 
 #define DISPLAY_TREE_LOG_FILE "/sdcard/displayTree.txt"
+#define LAYERS_TREE_LOG_FILE "/sdcard/layersTree.plist"
 
 #endif /* ANDROIDLOG_H_ */

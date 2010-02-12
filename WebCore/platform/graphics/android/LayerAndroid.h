@@ -75,6 +75,8 @@ public:
 
     SkPicture* picture() const { return m_recordingPicture; }
 
+    void dumpLayers(FILE*, int indentLevel);
+
 private:
 
     void paintChildren(int scrollX, int scrollY,

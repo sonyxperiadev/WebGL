@@ -348,6 +348,117 @@ bool LayerAndroid::prepareContext(bool force)
     return m_recordingPicture;
 }
 
+// Debug tools : dump the layers tree in a file.
+// The format is simple:
+// properties have the form: key = value;
+// all statements are finished with a semi-colon.
+// value can be:
+// - int
+// - float
+// - array of elements
+// - composed type
+// a composed type enclose properties in { and }
+// an array enclose composed types in { }, separated with a comma.
+// exemple:
+// {
+//   x = 3;
+//   y = 4;
+//   value = {
+//     x = 3;
+//     y = 4;
+//   };
+//   anarray = [
+//     { x = 3; },
+//     { y = 4; }
+//   ];
+// }
+
+void lwrite(FILE* file, const char* str)
+{
+    fwrite(str, sizeof(char), strlen(str), file);
+}
+
+void writeIndent(FILE* file, int indentLevel)
+{
+    if (indentLevel)
+        fprintf(file, "%*s", indentLevel*2, " ");
+}
+
+void writeln(FILE* file, int indentLevel, const char* str)
+{
+    writeIndent(file, indentLevel);
+    lwrite(file, str);
+    lwrite(file, "\n");
+}
+
+void writeIntVal(FILE* file, int indentLevel, const char* str, int value)
+{
+    writeIndent(file, indentLevel);
+    fprintf(file, "%s = %d;\n", str, value);
+}
+
+void writeFloatVal(FILE* file, int indentLevel, const char* str, float value)
+{
+    writeIndent(file, indentLevel);
+    fprintf(file, "%s = %.3f;\n", str, value);
+}
+
+void writePoint(FILE* file, int indentLevel, const char* str, SkPoint point)
+{
+    writeIndent(file, indentLevel);
+    fprintf(file, "%s = { x = %.3f; y = %.3f; };\n", str, point.fX, point.fY);
+}
+
+void writeSize(FILE* file, int indentLevel, const char* str, SkSize size)
+{
+    writeIndent(file, indentLevel);
+    fprintf(file, "%s = { w = %.3f; h = %.3f; };\n", str, size.width(), size.height());
+}
+
+void writeLength(FILE* file, int indentLevel, const char* str, SkLength length)
+{
+    if (!length.defined()) return;
+    fprintf(file, "%s = { type = %d; value = %.2f; };\n", str, length.type, length.value);
+}
+
+void LayerAndroid::dumpLayers(FILE* file, int indentLevel)
+{
+    writeln(file, indentLevel, "{");
+
+    writeIntVal(file, indentLevel + 1, "haveContents", m_haveContents);
+    writeIntVal(file, indentLevel + 1, "drawsContent", m_drawsContent);
+    writeIntVal(file, indentLevel + 1, "haveImage", m_haveImage);
+    writeIntVal(file, indentLevel + 1, "clipRect", m_haveClip);
+
+    writeFloatVal(file, indentLevel + 1, "opacity", m_opacity);
+    writeSize(file, indentLevel + 1, "size", m_size);
+    writePoint(file, indentLevel + 1, "position", m_position);
+    writePoint(file, indentLevel + 1, "translation", m_translation);
+    writePoint(file, indentLevel + 1, "anchor", m_anchorPoint);
+    writePoint(file, indentLevel + 1, "scale", m_scale);
+
+    if (m_doRotation)
+        writeFloatVal(file, indentLevel + 1, "angle", m_angleTransform);
+
+    writeLength(file, indentLevel + 1, "fixedLeft", m_fixedLeft);
+    writeLength(file, indentLevel + 1, "fixedTop", m_fixedTop);
+    writeLength(file, indentLevel + 1, "fixedRight", m_fixedRight);
+    writeLength(file, indentLevel + 1, "fixedBottom", m_fixedBottom);
+
+    if (countChildren()) {
+        writeln(file, indentLevel + 1, "children = [");
+        for (unsigned int i = 0; i < countChildren(); i++) {
+            if (i > 0)
+                writeln(file, indentLevel + 1, ", ");
+            LayerAndroid* layer = static_cast<LayerAndroid*>(getChild(i));
+            if (layer)
+                layer->dumpLayers(file, indentLevel + 1);
+        }
+        writeln(file, indentLevel + 1, "];");
+    }
+    writeln(file, indentLevel, "}");
+}
+
 } // namespace WebCore
 
 #endif // USE(ACCELERATED_COMPOSITING)

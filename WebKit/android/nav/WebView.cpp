@@ -2042,6 +2042,17 @@ static void nativeDumpDisplayTree(JNIEnv* env, jobject jwebview, jstring jurl)
             fwrite("\n", 1, 1, file);
             fclose(file);
         }
+#if USE(ACCELERATED_COMPOSITING)
+        int pRootLayer = view->getWebViewCore()->rootLayer();
+        if (pRootLayer) {
+          LayerAndroid* rootLayer = reinterpret_cast<LayerAndroid*>(pRootLayer);
+          FILE* file = fopen(LAYERS_TREE_LOG_FILE,"w");
+          if (file) {
+              rootLayer->dumpLayers(file, 0);
+              fclose(file);
+          }
+        }
+#endif
     }
 #endif
 }

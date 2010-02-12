@@ -129,6 +129,7 @@ namespace android {
 #if USE(ACCELERATED_COMPOSITING)
         void immediateRepaint();
         void setRootLayer(int layer);
+        int rootLayer() { return mRootLayer; }
 #endif
 
         /** Invalidate the view/screen, NOT the content/DOM, but expressed in
@@ -542,6 +543,10 @@ namespace android {
 
 #if DEBUG_NAV_UI
         uint32_t m_now;
+#endif
+
+#if USE(ACCELERATED_COMPOSITING)
+        int mRootLayer;
 #endif
 
     private:
