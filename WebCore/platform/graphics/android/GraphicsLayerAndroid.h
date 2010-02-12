@@ -119,7 +119,7 @@ public:
     void notifyClientAnimationStarted();
 
     void sendImmediateRepaint();
-    LayerAndroid* contentLayer() { return m_contentLayer.get(); }
+    LayerAndroid* contentLayer() { return m_contentLayer; }
 
     static int instancesCount();
 
@@ -148,7 +148,7 @@ private:
 
     Vector<FloatRect> m_invalidatedRects;
 
-    RefPtr<LayerAndroid> m_contentLayer;
+    LayerAndroid* m_contentLayer;
 };
 
 } // namespace WebCore

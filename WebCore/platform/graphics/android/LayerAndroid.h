@@ -39,12 +39,11 @@ namespace WebCore {
 class AndroidAnimation;
 class AndroidAnimationValue;
 
-class LayerAndroid : public SkLayer, public RefCounted<LayerAndroid> {
+class LayerAndroid : public SkLayer {
 
 public:
-    static PassRefPtr<LayerAndroid> create(bool isRootLayer);
     LayerAndroid(bool isRootLayer);
-    LayerAndroid(LayerAndroid* layer);
+    LayerAndroid(const LayerAndroid& layer);
     virtual ~LayerAndroid();
 
     static int instancesCount();
@@ -59,8 +58,6 @@ public:
 
     void paintOn(int scrollX, int scrollY, int width, int height, float scale, SkCanvas*);
     void paintOn(SkPoint offset, SkSize size, SkScalar scale, SkCanvas*);
-    void removeAllChildren() { m_children.clear(); }
-    void addChildren(LayerAndroid* layer) { m_children.append(layer); }
     bool prepareContext(bool force = false);
     void startRecording();
     void stopRecording();
@@ -77,8 +74,6 @@ public:
                       float scale, float* xPtr, float* yPtr);
 
     SkPicture* picture() const { return m_recordingPicture; }
-    const LayerAndroid* child(unsigned i) const { return m_children[i].get(); }
-    unsigned childCount() const { return m_children.size(); }
 
 private:
 
@@ -100,7 +95,6 @@ private:
 
     SkPicture* m_recordingPicture;
 
-    Vector<RefPtr<LayerAndroid> > m_children;
     typedef HashMap<String, RefPtr<AndroidAnimation> > KeyframesMap;
     KeyframesMap m_animations;
 };
