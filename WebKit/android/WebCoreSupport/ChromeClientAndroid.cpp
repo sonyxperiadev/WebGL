@@ -479,6 +479,12 @@ void ChromeClientAndroid::requestGeolocationPermissionForFrame(Frame* frame, Geo
     m_geolocationPermissions->queryPermissionState(frame);
 }
 
+void ChromeClientAndroid::cancelGeolocationPermissionRequestForFrame(Frame* frame)
+{
+    if (m_geolocationPermissions)
+        m_geolocationPermissions->cancelPermissionStateQuery(frame);
+}
+
 void ChromeClientAndroid::provideGeolocationPermissions(const String &origin, bool allow, bool remember)
 {
     ASSERT(m_geolocationPermissions);
