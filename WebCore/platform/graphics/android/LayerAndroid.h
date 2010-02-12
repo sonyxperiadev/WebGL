@@ -73,6 +73,13 @@ public:
     bool evaluateAnimations(double time) const;
     bool hasAnimations() const;
 
+    void calcPosition(int scrollX, int scrollY, int viewWidth, int viewHeight,
+                      float scale, float* xPtr, float* yPtr);
+
+    SkPicture* picture() const { return m_recordingPicture; }
+    const LayerAndroid* child(unsigned i) const { return m_children[i].get(); }
+    unsigned childCount() const { return m_children.size(); }
+
 private:
 
     void paintChildren(int scrollX, int scrollY,

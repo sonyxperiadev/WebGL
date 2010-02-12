@@ -35,7 +35,7 @@ struct SkLength {
     type = Undefined;
     value = 0;
   }
-  bool defined() {
+  bool defined() const {
     if (type == Undefined)
       return false;
     return true;
@@ -93,9 +93,17 @@ public:
 
     // getters
 
-    SkPoint position() { return m_position; }
-    SkPoint translation() { return m_translation; }
-    SkSize  size() { return m_size; }
+    SkPoint position() const { return m_position; }
+    SkPoint translation() const { return m_translation; }
+    SkSize  size() const { return m_size; }
+    SkRect  bounds() const {
+      SkRect rect;
+      rect.set(m_position.fX, m_position.fY,
+               m_position.fX + m_size.width(),
+               m_position.fY + m_size.height());
+      rect.offset(m_translation.fX, m_translation.fY);
+      return rect;
+    }
 
     // paint method
 

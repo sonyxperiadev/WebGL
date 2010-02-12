@@ -200,7 +200,7 @@ void LayerAndroid::paintChildren(int scrollX, int scrollY,
                                  float scale, SkCanvas* canvas,
                                  float opacity)
 {
-    canvas->save();
+    int count = canvas->save();
 
     if (m_haveClip)
         setClip(canvas);
@@ -219,7 +219,42 @@ void LayerAndroid::paintChildren(int scrollX, int scrollY,
         }
     }
 
-    canvas->restore();
+    canvas->restoreToCount(count);
+}
+
+void LayerAndroid::calcPosition(int scrollX,
+                                int scrollY,
+                                int viewWidth,
+                                int viewHeight,
+                                float scale,
+                                float* xPtr,
+                                float* yPtr)
+{
+    float x = 0;
+    float y = 0;
+    if (m_isFixed) {
+        float w = viewWidth / scale;
+        float h = viewHeight / scale;
+        float dx = scrollX / scale;
+        float dy = scrollY / scale;
+
+        if (m_fixedLeft.defined())
+            x = dx + m_fixedLeft.calcFloatValue(w);
+        else if (m_fixedRight.defined())
+            x = dx + w - m_fixedRight.calcFloatValue(w) - m_size.width();
+
+        if (m_fixedTop.defined())
+            y = dy + m_fixedTop.calcFloatValue(h);
+        else if (m_fixedBottom.defined())
+            y = dy + h - m_fixedBottom.calcFloatValue(h) - m_size.height();
+
+        m_position.set(x - m_translation.fX, y - m_translation.fY);
+    } else {
+        x = m_translation.fX + m_position.fX;
+        y = m_translation.fY + m_position.fY;
+    }
+    if (xPtr) *xPtr = x;
+    if (yPtr) *yPtr = y;
 }
 
 void LayerAndroid::paintMe(int scrollX,
@@ -252,29 +287,8 @@ void LayerAndroid::paintMe(int scrollX,
     paintMode.setXfermodeMode(SkXfermode::kSrc_Mode);
     */
 
-    float x = 0;
-    float y = 0;
-    if (m_isFixed) {
-        float w = viewWidth / scale;
-        float h = viewHeight / scale;
-        float dx = scrollX / scale;
-        float dy = scrollY / scale;
-
-        if (m_fixedLeft.defined())
-            x = dx + m_fixedLeft.calcFloatValue(w);
-        else if (m_fixedRight.defined())
-            x = dx + w - m_fixedRight.calcFloatValue(w) - m_size.width();
-
-        if (m_fixedTop.defined())
-            y = dy + m_fixedTop.calcFloatValue(h);
-        else if (m_fixedBottom.defined())
-            y = dy + h - m_fixedBottom.calcFloatValue(h) - m_size.height();
-
-    } else {
-        x = m_translation.fX + m_position.fX;
-        y = m_translation.fY + m_position.fY;
-    }
-
+    float x, y;
+    calcPosition(scrollX, scrollY, viewWidth, viewHeight, scale, &x, &y);
     canvas->translate(x, y);
 
     if (m_doRotation) {
