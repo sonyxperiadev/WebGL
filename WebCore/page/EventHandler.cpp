@@ -2600,10 +2600,13 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
         // The touch event should act on the originating touch target, not the current target
         // TODO: Upstream this fix to webkit.org (see webkit bug 34585)
         int touchPointId = point.id();
-        if (point.state() == PlatformTouchPoint::TouchPressed)
+        EventTarget* touchTarget = 0;
+        if (point.state() == PlatformTouchPoint::TouchPressed) {
             m_originatingTouchPointTargets.set(touchPointId, target);
+            touchTarget = target;
+        } else
+            touchTarget = m_originatingTouchPointTargets.get(touchPointId).get();
 
-        EventTarget* touchTarget = m_originatingTouchPointTargets.get(touchPointId).get();
         ASSERT(touchTarget);
 
         RefPtr<Touch> touch = Touch::create(doc->frame(), touchTarget, touchPointId,
