@@ -161,23 +161,10 @@ void LayerAndroid::setBackgroundColor(SkColor color)
 
 static int gDebugChildLevel;
 
-void LayerAndroid::paintOn(int scrollX, int scrollY,
-                           int width, int height,
-                           float scale, SkCanvas* canvas)
-{
-  SkSize size;
-  size.set(width, height);
-  paintOn(SkPoint::Make(scrollX, scrollY), size, scale, canvas);
-}
-
-void LayerAndroid::paintOn(SkPoint offset, SkSize size, SkScalar scale, SkCanvas* canvas)
+void LayerAndroid::draw(SkCanvas* canvas, const SkRect* viewPort)
 {
     gDebugChildLevel = 0;
-    int scrollX = offset.fX;
-    int scrollY = offset.fY;
-    int width = size.width();
-    int height = size.height();
-    paintChildren(scrollX, scrollY, width, height, scale, canvas, 1);
+    paintChildren(viewPort, canvas, 1);
 }
 
 void LayerAndroid::setClip(SkCanvas* canvas)
@@ -190,9 +177,7 @@ void LayerAndroid::setClip(SkCanvas* canvas)
     canvas->clipRect(clip);
 }
 
-void LayerAndroid::paintChildren(int scrollX, int scrollY,
-                                 int width, int height,
-                                 float scale, SkCanvas* canvas,
+void LayerAndroid::paintChildren(const SkRect* viewPort, SkCanvas* canvas,
                                  float opacity)
 {
     int count = canvas->save();
@@ -200,7 +185,7 @@ void LayerAndroid::paintChildren(int scrollX, int scrollY,
     if (m_haveClip)
         setClip(canvas);
 
-    paintMe(scrollX, scrollY, width, height, scale, canvas, opacity);
+    paintMe(viewPort, canvas, opacity);
     canvas->translate(m_position.fX + m_translation.fX,
                       m_position.fY + m_translation.fY);
 
@@ -208,7 +193,7 @@ void LayerAndroid::paintChildren(int scrollX, int scrollY,
         LayerAndroid* layer = static_cast<LayerAndroid*>(getChild(i));
         if (layer) {
             gDebugChildLevel++;
-            layer->paintChildren(scrollX, scrollY, width, height, scale,
+            layer->paintChildren(viewPort,
                                  canvas, opacity * m_opacity);
             gDebugChildLevel--;
         }
@@ -217,21 +202,15 @@ void LayerAndroid::paintChildren(int scrollX, int scrollY,
     canvas->restoreToCount(count);
 }
 
-void LayerAndroid::calcPosition(int scrollX,
-                                int scrollY,
-                                int viewWidth,
-                                int viewHeight,
-                                float scale,
-                                float* xPtr,
-                                float* yPtr)
-{
-    float x = 0;
-    float y = 0;
-    if (m_isFixed) {
-        float w = viewWidth / scale;
-        float h = viewHeight / scale;
-        float dx = scrollX / scale;
-        float dy = scrollY / scale;
+bool LayerAndroid::calcPosition(const SkRect* viewPort,
+                                SkMatrix* matrix) {
+    if (viewPort && m_isFixed) {
+        float x = 0;
+        float y = 0;
+        float w = viewPort->width();
+        float h = viewPort->height();
+        float dx = viewPort->fLeft;
+        float dy = viewPort->fTop;
 
         if (m_fixedLeft.defined())
             x = dx + m_fixedLeft.calcFloatValue(w);
@@ -243,20 +222,13 @@ void LayerAndroid::calcPosition(int scrollX,
         else if (m_fixedBottom.defined())
             y = dy + h - m_fixedBottom.calcFloatValue(h) - m_size.height();
 
-        m_position.set(x - m_translation.fX, y - m_translation.fY);
-    } else {
-        x = m_translation.fX + m_position.fX;
-        y = m_translation.fY + m_position.fY;
+        matrix->setTranslate(x, y);
+        return true;
     }
-    if (xPtr) *xPtr = x;
-    if (yPtr) *yPtr = y;
+    return false;
 }
 
-void LayerAndroid::paintMe(int scrollX,
-                           int scrollY,
-                           int viewWidth,
-                           int viewHeight,
-                           float scale,
+void LayerAndroid::paintMe(const SkRect* viewPort,
                            SkCanvas* canvas,
                            float opacity)
 {
@@ -283,25 +255,31 @@ void LayerAndroid::paintMe(int scrollX,
     */
 
     float x, y;
-    calcPosition(scrollX, scrollY, viewWidth, viewHeight, scale, &x, &y);
-    canvas->translate(x, y);
+    SkMatrix matrix;
+    if (!calcPosition(viewPort,
+                      &matrix)) {
+        matrix.reset();
 
-    if (m_doRotation) {
-        float anchorX = m_anchorPoint.fX * m_size.width();
-        float anchorY = m_anchorPoint.fY * m_size.height();
-        canvas->translate(anchorX, anchorY);
-        canvas->rotate(m_angleTransform);
-        canvas->translate(-anchorX, -anchorY);
-    }
+        if (m_doRotation) {
+            float anchorX = m_anchorPoint.fX * m_size.width();
+            float anchorY = m_anchorPoint.fY * m_size.height();
+            matrix.preTranslate(anchorX, anchorY);
+            matrix.preRotate(m_angleTransform);
+            matrix.preTranslate(-anchorX, -anchorY);
+        }
 
-    float sx = m_scale.fX;
-    float sy = m_scale.fY;
-    if (sx > 1.0f || sy > 1.0f) {
-        float dx = (sx * m_size.width()) - m_size.width();
-        float dy = (sy * m_size.height()) - m_size.height();
-        canvas->translate(-dx / 2.0f, -dy / 2.0f);
-        canvas->scale(sx, sy);
+        float sx = m_scale.fX;
+        float sy = m_scale.fY;
+        if (sx > 1.0f || sy > 1.0f) {
+            float dx = (sx * m_size.width()) - m_size.width();
+            float dy = (sy * m_size.height()) - m_size.height();
+            matrix.preTranslate(-dx / 2.0f, -dy / 2.0f);
+            matrix.preScale(sx, sy);
+        }
+        matrix.postTranslate(m_translation.fX + m_position.fX,
+                             m_translation.fY + m_position.fY);
     }
+    canvas->concat(matrix);
 
     m_recordingPicture->draw(canvas);
 
@@ -448,7 +426,7 @@ void LayerAndroid::dumpLayers(FILE* file, int indentLevel)
 
     if (countChildren()) {
         writeln(file, indentLevel + 1, "children = [");
-        for (unsigned int i = 0; i < countChildren(); i++) {
+        for (int i = 0; i < countChildren(); i++) {
             if (i > 0)
                 writeln(file, indentLevel + 1, ", ");
             LayerAndroid* layer = static_cast<LayerAndroid*>(getChild(i));

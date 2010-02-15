@@ -1513,6 +1513,10 @@ static void nativeDrawMatches(JNIEnv *env, jobject obj, jobject canv)
     view->drawMatches(canvas);
 }
 
+static void setXYWH(SkRect* r, SkScalar x, SkScalar y, SkScalar w, SkScalar h) {
+    r->set(x, y, x + w, y + h);
+}
+
 static void nativeDrawLayers(JNIEnv *env, jobject obj,
     jint layer, jint scrollX, jint scrollY,
     jint width, jint height,
@@ -1528,8 +1532,13 @@ static void nativeDrawLayers(JNIEnv *env, jobject obj,
 #if USE(ACCELERATED_COMPOSITING)
     LayerAndroid* layerImpl = reinterpret_cast<LayerAndroid*>(layer);
     SkCanvas* canvas = GraphicsJNI::getNativeCanvas(env, canv);
-    if (canvas)
-        layerImpl->paintOn(scrollX, scrollY, width, height, scale, canvas);
+    if (canvas) {
+        SkRect viewPort;
+        setXYWH(&viewPort,
+                scrollX / scale, scrollY / scale,
+                width / scale, height / scale);
+        layerImpl->draw(canvas, &viewPort);
+    }
 #endif
 }
 

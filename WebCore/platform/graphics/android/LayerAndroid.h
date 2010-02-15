@@ -31,6 +31,7 @@
 #include <wtf/HashMap.h>
 
 class SkCanvas;
+class SkMatrix;
 class SkPicture;
 class SkRect;
 
@@ -56,8 +57,7 @@ public:
     virtual void setBackgroundColor(SkColor color);
     void setIsRootLayer(bool isRootLayer) { m_isRootLayer = isRootLayer; }
 
-    void paintOn(int scrollX, int scrollY, int width, int height, float scale, SkCanvas*);
-    void paintOn(SkPoint offset, SkSize size, SkScalar scale, SkCanvas*);
+    virtual void draw(SkCanvas*, const SkRect* viewPort);
     bool prepareContext(bool force = false);
     void startRecording();
     void stopRecording();
@@ -70,23 +70,18 @@ public:
     bool evaluateAnimations(double time) const;
     bool hasAnimations() const;
 
-    void calcPosition(int scrollX, int scrollY, int viewWidth, int viewHeight,
-                      float scale, float* xPtr, float* yPtr);
-
     SkPicture* picture() const { return m_recordingPicture; }
 
     void dumpLayers(FILE*, int indentLevel);
 
 private:
 
-    void paintChildren(int scrollX, int scrollY,
-                       int width, int height,
-                       float scale, SkCanvas* canvas,
+    bool calcPosition(const SkRect* viewPort, SkMatrix*);
+
+    void paintChildren(const SkRect* viewPort, SkCanvas* canvas,
                        float opacity);
 
-    void paintMe(int scrollX, int scrollY,
-                 int width, int height,
-                 float scale, SkCanvas* canvas,
+    void paintMe(const SkRect* viewPort, SkCanvas* canvas,
                  float opacity);
 
     bool m_isRootLayer;
