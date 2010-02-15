@@ -47,15 +47,15 @@ const SimpleFontData* FontCache::getFontDataForCharacters(const Font& font, cons
     return font.primaryFont();
 }
 
-FontPlatformData* FontCache::getSimilarFontPlatformData(const Font& font)
+SimpleFontData* FontCache::getSimilarFontPlatformData(const Font& font)
 {
     return 0;
 }
 
-FontPlatformData* FontCache::getLastResortFallbackFont(const FontDescription& font)
+SimpleFontData* FontCache::getLastResortFallbackFont(const FontDescription& font)
 {
     static AtomicString str("sans-serif");
-    return getCachedFontPlatformData(font, str);
+    return getCachedFontData(font, str);
 }
 
 static char* AtomicStringToUTF8String(const AtomicString& utf16)
