@@ -2567,6 +2567,7 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
     RefPtr<TouchList> movedTouches = TouchList::create();
     RefPtr<TouchList> targetTouches = TouchList::create();
     RefPtr<TouchList> cancelTouches = TouchList::create();
+    RefPtr<TouchList> stationaryTouches = TouchList::create();
 
     const Vector<PlatformTouchPoint>& points = event.touchPoints();
     AtomicString* eventName = 0;
@@ -2595,6 +2596,34 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
         int adjustedPageX = lroundf(pagePoint.x() / m_frame->pageZoomFactor());
         int adjustedPageY = lroundf(pagePoint.y() / m_frame->pageZoomFactor());
 
+        // ANDROID
+        // The touch event should act on the originating touch target, not the current target
+        // TODO: Upstream this fix to webkit.org (see webkit bug 34585)
+        int touchPointId = point.id();
+        EventTarget* touchTarget = 0;
+        if (point.state() == PlatformTouchPoint::TouchPressed) {
+            m_originatingTouchPointTargets.set(touchPointId, target);
+            touchTarget = target;
+        } else
+            touchTarget = m_originatingTouchPointTargets.get(touchPointId).get();
+
+        ASSERT(touchTarget);
+
+        RefPtr<Touch> touch = Touch::create(doc->frame(), touchTarget, touchPointId,
+                                            point.screenPos().x(), point.screenPos().y(),
+                                            adjustedPageX, adjustedPageY);
+
+        // touches should contain information about every touch currently on the screen.
+        if (point.state() != PlatformTouchPoint::TouchReleased)
+            touches->append(touch);
+
+        // If it's a stationary touch, we don't want to process it further at the moment.
+        // We may add it to targetTouches later.
+        if (point.state() == PlatformTouchPoint::TouchStationary) {
+            stationaryTouches->append(touch);
+            continue;
+        }
+
         if ((event.type() == TouchStart
 #if PLATFORM(ANDROID)
             || event.type() == TouchDoubleTap
@@ -2606,28 +2635,45 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
             m_firstTouchPagePos = pagePoint;
         }
 
-        // ANDROID
-        // The touch event should act on m_touchEventTarget, not target
-        // TODO: Upstream this fix to webkit.org
-        RefPtr<Touch> touch = Touch::create(doc->frame(), m_touchEventTarget.get(), point.id(),
-                                            point.screenPos().x(), point.screenPos().y(),
-                                            adjustedPageX, adjustedPageY);
+        // Check to see if this should be added to targetTouches.
+        // If we've got here then the touch is not stationary. If it's a release, it's no longer
+        // a touch on the screen so we don't want it in targetTouches. The first touch that gets
+        // to here defines the 'target' the touchTarget list uses. This seems arbitrary (much like
+        // checking !i to set m_touchEventTarget above?) but seems to yield compatible behaviour.
+        //
+        // FIXME: Is this really the correct semantics for the touchTargets list? The touch event
+        // spec is not clear to me.
+        if (point.state() != PlatformTouchPoint::TouchReleased) {
+            if (targetTouches->length() == 0)
+                targetTouches->append(touch);
+            else {
+                if (touch->target() == targetTouches->item(0)->target())
+                    targetTouches->append(touch);
+            }
+        }
 
+        // Now build up the correct list for changedTouches.
         if (point.state() == PlatformTouchPoint::TouchReleased)
             releasedTouches->append(touch);
         else if (point.state() == PlatformTouchPoint::TouchCancelled)
             cancelTouches->append(touch);
-        else {
-            if (point.state() == PlatformTouchPoint::TouchPressed)
-                pressedTouches->append(touch);
-            else {
-                touches->append(touch);
-                if (m_touchEventTarget == target)
-                    targetTouches->append(touch);
-                if (point.state() == PlatformTouchPoint::TouchMoved)
-                    movedTouches->append(touch);
-            }
-        }
+        else if (point.state() == PlatformTouchPoint::TouchPressed)
+            pressedTouches->append(touch);
+        else if (point.state() == PlatformTouchPoint::TouchMoved)
+            movedTouches->append(touch);
+    }
+
+    // Add any stationary touches to targetTouches if they match the target.
+    EventTarget* targetTouchesTarget = 0;
+    if (targetTouches->length())
+        targetTouchesTarget = targetTouches->item(0)->target();
+    else
+        targetTouchesTarget = m_touchEventTarget.get();
+
+    for (int i = 0; i < stationaryTouches->length(); ++i) {
+        Touch* stationaryTouch = stationaryTouches->item(i);
+        if (stationaryTouch->target() == targetTouchesTarget)
+            targetTouches->append(stationaryTouch);
     }
 
     if (!m_touchEventTarget)
@@ -2684,13 +2730,6 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
 #endif
     }
     if (pressedTouches->length() > 0) {
-        // Add pressed touchpoints to touches and targetTouches
-        for (int i = 0; i < pressedTouches->length(); ++i) {
-            touches->append(pressedTouches->item(i));
-            if (m_touchEventTarget == pressedTouches->item(i)->target())
-                targetTouches->append(pressedTouches->item(i));
-        }
-
 #if PLATFORM(ANDROID)
         if (event.type() == TouchLongPress) {
             eventName = &eventNames().touchlongpressEvent;

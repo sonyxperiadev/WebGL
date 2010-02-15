@@ -37,12 +37,17 @@
 class NSView;
 #endif
 
+#if ENABLE(TOUCH_EVENTS) // ANDROID addition, needs to be upstreamed. (see webkit bug 34585)
+#include <wtf/HashMap.h>
+#endif
+
 namespace WebCore {
 
 class AtomicString;
 class Clipboard;
 class Cursor;
 class Event;
+class EventTarget;
 class FloatPoint;
 class Frame;
 class HitTestRequest;
@@ -423,6 +428,9 @@ private:
     int m_activationEventNumber;
 #endif
 #if ENABLE(TOUCH_EVENTS)
+    // ANDROID fix to be upstreamed, see webkit bug 34585.
+    typedef HashMap<int, RefPtr<EventTarget> > TouchTargetMap;
+    TouchTargetMap m_originatingTouchPointTargets;
     RefPtr<Node> m_touchEventTarget;
     IntPoint m_firstTouchScreenPos;
     IntPoint m_firstTouchPagePos;
