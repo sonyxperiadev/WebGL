@@ -268,7 +268,7 @@ void PluginWidgetAndroid::updateEventFlags(ANPEventFlags flags) {
         return;
     }
 
-    Document* doc = m_pluginView->getParentFrame()->document();
+    Document* doc = m_pluginView->parentFrame()->document();
 #if ENABLE(TOUCH_EVENTS)
     if((m_eventFlags ^ flags) & kTouch_ANPEventFlag) {
         if (flags & kTouch_ANPEventFlag)

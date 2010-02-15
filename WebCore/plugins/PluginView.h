@@ -237,7 +237,6 @@ namespace WebCore {
         static bool isCallingPlugin();
 
 #ifdef ANDROID_PLUGINS
-        Frame* getParentFrame() const { return m_parentFrame; }
         Element* getElement() const { return m_element; }
 #endif
 
