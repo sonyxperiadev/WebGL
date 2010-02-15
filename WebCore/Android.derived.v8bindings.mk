@@ -541,7 +541,8 @@ GEN := \
     $(intermediates)/bindings/V8XMLHttpRequestUpload.h \
     $(intermediates)/bindings/V8XMLSerializer.h \
     $(intermediates)/bindings/V8XPathException.h \
-    $(intermediates)/bindings/V8XPathNSResolver.h
+    $(intermediates)/bindings/V8XPathNSResolver.h \
+    $(intermediates)/bindings/V8XPathResult.h
 
 $(GEN): PRIVATE_PATH := $(LOCAL_PATH)
 $(GEN): PRIVATE_CUSTOM_TOOL = SOURCE_ROOT=$(PRIVATE_PATH) perl -I$(PRIVATE_PATH)/bindings/scripts $(PRIVATE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator V8 --include dom --include html --outputdir $(dir $@) $<

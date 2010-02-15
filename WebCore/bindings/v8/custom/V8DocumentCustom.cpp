@@ -48,13 +48,8 @@
 #include "V8Proxy.h"
 #include "V8SVGDocument.h"
 #include "V8WebGLRenderingContext.h"
-
-// ANDROID
-// TODO: Upstream to webkit.org
-#if ENABLE(XPATH)
 #include "V8XPathNSResolver.h"
 #include "V8XPathResult.h"
-#endif
 
 #include <wtf/RefPtr.h>
 

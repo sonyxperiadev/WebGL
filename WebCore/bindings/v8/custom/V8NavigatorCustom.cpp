@@ -31,12 +31,12 @@
 #include "config.h"
 #include "V8Navigator.h"
 
-#include "ExceptionCode.h"
 #include "RuntimeEnabledFeatures.h"
 #include "V8DOMWindow.h"
 #include "V8DOMWrapper.h"
 
 #if PLATFORM(ANDROID)
+#include "ExceptionCode.h"
 #include "V8CustomApplicationInstalledCallback.h"
 #include "V8Proxy.h"
 #endif
