@@ -81,7 +81,6 @@ namespace JSC {
         typedef UStringImpl Rep;
     
     public:
-        // UString constructors passed char*s assume ISO Latin-1 encoding; for UTF8 use 'createFromUTF8', below.
         UString();
         UString(const char*); // Constructor for null-terminated string.
         UString(const char*, int length);
@@ -109,33 +108,11 @@ namespace JSC {
             return Rep::adopt(vector);
         }
 
-        static UString createFromUTF8(const char*);
-
         static UString from(int);
         static UString from(long long);
         static UString from(unsigned int);
         static UString from(long);
         static UString from(double);
-
-        struct Range {
-        public:
-            Range(int pos, int len)
-                : position(pos)
-                , length(len)
-            {
-            }
-
-            Range()
-            {
-            }
-
-            int position;
-            int length;
-        };
-
-        UString spliceSubstringsWithSeparators(const Range* substringRanges, int rangeCount, const UString* separators, int separatorCount) const;
-
-        UString replaceRange(int rangeStart, int RangeEnd, const UString& replacement) const;
 
         bool getCString(CStringBuffer&) const;
 
@@ -153,11 +130,9 @@ namespace JSC {
          */
         CString UTF8String(bool strict = false) const;
 
-        UString& operator=(const char*c);
-
         const UChar* data() const { return m_rep->data(); }
 
-        bool isNull() const { return m_rep == &Rep::null(); }
+        bool isNull() const { return m_rep == s_nullRep; }
         bool isEmpty() const { return !m_rep->size(); }
 
         bool is8Bit() const;
@@ -183,10 +158,9 @@ namespace JSC {
 
         UString substr(int pos = 0, int len = -1) const;
 
-        static const UString& null() { return *nullUString; }
+        static const UString& null() { return *s_nullUString; }
 
         Rep* rep() const { return m_rep.get(); }
-        static Rep* nullRep();
 
         UString(PassRefPtr<Rep> r)
             : m_rep(r)
@@ -197,10 +171,10 @@ namespace JSC {
         size_t cost() const { return m_rep->cost(); }
 
     private:
-        void makeNull();
-
         RefPtr<Rep> m_rep;
-        static UString* nullUString;
+
+        JS_EXPORTDATA static Rep* s_nullRep;
+        static UString* s_nullUString;
 
         friend void initializeUString();
         friend bool operator==(const UString&, const UString&);
@@ -255,7 +229,7 @@ namespace JSC {
     int compare(const UString&, const UString&);
 
     inline UString::UString()
-        : m_rep(&Rep::null())
+        : m_rep(s_nullRep)
     {
     }
 
@@ -354,7 +328,7 @@ namespace JSC {
     };
 
     template<typename StringType1, typename StringType2>
-    UString makeString(StringType1 string1, StringType2 string2)
+    PassRefPtr<UStringImpl> tryMakeString(StringType1 string1, StringType2 string2)
     {
         StringTypeAdapter<StringType1> adapter1(string1);
         StringTypeAdapter<StringType2> adapter2(string2);
@@ -363,7 +337,7 @@ namespace JSC {
         unsigned length = adapter1.length() + adapter2.length();
         PassRefPtr<UStringImpl> resultImpl = UStringImpl::tryCreateUninitialized(length, buffer);
         if (!resultImpl)
-            return UString();
+            return 0;
 
         UChar* result = buffer;
         adapter1.writeTo(result);
@@ -374,7 +348,7 @@ namespace JSC {
     }
 
     template<typename StringType1, typename StringType2, typename StringType3>
-    UString makeString(StringType1 string1, StringType2 string2, StringType3 string3)
+    PassRefPtr<UStringImpl> tryMakeString(StringType1 string1, StringType2 string2, StringType3 string3)
     {
         StringTypeAdapter<StringType1> adapter1(string1);
         StringTypeAdapter<StringType2> adapter2(string2);
@@ -384,7 +358,7 @@ namespace JSC {
         unsigned length = adapter1.length() + adapter2.length() + adapter3.length();
         PassRefPtr<UStringImpl> resultImpl = UStringImpl::tryCreateUninitialized(length, buffer);
         if (!resultImpl)
-            return UString();
+            return 0;
 
         UChar* result = buffer;
         adapter1.writeTo(result);
@@ -397,7 +371,7 @@ namespace JSC {
     }
 
     template<typename StringType1, typename StringType2, typename StringType3, typename StringType4>
-    UString makeString(StringType1 string1, StringType2 string2, StringType3 string3, StringType4 string4)
+    PassRefPtr<UStringImpl> tryMakeString(StringType1 string1, StringType2 string2, StringType3 string3, StringType4 string4)
     {
         StringTypeAdapter<StringType1> adapter1(string1);
         StringTypeAdapter<StringType2> adapter2(string2);
@@ -408,7 +382,7 @@ namespace JSC {
         unsigned length = adapter1.length() + adapter2.length() + adapter3.length() + adapter4.length();
         PassRefPtr<UStringImpl> resultImpl = UStringImpl::tryCreateUninitialized(length, buffer);
         if (!resultImpl)
-            return UString();
+            return 0;
 
         UChar* result = buffer;
         adapter1.writeTo(result);
@@ -423,7 +397,7 @@ namespace JSC {
     }
 
     template<typename StringType1, typename StringType2, typename StringType3, typename StringType4, typename StringType5>
-    UString makeString(StringType1 string1, StringType2 string2, StringType3 string3, StringType4 string4, StringType5 string5)
+    PassRefPtr<UStringImpl> tryMakeString(StringType1 string1, StringType2 string2, StringType3 string3, StringType4 string4, StringType5 string5)
     {
         StringTypeAdapter<StringType1> adapter1(string1);
         StringTypeAdapter<StringType2> adapter2(string2);
@@ -435,7 +409,7 @@ namespace JSC {
         unsigned length = adapter1.length() + adapter2.length() + adapter3.length() + adapter4.length() + adapter5.length();
         PassRefPtr<UStringImpl> resultImpl = UStringImpl::tryCreateUninitialized(length, buffer);
         if (!resultImpl)
-            return UString();
+            return 0;
 
         UChar* result = buffer;
         adapter1.writeTo(result);
@@ -452,7 +426,7 @@ namespace JSC {
     }
 
     template<typename StringType1, typename StringType2, typename StringType3, typename StringType4, typename StringType5, typename StringType6>
-    UString makeString(StringType1 string1, StringType2 string2, StringType3 string3, StringType4 string4, StringType5 string5, StringType6 string6)
+    PassRefPtr<UStringImpl> tryMakeString(StringType1 string1, StringType2 string2, StringType3 string3, StringType4 string4, StringType5 string5, StringType6 string6)
     {
         StringTypeAdapter<StringType1> adapter1(string1);
         StringTypeAdapter<StringType2> adapter2(string2);
@@ -465,7 +439,7 @@ namespace JSC {
         unsigned length = adapter1.length() + adapter2.length() + adapter3.length() + adapter4.length() + adapter5.length() + adapter6.length();
         PassRefPtr<UStringImpl> resultImpl = UStringImpl::tryCreateUninitialized(length, buffer);
         if (!resultImpl)
-            return UString();
+            return 0;
 
         UChar* result = buffer;
         adapter1.writeTo(result);
@@ -484,7 +458,7 @@ namespace JSC {
     }
 
     template<typename StringType1, typename StringType2, typename StringType3, typename StringType4, typename StringType5, typename StringType6, typename StringType7>
-    UString makeString(StringType1 string1, StringType2 string2, StringType3 string3, StringType4 string4, StringType5 string5, StringType6 string6, StringType7 string7)
+    PassRefPtr<UStringImpl> tryMakeString(StringType1 string1, StringType2 string2, StringType3 string3, StringType4 string4, StringType5 string5, StringType6 string6, StringType7 string7)
     {
         StringTypeAdapter<StringType1> adapter1(string1);
         StringTypeAdapter<StringType2> adapter2(string2);
@@ -498,7 +472,7 @@ namespace JSC {
         unsigned length = adapter1.length() + adapter2.length() + adapter3.length() + adapter4.length() + adapter5.length() + adapter6.length() + adapter7.length();
         PassRefPtr<UStringImpl> resultImpl = UStringImpl::tryCreateUninitialized(length, buffer);
         if (!resultImpl)
-            return UString();
+            return 0;
 
         UChar* result = buffer;
         adapter1.writeTo(result);
@@ -519,7 +493,7 @@ namespace JSC {
     }
 
     template<typename StringType1, typename StringType2, typename StringType3, typename StringType4, typename StringType5, typename StringType6, typename StringType7, typename StringType8>
-    UString makeString(StringType1 string1, StringType2 string2, StringType3 string3, StringType4 string4, StringType5 string5, StringType6 string6, StringType7 string7, StringType8 string8)
+    PassRefPtr<UStringImpl> tryMakeString(StringType1 string1, StringType2 string2, StringType3 string3, StringType4 string4, StringType5 string5, StringType6 string6, StringType7 string7, StringType8 string8)
     {
         StringTypeAdapter<StringType1> adapter1(string1);
         StringTypeAdapter<StringType2> adapter2(string2);
@@ -534,7 +508,7 @@ namespace JSC {
         unsigned length = adapter1.length() + adapter2.length() + adapter3.length() + adapter4.length() + adapter5.length() + adapter6.length() + adapter7.length() + adapter8.length();
         PassRefPtr<UStringImpl> resultImpl = UStringImpl::tryCreateUninitialized(length, buffer);
         if (!resultImpl)
-            return UString();
+            return 0;
 
         UChar* result = buffer;
         adapter1.writeTo(result);
@@ -553,6 +527,69 @@ namespace JSC {
         result += adapter7.length();
         adapter8.writeTo(result);
 
+        return resultImpl;
+    }
+
+    template<typename StringType1, typename StringType2>
+    UString makeString(StringType1 string1, StringType2 string2)
+    {
+        PassRefPtr<UStringImpl> resultImpl = tryMakeString(string1, string2);
+        if (!resultImpl)
+            CRASH();
+        return resultImpl;
+    }
+
+    template<typename StringType1, typename StringType2, typename StringType3>
+    UString makeString(StringType1 string1, StringType2 string2, StringType3 string3)
+    {
+        PassRefPtr<UStringImpl> resultImpl = tryMakeString(string1, string2, string3);
+        if (!resultImpl)
+            CRASH();
+        return resultImpl;
+    }
+
+    template<typename StringType1, typename StringType2, typename StringType3, typename StringType4>
+    UString makeString(StringType1 string1, StringType2 string2, StringType3 string3, StringType4 string4)
+    {
+        PassRefPtr<UStringImpl> resultImpl = tryMakeString(string1, string2, string3, string4);
+        if (!resultImpl)
+            CRASH();
+        return resultImpl;
+    }
+
+    template<typename StringType1, typename StringType2, typename StringType3, typename StringType4, typename StringType5>
+    UString makeString(StringType1 string1, StringType2 string2, StringType3 string3, StringType4 string4, StringType5 string5)
+    {
+        PassRefPtr<UStringImpl> resultImpl = tryMakeString(string1, string2, string3, string4, string5);
+        if (!resultImpl)
+            CRASH();
+        return resultImpl;
+    }
+
+    template<typename StringType1, typename StringType2, typename StringType3, typename StringType4, typename StringType5, typename StringType6>
+    UString makeString(StringType1 string1, StringType2 string2, StringType3 string3, StringType4 string4, StringType5 string5, StringType6 string6)
+    {
+        PassRefPtr<UStringImpl> resultImpl = tryMakeString(string1, string2, string3, string4, string5, string6);
+        if (!resultImpl)
+            CRASH();
+        return resultImpl;
+    }
+
+    template<typename StringType1, typename StringType2, typename StringType3, typename StringType4, typename StringType5, typename StringType6, typename StringType7>
+    UString makeString(StringType1 string1, StringType2 string2, StringType3 string3, StringType4 string4, StringType5 string5, StringType6 string6, StringType7 string7)
+    {
+        PassRefPtr<UStringImpl> resultImpl = tryMakeString(string1, string2, string3, string4, string5, string6, string7);
+        if (!resultImpl)
+            CRASH();
+        return resultImpl;
+    }
+
+    template<typename StringType1, typename StringType2, typename StringType3, typename StringType4, typename StringType5, typename StringType6, typename StringType7, typename StringType8>
+    UString makeString(StringType1 string1, StringType2 string2, StringType3 string3, StringType4 string4, StringType5 string5, StringType6 string6, StringType7 string7, StringType8 string8)
+    {
+        PassRefPtr<UStringImpl> resultImpl = tryMakeString(string1, string2, string3, string4, string5, string6, string7, string8);
+        if (!resultImpl)
+            CRASH();
         return resultImpl;
     }
 

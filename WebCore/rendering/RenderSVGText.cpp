@@ -59,7 +59,6 @@ IntRect RenderSVGText::clippedOverflowRectForRepaint(RenderBoxModelObject* repai
 
 void RenderSVGText::computeRectForRepaint(RenderBoxModelObject* repaintContainer, IntRect& repaintRect, bool fixed)
 {
-    style()->svgStyle()->inflateForShadow(repaintRect);
     SVGRenderBase::computeRectForRepaint(this, repaintContainer, repaintRect, fixed);
 }
 
@@ -71,10 +70,6 @@ void RenderSVGText::mapLocalToContainer(RenderBoxModelObject* repaintContainer, 
 void RenderSVGText::layout()
 {
     ASSERT(needsLayout());
-
-    // FIXME: This is a hack to avoid the RenderBlock::layout() partial repainting code which is not (yet) SVG aware
-    setNeedsLayout(true);
-
     LayoutRepainter repainter(*this, checkForRepaintDuringLayout());
 
     // Best guess for a relative starting point
@@ -192,7 +187,7 @@ FloatRect RenderSVGText::strokeBoundingBox() const
 
     // SVG needs to include the strokeWidth(), not the textStrokeWidth().
     if (style()->svgStyle()->hasStroke()) {
-        float strokeWidth = SVGRenderStyle::cssPrimitiveToLength(this, style()->svgStyle()->strokeWidth(), 0.0f);
+        float strokeWidth = SVGRenderStyle::cssPrimitiveToLength(this, style()->svgStyle()->strokeWidth(), 1.0f);
 
 #if ENABLE(SVG_FONTS)
         const Font& font = style()->font();

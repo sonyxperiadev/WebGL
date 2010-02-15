@@ -51,6 +51,9 @@ namespace WebCore {
         // Layout all children of the passed render object
         static void layoutChildren(RenderObject*, bool selfNeedsLayout);
 
+        // Helper function determining wheter overflow is hidden
+        static bool isOverflowHidden(const RenderObject*);
+
         virtual FloatRect strokeBoundingBox() const { return FloatRect(); }
         virtual FloatRect markerBoundingBox() const { return FloatRect(); }
 
@@ -72,7 +75,7 @@ namespace WebCore {
 
     // FIXME: This should move to RenderObject or PaintInfo
     // Used for transforming the GraphicsContext and damage rect before passing PaintInfo to child renderers.
-    void applyTransformToPaintInfo(RenderObject::PaintInfo&, const TransformationMatrix& localToChildTransform);
+    void applyTransformToPaintInfo(RenderObject::PaintInfo&, const AffineTransform& localToChildTransform);
 
     // This offers a way to render parts of a WebKit rendering tree into a ImageBuffer.
     void renderSubtreeToImage(ImageBuffer*, RenderObject*);

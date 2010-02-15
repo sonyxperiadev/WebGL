@@ -49,7 +49,7 @@
 #include "InspectorResource.h"
 #include "Pasteboard.h"
 #include "ScriptArray.h"
-#include "ScriptFunctionCall.h"
+#include "SerializedScriptValue.h"
 
 #if ENABLE(DOM_STORAGE)
 #include "Storage.h"
@@ -222,6 +222,13 @@ void InspectorBackend::setPauseOnExceptionsState(long pauseState)
     JavaScriptDebugServer::shared().setPauseOnExceptionsState(static_cast<JavaScriptDebugServer::PauseOnExceptionsState>(pauseState));
 }
 
+JavaScriptCallFrame* InspectorBackend::currentCallFrame() const
+{
+    return JavaScriptDebugServer::shared().currentCallFrame();
+}
+#endif
+
+#if ENABLE(JAVASCRIPT_DEBUGGER)
 bool InspectorBackend::profilerEnabled()
 {
     if (m_inspectorController)
@@ -264,11 +271,6 @@ void InspectorBackend::getProfile(long callId, unsigned uid)
     if (m_inspectorController)
         m_inspectorController->getProfile(callId, uid);
 }
-
-JavaScriptCallFrame* InspectorBackend::currentCallFrame() const
-{
-    return JavaScriptDebugServer::shared().currentCallFrame();
-}
 #endif
 
 void InspectorBackend::setInjectedScriptSource(const String& source)
@@ -295,12 +297,12 @@ void InspectorBackend::dispatchOnInjectedScript(long callId, long injectedScript
     if (injectedScript.hasNoValue())
         return;
 
-    String result;
+    RefPtr<SerializedScriptValue> result;
     bool hadException = false;
     injectedScript.dispatch(callId, methodName, arguments, async, &result, &hadException);
     if (async)
         return;  // InjectedScript will return result asynchronously by means of ::reportDidDispatchOnInjectedScript.
-    frontend->didDispatchOnInjectedScript(callId, result, hadException);
+    frontend->didDispatchOnInjectedScript(callId, result.get(), hadException);
 }
 
 void InspectorBackend::getChildNodes(long callId, long nodeId)

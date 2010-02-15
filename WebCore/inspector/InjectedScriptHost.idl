@@ -41,7 +41,7 @@ module core {
         void addNodesToSearchResult(in DOMString nodeIds);
         long pushNodeByPathToFrontend(in DOMString path);
 
-#if defined(ENABLE_JAVASCRIPT_DEBUGGER) && ENABLE_JAVASCRIPT_DEBUGGER
+#if defined(ENABLE_JAVASCRIPT_DEBUGGER) && ENABLE_JAVASCRIPT_DEBUGGER && !(defined(V8_BINDING) && V8_BINDING)
         [Custom] DOMObject currentCallFrame();
         [Custom] boolean isActivation(in DOMObject object);
 #endif
@@ -55,6 +55,6 @@ module core {
         [Custom] void selectDOMStorage(in DOMObject storage);
 #endif
 
-        void reportDidDispatchOnInjectedScript(in long callId, in DOMString result, in boolean isException);
+        [Custom] void reportDidDispatchOnInjectedScript(in long callId, in DOMObject result, in boolean isException);
     };
 }

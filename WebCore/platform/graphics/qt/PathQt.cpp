@@ -36,7 +36,6 @@
 #include "ImageBuffer.h"
 #include "PlatformString.h"
 #include "StrokeStyleApplier.h"
-#include "TransformationMatrix.h"
 #include <QPainterPath>
 #include <QTransform>
 #include <QString>
@@ -311,10 +310,10 @@ String Path::debugString() const
 
         switch (cur.type) {
             case QPainterPath::MoveToElement:
-                ret += QString(QLatin1String("M %1 %2")).arg(cur.x).arg(cur.y);
+                ret += QString(QLatin1String("M%1,%2 ")).arg(cur.x, 0, 'f', 2).arg(cur.y, 0, 'f', 2);
                 break;
             case QPainterPath::LineToElement:
-                ret += QString(QLatin1String("L %1 %2")).arg(cur.x).arg(cur.y);
+                ret += QString(QLatin1String("L%1,%2 ")).arg(cur.x, 0, 'f', 2).arg(cur.y, 0, 'f', 2);
                 break;
             case QPainterPath::CurveToElement:
             {
@@ -324,8 +323,8 @@ String Path::debugString() const
                 Q_ASSERT(c1.type == QPainterPath::CurveToDataElement);
                 Q_ASSERT(c2.type == QPainterPath::CurveToDataElement);
 
-                ret += QString(QLatin1String("C %1 %2 %3 %4 %5 %6")).arg(cur.x).arg(cur.y).arg(c1.x).arg(c1.y).arg(c2.x).arg(c2.y);
-
+                ret += QString(QLatin1String("C%1,%2,%3,%4,%5,%6 ")).arg(cur.x, 0, 'f', 2).arg(cur.y, 0, 'f', 2).arg(c1.x, 0, 'f', 2)
+                                                                    .arg(c1.y, 0, 'f', 2).arg(c2.x, 0, 'f', 2).arg(c2.y, 0, 'f', 2);
                 i += 2;
                 break;
             }
@@ -335,7 +334,7 @@ String Path::debugString() const
         }
     }
 
-    return ret;
+    return ret.trimmed();
 }
 
 void Path::apply(void* info, PathApplierFunction function) const
@@ -381,11 +380,6 @@ void Path::apply(void* info, PathApplierFunction function) const
 }
 
 void Path::transform(const AffineTransform& transform)
-{
-    m_path = QTransform(transform).map(m_path);
-}
-
-void Path::transform(const TransformationMatrix& transform)
 {
     m_path = QTransform(transform).map(m_path);
 }

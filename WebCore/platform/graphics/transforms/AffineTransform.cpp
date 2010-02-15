@@ -97,7 +97,7 @@ AffineTransform::AffineTransform(double a, double b, double c, double d, double 
     setMatrix(a, b, c, d, e, f);
 }
 
-void AffineTransform::reset()
+void AffineTransform::makeIdentity()
 {
     setMatrix(1, 0, 0, 1, 0, 0);
 }
@@ -136,6 +136,12 @@ AffineTransform AffineTransform::inverse() const
         return AffineTransform();
 
     AffineTransform result;
+    if (isIdentityOrTranslation()) {
+        result.m_transform[4] = -m_transform[4];
+        result.m_transform[5] = -m_transform[5];
+        return result;
+    }
+
     result.m_transform[0] = m_transform[3] / determinant;
     result.m_transform[1] = -m_transform[1] / determinant;
     result.m_transform[2] = -m_transform[2] / determinant;
@@ -188,11 +194,28 @@ AffineTransform& AffineTransform::scale(double s)
 AffineTransform& AffineTransform::scale(double sx, double sy)
 {
     m_transform[0] *= sx;
+    m_transform[1] *= sx;
+    m_transform[2] *= sy;
     m_transform[3] *= sy;
     return *this;
 }
 
+// *this = *this * translation
 AffineTransform& AffineTransform::translate(double tx, double ty)
+{
+    if (isIdentityOrTranslation()) {
+        m_transform[4] += tx;
+        m_transform[5] += ty;
+        return *this;
+    }
+        
+    m_transform[4] += tx * m_transform[0] + ty * m_transform[2];
+    m_transform[5] += tx * m_transform[1] + ty * m_transform[3];
+    return *this;
+}
+
+// *this = translation * *this
+AffineTransform& AffineTransform::translateRight(double tx, double ty)
 {
     m_transform[4] += tx;
     m_transform[5] += ty;
@@ -221,9 +244,14 @@ AffineTransform& AffineTransform::flipY()
 
 AffineTransform& AffineTransform::shear(double sx, double sy)
 {
-    AffineTransform shear(1, sy, sx, 1, 0, 0);
+    double a = m_transform[0];
+    double b = m_transform[1];
 
-    multLeft(shear);
+    m_transform[0] += sy * m_transform[2];
+    m_transform[1] += sy * m_transform[3];
+    m_transform[2] += sx * a;
+    m_transform[3] += sx * b;
+
     return *this;
 }
 
@@ -250,16 +278,16 @@ AffineTransform makeMapBetweenRects(const FloatRect& source, const FloatRect& de
     return transform;
 }
 
-void AffineTransform::map(double x, double y, double* x2, double* y2) const
+void AffineTransform::map(double x, double y, double& x2, double& y2) const
 {
-    *x2 = (m_transform[0] * x + m_transform[2] * y + m_transform[4]);
-    *y2 = (m_transform[1] * x + m_transform[3] * y + m_transform[5]);
+    x2 = (m_transform[0] * x + m_transform[2] * y + m_transform[4]);
+    y2 = (m_transform[1] * x + m_transform[3] * y + m_transform[5]);
 }
 
 IntPoint AffineTransform::mapPoint(const IntPoint& point) const
 {
     double x2, y2;
-    map(point.x(), point.y(), &x2, &y2);
+    map(point.x(), point.y(), x2, y2);
     
     // Round the point.
     return IntPoint(lround(x2), lround(y2));
@@ -268,13 +296,24 @@ IntPoint AffineTransform::mapPoint(const IntPoint& point) const
 FloatPoint AffineTransform::mapPoint(const FloatPoint& point) const
 {
     double x2, y2;
-    map(point.x(), point.y(), &x2, &y2);
+    map(point.x(), point.y(), x2, y2);
 
     return FloatPoint(narrowPrecisionToFloat(x2), narrowPrecisionToFloat(y2));
 }
 
+IntRect AffineTransform::mapRect(const IntRect &rect) const
+{
+    return enclosingIntRect(mapRect(FloatRect(rect)));
+}
+
 FloatRect AffineTransform::mapRect(const FloatRect& rect) const
 {
+    if (isIdentityOrTranslation()) {
+        FloatRect mappedRect(rect);
+        mappedRect.move(narrowPrecisionToFloat(m_transform[4]), narrowPrecisionToFloat(m_transform[5]));
+        return mappedRect;
+    }
+
     FloatQuad q(rect);
 
     FloatQuad result;

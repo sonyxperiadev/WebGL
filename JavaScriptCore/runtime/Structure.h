@@ -36,6 +36,7 @@
 #include "StructureTransitionTable.h"
 #include "JSTypeInfo.h"
 #include "UString.h"
+#include "WeakGCPtr.h"
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
 
@@ -101,7 +102,7 @@ namespace JSC {
 
         void growPropertyStorageCapacity();
         unsigned propertyStorageCapacity() const { return m_propertyStorageCapacity; }
-        unsigned propertyStorageSize() const { return m_anonymousSlotCount + (m_propertyTable ? m_propertyTable->keyCount + (m_propertyTable->deletedOffsets ? m_propertyTable->deletedOffsets->size() : 0) : m_offset + 1); }
+        unsigned propertyStorageSize() const { return m_anonymousSlotCount + (m_propertyTable ? m_propertyTable->keyCount + (m_propertyTable->deletedOffsets ? m_propertyTable->deletedOffsets->size() : 0) : static_cast<unsigned>(m_offset + 1)); }
         bool isUsingInlineStorage() const;
 
         size_t get(const Identifier& propertyName);
@@ -135,7 +136,8 @@ namespace JSC {
         void disableSpecificFunctionTracking() { m_specificFunctionThrashCount = maxSpecificFunctionThrashCount; }
 
         void setEnumerationCache(JSPropertyNameIterator* enumerationCache); // Defined in JSPropertyNameIterator.h.
-        JSPropertyNameIterator* enumerationCache() { return m_enumerationCache.get(); }
+        void clearEnumerationCache(JSPropertyNameIterator* enumerationCache); // Defined in JSPropertyNameIterator.h.
+        JSPropertyNameIterator* enumerationCache(); // Defined in JSPropertyNameIterator.h.
         void getPropertyNames(PropertyNameArray&, EnumerationMode mode);
         
     private:
@@ -199,7 +201,7 @@ namespace JSC {
 
         StructureTransitionTable table;
 
-        ProtectedPtr<JSPropertyNameIterator> m_enumerationCache;
+        WeakGCPtr<JSPropertyNameIterator> m_enumerationCache;
 
         PropertyMapHashTable* m_propertyTable;
 

@@ -34,6 +34,11 @@
 namespace JSC {
 static const unsigned numCharactersToStore = 0x100;
 
+static inline bool isMarked(JSString* string)
+{
+    return string && Heap::isCellMarked(string);
+}
+
 class SmallStringsStorage : public Noncopyable {
 public:
     SmallStringsStorage();
@@ -55,13 +60,9 @@ SmallStringsStorage::SmallStringsStorage()
 }
 
 SmallStrings::SmallStrings()
-    : m_emptyString(0)
-    , m_storage(0)
 {
     COMPILE_ASSERT(numCharactersToStore == sizeof(m_singleCharacterStrings) / sizeof(m_singleCharacterStrings[0]), IsNumCharactersConstInSyncWithClassUsage);
-
-    for (unsigned i = 0; i < numCharactersToStore; ++i)
-        m_singleCharacterStrings[i] = 0;
+    clear();
 }
 
 SmallStrings::~SmallStrings()
@@ -70,12 +71,38 @@ SmallStrings::~SmallStrings()
 
 void SmallStrings::markChildren(MarkStack& markStack)
 {
+    /*
+       Our hypothesis is that small strings are very common. So, we cache them
+       to avoid GC churn. However, in cases where this hypothesis turns out to
+       be false -- including the degenerate case where all JavaScript execution
+       has terminated -- we don't want to waste memory.
+
+       To test our hypothesis, we check if any small string has been marked. If
+       so, it's probably reasonable to mark the rest. If not, we clear the cache.
+     */
+
+    bool isAnyStringMarked = isMarked(m_emptyString);
+    for (unsigned i = 0; i < numCharactersToStore && !isAnyStringMarked; ++i)
+        isAnyStringMarked |= isMarked(m_singleCharacterStrings[i]);
+    
+    if (!isAnyStringMarked) {
+        clear();
+        return;
+    }
+    
     if (m_emptyString)
         markStack.append(m_emptyString);
     for (unsigned i = 0; i < numCharactersToStore; ++i) {
         if (m_singleCharacterStrings[i])
             markStack.append(m_singleCharacterStrings[i]);
     }
+}
+
+void SmallStrings::clear()
+{
+    m_emptyString = 0;
+    for (unsigned i = 0; i < numCharactersToStore; ++i)
+        m_singleCharacterStrings[i] = 0;
 }
 
 unsigned SmallStrings::count() const

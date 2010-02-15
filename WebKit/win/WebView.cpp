@@ -4645,6 +4645,11 @@ HRESULT WebView::notifyPreferencesChanged(IWebNotification* notification)
         return hr;
     settings->setPluginAllowedRunTime(runTime);
 
+    hr = prefsPrivate->isFrameSetFlatteningEnabled(&enabled);
+    if (FAILED(hr))
+        return hr;
+    settings->setFrameSetFlatteningEnabled(enabled);
+
 #if USE(ACCELERATED_COMPOSITING)
     hr = prefsPrivate->acceleratedCompositingEnabled(&enabled);
     if (FAILED(hr))
@@ -4653,7 +4658,7 @@ HRESULT WebView::notifyPreferencesChanged(IWebNotification* notification)
 #endif
 
 #if ENABLE(3D_CANVAS)
-    settings->setExperimentalWebGLEnabled(true);
+    settings->setWebGLEnabled(true);
 #endif  // ENABLE(3D_CANVAS)
 
     if (!m_closeWindowTimer.isActive())
@@ -5060,7 +5065,7 @@ HRESULT STDMETHODCALLTYPE WebView::shouldClose(
     }
 
     *result = TRUE;
-    if (Frame* frame = m_page->focusController()->focusedOrMainFrame())
+    if (Frame* frame = m_page->mainFrame())
         *result = frame->shouldClose() ? TRUE : FALSE;
     return S_OK;
 }

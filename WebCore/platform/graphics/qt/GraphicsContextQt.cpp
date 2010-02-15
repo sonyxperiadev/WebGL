@@ -50,7 +50,6 @@
 #include "Path.h"
 #include "Pattern.h"
 #include "Pen.h"
-#include "TransformationMatrix.h"
 
 #include <QBrush>
 #include <QDebug>
@@ -222,6 +221,8 @@ public:
 
     QBrush solidColor;
 
+    InterpolationQuality imageInterpolationQuality;
+
     // Only used by SVG for now.
     QPainterPath currentPath;
 
@@ -236,6 +237,8 @@ GraphicsContextPlatformPrivate::GraphicsContextPlatformPrivate(QPainter* p)
     redirect = 0;
 
     solidColor = QBrush(Qt::black);
+
+    imageInterpolationQuality = InterpolationDefault;
 
     if (painter) {
         // use the default the QPainter was constructed with
@@ -276,20 +279,11 @@ PlatformGraphicsContext* GraphicsContext::platformContext() const
     return m_data->p();
 }
 
-AffineTransform GraphicsContext::getAffineCTM() const
+AffineTransform GraphicsContext::getCTM() const
 {
     QTransform matrix(platformContext()->combinedTransform());
     return AffineTransform(matrix.m11(), matrix.m12(), matrix.m21(),
                            matrix.m22(), matrix.dx(), matrix.dy());
-}
-
-TransformationMatrix GraphicsContext::getCTM() const
-{
-    QTransform matrix(platformContext()->combinedTransform());
-    return TransformationMatrix(matrix.m11(), matrix.m12(), 0, matrix.m13(),
-                                matrix.m21(), matrix.m22(), 0, matrix.m23(),
-                                           0,            0, 1,            0,
-                                matrix.m31(), matrix.m32(), 0, matrix.m33());
 }
 
 void GraphicsContext::savePlatformState()
@@ -306,112 +300,6 @@ void GraphicsContext::restorePlatformState()
         m_data->currentPath = m_data->currentPath * matrix;
     }
 }
-
-/* FIXME: DISABLED WHILE MERGING BACK FROM UNITY
-void GraphicsContext::drawTextShadow(const TextRun& run, const IntPoint& point, const FontStyle& style)
-{
-    if (paintingDisabled())
-        return;
-
-    if (m_data->shadow.isNull())
-        return;
-
-    TextShadow* shadow = &m_data->shadow;
-
-    if (shadow->blur <= 0) {
-        Pen p = pen();
-        setPen(shadow->color);
-        font().drawText(this, run, style, IntPoint(point.x() + shadow->x, point.y() + shadow->y));
-        setPen(p);
-    } else {
-        const int thickness = shadow->blur;
-        // FIXME: OPTIMIZE: limit the area to only the actually painted area + 2*thickness
-        const int w = m_data->p()->device()->width();
-        const int h = m_data->p()->device()->height();
-        const QRgb color = qRgb(255, 255, 255);
-        const QRgb bgColor = qRgb(0, 0, 0);
-        QImage image(QSize(w, h), QImage::Format_ARGB32);
-        image.fill(bgColor);
-        QPainter p;
-
-        Pen curPen = pen();
-        p.begin(&image);
-        setPen(color);
-        m_data->redirect = &p;
-        font().drawText(this, run, style, IntPoint(point.x() + shadow->x, point.y() + shadow->y));
-        m_data->redirect = 0;
-        p.end();
-        setPen(curPen);
-
-        int md = thickness * thickness; // max-dist^2
-
-        // blur map/precalculated shadow-decay
-        float* bmap = (float*) alloca(sizeof(float) * (md + 1));
-        for (int n = 0; n <= md; n++) {
-            float f;
-            f = n / (float) (md + 1);
-            f = 1.0 - f * f;
-            bmap[n] = f;
-        }
-
-        float factor = 0.0; // maximal potential opacity-sum
-        for (int n = -thickness; n <= thickness; n++) {
-            for (int m = -thickness; m <= thickness; m++) {
-                int d = n * n + m * m;
-                if (d <= md)
-                    factor += bmap[d];
-            }
-        }
-
-        // alpha map
-        float* amap = (float*) alloca(sizeof(float) * (h * w));
-        memset(amap, 0, h * w * (sizeof(float)));
-
-        for (int j = thickness; j<h-thickness; j++) {
-            for (int i = thickness; i<w-thickness; i++) {
-                QRgb col = image.pixel(i,j);
-                if (col == bgColor)
-                    continue;
-
-                float g = qAlpha(col);
-                g = g / 255;
-
-                for (int n = -thickness; n <= thickness; n++) {
-                    for (int m = -thickness; m <= thickness; m++) {
-                        int d = n * n + m * m;
-                        if (d > md)
-                            continue;
-
-                        float f = bmap[d];
-                        amap[(i + m) + (j + n) * w] += (g * f);
-                    }
-                }
-            }
-        }
-
-        QImage res(QSize(w,h),QImage::Format_ARGB32);
-        int r = shadow->color.red();
-        int g = shadow->color.green();
-        int b = shadow->color.blue();
-        int a1 = shadow->color.alpha();
-
-        // arbitratry factor adjustment to make shadows more solid.
-        factor = 1.333 / factor;
-
-        for (int j = 0; j < h; j++) {
-            for (int i = 0; i < w; i++) {
-                int a = (int) (amap[i + j * w] * factor * a1);
-                if (a > 255)
-                    a = 255;
-
-                res.setPixel(i,j, qRgba(r, g, b, a));
-            }
-        }
-
-        m_data->p()->drawImage(0, 0, res, 0, 0, -1, -1, Qt::DiffuseAlphaDither | Qt::ColorOnly | Qt::PreferDither);
-    }
-}
-*/
 
 // Draws a filled rectangle with a stroked border.
 void GraphicsContext::drawRect(const IntRect& rect)
@@ -650,7 +538,7 @@ void GraphicsContext::fillPath()
     if (m_common->state.fillPattern || m_common->state.fillGradient || fillColor().alpha()) {
         drawFilledShadowPath(this, p, path);
         if (m_common->state.fillPattern) {
-            TransformationMatrix affine;
+            AffineTransform affine;
             p->fillPath(path, QBrush(m_common->state.fillPattern->createPlatformPattern(affine)));
         } else if (m_common->state.fillGradient) {
             QBrush brush(*m_common->state.fillGradient->platformGradient());
@@ -687,7 +575,7 @@ void GraphicsContext::strokePath()
             p->setWorldTransform(t);
         }
         if (m_common->state.strokePattern) {
-            TransformationMatrix affine;
+            AffineTransform affine;
             pen.setBrush(QBrush(m_common->state.strokePattern->createPlatformPattern(affine)));
             p->setPen(pen);
             p->strokePath(path, pen);
@@ -727,7 +615,7 @@ void GraphicsContext::fillRect(const FloatRect& rect)
     if (m_common->state.fillPattern || m_common->state.fillGradient || fillColor().alpha()) {
         drawBorderlessRectShadow(this, p, rect);
         if (m_common->state.fillPattern) {
-            TransformationMatrix affine;
+            AffineTransform affine;
             p->fillRect(rect, QBrush(m_common->state.fillPattern->createPlatformPattern(affine)));
         } else if (m_common->state.fillGradient) {
             QBrush brush(*m_common->state.fillGradient->platformGradient());
@@ -1061,7 +949,7 @@ void GraphicsContext::clipOut(const Path& path)
     QPainterPath newClip;
     newClip.setFillRule(Qt::OddEvenFill);
     if (p->hasClipping()) {
-        newClip.addRect(p->clipPath().boundingRect());
+        newClip.addRect(p->clipRegion().boundingRect());
         newClip.addPath(clippedOut);
         p->setClipPath(newClip, Qt::IntersectClip);
     } else {
@@ -1130,7 +1018,7 @@ void GraphicsContext::clipOut(const IntRect& rect)
     QPainterPath newClip;
     newClip.setFillRule(Qt::OddEvenFill);
     if (p->hasClipping()) {
-        newClip.addRect(p->clipPath().boundingRect());
+        newClip.addRect(p->clipRegion().boundingRect());
         newClip.addRect(QRect(rect));
         p->setClipPath(newClip, Qt::IntersectClip);
     } else {
@@ -1152,7 +1040,7 @@ void GraphicsContext::clipOutEllipseInRect(const IntRect& rect)
     QPainterPath newClip;
     newClip.setFillRule(Qt::OddEvenFill);
     if (p->hasClipping()) {
-        newClip.addRect(p->clipPath().boundingRect());
+        newClip.addRect(p->clipRegion().boundingRect());
         newClip.addEllipse(QRect(rect));
         p->setClipPath(newClip, Qt::IntersectClip);
     } else {
@@ -1213,24 +1101,6 @@ void GraphicsContext::concatCTM(const AffineTransform& transform)
     }
 }
 
-
-void GraphicsContext::concatCTM(const TransformationMatrix& transform)
-{
-    if (paintingDisabled())
-        return;
-
-    m_data->p()->setWorldTransform(transform, true);
-
-    // Transformations to the context shouldn't transform the currentPath.
-    // We have to undo every change made to the context from the currentPath
-    // to avoid wrong drawings.
-    if (!m_data->currentPath.isEmpty() && transform.isInvertible()) {
-        QTransform matrix = transform.inverse();
-        m_data->currentPath = m_data->currentPath * matrix;
-        m_common->state.pathTransform.multiply(transform);
-    }
-}
-
 void GraphicsContext::setURLForRect(const KURL&, const IntRect&)
 {
     notImplemented();
@@ -1270,7 +1140,8 @@ void GraphicsContext::setPlatformFillColor(const Color& color, ColorSpace colorS
 {
     if (paintingDisabled())
         return;
-    m_data->p()->setBrush(QBrush(color));
+    m_data->solidColor.setColor(color);
+    m_data->p()->setBrush(m_data->solidColor);
 }
 
 void GraphicsContext::setPlatformShouldAntialias(bool enable)
@@ -1366,13 +1237,30 @@ void GraphicsContext::releaseWindowsContext(HDC hdc, const IntRect& dstRect, boo
 }
 #endif
 
-void GraphicsContext::setImageInterpolationQuality(InterpolationQuality)
+void GraphicsContext::setImageInterpolationQuality(InterpolationQuality quality)
 {
+    m_data->imageInterpolationQuality = quality;
+
+    switch (quality) {
+    case InterpolationDefault:
+    case InterpolationNone:
+    case InterpolationLow:
+        // use nearest-neigbor
+        m_data->p()->setRenderHint(QPainter::SmoothPixmapTransform, false);
+        break;
+
+    case InterpolationMedium:
+    case InterpolationHigh:
+    default:
+        // use the filter
+        m_data->p()->setRenderHint(QPainter::SmoothPixmapTransform, true);
+        break;
+    };
 }
 
 InterpolationQuality GraphicsContext::imageInterpolationQuality() const
 {
-    return InterpolationDefault;
+    return m_data->imageInterpolationQuality;
 }
 
 }

@@ -3,7 +3,7 @@
  *  Copyright (C) 2007, 2008, 2009 Holger Hans Peter Freyther
  *  Copyright (C) 2007 Christian Dywan <christian@twotoasts.de>
  *  Copyright (C) 2008, 2009 Collabora Ltd.  All rights reserved.
- *  Copyright (C) 2009 Gustavo Noronha Silva <gns@gnome.org>
+ *  Copyright (C) 2009, 2010 Gustavo Noronha Silva <gns@gnome.org>
  *  Copyright (C) Research In Motion Limited 2009. All rights reserved.
  *
  *  This library is free software; you can redistribute it and/or
@@ -25,6 +25,7 @@
 #include "FrameLoaderClientGtk.h"
 
 #include "ArchiveResource.h"
+#include "CachedFrame.h"
 #include "Color.h"
 #include "DocumentLoader.h"
 #include "DocumentLoaderGtk.h"
@@ -563,8 +564,7 @@ void FrameLoaderClient::setMainFrameDocumentReady(bool)
 
 bool FrameLoaderClient::hasWebView() const
 {
-    notImplemented();
-    return true;
+    return getViewFromFrame(m_frame);
 }
 
 void FrameLoaderClient::dispatchDidFinishLoad()
@@ -646,9 +646,7 @@ void FrameLoaderClient::setCopiesOnScroll()
 
 void FrameLoaderClient::detachedFromParent2()
 {
-    FrameView *view = core(m_frame)->view();
-    if (view)
-        view->setGtkAdjustments(0, 0);
+    notImplemented();
 }
 
 void FrameLoaderClient::detachedFromParent3()
@@ -1116,12 +1114,40 @@ void FrameLoaderClient::updateGlobalHistoryRedirectLinks()
     notImplemented();
 }
 
-void FrameLoaderClient::savePlatformDataToCachedFrame(CachedFrame*)
+void FrameLoaderClient::savePlatformDataToCachedFrame(CachedFrame* cachedFrame)
 {
+    // We need to do this here in order to disconnect the scrollbars
+    // that are being used by the frame that is being cached from the
+    // adjustments, otherwise they will react to changes in the
+    // adjustments, and bad things will happen.
+    if (cachedFrame->view())
+        cachedFrame->view()->setGtkAdjustments(0, 0);
 }
 
-void FrameLoaderClient::transitionToCommittedFromCachedFrame(CachedFrame*)
+static void postCommitFrameViewSetup(WebKitWebFrame *frame, FrameView *view, bool resetValues)
 {
+    WebKitWebView* containingWindow = getViewFromFrame(frame);
+    WebKitWebViewPrivate* priv = WEBKIT_WEB_VIEW_GET_PRIVATE(containingWindow);
+    view->setGtkAdjustments(priv->horizontalAdjustment, priv->verticalAdjustment, resetValues);
+
+    if (priv->currentMenu) {
+        GtkMenu* menu = priv->currentMenu;
+        priv->currentMenu = 0;
+
+        gtk_menu_popdown(menu);
+        g_object_unref(menu);
+    }
+}
+
+void FrameLoaderClient::transitionToCommittedFromCachedFrame(CachedFrame* cachedFrame)
+{
+    ASSERT(cachedFrame->view());
+
+    Frame* frame = core(m_frame);
+    if (frame != frame->page()->mainFrame())
+        return;
+
+    postCommitFrameViewSetup(m_frame, cachedFrame->view(), false);
 }
 
 void FrameLoaderClient::transitionToCommittedForNewPage()
@@ -1140,16 +1166,7 @@ void FrameLoaderClient::transitionToCommittedForNewPage()
     if (frame != frame->page()->mainFrame())
         return;
 
-    WebKitWebViewPrivate* priv = WEBKIT_WEB_VIEW_GET_PRIVATE(containingWindow);
-    frame->view()->setGtkAdjustments(priv->horizontalAdjustment, priv->verticalAdjustment);
-
-    if (priv->currentMenu) {
-        GtkMenu* menu = priv->currentMenu;
-        priv->currentMenu = NULL;
-
-        gtk_menu_popdown(menu);
-        g_object_unref(menu);
-    }
+    postCommitFrameViewSetup(m_frame, frame->view(), true);
 }
 
 }

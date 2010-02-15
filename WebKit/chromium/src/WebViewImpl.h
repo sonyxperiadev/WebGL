@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009 Google Inc. All rights reserved.
+ * Copyright (C) 2010 Google Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -58,6 +58,7 @@ class KeyboardEvent;
 class Page;
 class PlatformKeyboardEvent;
 class PopupContainer;
+class PopupMenuClient;
 class Range;
 class RenderTheme;
 class Widget;
@@ -65,7 +66,9 @@ class Widget;
 
 namespace WebKit {
 class AutocompletePopupMenuClient;
+class AutoFillPopupMenuClient;
 class ContextMenuClientImpl;
+class SuggestionsPopupMenuClient;
 class WebAccessibilityObject;
 class WebDevToolsAgentPrivate;
 class WebFrameImpl;
@@ -153,7 +156,17 @@ public:
         const WebNode&,
         const WebVector<WebString>& suggestions,
         int defaultSuggestionIndex);
+    virtual void applyAutoFillSuggestions(
+        const WebNode&,
+        const WebVector<WebString>& names,
+        const WebVector<WebString>& labels,
+        int defaultSuggestionIndex);
+    virtual void applyAutocompleteSuggestions(
+        const WebNode&,
+        const WebVector<WebString>& suggestions,
+        int defaultSuggestionIndex);
     virtual void hideAutofillPopup();
+    virtual void hideSuggestionsPopup();
     virtual void setScrollbarColors(unsigned inactiveColor,
                                     unsigned activeColor,
                                     unsigned trackColor);
@@ -261,9 +274,10 @@ public:
         const WebDragData& dragData,
         WebDragOperationsMask dragSourceOperationMask);
 
-    // Hides the autocomplete popup if it is showing.
-    void hideAutoCompletePopup();
-    void autoCompletePopupDidHide();
+    void suggestionsPopupDidHide()
+    {
+        m_suggestionsPopupShowing = false;
+    }
 
 #if ENABLE(NOTIFICATIONS)
     // Returns the provider of desktop notifications.
@@ -295,10 +309,10 @@ private:
     // Returns true if the autocomple has consumed the event.
     bool autocompleteHandleKeyEvent(const WebKeyboardEvent&);
 
-    // Repaints the autofill popup.  Should be called when the suggestions have
-    // changed.  Note that this should only be called when the autofill popup is
-    // showing.
-    void refreshAutofillPopup();
+    // Repaints the suggestions popup.  Should be called when the suggestions
+    // have changed.  Note that this should only be called when the suggestions
+    // popup is showing.
+    void refreshSuggestionsPopup();
 
     // Returns true if the view was scrolled.
     bool scrollViewWithKeyboard(int keyCode, int modifiers);
@@ -393,15 +407,28 @@ private:
     // current drop target in this WebView (the drop target can accept the drop).
     WebDragOperation m_dragOperation;
 
-    // The autocomplete popup.  Kept around and reused every-time new suggestions
-    // should be shown.
-    RefPtr<WebCore::PopupContainer> m_autocompletePopup;
+    // Whether a suggestions popup is currently showing.
+    bool m_suggestionsPopupShowing;
 
-    // Whether the autocomplete popup is currently showing.
-    bool m_autocompletePopupShowing;
+    // A pointer to the current suggestions popup menu client.  This can be
+    // either an AutoFillPopupMenuClient or an AutocompletePopupMenuClient.  We
+    // do not own this pointer.
+    SuggestionsPopupMenuClient* m_suggestionsPopupClient;
 
-    // The autocomplete client.
+    // The AutoFill popup client.
+    OwnPtr<AutoFillPopupMenuClient> m_autoFillPopupClient;
+
+    // The Autocomplete popup client.
     OwnPtr<AutocompletePopupMenuClient> m_autocompletePopupClient;
+
+    // A pointer to the current suggestions popup.  We do not own this pointer.
+    WebCore::PopupContainer* m_suggestionsPopup;
+
+    // The AutoFill suggestions popup.
+    RefPtr<WebCore::PopupContainer> m_autoFillPopup;
+
+    // The AutoComplete suggestions popup.
+    RefPtr<WebCore::PopupContainer> m_autocompletePopup;
 
     OwnPtr<WebDevToolsAgentPrivate> m_devToolsAgent;
 

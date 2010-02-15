@@ -315,6 +315,70 @@ void tst_QScriptValue::isBoolean_test(const char*, const QScriptValue& value)
 
 DEFINE_TEST_FUNCTION(isBoolean)
 
+void tst_QScriptValue::isNumber_initData()
+{
+    QTest::addColumn<bool>("expected");
+    initScriptValues();
+}
+
+void tst_QScriptValue::isNumber_makeData(const char* expr)
+{
+    static QSet<QString> isNumber;
+    if (isNumber.isEmpty()) {
+        isNumber << "QScriptValue(int(122))"
+                << "QScriptValue(uint(124))"
+                << "QScriptValue(0)"
+                << "QScriptValue(0.0)"
+                << "QScriptValue(123.0)"
+                << "QScriptValue(6.37e-8)"
+                << "QScriptValue(-6.37e-8)"
+                << "QScriptValue(0x43211234)"
+                << "QScriptValue(0x10000)"
+                << "QScriptValue(0x10001)"
+                << "QScriptValue(qSNaN())"
+                << "QScriptValue(qQNaN())"
+                << "QScriptValue(qInf())"
+                << "QScriptValue(-qInf())"
+                << "QScriptValue(0, int(122))"
+                << "QScriptValue(0, uint(124))"
+                << "QScriptValue(0, 0)"
+                << "QScriptValue(0, 0.0)"
+                << "QScriptValue(0, 123.0)"
+                << "QScriptValue(0, 6.37e-8)"
+                << "QScriptValue(0, -6.37e-8)"
+                << "QScriptValue(0, 0x43211234)"
+                << "QScriptValue(0, 0x10000)"
+                << "QScriptValue(0, 0x10001)"
+                << "QScriptValue(0, qSNaN())"
+                << "QScriptValue(0, qQNaN())"
+                << "QScriptValue(0, qInf())"
+                << "QScriptValue(0, -qInf())"
+                << "QScriptValue(engine, int(122))"
+                << "QScriptValue(engine, uint(124))"
+                << "QScriptValue(engine, 0)"
+                << "QScriptValue(engine, 0.0)"
+                << "QScriptValue(engine, 123.0)"
+                << "QScriptValue(engine, 6.37e-8)"
+                << "QScriptValue(engine, -6.37e-8)"
+                << "QScriptValue(engine, 0x43211234)"
+                << "QScriptValue(engine, 0x10000)"
+                << "QScriptValue(engine, 0x10001)"
+                << "QScriptValue(engine, qSNaN())"
+                << "QScriptValue(engine, qQNaN())"
+                << "QScriptValue(engine, qInf())"
+                << "QScriptValue(engine, -qInf())";
+    }
+    newRow(expr) << isNumber.contains(expr);
+}
+
+void tst_QScriptValue::isNumber_test(const char*, const QScriptValue& value)
+{
+    QFETCH(bool, expected);
+    QCOMPARE(value.isNumber(), expected);
+}
+
+DEFINE_TEST_FUNCTION(isNumber)
+
 
 void tst_QScriptValue::isFunction_initData()
 {
@@ -492,4 +556,387 @@ void tst_QScriptValue::isObject_test(const char*, const QScriptValue& value)
 
 DEFINE_TEST_FUNCTION(isObject)
 
+void tst_QScriptValue::toNumber_initData()
+{
+    QTest::addColumn<qsreal>("expected");
+    initScriptValues();
+}
 
+void tst_QScriptValue::toNumber_makeData(const char* expr)
+{
+    static QHash<QString, qsreal> toNumber;
+    if (toNumber.isEmpty()) {
+        toNumber.insert("QScriptValue()", 0);
+        toNumber.insert("QScriptValue(QScriptValue::UndefinedValue)", qQNaN());
+        toNumber.insert("QScriptValue(QScriptValue::NullValue)", 0);
+        toNumber.insert("QScriptValue(true)", 1);
+        toNumber.insert("QScriptValue(false)", 0);
+        toNumber.insert("QScriptValue(int(122))", 122);
+        toNumber.insert("QScriptValue(uint(124))", 124);
+        toNumber.insert("QScriptValue(0)", 0);
+        toNumber.insert("QScriptValue(0.0)", 0);
+        toNumber.insert("QScriptValue(123.0)", 123);
+        toNumber.insert("QScriptValue(6.37e-8)", 6.369999999999999e-08);
+        toNumber.insert("QScriptValue(-6.37e-8)", -6.369999999999999e-08);
+        toNumber.insert("QScriptValue(0x43211234)", 1126240820);
+        toNumber.insert("QScriptValue(0x10000)", 65536);
+        toNumber.insert("QScriptValue(0x10001)", 65537);
+        toNumber.insert("QScriptValue(qSNaN())", qQNaN());
+        toNumber.insert("QScriptValue(qQNaN())", qQNaN());
+        toNumber.insert("QScriptValue(qInf())", qInf());
+        toNumber.insert("QScriptValue(-qInf())", qInf());
+        toNumber.insert("QScriptValue(\"NaN\")", qQNaN());
+        toNumber.insert("QScriptValue(\"Infinity\")", qInf());
+        toNumber.insert("QScriptValue(\"-Infinity\")", qInf());
+        toNumber.insert("QScriptValue(\"ciao\")", qQNaN());
+        toNumber.insert("QScriptValue(QString::fromLatin1(\"ciao\"))", qQNaN());
+        toNumber.insert("QScriptValue(QString(\"\"))", 0);
+        toNumber.insert("QScriptValue(QString())", 0);
+        toNumber.insert("QScriptValue(QString(\"0\"))", 0);
+        toNumber.insert("QScriptValue(QString(\"123\"))", 123);
+        toNumber.insert("QScriptValue(QString(\"12.4\"))", 12.4);
+        toNumber.insert("QScriptValue(0, QScriptValue::UndefinedValue)", qQNaN());
+        toNumber.insert("QScriptValue(0, QScriptValue::NullValue)", 0);
+        toNumber.insert("QScriptValue(0, true)", 1);
+        toNumber.insert("QScriptValue(0, false)", 0);
+        toNumber.insert("QScriptValue(0, int(122))", 122);
+        toNumber.insert("QScriptValue(0, uint(124))", 124);
+        toNumber.insert("QScriptValue(0, 0)", 0);
+        toNumber.insert("QScriptValue(0, 0.0)", 0);
+        toNumber.insert("QScriptValue(0, 123.0)", 123);
+        toNumber.insert("QScriptValue(0, 6.37e-8)", 6.369999999999999e-08);
+        toNumber.insert("QScriptValue(0, -6.37e-8)", -6.369999999999999e-08);
+        toNumber.insert("QScriptValue(0, 0x43211234)", 1126240820);
+        toNumber.insert("QScriptValue(0, 0x10000)", 65536);
+        toNumber.insert("QScriptValue(0, 0x10001)", 65537);
+        toNumber.insert("QScriptValue(0, qSNaN())", qQNaN());
+        toNumber.insert("QScriptValue(0, qQNaN())", qQNaN());
+        toNumber.insert("QScriptValue(0, qInf())", qInf());
+        toNumber.insert("QScriptValue(0, -qInf())", qInf());
+        toNumber.insert("QScriptValue(0, \"NaN\")", qQNaN());
+        toNumber.insert("QScriptValue(0, \"Infinity\")", qInf());
+        toNumber.insert("QScriptValue(0, \"-Infinity\")", qInf());
+        toNumber.insert("QScriptValue(0, \"ciao\")", qQNaN());
+        toNumber.insert("QScriptValue(0, QString::fromLatin1(\"ciao\"))", qQNaN());
+        toNumber.insert("QScriptValue(0, QString(\"\"))", 0);
+        toNumber.insert("QScriptValue(0, QString())", 0);
+        toNumber.insert("QScriptValue(0, QString(\"0\"))", 0);
+        toNumber.insert("QScriptValue(0, QString(\"123\"))", 123);
+        toNumber.insert("QScriptValue(0, QString(\"12.3\"))", 12.3);
+        toNumber.insert("QScriptValue(engine, QScriptValue::UndefinedValue)", qQNaN());
+        toNumber.insert("QScriptValue(engine, QScriptValue::NullValue)", 0);
+        toNumber.insert("QScriptValue(engine, true)", 1);
+        toNumber.insert("QScriptValue(engine, false)", 0);
+        toNumber.insert("QScriptValue(engine, int(122))", 122);
+        toNumber.insert("QScriptValue(engine, uint(124))", 124);
+        toNumber.insert("QScriptValue(engine, 0)", 0);
+        toNumber.insert("QScriptValue(engine, 0.0)", 0);
+        toNumber.insert("QScriptValue(engine, 123.0)", 123);
+        toNumber.insert("QScriptValue(engine, 6.37e-8)", 6.369999999999999e-08);
+        toNumber.insert("QScriptValue(engine, -6.37e-8)", -6.369999999999999e-08);
+        toNumber.insert("QScriptValue(engine, 0x43211234)", 1126240820);
+        toNumber.insert("QScriptValue(engine, 0x10000)", 65536);
+        toNumber.insert("QScriptValue(engine, 0x10001)", 65537);
+        toNumber.insert("QScriptValue(engine, qSNaN())", qQNaN());
+        toNumber.insert("QScriptValue(engine, qQNaN())", qQNaN());
+        toNumber.insert("QScriptValue(engine, qInf())", qInf());
+        toNumber.insert("QScriptValue(engine, -qInf())", qInf());
+        toNumber.insert("QScriptValue(engine, \"NaN\")", qQNaN());
+        toNumber.insert("QScriptValue(engine, \"Infinity\")", qInf());
+        toNumber.insert("QScriptValue(engine, \"-Infinity\")", qInf());
+        toNumber.insert("QScriptValue(engine, \"ciao\")", qQNaN());
+        toNumber.insert("QScriptValue(engine, QString::fromLatin1(\"ciao\"))", qQNaN());
+        toNumber.insert("QScriptValue(engine, QString(\"\"))", 0);
+        toNumber.insert("QScriptValue(engine, QString())", 0);
+        toNumber.insert("QScriptValue(engine, QString(\"0\"))", 0);
+        toNumber.insert("QScriptValue(engine, QString(\"123\"))", 123);
+        toNumber.insert("QScriptValue(engine, QString(\"1.23\"))", 1.23);
+        toNumber.insert("engine->evaluate(\"[]\")", 0);
+        toNumber.insert("engine->evaluate(\"{}\")", qQNaN());
+        toNumber.insert("engine->evaluate(\"Object.prototype\")", qQNaN());
+        toNumber.insert("engine->evaluate(\"Date.prototype\")", qQNaN());
+        toNumber.insert("engine->evaluate(\"Array.prototype\")", 0);
+        toNumber.insert("engine->evaluate(\"Function.prototype\")", qQNaN());
+        toNumber.insert("engine->evaluate(\"Error.prototype\")", qQNaN());
+        toNumber.insert("engine->evaluate(\"Object\")", qQNaN());
+        toNumber.insert("engine->evaluate(\"Array\")", qQNaN());
+        toNumber.insert("engine->evaluate(\"Number\")", qQNaN());
+        toNumber.insert("engine->evaluate(\"Function\")", qQNaN());
+        toNumber.insert("engine->evaluate(\"(function() { return 1; })\")", qQNaN());
+        toNumber.insert("engine->evaluate(\"(function() { return 'ciao'; })\")", qQNaN());
+        toNumber.insert("engine->evaluate(\"(function() { throw new Error('foo'); })\")", qQNaN());
+        toNumber.insert("engine->evaluate(\"/foo/\")", qQNaN());
+        toNumber.insert("engine->evaluate(\"new Object()\")", qQNaN());
+        toNumber.insert("engine->evaluate(\"new Array()\")", 0);
+        toNumber.insert("engine->evaluate(\"new Error()\")", qQNaN());
+    }
+    newRow(expr) << toNumber.value(expr);
+}
+
+void tst_QScriptValue::toNumber_test(const char*, const QScriptValue& value)
+{
+    QFETCH(qsreal, expected);
+    if (qIsNaN(expected)) {
+        QVERIFY(qIsNaN(value.toNumber()));
+        return;
+    }
+    if (qIsInf(expected)) {
+        QVERIFY(qIsInf(value.toNumber()));
+        return;
+    }
+    QCOMPARE(value.toNumber(), expected);
+}
+
+DEFINE_TEST_FUNCTION(toNumber)
+
+
+void tst_QScriptValue::toBool_initData()
+{
+    QTest::addColumn<bool>("expected");
+    initScriptValues();
+}
+
+void tst_QScriptValue::toBool_makeData(const char* expr)
+{
+    static QHash<QString, bool> toBool;
+    if (toBool.isEmpty()) {
+        toBool.insert("QScriptValue()", false);
+        toBool.insert("QScriptValue(QScriptValue::UndefinedValue)", false);
+        toBool.insert("QScriptValue(QScriptValue::NullValue)", false);
+        toBool.insert("QScriptValue(true)", true);
+        toBool.insert("QScriptValue(false)", false);
+        toBool.insert("QScriptValue(int(122))", true);
+        toBool.insert("QScriptValue(uint(124))", true);
+        toBool.insert("QScriptValue(0)", false);
+        toBool.insert("QScriptValue(0.0)", false);
+        toBool.insert("QScriptValue(123.0)", true);
+        toBool.insert("QScriptValue(6.37e-8)", true);
+        toBool.insert("QScriptValue(-6.37e-8)", true);
+        toBool.insert("QScriptValue(0x43211234)", true);
+        toBool.insert("QScriptValue(0x10000)", true);
+        toBool.insert("QScriptValue(0x10001)", true);
+        toBool.insert("QScriptValue(qSNaN())", false);
+        toBool.insert("QScriptValue(qQNaN())", false);
+        toBool.insert("QScriptValue(qInf())", true);
+        toBool.insert("QScriptValue(-qInf())", true);
+        toBool.insert("QScriptValue(\"NaN\")", true);
+        toBool.insert("QScriptValue(\"Infinity\")", true);
+        toBool.insert("QScriptValue(\"-Infinity\")", true);
+        toBool.insert("QScriptValue(\"ciao\")", true);
+        toBool.insert("QScriptValue(QString::fromLatin1(\"ciao\"))", true);
+        toBool.insert("QScriptValue(QString(\"\"))", false);
+        toBool.insert("QScriptValue(QString())", false);
+        toBool.insert("QScriptValue(QString(\"0\"))", true);
+        toBool.insert("QScriptValue(QString(\"123\"))", true);
+        toBool.insert("QScriptValue(QString(\"12.4\"))", true);
+        toBool.insert("QScriptValue(0, QScriptValue::UndefinedValue)", false);
+        toBool.insert("QScriptValue(0, QScriptValue::NullValue)", false);
+        toBool.insert("QScriptValue(0, true)", true);
+        toBool.insert("QScriptValue(0, false)", false);
+        toBool.insert("QScriptValue(0, int(122))", true);
+        toBool.insert("QScriptValue(0, uint(124))", true);
+        toBool.insert("QScriptValue(0, 0)", false);
+        toBool.insert("QScriptValue(0, 0.0)", false);
+        toBool.insert("QScriptValue(0, 123.0)", true);
+        toBool.insert("QScriptValue(0, 6.37e-8)", true);
+        toBool.insert("QScriptValue(0, -6.37e-8)", true);
+        toBool.insert("QScriptValue(0, 0x43211234)", true);
+        toBool.insert("QScriptValue(0, 0x10000)", true);
+        toBool.insert("QScriptValue(0, 0x10001)", true);
+        toBool.insert("QScriptValue(0, qSNaN())", false);
+        toBool.insert("QScriptValue(0, qQNaN())", false);
+        toBool.insert("QScriptValue(0, qInf())", true);
+        toBool.insert("QScriptValue(0, -qInf())", true);
+        toBool.insert("QScriptValue(0, \"NaN\")", true);
+        toBool.insert("QScriptValue(0, \"Infinity\")", true);
+        toBool.insert("QScriptValue(0, \"-Infinity\")", true);
+        toBool.insert("QScriptValue(0, \"ciao\")", true);
+        toBool.insert("QScriptValue(0, QString::fromLatin1(\"ciao\"))", true);
+        toBool.insert("QScriptValue(0, QString(\"\"))", false);
+        toBool.insert("QScriptValue(0, QString())", false);
+        toBool.insert("QScriptValue(0, QString(\"0\"))", true);
+        toBool.insert("QScriptValue(0, QString(\"123\"))", true);
+        toBool.insert("QScriptValue(0, QString(\"12.3\"))", true);
+        toBool.insert("QScriptValue(engine, QScriptValue::UndefinedValue)", false);
+        toBool.insert("QScriptValue(engine, QScriptValue::NullValue)", false);
+        toBool.insert("QScriptValue(engine, true)", true);
+        toBool.insert("QScriptValue(engine, false)", false);
+        toBool.insert("QScriptValue(engine, int(122))", true);
+        toBool.insert("QScriptValue(engine, uint(124))", true);
+        toBool.insert("QScriptValue(engine, 0)", false);
+        toBool.insert("QScriptValue(engine, 0.0)", false);
+        toBool.insert("QScriptValue(engine, 123.0)", true);
+        toBool.insert("QScriptValue(engine, 6.37e-8)", true);
+        toBool.insert("QScriptValue(engine, -6.37e-8)", true);
+        toBool.insert("QScriptValue(engine, 0x43211234)", true);
+        toBool.insert("QScriptValue(engine, 0x10000)", true);
+        toBool.insert("QScriptValue(engine, 0x10001)", true);
+        toBool.insert("QScriptValue(engine, qSNaN())", false);
+        toBool.insert("QScriptValue(engine, qQNaN())", false);
+        toBool.insert("QScriptValue(engine, qInf())", true);
+        toBool.insert("QScriptValue(engine, -qInf())", true);
+        toBool.insert("QScriptValue(engine, \"NaN\")", true);
+        toBool.insert("QScriptValue(engine, \"Infinity\")", true);
+        toBool.insert("QScriptValue(engine, \"-Infinity\")", true);
+        toBool.insert("QScriptValue(engine, \"ciao\")", true);
+        toBool.insert("QScriptValue(engine, QString::fromLatin1(\"ciao\"))", true);
+        toBool.insert("QScriptValue(engine, QString(\"\"))", false);
+        toBool.insert("QScriptValue(engine, QString())", false);
+        toBool.insert("QScriptValue(engine, QString(\"0\"))", true);
+        toBool.insert("QScriptValue(engine, QString(\"123\"))", true);
+        toBool.insert("QScriptValue(engine, QString(\"1.23\"))", true);
+        toBool.insert("engine->evaluate(\"[]\")", true);
+        toBool.insert("engine->evaluate(\"{}\")", false);
+        toBool.insert("engine->evaluate(\"Object.prototype\")", true);
+        toBool.insert("engine->evaluate(\"Date.prototype\")", true);
+        toBool.insert("engine->evaluate(\"Array.prototype\")", true);
+        toBool.insert("engine->evaluate(\"Function.prototype\")", true);
+        toBool.insert("engine->evaluate(\"Error.prototype\")", true);
+        toBool.insert("engine->evaluate(\"Object\")", true);
+        toBool.insert("engine->evaluate(\"Array\")", true);
+        toBool.insert("engine->evaluate(\"Number\")", true);
+        toBool.insert("engine->evaluate(\"Function\")", true);
+        toBool.insert("engine->evaluate(\"(function() { return 1; })\")", true);
+        toBool.insert("engine->evaluate(\"(function() { return 'ciao'; })\")", true);
+        toBool.insert("engine->evaluate(\"(function() { throw new Error('foo'); })\")", true);
+        toBool.insert("engine->evaluate(\"/foo/\")", true);
+        toBool.insert("engine->evaluate(\"new Object()\")", true);
+        toBool.insert("engine->evaluate(\"new Array()\")", true);
+        toBool.insert("engine->evaluate(\"new Error()\")", true);
+    }
+    newRow(expr) << toBool.value(expr);
+}
+
+void tst_QScriptValue::toBool_test(const char*, const QScriptValue& value)
+{
+    QFETCH(bool, expected);
+    QCOMPARE(value.toBool(), expected);
+}
+
+DEFINE_TEST_FUNCTION(toBool)
+
+
+void tst_QScriptValue::toBoolean_initData()
+{
+    QTest::addColumn<bool>("expected");
+    initScriptValues();
+}
+
+void tst_QScriptValue::toBoolean_makeData(const char* expr)
+{
+    static QHash<QString, bool> toBoolean;
+    if (toBoolean.isEmpty()) {
+        toBoolean.insert("QScriptValue()", false);
+        toBoolean.insert("QScriptValue(QScriptValue::UndefinedValue)", false);
+        toBoolean.insert("QScriptValue(QScriptValue::NullValue)", false);
+        toBoolean.insert("QScriptValue(true)", true);
+        toBoolean.insert("QScriptValue(false)", false);
+        toBoolean.insert("QScriptValue(int(122))", true);
+        toBoolean.insert("QScriptValue(uint(124))", true);
+        toBoolean.insert("QScriptValue(0)", false);
+        toBoolean.insert("QScriptValue(0.0)", false);
+        toBoolean.insert("QScriptValue(123.0)", true);
+        toBoolean.insert("QScriptValue(6.37e-8)", true);
+        toBoolean.insert("QScriptValue(-6.37e-8)", true);
+        toBoolean.insert("QScriptValue(0x43211234)", true);
+        toBoolean.insert("QScriptValue(0x10000)", true);
+        toBoolean.insert("QScriptValue(0x10001)", true);
+        toBoolean.insert("QScriptValue(qSNaN())", false);
+        toBoolean.insert("QScriptValue(qQNaN())", false);
+        toBoolean.insert("QScriptValue(qInf())", true);
+        toBoolean.insert("QScriptValue(-qInf())", true);
+        toBoolean.insert("QScriptValue(\"NaN\")", true);
+        toBoolean.insert("QScriptValue(\"Infinity\")", true);
+        toBoolean.insert("QScriptValue(\"-Infinity\")", true);
+        toBoolean.insert("QScriptValue(\"ciao\")", true);
+        toBoolean.insert("QScriptValue(QString::fromLatin1(\"ciao\"))", true);
+        toBoolean.insert("QScriptValue(QString(\"\"))", false);
+        toBoolean.insert("QScriptValue(QString())", false);
+        toBoolean.insert("QScriptValue(QString(\"0\"))", true);
+        toBoolean.insert("QScriptValue(QString(\"123\"))", true);
+        toBoolean.insert("QScriptValue(QString(\"12.4\"))", true);
+        toBoolean.insert("QScriptValue(0, QScriptValue::UndefinedValue)", false);
+        toBoolean.insert("QScriptValue(0, QScriptValue::NullValue)", false);
+        toBoolean.insert("QScriptValue(0, true)", true);
+        toBoolean.insert("QScriptValue(0, false)", false);
+        toBoolean.insert("QScriptValue(0, int(122))", true);
+        toBoolean.insert("QScriptValue(0, uint(124))", true);
+        toBoolean.insert("QScriptValue(0, 0)", false);
+        toBoolean.insert("QScriptValue(0, 0.0)", false);
+        toBoolean.insert("QScriptValue(0, 123.0)", true);
+        toBoolean.insert("QScriptValue(0, 6.37e-8)", true);
+        toBoolean.insert("QScriptValue(0, -6.37e-8)", true);
+        toBoolean.insert("QScriptValue(0, 0x43211234)", true);
+        toBoolean.insert("QScriptValue(0, 0x10000)", true);
+        toBoolean.insert("QScriptValue(0, 0x10001)", true);
+        toBoolean.insert("QScriptValue(0, qSNaN())", false);
+        toBoolean.insert("QScriptValue(0, qQNaN())", false);
+        toBoolean.insert("QScriptValue(0, qInf())", true);
+        toBoolean.insert("QScriptValue(0, -qInf())", true);
+        toBoolean.insert("QScriptValue(0, \"NaN\")", true);
+        toBoolean.insert("QScriptValue(0, \"Infinity\")", true);
+        toBoolean.insert("QScriptValue(0, \"-Infinity\")", true);
+        toBoolean.insert("QScriptValue(0, \"ciao\")", true);
+        toBoolean.insert("QScriptValue(0, QString::fromLatin1(\"ciao\"))", true);
+        toBoolean.insert("QScriptValue(0, QString(\"\"))", false);
+        toBoolean.insert("QScriptValue(0, QString())", false);
+        toBoolean.insert("QScriptValue(0, QString(\"0\"))", true);
+        toBoolean.insert("QScriptValue(0, QString(\"123\"))", true);
+        toBoolean.insert("QScriptValue(0, QString(\"12.3\"))", true);
+        toBoolean.insert("QScriptValue(engine, QScriptValue::UndefinedValue)", false);
+        toBoolean.insert("QScriptValue(engine, QScriptValue::NullValue)", false);
+        toBoolean.insert("QScriptValue(engine, true)", true);
+        toBoolean.insert("QScriptValue(engine, false)", false);
+        toBoolean.insert("QScriptValue(engine, int(122))", true);
+        toBoolean.insert("QScriptValue(engine, uint(124))", true);
+        toBoolean.insert("QScriptValue(engine, 0)", false);
+        toBoolean.insert("QScriptValue(engine, 0.0)", false);
+        toBoolean.insert("QScriptValue(engine, 123.0)", true);
+        toBoolean.insert("QScriptValue(engine, 6.37e-8)", true);
+        toBoolean.insert("QScriptValue(engine, -6.37e-8)", true);
+        toBoolean.insert("QScriptValue(engine, 0x43211234)", true);
+        toBoolean.insert("QScriptValue(engine, 0x10000)", true);
+        toBoolean.insert("QScriptValue(engine, 0x10001)", true);
+        toBoolean.insert("QScriptValue(engine, qSNaN())", false);
+        toBoolean.insert("QScriptValue(engine, qQNaN())", false);
+        toBoolean.insert("QScriptValue(engine, qInf())", true);
+        toBoolean.insert("QScriptValue(engine, -qInf())", true);
+        toBoolean.insert("QScriptValue(engine, \"NaN\")", true);
+        toBoolean.insert("QScriptValue(engine, \"Infinity\")", true);
+        toBoolean.insert("QScriptValue(engine, \"-Infinity\")", true);
+        toBoolean.insert("QScriptValue(engine, \"ciao\")", true);
+        toBoolean.insert("QScriptValue(engine, QString::fromLatin1(\"ciao\"))", true);
+        toBoolean.insert("QScriptValue(engine, QString(\"\"))", false);
+        toBoolean.insert("QScriptValue(engine, QString())", false);
+        toBoolean.insert("QScriptValue(engine, QString(\"0\"))", true);
+        toBoolean.insert("QScriptValue(engine, QString(\"123\"))", true);
+        toBoolean.insert("QScriptValue(engine, QString(\"1.23\"))", true);
+        toBoolean.insert("engine->evaluate(\"[]\")", true);
+        toBoolean.insert("engine->evaluate(\"{}\")", false);
+        toBoolean.insert("engine->evaluate(\"Object.prototype\")", true);
+        toBoolean.insert("engine->evaluate(\"Date.prototype\")", true);
+        toBoolean.insert("engine->evaluate(\"Array.prototype\")", true);
+        toBoolean.insert("engine->evaluate(\"Function.prototype\")", true);
+        toBoolean.insert("engine->evaluate(\"Error.prototype\")", true);
+        toBoolean.insert("engine->evaluate(\"Object\")", true);
+        toBoolean.insert("engine->evaluate(\"Array\")", true);
+        toBoolean.insert("engine->evaluate(\"Number\")", true);
+        toBoolean.insert("engine->evaluate(\"Function\")", true);
+        toBoolean.insert("engine->evaluate(\"(function() { return 1; })\")", true);
+        toBoolean.insert("engine->evaluate(\"(function() { return 'ciao'; })\")", true);
+        toBoolean.insert("engine->evaluate(\"(function() { throw new Error('foo'); })\")", true);
+        toBoolean.insert("engine->evaluate(\"/foo/\")", true);
+        toBoolean.insert("engine->evaluate(\"new Object()\")", true);
+        toBoolean.insert("engine->evaluate(\"new Array()\")", true);
+        toBoolean.insert("engine->evaluate(\"new Error()\")", true);
+    }
+    newRow(expr) << toBoolean.value(expr);
+}
+
+void tst_QScriptValue::toBoolean_test(const char*, const QScriptValue& value)
+{
+    QFETCH(bool, expected);
+    QCOMPARE(value.toBoolean(), expected);
+}
+
+DEFINE_TEST_FUNCTION(toBoolean)

@@ -204,7 +204,7 @@ namespace WebCore {
 
         virtual bool isPluginView() const { return true; }
 
-        Frame* parentFrame() const { return m_parentFrame; }
+        Frame* parentFrame() const { return m_parentFrame.get(); }
 
         void focusPluginElement();
 
@@ -242,6 +242,9 @@ namespace WebCore {
 
         bool start();
 
+        static void keepAlive(NPP);
+        void keepAlive();
+
     private:
         PluginView(Frame* parentFrame, const IntSize&, PluginPackage*, Element*, const KURL&, const Vector<String>& paramNames, const Vector<String>& paramValues, const String& mimeType, bool loadManually);
 
@@ -267,7 +270,7 @@ namespace WebCore {
         static BOOL WINAPI hookedEndPaint(HWND, const PAINTSTRUCT*);
 #endif
 
-        Frame* m_parentFrame;
+        RefPtr<Frame> m_parentFrame;
         RefPtr<PluginPackage> m_plugin;
         Element* m_element;
         bool m_isStarted;
@@ -285,6 +288,9 @@ namespace WebCore {
 
         void popPopupsStateTimerFired(Timer<PluginView>*);
         Timer<PluginView> m_popPopupsStateTimer;
+
+        void lifeSupportTimerFired(Timer<PluginView>*);
+        Timer<PluginView> m_lifeSupportTimer;
 
 #ifndef NP_NO_CARBON
         bool dispatchNPEvent(NPEvent&);
@@ -376,7 +382,11 @@ public:
 
 private:
 
+<<<<<<< HEAD
 #if defined(XP_UNIX) || PLATFORM(SYMBIAN) || defined(ANDROID_PLUGINS)
+=======
+#if defined(XP_UNIX) || OS(SYMBIAN)
+>>>>>>> webkit.org at r54731
         void setNPWindowIfNeeded();
 #elif defined(XP_MACOSX)
         NP_CGContext m_npCgContext;

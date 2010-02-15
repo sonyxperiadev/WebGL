@@ -58,7 +58,7 @@ JSValue createInterruptedExecutionException(JSGlobalData* globalData)
 
 static JSValue createError(ExecState* exec, ErrorType e, const char* msg)
 {
-    return Error::create(exec, e, msg, -1, -1, 0);
+    return Error::create(exec, e, msg, -1, -1, UString());
 }
 
 JSValue createStackOverflowError(ExecState* exec)
@@ -186,6 +186,11 @@ JSObject* createNotAnObjectError(ExecState* exec, JSNotAnObjectErrorStub* error,
     exception->putWithAttributes(exec, Identifier(exec, expressionCaretOffsetPropertyName), jsNumber(exec, divotPoint), ReadOnly | DontDelete);
     exception->putWithAttributes(exec, Identifier(exec, expressionEndOffsetPropertyName), jsNumber(exec, divotPoint + endOffset), ReadOnly | DontDelete);
     return exception;
+}
+
+JSValue throwOutOfMemoryError(ExecState* exec)
+{
+    return throwError(exec, GeneralError, "Out of memory");
 }
 
 } // namespace JSC

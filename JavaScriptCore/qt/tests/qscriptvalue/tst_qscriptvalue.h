@@ -55,6 +55,9 @@ private slots:
     void isBoolean_data();
     void isBoolean();
 
+    void isNumber_data();
+    void isNumber();
+
     void isFunction_data();
     void isFunction();
 
@@ -72,6 +75,15 @@ private slots:
 
     void isValid_data();
     void isValid();
+
+    void toNumber_data();
+    void toNumber();
+
+    void toBool_data();
+    void toBool();
+
+    void toBoolean_data();
+    void toBoolean();
 
 private:
     typedef void (tst_QScriptValue::*InitDataFunction)();
@@ -93,6 +105,10 @@ private:
     void isBoolean_initData();
     void isBoolean_makeData(const char* expr);
     void isBoolean_test(const char* expr, const QScriptValue& value);
+
+    void isNumber_initData();
+    void isNumber_makeData(const char* expr);
+    void isNumber_test(const char* expr, const QScriptValue&);
 
     void isFunction_initData();
     void isFunction_makeData(const char* expr);
@@ -117,6 +133,18 @@ private:
     void isValid_initData();
     void isValid_makeData(const char* expr);
     void isValid_test(const char* expr, const QScriptValue& value);
+
+    void toNumber_initData();
+    void toNumber_makeData(const char*);
+    void toNumber_test(const char*, const QScriptValue&);
+
+    void toBool_initData();
+    void toBool_makeData(const char*);
+    void toBool_test(const char*, const QScriptValue&);
+
+    void toBoolean_initData();
+    void toBoolean_makeData(const char*);
+    void toBoolean_test(const char*, const QScriptValue&);
 
 private:
     QScriptEngine* engine;

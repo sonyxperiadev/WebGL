@@ -38,7 +38,7 @@ RenderSVGViewportContainer::RenderSVGViewportContainer(SVGStyledElement* node)
 {
 }
 
-FloatRect RenderSVGViewportContainer::markerBoundaries(const TransformationMatrix& markerTransformation) const
+FloatRect RenderSVGViewportContainer::markerBoundaries(const AffineTransform& markerTransformation) const
 {
     FloatRect coordinates = repaintRectInLocalCoordinates();
 
@@ -48,12 +48,12 @@ FloatRect RenderSVGViewportContainer::markerBoundaries(const TransformationMatri
     return markerTransformation.mapRect(coordinates);
 }
 
-TransformationMatrix RenderSVGViewportContainer::markerContentTransformation(const TransformationMatrix& contentTransformation, const FloatPoint& origin, float strokeWidth) const
+AffineTransform RenderSVGViewportContainer::markerContentTransformation(const AffineTransform& contentTransformation, const FloatPoint& origin, float strokeWidth) const
 {
     // The 'origin' coordinate maps to SVGs refX/refY, given in coordinates relative to the viewport established by the marker
     FloatPoint mappedOrigin = viewportTransform().mapPoint(origin);
 
-    TransformationMatrix transformation = contentTransformation;
+    AffineTransform transformation = contentTransformation;
     if (strokeWidth != -1)
         transformation.scaleNonUniform(strokeWidth, strokeWidth);
 
@@ -63,8 +63,8 @@ TransformationMatrix RenderSVGViewportContainer::markerContentTransformation(con
 
 void RenderSVGViewportContainer::applyViewportClip(PaintInfo& paintInfo)
 {
-    if (style()->overflowX() != OVISIBLE)
-        paintInfo.context->clip(enclosingIntRect(m_viewport)); // FIXME: Eventually we'll want float-precision clipping
+    if (SVGRenderBase::isOverflowHidden(this))
+        paintInfo.context->clip(m_viewport);
 }
 
 void RenderSVGViewportContainer::calcViewport()
@@ -92,7 +92,7 @@ void RenderSVGViewportContainer::calcViewport()
     }
 }
 
-TransformationMatrix RenderSVGViewportContainer::viewportTransform() const
+AffineTransform RenderSVGViewportContainer::viewportTransform() const
 {
     if (node()->hasTagName(SVGNames::svgTag)) {
         SVGSVGElement* svg = static_cast<SVGSVGElement*>(node());
@@ -102,35 +102,25 @@ TransformationMatrix RenderSVGViewportContainer::viewportTransform() const
         return marker->viewBoxToViewTransform(m_viewport.width(), m_viewport.height());
     }
 
-    return TransformationMatrix();
+    return AffineTransform();
 }
 
-const TransformationMatrix& RenderSVGViewportContainer::localToParentTransform() const
+const AffineTransform& RenderSVGViewportContainer::localToParentTransform() const
 {
-    TransformationMatrix viewportTranslation;
-    viewportTranslation.translate(m_viewport.x(), m_viewport.y());
-    m_localToParentTransform = viewportTransform() * viewportTranslation;
+    AffineTransform viewportTranslation(viewportTransform());
+    m_localToParentTransform = viewportTranslation.translateRight(m_viewport.x(), m_viewport.y());
     return m_localToParentTransform;
     // If this class were ever given a localTransform(), then the above would read:
     // return viewportTransform() * localTransform() * viewportTranslation;
 }
 
-// FIXME: This method should be removed as soon as callers to RenderBox::absoluteTransform() can be removed.
-TransformationMatrix RenderSVGViewportContainer::absoluteTransform() const
-{
-    // This would apply localTransform() twice if localTransform() were not the identity.
-    return localToParentTransform() * RenderSVGContainer::absoluteTransform();
-}
-
 bool RenderSVGViewportContainer::pointIsInsideViewportClip(const FloatPoint& pointInParent)
 {
-    // Respect the viewport clip (which is in parent coords).  SVG does not support separate x/y overflow rules.
-    if (style()->overflowX() == OHIDDEN) {
-        ASSERT(style()->overflowY() == OHIDDEN);
-        if (!m_viewport.contains(pointInParent))
-            return false;
-    }
-    return true;
+    // Respect the viewport clip (which is in parent coords)
+    if (!SVGRenderBase::isOverflowHidden(this))
+        return true;
+    
+    return m_viewport.contains(pointInParent);
 }
 
 }

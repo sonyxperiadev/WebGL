@@ -39,7 +39,7 @@ public:
 
     void append(const char* str)
     {
-        buffer.append(str, strlen(str));
+        append(str, strlen(str));
     }
 
     void append(const char* str, size_t len)
@@ -66,13 +66,15 @@ public:
 
     UChar operator[](size_t i) const { return buffer.at(i); }
 
-    UString release()
+    UString build()
     {
         buffer.shrinkToFit();
+        if (buffer.size() && !buffer.data())
+            CRASH();
         return UString::adopt(buffer);
     }
 
-private:
+protected:
     Vector<UChar, 64> buffer;
 };
 

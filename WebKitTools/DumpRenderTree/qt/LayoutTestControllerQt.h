@@ -96,6 +96,7 @@ public slots:
     void setGlobalFlag(bool flag) { m_globalFlag = flag; }
     void handleErrorPages() { m_handleErrorPages = true; }
     void dumpEditingCallbacks();
+    void dumpFrameLoadCallbacks();
     void dumpResourceLoadCallbacks();
     void queueBackNavigation(int howFarBackward);
     void queueForwardNavigation(int howFarForward);
@@ -115,6 +116,8 @@ public slots:
     void dumpSelectionRect() const {}
     void showWebInspector();
     void hideWebInspector();
+
+    void setFrameSetFlatteningEnabled(bool enable);
     void setAllowUniversalAccessFromFileURLs(bool enable);
     void setJavaScriptProfilingEnabled(bool enable);
     void setFixedContentsSize(int width, int height);
@@ -146,6 +149,7 @@ public slots:
     void setUserStyleSheetEnabled(bool enabled);
     void setDomainRelaxationForbiddenForURLScheme(bool forbidden, const QString& scheme);
     int workerThreadCount();
+    int pageNumberForElementById(const QString& id, float width = 0, float height = 0);
 
 private slots:
     void processWork();

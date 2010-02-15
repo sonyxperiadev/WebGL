@@ -23,7 +23,8 @@
 #define RenderForeignObject_h
 #if ENABLE(SVG) && ENABLE(SVG_FOREIGN_OBJECT)
 
-#include "TransformationMatrix.h"
+#include "AffineTransform.h"
+#include "FloatPoint.h"
 #include "RenderSVGBlock.h"
 
 namespace WebCore {
@@ -38,7 +39,7 @@ public:
 
     virtual void paint(PaintInfo&, int parentX, int parentY);
 
-    virtual const TransformationMatrix& localToParentTransform() const;
+    virtual const AffineTransform& localToParentTransform() const;
 
     virtual void computeRectForRepaint(RenderBoxModelObject* repaintContainer, IntRect&, bool fixed = false);
     virtual bool requiresLayer() const { return false; }
@@ -55,12 +56,12 @@ public:
     virtual void mapLocalToContainer(RenderBoxModelObject* repaintContainer, bool fixed , bool useTransforms, TransformState& transformState) const;
 
  private:
-    TransformationMatrix translationForAttributes() const;
+    FloatPoint translationForAttributes() const;
 
-    virtual TransformationMatrix localTransform() const { return m_localTransform; }
+    virtual AffineTransform localTransform() const { return m_localTransform; }
 
-    TransformationMatrix m_localTransform;
-    mutable TransformationMatrix m_localToParentTransform;
+    AffineTransform m_localTransform;
+    mutable AffineTransform m_localToParentTransform;
 };
 
 } // namespace WebCore

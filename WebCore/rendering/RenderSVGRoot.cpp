@@ -129,7 +129,7 @@ void RenderSVGRoot::paint(PaintInfo& paintInfo, int parentX, int parentY)
         paintBoxDecorations(paintInfo, borderBoxOriginInContainer.x(), borderBoxOriginInContainer.y());
 
     // An empty viewport disables rendering.  FIXME: Should we still render filters?
-    if (viewportSize().isEmpty())
+    if (m_viewportSize.isEmpty())
         return;
 
     // Don't paint if we don't have kids, except if we have filters we should paint those.
@@ -140,9 +140,8 @@ void RenderSVGRoot::paint(PaintInfo& paintInfo, int parentX, int parentY)
     RenderObject::PaintInfo childPaintInfo(paintInfo);
     childPaintInfo.context->save();
 
-    // SVG does not support independent x/y clipping
-    if (style()->overflowX() != OVISIBLE)
-        childPaintInfo.context->clip(overflowClipRect(borderBoxOriginInContainer.x(), borderBoxOriginInContainer.y()));
+    // Apply initial viewport clip - not affected by overflow handling
+    childPaintInfo.context->clip(overflowClipRect(borderBoxOriginInContainer.x(), borderBoxOriginInContainer.y()));
 
     // Convert from container offsets (html renderers) to a relative transform (svg renderers).
     // Transform from our paint container's coordinate system to our local coords.
@@ -165,11 +164,6 @@ void RenderSVGRoot::paint(PaintInfo& paintInfo, int parentX, int parentY)
 
     if ((paintInfo.phase == PaintPhaseOutline || paintInfo.phase == PaintPhaseSelfOutline) && style()->outlineWidth() && style()->visibility() == VISIBLE)
         paintOutline(paintInfo.context, borderBoxOriginInContainer.x(), borderBoxOriginInContainer.y(), width(), height(), style());
-}
-
-const FloatSize& RenderSVGRoot::viewportSize() const
-{
-    return m_viewportSize;
 }
 
 void RenderSVGRoot::calcViewport()
@@ -196,13 +190,12 @@ void RenderSVGRoot::calcViewport()
 
 // RenderBox methods will expect coordinates w/o any transforms in coordinates
 // relative to our borderBox origin.  This method gives us exactly that.
-TransformationMatrix RenderSVGRoot::localToBorderBoxTransform() const
+AffineTransform RenderSVGRoot::localToBorderBoxTransform() const
 {
-    TransformationMatrix ctm;
     IntSize borderAndPadding = borderOriginToContentBox();
-    ctm.translate(borderAndPadding.width(), borderAndPadding.height());
     SVGSVGElement* svg = static_cast<SVGSVGElement*>(node());
-    ctm.scale(svg->currentScale());
+    float scale = svg->currentScale();
+    AffineTransform ctm(scale, 0, 0, scale, borderAndPadding.width(), borderAndPadding.height());
     ctm.translate(svg->currentTranslate().x(), svg->currentTranslate().y());
     return svg->viewBoxToViewTransform(width(), height()) * ctm;
 }
@@ -217,29 +210,21 @@ IntSize RenderSVGRoot::borderOriginToContentBox() const
     return IntSize(borderLeft() + paddingLeft(), borderTop() + paddingTop());
 }
 
-TransformationMatrix RenderSVGRoot::localToRepaintContainerTransform(const IntPoint& parentOriginInContainer) const
+AffineTransform RenderSVGRoot::localToRepaintContainerTransform(const IntPoint& parentOriginInContainer) const
 {
-    TransformationMatrix parentToContainer;
-    parentToContainer.translate(parentOriginInContainer.x(), parentOriginInContainer.y());
-    return localToParentTransform() * parentToContainer;
+    AffineTransform parentToContainer(localToParentTransform());
+    return parentToContainer.translateRight(parentOriginInContainer.x(), parentOriginInContainer.y());
 }
 
-const TransformationMatrix& RenderSVGRoot::localToParentTransform() const
+const AffineTransform& RenderSVGRoot::localToParentTransform() const
 {
     IntSize parentToBorderBoxOffset = parentOriginToBorderBox();
 
-    TransformationMatrix borderBoxOriginToParentOrigin;
-    borderBoxOriginToParentOrigin.translate(parentToBorderBoxOffset.width(), parentToBorderBoxOffset.height());
+    AffineTransform borderBoxOriginToParentOrigin(localToBorderBoxTransform());
+    borderBoxOriginToParentOrigin.translateRight(parentToBorderBoxOffset.width(), parentToBorderBoxOffset.height());
 
-    m_localToParentTransform = localToBorderBoxTransform() * borderBoxOriginToParentOrigin;
+    m_localToParentTransform = borderBoxOriginToParentOrigin;
     return m_localToParentTransform;
-}
-
-// FIXME: This method should be removed as soon as callers to RenderBox::absoluteTransform() can be removed.
-TransformationMatrix RenderSVGRoot::absoluteTransform() const
-{
-    // This would apply localTransform() twice if localTransform() were not the identity.
-    return localToParentTransform() * RenderBox::absoluteTransform();
 }
 
 FloatRect RenderSVGRoot::objectBoundingBox() const
@@ -255,9 +240,9 @@ FloatRect RenderSVGRoot::repaintRectInLocalCoordinates() const
     return repaintRect;
 }
 
-TransformationMatrix RenderSVGRoot::localTransform() const
+AffineTransform RenderSVGRoot::localTransform() const
 {
-    return TransformationMatrix();
+    return AffineTransform();
 }
 
 void RenderSVGRoot::computeRectForRepaint(RenderBoxModelObject* repaintContainer, IntRect& repaintRect, bool fixed)
@@ -265,6 +250,10 @@ void RenderSVGRoot::computeRectForRepaint(RenderBoxModelObject* repaintContainer
     // Apply our local transforms (except for x/y translation), then our shadow, 
     // and then call RenderBox's method to handle all the normal CSS Box model bits
     repaintRect = localToBorderBoxTransform().mapRect(repaintRect);
+
+    // Apply initial viewport clip - not affected by overflow settings    
+    repaintRect.intersect(enclosingIntRect(FloatRect(FloatPoint(), m_viewportSize)));
+
     style()->svgStyle()->inflateForShadow(repaintRect);
     RenderBox::computeRectForRepaint(repaintContainer, repaintRect, fixed);
 }
@@ -288,14 +277,9 @@ bool RenderSVGRoot::nodeAtPoint(const HitTestRequest& request, HitTestResult& re
     IntPoint pointInBorderBox = pointInParent - parentOriginToBorderBox();
 
     // Note: For now, we're ignoring hits to border and padding for <svg>
-
-    if (style()->overflowX() == OHIDDEN) {
-        // SVG doesn't support independent x/y overflow
-        ASSERT(style()->overflowY() == OHIDDEN);
-        IntPoint pointInContentBox = pointInBorderBox - borderOriginToContentBox();
-        if (!contentBoxRect().contains(pointInContentBox))
-            return false;
-    }
+    IntPoint pointInContentBox = pointInBorderBox - borderOriginToContentBox();
+    if (!contentBoxRect().contains(pointInContentBox))
+        return false;
 
     IntPoint localPoint = localToParentTransform().inverse().mapPoint(pointInParent);
 

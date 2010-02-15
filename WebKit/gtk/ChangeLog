@@ -1,3 +1,97 @@
+2010-02-09  Gustavo Noronha Silva  <gns@gnome.org>
+
+        Reviewed by Xan Lopez.
+
+        [GTK] Hits assertion on history back, with page cache enabled, in specific conditions
+        https://bugs.webkit.org/show_bug.cgi?id=34773
+
+        Make sure cached frames have their scrollbars disconnected from
+        the WebView's adjustments.
+
+        * WebCoreSupport/FrameLoaderClientGtk.cpp:
+        (WebKit::FrameLoaderClient::savePlatformDataToCachedFrame):
+
+2010-02-09  Gustavo Noronha Silva  <gustavo.noronha@collabora.co.uk>
+
+        Reviewed by Xan Lopez.
+
+        [GTK] Set GtkAdjustments on our FrameView when loading a page in the PageCache
+        https://bugs.webkit.org/show_bug.cgi?id=34754
+
+        Test that lower, and upper bounds are kept when goibg back with
+        page cache enabled, and disabled. Page cache behaviour is still a
+        bit broken (see FIXME).
+
+        * tests/testwebview.c:
+        (server_callback):
+        (map_event_cb):
+        (do_test_webkit_web_view_adjustments):
+        (test_webkit_web_view_adjustments):
+        (main):
+
+2010-02-09  Xan Lopez  <xlopez@igalia.com>
+
+        Reviewed by Gustavo Noronha.
+
+        [GTK] Set GtkAdjustments on our FrameView when loading a page in the PageCache
+        https://bugs.webkit.org/show_bug.cgi?id=34754
+
+        Set the Gtk Adjustments of the FrameViews when they are restored
+        from the PageCache too. Right we only do it for the newly created
+        FrameViews in transitionToCommittedForNewPage, but we it also
+        needs to be done in the equilavent transition method for cached
+        pages.
+
+        * WebCoreSupport/FrameLoaderClientGtk.cpp:
+        (WebKit::postCommitFrameViewSetup):
+        (WebKit::FrameLoaderClient::transitionToCommittedFromCachedFrame):
+        (WebKit::FrameLoaderClient::transitionToCommittedForNewPage):
+
+2010-02-08  Xan Lopez  <xlopez@igalia.com>
+
+        Reviewed by Gustavo Noronha.
+
+        [GTK] Implement FrameLoaderClient::hasWebView
+        https://bugs.webkit.org/show_bug.cgi?id=34682
+
+        Used for sanity-check ASSERTS in the FrameLoader code.
+
+        * WebCoreSupport/FrameLoaderClientGtk.cpp:
+        (WebKit::FrameLoaderClient::hasWebView):
+
+2010-02-08  Gustavo Noronha Silva  <gustavo.noronha@collabora.co.uk>
+
+        Reviewed by Xan Lopez.
+
+        News about 1.1.21.
+
+        * NEWS:
+
+2010-02-05  Shinichiro Hamaji  <hamaji@chromium.org>
+
+        Reviewed by Gustavo Noronha Silva.
+
+        [Gtk] Implement layoutTestController.pageNumberForElementById
+        https://bugs.webkit.org/show_bug.cgi?id=34572
+
+        * webkit/webkitprivate.h:
+        * webkit/webkitwebframe.cpp:
+        (webkit_web_frame_page_number_for_element_by_id):
+
+2010-02-04  Christian Dywan  <christian@twotoasts.de>
+
+        Reviewed by Gustavo Noronha Silva.
+
+        [GTK] Add and cleanup return values of signals in view and frame
+        https://bugs.webkit.org/show_bug.cgi?id=33484
+
+        Add missing and cleanup return values of web frame and web view signals.
+
+        * webkit/webkitwebframe.cpp:
+        (webkit_web_frame_class_init):
+        * webkit/webkitwebview.cpp:
+        (DNDContentsRequest::webkit_web_view_class_init):
+
 2010-02-02  Gustavo Noronha Silva  <gns@gnome.org>
 
         Reviewed by Xan Lopez.

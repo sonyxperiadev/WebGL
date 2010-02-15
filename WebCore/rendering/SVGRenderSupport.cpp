@@ -27,6 +27,7 @@
 #if ENABLE(SVG)
 #include "SVGRenderSupport.h"
 
+#include "AffineTransform.h"
 #include "ImageBuffer.h"
 #include "RenderObject.h"
 #include "RenderSVGContainer.h"
@@ -37,7 +38,6 @@
 #include "SVGStyledElement.h"
 #include "SVGURIReference.h"
 #include "TransformState.h"
-#include "TransformationMatrix.h"
 #include <wtf/UnusedParam.h>
 
 namespace WebCore {
@@ -61,6 +61,8 @@ IntRect SVGRenderBase::clippedOverflowRectForRepaint(RenderObject* object, Rende
 
 void SVGRenderBase::computeRectForRepaint(RenderObject* object, RenderBoxModelObject* repaintContainer, IntRect& repaintRect, bool fixed)
 {
+    object->style()->svgStyle()->inflateForShadow(repaintRect);
+
     // Translate to coords in our parent renderer, and then call computeRectForRepaint on our parent
     repaintRect = object->localToParentTransform().mapRect(repaintRect);
     object->parent()->computeRectForRepaint(repaintContainer, repaintRect, fixed);
@@ -258,6 +260,20 @@ void SVGRenderBase::layoutChildren(RenderObject* start, bool selfNeedsLayout)
     }
 }
 
+bool SVGRenderBase::isOverflowHidden(const RenderObject* object)
+{
+    // SVG doesn't support independent x/y overflow
+    ASSERT(object->style()->overflowX() == object->style()->overflowY());
+
+    // OSCROLL is never set for SVG - see CSSStyleSelector::adjustRenderStyle
+    ASSERT(object->style()->overflowX() != OSCROLL);
+
+    // RenderSVGRoot should never query for overflow state - it should always clip itself to the initial viewport size.
+    ASSERT(!object->isRoot());
+
+    return object->style()->overflowX() == OHIDDEN;
+}
+
 FloatRect SVGRenderBase::filterBoundingBoxForRenderer(const RenderObject* object) const
 {
 #if ENABLE(FILTERS)
@@ -288,7 +304,7 @@ FloatRect SVGRenderBase::maskerBoundingBoxForRenderer(const RenderObject* object
     return FloatRect();
 }
 
-void applyTransformToPaintInfo(RenderObject::PaintInfo& paintInfo, const TransformationMatrix& localToAncestorTransform)
+void applyTransformToPaintInfo(RenderObject::PaintInfo& paintInfo, const AffineTransform& localToAncestorTransform)
 {
     if (localToAncestorTransform.isIdentity())
         return;

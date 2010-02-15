@@ -105,9 +105,6 @@ void SVGMaskElement::svgAttributeChanged(const QualifiedName& attrName)
 {
     SVGStyledElement::svgAttributeChanged(attrName);
 
-    if (m_masker.isEmpty())
-        return;
-
     if (attrName == SVGNames::maskUnitsAttr || attrName == SVGNames::maskContentUnitsAttr ||
         attrName == SVGNames::xAttr || attrName == SVGNames::yAttr ||
         attrName == SVGNames::widthAttr || attrName == SVGNames::heightAttr ||
@@ -116,8 +113,7 @@ void SVGMaskElement::svgAttributeChanged(const QualifiedName& attrName)
         SVGLangSpace::isKnownAttribute(attrName) ||
         SVGExternalResourcesRequired::isKnownAttribute(attrName) ||
         SVGStyledElement::isKnownAttribute(attrName))
-        for (HashMap<const RenderObject*, RefPtr<SVGResourceMasker> >::iterator it = m_masker.begin(); it != m_masker.end(); ++it)
-            it->second->invalidate();
+        invalidateCanvasResources();
 }
 
 void SVGMaskElement::synchronizeProperty(const QualifiedName& attrName)
@@ -151,12 +147,7 @@ void SVGMaskElement::synchronizeProperty(const QualifiedName& attrName)
 void SVGMaskElement::childrenChanged(bool changedByParser, Node* beforeChange, Node* afterChange, int childCountDelta)
 {
     SVGStyledElement::childrenChanged(changedByParser, beforeChange, afterChange, childCountDelta);
-
-    if (m_masker.isEmpty())
-        return;
-
-    for (HashMap<const RenderObject*, RefPtr<SVGResourceMasker> >::iterator it = m_masker.begin(); it != m_masker.end(); ++it)
-        it->second->invalidate();
+    invalidateCanvasResources();
 }
 
 FloatRect SVGMaskElement::maskBoundingBox(const FloatRect& objectBoundingBox) const
@@ -198,7 +189,7 @@ PassOwnPtr<ImageBuffer> SVGMaskElement::drawMaskerContent(const RenderObject* ob
         repaintRect.unite(node->renderer()->localToParentTransform().mapRect(node->renderer()->repaintRectInLocalCoordinates()));
     }
 
-    TransformationMatrix contextTransform;
+    AffineTransform contextTransform;
     // We need to scale repaintRect for objectBoundingBox to get the drawing area.
     if (maskContentUnits() == SVGUnitTypes::SVG_UNIT_TYPE_OBJECTBOUNDINGBOX) {
         contextTransform.scaleNonUniform(objectBoundingBox.width(), objectBoundingBox.height());
@@ -283,6 +274,15 @@ SVGResource* SVGMaskElement::canvasResource(const RenderObject* object)
     m_masker.set(object, masker.release());
 
     return maskerPtr;
+}
+
+void SVGMaskElement::invalidateCanvasResources()
+{
+    // Don't call through to the base class since the base class will just
+    // invalidate one item in the HashMap. 
+    HashMap<const RenderObject*, RefPtr<SVGResourceMasker> >::const_iterator end = m_masker.end();
+    for (HashMap<const RenderObject*, RefPtr<SVGResourceMasker> >::const_iterator it = m_masker.begin(); it != end; ++it)
+        it->second->invalidate();
 }
 
 }

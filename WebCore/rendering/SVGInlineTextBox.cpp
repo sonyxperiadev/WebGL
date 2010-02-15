@@ -108,9 +108,7 @@ FloatRect SVGInlineTextBox::calculateGlyphBoundaries(RenderStyle* style, int off
     FloatRect glyphRect(x1, y1, x2 - x1, y2 - y1);
 
     // Take per-character transformations into account
-    TransformationMatrix ctm = svgChar.characterTransform();
-    if (!ctm.isIdentity())
-        glyphRect = ctm.mapRect(glyphRect);
+    glyphRect = svgChar.characterTransform().mapRect(glyphRect);
 
     return glyphRect;
 }
@@ -126,7 +124,7 @@ struct SVGInlineTextBoxClosestCharacterToPositionWalker {
     {
     }
 
-    void chunkPortionCallback(SVGInlineTextBox* textBox, int startOffset, const TransformationMatrix& chunkCtm,
+    void chunkPortionCallback(SVGInlineTextBox* textBox, int startOffset, const AffineTransform& chunkCtm,
                               const Vector<SVGChar>::iterator& start, const Vector<SVGChar>::iterator& end)
     {
         RenderStyle* style = textBox->textRenderer()->style();
@@ -193,7 +191,7 @@ struct SVGInlineTextBoxSelectionRectWalker {
     {
     }
 
-    void chunkPortionCallback(SVGInlineTextBox* textBox, int startOffset, const TransformationMatrix& chunkCtm,
+    void chunkPortionCallback(SVGInlineTextBox* textBox, int startOffset, const AffineTransform& chunkCtm,
                               const Vector<SVGChar>::iterator& start, const Vector<SVGChar>::iterator& end)
     {
         RenderStyle* style = textBox->textRenderer()->style();
@@ -324,6 +322,32 @@ IntRect SVGInlineTextBox::selectionRect(int, int, int startPos, int endPos)
     return enclosingIntRect(walkerCallback.selectionRect());
 }
 
+bool SVGInlineTextBox::chunkSelectionStartEnd(const UChar* chunk, int chunkLength, int& selectionStart, int& selectionEnd)
+{
+    // NOTE: We ignore SVGInlineTextBox::m_start here because it is always 0.
+    //       Curently SVG doesn't use HTML block-level layout, in which m_start would be set.
+
+    int chunkStart = chunk - textRenderer()->characters();
+    ASSERT(0 <= chunkStart);    
+
+    selectionStartEnd(selectionStart, selectionEnd);
+    if (selectionEnd <= chunkStart)
+        return false;
+    if (chunkStart + chunkLength <= selectionStart)
+        return false;
+
+    // Map indices from view-global to chunk-local.
+    selectionStart -= chunkStart;
+    selectionEnd -= chunkStart;
+    // Then clamp with chunk range
+    if (selectionStart < 0)
+        selectionStart = 0;
+    if (chunkLength < selectionEnd)
+        selectionEnd = chunkLength;
+
+    return selectionStart < selectionEnd;
+}
+
 void SVGInlineTextBox::paintCharacters(RenderObject::PaintInfo& paintInfo, int tx, int ty, const SVGChar& svgChar, const UChar* chars, int length, SVGTextPaintInfo& textPaintInfo)
 {
     if (renderer()->style()->visibility() != VISIBLE || paintInfo.phase == PaintPhaseOutline)
@@ -350,7 +374,7 @@ void SVGInlineTextBox::paintCharacters(RenderObject::PaintInfo& paintInfo, int t
     RenderStyle* styleToUse = text->style(isFirstLineStyle());
     const Font& font = styleToUse->font();
 
-    TransformationMatrix ctm = svgChar.characterTransform();
+    AffineTransform ctm = svgChar.characterTransform();
     if (!ctm.isIdentity())
         paintInfo.context->concatCTM(ctm);
 
@@ -376,7 +400,10 @@ void SVGInlineTextBox::paintCharacters(RenderObject::PaintInfo& paintInfo, int t
         }
     }
 
-    if  (textPaintInfo.subphase == SVGTextPaintSubphaseGlyphFill || textPaintInfo.subphase == SVGTextPaintSubphaseGlyphStroke) {
+    bool isGlyphPhase = textPaintInfo.subphase == SVGTextPaintSubphaseGlyphFill || textPaintInfo.subphase == SVGTextPaintSubphaseGlyphStroke;
+    bool isSelectionGlyphPhase = textPaintInfo.subphase == SVGTextPaintSubphaseGlyphFillSelection || textPaintInfo.subphase == SVGTextPaintSubphaseGlyphStrokeSelection;
+
+    if  (isGlyphPhase || isSelectionGlyphPhase) {
         // Set a text shadow if we have one.
         // FIXME: Support multiple shadow effects.  Need more from the CG API before
         // we can do this.
@@ -398,7 +425,21 @@ void SVGInlineTextBox::paintCharacters(RenderObject::PaintInfo& paintInfo, int t
         run.setActivePaintServer(textPaintInfo.activePaintServer);
 #endif
 
-        paintInfo.context->drawText(font, run, origin);
+        int selectionStart = 0;
+        int selectionEnd = 0;
+        bool haveSelectedRange = haveSelection && chunkSelectionStartEnd(chars, length, selectionStart, selectionEnd);
+        
+        if (isGlyphPhase) {
+            if (haveSelectedRange) {
+                paintInfo.context->drawText(font, run, origin, 0, selectionStart);
+                paintInfo.context->drawText(font, run, origin, selectionEnd, run.length());
+            } else
+                paintInfo.context->drawText(font, run, origin);
+        } else {
+            ASSERT(isSelectionGlyphPhase);
+            if (haveSelectedRange)
+                paintInfo.context->drawText(font, run, origin, selectionStart, selectionEnd);
+        }
 
         if (setShadow)
             paintInfo.context->clearShadow();
@@ -523,7 +564,7 @@ void SVGInlineTextBox::paintDecoration(ETextDecoration decoration, GraphicsConte
     context->save();
     context->beginPath();
 
-    TransformationMatrix ctm = svgChar.characterTransform();
+    AffineTransform ctm = svgChar.characterTransform();
     if (!ctm.isIdentity())
         context->concatCTM(ctm);
 

@@ -123,10 +123,8 @@ struct CStringTranslator {
 
 PassRefPtr<UString::Rep> Identifier::add(JSGlobalData* globalData, const char* c)
 {
-    if (!c) {
-        UString::Rep::null().hash();
-        return &UString::Rep::null();
-    }
+    ASSERT(c);
+
     if (!c[0]) {
         UString::Rep::empty().hash();
         return &UString::Rep::empty();

@@ -44,25 +44,7 @@
 
 namespace WebCore {
 
-v8::Persistent<v8::FunctionTemplate> V8HTMLImageElementConstructor::GetTemplate()
-{
-    static v8::Persistent<v8::FunctionTemplate> cachedTemplate;
-    if (!cachedTemplate.IsEmpty())
-        return cachedTemplate;
-
-    v8::HandleScope scope;
-    v8::Local<v8::FunctionTemplate> result = v8::FunctionTemplate::New(USE_CALLBACK(HTMLImageElementConstructor));
-
-    v8::Local<v8::ObjectTemplate> instance = result->InstanceTemplate();
-    instance->SetInternalFieldCount(V8HTMLImageElement::internalFieldCount);
-    result->SetClassName(v8::String::New("HTMLImageElement"));
-    result->Inherit(V8DOMWrapper::getTemplate(V8ClassIndex::HTMLIMAGEELEMENT));
-
-    cachedTemplate = v8::Persistent<v8::FunctionTemplate>::New(result);
-    return cachedTemplate;
-}
-
-v8::Handle<v8::Value> V8Custom::v8HTMLImageElementConstructorCallback(const v8::Arguments& args)
+static v8::Handle<v8::Value> v8HTMLImageElementConstructorCallback(const v8::Arguments& args)
 {
     INC_STATS("DOM.HTMLImageElement.Contructor");
 
@@ -88,10 +70,28 @@ v8::Handle<v8::Value> V8Custom::v8HTMLImageElementConstructorCallback(const v8::
             image->setHeight(toInt32(args[1]));
     }
 
-    V8DOMWrapper::setDOMWrapper(args.Holder(), V8ClassIndex::ToInt(V8ClassIndex::NODE), image.get());
+    V8DOMWrapper::setDOMWrapper(args.Holder(), V8ClassIndex::ToInt(V8ClassIndex::IMAGE), image.get());
     image->ref();
     V8DOMWrapper::setJSWrapperForDOMNode(image.get(), v8::Persistent<v8::Object>::New(args.Holder()));
     return args.Holder();
+}
+
+v8::Persistent<v8::FunctionTemplate> V8HTMLImageElementConstructor::GetTemplate()
+{
+    static v8::Persistent<v8::FunctionTemplate> cachedTemplate;
+    if (!cachedTemplate.IsEmpty())
+        return cachedTemplate;
+
+    v8::HandleScope scope;
+    v8::Local<v8::FunctionTemplate> result = v8::FunctionTemplate::New(v8HTMLImageElementConstructorCallback);
+
+    v8::Local<v8::ObjectTemplate> instance = result->InstanceTemplate();
+    instance->SetInternalFieldCount(V8HTMLImageElement::internalFieldCount);
+    result->SetClassName(v8::String::New("HTMLImageElement"));
+    result->Inherit(V8HTMLImageElement::GetTemplate());
+
+    cachedTemplate = v8::Persistent<v8::FunctionTemplate>::New(result);
+    return cachedTemplate;
 }
 
 } // namespace WebCore

@@ -50,13 +50,13 @@ namespace WebCore {
     class InspectorController;
     class InspectorResource;
     class Node;
-    class ScriptFunctionCall;
     class ScriptString;
+    class SerializedScriptValue;
     class Storage;
 
     class InspectorFrontend : public Noncopyable {
     public:
-        InspectorFrontend(InspectorController* inspectorController, ScriptState*, ScriptObject webInspector);
+        InspectorFrontend(InspectorController* inspectorController, ScriptObject webInspector);
         ~InspectorFrontend();
 
         ScriptArray newScriptArray();
@@ -88,16 +88,18 @@ namespace WebCore {
         void attachDebuggerWhenShown();
         void debuggerWasEnabled();
         void debuggerWasDisabled();
-        void profilerWasEnabled();
-        void profilerWasDisabled();
         void parsedScriptSource(const JSC::SourceCode&);
         void failedToParseScriptSource(const JSC::SourceCode&, int errorLine, const JSC::UString& errorMessage);
+        void pausedScript(SerializedScriptValue* callFrames);
+        void resumedScript();
+#endif
+#if ENABLE(JAVASCRIPT_DEBUGGER)
+        void profilerWasEnabled();
+        void profilerWasDisabled();
         void addProfileHeader(const ScriptValue& profile);
         void setRecordingProfile(bool isProfiling);
         void didGetProfileHeaders(int callId, const ScriptArray& headers);
         void didGetProfile(int callId, const ScriptValue& profile);
-        void pausedScript(const String& callFrames);
-        void resumedScript();
 #endif
 
 #if ENABLE(DATABASE)
@@ -132,20 +134,19 @@ namespace WebCore {
         void addRecordToTimeline(const ScriptObject&);
 
         void didGetCookies(int callId, const ScriptArray& cookies, const String& cookiesString);
-        void didDispatchOnInjectedScript(int callId, const String& result, bool isException);
+        void didDispatchOnInjectedScript(int callId, SerializedScriptValue* result, bool isException);
 
         void addNodesToSearchResult(const String& nodeIds);
 
         void contextMenuItemSelected(int itemId);
         void contextMenuCleared();
 
-        ScriptState* scriptState() const { return m_scriptState; }
+        ScriptState* scriptState() const { return m_webInspector.scriptState(); }
 
         void evaluateForTestInFrontend(int callId, const String& script);
     private:
         void callSimpleFunction(const String& functionName);
         InspectorController* m_inspectorController;
-        ScriptState* m_scriptState;
         ScriptObject m_webInspector;
     };
 

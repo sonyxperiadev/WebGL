@@ -112,6 +112,7 @@
                 'public/WebEventListener.h',
                 'public/WebFileChooserCompletion.h',
                 'public/WebFileChooserParams.h',
+                'public/WebFileInfo.h',
                 'public/WebFindOptions.h',
                 'public/WebFrame.h',
                 'public/WebFrameClient.h',
@@ -199,6 +200,8 @@
                 'src/AssertMatchingEnums.cpp',
                 'src/AutocompletePopupMenuClient.cpp',
                 'src/AutocompletePopupMenuClient.h',
+                'src/AutoFillPopupMenuClient.cpp',
+                'src/AutoFillPopupMenuClient.h',
                 'src/BackForwardListClientImpl.cpp',
                 'src/BackForwardListClientImpl.h',
                 'src/BoundObject.cpp',
@@ -257,6 +260,8 @@
                 'src/StorageEventDispatcherImpl.h',
                 'src/StorageNamespaceProxy.cpp',
                 'src/StorageNamespaceProxy.h',
+                'src/SuggestionsPopupMenuClient.cpp',
+                'src/SuggestionsPopupMenuClient.h',
                 'src/TemporaryGlue.h',
                 'src/ToolsAgent.h',
                 'src/WebAccessibilityCache.cpp',
@@ -452,6 +457,14 @@
                 'tests/KeyboardTest.cpp',
                 'tests/KURLTest.cpp',
                 'tests/RunAllTests.cpp',
+            ],
+            'conditions': [
+                ['OS=="win"', {
+                    'sources': [
+                        'tests/TransparencyWinTest.cpp',
+                        'tests/UniscribeHelperTest.cpp',
+                    ],
+                }],
             ],
         },
     ], # targets

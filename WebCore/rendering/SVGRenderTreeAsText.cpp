@@ -179,7 +179,7 @@ TextStream& operator<<(TextStream& ts, const FloatSize& s)
     return ts;
 }
 
-TextStream& operator<<(TextStream& ts, const TransformationMatrix& transform)
+TextStream& operator<<(TextStream& ts, const AffineTransform& transform)
 {
     if (transform.isIdentity())
         ts << "identity";
@@ -310,7 +310,7 @@ static void writeStyle(TextStream& ts, const RenderObject& object)
 
 static TextStream& writePositionAndStyle(TextStream& ts, const RenderObject& object)
 {
-    ts << " " << object.absoluteTransform().mapRect(object.repaintRectInLocalCoordinates());
+    ts << " " << const_cast<RenderObject&>(object).absoluteClippedOverflowRect();
     writeStyle(ts, object);
     return ts;
 }

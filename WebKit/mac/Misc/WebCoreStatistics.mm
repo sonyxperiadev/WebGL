@@ -93,6 +93,21 @@ using namespace WebCore;
     return result;
 }
 
++ (NSCountedSet *)javaScriptObjectTypeCounts
+{
+    JSLock lock(SilenceAssertionsOnly);
+    
+    NSCountedSet *result = [NSCountedSet set];
+
+    OwnPtr<HashCountedSet<const char*> > counts(JSDOMWindow::commonJSGlobalData()->heap.objectTypeCounts());
+    HashCountedSet<const char*>::iterator end = counts->end();
+    for (HashCountedSet<const char*>::iterator it = counts->begin(); it != end; ++it)
+        for (unsigned i = 0; i < it->second; ++i)
+            [result addObject:[NSString stringWithUTF8String:it->first]];
+    
+    return result;
+}
+
 + (void)garbageCollectJavaScriptObjects
 {
     gcController().garbageCollectNow();
@@ -254,6 +269,11 @@ using namespace WebCore;
 - (int)pageNumberForElement:(DOMElement*)element:(float)pageWidthInPixels:(float)pageHeightInPixels
 {
     return PrintContext::pageNumberForElement(core(element), FloatSize(pageWidthInPixels, pageHeightInPixels));
+}
+
+- (int)numberOfPages:(float)pageWidthInPixels:(float)pageHeightInPixels
+{
+    return PrintContext::numberOfPages(_private->coreFrame, FloatSize(pageWidthInPixels, pageHeightInPixels));
 }
 
 @end

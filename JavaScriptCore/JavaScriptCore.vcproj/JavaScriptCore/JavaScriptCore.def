@@ -32,7 +32,6 @@ EXPORTS
     ??1ThreadCondition@WTF@@QAE@XZ
     ??1UStringImpl@JSC@@AAE@XZ
     ??2JSGlobalObject@JSC@@SAPAXIPAVJSGlobalData@1@@Z
-    ??4UString@JSC@@QAEAAV01@PBD@Z
     ??8JSC@@YA_NABVUString@0@0@Z
     ?NaN@JSC@@3NB
     ?UTF8String@UString@JSC@@QBE?AVCString@2@_N@Z
@@ -126,6 +125,7 @@ EXPORTS
     ?fastFree@WTF@@YAXPAX@Z
     ?fastMalloc@WTF@@YAPAXI@Z
     ?fastRealloc@WTF@@YAPAXPAXI@Z
+    ?fastStrDup@WTF@@YAPADPBD@Z
     ?fastZeroedMalloc@WTF@@YAPAXI@Z
     ?fillGetterPropertySlot@JSObject@JSC@@QAEXAAVPropertySlot@2@PAVJSValue@2@@Z
     ?focus@Profile@JSC@@QAEXPBVProfileNode@2@@Z

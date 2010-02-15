@@ -35,10 +35,8 @@
 
 #include "DOMTimer.h"
 #include "ExceptionCode.h"
-#include "RuntimeEnabledFeatures.h"
 #include "ScheduledAction.h"
 #include "V8Binding.h"
-#include "V8CustomBinding.h"
 #include "V8Proxy.h"
 #include "V8Utilities.h"
 #include "V8WorkerContextEventListener.h"
@@ -47,20 +45,6 @@
 #include "WorkerContextExecutionProxy.h"
 
 namespace WebCore {
-
-#if ENABLE(NOTIFICATIONS)
-bool V8WorkerContext::WebkitNotificationsEnabled()
-{
-    return RuntimeEnabledFeatures::notificationsEnabled();
-}
-#endif
-
-#if ENABLE(WEB_SOCKETS)
-bool V8WorkerContext::WebSocketEnabled()
-{
-    return WebSocket::isAvailable();
-}
-#endif
 
 v8::Handle<v8::Value> SetTimeoutOrInterval(const v8::Arguments& args, bool singleShot)
 {
@@ -172,6 +156,16 @@ v8::Handle<v8::Value> V8WorkerContext::removeEventListenerCallback(const v8::Arg
         removeHiddenDependency(args.Holder(), args[1], cacheIndex);
     }
     return v8::Undefined();
+}
+
+v8::Handle<v8::Value> toV8(WorkerContext* impl)
+{
+    if (!impl)
+        return v8::Null();
+
+    v8::Handle<v8::Object> global = impl->script()->proxy()->context()->Global();
+    ASSERT(!global.IsEmpty());
+    return global;
 }
 
 } // namespace WebCore

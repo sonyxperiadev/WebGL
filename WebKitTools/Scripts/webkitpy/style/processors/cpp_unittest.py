@@ -381,10 +381,6 @@ class CppStyleTest(CppStyleTestBase):
         # dynamic_cast is disallowed in most files.
         self.assert_language_rules_check('foo.cpp', statement, error_message)
         self.assert_language_rules_check('foo.h', statement, error_message)
-        # It is explicitly allowed in tests, however.
-        self.assert_language_rules_check('foo_test.cpp', statement, '')
-        self.assert_language_rules_check('foo_unittest.cpp', statement, '')
-        self.assert_language_rules_check('foo_regtest.cpp', statement, '')
 
     # We cannot test this functionality because of difference of
     # function definitions.  Anyway, we may never enable this.
@@ -2056,16 +2052,6 @@ class OrderOfIncludesTest(CppStyleTestBase):
                                          '#include <assert.h>\n',
                                          '')
 
-    def test_webkit_api_test_excluded(self):
-        self.assert_language_rules_check('WebKitTools/WebKitAPITest/Test.h',
-                                         '#include "foo.h"\n',
-                                         '')
-
-    def test_webkit_api_test_excluded(self):
-        self.assert_language_rules_check('WebKit/qt/QGVLauncher/main.cpp',
-                                         '#include "foo.h"\n',
-                                         '')
-
     def test_check_line_break_after_own_header(self):
         self.assert_language_rules_check('foo.cpp',
                                          '#include "config.h"\n'
@@ -3602,9 +3588,6 @@ class WebKitStyleTest(CppStyleTestBase):
         # GObject requires certain magical names in class declarations.
         self.assert_lint('void webkit_dom_object_init();', '')
         self.assert_lint('void webkit_dom_object_class_init();', '')
-
-        # The GTK+ APIs use GTK+ naming style, which includes lower-cased, _-separated values.
-        self.assert_lint('void this_is_a_gtk_style_name(int var1, int var2)', '', 'WebKit/gtk/webkit/foo.cpp')
 
         # There is an exception for some unit tests that begin with "tst_".
         self.assert_lint('void tst_QWebFrame::arrayObjectEnumerable(int var1, int var2)', '')

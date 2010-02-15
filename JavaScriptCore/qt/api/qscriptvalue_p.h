@@ -24,6 +24,8 @@
 #include "qscriptengine_p.h"
 #include "qscriptvalue.h"
 #include <JavaScriptCore/JavaScript.h>
+#include <QtCore/qmath.h>
+#include <QtCore/qnumeric.h>
 #include <QtCore/qshareddata.h>
 #include <QtCore/qvarlengtharray.h>
 
@@ -337,7 +339,7 @@ bool QScriptValuePrivate::isNumber()
 {
     switch (m_state) {
     case CNumber:
-        return m_number;
+        return true;
     case JSValue:
         if (isObject())
             return false;
@@ -468,20 +470,30 @@ QString QScriptValuePrivate::toString() const
 
 qsreal QScriptValuePrivate::toNumber() const
 {
-    // TODO Check it.
     switch (m_state) {
     case JSValue:
     case JSNative:
     case JSObject:
         return JSValueToNumber(context(), value(), /* exception */ 0);
     case CNumber:
-    case CBool:
         return m_number;
+    case CBool:
+        return m_number ? 1 : 0;
     case Invalid:
+        return 0;
     case CSpecial:
-        return false;
+        return m_number == QScriptValue::NullValue ? 0 : qQNaN();
     case CString:
-        return m_string.isEmpty();
+        bool ok;
+        qsreal result = m_string.toDouble(&ok);
+        if (ok)
+            return result;
+        result = m_string.toInt(&ok, 0); // Try other bases.
+        if (ok)
+            return result;
+        if (m_string == "Infinity" || m_string == "-Infinity")
+            return qInf();
+        return m_string.length() ? qQNaN() : 0;
     }
 
     Q_ASSERT_X(false, "toNumber()", "Not all states are included in the previous switch statement.");
@@ -493,16 +505,18 @@ bool QScriptValuePrivate::toBool() const
     switch (m_state) {
     case JSValue:
     case JSNative:
-    case JSObject:
         return JSValueToBoolean(context(), value());
+    case JSObject:
+        return true;
     case CNumber:
+        return !(qIsNaN(m_number) || !m_number);
     case CBool:
         return m_number;
     case Invalid:
     case CSpecial:
         return false;
     case CString:
-        return m_string.isEmpty();
+        return m_string.length();
     }
 
     Q_ASSERT_X(false, "toBool()", "Not all states are included in the previous switch statement.");

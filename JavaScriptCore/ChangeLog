@@ -1,3 +1,809 @@
+2010-02-12  Janne Koskinen  <janne.p.koskinen@digia.com>
+
+        Reviewed by Tor Arne Vestbø.
+
+        Additional refptr/passrefptr workarounds for WINSCW compiler
+        https://bugs.webkit.org/show_bug.cgi?id=28054
+
+        * wtf/PassRefPtr.h:
+        (WTF::refIfNotNull):
+        (WTF::PassRefPtr::PassRefPtr):
+        (WTF::PassRefPtr::~PassRefPtr):
+        (WTF::PassRefPtr::clear):
+        (WTF::::operator):
+        * wtf/RefPtr.h:
+        (WTF::RefPtr::RefPtr):
+        (WTF::::operator):
+
+2010-02-12  Janne Koskinen  <janne.p.koskinen@digia.com>
+
+        Reviewed by Simon Hausmann.
+
+        Don't import the cmath functions from std:: for WINSCW.
+
+        * wtf/MathExtras.h:
+
+2010-02-12  Kwang Yul Seo  <skyul@company100.net>
+
+        Reviewed by Adam Barth.
+
+        Typedef both JSChar and UChar to wchar_t in RVCT.
+        https://bugs.webkit.org/show_bug.cgi?id=34560
+
+        Define both JSChar and UChar to wchar_t as the size
+        of wchar_t is 2 bytes in RVCT.
+
+        * API/JSStringRef.h:
+        * wtf/unicode/qt4/UnicodeQt4.h:
+
+2010-02-11  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Oliver Hunt and Darin Adler.
+
+        The rest of the fix for
+        https://bugs.webkit.org/show_bug.cgi?id=34864 | <rdar://problem/7594198>
+        Many objects left uncollected after visiting mail.google.com and closing
+        window
+        
+        Don't unconditionally hang onto small strings. Instead, hang onto all
+        small strings as long as any small string is still referenced.
+        
+        SunSpider reports no change.
+
+        * runtime/Collector.cpp:
+        (JSC::Heap::markRoots): Mark the small strings cache last, so it can
+        check if anything else has kept any strings alive.
+
+        * runtime/SmallStrings.cpp:
+        (JSC::isMarked):
+        (JSC::SmallStrings::markChildren): Only keep our strings alive if some
+        other reference to at least one of them exists, too.
+
+2010-02-11  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Gavin Barraclough.
+
+        Some progress toward fixing
+        https://bugs.webkit.org/show_bug.cgi?id=34864 | <rdar://problem/7594198>
+        Many objects left uncollected after visiting mail.google.com and closing
+        window
+        
+        SunSpider reports no change.
+        
+        Keep weak references, rather than protected references, to cached for-in
+        property name enumerators.
+        
+        One problem with protected references is that a chain like 
+            [ gc object 1 ] => [ non-gc object ] => [ gc object 2 ]
+        takes two GC passes to break, since the first pass collects [ gc object 1 ],
+        releasing [ non-gc object ] and unprotecting [ gc object 2 ], and only
+        then can a second pass collect [ gc object 2 ].
+        
+        Another problem with protected references is that they can keep a bunch
+        of strings alive long after they're useful. In SunSpider and a few popular
+        websites, the size-speed tradeoff seems to favor weak references.
+
+        * runtime/JSPropertyNameIterator.cpp:
+        (JSC::JSPropertyNameIterator::JSPropertyNameIterator): Moved this constructor
+        into the .cpp file, since it's not used elsewhere.
+
+        (JSC::JSPropertyNameIterator::~JSPropertyNameIterator): Added a destructor
+        to support our weak reference.
+
+        * runtime/JSPropertyNameIterator.h:
+        (JSC::Structure::setEnumerationCache):
+        (JSC::Structure::clearEnumerationCache):
+        (JSC::Structure::enumerationCache): Added a function for clearing a
+        Structure's enumeration cache, used by our new destructor. Also fixed
+        indentation to match the rest of the file.
+
+        * runtime/Structure.h: Changed from protected pointer to weak pointer.
+
+2010-02-11  Chris Rogers  <crogers@google.com>
+
+        Reviewed by David Levin.
+
+        audio engine: add Complex number class
+        https://bugs.webkit.org/show_bug.cgi?id=34538
+
+        * wtf/Complex.h: Added.
+        (WebCore::complexFromMagnitudePhase):
+
+2010-02-10  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        Added an SPI for asking about all the different live objects on the heap.
+        Useful for memory debugging.
+
+        * JavaScriptCore.exp: Export the new SPI.
+
+        * runtime/Collector.cpp:
+        (JSC::typeName): Use a little capitalization. Don't crash in the case of
+        a non-object cell, since it might just be an uninitialized cell.
+
+        (JSC::Heap::objectTypeCounts): The new SPI.
+
+        * runtime/Collector.h:
+        * runtime/CollectorHeapIterator.h:
+        (JSC::CollectorHeapIterator::advance):
+        (JSC::LiveObjectIterator::operator++):
+        (JSC::DeadObjectIterator::operator++):
+        (JSC::ObjectIterator::operator++): Made 2 tweaks to these iterators:
+        (1) Skip the last cell in the block, since it's a dummy sentinel, and
+        we don't want it to confuse the object count; (2) Fixed a logic error
+        in LiveObjectIterator that could cause it to iterate dead objects if
+        m_block were equal to m_heap.nextBlock and m_cell were less than
+        m_heap.nextCell. No test for this since I can't think of a way that this
+        could make WebKit behave badly.
+
+2010-02-11  Steve Block  <steveblock@google.com>
+
+        Reviewed by Darin Adler.
+
+        Guard cmath using declarations in MathExtras.h on Android
+        https://bugs.webkit.org/show_bug.cgi?id=34840
+
+        Android does not provide these functions.
+
+        * wtf/MathExtras.h:
+
+2010-02-08  Maciej Stachowiak  <mjs@apple.com>
+
+        Reviewed by Cameron Zwarich.
+
+        Restore ENABLE_RUBY flag so vendors can ship with Ruby disabled if they choose.
+        https://bugs.webkit.org/show_bug.cgi?id=34698
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2010-02-10  Kevin Watters  <kevinwatters@gmail.com>
+
+        Reviewed by Kevin Ollivier.
+
+        [wx] Add Windows complex text support and Mac support for containsCharacters.
+        
+        https://bugs.webkit.org/show_bug.cgi?id=34759
+
+        * wscript:
+
+2010-02-10  Alexey Proskuryakov  <ap@apple.com>
+
+        Addressing issues found by style bot.
+
+        * wtf/ValueCheck.h: Renamed header guard to match final file name.
+
+        * wtf/Vector.h: (WTF::::checkConsistency): Remove braces around a one-line clause.
+
+2010-02-09  Alexey Proskuryakov  <ap@apple.com>
+
+        Reviewed by Geoffrey Garen.
+
+        https://bugs.webkit.org/show_bug.cgi?id=34490
+        WebCore::ImageEventSender::dispatchPendingEvents() crashes in certain conditions
+
+        * GNUmakefile.am:
+        * JavaScriptCore.gypi:
+        * JavaScriptCore.vcproj/WTF/WTF.vcproj:
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        Added ValueCheck.h.
+
+        * wtf/ValueCheck.h: Added. Moved code out of HashTraits, since it would be awkward to
+        include that from Vector.h.
+        (WTF::ValueCheck::checkConsistency): Allow null pointers, those are pretty consistent.
+
+        * wtf/HashTraits.h: Moved value checking code out of here.
+
+        * wtf/HashTable.h: (WTF::::checkTableConsistencyExceptSize): Updated for the above changes.
+
+        * wtf/Vector.h:
+        (WTF::::checkConsistency): Check all vector elements.
+        (WTF::ValueCheck): Support checking a Vector as an element in other containers. Currently
+        unused.
+
+2010-02-10  Jedrzej Nowacki  <jedrzej.nowacki@nokia.com>
+
+        Reviewed by Simon Hausmann.
+
+        Fix QScriptValue::toBool.
+
+        Fix ECMA compliance in the QScriptValue for values like 0, NaN and
+        empty strings.
+
+        [Qt] QScriptValue::toBool problem
+        https://bugs.webkit.org/show_bug.cgi?id=34793
+
+        * qt/api/qscriptvalue_p.h:
+        (QScriptValuePrivate::toBool):
+        * qt/tests/qscriptvalue/tst_qscriptvalue.h:
+        * qt/tests/qscriptvalue/tst_qscriptvalue_generated.cpp:
+        (tst_QScriptValue::toBool_initData):
+        (tst_QScriptValue::toBool_makeData):
+        (tst_QScriptValue::toBool_test):
+        (tst_QScriptValue::toBoolean_initData):
+        (tst_QScriptValue::toBoolean_makeData):
+        (tst_QScriptValue::toBoolean_test):
+
+2009-10-06  Yongjun Zhang  <yongjun.zhang@nokia.com>
+
+        Reviewed by Simon Hausmann.
+
+        Use derefIfNotNull() to work around WINSCW compiler forward declaration bug
+
+        The compiler bug is reported at
+        https://xdabug001.ext.nokia.com/bugzilla/show_bug.cgi?id=9812.
+
+        The change should be reverted when the above bug is fixed in WINSCW compiler.
+
+        https://bugs.webkit.org/show_bug.cgi?id=28054
+
+2009-10-06  Yongjun Zhang  <yongjun.zhang@nokia.com>
+
+        Reviewed by Simon Hausmann.
+
+        Get rid of WINSCW hack for UnSpecifiedBoolType
+
+        Add parenthesis around (RefPtr::*UnspecifiedBoolType) to make the WINSCW
+        compiler work with the default UnSpecifiedBoolType() operator.
+
+        https://bugs.webkit.org/show_bug.cgi?id=28054
+
+        * wtf/RefPtr.h:
+
+2010-02-09  Jedrzej Nowacki  <jedrzej.nowacki@nokia.com>
+
+        Reviewed by Simon Hausmann.
+
+        New functions nullValue() and undefinedValue().
+
+        [Qt] QScriptEngine should contain nullValue and undefinedValue methods
+        https://bugs.webkit.org/show_bug.cgi?id=34749
+
+        * qt/api/qscriptengine.cpp:
+        (QScriptEngine::nullValue):
+        (QScriptEngine::undefinedValue):
+        * qt/api/qscriptengine.h:
+        * qt/tests/qscriptengine/tst_qscriptengine.cpp:
+        (tst_QScriptEngine::nullValue):
+        (tst_QScriptEngine::undefinedValue):
+
+2010-02-09  Jedrzej Nowacki  <jedrzej.nowacki@nokia.com>
+
+        Reviewed by Simon Hausmann.
+
+        Fixes for QScriptValue::toNumber().
+
+        Fix ECMA compliance in QScriptValue for values unbound
+        to a QScriptEngine.
+
+        [Qt] QScriptValue::toNumber() is broken
+        https://bugs.webkit.org/show_bug.cgi?id=34592
+
+        * qt/api/qscriptvalue_p.h:
+        (QScriptValuePrivate::toNumber):
+        * qt/tests/qscriptvalue/tst_qscriptvalue.h:
+        * qt/tests/qscriptvalue/tst_qscriptvalue_generated.cpp:
+        (tst_QScriptValue::toNumber_initData):
+        (tst_QScriptValue::toNumber_makeData):
+        (tst_QScriptValue::toNumber_test):
+
+2010-02-09  Jedrzej Nowacki  <jedrzej.nowacki@nokia.com>
+
+        Reviewed by Simon Hausmann.
+
+        Fix QScriptValue::isNumber().
+
+        The isNumber() should return 'true' if the value is in the CNumber
+        state.
+
+        [Qt] QScriptValue::isNumber() returns an incorrect value
+        https://bugs.webkit.org/show_bug.cgi?id=34575
+
+        * qt/api/qscriptvalue_p.h:
+        (QScriptValuePrivate::isNumber):
+        * qt/tests/qscriptvalue/tst_qscriptvalue.h:
+        * qt/tests/qscriptvalue/tst_qscriptvalue_generated.cpp:
+        (tst_QScriptValue::isNumber_initData):
+        (tst_QScriptValue::isNumber_makeData):
+        (tst_QScriptValue::isNumber_test):
+
+2010-02-09  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        Small refactoring to the small strings cache to allow it to be cleared
+        dynamically.
+
+        * runtime/SmallStrings.cpp:
+        (JSC::SmallStrings::SmallStrings):
+        (JSC::SmallStrings::clear):
+        * runtime/SmallStrings.h: Moved initialization code into a shared function,
+        and changed the constructor to call it.
+
+2010-02-09  Gavin Barraclough  <barraclough@apple.com>
+
+        Rubber Stamped by Geoff Garen.
+
+        Rename StringBuilder::release && JSStringBuilder::releaseJSString
+        to 'build()'.
+
+        * runtime/ArrayPrototype.cpp:
+        (JSC::arrayProtoFuncToLocaleString):
+        (JSC::arrayProtoFuncJoin):
+        * runtime/Executable.cpp:
+        (JSC::FunctionExecutable::paramString):
+        * runtime/FunctionConstructor.cpp:
+        (JSC::constructFunction):
+        * runtime/JSGlobalObjectFunctions.cpp:
+        (JSC::encode):
+        (JSC::decode):
+        (JSC::globalFuncEscape):
+        (JSC::globalFuncUnescape):
+        * runtime/JSONObject.cpp:
+        (JSC::Stringifier::stringify):
+        * runtime/JSStringBuilder.h:
+        (JSC::JSStringBuilder::build):
+        * runtime/LiteralParser.cpp:
+        (JSC::LiteralParser::Lexer::lexString):
+        * runtime/NumberPrototype.cpp:
+        (JSC::integerPartNoExp):
+        (JSC::numberProtoFuncToFixed):
+        * runtime/StringBuilder.h:
+        (JSC::StringBuilder::build):
+
+2010-02-09  John Sullivan  <sullivan@apple.com>
+
+        https://bugs.webkit.org/show_bug.cgi?id=34772
+        Overzealous new assertion in URStringImpl::adopt()
+
+        Reviewed by Adam Barth.
+
+        * runtime/UStringImpl.h:
+        (JSC::UStringImpl::adopt):
+        Only assert that vector.data() is non-zero if vector.size() is non-zero.
+
+2010-02-09  Nikolas Zimmermann  <nzimmermann@rim.com>
+
+        Not reviewed. Try to fix build problem on SnowLeopard slaves to bring them back.
+
+        * API/JSClassRef.cpp:
+        (tryCreateStringFromUTF8): Mark method as 'static inline' to suppress "warning: no previous prototype for ..."
+
+2010-02-09  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        Three small string fixes:
+        (1) StringBuilder::release should CRASH if the buffer allocation failed.
+        (2) Remove weird, dead code from JSString::tryGetValue, replace with an ASSERT.
+        (3) Move UString::createFromUTF8 out to the API, as tryCreateStringFromUTF8.
+            This is only used from the API, and (now) unlike other UString::create
+            methods may return UString::null() to indicate failure cases.  Better
+            handle these in the API.
+
+        * API/JSClassRef.cpp:
+        (tryCreateStringFromUTF8):
+        (OpaqueJSClass::OpaqueJSClass):
+        (OpaqueJSClassContextData::OpaqueJSClassContextData):
+        * runtime/JSString.h:
+        (JSC::Fiber::tryGetValue):
+        * runtime/StringBuilder.h:
+        (JSC::StringBuilder::release):
+        * runtime/UString.cpp:
+        (JSC::UString::UString):
+        (JSC::UString::from):
+        (JSC::UString::find):
+        * runtime/UString.h:
+
+2010-02-09  Janne Koskinen  <janne.p.koskinen@digia.com>
+
+        Reviewed by Laszlo Gombos.
+
+        [Qt] use nanval() for Symbian as nonInlineNaN
+        https://bugs.webkit.org/show_bug.cgi?id=34170
+
+        numeric_limits<double>::quiet_NaN is broken in Symbian
+        causing NaN to be evaluated as a number.
+
+        * runtime/JSValue.cpp:
+        (JSC::nonInlineNaN):
+
+2010-02-09  Tamas Szirbucz  <szirbucz@inf.u-szeged.hu>
+
+        Reviewed by Gavin Barraclough.
+
+        Add a soft modulo operation to ARM JIT using a trampoline function.
+        The performance progression is about ~1.8% on ARMv7
+        https://bugs.webkit.org/show_bug.cgi?id=34424
+
+        Developed in cooperation with Gabor Loki.
+
+        * jit/JIT.h:
+        * jit/JITArithmetic.cpp:
+        (JSC::JIT::emit_op_mod):
+        (JSC::JIT::emitSlow_op_mod):
+        * jit/JITOpcodes.cpp:
+        (JSC::JIT::softModulo):
+        * jit/JITStubs.h:
+        (JSC::JITThunks::ctiSoftModulo):
+        * wtf/Platform.h:
+
+2010-02-08  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by NOBODY (SL/win build fixes).
+
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.def:
+        * runtime/StringPrototype.cpp:
+
+2010-02-08  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Oliver Hunt
+
+        Make String.replace throw an exception on out-of-memory, rather than
+        returning a null (err, empty-ish) string.  Move String::replaceRange
+        and String::spliceSubstringsWithSeparators out to StringPrototype -
+        these were fairly specific use anyway, and we can better integrate
+        throwing the JS expcetion this way.
+
+        Also removes redundant assignment operator from UString.
+
+        * JavaScriptCore.exp:
+        * runtime/StringPrototype.cpp:
+        (JSC::StringRange::StringRange):
+        (JSC::jsSpliceSubstringsWithSeparators):
+        (JSC::jsReplaceRange):
+        (JSC::stringProtoFuncReplace):
+        * runtime/UString.cpp:
+        * runtime/UString.h:
+
+2010-02-08  Kwang Yul Seo  <skyul@company100.net>
+
+        Reviewed by Eric Seidel.
+
+        [BREWMP] Undefine WTF_OS_WINDOWS and WTF_PLATFORM_WIN
+        https://bugs.webkit.org/show_bug.cgi?id=34561
+
+        As the binary for simulator is built with MSVC 2005,
+        WTF_OS_WINDOWS and WTF_PLATFORM_WIN are defined.
+        Undefine them as we don't target Windows.
+
+        * wtf/Platform.h:
+
+2010-02-08  Chris Rogers  <crogers@google.com>
+
+        Reviewed by Darin Adler.
+
+        audio engine: add Vector3 class
+        https://bugs.webkit.org/show_bug.cgi?id=34548
+
+        * wtf/Vector3.h: Added.
+        (WebCore::Vector3::Vector3):
+        (WebCore::Vector3::abs):
+        (WebCore::Vector3::isZero):
+        (WebCore::Vector3::normalize):
+        (WebCore::Vector3::x):
+        (WebCore::Vector3::y):
+        (WebCore::Vector3::z):
+        (WebCore::operator+):
+        (WebCore::operator-):
+        (WebCore::operator*):
+        (WebCore::dot):
+        (WebCore::cross):
+        (WebCore::distance):
+
+2010-02-08  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Gavin Barraclough.
+
+        Fix warning in clang++
+
+        * runtime/Structure.h:
+        (JSC::Structure::propertyStorageSize):
+
+2010-02-08  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Geoff Garen.
+
+        Make makeString CRASH if we fail to allocate a string.
+
+        (tryMakeString or jsMakeNontrivialString can be used where we
+        expect allocation may fail and want to handle the error).
+
+        * runtime/JSStringBuilder.h:
+        (JSC::jsMakeNontrivialString):
+        * runtime/UString.h:
+        (JSC::tryMakeString):
+        (JSC::makeString):
+
+2010-02-08  Gavin Barraclough  <barraclough@apple.com>
+
+        Rubber Stamped by Oliver Hunt.
+
+        Remove a couple of unnecesary C-style casts spotted by Darin.
+
+        * runtime/JSGlobalObjectFunctions.cpp:
+        (JSC::encode):
+        (JSC::globalFuncEscape):
+
+2010-02-08  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Geoff Garen.
+
+        Switch some more StringBuilder/jsNontrivialString code to use
+        JSStringBuilder/jsMakeNontrivialString - these methods will
+        throw an exception if we hit out-of-memory, rather than just
+        CRASHing.
+
+        * runtime/FunctionPrototype.cpp:
+        (JSC::functionProtoFuncToString):
+        * runtime/JSGlobalObjectFunctions.cpp:
+        (JSC::encode):
+        (JSC::decode):
+        (JSC::globalFuncEscape):
+
+2010-02-08  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Use an empty identifier instead of a null identifier for parse
+        tokens without an identifier.
+
+        This helps encapsulate the null UStringImpl within UString.
+
+        * parser/Grammar.y:
+        * parser/NodeConstructors.h:
+        (JSC::ContinueNode::ContinueNode):
+        (JSC::BreakNode::BreakNode):
+        (JSC::ForInNode::ForInNode):
+        * runtime/CommonIdentifiers.cpp:
+        (JSC::CommonIdentifiers::CommonIdentifiers):
+        * runtime/CommonIdentifiers.h:
+        * runtime/FunctionPrototype.cpp:
+        (JSC::FunctionPrototype::FunctionPrototype):
+
+2010-02-08  Gustavo Noronha Silva  <gustavo.noronha@collabora.co.uk>
+
+        Build fix for make distcheck.
+
+        * GNUmakefile.am:
+
+2010-02-08  Simon Hausmann  <simon.hausmann@nokia.com>
+
+        Unreviewed RVCT build fix.
+
+        Similar to r54391, don't import the cmath functions from std:: for RVCT.
+
+        * wtf/MathExtras.h:
+
+2010-02-05  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Geoff Garen.
+
+        Change UStringImpl::create to CRASH if the string cannot be allocated,
+        rather than returning a null string (which will behave like a zero-length
+        string if used).
+
+        Also move createRep function from UString to become new overloaded
+        UStringImpl::create methods.  In doing so, bring their behaviour closer to
+        being in line with WebCore::StringImpl, in removing the behaviour that they
+        can be used to produce null UStrings (ASSERT the char* provided is non-null).
+        This behaviour of converting null C-strings to null UStrings is inefficient
+        (cmompared to just using UString::null()), incompatible with WebCore::StringImpl's
+        behaviour, and may generate unexpected behaviour, since in many cases a null
+        UString can be used like an empty string.
+
+        With these changes UStringImpl need not have a concept of null impls, we can
+        start transitioning this to become an implementation detail of UString, that
+        internally it chooses to use a null-object rather than an actually zero impl
+        pointer.
+
+        * JavaScriptCore.exp:
+        * debugger/Debugger.cpp:
+        (JSC::Debugger::recompileAllJSFunctions):
+        * debugger/DebuggerCallFrame.cpp:
+        (JSC::DebuggerCallFrame::calculatedFunctionName):
+        * parser/Parser.cpp:
+        (JSC::Parser::parse):
+        * profiler/Profile.cpp:
+        (JSC::Profile::Profile):
+        * profiler/ProfileGenerator.cpp:
+        (JSC::ProfileGenerator::stopProfiling):
+        * runtime/Error.cpp:
+        (JSC::Error::create):
+        (JSC::throwError):
+        * runtime/ExceptionHelpers.cpp:
+        (JSC::createError):
+        * runtime/Identifier.cpp:
+        (JSC::Identifier::add):
+        * runtime/PropertyNameArray.cpp:
+        (JSC::PropertyNameArray::add):
+        * runtime/UString.cpp:
+        (JSC::initializeUString):
+        (JSC::UString::UString):
+        (JSC::UString::operator=):
+        * runtime/UString.h:
+        (JSC::UString::isNull):
+        (JSC::UString::null):
+        (JSC::UString::rep):
+        (JSC::UString::UString):
+        * runtime/UStringImpl.cpp:
+        (JSC::UStringImpl::create):
+        * runtime/UStringImpl.h:
+
+2010-02-05  Kwang Yul Seo  <skyul@company100.net>
+
+        Reviewed by Eric Seidel.
+
+        [BREWMP] Define SYSTEM_MALLOC 1
+        https://bugs.webkit.org/show_bug.cgi?id=34640
+
+        Make BREWMP use system malloc because FastMalloc is not ported.
+
+        * wtf/Platform.h:
+
+2010-02-05  Kwang Yul Seo  <skyul@company100.net>
+
+        Reviewed by Alexey Proskuryakov.
+
+        Don't call CRASH() in fastMalloc and fastCalloc when the requested memory size is 0
+        https://bugs.webkit.org/show_bug.cgi?id=34569
+
+        With USE_SYSTEM_MALLOC=1, fastMalloc and fastCalloc call CRASH()
+        if the return value of malloc and calloc is 0.
+        
+        However, these functions can return 0 when the request size is 0.
+        Libc manual says, "If size is 0, then malloc() returns either NULL,
+        or a unique pointer value that can later be successfully passed to free()."
+        Though malloc returns a unique pointer in most systems,
+        0 can be returned in some systems. For instance, BREW's MALLOC returns 0
+        when size is 0.
+
+        If malloc or calloc returns 0 due to allocation size, increase the size
+        to 1 and try again.
+
+        * wtf/FastMalloc.cpp:
+        (WTF::fastMalloc):
+        (WTF::fastCalloc):
+
+2010-02-04  Mark Rowe  <mrowe@apple.com>
+
+        Reviewed by Timothy Hatcher.
+
+        Build fix.  Remove a symbol corresponding to an inline function from the linker export
+        file to prevent a weak external failure.
+
+        * JavaScriptCore.xcodeproj/project.pbxproj: Accommodate rename of script.
+
+2010-02-04  Daniel Bates  <dbates@webkit.org>
+
+        [Qt] Unreviewed, build fix for Qt bot.
+
+        * runtime/JSStringBuilder.h: Changed #include <X.h> notation #include "X.h".
+
+2010-02-04  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        Clearing a WeakGCPtr is weird
+        https://bugs.webkit.org/show_bug.cgi?id=34627
+
+        Added a WeakGCPtr::clear interface.
+        
+        As discussed in https://bugs.webkit.org/show_bug.cgi?id=33383, the old
+        interface made it pretty weird for a client to conditionally clear a
+        WeakGCPtr, which is exactly what clients want to do when objects are
+        finalized.
+
+        * API/JSClassRef.cpp:
+        (clearReferenceToPrototype): Use the new WeakGCPtr::clear() interface. 
+
+        * runtime/WeakGCPtr.h:
+        (JSC::WeakGCPtr::clear): Added an interface for clearing a WeakGCPtr,
+        iff its current value is the value passed in. It's cumbersome for the
+        client to do this test, since WeakGCPtr sometimes pretends to be null.
+
+2010-02-04  Geoffrey Garen  <ggaren@apple.com>
+
+        Build fix: export a header.
+
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+
+2010-02-04  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        Add a JSStringBuilder class (similar-to, and derived-from StringBuilder) to
+        construct JSStrings, throwing a JS exception should we run out of memory whilst
+        allocating storage for the string.
+
+        Similarly, add jsMakeNontrivialString methods to use in cases where previously
+        we were calling makeString & passing the result to jsNontrivialString.  Again,
+        these new methods throw if we hit an out of memory condition.
+
+        Move throwOutOfMemoryError into ExceptionHelpers, to make it more widely available.
+
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        * runtime/ArrayPrototype.cpp:
+        (JSC::arrayProtoFuncToString):
+        (JSC::arrayProtoFuncToLocaleString):
+        (JSC::arrayProtoFuncJoin):
+        * runtime/DateConstructor.cpp:
+        (JSC::callDate):
+        * runtime/DatePrototype.cpp:
+        (JSC::dateProtoFuncToString):
+        (JSC::dateProtoFuncToUTCString):
+        (JSC::dateProtoFuncToGMTString):
+        * runtime/ErrorPrototype.cpp:
+        (JSC::errorProtoFuncToString):
+        * runtime/ExceptionHelpers.cpp:
+        (JSC::throwOutOfMemoryError):
+        * runtime/ExceptionHelpers.h:
+        * runtime/JSStringBuilder.h: Added.
+        (JSC::JSStringBuilder::releaseJSString):
+        (JSC::jsMakeNontrivialString):
+        * runtime/NumberPrototype.cpp:
+        (JSC::numberProtoFuncToPrecision):
+        * runtime/ObjectPrototype.cpp:
+        (JSC::objectProtoFuncToString):
+        * runtime/Operations.cpp:
+        * runtime/Operations.h:
+        * runtime/RegExpPrototype.cpp:
+        (JSC::regExpProtoFuncToString):
+        * runtime/StringBuilder.h:
+        (JSC::StringBuilder::append):
+        * runtime/StringPrototype.cpp:
+        (JSC::stringProtoFuncBig):
+        (JSC::stringProtoFuncSmall):
+        (JSC::stringProtoFuncBlink):
+        (JSC::stringProtoFuncBold):
+        (JSC::stringProtoFuncFixed):
+        (JSC::stringProtoFuncItalics):
+        (JSC::stringProtoFuncStrike):
+        (JSC::stringProtoFuncSub):
+        (JSC::stringProtoFuncSup):
+        (JSC::stringProtoFuncFontcolor):
+        (JSC::stringProtoFuncFontsize):
+        (JSC::stringProtoFuncAnchor):
+
+2010-02-04  Steve Falkenburg  <sfalken@apple.com>
+
+        Windows build fix.
+
+        * wtf/MathExtras.h:
+
+2010-02-04  Darin Adler  <darin@apple.com>
+
+        Reviewed by David Levin.
+
+        Make MathExtras.h compatible with <cmath>
+        https://bugs.webkit.org/show_bug.cgi?id=34618
+
+        * wtf/MathExtras.h: Include <cmath> instead of <math.h>.
+        Use "using" as we do elsewhere in WTF for the four functions from <cmath>
+        we want to use without the prefix. Later we could consider making the std
+        explicit at call sites instead.
+
+2010-02-04  Tamas Szirbucz  <szirbucz@inf.u-szeged.hu>
+
+        Reviewed by Gavin Barraclough.
+
+        Use an easily appendable structure for trampolines instead of pointer parameters.
+        https://bugs.webkit.org/show_bug.cgi?id=34424
+
+        * assembler/ARMAssembler.cpp:
+        (JSC::ARMAssembler::executableCopy):
+        * jit/JIT.h:
+        (JSC::JIT::compileCTIMachineTrampolines):
+        * jit/JITOpcodes.cpp:
+        (JSC::JIT::privateCompileCTIMachineTrampolines):
+        * jit/JITStubs.cpp:
+        (JSC::JITThunks::JITThunks):
+        * jit/JITStubs.h:
+        (JSC::JITThunks::ctiStringLengthTrampoline):
+        (JSC::JITThunks::ctiVirtualCallLink):
+        (JSC::JITThunks::ctiVirtualCall):
+        (JSC::JITThunks::ctiNativeCallThunk):
+
 2010-02-04  Jedrzej Nowacki  <jedrzej.nowacki@nokia.com>
 
         Reviewed by Simon Hausmann.

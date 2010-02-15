@@ -43,6 +43,7 @@
 + (size_t)javaScriptProtectedObjectsCount;
 + (size_t)javaScriptProtectedGlobalObjectsCount;
 + (NSCountedSet *)javaScriptProtectedObjectTypeCounts;
++ (NSCountedSet *)javaScriptObjectTypeCounts;
 
 + (void)garbageCollectJavaScriptObjects;
 + (void)garbageCollectJavaScriptObjectsOnAlternateThreadForDebugging:(BOOL)waitUntilDone;
@@ -85,4 +86,5 @@
 - (NSString *)renderTreeAsExternalRepresentation;
 - (NSString *)counterValueForElement:(DOMElement*)element;
 - (int)pageNumberForElement:(DOMElement*)element:(float)pageWidthInPixels:(float)pageHeightInPixels;
+- (int)numberOfPages:(float)pageWidthInPixels:(float)pageHeightInPixels;
 @end

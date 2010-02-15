@@ -53,7 +53,7 @@ using namespace WTF::Unicode;
 using namespace std;
 
 namespace JSC {
- 
+
 extern const double NaN;
 extern const double Inf;
 
@@ -146,87 +146,38 @@ bool operator==(const CString& c1, const CString& c2)
     return len == c2.size() && (len == 0 || memcmp(c1.c_str(), c2.c_str(), len) == 0);
 }
 
-// These static strings are immutable, except for rc, whose initial value is chosen to 
+// These static strings are immutable, except for rc, whose initial value is chosen to
 // reduce the possibility of it becoming zero due to ref/deref not being thread-safe.
 static UChar sharedEmptyChar;
-UStringImpl* UStringImpl::s_null;
 UStringImpl* UStringImpl::s_empty;
-UString* UString::nullUString;
+
+UString::Rep* UString::s_nullRep;
+UString* UString::s_nullUString;
 
 void initializeUString()
 {
-    UStringImpl::s_null = new UStringImpl(0, 0, UStringImpl::ConstructStaticString);
     UStringImpl::s_empty = new UStringImpl(&sharedEmptyChar, 0, UStringImpl::ConstructStaticString);
-    UString::nullUString = new UString;
-}
 
-static PassRefPtr<UString::Rep> createRep(const char* c)
-{
-    if (!c)
-        return &UString::Rep::null();
-
-    if (!c[0])
-        return &UString::Rep::empty();
-
-    size_t length = strlen(c);
-    UChar* d;
-    PassRefPtr<UStringImpl> result = UStringImpl::tryCreateUninitialized(length, d);
-    if (!result)
-        return &UString::Rep::null();
-
-    for (size_t i = 0; i < length; i++)
-        d[i] = static_cast<unsigned char>(c[i]); // use unsigned char to zero-extend instead of sign-extend
-    return result;
-}
-
-static inline PassRefPtr<UString::Rep> createRep(const char* c, int length)
-{
-    if (!c)
-        return &UString::Rep::null();
-
-    if (!length)
-        return &UString::Rep::empty();
-
-    UChar* d;
-    PassRefPtr<UStringImpl> result = UStringImpl::tryCreateUninitialized(length, d);
-    if (!result)
-        return &UString::Rep::null();
-
-    for (int i = 0; i < length; i++)
-        d[i] = static_cast<unsigned char>(c[i]); // use unsigned char to zero-extend instead of sign-extend
-    return result;
+    UString::s_nullRep = new UStringImpl(0, 0, UStringImpl::ConstructStaticString);
+    UString::s_nullUString = new UString;
 }
 
 UString::UString(const char* c)
-    : m_rep(createRep(c))
+    : m_rep(Rep::create(c))
 {
 }
 
 UString::UString(const char* c, int length)
-    : m_rep(createRep(c, length))
+    : m_rep(Rep::create(c, length))
 {
 }
 
 UString::UString(const UChar* c, int length)
 {
-    if (length == 0) 
+    if (length == 0)
         m_rep = &Rep::empty();
     else
         m_rep = Rep::create(c, length);
-}
-
-UString UString::createFromUTF8(const char* string)
-{
-    if (!string)
-        return null();
-
-    size_t length = strlen(string);
-    Vector<UChar, 1024> buffer(length);
-    UChar* p = buffer.data();
-    if (conversionOK != convertUTF8ToUTF16(&string, string + length, &p, p + length))
-        return null();
-
-    return UString(buffer.data(), p - buffer.data());
 }
 
 UString UString::from(int i)
@@ -234,7 +185,7 @@ UString UString::from(int i)
     UChar buf[1 + sizeof(i) * 3];
     UChar* end = buf + sizeof(buf) / sizeof(UChar);
     UChar* p = end;
-  
+
     if (i == 0)
         *--p = '0';
     else if (i == INT_MIN) {
@@ -296,7 +247,7 @@ UString UString::from(unsigned int u)
     UChar buf[sizeof(u) * 3];
     UChar* end = buf + sizeof(buf) / sizeof(UChar);
     UChar* p = end;
-    
+
     if (u == 0)
         *--p = '0';
     else {
@@ -305,7 +256,7 @@ UString UString::from(unsigned int u)
             u /= 10;
         }
     }
-    
+
     return UString(p, static_cast<int>(end - p));
 }
 
@@ -344,71 +295,6 @@ UString UString::from(double d)
     unsigned length;
     doubleToStringInJavaScriptFormat(d, buffer, &length);
     return UString(buffer, length);
-}
-
-UString UString::spliceSubstringsWithSeparators(const Range* substringRanges, int rangeCount, const UString* separators, int separatorCount) const
-{
-    m_rep->checkConsistency();
-
-    if (rangeCount == 1 && separatorCount == 0) {
-        int thisSize = size();
-        int position = substringRanges[0].position;
-        int length = substringRanges[0].length;
-        if (position <= 0 && length >= thisSize)
-            return *this;
-        return UString::Rep::create(m_rep, max(0, position), min(thisSize, length));
-    }
-
-    int totalLength = 0;
-    for (int i = 0; i < rangeCount; i++)
-        totalLength += substringRanges[i].length;
-    for (int i = 0; i < separatorCount; i++)
-        totalLength += separators[i].size();
-
-    if (totalLength == 0)
-        return "";
-
-    UChar* buffer;
-    PassRefPtr<Rep> rep = Rep::tryCreateUninitialized(totalLength, buffer);
-    if (!rep)
-        return null();
-
-    int maxCount = max(rangeCount, separatorCount);
-    int bufferPos = 0;
-    for (int i = 0; i < maxCount; i++) {
-        if (i < rangeCount) {
-            UStringImpl::copyChars(buffer + bufferPos, data() + substringRanges[i].position, substringRanges[i].length);
-            bufferPos += substringRanges[i].length;
-        }
-        if (i < separatorCount) {
-            UStringImpl::copyChars(buffer + bufferPos, separators[i].data(), separators[i].size());
-            bufferPos += separators[i].size();
-        }
-    }
-
-    return rep;
-}
-
-UString UString::replaceRange(int rangeStart, int rangeLength, const UString& replacement) const
-{
-    m_rep->checkConsistency();
-
-    int replacementLength = replacement.size();
-    int totalLength = size() - rangeLength + replacementLength;
-    if (totalLength == 0)
-        return "";
-
-    UChar* buffer;
-    PassRefPtr<Rep> rep = Rep::tryCreateUninitialized(totalLength, buffer);
-    if (!rep)
-        return null();
-
-    UStringImpl::copyChars(buffer, data(), rangeStart);
-    UStringImpl::copyChars(buffer + rangeStart, replacement.data(), replacementLength);
-    int rangeEnd = rangeStart + rangeLength;
-    UStringImpl::copyChars(buffer + rangeStart + replacementLength, data() + rangeEnd, size() - rangeEnd);
-
-    return rep;
 }
 
 bool UString::getCString(CStringBuffer& buffer) const
@@ -454,30 +340,6 @@ char* UString::ascii() const
     *q = '\0';
 
     return asciiBuffer;
-}
-
-UString& UString::operator=(const char* c)
-{
-    if (!c) {
-        m_rep = &Rep::null();
-        return *this;
-    }
-
-    if (!c[0]) {
-        m_rep = &Rep::empty();
-        return *this;
-    }
-
-    int l = static_cast<int>(strlen(c));
-    UChar* d = 0;
-    m_rep = Rep::tryCreateUninitialized(l, d);
-    if (m_rep) {
-        for (int i = 0; i < l; i++)
-            d[i] = static_cast<unsigned char>(c[i]); // use unsigned char to zero-extend instead of sign-extend
-    } else
-        makeNull();
-
-    return *this;
 }
 
 bool UString::is8Bit() const
@@ -721,7 +583,7 @@ int UString::find(UChar ch, int pos) const
         if (*c == ch)
             return static_cast<int>(c - data());
     }
-    
+
     return -1;
 }
 
@@ -886,18 +748,6 @@ CString UString::UTF8String(bool strict) const
         return CString();
 
     return CString(buffer.data(), p - buffer.data());
-}
-
-// For use in error handling code paths -- having this not be inlined helps avoid PIC branches to fetch the global on Mac OS X.
-NEVER_INLINE void UString::makeNull()
-{
-    m_rep = &Rep::null();
-}
-
-// For use in error handling code paths -- having this not be inlined helps avoid PIC branches to fetch the global on Mac OS X.
-NEVER_INLINE UString::Rep* UString::nullRep()
-{
-    return &Rep::null();
 }
 
 } // namespace JSC

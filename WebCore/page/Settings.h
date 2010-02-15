@@ -223,6 +223,7 @@ namespace WebCore {
         
         void setDeveloperExtrasEnabled(bool);
         bool developerExtrasEnabled() const { return m_developerExtrasEnabled; }
+<<<<<<< HEAD
         
 #ifdef ANDROID_META_SUPPORT
         void resetMetadataSettings();
@@ -262,6 +263,12 @@ namespace WebCore {
         bool supportMultipleWindows() const { return m_supportMultipleWindows; }
         void setSupportMultipleWindows(bool support) { m_supportMultipleWindows = support; }
 #endif
+=======
+
+        void setFrameSetFlatteningEnabled(bool);
+        bool frameSetFlatteningEnabled() const { return m_frameSetFlatteningEnabled; }
+
+>>>>>>> webkit.org at r54731
         void setAuthorAndUserStylesEnabled(bool);
         bool authorAndUserStylesEnabled() const { return m_authorAndUserStylesEnabled; }
         
@@ -435,6 +442,7 @@ namespace WebCore {
         bool m_authorAndUserStylesEnabled : 1;
         bool m_needsSiteSpecificQuirks : 1;
         unsigned m_fontRenderingMode : 1;
+        bool m_frameSetFlatteningEnabled : 1;
         bool m_webArchiveDebugModeEnabled : 1;
         bool m_localFileContentSniffingEnabled : 1;
         bool m_inApplicationChromeMode : 1;

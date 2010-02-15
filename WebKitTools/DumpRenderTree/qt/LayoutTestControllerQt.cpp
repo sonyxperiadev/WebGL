@@ -37,7 +37,9 @@
 #include <qwebsettings.h>
 
 extern void qt_dump_editing_callbacks(bool b);
+extern void qt_dump_frame_loader(bool b);
 extern void qt_dump_resource_load_callbacks(bool b);
+extern void qt_drt_setFrameSetFlatteningEnabled(QWebPage*, bool);
 extern void qt_drt_setJavaScriptProfilingEnabled(QWebFrame*, bool enabled);
 extern bool qt_drt_pauseAnimation(QWebFrame*, const QString& name, double time, const QString& elementId);
 extern bool qt_drt_pauseTransitionOfProperty(QWebFrame*, const QString& name, double time, const QString& elementId);
@@ -48,6 +50,7 @@ extern void qt_drt_setDomainRelaxationForbiddenForURLScheme(bool forbidden, cons
 extern void qt_drt_whiteListAccessFromOrigin(const QString& sourceOrigin, const QString& destinationProtocol, const QString& destinationHost, bool allowDestinationSubdomains);
 extern QString qt_drt_counterValueForElementById(QWebFrame* qFrame, const QString& id);
 extern int qt_drt_workerThreadCount();
+extern int qt_drt_pageNumberForElementById(QWebFrame* qFrame, const QString& id, float width, float height);
 
 LayoutTestController::LayoutTestController(WebCore::DumpRenderTree* drt)
     : QObject()
@@ -75,6 +78,7 @@ void LayoutTestController::reset()
     m_webHistory = 0;
     m_globalFlag = false;
     qt_dump_editing_callbacks(false);
+    qt_dump_frame_loader(false);
     qt_dump_resource_load_callbacks(false);
     emit hidePage();
 }
@@ -201,6 +205,11 @@ void LayoutTestController::dumpEditingCallbacks()
     qt_dump_editing_callbacks(true);
 }
 
+void LayoutTestController::dumpFrameLoadCallbacks()
+{
+    qt_dump_frame_loader(true);
+}
+
 void LayoutTestController::dumpResourceLoadCallbacks()
 {
     qt_dump_resource_load_callbacks(true);
@@ -285,6 +294,11 @@ void LayoutTestController::showWebInspector()
 void LayoutTestController::hideWebInspector()
 {
     m_drt->webPage()->webInspector()->hide();
+}
+
+void LayoutTestController::setFrameSetFlatteningEnabled(bool enabled)
+{
+    qt_drt_setFrameSetFlatteningEnabled(m_drt->webPage(), enabled);
 }
 
 void LayoutTestController::setAllowUniversalAccessFromFileURLs(bool enabled)
@@ -421,6 +435,9 @@ void LayoutTestController::overridePreference(const QString& name, const QVarian
         settings->setFontSize(QWebSettings::DefaultFontSize, value.toInt());
     else if (name == "WebKitUsesPageCachePreferenceKey")
         QWebSettings::setMaximumPagesInCache(value.toInt());
+    else
+        printf("ERROR: LayoutTestController::overridePreference() does not support the '%s' preference\n",
+            name.toLatin1().data());
 }
 
 void LayoutTestController::setUserStyleSheetLocation(const QString& url)
@@ -444,4 +461,15 @@ void LayoutTestController::setDomainRelaxationForbiddenForURLScheme(bool forbidd
 int LayoutTestController::workerThreadCount()
 {
     return qt_drt_workerThreadCount();
+}
+
+int LayoutTestController::pageNumberForElementById(const QString& id, float width, float height)
+{
+    // If no size specified, webpage viewport size is used
+    if (!width && !height) {
+        width = m_drt->webPage()->viewportSize().width();
+        height = m_drt->webPage()->viewportSize().height();
+    }
+
+    return qt_drt_pageNumberForElementById(m_drt->webPage()->mainFrame(), id, width, height);
 }

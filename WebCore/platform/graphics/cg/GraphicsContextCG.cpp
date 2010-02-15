@@ -36,7 +36,6 @@
 #include "KURL.h"
 #include "Path.h"
 #include "Pattern.h"
-#include "TransformationMatrix.h"
 
 #include <CoreGraphics/CGBitmapContext.h>
 #include <CoreGraphics/CGPDFContext.h>
@@ -124,6 +123,23 @@ static void setCGStrokeColorSpace(CGContextRef context, ColorSpace colorSpace)
         ASSERT_NOT_REACHED();
         break;
     }
+}
+
+CGColorSpaceRef deviceRGBColorSpaceRef()
+{
+    static CGColorSpaceRef deviceSpace = CGColorSpaceCreateDeviceRGB();
+    return deviceSpace;
+}
+
+CGColorSpaceRef sRGBColorSpaceRef()
+{
+    // FIXME: Windows should be able to use kCGColorSpaceSRGB, this is tracked by http://webkit.org/b/31363.
+#if PLATFORM(WIN) || defined(BUILDING_ON_TIGER)
+    return deviceRGBColorSpaceRef();
+#else
+    static CGColorSpaceRef sRGBSpace = CGColorSpaceCreateWithName(kCGColorSpaceSRGB);
+    return sRGBSpace;
+#endif
 }
 
 GraphicsContext::GraphicsContext(CGContextRef cgContext)
@@ -968,25 +984,10 @@ void GraphicsContext::concatCTM(const AffineTransform& transform)
     m_data->m_userToDeviceTransformKnownToBeIdentity = false;
 }
 
-void GraphicsContext::concatCTM(const TransformationMatrix& transform)
-{
-    if (paintingDisabled())
-        return;
-    CGContextConcatCTM(platformContext(), transform);
-    m_data->concatCTM(transform);
-    m_data->m_userToDeviceTransformKnownToBeIdentity = false;
-}
-
-AffineTransform GraphicsContext::getAffineCTM() const
+AffineTransform GraphicsContext::getCTM() const
 {
     CGAffineTransform t = CGContextGetCTM(platformContext());
     return AffineTransform(t.a, t.b, t.c, t.d, t.tx, t.ty);
-}
-
-TransformationMatrix GraphicsContext::getCTM() const
-{
-    CGAffineTransform t = CGContextGetCTM(platformContext());
-    return TransformationMatrix(t.a, t.b, t.c, t.d, t.tx, t.ty);
 }
 
 FloatRect GraphicsContext::roundToDevicePixels(const FloatRect& rect)

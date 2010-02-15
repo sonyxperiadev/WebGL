@@ -64,6 +64,8 @@
 #include "V8StyleSheet.h"
 #include "V8WebSocket.h"
 #include "V8Worker.h"
+#include "V8WorkerContext.h"
+#include "V8XMLHttpRequest.h"
 #include "WebGLArray.h"
 #include "WebGLContextAttributes.h"
 #include "WebGLUniformLocation.h"
@@ -164,20 +166,6 @@ void V8DOMWrapper::setJSWrapperForDOMNode(Node* node, v8::Persistent<v8::Object>
     getDOMNodeMap().set(node, wrapper);
 }
 
-v8::Persistent<v8::FunctionTemplate> V8DOMWrapper::getTemplate(V8ClassIndex::V8WrapperType type)
-{
-    v8::Persistent<v8::FunctionTemplate>* cacheCell = V8ClassIndex::GetCache(type);
-    if (!cacheCell->IsEmpty())
-        return *cacheCell;
-
-    // Not in the cache.
-    FunctionTemplateFactory factory = V8ClassIndex::GetFactory(type);
-    v8::Persistent<v8::FunctionTemplate> descriptor = factory();
-
-    *cacheCell = descriptor;
-    return descriptor;
-}
-
 v8::Local<v8::Function> V8DOMWrapper::getConstructor(V8ClassIndex::V8WrapperType type, v8::Handle<v8::Value> objectPrototype)
 {
     // A DOM constructor is a function instance created from a DOM constructor
@@ -189,7 +177,7 @@ v8::Local<v8::Function> V8DOMWrapper::getConstructor(V8ClassIndex::V8WrapperType
     // The reason for 2) is that, in Safari, a DOM constructor is a normal JS
     // object, but not a function. Hotmail relies on the fact that, in Safari,
     // HTMLElement.__proto__ == Object.prototype.
-    v8::Handle<v8::FunctionTemplate> functionTemplate = getTemplate(type);
+    v8::Handle<v8::FunctionTemplate> functionTemplate = V8ClassIndex::getTemplate(type);
     // Getting the function might fail if we're running out of
     // stack or memory.
     v8::TryCatch tryCatch;
@@ -249,7 +237,7 @@ void V8DOMWrapper::setHiddenWindowReference(Frame* frame, const int internalInde
 
     v8::Handle<v8::Object> global = context->Global();
     // Look for real DOM wrapper.
-    global = V8DOMWrapper::lookupDOMWrapper(V8ClassIndex::DOMWINDOW, global);
+    global = V8DOMWrapper::lookupDOMWrapper(V8DOMWindow::GetTemplate(), global);
     ASSERT(!global.IsEmpty());
     ASSERT(global->GetInternalField(internalIndex)->IsUndefined());
     global->SetInternalField(internalIndex, jsObject);
@@ -279,6 +267,19 @@ PassRefPtr<NodeFilter> V8DOMWrapper::wrapNativeNodeFilter(v8::Handle<v8::Value> 
     return NodeFilter::create(condition);
 }
 
+v8::Local<v8::Object> V8DOMWrapper::instantiateV8ObjectInWorkerContext(V8ClassIndex::V8WrapperType type, void* impl)
+{
+    WorkerContextExecutionProxy* workerContextProxy = WorkerContextExecutionProxy::retrieve();
+    if (!workerContextProxy)
+        return instantiateV8Object(0, type, impl);
+    v8::Local<v8::Object> instance = SafeAllocation::newInstance(getConstructor(type, workerContextProxy->workerContext()));
+    if (!instance.IsEmpty()) {
+        // Avoid setting the DOM wrapper for failed allocations.
+        setDOMWrapper(instance, V8ClassIndex::ToInt(type), impl);
+    }
+    return instance;
+}
+
 v8::Local<v8::Object> V8DOMWrapper::instantiateV8Object(V8Proxy* proxy, V8ClassIndex::V8WrapperType type, void* impl)
 {
     if (V8IsolatedContext::getEntered()) {
@@ -294,10 +295,8 @@ v8::Local<v8::Object> V8DOMWrapper::instantiateV8Object(V8Proxy* proxy, V8ClassI
     if (proxy)
         // FIXME: Fix this to work properly with isolated worlds (see above).
         instance = proxy->windowShell()->createWrapperFromCache(type);
-    else {
-        v8::Local<v8::Function> function = getTemplate(type)->GetFunction();
-        instance = SafeAllocation::newInstance(function);
-    }
+    else
+        instance = SafeAllocation::newInstance(V8ClassIndex::getTemplate(type)->GetFunction());
     if (!instance.IsEmpty()) {
         // Avoid setting the DOM wrapper for failed allocations.
         setDOMWrapper(instance, V8ClassIndex::ToInt(type), impl);
@@ -379,11 +378,17 @@ v8::Handle<v8::Value> V8DOMWrapper::convertEventTargetToV8Object(EventTarget* ta
 #if ENABLE(WORKERS)
     if (Worker* worker = target->toWorker())
         return toV8(worker);
+
+    if (DedicatedWorkerContext* workerContext = target->toDedicatedWorkerContext())
+        return toV8(workerContext);
 #endif // WORKERS
 
 #if ENABLE(SHARED_WORKERS)
     if (SharedWorker* sharedWorker = target->toSharedWorker())
         return toV8(sharedWorker);
+
+    if (SharedWorkerContext* sharedWorkerContext = target->toSharedWorkerContext())
+        return toV8(sharedWorkerContext);
 #endif // SHARED_WORKERS
 
 #if ENABLE(NOTIFICATIONS)
@@ -408,6 +413,9 @@ v8::Handle<v8::Value> V8DOMWrapper::convertEventTargetToV8Object(EventTarget* ta
         ASSERT(!wrapper.IsEmpty());
         return wrapper;
     }
+
+    if (XMLHttpRequest* xhr = target->toXMLHttpRequest())
+        return toV8(xhr);
 
     // MessagePort is created within its JS counterpart
     if (MessagePort* port = target->toMessagePort()) {

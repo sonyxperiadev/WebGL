@@ -26,13 +26,13 @@
 #include "config.h"
 #include "Image.h"
 
+#include "AffineTransform.h"
 #include "BitmapImage.h"
 #include "FloatConversion.h"
 #include "FloatRect.h"
 #include "GraphicsContext.h"
 #include "ImageObserver.h"
 #include "NotImplemented.h"
-#include "TransformationMatrix.h"
 
 #include <math.h>
 #include <stdio.h>
@@ -176,17 +176,16 @@ void BitmapImage::draw(GraphicsContext* ctxt, const FloatRect& dst, const FloatR
         observer->didDraw(this);
 }
 
-void BitmapImage::drawPattern(GraphicsContext* ctxt, const FloatRect& srcRect, const TransformationMatrix& patternTransform, const FloatPoint& phase, ColorSpace, CompositeOperator, const FloatRect& dstRect)
+void Image::drawPattern(GraphicsContext* ctxt, const FloatRect& srcRect, const AffineTransform& patternTransform, const FloatPoint& phase, ColorSpace, CompositeOperator, const FloatRect& dstRect)
 {
-    if (!m_source.initialized())
-        return;
+    
 
 #if USE(WXGC)
     wxGCDC* context = (wxGCDC*)ctxt->platformContext();
-    wxGraphicsBitmap* bitmap = frameAtIndex(m_currentFrame);
+    wxGraphicsBitmap* bitmap = nativeImageForCurrentFrame();
 #else
     wxWindowDC* context = ctxt->platformContext();
-    wxBitmap* bitmap = frameAtIndex(m_currentFrame);
+    wxBitmap* bitmap = nativeImageForCurrentFrame();
 #endif
 
     if (!bitmap) // If it's too early we won't have an image yet.
@@ -259,11 +258,6 @@ void BitmapImage::checkForSolidColor()
 void BitmapImage::invalidatePlatformData()
 {
 
-}
-
-void Image::drawPattern(GraphicsContext*, const FloatRect& srcRect, const TransformationMatrix& patternTransform, const FloatPoint& phase, ColorSpace, CompositeOperator, const FloatRect& destRect)
-{
-    notImplemented();
 }
 
 }

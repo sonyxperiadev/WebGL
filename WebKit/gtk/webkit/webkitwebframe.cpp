@@ -269,6 +269,9 @@ static void webkit_web_frame_class_init(WebKitWebFrameClass* frameClass)
      * WebKitWebFrame:horizontal-scrollbar-policy and
      * WebKitWebFrame:vertical-scrollbar-policy properties.
      *
+     * Return value: %TRUE to stop other handlers from being invoked for the
+     * event. %FALSE to propagate the event further.
+     *
      * Since: 1.1.14
      */
     webkit_web_frame_signals[SCROLLBARS_POLICY_CHANGED] = g_signal_new("scrollbars-policy-changed",
@@ -838,6 +841,29 @@ gchar* webkit_web_frame_counter_value_for_element_by_id(WebKitWebFrame* frame, c
         return 0;
     String counterValue = counterValueForElement(coreElement);
     return g_strdup(counterValue.utf8().data());
+}
+
+/**
+ * webkit_web_frame_page_number_for_element_by_id
+ * @frame: a #WebKitWebFrame
+ * @id: an element ID string
+ * @pageWidth: width of a page
+ * @pageHeight: height of a page
+ *
+ * Return value: The number of page where the specified element will be put
+ */
+int webkit_web_frame_page_number_for_element_by_id(WebKitWebFrame* frame, const gchar* id, float pageWidth, float pageHeight)
+{
+    g_return_val_if_fail(WEBKIT_IS_WEB_FRAME(frame), NULL);
+
+    Frame* coreFrame = core(frame);
+    if (!coreFrame)
+        return -1;
+
+    Element* coreElement = coreFrame->document()->getElementById(AtomicString(id));
+    if (!coreElement)
+        return -1;
+    return PrintContext::pageNumberForElement(coreElement, FloatSize(pageWidth, pageHeight));
 }
 
 /**

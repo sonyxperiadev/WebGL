@@ -26,6 +26,7 @@
 #ifndef RenderObject_h
 #define RenderObject_h
 
+#include "AffineTransform.h"
 #include "CachedResourceClient.h"
 #include "Document.h"
 #include "Element.h"
@@ -282,10 +283,12 @@ public:
     virtual bool isRenderPart() const { return false; }
     virtual bool isRenderView() const { return false; }
     virtual bool isReplica() const { return false; }
+#if ENABLE(RUBY)
     virtual bool isRuby() const { return false; }
     virtual bool isRubyBase() const { return false; }
     virtual bool isRubyRun() const { return false; }
     virtual bool isRubyText() const { return false; }
+#endif
     virtual bool isSlider() const { return false; }
     virtual bool isTable() const { return false; }
     virtual bool isTableCell() const { return false; }
@@ -347,16 +350,11 @@ public:
     // FIXME: This accessor is deprecated and mostly around for SVGRenderTreeAsText.
     // This only returns the transform="" value from the element
     // most callsites want localToParentTransform() instead.
-    virtual TransformationMatrix localTransform() const;
+    virtual AffineTransform localTransform() const;
 
     // Returns the full transform mapping from local coordinates to local coords for the parent SVG renderer
     // This includes any viewport transforms and x/y offsets as well as the transform="" value off the element.
-    virtual const TransformationMatrix& localToParentTransform() const;
-
-    // Walks up the parent chain to create a transform which maps from local to document coords
-    // NOTE: This method is deprecated!  It doesn't respect scroll offsets or repaint containers.
-    // FIXME: This is only virtual so that RenderSVGHiddenContainer can override it to match old LayoutTest results.
-    virtual TransformationMatrix absoluteTransform() const;
+    virtual const AffineTransform& localToParentTransform() const;
 
     // SVG uses FloatPoint precise hit testing, and passes the point in parent
     // coordinates instead of in repaint container coordinates.  Eventually the

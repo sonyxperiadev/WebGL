@@ -31,9 +31,10 @@ using namespace JSC;
 
 namespace WebCore {
 
-JSEventListener::JSEventListener(JSObject* function, bool isAttribute, DOMWrapperWorld* isolatedWorld)
+JSEventListener::JSEventListener(JSObject* function, JSObject* wrapper, bool isAttribute, DOMWrapperWorld* isolatedWorld)
     : EventListener(JSEventListenerType)
     , m_jsFunction(function)
+    , m_wrapper(wrapper)
     , m_isAttribute(isAttribute)
     , m_isolatedWorld(isolatedWorld)
 {
@@ -43,9 +44,10 @@ JSEventListener::~JSEventListener()
 {
 }
 
-JSObject* JSEventListener::jsFunction(ScriptExecutionContext*) const
+JSObject* JSEventListener::initializeJSFunction(ScriptExecutionContext*) const
 {
-    return m_jsFunction;
+    ASSERT_NOT_REACHED();
+    return 0;
 }
 
 void JSEventListener::markJSFunction(MarkStack& markStack)

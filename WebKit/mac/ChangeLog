@@ -1,3 +1,189 @@
+2010-02-12  Dan Bernstein  <mitz@apple.com>
+
+        Reviewed by Darin Adler.
+
+        <rdar://problem/7615234> REGRESSION (r48586): Loading an HTML page causes
+        PDFKit to be loaded
+
+        * WebView/WebPDFDocumentExtras.h: Removed the category declaration and
+        addWebPDFDocumentExtras(). Declare allScriptsInPDFDocument().
+        * WebView/WebPDFDocumentExtras.mm:
+        (allScriptsInPDFDocument): Changed the -_web_allScripts method into this function.
+        * WebView/WebPDFRepresentation.mm: Removed +initialize.
+        (-[WebPDFRepresentation finishedLoadingWithDataSource:]): Use
+        allScriptsInPDFDocument() instead of -_web_allScripts.
+
+2010-02-10  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        Exported some new JavaScript heap introspection.
+
+        * Misc/WebCoreStatistics.h:
+        * Misc/WebCoreStatistics.mm:
+        (+[WebCoreStatistics javaScriptObjectTypeCounts]): Just like
+        javaScriptProtectedObjectTypeCounts, except this function enumerates all
+        live objects, not just protected objects.
+
+2010-02-08  Maciej Stachowiak  <mjs@apple.com>
+
+        Reviewed by Cameron Zwarich.
+
+        Restore ENABLE_RUBY flag so vendors can ship with Ruby disabled if they choose.
+        https://bugs.webkit.org/show_bug.cgi?id=34698
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2010-02-09  Alexey Proskuryakov  <ap@apple.com>
+
+        Reviewed by Geoffrey Garen.
+
+        https://bugs.webkit.org/show_bug.cgi?id=34490
+        WebCore::ImageEventSender::dispatchPendingEvents() crashes in certain conditions
+
+        * ForwardingHeaders/wtf/ValueCheck.h: Added.
+
+2010-02-10  Jesus Sanchez-Palencia  <jesus.palencia@openbossa.org>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        Support frameset flattening
+        https://bugs.webkit.org/show_bug.cgi?id=32717
+
+        Add support for enabling/disabling FrameSet Flattening on the Mac port.
+
+        * WebView/WebPreferenceKeysPrivate.h:
+        * WebView/WebPreferences.mm:
+        (+[WebPreferences initialize]):
+        (-[WebPreferences isFrameSetFlatteningEnabled]):
+        (-[WebPreferences setFrameSetFlatteningEnabled:]):
+        * WebView/WebPreferencesPrivate.h:
+        * WebView/WebView.mm:
+        (-[WebView _preferencesChangedNotification:]):
+
+2010-02-09  Alexey Proskuryakov  <ap@apple.com>
+
+        Reviewed by Anders Carlsson.
+
+        https://bugs.webkit.org/show_bug.cgi?id=34771
+        A stray mouse moved event is sent to plug-ins after mouse exit
+
+        * WebCoreSupport/WebFrameLoaderClient.mm: (NetscapePluginWidget::handleEvent): A mouseout
+        DOM event is dispatched while handling NSMouseMoved - but we shouldn't be sending a
+        mouse moved event to plug-ins at this point.
+
+2010-02-09  Shinichiro Hamaji  <hamaji@chromium.org>
+
+        Reviewed by Darin Adler.
+
+        Provide a way to get total number of pages to be printed
+        https://bugs.webkit.org/show_bug.cgi?id=34699
+
+        * Misc/WebCoreStatistics.h:
+        * Misc/WebCoreStatistics.mm:
+        (-[WebFrame numberOfPages:pageWidthInPixels:]):
+
+2010-02-08  Alexey Proskuryakov  <ap@apple.com>
+
+        Reviewed by Darin Adler.
+
+        https://bugs.webkit.org/show_bug.cgi?id=34727
+        Assertion crashes and freezes when plug-in property access results in an exception
+
+        * Plugins/Hosted/WebKitPluginClient.defs: Made PCSetProperty and PCRemoveProperty async.
+        A plug-in can call back whil processing this call (e.g. for NPN_SetException), so we need
+        to listen for messages while waiting for reply.
+
+        * Plugins/Hosted/NetscapePluginHostProxy.mm:
+        (WKPCEvaluate): If there is no instance proxy, return KERN_FAILURE. This improves consistency
+        between method implementations, and leaves us with one less IPC call to make in failure case
+        (returning false with KERN_SUCCESS and returning KERN_FAILURE looks the same from plugin
+        host code).
+        (WKPCInvoke): Ditto.
+        (WKPCInvokeDefault): Ditto.
+        (WKPCGetProperty): Ditto.
+        (WKPCSetProperty): Send a reply once done.
+        (WKPCRemoveProperty): Ditto.
+        (WKPCHasProperty): If there is no instance proxy, return KERN_FAILURE.
+        (WKPCHasMethod): Ditto.
+        (WKPCEnumerate): Ditto.
+
+2010-02-08  Alexey Proskuryakov  <ap@apple.com>
+
+        Reviewed by Anders Carlsson.
+
+        <rdar://problem/6530010> OOP: Support NPN_SetException
+
+        Tested by plugins/netscape-throw-exception.html (removed it from skipped list).
+
+        * Plugins/Hosted/NetscapePluginHostProxy.mm:
+        (WKPCSetException):
+        * Plugins/Hosted/NetscapePluginInstanceProxy.h:
+        * Plugins/Hosted/NetscapePluginInstanceProxy.mm:
+        (WebKit::globalExceptionString):
+        (WebKit::NetscapePluginInstanceProxy::setGlobalException):
+        (WebKit::NetscapePluginInstanceProxy::moveGlobalExceptionToExecState):
+        * Plugins/Hosted/ProxyInstance.mm:
+        (WebKit::ProxyInstance::invoke):
+        (WebKit::ProxyInstance::getPropertyNames):
+        (WebKit::ProxyInstance::fieldValue):
+        (WebKit::ProxyInstance::setFieldValue):
+        * Plugins/Hosted/WebKitPluginClient.defs:
+        Route exception string to a global that's checked after calling into plug-in (just like in
+        in-process case).
+
+2010-02-05  Kevin Decker  <kdecker@apple.com>
+
+        Reviewed by Mark Rowe.
+
+        https://bugs.webkit.org/show_bug.cgi?id=34661
+        <rdar://problem/7614067> REGRESSION (Safari 4.0-> Safari 4.0.4): NPP_SetWindow no longer sets a clipRect of (0,0,0,0) when it becomes hidden
+        
+        * Plugins/Hosted/WebHostedNetscapePluginView.mm:
+        (-[WebHostedNetscapePluginView updateAndSetWindow]): When clipping out NPDrawingModelCoreAnimation plug-ins, provide a zero'd out clipRect.
+        * Plugins/WebBaseNetscapePluginView.h: Moved superviewsHaveSuperviews to the base class.
+        * Plugins/WebBaseNetscapePluginView.mm:
+        (-[WebBaseNetscapePluginView superviewsHaveSuperviews]): Added to the base class; extracted from WebNetscapePluginView.
+        (-[WebBaseNetscapePluginView shouldClipOutPlugin]): Added new method with code extracted from WebNetscapePluginView.
+        * Plugins/WebNetscapePluginView.mm:
+        (-[WebNetscapePluginView saveAndSetNewPortStateForUpdate:]): When clipping out NPDrawingModelCoreAnimation plug-ins, provide a zero'd out clipRect.
+
+2010-02-04  Mark Rowe  <mrowe@apple.com>
+
+        Rubber-stamped by Dan Bernstein.
+
+        Fix the ability to #include <WebKit/DOMFile.h>.
+
+        * MigrateHeaders.make: Mark DOMBlob.h as a public header since the already-public DOMFile.h depends on it.
+
+2010-02-04  John Sullivan  <sullivan@apple.com>
+
+        https://bugs.webkit.org/show_bug.cgi?id=34611
+        WebLocalizedString() could use an assertion that it is being called on the main thread
+
+        Reviewed by Tim Hatcher.
+
+        * Misc/WebLocalizableStrings.m: Removed.
+        * Misc/WebLocalizableStrings.mm: Copied from mac/Misc/WebLocalizableStrings.m.
+        Renamed to use .mm extension so it can include a C++ header.
+        (WebLocalizedString):
+        Added an assertion that this is being called on the main thread.
+
+2010-02-04  Dan Bernstein  <mitz@apple.com>
+
+        Reviewed by Simon Fraser.
+
+        REGRESSION (r53718): When scrolling a tall window by page, the overlap between pages is too big
+        https://bugs.webkit.org/show_bug.cgi?id=34371
+
+        * WebView/WebFrameView.mm:
+        (-[WebFrameView _verticalPageScrollDistance]): Use Scrollbar methods instead of
+        constants, and cap the scroll distance.
+        (-[WebFrameView initWithFrame:]): Use Scrollbar::pixelsPerLineStep() instead of
+        cScrollbarPixelsPerLineStep.
+        (-[WebFrameView _horizontalPageScrollDistance]):Use Scrollbar methods instead of
+        constants, and cap the scroll distance.
+
 2010-02-01  Shinichiro Hamaji  <hamaji@chromium.org>
 
         Reviewed by Eric Seidel.

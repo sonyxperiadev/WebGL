@@ -1934,8 +1934,8 @@ RenderLayer::updateScrollInfoAfterLayout()
     // Set up the range (and page step/line step).
     if (m_hBar) {
         int clientWidth = box->clientWidth();
-        int pageStep = max(clientWidth * cFractionToStepWhenPaging, 1.f);
-        m_hBar->setSteps(cScrollbarPixelsPerLineStep, pageStep);
+        int pageStep = max(max<int>(clientWidth * Scrollbar::minFractionToStepWhenPaging(), clientWidth - Scrollbar::maxOverlapBetweenPages()), 1);
+        m_hBar->setSteps(Scrollbar::pixelsPerLineStep(), pageStep);
         m_hBar->setProportion(clientWidth, m_scrollWidth);
         // Explicitly set the horizontal scroll value.  This ensures that when a
         // right-to-left scrollable area's width (or content width) changes, the
@@ -1949,8 +1949,8 @@ RenderLayer::updateScrollInfoAfterLayout()
     }
     if (m_vBar) {
         int clientHeight = box->clientHeight();
-        int pageStep = max(clientHeight * cFractionToStepWhenPaging, 1.f);
-        m_vBar->setSteps(cScrollbarPixelsPerLineStep, pageStep);
+        int pageStep = max(max<int>(clientHeight * Scrollbar::minFractionToStepWhenPaging(), clientHeight - Scrollbar::maxOverlapBetweenPages()), 1);
+        m_vBar->setSteps(Scrollbar::pixelsPerLineStep(), pageStep);
         m_vBar->setProportion(clientHeight, m_scrollHeight);
     }
  
@@ -2241,7 +2241,7 @@ void RenderLayer::paintLayer(RenderLayer* rootLayer, GraphicsContext* p,
         
         // Apply the transform.
         p->save();
-        p->concatCTM(transform);
+        p->concatCTM(transform.toAffineTransform());
 
         // Now do a paint with the root layer shifted to be us.
         paintLayer(this, p, transform.inverse().mapRect(paintDirtyRect), paintBehavior, paintingRoot, overlapTestRequests, paintFlags | PaintLayerAppliedTransform);

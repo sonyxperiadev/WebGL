@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009 Google Inc. All rights reserved.
+ * Copyright (C) 2010 Google Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -28,69 +28,38 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "PopupMenuClient.h"
+#ifndef AutocompletePopupMenuClient_h
+#define AutocompletePopupMenuClient_h
+ 
+#include "SuggestionsPopupMenuClient.h"
 
 namespace WebCore {
 class HTMLInputElement;
-class PopupMenuStyle;
-class RenderStyle;
 }
 
 namespace WebKit {
 class WebString;
-class WebViewImpl;
 template <typename T> class WebVector;
 
-// AutocompletePopupMenuClient
-class AutocompletePopupMenuClient : public WebCore::PopupMenuClient {
+// The Autocomplete suggestions popup menu client, used to display a list of
+// autocomplete suggestions.
+class AutocompletePopupMenuClient : public SuggestionsPopupMenuClient {
 public:
-    AutocompletePopupMenuClient(WebViewImpl* webview);
-    ~AutocompletePopupMenuClient();
+    // SuggestionsPopupMenuClient implementation:
+    virtual unsigned getSuggestionsCount() const;
+    virtual WebString getSuggestion(unsigned listIndex) const;
+    virtual void removeSuggestionAtIndex(unsigned listIndex);
 
     void initialize(WebCore::HTMLInputElement*,
                     const WebVector<WebString>& suggestions,
                     int defaultSuggestionIndex);
 
-    WebCore::HTMLInputElement* textField() const { return m_textField.get(); }
-
     void setSuggestions(const WebVector<WebString>&);
-    void removeItemAtIndex(int index);
-
-    // WebCore::PopupMenuClient methods:
-    virtual void valueChanged(unsigned listIndex, bool fireEvents = true);
-    virtual WebCore::String itemText(unsigned listIndex) const;
-    virtual WebCore::String itemToolTip(unsigned lastIndex) const { return WebCore::String(); }
-    virtual bool itemIsEnabled(unsigned listIndex) const { return true; }
-    virtual WebCore::PopupMenuStyle itemStyle(unsigned listIndex) const;
-    virtual WebCore::PopupMenuStyle menuStyle() const;
-    virtual int clientInsetLeft() const { return 0; }
-    virtual int clientInsetRight() const { return 0; }
-    virtual int clientPaddingLeft() const;
-    virtual int clientPaddingRight() const;
-    virtual int listSize() const { return m_suggestions.size(); }
-    virtual int selectedIndex() const { return m_selectedIndex; }
-    virtual void popupDidHide();
-    virtual bool itemIsSeparator(unsigned listIndex) const { return false; }
-    virtual bool itemIsLabel(unsigned listIndex) const { return false; }
-    virtual bool itemIsSelected(unsigned listIndex) const { return false; }
-    virtual bool shouldPopOver() const { return false; }
-    virtual bool valueShouldChangeOnHotTrack() const { return false; }
-    virtual void setTextFromItem(unsigned listIndex);
-    virtual WebCore::FontSelector* fontSelector() const;
-    virtual WebCore::HostWindow* hostWindow() const;
-    virtual PassRefPtr<WebCore::Scrollbar> createScrollbar(
-        WebCore::ScrollbarClient* client,
-        WebCore::ScrollbarOrientation orientation,
-        WebCore::ScrollbarControlSize size);
 
 private:
-    WebCore::RenderStyle* textFieldStyle() const;
-
-    RefPtr<WebCore::HTMLInputElement> m_textField;
     Vector<WebCore::String> m_suggestions;
-    int m_selectedIndex;
-    WebViewImpl* m_webView;
-    OwnPtr<WebCore::PopupMenuStyle> m_style;
 };
 
 } // namespace WebKit
+
+#endif

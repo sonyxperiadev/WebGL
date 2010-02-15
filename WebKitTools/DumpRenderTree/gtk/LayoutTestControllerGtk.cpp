@@ -55,6 +55,7 @@ void webkit_application_cache_set_maximum_size(unsigned long long size);
 unsigned int webkit_worker_thread_count(void);
 void webkit_white_list_access_from_origin(const gchar* sourceOrigin, const gchar* destinationProtocol, const gchar* destinationHost, bool allowDestinationSubdomains);
 gchar* webkit_web_frame_counter_value_for_element_by_id(WebKitWebFrame* frame, const gchar* id);
+int webkit_web_frame_page_number_for_element_by_id(WebKitWebFrame* frame, const gchar* id, float pageWidth, float pageHeight);
 void webkit_web_inspector_execute_script(WebKitWebInspector* inspector, long callId, const gchar* script);
 }
 
@@ -140,7 +141,15 @@ void LayoutTestController::keepWebHistory()
     // FIXME: implement
 }
 
-int LayoutTestController::pageNumberForElementById(JSStringRef, float, float)
+int LayoutTestController::pageNumberForElementById(JSStringRef id, float pageWidth, float pageHeight)
+{
+    gchar* idGChar = JSStringCopyUTF8CString(id);
+    int pageNumber = webkit_web_frame_page_number_for_element_by_id(mainFrame, idGChar, pageWidth, pageHeight);
+    g_free(idGChar);
+    return pageNumber;
+}
+
+int LayoutTestController::numberOfPages(float, float)
 {
     // FIXME: implement
     return -1;
@@ -323,6 +332,11 @@ void LayoutTestController::setXSSAuditorEnabled(bool flag)
 
     WebKitWebSettings* settings = webkit_web_view_get_settings(view);
     g_object_set(G_OBJECT(settings), "enable-xss-auditor", flag, NULL);
+}
+
+void LayoutTestController::setFrameSetFlatteningEnabled(bool flag)
+{
+    // FIXME: implement
 }
 
 void LayoutTestController::setAllowUniversalAccessFromFileURLs(bool flag)

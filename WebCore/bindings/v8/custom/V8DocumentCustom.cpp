@@ -155,7 +155,13 @@ v8::Handle<v8::Value> toV8(Document* impl, bool forceNewObject)
     if (impl->isSVGDocument())
         return toV8(static_cast<SVGDocument*>(impl), forceNewObject);
 #endif
+<<<<<<< HEAD
     v8::Handle<v8::Value> wrapper = V8Document::wrap(impl, forceNewObject);
+=======
+    v8::Handle<v8::Object> wrapper = V8Document::wrap(impl, forceNewObject);
+    if (wrapper.IsEmpty())
+        return wrapper;
+>>>>>>> webkit.org at r54731
     if (!V8IsolatedContext::getEntered()) {
         if (V8Proxy* proxy = V8Proxy::retrieve(impl->frame()))
             proxy->windowShell()->updateDocumentWrapper(wrapper);

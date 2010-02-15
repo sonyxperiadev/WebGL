@@ -1122,11 +1122,14 @@ void Heap::markRoots()
         MarkedArgumentBuffer::markLists(markStack, *m_markListSet);
     if (m_globalData->exception)
         markStack.append(m_globalData->exception);
-    m_globalData->smallStrings.markChildren(markStack);
     if (m_globalData->functionCodeBlockBeingReparsed)
         m_globalData->functionCodeBlockBeingReparsed->markAggregate(markStack);
     if (m_globalData->firstStringifierToMark)
         JSONObject::markStringifiers(markStack, m_globalData->firstStringifierToMark);
+
+    // Mark the small strings cache last, since it will clear itself if nothing
+    // else has marked it.
+    m_globalData->smallStrings.markChildren(markStack);
 
     markStack.drain();
     markStack.compact();
@@ -1197,12 +1200,13 @@ static const char* typeName(JSCell* cell)
         return "number";
 #endif
     if (cell->isGetterSetter())
-        return "gettersetter";
+        return "Getter-Setter";
     if (cell->isAPIValueWrapper())
-        return "value wrapper";
+        return "API wrapper";
     if (cell->isPropertyNameIterator())
-        return "for-in iterator";
-    ASSERT(cell->isObject());
+        return "For-in iterator";
+    if (!cell->isObject())
+        return "[empty cell]";
     const ClassInfo* info = cell->classInfo();
     return info ? info->className : "Object";
 }
@@ -1214,6 +1218,18 @@ HashCountedSet<const char*>* Heap::protectedObjectTypeCounts()
     ProtectCountSet::iterator end = m_protectedValues.end();
     for (ProtectCountSet::iterator it = m_protectedValues.begin(); it != end; ++it)
         counts->add(typeName(it->first));
+
+    return counts;
+}
+
+HashCountedSet<const char*>* Heap::objectTypeCounts()
+{
+    HashCountedSet<const char*>* counts = new HashCountedSet<const char*>;
+
+    LiveObjectIterator it = primaryHeapBegin();
+    LiveObjectIterator heapEnd = primaryHeapEnd();
+    for ( ; it != heapEnd; ++it)
+        counts->add(typeName(*it));
 
     return counts;
 }

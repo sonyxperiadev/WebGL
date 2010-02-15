@@ -468,17 +468,8 @@ WebInspector.loaded = function()
     var previousToolbarItem = toolbarElement.children[0];
 
     this.panelOrder = [];
-    for (var panelName in this.panels) {
-        var panel = this.panels[panelName];
-        var panelToolbarItem = panel.toolbarItem;
-        this.panelOrder.push(panel);
-        panelToolbarItem.addEventListener("click", this._toolbarItemClicked.bind(this));
-        if (previousToolbarItem)
-            toolbarElement.insertBefore(panelToolbarItem, previousToolbarItem.nextSibling);
-        else
-            toolbarElement.insertBefore(panelToolbarItem, toolbarElement.firstChild);
-        previousToolbarItem = panelToolbarItem;
-    }
+    for (var panelName in this.panels)
+        previousToolbarItem = WebInspector.addPanelToolbarIcon(toolbarElement, this.panels[panelName], previousToolbarItem);
 
     this.Tips = {
         ResourceNotCompressed: {id: 0, message: WebInspector.UIString("You could save bandwidth by having your web server compress this transfer with gzip or zlib.")}
@@ -527,6 +518,18 @@ WebInspector.loaded = function()
     document.getElementById("close-button-right").addEventListener("click", this.close, true);
 
     InspectorFrontendHost.loaded();
+}
+
+WebInspector.addPanelToolbarIcon = function(toolbarElement, panel, previousToolbarItem)
+{
+    var panelToolbarItem = panel.toolbarItem;
+    this.panelOrder.push(panel);
+    panelToolbarItem.addEventListener("click", this._toolbarItemClicked.bind(this));
+    if (previousToolbarItem)
+        toolbarElement.insertBefore(panelToolbarItem, previousToolbarItem.nextSibling);
+    else
+        toolbarElement.insertBefore(panelToolbarItem, toolbarElement.firstChild);
+    return panelToolbarItem;
 }
 
 var windowLoaded = function()
@@ -749,8 +752,11 @@ WebInspector.documentKeyDown = function(event)
                 var shouldShowAuditsPanel = event.ctrlKey && !event.shiftKey && !event.metaKey && event.altKey;
 
             if (shouldShowAuditsPanel) {
-                if (!this.panels.audits)
+                if (!this.panels.audits) {
                     this.panels.audits = new WebInspector.AuditsPanel();
+                    var toolbarElement = document.getElementById("toolbar");
+                    WebInspector.addPanelToolbarIcon(toolbarElement, this.panels.audits, this.panels.console.toolbarItem);
+                }
                 this.currentPanel = this.panels.audits;
             }
 
@@ -1050,7 +1056,7 @@ WebInspector.updateResource = function(identifier, payload)
         if (match) {
             var protocol = match[1].toLowerCase();
             if (protocol.indexOf("http") === 0 || protocol === "file")
-                this.addCookieDomain(protocol === "file" ? "" : match[2]);
+                this._addCookieDomain(protocol === "file" ? "" : match[2]);
         }
     }
 
@@ -1131,7 +1137,7 @@ WebInspector.addDatabase = function(payload)
     this.panels.storage.addDatabase(database);
 }
 
-WebInspector.addCookieDomain = function(domain)
+WebInspector._addCookieDomain = function(domain)
 {
     // Eliminate duplicate domains from the list.
     if (domain in this.cookieDomains)
@@ -1208,7 +1214,6 @@ WebInspector.failedToParseScriptSource = function(sourceURL, source, startingLin
 
 WebInspector.pausedScript = function(callFrames)
 {
-    callFrames = JSON.parse(callFrames);
     this.panels.scripts.debuggerPaused(callFrames);
 }
 
@@ -1265,7 +1270,7 @@ WebInspector.updateConsoleMessageExpiredCount = function(count)
     WebInspector.console.addMessage(new WebInspector.ConsoleTextMessage(message, WebInspector.ConsoleMessage.MessageLevel.Warning));
 }
 
-WebInspector.addConsoleMessage = function(payload, argumentsStringified, opt_args)
+WebInspector.addConsoleMessage = function(payload, opt_args)
 {
     var consoleMessage = new WebInspector.ConsoleMessage(
         payload.source,
@@ -1275,14 +1280,7 @@ WebInspector.addConsoleMessage = function(payload, argumentsStringified, opt_arg
         payload.url,
         payload.groupLevel,
         payload.repeatCount);
-    var parsedArguments = [];
-    for (var i = 2; i < arguments.length; i++) {
-        if (argumentsStringified)
-            parsedArguments.push(JSON.parse(arguments[i]));
-        else
-            parsedArguments.push(arguments[i]);
-    }
-    consoleMessage.setMessageBody(parsedArguments);
+    consoleMessage.setMessageBody(Array.prototype.slice.call(arguments, 1));
     this.console.addMessage(consoleMessage);
 }
 

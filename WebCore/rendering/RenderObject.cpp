@@ -114,6 +114,7 @@ RenderObject* RenderObject::createObject(Node* node, RenderStyle* style)
         return image;
     }
 
+#if ENABLE(RUBY)
     if (node->hasTagName(rubyTag)) {
         if (style->display() == INLINE)
             return new (arena) RenderRubyAsInline(node);
@@ -123,6 +124,7 @@ RenderObject* RenderObject::createObject(Node* node, RenderStyle* style)
     // treat <rt> as ruby text ONLY if it still has its default treatment of block
     if (node->hasTagName(rtTag) && style->display() == BLOCK)
         return new (arena) RenderRubyText(node); 
+#endif
 
     switch (style->display()) {
         case NONE:
@@ -1686,6 +1688,15 @@ void RenderObject::styleDidChange(StyleDifference diff, const RenderStyle* oldSt
     
     if (diff == StyleDifferenceLayout) {
         RenderCounter::rendererStyleChanged(this, oldStyle, m_style.get());
+
+        // If the object already needs layout, then setNeedsLayout won't do
+        // any work. But if the containing block has changed, then we may need
+        // to mark the new containing blocks for layout. The change that can
+        // directly affect the containing block of this object is a change to
+        // the position style.
+        if (m_needsLayout && oldStyle->position() != m_style->position())
+            markContainingBlocksForLayout();
+
         setNeedsLayoutAndPrefWidthsRecalc();
     } else if (diff == StyleDifferenceLayoutPositionedMovementOnly)
         setNeedsPositionedMovementLayout();
@@ -2523,25 +2534,16 @@ FloatRect RenderObject::repaintRectInLocalCoordinates() const
     return FloatRect();
 }
 
-TransformationMatrix RenderObject::localTransform() const
+AffineTransform RenderObject::localTransform() const
 {
-    static const TransformationMatrix identity;
+    static const AffineTransform identity;
     return identity;
 }
 
-const TransformationMatrix& RenderObject::localToParentTransform() const
+const AffineTransform& RenderObject::localToParentTransform() const
 {
-    static const TransformationMatrix identity;
+    static const AffineTransform identity;
     return identity;
-}
-
-TransformationMatrix RenderObject::absoluteTransform() const
-{
-    // FIXME: This should use localToParentTransform(), but much of the SVG code
-    // depends on RenderBox::absoluteTransform() being the sum of the localTransform()s of all parent renderers.
-    if (parent())
-        return localTransform() * parent()->absoluteTransform();
-    return localTransform();
 }
 
 bool RenderObject::nodeAtFloatPoint(const HitTestRequest&, HitTestResult&, const FloatPoint&, HitTestAction)

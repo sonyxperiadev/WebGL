@@ -2951,9 +2951,9 @@ void RenderBox::clearLayoutOverflow()
 
 #if ENABLE(SVG)
 
-TransformationMatrix RenderBox::localTransform() const
+AffineTransform RenderBox::localTransform() const
 {
-    return TransformationMatrix(1, 0, 0, 1, x(), y());
+    return AffineTransform(1, 0, 0, 1, x(), y());
 }
 
 #endif

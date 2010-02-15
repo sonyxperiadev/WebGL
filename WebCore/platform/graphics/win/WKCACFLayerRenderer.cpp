@@ -142,6 +142,10 @@ WKCACFLayerRenderer::WKCACFLayerRenderer()
     , m_renderTimer(this, &WKCACFLayerRenderer::renderTimerFired)
     , m_scrollFrame(0, 0, 1, 1) // Default to 1 to avoid 0 size frames
 {
+#ifndef NDEBUG
+    char* printTreeFlag = getenv("CA_PRINT_TREE");
+    m_printTree = printTreeFlag && atoi(printTreeFlag);
+#endif
 }
 
 WKCACFLayerRenderer::~WKCACFLayerRenderer()
@@ -157,7 +161,7 @@ void WKCACFLayerRenderer::setScrollFrame(const IntRect& scrollFrame)
     m_scrollLayer->setPosition(CGPointMake(0, frameBounds.size.height));
 
     if (m_rootChildLayer)
-        m_rootChildLayer->setPosition(CGPointMake(m_scrollFrame.x(), m_scrollFrame.height() + m_scrollFrame.y()));
+        m_rootChildLayer->setPosition(CGPointMake(-m_scrollFrame.x(), m_scrollFrame.height() + m_scrollFrame.y()));
 }
 
 void WKCACFLayerRenderer::setRootContents(CGImageRef image)
@@ -173,6 +177,7 @@ void WKCACFLayerRenderer::setRootChildLayer(WebCore::PlatformLayer* layer)
         return;
 
     m_scrollLayer->removeAllSublayers();
+    m_rootChildLayer = layer;
     if (layer) {
         m_scrollLayer->addSublayer(layer);
 
@@ -180,9 +185,6 @@ void WKCACFLayerRenderer::setRootChildLayer(WebCore::PlatformLayer* layer)
         layer->setAnchorPoint(CGPointMake(0, 1));
         setScrollFrame(m_scrollFrame);
     }
-
-    m_rootChildLayer = layer;
-
 }
    
 void WKCACFLayerRenderer::setNeedsDisplay()
@@ -230,7 +232,9 @@ void WKCACFLayerRenderer::createRenderer()
 
     // Create the root hierarchy
     m_rootLayer = WKCACFLayer::create(WKCACFLayer::Layer);
+    m_rootLayer->setName("WKCACFLayerRenderer rootLayer");
     m_scrollLayer = WKCACFLayer::create(WKCACFLayer::Layer);
+    m_scrollLayer->setName("WKCACFLayerRenderer scrollLayer");
 
     m_rootLayer->addSublayer(m_scrollLayer);
     m_scrollLayer->setMasksToBounds(true);
@@ -400,6 +404,11 @@ void WKCACFLayerRenderer::render(const Vector<CGRect>& dirtyRects)
     } while (err == D3DERR_DEVICELOST);
 
     CARenderUpdateFinish(u);
+
+#ifndef NDEBUG
+    if (m_printTree)
+        m_rootLayer->printTree();
+#endif
 }
 
 void WKCACFLayerRenderer::renderSoon()

@@ -189,14 +189,19 @@ void Gradient::setSpreadMethod(GradientSpreadMethod spreadMethod)
     m_spreadMethod = spreadMethod;
 }
 
-void Gradient::setGradientSpaceTransform(const TransformationMatrix& gradientSpaceTransformation)
+void Gradient::setGradientSpaceTransform(const AffineTransform& gradientSpaceTransformation)
 { 
     m_gradientSpaceTransformation = gradientSpaceTransformation;
     setPlatformGradientSpaceTransform(gradientSpaceTransformation);
 }
 
+<<<<<<< HEAD
 #if !(PLATFORM(SKIA) && !PLATFORM(ANDROID))
 void Gradient::setPlatformGradientSpaceTransform(const TransformationMatrix&)
+=======
+#if !PLATFORM(SKIA)
+void Gradient::setPlatformGradientSpaceTransform(const AffineTransform&)
+>>>>>>> webkit.org at r54731
 {
 }
 #endif

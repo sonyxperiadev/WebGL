@@ -1,3 +1,113 @@
+2010-02-10  Jesus Sanchez-Palencia  <jesus.palencia@openbossa.org>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        Support frameset flattening
+        https://bugs.webkit.org/show_bug.cgi?id=32717
+
+        Add support for enabling/disabling FrameSet Flattening on the Windows port.
+
+        * Interfaces/IWebPreferencesPrivate.idl:
+        * WebPreferenceKeysPrivate.h:
+        * WebPreferences.cpp:
+        (WebPreferences::initializeDefaultSettings):
+        (WebPreferences::isFrameSetFlatteningEnabled):
+        (WebPreferences::setFrameSetFlatteningEnabled):
+        * WebPreferences.h:
+        * WebView.cpp:
+        (WebView::notifyPreferencesChanged):
+
+2010-02-10  Adam Roben  <aroben@apple.com>
+
+        Remove unnecessary #include of shfolder.h
+
+        shfolder.h has been deprecated in newer versions of the Windows SDK.
+
+        Fixes <http://webkit.org/b/34803> WebPreferences.cpp fails to compile
+        under VS2010 RC due to #include of shfolder.h.
+
+        Reviewed by Darin Adler.
+
+        * WebPreferences.cpp: Removed #include.
+
+2010-02-08  Charlie Reis  <creis@chromium.org>
+
+        Reviewed by Darin Adler.
+
+        onbeforeunload not called at window close + frame or iframe focused
+        https://bugs.webkit.org/show_bug.cgi?id=27481
+        
+        Chromium and WebKit on Windows will now fire beforeunload handlers
+        even if an inner frame is focused.  
+
+        Layout tests aren't able to test this bug, since it requires closing
+        the actual browser window, not calling window.close().  Instead,
+        test with WebCore/manual-tests/onbeforeunload-focused-iframe.html.
+
+        * WebView.cpp:
+        (WebView::shouldClose):
+
+2010-02-08  Brent Fulgham  <bfulgham@webkit.org>
+
+        Reviewed by Adam Roben.
+
+        Include header position in World Transform used for plugin positioning.
+        https://bugs.webkit.org/show_bug.cgi?id=34709
+
+        * WebFrame.cpp:
+        (WebFrame::spoolPage): Correct WinCairo plugin print positioning to
+          account for header size.  Existing code ignored this, causing
+          plugins to overlay other elements.
+
+2010-02-04  Alice Liu  <alice.liu@apple.com>
+
+        Reviewed by Jon Honeycutt.
+
+        https://bugs.webkit.org/show_bug.cgi?id=34612 " MSAA: accSelect returns error 
+        codes for most elements that arent listbox or menupopup related"
+        <rdar://problem/7436861>
+
+        * AccessibleBase.cpp:
+        (AccessibleBase::accSelect):
+        - Stop sending E_INVALIDARG for elements that request TAKE_SELECTION that 
+          aren't beneath listboxes or menupopups.  This was too restrictive since 
+          any element can be selectable.
+        - Correct the misinterpretation of MSDN's stipulation of situations involving 
+          adding, removing, and extending selection on single-select elements
+
+2010-02-04  Brent Fulgham  <bfulgham@webkit.org>
+
+        Reviewed by Adam Roben.
+
+        Properly handle margin settings when printing Plugins in WinCairo.
+        https://bugs.webkit.org/show_bug.cgi?id=34613
+
+        * WebFrame.cpp:
+        (WebFrame::spoolPage): Adjust the GraphicsContext passed to the
+          paintContents method so that the World Transform is properly
+          positioned to account for margin settings at the time that
+          PluginViewWin.cpp processes the drawing operations.
+
+2010-02-04  Brent Fulgham  <bfulgham@webkit.org>
+
+        Reviewed by Adam Roben.
+
+        Properly handle margin settings in WinCairo.
+        https://bugs.webkit.org/show_bug.cgi?id=34545
+
+        * WebFrame.cpp:
+        (scaleFactor): Require the margin information as an input
+          parameter, and use them when computing the scaling factor.
+        (WebFrame::drawHeader): Pass margin size to scaleFactor.
+        (WebFrame::drawFooter): Pass margin size to scaleFactor.
+        (WebFrame::spoolPage):
+          1. Pass margin size to scaleFactor.
+          2. Recognize that the return value of printerMarginRect is
+             already in device units, and therefore scale it so that
+             the Cairo drawing is correct.
+          3. Remove scaling call for margins in GDI code, as it is
+             already in scaled units.
+
 2010-02-03  Brian Weinstein  <bweinstein@apple.com>
 
         Reviewed by Steve Falkenburg.

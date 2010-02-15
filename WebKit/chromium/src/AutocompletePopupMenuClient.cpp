@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009 Google Inc. All rights reserved.
+ * Copyright (C) 2010 Google Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -31,27 +31,29 @@
 #include "config.h"
 #include "AutocompletePopupMenuClient.h"
 
-#include "CSSStyleSelector.h"
-#include "CSSValueKeywords.h"
-#include "FrameView.h"
 #include "HTMLInputElement.h"
-#include "RenderTheme.h"
+#include "WebString.h"
 #include "WebVector.h"
-#include "WebViewImpl.h"
 
 using namespace WebCore;
 
 namespace WebKit {
 
-AutocompletePopupMenuClient::AutocompletePopupMenuClient(WebViewImpl* webView)
-    : m_textField(0)
-    , m_selectedIndex(0)
-    , m_webView(webView)
+unsigned AutocompletePopupMenuClient::getSuggestionsCount() const
 {
+    return m_suggestions.size();
 }
 
-AutocompletePopupMenuClient::~AutocompletePopupMenuClient()
+WebString AutocompletePopupMenuClient::getSuggestion(unsigned listIndex) const
 {
+    ASSERT(listIndex >= 0 && listIndex < m_suggestions.size());
+    return m_suggestions[listIndex];
+}
+
+void AutocompletePopupMenuClient::removeSuggestionAtIndex(unsigned listIndex)
+{
+    ASSERT(listIndex >= 0 && listIndex < m_suggestions.size());
+    m_suggestions.remove(listIndex);
 }
 
 void AutocompletePopupMenuClient::initialize(
@@ -60,90 +62,12 @@ void AutocompletePopupMenuClient::initialize(
     int defaultSuggestionIndex)
 {
     ASSERT(defaultSuggestionIndex < static_cast<int>(suggestions.size()));
-    m_textField = textField;
-    m_selectedIndex = defaultSuggestionIndex;
+
+    // The suggestions must be set before initializing the
+    // SuggestionsPopupMenuClient.
     setSuggestions(suggestions);
 
-    FontDescription fontDescription;
-    m_webView->theme()->systemFont(CSSValueWebkitControl, fontDescription);
-    // Use a smaller font size to match IE/Firefox.
-    // FIXME: http://crbug.com/7376 use the system size instead of a
-    //        fixed font size value.
-    fontDescription.setComputedSize(12.0);
-    Font font(fontDescription, 0, 0);
-    font.update(textField->document()->styleSelector()->fontSelector());
-    // The direction of text in popup menu is set the same as the direction of
-    // the input element: textField.
-    m_style.set(new PopupMenuStyle(Color::black, Color::white, font, true,
-                                   Length(WebCore::Fixed),
-                                   textField->renderer()->style()->direction()));
-}
-
-void AutocompletePopupMenuClient::valueChanged(unsigned listIndex, bool fireEvents)
-{
-    m_textField->setValue(m_suggestions[listIndex]);
-    EditorClientImpl* editor =
-        static_cast<EditorClientImpl*>(m_webView->page()->editorClient());
-    ASSERT(editor);
-    editor->onAutofillSuggestionAccepted(
-        static_cast<HTMLInputElement*>(m_textField.get()));
-}
-
-String AutocompletePopupMenuClient::itemText(unsigned listIndex) const
-{
-    return m_suggestions[listIndex];
-}
-
-PopupMenuStyle AutocompletePopupMenuClient::itemStyle(unsigned listIndex) const
-{
-    return *m_style;
-}
-
-PopupMenuStyle AutocompletePopupMenuClient::menuStyle() const
-{
-    return *m_style;
-}
-
-int AutocompletePopupMenuClient::clientPaddingLeft() const
-{
-    // Bug http://crbug.com/7708 seems to indicate the style can be 0.
-    RenderStyle* style = textFieldStyle();
-    return style ? m_webView->theme()->popupInternalPaddingLeft(style) : 0;
-}
-
-int AutocompletePopupMenuClient::clientPaddingRight() const
-{
-    // Bug http://crbug.com/7708 seems to indicate the style can be 0.
-    RenderStyle* style = textFieldStyle();
-    return style ? m_webView->theme()->popupInternalPaddingRight(style) : 0;
-}
-
-void AutocompletePopupMenuClient::popupDidHide()
-{
-    m_webView->autoCompletePopupDidHide();
-}
-
-void AutocompletePopupMenuClient::setTextFromItem(unsigned listIndex)
-{
-    m_textField->setValue(m_suggestions[listIndex]);
-}
-
-FontSelector* AutocompletePopupMenuClient::fontSelector() const
-{
-    return m_textField->document()->styleSelector()->fontSelector();
-}
-
-HostWindow* AutocompletePopupMenuClient::hostWindow() const
-{
-    return m_textField->document()->view()->hostWindow();
-}
-
-PassRefPtr<Scrollbar> AutocompletePopupMenuClient::createScrollbar(
-    ScrollbarClient* client,
-    ScrollbarOrientation orientation,
-    ScrollbarControlSize size)
-{
-    return Scrollbar::createNativeScrollbar(client, orientation, size);
+    SuggestionsPopupMenuClient::initialize(textField, defaultSuggestionIndex);
 }
 
 void AutocompletePopupMenuClient::setSuggestions(const WebVector<WebString>& suggestions)
@@ -151,28 +75,10 @@ void AutocompletePopupMenuClient::setSuggestions(const WebVector<WebString>& sug
     m_suggestions.clear();
     for (size_t i = 0; i < suggestions.size(); ++i)
         m_suggestions.append(suggestions[i]);
+
     // Try to preserve selection if possible.
-    if (m_selectedIndex >= static_cast<int>(suggestions.size()))
-        m_selectedIndex = -1;
-}
-
-void AutocompletePopupMenuClient::removeItemAtIndex(int index)
-{
-    ASSERT(index >= 0 && index < static_cast<int>(m_suggestions.size()));
-    m_suggestions.remove(index);
-}
-
-RenderStyle* AutocompletePopupMenuClient::textFieldStyle() const
-{
-    RenderStyle* style = m_textField->computedStyle();
-    if (!style) {
-        // It seems we can only have a 0 style in a TextField if the
-        // node is detached, in which case we the popup shoud not be
-        // showing.  Please report this in http://crbug.com/7708 and
-        // include the page you were visiting.
-        ASSERT_NOT_REACHED();
-    }
-    return style;
+    if (getSelectedIndex() >= static_cast<int>(suggestions.size()))
+        setSelectedIndex(-1);
 }
 
 } // namespace WebKit

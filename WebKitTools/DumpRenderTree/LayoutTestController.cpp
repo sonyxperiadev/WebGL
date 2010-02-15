@@ -465,26 +465,34 @@ static JSValueRef notifyDoneCallback(JSContextRef context, JSObjectRef function,
     return JSValueMakeUndefined(context);
 }
 
-static JSValueRef pageNumberForElementByIdCallback(JSContextRef context, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
+static bool parsePageParameters(JSContextRef context, int argumentCount, const JSValueRef* arguments, JSValueRef* exception, float& pageWidthInPixels, float& pageHeightInPixels)
 {
     // FIXME: These values should sync with maxViewWidth/Height in
     //        DumpRenderTree.mm. Factor these values out to somewhere.
-    float pageWidthInPixels = 800;
-    float pageHeightInPixels = 600;
+    pageWidthInPixels = 800;
+    pageHeightInPixels = 600;
     switch (argumentCount) {
-    case 1:
-        break;
-    case 3:
-        pageWidthInPixels = static_cast<float>(JSValueToNumber(context, arguments[1], exception));
+    case 2:
+        pageWidthInPixels = static_cast<float>(JSValueToNumber(context, arguments[0], exception));
         if (*exception)
-            return JSValueMakeUndefined(context);
-        pageHeightInPixels = static_cast<float>(JSValueToNumber(context, arguments[2], exception));
+            return false;
+        pageHeightInPixels = static_cast<float>(JSValueToNumber(context, arguments[1], exception));
         if (*exception)
-            return JSValueMakeUndefined(context);
+            return false;
+    case 0: // Fall through.
         break;
     default:
-        return JSValueMakeUndefined(context);
+        return false;
     }
+    return true;
+}
+
+static JSValueRef pageNumberForElementByIdCallback(JSContextRef context, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
+{
+    float pageWidthInPixels = 0;
+    float pageHeightInPixels = 0;
+    if (!parsePageParameters(context, argumentCount - 1, arguments + 1, exception, pageWidthInPixels, pageHeightInPixels))
+        return JSValueMakeUndefined(context);
 
     JSRetainPtr<JSStringRef> elementId(Adopt, JSValueToStringCopy(context, arguments[0], exception));
     if (*exception)
@@ -493,6 +501,17 @@ static JSValueRef pageNumberForElementByIdCallback(JSContextRef context, JSObjec
     LayoutTestController* controller = static_cast<LayoutTestController*>(JSObjectGetPrivate(thisObject));
     int pageNumber = controller->pageNumberForElementById(elementId.get(), pageWidthInPixels, pageHeightInPixels);
     return JSValueMakeNumber(context, pageNumber);
+}
+
+static JSValueRef numberOfPagesCallback(JSContextRef context, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
+{
+    float pageWidthInPixels = 0;
+    float pageHeightInPixels = 0;
+    if (!parsePageParameters(context, argumentCount, arguments, exception, pageWidthInPixels, pageHeightInPixels))
+        return JSValueMakeUndefined(context);
+
+    LayoutTestController* controller = static_cast<LayoutTestController*>(JSObjectGetPrivate(thisObject));
+    return JSValueMakeNumber(context, controller->numberOfPages(pageWidthInPixels, pageHeightInPixels));
 }
 
 static JSValueRef queueBackNavigationCallback(JSContextRef context, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
@@ -893,6 +912,18 @@ static JSValueRef setXSSAuditorEnabledCallback(JSContextRef context, JSObjectRef
 
     LayoutTestController* controller = static_cast<LayoutTestController*>(JSObjectGetPrivate(thisObject));
     controller->setXSSAuditorEnabled(JSValueToBoolean(context, arguments[0]));
+
+    return JSValueMakeUndefined(context);
+}
+
+static JSValueRef setFrameSetFlatteningEnabledCallback(JSContextRef context, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
+{
+    // Has mac & windows implementation
+    if (argumentCount < 1)
+        return JSValueMakeUndefined(context);
+
+    LayoutTestController* controller = static_cast<LayoutTestController*>(JSObjectGetPrivate(thisObject));
+    controller->setFrameSetFlatteningEnabled(JSValueToBoolean(context, arguments[0]));
 
     return JSValueMakeUndefined(context);
 }
@@ -1329,6 +1360,7 @@ JSStaticFunction* LayoutTestController::staticFunctions()
         { "grantDesktopNotificationPermission", grantDesktopNotificationPermissionCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete }, 
         { "isCommandEnabled", isCommandEnabledCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { "keepWebHistory", keepWebHistoryCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
+        { "numberOfPages", numberOfPagesCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { "notifyDone", notifyDoneCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { "numberOfActiveAnimations", numberOfActiveAnimationsCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { "overridePreference", overridePreferenceCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
@@ -1373,6 +1405,7 @@ JSStaticFunction* LayoutTestController::staticFunctions()
         { "setPopupBlockingEnabled", setPopupBlockingEnabledCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { "setPrivateBrowsingEnabled", setPrivateBrowsingEnabledCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { "setXSSAuditorEnabled", setXSSAuditorEnabledCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
+        { "setFrameSetFlatteningEnabled", setFrameSetFlatteningEnabledCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { "setSelectTrailingWhitespaceEnabled", setSelectTrailingWhitespaceEnabledCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { "setSmartInsertDeleteEnabled", setSmartInsertDeleteEnabledCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { "setStopProvisionalFrameLoads", setStopProvisionalFrameLoadsCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
