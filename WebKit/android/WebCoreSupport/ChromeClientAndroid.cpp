@@ -50,6 +50,10 @@
 
 namespace android {
 
+#if ENABLE(DATABASE)
+static unsigned long long tryToReclaimDatabaseQuota(SecurityOrigin* originNeedingQuota);
+#endif
+
 #if USE(ACCELERATED_COMPOSITING)
 
 void ChromeClientAndroid::syncTimerFired(Timer<ChromeClientAndroid>* client)
@@ -360,6 +364,7 @@ void ChromeClientAndroid::print(Frame*) {}
 void ChromeClientAndroid::exceededDatabaseQuota(Frame* frame, const String& name)
 {
     SecurityOrigin* origin = frame->document()->securityOrigin();
+    DatabaseTracker& tracker = WebCore::DatabaseTracker::tracker();
 
     // We want to wait on a new quota from the UI thread. Reset the m_newQuota variable to represent we haven't received a new quota.
     m_newQuota = -1;
@@ -367,11 +372,14 @@ void ChromeClientAndroid::exceededDatabaseQuota(Frame* frame, const String& name
     // This origin is being tracked and has exceeded it's quota. Call into
     // the Java side of things to inform the user.
     unsigned long long currentQuota = 0;
-    if (WebCore::DatabaseTracker::tracker().hasEntryForOrigin(origin)) {
-        currentQuota = WebCore::DatabaseTracker::tracker().quotaForOrigin(origin);
-    }
+    if (tracker.hasEntryForOrigin(origin))
+        currentQuota = tracker.quotaForOrigin(origin);
 
-    unsigned long long estimatedSize = WebCore::DatabaseTracker::tracker().detailsForNameAndOrigin(name, origin).expectedUsage();
+    unsigned long long estimatedSize = 0;
+
+    // Only update estimatedSize if we are trying to create a a new database, i.e. the usage for the database is 0.
+    if (tracker.usageForDatabase(name, origin) == 0)
+        estimatedSize = tracker.detailsForNameAndOrigin(name, origin).expectedUsage();
 
     android::WebViewCore::getWebViewCore(frame->view())->exceededDatabaseQuota(frame->document()->documentURI(), name, currentQuota, estimatedSize);
 
@@ -382,11 +390,53 @@ void ChromeClientAndroid::exceededDatabaseQuota(Frame* frame, const String& name
     }
     m_quotaThreadLock.unlock();
 
+    // If new quota is unavailable, we may be able to resolve the situation by shrinking the quota of an origin that asked for a lot but is only using a little.
+    // If we find such a site, shrink it's quota and ask Java to try again.
+
+    if (m_newQuota == currentQuota && !m_triedToReclaimDBQuota) {
+        m_triedToReclaimDBQuota = true; // we should only try this once per quota overflow.
+        unsigned long long reclaimedQuotaBytes = tryToReclaimDatabaseQuota(origin);
+
+        // If we were able to free up enough space, try asking Java again.
+        // Otherwise, give up and deny the new database. :(
+        if (reclaimedQuotaBytes >= estimatedSize) {
+            exceededDatabaseQuota(frame, name);
+            return;
+        }
+    }
+
     // Update the DatabaseTracker with the new quota value (if the user declined
     // new quota, this may equal the old quota)
-    DatabaseTracker::tracker().setQuota(origin, m_newQuota);
+    tracker.setQuota(origin, m_newQuota);
+    m_triedToReclaimDBQuota = false;
+}
+
+static unsigned long long tryToReclaimDatabaseQuota(SecurityOrigin* originNeedingQuota) {
+    DatabaseTracker& tracker = WebCore::DatabaseTracker::tracker();
+    Vector<RefPtr<SecurityOrigin> > origins;
+    tracker.origins(origins);
+    unsigned long long reclaimedQuotaBytes = 0;
+    for (int i = 0; i < origins.size(); i++) {
+        SecurityOrigin* originToReclaimFrom = origins[i].get();
+
+        // Don't try to reclaim from the origin that has exceeded its quota.
+        if (originToReclaimFrom->equal(originNeedingQuota))
+            continue;
+
+        unsigned long long originUsage = tracker.usageForOrigin(originToReclaimFrom);
+        unsigned long long originQuota = tracker.quotaForOrigin(originToReclaimFrom);
+        // If the origin has a quota that is more than it's current usage +1MB, shrink it.
+        static const int ONE_MB = 1 * 1024 * 1024;
+        if (originUsage + ONE_MB < originQuota) {
+            unsigned long long newQuota = originUsage + ONE_MB;
+            tracker.setQuota(originToReclaimFrom, newQuota);
+            reclaimedQuotaBytes += originQuota - newQuota;
+        }
+    }
+    return reclaimedQuotaBytes;
 }
 #endif
+
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
 void ChromeClientAndroid::reachedMaxAppCacheSize(int64_t spaceNeeded)
 {
