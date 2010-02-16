@@ -243,12 +243,6 @@
 
 #if PLATFORM(ANDROID)
 #include "Connection.h"
-// TODO: Upstream TOUCH_EVENTS guard.
-#if ENABLE(TOUCH_EVENTS)
-#include "Touch.h"
-#include "TouchList.h"
-#include "TouchEvent.h"
-#endif
 #endif
 
 #if ENABLE(WEB_SOCKETS)
@@ -291,6 +285,12 @@
 #include "InspectorBackend.h"
 #include "InspectorFrontendHost.h"
 #endif // INSPECTOR
+
+#if ENABLE(TOUCH_EVENTS)
+#include "Touch.h"
+#include "TouchEvent.h"
+#include "TouchList.h"
+#endif
 
 namespace WebCore {
 

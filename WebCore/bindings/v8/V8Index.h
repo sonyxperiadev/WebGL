@@ -526,24 +526,24 @@ static const int v8DefaultWrapperInternalFieldCount = 2;
     V(GEOPOSITION, Geoposition)                                         \
     V(POSITIONERROR, PositionError)
 
-#if PLATFORM(ANDROID)
-// TODO: Upstream this guard.
 #if ENABLE(TOUCH_EVENTS)
 #define DOM_OBJECT_TOUCH_EVENT_TYPES(V)                                 \
-    V(TOUCHLIST, TouchList)                                             \
-    V(TOUCHEVENT, TouchEvent)                                           \
     V(TOUCH, Touch)
+    V(TOUCHEVENT, TouchEvent)                                           \
+    V(TOUCHLIST, TouchList)                                             \
 #else
 #define DOM_OBJECT_TOUCH_EVENT_TYPES(V)
 #endif
-#define DOM_OBJECT_CONNECTION_TYPES(V)                                  \
-    V(CONNECTION, Connection)
-#endif
 
 #if PLATFORM(ANDROID)
+#define DOM_OBJECT_CONNECTION_TYPES(V)                                  \
+    V(CONNECTION, Connection)
+
 #define DOM_OBJECT_VOIDCALLBACK_TYPES(V)                                \
     V(VOIDCALLBACK, VoidCallback)
 #else
+// We don't plan to upstream CONNECTION as it's only temporary, so we
+// don't need a default here.
 #define DOM_OBJECT_VOIDCALLBACK_TYPES(V)
 #endif
 

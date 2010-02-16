@@ -105,12 +105,9 @@ v8::Handle<v8::Value> toV8(Event* impl)
 #endif
         if (impl->isCompositionEvent())
             return toV8(static_cast<CompositionEvent*>(impl));
-#if PLATFORM(ANDROID)
-// TODO(benm): upstream this to webkit.org
 #if ENABLE(TOUCH_EVENTS)
         if (impl->isTouchEvent())
             return toV8(static_cast<TouchEvent*>(impl));
-#endif
 #endif
         return toV8(static_cast<UIEvent*>(impl));
     }
