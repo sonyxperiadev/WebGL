@@ -26,7 +26,13 @@
 #ifndef WTF_MathExtras_h
 #define WTF_MathExtras_h
 
+#if PLATFORM(ANDROID)
+// cmath does not provide signbit in sim-eng builds.
+// TODO: Find a better solution to this problem before upstreaming.
+#include <math.h>
+#else
 #include <cmath>
+#endif
 #include <float.h>
 #include <stdlib.h>
 
