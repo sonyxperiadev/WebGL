@@ -55,8 +55,6 @@
 
 namespace WebCore {
 
-// ANDROID
-// TODO: Upstream to webkit.org
 #if ENABLE(XPATH)
 v8::Handle<v8::Value> V8Document::evaluateCallback(const v8::Arguments& args)
 {

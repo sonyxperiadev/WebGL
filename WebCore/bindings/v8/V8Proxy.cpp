@@ -39,6 +39,7 @@
 #include "InspectorTimelineAgent.h"
 #include "Page.h"
 #include "PageGroup.h"
+#include "PlatformBridge.h"
 #include "ScriptController.h"
 #include "StorageNamespace.h"
 #include "V8Binding.h"
@@ -68,10 +69,6 @@
 #include <wtf/StdLibExtras.h>
 #include <wtf/StringExtras.h>
 #include <wtf/UnusedParam.h>
-
-#if PLATFORM(CHROMIUM)
-#include "ChromiumBridge.h"
-#endif
 
 #ifdef ANDROID_INSTRUMENT
 #include "TimeCounter.h"
@@ -281,8 +278,7 @@ bool V8Proxy::handleOutOfMemory()
     }
 
 #if PLATFORM(CHROMIUM)
-    // TODO (andreip): ChromeBridge -> BrowserBridge?
-    ChromiumBridge::notifyJSOutOfMemory(frame);
+    PlatformBridge::notifyJSOutOfMemory(frame);
 #endif
 
     // Disable JS.
@@ -381,34 +377,31 @@ v8::Local<v8::Value> V8Proxy::evaluate(const ScriptSourceCode& source, Node* nod
         // Compile the script.
         v8::Local<v8::String> code = v8ExternalString(source.source());
 #if PLATFORM(CHROMIUM)
-        // TODO(andreip): ChromeBridge->BrowserBridge?
-        ChromiumBridge::traceEventBegin("v8.compile", node, "");
+        PlatformBridge::traceEventBegin("v8.compile", node, "");
 #endif
 
         // NOTE: For compatibility with WebCore, ScriptSourceCode's line starts at
         // 1, whereas v8 starts at 0.
         v8::Handle<v8::Script> script = compileScript(code, source.url(), source.startLine() - 1);
 #if PLATFORM(CHROMIUM)
-        // TODO(andreip): ChromeBridge->BrowserBridge?
-        ChromiumBridge::traceEventEnd("v8.compile", node, "");
+        PlatformBridge::traceEventEnd("v8.compile", node, "");
 
-        ChromiumBridge::traceEventBegin("v8.run", node, "");
+        PlatformBridge::traceEventBegin("v8.run", node, "");
 #endif
         // Set inlineCode to true for <a href="javascript:doSomething()">
         // and false for <script>doSomething</script>. We make a rough guess at
         // this based on whether the script source has a URL.
         result = runScript(script, source.url().string().isNull());
     }
+#if PLATFORM(CHROMIUM)
+    PlatformBridge::traceEventEnd("v8.run", node, "");
+#endif
 
 #if ENABLE(INSPECTOR)
     if (InspectorTimelineAgent* timelineAgent = m_frame->page() ? m_frame->page()->inspectorTimelineAgent() : 0)
         timelineAgent->didEvaluateScript();
 #endif
 
-#if PLATFORM(CHROMIUM)
-    // TODO(andreip): upstream CHROMIUM guards to webkit.org
-    ChromiumBridge::traceEventEnd("v8.run", node, "");
-#endif
     return result;
 }
 
