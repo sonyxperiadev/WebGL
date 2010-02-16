@@ -31,6 +31,8 @@
 #ifndef V8Proxy_h
 #define V8Proxy_h
 
+// ANDROID: Upstream to webkit.org
+#include "PlatformBridge.h"
 #include "ScriptSourceCode.h" // for WebCore::ScriptSourceCode
 #include "SecurityOrigin.h" // for WebCore::SecurityOrigin
 #include "SharedPersistent.h"
@@ -43,8 +45,8 @@
 #include <wtf/PassRefPtr.h> // so generated bindings don't have to
 #include <wtf/Vector.h>
 
+// ANDROID: Upstream to webkit.org
 #if defined(ENABLE_DOM_STATS_COUNTERS) && PLATFORM(CHROMIUM)
-#include "ChromiumBridge.h"
 #define INC_STATS(name) ChromiumBridge::incrementStatsCounter(name)
 #else
 #define INC_STATS(name)
