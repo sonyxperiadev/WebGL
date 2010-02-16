@@ -32,10 +32,9 @@
 #define npruntime_impl_h
 
 #if PLATFORM(CHROMIUM)
-// TODO(andreip): diff and consolidate
-#include "bindings/npruntime.h"
+#include <bindings/npruntime.h>
 #else
-#include "bridge/npruntime.h"  // use WebCore version
+#include "npruntime.h"
 #endif
 
 // This file exists to support WebCore, which expects to be able to call upon
