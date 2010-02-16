@@ -65,7 +65,6 @@ void RenderFrame::viewCleared()
         view->setMarginHeight(marginh);
 }
 
-<<<<<<< HEAD
 #ifdef FLATTEN_FRAMESET
 void RenderFrame::layout()
 {
@@ -94,7 +93,6 @@ void RenderFrame::layout()
     setNeedsLayout(false);
 }
 #endif
-=======
 void RenderFrame::layoutWithFlattening(bool fixedWidth, bool fixedHeight)
 {
     // NOTE: The width and height have been set at this point by
@@ -146,6 +144,5 @@ void RenderFrame::layoutWithFlattening(bool fixedWidth, bool fixedHeight)
 
     setNeedsLayout(false);
 }
->>>>>>> webkit.org at r54731
 
 } // namespace WebCore

@@ -1169,17 +1169,17 @@ void FrameView::scheduleRelayout()
     if (!m_frame->document()->shouldScheduleLayout())
         return;
 
-<<<<<<< HEAD
 #if defined(FLATTEN_IFRAME) || defined(FLATTEN_FRAMESET)
+    // This is the Android frame flattening code. The common code below is not
+    // used as frameSetFlatteningEnabled() is false on Android.
     if (m_frame->ownerRenderer())
         m_frame->ownerRenderer()->setNeedsLayoutAndPrefWidthsRecalc();
 #endif
-=======
+
     // When frameset flattening is enabled, the contents of the frame affects layout of the parent frames.
     // Also invalidate parent frame starting from the owner element of this frame.
     if (m_frame->settings()->frameSetFlatteningEnabled() && m_frame->ownerRenderer())
         m_frame->ownerRenderer()->setNeedsLayout(true, true);
->>>>>>> webkit.org at r54731
 
     int delay = m_frame->document()->minimumLayoutDelay();
     if (m_layoutTimer.isActive() && m_delayedLayout && !delay)
