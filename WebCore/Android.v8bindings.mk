@@ -50,6 +50,7 @@ LOCAL_SRC_FILES += \
 	bindings/v8/DOMData.cpp \
 	bindings/v8/DOMDataStore.cpp \
 	bindings/v8/DOMWrapperWorld.cpp \
+	bindings/v8/DerivedSourcesAllInOne.cpp \
 	bindings/v8/IsolatedWorld.cpp \
 	bindings/v8/MainThreadDOMData.cpp \
 	bindings/v8/NPV8Object.cpp \

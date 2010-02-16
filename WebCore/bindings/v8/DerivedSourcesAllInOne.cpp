@@ -70,6 +70,9 @@
 #include "bindings/V8Clipboard.cpp"
 #include "bindings/V8Comment.cpp"
 #include "bindings/V8CompositionEvent.cpp"
+// ANDROID
+// Temporary modification - will not be upstreamed
+#include "bindings/V8Connection.cpp"
 #include "bindings/V8Console.cpp"
 #include "bindings/V8Coordinates.cpp"
 #include "bindings/V8Counter.cpp"
@@ -225,6 +228,16 @@
 #include "bindings/V8TreeWalker.cpp"
 #include "bindings/V8UIEvent.cpp"
 #include "bindings/V8ValidityState.cpp"
+// ANDROID
+// Do not upstream.
+// The Android build requires V8VoidCallback.h, but not V8VoidCallback.cpp. The
+// same is true of Chromium. Now that we use DerivedSourcesAllInOne.cpp, the
+// generation of header files (in Android.derived.v8bindings.mk) is separate
+// from building the corresponding source files (this file). This will allow us
+// to remove V8VoidCallback.cpp from the Android build (once we have removed
+// DOM_OBJECT_VOIDCALLBACK_TYPES, which currently exists only to satisfy
+// V8VoidCallback.cpp)
+#include "bindings/V8VoidCallback.cpp"
 #include "bindings/V8WebKitAnimationEvent.cpp"
 #include "bindings/V8WebKitCSSKeyframeRule.cpp"
 #include "bindings/V8WebKitCSSKeyframesRule.cpp"
