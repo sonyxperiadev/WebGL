@@ -382,11 +382,7 @@ public:
 
 private:
 
-<<<<<<< HEAD
-#if defined(XP_UNIX) || PLATFORM(SYMBIAN) || defined(ANDROID_PLUGINS)
-=======
-#if defined(XP_UNIX) || OS(SYMBIAN)
->>>>>>> webkit.org at r54731
+#if defined(XP_UNIX) || OS(SYMBIAN) || defined(ANDROID_PLUGINS)
         void setNPWindowIfNeeded();
 #elif defined(XP_MACOSX)
         NP_CGContext m_npCgContext;

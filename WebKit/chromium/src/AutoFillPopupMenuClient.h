@@ -63,18 +63,6 @@ private:
     Vector<WebCore::String> m_labels;
 };
 
-<<<<<<< HEAD:WebCore/bindings/v8/RuntimeEnabledFeatures.cpp
-bool RuntimeEnabledFeatures::isLocalStorageEnabled = true;
-bool RuntimeEnabledFeatures::isSessionStorageEnabled = true;
-bool RuntimeEnabledFeatures::isNotificationsEnabled = false;
-#if PLATFORM(ANDROID)
-// These should default to true, to match the behavior with JSC
-bool RuntimeEnabledFeatures::isApplicationCacheEnabled = true;
-bool RuntimeEnabledFeatures::isGeolocationEnabled = true;
-#endif
-bool RuntimeEnabledFeatures::isIndexedDatabaseEnabled = false;
-=======
 } // namespace WebKit
->>>>>>> webkit.org at r54731:WebKit/chromium/src/AutoFillPopupMenuClient.h
 
 #endif

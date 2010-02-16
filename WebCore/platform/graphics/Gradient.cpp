@@ -195,13 +195,8 @@ void Gradient::setGradientSpaceTransform(const AffineTransform& gradientSpaceTra
     setPlatformGradientSpaceTransform(gradientSpaceTransformation);
 }
 
-<<<<<<< HEAD
 #if !(PLATFORM(SKIA) && !PLATFORM(ANDROID))
-void Gradient::setPlatformGradientSpaceTransform(const TransformationMatrix&)
-=======
-#if !PLATFORM(SKIA)
 void Gradient::setPlatformGradientSpaceTransform(const AffineTransform&)
->>>>>>> webkit.org at r54731
 {
 }
 #endif
