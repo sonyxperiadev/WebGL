@@ -31,13 +31,13 @@
 #ifndef V8NPObject_h
 #define V8NPObject_h
 
-#include <v8.h>
 #if PLATFORM(CHROMIUM)
-// TODO(andreip): diff and consolidate.
-#include "third_party/npapi/bindings/npruntime.h"
+#include <bindings/npruntime.h>
 #else
-#include "bridge/npruntime.h"  // use WebCore version
+#include "npruntime.h"
 #endif
+
+#include <v8.h>
 
 // These functions can be replaced by normal JS operation.
 // Getters

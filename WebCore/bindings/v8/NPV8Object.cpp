@@ -42,9 +42,10 @@
 #include "npruntime_impl.h"
 #include "npruntime_priv.h"
 
-// ANDROID: Upstream to webkit.org
 #if PLATFORM(CHROMIUM)
-#include "bindings/npruntime.h"
+#include <bindings/npruntime.h>
+#else
+#include "npruntime.h"
 #endif
 
 #include <stdio.h>
