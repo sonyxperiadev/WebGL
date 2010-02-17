@@ -52,8 +52,8 @@ public:
     void setDidFirstLayout(bool did) { mDidFirstLayout = did; }
     void setMouseBounds(const WebCore::IntRect& loc) { mMouseBounds = loc; }
     void setNavBounds(const WebCore::IntRect& loc) { mNavBounds = loc; }
-    void setWorking(CachedFrame::Direction , const CachedNode* focus,
-        const WebCore::IntRect& viewBounds);
+    void setWorking(CachedFrame::Direction , const CachedFrame* ,
+        const CachedNode* , const WebCore::IntRect& viewBounds);
     void reset();
 private:
     void pinMaxMin(const WebCore::IntRect& viewBounds);

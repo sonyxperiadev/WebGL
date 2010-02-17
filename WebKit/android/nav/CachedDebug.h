@@ -57,11 +57,16 @@ extern FILE* gNavCacheLogFile;
 #define NAV_CACHE_LOG_FILE "/data/data/com.android.browser/navlog"
 #define DUMP_NAV_LOGD(...) do { if (gNavCacheLogFile) \
     fprintf(gNavCacheLogFile, __VA_ARGS__); else LOGD(__VA_ARGS__); } while (false)
+#define DUMP_NAV_LOGX(format, ...) do { if (gNavCacheLogFile) \
+    fprintf(gNavCacheLogFile, format, __VA_ARGS__); \
+    else LOGD("%s " format, __FUNCTION__, __VA_ARGS__); } while (false)
 #else
 #define DUMP_NAV_LOGD(...) LOGD(__VA_ARGS__)
+#define DUMP_NAV_LOGX(format, ...) LOGD("%s " format, __FUNCTION__, __VA_ARGS__)
 #endif
 #else
 #define DUMP_NAV_LOGD(...) ((void)0)
+#define DUMP_NAV_LOGX(...) ((void)0)
 #endif
 
 #endif

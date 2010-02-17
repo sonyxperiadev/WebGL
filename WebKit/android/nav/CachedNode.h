@@ -33,6 +33,8 @@
 #include "PlatformString.h"
 #include "wtf/Vector.h"
 
+class SkPicture;
+
 namespace WebCore {
     class Node;
 }
@@ -77,6 +79,7 @@ public:
         NOT_CURSOR_NODE,
         OUTSIDE_OF_BEST, // containership
         OUTSIDE_OF_ORIGINAL, // containership
+        UNDER_LAYER,
         CONDITION_SIZE // FIXME: test that CONDITION_SIZE fits in mCondition
     };
     CachedNode() {
@@ -84,8 +87,8 @@ public:
         // constructor
     }
 
-    const WebCore::IntRect& bounds() const { return mBounds; }
-    WebCore::IntRect* boundsPtr() { return &mBounds; }
+    WebCore::IntRect bounds(const CachedFrame* ) const;
+    WebCore::IntRect* boundsPtr() { return &mBounds; } // CacheBuilder only
     int childFrameIndex() const { return isFrame() ? mDataIndex : -1; }
     void clearCondition() const { mCondition = NOT_REJECTED; }
     void clearCursor(CachedFrame* );
@@ -93,19 +96,18 @@ public:
         WTF::Vector<WebCore::IntRect>* rings);
     bool clip(const WebCore::IntRect& );
     bool clippedOut() { return mClippedOut; }
-    void cursorRingBounds(WebCore::IntRect* ) const;
-    WTF::Vector<WebCore::IntRect>& cursorRings() { return mCursorRing; }
-    const WTF::Vector<WebCore::IntRect>& cursorRings() const { return mCursorRing; }
+    WebCore::IntRect cursorRingBounds(const CachedFrame* ) const;
+    // cursorRingsPtr() only for CacheBuilder since it points to raw data
+    WTF::Vector<WebCore::IntRect>* cursorRingsPtr() { return &mCursorRing; }
+    void cursorRings(const CachedFrame* , WTF::Vector<WebCore::IntRect>* ) const;
     bool disabled() const { return mDisabled; }
     const CachedNode* document() const { return &this[-mIndex]; }
-    void fixUpCursorRects(const CachedRoot* root);
-    const WebCore::IntRect& getBounds() const { return mBounds; }
-    void getBounds(WebCore::IntRect* bounds) const { *bounds = mBounds; }
+    void fixUpCursorRects(const CachedFrame* frame);
     const WebCore::String& getExport() const { return mExport; }
     bool hasCursorRing() const { return mHasCursorRing; }
     bool hasMouseOver() const { return mHasMouseOver; }
     void hideCursor(CachedFrame* );
-    const WebCore::IntRect& hitBounds() const { return mHitBounds; }
+    WebCore::IntRect hitBounds(const CachedFrame* ) const;
     int index() const { return mIndex; }
     void init(WebCore::Node* node);
     bool isAnchor() const { return mType == ANCHOR_CACHEDNODETYPE; }
@@ -114,8 +116,9 @@ public:
     bool isFocus() const { return mIsFocus; }
     bool isFrame() const { return mType == FRAME_CACHEDNODETYPE; }
     bool isHidden() const { return mIsHidden; }
-    bool isNavable(const WebCore::IntRect& clip) const {
-        return clip.intersects(mBounds);
+    bool isInLayer() const { return mIsInLayer; }
+    bool isNavable(const CachedFrame* frame, const WebCore::IntRect& clip) const {
+        return clip.intersects(bounds(frame));
     }
     bool isPlugin() const { return mType == PLUGIN_CACHEDNODETYPE; }
     bool isSyntheticLink() const {
@@ -136,6 +139,7 @@ public:
     int parentIndex() const { return mParentIndex; }
     bool partRectsContains(const CachedNode* other) const;
     void reset();
+    WebCore::IntRect ring(const CachedFrame* , size_t part) const;
     void setBounds(const WebCore::IntRect& bounds) { mBounds = bounds; }
     void setClippedOut(bool clipped) { mClippedOut = clipped; }
     void setCondition(Condition condition) const { mCondition = condition; }
@@ -150,6 +154,7 @@ public:
     void setIndex(int index) { mIndex = index; }
     void setIsCursor(bool isCursor) { mIsCursor = isCursor; }
     void setIsFocus(bool isFocus) { mIsFocus = isFocus; }
+    void setIsInLayer(bool isInLayer) { mIsInLayer = isInLayer; }
     void setIsParentAnchor(bool isAnchor) { mIsParentAnchor = isAnchor; }
     void setIsTransparent(bool isTransparent) { mIsTransparent = isTransparent; }
     void setIsUnclipped(bool unclipped) { mIsUnclipped = unclipped; }
@@ -189,6 +194,7 @@ private:
     bool mIsCursor : 1;
     bool mIsFocus : 1;
     bool mIsHidden : 1;
+    bool mIsInLayer : 1;
     bool mIsParentAnchor : 1;
     bool mIsTransparent : 1;
     bool mIsUnclipped : 1;

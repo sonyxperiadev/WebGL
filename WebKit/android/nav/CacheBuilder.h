@@ -44,6 +44,7 @@ class Document;
 class Frame;
 class HTMLAreaElement;
 class InlineTextBox;
+class LayerAndroid;
 class Node;
 class PlatformGraphicsContext;
 class RenderFlow;
@@ -183,23 +184,26 @@ private:
             mStarts[mWordCount] = mCurrentStart;
         }
     };
-    struct ClipColumnTracker {
-        IntRect mBounds;
+    struct Tracker {
         Node* mLastChild;
+    };
+    struct ClipColumnTracker : Tracker {
         Node* mNode;
+        IntRect mBounds;
         WTF::Vector<IntRect>* mColumns;
         int mColumnGap;
         TextDirection mDirection;
         bool mHasClip;
     };
-    struct TabIndexTracker {
-        int mTabIndex;
-        Node* mLastChild;
+    struct LayerTracker : Tracker {
+        LayerAndroid* mLayer;
+        IntPoint mPosition;
     };
-    struct Tracker {
-        int mCachedNodeIndex;
+    struct TabIndexTracker : Tracker {
         int mTabIndex;
-        Node* mLastChild;
+    };
+    struct FocusTracker : TabIndexTracker {
+        int mCachedNodeIndex;
         bool mSomeParentTakesFocus;
     };
     void adjustForColumns(const ClipColumnTracker& track, 
@@ -212,7 +216,7 @@ private:
     void BuildFrame(Frame* root, Frame* frame,
         CachedRoot* cachedRoot, CachedFrame* cachedFrame);
     bool CleanUpContainedNodes(CachedFrame* cachedFrame, 
-        const Tracker* last, int lastChildIndex);
+        const FocusTracker* last, int lastChildIndex);
     static bool ConstructTextRect(Text* textNode,
         InlineTextBox* textBox, int start, int relEnd, int x, int y, 
         IntRect* focusBounds, const IntRect& clip, WTF::Vector<IntRect>* result);
@@ -238,6 +242,10 @@ private:
     static bool IsRealNode(Frame* , Node* );
     int overlap(int left, int right); // returns distance scale factor as 16.16 scalar
     bool setData(CachedFrame* );
+#if USE(ACCELERATED_COMPOSITING)
+    void TrackLayer(WTF::Vector<LayerTracker>& layerTracker,
+        RenderObject* nodeRenderer, Node* lastChild);
+#endif
     Node* tryFocus(Direction direction);
     Node* trySegment(Direction direction, int mainStart, int mainEnd);
     CachedNodeBits mAllowableTypes;

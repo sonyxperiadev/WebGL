@@ -24,15 +24,20 @@
  */
 
 #include "CachedPrefix.h"
+#include "android_graphics.h"
+#include "CachedFrame.h"
 #include "CachedHistory.h"
-#include "CachedRoot.h"
 #include "Node.h"
 #include "PlatformString.h"
 
-#include "android_graphics.h"
 #include "CachedNode.h"
 
 namespace android {
+
+WebCore::IntRect CachedNode::bounds(const CachedFrame* frame) const
+{
+    return mIsInLayer ? frame->adjustBounds(this, mBounds) : mBounds;
+}
 
 void CachedNode::clearCursor(CachedFrame* parent)
 {
@@ -76,26 +81,36 @@ bool CachedNode::clip(const WebCore::IntRect& bounds)
     return Clip(bounds, &mBounds, &mCursorRing);
 }
 
-void CachedNode::cursorRingBounds(WebCore::IntRect* bounds) const
+
+void CachedNode::cursorRings(const CachedFrame* frame,
+    WTF::Vector<WebCore::IntRect>* rings) const
+{
+    rings->clear();
+    for (unsigned index = 0; index < mCursorRing.size(); index++)
+        rings->append(ring(frame, index));
+}
+
+WebCore::IntRect CachedNode::cursorRingBounds(const CachedFrame* frame) const
 {
     int partMax = mNavableRects;
     ASSERT(partMax > 0);
-    *bounds = mCursorRing[0];
+    WebCore::IntRect bounds = mCursorRing[0];
     for (int partIndex = 1; partIndex < partMax; partIndex++)
-        bounds->unite(mCursorRing[partIndex]);
-    bounds->inflate(CURSOR_RING_HIT_TEST_RADIUS);
+        bounds.unite(mCursorRing[partIndex]);
+    bounds.inflate(CURSOR_RING_HIT_TEST_RADIUS);
+    return mIsInLayer ? frame->adjustBounds(this, bounds) : bounds;
 }
 
 #define OVERLAP 3
 
-void CachedNode::fixUpCursorRects(const CachedRoot* root)
+void CachedNode::fixUpCursorRects(const CachedFrame* frame)
 {
     if (mFixedUpCursorRects)
         return;
     mFixedUpCursorRects = true;
     // if the hit-test rect doesn't intersect any other rect, use it
     if (mHitBounds != mBounds && mHitBounds.contains(mBounds) &&
-            root->checkRings(mCursorRing, mHitBounds)) {
+            frame->checkRings(this, mCursorRing, mHitBounds)) {
         DBG_NAV_LOGD("use mHitBounds (%d,%d,%d,%d)", mHitBounds.x(),
             mHitBounds.y(), mHitBounds.width(), mHitBounds.height());
         mUseHitBounds = true;
@@ -105,7 +120,7 @@ void CachedNode::fixUpCursorRects(const CachedRoot* root)
         return;
     // if there is more than 1 rect, and the bounds doesn't intersect
     // any other cursor ring bounds, use it
-    if (root->checkRings(mCursorRing, mBounds)) {
+    if (frame->checkRings(this, mCursorRing, mBounds)) {
         DBG_NAV_LOGD("use mBounds (%d,%d,%d,%d)", mBounds.x(),
             mBounds.y(), mBounds.width(), mBounds.height());
         mUseBounds = true;
@@ -204,6 +219,7 @@ tryAgain:
     } while (again);
 }
 
+
 void CachedNode::hideCursor(CachedFrame* parent)
 {
     if (isFrame()) {
@@ -211,6 +227,11 @@ void CachedNode::hideCursor(CachedFrame* parent)
         child->hideCursor();
     }
     mIsHidden = true;
+}
+
+WebCore::IntRect CachedNode::hitBounds(const CachedFrame* frame) const
+{
+    return mIsInLayer ? frame->adjustBounds(this, mHitBounds) : mHitBounds;
 }
 
 void CachedNode::init(WebCore::Node* node)
@@ -254,6 +275,12 @@ bool CachedNode::partRectsContains(const CachedNode* other) const
         } while (++innerIndex < innerMax);
     } while (++outerIndex < outerMax);
     return false;
+}
+
+WebCore::IntRect CachedNode::ring(const CachedFrame* frame, size_t part) const
+{
+    const WebCore::IntRect& rect = mCursorRing.at(part);
+    return mIsInLayer ? frame->adjustBounds(this, rect) : rect;
 }
 
 #if DUMP_NAV_CACHE
@@ -333,12 +360,15 @@ void CachedNode::Debug::print() const
     DUMP_NAV_LOGD("%.*s\"\n", index, scratch);
     DEBUG_PRINT_RECT(mBounds);
     DEBUG_PRINT_RECT(mHitBounds);
-    const WTF::Vector<WebCore::IntRect>& rects = b->cursorRings();
-    size_t size = rects.size();
+    DEBUG_PRINT_RECT(mOriginalAbsoluteBounds);
+    const WTF::Vector<WebCore::IntRect>* rects = b->cursorRingsPtr();
+    size_t size = rects->size();
     DUMP_NAV_LOGD("// IntRect cursorRings={ // size=%d\n", size);
-    for (size_t i = 0; i < size; i++)
-        DUMP_NAV_LOGD("    // {%d, %d, %d, %d}, // %d\n", rects[i].x(), rects[i].y(),
-            rects[i].width(), rects[i].height(), i);
+    for (size_t i = 0; i < size; i++) {
+        const WebCore::IntRect& rect = (*rects)[i];
+        DUMP_NAV_LOGD("    // {%d, %d, %d, %d}, // %d\n", rect.x(), rect.y(),
+            rect.width(), rect.height(), i);
+    }
     DUMP_NAV_LOGD("// };\n");
     DUMP_NAV_LOGD("// void* mNode=%p; // (%d) \n", b->mNode, mNodeIndex);
     DUMP_NAV_LOGD("// void* mParentGroup=%p; // (%d) \n", b->mParentGroup, mParentGroupIndex);
@@ -357,6 +387,7 @@ void CachedNode::Debug::print() const
     DEBUG_PRINT_BOOL(mIsCursor);
     DEBUG_PRINT_BOOL(mIsFocus);
     DEBUG_PRINT_BOOL(mIsHidden);
+    DEBUG_PRINT_BOOL(mIsInLayer);
     DEBUG_PRINT_BOOL(mIsParentAnchor);
     DEBUG_PRINT_BOOL(mIsTransparent);
     DEBUG_PRINT_BOOL(mIsUnclipped);

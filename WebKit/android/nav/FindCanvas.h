@@ -26,6 +26,7 @@
 #ifndef Find_Canvas_h
 #define Find_Canvas_h
 
+#include "IntRect.h"
 #include "SkBounder.h"
 #include "SkCanvas.h"
 #include "SkPicture.h"
@@ -34,8 +35,13 @@
 #include "icu/unicode/umachine.h"
 #include "wtf/Vector.h"
 
-class SkRect;
-class SkTypeface;
+// class SkIRect;
+// class SkRect;
+// class SkTypeface;
+
+namespace WebCore {
+    class LayerAndroid;
+}
 
 // Stores both region information and an SkPicture of the match, so that the
 // region can be drawn, followed by drawing the matching text on top of it.
@@ -51,11 +57,14 @@ public:
     SkPicture* getPicture() const { return m_picture; }
     // This will make a copy of the region, and increase the ref count on the
     // SkPicture.  If this MatchInfo already had one, unref it.
-    void set(const SkRegion& region, SkPicture* pic);
+    bool isInLayer() const { return m_layerId >= 0; }
+    int layerId() const { return m_layerId; }
+    void set(const SkRegion& region, SkPicture* pic, int layerId);
 private:
     MatchInfo& operator=(MatchInfo& src);
     SkRegion    m_location;
     SkPicture*  m_picture;
+    int         m_layerId;
 };
 
 // A class containing a typeface for reference, the length in glyphs, and
@@ -135,7 +144,9 @@ public:
                                 const SkPaint& paint) {
     }
 
+    void drawLayers(WebCore::LayerAndroid* );
     int found() const { return mNumFound; }
+    void setLayerId(int layerId) { mLayerId = layerId; }
 
     // This method detaches our array of matches and passes ownership to
     // the caller, who is then responsible for deleting them.
@@ -201,6 +212,38 @@ private:
     SkCanvas*               mWorkingCanvas;
     SkRegion                mWorkingRegion;
     int                     mWorkingIndex;
+    int                     mLayerId;
+};
+
+class FindOnPage {
+public:
+    FindOnPage() {
+        m_matches = 0;
+        m_hasCurrentLocation = false;
+        m_isFindPaintSetUp = false;
+    }
+    ~FindOnPage() { delete m_matches; }
+    void clearCurrentLocation() { m_hasCurrentLocation = false; }
+    WebCore::IntRect currentMatchBounds() const;
+    void drawLayer(SkCanvas* canvas, const WebCore::IntRect* vis, int layerId);
+    void findNext(bool forward);
+    void setMatches(WTF::Vector<MatchInfo>* matches);
+private:
+    void drawMatch(const SkRegion& region, SkCanvas* canvas, bool focused);
+    void setUpFindPaint();
+    void storeCurrentMatchLocation();
+    WTF::Vector<MatchInfo>* m_matches;
+    // Stores the location of the current match.
+    SkIPoint m_currentMatchLocation;
+    // Tells whether the value in m_currentMatchLocation is valid.
+    bool m_hasCurrentLocation;
+    // Tells whether we have done the setup to draw the Find matches.
+    bool m_isFindPaintSetUp;
+    // Paint used to draw our Find matches.
+    SkPaint m_findPaint;
+    // Paint used for the background of our Find matches.
+    SkPaint m_findBlurPaint;
+    unsigned m_findIndex;
 };
 
 #endif  // Find_Canvas_h

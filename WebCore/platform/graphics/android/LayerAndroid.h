@@ -19,26 +19,21 @@
 
 #if USE(ACCELERATED_COMPOSITING)
 
-#include "Color.h"
 #include "FloatPoint.h"
-#include "FloatPoint3D.h"
-#include "FloatSize.h"
-#include "Length.h"
 #include "RefPtr.h"
+#include "SkColor.h"
 #include "SkLayer.h"
 #include "StringHash.h"
-#include "Vector.h"
 #include <wtf/HashMap.h>
 
+class FindOnPage;
 class SkCanvas;
 class SkMatrix;
 class SkPicture;
-class SkRect;
 
 namespace WebCore {
 
 class AndroidAnimation;
-class AndroidAnimationValue;
 
 class LayerAndroid : public SkLayer {
 
@@ -52,12 +47,14 @@ public:
     void setHaveContents(bool haveContents) { m_haveContents = haveContents; }
     void setHaveImage(bool haveImage) { m_haveImage = haveImage; }
     void setDrawsContent(bool drawsContent);
+    void setFindOnPage(FindOnPage* findOnPage);
     void setMaskLayer(LayerAndroid*);
     void setMasksToBounds(bool);
     virtual void setBackgroundColor(SkColor color);
     void setIsRootLayer(bool isRootLayer) { m_isRootLayer = isRootLayer; }
 
     virtual void draw(SkCanvas*, const SkRect* viewPort);
+//    GraphicsContext* paintContext();
     bool prepareContext(bool force = false);
     void startRecording();
     void stopRecording();
@@ -72,15 +69,21 @@ public:
 
     SkPicture* picture() const { return m_recordingPicture; }
 
-    void dumpLayers(FILE*, int indentLevel);
+    void dumpLayers(FILE*, int indentLevel) const;
 
-private:
-
+    void bounds(SkRect* ) const;
     bool calcPosition(const SkRect* viewPort, SkMatrix*);
-
-    void paintChildren(const SkRect* viewPort, SkCanvas* canvas,
-                       float opacity);
-
+    void clipArea(SkTDArray<SkRect>* region) const;
+    const LayerAndroid* find(FloatPoint position) const;
+    const LayerAndroid* findById(int uniqueID) const;
+    LayerAndroid* getChild(int index) const { return
+        static_cast<LayerAndroid*>(m_children[index]); }
+    bool haveClip() const { return m_haveClip; }
+    int uniqueId() const { return m_uniqueId; }
+private:
+    bool boundsIsUnique(SkTDArray<SkRect>* region, const SkRect& local) const;
+    void clipInner(SkTDArray<SkRect>* region, const SkRect& local) const;
+    void paintChildren(const SkRect* viewPort, SkCanvas* canvas, float opacity);
     void paintMe(const SkRect* viewPort, SkCanvas* canvas,
                  float opacity);
 
@@ -94,6 +97,8 @@ private:
 
     typedef HashMap<String, RefPtr<AndroidAnimation> > KeyframesMap;
     KeyframesMap m_animations;
+    FindOnPage* m_findOnPage;
+    int m_uniqueId;
 };
 
 }

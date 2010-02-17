@@ -27,10 +27,13 @@
 #define CachedFrame_H
 
 #include "CachedInput.h"
+#include "CachedLayer.h"
 #include "CachedNode.h"
 #include "IntRect.h"
 #include "SkFixed.h"
 #include "wtf/Vector.h"
+
+class SkPicture;
 
 namespace WebCore {
     class Frame;
@@ -68,8 +71,16 @@ public:
     };
     CachedFrame() {}
     void add(CachedInput& input) { mCachedTextInputs.append(input); }
+#if USE(ACCELERATED_COMPOSITING)
+    void add(CachedLayer& layer) { mCachedLayers.append(layer); }
+#endif
     void add(CachedNode& node) { mCachedNodes.append(node); }
     void addFrame(CachedFrame& child) { mCachedFrames.append(child); }
+    WebCore::IntRect adjustBounds(const CachedNode* ,
+        const WebCore::IntRect& ) const;
+    bool checkRings(const CachedNode* node,
+        const WTF::Vector<WebCore::IntRect>& rings,
+        const WebCore::IntRect& bounds) const;
     bool checkVisited(const CachedNode* , CachedFrame::Direction ) const;
     size_t childCount() { return mCachedFrames.size(); }
     void clearCursor();
@@ -99,6 +110,9 @@ public:
     const CachedFrame* lastChild() const { return &mCachedFrames.last(); }
     CachedNode* lastNode() { return &mCachedNodes.last(); }
     CachedFrame* lastChild() { return &mCachedFrames.last(); }
+#if USE(ACCELERATED_COMPOSITING)
+    const CachedLayer* layer(const CachedNode* ) const;
+#endif
     /**
      * Find the next textfield/textarea
      * @param start Must be a CachedNode in this CachedFrame's tree, or
@@ -113,6 +127,8 @@ public:
         const CachedFrame** framePtr, bool includeTextAreas) const;
     const CachedFrame* parent() const { return mParent; }
     CachedFrame* parent() { return mParent; }
+    SkPicture* picture(const CachedNode* ) const;
+    void resetLayers();
     bool sameFrame(const CachedFrame* ) const;
     void removeLast() { mCachedNodes.removeLast(); }
     void resetClippedOut();
@@ -132,8 +148,6 @@ public:
     const CachedNode* validDocument() const;
 protected:
     struct BestData {
-        WebCore::IntRect mNodeBounds;
-        WebCore::IntRect mMouseBounds;
         int mDistance;
         int mSideDistance;
         int mMajorDelta; // difference of center of object
@@ -160,9 +174,12 @@ protected:
         bool inOrSubsumesNav() const { return (mNavDelta ^ mNavDelta2) >= 0; }
         bool inOrSubsumesWorking() const { return (mWorkingDelta ^ mWorkingDelta2) >= 0; }
         int isContainer(BestData* );
+        const WebCore::IntRect& mouseBounds() const { return mMouseBounds; }
         static SkFixed Overlap(int span, int left, int right);
         void reset() { mNode = NULL; }
         int right() const { return bounds().right(); }
+        void setMouseBounds(const WebCore::IntRect& b) { mMouseBounds = b; }
+        void setNodeBounds(const WebCore::IntRect& b) { mNodeBounds = b; }
         void setDistances();
         bool setDownDirection(const CachedHistory* );
         bool setLeftDirection(const CachedHistory* );
@@ -175,37 +192,37 @@ protected:
         int width() const { return bounds().width(); }
         int x() const { return bounds().x(); }
         int y() const { return bounds().y(); }
+private: // since computing these is complicated, protect them so that the
+         // are only written by appropriate helpers
+        WebCore::IntRect mMouseBounds;
+        WebCore::IntRect mNodeBounds;
     };
     typedef const CachedNode* (CachedFrame::*MoveInDirection)(
-        const CachedNode* test, const CachedNode* limit, BestData* bestData, 
-        const CachedNode* focus) const;
+        const CachedNode* test, const CachedNode* limit, BestData* ) const;
     void adjustToTextColumn(int* delta) const;
     static bool CheckBetween(Direction , const WebCore::IntRect& bestRect, 
         const WebCore::IntRect& prior, WebCore::IntRect* result);
     bool checkBetween(BestData* , Direction );
-    int compare(BestData& testData, const BestData& bestData, const 
-        CachedNode* focus) const;
+    int compare(BestData& testData, const BestData& bestData) const;
     void findClosest(BestData* , Direction original, Direction test,
         WebCore::IntRect* clip) const;
     int frameNodeCommon(BestData& testData, const CachedNode* test, 
-        BestData* bestData, BestData* originalData, 
-        const CachedNode* focus) const;
+        BestData* bestData, BestData* originalData) const;
     int framePartCommon(BestData& testData, const CachedNode* test, 
-        BestData* bestData, const CachedNode* focus) const;
+        BestData* ) const;
     const CachedNode* frameDown(const CachedNode* test, const CachedNode* limit, 
-        BestData* , const CachedNode* focus) const;
+        BestData* ) const;
     const CachedNode* frameLeft(const CachedNode* test, const CachedNode* limit, 
-        BestData* , const CachedNode* focus) const;
+        BestData* ) const;
     const CachedNode* frameRight(const CachedNode* test, const CachedNode* limit, 
-        BestData* , const CachedNode* focus) const;
+        BestData* ) const;
     const CachedNode* frameUp(const CachedNode* test, const CachedNode* limit, 
-        BestData* , const CachedNode* focus) const;
+        BestData* ) const;
     int minWorkingHorizontal() const;
     int minWorkingVertical() const;
     int maxWorkingHorizontal() const;
     int maxWorkingVertical() const;
-    bool moveInFrame(MoveInDirection , const CachedNode* test, BestData* best,
-        const CachedNode* focus) const;
+    bool moveInFrame(MoveInDirection , const CachedNode* test, BestData* ) const;
     const WebCore::IntRect& _navBounds() const;
     WebCore::IntRect mContents;
     WebCore::IntRect mLocalViewBounds;
@@ -213,6 +230,9 @@ protected:
     WTF::Vector<CachedNode> mCachedNodes;
     WTF::Vector<CachedFrame> mCachedFrames;
     WTF::Vector<CachedInput> mCachedTextInputs;
+#if USE(ACCELERATED_COMPOSITING)
+    WTF::Vector<CachedLayer> mCachedLayers;
+#endif
     void* mFrame; // WebCore::Frame*, used only to compare pointers
     CachedFrame* mParent;
     int mCursorIndex;
