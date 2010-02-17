@@ -133,7 +133,7 @@ WebView(JNIEnv* env, jobject javaWebView, int viewImpl)
  //   m_javaGlue = new JavaGlue;
     m_javaGlue.m_obj = env->NewWeakGlobalRef(javaWebView);
     m_javaGlue.m_scrollBy = GetJMethod(env, clazz, "setContentScrollBy", "(IIZ)Z");
-    m_javaGlue.m_clearTextEntry = GetJMethod(env, clazz, "clearTextEntry", "()V");
+    m_javaGlue.m_clearTextEntry = GetJMethod(env, clazz, "clearTextEntry", "(Z)V");
     m_javaGlue.m_overrideLoading = GetJMethod(env, clazz, "overrideLoading", "(Ljava/lang/String;)V");
     m_javaGlue.m_sendMoveFocus = GetJMethod(env, clazz, "sendMoveFocus", "(II)V");
     m_javaGlue.m_sendMoveMouse = GetJMethod(env, clazz, "sendMoveMouse", "(IIII)V");
@@ -221,7 +221,8 @@ void clearTextEntry()
 {
     DEBUG_NAV_UI_LOGD("%s", __FUNCTION__);
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    env->CallVoidMethod(m_javaGlue.object(env).get(), m_javaGlue.m_clearTextEntry);
+    env->CallVoidMethod(m_javaGlue.object(env).get(),
+        m_javaGlue.m_clearTextEntry, true);
     checkException(env);
 }
 
@@ -825,13 +826,11 @@ void selectBestAt(const WebCore::IntRect& rect)
 {
     const CachedFrame* frame;
     int rx, ry;
-    bool disableFocusController = false;
     CachedRoot* root = getFrameCache(DontAllowNewer);
     const CachedNode* node = findAt(root, rect, &frame, &rx, &ry);
 
     if (!node) {
         DBG_NAV_LOGD("no nodes found root=%p", root);
-        disableFocusController = true;
         m_viewImpl->m_hasCursorBounds = false;
         if (root)
             root->setCursor(0, 0);
@@ -841,11 +840,8 @@ void selectBestAt(const WebCore::IntRect& rect)
         updateCursorBounds(root, frame, node);
         root->setCursor(const_cast<CachedFrame*>(frame),
                 const_cast<CachedNode*>(node));
-        if (!node->wantsKeyEvents()) {
-            disableFocusController = true;
-        }
     }
-    sendMoveMouseIfLatest(disableFocusController);
+    sendMoveMouseIfLatest(false);
     viewInvalidate();
 }
 
