@@ -361,7 +361,7 @@ void CachedNode::Debug::print() const
     DEBUG_PRINT_RECT(mBounds);
     DEBUG_PRINT_RECT(mHitBounds);
     DEBUG_PRINT_RECT(mOriginalAbsoluteBounds);
-    const WTF::Vector<WebCore::IntRect>* rects = b->cursorRingsPtr();
+    const WTF::Vector<WebCore::IntRect>* rects = &b->mCursorRing;
     size_t size = rects->size();
     DUMP_NAV_LOGD("// IntRect cursorRings={ // size=%d\n", size);
     for (size_t i = 0; i < size; i++) {

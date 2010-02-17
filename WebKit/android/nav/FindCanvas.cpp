@@ -476,7 +476,7 @@ void FindCanvas::insertMatchInfo(const SkRegion& region) {
     MatchInfo matchInfo;
     mMatches->append(matchInfo);
     LOGD("%s region=%p pict=%p layer=%d", __FUNCTION__,
-        region, mWorkingPicture, mLayerId);
+        &region, mWorkingPicture, mLayerId);
     mMatches->last().set(region, mWorkingPicture, mLayerId);
 }
 

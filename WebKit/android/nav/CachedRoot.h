@@ -54,8 +54,6 @@ public:
     bool checkRings(SkPicture* , const WTF::Vector<WebCore::IntRect>& rings,
         const WebCore::IntRect& bounds) const;
     WebCore::IntPoint cursorLocation() const;
-    const WebCore::IntRect& cursorBounds() const { return mCursorBounds; } // should only be called by CachedFrame
-    const CachedNode* cursor() const { return mCursor; } // should only be called by CachedFrame
     int documentHeight() { return mContents.height(); }
     int documentWidth() { return mContents.width(); }
     void draw(FindCanvas& ) const;
@@ -63,7 +61,6 @@ public:
         int* x, int* y, bool checkForHidden) const;
     const WebCore::IntRect& focusBounds() const { return mFocusBounds; }
     WebCore::IntPoint focusLocation() const;
-    SkPicture* getPicture() const { return mPicture; } // should only be called by CachedFrame
     int getAndResetSelectionEnd();
     int getAndResetSelectionStart();
     int getBlockLeftEdge(int x, int y, float scale) const;
@@ -99,6 +96,7 @@ public:
     int textGeneration() const { return mTextGeneration; }
     int width() const { return mPicture ? mPicture->width() : 0; }
 private:
+    friend class CachedFrame;
     CachedHistory* mHistory;
     SkPicture* mPicture;
     WebCore::LayerAndroid* mRootLayer;

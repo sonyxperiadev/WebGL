@@ -19,7 +19,6 @@
 
 #if USE(ACCELERATED_COMPOSITING)
 
-#include "FloatPoint.h"
 #include "RefPtr.h"
 #include "SkColor.h"
 #include "SkLayer.h"
@@ -54,7 +53,6 @@ public:
     void setIsRootLayer(bool isRootLayer) { m_isRootLayer = isRootLayer; }
 
     virtual void draw(SkCanvas*, const SkRect* viewPort);
-//    GraphicsContext* paintContext();
     bool prepareContext(bool force = false);
     void startRecording();
     void stopRecording();
@@ -74,7 +72,7 @@ public:
     void bounds(SkRect* ) const;
     bool calcPosition(const SkRect* viewPort, SkMatrix*);
     void clipArea(SkTDArray<SkRect>* region) const;
-    const LayerAndroid* find(FloatPoint position) const;
+    const LayerAndroid* find(int x, int y) const;
     const LayerAndroid* findById(int uniqueID) const;
     LayerAndroid* getChild(int index) const { return
         static_cast<LayerAndroid*>(m_children[index]); }

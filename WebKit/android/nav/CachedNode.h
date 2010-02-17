@@ -88,7 +88,6 @@ public:
     }
 
     WebCore::IntRect bounds(const CachedFrame* ) const;
-    WebCore::IntRect* boundsPtr() { return &mBounds; } // CacheBuilder only
     int childFrameIndex() const { return isFrame() ? mDataIndex : -1; }
     void clearCondition() const { mCondition = NOT_REJECTED; }
     void clearCursor(CachedFrame* );
@@ -97,8 +96,6 @@ public:
     bool clip(const WebCore::IntRect& );
     bool clippedOut() { return mClippedOut; }
     WebCore::IntRect cursorRingBounds(const CachedFrame* ) const;
-    // cursorRingsPtr() only for CacheBuilder since it points to raw data
-    WTF::Vector<WebCore::IntRect>* cursorRingsPtr() { return &mCursorRing; }
     void cursorRings(const CachedFrame* , WTF::Vector<WebCore::IntRect>* ) const;
     bool disabled() const { return mDisabled; }
     const CachedNode* document() const { return &this[-mIndex]; }
@@ -172,6 +169,7 @@ public:
     bool useHitBounds() const { return mUseHitBounds; }
     bool wantsKeyEvents() const { return isTextInput() || isPlugin(); }
 private:
+    friend class CacheBuilder;
     WebCore::String mExport;
     WebCore::IntRect mBounds;
     WebCore::IntRect mHitBounds;

@@ -205,16 +205,16 @@ void LayerAndroid::clipInner(SkTDArray<SkRect>* region,
         getChild(i)->clipInner(region, m_haveClip ? localBounds : local);
 }
 
-const LayerAndroid* LayerAndroid::find(FloatPoint pos) const
+const LayerAndroid* LayerAndroid::find(int x, int y) const
 {
     for (int i = 0; i < countChildren(); i++) {
-        const LayerAndroid* found = getChild(i)->find(pos);
+        const LayerAndroid* found = getChild(i)->find(x, y);
         if (found)
             return found;
     }
     SkRect localBounds;
     bounds(&localBounds);
-    if (localBounds.contains(pos))
+    if (localBounds.contains(x, y))
         return this;
     return 0;
 }
