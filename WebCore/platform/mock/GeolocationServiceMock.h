@@ -46,7 +46,12 @@ class GeolocationServiceMock : public GeolocationService {
     GeolocationServiceMock(GeolocationServiceClient*);
     virtual ~GeolocationServiceMock();
 
+#if PLATFORM(ANDROID)
+    // TODO: Upstream to webkit.org. See https://bugs.webkit.org/show_bug.cgi?id=34082
+    virtual bool startUpdating(PositionOptions*, bool suspend);
+#else
     virtual bool startUpdating(PositionOptions*);
+#endif
     virtual void stopUpdating();
 
     static void setPosition(PassRefPtr<Geoposition> position);

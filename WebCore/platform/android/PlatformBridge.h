@@ -126,7 +126,9 @@ public:
 #endif // USE(ACCELERATED_COMPOSITING)
 
     // Whether the WebView is paused.
-    static bool isWebViewPaused();
+    // ANDROID
+    // TODO: Upstream to webkit.org. See https://bugs.webkit.org/show_bug.cgi?id=34082
+    static bool isWebViewPaused(const FrameView*);
 };
 
 }

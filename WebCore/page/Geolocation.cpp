@@ -34,6 +34,7 @@
 #include "EventNames.h"
 #include "Frame.h"
 #include "Page.h"
+#include "PlatformBridge.h"
 #include <wtf/CurrentTime.h>
 
 #if ENABLE(CLIENT_BASED_GEOLOCATION)
@@ -648,7 +649,14 @@ bool Geolocation::startUpdating(GeoNotifier* notifier)
     page->geolocationController()->addObserver(this);
     return true;
 #else
+#if PLATFORM(ANDROID)
+    // TODO: Upstream to webkit.org. See https://bugs.webkit.org/show_bug.cgi?id=34082
+    // Note that the correct fix is to use a 'paused' flag in WebCore, rather
+    // than calling into PlatformBridge.
+    return m_service->startUpdating(notifier->m_options.get(), PlatformBridge::isWebViewPaused(m_frame->view()));
+#else
     return m_service->startUpdating(notifier->m_options.get());
+#endif
 #endif
 }
 
