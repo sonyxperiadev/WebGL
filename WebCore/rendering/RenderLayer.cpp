@@ -2231,7 +2231,7 @@ void RenderLayer::paintLayer(RenderLayer* rootLayer, GraphicsContext* p,
         int y = 0;
         convertToLayerCoords(rootLayer, x, y);
 #ifdef ANDROID_FASTER_MATRIX
-        TransformationMatrix transform(*m_transform);
+        TransformationMatrix transform(layerTransform);
         transform.translateRight(x, y);
 #else
         TransformationMatrix transform;
