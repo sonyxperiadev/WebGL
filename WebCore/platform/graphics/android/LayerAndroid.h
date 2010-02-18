@@ -52,7 +52,7 @@ public:
     virtual void setBackgroundColor(SkColor color);
     void setIsRootLayer(bool isRootLayer) { m_isRootLayer = isRootLayer; }
 
-    virtual void draw(SkCanvas*, const SkRect* viewPort);
+//    virtual void draw(SkCanvas*, SkScalar opacity, const SkRect* viewPort);
     bool prepareContext(bool force = false);
     void startRecording();
     void stopRecording();
@@ -70,7 +70,11 @@ public:
     void dumpLayers(FILE*, int indentLevel) const;
 
     void bounds(SkRect* ) const;
-    bool calcPosition(const SkRect* viewPort, SkMatrix*);
+    /** Call this with the current viewport (scrolling, zoom) to update its
+        position attribute, so that later calls like bounds() will report the
+        corrected position (assuming the layer had fixed-positioning).
+     */
+    void updatePosition(const SkRect& viewPort);
     void clipArea(SkTDArray<SkRect>* region) const;
     const LayerAndroid* find(int x, int y) const;
     const LayerAndroid* findById(int uniqueID) const;
@@ -81,7 +85,18 @@ public:
 private:
     bool boundsIsUnique(SkTDArray<SkRect>* region, const SkRect& local) const;
     void clipInner(SkTDArray<SkRect>* region, const SkRect& local) const;
-    void paintChildren(const SkRect* viewPort, SkCanvas* canvas, float opacity);
+
+protected:
+    virtual void onSetupCanvas(SkCanvas*, SkScalar opacity, const SkRect*);
+    virtual void onDraw(SkCanvas*, SkScalar opacity, const SkRect* viewPort);
+
+private:
+
+    bool calcPosition(SkCanvas*, const SkRect* viewPort);
+
+    void paintChildren(const SkRect* viewPort, SkCanvas* canvas,
+                       float opacity);
+
     void paintMe(const SkRect* viewPort, SkCanvas* canvas,
                  float opacity);
 
@@ -97,6 +112,8 @@ private:
     KeyframesMap m_animations;
     FindOnPage* m_findOnPage;
     int m_uniqueId;
+
+    typedef SkLayer INHERITED;
 };
 
 }

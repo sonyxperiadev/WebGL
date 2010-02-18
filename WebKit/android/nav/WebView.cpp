@@ -558,7 +558,7 @@ CachedRoot* getFrameCache(FrameCachePermission allowNewer)
         getViewMetrics(&viewMetrics);
         LayerAndroid* layer = const_cast<LayerAndroid*>(
             m_frameCacheUI->rootLayer()->findById(layerId));
-        layer->calcPosition(&viewMetrics, 0);
+        layer->updatePosition(viewMetrics);
     }
 #endif
     fixCursor();
@@ -630,9 +630,9 @@ void getViewMetrics(SkRect* viewMetrics)
     int scrollY = env->GetIntField(jMetrics, m_javaGlue.m_metricsScrollY);
     int width = env->GetIntField(jMetrics, m_javaGlue.m_metricsWidth);
     int height = env->GetIntField(jMetrics, m_javaGlue.m_metricsHeight);
-    int scale = env->GetFloatField(jMetrics, m_javaGlue.m_metricsScale);
-    *viewMetrics = IntRect(scrollX / scale, scrollY / scale,
-            width / scale, height / scale);
+    float scale = env->GetFloatField(jMetrics, m_javaGlue.m_metricsScale);
+    viewMetrics->set(scrollX / scale, scrollY / scale,
+                     (scrollX + width) / scale, (scrollY + height) / scale);
     env->DeleteLocalRef(jMetrics);
     checkException(env);
 }
@@ -1457,7 +1457,7 @@ static void nativeDrawLayers(JNIEnv *env, jobject obj, jint layer, jobject canv)
     SkRect viewMetrics;
     view->getViewMetrics(&viewMetrics);
     layerImpl->setFindOnPage(view->findOnPage());
-    layerImpl->draw(canvas, &viewMetrics);
+    layerImpl->draw(canvas, SK_Scalar1, &viewMetrics);
 #endif
 }
 

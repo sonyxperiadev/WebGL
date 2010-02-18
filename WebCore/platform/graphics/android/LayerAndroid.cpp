@@ -159,12 +159,6 @@ void LayerAndroid::setBackgroundColor(SkColor color)
 
 static int gDebugChildLevel;
 
-void LayerAndroid::draw(SkCanvas* canvas, const SkRect* viewPort)
-{
-    gDebugChildLevel = 0;
-    paintChildren(viewPort, canvas, 1);
-}
-
 void LayerAndroid::bounds(SkRect* rect) const
 {
     rect->fLeft = m_position.fX + m_translation.fX;
@@ -247,8 +241,30 @@ void LayerAndroid::paintChildren(const SkRect* viewPort, SkCanvas* canvas,
     canvas->restoreToCount(count);
 }
 
-bool LayerAndroid::calcPosition(const SkRect* viewPort,
-                                SkMatrix* matrix) {
+void LayerAndroid::updatePosition(const SkRect& viewPort) {
+    if (m_isFixed) {
+        float x = 0;
+        float y = 0;
+        float w = viewPort.width();
+        float h = viewPort.height();
+        float dx = viewPort.fLeft;
+        float dy = viewPort.fTop;
+
+        if (m_fixedLeft.defined())
+            x = dx + m_fixedLeft.calcFloatValue(w);
+        else if (m_fixedRight.defined())
+            x = dx + w - m_fixedRight.calcFloatValue(w) - m_size.width();
+
+        if (m_fixedTop.defined())
+            y = dy + m_fixedTop.calcFloatValue(h);
+        else if (m_fixedBottom.defined())
+            y = dy + h - m_fixedBottom.calcFloatValue(h) - m_size.height();
+
+        this->setPosition(x, y);
+    }
+}
+
+bool LayerAndroid::calcPosition(SkCanvas* canvas, const SkRect* viewPort) {
     if (viewPort && m_isFixed) {
         float x = 0;
         float y = 0;
@@ -267,12 +283,49 @@ bool LayerAndroid::calcPosition(const SkRect* viewPort,
         else if (m_fixedBottom.defined())
             y = dy + h - m_fixedBottom.calcFloatValue(h) - m_size.height();
 
-        if (matrix)
-            matrix->setTranslate(x, y);
-        setPosition(x, y);
+        this->setPosition(x, y);
+        canvas->translate(x, y);
         return true;
     }
     return false;
+}
+
+void LayerAndroid::onSetupCanvas(SkCanvas* canvas, SkScalar opacity,
+                                 const SkRect* viewport) {
+    if (!this->calcPosition(canvas, viewport)) {
+        SkMatrix matrix;
+        matrix.setTranslate(m_translation.fX, m_translation.fY);
+        if (m_doRotation) {
+            matrix.preRotate(m_angleTransform);
+        }
+        matrix.preScale(m_scale.fX, m_scale.fY);
+        this->setMatrix(matrix);
+
+        this->INHERITED::onSetupCanvas(canvas, opacity, viewport);
+    }
+
+    if (m_haveClip) {
+        SkRect r;
+        r.set(0, 0, getSize().width(), getSize().height());
+        canvas->clipRect(r);
+    }
+}
+
+void LayerAndroid::onDraw(SkCanvas* canvas, SkScalar opacity,
+                          const SkRect* viewport) {
+    if (!prepareContext())
+        return;
+
+    if (!m_haveImage && !m_drawsContent && !m_isRootLayer)
+        return;
+
+    SkAutoCanvasRestore restore(canvas, true);
+
+    int canvasOpacity = SkScalarRound(opacity * 255);
+    if (canvasOpacity < 255)
+        canvas->setDrawFilter(new OpacityDrawFilter(canvasOpacity));
+
+    m_recordingPicture->draw(canvas);
 }
 
 void LayerAndroid::paintMe(const SkRect* viewPort,
@@ -302,11 +355,9 @@ void LayerAndroid::paintMe(const SkRect* viewPort,
     */
 
     float x, y;
-    SkMatrix matrix;
-    if (!calcPosition(viewPort,
-                      &matrix)) {
+    if (!calcPosition(canvas, viewPort)) {
+        SkMatrix matrix;
         matrix.reset();
-
         if (m_doRotation) {
             float anchorX = m_anchorPoint.fX * m_size.width();
             float anchorY = m_anchorPoint.fY * m_size.height();
@@ -325,8 +376,8 @@ void LayerAndroid::paintMe(const SkRect* viewPort,
         }
         matrix.postTranslate(m_translation.fX + m_position.fX,
                              m_translation.fY + m_position.fY);
+        canvas->concat(matrix);
     }
-    canvas->concat(matrix);
 
     m_recordingPicture->draw(canvas);
 
