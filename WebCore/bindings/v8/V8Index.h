@@ -528,9 +528,9 @@ static const int v8DefaultWrapperInternalFieldCount = 2;
 
 #if ENABLE(TOUCH_EVENTS)
 #define DOM_OBJECT_TOUCH_EVENT_TYPES(V)                                 \
-    V(TOUCH, Touch)
+    V(TOUCH, Touch)                                                     \
     V(TOUCHEVENT, TouchEvent)                                           \
-    V(TOUCHLIST, TouchList)                                             \
+    V(TOUCHLIST, TouchList)
 #else
 #define DOM_OBJECT_TOUCH_EVENT_TYPES(V)
 #endif
