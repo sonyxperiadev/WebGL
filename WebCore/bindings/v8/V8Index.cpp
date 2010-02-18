@@ -466,8 +466,8 @@
 #include "V8PositionError.h"
 
 #if PLATFORM(ANDROID)
+// Temporary modification - will not be upstreamed
 #include "V8Connection.h"
-#include "V8VoidCallback.h"
 #endif  // PLATFORM(ANDROID)
 
 namespace WebCore {
