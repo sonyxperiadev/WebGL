@@ -129,9 +129,6 @@
 #define FLATTEN_FRAMESET
 #define FLATTEN_IFRAME
 
-// not android specific, should be submitted back
-#define ANDROID_FASTER_MATRIX
-
 #define ANDROID_EXPOSE_COLUMN_GAP
 
 #define ANDROID_LAYOUT
