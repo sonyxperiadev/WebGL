@@ -856,6 +856,11 @@ static Node* ParentWithChildren(Node* node)
     return 0;
 }
 
+// FIXME
+// Probably this should check for null instead of the caller. If the
+// Tracker object is the last thing in the dom, checking for null in the
+// caller in some cases fails to set up Tracker state which may be useful
+// to the nodes parsed immediately after the tracked noe.
 static Node* OneAfter(Node* node) 
 {
     Node* parent = node;
@@ -2745,7 +2750,7 @@ void CacheBuilder::TrackLayer(WTF::Vector<LayerTracker>& layerTracker,
     LayerTracker& indexTracker = layerTracker.last();
     indexTracker.mLayer = aLayer;
     indexTracker.mPosition = nodeRenderer->absoluteBoundingBoxRect().location();
-    indexTracker.mLastChild = OneAfter(lastChild);
+    indexTracker.mLastChild = lastChild ? OneAfter(lastChild) : 0;
     DBG_NAV_LOGD("layer=%p [%d] pos=(%d,%d)", aLayer, aLayer->uniqueId(),
         indexTracker.mPosition.x(), indexTracker.mPosition.y());
 }
