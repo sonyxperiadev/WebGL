@@ -49,6 +49,7 @@ namespace android {
                                 , m_askToDrawAgain(false)
                                 , m_syncTimer(this, &ChromeClientAndroid::syncTimerFired)
 #endif
+                                , m_triedToReclaimDBQuota(false)
                                 { }
         virtual void chromeDestroyed();
         
@@ -180,6 +181,7 @@ namespace android {
         WTF::ThreadCondition m_quotaThreadCondition;
         WTF::Mutex m_quotaThreadLock;
         long m_newQuota;
+        bool m_triedToReclaimDBQuota;
     };
 
 }
