@@ -161,6 +161,9 @@
 #include "V8StyleSheet.h"
 #include "V8Text.h"
 #include "V8TextEvent.h"
+#include "V8Touch.h"
+#include "V8TouchEvent.h"
+#include "V8TouchList.h"
 #include "V8DOMCoreException.h"
 #include "V8DOMParser.h"
 #include "V8DOMWindow.h"
@@ -464,13 +467,6 @@
 
 #if PLATFORM(ANDROID)
 #include "V8Connection.h"
-// TODO: Upstream these guards to webkit.org
-#if ENABLE(TOUCH_EVENTS)
-#include "V8Touch.h"
-#include "V8TouchList.h"
-#include "V8TouchEvent.h"
-#endif
-
 #include "V8VoidCallback.h"
 #endif  // PLATFORM(ANDROID)
 
