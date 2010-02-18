@@ -536,15 +536,10 @@ static const int v8DefaultWrapperInternalFieldCount = 2;
 #endif
 
 #if PLATFORM(ANDROID)
-#define DOM_OBJECT_CONNECTION_TYPES(V)                                  \
-    V(CONNECTION, Connection)
-
-#define DOM_OBJECT_VOIDCALLBACK_TYPES(V)                                \
-    V(VOIDCALLBACK, VoidCallback)
-#else
 // We don't plan to upstream CONNECTION as it's only temporary, so we
 // don't need a default here.
-#define DOM_OBJECT_VOIDCALLBACK_TYPES(V)
+#define DOM_OBJECT_CONNECTION_TYPES(V)                                  \
+    V(CONNECTION, Connection)
 #endif
 
 #if PLATFORM(ANDROID)
@@ -562,8 +557,7 @@ static const int v8DefaultWrapperInternalFieldCount = 2;
     DOM_OBJECT_INSPECTOR_TYPES(V)                                       \
     DOM_OBJECT_GEOLOCATION_TYPES(V)                                     \
     DOM_OBJECT_TOUCH_EVENT_TYPES(V)                                     \
-    DOM_OBJECT_CONNECTION_TYPES(V)                                      \
-    DOM_OBJECT_VOIDCALLBACK_TYPES(V)
+    DOM_OBJECT_CONNECTION_TYPES(V)
 #endif
 
 #if ENABLE(SVG)
