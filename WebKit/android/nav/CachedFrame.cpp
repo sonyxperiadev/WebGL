@@ -144,7 +144,7 @@ int CachedFrame::compare(BestData& testData, const BestData& bestData) const
 {
     if (testData.mNode->tabIndex() != bestData.mNode->tabIndex()) {
         if (testData.mNode->tabIndex() < bestData.mNode->tabIndex()
-                || (mRoot->cursor() && mRoot->cursor()->tabIndex() < bestData.mNode->tabIndex())) {
+                || (mRoot->mCursor && mRoot->mCursor->tabIndex() < bestData.mNode->tabIndex())) {
             testData.mNode->setCondition(CachedNode::HIGHER_TAB_INDEX);
             return REJECT_TEST;
         }
@@ -640,7 +640,7 @@ const CachedNode* CachedFrame::frameDown(const CachedNode* test,
                 *bestData = testData;
         }
     } while ((test = test->traverseNextNode()) != limit);
-    ASSERT(mRoot->cursor() == NULL || bestData->mNode != mRoot->cursor());
+    ASSERT(mRoot->mCursor == NULL || bestData->mNode != mRoot->mCursor);
     // does the best contain something (or, is it contained by an area which is not the cursor?)
         // if so, is the conainer/containee should have been chosen, but wasn't -- so there's a better choice
         // in the doc list prior to this choice
@@ -680,7 +680,7 @@ const CachedNode* CachedFrame::frameLeft(const CachedNode* test,
                 *bestData = testData;
         }
     } while ((test = test->traverseNextNode()) != limit);  // FIXME ??? left and up should use traversePreviousNode to choose reverse document order
-    ASSERT(mRoot->cursor() == NULL || bestData->mNode != mRoot->cursor());
+    ASSERT(mRoot->mCursor == NULL || bestData->mNode != mRoot->mCursor);
     return bestData->mNode;
 }
 
@@ -708,20 +708,20 @@ int CachedFrame::frameNodeCommon(BestData& testData, const CachedNode* test,
 //        return REJECT_TEST;
 //    }
 //
-    if (test == mRoot->cursor()) {
+    if (test == mRoot->mCursor) {
         testData.mNode->setCondition(CachedNode::NOT_CURSOR_NODE);
         return REJECT_TEST;
     }
-//    if (test->bounds().contains(mRoot->cursorBounds())) {
+//    if (test->bounds().contains(mRoot->mCursorBounds)) {
 //        testData.mNode->setCondition(CachedNode::NOT_ENCLOSING_CURSOR);
 //        return REJECT_TEST;
 //    }
-    void* par = mRoot->cursor() ? mRoot->cursor()->parentGroup() : NULL;
+    void* par = mRoot->mCursor ? mRoot->mCursor->parentGroup() : NULL;
     testData.mCursorChild = par ? test->parentGroup() == par : false;
     if (bestData->mNode == NULL)
         return TEST_IS_BEST;
-    if (mRoot->cursor() && testData.mNode->parentIndex() != bestData->mNode->parentIndex()) {
-        int cursorParentIndex = mRoot->cursor()->parentIndex();
+    if (mRoot->mCursor && testData.mNode->parentIndex() != bestData->mNode->parentIndex()) {
+        int cursorParentIndex = mRoot->mCursor->parentIndex();
         if (cursorParentIndex >= 0) {
             if (bestData->mNode->parentIndex() == cursorParentIndex)
                 return REJECT_TEST;
@@ -759,8 +759,8 @@ int CachedFrame::frameNodeCommon(BestData& testData, const CachedNode* test,
 int CachedFrame::framePartCommon(BestData& testData,
     const CachedNode* test, BestData* bestData) const
 {
-    if (mRoot->cursor()
-            && testData.bounds().contains(mRoot->cursorBounds())
+    if (mRoot->mCursor
+            && testData.bounds().contains(mRoot->mCursorBounds)
             && !test->wantsKeyEvents()) {
         testData.mNode->setCondition(CachedNode::NOT_ENCLOSING_CURSOR);
         return REJECT_TEST;
@@ -809,7 +809,7 @@ const CachedNode* CachedFrame::frameRight(const CachedNode* test,
                 *bestData = testData;
         }
     } while ((test = test->traverseNextNode()) != limit);
-    ASSERT(mRoot->cursor() == NULL || bestData->mNode != mRoot->cursor());
+    ASSERT(mRoot->mCursor == NULL || bestData->mNode != mRoot->mCursor);
     return bestData->mNode;
 }
 
@@ -845,7 +845,7 @@ const CachedNode* CachedFrame::frameUp(const CachedNode* test,
                 *bestData = testData;
         }
     } while ((test = test->traverseNextNode()) != limit);  // FIXME ??? left and up should use traversePreviousNode to choose reverse document order
-    ASSERT(mRoot->cursor() == NULL || bestData->mNode != mRoot->cursor());
+    ASSERT(mRoot->mCursor == NULL || bestData->mNode != mRoot->mCursor);
     return bestData->mNode;
 }
 
@@ -965,7 +965,7 @@ SkPicture* CachedFrame::picture(const CachedNode* node) const
     if (node->isInLayer())
         return layer(node)->picture(mRoot->rootLayer());
 #endif
-    return mRoot->getPicture();
+    return mRoot->mPicture;
 }
 
 void CachedFrame::resetClippedOut()

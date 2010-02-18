@@ -1273,9 +1273,12 @@ SkPicture* CachedRoot::pictureAt(int x, int y) const
 {
 #if USE(ACCELERATED_COMPOSITING)
     if (mRootLayer) {
-        const LayerAndroid* layer = mRootLayer->find(FloatPoint(x, y));
-        if (layer)
-            return layer->picture();
+        const LayerAndroid* layer = mRootLayer->find(x, y);
+        if (layer) {
+            SkPicture* picture = layer->picture();
+            if (picture)
+                return picture;
+        }
     }
 #endif
     return mPicture;

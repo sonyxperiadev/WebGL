@@ -1112,7 +1112,7 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
                 IntRect(0, 0, INT_MAX, INT_MAX);
             if (ConstructTextRects((WebCore::Text*) node, walk.mStart, 
                     (WebCore::Text*) walk.mFinalNode, walk.mEnd, globalOffsetX,
-                    globalOffsetY, &bounds, clip, cachedNode.cursorRingsPtr()) == false)
+                    globalOffsetY, &bounds, clip, &cachedNode.mCursorRing) == false)
                 continue;
             absBounds = bounds;
             cachedNode.setBounds(bounds);
@@ -1204,9 +1204,9 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
         cachedNode.init(node);
         if (computeCursorRings == false) {
             cachedNode.setBounds(bounds);
-            cachedNode.cursorRingsPtr()->append(bounds);
-        } else if (ConstructPartRects(node, bounds, cachedNode.boundsPtr(), 
-                globalOffsetX, globalOffsetY, cachedNode.cursorRingsPtr()) == false)
+            cachedNode.mCursorRing.append(bounds);
+        } else if (ConstructPartRects(node, bounds, &cachedNode.mBounds,
+                globalOffsetX, globalOffsetY, &cachedNode.mCursorRing) == false)
             continue;
     keepTextNode:
         IntRect clip = hasClip ? bounds : absBounds;
@@ -1316,7 +1316,7 @@ bool CacheBuilder::CleanUpContainedNodes(CachedFrame* cachedFrame,
             lastNode->hasTagName(HTMLNames::bodyTag) ||
             lastNode->hasTagName(HTMLNames::formTag)) {
         lastCached->setBounds(IntRect(0, 0, 0, 0));
-        lastCached->cursorRingsPtr()->clear();
+        lastCached->mCursorRing.clear();
         lastCached->setNavableRects();
         return false;
     }
