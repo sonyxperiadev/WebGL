@@ -73,8 +73,6 @@ const String& Database::databaseInfoTableName()
 
 #if ENABLE(DATABASE)
 
-// ANDROID
-// This should default to true, to match the behavior with JSC
 static bool isDatabaseAvailable = true;
 
 void Database::setIsAvailable(bool available)

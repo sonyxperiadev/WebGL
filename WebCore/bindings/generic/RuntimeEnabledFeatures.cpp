@@ -41,11 +41,8 @@ namespace WebCore {
 bool RuntimeEnabledFeatures::isLocalStorageEnabled = true;
 bool RuntimeEnabledFeatures::isSessionStorageEnabled = true;
 bool RuntimeEnabledFeatures::isWebkitNotificationsEnabled = false;
-#if PLATFORM(ANDROID)
-// These should default to true, to match the behavior with JSC
 bool RuntimeEnabledFeatures::isApplicationCacheEnabled = true;
 bool RuntimeEnabledFeatures::isGeolocationEnabled = true;
-#endif
 bool RuntimeEnabledFeatures::isIndexedDBEnabled = false;
 
 #if ENABLE(VIDEO)
