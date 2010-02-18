@@ -113,9 +113,10 @@ NPObject* PlatformBridge::pluginScriptableObject(Widget* widget)
 #endif
 }
 
-bool PlatformBridge::isWebViewPaused()
+bool PlatformBridge::isWebViewPaused(const WebCore::FrameView* frameView)
 {
-    return WebViewCore::isPaused();
+    android::WebViewCore* webViewCore = android::WebViewCore::getWebViewCore(frameView);
+    return webViewCore->isPaused();
 }
 
 bool PlatformBridge::popupsAllowed(NPP)

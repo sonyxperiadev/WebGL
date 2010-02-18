@@ -150,8 +150,6 @@ FILE* gRenderTreeFile = 0;
 
 namespace android {
 
-bool WebViewCore::s_isPaused = false;
-
 static SkTDArray<WebViewCore*> gInstanceList;
 
 void WebViewCore::addInstance(WebViewCore* inst) {
@@ -273,6 +271,7 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
 #if ENABLE(TOUCH_EVENTS)
     m_forwardingTouchEvents = false;
 #endif
+    m_isPaused = false;
 
     LOG_ASSERT(m_mainFrame, "Uh oh, somehow a frameview was made without an initial frame!");
 
@@ -2965,7 +2964,7 @@ static void Pause(JNIEnv* env, jobject obj)
     event.data.lifecycle.action = kPause_ANPLifecycleAction;
     GET_NATIVE_VIEW(env, obj)->sendPluginEvent(event);
 
-    WebViewCore::setIsPaused(true);
+    GET_NATIVE_VIEW(env, obj)->setIsPaused(true);
 }
 
 static void Resume(JNIEnv* env, jobject obj)
@@ -2982,7 +2981,7 @@ static void Resume(JNIEnv* env, jobject obj)
     event.data.lifecycle.action = kResume_ANPLifecycleAction;
     GET_NATIVE_VIEW(env, obj)->sendPluginEvent(event);
 
-    WebViewCore::setIsPaused(false);
+    GET_NATIVE_VIEW(env, obj)->setIsPaused(false);
 }
 
 static void FreeMemory(JNIEnv* env, jobject obj)

@@ -78,7 +78,12 @@ void GeolocationServiceMock::setError(PassRefPtr<PositionError> error)
     makeGeolocationCallbackFromAllInstances();
 }
 
+#if PLATFORM(ANDROID)
+// TODO: Upstream to webkit.org. See https://bugs.webkit.org/show_bug.cgi?id=34082
+bool GeolocationServiceMock::startUpdating(PositionOptions*, bool /* suspend */)
+#else
 bool GeolocationServiceMock::startUpdating(PositionOptions*)
+#endif
 {
     m_isActive = true;
     m_timer.startOneShot(0);

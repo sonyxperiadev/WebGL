@@ -28,7 +28,6 @@
 
 #include "GeolocationServiceBridge.h"
 #include "Geoposition.h"
-#include "PlatformBridge.h"
 #include "PositionError.h"
 #include "PositionOptions.h"
 
@@ -66,7 +65,9 @@ GeolocationServiceAndroid::GeolocationServiceAndroid(GeolocationServiceClient* c
 {
 }
 
-bool GeolocationServiceAndroid::startUpdating(PositionOptions* options)
+// ANDROID
+// TODO: Upstream to webkit.org. See https://bugs.webkit.org/show_bug.cgi?id=34082
+bool GeolocationServiceAndroid::startUpdating(PositionOptions* options, bool suspend)
 {
     // This method is called every time a new watch or one-shot position request
     // is started. If we already have a position or an error, call back
@@ -92,7 +93,9 @@ bool GeolocationServiceAndroid::startUpdating(PositionOptions* options)
     if (!haveJavaBridge) {
         // If the browser is paused, don't start the service. It will be started
         // when we get the call to resume.
-        if (!PlatformBridge::isWebViewPaused())
+        // ANDROID
+        // TODO: Upstream to webkit.org. See https://bugs.webkit.org/show_bug.cgi?id=34082
+        if (!suspend)
             m_javaBridge->start();
     }
 

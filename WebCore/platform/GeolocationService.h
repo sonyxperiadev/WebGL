@@ -47,7 +47,12 @@ public:
     static GeolocationService* create(GeolocationServiceClient*);
     virtual ~GeolocationService() { }
     
+#if PLATFORM(ANDROID)
+    // TODO: Upstream to webkit.org. See https://bugs.webkit.org/show_bug.cgi?id=34082
+    virtual bool startUpdating(PositionOptions*, bool suspend) { return false; }
+#else
     virtual bool startUpdating(PositionOptions*) { return false; }
+#endif
     virtual void stopUpdating() { }
     
     virtual void suspend() { }

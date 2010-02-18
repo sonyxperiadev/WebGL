@@ -45,7 +45,9 @@ public:
 
     virtual ~GeolocationServiceAndroid() { };
 
-    virtual bool startUpdating(PositionOptions*);
+    // ANDROID
+    // TODO: Upstream to webkit.org. See https://bugs.webkit.org/show_bug.cgi?id=34082
+    virtual bool startUpdating(PositionOptions*, bool suspend);
     virtual void stopUpdating();
 
     virtual Geoposition* lastPosition() const { return m_lastPosition.get(); }
