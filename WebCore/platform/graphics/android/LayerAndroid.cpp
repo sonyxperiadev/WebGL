@@ -39,16 +39,25 @@ class OpacityDrawFilter : public SkDrawFilter {
     int m_previousOpacity;
 };
 
+///////////////////////////////////////////////////////////////////////////////
+
 LayerAndroid::LayerAndroid(bool isRootLayer) : SkLayer(),
     m_isRootLayer(isRootLayer),
     m_haveContents(false),
     m_drawsContent(true),
     m_haveImage(false),
     m_haveClip(false),
+    m_doRotation(false),
+    m_isFixed(false),
     m_recordingPicture(0),
     m_findOnPage(0),
     m_uniqueId(++gUniqueId)
 {
+    m_angleTransform = 0;
+    m_translation.set(0, 0);
+    m_scale.set(1, 1);
+    m_backgroundColor = 0;
+
     gDebugLayerAndroidInstances++;
 }
 
@@ -61,6 +70,19 @@ LayerAndroid::LayerAndroid(const LayerAndroid& layer) : SkLayer(layer),
     m_findOnPage(0),
     m_uniqueId(layer.m_uniqueId)
 {
+    m_doRotation = layer.m_doRotation;
+    m_isFixed = layer.m_isFixed;
+
+    m_angleTransform = layer.m_angleTransform;
+    m_translation = layer.m_translation;
+    m_scale = layer.m_scale;
+    m_backgroundColor = layer.m_backgroundColor;
+
+    m_fixedLeft = layer.m_fixedLeft;
+    m_fixedTop = layer.m_fixedTop;
+    m_fixedRight = layer.m_fixedRight;
+    m_fixedBottom = layer.m_fixedBottom;
+
     m_recordingPicture = layer.m_recordingPicture;
     SkSafeRef(m_recordingPicture);
 
@@ -152,7 +174,6 @@ void LayerAndroid::setMasksToBounds(bool masksToBounds)
 void LayerAndroid::setBackgroundColor(SkColor color)
 {
     m_backgroundColor = color;
-    m_backgroundColorSet = true;
     setHaveContents(true);
     setDrawsContent(true);
 }
@@ -161,10 +182,12 @@ static int gDebugChildLevel;
 
 void LayerAndroid::bounds(SkRect* rect) const
 {
-    rect->fLeft = m_position.fX + m_translation.fX;
-    rect->fTop = m_position.fY + m_translation.fY;
-    rect->fRight = rect->fLeft + m_size.width();
-    rect->fBottom = rect->fTop + m_size.height();
+    const SkPoint& pos = this->getPosition();
+    const SkSize& size = this->getSize();
+    rect->fLeft = pos.fX + m_translation.fX;
+    rect->fTop = pos.fY + m_translation.fY;
+    rect->fRight = rect->fLeft + size.width();
+    rect->fBottom = rect->fTop + size.height();
 }
 
 bool LayerAndroid::boundsIsUnique(SkTDArray<SkRect>* region,
@@ -220,105 +243,70 @@ void LayerAndroid::setClip(SkCanvas* canvas)
     canvas->clipRect(clip);
 }
 
-void LayerAndroid::paintChildren(const SkRect* viewPort, SkCanvas* canvas,
-                                 float opacity)
-{
-    int count = canvas->save();
+///////////////////////////////////////////////////////////////////////////////
 
-    if (m_haveClip)
-        setClip(canvas);
-
-    paintMe(viewPort, canvas, opacity);
-    canvas->translate(m_position.fX + m_translation.fX,
-                      m_position.fY + m_translation.fY);
-
-    for (int i = 0; i < countChildren(); i++) {
-        gDebugChildLevel++;
-        getChild(i)->paintChildren(viewPort, canvas, opacity * m_opacity);
-        gDebugChildLevel--;
-    }
-
-    canvas->restoreToCount(count);
-}
-
-void LayerAndroid::updatePosition(const SkRect& viewPort) {
+void LayerAndroid::updatePositions(const SkRect& viewport) {
+    // apply the viewport to us
+    SkMatrix matrix;
     if (m_isFixed) {
         float x = 0;
         float y = 0;
-        float w = viewPort.width();
-        float h = viewPort.height();
-        float dx = viewPort.fLeft;
-        float dy = viewPort.fTop;
+        float w = viewport.width();
+        float h = viewport.height();
+        float dx = viewport.fLeft;
+        float dy = viewport.fTop;
 
         if (m_fixedLeft.defined())
             x = dx + m_fixedLeft.calcFloatValue(w);
         else if (m_fixedRight.defined())
-            x = dx + w - m_fixedRight.calcFloatValue(w) - m_size.width();
+            x = dx + w - m_fixedRight.calcFloatValue(w) - getSize().width();
 
         if (m_fixedTop.defined())
             y = dy + m_fixedTop.calcFloatValue(h);
         else if (m_fixedBottom.defined())
-            y = dy + h - m_fixedBottom.calcFloatValue(h) - m_size.height();
+            y = dy + h - m_fixedBottom.calcFloatValue(h) - getSize().height();
 
         this->setPosition(x, y);
-    }
-}
-
-bool LayerAndroid::calcPosition(SkCanvas* canvas, const SkRect* viewPort) {
-    if (viewPort && m_isFixed) {
-        float x = 0;
-        float y = 0;
-        float w = viewPort->width();
-        float h = viewPort->height();
-        float dx = viewPort->fLeft;
-        float dy = viewPort->fTop;
-
-        if (m_fixedLeft.defined())
-            x = dx + m_fixedLeft.calcFloatValue(w);
-        else if (m_fixedRight.defined())
-            x = dx + w - m_fixedRight.calcFloatValue(w) - m_size.width();
-
-        if (m_fixedTop.defined())
-            y = dy + m_fixedTop.calcFloatValue(h);
-        else if (m_fixedBottom.defined())
-            y = dy + h - m_fixedBottom.calcFloatValue(h) - m_size.height();
-
-        this->setPosition(x, y);
-        canvas->translate(x, y);
-        return true;
-    }
-    return false;
-}
-
-void LayerAndroid::onSetupCanvas(SkCanvas* canvas, SkScalar opacity,
-                                 const SkRect* viewport) {
-    if (!this->calcPosition(canvas, viewport)) {
-        SkMatrix matrix;
+        matrix.reset();
+    } else {
+        // turn our fields into a matrix.
+        //
+        // TODO: this should happen in the caller, and we should remove these
+        // fields from our subclass
         matrix.setTranslate(m_translation.fX, m_translation.fY);
         if (m_doRotation) {
             matrix.preRotate(m_angleTransform);
         }
         matrix.preScale(m_scale.fX, m_scale.fY);
-        this->setMatrix(matrix);
-
-        this->INHERITED::onSetupCanvas(canvas, opacity, viewport);
     }
+    this->setMatrix(matrix);
 
+    // now apply it to our children
+    int count = this->countChildren();
+    if (count > 0) {
+        SkRect tmp = viewport;
+        // adjust the viewport by our (the parent) position
+        tmp.offset(-this->getPosition());
+        for (int i = 0; i < count; i++) {
+            this->getChild(i)->updatePositions(tmp);
+        }
+    }
+}
+
+void LayerAndroid::onDraw(SkCanvas* canvas, SkScalar opacity) {
     if (m_haveClip) {
         SkRect r;
         r.set(0, 0, getSize().width(), getSize().height());
         canvas->clipRect(r);
     }
-}
 
-void LayerAndroid::onDraw(SkCanvas* canvas, SkScalar opacity,
-                          const SkRect* viewport) {
     if (!prepareContext())
         return;
 
     if (!m_haveImage && !m_drawsContent && !m_isRootLayer)
         return;
 
+    // we just have this save/restore for opacity...
     SkAutoCanvasRestore restore(canvas, true);
 
     int canvasOpacity = SkScalarRound(opacity * 255);
@@ -326,76 +314,6 @@ void LayerAndroid::onDraw(SkCanvas* canvas, SkScalar opacity,
         canvas->setDrawFilter(new OpacityDrawFilter(canvasOpacity));
 
     m_recordingPicture->draw(canvas);
-}
-
-void LayerAndroid::paintMe(const SkRect* viewPort,
-                           SkCanvas* canvas,
-                           float opacity)
-{
-    if (!prepareContext())
-        return;
-
-    if (!m_haveImage && !m_drawsContent && !m_isRootLayer)
-        return;
-
-    SkAutoCanvasRestore restore(canvas, true);
-
-    int canvasOpacity = opacity * m_opacity * 255;
-    if (canvasOpacity != 255)
-        canvas->setDrawFilter(new OpacityDrawFilter(canvasOpacity));
-
-    /* FIXME
-    SkPaint paintMode;
-    if (m_backgroundColorSet) {
-        paintMode.setColor(m_backgroundColor);
-    } else
-        paintMode.setARGB(0, 0, 0, 0);
-
-    paintMode.setXfermodeMode(SkXfermode::kSrc_Mode);
-    */
-
-    float x, y;
-    if (!calcPosition(canvas, viewPort)) {
-        SkMatrix matrix;
-        matrix.reset();
-        if (m_doRotation) {
-            float anchorX = m_anchorPoint.fX * m_size.width();
-            float anchorY = m_anchorPoint.fY * m_size.height();
-            matrix.preTranslate(anchorX, anchorY);
-            matrix.preRotate(m_angleTransform);
-            matrix.preTranslate(-anchorX, -anchorY);
-        }
-
-        float sx = m_scale.fX;
-        float sy = m_scale.fY;
-        if (sx > 1.0f || sy > 1.0f) {
-            float dx = (sx * m_size.width()) - m_size.width();
-            float dy = (sy * m_size.height()) - m_size.height();
-            matrix.preTranslate(-dx / 2.0f, -dy / 2.0f);
-            matrix.preScale(sx, sy);
-        }
-        matrix.postTranslate(m_translation.fX + m_position.fX,
-                             m_translation.fY + m_position.fY);
-        canvas->concat(matrix);
-    }
-
-    m_recordingPicture->draw(canvas);
-
-    if (m_findOnPage)
-        m_findOnPage->drawLayer(canvas, 0, m_uniqueId);
-#ifdef LAYER_DEBUG
-    float w = m_size.width();
-    float h = m_size.height();
-    SkPaint paint;
-    paint.setARGB(128, 255, 0, 0);
-    canvas->drawLine(0, 0, w, h, paint);
-    canvas->drawLine(0, h, w, 0, paint);
-    paint.setARGB(128, 0, 255, 0);
-    canvas->drawLine(0, 0, 0, h, paint);
-    canvas->drawLine(0, h, w, h, paint);
-    canvas->drawLine(w, h, w, 0, paint);
-    canvas->drawLine(w, 0, 0, 0, paint);
-#endif
 }
 
 SkPicture* LayerAndroid::recordContext()
@@ -413,8 +331,8 @@ bool LayerAndroid::prepareContext(bool force)
     if (!m_isRootLayer) {
         if (force || !m_recordingPicture
             || (m_recordingPicture
-                && ((m_recordingPicture->width() != (int) m_size.width())
-                   || (m_recordingPicture->height() != (int) m_size.height())))) {
+                && ((m_recordingPicture->width() != (int) getSize().width())
+                   || (m_recordingPicture->height() != (int) getSize().height())))) {
             m_recordingPicture->safeUnref();
             m_recordingPicture = new SkPicture();
         }
@@ -509,11 +427,11 @@ void LayerAndroid::dumpLayers(FILE* file, int indentLevel) const
     writeIntVal(file, indentLevel + 1, "haveImage", m_haveImage);
     writeIntVal(file, indentLevel + 1, "clipRect", m_haveClip);
 
-    writeFloatVal(file, indentLevel + 1, "opacity", m_opacity);
-    writeSize(file, indentLevel + 1, "size", m_size);
-    writePoint(file, indentLevel + 1, "position", m_position);
+    writeFloatVal(file, indentLevel + 1, "opacity", getOpacity());
+    writeSize(file, indentLevel + 1, "size", getSize());
+    writePoint(file, indentLevel + 1, "position", getPosition());
     writePoint(file, indentLevel + 1, "translation", m_translation);
-    writePoint(file, indentLevel + 1, "anchor", m_anchorPoint);
+    writePoint(file, indentLevel + 1, "anchor", getAnchorPoint());
     writePoint(file, indentLevel + 1, "scale", m_scale);
 
     if (m_doRotation)

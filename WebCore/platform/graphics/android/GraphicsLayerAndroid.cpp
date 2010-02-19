@@ -450,8 +450,8 @@ bool GraphicsLayerAndroid::repaint(const FloatRect& rect)
             // with SkPicture, we request the entire layer's content.
             r.setX(0);
             r.setY(0);
-            r.setWidth(m_contentLayer->size().width());
-            r.setHeight(m_contentLayer->size().height());
+            r.setWidth(m_contentLayer->getWidth());
+            r.setHeight(m_contentLayer->getHeight());
             paintGraphicsLayerContents(gc, r);
 
             TLOG("(%x) repaint(%.2f,%.2f,%.2f,%.2f) on (%.2f,%.2f) contentlayer(%.2f,%.2f,%.2f,%.2f)paintGraphicsLayer called!",

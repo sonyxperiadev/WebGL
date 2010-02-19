@@ -30,6 +30,31 @@ class SkCanvas;
 class SkMatrix;
 class SkPicture;
 
+struct SkLength {
+    enum SkLengthType { Undefined, Auto, Relative, Percent, Fixed, Static, Intrinsic, MinIntrinsic };
+    SkLengthType type;
+    SkScalar value;
+    SkLength() {
+        type = Undefined;
+        value = 0;
+    }
+    bool defined() const {
+        if (type == Undefined)
+            return false;
+        return true;
+    }
+    float calcFloatValue(float max) const {
+        switch (type) {
+            case Percent:
+                return (max * value) / 100.0f;
+            case Fixed:
+                return value;
+            default:
+                return value;
+        }
+    }
+};
+
 namespace WebCore {
 
 class AndroidAnimation;
@@ -43,16 +68,37 @@ public:
 
     static int instancesCount();
 
+    void setTranslation(SkScalar x, SkScalar y) { m_translation.set(x, y); }
+    void setRotation(SkScalar a) { m_angleTransform = a; m_doRotation = true; }
+    void setScale(SkScalar x, SkScalar y) { m_scale.set(x, y); }
+    SkPoint translation() const { return m_translation; }
+    SkRect  bounds() const {
+        const SkPoint& pos = this->getPosition();
+        const SkSize& size = this->getSize();
+        SkRect rect;
+        rect.set(pos.fX, pos.fY,
+                 pos.fX + size.width(),
+                 pos.fY + size.height());
+        rect.offset(m_translation.fX, m_translation.fY);
+        return rect;
+    }
+    void setFixedPosition(SkLength left, SkLength top, SkLength right, SkLength bottom) {
+        m_fixedLeft = left;
+        m_fixedTop = top;
+        m_fixedRight = right;
+        m_fixedBottom = bottom;
+        m_isFixed = true;
+    }
+
+    void setBackgroundColor(SkColor color);
     void setHaveContents(bool haveContents) { m_haveContents = haveContents; }
     void setHaveImage(bool haveImage) { m_haveImage = haveImage; }
     void setDrawsContent(bool drawsContent);
     void setFindOnPage(FindOnPage* findOnPage);
     void setMaskLayer(LayerAndroid*);
     void setMasksToBounds(bool);
-    virtual void setBackgroundColor(SkColor color);
     void setIsRootLayer(bool isRootLayer) { m_isRootLayer = isRootLayer; }
 
-//    virtual void draw(SkCanvas*, SkScalar opacity, const SkRect* viewPort);
     bool prepareContext(bool force = false);
     void startRecording();
     void stopRecording();
@@ -69,42 +115,49 @@ public:
 
     void dumpLayers(FILE*, int indentLevel) const;
 
-    void bounds(SkRect* ) const;
     /** Call this with the current viewport (scrolling, zoom) to update its
         position attribute, so that later calls like bounds() will report the
         corrected position (assuming the layer had fixed-positioning).
+
+        This call is recursive, so it should be called on the root of the
+        hierarchy.
      */
-    void updatePosition(const SkRect& viewPort);
+    void updatePositions(const SkRect& viewPort);
+
+    void bounds(SkRect* ) const;
     void clipArea(SkTDArray<SkRect>* region) const;
     const LayerAndroid* find(int x, int y) const;
     const LayerAndroid* findById(int uniqueID) const;
-    LayerAndroid* getChild(int index) const { return
-        static_cast<LayerAndroid*>(m_children[index]); }
+    LayerAndroid* getChild(int index) const {
+        return static_cast<LayerAndroid*>(this->INHERITED::getChild(index));
+    }
     bool haveClip() const { return m_haveClip; }
     int uniqueId() const { return m_uniqueId; }
+
+protected:
+    virtual void onDraw(SkCanvas*, SkScalar opacity);
+
 private:
     bool boundsIsUnique(SkTDArray<SkRect>* region, const SkRect& local) const;
     void clipInner(SkTDArray<SkRect>* region, const SkRect& local) const;
-
-protected:
-    virtual void onSetupCanvas(SkCanvas*, SkScalar opacity, const SkRect*);
-    virtual void onDraw(SkCanvas*, SkScalar opacity, const SkRect* viewPort);
-
-private:
-
-    bool calcPosition(SkCanvas*, const SkRect* viewPort);
-
-    void paintChildren(const SkRect* viewPort, SkCanvas* canvas,
-                       float opacity);
-
-    void paintMe(const SkRect* viewPort, SkCanvas* canvas,
-                 float opacity);
 
     bool m_isRootLayer;
     bool m_haveContents;
     bool m_drawsContent;
     bool m_haveImage;
     bool m_haveClip;
+    bool m_doRotation;
+    bool m_isFixed;
+    bool m_backgroundColorSet;
+
+    SkLength m_fixedLeft;
+    SkLength m_fixedTop;
+    SkLength m_fixedRight;
+    SkLength m_fixedBottom;
+    SkPoint m_translation;
+    SkPoint m_scale;
+    SkScalar m_angleTransform;
+    SkColor m_backgroundColor;
 
     SkPicture* m_recordingPicture;
 

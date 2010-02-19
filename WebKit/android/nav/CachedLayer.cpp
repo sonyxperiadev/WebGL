@@ -46,7 +46,7 @@ IntRect CachedLayer::adjustBounds(const LayerAndroid* root,
         return bounds;
     }
     FloatRect temp = bounds;
-    const FloatPoint& position = aLayer->position();
+    const FloatPoint& position = aLayer->getPosition();
     temp.move(position.x(), position.y());
     const FloatPoint& translation = aLayer->translation();
     temp.move(translation.x(), translation.y());

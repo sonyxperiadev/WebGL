@@ -561,9 +561,10 @@ CachedRoot* getFrameCache(FrameCachePermission allowNewer)
         SkRect viewMetrics;
         getViewMetrics(&viewMetrics);
         LayerAndroid* layer = const_cast<LayerAndroid*>(
-            m_frameCacheUI->rootLayer()->findById(layerId));
-        if (layer)
-            layer->updatePosition(viewMetrics);
+                                                m_frameCacheUI->rootLayer());
+        if (layer) {
+            layer->updatePositions(viewMetrics);
+        }
     }
 #endif
     fixCursor();
@@ -1462,7 +1463,10 @@ static void nativeDrawLayers(JNIEnv *env, jobject obj, jint layer, jobject canv)
     SkRect viewMetrics;
     view->getViewMetrics(&viewMetrics);
     layerImpl->setFindOnPage(view->findOnPage());
-    layerImpl->draw(canvas, SK_Scalar1, &viewMetrics);
+    // call this to be sure we've adjusted for any scrolling or animations
+    // before we actually draw
+    layerImpl->updatePositions(viewMetrics);
+    layerImpl->draw(canvas);
 #endif
 }
 
