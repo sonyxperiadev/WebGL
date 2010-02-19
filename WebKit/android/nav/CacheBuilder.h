@@ -197,7 +197,7 @@ private:
     };
     struct LayerTracker : Tracker {
         LayerAndroid* mLayer;
-        IntPoint mPosition;
+        IntRect mBounds;
     };
     struct TabIndexTracker : Tracker {
         int mTabIndex;

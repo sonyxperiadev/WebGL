@@ -535,9 +535,13 @@ CachedRoot* getFrameCache(FrameCachePermission allowNewer)
     const CachedNode* oldCursorNode = m_frameCacheUI ?
         m_frameCacheUI->currentCursor(&oldCursorFrame) : 0;
 #if USE(ACCELERATED_COMPOSITING)
-    int layerId = oldCursorNode && oldCursorNode->isInLayer() ?
-        oldCursorFrame->layer(oldCursorNode)->layer(
-        m_frameCacheUI->rootLayer())->uniqueId() : -1;
+    int layerId = -1;
+    if (oldCursorNode && oldCursorNode->isInLayer()) {
+        const LayerAndroid* cursorLayer = oldCursorFrame->layer(oldCursorNode)
+            ->layer(m_frameCacheUI->rootLayer());
+        if (cursorLayer)
+            layerId = cursorLayer->uniqueId();
+    }
 #endif
     // get id from old layer and use to find new layer
     const CachedNode* oldFocus = m_frameCacheUI ? m_frameCacheUI->currentFocus() : 0;
@@ -558,7 +562,8 @@ CachedRoot* getFrameCache(FrameCachePermission allowNewer)
         getViewMetrics(&viewMetrics);
         LayerAndroid* layer = const_cast<LayerAndroid*>(
             m_frameCacheUI->rootLayer()->findById(layerId));
-        layer->updatePosition(viewMetrics);
+        if (layer)
+            layer->updatePosition(viewMetrics);
     }
 #endif
     fixCursor();

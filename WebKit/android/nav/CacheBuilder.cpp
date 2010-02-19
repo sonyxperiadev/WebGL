@@ -1242,12 +1242,17 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
         // FIXME: does not work for area rects
         LayerAndroid* layer = layerTracker.last().mLayer;
         if (layer) {
+            const IntRect& layerClip = layerTracker.last().mBounds;
+            if (!cachedNode.clip(layerClip)) {
+                DBG_NAV_LOGD("skipped on layer clip %d", cacheIndex);
+                continue; // skip this node if outside of the clip
+            }
             isInLayer = true;
             isUnclipped = true; // FIXME: add clipping analysis before blindly setting this
             CachedLayer cachedLayer;
             cachedLayer.reset();
             cachedLayer.setCachedNodeIndex(cachedFrame->size());
-            cachedLayer.setOffset(layerTracker.last().mPosition);
+            cachedLayer.setOffset(layerClip.location());
             cachedLayer.setUniqueId(layer->uniqueId());
             cachedFrame->add(cachedLayer);
         }
@@ -2749,10 +2754,11 @@ void CacheBuilder::TrackLayer(WTF::Vector<LayerTracker>& layerTracker,
     layerTracker.grow(layerTracker.size() + 1);
     LayerTracker& indexTracker = layerTracker.last();
     indexTracker.mLayer = aLayer;
-    indexTracker.mPosition = nodeRenderer->absoluteBoundingBoxRect().location();
+    indexTracker.mBounds = nodeRenderer->absoluteBoundingBoxRect();
     indexTracker.mLastChild = lastChild ? OneAfter(lastChild) : 0;
-    DBG_NAV_LOGD("layer=%p [%d] pos=(%d,%d)", aLayer, aLayer->uniqueId(),
-        indexTracker.mPosition.x(), indexTracker.mPosition.y());
+    DBG_NAV_LOGD("layer=%p [%d] bounds=(%d,%d,w=%d,h=%d)", aLayer,
+        aLayer->uniqueId(), indexTracker.mBounds.x(), indexTracker.mBounds.y(),
+        indexTracker.mBounds.width(), indexTracker.mBounds.height());
 }
 #endif
 
