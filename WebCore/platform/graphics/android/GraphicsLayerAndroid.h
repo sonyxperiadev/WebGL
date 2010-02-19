@@ -125,6 +125,8 @@ public:
 
 private:
 
+    void updateFixedPosition();
+
     bool repaint(const FloatRect& rect);
     void needsNotifyClient();
 

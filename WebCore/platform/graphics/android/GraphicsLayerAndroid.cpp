@@ -122,19 +122,10 @@ GraphicsLayerAndroid::GraphicsLayerAndroid(GraphicsLayerClient* client) :
     m_currentPosition(0, 0)
 {
     m_contentLayer = new LayerAndroid(true);
-    if (client) {
-        RenderLayerBacking* backing = static_cast<RenderLayerBacking*>(client);
+    if (m_client) {
+        RenderLayerBacking* backing = static_cast<RenderLayerBacking*>(m_client);
         RenderLayer* renderLayer = backing->owningLayer();
         m_contentLayer->setIsRootLayer(renderLayer->isRootLayer());
-        RenderView* view = static_cast<RenderView*>(renderLayer->renderer());
-        if (view->isPositioned() && view->style()->position() == FixedPosition) {
-            SkLength left, top, right, bottom;
-            left = convertLength(view->style()->left());
-            top = convertLength(view->style()->top());
-            right = convertLength(view->style()->right());
-            bottom = convertLength(view->style()->bottom());
-            m_contentLayer->setFixedPosition(left, top, right, bottom);
-        }
     }
     gDebugGraphicsLayerAndroidInstances++;
 }
@@ -227,6 +218,23 @@ void GraphicsLayerAndroid::needsSyncChildren()
     askForSync();
 }
 
+void GraphicsLayerAndroid::updateFixedPosition()
+{
+    if (m_client) {
+        RenderLayerBacking* backing = static_cast<RenderLayerBacking*>(m_client);
+        RenderLayer* renderLayer = backing->owningLayer();
+        RenderView* view = static_cast<RenderView*>(renderLayer->renderer());
+        if (view->isPositioned() && view->style()->position() == FixedPosition) {
+            SkLength left, top, right, bottom;
+            left = convertLength(view->style()->left());
+            top = convertLength(view->style()->top());
+            right = convertLength(view->style()->right());
+            bottom = convertLength(view->style()->bottom());
+            m_contentLayer->setFixedPosition(left, top, right, bottom);
+        }
+    }
+}
+
 void GraphicsLayerAndroid::setPosition(const FloatPoint& point)
 {
     m_currentPosition = point;
@@ -236,6 +244,7 @@ void GraphicsLayerAndroid::setPosition(const FloatPoint& point)
         this, point.x(), point.y(), m_currentPosition.x(), m_currentPosition.y(),
         m_anchorPoint.x(), m_anchorPoint.y(), m_size.width(), m_size.height());
 #endif
+    updateFixedPosition();
     askForSync();
 }
 
@@ -448,8 +457,8 @@ bool GraphicsLayerAndroid::repaint(const FloatRect& rect)
             TLOG("(%x) repaint(%.2f,%.2f,%.2f,%.2f) on (%.2f,%.2f) contentlayer(%.2f,%.2f,%.2f,%.2f)paintGraphicsLayer called!",
                 this, rect.x(), rect.y(), rect.width(),
                 rect.height(), m_size.width(), m_size.height(),
-                m_contentLayer->position().x(),
-                m_contentLayer->position().y(),
+                m_contentLayer->position().fX,
+                m_contentLayer->position().fY,
                 m_contentLayer->size().width(),
                 m_contentLayer->size().height());
         }
