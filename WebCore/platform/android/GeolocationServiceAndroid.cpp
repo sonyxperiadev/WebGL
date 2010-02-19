@@ -115,14 +115,14 @@ void GeolocationServiceAndroid::stopUpdating()
 
 void GeolocationServiceAndroid::suspend()
 {
-    ASSERT(m_javaBridge);
-    m_javaBridge->stop();
+    if (m_javaBridge)
+        m_javaBridge->stop();
 }
 
 void GeolocationServiceAndroid::resume()
 {
-    ASSERT(m_javaBridge);
-    m_javaBridge->start();
+    if (m_javaBridge)
+        m_javaBridge->start();
 }
 
 // Note that there is no guarantee that subsequent calls to this method offer a
