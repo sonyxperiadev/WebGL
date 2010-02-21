@@ -1004,7 +1004,7 @@ on MinGW. See https://bugs.webkit.org/show_bug.cgi?id=29268 */
 #endif
 
 #if PLATFORM(ANDROID) && !defined WTF_USE_ACCELERATED_COMPOSITING
-#define WTF_USE_ACCELERATED_COMPOSITING 1
+#define WTF_USE_ACCELERATED_COMPOSITING 0
 #endif
 
 #if PLATFORM(IPHONE)

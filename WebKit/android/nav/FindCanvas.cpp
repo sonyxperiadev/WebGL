@@ -228,6 +228,7 @@ SkRect FindCanvas::addMatchPosH(int index,
 }
 
 void FindCanvas::drawLayers(WebCore::LayerAndroid* layer) {
+#if USE(ACCELERATED_COMPOSITING)
     SkPicture* picture = layer->picture();
     if (picture) {
         setLayerId(layer->uniqueId());
@@ -235,6 +236,7 @@ void FindCanvas::drawLayers(WebCore::LayerAndroid* layer) {
     }
     for (int i = 0; i < layer->countChildren(); i++)
         drawLayers(layer->getChild(i));
+#endif
 }
 
 void FindCanvas::drawText(const void* text, size_t byteLength, SkScalar x,
