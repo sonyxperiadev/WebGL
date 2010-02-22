@@ -366,9 +366,6 @@ namespace android {
         // send this event to all of the plugins in our list
         void sendPluginEvent(const ANPEvent&);
 
-        // send this event to all of the plugins who have the given flag set
-        void sendPluginEvent(const ANPEvent& evt, ANPEventFlag flag);
-
         // lookup the plugin widget struct given an NPP
         PluginWidgetAndroid* getPluginWidget(NPP npp);
 
