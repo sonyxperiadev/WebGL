@@ -2230,14 +2230,8 @@ void RenderLayer::paintLayer(RenderLayer* rootLayer, GraphicsContext* p,
         int x = 0;
         int y = 0;
         convertToLayerCoords(rootLayer, x, y);
-#ifdef ANDROID_FASTER_MATRIX
         TransformationMatrix transform(layerTransform);
         transform.translateRight(x, y);
-#else
-        TransformationMatrix transform;
-        transform.translate(x, y);
-        transform = layerTransform * transform;
-#endif
         
         // Apply the transform.
         p->save();
