@@ -1367,6 +1367,10 @@ void WebViewCore::updateFrameCacheIfLoading()
 void WebViewCore::addPlugin(PluginWidgetAndroid* w)
 {
 //    SkDebugf("----------- addPlugin %p", w);
+    /* The plugin must be appended to the end of the array. This ensures that if
+       the plugin is added while iterating through the array (e.g. sendEvent(...))
+       that the iteration process is not corrupted.
+     */
     *m_plugins.append() = w;
 }
 
@@ -1464,22 +1468,17 @@ void WebViewCore::sendPluginVisibleScreen()
     }
 }
 
-void WebViewCore::sendPluginEvent(const ANPEvent& evt, ANPEventFlag flag)
-{
-    PluginWidgetAndroid** iter = m_plugins.begin();
-    PluginWidgetAndroid** stop = m_plugins.end();
-    for (; iter < stop; ++iter) {
-        if((*iter)->isAcceptingEvent(flag))
-            (*iter)->sendEvent(evt);
-    }
-}
-
 void WebViewCore::sendPluginEvent(const ANPEvent& evt)
 {
-    PluginWidgetAndroid** iter = m_plugins.begin();
-    PluginWidgetAndroid** stop = m_plugins.end();
-    for (; iter < stop; ++iter) {
-        (*iter)->sendEvent(evt);
+    /* The list of plugins may be manipulated as we iterate through the list.
+       This implementation allows for the addition of new plugins during an
+       iteration, but may fail if a plugin is removed. Currently, there are not
+       any use cases where a plugin is deleted while processing this loop, but
+       if it does occur we will have to use an alternate data structure and/or
+       iteration mechanism.
+     */
+    for (int x = 0; x < m_plugins.count(); x++) {
+        m_plugins[x]->sendEvent(evt);
     }
 }
 
