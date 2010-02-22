@@ -80,7 +80,9 @@ static const int EXTRA_LAYOUT_DELAY = 1000;
 
 FrameLoaderClientAndroid::FrameLoaderClientAndroid(WebFrame* webframe)
     : m_frame(NULL)
-    , m_webFrame(webframe) {
+    , m_webFrame(webframe)
+    , m_manualLoader(NULL)
+    , m_hasSentResponseToPlugin(false) {
     Retain(m_webFrame);
 }
 
@@ -560,9 +562,15 @@ void FrameLoaderClientAndroid::revertToProvisionalState(DocumentLoader*) {
 
 void FrameLoaderClientAndroid::setMainDocumentError(DocumentLoader* docLoader, const ResourceError& error) {
     ASSERT(m_frame);
-    if (!error.isNull() && error.errorCode() >= InternalErrorLast)
-        m_webFrame->reportError(error.errorCode(),
-                error.localizedDescription(), error.failingURL());
+    if (m_manualLoader) {
+        m_manualLoader->didFail(error);
+        m_manualLoader = NULL;
+        m_hasSentResponseToPlugin = false;
+    } else {
+        if (!error.isNull() && error.errorCode() >= InternalErrorLast)
+            m_webFrame->reportError(error.errorCode(),
+                    error.localizedDescription(), error.failingURL());
+    }
 }
 
 // This function is called right before the progress is updated.
@@ -624,7 +632,14 @@ void FrameLoaderClientAndroid::finishedLoading(DocumentLoader* docLoader) {
     // Telling the frame we received some data and passing 0 as the data is our
     // way to get work done that is normally done when the first bit of data is
     // received, even for the case of a document with no data (like about:blank)
-    committedLoad(docLoader, 0, 0);
+    if (!m_manualLoader) {
+        committedLoad(docLoader, 0, 0);
+        return;
+    }
+
+    m_manualLoader->didFinishLoading();
+    m_manualLoader = NULL;
+    m_hasSentResponseToPlugin = false;
 }
 
 void FrameLoaderClientAndroid::updateGlobalHistory() {
@@ -667,6 +682,18 @@ void FrameLoaderClientAndroid::didRunInsecureContent(SecurityOrigin*)
 
 void FrameLoaderClientAndroid::committedLoad(DocumentLoader* loader, const char* data, int length) {
     ASSERT(m_frame);
+    if (m_manualLoader) {
+        if (!m_hasSentResponseToPlugin) {
+            m_manualLoader->didReceiveResponse(loader->response());
+            // Failure could cause the main document to have an error causing
+            // the manual loader to be reset.
+            if (!m_manualLoader)
+                return;
+            m_hasSentResponseToPlugin = true;
+        }
+        m_manualLoader->didReceiveData(data, length);
+        return;
+    }
     String encoding = loader->overrideEncoding();
     bool userChosen = !encoding.isNull();
     if (encoding.isNull())
@@ -1021,8 +1048,7 @@ WTF::PassRefPtr<Widget> FrameLoaderClientAndroid::createPlugin(
 }
 
 void FrameLoaderClientAndroid::redirectDataToPlugin(Widget* pluginWidget) {
-    // don't support plugin yet
-    notImplemented();
+    m_manualLoader = static_cast<PluginView*>(pluginWidget);
 }
 
 WTF::PassRefPtr<Widget> FrameLoaderClientAndroid::createJavaAppletWidget(const IntSize&, HTMLAppletElement*,
