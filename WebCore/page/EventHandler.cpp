@@ -2631,8 +2631,6 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
 #endif
             ) && !i) {
             m_touchEventTarget = target;
-            m_firstTouchScreenPos = point.screenPos();
-            m_firstTouchPagePos = pagePoint;
         }
 
         // Check to see if this should be added to targetTouches.
@@ -2696,9 +2694,7 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
         RefPtr<TouchEvent> cancelEv =
             TouchEvent::create(TouchList::create().get(), TouchList::create().get(), cancelTouches.get(),
                                                    *eventName, m_touchEventTarget->document()->defaultView(),
-                                                   m_firstTouchScreenPos.x(), m_firstTouchScreenPos.y(),
-                                                   m_firstTouchPagePos.x(), m_firstTouchPagePos.y(),
-                                                   event.ctrlKey(), event.altKey(), event.shiftKey(),
+                                                   0, 0, 0, 0, event.ctrlKey(), event.altKey(), event.shiftKey(),
                                                    event.metaKey());
 
 #if PLATFORM(ANDROID)
@@ -2714,9 +2710,7 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
         RefPtr<TouchEvent> endEv = 
             TouchEvent::create(touches.get(), targetTouches.get(), releasedTouches.get(),
                                                    *eventName, m_touchEventTarget->document()->defaultView(),
-                                                   m_firstTouchScreenPos.x(), m_firstTouchScreenPos.y(),
-                                                   m_firstTouchPagePos.x(), m_firstTouchPagePos.y(),
-                                                   event.ctrlKey(), event.altKey(), event.shiftKey(),
+                                                   0, 0, 0, 0, event.ctrlKey(), event.altKey(), event.shiftKey(),
                                                    event.metaKey());
 #if PLATFORM(ANDROID)
         endEv->setCreateTime(static_cast<DOMTimeStamp>(event.eventTime()));
@@ -2736,9 +2730,7 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
             RefPtr<TouchEvent> longpressEv =
                 TouchEvent::create(touches.get(), targetTouches.get(), pressedTouches.get(),
                                                        *eventName, m_touchEventTarget->document()->defaultView(),
-                                                       m_firstTouchScreenPos.x(), m_firstTouchScreenPos.y(),
-                                                       m_firstTouchPagePos.x(), m_firstTouchPagePos.y(),
-                                                       event.ctrlKey(), event.altKey(), event.shiftKey(),
+                                                       0, 0, 0, 0, event.ctrlKey(), event.altKey(), event.shiftKey(),
                                                        event.metaKey());
             longpressEv->setCreateTime(static_cast<DOMTimeStamp>(event.eventTime()));
 
@@ -2750,9 +2742,7 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
             RefPtr<TouchEvent> doubleTapEv =
                 TouchEvent::create(touches.get(), targetTouches.get(), pressedTouches.get(),
                                                        *eventName, m_touchEventTarget->document()->defaultView(),
-                                                       m_firstTouchScreenPos.x(), m_firstTouchScreenPos.y(),
-                                                       m_firstTouchPagePos.x(), m_firstTouchPagePos.y(),
-                                                       event.ctrlKey(), event.altKey(), event.shiftKey(),
+                                                       0, 0, 0, 0, event.ctrlKey(), event.altKey(), event.shiftKey(),
                                                        event.metaKey());
             doubleTapEv->setCreateTime(static_cast<DOMTimeStamp>(event.eventTime()));
 
@@ -2765,9 +2755,7 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
             RefPtr<TouchEvent> startEv = 
                 TouchEvent::create(touches.get(), targetTouches.get(), pressedTouches.get(),
                                                        *eventName, m_touchEventTarget->document()->defaultView(),
-                                                       m_firstTouchScreenPos.x(), m_firstTouchScreenPos.y(),
-                                                       m_firstTouchPagePos.x(), m_firstTouchPagePos.y(),
-                                                       event.ctrlKey(), event.altKey(), event.shiftKey(),
+                                                       0, 0, 0, 0, event.ctrlKey(), event.altKey(), event.shiftKey(),
                                                        event.metaKey());
 #if PLATFORM(ANDROID)
             startEv->setCreateTime(static_cast<DOMTimeStamp>(event.eventTime()));
@@ -2787,9 +2775,7 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
         RefPtr<TouchEvent> moveEv = 
             TouchEvent::create(touches.get(), targetTouches.get(), movedTouches.get(),
                                                    *eventName, m_touchEventTarget->document()->defaultView(),
-                                                   m_firstTouchScreenPos.x(), m_firstTouchScreenPos.y(),
-                                                   m_firstTouchPagePos.x(), m_firstTouchPagePos.y(),
-                                                   event.ctrlKey(), event.altKey(), event.shiftKey(),
+                                                   0, 0, 0, 0, event.ctrlKey(), event.altKey(), event.shiftKey(),
                                                    event.metaKey());
 #if PLATFORM(ANDROID)
         moveEv->setCreateTime(static_cast<DOMTimeStamp>(event.eventTime()));
