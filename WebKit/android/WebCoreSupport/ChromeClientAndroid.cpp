@@ -65,7 +65,6 @@ void ChromeClientAndroid::syncTimerFired(Timer<ChromeClientAndroid>* client)
 void ChromeClientAndroid::compositingLayerSync()
 {
     if (!m_rootGraphicsLayer) {
-        scheduleCompositingLayerSync();
         return;
     }
 
