@@ -100,21 +100,56 @@ void GeolocationPermissions::queryPermissionState(Frame* frame)
     }
 
     // If there's no pending request, prompt the user.
-    if (m_originInProgress.isEmpty()) {
-        m_originInProgress = originString;
-
+    if (nextOriginInQueue().isEmpty()) {
         // Although multiple tabs may request permissions for the same origin
         // simultaneously, the routing in WebViewCore/CallbackProxy ensures that
         // the result of the request will make it back to this object, so
         // there's no need for a globally unique ID for the request.
-        m_webViewCore->geolocationPermissionsShowPrompt(m_originInProgress);
-        return;
+        m_webViewCore->geolocationPermissionsShowPrompt(originString);
     }
 
-    // If the request in progress is not for this origin, queue this request.
-    if ((m_originInProgress != originString)
-        && (m_queuedOrigins.find(originString) == WTF::notFound))
+    // Add this request to the queue so we can track which frames requested it.
+    if (m_queuedOrigins.find(originString) == WTF::notFound) {
         m_queuedOrigins.append(originString);
+        FrameSet frameSet;
+        frameSet.add(frame);
+        m_queuedOriginsToFramesMap.add(originString, frameSet);
+    } else {
+        ASSERT(m_queuedOriginsToFramesMap.contains(originString));
+        m_queuedOriginsToFramesMap.find(originString)->second.add(frame);
+    }
+}
+
+void GeolocationPermissions::cancelPermissionStateQuery(WebCore::Frame* frame)
+{
+    // We cancel any queued request for the given frame. There can be at most
+    // one of these, since each frame maps to a single origin. We only cancel
+    // the request if this frame is the only one reqesting permission for this
+    // origin.
+    //
+    // We can use the origin string to avoid searching the map.
+    String originString = frame->document()->securityOrigin()->toString();
+    size_t index = m_queuedOrigins.find(originString);
+    if (index == WTF::notFound)
+        return;
+
+    ASSERT(m_queuedOriginsToFramesMap.contains(originString));
+    OriginToFramesMap::iterator iter = m_queuedOriginsToFramesMap.find(originString);
+    ASSERT(iter->second.contains(frame));
+    iter->second.remove(frame);
+    if (!iter->second.isEmpty())
+        return;
+
+    m_queuedOrigins.remove(index);
+    m_queuedOriginsToFramesMap.remove(iter);
+
+    // If this is the origin currently being shown, cancel the prompt
+    // and show the next in the queue, if present.
+    if (index == 0) {
+        m_webViewCore->geolocationPermissionsHidePrompt();
+        if (!nextOriginInQueue().isEmpty())
+            m_webViewCore->geolocationPermissionsShowPrompt(nextOriginInQueue());
+    }
 }
 
 void GeolocationPermissions::makeAsynchronousCallbackToGeolocation(String origin, bool allow)
@@ -133,38 +168,38 @@ void GeolocationPermissions::providePermissionState(String origin, bool allow, b
     // while a permission result is in the process of being marshalled back to
     // the WebCore thread from the browser. In this case, we simply ignore the
     // call.
-    if (origin != m_originInProgress)
+    if (origin != nextOriginInQueue())
         return;
 
-    maybeCallbackFrames(m_originInProgress, allow);
+    maybeCallbackFrames(origin, allow);
     recordPermissionState(origin, allow, remember);
 
     // If the permissions are set to be remembered, cancel any queued requests
     // for this domain in other tabs.
     if (remember)
-        cancelPendingRequestsInOtherTabs(m_originInProgress);
+        cancelPendingRequestsInOtherTabs(origin);
 
-    // Clear the origin in progress to signal that this request is done.
-    m_originInProgress = "";
+    // Clear the origin from the queue.
+    ASSERT(!m_queuedOrigins.isEmpty());
+    m_queuedOrigins.remove(0);
+    ASSERT(m_queuedOriginsToFramesMap.contains(origin));
+    m_queuedOriginsToFramesMap.remove(origin);
 
     // If there are other requests queued, start the next one.
-    if (!m_queuedOrigins.isEmpty()) {
-        m_originInProgress = m_queuedOrigins.first();
-        m_queuedOrigins.remove(0);
-        m_webViewCore->geolocationPermissionsShowPrompt(m_originInProgress);
-    }
+    if (!nextOriginInQueue().isEmpty())
+        m_webViewCore->geolocationPermissionsShowPrompt(nextOriginInQueue());
 }
 
 void GeolocationPermissions::recordPermissionState(String origin, bool allow, bool remember)
 {
     if (remember) {
-        s_permanentPermissions.set(m_originInProgress, allow);
+        s_permanentPermissions.set(origin, allow);
         s_permanentPermissionsModified = true;
     } else {
         // It's possible that another tab recorded a permanent permission for
         // this origin while our request was in progress, but we record it
         // anyway.
-        m_temporaryPermissions.set(m_originInProgress, allow);
+        m_temporaryPermissions.set(origin, allow);
     }
 }
 
@@ -179,19 +214,22 @@ void GeolocationPermissions::cancelPendingRequestsInOtherTabs(String origin)
 void GeolocationPermissions::cancelPendingRequests(String origin)
 {
     size_t index = m_queuedOrigins.find(origin);
-    if (index != WTF::notFound) {
-        // Get the permission from the permanent list.
-        PermissionsMap::const_iterator iter = s_permanentPermissions.find(origin);
-#ifndef NDEBUG
-        PermissionsMap::const_iterator end = s_permanentPermissions.end();
-        ASSERT(iter != end);
-#endif
-        bool allow = iter->second;
 
-        maybeCallbackFrames(origin, allow);
+    // Don't cancel the request if it's currently being shown, in which case
+    // it's at index 0.
+    if (index == WTF::notFound || !index)
+        return;
 
-        m_queuedOrigins.remove(index);
-    }
+    // Get the permission from the permanent list.
+    ASSERT(s_permanentPermissions.contains(origin));
+    PermissionsMap::const_iterator iter = s_permanentPermissions.find(origin);
+    bool allow = iter->second;
+
+    maybeCallbackFrames(origin, allow);
+
+    m_queuedOrigins.remove(index);
+    ASSERT(m_queuedOriginsToFramesMap.contains(origin));
+    m_queuedOriginsToFramesMap.remove(origin);
 }
 
 void GeolocationPermissions::timerFired(Timer<GeolocationPermissions>* timer)
@@ -203,14 +241,20 @@ void GeolocationPermissions::timerFired(Timer<GeolocationPermissions>* timer)
 void GeolocationPermissions::resetTemporaryPermissionStates()
 {
     ASSERT(s_permanentPermissionsLoaded);
-    m_originInProgress = "";
     m_queuedOrigins.clear();
+    m_queuedOriginsToFramesMap.clear();
     m_temporaryPermissions.clear();
     // If any permission results are being marshalled back to this thread, this
     // will render them inefective.
     m_timer.stop();
 
     m_webViewCore->geolocationPermissionsHidePrompt();
+}
+
+const WebCore::String& GeolocationPermissions::nextOriginInQueue()
+{
+    static const String emptyString = "";
+    return m_queuedOrigins.isEmpty() ? emptyString : m_queuedOrigins[0];
 }
 
 void GeolocationPermissions::maybeCallbackFrames(String origin, bool allow)

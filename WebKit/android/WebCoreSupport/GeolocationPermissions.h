@@ -74,6 +74,7 @@ namespace android {
         // the Geolocation objects in all frames in this WebView that are from
         // the same origin as the requesting frame.
         void queryPermissionState(WebCore::Frame* frame);
+        void cancelPermissionStateQuery(WebCore::Frame*);
 
         // Provides this object with a permission state set by the user. The
         // permission is specified by 'allow' and applied to 'origin'. If
@@ -135,11 +136,19 @@ namespace android {
 
         static void maybeLoadPermanentPermissions();
 
+        const WebCore::String& nextOriginInQueue();
+
         WebViewCore* m_webViewCore;
         WebCore::Frame* m_mainFrame;
-        WebCore::String m_originInProgress;
+        // A vector of the origins queued to make a permission request.
+        // The first in the vector is the origin currently making the request.
         typedef Vector<WebCore::String> OriginVector;
         OriginVector m_queuedOrigins;
+        // A map from a queued origin to the set of frames that have requested
+        // permission for that origin.
+        typedef HashSet<WebCore::Frame*> FrameSet;
+        typedef HashMap<WebCore::String, FrameSet> OriginToFramesMap;
+        OriginToFramesMap m_queuedOriginsToFramesMap;
 
         typedef WTF::HashMap<WebCore::String, bool> PermissionsMap;
         PermissionsMap m_temporaryPermissions;
