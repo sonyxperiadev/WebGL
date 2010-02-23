@@ -864,6 +864,7 @@ on MinGW. See https://bugs.webkit.org/show_bug.cgi?id=29268 */
     #define WTF_USE_JIT_STUB_ARGUMENT_VA_LIST 1
 #elif CPU(ARM_THUMB2) && PLATFORM(IPHONE)
     #define ENABLE_JIT 1
+/* The JIT is tested & working on Android */
 #elif CPU(ARM_THUMB2) && PLATFORM(ANDROID) && ENABLE(ANDROID_JSC_JIT)
     #define ENABLE_JIT 1
 /* The JIT is tested & working on x86 Windows */
