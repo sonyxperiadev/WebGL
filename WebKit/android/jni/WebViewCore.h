@@ -70,6 +70,8 @@ class SkIRect;
 
 namespace android {
 
+    class CachedFrame;
+    class CachedNode;
     class CachedRoot;
     class ListBoxReply;
 
@@ -439,6 +441,8 @@ namespace android {
         float scale() const { return m_scale; }
         float screenWidthScale() const { return m_screenWidthScale; }
         WebCore::Frame* mainFrame() const { return m_mainFrame; }
+        void updateCursorBounds(const CachedRoot* root,
+                const CachedFrame* cachedFrame, const CachedNode* cachedNode);
         void updateFrameCacheIfLoading();
 
         // utility to split slow parts of the picture set

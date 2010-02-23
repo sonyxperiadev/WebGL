@@ -893,6 +893,18 @@ const CachedLayer* CachedFrame::layer(const CachedNode* node) const
 }
 #endif
 
+WebCore::IntRect CachedFrame::localBounds(const CachedNode* node,
+    const WebCore::IntRect& rect) const
+{
+    DBG_NAV_LOGD("node=%p [%d] rect=(%d,%d,w=%d,h=%d)",
+        node, node->index(), rect.x(), rect.y(), rect.width(), rect.height());
+#if USE(ACCELERATED_COMPOSITING)
+    return layer(node)->localBounds(rect);
+#else
+    return rect;
+#endif
+}
+
 int CachedFrame::minWorkingHorizontal() const
 {
     return history()->minWorkingHorizontal();

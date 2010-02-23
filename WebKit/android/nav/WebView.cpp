@@ -34,6 +34,7 @@
 #include "CachedNode.h"
 #include "CachedRoot.h"
 #include "CString.h"
+#include "DrawExtra.h"
 #include "FindCanvas.h"
 #include "Frame.h"
 #include "GraphicsJNI.h"
@@ -47,9 +48,7 @@
 #include "SelectText.h"
 #include "SkCanvas.h"
 #include "SkDumpCanvas.h"
-#include "SkPath.h"
 #include "SkPicture.h"
-#include "SkPixelXorXfermode.h"
 #include "SkRect.h"
 #include "SkTime.h"
 #ifdef ANDROID_INSTRUMENT
@@ -95,6 +94,13 @@ enum FrameCachePermission {
     AllowNewest
 };
 
+enum DrawExtras { // keep this in sync with WebView.java
+    DrawExtrasNone = 0,
+    DrawExtrasFind = 1,
+    DrawExtrasSelection = 2,
+    DrawExtrasCursorRing = 3
+};
+
 struct JavaGlue {
     jweak       m_obj;
     jmethodID   m_clearTextEntry;
@@ -121,13 +127,14 @@ struct JavaGlue {
     jfieldID    m_metricsScrollY;
     jfieldID    m_metricsWidth;
     jfieldID    m_metricsHeight;
-    jfieldID    m_metricsScale;
+    jfieldID    m_metricsInvScale;
     AutoJObject object(JNIEnv* env) {
         return getRealObject(env, m_obj);
     }
 } m_javaGlue;
 
-WebView(JNIEnv* env, jobject javaWebView, int viewImpl)
+WebView(JNIEnv* env, jobject javaWebView, int viewImpl) :
+    m_ring((WebViewCore*) viewImpl)
 {
     jclass clazz = env->FindClass("android/webkit/WebView");
  //   m_javaGlue = new JavaGlue;
@@ -160,7 +167,7 @@ WebView(JNIEnv* env, jobject javaWebView, int viewImpl)
     m_javaGlue.m_metricsScrollY = env->GetFieldID(metricsClass, "mScrollY", "I");
     m_javaGlue.m_metricsWidth = env->GetFieldID(metricsClass, "mWidth", "I");
     m_javaGlue.m_metricsHeight = env->GetFieldID(metricsClass, "mHeight", "I");
-    m_javaGlue.m_metricsScale = env->GetFieldID(metricsClass, "mScale", "F");
+    m_javaGlue.m_metricsInvScale = env->GetFieldID(metricsClass, "mInvScale", "F");
 
     env->SetIntField(javaWebView, gWebViewField, (jint)this);
     m_viewImpl = (WebViewCore*) viewImpl;
@@ -168,12 +175,10 @@ WebView(JNIEnv* env, jobject javaWebView, int viewImpl)
     m_navPictureUI = 0;
     m_generation = 0;
     m_heightCanMeasure = false;
-    m_followedLink = false;
+    m_ring.m_followedLink = false;
     m_lastDx = 0;
     m_lastDxTime = 0;
     m_ringAnimationEnd = 0;
-    m_selStart.setEmpty();
-    m_selEnd.setEmpty();
     m_rootLayer = 0;
 }
 
@@ -187,6 +192,7 @@ WebView(JNIEnv* env, jobject javaWebView, int viewImpl)
     }
     delete m_frameCacheUI;
     delete m_navPictureUI;
+    delete m_rootLayer;
 }
 
 WebViewCore* getWebViewCore() const {
@@ -272,7 +278,7 @@ void nativeRecordButtons(bool hasFocus, bool pressed, bool invalidate)
                 // button
                 if (!hasFocus) {
                     state = WebCore::RenderSkinAndroid::kNormal;
-                } else if (m_followedLink || pressed) {
+                } else if (m_ring.m_followedLink || pressed) {
                     state = WebCore::RenderSkinAndroid::kPressed;
                 } else {
                     state = WebCore::RenderSkinAndroid::kFocused;
@@ -314,133 +320,101 @@ bool scrollRectOnScreen(int left, int top, int right, int bottom)
     return true;
 }
 
-// draws the root matches only. Matches over layers are drawn by LayerAndroid
-void drawMatches(SkCanvas* canvas)
-{
-    WebCore::IntRect visible;
-    getVisibleRect(&visible);
-    m_findOnPage.drawLayer(canvas, &visible, -1);
-    WebCore::IntRect currentMatchBounds = m_findOnPage.currentMatchBounds();
-    if (currentMatchBounds.isEmpty())
-        return;
-    scrollRectOnScreen(currentMatchBounds.x(), currentMatchBounds.y(),
-        currentMatchBounds.right(), currentMatchBounds.bottom());
-}
-
-FindOnPage* findOnPage()
-{
-    return m_viewImpl->m_findIsUp ? &m_findOnPage : 0;
-}
-
 void resetCursorRing()
 {
-    m_followedLink = false;
+    m_ring.m_followedLink = false;
     m_viewImpl->m_hasCursorBounds = false;
 }
 
-void drawCursorRing(SkCanvas* canvas)
+bool drawCursorPreamble(CachedRoot* root)
 {
-    CachedRoot* root = getFrameCache(AllowNewer);
-    if (!root) {
-        DBG_NAV_LOG("!root");
-        resetCursorRing();
-        return;
-    }
     const CachedFrame* frame;
     const CachedNode* node = root->currentCursor(&frame);
     if (!node) {
         DBG_NAV_LOGV("%s", "!node");
         resetCursorRing();
-        return;
+        return false;
     }
     if (node->isHidden()) {
         DBG_NAV_LOG("node->isHidden()");
         m_viewImpl->m_hasCursorBounds = false;
-        return;
+        return false;
     }
     setVisibleRect(root);
-    WTF::Vector<WebCore::IntRect> rings;
-    node->cursorRings(frame, &rings);
-    if (!rings.size()) {
-        DBG_NAV_LOG("!rings.size()");
-        m_viewImpl->m_hasCursorBounds = false;
-        return;
-    }
-    bool isButton = false;
-    m_viewImpl->gButtonMutex.lock();
-    // If this is a button drawn by us (rather than webkit) do not draw the
-    // cursor ring, since its cursor will be shown by a change in what we draw.
-    // Should be in sync with recordButtons, since that will be called
-    // before this.
-    if (m_viewImpl->m_buttons.size() > 0) {
-        WebCore::Node* cursorPointer = (WebCore::Node*) node->nodePointer();
-        Container* end = m_viewImpl->m_buttons.end();
-        for (Container* ptr = m_viewImpl->m_buttons.begin(); ptr != end; ptr++) {
-            if (ptr->matches(cursorPointer)) {
-                isButton = true;
-                break;
-            }
-        }
-    }
-    m_viewImpl->gButtonMutex.unlock();
-    WebCore::IntRect bounds = node->bounds(frame);
-    updateCursorBounds(root, frame, node);
-
-    bool useHitBounds = node->useHitBounds();
-    if (useHitBounds) {
-        bounds = node->hitBounds(frame);
-    }
-    if (useHitBounds || node->useBounds()) {
-        rings.clear();
-        rings.append(bounds);
-    }
-    bounds.inflate(SkScalarCeil(CURSOR_RING_OUTER_DIAMETER));
-    if (canvas->quickReject(bounds, SkCanvas::kAA_EdgeType)) {
-        DBG_NAV_LOGD("canvas->quickReject cursorNode=%d (nodePointer=%p)"
-            " bounds=(%d,%d,w=%d,h=%d)", node->index(), node->nodePointer(),
-            bounds.x(), bounds.y(), bounds.width(), bounds.height());
-        m_followedLink = false;
-        return;
-    }
-    if (!node->hasCursorRing() || (node->isPlugin() && node->isFocus()))
-        return;
-    CursorRing::Flavor flavor = CursorRing::NORMAL_FLAVOR;
-    if (!isButton) {
-        flavor = node->isSyntheticLink()
-            ? CursorRing::FAKE_FLAVOR : CursorRing::NORMAL_FLAVOR;
-        if (m_followedLink) {
-            flavor = static_cast<CursorRing::Flavor>
-                    (flavor + CursorRing::NORMAL_ANIMATING);
-        }
-#if DEBUG_NAV_UI
-        const WebCore::IntRect& ring = rings[0];
-        DBG_NAV_LOGD("cursorNode=%d (nodePointer=%p) flavor=%s rings=%d"
-            " (%d, %d, %d, %d) isPlugin=%s",
-            node->index(), node->nodePointer(),
-            flavor == CursorRing::FAKE_FLAVOR ? "FAKE_FLAVOR" :
-            flavor == CursorRing::NORMAL_ANIMATING ? "NORMAL_ANIMATING" :
-            flavor == CursorRing::FAKE_ANIMATING ? "FAKE_ANIMATING" : "NORMAL_FLAVOR",
-            rings.size(), ring.x(), ring.y(), ring.width(), ring.height(),
-            node->isPlugin() ? "true" : "false");
-#endif
-    }
-    if (isButton || flavor >= CursorRing::NORMAL_ANIMATING) {
-        SkMSec time = SkTime::GetMSecs();
-        if (time < m_ringAnimationEnd) {
-            // views assume that inval bounds coordinates are non-negative
-            bounds.intersect(WebCore::IntRect(0, 0, INT_MAX, INT_MAX));
-            postInvalidateDelayed(m_ringAnimationEnd - time, bounds);
-        } else {
-            if (m_followedLink)
-                hideCursor();
-            m_followedLink = false;
-            flavor = static_cast<CursorRing::Flavor>
-                    (flavor - CursorRing::NORMAL_ANIMATING);
-        }
-    }
-    if (!isButton)
-        CursorRing::DrawRing(canvas, rings, flavor);
+    m_ring.m_root = root;
+    m_ring.m_frame = frame;
+    m_ring.m_node = node;
+    return true;
 }
+
+void drawCursorPostamble()
+{
+    if (!m_ring.m_isButton && m_ring.m_flavor < CursorRing::NORMAL_ANIMATING)
+        return;
+    SkMSec time = SkTime::GetMSecs();
+    if (time < m_ringAnimationEnd) {
+        // views assume that inval bounds coordinates are non-negative
+        WebCore::IntRect invalBounds(0, 0, INT_MAX, INT_MAX);
+        invalBounds.intersect(m_ring.m_bounds);
+        postInvalidateDelayed(m_ringAnimationEnd - time, invalBounds);
+    } else {
+        if (m_ring.m_followedLink)
+            hideCursor();
+        m_ring.m_followedLink = false;
+        m_ring.m_flavor = static_cast<CursorRing::Flavor>
+                (m_ring.m_flavor - CursorRing::NORMAL_ANIMATING);
+    }
+}
+
+void drawExtras(SkCanvas* canvas, int extras)
+{
+    CachedRoot* root = getFrameCache(AllowNewer);
+    if (!root) {
+        DBG_NAV_LOG("!root");
+        if (extras == DrawExtrasCursorRing)
+            resetCursorRing();
+        return;
+    }
+    LayerAndroid mainPicture(m_navPictureUI);
+    DrawExtra* extra = 0;
+    switch (extras) {
+        case DrawExtrasFind:
+            extra = &m_findOnPage;
+            break;
+        case DrawExtrasSelection:
+            extra = &m_selectText;
+            break;
+        case DrawExtrasCursorRing:
+            if (drawCursorPreamble(root) && m_ring.setup()) {
+                if (!m_ring.m_isButton)
+                    extra = &m_ring;
+                drawCursorPostamble();
+            }
+            break;
+        default:
+            ;
+    }
+    if (extra)
+        extra->draw(canvas, &mainPicture);
+    if (extras == DrawExtrasFind) {
+        IntRect currentMatchBounds = m_findOnPage.currentMatchBounds();
+        if (!currentMatchBounds.isEmpty())
+            scrollRectOnScreen(currentMatchBounds.x(), currentMatchBounds.y(),
+                currentMatchBounds.right(), currentMatchBounds.bottom());
+    }
+#if USE(ACCELERATED_COMPOSITING)
+    if (!m_rootLayer)
+        return;
+    m_rootLayer->setExtra(extra);
+    SkRect viewMetrics;
+    getViewMetrics(&viewMetrics);
+    // call this to be sure we've adjusted for any scrolling or animations
+    // before we actually draw
+    m_rootLayer->updatePositions(viewMetrics);
+    m_rootLayer->draw(canvas);
+#endif
+}
+
 
 bool cursorIsTextInput(FrameCachePermission allowNewer)
 {
@@ -636,9 +610,9 @@ void getViewMetrics(SkRect* viewMetrics)
     int scrollY = env->GetIntField(jMetrics, m_javaGlue.m_metricsScrollY);
     int width = env->GetIntField(jMetrics, m_javaGlue.m_metricsWidth);
     int height = env->GetIntField(jMetrics, m_javaGlue.m_metricsHeight);
-    float scale = env->GetFloatField(jMetrics, m_javaGlue.m_metricsScale);
-    viewMetrics->set(scrollX / scale, scrollY / scale,
-                     (scrollX + width) / scale, (scrollY + height) / scale);
+    float invScale = env->GetFloatField(jMetrics, m_javaGlue.m_metricsInvScale);
+    viewMetrics->set(scrollX * invScale, scrollY * invScale,
+                     (scrollX + width) * invScale, (scrollY + height) * invScale);
     env->DeleteLocalRef(jMetrics);
     checkException(env);
 }
@@ -681,33 +655,6 @@ bool cursorWantsKeyEvents()
     return false;
 }
 
-// This needs to be called each time we call CachedRoot::setCursor() with
-// non-null CachedNode/CachedFrame, since otherwise the WebViewCore's data
-// about the cursor is incorrect.  When we call setCursor(0,0), we need
-// to set m_viewImpl->hasCursorBounds to false.
-void updateCursorBounds(const CachedRoot* root, const CachedFrame* cachedFrame,
-        const CachedNode* cachedNode)
-{
-    LOG_ASSERT(root, "updateCursorBounds: root cannot be null");
-    LOG_ASSERT(cachedNode, "updateCursorBounds: cachedNode cannot be null");
-    LOG_ASSERT(cachedFrame, "updateCursorBounds: cachedFrame cannot be null");
-    m_viewImpl->gCursorBoundsMutex.lock();
-    m_viewImpl->m_hasCursorBounds = !cachedNode->isHidden();
-    // If m_viewImpl->m_hasCursorBounds is false, we never look at the other
-    // values, so do not bother setting them.
-    if (m_viewImpl->m_hasCursorBounds) {
-        WebCore::IntRect bounds = cachedNode->bounds(cachedFrame);
-        if (m_viewImpl->m_cursorBounds != bounds)
-            DBG_NAV_LOGD("new cursor bounds=(%d,%d,w=%d,h=%d)",
-                bounds.x(), bounds.y(), bounds.width(), bounds.height());
-        m_viewImpl->m_cursorBounds = bounds;
-        m_viewImpl->m_cursorHitBounds = cachedNode->hitBounds(cachedFrame);
-        m_viewImpl->m_cursorFrame = cachedFrame->framePointer();
-        root->getSimulatedMousePosition(&m_viewImpl->m_cursorLocation);
-        m_viewImpl->m_cursorNode = cachedNode->nodePointer();
-    }
-    m_viewImpl->gCursorBoundsMutex.unlock();
-}
 
 /* returns true if the key had no effect (neither scrolled nor changed cursor) */
 bool moveCursor(int keyCode, int count, bool ignoreScroll)
@@ -734,8 +681,8 @@ bool moveCursor(int keyCode, int count, bool ignoreScroll)
     int dx = 0;
     int dy = 0;
     int counter = count;
-    if (!cursor || !m_followedLink)
-        root->setScrollOnly(m_followedLink);
+    if (!cursor || !m_ring.m_followedLink)
+        root->setScrollOnly(m_ring.m_followedLink);
     while (--counter >= 0) {
         WebCore::IntPoint scroll = WebCore::IntPoint(0, 0);
         cachedNode = root->moveCursor(direction, &cachedFrame, &scroll);
@@ -767,7 +714,7 @@ bool moveCursor(int keyCode, int count, bool ignoreScroll)
     }
     bool result = false;
     if (cachedNode) {
-        updateCursorBounds(root, cachedFrame, cachedNode);
+        m_viewImpl->updateCursorBounds(root, cachedFrame, cachedNode);
         root->setCursor(const_cast<CachedFrame*>(cachedFrame),
                 const_cast<CachedNode*>(cachedNode));
         bool disableFocusController = cachedNode != root->currentFocus()
@@ -843,7 +790,7 @@ void selectBestAt(const WebCore::IntRect& rect)
     } else {
         DBG_NAV_LOGD("CachedNode:%p (%d)", node, node->index());
         root->rootHistory()->setMouseBounds(node->bounds(frame));
-        updateCursorBounds(root, frame, node);
+        m_viewImpl->updateCursorBounds(root, frame, node);
         root->setCursor(const_cast<CachedFrame*>(frame),
                 const_cast<CachedNode*>(node));
     }
@@ -884,7 +831,7 @@ bool pointInNavCache(int x, int y, int slop)
 bool motionUp(int x, int y, int slop)
 {
     bool pageScrolled = false;
-    m_followedLink = false;
+    m_ring.m_followedLink = false;
     IntRect rect = IntRect(x - slop, y - slop, slop * 2, slop * 2);
     int rx, ry;
     CachedRoot* root = getFrameCache(AllowNewer);
@@ -913,7 +860,7 @@ bool motionUp(int x, int y, int slop)
     WebCore::IntRect navBounds = WebCore::IntRect(rx, ry, 1, 1);
     setNavBounds(navBounds);
     root->rootHistory()->setMouseBounds(navBounds);
-    updateCursorBounds(root, frame, result);
+    m_viewImpl->updateCursorBounds(root, frame, result);
     root->setCursor(const_cast<CachedFrame*>(frame),
         const_cast<CachedNode*>(result));
     bool syntheticLink = result->isSyntheticLink();
@@ -958,7 +905,7 @@ void setFindIsUp(bool up)
 
 void setFollowedLink(bool followed)
 {
-    if ((m_followedLink = followed) != false) {
+    if ((m_ring.m_followedLink = followed) != false) {
         m_ringAnimationEnd = SkTime::GetMSecs() + 500;
         viewInvalidate();
     }
@@ -969,108 +916,40 @@ void setHeightCanMeasure(bool measure)
     m_heightCanMeasure = measure;
 }
 
-SkIRect m_selStart, m_selEnd;
-SkRegion m_selRegion;
-#define MIN_ARROW_DISTANCE (20 * 20)
+String getSelection()
+{
+    return m_selectText.getSelection();
+}
 
 void moveSelection(int x, int y, bool extendSelection)
 {
-    CachedRoot* root = getFrameCache(DontAllowNewer);
+    const CachedRoot* root = getFrameCache(DontAllowNewer);
     if (!root)
         return;
-    const SkPicture& picture = *m_navPictureUI;
-    WebCore::IntRect r;
-    getVisibleRect(&r);
-    SkIRect area;
-    area.set(r.x(), r.y(), r.right(), r.bottom());
-    m_selEnd = CopyPaste::findClosest(picture, area, x, y);
-    if (!extendSelection)
-        m_selStart = m_selEnd;
-    DBG_NAV_LOGD("x=%d y=%d extendSelection=%s m_selStart=(%d, %d, %d, %d)"
-        " m_selEnd=(%d, %d, %d, %d)", x, y, extendSelection ? "true" : "false",
-        m_selStart.fLeft, m_selStart.fTop, m_selStart.fRight, m_selStart.fBottom,
-        m_selEnd.fLeft, m_selEnd.fTop, m_selEnd.fRight, m_selEnd.fBottom);
+    SkPicture* picture = root->pictureAt(x, y);
+    // FIXME: use the visibleRect only for the main picture
+    // for layer pictures, use the equivalent of the canvas clipping rect
+    IntRect visibleRect;
+    getVisibleRect(&visibleRect);
+    m_selectText.setVisibleRect(visibleRect);
+    m_selectText.moveSelection(picture, x, y, extendSelection);
 }
 
-const String getSelection()
+void setSelectionPointer(bool set, float scale, int x, int y,
+    bool extendSelection)
 {
-    WebCore::IntRect r;
-    getVisibleRect(&r);
-    SkIRect area;
-    area.set(r.x(), r.y(), r.right(), r.bottom());
-    String result = CopyPaste::text(*m_navPictureUI, area, m_selRegion);
-    DBG_NAV_LOGD("text=%s", result.latin1().data());
-    return result;
-}
-
-void drawSelectionRegion(SkCanvas* canvas)
-{
-    CachedRoot* root = getFrameCache(DontAllowNewer);
-    if (!root)
+    m_selectText.setDrawPointer(set);
+    if (!set)
         return;
-    WebCore::IntRect r;
-    getVisibleRect(&r);
-    SkIRect area;
-    area.set(r.x(), r.y(), r.right(), r.bottom());
-    m_selRegion.setEmpty();
-    CopyPaste::buildSelection(*m_navPictureUI, area, m_selStart, m_selEnd, &m_selRegion);
-    SkPath path;
-    m_selRegion.getBoundaryPath(&path);
-    SkPaint paint;
-    paint.setAntiAlias(true);
-    paint.setColor(SkColorSetARGB(0x40, 255, 51, 204));
-    canvas->drawPath(path, paint);
+    m_selectText.m_extendSelection = extendSelection;
+    m_selectText.m_inverseScale = scale;
+    m_selectText.m_selectX = x;
+    m_selectText.m_selectY = y;
 }
 
-void drawSelectionPointer(SkCanvas* canvas, float scale, int x, int y, bool ex)
+void setSelectionRegion(bool set)
 {
-    SkPath path;
-    if (ex)
-        getSelectionCaret(&path);
-    else
-        getSelectionArrow(&path);
-    SkPaint paint;
-    paint.setAntiAlias(true);
-    paint.setStyle(SkPaint::kStroke_Style);
-    paint.setColor(SK_ColorBLACK);
-    SkPixelXorXfermode xorMode(SK_ColorWHITE);
-    if (ex)
-        paint.setXfermode(&xorMode);
-    else
-        paint.setStrokeWidth(SK_Scalar1 * 2);
-    int sc = canvas->save();
-    canvas->scale(scale, scale);
-    canvas->translate(SkIntToScalar(x), SkIntToScalar(y));
-    canvas->drawPath(path, paint);
-    if (!ex) {
-        paint.setStyle(SkPaint::kFill_Style);
-        paint.setColor(SK_ColorWHITE);
-        canvas->drawPath(path, paint);
-    }
-    canvas->restoreToCount(sc);
-}
-
-void getSelectionArrow(SkPath* path)
-{
-    const int arrow[] = {
-        0, 14, 3, 11, 5, 15, 9, 15, 7, 11, 11, 11
-    };
-    for (unsigned index = 0; index < sizeof(arrow)/sizeof(arrow[0]); index += 2)
-        path->lineTo(SkIntToScalar(arrow[index]), SkIntToScalar(arrow[index + 1]));
-    path->close();
-}
-
-void getSelectionCaret(SkPath* path)
-{
-    SkScalar height = SkIntToScalar(m_selStart.fBottom - m_selStart.fTop);
-    SkScalar dist = height / 4;
-    path->moveTo(0, -height / 2);
-    path->rLineTo(0, height);
-    path->rLineTo(-dist, dist);
-    path->rMoveTo(0, -SK_Scalar1/2);
-    path->rLineTo(dist * 2, 0);
-    path->rMoveTo(0, SK_Scalar1/2);
-    path->rLineTo(-dist, -dist);
+    m_selectText.setDrawRegion(set);
 }
 
 void sendMoveFocus(WebCore::Frame* framePtr, WebCore::Node* nodePtr)
@@ -1208,6 +1087,7 @@ const LayerAndroid* rootLayer() const
 
 void setRootLayer(LayerAndroid* layer)
 {
+    delete m_rootLayer;
     m_rootLayer = layer;
     CachedRoot* root = getFrameCache(DontAllowNewer);
     if (!root)
@@ -1222,13 +1102,14 @@ private: // local state for WebView
     WebViewCore* m_viewImpl;
     int m_generation; // associate unique ID with sent kit focus to match with ui
     SkPicture* m_navPictureUI;
-    bool m_followedLink;
     SkMSec m_ringAnimationEnd;
     // Corresponds to the same-named boolean on the java side.
     bool m_heightCanMeasure;
     int m_lastDx;
     SkMSec m_lastDxTime;
+    SelectText m_selectText;
     FindOnPage m_findOnPage;
+    CursorRing m_ring;
     LayerAndroid* m_rootLayer;
 }; // end of WebView class
 
@@ -1401,12 +1282,6 @@ static bool nativeCursorIsAnchor(JNIEnv *env, jobject obj)
     return node ? node->isAnchor() : false;
 }
 
-static bool nativeCursorIsInLayer(JNIEnv *env, jobject obj)
-{
-    const CachedNode* node = getCursorNode(env, obj);
-    return node ? node->isInLayer() : false;
-}
-
 static bool nativeCursorIsTextInput(JNIEnv *env, jobject obj)
 {
     const CachedNode* node = getCursorNode(env, obj);
@@ -1432,68 +1307,20 @@ static void nativeDebugDump(JNIEnv *env, jobject obj)
 #endif
 }
 
-static void nativeDrawMatches(JNIEnv *env, jobject obj, jobject canv)
+static void nativeDrawExtras(JNIEnv *env, jobject obj, jobject canv, jint extras)
 {
     SkCanvas* canvas = GraphicsJNI::getNativeCanvas(env, canv);
-    if (!canv) {
-        DBG_NAV_LOG("!canv");
-        return;
-    }
-    WebView* view = GET_NATIVE_VIEW(env, obj);
-    if (!view) {
-        DBG_NAV_LOG("!view");
-        return;
-    }
-    view->drawMatches(canvas);
+    GET_NATIVE_VIEW(env, obj)->drawExtras(canvas, extras);
 }
 
-static void nativeDrawLayers(JNIEnv *env, jobject obj, jint layer, jobject canv)
+static bool nativeEvaluateLayersAnimations(JNIEnv *env, jobject obj)
 {
-    if (!env)
-        return;
-    if (!layer)
-        return;
-    if (!canv)
-        return;
-
 #if USE(ACCELERATED_COMPOSITING)
-    LayerAndroid* layerImpl = reinterpret_cast<LayerAndroid*>(layer);
-    SkCanvas* canvas = GraphicsJNI::getNativeCanvas(env, canv);
-    WebView* view = GET_NATIVE_VIEW(env, obj);
-    SkRect viewMetrics;
-    view->getViewMetrics(&viewMetrics);
-    layerImpl->setFindOnPage(view->findOnPage());
-    // call this to be sure we've adjusted for any scrolling or animations
-    // before we actually draw
-    layerImpl->updatePositions(viewMetrics);
-    layerImpl->draw(canvas);
+    const LayerAndroid* root = GET_NATIVE_VIEW(env, obj)->rootLayer();
+    if (root)
+        return root->evaluateAnimations();
 #endif
-}
-
-static bool nativeEvaluateLayersAnimations(JNIEnv *env, jobject obj, jint layer)
-{
-    if (!env)
-        return false;
-    if (!layer)
-        return false;
-#if USE(ACCELERATED_COMPOSITING)
-    LayerAndroid* layerImpl = reinterpret_cast<LayerAndroid*>(layer);
-    return layerImpl->evaluateAnimations();
-#else
     return false;
-#endif
-}
-
-static void nativeDestroyLayer(JNIEnv *env, jobject obj, jint layer)
-{
-    if (!env)
-        return;
-    if (!layer)
-        return;
-#if USE(ACCELERATED_COMPOSITING)
-    LayerAndroid* layerImpl = reinterpret_cast<LayerAndroid*>(layer);
-    delete layerImpl;
-#endif
 }
 
 static void nativeSetRootLayer(JNIEnv *env, jobject obj, jint layer)
@@ -1502,52 +1329,6 @@ static void nativeSetRootLayer(JNIEnv *env, jobject obj, jint layer)
     LayerAndroid* layerImpl = reinterpret_cast<LayerAndroid*>(layer);
     GET_NATIVE_VIEW(env, obj)->setRootLayer(layerImpl);
 #endif
-}
-
-static void nativeDrawCursorRing(JNIEnv *env, jobject obj, jobject canv)
-{
-    SkCanvas* canvas = GraphicsJNI::getNativeCanvas(env, canv);
-    if (!canv) {
-        DBG_NAV_LOG("!canv");
-        return;
-    }
-    WebView* view = GET_NATIVE_VIEW(env, obj);
-    if (!view) {
-        DBG_NAV_LOG("!view");
-        return;
-    }
-    view->drawCursorRing(canvas);
-}
-
-static void nativeDrawSelectionPointer(JNIEnv *env, jobject obj,
-    jobject canv, jfloat scale, jint x, jint y, bool ex)
-{
-    SkCanvas* canvas = GraphicsJNI::getNativeCanvas(env, canv);
-    if (!canv) {
-        DBG_NAV_LOG("!canv");
-        return;
-    }
-    WebView* view = GET_NATIVE_VIEW(env, obj);
-    if (!view) {
-        DBG_NAV_LOG("!view");
-        return;
-    }
-    view->drawSelectionPointer(canvas, scale, x, y, ex);
-}
-
-static void nativeDrawSelectionRegion(JNIEnv *env, jobject obj, jobject canv)
-{
-    SkCanvas* canvas = GraphicsJNI::getNativeCanvas(env, canv);
-    if (!canv) {
-        DBG_NAV_LOG("!canv");
-        return;
-    }
-    WebView* view = GET_NATIVE_VIEW(env, obj);
-    if (!view) {
-        DBG_NAV_LOG("!view");
-        return;
-    }
-    view->drawSelectionRegion(canvas);
 }
 
 static jobject nativeImageURI(JNIEnv *env, jobject obj, jint x, jint y)
@@ -1922,7 +1703,7 @@ static void nativeMoveCursorToNextTextInput(JNIEnv *env, jobject obj)
         return;
     const WebCore::IntRect& bounds = next->bounds(frame);
     root->rootHistory()->setMouseBounds(bounds);
-    view->updateCursorBounds(root, frame, next);
+    view->getWebViewCore()->updateCursorBounds(root, frame, next);
     root->setCursor(const_cast<CachedFrame*>(frame),
             const_cast<CachedNode*>(next));
     view->sendMoveFocus(static_cast<WebCore::Frame*>(frame->framePointer()),
@@ -1953,6 +1734,17 @@ static jobject nativeGetSelection(JNIEnv *env, jobject obj)
     LOG_ASSERT(view, "view not set in %s", __FUNCTION__);
     String selection = view->getSelection();
     return env->NewString((jchar*)selection.characters(), selection.length());
+}
+
+static void nativeSetSelectionPointer(JNIEnv *env, jobject obj, jboolean set,
+    jfloat scale, jint x, jint y, bool ex)
+{
+    GET_NATIVE_VIEW(env, obj)->setSelectionPointer(set, scale, x, y, ex);
+}
+
+static void nativeSetSelectionRegion(JNIEnv *env, jobject obj, jboolean set)
+{
+    GET_NATIVE_VIEW(env, obj)->setSelectionRegion(set);
 }
 
 #ifdef ANDROID_DUMP_DISPLAY_TREE
@@ -2028,8 +1820,6 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeCursorIntersects },
     { "nativeCursorIsAnchor", "()Z",
         (void*) nativeCursorIsAnchor },
-    { "nativeCursorIsInLayer", "()Z",
-        (void*) nativeCursorIsInLayer },
     { "nativeCursorIsTextInput", "()Z",
         (void*) nativeCursorIsTextInput },
     { "nativeCursorPosition", "()Landroid/graphics/Point;",
@@ -2042,22 +1832,12 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeDebugDump },
     { "nativeDestroy", "()V",
         (void*) nativeDestroy },
-    { "nativeDrawCursorRing", "(Landroid/graphics/Canvas;)V",
-        (void*) nativeDrawCursorRing },
-    { "nativeDestroyLayer", "(I)V",
-        (void*) nativeDestroyLayer },
-    { "nativeDrawLayers", "(ILandroid/graphics/Canvas;)V",
-        (void*) nativeDrawLayers },
-    { "nativeEvaluateLayersAnimations", "(I)Z",
-        (void*) nativeEvaluateLayersAnimations },
-    { "nativeDrawMatches", "(Landroid/graphics/Canvas;)V",
-        (void*) nativeDrawMatches },
-    { "nativeDrawSelectionPointer", "(Landroid/graphics/Canvas;FIIZ)V",
-        (void*) nativeDrawSelectionPointer },
-    { "nativeDrawSelectionRegion", "(Landroid/graphics/Canvas;)V",
-        (void*) nativeDrawSelectionRegion },
+    { "nativeDrawExtras", "(Landroid/graphics/Canvas;I)V",
+        (void*) nativeDrawExtras },
     { "nativeDumpDisplayTree", "(Ljava/lang/String;)V",
         (void*) nativeDumpDisplayTree },
+    { "nativeEvaluateLayersAnimations", "()Z",
+        (void*) nativeEvaluateLayersAnimations },
     { "nativeFindAll", "(Ljava/lang/String;Ljava/lang/String;)I",
         (void*) nativeFindAll },
     { "nativeFindNext", "(Z)V",
@@ -2126,6 +1906,10 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeSetHeightCanMeasure },
     { "nativeSetRootLayer", "(I)V",
         (void*) nativeSetRootLayer },
+    { "nativeSetSelectionPointer", "(ZFIIZ)V",
+        (void*) nativeSetSelectionPointer },
+    { "nativeSetSelectionRegion", "(Z)V",
+        (void*) nativeSetSelectionRegion },
     { "nativeTextGeneration", "()I",
         (void*) nativeTextGeneration },
     { "nativeUpdateCachedTextfield", "(Ljava/lang/String;I)V",

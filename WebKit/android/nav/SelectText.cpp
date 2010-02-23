@@ -26,16 +26,25 @@
 #define LOG_TAG "webcoreglue"
 
 #include "CachedPrefix.h"
+#include "CachedRoot.h"
+#include "LayerAndroid.h"
 #include "SelectText.h"
 #include "SkBitmap.h"
 #include "SkBounder.h"
 #include "SkCanvas.h"
 #include "SkMatrix.h"
 #include "SkPicture.h"
+#include "SkPixelXorXfermode.h"
 #include "SkPoint.h"
 #include "SkRect.h"
 #include "SkRegion.h"
 #include "SkUtils.h"
+
+#ifdef DEBUG_NAV_UI
+#include "CString.h"
+#endif
+
+namespace android {
 
 class CommonCheck : public SkBounder {
 public:
@@ -341,4 +350,106 @@ WebCore::String CopyPaste::text(const SkPicture& picture, const SkIRect& area,
     TextCanvas checker(&extractor, picture, area);
     checker.drawPicture(const_cast<SkPicture&>(picture));
     return extractor.text();
+}
+
+void SelectText::draw(SkCanvas* canvas, LayerAndroid* layer)
+{
+    if (layer->picture() != m_picture)
+        return;
+    if (m_drawRegion)
+        drawSelectionRegion(canvas);
+    if (m_drawPointer)
+        drawSelectionPointer(canvas);
+}
+
+void SelectText::drawSelectionPointer(SkCanvas* canvas)
+{
+    SkPath path;
+    if (m_extendSelection)
+        getSelectionCaret(&path);
+    else
+        getSelectionArrow(&path);
+    SkPaint paint;
+    paint.setAntiAlias(true);
+    paint.setStyle(SkPaint::kStroke_Style);
+    paint.setColor(SK_ColorBLACK);
+    SkPixelXorXfermode xorMode(SK_ColorWHITE);
+    if (m_extendSelection)
+        paint.setXfermode(&xorMode);
+    else
+        paint.setStrokeWidth(SK_Scalar1 * 2);
+    int sc = canvas->save();
+    canvas->scale(m_inverseScale, m_inverseScale);
+    canvas->translate(SkIntToScalar(m_selectX), SkIntToScalar(m_selectY));
+    canvas->drawPath(path, paint);
+    if (!m_extendSelection) {
+        paint.setStyle(SkPaint::kFill_Style);
+        paint.setColor(SK_ColorWHITE);
+        canvas->drawPath(path, paint);
+    }
+    canvas->restoreToCount(sc);
+}
+
+void SelectText::drawSelectionRegion(SkCanvas* canvas)
+{
+    m_selRegion.setEmpty();
+    SkRect visBounds;
+    if (!canvas->getClipBounds(&visBounds, SkCanvas::kAA_EdgeType))
+        return;
+    SkIRect ivisBounds;
+    visBounds.round(&ivisBounds);
+    CopyPaste::buildSelection(*m_picture, ivisBounds, m_selStart, m_selEnd,
+        &m_selRegion);
+    SkPath path;
+    m_selRegion.getBoundaryPath(&path);
+    SkPaint paint;
+    paint.setAntiAlias(true);
+    paint.setColor(SkColorSetARGB(0x40, 255, 51, 204));
+    canvas->drawPath(path, paint);
+}
+
+const String SelectText::getSelection()
+{
+    String result = CopyPaste::text(*m_picture, m_visibleRect, m_selRegion);
+    DBG_NAV_LOGD("text=%s", result.latin1().data()); // uses CString
+    return result;
+}
+
+void SelectText::getSelectionArrow(SkPath* path)
+{
+    const int arrow[] = {
+        0, 14, 3, 11, 5, 15, 9, 15, 7, 11, 11, 11
+    };
+    for (unsigned index = 0; index < sizeof(arrow)/sizeof(arrow[0]); index += 2)
+        path->lineTo(SkIntToScalar(arrow[index]), SkIntToScalar(arrow[index + 1]));
+    path->close();
+}
+
+void SelectText::getSelectionCaret(SkPath* path)
+{
+    SkScalar height = SkIntToScalar(m_selStart.fBottom - m_selStart.fTop);
+    SkScalar dist = height / 4;
+    path->moveTo(0, -height / 2);
+    path->rLineTo(0, height);
+    path->rLineTo(-dist, dist);
+    path->rMoveTo(0, -SK_Scalar1/2);
+    path->rLineTo(dist * 2, 0);
+    path->rMoveTo(0, SK_Scalar1/2);
+    path->rLineTo(-dist, -dist);
+}
+
+void SelectText::moveSelection(const SkPicture* picture, int x, int y,
+    bool extendSelection)
+{
+    if (!extendSelection)
+        m_picture = picture;
+    m_selEnd = CopyPaste::findClosest(*picture, m_visibleRect, x, y);
+    if (!extendSelection)
+        m_selStart = m_selEnd;
+    DBG_NAV_LOGD("x=%d y=%d extendSelection=%s m_selStart=(%d, %d, %d, %d)"
+        " m_selEnd=(%d, %d, %d, %d)", x, y, extendSelection ? "true" : "false",
+        m_selStart.fLeft, m_selStart.fTop, m_selStart.fRight, m_selStart.fBottom,
+        m_selEnd.fLeft, m_selEnd.fTop, m_selEnd.fRight, m_selEnd.fBottom);
+}
+
 }

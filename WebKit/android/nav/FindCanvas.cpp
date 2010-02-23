@@ -35,6 +35,8 @@
 
 #include <utils/Log.h>
 
+namespace android {
+
 // MatchInfo methods
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -227,7 +229,7 @@ SkRect FindCanvas::addMatchPosH(int index,
     return r;
 }
 
-void FindCanvas::drawLayers(WebCore::LayerAndroid* layer) {
+void FindCanvas::drawLayers(LayerAndroid* layer) {
 #if USE(ACCELERATED_COMPOSITING)
     SkPicture* picture = layer->picture();
     if (picture) {
@@ -509,10 +511,15 @@ void FindOnPage::setUpFindPaint() {
     m_isFindPaintSetUp = true;
 }
 
-WebCore::IntRect FindOnPage::currentMatchBounds() const {
+IntRect FindOnPage::currentMatchBounds() const {
+    IntRect noBounds = IntRect(0, 0, 0, 0);
     if (!m_matches || !m_matches->size())
-        return WebCore::IntRect(0, 0, 0, 0);
-    return (*m_matches)[m_findIndex].getLocation().getBounds();
+        return noBounds;
+    MatchInfo& info = (*m_matches)[m_findIndex];
+    // FIXME: this should test if the match in the layer is visible
+    if (info.isInLayer())
+        return noBounds;
+    return info.getLocation().getBounds();
 }
 
 // This function is only used by findNext and setMatches.  In it, we store
@@ -529,10 +536,10 @@ void FindOnPage::storeCurrentMatchLocation() {
 // matches than this, only draw the focused match.
 #define MAX_NUMBER_OF_MATCHES_TO_DRAW 101
 
-void FindOnPage::drawLayer(SkCanvas* canvas, const WebCore::IntRect* visRect,
-        int layerId) {
+void FindOnPage::draw(SkCanvas* canvas, LayerAndroid* layer) {
     if (!m_matches || !m_matches->size())
         return;
+    int layerId = layer->uniqueId();
     if (m_findIndex >= m_matches->size())
         m_findIndex = 0;
     const MatchInfo& matchInfo = (*m_matches)[m_findIndex];
@@ -561,8 +568,11 @@ void FindOnPage::drawLayer(SkCanvas* canvas, const WebCore::IntRect* visRect,
             const SkRegion& region = (*m_matches)[i].getLocation();
             // Do not draw matches which intersect the current one, or if it is
             // offscreen
-            if (currentMatchRegion.intersects(region)
-                    || (visRect && !region.intersects(*visRect)))
+            if (currentMatchRegion.intersects(region))
+                continue;
+            SkRect bounds;
+            bounds.set(region.getBounds());
+            if (canvas->quickReject(bounds, SkCanvas::kAA_EdgeType))
                 continue;
             drawMatch(region, canvas, false);
         }
@@ -646,5 +656,7 @@ void FindOnPage::setMatches(WTF::Vector<MatchInfo>* matches)
     } else {
         m_hasCurrentLocation = false;
     }
+}
+
 }
 

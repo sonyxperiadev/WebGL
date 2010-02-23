@@ -25,10 +25,15 @@
 #include "StringHash.h"
 #include <wtf/HashMap.h>
 
-class FindOnPage;
 class SkCanvas;
 class SkMatrix;
 class SkPicture;
+
+namespace android {
+class DrawExtra;
+}
+
+using namespace android;
 
 struct SkLength {
     enum SkLengthType { Undefined, Auto, Relative, Percent, Fixed, Static, Intrinsic, MinIntrinsic };
@@ -64,6 +69,7 @@ class LayerAndroid : public SkLayer {
 public:
     LayerAndroid(bool isRootLayer);
     LayerAndroid(const LayerAndroid& layer);
+    LayerAndroid(SkPicture* );
     virtual ~LayerAndroid();
 
     static int instancesCount();
@@ -94,7 +100,6 @@ public:
     void setHaveContents(bool haveContents) { m_haveContents = haveContents; }
     void setHaveImage(bool haveImage) { m_haveImage = haveImage; }
     void setDrawsContent(bool drawsContent);
-    void setFindOnPage(FindOnPage* findOnPage);
     void setMaskLayer(LayerAndroid*);
     void setMasksToBounds(bool);
     void setIsRootLayer(bool isRootLayer) { m_isRootLayer = isRootLayer; }
@@ -132,6 +137,7 @@ public:
         return static_cast<LayerAndroid*>(this->INHERITED::getChild(index));
     }
     bool haveClip() const { return m_haveClip; }
+    void setExtra(DrawExtra* extra);  // does not assign ownership
     int uniqueId() const { return m_uniqueId; }
 
 protected:
@@ -163,10 +169,31 @@ private:
 
     typedef HashMap<String, RefPtr<AndroidAnimation> > KeyframesMap;
     KeyframesMap m_animations;
-    FindOnPage* m_findOnPage;
+    DrawExtra* m_extra;
     int m_uniqueId;
 
     typedef SkLayer INHERITED;
+};
+
+}
+
+#else
+
+class SkPicture;
+
+namespace WebCore {
+
+class LayerAndroid {
+public:
+    LayerAndroid(SkPicture* picture) :
+        m_recordingPicture(picture), // does not assign ownership
+        m_uniqueId(-1)
+    {}
+    SkPicture* picture() const { return m_recordingPicture; }
+    int uniqueId() const { return m_uniqueId; }
+private:
+    SkPicture* m_recordingPicture;
+    int m_uniqueId;
 };
 
 }

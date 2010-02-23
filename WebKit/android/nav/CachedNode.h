@@ -125,6 +125,12 @@ public:
     bool isTextInput() const { return mType == TEXT_INPUT_CACHEDNODETYPE; }
     bool isTransparent() const { return mIsTransparent; }
     bool isUnclipped() const { return mIsUnclipped; }
+    // localXXX functions are used only for drawing cursor rings
+    WebCore::IntRect localBounds(const CachedFrame* ) const;
+    void localCursorRings(const CachedFrame* ,
+        WTF::Vector<WebCore::IntRect>* ) const;
+    WebCore::IntRect localHitBounds(const CachedFrame* ) const;
+    WebCore::IntRect localRing(const CachedFrame* , size_t part) const;
     void move(int x, int y);
     int navableRects() const { return mNavableRects; }
     void* nodePointer() const { return mNode; }

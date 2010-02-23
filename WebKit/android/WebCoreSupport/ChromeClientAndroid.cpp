@@ -374,7 +374,7 @@ void ChromeClientAndroid::exceededDatabaseQuota(Frame* frame, const String& name
     // If new quota is unavailable, we may be able to resolve the situation by shrinking the quota of an origin that asked for a lot but is only using a little.
     // If we find such a site, shrink it's quota and ask Java to try again.
 
-    if (m_newQuota == currentQuota && !m_triedToReclaimDBQuota) {
+    if ((unsigned long long) m_newQuota == currentQuota && !m_triedToReclaimDBQuota) {
         m_triedToReclaimDBQuota = true; // we should only try this once per quota overflow.
         unsigned long long reclaimedQuotaBytes = tryToReclaimDatabaseQuota(origin);
 
@@ -397,7 +397,7 @@ static unsigned long long tryToReclaimDatabaseQuota(SecurityOrigin* originNeedin
     Vector<RefPtr<SecurityOrigin> > origins;
     tracker.origins(origins);
     unsigned long long reclaimedQuotaBytes = 0;
-    for (int i = 0; i < origins.size(); i++) {
+    for (unsigned i = 0; i < origins.size(); i++) {
         SecurityOrigin* originToReclaimFrom = origins[i].get();
 
         // Don't try to reclaim from the origin that has exceeded its quota.
