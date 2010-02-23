@@ -25,6 +25,7 @@
 
 #include "PluginDebugAndroid.h"
 #include "utils/Log.h"
+#include "utils/SystemClock.h"
 #include <stdarg.h>
 
 #define ARRAY_COUNT(array) static_cast<int32_t>(sizeof(array) / sizeof(array[0]))
@@ -91,9 +92,13 @@ void anp_logPluginEvent(void* npp, const ANPEvent* evt, int16 returnVal, int ela
 
         case kTouch_ANPEventType:
             if(evt->data.touch.action < ARRAY_COUNT(inputActions)) {
-                anp_logPlugin("%p EVENT::TOUCH[%d] time=%d action=%s [%d %d]", npp,
-                        returnVal,  elapsedTime,inputActions[evt->data.touch.action],
-                        evt->data.touch.x, evt->data.touch.y);
+
+                uint32_t totalTime = android::uptimeMillis() - evt->timeStamp;
+
+                anp_logPlugin("%p EVENT::TOUCH[%d] delay=%d time=%d action=%s [%d %d]",
+                        npp, returnVal, totalTime - elapsedTime, elapsedTime,
+                        inputActions[evt->data.touch.action], evt->data.touch.x,
+                        evt->data.touch.y);
             } else {
                 anp_logPlugin("%p EVENT::TOUCH[%d] unknown action", npp, returnVal);
             }
