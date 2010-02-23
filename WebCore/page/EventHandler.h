@@ -432,8 +432,6 @@ private:
     typedef HashMap<int, RefPtr<EventTarget> > TouchTargetMap;
     TouchTargetMap m_originatingTouchPointTargets;
     RefPtr<Node> m_touchEventTarget;
-    IntPoint m_firstTouchScreenPos;
-    IntPoint m_firstTouchPagePos;
 #endif
 };
 
