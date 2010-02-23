@@ -209,9 +209,6 @@ void EventHandler::clear()
     m_lastScrollbarUnderMouse = 0;
     m_clickCount = 0;
     m_clickNode = 0;
-#if ENABLE(TOUCH_EVENTS)
-    m_touchEventTarget = 0;
-#endif
     m_frameSetBeingResized = 0;
 #if ENABLE(DRAG_SUPPORT)
     m_dragTarget = 0;
@@ -2552,6 +2549,19 @@ void EventHandler::updateLastScrollbarUnderMouse(Scrollbar* scrollbar, bool setL
 }
 
 #if ENABLE(TOUCH_EVENTS)
+
+static PassRefPtr<TouchList> assembleTargetTouches(Touch* touchTarget, TouchList* touches)
+{
+    RefPtr<TouchList> targetTouches = TouchList::create();
+
+    for (int i = 0; i < touches->length(); ++i) {
+        if (touches->item(i)->target()->toNode()->isSameNode(touchTarget->target()->toNode()))
+            targetTouches->append(touches->item(i));
+    }
+
+    return targetTouches.release();
+}
+
 #if PLATFORM(ANDROID)
 // TODO(benm): On Android we return an int back to Java to signify whether the default actions
 // for longpress/doubletap in the Browser should be prevented. I think that before upstreaming
@@ -2565,9 +2575,7 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
     RefPtr<TouchList> pressedTouches = TouchList::create();
     RefPtr<TouchList> releasedTouches = TouchList::create();
     RefPtr<TouchList> movedTouches = TouchList::create();
-    RefPtr<TouchList> targetTouches = TouchList::create();
     RefPtr<TouchList> cancelTouches = TouchList::create();
-    RefPtr<TouchList> stationaryTouches = TouchList::create();
 
     const Vector<PlatformTouchPoint>& points = event.touchPoints();
     AtomicString* eventName = 0;
@@ -2620,39 +2628,6 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
         if (point.state() != PlatformTouchPoint::TouchReleased)
             touches->append(touch);
 
-        // If it's a stationary touch, we don't want to process it further at the moment.
-        // We may add it to targetTouches later.
-        if (point.state() == PlatformTouchPoint::TouchStationary) {
-            stationaryTouches->append(touch);
-            continue;
-        }
-
-        if ((event.type() == TouchStart
-#if PLATFORM(ANDROID)
-            || event.type() == TouchDoubleTap
-            || event.type() == TouchLongPress
-#endif
-            ) && !i) {
-            m_touchEventTarget = target;
-        }
-
-        // Check to see if this should be added to targetTouches.
-        // If we've got here then the touch is not stationary. If it's a release, it's no longer
-        // a touch on the screen so we don't want it in targetTouches. The first touch that gets
-        // to here defines the 'target' the touchTarget list uses. This seems arbitrary (much like
-        // checking !i to set m_touchEventTarget above?) but seems to yield compatible behaviour.
-        //
-        // FIXME: Is this really the correct semantics for the touchTargets list? The touch event
-        // spec is not clear to me.
-        if (point.state() != PlatformTouchPoint::TouchReleased) {
-            if (targetTouches->length() == 0)
-                targetTouches->append(touch);
-            else {
-                if (touch->target() == targetTouches->item(0)->target())
-                    targetTouches->append(touch);
-            }
-        }
-
         // Now build up the correct list for changedTouches.
         if (point.state() == PlatformTouchPoint::TouchReleased)
             releasedTouches->append(touch);
@@ -2664,27 +2639,10 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
             movedTouches->append(touch);
     }
 
-    // Add any stationary touches to targetTouches if they match the target.
-    EventTarget* targetTouchesTarget = 0;
-    if (targetTouches->length())
-        targetTouchesTarget = targetTouches->item(0)->target();
-    else
-        targetTouchesTarget = m_touchEventTarget.get();
-
-    for (int i = 0; i < stationaryTouches->length(); ++i) {
-        Touch* stationaryTouch = stationaryTouches->item(i);
-        if (stationaryTouch->target() == targetTouchesTarget)
-            targetTouches->append(stationaryTouch);
-    }
-
-    if (!m_touchEventTarget)
-#if PLATFORM(ANDROID)
-        return 0;
-#else
-        return false;
-#endif
-
     bool defaultPrevented = false;
+    Touch* changedTouch = 0;
+    EventTarget* touchEventTarget = 0;
+
 #if PLATFORM(ANDROID)
     // TODO (benm): We should be able to remove this prior to upstreaming once Java side refactorings to make
     // preventDeault work better are complete.
@@ -2692,11 +2650,21 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
     bool doubleTapPrevented = false;
 #endif
 
-    if (event.type() == TouchCancel) {
+    if (cancelTouches->length() > 0) {
+        // We dispatch the event to the target of the touch that caused this touch event to be generated, i.e.
+        // we take it from the list that will be used as the changedTouches property of the event.
+        // The choice to use the touch at index 0 guarantees that there is a target (as we checked the length
+        // above). In the case that there are multiple touches in what becomes the changedTouches list, it is
+        // difficult to say how we should prioritise touches and as such, item 0 is an arbitrary choice.
+        changedTouch = cancelTouches->item(0);
+        ASSERT(changedTouch);
+        touchEventTarget = changedTouch->target();
+        ASSERT(touchEventTarget);
+
         eventName = &eventNames().touchcancelEvent;
         RefPtr<TouchEvent> cancelEv =
             TouchEvent::create(TouchList::create().get(), TouchList::create().get(), cancelTouches.get(),
-                                                   *eventName, m_touchEventTarget->document()->defaultView(),
+                                                   *eventName, touchEventTarget->toNode()->document()->defaultView(),
                                                    0, 0, 0, 0, event.ctrlKey(), event.altKey(), event.shiftKey(),
                                                    event.metaKey());
 
@@ -2704,92 +2672,106 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
         cancelEv->setCreateTime(static_cast<DOMTimeStamp>(event.eventTime()));
 #endif
         ExceptionCode ec = 0;
-        m_touchEventTarget->dispatchEvent(cancelEv.get(), ec);
+        touchEventTarget->dispatchEvent(cancelEv.get(), ec);
         defaultPrevented |= cancelEv->defaultPrevented();
     }
 
     if (releasedTouches->length() > 0) {
+        Touch* changedTouch = releasedTouches->item(0);
+        ASSERT(changedTouch);
+        touchEventTarget = changedTouch->target();
+        ASSERT(touchEventTarget);
+
+        RefPtr<TouchList> targetTouches = assembleTargetTouches(changedTouch, touches.get());
+
         eventName = &eventNames().touchendEvent;
         RefPtr<TouchEvent> endEv = 
             TouchEvent::create(touches.get(), targetTouches.get(), releasedTouches.get(),
-                                                   *eventName, m_touchEventTarget->document()->defaultView(),
+                                                   *eventName, touchEventTarget->toNode()->document()->defaultView(),
                                                    0, 0, 0, 0, event.ctrlKey(), event.altKey(), event.shiftKey(),
                                                    event.metaKey());
 #if PLATFORM(ANDROID)
         endEv->setCreateTime(static_cast<DOMTimeStamp>(event.eventTime()));
 #endif
         ExceptionCode ec = 0;
-        m_touchEventTarget->dispatchEvent(endEv.get(), ec);
-#if PLATFORM(ANDROID)
+        touchEventTarget->dispatchEvent(endEv.get(), ec);
         defaultPrevented |= endEv->defaultPrevented();
-#else
-        defaultPrevented = endEv->defaultPrevented();
-#endif
     }
     if (pressedTouches->length() > 0) {
+        Touch* changedTouch = pressedTouches->item(0);
+        ASSERT(changedTouch);
+        touchEventTarget = changedTouch->target();
+        ASSERT(touchEventTarget);
+
+        RefPtr<TouchList> targetTouches = assembleTargetTouches(changedTouch, touches.get());
+
 #if PLATFORM(ANDROID)
         if (event.type() == TouchLongPress) {
             eventName = &eventNames().touchlongpressEvent;
             RefPtr<TouchEvent> longpressEv =
                 TouchEvent::create(touches.get(), targetTouches.get(), pressedTouches.get(),
-                                                       *eventName, m_touchEventTarget->document()->defaultView(),
+                                                       *eventName, touchEventTarget->toNode()->document()->defaultView(),
                                                        0, 0, 0, 0, event.ctrlKey(), event.altKey(), event.shiftKey(),
                                                        event.metaKey());
             longpressEv->setCreateTime(static_cast<DOMTimeStamp>(event.eventTime()));
 
             ExceptionCode ec = 0;
-            m_touchEventTarget->dispatchEvent(longpressEv.get(), ec);
+            touchEventTarget->dispatchEvent(longpressEv.get(), ec);
             defaultPrevented |= longpressEv->defaultPrevented();
         } else if (event.type() == TouchDoubleTap) {
             eventName = &eventNames().touchdoubletapEvent;
             RefPtr<TouchEvent> doubleTapEv =
                 TouchEvent::create(touches.get(), targetTouches.get(), pressedTouches.get(),
-                                                       *eventName, m_touchEventTarget->document()->defaultView(),
+                                                       *eventName, touchEventTarget->toNode()->document()->defaultView(),
                                                        0, 0, 0, 0, event.ctrlKey(), event.altKey(), event.shiftKey(),
                                                        event.metaKey());
             doubleTapEv->setCreateTime(static_cast<DOMTimeStamp>(event.eventTime()));
 
             ExceptionCode ec = 0;
-            m_touchEventTarget->dispatchEvent(doubleTapEv.get(), ec);
+            touchEventTarget->dispatchEvent(doubleTapEv.get(), ec);
             defaultPrevented |= doubleTapEv->defaultPrevented();
         } else {
 #endif
-            eventName = &eventNames().touchstartEvent;
-            RefPtr<TouchEvent> startEv = 
-                TouchEvent::create(touches.get(), targetTouches.get(), pressedTouches.get(),
-                                                       *eventName, m_touchEventTarget->document()->defaultView(),
-                                                       0, 0, 0, 0, event.ctrlKey(), event.altKey(), event.shiftKey(),
-                                                       event.metaKey());
+        eventName = &eventNames().touchstartEvent;
+        RefPtr<TouchEvent> startEv =
+            TouchEvent::create(touches.get(), targetTouches.get(), pressedTouches.get(),
+                                                   *eventName, touchEventTarget->toNode()->document()->defaultView(),
+                                                   0, 0, 0, 0, event.ctrlKey(), event.altKey(), event.shiftKey(),
+                                                   event.metaKey());
 #if PLATFORM(ANDROID)
-            startEv->setCreateTime(static_cast<DOMTimeStamp>(event.eventTime()));
+        startEv->setCreateTime(static_cast<DOMTimeStamp>(event.eventTime()));
 #endif
-            ExceptionCode ec = 0;
-            m_touchEventTarget->dispatchEvent(startEv.get(), ec);
-            defaultPrevented |= startEv->defaultPrevented();
+        ExceptionCode ec = 0;
+        touchEventTarget->dispatchEvent(startEv.get(), ec);
+        defaultPrevented |= startEv->defaultPrevented();
 #if PLATFORM(ANDROID)
-            longPressPrevented |= startEv->longPressPrevented();
-            doubleTapPrevented |= startEv->doubleTapPrevented();
-        }
+        longPressPrevented |= startEv->longPressPrevented();
+        doubleTapPrevented |= startEv->doubleTapPrevented();
+    }
 #endif
     }
 
     if (movedTouches->length() > 0) {
+        Touch* changedTouch = movedTouches->item(0);
+        ASSERT(changedTouch);
+        touchEventTarget = changedTouch->target();
+        ASSERT(touchEventTarget);
+
+        RefPtr<TouchList> targetTouches = assembleTargetTouches(changedTouch, touches.get());
+
         eventName = &eventNames().touchmoveEvent;
         RefPtr<TouchEvent> moveEv = 
             TouchEvent::create(touches.get(), targetTouches.get(), movedTouches.get(),
-                                                   *eventName, m_touchEventTarget->document()->defaultView(),
+                                                   *eventName, touchEventTarget->toNode()->document()->defaultView(),
                                                    0, 0, 0, 0, event.ctrlKey(), event.altKey(), event.shiftKey(),
                                                    event.metaKey());
 #if PLATFORM(ANDROID)
         moveEv->setCreateTime(static_cast<DOMTimeStamp>(event.eventTime()));
 #endif
         ExceptionCode ec = 0;
-        m_touchEventTarget->dispatchEvent(moveEv.get(), ec);
+        touchEventTarget->dispatchEvent(moveEv.get(), ec);
         defaultPrevented |= moveEv->defaultPrevented();
     }
-
-    if (event.type() == TouchEnd || event.type() == TouchCancel)
-        m_touchEventTarget = 0;
 
 #if PLATFORM(ANDROID)
     // TODO (benm): We should be able to remove this prior to upstreaming  once Java side refactorings to make
