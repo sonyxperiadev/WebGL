@@ -2596,20 +2596,23 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
         int adjustedPageX = lroundf(pagePoint.x() / m_frame->pageZoomFactor());
         int adjustedPageY = lroundf(pagePoint.y() / m_frame->pageZoomFactor());
 
-        // ANDROID
-        // The touch event should act on the originating touch target, not the current target
-        // TODO: Upstream this fix to webkit.org (see webkit bug 34585)
-        int touchPointId = point.id();
+        // Increment the platform touch id by 1 to avoid storing a key of 0 in the hashmap.
+        unsigned touchPointTargetKey = point.id() + 1;
         EventTarget* touchTarget = 0;
         if (point.state() == PlatformTouchPoint::TouchPressed) {
-            m_originatingTouchPointTargets.set(touchPointId, target);
+            m_originatingTouchPointTargets.set(touchPointTargetKey, target);
             touchTarget = target;
+        } else if (point.state() == PlatformTouchPoint::TouchReleased || point.state() == PlatformTouchPoint::TouchCancelled) {
+            // The target should be the original target for this touch, so get it from the hashmap. As it's a release or cancel
+            // we also remove it from the map.
+            touchTarget = m_originatingTouchPointTargets.take(touchPointTargetKey).get();
         } else
-            touchTarget = m_originatingTouchPointTargets.get(touchPointId).get();
+            touchTarget = m_originatingTouchPointTargets.get(touchPointTargetKey).get();
 
-        ASSERT(touchTarget);
+        if (!touchTarget)
+            continue;
 
-        RefPtr<Touch> touch = Touch::create(doc->frame(), touchTarget, touchPointId,
+        RefPtr<Touch> touch = Touch::create(doc->frame(), touchTarget, point.id(),
                                             point.screenPos().x(), point.screenPos().y(),
                                             adjustedPageX, adjustedPageY);
 

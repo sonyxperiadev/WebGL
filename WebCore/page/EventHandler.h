@@ -37,7 +37,7 @@
 class NSView;
 #endif
 
-#if ENABLE(TOUCH_EVENTS) // ANDROID addition, needs to be upstreamed. (see webkit bug 34585)
+#if ENABLE(TOUCH_EVENTS)
 #include <wtf/HashMap.h>
 #endif
 
@@ -428,7 +428,6 @@ private:
     int m_activationEventNumber;
 #endif
 #if ENABLE(TOUCH_EVENTS)
-    // ANDROID fix to be upstreamed, see webkit bug 34585.
     typedef HashMap<int, RefPtr<EventTarget> > TouchTargetMap;
     TouchTargetMap m_originatingTouchPointTargets;
     RefPtr<Node> m_touchEventTarget;
