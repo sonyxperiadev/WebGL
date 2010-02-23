@@ -29,13 +29,14 @@
 #include "Geoposition.h"
 #include "SQLValue.h"
 #include "SQLiteDatabase.h"
+#include "SQLiteFileSystem.h"
 #include "SQLiteStatement.h"
 #include "SQLiteTransaction.h"
 
 
 namespace WebCore {
 
-static const char* databaseName = "/CachedPosition.db";
+static const char* databaseName = "CachedGeoposition.db";
 
 int GeolocationPositionCache::s_instances = 0;
 RefPtr<Geoposition>* GeolocationPositionCache::s_cachedPosition;
@@ -60,7 +61,6 @@ GeolocationPositionCache::~GeolocationPositionCache()
 
 void GeolocationPositionCache::setCachedPosition(Geoposition* cachedPosition)
 {
-    // We do not take owenership from the caller, but add our own ref count.
     *s_cachedPosition = cachedPosition;
 }
 
@@ -69,11 +69,11 @@ Geoposition* GeolocationPositionCache::cachedPosition()
     return s_cachedPosition->get();
 }
 
-void GeolocationPositionCache::setDatabasePath(String databasePath)
+void GeolocationPositionCache::setDatabasePath(const String& databasePath)
 {
     if (!s_databaseFile)
         s_databaseFile = new String;
-    *s_databaseFile = databasePath + databaseName;
+    *s_databaseFile = SQLiteFileSystem::appendDatabaseFileNameToPath(databasePath, databaseName);
     // If we don't have have a cached position, attempt to read one from the
     // DB at the new path.
     if (s_instances && !(*s_cachedPosition))
@@ -110,17 +110,17 @@ PassRefPtr<Geoposition> GeolocationPositionCache::readFromDB()
     bool providesAltitudeAccuracy = statement.getColumnValue(4).type() != SQLValue::NullValue;
     bool providesHeading = statement.getColumnValue(5).type() != SQLValue::NullValue;
     bool providesSpeed = statement.getColumnValue(6).type() != SQLValue::NullValue;
-    RefPtr<Coordinates> coordinates = Coordinates::create(statement.getColumnDouble(0),  // latitude
-                                                          statement.getColumnDouble(1),  // longitude
+    RefPtr<Coordinates> coordinates = Coordinates::create(statement.getColumnDouble(0), // latitude
+                                                          statement.getColumnDouble(1), // longitude
                                                           providesAltitude, statement.getColumnDouble(2), // altitude
-                                                          statement.getColumnDouble(3),  // accuracy
+                                                          statement.getColumnDouble(3), // accuracy
                                                           providesAltitudeAccuracy, statement.getColumnDouble(4), // altitudeAccuracy
                                                           providesHeading, statement.getColumnDouble(5), // heading
                                                           providesSpeed, statement.getColumnDouble(6)); // speed
-    return Geoposition::create(coordinates.release(), statement.getColumnInt64(7));  // timestamp
+    return Geoposition::create(coordinates.release(), statement.getColumnInt64(7)); // timestamp
 }
 
-void GeolocationPositionCache::writeToDB(Geoposition* position)
+void GeolocationPositionCache::writeToDB(const Geoposition* position)
 {
     ASSERT(position);
 
