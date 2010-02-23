@@ -68,7 +68,9 @@ static NPClass JavaNPObjectClass = {
     0 // construct
 };
 
-NPObject* JavaInstanceToNPObject(JavaInstance* instance)
+// ANDROID-specific change. TODO: Upstream
+NPObject* JavaInstanceToNPObject(PassRefPtr<JavaInstance> instance)
+// END ANDROID-specific change
 {
     JavaNPObject* object = reinterpret_cast<JavaNPObject*>(_NPN_CreateObject(0, &JavaNPObjectClass));
     object->m_instance = instance;
