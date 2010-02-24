@@ -97,7 +97,7 @@ private:
         void setFatalError(PassRefPtr<PositionError>);
         bool hasZeroTimeout() const;
         void setUseCachedPosition();
-        void makeSuccessCallback(Geoposition*);
+        void runSuccessCallback(Geoposition*);
         void startTimerIfNeeded();
         void timerFired(Timer<GeoNotifier>*);
         
