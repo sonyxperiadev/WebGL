@@ -1394,7 +1394,7 @@ static jboolean HasPasswordField(JNIEnv *env, jobject obj)
     WTF::PassRefPtr<WebCore::HTMLCollection> form = pFrame->document()->forms();
     WebCore::Node* node = form->firstItem();
     while (node && !found) {
-        WTF::Vector<WebCore::HTMLFormControlElement*> elements =
+        WTF::Vector<WebCore::HTMLFormControlElement*>& elements =
         		((WebCore::HTMLFormElement*)node)->formElements;
         size_t size = elements.size();
         for (size_t i = 0; i< size && !found; i++) {
@@ -1424,7 +1424,7 @@ static jobjectArray GetUsernamePassword(JNIEnv *env, jobject obj)
     WTF::PassRefPtr<WebCore::HTMLCollection> form = pFrame->document()->forms();
     WebCore::Node* node = form->firstItem();
     while (node && !found) {
-        WTF::Vector<WebCore::HTMLFormControlElement*> elements =
+        WTF::Vector<WebCore::HTMLFormControlElement*>& elements =
         		((WebCore::HTMLFormElement*)node)->formElements;
         size_t size = elements.size();
         for (size_t i = 0; i< size && !found; i++) {
@@ -1469,7 +1469,7 @@ static void SetUsernamePassword(JNIEnv *env, jobject obj,
     WTF::PassRefPtr<WebCore::HTMLCollection> form = pFrame->document()->forms();
     WebCore::Node* node = form->firstItem();
     while (node && !found) {
-        WTF::Vector<WebCore::HTMLFormControlElement*> elements =
+        WTF::Vector<WebCore::HTMLFormControlElement*>& elements =
         		((WebCore::HTMLFormElement*)node)->formElements;
         size_t size = elements.size();
         for (size_t i = 0; i< size && !found; i++) {
