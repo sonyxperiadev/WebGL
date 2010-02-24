@@ -84,6 +84,7 @@ Geolocation::GeoNotifier::GeoNotifier(Geolocation* geolocation, PassRefPtr<Posit
     , m_errorCallback(errorCallback)
     , m_options(options)
     , m_timer(this, &Geolocation::GeoNotifier::timerFired)
+    , m_useCachedPosition(false)
 {
     ASSERT(m_geolocation);
     ASSERT(m_successCallback);
