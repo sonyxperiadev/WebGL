@@ -1,5 +1,5 @@
 /*
- * Copyright 2008, The Android Open Source Project
+ * Copyright 2010, The Android Open Source Project
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -37,14 +37,22 @@
 
 #if PLUGIN_DEBUG_GLOBAL || defined(PLUGIN_DEBUG_LOCAL)
 # define PLUGIN_LOG(FORMAT, ARGS...) do { anp_logPlugin(FORMAT, ## ARGS); } while(0)
-# define PLUGIN_LOG_EVENT(NPP, EVT, RET) do { anp_logPluginEvent(NPP, EVT, RET); } while(0)
+# define PLUGIN_LOG_EVENT(NPP, EVT, RET, TIME) do { anp_logPluginEvent(NPP, EVT, RET, TIME); } while(0)
 
+/* Logs the given character array and optional arguments. All log entries use
+   the DEBUG priority and use the same "webkit_plugin" log tag.
+ */
 void anp_logPlugin(const char format[], ...);
-void anp_logPluginEvent(void* npp, const ANPEvent* event, int16 returnVal);
+/* Logs a user readable description of a plugin event. The relevant contents of
+   each event are logged, as well as the value returned by the plugin instance
+   and how long the instance took to process the event (in milliseconds).
+ */
+void anp_logPluginEvent(void* npp, const ANPEvent* event, int16 returnVal, int elapsedTime);
 
 #else
 # define PLUGIN_LOG(A, B...)    do { } while(0)
-# define PLUGIN_LOG_EVENT(NPP, EVENT) do { } while(0)
+# define PLUGIN_LOG_EVENT(NPP, EVT, RET, TIME) do { } while(0)
+
 #endif
 
 #endif // defined(PLUGIN_DEBUG_ANDROID_H__)

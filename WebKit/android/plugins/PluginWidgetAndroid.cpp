@@ -40,11 +40,13 @@
 #include "SkANP.h"
 #include "SkFlipPixelRef.h"
 #include "SkString.h"
+#include "SkTime.h"
 #include "WebViewCore.h"
 #include "android_graphics.h"
 #include <JNIUtility.h>
 
 #define PLUGIN_DEBUG_LOCAL 0 // controls the printing of log messages
+#define DEBUG_EVENTS 0 // logs event contents, return value, and processing time
 #define DEBUG_VISIBLE_RECTS 1 // temporary debug printfs and fixes
 
 // this include statement must follow the declaration of PLUGIN_DEBUG_LOCAL
@@ -70,6 +72,7 @@ PluginWidgetAndroid::PluginWidgetAndroid(WebCore::PluginView* view)
 }
 
 PluginWidgetAndroid::~PluginWidgetAndroid() {
+    PLUGIN_LOG("%p Deleting Plugin", m_pluginView->instance());
     m_acceptEvents = false;
     if (m_core) {
         m_core->removePlugin(this);
@@ -94,6 +97,7 @@ void PluginWidgetAndroid::init(android::WebViewCore* core) {
     m_core = core;
     m_core->addPlugin(this);
     m_acceptEvents = true;
+    PLUGIN_LOG("%p Initialized Plugin", m_pluginView->instance());
 }
 
 static SkBitmap::Config computeConfig(bool isTransparent) {
@@ -242,11 +246,19 @@ int16 PluginWidgetAndroid::sendEvent(const ANPEvent& evt) {
             m_hasFocus = true;
         }
 
+#if DEBUG_EVENTS
+        SkMSec startTime = SkTime::GetMSecs();
+#endif
+
         // make a localCopy since the actual plugin may not respect its constness,
         // and so we don't want our caller to have its param modified
         ANPEvent localCopy = evt;
         int16 result = pkg->pluginFuncs()->event(instance, &localCopy);
-        PLUGIN_LOG_EVENT(instance, &evt, result);
+
+#if DEBUG_EVENTS
+        SkMSec endTime = SkTime::GetMSecs();
+        PLUGIN_LOG_EVENT(instance, &evt, result, endTime - startTime);
+#endif
 
         // if the plugin is losing focus then delay the update of our state
         // until after we notify the plugin and allow them to perform actions
