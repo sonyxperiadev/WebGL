@@ -1970,9 +1970,10 @@ int WebViewCore::handleTouchEvent(int action, int x, int y, long time, int metaS
         touchState = WebCore::PlatformTouchPoint::TouchPressed;
         break;
     default:
-        type = WebCore::TouchCancel;
-        touchState = WebCore::PlatformTouchPoint::TouchCancelled;
-        break;
+        // We do not support other kinds of touch event inside WebCore
+        // at the moment.
+        LOGW("Java passed a touch event type that we do not support in WebCore: %d", action);
+        return 0;
     }
 
     // Track previous touch and if stationary set the state.
