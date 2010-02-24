@@ -45,14 +45,6 @@
 #include "PositionError.h"
 #endif
 
-#if ENABLE(CLIENT_BASED_GEOLOCATION)
-#include "Coordinates.h"
-#include "GeolocationController.h"
-#include "GeolocationError.h"
-#include "GeolocationPosition.h"
-#include "PositionError.h"
-#endif
-
 namespace WebCore {
 
 static const char permissionDeniedErrorMessage[] = "User denied Geolocation";
