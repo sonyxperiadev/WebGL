@@ -59,7 +59,7 @@ void anp_logPlugin(const char format[], ...) {
     va_end(args);
 }
 
-void anp_logPluginEvent(void* npp, const ANPEvent* evt, int16 returnVal) {
+void anp_logPluginEvent(void* npp, const ANPEvent* evt, int16 returnVal, int elapsedTime) {
 
     switch(evt->eventType) {
 
@@ -69,8 +69,8 @@ void anp_logPluginEvent(void* npp, const ANPEvent* evt, int16 returnVal) {
 
         case kKey_ANPEventType:
             if(evt->data.key.action < ARRAY_COUNT(inputActions)) {
-                anp_logPlugin("%p EVENT::KEY[%d] action=%s code=%d vcode=%d unichar=%d repeat=%d mods=%x",
-                        npp, returnVal, inputActions[evt->data.key.action],
+                anp_logPlugin("%p EVENT::KEY[%d] time=%d action=%s code=%d vcode=%d unichar=%d repeat=%d mods=%x",
+                        npp, returnVal, elapsedTime, inputActions[evt->data.key.action],
                         evt->data.key.nativeCode, evt->data.key.virtualCode,
                         evt->data.key.unichar, evt->data.key.repeatCount,
                         evt->data.key.modifiers);
@@ -81,8 +81,8 @@ void anp_logPluginEvent(void* npp, const ANPEvent* evt, int16 returnVal) {
 
         case kMouse_ANPEventType:
             if(evt->data.mouse.action < ARRAY_COUNT(inputActions)) {
-                anp_logPlugin("%p EVENT::MOUSE[%d] action=%s [%d %d]", npp,
-                        returnVal, inputActions[evt->data.mouse.action],
+                anp_logPlugin("%p EVENT::MOUSE[%d] time=%d action=%s [%d %d]", npp,
+                        returnVal, elapsedTime, inputActions[evt->data.mouse.action],
                         evt->data.touch.x, evt->data.touch.y);
             } else {
                 anp_logPlugin("%p EVENT::MOUSE[%d] unknown action", npp, returnVal);
@@ -91,8 +91,8 @@ void anp_logPluginEvent(void* npp, const ANPEvent* evt, int16 returnVal) {
 
         case kTouch_ANPEventType:
             if(evt->data.touch.action < ARRAY_COUNT(inputActions)) {
-                anp_logPlugin("%p EVENT::TOUCH[%d] action=%s [%d %d]", npp,
-                        returnVal, inputActions[evt->data.touch.action],
+                anp_logPlugin("%p EVENT::TOUCH[%d] time=%d action=%s [%d %d]", npp,
+                        returnVal,  elapsedTime,inputActions[evt->data.touch.action],
                         evt->data.touch.x, evt->data.touch.y);
             } else {
                 anp_logPlugin("%p EVENT::TOUCH[%d] unknown action", npp, returnVal);
@@ -101,8 +101,8 @@ void anp_logPluginEvent(void* npp, const ANPEvent* evt, int16 returnVal) {
 
         case kDraw_ANPEventType:
             if (evt->data.draw.model == kBitmap_ANPDrawingModel) {
-                anp_logPlugin("%p EVENT::DRAW bitmap format=%d clip=[%d,%d,%d,%d]",
-                        npp, evt->data.draw.data.bitmap.format,
+                anp_logPlugin("%p EVENT::DRAW bitmap time=%d format=%d clip=[%d,%d,%d,%d]",
+                        npp, elapsedTime, evt->data.draw.data.bitmap.format,
                         evt->data.draw.clip.left, evt->data.draw.clip.top,
                         evt->data.draw.clip.right, evt->data.draw.clip.bottom);
             } else {
@@ -112,7 +112,7 @@ void anp_logPluginEvent(void* npp, const ANPEvent* evt, int16 returnVal) {
 
         case kLifecycle_ANPEventType:
             if(evt->data.lifecycle.action < ARRAY_COUNT(lifecycleActions)) {
-                anp_logPlugin("%p EVENT::LIFECYCLE %s", npp,
+                anp_logPlugin("%p EVENT::LIFECYCLE time=%d action=%s", npp, elapsedTime,
                         lifecycleActions[evt->data.lifecycle.action]);
             } else {
                 anp_logPlugin("%p EVENT::LIFECYCLE unknown action", npp);
@@ -120,7 +120,7 @@ void anp_logPluginEvent(void* npp, const ANPEvent* evt, int16 returnVal) {
             break;
 
         case kCustom_ANPEventType:
-            anp_logPlugin("%p EVENT::CUSTOM", npp);
+            anp_logPlugin("%p EVENT::CUSTOM time=%d", npp, elapsedTime);
             break;
 
         default:
