@@ -58,6 +58,12 @@ namespace WebCore {
     class PageGroup;
 }
 
+#if USE(ACCELERATED_COMPOSITING)
+namespace WebCore {
+    class LayerAndroid;
+}
+#endif
+
 struct PluginWidgetAndroid;
 class SkPicture;
 class SkIRect;
@@ -128,7 +134,7 @@ namespace android {
 
 #if USE(ACCELERATED_COMPOSITING)
         void immediateRepaint();
-        void setRootLayer(int layer);
+        void setUIRootLayer(const LayerAndroid* layer);
 #endif
 
         /** Invalidate the view/screen, NOT the content/DOM, but expressed in

@@ -418,9 +418,9 @@ void GraphicsLayerAndroid::sendImmediateRepaint()
         && rootGraphicsLayer->m_frame->view()) {
         LayerAndroid* copyLayer = new LayerAndroid(*m_contentLayer);
         TLOG("(%x) sendImmediateRepaint, copy the layer, (%.2f,%.2f => %.2f,%.2f)",
-            this, m_contentLayer->size().width(), m_contentLayer->size().height(),
-            copyLayer->size().width(), copyLayer->size().height());
-        PlatformBridge::setRootLayer(m_frame->view(), (int)copyLayer);
+            this, m_contentLayer->getSize().width(), m_contentLayer->getSize().height(),
+            copyLayer->getSize().width(), copyLayer->getSize().height());
+        PlatformBridge::setUIRootLayer(m_frame->view(), copyLayer);
         PlatformBridge::immediateRepaint(m_frame->view());
     }
 }
@@ -457,10 +457,10 @@ bool GraphicsLayerAndroid::repaint(const FloatRect& rect)
             TLOG("(%x) repaint(%.2f,%.2f,%.2f,%.2f) on (%.2f,%.2f) contentlayer(%.2f,%.2f,%.2f,%.2f)paintGraphicsLayer called!",
                 this, rect.x(), rect.y(), rect.width(),
                 rect.height(), m_size.width(), m_size.height(),
-                m_contentLayer->position().fX,
-                m_contentLayer->position().fY,
-                m_contentLayer->size().width(),
-                m_contentLayer->size().height());
+                m_contentLayer->getPosition().fX,
+                m_contentLayer->getPosition().fY,
+                m_contentLayer->getSize().width(),
+                m_contentLayer->getSize().height());
         }
         return true;
     }

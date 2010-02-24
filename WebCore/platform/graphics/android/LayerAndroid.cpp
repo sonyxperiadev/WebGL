@@ -300,10 +300,10 @@ void LayerAndroid::onDraw(SkCanvas* canvas, SkScalar opacity) {
         canvas->clipRect(r);
     }
 
-    if (!prepareContext())
+    if (!m_haveImage && !m_drawsContent && !m_isRootLayer)
         return;
 
-    if (!m_haveImage && !m_drawsContent && !m_isRootLayer)
+    if (!prepareContext())
         return;
 
     // we just have this save/restore for opacity...
@@ -314,6 +314,20 @@ void LayerAndroid::onDraw(SkCanvas* canvas, SkScalar opacity) {
         canvas->setDrawFilter(new OpacityDrawFilter(canvasOpacity));
 
     m_recordingPicture->draw(canvas);
+
+#ifdef LAYER_DEBUG
+    float w = getSize().width();
+    float h = getSize().height();
+    SkPaint paint;
+    paint.setARGB(128, 255, 0, 0);
+    canvas->drawLine(0, 0, w, h, paint);
+    canvas->drawLine(0, h, w, 0, paint);
+    paint.setARGB(128, 0, 255, 0);
+    canvas->drawLine(0, 0, 0, h, paint);
+    canvas->drawLine(0, h, w, h, paint);
+    canvas->drawLine(w, h, w, 0, paint);
+    canvas->drawLine(w, 0, 0, 0, paint);
+#endif
 }
 
 SkPicture* LayerAndroid::recordContext()
@@ -393,6 +407,12 @@ void writeIntVal(FILE* file, int indentLevel, const char* str, int value)
     fprintf(file, "%s = %d;\n", str, value);
 }
 
+void writeHexVal(FILE* file, int indentLevel, const char* str, int value)
+{
+    writeIndent(file, indentLevel);
+    fprintf(file, "%s = %x;\n", str, value);
+}
+
 void writeFloatVal(FILE* file, int indentLevel, const char* str, float value)
 {
     writeIndent(file, indentLevel);
@@ -422,6 +442,7 @@ void LayerAndroid::dumpLayers(FILE* file, int indentLevel) const
 {
     writeln(file, indentLevel, "{");
 
+    writeHexVal(file, indentLevel + 1, "layer", (int)this);
     writeIntVal(file, indentLevel + 1, "haveContents", m_haveContents);
     writeIntVal(file, indentLevel + 1, "drawsContent", m_drawsContent);
     writeIntVal(file, indentLevel + 1, "haveImage", m_haveImage);

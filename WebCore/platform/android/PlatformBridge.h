@@ -81,6 +81,10 @@ class NPObject;
 
 namespace WebCore {
 
+#if USE(ACCELERATED_COMPOSITING)
+class LayerAndroid;
+#endif
+
 class FrameView;
 class Widget;
 
@@ -121,7 +125,7 @@ public:
 
 #if USE(ACCELERATED_COMPOSITING)
     // Those methods are used by the layers system
-    static void setRootLayer(const FrameView* view, int layer);
+    static void setUIRootLayer(const FrameView* view, const LayerAndroid* layer);
     static void immediateRepaint(const FrameView* view);
 #endif // USE(ACCELERATED_COMPOSITING)
 

@@ -35,16 +35,20 @@
 #include <wtf/android/AndroidThreading.h>
 #include <wtf/MainThread.h>
 
+#if USE(ACCELERATED_COMPOSITING)
+#include "LayerAndroid.h"
+#endif
+
 using namespace android;
 
 namespace WebCore {
 
 #if USE(ACCELERATED_COMPOSITING)
 
-void PlatformBridge::setRootLayer(const WebCore::FrameView* view, int layer)
+void PlatformBridge::setUIRootLayer(const WebCore::FrameView* view, const LayerAndroid* layer)
 {
     android::WebViewCore* core = android::WebViewCore::getWebViewCore(view);
-    core->setRootLayer(layer);
+    core->setUIRootLayer(layer);
 }
 
 void PlatformBridge::immediateRepaint(const WebCore::FrameView* view)

@@ -137,6 +137,7 @@ FILE* gRenderTreeFile = 0;
 
 #if USE(ACCELERATED_COMPOSITING)
 #include "GraphicsLayerAndroid.h"
+#include "LayerAndroid.h"
 #include "RenderLayerCompositor.h"
 #endif
 
@@ -893,12 +894,12 @@ void WebViewCore::immediateRepaint()
     checkException(env);
 }
 
-void WebViewCore::setRootLayer(int layer)
+void WebViewCore::setUIRootLayer(const LayerAndroid* layer)
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
     env->CallVoidMethod(m_javaGlue->object(env).get(),
                         m_javaGlue->m_setRootLayer,
-                        layer);
+                        reinterpret_cast<jint>(layer));
     checkException(env);
 }
 
