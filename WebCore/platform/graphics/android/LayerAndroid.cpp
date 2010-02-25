@@ -85,6 +85,8 @@ LayerAndroid::LayerAndroid(const LayerAndroid& layer) : SkLayer(layer),
     m_fixedTop = layer.m_fixedTop;
     m_fixedRight = layer.m_fixedRight;
     m_fixedBottom = layer.m_fixedBottom;
+    m_fixedWidth = layer.m_fixedWidth;
+    m_fixedHeight = layer.m_fixedHeight;
 
     m_recordingPicture = layer.m_recordingPicture;
     SkSafeRef(m_recordingPicture);
@@ -282,12 +284,12 @@ void LayerAndroid::updatePositions(const SkRect& viewport) {
         if (m_fixedLeft.defined())
             x = dx + m_fixedLeft.calcFloatValue(w);
         else if (m_fixedRight.defined())
-            x = dx + w - m_fixedRight.calcFloatValue(w) - getSize().width();
+            x = dx + w - m_fixedRight.calcFloatValue(w) - m_fixedWidth;
 
         if (m_fixedTop.defined())
             y = dy + m_fixedTop.calcFloatValue(h);
         else if (m_fixedBottom.defined())
-            y = dy + h - m_fixedBottom.calcFloatValue(h) - getSize().height();
+            y = dy + h - m_fixedBottom.calcFloatValue(h) - m_fixedHeight;
 
         this->setPosition(x, y);
         matrix.reset();
@@ -306,13 +308,8 @@ void LayerAndroid::updatePositions(const SkRect& viewport) {
 
     // now apply it to our children
     int count = this->countChildren();
-    if (count > 0) {
-        SkRect tmp = viewport;
-        // adjust the viewport by our (the parent) position
-        tmp.offset(-this->getPosition());
-        for (int i = 0; i < count; i++) {
-            this->getChild(i)->updatePositions(tmp);
-        }
+    for (int i = 0; i < count; i++) {
+        this->getChild(i)->updatePositions(viewport);
     }
 }
 
@@ -487,6 +484,8 @@ void LayerAndroid::dumpLayers(FILE* file, int indentLevel) const
     writeLength(file, indentLevel + 1, "fixedTop", m_fixedTop);
     writeLength(file, indentLevel + 1, "fixedRight", m_fixedRight);
     writeLength(file, indentLevel + 1, "fixedBottom", m_fixedBottom);
+    writeIntVal(file, indentLevel + 1, "fixedWidth", m_fixedWidth);
+    writeIntVal(file, indentLevel + 1, "fixedHeight", m_fixedHeight);
 
     if (countChildren()) {
         writeln(file, indentLevel + 1, "children = [");

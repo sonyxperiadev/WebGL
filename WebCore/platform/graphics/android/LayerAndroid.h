@@ -88,11 +88,18 @@ public:
         rect.offset(m_translation.fX, m_translation.fY);
         return rect;
     }
-    void setFixedPosition(SkLength left, SkLength top, SkLength right, SkLength bottom) {
+    void setFixedPosition(SkLength left,   // CSS left property
+                          SkLength top,    // CSS top property
+                          SkLength right,  // CSS right property
+                          SkLength bottom, // CSS bottom property
+                          int width,       // visible overflow width
+                          int height) {    // visible overflow height
         m_fixedLeft = left;
         m_fixedTop = top;
         m_fixedRight = right;
         m_fixedBottom = bottom;
+        m_fixedWidth = width;
+        m_fixedHeight = height;
         m_isFixed = true;
     }
 
@@ -160,6 +167,9 @@ private:
     SkLength m_fixedTop;
     SkLength m_fixedRight;
     SkLength m_fixedBottom;
+    int m_fixedWidth;
+    int m_fixedHeight;
+
     SkPoint m_translation;
     SkPoint m_scale;
     SkScalar m_angleTransform;

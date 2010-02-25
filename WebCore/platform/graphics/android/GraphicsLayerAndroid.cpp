@@ -230,7 +230,13 @@ void GraphicsLayerAndroid::updateFixedPosition()
             top = convertLength(view->style()->top());
             right = convertLength(view->style()->right());
             bottom = convertLength(view->style()->bottom());
-            m_contentLayer->setFixedPosition(left, top, right, bottom);
+            // We need to pass the size of the element to compute the final fixed
+            // position -- we can't use the layer's size as it could possibly differs.
+            // We also have to use the visible overflow and not just the size,
+            // as some child elements could be overflowing.
+            int w = view->rightVisibleOverflow() - view->leftVisibleOverflow();
+            int h = view->bottomVisibleOverflow() - view->topVisibleOverflow();
+            m_contentLayer->setFixedPosition(left, top, right, bottom, w, h);
         }
     }
 }
