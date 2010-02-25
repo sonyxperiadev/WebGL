@@ -130,7 +130,6 @@ public:
      */
     void updatePositions(const SkRect& viewPort);
 
-    void bounds(SkRect* ) const;
     void clipArea(SkTDArray<SkRect>* region) const;
     const LayerAndroid* find(int x, int y) const;
     const LayerAndroid* findById(int uniqueID) const;
@@ -144,8 +143,8 @@ protected:
     virtual void onDraw(SkCanvas*, SkScalar opacity);
 
 private:
+    void bounds(SkRect* ) const;
     bool prepareContext(bool force = false);
-    bool boundsIsUnique(SkTDArray<SkRect>* region, const SkRect& local) const;
     void clipInner(SkTDArray<SkRect>* region, const SkRect& local) const;
 
     bool m_isRootLayer;
