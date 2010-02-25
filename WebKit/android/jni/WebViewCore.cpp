@@ -685,6 +685,35 @@ void WebViewCore::updateButtonList(WTF::Vector<Container>* buttons)
     }
 }
 
+// note: updateCursorBounds is called directly by the WebView thread
+// This needs to be called each time we call CachedRoot::setCursor() with
+// non-null CachedNode/CachedFrame, since otherwise the WebViewCore's data
+// about the cursor is incorrect.  When we call setCursor(0,0), we need
+// to set hasCursorBounds to false.
+void WebViewCore::updateCursorBounds(const CachedRoot* root,
+        const CachedFrame* cachedFrame, const CachedNode* cachedNode)
+{
+    LOG_ASSERT(root, "updateCursorBounds: root cannot be null");
+    LOG_ASSERT(cachedNode, "updateCursorBounds: cachedNode cannot be null");
+    LOG_ASSERT(cachedFrame, "updateCursorBounds: cachedFrame cannot be null");
+    gCursorBoundsMutex.lock();
+    m_hasCursorBounds = !cachedNode->isHidden();
+    // If m_hasCursorBounds is false, we never look at the other
+    // values, so do not bother setting them.
+    if (m_hasCursorBounds) {
+        WebCore::IntRect bounds = cachedNode->bounds(cachedFrame);
+        if (m_cursorBounds != bounds)
+            DBG_NAV_LOGD("new cursor bounds=(%d,%d,w=%d,h=%d)",
+                bounds.x(), bounds.y(), bounds.width(), bounds.height());
+        m_cursorBounds = bounds;
+        m_cursorHitBounds = cachedNode->hitBounds(cachedFrame);
+        m_cursorFrame = cachedFrame->framePointer();
+        root->getSimulatedMousePosition(&m_cursorLocation);
+        m_cursorNode = cachedNode->nodePointer();
+    }
+    gCursorBoundsMutex.unlock();
+}
+
 void WebViewCore::clearContent()
 {
     DBG_SET_LOG("");

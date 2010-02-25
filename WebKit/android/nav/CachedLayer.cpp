@@ -70,6 +70,14 @@ const LayerAndroid* CachedLayer::layer(const LayerAndroid* root) const
     return mLayer = root->findById(mUniqueId);
 }
 
+// return bounds relative to enclosing layer as recorded when walking the dom
+IntRect CachedLayer::localBounds(const IntRect& bounds) const
+{
+    IntRect temp = bounds;
+    temp.move(-mOffset.x(), -mOffset.y());
+    return temp;
+}
+
 SkPicture* CachedLayer::picture(const LayerAndroid* root) const
 {
     const LayerAndroid* aLayer = layer(root);

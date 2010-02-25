@@ -4,8 +4,11 @@
 #if USE(ACCELERATED_COMPOSITING)
 
 #include "AndroidAnimation.h"
-#include "FindCanvas.h"
+#include "DrawExtra.h"
+#include "SkCanvas.h"
 #include "SkDrawFilter.h"
+#include "SkPaint.h"
+#include "SkPicture.h"
 #include <wtf/CurrentTime.h>
 
 #define LAYER_DEBUG // Add diagonals for debugging
@@ -50,7 +53,7 @@ LayerAndroid::LayerAndroid(bool isRootLayer) : SkLayer(),
     m_doRotation(false),
     m_isFixed(false),
     m_recordingPicture(0),
-    m_findOnPage(0),
+    m_extra(0),
     m_uniqueId(++gUniqueId)
 {
     m_angleTransform = 0;
@@ -67,7 +70,7 @@ LayerAndroid::LayerAndroid(const LayerAndroid& layer) : SkLayer(layer),
     m_drawsContent(layer.m_drawsContent),
     m_haveImage(layer.m_haveImage),
     m_haveClip(layer.m_haveClip),
-    m_findOnPage(0),
+    m_extra(0), // deliberately not copied
     m_uniqueId(layer.m_uniqueId)
 {
     m_doRotation = layer.m_doRotation;
@@ -93,6 +96,26 @@ LayerAndroid::LayerAndroid(const LayerAndroid& layer) : SkLayer(layer),
     for (KeyframesMap::const_iterator it = layer.m_animations.begin(); it != end; ++it)
         m_animations.add((it->second)->name(), (it->second)->copy());
 
+    gDebugLayerAndroidInstances++;
+}
+
+LayerAndroid::LayerAndroid(SkPicture* picture) : SkLayer(),
+    m_isRootLayer(true),
+    m_haveContents(false),
+    m_drawsContent(true),
+    m_haveImage(false),
+    m_haveClip(false),
+    m_doRotation(false),
+    m_isFixed(false),
+    m_recordingPicture(picture),
+    m_extra(0),
+    m_uniqueId(-1)
+{
+    m_angleTransform = 0;
+    m_translation.set(0, 0);
+    m_scale.set(1, 1);
+    m_backgroundColor = 0;
+    SkSafeRef(m_recordingPicture);
     gDebugLayerAndroidInstances++;
 }
 
@@ -314,6 +337,8 @@ void LayerAndroid::onDraw(SkCanvas* canvas, SkScalar opacity) {
         canvas->setDrawFilter(new OpacityDrawFilter(canvasOpacity));
 
     m_recordingPicture->draw(canvas);
+    if (m_extra)
+        m_extra->draw(canvas, this);
 
 #ifdef LAYER_DEBUG
     float w = getSize().width();
@@ -487,11 +512,11 @@ const LayerAndroid* LayerAndroid::findById(int match) const
     return 0;
 }
 
-void LayerAndroid::setFindOnPage(FindOnPage* findOnPage)
+void LayerAndroid::setExtra(DrawExtra* extra)
 {
-    m_findOnPage = findOnPage;
+    m_extra = extra;
     for (int i = 0; i < countChildren(); i++)
-        getChild(i)->setFindOnPage(findOnPage);
+        getChild(i)->setExtra(extra);
 }
 
 } // namespace WebCore

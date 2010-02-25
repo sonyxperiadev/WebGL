@@ -249,6 +249,31 @@ bool CachedNode::isTextField(const CachedFrame* frame) const
     return input ? input->isTextField() : false;
 }
 
+void CachedNode::localCursorRings(const CachedFrame* frame,
+    WTF::Vector<WebCore::IntRect>* rings) const
+{
+    rings->clear();
+    for (unsigned index = 0; index < mCursorRing.size(); index++)
+        rings->append(localRing(frame, index));
+}
+
+WebCore::IntRect CachedNode::localBounds(const CachedFrame* frame) const
+{
+    return mIsInLayer ? frame->localBounds(this, mBounds) : mBounds;
+}
+
+WebCore::IntRect CachedNode::localHitBounds(const CachedFrame* frame) const
+{
+    return mIsInLayer ? frame->localBounds(this, mHitBounds) : mHitBounds;
+}
+
+WebCore::IntRect CachedNode::localRing(const CachedFrame* frame,
+    size_t part) const
+{
+    const WebCore::IntRect& rect = mCursorRing.at(part);
+    return mIsInLayer ? frame->localBounds(this, rect) : rect;
+}
+
 void CachedNode::move(int x, int y)
 {
     mBounds.move(x, y);

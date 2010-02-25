@@ -26,6 +26,7 @@
 #ifndef Find_Canvas_h
 #define Find_Canvas_h
 
+#include "DrawExtra.h"
 #include "IntRect.h"
 #include "SkBounder.h"
 #include "SkCanvas.h"
@@ -35,13 +36,7 @@
 #include "icu/unicode/umachine.h"
 #include "wtf/Vector.h"
 
-// class SkIRect;
-// class SkRect;
-// class SkTypeface;
-
-namespace WebCore {
-    class LayerAndroid;
-}
+namespace android {
 
 // Stores both region information and an SkPicture of the match, so that the
 // region can be drawn, followed by drawing the matching text on top of it.
@@ -144,7 +139,7 @@ public:
                                 const SkPaint& paint) {
     }
 
-    void drawLayers(WebCore::LayerAndroid* );
+    void drawLayers(LayerAndroid* );
     int found() const { return mNumFound; }
     void setLayerId(int layerId) { mLayerId = layerId; }
 
@@ -215,17 +210,17 @@ private:
     int                     mLayerId;
 };
 
-class FindOnPage {
+class FindOnPage : public DrawExtra {
 public:
     FindOnPage() {
         m_matches = 0;
         m_hasCurrentLocation = false;
         m_isFindPaintSetUp = false;
     }
-    ~FindOnPage() { delete m_matches; }
+    virtual ~FindOnPage() { delete m_matches; }
     void clearCurrentLocation() { m_hasCurrentLocation = false; }
-    WebCore::IntRect currentMatchBounds() const;
-    void drawLayer(SkCanvas* canvas, const WebCore::IntRect* vis, int layerId);
+    IntRect currentMatchBounds() const;
+    virtual void draw(SkCanvas* , LayerAndroid* );
     void findNext(bool forward);
     void setMatches(WTF::Vector<MatchInfo>* matches);
 private:
@@ -245,5 +240,7 @@ private:
     SkPaint m_findBlurPaint;
     unsigned m_findIndex;
 };
+
+}
 
 #endif  // Find_Canvas_h

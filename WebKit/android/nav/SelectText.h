@@ -26,12 +26,17 @@
 #ifndef SELECT_TEXT_H
 #define SELECT_TEXT_H
 
+#include "DrawExtra.h"
+#include "IntRect.h"
 #include "PlatformString.h"
 
 class SkPicture;
 struct SkIRect;
-struct SkIPoint;
 class SkRegion;
+
+namespace android {
+
+class CachedRoot;
 
 class CopyPaste {
 public:
@@ -39,8 +44,41 @@ public:
         const SkIRect& selStart, const SkIRect& selEnd, SkRegion* region);
     static SkIRect findClosest(const SkPicture& , const SkIRect& area,
         int x, int y);
-    static WebCore::String text(const SkPicture& ,  const SkIRect& area,
+    static String text(const SkPicture& ,  const SkIRect& area,
         const SkRegion& );
 };
+
+class SelectText : public DrawExtra {
+public:
+    SelectText() {
+        m_selStart.setEmpty();
+        m_selEnd.setEmpty();
+    }
+    virtual void draw(SkCanvas* , LayerAndroid* );
+    const String getSelection();
+    void moveSelection(const SkPicture* , int x, int y, bool extendSelection);
+    void setDrawPointer(bool drawPointer) { m_drawPointer = drawPointer; }
+    void setDrawRegion(bool drawRegion) { m_drawRegion = drawRegion; }
+    void setVisibleRect(const IntRect& rect) { m_visibleRect = rect; }
+private:
+    friend class WebView;
+    void drawSelectionPointer(SkCanvas* );
+    void drawSelectionRegion(SkCanvas* );
+    static void getSelectionArrow(SkPath* );
+    void getSelectionCaret(SkPath* );
+    SkIRect m_selStart;
+    SkIRect m_selEnd;
+    SkIRect m_visibleRect;
+    SkRegion m_selRegion;
+    const SkPicture* m_picture;
+    float m_inverseScale;
+    int m_selectX;
+    int m_selectY;
+    bool m_drawRegion;
+    bool m_drawPointer;
+    bool m_extendSelection;
+};
+
+}
 
 #endif

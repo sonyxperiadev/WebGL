@@ -32,7 +32,6 @@
 #include "SkRegion.h"
 #include "wtf/Vector.h"
 
-class FindCanvas;
 class SkRect;
 
 namespace WebCore {
@@ -43,6 +42,7 @@ namespace android {
 
 class CachedHistory;
 class CachedNode;
+class FindCanvas;
 
 class CachedRoot : public CachedFrame {
 public:

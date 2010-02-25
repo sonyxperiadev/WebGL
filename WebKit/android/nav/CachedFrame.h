@@ -113,6 +113,8 @@ public:
 #if USE(ACCELERATED_COMPOSITING)
     const CachedLayer* layer(const CachedNode* ) const;
 #endif
+    WebCore::IntRect localBounds(const CachedNode* ,
+        const WebCore::IntRect& ) const;
     /**
      * Find the next textfield/textarea
      * @param start Must be a CachedNode in this CachedFrame's tree, or
