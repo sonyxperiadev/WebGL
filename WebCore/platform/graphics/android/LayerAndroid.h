@@ -104,18 +104,12 @@ public:
     }
 
     void setBackgroundColor(SkColor color);
-    void setHaveContents(bool haveContents) { m_haveContents = haveContents; }
-    void setHaveImage(bool haveImage) { m_haveImage = haveImage; }
-    void setDrawsContent(bool drawsContent);
     void setMaskLayer(LayerAndroid*);
     void setMasksToBounds(bool);
+
     void setIsRootLayer(bool isRootLayer) { m_isRootLayer = isRootLayer; }
 
-    bool prepareContext(bool force = false);
-    void startRecording();
-    void stopRecording();
     SkPicture* recordContext();
-    void setClip(SkCanvas* clip);
 
     void addAnimation(PassRefPtr<AndroidAnimation> anim);
     void removeAnimation(const String& name);
@@ -143,7 +137,6 @@ public:
     LayerAndroid* getChild(int index) const {
         return static_cast<LayerAndroid*>(this->INHERITED::getChild(index));
     }
-    bool haveClip() const { return m_haveClip; }
     void setExtra(DrawExtra* extra);  // does not assign ownership
     int uniqueId() const { return m_uniqueId; }
 
@@ -151,13 +144,12 @@ protected:
     virtual void onDraw(SkCanvas*, SkScalar opacity);
 
 private:
+    bool prepareContext(bool force = false);
     bool boundsIsUnique(SkTDArray<SkRect>* region, const SkRect& local) const;
     void clipInner(SkTDArray<SkRect>* region, const SkRect& local) const;
 
     bool m_isRootLayer;
-    bool m_haveContents;
     bool m_drawsContent;
-    bool m_haveImage;
     bool m_haveClip;
     bool m_doRotation;
     bool m_isFixed;

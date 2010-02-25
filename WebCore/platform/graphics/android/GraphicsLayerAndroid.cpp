@@ -325,11 +325,9 @@ void GraphicsLayerAndroid::setMasksToBounds(bool masksToBounds)
 void GraphicsLayerAndroid::setDrawsContent(bool drawsContent)
 {
     GraphicsLayer::setDrawsContent(drawsContent);
-    m_contentLayer->setDrawsContent(m_drawsContent);
 
     if (m_drawsContent) {
         m_haveContents = true;
-        m_contentLayer->setHaveContents(true);
         setNeedsDisplay();
     }
     askForSync();
@@ -357,8 +355,6 @@ void GraphicsLayerAndroid::setContentsOpaque(bool opaque)
     LOG("(%x) setContentsOpaque (%d)", this, opaque);
     GraphicsLayer::setContentsOpaque(opaque);
     m_haveContents = true;
-    m_contentLayer->setHaveContents(true);
-    m_contentLayer->setDrawsContent(true);
     askForSync();
 }
 
@@ -436,8 +432,6 @@ bool GraphicsLayerAndroid::repaint(const FloatRect& rect)
     LOG("(%x) repaint(%.2f,%.2f,%.2f,%.2f), gPaused(%d) m_needsRepaint(%d) m_haveContents(%d) ",
         this, rect.x(), rect.y(), rect.width(), rect.height(),
         gPaused, m_needsRepaint, m_haveContents);
-
-    m_contentLayer->setDrawsContent(true);
 
     if (!gPaused && m_haveContents && m_needsRepaint) {
         SkAutoPictureRecord arp(m_contentLayer->recordContext(), m_size.width(), m_size.height());
@@ -802,16 +796,12 @@ void GraphicsLayerAndroid::setContentsToImage(Image* image)
     TLOG("(%x) setContentsToImage", this, image);
     if (image) {
         m_haveContents = true;
-        m_contentLayer->setHaveContents(true);
-        m_contentLayer->setDrawsContent(true);
-        m_contentLayer->setHaveImage(true);
         if (!m_haveImage) {
             m_haveImage = true;
             setNeedsDisplay();
             askForSync();
         }
-    } else
-        m_contentLayer->setHaveImage(false);
+    }
 }
 
 PlatformLayer* GraphicsLayerAndroid::platformLayer() const

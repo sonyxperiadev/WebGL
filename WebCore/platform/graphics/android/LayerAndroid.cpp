@@ -46,9 +46,6 @@ class OpacityDrawFilter : public SkDrawFilter {
 
 LayerAndroid::LayerAndroid(bool isRootLayer) : SkLayer(),
     m_isRootLayer(isRootLayer),
-    m_haveContents(false),
-    m_drawsContent(true),
-    m_haveImage(false),
     m_haveClip(false),
     m_doRotation(false),
     m_isFixed(false),
@@ -66,9 +63,6 @@ LayerAndroid::LayerAndroid(bool isRootLayer) : SkLayer(),
 
 LayerAndroid::LayerAndroid(const LayerAndroid& layer) : SkLayer(layer),
     m_isRootLayer(layer.m_isRootLayer),
-    m_haveContents(layer.m_haveContents),
-    m_drawsContent(layer.m_drawsContent),
-    m_haveImage(layer.m_haveImage),
     m_haveClip(layer.m_haveClip),
     m_extra(0), // deliberately not copied
     m_uniqueId(layer.m_uniqueId)
@@ -103,9 +97,6 @@ LayerAndroid::LayerAndroid(const LayerAndroid& layer) : SkLayer(layer),
 
 LayerAndroid::LayerAndroid(SkPicture* picture) : SkLayer(),
     m_isRootLayer(true),
-    m_haveContents(false),
-    m_drawsContent(true),
-    m_haveImage(false),
     m_haveClip(false),
     m_doRotation(false),
     m_isFixed(false),
@@ -176,13 +167,6 @@ void LayerAndroid::removeAnimation(const String& name)
     m_animations.remove(name);
 }
 
-void LayerAndroid::setDrawsContent(bool drawsContent)
-{
-    m_drawsContent = drawsContent;
-    for (int i = 0; i < countChildren(); i++)
-        getChild(i)->setDrawsContent(drawsContent);
-}
-
 // We only use the bounding rect of the layer as mask...
 // TODO: use a real mask?
 void LayerAndroid::setMaskLayer(LayerAndroid* layer)
@@ -199,8 +183,6 @@ void LayerAndroid::setMasksToBounds(bool masksToBounds)
 void LayerAndroid::setBackgroundColor(SkColor color)
 {
     m_backgroundColor = color;
-    setHaveContents(true);
-    setDrawsContent(true);
 }
 
 static int gDebugChildLevel;
@@ -261,13 +243,6 @@ const LayerAndroid* LayerAndroid::find(int x, int y) const
     return 0;
 }
 
-void LayerAndroid::setClip(SkCanvas* canvas)
-{
-    SkRect clip;
-    bounds(&clip);
-    canvas->clipRect(clip);
-}
-
 ///////////////////////////////////////////////////////////////////////////////
 
 void LayerAndroid::updatePositions(const SkRect& viewport) {
@@ -320,7 +295,7 @@ void LayerAndroid::onDraw(SkCanvas* canvas, SkScalar opacity) {
         canvas->clipRect(r);
     }
 
-    if (!m_haveImage && !m_drawsContent && !m_isRootLayer)
+    if (!m_isRootLayer)
         return;
 
     if (!prepareContext())
@@ -361,9 +336,6 @@ SkPicture* LayerAndroid::recordContext()
 
 bool LayerAndroid::prepareContext(bool force)
 {
-    if (!m_haveContents)
-        return false;
-
     if (!m_isRootLayer) {
         if (force || !m_recordingPicture
             || (m_recordingPicture
@@ -465,9 +437,6 @@ void LayerAndroid::dumpLayers(FILE* file, int indentLevel) const
     writeln(file, indentLevel, "{");
 
     writeHexVal(file, indentLevel + 1, "layer", (int)this);
-    writeIntVal(file, indentLevel + 1, "haveContents", m_haveContents);
-    writeIntVal(file, indentLevel + 1, "drawsContent", m_drawsContent);
-    writeIntVal(file, indentLevel + 1, "haveImage", m_haveImage);
     writeIntVal(file, indentLevel + 1, "clipRect", m_haveClip);
 
     writeFloatVal(file, indentLevel + 1, "opacity", getOpacity());
