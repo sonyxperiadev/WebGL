@@ -1393,7 +1393,10 @@ static jboolean HasPasswordField(JNIEnv *env, jobject obj)
     bool found = false;
     WTF::PassRefPtr<WebCore::HTMLCollection> form = pFrame->document()->forms();
     WebCore::Node* node = form->firstItem();
-    while (node && !found) {
+    // Null/Empty namespace means that node is not created in HTMLFormElement
+    // class, but just normal Element class.
+    while (node && !found && !node->namespaceURI().isNull() &&
+           !node->namespaceURI().isEmpty()) {
         WTF::Vector<WebCore::HTMLFormControlElement*>& elements =
         		((WebCore::HTMLFormElement*)node)->formElements;
         size_t size = elements.size();
@@ -1423,7 +1426,8 @@ static jobjectArray GetUsernamePassword(JNIEnv *env, jobject obj)
     bool found = false;
     WTF::PassRefPtr<WebCore::HTMLCollection> form = pFrame->document()->forms();
     WebCore::Node* node = form->firstItem();
-    while (node && !found) {
+    while (node && !found && !node->namespaceURI().isNull() &&
+           !node->namespaceURI().isEmpty()) {
         WTF::Vector<WebCore::HTMLFormControlElement*>& elements =
         		((WebCore::HTMLFormElement*)node)->formElements;
         size_t size = elements.size();
@@ -1468,7 +1472,8 @@ static void SetUsernamePassword(JNIEnv *env, jobject obj,
     bool found = false;
     WTF::PassRefPtr<WebCore::HTMLCollection> form = pFrame->document()->forms();
     WebCore::Node* node = form->firstItem();
-    while (node && !found) {
+    while (node && !found && !node->namespaceURI().isNull() &&
+           !node->namespaceURI().isEmpty()) {
         WTF::Vector<WebCore::HTMLFormControlElement*>& elements =
         		((WebCore::HTMLFormElement*)node)->formElements;
         size_t size = elements.size();
@@ -1517,7 +1522,9 @@ static jobject GetFormTextData(JNIEnv *env, jobject obj)
 
         WebCore::HTMLFormElement* form;
         WebCore::HTMLInputElement* input;
-        for (WebCore::Node* node = collection->firstItem(); node; node = collection->nextItem()) {
+        for (WebCore::Node* node = collection->firstItem();
+             node && !node->namespaceURI().isNull() && !node->namespaceURI().isEmpty();
+             node = collection->nextItem()) {
             form = static_cast<WebCore::HTMLFormElement*>(node);
             if (form->autoComplete()) {
                 WTF::Vector<WebCore::HTMLFormControlElement*> elements = form->formElements;
