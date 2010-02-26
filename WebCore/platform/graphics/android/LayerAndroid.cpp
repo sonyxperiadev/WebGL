@@ -295,9 +295,6 @@ void LayerAndroid::onDraw(SkCanvas* canvas, SkScalar opacity) {
         canvas->clipRect(r);
     }
 
-    if (!m_isRootLayer)
-        return;
-
     if (!prepareContext())
         return;
 
@@ -455,6 +452,11 @@ void LayerAndroid::dumpLayers(FILE* file, int indentLevel) const
     writeLength(file, indentLevel + 1, "fixedBottom", m_fixedBottom);
     writeIntVal(file, indentLevel + 1, "fixedWidth", m_fixedWidth);
     writeIntVal(file, indentLevel + 1, "fixedHeight", m_fixedHeight);
+
+    if (m_recordingPicture) {
+        writeIntVal(file, indentLevel + 1, "picture width", m_recordingPicture->width());
+        writeIntVal(file, indentLevel + 1, "picture height", m_recordingPicture->height());
+    }
 
     if (countChildren()) {
         writeln(file, indentLevel + 1, "children = [");
