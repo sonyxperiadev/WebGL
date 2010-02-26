@@ -197,11 +197,11 @@ void LayerAndroid::bounds(SkRect* rect) const
     rect->fBottom = rect->fTop + size.height();
 }
 
-bool LayerAndroid::boundsIsUnique(SkTDArray<SkRect>* region,
-                                  const SkRect& local) const
+static bool boundsIsUnique(const SkTDArray<SkRect>& region,
+                           const SkRect& local)
 {
-    for (int i = 0; i < region->count(); i++) {
-        if ((*region)[i].contains(local))
+    for (int i = 0; i < region.count(); i++) {
+        if (region[i].contains(local))
             return false;
     }
     return true;
@@ -223,7 +223,7 @@ void LayerAndroid::clipInner(SkTDArray<SkRect>* region,
     localBounds.intersect(local);
     if (localBounds.isEmpty())
         return;
-    if (m_recordingPicture && boundsIsUnique(region, localBounds))
+    if (m_recordingPicture && boundsIsUnique(*region, localBounds))
         *region->append() = localBounds;
     for (int i = 0; i < countChildren(); i++)
         getChild(i)->clipInner(region, m_haveClip ? localBounds : local);
