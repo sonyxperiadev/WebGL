@@ -1080,7 +1080,7 @@ int moveGeneration()
     return m_viewImpl->m_moveGeneration;
 }
 
-const LayerAndroid* rootLayer() const
+LayerAndroid* rootLayer() const
 {
     return m_rootLayer;
 }
@@ -1776,6 +1776,11 @@ static void nativeDumpDisplayTree(JNIEnv* env, jobject jwebview, jstring jurl)
             // this will playback the picture into the canvas, which will
             // spew its contents to the dumper
             view->getWebViewCore()->drawContent(&canvas, 0);
+            if (true) {
+                LayerAndroid* rootLayer = view->rootLayer();
+                if (rootLayer)
+                    rootLayer->draw(&canvas);
+            }
             // we're done with the file now
             fwrite("\n", 1, 1, file);
             fclose(file);
