@@ -94,6 +94,7 @@ struct FieldIds {
         // The databases saved to disk for both the SQL and DOM Storage APIs are stored
         // in the same base directory.
         mDatabasePath = env->GetFieldID(clazz, "mDatabasePath", "Ljava/lang/String;");
+        mDatabasePathHasBeenSet = env->GetFieldID(clazz, "mDatabasePathHasBeenSet", "Z");
 #endif
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
         mAppCacheEnabled = env->GetFieldID(clazz, "mAppCacheEnabled", "Z");
@@ -207,6 +208,7 @@ struct FieldIds {
     jfieldID mGeolocationDatabasePath;
 #if ENABLE(DATABASE) || ENABLE(DOM_STORAGE)
     jfieldID mDatabasePath;
+    jfieldID mDatabasePathHasBeenSet;
 #endif
 };
 
@@ -345,9 +347,14 @@ public:
 #if ENABLE(DATABASE)
         flag = env->GetBooleanField(obj, gFieldIds->mDatabaseEnabled);
         s->setDatabasesEnabled(flag);
-        str = (jstring)env->GetObjectField(obj, gFieldIds->mDatabasePath);
-        if (str && WebCore::DatabaseTracker::tracker().databaseDirectoryPath().isNull())
-            WebCore::DatabaseTracker::tracker().setDatabaseDirectoryPath(to_string(env, str));
+
+        flag = env->GetBooleanField(obj, gFieldIds->mDatabasePathHasBeenSet);
+        if (flag) {
+            // If the user has set the database path, sync it to the DatabaseTracker.
+            str = (jstring)env->GetObjectField(obj, gFieldIds->mDatabasePath);
+            if (str)
+                WebCore::DatabaseTracker::tracker().setDatabaseDirectoryPath(to_string(env, str));
+        }
 #endif
 #if ENABLE(DOM_STORAGE)
         flag = env->GetBooleanField(obj, gFieldIds->mDomStorageEnabled);
