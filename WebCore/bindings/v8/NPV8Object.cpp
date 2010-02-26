@@ -413,7 +413,11 @@ void _NPN_SetException(NPObject* npObject, const NPUTF8 *message)
     if (!npObject || npObject->_class != npScriptObjectClass) {
         // We won't be able to find a proper scope for this exception, so just throw it.
         // This is consistent with JSC, which throws a global exception all the time.
-        V8Proxy::throwError(V8Proxy::GeneralError, message);
+#if PLATFORM(ANDROID)
+        // However, if there isn't a v8 context, throw the error away as there really isn't anything useful to do with it.
+        if (v8::Context::InContext())
+            V8Proxy::throwError(V8Proxy::GeneralError, message);
+#endif
         return;
     }
     v8::HandleScope handleScope;
