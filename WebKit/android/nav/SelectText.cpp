@@ -193,6 +193,10 @@ protected:
     bool mCapture;
 };
 
+#define HYPHEN_MINUS 0x2D // ASCII hyphen
+#define HYPHEN 0x2010 // unicode hyphen, first in range of dashes
+#define HORZ_BAR 0x2015 // unicode horizontal bar, last in range of dashes
+
 class TextExtractor : public CommonCheck {
 public:
     TextExtractor(const SkRegion& region) : mSelectRegion(region),
@@ -204,38 +208,58 @@ public:
         INHERITED::setUp(paint, matrix, y, text);
         SkPaint charPaint = paint;
         charPaint.setTextEncoding(SkPaint::kUTF8_TextEncoding);
-        mMinSpaceWidth = charPaint.measureText(" ", 1) * 3 / 4;
+        mMinSpaceWidth = std::max(0, SkScalarToFixed(
+            charPaint.measureText(" ", 1)) - SK_Fixed1);
     }
 
-    virtual bool onIRect(const SkIRect& rect, uint16_t glyphID) {
+    virtual bool onIRectGlyph(const SkIRect& rect,
+        const SkBounder::GlyphRec& rec)
+    {
         SkIRect full;
         full.set(rect.fLeft, top(), rect.fRight, bottom());
         if (mSelectRegion.contains(full)) {
-            if (!mSkipFirstSpace
-                    && ((mLast.fTop < top() && mLast.fBottom < top() + 2)
-                    || (mLast.fLeft < rect.fLeft // glyphs are LTR
-                    && mLast.fRight + mMinSpaceWidth < rect.fLeft))) {
-                DBG_NAV_LOGD("TextExtractor [%02x] append space", glyphID);
+            if (!mSkipFirstSpace && (mLastUni < HYPHEN || mLastUni > HORZ_BAR)
+                    && mLastUni != HYPHEN_MINUS
+                    && (mLastGlyph.fLSB.fY != rec.fLSB.fY // new baseline
+                    || mLastGlyph.fLSB.fX > rec.fLSB.fX // glyphs are LTR
+                    || mLastGlyph.fRSB.fX + mMinSpaceWidth < rec.fLSB.fX)) {
+                DBG_NAV_LOGD("TextExtractor append space"
+                    " mLast=(%d,%d,r=%d,b=%d) mLastGlyph=((%g,%g),(%g,%g),%d)"
+                    " full=(%d,%d,r=%d,b=%d) rec=((%g,%g),(%g,%g),%d)"
+                    " mMinSpaceWidth=%g",
+                    mLast.fLeft, mLast.fTop, mLast.fRight, mLast.fBottom,
+                    SkFixedToScalar(mLastGlyph.fLSB.fX),
+                    SkFixedToScalar(mLastGlyph.fLSB.fY),
+                    SkFixedToScalar(mLastGlyph.fRSB.fX),
+                    SkFixedToScalar(mLastGlyph.fRSB.fY), mLastGlyph.fGlyphID,
+                    full.fLeft, full.fTop, full.fRight, full.fBottom,
+                    SkFixedToScalar(rec.fLSB.fX),
+                    SkFixedToScalar(rec.fLSB.fY),
+                    SkFixedToScalar(rec.fRSB.fX),
+                    SkFixedToScalar(rec.fRSB.fY), rec.fGlyphID,
+                    SkFixedToScalar(mMinSpaceWidth));
                 *mSelectText.append() = ' ';
             } else
                 mSkipFirstSpace = false;
             DBG_NAV_LOGD("TextExtractor [%02x] append full=(%d,%d,r=%d,b=%d)",
-                glyphID, full.fLeft, full.fTop, full.fRight, full.fBottom);
-            SkUnichar uni;
+                rec.fGlyphID, full.fLeft, full.fTop, full.fRight, full.fBottom);
             SkPaint utfPaint = *mPaint;
             utfPaint.setTextEncoding(SkPaint::kUTF16_TextEncoding);
-            utfPaint.glyphsToUnichars(&glyphID, 1, &uni);
-            if (uni) {
+            utfPaint.glyphsToUnichars(&rec.fGlyphID, 1, &mLastUni);
+            if (mLastUni) {
                 uint16_t chars[2];
-                size_t count = SkUTF16_FromUnichar(uni, chars);
+                size_t count = SkUTF16_FromUnichar(mLastUni, chars);
                 *mSelectText.append() = chars[0];
                 if (count == 2)
                     *mSelectText.append() = chars[1];
             }
             mLast = full;
-        } else
+            mLastGlyph = rec;
+        } else {
+            mSkipFirstSpace = true;
             DBG_NAV_LOGD("TextExtractor [%02x] skip full=(%d,%d,r=%d,b=%d)",
-                glyphID, full.fLeft, full.fTop, full.fRight, full.fBottom);
+                rec.fGlyphID, full.fLeft, full.fTop, full.fRight, full.fBottom);
+        }
         return false;
     }
 
@@ -247,7 +271,9 @@ protected:
     const SkRegion& mSelectRegion;
     SkTDArray<uint16_t> mSelectText;
     SkIRect mLast;
-    SkScalar mMinSpaceWidth;
+    SkBounder::GlyphRec mLastGlyph;
+    SkUnichar mLastUni;
+    SkFixed mMinSpaceWidth;
     bool mSkipFirstSpace;
 private:
     typedef CommonCheck INHERITED;
