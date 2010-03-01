@@ -887,6 +887,21 @@ static bool checkForPluginViewThatWantsFocus(RenderObject* renderer) {
     return false;
 }
 
+#if USE(ACCELERATED_COMPOSITING)
+static void AddLayer(CachedFrame* frame, size_t index, const IntPoint& location,
+    int id)
+{
+    DBG_NAV_LOGD("frame=%p index=%d loc=(%d,%d) id=%d", frame, index,
+        location.x(), location.y(), id);
+    CachedLayer cachedLayer;
+    cachedLayer.reset();
+    cachedLayer.setCachedNodeIndex(index);
+    cachedLayer.setOffset(location);
+    cachedLayer.setUniqueId(id);
+    frame->add(cachedLayer);
+}
+#endif
+
 // when new focus is found, push it's parent on a stack
     // as long as more focii are found with the same (grand) parent, note it
     // (which only requires retrieving the last parent on the stack)
@@ -1018,8 +1033,26 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
             hasCursorRing = style->tapHighlightColor().alpha() > 0;
 #endif
 #if USE(ACCELERATED_COMPOSITING)
-            if (nodeRenderer->hasLayer())
+            if (nodeRenderer->hasLayer()) {
                 TrackLayer(layerTracker, nodeRenderer, lastChild);
+                size_t size = tracker.size();
+                const LayerAndroid* layer = layerTracker.last().mLayer;
+                if (layer) {
+                    int id = layer->uniqueId();
+                    const IntPoint& loc = nodeRenderer->
+                        absoluteBoundingBoxRect().location();
+                    // if this is a child of a CachedNode, add a layer
+                    for (size_t index = 1; index < tracker.size(); index++) {
+                        const FocusTracker& cursorNode = tracker.at(index);
+                        DBG_NAV_LOGD("call add layer %d", id);
+                        size_t index = cursorNode.mCachedNodeIndex;
+                        CachedNode* trackedNode = cachedFrame->getIndex(index);
+                        trackedNode->setIsInLayer(true);
+                        trackedNode->setIsUnclipped(true);
+                        AddLayer(cachedFrame, index, loc, id);
+                    }
+                }
+            }
 #endif
         }
         bool more = walk.mMore;
@@ -1248,13 +1281,9 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
                 continue; // skip this node if outside of the clip
             }
             isInLayer = true;
-            isUnclipped = true; // FIXME: add clipping analysis before blindly setting this
-            CachedLayer cachedLayer;
-            cachedLayer.reset();
-            cachedLayer.setCachedNodeIndex(cachedFrame->size());
-            cachedLayer.setOffset(layerClip.location());
-            cachedLayer.setUniqueId(layer->uniqueId());
-            cachedFrame->add(cachedLayer);
+            isUnclipped = true; // assume that layers do not have occluded nodes
+            AddLayer(cachedFrame, cachedFrame->size(), layerClip.location(),
+                layer->uniqueId());
         }
 #endif
         cachedNode.setNavableRects();

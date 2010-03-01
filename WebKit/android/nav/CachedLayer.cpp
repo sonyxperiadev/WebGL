@@ -117,7 +117,7 @@ void CachedLayer::Debug::printLayerAndroid(const LayerAndroid* layer)
     DUMP_NAV_LOGX("%.*s layer=%p [%d] (%g,%g,%g,%g) picture=%p clipped=%s",
         spaces, "                   ", layer, layer->uniqueId(),
         bounds.fLeft, bounds.fTop, bounds.width(), bounds.height(),
-        layer->picture(), layer->haveClip() ? "true" : "false");
+        layer->picture(), layer->m_haveClip ? "true" : "false");
     for (int i = 0; i < layer->countChildren(); i++)
         printLayerAndroid(layer->getChild(i));
     --spaces;

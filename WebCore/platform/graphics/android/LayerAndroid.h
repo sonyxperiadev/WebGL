@@ -143,6 +143,9 @@ protected:
     virtual void onDraw(SkCanvas*, SkScalar opacity);
 
 private:
+#if DUMP_NAV_CACHE
+    friend class CachedLayer::Debug; // debugging access only
+#endif
     void bounds(SkRect* ) const;
     bool prepareContext(bool force = false);
     void clipInner(SkTDArray<SkRect>* region, const SkRect& local) const;
