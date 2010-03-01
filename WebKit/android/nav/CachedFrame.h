@@ -121,12 +121,10 @@ public:
      *              null, in which case we start from the beginning.
      * @param framePtr  If not null, and a textfield/textarea is found, its
      *                  CachedFrame will be pointed to by this pointer.
-     * @param includeTextAreas If true, will return the next textfield or area.
-     *                         Otherwise it only considers textfields.
      * @return CachedNode* Next textfield (or area)
      */
     const CachedNode* nextTextField(const CachedNode* start,
-        const CachedFrame** framePtr, bool includeTextAreas) const;
+        const CachedFrame** framePtr) const;
     const CachedFrame* parent() const { return mParent; }
     CachedFrame* parent() { return mParent; }
     SkPicture* picture(const CachedNode* ) const;

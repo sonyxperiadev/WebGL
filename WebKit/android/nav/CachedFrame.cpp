@@ -926,7 +926,7 @@ int CachedFrame::maxWorkingVertical() const
 }
 
 const CachedNode* CachedFrame::nextTextField(const CachedNode* start,
-        const CachedFrame** framePtr, bool includeTextAreas) const
+        const CachedFrame** framePtr) const
 {
     CachedNode* test;
     if (start) {
@@ -939,11 +939,10 @@ const CachedNode* CachedFrame::nextTextField(const CachedNode* start,
         CachedFrame* frame = const_cast<CachedFrame*>(hasFrame(test));
         if (frame) {
             const CachedNode* node
-                    = frame->nextTextField(0, framePtr, includeTextAreas);
+                    = frame->nextTextField(0, framePtr);
             if (node)
                 return node;
-        } else if (test->isTextField(this)
-                || (includeTextAreas && test->isTextInput())) {
+        } else if (test->isTextInput()) {
             if (framePtr)
                 *framePtr = this;
             return test;
