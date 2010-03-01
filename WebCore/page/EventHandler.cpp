@@ -2554,7 +2554,7 @@ static PassRefPtr<TouchList> assembleTargetTouches(Touch* touchTarget, TouchList
 {
     RefPtr<TouchList> targetTouches = TouchList::create();
 
-    for (int i = 0; i < touches->length(); ++i) {
+    for (unsigned i = 0; i < touches->length(); ++i) {
         if (touches->item(i)->target()->toNode()->isSameNode(touchTarget->target()->toNode()))
             targetTouches->append(touches->item(i));
     }
@@ -2573,7 +2573,7 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
     const Vector<PlatformTouchPoint>& points = event.touchPoints();
     AtomicString* eventName = 0;
 
-    for (int i = 0; i < points.size(); ++i) {
+    for (unsigned i = 0; i < points.size(); ++i) {
         const PlatformTouchPoint& point = points[i];
         IntPoint pagePoint = documentPointForWindowPoint(m_frame, point.pos());
         HitTestResult result = hitTestResultAtPoint(pagePoint, /*allowShadowContent*/ false);
@@ -2653,7 +2653,6 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
                                                    *eventName, touchEventTarget->toNode()->document()->defaultView(),
                                                    0, 0, 0, 0, event.ctrlKey(), event.altKey(), event.shiftKey(),
                                                    event.metaKey());
-
         ExceptionCode ec = 0;
         touchEventTarget->dispatchEvent(cancelEv.get(), ec);
         defaultPrevented |= cancelEv->defaultPrevented();
@@ -2693,7 +2692,6 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
                                                        *eventName, touchEventTarget->toNode()->document()->defaultView(),
                                                        0, 0, 0, 0, event.ctrlKey(), event.altKey(), event.shiftKey(),
                                                        event.metaKey());
-
             ExceptionCode ec = 0;
             touchEventTarget->dispatchEvent(longpressEv.get(), ec);
             defaultPrevented |= longpressEv->defaultPrevented();
@@ -2704,7 +2702,6 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
                                                        *eventName, touchEventTarget->toNode()->document()->defaultView(),
                                                        0, 0, 0, 0, event.ctrlKey(), event.altKey(), event.shiftKey(),
                                                        event.metaKey());
-
             ExceptionCode ec = 0;
             touchEventTarget->dispatchEvent(doubleTapEv.get(), ec);
             defaultPrevented |= doubleTapEv->defaultPrevented();
