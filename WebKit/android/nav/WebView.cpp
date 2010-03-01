@@ -1684,23 +1684,22 @@ static void nativeDestroy(JNIEnv *env, jobject obj)
     delete view;
 }
 
-static void nativeMoveCursorToNextTextInput(JNIEnv *env, jobject obj)
+static bool nativeMoveCursorToNextTextInput(JNIEnv *env, jobject obj)
 {
     WebView* view = GET_NATIVE_VIEW(env, obj);
     CachedRoot* root = view->getFrameCache(WebView::DontAllowNewer);
     if (!root)
-        return;
+        return false;
     const CachedFrame* containingFrame;
     const CachedNode* current = root->currentCursor(&containingFrame);
     if (!current)
         current = root->currentFocus(&containingFrame);
     if (!current)
-        return;
+        return false;
     const CachedFrame* frame;
-    const CachedNode* next = containingFrame->nextTextField(current, &frame,
-            true);
+    const CachedNode* next = containingFrame->nextTextField(current, &frame);
     if (!next)
-        return;
+        return false;
     const WebCore::IntRect& bounds = next->bounds(frame);
     root->rootHistory()->setMouseBounds(bounds);
     view->getWebViewCore()->updateCursorBounds(root, frame, next);
@@ -1711,6 +1710,7 @@ static void nativeMoveCursorToNextTextInput(JNIEnv *env, jobject obj)
     view->scrollRectOnScreen(bounds.x(), bounds.y(), bounds.right(),
             bounds.bottom());
     view->getWebViewCore()->m_moveGeneration++;
+    return true;
 }
 
 static int nativeMoveGeneration(JNIEnv *env, jobject obj)
@@ -1891,7 +1891,7 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeMotionUp },
     { "nativeMoveCursor", "(IIZ)Z",
         (void*) nativeMoveCursor },
-    { "nativeMoveCursorToNextTextInput", "()V",
+    { "nativeMoveCursorToNextTextInput", "()Z",
         (void*) nativeMoveCursorToNextTextInput },
     { "nativeMoveGeneration", "()I",
         (void*) nativeMoveGeneration },
