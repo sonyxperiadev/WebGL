@@ -406,6 +406,14 @@ void PluginView::setParent(ScrollView* parent)
             m_window->init(c);
         }
         init();
+
+        /* Our widget needs to recompute its m_windowRect which then sets
+           the NPWindowRect if necessary.  This ensures that if NPWindowRect
+           is set prior to parent() being set that we still (1) notify the
+           plugin of its current rect and (2) that we execute our logic in
+           PluginWidgetAndroid in response to changes to NPWindowRect.
+         */
+        updatePluginWidget();
     }
 }
 
