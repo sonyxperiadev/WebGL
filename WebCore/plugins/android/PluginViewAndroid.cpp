@@ -69,6 +69,12 @@
 // #include "runtime.h"
 #include "WebViewCore.h"
 
+/* Controls the printing of log messages in this file. This must be defined
+   before PluginDebugAndroid.h is included.
+ */
+#define PLUGIN_DEBUG_LOCAL 0
+#define TRACE_KEY_EVENTS 0
+
 #include "PluginDebug.h"
 #include "PluginDebugAndroid.h"
 #include "PluginViewBridgeAndroid.h"
@@ -306,8 +312,8 @@ void PluginView::handleKeyboardEvent(KeyboardEvent* event)
 
     switch (pke->type()) {
         case PlatformKeyboardEvent::KeyDown:
-#ifdef TRACE_KEY_EVENTS
-            SkDebugf("--------- KeyDown, ignore\n");
+#if TRACE_KEY_EVENTS
+            PLUGIN_LOG("--------- KeyDown, ignore\n");
 #endif
             ignoreEvent = true;
             break;
@@ -315,8 +321,8 @@ void PluginView::handleKeyboardEvent(KeyboardEvent* event)
             evt.data.key.action = kDown_ANPKeyAction;
             break;
         case PlatformKeyboardEvent::Char:
-#ifdef TRACE_KEY_EVENTS
-            SkDebugf("--------- Char, ignore\n");
+#if TRACE_KEY_EVENTS
+            PLUGIN_LOG("--------- Char, ignore\n");
 #endif
             ignoreEvent = true;
             break;
@@ -324,8 +330,8 @@ void PluginView::handleKeyboardEvent(KeyboardEvent* event)
             evt.data.key.action = kUp_ANPKeyAction;
             break;
         default:
-#ifdef TRACE_KEY_EVENTS
-            SkDebugf("------ unexpected keyevent type %d\n", pke->type());
+#if TRACE_KEY_EVENTS
+            PLUGIN_LOG("------ unexpected keyevent type %d\n", pke->type());
 #endif
             ignoreEvent = true;
             break;
@@ -381,6 +387,8 @@ NPError PluginView::getValueStatic(NPNVariable variable, void* value)
 
 void PluginView::setParent(ScrollView* parent)
 {
+    PLUGIN_LOG("--%p SetParent old=[%p], new=[%p] \n", instance(), this->parent(), parent);
+
     Widget::setParent(parent);
 
     if (parent) {
@@ -401,6 +409,8 @@ void PluginView::setNPWindowRect(const IntRect&)
 
 void PluginView::setNPWindowIfNeeded()
 {
+    PLUGIN_LOG("--%p SetWindow isStarted=[%d] \n", instance(), m_isStarted);
+
     if (!m_isStarted || !parent())
         return;
 
@@ -609,6 +619,7 @@ void PluginView::paint(GraphicsContext* context, const IntRect& rect)
 void PluginView::updatePluginWidget()
 {
     FrameView* frameView = static_cast<FrameView*>(parent());
+    PLUGIN_LOG("--%p UpdatePluginWidget frame=[%p] \n", instance(), frameView);
     if (frameView) {
         IntRect oldWindowRect = m_windowRect;
 
