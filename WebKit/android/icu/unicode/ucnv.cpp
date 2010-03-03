@@ -23,6 +23,15 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+// BEGIN android-added
+// Add config.h to avoid compiler error in uobject.h
+// ucnv.h includes uobject.h indirectly and uobjetcs.h defines new/delete.
+// new/delete are also defined in WebCorePrefix.h which auto included in Android make.
+//
+// config.h has to be on top of the include list.
+#include "config.h"
+// END android-added
+
 #include "EmojiFont.h"
 #include <icu4c/common/unicode/ucnv.h>
 
