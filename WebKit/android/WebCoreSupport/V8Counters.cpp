@@ -25,7 +25,7 @@
 
 #if USE(V8)
 
-#ifdef ANROID_INSTRUMENT
+#ifdef ANDROID_INSTRUMENT
 
 #define LOG_TAG "WebCore"
 
