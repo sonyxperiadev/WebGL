@@ -37,9 +37,6 @@
 #include <utils/Log.h>
 #include <wtf/CurrentTime.h>
 
-#include <sys/time.h>
-#include <time.h>
-
 #if USE(JSC)
 #include "JSDOMWindow.h"
 #include <runtime/JSGlobalObject.h>

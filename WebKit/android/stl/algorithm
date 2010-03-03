@@ -1,0 +1,277 @@
+#ifdef __cplusplus
+
+/*
+ *
+ * Copyright (c) 1994
+ * Hewlett-Packard Company
+ *
+ * Permission to use, copy, modify, distribute and sell this software
+ * and its documentation for any purpose is hereby granted without fee,
+ * provided that the above copyright notice appear in all copies and
+ * that both that copyright notice and this permission notice appear
+ * in supporting documentation.  Hewlett-Packard Company makes no
+ * representations about the suitability of this software for any
+ * purpose.  It is provided "as is" without express or implied warranty.
+ *
+ *
+ * Copyright (c) 1996-1998
+ * Silicon Graphics Computer Systems, Inc.
+ *
+ * Permission to use, copy, modify, distribute and sell this software
+ * and its documentation for any purpose is hereby granted without fee,
+ * provided that the above copyright notice appear in all copies and
+ * that both that copyright notice and this permission notice appear
+ * in supporting documentation.  Silicon Graphics makes no
+ * representations about the suitability of this software for any
+ * purpose.  It is provided "as is" without express or implied warranty.
+ */
+ 
+ // extracted from stl_algobase.h 
+ // full STL is not compatible with the ARM build
+ // a limited number of STL functions is used by webkit: swap, max, and min are 
+ // included below for webkit compatibility
+ 
+#ifdef __GLIBCPP_INTERNAL_ALGOBASE_H
+#error "real STL defined"
+#endif
+
+#ifndef __ANDROID_ALGORITHM
+#define __ANDROID_ALGORITHM
+
+#ifndef __ANDROID_LIMITS
+#include <limits>
+#endif
+
+#ifndef _CPP_UTILITY
+#include <utility>
+#endif
+
+#include <SkScalar.h> // for SK_ScalarNaN
+#ifdef PREFIX_FOR_WEBCORE
+#include <SkTSearch.h>
+#endif
+
+#include <float.h>
+#include <math.h>
+#include <stdint.h>
+#include <stddef.h>
+
+#ifndef WCHAR_MAX
+	#define WCHAR_MAX	0xFFFF
+#endif
+
+namespace std
+{
+  template<typename _Tp>
+    inline void
+    swap(_Tp& __a, _Tp& __b)
+    {
+      _Tp __tmp = __a;
+      __a = __b;
+      __b = __tmp;
+    }
+
+  template<typename _Tp>
+    inline void
+    reverse(_Tp* __first, _Tp* __last)
+    {
+      while(true)
+      {
+        if (__first == __last || __first == --__last)
+          return;
+        else
+        {
+          _Tp __tmp = *__first;
+          *__first = *__last;
+          *__last = __tmp;
+        }
+        ++__first;
+      }
+    }
+
+  #undef min
+  #undef max
+
+  template<typename _Tp>
+    inline const _Tp&
+    min(const _Tp& __a, const _Tp& __b)
+    {
+      return __b < __a ? __b : __a;
+    }
+
+  template<typename _Tp>
+    inline const _Tp&
+    max(const _Tp& __a, const _Tp& __b)
+    {
+      return  __a < __b ? __b : __a;
+    }
+    
+template <class _InputIter, class _OutputIter>
+inline _OutputIter copy(_InputIter __first, _InputIter __last,
+                        _OutputIter __result)
+{
+  for (size_t __n = __last - __first; __n > 0; --__n) {
+    *__result = *__first;
+    ++__first;
+    ++__result;
+  }
+  return __result;
+}
+
+template <class _ForwardIter, class _Tp>
+void fill(_ForwardIter __first, _ForwardIter __last, const _Tp& __value) {
+  for ( ; __first != __last; ++__first)
+    *__first = __value;
+}
+
+#ifndef UINTPTR_MAX
+#define UINTPTR_MAX	UINT32_MAX
+#endif
+
+#ifndef UINT32_MAX
+#define UINT32_MAX    (0xffffffff)
+#endif
+
+template <typename T> 
+struct numeric_limits {
+    /// Returns the minimum value for type T.
+    static inline T min (void)		{ return (T(0)); }
+    /// Returns the minimum value for type T.
+    static inline T max (void)		{ return (T(0)); }
+    static const bool is_signed = false;	///< True if the type is signed.
+    static const bool is_integer = false;	///< True if stores an exact value.
+    static const bool is_integral = false;	///< True if fixed size and cast-copyable.
+};
+
+template <typename T>
+struct numeric_limits<T*> {
+    static inline T* min (void)	{ return (NULL); }
+    static inline T* max (void)	{ return (UINTPTR_MAX); }
+    static const bool is_signed = false;
+    static const bool is_integer = true;
+    static const bool is_integral = true;
+};
+
+#define _NUMERIC_LIMITS(type, minVal, maxVal, quietNaN, bSigned, bInteger, bIntegral)	\
+template <>							\
+struct numeric_limits<type> {					\
+    static inline type infinity (void)	{ return (maxVal); }	\
+    static inline type min (void)	{ return (minVal); }	\
+    static inline type max (void)	{ return (maxVal); }	\
+    static inline type quiet_NaN() { return (quietNaN); } \
+    static const bool is_signed = bSigned;			\
+    static const bool is_integer = bInteger;			\
+    static const bool is_integral = bIntegral;			\
+}
+
+//--------------------------------------------------------------------------------------
+//		         type		    min		    max		    NaN     signed	integer	integral
+//--------------------------------------------------------------------------------------
+_NUMERIC_LIMITS (bool,		    false,		true,		0,      false,	true,	true);
+_NUMERIC_LIMITS (char,		    SCHAR_MIN,	SCHAR_MAX,	0,      true,	true,	true);
+_NUMERIC_LIMITS (int,		    INT_MIN,	INT_MAX,	0,      true,	true,	true);
+_NUMERIC_LIMITS (short,		    SHRT_MIN,	SHRT_MAX,	0,      true,	true,	true);
+_NUMERIC_LIMITS (long,		    LONG_MIN,	LONG_MAX,	0,      true,	true,	true);
+#if HAVE_THREE_CHAR_TYPES
+_NUMERIC_LIMITS (signed char,	SCHAR_MIN,	SCHAR_MAX,	0,      true,	true,	true);
+#endif
+_NUMERIC_LIMITS (unsigned char,	0,		    UCHAR_MAX,	0,      false,	true,	true);
+_NUMERIC_LIMITS (unsigned int,	0,		    UINT_MAX,	0,      false,	true,	true);
+_NUMERIC_LIMITS (unsigned short,0,		    USHRT_MAX,	0,      false,	true,	true);
+_NUMERIC_LIMITS (unsigned long,	0,		    ULONG_MAX,	0,      false,	true,	true);
+_NUMERIC_LIMITS (wchar_t,	    0,		    WCHAR_MAX,	0,      false,	true,	true);
+_NUMERIC_LIMITS (float,		    FLT_MIN,	FLT_MAX,  SK_ScalarNaN, true,	false,	true);
+_NUMERIC_LIMITS (double,	    DBL_MIN,	DBL_MAX,  SK_ScalarNaN, true,	false,	true);
+_NUMERIC_LIMITS (long double,	LDBL_MIN,	LDBL_MAX, SK_ScalarNaN, true,	false,	true);
+#ifdef HAVE_LONG_LONG
+_NUMERIC_LIMITS (long long,	    LLONG_MIN,	LLONG_MAX,	0,      true,	true,	true);
+_NUMERIC_LIMITS (unsigned long long,	0,	ULLONG_MAX,	0,      false,	true,	true);
+#endif
+//--------------------------------------------------------------------------------------
+
+using ::ptrdiff_t;
+
+typedef bool (* Comparator)(const void*, const void*);
+extern void sort(const void** start, const void** end, Comparator comp);
+
+#ifdef PREFIX_FOR_WEBCORE
+    typedef const void* sortType;
+
+    inline bool binary_search(const unsigned short* const base,
+                              const unsigned short* const end,
+                              short target)
+    {
+        return SkTSearch<unsigned short>(base, end - base, target, sizeof(unsigned short)) >= 0;
+    }
+
+    
+    template<typename P> inline void sort (P** start, P**end,
+        bool (* comp)(const P*, const P*))
+    {
+        sort((const void**) start, (const void**) end, (Comparator) comp);
+    }
+    
+    template<typename P> void sort(P* start, P* end,
+            bool (* comp)(const P&, const P&)) {
+        stable_sort(start, end, *comp);
+    }
+
+    template<typename P> inline void stable_sort(P** start, P** end,
+       bool (* comp)(P*, P*))
+    {
+        sort((const void**) start, (const void**) end, (Comparator) comp);
+    }
+    
+    template<typename P> inline void stable_sort(P** start, P** end,
+       bool (& comp)(const P*, const P*))
+    {
+        sort((const void**) start, (const void**) end, (Comparator) &comp);
+    }
+    
+    template<typename P> void stable_sort(P* start, P* end, P* temp,
+            bool (& comp)(const P&, const P&)) {
+        size_t endlen = end - start;
+        size_t midlen = endlen / 2;
+        P* mid = start + midlen;
+        if (midlen > 1)
+            stable_sort(start, mid, temp, comp);
+        if (end - mid > 1)
+            stable_sort(mid, end, temp, comp);
+        memcpy(temp, start, midlen * sizeof(*start));
+        size_t i = 0;
+        size_t j = midlen;
+        size_t off = 0;
+        while (i < midlen && j < endlen) {
+            P* dst = (comp)(start[j], temp[i]) ? &start[j++] : &temp[i++];
+            memcpy(&start[off++], dst, sizeof(*start));
+        }
+        if (i < midlen)
+            memcpy(&start[off], &temp[i], (midlen - i) * sizeof(*start));
+    }
+
+    template<typename P> void stable_sort(P* start, P* end,
+            bool (& comp)(const P&, const P&)) {
+        if (end - start > 1) {
+            size_t count = (end - start) / 2;
+            P* temp = static_cast<P*>(malloc(count * sizeof(P)));
+            stable_sort(start, end, temp, comp);
+            free(temp);
+        }
+    }
+
+    template<typename P> void stable_sort(P* start, P* end,
+            bool (& comp)(P, P)) {
+	stable_sort(start, end, (bool (&)(const P&, const P&))(comp));
+    }
+   
+    class ostream {
+        int this_class_intentionally_left_empty;
+    };
+#endif
+
+}
+
+#endif
+
+#endif // __cplusplus
+
