@@ -296,11 +296,15 @@ void nativeRecordButtons(bool hasFocus, bool pressed, bool invalidate)
     }
 }
 
-bool scrollRectOnScreen(int left, int top, int right, int bottom)
+void scrollRectOnScreen(const IntRect& rect)
 {
+    if (rect.isEmpty())
+        return;
     WebCore::IntRect visible;
     getVisibleRect(&visible);
     int dx = 0;
+    int left = rect.x();
+    int right = rect.right();
     if (left < visible.x()) {
         dx = left - visible.x();
     // Only scroll right if the entire width can fit on screen.
@@ -308,6 +312,8 @@ bool scrollRectOnScreen(int left, int top, int right, int bottom)
         dx = right - visible.right();
     }
     int dy = 0;
+    int top = rect.y();
+    int bottom = rect.bottom();
     if (top < visible.y()) {
         dy = top - visible.y();
     // Only scroll down if the entire height can fit on screen
@@ -315,9 +321,8 @@ bool scrollRectOnScreen(int left, int top, int right, int bottom)
         dy = bottom - visible.bottom();
     }
     if ((dx|dy) == 0 || !scrollBy(dx, dy))
-        return false;
+        return;
     viewInvalidate();
-    return true;
 }
 
 void resetCursorRing()
@@ -396,12 +401,6 @@ void drawExtras(SkCanvas* canvas, int extras)
     }
     if (extra)
         extra->draw(canvas, &mainPicture);
-    if (extras == DrawExtrasFind) {
-        IntRect currentMatchBounds = m_findOnPage.currentMatchBounds();
-        if (!currentMatchBounds.isEmpty())
-            scrollRectOnScreen(currentMatchBounds.x(), currentMatchBounds.y(),
-                currentMatchBounds.right(), currentMatchBounds.bottom());
-    }
 #if USE(ACCELERATED_COMPOSITING)
     if (!m_rootLayer)
         return;
@@ -898,9 +897,14 @@ void overrideUrlLoading(const WebCore::String& url)
 
 void setFindIsUp(bool up)
 {
+    DBG_NAV_LOGD("up=%d", up);
     m_viewImpl->m_findIsUp = up;
-    if (!up)
-        m_findOnPage.clearCurrentLocation();
+}
+
+void setFindIsEmpty()
+{
+    DBG_NAV_LOG("");
+    m_findOnPage.clearCurrentLocation();
 }
 
 void setFollowedLink(bool followed)
@@ -995,6 +999,7 @@ void sendMotionUp(
 void findNext(bool forward)
 {
     m_findOnPage.findNext(forward);
+    scrollRectOnScreen(m_findOnPage.currentMatchBounds());
     viewInvalidate();
 }
 
@@ -1003,6 +1008,7 @@ void findNext(bool forward)
 void setMatches(WTF::Vector<MatchInfo>* matches)
 {
     m_findOnPage.setMatches(matches);
+    scrollRectOnScreen(m_findOnPage.currentMatchBounds());
     viewInvalidate();
 }
 
@@ -1549,11 +1555,16 @@ static void nativeRecordButtons(JNIEnv* env, jobject obj, bool hasFocus,
     view->nativeRecordButtons(hasFocus, pressed, invalidate);
 }
 
-static void nativeSetFindIsUp(JNIEnv *env, jobject obj)
+static void nativeSetFindIsUp(JNIEnv *env, jobject obj, jboolean isUp)
 {
     WebView* view = GET_NATIVE_VIEW(env, obj);
     LOG_ASSERT(view, "view not set in %s", __FUNCTION__);
-    view->setFindIsUp(false);
+    view->setFindIsUp(isUp);
+}
+
+static void nativeSetFindIsEmpty(JNIEnv *env, jobject obj)
+{
+    GET_NATIVE_VIEW(env, obj)->setFindIsEmpty();
 }
 
 static void nativeSetFollowedLink(JNIEnv *env, jobject obj, bool followed)
@@ -1606,7 +1617,6 @@ static int nativeFindAll(JNIEnv *env, jobject obj, jstring findLower,
     }
     WebView* view = GET_NATIVE_VIEW(env, obj);
     LOG_ASSERT(view, "view not set in nativeFindAll");
-    view->setFindIsUp(true);
     CachedRoot* root = view->getFrameCache(WebView::AllowNewer);
     if (!root) {
         env->ReleaseStringChars(findLower, findLowerChars);
@@ -1707,8 +1717,7 @@ static bool nativeMoveCursorToNextTextInput(JNIEnv *env, jobject obj)
             const_cast<CachedNode*>(next));
     view->sendMoveFocus(static_cast<WebCore::Frame*>(frame->framePointer()),
             static_cast<WebCore::Node*>(next->nodePointer()));
-    view->scrollRectOnScreen(bounds.x(), bounds.y(), bounds.right(),
-            bounds.bottom());
+    view->scrollRectOnScreen(bounds);
     view->getWebViewCore()->m_moveGeneration++;
     return true;
 }
@@ -1903,7 +1912,9 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeRecordButtons },
     { "nativeSelectBestAt", "(Landroid/graphics/Rect;)V",
         (void*) nativeSelectBestAt },
-    { "nativeSetFindIsUp", "()V",
+    { "nativeSetFindIsEmpty", "()V",
+        (void*) nativeSetFindIsEmpty },
+    { "nativeSetFindIsUp", "(Z)V",
         (void*) nativeSetFindIsUp },
     { "nativeSetFollowedLink", "(Z)V",
         (void*) nativeSetFollowedLink },

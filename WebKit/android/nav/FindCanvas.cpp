@@ -537,7 +537,7 @@ void FindOnPage::storeCurrentMatchLocation() {
 #define MAX_NUMBER_OF_MATCHES_TO_DRAW 101
 
 void FindOnPage::draw(SkCanvas* canvas, LayerAndroid* layer) {
-    if (!m_matches || !m_matches->size())
+    if (!m_hasCurrentLocation || !m_matches || !m_matches->size())
         return;
     int layerId = layer->uniqueId();
     if (m_findIndex >= m_matches->size())
