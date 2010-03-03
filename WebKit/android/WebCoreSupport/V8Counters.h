@@ -32,6 +32,7 @@
 
 #include <PlatformString.h>
 #include <v8.h>
+#include <wtf/HashMap.h>
 
 namespace WebCore {
 
