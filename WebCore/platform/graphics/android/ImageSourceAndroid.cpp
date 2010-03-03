@@ -60,9 +60,29 @@ SkPixelRef* SkCreateRLEPixelRef(const SkBitmap& src);
 
     // see dox for computeMaxBitmapSizeForCache()
     #define MAX_SIZE_BEFORE_SUBSAMPLE   (8*1024*1024)
+
+    // preserve quality for 24/32bit src
+    static const SkBitmap::Config gPrefConfigTable[6] = {
+        SkBitmap::kIndex8_Config,       // src: index, opaque
+        SkBitmap::kIndex8_Config,       // src: index, alpha
+        SkBitmap::kRGB_565_Config,      // src: 16bit, opaque
+        SkBitmap::kARGB_8888_Config,    // src: 16bit, alpha  (promote to 32bit)
+        SkBitmap::kARGB_8888_Config,    // src: 32bit, opaque
+        SkBitmap::kARGB_8888_Config,    // src: 32bit, alpha
+    };
 #else
     #define MIN_RLE_ALLOC_SIZE          (2*1024*1024)
     #define MAX_SIZE_BEFORE_SUBSAMPLE   (2*1024*1024)
+
+    // tries to minimize memory usage (i.e. demote opaque 32bit -> 16bit)
+    static const SkBitmap::Config gPrefConfigTable[6] = {
+        SkBitmap::kIndex8_Config,       // src: index, opaque
+        SkBitmap::kIndex8_Config,       // src: index, alpha
+        SkBitmap::kRGB_565_Config,      // src: 16bit, opaque
+        SkBitmap::kARGB_8888_Config,    // src: 16bit, alpha  (promote to 32bit)
+        SkBitmap::kRGB_565_Config,      // src: 32bit, opaque (demote to 16bit)
+        SkBitmap::kARGB_8888_Config,    // src: 32bit, alpha
+    };
 #endif
 
 /*  Images larger than this should be subsampled. Using ashmem, the decoded
@@ -219,12 +239,13 @@ void ImageSource::setData(SharedBuffer* data, bool allDataReceived)
 
         SkMemoryStream stream(data->data(), data->size(), false);
         SkImageDecoder* codec = SkImageDecoder::Factory(&stream);
-        SkAutoTDelete<SkImageDecoder> ad(codec);
-        
-        if (!codec || !codec->decode(&stream, &tmp, SkBitmap::kNo_Config,
-                                       SkImageDecoder::kDecodeBounds_Mode)) {
+        if (!codec)
             return;
-        }
+
+        SkAutoTDelete<SkImageDecoder> ad(codec);
+        codec->setPrefConfigTable(gPrefConfigTable);
+        if (!codec->decode(&stream, &tmp, SkImageDecoder::kDecodeBounds_Mode))
+            return;
 
         int origW = tmp.width();
         int origH = tmp.height();
@@ -251,8 +272,8 @@ void ImageSource::setData(SharedBuffer* data, bool allDataReceived)
         if (sampleSize > 1) {
             codec->setSampleSize(sampleSize);
             stream.rewind();
-            if (!codec->decode(&stream, &tmp, SkBitmap::kNo_Config,
-                                 SkImageDecoder::kDecodeBounds_Mode)) {
+            if (!codec->decode(&stream, &tmp,
+                               SkImageDecoder::kDecodeBounds_Mode)) {
                 return;
             }
         }
