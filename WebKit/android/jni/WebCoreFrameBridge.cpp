@@ -1201,8 +1201,10 @@ private:
     WeakJavaInstance(jobject instance, PassRefPtr<RootObject> rootObject)
         : JavaInstance(instance, rootObject)
 #elif USE(V8)
-    WeakJavaInstance(jobject instance) : JavaInstance(instance)
+    WeakJavaInstance(jobject instance)
+        : JavaInstance(instance)
 #endif
+        , m_beginEndDepth(0)
     {
         JNIEnv* env = getJNIEnv();
         // JavaInstance creates a global ref to instance in its constructor.
@@ -1226,34 +1228,40 @@ private:
 
     virtual void virtualBegin()
     {
-        _weakRef = m_instance->instance();
+        if (m_beginEndDepth++ > 0)
+            return;
+        m_weakRef = m_instance->instance();
         JNIEnv* env = getJNIEnv();
         // This is odd. getRealObject returns an AutoJObject which is used to
         // cleanly create and delete a local reference. But, here we need to
         // maintain the local reference across calls to virtualBegin() and
         // virtualEnd(). So, release the local reference from the AutoJObject
         // and delete the local reference in virtualEnd().
-        _realObject = getRealObject(env, _weakRef).release();
+        m_realObject = getRealObject(env, m_weakRef).release();
         // Point to the real object
-        m_instance->setInstance(_realObject);
+        m_instance->setInstance(m_realObject);
         // Call the base class method
         INHERITED::virtualBegin();
     }
 
     virtual void virtualEnd()
     {
+        if (--m_beginEndDepth > 0)
+            return;
         // Call the base class method first to pop the local frame.
         INHERITED::virtualEnd();
         // Get rid of the local reference to the real object.
-        getJNIEnv()->DeleteLocalRef(_realObject);
+        getJNIEnv()->DeleteLocalRef(m_realObject);
         // Point back to the WeakReference.
-        m_instance->setInstance(_weakRef);
+        m_instance->setInstance(m_weakRef);
     }
 
 private:
     typedef JavaInstance INHERITED;
-    jobject _realObject;
-    jweak   _weakRef;
+    jobject m_realObject;
+    jweak m_weakRef;
+    // The current depth of nested calls to virtualBegin and virtualEnd.
+    int m_beginEndDepth;
 };
 
 static void AddJavascriptInterface(JNIEnv *env, jobject obj, jint nativeFramePointer,
