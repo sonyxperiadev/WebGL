@@ -68,7 +68,7 @@ struct WebHistoryItemFields {
 struct WebBackForwardListFields {
     jmethodID   mAddHistoryItem;
     jmethodID   mRemoveHistoryItem;
-    jfieldID    mCurrentIndex;
+    jmethodID   mSetCurrentIndex;
 } gWebBackForwardList;
 
 //--------------------------------------------------------------------------
@@ -362,7 +362,7 @@ void WebHistory::RemoveItem(const AutoJObject& list, int index)
 void WebHistory::UpdateHistoryIndex(const AutoJObject& list, int newIndex)
 {
     if (list.get())
-        list.env()->SetIntField(list.get(), gWebBackForwardList.mCurrentIndex, newIndex);
+        list.env()->CallVoidMethod(list.get(), gWebBackForwardList.mSetCurrentIndex, newIndex);
 }
 
 static void write_string(WTF::Vector<char>& v, const WebCore::String& str)
@@ -815,8 +815,7 @@ int register_webhistory(JNIEnv* env)
     gWebHistoryItem.mUrl = env->GetFieldID(clazz, "mUrl", "Ljava/lang/String;");
     LOG_ASSERT(gWebHistoryItem.mUrl, "Could not find field mUrl in WebHistoryItem");
 
-    // Find the WebBackForwardList object, the addHistoryItem and
-    // removeHistoryItem methods and the mCurrentIndex field.
+    // Find the WebBackForwardList object and method.
     clazz = env->FindClass("android/webkit/WebBackForwardList");
     LOG_ASSERT(clazz, "Unable to find class android/webkit/WebBackForwardList");
     gWebBackForwardList.mAddHistoryItem = env->GetMethodID(clazz, "addHistoryItem",
@@ -825,8 +824,8 @@ int register_webhistory(JNIEnv* env)
     gWebBackForwardList.mRemoveHistoryItem = env->GetMethodID(clazz, "removeHistoryItem",
             "(I)V");
     LOG_ASSERT(gWebBackForwardList.mRemoveHistoryItem, "Could not find method removeHistoryItem");
-    gWebBackForwardList.mCurrentIndex = env->GetFieldID(clazz, "mCurrentIndex", "I");
-    LOG_ASSERT(gWebBackForwardList.mCurrentIndex, "Could not find field mCurrentIndex");
+    gWebBackForwardList.mSetCurrentIndex = env->GetMethodID(clazz, "setCurrentIndex", "(I)V");
+    LOG_ASSERT(gWebBackForwardList.mSetCurrentIndex, "Could not find method setCurrentIndex");
 
     int result = jniRegisterNativeMethods(env, "android/webkit/WebBackForwardList",
             gWebBackForwardListMethods, NELEM(gWebBackForwardListMethods));
