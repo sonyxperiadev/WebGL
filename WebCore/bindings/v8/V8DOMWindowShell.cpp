@@ -69,7 +69,7 @@
 #include <wtf/StringExtras.h>
 #include <wtf/UnusedParam.h>
 
-#ifde ANDROID_INSTRUMENT
+#ifdef ANDROID_INSTRUMENT
 #include "TimeCounter.h"
 #endif
 
