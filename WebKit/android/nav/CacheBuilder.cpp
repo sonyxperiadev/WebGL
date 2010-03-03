@@ -2663,7 +2663,9 @@ bool CacheBuilder::isFocusableText(NodeWalk* walk, bool more, Node* node,
                 do {
                     do {
                         node = node->traverseNextNode();
-                        if (node == NULL || node->hasTagName(HTMLNames::aTag)) {
+                        if (node == NULL || node->hasTagName(HTMLNames::aTag)
+                                || node->hasTagName(HTMLNames::inputTag)
+                                || node->hasTagName(HTMLNames::textareaTag)) {
                             if (state == FOUND_PARTIAL && 
                                     checkType == ADDRESS_CACHEDNODETYPE && 
                                     findState.mProgress == ZIP_CODE && 
