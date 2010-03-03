@@ -37,12 +37,6 @@
 #include "SkStream.h"
 #include "SkTemplates.h"
 
-// need a flag to tell us when we're on a large-ram device (e.g. >= 256M)
-// for now just use this hack
-#if 1
-    #define ON_LARGE_RAM_DEVICE
-#endif
-
 #ifdef ANDROID_ANIMATED_GIF
     #include "EmojiFont.h"
     #include "GIFImageDecoder.h"
@@ -58,7 +52,8 @@ SkPixelRef* SkCreateRLEPixelRef(const SkBitmap& src);
 //#define TRACE_RLE_BITMAPS
 
 
-#ifdef ON_LARGE_RAM_DEVICE
+// flag to tell us when we're on a large-ram device (e.g. >= 256M)
+#ifdef ANDROID_LARGE_MEMORY_DEVICE
     // don't use RLE for images smaller than this, since they incur a drawing cost
     // (and don't work as patterns yet) we only want to use RLE when we must
     #define MIN_RLE_ALLOC_SIZE          (8*1024*1024)

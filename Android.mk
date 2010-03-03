@@ -224,6 +224,12 @@ LOCAL_CFLAGS += -Darm
 LOCAL_CFLAGS += -Wno-psabi
 endif
 
+# need a flag to tell the C side when we're on devices with large memory
+# budgets (i.e. larger than the low-end devices that initially shipped)
+ifeq ($(ARCH_ARM_HAVE_VFP),true)
+LOCAL_CFLAGS += -DANDROID_LARGE_MEMORY_DEVICE
+endif
+
 ifeq ($(ENABLE_SVG),true)
 LOCAL_CFLAGS += -DENABLE_SVG=1
 endif
