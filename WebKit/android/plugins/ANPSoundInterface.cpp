@@ -27,6 +27,7 @@
 #include "config.h"
 #include "android_npapi.h"
 
+#include "SkTypes.h"
 #include "media/AudioTrack.h"
 
 struct ANPAudioTrack {
