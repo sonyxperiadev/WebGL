@@ -147,15 +147,8 @@ static void WebHistoryRestoreIndex(JNIEnv* env, jobject obj, jint frame, jint in
     LOG_ASSERT(frame, "RestoreState needs a valid Frame pointer!");
     WebCore::Frame* pFrame = (WebCore::Frame*)frame;
     WebCore::Page* page = pFrame->page();
-
-    // Set the current index in the list.
-    WebCore::BackForwardList* list = page->backForwardList();
-    WebCore::HistoryItem* currentItem = list->entries()[index].get();
-    list->goToItem(currentItem);
-
-    // Update the current and previous history item.
-    WebCore::FrameLoader* loader = pFrame->loader();
-    loader->history()->setCurrentItem(currentItem);
+    WebCore::HistoryItem* currentItem =
+            page->backForwardList()->entries()[index].get();
 
     // load the current page with FrameLoadTypeIndexedBackForward so that it
     // will use cache when it is possible
