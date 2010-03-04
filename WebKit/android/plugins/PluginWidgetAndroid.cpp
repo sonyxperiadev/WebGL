@@ -47,7 +47,7 @@
 
 #define PLUGIN_DEBUG_LOCAL 0 // controls the printing of log messages
 #define DEBUG_EVENTS 0 // logs event contents, return value, and processing time
-#define DEBUG_VISIBLE_RECTS 1 // temporary debug printfs and fixes
+#define DEBUG_VISIBLE_RECTS 0 // temporary debug printfs and fixes
 
 // this include statement must follow the declaration of PLUGIN_DEBUG_LOCAL
 #include "PluginDebugAndroid.h"
