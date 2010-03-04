@@ -331,7 +331,7 @@ bool DocLoader::shouldBlockNetworkImage(const String& url) const
     if (!m_blockNetworkImage)
         return false;
 
-    KURL kurl(ParsedURLString, url);
+    KURL kurl = m_doc->completeURL(url);
     if (kurl.protocolIs("http") || kurl.protocolIs("https"))
         return true;
 
