@@ -189,9 +189,9 @@ static void WebHistoryInflate(JNIEnv* env, jobject obj, jint frame, jbyteArray d
     bridge->updateHistoryItem(newItem.get());
 }
 
-// 6 empty strings + no document state + children count = 8 unsigned values
-// 1 char for isTargetItem and 1 char is for scale.
-#define HISTORY_MIN_SIZE ((int)(sizeof(unsigned) * 9 + sizeof(char)))
+// 6 empty strings + no document state + children count + 2 scales = 10 unsigned values
+// 1 char for isTargetItem.
+#define HISTORY_MIN_SIZE ((int)(sizeof(unsigned) * 10 + sizeof(char)))
 
 jbyteArray WebHistory::Flatten(JNIEnv* env, WTF::Vector<char>& v, WebCore::HistoryItem* item)
 {
@@ -416,9 +416,12 @@ static void write_item(WTF::Vector<char>& v, WebCore::HistoryItem* item)
     AndroidWebHistoryBridge* bridge = item->bridge();
     LOG_ASSERT(bridge, "We should have a bridge here!");
     // Screen scale
-    int scale = bridge->scale();
+    const int scale = bridge->scale();
     LOGV("Writing scale %d", scale);
     v.append((char*)&scale, sizeof(int));
+    const int screenWidthScale = bridge->screenWidthScale();
+    LOGV("Writing screen width scale %d", screenWidthScale);
+    v.append((char*)&screenWidthScale, sizeof(int));
 
     // Document state
     const WTF::Vector<WebCore::String>& docState = item->documentState();
@@ -599,6 +602,11 @@ static bool read_item_recursive(WebCore::HistoryItem* newItem,
     LOGV("Screen scale    %d", l);
     bridge->setScale(l);
     data += sizeofUnsigned;
+    memcpy(&l, data, sizeofUnsigned);
+    LOGV("Screen width scale    %d", l);
+    bridge->setScreenWidthScale(l);
+    data += sizeofUnsigned;
+
     if (end - data < sizeofUnsigned)
         return false;
 

@@ -35,8 +35,8 @@ class HistoryItem;
 class AndroidWebHistoryBridge : public RefCounted<AndroidWebHistoryBridge> {
 public:
     AndroidWebHistoryBridge(HistoryItem* item)
-        : m_scale(100)
-        , m_screenWidthScale(100)
+        : m_scale(0)
+        , m_screenWidthScale(0)
         , m_active(false)
         , m_historyItem(item) { }
     virtual ~AndroidWebHistoryBridge() { }
