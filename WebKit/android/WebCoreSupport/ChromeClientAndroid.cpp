@@ -77,7 +77,7 @@ void ChromeClientAndroid::syncTimerFired(Timer<ChromeClientAndroid>* client)
 void ChromeClientAndroid::scheduleCompositingLayerSync()
 {
     if (!m_syncTimer.isActive())
-        m_syncTimer.startOneShot(0.001); // 1ms
+        m_syncTimer.startOneShot(0);
 }
 
 void ChromeClientAndroid::setNeedsOneShotDrawingSynchronization()
