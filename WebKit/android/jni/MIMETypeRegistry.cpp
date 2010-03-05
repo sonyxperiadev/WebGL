@@ -52,6 +52,7 @@ String MIMETypeRegistry::getMIMETypeForExtension(const String& ext)
     jobject mimeType = env->CallStaticObjectMethod(mimeClass,
             mimeTypeFromExtension, extString);
     String result = android::to_string(env, (jstring) mimeType);
+    env->DeleteLocalRef(mimeClass);
     env->DeleteLocalRef(extString);
     env->DeleteLocalRef(mimeType);
     return result;
