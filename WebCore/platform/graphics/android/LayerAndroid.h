@@ -120,6 +120,7 @@ public:
     SkPicture* picture() const { return m_recordingPicture; }
 
     void dumpLayers(FILE*, int indentLevel) const;
+    void dumpToLog() const;
 
     /** Call this with the current viewport (scrolling, zoom) to update its
         position attribute, so that later calls like bounds() will report the
