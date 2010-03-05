@@ -305,7 +305,7 @@ void LayerAndroid::onDraw(SkCanvas* canvas, SkScalar opacity) {
     if (canvasOpacity < 255)
         canvas->setDrawFilter(new OpacityDrawFilter(canvasOpacity));
 
-    m_recordingPicture->draw(canvas);
+    canvas->drawPicture(*m_recordingPicture);
     if (m_extra)
         m_extra->draw(canvas, this);
 
@@ -434,7 +434,8 @@ void LayerAndroid::dumpLayers(FILE* file, int indentLevel) const
     writeln(file, indentLevel, "{");
 
     writeHexVal(file, indentLevel + 1, "layer", (int)this);
-    writeIntVal(file, indentLevel + 1, "clipRect", m_haveClip);
+    writeIntVal(file, indentLevel + 1, "layerId", m_uniqueId);
+    writeIntVal(file, indentLevel + 1, "haveClip", m_haveClip);
 
     writeFloatVal(file, indentLevel + 1, "opacity", getOpacity());
     writeSize(file, indentLevel + 1, "size", getSize());
@@ -468,6 +469,19 @@ void LayerAndroid::dumpLayers(FILE* file, int indentLevel) const
         writeln(file, indentLevel + 1, "];");
     }
     writeln(file, indentLevel, "}");
+}
+
+void LayerAndroid::dumpToLog() const
+{
+    FILE* file = fopen("/data/data/com.android.browser/layertmp", "w");
+    dumpLayers(file, 0);
+    fclose(file);
+    file = fopen("/data/data/com.android.browser/layertmp", "r");
+    char buffer[512];
+    bzero(buffer, sizeof(buffer));
+    while (fgets(buffer, sizeof(buffer), file))
+        SkDebugf("%s", buffer);
+    fclose(file);
 }
 
 const LayerAndroid* LayerAndroid::findById(int match) const

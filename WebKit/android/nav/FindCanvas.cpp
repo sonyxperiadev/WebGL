@@ -553,7 +553,12 @@ void FindOnPage::draw(SkCanvas* canvas, LayerAndroid* layer) {
     if (matchInfo.layerId() == layerId) {
         drawMatch(currentMatchRegion, canvas, true);
         // Now draw the picture, so that it shows up on top of the rectangle
+        int saveCount = canvas->save();
+        SkPath matchPath;
+        currentMatchRegion.getBoundaryPath(&matchPath);
+        canvas->clipPath(matchPath);
         canvas->drawPicture(*matchInfo.getPicture());
+        canvas->restoreToCount(saveCount);
     }
     // Draw the rest
     unsigned numberOfMatches = m_matches->size();
