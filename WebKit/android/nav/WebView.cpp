@@ -103,6 +103,7 @@ enum DrawExtras { // keep this in sync with WebView.java
 
 struct JavaGlue {
     jweak       m_obj;
+    jmethodID   m_calcOurContentVisibleRect;
     jmethodID   m_clearTextEntry;
     jmethodID   m_overrideLoading;
     jmethodID   m_scrollBy;
@@ -114,7 +115,6 @@ struct JavaGlue {
     jmethodID   m_getScaledMaxXScroll;
     jmethodID   m_getScaledMaxYScroll;
     jmethodID   m_getVisibleRect;
-    jmethodID   m_getViewMetrics;
     jmethodID   m_rebuildWebTextView;
     jmethodID   m_viewInvalidate;
     jmethodID   m_viewInvalidateRect;
@@ -123,11 +123,6 @@ struct JavaGlue {
     jfieldID    m_rectTop;
     jmethodID   m_rectWidth;
     jmethodID   m_rectHeight;
-    jfieldID    m_metricsScrollX;
-    jfieldID    m_metricsScrollY;
-    jfieldID    m_metricsWidth;
-    jfieldID    m_metricsHeight;
-    jfieldID    m_metricsInvScale;
     AutoJObject object(JNIEnv* env) {
         return getRealObject(env, m_obj);
     }
@@ -140,6 +135,7 @@ WebView(JNIEnv* env, jobject javaWebView, int viewImpl) :
  //   m_javaGlue = new JavaGlue;
     m_javaGlue.m_obj = env->NewWeakGlobalRef(javaWebView);
     m_javaGlue.m_scrollBy = GetJMethod(env, clazz, "setContentScrollBy", "(IIZ)Z");
+    m_javaGlue.m_calcOurContentVisibleRect = GetJMethod(env, clazz, "calcOurContentVisibleRect", "(Landroid/graphics/Rect;)V");
     m_javaGlue.m_clearTextEntry = GetJMethod(env, clazz, "clearTextEntry", "(Z)V");
     m_javaGlue.m_overrideLoading = GetJMethod(env, clazz, "overrideLoading", "(Ljava/lang/String;)V");
     m_javaGlue.m_sendMoveFocus = GetJMethod(env, clazz, "sendMoveFocus", "(II)V");
@@ -150,7 +146,6 @@ WebView(JNIEnv* env, jobject javaWebView, int viewImpl) :
     m_javaGlue.m_getScaledMaxXScroll = GetJMethod(env, clazz, "getScaledMaxXScroll", "()I");
     m_javaGlue.m_getScaledMaxYScroll = GetJMethod(env, clazz, "getScaledMaxYScroll", "()I");
     m_javaGlue.m_getVisibleRect = GetJMethod(env, clazz, "sendOurVisibleRect", "()Landroid/graphics/Rect;");
-    m_javaGlue.m_getViewMetrics = GetJMethod(env, clazz, "getViewMetrics", "()Landroid/webkit/WebView$Metrics;");
     m_javaGlue.m_rebuildWebTextView = GetJMethod(env, clazz, "rebuildWebTextView", "()V");
     m_javaGlue.m_viewInvalidate = GetJMethod(env, clazz, "viewInvalidate", "()V");
     m_javaGlue.m_viewInvalidateRect = GetJMethod(env, clazz, "viewInvalidate", "(IIII)V");
@@ -162,13 +157,6 @@ WebView(JNIEnv* env, jobject javaWebView, int viewImpl) :
     m_javaGlue.m_rectTop = env->GetFieldID(rectClass, "top", "I");
     m_javaGlue.m_rectWidth = GetJMethod(env, rectClass, "width", "()I");
     m_javaGlue.m_rectHeight = GetJMethod(env, rectClass, "height", "()I");
-    jclass metricsClass = env->FindClass("android/webkit/WebView$Metrics");
-    m_javaGlue.m_metricsScrollX = env->GetFieldID(metricsClass, "mScrollX", "I");
-    m_javaGlue.m_metricsScrollY = env->GetFieldID(metricsClass, "mScrollY", "I");
-    m_javaGlue.m_metricsWidth = env->GetFieldID(metricsClass, "mWidth", "I");
-    m_javaGlue.m_metricsHeight = env->GetFieldID(metricsClass, "mHeight", "I");
-    m_javaGlue.m_metricsInvScale = env->GetFieldID(metricsClass, "mInvScale", "F");
-
     env->SetIntField(javaWebView, gWebViewField, (jint)this);
     m_viewImpl = (WebViewCore*) viewImpl;
     m_frameCacheUI = 0;
@@ -296,33 +284,55 @@ void nativeRecordButtons(bool hasFocus, bool pressed, bool invalidate)
     }
 }
 
+// The caller has already determined that the desired document rect corresponds
+// to the main picture, and not a layer
 void scrollRectOnScreen(const IntRect& rect)
 {
     if (rect.isEmpty())
         return;
-    WebCore::IntRect visible;
-    getVisibleRect(&visible);
+    SkRect visible;
+    calcOurContentVisibleRect(&visible);
+    if (m_rootLayer) {
+        m_rootLayer->updatePositions(visible);
+        visible = m_rootLayer->subtractLayers(visible);
+    }
     int dx = 0;
     int left = rect.x();
     int right = rect.right();
-    if (left < visible.x()) {
-        dx = left - visible.x();
+    if (left < visible.fLeft) {
+        dx = left - visible.fLeft;
     // Only scroll right if the entire width can fit on screen.
-    } else if (right > visible.right() && right - left < visible.width()) {
-        dx = right - visible.right();
+    } else if (right > visible.fRight && right - left < visible.width()) {
+        dx = right - visible.fRight;
     }
     int dy = 0;
     int top = rect.y();
     int bottom = rect.bottom();
-    if (top < visible.y()) {
-        dy = top - visible.y();
+    if (top < visible.fTop) {
+        dy = top - visible.fTop;
     // Only scroll down if the entire height can fit on screen
-    } else if (bottom > visible.bottom() && bottom - top < visible.height()) {
-        dy = bottom - visible.bottom();
+    } else if (bottom > visible.fBottom && bottom - top < visible.height()) {
+        dy = bottom - visible.fBottom;
     }
     if ((dx|dy) == 0 || !scrollBy(dx, dy))
         return;
     viewInvalidate();
+}
+
+void calcOurContentVisibleRect(SkRect* r)
+{
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    jclass rectClass = env->FindClass("android/graphics/Rect");
+    jmethodID init = env->GetMethodID(rectClass, "<init>", "(IIII)V");
+    jobject jRect = env->NewObject(rectClass, init, 0, 0, 0, 0);
+    env->CallVoidMethod(m_javaGlue.object(env).get(),
+        m_javaGlue.m_calcOurContentVisibleRect, jRect);
+    r->fLeft = env->GetIntField(jRect, m_javaGlue.m_rectLeft);
+    r->fTop = env->GetIntField(jRect, m_javaGlue.m_rectTop);
+    r->fRight = r->fLeft + env->CallIntMethod(jRect, m_javaGlue.m_rectWidth);
+    r->fBottom = r->fTop + env->CallIntMethod(jRect, m_javaGlue.m_rectHeight);
+    env->DeleteLocalRef(jRect);
+    checkException(env);
 }
 
 void resetCursorRing()
@@ -405,11 +415,11 @@ void drawExtras(SkCanvas* canvas, int extras)
     if (!m_rootLayer)
         return;
     m_rootLayer->setExtra(extra);
-    SkRect viewMetrics;
-    getViewMetrics(&viewMetrics);
+    SkRect visible;
+    calcOurContentVisibleRect(&visible);
     // call this to be sure we've adjusted for any scrolling or animations
     // before we actually draw
-    m_rootLayer->updatePositions(viewMetrics);
+    m_rootLayer->updatePositions(visible);
     m_rootLayer->draw(canvas);
 #endif
 }
@@ -531,12 +541,12 @@ CachedRoot* getFrameCache(FrameCachePermission allowNewer)
         m_frameCacheUI->setRootLayer(m_rootLayer);
 #if USE(ACCELERATED_COMPOSITING)
     if (layerId >= 0) {
-        SkRect viewMetrics;
-        getViewMetrics(&viewMetrics);
+        SkRect visible;
+        calcOurContentVisibleRect(&visible);
         LayerAndroid* layer = const_cast<LayerAndroid*>(
                                                 m_frameCacheUI->rootLayer());
         if (layer) {
-            layer->updatePositions(viewMetrics);
+            layer->updatePositions(visible);
         }
     }
 #endif
@@ -596,23 +606,6 @@ void getVisibleRect(WebCore::IntRect* rect)
     checkException(env);
     rect->setHeight(height);
     env->DeleteLocalRef(jRect);
-    checkException(env);
-}
-
-void getViewMetrics(SkRect* viewMetrics)
-{
-    JNIEnv* env = JSC::Bindings::getJNIEnv();
-    jobject jMetrics = env->CallObjectMethod(m_javaGlue.object(env).get(),
-        m_javaGlue.m_getViewMetrics);
-    checkException(env);
-    int scrollX = env->GetIntField(jMetrics, m_javaGlue.m_metricsScrollX);
-    int scrollY = env->GetIntField(jMetrics, m_javaGlue.m_metricsScrollY);
-    int width = env->GetIntField(jMetrics, m_javaGlue.m_metricsWidth);
-    int height = env->GetIntField(jMetrics, m_javaGlue.m_metricsHeight);
-    float invScale = env->GetFloatField(jMetrics, m_javaGlue.m_metricsInvScale);
-    viewMetrics->set(scrollX * invScale, scrollY * invScale,
-                     (scrollX + width) * invScale, (scrollY + height) * invScale);
-    env->DeleteLocalRef(jMetrics);
     checkException(env);
 }
 
@@ -999,7 +992,8 @@ void sendMotionUp(
 void findNext(bool forward)
 {
     m_findOnPage.findNext(forward);
-    scrollRectOnScreen(m_findOnPage.currentMatchBounds());
+    if (!m_findOnPage.currentMatchIsInLayer())
+        scrollRectOnScreen(m_findOnPage.currentMatchBounds());
     viewInvalidate();
 }
 
@@ -1008,7 +1002,8 @@ void findNext(bool forward)
 void setMatches(WTF::Vector<MatchInfo>* matches)
 {
     m_findOnPage.setMatches(matches);
-    scrollRectOnScreen(m_findOnPage.currentMatchBounds());
+    if (!m_findOnPage.currentMatchIsInLayer())
+        scrollRectOnScreen(m_findOnPage.currentMatchBounds());
     viewInvalidate();
 }
 
@@ -1717,7 +1712,8 @@ static bool nativeMoveCursorToNextTextInput(JNIEnv *env, jobject obj)
             const_cast<CachedNode*>(next));
     view->sendMoveFocus(static_cast<WebCore::Frame*>(frame->framePointer()),
             static_cast<WebCore::Node*>(next->nodePointer()));
-    view->scrollRectOnScreen(bounds);
+    if (!next->isInLayer())
+        view->scrollRectOnScreen(bounds);
     view->getWebViewCore()->m_moveGeneration++;
     return true;
 }

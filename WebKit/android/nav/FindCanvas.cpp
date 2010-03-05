@@ -522,6 +522,13 @@ IntRect FindOnPage::currentMatchBounds() const {
     return info.getLocation().getBounds();
 }
 
+bool FindOnPage::currentMatchIsInLayer() const {
+    if (!m_matches || !m_matches->size())
+        return false;
+    MatchInfo& info = (*m_matches)[m_findIndex];
+    return info.isInLayer();
+}
+
 // This function is only used by findNext and setMatches.  In it, we store
 // upper left corner of the match specified by m_findIndex in
 // m_currentMatchLocation.

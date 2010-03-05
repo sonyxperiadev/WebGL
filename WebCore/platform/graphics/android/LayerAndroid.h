@@ -119,6 +119,10 @@ public:
 
     SkPicture* picture() const { return m_recordingPicture; }
 
+    // remove layers bounds from visible rectangle to show what can be
+    // scrolled into view; returns original minus layer bounds in global space.
+    SkRect subtractLayers(const SkRect& visibleRect) const;
+
     void dumpLayers(FILE*, int indentLevel) const;
     void dumpToLog() const;
 
