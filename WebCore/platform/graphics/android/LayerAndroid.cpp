@@ -49,10 +49,14 @@ LayerAndroid::LayerAndroid(bool isRootLayer) : SkLayer(),
     m_haveClip(false),
     m_doRotation(false),
     m_isFixed(false),
+    m_isRelativeTo(false),
+    m_relativeFixedLayerID(0),
     m_recordingPicture(0),
     m_extra(0),
-    m_uniqueId(++gUniqueId)
+    m_uniqueId(++gUniqueId),
+    m_relativeFixedLayer(0)
 {
+    m_deltaPosition.set(0, 0);
     m_angleTransform = 0;
     m_translation.set(0, 0);
     m_scale.set(1, 1);
@@ -65,10 +69,14 @@ LayerAndroid::LayerAndroid(const LayerAndroid& layer) : SkLayer(layer),
     m_isRootLayer(layer.m_isRootLayer),
     m_haveClip(layer.m_haveClip),
     m_extra(0), // deliberately not copied
-    m_uniqueId(layer.m_uniqueId)
+    m_uniqueId(layer.m_uniqueId),
+    m_relativeFixedLayer(0)
 {
     m_doRotation = layer.m_doRotation;
     m_isFixed = layer.m_isFixed;
+    m_isRelativeTo = layer.m_isRelativeTo;
+    m_relativeFixedLayerID = layer.m_relativeFixedLayerID;
+    m_deltaPosition = layer.m_deltaPosition;
 
     m_angleTransform = layer.m_angleTransform;
     m_translation = layer.m_translation;
@@ -100,10 +108,14 @@ LayerAndroid::LayerAndroid(SkPicture* picture) : SkLayer(),
     m_haveClip(false),
     m_doRotation(false),
     m_isFixed(false),
+    m_isRelativeTo(false),
+    m_relativeFixedLayerID(0),
     m_recordingPicture(picture),
     m_extra(0),
-    m_uniqueId(-1)
+    m_uniqueId(-1),
+    m_relativeFixedLayer(0)
 {
+    m_deltaPosition.set(0, 0);
     m_angleTransform = 0;
     m_translation.set(0, 0);
     m_scale.set(1, 1);
@@ -245,9 +257,29 @@ const LayerAndroid* LayerAndroid::find(int x, int y) const
 
 ///////////////////////////////////////////////////////////////////////////////
 
-void LayerAndroid::updatePositions(const SkRect& viewport) {
-    // apply the viewport to us
-    SkMatrix matrix;
+void LayerAndroid::setRelativeTo(LayerAndroid* container) {
+    ASSERT(container->m_isFixed);
+    m_relativeFixedLayerID = container->m_uniqueId;
+    m_isRelativeTo = true;
+    m_deltaPosition = getPosition() - container->getPosition();
+}
+
+void LayerAndroid::ensureFixedLayersForDescendants(const LayerAndroid* rootLayer) {
+    if (m_isRelativeTo && !m_relativeFixedLayer) {
+        LayerAndroid* containerLayer = const_cast<LayerAndroid*>(
+            rootLayer->findById(m_relativeFixedLayerID));
+        if (containerLayer)
+            m_relativeFixedLayer = containerLayer;
+    }
+
+    int count = countChildren();
+    for (int i = 0; i < count; i++) {
+        getChild(i)->ensureFixedLayersForDescendants(rootLayer);
+    }
+}
+
+void LayerAndroid::updateFixedLayersPositions(const SkRect& viewport) {
+
     if (m_isFixed) {
         float x = 0;
         float y = 0;
@@ -267,8 +299,25 @@ void LayerAndroid::updatePositions(const SkRect& viewport) {
             y = dy + h - m_fixedBottom.calcFloatValue(h) - m_fixedHeight;
 
         this->setPosition(x, y);
-        matrix.reset();
-    } else {
+    }
+
+    int count = this->countChildren();
+    for (int i = 0; i < count; i++) {
+        this->getChild(i)->updateFixedLayersPositions(viewport);
+    }
+}
+
+void LayerAndroid::updatePositions() {
+    // apply the viewport to us
+    SkMatrix matrix;
+    if (!m_isFixed) {
+        // If we are defined as being relative to a fixed
+        // layer, we need to update our position...
+        if (m_isRelativeTo && m_relativeFixedLayer) {
+            this->setPosition(m_relativeFixedLayer->getPosition().fX + m_deltaPosition.fX,
+                m_relativeFixedLayer->getPosition().fY + m_deltaPosition.fY);
+        }
+
         // turn our fields into a matrix.
         //
         // TODO: this should happen in the caller, and we should remove these
@@ -278,13 +327,13 @@ void LayerAndroid::updatePositions(const SkRect& viewport) {
             matrix.preRotate(m_angleTransform);
         }
         matrix.preScale(m_scale.fX, m_scale.fY);
+        this->setMatrix(matrix);
     }
-    this->setMatrix(matrix);
 
     // now apply it to our children
     int count = this->countChildren();
     for (int i = 0; i < count; i++) {
-        this->getChild(i)->updatePositions(viewport);
+        this->getChild(i)->updatePositions();
     }
 }
 

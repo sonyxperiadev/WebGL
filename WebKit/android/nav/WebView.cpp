@@ -294,7 +294,8 @@ void scrollRectOnScreen(const IntRect& rect)
     calcOurContentVisibleRect(&visible);
 #if USE(ACCELERATED_COMPOSITING)
     if (m_rootLayer) {
-        m_rootLayer->updatePositions(visible);
+        m_rootLayer->updateFixedLayersPositions(visible);
+        m_rootLayer->updatePositions();
         visible = m_rootLayer->subtractLayers(visible);
     }
 #endif
@@ -421,7 +422,8 @@ void drawExtras(SkCanvas* canvas, int extras)
     calcOurContentVisibleRect(&visible);
     // call this to be sure we've adjusted for any scrolling or animations
     // before we actually draw
-    m_rootLayer->updatePositions(visible);
+    m_rootLayer->updateFixedLayersPositions(visible);
+    m_rootLayer->updatePositions();
     m_rootLayer->draw(canvas);
 #endif
 }
@@ -548,7 +550,8 @@ CachedRoot* getFrameCache(FrameCachePermission allowNewer)
         LayerAndroid* layer = const_cast<LayerAndroid*>(
                                                 m_frameCacheUI->rootLayer());
         if (layer) {
-            layer->updatePositions(visible);
+            layer->updateFixedLayersPositions(visible);
+            layer->updatePositions();
         }
     }
 #endif

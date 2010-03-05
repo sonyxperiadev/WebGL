@@ -218,26 +218,63 @@ void GraphicsLayerAndroid::needsSyncChildren()
     askForSync();
 }
 
+void GraphicsLayerAndroid::syncFixedDescendants()
+{
+    for (unsigned int i = 0; i < m_children.size(); i++)
+        (static_cast<GraphicsLayerAndroid*>(m_children[i]))->syncFixedDescendants();
+
+    if (!m_client)
+        return;
+
+    RenderLayerBacking* backing = static_cast<RenderLayerBacking*>(m_client);
+    RenderLayer* renderLayer = backing->owningLayer();
+    RenderView* view = static_cast<RenderView*>(renderLayer->renderer());
+
+    // If we have an ancestor that is a fixed position layer, we need to
+    // mark ourselve as a child of it, as the RenderLayer hierarchy only
+    // keeps track of the z-order.
+    // By calling setRelativeTo() we ensure that we will keep track of
+    // the fixed layer we are relative to, and will be able to update
+    // our position accordingly.
+    RenderLayer* positionedParent = renderLayer->parent();
+    while (positionedParent &&
+           !(positionedParent->renderer()->isPositioned() &&
+           positionedParent->renderer()->style()->position() == FixedPosition))
+        positionedParent = positionedParent->parent();
+
+    if (positionedParent && positionedParent->isComposited()) {
+        RenderLayerBacking* positionedParentBacking = positionedParent->backing();
+        GraphicsLayerAndroid* positionedParentLayer =
+            static_cast<GraphicsLayerAndroid*>(positionedParentBacking->graphicsLayer());
+        LayerAndroid* parentLayer = positionedParentLayer->contentLayer();
+        m_contentLayer->setRelativeTo(parentLayer);
+    }
+}
+
 void GraphicsLayerAndroid::updateFixedPosition()
 {
-    if (m_client) {
-        RenderLayerBacking* backing = static_cast<RenderLayerBacking*>(m_client);
-        RenderLayer* renderLayer = backing->owningLayer();
-        RenderView* view = static_cast<RenderView*>(renderLayer->renderer());
-        if (view->isPositioned() && view->style()->position() == FixedPosition) {
-            SkLength left, top, right, bottom;
-            left = convertLength(view->style()->left());
-            top = convertLength(view->style()->top());
-            right = convertLength(view->style()->right());
-            bottom = convertLength(view->style()->bottom());
-            // We need to pass the size of the element to compute the final fixed
-            // position -- we can't use the layer's size as it could possibly differs.
-            // We also have to use the visible overflow and not just the size,
-            // as some child elements could be overflowing.
-            int w = view->rightVisibleOverflow() - view->leftVisibleOverflow();
-            int h = view->bottomVisibleOverflow() - view->topVisibleOverflow();
-            m_contentLayer->setFixedPosition(left, top, right, bottom, w, h);
-        }
+    if (!m_client)
+        return;
+
+    RenderLayerBacking* backing = static_cast<RenderLayerBacking*>(m_client);
+    RenderLayer* renderLayer = backing->owningLayer();
+    RenderView* view = static_cast<RenderView*>(renderLayer->renderer());
+
+    // If we are a fixed position layer, just set it
+    if (view->isPositioned() && view->style()->position() == FixedPosition) {
+        SkLength left, top, right, bottom;
+        left = convertLength(view->style()->left());
+        top = convertLength(view->style()->top());
+        right = convertLength(view->style()->right());
+        bottom = convertLength(view->style()->bottom());
+        // We need to pass the size of the element to compute the final fixed
+        // position -- we can't use the layer's size as it could possibly differs.
+        // We also have to use the visible overflow and not just the size,
+        // as some child elements could be overflowing.
+        int w = view->rightVisibleOverflow() - view->leftVisibleOverflow();
+        int h = view->bottomVisibleOverflow() - view->topVisibleOverflow();
+
+        m_contentLayer->setFixedPosition(left, top, right, bottom, w, h);
     }
 }
 
@@ -419,6 +456,7 @@ void GraphicsLayerAndroid::sendImmediateRepaint()
     if (rootGraphicsLayer->m_frame
         && rootGraphicsLayer->m_frame->view()) {
         LayerAndroid* copyLayer = new LayerAndroid(*m_contentLayer);
+        copyLayer->ensureFixedLayersForDescendants(copyLayer);
         TLOG("(%x) sendImmediateRepaint, copy the layer, (%.2f,%.2f => %.2f,%.2f)",
             this, m_contentLayer->getSize().width(), m_contentLayer->getSize().height(),
             copyLayer->getSize().width(), copyLayer->getSize().height());
@@ -882,6 +920,7 @@ void GraphicsLayerAndroid::syncCompositingState()
     syncChildren();
     syncMask();
     syncPositionState();
+    syncFixedDescendants();
 
     if (!gPaused || WTF::currentTime() >= gPausedDelay)
         repaintAll();

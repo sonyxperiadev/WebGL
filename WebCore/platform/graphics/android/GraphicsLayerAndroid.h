@@ -110,6 +110,7 @@ public:
     virtual void setZPosition(float);
 
     void askForSync();
+    void syncFixedDescendants();
     void syncPositionState();
     void needsSyncChildren();
     void syncChildren();

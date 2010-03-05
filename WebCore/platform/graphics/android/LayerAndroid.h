@@ -103,6 +103,14 @@ public:
         m_isFixed = true;
     }
 
+    /** Call that method to position the layer relative to another one.
+        We can only be set relative to a fixed layer.
+        The parameter is not refcounted -- we only save its ID as we
+        need to reconnect with the correct layer once we copy the tree
+        to the UI.
+    */
+    void setRelativeTo(LayerAndroid* container);
+
     void setBackgroundColor(SkColor color);
     void setMaskLayer(LayerAndroid*);
     void setMasksToBounds(bool);
@@ -126,14 +134,31 @@ public:
     void dumpLayers(FILE*, int indentLevel) const;
     void dumpToLog() const;
 
-    /** Call this with the current viewport (scrolling, zoom) to update its
-        position attribute, so that later calls like bounds() will report the
-        corrected position (assuming the layer had fixed-positioning).
+    /** Call this to be sure all fixed descendants correctly have
+        a pointer to their container layer before we try
+        to update the positions. The fixed layer we point to is
+        not refcounted (no need, it's already in the layers' tree).
+
+        This call is recursive, so it should be called on the root of the
+        hierarchy.
+    */
+    void ensureFixedLayersForDescendants(const LayerAndroid* rootLayer);
+
+    /** Call this with the current viewport (scrolling, zoom) to update
+        the position of the fixed layers.
+
+        This call is recursive, so it should be called on the root of the
+        hierarchy.
+    */
+    void updateFixedLayersPositions(const SkRect& viewPort);
+
+    /** Call this to update the position attribute, so that later calls
+        like bounds() will report the corrected position.
 
         This call is recursive, so it should be called on the root of the
         hierarchy.
      */
-    void updatePositions(const SkRect& viewPort);
+    void updatePositions();
 
     void clipArea(SkTDArray<SkRect>* region) const;
     const LayerAndroid* find(int x, int y) const;
@@ -160,6 +185,7 @@ private:
     bool m_haveClip;
     bool m_doRotation;
     bool m_isFixed;
+    bool m_isRelativeTo;
     bool m_backgroundColorSet;
 
     SkLength m_fixedLeft;
@@ -168,6 +194,8 @@ private:
     SkLength m_fixedBottom;
     int m_fixedWidth;
     int m_fixedHeight;
+    int m_relativeFixedLayerID;
+    SkPoint m_deltaPosition;
 
     SkPoint m_translation;
     SkPoint m_scale;
@@ -180,6 +208,8 @@ private:
     KeyframesMap m_animations;
     DrawExtra* m_extra;
     int m_uniqueId;
+
+    LayerAndroid* m_relativeFixedLayer;
 
     typedef SkLayer INHERITED;
 };

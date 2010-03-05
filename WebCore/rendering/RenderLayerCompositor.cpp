@@ -702,7 +702,7 @@ void RenderLayerCompositor::rebuildCompositingLayerTree(RenderLayer* layer, cons
             rebuildCompositingLayerTree(curLayer, childState, childList);
         }
     }
-    
+
     if (layer->isStackingContext()) {
         if (Vector<RenderLayer*>* posZOrderList = layer->posZOrderList()) {
             size_t listSize = posZOrderList->size();
@@ -712,7 +712,7 @@ void RenderLayerCompositor::rebuildCompositingLayerTree(RenderLayer* layer, cons
             }
         }
     }
-    
+
     if (layerBacking) {
         layerBacking->parentForSublayers()->setChildren(layerChildren);
         childLayersOfEnclosingLayer.append(layerBacking->childForSuperlayers());
@@ -927,6 +927,17 @@ bool RenderLayerCompositor::needsToBeComposited(const RenderLayer* layer) const
     if (!m_hasAcceleratedCompositing || !layer->isSelfPaintingLayer())
         return false;
 
+#if PLATFORM(ANDROID)
+    // if an ancestor is fixed positionned, we need to be composited...
+    RenderObject* renderer = layer->renderer();
+    RenderObject* parent = renderer->parent();
+    while (parent && (parent = renderer->parent())) {
+      if (parent->isPositioned() && parent->style()->position() == FixedPosition)
+        return true;
+      renderer = parent;
+    }
+#endif
+
     return requiresCompositingLayer(layer) || layer->mustOverlapCompositedLayers();
 }
 
@@ -944,13 +955,14 @@ bool RenderLayerCompositor::requiresCompositingLayer(const RenderLayer* layer) c
     // The root layer always has a compositing layer, but it may not have backing.
     return (inCompositingMode() && layer->isRootLayer()) ||
              requiresCompositingForTransform(renderer) ||
+#if PLATFORM(ANDROID)
+             (renderer->isPositioned() && renderer->style()->position() == FixedPosition) ||
+#else
              requiresCompositingForVideo(renderer) ||
              requiresCompositingForCanvas(renderer) ||
              requiresCompositingForPlugin(renderer) ||
-             renderer->style()->backfaceVisibility() == BackfaceVisibilityHidden ||
-#if PLATFORM(ANDROID)
-             (renderer->isPositioned() && renderer->style()->position() == FixedPosition) ||
 #endif
+             renderer->style()->backfaceVisibility() == BackfaceVisibilityHidden ||
              clipsCompositingDescendants(layer) ||
              requiresCompositingForAnimation(renderer);
 }
