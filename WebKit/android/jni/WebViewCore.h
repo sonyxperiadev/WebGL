@@ -332,7 +332,11 @@ namespace android {
          * Scroll the focused textfield to (x, y) in document space
          */
         void scrollFocusedTextInput(float x, int y);
-        void setFocusControllerActive(bool active);
+        /**
+         * Set the FocusController's active and focused states, so that
+         * the caret will draw (true) or not.
+         */
+        void setFocusControllerActive(WebCore::Frame*, bool active);
 
         void saveDocumentState(WebCore::Frame* frame);
 

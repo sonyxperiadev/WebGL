@@ -1615,8 +1615,9 @@ void WebViewCore::setSelection(int start, int end)
     client->setUiGeneratedSelectionChange(true);
     rtc->setSelectionRange(start, end);
     client->setUiGeneratedSelectionChange(false);
-    focus->document()->frame()->revealSelection();
-    setFocusControllerActive(true);
+    WebCore::Frame* focusedFrame = focus->document()->frame();
+    focusedFrame->revealSelection();
+    setFocusControllerActive(focusedFrame, true);
 }
 
 void WebViewCore::deleteSelection(int start, int end, int textGeneration)
@@ -1686,7 +1687,7 @@ void WebViewCore::passToJs(int generation, const WebCore::String& current,
     client->setUiGeneratedSelectionChange(false);
     m_blockTextfieldUpdates = false;
     m_textGeneration = generation;
-    setFocusControllerActive(true);
+    setFocusControllerActive(focus->document()->frame(), true);
     WebCore::RenderTextControl* renderText =
         static_cast<WebCore::RenderTextControl*>(renderer);
     WebCore::String test = renderText->text();
@@ -1722,9 +1723,18 @@ void WebViewCore::scrollFocusedTextInput(float xPercent, int y)
     renderText->setScrollTop(y);
 }
 
-void WebViewCore::setFocusControllerActive(bool active)
+void WebViewCore::setFocusControllerActive(WebCore::Frame* frame, bool active)
 {
-    m_mainFrame->page()->focusController()->setActive(active);
+    if (!frame) {
+        WebCore::Node* focus = currentFocus();
+        if (focus)
+            frame = focus->document()->frame();
+        else
+            frame = m_mainFrame;
+    }
+    WebCore::FocusController* controller = frame->page()->focusController();
+    controller->setActive(active);
+    controller->setFocused(active);
 }
 
 void WebViewCore::saveDocumentState(WebCore::Frame* frame)
@@ -2119,7 +2129,7 @@ bool WebViewCore::handleMouseClick(WebCore::Frame* framePtr, WebCore::Node* node
         if (renderer && (renderer->isTextField() || renderer->isTextArea())) {
             bool ime = !(static_cast<WebCore::HTMLInputElement*>(focusNode))
                     ->readOnly();
-            setFocusControllerActive(ime);
+            setFocusControllerActive(framePtr, ime);
             requestKeyboard(ime, true);
         }
     }
@@ -2598,7 +2608,7 @@ static void SetFocusControllerActive(JNIEnv *env, jobject obj, jboolean active)
     LOGV("webviewcore::nativeSetFocusControllerActive()\n");
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
     LOG_ASSERT(viewImpl, "viewImpl not set in nativeSetFocusControllerActive");
-    viewImpl->setFocusControllerActive(active);
+    viewImpl->setFocusControllerActive(0, active);
 }
 
 static void SaveDocumentState(JNIEnv *env, jobject obj, jint frame)
