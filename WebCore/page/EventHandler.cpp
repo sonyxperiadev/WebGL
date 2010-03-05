@@ -2562,14 +2562,7 @@ static PassRefPtr<TouchList> assembleTargetTouches(Touch* touchTarget, TouchList
     return targetTouches.release();
 }
 
-#if PLATFORM(ANDROID)
-// TODO(benm): On Android we return an int back to Java to signify whether the default actions
-// for longpress/doubletap in the Browser should be prevented. I think that before upstreaming
-// to webkit.org we can refactor the Java side to not require this.
-int EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
-#else
 bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
-#endif
 {
     RefPtr<TouchList> touches = TouchList::create();
     RefPtr<TouchList> pressedTouches = TouchList::create();
@@ -2643,13 +2636,6 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
     Touch* changedTouch = 0;
     EventTarget* touchEventTarget = 0;
 
-#if PLATFORM(ANDROID)
-    // TODO (benm): We should be able to remove this prior to upstreaming once Java side refactorings to make
-    // preventDeault work better are complete.
-    bool longPressPrevented = false;
-    bool doubleTapPrevented = false;
-#endif
-
     if (cancelTouches->length() > 0) {
         // We dispatch the event to the target of the touch that caused this touch event to be generated, i.e.
         // we take it from the list that will be used as the changedTouches property of the event.
@@ -2668,9 +2654,6 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
                                                    0, 0, 0, 0, event.ctrlKey(), event.altKey(), event.shiftKey(),
                                                    event.metaKey());
 
-#if PLATFORM(ANDROID)
-        cancelEv->setCreateTime(static_cast<DOMTimeStamp>(event.eventTime()));
-#endif
         ExceptionCode ec = 0;
         touchEventTarget->dispatchEvent(cancelEv.get(), ec);
         defaultPrevented |= cancelEv->defaultPrevented();
@@ -2690,9 +2673,6 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
                                                    *eventName, touchEventTarget->toNode()->document()->defaultView(),
                                                    0, 0, 0, 0, event.ctrlKey(), event.altKey(), event.shiftKey(),
                                                    event.metaKey());
-#if PLATFORM(ANDROID)
-        endEv->setCreateTime(static_cast<DOMTimeStamp>(event.eventTime()));
-#endif
         ExceptionCode ec = 0;
         touchEventTarget->dispatchEvent(endEv.get(), ec);
         defaultPrevented |= endEv->defaultPrevented();
@@ -2713,7 +2693,6 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
                                                        *eventName, touchEventTarget->toNode()->document()->defaultView(),
                                                        0, 0, 0, 0, event.ctrlKey(), event.altKey(), event.shiftKey(),
                                                        event.metaKey());
-            longpressEv->setCreateTime(static_cast<DOMTimeStamp>(event.eventTime()));
 
             ExceptionCode ec = 0;
             touchEventTarget->dispatchEvent(longpressEv.get(), ec);
@@ -2725,7 +2704,6 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
                                                        *eventName, touchEventTarget->toNode()->document()->defaultView(),
                                                        0, 0, 0, 0, event.ctrlKey(), event.altKey(), event.shiftKey(),
                                                        event.metaKey());
-            doubleTapEv->setCreateTime(static_cast<DOMTimeStamp>(event.eventTime()));
 
             ExceptionCode ec = 0;
             touchEventTarget->dispatchEvent(doubleTapEv.get(), ec);
@@ -2738,15 +2716,10 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
                                                    *eventName, touchEventTarget->toNode()->document()->defaultView(),
                                                    0, 0, 0, 0, event.ctrlKey(), event.altKey(), event.shiftKey(),
                                                    event.metaKey());
-#if PLATFORM(ANDROID)
-        startEv->setCreateTime(static_cast<DOMTimeStamp>(event.eventTime()));
-#endif
         ExceptionCode ec = 0;
         touchEventTarget->dispatchEvent(startEv.get(), ec);
         defaultPrevented |= startEv->defaultPrevented();
 #if PLATFORM(ANDROID)
-        longPressPrevented |= startEv->longPressPrevented();
-        doubleTapPrevented |= startEv->doubleTapPrevented();
     }
 #endif
     }
@@ -2765,26 +2738,12 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
                                                    *eventName, touchEventTarget->toNode()->document()->defaultView(),
                                                    0, 0, 0, 0, event.ctrlKey(), event.altKey(), event.shiftKey(),
                                                    event.metaKey());
-#if PLATFORM(ANDROID)
-        moveEv->setCreateTime(static_cast<DOMTimeStamp>(event.eventTime()));
-#endif
         ExceptionCode ec = 0;
         touchEventTarget->dispatchEvent(moveEv.get(), ec);
         defaultPrevented |= moveEv->defaultPrevented();
     }
 
-#if PLATFORM(ANDROID)
-    // TODO (benm): We should be able to remove this prior to upstreaming  once Java side refactorings to make
-    // preventDefault work better are complete.
-    if (event.type() == TouchLongPress || event.type() == TouchDoubleTap)
-        return 0;
-
-    return (defaultPrevented ? preventTouch : 0)
-            | (longPressPrevented ? preventLongPress : 0)
-            | (doubleTapPrevented ? preventDoubleTap : 0);
-#else
     return defaultPrevented;
-#endif
 }
 #endif
 

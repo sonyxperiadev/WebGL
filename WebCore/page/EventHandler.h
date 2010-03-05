@@ -78,17 +78,6 @@ extern const int GeneralDragHysteresis;
 
 enum HitTestScrollbars { ShouldHitTestScrollbars, DontHitTestScrollbars };
 
-#if PLATFORM(ANDROID)
-// TODO (benm): I think with some Java refactoring we can remove this before upstreaming to webkit.org.
-#if ENABLE(TOUCH_EVENTS)
-enum TouchResultMask {
-    preventTouch        = 1 << 0,
-    preventLongPress    = 1 << 1,
-    preventDoubleTap    = 1 << 2,
-};
-#endif
-#endif
-
 class EventHandler : public Noncopyable {
 public:
     EventHandler(Frame*);
@@ -211,11 +200,7 @@ public:
 #endif
 
 #if ENABLE(TOUCH_EVENTS)
-#if PLATFORM(ANDROID)
-    int handleTouchEvent(const PlatformTouchEvent&);
-#else
     bool handleTouchEvent(const PlatformTouchEvent&);
-#endif
 #endif
 
 private:

@@ -103,11 +103,4 @@ bool SkANP::SetBitmap(ANPBitmap* dst, const SkBitmap& src) {
 void SkANP::InitEvent(ANPEvent* event, ANPEventType et) {
     event->inSize = sizeof(ANPEvent);
     event->eventType = et;
-    event->timeStamp = currentTime() * 1000.0;
-}
-
-void SkANP::InitEvent(ANPEvent* event, ANPEventType et, long time) {
-    event->inSize = sizeof(ANPEvent);
-    event->eventType = et;
-    event->timeStamp = time;
 }

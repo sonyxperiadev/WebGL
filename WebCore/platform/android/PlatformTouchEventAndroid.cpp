@@ -38,11 +38,10 @@ enum AndroidMetaKeyState {
     META_SYM_ON = 0x04
 };
 
-// TODO (benm): eventTime and metaState are new and needs to be upstreamed.
-PlatformTouchEvent::PlatformTouchEvent(const IntPoint& windowPos, TouchEventType type, PlatformTouchPoint::State state, long eventTime, int metaState)
+// TODO (benm): metaState are new and needs to be upstreamed.
+PlatformTouchEvent::PlatformTouchEvent(const IntPoint& windowPos, TouchEventType type, PlatformTouchPoint::State state, int metaState)
     : m_type(type)
     , m_metaKey(false)
-    , m_eventTime(eventTime)
 {
     m_touchPoints.append(PlatformTouchPoint(windowPos, state));
 

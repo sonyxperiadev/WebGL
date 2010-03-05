@@ -93,10 +93,8 @@ void anp_logPluginEvent(void* npp, const ANPEvent* evt, int16 returnVal, int ela
         case kTouch_ANPEventType:
             if(evt->data.touch.action < ARRAY_COUNT(inputActions)) {
 
-                uint32_t totalTime = android::uptimeMillis() - evt->timeStamp;
-
-                anp_logPlugin("%p EVENT::TOUCH[%d] delay=%d time=%d action=%s [%d %d]",
-                        npp, returnVal, totalTime - elapsedTime, elapsedTime,
+                anp_logPlugin("%p EVENT::TOUCH[%d] time=%d action=%s [%d %d]",
+                        npp, returnVal, elapsedTime,
                         inputActions[evt->data.touch.action], evt->data.touch.x,
                         evt->data.touch.y);
             } else {

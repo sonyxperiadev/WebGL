@@ -154,10 +154,6 @@ namespace WebCore {
         bool createdByDOM() const { return m_createdByDOM; }
         void setCreatedByDOM(bool createdByDOM) { m_createdByDOM = createdByDOM; }
 
-#if PLATFORM(ANDROID)
-        void setCreateTime(DOMTimeStamp time) { m_createTime = time; }
-#endif
-
     protected:
         Event();
         Event(const AtomicString& type, bool canBubble, bool cancelable);

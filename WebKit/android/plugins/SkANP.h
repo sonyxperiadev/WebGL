@@ -74,7 +74,6 @@ public:
     static bool SetBitmap(ANPBitmap* dst, const SkBitmap& src);
     
     static void InitEvent(ANPEvent* event, ANPEventType et);
-    static void InitEvent(ANPEvent* event, ANPEventType et, long time);
 };
 
 #endif

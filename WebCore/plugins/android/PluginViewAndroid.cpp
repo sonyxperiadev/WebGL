@@ -190,10 +190,12 @@ void PluginView::handleTouchEvent(TouchEvent* event)
     if (!m_window->isAcceptingEvent(kTouch_ANPEventFlag))
         return;
 
-    ANPEvent evt;
-    SkANP::InitEvent(&evt, kTouch_ANPEventType, event->timeStamp());
+    if (!m_window->inFullScreen() && m_parentFrame->document()->focusedNode() != m_element)
+        return;
 
-    bool ignoreRet = false;
+    ANPEvent evt;
+    SkANP::InitEvent(&evt, kTouch_ANPEventType);
+
     const AtomicString& type = event->type();
     if (eventNames().touchstartEvent == type)
         evt.data.touch.action = kDown_ANPTouchAction;
@@ -203,13 +205,11 @@ void PluginView::handleTouchEvent(TouchEvent* event)
         evt.data.touch.action = kMove_ANPTouchAction;
     else if (eventNames().touchcancelEvent == type)
         evt.data.touch.action = kCancel_ANPTouchAction;
-    else if (eventNames().touchlongpressEvent == type) {
+    else if (eventNames().touchlongpressEvent == type)
         evt.data.touch.action = kLongPress_ANPTouchAction;
-        ignoreRet = true;
-    } else if (eventNames().touchdoubletapEvent == type) {
+    else if (eventNames().touchdoubletapEvent == type)
         evt.data.touch.action = kDoubleTap_ANPTouchAction;
-        ignoreRet = true;
-    } else
+    else
         return;
 
     evt.data.touch.modifiers = 0;   // todo
@@ -225,23 +225,8 @@ void PluginView::handleTouchEvent(TouchEvent* event)
     evt.data.touch.x = localPos.x();
     evt.data.touch.y = localPos.y();
 
-    int16 ret = m_window->sendEvent(evt);
-    if (ignoreRet)
-        return;
-    if (ret & kHandleTouch_ANPTouchResult) {
-        // The plugin needs focus to receive keyboard events
-        if (evt.data.touch.action == kDown_ANPTouchAction) {
-            if (Page* page = m_parentFrame->page())
-                page->focusController()->setFocusedFrame(m_parentFrame);
-            m_parentFrame->document()->setFocusedNode(m_element);
-        }
+    if (m_window->sendEvent(evt))
         event->preventDefault();
-    } else {
-        if (ret & kHandleLongPress_ANPTouchResult)
-            event->preventLongPress();
-        if (ret & kHandleDoubleTap_ANPTouchResult)
-            event->preventDoubleTap();
-    }
 }
 
 void PluginView::handleMouseEvent(MouseEvent* event)
@@ -253,7 +238,7 @@ void PluginView::handleMouseEvent(MouseEvent* event)
     ANPEvent    evt;
 
     if (isUp || isDown) {
-        SkANP::InitEvent(&evt, kMouse_ANPEventType, event->timeStamp());
+        SkANP::InitEvent(&evt, kMouse_ANPEventType);
         evt.data.mouse.action = isUp ? kUp_ANPMouseAction : kDown_ANPMouseAction;
 
         // Convert to coordinates that are relative to the plugin.
@@ -315,7 +300,7 @@ void PluginView::handleKeyboardEvent(KeyboardEvent* event)
     bool ignoreEvent = false;
 
     ANPEvent evt;
-    SkANP::InitEvent(&evt, kKey_ANPEventType, event->timeStamp());
+    SkANP::InitEvent(&evt, kKey_ANPEventType);
 
     switch (pke->type()) {
         case PlatformKeyboardEvent::KeyDown:
