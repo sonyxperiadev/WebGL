@@ -1331,12 +1331,6 @@ void WebViewCore::updateCacheOnNodeChange()
 
 void WebViewCore::updateFrameCache()
 {
-#if USE(ACCELERATED_COMPOSITING)
-    ChromeClientAndroid* chromeC = static_cast<ChromeClientAndroid*>(
-                                       mainFrame()->page()->chrome()->client());
-    chromeC->scheduleCompositingLayerSync();
-#endif
-
     if (!m_frameCacheOutOfDate) {
         DBG_NAV_LOG("!m_frameCacheOutOfDate");
         return;
