@@ -68,6 +68,7 @@ PluginWidgetAndroid::PluginWidgetAndroid(WebCore::PluginView* view)
     m_visible = true;
     m_zoomLevel = 0;
     m_embeddedView = NULL;
+    m_embeddedViewAttached = false;
     m_acceptEvents = false;
 }
 
@@ -119,36 +120,13 @@ void PluginWidgetAndroid::setWindow(NPWindow* window, bool isTransparent) {
                        m_pluginWindow->x + m_pluginWindow->width,
                        m_pluginWindow->y + m_pluginWindow->height);
 
-    if (m_drawingModel == kSurface_ANPDrawingModel) {
+    PLUGIN_LOG("%p PluginBounds (%d,%d,%d,%d)", m_pluginView->instance(),
+               m_pluginBounds.fLeft, m_pluginBounds.fTop,
+               m_pluginBounds.fRight, m_pluginBounds.fBottom);
 
-        // if the surface does not exist then create a new surface
-        if (!m_embeddedView) {
+    updateSurfaceIfNeeded(m_pluginBounds != oldPluginBounds);
 
-            WebCore::PluginPackage* pkg = m_pluginView->plugin();
-            NPP instance = m_pluginView->instance();
-
-            jobject pluginSurface;
-            pkg->pluginFuncs()->getvalue(instance, kJavaSurface_ANPGetValue,
-                                         static_cast<void*>(&pluginSurface));
-
-            jobject tempObj = m_core->addSurface(pluginSurface,
-                                                 window->x, window->y,
-                                                 window->width, window->height);
-            if (tempObj) {
-                JNIEnv* env = JSC::Bindings::getJNIEnv();
-                m_embeddedView = env->NewGlobalRef(tempObj);
-            }
-        } else if (m_pluginBounds != oldPluginBounds) {
-            // if the surface exists check for changes and update accordingly
-            if (m_isFullScreen) {
-                m_core->updateFullScreenPlugin(window->x, window->y,
-                        window->width, window->height);
-            } else {
-                m_core->updateSurface(m_embeddedView, window->x, window->y,
-                                      window->width, window->height);
-            }
-        }
-    } else {
+    if (m_drawingModel != kSurface_ANPDrawingModel) {
         m_flipPixelRef->safeUnref();
         m_flipPixelRef = new SkFlipPixelRef(computeConfig(isTransparent),
                                             window->width, window->height);
@@ -228,6 +206,50 @@ void PluginWidgetAndroid::draw(SkCanvas* canvas) {
         }
         default:
             break;
+    }
+}
+
+void PluginWidgetAndroid::updateSurfaceIfNeeded(bool pluginBoundsChanged) {
+
+    if (m_drawingModel != kSurface_ANPDrawingModel)
+        return;
+
+    PLUGIN_LOG("%p Plugin Visible self=[%d] parent=[%d]", m_pluginView->instance(),
+            m_pluginView->isSelfVisible(), m_pluginView->isParentVisible());
+
+    // if the surface does not exist then create a new surface
+    if (!m_embeddedView && m_pluginView->isVisible()) {
+
+        WebCore::PluginPackage* pkg = m_pluginView->plugin();
+        NPP instance = m_pluginView->instance();
+
+        jobject pluginSurface;
+        pkg->pluginFuncs()->getvalue(instance, kJavaSurface_ANPGetValue,
+                                     static_cast<void*>(&pluginSurface));
+
+        jobject tempObj = m_core->addSurface(pluginSurface,
+                m_pluginWindow->x, m_pluginWindow->y,
+                m_pluginWindow->width, m_pluginWindow->height);
+
+        if (tempObj) {
+            JNIEnv* env = JSC::Bindings::getJNIEnv();
+            m_embeddedView = env->NewGlobalRef(tempObj);
+            m_embeddedViewAttached = true;
+        }
+    // if the view is unattached but visible then attach it
+    } else if (m_embeddedView && !m_embeddedViewAttached && m_pluginView->isVisible() && !m_isFullScreen) {
+        m_core->updateSurface(m_embeddedView, m_pluginWindow->x, m_pluginWindow->y,
+                              m_pluginWindow->width, m_pluginWindow->height);
+        m_embeddedViewAttached = true;
+    // if the view is attached but invisible then remove it
+    } else if (m_embeddedView && m_embeddedViewAttached && !m_pluginView->isVisible()) {
+        m_core->destroySurface(m_embeddedView);
+        m_embeddedViewAttached = false;
+    // if the plugin's bounds have changed and it's visible then update it
+    } else if (pluginBoundsChanged && m_pluginView->isVisible() && !m_isFullScreen) {
+        m_core->updateSurface(m_embeddedView, m_pluginWindow->x, m_pluginWindow->y,
+                              m_pluginWindow->width, m_pluginWindow->height);
+
     }
 }
 
@@ -316,16 +338,24 @@ void PluginWidgetAndroid::setVisibleScreen(const ANPRectI& visibleDocRect, float
     int newScreenW = m_visibleDocRect.width();
     int newScreenH = m_visibleDocRect.height();
 
-    PLUGIN_LOG("%s VisibleDoc Dimensions old=[%d,%d] new=[%d,%d] ",
-               __FUNCTION__, oldScreenW, oldScreenH, newScreenW, newScreenH);
-
     // if the screen dimensions have changed by more than 5 pixels in either
     // direction then recompute the plugin's visible rectangle
-    if (abs(oldScreenW - newScreenW) > 5 || abs(oldScreenH - newScreenH) > 5)
+    if (abs(oldScreenW - newScreenW) > 5 || abs(oldScreenH - newScreenH) > 5) {
+        PLUGIN_LOG("%s VisibleDoc old=[%d,%d] new=[%d,%d] ", __FUNCTION__,
+                   oldScreenW, oldScreenH, newScreenW, newScreenH);
         computeVisiblePluginRect();
+    }
 
     bool visible = SkIRect::Intersects(m_visibleDocRect, m_pluginBounds);
     if(m_visible != visible) {
+
+#if DEBUG_VISIBLE_RECTS
+        PLUGIN_LOG("%p changeVisiblity[%d] pluginBounds(%d,%d,%d,%d)",
+                   m_pluginView->instance(), visible,
+                   m_pluginBounds.fLeft, m_pluginBounds.fTop,
+                   m_pluginBounds.fRight, m_pluginBounds.fBottom);
+#endif
+
         // change the visibility
         m_visible = visible;
         // send the event

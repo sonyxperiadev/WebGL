@@ -141,6 +141,13 @@ struct PluginWidgetAndroid {
      */
     bool hasFocus() const { return m_hasFocus; }
 
+    /** Called to ensure the surface is being correctly displayed within the
+        view hierarchy. For instance, if the visibility of the plugin has
+        changed then we need to ensure the surface is added or removed from the
+        view system.
+     */
+    void updateSurfaceIfNeeded(bool pluginBoundsChanged = false);
+
 private:
     void computeVisiblePluginRect();
     void scrollToVisiblePluginRect();
@@ -159,6 +166,7 @@ private:
     bool                    m_visible;
     float                   m_zoomLevel;
     jobject                 m_embeddedView;
+    bool                    m_embeddedViewAttached;
     bool                    m_acceptEvents;
 
     /* We limit the number of rectangles to minimize storage and ensure adequate
