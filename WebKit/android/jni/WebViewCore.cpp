@@ -1288,7 +1288,7 @@ WebCore::String WebViewCore::retrieveAnchorText(WebCore::Frame* frame, WebCore::
 WebCore::String WebViewCore::requestLabel(WebCore::Frame* frame,
         WebCore::Node* node)
 {
-    if (CacheBuilder::validNode(m_mainFrame, frame, node)) {
+    if (node && CacheBuilder::validNode(m_mainFrame, frame, node)) {
         RefPtr<WebCore::NodeList> list = node->document()->getElementsByTagName("label");
         unsigned length = list->length();
         for (unsigned i = 0; i < length; i++) {
