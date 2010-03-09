@@ -51,8 +51,10 @@ CachedCSSStyleSheet::~CachedCSSStyleSheet()
 
 void CachedCSSStyleSheet::didAddClient(CachedResourceClient *c)
 {
-    if (!m_loading)
+    if (!m_loading) {
         c->setCSSStyleSheet(m_url, m_response.url(), m_decoder->encoding().name(), this);
+        c->notifyFinished(this);
+    }
 }
 
 void CachedCSSStyleSheet::allClientsRemoved()
@@ -103,6 +105,10 @@ void CachedCSSStyleSheet::data(PassRefPtr<SharedBuffer> data, bool allDataReceiv
     checkNotify();
     // Clear the decoded text as it is unlikely to be needed immediately again and is cheap to regenerate.
     m_decodedSheetText = String();
+
+    CachedResourceClientWalker w(m_clients);
+    while (CachedResourceClient* c = w.next())
+        c->notifyFinished(this);
 }
 
 void CachedCSSStyleSheet::checkNotify()

@@ -44,6 +44,9 @@
 #include "loader.h"
 #include "SecurityOrigin.h"
 #include "Settings.h"
+#if ENABLE(LINK_PREFETCH)
+#include "CachedLinkPrefetch.h"
+#endif
 
 #define PRELOAD_DEBUG 0
 
@@ -176,6 +179,13 @@ CachedXBLDocument* DocLoader::requestXBLDocument(const String& url)
 }
 #endif
 
+#if ENABLE(LINK_PREFETCH)
+CachedLinkPrefetch* DocLoader::requestLinkPrefetch(const String& url)
+{
+    return static_cast<CachedLinkPrefetch*>(requestResource(CachedResource::LinkPrefetch, url, String()));
+}
+#endif
+
 bool DocLoader::canRequest(CachedResource::Type type, const KURL& url)
 {
     // Some types of resources can be loaded only from the same origin.  Other
@@ -186,6 +196,9 @@ bool DocLoader::canRequest(CachedResource::Type type, const KURL& url)
     case CachedResource::CSSStyleSheet:
     case CachedResource::Script:
     case CachedResource::FontResource:
+#if ENABLE(LINK_PREFETCH)
+    case CachedResource::LinkPrefetch:
+#endif
         // These types of resources can be loaded from any origin.
         // FIXME: Are we sure about CachedResource::FontResource?
         break;
@@ -228,6 +241,9 @@ bool DocLoader::canRequest(CachedResource::Type type, const KURL& url)
         break;
     case CachedResource::ImageResource:
     case CachedResource::CSSStyleSheet:
+#if ENABLE(LINK_PREFETCH)
+    case CachedResource::LinkPrefetch:
+#endif
     case CachedResource::FontResource: {
         // These resources can corrupt only the frame's pixels.
         if (Frame* f = frame()) {
@@ -402,13 +418,19 @@ void DocLoader::checkCacheObjectStatus(CachedResource* resource)
     frame()->loader()->loadedResourceFromMemoryCache(resource);
 }
 
-void DocLoader::incrementRequestCount()
+void DocLoader::incrementRequestCount(const CachedResource* res)
 {
+    if (res->isPrefetch())
+        return;
+
     ++m_requestCount;
 }
 
-void DocLoader::decrementRequestCount()
+void DocLoader::decrementRequestCount(const CachedResource* res)
 {
+    if (res->isPrefetch())
+        return;
+
     --m_requestCount;
     ASSERT(m_requestCount > -1);
 }

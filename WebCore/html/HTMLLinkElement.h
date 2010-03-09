@@ -27,14 +27,39 @@
 #include "CachedResourceClient.h"
 #include "CachedResourceHandle.h"
 #include "HTMLElement.h"
+#include "Timer.h"
 
 namespace WebCore {
 
 class CachedCSSStyleSheet;
+class CachedLinkPrefetch;
 class KURL;
 
 class HTMLLinkElement : public HTMLElement, public CachedResourceClient {
 public:
+    struct RelAttribute {
+        bool m_isStyleSheet;
+        bool m_isIcon;
+        bool m_isAlternate;
+        bool m_isDNSPrefetch;
+#ifdef ANDROID_APPLE_TOUCH_ICON
+        bool m_isTouchIcon;
+        bool m_isPrecomposedTouchIcon;
+#endif
+#if ENABLE(LINK_PREFETCH)
+        bool m_isLinkPrefetch;
+#endif
+
+        RelAttribute() : m_isStyleSheet(false), m_isIcon(false), m_isAlternate(false), m_isDNSPrefetch(false)
+#ifdef ANDROID_APPLE_TOUCH_ICON
+                , m_isTouchIcon(false), m_isPrecomposedTouchIcon(false)
+#endif
+#if ENABLE(LINK_PREFETCH)
+            , m_isLinkPrefetch(false)
+#endif
+            { };
+    };
+
     HTMLLinkElement(const QualifiedName&, Document*, bool createdByParser);
     ~HTMLLinkElement();
 
@@ -80,24 +105,22 @@ public:
 
     // from CachedResourceClient
     virtual void setCSSStyleSheet(const String& href, const KURL& baseURL, const String& charset, const CachedCSSStyleSheet* sheet);
+    virtual void notifyFinished(CachedResource*);
+
     bool isLoading() const;
     virtual bool sheetLoaded();
 
-    bool isAlternate() const { return m_disabledState == 0 && m_alternate; }
+    bool isAlternate() const { return m_disabledState == 0 && m_rel.m_isAlternate; }
     bool isDisabled() const { return m_disabledState == 2; }
     bool isEnabledViaScript() const { return m_disabledState == 1; }
-    bool isIcon() const { return m_isIcon; }
+    bool isIcon() const { return m_rel.m_isIcon; }
     
     int disabledState() { return m_disabledState; }
     void setDisabledState(bool _disabled);
 
     virtual bool isURLAttribute(Attribute*) const;
     
-#ifdef ANDROID_APPLE_TOUCH_ICON
-    static void tokenizeRelAttribute(const AtomicString& value, bool& stylesheet, bool& alternate, bool& icon, bool& touchIcon, bool& precomposedTouchIcon, bool& dnsPrefetch);
-#else
-    static void tokenizeRelAttribute(const AtomicString& value, bool& stylesheet, bool& alternate, bool& icon, bool& dnsPrefetch);
-#endif
+    static void tokenizeRelAttribute(const AtomicString& value, RelAttribute& attribute);
 
     virtual void addSubresourceAttributeURLs(ListHashSet<KURL>&) const;
 
@@ -112,22 +135,21 @@ public:
 #endif
 
 protected:
+    void timerFired(Timer<HTMLLinkElement>*);
+
     CachedResourceHandle<CachedCSSStyleSheet> m_cachedSheet;
     RefPtr<CSSStyleSheet> m_sheet;
+#if ENABLE(LINK_PREFETCH)
+    CachedResourceHandle<CachedLinkPrefetch> m_cachedLinkPrefetch;
+#endif
     KURL m_url;
     String m_type;
     String m_media;
     int m_disabledState; // 0=unset(default), 1=enabled via script, 2=disabled
+    RelAttribute m_rel;
     bool m_loading;
-    bool m_alternate;
-    bool m_isStyleSheet;
-    bool m_isIcon;
-#ifdef ANDROID_APPLE_TOUCH_ICON
-    bool m_isTouchIcon;
-    bool m_isPrecomposedTouchIcon;
-#endif
-    bool m_isDNSPrefetch;
     bool m_createdByParser;
+    Timer<HTMLLinkElement> m_timer;
 };
 
 } //namespace

@@ -63,6 +63,9 @@ public:
 #if ENABLE(XBL)
         , XBL
 #endif
+#if ENABLE(LINK_PREFETCH)
+        , LinkPrefetch
+#endif
     };
 
     enum Status {
@@ -118,6 +121,7 @@ public:
     void setLoading(bool b) { m_loading = b; }
 
     virtual bool isImage() const { return false; }
+    virtual bool isPrefetch() const { return false; }
 
     unsigned accessCount() const { return m_accessCount; }
     void increaseAccessCount() { m_accessCount++; }

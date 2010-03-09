@@ -41,6 +41,9 @@
 #include "ScriptEventListener.h"
 #include "Settings.h"
 #include <wtf/StdLibExtras.h>
+#if ENABLE(LINK_PREFETCH)
+#include "CachedLinkPrefetch.h"
+#endif
 
 namespace WebCore {
 
@@ -51,15 +54,8 @@ HTMLLinkElement::HTMLLinkElement(const QualifiedName& qName, Document *doc, bool
     , m_cachedSheet(0)
     , m_disabledState(0)
     , m_loading(false)
-    , m_alternate(false)
-    , m_isStyleSheet(false)
-    , m_isIcon(false)
-#ifdef ANDROID_APPLE_TOUCH_ICON
-    , m_isTouchIcon(false)
-    , m_isPrecomposedTouchIcon(false)
-#endif
-    , m_isDNSPrefetch(false)
     , m_createdByParser(createdByParser)
+    , m_timer(this, &HTMLLinkElement::timerFired)
 {
     ASSERT(hasTagName(linkTag));
 }
@@ -84,11 +80,11 @@ void HTMLLinkElement::setDisabledState(bool _disabled)
             // Check #1: If the sheet becomes disabled while it was loading, and if it was either
             // a main sheet or a sheet that was previously enabled via script, then we need
             // to remove it from the list of pending sheets.
-            if (m_disabledState == 2 && (!m_alternate || oldDisabledState == 1))
+            if (m_disabledState == 2 && (!m_rel.m_isAlternate || oldDisabledState == 1))
                 document()->removePendingSheet();
 
             // Check #2: An alternate sheet becomes enabled while it is still loading.
-            if (m_alternate && m_disabledState == 1)
+            if (m_rel.m_isAlternate && m_disabledState == 1)
                 document()->addPendingSheet();
 
             // Check #3: A main sheet becomes enabled while it was still loading and
@@ -96,7 +92,7 @@ void HTMLLinkElement::setDisabledState(bool _disabled)
             // happen (a double toggle for no reason essentially).  This happens on
             // virtualplastic.net, which manages to do about 12 enable/disables on only 3
             // sheets. :)
-            if (!m_alternate && m_disabledState == 1 && oldDisabledState == 2)
+            if (!m_rel.m_isAlternate && m_disabledState == 1 && oldDisabledState == 2)
                 document()->addPendingSheet();
 
             // If the sheet is already loading just bail.
@@ -119,11 +115,7 @@ StyleSheet* HTMLLinkElement::sheet() const
 void HTMLLinkElement::parseMappedAttribute(MappedAttribute *attr)
 {
     if (attr->name() == relAttr) {
-#ifdef ANDROID_APPLE_TOUCH_ICON
-        tokenizeRelAttribute(attr->value(), m_isStyleSheet, m_alternate, m_isIcon, m_isTouchIcon, m_isPrecomposedTouchIcon, m_isDNSPrefetch);
-#else
-        tokenizeRelAttribute(attr->value(), m_isStyleSheet, m_alternate, m_isIcon, m_isDNSPrefetch);
-#endif
+        tokenizeRelAttribute(attr->value(), m_rel);
         process();
     } else if (attr->name() == hrefAttr) {
         m_url = document()->completeURL(deprecatedParseURL(attr->value()));
@@ -136,44 +128,49 @@ void HTMLLinkElement::parseMappedAttribute(MappedAttribute *attr)
         process();
     } else if (attr->name() == disabledAttr) {
         setDisabledState(!attr->isNull());
-    } else if (attr->name() == onbeforeloadAttr)
+    } else if (attr->name() == onbeforeloadAttr) {
         setAttributeEventListener(eventNames().beforeloadEvent, createAttributeEventListener(this, attr));
-    else {
+    } else if (attr->name() == onloadAttr) {
+        setAttributeEventListener(eventNames().loadEvent, createAttributeEventListener(this, attr));
+    } else {
         if (attr->name() == titleAttr && m_sheet)
             m_sheet->setTitle(attr->value());
         HTMLElement::parseMappedAttribute(attr);
     }
 }
 
-#ifdef ANDROID_APPLE_TOUCH_ICON
-void HTMLLinkElement::tokenizeRelAttribute(const AtomicString& rel, bool& styleSheet, bool& alternate, bool& icon, bool& touchIcon, bool& precomposedTouchIcon, bool& dnsPrefetch)
-#else
-void HTMLLinkElement::tokenizeRelAttribute(const AtomicString& rel, bool& styleSheet, bool& alternate, bool& icon, bool& dnsPrefetch)
-#endif
+void HTMLLinkElement::tokenizeRelAttribute(const AtomicString& rel, RelAttribute& attribute)
 {
-    styleSheet = false;
-    icon = false; 
-    alternate = false;
-    dnsPrefetch = false;
+    attribute.m_isStyleSheet = false;
+    attribute.m_isIcon = false;
+    attribute.m_isAlternate = false;
+    attribute.m_isDNSPrefetch = false;
+#if ENABLE(LINK_PREFETCH)
+    attribute.m_isLinkPrefetch = false;
+#endif
 #ifdef ANDROID_APPLE_TOUCH_ICON
-    touchIcon = false;
-    precomposedTouchIcon = false;
+    attribute.m_isTouchIcon = false;
+    attribute.m_isPrecomposedTouchIcon = false;
 #endif
     if (equalIgnoringCase(rel, "stylesheet"))
-        styleSheet = true;
+        attribute.m_isStyleSheet = true;
     else if (equalIgnoringCase(rel, "icon") || equalIgnoringCase(rel, "shortcut icon"))
-        icon = true;
+        attribute.m_isIcon = true;
 #ifdef ANDROID_APPLE_TOUCH_ICON
     else if (equalIgnoringCase(rel, "apple-touch-icon"))
-        touchIcon = true;
+        attribute.m_isTouchIcon = true;
     else if (equalIgnoringCase(rel, "apple-touch-icon-precomposed"))
-        precomposedTouchIcon = true;
+        attribute.m_isPrecomposedTouchIcon = true;
 #endif
     else if (equalIgnoringCase(rel, "dns-prefetch"))
-        dnsPrefetch = true;
+        attribute.m_isDNSPrefetch = true;
+#if ENABLE(LINK_PREFETCH)
+    else if (equalIgnoringCase(rel, "prefetch"))
+        attribute.m_isLinkPrefetch = true;
+#endif
     else if (equalIgnoringCase(rel, "alternate stylesheet") || equalIgnoringCase(rel, "stylesheet alternate")) {
-        styleSheet = true;
-        alternate = true;
+        attribute.m_isStyleSheet = true;
+        attribute.m_isAlternate = true;
     } else {
         // Tokenize the rel attribute and set bits based on specific keywords that we find.
         String relString = rel.string();
@@ -183,11 +180,11 @@ void HTMLLinkElement::tokenizeRelAttribute(const AtomicString& rel, bool& styleS
         Vector<String>::const_iterator end = list.end();
         for (Vector<String>::const_iterator it = list.begin(); it != end; ++it) {
             if (equalIgnoringCase(*it, "stylesheet"))
-                styleSheet = true;
+                attribute.m_isStyleSheet = true;
             else if (equalIgnoringCase(*it, "alternate"))
-                alternate = true;
+                attribute.m_isAlternate = true;
             else if (equalIgnoringCase(*it, "icon"))
-                icon = true;
+                attribute.m_isIcon = true;
         }
     }
 }
@@ -201,25 +198,35 @@ void HTMLLinkElement::process()
 
     // IE extension: location of small icon for locationbar / bookmarks
     // We'll record this URL per document, even if we later only use it in top level frames
-    if (m_isIcon && m_url.isValid() && !m_url.isEmpty())
+    if (m_rel.m_isIcon && m_url.isValid() && !m_url.isEmpty())
         document()->setIconURL(m_url.string(), type);
 
 #ifdef ANDROID_APPLE_TOUCH_ICON
-    if ((m_isTouchIcon || m_isPrecomposedTouchIcon) && m_url.isValid()
+    if ((m_rel.m_isTouchIcon || m_rel.m_isPrecomposedTouchIcon) && m_url.isValid()
             && !m_url.isEmpty())
         document()->frame()->loader()->client()
                 ->dispatchDidReceiveTouchIconURL(m_url.string(),
-                        m_isPrecomposedTouchIcon);
+                        m_rel.m_isPrecomposedTouchIcon);
 #endif
 
-    if (m_isDNSPrefetch && m_url.isValid() && !m_url.isEmpty())
+    if (m_rel.m_isDNSPrefetch && m_url.isValid() && !m_url.isEmpty())
         prefetchDNS(m_url.host());
+
+#if ENABLE(LINK_PREFETCH)
+    if (m_rel.m_isLinkPrefetch && m_url.isValid()) {
+        m_cachedLinkPrefetch = document()->docLoader()->requestLinkPrefetch(m_url);
+        m_loading = true;
+
+        if (m_cachedLinkPrefetch)
+            m_cachedLinkPrefetch->addClient(this);
+    }
+#endif
 
     bool acceptIfTypeContainsTextCSS = document()->page() && document()->page()->settings() && document()->page()->settings()->treatsAnyTextCSSLinkAsStylesheet();
 
     // Stylesheet
     // This was buggy and would incorrectly match <link rel="alternate">, which has a different specified meaning. -dwh
-    if (m_disabledState != 2 && (m_isStyleSheet || (acceptIfTypeContainsTextCSS && type.contains("text/css"))) && document()->frame() && m_url.isValid()) {
+    if (m_disabledState != 2 && (m_rel.m_isStyleSheet || (acceptIfTypeContainsTextCSS && type.contains("text/css"))) && document()->frame() && m_url.isValid()) {
         // also, don't load style sheets for standalone documents
         
         String charset = getAttribute(charsetAttr);
@@ -353,6 +360,17 @@ bool HTMLLinkElement::isLoading() const
     return static_cast<CSSStyleSheet *>(m_sheet.get())->isLoading();
 }
 
+void HTMLLinkElement::notifyFinished(CachedResource*)
+{
+    if (!m_timer.isActive())
+        m_timer.startOneShot(0);
+}
+
+void HTMLLinkElement::timerFired(Timer<HTMLLinkElement>*)
+{
+    dispatchEvent(Event::create(eventNames().loadEvent, false, false));
+}
+
 bool HTMLLinkElement::sheetLoaded()
 {
     if (!isLoading() && !isDisabled() && !isAlternate()) {
@@ -462,10 +480,10 @@ void HTMLLinkElement::addSubresourceAttributeURLs(ListHashSet<KURL>& urls) const
     HTMLElement::addSubresourceAttributeURLs(urls);
 
     // Favicons are handled by a special case in LegacyWebArchive::create()
-    if (m_isIcon)
+    if (m_rel.m_isIcon)
         return;
 
-    if (!m_isStyleSheet)
+    if (!m_rel.m_isStyleSheet)
         return;
     
     // Append the URL of this link element.

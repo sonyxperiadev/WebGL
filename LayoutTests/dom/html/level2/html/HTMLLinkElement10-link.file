@@ -1,0 +1,12 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html; CHARSET=utf-8">
+<TITLE>NIST DOM HTML Test - LINK</TITLE>
+<BODY>
+<P>
+This is the test link that's pre-fetched by the prefetch test.
+</P>
+</BODY>
+</HTML>
+

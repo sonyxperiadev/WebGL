@@ -38,6 +38,9 @@
 #include "SecurityOrigin.h"
 #include <stdio.h>
 #include <wtf/CurrentTime.h>
+#if ENABLE(LINK_PREFETCH)
+#include "CachedLinkPrefetch.h"
+#endif
 
 using namespace std;
 
@@ -85,6 +88,10 @@ static CachedResource* createResource(CachedResource::Type type, const KURL& url
 #if ENABLE(XBL)
     case CachedResource::XBLStyleSheet:
         return new CachedXBLDocument(url.string());
+#endif
+#if ENABLE(LINK_PREFETCH)
+    case CachedResource::LinkPrefetch:
+        return new CachedLinkPrefetch(url.string());
 #endif
     default:
         break;

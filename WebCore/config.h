@@ -194,6 +194,9 @@
 // or if javascript tried to change the location.
 #define ANDROID_USER_GESTURE
 
+// Enable prefetching when specified via the rel element of <link> elements.
+#define ENABLE_LINK_PREFETCH 1
+
 #endif /* PLATFORM(ANDROID) */
 
 #ifdef __cplusplus
