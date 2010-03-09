@@ -603,12 +603,31 @@ void PluginView::show()
 {
     setSelfVisible(true);
     Widget::show();
+
+    if (platformPluginWidget())
+        platformPluginWidget()->updateSurfaceIfNeeded();
+
 }
 
 void PluginView::hide()
 {
     setSelfVisible(false);
     Widget::hide();
+
+   if (platformPluginWidget())
+        platformPluginWidget()->updateSurfaceIfNeeded();
+}
+
+void PluginView::setParentVisible(bool visible) {
+
+    if (isParentVisible() == visible)
+        return;
+
+    Widget::setParentVisible(visible);
+
+    if (platformPluginWidget())
+        platformPluginWidget()->updateSurfaceIfNeeded();
+
 }
 
 void PluginView::paint(GraphicsContext* context, const IntRect& rect)
@@ -643,11 +662,6 @@ void PluginView::updatePluginWidget()
         if (m_windowRect != oldWindowRect)
             setNPWindowIfNeeded();
     }
-}
-
-// new as of SVN 38068, Nov 5 2008
-void PluginView::setParentVisible(bool) {
-    notImplemented();
 }
 
 void PluginView::halt() {
