@@ -830,19 +830,6 @@ enum ANPTouchActions {
 };
 typedef int32_t ANPTouchAction;
 
-/**
- * When a plugin returns from NPP_HandleEvent() for a touch event, it can use
- * ANPTouchResultMask to tell the web view which touch event it wants to handle.
- * kHandleTouch_ANPTouchResult will handle all touch event inside the plugin. If
- * it is not set, a plugin can choose only handle individual event like long
- * press, or double tap.
- */
-enum ANPTouchResultMask {
-    kHandleTouch_ANPTouchResult     = 1,
-    kHandleLongPress_ANPTouchResult = 2,
-    kHandleDoubleTap_ANPTouchResult = 4,
-};
-
 enum ANPLifecycleActions {
     /** The web view containing this plugin has been paused.  See documentation
         on the android activity lifecycle for more information.
@@ -893,7 +880,6 @@ typedef uint32_t ANPLifecycleAction;
 /* This is what is passed to NPP_HandleEvent() */
 struct ANPEvent {
     uint32_t        inSize;  // size of this struct in bytes
-    uint32_t        timeStamp;
     ANPEventType    eventType;
     // use based on the value in eventType
     union {
