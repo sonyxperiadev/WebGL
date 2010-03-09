@@ -1502,6 +1502,24 @@ static void nativeSelectBestAt(JNIEnv *env, jobject obj, jobject jrect)
     view->selectBestAt(rect);
 }
 
+static jobject nativeSubtractLayers(JNIEnv* env, jobject obj, jobject jrect)
+{
+    SkIRect irect = jrect_to_webrect(env, jrect);
+#if USE(ACCELERATED_COMPOSITING)
+    LayerAndroid* root = GET_NATIVE_VIEW(env, obj)->rootLayer();
+    if (root) {
+        SkRect rect;
+        rect.set(irect);
+        rect = root->subtractLayers(rect);
+        rect.round(&irect);
+    }
+#endif
+    jclass rectClass = env->FindClass("android/graphics/Rect");
+    jmethodID init = env->GetMethodID(rectClass, "<init>", "(IIII)V");
+    return env->NewObject(rectClass, init, irect.fLeft, irect.fTop,
+        irect.fRight, irect.fBottom);
+}
+
 static jint nativeTextGeneration(JNIEnv *env, jobject obj)
 {
     WebView* view = GET_NATIVE_VIEW(env, obj);
@@ -1922,6 +1940,8 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeSetSelectionPointer },
     { "nativeSetSelectionRegion", "(Z)V",
         (void*) nativeSetSelectionRegion },
+    { "nativeSubtractLayers", "(Landroid/graphics/Rect;)Landroid/graphics/Rect;",
+        (void*) nativeSubtractLayers },
     { "nativeTextGeneration", "()I",
         (void*) nativeTextGeneration },
     { "nativeUpdateCachedTextfield", "(Ljava/lang/String;I)V",
