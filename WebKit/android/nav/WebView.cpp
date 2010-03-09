@@ -292,10 +292,12 @@ void scrollRectOnScreen(const IntRect& rect)
         return;
     SkRect visible;
     calcOurContentVisibleRect(&visible);
+#if USE(ACCELERATED_COMPOSITING)
     if (m_rootLayer) {
         m_rootLayer->updatePositions(visible);
         visible = m_rootLayer->subtractLayers(visible);
     }
+#endif
     int dx = 0;
     int left = rect.x();
     int right = rect.right();
@@ -1799,11 +1801,13 @@ static void nativeDumpDisplayTree(JNIEnv* env, jobject jwebview, jstring jurl)
             // this will playback the picture into the canvas, which will
             // spew its contents to the dumper
             view->getWebViewCore()->drawContent(&canvas, 0);
+#if USE(ACCELERATED_COMPOSITING)
             if (true) {
                 LayerAndroid* rootLayer = view->rootLayer();
                 if (rootLayer)
                     rootLayer->draw(&canvas);
             }
+#endif
             // we're done with the file now
             fwrite("\n", 1, 1, file);
             fclose(file);
