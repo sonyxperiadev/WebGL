@@ -51,6 +51,9 @@
 }
 #endif
 
+#include <cutils/log.h>
+#define LOG_TAG JavaInstanceJSC.cpp
+
 using namespace JSC::Bindings;
 using namespace JSC;
 
@@ -324,6 +327,8 @@ JObjectWrapper::JObjectWrapper(jobject instance)
     : m_refCount(0)
 {
     assert(instance);
+    if (!instance)
+        LOGE("Attempted to create JObjectWrapper for null object");
 
     // Cache the JNIEnv used to get the global ref for this java instance.
     // It'll be used to delete the reference.
@@ -334,7 +339,7 @@ JObjectWrapper::JObjectWrapper(jobject instance)
     JS_LOG("new global ref %p for %p\n", m_instance, instance);
 
     if  (!m_instance)
-        fprintf(stderr, "%s:  could not get GlobalRef for %p\n", __PRETTY_FUNCTION__, instance);
+        LOGE("%s:  could not get GlobalRef for %p\n", __PRETTY_FUNCTION__, instance);
 }
 
 JObjectWrapper::~JObjectWrapper()
