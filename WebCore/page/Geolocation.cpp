@@ -650,7 +650,12 @@ bool Geolocation::startUpdating(GeoNotifier* notifier)
     // TODO: Upstream to webkit.org. See https://bugs.webkit.org/show_bug.cgi?id=34082
     // Note that the correct fix is to use a 'paused' flag in WebCore, rather
     // than calling into PlatformBridge.
-    return m_service->startUpdating(notifier->m_options.get(), PlatformBridge::isWebViewPaused(m_frame->view()));
+    if (!m_frame)
+        return false;
+    FrameView* view = m_frame->view();
+    if (!view)
+        return false;
+    return m_service->startUpdating(notifier->m_options.get(), PlatformBridge::isWebViewPaused(view));
 #else
     return m_service->startUpdating(notifier->m_options.get());
 #endif
