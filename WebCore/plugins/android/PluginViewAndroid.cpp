@@ -248,9 +248,10 @@ void PluginView::handleMouseEvent(MouseEvent* event)
 
         if (isDown) {
             // The plugin needs focus to receive keyboard events
-            if (Page* page = m_parentFrame->page())
-                page->focusController()->setFocusedFrame(m_parentFrame);
-            m_parentFrame->document()->setFocusedNode(m_element);
+            if (Page* page = m_parentFrame->page()) {
+                page->focusController()->setFocusedNode(m_element, m_parentFrame);
+                event->setDefaultHandled();
+            }
         }
     }
     else {
