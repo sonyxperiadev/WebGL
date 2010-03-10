@@ -137,7 +137,6 @@ FILE* gRenderTreeFile = 0;
 
 #if USE(ACCELERATED_COMPOSITING)
 #include "GraphicsLayerAndroid.h"
-#include "LayerAndroid.h"
 #include "RenderLayerCompositor.h"
 #endif
 
@@ -1344,6 +1343,11 @@ void WebViewCore::updateFrameCache()
 #endif
     m_temp = new CachedRoot();
     m_temp->init(m_mainFrame, &m_history);
+#if USE(ACCELERATED_COMPOSITING)
+    GraphicsLayerAndroid* graphicsLayer = graphicsRootLayer();
+    if (graphicsLayer)
+        m_temp->setRootLayer(graphicsLayer->contentLayer());
+#endif
     CacheBuilder& builder = cacheBuilder();
     WebCore::Settings* settings = m_mainFrame->page()->settings();
     builder.allowAllTextDetection();
@@ -1962,16 +1966,23 @@ void WebViewCore::click(WebCore::Frame* frame, WebCore::Node* node) {
     }
 }
 
+#if USE(ACCELERATED_COMPOSITING)
+GraphicsLayerAndroid* WebViewCore::graphicsRootLayer() const
+{
+    RenderView* contentRenderer = m_mainFrame->contentRenderer();
+    if (!contentRenderer)
+        return 0;
+    return static_cast<GraphicsLayerAndroid*>(
+          contentRenderer->compositor()->rootPlatformLayer());
+}
+#endif
+
 bool WebViewCore::handleTouchEvent(int action, int x, int y, int metaState)
 {
     bool preventDefault = false;
 
 #if USE(ACCELERATED_COMPOSITING)
-    RenderView* contentRenderer = m_mainFrame->contentRenderer();
-    GraphicsLayerAndroid* rootLayer = 0;
-    if (contentRenderer)
-      rootLayer = static_cast<GraphicsLayerAndroid*>(
-          contentRenderer->compositor()->rootPlatformLayer());
+    GraphicsLayerAndroid* rootLayer = graphicsRootLayer();
     if (rootLayer)
       rootLayer->pauseDisplay(true);
 #endif

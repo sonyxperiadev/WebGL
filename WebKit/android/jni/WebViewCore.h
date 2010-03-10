@@ -60,6 +60,7 @@ namespace WebCore {
 
 #if USE(ACCELERATED_COMPOSITING)
 namespace WebCore {
+    class GraphicsLayerAndroid;
     class LayerAndroid;
 }
 #endif
@@ -135,6 +136,7 @@ namespace android {
         void contentDraw();
 
 #if USE(ACCELERATED_COMPOSITING)
+        GraphicsLayerAndroid* graphicsRootLayer() const;
         void immediateRepaint();
         void setUIRootLayer(const LayerAndroid* layer);
 #endif
