@@ -75,12 +75,11 @@ void RenderSkinRadio::Draw(SkCanvas* canvas, Node* element, const IntRect& ir,
     // Set up a paint to with filtering to look better.
     SkPaint paint;
     paint.setFlags(SkPaint::kFilterBitmap_Flag);
-    int saveLayerCount = 0;
     int saveScaleCount = 0;
 
     if (!element->isElementNode() ||
         !static_cast<Element*>(element)->isEnabledFormControl()) {
-        saveLayerCount = canvas->saveLayerAlpha(&r, 0x80);
+        paint.setAlpha(0x80);
     }
     SkScalar width = r.width();
     SkScalar scale = SkScalarDiv(width, SIZE);
@@ -95,11 +94,7 @@ void RenderSkinRadio::Draw(SkCanvas* canvas, Node* element, const IntRect& ir,
 
     canvas->drawBitmap(s_bitmap[checked + 2*(!isCheckBox)],
             0, 0, &paint);
-    if (saveLayerCount != 0) {
-        canvas->restoreToCount(saveLayerCount);
-    } else {
-        canvas->restoreToCount(saveScaleCount);
-    }
+    canvas->restoreToCount(saveScaleCount);
 }
 
 } //WebCore
