@@ -1198,7 +1198,6 @@ bool CachedRoot::maskIfHidden(BestData* best) const
         best->setMouseBounds(WebCore::IntRect(bounds.x() + base.fLeft - kMargin,
             bounds.y() + base.fTop - kMargin, base.width(), base.height()));
         node->clip(best->mouseBounds());
-        return true;
     }
     return false;
 }
