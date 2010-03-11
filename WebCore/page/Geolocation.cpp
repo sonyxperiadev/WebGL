@@ -29,9 +29,13 @@
 #include "Geolocation.h"
 
 #include "Chrome.h"
+// ANDROID
 #include "DOMWindow.h"
+// END ANDROID
 #include "Document.h"
+// ANDROID
 #include "EventNames.h"
+// END ANDROID
 #include "Frame.h"
 #include "Page.h"
 #include "PlatformBridge.h"
@@ -203,8 +207,10 @@ void Geolocation::Watchers::getNotifiersVector(Vector<RefPtr<GeoNotifier> >& cop
 }
 
 Geolocation::Geolocation(Frame* frame)
+// ANDROID
     : EventListener(GeolocationEventListenerType)
     , m_frame(frame)
+// END ANDROID
 #if !ENABLE(CLIENT_BASED_GEOLOCATION)
     , m_service(GeolocationService::create(this))
 #endif
@@ -217,14 +223,18 @@ Geolocation::Geolocation(Frame* frame)
     ASSERT(m_frame->document());
     m_frame->document()->setUsingGeolocation(true);
 
+// ANDROID
     if (m_frame->domWindow())
         m_frame->domWindow()->addEventListener(eventNames().unloadEvent, this, false);
+// END ANDROID
 }
 
 Geolocation::~Geolocation()
 {
+// ANDROID
     if (m_frame && m_frame->domWindow())
         m_frame->domWindow()->removeEventListener(eventNames().unloadEvent, this, false);
+// END ANDROID
 }
 
 void Geolocation::disconnectFrame()
@@ -676,6 +686,7 @@ void Geolocation::stopUpdating()
 
 }
 
+// ANDROID
 bool Geolocation::operator==(const EventListener& listener)
 {
     if (listener.type() != GeolocationEventListenerType)
@@ -693,5 +704,6 @@ void Geolocation::handleEvent(ScriptExecutionContext*, Event* event)
     m_oneShots.clear();
     m_watchers.clear();
 }
+// END ANDROID
 
 } // namespace WebCore
