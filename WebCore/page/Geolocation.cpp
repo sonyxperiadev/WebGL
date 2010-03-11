@@ -48,6 +48,7 @@
 namespace WebCore {
 
 static const char permissionDeniedErrorMessage[] = "User denied Geolocation";
+static const char failedToStartServiceErrorMessage[] = "Failed to start Geolocation service";
 
 #if ENABLE(CLIENT_BASED_GEOLOCATION)
 
@@ -101,18 +102,18 @@ void Geolocation::GeoNotifier::setFatalError(PassRefPtr<PositionError> error)
     m_timer.startOneShot(0);
 }
 
-bool Geolocation::GeoNotifier::hasZeroTimeout() const
-{
-    return m_options->hasTimeout() && m_options->timeout() == 0;
-}
-
 void Geolocation::GeoNotifier::setUseCachedPosition()
 {
     m_useCachedPosition = true;
     m_timer.startOneShot(0);
 }
 
-void Geolocation::GeoNotifier::makeSuccessCallback(Geoposition* position)
+bool Geolocation::GeoNotifier::hasZeroTimeout() const
+{
+    return m_options->hasTimeout() && m_options->timeout() == 0;
+}
+
+void Geolocation::GeoNotifier::runSuccessCallback(Geoposition* position)
 {
     m_successCallback->handleEvent(position);
 }
@@ -285,20 +286,16 @@ PassRefPtr<Geolocation::GeoNotifier> Geolocation::startRequest(PassRefPtr<Positi
     // the permission state can not change again in the lifetime of this page.
     if (isDenied())
         notifier->setFatalError(PositionError::create(PositionError::PERMISSION_DENIED, permissionDeniedErrorMessage));
-    else {
-        if (haveSuitableCachedPosition(notifier->m_options.get()))
-            notifier->setUseCachedPosition();
-        else {
-            if (notifier->hasZeroTimeout() || startUpdating(notifier.get())) {
+    else if (haveSuitableCachedPosition(notifier->m_options.get()))
+        notifier->setUseCachedPosition();
+    else if (notifier->hasZeroTimeout() || startUpdating(notifier.get())) {
 #if ENABLE(CLIENT_BASED_GEOLOCATION)
-                // Only start timer if we're not waiting for user permission.
-                if (!m_startRequestPermissionNotifier)
+        // Only start timer if we're not waiting for user permission.
+        if (!m_startRequestPermissionNotifier)
 #endif            
-                    notifier->startTimerIfNeeded();
-            } else
-                notifier->setFatalError(PositionError::create(PositionError::POSITION_UNAVAILABLE, "Failed to start Geolocation service"));
-        }
-    }
+            notifier->startTimerIfNeeded();
+    } else
+        notifier->setFatalError(PositionError::create(PositionError::POSITION_UNAVAILABLE, failedToStartServiceErrorMessage));
 
     return notifier.release();
 }
@@ -308,15 +305,6 @@ void Geolocation::fatalErrorOccurred(Geolocation::GeoNotifier* notifier)
     // This request has failed fatally. Remove it from our lists.
     m_oneShots.remove(notifier);
     m_watchers.remove(notifier);
-
-    if (!hasListeners())
-        stopUpdating();
-}
-
-void Geolocation::requestTimedOut(GeoNotifier* notifier)
-{
-    // If this is a one-shot request, stop it.
-    m_oneShots.remove(notifier);
 
     if (!hasListeners())
         stopUpdating();
@@ -351,7 +339,7 @@ void Geolocation::makeCachedPositionCallbacks()
     GeoNotifierSet::const_iterator end = m_requestsAwaitingCachedPosition.end();
     for (GeoNotifierSet::const_iterator iter = m_requestsAwaitingCachedPosition.begin(); iter != end; ++iter) {
         GeoNotifier* notifier = iter->get();
-        notifier->makeSuccessCallback(m_positionCache->cachedPosition());
+        notifier->runSuccessCallback(m_positionCache->cachedPosition());
 
         // If this is a one-shot request, stop it. Otherwise, if the watch still
         // exists, start the service to get updates.
@@ -361,11 +349,20 @@ void Geolocation::makeCachedPositionCallbacks()
             if (notifier->hasZeroTimeout() || startUpdating(notifier))
                 notifier->startTimerIfNeeded();
             else
-                notifier->setFatalError(PositionError::create(PositionError::POSITION_UNAVAILABLE, "Failed to start Geolocation service"));
+                notifier->setFatalError(PositionError::create(PositionError::POSITION_UNAVAILABLE, failedToStartServiceErrorMessage));
         }
     }
 
     m_requestsAwaitingCachedPosition.clear();
+
+    if (!hasListeners())
+        stopUpdating();
+}
+
+void Geolocation::requestTimedOut(GeoNotifier* notifier)
+{
+    // If this is a one-shot request, stop it.
+    m_oneShots.remove(notifier);
 
     if (!hasListeners())
         stopUpdating();
@@ -377,7 +374,7 @@ bool Geolocation::haveSuitableCachedPosition(PositionOptions* options)
         return false;
     if (!options->hasMaximumAge())
         return true;
-    if (options->maximumAge() == 0)
+    if (!options->maximumAge())
         return false;
     DOMTimeStamp currentTimeMillis = currentTime() * 1000.0;
     return m_positionCache->cachedPosition()->timestamp() > currentTimeMillis - options->maximumAge();
