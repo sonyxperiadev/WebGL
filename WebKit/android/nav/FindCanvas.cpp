@@ -35,6 +35,8 @@
 
 #include <utils/Log.h>
 
+#define INTEGER_OUTSET 2
+
 namespace android {
 
 // MatchInfo methods
@@ -125,7 +127,7 @@ FindCanvas::FindCanvas(int width, int height, const UChar* lower,
         , mNumFound(0) {
 
     setBounder(&mBounder);
-    mOutset = -SkIntToScalar(2);
+    mOutset = -SkIntToScalar(INTEGER_OUTSET);
     mMatches = new WTF::Vector<MatchInfo>();
     mWorkingIndex = 0;
     mWorkingCanvas = 0;
@@ -356,13 +358,15 @@ void FindCanvas::findHelper(const void* text, size_t byteLength,
             const uint16_t* glyphs = chars + matchIndex;
             SkRect rect = (this->*addMatch)(matchIndex, paint,
                     remaining, glyphs, positions, y);
-            rect.inset(mOutset, mOutset);
             // We need an SkIRect for SkRegion operations.
             SkIRect iRect;
             rect.roundOut(&iRect);
             // If the rectangle is partially clipped, assume that the text is
             // not visible, so skip this match.
             if (getTotalClip().contains(iRect)) {
+                // Want to outset the drawn rectangle by the same amount as
+                // mOutset
+                iRect.inset(-INTEGER_OUTSET, -INTEGER_OUTSET);
                 SkRegion regionToAdd(iRect);
                 if (!mWorkingRegion.isEmpty()) {
                     // If this is on the same line as our working region, make
