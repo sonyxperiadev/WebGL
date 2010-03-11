@@ -60,7 +60,6 @@ public:
 #if PLATFORM(QT)
     PlatformTouchEvent(QTouchEvent*);
 #elif PLATFORM(ANDROID)
-    // TODO (benm): eventTime and metaState are new and need to be upstreamed.
     PlatformTouchEvent(const IntPoint& windowPos, TouchEventType, PlatformTouchPoint::State, int metaState);
 #endif
 
