@@ -494,24 +494,32 @@ void PluginView::performRequest(PluginRequest* request)
     // Targeted JavaScript requests are only allowed on the frame that contains the JavaScript plugin
     // and this has been made sure in ::load.
     ASSERT(targetFrameName.isEmpty() || m_parentFrame->tree()->find(targetFrameName) == m_parentFrame);
-    
-#if USE(JSC)
+
     // Executing a script can cause the plugin view to be destroyed, so we keep a reference to the parent frame.
     RefPtr<Frame> parentFrame = m_parentFrame;
-    JSValue result = m_parentFrame->script()->executeScript(jsString, request->shouldAllowPopups()).jsValue();
+    ScriptValue result = m_parentFrame->script()->executeScript(jsString, request->shouldAllowPopups());
 
     if (targetFrameName.isNull()) {
         String resultString;
 
         CString cstr;
-        if (getString(parentFrame->script(), result, resultString))
+#if USE(JSC)
+        if (getString(parentFrame->script(), result.jsValue(), resultString))
             cstr = resultString.utf8();
+#elif USE(V8)
+        // #if PLATFORM(ANDROID)
+        // TODO. When upstreaming this, we could re-visit whether the JSC getString function in this file
+        // could be removed, and this code re-factored to call ScriptValue::getString(ScriptState* scriptState, String& result)
+        // in both cases, thus getting rid of the #ifs
+        // #endif
+        if (result.getString(resultString))
+            cstr = resultString.utf8();
+#endif
 
         RefPtr<PluginStream> stream = PluginStream::create(this, m_parentFrame.get(), request->frameLoadRequest().resourceRequest(), request->sendNotification(), request->notifyData(), plugin()->pluginFuncs(), instance(), m_plugin->quirks());
         m_streams.add(stream);
         stream->sendJavaScriptStream(requestURL, cstr);
     }
-#endif
 }
 
 void PluginView::requestTimerFired(Timer<PluginView>* timer)
