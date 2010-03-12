@@ -64,6 +64,10 @@ namespace WebCore {
         ResourceError cannotShowURLError();
         
         virtual void setDefersLoading(bool);
+#if PLATFORM(ANDROID)
+// TODO: This needs upstreaming to WebKit.
+        virtual void pauseLoad(bool);
+#endif
 
         void setIdentifier(unsigned long identifier) { m_identifier = identifier; }
         unsigned long identifier() const { return m_identifier; }

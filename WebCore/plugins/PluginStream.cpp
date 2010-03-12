@@ -345,6 +345,11 @@ void PluginStream::deliverData()
         int32 deliveryBytes = m_pluginFuncs->writeready(m_instance, &m_stream);
 
         if (deliveryBytes <= 0) {
+#if PLATFORM(ANDROID)
+// TODO: This needs to be upstreamed.
+            if (m_loader)
+                m_loader->pauseLoad(true);
+#endif
             m_delayDeliveryTimer.startOneShot(0);
             break;
         } else {
@@ -373,6 +378,11 @@ void PluginStream::deliverData()
             memmove(m_deliveryData->data(), m_deliveryData->data() + totalBytesDelivered, remainingBytes);
             m_deliveryData->resize(remainingBytes);
         } else {
+#if PLATFORM(ANDROID)
+//TODO: This needs to be upstreamed to WebKit.
+            if (m_loader)
+                m_loader->pauseLoad(false);
+#endif
             m_deliveryData->resize(0);
             if (m_reason != WebReasonNone)
                 destroyStream();

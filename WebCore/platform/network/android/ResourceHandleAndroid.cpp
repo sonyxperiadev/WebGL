@@ -84,6 +84,15 @@ bool ResourceHandle::supportsBufferedData()
     return false;
 }
 
+#if PLATFORM(ANDROID)
+// TODO: this needs upstreaming.
+void ResourceHandle::pauseLoad(bool pause)
+{
+    if (d->m_loader)
+        d->m_loader->pauseLoad(pause);
+}
+#endif
+
 void ResourceHandle::setDefersLoading(bool defers)
 {
     notImplemented();

@@ -49,6 +49,8 @@ public:
     */
     virtual void downloadFile();
 
+    virtual void pauseLoad(bool);
+
     /**
     * Call to java to find out if this URL is in the cache
     */
@@ -68,6 +70,7 @@ protected:
     WebCoreResourceLoader(JNIEnv *env, jobject jLoadListener);
 private:
     jobject     mJLoader;
+    bool        mPausedLoad;
 };
 
 } // end namespace android

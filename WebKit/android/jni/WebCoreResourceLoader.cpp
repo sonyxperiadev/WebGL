@@ -56,6 +56,7 @@ static struct resourceloader_t {
     jmethodID   mCancelMethodID;
     jmethodID   mDownloadFileMethodID;
     jmethodID   mWillLoadFromCacheMethodID;
+    jmethodID   mPauseLoadMethodID;
 } gResourceLoader;
 
 // ----------------------------------------------------------------------------
@@ -72,6 +73,7 @@ PassRefPtr<WebCore::ResourceLoaderAndroid> WebCoreResourceLoader::create(JNIEnv 
 }
 
 WebCoreResourceLoader::WebCoreResourceLoader(JNIEnv *env, jobject jLoadListener)
+    : mPausedLoad(false)
 {
     mJLoader = env->NewGlobalRef(jLoadListener);
 }
@@ -95,6 +97,17 @@ void WebCoreResourceLoader::downloadFile()
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
     env->CallVoidMethod(mJLoader, gResourceLoader.mDownloadFileMethodID);
+    checkException(env);
+}
+
+void WebCoreResourceLoader::pauseLoad(bool pause)
+{
+    if (mPausedLoad == pause)
+        return;
+
+    mPausedLoad = pause;
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    env->CallVoidMethod(mJLoader, gResourceLoader.mPauseLoadMethodID, pause);
     checkException(env);
 }
 
@@ -319,6 +332,11 @@ int register_resource_loader(JNIEnv* env)
         env->GetMethodID(resourceLoader, "downloadFile", "()V");
     LOG_FATAL_IF(gResourceLoader.mDownloadFileMethodID == NULL, 
         "Could not find method downloadFile on LoadListener");
+
+    gResourceLoader.mPauseLoadMethodID =
+        env->GetMethodID(resourceLoader, "pauseLoad", "(Z)V");
+    LOG_FATAL_IF(gResourceLoader.mPauseLoadMethodID == NULL,
+        "Could not find method pauseLoad on LoadListener");
 
     gResourceLoader.mWillLoadFromCacheMethodID = 
         env->GetStaticMethodID(resourceLoader, "willLoadFromCache", "(Ljava/lang/String;J)Z");

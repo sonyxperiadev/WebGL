@@ -189,7 +189,11 @@ public:
     void setClient(ResourceHandleClient*);
 
     void setDefersLoading(bool);
-      
+#if PLATFORM(ANDROID)
+// TODO: this needs upstreaming.
+    void pauseLoad(bool);
+#endif
+
     const ResourceRequest& request() const;
 
     void fireFailure(Timer<ResourceHandle>*);

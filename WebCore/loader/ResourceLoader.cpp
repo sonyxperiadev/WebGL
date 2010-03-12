@@ -149,6 +149,15 @@ void ResourceLoader::setDefersLoading(bool defers)
     }
 }
 
+#if PLATFORM(ANDROID)
+// TODO: This needs upstreaming to WebKit.
+void ResourceLoader::pauseLoad(bool pause)
+{
+    if (m_handle)
+        m_handle->pauseLoad(pause);
+}
+#endif
+
 FrameLoader* ResourceLoader::frameLoader() const
 {
     if (!m_frame)
