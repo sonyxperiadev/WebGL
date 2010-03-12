@@ -1293,8 +1293,17 @@ WebCore::String WebViewCore::requestLabel(WebCore::Frame* frame,
         for (unsigned i = 0; i < length; i++) {
             WebCore::HTMLLabelElement* label = static_cast<WebCore::HTMLLabelElement*>(
                     list->item(i));
-            if (label->correspondingControl() == node)
-                return label->innerHTML();
+            if (label->correspondingControl() == node) {
+                Node* node = label;
+                String result;
+                while (node = node->traverseNextNode(label)) {
+                    if (node->isTextNode()) {
+                        Text* textNode = static_cast<Text*>(node);
+                        result += textNode->dataImpl();
+                    }
+                }
+                return result;
+            }
         }
     }
     return WebCore::String();
