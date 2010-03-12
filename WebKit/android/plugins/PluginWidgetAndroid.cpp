@@ -530,3 +530,9 @@ void PluginWidgetAndroid::exitFullScreen(bool pluginInitiated) {
 
     m_isFullScreen = false;
 }
+
+void PluginWidgetAndroid::requestCenterFitZoom() {
+    m_core->centerFitRect(m_pluginWindow->x, m_pluginWindow->y,
+            m_pluginWindow->width, m_pluginWindow->height);
+}
+

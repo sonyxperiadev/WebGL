@@ -230,6 +230,7 @@ struct WebViewCore::JavaGlue {
     jmethodID   m_getContext;
     jmethodID   m_sendFindAgain;
     jmethodID   m_showRect;
+    jmethodID   m_centerFitRect;
     AutoJObject object(JNIEnv* env) {
         return getRealObject(env, m_obj);
     }
@@ -319,6 +320,7 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     m_javaGlue->m_getContext = GetJMethod(env, clazz, "getContext", "()Landroid/content/Context;");
     m_javaGlue->m_sendFindAgain = GetJMethod(env, clazz, "sendFindAgain", "()V");
     m_javaGlue->m_showRect = GetJMethod(env, clazz, "showRect", "(IIIIIIFFFF)V");
+    m_javaGlue->m_centerFitRect = GetJMethod(env, clazz, "centerFitRect", "(IIII)V");
 
     env->SetIntField(javaWebViewCore, gWebViewCoreFields.m_nativeClass, (jint)this);
 
@@ -2477,6 +2479,14 @@ void WebViewCore::showRect(int left, int top, int width, int height,
     env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_showRect,
             left, top, width, height, contentWidth, contentHeight,
             xPercentInDoc, xPercentInView, yPercentInDoc, yPercentInView);
+    checkException(env);
+}
+
+void WebViewCore::centerFitRect(int x, int y, int width, int height)
+{
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    env->CallVoidMethod(m_javaGlue->object(env).get(),
+            m_javaGlue->m_centerFitRect, x, y, width, height);
     checkException(env);
 }
 

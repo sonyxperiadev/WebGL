@@ -425,6 +425,10 @@ namespace android {
             int contentHeight, float xPercentInDoc, float xPercentInView,
             float yPercentInDoc, float yPercentInView);
 
+        // Scale the rect (x, y, width, height) to make it just fit and centered
+        // in the current view.
+        void centerFitRect(int x, int y, int width, int height);
+
         // other public functions
     public:
         // Open a file chooser for selecting a file to upload

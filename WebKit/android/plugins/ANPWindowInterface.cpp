@@ -67,6 +67,12 @@ static void anp_exitFullScreen(NPP instance) {
     pluginWidget->exitFullScreen(true);
 }
 
+static void anp_requestCenterFitZoom(NPP instance) {
+    PluginView* pluginView = pluginViewForInstance(instance);
+    PluginWidgetAndroid* pluginWidget = pluginView->platformPluginWidget();
+    pluginWidget->requestCenterFitZoom();
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 
 #define ASSIGN(obj, name)   (obj)->name = anp_##name
@@ -79,4 +85,5 @@ void ANPWindowInterfaceV0_Init(ANPInterface* value) {
     ASSIGN(i, showKeyboard);
     ASSIGN(i, requestFullScreen);
     ASSIGN(i, exitFullScreen);
+    ASSIGN(i, requestCenterFitZoom);
 }

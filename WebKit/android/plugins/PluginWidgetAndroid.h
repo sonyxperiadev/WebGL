@@ -148,6 +148,10 @@ struct PluginWidgetAndroid {
      */
     void updateSurfaceIfNeeded(bool pluginBoundsChanged = false);
 
+    /** Called when a plugin wishes to be zoomed and centered in the current view.
+     */
+    void requestCenterFitZoom();
+
 private:
     void computeVisiblePluginRect();
     void scrollToVisiblePluginRect();
