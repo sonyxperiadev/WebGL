@@ -38,6 +38,8 @@
 #include <ui/DisplayInfo.h>
 #include <ui/PixelFormat.h>
 #include <surfaceflinger/SurfaceComposerClient.h>
+#include "ScrollView.h"
+#include "WebCoreViewBridge.h"
 
 namespace WebCore {
 
@@ -66,18 +68,16 @@ bool screenIsMonochrome(Widget* page)
 // the accuracy of these number are not too important.
 FloatRect screenRect(Widget* page)
 {
-    android::DisplayInfo info;
-    android::SurfaceComposerClient::getDisplayInfo(android::DisplayID(0), &info);
-    return FloatRect(0.0, 0.0, info.w, info.h);
+    IntRect rect = page->root()->platformWidget()->getBounds();
+    return FloatRect(0.0, 0.0, rect.width(), rect.height());
 }
 
 // Similar screenRect, this function is commonly used by javascripts
 // to position and resize windows (usually to full screen). 
-FloatRect screenAvailableRect(Widget*)
+FloatRect screenAvailableRect(Widget* page)
 {
-    android::DisplayInfo info;
-    android::SurfaceComposerClient::getDisplayInfo(android::DisplayID(0), &info);
-    return FloatRect(0.0, 0.0, info.w, info.h);
+    IntRect rect = page->root()->platformWidget()->getBounds();
+    return FloatRect(0.0, 0.0, rect.width(), rect.height());
 }
 
 } // namespace WebCore
