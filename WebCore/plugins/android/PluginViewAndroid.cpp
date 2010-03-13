@@ -74,7 +74,7 @@
 /* Controls the printing of log messages in this file. This must be defined
    before PluginDebugAndroid.h is included.
  */
-#define PLUGIN_DEBUG_LOCAL 0
+// #define PLUGIN_DEBUG_LOCAL
 #define TRACE_KEY_EVENTS 0
 
 #include "PluginDebug.h"

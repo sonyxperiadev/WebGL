@@ -35,7 +35,7 @@
 // Android plug-in code in this directory.
 #define PLUGIN_DEBUG_GLOBAL     0
 
-#if PLUGIN_DEBUG_GLOBAL || (defined(PLUGIN_DEBUG_LOCAL) && PLUGIN_DEBUG_LOCAL)
+#if PLUGIN_DEBUG_GLOBAL || defined(PLUGIN_DEBUG_LOCAL)
 # define PLUGIN_LOG(FORMAT, ARGS...) do { anp_logPlugin(FORMAT, ## ARGS); } while(0)
 # define PLUGIN_LOG_EVENT(NPP, EVT, RET, TIME) do { anp_logPluginEvent(NPP, EVT, RET, TIME); } while(0)
 

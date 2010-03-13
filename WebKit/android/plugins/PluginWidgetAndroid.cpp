@@ -45,7 +45,7 @@
 #include "android_graphics.h"
 #include <JNIUtility.h>
 
-#define PLUGIN_DEBUG_LOCAL 0 // controls the printing of log messages
+// #define PLUGIN_DEBUG_LOCAL // controls the printing of log messages
 #define DEBUG_EVENTS 0 // logs event contents, return value, and processing time
 #define DEBUG_VISIBLE_RECTS 0 // temporary debug printfs and fixes
 
