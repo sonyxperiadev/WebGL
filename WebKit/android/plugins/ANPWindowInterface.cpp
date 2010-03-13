@@ -85,5 +85,5 @@ void ANPWindowInterfaceV0_Init(ANPInterface* value) {
     ASSIGN(i, showKeyboard);
     ASSIGN(i, requestFullScreen);
     ASSIGN(i, exitFullScreen);
-    ASSIGN(i, requestCenterFitZoom);
+//    ASSIGN(i, requestCenterFitZoom);
 }
