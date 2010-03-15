@@ -668,7 +668,7 @@ struct ANPWindowInterfaceV0 : ANPInterface {
     void    (*exitFullScreen)(NPP instance);
     /** Called when a plugin wishes to be zoomed and centered in the current view.
      */
-//    void    (*requestCenterFitZoom)(NPP instance);
+    void    (*requestCenterFitZoom)(NPP instance);
 };
 
 ///////////////////////////////////////////////////////////////////////////////
