@@ -953,6 +953,7 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
         cachedRoot->setFocusBounds(focused->getRect());
     int globalOffsetX, globalOffsetY;
     GetGlobalOffset(frame, &globalOffsetX, &globalOffsetY);
+    IntPoint bodyPos = IntPoint(0, 0);
     while (walk.mMore || (node = node->traverseNextNode()) != NULL) {
 #if DUMP_NAV_CACHE
         nodeIndex++;
@@ -1034,13 +1035,15 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
 #endif
 #if USE(ACCELERATED_COMPOSITING)
             if (nodeRenderer->hasLayer()) {
-                TrackLayer(layerTracker, nodeRenderer, lastChild);
+                TrackLayer(layerTracker, nodeRenderer, lastChild,
+                    globalOffsetX - bodyPos.x(), globalOffsetY - bodyPos.y());
                 size_t size = tracker.size();
                 const LayerAndroid* layer = layerTracker.last().mLayer;
                 if (layer) {
                     int id = layer->uniqueId();
-                    const IntPoint& loc = nodeRenderer->
+                    IntPoint loc = nodeRenderer->
                         absoluteBoundingBoxRect().location();
+                    loc.move(globalOffsetX, globalOffsetY);
                     // if this is a child of a CachedNode, add a layer
                     for (size_t index = 1; index < tracker.size(); index++) {
                         const FocusTracker& cursorNode = tracker.at(index);
@@ -1094,6 +1097,8 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
         absBounds.move(globalOffsetX, globalOffsetY);
         hasClip = nodeRenderer->hasOverflowClip();
 
+        if (node->hasTagName(HTMLNames::bodyTag))
+            bodyPos = originalAbsBounds.location();
         if (checkForPluginViewThatWantsFocus(nodeRenderer)) {
             bounds = absBounds;
             isUnclipped = true;
@@ -1276,7 +1281,7 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
         LayerAndroid* layer = layerTracker.last().mLayer;
         if (layer) {
             const IntRect& layerClip = layerTracker.last().mBounds;
-            if (!cachedNode.clip(layerClip)) {
+            if (!layerClip.isEmpty() && !cachedNode.clip(layerClip)) {
                 DBG_NAV_LOGD("skipped on layer clip %d", cacheIndex);
                 continue; // skip this node if outside of the clip
             }
@@ -2769,7 +2774,7 @@ bool CacheBuilder::setData(CachedFrame* cachedFrame)
 
 #if USE(ACCELERATED_COMPOSITING)
 void CacheBuilder::TrackLayer(WTF::Vector<LayerTracker>& layerTracker,
-    RenderObject* nodeRenderer, Node* lastChild)
+    RenderObject* nodeRenderer, Node* lastChild, int offsetX, int offsetY)
 {
     RenderLayer* layer = toRenderBoxModelObject(nodeRenderer)->layer();
     RenderLayerBacking* back = layer->backing();
@@ -2786,6 +2791,7 @@ void CacheBuilder::TrackLayer(WTF::Vector<LayerTracker>& layerTracker,
     LayerTracker& indexTracker = layerTracker.last();
     indexTracker.mLayer = aLayer;
     indexTracker.mBounds = nodeRenderer->absoluteBoundingBoxRect();
+    indexTracker.mBounds.move(offsetX, offsetY);
     indexTracker.mLastChild = lastChild ? OneAfter(lastChild) : 0;
     DBG_NAV_LOGD("layer=%p [%d] bounds=(%d,%d,w=%d,h=%d)", aLayer,
         aLayer->uniqueId(), indexTracker.mBounds.x(), indexTracker.mBounds.y(),

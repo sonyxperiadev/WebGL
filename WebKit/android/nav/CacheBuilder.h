@@ -244,7 +244,7 @@ private:
     bool setData(CachedFrame* );
 #if USE(ACCELERATED_COMPOSITING)
     void TrackLayer(WTF::Vector<LayerTracker>& layerTracker,
-        RenderObject* nodeRenderer, Node* lastChild);
+        RenderObject* nodeRenderer, Node* lastChild, int offsetX, int offsetY);
 #endif
     Node* tryFocus(Direction direction);
     Node* trySegment(Direction direction, int mainStart, int mainEnd);
