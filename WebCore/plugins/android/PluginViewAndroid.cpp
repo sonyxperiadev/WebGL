@@ -626,14 +626,27 @@ void PluginView::paint(GraphicsContext* context, const IntRect& rect)
 
     IntRect frame = frameRect();
     if (!frame.width() || !frame.height()) {
+        PLUGIN_LOG("--%p FrameRect Dimensions are (0,0).\n", instance());
         return;
     }
 
-    m_window->inval(rect, false);
-    context->save();
-    context->translate(frame.x(), frame.y());
-    m_window->draw(android_gc2canvas(context));
-    context->restore();
+    if (m_window->isSurfaceDrawingModel()) {
+        /* the document position of the frame (e.g. iFrame) containing the
+           surface may have changed, which requires us to to update the global
+           coordinates of the surface. This is necessary because the plugin has
+           not moved within its parent frame and therefore will not get any
+           notification of its global position change.
+         */
+        updatePluginWidget();
+    } else {
+        m_window->inval(rect, false);
+        context->save();
+        context->translate(frame.x(), frame.y());
+        m_window->draw(android_gc2canvas(context));
+        context->restore();
+    }
+
+
 }
 
 void PluginView::updatePluginWidget()

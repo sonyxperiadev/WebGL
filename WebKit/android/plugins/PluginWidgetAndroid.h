@@ -74,6 +74,11 @@ struct PluginWidgetAndroid {
      */
     bool setDrawingModel(ANPDrawingModel);
 
+    /*  Called to check if the plugin is running in "windowed" mode (i.e. surface
+        view).
+     */
+    bool isSurfaceDrawingModel() const { return kSurface_ANPDrawingModel == m_drawingModel; }
+
     /*  Returns true (and optionally updates rect with the dirty bounds in the
         page coordinate) if the plugin has invalidate us.
      */
