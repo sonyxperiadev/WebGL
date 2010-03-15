@@ -36,6 +36,11 @@
 
 #define LOG_TAG "v8binding"
 
+// ANDROID
+#include <cutils/log.h>
+#define LOG_TAG JavaInstanceV8.cpp
+// END ANDROID
+
 using namespace JSC::Bindings;
 
 JavaInstance::JavaInstance(jobject instance)
@@ -149,6 +154,10 @@ JObjectWrapper::JObjectWrapper(jobject instance)
     : m_refCount(0)
 {
     assert(instance);
+// ANDROID
+    if (!instance)
+        LOGE("Attempted to create JObjectWrapper for null object");
+// END ANDROID
 
     // Cache the JNIEnv used to get the global ref for this java instanace.
     // It'll be used to delete the reference.
@@ -159,7 +168,9 @@ JObjectWrapper::JObjectWrapper(jobject instance)
     LOGV("new global ref %p for %p\n", m_instance, instance);
 
     if (!m_instance)
-        fprintf(stderr, "%s:  could not get GlobalRef for %p\n", __PRETTY_FUNCTION__, instance);
+// ANDROID
+        LOGE("%s:  could not get GlobalRef for %p\n", __PRETTY_FUNCTION__, instance);
+// END ANDROID
 }
 
 JObjectWrapper::~JObjectWrapper()

@@ -51,8 +51,10 @@
 }
 #endif
 
+// ANDROID
 #include <cutils/log.h>
 #define LOG_TAG JavaInstanceJSC.cpp
+// END ANDROID
 
 using namespace JSC::Bindings;
 using namespace JSC;
@@ -327,8 +329,10 @@ JObjectWrapper::JObjectWrapper(jobject instance)
     : m_refCount(0)
 {
     assert(instance);
+// ANDROID
     if (!instance)
         LOGE("Attempted to create JObjectWrapper for null object");
+// END ANDROID
 
     // Cache the JNIEnv used to get the global ref for this java instance.
     // It'll be used to delete the reference.
@@ -339,7 +343,9 @@ JObjectWrapper::JObjectWrapper(jobject instance)
     JS_LOG("new global ref %p for %p\n", m_instance, instance);
 
     if  (!m_instance)
+// ANDROID
         LOGE("%s:  could not get GlobalRef for %p\n", __PRETTY_FUNCTION__, instance);
+// END ANDROID
 }
 
 JObjectWrapper::~JObjectWrapper()
