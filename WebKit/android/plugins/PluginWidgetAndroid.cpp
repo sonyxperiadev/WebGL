@@ -502,9 +502,7 @@ void PluginWidgetAndroid::requestFullScreen() {
     m_core->destroySurface(m_embeddedView);
 
     // add the full screen view
-    m_core->showFullScreenPlugin(m_embeddedView, m_pluginView->instance(),
-            m_pluginWindow->x, m_pluginWindow->y, m_pluginWindow->width,
-            m_pluginWindow->height);
+    m_core->showFullScreenPlugin(m_embeddedView, m_pluginView->instance());
     m_isFullScreen = true;
 }
 
