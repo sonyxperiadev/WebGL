@@ -531,7 +531,15 @@ CachedRoot* getFrameCache(FrameCachePermission allowNewer)
     }
 #endif
     // get id from old layer and use to find new layer
-    const CachedNode* oldFocus = m_frameCacheUI ? m_frameCacheUI->currentFocus() : 0;
+    bool oldFocusIsTextInput = false;
+    void* oldFocusNodePointer = 0;
+    if (m_frameCacheUI) {
+        const CachedNode* oldFocus = m_frameCacheUI->currentFocus();
+        if (oldFocus) {
+            oldFocusIsTextInput = oldFocus->isTextInput();
+            oldFocusNodePointer = oldFocus->nodePointer();
+        }
+    }
     m_viewImpl->gFrameCacheMutex.lock();
     delete m_frameCacheUI;
     delete m_navPictureUI;
@@ -556,10 +564,10 @@ CachedRoot* getFrameCache(FrameCachePermission allowNewer)
     }
 #endif
     fixCursor();
-    if (oldFocus && m_frameCacheUI) {
+    if (oldFocusIsTextInput) {
         const CachedNode* newFocus = m_frameCacheUI->currentFocus();
-        if (newFocus && oldFocus->nodePointer() != newFocus->nodePointer()
-                && oldFocus->isTextInput() && newFocus->isTextInput()
+        if (newFocus && oldFocusNodePointer != newFocus->nodePointer()
+                && newFocus->isTextInput()
                 && newFocus != m_frameCacheUI->currentCursor()) {
             // The focus has changed.  We may need to update things.
             LOG_ASSERT(m_javaGlue.m_obj, "A java object was not associated with this native WebView!");
