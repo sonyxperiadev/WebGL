@@ -831,7 +831,9 @@ NPObject* PluginView::getNPObject() {
     if (npErr != NPERR_NO_ERROR || !object)
         return 0;
 
-    _NPN_ReleaseObject(object);
+    // Bindings::CInstance (used in JSC version) retains the object, so in ~PluginView() it calls
+    // cleanupScriptObjectsForPlugin() to releases the object. To maintain the reference count,
+    // don't call _NPN_ReleaseObject(object) here.
     return object;
 #else
     return 0;
