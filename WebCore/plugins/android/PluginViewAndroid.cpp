@@ -591,7 +591,7 @@ void PluginView::show()
     Widget::show();
 
     if (platformPluginWidget())
-        platformPluginWidget()->updateSurfaceIfNeeded();
+        platformPluginWidget()->layoutSurface();
 
 }
 
@@ -601,7 +601,7 @@ void PluginView::hide()
     Widget::hide();
 
    if (platformPluginWidget())
-        platformPluginWidget()->updateSurfaceIfNeeded();
+        platformPluginWidget()->layoutSurface();
 }
 
 void PluginView::setParentVisible(bool visible) {
@@ -612,7 +612,7 @@ void PluginView::setParentVisible(bool visible) {
     Widget::setParentVisible(visible);
 
     if (platformPluginWidget())
-        platformPluginWidget()->updateSurfaceIfNeeded();
+        platformPluginWidget()->layoutSurface();
 
 }
 
@@ -638,6 +638,7 @@ void PluginView::paint(GraphicsContext* context, const IntRect& rect)
            notification of its global position change.
          */
         updatePluginWidget();
+        m_window->setSurfaceClip(context->platformContext()->mCanvas->getTotalClip().getBounds());
     } else {
         m_window->inval(rect, false);
         context->save();

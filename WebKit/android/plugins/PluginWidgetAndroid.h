@@ -151,7 +151,13 @@ struct PluginWidgetAndroid {
         changed then we need to ensure the surface is added or removed from the
         view system.
      */
-    void updateSurfaceIfNeeded(bool pluginBoundsChanged = false);
+    void layoutSurface(bool pluginBoundsChanged = false);
+
+    /** send the surface the currently visible portion of the plugin. This is not
+        the portion of the plugin visible on the screen but rather the portion of
+        the plugin that is not obscured by other HTML content.
+     */
+    void setSurfaceClip(const SkIRect& clip);
 
     /** Called when a plugin wishes to be zoomed and centered in the current view.
      */
@@ -177,6 +183,7 @@ private:
     jobject                 m_embeddedView;
     bool                    m_embeddedViewAttached;
     bool                    m_acceptEvents;
+    bool                    m_isSurfaceClippedOut;
 
     /* We limit the number of rectangles to minimize storage and ensure adequate
        speed.

@@ -70,6 +70,7 @@ PluginWidgetAndroid::PluginWidgetAndroid(WebCore::PluginView* view)
     m_embeddedView = NULL;
     m_embeddedViewAttached = false;
     m_acceptEvents = false;
+    m_isSurfaceClippedOut = false;
 }
 
 PluginWidgetAndroid::~PluginWidgetAndroid() {
@@ -124,7 +125,7 @@ void PluginWidgetAndroid::setWindow(NPWindow* window, bool isTransparent) {
                m_pluginBounds.fLeft, m_pluginBounds.fTop,
                m_pluginBounds.fRight, m_pluginBounds.fBottom);
 
-    updateSurfaceIfNeeded(m_pluginBounds != oldPluginBounds);
+    layoutSurface(m_pluginBounds != oldPluginBounds);
 
     if (m_drawingModel != kSurface_ANPDrawingModel) {
         m_flipPixelRef->safeUnref();
@@ -209,16 +210,36 @@ void PluginWidgetAndroid::draw(SkCanvas* canvas) {
     }
 }
 
-void PluginWidgetAndroid::updateSurfaceIfNeeded(bool pluginBoundsChanged) {
+void PluginWidgetAndroid::setSurfaceClip(const SkIRect& clip) {
 
     if (m_drawingModel != kSurface_ANPDrawingModel)
         return;
 
-    PLUGIN_LOG("%p Plugin Visible self=[%d] parent=[%d]", m_pluginView->instance(),
-            m_pluginView->isSelfVisible(), m_pluginView->isParentVisible());
+    /* don't display surfaces that are either entirely clipped or only 1x1 in
+       size. It appears that when an element is absolutely positioned and has
+       been completely clipped in CSS that webkit still sends a clip of 1x1.
+     */
+    bool clippedOut = (clip.width() <= 1 && clip.height() <= 1);
+    if(clippedOut != m_isSurfaceClippedOut) {
+        m_isSurfaceClippedOut = clippedOut;
+        layoutSurface();
+    }
+}
+
+void PluginWidgetAndroid::layoutSurface(bool pluginBoundsChanged) {
+
+    if (m_drawingModel != kSurface_ANPDrawingModel)
+        return;
+
+
+
+    bool displayPlugin = m_pluginView->isVisible() && !m_isSurfaceClippedOut;
+    PLUGIN_LOG("%p DisplayPlugin[%d] visible=[%d] clipped=[%d]",
+            m_pluginView->instance(), displayPlugin,
+            m_pluginView->isVisible(), m_isSurfaceClippedOut);
 
     // if the surface does not exist then create a new surface
-    if (!m_embeddedView && m_pluginView->isVisible()) {
+    if (!m_embeddedView && displayPlugin) {
 
         WebCore::PluginPackage* pkg = m_pluginView->plugin();
         NPP instance = m_pluginView->instance();
@@ -237,16 +258,16 @@ void PluginWidgetAndroid::updateSurfaceIfNeeded(bool pluginBoundsChanged) {
             m_embeddedViewAttached = true;
         }
     // if the view is unattached but visible then attach it
-    } else if (m_embeddedView && !m_embeddedViewAttached && m_pluginView->isVisible() && !m_isFullScreen) {
+    } else if (m_embeddedView && !m_embeddedViewAttached && displayPlugin && !m_isFullScreen) {
         m_core->updateSurface(m_embeddedView, m_pluginWindow->x, m_pluginWindow->y,
                               m_pluginWindow->width, m_pluginWindow->height);
         m_embeddedViewAttached = true;
     // if the view is attached but invisible then remove it
-    } else if (m_embeddedView && m_embeddedViewAttached && !m_pluginView->isVisible()) {
+    } else if (m_embeddedView && m_embeddedViewAttached && !displayPlugin) {
         m_core->destroySurface(m_embeddedView);
         m_embeddedViewAttached = false;
     // if the plugin's bounds have changed and it's visible then update it
-    } else if (pluginBoundsChanged && m_pluginView->isVisible() && !m_isFullScreen) {
+    } else if (pluginBoundsChanged && displayPlugin && !m_isFullScreen) {
         m_core->updateSurface(m_embeddedView, m_pluginWindow->x, m_pluginWindow->y,
                               m_pluginWindow->width, m_pluginWindow->height);
 
