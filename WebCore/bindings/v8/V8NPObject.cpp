@@ -396,6 +396,5 @@ void forgetV8ObjectForNPObject(NPObject* object)
         v8::Persistent<v8::Object> handle(staticNPObjectMap.get(object));
         V8DOMWrapper::setDOMWrapper(handle, WebCore::V8ClassIndex::NPOBJECT, 0);
         staticNPObjectMap.forget(object);
-        _NPN_ReleaseObject(object);
     }
 }
