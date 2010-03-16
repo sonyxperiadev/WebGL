@@ -681,7 +681,17 @@ void FrameLoaderClientAndroid::didRunInsecureContent(SecurityOrigin*)
 }
 
 void FrameLoaderClientAndroid::committedLoad(DocumentLoader* loader, const char* data, int length) {
-    ASSERT(m_frame);
+    if (!m_manualLoader) {
+        ASSERT(m_frame);
+        String encoding = loader->overrideEncoding();
+        bool userChosen = !encoding.isNull();
+        if (encoding.isNull())
+            encoding = loader->response().textEncodingName();
+        loader->frameLoader()->setEncoding(encoding, userChosen);
+        Document *doc = m_frame->document();
+        if (doc)
+            loader->frameLoader()->addData(data, length);
+    }
     if (m_manualLoader) {
         if (!m_hasSentResponseToPlugin) {
             m_manualLoader->didReceiveResponse(loader->response());
@@ -692,16 +702,6 @@ void FrameLoaderClientAndroid::committedLoad(DocumentLoader* loader, const char*
             m_hasSentResponseToPlugin = true;
         }
         m_manualLoader->didReceiveData(data, length);
-        return;
-    }
-    String encoding = loader->overrideEncoding();
-    bool userChosen = !encoding.isNull();
-    if (encoding.isNull())
-        encoding = loader->response().textEncodingName();
-    loader->frameLoader()->setEncoding(encoding, userChosen);
-    Document *doc = m_frame->document();
-    if (doc) {
-        loader->frameLoader()->addData(data, length);
     }
 }
 
