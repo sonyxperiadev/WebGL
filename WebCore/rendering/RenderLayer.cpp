@@ -1038,6 +1038,23 @@ RenderLayer::convertToLayerCoords(const RenderLayer* ancestorLayer, int& xPos, i
             return;
         }
     }
+
+#if ENABLE(COMPOSITED_FIXED_ELEMENTS)
+    // If fixed layers are composited, we need to look up for a parent layer
+    // that would be fixed, and compute the correct offset relative to it.
+    int intermediateX = 0;
+    int intermediateY = 0;
+    const RenderLayer* currLayer = this;
+    while ((currLayer = currLayer->parent())) {
+        if (currLayer->isComposited() && currLayer->isFixed()) {
+            xPos = x() + intermediateX;
+            yPos = y() + intermediateY;
+            return;
+        }
+        intermediateX += currLayer->x();
+        intermediateY += currLayer->y();
+    }
+#endif
     
     RenderLayer* parentLayer;
     if (position == AbsolutePosition || position == FixedPosition) {

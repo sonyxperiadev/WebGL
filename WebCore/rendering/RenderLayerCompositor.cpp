@@ -67,6 +67,9 @@ struct CompositingState {
     CompositingState(RenderLayer* compAncestor)
         : m_compositingAncestor(compAncestor)
         , m_subtreeIsCompositing(false)
+#if ENABLE(COMPOSITED_FIXED_ELEMENTS)
+        , m_fixedSibling(false)
+#endif
 #ifndef NDEBUG
         , m_depth(0)
 #endif
@@ -75,6 +78,9 @@ struct CompositingState {
     
     RenderLayer* m_compositingAncestor;
     bool m_subtreeIsCompositing;
+#if ENABLE(COMPOSITED_FIXED_ELEMENTS)
+    bool m_fixedSibling;
+#endif
 #ifndef NDEBUG
     int m_depth;
 #endif
@@ -496,7 +502,19 @@ void RenderLayerCompositor::computeCompositingRequirements(RenderLayer* layer, O
 #endif
 
     const bool willBeComposited = needsToBeComposited(layer);
+
+#if ENABLE(COMPOSITED_FIXED_ELEMENTS)
+    // If we are a fixed layer, signal it to our siblings
+    if (layer->isFixed())
+      compositingState.m_fixedSibling = true;
+
+    if (!willBeComposited && compositingState.m_fixedSibling)
+        layer->setMustOverlapCompositedLayers(true);
+
+    if (willBeComposited || compositingState.m_fixedSibling) {
+#else
     if (willBeComposited) {
+#endif
         // Tell the parent it has compositing descendants.
         compositingState.m_subtreeIsCompositing = true;
         // This layer now acts as the ancestor for kids.
@@ -517,6 +535,25 @@ void RenderLayerCompositor::computeCompositingRequirements(RenderLayer* layer, O
         ASSERT(!layer->m_zOrderListsDirty);
         if (Vector<RenderLayer*>* negZOrderList = layer->negZOrderList()) {
             size_t listSize = negZOrderList->size();
+#if ENABLE(COMPOSITED_FIXED_ELEMENTS)
+            childState.m_fixedSibling = false;
+
+            // For the negative z-order, if we have a fixed layer
+            // we need to make all the siblings composited layers.
+            // Otherwise a negative layer (below the fixed layer) could
+            // still be drawn onto a higher z-order layer (e.g. the body)
+            // if not immediately intersecting with our fixed layer.
+            // So it's not enough here to only set m_fixedSibling for
+            // subsequent siblings as we do for the normal flow
+            // and positive z-order.
+            for (size_t j = 0; j < listSize; ++j) {
+                if ((negZOrderList->at(j))->isFixed()) {
+                    childState.m_fixedSibling = true;
+                    break;
+                }
+            }
+#endif
+
             for (size_t i = 0; i < listSize; ++i) {
                 RenderLayer* curLayer = negZOrderList->at(i);
                 computeCompositingRequirements(curLayer, overlapMap, childState, layersChanged);
@@ -537,6 +574,9 @@ void RenderLayerCompositor::computeCompositingRequirements(RenderLayer* layer, O
     ASSERT(!layer->m_normalFlowListDirty);
     if (Vector<RenderLayer*>* normalFlowList = layer->normalFlowList()) {
         size_t listSize = normalFlowList->size();
+#if ENABLE(COMPOSITED_FIXED_ELEMENTS)
+        childState.m_fixedSibling = false;
+#endif
         for (size_t i = 0; i < listSize; ++i) {
             RenderLayer* curLayer = normalFlowList->at(i);
             computeCompositingRequirements(curLayer, overlapMap, childState, layersChanged);
@@ -546,6 +586,9 @@ void RenderLayerCompositor::computeCompositingRequirements(RenderLayer* layer, O
     if (layer->isStackingContext()) {
         if (Vector<RenderLayer*>* posZOrderList = layer->posZOrderList()) {
             size_t listSize = posZOrderList->size();
+#if ENABLE(COMPOSITED_FIXED_ELEMENTS)
+            childState.m_fixedSibling = false;
+#endif
             for (size_t i = 0; i < listSize; ++i) {
                 RenderLayer* curLayer = posZOrderList->at(i);
                 computeCompositingRequirements(curLayer, overlapMap, childState, layersChanged);
@@ -927,14 +970,12 @@ bool RenderLayerCompositor::needsToBeComposited(const RenderLayer* layer) const
     if (!m_hasAcceleratedCompositing || !layer->isSelfPaintingLayer())
         return false;
 
-#if PLATFORM(ANDROID)
-    // if an ancestor is fixed positionned, we need to be composited...
-    RenderObject* renderer = layer->renderer();
-    RenderObject* parent = renderer->parent();
-    while (parent && (parent = renderer->parent())) {
-      if (parent->isPositioned() && parent->style()->position() == FixedPosition)
-        return true;
-      renderer = parent;
+#if ENABLE(COMPOSITED_FIXED_ELEMENTS)
+    // if an ancestor is fixed positioned, we need to be composited...
+    const RenderLayer* currLayer = layer;
+    while ((currLayer = currLayer->parent())) {
+        if (currLayer->isComposited() && currLayer->isFixed())
+            return true;
     }
 #endif
 
@@ -955,8 +996,8 @@ bool RenderLayerCompositor::requiresCompositingLayer(const RenderLayer* layer) c
     // The root layer always has a compositing layer, but it may not have backing.
     return (inCompositingMode() && layer->isRootLayer()) ||
              requiresCompositingForTransform(renderer) ||
-#if PLATFORM(ANDROID)
-             (renderer->isPositioned() && renderer->style()->position() == FixedPosition) ||
+#if ENABLE(COMPOSITED_FIXED_ELEMENTS)
+             layer->isFixed() ||
 #else
              requiresCompositingForVideo(renderer) ||
              requiresCompositingForCanvas(renderer) ||
