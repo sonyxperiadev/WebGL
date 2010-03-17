@@ -1223,6 +1223,14 @@ static const CachedNode* getFocusNode(JNIEnv *env, jobject obj)
     return root ? root->currentFocus() : 0;
 }
 
+static const CachedNode* getFocusNode(JNIEnv *env, jobject obj,
+    const CachedFrame** frame)
+{
+    WebView* view = GET_NATIVE_VIEW(env, obj);
+    CachedRoot* root = view->getFrameCache(WebView::DontAllowNewer);
+    return root ? root->currentFocus(frame) : 0;
+}
+
 static const CachedInput* getInputCandidate(JNIEnv *env, jobject obj)
 {
     WebView* view = GET_NATIVE_VIEW(env, obj);
@@ -1479,6 +1487,19 @@ static bool nativeFocusIsPlugin(JNIEnv *env, jobject obj)
 {
     const CachedNode* node = getFocusNode(env, obj);
     return node ? node->isPlugin() : false;
+}
+
+static jobject nativeFocusNodeBounds(JNIEnv *env, jobject obj)
+{
+    const CachedFrame* frame;
+    const CachedNode* node = getFocusNode(env, obj, &frame);
+    WebCore::IntRect bounds = node ? node->bounds(frame)
+        : WebCore::IntRect(0, 0, 0, 0);
+    jclass rectClass = env->FindClass("android/graphics/Rect");
+    jmethodID init = env->GetMethodID(rectClass, "<init>", "(IIII)V");
+    jobject rect = env->NewObject(rectClass, init, bounds.x(),
+        bounds.y(), bounds.right(), bounds.bottom());
+    return rect;
 }
 
 static jint nativeFocusNodePointer(JNIEnv *env, jobject obj)
@@ -1909,6 +1930,8 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeFocusCandidateType },
     { "nativeFocusIsPlugin", "()Z",
         (void*) nativeFocusIsPlugin },
+    { "nativeFocusNodeBounds", "()Landroid/graphics/Rect;",
+        (void*) nativeFocusNodeBounds },
     { "nativeFocusNodePointer", "()I",
         (void*) nativeFocusNodePointer },
     { "nativeGetCursorRingBounds", "()Landroid/graphics/Rect;",
