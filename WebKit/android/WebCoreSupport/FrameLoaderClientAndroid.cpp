@@ -891,11 +891,12 @@ void FrameLoaderClientAndroid::transitionToCommittedForNewPage() {
     Retain(webViewCore);
 
     // Save the old WebFrameView's bounds and apply them to the new WebFrameView
-    WebFrameView* oldFrameView = static_cast<WebFrameView*> (m_frame->view()->platformWidget());
-    IntRect bounds = oldFrameView->getBounds();
-    IntRect windowBounds = oldFrameView->getWindowBounds();
-    // we only support opaque, white background for now
-    m_frame->createView(bounds.size(), Color::white, false, IntSize(), false);
+    WebFrameView* oldWebFrameView = static_cast<WebFrameView*> (m_frame->view()->platformWidget());
+    IntRect bounds = oldWebFrameView->getBounds();
+    IntRect windowBounds = oldWebFrameView->getWindowBounds();
+    WebCore::FrameView* oldFrameView = oldWebFrameView->view();
+    m_frame->createView(bounds.size(), oldFrameView->baseBackgroundColor(), oldFrameView->isTransparent(), IntSize(), false);
+
     // Create a new WebFrameView for the new FrameView
     WebFrameView* newFrameView = new WebFrameView(m_frame->view(), webViewCore);
     newFrameView->setLocation(bounds.x(), bounds.y());

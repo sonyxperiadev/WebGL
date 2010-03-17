@@ -2365,6 +2365,10 @@ void WebViewCore::setBackgroundColor(SkColor c)
     WebCore::Color bcolor((int)SkColorGetR(c), (int)SkColorGetG(c),
                           (int)SkColorGetB(c), (int)SkColorGetA(c));
     view->setBaseBackgroundColor(bcolor);
+
+    // Background color of 0 indicates we want a transparent background
+    if (c == 0)
+        view->setTransparent(true);
 }
 
 jclass WebViewCore::getPluginClass(const WebCore::String& libName, const char* className)

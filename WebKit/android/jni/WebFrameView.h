@@ -49,6 +49,10 @@ namespace android {
 
         void setView(WebCore::FrameView* frameView);
 
+        WebCore::FrameView* view() const {
+            return mFrameView;
+        }
+
         virtual bool forFrameView() const { return true; }
 
     private:
