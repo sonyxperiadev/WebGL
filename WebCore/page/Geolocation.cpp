@@ -38,7 +38,9 @@
 // END ANDROID
 #include "Frame.h"
 #include "Page.h"
+#if PLATFORM(ANDROID)
 #include "PlatformBridge.h"
+#endif
 #include <wtf/CurrentTime.h>
 
 #if ENABLE(CLIENT_BASED_GEOLOCATION)
