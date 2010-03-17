@@ -85,7 +85,6 @@
 #define LOG_DISABLED 1
 #include <wtf/Assertions.h>
 // Central place to set which optional features Android uses.
-#define ENABLE_CHANNEL_MESSAGING 1
 #define ENABLE_DOM_STORAGE 1
 #undef ENABLE_FTPDIR  // Enabled by default in Platform.h
 #define ENABLE_FTPDIR 0
@@ -94,7 +93,6 @@
 #endif
 #define ENABLE_3D_RENDERING 0
 #define ENABLE_VIDEO 1
-#define ENABLE_WORKERS 1
 
 #if ENABLE_SVG
 #if !defined(ENABLE_SVG_ANIMATION)
