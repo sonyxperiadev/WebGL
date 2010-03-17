@@ -321,7 +321,15 @@ public:
     // Get the enclosing stacking context for this layer.  A stacking context is a layer
     // that has a non-auto z-index.
     RenderLayer* stackingContext() const;
-    bool isStackingContext() const { return !hasAutoZIndex() || renderer()->isRenderView(); }
+#if ENABLE(COMPOSITED_FIXED_ELEMENTS)
+    bool isFixed() const { return renderer()->isPositioned() && renderer()->style()->position() == FixedPosition; }
+    // If fixed elements are composited, they will be containing children
+    bool isStackingContext() const {
+      return !hasAutoZIndex() || renderer()->isRenderView() || (isComposited() && isFixed());
+    }
+#else
+    bool isStackingContext() const { return !hasAutoZIndex() || renderer()->isRenderView() ; }
+#endif
 
     void dirtyZOrderLists();
     void dirtyStackingContextZOrderLists();

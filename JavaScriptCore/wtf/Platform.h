@@ -824,6 +824,10 @@
 #define ENABLE_TEXT_CARET 1
 #endif
 
+#if !defined(ENABLE_COMPOSITED_FIXED_ELEMENTS)
+#define ENABLE_COMPOSITED_FIXED_ELEMENTS 0
+#endif
+
 // ENABLE_ARCHIVE is an Android addition. We need this default value to allow
 // us to build on Mac.
 // FIXME: Upstream to webkit.org.
