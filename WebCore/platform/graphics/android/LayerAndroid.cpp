@@ -245,25 +245,25 @@ const LayerAndroid* LayerAndroid::find(int x, int y) const
 
 ///////////////////////////////////////////////////////////////////////////////
 
-void LayerAndroid::updateFixedLayersPositions(const SkRect& viewport) {
-
+void LayerAndroid::updateFixedLayersPositions(const SkRect& viewport)
+{
     if (m_isFixed) {
-        float x = 0;
-        float y = 0;
         float w = viewport.width();
         float h = viewport.height();
         float dx = viewport.fLeft;
         float dy = viewport.fTop;
+        float x = dx;
+        float y = dy;
 
         if (m_fixedLeft.defined())
-            x = dx + m_fixedLeft.calcFloatValue(w);
+            x += m_fixedLeft.calcFloatValue(w);
         else if (m_fixedRight.defined())
-            x = dx + w - m_fixedRight.calcFloatValue(w) - m_fixedWidth;
+            x += w - m_fixedRight.calcFloatValue(w) - m_fixedWidth;
 
         if (m_fixedTop.defined())
-            y = dy + m_fixedTop.calcFloatValue(h);
+            y += m_fixedTop.calcFloatValue(h);
         else if (m_fixedBottom.defined())
-            y = dy + h - m_fixedBottom.calcFloatValue(h) - m_fixedHeight;
+            y += h - m_fixedBottom.calcFloatValue(h) - m_fixedHeight;
 
         this->setPosition(x, y);
     }

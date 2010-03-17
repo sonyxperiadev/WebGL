@@ -1791,7 +1791,7 @@ void RenderBox::calcVerticalMargins()
 int RenderBox::containingBlockWidthForPositioned(const RenderBoxModelObject* containingBlock) const
 {
 #ifdef ANDROID_FIXED_ELEMENTS
-    if (containingBlock->isRenderView()) {
+    if (style()->position() == FixedPosition && containingBlock->isRenderView()) {
         const RenderView* view = toRenderView(containingBlock);
         return PlatformBridge::screenWidth(view->frameView());
     }
@@ -1827,7 +1827,7 @@ int RenderBox::containingBlockWidthForPositioned(const RenderBoxModelObject* con
 int RenderBox::containingBlockHeightForPositioned(const RenderBoxModelObject* containingBlock) const
 {   
 #ifdef ANDROID_FIXED_ELEMENTS
-    if (containingBlock->isRenderView()) {
+    if (style()->position() == FixedPosition && containingBlock->isRenderView()) {
         const RenderView* view = toRenderView(containingBlock);
         return PlatformBridge::screenHeight(view->frameView());
     }

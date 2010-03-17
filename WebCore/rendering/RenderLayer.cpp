@@ -648,7 +648,16 @@ FloatPoint RenderLayer::perspectiveOrigin() const
 RenderLayer* RenderLayer::stackingContext() const
 {
     RenderLayer* layer = parent();
+#if ENABLE(COMPOSITED_FIXED_ELEMENTS)
+    // When using composited fixed elements, they are turned into a stacking
+    // context and we thus need to return them.
+    // We can simplify the while loop by using isStackingContext(); with
+    // composited fixed elements turned on, this will return true for them,
+    // and is otherwise equivalent to the replaced statements.
+    while (layer && !layer->renderer()->isRoot() && !layer->isStackingContext())
+#else
     while (layer && !layer->renderer()->isRenderView() && !layer->renderer()->isRoot() && layer->renderer()->style()->hasAutoZIndex())
+#endif
         layer = layer->parent();
     return layer;
 }
@@ -1039,22 +1048,6 @@ RenderLayer::convertToLayerCoords(const RenderLayer* ancestorLayer, int& xPos, i
         }
     }
 
-#if ENABLE(COMPOSITED_FIXED_ELEMENTS)
-    // If fixed layers are composited, we need to look up for a parent layer
-    // that would be fixed, and compute the correct offset relative to it.
-    int intermediateX = 0;
-    int intermediateY = 0;
-    const RenderLayer* currLayer = this;
-    while ((currLayer = currLayer->parent())) {
-        if (currLayer->isComposited() && currLayer->isFixed()) {
-            xPos = x() + intermediateX;
-            yPos = y() + intermediateY;
-            return;
-        }
-        intermediateX += currLayer->x();
-        intermediateY += currLayer->y();
-    }
-#endif
     
     RenderLayer* parentLayer;
     if (position == AbsolutePosition || position == FixedPosition) {
