@@ -52,7 +52,8 @@ bool ResourceHandle::start(Frame* frame)
 {
     DocumentLoader* docLoader = frame->loader()->activeDocumentLoader();
     MainResourceLoader* mainLoader = docLoader->mainResourceLoader();
-    bool isMainResource = mainLoader && (mainLoader->handle() == this);
+    bool isMainResource =
+            static_cast<void*>(mainLoader) == static_cast<void*>(client());
 
     PassRefPtr<ResourceLoaderAndroid> loader = ResourceLoaderAndroid::start(this, d->m_request, frame->loader()->client(), isMainResource, false);
 
