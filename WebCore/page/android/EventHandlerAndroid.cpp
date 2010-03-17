@@ -78,16 +78,6 @@ bool EventHandler::eventActivatedView(const PlatformMouseEvent&) const
     return false;
 }
 
-// This function is called for mouse events by FrameView::handleMousePressEvent().
-// It is used to ensure that events are sync'ed correctly between frames. For example
-// if the user presses down in one frame and up in another frame, this function will
-// returns true, and pass the event to the correct frame.
-bool EventHandler::passSubframeEventToSubframe(MouseEventWithHitTestResults&, Frame*, HitTestResult*)
-{
-    notImplemented();
-    return false;
-}
-
 // This is called to route wheel events to child widgets when they are RenderWidget
 // as the parent usually gets wheel event. Don't have a mouse with a wheel to confirm
 // the operation of this function.
@@ -99,18 +89,21 @@ bool EventHandler::passWheelEventToWidget(PlatformWheelEvent&, Widget*)
 
 bool EventHandler::passMousePressEventToSubframe(MouseEventWithHitTestResults& mev, Frame* subframe)
 {
-    return passSubframeEventToSubframe(mev, subframe);
+    subframe->eventHandler()->handleMousePressEvent(mev.event());
+    return true;
 }
 
 bool EventHandler::passMouseMoveEventToSubframe(MouseEventWithHitTestResults& mev, 
-    Frame* subframe, HitTestResult*)
+    Frame* subframe, HitTestResult* hoveredNode)
 {
-    return passSubframeEventToSubframe(mev, subframe);
+    subframe->eventHandler()->handleMouseMoveEvent(mev.event(), hoveredNode);
+    return true;
 }
 
 bool EventHandler::passMouseReleaseEventToSubframe(MouseEventWithHitTestResults& mev, Frame* subframe)
 {
-    return passSubframeEventToSubframe(mev, subframe);
+    subframe->eventHandler()->handleMouseReleaseEvent(mev.event());
+    return true;
 }
 
 class Clipboard : public RefCounted<Clipboard> {
