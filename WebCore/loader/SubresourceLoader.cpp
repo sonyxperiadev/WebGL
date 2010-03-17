@@ -81,7 +81,11 @@ PassRefPtr<SubresourceLoader> SubresourceLoader::create(Frame* frame, Subresourc
     
     if (SecurityOrigin::shouldHideReferrer(request.url(), fl->outgoingReferrer()))
         newRequest.clearHTTPReferrer();
+#ifdef ANDROID_FIX
+    else if (request.httpReferrer().isEmpty())
+#else
     else if (!request.httpReferrer())
+#endif
         newRequest.setHTTPReferrer(fl->outgoingReferrer());
     FrameLoader::addHTTPOriginIfNeeded(newRequest, fl->outgoingOrigin());
 
