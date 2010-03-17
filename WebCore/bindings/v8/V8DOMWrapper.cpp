@@ -476,6 +476,9 @@ PassRefPtr<EventListener> V8DOMWrapper::getEventListener(SVGElementInstance* ele
 }
 #endif
 
+// ANDROID
+// Temporary fix until we merge http://trac.webkit.org/changeset/55096
+#if ENABLE(WORKERS)
 PassRefPtr<EventListener> V8DOMWrapper::getEventListener(AbstractWorker* worker, v8::Local<v8::Value> value, bool isAttribute, ListenerLookupType lookup)
 {
     if (worker->scriptExecutionContext()->isWorkerContext()) {
@@ -486,6 +489,7 @@ PassRefPtr<EventListener> V8DOMWrapper::getEventListener(AbstractWorker* worker,
 
     return (lookup == ListenerFindOnly) ? V8EventListenerList::findWrapper(value, isAttribute) : V8EventListenerList::findOrCreateWrapper<V8EventListener>(value, isAttribute);
 }
+#endif
 
 #if ENABLE(NOTIFICATIONS)
 PassRefPtr<EventListener> V8DOMWrapper::getEventListener(Notification* notification, v8::Local<v8::Value> value, bool isAttribute, ListenerLookupType lookup)
@@ -500,6 +504,9 @@ PassRefPtr<EventListener> V8DOMWrapper::getEventListener(Notification* notificat
 }
 #endif
 
+// ANDROID
+// Temporary fix until we merge http://trac.webkit.org/changeset/55096
+#if ENABLE(WORKERS)
 PassRefPtr<EventListener> V8DOMWrapper::getEventListener(WorkerContext* workerContext, v8::Local<v8::Value> value, bool isAttribute, ListenerLookupType lookup)
 {
     WorkerContextExecutionProxy* workerContextProxy = workerContext->script()->proxy();
@@ -508,6 +515,7 @@ PassRefPtr<EventListener> V8DOMWrapper::getEventListener(WorkerContext* workerCo
 
     return 0;
 }
+#endif
 
 PassRefPtr<EventListener> V8DOMWrapper::getEventListener(XMLHttpRequestUpload* upload, v8::Local<v8::Value> value, bool isAttribute, ListenerLookupType lookup)
 {
