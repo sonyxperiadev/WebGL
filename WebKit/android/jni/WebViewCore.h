@@ -445,6 +445,7 @@ namespace android {
         // record the inval area, and the picture size
         bool recordContent(SkRegion* , SkIPoint* );
         int screenWidth() const { return m_screenWidth; }
+        int screenHeight() const { return m_screenHeight; }
         float scale() const { return m_scale; }
         float screenWidthScale() const { return m_screenWidthScale; }
         WebCore::Frame* mainFrame() const { return m_mainFrame; }
