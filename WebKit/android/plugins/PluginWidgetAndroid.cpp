@@ -230,7 +230,8 @@ void PluginWidgetAndroid::layoutSurface(bool pluginBoundsChanged) {
 
     if (m_drawingModel != kSurface_ANPDrawingModel)
         return;
-
+    if (!m_pluginWindow)
+        return;
 
 
     bool displayPlugin = m_pluginView->isVisible() && !m_isSurfaceClippedOut;
