@@ -241,7 +241,16 @@ void GraphicsLayerAndroid::updateFixedPosition()
         int w = view->rightVisibleOverflow() - view->leftVisibleOverflow();
         int h = view->bottomVisibleOverflow() - view->topVisibleOverflow();
 
-        m_contentLayer->setFixedPosition(left, top, right, bottom, w, h);
+        SkLength marginLeft, marginTop, marginRight, marginBottom;
+        marginLeft = convertLength(view->style()->marginLeft());
+        marginTop = convertLength(view->style()->marginTop());
+        marginRight = convertLength(view->style()->marginRight());
+        marginBottom = convertLength(view->style()->marginBottom());
+
+        m_contentLayer->setFixedPosition(left, top, right, bottom,
+                                         marginLeft, marginTop,
+                                         marginRight, marginBottom,
+                                         w, h);
     }
 }
 

@@ -92,12 +92,20 @@ public:
                           SkLength top,    // CSS top property
                           SkLength right,  // CSS right property
                           SkLength bottom, // CSS bottom property
+                          SkLength marginLeft,   // CSS margin-left property
+                          SkLength marginTop,    // CSS margin-top property
+                          SkLength marginRight,  // CSS margin-right property
+                          SkLength marginBottom, // CSS margin-bottom property
                           int width,       // visible overflow width
                           int height) {    // visible overflow height
         m_fixedLeft = left;
         m_fixedTop = top;
         m_fixedRight = right;
         m_fixedBottom = bottom;
+        m_fixedMarginLeft = marginLeft;
+        m_fixedMarginTop = marginTop;
+        m_fixedMarginRight = marginRight;
+        m_fixedMarginBottom = marginBottom;
         m_fixedWidth = width;
         m_fixedHeight = height;
         m_isFixed = true;
@@ -173,6 +181,10 @@ private:
     SkLength m_fixedTop;
     SkLength m_fixedRight;
     SkLength m_fixedBottom;
+    SkLength m_fixedMarginLeft;
+    SkLength m_fixedMarginTop;
+    SkLength m_fixedMarginRight;
+    SkLength m_fixedMarginBottom;
     int m_fixedWidth;
     int m_fixedHeight;
 

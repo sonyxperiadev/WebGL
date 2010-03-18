@@ -79,6 +79,10 @@ LayerAndroid::LayerAndroid(const LayerAndroid& layer) : SkLayer(layer),
     m_fixedTop = layer.m_fixedTop;
     m_fixedRight = layer.m_fixedRight;
     m_fixedBottom = layer.m_fixedBottom;
+    m_fixedMarginLeft = layer.m_fixedMarginLeft;
+    m_fixedMarginTop = layer.m_fixedMarginTop;
+    m_fixedMarginRight = layer.m_fixedMarginRight;
+    m_fixedMarginBottom = layer.m_fixedMarginBottom;
     m_fixedWidth = layer.m_fixedWidth;
     m_fixedHeight = layer.m_fixedHeight;
 
@@ -256,14 +260,14 @@ void LayerAndroid::updateFixedLayersPositions(const SkRect& viewport)
         float y = dy;
 
         if (m_fixedLeft.defined())
-            x += m_fixedLeft.calcFloatValue(w);
+            x += m_fixedMarginLeft.calcFloatValue(w) + m_fixedLeft.calcFloatValue(w);
         else if (m_fixedRight.defined())
-            x += w - m_fixedRight.calcFloatValue(w) - m_fixedWidth;
+            x += w - m_fixedMarginRight.calcFloatValue(w) - m_fixedRight.calcFloatValue(w) - m_fixedWidth;
 
         if (m_fixedTop.defined())
-            y += m_fixedTop.calcFloatValue(h);
+            y += m_fixedMarginTop.calcFloatValue(h) + m_fixedTop.calcFloatValue(h);
         else if (m_fixedBottom.defined())
-            y += h - m_fixedBottom.calcFloatValue(h) - m_fixedHeight;
+            y += h - m_fixedMarginBottom.calcFloatValue(h) - m_fixedBottom.calcFloatValue(h) - m_fixedHeight;
 
         this->setPosition(x, y);
     }
@@ -492,6 +496,10 @@ void LayerAndroid::dumpLayers(FILE* file, int indentLevel) const
     writeLength(file, indentLevel + 1, "fixedTop", m_fixedTop);
     writeLength(file, indentLevel + 1, "fixedRight", m_fixedRight);
     writeLength(file, indentLevel + 1, "fixedBottom", m_fixedBottom);
+    writeLength(file, indentLevel + 1, "fixedMarginLeft", m_fixedMarginLeft);
+    writeLength(file, indentLevel + 1, "fixedMarginTop", m_fixedMarginTop);
+    writeLength(file, indentLevel + 1, "fixedMarginRight", m_fixedMarginRight);
+    writeLength(file, indentLevel + 1, "fixedMarginBottom", m_fixedMarginBottom);
     writeIntVal(file, indentLevel + 1, "fixedWidth", m_fixedWidth);
     writeIntVal(file, indentLevel + 1, "fixedHeight", m_fixedHeight);
 
