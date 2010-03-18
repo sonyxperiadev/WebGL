@@ -50,7 +50,7 @@ static void anp_showKeyboard(NPP instance, bool value) {
     PluginView* pluginView = pluginViewForInstance(instance);
     PluginWidgetAndroid* pluginWidget = pluginView->platformPluginWidget();
     if(pluginWidget->hasFocus())
-        pluginWidget->webViewCore()->requestKeyboard(value, false);
+        pluginWidget->webViewCore()->requestKeyboard(value);
 }
 
 static void anp_requestFullScreen(NPP instance) {

@@ -214,6 +214,7 @@ struct WebViewCore::JavaGlue {
     jmethodID   m_restoreScreenWidthScale;
     jmethodID   m_needTouchEvents;
     jmethodID   m_requestKeyboard;
+    jmethodID   m_requestKeyboardWithSelection;
     jmethodID   m_exceededDatabaseQuota;
     jmethodID   m_reachedMaxAppCacheSize;
     jmethodID   m_populateVisitedLinks;
@@ -302,7 +303,8 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     m_javaGlue->m_restoreScale = GetJMethod(env, clazz, "restoreScale", "(I)V");
     m_javaGlue->m_restoreScreenWidthScale = GetJMethod(env, clazz, "restoreScreenWidthScale", "(I)V");
     m_javaGlue->m_needTouchEvents = GetJMethod(env, clazz, "needTouchEvents", "(Z)V");
-    m_javaGlue->m_requestKeyboard = GetJMethod(env, clazz, "requestKeyboard", "(ZZ)V");
+    m_javaGlue->m_requestKeyboard = GetJMethod(env, clazz, "requestKeyboard", "(Z)V");
+    m_javaGlue->m_requestKeyboardWithSelection = GetJMethod(env, clazz, "requestKeyboardWithSelection", "(IIII)V");
     m_javaGlue->m_exceededDatabaseQuota = GetJMethod(env, clazz, "exceededDatabaseQuota", "(Ljava/lang/String;Ljava/lang/String;JJ)V");
     m_javaGlue->m_reachedMaxAppCacheSize = GetJMethod(env, clazz, "reachedMaxAppCacheSize", "(J)V");
     m_javaGlue->m_populateVisitedLinks = GetJMethod(env, clazz, "populateVisitedLinks", "()V");
@@ -1047,14 +1049,27 @@ void WebViewCore::needTouchEvents(bool need)
 #endif
 }
 
-void WebViewCore::requestKeyboard(bool showKeyboard, bool isTextView)
+void WebViewCore::requestKeyboardWithSelection(const WebCore::Node* node,
+        int selStart, int selEnd)
 {
-    DBG_NAV_LOGD("showKeyboard=%d", showKeyboard);
+    DEBUG_NAV_UI_LOGD("%s", __FUNCTION__);
     LOG_ASSERT(m_javaGlue->m_obj, "A Java widget was not associated with this view bridge!");
 
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_requestKeyboard, showKeyboard,
-            isTextView);
+    env->CallVoidMethod(m_javaGlue->object(env).get(),
+            m_javaGlue->m_requestKeyboardWithSelection,
+            reinterpret_cast<int>(node), selStart, selEnd, m_textGeneration);
+    checkException(env);
+}
+
+void WebViewCore::requestKeyboard(bool showKeyboard)
+{
+    DEBUG_NAV_UI_LOGD("%s", __FUNCTION__);
+    LOG_ASSERT(m_javaGlue->m_obj, "A Java widget was not associated with this view bridge!");
+
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    env->CallVoidMethod(m_javaGlue->object(env).get(),
+            m_javaGlue->m_requestKeyboard, showKeyboard);
     checkException(env);
 }
 
@@ -2150,7 +2165,14 @@ bool WebViewCore::handleMouseClick(WebCore::Frame* framePtr, WebCore::Node* node
             bool ime = !(static_cast<WebCore::HTMLInputElement*>(focusNode))
                     ->readOnly();
             setFocusControllerActive(framePtr, ime);
-            requestKeyboard(ime, true);
+            if (ime) {
+                RenderTextControl* rtc
+                        = static_cast<RenderTextControl*> (renderer);
+                requestKeyboardWithSelection(focusNode, rtc->selectionStart(),
+                        rtc->selectionEnd());
+            } else {
+                requestKeyboard(false);
+            }
         }
     }
     return handled;
