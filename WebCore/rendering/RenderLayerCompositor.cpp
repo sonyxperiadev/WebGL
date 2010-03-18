@@ -506,7 +506,7 @@ void RenderLayerCompositor::computeCompositingRequirements(RenderLayer* layer, O
 #if ENABLE(COMPOSITED_FIXED_ELEMENTS)
     // If we are a fixed layer, signal it to our siblings
     if (layer->isFixed())
-      compositingState.m_fixedSibling = true;
+        compositingState.m_fixedSibling = true;
 
     if (!willBeComposited && compositingState.m_fixedSibling)
         layer->setMustOverlapCompositedLayers(true);
