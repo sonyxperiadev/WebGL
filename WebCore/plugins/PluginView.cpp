@@ -268,6 +268,12 @@ bool PluginView::start()
         FrameLoadRequest frameLoadRequest;
         frameLoadRequest.resourceRequest().setHTTPMethod("GET");
         frameLoadRequest.resourceRequest().setURL(m_url);
+#ifdef ANDROID_PLUGINS
+        if (!SecurityOrigin::shouldHideReferrer(
+                m_url, m_parentFrame->loader()->outgoingReferrer()))
+          frameLoadRequest.resourceRequest().setHTTPReferrer(
+              m_parentFrame->loader()->outgoingReferrer());
+#endif
         load(frameLoadRequest, false, 0);
     }
 
@@ -601,6 +607,11 @@ NPError PluginView::getURLNotify(const char* url, const char* target, void* noti
     frameLoadRequest.setFrameName(target);
     frameLoadRequest.resourceRequest().setHTTPMethod("GET");
     frameLoadRequest.resourceRequest().setURL(makeURL(m_baseURL, url));
+#ifdef ANDROID_PLUGINS
+    if (!SecurityOrigin::shouldHideReferrer(
+            frameLoadRequest.resourceRequest().url(), m_url))
+        frameLoadRequest.resourceRequest().setHTTPReferrer(m_url);
+#endif
 
     return load(frameLoadRequest, true, notifyData);
 }
@@ -612,6 +623,11 @@ NPError PluginView::getURL(const char* url, const char* target)
     frameLoadRequest.setFrameName(target);
     frameLoadRequest.resourceRequest().setHTTPMethod("GET");
     frameLoadRequest.resourceRequest().setURL(makeURL(m_baseURL, url));
+#ifdef ANDROID_PLUGINS
+    if (!SecurityOrigin::shouldHideReferrer(
+            frameLoadRequest.resourceRequest().url(), m_url))
+        frameLoadRequest.resourceRequest().setHTTPReferrer(m_url);
+#endif
 
     return load(frameLoadRequest, false, 0);
 }
