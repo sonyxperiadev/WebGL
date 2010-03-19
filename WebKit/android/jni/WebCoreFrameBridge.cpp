@@ -457,16 +457,16 @@ WebFrame::startLoadingResource(WebCore::ResourceHandle* loader,
     jobject jHeaderMap = createJavaMapFromHTTPHeaders(env, headers);
 
     // Convert the WebCore Cache Policy to a WebView Cache Policy.
-    int cacheMode = 0;  // WebView.LOAD_NORMAL
+    int cacheMode = 0;  // WebSettings.LOAD_NORMAL
     switch (request.cachePolicy()) {
         case WebCore::ReloadIgnoringCacheData:
-            cacheMode = 2; // WebView.LOAD_NO_CACHE
+            cacheMode = 2; // WebSettings.LOAD_NO_CACHE
             break;
         case WebCore::ReturnCacheDataDontLoad:
-            cacheMode = 3; // WebView.LOAD_CACHE_ONLY
+            cacheMode = 3; // WebSettings.LOAD_CACHE_ONLY
             break;
         case WebCore::ReturnCacheDataElseLoad:
-            cacheMode = 1;   // WebView.LOAD_CACHE_ELSE_NETWORK
+            cacheMode = 1;   // WebSettings.LOAD_CACHE_ELSE_NETWORK
             break;
         case WebCore::UseProtocolCachePolicy:
         default:
