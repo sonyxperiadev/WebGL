@@ -996,8 +996,10 @@ bool RenderLayerCompositor::requiresCompositingLayer(const RenderLayer* layer) c
     // The root layer always has a compositing layer, but it may not have backing.
     return (inCompositingMode() && layer->isRootLayer()) ||
              requiresCompositingForTransform(renderer) ||
+#if PLATFORM(ANDROID)
 #if ENABLE(COMPOSITED_FIXED_ELEMENTS)
              layer->isFixed() ||
+#endif
 #else
              requiresCompositingForVideo(renderer) ||
              requiresCompositingForCanvas(renderer) ||
