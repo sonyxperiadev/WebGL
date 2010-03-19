@@ -424,6 +424,11 @@ void drawExtras(SkCanvas* canvas, int extras)
     // before we actually draw
     m_rootLayer->updateFixedLayersPositions(visible);
     m_rootLayer->updatePositions();
+    // We have to set the canvas' matrix on the root layer
+    // (to have fixed layers work as intended)
+    SkAutoCanvasRestore restore(canvas, true);
+    m_rootLayer->setMatrix(canvas->getTotalMatrix());
+    canvas->resetMatrix();
     m_rootLayer->draw(canvas);
 #endif
 }
@@ -1836,8 +1841,14 @@ static void nativeDumpDisplayTree(JNIEnv* env, jobject jwebview, jstring jurl)
 #if USE(ACCELERATED_COMPOSITING)
             if (true) {
                 LayerAndroid* rootLayer = view->rootLayer();
-                if (rootLayer)
+                if (rootLayer) {
+                    // We have to set the canvas' matrix on the root layer
+                    // (to have fixed layers work as intended)
+                    SkAutoCanvasRestore restore(&canvas, true);
+                    rootLayer->setMatrix(canvas.getTotalMatrix());
+                    canvas.resetMatrix();
                     rootLayer->draw(&canvas);
+                }
             }
 #endif
             // we're done with the file now

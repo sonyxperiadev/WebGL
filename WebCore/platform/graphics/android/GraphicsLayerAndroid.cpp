@@ -250,6 +250,8 @@ void GraphicsLayerAndroid::updateFixedPosition()
         m_contentLayer->setFixedPosition(left, top, right, bottom,
                                          marginLeft, marginTop,
                                          marginRight, marginBottom,
+                                         offsetFromRenderer().width(),
+                                         offsetFromRenderer().height(),
                                          w, h);
     }
 }
@@ -431,11 +433,14 @@ void GraphicsLayerAndroid::sendImmediateRepaint()
 
     if (rootGraphicsLayer->m_frame
         && rootGraphicsLayer->m_frame->view()) {
+        LayerAndroid* rootLayer = new LayerAndroid(true);
         LayerAndroid* copyLayer = new LayerAndroid(*m_contentLayer);
+        rootLayer->addChild(copyLayer);
+        copyLayer->unref();
         TLOG("(%x) sendImmediateRepaint, copy the layer, (%.2f,%.2f => %.2f,%.2f)",
             this, m_contentLayer->getSize().width(), m_contentLayer->getSize().height(),
             copyLayer->getSize().width(), copyLayer->getSize().height());
-        PlatformBridge::setUIRootLayer(m_frame->view(), copyLayer);
+        PlatformBridge::setUIRootLayer(m_frame->view(), rootLayer);
         PlatformBridge::immediateRepaint(m_frame->view());
     }
 }
