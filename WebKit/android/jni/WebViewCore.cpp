@@ -787,7 +787,7 @@ SkPicture* WebViewCore::rebuildPicture(const SkIRect& inval)
     int width = view->contentsWidth();
     int height = view->contentsHeight();
     SkPicture* picture = new SkPicture();
-    SkAutoPictureRecord arp(picture, width, height);
+    SkAutoPictureRecord arp(picture, width, height, PICT_RECORD_FLAGS);
     SkAutoMemoryUsageProbe mup(__FUNCTION__);
     SkCanvas* recordingCanvas = arp.getRecordingCanvas();
 

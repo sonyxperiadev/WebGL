@@ -355,7 +355,13 @@ public:
         mEmpty = false;
         mPicture->abortPlayback();    
     }
-    
+
+    virtual bool clipPath(const SkPath&, SkRegion::Op) {
+        // this can be expensive to actually do, and doesn't affect the
+        // question of emptiness, so we make it a no-op
+        return true;
+    }
+
     virtual void commonDrawBitmap(const SkBitmap& bitmap,
             const SkMatrix& , const SkPaint& ) {
         if (bitmap.width() <= 1 || bitmap.height() <= 1)
