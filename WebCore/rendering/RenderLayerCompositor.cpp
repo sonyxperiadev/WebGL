@@ -987,6 +987,9 @@ bool RenderLayerCompositor::needsToBeComposited(const RenderLayer* layer) const
 // static
 bool RenderLayerCompositor::requiresCompositingLayer(const RenderLayer* layer) const
 {
+#if ENABLE(COMPOSITED_FIXED_ELEMENTS)
+    Settings* settings = m_renderView->document()->settings();
+#endif
     RenderObject* renderer = layer->renderer();
     // The compositing state of a reflection should match that of its reflected layer.
     if (layer->isReflection()) {
@@ -998,7 +1001,13 @@ bool RenderLayerCompositor::requiresCompositingLayer(const RenderLayer* layer) c
              requiresCompositingForTransform(renderer) ||
 #if PLATFORM(ANDROID)
 #if ENABLE(COMPOSITED_FIXED_ELEMENTS)
-             layer->isFixed() ||
+             // For the moment, we want to only enable fixed composited layers on mobile websites.
+             // We can consider a website as being a 'mobile' site if all the
+             // following checks are true:
+             // 1) - the viewport width is either undefined (-1) or equal to device-width (0), and
+             // 2) - no scaling is allowed
+             (((settings->viewportWidth() == -1) || (settings->viewportWidth() == 0)) &&
+             !settings->viewportUserScalable() && layer->isFixed()) ||
 #endif
 #else
              requiresCompositingForVideo(renderer) ||
