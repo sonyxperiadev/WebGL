@@ -132,6 +132,11 @@ static void DeleteAllData(JNIEnv* env, jobject obj)
     WebCore::cacheStorage().empty();
 }
 
+static void SetAppCacheMaximumSize(JNIEnv* env, jobject obj, unsigned long long size)
+{
+    WebCore::cacheStorage().setMaximumSize(size);
+}
+
 /*
  * JNI registration
  */
@@ -147,7 +152,9 @@ static JNINativeMethod gWebStorageMethods[] = {
     { "nativeDeleteOrigin", "(Ljava/lang/String;)V",
         (void*) DeleteOrigin },
     { "nativeDeleteAllData", "()V",
-        (void*) DeleteAllData }
+        (void*) DeleteAllData },
+    { "nativeSetAppCacheMaximumSize", "(J)V",
+        (void*) SetAppCacheMaximumSize }
 };
 
 int register_webstorage(JNIEnv* env)
