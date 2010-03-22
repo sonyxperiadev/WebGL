@@ -67,6 +67,7 @@
 #include "Pasteboard.h"
 #include "Path.h"
 #include "PluginInfoStore.h"
+#include "PluginWidget.h"
 #include "ResourceError.h"
 #include "ResourceHandle.h"
 #include "ResourceLoader.h"
@@ -143,6 +144,10 @@ void refreshPlugins(bool)
 }
 
 #endif // !defined(ANDROID_PLUGINS)
+
+// Needed to link with PluginWidget as a parent class of PluginToggleWidget. Mac
+// defines this in plugins/mac/PluginWidgetMac.mm
+void PluginWidget::invalidateRect(const IntRect&) {}
 
 // This function tells the bridge that a resource was loaded from the cache and thus
 // the app may update progress with the amount of data loaded.

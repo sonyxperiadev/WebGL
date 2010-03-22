@@ -147,6 +147,11 @@ namespace WebCore {
         void setPluginsEnabled(bool);
         bool arePluginsEnabled() const { return m_arePluginsEnabled; }
 
+#ifdef ANDROID_PLUGINS
+        void setPluginsOnDemand(bool onDemand) { m_pluginsOnDemand = onDemand; }
+        bool arePluginsOnDemand() const { return m_pluginsOnDemand; }
+#endif
+
         void setDatabasesEnabled(bool);
         bool databasesEnabled() const { return m_databasesEnabled; }
 
@@ -458,6 +463,9 @@ namespace WebCore {
         bool m_webGLEnabled : 1;
         bool m_geolocationEnabled : 1;
         bool m_loadDeferringEnabled : 1;
+#ifdef ANDROID_PLUGINS
+        bool m_pluginsOnDemand : 1;
+#endif
 
 #if USE(SAFARI_THEME)
         static bool gShouldPaintNativeControls;
