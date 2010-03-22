@@ -25,9 +25,20 @@ LOCAL_SRC_FILES := \
 	android/WebCoreSupport/GeolocationPermissions.cpp \
 	android/WebCoreSupport/MediaPlayerPrivateAndroid.cpp \
 	android/WebCoreSupport/PlatformBridge.cpp \
-	android/WebCoreSupport/ResourceLoaderAndroid.cpp \
-	android/WebCoreSupport/V8Counters.cpp \
-	\
+	android/WebCoreSupport/V8Counters.cpp
+
+ifeq ($(HTTP_STACK),chrome)
+LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
+	android/WebCoreSupport/WebUrlLoader.cpp \
+	android/WebCoreSupport/WebUrlLoaderClient.cpp \
+	android/WebCoreSupport/WebRequest.cpp \
+	android/WebCoreSupport/WebRequestContext.cpp
+else
+LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
+	android/WebCoreSupport/ResourceLoaderAndroid.cpp
+endif # HTTP_STACK == chrome
+
+LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	android/RenderSkinAndroid.cpp \
 	android/RenderSkinButton.cpp \
 	android/RenderSkinCombo.cpp \

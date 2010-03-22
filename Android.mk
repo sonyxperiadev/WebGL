@@ -78,6 +78,12 @@ ifneq ($(JAVASCRIPT_ENGINE),jsc)
   endif
 endif
 
+# Read the HTTP_STACK environment variable, default is android
+HTTP_STACK = $(HTTP)
+ifneq ($(HTTP_STACK),chrome)
+  HTTP_STACK = android
+endif
+
 BASE_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 
@@ -233,6 +239,12 @@ intermediates := $(base_intermediates)/$d
 include $(LOCAL_PATH)/Android.mk
 WEBKIT_SRC_FILES += $(addprefix $d/,$(LOCAL_SRC_FILES))
 
+ifeq ($(HTTP_STACK),chrome)
+LOCAL_C_INCLUDES := $(LOCAL_C_INCLUDES) \
+	$(LOCAL_PATH)/WebKit/chromium/public \
+	external/chromium
+endif # HTTP_STACK == chrome
+
 # Redefine LOCAL_PATH here so the build system is not confused
 LOCAL_PATH := $(BASE_PATH)
 
@@ -241,6 +253,11 @@ LOCAL_CFLAGS += -Wno-endif-labels -Wno-import -Wno-format
 LOCAL_CFLAGS += -fno-strict-aliasing
 LOCAL_CFLAGS += -include "WebCorePrefix.h"
 LOCAL_CFLAGS += -fvisibility=hidden
+ifeq ($(HTTP_STACK),chrome)
+LOCAL_CFLAGS += -DGOOGLEURL
+LOCAL_CFLAGS += -DCHROME_HTTP_STACK
+LOCAL_CFLAGS += -include "assert.h"
+endif # HTTP_STACK == chrome
 
 # Enable JSC JIT if JSC is used and ENABLE_JSC_JIT environment
 # variable is set to true
@@ -296,6 +313,13 @@ LOCAL_SHARED_LIBRARIES := \
 	libicui18n \
 	libmedia \
 	libsurfaceflinger_client
+
+ifeq ($(HTTP_STACK),chrome)
+LOCAL_SHARED_LIBRARIES := $(LOCAL_SHARED_LIBRARIES) \
+	libssl \
+	libcrypto \
+	libchromium_net
+endif # HTTP_STACK == chrome
 
 ifeq ($(WEBCORE_INSTRUMENTATION),true)
 LOCAL_SHARED_LIBRARIES += libhardware_legacy
