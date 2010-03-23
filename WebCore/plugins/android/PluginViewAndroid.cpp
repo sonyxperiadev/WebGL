@@ -369,11 +369,22 @@ NPError PluginView::getValueStatic(NPNVariable variable, void* value)
 {
     // our interface query is valid with no NPP instance
     NPError error = NPERR_GENERIC_ERROR;
-    if ((value != NULL) && (variable == NPNVisOfflineBool)) {
-      bool* retValue = static_cast<bool*>(value);
-      *retValue = !networkStateNotifier().onLine();
-      return NPERR_NO_ERROR;
+
+    switch (variable) {
+        case NPNVisOfflineBool: {
+            if (value != NULL) {
+                bool* retValue = static_cast<bool*>(value);
+                *retValue = !networkStateNotifier().onLine();
+                return NPERR_NO_ERROR;
+            }
+        }
+        case kJavaContext_ANPGetValue: {
+            jobject* retObject = static_cast<jobject*>(value);
+            *retObject = android::WebViewCore::getApplicationContext();
+            return NPERR_NO_ERROR;
+        }
     }
+
     (void)anp_getInterface(variable, value, &error);
     return error;
 }

@@ -168,6 +168,27 @@ bool WebViewCore::isInstance(WebViewCore* inst) {
     return gInstanceList.find(inst) >= 0;
 }
 
+jobject WebViewCore::getApplicationContext() {
+
+    // check to see if there is a valid webviewcore object
+    if (gInstanceList.isEmpty())
+        return 0;
+
+    // get the context from the webview
+    jobject context = gInstanceList[0]->getContext();
+
+    if (!context)
+        return 0;
+
+    // get the application context using JNI
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    jclass contextClass = env->GetObjectClass(context);
+    jmethodID appContextMethod = env->GetMethodID(contextClass, "getApplicationContext", "()Landroid/content/Context;");
+    jobject result = env->CallObjectMethod(context, appContextMethod);
+    checkException(env);
+    return result;
+}
+
 // ----------------------------------------------------------------------------
 
 #define GET_NATIVE_VIEW(env, obj) ((WebViewCore*)env->GetIntField(obj, gWebViewCoreFields.m_nativeClass))
