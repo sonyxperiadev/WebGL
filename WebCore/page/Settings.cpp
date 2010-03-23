@@ -136,6 +136,9 @@ Settings::Settings(Page* page)
     , m_webGLEnabled(false)
     , m_geolocationEnabled(true)
     , m_loadDeferringEnabled(true)
+#ifdef ANDROID_PLUGINS
+    , m_pluginsOnDemand(false)
+#endif
 {
     // A Frame may not have been created yet, so we initialize the AtomicString 
     // hash before trying to use it.

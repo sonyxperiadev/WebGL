@@ -53,6 +53,7 @@
 #include "PlatformString.h"
 #include "PluginDatabase.h"
 #include "PluginView.h"
+#include "PluginWidget.h"
 #include "ProgressTracker.h"
 #include "RenderPart.h"
 #include "ResourceError.h"
@@ -1000,6 +1001,93 @@ static bool isYouTubeInstalled() {
     return WebCore::packageNotifier().isPackageInstalled("com.google.android.youtube");
 }
 
+// Use PluginWidget as it is not used by Android for real plugins.
+class PluginToggleWidget : public PluginWidget {
+public:
+    PluginToggleWidget(Frame* parent, const IntSize& size,
+            HTMLPlugInElement* elem, const KURL& url,
+            const WTF::Vector<String>& paramNames,
+            const WTF::Vector<String>& paramValues, const String& mimeType,
+            bool loadManually)
+        : m_parent(parent)
+        , m_size(size)
+        , m_element(elem)
+        , m_url(url)
+        , m_paramNames(paramNames)
+        , m_paramValues(paramValues)
+        , m_mimeType(mimeType)
+        , m_loadManually(loadManually)
+    {
+        resize(size);
+    }
+
+    virtual void paint(GraphicsContext* ctx, const IntRect& rect)
+    {
+        // Most of this code is copied from PluginView::paintMissingPluginIcon
+        // with slight modification.
+
+        static RefPtr<Image> image;
+        static RefPtr<Image> bg;
+        if (!image || !bg) {
+            image = Image::loadPlatformResource("togglePlugin");
+            bg = Image::loadPlatformResource("togglePluginBg");
+        }
+
+        IntRect imageRect(x(), y(), image->width(), image->height());
+
+        int xOffset = (width() - imageRect.width()) >> 1;
+        int yOffset = (height() - imageRect.height()) >> 1;
+
+        imageRect.move(xOffset, yOffset);
+
+        if (!rect.intersects(imageRect))
+            return;
+
+        // FIXME: We need to clip similarly to paintMissingPluginIcon but it is
+        // way screwed up right now. It has something to do with how we tell
+        // webkit the scroll position and it causes the placeholder to get
+        // clipped very badly. http://b/issue?id=2533303
+
+        ctx->save();
+        ctx->clip(frameRect());
+        ctx->drawTiledImage(bg.get(), DeviceColorSpace, frameRect(),
+                IntPoint(), IntSize(bg->width(), bg->height()));
+        ctx->drawImage(image.get(), DeviceColorSpace, imageRect.location());
+        ctx->restore();
+    }
+
+    virtual void handleEvent(Event* event)
+    {
+        if (event->type() != eventNames().clickEvent)
+            return;
+
+        WTF::PassRefPtr<PluginView> prpWidget =
+                PluginView::create(m_parent.get(),
+                                   m_size,
+                                   m_element,
+                                   m_url,
+                                   m_paramNames,
+                                   m_paramValues,
+                                   m_mimeType,
+                                   m_loadManually);
+        RefPtr<Widget> myProtector(this);
+        RenderWidget* renderer =
+                static_cast<RenderWidget*>(m_element->renderer());
+        prpWidget->focusPluginElement();
+        renderer->setWidget(prpWidget);
+    }
+
+private:
+    RefPtr<Frame>       m_parent;
+    IntSize             m_size;
+    HTMLPlugInElement*  m_element;
+    KURL                m_url;
+    WTF::Vector<String> m_paramNames;
+    WTF::Vector<String> m_paramValues;
+    String              m_mimeType;
+    bool                m_loadManually;
+};
+
 WTF::PassRefPtr<Widget> FrameLoaderClientAndroid::createPlugin(
         const IntSize& size,
         HTMLPlugInElement* element,
@@ -1008,6 +1096,41 @@ WTF::PassRefPtr<Widget> FrameLoaderClientAndroid::createPlugin(
         const WTF::Vector<String>& values,
         const String& mimeType,
         bool loadManually) {
+    WTF::PassRefPtr<PluginView> prpWidget = 0;
+#ifdef ANDROID_PLUGINS
+    // This is copied from PluginView.cpp. We need to determine if a plugin
+    // will be found before doing some of the work in PluginView.
+    String mimeTypeCopy = mimeType;
+    PluginPackage* plugin =
+            PluginDatabase::installedPlugins()->findPlugin(url, mimeTypeCopy);
+    if (!plugin && PluginDatabase::installedPlugins()->refresh()) {
+        mimeTypeCopy = mimeType;
+        plugin = PluginDatabase::installedPlugins()->findPlugin(url,
+                                                                mimeTypeCopy);
+    }
+    Settings* settings = m_frame->settings();
+    // Do the placeholder if plugins are on-demand and there is a plugin for the
+    // given mime type.
+    if (settings && settings->arePluginsOnDemand() && plugin) {
+        return adoptRef(new PluginToggleWidget(m_frame, size, element, url,
+                    names, values, mimeType, loadManually));
+    }
+    prpWidget = PluginView::create(m_frame,
+                                   size,
+                                   element,
+                                   url,
+                                   names,
+                                   values,
+                                   mimeType,
+                                   loadManually);
+    // Return the plugin if it was loaded successfully. Otherwise, fallback to
+    // the youtube placeholder if possible. No need to check prpWidget as
+    // PluginView::create will create a PluginView for missing plugins.
+    // Note: this check really only checks if the plugin was found and not if
+    // the plugin was loaded.
+    if (prpWidget->status() == PluginStatusLoadedSuccessfully)
+        return prpWidget;
+#endif
     // Create an iframe for youtube urls.
     if (isYouTubeUrl(url, mimeType) && isYouTubeInstalled()) {
         WTF::RefPtr<Frame> frame = createFrame(blankURL(), String(), element,
@@ -1037,20 +1160,8 @@ WTF::PassRefPtr<Widget> FrameLoaderClientAndroid::createPlugin(
             WTF::RefPtr<Widget> widget(frame->view());
             return widget.release();
         }
-        return NULL;
     }
-#ifdef ANDROID_PLUGINS
-    return PluginView::create(m_frame,
-                              size,
-                              element,
-                              url,
-                              names,
-                              values,
-                              mimeType,
-                              loadManually);
-#else
-    return NULL;
-#endif
+    return prpWidget;
 }
 
 void FrameLoaderClientAndroid::redirectDataToPlugin(Widget* pluginWidget) {

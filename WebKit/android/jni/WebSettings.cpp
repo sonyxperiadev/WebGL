@@ -83,7 +83,8 @@ struct FieldIds {
         mBlockNetworkImage = env->GetFieldID(clazz, "mBlockNetworkImage", "Z");
 #endif
         mJavaScriptEnabled = env->GetFieldID(clazz, "mJavaScriptEnabled", "Z");
-        mPluginsEnabled = env->GetFieldID(clazz, "mPluginsEnabled", "Z");
+        mPluginState = env->GetFieldID(clazz, "mPluginState",
+                "Landroid/webkit/WebSettings$PluginState;");
 #if ENABLE(DATABASE)
         mDatabaseEnabled = env->GetFieldID(clazz, "mDatabaseEnabled", "Z");
 #endif
@@ -133,7 +134,7 @@ struct FieldIds {
         LOG_ASSERT(mBlockNetworkImage, "Could not find field mBlockNetworkImage");
 #endif
         LOG_ASSERT(mJavaScriptEnabled, "Could not find field mJavaScriptEnabled");
-        LOG_ASSERT(mPluginsEnabled, "Could not find field mPluginsEnabled");
+        LOG_ASSERT(mPluginState, "Could not find field mPluginState");
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
         LOG_ASSERT(mAppCacheEnabled, "Could not find field mAppCacheEnabled");
         LOG_ASSERT(mAppCachePath, "Could not find field mAppCachePath");
@@ -179,7 +180,7 @@ struct FieldIds {
     jfieldID mBlockNetworkImage;
 #endif
     jfieldID mJavaScriptEnabled;
-    jfieldID mPluginsEnabled;
+    jfieldID mPluginState;
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
     jfieldID mAppCacheEnabled;
     jfieldID mAppCachePath;
@@ -313,8 +314,15 @@ public:
         flag = env->GetBooleanField(obj, gFieldIds->mJavaScriptEnabled);
         s->setJavaScriptEnabled(flag);
 
-        flag = env->GetBooleanField(obj, gFieldIds->mPluginsEnabled);
-        s->setPluginsEnabled(flag);
+        // ON = 0
+        // ON_DEMAND = 1
+        // OFF = 2
+        jobject pluginState = env->GetObjectField(obj, gFieldIds->mPluginState);
+        int state = env->CallIntMethod(pluginState, gFieldIds->mOrdinal);
+        s->setPluginsEnabled(state < 2);
+#ifdef ANDROID_PLUGINS
+        s->setPluginsOnDemand(state == 1);
+#endif
 
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
         flag = env->GetBooleanField(obj, gFieldIds->mAppCacheEnabled);
