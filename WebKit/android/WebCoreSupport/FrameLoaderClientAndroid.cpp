@@ -46,6 +46,7 @@
 #include "IconDatabase.h"
 #include "MIMETypeRegistry.h"
 #include "NotImplemented.h"
+#include "PackageNotifier.h"
 #include "Page.h"
 #include "PlatformBridge.h"
 #include "PlatformGraphicsContext.h"
@@ -995,6 +996,10 @@ static bool isYouTubeUrl(const KURL& url, const String& mimeType)
             && equalIgnoringCase(mimeType, "application/x-shockwave-flash");
 }
 
+static bool isYouTubeInstalled() {
+    return WebCore::packageNotifier().isPackageInstalled("com.google.android.youtube");
+}
+
 WTF::PassRefPtr<Widget> FrameLoaderClientAndroid::createPlugin(
         const IntSize& size,
         HTMLPlugInElement* element,
@@ -1004,7 +1009,7 @@ WTF::PassRefPtr<Widget> FrameLoaderClientAndroid::createPlugin(
         const String& mimeType,
         bool loadManually) {
     // Create an iframe for youtube urls.
-    if (isYouTubeUrl(url, mimeType)) {
+    if (isYouTubeUrl(url, mimeType) && isYouTubeInstalled()) {
         WTF::RefPtr<Frame> frame = createFrame(blankURL(), String(), element,
                 String(), false, 0, 0);
         if (frame) {
