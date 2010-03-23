@@ -3502,14 +3502,7 @@ void FrameLoader::continueFragmentScrollAfterNavigationPolicy(const ResourceRequ
         return;
 
     bool isRedirect = m_quickRedirectComing || policyChecker()->loadType() == FrameLoadTypeRedirectWithLockedBackForwardList;    
-#ifdef ANDROID_USER_GESTURE
-    // Do not add history items for a fragment scroll not initiated by the
-    // user. http://bugs.webkit.org/show_bug.cgi?id=30224
-    loadInSameDocument(request.url(), 0, !isRedirect &&
-            (isProcessingUserGesture() || request.getUserGesture()));
-#else
     loadInSameDocument(request.url(), 0, !isRedirect);
-#endif
 }
 
 bool FrameLoader::shouldScrollToAnchor(bool isFormSubmission, FrameLoadType loadType, const KURL& url)
