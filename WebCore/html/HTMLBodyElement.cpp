@@ -191,7 +191,7 @@ void HTMLBodyElement::insertedIntoDocument()
     if (settings) {
         String host = document()->baseURI().host().lower();
         if (settings->viewportWidth() == -1 && (host.startsWith("m.") || host.startsWith("mobile.")
-                || host.contains(".m.") || host.contains(".mobile."))) {
+                || host.startsWith("wap.") || host.contains(".m.") || host.contains(".mobile." || host.contains(".wap.")))) {
             // fit mobile sites directly in the screen
             settings->setMetadataSettings("width", "device-width");
             // update the meta data if it is the top document
