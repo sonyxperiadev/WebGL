@@ -126,7 +126,14 @@ typedef uint32_t ANPMatrixFlag;
  */
 #define kSupportedDrawingModel_ANPGetValue  ((NPNVariable)2000)
 
-/** queries for the context (android.content.Context) in which the plugin resides
+/** queries for the context (android.content.Context) of the plugin. If no
+    instance is specified the application's context is returned. If the instance
+    is given then the context returned is identical to the context used to
+    create the webview in which that instance resides.
+
+    NOTE: Holding onto a non-application context after your instance has been
+    destroyed will cause a memory leak.  Refer to the android documentation to
+    determine what context is best suited for your particular scenario.
 
     NPN_GetValue(inst, kJavaContext_ANPGetValue, jobject context)
  */

@@ -569,6 +569,10 @@ namespace android {
         // call only from webkit thread (like add/remove), return true if inst
         // is still alive
         static bool isInstance(WebViewCore*);
+
+        // if there exists at least on WebViewCore instance then we return the
+        // application context, otherwise NULL is returned.
+        static jobject getApplicationContext();
     };
 
 }   // namespace android
