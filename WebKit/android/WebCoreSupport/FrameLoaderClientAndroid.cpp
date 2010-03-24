@@ -1165,7 +1165,10 @@ WTF::PassRefPtr<Widget> FrameLoaderClientAndroid::createPlugin(
 }
 
 void FrameLoaderClientAndroid::redirectDataToPlugin(Widget* pluginWidget) {
-    m_manualLoader = static_cast<PluginView*>(pluginWidget);
+    // Do not redirect data if the Widget is our plugin placeholder.
+    if (pluginWidget->isPluginView()) {
+        m_manualLoader = static_cast<PluginView*>(pluginWidget);
+    }
 }
 
 WTF::PassRefPtr<Widget> FrameLoaderClientAndroid::createJavaAppletWidget(const IntSize&, HTMLAppletElement*,
