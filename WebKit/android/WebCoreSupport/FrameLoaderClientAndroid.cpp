@@ -1027,10 +1027,8 @@ public:
         // with slight modification.
 
         static RefPtr<Image> image;
-        static RefPtr<Image> bg;
-        if (!image || !bg) {
+        if (!image) {
             image = Image::loadPlatformResource("togglePlugin");
-            bg = Image::loadPlatformResource("togglePluginBg");
         }
 
         IntRect imageRect(x(), y(), image->width(), image->height());
@@ -1050,8 +1048,13 @@ public:
 
         ctx->save();
         ctx->clip(frameRect());
-        ctx->drawTiledImage(bg.get(), DeviceColorSpace, frameRect(),
-                IntPoint(), IntSize(bg->width(), bg->height()));
+
+        // Draw a 1 pixel light gray border
+        ctx->setFillColor(Color::white, DeviceColorSpace);
+        ctx->setStrokeColor(Color::lightGray, DeviceColorSpace);
+        ctx->drawRect(frameRect());
+
+        // Draw the image in the center
         ctx->drawImage(image.get(), DeviceColorSpace, imageRect.location());
         ctx->restore();
     }
