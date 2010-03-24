@@ -139,6 +139,9 @@ namespace android {
         GraphicsLayerAndroid* graphicsRootLayer() const;
         void immediateRepaint();
         void setUIRootLayer(const LayerAndroid* layer);
+#if ENABLE(COMPOSITED_FIXED_ELEMENTS)
+        void markPositionedObjectsForLayout();
+#endif
 #endif
 
         /** Invalidate the view/screen, NOT the content/DOM, but expressed in

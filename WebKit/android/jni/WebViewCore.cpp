@@ -1632,6 +1632,9 @@ void WebViewCore::moveMouse(WebCore::Frame* frame, int x, int y)
         x, y, m_scrollOffsetX, m_scrollOffsetY);
     if (!frame || CacheBuilder::validNode(m_mainFrame, frame, NULL) == false)
         frame = m_mainFrame;
+#if USE(ACCELERATED_COMPOSITING) && ENABLE(COMPOSITED_FIXED_ELEMENTS)
+    markPositionedObjectsForLayout();
+#endif
     // mouse event expects the position in the window coordinate
     m_mousePos = WebCore::IntPoint(x - m_scrollOffsetX, y - m_scrollOffsetY);
     // validNode will still return true if the node is null, as long as we have
@@ -1979,6 +1982,9 @@ void WebViewCore::listBoxRequest(WebCoreReply* reply, const uint16_t** labels, s
 
 bool WebViewCore::key(const PlatformKeyboardEvent& event)
 {
+#if USE(ACCELERATED_COMPOSITING) && ENABLE(COMPOSITED_FIXED_ELEMENTS)
+    markPositionedObjectsForLayout();
+#endif
     WebCore::EventHandler* eventHandler = m_mainFrame->eventHandler();
     WebCore::Node* focusNode = currentFocus();
     if (focusNode)
@@ -1990,6 +1996,9 @@ bool WebViewCore::key(const PlatformKeyboardEvent& event)
 
 // For when the user clicks the trackball
 void WebViewCore::click(WebCore::Frame* frame, WebCore::Node* node) {
+#if USE(ACCELERATED_COMPOSITING) && ENABLE(COMPOSITED_FIXED_ELEMENTS)
+    markPositionedObjectsForLayout();
+#endif
     if (!node) {
         WebCore::IntPoint pt = m_mousePos;
         pt.move(m_scrollOffsetX, m_scrollOffsetY);
@@ -2012,6 +2021,7 @@ void WebViewCore::click(WebCore::Frame* frame, WebCore::Node* node) {
 }
 
 #if USE(ACCELERATED_COMPOSITING)
+
 GraphicsLayerAndroid* WebViewCore::graphicsRootLayer() const
 {
     RenderView* contentRenderer = m_mainFrame->contentRenderer();
@@ -2020,7 +2030,24 @@ GraphicsLayerAndroid* WebViewCore::graphicsRootLayer() const
     return static_cast<GraphicsLayerAndroid*>(
           contentRenderer->compositor()->rootPlatformLayer());
 }
-#endif
+
+#if ENABLE(COMPOSITED_FIXED_ELEMENTS)
+
+// If we have composited fixed elements, we need to mark
+// fixed elements' as needing a relayout, as they could have
+// visually moved on the UI side, without that movement being
+// reflected in webkit.
+void WebViewCore::markPositionedObjectsForLayout()
+{
+    GraphicsLayerAndroid* graphicsLayer = graphicsRootLayer();
+    if (graphicsLayer && graphicsLayer->hasFixedLayers() &&
+        m_mainFrame->contentRenderer())
+        m_mainFrame->contentRenderer()->markPositionedObjectsForLayout();
+}
+
+#endif // ENABLE(COMPOSITED_FIXED_ELEMENTS)
+
+#endif // USE(ACCELERATED_COMPOSITING)
 
 bool WebViewCore::handleTouchEvent(int action, int x, int y, int metaState)
 {
@@ -2030,6 +2057,10 @@ bool WebViewCore::handleTouchEvent(int action, int x, int y, int metaState)
     GraphicsLayerAndroid* rootLayer = graphicsRootLayer();
     if (rootLayer)
       rootLayer->pauseDisplay(true);
+#endif
+
+#if USE(ACCELERATED_COMPOSITING) && ENABLE(COMPOSITED_FIXED_ELEMENTS)
+    markPositionedObjectsForLayout();
 #endif
 
 #if ENABLE(TOUCH_EVENTS) // Android
