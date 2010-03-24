@@ -83,6 +83,7 @@ LayerAndroid::LayerAndroid(const LayerAndroid& layer) : SkLayer(layer),
     m_fixedMarginTop = layer.m_fixedMarginTop;
     m_fixedMarginRight = layer.m_fixedMarginRight;
     m_fixedMarginBottom = layer.m_fixedMarginBottom;
+    m_fixedOffset = layer.m_fixedOffset;
     m_fixedWidth = layer.m_fixedWidth;
     m_fixedHeight = layer.m_fixedHeight;
 
@@ -249,6 +250,20 @@ const LayerAndroid* LayerAndroid::find(int x, int y) const
 
 ///////////////////////////////////////////////////////////////////////////////
 
+// The Layer bounds and the renderview bounds are not always indentical.
+// We need to compute the intersection to correctly compute the
+// positiong...
+static SkRect computeLayerRect(LayerAndroid* layer) {
+  SkRect layerRect, viewRect;
+  SkScalar fX, fY;
+  fX = layer->getOffset().fX;
+  fY = layer->getOffset().fY;
+  layerRect.set(0, 0, layer->getSize().width(), layer->getSize().height());
+  viewRect.set(-fX, -fY, -fX + layer->getFixedWidth(), -fY + layer->getFixedHeight());
+  layerRect.intersect(viewRect);
+  return layerRect;
+}
+
 void LayerAndroid::updateFixedLayersPositions(const SkRect& viewport)
 {
     if (m_isFixed) {
@@ -259,15 +274,17 @@ void LayerAndroid::updateFixedLayersPositions(const SkRect& viewport)
         float x = dx;
         float y = dy;
 
+        SkRect layerRect = computeLayerRect(this);
+
         if (m_fixedLeft.defined())
-            x += m_fixedMarginLeft.calcFloatValue(w) + m_fixedLeft.calcFloatValue(w);
+            x += m_fixedMarginLeft.calcFloatValue(w) + m_fixedLeft.calcFloatValue(w) - layerRect.fLeft;
         else if (m_fixedRight.defined())
-            x += w - m_fixedMarginRight.calcFloatValue(w) - m_fixedRight.calcFloatValue(w) - m_fixedWidth;
+            x += w - m_fixedMarginRight.calcFloatValue(w) - m_fixedRight.calcFloatValue(w) - layerRect.width();
 
         if (m_fixedTop.defined())
-            y += m_fixedMarginTop.calcFloatValue(h) + m_fixedTop.calcFloatValue(h);
+            y += m_fixedMarginTop.calcFloatValue(h) + m_fixedTop.calcFloatValue(h) - layerRect.fTop;
         else if (m_fixedBottom.defined())
-            y += h - m_fixedMarginBottom.calcFloatValue(h) - m_fixedBottom.calcFloatValue(h) - m_fixedHeight;
+            y += h - m_fixedMarginBottom.calcFloatValue(h) - m_fixedBottom.calcFloatValue(h) - layerRect.fTop - layerRect.height();
 
         this->setPosition(x, y);
     }
@@ -334,6 +351,13 @@ void LayerAndroid::onDraw(SkCanvas* canvas, SkScalar opacity) {
     canvas->drawLine(0, h, w, h, paint);
     canvas->drawLine(w, h, w, 0, paint);
     canvas->drawLine(w, 0, 0, 0, paint);
+
+    if (m_isFixed) {
+      SkRect layerRect = computeLayerRect(this);
+      SkPaint paint;
+      paint.setARGB(128, 0, 0, 255);
+      canvas->drawRect(layerRect, paint);
+    }
 #endif
 }
 
@@ -481,6 +505,8 @@ void LayerAndroid::dumpLayers(FILE* file, int indentLevel) const
     writeHexVal(file, indentLevel + 1, "layer", (int)this);
     writeIntVal(file, indentLevel + 1, "layerId", m_uniqueId);
     writeIntVal(file, indentLevel + 1, "haveClip", m_haveClip);
+    writeIntVal(file, indentLevel + 1, "isRootLayer", m_isRootLayer);
+    writeIntVal(file, indentLevel + 1, "isFixed", m_isFixed);
 
     writeFloatVal(file, indentLevel + 1, "opacity", getOpacity());
     writeSize(file, indentLevel + 1, "size", getSize());
@@ -492,16 +518,19 @@ void LayerAndroid::dumpLayers(FILE* file, int indentLevel) const
     if (m_doRotation)
         writeFloatVal(file, indentLevel + 1, "angle", m_angleTransform);
 
-    writeLength(file, indentLevel + 1, "fixedLeft", m_fixedLeft);
-    writeLength(file, indentLevel + 1, "fixedTop", m_fixedTop);
-    writeLength(file, indentLevel + 1, "fixedRight", m_fixedRight);
-    writeLength(file, indentLevel + 1, "fixedBottom", m_fixedBottom);
-    writeLength(file, indentLevel + 1, "fixedMarginLeft", m_fixedMarginLeft);
-    writeLength(file, indentLevel + 1, "fixedMarginTop", m_fixedMarginTop);
-    writeLength(file, indentLevel + 1, "fixedMarginRight", m_fixedMarginRight);
-    writeLength(file, indentLevel + 1, "fixedMarginBottom", m_fixedMarginBottom);
-    writeIntVal(file, indentLevel + 1, "fixedWidth", m_fixedWidth);
-    writeIntVal(file, indentLevel + 1, "fixedHeight", m_fixedHeight);
+    if (m_isFixed) {
+        writeLength(file, indentLevel + 1, "fixedLeft", m_fixedLeft);
+        writeLength(file, indentLevel + 1, "fixedTop", m_fixedTop);
+        writeLength(file, indentLevel + 1, "fixedRight", m_fixedRight);
+        writeLength(file, indentLevel + 1, "fixedBottom", m_fixedBottom);
+        writeLength(file, indentLevel + 1, "fixedMarginLeft", m_fixedMarginLeft);
+        writeLength(file, indentLevel + 1, "fixedMarginTop", m_fixedMarginTop);
+        writeLength(file, indentLevel + 1, "fixedMarginRight", m_fixedMarginRight);
+        writeLength(file, indentLevel + 1, "fixedMarginBottom", m_fixedMarginBottom);
+        writePoint(file, indentLevel + 1, "fixedOffset", m_fixedOffset);
+        writeIntVal(file, indentLevel + 1, "fixedWidth", m_fixedWidth);
+        writeIntVal(file, indentLevel + 1, "fixedHeight", m_fixedHeight);
+    }
 
     if (m_recordingPicture) {
         writeIntVal(file, indentLevel + 1, "picture width", m_recordingPicture->width());
