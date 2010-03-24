@@ -416,10 +416,16 @@ void GraphicsContext::drawRect(const IntRect& rect)
         m_data->setup_paint_fill(&paint);
         GC2Canvas(this)->drawRect(r, paint);
     }
-    
+
+    /*  According to GraphicsContext.h, stroking inside drawRect always means
+        a stroke of 1 inside the rect.
+     */
     if (strokeStyle() != NoStroke && strokeColor().alpha()) {
         paint.reset();
         m_data->setup_paint_stroke(&paint, &r);
+        paint.setPathEffect(NULL);              // no dashing please
+        paint.setStrokeWidth(SK_Scalar1);       // always just 1.0 width
+        r.inset(SK_ScalarHalf, SK_ScalarHalf);  // ensure we're "inside"
         GC2Canvas(this)->drawRect(r, paint);
     }
 }
