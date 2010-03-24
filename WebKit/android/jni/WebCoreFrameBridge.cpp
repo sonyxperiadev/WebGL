@@ -68,6 +68,7 @@
 #include "RenderTreeAsText.h"
 #include "RenderView.h"
 #include "ResourceHandle.h"
+#include "ResourceHandleInternal.h"
 #include "ScriptController.h"
 #include "ScriptValue.h"
 #include "SecurityOrigin.h"
@@ -209,7 +210,7 @@ WebFrame::WebFrame(JNIEnv* env, jobject obj, jobject historyList, WebCore::Page*
     mJavaFrame->mObj = env->NewWeakGlobalRef(obj);
     mJavaFrame->mHistoryList = env->NewWeakGlobalRef(historyList);
     mJavaFrame->mStartLoadingResource = env->GetMethodID(clazz, "startLoadingResource",
-            "(ILjava/lang/String;Ljava/lang/String;Ljava/util/HashMap;[BJIZZZ)Landroid/webkit/LoadListener;");
+            "(ILjava/lang/String;Ljava/lang/String;Ljava/util/HashMap;[BJIZZZLjava/lang/String;Ljava/lang/String;)Landroid/webkit/LoadListener;");
     mJavaFrame->mLoadStarted = env->GetMethodID(clazz, "loadStarted",
             "(Ljava/lang/String;Landroid/graphics/Bitmap;IZ)V");
     mJavaFrame->mTransitionToCommitted = env->GetMethodID(clazz, "transitionToCommitted",
@@ -475,18 +476,25 @@ WebFrame::startLoadingResource(WebCore::ResourceHandle* loader,
 
     LOGV("::WebCore:: startLoadingResource %s with cacheMode %d", urlStr.ascii().data(), cacheMode);
 
+    ResourceHandleInternal* loaderInternal = loader->getInternal();
+    jstring jUsernameString = loaderInternal->m_user.isEmpty() ?
+            NULL : env->NewString(loaderInternal->m_user.characters(), loaderInternal->m_user.length());
+    jstring jPasswordString = loaderInternal->m_pass.isEmpty() ?
+            NULL : env->NewString(loaderInternal->m_pass.characters(), loaderInternal->m_pass.length());
 
     jobject jLoadListener =
         env->CallObjectMethod(obj.get(), mJavaFrame->mStartLoadingResource,
                 (int)loader, jUrlStr, jMethodStr, jHeaderMap,
                 jPostDataStr, formdata ? formdata->identifier(): 0,
                 cacheMode, mainResource, request.getUserGesture(),
-                synchronous);
+                synchronous, jUsernameString, jPasswordString);
 
     env->DeleteLocalRef(jUrlStr);
     env->DeleteLocalRef(jMethodStr);
     env->DeleteLocalRef(jPostDataStr);
     env->DeleteLocalRef(jHeaderMap);
+    env->DeleteLocalRef(jUsernameString);
+    env->DeleteLocalRef(jPasswordString);
     if (checkException(env))
         return NULL;
 

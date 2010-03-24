@@ -158,7 +158,11 @@ void ResourceHandle::loadResourceSynchronously(const ResourceRequest& request,
     SyncLoader s(error, response, data);
     ResourceHandle h(request, &s, false, false, false);
     // This blocks until the load is finished.
-    ResourceLoaderAndroid::start(&h, request, frame->loader()->client(), false, true);
+    // Use the request owned by the ResourceHandle. This has had the username
+    // and password (if present) stripped from the URL in
+    // ResourceHandleInternal::ResourceHandleInternal(). This matches the
+    // behaviour in the asynchronous case.
+    ResourceLoaderAndroid::start(&h, h.getInternal()->m_request, frame->loader()->client(), false, true);
 }
 
 } // namespace WebCore
