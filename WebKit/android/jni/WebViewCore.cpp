@@ -1332,7 +1332,7 @@ WebCore::String WebViewCore::requestLabel(WebCore::Frame* frame,
             if (label->correspondingControl() == node) {
                 Node* node = label;
                 String result;
-                while (node = node->traverseNextNode(label)) {
+                while ((node = node->traverseNextNode(label))) {
                     if (node->isTextNode()) {
                         Text* textNode = static_cast<Text*>(node);
                         result += textNode->dataImpl();
