@@ -108,10 +108,14 @@ public:
     int indexInParent() const { return mIndexInParent; }
     void init(const CachedRoot* root, int index, WebCore::Frame* frame);
     const CachedFrame* lastChild() const { return &mCachedFrames.last(); }
+#if USE(ACCELERATED_COMPOSITING)
+    const CachedLayer* lastLayer() const { return &mCachedLayers.last(); }
+#endif
     CachedNode* lastNode() { return &mCachedNodes.last(); }
     CachedFrame* lastChild() { return &mCachedFrames.last(); }
 #if USE(ACCELERATED_COMPOSITING)
     const CachedLayer* layer(const CachedNode* ) const;
+    size_t layerCount() const { return mCachedLayers.size(); }
 #endif
     WebCore::IntRect localBounds(const CachedNode* ,
         const WebCore::IntRect& ) const;

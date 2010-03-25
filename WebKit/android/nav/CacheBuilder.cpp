@@ -1044,10 +1044,17 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
                         absoluteBoundingBoxRect().location();
                     loc.move(globalOffsetX, globalOffsetY);
                     // if this is a child of a CachedNode, add a layer
+                    size_t limit = cachedFrame->layerCount() == 0 ? 0 :
+                        cachedFrame->lastLayer()->cachedNodeIndex();
                     for (size_t index = 1; index < tracker.size(); index++) {
                         const FocusTracker& cursorNode = tracker.at(index);
-                        DBG_NAV_LOGD("call add layer %d", id);
                         size_t index = cursorNode.mCachedNodeIndex;
+                        if (index <= limit) { // already added?
+                            DBG_NAV_LOGD("index=%d limit=%d id=%d", index,
+                                limit, id);
+                            continue;
+                        }
+                        DBG_NAV_LOGD("call add layer %d", id);
                         CachedNode* trackedNode = cachedFrame->getIndex(index);
                         trackedNode->setIsInLayer(true);
                         trackedNode->setIsUnclipped(true);
