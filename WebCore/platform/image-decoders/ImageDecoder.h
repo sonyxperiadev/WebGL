@@ -39,6 +39,7 @@
 
 #if PLATFORM(SKIA)
 #include "NativeImageSkia.h"
+#include "SkColorPriv.h"
 #elif PLATFORM(QT)
 #include <QImage>
 #endif
@@ -169,7 +170,11 @@ namespace WebCore {
                     g = static_cast<unsigned>(g * alphaPercent);
                     b = static_cast<unsigned>(b * alphaPercent);
                 }
+#if PLATFORM(ANDROID)
+                *dest = SkPackARGB32(a, r, g, b);
+#else
                 *dest = (a << 24 | r << 16 | g << 8 | b);
+#endif
             }
         }
 
