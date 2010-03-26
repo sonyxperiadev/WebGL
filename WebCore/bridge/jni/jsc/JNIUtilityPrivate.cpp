@@ -219,7 +219,8 @@ jvalue convertValueToJValue(ExecState* exec, JSValue value, JNIType jniType, con
                     result.l = javaString;
                 }
             } else if (!result.l)
-                bzero(&result, sizeof(jvalue)); // Handle it the same as a void case
+                // ANDROID
+                memset(&result, 0, sizeof(jvalue)); // Handle it the same as a void case
         }
         break;
 
@@ -277,7 +278,8 @@ jvalue convertValueToJValue(ExecState* exec, JSValue value, JNIType jniType, con
     default:
     case void_type:
         {
-            bzero(&result, sizeof(jvalue));
+            // ANDROID
+            memset(&result, 0, sizeof(jvalue));
         }
         break;
     }
