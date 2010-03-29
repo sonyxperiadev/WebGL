@@ -137,10 +137,6 @@
 
 #define ANDROID_FIX
 
-// Ensure that the fixed elements are set relative to the screen
-// rather than the virtual viewport
-#define ANDROID_FIXED_ELEMENTS
-
 // Passes the webkit-originated changes of a focused textfield to our UI
 // thread
 #define ANDROID_ACCEPT_CHANGES_TO_FOCUSED_TEXTFIELDS

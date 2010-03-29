@@ -56,10 +56,6 @@
 #include "WMLNames.h"
 #endif
 
-#ifdef ANDROID_FIXED_ELEMENTS
-#include "PlatformBridge.h"
-#endif
-
 using namespace std;
 
 namespace WebCore {
@@ -1790,12 +1786,6 @@ void RenderBox::calcVerticalMargins()
 
 int RenderBox::containingBlockWidthForPositioned(const RenderBoxModelObject* containingBlock) const
 {
-#ifdef ANDROID_FIXED_ELEMENTS
-    if (style()->position() == FixedPosition && containingBlock->isRenderView()) {
-        const RenderView* view = toRenderView(containingBlock);
-        return PlatformBridge::screenWidth(view->frameView());
-    }
-#endif
     if (containingBlock->isBox()) {
         const RenderBox* containingBlockBox = toRenderBox(containingBlock);
         return containingBlockBox->width() - containingBlockBox->borderLeft() - containingBlockBox->borderRight() - containingBlockBox->verticalScrollbarWidth();
@@ -1826,12 +1816,6 @@ int RenderBox::containingBlockWidthForPositioned(const RenderBoxModelObject* con
 
 int RenderBox::containingBlockHeightForPositioned(const RenderBoxModelObject* containingBlock) const
 {   
-#ifdef ANDROID_FIXED_ELEMENTS
-    if (style()->position() == FixedPosition && containingBlock->isRenderView()) {
-        const RenderView* view = toRenderView(containingBlock);
-        return PlatformBridge::screenHeight(view->frameView());
-    }
-#endif
     int heightResult = 0;
     if (containingBlock->isBox())
          heightResult = toRenderBox(containingBlock)->height();
