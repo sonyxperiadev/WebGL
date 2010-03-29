@@ -195,15 +195,6 @@
 // or if javascript tried to change the location.
 #define ANDROID_USER_GESTURE
 
-// Enable pages with unloadEvent for page cache. See the blog in
-// http://webkit.org/blog/427/webkit-page-cache-i-the-basics/ about this issue.
-// And see the bug, https://bugs.webkit.org/show_bug.cgi?id=29021, for details.
-// Currently WebKit doesn't cache pages with unloadEvent. This means that we
-// won't cache a lot of common sites like cnn.com. Experimenting caching pages
-// with unloadEvent for better back/forward navigation. Invoke unloadEvent when
-// a page is cached. Invoke loadEvent when a page is restored.
-#define ANDROID_PAGE_CACHE_UNLOAD
-
 #endif /* PLATFORM(ANDROID) */
 
 #ifdef __cplusplus
