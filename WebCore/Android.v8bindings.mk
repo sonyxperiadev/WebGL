@@ -57,6 +57,7 @@ LOCAL_SRC_FILES += \
 	bindings/v8/ScheduledAction.cpp \
 	bindings/v8/ScopedDOMDataStore.cpp \
 	bindings/v8/ScriptArray.cpp \
+	bindings/v8/ScriptCachedFrameData.cpp \
 	bindings/v8/ScriptCallFrame.cpp \
 	bindings/v8/ScriptCallStack.cpp \
 	bindings/v8/ScriptController.cpp \
