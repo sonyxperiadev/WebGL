@@ -215,8 +215,12 @@ void ImageSource::setURL(const String& url)
 // we only animate small GIFs for now, to save memory
 // also, we only support this in Japan, hence the Emoji check
 static bool should_use_animated_gif(int width, int height) {
+#ifdef ANDROID_LARGE_MEMORY_DEVICE
+    return true;
+#else
     return EmojiFont::IsAvailable() &&
            width <= 32 && height <= 32;
+#endif
 }
 #endif
 
