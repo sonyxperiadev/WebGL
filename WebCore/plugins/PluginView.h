@@ -410,6 +410,9 @@ private:
 
         IntRect m_clipRect; // The clip rect to apply to a windowed plug-in
         IntRect m_windowRect; // Our window rect.
+#ifdef ANDROID_PLUGINS
+        IntRect m_pageRect; // The rect in page coordinate system.
+#endif
 
         bool m_loadManually;
         RefPtr<PluginStream> m_manualStream;

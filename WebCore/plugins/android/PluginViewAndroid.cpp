@@ -427,23 +427,17 @@ void PluginView::setNPWindowIfNeeded()
         return;
 
     // in Android, plugin always get the setwindow() in the page coordinate.
-    IntRect pageRect = m_windowRect;
-    ScrollView* top = parent();
-    while (top->parent())
-        top = top->parent();
-    // only the top ScrollView can have the offset
-    pageRect.move(top->scrollOffset());
 
     // the m_npWindow is relative to the page
-    m_npWindow.x = pageRect.x();
-    m_npWindow.y = pageRect.y();
-    m_npWindow.width = pageRect.width();
-    m_npWindow.height = pageRect.height();
+    m_npWindow.x = m_pageRect.x();
+    m_npWindow.y = m_pageRect.y();
+    m_npWindow.width = m_pageRect.width();
+    m_npWindow.height = m_pageRect.height();
 
-    m_npWindow.clipRect.left = pageRect.x();
-    m_npWindow.clipRect.top = pageRect.y();
-    m_npWindow.clipRect.right = pageRect.x() + pageRect.width();
-    m_npWindow.clipRect.bottom = pageRect.y() + pageRect.height();
+    m_npWindow.clipRect.left = m_pageRect.x();
+    m_npWindow.clipRect.top = m_pageRect.y();
+    m_npWindow.clipRect.right = m_pageRect.x() + m_pageRect.width();
+    m_npWindow.clipRect.bottom = m_pageRect.y() + m_pageRect.height();
 
     if (m_plugin->pluginFuncs()->setwindow) {
 #if USE(JSC)
@@ -666,11 +660,18 @@ void PluginView::updatePluginWidget()
     FrameView* frameView = static_cast<FrameView*>(parent());
     PLUGIN_LOG("--%p UpdatePluginWidget frame=[%p] \n", instance(), frameView);
     if (frameView) {
-        IntRect oldWindowRect = m_windowRect;
-
         m_windowRect = frameView->contentsToWindow(frameRect());
 
-        if (m_windowRect != oldWindowRect)
+        IntRect oldPageRect = m_pageRect;
+
+        // only the top ScrollView can have the offset
+        m_pageRect = m_windowRect;
+        ScrollView* top = parent();
+        while (top->parent())
+            top = top->parent();
+        m_pageRect.move(top->scrollOffset());
+
+        if (m_pageRect != oldPageRect)
             setNPWindowIfNeeded();
     }
 }
