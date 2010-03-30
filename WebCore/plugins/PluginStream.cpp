@@ -349,8 +349,13 @@ void PluginStream::deliverData()
 // TODO: This needs to be upstreamed.
             if (m_loader)
                 m_loader->pauseLoad(true);
-#endif
+
+            // ask the plugin for a delay value.
+            int delay = deliveryDelay();
+            m_delayDeliveryTimer.startOneShot(delay);
+#else
             m_delayDeliveryTimer.startOneShot(0);
+#endif
             break;
         } else {
             deliveryBytes = min(deliveryBytes, totalBytes - totalBytesDelivered);
@@ -484,5 +489,19 @@ bool PluginStream::wantsAllStreams() const
 
     return result != 0;
 }
+
+#if PLATFORM(ANDROID)
+int PluginStream::deliveryDelay() const
+{
+    if (!m_pluginFuncs->getvalue)
+        return 0;
+
+    int delay = 0;
+    if (m_pluginFuncs->getvalue(m_instance, NPPDataDeliveryDelayMs, &delay) != NPERR_NO_ERROR)
+        return 0;
+
+    return delay;
+}
+#endif
 
 }
