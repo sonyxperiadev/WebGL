@@ -88,7 +88,9 @@ namespace WebCore {
         void deliverData();
         void destroyStream(NPReason);
         void destroyStream();
-
+#if PLATFORM(ANDROID)
+        int deliveryDelay() const;
+#endif
         ResourceRequest m_resourceRequest;
         ResourceResponse m_resourceResponse;
 
