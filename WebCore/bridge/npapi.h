@@ -374,7 +374,7 @@ typedef enum {
     NPPVpluginCoreAnimationLayer = 1003
 #endif
 
-#if PLATFORM(ANDROID)
+#ifdef ANDROID
     /* Used when the plugin returns 0 from NPN_WriteReady and wishes the browser
      * to wait a certain amount of millis before calling NPN_WriteReady again.
      */
