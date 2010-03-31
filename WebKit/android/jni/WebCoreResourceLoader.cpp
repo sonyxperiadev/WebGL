@@ -253,18 +253,22 @@ jstring WebCoreResourceLoader::RedirectedToUrl(JNIEnv* env, jobject obj,
     WebCore::ResourceRequest r = handle->request();
     WebCore::KURL url(WebCore::KURL(WebCore::ParsedURLString, to_string(env, baseUrl)),
             to_string(env, redirectTo));
+    WebCore::ResourceResponse* response = (WebCore::ResourceResponse*)nativeResponse;
+    // If the url fails to resolve the relative path, return null.
+    if (url.protocol().isEmpty()) {
+        delete response;
+        return NULL;
+    } else {
+        // Ensure the protocol is lowercase.
+        url.setProtocol(url.protocol().lower());
+    }
+    // Set the url after updating the protocol.
     r.setURL(url);
     if (r.httpMethod() == "POST") {
         r.setHTTPMethod("GET");
         r.clearHTTPReferrer();
         r.setHTTPBody(0);
         r.setHTTPContentType("");
-    }
-    WebCore::ResourceResponse* response = (WebCore::ResourceResponse*)nativeResponse;
-    // If the url fails to resolve the relative path, return null.
-    if (url.protocol().isEmpty()) {
-        delete response;
-        return NULL;
     }
     handle->client()->willSendRequest(handle, r, *response);
     delete response;
