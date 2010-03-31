@@ -155,11 +155,19 @@ bool JavaNPObjectGetProperty(NPObject* obj, NPIdentifier identifier, NPVariant* 
     if (!field)
         return false;
 
+#ifdef EMULATE_JSC_BINDINGS
+    // JSC does not seem to support returning object properties so we emulate that
+    // behaviour here.
+    jvalue value;
+#else
+    // FIXME: Note here that field->type() refers to the Java class name and NOT the
+    // JNI signature i.e. "int" as opposed to "I". This means that the field lookup
+    // will fail.
     jvalue value = getJNIField(instance->javaInstance(),
                                field->getJNIType(),
                                field->name().UTF8String(),
                                field->type());
-
+#endif
     convertJValueToNPVariant(value, field->getJNIType(), field->type(), result);
 
     return true;
