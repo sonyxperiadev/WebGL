@@ -631,7 +631,7 @@ void FindOnPage::drawMatch(const SkRegion& region, SkCanvas* canvas,
 
 void FindOnPage::findNext(bool forward)
 {
-    if (!m_matches || !m_matches->size())
+    if (!m_matches || !m_matches->size() || !m_hasCurrentLocation)
         return;
     if (forward) {
         m_findIndex++;
