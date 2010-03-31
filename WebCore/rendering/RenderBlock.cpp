@@ -4250,11 +4250,7 @@ void RenderBlock::calcInlinePrefWidths()
                 // check.
                 bool hasBreakableChar, hasBreak;
                 int beginMin, endMin;
-#ifdef ANDROID_FIX // bug found by valgrind
-                bool beginWS = false, endWS = false;
-#else
                 bool beginWS, endWS;
-#endif
                 int beginMax, endMax;
                 t->trimmedPrefWidths(inlineMax, beginMin, beginWS, endMin, endWS,
                                      hasBreakableChar, hasBreak, beginMax, endMax,
