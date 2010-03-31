@@ -60,6 +60,12 @@ protected:
     virtual bool mapToEntry(const QualifiedName& attrName, MappedAttributeEntry& result) const;
     virtual void parseMappedAttribute(MappedAttribute*);
 
+#if PLATFORM(ANDROID)
+    // in Android, plugin has a focused mode where it accepts all the touch events.
+    // so need to claim that plugin element supports focus instead of using the default.
+    virtual bool supportsFocus() const;
+#endif
+
 private:
     virtual void defaultEventHandler(Event*);
 

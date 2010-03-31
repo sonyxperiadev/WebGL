@@ -177,4 +177,11 @@ void HTMLPlugInElement::updateWidgetCallback(Node* n)
     static_cast<HTMLPlugInElement*>(n)->updateWidget();
 }
 
+#if PLATFORM(ANDROID)
+bool HTMLPlugInElement::supportsFocus() const
+{
+    return true;
+}
+#endif
+
 }
