@@ -181,6 +181,11 @@ private:
     bool requiresCompositingForPlugin(RenderObject*) const;
     bool requiresCompositingWhenDescendantsAreCompositing(RenderObject*) const;
 
+#if PLATFORM(ANDROID)
+    // Whether we are on a mobile site
+    bool requiresCompositingForMobileSites(const RenderLayer* layer) const;
+#endif
+
 private:
     RenderView* m_renderView;
     OwnPtr<GraphicsLayer> m_rootPlatformLayer;

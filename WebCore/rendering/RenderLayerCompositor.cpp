@@ -989,14 +989,49 @@ bool RenderLayerCompositor::needsToBeComposited(const RenderLayer* layer) const
     return requiresCompositingLayer(layer) || layer->mustOverlapCompositedLayers();
 }
 
+#if PLATFORM(ANDROID)
+bool RenderLayerCompositor::requiresCompositingForMobileSites(const RenderLayer* layer) const
+{
+    // First, check if we are in an iframe, and if so bail out
+    if (m_renderView->document()->frame()->tree()->parent())
+        return false;
+
+    RenderObject* renderer = layer->renderer();
+    // Check for transforms
+    if (requiresCompositingForTransform(renderer))
+        return true;
+
+    // Check for animations
+    if (requiresCompositingForAnimation(renderer))
+        return true;
+
+#if ENABLE(COMPOSITED_FIXED_ELEMENTS)
+    // For the moment, we want to only enable fixed composited layers on mobile websites.
+    // We can consider a website as being a 'mobile' site if all the
+    // following checks are true:
+    // 1) - the viewport width is either undefined (-1) or equal to device-width (0), and
+    // 2) - no scaling is allowed
+    if (!layer->isFixed())
+        return false;
+
+    Settings* settings = m_renderView->document()->settings();
+    if (!settings)
+        return false;
+
+    if ((settings->viewportWidth() == -1 || settings->viewportWidth() == 0) &&
+        !settings->viewportUserScalable())
+        return true;
+#endif
+
+    return false;
+}
+#endif
+
 // Note: this specifies whether the RL needs a compositing layer for intrinsic reasons.
 // Use needsToBeComposited() to determine if a RL actually needs a compositing layer.
 // static
 bool RenderLayerCompositor::requiresCompositingLayer(const RenderLayer* layer) const
 {
-#if ENABLE(COMPOSITED_FIXED_ELEMENTS)
-    Settings* settings = m_renderView->document()->settings();
-#endif
     RenderObject* renderer = layer->renderer();
     // The compositing state of a reflection should match that of its reflected layer.
     if (layer->isReflection()) {
@@ -1005,25 +1040,17 @@ bool RenderLayerCompositor::requiresCompositingLayer(const RenderLayer* layer) c
     }
     // The root layer always has a compositing layer, but it may not have backing.
     return (inCompositingMode() && layer->isRootLayer()) ||
-             requiresCompositingForTransform(renderer) ||
 #if PLATFORM(ANDROID)
-#if ENABLE(COMPOSITED_FIXED_ELEMENTS)
-             // For the moment, we want to only enable fixed composited layers on mobile websites.
-             // We can consider a website as being a 'mobile' site if all the
-             // following checks are true:
-             // 1) - the viewport width is either undefined (-1) or equal to device-width (0), and
-             // 2) - no scaling is allowed
-             (((settings->viewportWidth() == -1) || (settings->viewportWidth() == 0)) &&
-             !settings->viewportUserScalable() && needsCompositingForFixedLayer(layer)) ||
-#endif
+             requiresCompositingForMobileSites(layer) ||
 #else
+             requiresCompositingForTransform(renderer) ||
              requiresCompositingForVideo(renderer) ||
              requiresCompositingForCanvas(renderer) ||
              requiresCompositingForPlugin(renderer) ||
+             requiresCompositingForAnimation(renderer) ||
 #endif
              renderer->style()->backfaceVisibility() == BackfaceVisibilityHidden ||
-             clipsCompositingDescendants(layer) ||
-             requiresCompositingForAnimation(renderer);
+             clipsCompositingDescendants(layer);
 }
 
 // Return true if the given layer has some ancestor in the RenderLayer hierarchy that clips,
