@@ -28,6 +28,7 @@
 
 #include "JavaInstanceV8.h"
 #include "JavaNPObjectV8.h"
+#include "npruntime_impl.h"
 
 namespace JSC {
 
@@ -40,9 +41,168 @@ jvalue convertNPVariantToJValue(NPVariant value, JNIType jniType, const char* ja
 
     switch (jniType) {
     case array_type:
+        {
+            JNIEnv* env = getJNIEnv();
+            jobject javaArray;
+            NPObject* object = NPVARIANT_TO_OBJECT(value);
+            NPVariant npvLength;
+            bool success = _NPN_GetProperty(0, object, _NPN_GetStringIdentifier("length"), &npvLength);
+            if (!success) {
+                // No length property so we don't know how many elements to put into the array.
+                // Treat this as an error.
+#ifdef EMULATE_JSC_BINDINGS
+                // JSC sends null for an array that is not an array of strings or basic types,
+                // do this also in the unknown length case.
+                memset(&result, 0, sizeof(jvalue));
+#else
+                // Sending NULL as JSC does seems dangerous. (Imagine the java method that asks
+                // for the length of the array it was passed). Here we send a 0 length array.
+                jclass objectArrayClass = env->FindClass("[Ljava/lang/Object;");
+                javaArray = env->NewObjectArray((jsize)0, objectArrayClass, 0);
+                env->DeleteLocalRef(objectArrayClass);
+#endif
+                break;
+            }
+
+            jsize length = static_cast<jsize>(NPVARIANT_TO_INT32(npvLength));
+
+            if (!strcmp(javaClassName, "[Ljava.lang.String;")) {
+                // Match JSC behavior by only allowing Object arrays if they are Strings.
+                jclass stringArrayClass = env->FindClass("[Ljava/lang/String;");
+                javaArray = env->NewObjectArray(length, stringArrayClass, 0);
+                for (jsize i = 0; i < length; i++) {
+                    NPVariant npvValue;
+                    _NPN_GetProperty(0, object, _NPN_GetIntIdentifier(i), &npvValue);
+                    if(NPVARIANT_IS_STRING(npvValue)) {
+                        NPString str = NPVARIANT_TO_STRING(npvValue);
+                        env->SetObjectArrayElement(static_cast<jobjectArray>(javaArray), i, env->NewStringUTF(str.UTF8Characters));
+                    }
+                }
+
+                env->DeleteLocalRef(stringArrayClass);
+            } else if (!strcmp(javaClassName, "[B")) {
+                // array of bytes
+                javaArray = env->NewByteArray(length);
+                // Now iterate over each element and add to the array.
+                for (jsize i = 0; i < length; i++) {
+                    NPVariant npvValue;
+                    _NPN_GetProperty(0, object, _NPN_GetIntIdentifier(i), &npvValue);
+                    if (NPVARIANT_IS_INT32(npvValue)) {
+                        jbyte bVal = static_cast<jbyte>(NPVARIANT_TO_INT32(npvValue));
+                        env->SetByteArrayRegion(static_cast<jbyteArray>(javaArray), i, 1, &bVal);
+                    }
+                }
+             } else if (!strcmp(javaClassName, "[C")) {
+                // array of chars
+                javaArray = env->NewCharArray(length);
+                // Now iterate over each element and add to the array.
+                for (jsize i = 0; i < length; i++) {
+                    NPVariant npvValue;
+                    _NPN_GetProperty(0, object, _NPN_GetIntIdentifier(i), &npvValue);
+                    jchar cVal = 0;
+                    if (NPVARIANT_IS_INT32(npvValue)) {
+                        cVal = static_cast<jchar>(NPVARIANT_TO_INT32(npvValue));
+                    } else if (NPVARIANT_IS_STRING(npvValue)) {
+                        NPString str = NPVARIANT_TO_STRING(npvValue);
+                        cVal = str.UTF8Characters[0];
+                    }
+                    env->SetCharArrayRegion(static_cast<jcharArray>(javaArray), i, 1, &cVal);
+                }
+             } else if (!strcmp(javaClassName, "[D")) {
+                // array of doubles
+                javaArray = env->NewDoubleArray(length);
+                // Now iterate over each element and add to the array.
+                for (jsize i = 0; i < length; i++) {
+                    NPVariant npvValue;
+                    _NPN_GetProperty(0, object, _NPN_GetIntIdentifier(i), &npvValue);
+                    if (NPVARIANT_IS_DOUBLE(npvValue)) {
+                        jdouble dVal = NPVARIANT_TO_DOUBLE(npvValue);
+                        env->SetDoubleArrayRegion(static_cast<jdoubleArray>(javaArray), i, 1, &dVal);
+                    }
+                }
+             } else if (!strcmp(javaClassName, "[F")) {
+                // array of floats
+                javaArray = env->NewFloatArray(length);
+                // Now iterate over each element and add to the array.
+                for (jsize i = 0; i < length; i++) {
+                    NPVariant npvValue;
+                    _NPN_GetProperty(0, object, _NPN_GetIntIdentifier(i), &npvValue);
+                    if (NPVARIANT_IS_DOUBLE(npvValue)) {
+                        jfloat fVal = static_cast<jfloat>(NPVARIANT_TO_DOUBLE(npvValue));
+                        env->SetFloatArrayRegion(static_cast<jfloatArray>(javaArray), i, 1, &fVal);
+                    }
+                }
+             } else if (!strcmp(javaClassName, "[I")) {
+                // array of ints
+                javaArray = env->NewIntArray(length);
+                // Now iterate over each element and add to the array.
+                for (jsize i = 0; i < length; i++) {
+                    NPVariant npvValue;
+                    _NPN_GetProperty(0, object, _NPN_GetIntIdentifier(i), &npvValue);
+                    if (NPVARIANT_IS_INT32(npvValue)) {
+                        jint iVal = NPVARIANT_TO_INT32(npvValue);
+                        env->SetIntArrayRegion(static_cast<jintArray>(javaArray), i, 1, &iVal);
+                    }
+                }
+             } else if (!strcmp(javaClassName, "[J")) {
+                // array of longs
+                javaArray = env->NewLongArray(length);
+                // Now iterate over each element and add to the array.
+                for (jsize i = 0; i < length; i++) {
+                    NPVariant npvValue;
+                    _NPN_GetProperty(0, object, _NPN_GetIntIdentifier(i), &npvValue);
+                    if (NPVARIANT_IS_INT32(npvValue)) {
+                        jlong jVal = static_cast<jlong>(NPVARIANT_TO_INT32(npvValue));
+                        env->SetLongArrayRegion(static_cast<jlongArray>(javaArray), i, 1, &jVal);
+                    }
+                }
+             } else if (!strcmp(javaClassName, "[S")) {
+                // array of shorts
+                javaArray = env->NewShortArray(length);
+                // Now iterate over each element and add to the array.
+                for (jsize i = 0; i < length; i++) {
+                    NPVariant npvValue;
+                    _NPN_GetProperty(0, object, _NPN_GetIntIdentifier(i), &npvValue);
+                    if (NPVARIANT_IS_INT32(npvValue)) {
+                        jshort sVal = static_cast<jshort>(NPVARIANT_TO_INT32(npvValue));
+                        env->SetShortArrayRegion(static_cast<jshortArray>(javaArray), i, 1, &sVal);
+                    }
+                }
+             } else if (!strcmp(javaClassName, "[Z")) {
+                // array of booleans
+                javaArray = env->NewBooleanArray(length);
+                // Now iterate over each element and add to the array.
+                for (jsize i = 0; i < length; i++) {
+                    NPVariant npvValue;
+                    _NPN_GetProperty(0, object, _NPN_GetIntIdentifier(i), &npvValue);
+                    if (NPVARIANT_IS_BOOLEAN(npvValue)) {
+                        jboolean zVal = NPVARIANT_TO_BOOLEAN(npvValue);
+                        env->SetBooleanArrayRegion(static_cast<jbooleanArray>(javaArray), i, 1, &zVal);
+                    }
+                }
+            } else {
+#ifdef EMULATE_JSC_BINDINGS
+                // JSC sends null for an array that is not an array of strings or basic types.
+                memset(&result, 0, sizeof(jvalue));
+                break;
+#else
+                // Sending NULL as JSC does seems dangerous. (Imagine the java method that asks
+                // for the length of the array it was passed). Here we send a 0 length array.
+                jclass objectArrayClass = env->FindClass("[Ljava/lang/Object;");
+                javaArray = env->NewObjectArray(0, objectArrayClass, 0);
+                env->DeleteLocalRef(objectArrayClass);
+#endif
+            }
+
+            result.l = javaArray;
+        }
+        break;
+
     case object_type:
         {
+            JNIEnv* env = getJNIEnv();
             result.l = static_cast<jobject>(0);
+            jobject javaString;
 
             // First see if we have a Java instance.
             if (type == NPVariantType_Object) {
@@ -56,7 +216,6 @@ jvalue convertNPVariantToJValue(NPVariant value, JNIType jniType, const char* ja
             if (!result.l && !strcmp(javaClassName, "java.lang.String")) {
 #ifdef CONVERT_NULL_TO_EMPTY_STRING
                 if (type == NPVariantType_Null) {
-                    JNIEnv* env = getJNIEnv();
                     jchar buf[2];
                     jobject javaString = env->functions->NewString(env, buf, 0);
                     result.l = javaString;
@@ -66,10 +225,38 @@ jvalue convertNPVariantToJValue(NPVariant value, JNIType jniType, const char* ja
 #endif
                 {
                     NPString src = NPVARIANT_TO_STRING(value);
-                    JNIEnv* env = getJNIEnv();
-                    jobject javaString = env->NewStringUTF(src.UTF8Characters);
+                    javaString = env->NewStringUTF(src.UTF8Characters);
                     result.l = javaString;
+                } else if (type == NPVariantType_Int32) {
+                    jint src = NPVARIANT_TO_INT32(value);
+                    jclass integerClass = env->FindClass("java/lang/Integer");
+                    jmethodID toString = env->GetStaticMethodID(integerClass, "toString", "(I)Ljava/lang/String;");
+                    javaString = env->CallStaticObjectMethod(integerClass, toString, src);
+                    result.l = javaString;
+                    env->DeleteLocalRef(integerClass);
+                } else if (type == NPVariantType_Bool) {
+                    jboolean src = NPVARIANT_TO_BOOLEAN(value);
+                    jclass booleanClass = env->FindClass("java/lang/Boolean");
+                    jmethodID toString = env->GetStaticMethodID(booleanClass, "toString", "(Z)Ljava/lang/String;");
+                    javaString = env->CallStaticObjectMethod(booleanClass, toString, src);
+                    result.l = javaString;
+                    env->DeleteLocalRef(booleanClass);
+                } else if (type == NPVariantType_Double) {
+                    jdouble src = NPVARIANT_TO_DOUBLE(value);
+                    jclass doubleClass = env->FindClass("java/lang/Double");
+                    jmethodID toString = env->GetStaticMethodID(doubleClass, "toString", "(D)Ljava/lang/String;");
+                    javaString = env->CallStaticObjectMethod(doubleClass, toString, src);
+                    result.l = javaString;
+                    env->DeleteLocalRef(doubleClass);
                 }
+#ifdef EMULATE_JSC_BINDINGS
+                // For the undefined value, JSC sends the String "undefined". Feels to me like we
+                // should send null in this case.
+                else if (!NPVARIANT_IS_NULL(value)) {
+                  javaString = env->NewStringUTF("undefined");
+                  result.l = javaString;
+                }
+#endif
             } else if (!result.l)
                 memset(&result, 0, sizeof(jvalue)); // Handle it the same as a void case
         }
@@ -97,6 +284,15 @@ jvalue convertNPVariantToJValue(NPVariant value, JNIType jniType, const char* ja
         {
             if (type == NPVariantType_Int32)
                 result.c = static_cast<char>(NPVARIANT_TO_INT32(value));
+#ifndef EMULATE_JSC_BINDINGS
+            // There is no char type in JavaScript - just strings 1 character
+            // long. So just converting it to an int above doesn't work. Again,
+            // we emulate the behavior for now for maximum compatability.
+            else if (type == NPVariantType_String) {
+                NPString str = NPVARIANT_TO_STRING(value);
+                result.c = str.UTF8Characters[0];
+            }
+#endif
             else
                 memset(&result, 0, sizeof(jvalue));
         }
@@ -153,8 +349,6 @@ jvalue convertNPVariantToJValue(NPVariant value, JNIType jniType, const char* ja
         }
         break;
 
-        break;
-
     case invalid_type:
     default:
     case void_type:
@@ -206,7 +400,17 @@ void convertJValueToNPVariant(jvalue value, JNIType jniType, const char* javaTyp
 
     case char_type:
         {
-            INT32_TO_NPVARIANT(value.c, *result);
+#ifndef EMULATE_JSC_BINDINGS
+            // There is no char type in JavaScript - just strings 1 character
+            // long. So just converting it to an int above doesn't work. Again,
+            // we emulate the behavior for now for maximum compatability.
+            if (!strcmp(javaTypeName, "char")) {
+                const char c = value.c;
+                const char* v = strndup(&c, 1);
+                STRINGZ_TO_NPVARIANT(v, *result);
+            } else
+#endif
+                INT32_TO_NPVARIANT(value.c, *result);
         }
         break;
 
