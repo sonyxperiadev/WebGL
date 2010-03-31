@@ -46,8 +46,7 @@ namespace android {
         ChromeClientAndroid() : m_webFrame(0), m_geolocationPermissions(0)
 #if USE(ACCELERATED_COMPOSITING)
                                 , m_rootGraphicsLayer(0)
-                                , m_askToDrawAgain(false)
-                                , m_syncTimer(this, &ChromeClientAndroid::syncTimerFired)
+                                , m_needsLayerSync(false)
 #endif
                                 , m_triedToReclaimDBQuota(false)
                                 { }
@@ -170,7 +169,7 @@ namespace android {
         virtual void attachRootGraphicsLayer(WebCore::Frame*, WebCore::GraphicsLayer* g);
         virtual void setNeedsOneShotDrawingSynchronization();
         virtual void scheduleCompositingLayerSync();
-        void syncTimerFired(Timer<ChromeClientAndroid>*);
+        void layersSync();
 #endif
 
     private:
@@ -179,8 +178,7 @@ namespace android {
         OwnPtr<GeolocationPermissions> m_geolocationPermissions;
 #if USE(ACCELERATED_COMPOSITING)
         WebCore::GraphicsLayer* m_rootGraphicsLayer;
-        bool m_askToDrawAgain;
-        Timer<ChromeClientAndroid> m_syncTimer;
+        bool m_needsLayerSync;
 #endif
         WTF::ThreadCondition m_quotaThreadCondition;
         WTF::Mutex m_quotaThreadLock;

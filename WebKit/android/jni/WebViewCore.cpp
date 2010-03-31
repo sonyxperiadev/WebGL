@@ -884,6 +884,12 @@ bool WebViewCore::recordContent(SkRegion* region, SkIPoint* point)
         region->getBounds().fTop, region->getBounds().fRight,
         region->getBounds().fBottom);
     DBG_SET_LOG("end");
+
+#if USE(ACCELERATED_COMPOSITING)
+    // We update the layers
+    ChromeClientAndroid* chromeC = static_cast<ChromeClientAndroid*>(m_mainFrame->page()->chrome()->client());
+    chromeC->layersSync();
+#endif
     return true;
 }
 

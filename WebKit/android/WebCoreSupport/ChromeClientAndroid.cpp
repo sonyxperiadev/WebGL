@@ -57,10 +57,15 @@ static unsigned long long tryToReclaimDatabaseQuota(SecurityOrigin* originNeedin
 
 #if USE(ACCELERATED_COMPOSITING)
 
-void ChromeClientAndroid::syncTimerFired(Timer<ChromeClientAndroid>* client)
+void ChromeClientAndroid::layersSync()
 {
     if (!m_rootGraphicsLayer)
         return;
+
+    if (!m_needsLayerSync)
+        return;
+
+    m_needsLayerSync = false;
 
     if (m_webFrame) {
         FrameView* frameView = m_webFrame->page()->mainFrame()->view();
@@ -77,8 +82,7 @@ void ChromeClientAndroid::syncTimerFired(Timer<ChromeClientAndroid>* client)
 
 void ChromeClientAndroid::scheduleCompositingLayerSync()
 {
-    if (!m_syncTimer.isActive())
-        m_syncTimer.startOneShot(0);
+      m_needsLayerSync = true;
 }
 
 void ChromeClientAndroid::setNeedsOneShotDrawingSynchronization()
