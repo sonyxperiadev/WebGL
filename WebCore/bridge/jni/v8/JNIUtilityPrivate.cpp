@@ -44,7 +44,7 @@ jvalue convertNPVariantToJValue(NPVariant value, JNIType jniType, const char* ja
         {
             JNIEnv* env = getJNIEnv();
             jobject javaArray;
-            NPObject* object = NPVARIANT_TO_OBJECT(value);
+            NPObject* object = NPVARIANT_IS_OBJECT(value) ? NPVARIANT_TO_OBJECT(value) : 0;
             NPVariant npvLength;
             bool success = _NPN_GetProperty(0, object, _NPN_GetStringIdentifier("length"), &npvLength);
             if (!success) {
@@ -57,9 +57,9 @@ jvalue convertNPVariantToJValue(NPVariant value, JNIType jniType, const char* ja
 #else
                 // Sending NULL as JSC does seems dangerous. (Imagine the java method that asks
                 // for the length of the array it was passed). Here we send a 0 length array.
-                jclass objectArrayClass = env->FindClass("[Ljava/lang/Object;");
-                javaArray = env->NewObjectArray((jsize)0, objectArrayClass, 0);
-                env->DeleteLocalRef(objectArrayClass);
+                jclass objectClass = env->FindClass("java/lang/Object");
+                javaArray = env->NewObjectArray(0, objectClass, 0);
+                env->DeleteLocalRef(objectClass);
 #endif
                 break;
             }
@@ -68,8 +68,8 @@ jvalue convertNPVariantToJValue(NPVariant value, JNIType jniType, const char* ja
 
             if (!strcmp(javaClassName, "[Ljava.lang.String;")) {
                 // Match JSC behavior by only allowing Object arrays if they are Strings.
-                jclass stringArrayClass = env->FindClass("[Ljava/lang/String;");
-                javaArray = env->NewObjectArray(length, stringArrayClass, 0);
+                jclass stringClass = env->FindClass("java/lang/String");
+                javaArray = env->NewObjectArray(length, stringClass, 0);
                 for (jsize i = 0; i < length; i++) {
                     NPVariant npvValue;
                     _NPN_GetProperty(0, object, _NPN_GetIntIdentifier(i), &npvValue);
@@ -79,7 +79,7 @@ jvalue convertNPVariantToJValue(NPVariant value, JNIType jniType, const char* ja
                     }
                 }
 
-                env->DeleteLocalRef(stringArrayClass);
+                env->DeleteLocalRef(stringClass);
             } else if (!strcmp(javaClassName, "[B")) {
                 // array of bytes
                 javaArray = env->NewByteArray(length);
@@ -188,9 +188,9 @@ jvalue convertNPVariantToJValue(NPVariant value, JNIType jniType, const char* ja
 #else
                 // Sending NULL as JSC does seems dangerous. (Imagine the java method that asks
                 // for the length of the array it was passed). Here we send a 0 length array.
-                jclass objectArrayClass = env->FindClass("[Ljava/lang/Object;");
-                javaArray = env->NewObjectArray(0, objectArrayClass, 0);
-                env->DeleteLocalRef(objectArrayClass);
+                jclass objectClass = env->FindClass("java/lang/Object");
+                javaArray = env->NewObjectArray(0, objectClass, 0);
+                env->DeleteLocalRef(objectClass);
 #endif
             }
 
