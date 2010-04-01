@@ -334,6 +334,19 @@ PassScriptInstance ScriptController::createScriptInstanceForWidget(Widget* widge
 
     v8::Local<v8::Object> wrapper = createV8ObjectForNPObject(npObject, 0);
 
+#ifdef ANDROID_FIX
+    // TODO: this should be up streamed.
+    // HTMLEmbedElement::getInstance() will call this function with its closest
+    // ancestor who has the objectTag. So this "widget" may be already in the
+    // HashMap. If it does, even m_pluginObjects.set() is a no-op, we do need to
+    // call _NPN_ReleaseObject on the npObject to balance the reference count.
+    PluginObjectMap::iterator it = m_pluginObjects.find(widget);
+    if (it != m_pluginObjects.end()) {
+        ASSERT(it->second == npObject);
+        _NPN_ReleaseObject(it->second);
+    }
+#endif
+
     // Track the plugin object. We've been given a reference to the object.
     m_pluginObjects.set(widget, npObject);
 
