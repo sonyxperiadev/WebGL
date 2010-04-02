@@ -251,14 +251,6 @@ Node* HTMLCollection::firstItem() const
 Node* HTMLCollection::nextItem() const
 {
      resetCollectionInfo();
- 
-#ifdef ANDROID_FIX
-     // resetCollectionInfo() can set info->current to be 0. If this is the
-     // case, we need to go back to the firstItem. Otherwise traverseNextItem
-     // will crash.
-     if (!m_info->current)
-         return firstItem();
-#endif
 
      // Look for the 'second' item. The first one is currentItem, already given back.
      Element* retval = itemAfter(m_info->current);
