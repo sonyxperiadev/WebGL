@@ -352,7 +352,7 @@ void PluginStream::deliverData()
 
             // ask the plugin for a delay value.
             int delay = deliveryDelay();
-            m_delayDeliveryTimer.startOneShot(delay);
+            m_delayDeliveryTimer.startOneShot(delay * 0.001);
 #else
             m_delayDeliveryTimer.startOneShot(0);
 #endif
@@ -441,6 +441,10 @@ void PluginStream::didReceiveData(NetscapePlugInStreamLoader* loader, const char
         m_deliveryData->resize(oldSize + length);
         memcpy(m_deliveryData->data() + oldSize, data, length);
 
+#if PLATFORM(ANDROID)
+//TODO: This needs to be upstreamed to WebKit.
+        if (!m_delayDeliveryTimer.isActive())
+#endif
         deliverData();
     }
 
