@@ -111,6 +111,9 @@ void GeolocationServiceAndroid::stopUpdating()
     // new position from the system service when a request is first made.
     m_lastPosition = 0;
     m_lastError = 0;
+    // remove the pending timer
+    if (m_timer.isActive())
+        m_timer.stop();
 }
 
 void GeolocationServiceAndroid::suspend()
@@ -155,7 +158,7 @@ void GeolocationServiceAndroid::timerFired(Timer<GeolocationServiceAndroid>* tim
     ASSERT(m_lastPosition || m_lastError);
     if (m_lastPosition)
         positionChanged();
-    else
+    else if (m_lastError)
         errorOccurred();
 }
 
