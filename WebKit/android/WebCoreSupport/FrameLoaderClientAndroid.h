@@ -208,12 +208,15 @@ namespace android {
         
         // FIXME: this doesn't really go here, but it's better than Frame
         CacheBuilder& getCacheBuilder() { return m_cacheBuilder; }
+
+        void enableOnDemandPlugins() { m_onDemandPluginsEnabled = true; }
     private:
         CacheBuilder        m_cacheBuilder;
         Frame*              m_frame;
         WebFrame*           m_webFrame;
         PluginManualLoader* m_manualLoader;
         bool                m_hasSentResponseToPlugin;
+        bool                m_onDemandPluginsEnabled;
 
         enum ResourceErrors {
             InternalErrorCancelled = -99,
