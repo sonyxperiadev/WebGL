@@ -56,6 +56,8 @@
 #include "PluginWidget.h"
 #include "ProgressTracker.h"
 #include "RenderPart.h"
+#include "RenderView.h"
+#include "RenderWidget.h"
 #include "ResourceError.h"
 #include "ResourceHandle.h"
 #include "ResourceHandleInternal.h"
@@ -84,7 +86,8 @@ FrameLoaderClientAndroid::FrameLoaderClientAndroid(WebFrame* webframe)
     : m_frame(NULL)
     , m_webFrame(webframe)
     , m_manualLoader(NULL)
-    , m_hasSentResponseToPlugin(false) {
+    , m_hasSentResponseToPlugin(false)
+    , m_onDemandPluginsEnabled(false) {
     Retain(m_webFrame);
 }
 
@@ -108,6 +111,7 @@ bool FrameLoaderClientAndroid::hasWebView() const {
 }
 
 void FrameLoaderClientAndroid::makeRepresentation(DocumentLoader*) {
+    m_onDemandPluginsEnabled = false;
     // don't use representation
     verifiedOk();
 }
@@ -1071,6 +1075,29 @@ public:
         if (event->type() != eventNames().clickEvent)
             return;
 
+        Frame* frame = m_parent->page()->mainFrame();
+        while (frame) {
+            RenderView* view = frame->contentRenderer();
+            const HashSet<RenderWidget*> widgets = view->widgets();
+            HashSet<RenderWidget*>::const_iterator it = widgets.begin();
+            HashSet<RenderWidget*>::const_iterator end = widgets.end();
+            for (; it != end; ++it) {
+                Widget* widget = (*it)->widget();
+                // PluginWidget is used only with PluginToggleWidget
+                if (widget->isPluginWidget()) {
+                    PluginToggleWidget* ptw =
+                            static_cast<PluginToggleWidget*>(widget);
+                    ptw->swapPlugin(*it);
+                }
+            }
+            frame = frame->tree()->traverseNext();
+        }
+    }
+
+    void swapPlugin(RenderWidget* renderer) {
+        typedef FrameLoaderClientAndroid FLCA;
+        FLCA* client = static_cast<FLCA*>(m_parent->loader()->client());
+        client->enableOnDemandPlugins();
         WTF::PassRefPtr<PluginView> prpWidget =
                 PluginView::create(m_parent.get(),
                                    m_size,
@@ -1081,8 +1108,6 @@ public:
                                    m_mimeType,
                                    m_loadManually);
         RefPtr<Widget> myProtector(this);
-        RenderWidget* renderer =
-                static_cast<RenderWidget*>(m_element->renderer());
         prpWidget->focusPluginElement();
         renderer->setWidget(prpWidget);
     }
@@ -1121,7 +1146,8 @@ WTF::PassRefPtr<Widget> FrameLoaderClientAndroid::createPlugin(
     Settings* settings = m_frame->settings();
     // Do the placeholder if plugins are on-demand and there is a plugin for the
     // given mime type.
-    if (settings && settings->arePluginsOnDemand() && plugin) {
+    if (settings && settings->arePluginsOnDemand() && plugin &&
+            !m_onDemandPluginsEnabled) {
         return adoptRef(new PluginToggleWidget(m_frame, size, element, url,
                     names, values, mimeType, loadManually));
     }

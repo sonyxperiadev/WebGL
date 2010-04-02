@@ -105,6 +105,9 @@ public:
     void updateWidgetPositions();
     void addWidget(RenderWidget*);
     void removeWidget(RenderWidget*);
+#ifdef ANDROID_PLUGINS
+    const HashSet<RenderWidget*>& widgets() const { return m_widgets; }
+#endif
 
     // layoutDelta is used transiently during layout to store how far an object has moved from its
     // last layout location, in order to repaint correctly.
