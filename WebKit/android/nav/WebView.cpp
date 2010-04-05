@@ -1221,6 +1221,14 @@ static const CachedNode* getFocusCandidate(JNIEnv *env, jobject obj,
     return root->currentFocus();
 }
 
+static bool focusCandidateHasNextTextfield(JNIEnv *env, jobject obj)
+{
+    const CachedFrame* frame;
+    const CachedNode* cursor = getFocusCandidate(env, obj, &frame);
+    if (!cursor || !cursor->isTextInput()) return false;
+    return frame->nextTextField(cursor, 0);
+}
+
 static const CachedNode* getFocusNode(JNIEnv *env, jobject obj)
 {
     WebView* view = GET_NATIVE_VIEW(env, obj);
@@ -1919,6 +1927,8 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeFindNext },
     { "nativeFocusCandidateFramePointer", "()I",
         (void*) nativeFocusCandidateFramePointer },
+    { "nativeFocusCandidateHasNextTextfield", "()Z",
+        (void*) focusCandidateHasNextTextfield },
     { "nativeFocusCandidateIsPassword", "()Z",
         (void*) nativeFocusCandidateIsPassword },
     { "nativeFocusCandidateIsRtlText", "()Z",
