@@ -375,12 +375,15 @@ NPError PluginView::getValueStatic(NPNVariable variable, void* value)
                 *retValue = !networkStateNotifier().onLine();
                 return NPERR_NO_ERROR;
             }
+            break;
         }
         case kJavaContext_ANPGetValue: {
             jobject* retObject = static_cast<jobject*>(value);
             *retObject = android::WebViewCore::getApplicationContext();
             return NPERR_NO_ERROR;
         }
+        default:
+            ; // do nothing
     }
 
     (void)anp_getInterface(variable, value, &error);
