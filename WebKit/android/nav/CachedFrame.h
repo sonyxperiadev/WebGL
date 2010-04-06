@@ -92,7 +92,8 @@ public:
     const CachedNode* document() const { return mCachedNodes.begin(); }
     bool empty() const { return mCachedNodes.size() < 2; } // must have 1 past doc
     const CachedNode* findBestAt(const WebCore::IntRect& , int* best,
-        bool* inside, const CachedNode** , const CachedFrame** , int* x,
+        bool* inside, const CachedNode** , const CachedFrame** directFrame,
+        const CachedFrame** resultFrame, int* x,
         int* y, bool checkForHidden) const;
     const CachedFrame* findBestFrameAt(int x, int y) const;
     const CachedNode* findBestHitAt(const WebCore::IntRect& , 
