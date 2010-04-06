@@ -355,6 +355,7 @@ CachedNode* CachedFrame::find(WebCore::Node* node) // !!! probably debugging onl
 
 const CachedNode* CachedFrame::findBestAt(const WebCore::IntRect& rect,
     int* best, bool* inside, const CachedNode** directHit,
+    const CachedFrame** directHitFramePtr,
     const CachedFrame** framePtr, int* x, int* y,
     bool checkForHiddenStart) const
 {
@@ -392,7 +393,7 @@ const CachedNode* CachedFrame::findBestAt(const WebCore::IntRect& rect,
                     // We have a direct hit.
                     if (*directHit == NULL) {
                         *directHit = test;
-                        *framePtr = this;
+                        *directHitFramePtr = this;
                         *x = center.x();
                         *y = center.y();
                     } else {
@@ -402,7 +403,7 @@ const CachedNode* CachedFrame::findBestAt(const WebCore::IntRect& rect,
                             // This rectangle is inside the other one, so it is
                             // the best one.
                             *directHit = test;
-                            *framePtr = this;
+                            *directHitFramePtr = this;
                         }
                     }
                 }
@@ -444,12 +445,13 @@ const CachedNode* CachedFrame::findBestAt(const WebCore::IntRect& rect,
     for (const CachedFrame* frame = mCachedFrames.begin();
             frame != mCachedFrames.end(); frame++) {
         const CachedNode* frameResult = frame->findBestAt(rect, best, inside,
-            directHit, framePtr, x, y, checkForHiddenStart);
+            directHit, directHitFramePtr, framePtr, x, y, checkForHiddenStart);
         if (NULL != frameResult)
             result = frameResult;
     }
     if (NULL != *directHit) {
         result = *directHit;
+        *framePtr = *directHitFramePtr;
     }
     return result;
 }
