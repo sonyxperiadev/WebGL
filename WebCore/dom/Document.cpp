@@ -1558,17 +1558,6 @@ void Document::detach()
         FrameView* view = m_frame->view();
         if (view)
             view->detachCustomScrollbars();
-
-#if ENABLE(TOUCH_EVENTS)
-        Page* ownerPage = page();
-        if (ownerPage && (m_frame == ownerPage->mainFrame())) {
-            // Inform the Chrome Client that it no longer needs to
-            // foward touch events to WebCore as the document is being
-            // destroyed. It may start again if a subsequent page
-            // registers a touch event listener.
-            ownerPage->chrome()->client()->needTouchEvents(false);
-        }
-#endif
     }
 
     // indicate destruction mode,  i.e. attached() but renderer == 0
@@ -1596,6 +1585,15 @@ void Document::detach()
 
 void Document::removeAllEventListeners()
 {
+#if ENABLE(TOUCH_EVENTS)
+    Page* ownerPage = page();
+    if (!m_inPageCache && ownerPage && (m_frame == ownerPage->mainFrame()) && hasListenerType(Document::TOUCH_LISTENER)) {
+        // Inform the Chrome Client that it no longer needs to forward touch
+        // events to WebCore as the document removes all the event listeners.
+        ownerPage->chrome()->client()->needTouchEvents(false);
+    }
+#endif
+
     EventTarget::removeAllEventListeners();
 
     if (DOMWindow* domWindow = this->domWindow())
