@@ -25,6 +25,13 @@
 #include "StringHash.h"
 #include <wtf/HashMap.h>
 
+#ifndef BZERO_DEFINED
+#define BZERO_DEFINED
+// http://www.opengroup.org/onlinepubs/000095399/functions/bzero.html
+// For maximum portability, it is recommended to replace the function call to bzero() as follows:
+#define bzero(b,len) (memset((b), '\0', (len)), (void) 0)
+#endif
+
 class SkCanvas;
 class SkMatrix;
 class SkPicture;

@@ -43,4 +43,11 @@
 
 #define OFFSETOF(type, field) ((char*)&(((type*)1)->field) - (char*)1) // avoids gnu warning
 
+#ifndef BZERO_DEFINED
+#define BZERO_DEFINED
+// http://www.opengroup.org/onlinepubs/000095399/functions/bzero.html
+// For maximum portability, it is recommended to replace the function call to bzero() as follows:
+#define bzero(b,len) (memset((b), '\0', (len)), (void) 0)
+#endif
+
 #endif
