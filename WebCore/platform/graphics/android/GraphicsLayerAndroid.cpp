@@ -535,7 +535,7 @@ bool GraphicsLayerAndroid::addAnimation(const KeyframeValueList& valueList,
                                         const String& keyframesName,
                                         double beginTime)
 {
-    if (!anim || anim->isEmptyOrZeroDuration() || valueList.size() < 2)
+    if (!anim || anim->isEmptyOrZeroDuration() || valueList.size() != 2)
     return false;
 
     bool createdAnimations = false;
