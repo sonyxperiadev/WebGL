@@ -121,9 +121,6 @@ public:
     void sendImmediateRepaint();
     LayerAndroid* contentLayer() { return m_contentLayer; }
 
-    bool hasFixedLayers() const { return m_hasFixedLayers; }
-    void setHasFixedLayers(bool val) { m_hasFixedLayers = val; }
-
     static int instancesCount();
 
 private:
@@ -141,8 +138,6 @@ private:
 
     bool m_haveContents;
     bool m_haveImage;
-
-    bool m_hasFixedLayers;
 
     float m_translateX;
     float m_translateY;
