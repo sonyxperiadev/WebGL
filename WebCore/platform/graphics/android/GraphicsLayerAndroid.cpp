@@ -115,7 +115,6 @@ GraphicsLayerAndroid::GraphicsLayerAndroid(GraphicsLayerClient* client) :
     m_needsNotifyClient(false),
     m_haveContents(false),
     m_haveImage(false),
-    m_hasFixedLayers(false),
     m_translateX(0),
     m_translateY(0),
     m_currentTranslateX(0),
@@ -254,13 +253,6 @@ void GraphicsLayerAndroid::updateFixedPosition()
                                          offsetFromRenderer().width(),
                                          offsetFromRenderer().height(),
                                          w, h);
-
-        GraphicsLayerAndroid* rootGraphicsLayer = this;
-
-        while (rootGraphicsLayer->parent())
-            rootGraphicsLayer = static_cast<GraphicsLayerAndroid*>(rootGraphicsLayer->parent());
-
-        rootGraphicsLayer->setHasFixedLayers(true);
     }
 }
 
