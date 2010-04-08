@@ -1220,37 +1220,37 @@ void WebViewCore::setSizeScreenWidthAndScale(int width, int height,
             r->setNeedsLayoutAndPrefWidthsRecalc();
             m_mainFrame->view()->forceLayout();
             // scroll to restore current screen center
-            if (!node)
-                return;
-            const WebCore::IntRect& newBounds = node->getRect();
-            DBG_NAV_LOGD("nb:(x=%d,y=%d,w=%d,"
-                "h=%d)", newBounds.x(), newBounds.y(),
-                newBounds.width(), newBounds.height());
-            if ((orsw && osh && bounds.width() && bounds.height())
-                && (bounds != newBounds)) {
-                WebCore::FrameView* view = m_mainFrame->view();
-                // force left align if width is not changed while height changed.
-                // the anchorPoint is probably at some white space in the node
-                // which is affected by text wrap around the screen width.
-                const bool leftAlign = (osw != m_screenWidth)
-                    && (bounds.width() == newBounds.width())
-                    && (bounds.height() != newBounds.height());
-                const float xPercentInDoc =
-                    leftAlign ? 0.0 : (float) (anchorX - bounds.x()) / bounds.width();
-                const float xPercentInView =
-                    leftAlign ? 0.0 : (float) (anchorX - m_scrollOffsetX) / orsw;
-                const float yPercentInDoc = (float) (anchorY - bounds.y()) / bounds.height();
-                const float yPercentInView = (float) (anchorY - m_scrollOffsetY) / osh;
-                showRect(newBounds.x(), newBounds.y(), newBounds.width(),
-                         newBounds.height(), view->contentsWidth(),
-                         view->contentsHeight(),
-                         xPercentInDoc, xPercentInView,
-                         yPercentInDoc, yPercentInView);
+            if (node) {
+                const WebCore::IntRect& newBounds = node->getRect();
+                DBG_NAV_LOGD("nb:(x=%d,y=%d,w=%d,"
+                    "h=%d)", newBounds.x(), newBounds.y(),
+                    newBounds.width(), newBounds.height());
+                if ((orsw && osh && bounds.width() && bounds.height())
+                    && (bounds != newBounds)) {
+                    WebCore::FrameView* view = m_mainFrame->view();
+                    // force left align if width is not changed while height changed.
+                    // the anchorPoint is probably at some white space in the node
+                    // which is affected by text wrap around the screen width.
+                    const bool leftAlign = (osw != m_screenWidth)
+                        && (bounds.width() == newBounds.width())
+                        && (bounds.height() != newBounds.height());
+                    const float xPercentInDoc =
+                        leftAlign ? 0.0 : (float) (anchorX - bounds.x()) / bounds.width();
+                    const float xPercentInView =
+                        leftAlign ? 0.0 : (float) (anchorX - m_scrollOffsetX) / orsw;
+                    const float yPercentInDoc = (float) (anchorY - bounds.y()) / bounds.height();
+                    const float yPercentInView = (float) (anchorY - m_scrollOffsetY) / osh;
+                    showRect(newBounds.x(), newBounds.y(), newBounds.width(),
+                             newBounds.height(), view->contentsWidth(),
+                             view->contentsHeight(),
+                             xPercentInDoc, xPercentInView,
+                             yPercentInDoc, yPercentInView);
+                }
             }
         }
     }
 
-    // update the currently visible screen
+    // update the currently visible screen as perceived by the plugin
     sendPluginVisibleScreen();
 }
 
@@ -1528,6 +1528,10 @@ void WebViewCore::notifyPluginsOnFrameLoad(const Frame* frame) {
 
 void WebViewCore::sendPluginVisibleScreen()
 {
+    /* We may want to cache the previous values and only send the notification
+       to the plugin in the event that one of the values has changed.
+     */
+
     ANPRectI visibleRect;
     visibleRect.left = m_scrollOffsetX;
     visibleRect.top = m_scrollOffsetY;
