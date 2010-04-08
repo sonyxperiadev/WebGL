@@ -36,7 +36,8 @@ namespace WebCore {
                 : m_list(list),
                   m_instance(instance),
                   m_timerFunc(timerFunc),
-                  m_repeat(repeat)
+                  m_repeat(repeat),
+                  m_unscheduled(false)
     {
         m_timerID = ++gTimerID;
 
@@ -62,10 +63,11 @@ namespace WebCore {
         
     void PluginTimer::fired()
     {
-        m_timerFunc(m_instance, m_timerID);
-        if (!m_repeat) {
+        if (!m_unscheduled)
+            m_timerFunc(m_instance, m_timerID);
+
+        if (!m_repeat || m_unscheduled)
             delete this;
-        }
     }
     
     // may return null if timerID is not found
@@ -106,7 +108,14 @@ namespace WebCore {
     
     void PluginTimerList::unschedule(NPP instance, uint32 timerID)
     {
-        delete PluginTimer::Find(m_list, timerID);
+        // Although it looks like simply deleting the timer would work here
+        // (stop() will be executed by the dtor), we cannot do this, as
+        // the plugin can call us while we are in the fired() method,
+        // (when we execute the timerFunc callback). Deleting the object
+        // we are in would then be a rather bad move...
+        PluginTimer* timer = PluginTimer::Find(m_list, timerID);
+        if (timer)
+            timer->unschedule();
     }
     
 } // namespace WebCore
