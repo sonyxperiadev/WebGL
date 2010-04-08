@@ -42,6 +42,8 @@ namespace WebCore {
     
         uint32 timerID() const { return m_timerID; }
 
+        void unschedule() { m_unscheduled = true; }
+
         static PluginTimer* Find(PluginTimer* list, uint32 timerID);
 
     private:
@@ -58,6 +60,7 @@ namespace WebCore {
         void            (*m_timerFunc)(NPP, uint32);
         uint32          m_timerID;
         bool            m_repeat;
+        bool            m_unscheduled;
     };
     
     class PluginTimerList {
