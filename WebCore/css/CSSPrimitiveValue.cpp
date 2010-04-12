@@ -477,9 +477,8 @@ void CSSPrimitiveValue::setFloatValue(unsigned short unitType, double floatValue
 {
     ec = 0;
 
-    // FIXME: check if property supports this type
-    if (m_type > CSS_DIMENSION) {
-        ec = SYNTAX_ERR;
+    if (m_type < CSS_NUMBER || m_type > CSS_DIMENSION || unitType < CSS_NUMBER || unitType > CSS_DIMENSION) {
+        ec = INVALID_ACCESS_ERR;
         return;
     }
 
@@ -568,10 +567,8 @@ void CSSPrimitiveValue::setStringValue(unsigned short stringType, const String& 
 {
     ec = 0;
 
-    //if(m_type < CSS_STRING) throw DOMException(INVALID_ACCESS_ERR);
-    //if(m_type > CSS_ATTR) throw DOMException(INVALID_ACCESS_ERR);
-    if (m_type < CSS_STRING || m_type > CSS_ATTR) {
-        ec = SYNTAX_ERR;
+    if (m_type < CSS_STRING || m_type > CSS_ATTR || stringType < CSS_STRING || stringType > CSS_ATTR) {
+        ec = INVALID_ACCESS_ERR;
         return;
     }
 
