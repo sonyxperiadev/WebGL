@@ -64,7 +64,7 @@ static inline sp<Surface> getSurface(JNIEnv* env, jobject view) {
 
         jclass surfaceClass = env->FindClass("android/view/Surface");
         gSurfaceJavaGlue.surfacePointer = env->GetFieldID(surfaceClass,
-                                                          "mSurface", "I");
+                ANDROID_VIEW_SURFACE_JNI_ID, "I");
 
         env->DeleteLocalRef(surfaceClass);
         env->DeleteLocalRef(surfaceViewClass);
