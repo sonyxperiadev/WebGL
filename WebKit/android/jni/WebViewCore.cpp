@@ -2073,8 +2073,11 @@ bool WebViewCore::handleTouchEvent(int action, int x, int y, int metaState)
     // Track previous touch and if stationary set the state.
     WebCore::IntPoint pt(x - m_scrollOffsetX, y - m_scrollOffsetY);
 
-    if (type == WebCore::TouchMove && pt == m_lastTouchPoint)
-        touchState = WebCore::PlatformTouchPoint::TouchStationary;
+//  handleTouchEvent() in EventHandler.cpp doesn't handle TouchStationary, which
+//  causes preventDefault be false when it returns. As our Java side may continue
+//  process the events if WebKit doesn't, it can cause unexpected result.
+//    if (type == WebCore::TouchMove && pt == m_lastTouchPoint)
+//        touchState = WebCore::PlatformTouchPoint::TouchStationary;
 
     m_lastTouchPoint = pt;
 
