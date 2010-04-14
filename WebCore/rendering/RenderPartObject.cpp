@@ -113,6 +113,10 @@ void RenderPartObject::layout()
                 // Update one last time
                 updateWidgetPosition();
 
+                // Layout one more time to ensure all objects have the correct
+                // height.
+                view->layout();
+
 #if !ASSERT_DISABLED
                 ASSERT(!view->layoutPending());
                 ASSERT(!root->needsLayout());
