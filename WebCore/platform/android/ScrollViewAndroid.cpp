@@ -73,9 +73,18 @@ void ScrollView::platformSetScrollPosition(const WebCore::IntPoint& pt)
     android::WebViewCore::getWebViewCore(this)->scrollTo(pt.x(), pt.y());
 }
 
+void ScrollView::platformSetScrollbarModes()
+{
+    if (parent()) // no scrollbar for the subframes
+        return;
+    android::WebViewCore::getWebViewCore(this)->setScrollbarModes(m_horizontalScrollbarMode, m_verticalScrollbarMode);
+}
+
 void ScrollView::platformScrollbarModes(ScrollbarMode& h, ScrollbarMode& v) const
 {
-    h = v = ScrollbarAlwaysOff;
+    // m_horizontalScrollbarMode and m_verticalScrollbarMode are set in ScrollView::setScrollbarModes()
+    h = m_horizontalScrollbarMode;
+    v = m_verticalScrollbarMode;
 }
 
 bool ScrollView::platformProhibitsScrolling()

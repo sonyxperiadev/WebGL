@@ -985,11 +985,11 @@ void ScrollView::platformSetScrollbarsSuppressed(bool)
 
 #if !PLATFORM(MAC) && !PLATFORM(WX)
 
+#if !PLATFORM(ANDROID)
 void ScrollView::platformSetScrollbarModes()
 {
 }
 
-#if !PLATFORM(ANDROID)
 void ScrollView::platformScrollbarModes(ScrollbarMode& horizontal, ScrollbarMode& vertical) const
 {
     horizontal = ScrollbarAuto;

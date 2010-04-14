@@ -249,6 +249,11 @@ namespace android {
 
         void addMessageToConsole(const String& message, unsigned int lineNumber, const String& sourceID, int msgLevel);
 
+        /**
+         * Tell the Java side of the scrollbar mode
+         */
+        void setScrollbarModes(ScrollbarMode horizontalMode, ScrollbarMode verticalMode);
+
         //
         // Followings support calls from Java to native WebCore
         //
