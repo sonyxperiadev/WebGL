@@ -451,7 +451,7 @@ bool GraphicsLayerAndroid::repaint(const FloatRect& rect)
         this, rect.x(), rect.y(), rect.width(), rect.height(),
         gPaused, m_needsRepaint, m_haveContents);
 
-    if (!gPaused && m_haveContents && m_needsRepaint) {
+    if (!gPaused && m_haveContents && m_needsRepaint && !m_haveImage) {
         SkAutoPictureRecord arp(m_contentLayer->recordContext(), m_size.width(), m_size.height());
         SkCanvas* recordingCanvas = arp.getRecordingCanvas();
 
@@ -814,11 +814,10 @@ void GraphicsLayerAndroid::setContentsToImage(Image* image)
     TLOG("(%x) setContentsToImage", this, image);
     if (image) {
         m_haveContents = true;
-        if (!m_haveImage) {
-            m_haveImage = true;
-            setNeedsDisplay();
-            askForSync();
-        }
+        m_haveImage = true;
+        m_contentLayer->setContentsImage(image->nativeImageForCurrentFrame());
+        setNeedsDisplay();
+        askForSync();
     }
 }
 

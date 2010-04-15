@@ -5,6 +5,7 @@
 
 #include "AndroidAnimation.h"
 #include "DrawExtra.h"
+#include "SkBitmapRef.h"
 #include "SkCanvas.h"
 #include "SkDrawFilter.h"
 #include "SkPaint.h"
@@ -50,6 +51,7 @@ LayerAndroid::LayerAndroid(bool isRootLayer) : SkLayer(),
     m_doRotation(false),
     m_isFixed(false),
     m_recordingPicture(0),
+    m_contentsImage(0),
     m_extra(0),
     m_uniqueId(++gUniqueId)
 {
@@ -69,6 +71,8 @@ LayerAndroid::LayerAndroid(const LayerAndroid& layer) : SkLayer(layer),
 {
     m_doRotation = layer.m_doRotation;
     m_isFixed = layer.m_isFixed;
+    m_contentsImage = layer.m_contentsImage;
+    m_contentsImage->safeRef();
 
     m_angleTransform = layer.m_angleTransform;
     m_translation = layer.m_translation;
@@ -106,6 +110,7 @@ LayerAndroid::LayerAndroid(SkPicture* picture) : SkLayer(),
     m_doRotation(false),
     m_isFixed(false),
     m_recordingPicture(picture),
+    m_contentsImage(0),
     m_extra(0),
     m_uniqueId(-1)
 {
@@ -120,6 +125,7 @@ LayerAndroid::LayerAndroid(SkPicture* picture) : SkLayer(),
 LayerAndroid::~LayerAndroid()
 {
     removeChildren();
+    m_contentsImage->safeUnref();
     m_recordingPicture->safeUnref();
     m_animations.clear();
     gDebugLayerAndroidInstances--;
@@ -318,6 +324,10 @@ void LayerAndroid::updatePositions() {
     }
 }
 
+void LayerAndroid::setContentsImage(SkBitmapRef* img) {
+    SkRefCnt_SafeAssign(m_contentsImage, img);
+}
+
 void LayerAndroid::onDraw(SkCanvas* canvas, SkScalar opacity) {
     if (m_haveClip) {
         SkRect r;
@@ -335,7 +345,13 @@ void LayerAndroid::onDraw(SkCanvas* canvas, SkScalar opacity) {
     if (canvasOpacity < 255)
         canvas->setDrawFilter(new OpacityDrawFilter(canvasOpacity));
 
-    canvas->drawPicture(*m_recordingPicture);
+    if (m_contentsImage) {
+      SkRect dest;
+      dest.set(0, 0, getSize().width(), getSize().height());
+      canvas->drawBitmapRect(m_contentsImage->bitmap(), 0, dest);
+    } else {
+      canvas->drawPicture(*m_recordingPicture);
+    }
     if (m_extra)
         m_extra->draw(canvas, this);
 

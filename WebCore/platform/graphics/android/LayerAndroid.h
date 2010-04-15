@@ -32,6 +32,7 @@
 #define bzero(b,len) (memset((b), '\0', (len)), (void) 0)
 #endif
 
+class SkBitmapRef;
 class SkCanvas;
 class SkMatrix;
 class SkPicture;
@@ -174,6 +175,13 @@ public:
     int getFixedWidth() { return m_fixedWidth; }
     int getFixedHeight() { return m_fixedHeight; }
 
+    /** This sets a content image -- calling it means we will use
+        the image directly when drawing the layer instead of using
+        the content painted by WebKit. See comments below for
+        m_recordingPicture and m_contentsImage.
+    */
+    void setContentsImage(SkBitmapRef* img);
+
 protected:
     virtual void onDraw(SkCanvas*, SkScalar opacity);
 
@@ -209,7 +217,14 @@ private:
     SkScalar m_angleTransform;
     SkColor m_backgroundColor;
 
+    // Note that m_recordingPicture and m_contentsImage are mutually exclusive;
+    // m_recordingPicture is used when WebKit is asked to paint the layer's
+    // content, while m_contentsImage contains an image that we directly
+    // composite, using the layer's dimensions as a destination rect.
+    // We do this as if the layer only contains an image, directly compositing
+    // it is a much faster method than using m_recordingPicture.
     SkPicture* m_recordingPicture;
+    SkBitmapRef* m_contentsImage;
 
     typedef HashMap<String, RefPtr<AndroidAnimation> > KeyframesMap;
     KeyframesMap m_animations;
