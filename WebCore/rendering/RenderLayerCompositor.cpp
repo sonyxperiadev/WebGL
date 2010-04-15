@@ -462,13 +462,6 @@ bool RenderLayerCompositor::overlapsCompositedLayers(OverlapMap& overlapMap, con
     return false;
 }
 
-#if ENABLE(COMPOSITED_FIXED_ELEMENTS)
-static bool needsCompositingForFixedLayer(const RenderLayer* layer)
-{
-  return layer->isFixed() && layer->width() > 0 && layer->height() > 0;
-}
-#endif
-
 //  Recurse through the layers in z-index and overflow order (which is equivalent to painting order)
 //  For the z-order children of a compositing layer:
 //      If a child layers has a compositing layer, then all subsequent layers must
@@ -512,7 +505,7 @@ void RenderLayerCompositor::computeCompositingRequirements(RenderLayer* layer, O
 
 #if ENABLE(COMPOSITED_FIXED_ELEMENTS)
     // If we are a fixed layer, signal it to our siblings
-    if (needsCompositingForFixedLayer(layer))
+    if (layer->isFixed())
         compositingState.m_fixedSibling = true;
 
     if (!willBeComposited && compositingState.m_fixedSibling)
@@ -554,7 +547,7 @@ void RenderLayerCompositor::computeCompositingRequirements(RenderLayer* layer, O
             // subsequent siblings as we do for the normal flow
             // and positive z-order.
             for (size_t j = 0; j < listSize; ++j) {
-                if (needsCompositingForFixedLayer(negZOrderList->at(j))) {
+                if ((negZOrderList->at(j))->isFixed()) {
                     childState.m_fixedSibling = true;
                     break;
                 }
@@ -981,7 +974,7 @@ bool RenderLayerCompositor::needsToBeComposited(const RenderLayer* layer) const
     // if an ancestor is fixed positioned, we need to be composited...
     const RenderLayer* currLayer = layer;
     while ((currLayer = currLayer->parent())) {
-        if (currLayer->isComposited() && needsCompositingForFixedLayer(currLayer))
+        if (currLayer->isComposited() && currLayer->isFixed())
             return true;
     }
 #endif
