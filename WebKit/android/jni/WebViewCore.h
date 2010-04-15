@@ -553,7 +553,6 @@ namespace android {
 
 #if ENABLE(TOUCH_EVENTS)
         bool m_forwardingTouchEvents;
-        IntPoint m_lastTouchPoint;
 #endif
 
 #if DEBUG_NAV_UI
