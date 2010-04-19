@@ -49,7 +49,7 @@ js_binding_scripts := $(addprefix $(LOCAL_PATH)/,\
 			bindings/scripts/generate-bindings.pl \
 		)
 
-FEATURE_DEFINES := ENABLE_ORIENTATION_EVENTS=1 ENABLE_TOUCH_EVENTS=1 ENABLE_DATABASE=1 ENABLE_OFFLINE_WEB_APPLICATIONS=1 ENABLE_DOM_STORAGE=1 ENABLE_VIDEO=1 ENABLE_GEOLOCATION=1 ENABLE_CONNECTION=1 ENABLE_APPLICATION_INSTALLED=1
+FEATURE_DEFINES := ENABLE_ORIENTATION_EVENTS=1 ENABLE_TOUCH_EVENTS=1 ENABLE_DATABASE=1 ENABLE_OFFLINE_WEB_APPLICATIONS=1 ENABLE_DOM_STORAGE=1 ENABLE_VIDEO=1 ENABLE_GEOLOCATION=1 ENABLE_CONNECTION=1 ENABLE_APPLICATION_INSTALLED=1 ENABLE_XPATH=1
 
 # CSS
 GEN := \
@@ -537,6 +537,11 @@ GEN := \
     $(intermediates)/xml/JSXMLHttpRequestProgressEvent.h \
     $(intermediates)/xml/JSXMLHttpRequestUpload.h \
     $(intermediates)/xml/JSXMLSerializer.h \
+    $(intermediates)/xml/JSXPathException.h \
+    $(intermediates)/xml/JSXPathExpression.h \
+    $(intermediates)/xml/JSXPathEvaluator.h \
+    $(intermediates)/xml/JSXPathNSResolver.h \
+    $(intermediates)/xml/JSXPathResult.h \
     $(intermediates)/xml/JSXSLTProcessor.h
 $(GEN): PRIVATE_PATH := $(LOCAL_PATH)
 $(GEN): PRIVATE_CUSTOM_TOOL = perl -I$(PRIVATE_PATH)/bindings/scripts $(PRIVATE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator JS --include dom --include html --outputdir $(dir $@) $<

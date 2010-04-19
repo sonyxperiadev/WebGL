@@ -199,3 +199,7 @@ LOCAL_SRC_FILES += \
 	bridge/runtime_method.cpp \
 	bridge/runtime_object.cpp \
 	bridge/runtime_root.cpp
+
+# For XPath.
+LOCAL_SRC_FILES += \
+	bindings/js/JSCustomXPathNSResolver.cpp

@@ -939,3 +939,22 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	xml/XMLHttpRequest.cpp \
 	xml/XMLHttpRequestUpload.cpp \
 	xml/XMLSerializer.cpp
+
+# For XPath
+LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
+	xml/XPathEvaluator.cpp \
+	xml/XPathExpression.cpp \
+	xml/XPathExpressionNode.cpp \
+	xml/XPathFunctions.cpp \
+	xml/XPathNSResolver.cpp \
+	xml/XPathNamespace.cpp \
+	xml/XPathNodeSet.cpp \
+	xml/XPathParser.cpp \
+	xml/XPathPath.cpp \
+	xml/XPathPredicate.cpp \
+	xml/XPathResult.cpp \
+	xml/XPathStep.cpp \
+	xml/XPathUtil.cpp \
+	xml/XPathValue.cpp \
+	xml/XPathVariableReference.cpp \
+	xml/NativeXPathNSResolver.cpp
