@@ -45,7 +45,7 @@ RenderSkinAndroid::RenderSkinAndroid()
 void RenderSkinAndroid::Init(android::AssetManager* am, String drawableDirectory)
 {
     RenderSkinButton::Init(am, drawableDirectory);
-    RenderSkinCombo::Init(am);
+    RenderSkinCombo::Init(am, drawableDirectory);
     RenderSkinRadio::Init(am, drawableDirectory);
 }
 
