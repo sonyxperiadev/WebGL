@@ -120,16 +120,6 @@ public:
 #endif
     WebCore::IntRect localBounds(const CachedNode* ,
         const WebCore::IntRect& ) const;
-    /**
-     * Find the next textfield/textarea
-     * @param start Must be a CachedNode in this CachedFrame's tree, or
-     *              null, in which case we start from the beginning.
-     * @param framePtr  If not null, and a textfield/textarea is found, its
-     *                  CachedFrame will be pointed to by this pointer.
-     * @return CachedNode* Next textfield (or area)
-     */
-    const CachedNode* nextTextField(const CachedNode* start,
-        const CachedFrame** framePtr) const;
     const CachedFrame* parent() const { return mParent; }
     CachedFrame* parent() { return mParent; }
     SkPicture* picture(const CachedNode* ) const;
@@ -152,6 +142,8 @@ public:
     }
     const CachedNode* validDocument() const;
 protected:
+    const CachedNode* nextTextField(const CachedNode* start,
+        const CachedFrame** framePtr, bool* found) const;
     struct BestData {
         int mDistance;
         int mSideDistance;
