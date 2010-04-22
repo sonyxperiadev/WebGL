@@ -928,28 +928,27 @@ int CachedFrame::maxWorkingVertical() const
 }
 
 const CachedNode* CachedFrame::nextTextField(const CachedNode* start,
-        const CachedFrame** framePtr) const
+        const CachedFrame** framePtr, bool* startFound) const
 {
-    CachedNode* test;
-    if (start) {
-        test = const_cast<CachedNode*>(start);
-        test++;
-    } else {
-        test = const_cast<CachedNode*>(mCachedNodes.begin());
-    }
-    while (test != mCachedNodes.end()) {
-        CachedFrame* frame = const_cast<CachedFrame*>(hasFrame(test));
+    const CachedNode* test = mCachedNodes.begin();
+    while ((test = test->traverseNextNode())) {
+        const CachedFrame* frame = hasFrame(test);
         if (frame) {
+            if (!frame->validDocument())
+                continue;
             const CachedNode* node
-                    = frame->nextTextField(0, framePtr);
+                    = frame->nextTextField(start, framePtr, startFound);
             if (node)
                 return node;
         } else if (test->isTextInput()) {
-            if (framePtr)
-                *framePtr = this;
-            return test;
+            if (test == start)
+                *startFound = true;
+            else if (*startFound) {
+                if (framePtr)
+                    *framePtr = this;
+                return test;
+            }
         }
-        test++;
     }
     return 0;
 }
