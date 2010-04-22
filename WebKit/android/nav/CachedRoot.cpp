@@ -1083,7 +1083,7 @@ WebCore::String CachedRoot::imageURI(int x, int y) const
 bool CachedRoot::maskIfHidden(BestData* best) const
 {
     const CachedNode* bestNode = best->mNode;
-    if (bestNode->isUnclipped())
+    if (bestNode->isUnclipped() || bestNode->isTransparent())
         return false;
     const CachedFrame* frame = best->mFrame;
     SkPicture* picture = frame->picture(bestNode);
