@@ -1288,6 +1288,13 @@ const CachedNode* CachedRoot::moveCursor(Direction direction, const CachedFrame*
     return const_cast<CachedNode*>(bestData.mNode);
 }
 
+const CachedNode* CachedRoot::nextTextField(const CachedNode* start,
+        const CachedFrame** framePtr) const
+{
+    bool startFound = false;
+    return CachedFrame::nextTextField(start, framePtr, &startFound);
+}
+
 SkPicture* CachedRoot::pictureAt(int x, int y) const
 {
 #if USE(ACCELERATED_COMPOSITING)
