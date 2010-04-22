@@ -1223,10 +1223,15 @@ static const CachedNode* getFocusCandidate(JNIEnv *env, jobject obj,
 
 static bool focusCandidateHasNextTextfield(JNIEnv *env, jobject obj)
 {
-    const CachedFrame* frame;
-    const CachedNode* cursor = getFocusCandidate(env, obj, &frame);
+    WebView* view = GET_NATIVE_VIEW(env, obj);
+    CachedRoot* root = view->getFrameCache(WebView::DontAllowNewer);
+    if (!root)
+        return false;
+    const CachedNode* cursor = root->currentCursor();
+    if (!cursor || !cursor->isTextInput())
+        cursor = root->currentFocus();
     if (!cursor || !cursor->isTextInput()) return false;
-    return frame->nextTextField(cursor, 0);
+    return root->nextTextField(cursor, 0);
 }
 
 static const CachedNode* getFocusNode(JNIEnv *env, jobject obj)
@@ -1760,14 +1765,13 @@ static bool nativeMoveCursorToNextTextInput(JNIEnv *env, jobject obj)
     CachedRoot* root = view->getFrameCache(WebView::DontAllowNewer);
     if (!root)
         return false;
-    const CachedFrame* containingFrame;
-    const CachedNode* current = root->currentCursor(&containingFrame);
-    if (!current)
-        current = root->currentFocus(&containingFrame);
-    if (!current)
+    const CachedNode* current = root->currentCursor();
+    if (!current || !current->isTextInput())
+        current = root->currentFocus();
+    if (!current || !current->isTextInput())
         return false;
     const CachedFrame* frame;
-    const CachedNode* next = containingFrame->nextTextField(current, &frame);
+    const CachedNode* next = root->nextTextField(current, &frame);
     if (!next)
         return false;
     const WebCore::IntRect& bounds = next->bounds(frame);

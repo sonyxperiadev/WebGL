@@ -75,6 +75,14 @@ public:
     WebCore::String imageURI(int x, int y) const;
     bool maskIfHidden(BestData* ) const;
     const CachedNode* moveCursor(Direction , const CachedFrame** , WebCore::IntPoint* scroll);
+    /**
+     * Find the next textfield/textarea
+     * @param start         The textfield/textarea to search from.
+     * @param framePtr      If non-zero, returns CachedFrame* containing result.
+     * @return CachedNode*  Next textfield/textarea or null (0) if none.
+     */
+    const CachedNode* nextTextField(const CachedNode* start,
+        const CachedFrame** framePtr) const;
     SkPicture* pictureAt(int x, int y) const;
     void reset();
     CachedHistory* rootHistory() const { return mHistory; }
