@@ -78,14 +78,10 @@ PassRefPtr<SubresourceLoader> SubresourceLoader::create(Frame* frame, Subresourc
         FrameLoader::reportLocalLoadFailed(frame, request.url().string());
         return 0;
     }
-    
+
     if (SecurityOrigin::shouldHideReferrer(request.url(), fl->outgoingReferrer()))
         newRequest.clearHTTPReferrer();
-#ifdef ANDROID_FIX
-    else if (request.httpReferrer().isEmpty())
-#else
     else if (!request.httpReferrer())
-#endif
         newRequest.setHTTPReferrer(fl->outgoingReferrer());
     FrameLoader::addHTTPOriginIfNeeded(newRequest, fl->outgoingOrigin());
 
