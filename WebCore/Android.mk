@@ -958,3 +958,14 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	xml/XPathValue.cpp \
 	xml/XPathVariableReference.cpp \
 	xml/NativeXPathNSResolver.cpp
+
+# For XSLT
+LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
+	xml/XSLTExtensions.cpp \
+	xml/XSLTProcessorLibxslt.cpp \
+	xml/XSLTProcessor.cpp \
+	xml/XSLTUnicodeSort.cpp \
+	xml/XSLStyleSheetLibxslt.cpp \
+	xml/XSLImportRule.cpp \
+	loader/CachedXSLStyleSheet.cpp \
+	dom/TransformSourceLibxslt.cpp

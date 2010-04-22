@@ -31,7 +31,7 @@ js_binding_scripts := \
 	$(LOCAL_PATH)/bindings/scripts/generate-bindings.pl
 
 # Add ACCELERATED_COMPOSITING=1 and ENABLE_3D_RENDERING=1 for layers support
-FEATURE_DEFINES := ENABLE_ORIENTATION_EVENTS=1 ENABLE_TOUCH_EVENTS=1 V8_BINDING ENABLE_DATABASE=1 ENABLE_OFFLINE_WEB_APPLICATIONS=1 ENABLE_DOM_STORAGE=1 ENABLE_VIDEO=1 ENABLE_GEOLOCATION=1 ENABLE_CONNECTION=1 ENABLE_APPLICATION_INSTALLED=1 ENABLE_XPATH=1
+FEATURE_DEFINES := ENABLE_ORIENTATION_EVENTS=1 ENABLE_TOUCH_EVENTS=1 V8_BINDING ENABLE_DATABASE=1 ENABLE_OFFLINE_WEB_APPLICATIONS=1 ENABLE_DOM_STORAGE=1 ENABLE_VIDEO=1 ENABLE_GEOLOCATION=1 ENABLE_CONNECTION=1 ENABLE_APPLICATION_INSTALLED=1 ENABLE_XPATH=1 ENABLE_XSLT=1
 
 # CSS
 GEN := \
@@ -542,6 +542,7 @@ GEN := \
     $(intermediates)/bindings/V8XMLHttpRequestProgressEvent.h \
     $(intermediates)/bindings/V8XMLHttpRequestUpload.h \
     $(intermediates)/bindings/V8XMLSerializer.h \
+    $(intermediates)/bindings/V8XSLTProcessor.h \
     $(intermediates)/bindings/V8XPathException.h \
     $(intermediates)/bindings/V8XPathExpression.h \
     $(intermediates)/bindings/V8XPathEvaluator.h \

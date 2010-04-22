@@ -204,3 +204,7 @@ LOCAL_SRC_FILES += \
 # For XPath.
 LOCAL_SRC_FILES += \
 	bindings/v8/custom/V8CustomXPathNSResolver.cpp
+
+# For XSLT.
+LOCAL_SRC_FILES += \
+	bindings/v8/custom/V8XSLTProcessorCustom.cpp

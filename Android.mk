@@ -92,6 +92,7 @@ LOCAL_C_INCLUDES := \
 	external/icu4c/common \
 	external/icu4c/i18n \
 	external/libxml2/include \
+	external/libxslt \
 	external/skia/emoji \
 	external/skia/include/core \
 	external/skia/include/effects \
@@ -294,7 +295,7 @@ include external/stlport/libstlport.mk
 endif
 
 # Build the list of static libraries
-LOCAL_STATIC_LIBRARIES := libxml2
+LOCAL_STATIC_LIBRARIES := libxml2 libxslt
 ifeq ($(JAVASCRIPT_ENGINE),v8)
 LOCAL_STATIC_LIBRARIES += libv8
 endif
