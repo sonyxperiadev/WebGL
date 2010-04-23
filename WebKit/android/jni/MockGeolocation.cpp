@@ -53,7 +53,7 @@ static void setPosition(JNIEnv* env, jobject, double latitude, double longitude,
                                                           false, 0.0,  // altitudeAccuracy,
                                                           false, 0.0,  // heading
                                                           false, 0.0);  // speed
-    RefPtr<Geoposition> position = Geoposition::create(coordinates.release(), WTF::currentTime());
+    RefPtr<Geoposition> position = Geoposition::create(coordinates.release(), WTF::currentTimeMS());
     GeolocationServiceMock::setPosition(position.release());
 }
 
