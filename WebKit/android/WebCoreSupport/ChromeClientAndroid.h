@@ -161,6 +161,7 @@ namespace android {
 
         // Android-specific
         void setWebFrame(android::WebFrame* webframe);
+        android::WebFrame* webFrame() { return m_webFrame; }
         void wakeUpMainThreadWithNewQuota(long newQuota);
 
 #if USE(ACCELERATED_COMPOSITING)
