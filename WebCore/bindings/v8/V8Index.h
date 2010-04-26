@@ -535,7 +535,6 @@ static const int v8DefaultWrapperInternalFieldCount = 2;
 #define DOM_OBJECT_TOUCH_EVENT_TYPES(V)
 #endif
 
-<<<<<<< HEAD
 #if PLATFORM(ANDROID)
 // We don't plan to upstream CONNECTION as it's only temporary, so we
 // don't need a default here.
@@ -545,8 +544,6 @@ static const int v8DefaultWrapperInternalFieldCount = 2;
 
 #if PLATFORM(ANDROID)
 // This block is modified, but is not Android-specific.
-=======
->>>>>>> webkit.org at r55033
 #define DOM_OBJECT_TYPES(V)                                             \
     DOM_OBJECT_TYPES_1(V)                                               \
     DOM_OBJECT_TYPES_2(V)                                               \
@@ -559,13 +556,9 @@ static const int v8DefaultWrapperInternalFieldCount = 2;
     DOM_OBJECT_XSLT_TYPES(V)                                            \
     DOM_OBJECT_INSPECTOR_TYPES(V)                                       \
     DOM_OBJECT_GEOLOCATION_TYPES(V)                                     \
-<<<<<<< HEAD
     DOM_OBJECT_TOUCH_EVENT_TYPES(V)                                     \
     DOM_OBJECT_CONNECTION_TYPES(V)
 #endif
-=======
-    DOM_OBJECT_TOUCH_EVENT_TYPES(V)
->>>>>>> webkit.org at r55033
 
 #if ENABLE(SVG)
 // SVG_OBJECT_TYPES are svg non-node, non-pod types.

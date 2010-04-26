@@ -272,20 +272,14 @@ PassRefPtr<NodeFilter> V8DOMWrapper::wrapNativeNodeFilter(v8::Handle<v8::Value> 
 
 static bool globalObjectPrototypeIsDOMWindow(v8::Handle<v8::Object> objectPrototype)
 {
-<<<<<<< HEAD
 #if ENABLE(SHARED_WORKERS)
-=======
->>>>>>> webkit.org at r55033
     // We can identify what type of context the global object is wrapping by looking at the
     // internal field count of its prototype. This assumes WorkerContexts and DOMWindows have different numbers
     // of internal fields, so a COMPILE_ASSERT is included to warn if this ever changes. DOMWindow has
     // traditionally had far more internal fields than any other class.
     COMPILE_ASSERT(V8DOMWindow::internalFieldCount != V8WorkerContext::internalFieldCount && V8DOMWindow::internalFieldCount != V8SharedWorkerContext::internalFieldCount,
         DOMWindowAndWorkerContextHaveUnequalFieldCounts);
-<<<<<<< HEAD
 #endif
-=======
->>>>>>> webkit.org at r55033
     return objectPrototype->InternalFieldCount() == V8DOMWindow::internalFieldCount;
 }
 
@@ -304,15 +298,10 @@ v8::Local<v8::Object> V8DOMWrapper::instantiateV8Object(V8Proxy* proxy, V8ClassI
             v8::Handle<v8::Object> globalPrototype = v8::Handle<v8::Object>::Cast(context->Global()->GetPrototype());
             if (globalObjectPrototypeIsDOMWindow(globalPrototype))
                 proxy = V8Proxy::retrieve(V8DOMWindow::toNative(globalPrototype)->frame());
-<<<<<<< HEAD
 #if ENABLE(WORKERS)
             else
-                workerContext = V8WorkerContext::toNative(globalPrototype);
-#endif
-=======
-            else
                 workerContext = V8WorkerContext::toNative(lookupDOMWrapper(V8WorkerContext::GetTemplate(), context->Global()));
->>>>>>> webkit.org at r55033
+#endif
         }
     }
 
@@ -322,17 +311,11 @@ v8::Local<v8::Object> V8DOMWrapper::instantiateV8Object(V8Proxy* proxy, V8ClassI
         instance = proxy->windowShell()->createWrapperFromCache(type);
     else {
         v8::Local<v8::Function> function;
-<<<<<<< HEAD
 #if ENABLE(WORKERS)
         if (workerContext)
             function = getConstructor(type, workerContext);
         else
 #endif
-=======
-        if (workerContext)
-            function = getConstructor(type, workerContext);
-        else
->>>>>>> webkit.org at r55033
             function = V8ClassIndex::getTemplate(type)->GetFunction();
         instance = SafeAllocation::newInstance(function);
     }

@@ -41,38 +41,29 @@
 #include "GraphicsContext.h"
 #include "HTMLNames.h"
 #include "HTMLPlugInElement.h"
-<<<<<<< HEAD
-=======
 #include "Image.h"
-#include "JSDOMBinding.h"
-#include "JSDOMWindow.h"
->>>>>>> webkit.org at r55033
 #include "KeyboardEvent.h"
 #include "MIMETypeRegistry.h"
 #include "MouseEvent.h"
 #include "NotImplemented.h"
 #include "Page.h"
 #include "PlatformMouseEvent.h"
-<<<<<<< HEAD
-#if OS(WINDOWS) && ENABLE(NETSCAPE_PLUGIN_API)
-#include "PluginMessageThrottlerWin.h"
-#endif
-#include "PluginPackage.h"
-#include "ScriptController.h"
-#include "ScriptValue.h"
-#include "SecurityOrigin.h"
-=======
->>>>>>> webkit.org at r55033
 #include "PluginDatabase.h"
 #include "PluginDebug.h"
 #include "PluginMainThreadScheduler.h"
 #include "PluginPackage.h"
 #include "RenderBox.h"
 #include "RenderObject.h"
-<<<<<<< HEAD
-#include "npruntime_impl.h"
+#include "ScriptController.h"
+#include "ScriptValue.h"
+#include "SecurityOrigin.h"
 #include "Settings.h"
+#include "npruntime_impl.h"
 #include <wtf/ASCIICType.h>
+
+#if OS(WINDOWS) && ENABLE(NETSCAPE_PLUGIN_API)
+#include "PluginMessageThrottlerWin.h"
+#endif
 
 #if defined(ANDROID_PLUGINS)
 #include "TouchEvent.h"
@@ -81,24 +72,12 @@
 // ANDROID
 // TODO: Upstream to webkit.org
 #if USE(JSC)
-#include "JSDOMWindow.h"
 #include "JSDOMBinding.h"
+#include "JSDOMWindow.h"
 #include "c_instance.h"
-=======
-#include "ScriptController.h"
-#include "ScriptValue.h"
-#include "SecurityOrigin.h"
-#include "Settings.h"
-#include "c_instance.h"
-#include "npruntime_impl.h"
->>>>>>> webkit.org at r55033
 #include "runtime_root.h"
 #include <runtime/JSLock.h>
 #include <runtime/JSValue.h>
-
-#if OS(WINDOWS) && ENABLE(NETSCAPE_PLUGIN_API)
-#include "PluginMessageThrottlerWin.h"
-#endif
 
 using JSC::ExecState;
 using JSC::JSLock;

@@ -49,13 +49,9 @@ LOCAL_SRC_FILES += \
 	bindings/v8/DateExtension.cpp \
 	bindings/v8/DOMData.cpp \
 	bindings/v8/DOMDataStore.cpp \
-<<<<<<< HEAD
 	bindings/v8/DOMWrapperWorld.cpp \
 	bindings/v8/DerivedSourcesAllInOne.cpp \
 	bindings/v8/IsolatedWorld.cpp \
-=======
-	bindings/v8/DerivedSourcesAllInOne.cpp \
->>>>>>> webkit.org at r55033
 	bindings/v8/MainThreadDOMData.cpp \
 	bindings/v8/NPV8Object.cpp \
 	bindings/v8/ScheduledAction.cpp \
