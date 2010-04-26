@@ -151,6 +151,7 @@ namespace android {
 
         virtual void runOpenPanel(Frame*, PassRefPtr<FileChooser>);
         virtual bool setCursor(PlatformCursorHandle);
+        virtual void iconForFiles(const Vector<String>&, PassRefPtr<FileChooser>);
 
         // Notification that the given form element has changed. This function
         // will be called frequently, so handling should be very fast.
