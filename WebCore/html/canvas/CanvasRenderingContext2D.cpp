@@ -1267,11 +1267,7 @@ PassRefPtr<CanvasPattern> CanvasRenderingContext2D::createPattern(HTMLImageEleme
     if (!cachedImage || !image->cachedImage()->image())
         return CanvasPattern::create(Image::nullImage(), repeatX, repeatY, true);
 
-<<<<<<< HEAD
-    bool originClean = !canvas()->document()->securityOrigin()->taintsCanvas(KURL(KURL(), cachedImage->url())) && cachedImage->image()->hasSingleSecurityOrigin();
-=======
     bool originClean = !canvas()->securityOrigin().taintsCanvas(KURL(KURL(), cachedImage->url())) && cachedImage->image()->hasSingleSecurityOrigin();
->>>>>>> webkit.org at r58033
     return CanvasPattern::create(cachedImage->image(), repeatX, repeatY, originClean);
 }
 

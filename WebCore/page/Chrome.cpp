@@ -427,15 +427,9 @@ void Chrome::requestGeolocationPermissionForFrame(Frame* frame, Geolocation* geo
     m_client->requestGeolocationPermissionForFrame(frame, geolocation);
 }
 
-<<<<<<< HEAD
-void Chrome::cancelGeolocationPermissionRequestForFrame(Frame* frame)
-{
-    m_client->cancelGeolocationPermissionRequestForFrame(frame);
-=======
 void Chrome::cancelGeolocationPermissionRequestForFrame(Frame* frame, Geolocation* geolocation)
 {
     m_client->cancelGeolocationPermissionRequestForFrame(frame, geolocation);
->>>>>>> webkit.org at r58033
 }
 
 void Chrome::runOpenPanel(Frame* frame, PassRefPtr<FileChooser> fileChooser)

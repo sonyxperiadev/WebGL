@@ -527,8 +527,7 @@ void RenderLayerCompositor::computeCompositingRequirements(RenderLayer* layer, O
     ++childState.m_depth;
 #endif
 
-<<<<<<< HEAD
-    const bool willBeComposited = needsToBeComposited(layer);
+    bool willBeComposited = needsToBeComposited(layer);
 
 #if ENABLE(COMPOSITED_FIXED_ELEMENTS)
     // If we are a fixed layer, signal it to our siblings
@@ -540,9 +539,6 @@ void RenderLayerCompositor::computeCompositingRequirements(RenderLayer* layer, O
 
     if (willBeComposited || compositingState.m_fixedSibling) {
 #else
-=======
-    bool willBeComposited = needsToBeComposited(layer);
->>>>>>> webkit.org at r58033
     if (willBeComposited) {
 #endif
         // Tell the parent it has compositing descendants.
@@ -1016,7 +1012,6 @@ bool RenderLayerCompositor::needsToBeComposited(const RenderLayer* layer) const
     if (!canBeComposited(layer))
         return false;
 
-<<<<<<< HEAD
 #if ENABLE(COMPOSITED_FIXED_ELEMENTS)
     // if an ancestor is fixed positioned, we need to be composited...
     const RenderLayer* currLayer = layer;
@@ -1026,10 +1021,8 @@ bool RenderLayerCompositor::needsToBeComposited(const RenderLayer* layer) const
     }
 #endif
 
-    return requiresCompositingLayer(layer) || layer->mustOverlapCompositedLayers();
-=======
+    // The root layer always has a compositing layer, but it may not have backing.
     return requiresCompositingLayer(layer) || layer->mustOverlapCompositedLayers() || (inCompositingMode() && layer->isRootLayer());
->>>>>>> webkit.org at r58033
 }
 
 #if PLATFORM(ANDROID)
@@ -1081,21 +1074,11 @@ bool RenderLayerCompositor::requiresCompositingLayer(const RenderLayer* layer) c
         renderer = renderer->parent(); // The RenderReplica's parent is the object being reflected.
         layer = toRenderBoxModelObject(renderer)->layer();
     }
-    // The root layer always has a compositing layer, but it may not have backing.
-<<<<<<< HEAD
-    return (inCompositingMode() && layer->isRootLayer()) ||
 #if PLATFORM(ANDROID)
-             requiresCompositingForMobileSites(layer) ||
+    return requiresCompositingForMobileSites(layer)
+             || renderer->style()->backfaceVisibility() == BackfaceVisibilityHidden
+             || clipsCompositingDescendants(layer);
 #else
-             requiresCompositingForTransform(renderer) ||
-             requiresCompositingForVideo(renderer) ||
-             requiresCompositingForCanvas(renderer) ||
-             requiresCompositingForPlugin(renderer) ||
-             requiresCompositingForAnimation(renderer) ||
-#endif
-             renderer->style()->backfaceVisibility() == BackfaceVisibilityHidden ||
-             clipsCompositingDescendants(layer);
-=======
     return requiresCompositingForTransform(renderer)
              || requiresCompositingForVideo(renderer)
              || requiresCompositingForCanvas(renderer)
@@ -1104,12 +1087,12 @@ bool RenderLayerCompositor::requiresCompositingLayer(const RenderLayer* layer) c
              || renderer->style()->backfaceVisibility() == BackfaceVisibilityHidden
              || clipsCompositingDescendants(layer)
              || requiresCompositingForAnimation(renderer);
+#endif
 }
 
 bool RenderLayerCompositor::canBeComposited(const RenderLayer* layer) const
 {
     return m_hasAcceleratedCompositing && layer->isSelfPaintingLayer();
->>>>>>> webkit.org at r58033
 }
 
 // Return true if the given layer has some ancestor in the RenderLayer hierarchy that clips,

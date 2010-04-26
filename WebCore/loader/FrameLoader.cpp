@@ -832,16 +832,11 @@ void FrameLoader::didBeginDocument(bool dispatch)
 
     updateFirstPartyForCookies();
 
-<<<<<<< HEAD
-    Settings* settings = document->settings();
-    document->docLoader()->setAutoLoadImages(settings && settings->loadsImagesAutomatically());
-#ifdef ANDROID_BLOCK_NETWORK_IMAGE
-    document->docLoader()->setBlockNetworkImage(settings && settings->blockNetworkImage());
-#endif
-=======
     Settings* settings = m_frame->document()->settings();
     m_frame->document()->docLoader()->setAutoLoadImages(settings && settings->loadsImagesAutomatically());
->>>>>>> webkit.org at r58033
+#ifdef ANDROID_BLOCK_NETWORK_IMAGE
+    m_frame->document()->docLoader()->setBlockNetworkImage(settings && settings->blockNetworkImage());
+#endif
 
     if (m_documentLoader) {
         String dnsPrefetchControl = m_documentLoader->response().httpHeaderField("X-DNS-Prefetch-Control");

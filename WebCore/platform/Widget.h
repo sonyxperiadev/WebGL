@@ -239,14 +239,12 @@ private:
 #if PLATFORM(MAC)
     WidgetPrivate* m_data;
 #endif
-<<<<<<< HEAD
+#if PLATFORM(HAIKU)
+    PlatformWidget m_topLevelPlatformWidget;
+#endif
 #if PLATFORM(ANDROID)
 public:
     int screenWidth() const;
-=======
-#if PLATFORM(HAIKU)
-    PlatformWidget m_topLevelPlatformWidget;
->>>>>>> webkit.org at r58033
 #endif
 };
 

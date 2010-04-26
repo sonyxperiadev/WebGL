@@ -136,11 +136,7 @@ namespace WebCore {
         void print(Frame*);
 
         void requestGeolocationPermissionForFrame(Frame*, Geolocation*);
-<<<<<<< HEAD
-        void cancelGeolocationPermissionRequestForFrame(Frame*);
-=======
         void cancelGeolocationPermissionRequestForFrame(Frame*, Geolocation*);
->>>>>>> webkit.org at r58033
 
         void runOpenPanel(Frame*, PassRefPtr<FileChooser>);
         void chooseIconForFiles(const Vector<String>&, FileChooser*);

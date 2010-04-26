@@ -160,17 +160,11 @@ namespace WebCore {
         void setPluginsEnabled(bool);
         bool arePluginsEnabled() const { return m_arePluginsEnabled; }
 
-<<<<<<< HEAD
 #ifdef ANDROID_PLUGINS
         void setPluginsOnDemand(bool onDemand) { m_pluginsOnDemand = onDemand; }
         bool arePluginsOnDemand() const { return m_pluginsOnDemand; }
 #endif
 
-        void setDatabasesEnabled(bool);
-        bool databasesEnabled() const { return m_databasesEnabled; }
-
-=======
->>>>>>> webkit.org at r58033
         void setLocalStorageEnabled(bool);
         bool localStorageEnabled() const { return m_localStorageEnabled; }
 
@@ -491,13 +485,10 @@ namespace WebCore {
         bool m_experimentalNotificationsEnabled : 1;
         bool m_webGLEnabled : 1;
         bool m_loadDeferringEnabled : 1;
-<<<<<<< HEAD
+        bool m_tiledBackingStoreEnabled : 1;
 #ifdef ANDROID_PLUGINS
         bool m_pluginsOnDemand : 1;
 #endif
-=======
-        bool m_tiledBackingStoreEnabled : 1;
->>>>>>> webkit.org at r58033
 
 #if USE(SAFARI_THEME)
         static bool gShouldPaintNativeControls;

@@ -26,11 +26,8 @@
 #include "config.h"
 #include "GeolocationPositionCache.h"
 
-<<<<<<< HEAD
-=======
 #if ENABLE(GEOLOCATION)
 
->>>>>>> webkit.org at r58033
 #include "Geoposition.h"
 #include "SQLValue.h"
 #include "SQLiteDatabase.h"
@@ -38,10 +35,6 @@
 #include "SQLiteStatement.h"
 #include "SQLiteTransaction.h"
 
-<<<<<<< HEAD
-
-=======
->>>>>>> webkit.org at r58033
 namespace WebCore {
 
 static const char* databaseName = "CachedGeoposition.db";
@@ -181,8 +174,5 @@ void GeolocationPositionCache::writeToDB(const Geoposition* position)
 }
 
 } // namespace WebCore
-<<<<<<< HEAD
-=======
 
 #endif // ENABLE(GEOLOCATION)
->>>>>>> webkit.org at r58033

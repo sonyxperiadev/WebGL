@@ -63,13 +63,10 @@ typedef class PlatformGradientRec* PlatformGradient;
 class SkShader;
 typedef class SkShader* PlatformGradient;
 typedef class SkShader* PlatformPattern;
-<<<<<<< HEAD
 #endif
-=======
 #elif PLATFORM(HAIKU)
 class BGradient;
 typedef BGradient* PlatformGradient;
->>>>>>> webkit.org at r58033
 #else
 typedef void* PlatformGradient;
 #endif

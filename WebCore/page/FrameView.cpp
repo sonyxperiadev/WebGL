@@ -75,16 +75,13 @@
 #include "SVGViewSpec.h"
 #endif
 
-<<<<<<< HEAD
-#if PLATFORM(ANDROID)
-#include "WebCoreFrameBridge.h"
-#endif
-
-=======
 #if ENABLE(TILED_BACKING_STORE)
 #include "TiledBackingStore.h"
 #endif
->>>>>>> webkit.org at r58033
+
+#if PLATFORM(ANDROID)
+#include "WebCoreFrameBridge.h"
+#endif
 
 namespace WebCore {
 
@@ -1249,7 +1246,6 @@ void FrameView::scheduleRelayout()
     if (!m_frame->document()->shouldScheduleLayout())
         return;
 
-<<<<<<< HEAD
 #if defined(FLATTEN_IFRAME) || defined(FLATTEN_FRAMESET)
     // This is the Android frame flattening code. The common code below is not
     // used as frameSetFlatteningEnabled() is false on Android.
@@ -1257,10 +1253,7 @@ void FrameView::scheduleRelayout()
         m_frame->ownerRenderer()->setNeedsLayoutAndPrefWidthsRecalc();
 #endif
 
-    // When frameset flattening is enabled, the contents of the frame affects layout of the parent frames.
-=======
     // When frame flattening is enabled, the contents of the frame affects layout of the parent frames.
->>>>>>> webkit.org at r58033
     // Also invalidate parent frame starting from the owner element of this frame.
     if (m_frame->settings()->frameFlatteningEnabled() && m_frame->ownerRenderer()) {
         if (m_frame->ownerElement()->hasTagName(iframeTag) || m_frame->ownerElement()->hasTagName(frameTag))

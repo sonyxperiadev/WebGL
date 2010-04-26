@@ -250,13 +250,7 @@ jvalue convertValueToJValue(ExecState* exec, RootObject* rootObject, JSValue val
                     jobject javaString = env->functions->NewString(env, (const jchar*)stringValue.data(), stringValue.size());
                     result.l = javaString;
                 }
-<<<<<<< HEAD
-            } else if (!result.l)
-                // ANDROID
-                memset(&result, 0, sizeof(jvalue)); // Handle it the same as a void case
-=======
             }
->>>>>>> webkit.org at r58033
         }
         break;
 
@@ -310,13 +304,6 @@ jvalue convertValueToJValue(ExecState* exec, RootObject* rootObject, JSValue val
 
     case invalid_type:
     case void_type:
-<<<<<<< HEAD
-        {
-            // ANDROID
-            memset(&result, 0, sizeof(jvalue));
-        }
-=======
->>>>>>> webkit.org at r58033
         break;
     }
     return result;

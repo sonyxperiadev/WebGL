@@ -201,7 +201,6 @@ void HTMLLinkElement::process()
     if (m_rel.m_isIcon && m_url.isValid() && !m_url.isEmpty())
         document()->setIconURL(m_url.string(), type);
 
-<<<<<<< HEAD
 #ifdef ANDROID_APPLE_TOUCH_ICON
     if ((m_rel.m_isTouchIcon || m_rel.m_isPrecomposedTouchIcon) && m_url.isValid()
             && !m_url.isEmpty())
@@ -211,11 +210,7 @@ void HTMLLinkElement::process()
 #endif
 
     if (m_rel.m_isDNSPrefetch && m_url.isValid() && !m_url.isEmpty())
-        prefetchDNS(m_url.host());
-=======
-    if (m_isDNSPrefetch && m_url.isValid() && !m_url.isEmpty())
         ResourceHandle::prepareForURL(m_url);
->>>>>>> webkit.org at r58033
 
 #if ENABLE(LINK_PREFETCH)
     if (m_rel.m_isLinkPrefetch && m_url.isValid()) {

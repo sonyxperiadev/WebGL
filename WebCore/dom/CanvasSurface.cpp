@@ -47,7 +47,20 @@ const float CanvasSurface::MaxCanvasArea = 32768 * 8192; // Maximum canvas area 
 
 CanvasSurface::CanvasSurface(float pageScaleFactor)
     : m_size(DefaultWidth, DefaultHeight)
+#if PLATFORM(ANDROID)
+    /* In Android we capture the drawing into a displayList, and then replay
+     * that list at various scale factors (sometimes zoomed out, other times
+     * zoomed in for "normal" reading, yet other times at arbitrary zoom values
+     * based on the user's choice). In all of these cases, we do not re-record
+     * the displayList, hence it is usually harmful to perform any pre-rounding,
+     * since we just don't know the actual drawing resolution at record time.
+     */
+    // TODO - may be better to move the ifdef to the call site of this
+    // constructor
+    , m_pageScaleFactor(1.0f)
+#else
     , m_pageScaleFactor(pageScaleFactor)
+#endif
     , m_originClean(true)
     , m_hasCreatedImageBuffer(false)
 {

@@ -57,11 +57,10 @@
 #include "Page.h"
 #include "PlatformKeyboardEvent.h"
 #include "PlatformWheelEvent.h"
-<<<<<<< HEAD
-#include "PluginView.h"
-=======
 #include "PluginDocument.h"
->>>>>>> webkit.org at r58033
+#if defined(ANDROID_PLUGINS)
+#include "PluginView.h"
+#endif
 #include "RenderFrameSet.h"
 #include "RenderTextControlSingleLine.h"
 #include "RenderView.h"
@@ -2083,20 +2082,16 @@ static Node* eventTargetNodeForDocument(Document* doc)
     if (!doc)
         return 0;
     Node* node = doc->focusedNode();
-<<<<<<< HEAD
-
 #if defined(ANDROID_PLUGINS)
     if (!node && doc->frame() && doc->frame()->view())
         node = android::WebViewCore::getWebViewCore(doc->frame()->view())
                                      ->cursorNodeIsPlugin();
-#endif
-
-=======
+#else
     if (!node && doc->isPluginDocument()) {
         PluginDocument* pluginDocument = static_cast<PluginDocument*>(doc);
         node =  pluginDocument->pluginNode();
     }
->>>>>>> webkit.org at r58033
+#endif
     if (!node && doc->isHTMLDocument())
         node = doc->body();
     if (!node)
@@ -2718,11 +2713,8 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
     const Vector<PlatformTouchPoint>& points = event.touchPoints();
     AtomicString* eventName = 0;
 
-<<<<<<< HEAD
-=======
     UserGestureIndicator gestureIndicator(DefinitelyProcessingUserGesture);
 
->>>>>>> webkit.org at r58033
     for (unsigned i = 0; i < points.size(); ++i) {
         const PlatformTouchPoint& point = points[i];
         IntPoint pagePoint = documentPointForWindowPoint(m_frame, point.pos());
@@ -2749,18 +2741,13 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
 
         // Increment the platform touch id by 1 to avoid storing a key of 0 in the hashmap.
         unsigned touchPointTargetKey = point.id() + 1;
-<<<<<<< HEAD
         RefPtr<EventTarget> touchTarget;
-=======
-        EventTarget* touchTarget = 0;
->>>>>>> webkit.org at r58033
         if (point.state() == PlatformTouchPoint::TouchPressed) {
             m_originatingTouchPointTargets.set(touchPointTargetKey, target);
             touchTarget = target;
         } else if (point.state() == PlatformTouchPoint::TouchReleased || point.state() == PlatformTouchPoint::TouchCancelled) {
             // The target should be the original target for this touch, so get it from the hashmap. As it's a release or cancel
             // we also remove it from the map.
-<<<<<<< HEAD
             touchTarget = m_originatingTouchPointTargets.take(touchPointTargetKey);
         } else
             touchTarget = m_originatingTouchPointTargets.get(touchPointTargetKey);
@@ -2769,16 +2756,6 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
             continue;
 
         RefPtr<Touch> touch = Touch::create(doc->frame(), touchTarget.get(), point.id(),
-=======
-            touchTarget = m_originatingTouchPointTargets.take(touchPointTargetKey).get();
-        } else
-            touchTarget = m_originatingTouchPointTargets.get(touchPointTargetKey).get();
-
-        if (!touchTarget)
-            continue;
-
-        RefPtr<Touch> touch = Touch::create(doc->frame(), touchTarget, point.id(),
->>>>>>> webkit.org at r58033
                                             point.screenPos().x(), point.screenPos().y(),
                                             adjustedPageX, adjustedPageY);
 
@@ -2787,7 +2764,6 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
             touches->append(touch);
 
         // Now build up the correct list for changedTouches.
-<<<<<<< HEAD
         // Note that  any touches that are in the TouchStationary state (e.g. if
         // the user had several points touched but did not move them all) should
         // only be present in the touches list. They may also be added to the
@@ -2795,8 +2771,6 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
         // list so we do not handle them explicitly here.
         // See https://bugs.webkit.org/show_bug.cgi?id=37609 for further discussion
         // about the TouchStationary state.
-=======
->>>>>>> webkit.org at r58033
         if (point.state() == PlatformTouchPoint::TouchReleased)
             releasedTouches->append(touch);
         else if (point.state() == PlatformTouchPoint::TouchCancelled)
@@ -2859,7 +2833,6 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
 
         RefPtr<TouchList> targetTouches = assembleTargetTouches(changedTouch, touches.get());
 
-<<<<<<< HEAD
 #if PLATFORM(ANDROID)
         if (event.type() == TouchLongPress) {
             eventName = &eventNames().touchlongpressEvent;
@@ -2883,8 +2856,6 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
             defaultPrevented |= doubleTapEv->defaultPrevented();
         } else {
 #endif
-=======
->>>>>>> webkit.org at r58033
         eventName = &eventNames().touchstartEvent;
         RefPtr<TouchEvent> startEv =
             TouchEvent::create(touches.get(), targetTouches.get(), pressedTouches.get(),

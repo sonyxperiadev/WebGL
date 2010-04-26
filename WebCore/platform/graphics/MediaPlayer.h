@@ -266,15 +266,11 @@ private:
     float m_volume;
     bool m_muted;
     bool m_preservesPitch;
-<<<<<<< HEAD
-    bool m_autobuffer;
-#if PLATFORM(ANDROID)
-    MediaElementType m_mediaElementType;
-#endif
-=======
->>>>>>> webkit.org at r58033
 #if ENABLE(PLUGIN_PROXY_FOR_VIDEO)
     WebMediaPlayerProxy* m_playerProxy;    // not owned or used, passed to m_private
+#endif
+#if PLATFORM(ANDROID)
+    MediaElementType m_mediaElementType;
 #endif
 };
 

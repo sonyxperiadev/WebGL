@@ -162,11 +162,7 @@ public:
     virtual void scrollRectIntoView(const IntRect&, const ScrollView*) const {}
 
     virtual void requestGeolocationPermissionForFrame(Frame*, Geolocation*) {}
-<<<<<<< HEAD
-    virtual void cancelGeolocationPermissionRequestForFrame(Frame*) {}
-=======
     virtual void cancelGeolocationPermissionRequestForFrame(Frame*, Geolocation*) {}
->>>>>>> webkit.org at r58033
 
 #if USE(ACCELERATED_COMPOSITING)
     virtual void attachRootGraphicsLayer(Frame*, GraphicsLayer*) {};

@@ -1151,8 +1151,6 @@
 		59EE122E1106080F00885116 /* JNIUtilityPrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = 59EE122D1106080F00885116 /* JNIUtilityPrivate.h */; };
 		59EE12301106081F00885116 /* JNIUtility.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 59EE122F1106081F00885116 /* JNIUtility.cpp */; };
 		59EE12321106082900885116 /* JNIUtility.h in Headers */ = {isa = PBXBuildFile; fileRef = 59EE12311106082900885116 /* JNIUtility.h */; };
-		59FD5B8B1129B29100DB6D96 /* GeolocationPositionCache.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 59FD5B8A1129B29100DB6D96 /* GeolocationPositionCache.cpp */; };
-		59FD5B8D1129B29F00DB6D96 /* GeolocationPositionCache.h in Headers */ = {isa = PBXBuildFile; fileRef = 59FD5B8C1129B29F00DB6D96 /* GeolocationPositionCache.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		5D15E3AB0F9E6AC1009E0E3F /* XMLTokenizerScope.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5D15E3A90F9E6AC1009E0E3F /* XMLTokenizerScope.cpp */; };
 		5D15E3AC0F9E6AC1009E0E3F /* XMLTokenizerScope.h in Headers */ = {isa = PBXBuildFile; fileRef = 5D15E3AA0F9E6AC1009E0E3F /* XMLTokenizerScope.h */; };
 		5D874F130D161D3200796C3B /* NetscapePlugInStreamLoader.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 93E227DD0AF589AD00D48324 /* NetscapePlugInStreamLoader.cpp */; };
@@ -6652,8 +6650,6 @@
 		59EE122D1106080F00885116 /* JNIUtilityPrivate.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = JNIUtilityPrivate.h; path = jsc/JNIUtilityPrivate.h; sourceTree = "<group>"; };
 		59EE122F1106081F00885116 /* JNIUtility.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = JNIUtility.cpp; sourceTree = "<group>"; };
 		59EE12311106082900885116 /* JNIUtility.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = JNIUtility.h; sourceTree = "<group>"; };
-		59FD5B8A1129B29100DB6D96 /* GeolocationPositionCache.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = GeolocationPositionCache.cpp; sourceTree = "<group>"; };
-		59FD5B8C1129B29F00DB6D96 /* GeolocationPositionCache.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = GeolocationPositionCache.h; sourceTree = "<group>"; };
 		5D15E3A90F9E6AC1009E0E3F /* XMLTokenizerScope.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = XMLTokenizerScope.cpp; sourceTree = "<group>"; };
 		5D15E3AA0F9E6AC1009E0E3F /* XMLTokenizerScope.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = XMLTokenizerScope.h; sourceTree = "<group>"; };
 		5D925B650F64D4DD00B847F0 /* ScrollBehavior.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = ScrollBehavior.cpp; sourceTree = "<group>"; };
@@ -11639,8 +11635,6 @@
 		65BF02180974806300C43196 /* page */ = {
 			isa = PBXGroup;
 			children = (
-				59FD5B8C1129B29F00DB6D96 /* GeolocationPositionCache.h */,
-				59FD5B8A1129B29100DB6D96 /* GeolocationPositionCache.cpp */,
 				316FE1060E6E1D8400BF6088 /* animation */,
 				93C09A820B064F05005ABD4D /* mac */,
 				8538F0000AD71770006A81D1 /* AbstractView.idl */,
@@ -18841,19 +18835,6 @@
 				93F199ED08245E59001E9ABC /* XSLTProcessor.h in Headers */,
 				E1BE512E0CF6C512002EA959 /* XSLTUnicodeSort.h in Headers */,
 				97DD4D870FDF4D6E00ECF9A4 /* XSSAuditor.h in Headers */,
-<<<<<<< HEAD
-				84D0C4061115F1EA0018AA34 /* AffineTransform.h in Headers */,
-				B71FE6DF11091CB300DAEF77 /* PrintContext.h in Headers */,
-				9F72304F11184B4100AD0126 /* ScriptProfile.h in Headers */,
-				9F72305111184B4100AD0126 /* ScriptProfiler.h in Headers */,
-				59FD5B8D1129B29F00DB6D96 /* GeolocationPositionCache.h in Headers */,
-				BCE789161120D6080060ECE5 /* InlineIterator.h in Headers */,
-				BCE789861120E7A60060ECE5 /* BidiRun.h in Headers */,
-				9F6FC1971122E82A00E80196 /* ScriptDebugServer.h in Headers */,
-				931BCC611124DFCB00BE70DD /* MediaCanStartListener.h in Headers */,
-				9F2A322C1125A0A2003C3056 /* JavaScriptProfile.h in Headers */,
-				9F2A322E1125A0A2003C3056 /* JavaScriptProfileNode.h in Headers */,
-=======
 				CE172E011136E8CE0062A533 /* ZoomMode.h in Headers */,
 				FAA10571114C2DF700940A01 /* RenderMathMLFraction.h in Headers */,
 				A43BF5991149290A00C643CA /* HTMLProgressElement.h in Headers */,
@@ -18888,7 +18869,6 @@
 				CEF418CF1179678C009D112C /* ViewportArguments.h in Headers */,
 				0FD3080F117CF7E700A791F7 /* RenderFrameBase.h in Headers */,
 				0FD308D6117D168500A791F7 /* RenderIFrame.h in Headers */,
->>>>>>> webkit.org at r58033
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -21100,19 +21080,6 @@
 				93F19B0508245E59001E9ABC /* XSLTProcessorLibxslt.cpp in Sources */,
 				E1BE512D0CF6C512002EA959 /* XSLTUnicodeSort.cpp in Sources */,
 				97DD4D860FDF4D6E00ECF9A4 /* XSSAuditor.cpp in Sources */,
-<<<<<<< HEAD
-				84D0C4041115F1D40018AA34 /* AffineTransform.cpp in Sources */,
-				B776D43D1104527500BEB0EC /* PrintContext.cpp in Sources */,
-				9F72305011184B4100AD0126 /* ScriptProfiler.cpp in Sources */,
-				59FD5B8B1129B29100DB6D96 /* GeolocationPositionCache.cpp in Sources */,
-				BCE7898B1120E8020060ECE5 /* BidiRun.cpp in Sources */,
-				9F6FC1961122E82A00E80196 /* ScriptDebugServer.cpp in Sources */,
-				76FF17E311235673001D61B5 /* PluginViewNone.cpp in Sources */,
-				9F2A322B1125A0A2003C3056 /* JavaScriptProfile.cpp in Sources */,
-				9F2A322D1125A0A2003C3056 /* JavaScriptProfileNode.cpp in Sources */,
-				6E21C6C01126338500A7BE02 /* GraphicsContext3D.cpp in Sources */,
-				6E21C6C21126339900A7BE02 /* GraphicsContext3DCG.cpp in Sources */,
-=======
 				FAA10570114C2DF700940A01 /* RenderMathMLFraction.cpp in Sources */,
 				A43BF5981149290A00C643CA /* HTMLProgressElement.cpp in Sources */,
 				A43BF59C1149292800C643CA /* RenderProgress.cpp in Sources */,
@@ -21138,7 +21105,6 @@
 				0FD3080E117CF7E700A791F7 /* RenderFrameBase.cpp in Sources */,
 				0FD308D5117D168500A791F7 /* RenderIFrame.cpp in Sources */,
 				973889A0116EA9DC00ADF313 /* DocumentWriter.cpp in Sources */,
->>>>>>> webkit.org at r58033
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

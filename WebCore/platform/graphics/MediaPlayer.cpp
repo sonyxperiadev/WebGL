@@ -219,15 +219,11 @@ MediaPlayer::MediaPlayer(MediaPlayerClient* client)
     , m_volume(1.0f)
     , m_muted(false)
     , m_preservesPitch(true)
-<<<<<<< HEAD
-    , m_autobuffer(false)
-#if PLATFORM(ANDROID)
-    , m_mediaElementType(Video)
-#endif
-=======
->>>>>>> webkit.org at r58033
 #if ENABLE(PLUGIN_PROXY_FOR_VIDEO)
     , m_playerProxy(0)
+#endif
+#if PLATFORM(ANDROID)
+    , m_mediaElementType(Video)
 #endif
 {
 #if ENABLE(PLUGIN_PROXY_FOR_VIDEO)

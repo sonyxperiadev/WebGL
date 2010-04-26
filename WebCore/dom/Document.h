@@ -700,8 +700,8 @@ public:
      * @param content The header value (value of the meta tag's "content" attribute)
      */
     void processHttpEquiv(const String& equiv, const String& content);
-<<<<<<< HEAD
-    
+    void processViewport(const String& features);
+
 #ifdef ANDROID_META_SUPPORT
     /**
      * Handles viewport like <meta name = "viewport" content = "width = device-width">
@@ -709,9 +709,6 @@ public:
      */
     void processMetadataSettings(const String& content);
 #endif
-=======
-    void processViewport(const String& features);
->>>>>>> webkit.org at r58033
 
     // Returns the owning element in the parent document.
     // Returns 0 if this is the top level document.

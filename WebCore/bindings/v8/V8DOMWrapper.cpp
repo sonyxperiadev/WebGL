@@ -161,11 +161,7 @@ v8::Local<v8::Function> V8DOMWrapper::getConstructor(WrapperTypeInfo* type, DOMW
 }
 
 #if ENABLE(WORKERS)
-<<<<<<< HEAD
-v8::Local<v8::Function> V8DOMWrapper::getConstructor(V8ClassIndex::V8WrapperType type, WorkerContext*)
-=======
 v8::Local<v8::Function> V8DOMWrapper::getConstructor(WrapperTypeInfo* type, WorkerContext*)
->>>>>>> webkit.org at r58033
 {
     WorkerScriptController* controller = WorkerScriptController::controllerForContext();
     WorkerContextExecutionProxy* proxy = controller ? controller->proxy() : 0;
@@ -179,8 +175,6 @@ v8::Local<v8::Function> V8DOMWrapper::getConstructor(WrapperTypeInfo* type, Work
     return getConstructorForContext(type, context);
 }
 #endif
-<<<<<<< HEAD
-=======
 
 void V8DOMWrapper::setHiddenReference(v8::Handle<v8::Object> parent, v8::Handle<v8::Value> child)
 {
@@ -192,7 +186,6 @@ void V8DOMWrapper::setHiddenReference(v8::Handle<v8::Object> parent, v8::Handle<
     v8::Local<v8::Array> hiddenReferenceArray = v8::Local<v8::Array>::Cast(hiddenReferenceObject);
     hiddenReferenceArray->Set(v8::Integer::New(hiddenReferenceArray->Length()), child);
 }
->>>>>>> webkit.org at r58033
 
 void V8DOMWrapper::setHiddenWindowReference(Frame* frame, v8::Handle<v8::Value> jsObject)
 {
@@ -236,22 +229,18 @@ PassRefPtr<NodeFilter> V8DOMWrapper::wrapNativeNodeFilter(v8::Handle<v8::Value> 
 
 static bool globalObjectPrototypeIsDOMWindow(v8::Handle<v8::Object> objectPrototype)
 {
-#if ENABLE(SHARED_WORKERS)
     // We can identify what type of context the global object is wrapping by looking at the
     // internal field count of its prototype. This assumes WorkerContexts and DOMWindows have different numbers
     // of internal fields, so a COMPILE_ASSERT is included to warn if this ever changes.
 #if ENABLE(WORKERS)
     COMPILE_ASSERT(V8DOMWindow::internalFieldCount != V8WorkerContext::internalFieldCount,
         DOMWindowAndWorkerContextHaveUnequalFieldCounts);
-<<<<<<< HEAD
-=======
     COMPILE_ASSERT(V8DOMWindow::internalFieldCount != V8DedicatedWorkerContext::internalFieldCount,
         DOMWindowAndDedicatedWorkerContextHaveUnequalFieldCounts);
 #endif
 #if ENABLE(SHARED_WORKERS)
     COMPILE_ASSERT(V8DOMWindow::internalFieldCount != V8SharedWorkerContext::internalFieldCount,
         DOMWindowAndSharedWorkerContextHaveUnequalFieldCounts);
->>>>>>> webkit.org at r58033
 #endif
     return objectPrototype->InternalFieldCount() == V8DOMWindow::internalFieldCount;
 }
@@ -289,11 +278,7 @@ v8::Local<v8::Object> V8DOMWrapper::instantiateV8Object(V8Proxy* proxy, WrapperT
             function = getConstructor(type, workerContext);
         else
 #endif
-<<<<<<< HEAD
-            function = V8ClassIndex::getTemplate(type)->GetFunction();
-=======
             function = type->getTemplate()->GetFunction();
->>>>>>> webkit.org at r58033
         instance = SafeAllocation::newInstance(function);
     }
     if (!instance.IsEmpty()) {
@@ -437,70 +422,7 @@ v8::Handle<v8::Value> V8DOMWrapper::convertEventTargetToV8Object(EventTarget* ta
     return notHandledByInterceptor();
 }
 
-<<<<<<< HEAD
-PassRefPtr<EventListener> V8DOMWrapper::getEventListener(Node* node, v8::Local<v8::Value> value, bool isAttribute, ListenerLookupType lookup)
-{
-    return (lookup == ListenerFindOnly) ? V8EventListenerList::findWrapper(value, isAttribute) : V8EventListenerList::findOrCreateWrapper<V8EventListener>(value, isAttribute);
-}
-
-#if ENABLE(SVG)
-PassRefPtr<EventListener> V8DOMWrapper::getEventListener(SVGElementInstance* element, v8::Local<v8::Value> value, bool isAttribute, ListenerLookupType lookup)
-{
-    return getEventListener(element->correspondingElement(), value, isAttribute, lookup);
-}
-#endif
-
-// ANDROID
-// Temporary fix until we merge http://trac.webkit.org/changeset/55096
-#if ENABLE(WORKERS)
-PassRefPtr<EventListener> V8DOMWrapper::getEventListener(AbstractWorker* worker, v8::Local<v8::Value> value, bool isAttribute, ListenerLookupType lookup)
-{
-    if (worker->scriptExecutionContext()->isWorkerContext()) {
-        WorkerContextExecutionProxy* workerContextProxy = WorkerContextExecutionProxy::retrieve();
-        ASSERT(workerContextProxy);
-        return workerContextProxy->findOrCreateEventListener(value, isAttribute, lookup == ListenerFindOnly);
-    }
-
-    return (lookup == ListenerFindOnly) ? V8EventListenerList::findWrapper(value, isAttribute) : V8EventListenerList::findOrCreateWrapper<V8EventListener>(value, isAttribute);
-}
-#endif
-
-#if ENABLE(NOTIFICATIONS)
-PassRefPtr<EventListener> V8DOMWrapper::getEventListener(Notification* notification, v8::Local<v8::Value> value, bool isAttribute, ListenerLookupType lookup)
-{
-    if (notification->scriptExecutionContext()->isWorkerContext()) {
-        WorkerContextExecutionProxy* workerContextProxy = WorkerContextExecutionProxy::retrieve();
-        ASSERT(workerContextProxy);
-        return workerContextProxy->findOrCreateEventListener(value, isAttribute, lookup == ListenerFindOnly);
-    }
-
-    return (lookup == ListenerFindOnly) ? V8EventListenerList::findWrapper(value, isAttribute) : V8EventListenerList::findOrCreateWrapper<V8EventListener>(value, isAttribute);
-}
-#endif
-
-// ANDROID
-// Temporary fix until we merge http://trac.webkit.org/changeset/55096
-#if ENABLE(WORKERS)
-PassRefPtr<EventListener> V8DOMWrapper::getEventListener(WorkerContext* workerContext, v8::Local<v8::Value> value, bool isAttribute, ListenerLookupType lookup)
-{
-    WorkerContextExecutionProxy* workerContextProxy = workerContext->script()->proxy();
-    if (workerContextProxy)
-        return workerContextProxy->findOrCreateEventListener(value, isAttribute, lookup == ListenerFindOnly);
-
-    return 0;
-}
-#endif
-
-PassRefPtr<EventListener> V8DOMWrapper::getEventListener(XMLHttpRequestUpload* upload, v8::Local<v8::Value> value, bool isAttribute, ListenerLookupType lookup)
-{
-    return getEventListener(upload->associatedXMLHttpRequest(), value, isAttribute, lookup);
-}
-
-#if ENABLE(EVENTSOURCE)
-PassRefPtr<EventListener> V8DOMWrapper::getEventListener(EventSource* eventSource, v8::Local<v8::Value> value, bool isAttribute, ListenerLookupType lookup)
-=======
 PassRefPtr<EventListener> V8DOMWrapper::getEventListener(v8::Local<v8::Value> value, bool isAttribute, ListenerLookupType lookup)
->>>>>>> webkit.org at r58033
 {
     v8::Handle<v8::Context> context = v8::Context::GetCurrent();
     if (context.IsEmpty())

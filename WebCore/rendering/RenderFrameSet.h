@@ -70,14 +70,10 @@ public:
     bool canResizeRow(const IntPoint&) const;
     bool canResizeColumn(const IntPoint&) const;
 
-<<<<<<< HEAD
 #ifdef FLATTEN_FRAMESET
     void setGridNeedsLayout() { m_gridCalculated = false; }
 #endif
-    bool flattenFrameSet() const;
 
-=======
->>>>>>> webkit.org at r58033
 private:
     static const int noSplit = -1;
 

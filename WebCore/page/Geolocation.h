@@ -27,12 +27,9 @@
 #ifndef Geolocation_h
 #define Geolocation_h
 
-<<<<<<< HEAD
 // ANDROID
 #include "EventListener.h"
 // END ANDROID
-=======
->>>>>>> webkit.org at r58033
 #include "GeolocationPositionCache.h"
 #include "GeolocationService.h"
 #include "Geoposition.h"
@@ -51,15 +48,10 @@ class GeolocationPosition;
 class GeolocationError;
 #endif
 
-<<<<<<< HEAD
 // ANDROID
 class Geolocation : public EventListener
 // END ANDROID
-#if !ENABLE(CLIENT_BASED_GEOLOCATION)
-=======
-class Geolocation : public RefCounted<Geolocation>
 #if !ENABLE(CLIENT_BASED_GEOLOCATION) && ENABLE(GEOLOCATION)
->>>>>>> webkit.org at r58033
     , public GeolocationServiceClient
 #endif
 {
@@ -188,16 +180,10 @@ private:
         Yes,
         No
     } m_allowGeolocation;
-<<<<<<< HEAD
-    bool m_shouldClearCache;
-
-    OwnPtr<GeolocationPositionCache> m_positionCache;
-=======
 
 #if ENABLE(GEOLOCATION)
     OwnPtr<GeolocationPositionCache> m_positionCache;
 #endif
->>>>>>> webkit.org at r58033
     GeoNotifierSet m_requestsAwaitingCachedPosition;
 };
     

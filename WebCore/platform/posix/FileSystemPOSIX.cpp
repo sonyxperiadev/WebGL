@@ -30,18 +30,14 @@
 #include "FileSystem.h"
 
 #include "PlatformString.h"
-<<<<<<< HEAD
-
-#include <sys/stat.h>
 #ifdef ANDROID_PLUGINS
-#include <sys/types.h>
 #include <dirent.h>
-#include <fnmatch.h>
 #endif
-=======
 #include <errno.h>
 #include <fcntl.h>
->>>>>>> webkit.org at r58033
+#ifdef ANDROID_PLUGINS
+#include <fnmatch.h>
+#endif
 #include <libgen.h>
 #include <sys/stat.h>
 #include <sys/types.h>

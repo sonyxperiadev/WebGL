@@ -41,27 +41,11 @@
 #include <runtime/Error.h>
 #include <runtime/JSLock.h>
 
-<<<<<<< HEAD
-#if PLATFORM(ANDROID)
-#include <assert.h>
-#endif
-
-#ifdef NDEBUG
-#define JS_LOG(formatAndArgs...) ((void)0)
-#else
-#define JS_LOG(formatAndArgs...) { \
-    fprintf(stderr, "%s:%d -- %s:  ", __FILE__, __LINE__, __FUNCTION__); \
-    fprintf(stderr, formatAndArgs); \
-}
-#endif
-
 #if PLATFORM(ANDROID)
 #include <cutils/log.h>
 #define LOG_TAG JavaInstanceJSC.cpp
 #endif
 
-=======
->>>>>>> webkit.org at r58033
 using namespace JSC::Bindings;
 using namespace JSC;
 using namespace WebCore;
@@ -379,15 +363,11 @@ JSValue JavaInstance::valueOf(ExecState* exec) const
 JObjectWrapper::JObjectWrapper(jobject instance)
     : m_refCount(0)
 {
-<<<<<<< HEAD
-    assert(instance);
+    ASSERT(instance);
 #if PLATFORM(ANDROID)
     if (!instance)
         LOGE("Attempted to create JObjectWrapper for null object");
 #endif
-=======
-    ASSERT(instance);
->>>>>>> webkit.org at r58033
 
     // Cache the JNIEnv used to get the global ref for this java instance.
     // It'll be used to delete the reference.
@@ -397,17 +377,12 @@ JObjectWrapper::JObjectWrapper(jobject instance)
 
     LOG(LiveConnect, "JObjectWrapper ctor new global ref %p for %p", m_instance, instance);
 
-<<<<<<< HEAD
-    if  (!m_instance)
+    if (!m_instance)
 #if PLATFORM(ANDROID)
         LOGE("%s:  could not get GlobalRef for %p\n", __PRETTY_FUNCTION__, instance);
 #else
-        fprintf(stderr, "%s:  could not get GlobalRef for %p\n", __PRETTY_FUNCTION__, instance);
-#endif
-=======
-    if (!m_instance)
         LOG_ERROR("Could not get GlobalRef for %p", instance);
->>>>>>> webkit.org at r58033
+#endif
 }
 
 JObjectWrapper::~JObjectWrapper()

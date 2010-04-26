@@ -43,13 +43,11 @@
 #include "loader.h"
 #include "SecurityOrigin.h"
 #include "Settings.h"
-<<<<<<< HEAD
+#include <wtf/text/CString.h>
+
 #if ENABLE(LINK_PREFETCH)
 #include "CachedLinkPrefetch.h"
 #endif
-=======
-#include <wtf/text/CString.h>
->>>>>>> webkit.org at r58033
 
 #define PRELOAD_DEBUG 0
 
