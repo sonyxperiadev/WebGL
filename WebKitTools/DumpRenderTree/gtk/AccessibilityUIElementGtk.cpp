@@ -75,6 +75,26 @@ void AccessibilityUIElement::getChildrenWithRange(Vector<AccessibilityUIElement>
     }
 }
 
+int AccessibilityUIElement::rowCount()
+{
+    if (!m_element)
+        return 0;
+
+    ASSERT(ATK_IS_TABLE(m_element));
+
+    return atk_table_get_n_rows(ATK_TABLE(m_element));
+}
+
+int AccessibilityUIElement::columnCount()
+{
+    if (!m_element)
+        return 0;
+
+    ASSERT(ATK_IS_TABLE(m_element));
+
+    return atk_table_get_n_columns(ATK_TABLE(m_element));
+}
+
 int AccessibilityUIElement::childrenCount()
 {
     if (!m_element)
@@ -202,6 +222,11 @@ JSStringRef AccessibilityUIElement::language()
 {
     // FIXME: implement
     return JSStringCreateWithCharacters(0, 0);
+}
+
+JSStringRef AccessibilityUIElement::helpText() const
+{
+    return 0;
 }
 
 double AccessibilityUIElement::x()
@@ -492,6 +517,11 @@ void AccessibilityUIElement::decrement()
     // FIXME: implement
 }
 
+void AccessibilityUIElement::press()
+{
+    // FIXME: implement
+}
+
 void AccessibilityUIElement::showMenu()
 {
     // FIXME: implement
@@ -556,6 +586,11 @@ bool AccessibilityUIElement::addNotificationListener(JSObjectRef functionCallbac
 {
     // FIXME: implement
     return false;
+}
+
+void AccessibilityUIElement::removeNotificationListener()
+{
+    // FIXME: implement
 }
 
 bool AccessibilityUIElement::isSelectable() const

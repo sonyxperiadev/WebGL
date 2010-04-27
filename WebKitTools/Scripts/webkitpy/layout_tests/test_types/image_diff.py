@@ -39,12 +39,14 @@ import logging
 import os
 import shutil
 
-from layout_package import test_failures
-from test_types import test_type_base
+from webkitpy.layout_tests.layout_package import test_failures
+from webkitpy.layout_tests.test_types import test_type_base
 
 # Cache whether we have the image_diff executable available.
 _compare_available = True
 _compare_msg_printed = False
+
+_log = logging.getLogger("webkitpy.layout_tests.test_types.image_diff")
 
 
 class ImageDiff(test_type_base.TestTypeBase):
@@ -82,12 +84,13 @@ class ImageDiff(test_type_base.TestTypeBase):
         self._save_baseline_data(filename, png_data, ".png")
         self._save_baseline_data(filename, checksum, ".checksum")
 
-    def _create_image_diff(self, port, filename, target):
+    def _create_image_diff(self, port, filename, configuration):
         """Creates the visual diff of the expected/actual PNGs.
 
         Args:
           filename: the name of the test
-          target: Debug or Release
+          configuration: Debug or Release
+        Returns True if the files are different, False if they match
         """
         diff_filename = self.output_filename(filename,
           self.FILENAME_SUFFIX_COMPARE)
@@ -96,9 +99,10 @@ class ImageDiff(test_type_base.TestTypeBase):
         expected_filename = self.output_filename(filename,
           self.FILENAME_SUFFIX_EXPECTED + '.png')
 
+        result = True
         try:
             _compare_available = True
-            result = port.diff_image(actual_filename, expected_filename,
+            result = port.diff_image(expected_filename, actual_filename,
                                      diff_filename)
         except ValueError:
             _compare_available = False
@@ -106,12 +110,12 @@ class ImageDiff(test_type_base.TestTypeBase):
         global _compare_msg_printed
         if not _compare_available and not _compare_msg_printed:
             _compare_msg_printed = True
-            print('image_diff not found. Make sure you have a ' + target +
-                  ' build of the image_diff executable.')
+            print('image_diff not found. Make sure you have a ' +
+                  configuration + ' build of the image_diff executable.')
 
         return result
 
-    def compare_output(self, port, filename, output, test_args, target):
+    def compare_output(self, port, filename, output, test_args, configuration):
         """Implementation of CompareOutput that checks the output image and
         checksum against the expected files from the LayoutTest directory.
         """
@@ -133,8 +137,8 @@ class ImageDiff(test_type_base.TestTypeBase):
         expected_png_file = self._port.expected_filename(filename, '.png')
 
         if test_args.show_sources:
-            logging.debug('Using %s' % expected_hash_file)
-            logging.debug('Using %s' % expected_png_file)
+            _log.debug('Using %s' % expected_hash_file)
+            _log.debug('Using %s' % expected_png_file)
 
         try:
             expected_hash = open(expected_hash_file, "r").read()
@@ -146,9 +150,9 @@ class ImageDiff(test_type_base.TestTypeBase):
 
         if not os.path.isfile(expected_png_file):
             # Report a missing expected PNG file.
-            self.write_output_files(port, filename, '', '.checksum',
+            self.write_output_files(port, filename, '.checksum',
                                     test_args.hash, expected_hash,
-                                    diff=False, wdiff=False)
+                                    print_text_diffs=False)
             self._copy_output_png(filename, test_args.png_path, '-actual.png')
             failures.append(test_failures.FailureMissingImage(self))
             return failures
@@ -156,25 +160,22 @@ class ImageDiff(test_type_base.TestTypeBase):
             # Hash matched (no diff needed, okay to return).
             return failures
 
-
-        self.write_output_files(port, filename, '', '.checksum',
+        self.write_output_files(port, filename, '.checksum',
                                 test_args.hash, expected_hash,
-                                diff=False, wdiff=False)
+                                print_text_diffs=False)
         self._copy_output_png(filename, test_args.png_path, '-actual.png')
         self._copy_output_png(filename, expected_png_file, '-expected.png')
 
-        # Even though we only use result in one codepath below but we
+        # Even though we only use the result in one codepath below but we
         # still need to call CreateImageDiff for other codepaths.
-        result = self._create_image_diff(port, filename, target)
+        images_are_different = self._create_image_diff(port, filename, configuration)
         if expected_hash == '':
             failures.append(test_failures.FailureMissingImageHash(self))
         elif test_args.hash != expected_hash:
-            # Hashes don't match, so see if the images match. If they do, then
-            # the hash is wrong.
-            if result == 0:
-                failures.append(test_failures.FailureImageHashIncorrect(self))
-            else:
+            if images_are_different:
                 failures.append(test_failures.FailureImageHashMismatch(self))
+            else:
+                failures.append(test_failures.FailureImageHashIncorrect(self))
 
         return failures
 
@@ -188,10 +189,7 @@ class ImageDiff(test_type_base.TestTypeBase):
           True if two files are different.
           False otherwise.
         """
-
         try:
-            result = port.diff_image(file1, file2)
+            return port.diff_image(file1, file2)
         except ValueError, e:
             return True
-
-        return result == 1

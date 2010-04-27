@@ -36,13 +36,15 @@ import logging
 import os
 import shutil
 
-from layout_package import test_failures
-from test_types import test_type_base
+from webkitpy.layout_tests.layout_package import test_failures
+from webkitpy.layout_tests.test_types import test_type_base
+
+_log = logging.getLogger("webkitpy.layout_tests.test_types.fuzzy_image_diff")
 
 
 class FuzzyImageDiff(test_type_base.TestTypeBase):
 
-    def compare_output(self, filename, output, test_args, target):
+    def compare_output(self, filename, output, test_args, configuration):
         """Implementation of CompareOutput that checks the output image and
         checksum against the expected files from the LayoutTest directory.
         """
@@ -55,14 +57,14 @@ class FuzzyImageDiff(test_type_base.TestTypeBase):
         expected_png_file = self._port.expected_filename(filename, '.png')
 
         if test_args.show_sources:
-            logging.debug('Using %s' % expected_png_file)
+            _log.debug('Using %s' % expected_png_file)
 
         # Also report a missing expected PNG file.
         if not os.path.isfile(expected_png_file):
             failures.append(test_failures.FailureMissingImage(self))
 
         # Run the fuzzymatcher
-        r = port.fuzzy_diff(test_args.png_path, expected_png_file)
+        r = self._port.fuzzy_diff(test_args.png_path, expected_png_file)
         if r != 0:
             failures.append(test_failures.FailureFuzzyFailure(self))
 

@@ -21,13 +21,11 @@
  * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #ifndef Widget_h
 #define Widget_h
-
-#include <wtf/Platform.h>
 
 #if PLATFORM(MAC)
 #ifdef __OBJC__
@@ -124,13 +122,20 @@ public:
 
     PlatformWidget platformWidget() const { return m_widget; }
     void setPlatformWidget(PlatformWidget widget)
-    { 
+    {
         if (widget != m_widget) {
             releasePlatformWidget();
             m_widget = widget;
             retainPlatformWidget();
         }
     }
+#if PLATFORM(HAIKU)
+    PlatformWidget topLevelPlatformWidget() const { return m_topLevelPlatformWidget; }
+    void setTopLevelPlatformWidget(PlatformWidget widget)
+    {
+        m_topLevelPlatformWidget = widget;
+    }
+#endif
 
     int x() const { return frameRect().x(); }
     int y() const { return frameRect().y(); }
@@ -168,7 +173,7 @@ public:
 
     virtual bool isFrameView() const { return false; }
     virtual bool isPluginView() const { return false; }
-    // FIXME: The Mac plug-in code should inherit from PluginView. When this happens PluginWidget and PluginView can become one class. 
+    // FIXME: The Mac plug-in code should inherit from PluginView. When this happens PluginWidget and PluginView can become one class.
     virtual bool isPluginWidget() const { return false; }
     virtual bool isScrollbar() const { return false; }
 
@@ -185,15 +190,18 @@ public:
     // when converting window rects.
     IntRect convertToContainingWindow(const IntRect&) const;
     IntRect convertFromContainingWindow(const IntRect&) const;
-    
+
     IntPoint convertToContainingWindow(const IntPoint&) const;
     IntPoint convertFromContainingWindow(const IntPoint&) const;
 
     virtual void frameRectsChanged() {}
 
+    // Notifies this widget that other widgets on the page have been repositioned.
+    virtual void widgetPositionsUpdated() {}
+
 #if PLATFORM(MAC)
     NSView* getOuterView() const;
-    
+
     static void beforeMouseDown(NSView*, Widget*);
     static void afterMouseDown(NSView*, Widget*);
 
@@ -211,12 +219,12 @@ private:
 
     void releasePlatformWidget();
     void retainPlatformWidget();
-    
+
     // These methods are used to convert from the root widget to the containing window,
     // which has behavior that may differ between platforms (e.g. Mac uses flipped window coordinates).
     static IntRect convertFromRootToContainingWindow(const Widget* rootWidget, const IntRect&);
     static IntRect convertFromContainingWindowToRoot(const Widget* rootWidget, const IntRect&);
-    
+
     static IntPoint convertFromRootToContainingWindow(const Widget* rootWidget, const IntPoint&);
     static IntPoint convertFromContainingWindowToRoot(const Widget* rootWidget, const IntPoint&);
 
@@ -225,15 +233,20 @@ private:
     PlatformWidget m_widget;
     bool m_selfVisible;
     bool m_parentVisible;
-    
+
     IntRect m_frame; // Not used when a native widget exists.
 
 #if PLATFORM(MAC)
     WidgetPrivate* m_data;
 #endif
+<<<<<<< HEAD
 #if PLATFORM(ANDROID)
 public:
     int screenWidth() const;
+=======
+#if PLATFORM(HAIKU)
+    PlatformWidget m_topLevelPlatformWidget;
+>>>>>>> webkit.org at r58033
 #endif
 };
 

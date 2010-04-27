@@ -93,6 +93,8 @@ NPError NPP_New(NPMIMEType pluginType, NPP instance, uint16 mode, int16 argc, ch
         else if (strcasecmp(argn[i], "src") == 0 &&
                  strcasecmp(argv[i], "data:application/x-webkit-test-netscape,returnerrorfromnewstream") == 0)
             obj->returnErrorFromNewStream = TRUE;
+        else if (strcasecmp(argn[i], "onSetWindow") == 0 && !obj->onSetWindow)
+            obj->onSetWindow = strdup(argv[i]);
         else if (strcasecmp(argn[i], "logfirstsetwindow") == 0)
             obj->logSetWindow = TRUE;
         else if (strcasecmp(argn[i], "testnpruntime") == 0)
@@ -111,6 +113,8 @@ NPError NPP_New(NPMIMEType pluginType, NPP instance, uint16 mode, int16 argc, ch
             obj->testDocumentOpenInDestroyStream = TRUE;
         else if (strcasecmp(argn[i], "testwindowopen") == 0)
             obj->testWindowOpen = TRUE;
+        else if (strcasecmp(argn[i], "src") == 0 && strstr(argv[i], "plugin-document-has-focus.pl"))
+            obj->testKeyboardFocusForPlugins = TRUE;
     }
         
 #ifndef NP_NO_CARBON
@@ -160,6 +164,9 @@ NPError NPP_Destroy(NPP instance, NPSavedData **save)
 
         if (obj->onURLNotify)
             free(obj->onURLNotify);
+
+        if (obj->onSetWindow)
+            free(obj->onSetWindow);
         
         if (obj->logDestroy)
             pluginLog(instance, "NPP_Destroy");
@@ -174,14 +181,24 @@ NPError NPP_SetWindow(NPP instance, NPWindow *window)
     PluginObject* obj = static_cast<PluginObject*>(instance->pdata);
 
     if (obj) {
+        obj->lastWindow = *window;
+
         if (obj->logSetWindow) {
             pluginLog(instance, "NPP_SetWindow: %d %d", (int)window->width, (int)window->height);
-            obj->logSetWindow = false;
+            obj->logSetWindow = FALSE;
         }
+
+        if (obj->onSetWindow)
+            executeScript(obj, obj->onSetWindow);
 
         if (obj->testWindowOpen) {
             testWindowOpen(instance);
             obj->testWindowOpen = FALSE;
+        }
+
+        if (obj->testKeyboardFocusForPlugins) {
+            obj->eventLogging = true;
+            executeScript(obj, "eventSender.keyDown('A');");
         }
     }
     
@@ -275,6 +292,11 @@ static int16_t handleEventCarbon(NPP instance, PluginObject* obj, EventRecord* e
             break;
         case keyUp:
             pluginLog(instance, "keyUp '%c'", (char)(event->message & 0xFF));
+            if (obj->testKeyboardFocusForPlugins) {
+                obj->eventLogging = false;
+                obj->testKeyboardFocusForPlugins = FALSE;
+                executeScript(obj, "layoutTestController.notifyDone();");
+            }
             break;
         case autoKey:
             pluginLog(instance, "autoKey '%c'", (char)(event->message & 0xFF));
@@ -338,7 +360,21 @@ static int16_t handleEventCocoa(NPP instance, PluginObject* obj, NPCocoaEvent* e
             return 1;
 
         case NPCocoaEventKeyDown:
+            if (event->data.key.characters)
+                pluginLog(instance, "keyDown '%c'", CFStringGetCharacterAtIndex(reinterpret_cast<CFStringRef>(event->data.key.characters), 0));
+            return 1;
+
         case NPCocoaEventKeyUp:
+            if (event->data.key.characters) {
+                pluginLog(instance, "keyUp '%c'", CFStringGetCharacterAtIndex(reinterpret_cast<CFStringRef>(event->data.key.characters), 0));
+                if (obj->testKeyboardFocusForPlugins) {
+                    obj->eventLogging = false;
+                    obj->testKeyboardFocusForPlugins = FALSE;
+                    executeScript(obj, "layoutTestController.notifyDone();");
+                }
+            }
+            return 1;
+
         case NPCocoaEventFlagsChanged:
             return 1;
 

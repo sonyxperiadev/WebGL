@@ -557,8 +557,18 @@ static JSValueRef keyDownCallback(JSContextRef context, JSObjectRef function, JS
     event.key.state = state;
     event.key.window = GTK_WIDGET(view)->window;
 
+    // When synthesizing an event, an invalid hardware_keycode value
+    // can cause it to be badly processed by Gtk+.
+    GdkKeymapKey* keys;
+    gint n_keys;
+    if (gdk_keymap_get_entries_for_keyval(gdk_keymap_get_default(), gdkKeySym, &keys, &n_keys)) {
+        event.key.hardware_keycode = keys[0].keycode;
+        g_free(keys);
+    }
+
     gboolean return_val;
     event.key.type = GDK_KEY_PRESS;
+
     g_signal_emit_by_name(view, "key-press-event", &event.key, &return_val);
 
     event.key.type = GDK_KEY_RELEASE;
@@ -567,47 +577,49 @@ static JSValueRef keyDownCallback(JSContextRef context, JSObjectRef function, JS
     return JSValueMakeUndefined(context);
 }
 
-static JSValueRef textZoomInCallback(JSContextRef context, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
+static void zoomIn(gboolean fullContentsZoom)
 {
     WebKitWebView* view = webkit_web_frame_get_web_view(mainFrame);
     if (!view)
-        return JSValueMakeUndefined(context);
+        return;
 
+    webkit_web_view_set_full_content_zoom(view, fullContentsZoom);
     gfloat currentZoom = webkit_web_view_get_zoom_level(view);
     webkit_web_view_set_zoom_level(view, currentZoom * zoomMultiplierRatio);
+}
 
+static void zoomOut(gboolean fullContentsZoom)
+{
+    WebKitWebView* view = webkit_web_frame_get_web_view(mainFrame);
+    if (!view)
+        return;
+
+    webkit_web_view_set_full_content_zoom(view, fullContentsZoom);
+    gfloat currentZoom = webkit_web_view_get_zoom_level(view);
+    webkit_web_view_set_zoom_level(view, currentZoom / zoomMultiplierRatio);
+}
+
+static JSValueRef textZoomInCallback(JSContextRef context, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
+{
+    zoomIn(FALSE);
     return JSValueMakeUndefined(context);
 }
 
 static JSValueRef textZoomOutCallback(JSContextRef context, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
 {
-    WebKitWebView* view = webkit_web_frame_get_web_view(mainFrame);
-    if (!view)
-        return JSValueMakeUndefined(context);
-
-    gfloat currentZoom = webkit_web_view_get_zoom_level(view);
-    webkit_web_view_set_zoom_level(view, currentZoom / zoomMultiplierRatio);
-
+    zoomOut(FALSE);
     return JSValueMakeUndefined(context);
 }
 
 static JSValueRef zoomPageInCallback(JSContextRef context, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
 {
-    WebKitWebView* view = webkit_web_frame_get_web_view(mainFrame);
-    if (!view)
-        return JSValueMakeUndefined(context);
-
-    webkit_web_view_zoom_in(view);
+    zoomIn(TRUE);
     return JSValueMakeUndefined(context);
 }
 
 static JSValueRef zoomPageOutCallback(JSContextRef context, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
 {
-    WebKitWebView* view = webkit_web_frame_get_web_view(mainFrame);
-    if (!view)
-        return JSValueMakeUndefined(context);
-
-    webkit_web_view_zoom_out(view);
+    zoomOut(TRUE);
     return JSValueMakeUndefined(context);
 }
 

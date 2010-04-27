@@ -76,14 +76,20 @@
 #import <WebKit/WebTypesInternal.h>
 #import <WebKit/WebViewPrivate.h>
 #import <getopt.h>
-#import <mach-o/getsect.h>
 #import <objc/objc-runtime.h>
 #import <wtf/Assertions.h>
 #import <wtf/RetainPtr.h>
 #import <wtf/Threading.h>
 #import <wtf/OwnPtr.h>
 
+extern "C" {
+#import <mach-o/getsect.h>
+}
+
 using namespace std;
+
+@interface DumpRenderTreeApplication : NSApplication
+@end
 
 @interface DumpRenderTreeEvent : NSEvent
 @end
@@ -246,6 +252,7 @@ static void activateFonts()
 
     static const char* fontFileNames[] = {
         "AHEM____.TTF",
+        "ColorBits.ttf",
         "WebKitWeightWatcher100.ttf",
         "WebKitWeightWatcher200.ttf",
         "WebKitWeightWatcher300.ttf",
@@ -355,7 +362,14 @@ void testStringByEvaluatingJavaScriptFromString()
 
 static NSString *libraryPathForDumpRenderTree()
 {
-    return [@"~/Library/Application Support/DumpRenderTree" stringByExpandingTildeInPath];
+    //FIXME: This may not be sufficient to prevent interactions/crashes
+    //when running more than one copy of DumpRenderTree.
+    //See https://bugs.webkit.org/show_bug.cgi?id=10906
+    char* dumpRenderTreeTemp = getenv("DUMPRENDERTREE_TEMP");
+    if (dumpRenderTreeTemp)
+        return [[NSFileManager defaultManager] stringWithFileSystemRepresentation:dumpRenderTreeTemp length:strlen(dumpRenderTreeTemp)];
+    else
+        return [@"~/Library/Application Support/DumpRenderTree" stringByExpandingTildeInPath];
 }
 
 // Called before each test.
@@ -420,7 +434,7 @@ static void resetDefaultsToConsistentValues()
     [preferences setOfflineWebApplicationCacheEnabled:YES];
     [preferences setDeveloperExtrasEnabled:NO];
     [preferences setLoadsImagesAutomatically:YES];
-    [preferences setFrameSetFlatteningEnabled:NO];
+    [preferences setFrameFlatteningEnabled:NO];
     if (persistentUserStyleSheetLocation) {
         [preferences setUserStyleSheetLocation:[NSURL URLWithString:(NSString *)(persistentUserStyleSheetLocation.get())]];
         [preferences setUserStyleSheetEnabled:YES];
@@ -430,20 +444,8 @@ static void resetDefaultsToConsistentValues()
     // The back/forward cache is causing problems due to layouts during transition from one page to another.
     // So, turn it off for now, but we might want to turn it back on some day.
     [preferences setUsesPageCache:NO];
-
-#if defined(BUILDING_ON_LEOPARD)
-    // Disable hardware composititing to avoid timeouts and crashes from buggy CoreVideo teardown code.
-    // https://bugs.webkit.org/show_bug.cgi?id=28845 and rdar://problem/7228836
-    SInt32 qtVersion;
-    OSErr err = Gestalt(gestaltQuickTimeVersion, &qtVersion);
-    assert(err == noErr);
-    // Bug 7228836 exists in at least 7.6.3 through 7.6.4, hopefully it will be fixed in 7.6.5.
-    // FIXME: Once we know the exact versions of QuickTime affected, we can update this check.
-    if (qtVersion <= 0x07648000) // 7.6.4, final release (0x8).  See http://developer.apple.com/mac/library/techn
-        [preferences setAcceleratedCompositingEnabled:NO];
-    else
-#endif
-        [preferences setAcceleratedCompositingEnabled:YES];
+    [preferences setAcceleratedCompositingEnabled:YES];
+    [preferences setWebGLEnabled:NO];
 
     [[NSHTTPCookieStorage sharedHTTPCookieStorage] setCookieAcceptPolicy:NSHTTPCookieAcceptPolicyOnlyFromMainDocumentDomain];
 
@@ -686,7 +688,7 @@ void dumpRenderTree(int argc, const char *argv[])
 int main(int argc, const char *argv[])
 {
     NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
-    [NSApplication sharedApplication]; // Force AppKit to init itself
+    [DumpRenderTreeApplication sharedApplication]; // Force AppKit to init itself
     dumpRenderTree(argc, argv);
     [WebCoreStatistics garbageCollectJavaScriptObjects];
     [WebCoreStatistics emptyCache]; // Otherwise SVGImages trigger false positives for Frame/Node counts    
@@ -1139,9 +1141,15 @@ static bool shouldOpenWebInspector(const char* pathOrURL)
     return strstr(pathOrURL, "inspector/");
 }
 
+static bool shouldEnableDeveloperExtras(const char* pathOrURL)
+{
+    return shouldOpenWebInspector(pathOrURL) || strstr(pathOrURL, "inspector-enabled/");
+}
+
 static void resetWebViewToConsistentStateBeforeTesting()
 {
     WebView *webView = [mainFrame webView];
+    [webView setEditable:NO];
     [(EditingDelegate *)[webView editingDelegate] setAcceptsEditing:YES];
     [webView makeTextStandardSize:nil];
     [webView resetPageZoom:nil];
@@ -1162,7 +1170,7 @@ static void resetWebViewToConsistentStateBeforeTesting()
     [[[mainFrame webView] inspector] setJavaScriptProfilingEnabled:NO];
 
     [WebView _setUsesTestModeFocusRingColor:YES];
-    [WebView _resetOriginAccessWhiteLists];
+    [WebView _resetOriginAccessWhitelists];
 }
 
 static void runTest(const string& testPathOrURL)
@@ -1217,8 +1225,11 @@ static void runTest(const string& testPathOrURL)
     else
         [[mainFrame webView] setHistoryDelegate:nil];
 
-    if (shouldOpenWebInspector(pathOrURL.c_str()))
-        gLayoutTestController->showWebInspector();
+    if (shouldEnableDeveloperExtras(pathOrURL.c_str())) {
+        gLayoutTestController->setDeveloperExtrasEnabled(true);
+        if (shouldOpenWebInspector(pathOrURL.c_str()))
+            gLayoutTestController->showWebInspector();
+    }
 
     if ([WebHistory optionalSharedHistory])
         [WebHistory setOptionalSharedHistory:nil];
@@ -1238,9 +1249,10 @@ static void runTest(const string& testPathOrURL)
     NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
     [mainFrame loadRequest:[NSURLRequest requestWithURL:url]];
     [pool release];
+
     while (!done) {
         pool = [[NSAutoreleasePool alloc] init];
-        [[NSRunLoop currentRunLoop] runMode:NSDefaultRunLoopMode beforeDate:[NSDate distantPast]];
+        [[NSRunLoop currentRunLoop] runMode:NSDefaultRunLoopMode beforeDate:[NSDate distantPast]]; 
         [pool release];
     }
 
@@ -1268,7 +1280,8 @@ static void runTest(const string& testPathOrURL)
         }
     }
 
-    if (shouldOpenWebInspector(pathOrURL.c_str()))
+    // If developer extras enabled Web Inspector may have been open by the test.
+    if (shouldEnableDeveloperExtras(pathOrURL.c_str()))
         gLayoutTestController->closeWebInspector();
 
     resetWebViewToConsistentStateBeforeTesting();
@@ -1304,6 +1317,16 @@ void displayWebView()
 + (NSPoint)mouseLocation
 {
     return [[[mainFrame webView] window] convertBaseToScreen:lastMousePosition];
+}
+
+@end
+
+@implementation DumpRenderTreeApplication
+
+- (BOOL)isRunning
+{
+    // <rdar://problem/7686123> Java plug-in freezes unless NSApplication is running
+    return YES;
 }
 
 @end

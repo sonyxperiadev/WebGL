@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2006, 2007, 2008, 2009, 2010 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -110,6 +110,21 @@ void LayoutTestController::clearBackForwardList()
     backForwardList->goToItem(item.get());
 }
 
+bool LayoutTestController::callShouldCloseOnWebView()
+{
+    COMPtr<IWebView> webView;
+    if (FAILED(frame->webView(&webView)))
+        return false;
+
+    COMPtr<IWebViewPrivate> viewPrivate;
+    if (FAILED(webView->QueryInterface(&viewPrivate)))
+        return false;
+
+    BOOL result;
+    viewPrivate->shouldClose(&result);
+    return result;
+}
+
 JSStringRef LayoutTestController::copyDecodedHostName(JSStringRef name)
 {
     // FIXME: Implement!
@@ -156,6 +171,33 @@ void LayoutTestController::keepWebHistory()
         return;
 
     history->setOptionalSharedHistory(sharedHistory.get());
+}
+
+JSValueRef LayoutTestController::computedStyleIncludingVisitedInfo(JSContextRef context, JSValueRef value)
+{
+    // FIXME: Implement this.
+    return JSValueMakeUndefined(context);
+}
+
+JSRetainPtr<JSStringRef> LayoutTestController::layerTreeAsText() const
+{
+    COMPtr<IWebFramePrivate> framePrivate(Query, frame);
+    if (!framePrivate)
+        return false;
+
+    BSTR textBSTR = 0;
+    HRESULT hr = framePrivate->layerTreeAsText(&textBSTR);
+
+    wstring text(textBSTR, SysStringLen(textBSTR));
+    SysFreeString(textBSTR);
+    JSRetainPtr<JSStringRef> textValueJS(Adopt, JSStringCreateWithCharacters(text.data(), text.length()));
+    return textValueJS;
+}
+
+JSRetainPtr<JSStringRef> LayoutTestController::markerTextForListItem(JSContextRef context, JSValueRef nodeObject) const
+{
+    // FIXME: Implement me.
+    return JSRetainPtr<JSStringRef>();
 }
 
 void LayoutTestController::waitForPolicyDelegate()
@@ -372,7 +414,7 @@ void LayoutTestController::setXSSAuditorEnabled(bool enabled)
     prefsPrivate->setXSSAuditorEnabled(enabled);
 }
 
-void LayoutTestController::setFrameSetFlatteningEnabled(bool enabled)
+void LayoutTestController::setFrameFlatteningEnabled(bool enabled)
 {
     COMPtr<IWebView> webView;
     if (FAILED(frame->webView(&webView)))
@@ -386,7 +428,12 @@ void LayoutTestController::setFrameSetFlatteningEnabled(bool enabled)
     if (!prefsPrivate)
         return;
 
-    prefsPrivate->setFrameSetFlatteningEnabled(enabled);
+    prefsPrivate->setFrameFlatteningEnabled(enabled);
+}
+
+void LayoutTestController::setSpatialNavigationEnabled(bool enabled)
+{
+    // FIXME: Implement for SpatialNavigation layout tests.
 }
 
 void LayoutTestController::setAllowUniversalAccessFromFileURLs(bool enabled)
@@ -688,19 +735,11 @@ void LayoutTestController::setJavaScriptProfilingEnabled(bool flag)
     if (FAILED(webView->QueryInterface(&viewPrivate)))
         return;
 
-    COMPtr<IWebPreferences> preferences;
-    if (FAILED(webView->preferences(&preferences)))
-        return;
-
-    COMPtr<IWebPreferencesPrivate> prefsPrivate(Query, preferences);
-    if (!prefsPrivate)
-        return;
-
     COMPtr<IWebInspector> inspector;
     if (FAILED(viewPrivate->inspector(&inspector)))
         return;
 
-    prefsPrivate->setDeveloperExtrasEnabled(flag);
+    setDeveloperExtrasEnabled(flag);
     inspector->setJavaScriptProfilingEnabled(flag);
 }
 
@@ -717,7 +756,7 @@ void LayoutTestController::setSelectTrailingWhitespaceEnabled(bool flag)
     viewEditing->setSelectTrailingWhitespaceEnabled(flag ? TRUE : FALSE);
 }
 
-static const CFTimeInterval waitToDumpWatchdogInterval = 15.0;
+static const CFTimeInterval waitToDumpWatchdogInterval = 30.0;
 
 static void CALLBACK waitUntilDoneWatchdogFired(HWND, UINT, UINT_PTR, DWORD)
 {
@@ -950,13 +989,27 @@ static _bstr_t bstrT(JSStringRef jsString)
     return _bstr_t(JSStringCopyBSTR(jsString), false);
 }
 
-void LayoutTestController::whiteListAccessFromOrigin(JSStringRef sourceOrigin, JSStringRef destinationProtocol, JSStringRef destinationHost, bool allowDestinationSubdomains)
+void LayoutTestController::addOriginAccessWhitelistEntry(JSStringRef sourceOrigin, JSStringRef destinationProtocol, JSStringRef destinationHost, bool allowDestinationSubdomains)
 {
     COMPtr<IWebViewPrivate> webView;
     if (FAILED(WebKitCreateInstance(__uuidof(WebView), 0, __uuidof(webView), reinterpret_cast<void**>(&webView))))
         return;
 
-    webView->whiteListAccessFromOrigin(bstrT(sourceOrigin).GetBSTR(), bstrT(destinationProtocol).GetBSTR(), bstrT(destinationHost).GetBSTR(), allowDestinationSubdomains);
+    webView->addOriginAccessWhitelistEntry(bstrT(sourceOrigin).GetBSTR(), bstrT(destinationProtocol).GetBSTR(), bstrT(destinationHost).GetBSTR(), allowDestinationSubdomains);
+}
+
+void LayoutTestController::removeOriginAccessWhitelistEntry(JSStringRef sourceOrigin, JSStringRef destinationProtocol, JSStringRef destinationHost, bool allowDestinationSubdomains)
+{
+    COMPtr<IWebViewPrivate> webView;
+    if (FAILED(WebKitCreateInstance(__uuidof(WebView), 0, __uuidof(webView), reinterpret_cast<void**>(&webView))))
+        return;
+
+    webView->removeOriginAccessWhitelistEntry(bstrT(sourceOrigin).GetBSTR(), bstrT(destinationProtocol).GetBSTR(), bstrT(destinationHost).GetBSTR(), allowDestinationSubdomains);
+}
+
+void LayoutTestController::setScrollbarPolicy(JSStringRef orientation, JSStringRef policy)
+{
+    // FIXME: implement
 }
 
 void LayoutTestController::addUserScript(JSStringRef source, bool runAtStart)
@@ -986,7 +1039,7 @@ void LayoutTestController::addUserStyleSheet(JSStringRef source)
     webView->addUserStyleSheetToGroup(_bstr_t(L"org.webkit.DumpRenderTree").GetBSTR(), world.get(), bstrT(source).GetBSTR(), 0, 0, 0, 0, 0);
 }
 
-void LayoutTestController::showWebInspector()
+void LayoutTestController::setDeveloperExtrasEnabled(bool enabled)
 {
     COMPtr<IWebView> webView;
     if (FAILED(frame->webView(&webView)))
@@ -1000,7 +1053,14 @@ void LayoutTestController::showWebInspector()
     if (!prefsPrivate)
         return;
 
-    prefsPrivate->setDeveloperExtrasEnabled(true);
+    prefsPrivate->setDeveloperExtrasEnabled(enabled);
+}
+
+void LayoutTestController::showWebInspector()
+{
+    COMPtr<IWebView> webView;
+    if (FAILED(frame->webView(&webView)))
+        return;
 
     COMPtr<IWebViewPrivate> viewPrivate(Query, webView);
     if (!viewPrivate)
@@ -1026,16 +1086,6 @@ void LayoutTestController::closeWebInspector()
         return;
 
     inspector->close();
-
-    COMPtr<IWebPreferences> preferences;
-    if (FAILED(webView->preferences(&preferences)))
-        return;
-
-    COMPtr<IWebPreferencesPrivate> prefsPrivate(Query, preferences);
-    if (!prefsPrivate)
-        return;
-
-    prefsPrivate->setDeveloperExtrasEnabled(false);
 }
 
 void LayoutTestController::evaluateInWebInspector(long callId, JSStringRef script)
@@ -1168,4 +1218,30 @@ int LayoutTestController::numberOfPages(float pageWidthInPixels, float pageHeigh
 void LayoutTestController::apiTestNewWindowDataLoadBaseURL(JSStringRef utf8Data, JSStringRef baseURL)
 {
 
+}
+
+void LayoutTestController::apiTestGoToCurrentBackForwardItem()
+{
+    COMPtr<IWebView> webView;
+    if (FAILED(frame->webView(&webView)))
+        return;
+
+    COMPtr<IWebBackForwardList> backForwardList;
+    if (FAILED(webView->backForwardList(&backForwardList)))
+        return;
+
+    COMPtr<IWebHistoryItem> item;
+    if (FAILED(backForwardList->currentItem(&item)))
+        return;
+
+    BOOL success;
+    webView->goToBackForwardItem(item.get(), &success);
+}
+
+void LayoutTestController::setWebViewEditable(bool)
+{
+}
+
+void LayoutTestController::authenticateSession(JSStringRef, JSStringRef, JSStringRef)
+{
 }

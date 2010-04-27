@@ -56,7 +56,9 @@ unsigned int webkit_worker_thread_count(void);
 void webkit_white_list_access_from_origin(const gchar* sourceOrigin, const gchar* destinationProtocol, const gchar* destinationHost, bool allowDestinationSubdomains);
 gchar* webkit_web_frame_counter_value_for_element_by_id(WebKitWebFrame* frame, const gchar* id);
 int webkit_web_frame_page_number_for_element_by_id(WebKitWebFrame* frame, const gchar* id, float pageWidth, float pageHeight);
+int webkit_web_frame_number_of_pages(WebKitWebFrame* frame, float pageWidth, float pageHeight);
 void webkit_web_inspector_execute_script(WebKitWebInspector* inspector, long callId, const gchar* script);
+gchar* webkit_web_frame_marker_text_for_list_item(WebKitWebFrame* frame, JSContextRef context, JSValueRef nodeObject);
 }
 
 static gchar* copyWebSettingKey(gchar* preferenceKey)
@@ -65,12 +67,13 @@ static gchar* copyWebSettingKey(gchar* preferenceKey)
 
     if (!keyTable) {
         // If you add a pref here, make sure you reset the value in
-        // DumpRenderTree::resetWebViewToConsistentStateBeforeTesting.
+        // DumpRenderTree::resetDefaultsToConsistentValues.
         keyTable = g_hash_table_new(g_str_hash, g_str_equal);
         g_hash_table_insert(keyTable, g_strdup("WebKitJavaScriptEnabled"), g_strdup("enable-scripts"));
         g_hash_table_insert(keyTable, g_strdup("WebKitDefaultFontSize"), g_strdup("default-font-size"));
         g_hash_table_insert(keyTable, g_strdup("WebKitEnableCaretBrowsing"), g_strdup("enable-caret-browsing"));
         g_hash_table_insert(keyTable, g_strdup("WebKitUsesPageCachePreferenceKey"), g_strdup("enable-page-cache"));
+        g_hash_table_insert(keyTable, g_strdup("WebKitPluginsEnabled"), g_strdup("enable-plugins"));
     }
 
     return g_strdup(static_cast<gchar*>(g_hash_table_lookup(keyTable, preferenceKey)));
@@ -141,6 +144,19 @@ void LayoutTestController::keepWebHistory()
     // FIXME: implement
 }
 
+JSValueRef LayoutTestController::computedStyleIncludingVisitedInfo(JSContextRef context, JSValueRef value)
+{
+    // FIXME: Implement this.
+    return JSValueMakeUndefined(context);
+}
+
+JSRetainPtr<JSStringRef> LayoutTestController::layerTreeAsText() const
+{
+    // FIXME: implement
+    JSRetainPtr<JSStringRef> string(Adopt, JSStringCreateWithUTF8CString(""));
+    return string;
+}
+
 int LayoutTestController::pageNumberForElementById(JSStringRef id, float pageWidth, float pageHeight)
 {
     gchar* idGChar = JSStringCopyUTF8CString(id);
@@ -149,10 +165,9 @@ int LayoutTestController::pageNumberForElementById(JSStringRef id, float pageWid
     return pageNumber;
 }
 
-int LayoutTestController::numberOfPages(float, float)
+int LayoutTestController::numberOfPages(float pageWidth, float pageHeight)
 {
-    // FIXME: implement
-    return -1;
+    return webkit_web_frame_number_of_pages(mainFrame, pageWidth, pageHeight);
 }
 
 size_t LayoutTestController::webHistoryItemCount()
@@ -210,7 +225,19 @@ void LayoutTestController::setAcceptsEditing(bool acceptsEditing)
 
 void LayoutTestController::setAlwaysAcceptCookies(bool alwaysAcceptCookies)
 {
-    // FIXME: Implement this (and restore the default value before running each test in DumpRenderTree.cpp).
+#ifdef HAVE_LIBSOUP_2_29_90
+    SoupSession* session = webkit_get_default_session();
+    SoupCookieJar* jar = reinterpret_cast<SoupCookieJar*>(soup_session_get_feature(session, SOUP_TYPE_COOKIE_JAR));
+
+    SoupCookieJarAcceptPolicy policy;
+
+    if (alwaysAcceptCookies)
+        policy = SOUP_COOKIE_JAR_ACCEPT_ALWAYS;
+    else
+        policy = SOUP_COOKIE_JAR_ACCEPT_NO_THIRD_PARTY;
+
+    g_object_set(G_OBJECT(jar), SOUP_COOKIE_JAR_ACCEPT_POLICY, policy, NULL);
+#endif
 }
 
 void LayoutTestController::setCustomPolicyDelegate(bool setDelegate, bool permissive)
@@ -224,7 +251,12 @@ void LayoutTestController::waitForPolicyDelegate()
     setWaitToDump(true);
 }
 
-void LayoutTestController::whiteListAccessFromOrigin(JSStringRef sourceOrigin, JSStringRef protocol, JSStringRef host, bool includeSubdomains)
+void LayoutTestController::setScrollbarPolicy(JSStringRef orientation, JSStringRef policy)
+{
+    // FIXME: implement
+}
+
+void LayoutTestController::addOriginAccessWhitelistEntry(JSStringRef sourceOrigin, JSStringRef protocol, JSStringRef host, bool includeSubdomains)
 {
     gchar* sourceOriginGChar = JSStringCopyUTF8CString(sourceOrigin);
     gchar* protocolGChar = JSStringCopyUTF8CString(protocol);
@@ -233,6 +265,11 @@ void LayoutTestController::whiteListAccessFromOrigin(JSStringRef sourceOrigin, J
     g_free(sourceOriginGChar);
     g_free(protocolGChar);
     g_free(hostGChar);
+}
+
+void LayoutTestController::removeOriginAccessWhitelistEntry(JSStringRef sourceOrigin, JSStringRef protocol, JSStringRef host, bool includeSubdomains)
+{
+    // FIXME: implement
 }
 
 void LayoutTestController::setMainFrameIsFirstResponder(bool flag)
@@ -303,7 +340,7 @@ static gboolean waitToDumpWatchdogFired(void*)
 
 void LayoutTestController::setWaitToDump(bool waitUntilDone)
 {
-    static const int timeoutSeconds = 15;
+    static const int timeoutSeconds = 30;
 
     m_waitToDump = waitUntilDone;
     if (m_waitToDump && !waitToDumpWatchdog)
@@ -334,9 +371,18 @@ void LayoutTestController::setXSSAuditorEnabled(bool flag)
     g_object_set(G_OBJECT(settings), "enable-xss-auditor", flag, NULL);
 }
 
-void LayoutTestController::setFrameSetFlatteningEnabled(bool flag)
+void LayoutTestController::setFrameFlatteningEnabled(bool flag)
 {
     // FIXME: implement
+}
+
+void LayoutTestController::setSpatialNavigationEnabled(bool flag)
+{
+    WebKitWebView* view = webkit_web_frame_get_web_view(mainFrame);
+    ASSERT(view);
+
+    WebKitWebSettings* settings = webkit_web_view_get_settings(view);
+    g_object_set(G_OBJECT(settings), "enable-spatial-navigation", flag, NULL);
 }
 
 void LayoutTestController::setAllowUniversalAccessFromFileURLs(bool flag)
@@ -390,8 +436,7 @@ void LayoutTestController::setJavaScriptProfilingEnabled(bool flag)
     WebKitWebView* view = webkit_web_frame_get_web_view(mainFrame);
     ASSERT(view);
 
-    WebKitWebSettings* settings = webkit_web_view_get_settings(view);
-    g_object_set(G_OBJECT(settings), "enable-developer-extras", flag, NULL);
+    setDeveloperExtrasEnabled(flag);
 
     WebKitWebInspector* inspector = webkit_web_view_get_inspector(view);
     g_object_set(G_OBJECT(inspector), "javascript-profiling-enabled", flag, NULL);
@@ -556,24 +601,28 @@ void LayoutTestController::addUserStyleSheet(JSStringRef source)
     printf("LayoutTestController::addUserStyleSheet not implemented.\n");
 }
 
-void LayoutTestController::showWebInspector()
+void LayoutTestController::setDeveloperExtrasEnabled(bool enabled)
 {
     WebKitWebView* webView = webkit_web_frame_get_web_view(mainFrame);
     WebKitWebSettings* webSettings = webkit_web_view_get_settings(webView);
+
+    g_object_set(webSettings, "enable-developer-extras", enabled, NULL);
+}
+
+void LayoutTestController::showWebInspector()
+{
+    WebKitWebView* webView = webkit_web_frame_get_web_view(mainFrame);
     WebKitWebInspector* inspector = webkit_web_view_get_inspector(webView);
 
-    g_object_set(webSettings, "enable-developer-extras", TRUE, NULL);
     webkit_web_inspector_show(inspector);
 }
 
 void LayoutTestController::closeWebInspector()
 {
     WebKitWebView* webView = webkit_web_frame_get_web_view(mainFrame);
-    WebKitWebSettings* webSettings = webkit_web_view_get_settings(webView);
     WebKitWebInspector* inspector = webkit_web_view_get_inspector(webView);
 
     webkit_web_inspector_close(inspector);
-    g_object_set(webSettings, "enable-developer-extras", FALSE, NULL);
 }
 
 void LayoutTestController::evaluateInWebInspector(long callId, JSStringRef script)
@@ -596,7 +645,37 @@ void LayoutTestController::removeAllVisitedLinks()
     // FIXME: Implement this.
 }
 
+bool LayoutTestController::callShouldCloseOnWebView()
+{
+    // FIXME: Implement for testing fix for https://bugs.webkit.org/show_bug.cgi?id=27481
+    return false;
+}
+
 void LayoutTestController::apiTestNewWindowDataLoadBaseURL(JSStringRef utf8Data, JSStringRef baseURL)
 {
 
+}
+
+void LayoutTestController::apiTestGoToCurrentBackForwardItem()
+{
+
+}
+
+void LayoutTestController::setWebViewEditable(bool)
+{
+}
+
+JSRetainPtr<JSStringRef> LayoutTestController::markerTextForListItem(JSContextRef context, JSValueRef nodeObject) const
+{
+    gchar* markerTextGChar = webkit_web_frame_marker_text_for_list_item(mainFrame, context, nodeObject);
+    if (!markerTextGChar)
+        return 0;
+
+    JSRetainPtr<JSStringRef> markerText(Adopt, JSStringCreateWithUTF8CString(markerTextGChar));
+    g_free(markerTextGChar);
+    return markerText;
+}
+
+void LayoutTestController::authenticateSession(JSStringRef, JSStringRef, JSStringRef)
+{
 }

@@ -37,6 +37,8 @@ function verifyTouchEvent(type, totalTouchCount, changedTouchCount, targetTouchC
     shouldBe("lastEvent.touches.length", totalTouchCount.toString());
     shouldBe("lastEvent.changedTouches.length", changedTouchCount.toString());
     shouldBe("lastEvent.targetTouches.length", targetTouchCount.toString());
+    shouldBe("lastEvent.pageX", "0");
+    shouldBe("lastEvent.pageY", "0");
 }
 
 function verifyTouchPoint(list, point, x, y, id)
@@ -77,8 +79,8 @@ function verifyTouch(which) {
             shouldBeEqualToString("lastEvent.targetTouches[0].target.tagName", "DIV");
         break;
         case 4:
-            verifyTouchEvent("touchmove", 1, 1, 0);
-            shouldBeEqualToString("lastEvent.touches[0].target.tagName", "HTML");
+            verifyTouchEvent("touchmove", 1, 1, 1);
+            shouldBeEqualToString("lastEvent.touches[0].target.tagName", "DIV");
         break;
 
         default: testFailed("Wrong number of touch events! (" + which + ")");

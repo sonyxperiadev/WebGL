@@ -44,6 +44,7 @@ namespace WebCore {
     class EditorClientQt;
     class Element;
     class InspectorController;
+    class NotificationPresenterClientQt;
     class Node;
     class Page;
     class Frame;
@@ -64,6 +65,7 @@ public:
     ~QWebPagePrivate();
 
     static WebCore::Page* core(QWebPage*);
+    static QWebPagePrivate* priv(QWebPage*);
 
     void createMainFrame();
 #ifndef QT_NO_CONTEXTMENU
@@ -162,6 +164,8 @@ public:
     QNetworkAccessManager *networkManager;
 
     bool forwardUnsupportedContent;
+    bool smartInsertDeleteEnabled;
+    bool selectTrailingWhitespaceEnabled;
     QWebPage::LinkDelegationPolicy linkPolicy;
 
     QSize viewportSize;
@@ -184,6 +188,10 @@ public:
     QWebInspector* inspector;
     bool inspectorIsInternalOnly; // True if created through the Inspect context menu action
     Qt::DropAction m_lastDropAction;
+    
+    WebCore::NotificationPresenterClientQt* notificationPresenterClient;
+
+    QString viewMode;
 
     static bool drtRun;
 };

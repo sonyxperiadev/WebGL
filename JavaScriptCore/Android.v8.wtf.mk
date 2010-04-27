@@ -45,11 +45,17 @@ LOCAL_SRC_FILES := \
 	wtf/ThreadIdentifierDataPthreads.cpp \
 	wtf/Threading.cpp \
 	wtf/ThreadingPthreads.cpp \
-	\
-	wtf/android/MainThreadAndroid.cpp \
+	wtf/WTFThreadData.cpp \
 	\
 	wtf/TypeTraits.cpp \
 	wtf/dtoa.cpp \
+	\
+	wtf/android/MainThreadAndroid.cpp \
+	\
+	wtf/text/AtomicString.cpp \
+	wtf/text/CString.cpp \
+	wtf/text/StringImpl.cpp \
+	wtf/text/WTFString.cpp \
 	\
 	wtf/unicode/CollatorDefault.cpp \
 	wtf/unicode/UTF8.cpp \

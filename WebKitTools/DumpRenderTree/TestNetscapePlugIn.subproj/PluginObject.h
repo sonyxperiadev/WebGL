@@ -37,13 +37,16 @@ typedef struct {
     NPBool returnErrorFromNewStream;
     NPBool cachedPrivateBrowsingMode;
     NPObject* testObject;
+    NPObject* rememberedObject;
     NPStream* stream;
     NPBool testDocumentOpenInDestroyStream;
     NPBool testWindowOpen;
+    NPBool testKeyboardFocusForPlugins;
     char* onStreamLoad;
     char* onStreamDestroy;
     char* onDestroy;
     char* onURLNotify;
+    char* onSetWindow;
     char* firstUrl;
     char* firstHeaders;
     char* lastUrl;
@@ -51,6 +54,7 @@ typedef struct {
 #ifdef XP_MACOSX
     NPEventModel eventModel;
 #endif
+    NPWindow lastWindow;
 } PluginObject;
 
 extern NPClass *getPluginClass(void);

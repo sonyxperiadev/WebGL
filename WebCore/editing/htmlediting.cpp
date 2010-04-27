@@ -489,6 +489,7 @@ bool validBlockTag(const AtomicString& blockTag)
         blockTags.add(h5Tag.localName());
         blockTags.add(h6Tag.localName());
         blockTags.add(headerTag.localName());
+        blockTags.add(hgroupTag.localName());
         blockTags.add(navTag.localName());
         blockTags.add(pTag.localName());
         blockTags.add(preTag.localName());
@@ -811,13 +812,18 @@ Node* enclosingEmptyListItem(const VisiblePosition& visiblePos)
     return listChildNode;
 }
 
-HTMLElement* outermostEnclosingList(Node* node)
+HTMLElement* outermostEnclosingList(Node* node, Node* rootList)
 {
     HTMLElement* list = enclosingList(node);
     if (!list)
         return 0;
-    while (HTMLElement* nextList = enclosingList(list))
+
+    while (HTMLElement* nextList = enclosingList(list)) {
+        if (nextList == rootList)
+            break;
         list = nextList;
+    }
+
     return list;
 }
 

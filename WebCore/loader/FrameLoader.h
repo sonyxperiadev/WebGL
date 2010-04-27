@@ -32,6 +32,7 @@
 #define FrameLoader_h
 
 #include "CachePolicy.h"
+#include "DocumentWriter.h"
 #include "FrameLoaderTypes.h"
 #include "HistoryController.h"
 #include "PolicyCallback.h"
@@ -67,7 +68,10 @@ class HTMLFrameOwnerElement;
 class IconLoader;
 class IntSize;
 class NavigationAction;
-class RenderPart;
+#if ENABLE(PLUGIN_PROXY_FOR_VIDEO)
+class Node;
+#endif
+class RenderEmbeddedObject;
 class ResourceError;
 class ResourceLoader;
 class ResourceResponse;
@@ -98,6 +102,7 @@ public:
     PolicyChecker* policyChecker() const { return &m_policyChecker; }
     HistoryController* history() const { return &m_history; }
     ResourceLoadNotifier* notifier() const { return &m_notifer; }
+    DocumentWriter* writer() const { return &m_writer; }
 
     // FIXME: This is not cool, people. There are too many different functions that all start loads.
     // We should aim to consolidate these into a smaller set of functions, and try to reuse more of
@@ -215,7 +220,7 @@ public:
 
     void changeLocation(const KURL&, const String& referrer, bool lockHistory = true, bool lockBackForwardList = true, bool userGesture = false, bool refresh = false);
     void urlSelected(const ResourceRequest&, const String& target, PassRefPtr<Event>, bool lockHistory, bool lockBackForwardList, bool userGesture, ReferrerPolicy);
-    bool requestFrame(HTMLFrameOwnerElement*, const String& url, const AtomicString& frameName);
+    bool requestFrame(HTMLFrameOwnerElement*, const String& url, const AtomicString& frameName, bool lockHistory = true, bool lockBackForwardList = true);
 
     void submitForm(const char* action, const String& url,
         PassRefPtr<FormData>, const String& target, const String& contentType, const String& boundary,
@@ -227,23 +232,15 @@ public:
 
     void didExplicitOpen();
 
+    // Callbacks from DocumentWriter
+    void didBeginDocument(bool dispatchWindowObjectAvailable);
+    void didEndDocument();
+    void willSetEncoding();
+
     KURL iconURL();
     void commitIconURLToIconDatabase(const KURL&);
 
     KURL baseURL() const;
-
-    void replaceDocument(const String&);
-
-    void begin();
-    void begin(const KURL&, bool dispatchWindowObjectAvailable = true, SecurityOrigin* forcedSecurityOrigin = 0);
-
-    void write(const char* string, int length = -1, bool flush = false);
-    void write(const String&);
-    void end();
-    void endIfNotLoadingMainResource();
-
-    void setEncoding(const String& encoding, bool userChosen);
-    String encoding() const;
 
     void tokenizerProcessedData();
 
@@ -260,6 +257,9 @@ public:
 
     bool isSandboxed(SandboxFlags mask) const { return m_sandboxFlags & mask; }
     SandboxFlags sandboxFlags() const { return m_sandboxFlags; }
+    // The following sandbox flags will be forced, regardless of changes to
+    // the sandbox attribute of any parent frames.
+    void setForcedSandboxFlags(SandboxFlags flags) { m_forcedSandboxFlags = flags; m_sandboxFlags |= flags; }
 
     // Mixed content related functions.
     static bool isMixedContent(SecurityOrigin* context, const KURL&);
@@ -281,9 +281,10 @@ public:
 
     const KURL& url() const { return m_URL; }
 
-    void setResponseMIMEType(const String&);
-    const String& responseMIMEType() const;
+    // setURL is a low-level setter and does not trigger loading.
+    void setURL(const KURL&);
 
+    bool allowPlugins(ReasonForCallingAllowPlugins);
     bool containsPlugins() const;
 
     void loadDone();
@@ -294,7 +295,7 @@ public:
 
     bool isComplete() const;
 
-    bool requestObject(RenderPart* frame, const String& url, const AtomicString& frameName,
+    bool requestObject(RenderEmbeddedObject*, const String& url, const AtomicString& frameName,
         const String& serviceType, const Vector<String>& paramNames, const Vector<String>& paramValues);
 
     KURL completeURL(const String& url);
@@ -323,6 +324,10 @@ public:
 
     void open(CachedFrameBase&);
 
+#if ENABLE(PLUGIN_PROXY_FOR_VIDEO)
+    PassRefPtr<Widget> loadMediaPlayerProxyPlugin(Node*, const KURL&, const Vector<String>& paramNames, const Vector<String>& paramValues);
+#endif
+
     // FIXME: Should these really be public?
     void completed();
     bool allAncestorsAreComplete() const; // including this
@@ -340,6 +345,10 @@ public:
 
     static ObjectContentType defaultObjectContentType(const KURL& url, const String& mimeType);
 
+    bool isDisplayingInitialEmptyDocument() const { return m_isDisplayingInitialEmptyDocument; }
+
+    void clear(bool clearWindowProperties = true, bool clearScriptObjects = true, bool clearFrameView = true);
+    
 private:
     bool canCachePageContainingThisFrame();
 #ifndef NDEBUG
@@ -352,8 +361,8 @@ private:
     void started();
 
     bool shouldUsePlugin(const KURL&, const String& mimeType, bool hasFallback, bool& useFallback);
-    bool loadPlugin(RenderPart*, const KURL&, const String& mimeType,
-    const Vector<String>& paramNames, const Vector<String>& paramValues, bool useFallback);
+    bool loadPlugin(RenderEmbeddedObject*, const KURL&, const String& mimeType,
+        const Vector<String>& paramNames, const Vector<String>& paramValues, bool useFallback);
     
     void navigateWithinDocument(HistoryItem*);
     void navigateToDifferentDocument(HistoryItem*, FrameLoadType);
@@ -403,8 +412,6 @@ private:
     void open(CachedPage&);
 
     void updateHistoryAfterClientRedirect();
-
-    void clear(bool clearWindowProperties = true, bool clearScriptObjects = true, bool clearFrameView = true);
 
     bool shouldReloadToHandleUnreachableURL(DocumentLoader*);
 
@@ -465,6 +472,7 @@ private:
     mutable PolicyChecker m_policyChecker;
     mutable HistoryController m_history;
     mutable ResourceLoadNotifier m_notifer;
+    mutable DocumentWriter m_writer;
 
     FrameState m_state;
     FrameLoadType m_loadType;
@@ -488,8 +496,6 @@ private:
 
     bool m_isExecutingJavaScriptFormAction;
 
-    String m_responseMIMEType;
-
     bool m_didCallImplicitClose;
     bool m_wasUnloadEventEmitted;
     bool m_unloadEventBeingDispatched;
@@ -508,10 +514,6 @@ private:
 
     bool m_needsClear;
     bool m_receivedData;
-
-    bool m_encodingWasChosenByUser;
-    String m_encoding;
-    RefPtr<TextResourceDecoder> m_decoder;
 
     bool m_containsPlugIns;
 
@@ -533,6 +535,7 @@ private:
     bool m_suppressOpenerInNewFrame;
     
     SandboxFlags m_sandboxFlags;
+    SandboxFlags m_forcedSandboxFlags;
 
 #ifndef NDEBUG
     bool m_didDispatchDidCommitLoad;

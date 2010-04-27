@@ -39,6 +39,8 @@ endif
 #    To help setup buildbot, a new environment variable, USE_ALT_JS_ENGINE,
 #    can be set to true, so that two builds can be different but without
 #    specifying which JS engine to use.
+# To enable JIT in Android's JSC, please set ENABLE_JSC_JIT environment
+# variable to true.
 
 # To enable JIT in Android's JSC, please set ENABLE_JSC_JIT environment
 # variable to true.

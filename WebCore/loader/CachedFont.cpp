@@ -34,14 +34,15 @@
 #include "Cache.h"
 #include "CachedResourceClient.h"
 #include "CachedResourceClientWalker.h"
-#include "DOMImplementation.h"
 #include "FontPlatformData.h"
-#ifdef STORE_FONT_CUSTOM_PLATFORM_DATA
-#include "FontCustomPlatformData.h"
-#endif
+#include "SharedBuffer.h"
 #include "TextResourceDecoder.h"
 #include "loader.h"
 #include <wtf/Vector.h>
+
+#ifdef STORE_FONT_CUSTOM_PLATFORM_DATA
+#include "FontCustomPlatformData.h"
+#endif
 
 #if ENABLE(SVG_FONTS)
 #include "HTMLNames.h"
@@ -156,7 +157,7 @@ bool CachedFont::ensureSVGFontData()
 SVGFontElement* CachedFont::getSVGFontById(const String& fontName) const
 {
     ASSERT(m_isSVGFont);
-    RefPtr<NodeList> list = m_externalSVGDocument->getElementsByTagName(SVGNames::fontTag.localName());
+    RefPtr<NodeList> list = m_externalSVGDocument->getElementsByTagNameNS(SVGNames::fontTag.namespaceURI(), SVGNames::fontTag.localName());
     if (!list)
         return 0;
 

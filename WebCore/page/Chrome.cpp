@@ -67,9 +67,19 @@ Chrome::~Chrome()
     m_client->chromeDestroyed();
 }
 
-void Chrome::repaint(const IntRect& windowRect, bool contentChanged, bool immediate, bool repaintContentOnly)
+void Chrome::invalidateWindow(const IntRect& updateRect, bool immediate)
 {
-    m_client->repaint(windowRect, contentChanged, immediate, repaintContentOnly);
+    m_client->invalidateWindow(updateRect, immediate);
+}
+
+void Chrome::invalidateContentsAndWindow(const IntRect& updateRect, bool immediate)
+{
+    m_client->invalidateContentsAndWindow(updateRect, immediate);
+}
+
+void Chrome::invalidateContentsForSlowScroll(const IntRect& updateRect, bool immediate)
+{
+    m_client->invalidateContentsForSlowScroll(updateRect, immediate);
 }
 
 void Chrome::scroll(const IntSize& scrollDelta, const IntRect& rectToScroll, const IntRect& clipRect)
@@ -334,7 +344,7 @@ void Chrome::mouseDidMoveOverElement(const HitTestResult& result, unsigned modif
     if (result.innerNode()) {
         Document* document = result.innerNode()->document();
         if (document && document->isDNSPrefetchEnabled())
-            prefetchDNS(result.absoluteLinkURL().host());
+            ResourceHandle::prepareForURL(result.absoluteLinkURL());
     }
     m_client->mouseDidMoveOverElement(result, modifierFlags);
 
@@ -417,9 +427,15 @@ void Chrome::requestGeolocationPermissionForFrame(Frame* frame, Geolocation* geo
     m_client->requestGeolocationPermissionForFrame(frame, geolocation);
 }
 
+<<<<<<< HEAD
 void Chrome::cancelGeolocationPermissionRequestForFrame(Frame* frame)
 {
     m_client->cancelGeolocationPermissionRequestForFrame(frame);
+=======
+void Chrome::cancelGeolocationPermissionRequestForFrame(Frame* frame, Geolocation* geolocation)
+{
+    m_client->cancelGeolocationPermissionRequestForFrame(frame, geolocation);
+>>>>>>> webkit.org at r58033
 }
 
 void Chrome::runOpenPanel(Frame* frame, PassRefPtr<FileChooser> fileChooser)
@@ -427,9 +443,9 @@ void Chrome::runOpenPanel(Frame* frame, PassRefPtr<FileChooser> fileChooser)
     m_client->runOpenPanel(frame, fileChooser);
 }
 
-void Chrome::iconForFiles(const Vector<String>& filenames, PassRefPtr<FileChooser> fileChooser)
+void Chrome::chooseIconForFiles(const Vector<String>& filenames, FileChooser* fileChooser)
 {
-    m_client->iconForFiles(filenames, fileChooser);
+    m_client->chooseIconForFiles(filenames, fileChooser);
 }
 
 bool Chrome::setCursor(PlatformCursorHandle cursor)

@@ -26,8 +26,6 @@
 #ifndef MacroAssemblerX86_64_h
 #define MacroAssemblerX86_64_h
 
-#include <wtf/Platform.h>
-
 #if ENABLE(ASSEMBLER) && CPU(X86_64)
 
 #include "MacroAssemblerX86Common.h"
@@ -409,6 +407,14 @@ public:
         DataLabelPtr label = moveWithPatch(initialValue, scratchRegister);
         storePtr(scratchRegister, address);
         return label;
+    }
+
+    using MacroAssemblerX86Common::branchTest8;
+    Jump branchTest8(Condition cond, ExtendedAddress address, Imm32 mask = Imm32(-1))
+    {
+        ImmPtr addr(reinterpret_cast<void*>(address.offset));
+        MacroAssemblerX86Common::move(addr, scratchRegister);
+        return MacroAssemblerX86Common::branchTest8(cond, BaseIndex(scratchRegister, address.base, TimesOne), mask);
     }
 
     Label loadPtrWithPatchToLEA(Address address, RegisterID dest)

@@ -48,15 +48,17 @@ chdirWebKit();
 my $showHelp = 0;
 my $clean = 0;
 my $minimal = 0;
+my $webkit2 = 0;
 my $makeArgs;
 my $startTime = time();
 
 my ($threeDCanvasSupport, $threeDRenderingSupport, $channelMessagingSupport, $clientBasedGeolocationSupport, $databaseSupport, $datagridSupport, $datalistSupport,
     $domStorageSupport, $eventsourceSupport, $filtersSupport, $geolocationSupport, $iconDatabaseSupport, $indexedDatabaseSupport,
-    $javaScriptDebuggerSupport, $mathmlSupport, $offlineWebApplicationSupport, $rubySupport, $sharedWorkersSupport,
+    $javaScriptDebuggerSupport, $mathmlSupport, $offlineWebApplicationSupport, $rubySupport, $systemMallocSupport, $sandboxSupport, $sharedWorkersSupport,
     $svgSupport, $svgAnimationSupport, $svgAsImageSupport, $svgDOMObjCBindingsSupport, $svgFontsSupport,
     $svgForeignObjectSupport, $svgUseSupport, $videoSupport, $webSocketsSupport, $wmlSupport, $wcssSupport, $xhtmlmpSupport, $workersSupport,
-    $xpathSupport, $xsltSupport, $coverageSupport, $notificationsSupport);
+    $xpathSupport, $xsltSupport, $coverageSupport, $notificationsSupport, $blobSliceSupport, $tiledBackingStoreSupport,
+    $fileReaderSupport, $fileWriterSupport);
 
 my @features = (
     { option => "3d-canvas", desc => "Toggle 3D canvas support",
@@ -64,6 +66,9 @@ my @features = (
 
     { option => "3d-rendering", desc => "Toggle 3D rendering support",
       define => "ENABLE_3D_RENDERING", default => (isAppleMacWebKit() && !isTiger()), value => \$threeDRenderingSupport },
+
+    { option => "blob-slice", desc => "Toggle Blob.slice support",
+      define => "ENABLE_BLOB_SLICE", default => (isAppleMacWebKit()), value => \$blobSliceSupport },
 
     { option => "channel-messaging", desc => "Toggle MessageChannel and MessagePort support",
       define => "ENABLE_CHANNEL_MESSAGING", default => 1, value => \$channelMessagingSupport },
@@ -116,6 +121,12 @@ my @features = (
     { option => "ruby", desc => "Toggle HTML5 Ruby support",
       define => "ENABLE_RUBY", default => 1, value => \$rubySupport },
 
+    { option => "system-malloc", desc => "Toggle system allocator instead of TCmalloc",
+      define => "USE_SYSTEM_MALLOC", default => 0, value => \$systemMallocSupport },
+
+    { option => "sandbox", desc => "Toggle HTML5 Sandboxed iframe support",
+      define => "ENABLE_SANDBOX", default => 1, value => \$sandboxSupport },
+
     { option => "shared-workers", desc => "Toggle SharedWorkers support",
       define => "ENABLE_SHARED_WORKERS", default => (isAppleWebKit() || isGtk()), value => \$sharedWorkersSupport },
 
@@ -140,6 +151,9 @@ my @features = (
     { option => "svg-use", desc => "Toggle SVG use element support (implies SVG support)",
       define => "ENABLE_SVG_USE", default => 1, value => \$svgUseSupport },
 
+    { option => "tiled-backing-store", desc => "Toggle Tiled Backing Store support",
+      define => "ENABLE_TILED_BACKING_STORE", default => isQt(), value => \$tiledBackingStoreSupport },
+
     { option => "video", desc => "Toggle Video support",
       define => "ENABLE_VIDEO", default => (isAppleWebKit() || isGtk()), value => \$videoSupport },
 
@@ -163,6 +177,12 @@ my @features = (
 
     { option => "xslt", desc => "Toggle XSLT support",
       define => "ENABLE_XSLT", default => 1, value => \$xsltSupport },
+
+    { option => "file-reader", desc => "Toggle FileReader support",
+      define => "ENABLE_FILE_READER", default => 0, value => \$fileReaderSupport },
+
+    { option => "file-writer", desc => "Toggle FileWriter support",
+      define => "ENABLE_FILE_WRITER", default => 0, value => \$fileWriterSupport },
 );
 
 # Update defaults from Qt's project file
@@ -204,6 +224,7 @@ Usage: $programName [options] [options to pass to build system]
   --chromium                        Build the Chromium port on Mac/Win/Linux
   --gtk                             Build the GTK+ port
   --qt                              Build the Qt port
+  --webkit2                         Build the WebKit2 framework
   --inspector-frontend              Copy changes to the inspector front-end files to the build directory
 
   --makeargs=<arguments>            Optional Makefile flags
@@ -217,6 +238,7 @@ my %options = (
     'clean' => \$clean,
     'makeargs=s' => \$makeArgs,
     'minimal' => \$minimal,
+    'webkit2' => \$webkit2,
 );
 
 # Build usage text and options list from features
@@ -239,7 +261,14 @@ setConfiguration();
 my $productDir = productDir();
 
 # Check that all the project directories are there.
-my @projects = ("JavaScriptCore", "WebCore", "WebKit");
+my @projects = ("JavaScriptCore", "WebCore");
+
+if (!$webkit2) {
+    push @projects, "WebKit";
+} else {
+    push @projects, ("WebKit2", "WebKitTools/MiniBrowser");
+}
+
 # Only Apple builds JavaScriptGlue, and only on the Mac
 splice @projects, 1, 0, "JavaScriptGlue" if isAppleMacWebKit();
 
@@ -254,6 +283,7 @@ my @options = ();
 
 # enable autotool options accordingly
 if (isGtk()) {
+    @options = @ARGV;
     foreach (@features) {
         push @options, autotoolsFlag(${$_->{value}}, $_->{option});
     }
@@ -359,7 +389,18 @@ for my $dir (@projects) {
     } elsif (isQt()) {
         $result = buildQMakeQtProject($dir, $clean, @options);
     } elsif (isAppleMacWebKit()) {
-        $result = buildXCodeProject($dir, $clean, @options, @ARGV);
+        my @completeOptions = @options;
+        if ($webkit2 && $dir eq "WebCore") {
+            my @webKit2SpecificOverrides = (
+                'UMBRELLA_LDFLAGS=',
+                'GCC_PREPROCESSOR_DEFINITIONS=$(GCC_PREPROCESSOR_DEFINITIONS) ' .
+                    'ENABLE_EXPERIMENTAL_SINGLE_VIEW_MODE=1 ' .
+                    'WTF_USE_WEB_THREAD=1 '
+            );
+            push @completeOptions, @webKit2SpecificOverrides;
+        }
+
+        $result = buildXCodeProject($dir, $clean, @completeOptions, @ARGV);
     } elsif (isAppleWinWebKit()) {
         if ($dir eq "WebKit") {
             $result = buildVisualStudioProject("win/WebKit.vcproj/WebKit.sln", $clean);
@@ -420,10 +461,16 @@ sub writeCongrats()
 
     print "\n";
     print "===========================================================\n";
-    print " WebKit is now built ($buildTime). \n";
-    if (!isChromium()) {
-        print " To run $launcherName with this newly-built code, use the\n";
-        print " \"$launcherPath\" script.\n";
+    if ($webkit2) {
+        print " WebKit2 is now built ($buildTime). \n";
+        print " To run MiniBrowser with this newly-built code, use the\n";
+        print " \"run-minibrowser\" script.\n";
+    } else {
+        print " WebKit is now built ($buildTime). \n";
+        if (!isChromium()) {
+            print " To run $launcherName with this newly-built code, use the\n";
+            print " \"$launcherPath\" script.\n";
+        }
     }
     print "===========================================================\n";
 }

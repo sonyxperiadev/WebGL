@@ -46,7 +46,6 @@ namespace JSC {
         \
         macro(op_new_object, 2) \
         macro(op_new_array, 4) \
-        macro(op_new_regexp, 3) \
         macro(op_mov, 3) \
         \
         macro(op_not, 3) \
@@ -109,6 +108,11 @@ namespace JSC {
         macro(op_get_by_id_getter_proto, 8) \
         macro(op_get_by_id_getter_proto_list, 8) \
         macro(op_get_by_id_getter_chain, 8) \
+        macro(op_get_by_id_custom_self, 8) \
+        macro(op_get_by_id_custom_self_list, 8) \
+        macro(op_get_by_id_custom_proto, 8) \
+        macro(op_get_by_id_custom_proto_list, 8) \
+        macro(op_get_by_id_custom_chain, 8) \
         macro(op_get_by_id_generic, 8) \
         macro(op_get_array_length, 8) \
         macro(op_get_string_length, 8) \

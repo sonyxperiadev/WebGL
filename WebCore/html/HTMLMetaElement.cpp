@@ -68,6 +68,7 @@ void HTMLMetaElement::insertedIntoDocument()
 
 void HTMLMetaElement::process()
 {
+<<<<<<< HEAD
 #ifdef ANDROID_META_SUPPORT
     if (!inDocument() || m_content.isNull())
         return;
@@ -92,9 +93,17 @@ void HTMLMetaElement::process()
             android::WebViewCore::getWebViewCore(view)->updateViewport();
     }
 #endif
+=======
+    if (!inDocument() || m_content.isNull())
+        return;
+
+    if (equalIgnoringCase(name(), "viewport"))
+        document()->processViewport(m_content);
+
+>>>>>>> webkit.org at r58033
     // Get the document to process the tag, but only if we're actually part of DOM tree (changing a meta tag while
     // it's not in the tree shouldn't have any effect on the document)
-    if (inDocument() && !m_equiv.isNull() && !m_content.isNull())
+    if (!m_equiv.isNull())
         document()->processHttpEquiv(m_equiv, m_content);
 }
 

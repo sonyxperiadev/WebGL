@@ -58,6 +58,7 @@ webkit_test_plugin_new_instance(NPMIMEType /*mimetype*/,
 {
     if (browser->version >= 14) {
         PluginObject* obj = (PluginObject*)browser->createobject(instance, getPluginClass());
+        instance->pdata = obj;
 
         for (int i = 0; i < argc; i++) {
             if (strcasecmp(argn[i], "onstreamload") == 0 && !obj->onStreamLoad)
@@ -85,8 +86,11 @@ webkit_test_plugin_new_instance(NPMIMEType /*mimetype*/,
                 obj->testDocumentOpenInDestroyStream = TRUE;
             else if (strcasecmp(argn[i], "testwindowopen") == 0)
                 obj->testWindowOpen = TRUE;
+            else if (strcasecmp(argn[i], "onSetWindow") == 0 && !obj->onSetWindow)
+                obj->onSetWindow = strdup(argv[i]);
         }
-        instance->pdata = obj;
+
+        browser->getvalue(instance, NPNVprivateModeBool, (void *)&obj->cachedPrivateBrowsingMode);
     }
 
     return NPERR_NO_ERROR;
@@ -114,6 +118,9 @@ webkit_test_plugin_destroy_instance(NPP instance, NPSavedData** /*save*/)
         if (obj->logDestroy)
             pluginLog(instance, "NPP_Destroy");
 
+        if (obj->onSetWindow)
+            free(obj->onSetWindow);
+
         browser->releaseobject(&obj->header);
     }
 
@@ -126,10 +133,14 @@ webkit_test_plugin_set_window(NPP instance, NPWindow *window)
     PluginObject* obj = static_cast<PluginObject*>(instance->pdata);
 
     if (obj) {
+        obj->lastWindow = *window;
+
         if (obj->logSetWindow) {
             pluginLog(instance, "NPP_SetWindow: %d %d", (int)window->width, (int)window->height);
             obj->logSetWindow = false;
         }
+        if (obj->onSetWindow)
+            executeScript(obj, obj->onSetWindow);
 
         if (obj->testWindowOpen) {
             testWindowOpen(instance);
@@ -282,9 +293,17 @@ webkit_test_plugin_get_value(NPP instance, NPPVariable variable, void *value)
 }
 
 static NPError
-webkit_test_plugin_set_value(NPP /*instance*/, NPNVariable /*variable*/, void* /*value*/)
+webkit_test_plugin_set_value(NPP instance, NPNVariable variable, void* value)
 {
-    return NPERR_NO_ERROR;
+    PluginObject* obj = static_cast<PluginObject*>(instance->pdata);
+
+    switch (variable) {
+        case NPNVprivateModeBool:
+            obj->cachedPrivateBrowsingMode = *(NPBool*)value;
+            return NPERR_NO_ERROR;
+        default:
+            return NPERR_GENERIC_ERROR;
+    }
 }
 
 char *

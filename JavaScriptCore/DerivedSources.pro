@@ -78,7 +78,7 @@ addExtraCompiler(jscbison)
 # GENERATOR 3: JIT Stub functions for RVCT
 rvctstubs.output = $${JSC_GENERATED_SOURCES_DIR}$${QMAKE_DIR_SEP}Generated${QMAKE_FILE_BASE}_RVCT.h
 rvctstubs.wkScript = $$PWD/create_jit_stubs
-rvctstubs.commands = perl $$rvctstubs.wkScript --prefix RVCT ${QMAKE_FILE_NAME} -i > ${QMAKE_FILE_OUT}
+rvctstubs.commands = perl -i $$rvctstubs.wkScript --prefix RVCT ${QMAKE_FILE_NAME} > ${QMAKE_FILE_OUT}
 rvctstubs.depends = ${QMAKE_FILE_NAME}
 rvctstubs.input = RVCT_STUB_FILES
 rvctstubs.CONFIG += no_link
@@ -93,3 +93,9 @@ ctgen.commands = perl $$ctgen.wkScript ${QMAKE_FILE_OUT} $$PREPROCESSOR
 ctgen.clean = ${QMAKE_FILE_OUT} ${QMAKE_VAR_JSC_GENERATED_SOURCES_DIR}${QMAKE_FILE_BASE}
 addExtraCompiler(ctgen)
 
+#GENERATOR: "RegExpJitTables.h": tables used by Yarr
+retgen.output = $$JSC_GENERATED_SOURCES_DIR/RegExpJitTables.h
+retgen.wkScript = $$PWD/create_regex_tables 
+retgen.input = retgen.wkScript
+retgen.commands = python $$retgen.wkScript > ${QMAKE_FILE_OUT}
+addExtraCompiler(retgen)

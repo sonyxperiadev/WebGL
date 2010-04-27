@@ -31,6 +31,7 @@
 #include "StringImpl.h"
 #include "ThreadTimers.h"
 #include <wtf/UnusedParam.h>
+#include <wtf/WTFThreadData.h>
 
 #if USE(ICU_UNICODE)
 #include "TextCodecICU.h"
@@ -55,9 +56,7 @@ ThreadGlobalData* ThreadGlobalData::staticData;
 #endif
 
 ThreadGlobalData::ThreadGlobalData()
-    : m_emptyString(new StringImpl)
-    , m_atomicStringTable(new HashSet<StringImpl*>)
-    , m_eventNames(new EventNames)
+    : m_eventNames(new EventNames)
     , m_threadTimers(new ThreadTimers)
 #ifndef NDEBUG
     , m_isMainThread(isMainThread())
@@ -69,6 +68,12 @@ ThreadGlobalData::ThreadGlobalData()
     , m_cachedConverterTEC(new TECConverterWrapper)
 #endif
 {
+    // This constructor will have been called on the main thread before being called on
+    // any other thread, and is only called once per thread – this makes this a convenient
+    // point to call methods that internally perform a one-time initialization that is not
+    // threadsafe.
+    wtfThreadData();
+    StringImpl::empty();
 }
 
 ThreadGlobalData::~ThreadGlobalData()
@@ -80,16 +85,7 @@ ThreadGlobalData::~ThreadGlobalData()
     delete m_cachedConverterICU;
 #endif
     delete m_eventNames;
-    delete m_atomicStringTable;
     delete m_threadTimers;
-
-    // Using member variable m_isMainThread instead of calling WTF::isMainThread() directly
-    // to avoid issues described in https://bugs.webkit.org/show_bug.cgi?id=25973.
-    // In short, some pthread-based platforms and ports can not use WTF::CurrentThread() and WTF::isMainThread()
-    // in destructors of thread-specific data.
-    ASSERT(m_isMainThread || m_emptyString->hasOneRef()); // We intentionally don't clean up static data on application quit, so there will be many strings remaining on the main thread.
-
-    delete m_emptyString;
 }
 
 } // namespace WebCore

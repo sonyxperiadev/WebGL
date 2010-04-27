@@ -34,7 +34,6 @@
 #include "CachedScript.h"
 #include "CachedXSLStyleSheet.h"
 #include "Console.h"
-#include "CString.h"
 #include "Document.h"
 #include "DOMWindow.h"
 #include "HTMLElement.h"
@@ -44,9 +43,13 @@
 #include "loader.h"
 #include "SecurityOrigin.h"
 #include "Settings.h"
+<<<<<<< HEAD
 #if ENABLE(LINK_PREFETCH)
 #include "CachedLinkPrefetch.h"
 #endif
+=======
+#include <wtf/text/CString.h>
+>>>>>>> webkit.org at r58033
 
 #define PRELOAD_DEBUG 0
 
@@ -473,7 +476,7 @@ void DocLoader::requestPreload(CachedResource::Type type, const String& url, con
 {
     String encoding;
     if (type == CachedResource::Script || type == CachedResource::CSSStyleSheet)
-        encoding = charset.isEmpty() ? m_doc->frame()->loader()->encoding() : charset;
+        encoding = charset.isEmpty() ? m_doc->frame()->loader()->writer()->encoding() : charset;
 
     CachedResource* resource = requestResource(type, url, encoding, true);
     if (!resource || m_preloads.contains(resource))

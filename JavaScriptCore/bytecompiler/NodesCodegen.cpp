@@ -149,7 +149,7 @@ RegisterID* RegExpNode::emitBytecode(BytecodeGenerator& generator, RegisterID* d
         return emitThrowError(generator, SyntaxError, "Invalid regular expression: %s", regExp->errorMessage());
     if (dst == generator.ignoredResult())
         return 0;
-    return generator.emitNewRegExp(generator.finalDestination(dst), regExp.get());
+    return generator.emitLoad(generator.finalDestination(dst), regExp.get());
 }
 
 // ------------------------------ ThisNode -------------------------------------
@@ -1699,7 +1699,7 @@ static void processClauseList(ClauseListNode* list, Vector<ExpressionNode*, 8>& 
             }
             const UString& value = static_cast<StringNode*>(clauseExpression)->value().ustring();
             if (singleCharacterSwitch &= value.size() == 1) {
-                int32_t intVal = value.rep()->data()[0];
+                int32_t intVal = value.rep()->characters()[0];
                 if (intVal < min_num)
                     min_num = intVal;
                 if (intVal > max_num)

@@ -31,9 +31,10 @@
 
 #include <JavaScriptCore/JSObjectRef.h>
 #include <JavaScriptCore/JSRetainPtr.h>
-#include <wtf/RefCounted.h>
+#include <set>
 #include <string>
 #include <vector>
+#include <wtf/RefCounted.h>
 
 class LayoutTestController : public RefCounted<LayoutTestController> {
 public:
@@ -46,6 +47,7 @@ public:
     void clearAllDatabases();
     void clearBackForwardList();
     void clearPersistentUserStyleSheet();
+    bool callShouldCloseOnWebView();
     JSStringRef copyDecodedHostName(JSStringRef name);
     JSStringRef copyEncodedHostName(JSStringRef name);
     void disableImageLoading();
@@ -55,6 +57,7 @@ public:
     JSRetainPtr<JSStringRef> counterValueForElementById(JSStringRef id);
     bool isCommandEnabled(JSStringRef name);
     void keepWebHistory();
+    JSValueRef computedStyleIncludingVisitedInfo(JSContextRef, JSValueRef);
     void notifyDone();
     int numberOfPages(float pageWidthInPixels, float pageHeightInPixels);
     void overridePreference(JSStringRef key, JSStringRef value);
@@ -91,7 +94,9 @@ public:
     void setUserStyleSheetEnabled(bool flag);
     void setUserStyleSheetLocation(JSStringRef path);
     void setXSSAuditorEnabled(bool flag);
-    void setFrameSetFlatteningEnabled(bool enable);
+    void setFrameFlatteningEnabled(bool enable);
+    void setSpatialNavigationEnabled(bool enable);
+    void setScrollbarPolicy(JSStringRef orientation, JSStringRef policy);
 
     void waitForPolicyDelegate();
     size_t webHistoryItemCount();
@@ -185,6 +190,9 @@ public:
     void setWaitToDump(bool waitToDump);
     void waitToDumpWatchdogTimerFired();
 
+    const std::set<std::string>& willSendRequestClearHeaders() const { return m_willSendRequestClearHeaders; }
+    void setWillSendRequestClearHeader(std::string header) { m_willSendRequestClearHeaders.insert(header); }
+
     bool willSendRequestReturnsNull() const { return m_willSendRequestReturnsNull; }
     void setWillSendRequestReturnsNull(bool returnsNull) { m_willSendRequestReturnsNull = returnsNull; }
 
@@ -217,7 +225,8 @@ public:
     bool sampleSVGAnimationForElementAtTime(JSStringRef animationId, double time, JSStringRef elementId);
     unsigned numberOfActiveAnimations() const;
 
-    void whiteListAccessFromOrigin(JSStringRef sourceOrigin, JSStringRef destinationProtocol, JSStringRef destinationHost, bool allowDestinationSubdomains);
+    void addOriginAccessWhitelistEntry(JSStringRef sourceOrigin, JSStringRef destinationProtocol, JSStringRef destinationHost, bool allowDestinationSubdomains);
+    void removeOriginAccessWhitelistEntry(JSStringRef sourceOrigin, JSStringRef destinationProtocol, JSStringRef destinationHost, bool allowDestinationSubdomains);
 
     void addUserScript(JSStringRef source, bool runAtStart);
     void addUserStyleSheet(JSStringRef source);
@@ -226,6 +235,7 @@ public:
     bool isGeolocationPermissionSet() const { return m_isGeolocationPermissionSet; }
     bool geolocationPermission() const { return m_geolocationPermission; }
 
+    void setDeveloperExtrasEnabled(bool);
     void showWebInspector();
     void closeWebInspector();
     void setTimelineProfilingEnabled(bool enabled);
@@ -233,10 +243,20 @@ public:
     void evaluateScriptInIsolatedWorld(unsigned worldId, JSObjectRef globalObject, JSStringRef script);
 
     void setPOSIXLocale(JSStringRef locale);
-    
+
+    void setWebViewEditable(bool);
+
     // The following API test functions should probably be moved to platform-specific 
     // unit tests outside of DRT once they exist.
     void apiTestNewWindowDataLoadBaseURL(JSStringRef utf8Data, JSStringRef baseURL);
+    void apiTestGoToCurrentBackForwardItem();
+
+    // Simulate a request an embedding application could make, populating per-session credential storage.
+    void authenticateSession(JSStringRef url, JSStringRef username, JSStringRef password);
+
+    JSRetainPtr<JSStringRef> layerTreeAsText() const;
+
+    JSRetainPtr<JSStringRef> markerTextForListItem(JSContextRef context, JSValueRef nodeObject) const;
 
     static const unsigned maxViewWidth;
     static const unsigned maxViewHeight;
@@ -282,6 +302,8 @@ private:
     std::string m_authenticationPassword; 
     std::string m_testPathOrURL;
     std::string m_expectedPixelHash;    // empty string if no hash
+
+    std::set<std::string> m_willSendRequestClearHeaders;
     
     // origins which have been granted desktop notification access
     std::vector<JSStringRef> m_desktopNotificationAllowedOrigins;

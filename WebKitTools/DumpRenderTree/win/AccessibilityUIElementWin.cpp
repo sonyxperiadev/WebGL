@@ -83,6 +83,18 @@ int AccessibilityUIElement::childrenCount()
     return childCount;
 }
 
+int AccessibilityUIElement::rowCount()
+{
+    // FIXME: implement
+    return 0;
+}
+ 
+int AccessibilityUIElement::columnCount()
+{
+    // FIXME: implement
+    return 0;
+}
+
 AccessibilityUIElement AccessibilityUIElement::elementAtPoint(int x, int y)
 {
     return 0;
@@ -222,6 +234,11 @@ JSStringRef AccessibilityUIElement::stringValue()
 JSStringRef AccessibilityUIElement::language()
 {
     return JSStringCreateWithCharacters(0, 0);
+}
+
+JSStringRef AccessibilityUIElement::helpText() const
+{
+    return 0;
 }
 
 double AccessibilityUIElement::x()
@@ -477,6 +494,11 @@ void AccessibilityUIElement::showMenu()
     m_element->accDoDefaultAction(self());
 }
 
+void AccessibilityUIElement::press()
+{
+    // FIXME: implement
+}
+
 AccessibilityUIElement AccessibilityUIElement::disclosedRowAtIndex(unsigned index)
 {
     return 0;
@@ -538,6 +560,11 @@ bool AccessibilityUIElement::addNotificationListener(JSObjectRef functionCallbac
 
     sharedFrameLoadDelegate->accessibilityController()->addNotificationListener(m_element, functionCallback);
     return true;
+}
+
+void AccessibilityUIElement::removeNotificationListener()
+{
+    // FIXME: implement
 }
 
 bool AccessibilityUIElement::isSelectable() const

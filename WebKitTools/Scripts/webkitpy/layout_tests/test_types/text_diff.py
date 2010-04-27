@@ -37,8 +37,10 @@ import errno
 import logging
 import os.path
 
-from layout_package import test_failures
-from test_types import test_type_base
+from webkitpy.layout_tests.layout_package import test_failures
+from webkitpy.layout_tests.test_types import test_type_base
+
+_log = logging.getLogger("webkitpy.layout_tests.test_types.text_diff")
 
 
 def is_render_tree_dump(data):
@@ -63,7 +65,7 @@ class TestTextDiff(test_type_base.TestTypeBase):
         # Read the port-specific expected text.
         expected_filename = self._port.expected_filename(filename, '.txt')
         if show_sources:
-            logging.debug('Using %s' % expected_filename)
+            _log.debug('Using %s' % expected_filename)
 
         return self.get_normalized_text(expected_filename)
 
@@ -78,7 +80,7 @@ class TestTextDiff(test_type_base.TestTypeBase):
         # Normalize line endings
         return text.strip("\r\n").replace("\r\n", "\n") + "\n"
 
-    def compare_output(self, port, filename, output, test_args, target):
+    def compare_output(self, port, filename, output, test_args, configuration):
         """Implementation of CompareOutput that checks the output text against
         the expected text from the LayoutTest directory."""
         failures = []
@@ -96,8 +98,8 @@ class TestTextDiff(test_type_base.TestTypeBase):
         # Write output files for new tests, too.
         if port.compare_text(output, expected):
             # Text doesn't match, write output files.
-            self.write_output_files(port, filename, "", ".txt", output,
-                                    expected, diff=True, wdiff=True)
+            self.write_output_files(port, filename, ".txt", output,
+                                    expected, print_text_diffs=True)
 
             if expected == '':
                 failures.append(test_failures.FailureMissingResult(self))

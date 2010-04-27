@@ -26,8 +26,6 @@
 #ifndef MacroAssembler_h
 #define MacroAssembler_h
 
-#include <wtf/Platform.h>
-
 #if ENABLE(ASSEMBLER)
 
 #if CPU(ARM_THUMB2)
@@ -37,6 +35,12 @@ namespace JSC { typedef MacroAssemblerARMv7 MacroAssemblerBase; };
 #elif CPU(ARM_TRADITIONAL)
 #include "MacroAssemblerARM.h"
 namespace JSC { typedef MacroAssemblerARM MacroAssemblerBase; };
+
+#elif CPU(MIPS)
+#include "MacroAssemblerMIPS.h"
+namespace JSC {
+typedef MacroAssemblerMIPS MacroAssemblerBase;
+};
 
 #elif CPU(X86)
 #include "MacroAssemblerX86.h"
@@ -326,6 +330,11 @@ public:
     Jump branchSubPtr(Condition cond, Imm32 imm, RegisterID dest)
     {
         return branchSub32(cond, imm, dest);
+    }
+    using MacroAssemblerBase::branchTest8;
+    Jump branchTest8(Condition cond, ExtendedAddress address, Imm32 mask = Imm32(-1))
+    {
+        return MacroAssemblerBase::branchTest8(cond, Address(address.base, address.offset), mask);
     }
 #endif
 

@@ -21,8 +21,8 @@
 #include "JSDOMWindowCustom.h"
 
 #include "AtomicString.h"
-#include "Base64.h"
 #include "Chrome.h"
+#include "Database.h"
 #include "DOMWindow.h"
 #include "Document.h"
 #include "ExceptionCode.h"
@@ -36,6 +36,8 @@
 #include "HTMLDocument.h"
 #include "History.h"
 #include "JSAudioConstructor.h"
+#include "JSDatabase.h"
+#include "JSDatabaseCallback.h"
 #include "JSDOMWindowShell.h"
 #include "JSEvent.h"
 #include "JSEventListener.h"
@@ -124,31 +126,31 @@ void JSDOMWindow::markChildren(MarkStack& markStack)
 }
 
 template<NativeFunction nativeFunction, int length>
-JSValue nonCachingStaticFunctionGetter(ExecState* exec, const Identifier& propertyName, const PropertySlot&)
+JSValue nonCachingStaticFunctionGetter(ExecState* exec, JSValue, const Identifier& propertyName)
 {
     return new (exec) NativeFunctionWrapper(exec, exec->lexicalGlobalObject()->prototypeFunctionStructure(), length, propertyName, nativeFunction);
 }
 
-static JSValue childFrameGetter(ExecState* exec, const Identifier& propertyName, const PropertySlot& slot)
+static JSValue childFrameGetter(ExecState* exec, JSValue slotBase, const Identifier& propertyName)
 {
-    return toJS(exec, static_cast<JSDOMWindow*>(asObject(slot.slotBase()))->impl()->frame()->tree()->child(AtomicString(propertyName))->domWindow());
+    return toJS(exec, static_cast<JSDOMWindow*>(asObject(slotBase))->impl()->frame()->tree()->child(identifierToAtomicString(propertyName))->domWindow());
 }
 
-static JSValue indexGetter(ExecState* exec, const Identifier&, const PropertySlot& slot)
+static JSValue indexGetter(ExecState* exec, JSValue slotBase, unsigned index)
 {
-    return toJS(exec, static_cast<JSDOMWindow*>(asObject(slot.slotBase()))->impl()->frame()->tree()->child(slot.index())->domWindow());
+    return toJS(exec, static_cast<JSDOMWindow*>(asObject(slotBase))->impl()->frame()->tree()->child(index)->domWindow());
 }
 
-static JSValue namedItemGetter(ExecState* exec, const Identifier& propertyName, const PropertySlot& slot)
+static JSValue namedItemGetter(ExecState* exec, JSValue slotBase, const Identifier& propertyName)
 {
-    JSDOMWindowBase* thisObj = static_cast<JSDOMWindow*>(asObject(slot.slotBase()));
+    JSDOMWindowBase* thisObj = static_cast<JSDOMWindow*>(asObject(slotBase));
     Document* document = thisObj->impl()->frame()->document();
 
     ASSERT(thisObj->allowsAccessFrom(exec));
     ASSERT(document);
     ASSERT(document->isHTMLDocument());
 
-    RefPtr<HTMLCollection> collection = document->windowNamedItems(propertyName);
+    RefPtr<HTMLCollection> collection = document->windowNamedItems(identifierToString(propertyName));
     if (collection->length() == 1)
         return toJS(exec, collection->firstItem());
     return toJS(exec, collection.get());
@@ -249,7 +251,7 @@ bool JSDOMWindow::getOwnPropertySlot(ExecState* exec, const Identifier& property
     // naming frames things that conflict with window properties that
     // are in Moz but not IE. Since we have some of these, we have to do
     // it the Moz way.
-    if (impl()->frame()->tree()->child(propertyName)) {
+    if (impl()->frame()->tree()->child(identifierToAtomicString(propertyName))) {
         slot.setCustom(this, childFrameGetter);
         return true;
     }
@@ -287,7 +289,7 @@ bool JSDOMWindow::getOwnPropertySlot(ExecState* exec, const Identifier& property
     // Allow shortcuts like 'Image1' instead of document.images.Image1
     Document* document = impl()->frame()->document();
     if (document->isHTMLDocument()) {
-        AtomicStringImpl* atomicPropertyName = AtomicString::find(propertyName);
+        AtomicStringImpl* atomicPropertyName = findAtomicString(propertyName);
         if (atomicPropertyName && (static_cast<HTMLDocument*>(document)->hasNamedItem(atomicPropertyName) || document->hasElementWithId(atomicPropertyName))) {
             slot.setCustom(this, namedItemGetter);
             return true;
@@ -338,7 +340,7 @@ bool JSDOMWindow::getOwnPropertyDescriptor(ExecState* exec, const Identifier& pr
     // naming frames things that conflict with window properties that
     // are in Moz but not IE. Since we have some of these, we have to do
     // it the Moz way.
-    if (impl()->frame()->tree()->child(propertyName)) {
+    if (impl()->frame()->tree()->child(identifierToAtomicString(propertyName))) {
         PropertySlot slot;
         slot.setCustom(this, childFrameGetter);
         descriptor.setDescriptor(slot.getValue(exec, propertyName), ReadOnly | DontDelete | DontEnum);
@@ -357,7 +359,7 @@ bool JSDOMWindow::getOwnPropertyDescriptor(ExecState* exec, const Identifier& pr
     // Allow shortcuts like 'Image1' instead of document.images.Image1
     Document* document = impl()->frame()->document();
     if (document->isHTMLDocument()) {
-        AtomicStringImpl* atomicPropertyName = AtomicString::find(propertyName);
+        AtomicStringImpl* atomicPropertyName = findAtomicString(propertyName);
         if (atomicPropertyName && (static_cast<HTMLDocument*>(document)->hasNamedItem(atomicPropertyName) || document->hasElementWithId(atomicPropertyName))) {
             PropertySlot slot;
             slot.setCustom(this, namedItemGetter);
@@ -504,7 +506,7 @@ void JSDOMWindow::setLocation(ExecState* exec, JSValue value)
     Frame* frame = impl()->frame();
     ASSERT(frame);
 
-    KURL url = completeURL(exec, value.toString(exec));
+    KURL url = completeURL(exec, ustringToString(value.toString(exec)));
     if (url.isNull())
         return;
 
@@ -666,12 +668,6 @@ static Frame* createWindow(ExecState* exec, Frame* lexicalFrame, Frame* dynamicF
     ASSERT(lexicalFrame);
     ASSERT(dynamicFrame);
 
-    if (Document* lexicalDocument = lexicalFrame->document()) {
-        // Sandboxed iframes cannot open new auxiliary browsing contexts.
-        if (lexicalDocument->securityOrigin()->isSandboxed(SandboxNavigation))
-            return 0;
-    }
-
     ResourceRequest request;
 
     // For whatever reason, Firefox uses the dynamicGlobalObject to determine
@@ -729,7 +725,7 @@ static bool domWindowAllowPopUp(Frame* activeFrame, ExecState* exec)
 JSValue JSDOMWindow::open(ExecState* exec, const ArgList& args)
 {
     String urlString = valueToStringWithUndefinedOrNullCheck(exec, args.at(0));
-    AtomicString frameName = args.at(1).isUndefinedOrNull() ? "_blank" : AtomicString(args.at(1).toString(exec));
+    AtomicString frameName = args.at(1).isUndefinedOrNull() ? "_blank" : ustringToAtomicString(args.at(1).toString(exec));
     WindowFeatures windowFeatures(valueToStringWithUndefinedOrNullCheck(exec, args.at(2)));
 
     Frame* frame = impl()->frame();
@@ -938,57 +934,6 @@ JSValue JSDOMWindow::setInterval(ExecState* exec, const ArgList& args)
     return jsNumber(exec, result);
 }
 
-JSValue JSDOMWindow::atob(ExecState* exec, const ArgList& args)
-{
-    if (args.size() < 1)
-        return throwError(exec, SyntaxError, "Not enough arguments");
-
-    JSValue v = args.at(0);
-    if (v.isNull())
-        return jsEmptyString(exec);
-
-    UString s = v.toString(exec);
-    if (!s.is8Bit()) {
-        setDOMException(exec, INVALID_CHARACTER_ERR);
-        return jsUndefined();
-    }
-
-    Vector<char> in(s.size());
-    for (unsigned i = 0; i < s.size(); ++i)
-        in[i] = static_cast<char>(s.data()[i]);
-    Vector<char> out;
-
-    if (!base64Decode(in, out))
-        return throwError(exec, GeneralError, "Cannot decode base64");
-
-    return jsString(exec, String(out.data(), out.size()));
-}
-
-JSValue JSDOMWindow::btoa(ExecState* exec, const ArgList& args)
-{
-    if (args.size() < 1)
-        return throwError(exec, SyntaxError, "Not enough arguments");
-
-    JSValue v = args.at(0);
-    if (v.isNull())
-        return jsEmptyString(exec);
-
-    UString s = v.toString(exec);
-    if (!s.is8Bit()) {
-        setDOMException(exec, INVALID_CHARACTER_ERR);
-        return jsUndefined();
-    }
-
-    Vector<char> in(s.size());
-    for (unsigned i = 0; i < s.size(); ++i)
-        in[i] = static_cast<char>(s.data()[i]);
-    Vector<char> out;
-
-    base64Encode(in, out);
-
-    return jsString(exec, String(out.data(), out.size()));
-}
-
 JSValue JSDOMWindow::addEventListener(ExecState* exec, const ArgList& args)
 {
     Frame* frame = impl()->frame();
@@ -999,7 +944,7 @@ JSValue JSDOMWindow::addEventListener(ExecState* exec, const ArgList& args)
     if (!listener.isObject())
         return jsUndefined();
 
-    impl()->addEventListener(args.at(0).toString(exec), JSEventListener::create(asObject(listener), this, false, currentWorld(exec)), args.at(2).toBoolean(exec));
+    impl()->addEventListener(ustringToAtomicString(args.at(0).toString(exec)), JSEventListener::create(asObject(listener), this, false, currentWorld(exec)), args.at(2).toBoolean(exec));
     return jsUndefined();
 }
 
@@ -1013,9 +958,30 @@ JSValue JSDOMWindow::removeEventListener(ExecState* exec, const ArgList& args)
     if (!listener.isObject())
         return jsUndefined();
 
-    impl()->removeEventListener(args.at(0).toString(exec), JSEventListener::create(asObject(listener), this, false, currentWorld(exec)).get(), args.at(2).toBoolean(exec));
+    impl()->removeEventListener(ustringToAtomicString(args.at(0).toString(exec)), JSEventListener::create(asObject(listener), this, false, currentWorld(exec)).get(), args.at(2).toBoolean(exec));
     return jsUndefined();
 }
+
+#if ENABLE(DATABASE)
+JSValue JSDOMWindow::openDatabase(ExecState* exec, const ArgList& args)
+{
+    if (!allowsAccessFrom(exec) || (args.size() < 4))
+        return jsUndefined();
+    ExceptionCode ec = 0;
+    const UString& name = args.at(0).toString(exec);
+    const UString& version = args.at(1).toString(exec);
+    const UString& displayName = args.at(2).toString(exec);
+    unsigned long estimatedSize = args.at(3).toInt32(exec);
+    RefPtr<DatabaseCallback> creationCallback;
+    if ((args.size() >= 5) && args.at(4).isObject())
+        creationCallback = JSDatabaseCallback::create(asObject(args.at(4)), globalObject());
+
+    JSValue result = toJS(exec, globalObject(), WTF::getPtr(impl()->openDatabase(ustringToString(name), ustringToString(version), ustringToString(displayName), estimatedSize, creationCallback.release(), ec)));
+
+    setDOMException(exec, ec);
+    return result;
+}
+#endif
 
 DOMWindow* toDOMWindow(JSValue value)
 {

@@ -80,7 +80,11 @@ namespace WebCore {
     typedef BBitmap* DragImageRef;
 #elif PLATFORM(BREWMP)
     typedef IImage* DragImageRef;
+<<<<<<< HEAD
 #elif PLATFORM(ANDROID)
+=======
+#elif PLATFORM(EFL)
+>>>>>>> webkit.org at r58033
     typedef void* DragImageRef;
 #endif
     

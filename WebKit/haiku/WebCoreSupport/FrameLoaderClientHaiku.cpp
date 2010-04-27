@@ -510,7 +510,7 @@ void FrameLoaderClientHaiku::committedLoad(WebCore::DocumentLoader* loader, cons
         return;
 
     FrameLoader* frameLoader = loader->frameLoader();
-    frameLoader->setEncoding(m_response.textEncodingName(), false);
+    frameLoader->writer()->setEncoding(m_response.textEncodingName(), false);
     frameLoader->addData(data, length);
 }
 
@@ -632,11 +632,6 @@ bool FrameLoaderClientHaiku::dispatchDidLoadResourceFromMemoryCache(DocumentLoad
 {
     notImplemented();
     return false;
-}
-
-void FrameLoaderClientHaiku::dispatchDidLoadResourceByXMLHttpRequest(unsigned long, const ScriptString&)
-{
-    notImplemented();
 }
 
 void FrameLoaderClientHaiku::dispatchDidFailProvisionalLoad(const ResourceError&)

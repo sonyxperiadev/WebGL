@@ -153,13 +153,6 @@ LOCAL_SRC_FILES := \
 	runtime/UString.cpp \
 	runtime/UStringImpl.cpp \
 	\
-	wrec/CharacterClass.cpp \
-	wrec/CharacterClassConstructor.cpp \
-	wrec/WREC.cpp \
-	wrec/WRECFunctors.cpp \
-	wrec/WRECGenerator.cpp \
-	wrec/WRECParser.cpp \
-	\
 	wtf/Assertions.cpp \
 	wtf/ByteArray.cpp \
 	wtf/CurrentTime.cpp \
@@ -173,11 +166,17 @@ LOCAL_SRC_FILES := \
 	wtf/ThreadIdentifierDataPthreads.cpp \
 	wtf/Threading.cpp \
 	wtf/ThreadingPthreads.cpp \
+	wtf/WTFThreadData.cpp \
 	\
 	wtf/TypeTraits.cpp \
 	wtf/dtoa.cpp \
 	\
 	wtf/android/MainThreadAndroid.cpp \
+	\
+	wtf/text/AtomicString.cpp \
+	wtf/text/CString.cpp \
+	wtf/text/StringImpl.cpp \
+	wtf/text/WTFString.cpp \
 	\
 	wtf/unicode/CollatorDefault.cpp \
 	wtf/unicode/UTF8.cpp \

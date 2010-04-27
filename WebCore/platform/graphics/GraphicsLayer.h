@@ -60,13 +60,27 @@ typedef WKCACFLayer PlatformLayer;
 typedef void* NativeLayer;
 }
 #elif PLATFORM(QT)
+QT_BEGIN_NAMESPACE
 class QGraphicsItem;
+QT_END_NAMESPACE
 typedef QGraphicsItem PlatformLayer;
 typedef QGraphicsItem* NativeLayer;
+#elif PLATFORM(CHROMIUM)
+namespace WebCore {
+class LayerChromium;
+typedef LayerChromium PlatformLayer;
+typedef void* NativeLayer;
+}
 #else
 typedef void* PlatformLayer;
 typedef void* NativeLayer;
 #endif
+
+enum LayerTreeAsTextBehaviorFlags {
+    LayerTreeAsTextBehaviorNormal = 0,
+    LayerTreeAsTextDebug = 1 << 0, // Dump extra debugging info like layer addresses.
+};
+typedef unsigned LayerTreeAsTextBehavior;
 
 namespace WebCore {
 
@@ -298,7 +312,7 @@ public:
     
     virtual PlatformLayer* platformLayer() const { return 0; }
     
-    void dumpLayer(TextStream&, int indent = 0) const;
+    void dumpLayer(TextStream&, int indent = 0, LayerTreeAsTextBehavior = LayerTreeAsTextBehaviorNormal) const;
 
     int repaintCount() const { return m_repaintCount; }
     int incrementRepaintCount() { return ++m_repaintCount; }
@@ -333,6 +347,10 @@ public:
     // Some compositing systems may do internal batching to synchronize compositing updates
     // with updates drawn into the window. This is a signal to flush any internal batched state.
     virtual void syncCompositingState() { }
+    
+    // Return a string with a human readable form of the layer tree, If debug is true 
+    // pointers for the layers and timing data will be included in the returned string.
+    String layerTreeAsText(LayerTreeAsTextBehavior = LayerTreeAsTextBehaviorNormal) const;
 
 protected:
 
@@ -349,7 +367,7 @@ protected:
 
     GraphicsLayer(GraphicsLayerClient*);
 
-    void dumpProperties(TextStream&, int indent) const;
+    void dumpProperties(TextStream&, int indent, LayerTreeAsTextBehavior) const;
 
     GraphicsLayerClient* m_client;
     String m_name;
@@ -397,6 +415,11 @@ protected:
 
 
 } // namespace WebCore
+
+#ifndef NDEBUG
+// Outside the WebCore namespace for ease of invocation from gdb.
+void showGraphicsLayerTree(const WebCore::GraphicsLayer* layer);
+#endif
 
 #endif // USE(ACCELERATED_COMPOSITING)
 

@@ -31,14 +31,17 @@
 
 namespace WebCore {
 
-bool ScriptController::canExecuteScripts()
+bool ScriptController::canExecuteScripts(ReasonForCallingCanExecuteScripts reason)
 {
     // FIXME: We should get this information from the document instead of the frame.
     if (m_frame->loader()->isSandboxed(SandboxScripts))
         return false;
 
     Settings* settings = m_frame->settings();
-    return m_frame->loader()->client()->allowJavaScript(settings && settings->isJavaScriptEnabled());
+    const bool allowed = m_frame->loader()->client()->allowJavaScript(settings && settings->isJavaScriptEnabled());
+    if (!allowed && reason == AboutToExecuteScript)
+        m_frame->loader()->client()->didNotAllowScript();
+    return allowed;
 }
 
 ScriptValue ScriptController::executeScript(const String& script, bool forceUserGesture)
@@ -48,7 +51,7 @@ ScriptValue ScriptController::executeScript(const String& script, bool forceUser
 
 ScriptValue ScriptController::executeScript(const ScriptSourceCode& sourceCode)
 {
-    if (!canExecuteScripts() || isPaused())
+    if (!canExecuteScripts(AboutToExecuteScript) || isPaused())
         return ScriptValue();
 
     bool wasInExecuteScript = m_inExecuteScript;
@@ -98,7 +101,7 @@ bool ScriptController::executeIfJavaScriptURL(const KURL& url, bool userGesture,
     //        synchronously can cause crashes:
     //        http://bugs.webkit.org/show_bug.cgi?id=16782
     if (replaceDocument) 
-        m_frame->loader()->replaceDocument(scriptResult);
+        m_frame->loader()->writer()->replaceDocument(scriptResult);
 
     return true;
 }

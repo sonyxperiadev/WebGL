@@ -67,6 +67,8 @@ EventSender::EventSender(QWebPage* parent)
     endOfQueue = 0;
     startOfQueue = 0;
     m_eventLoop = 0;
+    m_currentButton = 0;
+    resetClickCount();
     m_page->view()->installEventFilter(this);
 }
 
@@ -92,11 +94,28 @@ void EventSender::mouseDown(int button)
         break;
     }
 
+    // only consider a click to count, an event originated by the
+    // same previous button and at the same position.
+    if (m_currentButton == button
+        && m_mousePos == m_clickPos
+        && m_clickTimer.isActive())
+        m_clickCount++;
+    else
+        m_clickCount = 1;
+
+    m_currentButton = button;
+    m_clickPos = m_mousePos;
     m_mouseButtons |= mouseButton;
 
 //     qDebug() << "EventSender::mouseDown" << frame;
-    QMouseEvent* event = new QMouseEvent(QEvent::MouseButtonPress, m_mousePos, m_mousePos, mouseButton, m_mouseButtons, Qt::NoModifier);
+    QMouseEvent* event;
+    event = new QMouseEvent((m_clickCount == 2) ? QEvent::MouseButtonDblClick :
+                    QEvent::MouseButtonPress, m_mousePos, m_mousePos,
+                    mouseButton, m_mouseButtons, Qt::NoModifier);
+
     sendOrQueueEvent(event);
+
+    m_clickTimer.start(QApplication::doubleClickInterval(), this);
 }
 
 void EventSender::mouseUp(int button)
@@ -289,11 +308,15 @@ void EventSender::scheduleAsynchronousClick()
 void EventSender::addTouchPoint(int x, int y)
 {
 #if QT_VERSION >= QT_VERSION_CHECK(4, 6, 0)
-    int id = m_touchPoints.count();
+    // Use index to refer to the position in the vector that this touch
+    // is stored. We then create a unique id for the touch that will be
+    // passed into WebCore.
+    int index = m_touchPoints.count();
+    int id = m_touchPoints.isEmpty() ? 0 : m_touchPoints.last().id() + 1;
     QTouchEvent::TouchPoint point(id);
     m_touchPoints.append(point);
-    updateTouchPoint(id, x, y);
-    m_touchPoints[id].setState(Qt::TouchPointPressed);
+    updateTouchPoint(index, x, y);
+    m_touchPoints[index].setState(Qt::TouchPointPressed);
 #endif
 }
 
@@ -509,4 +532,9 @@ bool EventSender::eventFilter(QObject* watched, QEvent* event)
         return true;
     }
     return false;
+}
+
+void EventSender::timerEvent(QTimerEvent* ev)
+{
+    m_clickTimer.stop();
 }

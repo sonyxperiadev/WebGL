@@ -142,6 +142,8 @@ private:
     bool needsToBeComposited(const RenderLayer*) const;
     // Whether the layer has an intrinsic need for compositing layer.
     bool requiresCompositingLayer(const RenderLayer*) const;
+    // Whether the layer could ever be composited.
+    bool canBeComposited(const RenderLayer*) const;
 
     // Make or destroy the backing for this layer; returns true if backing changed.
     bool updateBacking(RenderLayer*, CompositingChangeRepaint shouldRepaint);
@@ -179,6 +181,7 @@ private:
     bool requiresCompositingForVideo(RenderObject*) const;
     bool requiresCompositingForCanvas(RenderObject*) const;
     bool requiresCompositingForPlugin(RenderObject*) const;
+    bool requiresCompositingForIFrame(RenderObject*) const;
     bool requiresCompositingWhenDescendantsAreCompositing(RenderObject*) const;
 
 #if PLATFORM(ANDROID)

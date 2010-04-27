@@ -214,10 +214,10 @@ namespace WebCore {
     public:
         ImageDecoder()
             : m_scaled(false)
-            , m_failed(false)
             , m_sizeAvailable(false)
-            , m_isAllDataReceived(false)
             , m_maxNumPixels(-1)
+            , m_isAllDataReceived(false)
+            , m_failed(false)
         {
         }
 
@@ -236,6 +236,8 @@ namespace WebCore {
 
         virtual void setData(SharedBuffer* data, bool allDataReceived)
         {
+            if (failed())
+                return;
             m_data = data;
             m_isAllDataReceived = allDataReceived;
         }
@@ -277,10 +279,8 @@ namespace WebCore {
         // be set and the caller should immediately stop decoding.
         virtual bool setSize(unsigned width, unsigned height)
         {
-            if (isOverSize(width, height)) {
-                m_failed = true;
-                return false;
-            }
+            if (isOverSize(width, height))
+                return setFailed();
             m_size = IntSize(width, height);
             m_sizeAvailable = true;
             return true;
@@ -303,8 +303,16 @@ namespace WebCore {
         // transparency.
         virtual bool supportsAlpha() const { return true; }
 
+        // Sets the "decode failure" flag.  For caller convenience (since so
+        // many callers want to return false after calling this), returns false
+        // to enable easy tailcalling.
+        virtual bool setFailed()
+        {
+            m_failed = true;
+            return false;
+        }
+
         bool failed() const { return m_failed; }
-        void setFailed() { m_failed = true; }
 
         // Wipe out frames in the frame buffer cache before |clearBeforeFrame|,
         // assuming this can be done without breaking decoding.  Different
@@ -327,11 +335,10 @@ namespace WebCore {
         int scaledY(int origY, int searchStart = 0);
 
         RefPtr<SharedBuffer> m_data; // The encoded data.
+        Vector<RGBA32Buffer> m_frameBufferCache;
+        bool m_scaled;
         Vector<int> m_scaledColumns;
         Vector<int> m_scaledRows;
-        bool m_scaled;
-        Vector<RGBA32Buffer> m_frameBufferCache;
-        bool m_failed;
 
     private:
         // Some code paths compute the size of the image as "width * height * 4"
@@ -347,8 +354,9 @@ namespace WebCore {
 
         IntSize m_size;
         bool m_sizeAvailable;
-        bool m_isAllDataReceived;
         int m_maxNumPixels;
+        bool m_isAllDataReceived;
+        bool m_failed;
     };
 
 } // namespace WebCore

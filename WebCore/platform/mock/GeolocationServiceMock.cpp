@@ -26,6 +26,8 @@
 #include "config.h"
 #include "GeolocationServiceMock.h"
 
+#if ENABLE(GEOLOCATION)
+
 #include "Logging.h"
 #include "Geolocation.h"
 #include "Geoposition.h"
@@ -139,3 +141,5 @@ void GeolocationServiceMock::cleanUpStatics()
 }
 
 } // namespace WebCore
+
+#endif

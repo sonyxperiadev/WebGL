@@ -34,7 +34,10 @@
 #include "KURL.h"
 #include "PlatformString.h"
 
+QT_BEGIN_NAMESPACE
 class QEventLoop;
+QT_END_NAMESPACE
+
 class QWebPage;
 
 namespace WebCore {
@@ -105,8 +108,11 @@ namespace WebCore {
         virtual bool tabsToLinks() const;
         virtual IntRect windowResizerRect() const;
 
-        virtual void repaint(const IntRect&, bool contentChanged, bool immediate = false, bool repaintContentOnly = false);
+        virtual void invalidateWindow(const IntRect&, bool);
+        virtual void invalidateContentsAndWindow(const IntRect&, bool);
+        virtual void invalidateContentsForSlowScroll(const IntRect&, bool);
         virtual void scroll(const IntSize& scrollDelta, const IntRect& rectToScroll, const IntRect& clipRect);
+
         virtual IntPoint screenToWindow(const IntPoint&) const;
         virtual IntRect windowToScreen(const IntRect&) const;
         virtual PlatformPageClient platformPageClient() const;
@@ -125,12 +131,17 @@ namespace WebCore {
         virtual void reachedMaxAppCacheSize(int64_t spaceNeeded);
 #endif
 
+#if ENABLE(NOTIFICATIONS)
+        virtual NotificationPresenter* notificationPresenter() const;
+#endif
+
 #if USE(ACCELERATED_COMPOSITING)
         // see ChromeClient.h
         // this is a hook for WebCore to tell us what we need to do with the GraphicsLayers
         virtual void attachRootGraphicsLayer(Frame*, GraphicsLayer*);
         virtual void setNeedsOneShotDrawingSynchronization();
         virtual void scheduleCompositingLayerSync();
+        virtual bool allowsAcceleratedCompositing() const;
 #endif
 
 #if ENABLE(TOUCH_EVENTS)
@@ -138,7 +149,7 @@ namespace WebCore {
 #endif
 
         virtual void runOpenPanel(Frame*, PassRefPtr<FileChooser>);
-        virtual void iconForFiles(const Vector<String>&, PassRefPtr<FileChooser>);
+        virtual void chooseIconForFiles(const Vector<String>&, FileChooser*);
 
         virtual void formStateDidChange(const Node*) { }
 
@@ -149,6 +160,15 @@ namespace WebCore {
         virtual void scrollRectIntoView(const IntRect&, const ScrollView*) const {}
 
         virtual void requestGeolocationPermissionForFrame(Frame*, Geolocation*);
+        virtual void cancelGeolocationPermissionRequestForFrame(Frame*, Geolocation*) { }
+
+#if ENABLE(WIDGETS_10_SUPPORT)
+        virtual bool isWindowed();
+        virtual bool isFloating();
+        virtual bool isFullscreen();
+        virtual bool isMaximized();
+        virtual bool isMinimized();
+#endif
 
         QtAbstractWebPopup* createSelectPopup();
 

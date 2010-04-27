@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2009, 2010 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -37,8 +37,13 @@
 #include "GraphicsLayer.h"
 #include "HitTestResult.h"
 #include "HTMLCanvasElement.h"
+#if ENABLE(PLUGIN_PROXY_FOR_VIDEO)
+#include "HTMLMediaElement.h"
+#include "HTMLNames.h"
+#endif
 #include "Page.h"
 #include "RenderEmbeddedObject.h"
+#include "RenderIFrame.h"
 #include "RenderLayerBacking.h"
 #include "RenderReplica.h"
 #include "RenderVideo.h"
@@ -50,7 +55,6 @@
 #endif
 
 #ifndef NDEBUG
-#include "CString.h"
 #include "RenderTreeAsText.h"
 #endif
 
@@ -119,6 +123,8 @@ void RenderLayerCompositor::enableCompositingMode(bool enable /* = true */)
             ensureRootPlatformLayer();
         else
             destroyRootPlatformLayer();
+
+        m_renderView->compositingStateChanged(m_compositing);
     }
 }
 
@@ -132,6 +138,15 @@ void RenderLayerCompositor::cacheAcceleratedCompositingFlags()
         hasAcceleratedCompositing = settings->acceleratedCompositingEnabled();
         showDebugBorders = settings->showDebugBorders();
         showRepaintCounter = settings->showRepaintCounter();
+    }
+
+    // We allow the chrome to override the settings, in case the page is rendered
+    // on a chrome that doesn't allow accelerated compositing.
+    if (hasAcceleratedCompositing) {
+        Frame* frame = m_renderView->frameView()->frame();
+        Page* page = frame ? frame->page() : 0;
+        if (page)
+            hasAcceleratedCompositing = page->chrome()->client()->allowsAcceleratedCompositing();
     }
 
     if (hasAcceleratedCompositing != m_hasAcceleratedCompositing || showDebugBorders != m_showDebugBorders || showRepaintCounter != m_showRepaintCounter)
@@ -215,8 +230,13 @@ void RenderLayerCompositor::updateCompositingLayers(CompositingUpdateType update
         rebuildCompositingLayerTree(updateRoot, compState, childList);
 
         // Host the document layer in the RenderView's root layer.
-        if (updateRoot == rootRenderLayer() && !childList.isEmpty())
-            m_rootPlatformLayer->setChildren(childList);
+        if (updateRoot == rootRenderLayer()) {
+            if (childList.isEmpty()) {
+                willMoveOffscreen();
+                m_rootPlatformLayer = 0;
+            } else
+                m_rootPlatformLayer->setChildren(childList);
+        }
     } else if (needGeometryUpdate) {
         // We just need to do a geometry update. This is only used for position:fixed scrolling;
         // most of the time, geometry is updated via RenderLayer::styleChanged().
@@ -326,7 +346,7 @@ void RenderLayerCompositor::repaintOnCompositingChange(RenderLayer* layer)
 // RenderLayers that are rendered by the composited RenderLayer.
 IntRect RenderLayerCompositor::calculateCompositedBounds(const RenderLayer* layer, const RenderLayer* ancestorLayer)
 {
-    if (!layer->isSelfPaintingLayer())
+    if (!canBeComposited(layer))
         return IntRect();
 
     IntRect boundingBoxRect, unionBounds;
@@ -444,6 +464,9 @@ void RenderLayerCompositor::addToOverlapMap(OverlapMap& overlapMap, RenderLayer*
 
     if (!boundsComputed) {
         layerBounds = layer->renderer()->localToAbsoluteQuad(FloatRect(layer->localBoundingBox())).enclosingBoundingBox();
+        // Empty rects never intersect, but we need them to for the purposes of overlap testing.
+        if (layerBounds.isEmpty())
+            layerBounds.setSize(IntSize(1, 1));
         boundsComputed = true;
     }
 
@@ -487,6 +510,9 @@ void RenderLayerCompositor::computeCompositingRequirements(RenderLayer* layer, O
     if (overlapMap && !overlapMap->isEmpty()) {
         // If we're testing for overlap, we only need to composite if we overlap something that is already composited.
         absBounds = layer->renderer()->localToAbsoluteQuad(FloatRect(layer->localBoundingBox())).enclosingBoundingBox();
+        // Empty rects never intersect, but we need them to for the purposes of overlap testing.
+        if (absBounds.isEmpty())
+            absBounds.setSize(IntSize(1, 1));
         haveComputedBounds = true;
         mustOverlapCompositedLayers = overlapsCompositedLayers(*overlapMap, absBounds);
     }
@@ -501,6 +527,7 @@ void RenderLayerCompositor::computeCompositingRequirements(RenderLayer* layer, O
     ++childState.m_depth;
 #endif
 
+<<<<<<< HEAD
     const bool willBeComposited = needsToBeComposited(layer);
 
 #if ENABLE(COMPOSITED_FIXED_ELEMENTS)
@@ -513,6 +540,9 @@ void RenderLayerCompositor::computeCompositingRequirements(RenderLayer* layer, O
 
     if (willBeComposited || compositingState.m_fixedSibling) {
 #else
+=======
+    bool willBeComposited = needsToBeComposited(layer);
+>>>>>>> webkit.org at r58033
     if (willBeComposited) {
 #endif
         // Tell the parent it has compositing descendants.
@@ -599,27 +629,43 @@ void RenderLayerCompositor::computeCompositingRequirements(RenderLayer* layer, O
     // If we have a software transform, and we have layers under us, we need to also
     // be composited. Also, if we have opacity < 1, then we need to be a layer so that
     // the child layers are opaque, then rendered with opacity on this layer.
-    if (!willBeComposited && childState.m_subtreeIsCompositing && requiresCompositingWhenDescendantsAreCompositing(layer->renderer())) {
+    if (!willBeComposited && canBeComposited(layer) && childState.m_subtreeIsCompositing && requiresCompositingWhenDescendantsAreCompositing(layer->renderer())) {
         layer->setMustOverlapCompositedLayers(true);
         if (overlapMap)
             addToOverlapMap(*overlapMap, layer, absBounds, haveComputedBounds);
+        willBeComposited = true;
     }
 
+    ASSERT(willBeComposited == needsToBeComposited(layer));
     if (layer->reflectionLayer())
-        layer->reflectionLayer()->setMustOverlapCompositedLayers(needsToBeComposited(layer));
+        layer->reflectionLayer()->setMustOverlapCompositedLayers(willBeComposited);
 
     // Subsequent layers in the parent stacking context also need to composite.
     if (childState.m_subtreeIsCompositing)
         compositingState.m_subtreeIsCompositing = true;
 
-    // If the layer is going into compositing mode, repaint its old location.
-    if (!layer->isComposited() && needsToBeComposited(layer))
-        repaintOnCompositingChange(layer);
-
     // Set the flag to say that this SC has compositing children.
-    // this can affect the answer to needsToBeComposited() when clipping,
-    // but that's ok here.
     layer->setHasCompositingDescendant(childState.m_subtreeIsCompositing);
+
+    // setHasCompositingDescendant() may have changed the answer to needsToBeComposited() when clipping,
+    // so test that again.
+    if (!willBeComposited && canBeComposited(layer) && clipsCompositingDescendants(layer)) {
+        if (overlapMap)
+            addToOverlapMap(*overlapMap, layer, absBounds, haveComputedBounds);
+        willBeComposited = true;
+    }
+
+    // If we're back at the root, and no other layers need to be composited, and the root layer itself doesn't need
+    // to be composited, then we can drop out of compositing mode altogether.
+    if (layer->isRootLayer() && !childState.m_subtreeIsCompositing && !requiresCompositingLayer(layer)) {
+        m_compositing = false;
+        willBeComposited = false;
+    }
+    
+    // If the layer is going into compositing mode, repaint its old location.
+    ASSERT(willBeComposited == needsToBeComposited(layer));
+    if (!layer->isComposited() && willBeComposited)
+        repaintOnCompositingChange(layer);
 
     // Update backing now, so that we can use isComposited() reliably during tree traversal in rebuildCompositingLayerTree().
     if (updateBacking(layer, CompositingChangeRepaintNow))
@@ -967,9 +1013,10 @@ bool RenderLayerCompositor::has3DContent() const
 
 bool RenderLayerCompositor::needsToBeComposited(const RenderLayer* layer) const
 {
-    if (!m_hasAcceleratedCompositing || !layer->isSelfPaintingLayer())
+    if (!canBeComposited(layer))
         return false;
 
+<<<<<<< HEAD
 #if ENABLE(COMPOSITED_FIXED_ELEMENTS)
     // if an ancestor is fixed positioned, we need to be composited...
     const RenderLayer* currLayer = layer;
@@ -980,6 +1027,9 @@ bool RenderLayerCompositor::needsToBeComposited(const RenderLayer* layer) const
 #endif
 
     return requiresCompositingLayer(layer) || layer->mustOverlapCompositedLayers();
+=======
+    return requiresCompositingLayer(layer) || layer->mustOverlapCompositedLayers() || (inCompositingMode() && layer->isRootLayer());
+>>>>>>> webkit.org at r58033
 }
 
 #if PLATFORM(ANDROID)
@@ -1032,6 +1082,7 @@ bool RenderLayerCompositor::requiresCompositingLayer(const RenderLayer* layer) c
         layer = toRenderBoxModelObject(renderer)->layer();
     }
     // The root layer always has a compositing layer, but it may not have backing.
+<<<<<<< HEAD
     return (inCompositingMode() && layer->isRootLayer()) ||
 #if PLATFORM(ANDROID)
              requiresCompositingForMobileSites(layer) ||
@@ -1044,6 +1095,21 @@ bool RenderLayerCompositor::requiresCompositingLayer(const RenderLayer* layer) c
 #endif
              renderer->style()->backfaceVisibility() == BackfaceVisibilityHidden ||
              clipsCompositingDescendants(layer);
+=======
+    return requiresCompositingForTransform(renderer)
+             || requiresCompositingForVideo(renderer)
+             || requiresCompositingForCanvas(renderer)
+             || requiresCompositingForPlugin(renderer)
+             || requiresCompositingForIFrame(renderer)
+             || renderer->style()->backfaceVisibility() == BackfaceVisibilityHidden
+             || clipsCompositingDescendants(layer)
+             || requiresCompositingForAnimation(renderer);
+}
+
+bool RenderLayerCompositor::canBeComposited(const RenderLayer* layer) const
+{
+    return m_hasAcceleratedCompositing && layer->isSelfPaintingLayer();
+>>>>>>> webkit.org at r58033
 }
 
 // Return true if the given layer has some ancestor in the RenderLayer hierarchy that clips,
@@ -1106,6 +1172,19 @@ bool RenderLayerCompositor::requiresCompositingForVideo(RenderObject* renderer) 
         RenderVideo* video = toRenderVideo(renderer);
         return canAccelerateVideoRendering(video);
     }
+#if ENABLE(PLUGIN_PROXY_FOR_VIDEO)
+    else if (renderer->isRenderPart()) {
+        if (!m_hasAcceleratedCompositing)
+            return false;
+
+        Node* node = renderer->node();
+        if (!node || (!node->hasTagName(HTMLNames::videoTag) && !node->hasTagName(HTMLNames::audioTag)))
+            return false;
+
+        HTMLMediaElement* mediaElement = static_cast<HTMLMediaElement*>(node);
+        return mediaElement->player() ? mediaElement->player()->supportsAcceleratedRendering() : false;
+    }
+#endif // ENABLE(PLUGIN_PROXY_FOR_VIDEO)
 #else
     UNUSED_PARAM(renderer);
 #endif
@@ -1128,6 +1207,11 @@ bool RenderLayerCompositor::requiresCompositingForCanvas(RenderObject* renderer)
 bool RenderLayerCompositor::requiresCompositingForPlugin(RenderObject* renderer) const
 {
     return renderer->isEmbeddedObject() && toRenderEmbeddedObject(renderer)->allowsAcceleratedCompositing();
+}
+
+bool RenderLayerCompositor::requiresCompositingForIFrame(RenderObject* renderer) const
+{
+    return renderer->isRenderIFrame() && toRenderIFrame(renderer)->requiresAcceleratedCompositing();
 }
 
 bool RenderLayerCompositor::requiresCompositingForAnimation(RenderObject* renderer) const

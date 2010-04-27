@@ -21,7 +21,6 @@
 #define PlatformTouchPoint_h
 
 #include "IntPoint.h"
-#include <wtf/Platform.h>
 #include <wtf/Vector.h>
 
 #if ENABLE(TOUCH_EVENTS)
@@ -55,7 +54,11 @@ public:
     IntPoint screenPos() const { return m_screenPos; }
     IntPoint pos() const { return m_pos; }
     
+<<<<<<< HEAD
 private:
+=======
+protected:
+>>>>>>> webkit.org at r58033
     unsigned m_id;
     State m_state;
     IntPoint m_screenPos;

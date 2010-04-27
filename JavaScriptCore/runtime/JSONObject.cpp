@@ -31,6 +31,7 @@
 #include "ExceptionHelpers.h"
 #include "JSArray.h"
 #include "LiteralParser.h"
+#include "Lookup.h"
 #include "PropertyNameArray.h"
 #include "StringBuilder.h"
 #include <wtf/MathExtras.h>
@@ -866,6 +867,14 @@ JSValue JSC_HOST_CALL JSONProtoFuncStringify(ExecState* exec, JSObject*, JSValue
     JSValue replacer = args.at(1);
     JSValue space = args.at(2);
     return Stringifier(exec, replacer, space).stringify(value);
+}
+
+UString JSONStringify(ExecState* exec, JSValue value, unsigned indent)
+{
+    JSValue result = Stringifier(exec, jsNull(), jsNumber(exec, indent)).stringify(value);
+    if (result.isUndefinedOrNull())
+        return UString();
+    return result.getString(exec);
 }
 
 } // namespace JSC

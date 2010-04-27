@@ -74,7 +74,7 @@ ImageSource::~ImageSource()
 
 void ImageSource::clear(bool destroyAllFrames, size_t, SharedBuffer* data, bool allDataReceived)
 {
-#if PLATFORM(MAC) && !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
+#if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
     // Recent versions of ImageIO discard previously decoded image frames if the client
     // application no longer holds references to them, so there's no need to throw away
     // the decoder unless we're explicitly asked to destroy all of the frames.
@@ -119,14 +119,22 @@ bool ImageSource::initialized() const
 
 void ImageSource::setData(SharedBuffer* data, bool allDataReceived)
 {
-    if (!m_decoder)
-        m_decoder = CGImageSourceCreateIncremental(NULL);
 #if PLATFORM(MAC)
+    if (!m_decoder)
+        m_decoder = CGImageSourceCreateIncremental(0);
     // On Mac the NSData inside the SharedBuffer can be secretly appended to without the SharedBuffer's knowledge.  We use SharedBuffer's ability
     // to wrap itself inside CFData to get around this, ensuring that ImageIO is really looking at the SharedBuffer.
     RetainPtr<CFDataRef> cfData(AdoptCF, data->createCFData());
     CGImageSourceUpdateData(m_decoder, cfData.get(), allDataReceived);
 #else
+    if (!m_decoder) {
+        m_decoder = CGImageSourceCreateIncremental(0);
+    } else if (allDataReceived) {
+        // 10.6 bug workaround: image sources with final=false fail to draw into PDF contexts, so re-create image source
+        // when data is complete. <rdar://problem/7874035> (<http://openradar.appspot.com/7874035>)
+        CFRelease(m_decoder);
+        m_decoder = CGImageSourceCreateIncremental(0);
+    }
     // Create a CGDataProvider to wrap the SharedBuffer.
     data->ref();
     // We use the GetBytesAtPosition callback rather than the GetBytePointer one because SharedBuffer
@@ -234,7 +242,22 @@ CGImageRef ImageSource::createFrameAtIndex(size_t index)
 
 bool ImageSource::frameIsCompleteAtIndex(size_t index)
 {
-    return CGImageSourceGetStatusAtIndex(m_decoder, index) == kCGImageStatusComplete;
+    ASSERT(frameCount());
+
+    // CGImageSourceGetStatusAtIndex claims that all frames of a multi-frame image are incomplete
+    // when we've not yet received the complete data for an image that is using an incremental data
+    // source (<rdar://problem/7679174>). We work around this by special-casing all frames except the
+    // last in an image and treating them as complete if they are present and reported as being
+    // incomplete. We do this on the assumption that loading new data can only modify the existing last
+    // frame or append new frames. The last frame is only treated as being complete if the image source
+    // reports it as such. This ensures that it is truly the last frame of the image rather than just
+    // the last that we currently have data for.
+
+    CGImageSourceStatus frameStatus = CGImageSourceGetStatusAtIndex(m_decoder, index);
+    if (index < frameCount() - 1)
+        return frameStatus >= kCGImageStatusIncomplete;
+
+    return frameStatus == kCGImageStatusComplete;
 }
 
 float ImageSource::frameDurationAtIndex(size_t index)

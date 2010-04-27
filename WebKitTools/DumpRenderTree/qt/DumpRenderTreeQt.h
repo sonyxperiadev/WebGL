@@ -53,6 +53,7 @@ QT_END_NAMESPACE
 class QWebFrame;
 
 class LayoutTestController;
+class DumpRenderTreeSupportQt;
 class EventSender;
 class TextInputController;
 class GCController;
@@ -118,6 +119,7 @@ Q_SIGNALS:
 private Q_SLOTS:
     void showPage();
     void hidePage();
+    void dryRunPrint(QWebFrame*);
 
 private:
     QString dumpFramesAsText(QWebFrame* frame);

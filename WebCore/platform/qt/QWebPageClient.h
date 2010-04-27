@@ -40,7 +40,9 @@ QT_END_NAMESPACE
 class QWebPageClient {
 public:
     virtual ~QWebPageClient() { }
-        
+
+    virtual bool isQWidgetClient() const { return false; }
+
     virtual void scroll(int dx, int dy, const QRect&) = 0;
     virtual void update(const QRect&) = 0;
     virtual void setInputMethodEnabled(bool enable) = 0;
@@ -53,6 +55,7 @@ public:
     // if scheduleSync is true, we schedule a sync ourselves. otherwise,
     // we wait for the next update and sync the layers then.
     virtual void markForSync(bool scheduleSync = false) {}
+    virtual bool allowsAcceleratedCompositing() const { return false; }
 #endif
 
 #if QT_VERSION >= 0x040600
@@ -80,6 +83,7 @@ public:
     virtual QPalette palette() const = 0;
     virtual int screenNumber() const = 0;
     virtual QWidget* ownerWidget() const = 0;
+    virtual QRect geometryRelativeToOwnerWidget() const = 0;
 
     virtual QObject* pluginParent() const = 0;
 

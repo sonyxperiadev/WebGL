@@ -27,14 +27,17 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-"""Chromium Mac implementation of the Port interface."""
+"""Chromium Linux implementation of the Port interface."""
 
+import logging
 import os
 import platform
 import signal
 import subprocess
 
 import chromium
+
+_log = logging.getLogger("webkitpy.layout_tests.port.chromium_linux")
 
 
 class ChromiumLinuxPort(chromium.ChromiumPort):
@@ -43,25 +46,32 @@ class ChromiumLinuxPort(chromium.ChromiumPort):
     def __init__(self, port_name=None, options=None):
         if port_name is None:
             port_name = 'chromium-linux'
-        if options and not hasattr(options, 'target'):
-            options.target = 'Release'
+        if options and not hasattr(options, 'configuration'):
+            options.configuration = 'Release'
         chromium.ChromiumPort.__init__(self, port_name, options)
 
     def baseline_search_path(self):
-        return [self.baseline_path(),
-                self._chromium_baseline_path('chromium-win'),
+        return [self._webkit_baseline_path('chromium-linux'),
+                self._webkit_baseline_path('chromium-win'),
+                self._webkit_baseline_path('chromium'),
                 self._webkit_baseline_path('win'),
                 self._webkit_baseline_path('mac')]
 
-    def check_sys_deps(self):
-        # We have no platform-specific dependencies to check.
-        return True
+    def check_build(self, needs_http):
+        result = chromium.ChromiumPort.check_build(self, needs_http)
+        if needs_http:
+            if self._options.use_apache:
+                result = self._check_apache_install() and result
+            else:
+                result = self._check_lighttpd_install() and result
+        result = self._check_wdiff_install() and result
 
-    def num_cores(self):
-        num_cores = os.sysconf("SC_NPROCESSORS_ONLN")
-        if isinstance(num_cores, int) and num_cores > 0:
-            return num_cores
-        return 1
+        if not result:
+            _log.error('For complete Linux build requirements, please see:')
+            _log.error('')
+            _log.error('    http://code.google.com/p/chromium/wiki/'
+                       'LinuxBuildInstructions')
+        return result
 
     def test_platform_name(self):
         # We use 'linux' instead of 'chromium-linux' in test_expectations.txt.
@@ -78,19 +88,42 @@ class ChromiumLinuxPort(chromium.ChromiumPort):
     def _build_path(self, *comps):
         base = self.path_from_chromium_base()
         if os.path.exists(os.path.join(base, 'sconsbuild')):
-            return self.path_from_chromium_base('sconsbuild',
-                self._options.target, *comps)
+            return self.path_from_chromium_base('sconsbuild', *comps)
         else:
-            return self.path_from_chromium_base('out',
-                self._options.target, *comps)
+            return self.path_from_chromium_base('out', *comps)
 
-    def _kill_process(self, pid):
-        """Forcefully kill the process.
+    def _check_apache_install(self):
+        result = chromium.check_file_exists(self._path_to_apache(),
+            "apache2")
+        result = chromium.check_file_exists(self._path_to_apache_config_file(),
+            "apache2 config file") and result
+        if not result:
+            _log.error('    Please install using: "sudo apt-get install '
+                       'apache2 libapache2-mod-php5"')
+            _log.error('')
+        return result
 
-        Args:
-        pid: The id of the process to be killed.
-        """
-        os.kill(pid, signal.SIGKILL)
+    def _check_lighttpd_install(self):
+        result = chromium.check_file_exists(
+            self._path_to_lighttpd(), "LigHTTPd executable")
+        result = chromium.check_file_exists(self._path_to_lighttpd_php(),
+            "PHP CGI executable") and result
+        result = chromium.check_file_exists(self._path_to_lighttpd_modules(),
+            "LigHTTPd modules") and result
+        if not result:
+            _log.error('    Please install using: "sudo apt-get install '
+                       'lighttpd php5-cgi"')
+            _log.error('')
+        return result
+
+    def _check_wdiff_install(self):
+        result = chromium.check_file_exists(self._path_to_wdiff(), 'wdiff')
+        if not result:
+            _log.error('    Please install using: "sudo apt-get install '
+                       'wdiff"')
+            _log.error('')
+        return result
+
 
     def _kill_all_process(self, process_name):
         null = open(os.devnull)
@@ -99,11 +132,19 @@ class ChromiumLinuxPort(chromium.ChromiumPort):
         null.close()
 
     def _path_to_apache(self):
-        return '/usr/sbin/apache2'
+        if self._is_redhat_based():
+            return '/usr/sbin/httpd'
+        else:
+            return '/usr/sbin/apache2'
 
     def _path_to_apache_config_file(self):
+        if self._is_redhat_based():
+            config_name = 'fedora-httpd.conf'
+        else:
+            config_name = 'apache2-debian-httpd.conf'
+
         return os.path.join(self.layout_tests_dir(), 'http', 'conf',
-                            'apache2-debian-httpd.conf')
+                            config_name)
 
     def _path_to_lighttpd(self):
         return "/usr/sbin/lighttpd"
@@ -114,17 +155,25 @@ class ChromiumLinuxPort(chromium.ChromiumPort):
     def _path_to_lighttpd_php(self):
         return "/usr/bin/php-cgi"
 
-    def _path_to_driver(self):
-        return self._build_path('test_shell')
+    def _path_to_driver(self, configuration=None):
+        if not configuration:
+            configuration = self._options.configuration
+        return self._build_path(configuration, 'test_shell')
 
     def _path_to_helper(self):
         return None
 
     def _path_to_image_diff(self):
-        return self._build_path('image_diff')
+        return self._build_path(self._options.configuration, 'image_diff')
 
     def _path_to_wdiff(self):
-        return 'wdiff'
+        if self._is_redhat_based():
+            return '/usr/bin/dwdiff'
+        else:
+            return '/usr/bin/wdiff'
+
+    def _is_redhat_based(self):
+        return os.path.exists(os.path.join('/etc', 'redhat-release'))
 
     def _shut_down_http_server(self, server_pid):
         """Shut down the lighttpd web server. Blocks until it's fully

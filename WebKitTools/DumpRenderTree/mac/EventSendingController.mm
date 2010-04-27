@@ -134,7 +134,9 @@ BOOL replayingSavedEvents;
             || aSelector == @selector(textZoomIn)
             || aSelector == @selector(textZoomOut)
             || aSelector == @selector(zoomPageIn)
-            || aSelector == @selector(zoomPageOut))
+            || aSelector == @selector(zoomPageOut)
+            || aSelector == @selector(mouseScrollByX:andY:)
+            || aSelector == @selector(continuousMouseScrollByX:andY:))
         return NO;
     return YES;
 }
@@ -166,6 +168,10 @@ BOOL replayingSavedEvents;
         return @"mouseMoveTo";
     if (aSelector == @selector(setDragMode:))
         return @"setDragMode";
+    if (aSelector == @selector(mouseScrollByX:andY:))
+        return @"mouseScrollBy";
+    if (aSelector == @selector(continuousMouseScrollByX:andY:))
+        return @"continuousMouseScrollBy";
     return nil;
 }
 
@@ -453,6 +459,39 @@ static int buildModifierFlags(const WebScriptObject* modifiers)
     }
 }
 
+- (void)mouseScrollByX:(int)x andY:(int)y continuously:(BOOL)c
+{
+    // CGEventCreateScrollWheelEvent() was introduced in 10.5
+#if !defined(BUILDING_ON_TIGER)
+    CGScrollEventUnit unit = c?kCGScrollEventUnitPixel:kCGScrollEventUnitLine;
+    CGEventRef cgScrollEvent = CGEventCreateScrollWheelEvent(NULL, unit, 2, y, x);
+    
+    // CGEvent locations are in global display coordinates.
+    CGPoint lastGlobalMousePosition = {
+        lastMousePosition.x,
+        [[NSScreen mainScreen] frame].size.height - lastMousePosition.y
+    };
+    CGEventSetLocation(cgScrollEvent, lastGlobalMousePosition);
+
+    NSEvent *scrollEvent = [NSEvent eventWithCGEvent:cgScrollEvent];
+    CFRelease(cgScrollEvent);
+
+    NSView *subView = [[mainFrame webView] hitTest:[scrollEvent locationInWindow]];
+    if (subView)
+        [subView scrollWheel:scrollEvent];
+#endif
+}
+
+- (void)continuousMouseScrollByX:(int)x andY:(int)y
+{
+    [self mouseScrollByX:x andY:y continuously:YES];
+}
+
+- (void)mouseScrollByX:(int)x andY:(int)y
+{
+    [self mouseScrollByX:x andY:y continuously:NO];
+}
+
 - (void)contextClick
 {
     [[[mainFrame frameView] documentView] layout];
@@ -507,33 +546,43 @@ static int buildModifierFlags(const WebScriptObject* modifiers)
 - (void)keyDown:(NSString *)character withModifiers:(WebScriptObject *)modifiers withLocation:(unsigned long)keyLocation
 {
     NSString *eventCharacter = character;
+    unsigned short keyCode = 0;
     if ([character isEqualToString:@"leftArrow"]) {
         const unichar ch = NSLeftArrowFunctionKey;
         eventCharacter = [NSString stringWithCharacters:&ch length:1];
+        keyCode = 0x7B;
     } else if ([character isEqualToString:@"rightArrow"]) {
         const unichar ch = NSRightArrowFunctionKey;
         eventCharacter = [NSString stringWithCharacters:&ch length:1];
+        keyCode = 0x7C;
     } else if ([character isEqualToString:@"upArrow"]) {
         const unichar ch = NSUpArrowFunctionKey;
         eventCharacter = [NSString stringWithCharacters:&ch length:1];
+        keyCode = 0x7E;
     } else if ([character isEqualToString:@"downArrow"]) {
         const unichar ch = NSDownArrowFunctionKey;
         eventCharacter = [NSString stringWithCharacters:&ch length:1];
+        keyCode = 0x7D;
     } else if ([character isEqualToString:@"pageUp"]) {
         const unichar ch = NSPageUpFunctionKey;
         eventCharacter = [NSString stringWithCharacters:&ch length:1];
+        keyCode = 0x74;
     } else if ([character isEqualToString:@"pageDown"]) {
         const unichar ch = NSPageDownFunctionKey;
         eventCharacter = [NSString stringWithCharacters:&ch length:1];
+        keyCode = 0x79;
     } else if ([character isEqualToString:@"home"]) {
         const unichar ch = NSHomeFunctionKey;
         eventCharacter = [NSString stringWithCharacters:&ch length:1];
+        keyCode = 0x73;
     } else if ([character isEqualToString:@"end"]) {
         const unichar ch = NSEndFunctionKey;
         eventCharacter = [NSString stringWithCharacters:&ch length:1];
+        keyCode = 0x77;
     } else if ([character isEqualToString:@"delete"]) {
         const unichar ch = 0x7f;
         eventCharacter = [NSString stringWithCharacters:&ch length:1];
+        keyCode = 0x75;
     }
 
     // Compare the input string with the function-key names defined by the DOM spec (i.e. "F1",...,"F24").
@@ -542,8 +591,58 @@ static int buildModifierFlags(const WebScriptObject* modifiers)
         if ([character isEqualToString:[NSString stringWithFormat:@"F%u", i]]) {
             const unichar ch = NSF1FunctionKey + (i - 1);
             eventCharacter = [NSString stringWithCharacters:&ch length:1];
+            switch (i) {
+                case 1: keyCode = 0x7A; break;
+                case 2: keyCode = 0x78; break;
+                case 3: keyCode = 0x63; break;
+                case 4: keyCode = 0x76; break;
+                case 5: keyCode = 0x60; break;
+                case 6: keyCode = 0x61; break;
+                case 7: keyCode = 0x62; break;
+                case 8: keyCode = 0x64; break;
+                case 9: keyCode = 0x65; break;
+                case 10: keyCode = 0x6D; break;
+                case 11: keyCode = 0x67; break;
+                case 12: keyCode = 0x6F; break;
+                case 13: keyCode = 0x69; break;
+                case 14: keyCode = 0x6B; break;
+                case 15: keyCode = 0x71; break;
+                case 16: keyCode = 0x6A; break;
+                case 17: keyCode = 0x40; break;
+                case 18: keyCode = 0x4F; break;
+                case 19: keyCode = 0x50; break;
+                case 20: keyCode = 0x5A; break;
+            }
         }
     }
+
+    // FIXME: No keyCode is set for most keys.
+    if ([character isEqualToString:@"\t"])
+        keyCode = 0x30;
+    else if ([character isEqualToString:@" "])
+        keyCode = 0x31;
+    else if ([character isEqualToString:@"\r"])
+        keyCode = 0x24;
+    else if ([character isEqualToString:@"\n"])
+        keyCode = 0x4C;
+    else if ([character isEqualToString:@"\x8"])
+        keyCode = 0x33;
+    else if ([character isEqualToString:@"7"])
+        keyCode = 0x1A;
+    else if ([character isEqualToString:@"5"])
+        keyCode = 0x17;
+    else if ([character isEqualToString:@"9"])
+        keyCode = 0x19;
+    else if ([character isEqualToString:@"0"])
+        keyCode = 0x1D;
+    else if ([character isEqualToString:@"a"])
+        keyCode = 0x00;
+    else if ([character isEqualToString:@"b"])
+        keyCode = 0x0B;
+    else if ([character isEqualToString:@"d"])
+        keyCode = 0x02;
+    else if ([character isEqualToString:@"e"])
+        keyCode = 0x0E;
 
     NSString *charactersIgnoringModifiers = eventCharacter;
 
@@ -570,7 +669,7 @@ static int buildModifierFlags(const WebScriptObject* modifiers)
                         characters:eventCharacter
                         charactersIgnoringModifiers:charactersIgnoringModifiers
                         isARepeat:NO
-                        keyCode:0];
+                        keyCode:keyCode];
 
     [[[[mainFrame webView] window] firstResponder] keyDown:event];
 
@@ -583,7 +682,7 @@ static int buildModifierFlags(const WebScriptObject* modifiers)
                         characters:eventCharacter
                         charactersIgnoringModifiers:charactersIgnoringModifiers
                         isARepeat:NO
-                        keyCode:0];
+                        keyCode:keyCode];
 
     [[[[mainFrame webView] window] firstResponder] keyUp:event];
 }

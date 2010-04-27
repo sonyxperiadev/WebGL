@@ -1,10 +1,10 @@
 /*
  * Copyright (C) 2009 Google Inc. All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
  * met:
- * 
+ *
  *     * Redistributions of source code must retain the above copyright
  * notice, this list of conditions and the following disclaimer.
  *     * Redistributions in binary form must reproduce the above
@@ -14,7 +14,7 @@
  *     * Neither the name of Google Inc. nor the names of its
  * contributors may be used to endorse or promote products derived from
  * this software without specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
  * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
@@ -33,44 +33,50 @@
 
 #include "CSSMutableStyleDeclaration.h"
 #include "DOMDataStore.h"
-#include "DOMObjectsInclude.h"
 #include "DocumentLoader.h"
 #include "FrameLoaderClient.h"
 #include "Notification.h"
-#include "SVGElementInstance.h"
-#include "SVGPathSeg.h"
 #include "ScriptController.h"
 #include "V8AbstractEventListener.h"
 #include "V8Binding.h"
 #include "V8Collection.h"
 #include "V8CustomEventListener.h"
+#include "V8DedicatedWorkerContext.h"
 #include "V8DOMApplicationCache.h"
 #include "V8DOMMap.h"
 #include "V8DOMWindow.h"
 #include "V8EventListenerList.h"
+#include "V8EventSource.h"
 #include "V8HTMLCollection.h"
 #include "V8HTMLDocument.h"
-#include "V8Index.h"
 #include "V8IsolatedContext.h"
 #include "V8Location.h"
 #include "V8MessageChannel.h"
 #include "V8NamedNodeMap.h"
 #include "V8Node.h"
+#include "V8NodeFilterCondition.h"
 #include "V8NodeList.h"
 #include "V8Notification.h"
 #include "V8Proxy.h"
-#include "V8SVGElementInstance.h"
 #include "V8SharedWorker.h"
 #include "V8SharedWorkerContext.h"
 #include "V8StyleSheet.h"
 #include "V8WebSocket.h"
 #include "V8Worker.h"
 #include "V8WorkerContext.h"
+#include "V8WorkerContextEventListener.h"
 #include "V8XMLHttpRequest.h"
 #include "WebGLArray.h"
 #include "WebGLContextAttributes.h"
 #include "WebGLUniformLocation.h"
 #include "WorkerContextExecutionProxy.h"
+#include "WrapperTypeInfo.h"
+
+#if ENABLE(SVG)
+#include "SVGElementInstance.h"
+#include "SVGPathSeg.h"
+#include "V8SVGElementInstance.h"
+#endif
 
 #include <algorithm>
 #include <utility>
@@ -86,60 +92,11 @@ namespace WebCore {
 typedef HashMap<Node*, v8::Object*> DOMNodeMap;
 typedef HashMap<void*, v8::Object*> DOMObjectMap;
 
-#if ENABLE(3D_CANVAS)
-void V8DOMWrapper::setIndexedPropertiesToExternalArray(v8::Handle<v8::Object> wrapper,
-                                                       int index,
-                                                       void* address,
-                                                       int length)
-{
-    v8::ExternalArrayType array_type = v8::kExternalByteArray;
-    V8ClassIndex::V8WrapperType classIndex = V8ClassIndex::FromInt(index);
-    switch (classIndex) {
-    case V8ClassIndex::WEBGLBYTEARRAY:
-        array_type = v8::kExternalByteArray;
-        break;
-    case V8ClassIndex::WEBGLUNSIGNEDBYTEARRAY:
-        array_type = v8::kExternalUnsignedByteArray;
-        break;
-    case V8ClassIndex::WEBGLSHORTARRAY:
-        array_type = v8::kExternalShortArray;
-        break;
-    case V8ClassIndex::WEBGLUNSIGNEDSHORTARRAY:
-        array_type = v8::kExternalUnsignedShortArray;
-        break;
-    case V8ClassIndex::WEBGLINTARRAY:
-        array_type = v8::kExternalIntArray;
-        break;
-    case V8ClassIndex::WEBGLUNSIGNEDINTARRAY:
-        array_type = v8::kExternalUnsignedIntArray;
-        break;
-    case V8ClassIndex::WEBGLFLOATARRAY:
-        array_type = v8::kExternalFloatArray;
-        break;
-    default:
-        ASSERT_NOT_REACHED();
-    }
-    wrapper->SetIndexedPropertiesToExternalArrayData(address,
-                                                     array_type,
-                                                     length);
-}
-#endif
-
 // The caller must have increased obj's ref count.
 void V8DOMWrapper::setJSWrapperForDOMObject(void* object, v8::Persistent<v8::Object> wrapper)
 {
     ASSERT(V8DOMWrapper::maybeDOMWrapper(wrapper));
-#ifndef NDEBUG
-    V8ClassIndex::V8WrapperType type = V8DOMWrapper::domWrapperType(wrapper);
-    switch (type) {
-#define MAKE_CASE(TYPE, NAME) case V8ClassIndex::TYPE:
-        ACTIVE_DOM_OBJECT_TYPES(MAKE_CASE)
-        ASSERT_NOT_REACHED();
-#undef MAKE_CASE
-    default:
-        break;
-    }
-#endif
+    ASSERT(!domWrapperType(wrapper)->toActiveDOMObjectFunction);
     getDOMObjectMap().set(object, wrapper);
 }
 
@@ -147,16 +104,7 @@ void V8DOMWrapper::setJSWrapperForDOMObject(void* object, v8::Persistent<v8::Obj
 void V8DOMWrapper::setJSWrapperForActiveDOMObject(void* object, v8::Persistent<v8::Object> wrapper)
 {
     ASSERT(V8DOMWrapper::maybeDOMWrapper(wrapper));
-#ifndef NDEBUG
-    V8ClassIndex::V8WrapperType type = V8DOMWrapper::domWrapperType(wrapper);
-    switch (type) {
-#define MAKE_CASE(TYPE, NAME) case V8ClassIndex::TYPE: break;
-        ACTIVE_DOM_OBJECT_TYPES(MAKE_CASE)
-    default: 
-        ASSERT_NOT_REACHED();
-#undef MAKE_CASE
-    }
-#endif
+    ASSERT(domWrapperType(wrapper)->toActiveDOMObjectFunction);
     getActiveDOMObjectMap().set(object, wrapper);
 }
 
@@ -167,7 +115,7 @@ void V8DOMWrapper::setJSWrapperForDOMNode(Node* node, v8::Persistent<v8::Object>
     getDOMNodeMap().set(node, wrapper);
 }
 
-v8::Local<v8::Function> V8DOMWrapper::getConstructor(V8ClassIndex::V8WrapperType type, v8::Handle<v8::Value> objectPrototype)
+v8::Local<v8::Function> V8DOMWrapper::getConstructor(WrapperTypeInfo* type, v8::Handle<v8::Value> objectPrototype)
 {
     // A DOM constructor is a function instance created from a DOM constructor
     // template. There is one instance per context. A DOM constructor is
@@ -178,7 +126,7 @@ v8::Local<v8::Function> V8DOMWrapper::getConstructor(V8ClassIndex::V8WrapperType
     // The reason for 2) is that, in Safari, a DOM constructor is a normal JS
     // object, but not a function. Hotmail relies on the fact that, in Safari,
     // HTMLElement.__proto__ == Object.prototype.
-    v8::Handle<v8::FunctionTemplate> functionTemplate = V8ClassIndex::getTemplate(type);
+    v8::Handle<v8::FunctionTemplate> functionTemplate = type->getTemplate();
     // Getting the function might fail if we're running out of
     // stack or memory.
     v8::TryCatch tryCatch;
@@ -187,11 +135,11 @@ v8::Local<v8::Function> V8DOMWrapper::getConstructor(V8ClassIndex::V8WrapperType
         return v8::Local<v8::Function>();
     // Hotmail fix, see comments above.
     if (!objectPrototype.IsEmpty())
-        value->Set(v8::String::New("__proto__"), objectPrototype);
+        value->SetPrototype(objectPrototype);
     return value;
 }
 
-v8::Local<v8::Function> V8DOMWrapper::getConstructorForContext(V8ClassIndex::V8WrapperType type, v8::Handle<v8::Context> context)
+v8::Local<v8::Function> V8DOMWrapper::getConstructorForContext(WrapperTypeInfo* type, v8::Handle<v8::Context> context)
 {
     // Enter the scope for this context to get the correct constructor.
     v8::Context::Scope scope(context);
@@ -199,7 +147,7 @@ v8::Local<v8::Function> V8DOMWrapper::getConstructorForContext(V8ClassIndex::V8W
     return getConstructor(type, V8DOMWindowShell::getHiddenObjectPrototype(context));
 }
 
-v8::Local<v8::Function> V8DOMWrapper::getConstructor(V8ClassIndex::V8WrapperType type, DOMWindow* window)
+v8::Local<v8::Function> V8DOMWrapper::getConstructor(WrapperTypeInfo* type, DOMWindow* window)
 {
     Frame* frame = window->frame();
     if (!frame)
@@ -213,9 +161,14 @@ v8::Local<v8::Function> V8DOMWrapper::getConstructor(V8ClassIndex::V8WrapperType
 }
 
 #if ENABLE(WORKERS)
+<<<<<<< HEAD
 v8::Local<v8::Function> V8DOMWrapper::getConstructor(V8ClassIndex::V8WrapperType type, WorkerContext*)
+=======
+v8::Local<v8::Function> V8DOMWrapper::getConstructor(WrapperTypeInfo* type, WorkerContext*)
+>>>>>>> webkit.org at r58033
 {
-    WorkerContextExecutionProxy* proxy = WorkerContextExecutionProxy::retrieve();
+    WorkerScriptController* controller = WorkerScriptController::controllerForContext();
+    WorkerContextExecutionProxy* proxy = controller ? controller->proxy() : 0;
     if (!proxy)
         return v8::Local<v8::Function>();
 
@@ -226,8 +179,22 @@ v8::Local<v8::Function> V8DOMWrapper::getConstructor(V8ClassIndex::V8WrapperType
     return getConstructorForContext(type, context);
 }
 #endif
+<<<<<<< HEAD
+=======
 
-void V8DOMWrapper::setHiddenWindowReference(Frame* frame, const int internalIndex, v8::Handle<v8::Object> jsObject)
+void V8DOMWrapper::setHiddenReference(v8::Handle<v8::Object> parent, v8::Handle<v8::Value> child)
+{
+    v8::Local<v8::Value> hiddenReferenceObject = parent->GetInternalField(v8DOMHiddenReferenceArrayIndex);
+    if (hiddenReferenceObject->IsNull() || hiddenReferenceObject->IsUndefined()) {
+        hiddenReferenceObject = v8::Array::New();
+        parent->SetInternalField(v8DOMHiddenReferenceArrayIndex, hiddenReferenceObject);
+    }
+    v8::Local<v8::Array> hiddenReferenceArray = v8::Local<v8::Array>::Cast(hiddenReferenceObject);
+    hiddenReferenceArray->Set(v8::Integer::New(hiddenReferenceArray->Length()), child);
+}
+>>>>>>> webkit.org at r58033
+
+void V8DOMWrapper::setHiddenWindowReference(Frame* frame, v8::Handle<v8::Value> jsObject)
 {
     // Get DOMWindow
     if (!frame)
@@ -236,21 +203,18 @@ void V8DOMWrapper::setHiddenWindowReference(Frame* frame, const int internalInde
     if (context.IsEmpty())
         return;
 
-    ASSERT(internalIndex < V8DOMWindow::internalFieldCount);
-
     v8::Handle<v8::Object> global = context->Global();
     // Look for real DOM wrapper.
     global = V8DOMWrapper::lookupDOMWrapper(V8DOMWindow::GetTemplate(), global);
     ASSERT(!global.IsEmpty());
-    ASSERT(global->GetInternalField(internalIndex)->IsUndefined());
-    global->SetInternalField(internalIndex, jsObject);
+
+    setHiddenReference(global, jsObject);
 }
 
-V8ClassIndex::V8WrapperType V8DOMWrapper::domWrapperType(v8::Handle<v8::Object> object)
+WrapperTypeInfo* V8DOMWrapper::domWrapperType(v8::Handle<v8::Object> object)
 {
     ASSERT(V8DOMWrapper::maybeDOMWrapper(object));
-    v8::Handle<v8::Value> type = object->GetInternalField(v8DOMWrapperTypeIndex);
-    return V8ClassIndex::FromInt(type->Int32Value());
+    return static_cast<WrapperTypeInfo*>(object->GetPointerFromInternalField(v8DOMWrapperTypeIndex));
 }
 
 PassRefPtr<NodeFilter> V8DOMWrapper::wrapNativeNodeFilter(v8::Handle<v8::Value> filter)
@@ -275,15 +239,24 @@ static bool globalObjectPrototypeIsDOMWindow(v8::Handle<v8::Object> objectProtot
 #if ENABLE(SHARED_WORKERS)
     // We can identify what type of context the global object is wrapping by looking at the
     // internal field count of its prototype. This assumes WorkerContexts and DOMWindows have different numbers
-    // of internal fields, so a COMPILE_ASSERT is included to warn if this ever changes. DOMWindow has
-    // traditionally had far more internal fields than any other class.
-    COMPILE_ASSERT(V8DOMWindow::internalFieldCount != V8WorkerContext::internalFieldCount && V8DOMWindow::internalFieldCount != V8SharedWorkerContext::internalFieldCount,
+    // of internal fields, so a COMPILE_ASSERT is included to warn if this ever changes.
+#if ENABLE(WORKERS)
+    COMPILE_ASSERT(V8DOMWindow::internalFieldCount != V8WorkerContext::internalFieldCount,
         DOMWindowAndWorkerContextHaveUnequalFieldCounts);
+<<<<<<< HEAD
+=======
+    COMPILE_ASSERT(V8DOMWindow::internalFieldCount != V8DedicatedWorkerContext::internalFieldCount,
+        DOMWindowAndDedicatedWorkerContextHaveUnequalFieldCounts);
+#endif
+#if ENABLE(SHARED_WORKERS)
+    COMPILE_ASSERT(V8DOMWindow::internalFieldCount != V8SharedWorkerContext::internalFieldCount,
+        DOMWindowAndSharedWorkerContextHaveUnequalFieldCounts);
+>>>>>>> webkit.org at r58033
 #endif
     return objectPrototype->InternalFieldCount() == V8DOMWindow::internalFieldCount;
 }
 
-v8::Local<v8::Object> V8DOMWrapper::instantiateV8Object(V8Proxy* proxy, V8ClassIndex::V8WrapperType type, void* impl)
+v8::Local<v8::Object> V8DOMWrapper::instantiateV8Object(V8Proxy* proxy, WrapperTypeInfo* type, void* impl)
 {
     WorkerContext* workerContext = 0;
     if (V8IsolatedContext::getEntered()) {
@@ -316,12 +289,16 @@ v8::Local<v8::Object> V8DOMWrapper::instantiateV8Object(V8Proxy* proxy, V8ClassI
             function = getConstructor(type, workerContext);
         else
 #endif
+<<<<<<< HEAD
             function = V8ClassIndex::getTemplate(type)->GetFunction();
+=======
+            function = type->getTemplate()->GetFunction();
+>>>>>>> webkit.org at r58033
         instance = SafeAllocation::newInstance(function);
     }
     if (!instance.IsEmpty()) {
         // Avoid setting the DOM wrapper for failed allocations.
-        setDOMWrapper(instance, V8ClassIndex::ToInt(type), impl);
+        setDOMWrapper(instance, type, impl);
     }
     return instance;
 }
@@ -338,10 +315,6 @@ bool V8DOMWrapper::maybeDOMWrapper(v8::Handle<v8::Value> value)
 
     ASSERT(object->InternalFieldCount() >= v8DefaultWrapperInternalFieldCount);
 
-    v8::Handle<v8::Value> type = object->GetInternalField(v8DOMWrapperTypeIndex);
-    ASSERT(type->IsInt32());
-    ASSERT(V8ClassIndex::INVALID_CLASS_INDEX < type->Int32Value() && type->Int32Value() < V8ClassIndex::CLASSINDEX_END);
-
     v8::Handle<v8::Value> wrapper = object->GetInternalField(v8DOMWrapperObjectIndex);
     ASSERT(wrapper->IsNumber() || wrapper->IsExternal());
 
@@ -356,7 +329,7 @@ bool V8DOMWrapper::isValidDOMObject(v8::Handle<v8::Value> value)
     return v8::Handle<v8::Object>::Cast(value)->InternalFieldCount();
 }
 
-bool V8DOMWrapper::isWrapperOfType(v8::Handle<v8::Value> value, V8ClassIndex::V8WrapperType classType)
+bool V8DOMWrapper::isWrapperOfType(v8::Handle<v8::Value> value, WrapperTypeInfo* type)
 {
     if (!isValidDOMObject(value))
         return false;
@@ -367,11 +340,8 @@ bool V8DOMWrapper::isWrapperOfType(v8::Handle<v8::Value> value, V8ClassIndex::V8
     v8::Handle<v8::Value> wrapper = object->GetInternalField(v8DOMWrapperObjectIndex);
     ASSERT(wrapper->IsNumber() || wrapper->IsExternal());
 
-    v8::Handle<v8::Value> type = object->GetInternalField(v8DOMWrapperTypeIndex);
-    ASSERT(type->IsInt32());
-    ASSERT(V8ClassIndex::INVALID_CLASS_INDEX < type->Int32Value() && type->Int32Value() < V8ClassIndex::CLASSINDEX_END);
-
-    return V8ClassIndex::FromInt(type->Int32Value()) == classType;
+    WrapperTypeInfo* typeInfo = static_cast<WrapperTypeInfo*>(object->GetPointerFromInternalField(v8DOMWrapperTypeIndex));
+    return typeInfo == type;
 }
 
 v8::Handle<v8::Object> V8DOMWrapper::getWrapper(Node* node)
@@ -440,9 +410,6 @@ v8::Handle<v8::Value> V8DOMWrapper::convertEventTargetToV8Object(EventTarget* ta
         return wrapper;
     }
 
-    if (XMLHttpRequest* xhr = target->toXMLHttpRequest())
-        return toV8(xhr);
-
     // MessagePort is created within its JS counterpart
     if (MessagePort* port = target->toMessagePort()) {
         v8::Handle<v8::Object> wrapper = getActiveDOMObjectMap().get(port);
@@ -470,6 +437,7 @@ v8::Handle<v8::Value> V8DOMWrapper::convertEventTargetToV8Object(EventTarget* ta
     return notHandledByInterceptor();
 }
 
+<<<<<<< HEAD
 PassRefPtr<EventListener> V8DOMWrapper::getEventListener(Node* node, v8::Local<v8::Value> value, bool isAttribute, ListenerLookupType lookup)
 {
     return (lookup == ListenerFindOnly) ? V8EventListenerList::findWrapper(value, isAttribute) : V8EventListenerList::findOrCreateWrapper<V8EventListener>(value, isAttribute);
@@ -530,37 +498,23 @@ PassRefPtr<EventListener> V8DOMWrapper::getEventListener(XMLHttpRequestUpload* u
 
 #if ENABLE(EVENTSOURCE)
 PassRefPtr<EventListener> V8DOMWrapper::getEventListener(EventSource* eventSource, v8::Local<v8::Value> value, bool isAttribute, ListenerLookupType lookup)
+=======
+PassRefPtr<EventListener> V8DOMWrapper::getEventListener(v8::Local<v8::Value> value, bool isAttribute, ListenerLookupType lookup)
+>>>>>>> webkit.org at r58033
 {
-    if (V8Proxy::retrieve(eventSource->scriptExecutionContext()))
-        return (lookup == ListenerFindOnly) ? V8EventListenerList::findWrapper(value, isAttribute) : V8EventListenerList::findOrCreateWrapper<V8EventListener>(value, isAttribute);
-
+    v8::Handle<v8::Context> context = v8::Context::GetCurrent();
+    if (context.IsEmpty())
+        return 0;
+    if (lookup == ListenerFindOnly)
+        return V8EventListenerList::findWrapper(value, isAttribute);
+    v8::Handle<v8::Object> globalPrototype = v8::Handle<v8::Object>::Cast(context->Global()->GetPrototype());
+    if (globalObjectPrototypeIsDOMWindow(globalPrototype))
+        return V8EventListenerList::findOrCreateWrapper<V8EventListener>(value, isAttribute);
 #if ENABLE(WORKERS)
-    WorkerContextExecutionProxy* workerContextProxy = WorkerContextExecutionProxy::retrieve();
-    if (workerContextProxy)
-        return workerContextProxy->findOrCreateEventListener(value, isAttribute, lookup == ListenerFindOnly);
-#endif
-
+    return V8EventListenerList::findOrCreateWrapper<V8WorkerContextEventListener>(value, isAttribute);
+#else
     return 0;
-}
 #endif
-
-PassRefPtr<EventListener> V8DOMWrapper::getEventListener(EventTarget* eventTarget, v8::Local<v8::Value> value, bool isAttribute, ListenerLookupType lookup)
-{
-    if (V8Proxy::retrieve(eventTarget->scriptExecutionContext()))
-        return (lookup == ListenerFindOnly) ? V8EventListenerList::findWrapper(value, isAttribute) : V8EventListenerList::findOrCreateWrapper<V8EventListener>(value, isAttribute);
-
-#if ENABLE(WORKERS)
-    WorkerContextExecutionProxy* workerContextProxy = WorkerContextExecutionProxy::retrieve();
-    if (workerContextProxy)
-        return workerContextProxy->findOrCreateEventListener(value, isAttribute, lookup == ListenerFindOnly);
-#endif
-
-    return 0;
-}
-
-PassRefPtr<EventListener> V8DOMWrapper::getEventListener(V8Proxy* proxy, v8::Local<v8::Value> value, bool isAttribute, ListenerLookupType lookup)
-{
-    return (lookup == ListenerFindOnly) ? V8EventListenerList::findWrapper(value, isAttribute) : V8EventListenerList::findOrCreateWrapper<V8EventListener>(value, isAttribute);
 }
 
 }  // namespace WebCore

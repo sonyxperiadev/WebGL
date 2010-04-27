@@ -40,12 +40,14 @@
 #include <QVariant>
 
 #include <qwebdatabase.h>
+#include <qwebelement.h>
 #include <qwebframe.h>
 #include <qwebhistory.h>
 #include <qwebpage.h>
 #include <qwebsecurityorigin.h>
 
 class QWebFrame;
+class DumpRenderTreeSupportQt;
 namespace WebCore {
     class DumpRenderTree;
 }
@@ -69,6 +71,9 @@ public:
     bool waitForPolicy() const { return m_waitForPolicy; }
 
     void reset();
+
+    static const unsigned int maxViewWidth;
+    static const unsigned int maxViewHeight;
 
 protected:
     void timerEvent(QTimerEvent*);
@@ -98,6 +103,9 @@ public slots:
     void dumpEditingCallbacks();
     void dumpFrameLoadCallbacks();
     void dumpResourceLoadCallbacks();
+    void setWillSendRequestReturnsNullOnRedirect(bool enabled);
+    void setWillSendRequestReturnsNull(bool enabled);
+    void setWillSendRequestClearHeader(const QStringList& headers);
     void queueBackNavigation(int howFarBackward);
     void queueForwardNavigation(int howFarForward);
     void queueLoad(const QString& url, const QString& target = QString());
@@ -107,6 +115,8 @@ public slots:
     void provisionalLoad();
     void setCloseRemainingWindowsWhenComplete(bool = false) {}
     int windowCount();
+    void grantDesktopNotificationPermission(const QString& origin);
+    bool checkDesktopNotificationPermission(const QString& origin);
     void display();
     void clearBackForwardList();
     QString pathToLocalResource(const QString& url);
@@ -114,23 +124,33 @@ public slots:
     QString encodeHostName(const QString& host);
     QString decodeHostName(const QString& host);
     void dumpSelectionRect() const {}
+    void setDeveloperExtrasEnabled(bool);
     void showWebInspector();
     void closeWebInspector();
     void evaluateInWebInspector(long callId, const QString& script);
 
-    void setFrameSetFlatteningEnabled(bool enable);
+    void setMediaType(const QString& type);
+    void setFrameFlatteningEnabled(bool enable);
     void setAllowUniversalAccessFromFileURLs(bool enable);
     void setAllowFileAccessFromFileURLs(bool enable);
+    void setAppCacheMaximumSize(unsigned long long quota);
     void setJavaScriptProfilingEnabled(bool enable);
     void setTimelineProfilingEnabled(bool enable);
     void setFixedContentsSize(int width, int height);
     void setPrivateBrowsingEnabled(bool enable);
+    void setSpatialNavigationEnabled(bool enabled);
     void setPopupBlockingEnabled(bool enable);
     void setPOSIXLocale(const QString& locale);
     void resetLoadFinished() { m_loadFinished = false; }
     void setWindowIsKey(bool isKey);
     void setMainFrameIsFirstResponder(bool isFirst);
     void setXSSAuditorEnabled(bool enable);
+    void setCaretBrowsingEnabled(bool enable);
+    void setViewModeMediaFeature(const QString& mode);
+    void setSmartInsertDeleteEnabled(bool enable);
+    void setSelectTrailingWhitespaceEnabled(bool enable);
+    void execCommand(const QString& name, const QString& value = QString());
+    bool isCommandEnabled(const QString& name) const;
 
     bool pauseAnimationAtTimeOnElementWithId(const QString& animationName, double time, const QString& elementId);
     bool pauseTransitionAtTimeOnElementWithId(const QString& propertyName, double time, const QString& elementId);
@@ -138,7 +158,8 @@ public slots:
 
     unsigned numberOfActiveAnimations() const;
 
-    void whiteListAccessFromOrigin(const QString& sourceOrigin, const QString& destinationProtocol, const QString& destinationHost, bool allowDestinationSubdomains);
+    void addOriginAccessWhitelistEntry(const QString& sourceOrigin, const QString& destinationProtocol, const QString& destinationHost, bool allowDestinationSubdomains);
+    void removeOriginAccessWhitelistEntry(const QString& sourceOrigin, const QString& destinationProtocol, const QString& destinationHost, bool allowDestinationSubdomains);
 
     void dispatchPendingLoadRequests();
     void disableImageLoading();
@@ -153,7 +174,19 @@ public slots:
     void setDomainRelaxationForbiddenForURLScheme(bool forbidden, const QString& scheme);
     int workerThreadCount();
     int pageNumberForElementById(const QString& id, float width = 0, float height = 0);
-    int numberOfPages(float width, float height);
+    int numberOfPages(float width = maxViewWidth, float height = maxViewHeight);
+    bool callShouldCloseOnWebView();
+
+    /*
+        Policy values: 'on', 'auto' or 'off'.
+        Orientation values: 'vertical' or 'horizontal'.
+    */
+    void setScrollbarPolicy(const QString& orientation, const QString& policy);
+
+    QString markerTextForListItem(const QWebElement& listItem);
+
+    // Simulate a request an embedding application could make, populating per-session credential storage.
+    void authenticateSession(const QString& url, const QString& username, const QString& password);
 
 private slots:
     void processWork();

@@ -42,6 +42,7 @@ namespace WebCore {
 
 RenderSVGImage::RenderSVGImage(SVGImageElement* impl)
     : RenderImage(impl)
+    , m_needsTransformUpdate(true)
 {
 }
 
@@ -50,10 +51,13 @@ void RenderSVGImage::layout()
     ASSERT(needsLayout());
 
     LayoutRepainter repainter(*this, checkForRepaintDuringLayout());
-
     SVGImageElement* image = static_cast<SVGImageElement*>(node());
-    m_localTransform = image->animatedLocalTransform();
-    
+
+    if (m_needsTransformUpdate) {
+        m_localTransform = image->animatedLocalTransform();
+        m_needsTransformUpdate = false;
+    }
+
     // minimum height
     setHeight(errorOccurred() ? intrinsicSize().height() : 0);
 
@@ -77,7 +81,7 @@ void RenderSVGImage::paint(PaintInfo& paintInfo, int, int)
     paintInfo.context->concatCTM(localToParentTransform());
 
     if (paintInfo.phase == PaintPhaseForeground) {
-        SVGResourceFilter* filter = 0;
+        RenderSVGResourceFilter* filter = 0;
 
         PaintInfo savedInfo(paintInfo);
 
@@ -95,14 +99,14 @@ void RenderSVGImage::paint(PaintInfo& paintInfo, int, int)
     }
 
     if ((paintInfo.phase == PaintPhaseOutline || paintInfo.phase == PaintPhaseSelfOutline) && style()->outlineWidth())
-        paintOutline(paintInfo.context, 0, 0, width(), height(), style());
+        paintOutline(paintInfo.context, 0, 0, width(), height());
 
     paintInfo.context->restore();
 }
 
 void RenderSVGImage::destroy()
 {
-    SVGRenderBase::deregisterFromResources(this);
+    deregisterFromResources(this);
     RenderImage::destroy();
 }
 

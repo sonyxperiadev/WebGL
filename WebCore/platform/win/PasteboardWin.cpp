@@ -27,7 +27,6 @@
 #include "Pasteboard.h"
 
 #include "BitmapInfo.h"
-#include "CString.h"
 #include "ClipboardUtilitiesWin.h"
 #include "Document.h"
 #include "DocumentFragment.h"
@@ -40,7 +39,9 @@
 #include "Range.h"
 #include "RenderImage.h"
 #include "TextEncoding.h"
+#include "WebCoreInstanceHandle.h"
 #include "markup.h"
+#include <wtf/text/CString.h>
 
 namespace WebCore {
 
@@ -88,7 +89,7 @@ Pasteboard::Pasteboard()
     WNDCLASSEX wcex = {0};
     wcex.cbSize = sizeof(WNDCLASSEX);
     wcex.lpfnWndProc    = PasteboardOwnerWndProc;
-    wcex.hInstance      = Page::instanceHandle();
+    wcex.hInstance      = WebCore::instanceHandle();
     wcex.lpszClassName  = L"PasteboardOwnerWindowClass";
     ::RegisterClassEx(&wcex);
 

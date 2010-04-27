@@ -117,6 +117,11 @@ static bool shouldOpenWebInspector(const char* pathOrURL)
     return strstr(pathOrURL, "inspector/");
 }
 
+static bool shouldEnableDeveloperExtras(const char* pathOrURL)
+{
+    return shouldOpenWebInspector(pathOrURL) || strstr(pathOrURL, "inspector-enabled/");
+}
+
 void dumpFrameScrollPosition(WebKitWebFrame* frame)
 {
 
@@ -319,6 +324,7 @@ static void resetDefaultsToConsistentValues()
                  "enable-html5-database", TRUE,
                  "enable-html5-local-storage", TRUE,
                  "enable-xss-auditor", FALSE,
+                 "enable-spatial-navigation", FALSE,
                  "javascript-can-open-windows-automatically", TRUE,
                  "enable-offline-web-application-cache", TRUE,
                  "enable-universal-access-from-file-uris", TRUE,
@@ -335,6 +341,7 @@ static void resetDefaultsToConsistentValues()
                  "enable-page-cache", FALSE,
                  "auto-resize-window", TRUE,
                  "enable-java-applet", FALSE,
+                 "enable-plugins", TRUE,
                  NULL);
 
     webkit_web_frame_clear_main_frame_name(mainFrame);
@@ -345,6 +352,16 @@ static void resetDefaultsToConsistentValues()
     webkit_web_view_set_zoom_level(webView, 1.0);
 
     webkit_reset_origin_access_white_lists();
+
+#ifdef HAVE_LIBSOUP_2_29_90
+    SoupSession* session = webkit_get_default_session();
+    SoupCookieJar* jar = reinterpret_cast<SoupCookieJar*>(soup_session_get_feature(session, SOUP_TYPE_COOKIE_JAR));
+
+    // We only create the jar when the soup backend needs to do
+    // HTTP. Should we initialize it earlier, perhaps?
+    if (jar)
+        g_object_set(G_OBJECT(jar), SOUP_COOKIE_JAR_ACCEPT_POLICY, SOUP_COOKIE_JAR_ACCEPT_NO_THIRD_PARTY, NULL);
+#endif
 
     setlocale(LC_ALL, "");
 }
@@ -468,8 +485,11 @@ static void runTest(const string& testPathOrURL)
     if (shouldLogFrameLoadDelegates(pathOrURL.c_str()))
         gLayoutTestController->setDumpFrameLoadCallbacks(true);
 
-    if (shouldOpenWebInspector(pathOrURL.c_str()))
-        gLayoutTestController->showWebInspector();
+    if (shouldEnableDeveloperExtras(pathOrURL.c_str())) {
+        gLayoutTestController->setDeveloperExtrasEnabled(true);
+        if (shouldOpenWebInspector(pathOrURL.c_str()))
+            gLayoutTestController->showWebInspector();
+    }
 
     WorkQueue::shared()->clear();
     WorkQueue::shared()->setFrozen(false);
@@ -502,7 +522,8 @@ static void runTest(const string& testPathOrURL)
 
     gtk_main();
 
-    if (shouldOpenWebInspector(pathOrURL.c_str()))
+    // If developer extras enabled Web Inspector may have been open by the test.
+    if (shouldEnableDeveloperExtras(pathOrURL.c_str()))
         gLayoutTestController->closeWebInspector();
 
     // Also check if we still have opened webViews and free them.
@@ -550,7 +571,7 @@ static char* getFrameNameSuitableForTestResult(WebKitWebView* view, WebKitWebFra
         // This is a bit strange. Shouldn't web_frame_get_name return NULL?
         if (frameName && (frameName[0] != '\0')) {
             char* tmp = g_strdup_printf("main frame \"%s\"", frameName);
-            g_free (frameName);
+            g_free(frameName);
             frameName = tmp;
         } else {
             g_free(frameName);
@@ -559,20 +580,31 @@ static char* getFrameNameSuitableForTestResult(WebKitWebView* view, WebKitWebFra
     } else if (!frameName || (frameName[0] == '\0')) {
         g_free(frameName);
         frameName = g_strdup("frame (anonymous)");
+    } else {
+        char* tmp = g_strdup_printf("frame \"%s\"", frameName);
+        g_free(frameName);
+        frameName = tmp;
     }
 
     return frameName;
 }
 
+static void webViewLoadCommitted(WebKitWebView* view, WebKitWebFrame* frame, void*)
+{
+    if (!done && gLayoutTestController->dumpFrameLoadCallbacks()) {
+        char* frameName = getFrameNameSuitableForTestResult(view, frame);
+        printf("%s - didCommitLoadForFrame\n", frameName);
+        g_free(frameName);
+    }
+}
+
+
 static void webViewLoadFinished(WebKitWebView* view, WebKitWebFrame* frame, void*)
 {
-    if (!done && !gLayoutTestController->dumpFrameLoadCallbacks()) {
-        guint pendingFrameUnloadEvents = webkit_web_frame_get_pending_unload_event_count(frame);
-        if (pendingFrameUnloadEvents) {
-            char* frameName = getFrameNameSuitableForTestResult(view, frame);
-            printf("%s - has %u onunload handler(s)\n", frameName, pendingFrameUnloadEvents);
-            g_free(frameName);
-        }
+    if (!done && gLayoutTestController->dumpFrameLoadCallbacks()) {
+        char* frameName = getFrameNameSuitableForTestResult(view, frame);
+        printf("%s - didFinishLoadForFrame\n", frameName);
+        g_free(frameName);
     }
 
     if (frame != topLoadingFrame)
@@ -587,6 +619,31 @@ static void webViewLoadFinished(WebKitWebView* view, WebKitWebFrame* frame, void
         g_timeout_add(0, processWork, 0);
     else
         dump();
+}
+
+static void webViewDocumentLoadFinished(WebKitWebView* view, WebKitWebFrame* frame, void*)
+{
+    if (!done && gLayoutTestController->dumpFrameLoadCallbacks()) {
+        char* frameName = getFrameNameSuitableForTestResult(view, frame);
+        printf("%s - didFinishDocumentLoadForFrame\n", frameName);
+        g_free(frameName);
+    } else if (!done) {
+        guint pendingFrameUnloadEvents = webkit_web_frame_get_pending_unload_event_count(frame);
+        if (pendingFrameUnloadEvents) {
+            char* frameName = getFrameNameSuitableForTestResult(view, frame);
+            printf("%s - has %u onunload handler(s)\n", frameName, pendingFrameUnloadEvents);
+            g_free(frameName);
+        }
+    }
+}
+
+static void webViewOnloadEvent(WebKitWebView* view, WebKitWebFrame* frame, void*)
+{
+    if (!done && gLayoutTestController->dumpFrameLoadCallbacks()) {
+        char* frameName = getFrameNameSuitableForTestResult(view, frame);
+        printf("%s - didHandleOnloadEventsForFrame\n", frameName);
+        g_free(frameName);
+    }
 }
 
 static void webViewWindowObjectCleared(WebKitWebView* view, WebKitWebFrame* frame, JSGlobalContextRef context, JSObjectRef windowObject, gpointer data)
@@ -611,7 +668,26 @@ static void webViewWindowObjectCleared(WebKitWebView* view, WebKitWebFrame* fram
 
 static gboolean webViewConsoleMessage(WebKitWebView* view, const gchar* message, unsigned int line, const gchar* sourceId, gpointer data)
 {
-    fprintf(stdout, "CONSOLE MESSAGE: line %d: %s\n", line, message);
+    gchar* testMessage = 0;
+    const gchar* uriScheme;
+
+    // Tests expect only the filename part of local URIs
+    uriScheme = g_strstr_len(message, -1, "file://");
+    if (uriScheme) {
+        GString* tempString = g_string_sized_new(strlen(message));
+        gchar* filename = g_strrstr(uriScheme, G_DIR_SEPARATOR_S);
+
+        if (filename) {
+            filename += strlen(G_DIR_SEPARATOR_S);
+            tempString = g_string_append_len(tempString, message, (uriScheme - message));
+            tempString = g_string_append_len(tempString, filename, strlen(filename));
+            testMessage = g_string_free(tempString, FALSE);
+        }
+    }
+
+    fprintf(stdout, "CONSOLE MESSAGE: line %d: %s\n", line, testMessage ? testMessage : message);
+    g_free(testMessage);
+
     return TRUE;
 }
 
@@ -725,6 +801,19 @@ static void databaseQuotaExceeded(WebKitWebView* view, WebKitWebFrame* frame, We
     webkit_security_origin_set_web_database_quota(origin, 5 * 1024 * 1024);
 }
 
+static bool
+geolocationPolicyDecisionRequested(WebKitWebView*, WebKitWebFrame*, WebKitGeolocationPolicyDecision* decision)
+{
+    if (!gLayoutTestController->isGeolocationPermissionSet())
+        return FALSE;
+    if (gLayoutTestController->geolocationPermission())
+        webkit_geolocation_policy_allow(decision);
+    else
+        webkit_geolocation_policy_deny(decision);
+
+    return TRUE;
+}
+
 
 static WebKitWebView* webViewCreate(WebKitWebView*, WebKitWebFrame*);
 
@@ -764,6 +853,7 @@ static WebKitWebView* createWebView()
     g_object_connect(G_OBJECT(view),
                      "signal::load-started", webViewLoadStarted, 0,
                      "signal::load-finished", webViewLoadFinished, 0,
+                     "signal::load-committed", webViewLoadCommitted, 0,
                      "signal::window-object-cleared", webViewWindowObjectCleared, 0,
                      "signal::console-message", webViewConsoleMessage, 0,
                      "signal::script-alert", webViewScriptAlert, 0,
@@ -775,6 +865,9 @@ static WebKitWebView* createWebView()
                      "signal::create-web-view", webViewCreate, 0,
                      "signal::close-web-view", webViewClose, 0,
                      "signal::database-quota-exceeded", databaseQuotaExceeded, 0,
+                     "signal::document-load-finished", webViewDocumentLoadFinished, 0,
+                     "signal::geolocation-policy-decision-requested", geolocationPolicyDecisionRequested, 0,
+                     "signal::onload-event", webViewOnloadEvent, 0,
                      NULL);
 
     WebKitWebInspector* inspector = webkit_web_view_get_inspector(view);
@@ -806,10 +899,21 @@ static WebKitWebView* webViewCreate(WebKitWebView* view, WebKitWebFrame* frame)
     return newWebView;
 }
 
+static void logHandler(const gchar* domain, GLogLevelFlags level, const gchar* message, gpointer data)
+{
+    if (level < G_LOG_LEVEL_DEBUG)
+        fprintf(stderr, "%s\n", message);
+}
+
 int main(int argc, char* argv[])
 {
     g_thread_init(NULL);
     gtk_init(&argc, &argv);
+
+    // Some plugins might try to use the GLib logger for printing debug
+    // messages. This will cause tests to fail because of unexpected output.
+    // We squelch all debug messages sent to the logger.
+    g_log_set_default_handler(logHandler, 0);
 
 #if PLATFORM(X11)
     FcInit();

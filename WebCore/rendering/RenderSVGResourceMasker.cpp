@@ -31,6 +31,7 @@
 #include "ImageBuffer.h"
 #include "ImageData.h"
 #include "IntRect.h"
+#include "RenderSVGResource.h"
 #include "SVGElement.h"
 #include "SVGMaskElement.h"
 #include "SVGStyledElement.h"
@@ -55,8 +56,12 @@ RenderSVGResourceMasker::~RenderSVGResourceMasker()
 void RenderSVGResourceMasker::invalidateClients()
 {
     HashMap<RenderObject*, MaskerData*>::const_iterator end = m_masker.end();
-    for (HashMap<RenderObject*, MaskerData*>::const_iterator it = m_masker.begin(); it != end; ++it)
-        it->first->setNeedsLayout(true);
+    for (HashMap<RenderObject*, MaskerData*>::const_iterator it = m_masker.begin(); it != end; ++it) {
+        RenderObject* renderer = it->first;
+        renderer->setNeedsBoundariesUpdate();
+        renderer->setNeedsLayout(true);
+    }
+
     deleteAllValues(m_masker);
     m_masker.clear();
 }
@@ -75,7 +80,7 @@ void RenderSVGResourceMasker::invalidateClient(RenderObject* object)
     delete m_masker.take(object); 
 }
 
-bool RenderSVGResourceMasker::applyResource(RenderObject* object, GraphicsContext* context)
+bool RenderSVGResourceMasker::applyResource(RenderObject* object, GraphicsContext*& context)
 {
     ASSERT(object);
     ASSERT(context);

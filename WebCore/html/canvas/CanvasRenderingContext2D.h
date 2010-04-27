@@ -57,7 +57,7 @@ namespace WebCore {
 
     class CanvasRenderingContext2D : public CanvasRenderingContext {
     public:
-        CanvasRenderingContext2D(HTMLCanvasElement*);
+        CanvasRenderingContext2D(HTMLCanvasElement*, bool usesCSSCompatibilityParseMode, bool usesDashboardCompatibilityMode);
 
         virtual ~CanvasRenderingContext2D();
         
@@ -154,15 +154,18 @@ namespace WebCore {
 
         void clearShadow();
 
-        void drawImage(HTMLImageElement*, float x, float y);
+        void drawImage(HTMLImageElement*, float x, float y, ExceptionCode&);
         void drawImage(HTMLImageElement*, float x, float y, float width, float height, ExceptionCode&);
+        void drawImage(HTMLImageElement*, float sx, float sy, float sw, float sh, float dx, float dy, float dw, float dh, ExceptionCode&);
         void drawImage(HTMLImageElement*, const FloatRect& srcRect, const FloatRect& dstRect, ExceptionCode&);
-        void drawImage(HTMLCanvasElement*, float x, float y);
+        void drawImage(HTMLCanvasElement*, float x, float y, ExceptionCode&);
         void drawImage(HTMLCanvasElement*, float x, float y, float width, float height, ExceptionCode&);
+        void drawImage(HTMLCanvasElement*, float sx, float sy, float sw, float sh, float dx, float dy, float dw, float dh, ExceptionCode&);
         void drawImage(HTMLCanvasElement*, const FloatRect& srcRect, const FloatRect& dstRect, ExceptionCode&);
 #if ENABLE(VIDEO)
-        void drawImage(HTMLVideoElement*, float x, float y);
+        void drawImage(HTMLVideoElement*, float x, float y, ExceptionCode&);
         void drawImage(HTMLVideoElement*, float x, float y, float width, float height, ExceptionCode&);
+        void drawImage(HTMLVideoElement*, float sx, float sy, float sw, float sh, float dx, float dy, float dw, float dh, ExceptionCode&);
         void drawImage(HTMLVideoElement*, const FloatRect& srcRect, const FloatRect& dstRect, ExceptionCode&);
 #endif
 
@@ -263,6 +266,10 @@ namespace WebCore {
         void checkOrigin(const String&);
 
         Vector<State, 1> m_stateStack;
+        bool m_usesCSSCompatibilityParseMode;
+#if ENABLE(DASHBOARD_SUPPORT)
+        bool m_usesDashboardCompatibilityMode;
+#endif
     };
 
 } // namespace WebCore

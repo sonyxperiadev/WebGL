@@ -26,7 +26,6 @@
 #include "MappedAttribute.h"
 #include "SVGNames.h"
 #include "SVGNumberList.h"
-#include "SVGResourceFilter.h"
 
 namespace WebCore {
 
@@ -81,25 +80,49 @@ void SVGFEColorMatrixElement::synchronizeProperty(const QualifiedName& attrName)
         synchronizeValues();
 }
 
-bool SVGFEColorMatrixElement::build(SVGResourceFilter* filterResource)
+PassRefPtr<FilterEffect> SVGFEColorMatrixElement::build(SVGFilterBuilder* filterBuilder)
 {
-    FilterEffect* input1 = filterResource->builder()->getEffectById(in1());
+    FilterEffect* input1 = filterBuilder->getEffectById(in1());
 
     if (!input1)
-        return false;
+        return 0;
 
-    Vector<float> _values;
+    Vector<float> filterValues;
     SVGNumberList* numbers = values();
+    const ColorMatrixType filterType(static_cast<const ColorMatrixType>(type()));
 
-    ExceptionCode ec = 0;
-    unsigned int nr = numbers->numberOfItems();
-    for (unsigned int i = 0;i < nr;i++)
-        _values.append(numbers->getItem(i, ec));
+    // Use defaults if values is empty (SVG 1.1 15.10).
+    if (!hasAttribute(SVGNames::valuesAttr)) {
+        switch (filterType) {
+        case FECOLORMATRIX_TYPE_MATRIX:
+            for (size_t i = 0; i < 20; i++)
+                filterValues.append((i % 6) ? 0.0f : 1.0f);
+            break;
+        case FECOLORMATRIX_TYPE_HUEROTATE:
+            filterValues.append(0.0f);
+            break;
+        case FECOLORMATRIX_TYPE_SATURATE:
+            filterValues.append(1.0f);
+            break;
+        default:
+            break;
+        }
+    } else {
+        size_t size = numbers->numberOfItems();
+        for (size_t i = 0; i < size; i++) {
+            ExceptionCode ec = 0;
+            filterValues.append(numbers->getItem(i, ec));
+        }
+        size = filterValues.size();
 
-    RefPtr<FilterEffect> effect = FEColorMatrix::create(input1, static_cast<ColorMatrixType>(type()), _values);
-    filterResource->addFilterEffect(this, effect.release());
-    
-    return true;
+        if ((filterType == FECOLORMATRIX_TYPE_MATRIX && size != 20)
+            || (filterType == FECOLORMATRIX_TYPE_HUEROTATE && size != 1)
+            || (filterType == FECOLORMATRIX_TYPE_SATURATE && (size != 1
+                || filterValues[0] < 0.0f || filterValues[0] > 1.0f)))
+            return 0;
+    }
+
+    return FEColorMatrix::create(input1, filterType, filterValues);
 }
 
 } //namespace WebCore

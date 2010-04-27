@@ -4,6 +4,7 @@
  *           (C) 2007 Eric Seidel <eric@webkit.org>
  *           (C) 2009 Google, Inc.  All rights reserved.
  *           (C) 2009 Dirk Schulze <krit@webkit.org>
+ * Copyright (C) Research In Motion Limited 2009-2010. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -33,10 +34,11 @@
 #include "RenderObject.h"
 #include "RenderSVGContainer.h"
 #include "RenderSVGResource.h"
+#include "RenderSVGResourceClipper.h"
+#include "RenderSVGResourceFilter.h"
+#include "RenderSVGResourceMarker.h"
 #include "RenderSVGResourceMasker.h"
 #include "RenderView.h"
-#include "SVGResourceClipper.h"
-#include "SVGResourceFilter.h"
 #include "SVGStyledElement.h"
 #include "SVGURIReference.h"
 #include "TransformState.h"
@@ -78,7 +80,7 @@ void SVGRenderBase::mapLocalToContainer(const RenderObject* object, RenderBoxMod
     object->parent()->mapLocalToContainer(repaintContainer, fixed, useTransforms, transformState);
 }
 
-bool SVGRenderBase::prepareToRenderSVGContent(RenderObject* object, RenderObject::PaintInfo& paintInfo, const FloatRect& repaintRect, SVGResourceFilter*& filter, SVGResourceFilter* rootFilter)
+bool SVGRenderBase::prepareToRenderSVGContent(RenderObject* object, RenderObject::PaintInfo& paintInfo, const FloatRect& repaintRect, RenderSVGResourceFilter*& filter, RenderSVGResourceFilter* rootFilter)
 {
 #if !ENABLE(FILTERS)
     UNUSED_PARAM(filter);
@@ -103,23 +105,23 @@ bool SVGRenderBase::prepareToRenderSVGContent(RenderObject* object, RenderObject
         paintInfo.context->beginTransparencyLayer(opacity);
     }
 
-    if (ShadowData* shadow = svgStyle->shadow()) {
+    if (const ShadowData* shadow = svgStyle->shadow()) {
         paintInfo.context->clip(repaintRect);
-        paintInfo.context->setShadow(IntSize(shadow->x, shadow->y), shadow->blur, shadow->color, style->colorSpace());
+        paintInfo.context->setShadow(IntSize(shadow->x(), shadow->y()), shadow->blur(), shadow->color(), style->colorSpace());
         paintInfo.context->beginTransparencyLayer(1.0f);
     }
 
 #if ENABLE(FILTERS)
-    AtomicString filterId(svgStyle->filter());
+    AtomicString filterId(svgStyle->filterResource());
 #endif
 
-    AtomicString clipperId(svgStyle->clipPath());
-    AtomicString maskerId(svgStyle->maskElement());
+    AtomicString clipperId(svgStyle->clipperResource());
+    AtomicString maskerId(svgStyle->maskerResource());
 
     Document* document = object->document();
 
 #if ENABLE(FILTERS)
-    SVGResourceFilter* newFilter = getFilterById(document, filterId, object);
+    RenderSVGResourceFilter* newFilter = getRenderSVGResourceById<RenderSVGResourceFilter>(document, filterId);
     if (newFilter == rootFilter) {
         // Catch <text filter="url(#foo)">Test<tspan filter="url(#foo)">123</tspan></text>.
         // The filter is NOT meant to be applied twice in that case!
@@ -129,23 +131,20 @@ bool SVGRenderBase::prepareToRenderSVGContent(RenderObject* object, RenderObject
         filter = newFilter;
 #endif
 
-    // apply Masker
     if (RenderSVGResourceMasker* masker = getRenderSVGResourceById<RenderSVGResourceMasker>(document, maskerId)) {
         if (!masker->applyResource(object, paintInfo.context))
             return false;
     } else if (!maskerId.isEmpty())
         svgElement->document()->accessSVGExtensions()->addPendingResource(maskerId, styledElement);
 
-    if (SVGResourceClipper* clipper = getClipperById(document, clipperId, object)) {
-        clipper->addClient(styledElement);
-        clipper->applyClip(paintInfo.context, object->objectBoundingBox());
-    } else if (!clipperId.isEmpty())
+    if (RenderSVGResourceClipper* clipper = getRenderSVGResourceById<RenderSVGResourceClipper>(document, clipperId))
+        clipper->applyResource(object, paintInfo.context);
+    else if (!clipperId.isEmpty())
         svgElement->document()->accessSVGExtensions()->addPendingResource(clipperId, styledElement);
 
 #if ENABLE(FILTERS)
     if (filter) {
-        filter->addClient(styledElement);
-        if (!filter->prepareFilter(paintInfo.context, object))
+        if (!filter->applyResource(object, paintInfo.context))
             return false;
     } else if (!filterId.isEmpty())
         svgElement->document()->accessSVGExtensions()->addPendingResource(filterId, styledElement);
@@ -154,7 +153,7 @@ bool SVGRenderBase::prepareToRenderSVGContent(RenderObject* object, RenderObject
     return true;
 }
 
-void SVGRenderBase::finishRenderSVGContent(RenderObject* object, RenderObject::PaintInfo& paintInfo, SVGResourceFilter*& filter, GraphicsContext* savedContext)
+void SVGRenderBase::finishRenderSVGContent(RenderObject* object, RenderObject::PaintInfo& paintInfo, RenderSVGResourceFilter*& filter, GraphicsContext* savedContext)
 {
 #if !ENABLE(FILTERS)
     UNUSED_PARAM(filter);
@@ -168,7 +167,7 @@ void SVGRenderBase::finishRenderSVGContent(RenderObject* object, RenderObject::P
 
 #if ENABLE(FILTERS)
     if (filter) {
-        filter->applyFilter(paintInfo.context, object);
+        filter->postApplyResource(object, paintInfo.context);
         paintInfo.context = savedContext;
     }
 #endif
@@ -188,7 +187,14 @@ void renderSubtreeToImage(ImageBuffer* image, RenderObject* item)
     ASSERT(item);
     ASSERT(image);
     ASSERT(image->context());
-    RenderObject::PaintInfo info(image->context(), IntRect(), PaintPhaseForeground, 0, 0, 0);
+
+    // FIXME: This sets the rect to the viewable area of the current frame. This
+    // is used to support text drawings to the ImageBuffer. See bug 30399.
+    IntRect rect;
+    FrameView* frameView = item->document()->view();
+    if (frameView)
+        rect = IntRect(0, 0, frameView->visibleWidth(), frameView->visibleHeight());
+    RenderObject::PaintInfo info(image->context(), rect, PaintPhaseForeground, 0, 0, 0);
 
     // FIXME: isSVGContainer returns true for RenderSVGViewportContainer, so if this is ever
     // called with one of those, we will read from the wrong offset in an object due to a bad cast.
@@ -276,9 +282,8 @@ bool SVGRenderBase::isOverflowHidden(const RenderObject* object)
 FloatRect SVGRenderBase::filterBoundingBoxForRenderer(const RenderObject* object) const
 {
 #if ENABLE(FILTERS)
-    SVGResourceFilter* filter = getFilterById(object->document(), object->style()->svgStyle()->filter(), object);
-    if (filter)
-        return filter->filterBoundingBox(object->objectBoundingBox());
+    if (RenderSVGResourceFilter* filter = getRenderSVGResourceById<RenderSVGResourceFilter>(object->document(), object->style()->svgStyle()->filterResource()))
+        return filter->resourceBoundingBox(object->objectBoundingBox());
 #else
     UNUSED_PARAM(object);
 #endif
@@ -287,26 +292,37 @@ FloatRect SVGRenderBase::filterBoundingBoxForRenderer(const RenderObject* object
 
 FloatRect SVGRenderBase::clipperBoundingBoxForRenderer(const RenderObject* object) const
 {
-    SVGResourceClipper* clipper = getClipperById(object->document(), object->style()->svgStyle()->clipPath(), object);
-    if (clipper)
-        return clipper->clipperBoundingBox(object->objectBoundingBox());
+    if (RenderSVGResourceClipper* clipper = getRenderSVGResourceById<RenderSVGResourceClipper>(object->document(), object->style()->svgStyle()->clipperResource()))
+        return clipper->resourceBoundingBox(object->objectBoundingBox());
 
     return FloatRect();
 }
 
 FloatRect SVGRenderBase::maskerBoundingBoxForRenderer(const RenderObject* object) const
 {
-    if (RenderSVGResourceMasker* masker = getRenderSVGResourceById<RenderSVGResourceMasker>(object->document(), object->style()->svgStyle()->maskElement()))
+    if (RenderSVGResourceMasker* masker = getRenderSVGResourceById<RenderSVGResourceMasker>(object->document(), object->style()->svgStyle()->maskerResource()))
         return masker->resourceBoundingBox(object->objectBoundingBox());
 
     return FloatRect();
 }
 
-void SVGRenderBase::deregisterFromResources(RenderObject* object)
+void deregisterFromResources(RenderObject* object)
 {
-    // We only have a renderer for masker at the moment.
-    if (RenderSVGResourceMasker* resource = getRenderSVGResourceById<RenderSVGResourceMasker>(object->document(), object->style()->svgStyle()->maskElement()))
-        resource->invalidateClient(object);
+    // We only have the renderer for masker and clipper at the moment.
+    if (RenderSVGResourceMasker* masker = getRenderSVGResourceById<RenderSVGResourceMasker>(object->document(), object->style()->svgStyle()->maskerResource()))
+        masker->invalidateClient(object);
+    if (RenderSVGResourceClipper* clipper = getRenderSVGResourceById<RenderSVGResourceClipper>(object->document(), object->style()->svgStyle()->clipperResource()))
+        clipper->invalidateClient(object);
+#if ENABLE(FILTERS)
+    if (RenderSVGResourceFilter* filter = getRenderSVGResourceById<RenderSVGResourceFilter>(object->document(), object->style()->svgStyle()->filterResource()))
+        filter->invalidateClient(object);
+#endif
+    if (RenderSVGResourceMarker* startMarker = getRenderSVGResourceById<RenderSVGResourceMarker>(object->document(), object->style()->svgStyle()->markerStartResource()))
+        startMarker->invalidateClient(object);
+    if (RenderSVGResourceMarker* midMarker = getRenderSVGResourceById<RenderSVGResourceMarker>(object->document(), object->style()->svgStyle()->markerMidResource()))
+        midMarker->invalidateClient(object);
+    if (RenderSVGResourceMarker* endMarker = getRenderSVGResourceById<RenderSVGResourceMarker>(object->document(), object->style()->svgStyle()->markerEndResource()))
+        endMarker->invalidateClient(object);
 }
 
 void applyTransformToPaintInfo(RenderObject::PaintInfo& paintInfo, const AffineTransform& localToAncestorTransform)
@@ -318,6 +334,16 @@ void applyTransformToPaintInfo(RenderObject::PaintInfo& paintInfo, const AffineT
     paintInfo.rect = localToAncestorTransform.inverse().mapRect(paintInfo.rect);
 }
 
-} // namespace WebCore
+const RenderObject* findTextRootObject(const RenderObject* start)
+{
+    while (start && !start->isSVGText())
+        start = start->parent();
+    ASSERT(start);
+    ASSERT(start->isSVGText());
 
-#endif // ENABLE(SVG)
+    return start;
+}
+
+}
+
+#endif

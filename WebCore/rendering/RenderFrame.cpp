@@ -37,7 +37,7 @@
 namespace WebCore {
 
 RenderFrame::RenderFrame(HTMLFrameElement* frame)
-    : RenderPart(frame)
+    : RenderFrameBase(frame)
 {
     setInline(false);
 }
@@ -65,6 +65,7 @@ void RenderFrame::viewCleared()
         view->setMarginHeight(marginh);
 }
 
+<<<<<<< HEAD
 #ifdef FLATTEN_FRAMESET
 void RenderFrame::layout()
 {
@@ -145,4 +146,6 @@ void RenderFrame::layoutWithFlattening(bool fixedWidth, bool fixedHeight)
     setNeedsLayout(false);
 }
 
+=======
+>>>>>>> webkit.org at r58033
 } // namespace WebCore

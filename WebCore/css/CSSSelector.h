@@ -22,6 +22,7 @@
 #ifndef CSSSelector_h
 #define CSSSelector_h
 
+#include "RenderStyleConstants.h"
 #include "QualifiedName.h"
 #include <wtf/Noncopyable.h>
 #include <wtf/OwnPtr.h>
@@ -194,7 +195,10 @@ namespace WebCore {
                 extractPseudoType();
             return static_cast<PseudoType>(m_pseudoType);
         }
-        
+
+        static PseudoType parsePseudoType(const AtomicString&);
+        static PseudoId pseudoId(PseudoType);
+
         CSSSelector* tagHistory() const { return m_hasRareData ? m_data.m_rareData->m_tagHistory.get() : m_data.m_tagHistory; }
         void setTagHistory(CSSSelector* tagHistory);
 
@@ -212,10 +216,18 @@ namespace WebCore {
         bool parseNth();
         bool matchNth(int count);
 
+        bool matchesPseudoElement() const 
+        { 
+            if (m_pseudoType == PseudoUnknown)
+                extractPseudoType();
+            return m_match == PseudoElement;
+        }
+
         Relation relation() const { return static_cast<Relation>(m_relation); }
 
         bool isLastInSelectorList() const { return m_isLastInSelectorList; }
         void setLastInSelectorList() { m_isLastInSelectorList = true; }
+        bool isSimple() const;
 
         mutable AtomicString m_value;
         QualifiedName m_tag;

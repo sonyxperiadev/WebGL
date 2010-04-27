@@ -27,10 +27,12 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 queues = [
+    "commit-queue",
     "style-queue",
     "chromium-ews",
+    "cr-win-ews",
     "qt-ews",
-    "mac-ews",
     "gtk-ews",
-    "commit-queue",
+    "mac-ews",
+    "win-ews",
 ]

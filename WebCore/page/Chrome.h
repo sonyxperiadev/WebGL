@@ -60,8 +60,11 @@ namespace WebCore {
         ChromeClient* client() { return m_client; }
 
         // HostWindow methods.
-        virtual void repaint(const IntRect&, bool contentChanged, bool immediate = false, bool repaintContentOnly = false);
-        virtual void scroll(const IntSize& scrollDelta, const IntRect& rectToScroll, const IntRect& clipRect);
+
+        virtual void invalidateWindow(const IntRect&, bool);
+        virtual void invalidateContentsAndWindow(const IntRect&, bool);
+        virtual void invalidateContentsForSlowScroll(const IntRect&, bool);
+        virtual void scroll(const IntSize&, const IntRect&, const IntRect&);
         virtual IntPoint screenToWindow(const IntPoint&) const;
         virtual IntRect windowToScreen(const IntRect&) const;
         virtual PlatformPageClient platformPageClient() const;
@@ -133,10 +136,14 @@ namespace WebCore {
         void print(Frame*);
 
         void requestGeolocationPermissionForFrame(Frame*, Geolocation*);
+<<<<<<< HEAD
         void cancelGeolocationPermissionRequestForFrame(Frame*);
+=======
+        void cancelGeolocationPermissionRequestForFrame(Frame*, Geolocation*);
+>>>>>>> webkit.org at r58033
 
         void runOpenPanel(Frame*, PassRefPtr<FileChooser>);
-        void iconForFiles(const Vector<String>&, PassRefPtr<FileChooser>);
+        void chooseIconForFiles(const Vector<String>&, FileChooser*);
 
         bool setCursor(PlatformCursorHandle);
 

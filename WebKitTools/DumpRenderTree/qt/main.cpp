@@ -93,7 +93,7 @@ QString get_backtrace() {
     return s;
 }
 
-#ifndef Q_OS_WIN
+#if HAVE(SIGNAL_H)
 static NO_RETURN void crashHandler(int sig)
 {
     fprintf(stderr, "%s\n", strsignal(sig));
@@ -114,10 +114,7 @@ int main(int argc, char* argv[])
     WebCore::DumpRenderTree::initializeFonts();
 #endif
 
-#if QT_VERSION >= 0x040500
     QApplication::setGraphicsSystem("raster");
-#endif
-
     QApplication::setStyle(new QWindowsStyle);
 
     QFont f("Sans Serif");
@@ -132,7 +129,7 @@ int main(int argc, char* argv[])
     QX11Info::setAppDpiX(0, 96);
 #endif
 
-#ifndef Q_OS_WIN
+#if HAVE(SIGNAL_H)
     signal(SIGILL, crashHandler);    /* 4:   illegal instruction (not reset when caught) */
     signal(SIGTRAP, crashHandler);   /* 5:   trace trap (not reset when caught) */
     signal(SIGFPE, crashHandler);    /* 8:   floating point exception */

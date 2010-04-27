@@ -10,11 +10,13 @@ javascriptcore_cppflags += \
 	-I$(srcdir)/JavaScriptCore/pcre \
 	-I$(srcdir)/JavaScriptCore/profiler \
 	-I$(srcdir)/JavaScriptCore/runtime \
-	-I$(srcdir)/JavaScriptCore/wrec \
 	-I$(srcdir)/JavaScriptCore/jit \
 	-I$(srcdir)/JavaScriptCore/assembler \
+	-I$(srcdir)/JavaScriptCore/wtf \
+	-I$(srcdir)/JavaScriptCore/wtf/text \
 	-I$(srcdir)/JavaScriptCore/wtf/unicode \
 	-I$(srcdir)/JavaScriptCore/yarr \
+	-I$(top_builddir)/JavaScriptCore \
 	-I$(top_builddir)/JavaScriptCore/pcre \
 	-I$(top_builddir)/JavaScriptCore/parser \
 	-I$(top_builddir)/JavaScriptCore/runtime
@@ -33,6 +35,7 @@ javascriptcore_h_api += \
 
 javascriptcore_built_nosources += \
 	DerivedSources/Lexer.lut.h \
+	JavaScriptCore/RegExpJitTables.h \
 	JavaScriptCore/runtime/ArrayPrototype.lut.h \
 	JavaScriptCore/runtime/DatePrototype.lut.h \
 	JavaScriptCore/runtime/JSONObject.lut.h \
@@ -210,19 +213,12 @@ javascriptcore_sources += \
 	JavaScriptCore/runtime/StructureChain.cpp \
 	JavaScriptCore/runtime/StructureChain.h \
 	JavaScriptCore/runtime/StructureTransitionTable.h \
+	JavaScriptCore/runtime/Terminator.h \
 	JavaScriptCore/runtime/TimeoutChecker.cpp \
 	JavaScriptCore/runtime/TimeoutChecker.h \
 	JavaScriptCore/runtime/JSTypeInfo.h \
 	JavaScriptCore/runtime/WeakGCMap.h \
 	JavaScriptCore/runtime/WeakGCPtr.h \
-	JavaScriptCore/wrec/CharacterClass.h \
-	JavaScriptCore/wrec/CharacterClassConstructor.h \
-	JavaScriptCore/wrec/Escapes.h \
-	JavaScriptCore/wrec/Quantifier.h \
-	JavaScriptCore/wrec/WREC.h \
-	JavaScriptCore/wrec/WRECFunctors.h \
-	JavaScriptCore/wrec/WRECGenerator.h \
-	JavaScriptCore/wrec/WRECParser.h \
 	JavaScriptCore/wtf/ASCIICType.h \
 	JavaScriptCore/wtf/AVLTree.h \
 	JavaScriptCore/wtf/AlwaysInline.h \
@@ -264,7 +260,6 @@ javascriptcore_sources += \
 	JavaScriptCore/wtf/PassRefPtr.h \
 	JavaScriptCore/wtf/Platform.h \
 	JavaScriptCore/wtf/PossiblyNull.h \
-	JavaScriptCore/wtf/PtrAndFlags.h \
 	JavaScriptCore/wtf/RandomNumber.cpp \
 	JavaScriptCore/wtf/RandomNumber.h \
 	JavaScriptCore/wtf/RandomNumberSeed.h \
@@ -275,6 +270,7 @@ javascriptcore_sources += \
 	JavaScriptCore/wtf/RefPtrHashMap.h \
 	JavaScriptCore/wtf/RetainPtr.h \
 	JavaScriptCore/wtf/SegmentedVector.h \
+	JavaScriptCore/wtf/StaticConstructors.h \
 	JavaScriptCore/wtf/StdLibExtras.h \
 	JavaScriptCore/wtf/StringExtras.h \
 	JavaScriptCore/wtf/StringHashFunctions.h \
@@ -293,12 +289,24 @@ javascriptcore_sources += \
 	JavaScriptCore/wtf/ValueCheck.h \
 	JavaScriptCore/wtf/Vector.h \
 	JavaScriptCore/wtf/VectorTraits.h \
-	JavaScriptCore/wtf/gtk/GOwnPtr.cpp \
-	JavaScriptCore/wtf/gtk/GOwnPtr.h \
-	JavaScriptCore/wtf/gtk/GRefPtr.cpp \
-	JavaScriptCore/wtf/gtk/GRefPtr.h \
+	JavaScriptCore/wtf/WTFThreadData.cpp \
+	JavaScriptCore/wtf/WTFThreadData.h \
+	JavaScriptCore/wtf/gobject/GOwnPtr.cpp \
+	JavaScriptCore/wtf/gobject/GOwnPtr.h \
+	JavaScriptCore/wtf/gobject/GRefPtr.cpp \
+	JavaScriptCore/wtf/gobject/GRefPtr.h \
 	JavaScriptCore/wtf/gtk/MainThreadGtk.cpp \
 	JavaScriptCore/wtf/gtk/ThreadingGtk.cpp \
+	JavaScriptCore/wtf/text/AtomicString.cpp \
+	JavaScriptCore/wtf/text/AtomicString.h \
+	JavaScriptCore/wtf/text/AtomicStringImpl.h \
+	JavaScriptCore/wtf/text/CString.cpp \
+	JavaScriptCore/wtf/text/CString.h \
+	JavaScriptCore/wtf/text/StringHash.h \
+	JavaScriptCore/wtf/text/StringImpl.cpp \
+	JavaScriptCore/wtf/text/StringImpl.h \
+	JavaScriptCore/wtf/text/WTFString.cpp \
+	JavaScriptCore/wtf/text/WTFString.h \
 	JavaScriptCore/wtf/unicode/Collator.h \
 	JavaScriptCore/wtf/unicode/CollatorDefault.cpp \
 	JavaScriptCore/wtf/unicode/UTF8.cpp \
@@ -494,6 +502,8 @@ javascriptcore_sources += \
 	JavaScriptCore/runtime/RegExpObject.h \
 	JavaScriptCore/runtime/RegExpPrototype.cpp \
 	JavaScriptCore/runtime/RegExpPrototype.h \
+	JavaScriptCore/runtime/RopeImpl.cpp \
+	JavaScriptCore/runtime/RopeImpl.h \
 	JavaScriptCore/runtime/ScopeChain.cpp \
 	JavaScriptCore/runtime/ScopeChain.h \
 	JavaScriptCore/runtime/ScopeChainMark.h \
@@ -508,7 +518,6 @@ javascriptcore_sources += \
 	JavaScriptCore/runtime/Tracing.h \
 	JavaScriptCore/runtime/UString.cpp \
 	JavaScriptCore/runtime/UString.h \
-	JavaScriptCore/runtime/UStringImpl.cpp \
 	JavaScriptCore/runtime/UStringImpl.h \
 	JavaScriptCore/runtime/WeakRandom.h \
 	JavaScriptCore/wtf/FastAllocBase.h \
@@ -537,6 +546,9 @@ DerivedSources/Lexer.lut.h: $(CREATE_HASH_TABLE) $(srcdir)/JavaScriptCore/parser
 
 JavaScriptCore/%.lut.h: $(CREATE_HASH_TABLE) $(srcdir)/JavaScriptCore/%.cpp
 	$(PERL) $^ -i > $@
+
+JavaScriptCore/RegExpJitTables.h: $(srcdir)/JavaScriptCore/create_regex_tables
+	$(PYTHON) $(srcdir)/JavaScriptCore/create_regex_tables > $@
 
 JavaScriptCore/pcre/chartables.c: $(srcdir)/JavaScriptCore/pcre/dftables
 	$(PERL) $^ $@
@@ -598,6 +610,7 @@ Programs_jsc_LDADD = \
 
 javascriptcore_dist += \
 	$(CREATE_HASH_TABLE) \
+	$(CREATE_REGEXP_TABLES) \
 	JavaScriptCore/AUTHORS \
 	JavaScriptCore/COPYING.LIB \
 	JavaScriptCore/ChangeLog \

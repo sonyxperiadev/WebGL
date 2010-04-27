@@ -61,6 +61,8 @@ typedef void* DragDataRef;
 #elif PLATFORM(HAIKU)
 class BMessage;
 typedef class BMessage* DragDataRef;
+#elif PLATFORM(EFL)
+typedef void* DragDataRef;
 #endif
 
 

@@ -30,9 +30,9 @@
 #import "AuthenticationMac.h"
 #import "Base64.h"
 #import "BlockExceptions.h"
-#import "CString.h"
 #import "CredentialStorage.h"
 #import "DocLoader.h"
+#import "EmptyProtocolDefinitions.h"
 #import "FormDataStreamMac.h"
 #import "Frame.h"
 #import "FrameLoader.h"
@@ -47,6 +47,7 @@
 #import "SubresourceLoader.h"
 #import "WebCoreSystemInterface.h"
 #import "WebCoreURLResponse.h"
+#import <wtf/text/CString.h>
 #import <wtf/UnusedParam.h>
 
 #ifdef BUILDING_ON_TIGER
@@ -55,7 +56,7 @@ typedef int NSInteger;
 
 using namespace WebCore;
 
-@interface WebCoreResourceHandleAsDelegate : NSObject
+@interface WebCoreResourceHandleAsDelegate : NSObject <NSURLConnectionDelegate>
 {
     ResourceHandle* m_handle;
 }
@@ -63,8 +64,19 @@ using namespace WebCore;
 - (void)detachHandle;
 @end
 
+// WebCoreNSURLConnectionDelegateProxy exists so that we can cast m_proxy to it in order
+// to disambiguate the argument type in the -setDelegate: call.  This avoids a spurious
+// warning that the compiler would otherwise emit.
+@interface WebCoreNSURLConnectionDelegateProxy : NSObject <NSURLConnectionDelegate>
+- (void)setDelegate:(id<NSURLConnectionDelegate>)delegate;
+@end
+
 @interface NSURLConnection (NSURLConnectionTigerPrivate)
 - (NSData *)_bufferedData;
+@end
+
+@interface NSURLConnection (Details)
+-(id)_initWithRequest:(NSURLRequest *)request delegate:(id)delegate usesCache:(BOOL)usesCacheFlag maxContentLength:(long long)maxContentLength startImmediately:(BOOL)startImmediately connectionProperties:(NSDictionary *)connectionProperties;
 @end
 
 @interface NSURLRequest (Details)
@@ -73,7 +85,7 @@ using namespace WebCore;
 
 #ifndef BUILDING_ON_TIGER
 
-@interface WebCoreSynchronousLoader : NSObject {
+@interface WebCoreSynchronousLoader : NSObject <NSURLConnectionDelegate> {
     NSURL *m_url;
     NSString *m_user;
     NSString *m_pass;
@@ -149,6 +161,30 @@ bool ResourceHandle::didSendBodyDataDelegateExists()
     return NSFoundationVersionNumber > MaxFoundationVersionWithoutdidSendBodyDataDelegate;
 }
 
+static NSURLConnection *createNSURLConnection(NSURLRequest *request, id delegate, bool shouldUseCredentialStorage)
+{
+#if defined(BUILDING_ON_TIGER)
+    UNUSED_PARAM(shouldUseCredentialStorage);
+    return [[NSURLConnection alloc] initWithRequest:request delegate:delegate];
+#else
+
+#if !defined(BUILDING_ON_LEOPARD)
+    ASSERT([NSURLConnection instancesRespondToSelector:@selector(_initWithRequest:delegate:usesCache:maxContentLength:startImmediately:connectionProperties:)]);
+    static bool supportsSettingConnectionProperties = true;
+#else
+    static bool supportsSettingConnectionProperties = [NSURLConnection instancesRespondToSelector:@selector(_initWithRequest:delegate:usesCache:maxContentLength:startImmediately:connectionProperties:)];
+#endif
+
+    if (supportsSettingConnectionProperties) {
+        NSDictionary *sessionID = shouldUseCredentialStorage ? [NSDictionary dictionary] : [NSDictionary dictionaryWithObject:@"WebKitPrivateSession" forKey:@"_kCFURLConnectionSessionID"];
+        NSDictionary *propertyDictionary = [NSDictionary dictionaryWithObject:sessionID forKey:@"kCFURLConnectionSocketStreamProperties"];
+        return [[NSURLConnection alloc] _initWithRequest:request delegate:delegate usesCache:YES maxContentLength:0 startImmediately:NO connectionProperties:propertyDictionary];
+    }
+
+    return [[NSURLConnection alloc] initWithRequest:request delegate:delegate startImmediately:NO];
+#endif
+}
+
 bool ResourceHandle::start(Frame* frame)
 {
     if (!frame)
@@ -166,17 +202,9 @@ bool ResourceHandle::start(Frame* frame)
     isInitializingConnection = YES;
 #endif
 
-    id delegate;
-    
-    if (d->m_mightDownloadFromHandle) {
-        ASSERT(!d->m_proxy);
-        d->m_proxy = wkCreateNSURLConnectionDelegateProxy();
-        [d->m_proxy.get() setDelegate:ResourceHandle::delegate()];
-        [d->m_proxy.get() release];
-        
-        delegate = d->m_proxy.get();
-    } else 
-        delegate = ResourceHandle::delegate();
+    ASSERT(!d->m_proxy);
+    d->m_proxy.adoptNS(wkCreateNSURLConnectionDelegateProxy());
+    [static_cast<WebCoreNSURLConnectionDelegateProxy*>(d->m_proxy.get()) setDelegate:ResourceHandle::delegate()];
 
     if ((!d->m_user.isEmpty() || !d->m_pass.isEmpty())
 #ifndef BUILDING_ON_TIGER
@@ -190,8 +218,10 @@ bool ResourceHandle::start(Frame* frame)
         d->m_request.setURL(urlWithCredentials);
     }
 
+    bool shouldUseCredentialStorage = !client() || client()->shouldUseCredentialStorage(this);
+
 #ifndef BUILDING_ON_TIGER
-    if ((!client() || client()->shouldUseCredentialStorage(this)) && d->m_request.url().protocolInHTTPFamily()) {
+    if (shouldUseCredentialStorage && d->m_request.url().protocolInHTTPFamily()) {
         if (d->m_user.isEmpty() && d->m_pass.isEmpty()) {
             // <rdar://problem/7174050> - For URLs that match the paths of those previously challenged for HTTP Basic authentication, 
             // try and reuse the credential preemptively, as allowed by RFC 2617.
@@ -223,22 +253,20 @@ bool ResourceHandle::start(Frame* frame)
 
     d->m_needsSiteSpecificQuirks = frame->settings() && frame->settings()->needsSiteSpecificQuirks();
 
+    // If a URL already has cookies, then we'll relax the 3rd party cookie policy and accept new cookies.
+    NSHTTPCookieStorage *sharedStorage = [NSHTTPCookieStorage sharedHTTPCookieStorage];
+    if ([sharedStorage cookieAcceptPolicy] == NSHTTPCookieAcceptPolicyOnlyFromMainDocumentDomain
+        && [[sharedStorage cookiesForURL:d->m_request.url()] count])
+        d->m_request.setFirstPartyForCookies(d->m_request.url());
+
     NSURLConnection *connection;
     
-    if (d->m_shouldContentSniff || frame->settings()->localFileContentSniffingEnabled()) 
-#ifdef BUILDING_ON_TIGER
-        connection = [[NSURLConnection alloc] initWithRequest:d->m_request.nsURLRequest() delegate:delegate];
-#else
-        connection = [[NSURLConnection alloc] initWithRequest:d->m_request.nsURLRequest() delegate:delegate startImmediately:NO];
-#endif
+    if (d->m_shouldContentSniff || frame->settings()->localFileContentSniffingEnabled())
+        connection = createNSURLConnection(d->m_request.nsURLRequest(), d->m_proxy.get(), shouldUseCredentialStorage);
     else {
         NSMutableURLRequest *request = [d->m_request.nsURLRequest() mutableCopy];
         wkSetNSURLRequestShouldContentSniff(request, NO);
-#ifdef BUILDING_ON_TIGER
-        connection = [[NSURLConnection alloc] initWithRequest:request delegate:delegate];
-#else
-        connection = [[NSURLConnection alloc] initWithRequest:request delegate:delegate startImmediately:NO];
-#endif
+        connection = createNSURLConnection(request, d->m_proxy.get(), shouldUseCredentialStorage);
         [request release];
     }
 
@@ -419,13 +447,22 @@ void ResourceHandle::loadResourceSynchronously(const ResourceRequest& request, S
 
     ASSERT(!request.isEmpty());
     
-    NSURLRequest *nsRequest;
+    NSMutableURLRequest *mutableRequest = nil;
     if (!shouldContentSniffURL(request.url())) {
-        NSMutableURLRequest *mutableRequest = [[request.nsURLRequest() mutableCopy] autorelease];
+        mutableRequest = [[request.nsURLRequest() mutableCopy] autorelease];
         wkSetNSURLRequestShouldContentSniff(mutableRequest, NO);
-        nsRequest = mutableRequest;
-    } else
-        nsRequest = request.nsURLRequest();
+    } 
+
+    // If a URL already has cookies, then we'll ignore the 3rd party cookie policy and accept new cookies.
+    NSHTTPCookieStorage *sharedStorage = [NSHTTPCookieStorage sharedHTTPCookieStorage];
+    if ([sharedStorage cookieAcceptPolicy] == NSHTTPCookieAcceptPolicyOnlyFromMainDocumentDomain
+        && [[sharedStorage cookiesForURL:request.url()] count]) {
+        if (!mutableRequest)
+            mutableRequest = [[request.nsURLRequest() mutableCopy] autorelease];
+        [mutableRequest setMainDocumentURL:[mutableRequest URL]];
+    }
+    
+    NSURLRequest *nsRequest = mutableRequest ? mutableRequest : request.nsURLRequest();
             
     BEGIN_BLOCK_OBJC_EXCEPTIONS;
     
@@ -465,6 +502,7 @@ void ResourceHandle::willSendRequest(ResourceRequest& request, const ResourceRes
     const KURL& url = request.url();
     d->m_user = url.user();
     d->m_pass = url.pass();
+    d->m_lastHTTPMethod = request.httpMethod();
     request.removeCredentials();
 
     client()->willSendRequest(this, request, redirectResponse);
@@ -619,13 +657,13 @@ void ResourceHandle::receivedCancellation(const AuthenticationChallenge& challen
 #endif
 
     if ([redirectResponse isKindOfClass:[NSHTTPURLResponse class]] && [(NSHTTPURLResponse *)redirectResponse statusCode] == 307) {
-        String originalMethod = m_handle->request().httpMethod();
-        if (!equalIgnoringCase(originalMethod, String([newRequest HTTPMethod]))) {
+        String lastHTTPMethod = m_handle->lastHTTPMethod();
+        if (!equalIgnoringCase(lastHTTPMethod, String([newRequest HTTPMethod]))) {
             NSMutableURLRequest *mutableRequest = [newRequest mutableCopy];
-            [mutableRequest setHTTPMethod:originalMethod];
+            [mutableRequest setHTTPMethod:lastHTTPMethod];
     
             FormData* body = m_handle->request().httpBody();
-            if (!equalIgnoringCase(originalMethod, "GET") && body && !body->isEmpty())
+            if (!equalIgnoringCase(lastHTTPMethod, "GET") && body && !body->isEmpty())
                 WebCore::setHTTPBody(mutableRequest, body);
 
             String originalContentType = m_handle->request().httpContentType();
@@ -1051,7 +1089,7 @@ void ResourceHandle::receivedCancellation(const AuthenticationChallenge& challen
     if ((delegate->m_user || delegate->m_pass) && url.protocolInHTTPFamily()) {
         ResourceRequest requestWithoutCredentials = request;
         requestWithoutCredentials.removeCredentials();
-        connection = [[NSURLConnection alloc] initWithRequest:requestWithoutCredentials.nsURLRequest() delegate:delegate startImmediately:NO];
+        connection = createNSURLConnection(requestWithoutCredentials.nsURLRequest(), delegate, allowStoredCredentials);
     } else {
         // <rdar://problem/7174050> - For URLs that match the paths of those previously challenged for HTTP Basic authentication, 
         // try and reuse the credential preemptively, as allowed by RFC 2617.
@@ -1063,7 +1101,7 @@ void ResourceHandle::receivedCancellation(const AuthenticationChallenge& challen
             String authHeader = "Basic " + encodeBasicAuthorization(delegate->m_initialCredential.user(), delegate->m_initialCredential.password());
             requestWithInitialCredentials.addHTTPHeaderField("Authorization", authHeader);
         }
-        connection = [[NSURLConnection alloc] initWithRequest:requestWithInitialCredentials.nsURLRequest() delegate:delegate startImmediately:NO];
+        connection = createNSURLConnection(requestWithInitialCredentials.nsURLRequest(), delegate, allowStoredCredentials);
     }
 
     [connection scheduleInRunLoop:[NSRunLoop currentRunLoop] forMode:WebCoreSynchronousLoaderRunLoopMode];

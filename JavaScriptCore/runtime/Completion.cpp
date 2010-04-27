@@ -29,6 +29,7 @@
 #include "Interpreter.h"
 #include "Parser.h"
 #include "Debugger.h"
+#include "WTFThreadData.h"
 #include <stdio.h>
 
 namespace JSC {
@@ -36,7 +37,7 @@ namespace JSC {
 Completion checkSyntax(ExecState* exec, const SourceCode& source)
 {
     JSLock lock(exec);
-    ASSERT(exec->globalData().identifierTable == currentIdentifierTable());
+    ASSERT(exec->globalData().identifierTable == wtfThreadData().currentIdentifierTable());
 
     RefPtr<ProgramExecutable> program = ProgramExecutable::create(exec, source);
     JSObject* error = program->checkSyntax(exec);
@@ -49,7 +50,7 @@ Completion checkSyntax(ExecState* exec, const SourceCode& source)
 Completion evaluate(ExecState* exec, ScopeChain& scopeChain, const SourceCode& source, JSValue thisValue)
 {
     JSLock lock(exec);
-    ASSERT(exec->globalData().identifierTable == currentIdentifierTable());
+    ASSERT(exec->globalData().identifierTable == wtfThreadData().currentIdentifierTable());
 
     RefPtr<ProgramExecutable> program = ProgramExecutable::create(exec, source);
     JSObject* error = program->compile(exec, scopeChain.node());
@@ -62,9 +63,10 @@ Completion evaluate(ExecState* exec, ScopeChain& scopeChain, const SourceCode& s
     JSValue result = exec->interpreter()->execute(program.get(), exec, scopeChain.node(), thisObj, &exception);
 
     if (exception) {
-        if (exception.isObject() && asObject(exception)->isWatchdogException())
-            return Completion(Interrupted, exception);
-        return Completion(Throw, exception);
+        ComplType exceptionType = Throw;
+        if (exception.isObject())
+            exceptionType = asObject(exception)->exceptionType();
+        return Completion(exceptionType, exception);
     }
     return Completion(Normal, result);
 }

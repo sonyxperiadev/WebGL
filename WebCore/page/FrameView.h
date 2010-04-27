@@ -77,6 +77,8 @@ public:
 
     virtual PassRefPtr<Scrollbar> createScrollbar(ScrollbarOrientation);
 
+    virtual bool avoidScrollbarCreation();
+
     virtual void setContentsSize(const IntSize&);
 
     void layout(bool allowSubtree = true);
@@ -141,6 +143,7 @@ public:
 
     String mediaType() const;
     void setMediaType(const String&);
+    void adjustMediaTypeForPrinting(bool printing);
 
     void setUseSlowRepaints();
     void setIsOverlapped(bool);
@@ -148,6 +151,9 @@ public:
 
     void addSlowRepaintObject();
     void removeSlowRepaintObject();
+
+    void addFixedObject();
+    void removeFixedObject();
 
     void beginDeferredRepaints();
     void endDeferredRepaints();
@@ -215,6 +221,8 @@ private:
     bool useSlowRepaints() const;
     bool useSlowRepaintsIfNotOverlapped() const;
 
+    bool hasFixedObjects() const { return m_fixedObjectCount > 0; }
+
     void applyOverflowToViewport(RenderObject*, ScrollbarMode& hMode, ScrollbarMode& vMode);
 
     void updateOverflowStatus(bool horizontalOverflow, bool verticalOverflow);
@@ -272,6 +280,7 @@ private:
     bool m_isOverlapped;
     bool m_contentIsOpaque;
     unsigned m_slowRepaintObjectCount;
+    unsigned m_fixedObjectCount;
 
     int m_borderX, m_borderY;
 
@@ -293,7 +302,8 @@ private:
     float m_lastZoomFactor;
 
     String m_mediaType;
-    
+    String m_mediaTypeWhenNotPrinting;
+
     unsigned m_enqueueEvents;
     Vector<ScheduledEvent*> m_scheduledEvents;
     

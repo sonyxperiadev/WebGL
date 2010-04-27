@@ -33,6 +33,9 @@
 #import "Frame.h"
 #import "JSDOMWindow.h"
 #import "JSDOMWindowCustom.h"
+#import "JSHTMLElement.h"
+#import "JSPluginElementFunctions.h"
+#import "ObjCRuntimeObject.h"
 #import "PlatformString.h"
 #import "StringSourceProvider.h"
 #import "WebCoreObjCExtras.h"
@@ -286,7 +289,7 @@ static void getListFromNSArray(ExecState *exec, NSArray *array, RootObject* root
     ExecState* exec = [self _rootObject]->globalObject()->globalExec();
     ASSERT(!exec->hadException());
 
-    JSValue function = [self _imp]->get(exec, Identifier(exec, String(name)));
+    JSValue function = [self _imp]->get(exec, Identifier(exec, stringToUString(String(name))));
     CallData callData;
     CallType callType = function.getCallData(callData);
     if (callType == CallTypeNone)
@@ -363,7 +366,7 @@ static void getListFromNSArray(ExecState *exec, NSArray *array, RootObject* root
     JSLock lock(SilenceAssertionsOnly);
 
     PutPropertySlot slot;
-    [self _imp]->put(exec, Identifier(exec, String(key)), convertObjcValueToValue(exec, &value, ObjcObjectType, [self _rootObject]), slot);
+    [self _imp]->put(exec, Identifier(exec, stringToUString(String(key))), convertObjcValueToValue(exec, &value, ObjcObjectType, [self _rootObject]), slot);
 
     if (exec->hadException()) {
         addExceptionToConsole(exec);
@@ -388,7 +391,7 @@ static void getListFromNSArray(ExecState *exec, NSArray *array, RootObject* root
         // leaving the lock permanently held
         JSLock lock(SilenceAssertionsOnly);
         
-        JSValue result = [self _imp]->get(exec, Identifier(exec, String(key)));
+        JSValue result = [self _imp]->get(exec, Identifier(exec, stringToUString(String(key))));
         
         if (exec->hadException()) {
             addExceptionToConsole(exec);
@@ -417,7 +420,7 @@ static void getListFromNSArray(ExecState *exec, NSArray *array, RootObject* root
     ASSERT(!exec->hadException());
 
     JSLock lock(SilenceAssertionsOnly);
-    [self _imp]->deleteProperty(exec, Identifier(exec, String(key)));
+    [self _imp]->deleteProperty(exec, Identifier(exec, stringToUString(String(key))));
 
     if (exec->hadException()) {
         addExceptionToConsole(exec);
@@ -508,18 +511,17 @@ static void getListFromNSArray(ExecState *exec, NSArray *array, RootObject* root
 {
     if (value.isObject()) {
         JSObject* object = asObject(value);
-        ExecState* exec = rootObject->globalObject()->globalExec();
         JSLock lock(SilenceAssertionsOnly);
-        
-        if (object->classInfo() != &RuntimeObjectImp::s_info) {
-            JSValue runtimeObject = object->get(exec, Identifier(exec, "__apple_runtime_object"));
-            if (runtimeObject && runtimeObject.isObject())
-                object = asObject(runtimeObject);
-        }
 
-        if (object->classInfo() == &RuntimeObjectImp::s_info) {
-            RuntimeObjectImp* imp = static_cast<RuntimeObjectImp*>(object);
-            ObjcInstance *instance = static_cast<ObjcInstance*>(imp->getInternalInstance());
+        if (object->inherits(&JSHTMLElement::s_info)) {
+            // Plugin elements cache the instance internally.
+            HTMLElement* el = static_cast<JSHTMLElement*>(object)->impl();
+            ObjcInstance* instance = static_cast<ObjcInstance*>(pluginInstance(el));
+            if (instance)
+                return instance->getObject();
+        } else if (object->inherits(&ObjCRuntimeObject::s_info)) {
+            ObjCRuntimeObject* runtimeObject = static_cast<ObjCRuntimeObject*>(object);
+            ObjcInstance* instance = runtimeObject->getInternalObjCInstance();
             if (instance)
                 return instance->getObject();
             return nil;

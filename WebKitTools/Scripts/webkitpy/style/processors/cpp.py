@@ -272,18 +272,18 @@ class _FunctionState(object):
     """Tracks current function name and the number of lines in its body.
 
     Attributes:
-      verbosity: The verbosity level to use while checking style.
+      min_confidence: The minimum confidence level to use while checking style.
 
     """
 
     _NORMAL_TRIGGER = 250  # for --v=0, 500 for --v=1, etc.
     _TEST_TRIGGER = 400    # about 50% more than _NORMAL_TRIGGER.
 
-    def __init__(self, verbosity):
-        self.verbosity = verbosity
+    def __init__(self, min_confidence):
+        self.min_confidence = min_confidence
+        self.current_function = ''
         self.in_a_function = False
         self.lines_in_function = 0
-        self.current_function = ''
 
     def begin(self, function_name):
         """Start analyzing function body.
@@ -311,7 +311,7 @@ class _FunctionState(object):
             base_trigger = self._TEST_TRIGGER
         else:
             base_trigger = self._NORMAL_TRIGGER
-        trigger = base_trigger * 2 ** self.verbosity
+        trigger = base_trigger * 2 ** self.min_confidence
 
         if self.lines_in_function > trigger:
             error_level = int(math.log(self.lines_in_function / base_trigger, 2))
@@ -641,6 +641,10 @@ def get_header_guard_cpp_variable(filename):
       named file.
 
     """
+
+    # Restores original filename in case that style checker is invoked from Emacs's
+    # flymake.
+    filename = re.sub(r'_flymake\.h$', '.h', filename)
 
     return sub(r'[-.\s]', '_', os.path.basename(filename))
 
@@ -1367,7 +1371,7 @@ def check_spacing(file_extension, clean_lines, line_number, error):
 
     if file_extension == 'cpp':
         # C++ should have the & or * beside the type not the variable name.
-        matched = match(r'\s*\w+(?<!\breturn)\s+(?P<pointer_operator>\*|\&)\w+', line)
+        matched = match(r'\s*\w+(?<!\breturn|\bdelete)\s+(?P<pointer_operator>\*|\&)\w+', line)
         if matched:
             error(line_number, 'whitespace/declaration', 3,
                   'Declaration has space between type name and %s in %s' % (matched.group('pointer_operator'), matched.group(0).strip()))
@@ -1652,7 +1656,7 @@ def check_braces(clean_lines, line_number, error):
         # We check if a closed brace has started a line to see if a
         # one line control statement was previous.
         previous_line = clean_lines.elided[line_number - 2]
-        if (previous_line.find('{') > 0
+        if (previous_line.find('{') > 0 and previous_line.find('}') < 0
             and search(r'\b(if|for|foreach|while|else)\b', previous_line)):
             error(line_number, 'whitespace/braces', 4,
                   'One line control clauses should not use braces.')
@@ -2769,9 +2773,7 @@ def check_for_include_what_you_use(filename, clean_lines, include_state, error,
     # found.
     # e.g. If the file name is 'foo_flymake.cpp', we should search for 'foo.h'
     # instead of 'foo_flymake.h'
-    emacs_flymake_suffix = '_flymake.cpp'
-    if abs_filename.endswith(emacs_flymake_suffix):
-        abs_filename = abs_filename[:-len(emacs_flymake_suffix)] + '.cpp'
+    abs_filename = re.sub(r'_flymake\.cpp$', '.cpp', abs_filename)
 
     # include_state is modified during iteration, so we iterate over a copy of
     # the keys.
@@ -2836,7 +2838,7 @@ def process_line(filename, file_extension,
     check_invalid_increment(clean_lines, line, error)
 
 
-def _process_lines(filename, file_extension, lines, error, verbosity):
+def _process_lines(filename, file_extension, lines, error, min_confidence):
     """Performs lint checks and reports any errors to the given error function.
 
     Args:
@@ -2850,7 +2852,7 @@ def _process_lines(filename, file_extension, lines, error, verbosity):
              ['// marker so line numbers end in a known way'])
 
     include_state = _IncludeState()
-    function_state = _FunctionState(verbosity)
+    function_state = _FunctionState(min_confidence)
     class_state = _ClassState()
     file_state = _FileState()
 
@@ -2948,7 +2950,8 @@ class CppProcessor(object):
         'whitespace/todo',
         ])
 
-    def __init__(self, file_path, file_extension, handle_style_error, verbosity):
+    def __init__(self, file_path, file_extension, handle_style_error,
+                 min_confidence):
         """Create a CppProcessor instance.
 
         Args:
@@ -2959,7 +2962,7 @@ class CppProcessor(object):
         self.file_extension = file_extension
         self.file_path = file_path
         self.handle_style_error = handle_style_error
-        self.verbosity = verbosity
+        self.min_confidence = min_confidence
 
     # Useful for unit testing.
     def __eq__(self, other):
@@ -2970,7 +2973,7 @@ class CppProcessor(object):
             return False
         if self.handle_style_error != other.handle_style_error:
             return False
-        if self.verbosity != other.verbosity:
+        if self.min_confidence != other.min_confidence:
             return False
 
         return True
@@ -2982,10 +2985,10 @@ class CppProcessor(object):
 
     def process(self, lines):
         _process_lines(self.file_path, self.file_extension, lines,
-                       self.handle_style_error, self.verbosity)
+                       self.handle_style_error, self.min_confidence)
 
 
 # FIXME: Remove this function (requires refactoring unit tests).
-def process_file_data(filename, file_extension, lines, error, verbosity):
-    processor = CppProcessor(filename, file_extension, error, verbosity)
+def process_file_data(filename, file_extension, lines, error, min_confidence):
+    processor = CppProcessor(filename, file_extension, error, min_confidence)
     processor.process(lines)

@@ -45,6 +45,7 @@
 #include "Worker.h"
 #include "WorkerContext.h"
 #include "WorkerContextExecutionProxy.h"
+#include "WorkerScriptController.h"
 #include "WorkerMessagingProxy.h"
 #include <wtf/Threading.h>
 
@@ -94,15 +95,13 @@ WorkerContextProxy* WebWorkerClientImpl::createWorkerContextProxy(Worker* worker
         WebFrameImpl* webFrame = WebFrameImpl::fromFrame(document->frame());
         webWorker = webFrame->client()->createWorker(webFrame, proxy);
     } else {
-        WorkerContextExecutionProxy* currentContext =
-        WorkerContextExecutionProxy::retrieve();
-        if (!currentContext) {
+        WorkerScriptController* controller = WorkerScriptController::controllerForContext();
+        if (!controller) {
             ASSERT_NOT_REACHED();
             return 0;
         }
 
-        DedicatedWorkerThread* thread =
-        static_cast<DedicatedWorkerThread*>(currentContext->workerContext()->thread());
+        DedicatedWorkerThread* thread = static_cast<DedicatedWorkerThread*>(controller->workerContext()->thread());
         WorkerObjectProxy* workerObjectProxy = &thread->workerObjectProxy();
         WebWorkerImpl* impl = reinterpret_cast<WebWorkerImpl*>(workerObjectProxy);
         webWorker = impl->client()->createWorker(proxy);
@@ -244,15 +243,14 @@ void WebWorkerClientImpl::postExceptionToWorkerObject(const WebString& errorMess
         return;
     }
 
-    bool handled = false;
-    handled = m_worker->dispatchEvent(ErrorEvent::create(errorMessage,
-                                                         sourceURL,
-                                                         lineNumber));
-    if (!handled)
+    bool unhandled = m_worker->dispatchEvent(ErrorEvent::create(errorMessage,
+                                                                sourceURL,
+                                                                lineNumber));
+    if (unhandled)
         m_scriptExecutionContext->reportException(errorMessage, lineNumber, sourceURL);
 }
 
-void WebWorkerClientImpl::postConsoleMessageToWorkerObject(int destinationId,
+void WebWorkerClientImpl::postConsoleMessageToWorkerObject(int destination,
                                                            int sourceId,
                                                            int messageType,
                                                            int messageLevel,
@@ -263,7 +261,6 @@ void WebWorkerClientImpl::postConsoleMessageToWorkerObject(int destinationId,
     if (currentThread() != m_workerThreadId) {
         m_scriptExecutionContext->postTask(createCallbackTask(&postConsoleMessageToWorkerObjectTask,
                                                               this,
-                                                              destinationId,
                                                               sourceId,
                                                               messageType,
                                                               messageLevel,
@@ -273,12 +270,21 @@ void WebWorkerClientImpl::postConsoleMessageToWorkerObject(int destinationId,
         return;
     }
 
-    m_scriptExecutionContext->addMessage(static_cast<MessageDestination>(destinationId),
-                                         static_cast<MessageSource>(sourceId),
+    m_scriptExecutionContext->addMessage(static_cast<MessageSource>(sourceId),
                                          static_cast<MessageType>(messageType),
                                          static_cast<MessageLevel>(messageLevel),
                                          String(message), lineNumber,
                                          String(sourceURL));
+}
+
+void WebWorkerClientImpl::postConsoleMessageToWorkerObject(int sourceId,
+                                                           int messageType,
+                                                           int messageLevel,
+                                                           const WebString& message,
+                                                           int lineNumber,
+                                                           const WebString& sourceURL)
+{
+    postConsoleMessageToWorkerObject(0, sourceId, messageType, messageLevel, message, lineNumber, sourceURL);
 }
 
 void WebWorkerClientImpl::confirmMessageFromWorkerObject(bool hasPendingActivity)
@@ -382,7 +388,6 @@ void WebWorkerClientImpl::postExceptionToWorkerObjectTask(
 
 void WebWorkerClientImpl::postConsoleMessageToWorkerObjectTask(ScriptExecutionContext* context,
                                                                WebWorkerClientImpl* thisPtr,
-                                                               int destinationId,
                                                                int sourceId,
                                                                int messageType,
                                                                int messageLevel,
@@ -390,8 +395,7 @@ void WebWorkerClientImpl::postConsoleMessageToWorkerObjectTask(ScriptExecutionCo
                                                                int lineNumber,
                                                                const String& sourceURL)
 {
-    thisPtr->m_scriptExecutionContext->addMessage(static_cast<MessageDestination>(destinationId),
-                                                  static_cast<MessageSource>(sourceId),
+    thisPtr->m_scriptExecutionContext->addMessage(static_cast<MessageSource>(sourceId),
                                                   static_cast<MessageType>(messageType),
                                                   static_cast<MessageLevel>(messageLevel),
                                                   message, lineNumber,

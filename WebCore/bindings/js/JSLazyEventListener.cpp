@@ -79,7 +79,7 @@ JSObject* JSLazyEventListener::initializeJSFunction(ScriptExecutionContext* exec
         return 0;
 
     ScriptController* scriptController = frame->script();
-    if (!scriptController->canExecuteScripts())
+    if (!scriptController->canExecuteScripts(AboutToExecuteScript))
         return 0;
 
     JSDOMGlobalObject* globalObject = toJSDOMGlobalObject(executionContext, isolatedWorld());
@@ -93,17 +93,17 @@ JSObject* JSLazyEventListener::initializeJSFunction(ScriptExecutionContext* exec
             return 0;
         // FIXME: Is this check needed for non-Document contexts?
         ScriptController* script = frame->script();
-        if (!script->canExecuteScripts() || script->isPaused())
+        if (!script->canExecuteScripts(AboutToExecuteScript) || script->isPaused())
             return 0;
     }
 
     ExecState* exec = globalObject->globalExec();
 
     MarkedArgumentBuffer args;
-    args.append(jsNontrivialString(exec, m_eventParameterName));
+    args.append(jsNontrivialString(exec, stringToUString(m_eventParameterName)));
     args.append(jsString(exec, m_code));
 
-    JSObject* jsFunction = constructFunction(exec, args, Identifier(exec, m_functionName), m_sourceURL, m_lineNumber); // FIXME: is globalExec ok?
+    JSObject* jsFunction = constructFunction(exec, args, Identifier(exec, stringToUString(m_functionName)), stringToUString(m_sourceURL), m_lineNumber); // FIXME: is globalExec ok?
     if (exec->hadException()) {
         exec->clearException();
         return 0;

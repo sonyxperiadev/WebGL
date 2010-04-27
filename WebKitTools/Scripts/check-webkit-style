@@ -43,51 +43,84 @@ same line, but it is far from perfect (in either direction).
 """
 
 import codecs
+import logging
 import os
 import os.path
 import sys
 
+from webkitpy.style_references import detect_checkout
 import webkitpy.style.checker as checker
-from webkitpy.style_references import SimpleScm
+from webkitpy.style.checker import PatchChecker
+from webkitpy.style.main import change_directory
 
+_log = logging.getLogger("check-webkit-style")
+
+
+# FIXME: Move this code to style.main.
 def main():
     # Change stderr to write with replacement characters so we don't die
     # if we try to print something containing non-ASCII characters.
-    sys.stderr = codecs.StreamReaderWriter(sys.stderr,
-                                           codecs.getreader('utf8'),
-                                           codecs.getwriter('utf8'),
-                                           'replace')
+    stderr = codecs.StreamReaderWriter(sys.stderr,
+                                       codecs.getreader('utf8'),
+                                       codecs.getwriter('utf8'),
+                                       'replace')
+    # Setting an "encoding" attribute on the stream is necessary to
+    # prevent the logging module from raising an error.  See
+    # the checker.configure_logging() function for more information.
+    stderr.encoding = "UTF-8"
+
+    # FIXME: Change webkitpy.style so that we do not need to overwrite
+    #        the global sys.stderr.  This involves updating the code to
+    #        accept a stream parameter where necessary, and not calling
+    #        sys.stderr explicitly anywhere.
+    sys.stderr = stderr
+
+    args = sys.argv[1:]
+
+    # Checking for the verbose flag before calling check_webkit_style_parser()
+    # lets us enable verbose logging earlier.
+    is_verbose = "-v" in args or "--verbose" in args
+
+    checker.configure_logging(stream=stderr, is_verbose=is_verbose)
+    _log.debug("Verbose logging enabled.")
+
+    checkout = detect_checkout()
+
+    if checkout is None:
+        checkout_root = None
+        _log.debug("WebKit checkout not found for current directory.")
+    else:
+        checkout_root = checkout.root_path()
+        _log.debug("WebKit checkout found with root: %s" % checkout_root)
+
     parser = checker.check_webkit_style_parser()
-    (files, options) = parser.parse(sys.argv[1:])
+    (paths, options) = parser.parse(args)
+
+    if checkout is None and not paths:
+        _log.error("WebKit checkout not found: You must run this script "
+                   "from within a WebKit checkout if you are not passing "
+                   "specific paths to check.")
+        sys.exit(1)
 
     configuration = checker.check_webkit_style_configuration(options)
     style_checker = checker.StyleChecker(configuration)
 
-    if files:
-        for filename in files:
-            style_checker.check_file(filename)
+    paths = change_directory(checkout_root=checkout_root, paths=paths)
 
+    if paths:
+        style_checker.check_paths(paths)
     else:
-        scm = SimpleScm()
-
-        os.chdir(scm.checkout_root())
-
         if options.git_commit:
-            commit = options.git_commit
-            if '..' in commit:
-                # FIXME: If the range is a "...", the code should find the common ancestor and
-                # start there (see git diff --help for information about how ... usually works).
-                commit = commit[:commit.find('..')]
-                print >> sys.stderr, "Warning: Ranges are not supported for --git-commit. Checking all changes since %s.\n" % commit
-            patch = scm.create_patch_since_local_commit(commit)
+            patch = checkout.create_patch_since_local_commit(options.git_commit)
         else:
-            patch = scm.create_patch()
-        style_checker.check_patch(patch)
+            patch = checkout.create_patch()
+        patch_checker = PatchChecker(style_checker)
+        patch_checker.check(patch)
 
     error_count = style_checker.error_count
     file_count = style_checker.file_count
-    sys.stderr.write('Total errors found: %d in %d files\n'
-                     % (error_count, file_count))
+    _log.info("Total errors found: %d in %d files"
+              % (error_count, file_count))
     # We fail when style errors are found or there are no checked files.
     sys.exit(error_count > 0 or file_count == 0)
 

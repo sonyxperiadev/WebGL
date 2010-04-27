@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # Copyright (C) 2010 Google Inc. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -29,31 +28,41 @@
 
 """WebKit Mac implementation of the Port interface."""
 
-import fcntl
 import logging
 import os
 import pdb
 import platform
-import select
+import re
+import shutil
 import signal
 import subprocess
 import sys
 import time
 import webbrowser
 
-import base
+import webkitpy.common.system.ospath as ospath
+import webkitpy.layout_tests.port.server_process as server_process
+from webkitpy.layout_tests.port.webkit import WebKitPort, WebKitDriver
 
-import webkitpy
-from webkitpy import executive
+_log = logging.getLogger("webkitpy.layout_tests.port.mac")
 
-class MacPort(base.Port):
+
+class MacPort(WebKitPort):
     """WebKit Mac implementation of the Port class."""
 
     def __init__(self, port_name=None, options=None):
         if port_name is None:
             port_name = 'mac' + self.version()
-        base.Port.__init__(self, port_name, options)
-        self._cached_build_root = None
+        WebKitPort.__init__(self, port_name, options)
+
+    def default_child_processes(self):
+        # FIXME: new-run-webkit-tests is unstable on Mac running more than
+        # four threads in parallel.
+        # See https://bugs.webkit.org/show_bug.cgi?id=36622
+        child_processes = WebKitPort.default_child_processes(self)
+        if child_processes > 4:
+            return 4
+        return child_processes
 
     def baseline_search_path(self):
         dirs = []
@@ -66,53 +75,13 @@ class MacPort(base.Port):
         dirs.append(self._webkit_baseline_path('mac'))
         return dirs
 
-    def check_sys_deps(self):
-        if executive.run_command([self.script_path("build-dumprendertree")], return_exit_code=True) != 0:
-            return False
-
-        driver_path = self._path_to_driver()
-        if not os.path.exists(driver_path):
-            logging.error("DumpRenderTree was not found at %s" % driver_path)
-            return False
-
-        # This should also validate that the ImageDiff path is valid (once this script knows how to use ImageDiff).
-        # https://bugs.webkit.org/show_bug.cgi?id=34826
-        return True
-
-    def num_cores(self):
-        return int(os.popen2("sysctl -n hw.ncpu")[1].read())
-
-    def results_directory(self):
-        return ('/tmp/run-chromium-webkit-tests-' +
-                self._options.results_directory)
-
-    def setup_test_run(self):
-        # This port doesn't require any specific configuration.
-        pass
-
-    def show_results_html_file(self, results_filename):
-        uri = self.filename_to_uri(results_filename)
-        webbrowser.open(uri, new=1)
-
-    def start_driver(self, image_path, options):
-        """Starts a new Driver and returns a handle to it."""
-        return MacDriver(self, image_path, options)
-
-    def start_helper(self):
-        # This port doesn't use a helper process.
-        pass
-
-    def stop_helper(self):
-        # This port doesn't use a helper process.
-        pass
-
-    def test_base_platform_names(self):
-        # At the moment we don't use test platform names, but we have
-        # to return something.
-        return ('mac',)
+    def path_to_test_expectations_file(self):
+        return self.path_from_webkit_base('LayoutTests', 'platform',
+           'mac', 'test_expectations.txt')
 
     def _skipped_file_paths(self):
-        # FIXME: This method will need to be made work for non-mac platforms and moved into base.Port.
+        # FIXME: This method will need to be made work for non-mac
+        # platforms and moved into base.Port.
         skipped_files = []
         if self._name in ('mac-tiger', 'mac-leopard', 'mac-snowleopard'):
             skipped_files.append(os.path.join(
@@ -121,79 +90,8 @@ class MacPort(base.Port):
                                           'Skipped'))
         return skipped_files
 
-    def _tests_for_other_platforms(self):
-        # The original run-webkit-tests builds up a "whitelist" of tests to run, and passes that to DumpRenderTree.
-        # run-chromium-webkit-tests assumes we run *all* tests and test_expectations.txt functions as a blacklist.
-        # FIXME: This list could be dynamic based on platform name and pushed into base.Port.
-        return [
-            "platform/chromium",
-            "platform/gtk",
-            "platform/qt",
-            "platform/win",
-        ]
-
-    def _tests_for_disabled_features(self):
-        # FIXME: This should use the feature detection from webkitperl/features.pm to match run-webkit-tests.
-        # For now we hard-code a list of features known to be disabled on the Mac platform.
-        disabled_feature_tests = [
-            "fast/xhtmlmp",
-            "http/tests/wml",
-            "mathml",
-            "wml",
-        ]
-        # FIXME: webarchive tests expect to read-write from -expected.webarchive files instead of .txt files.
-        # This script doesn't know how to do that yet, so pretend they're just "disabled".
-        webarchive_tests = [
-            "webarchive",
-            "svg/webarchive",
-            "http/tests/webarchive",
-            "svg/custom/image-with-prefix-in-webarchive.svg",
-        ]
-        return disabled_feature_tests + webarchive_tests
-
-    def _tests_from_skipped_file(self, skipped_file):
-        tests_to_skip = []
-        for line in skipped_file.readlines():
-            line = line.strip()
-            if line.startswith('#') or not len(line):
-                continue
-            tests_to_skip.append(line)
-        return tests_to_skip
-
-    def _expectations_from_skipped_files(self):
-        tests_to_skip = []
-        for filename in self._skipped_file_paths():
-            if not os.path.exists(filename):
-                logging.warn("Failed to open Skipped file: %s" % filename)
-                continue
-            skipped_file = file(filename)
-            tests_to_skip.extend(self._tests_from_skipped_file(skipped_file))
-            skipped_file.close()
-        return tests_to_skip
-
-    def test_expectations(self):
-        # The WebKit mac port uses 'Skipped' files at the moment. Each
-        # file contains a list of files or directories to be skipped during
-        # the test run. The total list of tests to skipped is given by the
-        # contents of the generic Skipped file found in platform/X plus
-        # a version-specific file found in platform/X-version. Duplicate
-        # entries are allowed. This routine reads those files and turns
-        # contents into the format expected by test_expectations.
-        tests_to_skip = set(self._expectations_from_skipped_files()) # Use a set to allow duplicates
-        tests_to_skip.update(self._tests_for_other_platforms())
-        tests_to_skip.update(self._tests_for_disabled_features())
-        expectations = map(lambda test_path: "BUG_SKIPPED SKIP : %s = FAIL" % test_path, tests_to_skip)
-        return "\n".join(expectations)
-
     def test_platform_name(self):
-        # At the moment we don't use test platform names, but we have
-        # to return something.
-        return 'mac'
-
-    def test_platform_names(self):
-        # At the moment we don't use test platform names, but we have
-        # to return something.
-        return ('mac',)
+        return 'mac' + self.version()
 
     def version(self):
         os_version_string = platform.mac_ver()[0]  # e.g. "10.5.6"
@@ -208,23 +106,32 @@ class MacPort(base.Port):
             return '-snowleopard'
         return ''
 
-    #
-    # PROTECTED METHODS
-    #
+    def _build_java_test_support(self):
+        java_tests_path = os.path.join(self.layout_tests_dir(), "java")
+        build_java = ["/usr/bin/make", "-C", java_tests_path]
+        if self._executive.run_command(build_java, return_exit_code=True):
+            _log.error("Failed to build Java support files: %s" % build_java)
+            return False
+        return True
 
-    def _build_path(self, *comps):
-        if not self._cached_build_root:
-            self._cached_build_root = executive.run_command([self.script_path("webkit-build-directory"), "--top-level"]).rstrip()
-        return os.path.join(self._cached_build_root, self._options.target, *comps)
+    def _check_port_build(self):
+        return self._build_java_test_support()
 
-    def _kill_process(self, pid):
-        """Forcefully kill the process.
+    def _tests_for_other_platforms(self):
+        # The original run-webkit-tests builds up a "whitelist" of tests to
+        # run, and passes that to DumpRenderTree. new-run-webkit-tests assumes
+        # we run *all* tests and test_expectations.txt functions as a
+        # blacklist.
+        # FIXME: This list could be dynamic based on platform name and
+        # pushed into base.Port.
+        return [
+            "platform/chromium",
+            "platform/gtk",
+            "platform/qt",
+            "platform/win",
+        ]
 
-        Args:
-        pid: The id of the process to be killed.
-        """
-        os.kill(pid, signal.SIGKILL)
-
+    # FIXME: This doesn't have anything to do with WebKit.
     def _kill_all_process(self, process_name):
         # On Mac OS X 10.6, killall has a new constraint: -SIGNALNAME or
         # -SIGNALNUMBER must come first.  Example problem:
@@ -236,25 +143,11 @@ class MacPort(base.Port):
                         process_name], stderr=null)
         null.close()
 
-    def _path_to_apache(self):
-        return '/usr/sbin/httpd'
-
     def _path_to_apache_config_file(self):
         return os.path.join(self.layout_tests_dir(), 'http', 'conf',
                             'apache2-httpd.conf')
 
-    def _path_to_driver(self):
-        return self._build_path('DumpRenderTree')
-
-    def _path_to_helper(self):
-        return None
-
-    def _path_to_image_diff(self):
-        return self._build_path('image_diff') # FIXME: This is wrong and should be "ImageDiff", but having the correct path causes other parts of the script to hang.
-
-    def _path_to_wdiff(self):
-        return 'wdiff' # FIXME: This does not exist on a default Mac OS X Leopard install.
-
+    # FIXME: This doesn't have anything to do with WebKit.
     def _shut_down_http_server(self, server_pid):
         """Shut down the lighttpd web server. Blocks until it's fully
         shut down.
@@ -264,209 +157,16 @@ class MacPort(base.Port):
         """
         # server_pid is not set when "http_server.py stop" is run manually.
         if server_pid is None:
-            # TODO(mmoss) This isn't ideal, since it could conflict with
+            # FIXME: This isn't ideal, since it could conflict with
             # lighttpd processes not started by http_server.py,
             # but good enough for now.
             self._kill_all_process('httpd')
         else:
             try:
                 os.kill(server_pid, signal.SIGTERM)
-                # TODO(mmoss) Maybe throw in a SIGKILL just to be sure?
+                # FIXME: Maybe throw in a SIGKILL just to be sure?
             except OSError:
                 # Sometimes we get a bad PID (e.g. from a stale httpd.pid
                 # file), so if kill fails on the given PID, just try to
                 # 'killall' web servers.
                 self._shut_down_http_server(None)
-
-
-class MacDriver(base.Driver):
-    """implementation of the DumpRenderTree interface."""
-
-    def __init__(self, port, image_path, driver_options):
-        self._port = port
-        self._driver_options = driver_options
-        self._target = port._options.target
-        self._image_path = image_path
-        self._stdout_fd = None
-        self._cmd = None
-        self._env = None
-        self._proc = None
-        self._read_buffer = ''
-
-        cmd = []
-        # Hook for injecting valgrind or other runtime instrumentation,
-        # used by e.g. tools/valgrind/valgrind_tests.py.
-        wrapper = os.environ.get("BROWSER_WRAPPER", None)
-        if wrapper != None:
-            cmd += [wrapper]
-        if self._port._options.wrapper:
-            # This split() isn't really what we want -- it incorrectly will
-            # split quoted strings within the wrapper argument -- but in
-            # practice it shouldn't come up and the --help output warns
-            # about it anyway.
-            cmd += self._options.wrapper.split()
-        # FIXME: Using arch here masks any possible file-not-found errors from a non-existant driver executable.
-        cmd += ['arch', '-i386', port._path_to_driver(), '-']
-
-        # FIXME: This is a hack around our lack of ImageDiff support for now.
-        if not self._port._options.no_pixel_tests:
-            logging.warn("This port does not yet support pixel tests.")
-            self._port._options.no_pixel_tests = True
-            #cmd.append('--pixel-tests')
-
-        #if driver_options:
-        #    cmd += driver_options
-        env = os.environ
-        env['DYLD_FRAMEWORK_PATH'] = self._port._build_path()
-        self._cmd = cmd
-        self._env = env
-        self.restart()
-
-    def poll(self):
-        return self._proc.poll()
-
-    def restart(self):
-        self.stop()
-        self._proc = subprocess.Popen(self._cmd, stdin=subprocess.PIPE,
-                                      stdout=subprocess.PIPE,
-                                      stderr=subprocess.PIPE,
-                                      env=self._env)
-
-    def returncode(self):
-        return self._proc.returncode
-
-    def run_test(self, uri, timeoutms, image_hash):
-        output = []
-        error = []
-        image = ''
-        crash = False
-        timeout = False
-        actual_uri = None
-        actual_image_hash = None
-
-        if uri.startswith("file:///"):
-            cmd = uri[7:]
-        else:
-            cmd = uri
-
-        if image_hash:
-            cmd += "'" + image_hash
-        cmd += "\n"
-
-        self._proc.stdin.write(cmd)
-        self._stdout_fd = self._proc.stdout.fileno()
-        fl = fcntl.fcntl(self._stdout_fd, fcntl.F_GETFL)
-        fcntl.fcntl(self._stdout_fd, fcntl.F_SETFL, fl | os.O_NONBLOCK)
-
-        stop_time = time.time() + (int(timeoutms) / 1000.0)
-        resp = ''
-        (timeout, line) = self._read_line(timeout, stop_time)
-        resp += line
-        have_seen_content_type = False
-        while not timeout and line.rstrip() != "#EOF":
-            # Make sure we haven't crashed.
-            if line == '' and self.poll() is not None:
-                # This is hex code 0xc000001d, which is used for abrupt
-                # termination. This happens if we hit ctrl+c from the prompt
-                # and we happen to be waiting on the test_shell.
-                # sdoyon: Not sure for which OS and in what circumstances the
-                # above code is valid. What works for me under Linux to detect
-                # ctrl+c is for the subprocess returncode to be negative
-                # SIGINT. And that agrees with the subprocess documentation.
-                if (-1073741510 == self.returncode() or
-                    - signal.SIGINT == self.returncode()):
-                    raise KeyboardInterrupt
-                crash = True
-                break
-
-            elif (line.startswith('Content-Type:') and not
-                  have_seen_content_type):
-                have_seen_content_type = True
-                pass
-            else:
-                output.append(line)
-
-            (timeout, line) = self._read_line(timeout, stop_time)
-            resp += line
-
-        # Now read a second block of text for the optional image data
-        image_length = 0
-        (timeout, line) = self._read_line(timeout, stop_time)
-        resp += line
-        HASH_HEADER = 'ActualHash: '
-        LENGTH_HEADER = 'Content-Length: '
-        while not timeout and not crash and line.rstrip() != "#EOF":
-            if line == '' and self.poll() is not None:
-                if (-1073741510 == self.returncode() or
-                    - signal.SIGINT == self.returncode()):
-                    raise KeyboardInterrupt
-                crash = True
-                break
-            elif line.startswith(HASH_HEADER):
-                actual_image_hash = line[len(HASH_HEADER):].strip()
-            elif line.startswith('Content-Type:'):
-                pass
-            elif line.startswith(LENGTH_HEADER):
-                image_length = int(line[len(LENGTH_HEADER):])
-            elif image_length:
-                image += line
-
-            (timeout, line) = self._read_line(timeout, stop_time, image_length)
-            resp += line
-
-        if timeout:
-            self.restart()
-
-        if self._image_path and len(self._image_path):
-            image_file = file(self._image_path, "wb")
-            image_file.write(image)
-            image_file.close()
-
-        return (crash, timeout, actual_image_hash,
-                ''.join(output), ''.join(error))
-
-    def stop(self):
-        if self._proc:
-            self._proc.stdin.close()
-            self._proc.stdout.close()
-            if self._proc.stderr:
-                self._proc.stderr.close()
-            if (sys.platform not in ('win32', 'cygwin') and
-                not self._proc.poll()):
-                # Closing stdin/stdout/stderr hangs sometimes on OS X.
-                null = open(os.devnull, "w")
-                subprocess.Popen(["kill", "-9",
-                                 str(self._proc.pid)], stderr=null)
-                null.close()
-
-    def _read_line(self, timeout, stop_time, image_length=0):
-        now = time.time()
-        read_fds = []
-
-        # first check to see if we have a line already read or if we've
-        # read the entire image
-        if image_length and len(self._read_buffer) >= image_length:
-            out = self._read_buffer[0:image_length]
-            self._read_buffer = self._read_buffer[image_length:]
-            return (timeout, out)
-
-        idx = self._read_buffer.find('\n')
-        if not image_length and idx != -1:
-            out = self._read_buffer[0:idx + 1]
-            self._read_buffer = self._read_buffer[idx + 1:]
-            return (timeout, out)
-
-        # If we've timed out, return just what we have, if anything
-        if timeout or now >= stop_time:
-            out = self._read_buffer
-            self._read_buffer = ''
-            return (True, out)
-
-        (read_fds, write_fds, err_fds) = select.select(
-            [self._stdout_fd], [], [], stop_time - now)
-        try:
-            if timeout or len(read_fds) == 1:
-                self._read_buffer += self._proc.stdout.read()
-        except IOError, e:
-            read = []
-        return self._read_line(timeout, stop_time)

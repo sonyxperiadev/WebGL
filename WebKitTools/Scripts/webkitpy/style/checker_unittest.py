@@ -34,16 +34,23 @@
 
 """Unit tests for style.py."""
 
+import logging
+import os
 import unittest
 
 import checker as style
+from webkitpy.style_references import parse_patch
+from webkitpy.style_references import LogTesting
+from webkitpy.style_references import TestLogStream
 from checker import _BASE_FILTER_RULES
 from checker import _MAX_REPORTS_PER_CATEGORY
 from checker import _PATH_RULES_SPECIFIER as PATH_RULES_SPECIFIER
 from checker import _all_categories
 from checker import check_webkit_style_configuration
 from checker import check_webkit_style_parser
+from checker import configure_logging
 from checker import ProcessorDispatcher
+from checker import PatchChecker
 from checker import StyleChecker
 from checker import StyleCheckerConfiguration
 from filter import validate_filter_rules
@@ -51,7 +58,94 @@ from filter import FilterConfiguration
 from optparser import ArgumentParser
 from optparser import CommandOptionValues
 from processors.cpp import CppProcessor
+from processors.python import PythonProcessor
 from processors.text import TextProcessor
+from webkitpy.common.system.logtesting import LoggingTestCase
+
+
+class ConfigureLoggingTestBase(unittest.TestCase):
+
+    """Base class for testing configure_logging().
+
+    Sub-classes should implement:
+
+      is_verbose: The is_verbose value to pass to configure_logging().
+
+    """
+
+    def setUp(self):
+        is_verbose = self.is_verbose
+
+        log_stream = TestLogStream(self)
+
+        # Use a logger other than the root logger or one prefixed with
+        # webkit so as not to conflict with test-webkitpy logging.
+        logger = logging.getLogger("unittest")
+
+        # Configure the test logger not to pass messages along to the
+        # root logger.  This prevents test messages from being
+        # propagated to loggers used by test-webkitpy logging (e.g.
+        # the root logger).
+        logger.propagate = False
+
+        self._handlers = configure_logging(stream=log_stream, logger=logger,
+                                           is_verbose=is_verbose)
+        self._log = logger
+        self._log_stream = log_stream
+
+    def tearDown(self):
+        """Reset logging to its original state.
+
+        This method ensures that the logging configuration set up
+        for a unit test does not affect logging in other unit tests.
+
+        """
+        logger = self._log
+        for handler in self._handlers:
+            logger.removeHandler(handler)
+
+    def assert_log_messages(self, messages):
+        """Assert that the logged messages equal the given messages."""
+        self._log_stream.assertMessages(messages)
+
+
+class ConfigureLoggingTest(ConfigureLoggingTestBase):
+
+    """Tests the configure_logging() function."""
+
+    is_verbose = False
+
+    def test_warning_message(self):
+        self._log.warn("test message")
+        self.assert_log_messages(["WARNING: test message\n"])
+
+    def test_below_warning_message(self):
+        # We test the boundary case of a logging level equal to 29.
+        # In practice, we will probably only be calling log.info(),
+        # which corresponds to a logging level of 20.
+        level = logging.WARNING - 1  # Equals 29.
+        self._log.log(level, "test message")
+        self.assert_log_messages(["test message\n"])
+
+    def test_debug_message(self):
+        self._log.debug("test message")
+        self.assert_log_messages([])
+
+    def test_two_messages(self):
+        self._log.info("message1")
+        self._log.info("message2")
+        self.assert_log_messages(["message1\n", "message2\n"])
+
+
+class ConfigureLoggingVerboseTest(ConfigureLoggingTestBase):
+
+    """Tests the configure_logging() function with is_verbose True."""
+
+    is_verbose = True
+
+    def test_debug_message(self):
+        self._log.debug("test message")
+        self.assert_log_messages(["unittest: DEBUG    test message\n"])
 
 
 class GlobalVariablesTest(unittest.TestCase):
@@ -91,7 +185,9 @@ class GlobalVariablesTest(unittest.TestCase):
                                 default_options=default_options)
         # No need to test the return value here since we test parse()
         # on valid arguments elsewhere.
-        parser.parse([]) # arguments valid: no error or SystemExit
+        #
+        # The default options are valid: no error or SystemExit.
+        parser.parse(args=[])
 
     def test_path_rules_specifier(self):
         all_categories = self._all_categories()
@@ -125,6 +221,10 @@ class GlobalVariablesTest(unittest.TestCase):
                     "readability/naming")
         assertNoCheck("WebKit/gtk/webkit/webkit.h",
                       "readability/naming")
+        assertNoCheck("WebKitTools/DumpRenderTree/gtk/DumpRenderTree.cpp",
+                      "readability/null")
+        assertNoCheck("WebKit/efl/ewk/ewk_view.h",
+                      "readability/naming")
         assertNoCheck("WebCore/css/CSSParser.cpp",
                       "readability/naming")
         assertNoCheck("WebKit/qt/tests/qwebelement/tst_qwebelement.cpp",
@@ -132,6 +232,16 @@ class GlobalVariablesTest(unittest.TestCase):
         assertNoCheck(
             "JavaScriptCore/qt/tests/qscriptengine/tst_qscriptengine.cpp",
             "readability/naming")
+        assertNoCheck("WebCore/ForwardingHeaders/debugger/Debugger.h",
+                      "build/header_guard")
+
+        # Third-party Python code: webkitpy/thirdparty
+        path = "WebKitTools/Scripts/webkitpy/thirdparty/mock.py"
+        assertNoCheck(path, "build/include")
+        assertNoCheck(path, "pep8/E401")  # A random pep8 category.
+        assertCheck(path, "pep8/W191")
+        assertCheck(path, "pep8/W291")
+        assertCheck(path, "whitespace/carriage_return")
 
     def test_max_reports_per_category(self):
         """Check that _MAX_REPORTS_PER_CATEGORY is valid."""
@@ -212,7 +322,7 @@ class ProcessorDispatcherDispatchTest(unittest.TestCase):
         dispatcher = ProcessorDispatcher()
         processor = dispatcher.dispatch_processor(file_path,
                                                   self.mock_handle_style_error,
-                                                  verbosity=3)
+                                                  min_confidence=3)
         return processor
 
     def assert_processor_none(self, file_path):
@@ -234,6 +344,10 @@ class ProcessorDispatcherDispatchTest(unittest.TestCase):
     def assert_processor_cpp(self, file_path):
         """Assert that the dispatched processor is a CppProcessor."""
         self.assert_processor(file_path, CppProcessor)
+
+    def assert_processor_python(self, file_path):
+        """Assert that the dispatched processor is a PythonProcessor."""
+        self.assert_processor(file_path, PythonProcessor)
 
     def assert_processor_text(self, file_path):
         """Assert that the dispatched processor is a TextProcessor."""
@@ -260,7 +374,7 @@ class ProcessorDispatcherDispatchTest(unittest.TestCase):
         self.assertEquals(processor.file_extension, file_extension)
         self.assertEquals(processor.file_path, file_path)
         self.assertEquals(processor.handle_style_error, self.mock_handle_style_error)
-        self.assertEquals(processor.verbosity, 3)
+        self.assertEquals(processor.min_confidence, 3)
         # Check "-" for good measure.
         file_base = "-"
         file_extension = ""
@@ -269,6 +383,26 @@ class ProcessorDispatcherDispatchTest(unittest.TestCase):
         processor = self.dispatch_processor(file_path)
         self.assertEquals(processor.file_extension, file_extension)
         self.assertEquals(processor.file_path, file_path)
+
+    def test_python_paths(self):
+        """Test paths that should be checked as Python."""
+        paths = [
+           "foo.py",
+           "WebKitTools/Scripts/modules/text_style.py",
+        ]
+
+        for path in paths:
+            self.assert_processor_python(path)
+
+        # Check processor attributes on a typical input.
+        file_base = "foo"
+        file_extension = "css"
+        file_path = file_base + "." + file_extension
+        self.assert_processor_text(file_path)
+        processor = self.dispatch_processor(file_path)
+        self.assertEquals(processor.file_path, file_path)
+        self.assertEquals(processor.handle_style_error,
+                          self.mock_handle_style_error)
 
     def test_text_paths(self):
         """Test paths that should be checked as text."""
@@ -281,14 +415,12 @@ class ProcessorDispatcherDispatchTest(unittest.TestCase):
            "foo.mm",
            "foo.php",
            "foo.pm",
-           "foo.py",
            "foo.txt",
            "FooChangeLog.bak",
            "WebCore/ChangeLog",
            "WebCore/inspector/front-end/inspector.js",
-           "WebKitTools/Scripts/check-webkit=style",
-           "WebKitTools/Scripts/modules/text_style.py",
-            ]
+           "WebKitTools/Scripts/check-webkit-style",
+        ]
 
         for path in paths:
             self.assert_processor_text(path)
@@ -333,9 +465,9 @@ class StyleCheckerConfigurationTest(unittest.TestCase):
         return StyleCheckerConfiguration(
                    filter_configuration=filter_configuration,
                    max_reports_per_category={"whitespace/newline": 1},
+                   min_confidence=3,
                    output_format=output_format,
-                   stderr_write=self._mock_stderr_write,
-                   verbosity=3)
+                   stderr_write=self._mock_stderr_write)
 
     def test_init(self):
         """Test the __init__() method."""
@@ -345,7 +477,7 @@ class StyleCheckerConfigurationTest(unittest.TestCase):
         self.assertEquals(configuration.max_reports_per_category,
                           {"whitespace/newline": 1})
         self.assertEquals(configuration.stderr_write, self._mock_stderr_write)
-        self.assertEquals(configuration.verbosity, 3)
+        self.assertEquals(configuration.min_confidence, 3)
 
     def test_is_reportable(self):
         """Test the is_reportable() method."""
@@ -362,7 +494,7 @@ class StyleCheckerConfigurationTest(unittest.TestCase):
     def _call_write_style_error(self, output_format):
         config = self._style_checker_configuration(output_format=output_format)
         config.write_style_error(category="whitespace/tab",
-                                 confidence=5,
+                                 confidence_in_error=5,
                                  file_path="foo.h",
                                  line_number=100,
                                  message="message")
@@ -395,9 +527,9 @@ class StyleCheckerTest(unittest.TestCase):
         configuration = StyleCheckerConfiguration(
                             filter_configuration=FilterConfiguration(),
                             max_reports_per_category={},
+                            min_confidence=3,
                             output_format="vs7",
-                            stderr_write=self._mock_stderr_write,
-                            verbosity=3)
+                            stderr_write=self._mock_stderr_write)
 
         style_checker = self._style_checker(configuration)
 
@@ -406,7 +538,25 @@ class StyleCheckerTest(unittest.TestCase):
         self.assertEquals(style_checker.file_count, 0)
 
 
-class StyleCheckerCheckFileTest(unittest.TestCase):
+class StyleCheckerCheckFileBase(LoggingTestCase):
+
+    def setUp(self):
+        LoggingTestCase.setUp(self)
+        self.warning_messages = ""
+
+    def mock_stderr_write(self, warning_message):
+        self.warning_messages += warning_message
+
+    def _style_checker_configuration(self):
+        return StyleCheckerConfiguration(
+            filter_configuration=FilterConfiguration(),
+            max_reports_per_category={"whitespace/newline": 1},
+            min_confidence=3,
+            output_format="vs7",
+            stderr_write=self.mock_stderr_write)
+
+
+class StyleCheckerCheckFileTest(StyleCheckerCheckFileBase):
 
     """Test the check_file() method of the StyleChecker class.
 
@@ -432,16 +582,18 @@ class StyleCheckerCheckFileTest(unittest.TestCase):
 
     """
     def setUp(self):
+        StyleCheckerCheckFileBase.setUp(self)
         self.got_file_path = None
         self.got_handle_style_error = None
         self.got_processor = None
-        self.warning_messages = ""
-
-    def mock_stderr_write(self, warning_message):
-        self.warning_messages += warning_message
 
     def mock_handle_style_error(self):
         pass
+
+    def mock_os_path_exists(self, path):
+        # We deliberately make it so that this method returns False unless
+        # the caller has made an effort to put "does_exist" in the path.
+        return path.find("does_exist") > -1
 
     def mock_process_file(self, processor, file_path, handle_style_error):
         """A mock _process_file().
@@ -470,25 +622,48 @@ class StyleCheckerCheckFileTest(unittest.TestCase):
         # Confirm that the attributes are reset.
         self.assert_attributes(None, None, None, "")
 
-        configuration = StyleCheckerConfiguration(
-                            filter_configuration=FilterConfiguration(),
-                            max_reports_per_category={"whitespace/newline": 1},
-                            output_format="vs7",
-                            stderr_write=self.mock_stderr_write,
-                            verbosity=3)
+        configuration = self._style_checker_configuration()
 
         style_checker = StyleChecker(configuration)
 
-        style_checker.check_file(file_path,
-                                 self.mock_handle_style_error,
-                                 self.mock_process_file)
+        style_checker.check_file(file_path=file_path,
+            mock_handle_style_error=self.mock_handle_style_error,
+            mock_os_path_exists=self.mock_os_path_exists,
+            mock_process_file=self.mock_process_file)
 
-        self.assertEquals(1, style_checker.file_count)
+        self.assertEquals(style_checker.file_count, 1)
+
+    def test_check_file_does_not_exist(self):
+        file_path = "file_does_not_exist.txt"
+
+        # Confirm that the file does not exist.
+        self.assertFalse(self.mock_os_path_exists(file_path))
+
+        # Check the outcome.
+        self.assertRaises(SystemExit, self.call_check_file, file_path)
+        self.assertLog(["ERROR: File does not exist: "
+                        "file_does_not_exist.txt\n"])
+
+    def test_check_file_stdin(self):
+        file_path = "-"
+
+        # Confirm that the file does not exist.
+        self.assertFalse(self.mock_os_path_exists(file_path))
+
+        # Check the outcome.
+        self.call_check_file(file_path)
+        expected_processor = CppProcessor(file_path,
+                                          "",
+                                          self.mock_handle_style_error, 3)
+        self.assert_attributes(file_path,
+                               self.mock_handle_style_error,
+                               expected_processor,
+                               "")
 
     def test_check_file_on_skip_without_warning(self):
         """Test check_file() for a skipped-without-warning file."""
 
-        file_path = "LayoutTests/foo.txt"
+        file_path = "LayoutTests/does_exist/foo.txt"
 
         dispatcher = ProcessorDispatcher()
         # Confirm that the input file is truly a skipped-without-warning file.
@@ -501,7 +676,7 @@ class StyleCheckerCheckFileTest(unittest.TestCase):
     def test_check_file_on_skip_with_warning(self):
         """Test check_file() for a skipped-with-warning file."""
 
-        file_path = "gtk2drawing.c"
+        file_path = "does_exist/gtk2drawing.c"
 
         dispatcher = ProcessorDispatcher()
         # Check that the input file is truly a skipped-with-warning file.
@@ -509,15 +684,16 @@ class StyleCheckerCheckFileTest(unittest.TestCase):
 
         # Check the outcome.
         self.call_check_file(file_path)
-        self.assert_attributes(None, None, None,
-                               'Ignoring "gtk2drawing.c": this file is exempt from the style guide.\n')
+        self.assert_attributes(None, None, None, "")
+        self.assertLog(["WARNING: File exempt from style guide. "
+                        'Skipping: "does_exist/gtk2drawing.c"\n'])
 
     def test_check_file_on_non_skipped(self):
 
         # We use a C++ file since by using a CppProcessor, we can check
         # that all of the possible information is getting passed to
-        # process_file (in particular, the verbosity).
-        file_base = "foo"
+        # process_file (in particular, the min_confidence parameter).
+        file_base = "foo_does_exist"
         file_extension = "cpp"
         file_path = file_base + "." + file_extension
 
@@ -536,7 +712,97 @@ class StyleCheckerCheckFileTest(unittest.TestCase):
                                "")
 
 
-if __name__ == '__main__':
-    import sys
+class StyleCheckerCheckPathsTest(unittest.TestCase):
 
-    unittest.main()
+    """Test the check_paths() method of the StyleChecker class."""
+
+    class MockOs(object):
+
+        class MockPath(object):
+
+            """A mock os.path."""
+
+            def isdir(self, path):
+                return path == "directory"
+
+        def __init__(self):
+            self.path = self.MockPath()
+
+        def walk(self, directory):
+            """A mock of os.walk."""
+            if directory == "directory":
+                dirs = [("dir_path1", [], ["file1", "file2"]),
+                        ("dir_path2", [], ["file3"])]
+                return dirs
+            return None
+
+    def setUp(self):
+        self._checked_files = []
+
+    def _mock_check_file(self, file):
+        self._checked_files.append(file)
+
+    def test_check_paths(self):
+        """Test StyleChecker.check_paths()."""
+        checker = StyleChecker(configuration=None)
+        mock_check_file = self._mock_check_file
+        mock_os = self.MockOs()
+
+        # Confirm that checked files is empty at the outset.
+        self.assertEquals(self._checked_files, [])
+        checker.check_paths(["path1", "directory"],
+                            mock_check_file=mock_check_file,
+                            mock_os=mock_os)
+        self.assertEquals(self._checked_files,
+                          ["path1",
+                           os.path.join("dir_path1", "file1"),
+                           os.path.join("dir_path1", "file2"),
+                           os.path.join("dir_path2", "file3")])
+
+
+class PatchCheckerTest(unittest.TestCase):
+
+    """Test the PatchChecker class."""
+
+    class MockStyleChecker(object):
+
+        def __init__(self):
+            self.checked_files = []
+            """A list of (file_path, line_numbers) pairs."""
+
+        def check_file(self, file_path, line_numbers):
+            self.checked_files.append((file_path, line_numbers))
+
+    def setUp(self):
+        style_checker = self.MockStyleChecker()
+        self._style_checker = style_checker
+        self._patch_checker = PatchChecker(style_checker)
+
+    def _call_check_patch(self, patch_string):
+        self._patch_checker.check(patch_string)
+
+    def _assert_checked(self, checked_files):
+        self.assertEquals(self._style_checker.checked_files, checked_files)
+
+    def test_check_patch(self):
+        # The modified line_numbers array for this patch is: [2].
+        self._call_check_patch("""diff --git a/__init__.py b/__init__.py
+index ef65bee..e3db70e 100644
+--- a/__init__.py
++++ b/__init__.py
+@@ -1,1 +1,2 @@
+ # Required for Python to search this directory for module files
++# New line
+""")
+        self._assert_checked([("__init__.py", set([2]))])
+
+    def test_check_patch_with_deletion(self):
+        self._call_check_patch("""Index: __init__.py
+===================================================================
+--- __init__.py  (revision 3593)
++++ __init__.py  (working copy)
+@@ -1 +0,0 @@
+-foobar
+""")
+        # _mock_check_file should not be called for the deletion patch.
+        self._assert_checked([])

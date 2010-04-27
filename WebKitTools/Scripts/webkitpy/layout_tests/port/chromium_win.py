@@ -29,6 +29,7 @@
 
 """Chromium Win implementation of the Port interface."""
 
+import logging
 import os
 import platform
 import signal
@@ -37,6 +38,8 @@ import sys
 
 import chromium
 
+_log = logging.getLogger("webkitpy.layout_tests.port.chromium_win")
+
 
 class ChromiumWinPort(chromium.ChromiumPort):
     """Chromium Win implementation of the Port class."""
@@ -44,32 +47,36 @@ class ChromiumWinPort(chromium.ChromiumPort):
     def __init__(self, port_name=None, options=None):
         if port_name is None:
             port_name = 'chromium-win' + self.version()
-        if options and not hasattr(options, 'target'):
-            options.target = 'Release'
+        if options and not hasattr(options, 'configuration'):
+            options.configuration = 'Release'
         chromium.ChromiumPort.__init__(self, port_name, options)
 
     def baseline_search_path(self):
         dirs = []
         if self._name == 'chromium-win-xp':
-            dirs.append(self._chromium_baseline_path(self._name))
+            dirs.append(self._webkit_baseline_path('chromium-win-xp'))
         if self._name in ('chromium-win-xp', 'chromium-win-vista'):
-            dirs.append(self._chromium_baseline_path('chromium-win-vista'))
-        dirs.append(self._chromium_baseline_path('chromium-win'))
+            dirs.append(self._webkit_baseline_path('chromium-win-vista'))
+        dirs.append(self._webkit_baseline_path('chromium-win'))
+        dirs.append(self._webkit_baseline_path('chromium'))
         dirs.append(self._webkit_baseline_path('win'))
         dirs.append(self._webkit_baseline_path('mac'))
         return dirs
 
-    def check_sys_deps(self):
-        # TODO(dpranke): implement this
-        return True
+    def check_build(self, needs_http):
+        result = chromium.ChromiumPort.check_build(self, needs_http)
+        if not result:
+            _log.error('For complete Windows build requirements, please '
+                       'see:')
+            _log.error('')
+            _log.error('    http://dev.chromium.org/developers/how-tos/'
+                       'build-instructions-windows')
+        return result
 
     def get_absolute_path(self, filename):
         """Return the absolute path in unix format for the given filename."""
         abspath = os.path.abspath(filename)
         return abspath.replace('\\', '/')
-
-    def num_cores(self):
-        return int(os.environ.get('NUMBER_OF_PROCESSORS', 1))
 
     def relative_test_filename(self, filename):
         path = filename[len(self.layout_tests_dir()) + 1:]
@@ -80,6 +87,8 @@ class ChromiumWinPort(chromium.ChromiumPort):
         return 'win' + self.version()
 
     def version(self):
+        if not hasattr(sys, 'getwindowsversion'):
+            return ''
         winver = sys.getwindowsversion()
         if winver[0] == 6 and (winver[1] == 1):
             return '-7'
@@ -94,23 +103,14 @@ class ChromiumWinPort(chromium.ChromiumPort):
     #
 
     def _build_path(self, *comps):
-        # FIXME(dpranke): allow for builds under 'chrome' as well.
-        return self.path_from_chromium_base('webkit', self._options.target,
-                                            *comps)
+        p = self.path_from_chromium_base('webkit', *comps)
+        if os.path.exists(p):
+            return p
+        return self.path_from_chromium_base('chrome', *comps)
 
     def _lighttpd_path(self, *comps):
         return self.path_from_chromium_base('third_party', 'lighttpd', 'win',
                                             *comps)
-
-    def _kill_process(self, pid):
-        """Forcefully kill the process.
-
-        Args:
-        pid: The id of the process to be killed.
-        """
-        subprocess.call(('taskkill.exe', '/f', '/pid', str(pid)),
-                        stdout=subprocess.PIPE,
-                        stderr=subprocess.PIPE)
 
     def _path_to_apache(self):
         return self.path_from_chromium_base('third_party', 'cygwin', 'usr',
@@ -129,14 +129,16 @@ class ChromiumWinPort(chromium.ChromiumPort):
     def _path_to_lighttpd_php(self):
         return self._lighttpd_path('php5', 'php-cgi.exe')
 
-    def _path_to_driver(self):
-        return self._build_path('test_shell.exe')
+    def _path_to_driver(self, configuration=None):
+        if not configuration:
+            configuration = self._options.configuration
+        return self._build_path(configuration, 'test_shell.exe')
 
     def _path_to_helper(self):
-        return self._build_path('layout_test_helper.exe')
+        return self._build_path(self._options.configuration, 'layout_test_helper.exe')
 
     def _path_to_image_diff(self):
-        return self._build_path('image_diff.exe')
+        return self._build_path(self._options.configuration, 'image_diff.exe')
 
     def _path_to_wdiff(self):
         return self.path_from_chromium_base('third_party', 'cygwin', 'bin',
@@ -150,8 +152,10 @@ class ChromiumWinPort(chromium.ChromiumPort):
             server_pid: The process ID of the running server.
         """
         subprocess.Popen(('taskkill.exe', '/f', '/im', 'LightTPD.exe'),
+                        stdin=open(os.devnull, 'r'),
                         stdout=subprocess.PIPE,
                         stderr=subprocess.PIPE).wait()
         subprocess.Popen(('taskkill.exe', '/f', '/im', 'httpd.exe'),
+                        stdin=open(os.devnull, 'r'),
                         stdout=subprocess.PIPE,
                         stderr=subprocess.PIPE).wait()

@@ -29,12 +29,15 @@
 
 """Chromium Mac implementation of the Port interface."""
 
+import logging
 import os
 import platform
 import signal
 import subprocess
 
 import chromium
+
+_log = logging.getLogger("webkitpy.layout_tests.port.chromium_mac")
 
 
 class ChromiumMacPort(chromium.ChromiumPort):
@@ -43,22 +46,31 @@ class ChromiumMacPort(chromium.ChromiumPort):
     def __init__(self, port_name=None, options=None):
         if port_name is None:
             port_name = 'chromium-mac'
-        if options and not hasattr(options, 'target'):
-            options.target = 'Release'
+        if options and not hasattr(options, 'configuration'):
+            options.configuration = 'Release'
         chromium.ChromiumPort.__init__(self, port_name, options)
 
     def baseline_search_path(self):
-        return [self.baseline_path(),
+        return [self._webkit_baseline_path('chromium-mac'),
+                self._webkit_baseline_path('chromium'),
                 self._webkit_baseline_path('mac' + self.version()),
                 self._webkit_baseline_path('mac')]
 
-    def check_sys_deps(self):
-        # We have no specific platform dependencies.
-        return True
+    def check_build(self, needs_http):
+        result = chromium.ChromiumPort.check_build(self, needs_http)
+        result = self._check_wdiff_install() and result
+        if not result:
+            _log.error('For complete Mac build requirements, please see:')
+            _log.error('')
+            _log.error('    http://code.google.com/p/chromium/wiki/'
+                       'MacBuildInstructions')
+        return result
 
-    def num_cores(self):
-        return int(subprocess.Popen(['sysctl','-n','hw.ncpu'],
-                                    stdout=subprocess.PIPE).stdout.read())
+    def driver_name(self):
+        """name for this port's equivalent of DumpRenderTree."""
+        if self._options.use_drt:
+            return "DumpRenderTree"
+        return "TestShell"
 
     def test_platform_name(self):
         # We use 'mac' instead of 'chromium-mac'
@@ -81,20 +93,26 @@ class ChromiumMacPort(chromium.ChromiumPort):
     #
 
     def _build_path(self, *comps):
-        return self.path_from_chromium_base('xcodebuild', self._options.target,
-                                            *comps)
+        if self._options.use_drt:
+            return self.path_from_webkit_base('WebKit', 'chromium',
+                                              'xcodebuild', *comps)
+        return self.path_from_chromium_base('xcodebuild', *comps)
+
+    def _check_wdiff_install(self):
+        f = open(os.devnull, 'w')
+        rcode = 0
+        try:
+            rcode = subprocess.call(['wdiff'], stderr=f)
+        except OSError:
+            _log.warning('wdiff not found. Install using MacPorts or some '
+                         'other means')
+            pass
+        f.close()
+        return True
 
     def _lighttpd_path(self, *comps):
         return self.path_from_chromium_base('third_party', 'lighttpd',
                                             'mac', *comps)
-
-    def _kill_process(self, pid):
-        """Forcefully kill the process.
-
-        Args:
-            pid: The id of the process to be killed.
-        """
-        os.kill(pid, signal.SIGKILL)
 
     def _kill_all_process(self, process_name):
         """Kill any processes running under this name."""
@@ -116,25 +134,33 @@ class ChromiumMacPort(chromium.ChromiumPort):
                             'apache2-httpd.conf')
 
     def _path_to_lighttpd(self):
-        return self._lighttp_path('bin', 'lighttp')
+        return self._lighttpd_path('bin', 'lighttpd')
 
     def _path_to_lighttpd_modules(self):
-        return self._lighttp_path('lib')
+        return self._lighttpd_path('lib')
 
     def _path_to_lighttpd_php(self):
         return self._lighttpd_path('bin', 'php-cgi')
 
-    def _path_to_driver(self):
-        # TODO(pinkerton): make |target| happy with case-sensitive file
+    def _path_to_driver(self, configuration=None):
+        # FIXME: make |configuration| happy with case-sensitive file
         # systems.
-        return self._build_path('TestShell.app', 'Contents', 'MacOS', 
-                                'TestShell')
+        if not configuration:
+            configuration = self._options.configuration
+        return self._build_path(configuration, self.driver_name() + '.app',
+            'Contents', 'MacOS', self.driver_name())
 
     def _path_to_helper(self):
-        return self._build_path('layout_test_helper')
+        binary_name = 'layout_test_helper'
+        if self._options.use_drt:
+            binary_name = 'LayoutTestHelper'
+        return self._build_path(self._options.configuration, binary_name)
 
     def _path_to_image_diff(self):
-        return self._build_path('image_diff')
+        binary_name = 'image_diff'
+        if self._options.use_drt:
+            binary_name = 'ImageDiff'
+        return self._build_path(self._options.configuration, binary_name)
 
     def _path_to_wdiff(self):
         return 'wdiff'

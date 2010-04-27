@@ -24,22 +24,11 @@
 
 import unittest
 
-from optparser import _create_usage
-from optparser import ArgumentParser
-from optparser import ArgumentPrinter
-from optparser import CommandOptionValues as ProcessorOptions
-from optparser import DefaultCommandOptionValues
-
-
-class CreateUsageTest(unittest.TestCase):
-
-    """Tests the _create_usage() function."""
-
-    def test_create_usage(self):
-        default_options = DefaultCommandOptionValues(output_format="vs7",
-                                                     verbosity=3)
-        # Exercise the code path to make sure the function does not error out.
-        _create_usage(default_options)
+from webkitpy.common.system.logtesting import LoggingTestCase
+from webkitpy.style.optparser import ArgumentParser
+from webkitpy.style.optparser import ArgumentPrinter
+from webkitpy.style.optparser import CommandOptionValues as ProcessorOptions
+from webkitpy.style.optparser import DefaultCommandOptionValues
 
 
 class ArgumentPrinterTest(unittest.TestCase):
@@ -50,61 +39,65 @@ class ArgumentPrinterTest(unittest.TestCase):
 
     def _create_options(self,
                         output_format='emacs',
-                        verbosity=3,
+                        min_confidence=3,
                         filter_rules=[],
-                        git_commit=None,
-                        extra_flag_values={}):
-        return ProcessorOptions(extra_flag_values=extra_flag_values,
-                                filter_rules=filter_rules,
+                        git_commit=None):
+        return ProcessorOptions(filter_rules=filter_rules,
                                 git_commit=git_commit,
-                                output_format=output_format,
-                                verbosity=verbosity)
+                                min_confidence=min_confidence,
+                                output_format=output_format)
 
     def test_to_flag_string(self):
-        options = self._create_options('vs7', 5, ['+foo', '-bar'], 'git',
-                                       {'a': 0, 'z': 1})
-        self.assertEquals('--a=0 --filter=+foo,-bar --git-commit=git '
-                          '--output=vs7 --verbose=5 --z=1',
+        options = self._create_options('vs7', 5, ['+foo', '-bar'], 'git')
+        self.assertEquals('--filter=+foo,-bar --git-commit=git '
+                          '--min-confidence=5 --output=vs7',
                           self._printer.to_flag_string(options))
 
         # This is to check that --filter and --git-commit do not
         # show up when not user-specified.
         options = self._create_options()
-        self.assertEquals('--output=emacs --verbose=3',
+        self.assertEquals('--min-confidence=3 --output=emacs',
                           self._printer.to_flag_string(options))
 
 
-class ArgumentParserTest(unittest.TestCase):
+class ArgumentParserTest(LoggingTestCase):
 
     """Test the ArgumentParser class."""
 
-    def _parse(self):
-        """Return a default parse() function for testing."""
-        return self._create_parser().parse
+    class _MockStdErr(object):
 
-    def _create_defaults(self):
-        """Return a DefaultCommandOptionValues instance for testing."""
-        base_filter_rules = ["-", "+whitespace"]
-        return DefaultCommandOptionValues(output_format="vs7",
-                                          verbosity=3)
-
-    def _create_parser(self):
-        """Return an ArgumentParser instance for testing."""
-        def stderr_write(message):
+        def write(self, message):
             # We do not want the usage string or style categories
             # to print during unit tests, so print nothing.
             return
 
+    def _parse(self, args):
+        """Call a test parser.parse()."""
+        parser = self._create_parser()
+        return parser.parse(args)
+
+    def _create_defaults(self):
+        """Return a DefaultCommandOptionValues instance for testing."""
+        base_filter_rules = ["-", "+whitespace"]
+        return DefaultCommandOptionValues(min_confidence=3,
+                                          output_format="vs7")
+
+    def _create_parser(self):
+        """Return an ArgumentParser instance for testing."""
         default_options = self._create_defaults()
 
         all_categories = ["build" ,"whitespace"]
+
+        mock_stderr = self._MockStdErr()
+
         return ArgumentParser(all_categories=all_categories,
                               base_filter_rules=[],
                               default_options=default_options,
-                              stderr_write=stderr_write)
+                              mock_stderr=mock_stderr,
+                              usage="test usage")
 
     def test_parse_documentation(self):
-        parse = self._parse()
+        parse = self._parse
 
         # FIXME: Test both the printing of the usage string and the
         #        filter categories help.
@@ -115,56 +108,75 @@ class ArgumentParserTest(unittest.TestCase):
         self.assertRaises(SystemExit, parse, ['--filter='])
 
     def test_parse_bad_values(self):
-        parse = self._parse()
+        parse = self._parse
 
         # Pass an unsupported argument.
         self.assertRaises(SystemExit, parse, ['--bad'])
+        self.assertLog(['ERROR: no such option: --bad\n'])
 
-        self.assertRaises(ValueError, parse, ['--verbose=bad'])
-        self.assertRaises(ValueError, parse, ['--verbose=0'])
-        self.assertRaises(ValueError, parse, ['--verbose=6'])
-        parse(['--verbose=1']) # works
-        parse(['--verbose=5']) # works
+        self.assertRaises(SystemExit, parse, ['--git-diff=aa..bb'])
+        self.assertLog(['ERROR: invalid --git-commit option: '
+                        'option does not support ranges "..": aa..bb\n'])
 
-        self.assertRaises(ValueError, parse, ['--output=bad'])
+        self.assertRaises(SystemExit, parse, ['--min-confidence=bad'])
+        self.assertLog(['ERROR: option --min-confidence: '
+                        "invalid integer value: 'bad'\n"])
+        self.assertRaises(SystemExit, parse, ['--min-confidence=0'])
+        self.assertLog(['ERROR: option --min-confidence: invalid integer: 0: '
+                        'value must be between 1 and 5\n'])
+        self.assertRaises(SystemExit, parse, ['--min-confidence=6'])
+        self.assertLog(['ERROR: option --min-confidence: invalid integer: 6: '
+                        'value must be between 1 and 5\n'])
+        parse(['--min-confidence=1']) # works
+        parse(['--min-confidence=5']) # works
+
+        self.assertRaises(SystemExit, parse, ['--output=bad'])
+        self.assertLog(['ERROR: option --output-format: invalid choice: '
+                        "'bad' (choose from 'emacs', 'vs7')\n"])
         parse(['--output=vs7']) # works
 
         # Pass a filter rule not beginning with + or -.
-        self.assertRaises(ValueError, parse, ['--filter=build'])
+        self.assertRaises(SystemExit, parse, ['--filter=build'])
+        self.assertLog(['ERROR: Invalid filter rule "build": '
+                        'every rule must start with + or -.\n'])
         parse(['--filter=+build']) # works
         # Pass files and git-commit at the same time.
-        self.assertRaises(SystemExit, parse, ['--git-commit=', 'file.txt'])
-        # Pass an extra flag already supported.
-        self.assertRaises(ValueError, parse, [], ['filter='])
-        parse([], ['extra=']) # works
-        # Pass an extra flag with typo.
-        self.assertRaises(SystemExit, parse, ['--extratypo='], ['extra='])
-        parse(['--extra='], ['extra=']) # works
-        self.assertRaises(ValueError, parse, [], ['extra=', 'extra='])
-
+        self.assertRaises(SystemExit, parse, ['--git-commit=committish',
+                                              'file.txt'])
+        self.assertLog(['ERROR: You cannot provide both paths and '
+                        'a git commit at the same time.\n'])
 
     def test_parse_default_arguments(self):
-        parse = self._parse()
+        parse = self._parse
 
         (files, options) = parse([])
 
         self.assertEquals(files, [])
 
-        self.assertEquals(options.output_format, 'vs7')
-        self.assertEquals(options.verbosity, 3)
         self.assertEquals(options.filter_rules, [])
         self.assertEquals(options.git_commit, None)
+        self.assertEquals(options.is_verbose, False)
+        self.assertEquals(options.min_confidence, 3)
+        self.assertEquals(options.output_format, 'vs7')
 
     def test_parse_explicit_arguments(self):
-        parse = self._parse()
+        parse = self._parse
 
         # Pass non-default explicit values.
+        (files, options) = parse(['--min-confidence=4'])
+        self.assertEquals(options.min_confidence, 4)
         (files, options) = parse(['--output=emacs'])
         self.assertEquals(options.output_format, 'emacs')
-        (files, options) = parse(['--verbose=4'])
-        self.assertEquals(options.verbosity, 4)
+        (files, options) = parse(['-g', 'commit'])
+        self.assertEquals(options.git_commit, 'commit')
         (files, options) = parse(['--git-commit=commit'])
         self.assertEquals(options.git_commit, 'commit')
+        (files, options) = parse(['--git-diff=commit'])
+        self.assertEquals(options.git_commit, 'commit')
+        (files, options) = parse(['--git-since=commit'])
+        self.assertEquals(options.git_commit, 'commit')
+        (files, options) = parse(['--verbose'])
+        self.assertEquals(options.is_verbose, True)
 
         # Pass user_rules.
         (files, options) = parse(['--filter=+build,-whitespace'])
@@ -176,16 +188,8 @@ class ArgumentParserTest(unittest.TestCase):
         self.assertEquals(options.filter_rules,
                           ["+build", "-whitespace"])
 
-        # Pass extra flag values.
-        (files, options) = parse(['--extra'], ['extra'])
-        self.assertEquals(options.extra_flag_values, {'--extra': ''})
-        (files, options) = parse(['--extra='], ['extra='])
-        self.assertEquals(options.extra_flag_values, {'--extra': ''})
-        (files, options) = parse(['--extra=x'], ['extra='])
-        self.assertEquals(options.extra_flag_values, {'--extra': 'x'})
-
     def test_parse_files(self):
-        parse = self._parse()
+        parse = self._parse
 
         (files, options) = parse(['foo.cpp'])
         self.assertEquals(files, ['foo.cpp'])
@@ -203,56 +207,60 @@ class CommandOptionValuesTest(unittest.TestCase):
         """Test __init__ constructor."""
         # Check default parameters.
         options = ProcessorOptions()
-        self.assertEquals(options.extra_flag_values, {})
         self.assertEquals(options.filter_rules, [])
         self.assertEquals(options.git_commit, None)
+        self.assertEquals(options.is_verbose, False)
+        self.assertEquals(options.min_confidence, 1)
         self.assertEquals(options.output_format, "emacs")
-        self.assertEquals(options.verbosity, 1)
 
         # Check argument validation.
         self.assertRaises(ValueError, ProcessorOptions, output_format="bad")
         ProcessorOptions(output_format="emacs") # No ValueError: works
         ProcessorOptions(output_format="vs7") # works
-        self.assertRaises(ValueError, ProcessorOptions, verbosity=0)
-        self.assertRaises(ValueError, ProcessorOptions, verbosity=6)
-        ProcessorOptions(verbosity=1) # works
-        ProcessorOptions(verbosity=5) # works
+        self.assertRaises(ValueError, ProcessorOptions, min_confidence=0)
+        self.assertRaises(ValueError, ProcessorOptions, min_confidence=6)
+        ProcessorOptions(min_confidence=1) # works
+        ProcessorOptions(min_confidence=5) # works
 
         # Check attributes.
-        options = ProcessorOptions(extra_flag_values={"extra_value" : 2},
-                                   filter_rules=["+"],
+        options = ProcessorOptions(filter_rules=["+"],
                                    git_commit="commit",
-                                   output_format="vs7",
-                                   verbosity=3)
-        self.assertEquals(options.extra_flag_values, {"extra_value" : 2})
+                                   is_verbose=True,
+                                   min_confidence=3,
+                                   output_format="vs7")
         self.assertEquals(options.filter_rules, ["+"])
         self.assertEquals(options.git_commit, "commit")
+        self.assertEquals(options.is_verbose, True)
+        self.assertEquals(options.min_confidence, 3)
         self.assertEquals(options.output_format, "vs7")
-        self.assertEquals(options.verbosity, 3)
 
     def test_eq(self):
         """Test __eq__ equality function."""
-        # == calls __eq__.
-        self.assertTrue(ProcessorOptions() == ProcessorOptions())
+        self.assertTrue(ProcessorOptions().__eq__(ProcessorOptions()))
 
-        # Verify that a difference in any argument causes equality to fail.
-        options = ProcessorOptions(extra_flag_values={"extra_value" : 1},
-                                   filter_rules=["+"],
-                                   git_commit="commit",
-                                   output_format="vs7",
-                                   verbosity=1)
-        self.assertFalse(options == ProcessorOptions(extra_flag_values=
-                                                     {"extra_value" : 2}))
-        self.assertFalse(options == ProcessorOptions(filter_rules=["-"]))
-        self.assertFalse(options == ProcessorOptions(git_commit="commit2"))
-        self.assertFalse(options == ProcessorOptions(output_format="emacs"))
-        self.assertFalse(options == ProcessorOptions(verbosity=2))
+        # Also verify that a difference in any argument causes equality to fail.
+
+        # Explicitly create a ProcessorOptions instance with all default
+        # values.  We do this to be sure we are assuming the right default
+        # values in our self.assertFalse() calls below.
+        options = ProcessorOptions(filter_rules=[],
+                                   git_commit=None,
+                                   is_verbose=False,
+                                   min_confidence=1,
+                                   output_format="emacs")
+        # Verify that we created options correctly.
+        self.assertTrue(options.__eq__(ProcessorOptions()))
+
+        self.assertFalse(options.__eq__(ProcessorOptions(filter_rules=["+"])))
+        self.assertFalse(options.__eq__(ProcessorOptions(git_commit="commit")))
+        self.assertFalse(options.__eq__(ProcessorOptions(is_verbose=True)))
+        self.assertFalse(options.__eq__(ProcessorOptions(min_confidence=2)))
+        self.assertFalse(options.__eq__(ProcessorOptions(output_format="vs7")))
 
     def test_ne(self):
         """Test __ne__ inequality function."""
-        # != calls __ne__.
         # By default, __ne__ always returns true on different objects.
         # Thus, just check the distinguishing case to verify that the
         # code defines __ne__.
-        self.assertFalse(ProcessorOptions() != ProcessorOptions())
+        self.assertFalse(ProcessorOptions().__ne__(ProcessorOptions()))
 

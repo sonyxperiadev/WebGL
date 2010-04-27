@@ -40,7 +40,10 @@ import tempfile
 import time
 import urllib
 
+import factory
 import http_server_base
+
+_log = logging.getLogger("webkitpy.layout_tests.port.http_server")
 
 
 class HttpdNotStarted(Exception):
@@ -200,11 +203,11 @@ class Lighttpd(http_server_base.HttpServerBase):
                 env['PATH'])
 
         if sys.platform == 'win32' and self._register_cygwin:
-            setup_mount = port.path_from_chromium_base('third_party',
+            setup_mount = self._port_obj.path_from_chromium_base('third_party',
                 'cygwin', 'setup_mount.bat')
             subprocess.Popen(setup_mount).wait()
 
-        logging.debug('Starting http server')
+        _log.debug('Starting http server')
         self._process = subprocess.Popen(start_cmd, env=env)
 
         # Wait for server to start.
@@ -216,7 +219,7 @@ class Lighttpd(http_server_base.HttpServerBase):
         if not server_started or self._process.returncode != None:
             raise google.httpd_utils.HttpdNotStarted('Failed to start httpd.')
 
-        logging.debug("Server successfully started")
+        _log.debug("Server successfully started")
 
     # TODO(deanm): Find a nicer way to shutdown cleanly.  Our log files are
     # probably not being flushed, etc... why doesn't our python have os.kill ?
@@ -233,40 +236,3 @@ class Lighttpd(http_server_base.HttpServerBase):
         if self._process:
             self._process.wait()
             self._process = None
-
-if '__main__' == __name__:
-    # Provide some command line params for starting/stopping the http server
-    # manually. Also used in ui_tests to run http layout tests in a browser.
-    option_parser = optparse.OptionParser()
-    option_parser.add_option('-k', '--server',
-        help='Server action (start|stop)')
-    option_parser.add_option('-p', '--port',
-        help='Port to listen on (overrides layout test ports)')
-    option_parser.add_option('-r', '--root',
-        help='Absolute path to DocumentRoot (overrides layout test roots)')
-    option_parser.add_option('--register_cygwin', action="store_true",
-        dest="register_cygwin", help='Register Cygwin paths (on Win try bots)')
-    option_parser.add_option('--run_background', action="store_true",
-        dest="run_background",
-        help='Run on background (for running as UI test)')
-    options, args = option_parser.parse_args()
-
-    if not options.server:
-        print ('Usage: %s --server {start|stop} [--root=root_dir]'
-               ' [--port=port_number]' % sys.argv[0])
-    else:
-        if (options.root is None) and (options.port is not None):
-            # specifying root but not port means we want httpd on default
-            # set of ports that LayoutTest use, but pointing to a different
-            # source of tests. Specifying port but no root does not seem
-            # meaningful.
-            raise 'Specifying port requires also a root.'
-        httpd = Lighttpd(tempfile.gettempdir(),
-                         port=options.port,
-                         root=options.root,
-                         register_cygwin=options.register_cygwin,
-                         run_background=options.run_background)
-        if 'start' == options.server:
-            httpd.start()
-        else:
-            httpd.stop(force=True)

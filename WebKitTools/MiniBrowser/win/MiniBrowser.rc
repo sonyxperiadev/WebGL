@@ -1,0 +1,30 @@
+// Microsoft Visual C++ generated resource script.
+//
+#include "resource.h"
+#include "winresrc.h"
+
+#ifdef _WIN32
+LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
+#pragma code_page(1252)
+#endif //_WIN32
+
+IDR_MAINFRAME MENU 
+BEGIN
+    POPUP "&File"
+    BEGIN
+        MENUITEM "&New Window\tCtrl+N",         ID_FILE_NEW_WINDOW
+        MENUITEM SEPARATOR
+        MENUITEM "&Close",                      ID_FILE_CLOSE
+    END
+END
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Accelerator
+//
+
+IDR_MAINFRAME_ACCEL ACCELERATORS 
+BEGIN
+    "N",            ID_FILE_NEW_WINDOW,           VIRTKEY, CONTROL, NOINVERT
+END

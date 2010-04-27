@@ -33,8 +33,8 @@
 
 #include "V8Binding.h"
 #include "V8DOMWrapper.h"
-#include "V8Index.h"
 #include "V8Proxy.h"
+#include "WrapperTypeInfo.h"
 
 #include <wtf/MathExtras.h>
 
@@ -63,7 +63,7 @@ v8::Handle<v8::Value> V8WebKitPoint::constructorCallback(const v8::Arguments& ar
     }
     PassRefPtr<WebKitPoint> point = WebKitPoint::create(x, y);
     point->ref();
-    V8DOMWrapper::setDOMWrapper(args.Holder(), V8ClassIndex::WEBKITPOINT, point.get());
+    V8DOMWrapper::setDOMWrapper(args.Holder(), &info, point.get());
     return args.Holder();
 }
 

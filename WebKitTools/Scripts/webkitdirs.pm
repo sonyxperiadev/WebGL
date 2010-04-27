@@ -63,6 +63,7 @@ my $isSymbian;
 my %qtFeatureDefaults;
 my $isGtk;
 my $isWx;
+my $isEfl;
 my @wxArgs;
 my $isChromium;
 my $isInspectorFrontend;
@@ -71,6 +72,7 @@ my $isInspectorFrontend;
 my $vcBuildPath;
 my $windowsTmpPath;
 my $windowsSourceDir;
+my $willUseVCExpressWhenBuilding = 0;
 
 # Defined in VCSUtils.
 sub exitStatus($);
@@ -245,6 +247,7 @@ sub argumentsForConfiguration()
     push(@args, '--qt') if isQt();
     push(@args, '--symbian') if isSymbian();
     push(@args, '--gtk') if isGtk();
+    push(@args, '--efl') if isEfl();
     push(@args, '--wx') if isWx();
     push(@args, '--chromium') if isChromium();
     push(@args, '--inspector-frontend') if isInspectorFrontend();
@@ -270,11 +273,11 @@ sub determineConfigurationProductDir
     if (isAppleWinWebKit() && !isWx()) {
         $configurationProductDir = "$baseProductDir/bin";
     } else {
-        # [Gtk] We don't have Release/Debug configurations in straight
+        # [Gtk][Efl] We don't have Release/Debug configurations in straight
         # autotool builds (non build-webkit). In this case and if
         # WEBKITOUTPUTDIR exist, use that as our configuration dir. This will
         # allows us to run run-webkit-tests without using build-webkit.
-        if ($ENV{"WEBKITOUTPUTDIR"} && isGtk()) {
+        if ($ENV{"WEBKITOUTPUTDIR"} && (isGtk() || isEfl())) {
             $configurationProductDir = "$baseProductDir";
         } else {
             $configurationProductDir = "$baseProductDir/$configuration";
@@ -325,7 +328,7 @@ sub jscProductDir
     my $productDir = productDir();
     $productDir .= "/JavaScriptCore" if isQt();
     $productDir .= "/$configuration" if (isQt() && isWindows());
-    $productDir .= "/Programs" if isGtk();
+    $productDir .= "/Programs" if (isGtk() || isEfl());
 
     return $productDir;
 }
@@ -541,6 +544,11 @@ sub builtDylibPathForName
         if (isDarwin() and -d "$configurationProductDir/lib/$libraryName.framework") {
             return "$configurationProductDir/lib/$libraryName.framework/$libraryName";
         } elsif (isWindows()) {
+            if (configuration() eq "Debug") {
+                # On Windows, there is a "d" suffix to the library name. See <http://trac.webkit.org/changeset/53924/>.
+                $libraryName .= "d";
+            }
+
             my $mkspec = `qmake -query QMAKE_MKSPECS`;
             $mkspec =~ s/[\n|\r]$//g;
             my $qtMajorVersion = retrieveQMakespecVar("$mkspec/qconfig.pri", "QT_MAJOR_VERSION");
@@ -558,6 +566,9 @@ sub builtDylibPathForName
     if (isGtk()) {
         return "$configurationProductDir/$libraryName/../.libs/libwebkit-1.0.so";
     }
+    if (isEfl()) {
+        return "$configurationProductDir/$libraryName/../.libs/libewebkit.so";
+    }
     if (isAppleMacWebKit()) {
         return "$configurationProductDir/$libraryName.framework/Versions/A/$libraryName";
     }
@@ -569,7 +580,7 @@ sub builtDylibPathForName
         }
     }
 
-    die "Unsupported platform, can't determine built library locations.";
+    die "Unsupported platform, can't determine built library locations.\nTry `build-webkit --help` for more information.\n";
 }
 
 # Check to see that all the frameworks are built.
@@ -657,8 +668,8 @@ sub determineIsQt()
         return;
     }
 
-    # The presence of QTDIR only means Qt if --gtk is not on the command-line
-    if (isGtk() || isWx()) {
+    # The presence of QTDIR only means Qt if --gtk or --wx or --efl are not on the command-line
+    if (isGtk() || isWx() || isEfl()) {
         $isQt = 0;
         return;
     }
@@ -676,6 +687,18 @@ sub determineIsSymbian()
     }
 
     $isSymbian = defined($ENV{'EPOCROOT'});
+}
+
+sub determineIsEfl()
+{
+    return if defined($isEfl);
+    $isEfl = checkForArgumentAndRemoveFromARGV("--efl");
+}
+
+sub isEfl()
+{
+    determineIsEfl();
+    return $isEfl;
 }
 
 sub isGtk()
@@ -769,7 +792,7 @@ sub isLinux()
 
 sub isAppleWebKit()
 {
-    return !(isQt() or isGtk() or isWx() or isChromium());
+    return !(isQt() or isGtk() or isWx() or isChromium() or isEfl());
 }
 
 sub isAppleMacWebKit()
@@ -856,7 +879,7 @@ sub relativeScriptsDir()
 sub launcherPath()
 {
     my $relativeScriptsPath = relativeScriptsDir();
-    if (isGtk() || isQt() || isWx()) {
+    if (isGtk() || isQt() || isWx() || isEfl()) {
         return "$relativeScriptsPath/run-launcher";
     } elsif (isAppleWebKit()) {
         return "$relativeScriptsPath/run-safari";
@@ -873,6 +896,8 @@ sub launcherName()
         return "wxBrowser";
     } elsif (isAppleWebKit()) {
         return "Safari";
+    } elsif (isEfl()) {
+        return "EWebLauncher";
     }
 }
 
@@ -895,7 +920,7 @@ sub checkRequiredSystemConfig
             print "http://developer.apple.com/tools/xcode\n";
             print "*************************************************************\n";
         }
-    } elsif (isGtk() or isQt() or isWx()) {
+    } elsif (isGtk() or isQt() or isWx() or isEfl()) {
         my @cmds = qw(flex bison gperf);
         my @missing = ();
         foreach my $cmd (@cmds) {
@@ -1002,6 +1027,7 @@ sub setupCygwinEnv()
             print "*************************************************************\n";
             die;
         }
+        $willUseVCExpressWhenBuilding = 1;
     }
 
     my $qtSDKPath = "$programFilesPath/QuickTime SDK";
@@ -1023,6 +1049,23 @@ sub setupCygwinEnv()
     print "WEBKITLIBRARIESDIR is set to: ", $ENV{"WEBKITLIBRARIESDIR"}, "\n";
 }
 
+sub dieIfWindowsPlatformSDKNotInstalled
+{
+    my $windowsPlatformSDKRegistryEntry = "/proc/registry/HKEY_LOCAL_MACHINE/SOFTWARE/Microsoft/MicrosoftSDK/InstalledSDKs/D2FF9F89-8AA2-4373-8A31-C838BF4DBBE1";
+
+    return if -e $windowsPlatformSDKRegistryEntry;
+
+    print "*************************************************************\n";
+    print "Cannot find '$windowsPlatformSDKRegistryEntry'.\n";
+    print "Please download and install the Microsoft Windows Server 2003 R2\n";
+    print "Platform SDK from <http://www.microsoft.com/downloads/details.aspx?\n";
+    print "familyid=0baf2b35-c656-4969-ace8-e4c0c0716adb&displaylang=en>.\n\n";
+    print "Then follow step 2 in the Windows section of the \"Installing Developer\n";
+    print "Tools\" instructions at <http://www.webkit.org/building/tools.html>.\n";
+    print "*************************************************************\n";
+    die;
+}
+
 sub copyInspectorFrontendFiles
 {
     my $productDir = productDir();
@@ -1040,6 +1083,9 @@ sub copyInspectorFrontendFiles
     } elsif (isQt() || isGtk()) {
         my $prefix = $ENV{"WebKitInstallationPrefix"};
         $inspectorResourcesDirPath = (defined($prefix) ? $prefix : "/usr/share") . "/webkit-1.0/webinspector";
+    } elsif (isEfl()) {
+        my $prefix = $ENV{"WebKitInstallationPrefix"};
+        $inspectorResourcesDirPath = (defined($prefix) ? $prefix : "/usr/share") . "/ewebkit/webinspector";
     }
 
     if (! -d $inspectorResourcesDirPath) {
@@ -1073,6 +1119,8 @@ sub buildVisualStudioProject
     setupCygwinEnv();
 
     my $config = configurationForVisualStudio();
+
+    dieIfWindowsPlatformSDKNotInstalled() if $willUseVCExpressWhenBuilding;
 
     chomp(my $winProjectPath = `cygpath -w "$project"`);
     
@@ -1403,6 +1451,19 @@ sub buildChromiumVisualStudioProject($$)
     $vsInstallDir = `cygpath "$vsInstallDir"` if isCygwin();
     chomp $vsInstallDir;
     $vcBuildPath = "$vsInstallDir/Common7/IDE/devenv.com";
+    if (! -e $vcBuildPath) {
+        # Visual Studio not found, try VC++ Express
+        $vcBuildPath = "$vsInstallDir/Common7/IDE/VCExpress.exe";
+        if (! -e $vcBuildPath) {
+            print "*************************************************************\n";
+            print "Cannot find '$vcBuildPath'\n";
+            print "Please execute the file 'vcvars32.bat' from\n";
+            print "'$programFilesPath\\Microsoft Visual Studio 8\\VC\\bin\\'\n";
+            print "to setup the necessary environment variables.\n";
+            print "*************************************************************\n";
+            die;
+        }
+    }
 
     # Create command line and execute it.
     my @command = ($vcBuildPath, $projectPath, $action, $config);
@@ -1488,6 +1549,46 @@ sub runSafari
         return $result;
     }
 
+    return 1;
+}
+
+sub runMiniBrowser
+{
+    if (isAppleMacWebKit()) {
+        my $productDir = productDir();
+        print "Starting MiniBrowser with DYLD_FRAMEWORK_PATH set to point to $productDir.\n";
+        $ENV{DYLD_FRAMEWORK_PATH} = $productDir;
+        $ENV{WEBKIT_UNSET_DYLD_FRAMEWORK_PATH} = "YES";
+        my $miniBrowserPath = "$productDir/MiniBrowser.app/Contents/MacOS/MiniBrowser";
+        if (!isTiger() && architecture()) {
+            return system "arch", "-" . architecture(), $miniBrowserPath, @ARGV;
+        } else {
+            return system $miniBrowserPath, @ARGV;
+        }
+    }
+
+    return 1;
+}
+
+sub debugMiniBrowser
+{
+    if (isAppleMacWebKit()) {
+        my $gdbPath = "/usr/bin/gdb";
+        die "Can't find gdb executable. Is gdb installed?\n" unless -x $gdbPath;
+
+        my $productDir = productDir();
+
+        $ENV{DYLD_FRAMEWORK_PATH} = $productDir;
+        $ENV{WEBKIT_UNSET_DYLD_FRAMEWORK_PATH} = 'YES';
+
+        my $miniBrowserPath = "$productDir/MiniBrowser.app/Contents/MacOS/MiniBrowser";
+
+        print "Starting MiniBrowser under gdb with DYLD_FRAMEWORK_PATH set to point to built WebKit2 in $productDir.\n";
+        my @architectureFlags = ("-arch", architecture()) if !isTiger();
+        exec $gdbPath, @architectureFlags, $miniBrowserPath or die;
+        return;
+    }
+    
     return 1;
 }
 

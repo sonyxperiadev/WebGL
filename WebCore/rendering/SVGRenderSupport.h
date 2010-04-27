@@ -31,7 +31,7 @@
 
 namespace WebCore {
 
-class SVGResourceFilter;
+class RenderSVGResourceFilter;
 class ImageBuffer;
 
 // SVGRendererBase is an abstract base class which all SVG renderers inherit
@@ -47,8 +47,8 @@ public:
     // FIXME: These are only public for SVGRootInlineBox.
     // It's unclear if these should be exposed or not.  SVGRootInlineBox may
     // pass the wrong RenderObject* and boundingBox to these functions.
-    static bool prepareToRenderSVGContent(RenderObject*, RenderObject::PaintInfo&, const FloatRect& boundingBox, SVGResourceFilter*&, SVGResourceFilter* rootFilter = 0);
-    static void finishRenderSVGContent(RenderObject*, RenderObject::PaintInfo&, SVGResourceFilter*&, GraphicsContext* savedContext);
+    static bool prepareToRenderSVGContent(RenderObject*, RenderObject::PaintInfo&, const FloatRect& boundingBox, RenderSVGResourceFilter*&, RenderSVGResourceFilter* rootFilter = 0);
+    static void finishRenderSVGContent(RenderObject*, RenderObject::PaintInfo&, RenderSVGResourceFilter*&, GraphicsContext* savedContext);
 
     // Layout all children of the passed render object
     static void layoutChildren(RenderObject*, bool selfNeedsLayout);
@@ -73,8 +73,6 @@ protected:
     // Used to share the "walk all the children" logic between objectBoundingBox
     // and repaintRectInLocalCoordinates in RenderSVGRoot and RenderSVGContainer
     static FloatRect computeContainerBoundingBox(const RenderObject* container, bool includeAllPaintedContent);
-
-    static void deregisterFromResources(RenderObject*);
 };
 
 // FIXME: This should move to RenderObject or PaintInfo
@@ -84,7 +82,10 @@ void applyTransformToPaintInfo(RenderObject::PaintInfo&, const AffineTransform& 
 // This offers a way to render parts of a WebKit rendering tree into a ImageBuffer.
 void renderSubtreeToImage(ImageBuffer*, RenderObject*);
 
+void deregisterFromResources(RenderObject*);
 void clampImageBufferSizeToViewport(FrameView*, IntSize& imageBufferSize);
+
+const RenderObject* findTextRootObject(const RenderObject* start);
 } // namespace WebCore
 
 #endif // ENABLE(SVG)

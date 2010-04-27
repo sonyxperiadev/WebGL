@@ -275,7 +275,6 @@ void JIT::privateCompileMainPass()
         DEFINE_OP(op_new_func)
         DEFINE_OP(op_new_func_exp)
         DEFINE_OP(op_new_object)
-        DEFINE_OP(op_new_regexp)
         DEFINE_OP(op_next_pname)
         DEFINE_OP(op_not)
         DEFINE_OP(op_nstricteq)
@@ -327,6 +326,11 @@ void JIT::privateCompileMainPass()
         case op_get_by_id_getter_proto_list:
         case op_get_by_id_getter_self:
         case op_get_by_id_getter_self_list:
+        case op_get_by_id_custom_chain:
+        case op_get_by_id_custom_proto:
+        case op_get_by_id_custom_proto_list:
+        case op_get_by_id_custom_self:
+        case op_get_by_id_custom_self_list:
         case op_get_string_length:
         case op_put_by_id_generic:
         case op_put_by_id_replace:

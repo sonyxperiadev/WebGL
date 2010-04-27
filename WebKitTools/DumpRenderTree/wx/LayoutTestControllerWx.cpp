@@ -35,6 +35,8 @@
 #include <JavaScriptCore/JSRetainPtr.h>
 #include <JavaScriptCore/JSStringRef.h>
 
+#include <stdio.h>
+
 
 
 LayoutTestController::~LayoutTestController()
@@ -170,7 +172,7 @@ void LayoutTestController::setXSSAuditorEnabled(bool enabled)
     // FIXME: implement
 }
 
-void LayoutTestController::setFrameSetFlatteningEnabled(bool enabled)
+void LayoutTestController::setFrameFlatteningEnabled(bool enabled)
 {
     // FIXME: implement
 }
@@ -360,9 +362,19 @@ void LayoutTestController::disableImageLoading()
 
 }
 
-void LayoutTestController::whiteListAccessFromOrigin(JSStringRef sourceOrigin, JSStringRef destinationProtocol, JSStringRef destinationHost, bool allowDestinationSubdomains)
+void LayoutTestController::addOriginAccessWhitelistEntry(JSStringRef sourceOrigin, JSStringRef destinationProtocol, JSStringRef destinationHost, bool allowDestinationSubdomains)
 {
+    // FIXME: implement
+}
 
+void LayoutTestController::removeOriginAccessWhitelistEntry(JSStringRef sourceOrigin, JSStringRef destinationProtocol, JSStringRef destinationHost, bool allowDestinationSubdomains)
+{
+    // FIXME: implement
+}
+
+void LayoutTestController::setScrollbarPolicy(JSStringRef orientation, JSStringRef policy)
+{
+    // FIXME: implement
 }
 
 JSRetainPtr<JSStringRef> LayoutTestController::counterValueForElementById(JSStringRef id)
@@ -385,4 +397,37 @@ int LayoutTestController::numberOfPages(float, float)
 void LayoutTestController::apiTestNewWindowDataLoadBaseURL(JSStringRef utf8Data, JSStringRef baseURL)
 {
 
+}
+
+void LayoutTestController::apiTestGoToCurrentBackForwardItem()
+{
+
+}
+
+void LayoutTestController::setSpatialNavigationEnabled(bool)
+{
+
+}
+
+void LayoutTestController::setWebViewEditable(bool)
+{
+}
+
+bool LayoutTestController::callShouldCloseOnWebView()
+{
+    return false;
+}
+
+JSRetainPtr<JSStringRef> LayoutTestController::layerTreeAsText() const
+{
+    return 0;
+}
+
+JSValueRef LayoutTestController::computedStyleIncludingVisitedInfo(JSContextRef, JSValueRef)
+{
+    return 0;
+}
+
+void LayoutTestController::authenticateSession(JSStringRef, JSStringRef, JSStringRef)
+{
 }

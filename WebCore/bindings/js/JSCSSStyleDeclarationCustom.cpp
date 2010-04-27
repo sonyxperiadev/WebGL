@@ -142,9 +142,9 @@ bool JSCSSStyleDeclaration::canGetItemsForName(ExecState*, CSSStyleDeclaration*,
 
 // FIXME: You can get these properties, and set them (see putDelegate below),
 // but you should also be able to enumerate them.
-JSValue JSCSSStyleDeclaration::nameGetter(ExecState* exec, const Identifier& propertyName, const PropertySlot& slot)
+JSValue JSCSSStyleDeclaration::nameGetter(ExecState* exec, JSValue slotBase, const Identifier& propertyName)
 {
-    JSCSSStyleDeclaration* thisObj = static_cast<JSCSSStyleDeclaration*>(asObject(slot.slotBase()));
+    JSCSSStyleDeclaration* thisObj = static_cast<JSCSSStyleDeclaration*>(asObject(slotBase));
 
     // Set up pixelOrPos boolean to handle the fact that
     // pixelTop returns "CSS Top" as number value in unit pixels
@@ -165,7 +165,7 @@ JSValue JSCSSStyleDeclaration::nameGetter(ExecState* exec, const Identifier& pro
 
     // Make the SVG 'filter' attribute undetectable, to avoid confusion with the IE 'filter' attribute.
     if (propertyName == "filter")
-        return StringObjectThatMasqueradesAsUndefined::create(exec, thisObj->impl()->getPropertyValue(prop));
+        return StringObjectThatMasqueradesAsUndefined::create(exec, stringToUString(thisObj->impl()->getPropertyValue(prop)));
 
     return jsString(exec, thisObj->impl()->getPropertyValue(prop));
 }

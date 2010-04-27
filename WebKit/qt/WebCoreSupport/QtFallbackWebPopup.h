@@ -23,7 +23,9 @@
 #include "QtAbstractWebPopup.h"
 #include <QComboBox>
 
+QT_BEGIN_NAMESPACE
 class QGraphicsProxyWidget;
+QT_END_NAMESPACE
 
 namespace WebCore {
 
@@ -48,6 +50,9 @@ private:
     QGraphicsProxyWidget* m_proxy;
 
     void populate();
+#if ENABLE(SYMBIAN_DIALOG_PROVIDERS)
+    void showS60BrowserDialog();
+#endif
 };
 
 class QtFallbackWebPopupCombo : public QComboBox {

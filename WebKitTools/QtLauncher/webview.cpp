@@ -41,10 +41,12 @@ WebViewGraphicsBased::WebViewGraphicsBased(QWidget* parent)
     , m_numPaintsTotal(0)
     , m_numPaintsSinceLastMeasure(0)
     , m_measureFps(false)
+    , m_resizesToContents(false)
 {
     setScene(new QGraphicsScene(this));
     scene()->addItem(m_item);
 
+    setFrameShape(QFrame::NoFrame);
     setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
 
@@ -71,23 +73,42 @@ WebViewGraphicsBased::WebViewGraphicsBased(QWidget* parent)
     machine->setInitialState(s0);
     machine->start();
 #endif
+
+    m_updateTimer = new QTimer(this);
+    m_updateTimer->setInterval(1000);
+    connect(m_updateTimer, SIGNAL(timeout()), this, SLOT(updateFrameRate()));
+}
+
+void WebViewGraphicsBased::setResizesToContents(bool b)
+{
+    m_resizesToContents = b;
+    m_item->setResizesToContents(m_resizesToContents);
+    if (m_resizesToContents) {
+        setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+        setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+    } else {
+        setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+        setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    }
 }
 
 void WebViewGraphicsBased::resizeEvent(QResizeEvent* event)
 {
     QGraphicsView::resizeEvent(event);
+    if (m_resizesToContents)
+        return;
     QRectF rect(QPoint(0, 0), event->size());
     m_item->setGeometry(rect);
 }
 
-void WebViewGraphicsBased::enableFrameRateMeasurement()
+void WebViewGraphicsBased::setFrameRateMeasurementEnabled(bool enabled)
 {
-    m_measureFps = true;
-    m_lastConsultTime = m_startTime = QTime::currentTime();
-    QTimer* updateTimer = new QTimer(this);
-    updateTimer->setInterval(1000);
-    connect(updateTimer, SIGNAL(timeout()), this, SLOT(updateFrameRate()));
-    updateTimer->start();
+    m_measureFps = enabled;
+    if (m_measureFps) {
+        m_lastConsultTime = m_startTime = QTime::currentTime();
+        m_updateTimer->start();
+    } else
+        m_updateTimer->stop();
 }
 
 void WebViewGraphicsBased::updateFrameRate()
@@ -100,7 +121,7 @@ void WebViewGraphicsBased::updateFrameRate()
     int average = total ? m_numPaintsTotal * 1000 / total : 0;
     int current = interval ? m_numPaintsSinceLastMeasure * 1000 / interval : 0;
 
-    qDebug("[FPS] average: %d, current: %d", average, current);
+    emit currentFPSUpdated(current);
 
     m_lastConsultTime = now;
     m_numPaintsSinceLastMeasure = 0;

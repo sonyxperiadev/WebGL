@@ -108,6 +108,7 @@ namespace WebCore {
         virtual void dispatchDidFinishLoad();
         virtual void dispatchDidFirstLayout();
         virtual void dispatchDidFirstVisuallyNonEmptyLayout();
+        virtual void dispatchDidChangeIcons();
 
         virtual void dispatchShow();
         virtual void cancelPolicyCheck();
@@ -184,7 +185,6 @@ namespace WebCore {
         virtual void dispatchDidFinishLoading(DocumentLoader*, unsigned long);
         virtual void dispatchDidFailLoading(DocumentLoader*, unsigned long, const ResourceError&);
         virtual bool dispatchDidLoadResourceFromMemoryCache(DocumentLoader*, const ResourceRequest&, const ResourceResponse&, int);
-        virtual void dispatchDidLoadResourceByXMLHttpRequest(unsigned long, const ScriptString&);
 
         virtual void dispatchDidFailProvisionalLoad(const ResourceError&);
         virtual void dispatchDidFailLoad(const ResourceError&);

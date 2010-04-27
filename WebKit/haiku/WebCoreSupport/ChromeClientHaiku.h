@@ -102,8 +102,11 @@ namespace WebCore {
         bool tabsToLinks() const;
         IntRect windowResizerRect() const;
 
-        void repaint(const IntRect&, bool contentChanged, bool immediate = false, bool repaintContentOnly = false);
+        void invalidateWindow(const IntRect&, bool);
+        void invalidateContentsAndWindow(const IntRect&, bool);
+        void invalidateContentsForSlowScroll(const IntRect&, bool);
         void scroll(const IntSize& scrollDelta, const IntRect& rectToScroll, const IntRect& clipRect);
+
         IntPoint screenToWindow(const IntPoint&) const;
         IntRect windowToScreen(const IntRect&) const;
         PlatformPageClient platformPageClient() const;
@@ -130,11 +133,12 @@ namespace WebCore {
 #endif
 
         // This is an asynchronous call. The ChromeClient can display UI asking the user for permission
-        // to use Geolococation. The ChromeClient must call Geolocation::setShouldClearCache() appropriately.
+        // to use Geolococation.
         void requestGeolocationPermissionForFrame(Frame*, Geolocation*);
+        void cancelGeolocationPermissionRequestForFrame(Frame*, Geolocation*) { }
 
         void runOpenPanel(Frame*, PassRefPtr<FileChooser>);
-        void iconForFiles(const Vector<String>&, PassRefPtr<FileChooser>);
+        void chooseIconForFiles(const Vector<String>&, FileChooser*);
 
         bool setCursor(PlatformCursorHandle);
 

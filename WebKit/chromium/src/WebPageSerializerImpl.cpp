@@ -170,7 +170,7 @@ String WebPageSerializerImpl::preActionBeforeSerializeOpenTag(
             // Get encoding info.
             String xmlEncoding = param->doc->xmlEncoding();
             if (xmlEncoding.isEmpty())
-                xmlEncoding = param->doc->frame()->loader()->encoding();
+                xmlEncoding = param->doc->frame()->loader()->writer()->encoding();
             if (xmlEncoding.isEmpty())
                 xmlEncoding = UTF8Encoding().name();
             result.append("<?xml version=\"");
@@ -306,7 +306,7 @@ void WebPageSerializerImpl::openTagToString(const Element* element,
     if (needSkip)
         return;
     // Add open tag
-    result += "<" + element->nodeName();
+    result += "<" + element->nodeName().lower();
     // Go through all attributes and serialize them.
     const NamedNodeMap *attrMap = element->attributes(true);
     if (attrMap) {
@@ -374,7 +374,7 @@ void WebPageSerializerImpl::endTagToString(const Element* element,
     // Write end tag when element has child/children.
     if (element->hasChildNodes() || param->hasAddedContentsBeforeEnd) {
         result += "</";
-        result += element->nodeName();
+        result += element->nodeName().lower();
         result += ">";
     } else {
         // Check whether we have to write end tag for empty element.
@@ -385,7 +385,7 @@ void WebPageSerializerImpl::endTagToString(const Element* element,
             if (htmlElement->endTagRequirement() == TagStatusRequired) {
                 // We need to write end tag when it is required.
                 result += "</";
-                result += element->nodeName();
+                result += element->nodeName().lower();
                 result += ">";
             }
         } else {
@@ -514,7 +514,7 @@ bool WebPageSerializerImpl::serialize()
             // A new document, we will serialize it.
             didSerialization = true;
             // Get target encoding for current document.
-            String encoding = currentFrame->frame()->loader()->encoding();
+            String encoding = currentFrame->frame()->loader()->writer()->encoding();
             // Create the text encoding object with target encoding.
             TextEncoding textEncoding(encoding);
             // Construct serialize parameter for late processing document.

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2006, 2007, 2008, 2009, 2010 Apple Inc. All rights reserved.
  * Copyright (C) 2008 Nokia Corporation and/or its subsidiary(-ies)
  * Copyright (C) 2008, 2009 Torch Mobile Inc. All rights reserved. (http://www.torchmobile.com/)
  * Copyright (C) 2008 Alp Toker <alp@atoker.com>
@@ -39,7 +39,6 @@
 #include "ArchiveFactory.h"
 #endif
 #include "BackForwardList.h"
-#include "CString.h"
 #include "Cache.h"
 #include "CachedPage.h"
 #include "Chrome.h"
@@ -64,6 +63,9 @@
 #include "HTMLAppletElement.h"
 #include "HTMLFormElement.h"
 #include "HTMLFrameElement.h"
+#if ENABLE(PLUGIN_PROXY_FOR_VIDEO)
+#include "HTMLMediaElement.h"
+#endif
 #include "HTMLNames.h"
 #include "HTMLObjectElement.h"
 #include "HTTPParsers.h"
@@ -83,9 +85,11 @@
 #include "PluginDatabase.h"
 #include "PluginDocument.h"
 #include "ProgressTracker.h"
-#include "RenderPart.h"
+#include "RenderEmbeddedObject.h"
+#if ENABLE(PLUGIN_PROXY_FOR_VIDEO)
+#include "RenderVideo.h"
+#endif
 #include "RenderView.h"
-#include "RenderWidget.h"
 #include "ResourceHandle.h"
 #include "ResourceRequest.h"
 #include "ScriptController.h"
@@ -105,6 +109,7 @@
 #include "XMLHttpRequest.h"
 #include "XMLTokenizer.h"
 #include "XSSAuditor.h"
+#include <wtf/text/CString.h>
 #include <wtf/CurrentTime.h>
 #include <wtf/StdLibExtras.h>
 
@@ -177,6 +182,7 @@ FrameLoader::FrameLoader(Frame* frame, FrameLoaderClient* client)
     , m_policyChecker(frame)
     , m_history(frame)
     , m_notifer(frame)
+    , m_writer(frame)
     , m_state(FrameStateCommittedPage)
     , m_loadType(FrameLoadTypeStandard)
     , m_delegateIsHandlingProvisionalLoadError(false)
@@ -192,7 +198,6 @@ FrameLoader::FrameLoader(Frame* frame, FrameLoaderClient* client)
     , m_isLoadingMainResource(false)
     , m_needsClear(false)
     , m_receivedData(false)
-    , m_encodingWasChosenByUser(false)
     , m_containsPlugIns(false)
     , m_checkTimer(this, &FrameLoader::checkTimerFired)
     , m_shouldCallCheckCompleted(false)
@@ -205,6 +210,7 @@ FrameLoader::FrameLoader(Frame* frame, FrameLoaderClient* client)
     , m_loadingFromCachedPage(false)
     , m_suppressOpenerInNewFrame(false)
     , m_sandboxFlags(SandboxAll)
+    , m_forcedSandboxFlags(SandboxNone)
 #ifndef NDEBUG
     , m_didDispatchDidCommitLoad(false)
 #endif
@@ -232,8 +238,8 @@ void FrameLoader::init()
     setState(FrameStateProvisional);
     m_provisionalDocumentLoader->setResponse(ResourceResponse(KURL(), "text/html", 0, String(), String()));
     m_provisionalDocumentLoader->finishedLoading();
-    begin(KURL(), false);
-    end();
+    writer()->begin(KURL(), false);
+    writer()->end();
     m_frame->document()->cancelParsing();
     m_creatingInitialEmptyDocument = false;
     m_didCallImplicitClose = true;
@@ -276,7 +282,11 @@ Frame* FrameLoader::createWindow(FrameLoader* frameLoaderForFrameLookup, const F
             return frame;
         }
     }
-    
+
+    // Sandboxed frames cannot open new auxiliary browsing contexts.
+    if (isDocumentSandboxed(SandboxNavigation))
+        return 0;
+
     // FIXME: Setting the referrer should be the caller's responsibility.
     FrameLoadRequest requestWithReferrer = request;
     requestWithReferrer.resourceRequest().setHTTPReferrer(m_outgoingReferrer);
@@ -366,7 +376,7 @@ void FrameLoader::urlSelected(const ResourceRequest& request, const String& pass
     m_suppressOpenerInNewFrame = false;
 }
 
-bool FrameLoader::requestFrame(HTMLFrameOwnerElement* ownerElement, const String& urlString, const AtomicString& frameName)
+bool FrameLoader::requestFrame(HTMLFrameOwnerElement* ownerElement, const String& urlString, const AtomicString& frameName, bool lockHistory, bool lockBackForwardList)
 {
     // Support for <frame src="javascript:string">
     KURL scriptURL;
@@ -379,7 +389,7 @@ bool FrameLoader::requestFrame(HTMLFrameOwnerElement* ownerElement, const String
 
     Frame* frame = ownerElement->contentFrame();
     if (frame)
-        frame->redirectScheduler()->scheduleLocationChange(url.string(), m_outgoingReferrer, true, true, isProcessingUserGesture());
+        frame->redirectScheduler()->scheduleLocationChange(url.string(), m_outgoingReferrer, lockHistory, lockBackForwardList, isProcessingUserGesture());
     else
         frame = loadSubframe(ownerElement, url, frameName, m_outgoingReferrer);
     
@@ -484,6 +494,9 @@ void FrameLoader::submitForm(const char* action, const String& url, PassRefPtr<F
     if (!shouldAllowNavigation(targetFrame))
         return;
     if (!targetFrame) {
+        if (!DOMWindow::allowPopUp(m_frame) && !isProcessingUserGesture())
+            return;
+
         targetFrame = m_frame;
         frameRequest.setFrameName(targetOrBaseTarget);
     }
@@ -709,14 +722,6 @@ void FrameLoader::cancelAndClear()
     m_frame->script()->updatePlatformScriptObjects();
 }
 
-void FrameLoader::replaceDocument(const String& html)
-{
-    stopAllLoaders();
-    begin(m_URL, true, m_frame->document()->securityOrigin());
-    write(html);
-    end();
-}
-
 void FrameLoader::clear(bool clearWindowProperties, bool clearScriptObjects, bool clearFrameView)
 {
     m_frame->editor()->clear();
@@ -747,12 +752,10 @@ void FrameLoader::clear(bool clearWindowProperties, bool clearScriptObjects, boo
     if (clearFrameView && m_frame->view())
         m_frame->view()->clear();
 
-    m_frame->setSelectionGranularity(CharacterGranularity);
-
     // Do not drop the document before the ScriptController and view are cleared
     // as some destructors might still try to access the document.
     m_frame->setDocument(0);
-    m_decoder = 0;
+    writer()->clear();
 
     m_containsPlugIns = false;
 
@@ -765,16 +768,12 @@ void FrameLoader::clear(bool clearWindowProperties, bool clearScriptObjects, boo
     m_shouldCallCheckCompleted = false;
     m_shouldCallCheckLoadComplete = false;
 
-    m_receivedData = false;
     m_isDisplayingInitialEmptyDocument = false;
-
-    if (!m_encodingWasChosenByUser)
-        m_encoding = String();
 }
 
 void FrameLoader::receivedFirstData()
 {
-    begin(m_workingURL, false);
+    writer()->begin(m_workingURL, false);
 
     dispatchDidCommitLoad();
     dispatchDidClearWindowObjectsInAllWorlds();
@@ -805,193 +804,57 @@ void FrameLoader::receivedFirstData()
     m_frame->redirectScheduler()->scheduleRedirect(delay, url);
 }
 
-const String& FrameLoader::responseMIMEType() const
+void FrameLoader::setURL(const KURL& url)
 {
-    return m_responseMIMEType;
-}
-
-void FrameLoader::setResponseMIMEType(const String& type)
-{
-    m_responseMIMEType = type;
-}
-    
-void FrameLoader::begin()
-{
-    begin(KURL());
-}
-
-void FrameLoader::begin(const KURL& url, bool dispatch, SecurityOrigin* origin)
-{
-    // We need to take a reference to the security origin because |clear|
-    // might destroy the document that owns it.
-    RefPtr<SecurityOrigin> forcedSecurityOrigin = origin;
-
-    RefPtr<Document> document;
-
-    // Create a new document before clearing the frame, because it may need to inherit an aliased security context.
-    if (!m_isDisplayingInitialEmptyDocument && m_client->shouldUsePluginDocument(m_responseMIMEType))
-        document = PluginDocument::create(m_frame);
-    else if (!m_client->hasHTMLView())
-        document = PlaceholderDocument::create(m_frame);
-    else
-        document = DOMImplementation::createDocument(m_responseMIMEType, m_frame, m_frame->inViewSourceMode());
-
-    bool resetScripting = !(m_isDisplayingInitialEmptyDocument && m_frame->document()->securityOrigin()->isSecureTransitionTo(url));
-    clear(resetScripting, resetScripting);
-    if (resetScripting)
-        m_frame->script()->updatePlatformScriptObjects();
-
-    m_needsClear = true;
-    m_isComplete = false;
-    m_didCallImplicitClose = false;
-    m_isLoadingMainResource = true;
-    m_isDisplayingInitialEmptyDocument = m_creatingInitialEmptyDocument;
-
     KURL ref(url);
     ref.setUser(String());
     ref.setPass(String());
     ref.removeFragmentIdentifier();
     m_outgoingReferrer = ref.string();
     m_URL = url;
+}
 
-    document->setURL(m_URL);
-    m_frame->setDocument(document);
+void FrameLoader::didBeginDocument(bool dispatch)
+{
+    m_needsClear = true;
+    m_isComplete = false;
+    m_didCallImplicitClose = false;
+    m_isLoadingMainResource = true;
+    m_isDisplayingInitialEmptyDocument = m_creatingInitialEmptyDocument;
 
     if (m_pendingStateObject) {
-        document->statePopped(m_pendingStateObject.get());
+        m_frame->document()->statePopped(m_pendingStateObject.get());
         m_pendingStateObject.clear();
     }
-    
-    if (m_decoder)
-        document->setDecoder(m_decoder.get());
-    if (forcedSecurityOrigin)
-        document->setSecurityOrigin(forcedSecurityOrigin.get());
-
-    m_frame->domWindow()->setURL(document->url());
-    m_frame->domWindow()->setSecurityOrigin(document->securityOrigin());
 
     if (dispatch)
         dispatchDidClearWindowObjectsInAllWorlds();
-    
+
     updateFirstPartyForCookies();
 
+<<<<<<< HEAD
     Settings* settings = document->settings();
     document->docLoader()->setAutoLoadImages(settings && settings->loadsImagesAutomatically());
 #ifdef ANDROID_BLOCK_NETWORK_IMAGE
     document->docLoader()->setBlockNetworkImage(settings && settings->blockNetworkImage());
 #endif
+=======
+    Settings* settings = m_frame->document()->settings();
+    m_frame->document()->docLoader()->setAutoLoadImages(settings && settings->loadsImagesAutomatically());
+>>>>>>> webkit.org at r58033
 
     if (m_documentLoader) {
         String dnsPrefetchControl = m_documentLoader->response().httpHeaderField("X-DNS-Prefetch-Control");
         if (!dnsPrefetchControl.isEmpty())
-            document->parseDNSPrefetchControlHeader(dnsPrefetchControl);
+            m_frame->document()->parseDNSPrefetchControlHeader(dnsPrefetchControl);
     }
 
     history()->restoreDocumentState();
-
-    document->implicitOpen();
-    
-    if (m_frame->view() && m_client->hasHTMLView())
-        m_frame->view()->setContentsSize(IntSize());
 }
 
-void FrameLoader::write(const char* str, int len, bool flush)
-{
-    if (len == 0 && !flush)
-        return;
-    
-    if (len == -1)
-        len = strlen(str);
-
-    Tokenizer* tokenizer = m_frame->document()->tokenizer();
-    if (tokenizer && tokenizer->wantsRawData()) {
-        if (len > 0)
-            tokenizer->writeRawData(str, len);
-        return;
-    }
-    
-    if (!m_decoder) {
-        if (Settings* settings = m_frame->settings()) {
-            m_decoder = TextResourceDecoder::create(m_responseMIMEType,
-                settings->defaultTextEncodingName(),
-                settings->usesEncodingDetector());
-            Frame* parentFrame = m_frame->tree()->parent();
-            // Set the hint encoding to the parent frame encoding only if
-            // the parent and the current frames share the security origin.
-            // We impose this condition because somebody can make a child frame 
-            // containing a carefully crafted html/javascript in one encoding
-            // that can be mistaken for hintEncoding (or related encoding) by
-            // an auto detector. When interpreted in the latter, it could be
-            // an attack vector.
-            // FIXME: This might be too cautious for non-7bit-encodings and
-            // we may consider relaxing this later after testing.
-            if (canReferToParentFrameEncoding(m_frame, parentFrame))
-                m_decoder->setHintEncoding(parentFrame->document()->decoder());
-        } else
-            m_decoder = TextResourceDecoder::create(m_responseMIMEType, String());
-        Frame* parentFrame = m_frame->tree()->parent();
-        if (m_encoding.isEmpty()) {
-            if (canReferToParentFrameEncoding(m_frame, parentFrame))
-                m_decoder->setEncoding(parentFrame->document()->inputEncoding(), TextResourceDecoder::EncodingFromParentFrame);
-        } else {
-            m_decoder->setEncoding(m_encoding,
-                m_encodingWasChosenByUser ? TextResourceDecoder::UserChosenEncoding : TextResourceDecoder::EncodingFromHTTPHeader);
-        }
-        m_frame->document()->setDecoder(m_decoder.get());
-    }
-
-    String decoded = m_decoder->decode(str, len);
-    if (flush)
-        decoded += m_decoder->flush();
-    if (decoded.isEmpty())
-        return;
-
-    if (!m_receivedData) {
-        m_receivedData = true;
-        if (m_decoder->encoding().usesVisualOrdering())
-            m_frame->document()->setVisuallyOrdered();
-        m_frame->document()->recalcStyle(Node::Force);
-    }
-
-    if (tokenizer) {
-        ASSERT(!tokenizer->wantsRawData());
-        tokenizer->write(decoded, true);
-    }
-}
-
-void FrameLoader::write(const String& str)
-{
-    if (str.isNull())
-        return;
-
-    if (!m_receivedData) {
-        m_receivedData = true;
-        m_frame->document()->setParseMode(Document::Strict);
-    }
-
-    if (Tokenizer* tokenizer = m_frame->document()->tokenizer())
-        tokenizer->write(str, true);
-}
-
-void FrameLoader::end()
+void FrameLoader::didEndDocument()
 {
     m_isLoadingMainResource = false;
-    endIfNotLoadingMainResource();
-}
-
-void FrameLoader::endIfNotLoadingMainResource()
-{
-    if (m_isLoadingMainResource || !m_frame->page() || !m_frame->document())
-        return;
-
-    // http://bugs.webkit.org/show_bug.cgi?id=10854
-    // The frame's last ref may be removed and it can be deleted by checkCompleted(), 
-    // so we'll add a protective refcount
-    RefPtr<Frame> protector(m_frame);
-
-    // make sure nothing's left in there
-    write(0, 0, true);
-    m_frame->document()->finishParsing();
 }
 
 void FrameLoader::iconLoadDecisionAvailable()
@@ -1277,17 +1140,7 @@ void FrameLoader::loadArchive(PassRefPtr<Archive> prpArchive)
 }
 #endif
 
-String FrameLoader::encoding() const
-{
-    if (m_encodingWasChosenByUser && !m_encoding.isEmpty())
-        return m_encoding;
-    if (m_decoder && m_decoder->encoding().isValid())
-        return m_decoder->encoding().name();
-    Settings* settings = m_frame->settings();
-    return settings ? settings->defaultTextEncodingName() : String();
-}
-
-bool FrameLoader::requestObject(RenderPart* renderer, const String& url, const AtomicString& frameName,
+bool FrameLoader::requestObject(RenderEmbeddedObject* renderer, const String& url, const AtomicString& frameName,
     const String& mimeType, const Vector<String>& paramNames, const Vector<String>& paramValues)
 {
     if (url.isEmpty() && mimeType.isEmpty())
@@ -1305,7 +1158,11 @@ bool FrameLoader::requestObject(RenderPart* renderer, const String& url, const A
     bool useFallback;
     if (shouldUsePlugin(completedURL, mimeType, renderer->hasFallbackContent(), useFallback)) {
         Settings* settings = m_frame->settings();
-        if (!m_client->allowPlugins(settings && settings->arePluginsEnabled())
+        if ((!allowPlugins(AboutToInstantiatePlugin)
+             // Application plugins are plugins implemented by the user agent, for example Qt plugins,
+             // as opposed to third-party code such as flash. The user agent decides whether or not they are
+             // permitted, rather than WebKit.
+             && !MIMETypeRegistry::isApplicationPluginMIMEType(mimeType))
             || (!settings->isJavaEnabled() && MIMETypeRegistry::isJavaAppletMIMEType(mimeType)))
             return false;
         if (isDocumentSandboxed(SandboxPlugins))
@@ -1374,19 +1231,13 @@ static HTMLPlugInElement* toPlugInElement(Node* node)
     if (!node)
         return 0;
 
-#if ENABLE(PLUGIN_PROXY_FOR_VIDEO)
-    ASSERT(node->hasTagName(objectTag) || node->hasTagName(embedTag) 
-        || node->hasTagName(videoTag) || node->hasTagName(audioTag)
-        || node->hasTagName(appletTag));
-#else
     ASSERT(node->hasTagName(objectTag) || node->hasTagName(embedTag) 
         || node->hasTagName(appletTag));
-#endif
 
     return static_cast<HTMLPlugInElement*>(node);
 }
     
-bool FrameLoader::loadPlugin(RenderPart* renderer, const KURL& url, const String& mimeType, 
+bool FrameLoader::loadPlugin(RenderEmbeddedObject* renderer, const KURL& url, const String& mimeType, 
     const Vector<String>& paramNames, const Vector<String>& paramValues, bool useFallback)
 {
     RefPtr<Widget> widget;
@@ -1407,11 +1258,58 @@ bool FrameLoader::loadPlugin(RenderPart* renderer, const KURL& url, const String
         if (widget) {
             renderer->setWidget(widget);
             m_containsPlugIns = true;
-        }
+
+#if ENABLE(PLUGIN_PROXY_FOR_VIDEO)
+            renderer->node()->setNeedsStyleRecalc(SyntheticStyleChange);
+#endif
+        } else
+            renderer->setShowsMissingPluginIndicator();
     }
 
     return widget != 0;
 }
+
+#if ENABLE(PLUGIN_PROXY_FOR_VIDEO)
+PassRefPtr<Widget> FrameLoader::loadMediaPlayerProxyPlugin(Node* node, const KURL& url, 
+    const Vector<String>& paramNames, const Vector<String>& paramValues)
+{
+    ASSERT(node->hasTagName(videoTag) || node->hasTagName(audioTag));
+
+    if (!m_frame->script()->xssAuditor()->canLoadObject(url.string()))
+        return 0;
+
+    KURL completedURL;
+    if (!url.isEmpty())
+        completedURL = completeURL(url);
+
+    if (!SecurityOrigin::canLoad(completedURL, String(), frame()->document())) {
+        FrameLoader::reportLocalLoadFailed(m_frame, completedURL.string());
+        return 0;
+    }
+
+    HTMLMediaElement* mediaElement = static_cast<HTMLMediaElement*>(node);
+    RenderPart* renderer = toRenderPart(node->renderer());
+    IntSize size;
+
+    if (renderer)
+        size = IntSize(renderer->contentWidth(), renderer->contentHeight());
+    else if (mediaElement->isVideo())
+        size = RenderVideo::defaultSize();
+
+    checkIfRunInsecureContent(m_frame->document()->securityOrigin(), completedURL);
+
+    RefPtr<Widget> widget = m_client->createMediaPlayerProxyPlugin(size, mediaElement, completedURL,
+                                         paramNames, paramValues, "application/x-media-element-proxy-plugin");
+
+    if (widget && renderer) {
+        renderer->setWidget(widget);
+        m_containsPlugIns = true;
+        renderer->node()->setNeedsStyleRecalc(SyntheticStyleChange);
+    }
+
+    return widget ? widget.release() : 0;
+}
+#endif // ENABLE(PLUGIN_PROXY_FOR_VIDEO)
 
 String FrameLoader::outgoingReferrer() const
 {
@@ -1428,7 +1326,7 @@ bool FrameLoader::isMixedContent(SecurityOrigin* context, const KURL& url)
     if (context->protocol() != "https")
         return false;  // We only care about HTTPS security origins.
 
-    if (!url.isValid() || url.protocolIs("https") || url.protocolIs("about") || url.protocolIs("data"))
+    if (!url.isValid() || SecurityOrigin::shouldTreatURLSchemeAsSecure(url.protocol()))
         return false;  // Loading these protocols is secure.
 
     return true;
@@ -1499,7 +1397,7 @@ void FrameLoader::provisionalLoadStarted()
 bool FrameLoader::isProcessingUserGesture()
 {
     Frame* frame = m_frame->tree()->top();
-    if (!frame->script()->canExecuteScripts())
+    if (!frame->script()->canExecuteScripts(NotAboutToExecuteScript))
         return true; // If JavaScript is disabled, a user gesture must have initiated the navigation.
     return frame->script()->processingUserGesture(mainThreadNormalWorld()); // FIXME: Use pageIsProcessingUserGesture.
 }
@@ -1509,12 +1407,10 @@ void FrameLoader::resetMultipleFormSubmissionProtection()
     m_submittedFormURL = KURL();
 }
 
-void FrameLoader::setEncoding(const String& name, bool userChosen)
+void FrameLoader::willSetEncoding()
 {
     if (!m_workingURL.isEmpty())
         receivedFirstData();
-    m_encoding = name;
-    m_encodingWasChosenByUser = userChosen;
 }
 
 void FrameLoader::addData(const char* bytes, int length)
@@ -1522,7 +1418,7 @@ void FrameLoader::addData(const char* bytes, int length)
     ASSERT(m_workingURL.isEmpty());
     ASSERT(m_frame->document());
     ASSERT(m_frame->document()->parsing());
-    write(bytes, length);
+    writer()->addData(bytes, length);
 }
 
 #if ENABLE(WML)
@@ -1778,7 +1674,10 @@ void FrameLoader::loadInSameDocument(const KURL& url, SerializedScriptValue* sta
         history()->updateBackForwardListForFragmentScroll();
     }
     
+    String oldURL;
     bool hashChange = equalIgnoringFragmentIdentifier(url, m_URL) && url.fragmentIdentifier() != m_URL.fragmentIdentifier();
+    oldURL = m_URL;
+    
     m_URL = url;
     history()->updateForSameDocumentNavigation();
 
@@ -1789,11 +1688,11 @@ void FrameLoader::loadInSameDocument(const KURL& url, SerializedScriptValue* sta
     // It's important to model this as a load that starts and immediately finishes.
     // Otherwise, the parent frame may think we never finished loading.
     started();
-    
-    if (hashChange) {
-        if (FrameView* view = m_frame->view())
-            view->scrollToFragment(m_URL);
-    }
+
+    // We need to scroll to the fragment whether or not a hash change occurred, since
+    // the user might have scrolled since the previous navigation.
+    if (FrameView* view = m_frame->view())
+        view->scrollToFragment(m_URL);
     
     m_isComplete = false;
     checkCompleted();
@@ -1805,13 +1704,15 @@ void FrameLoader::loadInSameDocument(const KURL& url, SerializedScriptValue* sta
         checkLoadComplete();
     }
 
+    m_client->dispatchDidNavigateWithinPage();
+
     if (stateObject) {
         m_frame->document()->statePopped(stateObject);
         m_client->dispatchDidPopStateWithinPage();
     }
     
     if (hashChange) {
-        m_frame->document()->dispatchWindowEvent(Event::create(eventNames().hashchangeEvent, false, false));
+        m_frame->document()->enqueueHashchangeEvent(oldURL, m_URL);
         m_client->dispatchDidChangeLocationWithinPage();
     }
     
@@ -1842,6 +1743,15 @@ void FrameLoader::started()
 {
     for (Frame* frame = m_frame; frame; frame = frame->tree()->parent())
         frame->loader()->m_isComplete = false;
+}
+
+bool FrameLoader::allowPlugins(ReasonForCallingAllowPlugins reason)
+{
+    Settings* settings = m_frame->settings();
+    bool allowed = m_client->allowPlugins(settings && settings->arePluginsEnabled());
+    if (!allowed && reason == AboutToInstantiatePlugin)
+        m_frame->loader()->client()->didNotAllowPlugins();
+    return allowed;
 }
 
 bool FrameLoader::containsPlugins() const 
@@ -2297,15 +2207,15 @@ bool FrameLoader::shouldAllowNavigation(Frame* targetFrame) const
     if (m_frame == targetFrame)
         return true;
 
-    // A sandboxed frame can only navigate itself and its descendants.
-    if (isDocumentSandboxed(SandboxNavigation) && !targetFrame->tree()->isDescendantOf(m_frame))
-        return false;
-
     // Let a frame navigate the top-level window that contains it.  This is
     // important to allow because it lets a site "frame-bust" (escape from a
     // frame created by another web site).
-    if (targetFrame == m_frame->tree()->top())
+    if (!isDocumentSandboxed(SandboxTopNavigation) && targetFrame == m_frame->tree()->top())
         return true;
+
+    // A sandboxed frame can only navigate itself and its descendants.
+    if (isDocumentSandboxed(SandboxNavigation) && !targetFrame->tree()->isDescendantOf(m_frame))
+        return false;
 
     // Let a frame navigate its opener if the opener is a top-level window.
     if (!targetFrame->tree()->parent() && m_frame->loader()->opener() == targetFrame)
@@ -2645,7 +2555,7 @@ void FrameLoader::transitionToCommitted(PassRefPtr<CachedPage> cachedPage)
             ASSERT_NOT_REACHED();
     }
 
-    m_responseMIMEType = dl->responseMIMEType();
+    writer()->setMIMEType(dl->responseMIMEType());
 
     // Tell the client we've committed this URL.
     ASSERT(m_frame->view());
@@ -2692,7 +2602,7 @@ void FrameLoader::clientRedirected(const KURL& url, double seconds, double fireD
     // load as part of the original navigation. If we don't have a document loader, we have
     // no "original" load on which to base a redirect, so we treat the redirect as a normal load.
     // Loads triggered by JavaScript form submissions never count as quick redirects.
-    m_quickRedirectComing = lockBackForwardList && m_documentLoader && !m_isExecutingJavaScriptFormAction;
+    m_quickRedirectComing = (lockBackForwardList || history()->currentItemShouldBeReplaced()) && m_documentLoader && !m_isExecutingJavaScriptFormAction;
 }
 
 bool FrameLoader::shouldReload(const KURL& currentURL, const KURL& destinationURL)
@@ -2737,7 +2647,7 @@ void FrameLoader::open(CachedPage& cachedPage)
     closeURL();
     
     // Delete old status bar messages (if it _was_ activated on last URL).
-    if (m_frame->script()->canExecuteScripts()) {
+    if (m_frame->script()->canExecuteScripts(NotAboutToExecuteScript)) {
         m_frame->setJSStatusBarText(String());
         m_frame->setJSDefaultStatusBarText(String());
     }
@@ -2790,7 +2700,7 @@ void FrameLoader::open(CachedFrameBase& cachedFrame)
     m_frame->domWindow()->setURL(document->url());
     m_frame->domWindow()->setSecurityOrigin(document->securityOrigin());
 
-    m_decoder = document->decoder();
+    writer()->setDecoder(document->decoder());
 
     updateFirstPartyForCookies();
 
@@ -2858,7 +2768,15 @@ void FrameLoader::finishedLoadingDocument(DocumentLoader* loader)
     
 #if ENABLE(ARCHIVE) // ANDROID extension: disabled to reduce code size
     // If loading a webarchive, run through webarchive machinery
+#if PLATFORM(CHROMIUM)
+    // https://bugs.webkit.org/show_bug.cgi?id=36426
+    // FIXME: For debugging purposes, should be removed before closing the bug.
+    // Make real copy of the string so we fail here if the responseMIMEType
+    // string is bad.
+    const String responseMIMEType = loader->responseMIMEType();
+#else
     const String& responseMIMEType = loader->responseMIMEType();
+#endif
 
     // FIXME: Mac's FrameLoaderClient::finishedLoading() method does work that is required even with Archive loads
     // so we still need to call it.  Other platforms should only call finishLoading for non-archive loads
@@ -2883,14 +2801,14 @@ void FrameLoader::finishedLoadingDocument(DocumentLoader* loader)
     ArchiveResource* mainResource = archive->mainResource();
     loader->setParsedArchiveData(mainResource->data());
 
-    m_responseMIMEType = mainResource->mimeType();
+    writer()->setMIMEType(mainResource->mimeType());
 
     closeURL();
     didOpenURL(mainResource->url());
 
     String userChosenEncoding = documentLoader()->overrideEncoding();
     bool encodingIsUserChosen = !userChosenEncoding.isNull();
-    setEncoding(encodingIsUserChosen ? userChosenEncoding : mainResource->textEncoding(), encodingIsUserChosen);
+    writer()->setEncoding(encodingIsUserChosen ? userChosenEncoding : mainResource->textEncoding(), encodingIsUserChosen);
 
     ASSERT(m_frame->document());
 
@@ -3307,7 +3225,7 @@ void FrameLoader::addExtraFieldsToRequest(ResourceRequest& request, FrameLoadTyp
     // Always try UTF-8. If that fails, try frame encoding (if any) and then the default.
     // For a newly opened frame with an empty URL, encoding() should not be used, because this methods asks decoder, which uses ISO-8859-1.
     Settings* settings = m_frame->settings();
-    request.setResponseContentDispositionEncodingFallbackArray("UTF-8", m_URL.isEmpty() ? m_encoding : encoding(), settings ? settings->defaultTextEncodingName() : String());
+    request.setResponseContentDispositionEncodingFallbackArray("UTF-8", writer()->deprecatedFrameEncoding(), settings ? settings->defaultTextEncodingName() : String());
 }
 
 void FrameLoader::addHTTPOriginIfNeeded(ResourceRequest& request, String origin)
@@ -3769,7 +3687,7 @@ Frame* FrameLoader::findFrameForNavigation(const AtomicString& name)
 {
     Frame* frame = m_frame->tree()->find(name);
     if (!shouldAllowNavigation(frame))
-        return 0;  
+        return 0;
     return frame;
 }
 
@@ -3896,9 +3814,11 @@ void FrameLoader::loadItem(HistoryItem* item, FrameLoadType loadType)
     // - The HistoryItem has a history state object
     // - Navigating to an anchor within the page, with no form data stored on the target item or the current history entry,
     //   and the URLs in the frame tree match the history item for fragment scrolling.
+    // - The HistoryItem is not the same as the current item, because such cases are treated as a new load.
     HistoryItem* currentItem = history()->currentItem();
-    bool sameDocumentNavigation = (!item->formData() && !(currentItem && currentItem->formData()) && history()->urlsMatchItem(item))
-                                  || (currentItem && item->documentSequenceNumber() == currentItem->documentSequenceNumber());
+    bool sameDocumentNavigation = ((!item->formData() && !(currentItem && currentItem->formData()) && history()->urlsMatchItem(item))
+                                  || (currentItem && item->documentSequenceNumber() == currentItem->documentSequenceNumber()))
+                                  && item != currentItem;
 
 #if ENABLE(WML)
     // All WML decks should go through the real load mechanism, not the scroll-to-anchor code
@@ -3986,7 +3906,7 @@ void FrameLoader::dispatchDocumentElementAvailable()
 
 void FrameLoader::dispatchDidClearWindowObjectsInAllWorlds()
 {
-    if (!m_frame->script()->canExecuteScripts())
+    if (!m_frame->script()->canExecuteScripts(NotAboutToExecuteScript))
         return;
 
     Vector<DOMWrapperWorld*> worlds;
@@ -3997,7 +3917,7 @@ void FrameLoader::dispatchDidClearWindowObjectsInAllWorlds()
 
 void FrameLoader::dispatchDidClearWindowObjectInWorld(DOMWrapperWorld* world)
 {
-    if (!m_frame->script()->canExecuteScripts() || !m_frame->script()->existingWindowShell(world))
+    if (!m_frame->script()->canExecuteScripts(NotAboutToExecuteScript) || !m_frame->script()->existingWindowShell(world))
         return;
 
     m_client->dispatchDidClearWindowObjectInWorld(world);
@@ -4009,15 +3929,13 @@ void FrameLoader::dispatchDidClearWindowObjectInWorld(DOMWrapperWorld* world)
     if (Page* page = m_frame->page()) {
         if (InspectorController* inspector = page->inspectorController())
             inspector->inspectedWindowScriptObjectCleared(m_frame);
-        if (InspectorController* inspector = page->parentInspectorController())
-            inspector->windowScriptObjectAvailable();
     }
 #endif
 }
 
 void FrameLoader::updateSandboxFlags()
 {
-    SandboxFlags flags = SandboxNone;
+    SandboxFlags flags = m_forcedSandboxFlags;
     if (Frame* parentFrame = m_frame->tree()->parent())
         flags |= parentFrame->loader()->sandboxFlags();
     if (HTMLFrameOwnerElement* ownerElement = m_frame->ownerElement())

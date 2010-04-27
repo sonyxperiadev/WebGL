@@ -35,15 +35,47 @@ using namespace JSC;
 
 namespace WebCore {
 
-bool JSNamedNodeMap::canGetItemsForName(ExecState*, NamedNodeMap* impl, const Identifier& propertyName)
+JSValue JSNamedNodeMap::setNamedItem(ExecState* exec, const ArgList& args)
 {
-    return impl->getNamedItem(propertyName);
+    NamedNodeMap* imp = static_cast<NamedNodeMap*>(impl());
+    ExceptionCode ec = 0;
+    Node* newNode = toNode(args.at(0));
+
+    if (newNode && newNode->nodeType() == Node::ATTRIBUTE_NODE && imp->element()) {
+        if (!allowSettingSrcToJavascriptURL(exec, imp->element(), newNode->nodeName(), newNode->nodeValue()))
+            return jsNull();
+    }
+
+    JSValue result = toJS(exec, globalObject(), WTF::getPtr(imp->setNamedItem(newNode, ec)));
+    setDOMException(exec, ec);
+    return result;
 }
 
-JSValue JSNamedNodeMap::nameGetter(ExecState* exec, const Identifier& propertyName, const PropertySlot& slot)
+JSValue JSNamedNodeMap::setNamedItemNS(ExecState* exec, const ArgList& args)
 {
-    JSNamedNodeMap* thisObj = static_cast<JSNamedNodeMap*>(asObject(slot.slotBase()));
-    return toJS(exec, thisObj->impl()->getNamedItem(propertyName));
+    NamedNodeMap* imp = static_cast<NamedNodeMap*>(impl());
+    ExceptionCode ec = 0;
+    Node* newNode = toNode(args.at(0));
+
+    if (newNode && newNode->nodeType() == Node::ATTRIBUTE_NODE && imp->element()) {
+        if (!allowSettingSrcToJavascriptURL(exec, imp->element(), newNode->nodeName(), newNode->nodeValue()))
+            return jsNull();
+    }
+
+    JSValue result = toJS(exec, globalObject(), WTF::getPtr(imp->setNamedItemNS(newNode, ec)));
+    setDOMException(exec, ec);
+    return result;
+}
+
+bool JSNamedNodeMap::canGetItemsForName(ExecState*, NamedNodeMap* impl, const Identifier& propertyName)
+{
+    return impl->getNamedItem(identifierToString(propertyName));
+}
+
+JSValue JSNamedNodeMap::nameGetter(ExecState* exec, JSValue slotBase, const Identifier& propertyName)
+{
+    JSNamedNodeMap* thisObj = static_cast<JSNamedNodeMap*>(asObject(slotBase));
+    return toJS(exec, thisObj->impl()->getNamedItem(identifierToString(propertyName)));
 }
 
 void JSNamedNodeMap::markChildren(MarkStack& markStack)

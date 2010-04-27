@@ -36,10 +36,17 @@
 #include "FrameLoaderClientQt.h"
 #include "FrameView.h"
 #include "HitTestResult.h"
+#include "Icon.h"
+#include "NotificationPresenterClientQt.h"
 #include "NotImplemented.h"
+#include "ScrollbarTheme.h"
 #include "WindowFeatures.h"
 #include "DatabaseTracker.h"
+#if defined(Q_WS_MAEMO_5)
+#include "QtMaemoWebPopup.h"
+#else
 #include "QtFallbackWebPopup.h"
+#endif
 #include "QWebPageClient.h"
 #include "SecurityOrigin.h"
 
@@ -91,7 +98,7 @@ FloatRect ChromeClientQt::windowRect()
     QWidget* view = m_webPage->view();
     if (!view)
         return FloatRect();
-    return IntRect(view->topLevelWidget()->geometry());
+    return IntRect(view->window()->geometry());
 }
 
 
@@ -159,7 +166,9 @@ Page* ChromeClientQt::createWindow(Frame*, const FrameLoadRequest& request, cons
     QWebPage *newPage = m_webPage->createWindow(features.dialog ? QWebPage::WebModalDialog : QWebPage::WebBrowserWindow);
     if (!newPage)
         return 0;
-    newPage->mainFrame()->load(request.resourceRequest().url());
+
+    if (!request.isEmpty())
+        newPage->mainFrame()->load(request.resourceRequest().url());
     return newPage->d->page;
 }
 
@@ -170,7 +179,7 @@ void ChromeClientQt::show()
     QWidget* view = m_webPage->view();
     if (!view)
         return;
-    view->topLevelWidget()->show();
+    view->window()->show();
 }
 
 
@@ -324,24 +333,64 @@ bool ChromeClientQt::tabsToLinks() const
 
 IntRect ChromeClientQt::windowResizerRect() const
 {
+#if defined(Q_WS_MAC)
+    if (!m_webPage)
+        return IntRect();
+
+    QWebPageClient* pageClient = platformPageClient();
+    if (!pageClient)
+        return IntRect();
+
+    QWidget* ownerWidget = pageClient->ownerWidget();
+    if (!ownerWidget)
+        return IntRect();
+
+    QWidget* topLevelWidget = ownerWidget->window();
+    QRect topLevelGeometry(topLevelWidget->geometry());
+
+    // There's no API in Qt to query for the size of the resizer, so we assume
+    // it has the same width and height as the scrollbar thickness.
+    int scollbarThickness = ScrollbarTheme::nativeTheme()->scrollbarThickness();
+
+    // There's no API in Qt to query for the position of the resizer. Sometimes
+    // it's drawn by the system, and sometimes it's a QSizeGrip. For RTL locales
+    // it might even be on the lower left side of the window, but in WebKit we
+    // always draw scrollbars on the right hand side, so we assume this to be the
+    // location when computing the resize rect to reserve for WebKit.
+    QPoint resizeCornerTopLeft = ownerWidget->mapFrom(topLevelWidget,
+            QPoint(topLevelGeometry.width(), topLevelGeometry.height())
+            - QPoint(scollbarThickness, scollbarThickness));
+
+    QRect resizeCornerRect = QRect(resizeCornerTopLeft, QSize(scollbarThickness, scollbarThickness));
+    return resizeCornerRect.intersected(pageClient->geometryRelativeToOwnerWidget());
+#else
     return IntRect();
+#endif
 }
 
-void ChromeClientQt::repaint(const IntRect& windowRect, bool contentChanged, bool, bool)
+void ChromeClientQt::invalidateWindow(const IntRect&, bool)
+{
+    notImplemented();
+}
+
+void ChromeClientQt::invalidateContentsAndWindow(const IntRect& windowRect, bool immediate)
 {
     // No double buffer, so only update the QWidget if content changed.
-    if (contentChanged) {
-        if (platformPageClient()) {
-            QRect rect(windowRect);
-            rect = rect.intersected(QRect(QPoint(0, 0), m_webPage->viewportSize()));
-            if (!rect.isEmpty())
-                platformPageClient()->update(rect);
-        }
-        emit m_webPage->repaintRequested(windowRect);
+    if (platformPageClient()) {
+        QRect rect(windowRect);
+        rect = rect.intersected(QRect(QPoint(0, 0), m_webPage->viewportSize()));
+        if (!rect.isEmpty())
+            platformPageClient()->update(rect);
     }
+    emit m_webPage->repaintRequested(windowRect);
 
     // FIXME: There is no "immediate" support for window painting.  This should be done always whenever the flag
     // is set.
+}
+
+void ChromeClientQt::invalidateContentsForSlowScroll(const IntRect& windowRect, bool immediate)
+{
+    invalidateContentsAndWindow(windowRect, immediate);
 }
 
 void ChromeClientQt::scroll(const IntSize& delta, const IntRect& scrollViewRect, const IntRect&)
@@ -431,6 +480,13 @@ void ChromeClientQt::reachedMaxAppCacheSize(int64_t)
 }
 #endif
 
+#if ENABLE(NOTIFICATIONS)
+NotificationPresenter* ChromeClientQt::notificationPresenter() const
+{
+    return m_webPage->d->notificationPresenterClient;
+}
+#endif
+
 void ChromeClientQt::runOpenPanel(Frame* frame, PassRefPtr<FileChooser> prpFileChooser)
 {
     RefPtr<FileChooser> fileChooser = prpFileChooser;
@@ -463,10 +519,9 @@ void ChromeClientQt::runOpenPanel(Frame* frame, PassRefPtr<FileChooser> prpFileC
     }
 }
 
-void ChromeClientQt::iconForFiles(const Vector<String>&, PassRefPtr<FileChooser>)
+void ChromeClientQt::chooseIconForFiles(const Vector<String>& filenames, FileChooser* chooser)
 {
-    // FIXME: Move the code of Icon::createIconForFiles() here.
-    notImplemented();
+    chooser->iconLoaded(Icon::createIconForFiles(filenames));
 }
 
 bool ChromeClientQt::setCursor(PlatformCursorHandle)
@@ -501,11 +556,48 @@ void ChromeClientQt::scheduleCompositingLayerSync()
     if (platformPageClient())
         platformPageClient()->markForSync(true);
 }
+
+bool ChromeClientQt::allowsAcceleratedCompositing() const
+{
+    return (platformPageClient() && platformPageClient()->allowsAcceleratedCompositing());
+}
+
 #endif
 
 QtAbstractWebPopup* ChromeClientQt::createSelectPopup()
 {
+#if defined(Q_WS_MAEMO_5)
+    return new QtMaemoWebPopup;
+#else
     return new QtFallbackWebPopup;
+#endif
 }
+
+#if ENABLE(WIDGETS_10_SUPPORT)
+bool ChromeClientQt::isWindowed()
+{
+    return m_webPage->d->viewMode == "windowed";
+}
+
+bool ChromeClientQt::isFloating()
+{
+    return m_webPage->d->viewMode == "floating";
+}
+
+bool ChromeClientQt::isFullscreen()
+{
+    return m_webPage->d->viewMode == "fullscreen";
+}
+
+bool ChromeClientQt::isMaximized()
+{
+    return m_webPage->d->viewMode == "maximized";
+}
+
+bool ChromeClientQt::isMinimized()
+{
+    return m_webPage->d->viewMode == "minimized";
+}
+#endif
 
 }

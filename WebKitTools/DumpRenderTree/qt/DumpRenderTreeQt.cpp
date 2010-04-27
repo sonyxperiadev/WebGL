@@ -32,6 +32,7 @@
 #include "config.h"
 
 #include "DumpRenderTreeQt.h"
+#include "../../../WebKit/qt/WebCoreSupport/DumpRenderTreeSupportQt.h"
 #include "EventSenderQt.h"
 #include "GCControllerQt.h"
 #include "LayoutTestControllerQt.h"
@@ -39,12 +40,11 @@
 #include "testplugin.h"
 #include "WorkQueue.h"
 
+#include <QApplication>
 #include <QBuffer>
 #include <QCryptographicHash>
 #include <QDir>
 #include <QFile>
-#include <QApplication>
-#include <QUrl>
 #include <QFileInfo>
 #include <QFocusEvent>
 #include <QFontDatabase>
@@ -52,7 +52,13 @@
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QNetworkRequest>
+#include <QPaintDevice>
+#include <QPaintEngine>
+#ifndef QT_NO_PRINTER
+#include <QPrinter>
+#endif
 #include <QUndoStack>
+#include <QUrl>
 
 #include <qwebsettings.h>
 #include <qwebsecurityorigin.h>
@@ -66,6 +72,7 @@
 #endif
 
 #include <limits.h>
+#include <locale.h>
 
 #ifndef Q_OS_WIN
 #include <unistd.h>
@@ -73,19 +80,11 @@
 
 #include <qdebug.h>
 
-extern void qt_drt_run(bool b);
 extern void qt_dump_set_accepts_editing(bool b);
 extern void qt_dump_frame_loader(bool b);
-extern void qt_drt_clearFrameName(QWebFrame* qFrame);
-extern void qt_drt_overwritePluginDirectories();
-extern void qt_drt_resetOriginAccessWhiteLists();
-extern bool qt_drt_hasDocumentElement(QWebFrame* qFrame);
+extern void qt_dump_resource_load_callbacks(bool b);
 
 namespace WebCore {
-
-// Choose some default values.
-const unsigned int maxViewWidth = 800;
-const unsigned int maxViewHeight = 600;
 
 NetworkAccessManager::NetworkAccessManager(QObject* parent)
     : QNetworkAccessManager(parent)
@@ -116,6 +115,26 @@ void NetworkAccessManager::sslErrorsEncountered(QNetworkReply* reply, const QLis
 }
 #endif
 
+
+#ifndef QT_NO_PRINTER
+class NullPrinter : public QPrinter {
+public:
+    class NullPaintEngine : public QPaintEngine {
+    public:
+        virtual bool begin(QPaintDevice*) { return true; }
+        virtual bool end() { return true; }
+        virtual QPaintEngine::Type type() const { return QPaintEngine::User; }
+        virtual void drawPixmap(const QRectF& r, const QPixmap& pm, const QRectF& sr) { }
+        virtual void updateState(const QPaintEngineState& state) { }
+    };
+
+    virtual QPaintEngine* paintEngine() const { return const_cast<NullPaintEngine*>(&m_engine); }
+
+    NullPaintEngine m_engine;
+};
+#endif
+
+
 WebPage::WebPage(QObject* parent, DumpRenderTree* drt)
     : QWebPage(parent)
     , m_webInspector(0)
@@ -135,6 +154,7 @@ WebPage::WebPage(QObject* parent, DumpRenderTree* drt)
     globalSettings->setAttribute(QWebSettings::LocalContentCanAccessRemoteUrls, true);
     globalSettings->setAttribute(QWebSettings::JavascriptEnabled, true);
     globalSettings->setAttribute(QWebSettings::PrivateBrowsingEnabled, false);
+    globalSettings->setAttribute(QWebSettings::SpatialNavigationEnabled, false);
 
     connect(this, SIGNAL(geometryChangeRequested(const QRect &)),
             this, SLOT(setViewGeometry(const QRect & )));
@@ -165,9 +185,16 @@ void WebPage::resetSettings()
     settings()->resetAttribute(QWebSettings::JavascriptCanOpenWindows);
     settings()->resetAttribute(QWebSettings::JavascriptEnabled);
     settings()->resetAttribute(QWebSettings::PrivateBrowsingEnabled);
+    settings()->resetAttribute(QWebSettings::SpatialNavigationEnabled);
     settings()->resetAttribute(QWebSettings::LinksIncludedInFocusChain);
     settings()->resetAttribute(QWebSettings::OfflineWebApplicationCacheEnabled);
     settings()->resetAttribute(QWebSettings::LocalContentCanAccessRemoteUrls);
+    settings()->resetAttribute(QWebSettings::PluginsEnabled);
+
+    m_drt->layoutTestController()->setCaretBrowsingEnabled(false);
+    m_drt->layoutTestController()->setFrameFlatteningEnabled(false);
+    m_drt->layoutTestController()->setSmartInsertDeleteEnabled(true);
+    m_drt->layoutTestController()->setSelectTrailingWhitespaceEnabled(false);
 
     // globalSettings must be reset explicitly.
     m_drt->layoutTestController()->setXSSAuditorEnabled(false);
@@ -315,15 +342,24 @@ DumpRenderTree::DumpRenderTree()
     , m_enableTextOutput(false)
     , m_singleFileMode(false)
 {
-    qt_drt_overwritePluginDirectories();
-    QWebSettings::enablePersistentStorage();
+    DumpRenderTreeSupportQt::overwritePluginDirectories();
+
+    char* dumpRenderTreeTemp = getenv("DUMPRENDERTREE_TEMP");
+    if (dumpRenderTreeTemp)
+        QWebSettings::enablePersistentStorage(QString(dumpRenderTreeTemp));
+    else
+        QWebSettings::enablePersistentStorage();
 
     // create our primary testing page/view.
     m_mainView = new QWebView(0);
-    m_mainView->resize(QSize(maxViewWidth, maxViewHeight));
+    m_mainView->resize(QSize(LayoutTestController::maxViewWidth, LayoutTestController::maxViewHeight));
     m_page = new WebPage(m_mainView, this);
     m_mainView->setPage(m_page);
     m_mainView->setContextMenuPolicy(Qt::NoContextMenu);
+
+    // clean up cache by resetting quota.
+    qint64 quota = webPage()->settings()->offlineWebApplicationCacheQuota();
+    webPage()->settings()->setOfflineWebApplicationCacheQuota(quota);
 
     // create our controllers. This has to be done before connectFrame,
     // as it exports there to the JavaScript DOM window.
@@ -348,6 +384,7 @@ DumpRenderTree::DumpRenderTree()
     connect(m_page, SIGNAL(loadStarted()),
             m_controller, SLOT(resetLoadFinished()));
     connect(m_page, SIGNAL(windowCloseRequested()), this, SLOT(windowCloseRequested()));
+    connect(m_page, SIGNAL(printRequested(QWebFrame*)), this, SLOT(dryRunPrint(QWebFrame*)));
 
     connect(m_page->mainFrame(), SIGNAL(titleChanged(const QString&)),
             SLOT(titleChanged(const QString&)));
@@ -357,7 +394,8 @@ DumpRenderTree::DumpRenderTree()
             this, SLOT(statusBarMessage(const QString&)));
 
     QObject::connect(this, SIGNAL(quit()), qApp, SLOT(quit()), Qt::QueuedConnection);
-    qt_drt_run(true);
+
+    DumpRenderTreeSupportQt::setDumpRenderTreeModeEnabled(true);
     QFocusEvent event(QEvent::FocusIn, Qt::ActiveWindowFocusReason);
     QApplication::sendEvent(m_mainView, &event);
 }
@@ -381,6 +419,14 @@ static void clearHistory(QWebPage* page)
     history->setMaximumItemCount(itemCount);
 }
 
+void DumpRenderTree::dryRunPrint(QWebFrame* frame)
+{
+#ifndef QT_NO_PRINTER
+    NullPrinter printer;
+    frame->print(&printer);
+#endif
+}
+
 void DumpRenderTree::resetToConsistentStateBeforeTesting()
 {
     // reset so that any current loads are stopped
@@ -395,18 +441,24 @@ void DumpRenderTree::resetToConsistentStateBeforeTesting()
     // of the DRT.
     m_controller->reset();
 
+    // reset mouse clicks counter
+    m_eventSender->resetClickCount();
+
     closeRemainingWindows();
 
     m_page->resetSettings();
     m_page->undoStack()->clear();
     m_page->mainFrame()->setZoomFactor(1.0);
     clearHistory(m_page);
-    qt_drt_clearFrameName(m_page->mainFrame());
+    DumpRenderTreeSupportQt::clearFrameName(m_page->mainFrame());
+
+    m_page->mainFrame()->setScrollBarPolicy(Qt::Vertical, Qt::ScrollBarAsNeeded);
+    m_page->mainFrame()->setScrollBarPolicy(Qt::Horizontal, Qt::ScrollBarAsNeeded);
 
     WorkQueue::shared()->clear();
     WorkQueue::shared()->setFrozen(false);
 
-    qt_drt_resetOriginAccessWhiteLists();
+    DumpRenderTreeSupportQt::resetOriginAccessWhiteLists();
 
     QLocale::setDefault(QLocale::c());
     setlocale(LC_ALL, "");
@@ -419,20 +471,30 @@ static bool isWebInspectorTest(const QUrl& url)
     return false;
 }
 
+static bool shouldEnableDeveloperExtras(const QUrl& url)
+{
+    return isWebInspectorTest(url) || url.path().contains("inspector-enabled/");
+}
+
 void DumpRenderTree::open(const QUrl& url)
 {
     resetToConsistentStateBeforeTesting();
 
-    if (isWebInspectorTest(m_page->mainFrame()->url()))
+    if (shouldEnableDeveloperExtras(m_page->mainFrame()->url())) {
         layoutTestController()->closeWebInspector();
+        layoutTestController()->setDeveloperExtrasEnabled(false);
+    }
 
-    if (isWebInspectorTest(url))
-        layoutTestController()->showWebInspector();
+    if (shouldEnableDeveloperExtras(url)) {
+        layoutTestController()->setDeveloperExtrasEnabled(true);
+        if (isWebInspectorTest(url))
+            layoutTestController()->showWebInspector();
+    }
 
     // W3C SVG tests expect to be 480x360
     bool isW3CTest = url.toString().contains("svg/W3C-SVG-1.1");
-    int width = isW3CTest ? 480 : maxViewWidth;
-    int height = isW3CTest ? 360 : maxViewHeight;
+    int width = isW3CTest ? 480 : LayoutTestController::maxViewWidth;
+    int height = isW3CTest ? 360 : LayoutTestController::maxViewHeight;
     m_mainView->resize(QSize(width, height));
     m_page->setPreferredContentsSize(QSize());
     m_page->setViewportSize(QSize(width, height));
@@ -441,7 +503,9 @@ void DumpRenderTree::open(const QUrl& url)
     m_page->event(&ev);
 
     QWebSettings::clearMemoryCaches();
+#if !(defined(Q_WS_S60) && QT_VERSION <= QT_VERSION_CHECK(4, 6, 2))
     QFontDatabase::removeAllApplicationFonts();
+#endif
 #if defined(Q_WS_X11)
     initializeFonts();
 #endif
@@ -557,7 +621,7 @@ void DumpRenderTree::hidePage()
 
 QString DumpRenderTree::dumpFramesAsText(QWebFrame* frame)
 {
-    if (!frame || !qt_drt_hasDocumentElement(frame))
+    if (!frame || !DumpRenderTreeSupportQt::hasDocumentElement(frame))
         return QString();
 
     QString result;
@@ -666,8 +730,9 @@ static const char *methodNameStringForFailedTest(LayoutTestController *controlle
 
 void DumpRenderTree::dump()
 {
-    // Prevent any further frame load callbacks from appearing after we dump the result.
+    // Prevent any further frame load or resource load callbacks from appearing after we dump the result.
     qt_dump_frame_loader(false);
+    qt_dump_resource_load_callbacks(false);
 
     QWebFrame *mainFrame = m_page->mainFrame();
 

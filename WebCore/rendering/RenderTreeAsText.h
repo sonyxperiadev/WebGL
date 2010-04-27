@@ -38,17 +38,20 @@ enum RenderAsTextBehaviorFlags {
     RenderAsTextBehaviorNormal = 0,
     RenderAsTextShowAllLayers = 1 << 0, // Dump all layers, not just those that would paint.
     RenderAsTextShowLayerNesting = 1 << 1, // Annotate the layer lists.
-    RenderAsTextShowCompositedLayers = 1 << 2 // Show which layers are composited.
+    RenderAsTextShowCompositedLayers = 1 << 2, // Show which layers are composited.
+    RenderAsTextShowAddresses = 1 << 3 // Show layer and renderer addresses.
 };
 typedef unsigned RenderAsTextBehavior;
 
 String externalRepresentation(Frame*, RenderAsTextBehavior = RenderAsTextBehaviorNormal);
-void write(TextStream&, const RenderObject&, int indent = 0);
+void write(TextStream&, const RenderObject&, int indent = 0, RenderAsTextBehavior = RenderAsTextBehaviorNormal);
 
 // Helper function shared with SVGRenderTreeAsText
 String quoteAndEscapeNonPrintables(const String&);
 
 String counterValueForElement(Element*);
+
+String markerTextForListItem(Element*);
 
 } // namespace WebCore
 

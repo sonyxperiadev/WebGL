@@ -39,6 +39,7 @@
 #import "WebChromeClient.h"
 #import "WebDataSourceInternal.h"
 #import "WebDocumentLoaderMac.h"
+#import "WebDynamicScrollBarsView.h"
 #import "WebFrameLoaderClient.h"
 #import "WebFrameViewInternal.h"
 #import "WebHTMLView.h"
@@ -73,6 +74,7 @@
 #import <WebCore/LegacyWebArchive.h>
 #import <WebCore/Page.h>
 #import <WebCore/PluginData.h>
+#import <WebCore/PrintContext.h>
 #import <WebCore/RenderLayer.h>
 #import <WebCore/RenderPart.h>
 #import <WebCore/RenderView.h>
@@ -581,22 +583,16 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
     if (!documentView)
         return pages;
 
-    float currPageHeight = printHeight;
-    float docHeight = root->layer()->height();
     float docWidth = root->layer()->width();
-    float printWidth = docWidth/printWidthScaleFactor;
-    
-    // We need to give the part the opportunity to adjust the page height at each step.
-    for (float i = 0; i < docHeight; i += currPageHeight) {
-        float proposedBottom = min(docHeight, i + printHeight);
-        view->adjustPageHeight(&proposedBottom, i, proposedBottom, i);
-        currPageHeight = max(1.0f, proposedBottom - i);
-        for (float j = 0; j < docWidth; j += printWidth) {
-            NSValue* val = [NSValue valueWithRect: NSMakeRect(j, i, printWidth, currPageHeight)];
-            [pages addObject: val];
-        }
-    }
-    
+    float printWidth = docWidth / printWidthScaleFactor;
+
+    PrintContext printContext(_private->coreFrame);
+    printContext.computePageRectsWithPageSize(FloatSize(printWidth, printHeight), true);
+
+    const Vector<IntRect>& pageRects = printContext.pageRects();
+    const size_t pageCount = pageRects.size();
+    for (size_t pageNumber = 0; pageNumber < pageCount; ++pageNumber)
+        [pages addObject: [NSValue valueWithRect: NSRect(pageRects[pageNumber])]];
     return pages;
 }
 
@@ -634,7 +630,7 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
         return @"";
 
     JSLock lock(SilenceAssertionsOnly);
-    return String(result.toString(_private->coreFrame->script()->globalObject(mainThreadNormalWorld())->globalExec()));
+    return ustringToString(result.toString(_private->coreFrame->script()->globalObject(mainThreadNormalWorld())->globalExec()));
 }
 
 - (NSRect)_caretRectAtNode:(DOMNode *)node offset:(int)offset affinity:(NSSelectionAffinity)affinity
@@ -965,7 +961,7 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
 - (BOOL)_canProvideDocumentSource
 {
     Frame* frame = _private->coreFrame;
-    String mimeType = frame->loader()->responseMIMEType();
+    String mimeType = frame->loader()->writer()->mimeType();
     PluginData* pluginData = frame->page() ? frame->page()->pluginData() : 0;
 
     if (WebCore::DOMImplementation::isTextMIMEType(mimeType) ||
@@ -990,7 +986,7 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
     bool userChosen = !encoding.isNull();
     if (encoding.isNull())
         encoding = textEncodingName;
-    _private->coreFrame->loader()->setEncoding(encoding, userChosen);
+    _private->coreFrame->loader()->writer()->setEncoding(encoding, userChosen);
     [self _addData:data];
 }
 
@@ -1267,7 +1263,7 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
         return @"";
 
     JSLock lock(SilenceAssertionsOnly);
-    return String(result.toString(anyWorldGlobalObject->globalExec()));
+    return ustringToString(result.toString(anyWorldGlobalObject->globalExec()));
 }
 
 - (JSGlobalContextRef)_globalContextForScriptWorld:(WebScriptWorld *)world
@@ -1279,6 +1275,48 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
     if (!coreWorld)
         return 0;
     return toGlobalRef(coreFrame->script()->globalObject(coreWorld)->globalExec());
+}
+
+- (void)setAllowsScrollersToOverlapContent:(BOOL)flag
+{
+    ASSERT([[[self frameView] _scrollView] isKindOfClass:[WebDynamicScrollBarsView class]]);
+    [(WebDynamicScrollBarsView *)[[self frameView] _scrollView] setAllowsScrollersToOverlapContent:flag];
+}
+
+- (void)setAlwaysHideHorizontalScroller:(BOOL)flag
+{
+    ASSERT([[[self frameView] _scrollView] isKindOfClass:[WebDynamicScrollBarsView class]]);
+    [(WebDynamicScrollBarsView *)[[self frameView] _scrollView] setAlwaysHideHorizontalScroller:flag];
+}
+- (void)setAlwaysHideVerticalScroller:(BOOL)flag
+{
+    ASSERT([[[self frameView] _scrollView] isKindOfClass:[WebDynamicScrollBarsView class]]);
+    [(WebDynamicScrollBarsView *)[[self frameView] _scrollView] setAlwaysHideVerticalScroller:flag];
+}
+
+- (void)setAccessibleName:(NSString *)name
+{
+#if HAVE(ACCESSIBILITY)
+    if (!AXObjectCache::accessibilityEnabled())
+        return;
+    
+    RenderView* root = toRenderView(_private->coreFrame->document()->renderer());
+    if (!root)
+        return;
+    
+    AccessibilityObject* rootObject = _private->coreFrame->document()->axObjectCache()->getOrCreate(root);
+    String strName(name);
+    rootObject->setAccessibleName(strName);
+#endif
+}
+
+- (NSString*)_layerTreeAsText
+{
+    Frame* coreFrame = _private->coreFrame;
+    if (!coreFrame)
+        return @"";
+
+    return coreFrame->layerTreeAsText();
 }
 
 @end

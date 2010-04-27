@@ -25,7 +25,7 @@
 
 #include <wtf/Platform.h>
 
-#if OS(WINDOWS) && !defined(BUILDING_WX__) && !COMPILER(GCC)
+#if !PLATFORM(CHROMIUM) && OS(WINDOWS) && !defined(BUILDING_WX__) && !COMPILER(GCC)
 #if defined(BUILDING_JavaScriptCore) || defined(BUILDING_WTF)
 #define JS_EXPORTDATA __declspec(dllexport)
 #else
@@ -73,6 +73,12 @@
 // are used from wx headers. 
 #if !PLATFORM(QT) && !PLATFORM(WX)
 #include <wtf/DisallowCType.h>
+#endif
+
+#if COMPILER(MSVC)
+#define SKIP_STATIC_CONSTRUCTORS_ON_MSVC 1
+#else
+#define SKIP_STATIC_CONSTRUCTORS_ON_GCC 1
 #endif
 
 #if PLATFORM(CHROMIUM)

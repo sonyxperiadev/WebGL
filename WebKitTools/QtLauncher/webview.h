@@ -73,9 +73,14 @@ public:
     virtual void resizeEvent(QResizeEvent*);
     void setPage(QWebPage* page) { m_item->setPage(page); }
     void setItemCacheMode(QGraphicsItem::CacheMode mode) { m_item->setCacheMode(mode); }
+    QGraphicsItem::CacheMode itemCacheMode() { return m_item->cacheMode(); }
 
-    void enableFrameRateMeasurement();
+    void setFrameRateMeasurementEnabled(bool enabled);
+    bool frameRateMeasurementEnabled() const { return m_measureFps; }
+
     virtual void paintEvent(QPaintEvent* event);
+
+    void setResizesToContents(bool b);
 
     void setYRotation(qreal angle)
     {
@@ -93,6 +98,8 @@ public:
         return m_yRotation;
     }
 
+    GraphicsWebView* graphicsWebView() const { return m_item; }
+
 public slots:
     void updateFrameRate();
     void animatedFlip();
@@ -100,6 +107,7 @@ public slots:
 
 signals:
     void yFlipRequest();
+    void currentFPSUpdated(int fps);
 
 private:
     GraphicsWebView* m_item;
@@ -107,8 +115,10 @@ private:
     int m_numPaintsSinceLastMeasure;
     QTime m_startTime;
     QTime m_lastConsultTime;
+    QTimer* m_updateTimer;
     bool m_measureFps;
     qreal m_yRotation;
+    bool m_resizesToContents;
 };
 
 #endif

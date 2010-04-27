@@ -32,6 +32,7 @@
 #include "FrameLoadRequest.h"
 #include "FrameView.h"
 #include "HitTestResult.h"
+#include "Icon.h"
 #include "NotImplemented.h"
 #include "PlatformString.h"
 
@@ -253,7 +254,17 @@ IntRect ChromeClientHaiku::windowResizerRect() const
     return IntRect();
 }
 
-void ChromeClientHaiku::repaint(const IntRect&, bool contentChanged, bool immediate, bool repaintContentOnly)
+void ChromeClientHaiku::invalidateWindow(const IntRect&, bool)
+{
+    notImplemented();
+}
+
+void ChromeClientHaiku::invalidateContentsAndWindow(const IntRect&, bool)
+{
+    notImplemented();
+}
+
+void ChromeClientHaiku::invalidateContentsForSlowScroll(const IntRect&, bool)
 {
     notImplemented();
 }
@@ -346,9 +357,9 @@ void ChromeClientHaiku::runOpenPanel(Frame*, PassRefPtr<FileChooser>)
     notImplemented();
 }
 
-void ChromeClientHaiku::iconForFiles(const Vector<String>&, PassRefPtr<FileChooser>)
+void ChromeClientHaiku::chooseIconForFiles(const Vector<String>& filenames, FileChooser* chooser)
 {
-    notImplemented();
+    chooser->iconLoaded(Icon::createIconForFiles(filenames));
 }
 
 bool ChromeClientHaiku::setCursor(PlatformCursorHandle)

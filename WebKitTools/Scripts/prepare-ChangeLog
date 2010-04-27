@@ -89,6 +89,7 @@ sub get_function_line_ranges($$);
 sub get_function_line_ranges_for_c($$);
 sub get_function_line_ranges_for_java($$);
 sub get_function_line_ranges_for_javascript($$);
+sub get_selector_line_ranges_for_css($$);
 sub method_decl_to_selector($);
 sub processPaths(\@);
 sub reviewerAndDescriptionForGitCommit($);
@@ -101,6 +102,7 @@ my $changeLogTimeZone = "PST8PDT";
 my $bugNumber;
 my $name;
 my $emailAddress;
+my $mergeBase = 0;
 my $gitCommit = 0;
 my $gitIndex = "";
 my $gitReviewer = "";
@@ -114,6 +116,7 @@ my $parseOptionsResult =
                "bug:i" => \$bugNumber,
                "name:s" => \$name,
                "email:s" => \$emailAddress,
+               "merge-base:s" => \$mergeBase,
                "git-commit:s" => \$gitCommit,
                "git-index" => \$gitIndex,
                "git-reviewer:s" => \$gitReviewer,
@@ -125,6 +128,7 @@ if (!$parseOptionsResult || $showHelp) {
     print STDERR basename($0) . " [--bug] [-d|--diff] [-h|--help] [-o|--open] [--git-commit=<committish>] [--git-reviewer=<name>] [svndir1 [svndir2 ...]]\n";
     print STDERR "  --bug          Fill in the ChangeLog bug information from the given bug.\n";
     print STDERR "  -d|--diff      Spew diff to stdout when running\n";
+    print STDERR "  --merge-base   Populate the ChangeLogs with the diff to this branch\n";
     print STDERR "  --git-commit   Populate the ChangeLogs from the specified git commit\n";
     print STDERR "  --git-index    Populate the ChangeLogs from the git index only\n";
     print STDERR "  --git-reviewer When populating the ChangeLogs from a git commit claim that the spcified name reviewed the change.\n";
@@ -474,6 +478,8 @@ sub get_function_line_ranges($$)
         return get_function_line_ranges_for_java ($file_handle, $file_name);
     } elsif ($file_name =~ /\.js$/) {
         return get_function_line_ranges_for_javascript ($file_handle, $file_name);
+    } elsif ($file_name =~ /\.css$/) {
+        return get_selector_line_ranges_for_css ($file_handle, $file_name);
     }
     return ();
 }
@@ -1173,6 +1179,41 @@ sub get_function_line_ranges_for_javascript($$)
     return @ranges;
 }
 
+# Read a file and get all the line ranges of the things that look like CSS selectors.  A selector is
+# anything before an opening brace on a line. A selector starts at the line containing the opening
+# brace and ends at the closing brace.
+# FIXME: Comments are parsed just like uncommented text.
+#
+# Result is a list of triples: [ start_line, end_line, selector ].
+
+sub get_selector_line_ranges_for_css($$)
+{
+    my ($fileHandle, $fileName) = @_;
+
+    my @ranges;
+
+    my $currentSelector = "";
+    my $start = 0;
+
+    while (<$fileHandle>) {
+        if (/^[ \t]*(.*[^ \t])[ \t]*{/) {
+            $currentSelector = $1;
+            $start = $.;
+        }
+        if (index($_, "}") >= 0) {
+            unless ($start) {
+                warn "mismatched braces in $fileName\n";
+                next;
+            }
+            push(@ranges, [$start, $., $currentSelector]);
+            $currentSelector = "";
+            $start = 0;
+            next;
+        }
+    }
+
+    return @ranges;
+}
 
 sub processPaths(\@)
 {
@@ -1216,6 +1257,7 @@ sub diffFromToString()
     return $gitCommit if $gitCommit =~ m/.+\.\..+/;
     return "\"$gitCommit^\" \"$gitCommit\"" if $gitCommit;
     return "--cached" if $gitIndex;
+    return $mergeBase if $mergeBase;
     return "HEAD" if $isGit;
 }
 
@@ -1230,7 +1272,7 @@ sub diffCommand(@)
         $command = "$SVN diff --diff-cmd diff -x -N $pathsString";
     } elsif ($isGit) {
         $command = "$GIT diff --no-ext-diff -U0 " . diffFromToString();
-        $command .= " -- $pathsString" unless $gitCommit;
+        $command .= " -- $pathsString" unless $gitCommit or $mergeBase;
     }
 
     return $command;

@@ -63,6 +63,7 @@ var WebInspector = {
     // 4 - ?path
     // 5 - ?fragment
     URLRegExp: /^(http[s]?|file):\/\/([^\/:]*)(?::([\d]+))?(?:(\/[^#]*)(?:#(.*))?)?$/i,
+    GenericURLRegExp: /^([^:]+):\/\/([^\/:]*)(?::([\d]+))?(?:(\/[^#]*)(?:#(.*))?)?$/i,
 
     get platform()
     {
@@ -209,14 +210,10 @@ var WebInspector = {
             this.panels.profiles = new WebInspector.ProfilesPanel();
             this.panels.profiles.registerProfileType(new WebInspector.CPUProfileType());
         }
-
         if (hiddenPanels.indexOf("storage") === -1 && hiddenPanels.indexOf("databases") === -1)
             this.panels.storage = new WebInspector.StoragePanel();
-
-        // FIXME: Uncomment when ready.
-        // if (hiddenPanels.indexOf("audits") === -1)
-        //    this.panels.audits = new WebInspector.AuditsPanel();
-
+        if (Preferences.auditsPanelEnabled && hiddenPanels.indexOf("audits") === -1)
+            this.panels.audits = new WebInspector.AuditsPanel();
         if (hiddenPanels.indexOf("console") === -1)
             this.panels.console = new WebInspector.ConsolePanel();
     },
@@ -239,12 +236,10 @@ var WebInspector = {
         var body = document.body;
 
         if (x) {
-            InspectorFrontendHost.attach();
             body.removeStyleClass("detached");
             body.addStyleClass("attached");
             dockToggleButton.title = WebInspector.UIString("Undock into separate window.");
         } else {
-            InspectorFrontendHost.detach();
             body.removeStyleClass("attached");
             body.addStyleClass("detached");
             dockToggleButton.title = WebInspector.UIString("Dock to main window.");
@@ -481,7 +476,6 @@ WebInspector.loaded = function()
 
     this.addMainEventListeners(document);
 
-    window.addEventListener("unload", this.windowUnload.bind(this), true);
     window.addEventListener("resize", this.windowResize.bind(this), true);
 
     document.addEventListener("focus", this.focusChanged.bind(this), true);
@@ -565,11 +559,6 @@ WebInspector.dispatch = function() {
     setTimeout(delayDispatch, 0);
 }
 
-WebInspector.windowUnload = function(event)
-{
-    InspectorFrontendHost.windowUnloading();
-}
-
 WebInspector.windowResize = function(event)
 {
     if (this.currentPanel)
@@ -607,7 +596,27 @@ WebInspector.setAttachedWindow = function(attached)
 
 WebInspector.close = function(event)
 {
+    if (this._isClosing)
+        return;
+    this._isClosing = true;
     InspectorFrontendHost.closeWindow();
+}
+
+WebInspector.inspectedPageDestroyed = function()
+{
+    WebInspector.close();
+}
+
+WebInspector.documentMouseOver = function(event)
+{
+    if (event.target.tagName !== "A")
+        return;
+
+    const anchor = event.target;
+    if (!anchor.hasStyleClass("webkit-html-resource-link"))
+        return;
+    if (anchor.href && anchor.href.indexOf("/data:") != -1)
+        return;
 }
 
 WebInspector.documentClick = function(event)
@@ -618,22 +627,38 @@ WebInspector.documentClick = function(event)
 
     // Prevent the link from navigating, since we don't do any navigation by following links normally.
     event.preventDefault();
+    event.stopPropagation();
 
     function followLink()
     {
         // FIXME: support webkit-html-external-link links here.
-        if (WebInspector.canShowSourceLineForURL(anchor.href, anchor.preferredPanel)) {
+        if (WebInspector.canShowSourceLine(anchor.href, anchor.lineNumber, anchor.preferredPanel)) {
             if (anchor.hasStyleClass("webkit-html-external-link")) {
                 anchor.removeStyleClass("webkit-html-external-link");
                 anchor.addStyleClass("webkit-html-resource-link");
             }
 
-            WebInspector.showSourceLineForURL(anchor.href, anchor.lineNumber, anchor.preferredPanel);
-        } else {
-            var profileString = WebInspector.ProfileType.URLRegExp.exec(anchor.href);
-            if (profileString)
-                WebInspector.showProfileForURL(anchor.href);
+            WebInspector.showSourceLine(anchor.href, anchor.lineNumber, anchor.preferredPanel);
+            return;
         }
+
+        const profileMatch = WebInspector.ProfileType.URLRegExp.exec(anchor.href);
+        if (profileMatch) {
+            WebInspector.showProfileForURL(anchor.href);
+            return;
+        }
+
+        const urlMatch = WebInspector.GenericURLRegExp.exec(anchor.href);
+        if (urlMatch && urlMatch[1] === "webkit-link-action") {
+            if (urlMatch[2] === "show-panel") {
+                const panel = urlMatch[4].substring(1);
+                if (WebInspector.panels[panel])
+                    WebInspector.currentPanel = WebInspector.panels[panel];
+            }
+            return;
+        }
+
+        WebInspector.showResourcesPanel();
     }
 
     if (WebInspector.followLinkTimeout)
@@ -652,6 +677,9 @@ WebInspector.documentClick = function(event)
 
 WebInspector.documentKeyDown = function(event)
 {
+    if (WebInspector.isEditingAnyField())
+        return;
+
     if (this.currentFocusElement && this.currentFocusElement.handleKeyEvent) {
         this.currentFocusElement.handleKeyEvent(event);
         if (event.handled) {
@@ -689,7 +717,13 @@ WebInspector.documentKeyDown = function(event)
                 WebInspector.focusSearchField();
                 event.preventDefault();
             }
+            break;
 
+        case "F3":
+            if (!isMac) {
+                WebInspector.focusSearchField();
+                event.preventDefault();
+            }
             break;
 
         case "U+0047": // G key
@@ -743,21 +777,15 @@ WebInspector.documentKeyDown = function(event)
 
             break;
 
-        case "U+0041": // A key
-            if (isMac)
-                var shouldShowAuditsPanel = event.metaKey && !event.shiftKey && !event.ctrlKey && event.altKey;
-            else
-                var shouldShowAuditsPanel = event.ctrlKey && !event.shiftKey && !event.metaKey && event.altKey;
-
-            if (shouldShowAuditsPanel) {
-                if (!this.panels.audits) {
-                    this.panels.audits = new WebInspector.AuditsPanel();
-                    var toolbarElement = document.getElementById("toolbar");
-                    WebInspector.addPanelToolbarIcon(toolbarElement, this.panels.audits, this.panels.console.toolbarItem);
-                }
-                this.currentPanel = this.panels.audits;
+        case "U+0052": // R key
+            if ((event.metaKey && isMac) || (event.ctrlKey && !isMac)) {
+                InspectorBackend.reloadPage();
+                event.preventDefault();
             }
-
+            break;
+        case "F5":
+            if (!isMac)
+                InspectorBackend.reloadPage();
             break;
     }
 }
@@ -885,8 +913,10 @@ WebInspector.focusSearchField = function()
 
 WebInspector.toggleAttach = function()
 {
-    this.attached = !this.attached;
-    this.drawer.resize();
+    if (!this.attached)
+        InspectorFrontendHost.requestAttachWindow();
+    else
+        InspectorFrontendHost.requestDetachWindow();
 }
 
 WebInspector.toolbarDragStart = function(event)
@@ -1015,6 +1045,11 @@ WebInspector.showConsolePanel = function()
     this.currentPanel = this.panels.console;
 }
 
+WebInspector.showAuditsPanel = function()
+{
+    this.currentPanel = this.panels.audits;
+}
+
 WebInspector.clearConsoleMessages = function()
 {
     WebInspector.console.clearMessages();
@@ -1041,6 +1076,8 @@ WebInspector.updateResource = function(identifier, payload)
         this.resourceURLMap[resource.url] = resource;
         if (this.panels.resources)
             this.panels.resources.addResource(resource);
+        if (this.panels.audits)
+            this.panels.audits.resourceStarted(resource);
     }
 
     if (payload.didRequestChange) {
@@ -1057,11 +1094,10 @@ WebInspector.updateResource = function(identifier, payload)
         if (resource.mainResource)
             this.mainResource = resource;
 
-        var match = payload.documentURL.match(WebInspector.URLRegExp);
+        var match = payload.documentURL.match(WebInspector.GenericURLRegExp);
         if (match) {
             var protocol = match[1].toLowerCase();
-            if (protocol.indexOf("http") === 0 || protocol === "file")
-                this._addCookieDomain(protocol === "file" ? "" : match[2]);
+            this._addCookieDomain(match[2]);
         }
     }
 
@@ -1079,12 +1115,14 @@ WebInspector.updateResource = function(identifier, payload)
     }
 
     if (payload.didLengthChange) {
-        resource.contentLength = payload.contentLength;
+        resource.resourceSize = payload.resourceSize;
     }
 
     if (payload.didCompletionChange) {
         resource.failed = payload.failed;
         resource.finished = payload.finished;
+        if (this.panels.audits)
+            this.panels.audits.resourceFinished(resource);
     }
 
     if (payload.didTimingChange) {
@@ -1182,6 +1220,17 @@ WebInspector.resourceTrackingWasDisabled = function()
     this.panels.resources.resourceTrackingWasDisabled();
 }
 
+
+WebInspector.searchingForNodeWasEnabled = function()
+{
+    this.panels.elements.searchingForNodeWasEnabled();
+}
+
+WebInspector.searchingForNodeWasDisabled = function()
+{
+    this.panels.elements.searchingForNodeWasDisabled();
+}
+
 WebInspector.attachDebuggerWhenShown = function()
 {
     this.panels.scripts.attachDebuggerWhenShown();
@@ -1190,6 +1239,11 @@ WebInspector.attachDebuggerWhenShown = function()
 WebInspector.debuggerWasEnabled = function()
 {
     this.panels.scripts.debuggerWasEnabled();
+}
+
+WebInspector.updatePauseOnExceptionsState = function(pauseOnExceptionsState)
+{
+    this.panels.scripts.updatePauseOnExceptionsState(pauseOnExceptionsState);
 }
 
 WebInspector.debuggerWasDisabled = function()
@@ -1210,6 +1264,13 @@ WebInspector.profilerWasDisabled = function()
 WebInspector.parsedScriptSource = function(sourceID, sourceURL, source, startingLine)
 {
     this.panels.scripts.addScript(sourceID, sourceURL, source, startingLine);
+}
+
+WebInspector.restoredBreakpoint = function(sourceID, sourceURL, line, enabled, condition)
+{
+    var breakpoint = new WebInspector.Breakpoint(sourceURL, line, sourceID, condition);
+    breakpoint.enabled = enabled;
+    this.panels.scripts.addBreakpoint(breakpoint);
 }
 
 WebInspector.failedToParseScriptSource = function(sourceURL, source, startingLine, errorLine, errorMessage)
@@ -1257,6 +1318,16 @@ WebInspector.reset = function()
     this.console.clearMessages();
 }
 
+WebInspector.bringToFront = function()
+{
+    InspectorFrontendHost.bringToFront();
+}
+
+WebInspector.inspectedURLChanged = function(url)
+{
+    InspectorFrontendHost.inspectedURLChanged(url);
+}
+
 WebInspector.resourceURLChanged = function(resource, oldURL)
 {
     delete this.resourceURLMap[oldURL];
@@ -1294,7 +1365,7 @@ WebInspector.updateConsoleMessageRepeatCount = function(count)
     this.console.updateMessageRepeatCount(count);
 }
 
-WebInspector.log = function(message)
+WebInspector.log = function(message, messageLevel)
 {
     // remember 'this' for setInterval() callback
     var self = this;
@@ -1348,7 +1419,7 @@ WebInspector.log = function(message)
         var msg = new WebInspector.ConsoleMessage(
             WebInspector.ConsoleMessage.MessageSource.Other,
             WebInspector.ConsoleMessage.MessageType.Log,
-            WebInspector.ConsoleMessage.MessageLevel.Debug,
+            messageLevel || WebInspector.ConsoleMessage.MessageLevel.Debug,
             -1,
             null,
             null,
@@ -1437,7 +1508,19 @@ WebInspector.displayNameForURL = function(url)
     var resource = this.resourceURLMap[url];
     if (resource)
         return resource.displayName;
-    return url.trimURL(WebInspector.mainResource ? WebInspector.mainResource.domain : "");
+
+    if (!WebInspector.mainResource)
+        return url.trimURL("");
+
+    var lastPathComponent = WebInspector.mainResource.lastPathComponent;
+    var index = WebInspector.mainResource.url.indexOf(lastPathComponent);
+    if (index !== -1 && index + lastPathComponent.length === WebInspector.mainResource.url.length) {
+        var baseURL = WebInspector.mainResource.url.substring(0, index);
+        if (url.indexOf(baseURL) === 0)
+            return url.substring(index);
+    }
+
+    return url.trimURL(WebInspector.mainResource.domain);
 }
 
 WebInspector.resourceForURL = function(url)
@@ -1455,27 +1538,27 @@ WebInspector.resourceForURL = function(url)
     return null;
 }
 
-WebInspector._choosePanelToShowSourceLineForURL = function(url, preferredPanel)
+WebInspector._choosePanelToShowSourceLine = function(url, line, preferredPanel)
 {
     preferredPanel = preferredPanel || "resources";
     var panel = this.panels[preferredPanel];
-    if (panel && panel.canShowSourceLineForURL(url))
+    if (panel && panel.canShowSourceLine(url, line))
         return panel;
     panel = this.panels.resources;
-    return panel.canShowSourceLineForURL(url) ? panel : null;
+    return panel.canShowSourceLine(url, line) ? panel : null;
 }
 
-WebInspector.canShowSourceLineForURL = function(url, preferredPanel)
+WebInspector.canShowSourceLine = function(url, line, preferredPanel)
 {
-    return !!this._choosePanelToShowSourceLineForURL(url, preferredPanel);
+    return !!this._choosePanelToShowSourceLine(url, line, preferredPanel);
 }
 
-WebInspector.showSourceLineForURL = function(url, line, preferredPanel)
+WebInspector.showSourceLine = function(url, line, preferredPanel)
 {
-    this.currentPanel = this._choosePanelToShowSourceLineForURL(url, preferredPanel);
+    this.currentPanel = this._choosePanelToShowSourceLine(url, line, preferredPanel);
     if (!this.currentPanel)
         return false;
-    this.currentPanel.showSourceLineForURL(url, line);
+    this.currentPanel.showSourceLine(url, line);
     return true;
 }
 
@@ -1540,6 +1623,17 @@ WebInspector.linkifyURL = function(url, linkText, classes, isExternal, tooltipTe
     return WebInspector.linkifyURLAsNode(url, linkText, classes, isExternal, tooltipText).outerHTML;
 }
 
+WebInspector.linkifyResourceAsNode = function(url, preferredPanel, lineNumber, classes, tooltipText)
+{
+    var linkText = WebInspector.displayNameForURL(url);
+    if (lineNumber)
+        linkText += ":" + lineNumber;
+    var node = WebInspector.linkifyURLAsNode(url, linkText, classes, false, tooltipText);
+    node.lineNumber = lineNumber;
+    node.preferredPanel = preferredPanel;
+    return node;
+}
+
 WebInspector.completeURL = function(baseURL, href)
 {
     var match = baseURL.match(WebInspector.URLRegExp);
@@ -1559,6 +1653,7 @@ WebInspector.addMainEventListeners = function(doc)
     doc.defaultView.addEventListener("focus", this.windowFocused.bind(this), false);
     doc.defaultView.addEventListener("blur", this.windowBlurred.bind(this), false);
     doc.addEventListener("click", this.documentClick.bind(this), true);
+    doc.addEventListener("mouseover", this.documentMouseOver.bind(this), true);
 }
 
 WebInspector._searchFieldManualFocus = function(event)
@@ -1721,11 +1816,17 @@ WebInspector.isBeingEdited = function(element)
     return element.__editing;
 }
 
+WebInspector.isEditingAnyField = function()
+{
+    return this.__editing;
+}
+
 WebInspector.startEditing = function(element, committedCallback, cancelledCallback, context, multiline)
 {
     if (element.__editing)
         return;
     element.__editing = true;
+    WebInspector.__editing = true;
 
     var oldText = getContent(element);
     var moveDirection = "";
@@ -1749,6 +1850,7 @@ WebInspector.startEditing = function(element, committedCallback, cancelledCallba
 
     function cleanUpAfterEditing() {
         delete this.__editing;
+        delete WebInspector.__editing;
 
         this.removeStyleClass("editing");
         this.tabIndex = oldTabIndex;
@@ -1801,6 +1903,10 @@ WebInspector.startEditing = function(element, committedCallback, cancelledCallba
     element.addEventListener("keydown", keyDownEventListener, true);
 
     WebInspector.currentFocusElement = element;
+    return {
+        cancel: editingCancelled.bind(element),
+        commit: editingCommitted.bind(element)
+    };
 }
 
 WebInspector._toolbarItemClicked = function(event)

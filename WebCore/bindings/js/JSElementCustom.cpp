@@ -36,6 +36,7 @@
 #include "HTMLFrameElementBase.h"
 #include "HTMLNames.h"
 #include "JSAttr.h"
+#include "JSDOMBinding.h"
 #include "JSHTMLElementWrapperFactory.h"
 #include "JSNodeList.h"
 #include "NodeList.h"
@@ -63,21 +64,11 @@ void JSElement::markChildren(MarkStack& markStack)
         markDOMObjectWrapper(markStack, globalData, static_cast<StyledElement*>(element)->inlineStyleDecl());
 }
 
-static inline bool allowSettingSrcToJavascriptURL(ExecState* exec, Element* element, const String& name, const String& value)
-{
-    if ((element->hasTagName(iframeTag) || element->hasTagName(frameTag)) && equalIgnoringCase(name, "src") && protocolIsJavaScript(deprecatedParseURL(value))) {
-        Document* contentDocument = static_cast<HTMLFrameElementBase*>(element)->contentDocument();
-        if (contentDocument && !checkNodeSecurity(exec, contentDocument))
-            return false;
-    }
-    return true;
-}
-
 JSValue JSElement::setAttribute(ExecState* exec, const ArgList& args)
 {
     ExceptionCode ec = 0;
-    AtomicString name = args.at(0).toString(exec);
-    AtomicString value = args.at(1).toString(exec);
+    AtomicString name = ustringToAtomicString(args.at(0).toString(exec));
+    AtomicString value = ustringToAtomicString(args.at(1).toString(exec));
 
     Element* imp = impl();
     if (!allowSettingSrcToJavascriptURL(exec, imp, name, value))
@@ -110,8 +101,8 @@ JSValue JSElement::setAttributeNS(ExecState* exec, const ArgList& args)
 {
     ExceptionCode ec = 0;
     AtomicString namespaceURI = valueToStringWithNullCheck(exec, args.at(0));
-    AtomicString qualifiedName = args.at(1).toString(exec);
-    AtomicString value = args.at(2).toString(exec);
+    AtomicString qualifiedName = ustringToAtomicString(args.at(1).toString(exec));
+    AtomicString value = ustringToAtomicString(args.at(2).toString(exec));
 
     Element* imp = impl();
     if (!allowSettingSrcToJavascriptURL(exec, imp, qualifiedName, value))

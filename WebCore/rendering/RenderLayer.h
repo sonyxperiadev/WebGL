@@ -227,6 +227,8 @@ public:
 
     int width() const { return m_width; }
     int height() const { return m_height; }
+    IntSize size() const { return IntSize(m_width, m_height); }
+    
     void setWidth(int w) { m_width = w; }
     void setHeight(int h) { m_height = h; }
 
@@ -237,8 +239,7 @@ public:
 
     // Scrolling methods for layers that can scroll their overflow.
     void scrollByRecursively(int xDelta, int yDelta);
-    void addScrolledContentOffset(int& x, int& y) const;
-    void subtractScrolledContentOffset(int& x, int& y) const;
+
     IntSize scrolledContentOffset() const { return IntSize(scrollXOffset() + m_scrollLeftOverflow, scrollYOffset()); }
 
     int scrollXOffset() const { return m_scrollX + m_scrollOriginX; }
@@ -304,7 +305,7 @@ public:
         UpdateCompositingLayers = 1 << 3,
     };
     typedef unsigned UpdateLayerPositionsFlags;
-    void updateLayerPositions(UpdateLayerPositionsFlags = DoFullRepaint | IsCompositingUpdateRoot | UpdateCompositingLayers);
+    void updateLayerPositions(UpdateLayerPositionsFlags = DoFullRepaint | IsCompositingUpdateRoot | UpdateCompositingLayers, IntPoint* cachedOffset = 0);
 
     void updateTransform();
 
@@ -402,6 +403,7 @@ public:
     // Return a cached repaint rect, computed relative to the layer renderer's containerForRepaint.
     IntRect repaintRect() const { return m_repaintRect; }
     void computeRepaintRects();
+    void updateRepaintRectsAfterScroll(bool fixed = false);
     void setNeedsFullRepaint(bool f = true) { m_needsFullRepaint = f; }
     
     int staticX() const { return m_staticX; }

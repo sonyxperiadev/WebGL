@@ -181,6 +181,10 @@ PlatformMenuDescription ContextMenuClientImpl::getCustomMenuFromDefaultItems(
             data.mediaFlags |= WebContextMenuData::MediaCanSave;
         if (mediaElement->hasAudio())
             data.mediaFlags |= WebContextMenuData::MediaHasAudio;
+        if (mediaElement->hasVideo())
+            data.mediaFlags |= WebContextMenuData::MediaHasVideo;
+        if (mediaElement->controls())
+            data.mediaFlags |= WebContextMenuData::MediaControls;
     }
 
     data.isImageBlocked =
@@ -188,7 +192,7 @@ PlatformMenuDescription ContextMenuClientImpl::getCustomMenuFromDefaultItems(
 
     // If it's not a link, an image, a media element, or an image/media link,
     // show a selection menu or a more generic page menu.
-    data.frameEncoding = selectedFrame->loader()->encoding();
+    data.frameEncoding = selectedFrame->loader()->writer()->encoding();
 
     // Send the frame and page URLs in any case.
     data.pageURL = urlFromFrame(m_webView->mainFrameImpl()->frame());

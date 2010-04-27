@@ -28,7 +28,10 @@
 #include "config.h"
 #include "Geolocation.h"
 
+#if ENABLE(GEOLOCATION)
+
 #include "Chrome.h"
+<<<<<<< HEAD
 // ANDROID
 #include "DOMWindow.h"
 // END ANDROID
@@ -41,6 +44,10 @@
 #if PLATFORM(ANDROID)
 #include "PlatformBridge.h"
 #endif
+=======
+#include "Frame.h"
+#include "Page.h"
+>>>>>>> webkit.org at r58033
 #include <wtf/CurrentTime.h>
 
 #if ENABLE(CLIENT_BASED_GEOLOCATION)
@@ -217,7 +224,10 @@ Geolocation::Geolocation(Frame* frame)
     , m_service(GeolocationService::create(this))
 #endif
     , m_allowGeolocation(Unknown)
+<<<<<<< HEAD
     , m_shouldClearCache(false)
+=======
+>>>>>>> webkit.org at r58033
     , m_positionCache(new GeolocationPositionCache)
 {
     if (!m_frame)
@@ -241,6 +251,8 @@ Geolocation::~Geolocation()
 
 void Geolocation::disconnectFrame()
 {
+    if (m_frame && m_frame->page() && m_allowGeolocation == InProgress)
+        m_frame->page()->chrome()->cancelGeolocationPermissionRequestForFrame(m_frame, this);
     stopUpdating();
     if (m_frame) {
         if (m_frame->document())
@@ -253,6 +265,8 @@ void Geolocation::disconnectFrame()
 
 Geoposition* Geolocation::lastPosition()
 {
+    ASSERT(isAllowed());
+
 #if ENABLE(CLIENT_BASED_GEOLOCATION)
     if (!m_frame)
         return 0;
@@ -323,6 +337,7 @@ void Geolocation::fatalErrorOccurred(Geolocation::GeoNotifier* notifier)
 }
 
 void Geolocation::requestUsesCachedPosition(GeoNotifier* notifier)
+<<<<<<< HEAD
 {
     // This is called asynchronously, so the permissions could have been denied
     // since we last checked in startRequest.
@@ -372,6 +387,73 @@ void Geolocation::makeCachedPositionCallbacks()
 }
 
 void Geolocation::requestTimedOut(GeoNotifier* notifier)
+=======
+>>>>>>> webkit.org at r58033
+{
+    // This is called asynchronously, so the permissions could have been denied
+    // since we last checked in startRequest.
+    if (isDenied()) {
+        notifier->setFatalError(PositionError::create(PositionError::PERMISSION_DENIED, permissionDeniedErrorMessage));
+        return;
+    }
+
+    m_requestsAwaitingCachedPosition.add(notifier);
+
+    // If permissions are allowed, make the callback
+    if (isAllowed()) {
+        makeCachedPositionCallbacks();
+        return;
+    }
+
+    // Request permissions, which may be synchronous or asynchronous.
+    requestPermission();
+}
+
+void Geolocation::makeCachedPositionCallbacks()
+{
+    // All modifications to m_requestsAwaitingCachedPosition are done
+    // asynchronously, so we don't need to worry about it being modified from
+    // the callbacks.
+    GeoNotifierSet::const_iterator end = m_requestsAwaitingCachedPosition.end();
+    for (GeoNotifierSet::const_iterator iter = m_requestsAwaitingCachedPosition.begin(); iter != end; ++iter) {
+        GeoNotifier* notifier = iter->get();
+        notifier->runSuccessCallback(m_positionCache->cachedPosition());
+
+        // If this is a one-shot request, stop it. Otherwise, if the watch still
+        // exists, start the service to get updates.
+        if (m_oneShots.contains(notifier))
+            m_oneShots.remove(notifier);
+        else if (m_watchers.contains(notifier)) {
+            if (notifier->hasZeroTimeout() || startUpdating(notifier))
+                notifier->startTimerIfNeeded();
+            else
+                notifier->setFatalError(PositionError::create(PositionError::POSITION_UNAVAILABLE, failedToStartServiceErrorMessage));
+        }
+    }
+
+    m_requestsAwaitingCachedPosition.clear();
+
+    if (!hasListeners())
+        stopUpdating();
+}
+
+<<<<<<< HEAD
+bool Geolocation::haveSuitableCachedPosition(PositionOptions* options)
+{
+    if (!m_positionCache->cachedPosition())
+        return false;
+    if (!options->hasMaximumAge())
+        return true;
+    if (!options->maximumAge())
+        return false;
+    DOMTimeStamp currentTimeMillis = currentTime() * 1000.0;
+    return m_positionCache->cachedPosition()->timestamp() > currentTimeMillis - options->maximumAge();
+}
+
+void Geolocation::clearWatch(int watchId)
+=======
+void Geolocation::requestTimedOut(GeoNotifier* notifier)
+>>>>>>> webkit.org at r58033
 {
     // If this is a one-shot request, stop it.
     m_oneShots.remove(notifier);
@@ -398,22 +480,6 @@ void Geolocation::clearWatch(int watchId)
     
     if (!hasListeners())
         stopUpdating();
-}
-
-void Geolocation::suspend()
-{
-#if !ENABLE(CLIENT_BASED_GEOLOCATION)
-    if (hasListeners())
-        m_service->suspend();
-#endif
-}
-
-void Geolocation::resume()
-{
-#if !ENABLE(CLIENT_BASED_GEOLOCATION)
-    if (hasListeners())
-        m_service->resume();
-#endif
 }
 
 void Geolocation::setIsAllowed(bool allowed)
@@ -557,7 +623,7 @@ void Geolocation::requestPermission()
 
 void Geolocation::positionChanged(PassRefPtr<Geoposition> newPosition)
 {
-    m_currentPosition = newPosition;
+    m_positionCache->setCachedPosition(newPosition.get());
 
     m_positionCache->setCachedPosition(m_currentPosition.get());
 
@@ -578,7 +644,7 @@ void Geolocation::positionChanged(PassRefPtr<Geoposition> newPosition)
 
 void Geolocation::makeSuccessCallbacks()
 {
-    ASSERT(m_currentPosition);
+    ASSERT(lastPosition());
     ASSERT(isAllowed());
     
     Vector<RefPtr<GeoNotifier> > oneShotsCopy;
@@ -592,8 +658,8 @@ void Geolocation::makeSuccessCallbacks()
     // further callbacks to these notifiers.
     m_oneShots.clear();
 
-    sendPosition(oneShotsCopy, m_currentPosition.get());
-    sendPosition(watchersCopy, m_currentPosition.get());
+    sendPosition(oneShotsCopy, lastPosition());
+    sendPosition(watchersCopy, lastPosition());
 
     if (!hasListeners())
         stopUpdating();
@@ -709,3 +775,19 @@ void Geolocation::handleEvent(ScriptExecutionContext*, Event* event)
 // END ANDROID
 
 } // namespace WebCore
+
+#else
+
+namespace WebCore {
+
+void Geolocation::disconnectFrame() {}
+
+Geolocation::Geolocation(Frame*) {}
+
+Geolocation::~Geolocation() {}
+
+void Geolocation::setIsAllowed(bool) {}
+
+}
+                                                        
+#endif // ENABLE(GEOLOCATION)

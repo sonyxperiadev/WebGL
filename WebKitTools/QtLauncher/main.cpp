@@ -32,6 +32,11 @@
 
 #include <QtGui>
 #include <QtNetwork/QNetworkRequest>
+
+#if defined(QT_CONFIGURED_WITH_OPENGL)
+#include <QtOpenGL/QGLWidget>
+#endif
+
 #if !defined(QT_NO_PRINTER)
 #include <QPrintPreviewDialog>
 #endif
@@ -43,7 +48,6 @@
 #include <QDebug>
 
 #include <cstdio>
-#include "mainwindow.h"
 #include <qevent.h>
 #include <qwebelement.h>
 #include <qwebframe.h>
@@ -54,11 +58,13 @@
 #include <qx11info_x11.h>
 #endif
 
+#include "mainwindow.h"
 #include "urlloader.h"
 #include "utils.h"
 #include "webinspector.h"
 #include "webpage.h"
 #include "webview.h"
+#include "../../WebKit/qt/WebCoreSupport/DumpRenderTreeSupportQt.h"
 
 #ifdef Q_WS_MAEMO_5
 #include <X11/Xatom.h>
@@ -66,23 +72,32 @@
 #undef KeyPress
 #endif
 
-#ifndef NDEBUG
-void QWEBKIT_EXPORT qt_drt_garbageCollector_collect();
-#endif
-
-
+static const int gExitClickArea = 80;
 static bool gUseGraphicsView = false;
-static bool gUseCompositing = false;
+static bool gUseCompositing = true;
 static bool gCacheWebView = false;
 static bool gShowFrameRate = false;
 static QGraphicsView::ViewportUpdateMode gViewportUpdateMode = QGraphicsView::MinimalViewportUpdate;
+static QUrl gInspectorUrl;
+static bool gResizesToContents = false;
+static bool gUseTiledBackingStore = false;
+
+#if defined(Q_WS_MAEMO_5) || defined(Q_WS_S60)
+static bool gUseFrameFlattening = true;
+#else
+static bool gUseFrameFlattening = false;
+#endif
+
+#if defined(QT_CONFIGURED_WITH_OPENGL)
+static bool gUseQGLWidgetViewport = false;
+#endif
 
 
 class LauncherWindow : public MainWindow {
     Q_OBJECT
 
 public:
-    LauncherWindow(QString url = QString());
+    LauncherWindow(LauncherWindow* other = 0, bool shareScene = false);
     virtual ~LauncherWindow();
 
     virtual void keyPressEvent(QKeyEvent* event);
@@ -90,8 +105,9 @@ public:
 
 #if QT_VERSION >= QT_VERSION_CHECK(4, 6, 0)
     void sendTouchEvent();
-    bool eventFilter(QObject* obj, QEvent* event);
 #endif
+
+    bool eventFilter(QObject* obj, QEvent* event);
 
 protected slots:
     void loadStarted();
@@ -103,6 +119,7 @@ protected slots:
     void zoomOut();
     void resetZoom();
     void toggleZoomTextOnly(bool on);
+    void zoomAnimationFinished();
 
     void print();
     void screenshot();
@@ -116,74 +133,159 @@ protected slots:
 
     void setTouchMocking(bool on);
     void toggleAcceleratedCompositing(bool toggle);
+    void toggleTiledBackingStore(bool toggle);
+    void toggleResizesToContents(bool toggle);
+
+    void toggleWebGL(bool toggle);
     void initializeView(bool useGraphicsView = false);
+    void toggleSpatialNavigation(bool b);
+    void toggleFullScreenMode(bool enable);
+    void showFPS(bool enable);
+    void changeViewportUpdateMode(int mode);
+    void toggleFrameFlattening(bool toggle);
+    void toggleInterruptingJavaScriptEnabled(bool enable);
+
+#if defined(QT_CONFIGURED_WITH_OPENGL)
+    void toggleQGLWidgetViewport(bool enable);
+#endif
+
+    void showUserAgentDialog();
 
 public slots:
-    void newWindow(const QString& url = QString());
+    LauncherWindow* newWindow();
+    LauncherWindow* cloneWindow();
+    void updateFPS(int fps);
+
+signals:
+    void enteredFullScreenMode(bool on);
 
 private:
-    // create the status bar, tool bar & menu
-    void setupUI();
+    void createChrome();
+    void applyZoom();
 
 private:
-    QVector<int> zoomLevels;
-    int currentZoom;
+    QVector<int> m_zoomLevels;
+    int m_currentZoom;
 
     QWidget* m_view;
-    WebInspector* inspector;
+    WebInspector* m_inspector;
 
-    QAction* formatMenuAction;
-    QAction* flipAnimated;
-    QAction* flipYAnimated;
+    QAction* m_formatMenuAction;
+    QAction* m_flipAnimated;
+    QAction* m_flipYAnimated;
 
 #if QT_VERSION >= QT_VERSION_CHECK(4, 6, 0)
-    QList<QTouchEvent::TouchPoint> touchPoints;
-    bool touchMocking;
+    QPropertyAnimation* m_zoomAnimation;
+    QList<QTouchEvent::TouchPoint> m_touchPoints;
+    bool m_touchMocking;
 #endif
+
+    void init(bool useGraphicsView = false);
+    bool isGraphicsBased() const;
+    void applyPrefs(LauncherWindow* other = 0);
 };
 
-
-LauncherWindow::LauncherWindow(QString url)
-    : MainWindow(url)
-    , currentZoom(100)
-{
-    QSplitter* splitter = new QSplitter(Qt::Vertical, this);
-    setCentralWidget(splitter);
-
-#if defined(Q_WS_S60)
-    showMaximized();
-#else
-    resize(800, 600);
+LauncherWindow::LauncherWindow(LauncherWindow* other, bool shareScene)
+    : MainWindow()
+    , m_currentZoom(100)
+    , m_view(0)
+    , m_inspector(0)
+    , m_formatMenuAction(0)
+    , m_flipAnimated(0)
+    , m_flipYAnimated(0)
+#if QT_VERSION >= QT_VERSION_CHECK(4, 6, 0)
+    , m_zoomAnimation(0)
 #endif
+{
+    if (other) {
+        init(other->isGraphicsBased());
+        applyPrefs(other);
+        if (shareScene && other->isGraphicsBased()) {
+            QGraphicsView* otherView = static_cast<QGraphicsView*>(other->m_view);
+            static_cast<QGraphicsView*>(m_view)->setScene(otherView->scene());
+        }
+    } else {
+        init(gUseGraphicsView);
+        applyPrefs();
+    }
 
-    m_view = 0;
-    initializeView();
-
-    connect(page(), SIGNAL(loadStarted()), this, SLOT(loadStarted()));
-    connect(page(), SIGNAL(loadFinished(bool)), this, SLOT(loadFinished()));
-    connect(page(), SIGNAL(linkHovered(const QString&, const QString&, const QString&)),
-            this, SLOT(showLinkHover(const QString&, const QString&)));
-
-    inspector = new WebInspector(splitter);
-    inspector->setPage(page());
-    inspector->hide();
-    connect(this, SIGNAL(destroyed()), inspector, SLOT(deleteLater()));
-
-    setupUI();
-
-    // the zoom values are chosen to be like in Mozilla Firefox 3
-    zoomLevels << 30 << 50 << 67 << 80 << 90;
-    zoomLevels << 100;
-    zoomLevels << 110 << 120 << 133 << 150 << 170 << 200 << 240 << 300;
-
-    grabZoomKeys(true);
-
-    load(url);
+    createChrome();
 }
 
 LauncherWindow::~LauncherWindow()
 {
     grabZoomKeys(false);
+}
+
+void LauncherWindow::init(bool useGraphicsView)
+{
+    QSplitter* splitter = new QSplitter(Qt::Vertical, this);
+    setCentralWidget(splitter);
+
+#if defined(Q_WS_S60)
+    setWindowState(Qt::WindowMaximized);
+#else
+    setWindowState(Qt::WindowNoState);
+    resize(800, 600);
+#endif
+
+    initializeView(useGraphicsView);
+
+    connect(page(), SIGNAL(loadStarted()), this, SLOT(loadStarted()));
+    connect(page(), SIGNAL(loadFinished(bool)), this, SLOT(loadFinished()));
+    connect(page(), SIGNAL(linkHovered(const QString&, const QString&, const QString&)),
+            this, SLOT(showLinkHover(const QString&, const QString&)));
+    connect(this, SIGNAL(enteredFullScreenMode(bool)), this, SLOT(toggleFullScreenMode(bool)));
+
+    if (!gInspectorUrl.isEmpty())
+      page()->settings()->setInspectorUrl(gInspectorUrl);
+
+    m_inspector = new WebInspector(splitter);
+    m_inspector->setPage(page());
+    m_inspector->hide();
+    connect(this, SIGNAL(destroyed()), m_inspector, SLOT(deleteLater()));
+
+    // the zoom values are chosen to be like in Mozilla Firefox 3
+    m_zoomLevels << 30 << 50 << 67 << 80 << 90;
+    m_zoomLevels << 100;
+    m_zoomLevels << 110 << 120 << 133 << 150 << 170 << 200 << 240 << 300;
+
+    grabZoomKeys(true);
+}
+
+bool LauncherWindow::isGraphicsBased() const
+{
+    return bool(qobject_cast<QGraphicsView*>(m_view));
+}
+
+inline void applySetting(QWebSettings::WebAttribute type, QWebSettings* settings, QWebSettings* other, bool defaultValue)
+{
+    settings->setAttribute(type, other ? other->testAttribute(type) : defaultValue);
+}
+
+void LauncherWindow::applyPrefs(LauncherWindow* source)
+{
+    QWebSettings* other = source ? source->page()->settings() : 0;
+    QWebSettings* settings = page()->settings();
+
+    applySetting(QWebSettings::AcceleratedCompositingEnabled, settings, other, gUseCompositing);
+    applySetting(QWebSettings::TiledBackingStoreEnabled, settings, other, gUseTiledBackingStore);
+    applySetting(QWebSettings::WebGLEnabled, settings, other, false);
+    applySetting(QWebSettings::FrameFlatteningEnabled, settings, other, gUseFrameFlattening);
+
+    if (!isGraphicsBased())
+        return;
+
+    WebViewGraphicsBased* view = static_cast<WebViewGraphicsBased*>(m_view);
+    WebViewGraphicsBased* otherView = source ? qobject_cast<WebViewGraphicsBased*>(source->m_view) : 0;
+
+    view->setViewportUpdateMode(otherView ? otherView->viewportUpdateMode() : gViewportUpdateMode);
+    view->setFrameRateMeasurementEnabled(otherView ? otherView->frameRateMeasurementEnabled() : gShowFrameRate);
+
+    if (otherView)
+        view->setItemCacheMode(otherView->itemCacheMode());
+    else
+        view->setItemCacheMode(gCacheWebView ? QGraphicsItem::DeviceCoordinateCache : QGraphicsItem::NoCache);
 }
 
 void LauncherWindow::keyPressEvent(QKeyEvent* event)
@@ -225,31 +327,45 @@ void LauncherWindow::grabZoomKeys(bool grab)
 #if QT_VERSION >= QT_VERSION_CHECK(4, 6, 0)
 void LauncherWindow::sendTouchEvent()
 {
-    if (touchPoints.isEmpty())
+    if (m_touchPoints.isEmpty())
         return;
 
     QEvent::Type type = QEvent::TouchUpdate;
-    if (touchPoints.size() == 1) {
-        if (touchPoints[0].state() == Qt::TouchPointReleased)
+    if (m_touchPoints.size() == 1) {
+        if (m_touchPoints[0].state() == Qt::TouchPointReleased)
             type = QEvent::TouchEnd;
-        else if (touchPoints[0].state() == Qt::TouchPointPressed)
+        else if (m_touchPoints[0].state() == Qt::TouchPointPressed)
             type = QEvent::TouchBegin;
     }
 
     QTouchEvent touchEv(type);
-    touchEv.setTouchPoints(touchPoints);
+    touchEv.setTouchPoints(m_touchPoints);
     QCoreApplication::sendEvent(page(), &touchEv);
 
     // After sending the event, remove all touchpoints that were released
-    if (touchPoints[0].state() == Qt::TouchPointReleased)
-        touchPoints.removeAt(0);
-    if (touchPoints.size() > 1 && touchPoints[1].state() == Qt::TouchPointReleased)
-        touchPoints.removeAt(1);
+    if (m_touchPoints[0].state() == Qt::TouchPointReleased)
+        m_touchPoints.removeAt(0);
+    if (m_touchPoints.size() > 1 && m_touchPoints[1].state() == Qt::TouchPointReleased)
+        m_touchPoints.removeAt(1);
 }
+#endif // QT_VERSION >= QT_VERSION_CHECK(4, 6, 0)
 
 bool LauncherWindow::eventFilter(QObject* obj, QEvent* event)
 {
-    if (!touchMocking || obj != m_view)
+    // If click pos is the bottom right corner (square with size defined by gExitClickArea)
+    // and the window is on FullScreen, the window must return to its original state.
+    if (event->type() == QEvent::MouseButtonRelease) {
+        QMouseEvent* ev = static_cast<QMouseEvent*>(event);
+        if (windowState() == Qt::WindowFullScreen
+            && ev->pos().x() > (width() - gExitClickArea)
+            && ev->pos().y() > (height() - gExitClickArea)) {
+
+            emit enteredFullScreenMode(false);
+        }
+    }
+
+#if QT_VERSION >= QT_VERSION_CHECK(4, 6, 0)
+    if (!m_touchMocking)
         return QObject::eventFilter(obj, event);
 
     if (event->type() == QEvent::MouseButtonPress
@@ -276,12 +392,12 @@ bool LauncherWindow::eventFilter(QObject* obj, QEvent* event)
         touchPoint.setPressure(1);
 
         // If the point already exists, update it. Otherwise create it.
-        if (touchPoints.size() > 0 && !touchPoints[0].id())
-            touchPoints[0] = touchPoint;
-        else if (touchPoints.size() > 1 && !touchPoints[1].id())
-            touchPoints[1] = touchPoint;
+        if (m_touchPoints.size() > 0 && !m_touchPoints[0].id())
+            m_touchPoints[0] = touchPoint;
+        else if (m_touchPoints.size() > 1 && !m_touchPoints[1].id())
+            m_touchPoints[1] = touchPoint;
         else
-            touchPoints.append(touchPoint);
+            m_touchPoints.append(touchPoint);
 
         sendTouchEvent();
     } else if (event->type() == QEvent::KeyPress
@@ -289,12 +405,12 @@ bool LauncherWindow::eventFilter(QObject* obj, QEvent* event)
         && static_cast<QKeyEvent*>(event)->modifiers() == Qt::ControlModifier) {
 
         // If the keyboard point is already pressed, release it.
-        // Otherwise create it and append to touchPoints.
-        if (touchPoints.size() > 0 && touchPoints[0].id() == 1) {
-            touchPoints[0].setState(Qt::TouchPointReleased);
+        // Otherwise create it and append to m_touchPoints.
+        if (m_touchPoints.size() > 0 && m_touchPoints[0].id() == 1) {
+            m_touchPoints[0].setState(Qt::TouchPointReleased);
             sendTouchEvent();
-        } else if (touchPoints.size() > 1 && touchPoints[1].id() == 1) {
-            touchPoints[1].setState(Qt::TouchPointReleased);
+        } else if (m_touchPoints.size() > 1 && m_touchPoints[1].id() == 1) {
+            m_touchPoints[1].setState(Qt::TouchPointReleased);
             sendTouchEvent();
         } else {
             QTouchEvent::TouchPoint touchPoint;
@@ -303,16 +419,17 @@ bool LauncherWindow::eventFilter(QObject* obj, QEvent* event)
             touchPoint.setScreenPos(QCursor::pos());
             touchPoint.setPos(m_view->mapFromGlobal(QCursor::pos()));
             touchPoint.setPressure(1);
-            touchPoints.append(touchPoint);
+            m_touchPoints.append(touchPoint);
             sendTouchEvent();
 
             // After sending the event, change the touchpoint state to stationary
-            touchPoints.last().setState(Qt::TouchPointStationary);
+            m_touchPoints.last().setState(Qt::TouchPointStationary);
         }
     }
+#endif // QT_VERSION >= QT_VERSION_CHECK(4, 6, 0)
+
     return false;
 }
-#endif // QT_VERSION >= QT_VERSION_CHECK(4, 6, 0)
 
 void LauncherWindow::loadStarted()
 {
@@ -322,7 +439,7 @@ void LauncherWindow::loadStarted()
 void LauncherWindow::loadFinished()
 {
     QUrl url = page()->mainFrame()->url();
-    setAddressUrl(url.toString());
+    setAddressUrl(url.toString(QUrl::RemoveUserInfo));
     addCompleterEntry(url);
 }
 
@@ -337,30 +454,62 @@ void LauncherWindow::showLinkHover(const QString &link, const QString &toolTip)
 #endif
 }
 
+void LauncherWindow::zoomAnimationFinished()
+{
+    if (!isGraphicsBased())
+        return;
+    QGraphicsWebView* view = static_cast<WebViewGraphicsBased*>(m_view)->graphicsWebView();
+    view->setTiledBackingStoreFrozen(false);
+}
+
+void LauncherWindow::applyZoom()
+{
+#if QT_VERSION >= QT_VERSION_CHECK(4, 6, 0)
+    if (isGraphicsBased() && page()->settings()->testAttribute(QWebSettings::TiledBackingStoreEnabled)) {
+        QGraphicsWebView* view = static_cast<WebViewGraphicsBased*>(m_view)->graphicsWebView();
+        view->setTiledBackingStoreFrozen(true);
+        if (!m_zoomAnimation) {
+            m_zoomAnimation = new QPropertyAnimation(view, "scale");
+            m_zoomAnimation->setStartValue(view->scale());
+            connect(m_zoomAnimation, SIGNAL(finished()), this, SLOT(zoomAnimationFinished()));
+        } else {
+            m_zoomAnimation->stop();
+            m_zoomAnimation->setStartValue(m_zoomAnimation->currentValue());
+        }
+
+        m_zoomAnimation->setDuration(300);
+        m_zoomAnimation->setEndValue(qreal(m_currentZoom) / 100.);
+        m_zoomAnimation->start();
+        return;
+    }
+#endif
+    page()->mainFrame()->setZoomFactor(qreal(m_currentZoom) / 100.0);
+}
+
 void LauncherWindow::zoomIn()
 {
-    int i = zoomLevels.indexOf(currentZoom);
+    int i = m_zoomLevels.indexOf(m_currentZoom);
     Q_ASSERT(i >= 0);
-    if (i < zoomLevels.count() - 1)
-        currentZoom = zoomLevels[i + 1];
+    if (i < m_zoomLevels.count() - 1)
+        m_currentZoom = m_zoomLevels[i + 1];
 
-    page()->mainFrame()->setZoomFactor(qreal(currentZoom) / 100.0);
+    applyZoom();
 }
 
 void LauncherWindow::zoomOut()
 {
-    int i = zoomLevels.indexOf(currentZoom);
+    int i = m_zoomLevels.indexOf(m_currentZoom);
     Q_ASSERT(i >= 0);
     if (i > 0)
-        currentZoom = zoomLevels[i - 1];
+        m_currentZoom = m_zoomLevels[i - 1];
 
-    page()->mainFrame()->setZoomFactor(qreal(currentZoom) / 100.0);
+    applyZoom();
 }
 
 void LauncherWindow::resetZoom()
 {
-   currentZoom = 100;
-   page()->mainFrame()->setZoomFactor(1.0);
+    m_currentZoom = 100;
+    page()->mainFrame()->setZoomFactor(1.0);
 }
 
 void LauncherWindow::toggleZoomTextOnly(bool b)
@@ -373,7 +522,7 @@ void LauncherWindow::print()
 #if !defined(QT_NO_PRINTER)
     QPrintPreviewDialog dlg(this);
     connect(&dlg, SIGNAL(paintRequested(QPrinter*)),
-            m_view, SLOT(print(QPrinter*)));
+            page()->mainFrame(), SLOT(print(QPrinter*)));
     dlg.exec();
 #endif
 }
@@ -397,7 +546,7 @@ void LauncherWindow::screenshot()
 void LauncherWindow::setEditable(bool on)
 {
     page()->setContentEditable(on);
-    formatMenuAction->setVisible(on);
+    m_formatMenuAction->setVisible(on);
 }
 
 /*
@@ -436,13 +585,29 @@ void LauncherWindow::selectElements()
 void LauncherWindow::setTouchMocking(bool on)
 {
 #if QT_VERSION >= QT_VERSION_CHECK(4, 6, 0)
-    touchMocking = on;
+    m_touchMocking = on;
 #endif
 }
 
 void LauncherWindow::toggleAcceleratedCompositing(bool toggle)
 {
+    gUseCompositing = toggle;
     page()->settings()->setAttribute(QWebSettings::AcceleratedCompositingEnabled, toggle);
+}
+
+void LauncherWindow::toggleTiledBackingStore(bool toggle)
+{
+    page()->settings()->setAttribute(QWebSettings::TiledBackingStoreEnabled, toggle);
+}
+
+void LauncherWindow::toggleResizesToContents(bool toggle)
+{
+    static_cast<WebViewGraphicsBased*>(m_view)->setResizesToContents(toggle);
+}
+
+void LauncherWindow::toggleWebGL(bool toggle)
+{
+    page()->settings()->setAttribute(QWebSettings::WebGLEnabled, toggle);
 }
 
 void LauncherWindow::initializeView(bool useGraphicsView)
@@ -454,38 +619,177 @@ void LauncherWindow::initializeView(bool useGraphicsView)
     if (!useGraphicsView) {
         WebViewTraditional* view = new WebViewTraditional(splitter);
         view->setPage(page());
+
+        view->installEventFilter(this);
+
         m_view = view;
     } else {
         WebViewGraphicsBased* view = new WebViewGraphicsBased(splitter);
         view->setPage(page());
-        view->setViewportUpdateMode(gViewportUpdateMode);
-        view->setItemCacheMode(gCacheWebView ? QGraphicsItem::DeviceCoordinateCache : QGraphicsItem::NoCache);
-        if (gShowFrameRate)
-            view->enableFrameRateMeasurement();
-        page()->settings()->setAttribute(QWebSettings::AcceleratedCompositingEnabled, gUseCompositing);
 
-        if (flipAnimated)
-            connect(flipAnimated, SIGNAL(triggered()), view, SLOT(animatedFlip()));
+        if (m_flipAnimated)
+            connect(m_flipAnimated, SIGNAL(triggered()), view, SLOT(animatedFlip()));
 
-        if (flipYAnimated)
-            connect(flipYAnimated, SIGNAL(triggered()), view, SLOT(animatedYFlip()));
+        if (m_flipYAnimated)
+            connect(m_flipYAnimated, SIGNAL(triggered()), view, SLOT(animatedYFlip()));
+
+        connect(view, SIGNAL(currentFPSUpdated(int)), this, SLOT(updateFPS(int)));
+
+        view->installEventFilter(this);
+        // The implementation of QAbstractScrollArea::eventFilter makes us need
+        // to install the event filter also on the viewport of a QGraphicsView.
+        view->viewport()->installEventFilter(this);
 
         m_view = view;
     }
 
 #if QT_VERSION >= QT_VERSION_CHECK(4, 6, 0)
-    m_view->installEventFilter(this);
-    touchMocking = false;
+    m_touchMocking = false;
 #endif
 }
 
-void LauncherWindow::newWindow(const QString& url)
+void LauncherWindow::toggleSpatialNavigation(bool b)
 {
-    LauncherWindow* mw = new LauncherWindow(url);
-    mw->show();
+    page()->settings()->setAttribute(QWebSettings::SpatialNavigationEnabled, b);
 }
 
-void LauncherWindow::setupUI()
+void LauncherWindow::toggleFullScreenMode(bool enable)
+{
+    if (enable)
+        setWindowState(Qt::WindowFullScreen);
+    else {
+#if defined(Q_WS_S60)
+        setWindowState(Qt::WindowMaximized);
+#else
+        setWindowState(Qt::WindowNoState);
+#endif
+    }
+}
+
+void LauncherWindow::showFPS(bool enable)
+{
+    if (!isGraphicsBased())
+        return;
+
+    gShowFrameRate = enable;
+    WebViewGraphicsBased* view = static_cast<WebViewGraphicsBased*>(m_view);
+    view->setFrameRateMeasurementEnabled(enable);
+
+    if (!enable) {
+#if defined(Q_WS_MAEMO_5) && defined(Q_WS_S60)
+        setWindowTitle("");
+#else
+        statusBar()->clearMessage();
+#endif
+    }
+}
+
+void LauncherWindow::changeViewportUpdateMode(int mode)
+{
+    gViewportUpdateMode = QGraphicsView::ViewportUpdateMode(mode);
+
+    if (!isGraphicsBased())
+        return;
+
+    WebViewGraphicsBased* view = static_cast<WebViewGraphicsBased*>(m_view);
+    view->setViewportUpdateMode(gViewportUpdateMode);
+}
+
+void LauncherWindow::toggleFrameFlattening(bool toggle)
+{
+    gUseFrameFlattening = toggle;
+    page()->settings()->setAttribute(QWebSettings::FrameFlatteningEnabled, toggle);
+}
+
+void LauncherWindow::toggleInterruptingJavaScriptEnabled(bool enable)
+{
+    page()->setInterruptingJavaScriptEnabled(enable);
+}
+
+#if defined(QT_CONFIGURED_WITH_OPENGL)
+void LauncherWindow::toggleQGLWidgetViewport(bool enable)
+{
+    if (!isGraphicsBased())
+        return;
+
+    gUseQGLWidgetViewport = enable;
+    WebViewGraphicsBased* view = static_cast<WebViewGraphicsBased*>(m_view);
+
+    view->setViewport(enable ? new QGLWidget() : 0);
+}
+#endif
+
+void LauncherWindow::showUserAgentDialog()
+{
+    QStringList items;
+    QFile file(":/useragentlist.txt");
+    if (file.open(QIODevice::ReadOnly)) {
+         while (!file.atEnd())
+            items << file.readLine().trimmed();
+        file.close();
+    }
+
+    QSettings settings;
+    QString customUserAgent = settings.value("CustomUserAgent").toString();
+    if (!items.contains(customUserAgent) && !customUserAgent.isEmpty())
+        items << customUserAgent;
+
+    QDialog* dialog = new QDialog(this);
+    dialog->setWindowTitle("Change User Agent");
+
+    QVBoxLayout* layout = new QVBoxLayout(dialog);
+    dialog->setLayout(layout);
+
+    QComboBox* combo = new QComboBox(dialog);
+    combo->setMaximumWidth(size().width() * 0.7);
+    combo->setEditable(true);
+    combo->insertItems(0, items);
+    layout->addWidget(combo);
+
+    int index = combo->findText(page()->userAgentForUrl(QUrl()));
+    combo->setCurrentIndex(index);
+
+    QDialogButtonBox* buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok
+            | QDialogButtonBox::Cancel, Qt::Horizontal, dialog);
+    connect(buttonBox, SIGNAL(accepted()), dialog, SLOT(accept()));
+    connect(buttonBox, SIGNAL(rejected()), dialog, SLOT(reject()));
+    layout->addWidget(buttonBox);
+
+    if (dialog->exec() && !combo->currentText().isEmpty()) {
+        page()->setUserAgent(combo->currentText());
+        if (!items.contains(combo->currentText()))
+            settings.setValue("CustomUserAgent", combo->currentText());
+    }
+
+    delete dialog;
+}
+
+LauncherWindow* LauncherWindow::newWindow()
+{
+    LauncherWindow* mw = new LauncherWindow(this, false);
+    mw->show();
+    return mw;
+}
+
+LauncherWindow* LauncherWindow::cloneWindow()
+{
+    LauncherWindow* mw = new LauncherWindow(this, true);
+    mw->show();
+    return mw;
+}
+
+void LauncherWindow::updateFPS(int fps)
+{
+    QString fpsStatusText = QString("Current FPS: %1").arg(fps);
+
+#if defined(Q_WS_MAEMO_5) && defined(Q_WS_S60)
+    setWindowTitle(fpsStatusText);
+#else
+    statusBar()->showMessage(fpsStatusText);
+#endif
+}
+
+void LauncherWindow::createChrome()
 {
     QMenu* fileMenu = menuBar()->addMenu("&File");
     fileMenu->addAction("New Window", this, SLOT(newWindow()), QKeySequence::New);
@@ -523,8 +827,8 @@ void LauncherWindow::setupUI()
     // viewMenu->addAction("Dump plugins", this, SLOT(dumpPlugins()));
 
     QMenu* formatMenu = new QMenu("F&ormat", this);
-    formatMenuAction = menuBar()->addMenu(formatMenu);
-    formatMenuAction->setVisible(false);
+    m_formatMenuAction = menuBar()->addMenu(formatMenu);
+    m_formatMenuAction->setVisible(false);
     formatMenu->addAction(page()->action(QWebPage::ToggleBold));
     formatMenu->addAction(page()->action(QWebPage::ToggleItalic));
     formatMenu->addAction(page()->action(QWebPage::ToggleUnderline));
@@ -537,11 +841,20 @@ void LauncherWindow::setupUI()
     zoomOut->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_Minus));
     resetZoom->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_0));
 
+    QMenu* windowMenu = menuBar()->addMenu("&Window");
+    QAction* toggleFullScreen = windowMenu->addAction("Toggle FullScreen", this, SIGNAL(enteredFullScreenMode(bool)));
+    toggleFullScreen->setCheckable(true);
+    toggleFullScreen->setChecked(false);
+
+    // when exit fullscreen mode by clicking on the exit area (bottom right corner) we must
+    // uncheck the Toggle FullScreen action
+    toggleFullScreen->connect(this, SIGNAL(enteredFullScreenMode(bool)), SLOT(setChecked(bool)));
+
     QMenu* toolsMenu = menuBar()->addMenu("&Develop");
     toolsMenu->addAction("Select Elements...", this, SLOT(selectElements()));
-    QAction* showInspectorAction = toolsMenu->addAction("Show Web Inspector", inspector, SLOT(setVisible(bool)), QKeySequence(Qt::CTRL | Qt::ALT | Qt::Key_I));
+    QAction* showInspectorAction = toolsMenu->addAction("Show Web Inspector", m_inspector, SLOT(setVisible(bool)), QKeySequence(Qt::CTRL | Qt::ALT | Qt::Key_I));
     showInspectorAction->setCheckable(true);
-    showInspectorAction->connect(inspector, SIGNAL(visibleChanged(bool)), SLOT(setChecked(bool)));
+    showInspectorAction->connect(m_inspector, SIGNAL(visibleChanged(bool)), SLOT(setChecked(bool)));
 
 #if QT_VERSION >= QT_VERSION_CHECK(4, 6, 0)
     QAction* touchMockAction = toolsMenu->addAction("Toggle multitouch mocking", this, SLOT(setTouchMocking(bool)));
@@ -549,26 +862,131 @@ void LauncherWindow::setupUI()
     touchMockAction->setShortcut(QKeySequence(Qt::CTRL | Qt::ALT | Qt::Key_T));
 #endif
 
+    QWebSettings* settings = page()->settings();
+
     QMenu* graphicsViewMenu = toolsMenu->addMenu("QGraphicsView");
     QAction* toggleGraphicsView = graphicsViewMenu->addAction("Toggle use of QGraphicsView", this, SLOT(initializeView(bool)));
     toggleGraphicsView->setCheckable(true);
-    toggleGraphicsView->setChecked(false);
+    toggleGraphicsView->setChecked(isGraphicsBased());
+
+    QAction* toggleWebGL = toolsMenu->addAction("Toggle WebGL", this, SLOT(toggleWebGL(bool)));
+    toggleWebGL->setCheckable(true);
+    toggleWebGL->setChecked(settings->testAttribute(QWebSettings::WebGLEnabled));
 
     QAction* toggleAcceleratedCompositing = graphicsViewMenu->addAction("Toggle Accelerated Compositing", this, SLOT(toggleAcceleratedCompositing(bool)));
     toggleAcceleratedCompositing->setCheckable(true);
-    toggleAcceleratedCompositing->setChecked(false);
-    toggleAcceleratedCompositing->setEnabled(false);
+    toggleAcceleratedCompositing->setChecked(settings->testAttribute(QWebSettings::AcceleratedCompositingEnabled));
+    toggleAcceleratedCompositing->setEnabled(isGraphicsBased());
     toggleAcceleratedCompositing->connect(toggleGraphicsView, SIGNAL(toggled(bool)), SLOT(setEnabled(bool)));
+
+    QAction* toggleResizesToContents = graphicsViewMenu->addAction("Toggle Resizes To Contents Mode", this, SLOT(toggleResizesToContents(bool)));
+    toggleResizesToContents->setCheckable(true);
+    toggleResizesToContents->setChecked(false);
+    toggleResizesToContents->setEnabled(false);
+    toggleResizesToContents->connect(toggleGraphicsView, SIGNAL(toggled(bool)), SLOT(setEnabled(bool)));
+
+    QAction* toggleTiledBackingStore = graphicsViewMenu->addAction("Toggle Tiled Backing Store", this, SLOT(toggleTiledBackingStore(bool)));
+    toggleTiledBackingStore->setCheckable(true);
+    toggleTiledBackingStore->setChecked(false);
+    toggleTiledBackingStore->setEnabled(false);
+    toggleTiledBackingStore->connect(toggleGraphicsView, SIGNAL(toggled(bool)), SLOT(setEnabled(bool)));
+
+    QAction* spatialNavigationAction = toolsMenu->addAction("Toggle Spatial Navigation", this, SLOT(toggleSpatialNavigation(bool)));
+    spatialNavigationAction->setCheckable(true);
+    spatialNavigationAction->setShortcut(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_S));
+
+    QAction* toggleFrameFlattening = toolsMenu->addAction("Toggle Frame Flattening", this, SLOT(toggleFrameFlattening(bool)));
+    toggleFrameFlattening->setCheckable(true);
+    toggleFrameFlattening->setChecked(settings->testAttribute(QWebSettings::FrameFlatteningEnabled));
+
+    QAction* toggleInterruptingJavaScripteEnabled = toolsMenu->addAction("Enable interrupting js scripts", this, SLOT(toggleInterruptingJavaScriptEnabled(bool)));
+    toggleInterruptingJavaScripteEnabled->setCheckable(true);
+    toggleInterruptingJavaScripteEnabled->setChecked(false);
+
+#if defined(QT_CONFIGURED_WITH_OPENGL)
+    QAction* toggleQGLWidgetViewport = graphicsViewMenu->addAction("Toggle use of QGLWidget Viewport", this, SLOT(toggleQGLWidgetViewport(bool)));
+    toggleQGLWidgetViewport->setCheckable(true);
+    toggleQGLWidgetViewport->setChecked(gUseQGLWidgetViewport);
+    toggleQGLWidgetViewport->setEnabled(isGraphicsBased());
+    toggleQGLWidgetViewport->connect(toggleGraphicsView, SIGNAL(toggled(bool)), SLOT(setEnabled(bool)));
+#endif
+
+    QAction* userAgentAction = toolsMenu->addAction("Change User Agent", this, SLOT(showUserAgentDialog()));
+    userAgentAction->setShortcut(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_U));
 
     graphicsViewMenu->addSeparator();
 
-    flipAnimated = graphicsViewMenu->addAction("Animated Flip");
-    flipAnimated->connect(toggleGraphicsView, SIGNAL(toggled(bool)), SLOT(setEnabled(bool)));
-    flipAnimated->setEnabled(false);
+    m_flipAnimated = graphicsViewMenu->addAction("Animated Flip");
+    m_flipAnimated->connect(toggleGraphicsView, SIGNAL(toggled(bool)), SLOT(setEnabled(bool)));
+    m_flipAnimated->setEnabled(isGraphicsBased());
 
-    flipYAnimated = graphicsViewMenu->addAction("Animated Y-Flip");
-    flipYAnimated->connect(toggleGraphicsView, SIGNAL(toggled(bool)), SLOT(setEnabled(bool)));
-    flipYAnimated->setEnabled(false);
+    m_flipYAnimated = graphicsViewMenu->addAction("Animated Y-Flip");
+    m_flipYAnimated->connect(toggleGraphicsView, SIGNAL(toggled(bool)), SLOT(setEnabled(bool)));
+    m_flipYAnimated->setEnabled(isGraphicsBased());
+
+    if (isGraphicsBased()) {
+        WebViewGraphicsBased* view = static_cast<WebViewGraphicsBased*>(m_view);
+        connect(m_flipAnimated, SIGNAL(triggered()), view, SLOT(animatedFlip()));
+        connect(m_flipYAnimated, SIGNAL(triggered()), view, SLOT(animatedYFlip()));
+    }
+
+    graphicsViewMenu->addSeparator();
+
+    QAction* cloneWindow = graphicsViewMenu->addAction("Clone Window", this, SLOT(cloneWindow()));
+    cloneWindow->connect(toggleGraphicsView, SIGNAL(toggled(bool)), SLOT(setEnabled(bool)));
+    cloneWindow->setEnabled(isGraphicsBased());
+
+    QAction* showFPS = graphicsViewMenu->addAction("Show FPS", this, SLOT(showFPS(bool)));
+    showFPS->setCheckable(true);
+    showFPS->setEnabled(isGraphicsBased());
+    showFPS->connect(toggleGraphicsView, SIGNAL(toggled(bool)), SLOT(setEnabled(bool)));
+    showFPS->setChecked(gShowFrameRate);
+
+    QMenu* viewportUpdateMenu = graphicsViewMenu->addMenu("Change Viewport Update Mode");
+    viewportUpdateMenu->setEnabled(isGraphicsBased());
+    viewportUpdateMenu->connect(toggleGraphicsView, SIGNAL(toggled(bool)), SLOT(setEnabled(bool)));
+
+    QAction* fullUpdate = viewportUpdateMenu->addAction("FullViewportUpdate");
+    fullUpdate->setCheckable(true);
+    fullUpdate->setChecked((gViewportUpdateMode == QGraphicsView::FullViewportUpdate) ? true : false);
+
+    QAction* minimalUpdate = viewportUpdateMenu->addAction("MinimalViewportUpdate");
+    minimalUpdate->setCheckable(true);
+    minimalUpdate->setChecked((gViewportUpdateMode == QGraphicsView::MinimalViewportUpdate) ? true : false);
+
+    QAction* smartUpdate = viewportUpdateMenu->addAction("SmartViewportUpdate");
+    smartUpdate->setCheckable(true);
+    smartUpdate->setChecked((gViewportUpdateMode == QGraphicsView::SmartViewportUpdate) ? true : false);
+
+    QAction* boundingRectUpdate = viewportUpdateMenu->addAction("BoundingRectViewportUpdate");
+    boundingRectUpdate->setCheckable(true);
+    boundingRectUpdate->setChecked((gViewportUpdateMode == QGraphicsView::BoundingRectViewportUpdate) ? true : false);
+
+    QAction* noUpdate = viewportUpdateMenu->addAction("NoViewportUpdate");
+    noUpdate->setCheckable(true);
+    noUpdate->setChecked((gViewportUpdateMode == QGraphicsView::NoViewportUpdate) ? true : false);
+
+    QSignalMapper* signalMapper = new QSignalMapper(viewportUpdateMenu);
+    signalMapper->setMapping(fullUpdate, QGraphicsView::FullViewportUpdate);
+    signalMapper->setMapping(minimalUpdate, QGraphicsView::MinimalViewportUpdate);
+    signalMapper->setMapping(smartUpdate, QGraphicsView::SmartViewportUpdate);
+    signalMapper->setMapping(boundingRectUpdate, QGraphicsView::BoundingRectViewportUpdate);
+    signalMapper->setMapping(noUpdate, QGraphicsView::NoViewportUpdate);
+
+    connect(fullUpdate, SIGNAL(triggered()), signalMapper, SLOT(map()));
+    connect(minimalUpdate, SIGNAL(triggered()), signalMapper, SLOT(map()));
+    connect(smartUpdate, SIGNAL(triggered()), signalMapper, SLOT(map()));
+    connect(boundingRectUpdate, SIGNAL(triggered()), signalMapper, SLOT(map()));
+    connect(noUpdate, SIGNAL(triggered()), signalMapper, SLOT(map()));
+
+    connect(signalMapper, SIGNAL(mapped(int)), this, SLOT(changeViewportUpdateMode(int)));
+
+    QActionGroup* viewportUpdateModeActions = new QActionGroup(viewportUpdateMenu);
+    viewportUpdateModeActions->addAction(fullUpdate);
+    viewportUpdateModeActions->addAction(minimalUpdate);
+    viewportUpdateModeActions->addAction(smartUpdate);
+    viewportUpdateModeActions->addAction(boundingRectUpdate);
+    viewportUpdateModeActions->addAction(noUpdate);
 }
 
 QWebPage* WebPage::createWindow(QWebPage::WebWindowType type)
@@ -602,7 +1020,7 @@ int launcherMain(const QApplication& app)
 {
 #ifndef NDEBUG
     int retVal = app.exec();
-    qt_drt_garbageCollector_collect();
+    DumpRenderTreeSupportQt::garbageCollectorCollect();
     QWebSettings::clearMemoryCaches();
     return retVal;
 #else
@@ -639,7 +1057,7 @@ void LauncherApplication::applyDefaultSettings()
 }
 
 LauncherApplication::LauncherApplication(int& argc, char** argv)
-    : QApplication(argc, argv)
+    : QApplication(argc, argv, QApplication::GuiServer)
     , m_isRobotized(false)
 {
     // To allow QWebInspector's configuration persistence
@@ -673,11 +1091,14 @@ void LauncherApplication::handleUserOptions()
     if (args.contains("-help")) {
         qDebug() << "Usage:" << programName.toLatin1().data()
              << "[-graphicsbased]"
-             << "[-compositing]"
+             << "[-no-compositing]"
              << QString("[-viewport-update-mode %1]").arg(formatKeys(updateModes)).toLatin1().data()
              << "[-cache-webview]"
              << "[-show-fps]"
              << "[-r list]"
+             << "[-inspector-url location]"
+             << "[-tiled-backing-store]"
+             << "[-resizes-to-contents]"
              << "URLs";
         appQuit(0);
     }
@@ -685,9 +1106,9 @@ void LauncherApplication::handleUserOptions()
     if (args.contains("-graphicsbased"))
         gUseGraphicsView = true;
 
-    if (args.contains("-compositing")) {
-        requiresGraphicsView("-compositing");
-        gUseCompositing = true;
+    if (args.contains("-no-compositing")) {
+        requiresGraphicsView("-no-compositing");
+        gUseCompositing = false;
     }
 
     if (args.contains("-show-fps")) {
@@ -698,6 +1119,16 @@ void LauncherApplication::handleUserOptions()
     if (args.contains("-cache-webview")) {
         requiresGraphicsView("-cache-webview");
         gCacheWebView = true;
+    }
+
+    if (args.contains("-tiled-backing-store")) {
+        requiresGraphicsView("-tiled-backing-store");
+        gUseTiledBackingStore = true;
+    }
+
+    if (args.contains("-resizes-to-contents")) {
+        requiresGraphicsView("-resizes-to-contents");
+        gResizesToContents = true;
     }
 
     QString arg1("-viewport-update-mode");
@@ -714,6 +1145,11 @@ void LauncherApplication::handleUserOptions()
 
         gViewportUpdateMode = static_cast<QGraphicsView::ViewportUpdateMode>(idx);
     }
+
+    QString inspectorUrlArg("-inspector-url");
+    int inspectorUrlIndex = args.indexOf(inspectorUrlArg);
+    if (inspectorUrlIndex != -1)
+       gInspectorUrl = takeOptionValue(&args, inspectorUrlIndex);
 
     int robotIndex = args.indexOf("-r");
     if (robotIndex != -1) {
@@ -758,10 +1194,13 @@ int main(int argc, char **argv)
 
     LauncherWindow* window = 0;
     foreach (QString url, urls) {
+        LauncherWindow* newWindow;
         if (!window)
-            window = new LauncherWindow(url);
+            newWindow = window = new LauncherWindow();
         else
-            window->newWindow(url);
+            newWindow = window->newWindow();
+
+        newWindow->load(url);
     }
 
     window->show();

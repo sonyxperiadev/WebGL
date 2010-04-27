@@ -152,6 +152,10 @@ using namespace std;
 #define NSAccessibilityLoadingProgressAttribute @"AXLoadingProgress"
 #endif
 
+#ifndef NSAccessibilityHasPopupAttribute
+#define NSAccessibilityHasPopupAttribute @"AXHasPopup"
+#endif
+
 #ifdef BUILDING_ON_TIGER
 typedef unsigned NSUInteger;
 #define NSAccessibilityValueDescriptionAttribute @"AXValueDescription"
@@ -633,6 +637,9 @@ static WebCoreTextMarkerRange* textMarkerRangeFromVisiblePositions(VisiblePositi
         [additional addObject:NSAccessibilityARIAAtomicAttribute];
         [additional addObject:NSAccessibilityARIABusyAttribute];
     }
+    
+    if (m_object->ariaHasPopup())
+        [additional addObject:NSAccessibilityHasPopupAttribute];
     
     return additional;
 }
@@ -1850,6 +1857,9 @@ static NSString* roleValueToNSString(AccessibilityRole value)
         return dropEffectsArray;
     }
     
+    if ([attributeName isEqualToString:NSAccessibilityHasPopupAttribute])
+        return [NSNumber numberWithBool:m_object->ariaHasPopup()];
+    
     // ARIA Live region attributes.
     if ([attributeName isEqualToString:NSAccessibilityARIALiveAttribute])
         return m_object->ariaLiveRegionStatus();
@@ -2657,22 +2667,19 @@ static RenderObject* rendererForView(NSView* view)
     return [super accessibilityArrayAttributeValues:attribute index:index maxCount:maxCount];
 }
 
-// These are used by DRT so that it can know when notifications are sent.
-// Since they are static, only one callback can be installed at a time (that's all DRT should need).
-typedef void (*AXPostedNotificationCallback)(id element, NSString* notification, void* context);
-static AXPostedNotificationCallback AXNotificationCallback = 0;
-static void* AXPostedNotificationContext = 0;
-
-- (void)accessibilitySetPostedNotificationCallback:(AXPostedNotificationCallback)function withContext:(void*)context
+// This is set by DRT when it wants to listen for notifications.
+static BOOL accessibilityShouldRepostNotifications;
+- (void)accessibilitySetShouldRepostNotifications:(BOOL)repost
 {
-    AXNotificationCallback = function;
-    AXPostedNotificationContext = context;
+    accessibilityShouldRepostNotifications = repost;
 }
 
-- (void)accessibilityPostedNotification:(NSString *)notification
+- (void)accessibilityPostedNotification:(NSString *)notificationName
 {
-    if (AXNotificationCallback)
-        AXNotificationCallback(self, notification, AXPostedNotificationContext);
+    if (accessibilityShouldRepostNotifications) {
+        NSDictionary* userInfo = [NSDictionary dictionaryWithObjectsAndKeys:notificationName, @"notificationName", nil];
+        [[NSNotificationCenter defaultCenter] postNotificationName:@"AXDRTNotification" object:nil userInfo:userInfo];
+    }
 }
 
 @end

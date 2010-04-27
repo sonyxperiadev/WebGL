@@ -43,7 +43,7 @@ namespace WebCore {
 static JSValue getNamedItems(ExecState* exec, JSHTMLAllCollection* collection, const Identifier& propertyName)
 {
     Vector<RefPtr<Node> > namedItems;
-    collection->impl()->namedItems(propertyName, namedItems);
+    collection->impl()->namedItems(identifierToAtomicString(propertyName), namedItems);
 
     if (namedItems.isEmpty())
         return jsUndefined();
@@ -86,7 +86,7 @@ static JSValue JSC_HOST_CALL callHTMLAllCollection(ExecState* exec, JSObject* fu
     UString string = args.at(0).toString(exec);
     unsigned index = args.at(1).toString(exec).toUInt32(&ok, false);
     if (ok) {
-        String pstr = string;
+        String pstr = ustringToString(string);
         Node* node = collection->namedItem(pstr);
         while (node) {
             if (!index)
@@ -108,13 +108,13 @@ CallType JSHTMLAllCollection::getCallData(CallData& callData)
 bool JSHTMLAllCollection::canGetItemsForName(ExecState*, HTMLAllCollection* collection, const Identifier& propertyName)
 {
     Vector<RefPtr<Node> > namedItems;
-    collection->namedItems(propertyName, namedItems);
+    collection->namedItems(identifierToAtomicString(propertyName), namedItems);
     return !namedItems.isEmpty();
 }
 
-JSValue JSHTMLAllCollection::nameGetter(ExecState* exec, const Identifier& propertyName, const PropertySlot& slot)
+JSValue JSHTMLAllCollection::nameGetter(ExecState* exec, JSValue slotBase, const Identifier& propertyName)
 {
-    JSHTMLAllCollection* thisObj = static_cast<JSHTMLAllCollection*>(asObject(slot.slotBase()));
+    JSHTMLAllCollection* thisObj = static_cast<JSHTMLAllCollection*>(asObject(slotBase));
     return getNamedItems(exec, thisObj, propertyName);
 }
 

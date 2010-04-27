@@ -117,12 +117,17 @@ devtools.DebuggerAgent = function()
      */
     this.urlToBreakpoints_ = {};
 
-
     /**
      * Exception message that is shown to user while on exception break.
      * @type {WebInspector.ConsoleMessage}
      */
     this.currentExceptionMessage_ = null;
+
+    /**
+     * Whether breakpoints should suspend execution.
+     * @type {boolean}
+     */
+    this.breakpointsActivated_ = true;
 };
 
 
@@ -176,7 +181,7 @@ devtools.DebuggerAgent.prototype.initUI = function()
         // pending addition into the UI.
         for (var scriptId in this.parsedScripts_) {
           var script = this.parsedScripts_[scriptId];
-          WebInspector.parsedScriptSource(scriptId, script.getUrl(), undefined /* script source */, script.getLineOffset());
+          WebInspector.parsedScriptSource(scriptId, script.getUrl(), undefined /* script source */, script.getLineOffset() + 1);
         }
         return;
     }
@@ -210,11 +215,14 @@ devtools.DebuggerAgent.prototype.resolveScriptSource = function(scriptId, callba
     // Force v8 execution so that it gets to processing the requested command.
     RemoteDebuggerAgent.processDebugCommands();
 
+    var self = this;
     this.requestSeqToCallback_[cmd.getSequenceNumber()] = function(msg) {
         if (msg.isSuccess()) {
             var scriptJson = msg.getBody()[0];
-            if (scriptJson)
+            if (scriptJson) {
+                script.source = scriptJson.source;
                 callback(scriptJson.source);
+            }
             else
                 callback(null);
         } else
@@ -295,6 +303,36 @@ devtools.DebuggerAgent.prototype.addBreakpoint = function(sourceId, line, condit
 
 
 /**
+ * Changes given line of the script. 
+ */
+devtools.DebuggerAgent.prototype.editScriptLine = function(sourceId, line, newContent, callback)
+{
+    var script = this.parsedScripts_[sourceId];
+    if (!script || !script.source)
+        return;
+
+    var lines = script.source.split("\n");
+    lines[line] = newContent;
+
+    var commandArguments = {
+        "script_id": sourceId,
+        "new_source": lines.join("\n")
+    };
+
+    var cmd = new devtools.DebugCommand("changelive", commandArguments);
+    devtools.DebuggerAgent.sendCommand_(cmd);
+    this.requestSeqToCallback_[cmd.getSequenceNumber()] = function(msg) {
+        if (!msg.isSuccess())
+            WebInspector.log("Unable to modify source code within given scope. Only function bodies are editable at the moment.", WebInspector.ConsoleMessage.MessageLevel.Warning);
+        this.resolveScriptSource(sourceId, callback);
+        if (WebInspector.panels.scripts.paused)
+            this.requestBacktrace_();
+    }.bind(this);
+    RemoteDebuggerAgent.processDebugCommands();
+};
+
+
+/**
  * @param {number} sourceId Id of the script for the breakpoint.
  * @param {number} line Number of the line for the breakpoint.
  */
@@ -309,6 +347,8 @@ devtools.DebuggerAgent.prototype.removeBreakpoint = function(sourceId, line)
     var breakpointInfo;
     if (script.getUrl()) {
         var breakpoints = this.urlToBreakpoints_[script.getUrl()];
+        if (!breakpoints)
+            return;
         breakpointInfo = breakpoints[line];
         delete breakpoints[line];
     } else {
@@ -334,34 +374,11 @@ devtools.DebuggerAgent.prototype.removeBreakpoint = function(sourceId, line)
 
 
 /**
- * @param {number} sourceId Id of the script for the breakpoint.
- * @param {number} line Number of the line for the breakpoint.
- * @param {?string} condition New breakpoint condition.
+ * @param {boolean} activated Whether breakpoints should be activated.
  */
-devtools.DebuggerAgent.prototype.updateBreakpoint = function(sourceId, line, condition)
+devtools.DebuggerAgent.prototype.setBreakpointsActivated = function(activated)
 {
-    var script = this.parsedScripts_[sourceId];
-    if (!script)
-        return;
-
-    line = devtools.DebuggerAgent.webkitToV8LineNumber_(line);
-
-    var breakpointInfo;
-    if (script.getUrl()) {
-        var breakpoints = this.urlToBreakpoints_[script.getUrl()];
-        breakpointInfo = breakpoints[line];
-    } else
-        breakpointInfo = script.getBreakpointInfo(line);
-
-    var id = breakpointInfo.getV8Id();
-
-    // If we don't know id of this breakpoint in the v8 debugger we cannot send
-    // the "changebreakpoint" request.
-    if (id !== -1) {
-        // TODO(apavlov): make use of the real values for "enabled" and
-        // "ignoreCount" when appropriate.
-        this.requestChangeBreakpoint_(id, true, condition, null);
-    }
+    this.breakpointsActivated_ = activated;
 };
 
 
@@ -663,25 +680,6 @@ devtools.DebuggerAgent.prototype.requestClearBreakpoint_ = function(breakpointId
 
 
 /**
- * Changes breakpoint parameters in the v8 debugger.
- * @param {number} breakpointId Id of the breakpoint in the v8 debugger.
- * @param {boolean} enabled Whether to enable the breakpoint.
- * @param {?string} condition New breakpoint condition.
- * @param {number} ignoreCount New ignore count for the breakpoint.
- */
-devtools.DebuggerAgent.prototype.requestChangeBreakpoint_ = function(breakpointId, enabled, condition, ignoreCount)
-{
-    var cmd = new devtools.DebugCommand("changebreakpoint", {
-        "breakpoint": breakpointId,
-        "enabled": enabled,
-        "condition": condition,
-        "ignoreCount": ignoreCount
-    });
-    devtools.DebuggerAgent.sendCommand_(cmd);
-};
-
-
-/**
  * Sends "backtrace" request to v8.
  */
 devtools.DebuggerAgent.prototype.requestBacktrace_ = function()
@@ -800,6 +798,8 @@ devtools.DebuggerAgent.prototype.handleDebuggerOutput_ = function(output)
             this.invokeCallbackForResponse_(msg);
         else if (msg.getCommand() === "setbreakpoint")
             this.handleSetBreakpointResponse_(msg);
+        else if (msg.getCommand() === "changelive")
+            this.invokeCallbackForResponse_(msg);
         else if (msg.getCommand() === "clearbreakpoint")
             this.handleClearBreakpointResponse_(msg);
         else if (msg.getCommand() === "backtrace")
@@ -819,7 +819,12 @@ devtools.DebuggerAgent.prototype.handleDebuggerOutput_ = function(output)
  */
 devtools.DebuggerAgent.prototype.handleBreakEvent_ = function(msg)
 {
-    // Force scrips panel to be shown first.
+    if (!this.breakpointsActivated_) {
+        this.resumeExecution();
+        return;
+    }
+
+    // Force scripts panel to be shown first.
     WebInspector.currentPanel = WebInspector.panels.scripts;
 
     var body = msg.getBody();
@@ -834,9 +839,6 @@ devtools.DebuggerAgent.prototype.handleBreakEvent_ = function(msg)
  */
 devtools.DebuggerAgent.prototype.handleExceptionEvent_ = function(msg)
 {
-    // Force scrips panel to be shown first.
-    WebInspector.currentPanel = WebInspector.panels.scripts;
-
     var body = msg.getBody();
     // No script field in the body means that v8 failed to parse the script. We
     // resume execution on parser errors automatically.
@@ -844,6 +846,9 @@ devtools.DebuggerAgent.prototype.handleExceptionEvent_ = function(msg)
         var line = devtools.DebuggerAgent.v8ToWwebkitLineNumber_(body.sourceLine);
         this.createExceptionMessage_(body.script.name, line, body.exception.text);
         this.requestBacktrace_();
+
+        // Force scripts panel to be shown.
+        WebInspector.currentPanel = WebInspector.panels.scripts;
     } else
         this.resumeExecution();
 };
@@ -956,7 +961,7 @@ devtools.DebuggerAgent.prototype.addScriptInfo_ = function(script, msg)
     this.parsedScripts_[script.id] = new devtools.ScriptInfo(script.id, script.name, script.lineOffset, contextType);
     if (this.scriptsPanelInitialized_) {
         // Only report script as parsed after scripts panel has been shown.
-        WebInspector.parsedScriptSource(script.id, script.name, script.source, script.lineOffset);
+        WebInspector.parsedScriptSource(script.id, script.name, script.source, script.lineOffset + 1);
     }
 };
 
@@ -994,7 +999,7 @@ devtools.DebuggerAgent.prototype.doHandleBacktraceResponse_ = function(msg)
         this.callFrames_.push(this.formatCallFrame_(frames[i]));
     WebInspector.pausedScript(this.callFrames_);
     this.showPendingExceptionMessage_();
-    InspectorFrontendHost.activateWindow();
+    InspectorFrontendHost.bringToFront();
 };
 
 

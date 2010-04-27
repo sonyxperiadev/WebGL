@@ -40,7 +40,6 @@ using namespace WTF;
 
 namespace JSC { namespace Yarr {
 
-
 class RegexGenerator : private MacroAssembler {
     friend void jitCompileRegex(JSGlobalData* globalData, RegexCodeBlock& jitObject, const UString& pattern, unsigned& numSubpatterns, const char*& error, bool ignoreCase, bool multiline);
 
@@ -54,6 +53,16 @@ class RegexGenerator : private MacroAssembler {
     static const RegisterID regT1 = ARMRegisters::r6;
 
     static const RegisterID returnRegister = ARMRegisters::r0;
+#elif CPU(MIPS)
+    static const RegisterID input = MIPSRegisters::a0;
+    static const RegisterID index = MIPSRegisters::a1;
+    static const RegisterID length = MIPSRegisters::a2;
+    static const RegisterID output = MIPSRegisters::a3;
+
+    static const RegisterID regT0 = MIPSRegisters::t4;
+    static const RegisterID regT1 = MIPSRegisters::t5;
+
+    static const RegisterID returnRegister = MIPSRegisters::v0;
 #elif CPU(X86)
     static const RegisterID input = X86Registers::eax;
     static const RegisterID index = X86Registers::edx;
@@ -145,6 +154,11 @@ class RegexGenerator : private MacroAssembler {
 
     void matchCharacterClass(RegisterID character, JumpList& matchDest, const CharacterClass* charClass)
     {
+        if (charClass->m_table) {
+            ExtendedAddress tableEntry(character, reinterpret_cast<intptr_t>(charClass->m_table->m_table));
+            matchDest.append(branchTest8(charClass->m_table->m_inverted ? Zero : NonZero, tableEntry));   
+            return;
+        }
         Jump unicodeFail;
         if (charClass->m_matchesUnicode.size() || charClass->m_rangesUnicode.size()) {
             Jump isAscii = branch32(LessThanOrEqual, character, Imm32(0x7f));
@@ -599,9 +613,14 @@ class RegexGenerator : private MacroAssembler {
             ASSERT(!m_pattern.m_ignoreCase || (Unicode::toLower(ch) == Unicode::toUpper(ch)));
             failures.append(jumpIfCharNotEquals(ch, state.inputOffset()));
         }
+
         add32(Imm32(1), countRegister);
         add32(Imm32(1), index);
-        branch32(NotEqual, countRegister, Imm32(term.quantityCount)).linkTo(loop, this);
+        if (term.quantityCount != 0xffffffff)
+            branch32(NotEqual, countRegister, Imm32(term.quantityCount)).linkTo(loop, this);
+        else
+            jump(loop);
+
         failures.append(jump());
 
         Label backtrackBegin(this);
@@ -636,7 +655,8 @@ class RegexGenerator : private MacroAssembler {
         loadFromFrame(term.frameLocation, countRegister);
 
         atEndOfInput().linkTo(hardFail, this);
-        branch32(Equal, countRegister, Imm32(term.quantityCount), hardFail);
+        if (term.quantityCount != 0xffffffff)
+            branch32(Equal, countRegister, Imm32(term.quantityCount), hardFail);
         if (m_pattern.m_ignoreCase && isASCIIAlpha(ch)) {
             readCharacter(state.inputOffset(), character);
             or32(Imm32(32), character);
@@ -722,7 +742,11 @@ class RegexGenerator : private MacroAssembler {
 
         add32(Imm32(1), countRegister);
         add32(Imm32(1), index);
-        branch32(NotEqual, countRegister, Imm32(term.quantityCount)).linkTo(loop, this);
+        if (term.quantityCount != 0xffffffff)
+            branch32(NotEqual, countRegister, Imm32(term.quantityCount)).linkTo(loop, this);
+        else
+            jump(loop);
+
         failures.append(jump());
 
         Label backtrackBegin(this);
@@ -1078,17 +1102,15 @@ class RegexGenerator : private MacroAssembler {
             break;
 
         case PatternTerm::TypeBackReference:
-            m_generationFailed = true;
+            ASSERT_NOT_REACHED();
             break;
 
         case PatternTerm::TypeForwardReference:
             break;
 
         case PatternTerm::TypeParenthesesSubpattern:
-            if ((term.quantityCount == 1) && !term.parentheses.isCopy)
-                generateParenthesesSingle(state);
-            else
-                m_generationFailed = true;
+            ASSERT((term.quantityCount == 1) && !term.parentheses.isCopy); // must fallback to pcre before this point
+            generateParenthesesSingle(state);
             break;
 
         case PatternTerm::TypeParentheticalAssertion:
@@ -1313,6 +1335,8 @@ class RegexGenerator : private MacroAssembler {
         push(ARMRegisters::r5);
         push(ARMRegisters::r6);
         move(ARMRegisters::r3, output);
+#elif CPU(MIPS)
+        // Do nothing.
 #endif
     }
 
@@ -1330,6 +1354,8 @@ class RegexGenerator : private MacroAssembler {
         pop(ARMRegisters::r6);
         pop(ARMRegisters::r5);
         pop(ARMRegisters::r4);
+#elif CPU(MIPS)
+        // Do nothing
 #endif
         ret();
     }
@@ -1337,7 +1363,6 @@ class RegexGenerator : private MacroAssembler {
 public:
     RegexGenerator(RegexPattern& pattern)
         : m_pattern(pattern)
-        , m_generationFailed(false)
     {
     }
 
@@ -1367,15 +1392,9 @@ public:
         jitObject.set(patchBuffer.finalizeCode());
     }
 
-    bool generationFailed()
-    {
-        return m_generationFailed;
-    }
-
 private:
     RegexPattern& m_pattern;
     Vector<AlternativeBacktrackRecord> m_backtrackRecords;
-    bool m_generationFailed;
 };
 
 void jitCompileRegex(JSGlobalData* globalData, RegexCodeBlock& jitObject, const UString& patternString, unsigned& numSubpatterns, const char*& error, bool ignoreCase, bool multiline)
@@ -1387,13 +1406,13 @@ void jitCompileRegex(JSGlobalData* globalData, RegexCodeBlock& jitObject, const 
 
     numSubpatterns = pattern.m_numSubpatterns;
 
-    RegexGenerator generator(pattern);
-    generator.compile(globalData, jitObject);
-
-    if (generator.generationFailed()) {
+    if (pattern.m_shouldFallBack) {
         JSRegExpIgnoreCaseOption ignoreCaseOption = ignoreCase ? JSRegExpIgnoreCase : JSRegExpDoNotIgnoreCase;
         JSRegExpMultilineOption multilineOption = multiline ? JSRegExpMultiline : JSRegExpSingleLine;
         jitObject.setFallback(jsRegExpCompile(reinterpret_cast<const UChar*>(patternString.data()), patternString.size(), ignoreCaseOption, multilineOption, &numSubpatterns, &error));
+    } else {
+        RegexGenerator generator(pattern);
+        generator.compile(globalData, jitObject);
     }
 }
 

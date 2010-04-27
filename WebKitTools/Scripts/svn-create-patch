@@ -56,12 +56,14 @@ use Time::gmtime;
 use VCSUtils;
 
 sub binarycmp($$);
+sub diffOptionsForFile($);
 sub findBaseUrl($);
 sub findMimeType($;$);
 sub findModificationType($);
 sub findSourceFileAndRevision($);
 sub generateDiff($$);
 sub generateFileList($\%);
+sub hunkHeaderLineRegExForFile($);
 sub isBinaryMimeType($);
 sub manufacturePatchForAdditionWithHistory($);
 sub numericcmp($$);
@@ -99,9 +101,16 @@ for my $path (keys %paths) {
 my $svnRoot = determineSVNRoot();
 my $prefix = chdirReturningRelativePath($svnRoot);
 
+my $patchSize = 0;
+
 # Generate the diffs, in a order chosen for easy reviewing.
 for my $path (sort patchpathcmp values %diffFiles) {
-    generateDiff($path, $prefix);
+    $patchSize += generateDiff($path, $prefix);
+}
+
+if ($patchSize > 20480) {
+    print STDERR "WARNING: Patch's size is " . int($patchSize/1024) . " kbytes.\n";
+    print STDERR "Patches 20k or smaller are more likely to be reviewed. Larger patches may sit unreviewed for a long time.\n";
 }
 
 exit 0;
@@ -128,6 +137,19 @@ sub binarycmp($$)
 {
     my ($fileDataA, $fileDataB) = @_;
     return $fileDataA->{isBinary} <=> $fileDataB->{isBinary};
+}
+
+sub diffOptionsForFile($)
+{
+    my ($file) = @_;
+
+    my $options = "uaNp";
+
+    if (my $hunkHeaderLineRegEx = hunkHeaderLineRegExForFile($file)) {
+        $options .= "F'$hunkHeaderLineRegEx'";
+    }
+
+    return $options;
 }
 
 sub findBaseUrl($)
@@ -196,24 +218,27 @@ sub generateDiff($$)
     my $file = File::Spec->catdir($prefix, $fileData->{path});
     
     if ($ignoreChangelogs && basename($file) eq "ChangeLog") {
-        return;
+        return 0;
     }
     
-    my $patch;
+    my $patch = "";
     if ($fileData->{modificationType} eq "additionWithHistory") {
         manufacturePatchForAdditionWithHistory($fileData);
     }
-    open DIFF, "svn diff --diff-cmd diff -x -uaNp '$file' |" or die;
+
+    my $diffOptions = diffOptionsForFile($file);
+    open DIFF, "svn diff --diff-cmd diff -x -$diffOptions '$file' |" or die;
     while (<DIFF>) {
         $patch .= $_;
     }
     close DIFF;
     $patch = fixChangeLogPatch($patch) if basename($file) eq "ChangeLog";
-    print $patch if $patch;
+    print $patch;
     if ($fileData->{isBinary}) {
         print "\n" if ($patch && $patch =~ m/\n\S+$/m);
         outputBinaryContent($file);
     }
+    return length($patch);
 }
 
 sub generateFileList($\%)
@@ -250,6 +275,15 @@ sub generateFileList($\%)
         }
     }
     close STAT;
+}
+
+sub hunkHeaderLineRegExForFile($)
+{
+    my ($file) = @_;
+
+    my $startOfObjCInterfaceRegEx = "@(implementation\\|interface\\|protocol)";
+    return "^[-+]\\|$startOfObjCInterfaceRegEx" if $file =~ /\.mm?$/;
+    return "^$startOfObjCInterfaceRegEx" if $file =~ /^(.*\/)?(mac|objc)\// && $file =~ /\.h$/;
 }
 
 sub isBinaryMimeType($)

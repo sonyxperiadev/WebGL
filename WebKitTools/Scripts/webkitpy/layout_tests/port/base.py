@@ -36,27 +36,49 @@ import errno
 import os
 import subprocess
 import sys
+import time
 
 import apache_http_server
 import http_server
 import websocket_server
 
+from webkitpy.common.system import logutils
+from webkitpy.common.system.executive import Executive, ScriptError
+
+
+_log = logutils.get_logger(__file__)
+
+
 # Python bug workaround.  See Port.wdiff_text() for an explanation.
 _wdiff_available = True
-
+_pretty_patch_available = True
 
 # FIXME: This class should merge with webkitpy.webkit_port at some point.
 class Port(object):
     """Abstract class for Port-specific hooks for the layout_test package.
     """
 
-    def __init__(self, port_name=None, options=None):
+    @staticmethod
+    def flag_from_configuration(configuration):
+        flags_by_configuration = {
+            "Debug": "--debug",
+            "Release": "--release",
+        }
+        return flags_by_configuration[configuration]
+
+    def __init__(self, port_name=None, options=None, executive=Executive()):
         self._name = port_name
         self._options = options
         self._helper = None
         self._http_server = None
         self._webkit_base_dir = None
         self._websocket_server = None
+        self._executive = executive
+
+    def default_child_processes(self):
+        """Return the number of DumpRenderTree instances to use for this
+        port."""
+        return self._executive.cpu_count()
 
     def baseline_path(self):
         """Return the absolute path to the directory to store new baselines
@@ -68,38 +90,53 @@ class Port(object):
         baselines. The directories are searched in order."""
         raise NotImplementedError('Port.baseline_search_path')
 
-    def check_sys_deps(self):
+    def check_build(self, needs_http):
+        """This routine is used to ensure that the build is up to date
+        and all the needed binaries are present."""
+        raise NotImplementedError('Port.check_build')
+
+    def check_sys_deps(self, needs_http):
         """If the port needs to do some runtime checks to ensure that the
-        tests can be run successfully, they should be done here.
+        tests can be run successfully, it should override this routine.
+        This step can be skipped with --nocheck-sys-deps.
 
         Returns whether the system is properly configured."""
-        raise NotImplementedError('Port.check_sys_deps')
+        return True
 
-    def compare_text(self, actual_text, expected_text):
+    def check_image_diff(self, override_step=None, logging=True):
+        """This routine is used to check whether image_diff binary exists."""
+        raise NotImplemented('Port.check_image_diff')
+
+    def compare_text(self, expected_text, actual_text):
         """Return whether or not the two strings are *not* equal. This
         routine is used to diff text output.
 
         While this is a generic routine, we include it in the Port
         interface so that it can be overriden for testing purposes."""
-        return actual_text != expected_text
+        return expected_text != actual_text
 
-    def diff_image(self, actual_filename, expected_filename,
+    def diff_image(self, expected_filename, actual_filename,
                    diff_filename=None):
         """Compare two image files and produce a delta image file.
 
-        Return 1 if the two files are different, 0 if they are the same.
+        Return True if the two files are different, False if they are the same.
         Also produce a delta image of the two images and write that into
         |diff_filename| if it is not None.
 
         While this is a generic routine, we include it in the Port
         interface so that it can be overriden for testing purposes."""
         executable = self._path_to_image_diff()
-        cmd = [executable, '--diff', actual_filename, expected_filename]
+
         if diff_filename:
-            cmd.append(diff_filename)
-        result = 1
+            cmd = [executable, '--diff', expected_filename, actual_filename,
+                   diff_filename]
+        else:
+            cmd = [executable, expected_filename, actual_filename]
+
+        result = True
         try:
-            result = subprocess.call(cmd)
+            if subprocess.call(cmd) == 0:
+                return False
         except OSError, e:
             if e.errno == errno.ENOENT or e.errno == errno.EACCES:
                 _compare_available = False
@@ -111,8 +148,8 @@ class Port(object):
             pass
         return result
 
-    def diff_text(self, actual_text, expected_text,
-                  actual_filename, expected_filename):
+    def diff_text(self, expected_text, actual_text,
+                  expected_filename, actual_filename):
         """Returns a string containing the diff of the two text strings
         in 'unified diff' format.
 
@@ -123,6 +160,13 @@ class Port(object):
                                     expected_filename,
                                     actual_filename)
         return ''.join(diff)
+
+    def driver_name(self):
+        """Returns the name of the actual binary that is performing the test,
+        so that it can be referred to in log messages. In most cases this
+        will be DumpRenderTree, but if a port uses a binary with a different
+        name, it can be overridden here."""
+        return "DumpRenderTree"
 
     def expected_baselines(self, filename, suffix, all_baselines=False):
         """Given a test name, finds where the baseline results are located.
@@ -262,14 +306,7 @@ class Port(object):
         may be different (e.g., 'win-xp' instead of 'chromium-win-xp'."""
         return self._name
 
-    def num_cores(self):
-        """Return the number of cores/cpus available on this machine.
-
-        This routine is used to determine the default amount of parallelism
-        used by run-chromium-webkit-tests."""
-        raise NotImplementedError('Port.num_cores')
-
-    # FIXME: This could be replaced by functions in webkitpy.scm.
+    # FIXME: This could be replaced by functions in webkitpy.common.checkout.scm.
     def path_from_webkit_base(self, *comps):
         """Returns the full path to path made by joining the top of the
         WebKit source tree and the list of path components in |*comps|."""
@@ -288,7 +325,7 @@ class Port(object):
         This is used by the rebaselining tool. Raises NotImplementedError
         if the port does not use expectations files."""
         raise NotImplementedError('Port.path_to_test_expectations_file')
- 
+
     def remove_directory(self, *path):
         """Recursively removes a directory, even if it's marked read-only.
 
@@ -321,7 +358,7 @@ class Port(object):
                 win32 = False
 
             def remove_with_retry(rmfunc, path):
-                os.chmod(path, stat.S_IWRITE)
+                os.chmod(path, os.stat.S_IWRITE)
                 if win32:
                     win32api.SetFileAttributes(path,
                                               win32con.FILE_ATTRIBUTE_NORMAL)
@@ -381,10 +418,10 @@ class Port(object):
         raise NotImplementedError('Port.start_driver')
 
     def start_helper(self):
-        """Start a layout test helper if needed on this port. The test helper
-        is used to reconfigure graphics settings and do other things that
-        may be necessary to ensure a known test configuration."""
-        raise NotImplementedError('Port.start_helper')
+        """If a port needs to reconfigure graphics settings or do other
+        things to ensure a known test configuration, it should override this
+        method."""
+        pass
 
     def start_http_server(self):
         """Start a web server if it is available. Do nothing if
@@ -408,8 +445,9 @@ class Port(object):
 
     def stop_helper(self):
         """Shut down the test helper if it is running. Do nothing if
-        it isn't, or it isn't available."""
-        raise NotImplementedError('Port.stop_helper')
+        it isn't, or it isn't available. If a port overrides start_helper()
+        it must override this routine as well."""
+        pass
 
     def stop_http_server(self):
         """Shut down the http server if it is running. Do nothing if
@@ -429,6 +467,15 @@ class Port(object):
         Basically this string should contain the equivalent of a
         test_expectations file. See test_expectations.py for more details."""
         raise NotImplementedError('Port.test_expectations')
+
+    def test_expectations_overrides(self):
+        """Returns an optional set of overrides for the test_expectations.
+
+        This is used by ports that have code in two repositories, and where
+        it is possible that you might need "downstream" expectations that
+        temporarily override the "upstream" expectations until the port can
+        sync up the two repos."""
+        return None
 
     def test_base_platform_names(self):
         """Return a list of the 'base' platforms on your port. The base
@@ -458,6 +505,12 @@ class Port(object):
         might return 'mac' as a test_platform name'."""
         raise NotImplementedError('Port.platforms')
 
+    def test_platform_name_to_name(self, test_platform_name):
+        """Returns the Port platform name that corresponds to the name as
+        referenced in the expectations file. E.g., "mac" returns
+        "chromium-mac" on the Chromium ports."""
+        raise NotImplementedError('Port.test_platform_name_to_name')
+
     def version(self):
         """Returns a string indicating the version of a given platform, e.g.
         '-leopard' or '-xp'.
@@ -476,8 +529,9 @@ class Port(object):
                '--end-delete=##WDIFF_END##',
                '--start-insert=##WDIFF_ADD##',
                '--end-insert=##WDIFF_END##',
-               expected_filename,
-               actual_filename]
+               actual_filename,
+               expected_filename]
+        # FIXME: Why not just check os.exists(executable) once?
         global _wdiff_available
         result = ''
         try:
@@ -500,6 +554,7 @@ class Port(object):
             # http://bugs.python.org/issue1236
             if _wdiff_available:
                 try:
+                    # FIXME: Use Executive() here.
                     wdiff = subprocess.Popen(cmd,
                         stdout=subprocess.PIPE).communicate()[0]
                 except ValueError, e:
@@ -521,19 +576,37 @@ class Port(object):
                 raise e
         return result
 
+    _pretty_patch_error_html = "Failed to run PrettyPatch, see error console."
+
+    def pretty_patch_text(self, diff_path):
+        global _pretty_patch_available
+        if not _pretty_patch_available:
+            return self._pretty_patch_error_html
+        pretty_patch_path = self.path_from_webkit_base("BugsSite", "PrettyPatch")
+        prettify_path = os.path.join(pretty_patch_path, "prettify.rb")
+        command = ["ruby", "-I", pretty_patch_path, prettify_path, diff_path]
+        try:
+            return self._executive.run_command(command)
+        except OSError, e:
+            # If the system is missing ruby log the error and stop trying.
+            _pretty_patch_available = False
+            _log.error("Failed to run PrettyPatch (%s): %s" % (command, e))
+            return self._pretty_patch_error_html
+        except ScriptError, e:
+            # If ruby failed to run for some reason, log the command output and stop trying.
+            _pretty_patch_available = False
+            _log.error("Failed to run PrettyPatch (%s):\n%s" % (command, e.message_with_output()))
+            return self._pretty_patch_error_html
+
+    def default_configuration(self):
+        return "Release"
+
     #
     # PROTECTED ROUTINES
     #
     # The routines below should only be called by routines in this class
     # or any of its subclasses.
     #
-
-    def _kill_process(self, pid):
-        """Forcefully kill a process.
-
-        This routine should not be used or needed generically, but can be
-        used in helper files like http_server.py."""
-        raise NotImplementedError('Port.kill_process')
 
     def _path_to_apache(self):
         """Returns the full path to the apache binary.
@@ -547,7 +620,7 @@ class Port(object):
         This is needed only by ports that use the apache_http_server module."""
         raise NotImplementedError('Port.path_to_apache_config_file')
 
-    def _path_to_driver(self):
+    def _path_to_driver(self, configuration=None):
         """Returns the full path to the test driver (DumpRenderTree)."""
         raise NotImplementedError('Port.path_to_driver')
 

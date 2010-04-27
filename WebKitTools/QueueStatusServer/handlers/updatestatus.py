@@ -30,22 +30,13 @@ from google.appengine.api import users
 from google.appengine.ext import webapp, db
 from google.appengine.ext.webapp import template
 
+from handlers.updatebase import UpdateBase
 from model.attachment import Attachment
 from model.queuestatus import QueueStatus
 
-
-class UpdateStatus(webapp.RequestHandler):
+class UpdateStatus(UpdateBase):
     def get(self):
         self.response.out.write(template.render("templates/updatestatus.html", None))
-
-    def _int_from_request(self, name):
-        string_value = self.request.get(name)
-        try:
-            int_value = int(string_value)
-            return int_value
-        except ValueError, TypeError:
-            pass
-        return None
 
     def post(self):
         queue_status = QueueStatus()

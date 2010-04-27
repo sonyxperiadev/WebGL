@@ -38,6 +38,8 @@ import sys
 
 import http_server_base
 
+_log = logging.getLogger("webkitpy.layout_tests.port.apache_http_server")
+
 
 class LayoutTestApacheHttpd(http_server_base.HttpServerBase):
 
@@ -77,14 +79,15 @@ class LayoutTestApacheHttpd(http_server_base.HttpServerBase):
         error_log = self._cygwin_safe_join(output_dir, "error_log.txt")
         document_root = self._cygwin_safe_join(test_dir, "http", "tests")
 
+        # FIXME: We shouldn't be calling a protected method of _port_obj!
         executable = self._port_obj._path_to_apache()
         if self._is_cygwin():
             executable = self._get_cygwin_path(executable)
 
         cmd = [executable,
-            '-f', self._get_apache_config_file_path(test_dir, output_dir),
-            '-C', "\'DocumentRoot %s\'" % document_root,
-            '-c', "\'Alias /js-test-resources %s\'" % js_test_resources_dir,
+            '-f', "\"%s\"" % self._get_apache_config_file_path(test_dir, output_dir),
+            '-C', "\'DocumentRoot \"%s\"\'" % document_root,
+            '-c', "\'Alias /js-test-resources \"%s\"'" % js_test_resources_dir,
             '-C', "\'Listen %s\'" % "127.0.0.1:8000",
             '-C', "\'Listen %s\'" % "127.0.0.1:8081",
             '-c', "\'TypesConfig \"%s\"\'" % mime_types_path,
@@ -174,7 +177,7 @@ class LayoutTestApacheHttpd(http_server_base.HttpServerBase):
         It will listen to 127.0.0.1 on each of the given port.
         """
         return '\n'.join(('<VirtualHost 127.0.0.1:%s>' % port,
-                          'DocumentRoot %s' % document_root,
+                          'DocumentRoot "%s"' % document_root,
                           ssl and 'SSLEngine On' or '',
                           '</VirtualHost>', ''))
 
@@ -188,7 +191,7 @@ class LayoutTestApacheHttpd(http_server_base.HttpServerBase):
             shell=True)
         err = self._httpd_proc.stderr.read()
         if len(err):
-            logging.debug(err)
+            _log.debug(err)
             return False
         return True
 
@@ -197,22 +200,23 @@ class LayoutTestApacheHttpd(http_server_base.HttpServerBase):
         # Stop any currently running servers.
         self.stop()
 
-        logging.debug("Starting apache http server")
+        _log.debug("Starting apache http server")
         server_started = self.wait_for_action(self._start_httpd_process)
         if server_started:
-            logging.debug("Apache started. Testing ports")
+            _log.debug("Apache started. Testing ports")
             server_started = self.wait_for_action(
                 self.is_server_running_on_all_ports)
 
         if server_started:
-            logging.debug("Server successfully started")
+            _log.debug("Server successfully started")
         else:
             raise Exception('Failed to start http server')
 
     def stop(self):
         """Stops the apache http server."""
-        logging.debug("Shutting down any running http servers")
+        _log.debug("Shutting down any running http servers")
         httpd_pid = None
         if os.path.exists(self._pid_file):
             httpd_pid = int(open(self._pid_file).readline())
+        # FIXME: We shouldn't be calling a protected method of _port_obj!
         self._port_obj._shut_down_http_server(httpd_pid)

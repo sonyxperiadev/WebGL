@@ -32,7 +32,6 @@
 #include "AuthenticationCF.h"
 #include "AuthenticationChallenge.h"
 #include "Base64.h"
-#include "CString.h"
 #include "CookieStorageWin.h"
 #include "CredentialStorage.h"
 #include "DocLoader.h"
@@ -44,16 +43,24 @@
 #include "MIMETypeRegistry.h"
 #include "ResourceError.h"
 #include "ResourceResponse.h"
-
-#include <wtf/HashMap.h>
-#include <wtf/Threading.h>
-
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <process.h> // for _beginthread()
-
+#include "SharedBuffer.h"
 #include <CFNetwork/CFNetwork.h>
 #include <WebKitSystemInterface/WebKitSystemInterface.h>
+#include <process.h> // for _beginthread()
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <wtf/HashMap.h>
+#include <wtf/Threading.h>
+#include <wtf/text/CString.h>
+
+// FIXME: Remove this declaration once it's in WebKitSupportLibrary.
+extern "C" {
+__declspec(dllimport) CFURLConnectionRef CFURLConnectionCreateWithProperties(
+  CFAllocatorRef           alloc,
+  CFURLRequestRef          request,
+  CFURLConnectionClient *  client,
+  CFDictionaryRef properties);
+}
 
 namespace WebCore {
 
@@ -136,11 +143,11 @@ CFURLRequestRef willSendRequest(CFURLConnectionRef conn, CFURLRequestRef cfReque
     if (cfRedirectResponse) {
         CFHTTPMessageRef httpMessage = CFURLResponseGetHTTPResponse(cfRedirectResponse);
         if (httpMessage && CFHTTPMessageGetResponseStatusCode(httpMessage) == 307) {
-            RetainPtr<CFStringRef> originalMethod(AdoptCF, handle->request().httpMethod().createCFString());
+            RetainPtr<CFStringRef> lastHTTPMethod(AdoptCF, handle->lastHTTPMethod().createCFString());
             RetainPtr<CFStringRef> newMethod(AdoptCF, CFURLRequestCopyHTTPRequestMethod(cfRequest));
-            if (CFStringCompareWithOptions(originalMethod.get(), newMethod.get(), CFRangeMake(0, CFStringGetLength(originalMethod.get())), kCFCompareCaseInsensitive)) {
+            if (CFStringCompareWithOptions(lastHTTPMethod.get(), newMethod.get(), CFRangeMake(0, CFStringGetLength(lastHTTPMethod.get())), kCFCompareCaseInsensitive)) {
                 RetainPtr<CFMutableURLRequestRef> mutableRequest(AdoptCF, CFURLRequestCreateMutableCopy(0, cfRequest));
-                CFURLRequestSetHTTPRequestMethod(mutableRequest.get(), originalMethod.get());
+                CFURLRequestSetHTTPRequestMethod(mutableRequest.get(), lastHTTPMethod.get());
 
                 FormData* body = handle->request().httpBody();
                 if (!equalIgnoringCase(handle->request().httpMethod(), "GET") && body && !body->isEmpty())
@@ -352,10 +359,35 @@ static CFURLRequestRef makeFinalRequest(const ResourceRequest& request, bool sho
 
     if (CFHTTPCookieStorageRef cookieStorage = currentCookieStorage()) {
         CFURLRequestSetHTTPCookieStorage(newRequest, cookieStorage);
-        CFURLRequestSetHTTPCookieStorageAcceptPolicy(newRequest, CFHTTPCookieStorageGetCookieAcceptPolicy(cookieStorage));
+        CFHTTPCookieStorageAcceptPolicy policy = CFHTTPCookieStorageGetCookieAcceptPolicy(cookieStorage);
+        CFURLRequestSetHTTPCookieStorageAcceptPolicy(newRequest, policy);
+
+        // If a URL already has cookies, then we'll relax the 3rd party cookie policy and accept new cookies.
+        if (policy == CFHTTPCookieStorageAcceptPolicyOnlyFromMainDocumentDomain) {
+            CFURLRef url = CFURLRequestGetURL(newRequest);
+            RetainPtr<CFArrayRef> cookies(AdoptCF, CFHTTPCookieStorageCopyCookiesForURL(cookieStorage, url, false));
+            if (CFArrayGetCount(cookies.get()))
+                CFURLRequestSetMainDocumentURL(newRequest, url);
+        }
     }
 
     return newRequest;
+}
+
+static CFDictionaryRef createConnectionProperties(bool shouldUseCredentialStorage)
+{
+    static const CFStringRef webKitPrivateSessionCF = CFSTR("WebKitPrivateSession");
+    static const CFStringRef _kCFURLConnectionSessionID = CFSTR("_kCFURLConnectionSessionID");
+    static const CFStringRef kCFURLConnectionSocketStreamProperties = CFSTR("kCFURLConnectionSocketStreamProperties");
+
+    CFDictionaryRef sessionID = shouldUseCredentialStorage ?
+        CFDictionaryCreate(0, 0, 0, 0, 0, 0) :
+        CFDictionaryCreate(0, (const void**)&_kCFURLConnectionSessionID, (const void**)&webKitPrivateSessionCF, 1, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+
+    CFDictionaryRef propertiesDictionary = CFDictionaryCreate(0, (const void**)&kCFURLConnectionSocketStreamProperties, (const void**)&sessionID, 1, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+
+    CFRelease(sessionID);
+    return propertiesDictionary;
 }
 
 bool ResourceHandle::start(Frame* frame)
@@ -373,9 +405,11 @@ bool ResourceHandle::start(Frame* frame)
         d->m_request.setURL(urlWithCredentials);
     }
 
+    bool shouldUseCredentialStorage = !client() || client()->shouldUseCredentialStorage(this);
+
     // <rdar://problem/7174050> - For URLs that match the paths of those previously challenged for HTTP Basic authentication, 
     // try and reuse the credential preemptively, as allowed by RFC 2617.
-    if (!client() || client()->shouldUseCredentialStorage(this) && d->m_request.url().protocolInHTTPFamily()) {
+    if (shouldUseCredentialStorage && d->m_request.url().protocolInHTTPFamily()) {
         if (d->m_user.isEmpty() && d->m_pass.isEmpty()) {
             // <rdar://problem/7174050> - For URLs that match the paths of those previously challenged for HTTP Basic authentication, 
             // try and reuse the credential preemptively, as allowed by RFC 2617.
@@ -397,7 +431,9 @@ bool ResourceHandle::start(Frame* frame)
 
     CFURLConnectionClient_V3 client = { 3, this, 0, 0, 0, WebCore::willSendRequest, didReceiveResponse, didReceiveData, NULL, didFinishLoading, didFail, willCacheResponse, didReceiveChallenge, didSendBodyData, shouldUseCredentialStorageCallback, 0};
 
-    d->m_connection.adoptCF(CFURLConnectionCreate(0, request.get(), reinterpret_cast<CFURLConnectionClient*>(&client)));
+    RetainPtr<CFDictionaryRef> connectionProperties(AdoptCF, createConnectionProperties(shouldUseCredentialStorage));
+
+    d->m_connection.adoptCF(CFURLConnectionCreateWithProperties(0, request.get(), reinterpret_cast<CFURLConnectionClient*>(&client), connectionProperties.get()));
 
     CFURLConnectionScheduleWithCurrentMessageQueue(d->m_connection.get());
     CFURLConnectionScheduleDownloadWithRunLoop(d->m_connection.get(), loaderRunLoop(), kCFRunLoopDefaultMode);
@@ -432,6 +468,7 @@ void ResourceHandle::willSendRequest(ResourceRequest& request, const ResourceRes
     const KURL& url = request.url();
     d->m_user = url.user();
     d->m_pass = url.pass();
+    d->m_lastHTTPMethod = request.httpMethod();
     request.removeCredentials();
 
     client()->willSendRequest(this, request, redirectResponse);
@@ -763,7 +800,10 @@ RetainPtr<CFDataRef> WebCoreSynchronousLoader::load(const ResourceRequest& reque
     }
 
     CFURLConnectionClient_V3 client = { 3, &loader, 0, 0, 0, willSendRequest, didReceiveResponse, didReceiveData, 0, didFinishLoading, didFail, 0, didReceiveChallenge, 0, shouldUseCredentialStorage, 0 };
-    RetainPtr<CFURLConnectionRef> connection(AdoptCF, CFURLConnectionCreate(kCFAllocatorDefault, cfRequest.get(), reinterpret_cast<CFURLConnectionClient*>(&client)));
+
+    RetainPtr<CFDictionaryRef> connectionProperties(AdoptCF, createConnectionProperties(loader.m_allowStoredCredentials));
+
+    RetainPtr<CFURLConnectionRef> connection(AdoptCF, CFURLConnectionCreateWithProperties(kCFAllocatorDefault, cfRequest.get(), reinterpret_cast<CFURLConnectionClient*>(&client), connectionProperties.get()));
 
     CFURLConnectionScheduleWithRunLoop(connection.get(), CFRunLoopGetCurrent(), WebCoreSynchronousLoaderRunLoopMode);
     CFURLConnectionScheduleDownloadWithRunLoop(connection.get(), CFRunLoopGetCurrent(), WebCoreSynchronousLoaderRunLoopMode);

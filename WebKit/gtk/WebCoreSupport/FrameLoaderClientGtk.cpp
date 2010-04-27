@@ -52,7 +52,6 @@
 #include "RenderPart.h"
 #include "ResourceHandle.h"
 #include "ResourceRequest.h"
-#include "CString.h"
 #include "ProgressTracker.h"
 #include "JSDOMBinding.h"
 #include "ScriptController.h"
@@ -64,6 +63,7 @@
 #include "webkitwebnavigationaction.h"
 #include "webkitwebpolicydecision.h"
 #include "webkitwebview.h"
+#include <wtf/text/CString.h>
 
 #include <JavaScriptCore/APICast.h>
 #include <gio/gio.h>
@@ -149,7 +149,7 @@ void FrameLoaderClient::committedLoad(WebCore::DocumentLoader* loader, const cha
             encoding = loader->response().textEncodingName();
 
         FrameLoader* frameLoader = loader->frameLoader();
-        frameLoader->setEncoding(encoding, userChosen);
+        frameLoader->writer()->setEncoding(encoding, userChosen);
         if (data)
             frameLoader->addData(data, length);
 
@@ -276,8 +276,12 @@ void FrameLoaderClient::frameLoaderDestroyed()
     delete this;
 }
 
-void FrameLoaderClient::dispatchDidReceiveResponse(WebCore::DocumentLoader*, unsigned long, const ResourceResponse& response)
+void FrameLoaderClient::dispatchDidReceiveResponse(WebCore::DocumentLoader* loader, unsigned long, const ResourceResponse& response)
 {
+    // Update our knowledge of request soup flags - some are only set
+    // after the request is done.
+    loader->request().setSoupMessageFlags(response.soupMessageFlags());
+
     m_response = response;
 }
 
@@ -658,7 +662,7 @@ void FrameLoaderClient::detachedFromParent3()
 
 void FrameLoaderClient::dispatchDidHandleOnloadEvents()
 {
-    notImplemented();
+    g_signal_emit_by_name(getViewFromFrame(m_frame), "onload-event", m_frame);
 }
 
 void FrameLoaderClient::dispatchDidReceiveServerRedirectForProvisionalLoad()
@@ -784,7 +788,8 @@ void FrameLoaderClient::dispatchDidCommitLoad()
 
 void FrameLoaderClient::dispatchDidFinishDocumentLoad()
 {
-    notImplemented();
+    WebKitWebView* webView = getViewFromFrame(m_frame);
+    g_signal_emit_by_name(webView, "document-load-finished", m_frame);
 }
 
 void FrameLoaderClient::dispatchDidFirstLayout()
@@ -863,7 +868,7 @@ void FrameLoaderClient::finishedLoading(WebCore::DocumentLoader* documentLoader)
 {
     if (!m_pluginView) {
         FrameLoader* loader = documentLoader->frameLoader();
-        loader->setEncoding(m_response.textEncodingName(), false);
+        loader->writer()->setEncoding(m_response.textEncodingName(), false);
     } else {
         m_pluginView->didFinishLoading();
         m_pluginView = 0;
@@ -937,11 +942,6 @@ void FrameLoaderClient::dispatchDidFailLoading(WebCore::DocumentLoader* loader, 
 
     // FIXME: This function should notify the application that the resource failed
     // loading, maybe a 'load-error' signal in the WebKitWebResource object.
-    notImplemented();
-}
-
-void FrameLoaderClient::dispatchDidLoadResourceByXMLHttpRequest(unsigned long, const ScriptString&)
-{
     notImplemented();
 }
 

@@ -26,7 +26,6 @@
 
 #include "CSSHelper.h"
 #include "CachedCSSStyleSheet.h"
-#include "DNS.h"
 #include "DocLoader.h"
 #include "Document.h"
 #include "Frame.h"
@@ -38,6 +37,7 @@
 #include "MediaList.h"
 #include "MediaQueryEvaluator.h"
 #include "Page.h"
+#include "ResourceHandle.h"
 #include "ScriptEventListener.h"
 #include "Settings.h"
 #include <wtf/StdLibExtras.h>
@@ -201,6 +201,7 @@ void HTMLLinkElement::process()
     if (m_rel.m_isIcon && m_url.isValid() && !m_url.isEmpty())
         document()->setIconURL(m_url.string(), type);
 
+<<<<<<< HEAD
 #ifdef ANDROID_APPLE_TOUCH_ICON
     if ((m_rel.m_isTouchIcon || m_rel.m_isPrecomposedTouchIcon) && m_url.isValid()
             && !m_url.isEmpty())
@@ -211,6 +212,10 @@ void HTMLLinkElement::process()
 
     if (m_rel.m_isDNSPrefetch && m_url.isValid() && !m_url.isEmpty())
         prefetchDNS(m_url.host());
+=======
+    if (m_isDNSPrefetch && m_url.isValid() && !m_url.isEmpty())
+        ResourceHandle::prepareForURL(m_url);
+>>>>>>> webkit.org at r58033
 
 #if ENABLE(LINK_PREFETCH)
     if (m_rel.m_isLinkPrefetch && m_url.isValid()) {
@@ -231,7 +236,7 @@ void HTMLLinkElement::process()
         
         String charset = getAttribute(charsetAttr);
         if (charset.isEmpty() && document()->frame())
-            charset = document()->frame()->loader()->encoding();
+            charset = document()->frame()->loader()->writer()->encoding();
 
         if (m_cachedSheet) {
             if (m_loading)

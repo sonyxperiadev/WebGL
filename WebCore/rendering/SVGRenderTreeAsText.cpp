@@ -2,6 +2,7 @@
  * Copyright (C) 2004, 2005, 2007, 2009 Apple Inc. All rights reserved.
  *           (C) 2005 Rob Buis <buis@kde.org>
  *           (C) 2006 Alexander Kellett <lypanov@kde.org>
+ * Copyright (C) Research In Motion Limited 2010. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -34,10 +35,14 @@
 #include "HTMLNames.h"
 #include "InlineTextBox.h"
 #include "NodeRenderStyle.h"
+#include "Path.h"
 #include "RenderImage.h"
 #include "RenderPath.h"
 #include "RenderSVGContainer.h"
 #include "RenderSVGInlineText.h"
+#include "RenderSVGResourceClipper.h"
+#include "RenderSVGResourceFilter.h"
+#include "RenderSVGResourceMarker.h"
 #include "RenderSVGResourceMasker.h"
 #include "RenderSVGRoot.h"
 #include "RenderSVGText.h"
@@ -47,7 +52,6 @@
 #include "SVGPaintServerGradient.h"
 #include "SVGPaintServerPattern.h"
 #include "SVGPaintServerSolid.h"
-#include "SVGResourceClipper.h"
 #include "SVGRootInlineBox.h"
 #include "SVGStyledElement.h"
 #include <math.h>
@@ -196,6 +200,20 @@ TextStream& operator<<(TextStream& ts, const AffineTransform& transform)
     return ts;
 }
 
+static TextStream& operator<<(TextStream& ts, const WindRule rule)
+{
+    switch (rule) {
+    case RULE_NONZERO:
+        ts << "NON-ZERO";
+        break;
+    case RULE_EVENODD:
+        ts << "EVEN-ODD";
+        break;
+    }
+
+    return ts;
+}
+
 static TextStream& operator<<(TextStream& ts, const SVGUnitTypes::SVGUnitType& unitType)
 {
     switch (unitType) {
@@ -207,6 +225,23 @@ static TextStream& operator<<(TextStream& ts, const SVGUnitTypes::SVGUnitType& u
         break;
     case SVGUnitTypes::SVG_UNIT_TYPE_OBJECTBOUNDINGBOX:
         ts << "objectBoundingBox";
+        break;
+    }
+
+    return ts;
+}
+
+static TextStream& operator<<(TextStream& ts, const SVGMarkerElement::SVGMarkerUnitsType& markerUnit)
+{
+    switch (markerUnit) {
+    case SVGMarkerElement::SVG_MARKERUNITS_UNKNOWN:
+        ts << "unknown";
+        break;
+    case SVGMarkerElement::SVG_MARKERUNITS_USERSPACEONUSE:
+        ts << "userSpaceOnUse";
+        break;
+    case SVGMarkerElement::SVG_MARKERUNITS_STROKEWIDTH:
+        ts << "strokeWidth";
         break;
     }
 
@@ -316,14 +351,12 @@ static void writeStyle(TextStream& ts, const RenderObject& object)
             writeIfNotDefault(ts, "fill rule", svgStyle->fillRule(), RULE_NONZERO);
             ts << "}]";
         }
+        writeIfNotDefault(ts, "clip rule", svgStyle->clipRule(), RULE_NONZERO);
     }
 
-    if (!svgStyle->clipPath().isEmpty())
-        writeNameAndQuotedValue(ts, "clip path", svgStyle->clipPath());
-    writeIfNotEmpty(ts, "start marker", svgStyle->startMarker());
-    writeIfNotEmpty(ts, "middle marker", svgStyle->midMarker());
-    writeIfNotEmpty(ts, "end marker", svgStyle->endMarker());
-    writeIfNotEmpty(ts, "filter", svgStyle->filter());
+    writeIfNotEmpty(ts, "start marker", svgStyle->markerStartResource());
+    writeIfNotEmpty(ts, "middle marker", svgStyle->markerMidResource());
+    writeIfNotEmpty(ts, "end marker", svgStyle->markerEndResource());
 }
 
 static TextStream& writePositionAndStyle(TextStream& ts, const RenderObject& object)
@@ -496,9 +529,49 @@ void writeSVGResource(TextStream& ts, const RenderObject& object, int indent)
         ASSERT(masker);
         writeNameValuePair(ts, "maskUnits", masker->maskUnits());
         writeNameValuePair(ts, "maskContentUnits", masker->maskContentUnits());
+#if ENABLE(FILTERS)
+    } else if (resource->resourceType() == FilterResourceType) {
+        RenderSVGResourceFilter* filter = static_cast<RenderSVGResourceFilter*>(resource);
+        ASSERT(filter);
+        writeNameValuePair(ts, "filterUnits", filter->filterUnits());
+        writeNameValuePair(ts, "primitiveUnits", filter->primitiveUnits());
+        if (OwnPtr<SVGFilterBuilder> builder = filter->buildPrimitives()) {
+            ts << "\n";
+            const HashMap<AtomicString, RefPtr<FilterEffect> >& effects = builder->namedEffects();
+            HashMap<AtomicString, RefPtr<FilterEffect> >::const_iterator end = effects.end();
+            for (HashMap<AtomicString, RefPtr<FilterEffect> >::const_iterator it = effects.begin(); it != end; ++it) {
+                writeIndent(ts, indent);
+                ts << "  [primitve=\"" << it->first << "\" ";
+                it->second->externalRepresentation(ts);
+                ts << "]\n";
+            }
+            writeIndent(ts, indent);
+            // FIXME: Some effects don't give a representation back. So we miss some more informations
+            // after '[last primitive' .
+            // We also just dump named effects and the last effect at the moment, more effects
+            // without a name might be in the pipe.
+            ts << "  [last primitive ";
+            if (FilterEffect* lastEffect = builder->lastEffect())
+                lastEffect->externalRepresentation(ts);
+            ts << "]";
+        }
+#endif
+    } else if (resource->resourceType() == ClipperResourceType) {
+        RenderSVGResourceClipper* clipper = static_cast<RenderSVGResourceClipper*>(resource);
+        ASSERT(clipper);
+        writeNameValuePair(ts, "clipPathUnits", clipper->clipPathUnits());
+    } else if (resource->resourceType() == MarkerResourceType) {
+        RenderSVGResourceMarker* marker = static_cast<RenderSVGResourceMarker*>(resource);
+        ASSERT(marker);
+        writeNameValuePair(ts, "markerUnits", marker->markerUnits());
+        ts << " [ref at " << marker->referencePoint() << "]";
+        ts << " [angle=";
+        if (marker->angle() == -1)
+            ts << "auto" << "]";
+        else
+            ts << marker->angle() << "]";
     }
 
-    // FIXME: Handle other RenderSVGResource* classes here, after converting them from SVGResource*.
     ts << "\n";
     writeChildren(ts, object, indent);
 }
@@ -558,17 +631,38 @@ void writeResources(TextStream& ts, const RenderObject& object, int indent)
     const RenderStyle* style = object.style();
     const SVGRenderStyle* svgStyle = style->svgStyle();
 
-    if (!svgStyle->maskElement().isEmpty()) {
-        if (RenderSVGResourceMasker* masker = getRenderSVGResourceById<RenderSVGResourceMasker>(object.document(), svgStyle->maskElement())) {
+    if (!svgStyle->maskerResource().isEmpty()) {
+        if (RenderSVGResourceMasker* masker = getRenderSVGResourceById<RenderSVGResourceMasker>(object.document(), svgStyle->maskerResource())) {
             writeIndent(ts, indent);
             ts << " ";
-            writeNameAndQuotedValue(ts, "masker", svgStyle->maskElement());
+            writeNameAndQuotedValue(ts, "masker", svgStyle->maskerResource());
             ts << " ";
             writeStandardPrefix(ts, *masker, 0);
             ts << " " << masker->resourceBoundingBox(object.objectBoundingBox()) << "\n";
         }
     }
-    // FIXME: Handle other RenderSVGResource* classes here, after converting them from SVGResource*.
+    if (!svgStyle->clipperResource().isEmpty()) {
+        if (RenderSVGResourceClipper* clipper = getRenderSVGResourceById<RenderSVGResourceClipper>(object.document(), svgStyle->clipperResource())) {
+            writeIndent(ts, indent);
+            ts << " ";
+            writeNameAndQuotedValue(ts, "clipPath", svgStyle->clipperResource());
+            ts << " ";
+            writeStandardPrefix(ts, *clipper, 0);
+            ts << " " << clipper->resourceBoundingBox(object.objectBoundingBox()) << "\n";
+        }
+    }
+#if ENABLE(FILTERS)
+    if (!svgStyle->filterResource().isEmpty()) {
+        if (RenderSVGResourceFilter* filter = getRenderSVGResourceById<RenderSVGResourceFilter>(object.document(), svgStyle->filterResource())) {
+            writeIndent(ts, indent);
+            ts << " ";
+            writeNameAndQuotedValue(ts, "filter", svgStyle->filterResource());
+            ts << " ";
+            writeStandardPrefix(ts, *filter, 0);
+            ts << " " << filter->resourceBoundingBox(object.objectBoundingBox()) << "\n";
+        }
+    }
+#endif
 }
 
 void writeRenderResources(TextStream& ts, Node* parent)
@@ -592,8 +686,7 @@ void writeRenderResources(TextStream& ts, Node* parent)
         if (resource->isPaintServer()) {
             RefPtr<SVGPaintServer> paintServer = WTF::static_pointer_cast<SVGPaintServer>(resource);
             ts << "KRenderingPaintServer {id=\"" << elementId << "\" " << *paintServer << "}" << "\n";
-        } else
-            ts << "KCanvasResource {id=\"" << elementId << "\" " << *resource << "}" << "\n";
+        }
     } while ((node = node->traverseNextNode(parent)));
 }
 

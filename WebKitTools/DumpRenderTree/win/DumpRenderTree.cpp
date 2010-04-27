@@ -84,6 +84,7 @@ static bool printSeparators;
 static bool leakChecking = false;
 static bool threaded = false;
 static bool forceComplexText = false;
+static bool printSupportedFeatures = false;
 static RetainPtr<CFStringRef> persistentUserStyleSheetLocation;
 
 volatile bool done;
@@ -731,6 +732,11 @@ static bool shouldOpenWebInspector(const char* pathOrURL)
     return strstr(pathOrURL, "/inspector/") || strstr(pathOrURL, "\\inspector\\");
 }
 
+static bool shouldEnableDeveloperExtras(const char* pathOrURL)
+{
+    return shouldOpenWebInspector(pathOrURL) || strstr(pathOrURL, "/inspector-enabled/") || strstr(pathOrURL, "\\inspector-enabled\\");
+}
+
 static void resetDefaultsToConsistentValues(IWebPreferences* preferences)
 {
 #ifdef USE_MAC_FONTS
@@ -790,7 +796,7 @@ static void resetDefaultsToConsistentValues(IWebPreferences* preferences)
         prefsPrivate->setExperimentalNotificationsEnabled(TRUE);
         prefsPrivate->setShouldPaintNativeControls(FALSE); // FIXME - need to make DRT pass with Windows native controls <http://bugs.webkit.org/show_bug.cgi?id=25592>
         prefsPrivate->setXSSAuditorEnabled(FALSE);
-        prefsPrivate->setFrameSetFlatteningEnabled(FALSE);
+        prefsPrivate->setFrameFlatteningEnabled(FALSE);
         prefsPrivate->setOfflineWebApplicationCacheEnabled(TRUE);
     }
     setAlwaysAcceptCookies(false);
@@ -836,7 +842,7 @@ static void resetWebViewToConsistentStateBeforeTesting()
         SetFocus(viewWindow);
 
     webViewPrivate->clearMainFrameName();
-    webViewPrivate->resetOriginAccessWhiteLists();
+    webViewPrivate->resetOriginAccessWhitelists();
 
     BSTR groupName;
     if (SUCCEEDED(webView->groupName(&groupName))) {
@@ -910,8 +916,11 @@ static void runTest(const string& testPathOrURL)
 
     resetWebViewToConsistentStateBeforeTesting();
 
-    if (shouldOpenWebInspector(pathOrURL.c_str()))
-        gLayoutTestController->showWebInspector();
+    if (shouldEnableDeveloperExtras(pathOrURL.c_str())) {
+        gLayoutTestController->setDeveloperExtrasEnabled(true);
+        if (shouldOpenWebInspector(pathOrURL.c_str()))
+            gLayoutTestController->showWebInspector();
+    }
 
     prevTestBFItem = 0;
     if (webView) {
@@ -947,7 +956,7 @@ static void runTest(const string& testPathOrURL)
         DispatchMessage(&msg);
     }
 
-    if (shouldOpenWebInspector(pathOrURL.c_str()))
+    if (shouldEnableDeveloperExtras(pathOrURL.c_str()))
         gLayoutTestController->closeWebInspector();
 
     resetWebViewToConsistentStateBeforeTesting();
@@ -1222,6 +1231,11 @@ int main(int argc, char* argv[])
             continue;
         }
 
+        if (!stricmp(argv[i], "--print-supported-features")) {
+            printSupportedFeatures = true;
+            continue;
+        }
+
         tests.append(argv[i]);
     }
 
@@ -1245,6 +1259,20 @@ int main(int argc, char* argv[])
     standardPreferencesPrivate->setShouldPaintNativeControls(FALSE);
     standardPreferences->setJavaScriptEnabled(TRUE);
     standardPreferences->setDefaultFontSize(16);
+
+    if (printSupportedFeatures) {
+        BOOL acceleratedCompositingAvailable;
+        standardPreferences->acceleratedCompositingEnabled(&acceleratedCompositingAvailable);
+        BOOL threeDRenderingAvailable = 
+#if ENABLE(3D_RENDERING)
+            true;
+#else
+            false;
+#endif
+
+        printf("SupportedFeatures:%s %s\n", acceleratedCompositingAvailable ? "AcceleratedCompositing" : "", threeDRenderingAvailable ? "3DRendering" : "");
+        return 0;
+    }
 
     COMPtr<IWebView> webView(AdoptCOM, createWebViewAndOffscreenWindow(&webViewWindow));
     if (!webView)

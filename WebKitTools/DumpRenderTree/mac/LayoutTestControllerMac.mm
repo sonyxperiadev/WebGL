@@ -115,6 +115,11 @@ void LayoutTestController::addDisallowedURL(JSStringRef url)
     CFSetAddValue(disallowedURLs, [request URL]);
 }
 
+bool LayoutTestController::callShouldCloseOnWebView()
+{
+    return [[mainFrame webView] shouldClose];
+}
+
 void LayoutTestController::clearAllDatabases()
 {
     [[WebDatabaseManager sharedWebDatabaseManager] deleteAllDatabases];
@@ -174,6 +179,23 @@ void LayoutTestController::keepWebHistory()
         [WebHistory setOptionalSharedHistory:history];
         [history release];
     }
+}
+
+JSValueRef LayoutTestController::computedStyleIncludingVisitedInfo(JSContextRef context, JSValueRef value)
+{   
+    return [[mainFrame webView] _computedStyleIncludingVisitedInfo:context forElement:value];
+}
+
+JSRetainPtr<JSStringRef> LayoutTestController::layerTreeAsText() const
+{
+    JSRetainPtr<JSStringRef> string(Adopt, JSStringCreateWithCFString((CFStringRef)[mainFrame _layerTreeAsText]));
+    return string;
+}
+
+JSRetainPtr<JSStringRef> LayoutTestController::markerTextForListItem(JSContextRef context, JSValueRef nodeObject) const
+{
+    // FIXME: Implement me.
+    return JSRetainPtr<JSStringRef>();
 }
 
 int LayoutTestController::pageNumberForElementById(JSStringRef id, float pageWidthInPixels, float pageHeightInPixels)
@@ -302,7 +324,7 @@ void LayoutTestController::setIconDatabaseEnabled(bool iconDatabaseEnabled)
 
 void LayoutTestController::setJavaScriptProfilingEnabled(bool profilingEnabled)
 {
-    [[[mainFrame webView] preferences] setDeveloperExtrasEnabled:profilingEnabled];
+    setDeveloperExtrasEnabled(profilingEnabled);
     [[[mainFrame webView] inspector] setJavaScriptProfilingEnabled:profilingEnabled];
 }
 
@@ -324,9 +346,14 @@ void LayoutTestController::setXSSAuditorEnabled(bool enabled)
     [[[mainFrame webView] preferences] setXSSAuditorEnabled:enabled];
 }
 
-void LayoutTestController::setFrameSetFlatteningEnabled(bool enabled)
+void LayoutTestController::setFrameFlatteningEnabled(bool enabled)
 {
-    [[[mainFrame webView] preferences] setFrameSetFlatteningEnabled:enabled];
+    [[[mainFrame webView] preferences] setFrameFlatteningEnabled:enabled];
+}
+
+void LayoutTestController::setSpatialNavigationEnabled(bool enabled)
+{
+    // FIXME: Implement for SpatialNavigation layout tests.
 }
 
 void LayoutTestController::setAllowUniversalAccessFromFileURLs(bool enabled)
@@ -424,7 +451,7 @@ void LayoutTestController::setSelectTrailingWhitespaceEnabled(bool flag)
     [[mainFrame webView] setSelectTrailingWhitespaceEnabled:flag];
 }
 
-static const CFTimeInterval waitToDumpWatchdogInterval = 15.0;
+static const CFTimeInterval waitToDumpWatchdogInterval = 30.0;
 
 static void waitUntilDoneWatchdogFired(CFRunLoopTimerRef timer, void* info)
 {
@@ -541,7 +568,7 @@ void LayoutTestController::waitForPolicyDelegate()
     [[mainFrame webView] setPolicyDelegate:policyDelegate];
 }
 
-void LayoutTestController::whiteListAccessFromOrigin(JSStringRef sourceOrigin, JSStringRef destinationProtocol, JSStringRef destinationHost, bool allowDestinationSubdomains)
+void LayoutTestController::addOriginAccessWhitelistEntry(JSStringRef sourceOrigin, JSStringRef destinationProtocol, JSStringRef destinationHost, bool allowDestinationSubdomains)
 {
     RetainPtr<CFStringRef> sourceOriginCF(AdoptCF, JSStringCopyCFString(kCFAllocatorDefault, sourceOrigin));
     NSString *sourceOriginNS = (NSString *)sourceOriginCF.get();
@@ -549,7 +576,23 @@ void LayoutTestController::whiteListAccessFromOrigin(JSStringRef sourceOrigin, J
     NSString *destinationProtocolNS = (NSString *)protocolCF.get();
     RetainPtr<CFStringRef> hostCF(AdoptCF, JSStringCopyCFString(kCFAllocatorDefault, destinationHost));
     NSString *destinationHostNS = (NSString *)hostCF.get();
-    [WebView _whiteListAccessFromOrigin:sourceOriginNS destinationProtocol:destinationProtocolNS destinationHost:destinationHostNS allowDestinationSubdomains:allowDestinationSubdomains];
+    [WebView _addOriginAccessWhitelistEntryWithSourceOrigin:sourceOriginNS destinationProtocol:destinationProtocolNS destinationHost:destinationHostNS allowDestinationSubdomains:allowDestinationSubdomains];
+}
+
+void LayoutTestController::removeOriginAccessWhitelistEntry(JSStringRef sourceOrigin, JSStringRef destinationProtocol, JSStringRef destinationHost, bool allowDestinationSubdomains)
+{
+    RetainPtr<CFStringRef> sourceOriginCF(AdoptCF, JSStringCopyCFString(kCFAllocatorDefault, sourceOrigin));
+    NSString *sourceOriginNS = (NSString *)sourceOriginCF.get();
+    RetainPtr<CFStringRef> protocolCF(AdoptCF, JSStringCopyCFString(kCFAllocatorDefault, destinationProtocol));
+    NSString *destinationProtocolNS = (NSString *)protocolCF.get();
+    RetainPtr<CFStringRef> hostCF(AdoptCF, JSStringCopyCFString(kCFAllocatorDefault, destinationHost));
+    NSString *destinationHostNS = (NSString *)hostCF.get();
+    [WebView _removeOriginAccessWhitelistEntryWithSourceOrigin:sourceOriginNS destinationProtocol:destinationProtocolNS destinationHost:destinationHostNS allowDestinationSubdomains:allowDestinationSubdomains];
+}
+
+void LayoutTestController::setScrollbarPolicy(JSStringRef orientation, JSStringRef policy)
+{
+    // FIXME: implement
 }
 
 void LayoutTestController::addUserScript(JSStringRef source, bool runAtStart)
@@ -566,16 +609,19 @@ void LayoutTestController::addUserStyleSheet(JSStringRef source)
     [WebView _addUserStyleSheetToGroup:@"org.webkit.DumpRenderTree" world:[WebScriptWorld world] source:sourceNS url:nil whitelist:nil blacklist:nil];
 }
 
+void LayoutTestController::setDeveloperExtrasEnabled(bool enabled)
+{
+    [[[mainFrame webView] preferences] setDeveloperExtrasEnabled:enabled];
+}
+
 void LayoutTestController::showWebInspector()
 {
-    [[[mainFrame webView] preferences] setDeveloperExtrasEnabled:true];
     [[[mainFrame webView] inspector] show:nil];
 }
 
 void LayoutTestController::closeWebInspector()
 {
     [[[mainFrame webView] inspector] close:nil];
-    [[[mainFrame webView] preferences] setDeveloperExtrasEnabled:false];
 }
 
 void LayoutTestController::evaluateInWebInspector(long callId, JSStringRef script)
@@ -685,4 +731,102 @@ void LayoutTestController::apiTestNewWindowDataLoadBaseURL(JSStringRef utf8Data,
     [webView release];
     [delegate release];
     [pool release];
+}
+
+void LayoutTestController::apiTestGoToCurrentBackForwardItem()
+{
+    WebView *view = [mainFrame webView];
+    [view goToBackForwardItem:[[view backForwardList] currentItem]];
+}
+
+void LayoutTestController::setWebViewEditable(bool editable)
+{
+    WebView *view = [mainFrame webView];
+    [view setEditable:editable];
+}
+
+#ifndef BUILDING_ON_TIGER
+static NSString *SynchronousLoaderRunLoopMode = @"DumpRenderTreeSynchronousLoaderRunLoopMode";
+
+@interface SynchronousLoader : NSObject
+{
+    NSString *m_username;
+    NSString *m_password;
+    BOOL m_isDone;
+}
++ (void)makeRequest:(NSURLRequest *)request withUsername:(NSString *)username password:(NSString *)password;
+@end
+
+@implementation SynchronousLoader : NSObject
+- (void)dealloc
+{
+    [m_username release];
+    [m_password release];
+
+    [super dealloc];
+}
+
+- (BOOL)connectionShouldUseCredentialStorage:(NSURLConnection *)connection
+{
+    return YES;
+}
+
+- (void)connection:(NSURLConnection *)connection didReceiveAuthenticationChallenge:(NSURLAuthenticationChallenge *)challenge
+{
+    if ([challenge previousFailureCount] == 0) {
+        NSURLCredential *credential = [[NSURLCredential alloc]  initWithUser:m_username password:m_password persistence:NSURLCredentialPersistenceForSession];
+        [[challenge sender] useCredential:credential forAuthenticationChallenge:challenge];
+        return;
+    }
+    [[challenge sender] cancelAuthenticationChallenge:challenge];
+}
+
+- (void)connection:(NSURLConnection *)connection didFailWithError:(NSError *)error
+{
+    printf("SynchronousLoader failed: %s\n", [[error description] UTF8String]);
+    m_isDone = YES;
+}
+
+- (void)connectionDidFinishLoading:(NSURLConnection *)connection
+{
+    m_isDone = YES;
+}
+
++ (void)makeRequest:(NSURLRequest *)request withUsername:(NSString *)username password:(NSString *)password
+{
+    ASSERT(![[request URL] user]);
+    ASSERT(![[request URL] password]);
+
+    SynchronousLoader *delegate = [[SynchronousLoader alloc] init];
+    delegate->m_username = [username copy];
+    delegate->m_password = [password copy];
+
+    NSURLConnection *connection = [[NSURLConnection alloc] initWithRequest:request delegate:delegate startImmediately:NO];
+    [connection scheduleInRunLoop:[NSRunLoop currentRunLoop] forMode:SynchronousLoaderRunLoopMode];
+    [connection start];
+    
+    while (!delegate->m_isDone)
+        [[NSRunLoop currentRunLoop] runMode:SynchronousLoaderRunLoopMode beforeDate:[NSDate distantFuture]];
+
+    [connection cancel];
+    
+    [connection release];
+    [delegate release];
+}
+
+@end
+#endif
+
+void LayoutTestController::authenticateSession(JSStringRef url, JSStringRef username, JSStringRef password)
+{
+    // See <rdar://problem/7880699>.
+#if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
+    RetainPtr<CFStringRef> urlStringCF(AdoptCF, JSStringCopyCFString(kCFAllocatorDefault, url));
+    RetainPtr<CFStringRef> usernameCF(AdoptCF, JSStringCopyCFString(kCFAllocatorDefault, username));
+    RetainPtr<CFStringRef> passwordCF(AdoptCF, JSStringCopyCFString(kCFAllocatorDefault, password));
+
+    NSURLRequest *request = [[NSURLRequest alloc] initWithURL:[NSURL URLWithString:(NSString *)urlStringCF.get()]];
+
+    [SynchronousLoader makeRequest:request withUsername:(NSString *)usernameCF.get() password:(NSString *)passwordCF.get()];
+#endif
 }
