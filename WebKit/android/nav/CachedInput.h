@@ -39,10 +39,7 @@ public:
         // constructor
     }
     void* formPointer() const { return mForm; }
-    void init() {
-        bzero(this, sizeof(CachedInput));
-        mName = WebCore::String();
-    }
+    void init();
     WebCore::HTMLInputElement::InputType inputType() const { return mInputType; }
     bool isRtlText() const { return mIsRtlText; }
     bool isTextField() const { return mIsTextField; }

@@ -28,6 +28,11 @@
 
 namespace android {
 
+void CachedInput::init() {
+    bzero(this, sizeof(CachedInput));
+    mName = WebCore::String();
+}
+
 #if DUMP_NAV_CACHE
 
 #define DEBUG_PRINT_BOOL(field) \
