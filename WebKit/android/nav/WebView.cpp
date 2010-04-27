@@ -882,7 +882,8 @@ bool motionUp(int x, int y, int slop)
     viewInvalidate();
     if (!result->isTextInput()) {
         clearTextEntry();
-        setFollowedLink(true);
+        if (!result->isSelect())
+            setFollowedLink(true);
         if (syntheticLink)
             overrideUrlLoading(result->getExport());
     }
@@ -1634,9 +1635,12 @@ static void nativeSetFindIsEmpty(JNIEnv *env, jobject obj)
 
 static void nativeSetFollowedLink(JNIEnv *env, jobject obj, bool followed)
 {
-    WebView* view = GET_NATIVE_VIEW(env, obj);
-    LOG_ASSERT(view, "view not set in %s", __FUNCTION__);
-    view->setFollowedLink(followed);
+    const CachedNode* cursor = getCursorNode(env, obj);
+    if (cursor && !cursor->isSelect()) {
+        WebView* view = GET_NATIVE_VIEW(env, obj);
+        LOG_ASSERT(view, "view not set in %s", __FUNCTION__);
+        view->setFollowedLink(followed);
+    }
 }
 
 static void nativeSetHeightCanMeasure(JNIEnv *env, jobject obj, bool measure)
