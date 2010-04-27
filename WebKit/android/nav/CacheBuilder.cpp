@@ -1216,6 +1216,8 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
             if (!href.isEmpty() && !WebCore::protocolIsJavaScript(href.string()))
                 // Set the exported string for all non-javascript anchors.
                 exported = href.string().threadsafeCopy();
+        } else if (node->hasTagName(HTMLNames::selectTag)) {
+            type = SELECT_CACHEDNODETYPE;
         }
         if (type == TEXT_INPUT_CACHEDNODETYPE) {
             RenderTextControl* renderText = 

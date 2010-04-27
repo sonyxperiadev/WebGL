@@ -118,6 +118,7 @@ public:
         return clip.intersects(bounds(frame));
     }
     bool isPlugin() const { return mType == PLUGIN_CACHEDNODETYPE; }
+    bool isSelect() const { return mType == SELECT_CACHEDNODETYPE; }
     bool isSyntheticLink() const {
         return mType >= ADDRESS_CACHEDNODETYPE && mType <= PHONE_CACHEDNODETYPE;
     }
