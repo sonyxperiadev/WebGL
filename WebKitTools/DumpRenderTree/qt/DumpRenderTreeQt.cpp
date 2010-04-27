@@ -135,7 +135,6 @@ WebPage::WebPage(QObject* parent, DumpRenderTree* drt)
     globalSettings->setAttribute(QWebSettings::LocalContentCanAccessRemoteUrls, true);
     globalSettings->setAttribute(QWebSettings::JavascriptEnabled, true);
     globalSettings->setAttribute(QWebSettings::PrivateBrowsingEnabled, false);
-    globalSettings->setAttribute(QWebSettings::OfflineWebApplicationCacheEnabled, false);
 
     connect(this, SIGNAL(geometryChangeRequested(const QRect &)),
             this, SLOT(setViewGeometry(const QRect & )));
@@ -324,6 +323,7 @@ DumpRenderTree::DumpRenderTree()
     m_mainView->resize(QSize(maxViewWidth, maxViewHeight));
     m_page = new WebPage(m_mainView, this);
     m_mainView->setPage(m_page);
+    m_mainView->setContextMenuPolicy(Qt::NoContextMenu);
 
     // create our controllers. This has to be done before connectFrame,
     // as it exports there to the JavaScript DOM window.
@@ -412,9 +412,22 @@ void DumpRenderTree::resetToConsistentStateBeforeTesting()
     setlocale(LC_ALL, "");
 }
 
+static bool isWebInspectorTest(const QUrl& url)
+{
+    if (url.path().contains("inspector/"))
+        return true;
+    return false;
+}
+
 void DumpRenderTree::open(const QUrl& url)
 {
     resetToConsistentStateBeforeTesting();
+
+    if (isWebInspectorTest(m_page->mainFrame()->url()))
+        layoutTestController()->closeWebInspector();
+
+    if (isWebInspectorTest(url))
+        layoutTestController()->showWebInspector();
 
     // W3C SVG tests expect to be 480x360
     bool isW3CTest = url.toString().contains("svg/W3C-SVG-1.1");

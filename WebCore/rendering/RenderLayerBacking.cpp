@@ -38,6 +38,7 @@
 #include "GraphicsLayer.h"
 #include "HTMLCanvasElement.h"
 #include "HTMLElement.h"
+#include "HTMLMediaElement.h"
 #include "HTMLNames.h"
 #include "InspectorTimelineAgent.h"
 #include "KeyframeList.h"
@@ -215,9 +216,14 @@ bool RenderLayerBacking::updateGraphicsLayerConfiguration()
         PluginWidget* pluginWidget = static_cast<PluginWidget*>(toRenderEmbeddedObject(renderer())->widget());
         m_graphicsLayer->setContentsToMedia(pluginWidget->platformLayer());
     }
-
+#if ENABLE(VIDEO)
+    else if (renderer()->isVideo()) {
+        HTMLMediaElement* mediaElement = static_cast<HTMLMediaElement*>(renderer()->node());
+        m_graphicsLayer->setContentsToMedia(mediaElement->platformLayer());
+    }
+#endif
 #if ENABLE(3D_CANVAS)    
-    if (is3DCanvas(renderer())) {
+    else if (is3DCanvas(renderer())) {
         HTMLCanvasElement* canvas = static_cast<HTMLCanvasElement*>(renderer()->node());
         WebGLRenderingContext* context = static_cast<WebGLRenderingContext*>(canvas->renderingContext());
         if (context->graphicsContext3D()->platformGraphicsContext3D())

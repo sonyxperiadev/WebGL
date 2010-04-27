@@ -176,6 +176,11 @@ enum {
     ID_TEST_RELOAD_PLUGINS_AND_PAGES,
     ID_TEST_GET_BROWSER_PROPERTY,
     ID_TEST_SET_BROWSER_PROPERTY,
+    ID_REMEMBER,
+    ID_GET_REMEMBERED_OBJECT,
+    ID_GET_AND_FORGET_REMEMBERED_OBJECT,
+    ID_REF_COUNT,
+    ID_SET_STATUS,
     NUM_METHOD_IDENTIFIERS
 };
 
@@ -205,7 +210,12 @@ static const NPUTF8 *pluginMethodIdentifierNames[NUM_METHOD_IDENTIFIERS] = {
     "reloadPluginsNoPages",
     "reloadPluginsAndPages",
     "testGetBrowserProperty",
-    "testSetBrowserProperty"
+    "testSetBrowserProperty",
+    "remember",
+    "getRememberedObject",
+    "getAndForgetRememberedObject",
+    "refCount",
+    "setStatus"
 };
 
 static NPUTF8* createCStringFromNPVariant(const NPVariant* variant)
@@ -747,6 +757,22 @@ bool testWindowOpen(NPP npp)
     return false;
 }
 
+static bool testSetStatus(PluginObject* obj, const NPVariant* args, uint32_t argCount, NPVariant* result)
+{
+    char* message = 0;
+    if (argCount && NPVARIANT_IS_STRING(args[0])) {
+        NPString statusString = NPVARIANT_TO_STRING(args[0]);
+        message = toCString(statusString);
+    }
+    
+    browser->status(obj->npp, message);
+
+    free(message);
+    return true;
+}
+
+static NPObject* rememberedObject;
+
 static bool pluginInvoke(NPObject* header, NPIdentifier name, const NPVariant* args, uint32_t argCount, NPVariant* result)
 {
     PluginObject* plugin = reinterpret_cast<PluginObject*>(header);
@@ -807,7 +833,29 @@ static bool pluginInvoke(NPObject* header, NPIdentifier name, const NPVariant* a
     } else if (name == pluginMethodIdentifiers[ID_TEST_SET_BROWSER_PROPERTY]) {
         browser->setproperty(plugin->npp, NPVARIANT_TO_OBJECT(args[0]), stringVariantToIdentifier(args[1]), &args[2]);
         return true;
-    }
+    } else if (name == pluginMethodIdentifiers[ID_REMEMBER]) {
+        if (rememberedObject)
+            browser->releaseobject(rememberedObject);
+        rememberedObject = NPVARIANT_TO_OBJECT(args[0]);
+        browser->retainobject(rememberedObject);
+        VOID_TO_NPVARIANT(*result);
+        return true;
+    } else if (name == pluginMethodIdentifiers[ID_GET_REMEMBERED_OBJECT]) {
+        assert(rememberedObject);
+        browser->retainobject(rememberedObject);
+        OBJECT_TO_NPVARIANT(rememberedObject, *result);
+        return true;
+    } else if (name == pluginMethodIdentifiers[ID_GET_AND_FORGET_REMEMBERED_OBJECT]) {
+        assert(rememberedObject);
+        OBJECT_TO_NPVARIANT(rememberedObject, *result);
+        rememberedObject = 0;
+        return true;
+    } else if (name == pluginMethodIdentifiers[ID_REF_COUNT]) {
+        uint32_t refCount = NPVARIANT_TO_OBJECT(args[0])->referenceCount;
+        INT32_TO_NPVARIANT(refCount, *result);
+        return true;
+    } else if (name == pluginMethodIdentifiers[ID_SET_STATUS])
+        return testSetStatus(plugin, args, argCount, result);
     
     return false;
 }

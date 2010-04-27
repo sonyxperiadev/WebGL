@@ -180,6 +180,11 @@ void LayoutTestController::setAllowUniversalAccessFromFileURLs(bool enabled)
     // FIXME: implement
 }
 
+void LayoutTestController::setAllowFileAccessFromFileURLs(bool enabled)
+{
+    // FIXME: implement
+}
+
 void LayoutTestController::setAuthorAndUserStylesEnabled(bool flag)
 {
     // FIXME: implement
@@ -375,4 +380,9 @@ int LayoutTestController::numberOfPages(float, float)
 {
     // FIXME: implement
     return -1;
+}
+
+void LayoutTestController::apiTestNewWindowDataLoadBaseURL(JSStringRef utf8Data, JSStringRef baseURL)
+{
+
 }

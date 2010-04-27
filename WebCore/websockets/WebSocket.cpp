@@ -164,7 +164,7 @@ bool WebSocket::send(const String& message, ExceptionCode& ec)
     }
     // No exception is raised if the connection was once established but has subsequently been closed.
     if (m_state == CLOSED) {
-        m_bufferedAmountAfterClose += message.utf8().length() + 2; // 2 for framing
+        m_bufferedAmountAfterClose += message.utf8().length() + 2; // 2 for frameing
         return false;
     }
     // FIXME: check message is valid utf8.

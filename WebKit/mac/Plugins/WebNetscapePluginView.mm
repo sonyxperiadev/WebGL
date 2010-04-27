@@ -749,7 +749,7 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
     _eventHandler->mouseUp(theEvent);
 }
 
-- (void)mouseEntered:(NSEvent *)theEvent
+- (void)handleMouseEntered:(NSEvent *)theEvent
 {
     if (!_isStarted)
         return;
@@ -757,7 +757,7 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
     _eventHandler->mouseEntered(theEvent);
 }
 
-- (void)mouseExited:(NSEvent *)theEvent
+- (void)handleMouseExited:(NSEvent *)theEvent
 {
     if (!_isStarted)
         return;
@@ -769,8 +769,6 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
     [[NSCursor arrowCursor] set];
 }
 
-// We can't name this method mouseMoved because we don't want to override 
-// the NSView mouseMoved implementation.
 - (void)handleMouseMoved:(NSEvent *)theEvent
 {
     if (!_isStarted)
@@ -1906,12 +1904,7 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
 
 -(void)status:(const char *)message
 {    
-    if (!message) {
-        LOG_ERROR("NPN_Status passed a NULL status message");
-        return;
-    }
-
-    CFStringRef status = CFStringCreateWithCString(NULL, message, kCFStringEncodingUTF8);
+    CFStringRef status = CFStringCreateWithCString(NULL, message ? message : "", kCFStringEncodingUTF8);
     if (!status) {
         LOG_ERROR("NPN_Status: the message was not valid UTF-8");
         return;

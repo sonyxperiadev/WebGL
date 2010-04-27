@@ -24,7 +24,7 @@
  * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
  * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
- * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #include "config.h"
@@ -64,7 +64,6 @@
 #include "InspectorFrontendHost.h"
 #include "InspectorResource.h"
 #include "InspectorTimelineAgent.h"
-#include "JavaScriptProfile.h"
 #include "Page.h"
 #include "ProgressTracker.h"
 #include "Range.h"
@@ -101,6 +100,7 @@
 #include "JSJavaScriptCallFrame.h"
 #include "JavaScriptCallFrame.h"
 #include "JavaScriptDebugServer.h"
+#include "JavaScriptProfile.h"
 
 #include <runtime/JSLock.h>
 #include <runtime/UString.h>
@@ -654,11 +654,12 @@ void InspectorController::populateScriptObjects()
         return;
 
     m_frontend->populateFrontendSettings(setting(FrontendSettingsSettingName));
-    m_domAgent->setDocument(m_inspectedPage->mainFrame()->document());
 
     ResourcesMap::iterator resourcesEnd = m_resources.end();
     for (ResourcesMap::iterator it = m_resources.begin(); it != resourcesEnd; ++it)
         it->second->updateScriptObject(m_frontend.get());
+
+    m_domAgent->setDocument(m_inspectedPage->mainFrame()->document());
 
     if (m_expiredConsoleMessageCount)
         m_frontend->updateConsoleMessageExpiredCount(m_expiredConsoleMessageCount);

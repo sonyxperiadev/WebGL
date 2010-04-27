@@ -54,6 +54,7 @@ class RenderTheme;
 class TransformState;
 class VisiblePosition;
 #if ENABLE(SVG)
+class RenderSVGResource;
 class SVGRenderBase;
 #endif
 
@@ -332,8 +333,10 @@ public:
     virtual bool isSVGText() const { return false; }
     virtual bool isSVGImage() const { return false; }
     virtual bool isSVGForeignObject() const { return false; }
+    virtual bool isSVGResource() const { return false; }
 
     virtual const SVGRenderBase* toSVGRenderBase() const;
+    virtual RenderSVGResource* toRenderSVGResource();
 
     // Per SVG 1.1 objectBoundingBox ignores clipping, masking, filter effects, opacity and stroke-width.
     // This is used for all computation of objectBoundingBox relative units and by SVGLocateable::getBBox().
@@ -562,8 +565,9 @@ public:
     // Convert a local quad into the coordinate system of container, taking transforms into account.
     FloatQuad localToContainerQuad(const FloatQuad&, RenderBoxModelObject* repaintContainer, bool fixed = false) const;
 
-    // Return the offset from the container() renderer (excluding transforms)
-    virtual IntSize offsetFromContainer(RenderObject*) const;
+    // Return the offset from the container() renderer (excluding transforms). In multi-column layout,
+    // different offsets apply at different points, so return the offset that applies to the given point.
+    virtual IntSize offsetFromContainer(RenderObject*, const IntPoint&) const;
     // Return the offset from an object up the container() chain. Asserts that none of the intermediate objects have transforms.
     IntSize offsetFromAncestorContainer(RenderObject*) const;
     
@@ -641,6 +645,10 @@ public:
     // Given a rect in the object's coordinate space, compute a rect suitable for repainting
     // that rect in the coordinate space of repaintContainer.
     virtual void computeRectForRepaint(RenderBoxModelObject* repaintContainer, IntRect&, bool fixed = false);
+
+    // If multiple-column layout results in applying an offset to the given point, add the same
+    // offset to the given size.
+    virtual void adjustForColumns(IntSize&, const IntPoint&) const { }
 
     virtual unsigned int length() const { return 1; }
 
