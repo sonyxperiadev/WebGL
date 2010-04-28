@@ -261,7 +261,7 @@ public:
         jobject textSize = env->GetObjectField(obj, gFieldIds->mTextSize);
         float zoomFactor = env->GetIntField(textSize, gFieldIds->mTextSizeValue) / 100.0f;
         if (pFrame->zoomFactor() != zoomFactor)
-            pFrame->setZoomFactor(zoomFactor, /*isTextOnly*/true);
+            pFrame->setZoomFactor(zoomFactor, WebCore::ZoomTextOnly);
 
         jstring str = (jstring)env->GetObjectField(obj, gFieldIds->mStandardFontFamily);
         s->setStandardFontFamily(to_string(env, str));
