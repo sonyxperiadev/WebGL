@@ -67,7 +67,6 @@
 #include "HistoryItem.h"
 #include "HitTestResult.h"
 #include "InlineTextBox.h"
-#include "KeyboardCodes.h"
 #include "Navigator.h"
 #include "Node.h"
 #include "NodeList.h"
@@ -101,6 +100,7 @@
 #include "TypingCommand.h"
 #include "WebCoreFrameBridge.h"
 #include "WebFrameView.h"
+#include "WindowsKeyboardCodes.h"
 #include "android_graphics.h"
 
 #include <JNIHelp.h>
