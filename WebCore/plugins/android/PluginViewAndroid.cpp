@@ -363,31 +363,33 @@ NPError PluginView::handlePostReadFile(Vector<char>& buffer, uint32 len, const c
     return NPERR_GENERIC_ERROR;
 }
 
-NPError PluginView::getValueStatic(NPNVariable variable, void* value)
+bool PluginView::platformGetValueStatic(NPNVariable variable, void* value, NPError* result)
 {
     // our interface query is valid with no NPP instance
-    NPError error = NPERR_GENERIC_ERROR;
+    *result = NPERR_GENERIC_ERROR;
 
     switch (variable) {
         case NPNVisOfflineBool: {
             if (value != NULL) {
                 bool* retValue = static_cast<bool*>(value);
                 *retValue = !networkStateNotifier().onLine();
-                return NPERR_NO_ERROR;
+                *result = NPERR_NO_ERROR;
+                return true;
             }
             break;
         }
         case kJavaContext_ANPGetValue: {
             jobject* retObject = static_cast<jobject*>(value);
             *retObject = android::WebViewCore::getApplicationContext();
-            return NPERR_NO_ERROR;
+            *result = NPERR_NO_ERROR;
+            return true;
         }
         default:
             ; // do nothing
     }
 
-    (void)anp_getInterface(variable, value, &error);
-    return error;
+    (void)anp_getInterface(variable, value, result);
+    return true;
 }
 
 void PluginView::setParent(ScrollView* parent)
@@ -452,7 +454,7 @@ void PluginView::setNPWindowIfNeeded()
     m_window->setWindow(&m_npWindow, m_isTransparent);
 }
 
-NPError PluginView::getValue(NPNVariable variable, void* value)
+bool PluginView::platformGetValue(NPNVariable variable, void* value, NPError* result)
 {
     switch (variable) {
         case NPNVWindowNPObject: {
@@ -468,7 +470,8 @@ NPError PluginView::getValue(NPNVariable variable, void* value)
             void** v = (void**)value;
             *v = windowScriptObject;
 
-            return NPERR_NO_ERROR;
+            *result = NPERR_NO_ERROR;
+            return true;
         }
 
         case NPNVPluginElementNPObject: {
@@ -491,7 +494,8 @@ NPError PluginView::getValue(NPNVariable variable, void* value)
             void** v = (void**)value;
             *v = pluginScriptObject;
 
-            return NPERR_NO_ERROR;
+           *result = NPERR_NO_ERROR;
+            return true;
         }
 
         case NPNVnetscapeWindow: {
@@ -499,34 +503,40 @@ NPError PluginView::getValue(NPNVariable variable, void* value)
             // with this instance.
             jobject *retObject = static_cast<jobject*>(value);
             *retObject = android::WebViewCore::getWebViewCore(parent())->getWebViewJavaObject();
-            return NPERR_NO_ERROR;
+            *result = NPERR_NO_ERROR;
+            return true;
         }
 
         case NPNVisOfflineBool: {
             if (value == NULL) {
-              return NPERR_GENERIC_ERROR;
+              *result = NPERR_GENERIC_ERROR;
+              return true;
             }
             bool* retValue = static_cast<bool*>(value);
             *retValue = !networkStateNotifier().onLine();
-            return NPERR_NO_ERROR;
+            *result = NPERR_NO_ERROR;
+            return true;
         }
 
         case kSupportedDrawingModel_ANPGetValue: {
             uint32_t* bits = reinterpret_cast<uint32_t*>(value);
             *bits = kBitmap_ANPDrawingModel & kSurface_ANPDrawingModel;
-            return NPERR_NO_ERROR;
+            *result = NPERR_NO_ERROR;
+            return true;
         }
 
         case kJavaContext_ANPGetValue: {
             jobject* retObject = static_cast<jobject*>(value);
             *retObject = android::WebViewCore::getWebViewCore(parent())->getContext();
-            return NPERR_NO_ERROR;
+            *result = NPERR_NO_ERROR;
+            return true;
         }
 
         default: {
             NPError error = NPERR_GENERIC_ERROR;
             (void)anp_getInterface(variable, value, &error);
-            return error;
+            *result = error;
+            return true;
         }
     }
 }
