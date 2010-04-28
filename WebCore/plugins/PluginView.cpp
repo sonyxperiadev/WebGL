@@ -1491,7 +1491,11 @@ void PluginView::privateBrowsingStateChanged(bool privateBrowsingEnabled)
         return;
 
     PluginView::setCurrentPluginView(this);
+// ANDROID
+// Upstream to webkit.org
+#if USE(JSC)
     JSC::JSLock::DropAllLocks dropAllLocks(JSC::SilenceAssertionsOnly);
+#endif
     setCallingPlugin(true);
     NPBool value = privateBrowsingEnabled;
     setValue(m_instance, NPNVprivateModeBool, &value);
