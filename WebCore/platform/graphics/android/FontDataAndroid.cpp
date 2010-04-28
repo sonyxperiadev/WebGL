@@ -95,7 +95,7 @@ void SimpleFontData::determinePitch()
     m_treatAsFixedPitch = false;
 }
 
-float SimpleFontData::platformWidthForGlyph(Glyph glyph) const
+GlyphMetrics SimpleFontData::platformMetricsForGlyph(Glyph glyph, GlyphMetricsMode) const
 {
     SkASSERT(sizeof(glyph) == 2);   // compile-time assert
 
@@ -103,12 +103,16 @@ float SimpleFontData::platformWidthForGlyph(Glyph glyph) const
 
     m_platformData.setupPaint(&paint);
 
+    float advanceWidth;
     if (EmojiFont::IsEmojiGlyph(glyph))
-        return EmojiFont::GetAdvanceWidth(glyph, paint);
+        advanceWidth = EmojiFont::GetAdvanceWidth(glyph, paint);
     else {
         paint.setTextEncoding(SkPaint::kGlyphID_TextEncoding);
-        return SkScalarToFloat(paint.measureText(&glyph, 2));
+        advanceWidth = SkScalarToFloat(paint.measureText(&glyph, 2));
     }
+    GlyphMetrics metrics;
+    metrics.horizontalAdvance = advanceWidth;
+    return metrics;
 }
 
 }

@@ -211,7 +211,7 @@ void Font::drawComplexText(GraphicsContext* gc, TextRun const& run,
                      paint);
 }
 
-float Font::floatWidthForComplexText(const TextRun& run, HashSet<const SimpleFontData*>*) const
+float Font::floatWidthForComplexText(const TextRun& run, HashSet<const SimpleFontData*>*, GlyphOverflow*) const
 {
     SkPaint paint;
 
