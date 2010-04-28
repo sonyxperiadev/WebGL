@@ -2300,61 +2300,10 @@ Node *Document::nodeWithAbsIndex(int absIndex)
 }
 
 #ifdef ANDROID_META_SUPPORT
-// Though isspace() considers \t and \v to be whitespace, Win IE doesn't.
-static bool isSeparator(::UChar c)
-{
-    return c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '=' || c == ',' || c == ';' || c == '\0';
-}
-
 void Document::processMetadataSettings(const String& content)
 {
     ASSERT(!content.isNull());
-    
-    int keyBegin, keyEnd, valueBegin, valueEnd;
-    int i = 0;
-    int length = content.length();
-    String buffer = content.lower();
-    while (i < length) {
-        // skip to first non-separator, but don't skip past the end of the string
-        while (isSeparator(buffer[i])) {
-            if (i >= length)
-                break;
-            i++;
-        }
-        keyBegin = i;
-        
-        // skip to first separator
-        while (!isSeparator(buffer[i]))
-            i++;
-        keyEnd = i;
-        
-        // skip to first '=', but don't skip past a ',', ';' or the end of the string
-        while (buffer[i] != '=') {
-            if (buffer[i] == ',' || buffer[i] == ';' || i >= length)
-                break;
-            i++;
-        }
-        
-        // skip to first non-separator, but don't skip past a ',', ';' or the end of the string
-        while (isSeparator(buffer[i])) {
-            if (buffer[i] == ',' || buffer[i] == ';' || i >= length)
-                break;
-            i++;
-        }
-        valueBegin = i;
-        
-        // skip to first separator
-        while (!isSeparator(buffer[i]))
-            i++;
-        valueEnd = i;
-        
-        ASSERT(i <= length);
-        
-        String key(buffer.substring(keyBegin, keyEnd - keyBegin));
-        String value(buffer.substring(valueBegin, valueEnd - valueBegin));
-        if (frame())
-            frame()->settings()->setMetadataSettings(key, value);
-    }
+    processArguments(content, 0, 0);
 }
 #endif
 
@@ -2406,7 +2355,11 @@ void Document::processHttpEquiv(const String& equiv, const String& content)
 // Though isspace() considers \t and \v to be whitespace, Win IE doesn't.
 static bool isSeparator(UChar c)
 {
+#ifdef ANDROID_META_SUPPORT
+    return c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '=' || c == ',' || c == ';' || c == '\0';
+#else
     return c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '=' || c == ',' || c == '\0';
+#endif
 }
 
 void Document::processArguments(const String& features, void* data, ArgumentsCallback callback)
@@ -2434,14 +2387,22 @@ void Document::processArguments(const String& features, void* data, ArgumentsCal
 
         // skip to first '=', but don't skip past a ',' or the end of the string
         while (buffer[i] != '=') {
+#ifdef ANDROID_META_SUPPORT
+            if (buffer[i] == ',' || buffer[i] == ';' || i >= length)
+#else
             if (buffer[i] == ',' || i >= length)
+#endif
                 break;
             i++;
         }
 
         // skip to first non-separator, but don't skip past a ',' or the end of the string
         while (isSeparator(buffer[i])) {
+#ifdef ANDROID_META_SUPPORT
+            if (buffer[i] == ',' || buffer[i] == ';' || i >= length)
+#else
             if (buffer[i] == ',' || i >= length)
+#endif
                 break;
             i++;
         }
@@ -2456,7 +2417,12 @@ void Document::processArguments(const String& features, void* data, ArgumentsCal
 
         String keyString = buffer.substring(keyBegin, keyEnd - keyBegin);
         String valueString = buffer.substring(valueBegin, valueEnd - valueBegin);
+#ifdef ANDROID_META_SUPPORT
+        if (frame())
+            frame()->settings()->setMetadataSettings(keyString, valueString);
+#else
         callback(keyString, valueString, this, data);
+#endif
     }
 }
 
