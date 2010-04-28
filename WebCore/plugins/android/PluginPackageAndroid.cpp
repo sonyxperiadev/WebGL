@@ -29,7 +29,6 @@
 
 #ifdef ANDROID_PLUGINS
 
-#include "CString.h"
 #include "JNIUtility.h"
 #include "PlatformString.h"
 #include "PluginDatabase.h"
@@ -39,6 +38,7 @@
 #include "npruntime_impl.h"
 #include <dlfcn.h>
 #include <errno.h>
+#include <wtf/text/CString.h>
 
 // un-comment this to enable logging
 //#define PLUGIN_DEBUG_LOCAL

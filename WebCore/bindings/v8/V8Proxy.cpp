@@ -79,7 +79,7 @@
 #endif
 
 #if PLATFORM(ANDROID)
-#include "CString.h"
+#include <wtf/text/CString.h>
 #endif
 
 namespace WebCore {

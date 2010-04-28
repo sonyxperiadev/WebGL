@@ -29,7 +29,6 @@
 #include "WebHistory.h"
 
 #include "BackForwardList.h"
-#include "CString.h"
 #include "DocumentLoader.h"
 #include "Frame.h"
 #include "FrameLoader.h"
@@ -49,6 +48,7 @@
 #include <utils/misc.h>
 #include <wtf/OwnPtr.h>
 #include <wtf/Platform.h>
+#include <wtf/text/CString.h>
 
 namespace android {
 

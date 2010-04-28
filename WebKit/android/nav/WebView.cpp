@@ -33,7 +33,6 @@
 #include "CachedFrame.h"
 #include "CachedNode.h"
 #include "CachedRoot.h"
-#include "CString.h"
 #include "DrawExtra.h"
 #include "FindCanvas.h"
 #include "Frame.h"
@@ -68,6 +67,7 @@
 #include <JNIHelp.h>
 #include <jni.h>
 #include <ui/KeycodeLabels.h>
+#include <wtf/text/CString.h>
 
 namespace android {
 

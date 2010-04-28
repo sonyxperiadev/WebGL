@@ -26,7 +26,6 @@
 #include "config.h"
 #include "RenderSkinCombo.h"
 
-#include "CString.h"
 #include "Document.h"
 #include "Element.h"
 #include "Node.h"
@@ -34,6 +33,7 @@
 #include "RenderStyle.h"
 #include "SkCanvas.h"
 #include "SkNinePatch.h"
+#include <wtf/text/CString.h>
 
 namespace WebCore {
 

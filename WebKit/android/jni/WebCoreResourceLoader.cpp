@@ -28,7 +28,6 @@
 #include "config.h"
 #include "WebCoreResourceLoader.h"
 
-#include "CString.h"
 #include "ResourceError.h"
 #include "ResourceHandle.h"
 #include "ResourceHandleClient.h"
@@ -46,6 +45,7 @@
 #include <stdlib.h>
 #include <utils/misc.h>
 #include <wtf/Platform.h>
+#include <wtf/text/CString.h>
 
 namespace android {
   

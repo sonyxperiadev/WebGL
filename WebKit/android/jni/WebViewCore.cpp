@@ -109,9 +109,9 @@
 #include <wtf/CurrentTime.h>
 
 #if USE(V8)
-#include "CString.h"
 #include "ScriptController.h"
 #include "V8Counters.h"
+#include <wtf/text/CString.h>
 #endif
 
 #if DEBUG_NAV_UI
@@ -125,7 +125,7 @@
 #ifdef ANDROID_DOM_LOGGING
 #include "AndroidLog.h"
 #include "RenderTreeAsText.h"
-#include "CString.h"
+#include <wtf/text/CString.h>
 
 FILE* gDomTreeFile = 0;
 FILE* gRenderTreeFile = 0;
@@ -1272,7 +1272,7 @@ void WebViewCore::dumpDomTree(bool useFile)
 void WebViewCore::dumpRenderTree(bool useFile)
 {
 #ifdef ANDROID_DOM_LOGGING
-    WebCore::CString renderDump = WebCore::externalRepresentation(m_mainFrame).utf8();
+    WTF::CString renderDump = WebCore::externalRepresentation(m_mainFrame).utf8();
     const char* data = renderDump.data();
     if (useFile) {
         gRenderTreeFile = fopen(RENDER_TREE_LOG_FILE, "w");
@@ -2989,7 +2989,7 @@ static void SetJsFlags(JNIEnv *env, jobject obj, jstring flags)
 {
 #if USE(V8)
     WebCore::String flagsString = to_string(env, flags);
-    WebCore::CString utf8String = flagsString.utf8();
+    WTF::CString utf8String = flagsString.utf8();
     WebCore::ScriptController::setFlags(utf8String.data(), utf8String.length());
 #endif
 }

@@ -26,7 +26,7 @@
 // must include config.h first for webkit to fiddle with new/delete
 #include "config.h"
 
-#include "CString.h"
+#include "ANPSystem_npapi.h"
 #include "JavaSharedClient.h"
 #include "PluginClient.h"
 #include "PluginPackage.h"
@@ -34,8 +34,7 @@
 #include "PluginWidgetAndroid.h"
 #include "SkString.h"
 #include "WebViewCore.h"
-
-#include "ANPSystem_npapi.h"
+#include <wtf/text/CString.h>
 
 static const char* gApplicationDataDir = NULL;
 

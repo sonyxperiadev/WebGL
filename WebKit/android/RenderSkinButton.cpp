@@ -26,7 +26,6 @@
 #define LOG_TAG "WebCore"
 
 #include "config.h"
-#include "CString.h"
 #include "android_graphics.h"
 #include "Document.h"
 #include "IntRect.h"
@@ -37,6 +36,7 @@
 #include "SkRect.h"
 #include <utils/Debug.h>
 #include <utils/Log.h>
+#include <wtf/text/CString.h>
 
 struct PatchData {
     const char* name;

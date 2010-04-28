@@ -28,17 +28,16 @@
 #include "config.h"
 #include "TimeCounter.h"
 
-#include "CString.h"
 #include "Cache.h"
 #include "KURL.h"
 #include "Node.h"
 #include "SystemTime.h"
 #include "StyleBase.h"
-#include <utils/Log.h>
-#include <wtf/CurrentTime.h>
-
 #include <sys/time.h>
 #include <time.h>
+#include <utils/Log.h>
+#include <wtf/CurrentTime.h>
+#include <wtf/text/CString.h>
 
 #if USE(JSC)
 #include "JSDOMWindow.h"

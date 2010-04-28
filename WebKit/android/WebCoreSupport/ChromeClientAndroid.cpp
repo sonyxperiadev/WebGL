@@ -29,7 +29,6 @@
 
 #include "ApplicationCacheStorage.h"
 #include "ChromeClientAndroid.h"
-#include "CString.h"
 #include "DatabaseTracker.h"
 #include "Document.h"
 #include "PlatformString.h"
@@ -47,6 +46,7 @@
 #include "WebViewCore.h"
 #include "WindowFeatures.h"
 #include "Settings.h"
+#include <wtf/text/CString.h>
 
 namespace android {
 

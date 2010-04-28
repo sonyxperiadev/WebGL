@@ -26,7 +26,6 @@
 #include "config.h"
 #include "RenderSkinRadio.h"
 
-#include "CString.h"
 #include "android_graphics.h"
 #include "Document.h"
 #include "Element.h"
@@ -37,6 +36,7 @@
 #include "SkBitmap.h"
 #include "SkCanvas.h"
 #include "SkRect.h"
+#include <wtf/text/CString.h>
 
 static const char* checks[] = { "btn_check_off.png",
                                 "btn_check_on.png",

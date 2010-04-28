@@ -21,7 +21,6 @@
 
 #include "AndroidAnimation.h"
 #include "Animation.h"
-#include "CString.h"
 #include "FloatRect.h"
 #include "GraphicsContext.h"
 #include "Image.h"
@@ -39,6 +38,7 @@
 
 #include <cutils/log.h>
 #include <wtf/CurrentTime.h>
+#include <wtf/text/CString.h>
 
 #undef LOG
 #define LOG(...) android_printLog(ANDROID_LOG_DEBUG, "GraphicsLayer", __VA_ARGS__)

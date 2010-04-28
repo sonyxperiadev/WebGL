@@ -41,7 +41,7 @@
 #include "SkUtils.h"
 
 #ifdef DEBUG_NAV_UI
-#include "CString.h"
+#include <wtf/text/CString.h>
 #endif
 
 namespace android {

@@ -27,7 +27,6 @@
 #include "config.h"
 
 #include "AndroidLog.h"
-#include "CString.h"
 #include "Command.h"
 #include "Connection.h"
 #include "DebugServer.h"
@@ -36,6 +35,7 @@
 #include "RenderView.h"
 #include "WebViewCore.h"
 #include <utils/Log.h>
+#include <wtf/text/CString.h>
 
 #if ENABLE(WDS)
 

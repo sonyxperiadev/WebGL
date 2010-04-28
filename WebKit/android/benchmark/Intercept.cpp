@@ -27,7 +27,6 @@
 #include "config.h"
 
 #include "Base64.h"
-#include "CString.h"
 #include "HTTPParsers.h"
 #include "Intercept.h"
 #include "ResourceHandle.h"
@@ -38,6 +37,7 @@
 #include "TextEncoding.h"
 #include <utils/Log.h>
 #include <wtf/HashMap.h>
+#include <wtf/text/CString.h>
 
 PassRefPtr<WebCore::ResourceLoaderAndroid> MyResourceLoader::create(
         ResourceHandle* handle, String url)

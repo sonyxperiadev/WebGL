@@ -29,7 +29,6 @@
 #include "FrameLoaderClientAndroid.h"
 
 #include "BackForwardList.h"
-#include "CString.h"
 #include "CachedFrame.h"
 #include "CachedFramePlatformDataAndroid.h"
 #include "Chrome.h"
@@ -77,6 +76,7 @@
 #include "android_graphics.h"
 
 #include <utils/AssetManager.h>
+#include <wtf/text/CString.h>
 
 extern android::AssetManager* globalAssetManager();
 

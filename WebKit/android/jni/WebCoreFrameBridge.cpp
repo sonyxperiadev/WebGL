@@ -32,7 +32,6 @@
 #include "AtomicString.h"
 #include "BackForwardList.h"
 #include "Cache.h"
-#include "CString.h"
 #include "Chrome.h"
 #include "ChromeClientAndroid.h"
 #include "ContextMenuClientAndroid.h"
@@ -93,6 +92,7 @@
 #include <utils/AssetManager.h>
 #include <wtf/CurrentTime.h>
 #include <wtf/Platform.h>
+#include <wtf/text/CString.h>
 
 #if USE(JSC)
 #include "GCController.h"
