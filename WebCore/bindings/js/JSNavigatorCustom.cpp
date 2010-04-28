@@ -58,7 +58,7 @@ JSC::JSValue  WebCore::JSNavigator::isApplicationInstalled(JSC::ExecState* exec,
         return jsUndefined();
     }
 
-    String appName = args.at(0).toString(exec);
+    String appName = ustringToString(args.at(0).toString(exec));
 
     JSObject* object;
     if (!(object = args.at(1).getObject())) {
