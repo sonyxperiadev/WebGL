@@ -40,6 +40,7 @@ public:
         TouchReleased,
         TouchPressed,
         TouchMoved,
+        TouchStationary,
         TouchCancelled
     };
 
