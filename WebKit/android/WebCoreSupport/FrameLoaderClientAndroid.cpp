@@ -695,7 +695,7 @@ void FrameLoaderClientAndroid::committedLoad(DocumentLoader* loader, const char*
         bool userChosen = !encoding.isNull();
         if (encoding.isNull())
             encoding = loader->response().textEncodingName();
-        loader->frameLoader()->setEncoding(encoding, userChosen);
+        loader->frameLoader()->writer()->setEncoding(encoding, userChosen);
         Document *doc = m_frame->document();
         if (doc)
             loader->frameLoader()->addData(data, length);
