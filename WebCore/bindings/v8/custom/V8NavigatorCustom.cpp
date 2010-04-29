@@ -31,32 +31,14 @@
 #include "config.h"
 #include "V8Navigator.h"
 
-#include "RuntimeEnabledFeatures.h"
-#include "V8DOMWindow.h"
-#include "V8DOMWrapper.h"
+#if PLATFORM(ANDROID) && ENABLE(APPLICATION_INSTALLED)
 
-#if PLATFORM(ANDROID)
 #include "ExceptionCode.h"
 #include "V8CustomApplicationInstalledCallback.h"
+#include "V8Binding.h"
 #include "V8Proxy.h"
-#endif
 
 namespace WebCore {
-
-v8::Handle<v8::Value> toV8(Navigator* impl)
-{
-    if (!impl)
-        return v8::Null();
-    v8::Handle<v8::Object> wrapper = getDOMObjectMap().get(impl);
-    if (wrapper.IsEmpty()) {
-        wrapper = V8Navigator::wrap(impl);
-        if (!wrapper.IsEmpty())
-            V8DOMWrapper::setHiddenWindowReference(impl->frame(), V8DOMWindow::navigatorIndex, wrapper);
-    }
-    return wrapper;
-}
-
-#if PLATFORM(ANDROID) && ENABLE(APPLICATION_INSTALLED)
 
 static PassRefPtr<ApplicationInstalledCallback> createApplicationInstalledCallback(
         v8::Local<v8::Value> value, bool& succeeded)
@@ -98,6 +80,6 @@ v8::Handle<v8::Value> V8Navigator::isApplicationInstalledCallback(const v8::Argu
     return v8::Undefined();
 }
 
-#endif // PLATFORM(ANDROID) && ENABLE(APPLICATION_INSTALLED)
-
 } // namespace WebCore
+
+#endif // PLATFORM(ANDROID) && ENABLE(APPLICATION_INSTALLED)
