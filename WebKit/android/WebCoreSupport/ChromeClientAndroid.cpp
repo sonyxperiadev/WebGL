@@ -461,7 +461,7 @@ void ChromeClientAndroid::requestGeolocationPermissionForFrame(Frame* frame, Geo
     m_geolocationPermissions->queryPermissionState(frame);
 }
 
-void ChromeClientAndroid::cancelGeolocationPermissionRequestForFrame(Frame* frame)
+void ChromeClientAndroid::cancelGeolocationPermissionRequestForFrame(Frame* frame, WebCore::Geolocation*)
 {
     if (m_geolocationPermissions)
         m_geolocationPermissions->cancelPermissionStateQuery(frame);

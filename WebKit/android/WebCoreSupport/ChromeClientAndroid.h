@@ -143,7 +143,7 @@ namespace android {
 
         // Methods used to request and provide Geolocation permissions.
         virtual void requestGeolocationPermissionForFrame(Frame*, Geolocation*);
-        virtual void cancelGeolocationPermissionRequestForFrame(Frame*);
+        virtual void cancelGeolocationPermissionRequestForFrame(WebCore::Frame*, WebCore::Geolocation*);
         // Android-specific
         void provideGeolocationPermissions(const String &origin, bool allow, bool remember);
         void storeGeolocationPermissions();
