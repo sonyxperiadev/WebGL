@@ -38,6 +38,7 @@
 #include "FrameView.h"
 #include "Geolocation.h"
 #include "GraphicsLayerAndroid.h"
+#include "Icon.h"
 #include "Page.h"
 #include "Screen.h"
 #include "ScriptController.h"
@@ -492,7 +493,7 @@ void ChromeClientAndroid::runOpenPanel(Frame* frame,
     core->openFileChooser(chooser);
 }
 
-void ChromeClientAndroid::iconForFiles(const Vector<WebCore::String>&, PassRefPtr<WebCore::FileChooser>)
+void ChromeClientAndroid::chooseIconForFiles(const Vector<WebCore::String>&, FileChooser*)
 {
     notImplemented();
 }
