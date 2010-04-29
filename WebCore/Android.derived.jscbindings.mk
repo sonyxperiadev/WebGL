@@ -100,6 +100,7 @@ GEN := \
     $(intermediates)/dom/JSClientRectList.h \
     $(intermediates)/dom/JSClipboard.h \
     $(intermediates)/dom/JSComment.h \
+    $(intermediates)/dom/JSCustomEvent.h \
     $(intermediates)/dom/JSCompositionEvent.h \
     $(intermediates)/dom/JSDOMCoreException.h \
     $(intermediates)/dom/JSDOMImplementation.h \
@@ -214,6 +215,7 @@ GEN := \
     $(intermediates)/html/JSHTMLParagraphElement.h \
     $(intermediates)/html/JSHTMLParamElement.h \
     $(intermediates)/html/JSHTMLPreElement.h \
+    $(intermediates)/html/JSHTMLProgressElement.h \
     $(intermediates)/html/JSHTMLQuoteElement.h \
     $(intermediates)/html/JSHTMLScriptElement.h \
     $(intermediates)/html/JSHTMLSelectElement.h \
@@ -554,6 +556,20 @@ LOCAL_GENERATED_SOURCES += $(GEN) $(GEN:%.h=%.cpp)
 # above rules.  Specifying this explicitly makes -j2 work.
 $(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/xml/%.cpp : $(intermediates)/xml/%.h
 #end
+
+# Inspector
+# These headers are required even when Inspector is disabled
+GEN := \
+    $(intermediates)/inspector/JSScriptProfile.h
+$(GEN): PRIVATE_PATH := $(LOCAL_PATH)
+$(GEN): PRIVATE_CUSTOM_TOOL = perl -I$(PRIVATE_PATH)/bindings/scripts $(PRIVATE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator JS --include dom --include html --outputdir $(dir $@) $<
+$(GEN): $(intermediates)/inspector/JS%.h : $(LOCAL_PATH)/inspector/%.idl $(js_binding_scripts)
+	$(transform-generated-source)
+LOCAL_GENERATED_SOURCES += $(GEN) $(GEN:%.h=%.cpp)
+
+# We also need the .cpp files, which are generated as side effects of the
+# above rules.  Specifying this explicitly makes -j2 work.
+$(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/inspector/%.cpp : $(intermediates)/inspector/%.h
 
 # HTML tag and attribute names
 

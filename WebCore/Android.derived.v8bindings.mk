@@ -66,7 +66,7 @@ $(GEN): PRIVATE_PATH := $(LOCAL_PATH)
 $(GEN): PRIVATE_CUSTOM_TOOL = SOURCE_ROOT=$(PRIVATE_PATH) perl -I$(PRIVATE_PATH)/bindings/scripts $(PRIVATE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator V8 --include css --include dom --include html --outputdir $(dir $@) $<
 $(GEN): $(intermediates)/bindings/V8%.h : $(LOCAL_PATH)/css/%.idl $(js_binding_scripts)
 	$(transform-generated-source)
-LOCAL_GENERATED_SOURCES += $(GEN)
+LOCAL_GENERATED_SOURCES += $(GEN) $(GEN:%.h=%.cpp)
 
 # We also need the .cpp files, which are generated as side effects of the
 # above rules.  Specifying this explicitly makes -j2 work.
@@ -83,6 +83,7 @@ GEN := \
     $(intermediates)/bindings/V8Clipboard.h \
     $(intermediates)/bindings/V8Comment.h \
     $(intermediates)/bindings/V8CompositionEvent.h \
+    $(intermediates)/bindings/V8CustomEvent.h \
     $(intermediates)/bindings/V8DOMCoreException.h \
     $(intermediates)/bindings/V8DOMImplementation.h \
     $(intermediates)/bindings/V8Document.h \
@@ -128,7 +129,7 @@ $(GEN): PRIVATE_PATH := $(LOCAL_PATH)
 $(GEN): PRIVATE_CUSTOM_TOOL = SOURCE_ROOT=$(PRIVATE_PATH) perl -I$(PRIVATE_PATH)/bindings/scripts $(PRIVATE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator V8 --include dom --include html --outputdir $(dir $@) $<
 $(GEN): $(intermediates)/bindings/V8%.h : $(LOCAL_PATH)/dom/%.idl $(js_binding_scripts)
 	$(transform-generated-source)
-LOCAL_GENERATED_SOURCES += $(GEN)
+LOCAL_GENERATED_SOURCES += $(GEN) $(GEN:%.h=%.cpp)
 
 # We also need the .cpp files, which are generated as side effects of the
 # above rules.  Specifying this explicitly makes -j2 work.
@@ -137,6 +138,7 @@ $(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/bindings/%.cpp : $(intermediates)
 # HTML
 GEN := \
     $(intermediates)/bindings/V8Blob.h \
+    $(intermediates)/bindings/V8DOMFormData.h \
     $(intermediates)/bindings/V8DataGridColumn.h \
     $(intermediates)/bindings/V8DataGridColumnList.h \
     $(intermediates)/bindings/V8File.h \
@@ -196,6 +198,7 @@ GEN := \
     $(intermediates)/bindings/V8HTMLParagraphElement.h \
     $(intermediates)/bindings/V8HTMLParamElement.h \
     $(intermediates)/bindings/V8HTMLPreElement.h \
+    $(intermediates)/bindings/V8HTMLProgressElement.h \
     $(intermediates)/bindings/V8HTMLQuoteElement.h \
     $(intermediates)/bindings/V8HTMLScriptElement.h \
     $(intermediates)/bindings/V8HTMLSelectElement.h \
@@ -222,7 +225,7 @@ $(GEN): PRIVATE_PATH := $(LOCAL_PATH)
 $(GEN): PRIVATE_CUSTOM_TOOL = SOURCE_ROOT=$(PRIVATE_PATH) perl -I$(PRIVATE_PATH)/bindings/scripts $(PRIVATE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator V8 --include dom --include html --outputdir $(dir $@) $<
 $(GEN): $(intermediates)/bindings/V8%.h : $(LOCAL_PATH)/html/%.idl $(js_binding_scripts)
 	$(transform-generated-source)
-LOCAL_GENERATED_SOURCES += $(GEN)
+LOCAL_GENERATED_SOURCES += $(GEN) $(GEN:%.h=%.cpp)
 
 # We also need the .cpp files, which are generated as side effects of the
 # above rules.  Specifying this explicitly makes -j2 work.
@@ -260,7 +263,7 @@ $(GEN): PRIVATE_PATH := $(LOCAL_PATH)
 $(GEN): PRIVATE_CUSTOM_TOOL = SOURCE_ROOT=$(PRIVATE_PATH) perl -I$(PRIVATE_PATH)/bindings/scripts $(PRIVATE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator V8 --include dom --include html --include html/canvas --outputdir $(dir $@) $<
 $(GEN): $(intermediates)/bindings/V8%.h : $(LOCAL_PATH)/html/canvas/%.idl $(js_binding_scripts)
 	$(transform-generated-source)
-LOCAL_GENERATED_SOURCES += $(GEN)
+LOCAL_GENERATED_SOURCES += $(GEN) $(GEN:%.h=%.cpp)
 
 # We also need the .cpp files, which are generated as side effects of the
 # above rules.  Specifying this explicitly makes -j2 work.
@@ -274,7 +277,7 @@ $(GEN): PRIVATE_PATH := $(LOCAL_PATH)
 $(GEN): PRIVATE_CUSTOM_TOOL = SOURCE_ROOT=$(PRIVATE_PATH) perl -I$(PRIVATE_PATH)/bindings/scripts $(PRIVATE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator V8 --include dom --include html --outputdir $(dir $@) $<
 $(GEN): $(intermediates)/bindings/V8%.h : $(LOCAL_PATH)/loader/appcache/%.idl $(js_binding_scripts)
 	$(transform-generated-source)
-LOCAL_GENERATED_SOURCES += $(GEN)
+LOCAL_GENERATED_SOURCES += $(GEN) $(GEN:%.h=%.cpp)
 
 # We also need the .cpp files, which are generated as side effects of the
 # above rules.  Specifying this explicitly makes -j2 work.
@@ -288,6 +291,7 @@ GEN := \
     $(intermediates)/bindings/V8Coordinates.h \
     $(intermediates)/bindings/V8DOMSelection.h \
     $(intermediates)/bindings/V8DOMWindow.h \
+    $(intermediates)/bindings/V8EventSource.h \
     $(intermediates)/bindings/V8Geolocation.h \
     $(intermediates)/bindings/V8Geoposition.h \
     $(intermediates)/bindings/V8History.h \
@@ -301,7 +305,7 @@ $(GEN): PRIVATE_PATH := $(LOCAL_PATH)
 $(GEN): PRIVATE_CUSTOM_TOOL = SOURCE_ROOT=$(PRIVATE_PATH) perl -I$(PRIVATE_PATH)/bindings/scripts $(PRIVATE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator V8 --include dom --include html --outputdir $(dir $@) $<
 $(GEN): $(intermediates)/bindings/V8%.h : $(LOCAL_PATH)/page/%.idl $(js_binding_scripts)
 	$(transform-generated-source)
-LOCAL_GENERATED_SOURCES += $(GEN)
+LOCAL_GENERATED_SOURCES += $(GEN) $(GEN:%.h=%.cpp)
 
 # We also need the .cpp files, which are generated as side effects of the
 # above rules.  Specifying this explicitly makes -j2 work.
@@ -317,7 +321,7 @@ $(GEN): PRIVATE_PATH := $(LOCAL_PATH)
 $(GEN): PRIVATE_CUSTOM_TOOL = SOURCE_ROOT=$(PRIVATE_PATH) perl -I$(PRIVATE_PATH)/bindings/scripts $(PRIVATE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator V8 --include dom --include html --outputdir $(dir $@) $<
 $(GEN): $(intermediates)/bindings/V8%.h : $(LOCAL_PATH)/plugins/%.idl $(js_binding_scripts)
 	$(transform-generated-source)
-LOCAL_GENERATED_SOURCES += $(GEN)
+LOCAL_GENERATED_SOURCES += $(GEN) $(GEN:%.h=%.cpp)
 
 # We also need the .cpp files, which are generated as side effects of the
 # above rules.  Specifying this explicitly makes -j2 work.
@@ -335,7 +339,7 @@ $(GEN): PRIVATE_PATH := $(LOCAL_PATH)
 $(GEN): PRIVATE_CUSTOM_TOOL = SOURCE_ROOT=$(PRIVATE_PATH) perl -I$(PRIVATE_PATH)/bindings/scripts $(PRIVATE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator V8 --include dom --include html --outputdir $(dir $@) $<
 $(GEN): $(intermediates)/bindings/V8%.h : $(LOCAL_PATH)/storage/%.idl $(js_binding_scripts)
 	$(transform-generated-source)
-LOCAL_GENERATED_SOURCES += $(GEN)
+LOCAL_GENERATED_SOURCES += $(GEN) $(GEN:%.h=%.cpp)
 
 # We also need the .cpp files, which are generated as side effects of the
 # above rules.  Specifying this explicitly makes -j2 work.
@@ -350,7 +354,7 @@ $(GEN): PRIVATE_PATH := $(LOCAL_PATH)
 $(GEN): PRIVATE_CUSTOM_TOOL = SOURCE_ROOT=$(PRIVATE_PATH) perl -I$(PRIVATE_PATH)/bindings/scripts $(PRIVATE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator V8 --include dom --include html --outputdir $(dir $@) $<
 $(GEN): $(intermediates)/bindings/V8%.h : $(LOCAL_PATH)/storage/%.idl $(js_binding_scripts)
 	$(transform-generated-source)
-LOCAL_GENERATED_SOURCES += $(GEN)
+LOCAL_GENERATED_SOURCES += $(GEN) $(GEN:%.h=%.cpp)
 
 # We also need the .cpp files, which are generated as side effects of the
 # above rules.  Specifying this explicitly makes -j2 work.
@@ -507,7 +511,7 @@ $(GEN): PRIVATE_PATH := $(LOCAL_PATH)
 $(GEN): PRIVATE_CUSTOM_TOOL = SOURCE_ROOT=$(PRIVATE_PATH) perl -I$(PRIVATE_PATH)/bindings/scripts $(PRIVATE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator V8 --include css --include dom --include html --include svg --outputdir $(dir $@) $<
 $(GEN): $(intermediates)/bindings/V8%.h : $(LOCAL_PATH)/svg/%.idl $(js_binding_scripts)
 	$(transform-generated-source)
-LOCAL_GENERATED_SOURCES += $(GEN)
+LOCAL_GENERATED_SOURCES += $(GEN) $(GEN:%.h=%.cpp)
 
 # We also need the .cpp files, which are generated as side effects of the
 # above rules.  Specifying this explicitly makes -j2 work.
@@ -527,7 +531,7 @@ $(GEN): PRIVATE_PATH := $(LOCAL_PATH)
 $(GEN): PRIVATE_CUSTOM_TOOL = SOURCE_ROOT=$(PRIVATE_PATH) perl -I$(PRIVATE_PATH)/bindings/scripts $(PRIVATE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator V8 --include dom --include html --include workers --outputdir $(dir $@) $<
 $(GEN): $(intermediates)/bindings/V8%.h : $(LOCAL_PATH)/workers/%.idl $(js_binding_scripts)
 	$(transform-generated-source)
-LOCAL_GENERATED_SOURCES += $(GEN)
+LOCAL_GENERATED_SOURCES += $(GEN) $(GEN:%.h=%.cpp)
 
 # We also need the .cpp files, which are generated as side effects of the
 # above rules.  Specifying this explicitly makes -j2 work.
@@ -535,7 +539,6 @@ $(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/bindings/%.cpp : $(intermediates)
 
 # XML
 GEN := \
-    $(intermediates)/bindings/V8DOMFormData.h \
     $(intermediates)/bindings/V8DOMParser.h \
     $(intermediates)/bindings/V8XMLHttpRequest.h \
     $(intermediates)/bindings/V8XMLHttpRequestException.h \
@@ -553,7 +556,7 @@ $(GEN): PRIVATE_PATH := $(LOCAL_PATH)
 $(GEN): PRIVATE_CUSTOM_TOOL = SOURCE_ROOT=$(PRIVATE_PATH) perl -I$(PRIVATE_PATH)/bindings/scripts $(PRIVATE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator V8 --include dom --include html --outputdir $(dir $@) $<
 $(GEN): $(intermediates)/bindings/V8%.h : $(LOCAL_PATH)/xml/%.idl $(js_binding_scripts)
 	$(transform-generated-source)
-LOCAL_GENERATED_SOURCES += $(GEN)
+LOCAL_GENERATED_SOURCES += $(GEN) $(GEN:%.h=%.cpp)
 
 # We also need the .cpp files, which are generated as side effects of the
 # above rules.  Specifying this explicitly makes -j2 work.
@@ -571,7 +574,7 @@ $(GEN): PRIVATE_PATH := $(LOCAL_PATH)
 $(GEN): PRIVATE_CUSTOM_TOOL = SOURCE_ROOT=$(PRIVATE_PATH) perl -I$(PRIVATE_PATH)/bindings/scripts $(PRIVATE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator V8 --include dom --include html --outputdir $(dir $@) $<
 $(GEN): $(intermediates)/bindings/V8%.h : $(LOCAL_PATH)/inspector/%.idl $(js_binding_scripts)
 	$(transform-generated-source)
-LOCAL_GENERATED_SOURCES += $(GEN)
+LOCAL_GENERATED_SOURCES += $(GEN) $(GEN:%.h=%.cpp)
 
 # We also need the .cpp files, which are generated as side effects of the
 # above rules.  Specifying this explicitly makes -j2 work.
@@ -587,7 +590,7 @@ $(GEN): PRIVATE_PATH := $(LOCAL_PATH)
 $(GEN): PRIVATE_CUSTOM_TOOL = SOURCE_ROOT=$(PRIVATE_PATH) perl -I$(PRIVATE_PATH)/bindings/scripts $(PRIVATE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator V8 --include dom --include html --outputdir $(dir $@) $<
 $(GEN): $(intermediates)/bindings/V8%.h : $(LOCAL_PATH)/notifications/%.idl $(js_binding_scripts)
 	$(transform-generated-source)
-LOCAL_GENERATED_SOURCES += $(GEN)
+LOCAL_GENERATED_SOURCES += $(GEN) $(GEN:%.h=%.cpp)
 
 # We also need the .cpp files, which are generated as side effects of the
 # above rules.  Specifying this explicitly makes -j2 work.
@@ -602,7 +605,7 @@ $(GEN): PRIVATE_PATH := $(LOCAL_PATH)
 $(GEN): PRIVATE_CUSTOM_TOOL = SOURCE_ROOT=$(PRIVATE_PATH) perl -I$(PRIVATE_PATH)/bindings/scripts $(PRIVATE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator V8 --include dom --include html --outputdir $(dir $@) $<
 $(GEN): $(intermediates)/bindings/V8%.h : $(LOCAL_PATH)/websockets/%.idl $(js_binding_scripts)
 	$(transform-generated-source)
-LOCAL_GENERATED_SOURCES += $(GEN)
+LOCAL_GENERATED_SOURCES += $(GEN) $(GEN:%.h=%.cpp)
 
 # We also need the .cpp files, which are generated as side effects of the
 # above rules.  Specifying this explicitly makes -j2 work.

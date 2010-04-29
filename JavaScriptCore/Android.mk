@@ -142,6 +142,7 @@ LOCAL_SRC_FILES := \
 	runtime/RegExpConstructor.cpp \
 	runtime/RegExpObject.cpp \
 	runtime/RegExpPrototype.cpp \
+	runtime/RopeImpl.cpp \
 	runtime/ScopeChain.cpp \
 	runtime/SmallStrings.cpp \
 	runtime/StringConstructor.cpp \
@@ -151,7 +152,6 @@ LOCAL_SRC_FILES := \
 	runtime/StructureChain.cpp \
 	runtime/TimeoutChecker.cpp \
 	runtime/UString.cpp \
-	runtime/UStringImpl.cpp \
 	\
 	wtf/Assertions.cpp \
 	wtf/ByteArray.cpp \

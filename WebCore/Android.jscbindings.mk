@@ -58,6 +58,8 @@ BINDING_C_INCLUDES := \
 	$(base_intermediates)/WebCore/xml
 
 LOCAL_SRC_FILES += \
+	bindings/js/DOMObjectHashTableMap.cpp \
+	bindings/js/DOMWrapperWorld.cpp \
 	bindings/js/GCController.cpp \
 	bindings/js/JSAbstractWorkerCustom.cpp \
 	bindings/js/JSAttrCustom.cpp \
@@ -86,11 +88,12 @@ LOCAL_SRC_FILES += \
 	bindings/js/JSDesktopNotificationsCustom.cpp \
 	bindings/js/JSDOMApplicationCacheCustom.cpp \
 	bindings/js/JSDOMBinding.cpp \
-  bindings/js/JSDOMFormDataCustom.cpp \
+	bindings/js/JSDOMFormDataCustom.cpp \
 	bindings/js/JSDOMGlobalObject.cpp \
 	bindings/js/JSDOMWindowBase.cpp \
 	bindings/js/JSDOMWindowCustom.cpp \
 	bindings/js/JSDOMWindowShell.cpp \
+	bindings/js/JSDOMWrapper.cpp \
 	bindings/js/JSDataGridColumnListCustom.cpp \
 	bindings/js/JSDataGridDataSource.cpp \
 	bindings/js/JSDatabaseCustom.cpp \
@@ -186,6 +189,7 @@ LOCAL_SRC_FILES += \
 	\
 	bridge/IdentifierRep.cpp \
 	bridge/NP_jsobject.cpp \
+	bridge/c/CRuntimeObject.cpp \
 	bridge/c/c_class.cpp \
 	bridge/c/c_instance.cpp \
 	bridge/c/c_runtime.cpp \
@@ -196,6 +200,7 @@ LOCAL_SRC_FILES += \
 	bridge/jni/jsc/JNIUtilityPrivate.cpp \
 	bridge/jni/jsc/JavaClassJSC.cpp \
 	bridge/jni/jsc/JavaInstanceJSC.cpp \
+	bridge/jni/jsc/JavaRuntimeObject.cpp \
 	bridge/jsc/BridgeJSC.cpp \
 	bridge/npruntime.cpp \
 	bridge/runtime_array.cpp \

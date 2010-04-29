@@ -103,6 +103,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	dom/BeforeUnloadEvent.cpp \
 	dom/CDATASection.cpp \
 	dom/CSSMappedAttributeDeclaration.cpp \
+	dom/CanvasSurface.cpp \
 	dom/CharacterData.cpp \
 	dom/CheckedRadioButtons.cpp \
 	dom/ChildNodeList.cpp \
@@ -114,6 +115,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	dom/Comment.cpp \
 	dom/CompositionEvent.cpp \
 	dom/ContainerNode.cpp \
+	dom/CustomEvent.cpp \
 	dom/DOMImplementation.cpp \
 	dom/Document.cpp \
 	dom/DocumentFragment.cpp \
@@ -245,11 +247,8 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	\
 	html/Blob.cpp \
 	html/CollectionCache.cpp \
-<<<<<<< HEAD
 	html/DateComponents.cpp \
-=======
 	html/DOMFormData.cpp \
->>>>>>> webkit.org at r58033
 	html/File.cpp \
 	html/FileList.cpp \
 	html/FormDataList.cpp \
@@ -269,6 +268,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	html/HTMLViewSourceDocument.cpp \
 	html/ImageData.cpp \
 	html/PreloadScanner.cpp \
+	html/StepRange.cpp \
 	html/TimeRanges.cpp \
 	html/ValidityState.cpp \
 	\
@@ -555,11 +555,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/text/SegmentedString.cpp \
 	platform/text/String.cpp \
 	platform/text/StringBuilder.cpp \
-<<<<<<< HEAD
-	platform/text/StringImpl.cpp \
 	platform/text/TextBoundaries.cpp \
-=======
->>>>>>> webkit.org at r58033
 	platform/text/TextBreakIteratorICU.cpp \
 	platform/text/TextCodec.cpp \
 	platform/text/TextCodecICU.cpp \
