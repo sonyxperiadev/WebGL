@@ -300,7 +300,7 @@ v8::Local<v8::Object> V8DOMWrapper::instantiateV8Object(V8Proxy* proxy, V8ClassI
                 proxy = V8Proxy::retrieve(V8DOMWindow::toNative(globalPrototype)->frame());
 #if ENABLE(WORKERS)
             else
-                workerContext = V8WorkerContext::toNative(globalPrototype);
+                workerContext = V8WorkerContext::toNative(lookupDOMWrapper(V8WorkerContext::GetTemplate(), context->Global()));
 #endif
         }
     }
@@ -349,15 +349,19 @@ bool V8DOMWrapper::maybeDOMWrapper(v8::Handle<v8::Value> value)
 }
 #endif
 
-bool V8DOMWrapper::isWrapperOfType(v8::Handle<v8::Value> value, V8ClassIndex::V8WrapperType classType)
+bool V8DOMWrapper::isValidDOMObject(v8::Handle<v8::Value> value)
 {
     if (value.IsEmpty() || !value->IsObject())
         return false;
+    return v8::Handle<v8::Object>::Cast(value)->InternalFieldCount();
+}
 
-    v8::Handle<v8::Object> object = v8::Handle<v8::Object>::Cast(value);
-    if (!object->InternalFieldCount())
+bool V8DOMWrapper::isWrapperOfType(v8::Handle<v8::Value> value, V8ClassIndex::V8WrapperType classType)
+{
+    if (!isValidDOMObject(value))
         return false;
 
+    v8::Handle<v8::Object> object = v8::Handle<v8::Object>::Cast(value);
     ASSERT(object->InternalFieldCount() >= v8DefaultWrapperInternalFieldCount);
 
     v8::Handle<v8::Value> wrapper = object->GetInternalField(v8DOMWrapperObjectIndex);

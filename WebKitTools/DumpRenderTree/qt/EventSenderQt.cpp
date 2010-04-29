@@ -274,6 +274,8 @@ void EventSender::contextClick()
     QApplication::sendEvent(m_page, &event);
     QMouseEvent event2(QEvent::MouseButtonRelease, m_mousePos, Qt::RightButton, Qt::RightButton, Qt::NoModifier);
     QApplication::sendEvent(m_page, &event2);
+    QContextMenuEvent event3(QContextMenuEvent::Mouse, m_mousePos);
+    QApplication::sendEvent(m_page->view(), &event3);
 }
 
 void EventSender::scheduleAsynchronousClick()
@@ -397,16 +399,26 @@ void EventSender::sendTouchEvent(QEvent::Type type)
 
 void EventSender::zoomPageIn()
 {
-    QWebFrame* frame = m_page->mainFrame();
-    if (frame)
+    if (QWebFrame* frame = m_page->mainFrame())
         frame->setZoomFactor(frame->zoomFactor() * ZOOM_STEP);
 }
 
 void EventSender::zoomPageOut()
 {
-    QWebFrame* frame = m_page->mainFrame();
-    if (frame)
+    if (QWebFrame* frame = m_page->mainFrame())
         frame->setZoomFactor(frame->zoomFactor() / ZOOM_STEP);
+}
+
+void EventSender::textZoomIn()
+{
+    if (QWebFrame* frame = m_page->mainFrame())
+        frame->setTextSizeMultiplier(frame->textSizeMultiplier() * ZOOM_STEP);
+}
+
+void EventSender::textZoomOut()
+{
+    if (QWebFrame* frame = m_page->mainFrame())
+        frame->setTextSizeMultiplier(frame->textSizeMultiplier() / ZOOM_STEP);
 }
 
 QWebFrame* EventSender::frameUnderMouse() const

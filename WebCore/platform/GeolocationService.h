@@ -20,7 +20,7 @@
  * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #ifndef GeolocationService_h
@@ -46,7 +46,7 @@ class GeolocationService : public Noncopyable {
 public:
     static GeolocationService* create(GeolocationServiceClient*);
     virtual ~GeolocationService() { }
-    
+
 #if PLATFORM(ANDROID)
     // TODO: Upstream to webkit.org. See https://bugs.webkit.org/show_bug.cgi?id=34082
     virtual bool startUpdating(PositionOptions*, bool suspend) { return false; }
@@ -54,7 +54,7 @@ public:
     virtual bool startUpdating(PositionOptions*) { return false; }
 #endif
     virtual void stopUpdating() { }
-    
+
     virtual void suspend() { }
     virtual void resume() { }
 
@@ -68,6 +68,7 @@ public:
 
 protected:
     GeolocationService(GeolocationServiceClient*);
+    GeolocationServiceClient* geolocationServiceClient() const { return m_geolocationServiceClient; }
 
 private:
     GeolocationServiceClient* m_geolocationServiceClient;

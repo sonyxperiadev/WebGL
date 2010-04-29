@@ -69,6 +69,7 @@ public:
     void removeAllVisitedLinks();
     void setAcceptsEditing(bool acceptsEditing);
     void setAllowUniversalAccessFromFileURLs(bool);
+    void setAllowFileAccessFromFileURLs(bool);
     void setAppCacheMaximumSize(unsigned long long quota);
     void setAuthorAndUserStylesEnabled(bool);
     void setCacheModel(int);
@@ -232,6 +233,13 @@ public:
     void evaluateScriptInIsolatedWorld(unsigned worldId, JSObjectRef globalObject, JSStringRef script);
 
     void setPOSIXLocale(JSStringRef locale);
+    
+    // The following API test functions should probably be moved to platform-specific 
+    // unit tests outside of DRT once they exist.
+    void apiTestNewWindowDataLoadBaseURL(JSStringRef utf8Data, JSStringRef baseURL);
+
+    static const unsigned maxViewWidth;
+    static const unsigned maxViewHeight;
 
 private:
     bool m_dumpAsPDF;

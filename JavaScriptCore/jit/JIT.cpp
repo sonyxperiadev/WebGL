@@ -322,6 +322,11 @@ void JIT::privateCompileMainPass()
         case op_get_by_id_proto_list:
         case op_get_by_id_self:
         case op_get_by_id_self_list:
+        case op_get_by_id_getter_chain:
+        case op_get_by_id_getter_proto:
+        case op_get_by_id_getter_proto_list:
+        case op_get_by_id_getter_self:
+        case op_get_by_id_getter_self_list:
         case op_get_string_length:
         case op_put_by_id_generic:
         case op_put_by_id_replace:
@@ -582,7 +587,7 @@ void JIT::unlinkCall(CallLinkInfo* callLinkInfo)
     // When the JSFunction is deleted the pointer embedded in the instruction stream will no longer be valid
     // (and, if a new JSFunction happened to be constructed at the same location, we could get a false positive
     // match).  Reset the check so it no longer matches.
-    RepatchBuffer repatchBuffer(callLinkInfo->ownerCodeBlock.get());
+    RepatchBuffer repatchBuffer(callLinkInfo->ownerCodeBlock);
 #if USE(JSVALUE32_64)
     repatchBuffer.repatch(callLinkInfo->hotPathBegin, 0);
 #else

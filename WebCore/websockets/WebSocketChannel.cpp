@@ -164,6 +164,8 @@ void WebSocketChannel::didReceiveData(SocketStreamHandle* handle, const char* da
             // FIXME: handle set-cookie2.
             LOG(Network, "WebSocketChannel %p connected", this);
             m_client->didConnect();
+            if (!m_client)
+                return;
             break;
         default:
             LOG(Network, "WebSocketChannel %p connection failed", this);
@@ -209,6 +211,8 @@ void WebSocketChannel::didReceiveData(SocketStreamHandle* handle, const char* da
             if (p < end && *p == '\xff') {
                 if (frameByte == 0x00)
                     m_client->didReceiveMessage(String::fromUTF8(msgStart, p - msgStart));
+                if (!m_client)
+                    return;
                 ++p;
                 nextFrame = p;
             }

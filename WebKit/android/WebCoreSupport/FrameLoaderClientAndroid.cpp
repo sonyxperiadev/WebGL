@@ -32,6 +32,8 @@
 #include "CString.h"
 #include "CachedFrame.h"
 #include "CachedFramePlatformDataAndroid.h"
+#include "Chrome.h"
+#include "ChromeClientAndroid.h"
 #include "DOMImplementation.h"
 #include "Document.h"
 #include "DocumentLoader.h"
@@ -1213,6 +1215,21 @@ WTF::PassRefPtr<Widget> FrameLoaderClientAndroid::createJavaAppletWidget(const I
     // don't support widget yet
     notImplemented();
     return 0;
+}
+
+void FrameLoaderClientAndroid::didTransferChildFrameToNewDocument()
+{
+    ASSERT(m_frame);
+    // m_webFrame points to the WebFrame for the page that our frame previosuly
+    // belonged to. If the frame now belongs to a new page, we need to update
+    // m_webFrame to point to the WebFrame for the new page.
+    Page* newPage = m_frame->page();
+    if (newPage != m_webFrame->page()) {
+        ChromeClientAndroid* chromeClient = static_cast<ChromeClientAndroid*>(newPage->chrome()->client());
+        Release(m_webFrame);
+        m_webFrame = chromeClient->webFrame();
+        Retain(m_webFrame);
+    }
 }
 
 // This function is used by the <OBJECT> element to determine the type of

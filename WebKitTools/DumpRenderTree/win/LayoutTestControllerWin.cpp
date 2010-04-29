@@ -406,6 +406,23 @@ void LayoutTestController::setAllowUniversalAccessFromFileURLs(bool enabled)
     prefsPrivate->setAllowUniversalAccessFromFileURLs(enabled);
 }
 
+void LayoutTestController::setAllowFileAccessFromFileURLs(bool enabled)
+{
+    COMPtr<IWebView> webView;
+    if (FAILED(frame->webView(&webView)))
+        return;
+
+    COMPtr<IWebPreferences> preferences;
+    if (FAILED(webView->preferences(&preferences)))
+        return;
+
+    COMPtr<IWebPreferencesPrivate> prefsPrivate(Query, preferences);
+    if (!prefsPrivate)
+        return;
+
+    prefsPrivate->setAllowFileAccessFromFileURLs(enabled);
+}
+
 void LayoutTestController::setPopupBlockingEnabled(bool enabled)
 {
     COMPtr<IWebView> webView;
@@ -1121,14 +1138,34 @@ JSRetainPtr<JSStringRef> LayoutTestController::counterValueForElementById(JSStri
     return counterValueJS;
 }
 
-int LayoutTestController::pageNumberForElementById(JSStringRef, float, float)
+int LayoutTestController::pageNumberForElementById(JSStringRef id, float pageWidthInPixels, float pageHeightInPixels)
 {
-    // FIXME: implement
-    return -1;
+    COMPtr<IWebFramePrivate> framePrivate(Query, frame);
+    if (!framePrivate)
+        return 0;
+
+    wstring idWstring = jsStringRefToWString(id);
+    BSTR idBSTR = SysAllocStringLen((OLECHAR*)idWstring.c_str(), idWstring.length());
+    int pageNumber = -1;
+    if (FAILED(framePrivate->pageNumberForElementById(idBSTR, pageWidthInPixels, pageHeightInPixels, &pageNumber)))
+        pageNumber = -1;
+    SysFreeString(idBSTR);
+    return pageNumber;
 }
 
-int LayoutTestController::numberOfPages(float, float)
+int LayoutTestController::numberOfPages(float pageWidthInPixels, float pageHeightInPixels)
 {
-    // FIXME: implement
-    return -1;
+    COMPtr<IWebFramePrivate> framePrivate(Query, frame);
+    if (!framePrivate)
+        return 0;
+
+    int pageNumber = -1;
+    if (FAILED(framePrivate->numberOfPages(pageWidthInPixels, pageHeightInPixels, &pageNumber)))
+        pageNumber = -1;
+    return pageNumber;
+}
+
+void LayoutTestController::apiTestNewWindowDataLoadBaseURL(JSStringRef utf8Data, JSStringRef baseURL)
+{
+
 }

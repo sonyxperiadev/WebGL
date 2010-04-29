@@ -23,23 +23,21 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef JavaScriptProfileNode_h
-#define JavaScriptProfileNode_h
+#ifndef JavaScriptProfile_h
+#define JavaScriptProfile_h
 
-#if ENABLE(JAVASCRIPT_DEBUGGER) && USE(JSC)
+#if ENABLE(JAVASCRIPT_DEBUGGER)
 
 #include <runtime/JSValue.h>
-#include <JavaScriptCore/JSBase.h>
 
 namespace JSC {
-    class ExecState;
-    class ProfileNode;
+class ExecState;
+class Profile;
 }
 
 namespace WebCore {
 
-    JSClassRef ProfileNodeClass();
-    JSC::JSValue toJS(JSC::ExecState*, JSC::ProfileNode*);
+JSC::JSValue toJS(JSC::ExecState*, JSC::Profile*);
 
 } // namespace WebCore
 

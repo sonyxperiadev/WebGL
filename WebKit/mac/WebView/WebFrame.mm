@@ -87,6 +87,7 @@
 #import <WebCore/htmlediting.h>
 #import <WebCore/markup.h>
 #import <WebCore/visible_units.h>
+#import <WebKitSystemInterface.h>
 #import <runtime/JSLock.h>
 #import <runtime/JSObject.h>
 #import <runtime/JSValue.h>
@@ -269,6 +270,11 @@ WebView *getWebView(WebFrame *webFrame)
     return [self _createFrameWithPage:ownerElement->document()->frame()->page() frameName:name frameView:frameView ownerElement:ownerElement];
 }
 
+- (BOOL)_isIncludedInWebKitStatistics
+{
+    return _private && _private->includedInWebKitStatistics;
+}
+
 - (void)_attachScriptDebugger
 {
     ScriptController* scriptController = _private->coreFrame->script();
@@ -308,14 +314,17 @@ WebView *getWebView(WebFrame *webFrame)
 
     _private = [[WebFramePrivate alloc] init];
 
+    // Set includedInWebKitStatistics before calling WebFrameView _setWebFrame, since
+    // it calls WebFrame _isIncludedInWebKitStatistics.
+    if ((_private->includedInWebKitStatistics = [[v class] shouldIncludeInWebKitStatistics]))
+        ++WebFrameCount;
+
     if (fv) {
         [_private setWebFrameView:fv];
         [fv _setWebFrame:self];
     }
 
     _private->shouldCreateRenderers = YES;
-
-    ++WebFrameCount;
 
     return self;
 }
@@ -523,14 +532,27 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
 
 - (void)_drawRect:(NSRect)rect contentsOnly:(BOOL)contentsOnly
 {
-    PlatformGraphicsContext* platformContext = static_cast<PlatformGraphicsContext*>([[NSGraphicsContext currentContext] graphicsPort]);
     ASSERT([[NSGraphicsContext currentContext] isFlipped]);
-    GraphicsContext context(platformContext);
+
+    CGContextRef ctx = static_cast<CGContextRef>([[NSGraphicsContext currentContext] graphicsPort]);
+    GraphicsContext context(ctx);
+
+    FrameView* view = _private->coreFrame->view();
+    
+    bool shouldFlatten = WKCGContextIsBitmapContext(ctx) && [getWebView(self) _includesFlattenedCompositingLayersWhenDrawingToBitmap];
+    PaintBehavior oldBehavior = PaintBehaviorNormal;
+    if (shouldFlatten) {
+        oldBehavior = view->paintBehavior();
+        view->setPaintBehavior(oldBehavior | PaintBehaviorFlattenCompositingLayers);
+    }
     
     if (contentsOnly)
         _private->coreFrame->view()->paintContents(&context, enclosingIntRect(rect));
     else
         _private->coreFrame->view()->paint(&context, enclosingIntRect(rect));
+
+    if (shouldFlatten)
+        view->setPaintBehavior(oldBehavior);
 }
 
 // Used by pagination code called from AppKit when a standalone web page is printed.
@@ -1276,14 +1298,19 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
 
 - (void)dealloc
 {
+    if (_private && _private->includedInWebKitStatistics)
+        --WebFrameCount;
+
     [_private release];
-    --WebFrameCount;
+
     [super dealloc];
 }
 
 - (void)finalize
 {
-    --WebFrameCount;
+    if (_private && _private->includedInWebKitStatistics)
+        --WebFrameCount;
+
     [super finalize];
 }
 

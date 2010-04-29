@@ -614,9 +614,17 @@ sub qtFeatureDefaults()
     return %qtFeatureDefaults;
 }
 
+sub commandExists($)
+{
+    my $command = shift;
+    my $devnull = File::Spec->devnull();
+    return `$command --version 2> $devnull`;
+}
+
 sub determineQtFeatureDefaults()
 {
     return if %qtFeatureDefaults;
+    die "ERROR: qmake missing but required to build WebKit.\n" if not commandExists("qmake");
     my $originalCwd = getcwd();
     chdir File::Spec->catfile(sourceDir(), "WebCore");
     my $defaults = `qmake CONFIG+=compute_defaults 2>&1`;
@@ -891,10 +899,9 @@ sub checkRequiredSystemConfig
         my @cmds = qw(flex bison gperf);
         my @missing = ();
         foreach my $cmd (@cmds) {
-            if (not `$cmd --version`) {
-                push @missing, $cmd;
-            }
+            push @missing, $cmd if not commandExists($cmd);
         }
+
         if (@missing) {
             my $list = join ", ", @missing;
             die "ERROR: $list missing but required to build WebKit.\n";
@@ -1162,7 +1169,7 @@ sub qtMakeCommand($)
     #print "default spec: " . $mkspec . "\n";
     #print "compiler found: " . $compiler . "\n";
 
-    if ($compiler eq "cl") {
+    if ($compiler && $compiler eq "cl") {
         return "nmake";
     }
 
@@ -1454,7 +1461,7 @@ sub runSafari
     my ($debugger) = @_;
 
     if (isAppleMacWebKit()) {
-        return system "$FindBin::Bin/gdb-safari", @ARGV if $debugger;
+        return system "$FindBin::Bin/gdb-safari", argumentsForConfiguration() if $debugger;
 
         my $productDir = productDir();
         print "Starting Safari with DYLD_FRAMEWORK_PATH set to point to built WebKit in $productDir.\n";

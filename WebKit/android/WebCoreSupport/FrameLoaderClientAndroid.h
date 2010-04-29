@@ -176,11 +176,9 @@ namespace android {
         virtual bool canCachePage() const;
         virtual void download(ResourceHandle*, const ResourceRequest&, const ResourceRequest&, const ResourceResponse&);
 
-        virtual WTF::PassRefPtr<Frame> createFrame(const KURL& url, const String& name, HTMLFrameOwnerElement* ownerElement,
-                                   const String& referrer, bool allowsScrolling, int marginWidth, int marginHeight);
-       virtual WTF::PassRefPtr<Widget> createPlugin(const IntSize&, HTMLPlugInElement*, const KURL&,
-               const WTF::Vector<String>&, const WTF::Vector<String>&,
-               const String&, bool loadManually);
+        virtual WTF::PassRefPtr<Frame> createFrame(const KURL& url, const String& name, HTMLFrameOwnerElement* ownerElement, const String& referrer, bool allowsScrolling, int marginWidth, int marginHeight);
+        virtual void didTransferChildFrameToNewDocument();
+        virtual WTF::PassRefPtr<Widget> createPlugin(const IntSize&, HTMLPlugInElement*, const KURL&, const WTF::Vector<String>&, const WTF::Vector<String>&, const String&, bool loadManually);
         virtual void redirectDataToPlugin(Widget* pluginWidget);
 
         virtual WTF::PassRefPtr<Widget> createJavaAppletWidget(const IntSize&, HTMLAppletElement*, const KURL& baseURL, const WTF::Vector<String>& paramNames, const WTF::Vector<String>& paramValues);

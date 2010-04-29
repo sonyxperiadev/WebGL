@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2010 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -20,27 +20,21 @@
  * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#ifndef JavaScriptProfile_h
-#define JavaScriptProfile_h
-
-#if ENABLE(JAVASCRIPT_DEBUGGER) && USE(JSC)
-
-#include <runtime/JSValue.h>
-
-namespace JSC {
-    class ExecState;
-    class Profile;
-}
+#ifndef MediaCanStartListener_h
+#define MediaCanStartListener_h
 
 namespace WebCore {
 
-    JSC::JSValue toJS(JSC::ExecState*, JSC::Profile*);
+class MediaCanStartListener {
+public:
+    virtual void mediaCanStart() = 0;
+protected:
+    virtual ~MediaCanStartListener() { }
+};
 
-} // namespace WebCore
-
-#endif // ENABLE(JAVASCRIPT_DEBUGGER)
+}
 
 #endif

@@ -69,6 +69,7 @@
 #endif
 
 #if ENABLE(SVG)
+#include "RenderSVGResource.h"
 #include "SVGRenderSupport.h"
 #endif
 
@@ -1765,6 +1766,11 @@ void RenderObject::mapLocalToContainer(RenderBoxModelObject* repaintContainer, b
     if (!o)
         return;
 
+    IntSize columnOffset;
+    o->adjustForColumns(columnOffset, roundedIntPoint(transformState.mappedPoint()));
+    if (!columnOffset.isZero())
+        transformState.move(columnOffset);
+
     if (o->hasOverflowClip())
         transformState.move(-toRenderBox(o)->layer()->scrolledContentOffset());
 
@@ -1821,18 +1827,23 @@ void RenderObject::getTransformFromContainer(const RenderObject* containerObject
 
 FloatQuad RenderObject::localToContainerQuad(const FloatQuad& localQuad, RenderBoxModelObject* repaintContainer, bool fixed) const
 {
-    TransformState transformState(TransformState::ApplyTransformDirection, FloatPoint(), &localQuad);
+    // Track the point at the center of the quad's bounding box. As mapLocalToContainer() calls offsetFromContainer(),
+    // it will use that point as the reference point to decide which column's transform to apply in multiple-column blocks.
+    TransformState transformState(TransformState::ApplyTransformDirection, localQuad.boundingBox().center(), &localQuad);
     mapLocalToContainer(repaintContainer, fixed, true, transformState);
     transformState.flatten();
     
     return transformState.lastPlanarQuad();
 }
 
-IntSize RenderObject::offsetFromContainer(RenderObject* o) const
+IntSize RenderObject::offsetFromContainer(RenderObject* o, const IntPoint& point) const
 {
     ASSERT(o == container());
 
     IntSize offset;
+
+    o->adjustForColumns(offset, point);
+
     if (o->hasOverflowClip())
         offset -= toRenderBox(o)->layer()->scrolledContentOffset();
 
@@ -1842,6 +1853,7 @@ IntSize RenderObject::offsetFromContainer(RenderObject* o) const
 IntSize RenderObject::offsetFromAncestorContainer(RenderObject* container) const
 {
     IntSize offset;
+    IntPoint referencePoint;
     const RenderObject* currContainer = this;
     do {
         RenderObject* nextContainer = currContainer->container();
@@ -1849,7 +1861,9 @@ IntSize RenderObject::offsetFromAncestorContainer(RenderObject* container) const
         if (!nextContainer)
             break;
         ASSERT(!currContainer->hasTransform());
-        offset += currContainer->offsetFromContainer(nextContainer);
+        IntSize currentOffset = currContainer->offsetFromContainer(nextContainer, referencePoint);
+        offset += currentOffset;
+        referencePoint.move(currentOffset);
         currContainer = nextContainer;
     } while (currContainer != container);
 
@@ -2515,6 +2529,12 @@ VisiblePosition RenderObject::createVisiblePosition(const Position& position)
 
 #if ENABLE(SVG)
 const SVGRenderBase* RenderObject::toSVGRenderBase() const
+{
+    ASSERT_NOT_REACHED();
+    return 0;
+}
+
+RenderSVGResource* RenderObject::toRenderSVGResource()
 {
     ASSERT_NOT_REACHED();
     return 0;

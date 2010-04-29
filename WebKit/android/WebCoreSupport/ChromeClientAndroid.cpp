@@ -492,6 +492,11 @@ void ChromeClientAndroid::runOpenPanel(Frame* frame,
     core->openFileChooser(chooser);
 }
 
+void ChromeClientAndroid::iconForFiles(const Vector<WebCore::String>&, PassRefPtr<WebCore::FileChooser>)
+{
+    notImplemented();
+}
+
 bool ChromeClientAndroid::setCursor(PlatformCursorHandle)
 {
     notImplemented(); 

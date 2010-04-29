@@ -339,6 +339,10 @@ SOURCES += \
     bindings/js/JSLazyEventListener.cpp \
     bindings/js/JSPluginElementFunctions.cpp \
     bindings/js/JSPopStateEventCustom.cpp \
+    bindings/js/JavaScriptProfile.h \
+    bindings/js/JavaScriptProfileNode.h \
+    bindings/js/JavaScriptProfile.cpp \
+    bindings/js/JavaScriptProfileNode.cpp \
     bindings/js/ScriptArray.cpp \
     bindings/js/ScriptCachedFrameData.cpp \
     bindings/js/ScriptCallFrame.cpp \
@@ -1371,8 +1375,6 @@ HEADERS += \
     inspector/InspectorTimelineAgent.h \
     inspector/JavaScriptCallFrame.h \
     inspector/JavaScriptDebugServer.h \
-    inspector/JavaScriptProfile.h \
-    inspector/JavaScriptProfileNode.h \
     inspector/TimelineRecordFactory.h \
     loader/appcache/ApplicationCacheGroup.h \
     loader/appcache/ApplicationCacheHost.h \
@@ -1654,6 +1656,8 @@ HEADERS += \
     rendering/RenderSVGInline.h \
     rendering/RenderSVGInlineText.h \
     rendering/RenderSVGModelObject.h \
+    rendering/RenderSVGResource.h \
+    rendering/RenderSVGResourceMasker.h \
     rendering/RenderSVGRoot.h \
     rendering/RenderSVGShadowTreeRootContainer.h \
     rendering/RenderSVGText.h \
@@ -1745,7 +1749,6 @@ HEADERS += \
     svg/graphics/SVGResourceFilter.h \
     svg/graphics/SVGResource.h \
     svg/graphics/SVGResourceMarker.h \
-    svg/graphics/SVGResourceMasker.h \
     svg/SVGAElement.h \
     svg/SVGAltGlyphElement.h \
     svg/SVGAngle.h \
@@ -2596,7 +2599,6 @@ contains(DEFINES, ENABLE_SVG=1) {
         svg/graphics/SVGResource.cpp \
         svg/graphics/SVGResourceFilter.cpp \
         svg/graphics/SVGResourceMarker.cpp \
-        svg/graphics/SVGResourceMasker.cpp \
         rendering/RenderForeignObject.cpp \
         rendering/RenderPath.cpp \
         rendering/RenderSVGBlock.cpp \
@@ -2607,6 +2609,7 @@ contains(DEFINES, ENABLE_SVG=1) {
         rendering/RenderSVGInline.cpp \
         rendering/RenderSVGInlineText.cpp \
         rendering/RenderSVGModelObject.cpp \
+        rendering/RenderSVGResourceMasker.cpp \
         rendering/RenderSVGRoot.cpp \
         rendering/RenderSVGShadowTreeRootContainer.cpp \
         rendering/RenderSVGText.cpp \
@@ -2628,8 +2631,6 @@ contains(DEFINES, ENABLE_JAVASCRIPT_DEBUGGER=1) {
         bindings/js/JSJavaScriptCallFrameCustom.cpp \
         inspector/JavaScriptCallFrame.cpp \
         inspector/JavaScriptDebugServer.cpp \
-        inspector/JavaScriptProfile.cpp \
-        inspector/JavaScriptProfileNode.cpp
 }
 
 contains(DEFINES, ENABLE_OFFLINE_WEB_APPLICATIONS=1) {
