@@ -30,6 +30,7 @@
 
 #include "ApplicationCacheStorage.h"
 #include "DatabaseTracker.h"
+#include "Database.h"
 #include "DocLoader.h"
 #include "Document.h"
 #include "Frame.h"
@@ -354,7 +355,7 @@ public:
         s->setShrinksStandaloneImagesToFit(flag);
 #if ENABLE(DATABASE)
         flag = env->GetBooleanField(obj, gFieldIds->mDatabaseEnabled);
-        s->setDatabasesEnabled(flag);
+        WebCore::Database::setIsAvailable(flag);
 
         flag = env->GetBooleanField(obj, gFieldIds->mDatabasePathHasBeenSet);
         if (flag) {
