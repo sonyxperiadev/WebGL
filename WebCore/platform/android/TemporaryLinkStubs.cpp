@@ -519,6 +519,12 @@ void AXObjectCache::remove(RenderObject*)
     notImplemented();
 }
 
+const AtomicString& AccessibilityObject::getAttribute(Node*, const QualifiedName&)
+{
+    static const AtomicString emptyString;
+    return emptyString;
+}
+
 #if USE(JSC)
 using namespace JSC;
 
