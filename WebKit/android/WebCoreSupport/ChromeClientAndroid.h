@@ -113,7 +113,9 @@ namespace android {
         virtual IntRect windowResizerRect() const;
 
         // Methods used by HostWindow.
-        virtual void repaint(const IntRect&, bool contentChanged, bool immediate = false, bool repaintContentOnly = false);
+        virtual void invalidateWindow(const WebCore::IntRect&, bool);
+        virtual void invalidateContentsAndWindow(const WebCore::IntRect&, bool);
+        virtual void invalidateContentsForSlowScroll(const WebCore::IntRect&, bool);
         virtual void scroll(const IntSize& scrollDelta, const IntRect& rectToScroll, const IntRect& clipRect);
         virtual IntPoint screenToWindow(const IntPoint&) const;
         virtual IntRect windowToScreen(const IntRect&) const;

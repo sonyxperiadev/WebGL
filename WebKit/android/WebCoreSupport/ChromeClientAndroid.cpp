@@ -277,12 +277,19 @@ bool ChromeClientAndroid::tabsToLinks() const { return false; }
 
 IntRect ChromeClientAndroid::windowResizerRect() const { return IntRect(0, 0, 0, 0); }
 
-// new to change 38068 (Nov 6, 2008)
-void ChromeClientAndroid::repaint(const IntRect& rect, bool contentChanged, 
-        bool immediate, bool repaintContentOnly) { 
-    notImplemented(); 
-// was in ScrollViewAndroid::update() : needs to be something like:
-//    android::WebViewCore::getWebViewCore(this)->contentInvalidate(rect);
+void ChromeClientAndroid::invalidateWindow(const IntRect&, bool)
+{
+    notImplemented();
+}
+
+void ChromeClientAndroid::invalidateContentsAndWindow(const IntRect& updateRect, bool /*immediate*/)
+{
+    notImplemented();
+}
+
+void ChromeClientAndroid::invalidateContentsForSlowScroll(const IntRect& updateRect, bool immediate)
+{
+    notImplemented();
 }
 
 // new to change 38068 (Nov 6, 2008)
