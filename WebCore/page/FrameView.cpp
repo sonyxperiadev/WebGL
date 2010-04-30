@@ -1246,7 +1246,7 @@ void FrameView::scheduleRelayout()
     if (!m_frame->document()->shouldScheduleLayout())
         return;
 
-#if defined(FLATTEN_IFRAME) || defined(FLATTEN_FRAMESET)
+#if defined(ANDROID_FLATTEN_IFRAME) || defined(ANDROID_FLATTEN_FRAMESET)
     // This is the Android frame flattening code. The common code below is not
     // used as frameSetFlatteningEnabled() is false on Android.
     if (m_frame->ownerRenderer())

@@ -44,7 +44,7 @@ RenderFrameSet::RenderFrameSet(HTMLFrameSetElement* frameSet)
     : RenderBox(frameSet)
     , m_isResizing(false)
     , m_isChildResizing(false)
-#ifdef FLATTEN_FRAMESET
+#ifdef ANDROID_FLATTEN_FRAMESET
     , m_gridCalculated(false)
 #endif
 {
@@ -461,7 +461,7 @@ void RenderFrameSet::layout()
         oldBounds = absoluteClippedOverflowRect();
 
     if (!parent()->isFrameSet() && !document()->printing()) {
-#ifdef FLATTEN_FRAMESET
+#ifdef ANDROID_FLATTEN_FRAMESET
         // Force a grid recalc.
         m_gridCalculated = false;
 #endif
@@ -475,12 +475,12 @@ void RenderFrameSet::layout()
     if (m_rows.m_sizes.size() != rows || m_cols.m_sizes.size() != cols) {
         m_rows.resize(rows);
         m_cols.resize(cols);
-#ifdef FLATTEN_FRAMESET
+#ifdef ANDROID_FLATTEN_FRAMESET
         m_gridCalculated = false;
 #endif
     }
 
-#ifdef FLATTEN_FRAMESET
+#ifdef ANDROID_FLATTEN_FRAMESET
     if (!m_gridCalculated) {
         m_gridCalculated = true;
         // Make all the child framesets recalculate their grid.
@@ -493,7 +493,7 @@ void RenderFrameSet::layout()
     int borderThickness = frameSet()->border();
     layOutAxis(m_rows, frameSet()->rowLengths(), height() - (rows - 1) * borderThickness);
     layOutAxis(m_cols, frameSet()->colLengths(), width() - (cols - 1) * borderThickness);
-#ifdef FLATTEN_FRAMESET
+#ifdef ANDROID_FLATTEN_FRAMESET
     }
 #endif
 
@@ -527,7 +527,7 @@ void RenderFrameSet::positionFrames()
 
     int yPos = 0;
     int borderThickness = frameSet()->border();
-#ifdef FLATTEN_FRAMESET
+#ifdef ANDROID_FLATTEN_FRAMESET
     // Keep track of the maximum width of a row which will become the maximum width of the frameset.
     int maxWidth = 0;
     const Length* rowLengths = frameSet()->rowLengths();
@@ -605,7 +605,7 @@ void RenderFrameSet::positionFrames()
     setWidth(max(width(), newWidth));
     child = (RenderBox*)firstChild();
     yPos = 0;
-#endif // FLATTEN_FRAMESET
+#endif // ANDROID_FLATTEN_FRAMESET
 
     for (int r = 0; r < rows; r++) {
         int xPos = 0;

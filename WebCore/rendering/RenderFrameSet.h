@@ -70,7 +70,7 @@ public:
     bool canResizeRow(const IntPoint&) const;
     bool canResizeColumn(const IntPoint&) const;
 
-#ifdef FLATTEN_FRAMESET
+#ifdef ANDROID_FLATTEN_FRAMESET
     void setGridNeedsLayout() { m_gridCalculated = false; }
 #endif
 
@@ -128,7 +128,7 @@ private:
 
     bool m_isResizing;
     bool m_isChildResizing;
-#ifdef FLATTEN_FRAMESET
+#ifdef ANDROID_FLATTEN_FRAMESET
     bool m_gridCalculated;
 #endif
 };

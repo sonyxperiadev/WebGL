@@ -43,6 +43,32 @@ RenderIFrame::RenderIFrame(Element* element)
 void RenderIFrame::calcHeight()
 {
     RenderPart::calcHeight();
+#ifdef ANDROID_FLATTEN_IFRAME
+    if (!node()->hasTagName(iframeTag) || !widget() || !widget()->isFrameView())
+        return;
+    FrameView* view = static_cast<FrameView*>(widget());
+    RenderView* root = static_cast<RenderView*>(view->frame()->contentRenderer());
+    if (!root)
+        return;
+    // Do not expand if the scrollbars are suppressed and the height is fixed.
+    bool scrolling = static_cast<HTMLIFrameElement*>(node())->scrollingMode() != ScrollbarAlwaysOff;
+    if (!scrolling && style()->height().isFixed())
+        return;
+    // Update the widget
+    updateWidgetPosition();
+
+    // Layout to get the content height
+    do {
+        view->layout();
+    } while (view->layoutPending() || root->needsLayout());
+
+    int extraHeight = paddingTop() + paddingBottom() + borderTop() + borderBottom();
+    setHeight(max(width(), view->contentsHeight() + extraHeight));
+
+    // Update one last time to ensure the dimensions.
+    updateWidgetPosition();
+    return;
+#endif
     if (!flattenFrame())
          return;
 
@@ -59,6 +85,39 @@ void RenderIFrame::calcHeight()
 void RenderIFrame::calcWidth()
 {
     RenderPart::calcWidth();
+#ifdef ANDROID_FLATTEN_IFRAME
+    if (!node()->hasTagName(iframeTag) || !widget() || !widget()->isFrameView())
+        return;
+    FrameView* view = static_cast<FrameView*>(widget());
+    RenderView* root = static_cast<RenderView*>(view->frame()->contentRenderer());
+    if (!root)
+        return;
+    // Do not expand if the scrollbars are suppressed and the width is fixed.
+    bool scrolling = static_cast<HTMLIFrameElement*>(node())->scrollingMode() != ScrollbarAlwaysOff;
+    if (!scrolling && style()->width().isFixed())
+        return;
+    // Update the dimensions to get the correct minimum preferred
+    // width
+    updateWidgetPosition();
+
+    int extraWidth = paddingLeft() + paddingRight() + borderLeft() + borderRight();
+    // Set the width
+    setWidth(max(width(), root->minPrefWidth()) + extraWidth);
+
+    // Update based on the new width
+    updateWidgetPosition();
+
+    // Layout to get the content width
+    do {
+        view->layout();
+    } while (view->layoutPending() || root->needsLayout());
+
+    setWidth(max(width(), view->contentsWidth() + extraWidth));
+
+    // Update one last time to ensure the dimensions.
+    updateWidgetPosition();
+    return;
+#endif
     if (!flattenFrame())
         return;
 
@@ -105,6 +164,81 @@ void RenderIFrame::layout()
     RenderPart::calcWidth();
     RenderPart::calcHeight();
 
+#ifdef ANDROID_FLATTEN_IFRAME
+    // Calculate the styled dimensions by subtracting the border and padding.
+    int extraWidth = paddingLeft() + paddingRight() + borderLeft() + borderRight();
+    int extraHeight = paddingTop() + paddingBottom() + borderTop() + borderBottom();
+    int styleWidth = width() - extraWidth;
+    int styleHeight = height() - extraHeight;
+    // Some IFrames have a width and/or height of 1 when they are meant to be
+    // hidden. If that is the case, do not try to expand.
+    if (node()->hasTagName(iframeTag) && widget() && widget()->isFrameView() &&
+            styleWidth > 1 && styleHeight > 1) {
+        HTMLIFrameElement* element = static_cast<HTMLIFrameElement*>(node());
+        bool scrolling = element->scrollingMode() != ScrollbarAlwaysOff;
+        bool widthIsFixed = style()->width().isFixed();
+        bool heightIsFixed = style()->height().isFixed();
+        // If an iframe has a fixed dimension and suppresses scrollbars, it
+        // will disrupt layout if we force it to expand.  Plus on a desktop,
+        // the extra content is not accessible.
+        if (scrolling || !widthIsFixed || !heightIsFixed) {
+            FrameView* view = static_cast<FrameView*>(widget());
+            RenderView* root = view ?  view->frame()->contentRenderer() : NULL;
+            if (root && style()->visibility() != HIDDEN) {
+                // Update the dimensions to get the correct minimum preferred
+                // width
+                updateWidgetPosition();
+
+                // Use the preferred width if it is larger and only if
+                // scrollbars are visible or the width style is not fixed.
+                if (scrolling || !widthIsFixed)
+                    setWidth(max(width(), root->minPrefWidth()) + extraWidth);
+
+                // Resize the view to recalc the height.
+                int h = height() - extraHeight;
+                int w = width() - extraWidth;
+                if (w > view->width())
+                    h = 0;
+                if (w != view->width() || h != view->height()) {
+                    view->resize(w, h);
+                }
+
+                // Layout the view.
+                do {
+                    view->layout();
+                } while (view->layoutPending() || root->needsLayout());
+
+                int contentHeight = view->contentsHeight();
+                int contentWidth = view->contentsWidth();
+                // Only change the width or height if scrollbars are visible or
+                // if the style is not a fixed value.  Use the maximum value so
+                // that iframes never shrink.
+                if (scrolling || !heightIsFixed)
+                    setHeight(max(height(), contentHeight + extraHeight));
+                if (scrolling || !widthIsFixed)
+                    setWidth(max(width(), contentWidth + extraWidth));
+
+                // Update one last time
+                updateWidgetPosition();
+
+                // Layout one more time to ensure all objects have the correct
+                // height.
+                view->layout();
+
+#if !ASSERT_DISABLED
+                ASSERT(!view->layoutPending());
+                ASSERT(!root->needsLayout());
+                // Sanity check when assertions are enabled.
+                RenderObject* c = root->nextInPreOrder();
+                while (c) {
+                    ASSERT(!c->needsLayout());
+                    c = c->nextInPreOrder();
+                }
+#endif
+            }
+        }
+    }
+#endif
     if (flattenFrame()) {
         layoutWithFlattening(style()->width().isFixed(), style()->height().isFixed());
         return;

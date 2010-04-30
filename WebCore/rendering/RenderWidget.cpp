@@ -325,7 +325,7 @@ void RenderWidget::updateWidgetPosition()
 
     bool boundsChanged = setWidgetGeometry(IntRect(absPos.x(), absPos.y(), w, h));
 
-#ifndef FLATTEN_IFRAME
+#ifndef ANDROID_FLATTEN_IFRAME
     // if the frame bounds got changed, or if view needs layout (possibly indicating
     // content size is wrong) we have to do a layout to set the right widget size
     if (m_widget->isFrameView()) {

@@ -215,7 +215,7 @@ void HTMLFrameSetElement::recalcStyle(StyleChange ch)
 {
     if (needsStyleRecalc() && renderer()) {
         renderer()->setNeedsLayout(true);
-#ifdef FLATTEN_FRAMESET
+#ifdef ANDROID_FLATTEN_FRAMESET
         static_cast<RenderFrameSet*>(renderer())->setGridNeedsLayout();
 #endif
         setNeedsStyleRecalc(NoStyleChange);

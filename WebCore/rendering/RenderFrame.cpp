@@ -28,7 +28,7 @@
 #include "HTMLFrameElement.h"
 #include "RenderView.h"
 
-#ifdef FLATTEN_FRAMESET
+#ifdef ANDROID_FLATTEN_FRAMESET
 #include "Frame.h"
 #include "Document.h"
 #include "RenderView.h"
@@ -65,7 +65,7 @@ void RenderFrame::viewCleared()
         view->setMarginHeight(marginh);
 }
 
-#ifdef FLATTEN_FRAMESET
+#ifdef ANDROID_FLATTEN_FRAMESET
 void RenderFrame::layout()
 {
     if (widget() && widget()->isFrameView()) {

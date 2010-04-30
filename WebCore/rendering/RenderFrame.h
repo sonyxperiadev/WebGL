@@ -40,7 +40,7 @@ private:
     virtual const char* renderName() const { return "RenderFrame"; }
     virtual bool isFrame() const { return true; }
 
-#ifdef FLATTEN_FRAMESET
+#ifdef ANDROID_FLATTEN_FRAMESET
     virtual void layout();
 #endif
     virtual void viewCleared();
