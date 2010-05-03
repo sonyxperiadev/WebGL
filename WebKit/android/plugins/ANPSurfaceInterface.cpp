@@ -118,6 +118,16 @@ static bool anp_lock(JNIEnv* env, jobject surfaceView, ANPBitmap* bitmap, ANPRec
         return false;
     }
 
+    // the surface may have expanded the dirty region so we must to pass that
+    // information back to the plugin.
+    if (dirtyRect) {
+        Rect dirtyBounds = dirtyRegion.getBounds();
+        dirtyRect->left = dirtyBounds.left;
+        dirtyRect->right = dirtyBounds.right;
+        dirtyRect->top = dirtyBounds.top;
+        dirtyRect->bottom = dirtyBounds.bottom;
+    }
+
     ssize_t bpr = info.s * bytesPerPixel(info.format);
 
     bitmap->format = convertPixelFormat(info.format);
