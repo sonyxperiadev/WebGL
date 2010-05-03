@@ -108,6 +108,7 @@ public:
     int index() const { return mIndex; }
     void init(WebCore::Node* node);
     bool isAnchor() const { return mType == ANCHOR_CACHEDNODETYPE; }
+    bool isContentEditable() const { return mType == CONTENT_EDITABLE_CACHEDNODETYPE; }
     bool isCursor() const { return mIsCursor; }
     bool isArea() const { return mType == AREA_CACHEDNODETYPE; }
     bool isFocus() const { return mIsFocus; }
@@ -174,7 +175,7 @@ public:
     const CachedNode* traverseNextNode() const { return mLast ? NULL : &this[1]; }
     bool useBounds() const { return mUseBounds; }
     bool useHitBounds() const { return mUseHitBounds; }
-    bool wantsKeyEvents() const { return isTextInput() || isPlugin(); }
+    bool wantsKeyEvents() const { return isTextInput() || isPlugin() || isContentEditable(); }
 private:
     friend class CacheBuilder;
     WebCore::String mExport;

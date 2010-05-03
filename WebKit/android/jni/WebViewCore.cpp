@@ -1985,12 +1985,25 @@ void WebViewCore::listBoxRequest(WebCoreReply* reply, const uint16_t** labels, s
 
 bool WebViewCore::key(const PlatformKeyboardEvent& event)
 {
-    WebCore::EventHandler* eventHandler = m_mainFrame->eventHandler();
+    WebCore::EventHandler* eventHandler;
     WebCore::Node* focusNode = currentFocus();
-    if (focusNode)
-        eventHandler = focusNode->document()->frame()->eventHandler();
     DBG_NAV_LOGD("keyCode=%s unichar=%d focusNode=%p",
         event.keyIdentifier().utf8().data(), event.unichar(), focusNode);
+    if (focusNode) {
+        WebCore::Frame* frame = focusNode->document()->frame();
+        eventHandler = frame->eventHandler();
+        if (focusNode->isContentEditable()) {
+            // keyEvent will return true even if the contentEditable did not
+            // change its selection.  In the case that it does not, we want to
+            // return false so that the key will be sent back to our navigation
+            // system.
+            VisibleSelection old = frame->selection()->selection();
+            eventHandler->keyEvent(event);
+            return frame->selection()->selection() != old;
+        }
+    } else {
+        eventHandler = m_mainFrame->eventHandler();
+    }
     return eventHandler->keyEvent(event);
 }
 
@@ -2195,6 +2208,9 @@ bool WebViewCore::handleMouseClick(WebCore::Frame* framePtr, WebCore::Node* node
             } else {
                 requestKeyboard(false);
             }
+        } else if (focusNode->isContentEditable()) {
+            setFocusControllerActive(framePtr, true);
+            requestKeyboard(true);
         }
     }
     return handled;

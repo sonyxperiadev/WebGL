@@ -1112,6 +1112,13 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
             type = PLUGIN_CACHEDNODETYPE;
             goto keepNode;
         }
+        // Only use the root contentEditable element
+        if (node->isContentEditable() && !node->parent()->isContentEditable()) {
+            bounds = absBounds;
+            takesFocus = true;
+            type = CONTENT_EDITABLE_CACHEDNODETYPE;
+            goto keepNode;
+        }
         if (nodeRenderer->isRenderBlock()) {
             RenderBlock* renderBlock = (RenderBlock*) nodeRenderer;
             if (renderBlock->hasColumns()) {
