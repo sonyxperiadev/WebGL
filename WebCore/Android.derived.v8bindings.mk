@@ -378,7 +378,6 @@ GEN += \
     $(intermediates)/bindings/V8SVGCursorElement.h \
     $(intermediates)/bindings/V8SVGDefsElement.h \
     $(intermediates)/bindings/V8SVGDescElement.h \
-    $(intermediates)/bindings/V8SVGElement.h \
     $(intermediates)/bindings/V8SVGElementInstanceList.h \
     $(intermediates)/bindings/V8SVGEllipseElement.h \
     $(intermediates)/bindings/V8SVGFEBlendElement.h \
@@ -425,6 +424,7 @@ GEN += \
     $(intermediates)/bindings/V8SVGMatrix.h \
     $(intermediates)/bindings/V8SVGMetadataElement.h \
     $(intermediates)/bindings/V8SVGMissingGlyphElement.h \
+    $(intermediates)/bindings/V8SVGFEMorphologyElement.h \
     $(intermediates)/bindings/V8SVGNumber.h \
     $(intermediates)/bindings/V8SVGNumberList.h \
     $(intermediates)/bindings/V8SVGPathElement.h \
@@ -495,7 +495,7 @@ GEN += \
     $(intermediates)/bindings/V8SVGAnimatedTransformList.h
 endif
 
-ifeq ($(ENABLE_SVG_ANIMATION), true)
+ifeq ($(ENABLE_SVG), true)
 GEN += \
     $(intermediates)/bindings/V8SVGAnimateColorElement.h \
     $(intermediates)/bindings/V8SVGAnimateElement.h \
@@ -619,7 +619,7 @@ LOCAL_GENERATED_SOURCES += $(GEN)
 # SVG tag and attribute names
 ifeq ($(ENABLE_SVG), true)
 GEN:= $(intermediates)/SVGNames.cpp $(intermediates)/SVGNames.h $(intermediates)/SVGElementFactory.cpp $(intermediates)/SVGElementFactory.h $(intermediates)/V8SVGElementWrapperFactory.cpp $(intermediates)/V8SVGElementWrapperFactory.h
-SVG_FLAGS:=ENABLE_SVG_AS_IMAGE=1 ENABLE_SVG_FILTERS=1 ENABLE_SVG_FONTS=1 ENABLE_SVG_FOREIGN_OBJECT=1 ENABLE_SVG_USE=1
+SVG_FLAGS:=ENABLE_SVG_ANIMATION=1 ENABLE_SVG_AS_IMAGE=1 ENABLE_SVG_FILTERS=1 ENABLE_SVG_FONTS=1 ENABLE_SVG_FOREIGN_OBJECT=1 ENABLE_SVG_USE=1
 $(GEN): PRIVATE_PATH := $(LOCAL_PATH)
 $(GEN): PRIVATE_CUSTOM_TOOL = perl -I $(PRIVATE_PATH)/bindings/scripts $< --tags $(PRIVATE_PATH)/svg/svgtags.in --attrs $(PRIVATE_PATH)/svg/svgattrs.in --extraDefines "$(SVG_FLAGS)" --factory --wrapperFactoryV8 --output $(dir $@)
 $(GEN): $(LOCAL_PATH)/dom/make_names.pl $(LOCAL_PATH)/svg/svgtags.in $(LOCAL_PATH)/svg/svgattrs.in
