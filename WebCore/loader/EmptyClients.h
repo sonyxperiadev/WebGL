@@ -314,12 +314,16 @@ public:
     virtual void documentElementAvailable() { }
     virtual void didPerformFirstNavigation() const { }
 
-    virtual void registerForIconNotification(bool) { }
-
 #if USE(V8)
     virtual void didCreateScriptContextForFrame() { }
     virtual void didDestroyScriptContextForFrame() { }
     virtual void didCreateIsolatedScriptContext() { }
+#endif
+
+    virtual void registerForIconNotification(bool) { }
+
+#ifdef ANDROID_APPLE_TOUCH_ICON
+    virtual void dispatchDidReceiveTouchIconURL(const String& url, bool precomposed) { }
 #endif
 
 #if PLATFORM(MAC)
@@ -505,4 +509,3 @@ public:
 }
 
 #endif // EmptyClients_h
-

@@ -25,6 +25,12 @@
 
 LOCAL_PATH := $(call my-dir)
 
+# Control SVG compiling in webkit.
+# Default is true unless explictly disabled.
+ifneq ($(ENABLE_SVG),false)
+    ENABLE_SVG = true
+endif
+
 # Two ways to control which JS engine is used:
 # 1. use JS_ENGINE environment variable, value can be either 'jsc' or 'v8'
 #    This is the preferred way.
@@ -245,7 +251,7 @@ LOCAL_CFLAGS += -DANDROID_LARGE_MEMORY_DEVICE
 endif
 
 ifeq ($(ENABLE_SVG),true)
-LOCAL_CFLAGS += -DENABLE_SVG=1
+LOCAL_CFLAGS += -DENABLE_SVG=1 -DENABLE_SVG_ANIMATION=1
 endif
 
 ifeq ($(ENABLE_WTF_USE_ACCELERATED_COMPOSITING),false)
@@ -254,11 +260,6 @@ endif
 
 ifeq ($(ENABLE_WTF_USE_ACCELERATED_COMPOSITING),true)
 LOCAL_CFLAGS += -DWTF_USE_ACCELERATED_COMPOSITING=1
-endif
-
-# Temporary disable SVG_ANIMATION.
-ifeq ($(ENABLE_SVG_ANIMATION),true)
-LOCAL_CFLAGS += -DENABLE_SVG_ANIMATION=1
 endif
 
 ifeq ($(WEBCORE_INSTRUMENTATION),true)
