@@ -1220,7 +1220,7 @@ WTF::PassRefPtr<Widget> FrameLoaderClientAndroid::createJavaAppletWidget(const I
 void FrameLoaderClientAndroid::didTransferChildFrameToNewDocument()
 {
     ASSERT(m_frame);
-    // m_webFrame points to the WebFrame for the page that our frame previosuly
+    // m_webFrame points to the WebFrame for the page that our frame previously
     // belonged to. If the frame now belongs to a new page, we need to update
     // m_webFrame to point to the WebFrame for the new page.
     Page* newPage = m_frame->page();
