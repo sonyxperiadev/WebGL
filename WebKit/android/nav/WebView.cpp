@@ -1026,6 +1026,11 @@ void setMatches(WTF::Vector<MatchInfo>* matches)
     viewInvalidate();
 }
 
+int currentMatchIndex()
+{
+    return m_findOnPage.currentMatchIndex();
+}
+
 bool scrollBy(int dx, int dy)
 {
     LOG_ASSERT(m_javaGlue.m_obj, "A java object was not associated with this native WebView!");
@@ -1742,6 +1747,13 @@ static void nativeFindNext(JNIEnv *env, jobject obj, bool forward)
     view->findNext(forward);
 }
 
+static int nativeFindIndex(JNIEnv *env, jobject obj)
+{
+    WebView* view = GET_NATIVE_VIEW(env, obj);
+    LOG_ASSERT(view, "view not set in nativeFindIndex");
+    return view->currentMatchIndex();
+}
+
 static void nativeUpdateCachedTextfield(JNIEnv *env, jobject obj, jstring updatedText, jint generation)
 {
     WebView* view = GET_NATIVE_VIEW(env, obj);
@@ -1948,6 +1960,8 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeFindAll },
     { "nativeFindNext", "(Z)V",
         (void*) nativeFindNext },
+    { "nativeFindIndex", "()I",
+        (void*) nativeFindIndex},
     { "nativeFocusCandidateFramePointer", "()I",
         (void*) nativeFocusCandidateFramePointer },
     { "nativeFocusCandidateHasNextTextfield", "()Z",

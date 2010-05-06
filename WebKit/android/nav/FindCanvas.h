@@ -220,6 +220,7 @@ public:
     virtual ~FindOnPage() { delete m_matches; }
     void clearCurrentLocation() { m_hasCurrentLocation = false; }
     IntRect currentMatchBounds() const;
+    int currentMatchIndex() const { return m_findIndex; }
     bool currentMatchIsInLayer() const;
     virtual void draw(SkCanvas* , LayerAndroid* );
     void findNext(bool forward);
