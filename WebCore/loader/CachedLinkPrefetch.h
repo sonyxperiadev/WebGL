@@ -30,6 +30,8 @@
 #include "CachedResource.h"
 #include "CachedResourceClient.h"
 #include "CachedResourceClientWalker.h"
+#include "PassRefPtr.h"
+#include "SharedBuffer.h"
 
 namespace WebCore {
 
@@ -64,4 +66,3 @@ public:
 }
 
 #endif
-
