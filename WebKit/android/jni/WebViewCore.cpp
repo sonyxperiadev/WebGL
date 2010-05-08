@@ -37,6 +37,7 @@
 #include "DatabaseTracker.h"
 #include "Document.h"
 #include "DOMWindow.h"
+#include "DOMSelection.h"
 #include "Element.h"
 #include "Editor.h"
 #include "EditorClientAndroid.h"
@@ -78,6 +79,7 @@
 #include "PluginView.h"
 #include "Position.h"
 #include "ProgressTracker.h"
+#include "Range.h"
 #include "RenderBox.h"
 #include "RenderLayer.h"
 #include "RenderPart.h"
@@ -1679,6 +1681,51 @@ void WebViewCore::setSelection(int start, int end)
     setFocusControllerActive(focusedFrame, true);
 }
 
+String WebViewCore::modifySelection(const String& alter, const String& direction, const String& granularity)
+{
+    DOMSelection* selection = m_mainFrame->domWindow()->getSelection();
+
+    if (selection->rangeCount() == 0) {
+        Document* document = m_mainFrame->document();
+        HTMLElement* body = document->body();
+        ExceptionCode ec;
+
+        PassRefPtr<Range> rangeRef = document->createRange();
+        rangeRef->setStart(PassRefPtr<Node>(body), 0, ec);
+        if (ec) {
+          LOGE("Error setting range start. Error code: %d", ec);
+          return String();
+        }
+
+        rangeRef->setEnd(PassRefPtr<Node>(body), 0, ec);
+        if (ec) {
+          LOGE("Error setting range end. Error code: %d", ec);
+          return String();
+        }
+
+        selection->addRange(rangeRef.get());
+    }
+
+    if (equalIgnoringCase(direction, "forward")) {
+        selection->collapseToEnd();
+    } else if (equalIgnoringCase(direction, "backward")) {
+        selection->collapseToStart();
+    } else {
+        LOGE("Invalid direction: %s", direction.utf8().data());
+        return String();
+    }
+
+    // NOTE: The selection of WebKit misbehaves and I need to add some
+    // voodoo here to force it behave well. Rachel did something similar
+    // in JS and I want to make sure it is optimal before adding it here.
+
+    selection->modify(alter, direction, granularity);
+    String selection_string = selection->toString();
+    LOGD("Selection string: %s", selection_string.utf8().data());
+
+    return selection_string;
+}
+
 void WebViewCore::deleteSelection(int start, int end, int textGeneration)
 {
     setSelection(start, end);
@@ -2658,6 +2705,22 @@ static void SetSelection(JNIEnv *env, jobject obj, jint start, jint end)
     viewImpl->setSelection(start, end);
 }
 
+static jstring ModifySelection(JNIEnv *env, jobject obj, jstring alter, jstring direction, jstring granularity)
+{
+#ifdef ANDROID_INSTRUMENT
+    TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
+#endif
+    String alterString = to_string(env, alter);
+    String directionString = to_string(env, direction);
+    String granularityString = to_string(env, granularity);
+
+    WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
+    String selection_string = viewImpl->modifySelection(alterString,
+                                                        directionString,
+                                                        granularityString);
+
+    return WebCoreStringToJString(env, selection_string);
+}
 
 static void ReplaceTextfieldText(JNIEnv *env, jobject obj,
     jint oldStart, jint oldEnd, jstring replace, jint start, jint end,
@@ -3195,6 +3258,8 @@ static JNINativeMethod gJavaWebViewCoreMethods[] = {
         (void*) SetGlobalBounds },
     { "nativeSetSelection", "(II)V",
         (void*) SetSelection } ,
+    { "nativeModifySelection", "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;",
+        (void*) ModifySelection },
     { "nativeDeleteSelection", "(III)V",
         (void*) DeleteSelection } ,
     { "nativeReplaceTextfieldText", "(IILjava/lang/String;III)V",

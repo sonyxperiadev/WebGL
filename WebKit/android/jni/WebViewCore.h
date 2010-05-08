@@ -325,6 +325,18 @@ namespace android {
          *  If start and end are out of order, swap them.
          */
         void setSelection(int start, int end);
+
+        /**
+         * Modifies the current selection.
+         *
+         * alter - Specifies how to alter the selection.
+         * direction - The direction in which to alter the selection.
+         * granularity - The granularity of the selection modification.
+         *
+         * returns - The selection as string.
+         */
+        String modifySelection(const String& alter, const String& direction, const String& granularity);
+
         /**
          *  In the currently focused textfield, replace the characters from oldStart to oldEnd
          *  (if oldStart == oldEnd, this will be an insert at that position) with replace,
