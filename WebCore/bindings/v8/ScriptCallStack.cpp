@@ -51,10 +51,14 @@ ScriptCallStack* ScriptCallStack::create(const v8::Arguments& arguments, unsigne
 
 bool ScriptCallStack::callLocation(String* sourceName, int* sourceLineNumber, String* functionName)
 {
+#if PLATFORM(ANDROID)
+    return false;
+#else
     if (!ScriptDebugServer::topStackFrame(*sourceName, *sourceLineNumber, *functionName))
         return false;
     *sourceLineNumber += 1;
     return true;
+#endif
 }
 
 ScriptCallStack::ScriptCallStack(const v8::Arguments& arguments, unsigned skipArgumentCount, String sourceName, int sourceLineNumber, String functionName)
