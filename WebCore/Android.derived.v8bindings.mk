@@ -475,7 +475,6 @@ GEN += \
     $(intermediates)/bindings/V8SVGTitleElement.h \
     $(intermediates)/bindings/V8SVGTransform.h \
     $(intermediates)/bindings/V8SVGTransformList.h \
-    $(intermediates)/bindings/V8SVGURIReference.h \
     $(intermediates)/bindings/V8SVGUnitTypes.h \
     $(intermediates)/bindings/V8SVGUseElement.h \
     $(intermediates)/bindings/V8SVGViewElement.h \
