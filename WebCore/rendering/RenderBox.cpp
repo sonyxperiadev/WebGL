@@ -1320,12 +1320,8 @@ void RenderBox::calcWidth()
         if (treatAsReplaced) {
 #else
         if (treatAsReplaced)
-<<<<<<< HEAD:WebCore/rendering/RenderBox.cpp
 #endif
-            setWidth(max(w.value() + borderLeft() + borderRight() + paddingLeft() + paddingRight(), minPrefWidth()));
-=======
             setWidth(max(w.value() + borderAndPaddingWidth(), minPrefWidth()));
->>>>>>> webkit.org at r58956:WebCore/rendering/RenderBox.cpp
 
 #ifdef ANDROID_LAYOUT
             // in SSR mode with replaced box, if the box width is wider than the container width,

@@ -1754,20 +1754,21 @@ bool CSSParser::parseValue(int propId, bool important)
     case CSSPropertyTextUnderline:
     case CSSPropertyWebkitVariableDeclarationBlock:
         return false;
-<<<<<<< HEAD:WebCore/css/CSSParser.cpp
-#ifdef ANDROID_CSS_TAP_HIGHLIGHT_COLOR
-    case CSSPropertyWebkitTapHighlightColor:
-        parsedValue = parseColor();
-        if (parsedValue)
-            m_valueList->next();
-=======
+
 #if ENABLE(WCSS)
     case CSSPropertyWapInputFormat:
         validPrimitive = true;
         break;
     case CSSPropertyWapInputRequired:
         parsedValue = parseWCSSInputProperty();
->>>>>>> webkit.org at r58956:WebCore/css/CSSParser.cpp
+        break;
+#endif
+
+#ifdef ANDROID_CSS_TAP_HIGHLIGHT_COLOR
+    case CSSPropertyWebkitTapHighlightColor:
+        parsedValue = parseColor();
+        if (parsedValue)
+            m_valueList->next();
         break;
 #endif
 

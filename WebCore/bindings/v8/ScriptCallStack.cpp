@@ -54,14 +54,10 @@ ScriptCallStack* ScriptCallStack::create(const v8::Arguments& arguments, unsigne
 
 bool ScriptCallStack::callLocation(String* sourceName, int* sourceLineNumber, String* functionName)
 {
-<<<<<<< HEAD:WebCore/bindings/v8/ScriptCallStack.cpp
 #if PLATFORM(ANDROID)
     return false;
 #else
-    if (!ScriptDebugServer::topStackFrame(*sourceName, *sourceLineNumber, *functionName))
-=======
     if (!topStackFrame(*sourceName, *sourceLineNumber, *functionName))
->>>>>>> webkit.org at r58956:WebCore/bindings/v8/ScriptCallStack.cpp
         return false;
     *sourceLineNumber += 1;
     return true;

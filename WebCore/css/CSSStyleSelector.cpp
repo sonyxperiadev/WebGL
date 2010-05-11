@@ -5320,19 +5320,6 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
     case CSSPropertyWebkitTextStroke:
     case CSSPropertyWebkitVariableDeclarationBlock:
         return;
-<<<<<<< HEAD:WebCore/css/CSSStyleSelector.cpp
-#ifdef ANDROID_CSS_TAP_HIGHLIGHT_COLOR
-    case CSSPropertyWebkitTapHighlightColor: {
-        HANDLE_INHERIT_AND_INITIAL(tapHighlightColor, TapHighlightColor);
-        if (!primitiveValue)
-            break;
-
-        Color col = getColorFromPrimitiveValue(primitiveValue).blendWithWhite();
-        m_style->setTapHighlightColor(col);
-        return;
-    }
-#endif
-=======
 #if ENABLE(WCSS)
     case CSSPropertyWapInputFormat:
         if (primitiveValue && m_element->hasTagName(WebCore::inputTag)) {
@@ -5350,7 +5337,18 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
         return;
 #endif 
 
->>>>>>> webkit.org at r58956:WebCore/css/CSSStyleSelector.cpp
+#ifdef ANDROID_CSS_TAP_HIGHLIGHT_COLOR
+    case CSSPropertyWebkitTapHighlightColor: {
+        HANDLE_INHERIT_AND_INITIAL(tapHighlightColor, TapHighlightColor);
+        if (!primitiveValue)
+            break;
+
+        Color col = getColorFromPrimitiveValue(primitiveValue).blendWithWhite();
+        m_style->setTapHighlightColor(col);
+        return;
+    }
+#endif
+
 #if ENABLE(SVG)
     default:
         // Try the SVG properties

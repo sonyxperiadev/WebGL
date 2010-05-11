@@ -75,23 +75,6 @@ bool unloadModule(PlatformModule module)
     return !dlclose(module);
 }
 
-<<<<<<< HEAD:WebCore/platform/android/FileSystemAndroid.cpp
-=======
-int writeToFile(PlatformFileHandle handle, const char* data, int length)
-{
-    int totalBytesWritten = 0;
-    while (totalBytesWritten < length) {
-        int bytesWritten = write(handle, data, (size_t)(length - totalBytesWritten));
-        if (bytesWritten < 0 && errno != EINTR)
-            return -1;
-        if (bytesWritten > 0)
-            totalBytesWritten += bytesWritten;
-    }
-
-    return totalBytesWritten;
-}
-
->>>>>>> webkit.org at r58956:WebCore/platform/android/FileSystemAndroid.cpp
 String homeDirectoryPath() 
 {
     return sPluginPath;

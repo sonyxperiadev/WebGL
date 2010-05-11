@@ -103,13 +103,12 @@
 #include "HTMLNoScriptElement.h"
 #endif
 
-<<<<<<< HEAD:WebCore/dom/Node.cpp
-#if ENABLE(TOUCH_EVENTS)
-#include "ChromeClient.h"
-=======
 #if USE(JSC)
 #include <runtime/JSGlobalData.h>
->>>>>>> webkit.org at r58956:WebCore/dom/Node.cpp
+#endif
+
+#if ENABLE(TOUCH_EVENTS)
+#include "ChromeClient.h"
 #endif
 
 #define DUMP_NODE_STATISTICS 0

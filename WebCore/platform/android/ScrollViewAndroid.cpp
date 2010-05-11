@@ -87,19 +87,6 @@ void ScrollView::platformScrollbarModes(ScrollbarMode& h, ScrollbarMode& v) cons
     v = m_verticalScrollbarMode;
 }
 
-bool ScrollView::platformProhibitsScrolling()
-{
-    if (!isFrameView())
-        return false;
-    FrameView* view = static_cast<FrameView*>(this);
-    // We want to ignore requests to scroll that were not initiated by the user.  An
-    // example of this is when text is inserted into a textfield/area, which results in
-    // a scroll.  We ignore this because we now how to do this ourselves in the UI thread.
-    // An example of it being initiated by the user is if the user clicks an anchor
-    // element which simply scrolls the page.
-    return !android::WebFrame::getWebFrame(view->frame())->userInitiatedClick();
-}
-
 void ScrollView::platformRepaintContentRectangle(const IntRect &rect, bool now)
 {
     android::WebViewCore::getWebViewCore(this)->contentInvalidate(rect);
