@@ -103,7 +103,7 @@ enum DrawExtras { // keep this in sync with WebView.java
 
 struct JavaGlue {
     jweak       m_obj;
-    jmethodID   m_calcOurContentVisibleRect;
+    jmethodID   m_calcOurContentVisibleRectF;
     jmethodID   m_clearTextEntry;
     jmethodID   m_overrideLoading;
     jmethodID   m_scrollBy;
@@ -123,6 +123,10 @@ struct JavaGlue {
     jfieldID    m_rectTop;
     jmethodID   m_rectWidth;
     jmethodID   m_rectHeight;
+    jfieldID    m_rectFLeft;
+    jfieldID    m_rectFTop;
+    jmethodID   m_rectFWidth;
+    jmethodID   m_rectFHeight;
     AutoJObject object(JNIEnv* env) {
         return getRealObject(env, m_obj);
     }
@@ -135,7 +139,7 @@ WebView(JNIEnv* env, jobject javaWebView, int viewImpl) :
  //   m_javaGlue = new JavaGlue;
     m_javaGlue.m_obj = env->NewWeakGlobalRef(javaWebView);
     m_javaGlue.m_scrollBy = GetJMethod(env, clazz, "setContentScrollBy", "(IIZ)Z");
-    m_javaGlue.m_calcOurContentVisibleRect = GetJMethod(env, clazz, "calcOurContentVisibleRect", "(Landroid/graphics/Rect;)V");
+    m_javaGlue.m_calcOurContentVisibleRectF = GetJMethod(env, clazz, "calcOurContentVisibleRectF", "(Landroid/graphics/RectF;)V");
     m_javaGlue.m_clearTextEntry = GetJMethod(env, clazz, "clearTextEntry", "(Z)V");
     m_javaGlue.m_overrideLoading = GetJMethod(env, clazz, "overrideLoading", "(Ljava/lang/String;)V");
     m_javaGlue.m_sendMoveFocus = GetJMethod(env, clazz, "sendMoveFocus", "(II)V");
@@ -157,6 +161,12 @@ WebView(JNIEnv* env, jobject javaWebView, int viewImpl) :
     m_javaGlue.m_rectTop = env->GetFieldID(rectClass, "top", "I");
     m_javaGlue.m_rectWidth = GetJMethod(env, rectClass, "width", "()I");
     m_javaGlue.m_rectHeight = GetJMethod(env, rectClass, "height", "()I");
+    jclass rectClassF = env->FindClass("android/graphics/RectF");
+    LOG_ASSERT(rectClassF, "Could not find RectF class");
+    m_javaGlue.m_rectFLeft = env->GetFieldID(rectClassF, "left", "F");
+    m_javaGlue.m_rectFTop = env->GetFieldID(rectClassF, "top", "F");
+    m_javaGlue.m_rectFWidth = GetJMethod(env, rectClassF, "width", "()F");
+    m_javaGlue.m_rectFHeight = GetJMethod(env, rectClassF, "height", "()F");
     env->SetIntField(javaWebView, gWebViewField, (jint)this);
     m_viewImpl = (WebViewCore*) viewImpl;
     m_frameCacheUI = 0;
@@ -325,15 +335,15 @@ void scrollRectOnScreen(const IntRect& rect)
 void calcOurContentVisibleRect(SkRect* r)
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    jclass rectClass = env->FindClass("android/graphics/Rect");
-    jmethodID init = env->GetMethodID(rectClass, "<init>", "(IIII)V");
+    jclass rectClass = env->FindClass("android/graphics/RectF");
+    jmethodID init = env->GetMethodID(rectClass, "<init>", "(FFFF)V");
     jobject jRect = env->NewObject(rectClass, init, 0, 0, 0, 0);
     env->CallVoidMethod(m_javaGlue.object(env).get(),
-        m_javaGlue.m_calcOurContentVisibleRect, jRect);
-    r->fLeft = env->GetIntField(jRect, m_javaGlue.m_rectLeft);
-    r->fTop = env->GetIntField(jRect, m_javaGlue.m_rectTop);
-    r->fRight = r->fLeft + env->CallIntMethod(jRect, m_javaGlue.m_rectWidth);
-    r->fBottom = r->fTop + env->CallIntMethod(jRect, m_javaGlue.m_rectHeight);
+        m_javaGlue.m_calcOurContentVisibleRectF, jRect);
+    r->fLeft = env->GetFloatField(jRect, m_javaGlue.m_rectFLeft);
+    r->fTop = env->GetFloatField(jRect, m_javaGlue.m_rectFTop);
+    r->fRight = r->fLeft + env->CallFloatMethod(jRect, m_javaGlue.m_rectFWidth);
+    r->fBottom = r->fTop + env->CallFloatMethod(jRect, m_javaGlue.m_rectFHeight);
     env->DeleteLocalRef(jRect);
     checkException(env);
 }
